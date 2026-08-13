@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1053,
+  "file_count": 1054,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "767d30b9a69ee481b736652645e723b44ac61262b8ccc96e8e0594379d764955",
     ".github/instructions/agent-stewardship.instructions.md": "e2e2224db17159323f910252e0f9f6efb44c0f1d7e0d217d5159745c15c9ff46",
@@ -690,8 +690,9 @@
     "services/core-control-plane/src/fdai/core/rule_catalog_profiles/__init__.py": "6842d30727c63104d722a07fdc3a0ffeaadd701bae1aa9d83095c563dfa9b144",
     "services/core-control-plane/src/fdai/core/rule_catalog_profiles/models.py": "9cdf4a24e4ccf6e1f1739f014a525ae081d086fe6d1043a1e08f64b1afba3f6b",
     "services/core-control-plane/src/fdai/core/rule_catalog_profiles/registry.py": "b51ac6fa8761f641a2b5c874dae056817c117a3a33a5d9c35ad9af82edd8e499",
-    "services/core-control-plane/src/fdai/core/rule_semantic_generation/__init__.py": "c4febfd3999d7fa269a634894fe6ce892dae2a5135b9b474943b051a957bd23c",
-    "services/core-control-plane/src/fdai/core/rule_semantic_generation/ledger.py": "2a3846976a658cf48bde85f6be22f8ddf7f05909e6e5a4cb12b41be68aeb6a06",
+    "services/core-control-plane/src/fdai/core/rule_semantic_generation/__init__.py": "66f817ec1476c417604d9c6918a08accc627e98c8dd5d923670615c353379a00",
+    "services/core-control-plane/src/fdai/core/rule_semantic_generation/activation.py": "2a4a38a64d38ee8ec6fc0200ebce28475292bc518d796c5d87f82930d529ee34",
+    "services/core-control-plane/src/fdai/core/rule_semantic_generation/ledger.py": "5efc62dcc36d2efca48a18c31f4e1d8dc480286e6ccce9cd74b7fcddd16a16ae",
     "services/core-control-plane/src/fdai/core/runbook/__init__.py": "c0ed326649a9eaf3d50a8e38e306d7ac5581ba1b8da6cddf40a6a05920acaeeb",
     "services/core-control-plane/src/fdai/core/runbook/models.py": "28f85b5fd61d5da04604c477b8315a50b3c570119d8ea680c87d0a3806bd9065",
     "services/core-control-plane/src/fdai/core/runbook/runner.py": "dc4e190542d5542257724ba9e8eea8f0b054b84bf2805ff838284154f13d4833",
@@ -926,7 +927,7 @@
     "services/core-control-plane/src/fdai/shared/providers/briefing.py": "1b13954dcd60aaccaae74d573ad3aab48c6c8c119c0190186ab32c320e3657a0",
     "services/core-control-plane/src/fdai/shared/providers/browser_evidence.py": "3d4dd39df08e9536aafefd82991bbce3aeeae0f2b9e5d06502c208fb692fb399",
     "services/core-control-plane/src/fdai/shared/providers/case_history.py": "186ba526523042d7fa5ed6b689b1dbf46468f844404d7a0414577adc21d8c6da",
-    "services/core-control-plane/src/fdai/shared/providers/catalog_search.py": "3b46fa7028f6e298c76e03fc2f769635741d30f761ae4ef93dee61c8d715d580",
+    "services/core-control-plane/src/fdai/shared/providers/catalog_search.py": "cd0f03c2d8fb19893b04314f4a3608f06335d7a20b1c36b308222e3f0441f70a",
     "services/core-control-plane/src/fdai/shared/providers/change_feed.py": "ebfe441da9666134bcf9b31ff738bb87b86a969eaec42ebb5f2e1e8143723ec3",
     "services/core-control-plane/src/fdai/shared/providers/code_workspace.py": "771ae67947f82224dce98a25c9bdbfa379f9993d42a660d36e6bb23e469ecc6b",
     "services/core-control-plane/src/fdai/shared/providers/command_runner.py": "0281d98163be8b2cdd455c65f8994482bd57a48b6214df2c2770b91fef39b129",
@@ -1056,7 +1057,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-13T01:36:24Z",
+  "generated_at": "2026-08-13T01:57:40Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",

@@ -101,6 +101,7 @@ class InMemoryCatalogSemanticIndex:
         expected_active_generation_id: str | None,
         expected_active_generation_digest: str | None,
         activated_at: datetime,
+        expected_validation_receipt_digest: str | None = None,
     ) -> CatalogGenerationMetadata:
         if activated_at.tzinfo is None:
             raise ValueError("semantic generation activation time MUST be timezone-aware")
@@ -114,6 +115,11 @@ class InMemoryCatalogSemanticIndex:
             _verify_document_identity(metadata, documents)
             if metadata.generation_digest != expected_generation_digest:
                 raise ValueError("semantic generation digest mismatch")
+            if (
+                expected_validation_receipt_digest is not None
+                and metadata.validation_receipt_digest != expected_validation_receipt_digest
+            ):
+                raise ValueError("semantic generation validation receipt mismatch")
             active_id = self._active.get(metadata.corpus)
             if metadata.state == "active":
                 if active_id == generation_id and metadata.activated_at == activated_at:

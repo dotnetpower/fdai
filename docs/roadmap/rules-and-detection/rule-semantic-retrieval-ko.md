@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: c89fd9f0ea04468f83dc931cac91606112f23b65
+translation_source_sha: 5785bea3cbe39d0b6114b75fbde1a94f20521960
 translation_revised: 2026-08-13
 ---
 # Rule 의미 검색
@@ -53,6 +53,7 @@ translation_revised: 2026-08-13
 | In-memory 세대 및 검증 | implemented | `delivery/catalog_search/in_memory.py`; `delivery/catalog_search/generation.py`; `tests/delivery/catalog_search/test_ontology_generation.py`; `tests/rule_catalog/test_discovery_catalog_search.py` | 결정론적 off-path 세대, 독립적인 활성 및 발견 포인터, 코퍼스별 롤백 및 영속 어댑터와 같은 활성화 compare-and-swap을 지원합니다. |
 | 코퍼스 규모 세대 식별자 | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/generation.py`; `delivery/catalog_search/in_memory.py`; 집중 세대 및 Rule 카탈로그 테스트 | 프로바이더 중립 메타데이터는 개수, 계층형 루트, 범위가 제한된 순서가 있는 청크 및 작은 세대의 인라인 다이제스트를 포함합니다. 세대 생성, 검증 증적, 준비, 활성화, 활성 조회, 검색, 롤백 및 롤백 증적은 식별자 차이를 거부합니다. |
 | 영속 PostgreSQL 인덱스 | implemented | `delivery/catalog_search/postgres.py`; migration `0077` 및 `0080`; `tests/delivery/catalog_search/test_postgres.py`; `test_postgres_integration.py`; `test_postgres_rule_corpora_integration.py` | 정확한 세대 매니페스트를 저장하고 다시 검증하며 코퍼스별 세대를 원자적으로 준비, 활성화, 검색 및 롤백합니다. PostgreSQL에서 활성 문서 62개와 발견 문서 8,487개 전체의 수명 주기 격리를 증명합니다. |
+| 통제된 세대 활성화 | implemented | `core/rule_semantic_generation/activation.py`, `core/rule_semantic_generation/ledger.py`, 프로바이더와 delivery 활성화 계약, 집중 활성화 및 실제 PostgreSQL 검사 | 활성화는 변경 경계 안에서 정확한 대상 다이제스트와 검증 증적을 예상 이전 활성 식별자에 연결합니다. 완료된 명령의 replay는 프로바이더 접근 전에 영속 최종 결과를 반환하며 첫 결과와 발행 대기 outbox 레코드는 원자적으로 커밋됩니다. |
 | 운영 bootstrap 연결 | implemented | `runtime/bootstrap.py`; `runtime/bootstrap_lifecycle.py`; `composition/wire_semantic_query.py`; `tests/runtime/test_catalog_semantic_bootstrap.py`; 집중 bootstrap 및 구성 검사(`46 passed`) | 시작 시 정확한 활성 세대만 연결합니다. 상태가 없거나 오래되거나 접근할 수 없거나 사용할 수 없으면 안정적인 선택적 준비 상태 사유를 만들고 Rule 검색을 등록하지 않습니다. 통제된 실제 근거는 남아 있습니다. |
 | Operator Rule 검색 변환 결과 | implemented | Operator Service workflow 매니페스트, 경로 및 PostgreSQL workflow 어댑터 | `POST /rules/search`는 개정 번호가 있는 구체화된 변환 결과를 읽으며 정책, 승인, 변경 또는 실행 권한을 부여하지 않습니다. |
 
@@ -71,6 +72,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | implemented | 배포된 활성 Rule 62개 세대를 실제 in-memory 의미 인덱스로 통과시키는 이중 언어 승격 probe를 실행했습니다. 정확한 영어 재현율은 1.0, 한국어 양성 재현율은 0.0, 한국어 no-match 정밀도는 1.0이었으며, 평가기는 한국어 집단 실패 코드와 함께 `HOLD`를 반환했습니다. | 커밋 `d1787f4d8`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/rule_catalog/test_discovery_catalog_search.py`에서 테스트 9개가 통과했습니다. | 통제된 한국어 표면을 추가하고 승격 전에 나머지 실제 인덱스 집단을 완료합니다. |
 | 2026-08-13 | implemented | 검색 상태가 오래되거나 사용할 수 없을 때 held-out 평가가 안전하게 보류되도록 변경했습니다. 프로바이더 실패는 검증 전용 `HOLD` 근거를 생성하고 양성 재현율과 순위를 낮추며, 실패한 음성 질의를 성공한 no-match 근거로 바꾸지 않습니다. | `current change`; 집중 평가기 및 실제 카탈로그 모듈에서 테스트 15개가 통과했습니다. 변경한 평가기 범위에서 Ruff, strict mypy 및 편집기 진단이 통과했습니다. | 실제 의미 인덱스에서 오래된 상태를 검증하고 전체 집단 증적을 구성 기반의 통제된 승격에 연결합니다. |
 | 2026-08-13 | implemented | 배포 카탈로그 승격 probe에 영어 모호성, 적대적 입력, 코퍼스 격리 및 실제 인덱스의 오래된 세대 집단을 추가했습니다. 영어 모호성 재현율과 순위는 1.0이었습니다. 관련 없는 활성 Rule이 lexical 오탐으로 남아 적대적 입력과 발견 전용 no-match 정밀도는 0.0이었지만 발견 문서가 활성 결과로 넘어오지는 않았습니다. 오래된 카탈로그 다이제스트는 검색 오류, 양성 재현율과 순위 0, 음성 no-match 근거 없음 및 검증 전용 `HOLD`를 생성했습니다. | `current change`; `tests/rule_catalog/test_discovery_catalog_search.py`; 집중 모듈에서 테스트 10개가 통과했고 Ruff 및 형식 검사가 통과했으며 편집기 진단은 깨끗했습니다. | 통제된 한국어 표면을 추가하고, 측정된 활성 코퍼스 오탐을 제거하며, 준비 완료를 주장하기 전에 구성 기반 임계값을 통제된 승격에 연결합니다. |
+| 2026-08-13 | implemented | 검증된 Rule 세대를 위한 정확한 활성화 binder를 추가했습니다. 프로바이더 변경 경계 안에서 대상 검증 증적과 예상 이전 식별자를 확인하고, 완료된 명령이 프로바이더에 다시 전달되지 않게 하며, 프로바이더 오류 후 관찰된 효과를 조정하고, 하나의 안정적인 최종 결과와 outbox 레코드를 영속 종결합니다. | `current change`, 통과한 집중 활성화, ledger, 세대 및 실제 PostgreSQL 검사, 변경한 수명 주기 파일의 Ruff와 strict mypy 통과 | EventBus를 통해 영속 outbox를 발행하고, 책임 agent 소유권을 구성하며, 통제된 런타임 근거를 기록합니다. |
 
 ### 남은 작업
 
@@ -85,6 +87,9 @@ translation_revised: 2026-08-13
   정확한 현재 Rule 카탈로그, 의미 스키마, 온톨로지 release 및 embedder 차원만 연결합니다.
   상태가 없거나 오래되거나 접근할 수 없거나 사용할 수 없을 때 안정적인 성능 저하 사유를
   제공하며 집중 bootstrap 및 구성 검사에서 테스트 46개가 통과했습니다.
+- [ ] 제한 시간이 있는 EventBus worker를 통해 영속 활성화 결과를 발행하고 책임 agent
+  subscriber를 구성합니다. 재시작, 중복 전달, lease 만료, 취소, broker 실패 및 확인된 전달
+  검사가 인덱스 또는 실행 권한을 부여하지 않고 통과하면 완료합니다.
 - [ ] Core 검색 및 함수 호출 증적을 Operator 변환 결과로 발행합니다. `POST /rules/search`가
   직접 Core 호출 없이 정확한 증적 기반 변환 결과를 반환하고 [질의 수명
   주기](#질의-수명-주기)를 보존하면 완료합니다.

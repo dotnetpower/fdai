@@ -166,6 +166,7 @@ class PostgresCatalogSemanticIndex(CatalogSemanticIndex):
         expected_active_generation_id: str | None,
         expected_active_generation_digest: str | None,
         activated_at: datetime,
+        expected_validation_receipt_digest: str | None = None,
     ) -> CatalogGenerationMetadata:
         if activated_at.tzinfo is None:
             raise ValueError("catalog generation activation time MUST be timezone-aware")
@@ -181,6 +182,11 @@ class PostgresCatalogSemanticIndex(CatalogSemanticIndex):
             metadata, _documents = loaded
             if metadata.generation_digest != expected_generation_digest:
                 raise ValueError("catalog generation digest mismatch")
+            if (
+                expected_validation_receipt_digest is not None
+                and metadata.validation_receipt_digest != expected_validation_receipt_digest
+            ):
+                raise ValueError("catalog generation validation receipt mismatch")
             active_cursor = await connection.execute(
                 "SELECT generation_id FROM catalog_search_generation "
                 "WHERE corpus=%s AND state='active' FOR UPDATE",

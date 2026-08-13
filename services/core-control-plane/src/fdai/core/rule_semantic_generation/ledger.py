@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any, Literal, Protocol
 
 from fdai.rule_catalog.schema.rule_semantic_generation_events import (
+    RuleGenerationActivationCommandEvent,
     RuleGenerationActivationResultEvent,
     RuleGenerationOutboxDeliveryState,
     RuleGenerationOutboxRecord,
@@ -25,6 +26,10 @@ class RuleGenerationLedgerCorruptionError(RuntimeError):
 
 class RuleGenerationOutboxLedger(Protocol):
     """Persistence seam for atomic activation closure and publication."""
+
+    async def result_for(
+        self, command: RuleGenerationActivationCommandEvent
+    ) -> RuleGenerationActivationResultEvent | None: ...
 
     async def commit_result(
         self, result: RuleGenerationActivationResultEvent
@@ -68,6 +73,26 @@ class StateStoreRuleGenerationOutboxLedger:
 
     def __init__(self, *, store: StateStore) -> None:
         self._store = store
+
+    async def result_for(
+        self,
+        command: RuleGenerationActivationCommandEvent,
+    ) -> RuleGenerationActivationResultEvent | None:
+        """Return an exact prior terminal result before replay can touch the index."""
+
+        validated = RuleGenerationActivationCommandEvent.model_validate_json(
+            command.model_dump_json()
+        )
+        request_id = _command_request_id(validated)
+        existing = await self._store.read_state(f"{self._KEY_PREFIX}{request_id}")
+        if existing is None:
+            return None
+        _revision, terminal, _delivery = self._parse_record(existing, request_id=request_id)
+        if terminal.command.command_digest != validated.command_digest:
+            raise RuleGenerationLedgerConflictError(
+                "Rule generation request identity was reused with another activation command"
+            )
+        return terminal
 
     async def commit_result(
         self,
@@ -391,7 +416,11 @@ class StateStoreRuleGenerationOutboxLedger:
 
 
 def _generation_request_id(result: RuleGenerationActivationResultEvent) -> str:
-    return result.command.validation_result.build_result.request.generation_request_id
+    return _command_request_id(result.command)
+
+
+def _command_request_id(command: RuleGenerationActivationCommandEvent) -> str:
+    return command.validation_result.build_result.request.generation_request_id
 
 
 def _validate_lease(*, claimant_id: str, now: datetime, lease_until: datetime) -> None:

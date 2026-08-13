@@ -368,8 +368,9 @@ class CatalogSemanticIndex(Protocol):
         expected_active_generation_id: str | None,
         expected_active_generation_digest: str | None,
         activated_at: datetime,
+        expected_validation_receipt_digest: str | None = None,
     ) -> CatalogGenerationMetadata:
-        """Activate only when the current pointer matches one complete expected identity."""
+        """Activate only when the target receipt and current pointer match exact identities."""
         ...
 
     async def rollback_generation(
