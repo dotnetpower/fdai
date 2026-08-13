@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: f5dd2fe8f2a3cfd859503246dd8d7c105046c339
+translation_source_sha: bd335e829fb57b4c4b764c5d9cd43be3466d6dae
 translation_revised: 2026-08-13
 ---
 # FDAI 운영 온톨로지 메타모델
@@ -268,7 +268,7 @@ declaration-kind 제안이 됩니다.
 | 정본 선언 release | implemented | [`ontology_catalog.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/ontology_catalog.py), [`release.py`](../../../services/core-control-plane/src/fdai/shared/ontology/release.py), [`test_ontology_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_catalog.py) | 객체, 링크, 액션, Interface, 함수 선언이 exact release에 기여합니다. |
 | 범위가 제한된 ObjectSet 실행 및 계보 | implemented | [`semantic_query.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/semantic_query.py), [`test_interfaces_and_object_sets.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_interfaces_and_object_sets.py), [`test_semantic_query.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_semantic_query.py) | 보안 조회 경로는 권한을 부여하지 않으면서 release, 계획, 호출, 잘림, 근거 참조를 보존합니다. |
 | 프로바이더 상태 및 관계 근거 계약 | implemented | [`state_evidence.py`](../../../services/core-control-plane/src/fdai/shared/providers/state_evidence.py), [`test_state_evidence.py`](../../../services/core-control-plane/tests/providers/test_state_evidence.py) | 타입이 지정된 메타데이터는 관측된 상태와 링크 근거를 파생 해석과 구분합니다. |
-| 관계 direction 및 분류 보강 | in-progress | 이 문서의 direction 계약 및 `resource_classified_as` 설계, [`kubernetes_relationships.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_relationships.py), [`direction_shadow`](../../../services/core-control-plane/src/fdai/core/ontology_platform/direction_shadow), focused 테스트 | Exact 감사가 모든 shipped 매핑의 LinkType, 엔드포인트 orientation, 참조 형식을 고정합니다. D3 adversarial 입력과 D4 비교기도 다룹니다. 런타임 생산자/관계 소유권 감사와 보존된 production 비교 증적은 아직 남아 있습니다. |
+| 관계 direction 및 분류 보강 | in-progress | 이 문서의 direction 계약 및 `resource_classified_as` 설계, [`kubernetes_relationships.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_relationships.py), [`direction_shadow`](../../../services/core-control-plane/src/fdai/core/ontology_platform/direction_shadow), focused 테스트 | D1은 이제 다섯 Resource LinkType 선언, 17개 프로바이더 매핑, Azure/Kubernetes 생산자 direction, 완전 세대 검증, delta 소유권을 고정합니다. D3 adversarial 입력과 D4 비교기도 다룹니다. 보존된 production 비교 증적은 아직 남아 있습니다. |
 | 네트워크 및 Pod 텔레메트리 competency | in-progress | [`operational_functions.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py)와 이 문서의 M5 종료 기준 | 함수 구현은 존재하지만 문서화된 종단 간 운영 competency 및 보존된 live-assurance 증적은 완료되지 않았습니다. |
 | 운영 메타모델 보증 | in-progress | 위의 focused 소스 및 테스트 근거 | 이 문서가 운영 검증을 주장하려면 인증된 cross-service 및 운영 증적이 더 필요합니다. |
 
@@ -280,10 +280,11 @@ declaration-kind 제안이 됩니다.
 | 2026-08-13 | in-progress | 검토된 Kubernetes Service 선택기 및 Endpoints 매핑과 함께 missing, duplicate, reversed-order, partial 입력에서 안전하게 링크를 만들지 않는 범위 제한 후보 변환기를 추가했습니다. | `current change`; `test_kubernetes_relationships.py` 6개 통과, focused 프로바이더 카탈로그 테스트 1개 통과 | D1 생산자 감사를 완료하고 D4 비교/롤백 근거를 보존하며 production 인벤토리 조립을 통해 변환기를 연결해야 합니다. |
 | 2026-08-13 | in-progress | 중복 비교기를 만들지 않고 기존 D4 구현을 원장에 반영했습니다. 내용 기반 주소를 가진 증적은 direction 조회와 영향 범위를 측정하고 exact 재생을 지원하며 권한이 없는 재구축 포인터를 포함합니다. | 커밋 `18be5ab02`; focused `pytest -q services/core-control-plane/tests/core/ontology_platform/direction_shadow`에서 6개 테스트를 통과했습니다. | 보존된 기존/정렬 후 production 세대를 비교하고 차이를 검토한 뒤 이행 전에 결과 증적을 보존해야 합니다. |
 | 2026-08-13 | in-progress | 17개 shipped 프로바이더 관계 매핑 모두에 exact D1 카탈로그 감사를 추가하여 하나의 의미 direction 또는 참조 형식 회귀도 조용히 로드되지 않게 했습니다. | `current change`; focused `test_shipped_relationship_mappings_match_canonical_endpoint_roles`에서 1개 테스트를 통과했습니다. | 남은 런타임 생산자와 관계 소유권 규칙을 같은 정본 역할에 맞춰 감사해야 합니다. |
+| 2026-08-13 | implemented | Resource LinkType 선언, 검토된 매핑, Azure/Kubernetes 생산자, 완전 세대 검증, delta 소유권에 걸친 범위 제한 D1 감사를 완료했습니다. | `current change`; exact 선언 감사 1개와 통합 생산자/소유권 감사 13개 테스트를 통과했습니다. | 이행 전에 실제 기존/정렬 후 production 세대의 검토된 D4 증적을 보존해야 합니다. |
 
 ### 남은 작업
 
-- [ ] 남은 런타임 관계 생산자와 소유권 규칙에 대한 D1 감사를 완료한 다음 기존 D4 비교기를 보존된 기존/정렬 후 production 세대에 실행하고 이행 전에 검토된 증적과 재구축 포인터를 보존합니다.
+- [ ] 기존 D4 비교기를 보존된 기존/정렬 후 production 세대에 실행하고 이행 전에 검토된 증적과 재구축 포인터를 보존합니다.
 - [ ] 검토된 Kubernetes 관계 변환기를 production 인벤토리 조립에 연결한 다음 검증된 구간과 검증되지 않은 구간을 구분하는 focused VM 연결 및 Pod 텔레메트리 검사로 M5를 입증합니다.
 - [ ] 운영 메타모델 보증을 `validated`로 변경하기 전에 exact 온톨로지 release를 바인딩하는 인증된 cross-service 및 live-assurance 증적을 보존합니다.
 
