@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 48e08f4785473817fc95a4b874d905534e14bd14
+translation_source_sha: 538cf21c6a7f5c3152244a3d1bd4a41d1fe28685
 translation_revised: 2026-08-13
 ---
 # FDAI 온톨로지 안전 인프라
@@ -96,7 +96,7 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | K0 exact release 신원 및 영속성 | implemented | [`release.py`](../../../services/core-control-plane/src/fdai/shared/ontology/release.py), [`postgres_ontology.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_ontology.py), [`20260813_0081_ontology_release_registry.py`](../../../alembic/versions/20260813_0081_ontology_release_registry.py), [`test_postgres_ontology_catalog.py`](../../../services/core-control-plane/tests/persistence/test_postgres_ontology_catalog.py) | Exact 신원, release에 고정된 쓰기 및 재시작에 안전한 매니페스트 로딩이 존재합니다. 이행 전 행은 원래 release를 정직하게 복원할 수 없으므로 고정하지 않은 상태로 유지합니다. 운영 Live 근거는 아직 남아 있습니다. |
-| K1-K5 범위가 제한된 의미 조회 및 함수 인프라 | in-progress | [`operational_functions.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py), [`kubernetes_relationships.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_relationships.py), [`test_kubernetes_relationships.py`](../../../services/core-control-plane/tests/delivery/test_kubernetes_relationships.py), [`test_kinetics.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_kinetics.py) | Core 기본 요소와 후보 전용 Kubernetes 관계 변환기가 존재하지만 추가 Interface와 운영 프로바이더 연결은 남아 있습니다. |
+| K1-K5 범위가 제한된 의미 조회 및 함수 인프라 | in-progress | [`operational_functions.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py), [`kubernetes_relationships.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_relationships.py), [`test_kubernetes_relationships.py`](../../../services/core-control-plane/tests/delivery/test_kubernetes_relationships.py), [`test_wire_pod_telemetry.py`](../../../services/core-control-plane/tests/composition/test_wire_pod_telemetry.py), [`test_kinetics.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_kinetics.py) | Core 기본 요소, 후보 전용 Kubernetes 관계 변환기, 발급된 Pod 조립 검사가 존재합니다. Production 프로바이더 연결과 보존된 live 근거는 아직 남아 있습니다. |
 | 카탈로그 변환 결과와 exact-generation Rule 검색 | implemented | [`catalog_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/catalog_queries.py), [`test_catalog_queries.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_catalog_queries.py), 커밋 `e4d9483a5` | `catalog.search_rules`는 exact 세대 증적과 함께 범위가 제한된 순위 후보를 반환하며 판단 또는 액션 권한을 부여하지 않습니다. 시작 변환 결과는 아직 control-objective 인스턴스를 구체화하지 않습니다. |
 | 과거 토폴로지, 메트릭 의미 규칙 및 조정 | in-progress | [`topology_history.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/topology_history.py), [`metric_semantics.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/metric_semantics.py), [`reconciliation_state_store.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_state_store.py) | 계약과 순수 또는 영속 기반은 존재하지만 운영 조립과 발행자는 아직 완성되지 않았습니다. |
 | K6-K8 그래프 전체 Dynamic 근거 | in-progress | [Dynamic 모델 성숙도](#dynamic-모델-성숙도) | 액션 및 메트릭 시뮬레이션은 존재하지만 그래프 전파, trajectory 종결 및 실패 귀속은 남아 있습니다. |
@@ -110,6 +110,7 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 | 2026-08-13 | implemented | 중앙 graph 검증에서 누락을 발견한 뒤 세 objective vocabulary 타입을 `Identifiable` 구현으로 등록했습니다. | 집중 `test_shipped_ontology_catalog_loads_as_one_graph`에서 1개 테스트를 통과했습니다. | 새 object type을 추가할 때마다 interface 구현 범위를 동기화합니다. |
 | 2026-08-13 | implemented | 영속 exact-release 매니페스트 registry를 추가하고 PostgreSQL 행 디코딩 전에 등록된 release를 로드하도록 했습니다. | 현재 변경; 집중 `test_postgres_ontology_catalog.py`에서 2개 테스트, `test_ontology_release_registry_migration.py`에서 1개 테스트를 통과했습니다. | 이행과 Core 재시작 뒤 인증된 Live 근거를 기록합니다. |
 | 2026-08-13 | in-progress | 검토된 Kubernetes Service 관계 매핑과 독립 세대 검증을 위한 후보 링크를 만드는 범위 제한 변환기를 추가했습니다. | `current change`; focused `test_kubernetes_relationships.py`에서 6개 테스트, 프로바이더 매핑 계약에서 6개 테스트를 통과했습니다. | 변환기를 production 인벤토리 출처에 연결하고 exact-release 조립 근거를 보존해야 합니다. |
+| 2026-08-13 | in-progress | Resource와 Observation 근거를 포함하는 release 고정 Interface를 사용하여 production 의미 조회 조립을 통해 발급된 Pod 텔레메트리 함수를 입증했습니다. | `current change`; focused `test_wire_pod_telemetry.py`에서 verified 및 synthetic-unverified 경로 2개 테스트를 통과했습니다. | 보존된 production 인벤토리에서 같은 조립을 실행하고 인증된 보증 증적을 보존해야 합니다. |
 
 ### 남은 작업
 
@@ -172,6 +173,11 @@ Cross-cluster 서비스 또는 Endpoints 기록이 있으면 관계 근거가 �
 않습니다. 별도의 완전 세대 검증기가 변경할 수 없는 관측 메타데이터를 첨부한 뒤에만 인벤토리
 변환 결과가 두 관계를 노출할 수 있습니다. Production Kubernetes 인벤토리 연결과 보존된 조립
 증적은 아직 남아 있습니다.
+
+Focused production 조립 검사는 Resource와 Observation 근거를 포함하는 exact-release Interface를
+사용한 다음 secured 의존성 다이제스트를 통해 발급된 Pod 함수를 호출합니다. 완전한 근거가 검증된
+구간 네 개를 반환하고 synthetic 샘플은 `claimed_health: false` 및 `execution_authority: false`인
+검증되지 않은 상태로 남는 것을 입증합니다.
 
 Source-derived FunctionType은 exact 런타임 release의 일부이며 운영 semantic 함수 레지스트리에
 등록됩니다. Wrapper는 composition이 발급한 secured 조회 결과만 받고 해당 그래프에서 타입이
