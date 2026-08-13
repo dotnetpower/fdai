@@ -36,6 +36,9 @@ from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventorySnapshotStoreConfig,
 )
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
+from fdai.rule_catalog.schema.provider_relationship_mapping import (
+    load_provider_relationship_mapping_catalog,
+)
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.runtime.inventory_ontology import (
     InventoryOntologyProjectionResult,
@@ -186,6 +189,9 @@ async def refresh() -> InventoryOntologyProjectionResult:
             result = await InventorySyncCoordinator(
                 store=observed_store,
                 promotion_observer=project,
+                relationship_mapping_catalog=load_provider_relationship_mapping_catalog(
+                    catalog_root / "vocabulary/provider-relationship-mappings"
+                ),
             ).run((source,))
             active_snapshot_id = await snapshot_store.active_snapshot_id()
             if active_snapshot_id is None:

@@ -12,6 +12,10 @@ from typing import cast
 import httpx
 
 from fdai.delivery.inventory_relationship_verifier import verify_inventory_relationships
+from fdai.delivery.kubernetes_relationships import project_kubernetes_relationships
+from fdai.rule_catalog.schema.provider_relationship_mapping import (
+    ProviderRelationshipMappingCatalog,
+)
 from fdai.shared.providers.inventory import (
     Inventory,
     InventoryBatch,
@@ -72,9 +76,11 @@ class InventorySyncCoordinator:
         *,
         store: InventorySnapshotStore,
         promotion_observer: InventoryPromotionObserver | None = None,
+        relationship_mapping_catalog: ProviderRelationshipMappingCatalog | None = None,
     ) -> None:
         self._store = store
         self._observer = promotion_observer
+        self._relationship_mapping_catalog = relationship_mapping_catalog
 
     async def run(self, sources: Sequence[InventorySource]) -> InventorySyncResult:
         if not sources:
@@ -82,7 +88,10 @@ class InventorySyncCoordinator:
         failures: list[InventoryAttemptFailure] = []
         for source in sources:
             attempt_id = await self._store.begin(source.manifest)
-            observed = _ObservationAccumulator(enabled=self._observer is not None)
+            observed = _ObservationAccumulator(
+                enabled=self._observer is not None,
+                relationship_mapping_catalog=self._relationship_mapping_catalog,
+            )
             try:
                 completed = await self._stage_stream(
                     attempt_id,
@@ -163,8 +172,14 @@ class InventorySyncCoordinator:
 class _ObservationAccumulator:
     """Collect streamed records for the optional derived projection only."""
 
-    def __init__(self, *, enabled: bool) -> None:
+    def __init__(
+        self,
+        *,
+        enabled: bool,
+        relationship_mapping_catalog: ProviderRelationshipMappingCatalog | None,
+    ) -> None:
         self._enabled = enabled
+        self._relationship_mapping_catalog = relationship_mapping_catalog
         self._resources: list[ResourceRecord] = []
         self._links: list[LinkRecord] = []
         self._relationship_drops: list[RelationshipDrop] = []
@@ -186,13 +201,26 @@ class _ObservationAccumulator:
         self._relationship_drops.extend(batch.relationship_drops)
 
     def result(self, *, generation: str, recorded_at: datetime) -> PromotedInventoryObservation:
+        projected = (
+            project_kubernetes_relationships(
+                self._resources,
+                catalog=self._relationship_mapping_catalog,
+                complete=not self._truncated,
+            )
+            if self._relationship_mapping_catalog is not None
+            else None
+        )
         verified = verify_inventory_relationships(
             generation=generation,
             resources=self._resources,
-            links=self._links,
+            links=((*self._links, *projected.links) if projected is not None else self._links),
             complete=not self._truncated,
             recorded_at=recorded_at,
-            upstream_drops=self._relationship_drops,
+            upstream_drops=(
+                (*self._relationship_drops, *projected.dropped)
+                if projected is not None
+                else self._relationship_drops
+            ),
         )
         return PromotedInventoryObservation(
             generation=generation,
