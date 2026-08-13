@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: d9c01609b3c894a11d30d17836f9d19bc860de1a
-translation_revised: 2026-08-11
+translation_source_sha: d261dd557c1d9502d04ca2f1bc83b742d3cdb6e0
+translation_revised: 2026-08-13
 ---
 
 # 오퍼레이터 시작 SRE 및 아키텍처 리뷰
@@ -20,10 +20,10 @@ translation_revised: 2026-08-11
 > 승인, what-if, 잠금, 멱등성 검사를 거친 후 구성된 어댑터에 도달할 수 있음을
 > 의미합니다. 작업 흐름 또는 ARB 승인이 이러한 검사를 우회할 수 있다는 의미가 아닙니다.
 >
-> **구현 상태:** 완료되었습니다. 제공되는 표면은 `incident_correlation`, 조사와
-> 연결된 인시던트 생성, correlation-filtered Command Deck 진행 상황, `GET /arb/status`, Owner
-> 권한이 필요한 작업 흐름 강제 적용 전달, 선택적 Azure CLI 인증 로컬 Event Hubs 명령
-> 전송 계층입니다.
+> **현재 제공 경계:** 인시던트 상관관계, 오퍼레이터가 확인한 인시던트 수명 주기,
+> 조사 기본 기능, ARB 준비 상태/변환 결과, 제안 전용 작업 흐름 제출은 구현되었습니다.
+> 통합 SRE 명령/진행 상황 흐름과 권한을 수반하는 작업 흐름 강제 적용 경로는 아직
+> 열려 있으며 아래에서 추적합니다.
 
 ## 설계 요약
 
@@ -49,6 +49,34 @@ flowchart LR
   EXECUTE --> STREAM
   APPROVE --> STREAM
 ```
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 인시던트 추적 신원 및 상관관계 제외 | implemented | `fdai/shared/contracts/models/event.py`, `fdai/core/event_ingest/correlator.py`, `fdai/core/scheduler/service.py`와 `fdai/delivery/inventory_delta.py`의 정기 생산자, `tests/core/event_ingest/test_correlator.py` | `incident_correlation=none`이 인시던트 생성을 억제해도 `correlation_id`는 유지됩니다. |
+| 오퍼레이터 확인 인시던트 수명 주기 및 조사 기본 기능 | implemented | `fdai/core/incident/workflow.py`, `fdai/core/investigation/coordinator.py`, `tests/core/incident/test_incident_workflow.py`, `tests/core/investigation/test_coordinator.py` | 범위가 제한된 기본 기능이 존재하고 집중 검사를 통과합니다. |
+| 통합 오퍼레이터 SRE 명령 및 진행 상황 계약 | in-progress | 위 인시던트 수명 주기와 조사 구현은 분리되어 있습니다. 문서에 정의된 단일 명령 경로, 멱등적 ActionProposal 전달, Incident/Trace/Process/Approval 링크에는 end-to-end 집중 검사가 없습니다. | 개별 기본 기능에서 통합 흐름을 추론하지 않습니다. |
+| ARB 준비 상태, 운영 게이트 및 선언적 검토 변환 결과 | implemented | `fdai/core/architecture_review/readiness.py`, `fdai/core/architecture_review/projection.py`, `fdai/runtime/control_loop.py`, `rule-catalog/workflows/architecture-review.yaml`, `tests/core/architecture_review/` | 오퍼레이터 표면은 `/workflow-apps/architecture-review`와 `/processes/{process_id}`입니다. `/arb/status` 엔드포인트는 없습니다. |
+| 오퍼레이터 작업 흐름 제출 | implemented | `fdai_operator_service/families/workflow/routes.py`, `services/operator-service/tests/test_operator_workflow_family.py` | `POST /workflows/run`은 멱등성 및 revision이 적용된 shadow 제안을 받고 `mode=enforce`를 거부합니다. |
+| 권한을 수반하는 작업 흐름 강제 적용 및 로컬/배포 운영 동등성 | in-progress | `fdai/core/workflow/workflow_step_executor.py`에는 거버넌스가 적용되는 강제 적용 액션 전달이 있지만 Operator API는 제안 전용 및 shadow 우선으로 유지됩니다. | 문서에 정의된 Owner 권한 end-to-end 강제 적용 경로나 로컬/배포 동등성을 입증하는 거버넌스 런타임 증거가 없습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | 구현 원장을 도입하고 ARB 표면과 Operator 작업 흐름 권한 경계를 바로잡았습니다. 이전 출처는 재구성하지 않았습니다. | 현재 변경, 범위 표에 나열된 인시던트, 조사, ARB, 이벤트 상관관계 및 Operator 작업 흐름 집중 검사 | 통합 SRE 명령/진행 상황 경로를 완료하고 권한을 수반하는 작업 흐름 강제 적용 및 동등성에 대한 거버넌스 증거를 기록합니다. |
+
+### 남은 작업
+
+- [ ] 확인된 오퍼레이터 문제 대응 요청 하나가 인시던트 하나를 열거나 재사용하고,
+  멱등적인 typed ActionProposal 하나를 게시하며, 단계 전체에서 상관관계 하나를 유지하고,
+  권위 있는 Incident, Trace, Process, Approval 링크를 반환함을 end-to-end 집중 검사로 입증합니다.
+- [ ] 승인되고 허용 목록에 포함된 작업 흐름이 권한을 수반하는 제어 경로를 통해 강제 적용에
+  진입하면서 ActionType은 독립적으로 계속 게이트됨을 입증하는 거버넌스 적용 로컬 및 배포
+  런타임 증거를 기록합니다. `POST /workflows/run`은 제안 전용으로 유지합니다.
 
 ## 신원 모델
 
@@ -132,8 +160,8 @@ CI와 프로세스가 `architecture-review.production-ready` 통과 여부를 �
 
 ### 수동 시작
 
-CLI와 ChatOps는 기여자 권한이 필요한 `POST /workflows/run` 경로를 다음과 같이
-호출합니다.
+CLI와 ChatOps는 기여자 권한이 필요한 제안 전용 요청을 `POST /workflows/run` 경로로
+제출합니다.
 
 ```json
 {
@@ -145,9 +173,9 @@ CLI와 ChatOps는 기여자 권한이 필요한 `POST /workflows/run` 경로를 
 }
 ```
 
-- 기여자는 shadow 검토를 시작하거나 재개할 수 있습니다.
-- Owner는 배포가 작업 흐름을 허용 목록하고 ARB structural 평가기가 통과한 경우에만
-  `enforce`를 요청할 수 있습니다.
+- 기여자는 멱등성 및 revision이 적용된 shadow 검토 제안을 제출할 수 있습니다.
+- 이 경로는 Owner에게도 `mode=enforce`를 거부합니다. 권한을 수반하는 실행은 컨트롤 플레인
+  승인 및 이벤트 경계를 통과해야 하며 Operator API가 직접 전달하지 않습니다.
 - 강제 적용은 영속 승인 및 결정 전이에 적용됩니다. ARB 작업 흐름에는 리소스
   변경 액션이 없으므로 리소스를 배포하거나 ActionType을 활성화할 수 없습니다.
 - 같은 작업 흐름, 대상, 트리거 시각은 같은 프로세스 ID를 파생합니다. 클라이언트는 재시도할 때

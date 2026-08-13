@@ -17,10 +17,10 @@ enforce operation in both local and deployed environments.
 > reach its configured adapter after policy, risk, approval, what-if, lock, and idempotency checks.
 > It never means that a Workflow or ARB approval can bypass those checks.
 >
-> **Implementation status:** Complete. The shipped surfaces are `incident_correlation`,
-> investigation-linked Incident creation, correlation-filtered Command Deck progress,
-> `GET /arb/status`, Owner-gated workflow enforce dispatch, and optional Azure CLI-authenticated
-> local Event Hubs command transport.
+> **Current delivery boundary:** Incident correlation, operator-confirmed Incident lifecycle,
+> investigation primitives, ARB readiness/projection, and proposal-only workflow submission are
+> implemented. The integrated SRE command/progress flow and authority-bearing Workflow enforce
+> path remain open and are tracked below.
 
 ## Design at a glance
 
@@ -45,6 +45,34 @@ flowchart LR
   EXECUTE --> STREAM
   APPROVE --> STREAM
 ```
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Incident trace identity and correlation opt-out | implemented | `fdai/shared/contracts/models/event.py`; `fdai/core/event_ingest/correlator.py`; routine producers in `fdai/core/scheduler/service.py` and `fdai/delivery/inventory_delta.py`; `tests/core/event_ingest/test_correlator.py` | `correlation_id` remains available when `incident_correlation=none` suppresses Incident creation. |
+| Operator-confirmed Incident lifecycle and investigation primitives | implemented | `fdai/core/incident/workflow.py`; `fdai/core/investigation/coordinator.py`; `tests/core/incident/test_incident_workflow.py`; `tests/core/investigation/test_coordinator.py` | The bounded primitives exist and pass focused checks. |
+| Integrated operator SRE command and progress contract | in-progress | The Incident lifecycle and investigation implementations above are separate; the documented single command path, idempotent ActionProposal dispatch, and Incident/Trace/Process/Approval links lack an end-to-end focused test. | Do not infer the integrated flow from the individual primitives. |
+| ARB readiness, production gate, and declarative review projection | implemented | `fdai/core/architecture_review/readiness.py`; `fdai/core/architecture_review/projection.py`; `fdai/runtime/control_loop.py`; `rule-catalog/workflows/architecture-review.yaml`; `tests/core/architecture_review/` | The operator surfaces are `/workflow-apps/architecture-review` and `/processes/{process_id}`; there is no `/arb/status` endpoint. |
+| Operator workflow submission | implemented | `fdai_operator_service/families/workflow/routes.py`; `services/operator-service/tests/test_operator_workflow_family.py` | `POST /workflows/run` accepts idempotent, revision-bound shadow proposals and rejects `mode=enforce`. |
+| Authority-bearing Workflow enforce and local/deployed operational parity | in-progress | `fdai/core/workflow/workflow_step_executor.py` contains governed enforce action dispatch, while the Operator API remains proposal-only and shadow-first. | No governed runtime receipt proves the documented Owner-gated end-to-end enforce path or local/deployed parity. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted the implementation ledger, corrected the ARB surface and Operator workflow authority boundary, and did not reconstruct earlier provenance. | Current change; focused Incident, investigation, ARB, event-correlation, and Operator workflow tests listed in the scope table. | Complete the integrated SRE command/progress path and record governed evidence for authority-bearing Workflow enforce and parity. |
+
+### Remaining work
+
+- [ ] Add an end-to-end focused test proving that one confirmed operator problem-response request
+  opens or reuses one Incident, publishes one idempotent typed ActionProposal, preserves one
+  correlation across stages, and returns authoritative Incident, Trace, Process, and Approval links.
+- [ ] Record a governed local and deployed runtime receipt proving that an approved,
+  allowlisted Workflow can enter enforce through the authority-bearing control path while its
+  ActionType remains independently gated; keep `POST /workflows/run` proposal-only.
 
 ## Identity model
 
@@ -125,7 +153,7 @@ passed.
 
 ### Manual start
 
-CLI and ChatOps call the Contributor-gated `POST /workflows/run` route with:
+CLI and ChatOps submit a Contributor-gated, proposal-only request through `POST /workflows/run`:
 
 ```json
 {
@@ -137,9 +165,9 @@ CLI and ChatOps call the Contributor-gated `POST /workflows/run` route with:
 }
 ```
 
-- A Contributor may start or resume a shadow review.
-- An Owner may request `enforce` only when the deployment allowlists the Workflow and the ARB
-  structural evaluator passes.
+- A Contributor may submit an idempotent, revision-bound shadow review proposal.
+- The route rejects `mode=enforce` even for an Owner. Authority-bearing execution must cross the
+  control-plane approval and event boundary; the Operator API does not dispatch it directly.
 - Enforce applies durable approval and decision transitions. The ARB Workflow has no resource
   mutation action, so it cannot deploy or enable an ActionType.
 - The same workflow, target, and trigger timestamp derive the same Process ID. To resume the
