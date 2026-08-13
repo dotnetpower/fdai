@@ -29,7 +29,7 @@ agent or the Console managed-resource execution authority.
 | Persistent campaign runner | implemented | `delivery/observation_campaign.py`, focused lifecycle tests | Atomic leases, revision-checked terminal writes, crash recovery, current-state cursors, partial isolation, concurrency four, and privacy-bounded activity summaries are executable. |
 | Local and deployed scheduling parity | implemented | `delivery/observation_campaign_cli.py`, `delivery/inventory_sync_cli.py`, `.vscode/tasks.json`, `infra/modules/compute/container-apps/observation_campaign_job.tf`, focused CLI and workspace tests | Both venues wake once per minute for campaign due checks. Both also run the authoritative inventory due gate; only credential and PostgreSQL bindings differ. |
 | Agent Activity observation projection | implemented | `fdai_operator_service/activity_projection.py`, `console/src/agent-operational-activity.ts`, focused Operator and Console tests | Started and terminal source state hydrates before live delivery, uses stable activity ids, rejects malformed privacy fields, and displays localized domain labels. |
-| Governed live campaign evidence | not-started | - | No retained local and deployed receipt set proves equivalent source coverage and Agent Activity presentation. |
+| Governed live campaign evidence | in-progress | Validated revision `6aae0837f`; local catalog digest `sha256:86d8dac44f5a40b3fd5433e5a31ab00d42fa5ef81701a0b0e97056b6ff470366`; authenticated Agent Activity | The hardened local run produced ten unique source rows with no provider failures. Equivalent deployed-revision evidence remains open. |
 
 ### Implementation history
 
@@ -38,14 +38,18 @@ agent or the Console managed-resource execution authority.
 | 2026-08-14 | in-progress | Defined one permission-aware observation campaign for all registered sources and made local/deployed behavioral parity explicit. Earlier implementation provenance was not reconstructed. | `current change`; existing adapter and scheduler paths cited in the scope table | Implement the contract, runner, source bindings, activity projection, parity checks, and governed runtime evidence below. |
 | 2026-08-14 | implemented | Implemented and hardened the shared coverage campaign, recurring local inventory parity, deployed job and read roles, durable Operator projection, and localized Console lane. | `current change`; focused contract, lifecycle, provider, CLI, inventory, Operator, Console, workspace, type, lint, JSON, and Terraform checks | Retain governed local and deployed runs on one catalog digest before claiming validation. |
 | 2026-08-14 | implemented | Hardened aggregate-only coverage after the first governed local run exposed graph-property decoding, Service Health payload size, and target-free metric routing failures. | Validated revision `214409710`; the trial reached six ready sources, one normalized Cost throttle, and three isolated provider failures. `current change`; focused aggregate coverage checks passed 125 cases. | Rerun the governed local campaign on the hardened revision, then retain the equivalent deployed run. |
+| 2026-08-14 | in-progress | Retained the hardened local campaign and authenticated Console projection on one catalog digest. | Central receipt for `6aae0837f`; eight ready sources, explicit stale inventory, normalized Cost throttle, and ten unique localized Agent Activity rows with no provider failures. | Retain the equivalent deployed run and the remaining negative runtime outcomes before claiming validation. |
+| 2026-08-14 | implemented | Kept malformed optional VM shutdown schedules from hiding the complete promoted inventory graph. | `current change`; pure projection regression passed; the restored authoritative local snapshot materialized a fresh 209-resource active view and isolated four schedule warnings. | Observe the next due campaign transition from stale to fresh, then retain deployed evidence. |
 
 ### Remaining work
 
 - [x] Implement the bounded catalog, atomic runner, provider probes, local and deployed wake paths,
   recurring authoritative inventory, durable activity projection, and localized Console lane.
-- [ ] Retain one governed local and one deployed run on the same catalog digest covering authorized,
-  unauthorized, unconfigured, throttled, timed-out, empty, partial, skipped, and successful source
-  outcomes plus snapshot-first/live deduplication.
+- [x] Retain one governed local run on validated revision `6aae0837f` with ten unique source rows,
+  ready, stale, throttled, empty, skipped, completed, and degraded outcomes, plus authenticated
+  snapshot-first/live deduplication evidence.
+- [ ] Retain unauthorized, unconfigured, and timed-out runtime outcomes and one deployed run on the
+  same catalog digest before claiming end-to-end validation.
 
 ## Design at a glance
 

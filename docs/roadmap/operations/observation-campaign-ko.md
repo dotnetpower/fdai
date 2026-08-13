@@ -1,7 +1,7 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: b7991997cfd22b03d194032e6843b80970f5ee5e
+translation_source_sha: 6c9a55361d736068e38838c7627795eb7a17df27
 translation_revised: 2026-08-14
 ---
 
@@ -31,7 +31,7 @@ translation_revised: 2026-08-14
 | 영속 캠페인 실행기 | implemented | `delivery/observation_campaign.py`, 집중 수명 주기 테스트 | 원자적 lease, 개정 번호를 확인하는 종료 기록, 충돌 복구, 현재 상태 커서, 부분 격리, 동시성 4 및 개인정보가 제한된 활동 요약을 실행할 수 있습니다. |
 | 로컬 및 배포 예약 동등성 | implemented | `delivery/observation_campaign_cli.py`, `delivery/inventory_sync_cli.py`, `.vscode/tasks.json`, `infra/modules/compute/container-apps/observation_campaign_job.tf`, 집중 CLI 및 workspace 테스트 | 두 실행 위치 모두 매분 캠페인 실행 조건을 확인합니다. 두 위치 모두 권위 있는 인벤토리 실행 조건 게이트도 실행하며 자격 증명과 PostgreSQL 연결만 다릅니다. |
 | Agent Activity 관측 변환 결과 | implemented | `fdai_operator_service/activity_projection.py`, `console/src/agent-operational-activity.ts`, 집중 Operator 및 Console 테스트 | 시작 및 종료 출처 상태를 실제 전달 전에 불러오고, 안정적인 활동 id를 사용하며, 잘못된 개인정보 필드를 거부하고, 지역화된 도메인 레이블을 표시합니다. |
-| 통제된 실제 캠페인 근거 | not-started | - | 동등한 출처 커버리지와 Agent Activity 표현을 입증하는 로컬 및 배포 증적 집합이 없습니다. |
+| 통제된 실제 캠페인 근거 | in-progress | 검증된 개정 번호 `6aae0837f`, 로컬 카탈로그 digest `sha256:86d8dac44f5a40b3fd5433e5a31ab00d42fa5ef81701a0b0e97056b6ff470366`, 인증된 Agent Activity | 하드닝된 로컬 실행은 프로바이더 실패 없이 고유한 출처 행 10개를 만들었습니다. 동등한 배포 개정 번호 근거는 열려 있습니다. |
 
 ### 구현 이력
 
@@ -40,14 +40,18 @@ translation_revised: 2026-08-14
 | 2026-08-14 | in-progress | 등록된 모든 출처를 위한 하나의 권한 인식 관측 캠페인을 정의하고 로컬과 배포의 동작 동등성을 명시했습니다. 이전 구현 출처 이력은 재구성하지 않았습니다. | `current change`, 구현 범위 표에 인용한 기존 어댑터와 scheduler 경로 | 아래 계약, 실행기, 출처 연결, 활동 변환 결과, 동등성 검사 및 통제된 런타임 근거를 구현합니다. |
 | 2026-08-14 | implemented | 공유 커버리지 캠페인, 반복 로컬 인벤토리 동등성, 배포 작업과 읽기 역할, 영속 Operator 변환 결과 및 지역화된 Console lane을 구현하고 하드닝했습니다. | `current change`, 집중 계약, 수명 주기, 프로바이더, CLI, 인벤토리, Operator, Console, workspace, 타입, lint, JSON 및 Terraform 검사 | 검증을 주장하기 전에 하나의 카탈로그 digest에서 통제된 로컬 및 배포 실행을 보존합니다. |
 | 2026-08-14 | implemented | 첫 통제된 로컬 실행에서 그래프 속성 decode, Service Health payload 크기 및 대상 없는 메트릭 라우팅 실패를 발견한 뒤 집계 전용 커버리지를 하드닝했습니다. | 검증된 개정 번호 `214409710`, 이 실행은 준비된 출처 6개, 정규화된 Cost 제한 1개 및 격리된 프로바이더 실패 3개에 도달했습니다. `current change`, 집중 집계 커버리지 검사 125개 통과 | 하드닝된 개정 번호에서 통제된 로컬 캠페인을 다시 실행한 뒤 동등한 배포 실행을 보존합니다. |
+| 2026-08-14 | in-progress | 하나의 카탈로그 digest에서 하드닝된 로컬 캠페인과 인증된 Console 변환 결과를 보존했습니다. | `6aae0837f` 중앙 receipt, 준비된 출처 8개, 명시적인 오래된 인벤토리, 정규화된 Cost 제한 및 프로바이더 실패가 없는 고유한 지역화 Agent Activity 행 10개 | 검증을 주장하기 전에 동등한 배포 실행과 남은 부정 런타임 결과를 보존합니다. |
+| 2026-08-14 | implemented | 잘못된 선택적 VM 종료 일정이 승격된 전체 인벤토리 그래프를 숨기지 않도록 했습니다. | `current change`, 순수 projection 회귀 검사 통과, 복구된 권위 있는 로컬 스냅샷이 fresh 상태의 209-resource active view를 구체화하고 일정 warning 4개를 격리했습니다. | 다음 실행 조건 캠페인이 stale에서 fresh로 전환되는지 관측한 뒤 배포 근거를 보존합니다. |
 
 ### 남은 작업
 
 - [x] 범위가 제한된 카탈로그, 원자적 실행기, 프로바이더 probe, 로컬 및 배포 기동 경로,
   반복 권위 인벤토리, 영속 활동 변환 결과 및 지역화된 Console lane을 구현합니다.
-- [ ] 같은 카탈로그 digest에서 통제된 로컬 실행 하나와 배포 실행 하나를 보존합니다. 권한 있음,
-  권한 없음, 미구성, 제한, 시간 초과, 빈 결과, 부분 결과, 건너뜀 및 성공 출처 결과와
-  snapshot-first/실제 중복 제거를 포함합니다.
+- [x] 검증된 개정 번호 `6aae0837f`에서 고유한 출처 행 10개, 준비됨, 오래됨, 제한됨, 빈 결과,
+  건너뜀, 완료 및 저하 결과와 인증된 snapshot-first/실제 중복 제거 근거를 포함하는 통제된 로컬
+  실행 하나를 보존합니다.
+- [ ] end-to-end 검증을 주장하기 전에 권한 없음, 미구성 및 시간 초과 런타임 결과와 같은 카탈로그
+  digest의 배포 실행 하나를 보존합니다.
 
 ## 설계 개요
 
