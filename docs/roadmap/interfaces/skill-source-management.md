@@ -99,14 +99,15 @@ cannot fetch the same source concurrently.
 - **Other failures**: the exception type is recorded as a bounded error kind. Tokens and response
   bodies are not included.
 
-Production starts the runner with the Operator API lifespan. `FDAI_SKILL_SOURCE_TICK_SECONDS` controls
-the wake interval and must be at least 30 seconds. `FDAI_GITHUB_API_BASE` may replace the default
-GitHub API base with another HTTPS GitHub endpoint.
+The orchestrator and durable claim behavior are implemented and focused-test-backed. The current
+runtime bootstrap does not instantiate the orchestrator, a periodic runner, or a concrete GitHub
+adapter. Runner ownership, wake interval configuration, and GitHub endpoint configuration therefore
+remain production composition work rather than deployed behavior.
 
 ## HTTP surfaces
 
-The route group is opt-in through `OperatorApiConfig.skill_sources` and uses the authenticated
-principal resolved by the server.
+The Operator Service workflow family registers these routes and uses the authenticated principal
+resolved by the server.
 
 | Method and route | Minimum authority | Purpose |
 |------------------|-------------------|---------|
@@ -115,17 +116,18 @@ principal resolved by the server.
 | `GET /api/v1/skill-sources/{source_id}/inspect` | Reader | Inspect refresh, quarantine, and revocation evidence. |
 | `GET /api/v1/skill-sources/{source_id}/check-update` | Reader | Read ETag state and newest disabled candidate. |
 | `GET /api/v1/skill-sources/{source_id}/candidates` | Reader | List disabled candidates. |
-| `POST /api/v1/skill-sources/{source_id}/approve-candidate` | Approver | Reverify and install one candidate disabled. |
-| `POST /api/v1/skill-sources/{source_id}/revoke` | Owner | Disable the source and every installed artifact from it. |
+| `POST /api/v1/skill-sources/{source_id}/approve-candidate` | Approver | Submit an idempotent candidate-approval proposal. |
+| `POST /api/v1/skill-sources/{source_id}/revoke` | Owner | Submit an idempotent source-revocation proposal. |
 
 The current Console SPA Skills route reads `/skills`; it does not yet call these source-management
 endpoints. A future source-management view is limited to the GET projections and MUST expose no
-approval or revocation control. POST routes are separate authenticated administration surfaces and
-hold no cloud executor identity.
+approval or revocation control. GET operations use the workflow read gateway. POST operations return
+an accepted proposal and do not call the core administration service directly; the Operator Service
+holds no cloud executor identity.
 
 ## Approval and revocation
 
-Approval rechecks all of the following before installation:
+The core `SkillSourceAdministrationService` rechecks all of the following before installation:
 
 - the source exists and remains enabled;
 - the candidate belongs to that source and still matches a `proposed` quarantine artifact;
@@ -141,14 +143,54 @@ artifact revisions, and appends one revocation row per known digest. It issues n
 commit, the runtime snapshot reloads, so later skill loads cannot use the revoked artifact while
 audit and quarantine evidence remain inspectable.
 
+The domain approval and revocation implementations are not currently bound to the Operator Service
+proposal operations or a production runtime composition.
+
+## Implementation status
+
+The current tree contains the deterministic lifecycle and durable adapters, but it does not yet
+compose an end-to-end external-source capability.
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Source, quarantine, scan, verification, candidate, approval, and revocation domain lifecycle | implemented | [`source_registry.py`](../../../services/core-control-plane/src/fdai/core/skills/source_registry.py), [`skill_source_pipeline.py`](../../../services/core-control-plane/src/fdai/core/supply_chain/skill_source_pipeline.py), [`skill_source_admin.py`](../../../services/core-control-plane/src/fdai/core/supply_chain/skill_source_admin.py), and focused supply-chain tests | Current focused tests cover registration, refresh, blocking, proposal creation, approval guards, and revocation delegation. |
+| PostgreSQL schema, stores, durable claims, and transactional revocation | implemented | [Alembic revision `20260720_0045`](../../../alembic/versions/20260720_0045_skill_source_quarantine.py), [`postgres_skill_source.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_skill_source.py), [`postgres_skill_quarantine.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_skill_quarantine.py), and codec tests | Offline store tests pass. The live PostgreSQL restart and provenance test exists but requires `FDAI_DATABASE_URL`. |
+| Operator HTTP read and proposal contracts | implemented | [`manifest.py`](../../../services/operator-service/src/fdai_operator_service/families/workflow/manifest.py), [`routes.py`](../../../services/operator-service/src/fdai_operator_service/families/workflow/routes.py), and [`test_operator_workflow_family.py`](../../../services/operator-service/tests/test_operator_workflow_family.py) | Reader GET routes and Approver/Owner proposal routes are registered and role-tested. They intentionally do not import or call the core authority implementation. |
+| Concrete GitHub fetch adapter | not-started | [`skill_source.py`](../../../services/core-control-plane/src/fdai/shared/providers/skill_source.py) and current tracked-tree audit | The provider-neutral protocol exists, but no production implementation resolves revisions or fetches bounded files. |
+| Production composition and scheduled runner | not-started | Current runtime/bootstrap usage audit | No bootstrap path instantiates `SkillSourceRefreshService`, `SkillSourceRefreshOrchestrator`, `SkillSourceAdministrationService`, or their PostgreSQL adapters. |
+| Console source-management projection and governed runtime evidence | not-started | Current Console usage audit and focused test run | The Console does not call the source-management routes, and no current runtime receipt proves fetch-to-proposal or approval/revocation execution. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted the implementation ledger, corrected stale production-binding and HTTP execution claims, and repaired the focused test command; earlier implementation provenance was not reconstructed. | `current change`; `37 passed, 1 skipped` from the exact-path skill-source and Operator workflow suite; roadmap, translation, punctuation, Hangul, size, and link checks. | Implement and bind the missing adapter and runtime path, validate live persistence, expose the read-only projection, and record governed runtime evidence. |
+
+### Remaining work
+
+- [ ] Implement a concrete GitHub `SkillSourceAdapter` that enforces immutable revision, bounded path,
+  redirect, symlink, content-size, UTF-8, authentication, and rate-limit rules, with focused adapter
+  tests for every rejection path.
+- [ ] Compose the source stores, quarantine stores, verifier factory, refresh service,
+  administration service, and scheduled orchestrator in the independently runnable owning service;
+  prove duplicate-runner exclusion and restart recovery with focused integration tests.
+- [ ] Connect workflow read and proposal operations to the authority-bearing event path without
+  importing core implementations into the Operator Service, and prove approval and revocation remain
+  role-gated, idempotent, disabled-by-default, and replayable.
+- [ ] Run the live PostgreSQL restart/revocation test with `FDAI_DATABASE_URL`, add the read-only
+  Console projection, and record governed runtime receipts for refresh, approval, and revocation.
+
 ## Verification
 
 Use these focused checks while changing this subsystem:
 
 ```bash
-uv run pytest -q services/core-control-plane/tests/core/supply_chain/test_skill_source_*.py
-uv run pytest -q services/core-control-plane/tests/persistence/test_postgres_skill_source*.py services/core-control-plane/tests/persistence/test_postgres_skill_quarantine.py
-uv run pytest -q services/core-control-plane/tests/delivery/github/test_skill_source.py services/operator-service/tests/
+uv run pytest -q services/core-control-plane/tests/core/skills/test_source_registry.py
+uv run pytest -q services/core-control-plane/tests/core/supply_chain/test_skill_source_admin.py services/core-control-plane/tests/core/supply_chain/test_skill_source_pipeline.py services/core-control-plane/tests/core/supply_chain/test_skill_source_refresh.py
+uv run pytest -q services/core-control-plane/tests/persistence/test_postgres_skill_source.py services/core-control-plane/tests/persistence/test_postgres_skill_source_integration.py services/core-control-plane/tests/persistence/test_postgres_skill_quarantine.py
+uv run pytest -q services/operator-service/tests/test_operator_workflow_family.py
 uv run ruff check services/core-control-plane/src/fdai/core/supply_chain/skill_source_*.py services/core-control-plane/src/fdai/delivery/persistence/postgres_skill_*.py
 uv run mypy services/core-control-plane/src/fdai/core/supply_chain/skill_source_*.py services/core-control-plane/src/fdai/delivery/persistence/postgres_skill_*.py
 ```
