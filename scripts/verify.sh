@@ -198,6 +198,7 @@ run_gate_scoped "boundary-docstrings" '^(src/|scripts/quality/architecture/(chec
 run_gate_scoped "document-size" '^(docs/roadmap/|scripts/quality/architecture/check-document-size\.py$)' python3 scripts/quality/architecture/check-document-size.py
 run_gate_scoped "display-terminology" '^(README|docs/|rule-catalog/|console/|cli/|scripts/quality/documentation/check-display-terminology\.py$)' python3 scripts/quality/documentation/check-display-terminology.py
 run_gate_scoped "action-runbooks" '^(docs/runbooks/|rule-catalog/action-types/|scripts/quality/documentation/check-action-runbooks\.py$)' uv run python scripts/quality/documentation/check-action-runbooks.py
+run_gate_scoped "reference-only-sources" '^(rule-catalog/sources/|services/core-control-plane/src/fdai/rule_catalog/pipeline/collect/collector\.py$|scripts/quality/repository/check-reference-only-sources\.py$)' uv run python scripts/quality/repository/check-reference-only-sources.py
 
 run_gate "punctuation"  bash scripts/quality/repository/check-punctuation.sh
 run_gate "readable-hangul" python3 scripts/quality/localization/check-readable-hangul.py

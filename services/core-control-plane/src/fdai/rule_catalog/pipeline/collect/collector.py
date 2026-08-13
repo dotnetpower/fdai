@@ -28,6 +28,7 @@ from fdai.rule_catalog.pipeline.collect.fetch import (
 )
 from fdai.rule_catalog.schema.source_manifest import (
     FetchKind,
+    Redistribution,
     SourceManifest,
     load_source_manifest_from_yaml,
 )
@@ -83,6 +84,11 @@ class CollectorPipeline:
         return self.collect(manifest, dry_run=dry_run)
 
     def collect(self, manifest: SourceManifest, *, dry_run: bool = False) -> SnapshotReport:
+        """Fetch and hash one source, then materialize only redistributable content.
+
+        Reference-only sources may run in dry-run mode to produce a transient hash report, but
+        their raw trees are never copied into a persistent snapshot directory.
+        """
         fetcher = self._fetcher_override or build_fetcher(
             manifest.fetch.kind, repo_root=self._repo_root
         )
@@ -102,6 +108,12 @@ class CollectorPipeline:
                 and manifest.fetch.expected_sha256 != content_hash
             ):
                 mismatch = f"expected_sha256={manifest.fetch.expected_sha256} actual={content_hash}"
+
+            if manifest.redistribution is Redistribution.REFERENCE_ONLY and not dry_run:
+                raise ValueError(
+                    "reference-only sources require --dry-run; raw source trees "
+                    "cannot be materialized"
+                )
 
             snapshot_dir = self._snapshot_dir_for(manifest.id, result.resolved_revision)
 

@@ -70,6 +70,9 @@ jobs:
       - name: ActionType operator-runbook coverage
         run: uv run python scripts/quality/documentation/check-action-runbooks.py
 
+      - name: Reference-only source snapshot guard
+        run: uv run python scripts/quality/repository/check-reference-only-sources.py
+
       - name: Build code-assurance extension
         run: uv build --package fdai-code-assurance
 

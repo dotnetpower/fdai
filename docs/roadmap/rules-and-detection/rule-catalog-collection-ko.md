@@ -1,7 +1,7 @@
 ---
 title: 규칙 카탈로그 수집(Rule Catalog Collection)
 translation_of: rule-catalog-collection.md
-translation_source_sha: eae1f4261e065d67228b86917a24674260e6b577
+translation_source_sha: 435b69cbbf4f2e015420d117a9d1e429a0a1eee2
 translation_revised: 2026-08-14
 ---
 
@@ -253,9 +253,11 @@ provenance:
   `reference-only`). 강제를 주도하는 것은 라이선스 이름이 아니라 `redistribution` : `reference-
   only` 소스는 authored 로직 + 출처 이력을 기여할 수 있지만, 원시 컨텐트는 트리에서 블록됨.
 - **현재 강제 범위:** 매니페스트와 정규화된 아티팩트는 엄격한 `license` 및
-  `redistribution` 필드를 가지며, 의미 표면 생성은 선언된 reference-only 원문을 거부합니다.
-  임의의 제한 콘텐츠를 찾는 저장소 전체 verbatim 탐지기는 연결되지 않았습니다. 해당 집중
-  게이트가 제공될 때까지 검토와 기존 시크릿/고객 데이터 게이트가 계속 필요합니다
+  `redistribution` 필드를 가집니다. 컬렉터는 reference-only fetch와 hash를 `--dry-run`
+  모드에서만 허용하고, 저장소 게이트는 reference-only snapshot manifest 옆의 추적된 원문을
+  거부합니다. 의미 표면 생성도 선언된 reference-only 원문을 거부합니다. 이 선언 기반 게이트는
+  임의의 미분류 제한 텍스트를 탐지한다고 주장하지 않으므로 검토와 기존 시크릿/고객 데이터
+  게이트가 계속 필요합니다
   ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 - **신뢰할 수 없는 컨텐트**: 소스 제공 텍스트(근거 설명, 설명) 는 신뢰할 수 없는 입력 - 시크릿이나
   프롬프트-인젝션을 운반할 수 있음. inert 데이터로 저장, 길이-bounded 및 스캔, 절대 지시로
@@ -595,7 +597,7 @@ Authored Rego는 `rule-catalog/` 아래에 **중첩되지 않음** ; T0와 검�
 | 제공 파서 및 수집 Rule 말뭉치 | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/parse/`; `rule-catalog/collected/`; 집중 파서 및 전체 카탈로그 테스트 | Rule YAML, Rego, Azure Policy, kube-bench 경로가 구현됐으며 예약 파서는 명시적으로 실패합니다. |
 | 모범 사례 및 MCSB 카탈로그 | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/best_practice_catalog.py`; `mcsb_catalog.py`; `rule-catalog/best-practices/`; `rule-catalog/compliance/mcsb/` | 엄격한 로더와 현재 버전별 카탈로그가 구현되어 있습니다. |
 | 구성 및 측정 기준선 | not-started | [구성 기준선](#구성-기준선-하드닝된-참조-세트); [측정 기준선](#측정-기준선-성능-참조---별도-저장) | 전용 스키마와 로더가 없는 목표 형상으로 남아 있습니다. |
-| 제한 콘텐츠 저장소 게이트 | in-progress | [라이선싱](#라이선싱-소스-추가-전-읽기); 현재 변경의 소스 감사 | 구조화된 재배포 검사는 있지만 임의의 제한 원문 부재를 증명하는 범용 verbatim 탐지기는 없습니다. |
+| 선언된 reference-only 수집 및 저장소 가드 | implemented | [`collector.py`](../../../services/core-control-plane/src/fdai/rule_catalog/pipeline/collect/collector.py), [`check-reference-only-sources.py`](../../../scripts/quality/repository/check-reference-only-sources.py), 집중 collector 및 checker 테스트 | Non-dry 수집은 reference-only tree를 materialize할 수 없고 Git index 게이트는 선언된 reference-only snapshot 옆에 강제로 추가된 원문을 거부합니다. 임의의 미분류 텍스트는 이 선언 기반 주장 밖에 남습니다. |
 | 운영 발견 일정 및 pull request 전달 | in-progress | `services/core-control-plane/src/fdai/rule_catalog/pipeline/watcher_cli.py`; `promotion.py`; [열린 결정](#열림-decisions) | 핵심 단계는 있지만 배포 일정, 자격 증명, 관리되는 pull request 전달은 통합 작업으로 남아 있습니다. |
 
 ### 구현 이력
@@ -603,11 +605,12 @@ Authored Rego는 `rule-catalog/` 아래에 **중첩되지 않음** ; T0와 검�
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했으며, 근거 없는 저장소 전체 라이선스 강제 주장을 바로잡았습니다. | `current change`; 구현 범위 표의 현재 소스, 카탈로그, 집중 테스트. | 누락된 기준선 계약, 제한 콘텐츠 집중 게이트, 운영 전달 연결을 추가합니다. |
+| 2026-08-14 | implemented | 영속 reference-only 수집을 차단하고 합성 fixture를 사용하는 staged snapshot 저장소 게이트를 추가했습니다. | 현재 변경의 `test_collect.py`와 `test_check_reference_only_sources.py`. | 소스 분류를 계속 검토합니다. 게이트는 선언된 manifest를 강제하며 임의 텍스트에서 라이선스를 추론하지 않습니다. |
 
 ### 남은 작업
 
 - [ ] 전용 `ConfigurationBaseline` 및 `MeasurementBaseline` 계약, 로더, 저장소 레이아웃을 구현하고 테스트합니다.
-- [ ] 제한된 예제를 저장하지 않으면서 금지된 reference-only 원문을 거부하는 검토 가능한 픽스처 기반 집중 저장소 게이트를 추가합니다.
+- [x] 제한된 예제를 저장하지 않으면서 금지된 reference-only 원문을 거부하는 검토 가능한 픽스처 기반 집중 저장소 게이트를 추가합니다.
 - [ ] 배포에서 watcher 주기, 출처 자격 증명, 스냅샷 저장소, 카탈로그 pull request 게시를 연결하고 재현 가능한 갱신 증적 하나를 보존합니다.
 
 ## 열림 Decisions

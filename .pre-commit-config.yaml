@@ -91,6 +91,12 @@ repos:
         language: system
         pass_filenames: false
         files: ^(rule-catalog/action-types/.*\.yaml|docs/runbooks/.*\.md|scripts/quality/documentation/check-action-runbooks\.py)$
+      - id: check-reference-only-sources
+        name: check-reference-only-sources.py (staged snapshot)
+        entry: python3 scripts/quality/repository/check-reference-only-sources.py --cached
+        language: system
+        pass_filenames: false
+        files: ^(rule-catalog/sources/|services/core-control-plane/src/fdai/rule_catalog/pipeline/collect/collector\.py$|scripts/quality/repository/check-reference-only-sources\.py$)
       - id: check-translation-quality
         name: check-translation-quality.py
         entry: python3 scripts/quality/localization/check-translation-quality.py
