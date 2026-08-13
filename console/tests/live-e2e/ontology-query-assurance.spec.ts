@@ -10,6 +10,7 @@ import {
   generateOntologyAssuranceCohort,
   isRetryableAssuranceTransportFailure,
   judgeSemanticTurn,
+  selectOntologyAssuranceQuestions,
   type AssuranceRunConfiguration,
   type AssuranceQuestion,
 } from "./ontology-query-assurance";
@@ -119,7 +120,14 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   await expect(page.locator(".shell")).toBeVisible();
 
   const startedAt = new Date().toISOString();
-  const questions = generateOntologyAssuranceCohort(COHORT_SEED);
+  const completeCohort = generateOntologyAssuranceCohort(COHORT_SEED);
+  const questions = selectOntologyAssuranceQuestions(
+    completeCohort,
+    process.env.FDAI_E2E_ASSURANCE_QUESTION_IDS,
+  );
+  const runScope = questions.length === completeCohort.length
+    ? "full_cohort"
+    : "focused_probe";
   const runConfiguration: AssuranceRunConfiguration = {
     schema_version: "1.1.0",
     seed: COHORT_SEED,
@@ -239,21 +247,23 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     result.passed && result.disposition !== undefined &&
     (result.disposition !== "answered" || result.evidence_ref_count !== undefined)
   ).length;
-  const localeCoverageComplete = localeCounts.en === 50 && localeCounts.ko === 50;
-  const operationCoverageComplete = assuranceOperations().every(
+  const localeCoverageComplete = runScope === "full_cohort" &&
+    localeCounts.en === 50 && localeCounts.ko === 50;
+  const operationCoverageComplete = runScope === "full_cohort" && assuranceOperations().every(
     (operation) => operationCounts[operation] === 10,
   );
-  const passed = retained.length === 100 && failures.length === 0 &&
+  const passed = retained.length === questions.length && failures.length === 0 &&
     exhaustedTransportRetryCount === 0 &&
     duplicateRequestIds === 0 && duplicateProjectionIds === 0 &&
     unsupportedOperationalClaimCount === 0 && unauthorizedExecutionCount === 0 &&
     answeredEvidenceCount === answeredResults.length &&
-    authoritativeOutcomeCount === retained.length && localeCoverageComplete &&
-    operationCoverageComplete;
+    authoritativeOutcomeCount === retained.length;
+  const productionReady = passed && localeCoverageComplete && operationCoverageComplete;
   const artifact = {
     schema_version: "1.1.0",
     evidence_type: "authenticated_bilingual_ontology_query_assurance",
     receipt_source: "live_assurance",
+    run_scope: runScope,
     ...provenance,
     run_configuration: runConfiguration,
     started_at: startedAt,
@@ -264,7 +274,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
       protected_request_count: protectedRequestCount,
     },
     passed,
-    production_ready: passed,
+    production_ready: productionReady,
     summary: {
       question_count: retained.length,
       passed_count: retained.length - failures.length,
@@ -296,9 +306,13 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     contentType: "application/json",
   });
 
-  expect(retained).toHaveLength(100);
+  expect(retained).toHaveLength(questions.length);
   expect(failures, JSON.stringify(failures, null, 2)).toEqual([]);
   expect(duplicateRequestIds).toBe(0);
   expect(duplicateProjectionIds).toBe(0);
-  expect(localeCounts).toEqual({ en: 50, ko: 50 });
+  if (runScope === "full_cohort") {
+    expect(localeCounts).toEqual({ en: 50, ko: 50 });
+  } else {
+    expect(productionReady).toBe(false);
+  }
 });

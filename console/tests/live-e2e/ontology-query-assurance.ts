@@ -273,6 +273,29 @@ export function generateOntologyAssuranceCohort(seed: number): readonly Assuranc
   return shuffle(questions, seed);
 }
 
+/** Selects a deterministic, nonempty subset from a generated assurance cohort. */
+export function selectOntologyAssuranceQuestions(
+  cohort: readonly AssuranceQuestion[],
+  rawQuestionIds: string | undefined,
+): readonly AssuranceQuestion[] {
+  if (rawQuestionIds === undefined) return cohort;
+  const questionIds = rawQuestionIds.split(",").map((value) => value.trim());
+  if (questionIds.some((questionId) => questionId.length === 0)) {
+    throw new Error("FDAI_E2E_ASSURANCE_QUESTION_IDS must contain nonempty comma-separated ids");
+  }
+  if (new Set(questionIds).size !== questionIds.length) {
+    throw new Error("FDAI_E2E_ASSURANCE_QUESTION_IDS must not contain duplicate ids");
+  }
+  const requestedIds = new Set(questionIds);
+  const unknownIds = questionIds.filter(
+    (questionId) => !cohort.some((question) => question.question_id === questionId),
+  );
+  if (unknownIds.length > 0) {
+    throw new Error(`FDAI_E2E_ASSURANCE_QUESTION_IDS contains unknown ids: ${unknownIds.join(", ")}`);
+  }
+  return cohort.filter((question) => requestedIds.has(question.question_id));
+}
+
 export function judgeSemanticReceipt(raw: unknown): AssuranceJudgment {
   const receipt = parseSemanticProjectionReceipt(raw);
   if (!receipt) return { passed: false, failure_reason: "invalid_semantic_receipt" };

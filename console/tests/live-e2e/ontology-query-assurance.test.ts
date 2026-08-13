@@ -7,6 +7,7 @@ import {
   isRetryableAssuranceTransportFailure,
   judgeSemanticReceipt,
   judgeSemanticTurn,
+  selectOntologyAssuranceQuestions,
   type AssuranceRunConfiguration,
 } from "./ontology-query-assurance";
 
@@ -99,6 +100,38 @@ describe("ontology query assurance cohort", () => {
         "question_id",
       ]);
     }
+  });
+
+  it("selects exact question ids while preserving seeded cohort order", () => {
+    const cohort = generateOntologyAssuranceCohort(0x0fda1);
+    const selected = selectOntologyAssuranceQuestions(
+      cohort,
+      "en-aggregation-4, ko-aggregation-1",
+    );
+
+    expect(selected.map((question) => question.question_id)).toEqual(
+      cohort
+        .filter((question) => ["en-aggregation-4", "ko-aggregation-1"].includes(question.question_id))
+        .map((question) => question.question_id),
+    );
+  });
+
+  it("returns the complete cohort when no focused selection is configured", () => {
+    const cohort = generateOntologyAssuranceCohort(0x0fda1);
+
+    expect(selectOntologyAssuranceQuestions(cohort, undefined)).toBe(cohort);
+  });
+
+  it.each([
+    ["", "nonempty comma-separated ids"],
+    ["en-aggregation-4,", "nonempty comma-separated ids"],
+    ["en-aggregation-4,en-aggregation-4", "must not contain duplicate ids"],
+    ["en-not_an_operation-1", "contains unknown ids"],
+  ])("rejects an invalid focused question selection: %s", (raw, message) => {
+    expect(() => selectOntologyAssuranceQuestions(
+      generateOntologyAssuranceCohort(0x0fda1),
+      raw,
+    )).toThrow(message);
   });
 });
 
