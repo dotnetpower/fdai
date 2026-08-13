@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 2705ee5ad8e2acf31480a66d92be3528ced96183
+translation_source_sha: 2e1bf71d13ed1008c4c5b7eb29ac236028ec909e
 translation_revised: 2026-08-13
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -36,6 +36,7 @@ file-count 목표가 아닌 설명 기준이지만, executable 완전성 게이�
 | 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 영속/실시간 현재 상태 projection identity를 기록했습니다. | 현재 출처와 `test_activity_projection.py`, 통과한 focused projection 및 영속성 테스트 | 아래의 검토된 이행 계열로 report-only 의존성 debt를 줄입니다. |
 | 2026-08-13 | 진행 중 | Exact 타입 기반 의미 증적 파싱, 스트림 수집, 영속 replay, 표현 및 인증된 근거 실행기를 추가했습니다. | `current change`, 통과한 focused Console 테스트 및 typecheck | 통제된 요청-Console 및 이중 언어 무작위 보증 브라우저 경로를 실행하고 통과한 두 기록을 보존합니다. |
 | 2026-08-13 | 구현됨 | 인증된 최종 증적 수집을 호출자 요청 UUID에 연결하고 애플리케이션의 원본 스트림을 소비하지 않도록 `Response.clone()`에서 SSE 본문을 수집했습니다. | `current change`, `console-routes.spec.ts`, Console typecheck 및 Playwright discovery 통과 | 무작위 보증 전에 인증된 통제 실행기를 수행하고 통과한 기록을 보존합니다. |
+| 2026-08-13 | 구현됨 | 인증된 통제 실행기를 현재 접근 가능한 `Run record` 궤적 요약에 맞춰 중첩된 실행 및 기술 증적 상세를 펼칠 수 있게 했습니다. | `current change`, `console-routes.spec.ts`, Console typecheck 및 exact Playwright discovery 통과 | 무작위 보증 전에 인증된 통제 실행기를 수행하고 통과한 기록을 보존합니다. |
 
 ### 남은 작업
 
