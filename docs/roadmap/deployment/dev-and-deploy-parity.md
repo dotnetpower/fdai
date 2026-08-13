@@ -31,7 +31,7 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 | Authenticated live Console route assurance | in-progress | `console/playwright.live.config.ts`, `console/tests/live-e2e/operator_service.py`, `console/tests/live-e2e/console-routes.spec.ts`, and `console/tests/live-e2e/ontology-query-assurance*.ts`; focused route checks and provenance tests passed | A governed artifact binds the exact source revision, canonical run-configuration digest, workspace patch digest, authentication attestation, and per-turn request and projection ids. The full route, ontology cohort, and critique rounds remain open. |
 | Live observation consumer isolation | implemented | `services/operator-service/src/fdai_operator_service/environment.py`, `services/operator-service/src/fdai_operator_service/composition.py`, `console/tests/live-e2e/operator_service.py`, and focused regressions; 41 tests passed | `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID` binds each independently running Operator process or replica to a distinct group. The E2E launcher always replaces inherited values with a UUID-scoped group. |
 | Authenticated local Live event path | validated | Controlled 2026-08-13 Browser Entra run through `aw.change.events`, Core, `aw.pipeline.stages`, Operator SSE, and the existing authenticated Live DOM | The run preserved the authoritative ontology and rendered the event plus all four accepted stages. It did not validate a deployed revision, the browser Notifications API, or closed-browser push delivery. |
-| Local and deployed composition parity | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, and service integration tests | Composition roots select credentials and adapters without changing evidence authority. |
+| Local and deployed composition parity | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, service integration tests, and focused workspace task tests | Composition roots select credentials and adapters without changing evidence authority. A trusted workspace prepares once and starts the complete local topology automatically. |
 | Local validation database isolation | implemented | `infra/local/docker-compose.yml`, `scripts/automation/validation_queue_context.py`, local preparation scripts, and focused validation and migration integration tests | Runtime state stays on local PostgreSQL port `5432`; destructive migration validation uses a separate local PostgreSQL cluster on port `5433`. |
 | FDAI workspace and profile pressure controls | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`; focused profile and workspace tests: 11 passed | Resource-scoped analysis controls stay in the workspace. The portable profile rejects Remote WSL Pylance machine settings that it cannot isolate. |
 | FDAI Pylance launch ceiling runtime proof | deferred | A clean FDAI Remote WSL restart still launched Pylance with the bundled VS Code Node executable and without `--max-old-space-size=2048`. VS Code Server 1.133 creates one Remote Machine settings resource independently of the active profile service. | Blocked pending an isolated runtime. A shared Remote Machine override would also affect excluded workspaces, so runtime isolation requires a separate VS Code Server data root or WSL distribution before the ceiling can be enabled. |
@@ -47,6 +47,7 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 | 2026-08-13 | in-progress | Made the capability catalog distinguish an optional missing projection from an unexpected failure and constrained the live exception to `404 /capabilities`. | Current change in `console/src/routes/capabilities.tsx`, `console/src/routes/capabilities.test.ts`, and `console/tests/live-e2e/console-routes.spec.ts`; focused unit tests: 7 passed; focused authenticated live check: 1 passed. | Repair the remaining failing routes, then complete the open assurance and critique/hardening rounds. |
 | 2026-08-13 | validated | Bound the Live observation consumer group through the Operator environment and composition, isolated the E2E launcher with a UUID-scoped group, and proved the authenticated local event path from canonical ingress to the existing Live DOM. | Current change in the Operator environment, composition, launcher, and focused regressions; 41 tests passed. Controlled Browser Entra evidence rendered the event and all four accepted stages. | Record equivalent evidence from a deployed revision. Browser Notifications API and closed-browser push delivery remain outside this evidence. |
 | 2026-08-13 | in-progress | Bound ontology assurance artifacts to exact source, configuration, workspace, authentication, request, and projection provenance before they can become governed evidence. | Current change in `console/tests/live-e2e/ontology-query-assurance*.ts`; focused Vitest: 25 passed; Console typecheck passed. | Obtain the exact centralized validation receipt, then run one authenticated probe before the seeded bilingual 100-case cohort. |
+| 2026-08-13 | implemented | Added a trusted-workspace aggregate task that prepares local state once and starts all five backend services plus the Console SPA without per-service confirmation clicks. | Current change in `.vscode/tasks.json` and `tests/integration/scripts/test_vscode_workspace_performance.py`; focused workspace task tests: 3 passed. | No remaining implementation work for automatic local full-stack startup. |
 
 ### Remaining work
 
@@ -127,16 +128,19 @@ transport uses Docker Redpanda on `127.0.0.1:19092`. A deployed Azure process se
 Event Hubs Kafka endpoint. Venue selection never changes evidence authority, promotion state,
 human identity, or executor authority.
 
-Opening the trusted workspace runs only lightweight hook installation, safe background Git sync,
-and the optional development VPN check. `console: prepare local state` is explicit and runs through
-`console: prepare full stack` or a direct task invocation. It starts runtime PostgreSQL on port
+Opening the trusted workspace runs `console: start full stack automatically`. The aggregate task
+completes `console: prepare full stack` once, then starts the five backend services and Console SPA
+in parallel without per-service confirmation clicks. Preparation starts runtime PostgreSQL on port
 `5432`, an isolated validation PostgreSQL cluster on port `5433`, Redpanda, and ClamAV. It advances
-the frozen legacy Alembic lineage and adopts and upgrades all five service-owned
-migration branches under a single-instance limit. The same preparation refreshes read-only Azure
-Resource Graph inventory and materializes sanitized model and runtime Settings projections from
-prepared authoritative inputs without copying tenant identifiers, resource endpoints, or
-credentials. An unavailable or unauthorized provider leaves inventory explicitly unavailable
-instead of substituting fixture data.
+the frozen legacy Alembic lineage and adopts and upgrades all five service-owned migration branches
+under a single-instance limit. The same preparation refreshes read-only Azure Resource Graph
+inventory and materializes sanitized model and runtime Settings projections from prepared
+authoritative inputs without copying tenant identifiers, resource endpoints, or credentials. An
+unavailable or unauthorized provider leaves inventory explicitly unavailable instead of
+substituting fixture data. Automatic startup still requires a trusted workspace and the committed
+`task.allowAutomaticTasks` policy; it doesn't weaken browser Entra authentication or service
+authority. Run `console: prepare full stack` first when starting an individual service task or
+standalone debug launch outside the aggregate task.
 The ignored local runtime environment records the validation cluster as
 `FDAI_VALIDATION_DATABASE_URL`. The detached central validation queue maps only that value to
 `FDAI_DATABASE_URL` for selected integration tests. It never supplies the active runtime DSN to

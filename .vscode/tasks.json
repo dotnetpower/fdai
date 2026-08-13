@@ -1,12 +1,11 @@
 {
   // FDAI developer tasks. The folderOpen tasks make trunk-based
-  // (no-branch) collaboration safe out of the box, and the optional
-  // dev-access task restores WSL private DNS when local VPN state exists:
+  // (no-branch) collaboration safe out of the box, restore optional WSL
+  // private DNS, and start the complete local Console topology:
   //   - "hooks: install" wires the shared pre-commit and pre-push gates.
   //   - "git: auto-pull" keeps local `main` close to the remote so
   //     conflicts surface early. It only rebases a clean working tree.
-  // First-open note: VS Code asks once to allow automatic tasks
-  // ("Manage Automatic Tasks" -> Allow). Trust the workspace to enable.
+  // Trust the workspace so its committed automatic-task policy can run.
   "version": "2.0.0",
   "tasks": [
     {
@@ -196,6 +195,32 @@
       "problemMatcher": []
     },
     {
+      "label": "console: start local services",
+      "dependsOrder": "parallel",
+      "dependsOn": [
+        "console: Core Control Plane (Local Docker)",
+        "console: Operator API (Local Entra)",
+        "console: Document Ingestion API (Local Docker)",
+        "console: Document Processing Worker (Local Docker)",
+        "console: Isolated Executor (Local Shadow)",
+        "console: frontend (Browser Entra)"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "console: start full stack automatically",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "console: prepare full stack",
+        "console: start local services"
+      ],
+      "problemMatcher": [],
+      "runOptions": {
+        "runOn": "folderOpen",
+        "instanceLimit": 1
+      }
+    },
+    {
       "label": "console: Core Control Plane (Local Docker)",
       "type": "shell",
       "command": "set -a && source .fdai/local-runtime.env && set +a && FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain bash scripts/automation/run-local-service.sh core-runtime \"$PWD/.fdai/logs/core-runtime.log\" -- env -u AZURE_CONFIG_DIR FDAI_RUNTIME_LOCK_FILE=\"$PWD/.fdai/core-runtime.lock\" PYTHONPATH=\"$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/python -m fdai",
@@ -226,7 +251,6 @@
       "label": "console: Operator API (Local Entra)",
       "type": "shell",
       "command": "set -a && source .fdai/local-operator-service.env && set +a && FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain bash scripts/automation/run-local-service.sh operator-api \"$PWD/.fdai/logs/operator-api.log\" -- env -u AZURE_CONFIG_DIR PYTHONPATH=\"$PWD/services/operator-service/src:$PWD/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/python -m uvicorn fdai_operator_service.main:create_app --factory --host 127.0.0.1 --port 8010 --no-access-log",
-      "dependsOn": "console: prepare full stack",
       "isBackground": true,
       "problemMatcher": {
         "owner": "console-operator-api",
@@ -255,7 +279,6 @@
       "label": "console: Document Ingestion API (Local Docker)",
       "type": "shell",
       "command": "set -a && source .fdai/local-document-ingestion-api.env && set +a && FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain bash scripts/automation/run-local-service.sh document-ingestion-api \"$PWD/.fdai/logs/document-ingestion-api.log\" -- env -u AZURE_CONFIG_DIR PYTHONPATH=\"$PWD/services/document-ingestion-api/src:$PWD/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/python -m uvicorn fdai_ingestion_api_service.main:create_app --factory --host 127.0.0.1 --port 8011 --no-access-log",
-      "dependsOn": "console: prepare full stack",
       "isBackground": true,
       "problemMatcher": {
         "owner": "console-document-ingestion-api",
@@ -280,7 +303,6 @@
       "label": "console: Document Processing Worker (Local Docker)",
       "type": "shell",
       "command": "set -a && source .fdai/local-document-processing-worker.env && set +a && FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain bash scripts/automation/run-local-service.sh document-processing-worker \"$PWD/.fdai/logs/document-processing-worker.log\" -- env -u AZURE_CONFIG_DIR PYTHONPATH=\"$PWD/services/document-processing-worker/src:$PWD/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/fdai-document-processing-worker",
-      "dependsOn": "console: prepare full stack",
       "isBackground": true,
       "problemMatcher": {
         "owner": "console-document-processing-worker",
@@ -305,7 +327,6 @@
       "label": "console: Isolated Executor (Local Shadow)",
       "type": "shell",
       "command": "set -a && source .fdai/local-isolated-executor.env && set +a && FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain bash scripts/automation/run-local-service.sh isolated-executor \"$PWD/.fdai/logs/isolated-executor.log\" -- env -u AZURE_CONFIG_DIR PYTHONPATH=\"$PWD/services/isolated-executor/src:$PWD/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/fdai-isolated-executor-service",
-      "dependsOn": "console: prepare full stack",
       "isBackground": true,
       "problemMatcher": {
         "owner": "console-isolated-executor",
