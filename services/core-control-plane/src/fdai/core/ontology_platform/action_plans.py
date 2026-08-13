@@ -211,6 +211,8 @@ def _validate_arguments(
     action_type: OntologyActionType,
     arguments: Mapping[str, Any],
 ) -> tuple[tuple[ActionArgumentBinding, ...], str]:
+    """Bind the exact declared argument set without retaining redacted values."""
+
     semantic = action_type.semantic
     if semantic is None:  # pragma: no cover - checked by public function
         raise RuntimeError("semantic contract is unavailable")
@@ -254,6 +256,8 @@ def _validate_read_set_receipts(
     *,
     created_at: datetime,
 ) -> tuple[str, ...]:
+    """Require one complete, fresh receipt for every declared read set."""
+
     semantic = action_type.semantic
     if semantic is None:  # pragma: no cover - checked by public function
         raise RuntimeError("semantic contract is unavailable")
@@ -289,6 +293,8 @@ def _validate_criterion_results(
     *,
     created_at: datetime,
 ) -> tuple[str, ...]:
+    """Require every declared submission criterion to have fresh passing evidence."""
+
     semantic = action_type.semantic
     if semantic is None:  # pragma: no cover - checked by public function
         raise RuntimeError("semantic contract is unavailable")
@@ -372,6 +378,8 @@ def _validate_receipt_state(
     created_at: datetime,
     label: str,
 ) -> None:
+    """Reject incomplete or stale evidence relative to immutable plan creation."""
+
     if not complete:
         raise ValueError(f"{label} MUST be complete")
     if truncated:
@@ -403,6 +411,8 @@ def _validate_semantic_references(
     release: OntologyRelease,
     functions: Mapping[tuple[str, str], OntologyFunctionType],
 ) -> None:
+    """Bind every semantic reference to exact content in the active release."""
+
     semantic = action_type.semantic
     if semantic is None:  # pragma: no cover - checked by public function
         raise RuntimeError("semantic contract is unavailable")
@@ -481,6 +491,8 @@ def _validate_targets(
     targets: Sequence[OntologyObjectRecord],
     interfaces: CompiledInterfaceCatalog | None,
 ) -> None:
+    """Enforce target identity, cardinality, type, and transaction blast radius."""
+
     semantic = action_type.semantic
     if semantic is None:  # pragma: no cover - checked by public function
         raise RuntimeError("semantic contract is unavailable")
@@ -522,6 +534,8 @@ def _validate_effects(
     rollback_effects: Sequence[MutationEffect],
     expected_effects: Sequence[MutationEffect],
 ) -> None:
+    """Require exact per-target effects, rollback coverage, and postconditions."""
+
     semantic = action_type.semantic
     if semantic is None:  # pragma: no cover - checked by public function
         raise RuntimeError("semantic contract is unavailable")
