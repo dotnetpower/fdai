@@ -34,7 +34,18 @@ from fdai.rule_catalog.schema.rule_objective_binding import (
     RuleObjectiveBinding,
     rule_objective_binding_content_hash,
 )
+from fdai.rule_catalog.schema.rule_semantic_evaluation import (
+    EvaluationQueryOrigin,
+    RetrievalEvaluationCase,
+    RetrievalEvaluationPolicy,
+    evaluate_semantic_surface,
+)
 from fdai.rule_catalog.schema.rule_semantic_generation import build_document_digest_manifest
+from fdai.rule_catalog.schema.rule_semantic_retrieval import (
+    RuleSemanticSurface,
+    SurfaceOrigin,
+    ValidationDecision,
+)
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.ontology.compatibility import OntologyGenerationCompatibilityReceipt
 from fdai.shared.providers.catalog_search import (
@@ -93,6 +104,26 @@ def _generation_metadata(
         document_digest_manifest=manifest,
         validation_receipt_digest=_digest(f"validated\0{generation_digest}"),
     )
+
+
+class _ActiveCatalogRetriever:
+    def __init__(
+        self,
+        index: InMemoryCatalogSemanticIndex,
+        *,
+        catalog_digest: str,
+    ) -> None:
+        self._index = index
+        self._catalog_digest = catalog_digest
+
+    async def search(self, query: str, *, k: int) -> tuple[str, ...]:
+        results = await self._index.search(
+            query,
+            k=k,
+            corpus="active",
+            expected_catalog_digest=self._catalog_digest,
+        )
+        return tuple(item.rule_id for item in results)
 
 
 def _load_active_corpus(
@@ -434,3 +465,83 @@ async def test_real_active_rule_corpus_uses_validated_exact_generation() -> None
     assert active.ontology_release_digest == expected.ontology_release_digest
     assert [item.rule_id for item in results] == [documents[0].rule_id]
     assert all(item.generation_digest == active.generation_digest for item in results)
+
+
+async def test_shipped_active_catalog_holds_without_korean_semantic_surfaces() -> None:
+    documents, metadata = _load_active_corpus()
+    target_rule_id = "kubernetes-node-pool.multi-zone"
+    index = InMemoryCatalogSemanticIndex()
+    assert await index.stage_generation(metadata, documents) == 62
+    await index.activate_generation(
+        metadata.generation_id,
+        expected_generation_digest=metadata.generation_digest,
+        expected_active_generation_id=None,
+        expected_active_generation_digest=None,
+        activated_at=NOW,
+    )
+    surface = RuleSemanticSurface(
+        surface_id="surface.assurance.kubernetes-node-pool.multi-zone.ko",
+        manifest_digest=_digest(f"manifest\0{target_rule_id}"),
+        locale="ko",
+        origin=SurfaceOrigin.AUTHORED,
+        intent_ids=("require-multi-zone-node-pool",),
+        concept_refs=("kubernetes-node-pool",),
+        aliases=(),
+        training_queries=("노드 풀 가용 영역 적용",),
+        hard_negative_queries=("데이터베이스 연결 수 제한",),
+        producer_ref="assurance:shipped-catalog-ko@1",
+        evidence_refs=(f"rule:{target_rule_id}",),
+    )
+    cases = (
+        RetrievalEvaluationCase(
+            "exact-rule-id-en",
+            target_rule_id,
+            "en-exact",
+            (target_rule_id,),
+            EvaluationQueryOrigin.USER,
+        ),
+        RetrievalEvaluationCase(
+            "paraphrase-ko",
+            "노드 풀이 여러 가용 영역을 사용하도록 요구하는 규칙은 무엇인가요?",
+            "ko-positive",
+            (target_rule_id,),
+            EvaluationQueryOrigin.USER,
+        ),
+        RetrievalEvaluationCase(
+            "no-match-ko",
+            "데이터베이스 연결 풀 크기를 조정하는 규칙은 무엇인가요?",
+            "ko-negative",
+            (),
+            EvaluationQueryOrigin.ASSURANCE_GENERATED,
+            generator_ref="assurance:shipped-catalog-ko@1",
+        ),
+    )
+    policy = RetrievalEvaluationPolicy(
+        top_k=5,
+        min_recall_at_k=1.0,
+        min_mean_reciprocal_rank=1.0,
+        min_no_match_precision=1.0,
+    )
+
+    receipt = await evaluate_semantic_surface(
+        surface,
+        cases,
+        retriever=_ActiveCatalogRetriever(
+            index,
+            catalog_digest=metadata.catalog_digest,
+        ),
+        policy=policy,
+        evaluator_ref="heimdall:shipped-catalog-ko@1",
+    )
+    metrics = {(item.cohort, item.metric): item.value for item in receipt.cohort_metrics}
+
+    assert receipt.decision is ValidationDecision.HOLD
+    assert receipt.failure_codes == (
+        "ko-positive-mrr-below-threshold",
+        "ko-positive-recall-below-threshold",
+    )
+    assert metrics[("en-exact", "recall-at-5")] == 1.0
+    assert metrics[("ko-positive", "recall-at-5")] == 0.0
+    assert metrics[("ko-negative", "no-match-precision")] == 1.0
+    assert receipt.validation_authority == "validation_only"
+    assert surface.execution_authority is False
