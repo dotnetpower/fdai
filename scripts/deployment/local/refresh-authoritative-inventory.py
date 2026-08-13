@@ -96,7 +96,11 @@ async def refresh() -> InventoryOntologyProjectionResult:
     )
     await ontology_store.sync_catalog()
     state_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
-    projector = InventoryOntologyProjector(store=ontology_store, status_store=state_store)
+    projector = InventoryOntologyProjector(
+        store=ontology_store,
+        status_store=state_store,
+        ontology_release_digest=ontology.build_release().digest,
+    )
     snapshot_store = PostgresInventorySnapshotStore(
         config=PostgresInventorySnapshotStoreConfig(dsn=dsn)
     )
