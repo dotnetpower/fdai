@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: fd81bc6693580d8198c90cc9cece0ee4c56c9a67
-translation_revised: 2026-08-11
+translation_source_sha: d47521c671a84d9dcf9ef621e691bf164dad1c24
+translation_revised: 2026-08-13
 ---
 
 # 에이전트 판테온 구현 계획
@@ -24,15 +24,37 @@ translation_revised: 2026-08-11
 > [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)
 > 의 배치를 따른다.
 
-> **구현 상태 (2026-08-04):** W0-W8은 구현되었습니다. 아래 섹션은 롤아웃 순서와 acceptance 의도를 보존합니다.
-> 공유 구성 요소는 `services/core-control-plane/src/fdai/agents/_framework/`에 있고, wave 커버리지는
-> `services/core-control-plane/tests/agents/test_wave2_governance.py`부터 `test_wave8_kpi_degradation.py`까지입니다.
-> 작업 흐름 인벤토리는 executable 추적 참조를 포함하고 KPI 보고는 measured 값과 사용 불가 근거를 구분하며, 모든 에이전트는 injected 성능 저하 훈련을 가집니다.
-> Huginn은 정규화된 planned 및 관찰된 변경을 `object.change`로 publish하고 Muninn은
-> 실행 권한을 추가하지 않은 채 변경할 수 없는 내용 기반 주소를 가진 개정 번호를 보존합니다.
-> Causal Event는 같은 변경 근거를 포함하고 Forseti의 범위가 제한된 평가는 권한을
-> 유지하거나 낮출 수만 있습니다. Graph 최신성이 권위 있는해질 때까지 planned 변경은
-> 사람 검토 상태로 유지됩니다.
+아래 섹션은 롤아웃 순서와 수락 의도를 보존합니다. 공유 구성 요소는
+`services/core-control-plane/src/fdai/agents/_framework/`에 있습니다. Huginn은 정규화된
+계획 및 관찰된 변경을 `object.change`로 게시하고, Muninn은 실행 권한을 추가하지 않은 채
+변경할 수 없는 내용 주소 기반 리비전을 보존합니다. 인과 Event는 같은 변경 근거를 포함하고,
+Forseti의 범위가 제한된 평가는 권한을 유지하거나 낮출 수만 있습니다. 그래프 최신성에
+권위 있는 근거가 생길 때까지 계획된 변경은 사람 검토 상태로 유지됩니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| W0-W1 문서, 온톨로지 및 프레임워크 기반 | implemented | [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py) | 고정 레지스트리, 패키지 경계, 문서 일치 및 타입이 지정된 토픽 기반을 실행하고 검사할 수 있습니다. |
+| W2-W6 거버넌스, 파이프라인, 인터페이스, 전문 에이전트, 인계 및 보안 메커니즘 | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py), [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py) | 범위가 제한된 메커니즘을 집중 합성 검사로 실행하지만 실제 운영 검증을 입증하지는 않습니다. |
+| W7 에이전트 간 shadow 작업 흐름 메커니즘 | implemented | [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | 작업 흐름에 실행 가능한 합성 shadow 추적이 있으며, enforce 작업 흐름을 기본값으로 사용하는 근거는 이 문서에 없습니다. |
+| W8 KPI, 승격 및 성능 저하 메커니즘 | implemented | [`test_wave8_kpi_degradation.py`](../../../services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py) | KPI 보고는 측정값과 사용 불가능한 근거를 구분하고, 근거가 없으면 승격을 차단하며, 주입된 성능 저하 훈련이 고정 판테온을 다룹니다. |
+| 실제 운영 KPI 검증 및 실제 enforce 승격 | not-started | [목표와 메트릭](../architecture/goals-and-metrics-ko.md) | 이 계획에는 보존된 실제 shadow 표본 집합, 운영 승격 증적, 독립적인 검토 또는 실제 판테온 enforce 승격 근거가 없습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | W0-W8 전체 완료 주장을 독립적으로 근거를 확인할 수 있는 구현 영역으로 교체했습니다. | 현재 변경 | 검증 완료 또는 enforce 운영을 주장하기 전에 실제 근거를 수집하고 별도 검토를 거친 승격을 완료합니다. |
+
+### 남은 작업
+
+- [ ] 하나의 고정된 런타임, 카탈로그, ActionType, 작업 흐름 및 시나리오 집합 리비전에서 보존된 실제 shadow 코호트를 대상으로 선언된 KPI 수집기를 실행합니다.
+- [ ] 승격 후보마다 표본 수와 신뢰 구간을 포함한 권위 있는 결과, 재발, 롤백 및 정책 이탈 0건 근거를 보존합니다.
+- [ ] 판테온 enforce 운영을 사용하거나 보고하기 전에 독립적인 승격 검토를 완료하고 권위 있는 승격 집합 증적을 기록합니다.
+
 ## 1. 이 문서가 존재하는 이유
 
 판테온 문서 ([agent-pantheon.md](agent-pantheon-ko.md)) 는 15개 에이전트 계약을
@@ -685,99 +707,16 @@ judge-and-log 만 하고 P1 루프와 이중 실행하지 않는다. 강제 적�
 
 ### 13.6 LLM 호출 표면 (웨이브 전반)
 
-판테온은 deterministic-first 다: hot-path 는 거의 모든 이벤트를 T0(룰 /
-표 조회) 또는 T1(유사도) 로 라우팅한다. LLM 은 선언된 기능
-이지 기본값 가 아니며, hot-path 가 LLM 을 호출하는 곳은 정확히 세 군데다
-(agent-pantheon.md §8) - 네 번째를 추가하는 웨이브는 defect 다:
-
-| 위치 | 에이전트 | 웨이브 | 모델의 역할 |
-|------|---------|--------|-------------|
-| Translator | Bragi | W4 | 자연어 턴 을 의도 / ActionType 으로 매핑; 판단·실행 안 함 (§7.7) |
-| T2 abstain | Forseti | W3 stub -> 이후 | T0·T1 이 abstain 한 뒤에만 novel 케이스를 추론; 출력은 판정 대상이지 신뢰 대상 아님 |
-| Off-path 배치 | Norns | W2 (T1) -> W7 (T2) | 감사 패턴에서 `RuleCandidate` 제안; hot-path 밖에서 돌고, quality 게이트 가 승격하기 전까지 출력은 inert |
-
-나머지 모든 에이전트 - Huginn, Heimdall, Vidar, Var, Thor, Odin, Saga,
-Mimir, Muninn, 그리고 도메인 전문가 - 는 hot-path 에서 LLM-free 를
-유지한다.
-
-**Composition-root 바인딩 (`LlmBindings`).** 모델 경계 은 에이전트 내부가
-아니라 조립 루트(`services/core-control-plane/src/fdai/composition/`)에서 한 번만 해석된다.
-컨테이너는 T1 임베딩 모델과 T2 교차 검증 모델을 제공하는 `LlmBindings`
-를 들고 있고, `llm.mode` 로 선택한다:
-
-- `local-fake` (업스트림 기본) - 결정론적 in-memory 가짜, Azure
-  자격 증명 불필요, 그래서 판테온 전체가 오프라인으로 실행·테스트된다.
-- `azure` - `Container.llm_bindings` 는 `None` 으로 시작; 엔트리포인트가
-  `bind_azure_llm_bindings` 를 호출해 per-capability Azure OpenAI 어댑터
-  (임베딩 + T2 교차 검증 + 선택적 tool-call)를 배선한다. 포크 는
-  `agents.<name>.llm_bindings` 설정으로 구체 모델을 고른다
-  (agent-pantheon.md §10); 어느 쪽이든 판테온 코드는 동일하다.
-
-**T2 quality 게이트 (Forseti).** T2 판정 은 절대 곧바로 실행으로 라우팅되지
-않는다. 모델은 *생성* 하고, 실행 자격은 결정론적 검증이 *부여* 한다.
-게이트는 세 가지 체크다 (architecture.instructions.md):
-
-1. **Mixed-model 교차 검증** - 서로 다른 모델 2개 이상이 같은 케이스를
-   판정; 일치하면 진행, 불일치하면 HIL 로 에스컬레이션(자동 해결 금지).
-2. **검증기** - 제안된 액션을 실행 전에 policy-as-code 와 what-if /
-   예행 실행 으로 재검증한다.
-3. **Grounding (RAG)** - 판단은 그것을 정당화하는 룰 / 정책 를 인용해야
-   한다; 근거 없는 답은 HIL 로 abstain 한다.
-
-Wave 3 Forseti 는 결정론적 계층(T0 rule-match + risk 표)를 ship
-하고 T2 에는 **stub abstain** 을 반환한다; mixed-model 교차 검증 와
-grounding 은 `LlmBindings` 경계 뒤에서 이후 웨이브에 착지한다. 그전까지
-novel 케이스는 모델 판정 이 아니라 HIL 로 라우팅된다 - fail toward
-안전성.
-
-**Conversational-port 숙의.** 모든 에이전트는 계속 변경할 수 없는 `AgentSpec`과 owned `facts`에서
-답합니다. 명시적 discussion 경로는 T1 의미 participant 선택을 요구한 다음 기본
-position 하나와 범위가 제한된 peer 비평을 실행합니다. `LlmBindings`의 선택적
-`T2ConversationSynthesizer`가 owner-attributed 점유를 렌더할 수 있지만 기본값 Azure 어댑터를
-의미하지 않습니다. T2 실패는 T1을 보존하고 모든 결과는 presentation-only입니다. 타입이 지정된
-판정, 승인, 실행, 롤백, 감사 및 승격 소유자는 변경되지 않습니다.
-
-**Metering (측정값, 추정 아님).** Metering 대상 T1, T2, 서술기 호출은
-프로바이더가 측정한 `usage`를 `MeteringSink`로 기록합니다. 서술기는
-`operator_chat`을 사용하고 나머지 호출은 `control_plane`을 사용합니다.
-Operator API `LlmCostPanel`은 `GET /kpi/llm-cost`를 호환 경로로 유지하며 범위,
-모델, 호출, 대화, 일, 월별 token-only rollup을 노출합니다. 단일 프로세스
-dev 실행 장치는 하나의 in-memory 싱크를 공유하고 운영은 영속 Postgres
-`llm_invocation` 저장소를 통해 headless 코어와 Operator API가 같은 metering 스트림을
-사용합니다.
+웨이브 전체의 모델 바인딩, 품질 게이트, 숙의 및 측정 상세는
+[판테온 지원 부록](README-ko.md#웨이브-전반의-llm-호출-표면)에서 관리합니다.
 
 ## 14. 타임라인 형태 (commitment 아님)
 
-웨이브는 strictly 순차 (W0 -> W8). W7 이 가장 넓은 웨이브 (워크플로우당
-sub-PR 13개) 이고 W8 과 overlap (KPI 수집기 는 워크플로우와 병렬로
-착지 가능).
-
-```mermaid
-timeline
-    title Pantheon Wave Plan (order, not calendar)
-    W0 : Docs foundation : workflows + pantheon 4 detail + ontology YAML
-    W1 : Python scaffolding : agents package + registry + tests
-    W2 : Governance : Saga + Mimir + Muninn + Norns
-    W3 : Pipeline : Huginn + Heimdall + Forseti + Var + Vidar + Thor
-    W4 : Interface : Bragi + Odin
-    W5 : Specialists : Njord + Freyr + Loki
-    W6 : Handoff + Security : Issue dedup + admin alerts
-    W7 : Workflows : 13 workflows in shadow
-    W8 : KPI + Promotion : evidence states + 15 drills + gated lifecycle
-```
+[타임라인 형태](README-ko.md#타임라인-형태-commitment-아님)를 참조하세요.
 
 ## 15. 범위 밖
 
-- **2세대 에이전트.** 판테온은 15에서 고정. 새 에이전트 추가 (예:
-  Heimdall 과 별개의 "Security Officer") 는 판테온 문서를 먼저 revise 하는
-  향후 업스트림 PR.
-- **Multi-cloud 어댑터.** AWS 와 GCP 는 TBD 유지
-  ([구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must)).
-- **UI redesign.** 콘솔은 읽기 전용 유지; 판테온은 콘솔 형태 를 바꾸지
-  않음 ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)).
-- **모델 fine-tuning.** LLM 전략과 fine-tuning 은
-  [llm-strategy.md](../architecture/llm-strategy-ko.md) 관할; 판테온은 포크 가 구성한
-  연결 을 사용.
+[범위 밖](README-ko.md#범위-밖)을 참조하세요.
 
 ## Next 단계
 

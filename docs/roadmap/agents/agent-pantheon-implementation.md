@@ -22,14 +22,40 @@ in [coding-conventions.instructions.md](../../../.github/instructions/coding-con
 > adapters follow the layout in
 > [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md).
 
-> **Implementation status (2026-08-04):** W0-W8 are implemented. The sections preserve rollout
-> order and acceptance intent. Shared machinery lives under `services/core-control-plane/src/fdai/agents/_framework/`, with
-> coverage from `services/core-control-plane/tests/agents/test_wave2_governance.py` through `test_wave8_kpi_degradation.py`.
-> Workflows carry executable trace refs, KPI reports distinguish measured values from unavailable evidence, and every agent has an injected degradation drill.
-> Huginn also publishes normalized planned and observed changes on `object.change`, and Muninn
-> retains immutable content-addressed revisions without adding execution authority. The causal
-> Event carries the same Change evidence, and Forseti's bounded assessment can only preserve or
-> lower authority. Planned changes remain in human review until graph freshness is authoritative.
+The sections preserve rollout order and acceptance intent. Shared machinery lives under
+`services/core-control-plane/src/fdai/agents/_framework/`. Huginn publishes normalized planned and
+observed changes on `object.change`, and Muninn retains immutable content-addressed revisions
+without adding execution authority. The causal Event carries the same Change evidence, and
+Forseti's bounded assessment can only preserve or lower authority. Planned changes remain in human
+review until graph freshness is authoritative.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| W0-W1 documentation, ontology, and framework scaffolding | implemented | [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py) | The fixed registry, package boundary, documentation parity, and typed-topic foundation are executable and checked. |
+| W2-W6 governance, pipeline, interface, specialist, handoff, and security mechanics | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py), [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py) | Focused synthetic tests exercise the bounded mechanics; they do not establish live operational validation. |
+| W7 cross-agent shadow workflow mechanics | implemented | [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | Workflows have executable synthetic shadow traces and no evidence here of a default enforce workflow. |
+| W8 KPI, promotion, and degradation machinery | implemented | [`test_wave8_kpi_degradation.py`](../../../services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py) | KPI reports distinguish measured values from unavailable evidence, promotion fails closed on missing evidence, and injected degradation drills cover the fixed pantheon. |
+| Live operational KPI validation and actual enforce promotion | not-started | [Goals and Metrics](../architecture/goals-and-metrics.md) | No retained live-shadow sample set, operational promotion receipt, independent review, or actual pantheon enforce promotion is evidenced by this plan. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Replaced the broad W0-W8 completion claim with independently evidenced implementation areas. | current change | Gather live evidence and complete separately reviewed promotion before claiming validation or enforce operation. |
+
+### Remaining work
+
+- [ ] Run the declared KPI collectors against a retained live-shadow cohort on one pinned runtime,
+  catalog, ActionType, workflow, and scenario-set revision.
+- [ ] Retain authoritative outcome, recurrence, rollback, and zero-escape evidence with sample counts
+  and confidence intervals for each promotion candidate.
+- [ ] Complete an independent promotion review and record the authoritative promoted-set receipt
+  before enabling or reporting pantheon enforce operation.
+
 ## 1. Why this doc exists
 
 The pantheon doc ([agent-pantheon.md](agent-pantheon.md)) defines the
@@ -714,97 +740,16 @@ concern (`infra/modules/event-bus/`), out of scope for the flag itself.
 
 ### 13.6 LLM invocation surface (across waves)
 
-The pantheon is deterministic-first: the hot-path routes almost every event
-through T0 (rule / table lookup) or T1 (similarity). An LLM is a declared
-capability, never a default, and the hot-path invokes one in exactly three
-places (agent-pantheon.md §8) - any wave that adds a fourth is a defect:
-
-| Site | Agent | Wave | Role of the model |
-|------|-------|------|-------------------|
-| Translator | Bragi | W4 | maps a natural-language turn to an intent / ActionType; never judges or executes (§7.7) |
-| T2 abstain | Forseti | W3 stub -> later | reasons over a novel case only after T0 and T1 abstain; output is judged, never trusted |
-| Off-path batch | Norns | W2 (T1) -> W7 (T2) | proposes `RuleCandidate`s from audit patterns; runs off the hot-path, output is inert until the quality gate promotes it |
-
-Every other agent - Huginn, Heimdall, Vidar, Var, Thor, Odin, Saga, Mimir,
-Muninn, and the domain specialists - stays LLM-free in the hot-path.
-
-**Composition-root binding (`LlmBindings`).** The model seam is resolved once
-at the composition root (`services/core-control-plane/src/fdai/composition/`), never inside an agent. The
-container carries an `LlmBindings` that provides the T1 embedding model and the
-T2 cross-check models, selected by `llm.mode`:
-
-- `local-fake` (upstream default) - deterministic in-memory fakes, no Azure
-  credentials, so the whole pantheon runs and tests offline.
-- `azure` - `Container.llm_bindings` starts `None`; the entry point calls
-  `bind_azure_llm_bindings` to wire the per-capability Azure OpenAI adapters
-  (embedding + T2 cross-check + optional tool-call). A fork picks the concrete
-  models through `agents.<name>.llm_bindings` config (agent-pantheon.md §10);
-  the pantheon code is identical either way.
-
-**T2 quality gate (Forseti).** A T2 verdict is never routed straight to
-execution. The model *generates*; deterministic verification *grants* execution
-eligibility. The gate is three checks (architecture.instructions.md):
-
-1. **Mixed-model cross-check** - two or more distinct models judge the same
-   case; agreement proceeds, disagreement escalates to HIL (never auto-resolve).
-2. **Verifier** - the proposed action is re-validated against policy-as-code and
-   what-if / dry-run before it can execute.
-3. **Grounding (RAG)** - the judgment must cite the rules / policies that
-   justify it; an unsupported answer abstains to HIL.
-
-Wave 3 Forseti ships the deterministic tiers (T0 rule-match + risk table) and
-returns a **stub abstain** for T2; the mixed-model cross-check and grounding
-land in a later wave behind the `LlmBindings` seam. Until then a novel case
-routes to HIL rather than to a model verdict - fail toward safety.
-
-**Conversational-port deliberation.** Every agent still answers from its immutable
-`AgentSpec` and owned `facts`. The explicit discussion path requires T1 semantic participant
-selection, then runs one primary position plus bounded peer critiques. An optional
-`T2ConversationSynthesizer` on `LlmBindings` can render those owner-attributed claims; no default
-Azure adapter is implied. T2 failure preserves T1, and every result is presentation-only. The
-typed verdict, approval, execution, rollback, audit, and promotion owners remain unchanged.
-
-**Metering (measured, never estimated).** Every metered T1, T2, and narrator call
-records the provider's measured `usage` through a `MeteringSink`. The narrator
-uses `operator_chat`; other calls use `control_plane`. The Operator API
-`LlmCostPanel` retains `GET /kpi/llm-cost` as a compatibility path and exposes
-token-only rollups by scope, model, call, conversation, day, and month. The
-single-process dev harness shares one in-memory sink; production uses the
-durable Postgres `llm_invocation` store across the headless core and Operator API.
+The cross-wave model binding, quality gate, deliberation, and metering details are maintained in
+the [pantheon supporting appendices](README.md#llm-invocation-surface-across-waves).
 
 ## 14. Timeline shape (not commitments)
 
-Waves are strictly sequential (W0 -> W8). W7 is the widest wave (13
-sub-PRs, one per workflow) and will overlap with W8 (KPI collectors
-can land in parallel with workflows).
-
-```mermaid
-timeline
-    title Pantheon Wave Plan (order, not calendar)
-    W0 : Docs foundation : workflows + pantheon 4 detail + ontology YAML
-    W1 : Python scaffolding : agents package + registry + tests
-    W2 : Governance : Saga + Mimir + Muninn + Norns
-    W3 : Pipeline : Huginn + Heimdall + Forseti + Var + Vidar + Thor
-    W4 : Interface : Bragi + Odin
-    W5 : Specialists : Njord + Freyr + Loki
-    W6 : Handoff + Security : Issue dedup + admin alerts
-    W7 : Workflows : 13 workflows in shadow
-    W8 : KPI + Promotion : evidence states + 15 drills + gated lifecycle
-```
+See [Timeline shape](README.md#timeline-shape-not-commitments).
 
 ## 15. Not in scope
 
-- **Second-generation agents.** The pantheon is fixed at 15. Adding
-  a new agent (e.g. a "Security Officer" separate from Heimdall) is
-  a future upstream PR that revises the pantheon doc first.
-- **Multi-cloud adapters.** AWS and GCP stay TBD
-  ([Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must)).
-- **UI redesign.** The console stays read-only; the pantheon does
-  not change the console shape
-  ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)).
-- **Model fine-tuning.** LLM strategy and fine-tuning are governed
-  by [llm-strategy.md](../architecture/llm-strategy.md); the pantheon uses whatever
-  bindings the fork configures.
+See [Not in scope](README.md#not-in-scope).
 
 ## Next steps
 

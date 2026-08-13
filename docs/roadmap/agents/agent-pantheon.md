@@ -25,6 +25,35 @@ Consumers of this document:
   to its initiator, judge, approver, executor, and auditor.
 - Forks read §10 to see which seams are open (topic subscriptions, config
   overrides) and which are locked (no new agents, no rename).
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Fixed registry, roles, and package boundary | implemented | [`pantheon.py`](../../../services/core-control-plane/src/fdai/agents/_framework/pantheon.py), [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py) | The fixed 15 names, catalog layers, ownership, and public package boundary are machine-checked. |
+| Typed pub/sub ownership and concurrent runtime | implemented | [`topics.py`](../../../services/core-control-plane/src/fdai/agents/_framework/topics.py), [`runtime.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py), [`test_pantheon_concurrency_proof.py`](../../../services/core-control-plane/tests/agents/test_pantheon_concurrency_proof.py) | Focused tests cover topic ownership, partitioning, all 15 consumer identities, and non-stealing fan-out. |
+| Judgment, approval, execution, audit, and recovery separation | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py) | Synthetic runtime tests exercise the separated lifecycle and durable ActionRun behavior; they do not prove a live production outcome. |
+| Conversational and handoff mechanics | implemented | [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py), [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | The bounded read-only conversation path and shadow workflow traces are executable in focused tests. |
+| KPI evidence states, promotion checks, and degradation drills | implemented | [`test_wave8_kpi_degradation.py`](../../../services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py) | Missing or unmeasured KPI evidence fails promotion closed, and injected failures exercise declared degradation behavior. |
+| Live operational KPI validation and enforce promotion | not-started | [Goals and Metrics](../architecture/goals-and-metrics.md) | No retained live-shadow cohort, operational KPI receipt set, independent promotion review, or actual pantheon enforce promotion is evidenced here. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted an evidence-bounded implementation ledger without reconstructing earlier delivery history. | current change | Collect live operational evidence and complete an independently reviewed promotion before claiming validation or enforce use. |
+
+### Remaining work
+
+- [ ] Retain a live-shadow cohort with measured per-agent and system KPIs, sample counts,
+  confidence intervals, guard metrics, and authoritative outcome receipts on one pinned revision.
+- [ ] Demonstrate the declared degradation behavior against operational dependencies rather than
+  only injected failures, without widening any agent's authority.
+- [ ] Complete an independent promotion review for each eligible capability and retain the
+  authoritative promotion receipt before reporting enforce operation.
+
 ## 1. Design principles
 
 The pantheon is a thin re-framing of the existing FDAI control loop into
@@ -721,104 +750,38 @@ does not change the typed decision or execution path.
 
 ## 9. Security and privilege-escalation monitoring
 
-FDAI treats unauthorized action attempts as first-class security signals.
-The pantheon extends Heimdall (already the "all-seeing" observer) to
-detect them; it does not add a new agent.
+The detailed security-monitoring contract is maintained in the
+[pantheon supporting appendices](README.md#security-and-privilege-escalation-monitoring).
 
 ### 9.1 Detection
 
-When an operator (via Bragi) or a fork-registered initiator proposes an
-action whose `initiator_principal` lacks the RBAC role required by the
-ActionType:
-
-1. Forseti issues verdict `deny` with `reason: rbac_insufficient`.
-2. Forseti simultaneously publishes a `SecurityEvent` with
-   `type: privilege_escalation_attempt`, the initiator id, the attempted
-   ActionType, the target resource, a severity score, and the correlation
-   id.
-3. Saga records both events.
+See [Detection](README.md#detection).
 
 ### 9.2 Correlation and severity
 
-Heimdall subscribes to `object.security-event` and classifies:
-
-| Severity | Trigger | Response |
-|----------|---------|----------|
-| low | single attempt on a low-impact action | audit only |
-| medium | 3+ attempts by same user within 5 minutes, or single medium-impact | daily digest to admin group |
-| high | single attempt on a critical / irreversible action, or 5+ attempts in 5 minutes | immediate ChatOps card to admin group |
-| critical | multi-action pattern, unusual hours, deliberate escalation pattern | immediate + separate on-call security channel |
-
-Severity is deterministic (table + counters), not LLM-scored.
+See [Correlation and severity](README.md#correlation-and-severity).
 
 ### 9.3 Notification delivery
 
-Heimdall classifies `object.security-event` and invokes the bounded admin
-notification adapter for medium-or-higher alerts. This informational delivery
-is not a `governance.*` ActionType and does not enter Thor's mutation path. Saga
-already audits the authoritative `SecurityEvent`; the adapter posts to the
-configured ChatOps admin channel with a distinct template, fingerprint dedup,
-and rate limits.
+See [Notification delivery](README.md#notification-delivery).
 
 ### 9.4 Alert deduplication and rate limits
 
-Same-user, same-action alerts within a 1-hour window collapse into one
-card with an incremented counter. Per-user limit is 5 cards per hour;
-excess collapses into a digest to prevent alert storms. The fingerprint
-scheme reuses the §6.4 dedup pattern.
+See [Alert deduplication and rate limits](README.md#alert-deduplication-and-rate-limits).
 
 ### 9.5 Legitimate escalation
 
-A denied user sees a response with a "request permission upgrade" link.
-Permission upgrades themselves are a normal HIL flow (admin approves via
-Var); the upgrade path is out of scope for this document but is on the
-Phase roadmap.
+See [Legitimate escalation](README.md#legitimate-escalation).
 
 ## 10. Fork customization
 
-Forks customize the pantheon through configured seams. They do not
-subclass agents, add agents, or rename agents.
-
-| What forks may do | How |
-|-------------------|-----|
-| Bind LLM models to agents | `agents.<name>.llm_bindings` config |
-| Disable a domain agent (e.g., no chaos) | `agents.<name>.enabled: false` |
-| Add rules or policies | `rule-catalog/catalog/**` overlay |
-| Add or override ActionTypes | `rule-catalog/action-types-custom/**` and `-overrides/**` within §7.8 boundaries |
-| Change ChatOps channel targets | delivery-adapter config |
-| Change conversation retention or opt-in defaults | Bragi config |
-| Change rate-limit defaults | `agents.<name>.rate_limits` config |
-
-Forks may NOT:
-
-- Add a new agent name to the pantheon
-- Rename or reassign an agent's role
-- Repoint an ActionType's `executor`, `judge`, `approver`, `auditor`, or
-  `initiators`
-- Publish to a topic owned by another agent
-
-A missing capability that requires a new agent is a signal to open an
-upstream PR that extends the pantheon under the same rules everyone else
-follows.
+The allowed seams and locked role bindings are maintained in
+[Fork customization](README.md#fork-customization).
 
 ## 11. Anti-patterns
 
-- **Direct agent-to-agent RPC.** All hot-path communication is
-  pub/sub on the schema-checked bus. HTTP calls between agents defeat
-  audit and replay.
-- **Conversational port bypasses the typed pipeline.** Bragi that calls
-  an executor directly is a defect (§7.7).
-- **Judge under executor in the org chart.** Forseti reports to Odin,
-  not Thor, so verdicts stay independent of execution.
-- **LLM in a sensing hot-path.** Huginn, Heimdall, and the domain
-  specialists MUST NOT invoke an LLM synchronously. Their patterns must
-  compile to deterministic rules (T0) or lightweight similarity (T1).
-- **Alerts without dedup.** Every notification path (issue, security
-  card, HIL ticket) MUST use the fingerprint scheme.
-- **Fork adds an agent.** The pantheon is fixed upstream. Adding a new
-  agent is an upstream change, not a fork change.
-- **Action without a rollback contract.** Every ActionType ships with a live
-  `rollback_contract`; irreversible actions additionally require HIL quorum.
+The prohibited shortcuts are maintained in
+[Anti-patterns](README.md#anti-patterns).
 
 ## Next steps
 

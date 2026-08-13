@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: ae706f267cac907ed16741f5d08dcd049b446a9f
-translation_revised: 2026-08-12
+translation_source_sha: ee6c67ece8de63b45765965b250f519529997b15
+translation_revised: 2026-08-13
 ---
 
 # 에이전트 판테온
@@ -26,6 +26,32 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
   initiator / 판정자 / 승인자 / 실행기 / auditor 에 바인딩한다.
 - 포크는 §10 을 읽고 어느 경계 이 열려 있고 (토픽 구독, 구성
   재정의) 어느 것이 잠겨 있는지 (에이전트 추가 금지, 이름 변경 금지) 확인한다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 고정 레지스트리, 역할 및 패키지 경계 | implemented | [`pantheon.py`](../../../services/core-control-plane/src/fdai/agents/_framework/pantheon.py), [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py) | 고정된 15개 이름, 카탈로그 계층, 소유권 및 공개 패키지 경계를 기계적으로 검사합니다. |
+| 타입이 지정된 pub/sub 소유권 및 동시 실행 런타임 | implemented | [`topics.py`](../../../services/core-control-plane/src/fdai/agents/_framework/topics.py), [`runtime.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py), [`test_pantheon_concurrency_proof.py`](../../../services/core-control-plane/tests/agents/test_pantheon_concurrency_proof.py) | 집중 검사는 토픽 소유권, 파티셔닝, 15개 소비자 신원 및 작업을 가로채지 않는 팬아웃을 다룹니다. |
+| 판단, 승인, 실행, 감사 및 복구 분리 | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py) | 합성 런타임 검사는 분리된 생명 주기와 영속 `ActionRun` 동작을 실행하지만 실제 운영 결과를 증명하지는 않습니다. |
+| 대화 및 인계 메커니즘 | implemented | [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py), [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | 범위가 제한된 읽기 전용 대화 경로와 shadow 작업 흐름 추적을 집중 검사에서 실행할 수 있습니다. |
+| KPI 근거 상태, 승격 검사 및 성능 저하 훈련 | implemented | [`test_wave8_kpi_degradation.py`](../../../services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py) | KPI 근거가 없거나 측정되지 않으면 승격을 차단하고, 주입된 장애로 선언된 성능 저하 동작을 실행합니다. |
+| 실제 운영 KPI 검증 및 enforce 승격 | not-started | [목표와 메트릭](../architecture/goals-and-metrics-ko.md) | 보존된 실제 shadow 코호트, 운영 KPI 증적 집합, 독립적인 승격 검토 또는 실제 판테온 enforce 승격 근거가 아직 없습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | 이전 제공 이력을 재구성하지 않고 근거 범위를 명시한 구현 원장을 도입했습니다. | 현재 변경 | 검증 완료 또는 enforce 사용을 주장하기 전에 실제 운영 근거를 수집하고 독립적으로 검토된 승격을 완료합니다. |
+
+### 남은 작업
+
+- [ ] 하나의 고정된 리비전에서 에이전트별 및 시스템 KPI, 표본 수, 신뢰 구간, 보호 메트릭과 권위 있는 결과 증적을 측정한 실제 shadow 코호트를 보존합니다.
+- [ ] 에이전트 권한을 넓히지 않고 주입된 장애만이 아닌 운영 의존성에 대해 선언된 성능 저하 동작을 입증합니다.
+- [ ] 적격 기능마다 독립적인 승격 검토를 완료하고, enforce 운영을 보고하기 전에 권위 있는 승격 증적을 보존합니다.
+
 ## 1. 설계 원칙
 
 판테온은 기존 FDAI 컨트롤 루프를 명명된 조직 역할로 얇게 재구성한 것이다.
@@ -713,98 +739,37 @@ LLM과 `owns_code_paths` RAG로 표현할 수 있지만 타입이 지정된 결�
 
 ## 9. 보안 및 권한 초과 감시
 
-FDAI 는 권한 없는 액션 시도를 일급 보안 신호로 취급한다. 판테온은
-이를 감지하도록 Heimdall (이미 "all-seeing" 관찰기) 을 확장한다; 새
-에이전트를 추가하지 않는다.
+상세 보안 감시 계약은
+[판테온 지원 부록](README-ko.md#보안-및-권한-초과-감시)에서 관리합니다.
 
 ### 9.1 감지
 
-오퍼레이터 (Bragi 통해) 또는 fork-registered initiator 가 ActionType 이
-요구하는 RBAC 역할이 없는 `initiator_principal` 로 액션 을 propose 할 때:
-
-1. Forseti 는 판정 `deny` 를 `reason: rbac_insufficient` 로 발행.
-2. Forseti 는 동시에 `SecurityEvent` 를
-   `type: privilege_escalation_attempt`, initiator id, 시도된 ActionType,
-   대상 리소스, 심각도 점수, 상관관계 id 와 함께 publish.
-3. Saga 는 두 이벤트를 모두 기록.
+[감지](README-ko.md#감지)를 참조하세요.
 
 ### 9.2 상관관계와 심각도
 
-Heimdall 은 `object.security-event` 를 구독하고 분류:
-
-| 심각도 | 트리거 | 대응 |
-|----------|---------|------|
-| low | low-impact 액션 에 단일 시도 | 감사 만 |
-| medium | 같은 user 가 5분 내 3+ 시도, 또는 단일 medium-impact | admin 그룹 에 일 1회 다이제스트 |
-| high | critical / irreversible 액션 에 단일 시도, 또는 5분 내 5+ 시도 | admin 그룹 에 즉시 ChatOps 카드 |
-| critical | 다중 액션 패턴, 이례 시간, 의도적 에스컬레이션 패턴 | 즉시 + 별도 on-call security 채널 |
-
-심각도는 결정론적 (테이블 + counter), LLM-scored 아님.
+[상관관계와 심각도](README-ko.md#상관관계와-심각도)를 참조하세요.
 
 ### 9.3 알림 전달
 
-Heimdall은 `object.security-event`를 분류하고 medium 이상 경보에 범위가 제한된 admin
-알림 어댑터를 호출합니다. 이 informational 전달은 `governance.*`
-ActionType이 아니며 Thor의 변경 경로로 진입하지 않습니다. Saga는 권위 있는
-`SecurityEvent`를 이미 감사합니다. 어댑터는 지문 dedup, 비율 한도, 별도
-템플릿을 적용하여 구성된 ChatOps admin 채널에 게시합니다.
+[알림 전달](README-ko.md#알림-전달)을 참조하세요.
 
 ### 9.4 알림 중복 제거와 비율 한도
 
-1시간 창 내 same-user, same-action 경보 는 개수 를 증가시키며 한 카드로
-합침. Per-user 한도는 시간당 5장; 초과분은 경보 storm 방지를 위해 다이제스트 로
-병합. 지문 스킴은 §6.4 dedup 패턴을 재사용.
+[알림 중복 제거와 비율 한도](README-ko.md#알림-중복-제거와-비율-한도)를 참조하세요.
 
 ### 9.5 정당한 에스컬레이션
 
-거부된 user 는 응답에 "권한 업그레이드 요청" 링크를 본다. 권한 업그레이드 자체는
-정상 HIL 플로우 (admin 이 Var 통해 승인); 업그레이드 경로는 이 문서 범위 밖이나
-단계 로드맵에 있음.
+[정당한 에스컬레이션](README-ko.md#정당한-에스컬레이션)을 참조하세요.
 
 ## 10. 포크 커스터마이제이션
 
-포크 는 구성된 경계 을 통해 판테온을 커스터마이즈. 에이전트 를 subclass 하거나
-추가하거나 이름 변경 하지 않는다.
-
-| 포크 가 할 수 있는 것 | 방법 |
-|----------------------|------|
-| 에이전트 에 LLM 모델 바인딩 | `agents.<name>.llm_bindings` 구성 |
-| 도메인 에이전트 비활성화 (예: chaos 없음) | `agents.<name>.enabled: false` |
-| Rule 또는 정책 추가 | `rule-catalog/catalog/**` 오버레이 |
-| ActionType 추가/재정의 | §7.8 경계 내에서 `rule-catalog/action-types-custom/**` 와 `-overrides/**` |
-| ChatOps 채널 타깃 변경 | delivery-adapter 구성 |
-| 대화 보존 또는 명시적 선택 기본값 변경 | Bragi 구성 |
-| Rate-limit 기본값 변경 | `agents.<name>.rate_limits` 구성 |
-
-포크 가 할 수 **없는** 것:
-
-- 판테온에 새 에이전트 이름 추가
-- 에이전트 의 역할 이름 변경 또는 재배정
-- ActionType 의 `executor`, `judge`, `approver`, `auditor`, `initiators`
-  재지정
-- 다른 에이전트 가 소유한 토픽 에 publish
-
-새 에이전트 를 요구하는 누락된 기능 는 다른 모든 사람이 따르는 동일 규칙
-아래 판테온을 확장하는 업스트림 PR 을 열라는 신호이다.
+허용된 경계와 잠긴 역할 바인딩은
+[포크 커스터마이제이션](README-ko.md#포크-커스터마이제이션)에서 관리합니다.
 
 ## 11. Anti-patterns
 
-- **직접 agent-to-agent RPC.** 모든 hot-path 통신은 schema-checked 버스 의
-  pub/sub. 에이전트 간 HTTP 호출은 감사 와 재생 를 무력화.
-- **Conversational 포트 가 타입이 지정된 파이프라인 우회.** 실행기 를 직접 호출하는
-  Bragi 는 defect (§7.7).
-- **조직도에서 판사가 실행기 밑.** Forseti 는 Thor 가 아니라 Odin 에
-  보고, 판정 가 실행과 독립적으로 유지.
-- **Sensing hot-path 에 LLM.** Huginn, Heimdall, 도메인 전문가 는 절대
-  LLM 을 동기 호출하지 않는다. 패턴은 결정론적 규칙 (T0) 또는 경량
-  유사도 (T1) 로 컴파일되어야 한다.
-- **Dedup 없는 경보.** 모든 알림 경로 (issue, security 카드, HIL 티켓) 는
-  지문 스킴을 사용해야 한다.
-- **포크 가 에이전트 추가.** 판테온은 업스트림 에서 고정. 새 에이전트 추가는
-  업스트림 변경, 포크 변경 아님.
-- **Rollback 계약 없는 액션.** 모든 ActionType은 유효한
-  `rollback_contract`와 함께 배포합니다. Irreversible 액션은 HIL 정족수도
-  추가로 필요합니다.
+금지된 우회 방식은 [Anti-patterns](README-ko.md#anti-patterns)에서 관리합니다.
 
 ## Next 단계
 
