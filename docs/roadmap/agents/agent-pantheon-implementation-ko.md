@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: d47521c671a84d9dcf9ef621e691bf164dad1c24
+translation_source_sha: ed7925abdae04b0e800aab5bd87913ca7ad4f47b
 translation_revised: 2026-08-13
 ---
 
@@ -217,7 +217,9 @@ Muninn 은 Forseti 가 사유 하기 전에 맥락 를 서브해야 하고; Norn
   기존 룰 카탈로그 저장소 에 대한 sync 작업으로 `promote_rule` 과
   `revoke_rule` 구현. 최신성 monitor 추가 (recurring): 룰 별 발화
   카운트를 audit-log 에서 읽기, 비활성 임계값에서 `RuleStalenessSignal`
-  발행.
+  발행. Mimir는 `RuleGenerationBuildRequest`와 `RuleGenerationBuildResult`도 소유합니다.
+  주입된 영속 빌더가 exact 요청을 처리하고 Mimir는 범위가 제한된 권한 없는 결과만
+  발행합니다. Exact Heimdall 검증은 변환 결과로 저장되며 활성화를 직접 호출할 수 없습니다.
 - **Muninn (`services/core-control-plane/src/fdai/agents/muninn.py`)** - 다른 에이전트를 위한 상태 /
   맥락 저장소 읽기 담당. 기존 상태 저장소 프로바이더 로 backed
   ([project-structure.md](../architecture/project-structure-ko.md#customization-via-dependency-injection)).
@@ -239,6 +241,8 @@ Muninn 은 Forseti 가 사유 하기 전에 맥락 를 서브해야 하고; Norn
   안전성과 범위가 제한된 learning 동작을 검증.
 - `test_norns_consensus.py`가 Norns single-writer 경계에서 unanimous publish와
   disagreement 보류 동작을 검증합니다.
+- `test_runtime.py`가 Mimir 빌드 요청/결과와 Heimdall 검증 체인, 위조 producer, 누락된
+  handler 및 활성화 없음 경계를 검증합니다.
 
 **Exit 게이트**
 
@@ -275,7 +279,9 @@ Muninn 은 Forseti 가 사유 하기 전에 맥락 를 서브해야 하고; Norn
   `Anomaly`, `Drift`, `Forecast` 발행. `SecurityEvent` 구독은 W6 로
   예약. 주입된 범위가 제한된 읽기 전용 operational 근거 훅은 판단 또는 실행 권한을
   부여하지 않고 권위 있는 anomaly를 enrich할 수 있습니다. Stale/degraded 인벤토리는 fail
-  closed하며 Heimdall은 조정 작업을 시작하지 않습니다.
+  closed하며 Heimdall은 조정 작업을 시작하지 않습니다. 주입된 Rule 세대 검증기는 정확한
+  준비 상태 스냅샷만 읽고 `RetrievalValidation`을 발행하며 증적을 연결하거나 세대를
+  활성화하지 않습니다.
 - **Forseti (`services/core-control-plane/src/fdai/agents/forseti.py`)** - `object.anomaly`,
   `object.drift`, `object.event` 구독. 3-tier trust 라우터 를 로컬 구현:
   Mimir 를 통한 T0 룰 일치; Muninn 을 통한 T1 유사도; T2 는 W7

@@ -222,7 +222,10 @@ Forseti reasons; Norns closes the discovery loop.
   `object.rule-candidate`. Implement `promote_rule` and `revoke_rule`
   as sync operations on the existing rule catalog store. Add a
   freshness monitor (recurring): read audit-log firing counts per rule,
-  emit `RuleStalenessSignal` on inactivity threshold.
+  emit `RuleStalenessSignal` on inactivity threshold. Mimir also owns
+  `RuleGenerationBuildRequest` and `RuleGenerationBuildResult`: the injected durable builder
+  handles exact requests, and Mimir publishes only bounded no-authority results. Exact Heimdall
+  validation is stored as a projection and cannot invoke activation directly.
 - **Muninn (`services/core-control-plane/src/fdai/agents/muninn.py`)** - state / context store
   reader for other agents. Backed by the existing state store provider
   ([project-structure.md](../architecture/project-structure.md#customization-via-dependency-injection)).
@@ -246,6 +249,8 @@ Forseti reasons; Norns closes the discovery loop.
   safety and bounded learning behavior.
 - `test_norns_consensus.py` covers unanimous publication and disagreement
   hold behavior at the Norns single-writer boundary.
+- `test_runtime.py` covers the Mimir build request/result and Heimdall validation chain, forged
+  producers, missing handlers, and the no-activation boundary.
 
 **Exit gate**
 
@@ -283,7 +288,9 @@ Forseti reasons; Norns closes the discovery loop.
   `Anomaly`, `Drift`, `Forecast`. Reserve `SecurityEvent` subscription
   for W6. An injected bounded read-only operational evidence hook can enrich an authoritative
   anomaly without granting judgment or execution authority. Stale/degraded inventory fails closed;
-  Heimdall never starts the reconciliation job.
+  Heimdall never starts the reconciliation job. The injected Rule generation validator reads only
+  the exact staged snapshot, emits `RetrievalValidation`, and never binds a receipt or activates a
+  generation.
 - **Forseti (`services/core-control-plane/src/fdai/agents/forseti.py`)** - subscribe to
   `object.anomaly`, `object.drift`, `object.event`. Implement the
   three-tier trust router locally: T0 rule match via Mimir; T1

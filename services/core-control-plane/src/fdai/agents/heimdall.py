@@ -43,6 +43,11 @@ from fdai.core.readiness import (
     DetectionReadinessSnapshot,
     reduce_detection_readiness,
 )
+from fdai.core.rule_semantic_generation import RuleGenerationValidationHandler
+from fdai.rule_catalog.schema.rule_semantic_generation_events import (
+    RULE_GENERATION_BUILD_RESULT_TOPIC,
+    RuleGenerationBuildResultEvent,
+)
 from fdai.shared.contracts.models import ForecastOutcome
 
 AlerterHook = Callable[[dict[str, Any]], Awaitable[None]]
@@ -150,6 +155,7 @@ class Heimdall(HeimdallForecastMixin, Agent):
         self._forecast_closer = forecast_closer
         self._forecast_store = forecast_store
         self._action_semantics = action_semantics
+        self._rule_generation_validation_handler: RuleGenerationValidationHandler | None = None
         self._alert_windows: dict[str, tuple[float, int]] = {}
         self._detection_readiness: dict[str, dict[str, DetectionReadinessObservation]] = {}
         self._detection_readiness_pending: dict[
@@ -175,6 +181,16 @@ class Heimdall(HeimdallForecastMixin, Agent):
 
         self._operational_evidence_hook = hook
 
+    def bind_rule_generation_validation_handler(
+        self,
+        handler: RuleGenerationValidationHandler,
+    ) -> None:
+        """Bind the independent staged-generation validator."""
+
+        if self._rule_generation_validation_handler is not None:
+            raise RuntimeError("Heimdall Rule generation validator is already bound")
+        self._rule_generation_validation_handler = handler
+
     async def publish_forecast_outcome(self, outcome: ForecastOutcome) -> bool:
         """Publish one schema-validated terminal forecast result."""
         if not isinstance(outcome, ForecastOutcome):
@@ -190,7 +206,9 @@ class Heimdall(HeimdallForecastMixin, Agent):
         return True
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
-        if topic == "object.event":
+        if topic == RULE_GENERATION_BUILD_RESULT_TOPIC:
+            await self._validate_rule_generation(payload)
+        elif topic == "object.event":
             retrieval_validation = retrieval_validation_from_event(payload)
             if retrieval_validation is not None:
                 await self._publish_retrieval_validation(retrieval_validation)
@@ -226,6 +244,29 @@ class Heimdall(HeimdallForecastMixin, Agent):
         if self.bus is None:
             raise RuntimeError("Heimdall retrieval validation bus is unavailable")
         await self.bus.publish("Heimdall", "object.retrieval-validation", payload)
+
+    async def _validate_rule_generation(self, payload: dict[str, Any]) -> None:
+        if payload.get("producer_principal") != "Mimir":
+            raise ValueError("Rule generation build result MUST be published by Mimir")
+        build_result = RuleGenerationBuildResultEvent.model_validate(
+            {
+                field: payload[field]
+                for field in RuleGenerationBuildResultEvent.model_fields
+                if field in payload
+            }
+        )
+        handler = self._rule_generation_validation_handler
+        if handler is None:
+            raise RuntimeError("Heimdall Rule generation validator is unavailable")
+        result = await handler.handle(build_result)
+        if self.bus is None:
+            raise RuntimeError("Heimdall retrieval validation bus is unavailable")
+        await self.bus.publish(
+            "Heimdall",
+            "object.retrieval-validation",
+            result.model_dump(mode="json"),
+        )
+        self.record_behavior("rule_generation_validation:published")
 
     async def _observe_chaos_experiment(self, proposal: dict[str, Any]) -> None:
         experiment_id = str(proposal.get("experiment_id") or "")

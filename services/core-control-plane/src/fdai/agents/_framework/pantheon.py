@@ -242,7 +242,12 @@ _HEIMDALL = AgentSpec(
     ),
     executes=(),
     initiates=(),
-    subscribes=("object.event", "object.security-event", "object.chaos-experiment"),
+    subscribes=(
+        "object.event",
+        "object.security-event",
+        "object.chaos-experiment",
+        "object.rule-generation-build-result",
+    ),
     question_domains=(
         "resource_change_history",
         "anomaly",
@@ -422,7 +427,12 @@ _MIMIR = AgentSpec(
     name="Mimir",
     layer=Layer.GOVERNANCE,
     reports_to="Odin",
-    owns=("Rule", "Policy"),
+    owns=(
+        "Rule",
+        "Policy",
+        "RuleGenerationBuildRequest",
+        "RuleGenerationBuildResult",
+    ),
     conversation=conversation_charter(
         "Mimir",
         "Explain governed rules, policies, and rule history.",
@@ -452,7 +462,12 @@ _MIMIR = AgentSpec(
     ),
     executes=(),
     initiates=(),
-    subscribes=("object.rule-candidate", "object.issue"),
+    subscribes=(
+        "object.rule-candidate",
+        "object.issue",
+        "object.rule-generation-build-request",
+        "object.retrieval-validation",
+    ),
     question_domains=("rule_lookup", "policy_explain", "rule_history"),
     owns_code_paths=("services/core-control-plane/src/fdai/agents/mimir.py", "rule-catalog/**"),
 )

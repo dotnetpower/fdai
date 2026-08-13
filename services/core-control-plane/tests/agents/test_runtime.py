@@ -25,6 +25,7 @@ from fdai.agents._framework.provider_adapters import (
     StateStoreAuditChainAdapter,
 )
 from fdai.agents._framework.runtime import PantheonRuntime
+from fdai.agents._framework.runtime_subscriptions import RuleGenerationWorkerBindings
 from fdai.agents.forseti import Forseti
 from fdai.agents.heimdall import Heimdall
 from fdai.agents.huginn import Huginn
@@ -43,14 +44,56 @@ from fdai.core.rule_semantic_generation import (
     RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
     RuleGenerationActivationBinder,
 )
+from fdai.delivery.catalog_search import (
+    RuleGenerationBuildWorker,
+    RuleGenerationValidationWorker,
+)
 from fdai.rule_catalog.schema.rule_semantic_feedback import SemanticFeedbackCandidate
+from fdai.rule_catalog.schema.rule_semantic_generation_events import (
+    RULE_GENERATION_BUILD_REQUEST_TOPIC,
+    RuleGenerationBuildRequestEvent,
+)
+from fdai.rule_catalog.schema.rule_semantic_retrieval import RuleCorpus
 from fdai.runtime.bootstrap_bindings import build_rule_generation_runtime_binding
+from fdai.shared.providers.catalog_search import CatalogSearchDocument
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 from tests.core.rule_semantic_generation.test_activation import _command, _CountingIndex
 
 _RAW_TOPIC = "fdai.events"
+_DIGEST_A = "sha256:" + "a" * 64
+_DIGEST_B = "sha256:" + "b" * 64
+_DIGEST_C = "sha256:" + "c" * 64
+_VALIDATOR_DIGEST = "sha256:" + "d" * 64
+
+
+class _RuleDocumentResolver:
+    async def resolve(
+        self,
+        request: RuleGenerationBuildRequestEvent,
+    ) -> tuple[CatalogSearchDocument, ...]:
+        return (
+            CatalogSearchDocument(
+                rule_id="rule-a",
+                text=f"rule for {request.corpus.value}",
+                neighbor_ids=(),
+            ),
+        )
+
+
+def _build_request() -> RuleGenerationBuildRequestEvent:
+    return RuleGenerationBuildRequestEvent.create(
+        correlation_id="catalog-revision-42",
+        corpus=RuleCorpus.ACTIVE,
+        catalog_digest=_DIGEST_A,
+        semantic_schema_digest=_DIGEST_B,
+        ontology_release_digest=_DIGEST_C,
+        embedding_space_id="rule-semantic-v1",
+        embedding_model_version="embed-v1",
+        embedding_dimension=384,
+        requested_at=datetime(2026, 8, 13, tzinfo=UTC),
+    )
 
 
 def _build() -> tuple[PantheonRuntime, InMemoryEventBus]:
@@ -227,6 +270,76 @@ async def test_rule_generation_command_reaches_durable_mimir_result_projection()
         is None
     )
     assert await state_store.verify_chain()
+
+
+async def test_rule_generation_build_and_validation_flow_through_owned_topics() -> None:
+    event_bus = InMemoryEventBus()
+    state_store = InMemoryStateStore()
+    index = _CountingIndex()
+    workers = RuleGenerationWorkerBindings(
+        build=RuleGenerationBuildWorker(
+            index=index,
+            resolver=_RuleDocumentResolver(),
+            store=state_store,
+            clock=lambda: datetime(2026, 8, 13, 0, 0, 1, tzinfo=UTC),
+        ),
+        validation=RuleGenerationValidationWorker(
+            index=index,
+            store=state_store,
+            validator_artifact_digest=_VALIDATOR_DIGEST,
+            clock=lambda: datetime(2026, 8, 13, 0, 0, 2, tzinfo=UTC),
+        ),
+    )
+    runtime = PantheonRuntime.build(
+        provider=event_bus,
+        raw_event_topic=_RAW_TOPIC,
+        rule_generation_workers=workers,
+        rule_generation_state_store=state_store,
+    )
+    mimir = runtime.agents["Mimir"]
+    assert isinstance(mimir, Mimir)
+
+    await mimir.request_rule_generation(_build_request())
+    await runtime.run()
+    await runtime.run()
+    await runtime.run()
+
+    validation_states = await state_store.read_states(
+        "mimir:rule-generation-validation-result:",
+        limit=10,
+    )
+    assert len(validation_states) == 1
+    assert validation_states[0]["valid"] is True
+    assert validation_states[0]["projection_only"] is True
+    assert validation_states[0]["grants_execution_authority"] is False
+    assert index.activation_attempts == 0
+    muninn = runtime.agents["Muninn"]
+    assert isinstance(muninn, Muninn)
+    assert muninn.behavior_snapshot()["rule_generation_validation:observed"] == 1
+    assert await state_store.verify_chain()
+
+
+async def test_rule_generation_handlers_fail_closed_on_forged_or_unbound_delivery() -> None:
+    request_payload = _build_request().model_dump(mode="json")
+    request_payload["producer_principal"] = "Huginn"
+    with pytest.raises(ValueError, match="published by Mimir"):
+        await Mimir().on_typed_message(RULE_GENERATION_BUILD_REQUEST_TOPIC, request_payload)
+
+    index = _CountingIndex()
+    state_store = InMemoryStateStore()
+    build_result = await RuleGenerationBuildWorker(
+        index=index,
+        resolver=_RuleDocumentResolver(),
+        store=state_store,
+        clock=lambda: datetime(2026, 8, 13, 0, 0, 1, tzinfo=UTC),
+    ).handle(_build_request())
+    result_payload = build_result.model_dump(mode="json")
+    result_payload["producer_principal"] = "Mimir"
+    with pytest.raises(RuntimeError, match="validator is unavailable"):
+        await Heimdall().on_typed_message(
+            "object.rule-generation-build-result",
+            result_payload,
+        )
 
 
 def test_forecast_findings_route_to_forseti_judgment() -> None:

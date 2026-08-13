@@ -102,6 +102,11 @@ class Muninn(Agent):
             await self._request_document_index(payload)
         elif topic == "object.forecast-outcome":
             await self._materialize_forecast_outcome(payload)
+        elif (
+            topic == "object.retrieval-validation"
+            and payload.get("event_type") == "rule.semantic_generation.validation.completed.v1"
+        ):
+            self.record_behavior("rule_generation_validation:observed")
         elif topic == "object.retrieval-validation":
             await self._materialize_retrieval_validation(payload)
         elif (
