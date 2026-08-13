@@ -15,7 +15,12 @@ const RELATIONSHIP_LABELS = {
   contains: "relationship.containsArrow",
   attached_to: "relationship.attachedTo",
   depends_on: "relationship.dependsOnArrow",
+  peered_with: "relationship.peersWithArrow",
 } as const;
+
+export function architectureRelationshipIndexLabel(type: InventoryGraphResponse["links"][number]["type"]): string {
+  return t(RELATIONSHIP_LABELS[type]);
+}
 
 export function ArchitectureRelationIndex({ graph, onSelect }: Props) {
   const byId = new Map(graph.resources.map((resource) => [resource.id, resource]));
@@ -49,7 +54,7 @@ export function ArchitectureRelationIndex({ graph, onSelect }: Props) {
                   <button type="button" onClick={() => onSelect(byId.get(link.source) ?? null)}>
                     {byId.get(link.source)?.name ?? link.source}
                   </button>
-                  <span>{t(RELATIONSHIP_LABELS[link.type])}</span>
+                  <span>{architectureRelationshipIndexLabel(link.type)}</span>
                   <button type="button" onClick={() => onSelect(byId.get(link.target) ?? null)}>
                     {byId.get(link.target)?.name ?? link.target}
                   </button>

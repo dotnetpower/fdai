@@ -19,7 +19,7 @@ export interface InventoryResource {
 export interface InventoryLink {
   readonly source: string;
   readonly target: string;
-  readonly type: "contains" | "attached_to" | "depends_on";
+  readonly type: "contains" | "attached_to" | "depends_on" | "peered_with";
 }
 
 export interface ArchitectureView {

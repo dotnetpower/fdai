@@ -64,6 +64,8 @@
     "attachedTo": "연결됨",
     "dependsOn": "종속 대상",
     "dependsOnArrow": "종속 대상 ->",
+    "peersWith": "피어 연결됨",
+    "peersWithArrow": "피어 연결 <->",
     "requiredBy": "다음에 필요함",
     "boundary": "경계"
   },

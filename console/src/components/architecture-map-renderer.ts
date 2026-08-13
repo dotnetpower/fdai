@@ -39,6 +39,8 @@ import {
 
 type CanvasPaint = string | CanvasGradient | CanvasPattern;
 
+export const ARCHITECTURE_REFLECTION_NODE_LIMIT = 48;
+
 interface LabelBounds {
   readonly left: number;
   readonly right: number;
@@ -149,7 +151,16 @@ export function renderMap(
   drawArchitectureNetworkPathSpines(context, width, height, camera, graph, highlightedIds);
 
   const nodes = graph.resources.filter((resource) => !isRegion(resource));
-  if (options.showReflections) drawReflections(context, width, height, camera, nodes, highlightedIds);
+  if (options.showReflections) {
+    drawReflections(
+      context,
+      width,
+      height,
+      camera,
+      architectureReflectionNodes(nodes, selectedId, highlightedIds),
+      highlightedIds,
+    );
+  }
   const ordered = [...nodes].sort((first, second) =>
     project(camera, width, height, second.x ?? 0, second.y ?? 0).depth -
     project(camera, width, height, first.x ?? 0, first.y ?? 0).depth);
@@ -201,6 +212,27 @@ export function architectureOverlayOrder(
 ): InventoryResource[] {
   return [...nodes].sort((first, second) =>
     Number(first.id === selectedId) - Number(second.id === selectedId));
+}
+
+export function architectureReflectionNodes(
+  nodes: readonly InventoryResource[],
+  selectedId: string | null,
+  highlightedIds?: ReadonlySet<string>,
+): readonly InventoryResource[] {
+  if (nodes.length <= ARCHITECTURE_REFLECTION_NODE_LIMIT) return nodes;
+  return [...nodes]
+    .sort((first, second) =>
+      reflectionPriority(second, selectedId, highlightedIds)
+      - reflectionPriority(first, selectedId, highlightedIds))
+    .slice(0, ARCHITECTURE_REFLECTION_NODE_LIMIT);
+}
+
+function reflectionPriority(
+  node: InventoryResource,
+  selectedId: string | null,
+  highlightedIds?: ReadonlySet<string>,
+): number {
+  return Number(node.id === selectedId) * 2 + Number(highlightedIds?.has(node.id) === true);
 }
 
 function drawGrid(context: CanvasRenderingContext2D, width: number, height: number, camera: Camera): void {

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: a672673926243a48369fba290dd34ae8f42cc15c
+translation_source_sha: 6718462287811444a4fdfff886049047c090cc62
 translation_revised: 2026-08-13
 ---
 
@@ -32,6 +32,7 @@ translation_revised: 2026-08-13
 | 승인 변환 결과 사용 불가 상태 | implemented | `console/src/routes/hil-queue.tsx`; `console/src/routes/hil-queue.test.ts`; `console/tests/live-e2e/console-routes.spec.ts`; 범위를 한정한 Vitest 검사(`5 passed`)와 라이브 Playwright 검사(`1 passed`) | Approvals 경로는 선택적 변환 결과가 없을 때 중립적인 사용 불가 상태를 표시합니다. 예상하지 못한 실패는 오류로 유지하며 브라우저에 승인 또는 실행 권한을 부여하지 않습니다. |
 | Onboarding 준비 상태 사용 불가 상태 | implemented | `console/src/routes/onboarding.tsx`; `console/src/routes/onboarding.test.ts`; `console/tests/live-e2e/console-routes.spec.ts`; 범위를 한정한 Vitest 검사(`6 passed`)와 라이브 Playwright 검사(`1 passed`) | Onboarding 경로는 선택적 검사 엔드포인트가 없을 때 사용 불가 상태를 표시하며 예상하지 못한 실패는 오류로 유지합니다. |
 | Command Deck 라이브 보증 timeout budget | implemented | `console/tests/live-e2e/console-routes.spec.ts`; 범위를 한정한 Playwright 테스트 검색(`2 tests`) | 테스트별 budget이 기존 서버 응답 assertion budget보다 길어서 전역 기본값이 의도한 라이브 검사를 먼저 중단할 수 없습니다. 답변, grounding 또는 검증 assertion은 완화하지 않습니다. |
+| 아키텍처 관계 및 밀집 지도 렌더링 | validated | `console/src/components/architecture-map.model.ts`; `console/src/components/architecture-map-renderer.ts`; 아키텍처 검사기, 관계 인덱스 및 지도 테스트; 범위를 한정한 Vitest 검사(`54 passed`)와 라이브 `/architecture` Playwright 검사(`1 passed`) | 화면은 권위 있는 `peered_with` 관계를 인식합니다. 밀집 지도는 선택되거나 강조된 리소스를 우선하는 최대 48개 노드의 제한된 처리로 반사를 유지하며 경로의 대기 화면이 운영자 보기를 차단하지 않도록 합니다. |
 
 ### 구현 이력
 
@@ -39,6 +40,7 @@ translation_revised: 2026-08-13
 |------|------|------|------|-----------|
 | 2026-08-13 | implemented | 이전 구현 이력을 재구성하지 않고 구현 원장을 채택했으며 Approvals 경로를 타입이 지정된 출처 사용 불가 경계에 맞췄습니다. | `current change`; 구현 범위 표의 작업 소유 소스와 테스트; `vitest run src/routes/hil-queue.test.ts`에서 5개 테스트가 통과했고 범위를 한정한 라이브 `/approvals` Playwright 검사가 통과했습니다. | 아래의 변환 결과, 요청, 상호 작용 및 측정 완료 근거를 기록합니다. |
 | 2026-08-13 | implemented | Onboarding 경로를 타입이 지정된 출처 사용 불가 경계에 맞추고 Core에 의존하는 Command Deck 라이브 검사 2개의 명시적 outer budget을 복원했습니다. | `current change`; 구현 범위 표의 작업 소유 소스와 테스트; `vitest run src/routes/onboarding.test.ts`에서 6개 테스트가 통과했고 범위를 한정한 라이브 `/onboarding` Playwright 검사가 통과했으며 Playwright가 Command Deck 검사 2개를 검색했습니다. | Core semantic consumer를 복구하고 Command Deck 검사 2개를 실행하며 아래의 남은 완료 근거를 기록합니다. |
+| 2026-08-13 | validated | 대칭 피어링 표시를 추가하고 선택되거나 강조된 리소스를 유지하면서 밀집 아키텍처 지도의 선택적 반사 처리를 제한했습니다. | `current change`; 구현 범위 표의 작업 소유 소스, 카탈로그 및 테스트; 범위를 한정한 아키텍처 Vitest에서 54개 테스트가 통과했고 라이브 `/architecture` Playwright 검사가 4.9초에 통과했습니다. | 전체 경로 보증 캠페인을 계속하고 아래의 남은 완료 근거를 기록합니다. |
 
 ### 남은 작업
 
