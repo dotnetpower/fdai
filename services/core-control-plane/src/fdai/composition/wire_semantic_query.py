@@ -260,8 +260,10 @@ def compose_azure_semantic_query_runtime(
     catalog_root: Path,
     owner_loop: asyncio.AbstractEventLoop,
     purpose: str = "operations-review",
+    catalog_index: CatalogSemanticIndex | None = None,
+    catalog_digest: str | None = None,
 ) -> SemanticQueryRuntimeComposition:
-    """Compose Azure semantic querying or return one stable readiness reason."""
+    """Compose Azure semantic querying over optional exact Rule retrieval."""
 
     if container.config.llm.mode != LlmMode.AZURE:
         return _unavailable("semantic_llm_mode_unavailable")
@@ -303,6 +305,8 @@ def compose_azure_semantic_query_runtime(
             ontology_release=ontology_release,
             ontology_catalog=catalog,
             ontology_store=ontology_store,
+            catalog_index=catalog_index,
+            catalog_digest=catalog_digest,
             purpose=purpose,
         )
     except (OSError, LookupError, TypeError, ValueError):

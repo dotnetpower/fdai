@@ -23,7 +23,10 @@ evaluation gates, and failed-query feedback loop.
 > Direct semantic-runtime composition binds the function only when a caller supplies both a
 > provider-neutral semantic index and its exact catalog digest. Without that pair, the principal
 > manifest records `catalog.search_rules` as `runtime_binding_unavailable` and does not advertise it
-> to the planner. The durable adapter is not yet composed by production bootstrap. Reader-gated
+> to the planner. Production bootstrap now composes the durable adapter only when its active
+> generation exactly matches the current Rule catalog, semantic schema, ontology release, and
+> embedder dimension. Missing, stale, or inaccessible state remains an optional readiness
+> degradation and leaves the function unregistered. Reader-gated
 > `POST /rules/search` reads an Operator
 > Service projection; it does not directly invoke the Core function. Retrieval and function
 > receipts retain `execution_authority: false` wherever the Core capability is bound.
@@ -48,7 +51,7 @@ evaluation gates, and failed-query feedback loop.
 | In-memory generation and validation | implemented | `delivery/catalog_search/in_memory.py`; `delivery/catalog_search/generation.py`; `tests/delivery/catalog_search/test_ontology_generation.py`; `tests/rule_catalog/test_discovery_catalog_search.py` | Supports deterministic off-path generation, independent active/discovery pointers, corpus-local rollback, and activation compare-and-swap parity with the durable adapter. |
 | Corpus-scale generation identity | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/generation.py`; `delivery/catalog_search/in_memory.py`; focused generation and Rule-catalog tests | Provider-neutral metadata carries count, hierarchical root, bounded ordered chunks, and small-generation inline digests. Generation construction, validation receipts, staging, activation, active lookup, search, rollback, and rollback receipts reject identity drift. |
 | Durable PostgreSQL index | implemented | `delivery/catalog_search/postgres.py`; migrations `0077` and `0080`; `tests/delivery/catalog_search/test_postgres.py`; `test_postgres_integration.py`; `test_postgres_rule_corpora_integration.py` | Persists and revalidates exact generation manifests, atomically stages, activates, searches, and rolls back corpus-local generations, and proves lifecycle isolation for all 62 active and 8,487 discovery documents against PostgreSQL. |
-| Production bootstrap binding | not-started | `runtime/bootstrap_lifecycle.py`; `composition/wire_semantic_query.py` | Optional composition exists, but production bootstrap does not construct the durable adapter or register generation readiness. |
+| Production bootstrap binding | implemented | `runtime/bootstrap.py`; `runtime/bootstrap_lifecycle.py`; `composition/wire_semantic_query.py`; `tests/runtime/test_catalog_semantic_bootstrap.py`; focused bootstrap and composition checks (`46 passed`) | Startup binds only an exact active generation. Missing, stale, inaccessible, or unavailable state produces a stable optional-readiness reason and leaves Rule search unregistered. Governed live evidence remains open. |
 | Operator Rule-search projection | implemented | Operator Service workflow manifest, routes, and PostgreSQL workflow adapter | `POST /rules/search` reads a revisioned materialized projection and grants no policy, approval, mutation, or execution authority. |
 
 ### Implementation history
@@ -62,6 +65,7 @@ evaluation gates, and failed-query feedback loop.
 | 2026-08-13 | implemented | Bound the canonical document manifest to provider-neutral generation metadata and revalidated exact ordered rows at every in-memory lifecycle boundary. Generation digests now self-verify all metadata and manifest fields, validation and rollback receipts pin chunk identities, and the Rule search document projection formula advanced to v3. Adversarial round 14 closed the accepted noncanonical generation-digest finding; the remaining durable-adapter gap is separate. | `current change`; focused generation, exact-query, retrieval, full-corpus, and composition checks passed 41 tests. Strict mypy passed 5 source files, Ruff passed 9 source and test files, and editor diagnostics were clean. | Persist and revalidate the same manifest in the durable PostgreSQL adapter and record live-database lifecycle evidence. |
 | 2026-08-13 | implemented | Added the durable PostgreSQL generation adapter and exact expected-prior activation compare-and-swap. Activation now checks the target digest, prior active id and digest, lifecycle state, replay identity, and chronology under the same corpus lock before changing either pointer. Complete active and discovery corpora remain isolated through replacement and rollback. | `current change`; focused PostgreSQL unit and live-database lifecycle checks, including the complete 62-active/8,487-discovery corpus test, passed. Focused activation parity checks passed 42 tests; Ruff and strict mypy passed the touched lifecycle files. | Compose the adapter in production bootstrap, publish lifecycle and retrieval projections, and record governed runtime evidence. |
 | 2026-08-13 | implemented | Added readable Korean positive and explicit no-match fixtures to the held-out evaluator contract, proved Korean training/evaluation disjointness, and asserted that surfaces and receipts retain zero execution authority and validation-only authority. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/rule_catalog/test_rule_semantic_evaluation.py` passed 5 tests. | Run the required cohorts against the shipped catalog and a real semantic index, then connect measured configuration thresholds to governed promotion. |
+| 2026-08-13 | implemented | Composed the durable semantic index in production startup behind exact active-generation identity checks and optional readiness degradation. Composition receives an index and catalog digest only after the Rule catalog, semantic schema, ontology release, and embedder dimension match. | `current change`; focused runtime bootstrap and semantic composition checks passed 46 tests. Ruff and strict mypy passed the three touched production files. | Publish receipt-backed Operator projections and record governed live binding evidence before claiming validation. |
 
 ### Remaining work
 
@@ -72,9 +76,10 @@ evaluation gates, and failed-query feedback loop.
   Focused live-database generation, activation, rollback, exact-generation search, and complete
   corpus-isolation checks pass as specified by
   [Build and enrichment lifecycle](#build-and-enrichment-lifecycle).
-- [ ] Compose the durable adapter in production bootstrap and register generation readiness; exit
-  when startup binds only the exact current catalog and ontology generation, degrades with stable
-  reasons when that identity is missing or stale, and focused bootstrap checks pass.
+- [x] Production bootstrap composes the durable adapter and registers optional generation
+  readiness. Startup binds only the exact current Rule catalog, semantic schema, ontology release,
+  and embedder dimension; stable degradation reasons cover missing, stale, inaccessible, and
+  unavailable state. Focused bootstrap and composition checks pass 46 tests.
 - [ ] Publish Core retrieval and function-invocation receipts into the Operator projection; exit
   when `POST /rules/search` returns the exact receipt-backed projection without direct Core calls,
   preserving the [query lifecycle](#query-lifecycle).

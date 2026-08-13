@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: adff5f8b8101b12d08068da5fb4b33c2875b540c
+translation_source_sha: ac730ce4d6e6e1f0c00b01085aaaebef50ceb77d
 translation_revised: 2026-08-13
 ---
 # Rule 의미 검색
@@ -25,7 +25,9 @@ translation_revised: 2026-08-13
 > 직접 의미 런타임 구성은 호출자가 provider-neutral 의미 인덱스와 정확한 카탈로그
 > 다이제스트를 함께 제공할 때만 함수를 바인딩합니다. 이 쌍이 없으면 principal 매니페스트는
 > `catalog.search_rules`를 `runtime_binding_unavailable`로 기록하고 planner에 노출하지
-> 않습니다. 영속 어댑터는 아직 운영 bootstrap에서 구성되지 않습니다. Reader-gated
+> 않습니다. 운영 bootstrap은 활성 세대가 현재 Rule 카탈로그, 의미 스키마, 온톨로지 release
+> 및 embedder 차원과 정확히 일치할 때만 영속 어댑터를 구성합니다. 상태가 없거나 오래되거나
+> 접근할 수 없으면 선택적 준비 상태 저하로 남고 함수는 등록되지 않습니다. Reader-gated
 > `POST /rules/search`는 Operator Service 변환 결과를 읽으며
 > Core 함수를 직접 호출하지 않습니다. Core 기능이 연결된 곳에서 검색 및 함수 증적은
 > `execution_authority: false`를 유지합니다.
@@ -50,7 +52,7 @@ translation_revised: 2026-08-13
 | In-memory 세대 및 검증 | implemented | `delivery/catalog_search/in_memory.py`; `delivery/catalog_search/generation.py`; `tests/delivery/catalog_search/test_ontology_generation.py`; `tests/rule_catalog/test_discovery_catalog_search.py` | 결정론적 off-path 세대, 독립적인 활성 및 발견 포인터, 코퍼스별 롤백 및 영속 어댑터와 같은 활성화 compare-and-swap을 지원합니다. |
 | 코퍼스 규모 세대 식별자 | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/generation.py`; `delivery/catalog_search/in_memory.py`; 집중 세대 및 Rule 카탈로그 테스트 | 프로바이더 중립 메타데이터는 개수, 계층형 루트, 범위가 제한된 순서가 있는 청크 및 작은 세대의 인라인 다이제스트를 포함합니다. 세대 생성, 검증 증적, 준비, 활성화, 활성 조회, 검색, 롤백 및 롤백 증적은 식별자 차이를 거부합니다. |
 | 영속 PostgreSQL 인덱스 | implemented | `delivery/catalog_search/postgres.py`; migration `0077` 및 `0080`; `tests/delivery/catalog_search/test_postgres.py`; `test_postgres_integration.py`; `test_postgres_rule_corpora_integration.py` | 정확한 세대 매니페스트를 저장하고 다시 검증하며 코퍼스별 세대를 원자적으로 준비, 활성화, 검색 및 롤백합니다. PostgreSQL에서 활성 문서 62개와 발견 문서 8,487개 전체의 수명 주기 격리를 증명합니다. |
-| 운영 bootstrap 연결 | not-started | `runtime/bootstrap_lifecycle.py`; `composition/wire_semantic_query.py` | 선택적 구성은 있지만 운영 bootstrap은 영속 어댑터를 생성하거나 세대 준비 상태를 등록하지 않습니다. |
+| 운영 bootstrap 연결 | implemented | `runtime/bootstrap.py`; `runtime/bootstrap_lifecycle.py`; `composition/wire_semantic_query.py`; `tests/runtime/test_catalog_semantic_bootstrap.py`; 집중 bootstrap 및 구성 검사(`46 passed`) | 시작 시 정확한 활성 세대만 연결합니다. 상태가 없거나 오래되거나 접근할 수 없거나 사용할 수 없으면 안정적인 선택적 준비 상태 사유를 만들고 Rule 검색을 등록하지 않습니다. 통제된 실제 근거는 남아 있습니다. |
 | Operator Rule 검색 변환 결과 | implemented | Operator Service workflow 매니페스트, 경로 및 PostgreSQL workflow 어댑터 | `POST /rules/search`는 개정 번호가 있는 구체화된 변환 결과를 읽으며 정책, 승인, 변경 또는 실행 권한을 부여하지 않습니다. |
 
 ### 구현 이력
@@ -64,6 +66,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | implemented | 정규 문서 매니페스트를 프로바이더 중립 세대 메타데이터에 연결하고 모든 in-memory 수명 주기 경계에서 순서가 있는 정확한 행을 다시 검증했습니다. 세대 다이제스트는 이제 모든 메타데이터 및 매니페스트 필드를 자체 검증하며, 검증 및 롤백 증적은 청크 식별자를 고정하고 Rule 검색 문서 변환 공식은 v3으로 갱신되었습니다. 적대적 14차에서 채택한 비정규 세대 다이제스트 문제를 해결했으며, 영속 어댑터 공백은 별도 잔여 작업입니다. | `current change`; 집중 세대, 정확한 질의, 검색, 전체 코퍼스 및 구성 검사에서 테스트 41개가 통과했습니다. 소스 파일 5개에서 strict mypy가 통과했고 소스 및 테스트 파일 9개에서 Ruff 검사가 통과했으며 편집기 진단은 깨끗했습니다. | 영속 PostgreSQL 어댑터에 같은 매니페스트를 저장하고 다시 검증한 다음 실제 데이터베이스 수명 주기 근거를 기록합니다. |
 | 2026-08-13 | implemented | 영속 PostgreSQL 세대 어댑터와 예상 이전 활성 세대가 정확히 일치해야 하는 활성화 compare-and-swap을 추가했습니다. 활성화는 같은 코퍼스 잠금 안에서 포인터를 변경하기 전에 대상 다이제스트, 이전 활성 ID와 다이제스트, 수명 주기 상태, 재실행 식별자 및 시간 순서를 확인합니다. 전체 활성 및 발견 코퍼스는 교체와 롤백 과정에서도 격리됩니다. | `current change`; 전체 활성 62개와 발견 8,487개 코퍼스 검사를 포함한 집중 PostgreSQL 단위 및 실제 데이터베이스 수명 주기 검사가 통과했습니다. 집중 활성화 동등성 검사에서 테스트 42개가 통과했고 변경한 수명 주기 파일에서 Ruff와 strict mypy가 통과했습니다. | 운영 bootstrap에서 어댑터를 구성하고 수명 주기 및 검색 변환 결과를 발행한 다음 통제된 런타임 근거를 기록합니다. |
 | 2026-08-13 | implemented | held-out 평가기 계약에 읽을 수 있는 한국어 양성 사례와 명시적 no-match 고정본을 추가하고, 한국어 training 및 evaluation 격리를 증명했으며, 표면과 증적이 실행 권한 없음 및 검증 전용 권한을 유지하는지 확인했습니다. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/rule_catalog/test_rule_semantic_evaluation.py`에서 테스트 5개가 통과했습니다. | 배포된 카탈로그와 실제 의미 인덱스를 대상으로 필수 집단을 실행한 다음, 측정된 구성 임계값을 통제된 승격에 연결합니다. |
+| 2026-08-13 | implemented | 정확한 활성 세대 ID 검사와 선택적 준비 상태 저하 뒤에서 운영 시작 시 영속 의미 인덱스를 구성했습니다. Rule 카탈로그, 의미 스키마, 온톨로지 release 및 embedder 차원이 일치한 뒤에만 인덱스와 카탈로그 다이제스트를 구성에 전달합니다. | `current change`; 집중 런타임 bootstrap 및 의미 구성 검사에서 테스트 46개가 통과했습니다. 변경한 운영 파일 3개에서 Ruff와 strict mypy가 통과했습니다. | 증적 기반 Operator 변환 결과를 발행하고 검증을 주장하기 전에 통제된 실제 바인딩 근거를 기록합니다. |
 
 ### 남은 작업
 
@@ -74,9 +77,10 @@ translation_revised: 2026-08-13
   검증합니다. 집중 실제 데이터베이스 세대, 활성화, 롤백, 정확한 세대 검색 및 전체
   코퍼스 격리 검사는 [빌드 및 의미 확장 수명
   주기](#빌드-및-의미-확장-수명-주기)에 따라 통과했습니다.
-- [ ] 운영 bootstrap에서 영속 어댑터를 구성하고 세대 준비 상태를 등록합니다. 시작할 때
-  정확한 현재 카탈로그와 온톨로지 세대만 연결하고 식별자가 없거나 오래되었을 때 안정적인
-  사유와 함께 성능 저하 상태로 전환하며 집중 bootstrap 검사가 통과하면 완료합니다.
+- [x] 운영 bootstrap은 영속 어댑터를 구성하고 선택적 세대 준비 상태를 등록합니다. 시작할 때
+  정확한 현재 Rule 카탈로그, 의미 스키마, 온톨로지 release 및 embedder 차원만 연결합니다.
+  상태가 없거나 오래되거나 접근할 수 없거나 사용할 수 없을 때 안정적인 성능 저하 사유를
+  제공하며 집중 bootstrap 및 구성 검사에서 테스트 46개가 통과했습니다.
 - [ ] Core 검색 및 함수 호출 증적을 Operator 변환 결과로 발행합니다. `POST /rules/search`가
   직접 Core 호출 없이 정확한 증적 기반 변환 결과를 반환하고 [질의 수명
   주기](#질의-수명-주기)를 보존하면 완료합니다.

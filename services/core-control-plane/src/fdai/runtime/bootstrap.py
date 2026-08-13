@@ -75,6 +75,9 @@ from fdai.runtime.bootstrap_bindings import (
     operational_event_bus as _operational_event_bus,
 )
 from fdai.runtime.bootstrap_lifecycle import (
+    build_catalog_semantic_runtime_binding as _build_catalog_semantic_runtime_binding,
+)
+from fdai.runtime.bootstrap_lifecycle import (
     build_mutation_dependency_readiness as _build_mutation_dependency_readiness,
 )
 from fdai.runtime.bootstrap_lifecycle import (
@@ -82,6 +85,9 @@ from fdai.runtime.bootstrap_lifecycle import (
 )
 from fdai.runtime.bootstrap_lifecycle import (
     build_semantic_turn_binding as _build_semantic_turn_binding,
+)
+from fdai.runtime.bootstrap_lifecycle import (
+    catalog_semantic_readiness_registration as _catalog_semantic_readiness_registration,
 )
 from fdai.runtime.bootstrap_lifecycle import (
     install_shutdown_signals as _install_shutdown_signals,
@@ -511,6 +517,12 @@ async def _run() -> int:
                 "FDAI_SEMANTIC_TURN_PURPOSE", "operations-review"
             ).strip()
             endpoint = os.environ.get("FDAI_LLM_ENDPOINT", "").strip() or None
+            catalog_semantic_binding = await _build_catalog_semantic_runtime_binding(
+                config=os.environ,
+                embedder=container.require_llm_bindings().embedding_model,
+                rules=control_loop.rules,
+                ontology_release=control_loop.ontology_release,
+            )
             semantic_composition = compose_azure_semantic_query_runtime(
                 container=container,
                 ontology_release=control_loop.ontology_release,
@@ -524,6 +536,8 @@ async def _run() -> int:
                 catalog_root=_resolve_catalog_root(),
                 owner_loop=asyncio.get_running_loop(),
                 purpose=semantic_purpose,
+                catalog_index=catalog_semantic_binding.index,
+                catalog_digest=catalog_semantic_binding.catalog_digest,
             )
             semantic_turn_binding = _build_semantic_turn_binding(
                 state_store=incident_audit_store,
@@ -571,6 +585,9 @@ async def _run() -> int:
             semantic_readiness_specs, semantic_readiness_probes = (
                 _semantic_turn_readiness_registration(semantic_turn_binding)
             )
+            catalog_semantic_specs, catalog_semantic_probes = (
+                _catalog_semantic_readiness_registration(catalog_semantic_binding)
+            )
             startup_readiness_runtime = build_startup_readiness_runtime(
                 state_store=incident_audit_store,
                 event_bus=operational_bus,
@@ -583,8 +600,16 @@ async def _run() -> int:
                 ),
                 cross_check_models=container.require_llm_bindings().cross_check_models,
                 environment=os.environ,
-                registered_specs=(*container.startup_probe_specs, *semantic_readiness_specs),
-                registered_probes=(*container.startup_probes, *semantic_readiness_probes),
+                registered_specs=(
+                    *container.startup_probe_specs,
+                    *semantic_readiness_specs,
+                    *catalog_semantic_specs,
+                ),
+                registered_probes=(
+                    *container.startup_probes,
+                    *semantic_readiness_probes,
+                    *catalog_semantic_probes,
+                ),
             )
             startup_report = await startup_readiness_runtime.evaluate()
             _LOGGER.info(
