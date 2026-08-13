@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: ea3c77014d3aeaca78fb5e138deb6f00fd39182e
+translation_source_sha: 902e032c31844a027da48be8710d725e2611ed89
 translation_revised: 2026-08-13
 ---
 # Rule 의미 검색
@@ -51,7 +51,7 @@ translation_revised: 2026-08-13
 | 정확한 세대 Rule 질의 | implemented | `core/ontology_platform/catalog_queries.py`; `tests/core/ontology_platform/test_catalog_queries.py` | 실행 권한 없이 후보 전용 결과와 내용 기반 주소를 가진 검색 및 호출 증적을 반환합니다. |
 | 선택적 의미 런타임 바인딩 | implemented | `composition/wire_semantic_query.py`; `tests/composition/test_wire_semantic_query.py` | 의미 인덱스와 정확한 카탈로그 다이제스트를 함께 요구합니다. |
 | Planner 가용성 계상 | implemented | `core/ontology_platform/query_manifest.py`; `tests/core/ontology_platform/test_query_manifest.py`; current change focused checks | 읽을 수 있지만 바인딩되지 않은 함수는 구조 커버리지에 `runtime_binding_unavailable`로 남고 planning에서는 숨겨집니다. |
-| 이중 언어 held-out 평가기 계약 | implemented | `rule_catalog/schema/rule_semantic_evaluation.py`; `tests/rule_catalog/test_rule_semantic_evaluation.py`; current change focused check | 영어 및 한국어 양성 사례와 명시적 no-match 고정본이 검증 전용 집단 근거를 생성합니다. 두 언어 모두에서 training 질의 재사용을 거부합니다. 검색 실패는 `HOLD`를 생성하고 양성 사례를 실패로 계산하며 no-match 정밀도 근거로 사용하지 않습니다. |
+| 이중 언어 held-out 평가기 계약 | implemented | `rule_catalog/schema/rule_semantic_evaluation.py`; `tests/rule_catalog/test_rule_semantic_evaluation.py`; current change focused check | 영어 및 한국어 양성 사례와 명시적 no-match 고정본이 검증 전용 집단 근거를 생성합니다. 두 언어 모두에서 training 질의 재사용을 거부합니다. 검색 실패는 `HOLD`를 생성하고 양성 사례를 실패로 계산하며 no-match 정밀도 근거로 사용하지 않습니다. 부분 검색 성능 저하는 집단별로 측정되며 승격 검토 대상이 되지 않습니다. |
 | 카탈로그 기반 승격 보증 | implemented | `tests/rule_catalog/test_discovery_catalog_search.py`; 커밋 `d1787f4d8`; current change 배포 카탈로그 집중 검사 | 실제 활성 Rule 62개 세대는 정확한 영어 및 모호성 집단을 통과합니다. 통제된 한국어 표면 부재, 적대적 입력의 활성 코퍼스 오탐, 발견 전용 질의 오탐 및 오래된 정확한 세대 검색은 각각 검토 가능한 검증 전용 `HOLD` 근거를 생성합니다. 발견 문서는 활성 결과에 유출되지 않습니다. 이는 검색 준비 완료가 아니라 부정적 게이트 근거입니다. |
 | 통제된 승격 검토 | implemented | `config/rule-semantic-evaluation.json`; `rule_catalog/schema/rule_semantic_evaluation_policy.py`; `rule_catalog/schema/rule_semantic_promotion_review.py`; current change 집중 검사 | 내용 기반 주소를 가진 통제된 구성에서 임계값과 필수 집단을 로드합니다. 검토 자격은 오래된 정책 ID, 누락되거나 이름이 바뀐 메트릭, 알 수 없는 증적 스키마, 실패한 집단, 권한을 포함한 근거 및 현재 임계값 미만의 값을 안전하게 보류합니다. 자격은 승격 또는 실행 권한을 부여하지 않습니다. |
 | In-memory 세대 및 검증 | implemented | `delivery/catalog_search/in_memory.py`; `delivery/catalog_search/generation.py`; `tests/delivery/catalog_search/test_ontology_generation.py`; `tests/rule_catalog/test_discovery_catalog_search.py` | 결정론적 off-path 세대, 독립적인 활성 및 발견 포인터, 코퍼스별 롤백 및 영속 어댑터와 같은 활성화 compare-and-swap을 지원합니다. |
@@ -81,6 +81,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | implemented | lease로 격리된 영속 활성화 결과 발행, Mimir 소유 명령 유입 및 결과 변환, 운영 환경의 공유 ledger 구성과 준비 상태에 독립적인 backlog 발행을 추가했습니다. 해제에 성공한 broker 실패는 재시도하되 receipt 계약 또는 ledger 실패는 숨기지 않습니다. 통합 런타임 증명은 명령 전달부터 활성화, outbox 발행 및 변환 전용 결과 저장까지 다룹니다. | `current change`; 집중 bootstrap, 런타임, Mimir, 활성화 및 발행 선택 검사에서 재시작, 중복, lease 만료, 취소, broker 실패 재시도, 치명적 receipt topic 불일치, 확인된 전달 및 통합 명령-변환 결과 사례를 포함한 테스트 32개가 통과했습니다. | 이 영역을 `validated`로 변경하기 전에 통제된 실제 런타임 근거를 기록합니다. 별도 검색 및 함수 호출 변환 결과 작업은 열려 있습니다. |
 | 2026-08-13 | implemented | 내용 기반 주소를 가진 평가 정책 로딩과 결정론적인 검토 전용 승격 평가를 추가했습니다. 평가는 검토 자격을 반환하기 전에 증적 및 정책 ID, 정확한 현재 메트릭과 임계값, 필수 집단, 검증 전용 권한 및 실행 권한 없음 경계를 다시 검증합니다. | `current change`; 집중 평가 정책, 증적, 승격 검토, 검색 및 배포 카탈로그 모음에서 테스트 42개가 통과했습니다. 변경한 운영 모듈에서 Ruff와 strict mypy가 통과했습니다. | 통과 증적이 검토 자격을 얻기 전에 통제된 한국어 표면을 추가하고 측정된 lexical 오탐을 제거합니다. 검증을 주장하기 전에 통제된 실제 근거를 별도로 기록합니다. |
 | 2026-08-13 | implemented | 검증된 정확한 함수 호출 증적을 Core-to-Operator 변환 결과 경계 전체에서 보존했습니다. strict 공유 계약은 정규 증적 다이제스트, 질의 작업, 함수 의도, 기능 및 완료 상태를 연결하며 Operator 저장은 원자성과 범위 격리를 유지합니다. | `current change`; 공유 계약, Core 변환 결과 처리기, Operator bridge 및 workflow-family 모음에서 테스트 94개가 통과했습니다. 변경한 운영 모듈에서 Ruff와 strict mypy가 통과했습니다. | 이 영역을 `validated`로 변경하기 전에 Reader 범위의 실제 변환 결과 근거를 기록합니다. |
+| 2026-08-13 | implemented | held-out 검색에 명시적인 부분 성능 저하 회귀 검사를 추가했습니다. 양성 집단의 요청 2개 중 1개가 실패하면 검색 성공률 `0.5`, 검증 전용 `HOLD`, 승격 또는 실행 권한이 없는 검토 전용 승격 `HOLD`가 생성됩니다. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/rule_catalog/test_rule_semantic_evaluation.py`에서 테스트 11개가 통과했습니다. 작업 소유 테스트 파일에서 Ruff, 형식 및 편집기 진단이 통과했습니다. | 통제된 한국어 표면을 추가하고 측정된 활성 코퍼스 lexical 오탐을 제거합니다. 검증을 주장하기 전에 통제된 실제 근거를 별도로 기록합니다. |
 
 ### 남은 작업
 

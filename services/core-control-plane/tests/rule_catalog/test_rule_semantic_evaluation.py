@@ -42,6 +42,13 @@ class _FailingRetriever:
         raise RuntimeError("semantic generation is stale")
 
 
+class _PartiallyFailingRetriever:
+    async def search(self, query: str, *, k: int) -> Sequence[str]:
+        if "temporarily unavailable" in query.casefold():
+            raise RuntimeError("semantic generation is partially unavailable")
+        return await _Retriever().search(query, k=k)
+
+
 def _surface(
     training_query: str = "Block public object storage",
     *,
@@ -506,3 +513,59 @@ async def test_retrieval_failure_holds_without_false_no_match_credit() -> None:
         ("stale-state", "retrieval-success-rate"): 0.0,
     }
     assert receipt.validation_authority == "validation_only"
+
+
+async def test_partial_retrieval_degradation_holds_promotion_review() -> None:
+    policy = _policy()
+    cases = (
+        RetrievalEvaluationCase(
+            "available-positive",
+            "Which policy prevents public storage?",
+            "en-positive",
+            ("rule:public-access@1",),
+            EvaluationQueryOrigin.USER,
+        ),
+        RetrievalEvaluationCase(
+            "unavailable-positive",
+            "Which public storage policy is temporarily unavailable?",
+            "en-positive",
+            ("rule:public-access@1",),
+            EvaluationQueryOrigin.USER,
+        ),
+        RetrievalEvaluationCase(
+            "available-negative",
+            "Which policy tunes database connections?",
+            "en-negative",
+            (),
+            EvaluationQueryOrigin.ASSURANCE_GENERATED,
+            generator_ref="assurance:partial-degradation@1",
+        ),
+    )
+
+    receipt = await evaluate_semantic_surface(
+        _surface(),
+        cases,
+        retriever=_PartiallyFailingRetriever(),
+        policy=policy,
+        evaluator_ref="heimdall:rule-retrieval@1",
+    )
+    metrics = {(item.cohort, item.metric): item.value for item in receipt.cohort_metrics}
+    assessment = assess_surface_promotion_review(
+        receipt,
+        current_policy=policy,
+        expected_surface_digest=receipt.surface_digest,
+        expected_dataset_digest=receipt.dataset_digest,
+        expected_evaluator_ref=receipt.evaluator_ref,
+    )
+
+    assert metrics[("en-positive", "retrieval-success-rate")] == 0.5
+    assert receipt.decision is ValidationDecision.HOLD
+    assert "en-positive-retrieval-error" in receipt.failure_codes
+    assert assessment.decision is PromotionReviewDecision.HOLD
+    assert (
+        "metric-below-current-threshold:en-positive:retrieval-success-rate"
+        in assessment.reason_codes
+    )
+    assert assessment.review_authority == "review_only"
+    assert assessment.promotion_authority is False
+    assert assessment.execution_authority is False
