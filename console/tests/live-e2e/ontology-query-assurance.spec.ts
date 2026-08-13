@@ -11,7 +11,8 @@ import {
 } from "./ontology-query-assurance";
 
 const COHORT_SEED = 0x0fda1;
-const BATCH_SIZE = 5;
+const BATCH_SIZE = 1;
+const REQUEST_INTERVAL_MS = 15_000;
 const AUTHENTICATED_EXTERNAL_STACK = Boolean(
   process.env.FDAI_E2E_BASE_URL && process.env.FDAI_E2E_STORAGE_STATE,
 );
@@ -121,6 +122,9 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
           evidence_ref_count: judgment.verification.evidence_refs.length,
         } : {}),
       });
+    }
+    if (offset + BATCH_SIZE < questions.length && REQUEST_INTERVAL_MS > 0) {
+      await page.waitForTimeout(REQUEST_INTERVAL_MS);
     }
   }
 
