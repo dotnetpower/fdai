@@ -473,7 +473,7 @@
     "services/core-control-plane/src/fdai/core/ontology_platform/pod_telemetry.py": "e1f0ec5a121bee9cfd5b45fcd44dc27434522e6f37a3b6c605739fe52160b34b",
     "services/core-control-plane/src/fdai/core/ontology_platform/pod_telemetry_evidence.py": "7c7b8e8a30cdda3e0da323dbecec6913aa5db45638534be881cd5a7b4023e75e",
     "services/core-control-plane/src/fdai/core/ontology_platform/projection.py": "c39e903c920dbaea9fe598638fdc3392174d2f73b2925747705410d92e7ee22e",
-    "services/core-control-plane/src/fdai/core/ontology_platform/query_execution.py": "46806e4cc63cc828180b020a9349dd1492c559fb30804a0206ee398d0bef2b2a",
+    "services/core-control-plane/src/fdai/core/ontology_platform/query_execution.py": "1786deffb9459d68e7fe2c2f1a64e1179ec4349bd1648045adb4fd21cd7af216",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_gateway.py": "19d9cd471fd4092f3431f644ae830e134f47977ec3352e3abf38f7a0739f2dc9",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_handlers.py": "a936fb5835c4383998809f762492264a16190cc5e370e8f97bac2d5d1f1ef137",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_manifest.py": "668f8ddf23e373bdfbef95a19604d3cdfcd848652b511d1258be8f2f8c02a9f4",
@@ -1059,7 +1059,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-13T04:18:23Z",
+  "generated_at": "2026-08-13T06:32:29Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",

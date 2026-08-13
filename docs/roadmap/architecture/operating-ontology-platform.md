@@ -322,6 +322,12 @@ needs authenticated read context registers separately and receives an immutable
 canonicalized for the input digest and deep-copied before callback execution, so nested callback
 mutation cannot alter caller-owned input or invocation evidence.
 
+Query-plan handlers fail closed without expanding the receipt contract. A stable `TypeError`,
+`ValueError`, or `RuntimeError` produces a failed `capability_failed` receipt, and dependent nodes
+remain skipped. The runtime emits `ontology_query_node_failed` with only the allowlisted
+`node_kind` and `failure_type` fields. It doesn't record the exception text, arguments, node
+identifier, provider payload, or operator data for these stable failures.
+
 The diagnostic runtime registers 22 Kubernetes reducers as exact-release `derive` functions. Live
 providers invoke the registry as Heimdall under the `diagnostic-evaluation` purpose and preserve
 the canonical function arguments with each invocation receipt. The observer accepts a finding only

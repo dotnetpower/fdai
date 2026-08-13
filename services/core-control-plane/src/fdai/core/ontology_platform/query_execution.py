@@ -262,7 +262,14 @@ class OntologyQueryPlanExecutor:
                     started_monotonic=started,
                 ),
             )
-        except (TypeError, ValueError, RuntimeError):
+        except (TypeError, ValueError, RuntimeError) as error:
+            _LOGGER.warning(
+                "ontology_query_node_failed",
+                extra={
+                    "node_kind": node.kind.value,
+                    "failure_type": type(error).__name__,
+                },
+            )
             return (
                 node,
                 None,

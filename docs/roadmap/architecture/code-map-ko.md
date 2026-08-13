@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 2e3e298903f6e5e74ef5b05eb50264c2b493b072
+translation_source_sha: 6c9907e1e3a03e0ae051d3d4b99d54e829466d1a
 translation_revised: 2026-08-13
 ---
 # 코드 맵
@@ -106,7 +106,9 @@ Safety-core 커버리지 하한은 Core 패키지 안의 결정론적 계층과 
 
 온톨로지 조회 실행은 런타임에서 exact release, 매니페스트, 역할 및 용도를 다시 검사합니다.
 범위가 제한된 의존성 wave는 노드 기한에 큐 wait를 포함하고 in-flight 취소를 전파하며
-차단된 descendant를 건너뜀하고 프로바이더 오류 상세 없는 고정된 증적을 발행합니다.
+차단된 descendant를 건너뜁니다. 안정적인 핸들러 타입, 값 및 런타임 실패는
+`capability_failed`로 유지됩니다. 구조화된 진단에는 `node_kind`와 `failure_type`만 허용하며,
+예외 본문, 인자, 노드 식별자, 프로바이더 페이로드 또는 운영자 데이터는 포함하지 않습니다.
 조립은 범위가 제한된 secured ObjectSet 증적을 발급하고 source-derived 네트워크 및 Pod
 텔레메트리 함수를 exact release에 등록합니다. 함수 dependency는 발급된 content 다이제스트만
 해석합니다. `catalog.search_rules` 함수는 해당 exact release와 프로바이더 중립적이고 범위가

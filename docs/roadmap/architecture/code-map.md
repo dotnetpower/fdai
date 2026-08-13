@@ -103,7 +103,9 @@ package. Their tests remain under the Core-owned test tree.
 
 Ontology query execution rechecks the exact release, manifest, role, and purpose at runtime. Its
 bounded dependency waves include queue wait in each node deadline, propagate in-flight
-cancellation, skip blocked descendants, and emit stable receipts without provider error details.
+cancellation, and skip blocked descendants. Stable handler type, value, and runtime failures remain
+`capability_failed`; their structured diagnostic allowlists only `node_kind` and `failure_type`,
+without exception text, arguments, node identifiers, provider payloads, or operator data.
 Composition issues bounded secured ObjectSet receipts and registers the source-derived network
 and Pod telemetry functions in the exact release. Function dependencies resolve only an issued
 content digest. The `catalog.search_rules` function accepts only the active Rule generation bound to
