@@ -15,6 +15,7 @@ from fdai.delivery.azure.discovery_receipts import (
     provider_execution_projection,
 )
 from fdai_service_contracts.discovery import (
+    DiscoveryCoverageStatus,
     DiscoveryIntent,
     DiscoveryLimits,
     DiscoveryPredicate,
@@ -139,6 +140,7 @@ def test_provider_execution_receipt_drops_raw_ids_tokens_and_errors() -> None:
         "az resource list | grep secret",
         "az resource show --ids /subscriptions/hidden/resourceGroups/hidden",
         "az account get-access-token",
+        "AZURE_CONFIG_DIR=/tmp az resource list",
     ),
 )
 def test_provider_execution_contract_rejects_unsafe_command(command: str) -> None:
@@ -184,3 +186,7 @@ def test_command_explanation_matches_golden_and_is_equivalent_only() -> None:
     assert explanation.execution_authority is False
     assert "/subscriptions/hidden/resourceGroups/" not in encoded
     assert "00000000-0000-0000-0000-000000000000" not in encoded
+
+
+def test_coverage_contract_exposes_documented_unmapped_state() -> None:
+    assert DiscoveryCoverageStatus.UNMAPPED.value == "unmapped"

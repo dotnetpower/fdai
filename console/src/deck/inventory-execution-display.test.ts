@@ -72,6 +72,7 @@ describe("inventoryExecutionDisplay", () => {
     "az resource list | grep secret",
     "az resource show --ids /subscriptions/hidden/resourceGroups/hidden",
     "az account get-access-token",
+    "AZURE_CONFIG_DIR=/tmp az resource list",
   ])("rejects unsafe provider command %s", (command) => {
     const display = inventoryExecutionDisplay(JSON.stringify({
       query_language: "IQL",
