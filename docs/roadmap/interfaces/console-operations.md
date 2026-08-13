@@ -28,12 +28,15 @@ second execution authority.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Approval projection unavailable state | implemented | `console/src/routes/hil-queue.tsx`; `console/src/routes/hil-queue.test.ts`; `console/tests/live-e2e/console-routes.spec.ts`; focused Vitest (`5 passed`) and live Playwright (`1 passed`) checks | The Approvals route presents optional projection absence as a neutral unavailable state. Unexpected failures remain errors, and the browser gains no approval or execution authority. |
+| Onboarding readiness unavailable state | implemented | `console/src/routes/onboarding.tsx`; `console/src/routes/onboarding.test.ts`; `console/tests/live-e2e/console-routes.spec.ts`; focused Vitest (`6 passed`) and live Playwright (`1 passed`) checks | The Onboarding route presents optional probe endpoint absence as unavailable while preserving unexpected failures as errors. |
+| Command Deck live assurance timeout budget | implemented | `console/tests/live-e2e/console-routes.spec.ts`; focused Playwright test discovery (`2 tests`) | Per-test budgets exceed the existing server-answer assertion budgets, so the global default cannot preempt the intended live checks. This does not weaken answer, grounding, or verification assertions. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and aligned the Approvals route with the typed unavailable-source boundary. | `current change`; task-owned source and tests in the scope table; `vitest run src/routes/hil-queue.test.ts` passed 5 tests and the focused live `/approvals` Playwright check passed. | Complete and record the projection, request, interaction, and measurement exit evidence below. |
+| 2026-08-13 | implemented | Aligned Onboarding with the typed unavailable-source boundary and restored explicit outer budgets for the two Core-dependent Command Deck live checks. | `current change`; task-owned source and tests in the scope table; `vitest run src/routes/onboarding.test.ts` passed 6 tests, the focused live `/onboarding` Playwright check passed, and Playwright discovered both Command Deck checks. | Recover the Core semantic consumer, execute both Command Deck checks, and complete the remaining exit evidence below. |
 
 ### Remaining work
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { OperatorApiClient } from "../api";
+import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
 import { AsyncBoundary, ErrorState, KpiCard, KpiGrid, PageHeader, StatusPill, UnavailableState, kpiEvidenceLabel, type AsyncState } from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
@@ -19,6 +19,21 @@ interface OnboardingResponse {
   readonly error: string | null;
 }
 
+export async function loadOnboardingState(
+  client: Pick<OperatorApiClient, "panel">,
+): Promise<AsyncState<OnboardingResponse>> {
+  try {
+    return {
+      status: "ready",
+      data: decodeOnboarding(await client.panel<unknown>("/onboarding")),
+    };
+  } catch (error) {
+    return isOptionalOperatorApiUnavailable(error)
+      ? { status: "unavailable", message: t("onboardingView.notConfigured") }
+      : { status: "error", message: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 export function OnboardingRoute({ client }: { readonly client: OperatorApiClient }) {
   const [state, setState] = useState<AsyncState<OnboardingResponse>>({ status: "loading" });
   const [checkedAt, setCheckedAt] = useState<string | null>(null);
@@ -29,13 +44,10 @@ export function OnboardingRoute({ client }: { readonly client: OperatorApiClient
     if (showLoading) setState({ status: "loading" });
     else setRefreshing(true);
     try {
-      const data = decodeOnboarding(await client.panel<unknown>("/onboarding"));
+      const nextState = await loadOnboardingState(client);
       if (request !== generation.current) return;
-      setState({ status: "ready", data });
-      setCheckedAt(new Date().toISOString());
-    } catch (error) {
-      if (request !== generation.current) return;
-      setState({ status: "error", message: error instanceof Error ? error.message : String(error) });
+      setState(nextState);
+      if (nextState.status === "ready") setCheckedAt(new Date().toISOString());
     } finally {
       if (request === generation.current) setRefreshing(false);
     }
