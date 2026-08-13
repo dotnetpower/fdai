@@ -190,10 +190,6 @@ test("Command Deck renders the exact governed ontology projection receipt", asyn
   await expect(deck.getByRole("status").first()).toHaveText("Answer ready.", {
     timeout: 120_000,
   });
-  await deck.getByText("Execution record", { exact: true }).last().click();
-  await deck.getByText("Execution details", { exact: true }).last().click();
-  await deck.getByText("Technical details", { exact: true }).last().click();
-
   const response = await responsePromise;
   const requestPayload = response.request().postDataJSON() as Record<string, unknown>;
   const done = parseDoneFrame(await response.text());
@@ -201,6 +197,10 @@ test("Command Deck renders the exact governed ontology projection receipt", asyn
   expect(judgment.passed, judgment.failure_reason).toBe(true);
   const semanticReceipt = judgment.receipt!;
   expect(requestPayload.request_id).toBe(semanticReceipt.request_id);
+
+  await deck.getByText("Execution record", { exact: true }).last().click();
+  await deck.getByText("Execution details", { exact: true }).last().click();
+  await deck.getByText("Technical details", { exact: true }).last().click();
 
   const receipt = deck.getByTestId("semantic-projection-receipt");
   await expect(receipt).toBeVisible();
