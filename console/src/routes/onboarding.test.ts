@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { decodeOnboarding } from "./onboarding";
+import { OperatorApiError } from "../api";
+import { decodeOnboarding, loadOnboardingState } from "./onboarding";
 
 const payload = {
   probe_mode: "configured",
@@ -12,6 +13,28 @@ const payload = {
 };
 
 describe("onboarding response", () => {
+  it("renders optional endpoint absence as unavailable", async () => {
+    const client = {
+      panel: async () => { throw new OperatorApiError(404, "not found"); },
+    };
+
+    await expect(loadOnboardingState(client)).resolves.toEqual({
+      status: "unavailable",
+      message: expect.any(String),
+    });
+  });
+
+  it("preserves unexpected endpoint failures", async () => {
+    const client = {
+      panel: async () => { throw new OperatorApiError(500, "broken"); },
+    };
+
+    await expect(loadOnboardingState(client)).resolves.toEqual({
+      status: "error",
+      message: "broken",
+    });
+  });
+
   it("preserves a configured probe failure", () => {
     expect(decodeOnboarding({ ...payload, error: "OnboardingProbeError:denied" }).error)
       .toBe("OnboardingProbeError:denied");

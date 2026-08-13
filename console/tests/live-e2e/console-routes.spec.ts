@@ -60,6 +60,7 @@ const OPTIONAL_UNAVAILABLE_RESPONSES = new Map<string, ReadonlySet<number>>([
   ["/kpi/autonomy", new Set([404, 501])],
   ["/kpi/promotion-gates", new Set([404, 501, 503])],
   ["/me/context", new Set([503])],
+  ["/onboarding", new Set([404])],
 ]);
 
 function isOperatorApiResponse(response: Response): boolean {
@@ -124,6 +125,7 @@ async function openCommandDeck(page: Page) {
 }
 
 test("Command Deck returns a verified server-time answer", async ({ page }) => {
+  test.setTimeout(120_000);
   const deck = await openCommandDeck(page);
   await deck.getByPlaceholder(/Ask anything/i).fill("What is the current time?");
   await deck.getByRole("button", { name: "Send" }).click();
@@ -136,6 +138,7 @@ test("Command Deck returns a verified server-time answer", async ({ page }) => {
 });
 
 test("Command Deck grounds public web search in Microsoft Learn", async ({ page }) => {
+  test.setTimeout(150_000);
   const deck = await openCommandDeck(page);
   await deck.getByPlaceholder(/Ask anything/i).fill(
     "Search Microsoft Learn for Azure OpenAI Responses API web search guidance and cite the source.",
