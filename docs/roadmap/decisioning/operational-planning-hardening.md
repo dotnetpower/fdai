@@ -15,6 +15,32 @@ promotion.
 > Remaining items are Low release-readiness gaps and cannot raise authority because planning stays
 > in shadow mode.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Planning, simulation, durability, and handoff mechanics | implemented | [Implementation evidence](#implementation-evidence), [Review rounds](#review-rounds) | Twelve adversarial rounds retain focused implementation and regression evidence without granting execution authority. |
+| Frozen scenario coverage | in-progress | [Residual risk](#residual-risk) | The manifest remains `partial` because partial-execution recovery still uses an explicit release-evidence proxy. |
+| Fail-closed live shadow observation | validated | [Live shadow proof](#live-shadow-proof) | The retained 2026-08-03 observation reproduced an ineligible result with zero mutation; it does not validate enforcement. |
+| Enforcement readiness | not-started | [Residual risk](#residual-risk) | Protected-runner recovery, production graph Dynamic evidence, and production executor binding remain open. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and separated validated shadow evidence from enforcement readiness. | `current change`; review rounds, live shadow proof, and residual-risk evidence in this document. | Complete the three release-evidence exits below. |
+
+### Remaining work
+
+- [ ] Complete the protected-runner partial-execution recovery drill and retain authenticated
+    compensation, independent closure, rollback, and cleanup receipts.
+- [ ] Bind production graph Dynamic evidence to one exact ontology release and retain a complete,
+    non-synthetic planning receipt.
+- [ ] Bind the production `ops.scale-out` executor and retain 100 live-shadow samples across 14
+    days with zero policy escapes and a verified rollback sequence before promotion review.
+
 ## Design at a glance
 
 The campaign used one rule throughout: a finding counted only when it was reproducible against the

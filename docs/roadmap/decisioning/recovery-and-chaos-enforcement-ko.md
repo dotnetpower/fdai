@@ -1,8 +1,8 @@
 ---
 title: Recovery 및 chaos enforcement
 translation_of: recovery-and-chaos-enforcement.md
-translation_source_sha: f2c598c0eb71e84aaf3e0247b3bc8effb63118b8
-translation_revised: 2026-08-11
+translation_source_sha: 93bdb2cec28c096c232816fb51f3def3e3b4870e
+translation_revised: 2026-08-14
 ---
 # 복구 및 chaos 적용
 
@@ -18,10 +18,31 @@ translation_revised: 2026-08-11
 > 필요합니다. Thor는 sole privileged 실행기, Var는 독립적인 승인자로 유지되며 Vidar는
 > 롤백과 복구 컨트롤을 소유합니다.
 >
-> **구현 상태(2026-07-31):** 타입이 지정된 영향 analysis, 복구 계획, continuous 가드, 영속 실행
-> 상태, pre-authorized 복구, 6개 탐색 검증, automatic demotion, S1-S14 계약을
-> 구현했습니다. Tool-call 적용에는 주입된 통제된 chaos 실행기가 필요합니다. 기본
-> 런타임은 관찰 모드를 유지하며 이 연결 없이 적용을 활성화하면 시작을 차단합니다.
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 영향 분석 및 묶음 컴파일 | implemented | [`impact_analysis`](../../../services/core-control-plane/src/fdai/core/impact_analysis), [`test_impact_analysis.py`](../../../services/core-control-plane/tests/core/impact_analysis/test_impact_analysis.py) | 제한된 탐색, 특성 계산, 불완전한 근거 거부 및 영향 상한에 집중 테스트가 있습니다. |
+| 복구 계획 계약 및 상태 전환 | implemented | [`test_recovery_plan.py`](../../../services/core-control-plane/tests/core/verticals/test_recovery_plan.py), [온톨로지 계약](#온톨로지-계약) | 버전이 지정된 계획과 복구 상태 전환이 있습니다. 이는 실제 운영 복구 결과를 증명하지 않습니다. |
+| Continuous 가드 및 독립 검증 | implemented | [`test_impact_analysis.py`](../../../services/core-control-plane/tests/core/impact_analysis/test_impact_analysis.py), [런타임 상태 머신](#런타임-상태-머신) | 가드와 검증 동작은 오래되었거나 불완전하거나 묶음을 벗어난 근거를 실패 시 차단합니다. |
+| S1-S14 통제된 chaos 캠페인 및 실행기 연결 | in-progress | [`constitution-traceability.json`](../../../config/constitution-traceability.json), [전달 상태](#전달-상태) | 시나리오 분류 체계는 있지만 헌법상 도메인 범위가 불완전하고 통제된 실제 실행기 캠페인 근거가 없습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 테스트된 동작과 운영 적용 근거를 분리했습니다. | `current change`; 구현 범위 표의 현재 소스, 집중 테스트 및 헌법 추적성입니다. | 통제된 실행기를 연결하고 고정 복구 및 chaos 캠페인을 완료해야 합니다. |
+
+### 남은 작업
+
+- [ ] 주입된 `GovernedChaosExecutor`를 배포 구성에 연결하고 바인딩이나 필요한 권한이 없을
+  때 적용 모드 시작을 거부하는지 증명합니다.
+- [ ] 승인된 영향 묶음, continuous 중지 가드, 독립 복구 검증 및 보존된 재실행 가능 증적으로
+  고정 S1-S14 캠페인을 실행합니다.
+- [ ] 도메인 검증 또는 적용 모드 준비 상태를 주장하기 전에 복구 및 Chaos Engineering의
+  누락된 헌법상 시나리오 차원을 완료합니다.
 
 ## 설계 개요
 

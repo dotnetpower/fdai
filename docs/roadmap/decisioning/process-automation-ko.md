@@ -1,8 +1,8 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 2410063154ea4eb74c5a0528fa7e6d5f6cb24e07
-translation_revised: 2026-08-12
+translation_source_sha: 8583a244a5d1a8c134400a1d8b05afb272322be9
+translation_revised: 2026-08-14
 ---
 
 # 프로세스 자동화(프로세스 자동화)
@@ -24,6 +24,32 @@ translation_revised: 2026-08-12
 > 아래의 업스트림 `ActionType` 카탈로그만 참조하며, 새 변경 기본 요소 를
 > 선언하지 않는다. 새 기능 가 필요한 프로세스는 먼저 업스트림 `ActionType`
 > 문서 PR 을 열라는 신호다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 워크플로 카탈로그, 스키마 및 온톨로지 계약 | implemented | [`test_workflow_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_workflow_catalog.py), [`Process.yaml`](../../../rule-catalog/vocabulary/object-types/Process.yaml) | 로더, 교차 참조, shadow 기본값 및 Process 어휘 검사가 구현되어 있습니다. |
+| 런타임 저널, 변환 결과, 승인 및 명령 | implemented | [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_projection.py`](../../../services/core-control-plane/tests/core/workflow/test_projection.py), [`test_workflow_approval.py`](../../../services/core-control-plane/tests/delivery/persistence/test_workflow_approval.py) | 영속 스냅샷, 추가 전용 이벤트, 승인, 재시도, 재개 및 취소 동작에 집중 테스트가 있습니다. |
+| 보상 및 영속 자동화 hold | in-progress | [`test_automation_hold.py`](../../../services/core-control-plane/tests/core/workflow/test_automation_hold.py), [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`constitution-traceability.json`](../../../config/constitution-traceability.json) | Hold 발행과 로컬 전달 차단은 구현되어 있습니다. 완전한 재시작, 중복 전달 및 교차 경로 근거는 헌법 추적성에서 열린 상태입니다. |
+| 저작 및 읽기 전용 Process 화면 | implemented | [`workflow-builder.chat.ts`](../../../console/src/routes/workflow-builder.chat.ts), [저작 화면](#8-저작-표면-콘솔-workflow-builder) | 콘솔은 실행 권한 없이 비공개 초안을 만들고 검증하며 Process 변환 결과를 조회할 수 있습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 남은 헌법상 보상 공백을 표시했습니다. | `current change`; 구현 범위 표의 현재 소스, 집중 테스트 및 추적성입니다. | 아래의 보상 hold 및 승격 종료 조건을 완료해야 합니다. |
+
+### 남은 작업
+
+- [ ] 누락, 실패 또는 채점 불가능한 모든 보상이 재시작과 중복 전달을 거쳐 이후 정방향
+  전달을 차단하는 영속 대상 hold를 만드는지 증명합니다.
+- [ ] 타입이 지정된 `SignalType` 트리거 참조와 실패 시에만 실행되는 `on_failure` 분기를
+  구현하고 적용 모드 자격 전에 로더 및 런타임 부정 테스트를 보존합니다.
+- [ ] 하나의 고정된 Workflow 및 ActionType 카탈로그 리비전에서 독립 효과 및 복구 종결을
+  포함한 승격된 워크플로 시나리오를 보존합니다.
 
 ## 1. 혼동하면 안 되는 네 가지 개념
 
@@ -188,23 +214,8 @@ Mine은 비공개 user 정의를 포함한다. **My automations**는 principal �
 
 ## 4. 컨트롤 루프 통합
 
-focused 소유자 문서로 이동했습니다: [workflow-control-loop-integration-ko.md](workflow-control-loop-integration-ko.md). 통제된 shadow/강제 적용 오케스트레이터, 가드 평가 경계, 런타임 저널과 온톨로지 변환 결과, 수동 shadow/강제 적용 명령, 통제된 Python 작업 및 cron 예약, 통제된 명령 및 셸 산출물을 다룹니다.
-
-런타임 전달에는 카탈로그 기반 도구 전체에 적용되는 하나의 catalog-root 불변식이
-있습니다. 명시적 `catalog_root`로 컨트롤 루프를 구성하면 chaos 실행기(전체 및
-승격 엔트리)와 RCA symptom 인덱스 모두에 `catalog_root / "chaos-scenarios"`를
-전달해야 합니다. 따라서 실행 자격, 승격 상태, 진단 근거는 저장소 기본값으로
-조용히 되돌아가지 않고 동일한 배포 또는 테스트 카탈로그를 사용합니다. 명시적
-재정의가 없는 구성은 기본 카탈로그를 유지합니다.
-
-Direct API 전달은 등록된 ActionType을 전용 어댑터로 먼저 경로한 다음 operations 게이트웨이
-대체 경로를 사용합니다. Human-access 액션은 워크로드 신원, HTTP 클라이언트, 상태 저장소 및 전체
-role-group 대응이 구성된 경우에만 허용 목록 기반 Entra 어댑터를 연결하며 별도 승격 전까지
-관찰 모드를 유지합니다. 나머지 지원 작업은 기존 게이트웨이 경로를 유지합니다. Recording 가짜는
-어떤 실제 운영 연결과도 결합할 수 없으며 게이트웨이 또는 human-access 구성이 일부만 있으면 더 약한
-경로를 선택하지 않고 시작을 중단합니다.
-`governance.promote-effect-model`은 영속 evidence registry를 사용할 수 있을 때만 동일한 router를
-사용하며 기존 risk, Owner 승인, Thor, rollback 및 audit 경로를 그대로 통과합니다.
+집중 [워크플로 컨트롤 루프 통합](workflow-control-loop-integration-ko.md) 문서가 오케스트레이션,
+catalog-root, 어댑터 라우팅, 저널, 명령 및 샌드박스 실행 세부 정보를 소유합니다.
 
 ## 5. saga 보상(saga 보상)
 

@@ -30,8 +30,31 @@ Consumers of this model:
 > documented in
 > [action-ontology.md § 7](action-ontology.md#7-fork-override-seams).
 
-> **Implementation status (2026-07-21):** Authority, risk table, kill switch, HIL resume,
-> four paths, probe catalog, and typed operator proposals are implemented. Azure Monitor probe I/O remains a deployment binding.
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Risk table and never-raising authority ceiling | implemented | [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py), [`test_ceiling.py`](../../../services/core-control-plane/tests/core/risk_gate/test_ceiling.py) | The baseline, six contextual axes, degradation, and kill switch combine without raising authority. |
+| Promotion, HIL resume, and executor selection | implemented | [`test_gate.py`](../../../services/core-control-plane/tests/core/risk_gate/test_gate.py), [`test_coordinator.py`](../../../services/core-control-plane/tests/core/hil_resume/test_coordinator.py) | Shadow-first promotion, approval resume, and typed path selection have focused coverage. |
+| Seven safeguards across every execution path | in-progress | [`constitution-traceability.json`](../../../config/constitution-traceability.json), [Seven safeguards](#6-seven-safeguards-and-one-replay-extension) | Individual mechanics exist, but one shared contract does not yet prove equivalent guarantees across every path. |
+| Live blast-probe deployment and operational evidence | not-started | [Probe adapter seam](#43-probe-adapter-seam), [Rollout record](#9-rollout-record) | The fail-safe probe seam exists; no retained live probe binding or production shadow receipt is cited here. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and separated tested mechanics from deployment evidence. | `current change`; current source, focused tests, and constitutional traceability listed in the scope table. | Close shared-safeguard and live-probe evidence gaps. |
+
+### Remaining work
+
+- [ ] Represent the seven safeguards and independent effect closure in one shared contract across
+  PR-native, direct API, PR-manual, and tool-call execution, then retain path-parity tests.
+- [ ] Bind a production `AzureMonitorBlastProbe` and retain a shadow receipt where live evidence
+  lowers authority with `winning_axis=live_blast` and no mutation.
+- [ ] Retain governed end-to-end receipts for each executor path on one pinned ActionType and risk
+  catalog revision before claiming operational validation.
 
 ## 1. What "execute" means here
 
@@ -743,50 +766,9 @@ block including the `risk_table` axis.
 
 ## 9. Rollout record
 
-The execution model landed as a data + policy change without a subsystem tier
-upgrade. The sequence below records the rollout and matches the ActionType
-migration record in [action-ontology.md § 10](action-ontology.md#10-migration-record).
-
-### Day 1
-
-- Schema extension only. Loader learns the new fields; every existing
-  ActionType validates. The RiskGate keeps behaving as it does today
-  (shadow-only) because `promotion_state` is shadow for every entry.
-- **Exit gate**: property tests over the 6-axis min-combination; every
-  existing shipped rule still produces the same shadow-only outcome
-  it did before the change.
-
-### Week 1
-
-- Ontology backfill lands (see action-ontology.md § 10 step 2).
-- ControlLoop starts routing through the unified RiskGate on every
-  dispatch (was previously a stub); execution stays shadow-only because
-  no ActionType has been promoted yet.
-- Operator-console pull-direction ships with the argument-schema-
-  validated dispatch path (§3.1).
-- **Exit gate**: `resolved_ceiling` audit block appears on every
-  dispatch; end-to-end test covers rule-fired and operator-fired paths
-  reaching the same executor via the same RiskGate.
-
-### Week 2
-
-- First `ops.*` ActionTypes land with `execution_path=direct_api` and
-  `ceiling_by_tier.t0.max_autonomy=enforce_auto`. The RiskGate now
-  produces `auto` for those in non-prod on a Reader-visible resource.
-- **Exit gate**: a Contributor via the console executes
-  `ops.restart-service` on a non-prod resource under live-probe fake
-  (`quiet`), the executor calls the (mocked) ARM API, the audit entry
-  carries the `direct_api` path.
-
-### Month 1
-
-- Real `AzureMonitorBlastProbe` binds; live probes go live on the
-  ActionTypes that opt in.
-- `governance.override-ceiling` lands so an Owner can time-box a
-  ceiling downgrade from the console (§7.4 of action-ontology).
-- **Exit gate**: at least one live probe reduces autonomy at least
-  once in production shadow measurement; the audit entry shows
-  `winning_axis=live_blast` on that dispatch.
+The implementation ledger supersedes the old date-based rollout narrative. Schema, unified
+RiskGate routing, typed proposals, and mocked path checks are implemented. The remaining rollout
+gate is the retained live-probe and cross-path operational evidence listed above.
 
 ## 10. Testability
 

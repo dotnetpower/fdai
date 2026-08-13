@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 242498b752fce09fe2fc08a63427379035867f49
-translation_revised: 2026-08-11
+translation_source_sha: 8d155f8484f65c427c9a21ff94c78ccecf9d5c7f
+translation_revised: 2026-08-14
 ---
 # 대화 품질 보증
 
@@ -12,6 +12,32 @@ translation_revised: 2026-08-11
 > FDAI는 각 구독에서 검증된 사용 근거가 쌓일수록 답변 정확도를 개선할 수 있지만, 이는 보장이
 > 아니라 측정 결과입니다. 동일한 고정 시나리오 세트에서 통계적으로 뒷받침되는 향상과 하드
 > 안전성 이탈 0건을 확인해야 승격할 수 있습니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 평가 계약 및 독립 축약 | implemented | [`test_assessment.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_assessment.py), [`test_attribution.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_attribution.py) | 결정론적 검사, 독립 평가자 축약, 귀속 및 판단 보류 동작에 집중 테스트가 있습니다. |
+| 비용 인식 런타임 정책 및 수명 주기 | implemented | [`test_runtime_policy.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_runtime_policy.py), [`test_lifecycle.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_lifecycle.py) | 단계적 평가, 후보 수명 주기, 실패 시 차단되는 승격 검사 및 롤백 동작이 구현되어 있습니다. 이는 운영 승격을 증명하지 않습니다. |
+| Qualification 점수표 및 캠페인 원장 | in-progress | [`test_quality_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_scorecard.py), [`conversation-assurance-ledger.py`](../../../scripts/quality/conversation-assurance-ledger.py) | 점수표와 범위가 제한된 결과 형식은 구현되어 있지만 전체 이중 언어 qualification 집합은 통제된 근거로 보존되지 않았습니다. |
+| 운영자 이의 제기 및 온톨로지 적정성 검토 | implemented | [`test_learning.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_learning.py), [`test_state_store_ontology_adequacy.py`](../../../services/core-control-plane/tests/delivery/persistence/test_state_store_ontology_adequacy.py) | 이의 제기와 재현된 적정성 공백은 실행 권한을 변경하지 않고 범위가 제한된 검토 근거를 만듭니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 아래에 설명된 qualification, 블라인드 재실행 및 운영 승격 또는 롤백 근거를 보존해야 합니다. |
+
+### 남은 작업
+
+- [ ] 하나의 고정된 리비전에서 전체 50개 항목 이중 언어 qualification 점수표를 실행하고
+	모든 하드 검사와 의미 루브릭 임계값을 증명하는 항목별 결과를 보존합니다.
+- [ ] 승격된 정책을 보고하기 전에 통계적으로 뒷받침되는 개선, 하드 안전성 이탈 0건 및 로케일
+	회귀 없음을 보여 주는 블라인드 홀드아웃 재실행 근거를 보존합니다.
+- [ ] 측정된 회귀 후 통제된 자동 롤백을 한 번 실행하고 정책 전환, 복원된 불변 버전 및 감사
+	증적을 보존합니다.
 
 ## 설계 요약
 

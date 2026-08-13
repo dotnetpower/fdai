@@ -1,13 +1,39 @@
 ---
 title: Workflow Control-Loop Integration
 translation_of: workflow-control-loop-integration.md
-translation_source_sha: 4b5f34b4df9c22d370e598d25855775aff927e71
-translation_revised: 2026-08-11
+translation_source_sha: c68d401d7ad6a023355edb085079e3e51254509a
+translation_revised: 2026-08-14
 ---
 
 # 작업 흐름 Control-Loop 통합
 
 > [process-automation-ko.md](process-automation-ko.md) 섹션 4에서 분리한 focused 소유자 문서입니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| Shadow 및 타입이 지정된 적용 오케스트레이션 | implemented | [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_coordinator.py`](../../../services/core-control-plane/tests/core/workflow/test_coordinator.py) | Shadow는 변경할 수 없으며 적용 제안은 시도별 신원으로 타입이 지정된 유입 경로에 재진입합니다. |
+| 영속 저널, 변환 결과 및 승인 | implemented | [`test_projection.py`](../../../services/core-control-plane/tests/core/workflow/test_projection.py), [`test_workflow_approval.py`](../../../services/core-control-plane/tests/delivery/persistence/test_workflow_approval.py) | 리비전이 지정된 Process 상태, 재시도 가능한 변환, 정족수, 시간 초과 및 자기 승인 방지에 집중 테스트가 있습니다. |
+| 가드 평가 | in-progress | [가드 평가](#42-가드-평가-경계) | 경계와 실패 시 차단되는 감사 상태가 있습니다. 배포별 정책 평가는 주입된 연결로 남아 있습니다. |
+| 통제된 Python, 예약, 명령 및 shell 경로 | in-progress | [통제된 작업 및 예약](#45-통제된-python-작업-및-cron-예약) | 검증과 제한된 샌드박스 동작은 있지만 실제 실행기와 운영 확장 근거는 불완전합니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 정책 연결과 운영 동시성 근거를 완료해야 합니다. |
+
+### 남은 작업
+
+- [ ] 구체적인 가드 정책 평가기를 연결하고 테스트하며 누락, 오래됨, 형식 오류 및 사용할 수
+  없는 근거에 대한 실패 시 차단 동작을 유지합니다.
+- [ ] Process 단계와 시도마다 정방향 전달이 하나뿐임을 증명하는 다중 replica 잠금 및 중복
+  전달 근거를 보존합니다.
+- [ ] Operator API에 실행기 신원을 부여하지 않고 통제된 Python 작업 실제 실행기를 완료하고
+  샌드박스, 결과 및 복구 증적을 보존합니다.
 
 ## 4. 컨트롤 루프 통합
 

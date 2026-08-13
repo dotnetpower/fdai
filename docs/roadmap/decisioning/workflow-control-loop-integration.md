@@ -6,6 +6,32 @@ title: Workflow Control-Loop Integration
 
 > Focused owner document extracted from [process-automation.md](process-automation.md) section 4.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Shadow and typed enforce orchestration | implemented | [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_coordinator.py`](../../../services/core-control-plane/tests/core/workflow/test_coordinator.py) | Shadow cannot mutate, and enforce proposals re-enter typed ingress with attempt-scoped identity. |
+| Durable journal, projection, and approval | implemented | [`test_projection.py`](../../../services/core-control-plane/tests/core/workflow/test_projection.py), [`test_workflow_approval.py`](../../../services/core-control-plane/tests/delivery/persistence/test_workflow_approval.py) | Revisioned Process state, retryable projection, quorum, timeout, and no-self-approval have focused coverage. |
+| Guard evaluation | in-progress | [Guard evaluation](#42-guard-evaluation-seam) | The seam and fail-closed audit state exist; deployment-specific policy evaluation remains an injected binding. |
+| Governed Python, schedule, command, and shell paths | in-progress | [Governed tasks and schedules](#45-governed-python-tasks-and-cron-schedules) | Validation and bounded sandbox mechanics exist, but live executor and production scale-out evidence remain incomplete. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source and focused tests listed in the scope table. | Complete policy binding and production concurrency evidence. |
+
+### Remaining work
+
+- [ ] Bind and test a concrete guard policy evaluator while preserving fail-closed behavior for
+  missing, stale, malformed, and unavailable evidence.
+- [ ] Retain multi-replica locking and duplicate-delivery evidence proving one forward dispatch per
+  Process step and attempt.
+- [ ] Complete the governed Python-task live executor and retain sandbox, outcome, and recovery
+  receipts without granting the Operator API executor identity.
+
 ## 4. Control-loop integration
 
 A compiled workflow does not run in a side channel. The

@@ -11,6 +11,32 @@ model families, bounded debate, blind replay, automatic promotion, and automatic
 > a measured result, not a guarantee. Promotion requires a statistically supported gain on the same
 > frozen scenario set and zero hard-safety escapes.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Assessment contract and independent reduction | implemented | [`test_assessment.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_assessment.py), [`test_attribution.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_attribution.py) | Deterministic checks, independent evaluator reduction, attribution, and hold behavior have focused coverage. |
+| Cost-aware runtime policy and lifecycle | implemented | [`test_runtime_policy.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_runtime_policy.py), [`test_lifecycle.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_lifecycle.py) | The cascade, candidate lifecycle, fail-closed promotion checks, and rollback mechanics exist in code; this does not prove an operational promotion. |
+| Qualification scorecard and campaign ledger | in-progress | [`test_quality_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_scorecard.py), [`conversation-assurance-ledger.py`](../../../scripts/quality/conversation-assurance-ledger.py) | The scorecard and bounded result format are implemented, but the complete bilingual qualification cohort has not been retained as governed evidence. |
+| Operator disputes and ontology adequacy review | implemented | [`test_learning.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_learning.py), [`test_state_store_ontology_adequacy.py`](../../../services/core-control-plane/tests/delivery/persistence/test_state_store_ontology_adequacy.py) | Disputes and reproduced adequacy gaps create bounded review evidence without changing execution authority. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source and focused tests listed in the scope table. | Retain the qualification, blind-replay, and operational promotion or rollback evidence described below. |
+
+### Remaining work
+
+- [ ] Run the complete 50-item bilingual qualification scorecard on one pinned revision and retain
+   per-item results that prove every hard-check and semantic-rubric threshold.
+- [ ] Retain a blind holdout replay showing a statistically supported improvement with zero hard
+   escapes and no locale regression before reporting a promoted policy.
+- [ ] Exercise one governed automatic rollback after a measured regression and retain the policy
+   transition, restored immutable version, and audit receipts.
+
 ## Design at a glance
 
 Bragi persists the terminal turn. Norns evaluates it off path, Saga records each assessment and

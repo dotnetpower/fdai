@@ -1,8 +1,8 @@
 ---
 title: Execution 모델
 translation_of: execution-model.md
-translation_source_sha: 3f843707e347976ed7936f5e6079f879b70e3f2f
-translation_revised: 2026-08-11
+translation_source_sha: 3b89e39e846e5fcd297b37071a692d94485541d5
+translation_revised: 2026-08-14
 ---
 
 # 실행 모델
@@ -32,8 +32,31 @@ FDAI 이 액션 실행 **여부** 와 **방법** 을 결정하는 방식. 이 �
 > [action-ontology.md § 7](action-ontology-ko.md#7-fork-override-seam)
 > 에 문서화된 재정의 경계 으로 tune.
 
-> **구현 상태 (2026-07-21):** 권한, risk 표, kill 전환, HIL 재개, 4개 경로,
-> 탐색 카탈로그, 타입이 지정된 운영자 제안은 구현됐습니다. Azure Monitor 탐색 I/O는 배포 연결입니다.
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| Risk 표 및 권한을 높이지 않는 상한 | implemented | [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py), [`test_ceiling.py`](../../../services/core-control-plane/tests/core/risk_gate/test_ceiling.py) | 기준선, 6개 맥락 축, 성능 저하 및 비상 정지는 권한을 높이지 않고 결합됩니다. |
+| 승격, HIL 재개 및 실행기 선택 | implemented | [`test_gate.py`](../../../services/core-control-plane/tests/core/risk_gate/test_gate.py), [`test_coordinator.py`](../../../services/core-control-plane/tests/core/hil_resume/test_coordinator.py) | Shadow 우선 승격, 승인 재개 및 타입이 지정된 경로 선택에 집중 테스트가 있습니다. |
+| 모든 실행 경로의 7개 안전장치 | in-progress | [`constitution-traceability.json`](../../../config/constitution-traceability.json), [7개 안전장치](#6-7개-안전조건과-하나의-재생-확장) | 개별 동작은 있지만 하나의 공유 계약이 모든 경로의 동등한 보장을 아직 증명하지 않습니다. |
+| 실제 영향 탐색 배포 및 운영 근거 | not-started | [탐색 어댑터 경계](#43-탐색-어댑터-경계), [롤아웃 기록](#9-롤아웃-기록) | 실패 시 차단되는 탐색 경계는 있지만 보존된 실제 탐색 연결이나 운영 shadow 증적은 없습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 테스트된 동작과 배포 근거를 분리했습니다. | `current change`; 구현 범위 표의 현재 소스, 집중 테스트 및 헌법 추적성입니다. | 공유 안전장치와 실제 탐색 근거 공백을 완료해야 합니다. |
+
+### 남은 작업
+
+- [ ] PR-native, direct API, PR-manual 및 tool-call 실행 전체에서 7개 안전장치와 독립 효과
+  종결을 하나의 공유 계약으로 표현하고 경로 동등성 테스트를 보존합니다.
+- [ ] 운영 `AzureMonitorBlastProbe`를 연결하고 실제 근거가 `winning_axis=live_blast`로
+  권한을 낮추며 변경하지 않는 shadow 증적을 보존합니다.
+- [ ] 운영 검증을 주장하기 전에 하나의 고정된 ActionType 및 risk 카탈로그 리비전에서 각
+  실행기 경로의 통제된 종단 간 증적을 보존합니다.
 
 ## 1. 여기서 "execute" 의 의미
 
@@ -719,50 +742,9 @@ Chat-특화 불변식 ([operator-console.md § 7.2](../interfaces/operator-conso
 
 ## 9. 롤아웃 기록
 
-실행 모델은 subsystem 계층 업그레이드 없이 데이터 + 정책 변경으로 landing했습니다.
-아래 순서는 롤아웃 기록이며
-[action-ontology.md § 10](action-ontology-ko.md#10-migration-기록)의
-ActionType 이행 기록과 일치합니다.
-
-### Day 1
-
-- 스키마 확장만. 로더가 신규 필드 학습; 모든 기존 ActionType 이 validate.
-  RiskGate 는 오늘처럼 계속 동작 (shadow-only) - `promotion_state` 가
-  모든 항목 에 대해 shadow 이기 때문.
-- **Exit 게이트**: 6-axis min-combination 에 대한 속성 테스트; 모든
-  기존 shipped 룰이 변경 전과 동일한 shadow-only 결과 을 여전히
-  produce.
-
-### 주 1
-
-- 온톨로지 backfill landing (action-ontology.md § 10 단계 2 참조).
-- ControlLoop 이 매 전달 에서 통합 RiskGate 로 라우팅 시작 (이전
-  stub 이었음); ActionType 이 promote 안 됐으므로 실행 은 shadow-
-  only 유지.
-- 오퍼레이터-콘솔 pull-방향이 argument-schema-validated 전달 경로
-  (§3.1) 와 함께 ship.
-- **Exit 게이트**: `resolved_ceiling` 감사 블록이 매 전달 에 등장;
-  룰-발화 + 오퍼레이터-발화 경로가 동일한 RiskGate 를 통해 동일한
-  실행기 에 도달함을 커버하는 종단 간 테스트.
-
-### 주 2
-
-- 첫 `ops.*` ActionType 이 `execution_path=direct_api` 와
-  `ceiling_by_tier.t0.max_autonomy=enforce_auto` 로 landing. RiskGate
-  는 이제 Reader-visible 리소스의 non-prod 에 대해 `auto` 를 produce.
-- **Exit 게이트**: 콘솔을 통한 기여자 가 live-probe 가짜 (`quiet`)
-  하에 non-prod 리소스에서 `ops.restart-service` 실행; 실행기 가
-  (mocked) ARM API 호출; 감사 항목 가 `direct_api` 경로 를 carry.
-
-### 월 1
-
-- 실 `AzureMonitorBlastProbe` 연결; 실제 운영 탐색 가 opt in 한 ActionType
-  에서 실제 운영 로 감.
-- `governance.override-ceiling` landing → Owner 가 콘솔로부터 상한
-  downgrade 를 time-box 가능 (action-ontology §7.4).
-- **Exit 게이트**: 최소 하나의 실제 운영 탐색 가 운영 shadow 측정에서
-  최소 한 번 자율성 를 reduce; 그 전달 의 감사 항목 가
-  `winning_axis=live_blast` 를 표시.
+구현 원장이 기존 날짜 기반 롤아웃 설명을 대체합니다. 스키마, 통합 RiskGate 라우팅,
+타입이 지정된 제안 및 모의 경로 검사는 구현되어 있습니다. 남은 롤아웃 게이트는 위에
+기록한 실제 탐색 및 경로 간 운영 근거입니다.
 
 ## 10. Testability
 

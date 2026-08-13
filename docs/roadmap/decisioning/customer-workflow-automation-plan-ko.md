@@ -1,8 +1,8 @@
 ---
 title: 고객 워크플로 자동화 제공 계획
 translation_of: customer-workflow-automation-plan.md
-translation_source_sha: 4c985ead4346780cde2be91d672a52508784a5e4
-translation_revised: 2026-08-11
+translation_source_sha: 9d201c43e2e29198fed643754dee8c8a236bfe84
+translation_revised: 2026-08-14
 ---
 
 # 고객 워크플로 자동화 제공 계획
@@ -19,6 +19,32 @@ translation_revised: 2026-08-11
 > 작업 제안 전달은 구현되어 있습니다. 광범위한 리소스 변경, 동작 시뮬레이션 및 고객
 > 시스템 어댑터는 완성되지 않았습니다. 따라서 도입은 관찰 모드에서 시작하고, 측정된
 > 프로세스를 한 번에 하나씩 승격하는 것이 좋습니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 웨이브 0-2 카탈로그, 관찰, 저널 및 승인 | implemented | [`test_workflow_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_workflow_catalog.py), [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_workflow_approval.py`](../../../services/core-control-plane/tests/delivery/persistence/test_workflow_approval.py) | 구조 검증, shadow 실행, 영속 Process 상태 및 승인 동작에 집중 테스트가 있습니다. |
+| 웨이브 3 동작 시뮬레이션 및 제한된 변경 | not-started | [웨이브 3](#웨이브-3---제한된-기반-변경-추가) | 구조 검증은 있지만 동작 차이 시뮬레이션과 staging 비교는 구현되지 않았습니다. |
+| 웨이브 4 저작 및 운영 경험 | in-progress | [`workflow-builder.chat.ts`](../../../console/src/routes/workflow-builder.chat.ts), [웨이브 4](#웨이브-4---저작-및-운영-경험-완성) | 저작, 검증 및 비공개 초안은 있지만 검토된 카탈로그 제안과 완전한 운영 흐름은 미완료입니다. |
+| 웨이브 5 확장, SLI 및 자동 강등 | not-started | [웨이브 5](#웨이브-5---확장-및-운영-인수인계) | 분산 잠금, 범위별 backpressure, 운영 SLI 또는 자동 강등 근거가 보존되지 않았습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 현재 상태를 웨이브 근거와 맞췄습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 웨이브 3-5를 완료하고 프로세스별 승격 근거를 보존해야 합니다. |
+
+### 남은 작업
+
+- [ ] 정확한 대상과 예상 상태 차이를 반환하는 읽기 전용 동작 시뮬레이터를 구현하고 staging
+  실행과의 동등성 근거를 보존합니다.
+- [ ] 초안에 실행 권한을 부여하지 않는 저작 화면의 검토된 카탈로그 제안 및 deep-link 검토를
+  완료합니다.
+- [ ] 웨이브 5 종료 전에 다중 replica shadow 캠페인에서 분산 잠금, 제한된 backpressure,
+  프로세스 SLI 및 자동 강등을 입증합니다.
 
 ## 설계 요약
 

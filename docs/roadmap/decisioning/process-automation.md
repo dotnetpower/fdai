@@ -23,6 +23,26 @@ workflow ship as catalog-as-code and run in shadow mode.
 > declares a new mutation primitive. A process that needs a new capability is
 > a signal to open an upstream `ActionType` doc PR first.
 
+## Implementation status
+### Implementation scope
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Workflow catalog, schema, and ontology contract | implemented | [`test_workflow_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_workflow_catalog.py), [`Process.yaml`](../../../rule-catalog/vocabulary/object-types/Process.yaml) | Loader, cross-reference, shadow-default, and Process vocabulary checks are implemented. |
+| Runtime journal, projection, approval, and commands | implemented | [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_projection.py`](../../../services/core-control-plane/tests/core/workflow/test_projection.py), [`test_workflow_approval.py`](../../../services/core-control-plane/tests/delivery/persistence/test_workflow_approval.py) | Durable snapshots, append-only events, approval, retry, resume, and cancellation mechanics have focused coverage. |
+| Compensation and durable automation hold | in-progress | [`test_automation_hold.py`](../../../services/core-control-plane/tests/core/workflow/test_automation_hold.py), [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`constitution-traceability.json`](../../../config/constitution-traceability.json) | Hold issuance and local dispatch blocking are implemented; complete restart, duplicate-delivery, and cross-path evidence remains open in constitutional traceability. |
+| Authoring and read-only Process surfaces | implemented | [`workflow-builder.chat.ts`](../../../console/src/routes/workflow-builder.chat.ts), [Authoring surface](#8-authoring-surface-console-workflow-builder) | The console can create and validate private drafts and inspect Process projections without execution authority. |
+### Implementation history
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and exposed the remaining constitutional compensation gap. | `current change`; current source, focused tests, and traceability listed in the scope table. | Close the compensation-hold and promotion exits below. |
+### Remaining work
+- [ ] Prove that every missing, failed, or unscorable compensation creates a durable target hold
+  that blocks later forward dispatch across restart and duplicate delivery.
+- [ ] Add a typed `SignalType` trigger reference and implement failure-only `on_failure` branching,
+  then retain loader and runtime negative tests before enforce eligibility.
+- [ ] Retain a promoted workflow scenario with independent effect and recovery closure on one
+  pinned Workflow and ActionType catalog revision.
+
 ## 1. Four distinct concepts
 
 Process automation composes four concepts that MUST NOT be conflated. Each has
@@ -191,24 +211,8 @@ LinkTypes cover only the runtime graph edges between first-class object types.
 
 ## 4. Control-loop integration
 
-Moved to a focused owner document: [workflow-control-loop-integration.md](workflow-control-loop-integration.md). It covers the governed shadow and enforce orchestrator, the guard evaluation seam, the runtime journal and ontology projection, the manual shadow or enforce command, governed Python tasks and cron schedules, and governed command and shell artifacts.
-
-Runtime delivery has one catalog-root invariant across catalog-backed tools. When
-the control loop is composed with an explicit `catalog_root`, it must pass
-`catalog_root / "chaos-scenarios"` to both the chaos executor (all and promoted
-entries) and the RCA symptom index. Execution eligibility, promotion state, and
-diagnostic evidence therefore use the same deployed or test catalog instead of
-silently falling back to the repository default. Composition without an
-explicit override retains the default catalog.
-
-Direct API delivery routes registered ActionTypes to dedicated adapters before using the
-operations gateway fallback. Human-access actions bind their allowlisted Entra adapter only when
-the workload identity, HTTP client, state store, and complete role-group mapping are configured;
-they remain in observation mode until separately promoted. All other supported operations keep
-the existing gateway path. A recording fake can't be combined with either live binding, and a
-partial gateway or human-access configuration stops startup instead of selecting a weaker path.
-`governance.promote-effect-model` uses this same router only when its durable evidence registry is
-available; it still passes through the ordinary risk, Owner approval, Thor, rollback, and audit path.
+The focused [Workflow Control-Loop Integration](workflow-control-loop-integration.md) document owns
+orchestration, catalog-root, adapter routing, journals, commands, and sandbox execution details.
 
 ## 5. Saga compensation
 

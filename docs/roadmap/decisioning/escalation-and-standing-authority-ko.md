@@ -1,8 +1,8 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: 2558f23eea2ac4da4fa4d3c89186a67f49420422
-translation_revised: 2026-08-11
+translation_source_sha: 3a50db1c95e25a46c99eedc09b982ee6eb85bf7a
+translation_revised: 2026-08-14
 ---
 
 # 에스컬레이션과 상시 권한(감독형 OODA 루프)
@@ -24,13 +24,31 @@ translation_revised: 2026-08-11
 > 못한다. 이 문서의 모든 신규 역량은 **shadow 우선** 으로 ship 된다
 > ([architecture.instructions.md § 안전성 Invariants](../../../.github/instructions/architecture.instructions.md#safety-invariants)).
 
-> **구현 상태 (2026-08-01):** 영구 shadow supervisor 코어와 `HilResumeCoordinator` 단계 구조
-> 인계가 구현되었습니다. 전달을 CAS로 점유하고 채널 실패와 사람 무응답을 구분하며,
-> 액션 무결성과 rung 충족 여부를 검증하고 shadow 모드에서는 전송하거나 진행하지 않고 due
-> 관측만 기록합니다. 런타임은 shadow 워커를 시작하며 최종 HIL 결정은 CAS 승자 하나만
-> 수락합니다. 범위가 제한된 검사는 pending 페이지를 순환하므로 오래된 승인이 starvation되지 않습니다.
-> 부하 개수, 만료, reminder 전달은 완전한 영속 집합을 페이지 단위로 순회합니다. Urgency
-> 압축, standing-authority 카탈로그 및 운영 승격은 아직 구현되지 않았습니다.
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 영구 shadow 에스컬레이션 supervisor | implemented | [`escalation_supervisor.py`](../../../services/core-control-plane/src/fdai/core/hil_resume/escalation_supervisor.py), [`test_escalation_supervisor.py`](../../../services/core-control-plane/tests/core/hil_resume/test_escalation_supervisor.py) | 제한된 스캔, 전달 claim 및 에스컬레이션 예정 관찰이 승인 또는 실행 권한을 진행하지 않도록 구현되어 있습니다. |
+| HIL 재개 및 위임 단계 검증 | implemented | [`coordinator.py`](../../../services/core-control-plane/src/fdai/core/hil_resume/coordinator.py), [`test_delegation.py`](../../../services/core-control-plane/tests/core/hil_resume/test_delegation.py) | 타입이 지정된 경로를 계속하기 전에 재개 스냅샷과 단계 자격을 검증합니다. |
+| 에스컬레이션 사다리 및 긴급도 카탈로그 | in-progress | [에스컬레이션 사다리](#에스컬레이션-사다리), [시간 감쇠 긴급도](#시간-감쇠-긴급도) | Supervisor 동작은 있지만 검토된 카탈로그 인스턴스와 측정된 긴급도 압축 근거는 없습니다. |
+| A3-E 상시 사람 권한 | not-started | [`constitution-traceability.json`](../../../config/constitution-traceability.json), [상시 권한](#상시-권한사전-승인-조건부-실행) | 실행 가능한 상시 권한 스키마, 평가기 또는 운영 승격 경로가 입증되지 않았습니다. 침묵은 권한을 부여하지 않습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 기존의 포괄적인 상태 요약을 바로잡았습니다. | `current change`; 구현 범위 표의 현재 소스, 집중 테스트 및 헌법 추적성입니다. | 카탈로그 기반 긴급도와 상시 권한 평가를 제공한 뒤 통제된 shadow 근거를 보존해야 합니다. |
+
+### 남은 작업
+
+- [ ] 검토된 에스컬레이션 사다리와 긴급도 정책 카탈로그 인스턴스를 추가하고 만료,
+  대체 전달, starvation 방지 및 결정론적 재실행의 집중 근거를 보존합니다.
+- [ ] 정족수, 철회, 유효성, 대응자 확인, 정확한 묶음 및 자기 승인 방지 부정 테스트를
+  갖춘 A3-E 상시 권한 스키마와 평가기를 구현합니다.
+- [ ] 독립 승격 검토 전에 묶음 이탈 0건인 통제된 shadow 집합을 보존하고, 해당 근거가
+  생길 때까지 supervisor를 관찰 전용으로 유지합니다.
 
 ## 이 문서가 다루는 것
 
