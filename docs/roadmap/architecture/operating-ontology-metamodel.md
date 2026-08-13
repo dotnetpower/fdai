@@ -112,6 +112,12 @@ endpoint orientation, source schema digest, and evidence method. It remains a ca
 complete inventory generation observes both endpoint identities. Missing endpoints, an ambiguous
 orientation, or incomplete coverage produces no link and lowers completeness.
 
+Reviewed reference formats now distinguish provider ids, resolved names, and Kubernetes label
+selectors. The Kubernetes candidate projector maps one Service to matching Pods and the same-name
+Endpoints only within the same cluster and namespace. It consumes a bounded `ResourceRecord`
+snapshot and still requires independent complete-generation verification before either link can
+enter the active graph.
+
 An inverse traversal is normally a query concern. FDAI adds a separately named inverse LinkType
 only when the inverse has distinct domain meaning, provenance, or cardinality. A symmetric
 relationship such as peering uses two independently supported directed records in the current
@@ -264,7 +270,7 @@ FunctionType, exact release refs, and immutable snapshots.
 | Canonical declaration release | implemented | [`ontology_catalog.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/ontology_catalog.py), [`release.py`](../../../services/core-control-plane/src/fdai/shared/ontology/release.py), and [`test_ontology_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_catalog.py) | Object, Link, Action, Interface, and Function declarations contribute to an exact release. |
 | Bounded ObjectSet execution and lineage | implemented | [`semantic_query.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/semantic_query.py), [`test_interfaces_and_object_sets.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_interfaces_and_object_sets.py), and [`test_semantic_query.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_semantic_query.py) | The secured query path preserves release, plan, invocation, truncation, and evidence references without granting authority. |
 | Provider state and relationship evidence contracts | implemented | [`state_evidence.py`](../../../services/core-control-plane/src/fdai/shared/providers/state_evidence.py) and [`test_state_evidence.py`](../../../services/core-control-plane/tests/providers/test_state_evidence.py) | Typed metadata distinguishes observed state and link evidence from derived interpretation. |
-| Relationship direction and classification hardening | in-progress | The direction contract and `resource_classified_as` design in this document; focused provider and catalog checks cover only bounded producers. | Repository evidence does not yet prove the D1-D4 audit, every reviewed Azure and Kubernetes mapping, every adversarial fixture, or a replayable production graph migration as one completed path. |
+| Relationship direction and classification hardening | in-progress | The direction contract and `resource_classified_as` design in this document; [`kubernetes_relationships.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_relationships.py), [`test_kubernetes_relationships.py`](../../../services/core-control-plane/tests/delivery/test_kubernetes_relationships.py), and focused provider catalog checks. | Reviewed Kubernetes Service-to-Pod and Service-to-Endpoints mappings now cover complete, missing-endpoint, reversed-input, duplicate, and partial-generation fixtures. The full D1 producer audit and replayable D4 graph migration remain open. |
 | Network and Pod telemetry competency | in-progress | [`operational_functions.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py) and the M5 exit criteria in this document. | Function implementations exist, but the documented end-to-end production competency and retained live-assurance receipts are not complete. |
 | Production metamodel assurance | in-progress | Focused source and test evidence above. | Authenticated cross-service and operational receipts are still required before this document can claim production validation. |
 
@@ -273,11 +279,12 @@ FunctionType, exact release refs, and immutable snapshots.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted the implementation ledger and replaced the aggregate production-ready narrative with bounded states; earlier provenance was not reconstructed. | `current change`; the source and focused checks listed in the scope table. | Complete the direction and classification audit, M5 competency, and production assurance items below. |
+| 2026-08-13 | in-progress | Added reviewed Kubernetes Service selector and Endpoints mappings plus a bounded candidate projector that fails closed on missing, duplicate, reversed-order, and partial input. | `current change`; `test_kubernetes_relationships.py` reports 6 passed and the focused provider catalog test reports 1 passed. | Complete the D1 producer audit, retain D4 comparison and rollback evidence, and bind the projector through production inventory composition. |
 
 ### Remaining work
 
-- [ ] Complete D1-D4 with reviewed Azure and Kubernetes endpoint mappings plus complete, missing-endpoint, reversed-input, duplicate, and partial-coverage fixtures, and retain a replayable graph-comparison and rollback receipt.
-- [ ] Demonstrate M5 with focused VM connectivity and Pod telemetry competency checks that distinguish verified and unverified segments through the production composition.
+- [ ] Complete the D1 audit across every shipped relationship producer and retain a replayable D4 graph-comparison and rollback receipt before migrating any active graph generation.
+- [ ] Bind the reviewed Kubernetes relationship projector through production inventory composition, then demonstrate M5 with focused VM connectivity and Pod telemetry checks that distinguish verified and unverified segments.
 - [ ] Retain authenticated cross-service and live-assurance receipts that bind the exact ontology release before changing production metamodel assurance to `validated`.
 
 ## Verification checklist
