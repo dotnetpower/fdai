@@ -79,6 +79,15 @@ def _changed_docs(diff_range: str | None, *, cached: bool) -> tuple[str, ...]:
     )
 
 
+def _all_docs() -> tuple[str, ...]:
+    paths = _run_git("ls-files", "docs/roadmap").stdout.splitlines()
+    return tuple(
+        sorted(
+            relative for relative in paths if relative.endswith(".md") and not is_exempt(relative)
+        )
+    )
+
+
 def _git_text(revision: str, relative: str) -> str | None:
     result = _run_git("show", f"{revision}:{relative}", check=False)
     return result.stdout if result.returncode == 0 else None
@@ -233,16 +242,17 @@ def ledger_violations(content: str, previous: str | None = None) -> list[str]:
 def main(argv: list[str]) -> int:
     if len(argv) > 2 or (len(argv) == 2 and argv[1] == ""):
         print(
-            "usage: check-roadmap-implementation-tracking.py [--cached | <git-diff-range>]",
+            "usage: check-roadmap-implementation-tracking.py [--all | --cached | <git-diff-range>]",
             file=sys.stderr,
         )
         return 2
     argument = argv[1] if len(argv) == 2 else None
     cached = argument == "--cached"
-    diff_range = None if cached else argument
+    all_docs = argument == "--all"
+    diff_range = None if cached or all_docs else argument
     base_ref = _base_ref(diff_range)
     failures = 0
-    documents = _changed_docs(diff_range, cached=cached)
+    documents = _all_docs() if all_docs else _changed_docs(diff_range, cached=cached)
     for relative in documents:
         current = _current_text(relative, cached=cached)
         if current is None:

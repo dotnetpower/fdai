@@ -96,3 +96,28 @@ def test_non_owner_roadmap_documents_are_exempt() -> None:
     assert module.is_exempt("docs/roadmap/architecture/decisions/0001-example.md")
     assert module.is_exempt("docs/roadmap/architecture/owner-ko.md")
     assert not module.is_exempt("docs/roadmap/architecture/owner.md")
+
+
+def test_all_docs_returns_only_tracked_canonical_owners(monkeypatch) -> None:
+    module = _load_module()
+    tracked = "\n".join(
+        (
+            "docs/roadmap/README.md",
+            "docs/roadmap/architecture/decisions/0001-example.md",
+            "docs/roadmap/architecture/fdai-constitution.md",
+            "docs/roadmap/architecture/owner-ko.md",
+            "docs/roadmap/architecture/owner.md",
+            "docs/roadmap/interfaces/contract.md",
+            "docs/roadmap/interfaces/example.json",
+        )
+    )
+    monkeypatch.setattr(
+        module,
+        "_run_git",
+        lambda *args, **kwargs: type("Result", (), {"stdout": tracked})(),
+    )
+
+    assert module._all_docs() == (
+        "docs/roadmap/architecture/owner.md",
+        "docs/roadmap/interfaces/contract.md",
+    )
