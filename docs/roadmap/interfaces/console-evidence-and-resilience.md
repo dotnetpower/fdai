@@ -402,8 +402,11 @@ rendered deterministically from typed evidence. Ontology browse requires a targe
 forwards only allowlisted identity fields with prompt values up to 256 characters, and renders
 duplicate or malformed counts and selections unavailable. Ontology projection and its deterministic
 browse answer stay in their own prompt module, separate from general prompt assembly.
-The Reader-gated `/ontology/graph` projection includes only operating-model status, source revision,
-and aggregate object and link counts. It never returns deployment instance properties.
+The Reader-gated `/ontology/graph` projection contains one exact catalog release with a schema
+version, projection revision, release digest, declaration records, semantic-map profile, and
+catalog topology. It never returns deployment instance properties. Runtime objects and state facts
+enter the Console only through a separately authorized Context snapshot that preserves cutoff,
+freshness, completeness, conflicts, truncation, and evidence references.
 Ordinary delegated answers keep Bragi as narrator while displaying the verified specialist as
 response owner. A dedicated target session instead uses that specialist's verified voice until an
 explicit handoff returns narration to Bragi.

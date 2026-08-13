@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 5dc8726e42f590eb45ddf27b4b2496430624f1d3
+translation_source_sha: 04ddd2c3780f2b3c872f58892e550b712d064dca
 translation_revised: 2026-08-14
 ---
 
@@ -399,8 +399,11 @@ Read-source 출처 이력, 온톨로지 browse, 화면 간 operational 및 인�
 허용 목록에 있는 신원 필드와 256자 이하 프롬프트 값만 전달하며, 중복되거나 malformed인 개수와
 선택을 사용 불가로 표시합니다. 온톨로지 변환 결과와 결정론적 browse 답변은 일반 프롬프트
 assembly와 분리된 자체 프롬프트 모듈에 위치합니다.
-Reader-gated `/ontology/graph` 변환 결과는 operating-model 상태, 출처 개정 번호, 집계
-객체 및 링크 개수만 포함합니다. 배포 instance 속성은 반환하지 않습니다.
+Reader-gated `/ontology/graph` 변환 결과는 스키마 버전, 변환 결과 개정, 릴리스 다이제스트,
+선언 기록, 의미 맵 프로필 및 카탈로그 토폴로지를 포함하는 하나의 exact 카탈로그 릴리스를
+제공합니다. 배포 인스턴스 속성은 반환하지 않습니다. 런타임 객체와 상태 사실은 기준 시각,
+freshness, 완전성, 충돌, 잘림 및 근거 참조를 보존하는 별도 권한 확인 컨텍스트 스냅샷을
+통해서만 Console에 들어옵니다.
 일반 delegated 답변은 Bragi를 서술기로 유지하면서 검증된 specialist를 응답 소유자로
 표시합니다. Dedicated 대상 세션은 명시적 인계가 서술을 Bragi로 돌려보낼 때까지 해당
 specialist의 검증된 voice를 사용합니다.

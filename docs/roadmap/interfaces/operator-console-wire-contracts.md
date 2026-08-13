@@ -221,45 +221,55 @@ This display contract does not grant execution authority:
 
 ### 13.9 Ontology registry projection
 
-`GET /ontology/graph` is the read-only registry projection for the web
-console's Objects, Links, and Actions views. A fourth **Ontology map** view loads a versioned
-catalog artifact generated from `rule-catalog` and `PANTHEON_SPECS`. The map is a reference
-projection, not runtime evidence, and it doesn't call `/inventory/graph` or link to Architecture.
+`GET /ontology/graph` is the read-only, exact-release registry projection for the web console's
+Semantic model, Objects, Relationships, Actions, and Catalog topology views. The response carries
+one schema version, projection revision, and ontology release digest. It never includes runtime
+instances, grants mutation authority, or substitutes catalog declarations for observed evidence.
 
 Storage questions use a deterministic catalog contract rather than treating the requested path as
 a missing screen field. Built-in ObjectType and LinkType definitions come from
 `rule-catalog/vocabulary/object-types/` and `rule-catalog/vocabulary/link-types/`; ActionType
 definitions come from `rule-catalog/action-types/`. A downstream composition can inject additional
-validated roots. At startup, the Operator API loads the combined definitions into an immutable
-in-memory catalog, and `/ontology/graph` provides its read-only projection. Runtime ontology
-instances are stored in PostgreSQL `ontology_resource` and `ontology_link`. ObjectType and LinkType
-metadata can also be synchronized to PostgreSQL as validated references for foreign-key checks,
-but those rows aren't the authoring source or source of truth for the definitions. The SPA stores
-no separate copy. JSON and SSE chat return the same contract answer without calling the narrator.
+validated roots. A deterministic producer loads the combined definitions, builds the exact
+ontology release, and materializes one immutable Operator projection. Runtime ontology instances
+are stored separately in PostgreSQL `ontology_resource` and `ontology_link`. ObjectType and
+LinkType metadata can also be synchronized to PostgreSQL as validated references for foreign-key
+checks, but those rows aren't the authoring source or source of truth for the definitions. The SPA
+stores no separate catalog copy. JSON and SSE chat return the same contract answer without calling
+the narrator.
 
+- **Semantic model**: the default map places ObjectTypes in the reviewed Operating scope,
+  Operating intent, Operating reality, and Decision and learning bands. Object, Relationship,
+  State, Context, and Action are orthogonal lenses, not graph communities or additional
+  declaration kinds. The layout is deterministic and relationship direction is always visible.
 - **Objects**: ObjectTypes and LinkType edges render as one selected,
   deterministic one-hop neighborhood. The inspector shows recorded properties
   plus incoming and outgoing relationships.
-- **Links**: selecting a LinkType shows every recorded `from_type -> to_type`
+- **Relationships**: selecting a LinkType shows every recorded `from_type -> to_type`
   endpoint pair, cardinality, and the causal, transitive, and temporal flags.
   The console doesn't infer relationship semantics absent from the catalog.
 - **Actions**: the response includes the loaded ActionType catalog as complete
   safety-contract records. The catalog view exposes category, trigger,
   execution path, rollback contract, default mode, preconditions, stop
-  conditions, blast-radius declaration, tier ceilings, and promotion gate.
-- **Ontology map**: the generated graph combines ObjectTypes, ResourceTypes, active Rules,
-  ActionTypes, Workflows, Pantheon Agents, SignalTypes, and Properties in one deterministic
-  topology. Node size represents degree, node color represents ontology kind, and weighted links
-  form stable topology communities. Operators can search, select, drag, pan, zoom, fit, filter
-  relationship kinds, and open the canvas full screen. Selecting a node highlights its one-hop
-  relationships and fills a read-only inspector. The generator emits the mock and console payload
-  from the same graph so both surfaces change together when the catalog changes.
+  conditions, impact-scope declaration, tier ceilings, and promotion gate.
+- **Catalog topology**: the full reference topology combines ObjectTypes, InterfaceTypes,
+  FunctionTypes, ResourceTypes, active Rules, ActionTypes, Workflows, Pantheon Agents,
+  SignalTypes, and Properties. Weighted communities support dependency exploration only; they
+  never represent the semantic bands, evidence completeness, or authority. The topology and the
+  declaration views come from the same materialized projection.
+
+A **Context snapshot** is a separate, purpose-scoped runtime projection reached from an evidence,
+incident, or query receipt. It pins the ontology release, query profile, cutoff, object and link
+revisions, state lanes, source watermarks, completeness, conflicts, truncation, and evidence
+references. The browser never merges a catalog topology with runtime inventory and never treats a
+missing or incomplete relationship as false. A context snapshot remains read-only and carries
+`mutation_authority: false`.
 
 The ActionType projection is additive: `action_type_count` and `action_types`
 may be zero or absent on an older deployment, while ObjectType and LinkType
 exploration continues to work. ActionTypes stay out of the selected ObjectType one-hop graph, but
-the generated Ontology map includes them as catalog nodes with Rule, Workflow, and Agent links.
-All four views are read-only and issue no action or approval call.
+the Catalog topology includes them as catalog nodes with Rule, Workflow, and Agent links. All
+registry and context views are read-only and issue no action or approval call.
 
 ## Implementation status
 
@@ -267,7 +277,8 @@ All four views are read-only and issue no action or approval call.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Audit, ontology, and read-only wire projections | implemented | Operator family manifests and projections; `services/operator-service/tests/test_operator_service_composition.py`; Console ontology and trace tests | Default GET/HEAD routes, bounded envelopes, read-only ontology catalogs, and unavailable behavior have focused coverage. |
+| Audit and read-only wire projections | implemented | Operator family manifests and projections; `services/operator-service/tests/test_operator_service_composition.py`; Console trace tests | Default GET/HEAD routes, bounded envelopes, and unavailable behavior have focused coverage. |
+| Exact-release ontology presentation | in-progress | `scripts/deployment/local/materialize-authoritative-catalogs.py`; `console/src/routes/ontology.tsx`; current Catalog topology generator and focused tests | Declaration browsing exists, but the Semantic model, exact release identity, single projection source, and receipt-bound Context snapshot still need implementation evidence. |
 | HIL callback contract | implemented | Operator IAM family routes; `services/operator-service/tests/test_operator_iam_family.py`; full-composition tests | Signature, replay window, role, no-self-approval, exact pending id, and idempotent decision behavior are implemented. |
 | Python task workbench and grounded code | implemented | `services/core-control-plane/src/fdai/core/python_task/`; `services/core-control-plane/tests/core/python_task/`; Operator workflow family; Console Python task tests | Static validation, inert artifacts, capabilities, and no-chat-execution boundaries have focused coverage. |
 | Semantic action draft and typed confirmation | in-progress | Operator conversation and workflow application paths | Bounded draft and proposal paths exist, but this owner document retains no governed request-to-audit confirmation receipt across every conflict and denial case. |
@@ -279,10 +290,12 @@ All four views are read-only and issue no action or approval call.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. | `current change`; current Operator, Core Python task, CLI, channel, Console, and focused test evidence listed in the scope table. | Close semantic confirmation, channel parity, and governed cross-contract evidence. |
+| 2026-08-14 | in-progress | Defined separate Semantic model, Catalog topology, and receipt-bound Context snapshot contracts instead of presenting one generated force graph as the operating ontology. | `current change`; paired Console contract documents and focused documentation gates. | Implement one exact-release producer and retain focused and authenticated Console evidence. |
 
 ### Remaining work
 
 - [ ] Retain an authenticated semantic action-draft receipt that proves schema bounds, exact source revision, no-self-approval, stale and idempotency conflicts, typed confirmation, audit correlation, and no direct execution.
+- [ ] Materialize one exact-release ontology projection, prove declaration and topology parity from the same producer, render the four semantic bands with five orthogonal lenses, and retain an authenticated Context snapshot that exposes completeness without mutation authority.
 - [ ] Retain Python task capability, static validation, grounded-code rendering, malformed artifact, and no-execution receipts across Operator API and Console.
 - [ ] Run and retain CLI, Teams, Slack, and Web parity cases for terminal status, evidence references, truncation, cancellation, replay, and unavailable behavior.
 - [ ] Retain one read-only ontology projection receipt that binds catalog digest, ObjectType, LinkType, ActionType, and generated map without presenting catalog data as runtime evidence.
