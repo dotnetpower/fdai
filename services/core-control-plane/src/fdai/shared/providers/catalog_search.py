@@ -283,6 +283,30 @@ class CatalogSearchDocument:
                 raise ValueError(f"catalog search {name} MUST be a sha256 digest")
 
 
+@dataclass(frozen=True, slots=True)
+class CatalogGenerationValidationSnapshot:
+    """Read-only staged generation rows for independent validation."""
+
+    metadata: CatalogGenerationMetadata
+    documents: tuple[CatalogSearchDocument, ...]
+
+    def __post_init__(self) -> None:
+        if self.metadata.state != "staged":
+            raise ValueError("validation snapshot requires a staged catalog generation")
+        if not self.documents:
+            raise ValueError("validation snapshot documents MUST be non-empty")
+        if any(
+            document.corpus != self.metadata.corpus
+            or document.generation_id != self.metadata.generation_id
+            for document in self.documents
+        ):
+            raise ValueError("validation snapshot document identity mismatch")
+        document_digests = tuple(
+            catalog_search_document_digest(document) for document in self.documents
+        )
+        self.metadata.document_digest_manifest.verify_document_digests(document_digests)
+
+
 def catalog_search_document_digest(document: CatalogSearchDocument) -> str:
     """Hash provider-neutral document content without generated embeddings."""
 
@@ -359,6 +383,13 @@ class CatalogSemanticIndex(Protocol):
         metadata: CatalogGenerationMetadata,
         documents: Sequence[CatalogSearchDocument],
     ) -> int: ...
+
+    async def generation_validation_snapshot(
+        self,
+        generation_id: str,
+    ) -> CatalogGenerationValidationSnapshot | None:
+        """Load one exact staged generation for independent validation."""
+        ...
 
     async def activate_generation(
         self,
@@ -448,6 +479,7 @@ __all__ = [
     "CatalogDocumentDigestChunk",
     "CatalogDocumentDigestManifest",
     "CatalogDocumentKind",
+    "CatalogGenerationValidationSnapshot",
     "CatalogSearchDocument",
     "CatalogSearchMatch",
     "CatalogSearchResult",

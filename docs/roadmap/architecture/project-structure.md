@@ -121,7 +121,7 @@ fdai/
 │   │   ├── operating_model/    # bounded JSON deployment operating-model adapter; startup-only and all-before-write
 │   │   ├── runtime_settings.py  # allowlisted env defaults + revisioned StateStore overrides; no executor identity or promotion authority
 │   │   ├── behavior_knowledge/ # in-memory hybrid behavior index, tracked-source freshness, and built-in behavior seeds
-│   │   ├── catalog_search/     # candidate-only concrete semantic index; full/incremental Rule, ontology declaration, and eligible deployment-object generations; independent validation, atomic activation, stale detection, and rollback; durable pgvector binding remains delivery work
+│   │   ├── catalog_search/     # candidate-only concrete semantic index; full/incremental Rule, ontology declaration, and eligible deployment-object generations; immutable staged-generation validation snapshots, independent validation, atomic activation, stale detection, and rollback; durable pgvector binding remains delivery work
 │   │   ├── pgvector/           # persistent document and behavior vector indexes
 │   │   ├── azure/              # Azure-specific adapters, including bounded logs/metrics/App Insights traces and strict operational-learning evidence over promoted inventory
 │   │   │                       #   `case_history_artifacts.py` stores content-addressed case revisions in private Blob through workload identity

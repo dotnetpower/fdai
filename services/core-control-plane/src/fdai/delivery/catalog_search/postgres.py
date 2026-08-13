@@ -23,6 +23,7 @@ from fdai.shared.providers.catalog_search import (
     CatalogGenerationRollbackReceipt,
     CatalogGenerationStaleError,
     CatalogGenerationState,
+    CatalogGenerationValidationSnapshot,
     CatalogSearchDocument,
     CatalogSearchResult,
     CatalogSemanticIndex,
@@ -157,6 +158,27 @@ class PostgresCatalogSemanticIndex(CatalogSemanticIndex):
                     rows,
                 )
         return len(prepared)
+
+    async def generation_validation_snapshot(
+        self,
+        generation_id: str,
+    ) -> CatalogGenerationValidationSnapshot | None:
+        async with await self._connect() as connection, connection.transaction():
+            await self._set_session_knobs(connection)
+            loaded = await self._load_generation(connection, generation_id)
+            if loaded is None:
+                return None
+            await _lock_corpus(connection, loaded[0].corpus, shared=True)
+            loaded = await self._load_generation(connection, generation_id)
+            if loaded is None:
+                raise CatalogGenerationStaleError(
+                    "catalog generation disappeared during validation snapshot"
+                )
+            metadata, documents = loaded
+            return CatalogGenerationValidationSnapshot(
+                metadata=metadata,
+                documents=documents,
+            )
 
     async def activate_generation(
         self,

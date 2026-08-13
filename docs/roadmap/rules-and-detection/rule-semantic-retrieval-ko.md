@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: bb7d9a83307dccf066455d1b1153bd1c373d9565
+translation_source_sha: 57f01538bea047b9f49b9332db6ebe8e7039ba5b
 translation_revised: 2026-08-13
 ---
 # Rule 의미 검색
@@ -59,6 +59,7 @@ translation_revised: 2026-08-13
 | In-memory 세대 및 검증 | implemented | `delivery/catalog_search/in_memory.py`; `delivery/catalog_search/generation.py`; `tests/delivery/catalog_search/test_ontology_generation.py`; `tests/rule_catalog/test_discovery_catalog_search.py` | 결정론적 off-path 세대, 독립적인 활성 및 발견 포인터, 코퍼스별 롤백 및 영속 어댑터와 같은 활성화 compare-and-swap을 지원합니다. |
 | 코퍼스 규모 세대 식별자 | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/generation.py`; `delivery/catalog_search/in_memory.py`; 집중 세대 및 Rule 카탈로그 테스트 | 프로바이더 중립 메타데이터는 개수, 계층형 루트, 범위가 제한된 순서가 있는 청크 및 작은 세대의 인라인 다이제스트를 포함합니다. 세대 생성, 검증 증적, 준비, 활성화, 활성 조회, 검색, 롤백 및 롤백 증적은 식별자 차이를 거부합니다. |
 | 영속 PostgreSQL 인덱스 | implemented | `delivery/catalog_search/postgres.py`; migration `0077` 및 `0080`; `tests/delivery/catalog_search/test_postgres.py`; `test_postgres_integration.py`; `test_postgres_rule_corpora_integration.py` | 정확한 세대 매니페스트를 저장하고 다시 검증하며 코퍼스별 세대를 원자적으로 준비, 활성화, 검색 및 롤백합니다. PostgreSQL에서 활성 문서 62개와 발견 문서 8,487개 전체의 수명 주기 격리를 증명합니다. |
+| 독립 세대 스냅샷 | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/in_memory.py`; `delivery/catalog_search/postgres.py`; 집중 단위 및 실제 PostgreSQL 수명 주기 검사 | 읽기 전용 스냅샷을 통해 정확한 준비 상태 메타데이터와 정규 순서의 행을 노출합니다. 두 어댑터는 검증, 승격 또는 실행 권한을 부여하지 않으면서 수명 주기, 행 식별자, 내용 해시, 순서, 개수 또는 매니페스트 차이를 거부합니다. |
 | 운영 세대 빌드 worker | in-progress | `delivery/catalog_search/rule_generation.py`; `rule_catalog/schema/rule_semantic_generation_events.py`; 현재 저장소 호출 지점 감사 | 순수 빌드 및 이벤트 계약은 있지만 Rule 세대 빌더를 호출하고 후보 세대를 준비하거나 검증 결과를 발행하는 운영 subscriber는 없습니다. |
 | 통제된 세대 활성화 | implemented | `core/rule_semantic_generation/activation.py`, `core/rule_semantic_generation/ledger.py`, 프로바이더와 delivery 활성화 계약, 집중 활성화 및 실제 PostgreSQL 검사 | 활성화는 변경 경계 안에서 정확한 대상 다이제스트와 검증 증적을 예상 이전 활성 식별자에 연결합니다. 완료된 명령의 replay는 프로바이더 접근 전에 영속 최종 결과를 반환하며 첫 결과와 발행 대기 outbox 레코드는 원자적으로 커밋됩니다. |
 | 영속 활성화 결과 발행 및 변환 결과 | implemented | `core/rule_semantic_generation/publication.py`; `agents/mimir.py`; `agents/_framework/runtime.py`; `runtime/bootstrap.py`; 집중 발행, Mimir, 런타임 및 bootstrap 검사 | 제한 시간이 있고 lease로 격리된 발행기는 의미 인덱스 준비 상태와 독립적으로 최종 결과를 발행합니다. Mimir만 활성화 명령을 소비하고 인덱스 또는 실행 권한을 얻지 않은 채 최종 결과를 변환합니다. 운영 구성은 binder와 발행기가 하나의 영속 ledger를 공유하게 합니다. |
@@ -91,6 +92,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | implemented | 실제 통제된 한국어 표면을 추가하고 전체 통과 증적을 다시 계산한 내용 주소에 저장했습니다. 승격된 표면 로딩은 이제 정확한 후보 대상, 현재 정책, 통과 결정, 빈 실패 및 검증 전용 권한을 확인합니다. 검색 변환 v5는 변경 불가능한 대상 ID를 사용하므로 후보와 승격 형식이 정확히 같은 Rule 62개 세대를 replay합니다. | `current change`; 의미 검색, 평가, 정책, 승격된 표면, 증적 카탈로그 및 배포 카탈로그 집중 모음에서 테스트 61개가 통과했습니다. 작업 소유 Python 범위에서 Ruff와 strict mypy가 통과했습니다. | 이 기능을 `validated`로 변경하기 전에 통제된 실제 런타임 근거를 별도로 기록합니다. |
 | 2026-08-13 | implemented | 앞선 근거 개수를 정정했습니다. 최종 증적 카탈로그 하드닝에서 symlink 및 FIFO 아티팩트를 차단하는 일반 파일 검사를 추가했으며 기능 상태는 변경되지 않았습니다. | 커밋 `8571ea53a`; 집중 의미 검색 6개 모듈 모음에서 특수 파일 사례 2개를 포함해 테스트 63개가 통과했습니다. | 이 기능을 `validated`로 변경하기 전에 통제된 실제 런타임 근거를 계속 기록해야 합니다. |
 | 2026-08-13 | in-progress | 통제된 실제 운영 근거의 선행 조건을 다시 감사하고 누락된 세대 빌드 worker가 드러나도록 ledger를 정정했습니다. 빌드 및 이벤트 계약은 있지만 `build_rule_semantic_generation`을 호출하는 운영 subscriber는 없습니다. | `current change`; 저장소 호출 지점 감사에서 빌더는 정의와 테스트에서만 발견됐으며, 집중 의미 검색 6개 모듈 모음은 계속 테스트 63개를 통과합니다. | 통제된 실제 런타임 근거를 수집하기 전에 Mimir 소유의 기계적 빌드 및 검증 subscriber를 구현합니다. |
+| 2026-08-13 | implemented | 독립 Heimdall 검증에 필요한 읽기 전용 준비 상태 세대 스냅샷을 추가했습니다. In-memory 및 PostgreSQL 어댑터는 반환 전에 정확한 순서의 행을 다시 로드하고 범위가 제한된 매니페스트와 비교하여 검증합니다. | `current change`; 집중 단위 검사 19개와 로컬 PostgreSQL 수명 주기 검사가 통과했고 Ruff 및 운영 모듈 3개의 strict mypy가 통과했습니다. | Mimir 빌더와 Heimdall 검증기 subscriber를 연결한 뒤 통제된 실제 근거를 보존합니다. |
 
 ### 남은 작업
 
@@ -101,6 +103,9 @@ translation_revised: 2026-08-13
   검증합니다. 집중 실제 데이터베이스 세대, 활성화, 롤백, 정확한 세대 검색 및 전체
   코퍼스 격리 검사는 [빌드 및 의미 확장 수명
   주기](#빌드-및-의미-확장-수명-주기)에 따라 통과했습니다.
+- [x] 두 의미 인덱스 어댑터는 읽기 전용 준비 상태 세대 검증 스냅샷을 노출하며, 독립
+  검증기에 정확한 행을 반환하기 전에 수명 주기, 행 식별자, 내용 해시, 순서, 개수 또는
+  매니페스트 차이를 거부합니다.
 - [x] 운영 bootstrap은 영속 어댑터를 구성하고 선택적 세대 준비 상태를 등록합니다. 시작할 때
   정확한 현재 Rule 카탈로그, 의미 스키마, 온톨로지 release 및 embedder 차원만 연결합니다.
   상태가 없거나 오래되거나 접근할 수 없거나 사용할 수 없을 때 안정적인 성능 저하 사유를
@@ -112,9 +117,11 @@ translation_revised: 2026-08-13
   발행합니다. `POST /rules/search`는 직접 Core 호출 없이 strict 증적 기반 변환 결과를 읽고
   [질의 수명 주기](#질의-수명-주기)를 보존합니다.
 - [ ] Mimir 소유의 기계적 subscriber를 `RuleGenerationBuildRequestEvent`에 연결합니다. 이
-  subscriber는 정확한 비활성 세대 하나를 빌드하고 준비한 뒤 독립적인 검증 근거를 이벤트
-  버스로 발행해야 합니다. 또한 승격 또는 실행 권한을 부여하지 않으면서 중복 전달, 재시작,
-  프로바이더 실패 및 오래된 식별자 처리를 증명해야 합니다.
+  subscriber는 정확한 비활성 세대 하나를 빌드하고 준비한 뒤 범위가 제한된 빌드 결과를
+  이벤트 버스로 발행해야 합니다. Heimdall을 독립 검증기로 연결하여 준비된 세대의 변경
+  불가능한 검증 스냅샷을 읽고 모든 식별자를 다시 계산한 뒤 검증 전용 근거를 발행합니다.
+  또한 승격 또는 실행 권한을 부여하지 않으면서 중복 전달, 재시작, 프로바이더 실패 및 오래된
+  식별자 처리를 증명해야 합니다.
 - [ ] 이 기능의 상태를 `implemented`에서 `validated`로 변경하기 전에 운영 바인딩 및
   Reader 범위 변환 결과의 통제된 실제 근거를 기록하고
   [CatalogRetrievalReceipt](#catalogretrievalreceipt)에 정의된 신원을 보존합니다.
@@ -287,6 +294,20 @@ source revision
 모델 의미 확장은 요청 및 API 시작 경로 밖에서 실행됩니다. 원본 텍스트는 신뢰하지 않는
 데이터이며 모델 instruction으로 취급하지 않습니다. 알 수 없는 개념 ID는 온톨로지를 자동으로
 확장하지 않고 inert 온톨로지 제안을 생성합니다.
+
+### 독립 세대 검증
+
+빌더와 검증기는 메모리 내 `SemanticGenerationBuild`를 공유하지 않습니다. Mimir 소유의
+기계적 빌더가 비활성 세대를 준비한 뒤 범위가 제한된 `RuleGenerationBuildResultEvent`만
+발행합니다. Heimdall은 메타데이터와 정규 순서의 행을 포함하는 읽기 전용
+`CatalogGenerationValidationSnapshot`을 통해 정확한 세대를 로드합니다. In-memory 및
+PostgreSQL 어댑터는 스냅샷을 반환하기 전에 행 개수, 내용 해시, 순서 및 계층형 매니페스트를
+다시 검증합니다.
+
+Heimdall은 스냅샷에서 세대 식별자를 다시 계산하고 검증 전용 근거를 발행합니다. Heimdall은
+증적을 연결하거나 포인터를 활성화하고, 표면을 승격하거나, 실행 권한을 부여할 수 없습니다.
+Mimir는 이벤트 버스를 통해 독립적으로 생성된 근거를 받은 뒤에만 정확한 증적을 연결하고
+활성화 명령을 발행할 수 있습니다.
 
 ### 라이선스 경계
 

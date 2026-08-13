@@ -125,6 +125,14 @@ async def test_postgres_catalog_generation_lifecycle_is_manifest_bound() -> None
         assert await index.stage_generation(first_metadata, documents) == 2
         assert await index.active_generation() is None
         assert await index.stage_generation(first_metadata, documents) == 0
+        snapshot = await index.generation_validation_snapshot(FIRST_ID)
+        assert snapshot is not None
+        assert snapshot.metadata == first_metadata
+        assert tuple(document.rule_id for document in snapshot.documents) == (
+            "rule-a",
+            "rule-b",
+        )
+        assert all(document.generation_id == FIRST_ID for document in snapshot.documents)
 
         first = await index.activate_generation(
             FIRST_ID,

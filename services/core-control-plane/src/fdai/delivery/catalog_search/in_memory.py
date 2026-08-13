@@ -14,6 +14,7 @@ from fdai.shared.providers.catalog_search import (
     CatalogGenerationMetadata,
     CatalogGenerationRollbackReceipt,
     CatalogGenerationStaleError,
+    CatalogGenerationValidationSnapshot,
     CatalogSearchDocument,
     CatalogSearchResult,
     Embedder,
@@ -132,6 +133,21 @@ class InMemoryCatalogSemanticIndex:
                 return 0
             self._generations[metadata.generation_id] = metadata, prepared
         return len(prepared)
+
+    async def generation_validation_snapshot(
+        self,
+        generation_id: str,
+    ) -> CatalogGenerationValidationSnapshot | None:
+        async with self._lock:
+            loaded = self._generations.get(generation_id)
+            if loaded is None:
+                return None
+            metadata, documents = loaded
+            _verify_document_identity(metadata, documents)
+            return CatalogGenerationValidationSnapshot(
+                metadata=metadata,
+                documents=documents,
+            )
 
     async def activate_generation(
         self,
