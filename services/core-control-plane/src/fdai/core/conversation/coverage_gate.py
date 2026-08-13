@@ -7,6 +7,7 @@ import json
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import Literal
 
 from fdai_service_contracts.ontology_query import StructuralCoverageReceipt
@@ -165,6 +166,84 @@ class OntologyQueryCoverageGateReceipt:
     production_ready: bool
     receipt_digest: str
 
+    def __post_init__(self) -> None:
+        _require_digest("ontology_release_digest", self.ontology_release_digest)
+        _require_ordered_digests(
+            "principal_receipt_digests",
+            self.principal_receipt_digests,
+        )
+        _require_ordered_digests(
+            "question_receipt_digests",
+            self.question_receipt_digests,
+        )
+        if not self.receipt_sources:
+            raise ValueError("coverage receipt sources MUST be non-empty")
+        if self.receipt_sources != tuple(sorted(set(self.receipt_sources))):
+            raise ValueError("coverage receipt sources MUST be unique and ordered")
+        if any(source not in _RECEIPT_SOURCES for source in self.receipt_sources):
+            raise ValueError("coverage receipt source is invalid")
+        if self.accepted_question_count < 1:
+            raise ValueError("coverage accepted question count MUST be positive")
+        if not 0 <= self.terminal_question_count <= self.accepted_question_count:
+            raise ValueError("coverage terminal question count is outside the accepted bound")
+        for cohort, count in self.answer_counts_by_cohort.items():
+            if not cohort or len(cohort) > 128:
+                raise ValueError("coverage answer cohort MUST be bounded")
+            if type(count) is not int or count < 0:
+                raise ValueError("coverage answer counts MUST be non-negative integers")
+        if sum(self.answer_counts_by_cohort.values()) > self.terminal_question_count:
+            raise ValueError("coverage answer counts exceed terminal questions")
+        violation_counts = (
+            self.legacy_ordinary_language_count,
+            self.unsupported_claim_count,
+            self.unauthorized_execution_count,
+        )
+        if any(count < 0 for count in violation_counts):
+            raise ValueError("coverage violation counts MUST be non-negative")
+        if self.epistemic_coverage_receipt_digest is not None:
+            _require_digest(
+                "epistemic_coverage_receipt_digest",
+                self.epistemic_coverage_receipt_digest,
+            )
+        _require_digest("receipt_digest", self.receipt_digest)
+        expected_passed = (
+            self.terminal_question_count == self.accepted_question_count
+            and sum(violation_counts) == 0
+        )
+        if self.passed is not expected_passed:
+            raise ValueError("coverage pass state does not match its counts")
+        expected_production_ready = (
+            expected_passed
+            and self.epistemic_coverage_receipt_digest is not None
+            and all(source in _PRODUCTION_RECEIPT_SOURCES for source in self.receipt_sources)
+        )
+        if self.production_ready is not expected_production_ready:
+            raise ValueError("coverage production readiness does not match its evidence")
+        if self.receipt_digest != _digest(self._body()):
+            raise ValueError("coverage receipt digest does not match its content")
+        object.__setattr__(
+            self,
+            "answer_counts_by_cohort",
+            MappingProxyType(dict(self.answer_counts_by_cohort)),
+        )
+
+    def _body(self) -> dict[str, object]:
+        return {
+            "ontology_release_digest": self.ontology_release_digest,
+            "principal_receipt_digests": self.principal_receipt_digests,
+            "question_receipt_digests": self.question_receipt_digests,
+            "receipt_sources": self.receipt_sources,
+            "accepted_question_count": self.accepted_question_count,
+            "terminal_question_count": self.terminal_question_count,
+            "answer_counts_by_cohort": dict(self.answer_counts_by_cohort),
+            "legacy_ordinary_language_count": self.legacy_ordinary_language_count,
+            "unsupported_claim_count": self.unsupported_claim_count,
+            "unauthorized_execution_count": self.unauthorized_execution_count,
+            "epistemic_coverage_receipt_digest": self.epistemic_coverage_receipt_digest,
+            "passed": self.passed,
+            "production_ready": self.production_ready,
+        }
+
 
 def evaluate_ontology_query_coverage(
     *,
@@ -304,6 +383,20 @@ def _question_receipt_digest(record: QuestionDispositionRecord) -> str:
             "used_legacy_ordinary_language_route": record.used_legacy_ordinary_language_route,
         }
     )
+
+
+def _require_digest(name: str, value: str) -> None:
+    if _DIGEST_PATTERN.fullmatch(value) is None:
+        raise ValueError(f"{name} MUST be a canonical SHA-256 value")
+
+
+def _require_ordered_digests(name: str, values: tuple[str, ...]) -> None:
+    if not values:
+        raise ValueError(f"{name} MUST be non-empty")
+    if values != tuple(sorted(set(values))):
+        raise ValueError(f"{name} MUST be unique and ordered")
+    for value in values:
+        _require_digest(name, value)
 
 
 def _digest(value: object) -> str:

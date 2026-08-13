@@ -6,6 +6,7 @@ from dataclasses import replace
 
 import pytest
 from fdai.core.conversation.coverage_gate import (
+    OntologyQueryCoverageGateReceipt,
     QuestionDispositionRecord,
     SemanticRoute,
     UnavailableReason,
@@ -356,4 +357,74 @@ def test_gate_rejects_incomplete_structural_and_question_identity_inputs() -> No
         evaluate_ontology_query_coverage(
             structural_receipts=(structural,),
             questions=(replace(answered, principal_manifest_digest=_digest("b")),),
+        )
+
+
+def test_coverage_receipt_rejects_forged_identity_counts_and_readiness() -> None:
+    receipt = evaluate_ontology_query_coverage(
+        structural_receipts=(_structural(),),
+        questions=(_fixture_answered("fixture", "b"),),
+    )
+
+    with pytest.raises(TypeError):
+        receipt.answer_counts_by_cohort["forged"] = 1  # type: ignore[index]
+
+    with pytest.raises(ValueError, match="ontology_release_digest MUST be a canonical"):
+        replace(receipt, ontology_release_digest="invalid")
+    with pytest.raises(ValueError, match="principal_receipt_digests MUST be non-empty"):
+        replace(receipt, principal_receipt_digests=())
+    with pytest.raises(ValueError, match="question_receipt_digests MUST be unique and ordered"):
+        replace(
+            receipt,
+            question_receipt_digests=(
+                receipt.question_receipt_digests[0],
+                receipt.question_receipt_digests[0],
+            ),
+        )
+    with pytest.raises(ValueError, match="receipt sources MUST be non-empty"):
+        replace(receipt, receipt_sources=())
+    with pytest.raises(ValueError, match="receipt sources MUST be unique and ordered"):
+        replace(
+            receipt,
+            receipt_sources=("deterministic_fixture", "deterministic_fixture"),
+        )
+    with pytest.raises(ValueError, match="receipt source is invalid"):
+        replace(receipt, receipt_sources=("manual",))
+    with pytest.raises(ValueError, match="accepted question count MUST be positive"):
+        replace(receipt, accepted_question_count=0)
+    with pytest.raises(ValueError, match="terminal question count is outside"):
+        replace(receipt, terminal_question_count=2)
+    with pytest.raises(ValueError, match="answer cohort MUST be bounded"):
+        replace(receipt, answer_counts_by_cohort={"": 0})
+    with pytest.raises(ValueError, match="answer counts MUST be non-negative integers"):
+        replace(receipt, answer_counts_by_cohort={"exact-en": -1})
+    with pytest.raises(ValueError, match="answer counts exceed terminal"):
+        replace(receipt, answer_counts_by_cohort={"exact-en": 2})
+    with pytest.raises(ValueError, match="violation counts MUST be non-negative"):
+        replace(receipt, unsupported_claim_count=-1)
+    with pytest.raises(ValueError, match="epistemic_coverage_receipt_digest MUST be a canonical"):
+        replace(receipt, epistemic_coverage_receipt_digest="invalid")
+    with pytest.raises(ValueError, match="pass state does not match"):
+        replace(receipt, passed=False)
+    with pytest.raises(ValueError, match="production readiness does not match"):
+        replace(receipt, production_ready=True)
+    with pytest.raises(ValueError, match="digest does not match"):
+        replace(receipt, receipt_digest=_digest("b"))
+
+    with pytest.raises(ValueError, match="ontology_release_digest MUST be a canonical"):
+        OntologyQueryCoverageGateReceipt(
+            ontology_release_digest="invalid",
+            principal_receipt_digests=(),
+            question_receipt_digests=(),
+            receipt_sources=("deterministic_fixture",),
+            accepted_question_count=0,
+            terminal_question_count=0,
+            answer_counts_by_cohort={},
+            legacy_ordinary_language_count=9,
+            unsupported_claim_count=9,
+            unauthorized_execution_count=9,
+            epistemic_coverage_receipt_digest=None,
+            passed=True,
+            production_ready=True,
+            receipt_digest="invalid",
         )
