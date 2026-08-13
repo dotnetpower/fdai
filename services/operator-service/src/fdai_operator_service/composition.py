@@ -52,10 +52,16 @@ from fdai_operator_service.postgres_iam import PostgresIamAdapters
 from fdai_operator_service.projections import UnavailableOperatorReadModel
 from fdai_operator_service.routes import OperatorRouteFamilies
 from fdai_operator_service.runtime import OperatorRuntime
-from fdai_operator_service.streaming import LiveStreamHub
+from fdai_operator_service.streaming import LiveStreamEvent, LiveStreamHub
 
 HIL_SIGNING_SECRET_ENV = "FDAI_CHATOPS_WEBHOOK_SECRET"  # noqa: S105
 WEBHOOK_SIGNING_SECRET_ENV = "FDAI_OPERATOR_WEBHOOK_SECRET"  # noqa: S105
+
+
+def _agent_state_key(event: LiveStreamEvent) -> str | None:
+    payload = event.payload
+    agent = payload.get("agent")
+    return agent if payload.get("type") == "agent.state" and isinstance(agent, str) else None
 
 
 class OperatorComposition(Protocol):
@@ -91,7 +97,7 @@ class ProductionOperatorComposition:
         family_store = _postgres_family_store(environment)
         semantic_bus: OperatorSemanticKafkaBus | None = None
         live_stream_hub = LiveStreamHub()
-        agent_stream_hub = LiveStreamHub()
+        agent_stream_hub = LiveStreamHub(latest_key=_agent_state_key)
         live_stage_relay: LiveStageKafkaRelay | None = None
         publisher = self.semantic_event_publisher
         result_source = self.semantic_result_source

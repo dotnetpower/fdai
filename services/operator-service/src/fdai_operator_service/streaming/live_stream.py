@@ -31,16 +31,27 @@ class LiveStreamEvent:
 class LiveStreamHub:
     """Fan validated stage events out through isolated bounded subscriber queues."""
 
-    def __init__(self, *, maximum_queue_size: int = 1_024) -> None:
+    def __init__(
+        self,
+        *,
+        maximum_queue_size: int = 1_024,
+        latest_key: Callable[[LiveStreamEvent], str | None] | None = None,
+    ) -> None:
         if maximum_queue_size < 1:
             raise ValueError("maximum_queue_size MUST be positive")
         self._maximum_queue_size = maximum_queue_size
+        self._latest_key = latest_key
+        self._latest_events: dict[str, LiveStreamEvent] = {}
         self._subscribers: list[asyncio.Queue[LiveStreamEvent]] = []
         self._lock = asyncio.Lock()
 
     async def publish(self, event: LiveStreamEvent) -> None:
         """Offer one event to every subscriber without blocking the producer."""
         async with self._lock:
+            if self._latest_key is not None:
+                key = self._latest_key(event)
+                if key:
+                    self._latest_events[key] = event
             subscribers = tuple(self._subscribers)
         for queue in subscribers:
             _offer_latest(queue, event)
@@ -53,6 +64,8 @@ class LiveStreamHub:
         queue: asyncio.Queue[LiveStreamEvent] = asyncio.Queue(maxsize=self._maximum_queue_size)
         async with self._lock:
             self._subscribers.append(queue)
+            for event in self._latest_events.values():
+                _offer_latest(queue, event)
         try:
             while True:
                 yield await queue.get()
