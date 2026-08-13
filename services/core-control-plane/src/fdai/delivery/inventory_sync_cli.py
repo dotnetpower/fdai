@@ -57,6 +57,10 @@ from fdai.delivery.persistence.postgres_topology_history import (
     PostgresTopologyHistoryStoreConfig,
 )
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
+from fdai.rule_catalog.schema.provider_relationship_mapping import (
+    ProviderRelationshipMappingCatalog,
+    load_provider_relationship_mapping_catalog,
+)
 from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeRegistry,
     load_resource_type_registry_from_mapping,
@@ -186,6 +190,12 @@ def _load_resource_type_registry() -> ResourceTypeRegistry:
     vocabulary_path = _REPO_ROOT / "rule-catalog" / "vocabulary" / "resource-types.yaml"
     return load_resource_type_registry_from_mapping(
         yaml.safe_load(vocabulary_path.read_text(encoding="utf-8"))
+    )
+
+
+def _load_relationship_mapping_catalog() -> ProviderRelationshipMappingCatalog:
+    return load_provider_relationship_mapping_catalog(
+        _REPO_ROOT / "rule-catalog" / "vocabulary" / "provider-relationship-mappings"
     )
 
 
@@ -428,6 +438,7 @@ async def run(config: InventoryJobConfig) -> InventoryJobResult:
                     publisher=activity_publisher,
                     evidence_counts=evidence_counts,
                 ),
+                relationship_mapping_catalog=_load_relationship_mapping_catalog(),
             ).run(
                 _build_sources(
                     config=config,

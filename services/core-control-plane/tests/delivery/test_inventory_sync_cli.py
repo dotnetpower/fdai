@@ -18,6 +18,7 @@ from fdai.delivery.inventory_sync_cli import (
     _build_ontology_observer,
     _build_sources,
     _forward_recovery_deltas,
+    _load_relationship_mapping_catalog,
     _resolve_resource_types,
     _verify_sha256,
 )
@@ -118,6 +119,17 @@ def test_job_config_defaults_to_arg_then_arm() -> None:
     assert config.freshness_budget_seconds == 86_400
     assert config.reconciliation_interval_seconds == 21_600
     assert config.management_audience == "https://management.azure.com/.default"
+
+
+def test_job_loads_reviewed_kubernetes_relationship_mappings() -> None:
+    catalog = _load_relationship_mapping_catalog()
+
+    assert {
+        mapping.mapping_id for mapping in catalog.mappings if mapping.provider == "kubernetes"
+    } == {
+        "kubernetes.service-exposes-endpoints",
+        "kubernetes.service-selects-pod",
+    }
 
 
 def test_job_config_prefers_durable_freshness_setting() -> None:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -11,6 +12,9 @@ from fdai.delivery.inventory_sync import (
     InventoryStreamError,
     InventorySyncCoordinator,
     PromotedInventoryObservation,
+)
+from fdai.rule_catalog.schema.provider_relationship_mapping import (
+    load_provider_relationship_mapping_catalog,
 )
 from fdai.shared.providers.inventory import InventoryBatch, ResourceRecord
 from fdai.shared.providers.inventory_snapshot import (
@@ -129,6 +133,70 @@ async def test_promotion_observer_receives_the_promoted_generation() -> None:
     assert observed[0].complete is True
     assert observed[0].recorded_at is not None
     assert observed[0].recorded_at.tzinfo is not None
+
+
+async def test_promotion_observer_receives_verified_kubernetes_relationships() -> None:
+    store = _Store()
+    observed: list[PromotedInventoryObservation] = []
+
+    async def _record(observation: PromotedInventoryObservation) -> None:
+        observed.append(observation)
+
+    cluster_ref = "kubernetes.cluster:example"
+    resources = (
+        ResourceRecord(
+            resource_id=f"{cluster_ref}/service/api",
+            type="kubernetes.service",
+            props={
+                "cluster_ref": cluster_ref,
+                "namespace": "default",
+                "name": "api",
+                "selector": {"app": "api"},
+            },
+            last_seen="2026-08-13T10:00:00Z",
+        ),
+        ResourceRecord(
+            resource_id=f"{cluster_ref}/pod/api-0",
+            type="kubernetes.pod",
+            props={
+                "cluster_ref": cluster_ref,
+                "namespace": "default",
+                "name": "api-0",
+                "labels": {"app": "api"},
+            },
+            last_seen="2026-08-13T10:00:00Z",
+        ),
+        ResourceRecord(
+            resource_id=f"{cluster_ref}/endpoints/api",
+            type="kubernetes.endpoints",
+            props={
+                "cluster_ref": cluster_ref,
+                "namespace": "default",
+                "name": "api",
+            },
+            last_seen="2026-08-13T10:00:00Z",
+        ),
+    )
+    catalog = load_provider_relationship_mapping_catalog(
+        Path("rule-catalog/vocabulary/provider-relationship-mappings")
+    )
+
+    await InventorySyncCoordinator(
+        store=store,
+        promotion_observer=_record,
+        relationship_mapping_catalog=catalog,
+    ).run([_source("kubernetes", _Inventory([InventoryBatch(resources=resources, final=True)]))])
+
+    assert len(observed) == 1
+    assert [link.link_type for link in observed[0].links] == [
+        "kubernetes_exposes_endpoints",
+        "kubernetes_selects",
+    ]
+    assert observed[0].relationship_drops == ()
+    assert all(
+        link.observation_metadata is not None and link.observation_metadata.verified
+        for link in observed[0].links
+    )
 
 
 async def test_promotion_observer_is_not_called_for_a_failed_stream() -> None:
