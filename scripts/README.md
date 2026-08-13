@@ -246,7 +246,8 @@ make roadmap-verification-status
 `report` mode gives Copilot read-only file discovery, search, and shell tools in
 an isolated worktree but no write tool. It records `reviewed`, `gap_found`,
 `designed`, `not_applicable`, or `blocked` evidence and removes the temporary
-branch:
+branch. Before returning a result, the worker confirms that every reported evidence
+path exists exactly as written relative to the repository root:
 
 ```bash
 make roadmap-verification-report

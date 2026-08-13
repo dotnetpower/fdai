@@ -96,6 +96,7 @@ def test_prompt_separates_report_and_apply_authority() -> None:
 
     assert "Do not edit or commit any file" in report_prompt
     assert "Update and commit both document variants" in apply_prompt
+    assert "confirm every evidence path exists exactly as written" in report_prompt
     assert "Never run repository-wide validation" in apply_prompt
     assert "code_verification_status: <outcome>" in apply_prompt
 
