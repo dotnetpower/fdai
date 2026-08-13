@@ -9547,6 +9547,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   margin: 0;
   padding: 10px 12px;
   overflow-x: auto;
+  background: transparent;
+  color-scheme: dark;
 }
 .deck-code-pre code.hljs {
   display: block;

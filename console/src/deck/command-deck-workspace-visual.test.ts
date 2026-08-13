@@ -90,6 +90,10 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).toContain(".deck-input:focus-visible {");
   });
 
+  test("keeps syntax-highlighted code on its dark slab", () => {
+    expect(styles).toMatch(/\.deck-code-pre \{[^}]*background: transparent;[^}]*color-scheme: dark;/s);
+  });
+
   test("reflows execution details from the deck container width", () => {
     expect(styles).toContain("container-name: deck-transcript;");
     expect(styles).toContain("@container deck-transcript (max-width: 620px)");

@@ -15,6 +15,7 @@ RBAC contract remains in [operator-console.md](operator-console.md).
 |------|-------|----------|-----------|
 | Governed ontology assurance provenance | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`; focused Vitest: 25 passed; Console typecheck passed | Remains in progress until the authenticated seeded cohort produces a governed runtime artifact. |
 | Agent Activity heartbeat presentation | implemented | `console/src/routes/agents.model.ts`; `console/src/routes/agents.model.test.ts`; focused Vitest: 31 passed | Periodic runtime initialization snapshots update current agent state and last-observed time without becoming activity rows after initial load or refresh. Browser Entra refresh behavior was observed but no governed artifact was retained. |
+| Command Deck JSON contrast | implemented | `console/src/styles.css`; `console/src/deck/command-deck-workspace-visual.test.ts`; focused Vitest: 10 passed; authenticated browser inspection | Syntax-highlighted JSON keeps the fixed dark code surface despite the global light `pre` style. Browser inspection is not retained as governed runtime evidence. |
 
 ### Implementation history
 
@@ -22,6 +23,7 @@ RBAC contract remains in [operator-console.md](operator-console.md).
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance, and bound ontology assurance artifacts to exact source, configuration, workspace, authentication, request, and projection provenance. | Current change in `console/tests/live-e2e/ontology-query-assurance*.ts`; focused Vitest: 25 passed; Console typecheck passed. | Obtain the exact centralized receipt, then run one authenticated probe before the seeded bilingual 100-case cohort. |
 | 2026-08-14 | implemented | Stopped periodic `Runtime agent initialized` snapshots from reappearing as chronological activity after each page refresh while preserving current state and heartbeat freshness. | `current change`; `agents.model.test.ts` passed 31 focused tests, and the authenticated browser showed zero initialization rows across two refreshes. | Retain the two-refresh Browser Entra result as a governed artifact before claiming runtime validation. |
+| 2026-08-14 | implemented | Restored the fixed dark surface beneath syntax-highlighted Command Deck JSON after the global `pre` background overrode it. | `current change`; task-owned Console CSS and visual contract test; focused Vitest passed 10 tests; Console typecheck passed; authenticated browser computed the intended dark surface and token colors. | No bounded residual work remains; the focused regression test owns future theme changes. |
 
 ### Remaining work
 
@@ -351,8 +353,7 @@ observed output, AnswerPlan, redacted model request and response, verification r
 delivery receipt. A lane without that payload type still shows status, start, completion, and its
 available facts rather than an empty panel. The answer lane records delivery metadata and does not
 repeat the answer body.
-Inventory execution displays the canonical turn query as an `IQL` activity. Following activities use one terminal icon for exact bounded Azure CLI or ARG receipts. They show the
-authenticated subscription id, generic argv, measured command duration, count, and at most ten allowlisted preview rows while
+Inventory execution displays the canonical turn query as an `IQL` activity. Following activities use one terminal icon for exact bounded Azure CLI or ARG receipts. They show the authenticated subscription id, generic argv, measured command duration, count, and at most ten allowlisted preview rows while
 redacting pagination tokens, credentials, raw resource ids, and provider errors. IQL source and
 result toggle independently; rows describe snapshot refresh without claiming rerun, and the browser never derives commands from IQL or source names. Terminal-only visual reveal is capped at 30 chunks, and server completion rather than paint completion anchors the answer lane, so presentation pacing isn't rendered as an execution gap. Valid object or array JSON in provider messages, action arguments, commands, and outputs uses indented syntax highlighting and copy; malformed or plain text stays unchanged. The terminal replay payload retains final ID-deduplicated branch, activity, milestone, and redacted execution detail under a 64 KiB aggregate cap, truncates each history output at 32 KiB, and reports truncation and omission counts, so durable history and the live turn use the same strict parser and trajectory view. Unavailable or timed-out
 evidence is an attempt, not completed evidence, and unverified work never receives completed styling. Missing activity stays in an observation-coverage disclosure and proves no absence. Exact-answer
@@ -520,14 +521,13 @@ including keepalive comments, then use bounded reconnect. Provisioning also canc
 event delivery fails. Agent-stream `401` waits for full-screen login recovery; `403` reconnects so a
 new App Role can take effect without a page reload.
 
-Command Deck investigation activity can include optional observed execution evidence. The server
-removes credentials and sensitive identifiers before emission and sets `redacted=true`; the browser
+Command Deck investigation activity can include optional observed execution evidence. The server removes credentials and sensitive identifiers before emission and sets `redacted=true`; the browser
 drops input evidence without that attestation. `input_kind=command` requires a recorded process
 invocation and may carry an exit code. `input_kind=query` carries the canonical typed server query,
 never a reconstructed provider command, and cannot carry an exit code. An accepted activity shows
 the matching `TOOL` or `QUERY` badge, tool label, authority, and completion state. Command output,
 query results, and timestamps stay collapsed by default. Valid object or array JSON is pretty-printed
-inside bounded code surfaces with theme-matched scrollbars. Inventory results retain the verifier-accepted detailed projection, including matched resources, counts, coverage, and snapshot provenance. Input is limited to 16 KiB and the result preview to 64 KiB; oversized collection tails are omitted with explicit counts so output remains valid JSON. Activity and retrieval labels are limited to 512 characters, detail and
+inside bounded fixed-dark code surfaces with theme-matched scrollbars. Inventory results retain the verifier-accepted detailed projection, including matched resources, counts, coverage, and snapshot provenance. Input is limited to 16 KiB and the result preview to 64 KiB; oversized collection tails are omitted with explicit counts so output remains valid JSON. Activity and retrieval labels are limited to 512 characters, detail and
 milestone text to 16 KiB, and contradictory completed/total progress is rejected.
 The browser can copy the displayed command or query but can't run or retry it. This evidence remains a
 read-only observation of work performed by an authorized runtime, not proof that the console owns
