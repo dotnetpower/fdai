@@ -17,19 +17,29 @@ provider implementations without editing core; each deployment supplies identiti
 bindings through configuration (see
 [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 
-> **Implementation status.** Terraform plan/apply, production input gates, image
-> scan/SBOM/attestation, drift plans, and the post-apply canary Job smoke are shipped.
-> Independent-service deploys also bind a protected plan to the exact source workflow,
-> backend, Azure target, identities, and image. They verify state cutover ownership and restore
-> the captured revision and digest-pinned image automatically when immediate post-apply health
-> verification fails. Each plan and successful apply also captures the four peer service states
-> before and after the operation, rejects any canonical state change, and retains only a sealed
-> non-sensitive peer-isolation receipt. For a no-ingress Container App, Azure may omit
-> `healthState`; verification accepts that state only when the revision is active, reports
-> `runningState=Running`, and has at least one replica.
-> Automated dev -> staging -> prod promotion, Container Apps traffic-split canaries,
-> SLO-driven rollback, and console blue/green remain target designs. The core Container App
-> currently uses `revision_mode = Single`.
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Terraform plan/apply and supply-chain gates | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/container-supply-chain.yml`, and focused workflow tests | Production inputs, image attestations, drift plans, and post-apply smoke checks are shipped. |
+| Independent-service protected deployment | validated | `config/independent-service-live-evidence-manifest.json` and `config/independent-service-remote-evidence.json` | Protected plans bind source, backend, target, identities, and images; peer isolation and rollback evidence are retained. |
+| Operator schema and catalog bootstrap | implemented | `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml`, and `tests/integration/scripts/test_service_deploy_workflow.py` in the current change | A successful Alembic Job gates a separate Core-image Job that writes immutable Rule and Ontology reference projections. |
+| Automated promotion and progressive delivery | not-started | Target design in this document | Automated dev -> staging -> prod promotion, traffic-split canaries, SLO rollback, and console blue/green are not implemented. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and added deployed Operator catalog bootstrap after schema migration. | current change; focused deployment workflow and Terraform checks | Capture governed apply evidence for the catalog Job and implement the progressive-delivery targets. |
+
+### Remaining work
+
+- [ ] Retain a repository-safe governed apply receipt showing that the Operator migration Job
+  succeeds before the catalog Job and that both immutable projection keys are readable afterward.
+- [ ] Implement the documented automated artifact promotion, traffic-split canary, SLO rollback,
+  and console blue/green flows with focused tests and governed runtime evidence.
 
 ## Environments
 
@@ -94,10 +104,12 @@ prod topology so shadow evaluation is representative.
     ingestion worker with its ClamAV sidecar, and Isolated Executor are separate Container Apps.
     The Executor has no ingress; default deployment remains shadow-only, and the explicit SD-08
     cutover moves gateway caller authority and action identities away from Core.
-  - **Container Apps Jobs** in the same environment for scheduled probes and light triggers
-    (replaces Azure Functions for runtime scheduling). An opt-in development-only FC1 Function
-    App is the narrow exception: it relays registered operations to private resources and is not a
-    scheduler or control-loop runtime.
+  - **Container Apps Jobs** in the same environment for scheduled probes, light triggers, and
+    bounded deployment preparation (replaces Azure Functions for runtime scheduling). The Operator
+    deployment runs its schema migration Job first, then a separate digest-pinned Core-image Job
+    writes immutable Rule and Ontology reference projections. An opt-in development-only FC1
+    Function App is the narrow exception: it relays registered operations to private resources and
+    is not a scheduler or control-loop runtime.
   - **Event Hubs** (two Standard 1-TU namespace shards, auto-inflate off) consumed **only via
     Kafka endpoints on `:9093`** - the CSP-neutral event bus contract
     ([csp-neutrality.md § Event bus contract](../architecture/csp-neutrality.md#1-event-bus-contract--kafka-wire-protocol)).
@@ -200,7 +212,10 @@ target design.
   Migrations run as a gated step **before** the app revision takes traffic and stay
   backward-compatible so a revision rollback does not break the schema. Online Alembic runs
   serialize revision inspection, DDL, and version-row updates with a database-scoped transaction
-  lock, so concurrent startup or test workers cannot apply one revision twice.
+  lock, so concurrent startup or test workers cannot apply one revision twice. After the Operator
+  migration succeeds, deployment runs a separate Core-image Job that deterministically refreshes
+  immutable repository catalog projections. These rows describe reviewed reference declarations;
+  they do not create findings, inventory, incidents, readiness, or execution authority.
 
 ## Release and Rollback
 

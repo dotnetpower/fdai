@@ -1,8 +1,8 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: 5e5f26f9e557790393405f5b0f1608b371e3908f
-translation_revised: 2026-08-12
+translation_source_sha: d8487d1fc9fa90fe7cb03744c5ba1fdcaf5cd6fc
+translation_revised: 2026-08-13
 ---
 
 # 배포(배포)
@@ -21,18 +21,29 @@ translation_revised: 2026-08-12
 상태 연결을 제공합니다.
 ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 
-> **구현 상태.** Terraform 계획/적용, 운영 입력 게이트, 이미지 검사/SBOM/증명,
-> 표류 계획, post-apply canary 작업 smoke는 배포됐습니다.
-> 독립 서비스 배포는 protected 계획을 정확한 출처 작업 흐름, 백엔드, Azure 대상, 신원,
-> 이미지에 연결합니다. 상태 전환 소유권을 검증하고 immediate post-apply 상태 검증이
-> 실패하면 수집한 개정 번호와 digest-pinned 이미지를 자동 복원합니다. 각 계획과 성공한
-> 적용은 작업 전후 peer 서비스 4개의 상태를 수집하고 정본 상태 변경을 차단하며,
-> 민감하지 않게 sealed한 peer-isolation 증적만 보존합니다. Ingress가 없는 Container
-> App에서는 Azure가 `healthState`를 생략할 수 있습니다. 검증은 개정 번호가 활성이고
-> `runningState=Running`을 보고하며 복제본이 하나 이상일 때만 이 상태를 수락합니다.
-> 자동 dev -> staging -> prod 승격,
-> Container Apps traffic-split canary, SLO 기반 자동 롤백, 콘솔 blue/green은 아직
-> 목표 설계입니다. Core Container App은 현재 `revision_mode = Single`입니다.
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| Terraform 계획/적용 및 공급망 게이트 | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/container-supply-chain.yml` 및 집중 workflow 테스트 | 운영 입력, 이미지 증명, 표류 계획 및 post-apply smoke 검사가 제공됩니다. |
+| 독립 서비스 protected 배포 | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Protected 계획은 출처, 백엔드, 대상, 신원 및 이미지를 결합하고 peer 격리와 롤백 증적을 보존합니다. |
+| Operator schema 및 catalog 초기화 | implemented | 현재 변경의 `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml` 및 `tests/integration/scripts/test_service_deploy_workflow.py` | Alembic Job 성공 후 별도의 Core-image Job이 변경 불가능한 Rule 및 Ontology 참조 projection을 기록합니다. |
+| 자동 승격 및 점진적 배포 | not-started | 이 문서의 목표 설계 | 자동 dev -> staging -> prod 승격, traffic-split canary, SLO 롤백 및 콘솔 blue/green은 구현되지 않았습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | implemented | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 schema migration 뒤 배포된 Operator catalog 초기화를 추가했습니다. | current change, 집중 deployment workflow 및 Terraform 검사 | Catalog Job의 통제된 적용 증적을 수집하고 점진적 배포 목표를 구현합니다. |
+
+### 남은 작업
+
+- [ ] Operator migration Job이 catalog Job보다 먼저 성공하고 이후 두 immutable projection
+  key를 읽을 수 있음을 보여 주는 리포지토리에 안전한 통제된 적용 증적을 보존합니다.
+- [ ] 문서화된 자동 artifact 승격, traffic-split canary, SLO 롤백 및 콘솔 blue/green
+  흐름을 집중 테스트와 통제된 런타임 증적으로 구현합니다.
 
 ## 환경(Environments)
 
@@ -95,9 +106,12 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
     sidecar를 가진 내부 인제스트 워커 및 Isolated 실행기는 별도 Container App입니다.
     실행기 앱은 유입이 없고 기본 배포는 shadow-only를 유지합니다. 명시적 SD-08
     전환이 게이트웨이 호출자 권한과 액션 신원을 Core에서 이동합니다.
-  - **Container Apps Jobs** (같은 환경) 로 스케줄 프로브와 경량 트리거를 실행하며 런타임
-    예약에서 Azure Functions를 대체합니다. 명시적 선택 개발 전용 FC1 Function App은 예외이며,
-    비공개 리소스에 등록된 연산을 중계할 뿐 스케줄러나 control-loop 런타임이 아닙니다.
+  - **Container Apps Jobs** (같은 환경) 로 스케줄 프로브, 경량 트리거 및 범위가 제한된 배포
+    준비를 실행하며 런타임 예약에서 Azure Functions를 대체합니다. Operator 배포는 schema
+    migration Job을 먼저 실행한 뒤 별도의 digest-pinned Core-image Job으로 변경 불가능한 Rule
+    및 Ontology 참조 projection을 기록합니다. 명시적 선택 개발 전용 FC1 Function App은
+    예외이며, 비공개 리소스에 등록된 연산을 중계할 뿐 스케줄러나 control-loop 런타임이
+    아닙니다.
   - **Event Hubs** (Standard 1-TU 이름 공간 샤드 2개, auto-inflate off) 를 **`:9093` 의
     Kafka 엔드포인트 로만** 소비 - CSP-중립 이벤트 버스 계약
     ([csp-neutrality-ko.md § 이벤트버스 계약](../architecture/csp-neutrality-ko.md#1-이벤트버스-계약--kafka-와이어-프로토콜)).
@@ -198,7 +212,9 @@ Traffic-split canary 전략은 아직 자동 배선되지 않았습니다. Platf
   **전에** 게이트된 스텝으로 실행되고, 개정 번호 롤백이 스키마를 깨지 않도록 하위 호환되는
   상태를 유지합니다. Online Alembic 실행은 database-scoped 트랜잭션 잠금으로 개정 번호 확인,
   DDL 및 version-row 갱신을 직렬화하므로 동시 시작 또는 테스트 워커가 같은 개정 번호를
-  두 번 적용하지 않습니다.
+  두 번 적용하지 않습니다. Operator migration이 성공하면 배포는 별도의 Core-image Job을 실행해
+  변경 불가능한 리포지토리 catalog projection을 결정론적으로 새로 고칩니다. 이 행은 검토된 참조
+  선언을 설명할 뿐 finding, inventory, incident, readiness 또는 실행 권한을 만들지 않습니다.
 
 ## 릴리스와 롤백(release and Rollback)
 

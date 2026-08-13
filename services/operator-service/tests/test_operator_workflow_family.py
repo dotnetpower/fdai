@@ -10,6 +10,7 @@ import pytest
 from fdai_operator_service.families.workflow import (
     WORKFLOW_FAMILY_ROUTE_MANIFEST,
     ProjectionProvenance,
+    WorkflowOperation,
     WorkflowProposal,
     WorkflowProposalReceipt,
     WorkflowReadRequest,
@@ -17,6 +18,7 @@ from fdai_operator_service.families.workflow import (
     build_workflow_family_routes,
 )
 from fdai_operator_service.family_adapters import PostgresWorkflowAdapters
+from fdai_operator_service.postgres_family_store import StoredProposal
 from fdai_service_contracts import (
     GoalTaskReceipt,
     OperatorPrincipal,
@@ -301,6 +303,99 @@ async def test_rule_search_adapter_reads_exact_principal_and_query_projection() 
     assert result.provenance.source_ref.startswith(
         "state_kv:operator-projection:workflow:rule.search:"
     )
+
+
+async def test_postgres_rule_catalog_projects_filters_pagination_and_detail() -> None:
+    stored = {
+        "_revision": "catalog-sha256",
+        "rules": [
+            {
+                "id": "rule.critical",
+                "origin": "active",
+                "severity": "critical",
+                "category": "security",
+                "source": "custom",
+                "resource_type": "disk",
+            },
+            {
+                "id": "rule.low",
+                "origin": "collected",
+                "severity": "low",
+                "category": "cost",
+                "source": "azure_policy",
+                "resource_type": "disk",
+            },
+        ],
+        "details": {
+            "active:rule.critical": {
+                "id": "rule.critical",
+                "origin": "active",
+                "parameters": {},
+            }
+        },
+    }
+
+    class CatalogStore:
+        async def read_projection(self, *, family: str, operation: str) -> dict[str, object]:
+            assert (family, operation) == ("workflow", "rule.list")
+            return stored
+
+    adapter = PostgresWorkflowAdapters(cast(Any, CatalogStore()))
+    listing = await adapter.read(
+        WorkflowReadRequest(
+            operation=WorkflowOperation.RULE_LIST,
+            principal_id="operator-a",
+            query={"origin": "active", "q": "disk"},
+            path_parameters={},
+            limit=1,
+            offset=0,
+        )
+    )
+    detail = await adapter.read(
+        WorkflowReadRequest(
+            operation=WorkflowOperation.RULE_DETAIL,
+            principal_id="operator-a",
+            query={"origin": "active"},
+            path_parameters={"rule_id": "rule.critical"},
+        )
+    )
+
+    assert listing.payload["total"] == 2
+    assert listing.payload["filtered_total"] == 1
+    assert listing.payload["rules"] == [stored["rules"][0]]
+    assert listing.payload["facets"]["by_origin"] == {"active": 1, "collected": 1}
+    assert detail.payload == stored["details"]["active:rule.critical"]
+    assert detail.provenance.revision == "catalog-sha256"
+
+
+async def test_postgres_workflow_adapter_submits_inert_proposal() -> None:
+    class ProposalStore:
+        def __init__(self) -> None:
+            self.calls: list[dict[str, object]] = []
+
+        async def append_proposal(self, **kwargs: object) -> StoredProposal:
+            self.calls.append(kwargs)
+            return StoredProposal("proposal-7", "revision-8", False, kwargs)
+
+    store = ProposalStore()
+    adapter = PostgresWorkflowAdapters(cast(Any, store))
+    receipt = await adapter.submit(
+        WorkflowProposal(
+            operation=WorkflowOperation.WORKFLOW_RUN_REQUEST,
+            principal_id="operator-a",
+            idempotency_key="request-7",
+            expected_revision="catalog-2",
+            request_source="console",
+            path_parameters={},
+            payload={"workflow_id": "workflow-1"},
+        )
+    )
+
+    assert receipt == WorkflowProposalReceipt("proposal-7", "revision-8")
+    assert store.calls[0]["family"] == "workflow"
+    assert store.calls[0]["operation"] == "workflow.run-request"
+    payload = cast(dict[str, object], store.calls[0]["payload"])
+    assert payload["mode"] == "shadow"
 
 
 @pytest.mark.parametrize("query", ["limit=0", "limit=501", "limit=many", "offset=-1"])

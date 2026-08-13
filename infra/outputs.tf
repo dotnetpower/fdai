@@ -284,6 +284,11 @@ output "operator_api_migrate_job_name" {
   value       = length(module.operator_api) > 0 ? module.operator_api[0].migrate_job_name : ""
 }
 
+output "operator_api_catalog_job_name" {
+  description = "Authoritative catalog materialization Container Apps Job name (empty string when enable_operator_api = false)."
+  value       = length(module.operator_api) > 0 ? module.operator_api[0].catalog_job_name : ""
+}
+
 output "document_storage_account_name" {
   description = "ADLS Gen2 document storage account name (empty when ingestion is disabled)."
   value       = length(module.document_storage) > 0 ? module.document_storage[0].name : ""

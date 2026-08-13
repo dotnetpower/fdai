@@ -2169,11 +2169,13 @@ module "operator_api" {
   # Keep the pre-rename physical name so existing deployments are not replaced.
   name                              = "ca-${var.workload}${local.full_suffix}-readapi"
   migrate_job_name                  = "caj-${var.workload}${local.full_suffix}-migrate"
+  catalog_job_name                  = "caj-${var.workload}${local.full_suffix}-catalog"
   container_app_environment_id      = module.compute.environment_id
   location                          = var.region
   resource_group_name               = module.resource_group.name
   image                             = var.operator_api_image == "" ? var.core_image : var.operator_api_image
   migration_image                   = var.operator_api_migration_image
+  catalog_image                     = var.core_image
   operator_api_identity_id          = module.operator_api_identity[0].resource_id
   operator_api_identity_client_id   = module.operator_api_identity[0].client_id
   monitor_workspace_customer_id     = module.log_analytics.workspace_customer_id

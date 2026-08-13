@@ -405,3 +405,58 @@ resource "azurerm_container_app_job" "migrate" {
 
   tags = var.tags
 }
+
+# One-off authoritative catalog materialization job (manual trigger). The
+# deploy workflow starts this only after the Operator schema migration
+# succeeds, so every projection revision is written against the current schema.
+resource "azurerm_container_app_job" "materialize_catalogs" {
+  name                         = var.catalog_job_name
+  container_app_environment_id = var.container_app_environment_id
+  resource_group_name          = var.resource_group_name
+  location                     = var.location
+  workload_profile_name        = "Consumption"
+  replica_timeout_in_seconds   = 600
+  replica_retry_limit          = 1
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [var.operator_api_identity_id]
+  }
+
+  dynamic "registry" {
+    for_each = var.acr_login_server == "" ? toset([]) : toset(["1"])
+    content {
+      server   = var.acr_login_server
+      identity = var.operator_api_identity_id
+    }
+  }
+
+  secret {
+    name                = "dsn"
+    identity            = var.operator_api_identity_id
+    key_vault_secret_id = var.state_store_dsn_secret_id
+  }
+
+  manual_trigger_config {
+    parallelism              = 1
+    replica_completion_count = 1
+  }
+
+  template {
+    container {
+      name    = "materialize-catalogs"
+      image   = var.catalog_image
+      cpu     = 0.5
+      memory  = "1Gi"
+      command = ["python"]
+      args    = ["/app/scripts/deployment/local/materialize-authoritative-catalogs.py"]
+
+      env {
+        name        = "FDAI_STATE_STORE_DSN"
+        secret_name = "dsn"
+      }
+    }
+  }
+
+  tags = var.tags
+}

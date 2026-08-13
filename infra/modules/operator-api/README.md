@@ -2,21 +2,25 @@
 
 Azure Container App for the operator console Operator API
 ([`services/operator-service/src/fdai_operator_service/`](../../../services/operator-service/src/fdai_operator_service/)),
-plus a one-off schema-migration Container Apps Job.
+plus one-off schema-migration and authoritative catalog-materialization Container Apps Jobs.
 
 ## Contents
 
 - `container-app/` - the Operator API Container App (external ingress on port
   8000, running `uvicorn fdai.delivery.operator_api.prod:app --factory`) and a
-  manual-trigger migration job (`alembic upgrade head`). Both use a dedicated
-  Operator API MI and share only the Container Apps Environment with the core app.
+  manual-trigger migration Job (`alembic upgrade head`) followed by a manual-trigger
+  catalog Job. All three resources use the dedicated Operator API managed identity and
+  share only the Container Apps Environment with the core app.
 
 ## Wiring
 
 Wired into `infra/main.tf` behind the `enable_operator_api` toggle (default
 `false`, so a day-zero deploy stays headless). The `deploy-dev.yml`
 workflow exposes it as the `deploy_operator_api` input and, when enabled,
-starts the migration job after apply.
+starts the migration Job after apply. After migration succeeds, the workflow starts
+the catalog Job to write immutable Rule and Ontology reference projections. The catalog
+Job uses the digest-pinned Core image because that image owns the reviewed catalogs and
+materializer; it doesn't create runtime findings or execution authority.
 
 ```hcl
 module "operator_api" {
@@ -24,10 +28,12 @@ module "operator_api" {
   source                       = "./modules/operator-api/container-app"
   name                         = "ca-${var.workload}${local.full_suffix}-operator"
   migrate_job_name             = "caj-${var.workload}${local.full_suffix}-migrate"
+  catalog_job_name             = "caj-${var.workload}${local.full_suffix}-catalog"
   container_app_environment_id = module.compute.environment_id
   location                     = var.region
   resource_group_name          = module.resource_group.name
   image                        = var.operator_api_image
+  catalog_image                = var.core_image
   operator_api_identity_id         = module.operator_api_identity[0].resource_id
   operator_api_identity_client_id  = module.operator_api_identity[0].client_id
   monitor_workspace_customer_id = module.log_analytics.workspace_customer_id

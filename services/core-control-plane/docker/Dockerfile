@@ -74,6 +74,7 @@ COPY --chown=65532:65532 services/assets/resolved-models.json /app/resolved-mode
 COPY --chown=65532:65532 services/core-control-plane/tests/scenarios/ /app/services/core-control-plane/tests/scenarios/
 COPY --chown=65532:65532 alembic/ /app/alembic/
 COPY --chown=65532:65532 alembic.ini /app/alembic.ini
+COPY --chown=65532:65532 scripts/deployment/local/materialize-authoritative-catalogs.py /app/scripts/deployment/local/materialize-authoritative-catalogs.py
 USER 65532
 RUN test -x /app/.venv/bin/fdai-core-control-plane
 EXPOSE 8000

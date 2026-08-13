@@ -28,6 +28,9 @@ _LEGACY_ROOT = (_ROOT / "infra/main.tf").read_text(encoding="utf-8")
 _LEGACY_OPERATOR_MODULE = (_ROOT / "infra/modules/operator-api/container-app/main.tf").read_text(
     encoding="utf-8"
 )
+_CORE_DOCKERFILE = (_ROOT / "services/core-control-plane/docker/Dockerfile").read_text(
+    encoding="utf-8"
+)
 _LEGACY_INGESTION_MODULE = (
     _ROOT / "infra/modules/ingestion-gateway/container-app/main.tf"
 ).read_text(encoding="utf-8")
@@ -80,6 +83,29 @@ def test_operator_migration_image_is_independently_pinned() -> None:
     assert "migration_image                   = var.operator_api_migration_image" in root
     assert 'image   = var.migration_image == "" ? var.image : var.migration_image' in module
     assert "TF_VAR_operator_api_migration_image" in _LEGACY_WORKFLOW
+
+
+def test_operator_catalog_materialization_runs_after_schema_migration() -> None:
+    root = (_ROOT / "infra/main.tf").read_text(encoding="utf-8")
+    outputs = (_ROOT / "infra/outputs.tf").read_text(encoding="utf-8")
+    variables = (_ROOT / "infra/modules/operator-api/container-app/variables.tf").read_text(
+        encoding="utf-8"
+    )
+
+    assert "catalog_image                     = var.core_image" in root
+    assert 'regex("@sha256:[0-9a-f]{64}$", var.catalog_image)' in variables
+    assert 'resource "azurerm_container_app_job" "materialize_catalogs"' in (
+        _LEGACY_OPERATOR_MODULE
+    )
+    assert 'args    = ["/app/scripts/deployment/local/materialize-authoritative-catalogs.py"]' in (
+        _LEGACY_OPERATOR_MODULE
+    )
+    assert 'name        = "FDAI_STATE_STORE_DSN"' in _LEGACY_OPERATOR_MODULE
+    assert "operator_api_catalog_job_name" in outputs
+    assert "materialize-authoritative-catalogs.py" in _CORE_DOCKERFILE
+    assert _LEGACY_WORKFLOW.index("operator_api_migrate_job_name") < _LEGACY_WORKFLOW.index(
+        "operator_api_catalog_job_name"
+    )
 
 
 def test_ingestion_migration_image_is_independently_pinned() -> None:

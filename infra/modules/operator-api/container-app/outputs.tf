@@ -12,3 +12,8 @@ output "migrate_job_name" {
   description = "Schema-migration Container Apps Job name (start it after apply to run `alembic upgrade head`)."
   value       = azurerm_container_app_job.migrate.name
 }
+
+output "catalog_job_name" {
+  description = "Authoritative catalog materialization Container Apps Job name."
+  value       = azurerm_container_app_job.materialize_catalogs.name
+}
