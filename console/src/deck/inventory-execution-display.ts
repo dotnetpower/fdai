@@ -23,6 +23,10 @@ export interface InventoryExecutionDisplay {
   readonly provider?: InventoryProviderExecution;
 }
 
+const SENSITIVE_PROVIDER_TEXT = /((?:^|\s)\/subscriptions\/|access[_-]?token|authorization:|bearer\s|client[_-]?secret|password|\$skiptoken|continuation[_-]?token|provider[_-]?error)/i;
+const SHELL_CONTROL = /[`$;&|]|\$\(/;
+const GUID = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/i;
+
 export function inventoryExecutionDisplay(raw: string): InventoryExecutionDisplay | undefined {
   let value: unknown;
   try {
@@ -63,7 +67,10 @@ function parseProviderExecution(value: unknown): InventoryProviderExecution | un
       typeof candidate.command !== "string" ||
       candidate.command.length < 1 ||
       candidate.command.length > 4096 ||
-      candidate.command.includes("\n")
+      candidate.command.includes("\n") ||
+      SENSITIVE_PROVIDER_TEXT.test(candidate.command) ||
+      SHELL_CONTROL.test(candidate.command) ||
+      GUID.test(candidate.command)
     ) return undefined;
     const result = candidate.result === undefined
       ? undefined
@@ -100,7 +107,14 @@ function parseProviderResult(value: unknown): InventoryProviderResult | undefine
   const preview = value.preview.flatMap((candidate): Readonly<Record<string, string>>[] => {
     if (!isRecord(candidate) || Object.keys(candidate).some((key) => !allowed.has(key))) return [];
     const entries = Object.entries(candidate);
-    if (entries.some(([, item]) => typeof item !== "string" || item.length < 1 || item.length > 512 || item.includes("\n"))) return [];
+    if (entries.some(([, item]) =>
+      typeof item !== "string" ||
+      item.length < 1 ||
+      item.length > 512 ||
+      item.includes("\n") ||
+      SENSITIVE_PROVIDER_TEXT.test(item) ||
+      GUID.test(item)
+    )) return [];
     return [Object.fromEntries(entries) as Readonly<Record<string, string>>];
   });
   if (preview.length !== value.preview.length || value.truncated !== (Number(value.count) > preview.length)) {

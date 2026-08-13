@@ -39,6 +39,7 @@ and the same audit contract, but they are distinct integration surfaces.
 | Optional Console projection availability | implemented | `console/src/routes`; focused route tests (`64 passed`) and `npm --prefix console run typecheck` | Typed optional-source absence renders as unavailable; authentication, unexpected server, and decoder failures remain errors. |
 | Agent Activity durable projection resilience | implemented | `fdai_operator_service/postgres_sql.py`; `fdai_operator_service/activity_projection.py`; focused Operator projection tests (`25 passed`), Console source and localization tests (`8 passed`), typecheck, and catalog parity | The PostgreSQL query escapes its literal wildcard, and an out-of-contract optional duration becomes `null` with `duration_out_of_range` instead of aborting otherwise valid activity. No governed browser artifact was retained, so this row does not claim runtime validation. |
 | Audit Trace navigation eligibility | implemented | `agent-activity-log-model.ts`; `agent-live-activity.tsx`; `rule-trace.tsx`; focused Console tests (`26 passed`) and typecheck | Only audit-backed rows link to Trace. Expected `404`, `501`, and source-gate `503` responses render as unavailable, while unexpected failures remain errors. The Browser Entra behavior was observed but no governed artifact was retained. |
+| Inventory provider-execution boundary | implemented | `discovery_receipts.py`; `inventory-execution-display.ts`; focused producer tests (`8 passed`), parser tests (`6 passed`), and Console typecheck | New server receipts derive placeholder-only commands from registered plans. The Console independently rejects shell controls, live GUIDs, raw ARM ids, credentials, continuation tokens, and provider errors. |
 
 ### Implementation history
 
@@ -48,6 +49,7 @@ and the same audit contract, but they are distinct integration surfaces.
 | 2026-08-13 | implemented | Standardized optional projection absence across production Console routes without hiding unexpected failures. | Current change; focused route tests passed (`64 passed`) and Console typecheck passed. | Keep Browser Entra route assurance in the full-stack validation campaign. |
 | 2026-08-14 | implemented | Restored the durable Agent Activity projection by escaping the psycopg wildcard, preserving valid rows with an out-of-range optional duration, and keeping the audit timeline available during typed optional-source absence. | `current change`; focused Operator tests passed (`25 passed`), focused Console tests passed (`8 passed`), and Console typecheck and catalog parity passed. | Retain a governed Browser Entra artifact for the existing snapshot-first and live-convergence exit criterion. |
 | 2026-08-14 | implemented | Restricted Trace links to durable audit rows and presented an absent audit correlation as unavailable rather than failed. | `current change`; `agent-live-activity.test.ts` and `rule-trace.test.ts` passed 26 focused tests, Console typecheck passed, and the authenticated Browser Entra page showed a non-linked inventory correlation plus a neutral Trace unavailable state. | Retain the observed Browser Entra result as a governed artifact before claiming runtime validation. |
+| 2026-08-14 | implemented | Added the server-owned provider-execution receipt producer and hardened the Console parser against executable or sensitive provider text. | `current change`; focused Azure delivery tests `8 passed`, Console parser tests `6 passed`, and Console typecheck passed. | Retain the read-only live canary receipts tracked by the Azure discovery owner document. |
 
 ### Remaining work
 
@@ -151,9 +153,10 @@ flowchart TD
   uses `query`: it renders the verifier-accepted typed query, authority, snapshot provenance, and
   bounded result projection without inventing Azure CLI argv or an exit code. Web labels a validated
   inventory query as `IQL`; source and result disclosures each close. A strict bounded execution
-  receipt uses one terminal icon for Azure CLI and ARG commands. It shows the authenticated
-  subscription id, generic argv, measured command duration, count, and at most ten allowlisted
-  preview rows while redacting pagination tokens. Rows identify snapshot-refresh work while IQL filters that snapshot. The browser
+  receipt uses one terminal icon for Azure CLI and ARG commands. New receipts derive placeholder-only
+  argv from a registered plan and show page count, result count, and at most ten allowlisted preview
+  rows while omitting live subscription ids, raw resource ids, credentials, pagination tokens, and
+  provider errors. Rows identify snapshot-refresh work while IQL filters that snapshot. The browser
   never reconstructs a command from IQL; a missing or invalid receipt produces no provider row.
   Other server queries retain `QUERY`, and only a provider receipt that records a process invocation
   uses `command`. Slack, Teams, and durable replay preserve the query/command distinction.
