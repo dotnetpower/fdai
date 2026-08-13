@@ -31,7 +31,8 @@ export function verificationIssueKind(reasonCode: string | null): VerificationIs
     reason.startsWith("exact_prior_") ||
     reason.startsWith("prior_result_set_") ||
     reason.includes("selector_required") ||
-    reason.includes("context_required")
+    reason.includes("context_required") ||
+    reason.includes("context_missing")
   ) {
     return "contextRequired";
   }
