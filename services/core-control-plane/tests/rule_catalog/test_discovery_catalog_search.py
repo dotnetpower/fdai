@@ -8,6 +8,12 @@ from pathlib import Path
 import pytest
 import yaml
 from fdai.delivery.catalog_search import InMemoryCatalogSemanticIndex
+from fdai.delivery.catalog_search.rule_generation import (
+    bind_rule_semantic_generation_validation,
+    build_rule_semantic_generation,
+    publish_rule_semantic_generation,
+    validate_rule_semantic_generation,
+)
 from fdai.rule_catalog.schema.catalog_search import (
     build_catalog_search_documents,
     build_discovery_catalog_search_documents,
@@ -253,3 +259,53 @@ async def test_real_active_and_discovery_corpora_have_isolated_lifecycles() -> N
     assert await index.search(active_rule_id, corpus="active", k=1) == active_results
     rolled_back_results = await index.search(discovery_rule_id, corpus="discovery", k=1)
     assert {item.generation_id for item in rolled_back_results} == {first.generation_id}
+
+
+async def test_real_active_rule_corpus_uses_validated_exact_generation() -> None:
+    documents, expected = _load_active_corpus()
+    build = build_rule_semantic_generation(
+        documents=documents,
+        corpus="active",
+        catalog_digest=expected.catalog_digest,
+        semantic_schema_digest=expected.semantic_schema_digest,
+        ontology_release_digest=expected.ontology_release_digest,
+        embedding_space_id=expected.embedding_space_id,
+        embedding_model_version=expected.embedding_model_version,
+        embedding_dimension=expected.embedding_dimension,
+    )
+    validator_artifact_digest = _digest("rule-generation-validator-v1")
+    receipt = validate_rule_semantic_generation(
+        build=build,
+        corpus="active",
+        catalog_digest=expected.catalog_digest,
+        semantic_schema_digest=expected.semantic_schema_digest,
+        ontology_release_digest=expected.ontology_release_digest,
+        embedding_space_id=expected.embedding_space_id,
+        embedding_model_version=expected.embedding_model_version,
+        embedding_dimension=expected.embedding_dimension,
+        validator_artifact_digest=validator_artifact_digest,
+    )
+    validated = bind_rule_semantic_generation_validation(build, receipt)
+    index = InMemoryCatalogSemanticIndex()
+
+    active = await publish_rule_semantic_generation(
+        index=index,
+        build=validated,
+        activated_at=NOW,
+    )
+    results = await index.search(
+        documents[0].rule_id,
+        corpus="active",
+        expected_catalog_digest=expected.catalog_digest,
+        k=1,
+    )
+
+    assert len(build.documents) == 62
+    assert build.metadata.generation_digest == expected.generation_digest
+    assert receipt.validator_artifact_digest == validator_artifact_digest
+    assert active.validation_receipt_digest == receipt.receipt_digest
+    assert active.catalog_digest == expected.catalog_digest
+    assert active.semantic_schema_digest == catalog_search_schema_digest()
+    assert active.ontology_release_digest == expected.ontology_release_digest
+    assert [item.rule_id for item in results] == [documents[0].rule_id]
+    assert all(item.generation_digest == active.generation_digest for item in results)
