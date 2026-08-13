@@ -28,6 +28,7 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Automated-test fixture isolation | implemented | `tests/`, `console/tests/`, and the fixture-only composition paths exercised by the repository test suites | Deterministic fixtures remain outside authoritative interactive profiles. |
+| Authenticated live Console route assurance | in-progress | `console/playwright.live.config.ts`, `console/tests/live-e2e/operator_service.py`, and `console/tests/live-e2e/console-routes.spec.ts`; focused Overview check: 1 passed | The isolated harness uses production Operator Service adapters with test-only identity verification. The full route and critique rounds remain open. |
 | Local and deployed composition parity | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, and service integration tests | Composition roots select credentials and adapters without changing evidence authority. |
 | Local validation database isolation | implemented | `infra/local/docker-compose.yml`, `scripts/automation/validation_queue_context.py`, local preparation scripts, and focused validation and migration integration tests | Runtime state stays on local PostgreSQL port `5432`; destructive migration validation uses a separate local PostgreSQL cluster on port `5433`. |
 | FDAI workspace and profile pressure controls | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`; focused profile and workspace tests: 11 passed | Resource-scoped analysis controls stay in the workspace. The portable profile rejects Remote WSL Pylance machine settings that it cannot isolate. |
@@ -40,10 +41,12 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance, and moved machine-scoped Pylance launch controls to the FDAI profile. | Current change in `.vscode/fdai.code-profile`, `.vscode/settings.json`, `scripts/automation/configure-vscode-profile.py`, and focused profile/workspace tests: 9 passed. | Record the FDAI Pylance process argument and centralized validation receipt. |
 | 2026-08-13 | deferred | Removed the ineffective Pylance machine settings, rejected duplicate profile JSON keys, and added a contract that prevents their return. | A clean Remote WSL process command lacked the configured heap argument; focused profile and workspace tests: 11 passed. | Use a separately rooted VS Code Server or WSL distribution, then prove the heap argument from the restarted process command. |
 | 2026-08-13 | implemented | Added a dedicated local PostgreSQL cluster for destructive validation and taught the detached validation queue to load only its generated DSN. | Current change; Compose config passed, focused queue and local-env tests passed (68 tests), and the isolated migration upgrade/downgrade checks passed (2 tests). | No remaining implementation work for local validation database isolation. |
+| 2026-08-13 | in-progress | Replaced the live Console test's retired backend path with an independent Operator Service using production adapters and test-only bearer verification, then moved the isolated stack to IPv6 loopback so readiness failures remain bounded. | Current change in `console/playwright.live.config.ts`, `console/tests/live-e2e/operator_service.py`, and `console/tests/live-e2e/console-routes.spec.ts`; focused Overview check: 1 passed in 5.1 seconds. | Run all 50 registered routes, then complete at least 10 assurance rounds and 10 critique/hardening rounds until only Low-or-lower findings remain. |
 
 ### Remaining work
 
 - [ ] Establish an FDAI-only Remote WSL server data root or WSL distribution, then record a restarted Pylance process command containing `--max-old-space-size=2048` without changing the excluded workspace.
+- [ ] Record passing evidence for all 50 registered Console routes, then complete at least 10 assurance rounds and 10 critique/hardening rounds with no unresolved finding above Low severity.
 
 ## Audit - What Works Local, What Needs Azure
 
@@ -72,14 +75,15 @@ frames, and chat SSE response. These fixtures exist only inside the test runner 
 for `Console Web: Full Stack`. Backend integration tests separately exercise the same request and
 bounded terminal turn-timing contract through the real Starlette route and evidence resolver.
 
-The complementary `npm --prefix console run test:e2e:live` suite starts the authoritative local
-PostgreSQL and Azure CLI profile without route interception. It visits every registered Console
-panel, waits for the panel boundary to settle, rejects browser exceptions and Operator API `4xx`/`5xx`
-responses, and verifies that the tested route inventory remains synchronized with the production
-registry. It also submits a deterministic current-time turn and an allowlisted Microsoft Learn web
-search through the live Command Deck, then requires verified or grounded terminal evidence. Set
-`FDAI_E2E_BASE_URL` and `FDAI_E2E_OPERATOR_API_URL` to reuse an already authenticated stack instead of
-starting the CLI-principal profile.
+The complementary `npm --prefix console run test:e2e:live` suite starts an isolated Operator Service
+with production data adapters and test-only identity verification, without route interception. It
+visits every registered Console panel, waits for the panel boundary to settle, rejects browser
+exceptions, shared error states, and unexpected Operator API `4xx`/`5xx` responses, and verifies that
+the tested route inventory remains synchronized with the production registry. Exact unavailable
+contracts remain visible without being treated as runtime defects. The suite also submits a
+deterministic current-time turn and an allowlisted Microsoft Learn web search through the live
+Command Deck, then requires verified or grounded terminal evidence. Set `FDAI_E2E_BASE_URL`,
+`FDAI_E2E_OPERATOR_API_URL`, and `FDAI_E2E_STORAGE_STATE` to reuse an already authenticated stack.
 
 ### Backed by dev-up.sh (still local)
 
