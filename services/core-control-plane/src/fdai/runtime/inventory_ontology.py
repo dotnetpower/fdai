@@ -14,6 +14,7 @@ silently adopted.
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from enum import StrEnum
@@ -32,7 +33,8 @@ from fdai.shared.providers.state_store import StateStore
 
 INVENTORY_ONTOLOGY_MANIFEST_KEY = "inventory-ontology:manifest"
 INVENTORY_ONTOLOGY_STATUS_KEY = "inventory-ontology:status"
-_MANIFEST_SCHEMA_VERSION = "1.0.0"
+_MANIFEST_SCHEMA_VERSION = "1.1.0"
+_DIGEST_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 _LOG = logging.getLogger(__name__)
 
@@ -49,6 +51,7 @@ class InventoryOntologyProjectionResult:
     """Counts and coverage for one applied generation."""
 
     generation: str
+    ontology_release_digest: str
     status: InventoryOntologyProjectionStatus
     object_count: int
     link_count: int
@@ -72,10 +75,14 @@ class InventoryOntologyProjector:
         *,
         store: OntologyInstanceStore,
         status_store: StateStore,
+        ontology_release_digest: str,
         resource_type_mappings: Mapping[str, str] | None = None,
     ) -> None:
+        if _DIGEST_PATTERN.fullmatch(ontology_release_digest) is None:
+            raise ValueError("inventory ontology release digest MUST be sha256:<64 lowercase hex>")
         self._store = store
         self._status_store = status_store
+        self._ontology_release_digest = ontology_release_digest
         self._resource_type_mappings = resource_type_mappings
 
     async def apply(
@@ -103,6 +110,7 @@ class InventoryOntologyProjector:
             )
             return InventoryOntologyProjectionResult(
                 generation=projection.generation,
+                ontology_release_digest=self._ontology_release_digest,
                 status=InventoryOntologyProjectionStatus.UNAVAILABLE,
                 object_count=0,
                 link_count=0,
@@ -133,6 +141,7 @@ class InventoryOntologyProjector:
         )
         return InventoryOntologyProjectionResult(
             generation=projection.generation,
+            ontology_release_digest=self._ontology_release_digest,
             status=InventoryOntologyProjectionStatus.AVAILABLE,
             object_count=len(projection.objects),
             link_count=len(projection.links),
@@ -181,6 +190,7 @@ class InventoryOntologyProjector:
             {
                 "schema_version": _MANIFEST_SCHEMA_VERSION,
                 "generation": projection.generation,
+                "ontology_release_digest": self._ontology_release_digest,
                 "complete": projection.complete,
                 "dropped_reasons": list(projection.dropped_reasons),
                 "object_ids": [record.id for record in projection.objects],
@@ -201,6 +211,7 @@ class InventoryOntologyProjector:
             {
                 "schema_version": _MANIFEST_SCHEMA_VERSION,
                 "generation": projection.generation,
+                "ontology_release_digest": self._ontology_release_digest,
                 "status": status.value,
                 "dropped_reasons": list(projection.dropped_reasons),
             },
