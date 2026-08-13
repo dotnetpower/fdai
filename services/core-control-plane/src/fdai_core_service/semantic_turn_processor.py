@@ -756,14 +756,18 @@ def _project_incident_evidence(
         return True, None, None
     value = node_result.value
     incident_id = query_arguments.get("incident_id")
+    correlation_id = query_arguments.get("correlation_id")
     limit = query_arguments.get("limit")
     if (
         not isinstance(value, dict)
         or not isinstance(incident_id, str)
+        or not isinstance(correlation_id, str)
+        or not correlation_id
         or not isinstance(limit, int)
         or isinstance(limit, bool)
         or not 1 <= limit <= 500
         or value.get("incident_id") != incident_id
+        or value.get("correlation_id") != correlation_id
         or value.get("authority") != "audit_projection"
         or value.get("cause_claim_supported") is not False
         or value.get("execution_authority") is not False
@@ -788,7 +792,7 @@ def _project_incident_evidence(
     ):
         return True, None, None
     if profile is not None and (
-        profile.get("incident_id") != incident_id or profile.get("correlation_id") != incident_id
+        profile.get("incident_id") != incident_id or profile.get("correlation_id") != correlation_id
     ):
         return True, None, None
     audit_refs = [item.get("audit_ref") for item in evidence]

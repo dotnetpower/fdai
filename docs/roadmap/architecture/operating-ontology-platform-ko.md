@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 512fbaf239ed2df066d79e3e27e3cec0745f5c4e
+translation_source_sha: fbda3e2badc94a27686cc91f07bb650d6f0fe8d9
 translation_revised: 2026-08-14
 ---
 # FDAI 온톨로지 안전 인프라
@@ -118,6 +118,7 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 | 2026-08-14 | 진행 중 | 인시던트 FunctionType 신원 계약을 수정해 canonical `incident_id`와 감사 `correlation_id`가 검증된 계획 실행 및 근거 변환 전체에서 서로 다르게 유지되도록 했습니다. | `current change`, end-to-end distinct-identity 회귀를 포함한 focused 인시던트 및 조립 검사 63개 통과 | 기능 상태를 변경하기 전에 로컬 스택을 재시작하고 화면에 표시된 인증된 인시던트 대화를 검증합니다. |
 | 2026-08-14 | 진행 중 | 의미 prompt v2를 FunctionType 신원 계약에 맞춰 바인딩된 인시던트 계획이 canonical 신원과 감사 상관관계 신원을 혼합하지 않고 모두 전달하도록 했습니다. | `current change`, focused prompt registry 계약 5개 사례 통과 | 기능 상태를 변경하기 전에 로컬 스택을 재시작하고 화면에 표시된 인증된 인시던트 대화를 검증합니다. |
 | 2026-08-14 | implemented | 인증된 Browser 근거에서 모델이 인시던트 답변 필드를 계속 unresolved로 처리하고 plan prompt가 function node를 누락한 사실을 확인한 뒤 semantic frame/plan prompt를 v2로 versioning했습니다. v2 prompt는 exact bound Incident 함수를 선택하고 no-cause limitation을 보존하며 검토된 function-node envelope만 허용합니다. | `current change`, focused prompt registry 검사 5개 통과 | Core를 prompt v2로 재시작하고 인증된 인시던트 대화를 다시 실행합니다. |
+| 2026-08-14 | implemented | 다음 인증된 Browser 실행에서 구분된 감사 correlation identity가 plan envelope에 누락된 사실을 확인한 뒤 semantic frame/plan prompt를 v3로 versioning했습니다. v3 prompt는 canonical `incident_id`와 감사 `correlation_id`를 분리해 보존하며 v2의 no-cause 및 후보 전용 권한 제한을 유지합니다. | `current change`, focused distinct-identity processor 및 prompt 검사 7개 통과 | Core를 prompt v3로 재시작하고 인증된 인시던트 대화를 다시 실행합니다. |
 
 ### 남은 작업
 
