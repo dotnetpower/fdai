@@ -21,6 +21,7 @@ from fdai.core.ontology_platform import (
     QueryTable,
 )
 from fdai.core.ontology_platform.catalog_queries import CATALOG_SEARCH_RULES_FUNCTION_NAME
+from fdai.core.ontology_platform.incident_queries import INCIDENT_EVIDENCE_FUNCTION_NAME
 from fdai.core.ontology_platform.network_path import NetworkPathResult, NetworkPathStatus
 from fdai.core.ontology_platform.operational_functions import operational_function_types
 from fdai.delivery.catalog_search import InMemoryCatalogSemanticIndex
@@ -508,6 +509,18 @@ class _ManifestCaptureModel(_Model):
         return super().propose_plan(**kwargs)
 
 
+class _EmptyIncidentEvidenceReader:
+    async def list_incident_evidence(
+        self,
+        *,
+        correlation_id: str,
+        limit: int,
+    ) -> tuple[tuple[dict[str, object], ...], bool]:
+        assert correlation_id
+        assert limit > 0
+        return (), False
+
+
 async def test_runtime_hides_unbound_catalog_search_from_planner() -> None:
     object_type = _object_type()
     model = _ManifestCaptureModel(_definition())
@@ -562,6 +575,44 @@ async def test_runtime_exposes_bound_catalog_search_to_planner() -> None:
 
     assert result.disposition == "answered"
     assert CATALOG_SEARCH_RULES_FUNCTION_NAME in model.function_names
+
+
+async def test_runtime_exposes_incident_evidence_only_when_reader_is_bound() -> None:
+    object_type = _object_type()
+    model = _ManifestCaptureModel(_definition())
+    release = build_ontology_release(
+        object_types=(object_type,),
+        function_types=operational_function_types(()),
+    )
+    store = InMemoryOntologyInstanceStore(object_types=(object_type,), link_types=())
+    hidden_runtime = build_semantic_query_runtime(
+        model=model,
+        ontology_release=release,
+        ontology_catalog=_catalog(object_type),
+        ontology_store=store,
+        now=lambda: NOW,
+    )
+    await hidden_runtime.handle(
+        utterance="Show resources",
+        prior_turns=(),
+        principal=Principal(id="reader", role=Role.READER),
+    )
+    assert INCIDENT_EVIDENCE_FUNCTION_NAME not in model.function_names
+
+    visible_runtime = build_semantic_query_runtime(
+        model=model,
+        ontology_release=release,
+        ontology_catalog=_catalog(object_type),
+        ontology_store=store,
+        incident_evidence_reader=_EmptyIncidentEvidenceReader(),
+        now=lambda: NOW,
+    )
+    await visible_runtime.handle(
+        utterance="Show resources",
+        prior_turns=(),
+        principal=Principal(id="reader", role=Role.READER),
+    )
+    assert INCIDENT_EVIDENCE_FUNCTION_NAME in model.function_names
 
 
 async def test_runtime_executes_exact_generation_rule_search_without_authority() -> None:

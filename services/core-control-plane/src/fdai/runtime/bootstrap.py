@@ -596,6 +596,13 @@ async def _run() -> int:
                 metric_provider=container.metric_provider,
                 metric_registry=control_loop.metric_semantics,
             )
+            from fdai.core.ontology_platform.incident_queries import IncidentEvidenceReader
+
+            incident_evidence_reader = (
+                incident_audit_store
+                if isinstance(incident_audit_store, IncidentEvidenceReader)
+                else None
+            )
             semantic_composition = compose_azure_semantic_query_runtime(
                 container=container,
                 ontology_release=control_loop.ontology_release,
@@ -614,6 +621,7 @@ async def _run() -> int:
                 topology_reader=topology_reader,
                 metric_registry=metric_registry,
                 metric_window_provider=metric_window_provider,
+                incident_evidence_reader=incident_evidence_reader,
             )
             semantic_turn_binding = _build_semantic_turn_binding(
                 state_store=incident_audit_store,
