@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 45f6473fd138b89ecf43534acdcf1567aea1e305
+translation_source_sha: 46788fa1e96455a135d0892209ab4b0e4c9f63df
 translation_revised: 2026-08-14
 ---
 
@@ -15,6 +15,10 @@ Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](cha
 [project-structure.md § 콘솔/](../architecture/project-structure-ko.md#console-static-web-app)에 있습니다. 근거 출처 이력, 스트림 복구, localization 및 아키텍처 지도 복원력은 [console-evidence-and-resilience-ko.md](console-evidence-and-resilience-ko.md)가 소유합니다. Login 초기화는 역할이 할당된 principal의 접근을 검증된 App 역할에서 도출하고 선택적 access-request 변환 결과를 요구하지 않으며, 역할이 없을 때 해당 변환 결과가 사용 불가이면 접근을 계속 차단합니다. 로컬 개발의 독립 서비스 어댑터는 모델 서술에만 Azure CLI를 사용할 수 있고 provider-read 또는 실행 권한은 없습니다. 온톨로지 맵은 `rule-catalog`와 `PANTHEON_SPECS`에서 생성된 하나의 카탈로그 지식 그래프를 렌더링하며 아키텍처 또는 런타임 인벤토리를 읽지 않습니다.
 Settings > Integrations에서는 합성 자리 표시자로 운영 incident-open 이메일 렌더러를 미리 볼 수 있습니다. 이 GET-only 미리 보기는 이메일을 보내거나 승인 또는 실행 권한을 부여하지 않습니다.
 선택적 Console 변환 결과에서는 타입이 지정된 `404`, `501`, source-gate `503` 응답을 사용 불가 상태로 표시합니다. 인증 실패, 예기치 않은 전송 또는 `500` 응답, 디코더 실패는 확인할 수 있는 오류로 유지합니다.
+에이전트 활동은 행이 영속 감사 근거를 기반으로 할 때만 상관관계를 추적 화면에 연결합니다.
+인벤토리 스캔, 온톨로지 변환 결과 및 현재 상태 읽기 상관관계는 감사 추적 링크 없이 식별자로
+표시합니다. 일치하는 감사 단계가 없는 수동 조회는 운영 실패가 아니라 중립적인 사용 불가 상태로
+표시합니다.
 인증된 active-incident 스트림은 idle Command Deck을 인시던트 선택자와 함께 열 수 있습니다. 이 선택자는 표현 힌트일 뿐이며 서버는 답변 전에 영속 인시던트와 근거를 다시 해석합니다.
 Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관찰할 때 localized 읽기 전용 조사 턴을 한 번 제출합니다. Browser-local 인시던트 원장은 reload 뒤 재생을 억제하며, 인시던트 배지를 누르면 명시적으로 다시 조사할 수 있습니다.
 인시던트 질문이 여러 기록과 같은 정도로 일치하면 최종 답변은 plain-text 안내 대신 범위가 제한된 후보 버튼을 포함합니다. 버튼은 해당 후보의 exact 인시던트 대화를 열고 localized 읽기 전용 조사 턴을 즉시 제출합니다.
@@ -35,6 +39,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 영속/실시간 현재 상태 활동 identity | 구현됨 | `read_investigation_latency.py`, `fdai_operator_service/activity_projection.py`, focused 영속성 및 projection 테스트 (`6 passed`) | Snapshot 재생과 실제 운영 프레임은 운영자 질문, 리소스 identity 또는 실행 권한을 저장하지 않고 하나의 hash-correlation activity id로 수렴합니다. |
 | 선택적 Console 변환 결과 가용성 | 구현됨 | `console/src/routes`, focused 경로 테스트 (`64 passed`), `npm --prefix console run typecheck` | 타입이 지정된 선택적 출처 부재는 사용 불가로 표시하고 인증, 예기치 않은 서버 및 디코더 실패는 오류로 유지합니다. |
 | 에이전트 활동 영속 변환 복원력 | 구현됨 | `fdai_operator_service/postgres_sql.py`, `fdai_operator_service/activity_projection.py`, focused Operator 변환 테스트 (`25 passed`), Console 출처 및 지역화 테스트 (`8 passed`), 타입 검사, 카탈로그 일치 검사 | PostgreSQL 쿼리는 리터럴 와일드카드를 이스케이프합니다. 계약 범위를 벗어난 선택적 기간은 유효한 활동을 중단하지 않고 `duration_out_of_range`와 함께 `null`이 됩니다. 통제된 브라우저 산출물을 보존하지 않았으므로 이 행은 런타임 검증을 주장하지 않습니다. |
+| 감사 추적 탐색 적격성 | 구현됨 | `agent-activity-log-model.ts`, `agent-live-activity.tsx`, `rule-trace.tsx`, focused Console 테스트 (`26 passed`) 및 타입 검사 | 감사 기반 행만 추적 화면으로 연결합니다. 예상된 `404`, `501` 및 source-gate `503` 응답은 사용 불가로 표시하고 예기치 않은 실패는 오류로 유지합니다. Browser Entra 동작은 관찰했지만 통제된 산출물은 보존하지 않았습니다. |
 
 ### 구현 이력
 
@@ -43,10 +48,12 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 현재 상태 활동 identity 계약을 기록했습니다. | 현재 출처와 `test_read_investigation_latency.py`, `test_activity_projection.py`, 통과한 focused 테스트 | Snapshot-first hydration과 실제 운영 수렴의 통제된 cross-service 동등성 근거를 기록합니다. |
 | 2026-08-13 | 구현됨 | 예기치 않은 실패를 숨기지 않으면서 운영 Console 경로 전반의 선택적 변환 결과 부재 처리를 표준화했습니다. | 현재 변경, 통과한 focused 경로 테스트 (`64 passed`) 및 Console 타입 검사 | 전체 스택 검증 캠페인에서 Browser Entra 경로 보증을 계속 수행합니다. |
 | 2026-08-14 | 구현됨 | psycopg 와일드카드를 이스케이프하고, 범위를 벗어난 선택적 기간이 있는 유효한 행을 보존하며, 타입이 지정된 선택적 출처 부재 중에도 감사 타임라인을 사용할 수 있도록 영속 에이전트 활동 변환을 복구했습니다. | `current change`, 통과한 focused Operator 테스트 (`25 passed`), focused Console 테스트 (`8 passed`), Console 타입 검사 및 카탈로그 일치 검사 | 기존 snapshot-first 및 실제 운영 수렴 완료 조건을 위한 통제된 Browser Entra 산출물을 보존합니다. |
+| 2026-08-14 | 구현됨 | 추적 링크를 영속 감사 행으로 제한하고 감사 상관관계가 없을 때 실패 대신 사용 불가로 표시했습니다. | `current change`, `agent-live-activity.test.ts` 및 `rule-trace.test.ts` focused 테스트 26개 통과, Console 타입 검사 통과, 인증된 Browser Entra 페이지에서 링크가 없는 인벤토리 상관관계와 중립적인 추적 사용 불가 상태 확인 | 런타임 검증을 주장하기 전에 관찰한 Browser Entra 결과를 통제된 산출물로 보존합니다. |
 
 ### 남은 작업
 
 - [ ] Snapshot-first `GET /agents/activity` hydration과 더 새로운 실제 운영 프레임이 Console 행을 중복 생성하지 않고 같은 현재 상태 activity id로 수렴함을 보여 주는 통제된 cross-service 증적을 기록합니다.
+- [ ] 감사 기반이 아닌 운영 상관관계에 추적 링크가 없고 감사 근거가 없는 수동 조회가 중립적인 사용 불가 상태로 표시됨을 보여 주는 통제된 Browser Entra 산출물을 보존합니다.
 
 ## 1. Framing - 무엇인가 (그리고 무엇이 아닌가)
 

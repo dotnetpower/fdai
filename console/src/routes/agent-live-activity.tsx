@@ -17,6 +17,7 @@ import {
   DEFAULT_AGENT_LOG_COLUMNS,
   filterAgentLogRows,
   fallbackAfterFullscreenFailure,
+  hasAuditTrace,
   isNearLogBottom,
   toggleAgentLogColumn,
   type AgentLogColumn,
@@ -395,9 +396,11 @@ function AgentLogRowView({
       {visibleColumns.includes("correlation") ? (
         <span role="cell" data-column="correlation" class="aa-log-correlation">
           {row.correlationId ? (
-            <a href={routeHref("trace", { params: { correlation: row.correlationId } })}>
-              {row.correlationId}
-            </a>
+            hasAuditTrace(row) ? (
+              <a href={routeHref("trace", { params: { correlation: row.correlationId } })}>
+                {row.correlationId}
+              </a>
+            ) : <code>{row.correlationId}</code>
           ) : <code>{row.eventId ?? t("agentActivity.live.noCorrelation")}</code>}
         </span>
       ) : null}
