@@ -9,9 +9,17 @@ from .generation import (
     validate_ontology_semantic_generation,
 )
 from .in_memory import InMemoryCatalogSemanticIndex
+from .rule_generation_worker import (
+    RuleGenerationBuildWorker,
+    RuleGenerationDocumentResolver,
+    RuleGenerationValidationWorker,
+)
 
 __all__ = [
     "InMemoryCatalogSemanticIndex",
+    "RuleGenerationBuildWorker",
+    "RuleGenerationDocumentResolver",
+    "RuleGenerationValidationWorker",
     "SemanticGenerationBuild",
     "SemanticGenerationValidationReceipt",
     "bind_semantic_generation_validation",
