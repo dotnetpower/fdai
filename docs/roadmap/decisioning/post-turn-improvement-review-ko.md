@@ -1,8 +1,8 @@
 ---
 title: Post-Turn 개선 검토
 translation_of: post-turn-improvement-review.md
-translation_source_sha: 2d56e40889f290549a9dd46eec13f354eb5a8230
-translation_revised: 2026-08-11
+translation_source_sha: b52d39b29e4ab1a570271e8d930126f34378b4b6
+translation_revised: 2026-08-14
 ---
 
 # Post-Turn 개선 검토
@@ -13,6 +13,30 @@ translation_revised: 2026-08-11
 
 > **범위:** 검토는 운영자 기억, 런타임 스킬 또는 룰 힌트를 제안합니다. 런타임 동작을
 > 변경하거나 권한을 부여하거나 자체 출력을 승인하거나 완료된 응답을 지연하지 않습니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 충족 여부 및 제한된 입력 계약 | implemented | [`test_eligibility.py`](../../../services/core-control-plane/tests/core/learning/test_eligibility.py), [`test_norns_post_turn.py`](../../../services/core-control-plane/tests/agents/test_norns_post_turn.py) | 동의, 생산자 소유권, 근거 범위 및 결정론적 충족 여부에 집중 테스트가 있습니다. |
+| 독립 검토 및 통제된 라우팅 | implemented | [`test_consensus.py`](../../../services/core-control-plane/tests/core/learning/test_consensus.py), [`test_routing.py`](../../../services/core-control-plane/tests/core/learning/test_routing.py) | 서로 다른 모델 계열의 완전한 합의만 비활성 기억, 스킬 또는 룰 힌트 초안을 라우팅합니다. |
+| 영속 중복 제거 및 런타임 연결 | implemented | [`test_service.py`](../../../services/core-control-plane/tests/core/learning/test_service.py), [`test_post_turn_review.py`](../../../services/core-control-plane/tests/runtime/test_post_turn_review.py) | 응답 경로를 지연하지 않는 최종 기록과 중복 억제가 테스트되어 있습니다. |
+| 운영 시나리오 근거 | in-progress | [검증](#검증) | 집중 동작은 구현되어 있지만 세 가지 종단 간 학습 시나리오와 배포된 다중 서비스 증적은 보존되지 않았습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 종단 간 시나리오와 배포된 전송 근거를 보존해야 합니다. |
+
+### 남은 작업
+
+- [ ] 복잡한 도구 복구, 명시적 수정 발견 및 반복 절차 룰 힌트 라우팅이 활성 정책을
+  변경하지 않는다는 종단 간 근거를 보존합니다.
+- [ ] 중복 전달이 하나의 최종 검토 기록을 만든다는 배포된 Bragi-to-Norns 전송 및 재시작
+  증적을 보존합니다.
 
 ## 한눈에 보는 설계
 

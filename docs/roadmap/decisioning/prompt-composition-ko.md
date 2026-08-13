@@ -1,8 +1,8 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: 2383cf87a23b94ffb5eed904177e0c40807a0a2b
-translation_revised: 2026-08-11
+translation_source_sha: aa7a66eab1dfbeea92702797439e7c9de6a9b900
+translation_revised: 2026-08-14
 ---
 
 # 진화하는 시스템 프롬프트
@@ -21,31 +21,31 @@ trust 라우팅을 확장합니다.
 > 기본 비활성 가짜를 배포합니다
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 >
-> **상태.** Wave 1, 2, 2.5-A, 2.5-B 단계 1, 2.5-B 단계 2a, 2.5-B 단계
-> 2b, 3 단계 A, 3 단계 B 저장소, 3 단계 B 파이프라인 구획 1, 3 단계 B
-> 파이프라인 구획 2, 3 단계 C-1, 3 단계 C-2, 3 단계 D-1, 3 단계 D-2a,
-> 3 단계 D-2b-i, 3 단계 D-2b-ii-alpha, 3 단계 D-2b-ii-beta, 3 단계
-> D-2b-ii-gamma-1, 3 단계 D-2b-ii-gamma-2, 4 alpha, 4 beta-1, 4
-> beta-2, 4.5 alpha, 4.5 beta, 4.5 gamma, 4.5 delta-1, 4.5 delta-2a,
-> 4.5 delta-2b, 5 alpha와 Azure Responses 프로바이더 구획이 랜딩되었습니다 - evolving-system-prompt
-> 설계가 이제 T2에 대해 **완전히 실제 운영**: 운영자 기억 종단 간,
-> recognition-probe 챕터, `AzureOpenAICrossCheckModel` 내부의 per-event
-> 재조립, 비평자 + Judge + 오케스트레이터 트라이앵글 (타입 + 평가기 +
-> Azure 어댑터 + `max_rounds = 1` 오케스트레이터 + composition-root
-> 바인딩), `DebateRouter` 순수 정책, 교차 검증 disagreement 시 토론을
-> 실행하고 resolved `PROCEED`를 `ELIGIBLE`로 flip하는 `QualityGate`
-> 에스컬레이션 경로, 그리고 `core/web_search/` 경계 (기본 비활성
-> `NoOpWebSearchProvider` + 도메인 허용 목록 + injection-marker
-> sanitizer + `trusted="false"` 스니펫 묶음). 작성기 체인은 Base
-> + 작업 스킬 묶음 + 선택적 도구 매니페스트 + 선택적 Operator Memory +
-> 선택적 레이어별 canary 토큰. 데이터 클래스 대체 경로 기본값은
-> 제거되었습니다. `system_prompt`는 `AzureOpenAICrossCheckModelConfig`의
-> 필수 필드이며 이제 작성기가 wire되지 않은 경우의
-> startup-safety 대체 경로 역할을 합니다. Wave 3 단계 B **파이프라인
-> 구획 3** (fork-first second-approval 채널), Wave 5 **T2 통합**
-> (코어 T2 도구 매니페스트로 스니펫 threading)은 문서화되어 있지만 아직
-> 구현되지 않았습니다. 모든 wave는 shadow 게이트를 통과해야만
-> 승격됩니다. [롤아웃 waves](#rollout-waves) 참조.
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 카탈로그 레지스트리, 작성기, 도구 및 런타임 스킬 | implemented | [`test_composer.py`](../../../services/core-control-plane/tests/core/prompts/test_composer.py) | 카탈로그 로드, 결정론적 레이어 조립, 도구 매니페스트, 스킬, canary 및 시작 대체 경로에 집중 테스트가 있습니다. |
+| 운영자 기억, 토론 및 QualityGate 통합 | implemented | [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py), [`test_gate.py`](../../../services/core-control-plane/tests/core/quality_gate/test_gate.py) | 제한된 기억과 1회 비평자/Judge 토론은 권한을 부여하지 않고 결정론적 검증기에 근거를 제공합니다. |
+| 검토된 웹 검색 및 코어 T2 프롬프트 통합 | in-progress | [`test_web_search.py`](../../../services/core-control-plane/tests/core/web_search/test_web_search.py), [Wave 5 alpha](#wave-5-alpha---무엇이-배포되었나) | 안전한 프로바이더 경계와 검토된 어댑터가 있지만 스니펫은 코어 T2 도구 매니페스트에 연결되지 않았습니다. |
+| 포크 우선 두 번째 승인 채널 | not-started | [롤아웃 waves](#롤아웃-waves) | 문서화된 파이프라인 구획에는 구현 근거가 없으며 일반 HIL 지원에서 추론할 수 없습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 기존의 T2 완전 실제 운영 주장을 바로잡았습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 코어 T2 웹 근거 확인, 두 번째 승인 및 통제된 런타임 근거를 완료해야 합니다. |
+
+### 남은 작업
+
+- [ ] 정제되고 허용 목록으로 제한된 웹 스니펫을 정확한 소스 증적, 프롬프트 다이제스트 재실행
+  및 부정 주입 테스트와 함께 코어 T2 도구 매니페스트에 연결합니다.
+- [ ] 해당 파이프라인 구획을 활성화하기 전에 서로 다른 principal, 만료, 재실행 및 자기 승인
+  방지 근거를 갖춘 포크 우선 두 번째 승인 채널을 구현합니다.
+- [ ] 하나의 고정 카탈로그 리비전에서 조립된 프롬프트, 토론, 인용, 최종 검증기 결과 및 실행
+  권한 0을 증명하는 통제된 종단 간 T2 증적을 보존합니다.
 
 ## 한눈에 보는 설계
 
@@ -1388,48 +1388,12 @@ historical 형태를 유지하므로 모든 기존 `QualityGate` 호출자가 �
 
 ## Wave 5 alpha - 무엇이 배포되었나
 
-Wave 5 alpha는 웹 검색을 위한 업스트림 **경계**을 랜딩합니다: 타입,
-프로토콜, 기본 비활성 가짜, sanitizer 방어. 이후 검토된 Azure Responses
-어댑터와 Operator API 채팅 배선이 배포됐고 코어 T2 프롬프트 조립은
-아직 이 경계에서 멈춥니다.
-
-- `services/core-control-plane/src/fdai/core/web_search/types.py` -
-  `WebSearchQuery` (`__post_init__`가 blank 텍스트, zero max_results,
-  zero budget_ms를 거부하는 고정된 데이터 클래스; 호출자가 공급하는
-  `allowed_domains` 튜플 + `metadata`),
-  `WebSnippet` (`url` / `domain` / `title` / `text` /
-  `content_hash` / `fetched_at`를 가진 불변 기록; blank url /
-  도메인 / content_hash는 construction 시 거부),
-  `WebSearchResult` (originating 조회, retrieved 스니펫,
-  audit-friendly `reasons` 튜플을 운반하는 고정된 묶음 -
-  운영자가 검색이 왜 degrade했는지 볼 수 있게).
-- `services/core-control-plane/src/fdai/core/web_search/provider.py` -
-  하나의 비동기 `search(query) -> WebSearchResult` 메서드를 가진
-  `WebSearchProvider` `@runtime_checkable` 프로토콜 (API 키 같은
-  비밀은 어댑터 생성자에 유지, 프로토콜 표면 밖에), 그리고
-  `NoOpWebSearchProvider` - 모든 쿼리에서 `snippets=()` +
-  `reasons=("no_op_provider",)`을 반환하는 배포된 deny-by-default
-  가짜.
-- `services/core-control-plane/src/fdai/core/web_search/sanitizer.py` -
-  구조화된 코드 (`off_allowlist`, `empty_allowlist`,
-  `injection_markers_detected`)를 가진 `WebSnippetPolicyError`,
-  operator-memory 표시 리스트를 재사용하는
-  `detect_snippet_injection_markers()` (기억에서 차단된 어떤
-  패턴이든 스니펫에서도 차단), off-allowlist 스니펫 AND 빈
-  허용 목록을 거부하는 `validate_snippet_domain()` (빈 허용 목록은
-  스니펫에 정당한 소스가 없음을 의미), 그리고 XML-escape된 본문과
-  속성으로
-  `<web_snippet trusted="false" url="..." domain="..." content_hash="...">...</web_snippet>`
-  묶음을 생성하는 `wrap_web_snippet()` (스니펫이 closing tag를
-  forge할 수 없도록).
-- `core/`-safe 유지: stdlib과 `fdai.core.operator_memory.sanitizer`
-  (공유 표시 리스트용)에서만 가져오기. LLM SDK 없음, `delivery.*`
-  없음. `scripts/quality/architecture/check-core-imports.sh` 계속 통과.
-- `services/core-control-plane/tests/core/web_search/test_web_search.py`의 19개 테스트가 모든
-  생성자 불변식 (4 + 3), NoOp 프로바이더 동작 + 프로토콜
-  runtime-check (2), 도메인 허용 목록 강제 (3), 주입 탐지 (2),
-  `wrap_web_snippet` (5 - 본문 + url XML-escape, off-allowlist
-  거부, 주입 표시 거부 포함) 커버.
+Wave 5 alpha는 변경할 수 없는 조회 및 스니펫 계약, 기본 비활성
+`WebSearchProvider`, 도메인 허용 목록, 주입 표시 탐지 및 이스케이프된
+`trusted="false"` 묶음을 [`core/web_search`](../../../services/core-control-plane/src/fdai/core/web_search)에 제공합니다.
+집중 [`test_web_search.py`](../../../services/core-control-plane/tests/core/web_search/test_web_search.py)
+모음은 생성자, 프로바이더, 허용 목록, 주입 및 이스케이프 동작을 검증합니다. 검토된 Azure
+Responses 어댑터와 Operator API 연결은 이후 제공됐지만 코어 T2 매니페스트 통합은 미완료입니다.
 
 ## 관련 문서
 

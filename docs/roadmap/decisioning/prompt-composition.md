@@ -17,34 +17,31 @@ the trust routing in
 > fork-only. Core still ships deny-by-default fakes
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 >
-> **Status.** Waves 1, 2, 2.5-A, 2.5-B step 1, 2.5-B step 2a, 2.5-B
-> step 2b, 3 step A, 3 step B store, 3 step B pipeline slice 1, 3
-> step B pipeline slice 2, 3 step C-1, 3 step C-2, 3 step D-1, 3
-> step D-2a, 3 step D-2b-i, 3 step D-2b-ii-alpha, 3 step D-2b-ii-beta,
-> 3 step D-2b-ii-gamma-1, 3 step D-2b-ii-gamma-2, 4 alpha, 4 beta-1,
-> 4 beta-2, 4.5 alpha, 4.5 beta, 4.5 gamma, 4.5 delta-1, 4.5
-> delta-2a, 4.5 delta-2b, 5 alpha, and the Azure Responses provider slice have landed - the
-> evolving-system-prompt design is now **fully live** for T2:
-> operator memory end-to-end, the recognition-probe chapter,
-> per-event re-composition inside `AzureOpenAICrossCheckModel`,
-> the Critic + Judge + orchestrator triangle (types + evaluators +
-> Azure adapters + `max_rounds = 1` orchestrator + composition-root
-> binding), the `DebateRouter` pure policy, the `QualityGate`
-> escalation path that runs the debate on cross-check disagreement
-> and flips a resolved `PROCEED` back to `ELIGIBLE`, and the
-> `core/web_search/` seam (deny-by-default `NoOpWebSearchProvider`
-> + domain-allowlist + injection-marker sanitizer + `trusted="false"`
-> snippet envelope). The composer chain is Base + Task Skill Pack
-> + optional Tool Manifest + optional Operator Memory + optional
-> per-layer canary tokens. The dataclass fallback default is gone;
-> `system_prompt` is required on
-> `AzureOpenAICrossCheckModelConfig` and now serves as the
-> startup-safety fallback when no composer is wired. Wave 3 step B
-> **pipeline slice 3** (fork-first second-approval channel) and
-> Wave 5 **T2 integration** (threading snippets into the core T2 tool
-> manifest) is documented here but not yet implemented. Every
-> wave promotes only after its shadow gate passes; see
-> [Rollout waves](#rollout-waves).
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Catalog registry, composer, tools, and runtime skills | implemented | [`test_composer.py`](../../../services/core-control-plane/tests/core/prompts/test_composer.py) | Catalog loading, deterministic layer assembly, tool manifests, skills, canaries, and startup fallback have focused coverage. |
+| Operator memory, debate, and QualityGate integration | implemented | [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py), [`test_gate.py`](../../../services/core-control-plane/tests/core/quality_gate/test_gate.py) | Bounded memory and one-round Critic/Judge debate feed the deterministic verifier without granting authority. |
+| Reviewed web search and core T2 prompt integration | in-progress | [`test_web_search.py`](../../../services/core-control-plane/tests/core/web_search/test_web_search.py), [Wave 5 alpha](#wave-5-alpha---what-shipped) | The safe provider seam and reviewed adapter exist, but snippets are not threaded into the core T2 tool manifest. |
+| Fork-first second-approval channel | not-started | [Rollout waves](#rollout-waves) | The documented pipeline slice has no implementation evidence and cannot be inferred from ordinary HIL support. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and corrected the former fully-live T2 claim. | `current change`; current source and focused tests listed in the scope table. | Complete core T2 web grounding, second approval, and governed runtime evidence. |
+
+### Remaining work
+
+- [ ] Thread sanitized, allowlisted web snippets into the core T2 tool manifest with exact source
+  receipts, prompt digest replay, and negative injection tests.
+- [ ] Implement the fork-first second-approval channel with distinct-principal, expiry, replay, and
+  no-self-approval evidence before enabling that pipeline slice.
+- [ ] Retain a governed end-to-end T2 receipt proving the composed prompt, debate, citations, final
+  verifier result, and zero execution authority on one pinned catalog revision.
 
 ## Design at a glance
 
@@ -1472,50 +1469,12 @@ shape when no debate params are passed, so every existing
 
 ## Wave 5 alpha - what shipped
 
-Wave 5 alpha lands the upstream **seam** for web search: types,
-Protocol, deny-by-default fake, and sanitizer defenses. The reviewed Azure
-Responses adapter and Operator API chat wiring landed afterward; core T2 prompt
-composition still stops at this seam.
-
-- `services/core-control-plane/src/fdai/core/web_search/types.py` -
-  `WebSearchQuery` (frozen dataclass with `__post_init__` refusing
-  blank text, zero max_results, zero budget_ms; caller-supplied
-  `allowed_domains` tuple + `metadata`),
-  `WebSnippet` (immutable record with `url` / `domain` / `title` /
-  `text` / `content_hash` / `fetched_at`; blank url / domain /
-  content_hash rejected at construction),
-  `WebSearchResult` (frozen envelope carrying the originating
-  query, retrieved snippets, and audit-friendly `reasons` tuple
-  so an operator sees why the search degraded).
-- `services/core-control-plane/src/fdai/core/web_search/provider.py` -
-  `WebSearchProvider` `@runtime_checkable` Protocol with a single
-  async `search(query) -> WebSearchResult` method (secrets like
-  API keys stay in adapter constructors, out of the Protocol
-  surface), and `NoOpWebSearchProvider` - the deny-by-default
-  shipped fake that returns `snippets=()` with
-  `reasons=("no_op_provider",)` for every query.
-- `services/core-control-plane/src/fdai/core/web_search/sanitizer.py` -
-  `WebSnippetPolicyError` with structured codes (`off_allowlist`,
-  `empty_allowlist`, `injection_markers_detected`),
-  `detect_snippet_injection_markers()` that reuses the
-  operator-memory marker list so any pattern blocked from memory
-  is blocked from snippets too, `validate_snippet_domain()` that
-  refuses off-allowlist snippets AND empty allowlists (an empty
-  allowlist means the snippet has no legitimate source), and
-  `wrap_web_snippet()` that renders a
-  `<web_snippet trusted="false" url="..." domain="..." content_hash="...">...</web_snippet>`
-  envelope with XML-escaped body + attributes so a snippet cannot
-  forge the closing tag.
-- Kept `core/`-safe: imports only from stdlib and
-  `fdai.core.operator_memory.sanitizer` (for the shared
-  marker list). No LLM SDK, no `delivery.*`.
-  `scripts/quality/architecture/check-core-imports.sh` continues to pass.
-- 19 tests in `services/core-control-plane/tests/core/web_search/test_web_search.py` cover
-  every constructor invariant (4 + 3), NoOp provider behaviour +
-  Protocol runtime-check (2), domain allowlist enforcement (3),
-  injection detection (2), and `wrap_web_snippet` (5 - including
-  XML-escape of body + url, off-allowlist refusal, and injection
-  marker rejection).
+Wave 5 alpha ships immutable query and snippet contracts, a deny-by-default
+`WebSearchProvider`, domain allowlisting, injection-marker detection, and escaped
+`trusted="false"` envelopes under [`core/web_search`](../../../services/core-control-plane/src/fdai/core/web_search).
+The focused [`test_web_search.py`](../../../services/core-control-plane/tests/core/web_search/test_web_search.py)
+suite covers constructor, provider, allowlist, injection, and escaping behavior. The reviewed Azure
+Responses adapter and Operator API wiring landed later; core T2 manifest integration remains open.
 
 ## Related docs
 

@@ -22,14 +22,31 @@ existing single-pass control loop.
 > this doc ships **shadow-first** ([architecture.instructions.md § Safety
 > Invariants](../../../.github/instructions/architecture.instructions.md#safety-invariants)).
 
-> **Implementation status (2026-08-01):** The durable shadow supervisor core and
-> `HilResumeCoordinator` ladder handoff are implemented. They CAS-claim delivery, distinguish
-> channel failure from human silence, verify action integrity and rung eligibility, and record due
-> observations without sending or advancing in shadow mode. The runtime starts the shadow worker,
-> terminal HIL decisions use one CAS winner, and bounded scans rotate across pending pages so older
-> approvals don't starve. Load counts, expiry, and reminder dispatch page through the complete
-> durable set. Urgency compression, standing-authority catalogs, and production promotion have not
-> landed.
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Durable shadow escalation supervisor | implemented | [`escalation_supervisor.py`](../../../services/core-control-plane/src/fdai/core/hil_resume/escalation_supervisor.py), [`test_escalation_supervisor.py`](../../../services/core-control-plane/tests/core/hil_resume/test_escalation_supervisor.py) | Bounded scans, delivery claims, and would-escalate observations are implemented without advancing approval or execution authority. |
+| HIL resume and delegated-rung verification | implemented | [`coordinator.py`](../../../services/core-control-plane/src/fdai/core/hil_resume/coordinator.py), [`test_delegation.py`](../../../services/core-control-plane/tests/core/hil_resume/test_delegation.py) | Resume snapshots and rung eligibility are verified before the typed path continues. |
+| Escalation ladder and urgency catalogs | in-progress | [Escalation ladder](#the-escalation-ladder), [Time-decaying urgency](#time-decaying-urgency) | The supervisor mechanics exist, but reviewed catalog instances and measured urgency-compression evidence do not. |
+| A3-E standing human authorization | not-started | [`constitution-traceability.json`](../../../config/constitution-traceability.json), [Standing authorization](#standing-authorization-pre-authorized-conditional-execution) | No executable standing-authority schema, evaluator, or production promotion path is evidenced. Silence never grants authority. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and corrected the prior broad status summary. | `current change`; current source, focused tests, and constitutional traceability listed in the scope table. | Deliver catalog-backed urgency and standing-authorization evaluation, then retain governed shadow evidence. |
+
+### Remaining work
+
+- [ ] Add reviewed escalation-ladder and urgency-policy catalog instances, then retain focused
+  evidence for expiry, fallback delivery, starvation prevention, and deterministic replay.
+- [ ] Implement the A3-E standing-authorization schema and evaluator with quorum, revocation,
+  validity, responder confirmation, exact envelope, and no-self-approval negative tests.
+- [ ] Retain a governed shadow cohort with zero envelope escapes before any independent promotion
+  review; keep the supervisor observe-only until that evidence exists.
 
 ## What this doc covers
 
