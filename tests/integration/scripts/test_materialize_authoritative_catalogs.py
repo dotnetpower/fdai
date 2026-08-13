@@ -39,9 +39,14 @@ def test_catalog_snapshots_are_deterministic_complete_reference_projections() ->
 
     ontology = first[module.ONTOLOGY_GRAPH_KEY]
     assert ontology["_revision"].startswith("sha256:")
+    assert ontology["schema_version"] == "2.0.0"
+    assert ontology["ontology_release_digest"].startswith("sha256:")
+    assert ontology["mutation_authority"] is False
     assert ontology["object_type_count"] == len(ontology["object_types"])
     assert ontology["link_type_count"] == len(ontology["link_types"])
     assert ontology["action_type_count"] == len(ontology["action_types"])
+    assert ontology["interface_type_count"] == len(ontology["interface_types"])
+    assert ontology["function_type_count"] == len(ontology["function_types"])
     assert len(ontology["nodes"]) == ontology["object_type_count"]
     assert len(ontology["edges"]) == ontology["link_type_count"]
     assert ontology["mermaid"].startswith("classDiagram\n")
