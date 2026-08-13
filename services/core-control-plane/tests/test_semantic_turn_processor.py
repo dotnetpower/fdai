@@ -467,6 +467,17 @@ async def test_prior_turns_map_to_existing_turn_without_content_rewrite() -> Non
     assert all(turn.timestamp == NOW for turn in runtime.prior_turns)
 
 
+async def test_clarification_projection_preserves_specific_question() -> None:
+    runtime_result = _runtime_result("clarification")
+    runtime_result.planning.clarification = "Which incident should I investigate?"
+
+    projection = _projection(await _processor(_Runtime(runtime_result)).process(_request()))
+
+    assert projection["status"] == "clarification"
+    assert projection["semantic_result"]["answer"] == "Which incident should I investigate?"
+    assert projection["semantic_result"]["reason_code"] == ("semantic_clarification_required")
+
+
 async def test_expired_deadline_and_pre_cancel_never_call_runtime() -> None:
     runtime = _Runtime()
     processor = _processor(runtime)

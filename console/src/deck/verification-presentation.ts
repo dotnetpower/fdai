@@ -11,6 +11,7 @@ export type VerificationIssueKind =
 const CONTEXT_REQUIRED_REASONS = new Set([
   "ambiguous_candidate_identity_conflict",
   "ordinal_requery_not_unique",
+  "semantic_clarification_required",
 ]);
 
 const SOURCE_UNAVAILABLE_REASONS = new Set([
