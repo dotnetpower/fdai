@@ -27,6 +27,8 @@ _SENSITIVE_TEXT = re.compile(
 _GUID = re.compile(r"(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b")
 _SHELL_CONTROL = re.compile(r"[\x00-\x1f\x7f`$;&|]|\$\(")
 _ENV_ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+_EXECUTABLE_WORD = re.compile(r"(?:^|\s)(?:eval|exec|source)(?:\s|$)")
+_PLACEHOLDER = re.compile(r"<[a-z0-9:._-]+>", flags=re.IGNORECASE)
 
 
 class ProviderResourceObservation(QueryContract):
@@ -303,11 +305,15 @@ def discovery_coverage_receipt_digest(**values: object) -> str:
 
 
 def _require_sanitized_cli(value: str) -> None:
+    without_placeholders = _PLACEHOLDER.sub("", value)
     if (
         _SHELL_CONTROL.search(value)
         or _SENSITIVE_TEXT.search(value)
         or _GUID.search(value)
         or _ENV_ASSIGNMENT.search(value)
+        or _EXECUTABLE_WORD.search(value)
+        or "<" in without_placeholders
+        or ">" in without_placeholders
     ):
         raise ValueError("Azure CLI display text contains executable or sensitive content")
 

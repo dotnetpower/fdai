@@ -1,6 +1,6 @@
 ---
 translation_of: azure-resource-discovery-commands.md
-translation_source_sha: ba0215552a9e644a70c35fff9a1e1fa93be9ac76
+translation_source_sha: efe817e2ea1a48daf186d04f628e2ea607988a02
 translation_revised: 2026-08-14
 ---
 
@@ -54,7 +54,7 @@ flowchart LR
 | 선택적 운영자 인벤토리 필터링 | implemented | [`_system_inventory_tool.py`](../../../services/core-control-plane/src/fdai/core/conversation/_system_inventory_tool.py), [`test_system_tools.py`](../../../services/core-control-plane/tests/conversation/test_system_tools.py) | 도구는 제공된 스냅샷을 중립 타입, ID 부분 문자열 및 리소스 그룹으로 필터링합니다. 범용 검색 의도를 컴파일하지는 않습니다. |
 | Console 프로바이더 실행 정보 파싱 | implemented | [`inventory-execution-display.ts`](../../../console/src/deck/inventory-execution-display.ts) 및 집중 테스트 | Console은 구조가 유효하고 민감정보가 제거되었으며 범위가 제한된 `provider_execution` 레코드만 IQL과 분리해 표시합니다. |
 | 프로바이더 실행 증적 생성 | implemented | [`discovery_receipts.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_receipts.py), [`discovery_evidence.py`](../../../packages/service-contracts/src/fdai_service_contracts/discovery_evidence.py), 집중 Python 및 Console 파서 테스트 | 생성기는 정확한 등록 계획과 제한된 결과 요약을 받으며 raw argv, 자격 증명, 연속 토큰, 리소스 id 또는 프로바이더 오류를 받지 않습니다. |
-| 포괄적 검색 계약과 프로파일 | implemented | [`discovery.py`](../../../packages/service-contracts/src/fdai_service_contracts/discovery.py), [`discovery_profiles.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_profiles.py), [`discovery_observations.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_observations.py), 집중 계약 및 delivery 테스트 (`40 passed`) | 고정되고 digest에 바인딩된 의도, 계획, 프로파일 및 매핑되거나 미매핑된 프로바이더 관찰이 실행 가능한 텍스트와 해석되지 않은 수정자를 거부합니다. 계획은 정규화, ARG 또는 ARM API, Azure CLI 및 extension 버전을 고정합니다. |
+| 포괄적 검색 계약과 프로파일 | implemented | [`discovery.py`](../../../packages/service-contracts/src/fdai_service_contracts/discovery.py), [`discovery_profiles.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_profiles.py), [`discovery_observations.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_observations.py), 집중 계약 및 delivery 테스트 (`44 passed`) | 고정되고 digest에 바인딩된 의도, 계획, 프로파일 및 매핑되거나 미매핑된 프로바이더 관찰이 실행 가능한 텍스트와 해석되지 않은 수정자를 거부합니다. 계획은 정규화, ARG 또는 ARM API, Azure CLI 및 extension 버전을 고정합니다. |
 | 중앙 라우팅, 명령 설명 및 커버리지 증명 | in-progress | [`router.py`](../../../services/core-control-plane/src/fdai/core/discovery/router.py), [`discovery_explanation.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_explanation.py), [`discovery_coverage.py`](../../../services/core-control-plane/src/fdai/delivery/azure/discovery_coverage.py), 집중 테스트 | 정확히 동등한 대체 경로, 정본 병합, 정제된 설명 및 실제 운영 증적만 인정하는 조정이 구현되었습니다. 이 행을 `validated`로 올리려면 통제된 실제 운영 canary 증적이 필요합니다. |
 
 ### 구현 이력
@@ -65,6 +65,7 @@ flowchart LR
 | 2026-08-14 | in-progress | 불변 검색 계약과 Azure 프로파일을 추가하고 미매핑 프로바이더 관찰을 보존했으며, 정확히 동등한 라우팅과 정본 병합 및 정제된 실행/명령 설명 증적과 실제 운영 증적 전용 커버리지 조정을 구현했습니다. | `current change`; 집중 검색 테스트 `34 passed`, Console 파서 `6 passed`, 작업 범위 Ruff, 운영 파일 8개의 strict mypy 및 Console typecheck가 통과했습니다. | 주장한 리소스 컨테이너 및 ARM 리소스 universe에 대해 최신 통제된 읽기 전용 canary 증적을 보존합니다. |
 | 2026-08-14 | in-progress | 문서화된 `unmapped` 커버리지 상태를 추가하고 서버 및 Console 명령 근거의 환경 할당을 거부했습니다. | `current change`; 집중 검색 테스트 `36 passed`, Console 파서 `7 passed`, 작업 범위 Ruff, strict 계약 mypy 및 Console typecheck가 통과했습니다. | 주장한 리소스 컨테이너 및 ARM 리소스 universe에 대해 최신 통제된 읽기 전용 canary 증적을 보존합니다. |
 | 2026-08-14 | in-progress | 정규화와 관찰된 ARG, ARM, Azure CLI 및 Resource Graph extension 버전을 추가적 프로파일/계획 리비전 `1.1.0`에 고정하고, 검토된 영어/한국어 시나리오 3쌍이 동일한 typed routing 및 권한 검사를 생성함을 증명했습니다. | `current change`; 집중 검색 테스트 `40 passed`, 작업 범위 Ruff, strict mypy 및 Core import 경계 gate가 통과했습니다. | 주장한 리소스 컨테이너 및 ARM 리소스 universe에 대해 최신 통제된 읽기 전용 canary 증적을 보존합니다. |
+| 2026-08-14 | in-progress | 독립 리뷰 뒤 자리 표시자는 유효하게 유지하면서 redirect, 제어 문자 및 실행 가능한 shell 단어를 서버와 Console 경계 모두에서 거부하도록 명령 근거를 강화했습니다. | `current change`; 집중 검색 테스트 `44 passed`, Console 파서 테스트 `11 passed`, strict mypy, Ruff 및 Console typecheck가 통과했습니다. | 주장한 리소스 컨테이너 및 ARM 리소스 universe에 대해 최신 통제된 읽기 전용 canary 증적을 보존합니다. |
 
 ### 남은 작업
 
