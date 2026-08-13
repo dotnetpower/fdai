@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: a012dc01e1c6e64b7636b2035ed3a857834251c4
+translation_source_sha: 6569a1850862e96b2aaafffbe450b5a10beb4838
 translation_revised: 2026-08-13
 ---
 
@@ -31,6 +31,7 @@ translation_revised: 2026-08-13
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 자동화 테스트 고정본 격리 | implemented | `tests/`, `console/tests/` 및 리포지토리 테스트 모음이 실행하는 고정본 전용 composition 경로 | 결정론적 고정본은 권위 있는 interactive 프로파일 밖에 유지됩니다. |
+| 인증된 라이브 Console 경로 보증 | in-progress | `console/playwright.live.config.ts`, `console/tests/live-e2e/operator_service.py`, `console/tests/live-e2e/console-routes.spec.ts`, focused Overview 검사 1개 통과 | 격리된 harness는 테스트 전용 신원 검증과 운영 Operator Service 어댑터를 사용합니다. 전체 경로 및 비평 라운드는 열려 있습니다. |
 | 로컬 및 deployed composition 동등성 | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/` 및 서비스 통합 테스트 | Composition root는 근거 권한을 바꾸지 않고 자격 증명과 어댑터를 선택합니다. |
 | 로컬 검증 데이터베이스 격리 | implemented | `infra/local/docker-compose.yml`, `scripts/automation/validation_queue_context.py`, 로컬 준비 스크립트 및 focused 검증과 migration 통합 테스트 | 런타임 상태는 로컬 PostgreSQL port `5432`에 유지하고 파괴적인 migration 검증은 port `5433`의 별도 로컬 PostgreSQL cluster를 사용합니다. |
 | FDAI workspace 및 프로파일 부하 제어 | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`, focused 프로파일 및 workspace 테스트 11개 통과 | Resource 범위 분석 제어는 workspace에 둡니다. Portable 프로파일은 격리할 수 없는 Remote WSL Pylance machine 설정을 거부합니다. |
@@ -43,10 +44,12 @@ translation_revised: 2026-08-13
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 machine 범위 Pylance launch 제어를 FDAI 프로파일로 이동했습니다. | 현재 변경의 `.vscode/fdai.code-profile`, `.vscode/settings.json`, `scripts/automation/configure-vscode-profile.py` 및 focused 프로파일/workspace 테스트 9개 통과. | FDAI Pylance process argument와 중앙 검증 receipt를 기록합니다. |
 | 2026-08-13 | deferred | 실효성 없는 Pylance machine 설정을 제거하고 중복 프로파일 JSON 키를 거부했으며 재도입 방지 contract를 추가했습니다. | Clean Remote WSL process command에 구성한 heap argument가 없었으며 focused 프로파일 및 workspace 테스트 11개가 통과했습니다. | 별도 root의 VS Code Server 또는 WSL 배포판을 사용한 뒤 재시작한 process command에서 heap argument를 증명합니다. |
 | 2026-08-13 | implemented | 파괴적인 검증을 위한 전용 로컬 PostgreSQL cluster를 추가하고 detached 검증 queue가 생성된 전용 DSN만 읽도록 했습니다. | 현재 변경, Compose config 통과, focused queue 및 local-env 테스트 68개 통과, 격리된 migration upgrade/downgrade 검사 2개 통과. | 로컬 검증 데이터베이스 격리에 남은 구현 작업은 없습니다. |
+| 2026-08-13 | in-progress | 라이브 Console 테스트의 폐기된 backend 경로를 운영 어댑터와 테스트 전용 bearer 검증을 사용하는 독립 Operator Service로 교체하고, readiness 실패를 제한하도록 격리된 stack을 IPv6 loopback으로 옮겼습니다. | 현재 변경의 `console/playwright.live.config.ts`, `console/tests/live-e2e/operator_service.py`, `console/tests/live-e2e/console-routes.spec.ts`, focused Overview 검사 1개가 5.1초에 통과했습니다. | 등록된 경로 50개를 모두 실행한 뒤 최소 10회 보증 라운드와 10회 비평/하드닝 라운드를 완료하여 Low보다 높은 심각도 finding이 남지 않게 합니다. |
 
 ### 잔여 작업
 
 - [ ] FDAI 전용 Remote WSL server data root 또는 WSL 배포판을 마련한 뒤 제외 대상 workspace를 변경하지 않고 재시작한 Pylance process command에 `--max-old-space-size=2048`이 포함됨을 기록합니다.
+- [ ] 등록된 Console 경로 50개 전체의 통과 근거를 기록한 뒤 최소 10회 보증 라운드와 10회 비평/하드닝 라운드를 완료하여 해결되지 않은 finding의 심각도가 모두 Low 이하임을 입증합니다.
 
 ## 전수조사 - 로컬 동작 vs Azure 필요
 
@@ -75,14 +78,15 @@ Operator 브라우저 E2E 테스트는 명시적인 dev-test 프로파일에서 
 Stack`에서는 활성화되지 않습니다. 백엔드 통합 테스트는 같은 요청과 범위가 제한된 최종
 turn-timing 계약을 실제 Starlette 경로와 근거 해석기로 별도 검증합니다.
 
-이를 보완하는 `npm --prefix console run test:e2e:live` 모음은 경로 interception 없이 신뢰할
-수 있는 로컬 PostgreSQL 및 Azure CLI 프로파일을 시작합니다. 등록된 모든 Console 패널을 방문하고,
-패널 경계가 안정될 때까지 기다리며, 브라우저 exception과 Operator API `4xx`/`5xx` 응답을
-차단하고, 테스트 경로 인벤토리가 운영 레지스트리와 계속 일치하는지 검증합니다. 또한 실제 운영
-Command Deck을 통해 결정론적 현재 시각 턴과 허용 목록에 포함된 Microsoft Learn 웹 검색을
-제출하고, 검증된 또는 근거에 기반한 최종 근거를 요구합니다. CLI principal 프로파일을 새로
-시작하는 대신 이미 인증된 stack을 재사용하려면 `FDAI_E2E_BASE_URL`과
-`FDAI_E2E_OPERATOR_API_URL`을 설정합니다.
+이를 보완하는 `npm --prefix console run test:e2e:live` 모음은 경로 interception 없이 운영 데이터
+어댑터와 테스트 전용 신원 검증을 사용하는 격리된 Operator Service를 시작합니다. 등록된 모든
+Console 패널을 방문하고, 패널 경계가 안정될 때까지 기다리며, 브라우저 exception, 공유 error
+상태 및 예상하지 않은 Operator API `4xx`/`5xx` 응답을 차단하고, 테스트 경로 인벤토리가 운영
+레지스트리와 계속 일치하는지 검증합니다. 정확히 선언된 unavailable contract는 런타임 결함으로
+취급하지 않으면서 화면에 그대로 표시합니다. 또한 실제 운영 Command Deck을 통해 결정론적 현재
+시각 턴과 허용 목록에 포함된 Microsoft Learn 웹 검색을 제출하고, 검증된 또는 근거에 기반한 최종
+근거를 요구합니다. 이미 인증된 stack을 재사용하려면 `FDAI_E2E_BASE_URL`,
+`FDAI_E2E_OPERATOR_API_URL`, `FDAI_E2E_STORAGE_STATE`를 설정합니다.
 
 ### dev-up.sh 필요 (여전히 로컬)
 

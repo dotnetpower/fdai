@@ -53,10 +53,22 @@ const ROUTES = [
   "/labs",
 ] as const;
 
+const OPTIONAL_UNAVAILABLE_RESPONSES = new Map<string, ReadonlySet<number>>([
+  ["/finops", new Set([404])],
+  ["/kpi/autonomy", new Set([404, 501])],
+  ["/kpi/promotion-gates", new Set([404, 501, 503])],
+  ["/me/context", new Set([503])],
+]);
+
 function isOperatorApiResponse(response: Response): boolean {
   const configured = process.env.FDAI_E2E_OPERATOR_API_URL;
   if (configured) return response.url().startsWith(configured.replace(/\/$/, ""));
-  return new URL(response.url()).port === (process.env.FDAI_E2E_OPERATOR_API_PORT ?? "8012");
+  return new URL(response.url()).port === (process.env.FDAI_E2E_OPERATOR_API_PORT ?? "8020");
+}
+
+function isExpectedUnavailableResponse(response: Response): boolean {
+  const url = new URL(response.url());
+  return OPTIONAL_UNAVAILABLE_RESPONSES.get(url.pathname)?.has(response.status()) === true;
 }
 
 async function waitForPanel(page: Page): Promise<void> {
@@ -71,7 +83,11 @@ for (const routePath of ROUTES) {
     const failedResponses: string[] = [];
     const pageErrors: string[] = [];
     page.on("response", (response) => {
-      if (isOperatorApiResponse(response) && response.status() >= 400) {
+      if (
+        isOperatorApiResponse(response)
+        && response.status() >= 400
+        && !isExpectedUnavailableResponse(response)
+      ) {
         failedResponses.push(`${response.status()} ${new URL(response.url()).pathname}`);
       }
     });
@@ -80,7 +96,9 @@ for (const routePath of ROUTES) {
     await page.goto(routePath, { waitUntil: "domcontentloaded" });
     await waitForPanel(page);
 
-    await expect(page.locator("main .empty.error, main .panel-error-boundary")).toHaveCount(0);
+    await expect(page.locator(
+      "main .empty.error, main .panel-error-boundary, main .state-block.state-error",
+    )).toHaveCount(0);
     expect(pageErrors).toEqual([]);
     expect(failedResponses).toEqual([]);
   });
