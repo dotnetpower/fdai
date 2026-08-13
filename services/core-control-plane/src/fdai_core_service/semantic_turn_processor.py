@@ -19,8 +19,10 @@ from fdai_service_contracts import (
     OperatorRole,
     RuleSearchProjection,
     RuleSearchRequest,
+    SemanticRoute,
     SemanticTurnDisposition,
     SemanticTurnRequest,
+    SemanticUnavailableReason,
     rule_search_query_digest,
 )
 from fdai_service_contracts import (
@@ -47,7 +49,7 @@ _ROLE_MAP = {
     OperatorRole.APPROVER: Role.APPROVER,
     OperatorRole.OWNER: Role.OWNER,
 }
-_ROUTE_BY_DISPOSITION = {
+_ROUTE_BY_DISPOSITION: dict[str, SemanticRoute] = {
     "clarification": "semantic_clarification",
     "unsupported": "semantic_unsupported",
     "action_draft": "semantic_action_draft",
@@ -733,7 +735,7 @@ def _terminal_result(
     reason_code: str,
 ) -> ContractSemanticTurnResult:
     semantic_route = _ROUTE_BY_DISPOSITION.get(disposition)
-    unavailable_reason = None
+    unavailable_reason: SemanticUnavailableReason | None = None
     if disposition == "held":
         unavailable_reason = (
             "authoritative_evidence_unavailable"
