@@ -140,6 +140,14 @@ def _generation_review_reasons(
 ) -> set[ReviewReason]:
     reasons: set[ReviewReason] = set()
     checks = (
+        (
+            legacy.ontology_release_digest is None,
+            ReviewReason.LEGACY_RELEASE_UNBOUND,
+        ),
+        (
+            aligned.ontology_release_digest is None,
+            ReviewReason.ALIGNED_RELEASE_UNBOUND,
+        ),
         (not legacy.complete, ReviewReason.LEGACY_GENERATION_INCOMPLETE),
         (not aligned.complete, ReviewReason.ALIGNED_GENERATION_INCOMPLETE),
         (legacy.truncated, ReviewReason.LEGACY_GENERATION_TRUNCATED),

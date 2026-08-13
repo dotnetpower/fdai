@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 9e6c6d7d99868d86fdc1722564950e9e7bca6328
-translation_revised: 2026-08-13
+translation_source_sha: fdf9fb5d0e221138f61b5321e822c96f8a2ccee2
+translation_revised: 2026-08-14
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -112,6 +112,7 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 | 2026-08-13 | in-progress | 검토된 Kubernetes Service 관계 매핑과 독립 세대 검증을 위한 후보 링크를 만드는 범위 제한 변환기를 추가했습니다. | `current change`; focused `test_kubernetes_relationships.py`에서 6개 테스트, 프로바이더 매핑 계약에서 6개 테스트를 통과했습니다. | 변환기를 production 인벤토리 출처에 연결하고 exact-release 조립 근거를 보존해야 합니다. |
 | 2026-08-13 | in-progress | Resource와 Observation 근거를 포함하는 release 고정 Interface를 사용하여 production 의미 조회 조립을 통해 발급된 Pod 텔레메트리 함수를 입증했습니다. | `current change`; focused `test_wire_pod_telemetry.py`에서 verified 및 synthetic-unverified 경로 2개 테스트를 통과했습니다. | 보존된 production 인벤토리에서 같은 조립을 실행하고 인증된 보증 증적을 보존해야 합니다. |
 | 2026-08-14 | implemented | 인벤토리 온톨로지 변환기가 결과, 영속 매니페스트, 가용성 상태에 하나의 exact release 다이제스트를 보존하도록 요구했습니다. 인벤토리 작업은 이제 토폴로지 이력 발행과 같은 카탈로그 다이제스트를 공유합니다. | `current change`; focused `test_inventory_ontology.py`에서 9개 테스트를 통과했습니다. | Production 인벤토리를 새로 고치고 release에 결속된 변환 근거를 보존해야 합니다. 과거의 결속되지 않은 매니페스트는 변경하지 않습니다. |
+| 2026-08-14 | in-progress | 과거 release가 알려지지 않은 상태를 명시적으로 유지하고 이행 권한을 부여하지 않은 채 `review_required`로 처리하도록 direction-shadow 비교를 확장했습니다. | `current change`; focused direction-shadow 모음에서 8개 테스트를 통과했습니다. 보존된 증적 `sha256:ad64c267b6f0c6ac5a1a037067f926aa5613f1fe5a84702877eb607e368736f6`은 동일하게 재생됩니다. | 측정된 차이를 검토하고 이행 전에 완전하고 검증된 정렬 후 세대 근거를 보존해야 합니다. |
 
 ### 남은 작업
 

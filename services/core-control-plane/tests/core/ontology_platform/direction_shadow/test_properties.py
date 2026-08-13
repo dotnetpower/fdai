@@ -12,6 +12,7 @@ from fdai.core.ontology_platform.direction_shadow import (
     RebuildPointer,
     ReviewReason,
     compare_graph_generations,
+    replay_matches,
 )
 
 PRIOR_RELEASE = "sha256:" + "c" * 64
@@ -24,7 +25,7 @@ POINTER = RebuildPointer(
 
 def _generation(
     reference: str,
-    release: str,
+    release: str | None,
     object_ids: tuple[str, ...],
     links: tuple[DirectionGraphLink, ...],
     *,
@@ -113,7 +114,51 @@ def test_incomplete_missing_or_unverified_inputs_require_review() -> None:
         ReviewReason.LEGACY_LINK_EVIDENCE_UNVERIFIED,
         ReviewReason.ALIGNED_LINK_EVIDENCE_UNVERIFIED,
     }
+
+
+def test_unbound_historical_release_remains_replayable_and_requires_review() -> None:
+    legacy = DirectionGraphGeneration.create(
+        generation_ref="legacy-unbound",
+        ontology_release_digest=None,
+        object_ids=("parent", "child"),
+        links=(),
+        complete=True,
+    )
+    aligned = _generation(
+        "aligned-bound",
+        ALIGNED_RELEASE,
+        ("parent", "child"),
+        (),
+    )
+
+    receipt = compare_graph_generations(
+        legacy,
+        aligned,
+        migration_revision="20260808_0078",
+        rebuild_pointer=POINTER,
+    )
+
+    assert receipt.disposition is ComparisonDisposition.REVIEW_REQUIRED
+    assert receipt.review_reasons == (ReviewReason.LEGACY_RELEASE_UNBOUND,)
+    assert receipt.prior_release_digest is None
     assert receipt.migration_ready is False
+    assert replay_matches(receipt, legacy, aligned)
+
+
+def test_unbound_aligned_release_requires_review() -> None:
+    legacy = _generation("legacy-bound", PRIOR_RELEASE, (), ())
+    aligned = _generation("aligned-unbound", None, (), ())
+
+    receipt = compare_graph_generations(
+        legacy,
+        aligned,
+        migration_revision="20260808_0078",
+        rebuild_pointer=POINTER,
+    )
+
+    assert receipt.disposition is ComparisonDisposition.REVIEW_REQUIRED
+    assert receipt.review_reasons == (ReviewReason.ALIGNED_RELEASE_UNBOUND,)
+    assert receipt.aligned_release_digest is None
 
 
 def test_equal_bounded_traversal_truncation_still_requires_review() -> None:
