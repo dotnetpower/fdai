@@ -20,14 +20,9 @@ settings, or no backup - because no single change introduced the whole gap. The
 ORR reviews the **accumulated posture of the scope at the moment of handoff**,
 not one diff.
 
-> **Implementation status**: The pure report coordinator in `core/readiness/` and the audited
-> orchestration service in `composition/readiness.py` are implemented. The service can also
-> evaluate typed Best Practice requirements through an injected `ChecklistEvidenceProvider`.
-> The current upstream runtime doesn't register `ownership_transfer` with event ingest or bind a
-> live posture provider, checklist evidence provider, `ReadinessReportPublisher`, remediation
-> proposal, or approval workflow. The automatic trigger,
-> handoff blocking, action bridging, and Var approval below are target workflow; an injected caller
-> invokes the current service directly.
+> **Implementation status**: The deterministic review and injected orchestration are implemented,
+> but the upstream runtime doesn't invoke them automatically. See
+> [Implementation status](#implementation-status) for the evidence and remaining integration work.
 
 > **Customer-agnostic**: the trigger label, the required-rule set, and the
 > severity that gates a handoff are all config or fork-supplied. Upstream ships
@@ -193,28 +188,39 @@ The coordinator imports only `shared/` contracts and providers, like every other
 core subsystem ([project-structure.md](../architecture/project-structure.md#module-boundaries)).
 It holds no cloud SDK and no privileged identity.
 
-### Implementation status
+## Implementation status
 
-The deterministic core ships in
-[`core/readiness/`](../../../services/core-control-plane/src/fdai/core/readiness): the `OwnershipTransfer`
-signal, the generic `ReadinessReport` / `HandoffVerdict` / `ReadinessFinding`
-shape, the pure Best Practice evaluator, and the `compose_readiness_report` coordinator that folds
-posture, preflight, and checklist findings into one verdict, applies the environment
-gate (a `prod` target forces a `critical` finding to blocking), and sets
-`blocks_handoff` (shadow-first: `false` unless the pass ran in enforce mode). It
-imports only `shared/` types.
+The repository implements the deterministic review and an injected application service. It doesn't
+yet compose those pieces into the running control plane, so the current evidence supports
+`implemented`, not an operationally `validated` handoff gate.
 
-[`OperationalReadinessService`](../../../services/core-control-plane/src/fdai/composition/readiness.py) now
-wires the signal to an injected `PostureAssessmentProvider`, the existing `PreflightAnalyzer`, and
-an optional `ChecklistEvidenceProvider`. It runs the passes concurrently, composes the report, writes
-the append-only audit entry, and then calls the injected
-`ReadinessReportPublisher`. A partial assessment writes an `abstain` audit and
-propagates the error; a delivery failure writes a second failure audit and
-propagates. Missing checklist evidence remains `unknown`; evidence outside a control's freshness
-window is `stale`; and an expired ARB binding is `failed`. None is a pass. A live posture or
-preflight failure overrides a conflicting supplied pass. The remaining fork
-work is transport binding: emit the normalized signal from the selected handoff moment and bind the
-posture, checklist evidence, and report publisher adapters.
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Ownership-transfer signal, report model, finding reduction, environment gate, and Best Practice checklist evaluation | implemented | [`core/readiness/`](../../../services/core-control-plane/src/fdai/core/readiness), [`test_coordinator.py`](../../../services/core-control-plane/tests/core/readiness/test_coordinator.py), and [`test_checklist.py`](../../../services/core-control-plane/tests/core/readiness/test_checklist.py) | The pure coordinator preserves grounded findings, fails safely on unknown severity, and separates the truthful decision from `blocks_handoff`. |
+| Concurrent posture, preflight, and checklist orchestration with append-only audit and report delivery | implemented | [`composition/readiness.py`](../../../services/core-control-plane/src/fdai/composition/readiness.py), [`test_readiness_service.py`](../../../services/core-control-plane/tests/composition/test_readiness_service.py), and [`test_readiness_checklist_service.py`](../../../services/core-control-plane/tests/composition/test_readiness_checklist_service.py) | The service uses injected providers. Assessment and delivery failures are audited and propagated. |
+| Architecture Review Board (ARB) artifact, owner, freshness, and expiry projection into checklist outcomes | implemented | [`composition/readiness_evidence.py`](../../../services/core-control-plane/src/fdai/composition/readiness_evidence.py) and [`test_readiness_evidence.py`](../../../services/core-control-plane/tests/composition/test_readiness_evidence.py) | Missing bindings remain `unknown`, and expired evidence becomes `failed`; neither is treated as a pass. |
+| Automatic `ownership_transfer` ingest and production posture, checklist, and report-publisher bindings | not-started | Provider seams in [`shared/providers/readiness.py`](../../../services/core-control-plane/src/fdai/shared/providers/readiness.py) and the injected service above | The current runtime and bootstrap don't construct or register `OperationalReadinessService`; callers can only invoke it through their own composition. |
+| Remediation proposal, distinct Var approval, and governed action bridge | not-started | Current [`OwnershipTransfer`](../../../services/core-control-plane/src/fdai/core/readiness/signal.py) and [`OperationalReadinessService`](../../../services/core-control-plane/src/fdai/composition/readiness.py) contracts | Neither contract carries an approval decision or approver identity, and the service doesn't emit a remediation proposal or action event. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted the implementation ledger; earlier provenance wasn't reconstructed. Recorded the implemented deterministic and orchestration surfaces separately from the unbound runtime workflow. | Current change; `48 passed` from the five focused core and composition test files cited above. | Bind the event, providers, publisher, approval, and remediation path, then collect governed runtime evidence. |
+
+### Remaining work
+
+- [ ] Register and normalize `ownership_transfer` at event ingest, invoke the review through the
+  accountable event-driven workflow, and add an integration test that proves replay-safe delivery.
+- [ ] Bind production posture, checklist evidence, and report-publisher implementations at the
+  composition root, then record a governed runtime receipt for one complete shadow review.
+- [ ] Emit grounded remediation proposals through the risk gate and Var approval flow, and add
+  tests proving approver identity is recorded, self-approval is blocked, and the review service
+  never executes a managed-resource change.
+- [ ] Keep enforcement disabled until frozen-scenario shadow evidence meets the configured
+  false-positive threshold and the authoritative promotion registry records the transition.
 
 ## Safety posture
 

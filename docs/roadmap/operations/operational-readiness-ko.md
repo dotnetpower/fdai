@@ -1,8 +1,8 @@
 ---
 title: 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 translation_of: operational-readiness.md
-translation_source_sha: ba2b6b369c7a815eac84fca0ec44816539d78dcf
-translation_revised: 2026-08-11
+translation_source_sha: 7424236aadc5e4e8235cf1cf0b70f8c09c73cada
+translation_revised: 2026-08-13
 ---
 # 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 
@@ -23,14 +23,9 @@ reliability 규칙에 대해 평가하고, 각 발견 사항 을 그것을 만�
 어떤 단일 변경도 그 공백 전체를 도입하지 않았기 때문입니다. ORR 은 하나의 차이 가
 아니라 **핸드오프 시점의 범위 의 누적된 자세** 를 리뷰합니다.
 
-> **구현 상태**: `core/readiness/`의 pure 보고 조정기와
-> `composition/readiness.py`의 audited orchestration 서비스가 구현되어 있습니다. 서비스는
-> injected `ChecklistEvidenceProvider`를 통해 타입이 지정된 Best Practice 요구사항도 평가할 수 있습니다.
-> 현재 업스트림 런타임은 `ownership_transfer`를 event-ingest에 등록하거나 실제 운영 자세 프로바이더,
-> checklist 근거 프로바이더, `ReadinessReportPublisher`, 교정 제안, 승인
-> 작업 흐름을 연결하지 않습니다. 아래
-> 자동 트리거, 인계 차단, 액션 bridging 및 Var 승인은 목표 작업 흐름이며, 현재 서비스는
-> injected 호출자가 직접 실행합니다.
+> **구현 상태**: 결정론적 검토와 주입형 오케스트레이션은 구현되어 있지만, 업스트림
+> 런타임은 아직 이를 자동으로 호출하지 않습니다. 근거와 남은 통합 작업은
+> [구현 상태](#구현-상태)를 참조하세요.
 
 > **고객 무관(Customer-agnostic)**: 트리거 라벨, 필수 규칙 집합, 핸드오프를
 > 게이트 하는 심각도 는 모두 구성 이거나 포크 가 공급합니다. 업스트림은
@@ -197,27 +192,38 @@ ORR 은 새로운 특권 표면을 도입하지 않고 최소한의 새 코드�
 가져오기 합니다([project-structure.md](../architecture/project-structure-ko.md#module-boundaries)).
 클라우드 SDK 도, 특권 아이덴티티도 보유하지 않습니다.
 
-### 구현 상태
+## 구현 상태
 
-결정론적 코어는 [`core/readiness/`](../../../services/core-control-plane/src/fdai/core/readiness)에 있습니다.
-`OwnershipTransfer` 신호, 범용 `ReadinessReport` / `HandoffVerdict` /
-`ReadinessFinding` 형태, pure Best Practice 평가기, 그리고 자세, preflight 및 checklist
-발견 사항을 하나의 판정으로 접기하고 환경 게이트(`prod` 타깃은 `critical` 발견 사항 을
-차단 으로 강제)를 적용하며 `blocks_handoff` 를 설정하는 순수
-`compose_readiness_report` 조정기 (shadow-first: 강제 적용 모드로 실행됐을
-때만 `true`)를 제공합니다. `shared/` 타입만 가져옵니다.
+이 저장소에는 결정론적 검토와 주입형 애플리케이션 서비스가 구현되어 있습니다. 그러나
+실행 중인 컨트롤 플레인에는 아직 이 구성 요소가 조합되어 있지 않으므로, 현재 근거로는
+운영 `validated` 상태가 아니라 `implemented` 상태까지만 입증할 수 있습니다.
 
-[`OperationalReadinessService`](../../../services/core-control-plane/src/fdai/composition/readiness.py)는 이제 신호를
-injected `PostureAssessmentProvider`, 기존 `PreflightAnalyzer` 및 선택적
-`ChecklistEvidenceProvider`에 연결하고 통과를 동시에 실행합니다. 이후 보고를 compose하고
-추가 전용 감사 항목을 쓴 다음 injected
-`ReadinessReportPublisher`를 호출합니다. 부분 평가는 `abstain` 감사를 쓰고 오류를
-전파하며 전달 실패는 두 번째 실패 감사를 쓰고 전파합니다. 누락 checklist 근거는
-`unknown`, 컨트롤 최신성 구간을 벗어난 근거는 `stale`, 만료된 ARB 연결은
-`failed`이며 모두 통과가 아닙니다. 실제 운영 자세 또는 preflight 실패는 충돌하는 supplied
-통과보다 우선합니다. 남은 포크 작업은 전송 계층 연결입니다.
-선택한 인계 moment에서 정규화된 신호를 발행하고 자세, checklist 근거 및 보고
-발행기 어댑터를 연결합니다.
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 소유권 이전 신호, 보고서 모델, 발견 사항 축약, 환경 게이트 및 Best Practice 체크리스트 평가 | implemented | [`core/readiness/`](../../../services/core-control-plane/src/fdai/core/readiness), [`test_coordinator.py`](../../../services/core-control-plane/tests/core/readiness/test_coordinator.py), [`test_checklist.py`](../../../services/core-control-plane/tests/core/readiness/test_checklist.py) | 순수 조정기는 근거가 있는 발견 사항을 보존하고 알 수 없는 심각도에서 안전하게 실패하며, 실제 판정과 `blocks_handoff`를 분리합니다. |
+| 추가 전용 감사와 보고서 전달을 포함하는 자세, preflight 및 체크리스트의 동시 오케스트레이션 | implemented | [`composition/readiness.py`](../../../services/core-control-plane/src/fdai/composition/readiness.py), [`test_readiness_service.py`](../../../services/core-control-plane/tests/composition/test_readiness_service.py), [`test_readiness_checklist_service.py`](../../../services/core-control-plane/tests/composition/test_readiness_checklist_service.py) | 서비스는 주입된 프로바이더를 사용합니다. 평가와 전달 실패를 감사한 뒤 오류를 전파합니다. |
+| Architecture Review Board (ARB) 산출물, 담당자, 최신성 및 만료 정보를 체크리스트 결과로 변환 | implemented | [`composition/readiness_evidence.py`](../../../services/core-control-plane/src/fdai/composition/readiness_evidence.py), [`test_readiness_evidence.py`](../../../services/core-control-plane/tests/composition/test_readiness_evidence.py) | 누락된 연결은 `unknown`으로 유지되고 만료된 근거는 `failed`가 됩니다. 어느 상태도 통과로 처리하지 않습니다. |
+| 자동 `ownership_transfer` 수집과 운영 자세, 체크리스트 및 보고서 발행기 연결 | not-started | [`shared/providers/readiness.py`](../../../services/core-control-plane/src/fdai/shared/providers/readiness.py)의 프로바이더 연결부와 위의 주입형 서비스 | 현재 런타임과 부트스트랩은 `OperationalReadinessService`를 생성하거나 등록하지 않습니다. 호출자는 자체 구성에서만 서비스를 실행할 수 있습니다. |
+| 교정 제안, 분리된 Var 승인 및 거버넌스가 적용된 작업 연결 | not-started | 현재 [`OwnershipTransfer`](../../../services/core-control-plane/src/fdai/core/readiness/signal.py)와 [`OperationalReadinessService`](../../../services/core-control-plane/src/fdai/composition/readiness.py) 계약 | 두 계약 모두 승인 결정이나 승인자 신원을 포함하지 않으며, 서비스는 교정 제안 또는 작업 이벤트를 발행하지 않습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | 구현 원장을 도입했으며 이전 근거 이력은 재구성하지 않았습니다. 구현된 결정론적 기능 및 오케스트레이션 표면과 연결되지 않은 런타임 작업 흐름을 분리해 기록했습니다. | 현재 변경, 위에 인용한 core 및 composition 테스트 파일 5개의 `48 passed` 결과 | 이벤트, 프로바이더, 발행기, 승인 및 교정 경로를 연결한 뒤 거버넌스가 적용된 런타임 근거를 수집합니다. |
+
+### 남은 작업
+
+- [ ] event ingest에서 `ownership_transfer`를 등록하고 정규화한 뒤 책임 에이전트의
+  이벤트 기반 작업 흐름을 통해 검토를 호출하고, 재생해도 안전한 전달을 통합 테스트로 입증합니다.
+- [ ] 운영 자세, 체크리스트 근거 및 보고서 발행기 구현을 composition root에 연결한 뒤
+  하나의 완전한 shadow 검토에 대한 거버넌스 적용 런타임 증적을 기록합니다.
+- [ ] 근거가 있는 교정 제안을 risk gate와 Var 승인 흐름을 통해 발행하고, 승인자 신원이
+  기록되며 자체 승인이 차단되고 검토 서비스가 관리 리소스 변경을 실행하지 않음을 테스트합니다.
+- [ ] 고정 시나리오의 shadow 근거가 구성된 false-positive 임계값을 충족하고 권한 있는
+  승격 레지스트리가 전환을 기록할 때까지 적용 모드를 비활성화 상태로 유지합니다.
 
 ## 안전 자세
 
