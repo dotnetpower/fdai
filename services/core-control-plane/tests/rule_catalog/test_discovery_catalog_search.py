@@ -21,11 +21,19 @@ from fdai.rule_catalog.schema.catalog_search import (
     catalog_search_schema_digest,
     rule_reference_catalog_digest,
 )
+from fdai.rule_catalog.schema.control_objective import (
+    ControlObjective,
+    control_objective_content_hash,
+)
 from fdai.rule_catalog.schema.discovery_rule import load_discovery_rule_catalog
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.rule_catalog.schema.rego_semantics import load_rego_semantics
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.rule_catalog.schema.rule import RuleCatalogError, load_rule_catalog
+from fdai.rule_catalog.schema.rule_objective_binding import (
+    RuleObjectiveBinding,
+    rule_objective_binding_content_hash,
+)
 from fdai.rule_catalog.schema.rule_semantic_generation import build_document_digest_manifest
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.ontology.compatibility import OntologyGenerationCompatibilityReceipt
@@ -40,6 +48,12 @@ from fdai.shared.providers.catalog_search import (
 REPO_ROOT = Path(__file__).resolve().parents[4]
 RULE_CATALOG_ROOT = REPO_ROOT / "rule-catalog"
 DISCOVERY_ROOT = REPO_ROOT / "rule-catalog" / "collected"
+OBJECTIVE_PATH = (
+    RULE_CATALOG_ROOT / "control-objectives" / "reliability.node-pool.zone-failure-tolerance.yaml"
+)
+BINDING_PATH = (
+    RULE_CATALOG_ROOT / "rule-objective-bindings" / "binding.node-pool-zone-resilience.yaml"
+)
 NOW = datetime(2026, 8, 13, tzinfo=UTC)
 
 
@@ -81,7 +95,11 @@ def _generation_metadata(
     )
 
 
-def _load_active_corpus() -> tuple[
+def _load_active_corpus(
+    *,
+    control_objectives: tuple[ControlObjective, ...] = (),
+    objective_bindings: tuple[RuleObjectiveBinding, ...] = (),
+) -> tuple[
     tuple[CatalogSearchDocument, ...],
     CatalogGenerationMetadata,
 ]:
@@ -112,6 +130,8 @@ def _load_active_corpus() -> tuple[
         rules=rules,
         action_types=ontology.action_types,
         policy_semantics=policy_semantics,
+        control_objectives=control_objectives,
+        objective_bindings=objective_bindings,
     )
     return documents, _generation_metadata(
         corpus="active",
@@ -119,6 +139,105 @@ def _load_active_corpus() -> tuple[
         ontology_release_digest=ontology.build_release().digest,
         documents=documents,
     )
+
+
+def _reviewed_policy_abstractions() -> tuple[ControlObjective, RuleObjectiveBinding]:
+    objective_raw = yaml.safe_load(OBJECTIVE_PATH.read_text(encoding="utf-8"))
+    objective_raw["state"] = "reviewed"
+    objective_draft = ControlObjective.model_validate(objective_raw)
+    objective_digest = control_objective_content_hash(objective_draft)
+    objective_raw["content_digest"] = objective_digest
+    objective_raw["provenance"]["content_hash"] = objective_digest
+    objective = ControlObjective.model_validate(objective_raw)
+
+    binding_raw = yaml.safe_load(BINDING_PATH.read_text(encoding="utf-8"))
+    binding_raw["state"] = "reviewed"
+    binding_raw["objective"]["content_digest"] = objective.content_digest
+    binding_draft = RuleObjectiveBinding.model_validate(binding_raw)
+    binding_digest = rule_objective_binding_content_hash(binding_draft)
+    binding_raw["content_digest"] = binding_digest
+    binding_raw["provenance"]["content_hash"] = binding_digest
+    binding = RuleObjectiveBinding.model_validate(binding_raw)
+    return objective, binding
+
+
+def test_candidate_policy_abstractions_do_not_change_active_rule_projection() -> None:
+    baseline, _ = _load_active_corpus()
+    objective = ControlObjective.model_validate(
+        yaml.safe_load(OBJECTIVE_PATH.read_text(encoding="utf-8"))
+    )
+    binding = RuleObjectiveBinding.model_validate(
+        yaml.safe_load(BINDING_PATH.read_text(encoding="utf-8"))
+    )
+
+    registry = PackageResourceSchemaRegistry()
+    ontology = load_ontology_catalog(
+        RULE_CATALOG_ROOT,
+        schema_registry=registry,
+        probes_root=RULE_CATALOG_ROOT / "probes",
+    )
+    resource_types = load_resource_type_registry_from_mapping(
+        yaml.safe_load(
+            (RULE_CATALOG_ROOT / "vocabulary" / "resource-types.yaml").read_text(encoding="utf-8")
+        )
+    )
+    rules = load_rule_catalog(
+        RULE_CATALOG_ROOT / "catalog",
+        schema_registry=registry,
+        action_types=ontology.action_types,
+        resource_types=resource_types,
+        policies_root=REPO_ROOT / "policies",
+        remediation_root=RULE_CATALOG_ROOT / "remediation",
+    )
+    policy_semantics = {
+        rule.check_logic.reference: load_rego_semantics(REPO_ROOT / rule.check_logic.reference)
+        for rule in rules
+    }
+
+    projected = build_catalog_search_documents(
+        rules=rules,
+        action_types=ontology.action_types,
+        policy_semantics=policy_semantics,
+        control_objectives=(objective,),
+        objective_bindings=(binding,),
+    )
+
+    assert projected == baseline
+
+
+def test_reviewed_policy_abstractions_annotate_exact_rule_projection() -> None:
+    objective, binding = _reviewed_policy_abstractions()
+    projected, _ = _load_active_corpus()
+    enriched, _ = _load_active_corpus(
+        control_objectives=(objective,),
+        objective_bindings=(binding,),
+    )
+
+    baseline = next(item for item in projected if item.rule_id == "kubernetes-node-pool.multi-zone")
+    annotated = next(item for item in enriched if item.rule_id == baseline.rule_id)
+
+    assert annotated.document_kind == "rule"
+    assert objective.ref in annotated.text
+    assert objective.title in annotated.text
+    assert objective.ref in annotated.neighbor_ids
+    assert annotated != baseline
+
+
+def test_reviewed_binding_with_stale_rule_pin_fails_projection() -> None:
+    objective, binding = _reviewed_policy_abstractions()
+    binding_raw = binding.model_dump(mode="json")
+    binding_raw["rule"]["content_digest"] = f"sha256:{'f' * 64}"
+    binding_draft = RuleObjectiveBinding.model_validate(binding_raw)
+    binding_digest = rule_objective_binding_content_hash(binding_draft)
+    binding_raw["content_digest"] = binding_digest
+    binding_raw["provenance"]["content_hash"] = binding_digest
+    stale_binding = RuleObjectiveBinding.model_validate(binding_raw)
+
+    with pytest.raises(ValueError, match="Rule pin mismatch"):
+        _load_active_corpus(
+            control_objectives=(objective,),
+            objective_bindings=(stale_binding,),
+        )
 
 
 def test_complete_discovery_corpus_materializes_with_replayable_identity() -> None:
