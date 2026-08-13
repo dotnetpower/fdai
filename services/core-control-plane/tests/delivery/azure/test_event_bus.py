@@ -445,6 +445,45 @@ async def test_consumer_cancels_fetch_before_transport_shutdown(
 
 
 @pytest.mark.asyncio
+async def test_consumer_bounds_group_leave_and_closes_client(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    order: list[str] = []
+
+    class _Fetcher:
+        async def close(self) -> None:
+            order.append("fetcher")
+
+    class _Client:
+        async def close(self) -> None:
+            order.append("client")
+
+    class _HangingConsumer:
+        def __init__(self) -> None:
+            self._fetcher = _Fetcher()
+            self._client = _Client()
+
+        async def stop(self) -> None:
+            order.append("consumer")
+            await asyncio.Event().wait()
+
+    monkeypatch.setattr(event_bus_module, "_CONSUMER_STOP_TIMEOUT_SECONDS", 0.01)
+    caplog.set_level(logging.WARNING, logger=event_bus_module.__name__)
+
+    await asyncio.wait_for(
+        event_bus_module._stop_consumer(_HangingConsumer()),  # type: ignore[arg-type]
+        timeout=0.1,
+    )
+
+    assert order == ["fetcher", "consumer", "client"]
+    record = next(
+        item for item in caplog.records if item.message == "event_bus_consumer_stop_timed_out"
+    )
+    assert record.timeout_seconds == 0.01
+
+
+@pytest.mark.asyncio
 async def test_consumer_logs_owned_identity_instead_of_connection_success_noise(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
