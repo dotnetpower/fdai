@@ -52,6 +52,7 @@ class PromotedInventoryObservation:
     links: tuple[LinkRecord, ...]
     complete: bool
     relationship_drops: tuple[RelationshipDrop, ...] = ()
+    recorded_at: datetime | None = None
 
 
 #: Receives one promoted observation after the active pointer moves. The sink
@@ -199,6 +200,7 @@ class _ObservationAccumulator:
             links=verified.links,
             complete=not self._truncated,
             relationship_drops=verified.dropped,
+            recorded_at=recorded_at,
         )
 
 

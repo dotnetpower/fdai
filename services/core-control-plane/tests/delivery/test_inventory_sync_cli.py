@@ -6,19 +6,24 @@ import hashlib
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import httpx
 import pytest
 import yaml
+from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.delivery.inventory_sync_cli import (
     InventoryJobConfig,
+    _build_ontology_observer,
     _build_sources,
     _forward_recovery_deltas,
     _resolve_resource_types,
     _verify_sha256,
 )
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
+from fdai.runtime.inventory_ontology import InventoryOntologyProjectionStatus
+from fdai.shared.providers.inventory import ResourceRecord
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.workload_identity import StaticWorkloadIdentity
 
@@ -29,6 +34,74 @@ def _vocabulary():
     path = _REPO_ROOT / "rule-catalog" / "vocabulary" / "resource-types.yaml"
     return load_resource_type_registry_from_mapping(
         yaml.safe_load(path.read_text(encoding="utf-8"))
+    )
+
+
+def _ontology_observer_harness(monkeypatch: pytest.MonkeyPatch):
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+        }
+    )
+    ontology_store = SimpleNamespace(sync_catalog=AsyncMock())
+    history_store = SimpleNamespace(append=AsyncMock())
+    projector = SimpleNamespace(
+        apply=AsyncMock(
+            return_value=SimpleNamespace(
+                status=InventoryOntologyProjectionStatus.AVAILABLE,
+                object_count=1,
+                link_count=0,
+                dropped_reasons=(),
+            )
+        )
+    )
+    release_digest = "sha256:" + ("a" * 64)
+    catalog = SimpleNamespace(
+        object_types=(),
+        link_types=(),
+        build_release=lambda: SimpleNamespace(digest=release_digest),
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.load_ontology_catalog",
+        lambda *a, **k: catalog,
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.PostgresOntologyInstanceStore",
+        lambda **_: ontology_store,
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.PostgresTopologyHistoryStore",
+        lambda **_: history_store,
+    )
+    monkeypatch.setattr(
+        "fdai.delivery.inventory_sync_cli.InventoryOntologyProjector",
+        lambda **_: projector,
+    )
+    activity_publisher = SimpleNamespace(publish=AsyncMock())
+    observer = _build_ontology_observer(
+        config,
+        vocabulary=_vocabulary(),
+        publisher=activity_publisher,
+        evidence_counts={},
+    )
+    return (
+        observer,
+        ontology_store,
+        history_store,
+        projector,
+        activity_publisher,
+        release_digest,
+    )
+
+
+def _promoted_observation(generation: str) -> PromotedInventoryObservation:
+    return PromotedInventoryObservation(
+        generation=generation,
+        resources=(ResourceRecord(resource_id="vm-1", type="compute.vm"),),
+        links=(),
+        complete=True,
+        recorded_at=datetime(2026, 8, 13, tzinfo=UTC),
     )
 
 
@@ -159,6 +232,69 @@ async def test_source_builder_preserves_order_and_fallback_coverage() -> None:
         "depends_on",
     )
     assert sources[1].manifest.metadata["link_types"] == ("contains",)
+
+
+async def test_ontology_observer_publishes_durable_topology_history(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (
+        observer,
+        ontology_store,
+        history_store,
+        projector,
+        _activity_publisher,
+        release_digest,
+    ) = _ontology_observer_harness(monkeypatch)
+
+    await observer(_promoted_observation("snapshot-1"))
+
+    history_store.append.assert_awaited_once()
+    assert history_store.append.await_args.kwargs["ontology_release_digest"] == release_digest
+    ontology_store.sync_catalog.assert_awaited_once()
+    projector.apply.assert_awaited_once()
+
+
+async def test_ontology_observer_attempts_projection_after_history_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (
+        observer,
+        ontology_store,
+        history_store,
+        projector,
+        activity_publisher,
+        _release_digest,
+    ) = _ontology_observer_harness(monkeypatch)
+    history_store.append.side_effect = RuntimeError("history unavailable")
+
+    with pytest.raises(RuntimeError, match="history unavailable"):
+        await observer(_promoted_observation("snapshot-history-failure"))
+
+    ontology_store.sync_catalog.assert_awaited_once()
+    projector.apply.assert_awaited_once()
+    activity = activity_publisher.publish.await_args.args[0]
+    assert activity.reason_codes == ("topology_history_failed",)
+
+
+async def test_ontology_observer_retains_history_before_projection_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (
+        observer,
+        _ontology_store,
+        history_store,
+        projector,
+        activity_publisher,
+        _release_digest,
+    ) = _ontology_observer_harness(monkeypatch)
+    projector.apply.side_effect = RuntimeError("projection unavailable")
+
+    with pytest.raises(RuntimeError, match="projection unavailable"):
+        await observer(_promoted_observation("snapshot-projection-failure"))
+
+    history_store.append.assert_awaited_once()
+    activity = activity_publisher.publish.await_args.args[0]
+    assert activity.reason_codes == ("projection_failed",)
 
 
 async def test_recovery_delta_forwards_every_scope(monkeypatch: pytest.MonkeyPatch) -> None:

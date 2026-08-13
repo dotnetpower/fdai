@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 2725ef9f64559f96478031d686fcaa92c26215b8
+translation_source_sha: 03f110a2301b7ad8ca218a8233b5bd2b6dfb0c7b
 translation_revised: 2026-08-13
 ---
 
@@ -41,9 +41,10 @@ translation_revised: 2026-08-13
 > **구현 상태(2026-08-10):** Exact 온톨로지 release, 의미 후보, 범위가 제한된 ObjectSet, secured 조회
 > 증적, 타입이 지정된 함수 등록, 현재 인벤토리 변환 결과, 메트릭 프로바이더 및 causal-analysis
 > 기본 요소가 있습니다. 운영 경로는 여전히 정규식/토큰 라우팅과 선택적인 serial 2-3 명령
-> 읽기 계획을 사용합니다. 서버 측 의도 그래프, full release에서 도출한 조회 매니페스트,
-> `OntologyQueryPlan`, 완전한 의미 인덱스 어댑터, historical 토폴로지 및 cross-resource temporal
-> 조회 조립은 아직 제공되지 않습니다.
+> 읽기 계획을 사용합니다. 서버 측 의도 그래프, principal 범위로 한정된 release 기반 조회
+> 매니페스트, `OntologyQueryPlan`, 영속 의미 인덱스, 과거 토폴로지 및 리소스 간 temporal
+> 프로바이더 조립은 이제 제공됩니다. 운영 턴 완료 연결, 영속 의미 인덱스 활성화 결과 발행 및
+> 통제된 서비스 간/무작위 보증 증적은 아직 완료되지 않았습니다.
 > 의미 problem 프레임, 조회 DAG, 의도 그래프, 작업 증적 및 structural 커버리지 증적의 OQ-01
 > implementation-free SDK 모델은 이제 제공됩니다. 생산자/소비자 변환 결과 배선은 OQ-04 및
 > OQ-05에 남아 있습니다.
@@ -58,8 +59,11 @@ translation_revised: 2026-08-13
 > 핸들러는 이제 secured ObjectSet 구체화, union, intersection, subtraction, 정렬,
 > 변환 결과, grouped 집계 및 exact-release 조회/derive/validate 함수 호출을 다룹니다.
 > 결정론적 검증기는 I/O 전에 principal 매니페스트, readable 속성, LinkType, closed 노드 인자,
-> 의존성 출력 종류, 함수 스키마 및 등록된 확장 스키마를 검사합니다. Temporal,
-> metric-series 및 evidence-join 핸들러는 남아 있습니다.
+> 의존성 출력 종류, 함수 스키마 및 등록된 확장 스키마를 검사합니다. Temporal, metric-series 및
+> evidence-join 핸들러는 이제 검증기와 실행기가 공유하는 핸들러 맵에 포함됩니다. 운영 조립은
+> 비어 있지 않은 state-store DSN에서 PostgreSQL 토폴로지 이력을 연결하고 검토된 레지스트리와
+> no-op이 아닌 프로바이더가 모두 있을 때만 metric/evidence 핸들러를 연결합니다. 그렇지 않으면
+> 해당 기능은 타입이 지정된 사용 불가 상태로 유지됩니다.
 > OQ-07은 이제 현재 connected VNet 피어링 기록을 관찰된 direction으로 변환 결과하고 비공개
 > 엔드포인트를 exact private-link 서비스 대상에 첨부합니다. Reverse 피어링에는 여전히 독립적인
 > remote-VNet 관측이 필요합니다. 또한 명시적 ARM 리소스 next-hop id에서만 `routes_to`를
@@ -142,7 +146,9 @@ translation_revised: 2026-08-13
 |------|------|------|------|
 | 서비스 간 의미 계약 및 Core 처리 | 구현됨 | `semantic_turn.py`, `semantic_turn_consumer.py`, `semantic_turn_processor.py`, 통과한 의미 경로 테스트 88개 | 버전 1.2 요청은 90초로 제한되고 결과는 멱등성을 보장하며 점유를 복구할 수 있습니다. Rule 결과는 실행 권한이 없는 후보 전용으로 유지됩니다. |
 | Operator 영속성과 Rule 변환 결과 | 구현됨 | `semantic_turn_runtime.py`, `postgres_semantic_turn_store.py`, `test_semantic_turn_bridge.py`, 통과한 의미 경로 테스트 88개 및 롤백 전용 PostgreSQL 트랜잭션 검사 | 발신함과 결과 점유를 복구할 수 있고 잘못된 소유권은 안전하게 차단됩니다. 재생 순서는 타임스탬프를 인식하며 exact Rule 읽기는 principal과 조회 다이제스트로 격리됩니다. |
-| 운영 보증 및 프로바이더 조립 | 진행 중 | [온톨로지 조회 무작위 보증](ontology-query-randomized-assurance-ko.md)과 아래의 검증된 기준선 공백 표 | 구현은 안전하게 실패하지만 운영 준비 상태를 입증하는 통제된 실제 서비스 간 증적이 없습니다. 영속 의미, temporal, metric 및 근거 프로바이더 연결은 명시적인 전달 작업으로 남아 있습니다. |
+| 과거 토폴로지 영속성과 발행 | 구현됨 | `inventory_topology_history.py`, `postgres_topology_history.py`, `inventory_sync_cli.py`, 통과한 범위가 제한된 인벤토리/토폴로지 테스트 31개 | 완전한 승격 관측은 bitemporal 개정 번호를 하나의 트랜잭션으로 추가합니다. 과거/현재 파생 쓰기는 서로 독립적으로 시도하며 불완전한 관측은 완전한 과거 기준선을 만들 수 없습니다. |
+| Temporal, metric 및 근거 프로바이더 조립 | 구현됨 | `wire_semantic_query.py`, `bootstrap.py`, `bootstrap_bindings.py`, `test_wire_semantic_query.py`, `test_bootstrap_config.py`, 통과한 focused 조립 및 프로바이더 선택 테스트 16개 | 하나의 핸들러 맵이 검증기 가용성과 실행을 함께 제어합니다. 운영 환경은 상태 저장소 DSN에서 PostgreSQL 이력을 연결하고 검토된 레지스트리와 no-op이 아닌 프로바이더가 모두 있을 때만 metric/evidence 핸들러를 연결합니다. |
+| 통제된 운영 보증 | 진행 중 | [온톨로지 조회 무작위 보증](ontology-query-randomized-assurance-ko.md)과 아래의 검증된 기준선 공백 표 | 로컬 검사는 안전하게 실패하는 조립을 입증하지만 운영 준비 상태를 입증하는 통제된 실제 서비스 간 증적은 없습니다. |
 
 ### 구현 이력
 
@@ -150,11 +156,14 @@ translation_revised: 2026-08-13
 |------|------|------|------|-----------|
 | 2026-08-13 | 진행 중 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했습니다. | 구현 범위 표에 나열된 현재 출처, 테스트 및 상태 근거 | 아래의 실제 운영 보증 및 프로바이더 조립 근거를 확보합니다. |
 | 2026-08-13 | 구현됨 | 10회가 넘는 adversarial 검토를 통해 Rule 검색 계약, Core 멱등성과 점유, Operator 재시도와 임대, exact 영속성, 재생 및 소유권 검증을 강화했습니다. | `current change`, `pytest -q services/core-control-plane/tests/test_semantic_turn_processor.py services/operator-service/tests/test_semantic_turn_bridge.py services/operator-service/tests/test_operator_workflow_family.py tests/integration/test_semantic_turn_roundtrip.py` 테스트 88개 통과, 작업 범위 Ruff 통과 및 롤백 전용 PostgreSQL 트랜잭션 검사 통과 | 운영 검증은 통제된 실제 증적을 확보할 때까지 차단됩니다. |
+| 2026-08-13 | 구현됨 | 결정론적 인벤토리 승격 토폴로지 개정 번호 발행과 추가 전용 bitemporal PostgreSQL 읽기/쓰기를 추가하고 현재/과거 파생 쓰기를 독립시켰습니다. | `current change`, 범위가 제한된 인벤토리/토폴로지 테스트 31개 통과, 작업 범위 Ruff 및 mypy 통과 | 과거 읽기 경로를 운영 의미 조회 런타임에 연결하고 통제된 런타임 근거를 확보합니다. |
+| 2026-08-13 | 구현됨 | Temporal 토폴로지, metric-series 및 evidence-join 기능을 exact-release 의미 런타임 조립에 연결했습니다. 선택적 메트릭 의존성은 원자적으로 처리하며 프로바이더가 없으면 검증기와 실행기 모두에서 사용 불가 상태를 유지합니다. | `current change`, `wire_semantic_query.py`, `bootstrap.py`, `test_wire_semantic_query.py`, `test_bootstrap_config.py`, focused 검사 16개 통과 | 통제된 request-to-Console 및 무작위 보증 증적을 기록합니다. |
+| 2026-08-13 | 구현됨 | 구체적인 의미 조회 프로바이더 선택을 런타임 바인딩 도우미로 옮겨 프로세스 진입점이 검토된 조립 fanout 범위 안에 머물도록 했습니다. | `current change`, `bootstrap.py`, `bootstrap_bindings.py`, `test_bootstrap_config.py`, focused 프로바이더 선택 테스트 3개 통과 | 통제된 request-to-Console 및 무작위 보증 증적을 기록합니다. |
 
 ### 남은 작업
 
 - [ ] Operator 게시, Core 처리, exact Operator 변환 결과 읽기 및 인증된 Console 렌더링을 포함하는 통제된 요청-Console 증적 하나를 기록합니다. 이중 언어 무작위 보증 집단을 다시 실행하고 통과한 두 근거 기록을 연결합니다.
-- [ ] 검증된 기준선에 명시된 영속 의미 인덱스와 temporal, metric-series 및 evidence-join 프로바이더를 조립합니다. 타입이 지정된 각 사용 불가 공백에 범위가 제한된 검사와 통제된 런타임 증적이 생기면 이 항목을 닫습니다.
+- [x] 영속 의미 인덱스, 과거 토폴로지 읽기 경로, metric-series 및 evidence-join 프로바이더를 타입이 지정된 사용 불가 동작과 focused 검사와 함께 조립합니다.
 
 ## 설계 개요
 

@@ -20,9 +20,15 @@ from fdai.core.conversation.semantic_planning_models import (
 from fdai.core.conversation.semantic_runtime import SemanticConversationRuntime
 from fdai.core.conversation.session import Principal, Role
 from fdai.core.ontology_platform import (
+    METRIC_ARGUMENT_SCHEMAS,
+    TOPOLOGY_ARGUMENT_SCHEMAS,
     AggregateNodeHandler,
+    EvidenceJoinNodeHandler,
     FunctionInvocationContext,
     FunctionNodeHandler,
+    MetricSemanticRegistry,
+    MetricSeriesNodeHandler,
+    MetricWindowProvider,
     ObjectSetDefinition,
     ObjectSetService,
     OntologyFunctionRegistry,
@@ -32,6 +38,9 @@ from fdai.core.ontology_platform import (
     ProjectNodeHandler,
     SecuredObjectSetNodeHandler,
     SetOperationNodeHandler,
+    TopologyAtNodeHandler,
+    TopologyDiffNodeHandler,
+    TopologyHistoryReader,
     compile_interfaces,
 )
 from fdai.core.ontology_platform.catalog_queries import (
@@ -99,6 +108,9 @@ def build_semantic_query_runtime(
     ontology_store: OntologyInstanceStore,
     catalog_index: CatalogSemanticIndex | None = None,
     catalog_digest: str | None = None,
+    topology_reader: TopologyHistoryReader | None = None,
+    metric_registry: MetricSemanticRegistry | None = None,
+    metric_window_provider: MetricWindowProvider | None = None,
     purpose: str = "operations-review",
     now: Callable[[], datetime] | None = None,
 ) -> SemanticConversationRuntime:
@@ -108,6 +120,8 @@ def build_semantic_query_runtime(
         raise ValueError("semantic query purpose MUST be non-empty")
     if (catalog_index is None) != (catalog_digest is None):
         raise ValueError("catalog semantic index and digest MUST be supplied together")
+    if (metric_registry is None) != (metric_window_provider is None):
+        raise ValueError("metric semantic registry and window provider MUST be supplied together")
     function_types = operational_function_types(ontology_catalog.function_types)
     expected_release = build_ontology_release(
         object_types=ontology_catalog.object_types,
@@ -199,6 +213,26 @@ def build_semantic_query_runtime(
         QueryNodeKind.PROJECT: ProjectNodeHandler(),
         QueryNodeKind.AGGREGATE: AggregateNodeHandler(),
     }
+    extension_schemas: dict[QueryNodeKind, Mapping[str, object]] = {}
+    if topology_reader is not None:
+        handlers.update(
+            {
+                QueryNodeKind.TOPOLOGY_AT: TopologyAtNodeHandler(topology_reader),
+                QueryNodeKind.TOPOLOGY_DIFF: TopologyDiffNodeHandler(),
+            }
+        )
+        extension_schemas.update(TOPOLOGY_ARGUMENT_SCHEMAS)
+    if metric_registry is not None and metric_window_provider is not None:
+        handlers.update(
+            {
+                QueryNodeKind.METRIC_SERIES: MetricSeriesNodeHandler(
+                    registry=metric_registry,
+                    provider=metric_window_provider,
+                ),
+                QueryNodeKind.EVIDENCE_JOIN: EvidenceJoinNodeHandler(),
+            }
+        )
+        extension_schemas.update(METRIC_ARGUMENT_SCHEMAS)
     available_kinds = (QueryNodeKind.OBJECT_SET, QueryNodeKind.FUNCTION, *handlers)
     planner = SemanticPlanningService(
         model=model,
@@ -211,7 +245,10 @@ def build_semantic_query_runtime(
             functions=function_types,
             bound_function_names=tuple(sorted(bound_function_names)),
         ),
-        verifier=OntologyQueryPlanVerifier(available_kinds=available_kinds),
+        verifier=OntologyQueryPlanVerifier(
+            available_kinds=available_kinds,
+            extension_argument_schemas=extension_schemas,
+        ),
         descriptor_selector=CompleteManifestSelector(),
     )
 
@@ -262,6 +299,9 @@ def compose_azure_semantic_query_runtime(
     purpose: str = "operations-review",
     catalog_index: CatalogSemanticIndex | None = None,
     catalog_digest: str | None = None,
+    topology_reader: TopologyHistoryReader | None = None,
+    metric_registry: MetricSemanticRegistry | None = None,
+    metric_window_provider: MetricWindowProvider | None = None,
 ) -> SemanticQueryRuntimeComposition:
     """Compose Azure semantic querying over optional exact Rule retrieval."""
 
@@ -307,6 +347,9 @@ def compose_azure_semantic_query_runtime(
             ontology_store=ontology_store,
             catalog_index=catalog_index,
             catalog_digest=catalog_digest,
+            topology_reader=topology_reader,
+            metric_registry=metric_registry,
+            metric_window_provider=metric_window_provider,
             purpose=purpose,
         )
     except (OSError, LookupError, TypeError, ValueError):

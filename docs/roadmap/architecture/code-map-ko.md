@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 2427c2780ad559706528803bb0fade2aa4565ec0
+translation_source_sha: 45f2d9a46cdff376f0dbbca3adfeac22a86b1e51
 translation_revised: 2026-08-13
 ---
 # 코드 맵
@@ -38,6 +38,7 @@ translation_revised: 2026-08-13
 | Rule 세대 발행 소유권 | 구현됨 | `agents/mimir.py`, `agents/_framework/runtime.py`, `runtime/bootstrap.py`, `runtime/bootstrap_bindings.py`, `runtime/bootstrap_lifecycle.py`, 집중 Mimir, 런타임, bootstrap, 활성화 및 발행 검사(`32 passed`) | Mimir만 활성화 명령과 결과를 구독합니다. 명령을 exact binder에 위임하고 안전하게 재시도할 수 있는 변환 전용 결과 증적을 저장합니다. 준비 상태와 독립적인 drain은 해제된 전송 실패만 재시도하며 Mimir에 인덱스, 정책, 승인, 변경 또는 실행 권한을 부여하지 않습니다. |
 | 읽기 조사 활동 ID | 구현됨 | `composition/wire_read_investigation.py`, `test_wire_read_investigation.py`, focused 테스트 | 각 호출은 실시간 및 영속 활동에서 하나의 불투명한 상관관계 값을 공유하고, 별도 호출은 서로 다른 상관관계 값을 사용하며, 논리적 요청 멱등성은 안정적으로 유지됩니다. |
 | 서비스 간 의미 Rule 변환 결과 | 구현됨 | `fdai_service_contracts/semantic_turn.py`, `fdai_core_service/semantic_turn_processor.py`, `fdai_operator_service/postgres_semantic_turn_store.py`, 통과한 의미 경로 테스트 88개 | 공유 버전 1.2 계약, Core 처리 및 Operator 영속성은 후보 전용 권한, 범위가 제한된 기한, 복구 가능한 소유권 및 principal 범위의 exact 읽기를 보존합니다. 통제된 실제 운영 보증은 [온톨로지 조회 coverage 계획](../interfaces/ontology-query-coverage-implementation-plan-ko.md#남은-작업)에 열린 항목으로 남아 있습니다. |
+| 의미 시간 및 근거 조립 | 구현됨 | `delivery/persistence/postgres_topology_history.py`, `composition/wire_semantic_query.py`, `runtime/bootstrap.py`, `runtime/bootstrap_bindings.py`, 통과한 집중 조립 및 프로바이더 선택 테스트 16개 | 상태 저장소 DSN이 있을 때만 PostgreSQL 토폴로지 이력을 사용할 수 있습니다. 메트릭 시계열과 근거 결합 기능에는 검토된 메트릭 레지스트리와 no-op이 아닌 프로바이더가 모두 필요합니다. 하나의 핸들러 맵이 검증기와 실행기의 가용성을 함께 제어하며 모든 결과는 `execution_authority=False`인 읽기 전용으로 유지됩니다. |
 
 ### 구현 이력
 
@@ -55,6 +56,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | 구현됨 | 검증된 Rule 세대 명령이 의미 인덱스를 변경하기 전에 정확한 대상 증적과 예상 이전 활성 식별자에 연결되도록 했습니다. 완료된 명령의 replay는 프로바이더 접근 전에 영속 최종 결과를 반환하며, 효과 발생 후 오류 조정은 안전하게 닫힌 상태를 유지합니다. | `current change`, `activation.py`, `ledger.py`, 프로바이더와 delivery 활성화 계약, 통과한 집중 활성화, ledger, 세대 및 실제 PostgreSQL 검사, 변경한 수명 주기 파일의 Ruff와 strict mypy 통과 | 범위가 제한된 EventBus outbox 발행, 담당 agent 연결 및 통제된 런타임 근거를 추가합니다. |
 | 2026-08-13 | 구현됨 | 영속 Rule 세대 활성화 결과를 위한 범위가 제한된 at-least-once EventBus 발행을 추가했습니다. Exact-topic 확인은 lease로 차단된 outbox 레코드를 완료하고, 실패는 결정론적 재시도를 위해 레코드를 해제하며, 취소는 lease 복구를 보존하고, 확인 영속성 실패는 lease 만료 replay로 복구합니다. | `current change`, `publication.py`, 패키지 export 및 통과한 집중 발행 테스트 7개, 작업 범위 Ruff와 strict mypy 통과 | 담당 agent를 연결하고 통제된 런타임 발행 근거를 기록합니다. |
 | 2026-08-13 | 구현됨 | Mimir를 유일한 Rule 세대 명령 및 결과 subscriber로 연결하고 하나의 공유 영속 ledger를 조립했으며 준비 상태와 독립적인 outbox drain을 시작했습니다. 해제된 전송 실패는 재시도하지만 receipt 계약 및 영속 상태 실패는 치명적으로 유지합니다. | `current change`, 집중 Mimir, 런타임, bootstrap, 활성화 및 발행 검사 32개 통과, Ruff, strict mypy, 번역 freshness 및 한국어 품질 검사 통과 | 통제된 실제 런타임 발행 증적을 기록하며 IS-09 원격 검증은 열려 있습니다. |
+| 2026-08-13 | 구현됨 | PostgreSQL 토폴로지 이력과 검토된 메트릭 및 근거 프로바이더를 선택적 기능이 안전하게 닫히는 exact-release 의미 조회 조립에 연결했습니다. | `current change`, `postgres_topology_history.py`, `wire_semantic_query.py`, `bootstrap.py`, `bootstrap_bindings.py`, `test_wire_semantic_query.py`, `test_bootstrap_config.py`, 통과한 집중 검사 16개 | 온톨로지 조회 coverage 계획에 통제된 실제 증적을 기록하고 IS-09 원격 검증을 완료합니다. |
 
 ### 남은 작업
 

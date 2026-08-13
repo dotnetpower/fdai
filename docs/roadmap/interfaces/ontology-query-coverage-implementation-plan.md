@@ -43,8 +43,10 @@ units for 100% structural query coverage.
 > ObjectSets, secured query receipts, typed function registration, current inventory projection,
 > metric providers, and causal-analysis primitives exist. The production path still uses regex and
 > token routing plus an optional serial two-to-three-command read plan. A server-side intent graph,
-> full release-derived query manifest, `OntologyQueryPlan`, complete semantic index adapter,
-> historical topology, and cross-resource temporal query composition have not landed.
+> principal-scoped release-derived query manifest, `OntologyQueryPlan`, durable semantic index,
+> historical topology, and cross-resource temporal provider composition now exist. Production
+> turn-completion wiring, durable semantic-index activation publication, and governed
+> cross-service and randomized assurance receipts remain incomplete.
 > The OQ-01 implementation-free SDK models for the semantic problem frame, query DAG, intent graph,
 > task receipt, and structural coverage receipt now ship. Producer and consumer projection wiring
 > remains part of OQ-04 and OQ-05.
@@ -60,7 +62,10 @@ units for 100% structural query coverage.
 > ordering, projection, grouped aggregation, and exact-release query/derive/validate function
 > invocation. A deterministic verifier checks the principal manifest, readable properties,
 > LinkTypes, closed node arguments, dependency output kinds, function schemas, and registered
-> extension schemas before I/O. Temporal, metric-series, and evidence-join handlers remain.
+> extension schemas before I/O. Temporal, metric-series, and evidence-join handlers now share the
+> verifier and executor handler map. Production composition binds PostgreSQL topology history from
+> a non-empty state-store DSN and binds metric/evidence handlers only when both a reviewed registry
+> and a non-noop provider are available; otherwise, those capabilities remain typed unavailable.
 > OQ-07 now projects current connected VNet peering records in the observed direction and private
 > endpoint attachments to their exact private-link service targets. Reverse peering still requires
 > an independent remote-VNet observation. It also projects `routes_to` only from explicit ARM
@@ -146,7 +151,9 @@ units for 100% structural query coverage.
 |------|-------|----------|-------|
 | Semantic wire and Core processing | implemented | `semantic_turn.py`, `semantic_turn_consumer.py`, `semantic_turn_processor.py`; focused semantic tests passed 88 cases | Version 1.2 requests are bounded to 90 seconds, results are idempotent, claims are recoverable, and Rule results remain candidate-only with no execution authority. |
 | Operator persistence and Rule projection | implemented | `semantic_turn_runtime.py`, `postgres_semantic_turn_store.py`, `test_semantic_turn_bridge.py`; focused semantic tests passed 88 cases and a rollback-only PostgreSQL transaction probe passed | Outbox and result leases are recoverable, malformed ownership fails closed, replay ordering is timestamp-aware, and exact Rule reads are isolated by principal and query digest. |
-| Production assurance and provider composition | in-progress | [Ontology Query Randomized Assurance](ontology-query-randomized-assurance.md) and the verified baseline gap table below | The implementation is fail-closed, but no governed live cross-service receipt proves production readiness. Durable semantic, temporal, metric, and evidence provider bindings remain explicit delivery work. |
+| Historical topology persistence and publishing | implemented | `inventory_topology_history.py`, `postgres_topology_history.py`, `inventory_sync_cli.py`; focused inventory and topology tests passed 31 cases | Complete promoted observations append bitemporal revisions atomically. Historical and current derived writes are attempted independently, while incomplete observations cannot establish a complete historical baseline. |
+| Temporal, metric, and evidence provider composition | implemented | `wire_semantic_query.py`, `bootstrap.py`, `bootstrap_bindings.py`, `test_wire_semantic_query.py`, `test_bootstrap_config.py`; focused composition and provider-selection tests passed 16 cases | One handler map controls verifier availability and execution. Production binds PostgreSQL history from the state-store DSN and binds metric/evidence handlers only for a reviewed registry plus a non-noop provider. |
+| Governed production assurance | in-progress | [Ontology Query Randomized Assurance](ontology-query-randomized-assurance.md) and the verified baseline gap table below | Local checks prove fail-closed composition, but no governed live cross-service receipt proves production readiness. |
 
 ### Implementation history
 
@@ -154,11 +161,14 @@ units for 100% structural query coverage.
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | Current source, tests, and status evidence listed in the scope table. | Obtain the live assurance and provider-composition evidence listed below. |
 | 2026-08-13 | implemented | Hardened Rule-search contracts, Core idempotency and claims, Operator retries and leases, exact persistence, replay, and ownership validation through more than ten adversarial review rounds. | `current change`; `pytest -q services/core-control-plane/tests/test_semantic_turn_processor.py services/operator-service/tests/test_semantic_turn_bridge.py services/operator-service/tests/test_operator_workflow_family.py tests/integration/test_semantic_turn_roundtrip.py` passed 88 cases; task-scoped Ruff passed; a rollback-only PostgreSQL transaction probe passed. | Production validation remains blocked on governed live receipts. |
+| 2026-08-13 | implemented | Added deterministic inventory-promotion topology revision publishing and an append-only bitemporal PostgreSQL reader/writer with independent current and historical derived writes. | `current change`; focused inventory and topology tests passed 31 cases; task-scoped Ruff and mypy passed. | Bind the historical reader to the production semantic query runtime and obtain governed runtime evidence. |
+| 2026-08-13 | implemented | Bound temporal topology, metric-series, and evidence-join capabilities into exact-release semantic runtime composition. Optional metric dependencies are atomic, and absent providers remain unavailable to both the verifier and executor. | `current change`; `wire_semantic_query.py`, `bootstrap.py`, `test_wire_semantic_query.py`, and `test_bootstrap_config.py`; focused checks passed 16 cases. | Record governed request-to-Console and randomized assurance receipts. |
+| 2026-08-13 | implemented | Moved concrete semantic-query provider selection into the runtime binding helper so the process entry point stays within its reviewed composition fanout. | `current change`; `bootstrap.py`, `bootstrap_bindings.py`, and `test_bootstrap_config.py`; focused provider-selection tests passed 3 cases. | Record governed request-to-Console and randomized assurance receipts. |
 
 ### Remaining work
 
 - [ ] Record one governed request-to-Console receipt that covers Operator publication, Core processing, exact Operator projection read, and authenticated Console rendering; rerun the bilingual randomized assurance cohort and link both passing evidence records.
-- [ ] Compose the durable semantic index and the temporal, metric-series, and evidence-join providers identified in the verified baseline; close this item when each typed unavailable gap has focused checks and a governed runtime receipt.
+- [x] Compose the durable semantic index, historical topology reader, metric-series, and evidence-join providers with typed unavailable behavior and focused checks.
 
 ## Design at a glance
 

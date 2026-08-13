@@ -81,6 +81,9 @@ from fdai.runtime.bootstrap_bindings import (
 from fdai.runtime.bootstrap_bindings import (
     operational_event_bus as _operational_event_bus,
 )
+from fdai.runtime.bootstrap_bindings import (
+    semantic_query_providers as _semantic_query_providers,
+)
 from fdai.runtime.bootstrap_lifecycle import (
     build_catalog_semantic_runtime_binding as _build_catalog_semantic_runtime_binding,
 )
@@ -544,6 +547,11 @@ async def _run() -> int:
                 catalog_index=catalog_semantic_binding.index,
                 environment=os.environ,
             )
+            topology_reader, metric_registry, metric_window_provider = _semantic_query_providers(
+                state_store_dsn=os.environ.get("FDAI_STATE_STORE_DSN"),
+                metric_provider=container.metric_provider,
+                metric_registry=control_loop.metric_semantics,
+            )
             semantic_composition = compose_azure_semantic_query_runtime(
                 container=container,
                 ontology_release=control_loop.ontology_release,
@@ -559,6 +567,9 @@ async def _run() -> int:
                 purpose=semantic_purpose,
                 catalog_index=catalog_semantic_binding.index,
                 catalog_digest=catalog_semantic_binding.catalog_digest,
+                topology_reader=topology_reader,
+                metric_registry=metric_registry,
+                metric_window_provider=metric_window_provider,
             )
             semantic_turn_binding = _build_semantic_turn_binding(
                 state_store=incident_audit_store,

@@ -6,6 +6,8 @@ from pathlib import Path
 
 import httpx
 import pytest
+from fdai.core.ontology_platform import MetricAggregation, MetricSemanticDefinition
+from fdai.core.ontology_platform.metric_semantics import MetricSemanticRegistry
 from fdai.core.ontology_platform.reconciliation_binding import (
     RECONCILIATION_OUTBOX_TOPIC,
     RECONCILIATION_REQUEST_TOPIC,
@@ -24,6 +26,8 @@ from fdai.core.rule_semantic_generation import (
 )
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
+from fdai.delivery.metric_window import ProviderMetricWindowReader
+from fdai.delivery.persistence.postgres_topology_history import PostgresTopologyHistoryStore
 from fdai.runtime.bootstrap import (
     _RUNTIME_LOGICAL_TOPICS,
     _schedule_semantic_turn_consumer,
@@ -32,6 +36,7 @@ from fdai.runtime.bootstrap_bindings import (
     RECONCILIATION_TOPICS,
     build_effect_reconciliation_worker,
     build_rule_generation_runtime_binding,
+    semantic_query_providers,
 )
 from fdai.runtime.bootstrap_bindings import (
     build_runtime_workload_identity as _build_runtime_workload_identity,
@@ -60,6 +65,7 @@ from fdai.runtime.bootstrap_lifecycle import (
 )
 from fdai.shared.config.runtime_flags import pantheon_start_enabled
 from fdai.shared.providers.local.event_bus import LocalEventBus
+from fdai.shared.providers.metric import MetricPoint, MetricQuery, NoopMetricProvider
 from fdai.shared.providers.startup_probe import StartupProbeRequest
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai_service_contracts.semantic_turn import (
@@ -92,6 +98,67 @@ def test_runtime_multiplexes_rule_generation_lifecycle_channels() -> None:
         RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
     }
     assert expected.issubset(_RUNTIME_LOGICAL_TOPICS)
+
+
+class _MetricProvider:
+    async def query(self, _query: MetricQuery):
+        if False:
+            yield MetricPoint(
+                metric_name="unused",
+                value=0.0,
+                at=datetime(2000, 1, 1, tzinfo=UTC),
+            )
+
+
+def _metric_registry() -> MetricSemanticRegistry:
+    return MetricSemanticRegistry.build(
+        (
+            MetricSemanticDefinition(
+                concept_id="metric.cpu.utilization",
+                description="Average CPU utilization.",
+                provider_metric="cpu.utilization",
+                canonical_unit="percent",
+                aggregation=MetricAggregation.AVERAGE,
+            ),
+        )
+    )
+
+
+def test_semantic_query_providers_bind_topology_only_with_state_store_dsn() -> None:
+    topology, registry, window_provider = semantic_query_providers(
+        state_store_dsn=" postgresql://state ",
+        metric_provider=NoopMetricProvider(),
+        metric_registry=_metric_registry(),
+    )
+
+    assert isinstance(topology, PostgresTopologyHistoryStore)
+    assert registry is None
+    assert window_provider is None
+
+
+def test_semantic_query_providers_hide_incomplete_metric_binding() -> None:
+    topology, registry, window_provider = semantic_query_providers(
+        state_store_dsn=None,
+        metric_provider=_MetricProvider(),
+        metric_registry=None,
+    )
+
+    assert topology is None
+    assert registry is None
+    assert window_provider is None
+
+
+def test_semantic_query_providers_bind_complete_metric_pair() -> None:
+    expected_registry = _metric_registry()
+    topology, registry, window_provider = semantic_query_providers(
+        state_store_dsn=None,
+        metric_provider=_MetricProvider(),
+        metric_registry=expected_registry,
+    )
+
+    assert topology is None
+    assert registry is expected_registry
+    assert isinstance(window_provider, ProviderMetricWindowReader)
 
 
 def test_effect_reconciliation_binding_requires_complete_evidence_providers() -> None:
