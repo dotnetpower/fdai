@@ -244,6 +244,7 @@ function recordLiveActivity(
   msg: AgentActivityMessage,
   sourceOverride?: FrameSource,
 ): AgentsState {
+  if (isRuntimeInitializationSnapshot(msg)) return state;
   const projected = projectLiveActivity(msg, state.nextLiveActivitySequence);
   if (projected === null) return state;
   const event = sourceOverride === undefined ? projected : { ...projected, source: sourceOverride };
@@ -256,6 +257,14 @@ function recordLiveActivity(
     liveActivity: [event, ...state.liveActivity].slice(0, MAX_LIVE_ACTIVITY),
     nextLiveActivitySequence: state.nextLiveActivitySequence + 1,
   };
+}
+
+function isRuntimeInitializationSnapshot(msg: AgentActivityMessage): boolean {
+  return msg.type === "agent.state" &&
+    (msg.state === "idle" || msg.state === "watching") &&
+    msg.correlation_id === null &&
+    msg.detail === "Runtime agent initialized" &&
+    msg.source === "runtime-observed";
 }
 
 function isRepeatedPassiveState(
