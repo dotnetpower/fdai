@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: bd52706d7a55c92d34f40ed4b39dc9a90b8a4787
+translation_source_sha: adff5f8b8101b12d08068da5fb4b33c2875b540c
 translation_revised: 2026-08-13
 ---
 # Rule 의미 검색
@@ -46,6 +46,7 @@ translation_revised: 2026-08-13
 | 정확한 세대 Rule 질의 | implemented | `core/ontology_platform/catalog_queries.py`; `tests/core/ontology_platform/test_catalog_queries.py` | 실행 권한 없이 후보 전용 결과와 내용 기반 주소를 가진 검색 및 호출 증적을 반환합니다. |
 | 선택적 의미 런타임 바인딩 | implemented | `composition/wire_semantic_query.py`; `tests/composition/test_wire_semantic_query.py` | 의미 인덱스와 정확한 카탈로그 다이제스트를 함께 요구합니다. |
 | Planner 가용성 계상 | implemented | `core/ontology_platform/query_manifest.py`; `tests/core/ontology_platform/test_query_manifest.py`; current change focused checks | 읽을 수 있지만 바인딩되지 않은 함수는 구조 커버리지에 `runtime_binding_unavailable`로 남고 planning에서는 숨겨집니다. |
+| 이중 언어 held-out 평가기 계약 | implemented | `rule_catalog/schema/rule_semantic_evaluation.py`; `tests/rule_catalog/test_rule_semantic_evaluation.py`; current change focused check | 영어 및 한국어 양성 사례와 명시적 no-match 고정본이 검증 전용 집단 근거를 생성합니다. 두 언어 모두에서 training 질의 재사용을 거부합니다. 이는 카탈로그 기반 검색 품질이나 승격 준비 상태를 검증하지 않습니다. |
 | In-memory 세대 및 검증 | implemented | `delivery/catalog_search/in_memory.py`; `delivery/catalog_search/generation.py`; `tests/delivery/catalog_search/test_ontology_generation.py`; `tests/rule_catalog/test_discovery_catalog_search.py` | 결정론적 off-path 세대, 독립적인 활성 및 발견 포인터, 코퍼스별 롤백 및 영속 어댑터와 같은 활성화 compare-and-swap을 지원합니다. |
 | 코퍼스 규모 세대 식별자 | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/generation.py`; `delivery/catalog_search/in_memory.py`; 집중 세대 및 Rule 카탈로그 테스트 | 프로바이더 중립 메타데이터는 개수, 계층형 루트, 범위가 제한된 순서가 있는 청크 및 작은 세대의 인라인 다이제스트를 포함합니다. 세대 생성, 검증 증적, 준비, 활성화, 활성 조회, 검색, 롤백 및 롤백 증적은 식별자 차이를 거부합니다. |
 | 영속 PostgreSQL 인덱스 | implemented | `delivery/catalog_search/postgres.py`; migration `0077` 및 `0080`; `tests/delivery/catalog_search/test_postgres.py`; `test_postgres_integration.py`; `test_postgres_rule_corpora_integration.py` | 정확한 세대 매니페스트를 저장하고 다시 검증하며 코퍼스별 세대를 원자적으로 준비, 활성화, 검색 및 롤백합니다. PostgreSQL에서 활성 문서 62개와 발견 문서 8,487개 전체의 수명 주기 격리를 증명합니다. |
@@ -62,6 +63,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | in-progress | 실제 발견 레코드 8,487개를 권한이 없는 후보 전용 검색 문서로 구체화하고 하나의 in-memory 인덱스에서 전체 활성 62개와 발견 8,487개의 수명 주기 격리를 검증했습니다. 발견 세대를 교체하거나 롤백해도 활성 메타데이터와 결과는 바뀌지 않습니다. | 커밋 `fea694a32` 및 `c136a7231`; `test_discovery_catalog_search.py`에서 빈 입력, 잘못된 입력 및 중복을 안전하게 차단하는 사례와 전체 코퍼스 준비, 활성화, 검색, 교체 및 롤백을 포함한 테스트 4개가 통과했습니다. Ruff 및 strict mypy가 통과했습니다. | 개수, 루트 및 청크를 제공 메타데이터에 연결한 다음 영속 PostgreSQL 어댑터에서 수명 주기 증명을 반복합니다. |
 | 2026-08-13 | implemented | 정규 문서 매니페스트를 프로바이더 중립 세대 메타데이터에 연결하고 모든 in-memory 수명 주기 경계에서 순서가 있는 정확한 행을 다시 검증했습니다. 세대 다이제스트는 이제 모든 메타데이터 및 매니페스트 필드를 자체 검증하며, 검증 및 롤백 증적은 청크 식별자를 고정하고 Rule 검색 문서 변환 공식은 v3으로 갱신되었습니다. 적대적 14차에서 채택한 비정규 세대 다이제스트 문제를 해결했으며, 영속 어댑터 공백은 별도 잔여 작업입니다. | `current change`; 집중 세대, 정확한 질의, 검색, 전체 코퍼스 및 구성 검사에서 테스트 41개가 통과했습니다. 소스 파일 5개에서 strict mypy가 통과했고 소스 및 테스트 파일 9개에서 Ruff 검사가 통과했으며 편집기 진단은 깨끗했습니다. | 영속 PostgreSQL 어댑터에 같은 매니페스트를 저장하고 다시 검증한 다음 실제 데이터베이스 수명 주기 근거를 기록합니다. |
 | 2026-08-13 | implemented | 영속 PostgreSQL 세대 어댑터와 예상 이전 활성 세대가 정확히 일치해야 하는 활성화 compare-and-swap을 추가했습니다. 활성화는 같은 코퍼스 잠금 안에서 포인터를 변경하기 전에 대상 다이제스트, 이전 활성 ID와 다이제스트, 수명 주기 상태, 재실행 식별자 및 시간 순서를 확인합니다. 전체 활성 및 발견 코퍼스는 교체와 롤백 과정에서도 격리됩니다. | `current change`; 전체 활성 62개와 발견 8,487개 코퍼스 검사를 포함한 집중 PostgreSQL 단위 및 실제 데이터베이스 수명 주기 검사가 통과했습니다. 집중 활성화 동등성 검사에서 테스트 42개가 통과했고 변경한 수명 주기 파일에서 Ruff와 strict mypy가 통과했습니다. | 운영 bootstrap에서 어댑터를 구성하고 수명 주기 및 검색 변환 결과를 발행한 다음 통제된 런타임 근거를 기록합니다. |
+| 2026-08-13 | implemented | held-out 평가기 계약에 읽을 수 있는 한국어 양성 사례와 명시적 no-match 고정본을 추가하고, 한국어 training 및 evaluation 격리를 증명했으며, 표면과 증적이 실행 권한 없음 및 검증 전용 권한을 유지하는지 확인했습니다. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/rule_catalog/test_rule_semantic_evaluation.py`에서 테스트 5개가 통과했습니다. | 배포된 카탈로그와 실제 의미 인덱스를 대상으로 필수 집단을 실행한 다음, 측정된 구성 임계값을 통제된 승격에 연결합니다. |
 
 ### 남은 작업
 
@@ -81,6 +83,10 @@ translation_revised: 2026-08-13
 - [ ] 이 기능의 상태를 `implemented`에서 `validated`로 변경하기 전에 운영 바인딩 및
   Reader 범위 변환 결과의 통제된 실제 근거를 기록하고
   [CatalogRetrievalReceipt](#catalogretrievalreceipt)에 정의된 신원을 보존합니다.
+- [ ] 배포된 카탈로그와 실제 의미 인덱스를 대상으로 독립적으로 작성한 영어 및 한국어 양성,
+  no-match, 모호성, 오래된 상태, 적대적 입력 및 말뭉치 격리 집단을 실행합니다. 구성 기반
+  임계값이 검토 가능한 증적을 만들고 통제된 승격 게이트가 실행 권한을 부여하지 않은 채 이를
+  사용하면 완료합니다.
 
 ## 설계 개요
 
