@@ -142,6 +142,40 @@ principal/channel isolation, authorized measurements, context, lineage, deletion
 concurrent rebuild, narrator provenance, API denial, Console decoding, navigation registration,
 and responsive type checking.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Bounded query contracts and Unicode matching | implemented | `services/core-control-plane/src/fdai/shared/providers/conversation_search.py`; `services/core-control-plane/src/fdai/shared/providers/conversation_search_text.py`; `services/core-control-plane/tests/providers/test_conversation_search.py` | The shared contracts enforce query, result, context, snippet, and measurement bounds. Focused provider tests cover English, Korean, phrase, prefix, and metadata matching. |
+| Principal-scoped in-memory search, context, lineage, measurements, and deletion | implemented | `services/core-control-plane/src/fdai/shared/providers/testing/conversation_search.py`; `services/core-control-plane/tests/providers/test_conversation_search.py` | Focused tests exercise principal and allowlist isolation before measurements, authorized neighbors and lineage, deterministic corpus caps, and deletion visibility. |
+| PostgreSQL projection, indexing, retention, and rebuild | in-progress | `alembic/versions/20260720_0038_conversation_search.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_conversation_search.py`; `services/core-control-plane/tests/persistence/test_conversation_search.py` | The migration and adapter exist, including concurrent index rebuild. The live integration checks require `FDAI_DATABASE_URL`, and the documented headless `conversation_search_rebuild_cli` module is absent. |
+| Reader-floor narrator search tool | implemented | `services/core-control-plane/src/fdai/core/conversation/_system_conversation_search_tool.py`; `services/core-control-plane/tests/conversation/test_search_conversations_tool.py` | Focused tests prove principal-scoped results, bounded validation errors, evidence references, and explicit `trusted: false` output for a Reader principal. |
+| Operator API search, context, and lineage routes | in-progress | `services/operator-service/src/fdai_operator_service/families/conversation/manifest.py`; `services/operator-service/src/fdai_operator_service/families/conversation/factory.py`; `services/operator-service/tests/test_operator_conversation_family.py` | GET route declarations and generic principal-scoped projection forwarding exist. No authoritative search projection materializer or operation-specific API contract test was found. |
+| Console search and context panel | in-progress | `console/src/routes/conversation-search.tsx`; `console/src/user-context-client.ts`; `console/src/user-context-client.test.ts`; `console/src/panels.test.ts` | The panel, client, bounded decoder checks, and navigation registration exist. No focused route interaction test proves submission, highlights, context loading, and fail-closed rendering together. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; core provider and narrator checks passed 6 cases; the Operator conversation-family check passed 7 cases; Console decoder and panel checks passed 19 cases; PostgreSQL checks passed 1 non-live case and skipped 2 live cases because `FDAI_DATABASE_URL` was unset. | Complete the PostgreSQL, Operator API, Console, and governed runtime evidence below. |
+
+### Remaining work
+
+- [ ] Record a passing live PostgreSQL focused check for migration, principal isolation, bilingual
+  search, context, lineage, retention deletion, and concurrent rebuild with
+  `FDAI_DATABASE_URL` configured.
+- [ ] Add the documented `fdai.delivery.conversation_search_rebuild_cli` headless entry point and
+  focused success and failure-preservation checks.
+- [ ] Materialize the three search projections behind the Operator API and add focused API tests
+  that prove server-resolved scope, indistinguishable out-of-scope 404 responses, bounded payloads,
+  and omission of internal query duration.
+- [ ] Add a focused Console route test that covers form filters, safe highlights, context loading,
+  empty and unavailable results, and decoder failure without synthesized content.
+- [ ] Record governed runtime evidence for the PostgreSQL, Operator API, Console, and narrator paths
+  before promoting any scope row to `validated`.
+
 ## Related docs
 
 | To learn about | Read |

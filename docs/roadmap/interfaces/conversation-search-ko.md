@@ -1,8 +1,8 @@
 ---
 title: Access-Scoped 대화 검색
 translation_of: conversation-search.md
-translation_source_sha: b8ad3c6b9265a9e2005a64d66019b2e5646ce94a
-translation_revised: 2026-08-11
+translation_source_sha: 4d0f286b52cce80bf3ef1fd8aa3e9e4b3514207c
+translation_revised: 2026-08-13
 ---
 
 # Access-Scoped 대화 검색
@@ -142,6 +142,39 @@ bilingual 결정론적 키워드를 제공하고 출력은 명시적으로 신�
 커버리지는 English, Korean, 문구, 접두사, 메타데이터 필터, 와일드카드 abuse, principal/채널 격리,
 authorized 측정, 맥락, 계보, deletion, live 이행, 동시 재구축, 서술기 출처 이력,
 API denial, Console 디코딩, 탐색 registration, responsive 타입 검사를 포함합니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 범위가 제한된 조회 계약 및 Unicode 일치 | implemented | `services/core-control-plane/src/fdai/shared/providers/conversation_search.py`; `services/core-control-plane/src/fdai/shared/providers/conversation_search_text.py`; `services/core-control-plane/tests/providers/test_conversation_search.py` | 공유 계약은 조회, 결과, 맥락, 스니펫, 측정값의 범위를 제한합니다. 집중 프로바이더 테스트는 English, Korean, 문구, 접두사, 메타데이터 일치를 다룹니다. |
+| Principal 범위 내 인메모리 검색, 맥락, 계보, 측정, 삭제 | implemented | `services/core-control-plane/src/fdai/shared/providers/testing/conversation_search.py`; `services/core-control-plane/tests/providers/test_conversation_search.py` | 집중 테스트는 측정 전 principal 및 허용 목록 격리, 권한이 있는 인접 턴과 계보, 결정론적 corpus 상한, 삭제 반영을 실행합니다. |
+| PostgreSQL projection, 인덱싱, 보존, 재구축 | in-progress | `alembic/versions/20260720_0038_conversation_search.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_conversation_search.py`; `services/core-control-plane/tests/persistence/test_conversation_search.py` | 동시 인덱스 재구축을 포함하는 마이그레이션과 어댑터가 있습니다. Live 통합 검사는 `FDAI_DATABASE_URL`이 필요하며, 문서에 정의된 headless `conversation_search_rebuild_cli` 모듈은 없습니다. |
+| Reader-floor 서술기 검색 도구 | implemented | `services/core-control-plane/src/fdai/core/conversation/_system_conversation_search_tool.py`; `services/core-control-plane/tests/conversation/test_search_conversations_tool.py` | 집중 테스트는 Reader principal에 대해 principal 범위 결과, 범위가 제한된 검증 오류, 근거 참조, 명시적인 `trusted: false` 출력을 입증합니다. |
+| Operator API 검색, 맥락, 계보 경로 | in-progress | `services/operator-service/src/fdai_operator_service/families/conversation/manifest.py`; `services/operator-service/src/fdai_operator_service/families/conversation/factory.py`; `services/operator-service/tests/test_operator_conversation_family.py` | GET 경로 선언과 범용 principal 범위 projection 전달이 있습니다. 권위 있는 검색 projection materializer 또는 연산별 API 계약 테스트는 찾지 못했습니다. |
+| Console 검색 및 맥락 패널 | in-progress | `console/src/routes/conversation-search.tsx`; `console/src/user-context-client.ts`; `console/src/user-context-client.test.ts`; `console/src/panels.test.ts` | 패널, 클라이언트, 범위가 제한된 decoder 검사, 탐색 등록이 있습니다. 제출, 강조, 맥락 로드, fail-closed 렌더링을 함께 입증하는 집중 경로 상호 작용 테스트는 없습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | 이전 전달 provenance를 재구성하지 않고 구현 ledger를 도입했습니다. | `current change`; core provider 및 서술기 검사는 6건, Operator conversation-family 검사는 7건, Console decoder 및 panel 검사는 19건 통과했습니다. PostgreSQL 검사는 non-live 1건이 통과했고 `FDAI_DATABASE_URL`이 설정되지 않아 live 2건을 건너뛰었습니다. | 아래 PostgreSQL, Operator API, Console, governed runtime 근거를 완료합니다. |
+
+### 남은 작업
+
+- [ ] `FDAI_DATABASE_URL`을 구성한 상태에서 migration, principal 격리, bilingual 검색, 맥락,
+  계보, 보존 삭제, 동시 재구축에 대한 live PostgreSQL 집중 검사 통과 결과를 기록합니다.
+- [ ] 문서에 정의된 headless `fdai.delivery.conversation_search_rebuild_cli` 진입점과 성공 및
+  실패 시 보존 집중 검사를 추가합니다.
+- [ ] Operator API 뒤에 세 검색 projection을 materialize하고 server-resolved 범위, 범위 밖
+  결과와 구분할 수 없는 404 응답, 범위가 제한된 payload, 내부 조회 시간 생략을 입증하는
+  집중 API 테스트를 추가합니다.
+- [ ] Form filter, 안전한 강조, 맥락 로드, 빈 결과와 사용 불가 결과, 합성 콘텐츠 없는 decoder
+  실패를 다루는 집중 Console 경로 테스트를 추가합니다.
+- [ ] 어떤 범위 행도 `validated`로 올리기 전에 PostgreSQL, Operator API, Console, 서술기 경로에
+  대한 governed runtime 근거를 기록합니다.
 
 ## 관련 문서
 
