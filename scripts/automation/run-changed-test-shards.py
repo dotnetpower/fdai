@@ -243,7 +243,8 @@ def run(
     if failed == 0 and not integration:
         print(
             "changed-test-shards: integration tests skipped; set "
-            "FDAI_CHANGED_TEST_INTEGRATION=1 with a disposable FDAI_DATABASE_URL to run them",
+            "FDAI_CHANGED_TEST_INTEGRATION=1 with a dedicated validation "
+            "FDAI_DATABASE_URL to run them",
             file=sys.stderr,
         )
     return failed

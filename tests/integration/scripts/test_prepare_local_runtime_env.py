@@ -10,6 +10,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+import yaml
 from fdai_service_contracts.semantic_turn import (
     SEMANTIC_PHYSICAL_TOPIC,
     SEMANTIC_PROJECTION_TOPIC,
@@ -19,6 +20,18 @@ from fdai_service_contracts.semantic_turn import (
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _SCRIPT = _REPO_ROOT / "scripts/deployment/azure/prepare-local-runtime-env.sh"
 _BASH = shutil.which("bash") or "bash"
+
+
+def test_validation_database_uses_an_isolated_local_postgres_cluster() -> None:
+    compose = yaml.safe_load(
+        (_REPO_ROOT / "infra/local/docker-compose.yml").read_text(encoding="utf-8")
+    )
+    runtime = compose["services"]["postgres"]
+    validation = compose["services"]["postgres-validation"]
+
+    assert runtime["ports"] == ["127.0.0.1:5432:5432"]
+    assert validation["ports"] == ["127.0.0.1:5433:5432"]
+    assert runtime["volumes"] != validation["volumes"]
 
 
 def test_semantic_fallback_loads_shared_contract() -> None:
@@ -242,6 +255,7 @@ def test_prepares_deployed_transport_without_copying_stale_transport(
         "POSTGRES_HOST=127.0.0.1",
         "POSTGRES_DATABASE=fdai",
         "FDAI_DATABASE_URL=postgresql+psycopg://fdai:devonly@127.0.0.1:5432/fdai",
+        "FDAI_VALIDATION_DATABASE_URL=postgresql+psycopg://fdai:devonly@127.0.0.1:5433/fdai_validation",
         "FDAI_STATE_STORE_DSN=postgresql://fdai:devonly@127.0.0.1:5432/fdai",
         "FDAI_METERING_DSN=postgresql://fdai:devonly@127.0.0.1:5432/fdai",
         "LLM_MODE=azure",

@@ -12,6 +12,8 @@ from types import SimpleNamespace
 import pytest
 import yaml
 from scripts.automation import validation_queue
+from scripts.automation.validation_queue_context import validation_environment
+from scripts.automation.validation_queue_support import queue_paths
 
 pytestmark = pytest.mark.no_cover
 
@@ -26,6 +28,42 @@ POST_COMMIT_HOOK = REPO_ROOT / ".githooks" / "post-commit"
 PRE_PUSH_HOOK = REPO_ROOT / ".githooks" / "pre-push"
 AUTO_PULL_SCRIPT = REPO_ROOT / "scripts" / "automation" / "git-auto-pull.sh"
 VALIDATOR_AGENT = REPO_ROOT / ".github" / "agents" / "integration-validator.agent.md"
+
+
+def test_validation_environment_uses_only_the_dedicated_validation_database(
+    git_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("FDAI_DATABASE_URL", "postgresql://example.invalid/runtime")
+    monkeypatch.setenv("FDAI_VALIDATION_DATABASE_URL", "postgresql://example.invalid/validation")
+    monkeypatch.delenv("FDAI_CHANGED_TEST_INTEGRATION", raising=False)
+
+    environment = validation_environment(queue_paths(git_repo))
+
+    assert environment["FDAI_DATABASE_URL"] == "postgresql://example.invalid/validation"
+    assert environment["FDAI_CHANGED_TEST_INTEGRATION"] == "1"
+
+
+def test_validation_environment_loads_database_from_source_checkout(
+    git_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    local_env = git_repo / ".fdai" / "local-runtime.env"
+    local_env.parent.mkdir()
+    local_env.write_text(
+        "FDAI_DATABASE_URL=postgresql://example.invalid/runtime\n"
+        "FDAI_VALIDATION_DATABASE_URL=postgresql://example.invalid/validation\n",
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("FDAI_DATABASE_URL", raising=False)
+    monkeypatch.delenv("FDAI_VALIDATION_DATABASE_URL", raising=False)
+    monkeypatch.delenv("FDAI_CHANGED_TEST_INTEGRATION", raising=False)
+    paths = queue_paths(git_repo)
+    paths.worktree.mkdir(parents=True)
+
+    environment = validation_environment(paths)
+
+    assert not (paths.worktree / ".fdai" / "local-runtime.env").exists()
+    assert environment["FDAI_DATABASE_URL"] == "postgresql://example.invalid/validation"
+    assert environment["FDAI_CHANGED_TEST_INTEGRATION"] == "1"
 
 
 def _run(
@@ -570,6 +608,7 @@ def test_post_commit_hook_enqueues_and_wakes_background_validation(
     assert "--property=CPUQuota=180%" in wake
     assert "--property=IOWeight=10" in wake
     assert "--property=MemoryHigh=8G" in wake
+    assert f"--working-directory={git_repo}" in wake
     assert "--unit=fdai-validation-" in wake
     assert "drain" in wake
     assert "run --wait" not in wake

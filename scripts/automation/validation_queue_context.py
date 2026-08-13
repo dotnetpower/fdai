@@ -29,6 +29,18 @@ _REPOSITORY_LOCAL_GIT_ENV = frozenset(
         "GIT_WORK_TREE",
     }
 )
+_LOCAL_RUNTIME_ENV = Path(".fdai/local-runtime.env")
+
+
+def _local_validation_database_url(paths: QueuePaths) -> str:
+    env_path = paths.repo_root / _LOCAL_RUNTIME_ENV
+    if not env_path.is_file():
+        return ""
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        key, separator, value = raw_line.strip().partition("=")
+        if separator and key == "FDAI_VALIDATION_DATABASE_URL":
+            return value.strip()
+    raise RuntimeError(f"{_LOCAL_RUNTIME_ENV} is missing FDAI_VALIDATION_DATABASE_URL")
 
 
 def _available_memory_bytes() -> int:
@@ -73,6 +85,12 @@ def validation_environment(paths: QueuePaths) -> dict[str, str]:
     primary_python = paths.repo_root / ".venv" / "bin" / "python"
     environment["UV_PYTHON"] = str(primary_python) if primary_python.is_file() else "3.13"
     environment["FDAI_VALIDATION_ACTIVE"] = "1"
+    validation_database_url = environment.get("FDAI_VALIDATION_DATABASE_URL", "").strip()
+    if not validation_database_url:
+        validation_database_url = _local_validation_database_url(paths)
+    if validation_database_url:
+        environment["FDAI_DATABASE_URL"] = validation_database_url
+        environment.setdefault("FDAI_CHANGED_TEST_INTEGRATION", "1")
     return environment
 
 

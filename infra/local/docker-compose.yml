@@ -27,6 +27,25 @@ services:
       start_period: 5s
     restart: unless-stopped
 
+  postgres-validation:
+    image: pgvector/pgvector:pg16
+    container_name: fdai-postgres-validation
+    environment:
+      POSTGRES_USER: fdai
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devonly}
+      POSTGRES_DB: fdai_validation
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - validation_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fdai -d fdai_validation"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    restart: unless-stopped
+
   redpanda:
     image: redpandadata/redpanda:latest
     container_name: fdai-redpanda
@@ -78,6 +97,8 @@ services:
 volumes:
   pgdata:
     name: fdai-pgdata
+  validation_pgdata:
+    name: fdai-validation-pgdata
   redpandadata:
     name: fdai-redpandadata
   clamavdata:

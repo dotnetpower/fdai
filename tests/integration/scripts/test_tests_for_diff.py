@@ -670,7 +670,7 @@ def test_run_does_not_use_database_without_explicit_integration_opt_in(git_repo:
     assert "run pytest -q -m not integration --no-cov --durations=25" in command
     assert command.endswith("tests/integration/scripts/test_changed.py")
     assert "integration tests skipped" in result.stderr
-    assert "disposable FDAI_DATABASE_URL" in result.stderr
+    assert "dedicated validation FDAI_DATABASE_URL" in result.stderr
 
 
 def test_run_parallelizes_broad_non_integration_selection(git_repo: Path) -> None:

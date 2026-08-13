@@ -29,6 +29,7 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 |------|-------|----------|-------|
 | Automated-test fixture isolation | implemented | `tests/`, `console/tests/`, and the fixture-only composition paths exercised by the repository test suites | Deterministic fixtures remain outside authoritative interactive profiles. |
 | Local and deployed composition parity | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, and service integration tests | Composition roots select credentials and adapters without changing evidence authority. |
+| Local validation database isolation | implemented | `infra/local/docker-compose.yml`, `scripts/automation/validation_queue_context.py`, local preparation scripts, and focused validation and migration integration tests | Runtime state stays on local PostgreSQL port `5432`; destructive migration validation uses a separate local PostgreSQL cluster on port `5433`. |
 | FDAI workspace and profile pressure controls | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`; focused profile and workspace tests: 11 passed | Resource-scoped analysis controls stay in the workspace. The portable profile rejects Remote WSL Pylance machine settings that it cannot isolate. |
 | FDAI Pylance launch ceiling runtime proof | deferred | A clean FDAI Remote WSL restart still launched Pylance with the bundled VS Code Node executable and without `--max-old-space-size=2048`. VS Code Server 1.133 creates one Remote Machine settings resource independently of the active profile service. | Blocked pending an isolated runtime. A shared Remote Machine override would also affect excluded workspaces, so runtime isolation requires a separate VS Code Server data root or WSL distribution before the ceiling can be enabled. |
 
@@ -38,6 +39,7 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance, and moved machine-scoped Pylance launch controls to the FDAI profile. | Current change in `.vscode/fdai.code-profile`, `.vscode/settings.json`, `scripts/automation/configure-vscode-profile.py`, and focused profile/workspace tests: 9 passed. | Record the FDAI Pylance process argument and centralized validation receipt. |
 | 2026-08-13 | deferred | Removed the ineffective Pylance machine settings, rejected duplicate profile JSON keys, and added a contract that prevents their return. | A clean Remote WSL process command lacked the configured heap argument; focused profile and workspace tests: 11 passed. | Use a separately rooted VS Code Server or WSL distribution, then prove the heap argument from the restarted process command. |
+| 2026-08-13 | implemented | Added a dedicated local PostgreSQL cluster for destructive validation and taught the detached validation queue to load only its generated DSN. | Current change; Compose config passed, focused queue and local-env tests passed (68 tests), and the isolated migration upgrade/downgrade checks passed (2 tests). | No remaining implementation work for local validation database isolation. |
 
 ### Remaining work
 
@@ -83,7 +85,8 @@ starting the CLI-principal profile.
 
 | Subsystem | Local backend | Prod backend |
 |-----------|---------------|--------------|
-| State store (integration tests) | `pgvector/pgvector:pg16` on `:5432` | Azure PostgreSQL Flexible + pgvector |
+| Runtime state store and service integration | `pgvector/pgvector:pg16` on `:5432` | Azure PostgreSQL Flexible + pgvector |
+| Destructive migration validation | Separate `pgvector/pgvector:pg16` cluster on `:5433` | Isolated CI validation database |
 | Event bus (integration tests) | Redpanda on `:19092` (Kafka wire) | Event Hubs Kafka on `:9093` |
 
 ### Fixed workspace ports
@@ -117,13 +120,19 @@ human identity, or executor authority.
 
 Opening the trusted workspace runs only lightweight hook installation, safe background Git sync,
 and the optional development VPN check. `console: prepare local state` is explicit and runs through
-`console: prepare full stack` or a direct task invocation. It starts local PostgreSQL, Redpanda, and
-ClamAV, advances the frozen legacy Alembic lineage, and adopts and upgrades all five service-owned
+`console: prepare full stack` or a direct task invocation. It starts runtime PostgreSQL on port
+`5432`, an isolated validation PostgreSQL cluster on port `5433`, Redpanda, and ClamAV. It advances
+the frozen legacy Alembic lineage and adopts and upgrades all five service-owned
 migration branches under a single-instance limit. The same preparation refreshes read-only Azure
 Resource Graph inventory and materializes sanitized model and runtime Settings projections from
 prepared authoritative inputs without copying tenant identifiers, resource endpoints, or
 credentials. An unavailable or unauthorized provider leaves inventory explicitly unavailable
 instead of substituting fixture data.
+The ignored local runtime environment records the validation cluster as
+`FDAI_VALIDATION_DATABASE_URL`. The detached central validation queue maps only that value to
+`FDAI_DATABASE_URL` for selected integration tests. It never supplies the active runtime DSN to
+destructive migration tests. A separate volume and PostgreSQL cluster are required because database
+roles created and removed by Alembic are cluster-global even when test tables use another database.
 The same migration creates the principal-scoped `conversation_image` repository in local and
 deployed PostgreSQL. Command Deck history therefore restores sent images through the same
 authenticated Operator API route in both profiles; neither profile stores inline base64 in turn

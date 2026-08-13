@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: cfbe45139485e2b484c5fef0af7112e784c8e6fe
+translation_source_sha: d3e9db4f07c4326da2f80c50cb3ee37f2f20cd2e
 translation_revised: 2026-08-13
 ---
 
@@ -37,12 +37,14 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 | 독립 소유 런타임 service | validated | `.github/workflows/service-deploy.yml` 및 `config/independent-service-live-evidence-manifest.json` | 각 service에 별도 root, protected 계획, 상태 검사 및 rollback evidence가 있습니다. |
 | OHL scale-out evidence target 및 proposal Job | implemented | `infra/` 및 `services/core-control-plane/src/fdai/delivery/`의 current change, 집중 Terraform 및 publisher test 결과 8 passed와 13 passed | 둘 다 기본적으로 비활성화되며 protected 적용이 남아 있습니다. |
 | OHL production evidence campaign | in-progress | `config/ohl-scale-out-evidence.json` 및 `docs/runbooks/ohl-scale-out-evidence-ko.md` | Runtime rollout, 통제된 실행, sample 100개 및 14일 recurrence window가 남아 있습니다. |
+| 로컬 파괴적 검증 격리 | implemented | `infra/local/docker-compose.yml`, 로컬 준비 스크립트 및 focused migration test | 런타임은 port `5432`의 로컬 PostgreSQL을 사용하고 파괴적 검증은 port `5433`의 별도 로컬 cluster와 volume을 사용합니다. Azure 배포 리소스는 추가하지 않습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | implemented | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 범위가 제한된 OHL evidence target의 protected provisioning 및 proposal-only Job을 추가했습니다. | current change, 집중 Terraform test 결과 8 passed 및 publisher/workflow test 결과 13 passed | Exact 계획을 적용하고 증명된 런타임 이미지를 배포한 뒤 실제 evidence campaign을 완료합니다. |
+| 2026-08-13 | implemented | 로컬 파괴적 migration 검증을 활성 로컬 런타임 PostgreSQL cluster에서 격리했습니다. | 현재 변경, Compose configuration 통과, focused queue 및 local-environment test 68개 통과, 격리된 migration upgrade/downgrade 검사 2개 통과. | 로컬 검증 데이터베이스 격리에 남은 구현 작업은 없습니다. |
 
 ### 남은 작업
 
@@ -376,6 +378,11 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
 filesystem-backed 문서 object 및 ClamAV에 연결해 시작합니다. Plaintext Kafka는 loopback broker에서만
 사용합니다. 배포 모듈은 service-owned managed identity와 service-specific PostgreSQL role을 사용하는
 Event Hubs Kafka를 계속 요구합니다.
+활성 로컬 런타임은 port `5432`의 `pgvector/pgvector:pg16`을 사용합니다. 별도 volume을
+가진 port `5433`의 두 번째 로컬 `pgvector/pgvector:pg16` cluster는 파괴적 migration 검증에만
+사용합니다. Alembic이 관리하는 role이 PostgreSQL cluster-global이기 때문입니다. 로컬 런타임
+준비는 전용 검증 DSN을 생성하고 detached 중앙 검증은 해당 DSN만 통합 테스트에 매핑합니다.
+두 번째 cluster는 로컬 검증 의존성이며 위 Azure 리소스 인벤토리에는 포함되지 않습니다.
 추가 신원/채널/콘솔 요소는 배포 또는 명시적 선택 기능이 소유합니다:
 
 - **App 등록 × 3** - 오디언스 분리
