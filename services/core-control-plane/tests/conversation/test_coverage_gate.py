@@ -13,6 +13,7 @@ from fdai.core.conversation.coverage_gate import (
     require_ontology_query_coverage,
 )
 from fdai.core.conversation.epistemic_coverage import (
+    EpistemicCoverageReceipt,
     EpistemicQuestionRecord,
     EpistemicStatus,
     QuestionUniverseReceipt,
@@ -96,6 +97,27 @@ def _nonanswered(
         semantic_route=semantic_route,
         unavailable_reason=unavailable_reason,
     )
+
+
+def _epistemic_coverage() -> EpistemicCoverageReceipt:
+    universe = QuestionUniverseReceipt.build(
+        ontology_release_digest=DIGEST,
+        principal_manifest_digests=(DIGEST,),
+        grammar_digest=_digest("9"),
+        case_ids=("answered",),
+    )
+    question = EpistemicQuestionRecord(
+        question_id="answered",
+        transport_disposition="answered",
+        epistemic_status=EpistemicStatus.VERIFIED_ANSWER,
+        question_universe_digest=universe.receipt_digest,
+        understanding_receipt_digest=_digest("7"),
+        completeness_receipt_digest=_digest("8"),
+        claim_proof_receipt_digests=(_digest("6"),),
+        source_span_coverage=1.0,
+        semantic_atom_coverage=1.0,
+    )
+    return evaluate_epistemic_coverage(universe=universe, questions=(question,))
 
 
 def test_gate_reports_answer_coverage_by_cohort_without_requiring_universal_answers() -> None:
@@ -221,24 +243,7 @@ def test_gate_rejects_answered_receipt_from_another_release() -> None:
 
 
 def test_production_readiness_requires_matching_epistemic_closure() -> None:
-    universe = QuestionUniverseReceipt.build(
-        ontology_release_digest=DIGEST,
-        principal_manifest_digests=(DIGEST,),
-        grammar_digest=_digest("9"),
-        case_ids=("answered",),
-    )
-    question = EpistemicQuestionRecord(
-        question_id="answered",
-        transport_disposition="answered",
-        epistemic_status=EpistemicStatus.VERIFIED_ANSWER,
-        question_universe_digest=universe.receipt_digest,
-        understanding_receipt_digest=_digest("7"),
-        completeness_receipt_digest=_digest("8"),
-        claim_proof_receipt_digests=(_digest("6"),),
-        source_span_coverage=1.0,
-        semantic_atom_coverage=1.0,
-    )
-    epistemic = evaluate_epistemic_coverage(universe=universe, questions=(question,))
+    epistemic = _epistemic_coverage()
 
     receipt = evaluate_ontology_query_coverage(
         structural_receipts=(_structural(),),
@@ -249,3 +254,109 @@ def test_production_readiness_requires_matching_epistemic_closure() -> None:
     require_ontology_query_coverage(receipt, require_production_ready=True)
     assert receipt.epistemic_coverage_receipt_digest == epistemic.receipt_digest
     assert receipt.production_ready is True
+
+
+def test_question_disposition_rejects_malformed_routes_receipts_and_bounds() -> None:
+    clarification = _nonanswered(
+        "clarify",
+        "ambiguous-en",
+        "clarification",
+        semantic_route="semantic_clarification",
+    )
+
+    with pytest.raises(ValueError, match="id MUST be bounded"):
+        replace(clarification, question_id="")
+    with pytest.raises(ValueError, match="cohort MUST be bounded"):
+        replace(clarification, cohort="")
+    with pytest.raises(ValueError, match="MUST be terminal"):
+        replace(clarification, disposition="pending")
+    with pytest.raises(ValueError, match="receipt source MUST be"):
+        replace(clarification, receipt_source="manual")
+    with pytest.raises(ValueError, match="reason_code MUST be typed"):
+        replace(clarification, reason_code="Invalid Reason")
+    with pytest.raises(ValueError, match="semantic route is invalid"):
+        replace(clarification, semantic_route="legacy_keyword_route")
+    with pytest.raises(ValueError, match="unavailable reason is invalid"):
+        replace(
+            clarification,
+            semantic_route=None,
+            unavailable_reason="provider_failed",
+        )
+    with pytest.raises(ValueError, match="one semantic route or typed unavailable reason"):
+        replace(clarification, semantic_route=None)
+    with pytest.raises(ValueError, match="does not match its disposition"):
+        replace(clarification, semantic_route="semantic_unsupported")
+    with pytest.raises(ValueError, match="held question MUST carry"):
+        replace(clarification, disposition="held")
+
+    answered = _answered("bounded", "b")
+    with pytest.raises(ValueError, match="digests MUST be canonical"):
+        replace(answered, plan_digest="invalid")
+    with pytest.raises(ValueError, match="evidence references exceed"):
+        replace(answered, evidence_refs=tuple(f"evidence:{index}" for index in range(13)))
+    with pytest.raises(ValueError, match="evidence references MUST be bounded"):
+        replace(answered, evidence_refs=("",))
+    with pytest.raises(ValueError, match="evidence references MUST be unique"):
+        replace(answered, evidence_refs=("evidence:one", "evidence:one"))
+    with pytest.raises(ValueError, match="checks_completed is outside"):
+        replace(answered, checks_completed=65, checks_total=65)
+    with pytest.raises(ValueError, match="checks_total is outside"):
+        replace(answered, checks_total=65)
+    with pytest.raises(ValueError, match="MUST NOT exceed"):
+        replace(answered, checks_completed=3)
+    with pytest.raises(ValueError, match="complete verified receipts"):
+        replace(answered, evidence_refs=())
+    with pytest.raises(ValueError, match="violation counts MUST be non-negative"):
+        replace(answered, unsupported_claim_count=-1)
+
+
+def test_gate_rejects_incomplete_structural_and_question_identity_inputs() -> None:
+    structural = _structural()
+    answered = _answered("answered", "c")
+
+    with pytest.raises(ValueError, match="requires principal receipts"):
+        evaluate_ontology_query_coverage(structural_receipts=(), questions=(answered,))
+    with pytest.raises(ValueError, match="share one release"):
+        evaluate_ontology_query_coverage(
+            structural_receipts=(
+                structural,
+                structural.model_copy(update={"ontology_release_digest": _digest("b")}),
+            ),
+            questions=(answered,),
+        )
+    with pytest.raises(ValueError, match="schema coverage MUST be complete"):
+        evaluate_ontology_query_coverage(
+            structural_receipts=(structural.model_copy(update={"complete": False}),),
+            questions=(answered,),
+        )
+    epistemic = _epistemic_coverage()
+    with pytest.raises(ValueError, match="match the structural release"):
+        evaluate_ontology_query_coverage(
+            structural_receipts=(structural,),
+            questions=(answered,),
+            epistemic_coverage=replace(
+                epistemic,
+                ontology_release_digest=_digest("b"),
+            ),
+        )
+    with pytest.raises(ValueError, match="match all principal manifests"):
+        evaluate_ontology_query_coverage(
+            structural_receipts=(structural,),
+            questions=(answered,),
+            epistemic_coverage=replace(
+                epistemic,
+                principal_manifest_digests=(_digest("b"),),
+            ),
+        )
+    with pytest.raises(ValueError, match="requires a non-empty cohort"):
+        evaluate_ontology_query_coverage(structural_receipts=(structural,), questions=())
+    with pytest.raises(ValueError, match="disposition ids MUST be unique"):
+        evaluate_ontology_query_coverage(
+            structural_receipts=(structural,),
+            questions=(answered, replace(answered, receipt_id="second")),
+        )
+    with pytest.raises(ValueError, match="match a principal manifest"):
+        evaluate_ontology_query_coverage(
+            structural_receipts=(structural,),
+            questions=(replace(answered, principal_manifest_digest=_digest("b")),),
+        )
