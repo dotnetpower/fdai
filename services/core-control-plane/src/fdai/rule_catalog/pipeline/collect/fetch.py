@@ -141,6 +141,12 @@ class GitCloneFetcher(Fetcher):
 
         dest_root.mkdir(parents=True, exist_ok=True)
         checkout_dir = dest_root / "_clone"
+        target_root = dest_root / "tree"
+        for owned_path in (checkout_dir, target_root):
+            if owned_path.is_symlink() or owned_path.is_file():
+                owned_path.unlink()
+            elif owned_path.exists():
+                shutil.rmtree(owned_path)
 
         try:
             self._run([self._git, "init", "--quiet"], cwd=checkout_dir, mkdir=True)
@@ -170,7 +176,6 @@ class GitCloneFetcher(Fetcher):
 
         # Copy the subtree next to the clone dir so hash + snapshot don't
         # include the .git metadata.
-        target_root = dest_root / "tree"
         target_root.mkdir(parents=True, exist_ok=True)
         if source_tree.is_file():
             shutil.copy2(source_tree, target_root / source_tree.name)

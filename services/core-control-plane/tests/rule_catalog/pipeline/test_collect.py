@@ -252,6 +252,7 @@ def test_git_fetcher_honors_subpath(tmp_path: Path) -> None:
 def test_git_fetcher_raises_on_missing_subpath(tmp_path: Path) -> None:
     bare, sha = _init_local_git_source(tmp_path)
     fetcher = GitCloneFetcher(timeout_seconds=30.0)
+    dest = tmp_path / "snap"
     with pytest.raises(FetchError, match="subpath"):
         fetcher.fetch(
             config=FetchConfig(
@@ -260,8 +261,13 @@ def test_git_fetcher_raises_on_missing_subpath(tmp_path: Path) -> None:
                 revision=sha,
                 subpath="does-not-exist",
             ),
-            dest_root=tmp_path / "snap",
+            dest_root=dest,
         )
+    recovered = fetcher.fetch(
+        config=FetchConfig(kind=FetchKind.GIT, repo=str(bare), revision=sha),
+        dest_root=dest,
+    )
+    assert (recovered.tree_root / "policy.rego").is_file()
 
 
 @pytest.mark.skipif(not _has_git(), reason="git binary not on PATH")
