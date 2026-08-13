@@ -118,6 +118,8 @@ async def evaluate_semantic_surface(
     retriever: RuleSemanticRetriever,
     policy: RetrievalEvaluationPolicy,
     evaluator_ref: str,
+    generation_digest: str,
+    catalog_digest: str,
 ) -> SurfaceValidationReceipt:
     """Evaluate held-out cohorts and return fail-closed validation-only evidence.
 
@@ -206,6 +208,8 @@ async def evaluate_semantic_surface(
 
     return SurfaceValidationReceipt(
         surface_digest=surface.validation_subject_digest,
+        generation_digest=generation_digest,
+        catalog_digest=catalog_digest,
         dataset_digest=_dataset_digest(cases),
         evaluator_ref=evaluator_ref,
         evaluation_policy_digest=policy.digest,

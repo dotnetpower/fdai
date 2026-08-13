@@ -103,6 +103,8 @@ def test_held_out_validation_rejects_training_leakage() -> None:
     with pytest.raises(ValueError, match="held-out"):
         SurfaceValidationReceipt(
             surface_digest=_A,
+            generation_digest=_A,
+            catalog_digest=_B,
             dataset_digest=_B,
             evaluator_ref="heimdall:rule-retrieval@1",
             evaluation_policy_digest=_D,
@@ -118,6 +120,8 @@ def test_passing_validation_cannot_hide_failures() -> None:
     with pytest.raises(ValueError, match="MUST NOT carry failures"):
         SurfaceValidationReceipt(
             surface_digest=_A,
+            generation_digest=_A,
+            catalog_digest=_B,
             dataset_digest=_B,
             evaluator_ref="heimdall:rule-retrieval@1",
             evaluation_policy_digest=_D,
@@ -133,6 +137,8 @@ def test_surface_validation_receipt_cannot_gain_authority() -> None:
     with pytest.raises(ValueError, match="validation_only"):
         SurfaceValidationReceipt(
             surface_digest=_A,
+            generation_digest=_A,
+            catalog_digest=_B,
             dataset_digest=_B,
             evaluator_ref="heimdall:rule-retrieval@1",
             evaluation_policy_digest=_D,

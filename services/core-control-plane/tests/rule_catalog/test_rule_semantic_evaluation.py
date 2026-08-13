@@ -134,9 +134,13 @@ async def test_held_out_evaluation_passes_positive_and_no_match_cohorts() -> Non
         retriever=_Retriever(),
         policy=_policy(),
         evaluator_ref="heimdall:rule-retrieval@1",
+        generation_digest=_DIGEST,
+        catalog_digest=_DIGEST,
     )
 
     assert receipt.decision is ValidationDecision.PASS
+    assert receipt.generation_digest == _DIGEST
+    assert receipt.catalog_digest == _DIGEST
     assert receipt.failure_codes == ()
     assert {item.metric for item in receipt.cohort_metrics} == {
         "recall-at-5",
@@ -150,6 +154,8 @@ async def test_held_out_evaluation_passes_positive_and_no_match_cohorts() -> Non
         receipt,
         current_policy=_policy(),
         expected_surface_digest=receipt.surface_digest,
+        expected_generation_digest=receipt.generation_digest,
+        expected_catalog_digest=receipt.catalog_digest,
         expected_dataset_digest=receipt.dataset_digest,
         expected_evaluator_ref=receipt.evaluator_ref,
     )
@@ -184,6 +190,8 @@ async def test_pass_from_previous_policy_is_held_by_current_review_policy() -> N
         retriever=_Retriever(),
         policy=previous_policy,
         evaluator_ref="heimdall:rule-retrieval@1",
+        generation_digest=_DIGEST,
+        catalog_digest=_DIGEST,
     )
     current_policy = RetrievalEvaluationPolicy(
         top_k=10,
@@ -197,6 +205,8 @@ async def test_pass_from_previous_policy_is_held_by_current_review_policy() -> N
         receipt,
         current_policy=current_policy,
         expected_surface_digest=receipt.surface_digest,
+        expected_generation_digest=receipt.generation_digest,
+        expected_catalog_digest=receipt.catalog_digest,
         expected_dataset_digest=receipt.dataset_digest,
         expected_evaluator_ref=receipt.evaluator_ref,
     )
@@ -233,6 +243,8 @@ async def test_review_assessment_revalidates_passing_receipt_metrics() -> None:
         retriever=_Retriever(),
         policy=policy,
         evaluator_ref="heimdall:rule-retrieval@1",
+        generation_digest=_DIGEST,
+        catalog_digest=_DIGEST,
     )
     tampered_receipt = replace(
         receipt,
@@ -248,6 +260,8 @@ async def test_review_assessment_revalidates_passing_receipt_metrics() -> None:
         tampered_receipt,
         current_policy=policy,
         expected_surface_digest=receipt.surface_digest,
+        expected_generation_digest=receipt.generation_digest,
+        expected_catalog_digest=receipt.catalog_digest,
         expected_dataset_digest=receipt.dataset_digest,
         expected_evaluator_ref=receipt.evaluator_ref,
     )
@@ -279,6 +293,8 @@ async def test_review_assessment_rejects_missing_renamed_and_unknown_schema_evid
         retriever=_Retriever(),
         policy=policy,
         evaluator_ref="heimdall:rule-retrieval@1",
+        generation_digest=_DIGEST,
+        catalog_digest=_DIGEST,
     )
     missing_metric_receipt = replace(
         receipt,
@@ -301,6 +317,8 @@ async def test_review_assessment_rejects_missing_renamed_and_unknown_schema_evid
         missing_metric_receipt,
         current_policy=policy,
         expected_surface_digest=receipt.surface_digest,
+        expected_generation_digest=receipt.generation_digest,
+        expected_catalog_digest=receipt.catalog_digest,
         expected_dataset_digest=receipt.dataset_digest,
         expected_evaluator_ref=receipt.evaluator_ref,
     )
@@ -308,6 +326,8 @@ async def test_review_assessment_rejects_missing_renamed_and_unknown_schema_evid
         renamed_metric_receipt,
         current_policy=policy,
         expected_surface_digest=receipt.surface_digest,
+        expected_generation_digest=receipt.generation_digest,
+        expected_catalog_digest=receipt.catalog_digest,
         expected_dataset_digest=receipt.dataset_digest,
         expected_evaluator_ref=receipt.evaluator_ref,
     )
@@ -315,6 +335,8 @@ async def test_review_assessment_rejects_missing_renamed_and_unknown_schema_evid
         unknown_schema_receipt,
         current_policy=policy,
         expected_surface_digest=receipt.surface_digest,
+        expected_generation_digest=receipt.generation_digest,
+        expected_catalog_digest=receipt.catalog_digest,
         expected_dataset_digest=receipt.dataset_digest,
         expected_evaluator_ref=receipt.evaluator_ref,
     )
@@ -354,6 +376,8 @@ async def test_review_assessment_holds_identity_mismatch_and_missing_cohort() ->
         retriever=_Retriever(),
         policy=policy,
         evaluator_ref="heimdall:rule-retrieval@1",
+        generation_digest=_DIGEST,
+        catalog_digest=_DIGEST,
     )
     policy_with_unmeasured_cohort = RetrievalEvaluationPolicy(
         top_k=policy.top_k,
@@ -367,18 +391,78 @@ async def test_review_assessment_holds_identity_mismatch_and_missing_cohort() ->
         receipt,
         current_policy=policy_with_unmeasured_cohort,
         expected_surface_digest="sha256:" + "b" * 64,
+        expected_generation_digest="sha256:" + "d" * 64,
+        expected_catalog_digest="sha256:" + "e" * 64,
         expected_dataset_digest="sha256:" + "c" * 64,
         expected_evaluator_ref="heimdall:rule-retrieval@2",
     )
 
     assert assessment.decision is PromotionReviewDecision.HOLD
     assert assessment.reason_codes == (
+        "catalog-digest-mismatch",
         "dataset-digest-mismatch",
         "evaluation-policy-digest-mismatch",
         "evaluator-ref-mismatch",
+        "generation-digest-mismatch",
         "required-cohort-missing:ko-positive",
         "surface-digest-mismatch",
     )
+
+
+async def test_review_assessment_holds_each_search_identity_mismatch() -> None:
+    policy = _policy()
+    receipt = await evaluate_semantic_surface(
+        _surface(),
+        (
+            RetrievalEvaluationCase(
+                "positive-en",
+                "Which policy prevents public storage?",
+                "en-positive",
+                ("rule:public-access@1",),
+                EvaluationQueryOrigin.USER,
+            ),
+            RetrievalEvaluationCase(
+                "negative-en",
+                "Which policy tunes database connections?",
+                "en-negative",
+                (),
+                EvaluationQueryOrigin.USER,
+            ),
+        ),
+        retriever=_Retriever(),
+        policy=policy,
+        evaluator_ref="heimdall:rule-retrieval@1",
+        generation_digest=_DIGEST,
+        catalog_digest=_DIGEST,
+    )
+
+    assessments = {
+        "generation-digest-mismatch": assess_surface_promotion_review(
+            receipt,
+            current_policy=policy,
+            expected_surface_digest=receipt.surface_digest,
+            expected_generation_digest="sha256:" + "b" * 64,
+            expected_catalog_digest=receipt.catalog_digest,
+            expected_dataset_digest=receipt.dataset_digest,
+            expected_evaluator_ref=receipt.evaluator_ref,
+        ),
+        "catalog-digest-mismatch": assess_surface_promotion_review(
+            receipt,
+            current_policy=policy,
+            expected_surface_digest=receipt.surface_digest,
+            expected_generation_digest=receipt.generation_digest,
+            expected_catalog_digest="sha256:" + "c" * 64,
+            expected_dataset_digest=receipt.dataset_digest,
+            expected_evaluator_ref=receipt.evaluator_ref,
+        ),
+    }
+
+    for reason_code, assessment in assessments.items():
+        assert assessment.decision is PromotionReviewDecision.HOLD
+        assert assessment.reason_codes == (reason_code,)
+        assert assessment.review_authority == "review_only"
+        assert assessment.promotion_authority is False
+        assert assessment.execution_authority is False
 
 
 async def test_held_out_korean_evaluation_passes_positive_and_no_match_cohorts() -> None:
@@ -407,6 +491,8 @@ async def test_held_out_korean_evaluation_passes_positive_and_no_match_cohorts()
         retriever=_Retriever(),
         policy=_policy(),
         evaluator_ref="heimdall:rule-retrieval-ko@1",
+        generation_digest=_DIGEST,
+        catalog_digest=_DIGEST,
     )
 
     assert surface.locale == "ko"
@@ -445,6 +531,8 @@ async def test_korean_training_query_cannot_leak_into_held_out_evaluation() -> N
             retriever=_Retriever(),
             policy=_policy(),
             evaluator_ref="heimdall:rule-retrieval-ko@1",
+            generation_digest=_DIGEST,
+            catalog_digest=_DIGEST,
         )
 
 
@@ -474,6 +562,8 @@ async def test_training_query_cannot_leak_into_held_out_evaluation() -> None:
             retriever=_Retriever(),
             policy=_policy(),
             evaluator_ref="heimdall:rule-retrieval@1",
+            generation_digest=_DIGEST,
+            catalog_digest=_DIGEST,
         )
 
 
@@ -513,6 +603,8 @@ async def test_retrieval_failure_holds_without_false_no_match_credit() -> None:
         retriever=_FailingRetriever(),
         policy=_policy(),
         evaluator_ref="heimdall:rule-retrieval@1",
+        generation_digest=_DIGEST,
+        catalog_digest=_DIGEST,
     )
     metrics = {(item.cohort, item.metric): item.value for item in receipt.cohort_metrics}
 
@@ -563,12 +655,16 @@ async def test_partial_retrieval_degradation_holds_promotion_review() -> None:
         retriever=_PartiallyFailingRetriever(),
         policy=policy,
         evaluator_ref="heimdall:rule-retrieval@1",
+        generation_digest=_DIGEST,
+        catalog_digest=_DIGEST,
     )
     metrics = {(item.cohort, item.metric): item.value for item in receipt.cohort_metrics}
     assessment = assess_surface_promotion_review(
         receipt,
         current_policy=policy,
         expected_surface_digest=receipt.surface_digest,
+        expected_generation_digest=receipt.generation_digest,
+        expected_catalog_digest=receipt.catalog_digest,
         expected_dataset_digest=receipt.dataset_digest,
         expected_evaluator_ref=receipt.evaluator_ref,
     )
