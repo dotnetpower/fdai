@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 538cf21c6a7f5c3152244a3d1bd4a41d1fe28685
+translation_source_sha: 9e6c6d7d99868d86fdc1722564950e9e7bca6328
 translation_revised: 2026-08-13
 ---
 # FDAI 온톨로지 안전 인프라
@@ -95,7 +95,7 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| K0 exact release 신원 및 영속성 | implemented | [`release.py`](../../../services/core-control-plane/src/fdai/shared/ontology/release.py), [`postgres_ontology.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_ontology.py), [`20260813_0081_ontology_release_registry.py`](../../../alembic/versions/20260813_0081_ontology_release_registry.py), [`test_postgres_ontology_catalog.py`](../../../services/core-control-plane/tests/persistence/test_postgres_ontology_catalog.py) | Exact 신원, release에 고정된 쓰기 및 재시작에 안전한 매니페스트 로딩이 존재합니다. 이행 전 행은 원래 release를 정직하게 복원할 수 없으므로 고정하지 않은 상태로 유지합니다. 운영 Live 근거는 아직 남아 있습니다. |
+| K0 exact release 신원 및 영속성 | implemented | [`release.py`](../../../services/core-control-plane/src/fdai/shared/ontology/release.py), [`postgres_ontology.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_ontology.py), [`inventory_ontology.py`](../../../services/core-control-plane/src/fdai/runtime/inventory_ontology.py), [`20260813_0081_ontology_release_registry.py`](../../../alembic/versions/20260813_0081_ontology_release_registry.py), focused 영속성/런타임 테스트 | Exact 신원, release에 고정된 쓰기, 재시작에 안전한 매니페스트 로딩, release에 결속된 인벤토리 변환 근거가 존재합니다. 이행 전 행과 과거 인벤토리 매니페스트는 정직하게 고정하지 않은 상태로 유지합니다. 운영 Live 근거는 아직 남아 있습니다. |
 | K1-K5 범위가 제한된 의미 조회 및 함수 인프라 | in-progress | [`operational_functions.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py), [`kubernetes_relationships.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_relationships.py), [`test_kubernetes_relationships.py`](../../../services/core-control-plane/tests/delivery/test_kubernetes_relationships.py), [`test_wire_pod_telemetry.py`](../../../services/core-control-plane/tests/composition/test_wire_pod_telemetry.py), [`test_kinetics.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_kinetics.py) | Core 기본 요소, 후보 전용 Kubernetes 관계 변환기, 발급된 Pod 조립 검사가 존재합니다. Production 프로바이더 연결과 보존된 live 근거는 아직 남아 있습니다. |
 | 카탈로그 변환 결과와 exact-generation Rule 검색 | implemented | [`catalog_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/catalog_queries.py), [`test_catalog_queries.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_catalog_queries.py), 커밋 `e4d9483a5` | `catalog.search_rules`는 exact 세대 증적과 함께 범위가 제한된 순위 후보를 반환하며 판단 또는 액션 권한을 부여하지 않습니다. 시작 변환 결과는 아직 control-objective 인스턴스를 구체화하지 않습니다. |
 | 과거 토폴로지, 메트릭 의미 규칙 및 조정 | in-progress | [`topology_history.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/topology_history.py), [`metric_semantics.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/metric_semantics.py), [`reconciliation_state_store.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_state_store.py) | 계약과 순수 또는 영속 기반은 존재하지만 운영 조립과 발행자는 아직 완성되지 않았습니다. |
@@ -111,6 +111,7 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 | 2026-08-13 | implemented | 영속 exact-release 매니페스트 registry를 추가하고 PostgreSQL 행 디코딩 전에 등록된 release를 로드하도록 했습니다. | 현재 변경; 집중 `test_postgres_ontology_catalog.py`에서 2개 테스트, `test_ontology_release_registry_migration.py`에서 1개 테스트를 통과했습니다. | 이행과 Core 재시작 뒤 인증된 Live 근거를 기록합니다. |
 | 2026-08-13 | in-progress | 검토된 Kubernetes Service 관계 매핑과 독립 세대 검증을 위한 후보 링크를 만드는 범위 제한 변환기를 추가했습니다. | `current change`; focused `test_kubernetes_relationships.py`에서 6개 테스트, 프로바이더 매핑 계약에서 6개 테스트를 통과했습니다. | 변환기를 production 인벤토리 출처에 연결하고 exact-release 조립 근거를 보존해야 합니다. |
 | 2026-08-13 | in-progress | Resource와 Observation 근거를 포함하는 release 고정 Interface를 사용하여 production 의미 조회 조립을 통해 발급된 Pod 텔레메트리 함수를 입증했습니다. | `current change`; focused `test_wire_pod_telemetry.py`에서 verified 및 synthetic-unverified 경로 2개 테스트를 통과했습니다. | 보존된 production 인벤토리에서 같은 조립을 실행하고 인증된 보증 증적을 보존해야 합니다. |
+| 2026-08-14 | implemented | 인벤토리 온톨로지 변환기가 결과, 영속 매니페스트, 가용성 상태에 하나의 exact release 다이제스트를 보존하도록 요구했습니다. 인벤토리 작업은 이제 토폴로지 이력 발행과 같은 카탈로그 다이제스트를 공유합니다. | `current change`; focused `test_inventory_ontology.py`에서 9개 테스트를 통과했습니다. | Production 인벤토리를 새로 고치고 release에 결속된 변환 근거를 보존해야 합니다. 과거의 결속되지 않은 매니페스트는 변경하지 않습니다. |
 
 ### 남은 작업
 
@@ -118,6 +119,8 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
   구체화하고 집중 테스트에서 exact release 신원과 권한 필드가 없음을 입증합니다.
 - [ ] PostgreSQL 과거 토폴로지, 운영 메트릭 프로바이더 및 inventory-promotion 발행을
   연결하고 집중 통합 점검의 재생 및 완전성 증적을 보존합니다.
+- [ ] Release 결속 변경 뒤 인벤토리를 새로 고치고 새 변환 매니페스트와 상태를 exact-release
+  근거로 보존합니다. 과거 매니페스트에 release를 소급 할당하지 않습니다.
 - [ ] 검토된 Kubernetes 관계 변환기를 production 인벤토리 출처에 연결하고 Pod 텔레메트리
   조립을 위한 완전 세대 변환 증적을 보존합니다.
 - [ ] 조정기를 조립하고 proposal-only 발신함 권고를 이벤트 버스로 발행하며 재시작,

@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: ef574d4ad629a6185f56cdddaec3b874e6f15604
+translation_source_sha: b2d489f20640a9e81dd3cecae5be503e8d597b8e
 translation_revised: 2026-08-13
 ---
 # FDAI 운영 온톨로지 메타모델
@@ -268,7 +268,7 @@ declaration-kind 제안이 됩니다.
 | 정본 선언 release | implemented | [`ontology_catalog.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/ontology_catalog.py), [`release.py`](../../../services/core-control-plane/src/fdai/shared/ontology/release.py), [`test_ontology_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_catalog.py) | 객체, 링크, 액션, Interface, 함수 선언이 exact release에 기여합니다. |
 | 범위가 제한된 ObjectSet 실행 및 계보 | implemented | [`semantic_query.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/semantic_query.py), [`test_interfaces_and_object_sets.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_interfaces_and_object_sets.py), [`test_semantic_query.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_semantic_query.py) | 보안 조회 경로는 권한을 부여하지 않으면서 release, 계획, 호출, 잘림, 근거 참조를 보존합니다. |
 | 프로바이더 상태 및 관계 근거 계약 | implemented | [`state_evidence.py`](../../../services/core-control-plane/src/fdai/shared/providers/state_evidence.py), [`test_state_evidence.py`](../../../services/core-control-plane/tests/providers/test_state_evidence.py) | 타입이 지정된 메타데이터는 관측된 상태와 링크 근거를 파생 해석과 구분합니다. |
-| 관계 direction 및 분류 보강 | in-progress | 이 문서의 direction 계약 및 `resource_classified_as` 설계, [`kubernetes_relationships.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_relationships.py), [`direction_shadow`](../../../services/core-control-plane/src/fdai/core/ontology_platform/direction_shadow), focused 테스트 | D1은 이제 다섯 Resource LinkType 선언, 17개 프로바이더 매핑, Azure/Kubernetes 생산자 direction, 완전 세대 검증, delta 소유권을 고정합니다. D3 adversarial 입력과 D4 비교기도 다룹니다. 보존된 production 비교 증적은 아직 남아 있습니다. |
+| 관계 direction 및 분류 보강 | in-progress | 이 문서의 direction 계약 및 `resource_classified_as` 설계, [`kubernetes_relationships.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_relationships.py), [`direction_shadow`](../../../services/core-control-plane/src/fdai/core/ontology_platform/direction_shadow), [`inventory_ontology.py`](../../../services/core-control-plane/src/fdai/runtime/inventory_ontology.py), focused 테스트 | D1과 D3을 다루며 새 인벤토리 변환 결과 매니페스트와 상태는 exact 온톨로지 release를 고정합니다. 과거 세대는 정직하게 결속되지 않은 상태로 남으므로 완전한 소급 D4 증적을 주장할 수 없습니다. |
 | 네트워크 및 Pod 텔레메트리 competency | in-progress | [`operational_functions.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py), [`test_wire_semantic_query.py`](../../../services/core-control-plane/tests/composition/test_wire_semantic_query.py), [`test_wire_pod_telemetry.py`](../../../services/core-control-plane/tests/composition/test_wire_pod_telemetry.py) | Production 조립은 이제 발급된 네트워크/Pod 함수 의존성과 검증된 Pod 구간 및 synthetic-unverified Pod 구간을 입증합니다. Live 인벤토리 연결과 보존된 보증 증적은 아직 남아 있습니다. |
 | 운영 메타모델 보증 | in-progress | 위의 focused 소스 및 테스트 근거 | 이 문서가 운영 검증을 주장하려면 인증된 cross-service 및 운영 증적이 더 필요합니다. |
 
@@ -282,10 +282,11 @@ declaration-kind 제안이 됩니다.
 | 2026-08-13 | in-progress | 17개 shipped 프로바이더 관계 매핑 모두에 exact D1 카탈로그 감사를 추가하여 하나의 의미 direction 또는 참조 형식 회귀도 조용히 로드되지 않게 했습니다. | `current change`; focused `test_shipped_relationship_mappings_match_canonical_endpoint_roles`에서 1개 테스트를 통과했습니다. | 남은 런타임 생산자와 관계 소유권 규칙을 같은 정본 역할에 맞춰 감사해야 합니다. |
 | 2026-08-13 | implemented | Resource LinkType 선언, 검토된 매핑, Azure/Kubernetes 생산자, 완전 세대 검증, delta 소유권에 걸친 범위 제한 D1 감사를 완료했습니다. | `current change`; exact 선언 감사 1개와 통합 생산자/소유권 감사 13개 테스트를 통과했습니다. | 이행 전에 실제 기존/정렬 후 production 세대의 검토된 D4 증적을 보존해야 합니다. |
 | 2026-08-13 | in-progress | Release에 고정된 Resource/Observation Interface를 통해 발급된 Pod 텔레메트리 함수를 호출하는 production 조립 M5 검사를 추가했습니다. 완전한 근거는 검증된 구간 네 개를 반환하고 synthetic 샘플은 상태 또는 실행 권한 없이 검증되지 않은 상태로 남습니다. | `current change`; focused `test_wire_pod_telemetry.py`에서 2개 테스트를 통과했습니다. | Kubernetes 변환기를 보존된 production 인벤토리에 연결하고 같은 온톨로지 release의 인증된 live-assurance 근거를 보존해야 합니다. |
+| 2026-08-14 | implemented | 새로 생성되는 모든 인벤토리 온톨로지 변환 결과, 영속 매니페스트, 상태를 인벤토리 작업이 사용한 exact 카탈로그 release에 결속했습니다. 잘못되거나 누락된 release 다이제스트는 변환 전에 차단됩니다. 과거 매니페스트에는 재구성한 release를 할당하지 않습니다. | `current change`; focused `test_inventory_ontology.py`에서 9개 테스트를 통과했습니다. | 중앙 검증 뒤 인벤토리를 새로 고친 다음 새 세대에서 release에 결속된 D4/M5 근거를 보존해야 합니다. 과거 비교는 검토 필요 상태로 유지합니다. |
 
 ### 남은 작업
 
-- [ ] 기존 D4 비교기를 보존된 기존/정렬 후 production 세대에 실행하고 이행 전에 검토된 증적과 재구축 포인터를 보존합니다.
+- [ ] 인벤토리를 새로 고쳐 release에 결속된 세대를 만든 다음 기존 D4 비교기를 실행하고 검토된 증적과 재구축 포인터를 보존합니다. 과거의 결속되지 않은 세대는 완전한 이행 근거가 아니라 `review_required`로 처리합니다.
 - [ ] 검토된 Kubernetes 관계 변환기를 production 인벤토리 조립에 연결한 다음 통과 중인 VM 연결 및 Pod 텔레메트리 competency 검사를 exact release의 보존된 인벤토리 근거에 실행합니다.
 - [ ] 운영 메타모델 보증을 `validated`로 변경하기 전에 exact 온톨로지 release를 바인딩하는 인증된 cross-service 및 live-assurance 증적을 보존합니다.
 

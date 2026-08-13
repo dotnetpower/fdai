@@ -330,16 +330,18 @@ def _build_ontology_observer(
             object_types=catalog.object_types,
             link_types=catalog.link_types,
         )
+        ontology_release_digest = catalog.build_release().digest
         projector = InventoryOntologyProjector(
             store=ontology_store,
             status_store=PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn)),
+            ontology_release_digest=ontology_release_digest,
             resource_type_mappings=resource_type_mapping_digests(vocabulary),
         )
         topology_publisher = InventoryTopologyHistoryPublisher(
             writer=PostgresTopologyHistoryStore(
                 config=PostgresTopologyHistoryStoreConfig(dsn=config.dsn)
             ),
-            ontology_release_digest=catalog.build_release().digest,
+            ontology_release_digest=ontology_release_digest,
         )
 
     async def _observe(observation: PromotedInventoryObservation) -> None:

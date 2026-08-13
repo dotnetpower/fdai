@@ -11,6 +11,7 @@ from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.runtime.inventory_ontology import (
     INVENTORY_ONTOLOGY_MANIFEST_KEY,
+    INVENTORY_ONTOLOGY_STATUS_KEY,
     InventoryOntologyProjector,
 )
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
@@ -28,6 +29,7 @@ from fdai.shared.providers.state_evidence import (
 from fdai.shared.providers.testing import InMemoryOntologyInstanceStore, InMemoryStateStore
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
+ONTOLOGY_RELEASE_DIGEST = "sha256:" + "a" * 64
 
 
 def _store() -> InMemoryOntologyInstanceStore:
@@ -39,6 +41,20 @@ def _store() -> InMemoryOntologyInstanceStore:
     return InMemoryOntologyInstanceStore(
         object_types=catalog.object_types,
         link_types=catalog.link_types,
+    )
+
+
+def _projector(
+    store: InMemoryOntologyInstanceStore,
+    status: InMemoryStateStore,
+    *,
+    resource_type_mappings: dict[str, str] | None = None,
+) -> InventoryOntologyProjector:
+    return InventoryOntologyProjector(
+        store=store,
+        status_store=status,
+        ontology_release_digest=ONTOLOGY_RELEASE_DIGEST,
+        resource_type_mappings=resource_type_mappings,
     )
 
 
@@ -98,7 +114,7 @@ def _metadata(generation: str, index: int) -> LinkObservationMetadata:
 async def test_first_generation_writes_owned_objects_and_manifest() -> None:
     store = _store()
     status = InMemoryStateStore()
-    projector = InventoryOntologyProjector(store=store, status_store=status)
+    projector = _projector(store, status)
 
     result = await projector.apply(
         _observation(
@@ -117,6 +133,7 @@ async def test_first_generation_writes_owned_objects_and_manifest() -> None:
     )
 
     assert result.generation == "snapshot-1"
+    assert result.ontology_release_digest == ONTOLOGY_RELEASE_DIGEST
     assert result.object_count == 2
     assert result.link_count == 1
     assert result.complete is True
@@ -125,6 +142,23 @@ async def test_first_generation_writes_owned_objects_and_manifest() -> None:
     assert manifest is not None
     assert sorted(manifest["object_ids"]) == ["vm-1", "vm-2"]
     assert manifest["generation"] == "snapshot-1"
+    assert manifest["ontology_release_digest"] == ONTOLOGY_RELEASE_DIGEST
+    assert await status.read_state(INVENTORY_ONTOLOGY_STATUS_KEY) == {
+        "schema_version": "1.1.0",
+        "generation": "snapshot-1",
+        "ontology_release_digest": ONTOLOGY_RELEASE_DIGEST,
+        "status": "available",
+        "dropped_reasons": [],
+    }
+
+
+def test_projector_rejects_unpinned_ontology_release() -> None:
+    with pytest.raises(ValueError, match="release digest"):
+        InventoryOntologyProjector(
+            store=_store(),
+            status_store=InMemoryStateStore(),
+            ontology_release_digest="unbound",
+        )
 
 
 async def test_projector_persists_resource_type_classification() -> None:
@@ -137,9 +171,9 @@ async def test_projector_persists_resource_type_classification() -> None:
             properties={"id": "compute.vm", "category": "compute"},
         )
     )
-    projector = InventoryOntologyProjector(
-        store=store,
-        status_store=status,
+    projector = _projector(
+        store,
+        status,
         resource_type_mappings={"compute.vm": "sha256:" + ("a" * 64)},
     )
 
@@ -161,7 +195,7 @@ async def test_projector_persists_resource_type_classification() -> None:
 async def test_one_resource_can_retain_multiple_observed_attachments() -> None:
     store = _store()
     status = InMemoryStateStore()
-    projector = InventoryOntologyProjector(store=store, status_store=status)
+    projector = _projector(store, status)
 
     result = await projector.apply(
         _observation(
@@ -192,7 +226,7 @@ async def test_one_resource_can_retain_multiple_observed_attachments() -> None:
 async def test_next_generation_deletes_disappeared_resources() -> None:
     store = _store()
     status = InMemoryStateStore()
-    projector = InventoryOntologyProjector(store=store, status_store=status)
+    projector = _projector(store, status)
 
     await projector.apply(_observation(generation="snapshot-1", resource_ids=("vm-1", "vm-2")))
     await projector.apply(_observation(generation="snapshot-2", resource_ids=("vm-1",)))
@@ -204,7 +238,7 @@ async def test_next_generation_deletes_disappeared_resources() -> None:
 async def test_repeated_generation_is_idempotent() -> None:
     store = _store()
     status = InMemoryStateStore()
-    projector = InventoryOntologyProjector(store=store, status_store=status)
+    projector = _projector(store, status)
 
     first = await projector.apply(_observation(generation="snapshot-1", resource_ids=("vm-1",)))
     second = await projector.apply(_observation(generation="snapshot-1", resource_ids=("vm-1",)))
@@ -223,7 +257,7 @@ async def test_foreign_owned_object_is_rejected() -> None:
             properties={"id": "vm-1", "type": "compute.vm"},
         )
     )
-    projector = InventoryOntologyProjector(store=store, status_store=status)
+    projector = _projector(store, status)
 
     with pytest.raises(OntologyInstanceValidationError, match="owned by another projection"):
         await projector.apply(_observation(generation="snapshot-1", resource_ids=("vm-1",)))
@@ -232,7 +266,7 @@ async def test_foreign_owned_object_is_rejected() -> None:
 async def test_incomplete_observation_preserves_prior_projection_and_records_unavailable() -> None:
     store = _store()
     status = InMemoryStateStore()
-    projector = InventoryOntologyProjector(store=store, status_store=status)
+    projector = _projector(store, status)
 
     await projector.apply(_observation(generation="snapshot-1", resource_ids=("vm-1",)))
     prior_manifest = await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY)
@@ -247,8 +281,9 @@ async def test_incomplete_observation_preserves_prior_projection_and_records_una
     assert await store.get_object("vm-2") is None
     assert await status.read_state(INVENTORY_ONTOLOGY_MANIFEST_KEY) == prior_manifest
     assert await status.read_state("inventory-ontology:status") == {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "generation": "snapshot-2",
+        "ontology_release_digest": ONTOLOGY_RELEASE_DIGEST,
         "status": "unavailable",
         "dropped_reasons": ["observation_incomplete"],
     }
@@ -257,7 +292,7 @@ async def test_incomplete_observation_preserves_prior_projection_and_records_una
 async def test_metadata_less_link_preserves_prior_projection_and_reports_unverified() -> None:
     store = _store()
     status = InMemoryStateStore()
-    projector = InventoryOntologyProjector(store=store, status_store=status)
+    projector = _projector(store, status)
     await projector.apply(_observation(generation="snapshot-1", resource_ids=("vm-1",)))
 
     result = await projector.apply(
