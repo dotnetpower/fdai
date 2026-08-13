@@ -1,10 +1,35 @@
 import { describe, expect, test } from "vitest";
+import { OperatorApiError } from "../api";
 import type { HilQueueItem } from "../types";
-import { approvalSearchText, nextApprovalExpiryDelay } from "./hil-queue";
+import { approvalSearchText, loadHilQueueState, nextApprovalExpiryDelay } from "./hil-queue";
 
 function item(expiresAt: string | null): HilQueueItem {
   return { ttl_expires_at: expiresAt } as HilQueueItem;
 }
+
+describe("approval queue source state", () => {
+  test("renders optional projection absence as unavailable", async () => {
+    const client = {
+      listHilQueue: async () => { throw new OperatorApiError(503, "unavailable"); },
+    };
+
+    await expect(loadHilQueueState(client, "")).resolves.toEqual({
+      status: "unavailable",
+      message: expect.any(String),
+    });
+  });
+
+  test("preserves unexpected failures as errors", async () => {
+    const client = {
+      listHilQueue: async () => { throw new OperatorApiError(500, "broken"); },
+    };
+
+    await expect(loadHilQueueState(client, "restart")).resolves.toEqual({
+      status: "error",
+      message: "broken",
+    });
+  });
+});
 
 describe("approval expiry clock", () => {
   test("schedules the nearest future expiry and ignores expired or missing TTLs", () => {

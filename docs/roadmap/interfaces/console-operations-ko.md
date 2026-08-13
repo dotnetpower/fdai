@@ -1,8 +1,8 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: c2494952176ec869851788f8c665bfb8ade2e39d
-translation_revised: 2026-08-11
+translation_source_sha: 6dcb5d5d12fde8881d90dbb7fd4bbbe09d015470
+translation_revised: 2026-08-13
 ---
 
 # 콘솔 운영
@@ -22,6 +22,27 @@ translation_revised: 2026-08-11
 > 검사합니다. 두 경계 모두 no-self-approval 검사 전에 principal 신원을 normalize합니다. Pending
 > access-grant 검토는 권한을 적용하지 않은 채 App 역할, 자기 승인 방지, 만료,
 > 정족수 및 exact 개정 번호를 검사합니다. Federated 작업 화면, cross-domain 변환 결과 메타데이터 및 나머지 경로 강화는 제안 상태입니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 승인 변환 결과 사용 불가 상태 | implemented | `console/src/routes/hil-queue.tsx`; `console/src/routes/hil-queue.test.ts`; `console/tests/live-e2e/console-routes.spec.ts`; 범위를 한정한 Vitest 검사(`5 passed`)와 라이브 Playwright 검사(`1 passed`) | Approvals 경로는 선택적 변환 결과가 없을 때 중립적인 사용 불가 상태를 표시합니다. 예상하지 못한 실패는 오류로 유지하며 브라우저에 승인 또는 실행 권한을 부여하지 않습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | implemented | 이전 구현 이력을 재구성하지 않고 구현 원장을 채택했으며 Approvals 경로를 타입이 지정된 출처 사용 불가 경계에 맞췄습니다. | `current change`; 구현 범위 표의 작업 소유 소스와 테스트; `vitest run src/routes/hil-queue.test.ts`에서 5개 테스트가 통과했고 범위를 한정한 라이브 `/approvals` Playwright 검사가 통과했습니다. | 아래의 변환 결과, 요청, 상호 작용 및 측정 완료 근거를 기록합니다. |
+
+### 남은 작업
+
+- [ ] 단계 1 완료 조건에서 정의한 결정론적 재구축, 다이제스트 변경 및 캐시 손실 훈련 근거를 기록합니다.
+- [ ] 제공되는 모든 요청 경로에서 단계 2 완료 조건의 실패 주입 및 권한 경계 매트릭스를 통과합니다.
+- [ ] 단계 3 완료 조건에서 정의한 키보드, 충돌, 재시도, 보상 및 롤백 훈련 근거를 기록합니다.
+- [ ] 검토된 기준선 구간을 고정하고 단계 4 완료 조건에서 정의한 shadow 측정 비교를 통과합니다.
 
 ## 설계 요약
 
