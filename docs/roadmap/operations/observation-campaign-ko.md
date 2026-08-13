@@ -1,7 +1,7 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: a31e090084ea0f225bd4b4b3edf2f000b9642583
+translation_source_sha: b7991997cfd22b03d194032e6843b80970f5ee5e
 translation_revised: 2026-08-14
 ---
 
@@ -26,7 +26,7 @@ translation_revised: 2026-08-14
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 기존 Azure 읽기 어댑터 | implemented | `delivery/azure/activity_log.py`, `delivery/azure/inventory.py`, `delivery/azure/log_query.py`, `composition/wire_metric_provider.py`, `core/read_investigation/` | 출처별 수집 및 분석 경로는 의미 있는 근거를 계속 소유합니다. 캠페인은 범위가 제한된 출처 커버리지를 확인하며 이 경로를 대체하지 않습니다. |
+| 기존 Azure 읽기 어댑터 | implemented | `delivery/azure/activity_log.py`, `delivery/azure/inventory.py`, `delivery/azure/log_query.py`, `delivery/azure/observation_campaign.py`, `core/read_investigation/` | 출처별 수집 및 분석 경로는 의미 있는 근거를 계속 소유합니다. 캠페인 커버리지는 전체 의미 payload 대신 집계 스냅샷 개수, ARG 개수 및 대상이 필요 없는 Log Analytics 메트릭을 읽습니다. |
 | 캠페인 계약 및 출처 레지스트리 | implemented | `config/observation-sources.yaml`, `fdai_service_contracts/operational_activity.py`, `delivery/observation_source_catalog.py`, 집중 계약 및 카탈로그 테스트 | 엄격한 의미 digest 카탈로그가 10개 도메인을 모두 다루고 알 수 없는 필드, 잘못된 소유자, 제한 없는 한도 및 원시 활동 사유 문구를 거부합니다. |
 | 영속 캠페인 실행기 | implemented | `delivery/observation_campaign.py`, 집중 수명 주기 테스트 | 원자적 lease, 개정 번호를 확인하는 종료 기록, 충돌 복구, 현재 상태 커서, 부분 격리, 동시성 4 및 개인정보가 제한된 활동 요약을 실행할 수 있습니다. |
 | 로컬 및 배포 예약 동등성 | implemented | `delivery/observation_campaign_cli.py`, `delivery/inventory_sync_cli.py`, `.vscode/tasks.json`, `infra/modules/compute/container-apps/observation_campaign_job.tf`, 집중 CLI 및 workspace 테스트 | 두 실행 위치 모두 매분 캠페인 실행 조건을 확인합니다. 두 위치 모두 권위 있는 인벤토리 실행 조건 게이트도 실행하며 자격 증명과 PostgreSQL 연결만 다릅니다. |
@@ -39,6 +39,7 @@ translation_revised: 2026-08-14
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 등록된 모든 출처를 위한 하나의 권한 인식 관측 캠페인을 정의하고 로컬과 배포의 동작 동등성을 명시했습니다. 이전 구현 출처 이력은 재구성하지 않았습니다. | `current change`, 구현 범위 표에 인용한 기존 어댑터와 scheduler 경로 | 아래 계약, 실행기, 출처 연결, 활동 변환 결과, 동등성 검사 및 통제된 런타임 근거를 구현합니다. |
 | 2026-08-14 | implemented | 공유 커버리지 캠페인, 반복 로컬 인벤토리 동등성, 배포 작업과 읽기 역할, 영속 Operator 변환 결과 및 지역화된 Console lane을 구현하고 하드닝했습니다. | `current change`, 집중 계약, 수명 주기, 프로바이더, CLI, 인벤토리, Operator, Console, workspace, 타입, lint, JSON 및 Terraform 검사 | 검증을 주장하기 전에 하나의 카탈로그 digest에서 통제된 로컬 및 배포 실행을 보존합니다. |
+| 2026-08-14 | implemented | 첫 통제된 로컬 실행에서 그래프 속성 decode, Service Health payload 크기 및 대상 없는 메트릭 라우팅 실패를 발견한 뒤 집계 전용 커버리지를 하드닝했습니다. | 검증된 개정 번호 `214409710`, 이 실행은 준비된 출처 6개, 정규화된 Cost 제한 1개 및 격리된 프로바이더 실패 3개에 도달했습니다. `current change`, 집중 집계 커버리지 검사 125개 통과 | 하드닝된 개정 번호에서 통제된 로컬 캠페인을 다시 실행한 뒤 동등한 배포 실행을 보존합니다. |
 
 ### 남은 작업
 

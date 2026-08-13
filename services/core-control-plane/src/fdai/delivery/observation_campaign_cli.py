@@ -20,6 +20,10 @@ from fdai.delivery.azure.log_query import (
     AzureLogAnalyticsQueryConfig,
     AzureLogAnalyticsQueryProvider,
 )
+from fdai.delivery.azure.metric_logs import (
+    AzureMonitorLogsConfig,
+    AzureMonitorLogsMetricProvider,
+)
 from fdai.delivery.azure.observation_campaign import (
     AzureActivityLogObservationProbe,
     AzureCostObservationProbe,
@@ -137,7 +141,9 @@ def _build_probes(
     )
     probes: dict[str, ObservationProbe] = {
         "inventory": PromotedInventoryObservationProbe(
-            PostgresInventoryGraphProvider(config=PostgresInventorySnapshotStoreConfig(dsn=dsn))
+            PostgresInventoryGraphProvider(
+                config=PostgresInventorySnapshotStoreConfig(dsn=dsn)
+            ).coverage_summary
         ),
         "activity-log": AzureActivityLogObservationProbe(
             config=management,
@@ -187,12 +193,24 @@ def _build_probes(
             source_id="guest-logs",
         )
     prometheus_base_url = os.environ.get("FDAI_PROMETHEUS_ENDPOINT", "").strip() or None
-    if workspace_id or prometheus_base_url:
+    if workspace_id:
+        probes["metrics"] = MetricObservationProbe(
+            AzureMonitorLogsMetricProvider(
+                config=AzureMonitorLogsConfig(
+                    workspace_id=workspace_id,
+                    queries=default_metric_queries(),
+                ),
+                identity=identity,
+                http_client=http_client,
+            ),
+            metric_names=tuple(default_metric_queries()),
+        )
+    elif prometheus_base_url:
         container = attach_metric_provider(
             default_container_from_env(),
             identity=identity,
             http_client=http_client,
-            monitor_workspace_id=workspace_id or None,
+            monitor_workspace_id=None,
             monitor_queries=None,
             metrics_api_queries=None,
             prometheus_base_url=prometheus_base_url,

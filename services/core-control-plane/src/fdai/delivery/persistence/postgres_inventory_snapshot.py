@@ -314,6 +314,65 @@ class PostgresInventoryGraphProvider:
     def __init__(self, *, config: PostgresInventorySnapshotStoreConfig) -> None:
         self._config = config
 
+    async def coverage_summary(self, limit: int) -> Mapping[str, Any]:
+        """Return active-snapshot coverage without decoding resource properties."""
+        if limit < 1:
+            raise ValueError("inventory coverage limit MUST be positive")
+        async with await self._connect() as connection:
+            await connection.set_isolation_level(IsolationLevel.REPEATABLE_READ)
+            await connection.set_read_only(True)
+            await self._set_timeout(connection)
+            await connection.execute("SELECT pg_advisory_xact_lock_shared(%s)", (_PROMOTION_LOCK,))
+            cursor = await connection.execute(
+                "SELECT s.id, s.source, s.observation_kind, s.completed_at, "
+                "(SELECT COUNT(*) FROM inventory_snapshot_resource r "
+                "WHERE r.snapshot_id=s.id) AS resource_count, "
+                "(SELECT COUNT(*) FROM inventory_snapshot_link l "
+                "WHERE l.snapshot_id=s.id) AS link_count "
+                "FROM inventory_active a JOIN inventory_snapshot s ON s.id=a.snapshot_id "
+                "WHERE a.singleton=TRUE"
+            )
+            snapshot = await cursor.fetchone()
+            if snapshot is None:
+                return {
+                    "source": "unavailable",
+                    "freshness": "unavailable",
+                    "resource_count": 0,
+                    "link_count": 0,
+                    "truncated": False,
+                }
+            failure_cursor = await connection.execute(
+                "SELECT 1 FROM inventory_snapshot WHERE id<>%s AND started_at>%s AND "
+                "(status='failed' OR (status='collecting' AND "
+                "started_at < NOW() - INTERVAL '30 minutes')) LIMIT 1",
+                (snapshot["id"], snapshot["completed_at"]),
+            )
+            newer_failure = await failure_cursor.fetchone()
+            overlay_cursor = await connection.execute(
+                "SELECT COUNT(*) AS pending_changes FROM inventory_realtime_resource"
+            )
+            overlay = await overlay_cursor.fetchone()
+        age_seconds = max(
+            0,
+            int((datetime.now(tz=UTC) - snapshot["completed_at"]).total_seconds()),
+        )
+        stale = (
+            age_seconds > self._config.freshness_budget_seconds
+            or snapshot["observation_kind"] == InventoryObservationKind.EXPECTED.value
+            or newer_failure is not None
+        )
+        pending_changes = int(overlay["pending_changes"] or 0) if overlay is not None else 0
+        freshness = "unknown" if pending_changes else ("stale" if stale else "fresh")
+        resource_count = int(snapshot["resource_count"])
+        link_count = int(snapshot["link_count"])
+        return {
+            "source": snapshot["source"],
+            "freshness": freshness,
+            "resource_count": resource_count,
+            "link_count": link_count,
+            "truncated": resource_count + link_count > limit,
+        }
+
     async def __call__(
         self,
         scope: str | None,

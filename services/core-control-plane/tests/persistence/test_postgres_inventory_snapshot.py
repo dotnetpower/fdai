@@ -177,6 +177,34 @@ async def test_failed_candidate_retains_last_active_snapshot() -> None:
     assert await context_provider("missing-resource") is None
 
 
+async def test_inventory_coverage_summary_does_not_decode_resource_properties() -> None:
+    _upgrade()
+    config = PostgresInventorySnapshotStoreConfig(dsn=_dsn())
+    store = PostgresInventorySnapshotStore(config=config)
+    provider = PostgresInventoryGraphProvider(config=config)
+    attempt = await store.begin(_manifest("arg"))
+    await store.stage(
+        attempt,
+        InventoryBatch(
+            resources=(
+                ResourceRecord(
+                    "vm-invalid-property",
+                    "compute.vm",
+                    {"shutdown_schedule": {"enabled": "not-a-boolean"}},
+                ),
+            )
+        ),
+    )
+    await store.promote(attempt, _manifest("arg"))
+
+    summary = await provider.coverage_summary(limit=10)
+
+    assert summary["source"] == "arg"
+    assert summary["resource_count"] == 1
+    assert summary["link_count"] == 0
+    assert summary["truncated"] is False
+
+
 async def test_rooted_inventory_graph_respects_depth_and_limit() -> None:
     _upgrade()
     config = PostgresInventorySnapshotStoreConfig(dsn=_dsn())

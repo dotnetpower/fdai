@@ -50,7 +50,8 @@ async def test_resource_graph_probe_uses_reviewed_query_and_reports_count() -> N
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.headers["authorization"] == "Bearer token"
         assert "healthresources" in request.content.decode().lower()
-        return httpx.Response(200, json={"data": [{"id": "redacted"}]})
+        assert "summarize evidence_count=count()" in request.content.decode()
+        return httpx.Response(200, json={"data": [{"evidence_count": 1}]})
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         result = await AzureResourceGraphObservationProbe(
@@ -70,7 +71,7 @@ async def test_resource_graph_probe_uses_reviewed_query_and_reports_count() -> N
 async def test_resource_graph_probe_enforces_target_limit() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert json.loads(request.content)["subscriptions"] == ["sub-1"]
-        return httpx.Response(200, json={"data": []})
+        return httpx.Response(200, json={"data": [{"evidence_count": 0}]})
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         result = await AzureResourceGraphObservationProbe(
@@ -95,6 +96,29 @@ async def test_resource_graph_probe_enforces_target_limit() -> None:
 
     assert result.coverage is ObservationCoverage.PARTIAL
     assert result.reason_codes == ("target_limit",)
+
+
+async def test_service_health_probe_counts_active_events_without_properties() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        query = json.loads(request.content)["query"]
+        assert "properties.Status =~ 'Active'" in query
+        assert "project id" not in query
+        return httpx.Response(200, json={"data": [{"evidence_count": 17}]})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        result = await AzureResourceGraphObservationProbe(
+            config=AzureObservationConfig(subscription_ids=("sub",)),
+            query=AzureResourceGraphObservation.SERVICE_HEALTH,
+            identity=_identity(),
+            http_client=client,
+        ).collect(
+            _spec("service-health", ObservationDomain.SERVICE_HEALTH, "Heimdall"),
+            cursor=None,
+        )
+
+    assert result.coverage is ObservationCoverage.PARTIAL
+    assert result.evidence_count == 10
+    assert result.reason_codes == ("result_limit",)
 
 
 async def test_activity_log_probe_normalizes_permission_denial() -> None:
@@ -452,16 +476,16 @@ async def test_log_analytics_probe_uses_server_owned_template() -> None:
 
 
 async def test_promoted_inventory_probe_reports_stale_without_raw_resources() -> None:
-    async def graph(*_args, **_kwargs):
+    async def summary(_limit: int):
         return {
             "source": "azure-resource-graph",
             "freshness": "stale",
-            "resources": [{"id": "redacted"}],
-            "links": [],
+            "resource_count": 1,
+            "link_count": 0,
             "truncated": False,
         }
 
-    result = await PromotedInventoryObservationProbe(graph).collect(
+    result = await PromotedInventoryObservationProbe(summary).collect(
         _spec("inventory", ObservationDomain.INVENTORY, "Huginn"),
         cursor=None,
     )
