@@ -41,7 +41,7 @@ class AzureOpenAISemanticPlanningModelConfig:
     candidates: tuple[ModelRequestTarget, ...]
     frame_system_prompt: str
     plan_system_prompt: str
-    timeout_seconds: float = 30.0
+    timeout_seconds: float = 90.0
     max_tokens: int = 2_048
 
     def __post_init__(self) -> None:

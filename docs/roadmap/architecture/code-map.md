@@ -134,7 +134,9 @@ The verifier rejects outputs that don't name declared DAG nodes before I/O. Answ
 only bounded verified query tables, and transient projection publication retries the same durable
 idempotent result before dead-lettering.
 Azure semantic planning uses existing `httpx` and `WorkloadIdentity` adapters for two validated
-JSON-object proposals. Composition exposes only handlers with bound authoritative providers. The
+JSON-object proposals. Each proposal has a 90-second default budget and retries one throttled
+candidate at most once when its bounded `Retry-After` delay fits that budget. Composition exposes
+only handlers with bound authoritative providers. The
 frame proposal applies the shared wire identifier constraints before Core rebuilds server-owned
 digests. Structured diagnostics record only the planning stage, candidate index, failure class,
 and input-free validation locations; they omit operator text and provider details. The
