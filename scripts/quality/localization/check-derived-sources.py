@@ -38,6 +38,7 @@ Exit codes: 0 on success, 1 on any drift or malformed declaration.
 
 from __future__ import annotations
 
+import argparse
 import subprocess
 import sys
 from pathlib import Path
@@ -52,21 +53,35 @@ def repo_root() -> Path:
     return Path(out)
 
 
-def git_hash(path: Path) -> str | None:
-    """Return `git hash-object <path>`, or None when the file is absent."""
+def git_hash(root: Path, path: Path, *, cached: bool) -> str | None:
+    """Return the worktree or index blob hash, or None when the file is absent."""
+    if cached:
+        rel = path.relative_to(root).as_posix()
+        result = subprocess.run(
+            ["git", "rev-parse", "--verify", f":{rel}"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return result.stdout.strip() if result.returncode == 0 else None
     if not path.is_file():
         return None
     return subprocess.check_output(["git", "hash-object", str(path)], text=True).strip()
 
 
-def read_front_matter(path: Path) -> dict | None:
+def read_front_matter(root: Path, path: Path, *, cached: bool) -> dict[str, object] | None:
     """Parse the YAML front-matter block of a Markdown file.
 
     Returns the parsed mapping, or None when the file has no front-matter.
     Raises yaml.YAMLError on malformed YAML (surfaced by the caller as a
     reportable error rather than a crash).
     """
-    text = path.read_text(encoding="utf-8")
+    if cached:
+        rel = path.relative_to(root).as_posix()
+        text = subprocess.check_output(["git", "show", f":{rel}"], cwd=root, text=True)
+    else:
+        text = path.read_text(encoding="utf-8")
     if not text.startswith(FRONT_MATTER_DELIM):
         return None
     lines = text.splitlines()
@@ -79,8 +94,21 @@ def read_front_matter(path: Path) -> dict | None:
     return None
 
 
-def enumerate_docs(root: Path) -> list[Path]:
+def enumerate_docs(root: Path, *, cached: bool) -> list[Path]:
     """All in-scope English canonical Markdown files (excludes -ko.md)."""
+    if cached:
+        result = subprocess.run(
+            ["git", "ls-files", "--cached", "--", "README.md", "docs"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return [
+            root / rel
+            for rel in result.stdout.splitlines()
+            if rel.endswith(".md") and not rel.endswith("-ko.md")
+        ]
     candidates: list[Path] = []
     readme = root / "README.md"
     if readme.is_file():
@@ -91,11 +119,11 @@ def enumerate_docs(root: Path) -> list[Path]:
     return [p for p in candidates if not p.name.endswith("-ko.md")]
 
 
-def check_doc(root: Path, doc: Path) -> list[str]:
+def check_doc(root: Path, doc: Path, *, cached: bool) -> list[str]:
     """Validate one doc's derives_from block. Returns a list of error strings."""
     rel = doc.relative_to(root).as_posix()
     try:
-        fm = read_front_matter(doc)
+        fm = read_front_matter(root, doc, cached=cached)
     except yaml.YAMLError as exc:
         return [f"{rel}: malformed YAML front-matter ({exc})"]
     if not fm or "derives_from" not in fm:
@@ -122,7 +150,7 @@ def check_doc(root: Path, doc: Path) -> list[str]:
                 f"{where}: source '{source}' must be a roadmap reference doc under docs/roadmap/"
             )
             continue
-        current = git_hash(source_path)
+        current = git_hash(root, source_path, cached=cached)
         if current is None:
             errors.append(f"{where}: source '{source}' does not exist")
             continue
@@ -137,17 +165,26 @@ def check_doc(root: Path, doc: Path) -> list[str]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Check user-facing documentation pins to roadmap source blobs."
+    )
+    parser.add_argument(
+        "--cached",
+        action="store_true",
+        help="Read documents and source hashes from the Git index.",
+    )
+    args = parser.parse_args(argv)
     root = repo_root()
-    docs = enumerate_docs(root)
+    docs = enumerate_docs(root, cached=args.cached)
     all_errors: list[str] = []
     checked = 0
     for doc in sorted(docs):
-        errors = check_doc(root, doc)
+        errors = check_doc(root, doc, cached=args.cached)
         if errors:
             all_errors.extend(errors)
         # Count only docs that actually declared a derivation.
         try:
-            fm = read_front_matter(doc)
+            fm = read_front_matter(root, doc, cached=args.cached)
         except yaml.YAMLError:
             fm = None
         if fm and "derives_from" in fm:

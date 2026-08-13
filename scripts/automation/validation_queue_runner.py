@@ -40,6 +40,8 @@ from scripts.automation.validation_queue_support import (
     validation_base,
 )
 
+MAX_COMMITS_PER_COHORT = 5
+
 
 class StageResult(TypedDict):
     """One timed or cached validation stage result."""
@@ -51,6 +53,7 @@ class StageResult(TypedDict):
     resumed_from: str | None
     resumed_failures: int
     input_digest: str | None
+    detail: str | None
 
 
 def _link_local_path(source: Path, destination: Path) -> None:
@@ -81,7 +84,28 @@ def _run_stage(
     env: dict[str, str],
 ) -> StageResult:
     started = time.monotonic()
-    status = subprocess.run(arguments, cwd=cwd, env=env, check=False).returncode
+    process = subprocess.Popen(  # noqa: S603 - arguments are repository-owned commands.
+        arguments,
+        cwd=cwd,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+    failed_gates: list[str] = []
+    in_summary = False
+    if process.stdout is None:
+        raise RuntimeError("validation stage stdout pipe was not created")
+    for line in process.stdout:
+        print(line, end="")
+        stripped = line.strip()
+        if stripped == "== summary ==":
+            in_summary = True
+            continue
+        if in_summary and stripped.endswith(" FAIL"):
+            failed_gates.append(stripped.removesuffix(" FAIL").rstrip())
+    status = process.wait()
     duration = round(time.monotonic() - started, 3)
     print(f"validation-queue: stage={name} status={status} duration={duration:.3f}s")
     return {
@@ -92,6 +116,7 @@ def _run_stage(
         "resumed_from": None,
         "resumed_failures": 0,
         "input_digest": None,
+        "detail": ", ".join(failed_gates) or None,
     }
 
 
@@ -105,6 +130,7 @@ def _cached_stage(name: str) -> StageResult:
         "resumed_from": None,
         "resumed_failures": 0,
         "input_digest": None,
+        "detail": None,
     }
 
 
@@ -166,16 +192,47 @@ def _record_receipts(
         (paths.pending / f"{commit}.json").unlink(missing_ok=True)
 
 
-def _run_locked(paths: QueuePaths, mode: str) -> int:
-    head = resolve_commit(paths, "HEAD")
-    pending = pending_commits(paths)
-    history = git("rev-list", "--reverse", "--topo-order", head, cwd=paths.repo_root).stdout
-    history_commits = history.splitlines()
-    selected = [commit for commit in history_commits if commit in pending]
-    if not selected:
-        print("validation-queue: no pending commits reachable from HEAD")
-        return 0
+def _is_documentation_only_commit(paths: QueuePaths, commit: str) -> bool:
+    changed = git(
+        "diff-tree",
+        "--root",
+        "--no-commit-id",
+        "--name-only",
+        "-r",
+        commit,
+        cwd=paths.repo_root,
+    ).stdout.splitlines()
+    return bool(changed) and all(
+        path in {"README.md", "README-ko.md"} or path.startswith("docs/") for path in changed
+    )
 
+
+def _select_cohort(paths: QueuePaths, remaining: list[str], *, mode: str) -> list[str]:
+    if mode != "fast":
+        return remaining
+    first = remaining[0]
+    parent = validation_base(paths, first)
+    parent_is_validated = (paths.receipts / f"{parent}.json").is_file()
+    if not parent_is_validated or not _is_documentation_only_commit(paths, first):
+        return remaining[:MAX_COMMITS_PER_COHORT]
+
+    cohort: list[str] = []
+    for commit in remaining[:MAX_COMMITS_PER_COHORT]:
+        if not _is_documentation_only_commit(paths, commit):
+            break
+        cohort.append(commit)
+    return cohort
+
+
+def _run_cohort(
+    paths: QueuePaths,
+    mode: str,
+    *,
+    head: str,
+    selected: list[str],
+    history_commits: list[str],
+) -> int:
+    """Validate one bounded pending cohort against its immutable last commit."""
     base = validation_base(paths, selected[0])
     revision_range = f"{base}..{head}"
     started_at = datetime.now(UTC).isoformat()
@@ -268,6 +325,30 @@ def _run_locked(paths: QueuePaths, mode: str) -> int:
             if verify_result["status"] != 0:
                 status = int(verify_result["status"])
                 return status
+        else:
+            verify_arguments = ["bash", "scripts/verify.sh", "--all"]
+            verify_result = _run_stage(
+                "all-gates",
+                verify_arguments,
+                cwd=validation_root,
+                env=environment,
+            )
+            stages.append(verify_result)
+            if verify_result["status"] != 0:
+                status = int(verify_result["status"])
+                return status
+        structural_result = _run_stage(
+            "structural-gates",
+            ["bash", "scripts/automation/run-pre-push-structural-gates.sh"],
+            cwd=validation_root,
+            env=environment,
+        )
+        structural_result["input_digest"] = structural_gate_digest(validation_root)
+        stages.append(structural_result)
+        if structural_result["status"] != 0:
+            status = int(structural_result["status"])
+            return status
+        if mode == "fast":
             if "changed-tests" in passed_stages:
                 changed_result = _cached_stage("changed-tests")
             else:
@@ -319,29 +400,6 @@ def _run_locked(paths: QueuePaths, mode: str) -> int:
             if changed_result["status"] != 0:
                 status = int(changed_result["status"])
                 return status
-        else:
-            verify_arguments = ["bash", "scripts/verify.sh", "--all"]
-            verify_result = _run_stage(
-                "all-gates",
-                verify_arguments,
-                cwd=validation_root,
-                env=environment,
-            )
-            stages.append(verify_result)
-            if verify_result["status"] != 0:
-                status = int(verify_result["status"])
-                return status
-        structural_result = _run_stage(
-            "structural-gates",
-            ["bash", "scripts/automation/run-pre-push-structural-gates.sh"],
-            cwd=validation_root,
-            env=environment,
-        )
-        structural_result["input_digest"] = structural_gate_digest(validation_root)
-        stages.append(structural_result)
-        if structural_result["status"] != 0:
-            status = int(structural_result["status"])
-            return status
         status = 0
         run_record = _run_record(
             base=base,
@@ -376,6 +434,35 @@ def _run_locked(paths: QueuePaths, mode: str) -> int:
             paths.runs / f"{head}.json",
             json.dumps(run_record, sort_keys=True) + "\n",
         )
+
+
+def _run_locked(paths: QueuePaths, mode: str) -> int:
+    queue_head = resolve_commit(paths, "HEAD")
+    pending = pending_commits(paths)
+    history = git("rev-list", "--reverse", "--topo-order", queue_head, cwd=paths.repo_root).stdout
+    history_commits = history.splitlines()
+    selected = [commit for commit in history_commits if commit in pending]
+    if not selected:
+        print("validation-queue: no pending commits reachable from HEAD")
+        return 0
+
+    history_positions = {commit: index for index, commit in enumerate(history_commits)}
+    remaining = selected
+    while remaining:
+        cohort = _select_cohort(paths, remaining, mode=mode)
+        cohort_head = cohort[-1]
+        cohort_history = history_commits[: history_positions[cohort_head] + 1]
+        result = _run_cohort(
+            paths,
+            mode,
+            head=cohort_head,
+            selected=cohort,
+            history_commits=cohort_history,
+        )
+        if result != 0:
+            return result
+        remaining = remaining[len(cohort) :]
+    return 0
 
 
 def _run_record(
