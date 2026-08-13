@@ -56,6 +56,11 @@ unannounced revision consumes its sequence position but cannot append text, repl
 content, invoke confirmation callbacks, or increment confirmation metrics. Confirmed revisions
 advance strictly. A missing `seq` makes the turn partial even when a later `done` arrives.
 
+Drawer visibility is presentation state and remains independent from conversation identity. A
+persisted open drawer does not replay a prior turn as a new request. Starting a new conversation
+creates empty canonical history and new request and idempotency identities without requiring the
+operator to close and reopen the drawer.
+
 ## Channel reduction
 
 Web, Teams, and Slack consume the same ordered event reduction:

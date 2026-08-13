@@ -147,8 +147,12 @@ test("the live route inventory stays synchronized with the production registry",
 async function openCommandDeck(page: Page) {
   await page.goto("/settings/diagnostics", { waitUntil: "domcontentloaded" });
   await waitForPanel(page);
-  await page.getByRole("button", { name: "Open command deck" }).click();
-  return page.getByRole("complementary", { name: "Command deck" });
+  const deck = page.getByRole("complementary", { name: "Command deck" });
+  if (!(await deck.isVisible())) {
+    await page.getByRole("button", { name: "Open command deck" }).click();
+  }
+  await expect(deck).toBeVisible();
+  return deck;
 }
 
 test("Command Deck returns a verified server-time answer", async ({ page }) => {
@@ -172,6 +176,7 @@ test("Command Deck renders the exact governed ontology projection receipt", asyn
   test.setTimeout(150_000);
   await restoreBrowserEntraSessionStorage(page);
   const deck = await openCommandDeck(page);
+  await deck.getByRole("button", { name: "New conversation" }).click();
   const responsePromise = page.waitForResponse((response) => (
     isOperatorApiResponse(response) &&
     new URL(response.url()).pathname === "/chat/stream" &&
