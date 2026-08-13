@@ -96,8 +96,8 @@
     "tierCeilings": "티어 상한"
   },
   "map": {
-    "title": "전체 온톨로지 지식 그래프",
-    "description": "카탈로그에 정의된 모든 ObjectType, ResourceType, Rule, ActionType, Workflow, Agent, SignalType 및 Property를 하나의 그래프에 표시합니다. 노드 크기는 연결 수, 색상은 온톨로지 종류를 나타내며 연결이 밀집된 항목은 토폴로지 커뮤니티를 형성합니다.",
+    "title": "카탈로그 토폴로지",
+    "description": "카탈로그에 정의된 모든 ObjectType, InterfaceType, FunctionType, ResourceType, Rule, ActionType, Workflow, Agent, SignalType 및 Property를 하나의 참조 그래프에 표시합니다. 노드 크기는 연결 수, 색상은 온톨로지 종류를 나타내며 연결이 밀집된 항목은 토폴로지 커뮤니티를 형성합니다.",
     "sourceTitle": "결정론적 커뮤니티 force 레이아웃",
     "summaryLabel": "온톨로지 지식 그래프 요약",
     "nodes": "카탈로그 노드",
@@ -118,6 +118,7 @@
     "relationshipFilters": "관계 필터",
     "edgeKind": {
       "link_type": "LinkType",
+      "interface": "인터페이스",
       "instance_of": "인스턴스 관계",
       "rule_dispatch": "규칙 디스패치",
       "workflow": "Workflow",

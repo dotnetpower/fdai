@@ -96,8 +96,8 @@
     "tierCeilings": "Tier ceilings"
   },
   "map": {
-    "title": "Full ontology knowledge graph",
-    "description": "All catalog-backed ObjectTypes, ResourceTypes, Rules, ActionTypes, Workflows, Agents, SignalTypes, and Properties share one graph. Node size follows degree, color identifies ontology kind, and dense links form topology communities.",
+    "title": "Catalog topology",
+    "description": "All catalog-backed ObjectTypes, InterfaceTypes, FunctionTypes, ResourceTypes, Rules, ActionTypes, Workflows, Agents, SignalTypes, and Properties share one reference graph. Node size follows degree, color identifies ontology kind, and dense links form topology communities.",
     "sourceTitle": "Deterministic community force layout",
     "summaryLabel": "Ontology knowledge graph summary",
     "nodes": "Catalog nodes",
@@ -118,6 +118,7 @@
     "relationshipFilters": "Relationship filters",
     "edgeKind": {
       "link_type": "LinkTypes",
+      "interface": "Interfaces",
       "instance_of": "Instance of",
       "rule_dispatch": "Rule dispatch",
       "workflow": "Workflow",

@@ -1,14 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { ontologyKnowledgeGraphSummary } from "../components/ontology-knowledge-graph.model";
-import { loadOntologyKnowledgeGraph } from "./ontology-knowledge-map";
+import type { OntologyKnowledgeGraph } from "../components/ontology-knowledge-graph.model";
+import { OntologyKnowledgeMap } from "./ontology-knowledge-map";
 
 describe("ontology knowledge map", () => {
-  it("loads the complete generated catalog graph without inventory input", async () => {
-    const graph = await loadOntologyKnowledgeGraph();
-    const summary = ontologyKnowledgeGraphSummary(graph);
+  it("renders only the exact-release graph supplied by the parent projection", () => {
+    const graph: OntologyKnowledgeGraph = {
+      schemaVersion: "2.0.0",
+      generatedFrom: "operator ontology projection",
+      ontologyReleaseDigest: `sha256:${"2".repeat(64)}`,
+      mutationAuthority: false,
+      nodes: [],
+      edges: [],
+    };
+    const view = OntologyKnowledgeMap({ graph });
 
-    expect(summary.nodes).toBeGreaterThan(200);
-    expect(summary.edges).toBeGreaterThan(500);
-    expect(graph.generatedFrom).toBe("rule-catalog + PANTHEON_SPECS");
+    expect(view.props.class).toBe("ontology-knowledge-map");
+    expect(graph.generatedFrom).toBe("operator ontology projection");
   });
 });

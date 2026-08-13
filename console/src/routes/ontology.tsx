@@ -393,7 +393,7 @@ function OntologyBody({
         <OntologyActionsView actions={actionTypes} selectedName={selectedAction} />
       ) : null}
 
-      {view === "map" ? <OntologyKnowledgeMap /> : null}
+      {view === "map" ? <OntologyKnowledgeMap graph={data.catalog_topology} /> : null}
     </div>
   );
 }
