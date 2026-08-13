@@ -41,12 +41,17 @@ export interface AssuranceTurnJudgment extends AssuranceJudgment {
 }
 
 export interface AssuranceRunConfiguration {
-  readonly schema_version: "1.0.0";
+  readonly schema_version: "1.1.0";
   readonly seed: number;
   readonly batch_size: number;
   readonly request_interval_ms: number;
   readonly timeout_ms: number;
   readonly authentication: "browser_entra";
+  readonly transport_retry_policy: {
+    readonly max_attempts: number;
+    readonly retry_delay_ms: number;
+    readonly retryable_sources: readonly string[];
+  };
   readonly question_ids: readonly string[];
 }
 
@@ -55,6 +60,17 @@ export interface AssuranceRunProvenance {
   readonly configuration_digest: string;
   readonly workspace_patch_digest: string;
 }
+
+const RETRYABLE_TRANSPORT_SOURCES = new Set([
+  "deterministic (offline)",
+  "deterministic (stream interrupted)",
+  "deterministic (stream error)",
+  "deterministic (empty stream)",
+  "partial (stream interrupted)",
+  "partial (stream error)",
+  "partial (sequence gap)",
+  "partial (missing terminal verification)",
+]);
 
 const SOURCE_REVISION = /^[0-9a-f]{40}$/;
 const SHA256_DIGEST = /^sha256:[0-9a-f]{64}$/;
@@ -311,6 +327,17 @@ export function judgeSemanticTurn(
 
 export function assuranceOperations(): readonly AssuranceOperation[] {
   return OPERATIONS;
+}
+
+export function assuranceTransportRetrySources(): readonly string[] {
+  return [...RETRYABLE_TRANSPORT_SOURCES];
+}
+
+export function isRetryableAssuranceTransportFailure(
+  source: string,
+  rawReceipt: unknown,
+): boolean {
+  return rawReceipt == null && RETRYABLE_TRANSPORT_SOURCES.has(source);
 }
 
 export function buildAssuranceRunProvenance(

@@ -5,8 +5,10 @@ import { expect, test, type Page } from "@playwright/test";
 import { restoreBrowserEntraSessionStorage } from "./browser-entra-state";
 import {
   assuranceOperations,
+  assuranceTransportRetrySources,
   buildAssuranceRunProvenance,
   generateOntologyAssuranceCohort,
+  isRetryableAssuranceTransportFailure,
   judgeSemanticTurn,
   type AssuranceRunConfiguration,
   type AssuranceQuestion,
@@ -15,20 +17,34 @@ import {
 const COHORT_SEED = 0x0fda1;
 const BATCH_SIZE = 1;
 const REQUEST_INTERVAL_MS = 15_000;
+const MAX_TRANSPORT_ATTEMPTS = 2;
+const TRANSPORT_RETRY_DELAY_MS = 60_000;
 const TEST_TIMEOUT_MS = 4 * 60 * 60 * 1_000;
 const AUTHENTICATED_EXTERNAL_STACK = Boolean(
   process.env.FDAI_E2E_BASE_URL && process.env.FDAI_E2E_STORAGE_STATE,
 );
 
 interface BrowserTurnResult {
+  readonly source: string;
   readonly semantic_receipt: unknown;
   readonly verification: unknown;
+}
+
+interface RetainedTransportAttempt {
+  readonly attempt: number;
+  readonly outcome:
+    | "semantic_terminal"
+    | "retryable_transport_failure"
+    | "non_retryable_receipt_missing";
+  readonly source?: string;
 }
 
 interface RetainedTurnResult {
   readonly question_id: string;
   readonly locale: AssuranceQuestion["locale"];
   readonly operation: AssuranceQuestion["operation"];
+  readonly attempt_count: number;
+  readonly transport_attempts: readonly RetainedTransportAttempt[];
   readonly passed: boolean;
   readonly unauthorized_execution_claim: boolean;
   readonly failure_reason?: string;
@@ -58,6 +74,7 @@ async function runBrowserBatch(
         onToken: () => undefined,
       });
       return {
+        source: reply.source,
         semantic_receipt: reply.semanticReceipt ?? null,
         verification: reply.verification ?? null,
       };
@@ -74,6 +91,23 @@ function claimsExecutionAuthority(raw: unknown): boolean {
     (raw as Record<string, unknown>).execution_authority === true;
 }
 
+function retainTransportAttempt(
+  attempt: number,
+  result: BrowserTurnResult,
+): RetainedTransportAttempt {
+  if (result.semantic_receipt != null) {
+    return { attempt, outcome: "semantic_terminal" };
+  }
+  if (isRetryableAssuranceTransportFailure(result.source, result.semantic_receipt)) {
+    return {
+      attempt,
+      outcome: "retryable_transport_failure",
+      source: result.source,
+    };
+  }
+  return { attempt, outcome: "non_retryable_receipt_missing" };
+}
+
 test("authenticated Console completes the seeded bilingual ontology assurance cohort", async ({ page }, testInfo) => {
   test.skip(
     !AUTHENTICATED_EXTERNAL_STACK,
@@ -82,17 +116,22 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   test.setTimeout(TEST_TIMEOUT_MS);
   await restoreBrowserEntraSessionStorage(page);
   await page.goto("/architecture", { waitUntil: "domcontentloaded" });
-  await expect(page.locator("main")).toBeVisible();
+  await expect(page.locator(".shell")).toBeVisible();
 
   const startedAt = new Date().toISOString();
   const questions = generateOntologyAssuranceCohort(COHORT_SEED);
   const runConfiguration: AssuranceRunConfiguration = {
-    schema_version: "1.0.0",
+    schema_version: "1.1.0",
     seed: COHORT_SEED,
     batch_size: BATCH_SIZE,
     request_interval_ms: REQUEST_INTERVAL_MS,
     timeout_ms: TEST_TIMEOUT_MS,
     authentication: "browser_entra",
+    transport_retry_policy: {
+      max_attempts: MAX_TRANSPORT_ATTEMPTS,
+      retry_delay_ms: TRANSPORT_RETRY_DELAY_MS,
+      retryable_sources: assuranceTransportRetrySources(),
+    },
     question_ids: questions.map((question) => question.question_id),
   };
   const provenance = buildAssuranceRunProvenance(
@@ -101,17 +140,33 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     runConfiguration,
   );
   const retained: RetainedTurnResult[] = [];
+  let protectedRequestCount = 0;
   for (let offset = 0; offset < questions.length; offset += BATCH_SIZE) {
     const batch = questions.slice(offset, offset + BATCH_SIZE);
     const results = await runBrowserBatch(page, batch);
-    for (const [index, result] of results.entries()) {
+    protectedRequestCount += batch.length;
+    for (const [index, initialResult] of results.entries()) {
       const question = batch[index]!;
+      let result = initialResult;
+      const transportAttempts = [retainTransportAttempt(1, result)];
+      while (
+        transportAttempts.length < MAX_TRANSPORT_ATTEMPTS &&
+        isRetryableAssuranceTransportFailure(result.source, result.semantic_receipt)
+      ) {
+        await page.waitForTimeout(TRANSPORT_RETRY_DELAY_MS);
+        const [retryResult] = await runBrowserBatch(page, [question]);
+        result = retryResult!;
+        protectedRequestCount += 1;
+        transportAttempts.push(retainTransportAttempt(transportAttempts.length + 1, result));
+      }
       const judgment = judgeSemanticTurn(result.semantic_receipt, result.verification);
       const receipt = judgment.receipt;
       retained.push({
         question_id: question.question_id,
         locale: question.locale,
         operation: question.operation,
+        attempt_count: transportAttempts.length,
+        transport_attempts: transportAttempts,
         passed: judgment.passed,
         unauthorized_execution_claim: claimsExecutionAuthority(result.semantic_receipt),
         ...(judgment.failure_reason ? { failure_reason: judgment.failure_reason } : {}),
@@ -150,6 +205,11 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   const duplicateRequestIds = requestIds.length - new Set(requestIds).size;
   const duplicateProjectionIds = projectionIds.length - new Set(projectionIds).size;
   const failures = retained.filter((result) => !result.passed);
+  const retriedQuestionCount = retained.filter((result) => result.attempt_count > 1).length;
+  const transportRetryCount = protectedRequestCount - retained.length;
+  const exhaustedTransportRetryCount = retained.filter((result) =>
+    result.transport_attempts.at(-1)?.outcome === "retryable_transport_failure"
+  ).length;
   const localeCounts: Record<string, number> = {};
   const operationCounts: Record<string, number> = {};
   const dispositionCounts: Record<string, number> = {};
@@ -184,13 +244,14 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     (operation) => operationCounts[operation] === 10,
   );
   const passed = retained.length === 100 && failures.length === 0 &&
+    exhaustedTransportRetryCount === 0 &&
     duplicateRequestIds === 0 && duplicateProjectionIds === 0 &&
     unsupportedOperationalClaimCount === 0 && unauthorizedExecutionCount === 0 &&
     answeredEvidenceCount === answeredResults.length &&
     authoritativeOutcomeCount === retained.length && localeCoverageComplete &&
     operationCoverageComplete;
   const artifact = {
-    schema_version: "1.0.0",
+    schema_version: "1.1.0",
     evidence_type: "authenticated_bilingual_ontology_query_assurance",
     receipt_source: "live_assurance",
     ...provenance,
@@ -200,7 +261,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     authentication: "browser_entra",
     authentication_attestation: {
       storage_state_restored: true,
-      protected_request_count: retained.length,
+      protected_request_count: protectedRequestCount,
     },
     passed,
     production_ready: passed,
@@ -208,6 +269,9 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
       question_count: retained.length,
       passed_count: retained.length - failures.length,
       failed_count: failures.length,
+      retried_question_count: retriedQuestionCount,
+      transport_retry_count: transportRetryCount,
+      exhausted_transport_retry_count: exhaustedTransportRetryCount,
       duplicate_request_id_count: duplicateRequestIds,
       duplicate_projection_id_count: duplicateProjectionIds,
       unsupported_operational_claim_count: unsupportedOperationalClaimCount,
