@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: a211b1b1c7fc68d8c9b8f203f99fa94c4c531505
+translation_source_sha: 52e1bf807a4f5d9a2b1b35b55574819b80654149
 translation_revised: 2026-08-13
 ---
 # 코드 맵
@@ -135,7 +135,9 @@ Safety-core 커버리지 하한은 Core 패키지 안의 결정론적 계층과 
 검증된 조회 표만 렌더링하며 transient 변환 결과 게시는 dead-letter 전에 같은 영속
 멱등적 결과를 재시도합니다.
 Azure 의미 계획 수립은 기존 `httpx` 및 `WorkloadIdentity` 어댑터를 사용하여 검증된 JSON-object
-제안 두 개를 만듭니다. 조립은 권위 있는 프로바이더가 연결된 핸들러만 노출합니다. 공개
+제안 두 개를 만듭니다. 각 제안은 기본 90초 예산을 가지며, 범위가 제한된 `Retry-After` 지연이
+이 예산 안에 들어올 때 제한된 후보 하나를 최대 한 번 재시도합니다. 조립은 권위 있는 프로바이더가
+연결된 핸들러만 노출합니다. 공개
 프레임 제안은 Core가 서버 소유 다이제스트를 다시 만들기 전에 shared wire 식별자 제약을
 적용합니다. 구조화된 진단은 계획 단계, 후보 인덱스, 실패 클래스 및 입력을 포함하지 않는
 검증 위치만 기록하며 운영자 텍스트와 프로바이더 상세는 제외합니다. 공개

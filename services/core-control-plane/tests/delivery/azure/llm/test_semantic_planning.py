@@ -170,21 +170,30 @@ async def test_adapter_normalizes_non_authoritative_frame_tokens() -> None:
     ]
 
 
-async def test_adapter_retries_one_throttled_candidate_within_its_budget() -> None:
+async def test_adapter_retries_one_throttled_candidate_within_its_budget(monkeypatch) -> None:
     requests = 0
+    delays: list[float] = []
+
+    async def record_sleep(delay: float) -> None:
+        delays.append(delay)
 
     def handler(request: httpx.Request) -> httpx.Response:
         nonlocal requests
         requests += 1
         if requests == 1:
-            return httpx.Response(429, headers={"Retry-After": "0"})
+            return httpx.Response(429, headers={"Retry-After": "60"})
         return _response(_frame_payload())
 
+    monkeypatch.setattr(asyncio, "sleep", record_sleep)
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         model = AzureOpenAISemanticPlanningModel(
             identity=_Identity(),  # type: ignore[arg-type]
             http_client=client,
-            config=_config(),
+            config=AzureOpenAISemanticPlanningModelConfig(
+                candidates=(_target("primary"),),
+                frame_system_prompt=_config().frame_system_prompt,
+                plan_system_prompt=_config().plan_system_prompt,
+            ),
             owner_loop=asyncio.get_running_loop(),
         )
         frame_raw = await asyncio.to_thread(
@@ -198,6 +207,7 @@ async def test_adapter_retries_one_throttled_candidate_within_its_budget() -> No
 
     assert frame_raw is not None
     assert requests == 2
+    assert delays == [60.0]
 
 
 async def test_adapter_uses_candidate_order_and_returns_none_after_malformed_outputs(
