@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: 217fb4d314880fa00ae38b60a56c39ce85236c64
+translation_source_sha: 1b4a53fdac4bfdb729daa7846b45281bc3f045fd
 translation_revised: 2026-08-13
 ---
 # FDAI 운영 온톨로지 메타모델
@@ -114,6 +114,11 @@ LinkType은 구조적으로 directed 관계입니다. `from_type -> to_type`은 
 스키마 다이제스트 및 근거 메서드를 기록합니다. 완전한 인벤토리 세대에서 두 엔드포인트
 신원을 모두 관측하기 전까지는 후보 상태로 유지합니다. 엔드포인트 누락, orientation 모호함
 또는 불완전한 커버리지가 있으면 링크를 만들지 않고 완전성을 낮춥니다.
+
+검토된 참조 형식은 이제 프로바이더 id, 해석된 이름, Kubernetes 레이블 선택기를 구분합니다.
+Kubernetes 후보 변환기는 같은 클러스터와 네임스페이스 안에서 Service를 일치하는 Pod 및
+같은 이름의 Endpoints에 대응시킵니다. 범위가 제한된 `ResourceRecord` 스냅샷을 입력으로
+사용하며, 두 링크가 활성 그래프에 들어가기 전에 독립적인 완전 세대 검증을 거쳐야 합니다.
 
 Inverse 탐색은 일반적으로 조회 관심사입니다. FDAI는 inverse가 서로 다른 도메인 meaning,
 출처 이력 또는 cardinality를 가질 때만 별도 이름의 inverse LinkType을 추가합니다. 피어링과 같은
@@ -263,7 +268,7 @@ declaration-kind 제안이 됩니다.
 | 정본 선언 release | implemented | [`ontology_catalog.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/ontology_catalog.py), [`release.py`](../../../services/core-control-plane/src/fdai/shared/ontology/release.py), [`test_ontology_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_catalog.py) | 객체, 링크, 액션, Interface, 함수 선언이 exact release에 기여합니다. |
 | 범위가 제한된 ObjectSet 실행 및 계보 | implemented | [`semantic_query.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/semantic_query.py), [`test_interfaces_and_object_sets.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_interfaces_and_object_sets.py), [`test_semantic_query.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_semantic_query.py) | 보안 조회 경로는 권한을 부여하지 않으면서 release, 계획, 호출, 잘림, 근거 참조를 보존합니다. |
 | 프로바이더 상태 및 관계 근거 계약 | implemented | [`state_evidence.py`](../../../services/core-control-plane/src/fdai/shared/providers/state_evidence.py), [`test_state_evidence.py`](../../../services/core-control-plane/tests/providers/test_state_evidence.py) | 타입이 지정된 메타데이터는 관측된 상태와 링크 근거를 파생 해석과 구분합니다. |
-| 관계 direction 및 분류 보강 | in-progress | 이 문서의 direction 계약 및 `resource_classified_as` 설계와 범위가 제한된 프로바이더/카탈로그 검사 | 저장소 근거는 아직 D1-D4 감사, 검토된 모든 Azure/Kubernetes 매핑, 모든 adversarial 고정본 또는 재생 가능한 운영 그래프 이행을 하나의 완료된 경로로 입증하지 않습니다. |
+| 관계 direction 및 분류 보강 | in-progress | 이 문서의 direction 계약 및 `resource_classified_as` 설계, [`kubernetes_relationships.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_relationships.py), [`test_kubernetes_relationships.py`](../../../services/core-control-plane/tests/delivery/test_kubernetes_relationships.py), focused 프로바이더 카탈로그 검사 | 검토된 Kubernetes Service-to-Pod 및 Service-to-Endpoints 매핑은 이제 complete, missing-endpoint, reversed-input, duplicate, partial-generation 고정본을 다룹니다. 전체 D1 생산자 감사와 재생 가능한 D4 그래프 이행은 아직 남아 있습니다. |
 | 네트워크 및 Pod 텔레메트리 competency | in-progress | [`operational_functions.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py)와 이 문서의 M5 종료 기준 | 함수 구현은 존재하지만 문서화된 종단 간 운영 competency 및 보존된 live-assurance 증적은 완료되지 않았습니다. |
 | 운영 메타모델 보증 | in-progress | 위의 focused 소스 및 테스트 근거 | 이 문서가 운영 검증을 주장하려면 인증된 cross-service 및 운영 증적이 더 필요합니다. |
 
@@ -272,11 +277,12 @@ declaration-kind 제안이 됩니다.
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 구현 원장을 도입하고 집계된 production-ready 설명을 범위가 제한된 상태로 교체했습니다. 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 소스 및 focused 검사 | 아래 direction/분류 감사, M5 competency, 운영 보증 항목을 완료해야 합니다. |
+| 2026-08-13 | in-progress | 검토된 Kubernetes Service 선택기 및 Endpoints 매핑과 함께 missing, duplicate, reversed-order, partial 입력에서 안전하게 링크를 만들지 않는 범위 제한 후보 변환기를 추가했습니다. | `current change`; `test_kubernetes_relationships.py` 6개 통과, focused 프로바이더 카탈로그 테스트 1개 통과 | D1 생산자 감사를 완료하고 D4 비교/롤백 근거를 보존하며 production 인벤토리 조립을 통해 변환기를 연결해야 합니다. |
 
 ### 남은 작업
 
-- [ ] 검토된 Azure/Kubernetes 엔드포인트 매핑과 complete, missing-endpoint, reversed-input, duplicate, partial-coverage 고정본으로 D1-D4를 완료하고 재생 가능한 그래프 비교 및 롤백 증적을 보존합니다.
-- [ ] 운영 조립을 통해 검증된 구간과 검증되지 않은 구간을 구분하는 focused VM 연결 및 Pod 텔레메트리 competency 검사로 M5를 입증합니다.
+- [ ] 모든 shipped 관계 생산자에 대한 D1 감사를 완료하고 활성 그래프 세대를 이행하기 전에 재생 가능한 D4 그래프 비교 및 롤백 증적을 보존합니다.
+- [ ] 검토된 Kubernetes 관계 변환기를 production 인벤토리 조립에 연결한 다음 검증된 구간과 검증되지 않은 구간을 구분하는 focused VM 연결 및 Pod 텔레메트리 검사로 M5를 입증합니다.
 - [ ] 운영 메타모델 보증을 `validated`로 변경하기 전에 exact 온톨로지 release를 바인딩하는 인증된 cross-service 및 live-assurance 증적을 보존합니다.
 
 ## 검증 체크리스트

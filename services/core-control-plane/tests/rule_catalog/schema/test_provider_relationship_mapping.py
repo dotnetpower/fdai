@@ -9,6 +9,7 @@ import pytest
 import yaml
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
     EndpointOrientation,
+    ProviderReferenceFormat,
     ProviderRelationshipMappingCatalogError,
     load_provider_relationship_mapping_catalog,
     provider_relationship_mapping_content_hash,
@@ -70,18 +71,35 @@ def test_loads_reviewed_provider_relationship_mapping(tmp_path: Path) -> None:
     assert loaded.review.immutable_receipt_ref.startswith("catalog-receipt:")
 
 
-def test_shipped_azure_catalog_is_reviewed_and_complete() -> None:
+def test_shipped_provider_catalog_is_reviewed_and_complete() -> None:
     loaded = load_provider_relationship_mapping_catalog(CATALOG_ROOT)
 
-    assert len(loaded.mappings) >= 15
+    assert len(loaded.mappings) >= 17
     assert {mapping.link_type for mapping in loaded.mappings} == {
         "attached_to",
         "contains",
         "depends_on",
+        "kubernetes_exposes_endpoints",
+        "kubernetes_selects",
         "peered_with",
         "routes_to",
     }
     assert all(mapping.completeness.require_complete_generation for mapping in loaded.mappings)
+
+
+def test_shipped_catalog_declares_kubernetes_telemetry_relationship_direction() -> None:
+    loaded = load_provider_relationship_mapping_catalog(CATALOG_ROOT)
+    mappings = {mapping.mapping_id: mapping for mapping in loaded.mappings}
+
+    selector = mappings["kubernetes.service-selects-pod"]
+    assert selector.link_type == "kubernetes_selects"
+    assert selector.endpoint_orientation is EndpointOrientation.OWNER_TO_REFERENCED
+    assert selector.reference_format is ProviderReferenceFormat.LABEL_SELECTOR
+
+    endpoints = mappings["kubernetes.service-exposes-endpoints"]
+    assert endpoints.link_type == "kubernetes_exposes_endpoints"
+    assert endpoints.endpoint_orientation is EndpointOrientation.OWNER_TO_REFERENCED
+    assert endpoints.reference_format is ProviderReferenceFormat.RESOLVED_NAME
 
 
 def test_rejects_stale_mapping_content_hash(tmp_path: Path) -> None:

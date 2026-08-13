@@ -91,7 +91,7 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | K0 exact release identity and persistence | implemented | [`release.py`](../../../services/core-control-plane/src/fdai/shared/ontology/release.py), [`postgres_ontology.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_ontology.py), [`20260813_0081_ontology_release_registry.py`](../../../alembic/versions/20260813_0081_ontology_release_registry.py), [`test_postgres_ontology_catalog.py`](../../../services/core-control-plane/tests/persistence/test_postgres_ontology_catalog.py) | Exact identity, pinned writes, and restart-safe manifest loading exist; pre-migration rows remain honestly unpinned. Operational Live evidence is pending. |
-| K1-K5 bounded semantic query and function infrastructure | in-progress | [`operational_functions.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py), [`test_kinetics.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_kinetics.py) | Core primitives exist, but additional Interfaces and production provider bindings remain open. |
+| K1-K5 bounded semantic query and function infrastructure | in-progress | [`operational_functions.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py), [`kubernetes_relationships.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_relationships.py), [`test_kubernetes_relationships.py`](../../../services/core-control-plane/tests/delivery/test_kubernetes_relationships.py), and [`test_kinetics.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_kinetics.py) | Core primitives and a candidate-only Kubernetes relationship projector exist, but additional Interfaces and production provider bindings remain open. |
 | Catalog projection and exact-generation Rule retrieval | implemented | [`catalog_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/catalog_queries.py), [`test_catalog_queries.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_catalog_queries.py), commit `e4d9483a5` | `catalog.search_rules` returns bounded ranked candidates with an exact-generation receipt and grants no judgment or action authority. Control-objective instances are not yet materialized by startup projection. |
 | Historical topology, metric semantics, and reconciliation | in-progress | [`topology_history.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/topology_history.py), [`metric_semantics.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/metric_semantics.py), [`reconciliation_state_store.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_state_store.py) | Contracts and pure or durable foundations exist; production composition and publishers remain incomplete. |
 | K6-K8 graph-wide Dynamic evidence | in-progress | [Dynamic model maturity](#dynamic-model-maturity) | Action and metric simulation exists; graph propagation, trajectory closure, and failure attribution remain open. |
@@ -104,6 +104,7 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
 | 2026-08-13 | implemented | Added exact-generation, read-only `catalog.search_rules` candidate retrieval with bounded ranking and content-addressed receipts. | Commit `e4d9483a5`; focused `test_catalog_queries.py` reports 2 passed. | Compose objective-aware retrieval and validate it without granting evaluation or execution authority. |
 | 2026-08-13 | implemented | Registered the three objective vocabulary types as `Identifiable` implementations after centralized graph validation exposed the omission. | Focused `test_shipped_ontology_catalog_loads_as_one_graph` reports 1 passed. | Keep interface implementation coverage synchronized with every new object type. |
 | 2026-08-13 | implemented | Added a durable exact-release manifest registry and loaded registered releases before PostgreSQL row decoding. | Current change; focused `test_postgres_ontology_catalog.py` reports 2 passed and `test_ontology_release_registry_migration.py` reports 1 passed. | Record authenticated Live evidence after migration and Core restart. |
+| 2026-08-13 | in-progress | Added reviewed Kubernetes Service relationship mappings and a bounded projector that emits candidate links for independent generation verification. | `current change`; focused `test_kubernetes_relationships.py` reports 6 passed and the provider mapping contract reports 6 passed. | Bind the projector to a production inventory source and retain exact-release composition evidence. |
 
 ### Remaining work
 
@@ -111,6 +112,8 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
   projection, then prove exact release identity and zero authority fields in focused tests.
 - [ ] Bind PostgreSQL historical topology, production metric providers, and inventory-promotion
   publishing, then retain replay and completeness receipts from the focused integration checks.
+- [ ] Bind the reviewed Kubernetes relationship projector to a production inventory source and
+  retain complete-generation projection receipts for Pod telemetry composition.
 - [ ] Compose the reconciliation coordinator and publish its proposal-only outbox recommendation
   through the event bus with restart, duplicate-delivery, and terminal-closure evidence.
 - [ ] Exit K6-K8 only after deterministic graph propagation, time-bounded trajectory invariants,
@@ -159,6 +162,12 @@ its relationship evidence is otherwise current and complete.
 Incomplete graph receipts cannot prove absence, so unresolved segments remain `unverified` rather
 than becoming `missing`. The exact secured graph receipt digest and all retained evidence refs are
 returned for replay.
+
+The delivery layer now includes a pure candidate projector for reviewed Service label-selector and
+same-name Endpoints relationships. It emits no active graph link on partial input, missing targets,
+or duplicate candidates. A separate complete-generation verifier must attach immutable observation
+metadata before inventory projection can expose either relationship. Production Kubernetes
+inventory binding and retained composition receipts remain open.
 
 The source-derived FunctionType is part of the exact runtime release and is registered in the
 production semantic function registry. Its wrapper accepts only a composition-issued secured

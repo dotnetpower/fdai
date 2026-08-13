@@ -213,8 +213,39 @@ mappings:
     freshness: *freshness
     completeness: *completeness
 
+  - mapping_id: kubernetes.service-selects-pod
+    provider: kubernetes
+    source_identity: kubernetes-api-list
+    source_provider_types: [kubernetes.service]
+    source_property_path: selector
+    target_provider_types: [kubernetes.pod]
+    reference_format: label_selector
+    link_type: kubernetes_selects
+    endpoint_orientation: owner_to_referenced
+    source_schema: &kubernetes_schema
+      version: kubernetes-core-v1
+      digest: sha256:7c1cf19f03f34c9ce451cf1918039839439f8430b33a9cb621bdadeca4cf7106
+    evidence_method: deterministic-cross-check
+    freshness: &kubernetes_freshness
+      max_age_seconds: 300
+    completeness: *completeness
+
+  - mapping_id: kubernetes.service-exposes-endpoints
+    provider: kubernetes
+    source_identity: kubernetes-api-list
+    source_provider_types: [kubernetes.service]
+    source_property_path: name
+    target_provider_types: [kubernetes.endpoints]
+    reference_format: resolved_name
+    link_type: kubernetes_exposes_endpoints
+    endpoint_orientation: owner_to_referenced
+    source_schema: *kubernetes_schema
+    evidence_method: deterministic-cross-check
+    freshness: *kubernetes_freshness
+    completeness: *completeness
+
 review:
   reviewer_identity: fdai-provider-relationship-review
   reviewed_at: 2026-08-12T00:00:00Z
   immutable_receipt_ref: catalog-receipt:provider-relationships:azure-arg-v1
-  content_hash: sha256:25d3042de569ada4a972341808d815fbfe55aa13be1dca2f059f3541ef21c1b9
+  content_hash: sha256:350029c1452116119066ddae9f3104269a29546e0d184e84cf7e1a13014b743d

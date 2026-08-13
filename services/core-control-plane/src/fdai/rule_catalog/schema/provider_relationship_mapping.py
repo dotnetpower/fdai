@@ -30,6 +30,7 @@ class ProviderReferenceFormat(StrEnum):
     """Provider reference representation read from the reviewed source path."""
 
     ARM_ID = "arm_id"
+    LABEL_SELECTOR = "label_selector"
     RESOLVED_NAME = "resolved_name"
 
 
