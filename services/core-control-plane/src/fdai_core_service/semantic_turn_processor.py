@@ -636,12 +636,17 @@ def _project_rule_search(
     try:
         query_request = RuleSearchRequest.model_validate(query_arguments)
         query_digest = rule_search_query_digest(query_request)
+        function_invocation_receipt = receipts[0]
         projection = RuleSearchProjection.model_validate(
             {
                 "query_digest": query_digest,
                 "retrieval_receipt_digest": value.get("retrieval_receipt_digest"),
+                "function_invocation_receipt_digest": content_digest(
+                    function_invocation_receipt.model_dump(mode="json")
+                ),
                 "candidates": value.get("candidates"),
                 "retrieval_receipt": value.get("retrieval_receipt"),
+                "function_invocation_receipt": function_invocation_receipt,
                 "authority": value.get("authority"),
                 "execution_authority": value.get("execution_authority"),
             }

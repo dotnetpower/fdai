@@ -10,7 +10,12 @@ from typing import Annotated, Any, Literal
 
 from pydantic import Field, model_validator
 
-from fdai_service_contracts.ontology_query import QueryContract, content_digest
+from fdai_service_contracts.ontology_query import (
+    GoalTaskReceipt,
+    QueryContract,
+    TaskStatus,
+    content_digest,
+)
 from fdai_service_contracts.operator import OperatorRole
 
 Digest = Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
@@ -221,11 +226,13 @@ class RuleSearchProjection(QueryContract):
 
     query_digest: Digest
     retrieval_receipt_digest: Digest
+    function_invocation_receipt_digest: Digest
     candidates: Annotated[
         tuple[RuleSearchCandidate, ...],
         Field(max_length=_MAX_RULE_CANDIDATES),
     ] = ()
     retrieval_receipt: RuleSearchReceipt
+    function_invocation_receipt: GoalTaskReceipt
     authority: Literal["candidate_only"]
     execution_authority: Literal[False]
 
@@ -235,6 +242,17 @@ class RuleSearchProjection(QueryContract):
             raise ValueError("Rule search query digest MUST match its receipt")
         if self.retrieval_receipt_digest != self.retrieval_receipt.digest:
             raise ValueError("Rule search receipt digest MUST match canonical receipt content")
+        invocation_receipt = self.function_invocation_receipt
+        invocation_digest = content_digest(invocation_receipt.model_dump(mode="json"))
+        if self.function_invocation_receipt_digest != invocation_digest:
+            raise ValueError("Rule function receipt digest MUST match canonical receipt content")
+        if (
+            invocation_receipt.task_id != f"query:{invocation_receipt.goal_id}"
+            or invocation_receipt.intent != "function"
+            or invocation_receipt.capability != "query.function"
+            or invocation_receipt.status is not TaskStatus.COMPLETED
+        ):
+            raise ValueError("Rule function receipt MUST prove one completed query function")
         candidate_identity = tuple(
             (item.rule_ref, item.rank, item.components) for item in self.candidates
         )
