@@ -1,8 +1,8 @@
 ---
 title: 시작과 라이프사이클(Startup and Lifecycle)
 translation_of: startup-and-lifecycle.md
-translation_source_sha: bb21eba9fba8585bf7576a2a199187e195501c31
-translation_revised: 2026-08-11
+translation_source_sha: d063264266cf68e275cbfeb3ef47ff9150b4ad98
+translation_revised: 2026-08-13
 ---
 
 # 시작과 라이프사이클(시작 and 수명 주기)
@@ -25,6 +25,29 @@ Azure 초점: 비-Azure 프로바이더는 TBD
 > 자동 수집기/발견 시작, 종단 간 HIL 초기화 및 모델 수명 주기 조정은
 > 완전한 런타임 작업 흐름으로 연결되지 않았습니다. 이 문서는 현재 초기화 계약과 목표
 > 수명 주기를 함께 표시합니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 시작 준비 상태 조정 | `implemented` | [`runtime/readiness.py`](../../../services/core-control-plane/src/fdai/runtime/readiness.py), [`core/readiness/coordinator.py`](../../../services/core-control-plane/src/fdai/core/readiness/coordinator.py) 및 준비 상태 집중 테스트 | 런타임은 순서가 지정된 단계를 평가하고 정제된 보고서를 저장하며, 결과 결정에 따라 처리를 게이팅합니다. |
+| T2 교차 검사 시작 증명 재사용 | `implemented` | [`delivery/startup_model_probe.py`](../../../services/core-control-plane/src/fdai/delivery/startup_model_probe.py) 및 [`tests/delivery/test_startup_probe.py`](../../../services/core-control-plane/tests/delivery/test_startup_probe.py) | 프로세스에서 처음 성공한 증명은 구성된 샘플을 사용합니다. 이후 새로 고침은 추가 T2 요청 없이 이를 재사용하며 실패는 계속 재시도할 수 있습니다. |
+| 부트스트랩 및 수명 주기 자동화 | `in-progress` | [`rule-catalog/catalog/`](../../../rule-catalog/catalog/), [`llm_resolver_cli.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py), [Teams](../../../services/core-control-plane/src/fdai/delivery/notifications/teams.py) 및 [Slack](../../../services/core-control-plane/src/fdai/delivery/notifications/slack.py) 어댑터 | 자동 수집기 및 발견 시작, 종단 간 사람 승인 초기화, 모델 수명 주기 조정은 아직 완료되지 않았습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | `implemented` | 성공한 각 T2 교차 검사 시작 증명을 프로세스의 후속 준비 상태 새로 고침에서 재사용하여 5분마다 다시 샘플링하지 않도록 했습니다. 실패 및 동시 시도는 안전하게 재시도됩니다. | 현재 변경의 `startup_model_probe.py` 및 `test_startup_probe.py`, 시작 탐색 집중 테스트: `18 passed` | 관리되는 배포 런타임 계측 근거를 수집하고 아래의 더 넓은 수명 주기 작업 흐름을 완료합니다. |
+
+### 남은 작업
+
+- [ ] 자동 수집기 및 발견 시작, 종단 간 사람 승인 초기화, 모델 수명 주기 조정을 완료하고
+   이 원장에 집중 작업 흐름 테스트를 인용합니다.
+- [ ] 후보별로 성공한 T2 시작 샘플 세트가 한 번만 실행되고, 해당 프로세스의 이후 5분 준비
+   상태 새로 고침에서는 T2 호출이 추가되지 않음을 보여 주는 관리되는 배포 런타임 계측을 기록합니다.
 
 ## 콜드 스타트 (scale-to-zero 세부사항)
 
@@ -105,10 +128,13 @@ build-time 근거로 유지합니다. 비공개 엔드포인트는 런타임 서
 
 ### 모델 지연 시간과 복구
 
-각 모델 후보는 최소 두 개의 범위가 제한된 시작 샘플을 받습니다. 스트리밍은 첫 토큰까지의 시간
-(TTFT), 합계 지연 시간, output-token 비율, 샘플 개수 및 정제된 실패 등급을 기록합니다. 임베딩은
-지연 시간과 vector 형태를, structured-output과 tool-calling 후보는 해당 feature를 증명합니다.
-탐색은 최소 프롬프트와 capped 출력을 사용하고 무관한 도구 비용과 오류 저장을 피합니다.
+각 모델 후보는 시작 증명을 실제로 수집할 때 최소 두 개의 범위가 제한된 샘플을 받습니다. T2
+교차 검사 후보가 성공하면 같은 런타임 프로세스의 이후 준비 상태 새로 고침은 해당 구조화된 출력
+증명을 재사용하고, 추가 모델 요청 없이 보고서 타임스탬프를 새로 발급합니다. 실패하거나 일부만
+완료된 T2 증명은 캐시하지 않으며 계속 재시도할 수 있습니다. 스트리밍은 첫 토큰까지의 시간
+(TTFT), 총 지연 시간, 출력 토큰 비율, 샘플 수 및 정제된 실패 분류를 기록합니다. 임베딩은 지연
+시간과 벡터 형태를 증명하고, 구조화된 출력 및 도구 호출 후보는 해당 기능을 증명합니다. 탐색은
+최소 프롬프트와 제한된 출력을 사용하고 관련 없는 도구 비용과 오류 텍스트 저장을 피합니다.
 
 Narrator 대상은 TTFT p95 2.5초 이내로 유지합니다
 ([operator-console-view-snapshot-ko.md](../interfaces/operator-console-view-snapshot-ko.md)). 시작
@@ -116,10 +142,11 @@ Narrator 대상은 TTFT p95 2.5초 이내로 유지합니다
 기한 전 valid first 토큰 부재는 사용 불가입니다. T2는 계속 mixed-model과 검증기 게이트를
 요구하며 기한 miss는 사례를 사람 승인으로 낮춥니다.
 
-근거는 설정된 간격 이후 만료됩니다. 주기적 탐색은 보고를 새로 고침하고 전이만
-덧붙이기합니다. 감사 내구성 smoke는 각 런타임 프로세스에서 첫 successful 증명 후 한 번만
-덧붙이기하며 이후 새로 고침은 해당 증명을 재사용합니다. 덧붙이기가 실패하면 재시도할 수 있습니다.
-복구는 `ready`를 복원할 수 있지만 승격 상태보다 권한을 높일 수 없습니다.
+근거는 설정된 간격 이후 만료됩니다. 주기적 탐색은 보고서를 새로 고치고 전이만 덧붙입니다.
+T2 교차 검사와 감사 내구성 탐색은 성공한 프로세스 로컬 증명을 재사용합니다. 준비 상태 결과는
+모델 요청이나 감사 추가를 반복하지 않고 새로운 근거 시각과 만료 시각을 받습니다. 실패한 증명은
+계속 재시도할 수 있습니다. 복구는 `ready`를 복원할 수 있지만 배포의 승격 상태보다 권한을 높일
+수 없습니다.
 
 ### 실패와 권한 규칙
 

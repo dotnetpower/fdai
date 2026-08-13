@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -177,6 +178,7 @@ async def test_cross_check_probe_collects_two_structured_output_samples() -> Non
     probe = CrossCheckModelStartupProbe(probe_id="model.cross-check", model=model)
 
     result = await probe.run(_request())
+    refreshed = await probe.run(_request())
 
     assert model.calls == 2
     assert model.correlations == [
@@ -187,6 +189,45 @@ async def test_cross_check_probe_collects_two_structured_output_samples() -> Non
     assert result.model_evidence is not None
     assert result.model_evidence.sample_count == 2
     assert result.model_evidence.structured_output_proven is True
+    assert result.evidence == {"sampled": True, "previously_proven": False}
+    assert refreshed.model_evidence == result.model_evidence
+    assert refreshed.evidence == {"sampled": False, "previously_proven": True}
+
+
+async def test_cross_check_probe_retries_after_sampling_failure() -> None:
+    model = _CrossCheck()
+    propose = AsyncMock(
+        side_effect=[
+            RuntimeError("transient"),
+            ("startup-readiness-probe", {"sample": 0}),
+            ("startup-readiness-probe", {"sample": 1}),
+        ]
+    )
+    probe = CrossCheckModelStartupProbe(probe_id="model.cross-check", model=model)
+
+    with patch.object(model, "propose", propose):
+        with pytest.raises(RuntimeError, match="transient"):
+            await probe.run(_request())
+        result = await probe.run(_request())
+        refreshed = await probe.run(_request())
+
+    assert propose.await_count == 3
+    assert result.evidence == {"sampled": True, "previously_proven": False}
+    assert refreshed.evidence == {"sampled": False, "previously_proven": True}
+
+
+async def test_cross_check_probe_samples_once_across_concurrent_refreshes() -> None:
+    model = _CrossCheck()
+    probe = CrossCheckModelStartupProbe(probe_id="model.cross-check", model=model)
+
+    first, second = await asyncio.gather(
+        probe.run(_request()),
+        probe.run(_request()),
+    )
+
+    assert model.calls == 2
+    assert first.model_evidence == second.model_evidence
+    assert {first.evidence["sampled"], second.evidence["sampled"]} == {False, True}
 
 
 async def test_opa_compile_probe_reports_unavailable_binary_at_run_time(

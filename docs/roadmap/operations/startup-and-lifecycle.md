@@ -23,6 +23,29 @@ Timeline suggestions below are directional, not hard rules; **the gates are hard
 > reconciliation are not wired as complete runtime workflows. This document distinguishes the
 > current bootstrap contract from the target lifecycle.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Startup readiness orchestration | implemented | [`runtime/readiness.py`](../../../services/core-control-plane/src/fdai/runtime/readiness.py), [`core/readiness/coordinator.py`](../../../services/core-control-plane/src/fdai/core/readiness/coordinator.py), and focused readiness tests | The runtime evaluates ordered phases, persists sanitized reports, and gates processing on the resulting decision. |
+| T2 cross-check startup proof reuse | implemented | [`delivery/startup_model_probe.py`](../../../services/core-control-plane/src/fdai/delivery/startup_model_probe.py) and [`tests/delivery/test_startup_probe.py`](../../../services/core-control-plane/tests/delivery/test_startup_probe.py) | The first successful process-local proof uses the configured samples. Refreshes reuse it without another T2 request, while failures remain retryable. |
+| Bootstrap and lifecycle automation | in-progress | [`rule-catalog/catalog/`](../../../rule-catalog/catalog/), [`llm_resolver_cli.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py), and the [Teams](../../../services/core-control-plane/src/fdai/delivery/notifications/teams.py) and [Slack](../../../services/core-control-plane/src/fdai/delivery/notifications/slack.py) adapters | Automatic collector and discovery startup, end-to-end Human approval bootstrap, and model lifecycle reconciliation remain incomplete. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | implemented | Reused each successful T2 cross-check startup proof for later process-local readiness refreshes instead of resampling every five minutes. Failed and concurrent attempts remain retry-safe. | Current change in `startup_model_probe.py` and `test_startup_probe.py`; focused startup probe tests: `18 passed`. | Capture governed deployed-runtime metering evidence and complete the broader lifecycle workflows below. |
+
+### Remaining work
+
+- [ ] Complete automatic collector and discovery startup, end-to-end Human approval bootstrap,
+   and model lifecycle reconciliation, with focused workflow tests cited in this ledger.
+- [ ] Record governed deployed-runtime metering that shows one successful T2 startup sample set per
+   candidate and no additional T2 calls from later five-minute readiness refreshes in that process.
+
 ## Cold Start (scale-to-zero specifics)
 
 The current core engine runs as **one Container App with one `core` container**. The trust router,
@@ -102,10 +125,14 @@ build-time evidence. Private endpoints are tested from the runtime subnet.
 
 ### Model latency and recovery
 
-Each model candidate receives at least two bounded startup samples. Streaming records time to first token
-(TTFT), total latency, output-token rate, sample count, and sanitized failure class. Embeddings prove latency
-and vector shape; structured-output and tool-calling candidates prove those features. Probes use minimal
-prompts and capped output, avoid unrelated tool charges, and discard error text.
+Each model candidate receives at least two bounded samples when its startup proof is actively
+collected. After a T2 cross-check candidate succeeds, later readiness refreshes in the same runtime
+process reuse that structured-output proof and issue fresh report timestamps without another model
+request. Failed or partial T2 proofs are not cached and remain retryable. Streaming records time to
+first token (TTFT), total latency, output-token rate, sample count, and sanitized failure class.
+Embeddings prove latency and vector shape; structured-output and tool-calling candidates prove those
+features. Probes use minimal prompts and capped output, avoid unrelated tool charges, and discard
+error text.
 
 The narrator target remains TTFT p95 within 2.5 seconds
 ([operator-console-view-snapshot.md](../interfaces/operator-console-view-snapshot.md)). Startup
@@ -114,9 +141,10 @@ token before the deadline is unavailable. T2 still requires mixed-model and veri
 miss lowers the case to Human approval.
 
 Evidence expires after the configured interval. Periodic probes refresh the report and append only
-transitions. The audit durability smoke appends once after the first successful proof in each runtime
-process; later refreshes reuse that proof, while a failed append remains retryable. Recovery can
-restore `ready`, never authority above the deployment's promotion state.
+transitions. T2 cross-check and audit durability probes reuse their successful process-local proofs;
+the readiness result receives a fresh evidence time and expiry without repeating the model request
+or audit append. A failed proof remains retryable. Recovery can restore `ready`, never authority
+above the deployment's promotion state.
 
 ### Failure and authority rules
 
