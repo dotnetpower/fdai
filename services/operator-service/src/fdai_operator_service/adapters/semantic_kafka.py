@@ -19,7 +19,7 @@ from fdai_service_contracts.semantic_turn import (
     multiplexed_consumer_group,
 )
 
-from fdai_operator_service.contract_codecs import CORE_REQUEST_PRODUCER_V12
+from fdai_operator_service.contract_codecs import CORE_REQUEST_PRODUCER_V13
 
 MAX_SEMANTIC_MESSAGE_BYTES = 1_000_000
 _TOPIC_PATTERN = re.compile(r"^[a-z0-9._-]+$")
@@ -130,7 +130,7 @@ class OperatorSemanticKafkaBus:
             raise ValueError("semantic Kafka publish topic is not configured")
         producer = await self._get_producer()
         encoded = (
-            CORE_REQUEST_PRODUCER_V12.encode(payload)
+            CORE_REQUEST_PRODUCER_V13.encode(payload)
             if topic == self._config.request_topic
             else _encode(payload, maximum=self._config.maximum_message_bytes)
         )
