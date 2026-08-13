@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 2c9870e6df0967a060ef02a484e6dc14e2d51f35
+translation_source_sha: a012dc01e1c6e64b7636b2035ed3a857834251c4
 translation_revised: 2026-08-13
 ---
 
@@ -32,6 +32,7 @@ translation_revised: 2026-08-13
 |------|------|------|------|
 | 자동화 테스트 고정본 격리 | implemented | `tests/`, `console/tests/` 및 리포지토리 테스트 모음이 실행하는 고정본 전용 composition 경로 | 결정론적 고정본은 권위 있는 interactive 프로파일 밖에 유지됩니다. |
 | 로컬 및 deployed composition 동등성 | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/` 및 서비스 통합 테스트 | Composition root는 근거 권한을 바꾸지 않고 자격 증명과 어댑터를 선택합니다. |
+| 로컬 검증 데이터베이스 격리 | implemented | `infra/local/docker-compose.yml`, `scripts/automation/validation_queue_context.py`, 로컬 준비 스크립트 및 focused 검증과 migration 통합 테스트 | 런타임 상태는 로컬 PostgreSQL port `5432`에 유지하고 파괴적인 migration 검증은 port `5433`의 별도 로컬 PostgreSQL cluster를 사용합니다. |
 | FDAI workspace 및 프로파일 부하 제어 | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`, focused 프로파일 및 workspace 테스트 11개 통과 | Resource 범위 분석 제어는 workspace에 둡니다. Portable 프로파일은 격리할 수 없는 Remote WSL Pylance machine 설정을 거부합니다. |
 | FDAI Pylance launch ceiling 런타임 증명 | deferred | FDAI Remote WSL을 clean restart해도 Pylance는 bundled VS Code Node 실행 파일로 시작했고 `--max-old-space-size=2048`이 없었습니다. VS Code Server 1.133은 활성 프로파일 서비스와 별개로 Remote Machine 설정 리소스 하나를 생성합니다. | 격리된 런타임을 마련할 때까지 blocked 상태입니다. Shared Remote Machine 재정의는 제외 대상 workspace에도 영향을 주므로 ceiling을 활성화하려면 별도 VS Code Server data root 또는 WSL 배포판으로 런타임을 격리해야 합니다. |
 
@@ -41,6 +42,7 @@ translation_revised: 2026-08-13
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 machine 범위 Pylance launch 제어를 FDAI 프로파일로 이동했습니다. | 현재 변경의 `.vscode/fdai.code-profile`, `.vscode/settings.json`, `scripts/automation/configure-vscode-profile.py` 및 focused 프로파일/workspace 테스트 9개 통과. | FDAI Pylance process argument와 중앙 검증 receipt를 기록합니다. |
 | 2026-08-13 | deferred | 실효성 없는 Pylance machine 설정을 제거하고 중복 프로파일 JSON 키를 거부했으며 재도입 방지 contract를 추가했습니다. | Clean Remote WSL process command에 구성한 heap argument가 없었으며 focused 프로파일 및 workspace 테스트 11개가 통과했습니다. | 별도 root의 VS Code Server 또는 WSL 배포판을 사용한 뒤 재시작한 process command에서 heap argument를 증명합니다. |
+| 2026-08-13 | implemented | 파괴적인 검증을 위한 전용 로컬 PostgreSQL cluster를 추가하고 detached 검증 queue가 생성된 전용 DSN만 읽도록 했습니다. | 현재 변경, Compose config 통과, focused queue 및 local-env 테스트 68개 통과, 격리된 migration upgrade/downgrade 검사 2개 통과. | 로컬 검증 데이터베이스 격리에 남은 구현 작업은 없습니다. |
 
 ### 잔여 작업
 
@@ -86,7 +88,8 @@ Command Deck을 통해 결정론적 현재 시각 턴과 허용 목록에 포함
 
 | 서브시스템 | 로컬 백엔드 | Prod 백엔드 |
 |-----------|-------------|--------------|
-| 상태 저장소 (통합 테스트) | `pgvector/pgvector:pg16` on `:5432` | Azure PostgreSQL Flexible + pgvector |
+| 런타임 상태 저장소 및 서비스 통합 | `pgvector/pgvector:pg16` on `:5432` | Azure PostgreSQL Flexible + pgvector |
+| 파괴적 migration 검증 | 별도 `pgvector/pgvector:pg16` cluster on `:5433` | 격리된 CI 검증 데이터베이스 |
 | Event 버스 (통합 테스트) | Redpanda on `:19092` (Kafka wire) | Event Hubs Kafka on `:9093` |
 
 ### 고정 workspace 포트
@@ -120,13 +123,19 @@ executor 권한을 변경하지 않습니다.
 
 신뢰된 workspace를 열면 가벼운 hook 설치, 안전한 백그라운드 Git 동기화 및 선택적 개발 VPN
 확인만 실행됩니다. `console: prepare local state`는 명시적으로 실행하는 작업이며
-`console: prepare full stack` 또는 직접 작업 호출을 통해 시작합니다. 이 작업은 로컬 PostgreSQL,
-Redpanda 및 ClamAV를 시작하고, 고정된 이전 방식 Alembic 계보를 전진시킨 후 서비스가 소유한
+`console: prepare full stack` 또는 직접 작업 호출을 통해 시작합니다. 이 작업은 port `5432`의
+런타임 PostgreSQL, port `5433`의 격리된 검증 PostgreSQL cluster, Redpanda 및 ClamAV를
+시작합니다. 고정된 이전 방식 Alembic 계보를 전진시킨 후 서비스가 소유한
 이행 가지 5개를 모두 채택하고 업그레이드합니다. 단일 인스턴스 한도로 중복 실행도 막습니다.
 동일한 준비는 읽기 전용 Azure Resource Graph 인벤토리를 새로 읽고, 테넌트 식별자, 리소스
 엔드포인트 또는 자격 증명을 복사하지 않은 채 준비된 권위 있는 입력에서 정제된 모델 및 런타임
 Settings 변환 결과를 구체화합니다. 프로바이더를 사용할 수 없거나 권한이 없으면 고정본 데이터로
 대체하지 않고 인벤토리를 명시적으로 사용할 수 없는 상태로 유지합니다.
+Git에서 제외된 로컬 런타임 환경은 검증 cluster를 `FDAI_VALIDATION_DATABASE_URL`로
+기록합니다. Detached 중앙 검증 queue는 선택된 통합 테스트에 이 값만
+`FDAI_DATABASE_URL`로 매핑합니다. 파괴적인 migration 테스트에는 활성 런타임 DSN을 전달하지
+않습니다. Alembic이 만들고 제거하는 데이터베이스 role은 테스트 table이 다른 데이터베이스를
+사용해도 cluster-global이므로 별도 volume과 PostgreSQL cluster가 필요합니다.
 같은 이행이 로컬 및 deployed PostgreSQL에 principal 범위 `conversation_image` 저장소를
 만듭니다. 따라서 두 프로파일의 Command Deck 이력은 동일한 인증 Operator API 경로를 통해 전송된
 이미지를 복원하며, 어느 프로파일도 inline base64를 턴 메타데이터 또는 브라우저 대화 기록 캐시에

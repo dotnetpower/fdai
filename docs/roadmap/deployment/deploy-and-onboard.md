@@ -33,12 +33,14 @@ All identifiers are synthetic per
 | Independently owned runtime services | validated | `.github/workflows/service-deploy.yml` and `config/independent-service-live-evidence-manifest.json` | Each service has a separate root, protected plan, health check, and rollback evidence. |
 | OHL scale-out evidence target and proposal Job | implemented | current change in `infra/` and `services/core-control-plane/src/fdai/delivery/`; focused Terraform and publisher tests report 8 and 13 passed | Both are disabled by default and still need a protected apply. |
 | OHL production evidence campaign | in-progress | `config/ohl-scale-out-evidence.json` and `docs/runbooks/ohl-scale-out-evidence.md` | Runtime rollout, governed execution, 100 samples, and the 14-day recurrence window remain open. |
+| Local destructive-validation isolation | implemented | `infra/local/docker-compose.yml`, local preparation scripts, and focused migration tests | Runtime uses local PostgreSQL on port `5432`; destructive validation uses a separate local cluster and volume on port `5433`. This does not add an Azure deployment resource. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and added protected provisioning plus a proposal-only Job for the bounded OHL evidence target. | current change; focused Terraform tests report 8 passed and publisher/workflow tests report 13 passed. | Apply the exact plans, deploy attested runtime images, and complete the live evidence campaign. |
+| 2026-08-13 | implemented | Isolated local destructive migration validation from the active local runtime PostgreSQL cluster. | Current change; Compose configuration passed, focused queue and local-environment tests passed (68 tests), and isolated migration upgrade/downgrade checks passed (2 tests). | No remaining implementation work for local validation database isolation. |
 
 ### Remaining work
 
@@ -372,6 +374,12 @@ The local parity profile starts the same five service packages against loopback 
 Redpanda, with filesystem-backed document objects and ClamAV. It uses plaintext Kafka only on the
 loopback broker; deployed modules continue to require Event Hubs Kafka with service-owned managed
 identities and service-specific PostgreSQL roles.
+The active local runtime uses `pgvector/pgvector:pg16` on port `5432`. A second local
+`pgvector/pgvector:pg16` cluster on port `5433`, with its own volume, is reserved for destructive
+migration validation because Alembic-managed roles are PostgreSQL cluster-global. Local runtime
+preparation emits the dedicated validation DSN, and detached central validation maps only that DSN
+to integration tests. The second cluster is a local validation dependency, not part of the Azure
+resource inventory above.
 Additional identity, channel, and console elements are deployment-owned or opt-in:
 
 - **App registrations × 3** - split audiences per

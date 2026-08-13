@@ -76,8 +76,11 @@ a positive integer to tune the crossover without changing the fail-safe.
 
 The runner executes non-integration tests first in a sanitized environment. It
 executes selected `integration` tests only when
-`FDAI_CHANGED_TEST_INTEGRATION=1` and `FDAI_DATABASE_URL` points to a disposable
-test database; a configured local runtime database alone never opts in. An
+`FDAI_CHANGED_TEST_INTEGRATION=1` and `FDAI_DATABASE_URL` points to a dedicated
+validation database; a configured local runtime database alone never opts in.
+The local full-stack preparation starts an isolated PostgreSQL cluster on loopback
+port `5433`, writes its ignored DSN as `FDAI_VALIDATION_DATABASE_URL`, and the
+central validation queue maps only that value into integration-test processes. An
 integration-only change without opt-in still exits successfully after confirming
 that integration tests were selected.
 The exact repository inputs that CI classifies as Python-impacting are covered
