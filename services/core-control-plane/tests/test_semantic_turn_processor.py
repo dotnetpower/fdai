@@ -401,6 +401,120 @@ def _rule_search_runtime_result(*, execution_authority: bool = False) -> Runtime
     )
 
 
+def _incident_evidence_runtime_result(
+    *,
+    inject_cause: bool = False,
+) -> RuntimeSemanticTurnResult:
+    result = _runtime_result("answered")
+    assert result.execution is not None
+    incident_id = "00000000-0000-0000-0000-000000000301"
+    output = {
+        "incident_id": incident_id,
+        "incident_profile": {
+            "correlation_id": incident_id,
+            "incident_id": incident_id,
+            "ticket_id": None,
+            "title": None,
+            "severity": "sev2",
+            "status": "triaging",
+            "vertical": None,
+            "opened_at": "2026-08-14T09:00:00Z",
+            "last_updated_at": "2026-08-14T09:05:00Z",
+            "duration_seconds": 300.0,
+            "audit_records": 2,
+            "actors": ["Heimdall", "operator@example.com"],
+            "modes": ["shadow"],
+        },
+        "correlated_evidence": [
+            {
+                "audit_ref": "audit:1",
+                "event_id": "00000000-0000-0000-0000-000000000401",
+                "action_kind": "incident.open",
+                "mode": "shadow",
+                "recorded_at": "2026-08-14T09:00:00Z",
+            }
+        ],
+        "evidence_gaps": ["impact_evidence_missing", "grounded_citations_missing"],
+        "evidence_refs": ["audit:1"],
+        "truncated": False,
+        "authority": "audit_projection",
+        "cause_claim_supported": False,
+        "execution_authority": False,
+    }
+    if inject_cause:
+        output["cause"] = "unsupported causal claim"
+    node = SimpleNamespace(
+        node_id="incident-evidence",
+        kind=SimpleNamespace(value="function"),
+        arguments={
+            "function_name": "query.incident_evidence",
+            "arguments": {"incident_id": incident_id, "limit": 100},
+        },
+    )
+    plan = SimpleNamespace(
+        ontology_release_digest=RELEASE_DIGEST,
+        semantic_catalog_digest=MANIFEST_DIGEST,
+        plan_digest=PLAN_DIGEST,
+        nodes=(node,),
+    )
+    planning = SimpleNamespace(plan=plan, manifest_digest=MANIFEST_DIGEST)
+    function_receipt = result.execution.receipts[0].model_copy(
+        update={
+            "task_id": "query:incident-evidence",
+            "goal_id": "incident-evidence",
+            "intent": "function",
+            "capability": "query.function",
+            "evidence_refs": ("ontology-function:incident-evidence",),
+        }
+    )
+    execution = QueryPlanExecution(
+        plan_digest=PLAN_DIGEST,
+        status="completed",
+        results=MappingProxyType(
+            {
+                "incident-evidence": QueryNodeResult(
+                    value=output,
+                    evidence_refs=("ontology-function:incident-evidence",),
+                )
+            }
+        ),
+        receipts=(function_receipt,),
+        output_node_ids=("incident-evidence",),
+    )
+    graph_goal = cast(dict[str, object], result.intent_graph)["goals"][0]
+    evidence_goal = cast(dict[str, object], result.intent_graph_evidence)["goals"][0]
+    return RuntimeSemanticTurnResult(
+        disposition="answered",
+        reason=result.reason,
+        planning=cast(Any, planning),
+        execution=execution,
+        intent_graph={
+            **cast(dict[str, object], result.intent_graph),
+            "goals": [
+                {
+                    **cast(dict[str, object], graph_goal),
+                    "goal_id": "incident-evidence",
+                    "intent": "function",
+                    "capability": "query.function",
+                }
+            ],
+        },
+        intent_graph_evidence={
+            **cast(dict[str, object], result.intent_graph_evidence),
+            "goals": [
+                {
+                    **cast(dict[str, object], evidence_goal),
+                    "task_id": "query:incident-evidence",
+                    "goal_id": "incident-evidence",
+                    "intent": "function",
+                    "capability": "query.function",
+                    "evidence_refs": ["ontology-function:incident-evidence"],
+                }
+            ],
+        },
+    )
+
+
 async def test_malformed_semantic_request_goes_to_dlq() -> None:
     bus = InMemoryEventBus()
     await bus.publish("operator.request", "bad", {"schema_version": "1.2.0"})
@@ -755,6 +869,50 @@ async def test_answered_projection_requires_complete_exact_evidence() -> None:
     assert semantic["checks_completed"] == semantic["checks_total"] == 1
     assert semantic["semantic_route"] == "verified_query_plan"
     assert semantic["execution_authority"] is False
+
+
+async def test_incident_evidence_answer_never_claims_cause_and_drafts_only() -> None:
+    encoded = await _processor(_Runtime(_incident_evidence_runtime_result())).process(
+        _request(
+            bound_context={
+                "kind": "incident",
+                "incident_id": "00000000-0000-0000-0000-000000000301",
+                "correlation_id": "00000000-0000-0000-0000-000000000301",
+            }
+        )
+    )
+
+    semantic = _projection(encoded)["semantic_result"]
+    assert semantic["disposition"] == "answered"
+    answer = semantic["answer"]
+    payload = json.loads(answer.split("```json\n", 1)[1].rsplit("\n```", 1)[0])
+    incident = payload["outputs"][0]
+    assert incident["incident_profile"]["status"] == "triaging"
+    assert incident["correlated_evidence"][0]["audit_ref"] == "audit:1"
+    assert incident["evidence_gaps"] == [
+        "impact_evidence_missing",
+        "grounded_citations_missing",
+    ]
+    assert incident["causal_assessment"] == {
+        "status": "not_available",
+        "reason": "causal_analysis_not_implemented",
+    }
+    assert incident["next_safe_step"] == {
+        "operation": "action_draft",
+        "authority": "candidate_only",
+        "execution_authority": False,
+    }
+    assert '"cause":' not in answer
+
+
+async def test_incident_evidence_with_cause_claim_is_held() -> None:
+    encoded = await _processor(
+        _Runtime(_incident_evidence_runtime_result(inject_cause=True))
+    ).process(_request())
+
+    semantic = _projection(encoded)["semantic_result"]
+    assert semantic["disposition"] == "held"
+    assert semantic["reason_code"] == "semantic_evidence_incomplete"
 
 
 async def test_answered_rule_search_projects_exact_candidate_receipt() -> None:
