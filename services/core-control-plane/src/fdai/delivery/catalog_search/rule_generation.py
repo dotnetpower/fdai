@@ -265,6 +265,7 @@ async def publish_rule_semantic_generation(
         expected_active_generation_id=(prior.generation_id if prior is not None else None),
         expected_active_generation_digest=(prior.generation_digest if prior is not None else None),
         activated_at=activated_at,
+        expected_validation_receipt_digest=build.metadata.validation_receipt_digest,
     )
 
 

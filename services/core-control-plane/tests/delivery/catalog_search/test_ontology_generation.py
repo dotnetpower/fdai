@@ -280,6 +280,30 @@ async def test_activation_rejects_partial_active_identity_before_lookup(
         )
 
 
+async def test_activation_rejects_substituted_validation_receipt_without_pointer_change() -> None:
+    build = _build()
+    receipt = validate_ontology_semantic_generation(
+        build=build,
+        manifest=_manifest(),
+        validator_id="ontology-generation-validator-v1",
+    )
+    validated = bind_semantic_generation_validation(build, receipt)
+    index = InMemoryCatalogSemanticIndex()
+    await index.stage_generation(validated.metadata, validated.documents)
+
+    with pytest.raises(ValueError, match="validation receipt mismatch"):
+        await index.activate_generation(
+            validated.metadata.generation_id,
+            expected_generation_digest=validated.metadata.generation_digest,
+            expected_active_generation_id=None,
+            expected_active_generation_digest=None,
+            activated_at=NOW,
+            expected_validation_receipt_digest="sha256:" + "f" * 64,
+        )
+
+    assert await index.active_generation() is None
+
+
 async def test_activation_cas_preserves_pointer_after_rejected_transitions() -> None:
     def validated(build: SemanticGenerationBuild) -> SemanticGenerationBuild:
         receipt = validate_ontology_semantic_generation(

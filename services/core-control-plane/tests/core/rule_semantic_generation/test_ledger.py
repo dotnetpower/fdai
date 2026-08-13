@@ -86,7 +86,9 @@ async def test_terminal_result_and_outbox_commit_atomically_and_deduplicate() ->
     ledger = StateStoreRuleGenerationOutboxLedger(store=store)
     result = _result()
 
+    assert await ledger.result_for(result.command) is None
     assert await ledger.commit_result(result) == result
+    assert await ledger.result_for(result.command) == result
     assert await ledger.commit_result(result) == result
     assert len(tuple(store.audit_entries)) == 1
     assert (
@@ -233,6 +235,8 @@ async def test_request_identity_conflict_and_corrupt_state_fail_closed() -> None
         status=RuleGenerationActivationStatus.ACTIVATED,
         completed_at=NOW,
     )
+    with pytest.raises(RuleGenerationLedgerConflictError, match="another activation command"):
+        await ledger.result_for(conflicting_command)
     with pytest.raises(RuleGenerationLedgerConflictError, match="another activation command"):
         await ledger.commit_result(conflicting)
 
