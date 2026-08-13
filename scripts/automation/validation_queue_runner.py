@@ -450,17 +450,24 @@ def _run_locked(paths: QueuePaths, mode: str) -> int:
     remaining = selected
     while remaining:
         cohort = _select_cohort(paths, remaining, mode=mode)
-        cohort_head = cohort[-1]
-        cohort_history = history_commits[: history_positions[cohort_head] + 1]
-        result = _run_cohort(
-            paths,
-            mode,
-            head=cohort_head,
-            selected=cohort,
-            history_commits=cohort_history,
-        )
-        if result != 0:
-            return result
+        while True:
+            cohort_head = cohort[-1]
+            cohort_history = history_commits[: history_positions[cohort_head] + 1]
+            result = _run_cohort(
+                paths,
+                mode,
+                head=cohort_head,
+                selected=cohort,
+                history_commits=cohort_history,
+            )
+            if result == 0:
+                break
+            if len(cohort) == len(remaining):
+                return result
+            cohort.append(remaining[len(cohort)])
+            print(
+                f"validation-queue: expanding failed cohort through pending fix {cohort[-1][:12]}"
+            )
         remaining = remaining[len(cohort) :]
     return 0
 

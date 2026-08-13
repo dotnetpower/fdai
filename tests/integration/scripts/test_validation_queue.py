@@ -144,6 +144,7 @@ def git_repo(tmp_path: Path) -> Path:
         'case "$UV_PROJECT_ENVIRONMENT" in */fdai-validation-queue/venv) ;; *) exit 10 ;; esac\n'
         'test "$UV_NO_SYNC" = 1 || exit 13\n'
         'printf "verify:%s\\n" "$*" >> "$FDAI_VALIDATION_TEST_LOG"\n'
+        '[[ "$(git rev-parse HEAD)" != "${FDAI_VALIDATION_VERIFY_FAIL_AT_HEAD:-}" ]] || exit 17\n'
         '[[ "${FDAI_VALIDATION_VERIFY_FAIL:-0}" != 1 ]] || exit 17\n',
         encoding="utf-8",
     )
@@ -440,6 +441,38 @@ def test_full_validation_keeps_one_snapshot_for_all_pending_commits(
         for commit in commits
     }
     assert validated_heads == {commits[-1]}
+
+
+def test_failed_bounded_cohort_expands_through_a_pending_fix(
+    git_repo: Path, tmp_path: Path
+) -> None:
+    script = git_repo / "scripts" / "automation" / "validation_queue.py"
+    log_path = tmp_path / "expanded-validation.log"
+    commits: list[str] = []
+    for index in range(6):
+        (git_repo / "source.txt").write_text(f"expanded {index}\n", encoding="utf-8")
+        assert _run(git_repo, "git", "add", "source.txt").returncode == 0
+        assert _run(git_repo, "git", "commit", "--quiet", "-m", f"expanded {index}").returncode == 0
+        commit = _run(git_repo, "git", "rev-parse", "HEAD").stdout.strip()
+        commits.append(commit)
+        assert _run(git_repo, "python3", str(script), "enqueue", commit).returncode == 0
+
+    validated = _run(
+        git_repo,
+        "python3",
+        str(script),
+        "run",
+        env={
+            "FDAI_VALIDATION_TEST_LOG": str(log_path),
+            "FDAI_VALIDATION_VERIFY_FAIL_AT_HEAD": commits[4],
+        },
+    )
+
+    assert validated.returncode == 0, validated.stderr
+    state_root = git_repo / ".git" / "fdai-validation-queue"
+    first_receipt = json.loads((state_root / "receipts" / f"{commits[0]}.json").read_text())
+    assert first_receipt["validated_head"] == commits[5]
+    assert "expanding failed cohort through pending fix" in validated.stdout
 
 
 def test_linked_worktree_uses_the_shared_git_queue(git_repo: Path, tmp_path: Path) -> None:
@@ -900,7 +933,9 @@ def test_validator_agent_is_read_execute_only_and_uses_make_facade() -> None:
     assert config["user-invocable"] is True
     assert "Post-commit normally wakes a low-priority background validator" in body
     assert "bounded oldest-first cohorts" in body
-    assert "Intermediate stage success is progress metadata, not a push receipt" in body
+    assert "smallest passing descendant snapshot" in body
+    assert "Intermediate stage success is progress metadata" in body
+    assert "not a push receipt" in body
     assert "make validation-status" in body
     assert "make validation-run" in body
     assert "do not wait" in body
