@@ -6,6 +6,31 @@ title: Operator Console Progressive Conversations
 This document owns the channel-neutral branch lifecycle, ordered reduction, verified revision, and
 bounded progress contract for progressive Operator Console conversations.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Web progressive stream reduction | implemented | [`backend-stream.ts`](../../../console/src/deck/backend-stream.ts), [`backend-stream-fallback.test.ts`](../../../console/src/deck/backend-stream-fallback.test.ts), [`backend-stream-v1-contract.test.ts`](../../../console/src/deck/backend-stream-v1-contract.test.ts) | Focused tests cover ordered frames, replay rejection, branch lifecycle, confirmed revisions, and partial turns. This row does not claim Teams or Slack runtime validation. |
+| Drawer presentation and new-conversation identity | in-progress | [`use-command-deck-sessions.ts`](../../../console/src/deck/use-command-deck-sessions.ts), [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | The Console creates a fresh session independently of persisted drawer visibility, and the live test now isolates the request in a new conversation. A passing authenticated runtime receipt is still required. |
+| Governed four-stage ontology receipt | in-progress | [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | The request-to-Console assertion exists, but no new retained passing artifact supports `validated`. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Stabilized the live receipt setup for persisted-open and fresh-conversation states. | Current change in [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) and this document pair; Console typecheck and targeted Playwright discovery passed. | Capture a passing authenticated four-stage receipt, then retain the seeded bilingual assurance artifact before promoting runtime assurance. |
+
+### Remaining work
+
+- [ ] Retain a passing authenticated request-to-Console four-stage ontology receipt at a new
+  repository path.
+- [ ] Retain a passing seeded `0x0fda1` 100-case English/Korean randomized-assurance artifact
+  without replacing the 2026-08-11 baseline.
+- [ ] Record governed Teams and Slack reduction receipts before claiming channel-wide runtime
+  validation.
+
 ## Branch contract
 
 After deterministic scope and authority routing, the coordinator can start eligible independent
