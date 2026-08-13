@@ -1,8 +1,8 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 77576f92bfbbc5ae26e82694be9fcecc8bdeb8be
-translation_revised: 2026-08-12
+translation_source_sha: 9ee8930ed7f23c23742e9c47b805f937feeef88d
+translation_revised: 2026-08-13
 ---
 
 # 계층형 대화 계획
@@ -34,6 +34,41 @@ flowchart LR
 지어낸 범위, 확인 초안을 벗어난 쓰기를 차단합니다.
 
 ## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| Semantic frame, 검증된 계획 및 intent graph | implemented | [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), [`test_semantic_planning.py`](../../../services/core-control-plane/tests/conversation/test_semantic_planning.py) | 전체 턴 제안은 범위와 release가 제한되고 검증되며 실행 권한 없이 projection됩니다. |
+| 운영 Core semantic runtime 조립 | implemented | [`wire_semantic_query.py`](../../../services/core-control-plane/src/fdai/composition/wire_semantic_query.py), [`bootstrap.py`](../../../services/core-control-plane/src/fdai/runtime/bootstrap.py), [`test_wire_semantic_query.py`](../../../services/core-control-plane/tests/composition/test_wire_semantic_query.py) | 전제 조건을 갖추면 Azure planning, principal 범위 manifest, 보안 ObjectSet, read function 및 bounded DAG 실행이 조립됩니다. |
+| 버전이 지정된 서비스 간 semantic-turn 계약 | implemented | [`semantic_turn.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_turn.py), [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`test_semantic_turn_processor.py`](../../../services/core-control-plane/tests/test_semantic_turn_processor.py) | Version 1.2 요청과 projection은 실행 권한을 부여하지 않으면서 identity, purpose, deadline, digest, disposition 및 evidence를 결합합니다. |
+| Durable Operator bridge 및 Console projection | implemented | [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`postgres_semantic_turn_store.py`](../../../services/operator-service/src/fdai_operator_service/postgres_semantic_turn_store.py), [`test_semantic_turn_bridge.py`](../../../services/operator-service/tests/test_semantic_turn_bridge.py) | Operator는 durable acceptance, outbox claim, result projection, 인증된 replay, typed hold 및 `done` event 변환을 담당합니다. |
+| Event transport 및 배포 설정 | implemented | [`semantic_kafka.py`](../../../services/operator-service/src/fdai_operator_service/adapters/semantic_kafka.py), [`main.tf`](../../../infra/main.tf), [`test_semantic_turn_topics.py`](../../../tests/integration/infra/test_semantic_turn_topics.py) | 논리 request 및 projection topic은 통제된 물리 event stream을 공유하며 두 service에 설정됩니다. |
+| 구조 및 인식 상태 커버리지 기반 | in-progress | [`epistemic_coverage.py`](../../../services/core-control-plane/src/fdai/core/conversation/epistemic_coverage.py), [`test_epistemic_coverage.py`](../../../services/core-control-plane/tests/conversation/test_epistemic_coverage.py) | Receipt와 gate 계약은 존재하지만 완전한 descriptor generation, runtime question receipt 및 L3/L4 인증은 제공되지 않았습니다. |
+| 완전한 temporal, metric, causal 및 relationship query surface | in-progress | [`wire_semantic_query.py`](../../../services/core-control-plane/src/fdai/composition/wire_semantic_query.py), [Ontology Query Coverage 구현 계획](ontology-query-coverage-implementation-plan-ko.md) | ObjectSet, set operation, projection, aggregation 및 일부 read function은 연결됐지만 나머지 provider-backed query kind는 미완성입니다. |
+| Multimodal semantic planning 입력 | not-started | [Conversation Attachments](conversation-attachments-ko.md) | Semantic-turn 요청은 현재 범위가 제한된 text와 prior-turn context를 전달하며 server-validated image 또는 document evidence는 전달하지 않습니다. |
+| 통제된 운영 인증 | not-started | 이 문서의 검증 계약 | 운영 준비 상태를 입증하는 보존된 인증 cross-service browser 증적 또는 randomized assurance 증적이 현재 없습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 목표 아키텍처를 현재 Core runtime, Operator bridge, service contract, 배포 설정 및 집중 테스트와 대조했습니다. | 구현 범위 표에 나열한 현재 소스와 집중 검사입니다. | 완전한 query coverage, multimodal transport, descriptor generation, runtime coverage receipt 및 통제된 live 인증이 남아 있습니다. |
+
+### 남은 작업
+
+- [ ] 읽을 수 있는 모든 ontology declaration과 runtime availability state에 대해 release에서
+    파생한 descriptor generation 및 독립적으로 검증된 atomic activation을 완성합니다.
+- [ ] 남은 temporal, metric-series, evidence-join, causal, relationship-side 및 provider-backed
+    read capability를 secured query gateway를 통해 연결합니다.
+- [ ] Attachment ingestion 및 custody 경로가 범위가 제한된 immutable reference를 만든 뒤에만
+    인증된 image와 document evidence를 semantic planning으로 전달합니다.
+- [ ] 고정된 bilingual question universe의 runtime epistemic receipt를 만들고 structural coverage
+    검사를 약화하지 않으면서 release gate에 연결합니다.
+- [ ] 인증된 cross-service browser 및 randomized assurance 증적을 수집하고 rollback과 typed-hold
+    동작을 검증한 뒤 이 경로를 production-ready로 보고합니다.
+- [ ] Semantic graph 경로의 replay가 동등하거나 더 나은 coverage와 safety를 입증한 뒤에만
+    임시 legacy natural-language route를 제거합니다.
 
 구조화된 의도 그래프는 이제 semantic-turn 요청을 처리하도록 설정된 서버 플래너입니다. Core는 모델,
 release, 저장소, 전송 계층의 전제 조건을 모두 갖추면 Azure 계획 수립 어댑터, principal 매니페스트
