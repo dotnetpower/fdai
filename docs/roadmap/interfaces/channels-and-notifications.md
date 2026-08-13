@@ -25,6 +25,39 @@ only its outbound browser-notification boundary. Console identity lives in
 > A fork supplies its own tenant, workspace, and endpoint values via config
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Provider contracts and config-driven routing | implemented | [`base.py`](../../../services/core-control-plane/src/fdai/shared/providers/notifications/base.py), [`hil_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/hil_channel.py), [`conversation_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_channel.py), [`test_matrix.py`](../../../services/core-control-plane/tests/notifications/test_matrix.py), [`test_router.py`](../../../services/core-control-plane/tests/notifications/test_router.py) | Separate A1, A2/A4, and A3 contracts exist. Matrix loading, category checks, trust-preserving fallback, bounded retries, and escalation pass focused tests. |
+| Pairing and cross-channel identity linkage | in-progress | [`channel_access.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_access.py), [`postgres_channel_pairing.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_channel_pairing.py), [`postgres_channel_identity_link.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_channel_identity_link.py), [`test_channel_access.py`](../../../services/core-control-plane/tests/conversation/test_channel_access.py), [`test_identity_links.py`](../../../services/core-control-plane/tests/conversation/test_identity_links.py) | Service-level pairing, challenge-digest handling, and explicit identity links pass focused tests. The two PostgreSQL integration files were skipped because `FDAI_DATABASE_URL` was unset, so restart persistence is not promoted to `implemented` by this ledger. |
+| Teams, Slack, and outbound notification adapters | in-progress | [`teams_adapter.py`](../../../services/core-control-plane/src/fdai/delivery/chatops/teams_adapter.py), [`slack.py`](../../../services/core-control-plane/src/fdai/delivery/notifications/slack.py), [`test_teams_adapter.py`](../../../services/core-control-plane/tests/chatops/test_teams_adapter.py), [`test_adapters.py`](../../../services/core-control-plane/tests/notifications/test_adapters.py) | Teams implements `HilChannel`, and Teams, Slack, email, webhook, PagerDuty, and SMS outbound adapters pass focused tests. Slack currently has an A2/A4 incoming-webhook sender only; no Slack `HilChannel`, A1 callback, Entra re-authentication flow, or production A3 adapter is present. |
+| Durable outbound conversation delivery | implemented | [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`outbound_delivery.py`](../../../services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py), [`test_outbound_delivery.py`](../../../services/core-control-plane/tests/conversation/test_outbound_delivery.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | The coordinator distinguishes definitive rejection from ambiguous acknowledgement, bounds retries, reconciles interrupted sends, and preserves stable delivery identity in focused tests. |
+| Opt-in browser notifications | implemented | [`browser-notifications.ts`](../../../console/src/browser-notifications.ts), [`browser-notification-control.tsx`](../../../console/src/components/browser-notification-control.tsx), [`browser-notifications.test.ts`](../../../console/src/browser-notifications.test.ts) | Permission, preference, visibility, and notification behavior pass seven focused Vitest cases. No live browser or push-service receipt is recorded. |
+| Stakeholder briefing and standalone channel runtime | in-progress | [`briefing.py`](../../../services/core-control-plane/src/fdai/core/notifications/briefing.py), [`test_briefing.py`](../../../services/core-control-plane/tests/notifications/test_briefing.py) | Deterministic stakeholder briefing passes focused tests. No `ProductionChannelRuntime` implementation, production ASGI factory, Slack/Teams conversation publishers, service entry point, or Terraform workload is present. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted the implementation ledger and corrected unsupported Slack A1 and standalone runtime implementation claims without reconstructing earlier provenance. | Current change; 170 focused Python tests passed, two PostgreSQL integration tests skipped because `FDAI_DATABASE_URL` was unset, and seven focused browser-notification tests passed. Test paths are listed in the scope table. | Run the database-backed checks, implement Slack A1 and production conversation adapters, compose the standalone runtime, and capture governed runtime receipts. |
+
+### Remaining work
+
+- [ ] Run `test_postgres_channel_pairing.py` and `test_postgres_channel_identity_link.py` against
+  PostgreSQL with zero skips and retain the passing result before promoting durable pairing and
+  identity linkage to `implemented`.
+- [ ] Add a Slack `HilChannel` with explicit user-to-Entra mapping, browser re-authentication,
+  action-bound callbacks, and focused fail-closed tests before claiming Slack A1 support.
+- [ ] Add authenticated Slack and Teams A3 ingress plus bounded rich-response publishers, with
+  focused signature, service-identity, principal-resolution, and acknowledgement tests.
+- [ ] Implement `ProductionChannelRuntime`, a production ASGI factory, a service entry point, and
+  a Terraform workload; focused startup and shutdown tests must prove fail-closed composition.
+- [ ] Record governed runtime receipts for enabled delivery, fallback, browser behavior, and the
+  deployed standalone channel process before promoting any row to `validated`.
+
 ## 1. Design Principles
 
 1. **Three narrow abstractions, many adapters.** `NotificationChannel` owns A2/A4 push,
@@ -123,7 +156,7 @@ and what its authentication can prove.
 |---------|--------------|-----------|--------------------|
 | **Teams (same tenant)** | ✓ | Teams SSO → OBO exchange → `fdai-api` token | **A1, A2, A3, A4** |
 | **Teams (guest tenant)** | guest | OBO with guest OID | **A2, A3, A4** (A1 denied - same guest rule as [user-rbac-and-identity.md §10.5](user-rbac-and-identity.md#105-guest-entra-b2b-users)) |
-| **Slack** | ✗ | Slack OAuth; **fork-mandatory** Slack userId ↔ Entra OID mapping; A1 approvals bounce through `fdai-api` for Entra re-auth in the browser | **A1, A2, A3, A4** - A1 enabled in P1 (see §7 Slack notes) |
+| **Slack** | ✗ | Slack OAuth; **fork-mandatory** Slack userId ↔ Entra OID mapping; A1 approvals bounce through `fdai-api` for Entra re-auth in the browser | **A1, A2, A3, A4** target - A1 remains planned (see §7 Slack notes) |
 | **Email (SMTP / Graph)** | ✗ | send-only, no return channel | **A2, A4 only** - never A1 (magic-link approvals aren't supported) |
 | **Generic webhook** | ✗ | HMAC-signed, timestamped, replay-guarded | **A2 only** |
 | **PagerDuty / Opsgenie** | ✗ | API key, ack from mobile app | **A2 only** (operational lane paging) |
@@ -186,10 +219,10 @@ string-to-string JSON object capped at 1000 entries. Missing, malformed, or unbo
 fails at startup. The Bot service token authenticates the channel service; it never substitutes
 for the operator's Entra principal or grants an FDAI role.
 
-`ProductionChannelRuntime` is the library runtime intended to own a standalone channel gateway
-process. It is not mounted into the read-only console API and never receives the executor identity.
-The repository does not yet ship the production ASGI factory or Terraform workload that
-instantiates this runtime. When a deployment supplies that separate composition, ASGI startup resolves
+`ProductionChannelRuntime` is the planned library runtime for a standalone channel gateway
+process. It isn't mounted into the read-only console API and never receives the executor identity.
+The repository does not yet ship this runtime, its production ASGI factory, or a Terraform workload.
+When that separate composition is implemented, ASGI startup resolves
 Slack signing and bot-token references through the injected `SecretProvider`, builds fixed-endpoint
 Slack and workload-identity Teams publishers, registers only the enabled bounded ingress routes,
 and starts one `ConversationChannelGateway.run` consumer per adapter. Missing credentials, Teams
@@ -220,11 +253,11 @@ Bearer credentials are rejected across whitespace and common separator forms.
 Durable activity decoding is type-strict and validates ordered RFC 3339 timestamps before a
 publisher receives the response.
 
-Concrete publishers map that intent as follows:
+Planned concrete publishers map that intent as follows:
 
-Publisher transport and acknowledgement handling stay in `publishers.py`; pure bounded Slack Block
-Kit and Teams Adaptive Card rendering lives in `publisher_rendering.py`. This split changes no wire
-payload or fallback behavior and keeps vendor presentation independently testable.
+Publisher transport and acknowledgement handling will stay separate from pure bounded Slack Block
+Kit and Teams Adaptive Card rendering. This split preserves wire payload and fallback behavior and
+keeps vendor presentation independently testable.
 
 | Behavior | Slack | Teams | Text fallback |
 |----------|-------|-------|---------------|
@@ -502,8 +535,8 @@ matrix:
 | Item | Upstream (this repo) | Fork |
 |------|----------------------|------|
 | Three provider contracts plus their message/receipt types | ✓ | - |
-| Teams adapter (default A1 + A2 + A3 + A4 impl) | ✓ | tenant / group-connected team binding |
-| **Slack adapter with A1 enabled by default (P1)** | ✓ | workspace credentials + userId↔OID mapping (required) |
+| Teams adapters | A1 and A2/A4 implemented; A3 planned | tenant / group-connected team binding |
+| **Slack adapter with A1 enabled by default (P1)** | planned; A2/A4 webhook sender only today | workspace credentials + userId↔OID mapping (required) |
 | ACS Email adapter | ✓ (A2/A4, managed identity, final-status polling) | recipient binding + enablement |
 | Webhook / PagerDuty / SMS adapters | ✓ (concrete delivery adapters) | credentials + enablement |
 | Routing-config schema + startup validation | ✓ | deployment-specific bindings/overlays |
