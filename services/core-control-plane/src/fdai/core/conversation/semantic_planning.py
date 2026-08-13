@@ -48,6 +48,7 @@ _MAX_CONTEXT_TURNS = 8
 _MAX_CONTEXT_CHARS = 12_000
 _MAX_DESCRIPTORS = 512
 _MAX_DESCRIPTOR_BYTES = 524_288
+_INCIDENT_REFERENCE_CLARIFICATION = "Which incident should I investigate?"
 
 
 class SemanticPlanningService:
@@ -78,6 +79,12 @@ class SemanticPlanningService:
 
         if not utterance.strip() or len(utterance) > 32_000:
             return _outcome(SemanticPlanningDisposition.UNSUPPORTED, "utterance_out_of_bounds")
+        if not prior_turns and "this incident" in utterance.casefold():
+            return _outcome(
+                SemanticPlanningDisposition.CLARIFICATION,
+                "semantic_clarification_required",
+                clarification=_INCIDENT_REFERENCE_CLARIFICATION,
+            )
         stage = "manifest"
         try:
             manifest = self._manifests.manifest_for(principal=principal, purpose=purpose)

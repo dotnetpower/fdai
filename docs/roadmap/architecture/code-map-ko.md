@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 52e1bf807a4f5d9a2b1b35b55574819b80654149
+translation_source_sha: abf206c3f3851a8430e30b59962f73ed50520466
 translation_revised: 2026-08-13
 ---
 # 코드 맵
@@ -39,6 +39,7 @@ translation_revised: 2026-08-13
 | 읽기 조사 활동 ID | 구현됨 | `composition/wire_read_investigation.py`, `test_wire_read_investigation.py`, focused 테스트 | 각 호출은 실시간 및 영속 활동에서 하나의 불투명한 상관관계 값을 공유하고, 별도 호출은 서로 다른 상관관계 값을 사용하며, 논리적 요청 멱등성은 안정적으로 유지됩니다. |
 | 서비스 간 의미 Rule 변환 결과 | 구현됨 | `fdai_service_contracts/semantic_turn.py`, `fdai_core_service/semantic_turn_processor.py`, `fdai_operator_service/postgres_semantic_turn_store.py`, 통과한 의미 경로 테스트 94개 | 공유 버전 1.2 계약, Core 처리 및 Operator 영속성은 후보 전용 권한, 범위가 제한된 기한, 복구 가능한 소유권 및 principal 범위의 exact 읽기와 함께 검증된 정확한 함수 호출 증적 및 정규 다이제스트를 보존합니다. 계약 검증은 내용, 다이제스트, 작업, 의도, 기능 및 최종 상태 차이를 거부합니다. 통제된 실제 운영 보증은 [온톨로지 조회 coverage 계획](../interfaces/ontology-query-coverage-implementation-plan-ko.md#남은-작업)에 열린 항목으로 남아 있습니다. |
 | Console 의미 증적 projection | 구현됨 | `semantic_turn.py`, `semantic_turn_processor.py`, `semantic_turn_runtime.py`, `console/src/deck/backend-normalizers.ts`, focused shared, Core, Operator 및 Console 테스트 | 타입이 지정된 경로, 구체적인 명확화 답변, 사용 불가 사유, 네 개의 보증 다이제스트, 근거 참조 및 `execution_authority=false`가 prose 추론 없이 shared 계약, Core 결과, exact Operator 읽기, 최종 스트림, 영속 transcript, replay 및 Console 표현을 통과합니다. 통과한 실제 브라우저 및 무작위 보증 기록은 온톨로지 조회 coverage 계획의 열린 항목으로 남아 있습니다. |
+| 결정론적 누락 incident 맥락 | 구현됨 | `core/conversation/semantic_planning.py`, `tests/conversation/test_semantic_planning.py`, 집중 플래너 및 최종 projection 테스트(`43 passed`) | 첫 turn의 "this incident" 참조는 매니페스트 또는 모델 작업 전에 범위가 제한된 명확화 하나를 반환합니다. 이전 incident 맥락이 있으면 일반 의미 계획 수립을 계속하며 어느 경로도 실행 권한을 부여하지 않습니다. |
 | 의미 시간 및 근거 조립 | 구현됨 | `delivery/persistence/postgres_topology_history.py`, `composition/wire_semantic_query.py`, `runtime/bootstrap.py`, `runtime/bootstrap_bindings.py`, 통과한 집중 조립 및 프로바이더 선택 테스트 16개 | 상태 저장소 DSN이 있을 때만 PostgreSQL 토폴로지 이력을 사용할 수 있습니다. 메트릭 시계열과 근거 결합 기능에는 검토된 메트릭 레지스트리와 no-op이 아닌 프로바이더가 모두 필요합니다. 하나의 핸들러 맵이 검증기와 실행기의 가용성을 함께 제어하며 모든 결과는 `execution_authority=False`인 읽기 전용으로 유지됩니다. |
 
 ### 구현 이력
@@ -61,12 +62,14 @@ translation_revised: 2026-08-13
 | 2026-08-13 | 진행 중 | 의미 projection을 exact Operator 읽기와 영속 Console 렌더링까지 확장하고 인증된 통제 증적 및 seed 기반 이중 언어 보증 실행기를 추가했습니다. | `current change`, 통과한 focused shared, Core, Operator 및 Console 검사 | 준비 상태를 주장하기 전에 인증된 두 브라우저 경로를 실행하고 통과한 두 보존 근거 기록을 연결합니다. |
 | 2026-08-13 | 진행 중 | Principal 또는 권한 검증을 바꾸지 않고 엄격한 Core 증적 typing을 바로잡고 인증된 근거 경로를 위한 일회성 Browser Entra 세션 복원을 준비했습니다. | `current change`, 통과한 strict mypy, Ruff, Console typecheck, 설계 경로 및 append-only 검사 | 준비 상태를 주장하기 전에 인증된 두 브라우저 경로를 실행하고 통과한 두 보존 근거 기록을 연결합니다. |
 | 2026-08-13 | 구현됨 | 플래너의 범위가 제한된 명확화 질문을 일반적인 최종 답변으로 바꾸지 않고 Core 의미 projection에 보존했습니다. | `current change`, `fdai_core_service/semantic_turn_processor.py`, `test_semantic_turn_processor.py`, 통과한 Core processor 집중 테스트 30개 | 런타임 검증을 주장하기 전에 통제된 브라우저 및 무작위 보증 근거를 기록합니다. |
+| 2026-08-13 | 구현됨 | 이전 incident 맥락이 있으면 일반 계획 수립을 보존하면서 첫 turn의 바인딩되지 않은 incident 참조를 매니페스트 또는 모델 작업 전에 누락 맥락으로 분류했습니다. | `current change`, `semantic_planning.py`, `test_semantic_planning.py`, 통과한 집중 플래너 및 최종 projection 테스트 43개, 통과한 작업 범위 Ruff와 strict mypy | 이 범위를 검증됨으로 올리기 전에 통제된 인증 브라우저 근거를 보존하고 연결합니다. |
 
 ### 남은 작업
 
 - [ ] 통제된 IS-09 원격 검증 근거를 기록하고 해당 근거가 통과하면 service-owned 지도 상태를 갱신합니다.
 - [x] Mimir를 Rule 세대 명령 및 결과의 유일한 담당 pantheon subscriber로 연결하고 영속 발행 및 안전하게 재시도할 수 있는 변환 결과를 집중 검사로 입증합니다.
 - [ ] 영속 활성화 결과 발행 및 안전하게 재시도할 수 있는 소비의 통제된 실제 런타임 증적을 기록합니다.
+- [ ] 첫 turn의 바인딩되지 않은 incident 참조가 호출자 요청 ID와 `execution_authority=false`를 보존하면서 `semantic_clarification_required`를 반환함을 입증하는 통제된 인증 브라우저 증적을 보존합니다.
 
 ## 물리 서비스 소유권
 
