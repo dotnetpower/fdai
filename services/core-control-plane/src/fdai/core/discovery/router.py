@@ -138,6 +138,8 @@ def compile_discovery_routes(
             "limits": intent.limits,
             "fallback_history": tuple(fallback_history),
             "output_schema_id": operation.output_schema_id,
+            "normalization_id": operation.normalization_id,
+            "validation_versions": operation.validation_versions,
             "execution_authority": False,
         }
         plan = DiscoveryQueryPlan.model_validate(
@@ -174,6 +176,7 @@ def equivalent_fallback(primary: DiscoveryQueryPlan, candidate: DiscoveryQueryPl
         and primary.projection == candidate.projection
         and primary.limits == candidate.limits
         and primary.output_schema_id == candidate.output_schema_id
+        and primary.normalization_id == candidate.normalization_id
     )
 
 

@@ -15,7 +15,7 @@ from fdai_service_contracts.discovery import (
     discovery_profile_digest,
 )
 
-AZURE_DISCOVERY_CATALOG_VERSION = "1.0.0"
+AZURE_DISCOVERY_CATALOG_VERSION = "1.1.0"
 
 
 def default_azure_discovery_profiles() -> tuple[DiscoveryProfile, ...]:
@@ -33,6 +33,7 @@ def default_azure_discovery_profiles() -> tuple[DiscoveryProfile, ...]:
                     priority=10,
                     template_id="azure.arg.resource-groups.list.v1",
                     equivalence_key="azure.resource-groups.list.v1",
+                    validation_versions=("inventory-snapshot@1.0.0",),
                 ),
                 _operation(
                     operation_id="azure.arg.resource-groups.list",
@@ -40,6 +41,11 @@ def default_azure_discovery_profiles() -> tuple[DiscoveryProfile, ...]:
                     priority=20,
                     template_id="azure.arg.resource-groups.list.v1",
                     equivalence_key="azure.resource-groups.list.v1",
+                    validation_versions=(
+                        "azure-resource-graph-api@2022-10-01",
+                        "azure-cli@2.87.0",
+                        "resource-graph-extension@2.1.1",
+                    ),
                 ),
                 _operation(
                     operation_id="azure.arm.resource-groups.list",
@@ -47,6 +53,10 @@ def default_azure_discovery_profiles() -> tuple[DiscoveryProfile, ...]:
                     priority=30,
                     template_id="azure.arm.resource-groups.list.v1",
                     equivalence_key="azure.resource-groups.list.v1",
+                    validation_versions=(
+                        "azure-resource-manager-api@2021-04-01",
+                        "azure-cli@2.87.0",
+                    ),
                 ),
             ),
             provenance_ref="microsoft.resource-graph.resource-containers",
@@ -62,6 +72,7 @@ def default_azure_discovery_profiles() -> tuple[DiscoveryProfile, ...]:
                     priority=10,
                     template_id="azure.arg.resources.list.v1",
                     equivalence_key="azure.arm-resources.list.v1",
+                    validation_versions=("inventory-snapshot@1.0.0",),
                 ),
                 _operation(
                     operation_id="azure.arg.resources.list",
@@ -69,6 +80,11 @@ def default_azure_discovery_profiles() -> tuple[DiscoveryProfile, ...]:
                     priority=20,
                     template_id="azure.arg.resources.list.v1",
                     equivalence_key="azure.arm-resources.list.v1",
+                    validation_versions=(
+                        "azure-resource-graph-api@2022-10-01",
+                        "azure-cli@2.87.0",
+                        "resource-graph-extension@2.1.1",
+                    ),
                 ),
                 _operation(
                     operation_id="azure.arm.resources.list",
@@ -76,6 +92,10 @@ def default_azure_discovery_profiles() -> tuple[DiscoveryProfile, ...]:
                     priority=30,
                     template_id="azure.arm.resources.list.v1",
                     equivalence_key="azure.arm-resources.list.v1",
+                    validation_versions=(
+                        "azure-resource-manager-api@2021-04-01",
+                        "azure-cli@2.87.0",
+                    ),
                 ),
             ),
             provenance_ref="microsoft.resource-graph.resources",
@@ -100,6 +120,7 @@ def _operation(
     priority: int,
     template_id: str,
     equivalence_key: str,
+    validation_versions: tuple[str, ...],
 ) -> DiscoveryOperationProfile:
     return DiscoveryOperationProfile(
         operation_id=operation_id,
@@ -129,6 +150,8 @@ def _operation(
         ),
         projection=("provider_ref", "provider_type", "name", "resource_group", "location"),
         output_schema_id="provider-resource-observation.v1",
+        normalization_id="azure.provider-resource-observation.v1",
+        validation_versions=validation_versions,
         equivalence_key=equivalence_key,
         identity_profile="azure.reader",
         priority=priority,

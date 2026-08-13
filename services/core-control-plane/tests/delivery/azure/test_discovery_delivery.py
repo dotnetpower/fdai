@@ -89,6 +89,19 @@ def test_profiles_contain_registered_metadata_without_executable_text() -> None:
     assert "https://" not in encoded
 
 
+def test_arg_profiles_pin_normalization_and_validation_versions() -> None:
+    for profile in default_azure_discovery_profiles():
+        operation = next(
+            item for item in profile.operations if item.backend.value == "resource_graph"
+        )
+        assert operation.normalization_id == "azure.provider-resource-observation.v1"
+        assert operation.validation_versions == (
+            "azure-resource-graph-api@2022-10-01",
+            "azure-cli@2.87.0",
+            "resource-graph-extension@2.1.1",
+        )
+
+
 def test_unknown_azure_type_is_retained_as_unmapped_without_raw_id() -> None:
     raw_id = "/subscriptions/example/resourceGroups/example/providers/Example.Provider/widgets/x"
     observation = observe_azure_resource(
@@ -158,7 +171,7 @@ def test_command_explanation_matches_golden_and_is_equivalent_only() -> None:
         plan=plan,
         operation=operation,
         validated_at=datetime(2026, 1, 1, tzinfo=UTC),
-        cli_version="2.78.0",
+        cli_version="2.87.0",
     )
     encoded = explanation.model_dump_json()
 
@@ -190,3 +203,86 @@ def test_command_explanation_matches_golden_and_is_equivalent_only() -> None:
 
 def test_coverage_contract_exposes_documented_unmapped_state() -> None:
     assert DiscoveryCoverageStatus.UNMAPPED.value == "unmapped"
+
+
+@pytest.mark.parametrize(
+    ("english", "korean", "profile_index", "result_kind", "predicates"),
+    (
+        (
+            "List all resources.",
+            "모든 리소스를 나열해 줘.",
+            1,
+            DiscoveryResultKind.LIST,
+            (),
+        ),
+        (
+            "List resource groups containing example.",
+            "example이 포함된 리소스 그룹을 나열해 줘.",
+            0,
+            DiscoveryResultKind.LIST,
+            (DiscoveryPredicate(field="name", operator="contains", values=("example",)),),
+        ),
+        (
+            "Show the resource types in scope.",
+            "범위 안의 리소스 타입을 보여 줘.",
+            1,
+            DiscoveryResultKind.TYPES,
+            (),
+        ),
+    ),
+)
+def test_bilingual_scenarios_clear_identical_typed_authority_checks(
+    english: str,
+    korean: str,
+    profile_index: int,
+    result_kind: DiscoveryResultKind,
+    predicates: tuple[DiscoveryPredicate, ...],
+) -> None:
+    signatures: list[tuple[object, ...]] = []
+    for surface in (english, korean):
+        assert surface.strip()
+        profile = default_azure_discovery_profiles()[profile_index]
+        operation = profile.operations[1]
+        values: dict[str, object] = {
+            "result_kind": result_kind,
+            "universes": operation.universes,
+            "scope_kind": DiscoveryScopeKind.SUBSCRIPTION,
+            "scope_digest": DIGEST,
+            "predicates": predicates,
+            "limits": DiscoveryLimits(max_results=100),
+            "include_command_explanation": True,
+            "unresolved_modifiers": (),
+            "execution_authority": False,
+        }
+        intent = DiscoveryIntent(intent_digest=discovery_intent_digest(**values), **values)
+        eligibility = BackendEligibility(
+            operation_id=operation.operation_id,
+            available=True,
+            complete=True,
+            scope_digest=intent.scope_digest,
+            predicate_digest=content_digest(
+                [predicate.model_dump(mode="json") for predicate in intent.predicates]
+            ),
+            output_schema_id=operation.output_schema_id,
+            freshness_seconds=0,
+        )
+        decision = compile_discovery_routes(
+            intent=intent,
+            profile=profile,
+            authorization_ceiling_digest=DIGEST,
+            eligibility=(eligibility,),
+        )[0]
+        assert decision.plan is not None
+        signatures.append(
+            (
+                intent.intent_digest,
+                decision.plan.backend,
+                decision.plan.scope_digest,
+                decision.plan.normalization_id,
+                decision.plan.validation_versions,
+                decision.plan.execution_authority,
+            )
+        )
+
+    assert signatures[0] == signatures[1]
+    assert signatures[0][-1] is False
