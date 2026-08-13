@@ -17,6 +17,12 @@ def _module() -> ModuleType:
     return module
 
 
+def test_refresh_binds_projection_to_loaded_ontology_release() -> None:
+    source = SCRIPT.read_text(encoding="utf-8")
+
+    assert "ontology_release_digest=ontology.build_release().digest" in source
+
+
 def test_operator_projection_is_bounded_and_filters_unsupported_links() -> None:
     module = _module()
     payload = module._operator_inventory_payload(
