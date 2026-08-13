@@ -66,7 +66,7 @@ def incident_evidence_function_type() -> OntologyFunctionType:
         input_schema={
             "type": "object",
             "additionalProperties": False,
-            "required": ["incident_id", "limit"],
+            "required": ["incident_id", "correlation_id", "limit"],
             "properties": {
                 "incident_id": {
                     "type": "string",
@@ -75,6 +75,7 @@ def incident_evidence_function_type() -> OntologyFunctionType:
                         "[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
                     ),
                 },
+                "correlation_id": {"type": "string", "minLength": 1, "maxLength": 256},
                 "limit": {"type": "integer", "minimum": 1, "maximum": _MAX_RECORDS},
             },
         },
@@ -83,6 +84,7 @@ def incident_evidence_function_type() -> OntologyFunctionType:
             "additionalProperties": False,
             "required": [
                 "incident_id",
+                "correlation_id",
                 "incident_profile",
                 "correlated_evidence",
                 "evidence_gaps",
@@ -94,6 +96,7 @@ def incident_evidence_function_type() -> OntologyFunctionType:
             ],
             "properties": {
                 "incident_id": {"type": "string"},
+                "correlation_id": {"type": "string"},
                 "incident_profile": {"type": ["object", "null"]},
                 "correlated_evidence": {"type": "array", "maxItems": _MAX_RECORDS},
                 "evidence_gaps": {
@@ -143,14 +146,15 @@ def incident_evidence_function(
         if invocation_context.purposes != (INCIDENT_EVIDENCE_PURPOSE,):
             raise PermissionError("incident evidence purpose does not match invocation context")
         incident_id = str(UUID(str(arguments["incident_id"])))
+        correlation_id = str(arguments["correlation_id"]).strip()
         limit = int(arguments["limit"])
         raw_rows, truncated = await reader.list_incident_evidence(
-            correlation_id=incident_id,
+            correlation_id=correlation_id,
             limit=limit,
         )
         if len(raw_rows) > limit:
             raise RuntimeError("incident evidence reader exceeded the requested limit")
-        rows = tuple(_audit_row(item, incident_id=incident_id) for item in raw_rows)
+        rows = tuple(_audit_row(item, correlation_id=correlation_id) for item in raw_rows)
         profile_projection = project_rca_report("rca_incident_profile", rows)
         impact_projection = project_rca_report("rca_impact", rows)
         citation_projection = project_rca_report("rca_citations", rows)
@@ -180,6 +184,7 @@ def incident_evidence_function(
         ]
         return {
             "incident_id": incident_id,
+            "correlation_id": correlation_id,
             "incident_profile": profile,
             "correlated_evidence": evidence,
             "evidence_gaps": gaps,
@@ -193,9 +198,9 @@ def incident_evidence_function(
     return evaluate
 
 
-def _audit_row(raw: Mapping[str, object], *, incident_id: str) -> _AuditRow:
-    correlation_id = str(raw.get("correlation_id") or "")
-    if correlation_id != incident_id:
+def _audit_row(raw: Mapping[str, object], *, correlation_id: str) -> _AuditRow:
+    row_correlation_id = str(raw.get("correlation_id") or "")
+    if row_correlation_id != correlation_id:
         raise RuntimeError("incident evidence row correlation does not match the request")
     recorded_at = str(raw.get("recorded_at") or "")
     parsed_at = datetime.fromisoformat(recorded_at.replace("Z", "+00:00"))
@@ -207,7 +212,7 @@ def _audit_row(raw: Mapping[str, object], *, incident_id: str) -> _AuditRow:
     return _AuditRow(
         seq=int(str(raw["seq"])),
         event_id=str(raw["event_id"]),
-        correlation_id=correlation_id,
+        correlation_id=row_correlation_id,
         actor=str(raw["actor"]),
         action_kind=str(raw["action_kind"]),
         mode=str(raw["mode"]),

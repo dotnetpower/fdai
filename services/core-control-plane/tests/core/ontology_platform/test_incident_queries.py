@@ -21,6 +21,7 @@ from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.testing import InMemoryStateStore
 
 INCIDENT_ID = "00000000-0000-0000-0000-000000000101"
+CORRELATION_ID = "incident-correlation-101"
 
 
 class _IncidentEvidenceReader:
@@ -30,14 +31,14 @@ class _IncidentEvidenceReader:
         correlation_id: str,
         limit: int,
     ) -> tuple[tuple[dict[str, object], ...], bool]:
-        assert correlation_id == INCIDENT_ID
+        assert correlation_id == CORRELATION_ID
         assert limit == 20
         return (
             (
                 {
                     "seq": 1,
                     "event_id": "00000000-0000-0000-0000-000000000201",
-                    "correlation_id": INCIDENT_ID,
+                    "correlation_id": CORRELATION_ID,
                     "actor": "Heimdall",
                     "action_kind": "incident.open",
                     "mode": "shadow",
@@ -51,7 +52,7 @@ class _IncidentEvidenceReader:
                 {
                     "seq": 2,
                     "event_id": "00000000-0000-0000-0000-000000000202",
-                    "correlation_id": INCIDENT_ID,
+                    "correlation_id": CORRELATION_ID,
                     "actor": "operator@example.com",
                     "action_kind": "incident.transition",
                     "mode": "shadow",
@@ -78,7 +79,11 @@ async def test_incident_evidence_returns_profile_and_gaps_without_cause_claim() 
 
     result, receipt = await registry.invoke_with_receipt(
         INCIDENT_EVIDENCE_FUNCTION_NAME,
-        {"incident_id": INCIDENT_ID, "limit": 20},
+        {
+            "incident_id": INCIDENT_ID,
+            "correlation_id": CORRELATION_ID,
+            "limit": 20,
+        },
         context=FunctionInvocationContext(
             caller_agent="Bragi",
             caller_role=CeilingRole.READER,
@@ -87,8 +92,9 @@ async def test_incident_evidence_returns_profile_and_gaps_without_cause_claim() 
     )
 
     assert isinstance(result, dict)
+    assert result["correlation_id"] == CORRELATION_ID
     assert result["incident_profile"] == {
-        "correlation_id": INCIDENT_ID,
+        "correlation_id": CORRELATION_ID,
         "incident_id": INCIDENT_ID,
         "ticket_id": None,
         "title": None,
@@ -132,7 +138,9 @@ async def test_incident_evidence_returns_profile_and_gaps_without_cause_claim() 
 
 async def test_in_memory_reader_scopes_rows_and_reports_truncation() -> None:
     store = InMemoryStateStore()
-    for index, correlation_id in enumerate((INCIDENT_ID, INCIDENT_ID, "other-incident"), start=1):
+    for index, correlation_id in enumerate(
+        (CORRELATION_ID, CORRELATION_ID, "other-incident"), start=1
+    ):
         await store.append_audit_entry(
             {
                 "event_id": f"00000000-0000-0000-0000-{index:012d}",
@@ -145,11 +153,11 @@ async def test_in_memory_reader_scopes_rows_and_reports_truncation() -> None:
         )
 
     rows, truncated = await store.list_incident_evidence(
-        correlation_id=INCIDENT_ID,
+        correlation_id=CORRELATION_ID,
         limit=1,
     )
 
     assert truncated is True
     assert len(rows) == 1
-    assert rows[0]["correlation_id"] == INCIDENT_ID
+    assert rows[0]["correlation_id"] == CORRELATION_ID
     assert rows[0]["seq"] == 2
