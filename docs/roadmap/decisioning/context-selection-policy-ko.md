@@ -1,7 +1,7 @@
 ---
 translation_of: context-selection-policy.md
-translation_source_sha: 79546aaf3b865c9f621845ddcdf8e43edb30da82
-translation_revised: 2026-08-11
+translation_source_sha: 9b853630f4a6e4352f2a9339f226537bf6a388db
+translation_revised: 2026-08-13
 ---
 # 컨텍스트 선택 정책
 
@@ -24,6 +24,35 @@ translation_revised: 2026-08-11
 있습니다. 필수 래퍼는 정확히 같은 입력으로 정책을 두 번 실행하고 모든 불변식을 검증한
 뒤, 선택된 불변 항목을 재구성합니다. 어떤 정책도 저장소, retriever, summarizer, 렌더러,
 모델 클라이언트, 도구 또는 실행기를 받지 않습니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 결정론적 정책 계약, 계층형 어댑터, 불변식 래퍼 | implemented | `services/core-control-plane/src/fdai/core/working_context/`; `services/core-control-plane/tests/core/working_context/test_policy_validation.py`; `services/core-control-plane/tests/core/working_context/test_working_context.py` | 고정된 입력, 이중 실행, 매니페스트 검사, 고정 항목 검사, 실패 시 차단 동작에 focused test가 있습니다. |
+| 정책 레지스트리 및 거버넌스 전환 | implemented | `services/core-control-plane/src/fdai/core/working_context/governance.py`; `services/core-control-plane/tests/core/working_context/test_policy_governance.py`; `services/core-control-plane/tests/core/capability_catalog/test_runtime.py` | 자동 승격 없이 설치, shadow 활성화, 명시적 승격, 강등, 비상 정지, 롤백, 개정 번호 compare-and-set이 구현되어 있습니다. |
+| 범위가 제한된 shadow 평가, 비교 저장 어댑터, 승인된 고정본 재생 | implemented | `services/core-control-plane/src/fdai/core/working_context/shadow.py`; `services/core-control-plane/src/fdai/core/working_context/evidence.py`; `services/core-control-plane/src/fdai/core/working_context/replay.py`; `services/core-control-plane/tests/core/working_context/test_policy_shadow.py`; `services/core-control-plane/tests/core/working_context/test_evidence.py` | 구성 요소와 실패 격리가 focused test를 통과합니다. 이 상태는 운영 composition에 해당 요소가 연결되었다고 주장하지 않습니다. |
+| 운영 shadow composition 및 영속 비교 저장 | in-progress | `services/core-control-plane/src/fdai/core/conversation/context_bridge.py`; `services/core-control-plane/src/fdai/composition/_helpers.py` | Turn assembly는 선택적인 shadow 실행기 경계를 제공하고 기본 컨테이너는 정책 권한을 생성하지만, `ContextSelectionShadowRunner`와 `StateStoreContextSelectionEvaluationStore`의 기본 운영 연결은 없습니다. |
+| Reader 비교 API 및 Console 화면 | in-progress | `console/src/routes/context-selection-comparisons.tsx`; `console/src/routes/context-selection-comparisons.test.ts`; `console/src/panel-sources.ts` | SPA 경로와 decoder가 있습니다. 일치하는 Operator Service `GET /context-selection-comparisons` 경로가 없으므로 브라우저 화면은 아직 권위 있는 비교를 end-to-end로 읽을 수 없습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | 이전 출처를 재구성하지 않고 구현 ledger를 도입했습니다. focused test로 뒷받침되는 core 정책, 거버넌스, shadow, 저장 어댑터, 재생 구성 요소를 구현됨으로 기록하고, 누락된 운영 composition과 Operator API 제공을 분리했습니다. | `current change`; 범위 표에 나열된 소스 및 focused test; `uv run pytest -q --no-cov services/core-control-plane/tests/core/working_context services/core-control-plane/tests/core/capability_catalog/test_runtime.py services/core-control-plane/tests/core/conversation/test_context_bridge.py services/core-control-plane/tests/core/conversation/test_assemble_turn_context.py` (`70 passed`); `npm --prefix console test -- --run src/routes/context-selection-comparisons.test.ts` (`3 passed`) | `validated`를 주장하기 전에 영속적인 운영 shadow 평가를 연결하고 입증하며, Reader 역할로 제한된 비교 경로를 제공하고, 거버넌스가 적용된 런타임 근거를 수집합니다. |
+
+### 남은 작업
+
+- [ ] 운영 composition에 `ContextSelectionShadowRunner`와
+   `StateStoreContextSelectionEvaluationStore`를 연결한 뒤, 일반적인 turn assembly가 범위가
+   제한된 후보 평가를 예약하고 `StateStore`를 통해 비교를 저장함을 입증하는 통합 테스트를
+   통과합니다.
+- [ ] Reader 역할로 제한된 Operator Service `GET /context-selection-comparisons` 경로를 추가한
+   뒤, 권위 있는 응답을 대상으로 API 통합 테스트와 Console decoder 테스트를 통과합니다.
+- [ ] 범위 행을 `validated`로 변경하기 전에 적격 shadow 평가 하나가 영속 저장과 Operator API
+   조회까지 이어짐을 추적하는 거버넌스 적용 런타임 근거를 기록합니다.
 
 ## 계약 경계
 

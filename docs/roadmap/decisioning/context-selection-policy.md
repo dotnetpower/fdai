@@ -23,6 +23,34 @@ capability metadata. A `ContextSelectionPolicy` can return only ordered selected
 validates every invariant, and reconstructs the selected immutable entries. No policy receives a
 store, retriever, summarizer, renderer, model client, tool, or executor.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Deterministic policy contract, tiered adapter, and invariant wrapper | implemented | `services/core-control-plane/src/fdai/core/working_context/`; `services/core-control-plane/tests/core/working_context/test_policy_validation.py`; `services/core-control-plane/tests/core/working_context/test_working_context.py` | The frozen input, double execution, manifest checks, pinned-entry checks, and fail-closed behavior have focused coverage. |
+| Policy registry and governance transitions | implemented | `services/core-control-plane/src/fdai/core/working_context/governance.py`; `services/core-control-plane/tests/core/working_context/test_policy_governance.py`; `services/core-control-plane/tests/core/capability_catalog/test_runtime.py` | Install, shadow enablement, explicit promotion, demotion, kill switch, rollback, and revision compare-and-set are implemented without automatic promotion. |
+| Bounded shadow evaluation, comparison storage adapter, and approved-fixture replay | implemented | `services/core-control-plane/src/fdai/core/working_context/shadow.py`; `services/core-control-plane/src/fdai/core/working_context/evidence.py`; `services/core-control-plane/src/fdai/core/working_context/replay.py`; `services/core-control-plane/tests/core/working_context/test_policy_shadow.py`; `services/core-control-plane/tests/core/working_context/test_evidence.py` | The components and their failure isolation pass focused tests. This state does not claim that the production composition binds them. |
+| Production shadow composition and durable comparison persistence | in-progress | `services/core-control-plane/src/fdai/core/conversation/context_bridge.py`; `services/core-control-plane/src/fdai/composition/_helpers.py` | Turn assembly exposes an optional shadow runner and the default container creates the policy authority, but no default production binding for `ContextSelectionShadowRunner` and `StateStoreContextSelectionEvaluationStore` is present. |
+| Reader comparison API and Console view | in-progress | `console/src/routes/context-selection-comparisons.tsx`; `console/src/routes/context-selection-comparisons.test.ts`; `console/src/panel-sources.ts` | The SPA route and decoder exist. No matching Operator Service `GET /context-selection-comparisons` route is present, so the browser surface cannot yet read authoritative comparisons end to end. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. Recorded the focused-test-backed core policy, governance, shadow, storage-adapter, and replay components as implemented, while separating missing production composition and Operator API delivery. | `current change`; source and focused tests listed in the scope table; `uv run pytest -q --no-cov services/core-control-plane/tests/core/working_context services/core-control-plane/tests/core/capability_catalog/test_runtime.py services/core-control-plane/tests/core/conversation/test_context_bridge.py services/core-control-plane/tests/core/conversation/test_assemble_turn_context.py` (`70 passed`); `npm --prefix console test -- --run src/routes/context-selection-comparisons.test.ts` (`3 passed`) | Bind and prove durable production shadow evaluation, expose the Reader-gated comparison route, and collect governed runtime evidence before claiming `validated`. |
+
+### Remaining work
+
+- [ ] Bind `ContextSelectionShadowRunner` and `StateStoreContextSelectionEvaluationStore` in the
+   production composition, then pass an integration test proving a normal assembled turn schedules
+   bounded candidate evaluation and persists its comparison through `StateStore`.
+- [ ] Add the Reader-gated Operator Service `GET /context-selection-comparisons` route, then pass
+   an API integration test and the Console decoder test against its authoritative response.
+- [ ] Record governed runtime evidence that traces one eligible shadow evaluation through durable
+   persistence and Operator API retrieval before changing any scope row to `validated`.
+
 ## Contract boundary
 
 The core contract lives under `services/core-control-plane/src/fdai/core/working_context/`:
