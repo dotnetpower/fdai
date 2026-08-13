@@ -567,10 +567,11 @@ What we adopt from the general AIOps model, and where we intentionally differ:
 
 ### Runtime delivery status
 
-The Container Apps analyzer and scheduler jobs publish canonical, idempotent Events to the
-configured Event Hubs ingest topic. They do not execute changes; findings and due tasks re-enter
-the shared trust-router and risk-gate. Publish failure keeps the scheduled item retryable and
-returns a non-zero job result.
+The scheduler delivery path publishes canonical, idempotent Events to the configured Event Hubs
+ingest topic. The analyzer Terraform job still invokes `fdai.delivery.analyzer_tick_cli`, which is
+absent from the current source tree, so the analyzer path isn't a runnable delivery claim. These
+jobs don't execute changes; findings and due tasks re-enter the shared trust router and safety
+check. Publish failure keeps a scheduled item retryable and returns a non-zero job result.
 
 Azure resource create, update, and delete signals flow continuously through the canonical Event
 Hubs ingress. Huginn owns this real-time discovery ingress and preserves the resource identity,
@@ -584,6 +585,31 @@ that freshness state instead of asserting discovery success. Heimdall remains an
 Inventory job checks durable attempt state every 10 minutes, runs the normal six-hour scan only
 when due, and retries a newer failed or abandoned attempt on the next tick without granting job-start authority
 to the core runtime.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Event correlation | implemented | `services/core-control-plane/src/fdai/core/event_ingest/correlator.py`; `services/core-control-plane/tests/core/event_ingest/test_correlator.py` | Deterministic grouping, episode bounds, and stable incident identity are covered by focused tests. |
+| Anomaly and composite detection | implemented | `services/core-control-plane/src/fdai/core/detection/anomaly.py`; `seasonal.py`; `composite.py`; focused `tests/core/detection/test_*.py` | Cold start, flat baselines, quorum, duplicate collapse, and explainable scores fail closed. |
+| Forecasting and outcome closure | implemented | `services/core-control-plane/src/fdai/core/detection/forecast.py`; `forecast_outcome.py`; `forecast_closure.py`; focused forecast tests | Prediction, censoring, and closure contracts are implemented. Promotion still requires measured deployment evidence. |
+| Configuration drift | implemented | `services/core-control-plane/src/fdai/core/detection/configuration_drift.py`; `configuration_drift_service.py`; focused configuration-drift tests | Frozen baselines, deterministic comparison, review, and reporting remain evidence-only. |
+| Scheduled analyzer delivery | in-progress | `infra/modules/compute/container-apps/analyzer_tick_job.tf`; current change source audit | Provider routing exists, but the configured `fdai.delivery.analyzer_tick_cli` entry point is absent. |
+| Governed operational accuracy | in-progress | [Runtime delivery status](#runtime-delivery-status); [Open decisions](#open-decisions) | Runtime precision, recall, interval coverage, lead time, and false-positive evidence remain deployment work. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and corrected the analyzer delivery claim to match the current tree. | `current change`; current source and focused tests listed in the scope table. | Restore analyzer delivery and retain governed accuracy evidence. |
+
+### Remaining work
+
+- [ ] Add the missing analyzer entry point or retarget the Terraform job to a tested service command, then prove canonical Event publication and retry behavior.
+- [ ] Record deployment evidence for detector precision, recall, missed breaches, interval coverage, forecast lead time, and abstention rates.
+- [ ] Resolve the signal-class methods, baseline history, and promotion thresholds in [Open decisions](#open-decisions) and encode them in governed configuration.
 
 ## Open Decisions
 

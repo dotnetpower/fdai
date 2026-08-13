@@ -502,6 +502,31 @@ cost-required assessment and deployment availability remain unpassed until prici
 | Lifecycle | Revision, deletion, outage, ACL, supersession, and rollback are bounded and audited. |
 | Customer isolation | Upstream code, fixtures, and docs contain no deployment document content. |
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Proposal, claim inventory, and deterministic gates | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_claims.py`; `ontology_verify.py`; `ontology_review.py`; focused tests in `tests/rule_catalog/pipeline/distill/` | D0-D4 contracts and fail-closed review packaging are implemented. |
+| Envelope provenance and format equivalence | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_ingestion.py`; `ontology_evaluation.py`; `tests/rule_catalog/pipeline/distill/test_ontology_format_equivalence.py` | Structured locators and normalized proposal identities are covered with synthetic cross-format evidence. |
+| Real-corpus extraction conformance | in-progress | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_conformance.py`; `ontology_corpus_gate.py`; `tests/rule_catalog/pipeline/distill/test_ontology_conformance.py` | English Markdown and SGML partitions are covered. Required PDF, Office, OCR, and Korean annotations remain open. |
+| T2 ontology model council | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_council.py`; `ontology_council_reducer.py`; `tests/rule_catalog/pipeline/distill/test_ontology_council.py` | Blind ballots, deterministic consensus, disagreement evidence, and bounded receipts are implemented without authority. |
+| Shadow measurement and promotion assessment | in-progress | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_evaluation.py`; [Evaluation and promotion](#evaluation-and-promotion) | Assessment remains review-only; required live-shadow duration, proposal volume, pricing evidence, and automatic-promotion exclusion remain explicit gates. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source, hardening record, and focused tests listed in the scope table. | Close the missing corpus partitions and retain governed shadow evidence. |
+
+### Remaining work
+
+- [ ] Add licensed or synthetic annotations for the required PDF, Office, OCR, and Korean partitions and pass the corpus gate with a bound provider.
+- [ ] Run untrusted PDF decompression in the documented isolated-worker boundary and retain fail-closed conformance evidence.
+- [ ] Retain at least 30 distinct live-shadow days and 500 eligible reviewed proposals with zero guard violations before promotion review.
+- [ ] Supply verifiable model pricing evidence when cost is a required council gate; otherwise keep deployment availability unpassed.
+
 ## Related docs
 
 | To learn about | Read |

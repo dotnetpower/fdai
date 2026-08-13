@@ -454,6 +454,32 @@ provenance:
 > overridden to `audit` and `enforcement` is `do-not-enforce` until a separate promotion approval
 > flips it.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Effect, scope, assignment, and rule-set contracts | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/effect.py`; `scope.py`; `assignment.py`; `rule_set.py`; focused schema tests | Strict models reject invalid scopes, references, effects, and rule-set expansion. |
+| Governance catalog and transition CI | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/governance_catalog.py`; `governance_transitions.py`; `scripts/governance/check-governance-transitions.py`; `.github/workflows/ci.yml` | Directory loading and reviewed effect/enforcement transition checks are wired. |
+| Exemptions and expiry | in-progress | `services/core-control-plane/src/fdai/rule_catalog/schema/exemption.py`; `exemption_cli.py`; `scripts/governance/exemption-expire.py`; focused exemption tests | Strict artifacts and a standalone expiry command exist. Catalog loading, scheduled execution, maximum duration, and notifications remain open. |
+| Override artifact and resolution | not-started | [Overrides](#overrides); current change source audit | No override-specific schema, directory loader, precedence resolver, or runtime consumer exists. |
+| T0 assignment consumption | not-started | [Implementation status summary](#rule-governance); current change source audit | T0 composition doesn't load resolved assignments or apply their effect and enforcement decisions. |
+| Governance pull-request identity checks | not-started | [Administrator control flow](#administrator-control-flow-gitops-not-buttons) | OID, role, quorum, and self-approval checks for governance PR transitions remain design work. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source, CI wiring, and focused tests listed in the scope table. | Wire T0 consumption, complete exemption operations, and implement governed overrides and PR identity checks. |
+
+### Remaining work
+
+- [ ] Load one immutable governance catalog at startup and prove T0 applies resolved effect, enforcement, scope, exclusions, and precedence without bypassing the safety check.
+- [ ] Integrate exemptions into the governance catalog, enforce a configured maximum duration, schedule expiry, and deliver ahead-of-expiry notifications with audit evidence.
+- [ ] Implement the bounded override schema, loader, precedence resolver, and runtime consumption with resource-group-or-narrower scope checks.
+- [ ] Add pull-request transition checks for operator identity, required role, quorum, and self-approval prevention.
+
 ## Open Decisions
 
 - [ ] Adapter that resolves the implemented `scope://...` syntax against the Azure resource

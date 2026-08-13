@@ -1,7 +1,7 @@
 ---
 translation_of: operational-hypothesis-loop.md
-translation_source_sha: 2689c775436a1317248c1666961af05b5d848459
-translation_revised: 2026-08-12
+translation_source_sha: 724cace21b069e51ce2f25f60014c55fe64287fa
+translation_revised: 2026-08-14
 ---
 # 운영 가설 루프
 
@@ -197,6 +197,30 @@ binder에 필요한 reconciliation transport channel 두 개만 등록합니다.
 
 Worker는 public contract를 통해 이러한 capability를 evidence source 또는 fixture로 인용할 수 있습니다.
 구현을 수정, wrap, rename 또는 duplicate하지 않습니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| Lane A 그래프 근거 | implemented | `services/core-control-plane/src/fdai/delivery/azure/graph_dynamic_evidence.py`; `services/core-control-plane/tests/delivery/azure/test_graph_dynamic_evidence.py`; `services/core-control-plane/tests/composition/test_wire_azure_operational_evidence.py` | 범위가 제한된 병렬 근거 구성이 일부 전제 조건과 시간 초과에 실패 시 차단됩니다. |
+| Lane B 영향 조정 | implemented | `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation.py`; `reconciliation_events.py`; `delivery/reconciliation_runtime.py`; 집중 조정 테스트 | 요청, 결과, 원장, 제안 전용 보낼 편지함 경로가 실행 권한 없이 구현되어 있습니다. |
+| Lane C 계보 및 역량 조회 | implemented | `services/core-control-plane/src/fdai/core/assurance_twin/`; `services/core-control-plane/tests/rule_catalog/test_operational_hypothesis_loop_competency.py` | 기존 온톨로지 객체가 병렬 집계 없이 고정된 여섯 조회 등급에 답합니다. |
+| Lane D 그래프 모델 승격 | implemented | `services/core-control-plane/src/fdai/delivery/graph_model_promotion.py`; `core/assurance_twin/model_promotion.py`; `tests/delivery/test_graph_model_promotion.py` | 정확한 아티팩트와 롤백 신원이 기존 승인 및 작업 경로에 도달하며, 근거는 스스로 승격할 수 없습니다. |
+| 보호된 live 근거 | in-progress | [하드닝 상태](#설계-요약); 현재 변경의 소스 감사 | 코드 하드닝은 완료됐지만 보호된 live 훈련, 재발 구간, 더 풍부한 관찰자 신원은 release 근거로 남아 있습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 통합 lane 소스와 집중 테스트. | 보호된 live 훈련 및 재발 근거를 보존합니다. |
+
+### 남은 작업
+
+- [ ] 보호된 live 훈련을 실행하고 정확한 사전 조건, dry-run, 프로바이더, 독립 결과, 롤백, 감사 증적을 보존합니다.
+- [ ] 재발 관측 구간을 닫고 검열되거나 충돌하는 에피소드가 계속 채점 불가로 남음을 증명합니다.
+- [ ] 더 풍부한 관찰자 신원 기록과 최종 시간 초과 분류를 추가한 뒤 집중 조정 및 승격 검사를 다시 실행합니다.
 
 ## 관련 문서
 

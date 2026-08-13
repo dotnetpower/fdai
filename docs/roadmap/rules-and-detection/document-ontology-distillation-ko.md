@@ -1,7 +1,7 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: 7911257f26ecc753c841d682e201bd49cad375fd
-translation_revised: 2026-08-11
+translation_source_sha: bb5396629d1d4e7aa4bb721b0d6b9a32a6dad32e
+translation_revised: 2026-08-14
 ---
 # 문서 온톨로지 증류
 
@@ -504,6 +504,31 @@ D4d 실제 운영 검사는 세 pinned 배포 모두에서 Entra-authenticated s
 | 재생 | 같은 입력과 release가 같은 제안 및 게이트 다이제스트를 생성함 |
 | 수명 주기 | 개정 번호, deletion, 장애, ACL, supersession 및 롤백이 범위가 제한된되고 audited됨 |
 | Customer 격리 | 업스트림 코드, 고정본 및 docs에 배포 문서 내용이 없음 |
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 제안, 점유 인벤토리, 결정론적 게이트 | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_claims.py`; `ontology_verify.py`; `ontology_review.py`; `tests/rule_catalog/pipeline/distill/`의 집중 테스트 | D0-D4 계약과 실패 시 차단되는 검토 패키지가 구현되어 있습니다. |
+| 묶음 출처 이력 및 형식 동등성 | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_ingestion.py`; `ontology_evaluation.py`; `tests/rule_catalog/pipeline/distill/test_ontology_format_equivalence.py` | 구조화된 위치와 정규화된 제안 신원을 합성 교차 형식 근거로 검증합니다. |
+| 실제 말뭉치 추출 적합성 | in-progress | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_conformance.py`; `ontology_corpus_gate.py`; `tests/rule_catalog/pipeline/distill/test_ontology_conformance.py` | 영어 Markdown 및 SGML 구획은 검증됐습니다. 필수 PDF, Office, OCR, 한국어 주석은 남아 있습니다. |
+| T2 온톨로지 모델 위원회 | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_council.py`; `ontology_council_reducer.py`; `tests/rule_catalog/pipeline/distill/test_ontology_council.py` | 블라인드 투표, 결정론적 합의, 불일치 근거, 범위가 제한된 증적이 권한 없이 구현되어 있습니다. |
+| Shadow 측정 및 승격 평가 | in-progress | `services/core-control-plane/src/fdai/rule_catalog/pipeline/distill/ontology_evaluation.py`; [평가 및 승격](#평가-및-승격) | 평가는 검토 전용입니다. 필수 live-shadow 기간, 제안 수, 가격 근거, 자동 승격 제외가 명시적 게이트로 남아 있습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스, 하드닝 기록, 집중 테스트. | 누락된 말뭉치 구획을 닫고 관리되는 shadow 근거를 보존합니다. |
+
+### 남은 작업
+
+- [ ] 필수 PDF, Office, OCR, 한국어 구획에 라이선스가 허용된 주석 또는 합성 주석을 추가하고 연결된 프로바이더로 말뭉치 게이트를 통과합니다.
+- [ ] 문서화된 격리 작업자 경계에서 신뢰할 수 없는 PDF 압축 해제를 실행하고 실패 시 차단되는 적합성 근거를 보존합니다.
+- [ ] 승격 검토 전에 최소 30개의 서로 다른 live-shadow 일자와 적격 검토 제안 500건을 방어 규칙 위반 없이 보존합니다.
+- [ ] 비용이 필수 위원회 게이트인 경우 검증 가능한 모델 가격 근거를 제공하고, 그렇지 않으면 배포 가용성을 미통과로 유지합니다.
 
 ## 관련 문서
 

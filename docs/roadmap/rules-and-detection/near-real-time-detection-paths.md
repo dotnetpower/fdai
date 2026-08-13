@@ -8,15 +8,15 @@ The control loop already reacts to Kafka-delivered events in sub-second
 time; **sampled metrics** are where detection latency lives. This page
 catalogs every push and pull path this repo ships so a fork picks the
 combination that fits its cost and freshness envelope. Nothing here is
-mandatory. Upstream enables the safest pull baseline every minute in shadow mode. An explicit
-empty analyzer-tick cron disables it. Faster push paths remain opt-in through the Terraform and
-environment-variable seams.
+mandatory. Upstream declares a one-minute analyzer job and ships routed metric providers, but the
+current tree doesn't contain the `fdai.delivery.analyzer_tick_cli` module that the job invokes.
+Faster push paths remain opt-in through Terraform and composition seams.
 
-> **Implementation status**: The pull provider and CLI, two push normalizers and routes, and
-> Terraform primitives are implemented. Kafka-consumer glue for path #2 remains a fork task.
-> Path #1 also needs an authentication bridge: the current Action Group Terraform webhook
-> receiver cannot set the Bearer header required by the FDAI route, so it cannot call the route
-> directly without an authenticated proxy or Entra secure-webhook adapter.
+> **Current delivery boundary**: Routed metric providers and both Terraform primitives are
+> implemented. The analyzer job currently targets a missing CLI module. The Operator Service
+> preserves the Azure Monitor route in its compatibility manifest, but no request handler or push
+> normalizer exists in the current source tree. The push paths therefore remain design and
+> infrastructure primitives rather than runnable end-to-end paths.
 
 ## Latency envelope at a glance
 
@@ -129,15 +129,15 @@ picks which ones actually turn into events.
   a second consumer instance at the diagnostic hub and pipes each
   batch through the normalizer.
 
-## Pull baseline - `analyzer_tick_cli` + `RoutedMetricProvider`
+## Pull baseline - analyzer job + `RoutedMetricProvider`
 
-Not new, but an opt-in baseline available to every fork (see
+The provider routing is available to every fork (see
 [observability-and-detection.md](observability-and-detection.md)).
 The
 [analyzer tick job](../../../infra/modules/compute/container-apps/analyzer_tick_job.tf)
-runs `python -m fdai.delivery.analyzer_tick_cli` on a cron; the CLI
-invokes the reference threshold analyzers against whichever
-`MetricProvider` composition wired
+runs `python -m fdai.delivery.analyzer_tick_cli` on a cron. That module is absent from the current
+tree, so the declared job isn't a runnable baseline yet. The existing `MetricProvider` composition
+still routes among
 ([Prom > Metrics API > Logs](../architecture/csp-neutrality.md)).
 
 `analyzer_tick_cron_expression` defaults to one minute. An empty target list uses the durable
@@ -205,6 +205,32 @@ the next tick when a newer attempt failed or was abandoned. Full ARG/ARM scan ca
 
 None of the combinations require an upstream core change, but they do require fork Terraform and
 composition binding, and path #1 also requires an authentication bridge.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Routed pull providers | implemented | `services/core-control-plane/src/fdai/composition/wire_metric_provider.py`; `services/core-control-plane/tests/providers/test_routed_metric.py` | Prometheus, Metrics API, and Logs providers resolve through a deterministic route order. |
+| Scheduled analyzer job | in-progress | `infra/modules/compute/container-apps/analyzer_tick_job.tf`; current change source audit | Terraform declares the one-minute job, but its `fdai.delivery.analyzer_tick_cli` entry point is absent from the current tree. |
+| AKS detection-readiness reduction | implemented | `services/core-control-plane/tests/agents/test_huginn_detection_readiness.py`; `tests/integration/infra/test_detection_readiness.py` | Focused tests cover the agent-owned readiness observations and the infrastructure contract. This is implementation evidence, not live latency evidence. |
+| Metric Alert webhook path | in-progress | `infra/modules/observability/metric-alert-rules/main.tf`; `services/operator-service/src/fdai_operator_service/families/operations/manifest.py`; `services/operator-service/tests/test_operator_operations_family.py` | The Terraform primitive and compatibility route declaration exist. A handler, normalizer, and authenticated Action Group bridge don't. |
+| Diagnostic Event Hub path | in-progress | `infra/modules/observability/diagnostic-eventhub-route/main.tf`; `services/core-control-plane/src/fdai/delivery/azure/event_bus.py` | The routing module and Kafka adapter exist. Diagnostic-record normalization and composition wiring don't. |
+| Managed alert-rule authoring | not-started | [What is NOT yet shipped](#what-is-not-yet-shipped) | No catalog-driven generator materializes alert rules from governed Rule entries. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and corrected end-to-end delivery claims to match the current source tree. | `current change`; paths and focused checks listed in the scope table. | Restore a runnable pull entry point and complete both authenticated push paths. |
+
+### Remaining work
+
+- [ ] Add `fdai.delivery.analyzer_tick_cli` or update the scheduled job to a tested replacement, then prove one tick reaches the routed provider in a focused integration test.
+- [ ] Add a tested Azure Monitor request handler, payload normalizer, and authenticated Action Group bridge for path #1.
+- [ ] Add a tested diagnostic-record normalizer and composition binding that feeds path #2 records into the ingest topic.
+- [ ] Record governed latency evidence for each path before changing any path from `implemented` to `validated`.
 
 ## What is NOT yet shipped
 

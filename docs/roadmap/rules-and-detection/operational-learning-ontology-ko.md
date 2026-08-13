@@ -1,8 +1,8 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: f4bc42aeadecda7ab116699dfb7954bf53160c53
-translation_revised: 2026-08-11
+translation_source_sha: a74d01ca1b71151a35d1387b4f7fbb48dd1d1dd9
+translation_revised: 2026-08-14
 ---
 # 운영 학습 온톨로지
 
@@ -304,6 +304,31 @@ serialize하고 실패한 증적을 격리 구역하며 backpressure를 적용�
 | AKS 동등성 | 모든 Kubernetes 처리가 non-production AKS에서 같은 종단 간 경로를 통과하며 integrated fault는 Kubernetes API와 Azure management-plane 근거를 모두 포함합니다. |
 | Azure absorption | 모든 non-Kubernetes 처리가 정본 리소스 타입, Azure 근거 프로바이더, 담당 에이전트, 통제된 액션 프로바이더 또는 명시적인 no-mutation 결과, non-production 증명을 지정합니다. |
 | 커버리지 honesty | 누락 프로바이더 커버리지는 명시적인 지원하지 않는 표면으로 남고 `operationalized` 또는 `azure_validated`를 충족할 수 없습니다. |
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| O0-O1 사례 계약 및 변환 결과 | implemented | `services/core-control-plane/src/fdai/core/case_history/`; `services/core-control-plane/tests/core/case_history/test_operational_case.py`; `test_service.py` | 불변 입력, 정본 지문, 부정적 결과, 수정본, 영속성을 검증합니다. |
+| O2 코호트 학습 | implemented | `services/core-control-plane/src/fdai/core/operational_learning/patterns.py`; `services/core-control-plane/tests/agents/test_operating_pattern_learning_e2e.py`; `test_norns_operating_pattern.py` | Muninn은 범위가 제한된 코호트를 봉인하고 Norns는 합의를 통해 균형 잡힌 비활성 후보만 발행합니다. |
+| O3 카탈로그 컴파일 | in-progress | `services/core-control-plane/src/fdai/core/operational_learning/catalog.py`; `review.py`; `services/core-control-plane/tests/core/operational_learning/test_catalog_compilation.py` | 핵심 검토 패키지는 구현됐습니다. 운영 검증기와 pull request 게시자는 배포 연결로 남아 있습니다. |
+| O4 현재 근거 T1 재사용 | implemented | `services/core-control-plane/tests/core/tiers/t1_lightweight/test_contextual_reuse.py`; `tests/core/test_control_loop_t1_wire.py` | 현재 근거가 누락되거나 오래됐거나 변경됐거나 안전하지 않으면 변경 없이 검토 대기합니다. |
+| O5-O6 Azure 근거 연결 | validated | [제공 계획](#제공-계획); `services/core-control-plane/src/fdai/delivery/azure/operational_evidence.py`; 집중 전달 테스트 | 저장소에 기록된 비운영 AKS 및 읽기 전용 Azure 훈련이 운영 환경 주장을 하지 않으면서 필요한 운영 근거를 제공합니다. |
+| O7 승격 측정 | in-progress | `services/core-control-plane/src/fdai/core/measurement/operational_promotion.py`; `operational_promotion_runner.py`; `services/core-control-plane/tests/core/measurement/test_operational_promotion.py` | 게이트와 영속 증적 경로는 구현됐지만 필요한 작업별 live 일수와 신뢰도 표본은 아직 부족합니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 제공 계획 근거와 구현 범위 표의 집중 소스 및 테스트. | 배포 연결과 O7 작업별 근거 임계값을 완성합니다. |
+
+### 남은 작업
+
+- [ ] O3 운영 검증기와 pull request 게시자를 연결하고 격리, 재시도, 감사, 멱등 게시를 종단 간 증명합니다.
+- [ ] 대상 배포에 Forseti 소유 causal 변환 결과, 동결/live 근거 원본, 증적 검증기를 연결합니다.
+- [ ] 승격 검토에 필요한 O7 작업별 live 일수, 표본 크기, 완전한 재발 구간, Wilson 경계, 위반 0건 근거를 누적합니다.
 
 ## 관련 문서
 

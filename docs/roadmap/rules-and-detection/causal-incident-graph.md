@@ -233,6 +233,30 @@ Implementation can proceed in independently testable slices:
 5. Add independent closure from `ObservedOutcome` and demotion on refutation or unsafe impact.
 6. Feed eligible causal evidence into recovery and chaos promotion without raising autonomy.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Hypothesis lifecycle and ontology projection | implemented | `services/core-control-plane/src/fdai/core/rca/hypothesis.py`; `projection.py`; `tests/core/rca/test_hypothesis.py`; `test_hypothesis_lineage_projection.py` | Immutable revisions, closure states, and evidence-only graph projection are covered by focused tests. |
+| Time-consistent incident graph | implemented | `services/core-control-plane/src/fdai/core/rca/incident_graph.py`; `tests/core/rca/test_incident_graph.py` | Traversal is bounded by depth, count, time, and size and reports truncation. |
+| Candidate generation and causal scoring | implemented | `services/core-control-plane/src/fdai/core/rca/t0.py`; `t1.py`; `evidence.py`; `tests/core/rca/test_coordinator.py`; `test_evidence.py` | Deterministic candidates, weakest-link scoring, support, and refutation paths are implemented. |
+| Shadow runtime and independent closure | implemented | `services/core-control-plane/src/fdai/core/rca/runtime.py`; `tests/core/rca/test_runtime.py`; `test_temporal_causality.py` | The upstream path remains shadow and evidence-only; no result grants execution authority. |
+| Deployment binding and operational evidence | in-progress | [Delivery slices](#delivery-slices); current change source audit | Provider and publisher seams exist, but each deployment must bind them and retain governed closure receipts before validation can be claimed. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source and focused tests listed in the scope table. | Bind the production evidence path and retain governed interventional closure evidence. |
+
+### Remaining work
+
+- [ ] Bind bounded temporal series, the Forseti-owned projection publisher, independent outcomes, and causal receipt resolution in a deployment integration test.
+- [ ] Retain one governed replay that proves a verified intervention closes or refutes a hypothesis without granting action authority.
+- [ ] Demonstrate that unsafe or refuting evidence lowers the hypothesis grade and keeps the related action or experiment in `shadow`.
+
 ## Related docs
 
 | To learn about | Read |

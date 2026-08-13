@@ -161,6 +161,30 @@ that contract yet.
 > layer today can bind their own resolved profile via a wrapping factory
 > until the upstream default binder wires it.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Profile contract and deterministic resolution | implemented | `services/core-control-plane/src/fdai/core/rule_catalog_profiles/models.py`; `registry.py`; `services/core-control-plane/tests/core/rule_catalog_profiles/test_registry.py` | Inheritance, override precedence, cycle rejection, severity floors, and stable ordering are covered. |
+| Canonical upstream profiles | implemented | `rule-catalog/profiles/baseline.yaml`; `recommended.yaml`; `strict.yaml`; `services/core-control-plane/tests/core/rule_catalog_profiles/test_full_profile_resolution.py` | All three profiles resolve against the current known Rule ids. |
+| Imported compliance profiles | implemented | `rule-catalog/profiles/collected/`; `services/core-control-plane/tests/core/rule_catalog_profiles/test_full_profile_resolution.py` | Collected profiles remain reference bundles; their Rules don't gain enforcement authority from membership. |
+| Runtime profile selection | not-started | [Fork adoption playbook](#4-fork-adoption-playbook); current change source audit | The composition root doesn't read `FDAI_PROFILE_ID` or pass a resolved profile into T0 and the safety check. |
+| Reserved parser support | not-started | [Reserved-but-unimplemented parsers](#reserved-but-unimplemented-parsers) | `checkov-yaml` and `gatekeeper-templates` remain explicit fail-closed placeholders. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source, catalog, and focused tests listed in the scope table. | Wire runtime profile selection and implement only the parser plugins selected for delivery. |
+
+### Remaining work
+
+- [ ] Read a governed profile id at startup, resolve it once, and prove T0 and the safety check consume the same immutable result.
+- [ ] Add startup diagnostics that expose the selected profile and digest without leaking tenant values.
+- [ ] Implement and test each reserved parser only when its source manifest is approved; until then preserve `ParserNotImplementedError`.
+
 ## 5. What this document is not
 
 - Not a rule authoring guide - that lives in

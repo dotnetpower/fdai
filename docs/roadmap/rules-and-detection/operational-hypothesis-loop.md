@@ -200,6 +200,30 @@ This campaign does not reimplement or fork these completed capabilities:
 The workers may cite those capabilities as evidence sources or fixtures through their public
 contracts. They don't modify, wrap, rename, or duplicate their implementations.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Lane A graph evidence | implemented | `services/core-control-plane/src/fdai/delivery/azure/graph_dynamic_evidence.py`; `services/core-control-plane/tests/delivery/azure/test_graph_dynamic_evidence.py`; `services/core-control-plane/tests/composition/test_wire_azure_operational_evidence.py` | Bounded concurrent evidence construction fails closed on partial prerequisites and timeouts. |
+| Lane B effect reconciliation | implemented | `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation.py`; `reconciliation_events.py`; `delivery/reconciliation_runtime.py`; focused reconciliation tests | Request, outcome, ledger, and proposal-only outbox paths are implemented without execution authority. |
+| Lane C lineage and competency queries | implemented | `services/core-control-plane/src/fdai/core/assurance_twin/`; `services/core-control-plane/tests/rule_catalog/test_operational_hypothesis_loop_competency.py` | Existing ontology objects answer all six frozen query classes without a parallel aggregate. |
+| Lane D graph-model promotion | implemented | `services/core-control-plane/src/fdai/delivery/graph_model_promotion.py`; `core/assurance_twin/model_promotion.py`; `tests/delivery/test_graph_model_promotion.py` | Exact artifact and rollback identity reach the existing approval and action path; evidence cannot self-promote. |
+| Protected live evidence | in-progress | [Hardening status](#design-at-a-glance); current change source audit | Code hardening is complete, but the protected live drill, recurrence window, and richer observer identity remain release evidence. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; integrated lane source and focused tests listed in the scope table. | Retain protected live-drill and recurrence evidence. |
+
+### Remaining work
+
+- [ ] Run the protected live drill and retain exact precondition, dry-run, provider, independent-outcome, rollback, and audit receipts.
+- [ ] Close the recurrence observation window and prove that censored or conflicting episodes remain unscorable.
+- [ ] Add richer observer-identity records and the final timeout classification, then rerun the focused reconciliation and promotion checks.
+
 ## Related docs
 
 | To learn about | Read |

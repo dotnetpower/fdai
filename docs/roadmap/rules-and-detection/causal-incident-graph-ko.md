@@ -1,8 +1,8 @@
 ---
 title: 인과 incident graph
 translation_of: causal-incident-graph.md
-translation_source_sha: 953d23d0d44f3f1f1f8c810489e9414f50965643
-translation_revised: 2026-08-11
+translation_source_sha: 8ac4b8347121516273f737994165a0e46ae5a5ab
+translation_revised: 2026-08-14
 ---
 # 인과 인시던트 그래프
 
@@ -241,6 +241,30 @@ Causal 경로는 불확실할 때 더 안전한 결과를 선택합니다.
    추가합니다.
 6. 자율성을 높이지 않으면서 조건을 충족한 causal 근거를 복구와 chaos 승격에
    제공합니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 가설 수명 주기 및 온톨로지 변환 결과 | implemented | `services/core-control-plane/src/fdai/core/rca/hypothesis.py`; `projection.py`; `tests/core/rca/test_hypothesis.py`; `test_hypothesis_lineage_projection.py` | 불변 수정본, 종결 상태, 근거 전용 그래프 변환 결과를 집중 테스트로 검증합니다. |
+| Time-consistent 인시던트 그래프 | implemented | `services/core-control-plane/src/fdai/core/rca/incident_graph.py`; `tests/core/rca/test_incident_graph.py` | 탐색은 깊이, 개수, 시간, 크기로 제한되며 잘림을 보고합니다. |
+| 후보 생성 및 causal 채점 | implemented | `services/core-control-plane/src/fdai/core/rca/t0.py`; `t1.py`; `evidence.py`; `tests/core/rca/test_coordinator.py`; `test_evidence.py` | 결정론적 후보, 최약 연결 채점, 지지 및 반증 경로가 구현되어 있습니다. |
+| Shadow 런타임 및 독립 종결 | implemented | `services/core-control-plane/src/fdai/core/rca/runtime.py`; `tests/core/rca/test_runtime.py`; `test_temporal_causality.py` | 업스트림 경로는 shadow 및 근거 전용으로 유지되며 어떤 결과도 실행 권한을 부여하지 않습니다. |
+| 배포 연결 및 운영 근거 | in-progress | [전달 구획](#전달-구획); 현재 변경의 소스 감사 | 프로바이더와 게시자 경계는 있지만, 검증 완료를 주장하기 전에 각 배포에서 이를 연결하고 관리되는 종결 증적을 보존해야 합니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트. | 운영 근거 경로를 연결하고 관리되는 개입 종결 근거를 보존합니다. |
+
+### 남은 작업
+
+- [ ] 범위가 제한된 시계열, Forseti 소유 변환 결과 게시자, 독립 결과, causal 증적 해석을 배포 통합 테스트에서 연결합니다.
+- [ ] 검증된 개입이 실행 권한을 부여하지 않으면서 가설을 확정하거나 반증하는 관리되는 재현 기록 하나를 보존합니다.
+- [ ] 안전하지 않거나 반증하는 근거가 가설 등급을 낮추고 관련 작업 또는 실험을 `shadow`로 유지함을 증명합니다.
 
 ## 관련 문서
 
