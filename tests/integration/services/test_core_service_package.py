@@ -57,6 +57,7 @@ EXPECTED_RUNTIME_MODULES = {
     "post_turn_review.py",
     "providers.py",
     "readiness.py",
+    "rule_generation_documents.py",
     "t2_recovery.py",
     "t2_route_registry.py",
 }
