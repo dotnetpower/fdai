@@ -47,6 +47,8 @@ def assess_surface_promotion_review(
     *,
     current_policy: RetrievalEvaluationPolicy,
     expected_surface_digest: str,
+    expected_generation_digest: str,
+    expected_catalog_digest: str,
     expected_dataset_digest: str,
     expected_evaluator_ref: str,
 ) -> SurfacePromotionReviewAssessment:
@@ -54,6 +56,8 @@ def assess_surface_promotion_review(
 
     for name, value in (
         ("expected_surface_digest", expected_surface_digest),
+        ("expected_generation_digest", expected_generation_digest),
+        ("expected_catalog_digest", expected_catalog_digest),
         ("expected_dataset_digest", expected_dataset_digest),
     ):
         if _DIGEST.fullmatch(value) is None:
@@ -64,6 +68,10 @@ def assess_surface_promotion_review(
     reasons: list[str] = []
     if receipt.surface_digest != expected_surface_digest:
         reasons.append("surface-digest-mismatch")
+    if receipt.generation_digest != expected_generation_digest:
+        reasons.append("generation-digest-mismatch")
+    if receipt.catalog_digest != expected_catalog_digest:
+        reasons.append("catalog-digest-mismatch")
     if receipt.dataset_digest != expected_dataset_digest:
         reasons.append("dataset-digest-mismatch")
     if receipt.evaluator_ref != expected_evaluator_ref:
@@ -76,7 +84,7 @@ def assess_surface_promotion_review(
         reasons.append("validation-failures-present")
     if receipt.validation_authority != "validation_only":
         reasons.append("validation-authority-mismatch")
-    if receipt.schema_version != "1.0.0":
+    if receipt.schema_version != "1.1.0":
         reasons.append("validation-schema-version-mismatch")
 
     covered_cohorts = {item.cohort for item in receipt.cohort_metrics}

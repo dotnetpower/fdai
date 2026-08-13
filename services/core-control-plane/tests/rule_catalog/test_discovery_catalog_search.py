@@ -602,6 +602,8 @@ async def test_shipped_active_catalog_emits_truthful_promotion_hold() -> None:
         ),
         policy=policy,
         evaluator_ref="heimdall:shipped-catalog-ko@1",
+        generation_digest=metadata.generation_digest,
+        catalog_digest=metadata.catalog_digest,
     )
     metrics = {(item.cohort, item.metric): item.value for item in receipt.cohort_metrics}
 
@@ -679,6 +681,8 @@ async def test_shipped_active_catalog_stale_generation_holds_without_no_match_cr
             required_cohorts=("stale-active-generation",),
         ),
         evaluator_ref="heimdall:shipped-catalog-stale@1",
+        generation_digest=metadata.generation_digest,
+        catalog_digest=metadata.catalog_digest,
     )
     metrics = {(item.cohort, item.metric): item.value for item in receipt.cohort_metrics}
 

@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: 9002cd72abbe2588670bccb1fa0a6df7acbb53d1
+translation_source_sha: 56264f354bf1d94eafd6a1824ba9dff0ea3c24c5
 translation_revised: 2026-08-13
 ---
 # Rule 의미 검색
@@ -51,9 +51,9 @@ translation_revised: 2026-08-13
 | 정확한 세대 Rule 질의 | implemented | `core/ontology_platform/catalog_queries.py`; `tests/core/ontology_platform/test_catalog_queries.py` | 실행 권한 없이 후보 전용 결과와 내용 기반 주소를 가진 검색 및 호출 증적을 반환합니다. |
 | 선택적 의미 런타임 바인딩 | implemented | `composition/wire_semantic_query.py`; `tests/composition/test_wire_semantic_query.py` | 의미 인덱스와 정확한 카탈로그 다이제스트를 함께 요구합니다. |
 | Planner 가용성 계상 | implemented | `core/ontology_platform/query_manifest.py`; `tests/core/ontology_platform/test_query_manifest.py`; current change focused checks | 읽을 수 있지만 바인딩되지 않은 함수는 구조 커버리지에 `runtime_binding_unavailable`로 남고 planning에서는 숨겨집니다. |
-| 이중 언어 held-out 평가기 계약 | implemented | `rule_catalog/schema/rule_semantic_evaluation.py`; `tests/rule_catalog/test_rule_semantic_evaluation.py`; current change focused check | 영어 및 한국어 양성 사례와 명시적 no-match 고정본이 검증 전용 집단 근거를 생성합니다. 두 언어 모두에서 training 질의 재사용을 거부합니다. 검색 실패는 `HOLD`를 생성하고 양성 사례를 실패로 계산하며 no-match 정밀도 근거로 사용하지 않습니다. 부분 검색 성능 저하는 집단별로 측정되며 승격 검토 대상이 되지 않습니다. |
+| 이중 언어 held-out 평가기 계약 | implemented | `rule_catalog/schema/rule_semantic_evaluation.py`; `tests/rule_catalog/test_rule_semantic_evaluation.py`; current change focused check | 영어 및 한국어 양성 사례와 명시적 no-match 고정본이 검증 전용 집단 근거를 생성합니다. 두 언어 모두에서 training 질의 재사용을 거부합니다. 검색 실패는 `HOLD`를 생성하고 양성 사례를 실패로 계산하며 no-match 정밀도 근거로 사용하지 않습니다. 부분 검색 성능 저하는 집단별로 측정되며 승격 검토 대상이 되지 않습니다. 증적 스키마 `1.1.0`은 평가한 정확한 세대와 카탈로그 다이제스트를 고정합니다. |
 | 카탈로그 기반 승격 보증 | implemented | `tests/rule_catalog/test_discovery_catalog_search.py`; 커밋 `d1787f4d8`; current change 배포 카탈로그 집중 검사 | 실제 활성 Rule 62개 세대는 정확한 영어, 모호성, 적대적 no-match 및 발견 전용 no-match 집단을 통과합니다. 통제된 한국어 표면 부재와 오래된 정확한 세대 검색은 검토 가능한 검증 전용 `HOLD` 근거를 생성합니다. 발견 문서는 활성 결과에 유출되지 않습니다. 이는 검색 준비 완료가 아니라 부정적 게이트 근거입니다. |
-| 통제된 승격 검토 | implemented | `config/rule-semantic-evaluation.json`; `rule_catalog/schema/rule_semantic_evaluation_policy.py`; `rule_catalog/schema/rule_semantic_promotion_review.py`; current change 집중 검사 | 내용 기반 주소를 가진 통제된 구성에서 임계값과 필수 집단을 로드합니다. 검토 자격은 오래된 정책 ID, 누락되거나 이름이 바뀐 메트릭, 알 수 없는 증적 스키마, 실패한 집단, 권한을 포함한 근거 및 현재 임계값 미만의 값을 안전하게 보류합니다. 자격은 승격 또는 실행 권한을 부여하지 않습니다. |
+| 통제된 승격 검토 | implemented | `config/rule-semantic-evaluation.json`; `rule_catalog/schema/rule_semantic_evaluation_policy.py`; `rule_catalog/schema/rule_semantic_promotion_review.py`; current change 집중 검사 | 내용 기반 주소를 가진 통제된 구성에서 임계값과 필수 집단을 로드합니다. 검토 자격은 오래된 정책, 세대 또는 카탈로그 ID, 누락되거나 이름이 바뀐 메트릭, 알 수 없는 증적 스키마, 실패한 집단, 권한을 포함한 근거 및 현재 임계값 미만의 값을 안전하게 보류합니다. 자격은 승격 또는 실행 권한을 부여하지 않습니다. |
 | In-memory 세대 및 검증 | implemented | `delivery/catalog_search/in_memory.py`; `delivery/catalog_search/generation.py`; `tests/delivery/catalog_search/test_ontology_generation.py`; `tests/rule_catalog/test_discovery_catalog_search.py` | 결정론적 off-path 세대, 독립적인 활성 및 발견 포인터, 코퍼스별 롤백 및 영속 어댑터와 같은 활성화 compare-and-swap을 지원합니다. |
 | 코퍼스 규모 세대 식별자 | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/generation.py`; `delivery/catalog_search/in_memory.py`; 집중 세대 및 Rule 카탈로그 테스트 | 프로바이더 중립 메타데이터는 개수, 계층형 루트, 범위가 제한된 순서가 있는 청크 및 작은 세대의 인라인 다이제스트를 포함합니다. 세대 생성, 검증 증적, 준비, 활성화, 활성 조회, 검색, 롤백 및 롤백 증적은 식별자 차이를 거부합니다. |
 | 영속 PostgreSQL 인덱스 | implemented | `delivery/catalog_search/postgres.py`; migration `0077` 및 `0080`; `tests/delivery/catalog_search/test_postgres.py`; `test_postgres_integration.py`; `test_postgres_rule_corpora_integration.py` | 정확한 세대 매니페스트를 저장하고 다시 검증하며 코퍼스별 세대를 원자적으로 준비, 활성화, 검색 및 롤백합니다. PostgreSQL에서 활성 문서 62개와 발견 문서 8,487개 전체의 수명 주기 격리를 증명합니다. |
@@ -84,6 +84,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | implemented | held-out 검색에 명시적인 부분 성능 저하 회귀 검사를 추가했습니다. 양성 집단의 요청 2개 중 1개가 실패하면 검색 성공률 `0.5`, 검증 전용 `HOLD`, 승격 또는 실행 권한이 없는 검토 전용 승격 `HOLD`가 생성됩니다. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/rule_catalog/test_rule_semantic_evaluation.py`에서 테스트 11개가 통과했습니다. 작업 소유 테스트 파일에서 Ruff, 형식 및 편집기 진단이 통과했습니다. | 통제된 한국어 표면을 추가하고 측정된 활성 코퍼스 lexical 오탐을 제거합니다. 검증을 주장하기 전에 통제된 실제 근거를 별도로 기록합니다. |
 | 2026-08-13 | implemented | 구분하지 못하는 영어 기능어, 카탈로그 전체에 공통인 `rule` 및 숫자 조각만으로 발생한 활성 코퍼스 오탐을 제거했습니다. 정확한 ID 일치, 도메인 용어, 의미 점수 및 구성 임계값은 변경하지 않았습니다. 적대적 no-match와 발견 전용 no-match 집단은 이제 각각 `1.0`이며, 배포 카탈로그 증적은 한국어 양성 재현율과 순위에 대해서만 `HOLD`를 유지합니다. | `current change`; 전체 배포 활성 및 발견 카탈로그 모듈에서 테스트 11개, 카탈로그 질의 및 구성 소비자에서 테스트 21개가 통과했습니다. 변경한 운영 어댑터에서 strict mypy가 통과했고 편집기 진단은 깨끗했습니다. | 통제된 한국어 표면을 추가하고 검증을 주장하기 전에 통제된 실제 근거를 별도로 기록합니다. |
 | 2026-08-13 | implemented | 의미 표면 증적의 식별자 순환을 제거했습니다. 검증 증적은 변경 불가능한 후보 형식의 의미 대상을 연결하고, 승격된 Git 아티팩트는 수명 주기 상태와 증적 참조를 포함하는 별도 다이제스트를 유지합니다. 기존 후보 증적 식별자는 변경되지 않습니다. | `current change`; 집중 의미 검색 및 평가 계약 모음에서 테스트 30개가 통과했습니다. 작업 소유 운영 및 테스트 파일에서 Ruff, 형식 및 strict mypy가 통과했습니다. | 승격 검토 전에 통제된 한국어 표면과 실제 통과 held-out 증적을 추가하고 재현합니다. 검증을 주장하기 전에 통제된 실제 근거를 별도로 기록합니다. |
+| 2026-08-13 | implemented | 각 표면 검증 증적을 평가에 사용한 정확한 검색 세대와 카탈로그에 연결했습니다. 이제 승격 검토는 오래된 세대 또는 오래된 카탈로그 ID를 각각 독립적으로 보류하며, 증적 스키마 `1.1.0`은 두 ID를 검증과 내용 기반 다이제스트 변환 결과에 포함합니다. | `current change`; 전체 의미 증적, 검색 및 배포 카탈로그 범위에서 테스트 42개가 통과했습니다. 작업 소유 파일 6개에서 Ruff와 형식 검사가 통과했고 운영 계약 3개에서 strict mypy가 통과했으며 편집기 진단은 깨끗했습니다. | 승격 검토 전에 통제된 한국어 표면과 실제 통과 held-out 증적을 추가하고 재현합니다. 검증을 주장하기 전에 통제된 실제 근거를 별도로 기록합니다. |
 
 ### 남은 작업
 
@@ -232,8 +233,9 @@ Rollback은 보존된 이전 세대만 다시 활성화합니다. 호출자는 �
 
 ### SurfaceValidationReceipt
 
-검증 증적은 표면, 고정 데이터셋, 평가기, 메트릭 구성, 집단 결과,
-실패 및 결정을 고정합니다. 검증은 후보를 검토 대상으로 승인하거나 보류할 수 있습니다.
+검증 증적은 후보 형식 표면 대상, 정확한 검색 세대와 카탈로그, 고정 데이터셋, 평가기,
+메트릭 구성, 집단 결과, 실패 및 결정을 고정합니다. 검토 replay는 평가한 검색 ID 중 하나라도
+예상 세대와 다르면 보류합니다. 검증은 후보를 검토 대상으로 승인하거나 보류할 수 있습니다.
 자체적으로 표면을 승격할 수는 없습니다.
 
 ## 빌드 및 의미 확장 수명 주기

@@ -250,6 +250,8 @@ class SurfaceValidationReceipt:
     """Held-out retrieval evidence that cannot promote a surface by itself."""
 
     surface_digest: str
+    generation_digest: str
+    catalog_digest: str
     dataset_digest: str
     evaluator_ref: str
     evaluation_policy_digest: str
@@ -259,11 +261,13 @@ class SurfaceValidationReceipt:
     failure_codes: tuple[str, ...]
     decision: ValidationDecision
     validation_authority: str = "validation_only"
-    schema_version: str = "1.0.0"
+    schema_version: str = "1.1.0"
 
     def __post_init__(self) -> None:
         for name, value in (
             ("surface_digest", self.surface_digest),
+            ("generation_digest", self.generation_digest),
+            ("catalog_digest", self.catalog_digest),
             ("dataset_digest", self.dataset_digest),
             ("evaluation_policy_digest", self.evaluation_policy_digest),
         ):
@@ -291,6 +295,8 @@ class SurfaceValidationReceipt:
             {
                 "schema_version": self.schema_version,
                 "surface_digest": self.surface_digest,
+                "generation_digest": self.generation_digest,
+                "catalog_digest": self.catalog_digest,
                 "dataset_digest": self.dataset_digest,
                 "evaluator_ref": self.evaluator_ref,
                 "evaluation_policy_digest": self.evaluation_policy_digest,
