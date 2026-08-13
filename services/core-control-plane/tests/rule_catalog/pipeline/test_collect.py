@@ -51,7 +51,13 @@ def _write_source_tree(root: Path) -> None:
     (sub / "policy.yaml").write_text("id: sample\nseverity: low\n", encoding="utf-8")
 
 
-def _write_manifest(path: Path, source_path: str, *, source_id: str = "smoke-src") -> None:
+def _write_manifest(
+    path: Path,
+    source_path: str,
+    *,
+    source_id: str = "smoke-src",
+    redistribution: str = "embeddable",
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         yaml.safe_dump(
@@ -59,8 +65,12 @@ def _write_manifest(path: Path, source_path: str, *, source_id: str = "smoke-src
                 "schema_version": "1.0.0",
                 "id": source_id,
                 "name": "Smoke",
-                "license": "Apache-2.0",
-                "redistribution": "embeddable",
+                "license": (
+                    "LicenseRef-reference-only"
+                    if redistribution == "reference-only"
+                    else "Apache-2.0"
+                ),
+                "redistribution": redistribution,
                 "fetch": {"kind": "local", "path": source_path},
                 "parser": "rule-yaml",
             }
@@ -474,6 +484,28 @@ def test_collector_dry_run_does_not_write(tmp_path: Path) -> None:
     out = tmp_path / "snapshots"
 
     pipeline = CollectorPipeline(repo_root=tmp_path, output_root=out)
+    report = pipeline.collect_from_manifest_path(manifest_path, dry_run=True)
+    assert report.file_count == 2
+    assert not out.exists()
+
+
+def test_reference_only_collection_requires_dry_run(tmp_path: Path) -> None:
+    source = tmp_path / "restricted-source"
+    _write_source_tree(source)
+    manifest_path = tmp_path / "manifest.yaml"
+    _write_manifest(
+        manifest_path,
+        str(source),
+        source_id="reference-only-source",
+        redistribution="reference-only",
+    )
+    out = tmp_path / "snapshots"
+    pipeline = CollectorPipeline(repo_root=tmp_path, output_root=out)
+
+    with pytest.raises(ValueError, match="reference-only.*--dry-run"):
+        pipeline.collect_from_manifest_path(manifest_path)
+
+    assert not out.exists()
     report = pipeline.collect_from_manifest_path(manifest_path, dry_run=True)
     assert report.file_count == 2
     assert not out.exists()
