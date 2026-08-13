@@ -5,8 +5,8 @@
   "adoption_method": "verify-legacy-head-then-stamp",
   "legacy": {
     "version_table": "alembic_version",
-    "required_head": "20260808_0079",
-    "revision_count": 81
+    "required_head": "20260813_0080",
+    "revision_count": 82
   },
   "rollback": {
     "required": true,
