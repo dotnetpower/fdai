@@ -23,6 +23,7 @@ EXPECTED_DATABASE_ROLE = "fdai_operator"
 LOCAL_AZURE_NARRATOR_ENV = "FDAI_OPERATOR_SERVICE_LOCAL_AZURE_NARRATOR"
 KAFKA_BOOTSTRAP_SERVERS_ENV = "FDAI_KAFKA_BOOTSTRAP_SERVERS"
 STAGE_TOPIC_ENV = "FDAI_STAGE_TOPIC"
+LIVE_STAGE_CONSUMER_GROUP_ENV = "FDAI_LIVE_STAGE_CONSUMER_GROUP_ID"
 SEMANTIC_REQUEST_TOPIC_ENV = "FDAI_SEMANTIC_TURN_REQUEST_TOPIC"
 SEMANTIC_PROJECTION_TOPIC_ENV = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC"
 SEMANTIC_PHYSICAL_TOPIC_ENV = "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC"
@@ -36,6 +37,7 @@ DEFAULT_DATABASE_CONNECT_TIMEOUT_S = 10
 DEFAULT_SEMANTIC_CONSUMER_GROUP = "operator-semantic-turn-v1"
 DEFAULT_SEMANTIC_KAFKA_CLIENT_ID = "fdai-operator-service"
 DEFAULT_STAGE_TOPIC = "aw.pipeline.stages"
+DEFAULT_LIVE_STAGE_CONSUMER_GROUP = "fdai-operator-live-stage-v1"
 
 GROUP_ENV: Mapping[OperatorRole, str] = MappingProxyType(
     {
@@ -72,6 +74,7 @@ class OperatorEnvironment:
     local_azure_narrator: bool
     kafka_bootstrap_servers: str | None
     stage_topic: str
+    live_stage_consumer_group_id: str
     semantic_request_topic: str | None
     semantic_projection_topic: str | None
     semantic_physical_topic: str | None
@@ -144,6 +147,10 @@ class OperatorEnvironment:
             )
         kafka_bootstrap_servers = values.get(KAFKA_BOOTSTRAP_SERVERS_ENV, "").strip() or None
         stage_topic = values.get(STAGE_TOPIC_ENV, "").strip() or DEFAULT_STAGE_TOPIC
+        live_stage_consumer_group_id = (
+            values.get(LIVE_STAGE_CONSUMER_GROUP_ENV, "").strip()
+            or DEFAULT_LIVE_STAGE_CONSUMER_GROUP
+        )
         semantic_request_topic = values.get(SEMANTIC_REQUEST_TOPIC_ENV, "").strip() or None
         semantic_projection_topic = values.get(SEMANTIC_PROJECTION_TOPIC_ENV, "").strip() or None
         semantic_physical_topic = values.get(SEMANTIC_PHYSICAL_TOPIC_ENV, "").strip() or None
@@ -192,6 +199,7 @@ class OperatorEnvironment:
             local_azure_narrator=local_azure_narrator,
             kafka_bootstrap_servers=kafka_bootstrap_servers,
             stage_topic=stage_topic,
+            live_stage_consumer_group_id=live_stage_consumer_group_id,
             semantic_request_topic=semantic_request_topic,
             semantic_projection_topic=semantic_projection_topic,
             semantic_physical_topic=semantic_physical_topic,
@@ -242,6 +250,7 @@ __all__ = [
     "HOST_ENV",
     "ISSUER_ENV",
     "KAFKA_BOOTSTRAP_SERVERS_ENV",
+    "LIVE_STAGE_CONSUMER_GROUP_ENV",
     "STAGE_TOPIC_ENV",
     "LOCAL_AZURE_NARRATOR_ENV",
     "MANAGED_IDENTITY_CLIENT_ID_ENV",

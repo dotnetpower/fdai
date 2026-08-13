@@ -340,6 +340,7 @@ def _build_live_stage_relay(
         config=LiveStageKafkaConfig(
             bootstrap_servers=bootstrap_servers,
             stage_topic=environment.stage_topic,
+            group_id=environment.live_stage_consumer_group_id,
             security_protocol="PLAINTEXT" if execution_venue == "local" else "SASL_SSL",
         ),
         hub=hub,
