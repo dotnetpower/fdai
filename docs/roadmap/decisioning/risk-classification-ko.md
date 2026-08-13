@@ -1,8 +1,8 @@
 ---
 title: 위험 분류 (자동 실행 vs 사람 승인 vs 차단)
 translation_of: risk-classification.md
-translation_source_sha: 000aab08cf8319d89631b41c763d818643034226
-translation_revised: 2026-08-11
+translation_source_sha: dbc488f62de7d5557e6c8ea6cf57884112db5ed0
+translation_revised: 2026-08-13
 ---
 
 # 위험 분류 (자동 실행 vs 사람 승인 vs 차단)
@@ -18,11 +18,31 @@ translation_revised: 2026-08-11
 > 고객-비종속: 아래 모든 값(비용 임계, 태그 키, 리소스 그룹 이름)은 상류의 **기본값** 입니다;
 > 포크가 구성으로 튜닝합니다
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
->
-> **구현 상태.** `RiskTable` 로더/평가기, feature 추출기, 통합 execution-authority
-> 해석기, 환경 classifier, control-loop 감사 빌더가 배포됐습니다. 현재 감사 페이로드는
-> 매칭 룰 id, 최종 결정, 정족수, resolved 상한을 기록합니다. Feature-vector 스냅샷과
-> 카탈로그 버전 필드는 아직 감사 페이로드에 배선되지 않았습니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 테이블 로드, 순서 및 first-match 평가 | implemented | [`risk_table.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/risk_table.py), [`test_risk_table.py`](../../../services/core-control-plane/tests/core/risk_gate/test_risk_table.py) | 로더가 카탈로그를 검증하고 순서가 지정된 fail-closed 결정 테이블을 집중 검사에서 적용합니다. |
+| 특성 추출 및 환경 분류 | implemented | [`feature.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/feature.py), [`test_control_loop_authority.py`](../../../services/core-control-plane/tests/core/test_control_loop_authority.py) | 타입이 지정된 특성을 추출하며, 환경 태그가 없거나 알 수 없으면 프로덕션 위험으로 분류합니다. |
+| 통합 권한 판정 및 권한을 높이지 않는 상한 | implemented | [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py) | 테이블 기준선과 컨텍스트 상한을 권한이 높아지지 않도록 결합합니다. |
+| 기존 control-loop 감사 변환 결과 | implemented | [`_helpers.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_helpers.py), [`test_control_loop_authority.py`](../../../services/core-control-plane/tests/core/test_control_loop_authority.py) | 감사 데이터에는 매칭된 규칙, 최종 판정, 정족수 및 해석된 상한이 포함됩니다. |
+| 승인 및 변경 거버넌스 적용 | in-progress | [변경 프로세스](#변경-프로세스), [CODEOWNERS](../../../.github/CODEOWNERS) | 경로 소유권은 있지만, 저장소 근거만으로는 2인 승인, Owner 검토, 정당화 및 메타데이터 정책 계약 전체가 적용됨을 아직 증명하지 못합니다. |
+| 재현에 충분한 특성 및 카탈로그 메타데이터 | not-started | [감사](#감사), [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py) | 판정은 특성 벡터를 보유하고 테이블은 버전을 보유하지만, 감사 페이로드가 자체 완결적 재현에 필요한 두 값을 직렬화하지 않습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | 이전 전달 이력을 재구성하지 않고 근거 범위 안에서 구현 원장을 도입했습니다. | `current change`; 범위 테이블에 나열된 현재 소스 및 집중 검사; 위험 관련 집중 검사 113건과 준비 상태 조정기 검사 33건이 통과했습니다. | 거버넌스 적용을 증명하고, 재현에 충분한 메타데이터를 추가하며, 관리되는 런타임 근거를 보존해야 합니다. |
+
+### 남은 작업
+
+- [ ] 모든 위험 테이블 변경에 2인 승인, Owner 검토, 정당화 및 메타데이터 정책 계약 전체를 적용하고 검사합니다.
+- [ ] 정확한 특성 벡터와 위험 테이블 카탈로그 버전을 권한 감사 페이로드에 직렬화하고, 카탈로그 변경 후 결정론적 재현을 증명합니다.
+- [ ] 범위 행을 `validated`로 높이기 전에 하나의 고정된 리비전에서 위험 판정의 관리되는 런타임 증적을 보존합니다.
 
 ## 테이블이 사는 곳
 

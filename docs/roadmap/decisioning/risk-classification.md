@@ -14,11 +14,31 @@ policy (auto vs HIL) and initial policy approver"* from
 > Customer-agnostic: every value below (cost threshold, tag key, resource-group name) is a
 > **default** in the upstream; a fork tunes them via config
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
->
-> **Implementation status.** The `RiskTable` loader/evaluator, feature extractor, unified
-> execution-authority resolver, environment classifier, and control-loop audit builder are
-> shipped. The current audit payload records the matched rule id, final decision, quorum, and
-> resolved ceiling. Feature-vector snapshots and catalog versions are not wired into it yet.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Table loading, ordering, and first-match evaluation | implemented | [`risk_table.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/risk_table.py), [`test_risk_table.py`](../../../services/core-control-plane/tests/core/risk_gate/test_risk_table.py) | The loader validates the catalog and applies the ordered fail-closed decision table in focused tests. |
+| Feature extraction and environment classification | implemented | [`feature.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/feature.py), [`test_control_loop_authority.py`](../../../services/core-control-plane/tests/core/test_control_loop_authority.py) | Typed features are extracted, and missing or unknown environment tags resolve to production risk. |
+| Unified authority decision and never-raising ceiling | implemented | [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py) | The table baseline and contextual ceilings combine without raising authority. |
+| Existing control-loop audit projection | implemented | [`_helpers.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_helpers.py), [`test_control_loop_authority.py`](../../../services/core-control-plane/tests/core/test_control_loop_authority.py) | Audit data includes the matched rule, final decision, quorum, and resolved ceiling. |
+| Approval and change-governance enforcement | in-progress | [Change Process](#change-process), [CODEOWNERS](../../../.github/CODEOWNERS) | Path ownership exists, but repository evidence does not yet prove the complete two-person approval, Owner review, justification, and metadata-policy contract. |
+| Replay-complete feature and catalog metadata | not-started | [Audit](#audit), [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py) | The decision retains a feature vector and the table retains a version, but the audit payload does not serialize both for self-contained replay. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted an evidence-bounded implementation ledger without reconstructing earlier delivery history. | `current change`; current source and focused checks listed in the scope table; risk-focused checks passed 113 cases and readiness coordinator checks passed 33 cases. | Prove governance enforcement, add replay-complete metadata, and retain governed runtime evidence. |
+
+### Remaining work
+
+- [ ] Enforce and test the complete two-person approval, Owner review, justification, and metadata-policy contract for every risk-table change.
+- [ ] Serialize the exact feature vector and risk-table catalog version into the authority audit payload, then prove deterministic replay after a catalog change.
+- [ ] Retain governed runtime receipts for risk decisions on one pinned revision before promoting any scope row to `validated`.
 
 ## Where the Table Lives
 
