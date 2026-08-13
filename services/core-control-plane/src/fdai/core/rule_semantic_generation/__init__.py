@@ -7,11 +7,17 @@ from .ledger import (
     RuleGenerationOutboxLedger,
     StateStoreRuleGenerationOutboxLedger,
 )
+from .publication import (
+    RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
+    RuleGenerationOutboxPublisher,
+)
 
 __all__ = [
+    "RULE_GENERATION_ACTIVATION_RESULT_TOPIC",
     "RuleGenerationActivationBinder",
     "RuleGenerationLedgerConflictError",
     "RuleGenerationLedgerCorruptionError",
     "RuleGenerationOutboxLedger",
+    "RuleGenerationOutboxPublisher",
     "StateStoreRuleGenerationOutboxLedger",
 ]
