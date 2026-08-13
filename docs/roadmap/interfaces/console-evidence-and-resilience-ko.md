@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: c9ad0f816aa25b7235256c9e2172e13eb515ead7
+translation_source_sha: b920e5e9bd155f951d6bcc4386eac3244384d62e
 translation_revised: 2026-08-14
 ---
 
@@ -17,6 +17,7 @@ translation_revised: 2026-08-14
 |------|------|------|-----------|
 | 통제된 온톨로지 보증 출처 이력 | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`, focused Vitest 25개 및 Console 타입 검사 통과 | 인증된 seeded cohort가 통제된 runtime 아티팩트를 만들 때까지 in-progress로 유지합니다. |
 | Exact-release 온톨로지 카탈로그 변환 결과 | 구현됨 | `ontology_console_projection.py`, `materialize-authoritative-catalogs.py`, focused materializer 동등성 테스트, Console 토폴로지 모델 테스트 및 타입 검사 | 하나의 생산자가 릴리스 신원 및 변경 권한 부재와 함께 선언 보기와 카탈로그 토폴로지를 제공합니다. 의미 모델 렌더링과 receipt 기반 컨텍스트 근거는 남아 있습니다. |
+| 의미 모델 및 관계 방향 | 구현됨 | `ontology-semantic-model.ts`, `ontology-semantic-map.tsx`, 카탈로그 토폴로지 renderer 및 inspector, focused Vitest 23개 및 Console 타입 검사 통과 | 검토된 네 가지 의미 영역, 다섯 가지 운영 보기, 화살표 및 분리된 들어오는 관계와 나가는 관계를 구현했습니다. 인증된 데스크톱 및 모바일 근거는 남아 있습니다. |
 | 에이전트 활동 하트비트 표현 | 구현됨 | `console/src/routes/agents.model.ts`, `console/src/routes/agents.model.test.ts`, focused Vitest 31개 통과 | 주기적인 런타임 초기화 스냅샷은 현재 에이전트 상태와 마지막 관찰 시각을 갱신하지만 최초 로드 또는 새로고침 후 활동 행이 되지 않습니다. Browser Entra 새로고침 동작은 관찰했지만 통제된 아티팩트는 보존하지 않았습니다. |
 | Command Deck JSON 대비 | 구현됨 | `console/src/styles.css`, `console/src/deck/command-deck-workspace-visual.test.ts`, focused Vitest 10개 통과 및 인증된 브라우저 검사 | 구문 강조 JSON은 전역의 밝은 `pre` 스타일과 관계없이 고정된 어두운 코드 표면을 유지합니다. 브라우저 검사는 통제된 런타임 근거로 보존하지 않았습니다. |
 
@@ -28,6 +29,7 @@ translation_revised: 2026-08-14
 | 2026-08-14 | 구현됨 | 현재 상태와 하트비트 최신성을 유지하면서 주기적인 `Runtime agent initialized` 스냅샷이 페이지를 새로고칠 때마다 chronological 활동으로 다시 나타나지 않도록 수정했습니다. | `current change`, `agents.model.test.ts` focused 테스트 31개 통과, 인증된 브라우저에서 두 번 새로고침하는 동안 초기화 행 0개 확인 | 런타임 검증을 주장하기 전에 두 번 새로고침한 Browser Entra 결과를 통제된 아티팩트로 보존합니다. |
 | 2026-08-14 | 구현됨 | 전역 `pre` 배경이 덮어쓴 Command Deck JSON 구문 강조 영역 아래에 고정된 어두운 표면을 복원했습니다. | `current change`, 작업 소유 Console CSS 및 시각 계약 테스트, focused Vitest 10개 통과, Console 타입 검사 통과, 인증된 브라우저에서 의도한 어두운 표면과 토큰 색상 계산 확인 | 범위가 제한된 잔여 작업은 없습니다. 향후 테마 변경은 focused 회귀 테스트가 확인합니다. |
 | 2026-08-14 | 구현됨 | Operator 온톨로지 레지스트리와 카탈로그 토폴로지를 하나의 exact-release 생산자로 통합하고 InterfaceType 및 FunctionType 노드를 추가했으며 SPA의 생성된 토폴로지 복사본을 제거했습니다. | `current change`, materializer 동등성 테스트 2개, focused Console 테스트 13개 및 Console 타입 검사 통과 | 검토된 의미 모델을 렌더링하고 receipt 기반 컨텍스트 스냅샷과 인증된 Browser 근거를 보존해야 합니다. |
+| 2026-08-14 | 구현됨 | 네 영역 의미 모델을 기본 온톨로지 보기로 만들고 dense graph를 카탈로그 토폴로지로 유지했으며 semantic inspector와 topology canvas 모두에 canonical 방향을 렌더링했습니다. | `current change`, focused ontology Vitest 23개, 카탈로그 동등성 및 Console 타입 검사 통과 | 인증된 데스크톱 및 모바일 Browser 근거를 보존하고 런타임 근거를 표시하기 전에 authoritative 컨텍스트 receipt를 연결해야 합니다. |
 
 ### 잔여 작업
 

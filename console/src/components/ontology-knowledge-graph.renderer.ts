@@ -1,5 +1,6 @@
 import {
   convexHull,
+  ontologyArrowHead,
   ontologyNodeRadius,
   ontologyWorldToScreen,
   type KnowledgeGraphCamera,
@@ -152,6 +153,19 @@ function drawEdge(context: CanvasRenderingContext2D, edge: OntologyKnowledgeEdge
   context.globalAlpha = visualState === "related" ? .82 : visualState === "muted" ? .018 : .10;
   context.lineWidth = visualState === "related" ? 2 : 1;
   context.stroke();
+  const arrow = ontologyArrowHead(
+    { x: controlX, y: controlY },
+    target,
+    ontologyNodeRadius(targetNode) * state.camera.scale + 2,
+    visualState === "related" ? 8 : 6,
+  );
+  context.beginPath();
+  context.moveTo(arrow.tip.x, arrow.tip.y);
+  context.lineTo(arrow.left.x, arrow.left.y);
+  context.lineTo(arrow.right.x, arrow.right.y);
+  context.closePath();
+  context.fillStyle = EDGE_COLORS[edge.kind];
+  context.fill();
   if (visualState === "related" && state.camera.scale > .5) {
     const middleX = .25 * source.x + .5 * controlX + .25 * target.x;
     const middleY = .25 * source.y + .5 * controlY + .25 * target.y;

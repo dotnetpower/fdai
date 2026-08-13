@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   fitOntologyKnowledgeGraph,
   hitTestOntologyNode,
+  ontologyArrowHead,
   ontologyWorldToScreen,
 } from "./ontology-knowledge-graph.geometry";
 import type { OntologyKnowledgeGraph } from "./ontology-knowledge-graph.model";
@@ -32,5 +33,20 @@ describe("ontology knowledge graph geometry", () => {
     const point = ontologyWorldToScreen(graph.nodes[1]!, camera);
 
     expect(hitTestOntologyNode(graph, camera, point)?.id).toBe("right");
+  });
+
+  it("places an arrowhead before the target node boundary", () => {
+    const arrow = ontologyArrowHead(
+      { x: 50, y: 0 },
+      { x: 100, y: 0 },
+      12,
+      6,
+    );
+
+    expect(arrow.tip).toEqual({ x: 88, y: 0 });
+    expect(arrow.left.x).toBeLessThan(arrow.tip.x);
+    expect(arrow.right.x).toBeLessThan(arrow.tip.x);
+    expect(arrow.left.y).toBeLessThan(0);
+    expect(arrow.right.y).toBeGreaterThan(0);
   });
 });

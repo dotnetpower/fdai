@@ -1,7 +1,8 @@
 import type { OntologyEdge, OntologyNode } from "../components/ontology-graph";
 import type { OntologyKnowledgeGraph } from "../components/ontology-knowledge-graph.model";
+import type { OntologySemanticModel } from "../components/ontology-semantic-model";
 
-export type OntologyView = "objects" | "links" | "actions" | "map";
+export type OntologyView = "map" | "objects" | "links" | "actions" | "topology";
 export type UnknownRecord = Readonly<Record<string, unknown>>;
 
 export interface OntologyActionTypeRecord {
@@ -44,14 +45,19 @@ export interface OntologyGraphResponse {
   readonly function_type_count: number;
   readonly interface_types: readonly UnknownRecord[];
   readonly function_types: readonly UnknownRecord[];
-  readonly semantic_model: UnknownRecord;
+  readonly semantic_model: OntologySemanticModel;
   readonly catalog_topology: OntologyKnowledgeGraph;
   readonly nodes?: readonly OntologyNode[];
   readonly edges?: readonly OntologyEdge[];
 }
 
 export function ontologyView(value: string | null): OntologyView {
-  return value === "links" || value === "actions" || value === "map" ? value : "objects";
+  return value === "objects"
+    || value === "links"
+    || value === "actions"
+    || value === "topology"
+    ? value
+    : "map";
 }
 
 export function recordValue(record: UnknownRecord | undefined, key: string): string | null {
