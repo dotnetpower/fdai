@@ -61,6 +61,15 @@ export interface OntologyKnowledgeGraphSummary {
   readonly topHub: OntologyKnowledgeNode | null;
 }
 
+export interface OntologyKnowledgeRelationship {
+  readonly direction: "incoming" | "outgoing";
+  readonly fromId: string;
+  readonly toId: string;
+  readonly fromLabel: string;
+  readonly toLabel: string;
+  readonly otherId: string;
+}
+
 type UnknownRecord = Record<string, unknown>;
 
 function isRecord(value: unknown): value is UnknownRecord {
@@ -160,5 +169,28 @@ export function ontologyKnowledgeGraphSummary(
       (top, node) => top === null || node.degree > top.degree ? node : top,
       null,
     ),
+  };
+}
+
+export function ontologyKnowledgeRelationship(
+  edge: OntologyKnowledgeEdge,
+  selectedId: string,
+  nodeById: ReadonlyMap<string, OntologyKnowledgeNode>,
+): OntologyKnowledgeRelationship {
+  const direction = edge.source === selectedId
+    ? "outgoing"
+    : edge.target === selectedId
+      ? "incoming"
+      : null;
+  if (direction === null) {
+    throw new Error(`ontology knowledge edge ${edge.id} is unrelated to ${selectedId}`);
+  }
+  return {
+    direction,
+    fromId: edge.source,
+    toId: edge.target,
+    fromLabel: nodeById.get(edge.source)?.label ?? edge.source,
+    toLabel: nodeById.get(edge.target)?.label ?? edge.target,
+    otherId: direction === "outgoing" ? edge.target : edge.source,
   };
 }

@@ -4,6 +4,7 @@ import {
   ONTOLOGY_NODE_KINDS,
   decodeOntologyKnowledgeGraph,
   ontologyKnowledgeGraphSummary,
+  ontologyKnowledgeRelationship,
 } from "./ontology-knowledge-graph.model";
 
 const nodes = ONTOLOGY_NODE_KINDS.map((kind, index) => ({
@@ -60,5 +61,21 @@ describe("ontology knowledge graph model", () => {
       nodes: [],
       edges: [{ id: "edge", source: "missing", target: "missing", kind: "agent", label: "owns" }],
     })).toThrow("missing endpoint");
+  });
+
+  it("preserves incoming and outgoing direction for the selected node", () => {
+    const nodeById = new Map(nodes.map((node) => [node.id, node]));
+    const edge = rawGraph.edges[0]!;
+
+    expect(ontologyKnowledgeRelationship(edge, edge.source, nodeById)).toMatchObject({
+      direction: "outgoing",
+      fromId: edge.source,
+      toId: edge.target,
+    });
+    expect(ontologyKnowledgeRelationship(edge, edge.target, nodeById)).toMatchObject({
+      direction: "incoming",
+      fromId: edge.source,
+      toId: edge.target,
+    });
   });
 });

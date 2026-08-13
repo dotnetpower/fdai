@@ -22,9 +22,10 @@
     "noneDeclared": "선언된 항목이 없습니다.",
     "noDescription": "기록된 설명이 없습니다.",
     "objects": "객체",
-    "links": "링크",
+    "links": "관계",
     "actions": "작업",
-    "map": "온톨로지 맵",
+    "map": "의미 모델",
+    "topology": "카탈로그 토폴로지",
     "properties": "속성",
     "incoming": "들어오는 관계",
     "outgoing": "나가는 관계",
@@ -94,6 +95,55 @@
     "promotionGate": "승격 게이트",
     "productionDowngrade": "프로덕션 하향 조정",
     "tierCeilings": "티어 상한"
+  },
+  "semantic": {
+    "title": "운영 온톨로지 의미 모델",
+    "description": "검토된 ObjectType을 FDAI가 운영하는 대상, 보호하는 의도, 관측하는 현실, 결정이 결과로 종결되는 방식에 따라 구성합니다. 카탈로그 의미는 읽기 전용이며 런타임 상태를 주장하지 않습니다.",
+    "release": "온톨로지 릴리스",
+    "projection": "변환 결과 개정",
+    "lenses": "운영 보기 기준",
+    "lens": {
+      "object": "객체",
+      "relationship": "관계",
+      "state": "상태",
+      "context": "컨텍스트",
+      "action": "작업"
+    },
+    "band": {
+      "operating_scope": "운영 범위",
+      "operating_intent": "운영 의도",
+      "operating_reality": "운영 현실",
+      "decision_and_learning": "결정 및 학습"
+    },
+    "bandDescription": {
+      "operating_scope": "운영 대상과 중요성",
+      "operating_intent": "보호해야 하는 목표와 제약",
+      "operating_reality": "관측, 탐지 및 예측된 상태",
+      "decision_and_learning": "대안, 실행, 결과 및 검토된 재사용"
+    },
+    "links": "관계",
+    "relationships": "방향이 지정된 관계",
+    "noRelationships": "이 선택 항목을 의미 모델 안에서 연결하는 검토된 관계가 없습니다.",
+    "stateLanes": "권한이 분리된 상태 lane",
+    "state": {
+      "observed": "관측됨",
+      "derived": "운영 파생",
+      "desired": "희망 상태",
+      "execution": "실행"
+    },
+    "stateDescription": {
+      "observed": "Provider 또는 telemetry 근거",
+      "derived": "근거를 포함한 버전형 함수 결과",
+      "desired": "승인된 목표, 정책 또는 구성",
+      "execution": "계획, 전달, 검증 또는 롤백 상태"
+    },
+    "contextStatus": "컨텍스트 스냅샷 상태",
+    "receiptRequired": "보안 receipt 필요",
+    "runtimeEvidence": "런타임 근거",
+    "notSelected": "목적 범위 컨텍스트 스냅샷이 선택되지 않았습니다.",
+    "mutationAuthority": "변경 권한",
+    "properties": "선언된 속성",
+    "none": "없음"
   },
   "map": {
     "title": "카탈로그 토폴로지",

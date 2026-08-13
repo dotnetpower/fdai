@@ -3,6 +3,7 @@ import { formatNumber, t } from "../routes/i18n/ontology";
 import {
   ONTOLOGY_EDGE_KINDS,
   ontologyKnowledgeGraphSummary,
+  ontologyKnowledgeRelationship,
   type OntologyKnowledgeEdgeKind,
   type OntologyKnowledgeGraph,
   type OntologyKnowledgeNode,
@@ -180,6 +181,12 @@ function KnowledgeInspector({
     neighborIds.add(edge.target);
   }
   const nodesById = new Map(graph.nodes.map((node) => [node.id, node]));
+  const directed = relationships.map((edge) => ({
+    edge,
+    relationship: ontologyKnowledgeRelationship(edge, selected.id, nodesById),
+  }));
+  const incoming = directed.filter((item) => item.relationship.direction === "incoming");
+  const outgoing = directed.filter((item) => item.relationship.direction === "outgoing");
   return (
     <aside class="ontology-knowledge-inspector" aria-live="polite">
       <span class="badge">{t("ontology.map.knowledgeNode")}</span>
@@ -193,19 +200,38 @@ function KnowledgeInspector({
         <div><dt>{t("ontology.map.relationships")}</dt><dd>{formatNumber(relationships.length)}</dd></div>
         <div><dt>{t("ontology.map.neighborhood")}</dt><dd>{formatNumber(neighborIds.size)}</dd></div>
       </dl>
-      <h4>{t("ontology.map.neighbors")}</h4>
-      <ul>
-        {relationships.slice(0, 28).map((edge) => {
-          const otherId = edge.source === selected.id ? edge.target : edge.source;
-          return (
+      <KnowledgeRelationshipList title={t("ontology.common.outgoing")} items={outgoing} onFocus={onFocus} />
+      <KnowledgeRelationshipList title={t("ontology.common.incoming")} items={incoming} onFocus={onFocus} />
+    </aside>
+  );
+}
+
+function KnowledgeRelationshipList({
+  title,
+  items,
+  onFocus,
+}: {
+  readonly title: string;
+  readonly items: readonly {
+    readonly edge: OntologyKnowledgeGraph["edges"][number];
+    readonly relationship: ReturnType<typeof ontologyKnowledgeRelationship>;
+  }[];
+  readonly onFocus: (id: string) => void;
+}) {
+  return (
+    <section class="ontology-knowledge-direction">
+      <h4>{title}</h4>
+      {items.length === 0 ? <p>{t("ontology.semantic.none")}</p> : (
+        <ul>
+          {items.slice(0, 28).map(({ edge, relationship }) => (
             <li key={edge.id}>
-              <button type="button" onClick={() => onFocus(otherId)}>
-                {edge.label} -&gt; {nodesById.get(otherId)?.label ?? otherId}
+              <button type="button" onClick={() => onFocus(relationship.otherId)}>
+                {relationship.fromLabel} --{edge.label}--&gt; {relationship.toLabel}
               </button>
             </li>
-          );
-        })}
-      </ul>
-    </aside>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

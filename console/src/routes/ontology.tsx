@@ -13,6 +13,7 @@ import {
   type OntologyEdge,
   type OntologyNode,
 } from "../components/ontology-graph";
+import { OntologySemanticMap } from "../components/ontology-semantic-map";
 import {
   type ViewExplanations,
   usePublishViewContext,
@@ -320,10 +321,11 @@ function OntologyBody({
   return (
     <div class="stack governance-ontology">
       <nav class="ontology-tabs" aria-label={t("ontology.objects.viewsLabel")}>
+        <OntologyTab view="map" active={view} label={t("ontology.common.map")} />
         <OntologyTab view="objects" active={view} count={data.object_type_count} label={t("ontology.common.objects")} />
         <OntologyTab view="links" active={view} count={data.link_type_count} label={t("ontology.common.links")} />
         <OntologyTab view="actions" active={view} count={data.action_type_count ?? actionTypes.length} label={t("ontology.common.actions")} />
-        <OntologyTab view="map" active={view} label={t("ontology.common.map")} />
+        <OntologyTab view="topology" active={view} label={t("ontology.common.topology")} />
       </nav>
 
       {view === "objects" ? (
@@ -393,7 +395,17 @@ function OntologyBody({
         <OntologyActionsView actions={actionTypes} selectedName={selectedAction} />
       ) : null}
 
-      {view === "map" ? <OntologyKnowledgeMap graph={data.catalog_topology} /> : null}
+      {view === "map" ? (
+        <OntologySemanticMap
+          model={data.semantic_model}
+          nodes={data.nodes ?? []}
+          edges={data.edges ?? []}
+          releaseDigest={data.ontology_release_digest}
+          projectionRevision={data._revision}
+        />
+      ) : null}
+
+      {view === "topology" ? <OntologyKnowledgeMap graph={data.catalog_topology} /> : null}
     </div>
   );
 }

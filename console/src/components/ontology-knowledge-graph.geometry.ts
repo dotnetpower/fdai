@@ -15,6 +15,12 @@ export interface KnowledgeGraphPoint {
   readonly y: number;
 }
 
+export interface KnowledgeGraphArrowHead {
+  readonly tip: KnowledgeGraphPoint;
+  readonly left: KnowledgeGraphPoint;
+  readonly right: KnowledgeGraphPoint;
+}
+
 export interface KnowledgeGraphIndex {
   readonly nodeById: ReadonlyMap<string, OntologyKnowledgeNode>;
   readonly adjacency: ReadonlyMap<string, readonly OntologyKnowledgeEdge[]>;
@@ -50,6 +56,33 @@ export function ontologyScreenToWorld(
   camera: KnowledgeGraphCamera,
 ): KnowledgeGraphPoint {
   return { x: (point.x - camera.x) / camera.scale, y: (point.y - camera.y) / camera.scale };
+}
+
+export function ontologyArrowHead(
+  control: KnowledgeGraphPoint,
+  target: KnowledgeGraphPoint,
+  targetRadius: number,
+  size: number,
+): KnowledgeGraphArrowHead {
+  const deltaX = target.x - control.x;
+  const deltaY = target.y - control.y;
+  const distance = Math.max(1, Math.hypot(deltaX, deltaY));
+  const unitX = deltaX / distance;
+  const unitY = deltaY / distance;
+  const tip = {
+    x: target.x - unitX * targetRadius,
+    y: target.y - unitY * targetRadius,
+  };
+  const base = {
+    x: tip.x - unitX * size,
+    y: tip.y - unitY * size,
+  };
+  const wing = size * .62;
+  return {
+    tip,
+    left: { x: base.x + unitY * wing, y: base.y - unitX * wing },
+    right: { x: base.x - unitY * wing, y: base.y + unitX * wing },
+  };
 }
 
 export function fitOntologyKnowledgeGraph(
