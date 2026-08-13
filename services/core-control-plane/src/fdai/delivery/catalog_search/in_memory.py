@@ -24,6 +24,46 @@ from fdai.shared.providers.knowledge import cosine_similarity
 
 _TOKEN = re.compile(r"[A-Za-z0-9_]+|[가-힣]+")
 _MIN_SCORE = 0.2
+_NON_DISCRIMINATING_ENGLISH_TOKENS = frozenset(
+    {
+        "a",
+        "an",
+        "and",
+        "are",
+        "as",
+        "at",
+        "be",
+        "by",
+        "every",
+        "for",
+        "from",
+        "has",
+        "have",
+        "in",
+        "into",
+        "is",
+        "it",
+        "of",
+        "on",
+        "or",
+        "prior",
+        "rule",
+        "that",
+        "the",
+        "this",
+        "to",
+        "up",
+        "was",
+        "were",
+        "what",
+        "when",
+        "where",
+        "which",
+        "who",
+        "why",
+        "with",
+    }
+)
 
 
 class InMemoryCatalogSemanticIndex:
@@ -297,6 +337,8 @@ class InMemoryCatalogSemanticIndex:
 def _tokens(value: str) -> frozenset[str]:
     result: set[str] = set()
     for raw in _TOKEN.findall(value.casefold()):
+        if raw.isdecimal() or raw in _NON_DISCRIMINATING_ENGLISH_TOKENS:
+            continue
         result.add(raw)
         if re.fullmatch(r"[가-힣]+", raw):
             result.update(raw[index : index + 2] for index in range(len(raw) - 1))
