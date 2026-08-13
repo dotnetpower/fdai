@@ -709,6 +709,17 @@ def test_disabling_a_subscriber_removes_its_subscriptions() -> None:
     assert "Forseti" in subscribers
 
 
+async def test_disabled_mimir_rejects_rule_generation_ingress() -> None:
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        disabled_agents=frozenset({"Mimir"}),
+    )
+
+    with pytest.raises(RuntimeError, match="Mimir Rule generation ingress"):
+        await request_rule_generation(runtime, _build_request())
+
+
 def test_cannot_disable_hard_dependency_agents() -> None:
     for name in ("Saga", "Vidar"):
         with pytest.raises(ValueError, match="hard-dependency"):
