@@ -76,6 +76,41 @@ def test_shipped_ontology_catalog_loads_as_one_graph() -> None:
     }
 
 
+def test_shipped_resource_relationship_declarations_match_canonical_roles() -> None:
+    catalog = load_ontology_catalog(
+        REPO_ROOT / "rule-catalog",
+        schema_registry=PackageResourceSchemaRegistry(),
+        probes_root=REPO_ROOT / "rule-catalog" / "probes",
+    )
+    relationships = {
+        item.name: item
+        for item in catalog.link_types
+        if item.name in {"attached_to", "contains", "depends_on", "peered_with", "routes_to"}
+    }
+
+    assert set(relationships) == {
+        "attached_to",
+        "contains",
+        "depends_on",
+        "peered_with",
+        "routes_to",
+    }
+    assert all(
+        relationship.from_type == "Resource" and relationship.to_type == "Resource"
+        for relationship in relationships.values()
+    )
+    assert {
+        name: (item.version, item.cardinality, item.is_transitive)
+        for name, item in relationships.items()
+    } == {
+        "attached_to": ("1.1.0", LinkCardinality.MANY_TO_MANY, False),
+        "contains": ("2.0.0", LinkCardinality.ONE_TO_MANY, True),
+        "depends_on": ("1.0.0", LinkCardinality.MANY_TO_MANY, False),
+        "peered_with": ("1.0.0", LinkCardinality.MANY_TO_MANY, False),
+        "routes_to": ("1.0.0", LinkCardinality.MANY_TO_ONE, False),
+    }
+
+
 def test_shipped_rules_declare_concrete_semantic_axes() -> None:
     catalog_root = REPO_ROOT / "rule-catalog"
     registry = PackageResourceSchemaRegistry()
