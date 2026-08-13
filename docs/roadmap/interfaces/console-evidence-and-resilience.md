@@ -403,6 +403,12 @@ rendered deterministically from typed evidence. Ontology browse requires a targe
 forwards only allowlisted identity fields with prompt values up to 256 characters, and renders
 duplicate or malformed counts and selections unavailable. Ontology projection and its deterministic
 browse answer stay in their own prompt module, separate from general prompt assembly.
+An authenticated live-assurance artifact qualifies as governed evidence only when it binds the run
+to an exact `source_revision`, embeds the exact `run_configuration` with a matching
+`configuration_digest`, records the `workspace_patch_digest`, and carries an
+`authentication_attestation`. Every measured turn retains its deterministic `question_id` and the
+exact `request_id` and `projection_id` returned by the protected request. The runner rejects a
+missing or malformed source revision or workspace patch digest before sending the first request.
 The Reader-gated `/ontology/graph` projection includes only operating-model status, source revision,
 and aggregate object and link counts. It never returns deployment instance properties.
 Ordinary delegated answers keep Bragi as narrator while displaying the verified specialist as
@@ -723,5 +729,7 @@ transient failures with bounded 2-to-30-second backoff while the stale graph rem
 - Catalog parity and route-local fallback tests cover localization.
 - Replay tests cover JSON, SSE, and cross-transport idempotency.
 - Provenance tests cover unavailable, unknown, malformed, and route-owner states.
+- Live-assurance provenance tests cover source, configuration, workspace state, and authentication
+	bindings before an authenticated cohort can produce governed evidence.
 - Stream tests cover inactivity, authentication classification, frame limits, and action timeout.
 - Architecture tests cover layout, selection, accessibility, cache freshness, and bounded polling.

@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: d345d9ecf89f86cff5007e7ef02eff395851946c
-translation_revised: 2026-08-12
+translation_source_sha: 2a50c82f6c1e4aa9df8b6beca61fff029d47b5b6
+translation_revised: 2026-08-13
 ---
 
 # 콘솔 근거 및 복원력
@@ -395,6 +395,12 @@ Read-source 출처 이력, 온톨로지 browse, 화면 간 operational 및 인�
 허용 목록에 있는 신원 필드와 256자 이하 프롬프트 값만 전달하며, 중복되거나 malformed인 개수와
 선택을 사용 불가로 표시합니다. 온톨로지 변환 결과와 결정론적 browse 답변은 일반 프롬프트
 assembly와 분리된 자체 프롬프트 모듈에 위치합니다.
+인증된 live-assurance 아티팩트는 정확한 `source_revision`에 실행을 연결하고, 일치하는
+`configuration_digest`와 함께 정확한 `run_configuration`을 포함하며,
+`workspace_patch_digest` 및 `authentication_attestation`을 기록할 때만 통제된 근거로
+인정됩니다. 측정한 각 턴은 결정론적 `question_id`와 보호된 요청이 반환한 정확한
+`request_id` 및 `projection_id`를 보존합니다. Runner는 source revision 또는 workspace patch
+digest가 없거나 malformed이면 첫 요청을 보내기 전에 실행을 거부합니다.
 Reader-gated `/ontology/graph` 변환 결과는 operating-model 상태, 출처 개정 번호, 집계
 객체 및 링크 개수만 포함합니다. 배포 instance 속성은 반환하지 않습니다.
 일반 delegated 답변은 Bragi를 서술기로 유지하면서 검증된 specialist를 응답 소유자로
@@ -702,5 +708,7 @@ transient 실패를 범위가 제한된 2-30초 재시도 대기로 재시도합
 - 카탈로그 동등성 및 route-local 대체 경로 테스트가 localization을 검증합니다.
 - 재생 테스트가 JSON, SSE 및 cross-transport 멱등성을 검증합니다.
 - 출처 이력 테스트가 사용 불가, 알 수 없음, malformed 및 route-owner 상태를 검증합니다.
+- Live-assurance 출처 이력 테스트가 인증된 cohort에서 통제된 근거를 만들기 전에 source,
+  configuration, workspace 상태 및 인증 연결을 검증합니다.
 - 스트림 테스트가 inactivity, authentication 분류, 프레임 한도 및 액션 시간 초과를 검증합니다.
 - 아키텍처 테스트가 배치, 선택, accessibility, 캐시 최신성 및 범위가 제한된 polling을 검증합니다.

@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type {
   AnswerVerification,
   SemanticProjectionReceipt,
@@ -37,6 +39,25 @@ export interface AssuranceJudgment {
 export interface AssuranceTurnJudgment extends AssuranceJudgment {
   readonly verification?: AnswerVerification;
 }
+
+export interface AssuranceRunConfiguration {
+  readonly schema_version: "1.0.0";
+  readonly seed: number;
+  readonly batch_size: number;
+  readonly request_interval_ms: number;
+  readonly timeout_ms: number;
+  readonly authentication: "browser_entra";
+  readonly question_ids: readonly string[];
+}
+
+export interface AssuranceRunProvenance {
+  readonly source_revision: string;
+  readonly configuration_digest: string;
+  readonly workspace_patch_digest: string;
+}
+
+const SOURCE_REVISION = /^[0-9a-f]{40}$/;
+const SHA256_DIGEST = /^sha256:[0-9a-f]{64}$/;
 
 const OPERATIONS: readonly AssuranceOperation[] = [
   "inventory_listing",
@@ -290,4 +311,25 @@ export function judgeSemanticTurn(
 
 export function assuranceOperations(): readonly AssuranceOperation[] {
   return OPERATIONS;
+}
+
+export function buildAssuranceRunProvenance(
+  sourceRevision: string | undefined,
+  workspacePatchDigest: string | undefined,
+  configuration: AssuranceRunConfiguration,
+): AssuranceRunProvenance {
+  if (!sourceRevision || !SOURCE_REVISION.test(sourceRevision)) {
+    throw new Error("FDAI_E2E_SOURCE_REVISION must be a lowercase 40-character git SHA");
+  }
+  if (!workspacePatchDigest || !SHA256_DIGEST.test(workspacePatchDigest)) {
+    throw new Error("FDAI_E2E_WORKSPACE_PATCH_SHA256 must be a sha256-prefixed digest");
+  }
+  const configurationDigest = createHash("sha256")
+    .update(JSON.stringify(configuration))
+    .digest("hex");
+  return {
+    source_revision: sourceRevision,
+    configuration_digest: `sha256:${configurationDigest}`,
+    workspace_patch_digest: workspacePatchDigest,
+  };
 }
