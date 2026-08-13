@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1055,
+  "file_count": 1056,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "767d30b9a69ee481b736652645e723b44ac61262b8ccc96e8e0594379d764955",
     ".github/instructions/agent-stewardship.instructions.md": "e2e2224db17159323f910252e0f9f6efb44c0f1d7e0d217d5159745c15c9ff46",
@@ -50,8 +50,9 @@
     "services/core-control-plane/src/fdai/agents/_framework/provider_adapters.py": "d4d9f3fcca05c70388f5877953097efae2c3a03ecb3f774dfcb5126aaf49a156",
     "services/core-control-plane/src/fdai/agents/_framework/rate_limiter.py": "4d6bdf97c04dd1c46c6cc840b6e83719a821f0fc30f6da49645a12d22e025a1a",
     "services/core-control-plane/src/fdai/agents/_framework/registry.py": "c25d7e1a75e5ffb3072e099b240a182498551e5d09a85cb8a26e525d0f1859f5",
-    "services/core-control-plane/src/fdai/agents/_framework/runtime.py": "f0f4cf4538756bb963a85e9c0086b5439a2caeaed325a3634cec730985ee5103",
+    "services/core-control-plane/src/fdai/agents/_framework/runtime.py": "22aecbaa9a619d9ca5f2af6d083b6e73fcd08c1ee3435d65bad62990d0aa78ed",
     "services/core-control-plane/src/fdai/agents/_framework/runtime_health.py": "72a44f9f5e20fd3a43d07950950f24903826261c39bb0648476f75e83885a32b",
+    "services/core-control-plane/src/fdai/agents/_framework/runtime_subscriptions.py": "ff13cc79a15dae94d26d77d54a6994d1950393fd87e9239e129de2f7ebee5e05",
     "services/core-control-plane/src/fdai/agents/_framework/semantic_routing.py": "6718048db4bd459050336189d86ca1068e0844660f326aa4e540103193b90d4a",
     "services/core-control-plane/src/fdai/agents/_framework/specialist_ingress.py": "aa9b1f4e2e1425063d87b58827baa346bd2e577de1ae5aa95db333621a7faf2b",
     "services/core-control-plane/src/fdai/agents/_framework/tool_answer.py": "572d2b23361eb69ee4dcb8739cd6b04322df99dc12c665da555536cb068dbf53",
@@ -1058,7 +1059,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-13T03:36:25Z",
+  "generated_at": "2026-08-13T03:52:48Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",
