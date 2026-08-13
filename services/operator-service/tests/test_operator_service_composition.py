@@ -8,6 +8,7 @@ from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
 
+import fdai_operator_service.composition as operator_composition
 import pytest
 from fdai_operator_service.application import create_app
 from fdai_operator_service.composition import ProductionOperatorComposition
@@ -17,9 +18,11 @@ from fdai_operator_service.environment import (
     CORS_ORIGINS_ENV,
     DATABASE_ROLE_ENV,
     DATABASE_URL_ENV,
+    DEFAULT_LIVE_STAGE_CONSUMER_GROUP,
     GROUP_ENV,
     HOST_ENV,
     KAFKA_BOOTSTRAP_SERVERS_ENV,
+    LIVE_STAGE_CONSUMER_GROUP_ENV,
     LOCAL_AZURE_NARRATOR_ENV,
     MANAGED_IDENTITY_CLIENT_ID_ENV,
     PORT_ENV,
@@ -462,6 +465,43 @@ def test_semantic_kafka_environment_preserves_optional_transport_ids() -> None:
     assert environment.semantic_kafka_client_id == "operator-client"
     assert environment.semantic_physical_topic == "aw.pantheon.objects"
     assert environment.managed_identity_client_id == "command-identity"
+
+
+def test_live_stage_consumer_group_preserves_default_and_override() -> None:
+    default_environment = OperatorEnvironment.parse(BASE_ENV)
+    overridden_environment = OperatorEnvironment.parse(
+        {**BASE_ENV, LIVE_STAGE_CONSUMER_GROUP_ENV: "operator-live-replica"}
+    )
+
+    assert default_environment.live_stage_consumer_group_id == DEFAULT_LIVE_STAGE_CONSUMER_GROUP
+    assert overridden_environment.live_stage_consumer_group_id == "operator-live-replica"
+
+
+def test_composition_forwards_live_stage_consumer_group(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_group_ids: list[str] = []
+
+    def capture_live_stage_relay(*, config, hub, agent_hub, credential):
+        del hub, agent_hub, credential
+        captured_group_ids.append(config.group_id)
+        return object()
+
+    monkeypatch.setattr(operator_composition, "LiveStageKafkaRelay", capture_live_stage_relay)
+    ProductionOperatorComposition(verifier_factory=lambda environment: _verify).build_runtime(
+        {
+            **BASE_ENV,
+            "FDAI_EXECUTION_VENUE": "local",
+            DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
+            DATABASE_ROLE_ENV: "fdai_operator",
+            KAFKA_BOOTSTRAP_SERVERS_ENV: "localhost:9092",
+            SEMANTIC_REQUEST_TOPIC_ENV: "operator.semantic-turn.requests",
+            SEMANTIC_PROJECTION_TOPIC_ENV: "core.semantic-turn.projections",
+            LIVE_STAGE_CONSUMER_GROUP_ENV: "operator-live-replica",
+        }
+    )
+
+    assert captured_group_ids == ["operator-live-replica"]
 
 
 def test_incident_and_rca_queries_preserve_stable_error_envelopes() -> None:

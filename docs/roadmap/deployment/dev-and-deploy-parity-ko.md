@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: d994bff443bc4c3a0ec66bfe711aaf2d32b295a7
+translation_source_sha: 328c083338eee8a9678eb55fb89b2abd91078da0
 translation_revised: 2026-08-13
 ---
 
@@ -32,6 +32,8 @@ translation_revised: 2026-08-13
 |------|------|------|------|
 | 자동화 테스트 고정본 격리 | implemented | `tests/`, `console/tests/` 및 리포지토리 테스트 모음이 실행하는 고정본 전용 composition 경로 | 결정론적 고정본은 권위 있는 interactive 프로파일 밖에 유지됩니다. |
 | 인증된 라이브 Console 경로 보증 | in-progress | `console/playwright.live.config.ts`, `console/tests/live-e2e/operator_service.py`, `console/tests/live-e2e/console-routes.spec.ts`, focused Overview 및 capability 검사 통과 | 격리된 harness는 테스트 전용 신원 검증과 운영 Operator Service 어댑터를 사용합니다. 선택적 capability projection 손실은 예기치 않은 실패를 숨기지 않고 사용 불가로 표시됩니다. 전체 경로 및 비평 라운드는 열려 있습니다. |
+| Live 관찰 소비자 격리 | implemented | `services/operator-service/src/fdai_operator_service/environment.py`, `services/operator-service/src/fdai_operator_service/composition.py`, `console/tests/live-e2e/operator_service.py` 및 focused 회귀 검사, 테스트 41개 통과 | `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID`는 독립적으로 실행되는 각 Operator 프로세스 또는 복제본을 고유한 그룹에 연결합니다. E2E launcher는 상속된 값을 항상 UUID 범위 그룹으로 교체합니다. |
+| 인증된 로컬 Live 이벤트 경로 | validated | 2026-08-13 통제된 Browser Entra 실행이 `aw.change.events`, Core, `aw.pipeline.stages`, Operator SSE 및 기존 인증 Live DOM을 통과 | 이 실행은 권위 있는 온톨로지를 보존하고 이벤트와 허용된 네 단계를 모두 렌더링했습니다. 배포된 개정 번호, 브라우저 Notifications API 또는 브라우저 종료 상태의 push 전달은 검증하지 않았습니다. |
 | 로컬 및 deployed composition 동등성 | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/` 및 서비스 통합 테스트 | Composition root는 근거 권한을 바꾸지 않고 자격 증명과 어댑터를 선택합니다. |
 | 로컬 검증 데이터베이스 격리 | implemented | `infra/local/docker-compose.yml`, `scripts/automation/validation_queue_context.py`, 로컬 준비 스크립트 및 focused 검증과 migration 통합 테스트 | 런타임 상태는 로컬 PostgreSQL port `5432`에 유지하고 파괴적인 migration 검증은 port `5433`의 별도 로컬 PostgreSQL cluster를 사용합니다. |
 | FDAI workspace 및 프로파일 부하 제어 | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`, focused 프로파일 및 workspace 테스트 11개 통과 | Resource 범위 분석 제어는 workspace에 둡니다. Portable 프로파일은 격리할 수 없는 Remote WSL Pylance machine 설정을 거부합니다. |
@@ -46,11 +48,13 @@ translation_revised: 2026-08-13
 | 2026-08-13 | implemented | 파괴적인 검증을 위한 전용 로컬 PostgreSQL cluster를 추가하고 detached 검증 queue가 생성된 전용 DSN만 읽도록 했습니다. | 현재 변경, Compose config 통과, focused queue 및 local-env 테스트 68개 통과, 격리된 migration upgrade/downgrade 검사 2개 통과. | 로컬 검증 데이터베이스 격리에 남은 구현 작업은 없습니다. |
 | 2026-08-13 | in-progress | 라이브 Console 테스트의 폐기된 backend 경로를 운영 어댑터와 테스트 전용 bearer 검증을 사용하는 독립 Operator Service로 교체하고, readiness 실패를 제한하도록 격리된 stack을 IPv6 loopback으로 옮겼습니다. | 현재 변경의 `console/playwright.live.config.ts`, `console/tests/live-e2e/operator_service.py`, `console/tests/live-e2e/console-routes.spec.ts`, focused Overview 검사 1개가 5.1초에 통과했습니다. | 등록된 경로 50개를 모두 실행한 뒤 최소 10회 보증 라운드와 10회 비평/하드닝 라운드를 완료하여 Low보다 높은 심각도 finding이 남지 않게 합니다. |
 | 2026-08-13 | in-progress | Capability catalog가 선택적 projection 누락과 예기치 않은 실패를 구분하도록 하고 라이브 예외를 `404 /capabilities`로 제한했습니다. | 현재 변경의 `console/src/routes/capabilities.tsx`, `console/src/routes/capabilities.test.ts`, `console/tests/live-e2e/console-routes.spec.ts`, focused unit 테스트 7개 및 인증된 focused 라이브 검사 1개가 통과했습니다. | 남은 실패 경로를 수리한 뒤 열려 있는 보증 및 비평/하드닝 라운드를 완료합니다. |
+| 2026-08-13 | validated | Live 관찰 소비자 그룹을 Operator 환경과 composition에 연결하고 E2E launcher를 UUID 범위 그룹으로 격리했으며 정본 유입부터 기존 Live DOM까지 인증된 로컬 이벤트 경로를 증명했습니다. | 현재 변경의 Operator 환경, composition, launcher 및 focused 회귀 검사에서 테스트 41개가 통과했습니다. 통제된 Browser Entra 근거는 이벤트와 허용된 네 단계를 모두 렌더링했습니다. | 배포된 개정 번호에서 동등한 근거를 기록합니다. 브라우저 Notifications API와 브라우저 종료 상태의 push 전달은 이 근거 범위 밖에 남습니다. |
 
 ### 잔여 작업
 
 - [ ] FDAI 전용 Remote WSL server data root 또는 WSL 배포판을 마련한 뒤 제외 대상 workspace를 변경하지 않고 재시작한 Pylance process command에 `--max-old-space-size=2048`이 포함됨을 기록합니다.
 - [ ] 등록된 Console 경로 50개 전체의 통과 근거를 기록한 뒤 최소 10회 보증 라운드와 10회 비평/하드닝 라운드를 완료하여 해결되지 않은 finding의 심각도가 모두 Low 이하임을 입증합니다.
+- [ ] 복제본별 `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID`를 통해 인증된 Live DOM에 도달하는 배포 개정 이벤트를 기록합니다. 브라우저 Notifications API 및 브라우저 종료 상태의 push 전달이 범위에 들어오면 별도로 추적합니다.
 
 ## 전수조사 - 로컬 동작 vs Azure 필요
 
@@ -406,9 +410,13 @@ Azure CLI 구독을 비교하고 둘이 다르면 리소스 조회나 파일 생
 또한 로컬 user와 호스트에서 식별 정보를 노출하지 않는 소비자 인스턴스 해시를 파생하므로 동시에
 실행하는 개발자가 같은 Event Hubs Kafka 소비자 그룹에 참여하지 않습니다. 자동화에서
 명시적으로 안정된 이름이 필요하면 `FDAI_LOCAL_CONSUMER_INSTANCE`에 최대 20자의 lowercase
-alphanumeric 및 hyphen 식별자를 설정할 수 있습니다. 생성된 코어, Pantheon, Operator API 그룹은
-이 인스턴스를 사용하고 deployed Operator API 복제본은 런타임 hostname을 사용합니다. 따라서 각
-콘솔 스트림은 다른 developer 또는 복제본과 파티션을 나누지 않고 모든 프레임을 수신합니다.
+alphanumeric 및 hyphen 식별자를 설정할 수 있습니다. 생성된 코어, Pantheon 및 Operator 요청
+그룹은 이 인스턴스를 사용하고 deployed Operator 요청 그룹은 런타임 hostname을 사용합니다.
+Live 및 Agent 관찰에는 다른 규칙이 적용됩니다. 범위가 제한된 각 프로세스 내부 SSE hub에는
+재생 기능이 없으므로, 각 hub가 전체 `aw.pipeline.stages` 스트림을 consume하려면 독립적으로
+실행되는 Operator 프로세스 또는 복제본마다 `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID`가 고유해야 합니다.
+기본값은 단일 프로세스 호환성만 유지합니다. 격리된 E2E launcher는 상속된 값을 항상 UUID 범위
+그룹으로 교체하며 브라우저에 서비스를 제공하는 Operator가 사용하는 그룹에 참여하지 않습니다.
 
 작업 흐름 정의는 배포 강제 적용 허용 목록을 사용하며 ActionType은 승격 및 risk 게이트를 유지합니다.
 강제 적용에는 Azure 이벤트 전송 계층과 작업 흐름 승인 근거를 공유하는 영속 데이터베이스가 필요합니다.

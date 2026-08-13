@@ -29,6 +29,8 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 |------|-------|----------|-------|
 | Automated-test fixture isolation | implemented | `tests/`, `console/tests/`, and the fixture-only composition paths exercised by the repository test suites | Deterministic fixtures remain outside authoritative interactive profiles. |
 | Authenticated live Console route assurance | in-progress | `console/playwright.live.config.ts`, `console/tests/live-e2e/operator_service.py`, and `console/tests/live-e2e/console-routes.spec.ts`; focused Overview and capability checks passed | The isolated harness uses production Operator Service adapters with test-only identity verification. Optional capability projection loss renders as unavailable without hiding unexpected failures. The full route and critique rounds remain open. |
+| Live observation consumer isolation | implemented | `services/operator-service/src/fdai_operator_service/environment.py`, `services/operator-service/src/fdai_operator_service/composition.py`, `console/tests/live-e2e/operator_service.py`, and focused regressions; 41 tests passed | `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID` binds each independently running Operator process or replica to a distinct group. The E2E launcher always replaces inherited values with a UUID-scoped group. |
+| Authenticated local Live event path | validated | Controlled 2026-08-13 Browser Entra run through `aw.change.events`, Core, `aw.pipeline.stages`, Operator SSE, and the existing authenticated Live DOM | The run preserved the authoritative ontology and rendered the event plus all four accepted stages. It did not validate a deployed revision, the browser Notifications API, or closed-browser push delivery. |
 | Local and deployed composition parity | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, and service integration tests | Composition roots select credentials and adapters without changing evidence authority. |
 | Local validation database isolation | implemented | `infra/local/docker-compose.yml`, `scripts/automation/validation_queue_context.py`, local preparation scripts, and focused validation and migration integration tests | Runtime state stays on local PostgreSQL port `5432`; destructive migration validation uses a separate local PostgreSQL cluster on port `5433`. |
 | FDAI workspace and profile pressure controls | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`; focused profile and workspace tests: 11 passed | Resource-scoped analysis controls stay in the workspace. The portable profile rejects Remote WSL Pylance machine settings that it cannot isolate. |
@@ -43,11 +45,13 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 | 2026-08-13 | implemented | Added a dedicated local PostgreSQL cluster for destructive validation and taught the detached validation queue to load only its generated DSN. | Current change; Compose config passed, focused queue and local-env tests passed (68 tests), and the isolated migration upgrade/downgrade checks passed (2 tests). | No remaining implementation work for local validation database isolation. |
 | 2026-08-13 | in-progress | Replaced the live Console test's retired backend path with an independent Operator Service using production adapters and test-only bearer verification, then moved the isolated stack to IPv6 loopback so readiness failures remain bounded. | Current change in `console/playwright.live.config.ts`, `console/tests/live-e2e/operator_service.py`, and `console/tests/live-e2e/console-routes.spec.ts`; focused Overview check: 1 passed in 5.1 seconds. | Run all 50 registered routes, then complete at least 10 assurance rounds and 10 critique/hardening rounds until only Low-or-lower findings remain. |
 | 2026-08-13 | in-progress | Made the capability catalog distinguish an optional missing projection from an unexpected failure and constrained the live exception to `404 /capabilities`. | Current change in `console/src/routes/capabilities.tsx`, `console/src/routes/capabilities.test.ts`, and `console/tests/live-e2e/console-routes.spec.ts`; focused unit tests: 7 passed; focused authenticated live check: 1 passed. | Repair the remaining failing routes, then complete the open assurance and critique/hardening rounds. |
+| 2026-08-13 | validated | Bound the Live observation consumer group through the Operator environment and composition, isolated the E2E launcher with a UUID-scoped group, and proved the authenticated local event path from canonical ingress to the existing Live DOM. | Current change in the Operator environment, composition, launcher, and focused regressions; 41 tests passed. Controlled Browser Entra evidence rendered the event and all four accepted stages. | Record equivalent evidence from a deployed revision. Browser Notifications API and closed-browser push delivery remain outside this evidence. |
 
 ### Remaining work
 
 - [ ] Establish an FDAI-only Remote WSL server data root or WSL distribution, then record a restarted Pylance process command containing `--max-old-space-size=2048` without changing the excluded workspace.
 - [ ] Record passing evidence for all 50 registered Console routes, then complete at least 10 assurance rounds and 10 critique/hardening rounds with no unresolved finding above Low severity.
+- [ ] Record a deployed-revision event that reaches an authenticated Live DOM through a replica-specific `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID`; track browser Notifications API and closed-browser push delivery separately if those capabilities enter scope.
 
 ## Audit - What Works Local, What Needs Azure
 
@@ -404,9 +408,13 @@ Both profiles execute the same explicitly typed semantic JSONB claim and project
 It also derives a non-identifying consumer instance hash from the local user and host so concurrent
 developers never join the same Event Hubs Kafka consumer group. Automation can set
 `FDAI_LOCAL_CONSUMER_INSTANCE` to a lowercase alphanumeric-and-hyphen identifier of at most 20
-characters when it needs a stable explicit name. Generated core, Pantheon, and Operator API groups use
-that instance, while deployed Operator API replicas use their runtime hostname. Each console stream
-therefore receives every frame instead of sharing partitions with another developer or replica.
+characters when it needs a stable explicit name. Generated core, Pantheon, and Operator request groups
+use that instance, while deployed Operator request groups use their runtime hostname. Live and Agent
+observation use a different rule because each bounded process-local SSE hub is non-replay:
+`FDAI_LIVE_STAGE_CONSUMER_GROUP_ID` must be distinct for every independently running Operator process
+or replica so each hub consumes the complete `aw.pipeline.stages` stream. Its default preserves
+single-process compatibility only. The isolated E2E launcher always replaces an inherited value with
+a UUID-scoped group and never joins the group used by the browser-serving Operator.
 
 Workflow definitions use the deployment enforce allowlist; ActionTypes retain promotion and risk gates.
 Enforce requires Azure event transport and a durable database shared with workflow approval evidence.
