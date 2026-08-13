@@ -1,12 +1,25 @@
 import { describe, expect, test } from "vitest";
+import { OperatorApiError } from "../api";
 import {
   capabilityRequestPath,
   capabilityRouteStateFromSearch,
   decodeCapabilities,
   isMutatingCapability,
+  loadCapabilitiesState,
 } from "./capabilities";
 
 describe("capability catalog provenance", () => {
+  test("renders an unavailable state when the optional catalog is not served", async () => {
+    const client = {
+      panel: async () => { throw new OperatorApiError(404, "not found"); },
+    };
+
+    await expect(loadCapabilitiesState(client)).resolves.toEqual({
+      status: "unavailable",
+      message: expect.any(String),
+    });
+  });
+
   test("keeps a stable accessible name for the capability search control", () => {
     expect("Filter capabilities").toMatch(/filter capabilities/i);
   });

@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 6569a1850862e96b2aaafffbe450b5a10beb4838
+translation_source_sha: d994bff443bc4c3a0ec66bfe711aaf2d32b295a7
 translation_revised: 2026-08-13
 ---
 
@@ -31,7 +31,7 @@ translation_revised: 2026-08-13
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 자동화 테스트 고정본 격리 | implemented | `tests/`, `console/tests/` 및 리포지토리 테스트 모음이 실행하는 고정본 전용 composition 경로 | 결정론적 고정본은 권위 있는 interactive 프로파일 밖에 유지됩니다. |
-| 인증된 라이브 Console 경로 보증 | in-progress | `console/playwright.live.config.ts`, `console/tests/live-e2e/operator_service.py`, `console/tests/live-e2e/console-routes.spec.ts`, focused Overview 검사 1개 통과 | 격리된 harness는 테스트 전용 신원 검증과 운영 Operator Service 어댑터를 사용합니다. 전체 경로 및 비평 라운드는 열려 있습니다. |
+| 인증된 라이브 Console 경로 보증 | in-progress | `console/playwright.live.config.ts`, `console/tests/live-e2e/operator_service.py`, `console/tests/live-e2e/console-routes.spec.ts`, focused Overview 및 capability 검사 통과 | 격리된 harness는 테스트 전용 신원 검증과 운영 Operator Service 어댑터를 사용합니다. 선택적 capability projection 손실은 예기치 않은 실패를 숨기지 않고 사용 불가로 표시됩니다. 전체 경로 및 비평 라운드는 열려 있습니다. |
 | 로컬 및 deployed composition 동등성 | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/` 및 서비스 통합 테스트 | Composition root는 근거 권한을 바꾸지 않고 자격 증명과 어댑터를 선택합니다. |
 | 로컬 검증 데이터베이스 격리 | implemented | `infra/local/docker-compose.yml`, `scripts/automation/validation_queue_context.py`, 로컬 준비 스크립트 및 focused 검증과 migration 통합 테스트 | 런타임 상태는 로컬 PostgreSQL port `5432`에 유지하고 파괴적인 migration 검증은 port `5433`의 별도 로컬 PostgreSQL cluster를 사용합니다. |
 | FDAI workspace 및 프로파일 부하 제어 | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`, focused 프로파일 및 workspace 테스트 11개 통과 | Resource 범위 분석 제어는 workspace에 둡니다. Portable 프로파일은 격리할 수 없는 Remote WSL Pylance machine 설정을 거부합니다. |
@@ -45,6 +45,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | deferred | 실효성 없는 Pylance machine 설정을 제거하고 중복 프로파일 JSON 키를 거부했으며 재도입 방지 contract를 추가했습니다. | Clean Remote WSL process command에 구성한 heap argument가 없었으며 focused 프로파일 및 workspace 테스트 11개가 통과했습니다. | 별도 root의 VS Code Server 또는 WSL 배포판을 사용한 뒤 재시작한 process command에서 heap argument를 증명합니다. |
 | 2026-08-13 | implemented | 파괴적인 검증을 위한 전용 로컬 PostgreSQL cluster를 추가하고 detached 검증 queue가 생성된 전용 DSN만 읽도록 했습니다. | 현재 변경, Compose config 통과, focused queue 및 local-env 테스트 68개 통과, 격리된 migration upgrade/downgrade 검사 2개 통과. | 로컬 검증 데이터베이스 격리에 남은 구현 작업은 없습니다. |
 | 2026-08-13 | in-progress | 라이브 Console 테스트의 폐기된 backend 경로를 운영 어댑터와 테스트 전용 bearer 검증을 사용하는 독립 Operator Service로 교체하고, readiness 실패를 제한하도록 격리된 stack을 IPv6 loopback으로 옮겼습니다. | 현재 변경의 `console/playwright.live.config.ts`, `console/tests/live-e2e/operator_service.py`, `console/tests/live-e2e/console-routes.spec.ts`, focused Overview 검사 1개가 5.1초에 통과했습니다. | 등록된 경로 50개를 모두 실행한 뒤 최소 10회 보증 라운드와 10회 비평/하드닝 라운드를 완료하여 Low보다 높은 심각도 finding이 남지 않게 합니다. |
+| 2026-08-13 | in-progress | Capability catalog가 선택적 projection 누락과 예기치 않은 실패를 구분하도록 하고 라이브 예외를 `404 /capabilities`로 제한했습니다. | 현재 변경의 `console/src/routes/capabilities.tsx`, `console/src/routes/capabilities.test.ts`, `console/tests/live-e2e/console-routes.spec.ts`, focused unit 테스트 7개 및 인증된 focused 라이브 검사 1개가 통과했습니다. | 남은 실패 경로를 수리한 뒤 열려 있는 보증 및 비평/하드닝 라운드를 완료합니다. |
 
 ### 잔여 작업
 
