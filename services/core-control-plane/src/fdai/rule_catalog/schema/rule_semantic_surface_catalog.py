@@ -17,6 +17,8 @@ from fdai.rule_catalog.schema.rule_semantic_retrieval import (
     RuleSemanticSurface,
     SurfaceOrigin,
     SurfaceState,
+    SurfaceValidationReceipt,
+    ValidationDecision,
 )
 
 _SCHEMA_FILE = "rule_semantic_surface.schema.json"
@@ -42,8 +44,10 @@ def load_promoted_semantic_surfaces(
     root: Path,
     *,
     manifests: Mapping[str, RuleSemanticManifest],
+    validation_receipts: Mapping[str, SurfaceValidationReceipt],
+    evaluation_policy_digest: str,
 ) -> tuple[RuleSemanticSurface, ...]:
-    """Load reviewed surfaces and verify exact manifest membership."""
+    """Load reviewed surfaces with exact manifest, subject, and current-policy evidence."""
 
     if not root.is_dir():
         return ()
@@ -93,10 +97,48 @@ def load_promoted_semantic_surfaces(
                     f"unknown manifest_digest {surface.manifest_digest!r}",
                 )
             )
+        receipt = validation_receipts.get(surface.validation_receipt_digest or "")
+        if receipt is None:
+            issues.append(
+                SemanticSurfaceCatalogIssue(
+                    path.name,
+                    f"missing validation receipt {surface.validation_receipt_digest!r}",
+                )
+            )
+        else:
+            issues.extend(
+                _receipt_binding_issues(
+                    path.name,
+                    surface=surface,
+                    receipt=receipt,
+                    evaluation_policy_digest=evaluation_policy_digest,
+                )
+            )
         loaded.append(surface)
     if issues:
         raise SemanticSurfaceCatalogError(issues)
     return tuple(sorted(loaded, key=lambda item: item.surface_id))
+
+
+def _receipt_binding_issues(
+    key: str,
+    *,
+    surface: RuleSemanticSurface,
+    receipt: SurfaceValidationReceipt,
+    evaluation_policy_digest: str,
+) -> list[SemanticSurfaceCatalogIssue]:
+    issues: list[SemanticSurfaceCatalogIssue] = []
+    if receipt.digest != surface.validation_receipt_digest:
+        issues.append(SemanticSurfaceCatalogIssue(key, "validation receipt digest mismatch"))
+    if receipt.surface_digest != surface.validation_subject_digest:
+        issues.append(SemanticSurfaceCatalogIssue(key, "validation receipt subject mismatch"))
+    if receipt.evaluation_policy_digest != evaluation_policy_digest:
+        issues.append(SemanticSurfaceCatalogIssue(key, "validation receipt policy is stale"))
+    if receipt.decision is not ValidationDecision.PASS or receipt.failure_codes:
+        issues.append(SemanticSurfaceCatalogIssue(key, "validation receipt is not passing"))
+    if receipt.validation_authority != "validation_only":
+        issues.append(SemanticSurfaceCatalogIssue(key, "validation receipt authority mismatch"))
+    return issues
 
 
 def _surface_from_mapping(raw: Mapping[str, Any]) -> RuleSemanticSurface:

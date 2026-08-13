@@ -1,0 +1,21 @@
+schema_version: 1.0.0
+surface_id: surface.assurance.kubernetes-node-pool.multi-zone.ko
+manifest_digest: sha256:46b2050c231f0182a41124551664c70da25e78e3ba82f1e9ca7b72637fdcd27f
+locale: ko
+origin: authored
+intent_ids:
+  - require-multi-zone-node-pool
+concept_refs:
+  - kubernetes-node-pool
+  - zone-failure-tolerance
+aliases:
+  - 노드 풀 영역 중복성
+training_queries:
+  - 노드 풀을 여러 가용 영역에 배치하는 규칙
+hard_negative_queries:
+  - 데이터베이스 연결 풀 크기를 조정하는 규칙
+producer_ref: assurance:shipped-catalog-ko@1
+evidence_refs:
+  - rule:kubernetes-node-pool.multi-zone@1.0.0
+state: promoted
+validation_receipt_digest: sha256:5f3aed589d6af52f927aee426c807fca0199180a3453c5e8a410cbe3a6b1cba3
