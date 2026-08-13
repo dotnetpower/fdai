@@ -6,7 +6,7 @@ import json
 import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import httpx
 import pytest
@@ -18,6 +18,7 @@ from fdai.composition import (
     install_capability_bundle,
 )
 from fdai.core.tiers.t2_reasoning import BoundedFailoverT2Proposer
+from fdai.delivery.azure.llm.embeddings import AzureOpenAIEmbeddingModel
 from fdai.shared.config import AppConfig
 from fdai.shared.config.models import LlmMode
 from fdai.shared.providers.workload_identity import (
@@ -426,6 +427,11 @@ async def test_endpoint_bindings_drive_apim_openai_v1_runtime(tmp_path: Path) ->
             model_health_sink=route_sink,
         )
         bindings = finalized.require_llm_bindings()
+        embedding_model = cast(AzureOpenAIEmbeddingModel, bindings.embedding_model)
+        assert embedding_model.embedding_space_id == (
+            "model-binding:t1-embedding-prod:" + ("a" * 64)
+        )
+        assert embedding_model.embedding_model_version == "a" * 64
         await bindings.embedding_model.embed("hello")
         from fdai.core.quality_gate.gate import QualityCandidate
 
