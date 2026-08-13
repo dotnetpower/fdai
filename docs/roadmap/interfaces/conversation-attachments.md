@@ -33,17 +33,39 @@ The file source changes by channel. Safety, storage, purpose, citations, retenti
 
 ## Implementation status
 
-| Capability | Status | Implementation |
-|------------|--------|----------------|
-| Slack attachment metadata | Adapter implemented; deployment binding pending | The signed Events API adapter retains opaque file id, filename, size, and media type only. |
-| Slack private download | Adapter implemented; deployment binding pending | `SlackPrivateFileFetcher` resolves the id through server-authenticated `files.info`, validates an HTTPS host allowlist, and streams within a byte cap. |
-| Teams attachment metadata | Adapter implemented; deployment binding pending | The authenticated Bot Framework adapter retains an opaque attachment id and bounded metadata only. |
-| Teams private download | Adapter implemented; deployment binding pending | `TeamsServerAttachmentFetcher` uses a server-owned endpoint resolver and audience-scoped workload identity token. |
-| Protected channel ingestion | Composition implemented; deployment binding pending | `ProtectedChannelAttachmentIngestor` sends all bytes through the existing scan, protection, extraction, indexing, and access lifecycle. |
-| Explicit ownership handover | Contract implemented; Slack/Teams deployment binding pending | A leading `/handover`, `/attach handover`, or `인수인계 문서:` directive selects `handover_bootstrap`; content and filenames never select it. |
-| Web chat document references | Implemented backend contract | JSON and SSE chat accept up to eight immutable document/version ids. The production resolver permits only ready versions uploaded by the current principal. The SPA file picker remains product UI work. |
-| Web chat inline vision evidence | Implemented | The web chat `attachments` field accepts a bounded set of inline base64 images (raster allowlist png/jpeg/gif/webp, `data:` URLs only, declared media type must match magic bytes, browser source capped at 32 MiB before decode, server edge capped at 2048 pixels, per-image output cap and per-turn count cap). Validated images escalate the turn to a vision-capable narrator as read-only evidence; they never grant execution eligibility. Terminal verification preserves the interpretation as unverified with a current `conversation-image` ref rather than treating it as screen-verified. The Operator API stores validated bytes in the principal-scoped `conversation_image` repository and keeps content-free descriptors in turn history so the Console can restore them. |
-| Image OCR | Implemented, opt-in | `ImageOcrProvider` is injected into the standard extractor. Azure production can bind Document Intelligence `prebuilt-read` with managed identity. |
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Vendor-neutral attachment metadata | implemented | [`conversation_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_channel.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | `ChannelAttachment` and `InboundTurn` enforce bounded opaque metadata. No vendor adapter is implied by these contracts. |
+| Explicit attachment purpose | implemented | [`attachment_directive.py`](../../../services/core-control-plane/src/fdai/core/conversation/attachment_directive.py), [`test_attachment_directive.py`](../../../services/core-control-plane/tests/core/conversation/test_attachment_directive.py) | Exact leading directives select handover intent; prose and filenames do not. |
+| Channel ingestion gateway seam | implemented | [`channel_gateway.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_gateway.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | The gateway accepts an injected ingestor and fails closed when one is absent. It is not a concrete protected-ingestion implementation. |
+| Slack metadata and private download | not-started | This document's Slack contracts | No signed Slack inbound adapter, private-file fetcher, production binding, or focused fetch security test is present. |
+| Teams metadata and private download | not-started | This document's Teams contracts | No authenticated Teams inbound adapter, endpoint resolver, private-file fetcher, production binding, or focused fetch security test is present. |
+| Protected channel ingestion composition | not-started | This document's protected-ingestion contract | No concrete ingestor currently connects channel bytes to scanning, extraction, indexing, and citations. |
+| Web chat document references | not-started | This document's web document-reference contract | The Operator request schema, semantic envelope, and production composition do not accept or resolve `document_refs`. |
+| Web chat inline vision path | in-progress | [`composer-attachments.view.tsx`](../../../console/src/deck/composer-attachments.view.tsx), [`backend-context.ts`](../../../console/src/deck/backend-context.ts), [`conversation_images.py`](../../../services/core-control-plane/src/fdai/delivery/conversation_images.py), [`postgres_conversation_images.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_conversation_images.py) | Console capture, request serialization, bounded image repositories, migrations, and historical rendering exist. The Operator semantic envelope and local narrator currently discard image attachments, and production does not bind the image repository to chat routes. |
+| Document image OCR | implemented | [`processing.py`](../../../services/document-processing-worker/src/fdai_document_worker_service/adapters/processing.py), [`production.py`](../../../services/document-processing-worker/src/fdai_document_worker_service/production.py), [`test_ingestion_adapter_readiness.py`](../../../services/document-processing-worker/tests/test_ingestion_adapter_readiness.py) | The document worker binds bounded Document Intelligence `prebuilt-read` when an OCR endpoint is configured and otherwise fails closed. This does not complete channel or inline-chat ingestion. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Reconciled the design with current contracts, adapters, composition, Console code, and tests without reconstructing earlier provenance. | Current source and focused checks listed in the scope table. | Vendor adapters, protected ingestion, web document resolution, the server inline-image path, and governed runtime receipts remain open. |
+
+### Remaining work
+
+- [ ] Implement and bind signed Slack and authenticated Teams inbound adapters that retain only
+  bounded opaque attachment metadata.
+- [ ] Implement private vendor fetchers with server-owned endpoint resolution, credential scoping,
+  redirect refusal, host allowlists, and streamed byte limits.
+- [ ] Compose a concrete channel ingestor through malware, protection, extraction, indexing,
+  authorization, citation, and handover paths.
+- [ ] Add `document_refs` to the versioned Operator conversation contract and resolve them through
+  principal-scoped document authorization before semantic processing.
+- [ ] Complete the server inline-image parser, byte and media validation, repository binding,
+  semantic transport, vision narrator input, history metadata, and authenticated retrieval path.
+- [ ] Capture governed runtime receipts before marking any end-to-end attachment path validated.
 
 ## Purpose and authorization
 
@@ -285,17 +307,20 @@ Focused verification covers:
 uv run pytest -q --no-cov \
   services/core-control-plane/tests/core/conversation/test_attachment_directive.py \
   services/core-control-plane/tests/conversation/test_channel_gateway.py \
-  services/core-control-plane/tests/delivery/channels \
-  services/core-control-plane/tests/delivery/azure/test_document_ocr.py \
-  services/core-control-plane/tests/delivery/ingestion_gateway/test_chat_evidence.py \
-  services/operator-service/tests/
-terraform -chdir=infra validate
+  services/core-control-plane/tests/delivery/test_conversation_images.py \
+  services/operator-service/tests/test_local_narrator.py
+uv run pytest -q --no-cov \
+  services/document-processing-worker/tests/test_ingestion_adapter_readiness.py -k ocr
+npm --prefix console test -- --run \
+  src/deck/composer-attachment-store.test.ts \
+  src/deck/composer-attachments.test.ts \
+  src/deck/turn-attachments.test.ts
 ```
 
-Security regressions include payload URL discard, exact host allowlists, redirect refusal, streamed
-byte caps, pre-fetch role checks, explicit-purpose parsing, attachment-only messages, OCR
-operation-location validation, OCR output bounds, uploader-only web refs, and missing-resolver
-fail-closed behavior.
+Current regressions cover bounded channel metadata, missing-ingestor failure, explicit-purpose
+parsing, bounded principal-scoped image storage, Console image staging and serialization, and OCR
+operation-location and output limits. Vendor download, protected-ingestion composition, web document
+resolution, and end-to-end inline vision tests remain part of the open implementation work.
 
 ## Related docs
 
