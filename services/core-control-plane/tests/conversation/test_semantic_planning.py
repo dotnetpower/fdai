@@ -17,7 +17,7 @@ from fdai.core.conversation.semantic_planning_models import (
     SemanticPlanningDisposition,
 )
 from fdai.core.conversation.semantic_runtime import SemanticConversationRuntime
-from fdai.core.conversation.session import ConversationSession, Principal, Role
+from fdai.core.conversation.session import ConversationSession, Principal, Role, Turn
 from fdai.core.conversation.tools import ToolResult
 from fdai.core.ontology_platform import (
     ObjectPredicate,
@@ -63,10 +63,12 @@ class _Model:
     def __init__(self, *, frame: dict[str, object], plan: dict[str, object] | None) -> None:
         self.frame = frame
         self.plan = plan
+        self.frame_calls = 0
         self.plan_calls = 0
         self.utterance = ""
 
     def propose_frame(self, **kwargs: Any) -> dict[str, object]:
+        self.frame_calls += 1
         self.utterance = kwargs["utterance"]
         descriptors = kwargs["descriptors"]
         descriptors[0]["name"] = "mutated-copy"
@@ -201,6 +203,55 @@ def test_unresolved_meaning_returns_one_clarification_without_plan() -> None:
     assert outcome.clarification == "Do you mean HTTP requests or support requests?"
     assert outcome.plan is None
     assert model.plan_calls == 0
+
+
+def test_unbound_incident_reference_clarifies_without_model_work() -> None:
+    manifest, definition = _fixture()
+    model = _Model(frame=_frame(), plan=_plan(definition))
+
+    outcome = _service(model, manifest).plan(
+        utterance=(
+            "Investigate this incident using the available evidence and report the cause, "
+            "gaps, and next safe step."
+        ),
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.reason == "semantic_clarification_required"
+    assert outcome.clarification == "Which incident should I investigate?"
+    assert outcome.plan is None
+    assert outcome.execution_authority is False
+    assert model.frame_calls == 0
+    assert model.plan_calls == 0
+
+
+def test_incident_reference_with_prior_context_reaches_semantic_planning() -> None:
+    manifest, definition = _fixture()
+    model = _Model(frame=_frame(), plan=_plan(definition))
+
+    outcome = _service(model, manifest).plan(
+        utterance=(
+            "Investigate this incident using the available evidence and report the cause, "
+            "gaps, and next safe step."
+        ),
+        prior_turns=(
+            Turn(
+                turn_id="incident-context",
+                direction="system",
+                content="Selected incident: incident-42.",
+            ),
+        ),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.execution_authority is False
+    assert model.frame_calls == 1
+    assert model.plan_calls == 1
 
 
 def test_frame_proposal_rejects_noncanonical_evidence_requirement() -> None:
