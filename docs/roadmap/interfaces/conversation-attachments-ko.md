@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: 8008dca4bce2e25864ec6d1e9076e58c9e8ba7aa
-translation_revised: 2026-08-11
+translation_source_sha: 6255e2a3eef89818751833b728f9e81006c763bb
+translation_revised: 2026-08-13
 title: 대화 첨부파일
 ---
 # 대화 첨부파일
@@ -37,17 +37,39 @@ flowchart LR
 
 ## 구현 상태
 
-| 기능 | 상태 | 구현 |
-|------------|------|------|
-| Slack 첨부 메타데이터 | 어댑터 구현됨, 배포 연결 대기 | Signed 이벤트 API 어댑터는 opaque 파일 id, 파일 이름, 크기 및 매체 타입만 유지합니다. |
-| Slack 비공개 download | 어댑터 구현됨, 배포 연결 대기 | `SlackPrivateFileFetcher`는 server-authenticated `files.info`로 id를 해석하고 HTTPS 호스트 허용 목록을 validate한 뒤 바이트 상한 안에서 스트림합니다. |
-| Teams 첨부 메타데이터 | 어댑터 구현됨, 배포 연결 대기 | 인증된 Bot Framework 어댑터는 opaque 첨부 id 및 범위가 제한된 메타데이터만 유지합니다. |
-| Teams 비공개 download | 어댑터 구현됨, 배포 연결 대기 | `TeamsServerAttachmentFetcher`는 서버가 소유한 엔드포인트 해석기와 audience-scoped 워크로드 신원 토큰을 사용합니다. |
-| Protected 채널 인제스트 | 조립 구현됨, 배포 연결 대기 | `ProtectedChannelAttachmentIngestor`는 모든 바이트를 기존 검사, protection, 추출, 인덱싱 및 접근 수명 주기로 전달합니다. |
-| 명시적 소유권 인계 | 계약 구현됨, Slack/Teams 배포 연결 대기 | Leading `/handover`, `/attach handover` 또는 `인수인계 문서:` directive가 `handover_bootstrap`을 선택합니다. 내용과 파일 이름은 용도를 선택하지 않습니다. |
-| Web 채팅 문서 references | 백엔드 계약 구현됨 | JSON 및 SSE 채팅은 변경할 수 없는 문서/버전 id를 최대 8개 받습니다. 운영 해석기는 현재 principal이 업로드한 준비된 버전만 허용합니다. SPA 파일 picker는 product UI 후속 작업입니다. |
-| Web 채팅 inline vision 근거 | 구현됨 | Web 채팅 `attachments` 필드는 범위가 제한된 inline base64 이미지를 받습니다(raster 허용 목록 png/jpeg/gif/webp, `data:` URL만, 선언된 매체 타입이 magic 바이트와 일치해야 함, decode 전 브라우저 출처 32 MiB 상한, 서버 간선 2048 pixel 상한, per-image 출력 상한 및 턴별 개수 상한). 검증된 이미지는 읽기 전용 근거로서 해당 턴을 vision 지원 서술기로 escalate하며, 실행 자격을 부여하지 않습니다. 최종 검증은 해당 해석을 screen-verified로 취급하지 않고 현재 `conversation-image` 참조가 있는 검증되지 않은 답변으로 보존합니다. Operator API는 검증된 바이트를 principal 범위 `conversation_image` 저장소에 저장하고 내용이 없는 서술자만 턴 이력에 남겨 Console에서 복원할 수 있게 합니다. |
-| 이미지 OCR | 구현됨, 명시적 선택 | `ImageOcrProvider`를 standard 추출기에 inject합니다. Azure 운영은 managed 신원으로 문서 Intelligence `prebuilt-read`를 연결할 수 있습니다. |
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 벤더 중립 첨부 메타데이터 | implemented | [`conversation_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_channel.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | `ChannelAttachment`와 `InboundTurn`은 범위가 제한된 opaque 메타데이터를 강제합니다. 이 계약이 벤더 어댑터 구현을 의미하지는 않습니다. |
+| 명시적 첨부 용도 | implemented | [`attachment_directive.py`](../../../services/core-control-plane/src/fdai/core/conversation/attachment_directive.py), [`test_attachment_directive.py`](../../../services/core-control-plane/tests/core/conversation/test_attachment_directive.py) | 정확한 선행 directive만 인계 의도를 선택하며 일반 문장과 파일 이름은 선택하지 않습니다. |
+| 채널 인제스트 gateway seam | implemented | [`channel_gateway.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_gateway.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | Gateway는 주입된 ingestor를 받고 없으면 실패 시 차단합니다. 구체적인 protected-ingestion 구현은 아닙니다. |
+| Slack 메타데이터와 비공개 download | not-started | 이 문서의 Slack 계약 | Signed Slack inbound 어댑터, private-file fetcher, 운영 연결 및 집중 fetch 보안 테스트가 없습니다. |
+| Teams 메타데이터와 비공개 download | not-started | 이 문서의 Teams 계약 | 인증된 Teams inbound 어댑터, endpoint resolver, private-file fetcher, 운영 연결 및 집중 fetch 보안 테스트가 없습니다. |
+| Protected 채널 인제스트 조립 | not-started | 이 문서의 protected-ingestion 계약 | 채널 바이트를 검사, 추출, 인덱싱 및 인용에 연결하는 구체적인 ingestor가 현재 없습니다. |
+| Web 채팅 문서 참조 | not-started | 이 문서의 web 문서 참조 계약 | Operator 요청 스키마, semantic envelope 및 운영 조립은 `document_refs`를 받거나 해석하지 않습니다. |
+| Web 채팅 inline vision 경로 | in-progress | [`composer-attachments.view.tsx`](../../../console/src/deck/composer-attachments.view.tsx), [`backend-context.ts`](../../../console/src/deck/backend-context.ts), [`conversation_images.py`](../../../services/core-control-plane/src/fdai/delivery/conversation_images.py), [`postgres_conversation_images.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_conversation_images.py) | Console 캡처와 요청 직렬화, 범위가 제한된 이미지 저장소, migration 및 과거 이미지 렌더링은 존재합니다. Operator semantic envelope와 local narrator는 현재 이미지 첨부를 버리며 운영은 이미지 저장소를 채팅 route에 연결하지 않습니다. |
+| 문서 이미지 OCR | implemented | [`processing.py`](../../../services/document-processing-worker/src/fdai_document_worker_service/adapters/processing.py), [`production.py`](../../../services/document-processing-worker/src/fdai_document_worker_service/production.py), [`test_ingestion_adapter_readiness.py`](../../../services/document-processing-worker/tests/test_ingestion_adapter_readiness.py) | Document worker는 OCR endpoint가 설정되면 범위가 제한된 Document Intelligence `prebuilt-read`를 연결하고 그렇지 않으면 실패 시 차단합니다. 이 구현만으로 채널 또는 inline 채팅 인제스트가 완성되지는 않습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 현재 계약, 어댑터, 조립, Console 코드 및 테스트와 설계를 대조했습니다. | 구현 범위 표에 나열한 현재 소스와 집중 검사입니다. | 벤더 어댑터, protected 인제스트, web 문서 해석, 서버 inline 이미지 경로 및 통제된 runtime 증적이 남아 있습니다. |
+
+### 남은 작업
+
+- [ ] 범위가 제한된 opaque 첨부 메타데이터만 유지하는 signed Slack 및 인증된 Teams
+  inbound 어댑터를 구현하고 연결합니다.
+- [ ] 서버 소유 endpoint 해석, credential 범위 제한, redirect 거절, host allowlist 및 streamed
+  byte 상한을 적용하는 비공개 벤더 fetcher를 구현합니다.
+- [ ] Malware, protection, 추출, 인덱싱, 권한 확인, 인용 및 인계 경로를 통과하는 구체적인
+  채널 ingestor를 조립합니다.
+- [ ] 버전이 지정된 Operator 대화 계약에 `document_refs`를 추가하고 semantic 처리 전에
+  principal 범위 문서 권한 확인을 통해 해석합니다.
+- [ ] 서버 inline 이미지 parser, byte 및 media 검증, 저장소 연결, semantic transport, vision
+  narrator 입력, 이력 메타데이터 및 인증된 조회 경로를 완성합니다.
+- [ ] End-to-end 첨부 경로를 validated로 표시하기 전에 통제된 runtime 증적을 수집합니다.
 
 ## 용도 및 권한 확인
 
@@ -293,17 +315,20 @@ Focused 검증은 다음과 같습니다.
 uv run pytest -q --no-cov \
   services/core-control-plane/tests/core/conversation/test_attachment_directive.py \
   services/core-control-plane/tests/conversation/test_channel_gateway.py \
-  services/core-control-plane/tests/delivery/channels \
-  services/core-control-plane/tests/delivery/azure/test_document_ocr.py \
-  services/core-control-plane/tests/delivery/ingestion_gateway/test_chat_evidence.py \
-  services/operator-service/tests/
-terraform -chdir=infra validate
+  services/core-control-plane/tests/delivery/test_conversation_images.py \
+  services/operator-service/tests/test_local_narrator.py
+uv run pytest -q --no-cov \
+  services/document-processing-worker/tests/test_ingestion_adapter_readiness.py -k ocr
+npm --prefix console test -- --run \
+  src/deck/composer-attachment-store.test.ts \
+  src/deck/composer-attachments.test.ts \
+  src/deck/turn-attachments.test.ts
 ```
 
-Security 회귀는 페이로드 URL discard, exact 호스트 허용 목록, redirect 거절, streamed 바이트
-상한, pre-fetch 역할 검사, explicit-purpose 파싱, attachment-only 메시지, OCR
-operation-location 검증, OCR 출력 한계, uploader-only web 참조 및 missing-resolver
-실패 시 차단 행동을 포함합니다.
+현재 회귀 테스트는 범위가 제한된 채널 메타데이터, ingestor 누락 시 실패, 명시적 용도
+파싱, 범위가 제한된 principal-scoped 이미지 저장, Console 이미지 staging과 직렬화 및 OCR
+operation-location과 출력 상한을 다룹니다. 벤더 download, protected-ingestion 조립, web 문서
+해석 및 end-to-end inline vision 테스트는 남은 구현 작업에 포함됩니다.
 
 ## 관련 문서
 
