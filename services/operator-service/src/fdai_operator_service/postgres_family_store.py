@@ -20,6 +20,7 @@ from fdai_operator_service.postgres_semantic_turn_store import (
     SemanticTurnStoreError,
     StoredSemanticResult,
     StoredSemanticTurn,
+    rule_search_projection_key,
 )
 
 _PROJECTION_PREFIX: Final = "operator-projection:"
@@ -214,6 +215,34 @@ class PostgresFamilyStore:
         if not rows:
             raise PostgresFamilyStoreUnavailable(
                 f"authoritative {family} projection is unavailable for {operation}"
+            )
+        return _json_object(rows[0].get("value"), label=key)
+
+    async def read_rule_search_projection(
+        self,
+        *,
+        principal_id: str,
+        query_digest: str,
+    ) -> dict[str, object]:
+        """Read one Rule-search projection for its exact principal and canonical query."""
+        key = rule_search_projection_key(principal_id, query_digest)
+        rows = await self._fetch_all(
+            """
+            SELECT value
+              FROM state_kv
+             WHERE key = %(key)s
+               AND value ->> 'principal_id' = %(principal_id)s
+               AND value ->> 'query_digest' = %(query_digest)s
+            """,
+            {
+                "key": key,
+                "principal_id": principal_id,
+                "query_digest": query_digest,
+            },
+        )
+        if not rows:
+            raise PostgresFamilyStoreUnavailable(
+                "authoritative Rule search projection is unavailable"
             )
         return _json_object(rows[0].get("value"), label=key)
 
@@ -504,6 +533,15 @@ class UnavailablePostgresFamilyStore(PostgresFamilyStore):
 
     async def read_projection(self, *, family: str, operation: str) -> dict[str, object]:
         del family, operation
+        raise PostgresFamilyStoreUnavailable("authoritative projection is unavailable")
+
+    async def read_rule_search_projection(
+        self,
+        *,
+        principal_id: str,
+        query_digest: str,
+    ) -> dict[str, object]:
+        del principal_id, query_digest
         raise PostgresFamilyStoreUnavailable("authoritative projection is unavailable")
 
     async def append_proposal(

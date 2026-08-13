@@ -14,6 +14,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from typing import cast
 
 from fdai_operator_service.families.workflow.contracts import (
+    WorkflowOperation,
     WorkflowPrincipalAuthorizer,
     WorkflowProposal,
     WorkflowProposalWriter,
@@ -26,7 +27,8 @@ from fdai_operator_service.families.workflow.manifest import (
     WorkflowRouteSpec,
 )
 from fdai_operator_service.redaction import redact_mapping
-from fdai_service_contracts import JsonObject
+from fdai_service_contracts import JsonObject, RuleSearchRequest
+from pydantic import ValidationError
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -73,6 +75,14 @@ def _build_endpoint(
         query, limit, offset = _validated_query(request, spec.pagination)
         path_parameters = _validated_path_parameters(request.path_params)
         body = await _body(request, maximum=spec.maximum_body_bytes)
+        if spec.operation is WorkflowOperation.RULE_SEARCH:
+            try:
+                body = RuleSearchRequest.model_validate(body).model_dump(mode="json")
+            except ValidationError as exc:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Rule search request is invalid",
+                ) from exc
 
         if spec.dispatch == "read":
             result = await read_store.read(

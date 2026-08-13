@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: f5ca393f64213780856e635bfcf437cfb339adce
-translation_revised: 2026-08-12
+translation_source_sha: 2725ef9f64559f96478031d686fcaa92c26215b8
+translation_revised: 2026-08-13
 ---
 
 # 온톨로지 조회 커버리지 구현 계획
@@ -133,6 +133,28 @@ translation_revised: 2026-08-12
 > OKQ-01에는 이제 `resource_classified_as`의 카탈로그 선언, 결정론적 ResourceType 매핑
 > 다이제스트, 안전하게 실패하는 분류 변환 결과, 단일 작성자 영속성 테스트가 있습니다. 운영
 > 운영 인벤토리 작업 주입은 완료되었고 리소스에서 Rule로 이어지는 질의 함수는 남아 있습니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 서비스 간 의미 계약 및 Core 처리 | 구현됨 | `semantic_turn.py`, `semantic_turn_consumer.py`, `semantic_turn_processor.py`, 통과한 의미 경로 테스트 88개 | 버전 1.2 요청은 90초로 제한되고 결과는 멱등성을 보장하며 점유를 복구할 수 있습니다. Rule 결과는 실행 권한이 없는 후보 전용으로 유지됩니다. |
+| Operator 영속성과 Rule 변환 결과 | 구현됨 | `semantic_turn_runtime.py`, `postgres_semantic_turn_store.py`, `test_semantic_turn_bridge.py`, 통과한 의미 경로 테스트 88개 및 롤백 전용 PostgreSQL 트랜잭션 검사 | 발신함과 결과 점유를 복구할 수 있고 잘못된 소유권은 안전하게 차단됩니다. 재생 순서는 타임스탬프를 인식하며 exact Rule 읽기는 principal과 조회 다이제스트로 격리됩니다. |
+| 운영 보증 및 프로바이더 조립 | 진행 중 | [온톨로지 조회 무작위 보증](ontology-query-randomized-assurance-ko.md)과 아래의 검증된 기준선 공백 표 | 구현은 안전하게 실패하지만 운영 준비 상태를 입증하는 통제된 실제 서비스 간 증적이 없습니다. 영속 의미, temporal, metric 및 근거 프로바이더 연결은 명시적인 전달 작업으로 남아 있습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | 진행 중 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했습니다. | 구현 범위 표에 나열된 현재 출처, 테스트 및 상태 근거 | 아래의 실제 운영 보증 및 프로바이더 조립 근거를 확보합니다. |
+| 2026-08-13 | 구현됨 | 10회가 넘는 adversarial 검토를 통해 Rule 검색 계약, Core 멱등성과 점유, Operator 재시도와 임대, exact 영속성, 재생 및 소유권 검증을 강화했습니다. | `current change`, `pytest -q services/core-control-plane/tests/test_semantic_turn_processor.py services/operator-service/tests/test_semantic_turn_bridge.py services/operator-service/tests/test_operator_workflow_family.py tests/integration/test_semantic_turn_roundtrip.py` 테스트 88개 통과, 작업 범위 Ruff 통과 및 롤백 전용 PostgreSQL 트랜잭션 검사 통과 | 운영 검증은 통제된 실제 증적을 확보할 때까지 차단됩니다. |
+
+### 남은 작업
+
+- [ ] Operator 게시, Core 처리, exact Operator 변환 결과 읽기 및 인증된 Console 렌더링을 포함하는 통제된 요청-Console 증적 하나를 기록합니다. 이중 언어 무작위 보증 집단을 다시 실행하고 통과한 두 근거 기록을 연결합니다.
+- [ ] 검증된 기준선에 명시된 영속 의미 인덱스와 temporal, metric-series 및 evidence-join 프로바이더를 조립합니다. 타입이 지정된 각 사용 불가 공백에 범위가 제한된 검사와 통제된 런타임 증적이 생기면 이 항목을 닫습니다.
 
 ## 설계 개요
 

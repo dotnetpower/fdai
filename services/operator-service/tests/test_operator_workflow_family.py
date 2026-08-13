@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from fdai_operator_service.families.workflow import (
@@ -16,7 +16,14 @@ from fdai_operator_service.families.workflow import (
     WorkflowReadResult,
     build_workflow_family_routes,
 )
-from fdai_service_contracts import OperatorPrincipal, OperatorRole
+from fdai_operator_service.family_adapters import PostgresWorkflowAdapters
+from fdai_service_contracts import (
+    OperatorPrincipal,
+    OperatorRole,
+    RuleSearchProjection,
+    RuleSearchReceipt,
+    rule_search_query_digest,
+)
 from starlette.applications import Starlette
 from starlette.exceptions import HTTPException
 from starlette.routing import BaseRoute, Route
@@ -161,6 +168,119 @@ def test_catalog_read_preserves_pagination_and_provenance() -> None:
     assert reads.requests[0].offset == 3
     assert reads.requests[0].query == {"origin": "active"}
     assert proposals.proposals == []
+
+
+def test_rule_search_validates_and_canonicalizes_exact_body() -> None:
+    client, _, reads, _ = _client(role=OperatorRole.READER)
+    body = {
+        "query": "find retry rules",
+        "operation": "discover",
+        "corpus": "active",
+        "limit": 7,
+    }
+
+    response = client.post("/rules/search", json=body)
+
+    assert response.status_code == 200
+    assert reads.requests[0].principal_id == "operator"
+    assert reads.requests[0].body == body
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {},
+        {"query": "", "operation": "discover", "corpus": "active", "limit": 1},
+        {"query": "   ", "operation": "discover", "corpus": "active", "limit": 1},
+        {"query": "rules", "operation": "discover", "corpus": "active", "limit": 21},
+        {
+            "query": "rules",
+            "operation": "discover",
+            "corpus": "active",
+            "limit": 1,
+            "execution_authority": True,
+        },
+    ],
+)
+def test_rule_search_rejects_invalid_or_authority_bearing_body(body: object) -> None:
+    client, _, reads, _ = _client(role=OperatorRole.READER)
+
+    response = client.post("/rules/search", json=body)
+
+    assert response.status_code == 400
+    assert reads.requests == []
+
+
+async def test_rule_search_adapter_reads_exact_principal_and_query_projection() -> None:
+    body = {
+        "query": "find retry rules",
+        "operation": "discover",
+        "corpus": "active",
+        "limit": 7,
+    }
+    query_digest = rule_search_query_digest(body)
+    receipt = RuleSearchReceipt.model_validate(
+        {
+            "schema_version": "1.0.0",
+            "query_digest": query_digest,
+            "operation": "discover",
+            "corpus": "active",
+            "catalog_digest": f"sha256:{'c' * 64}",
+            "semantic_state": "available",
+            "generation_digest": f"sha256:{'d' * 64}",
+            "results": [],
+            "execution_authority": False,
+        }
+    )
+    projection = RuleSearchProjection.model_validate(
+        {
+            "query_digest": query_digest,
+            "retrieval_receipt_digest": receipt.digest,
+            "candidates": [],
+            "retrieval_receipt": receipt.model_dump(mode="json"),
+            "authority": "candidate_only",
+            "execution_authority": False,
+        }
+    ).model_dump(mode="json")
+
+    class ExactStore:
+        def __init__(self) -> None:
+            self.calls: list[tuple[str, str]] = []
+
+        async def read_rule_search_projection(
+            self,
+            *,
+            principal_id: str,
+            query_digest: str,
+        ) -> dict[str, object]:
+            self.calls.append((principal_id, query_digest))
+            return {"_revision": "projection-7", "data": projection}
+
+        async def read_projection(self, *, family: str, operation: str) -> dict[str, object]:
+            raise AssertionError(f"unexpected global read: {family}:{operation}")
+
+    store = ExactStore()
+    adapter = PostgresWorkflowAdapters(cast(Any, store))
+    result = await adapter.read(
+        WorkflowReadRequest(
+            operation=next(
+                spec.operation
+                for spec in WORKFLOW_FAMILY_ROUTE_MANIFEST
+                if spec.path == "/rules/search"
+            ),
+            principal_id="operator-a",
+            query={},
+            path_parameters={},
+            body=body,
+        )
+    )
+
+    assert store.calls == [("operator-a", query_digest)]
+    assert result.payload == projection
+    assert result.provenance.revision == "projection-7"
+    assert result.provenance.source_ref.startswith(
+        "state_kv:operator-projection:workflow:rule.search:"
+    )
 
 
 @pytest.mark.parametrize("query", ["limit=0", "limit=501", "limit=many", "offset=-1"])

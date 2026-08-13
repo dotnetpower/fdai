@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -33,15 +34,19 @@ from fdai_operator_service.postgres_family_store import (
     StoredSemanticTurn,
 )
 from fdai_service_contracts import (
+    ContractValidationError,
+    RuleSearchProjection,
     SemanticTurnDisposition,
     SemanticTurnRequest,
     SemanticTurnResult,
 )
+from pydantic import ValidationError
 
 SEMANTIC_REQUEST_TOPIC = "operator.semantic-turn.requests"
 SEMANTIC_RESULT_TOPIC = "core.semantic-turn.projections"
 SEMANTIC_RESULT_GROUP = "operator-semantic-turn-v1"
 _IDENTITY_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
+_LOGGER = logging.getLogger(__name__)
 
 
 class SemanticTurnStore(Protocol):
@@ -143,6 +148,12 @@ class SemanticTurnProjectionConsumer:
         result = SemanticTurnResult.model_validate(semantic_payload)
         if decoded.get("status") != result.disposition.value:
             raise ValueError("semantic projection status MUST match result disposition")
+        extension_payload = decoded.get("payload")
+        if not isinstance(extension_payload, dict):
+            raise ValueError("semantic projection payload MUST be an object")
+        rule_search = extension_payload.get("rule_search")
+        if rule_search is not None:
+            RuleSearchProjection.model_validate(rule_search)
         return await self.store.project_semantic_turn_result(projection=decoded)
 
 
@@ -154,7 +165,7 @@ class SemanticTurnOutboxDrainer:
     publisher: SemanticTurnEventPublisher
     worker_id: str
     request_topic: str = SEMANTIC_REQUEST_TOPIC
-    lease_seconds: int = 30
+    lease_seconds: int = 120
 
     async def run_once(self) -> bool:
         """Publish at most one leased request and release transport failures for retry."""
@@ -181,7 +192,7 @@ class SemanticTurnOutboxDrainer:
             claim_id=claim.claim_id,
         )
         if not closed:
-            raise RuntimeError("semantic turn publish lease was lost before closure")
+            return False
         return True
 
 
@@ -358,17 +369,38 @@ class SemanticTurnBridge:
         if self._drainer is None:
             return
         while True:
-            published = await self._drainer.run_once()
+            try:
+                published = await self._drainer.run_once()
+            except Exception:  # noqa: BLE001 - transient store failures retry in-process
+                _LOGGER.warning("semantic_outbox_drainer_retrying", exc_info=True)
+                published = False
             await asyncio.sleep(0 if published else self._retry_seconds)
 
     async def _run_consumer(self) -> None:
-        if self._result_source is None:
+        if self._result_source is None or self._publisher is None:
             return
-        async for payload in self._result_source.subscribe(
-            self._result_topic,
-            self._result_group,
-        ):
-            await self._consumer.consume(payload)
+        while True:
+            try:
+                async for payload in self._result_source.subscribe(
+                    self._result_topic,
+                    self._result_group,
+                ):
+                    try:
+                        await self._consumer.consume(payload)
+                    except (ContractValidationError, ValidationError, ValueError):
+                        quarantine_key = _projection_quarantine_key(payload)
+                        await self._publisher.publish(
+                            f"{self._result_topic}.dlq",
+                            quarantine_key,
+                            {
+                                "original_topic": self._result_topic,
+                                "projection_ref": quarantine_key,
+                                "reason": "semantic_turn_projection_rejected",
+                            },
+                        )
+            except Exception:  # noqa: BLE001 - preserve offset and resubscribe after backoff
+                _LOGGER.warning("semantic_projection_consumer_retrying", exc_info=True)
+            await asyncio.sleep(self._retry_seconds)
 
 
 @dataclass(frozen=True, slots=True)
@@ -526,6 +558,12 @@ def _canonical_digest(value: Mapping[str, object]) -> str:
         sort_keys=True,
     ).encode()
     return hashlib.sha256(encoded).hexdigest()
+
+
+def _projection_quarantine_key(payload: Mapping[str, object]) -> str:
+    projection_id = payload.get("projection_id")
+    identity = projection_id if isinstance(projection_id, str) else "missing-projection-id"
+    return f"semantic-projection-rejected:{hashlib.sha256(identity.encode()).hexdigest()}"
 
 
 def _after_sequence(value: str | None) -> int | None:

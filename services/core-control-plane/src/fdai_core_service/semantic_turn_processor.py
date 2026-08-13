@@ -17,8 +17,11 @@ from fdai.core.ontology_platform import QueryPlanExecution
 from fdai.core.ontology_platform.query_values import QueryTable
 from fdai_service_contracts import (
     OperatorRole,
+    RuleSearchProjection,
+    RuleSearchRequest,
     SemanticTurnDisposition,
     SemanticTurnRequest,
+    rule_search_query_digest,
 )
 from fdai_service_contracts import (
     SemanticTurnResult as ContractSemanticTurnResult,
@@ -31,6 +34,7 @@ from .contract_codecs import (
 )
 
 _PROJECTION_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
+_MAX_REQUEST_LIFETIME_SECONDS = 90.0
 _ROLE_ORDER = (
     OperatorRole.READER,
     OperatorRole.CONTRIBUTOR,
@@ -67,7 +71,14 @@ class SemanticTurnResultStore(Protocol):
 
     async def get(self, idempotency_key: str) -> bytes | None: ...
 
-    async def claim(self, idempotency_key: str, request_digest: str) -> bool: ...
+    async def claim(self, idempotency_key: str, request_digest: str) -> str | None: ...
+
+    async def release(
+        self,
+        idempotency_key: str,
+        request_digest: str,
+        claim_id: str,
+    ) -> bool: ...
 
     async def put_if_absent(self, idempotency_key: str, projection: bytes) -> bool: ...
 
@@ -120,6 +131,8 @@ class SemanticTurnProcessor:
         now = _aware_utc(self._now(), field="semantic processor clock")
         deadline = _aware_utc(request.deadline_at, field="semantic deadline_at")
         remaining = (deadline - now).total_seconds()
+        if remaining > _MAX_REQUEST_LIFETIME_SECONDS:
+            raise SemanticTurnRejectedError("semantic_deadline_too_far")
         if remaining <= 0:
             return self._held_projection(
                 envelope,
@@ -216,7 +229,7 @@ class SemanticTurnProcessor:
                 )
 
         try:
-            claimed = await self._results.claim(idempotency_key, request_digest)
+            claim_id = await self._results.claim(idempotency_key, request_digest)
         except SemanticTurnRejectedError:
             raise
         except Exception:  # noqa: BLE001 - persistence detail must not cross the wire
@@ -226,7 +239,7 @@ class SemanticTurnProcessor:
                 request_digest=request_digest,
                 reason_code="semantic_result_store_unavailable",
             )
-        if not claimed:
+        if claim_id is None:
             return await self._wait_for_claimed_projection(
                 envelope=envelope,
                 request=request,
@@ -234,48 +247,62 @@ class SemanticTurnProcessor:
                 request_digest=request_digest,
             )
 
-        result = await self._execute(
-            request=request,
-            requested_at=requested_at,
-            principal=principal,
-            cancelled=cancelled,
-        )
-        projection = self._projection(
-            envelope,
-            request,
-            result,
-            request_digest=request_digest,
-        )
+        claim_finalized = False
         try:
-            created = await self._results.put_if_absent(idempotency_key, projection)
-            if created:
-                return projection
-            winner = await self._results.get(idempotency_key)
-        except Exception:  # noqa: BLE001 - persistence detail must not cross the wire
-            return self._held_projection(
-                envelope,
-                request,
-                request_digest=request_digest,
-                reason_code="semantic_result_store_unavailable",
-            )
-        if winner is None:
-            return self._held_projection(
-                envelope,
-                request,
-                request_digest=request_digest,
-                reason_code="semantic_result_store_unavailable",
-            )
-        try:
-            return _canonical_projection(winner, request_digest=request_digest)
-        except SemanticTurnRejectedError:
-            raise
-        except Exception:  # noqa: BLE001 - corrupt persistence fails closed
-            return self._held_projection(
-                envelope,
-                request,
-                request_digest=request_digest,
-                reason_code="semantic_result_store_unavailable",
-            )
+            try:
+                result, rule_search = await self._execute(
+                    request=request,
+                    requested_at=requested_at,
+                    principal=principal,
+                    cancelled=cancelled,
+                )
+                projection = self._projection(
+                    envelope,
+                    request,
+                    result,
+                    rule_search=rule_search,
+                    request_digest=request_digest,
+                )
+                created = await self._results.put_if_absent(idempotency_key, projection)
+                if created:
+                    claim_finalized = True
+                    return projection
+                winner = await self._results.get(idempotency_key)
+            except Exception:  # noqa: BLE001 - persistence detail must not cross the wire
+                return self._held_projection(
+                    envelope,
+                    request,
+                    request_digest=request_digest,
+                    reason_code="semantic_result_store_unavailable",
+                )
+            if winner is None:
+                return self._held_projection(
+                    envelope,
+                    request,
+                    request_digest=request_digest,
+                    reason_code="semantic_result_store_unavailable",
+                )
+            try:
+                canonical = _canonical_projection(winner, request_digest=request_digest)
+                claim_finalized = True
+                return canonical
+            except SemanticTurnRejectedError:
+                raise
+            except Exception:  # noqa: BLE001 - corrupt persistence fails closed
+                return self._held_projection(
+                    envelope,
+                    request,
+                    request_digest=request_digest,
+                    reason_code="semantic_result_store_unavailable",
+                )
+        finally:
+            if not claim_finalized:
+                await _release_claim(
+                    self._results,
+                    idempotency_key=idempotency_key,
+                    request_digest=request_digest,
+                    claim_id=claim_id,
+                )
 
     async def _wait_for_claimed_projection(
         self,
@@ -319,16 +346,16 @@ class SemanticTurnProcessor:
         requested_at: datetime,
         principal: Principal,
         cancelled: asyncio.Event | None,
-    ) -> ContractSemanticTurnResult:
+    ) -> tuple[ContractSemanticTurnResult, RuleSearchProjection | None]:
         if request.cancelled or (cancelled is not None and cancelled.is_set()):
-            return _terminal_result(request, "cancelled", "semantic_request_cancelled")
+            return _terminal_result(request, "cancelled", "semantic_request_cancelled"), None
         now = _aware_utc(self._now(), field="semantic processor clock")
         deadline = _aware_utc(request.deadline_at, field="semantic deadline_at")
         remaining = (deadline - now).total_seconds()
         if remaining <= 0:
-            return _terminal_result(request, "held", "semantic_deadline_exceeded")
+            return _terminal_result(request, "held", "semantic_deadline_exceeded"), None
         if self._runtime is None:
-            return _terminal_result(request, "held", "semantic_runtime_unavailable")
+            return _terminal_result(request, "held", "semantic_runtime_unavailable"), None
 
         runtime_cancelled = asyncio.Event()
         runtime_task = asyncio.create_task(
@@ -353,12 +380,12 @@ class SemanticTurnProcessor:
                 runtime_cancelled.set()
                 runtime_task.cancel()
                 await asyncio.gather(runtime_task, return_exceptions=True)
-                return _terminal_result(request, "cancelled", "semantic_request_cancelled")
+                return _terminal_result(request, "cancelled", "semantic_request_cancelled"), None
             if runtime_task not in done:
                 runtime_cancelled.set()
                 runtime_task.cancel()
                 await asyncio.gather(runtime_task, return_exceptions=True)
-                return _terminal_result(request, "held", "semantic_deadline_exceeded")
+                return _terminal_result(request, "held", "semantic_deadline_exceeded"), None
             for task in pending:
                 task.cancel()
             if pending:
@@ -371,7 +398,7 @@ class SemanticTurnProcessor:
             await asyncio.gather(runtime_task, return_exceptions=True)
             raise
         except Exception:  # noqa: BLE001 - runtime/provider detail must not cross the wire
-            return _terminal_result(request, "held", "semantic_runtime_failed")
+            return _terminal_result(request, "held", "semantic_runtime_failed"), None
         finally:
             if cancellation_task is not None and not cancellation_task.done():
                 cancellation_task.cancel()
@@ -383,6 +410,7 @@ class SemanticTurnProcessor:
         request: SemanticTurnRequest,
         result: ContractSemanticTurnResult,
         *,
+        rule_search: RuleSearchProjection | None,
         request_digest: str,
     ) -> bytes:
         semantic_result = result.model_dump(mode="json", exclude_none=True)
@@ -393,6 +421,12 @@ class SemanticTurnProcessor:
                 f"{envelope['request_id']}\0{evidence_digest}",
             )
         )
+        payload: dict[str, object] = {
+            "request_kind": "semantic_query",
+            "request_digest": request_digest,
+        }
+        if rule_search is not None:
+            payload["rule_search"] = rule_search.model_dump(mode="json")
         projection = {
             "schema_version": "1.2.0",
             "projection_id": projection_id,
@@ -401,10 +435,7 @@ class SemanticTurnProcessor:
             "idempotency_key": envelope["idempotency_key"],
             "status": result.disposition.value,
             "recorded_at": _aware_utc(self._now(), field="semantic processor clock").isoformat(),
-            "payload": {
-                "request_kind": "semantic_query",
-                "request_digest": request_digest,
-            },
+            "payload": payload,
             "evidence_digest": evidence_digest,
             "semantic_result": semantic_result,
         }
@@ -423,6 +454,7 @@ class SemanticTurnProcessor:
             envelope,
             request,
             _terminal_result(request, disposition, reason_code),
+            rule_search=None,
             request_digest=request_digest,
         )
 
@@ -480,7 +512,7 @@ def _prior_turns(
 def _project_runtime_result(
     request: SemanticTurnRequest,
     result: RuntimeSemanticTurnResult,
-) -> ContractSemanticTurnResult:
+) -> tuple[ContractSemanticTurnResult, RuleSearchProjection | None]:
     if result.disposition != "answered":
         reason_codes = {
             "clarification": "semantic_clarification_required",
@@ -491,7 +523,7 @@ def _project_runtime_result(
         }
         reason_code = reason_codes.get(result.disposition, "semantic_runtime_failed")
         disposition = result.disposition if result.disposition in reason_codes else "held"
-        return _terminal_result(request, disposition, reason_code)
+        return _terminal_result(request, disposition, reason_code), None
 
     planning = result.planning
     plan = planning.plan
@@ -509,14 +541,14 @@ def _project_runtime_result(
         or any(receipt.status is not TaskStatus.COMPLETED for receipt in execution.receipts)
         or not _projected_answer_evidence_is_complete(result, execution)
     ):
-        return _terminal_result(request, "held", "semantic_evidence_incomplete")
+        return _terminal_result(request, "held", "semantic_evidence_incomplete"), None
     evidence_refs = tuple(
         dict.fromkeys(
             evidence_ref for receipt in execution.receipts for evidence_ref in receipt.evidence_refs
         )
     )
     if not evidence_refs or len(evidence_refs) > 12:
-        return _terminal_result(request, "held", "semantic_evidence_incomplete")
+        return _terminal_result(request, "held", "semantic_evidence_incomplete"), None
     execution_receipt_digest = content_digest(
         {
             "plan_digest": execution.plan_digest,
@@ -526,9 +558,17 @@ def _project_runtime_result(
         }
     )
     checks_total = len(execution.receipts)
-    answer = _render_query_answer(request, execution)
+    rule_search_found, rule_search, rule_search_node_id = _project_rule_search(result, execution)
+    if rule_search_found and rule_search is None:
+        return _terminal_result(request, "held", "semantic_evidence_incomplete"), None
+    answer = _render_query_answer(
+        request,
+        execution,
+        rule_search=rule_search,
+        rule_search_node_id=rule_search_node_id,
+    )
     if answer is None:
-        return _terminal_result(request, "held", "semantic_evidence_incomplete")
+        return _terminal_result(request, "held", "semantic_evidence_incomplete"), None
     return ContractSemanticTurnResult(
         disposition=SemanticTurnDisposition.ANSWERED,
         reason_code="semantic_answer_verified",
@@ -545,7 +585,77 @@ def _project_runtime_result(
         checks_completed=checks_total,
         checks_total=checks_total,
         answer=answer,
+    ), rule_search
+
+
+def _project_rule_search(
+    result: RuntimeSemanticTurnResult,
+    execution: QueryPlanExecution,
+) -> tuple[bool, RuleSearchProjection | None, str | None]:
+    plan = result.planning.plan
+    if plan is None:
+        return True, None, None
+    nodes = getattr(plan, "nodes", ())
+    catalog_nodes = []
+    for node in nodes:
+        if getattr(node, "node_id", None) not in execution.output_node_ids:
+            continue
+        try:
+            arguments = node.arguments
+        except Exception:  # noqa: BLE001, S112 - malformed plan output fails closed
+            continue
+        if isinstance(arguments, dict) and arguments.get("function_name") == "catalog.search_rules":
+            catalog_nodes.append((node, arguments))
+    if not catalog_nodes:
+        return False, None, None
+    if len(catalog_nodes) != 1:
+        return True, None, None
+    node, node_arguments = catalog_nodes[0]
+    node_id = getattr(node, "node_id", None)
+    query_arguments = node_arguments.get("arguments")
+    node_result = execution.results.get(node_id) if isinstance(node_id, str) else None
+    node_kind = getattr(getattr(node, "kind", None), "value", None)
+    receipts = tuple(
+        receipt for receipt in execution.receipts if receipt.task_id == f"query:{node_id}"
     )
+    if (
+        not isinstance(node_id, str)
+        or not isinstance(query_arguments, dict)
+        or node_result is None
+        or node_kind != "function"
+        or len(receipts) != 1
+        or receipts[0].goal_id != node_id
+        or receipts[0].intent != "function"
+        or receipts[0].capability != "query.function"
+        or receipts[0].evidence_refs != node_result.evidence_refs
+    ):
+        return True, None, None
+    value = node_result.value
+    if not isinstance(value, dict):
+        return True, None, None
+    try:
+        query_request = RuleSearchRequest.model_validate(query_arguments)
+        query_digest = rule_search_query_digest(query_request)
+        projection = RuleSearchProjection.model_validate(
+            {
+                "query_digest": query_digest,
+                "retrieval_receipt_digest": value.get("retrieval_receipt_digest"),
+                "candidates": value.get("candidates"),
+                "retrieval_receipt": value.get("retrieval_receipt"),
+                "authority": value.get("authority"),
+                "execution_authority": value.get("execution_authority"),
+            }
+        )
+    except Exception:  # noqa: BLE001 - untrusted function output fails closed
+        return True, None, None
+    if (
+        projection.retrieval_receipt.operation != query_request.operation
+        or projection.retrieval_receipt.corpus != query_request.corpus
+        or len(projection.candidates) > query_request.limit
+        or projection.retrieval_receipt.catalog_digest != plan.semantic_catalog_digest
+    ):
+        return True, None, None
+    return True, projection, node_id
 
 
 def _projected_answer_evidence_is_complete(
@@ -619,11 +729,28 @@ def _terminal_result(
 def _render_query_answer(
     request: SemanticTurnRequest,
     execution: QueryPlanExecution,
+    *,
+    rule_search: RuleSearchProjection | None = None,
+    rule_search_node_id: str | None = None,
 ) -> str | None:
     outputs: list[dict[str, object]] = []
+    projected_rule_search = False
     for node_id in execution.output_node_ids:
         result = execution.results.get(node_id)
-        if result is None or not isinstance(result.value, QueryTable):
+        if result is None:
+            return None
+        if isinstance(result.value, dict):
+            if rule_search is None or projected_rule_search or node_id != rule_search_node_id:
+                return None
+            outputs.append(
+                {
+                    "node_id": node_id,
+                    "rule_search": rule_search.model_dump(mode="json"),
+                }
+            )
+            projected_rule_search = True
+            continue
+        if not isinstance(result.value, QueryTable):
             return None
         table = result.value
         rows: list[dict[str, object]] = []
@@ -640,6 +767,8 @@ def _render_query_answer(
                 break
             rows = candidate_rows
         outputs.append(_answer_output(node_id=node_id, table=table, rows=rows))
+    if rule_search is not None and not projected_rule_search:
+        return None
     encoded = _answer_json(outputs)
     heading = (
         "검증된 온톨로지 쿼리가 완료되었습니다."
@@ -711,6 +840,19 @@ def _request_digest(
             "semantic_turn": request.model_dump(mode="json"),
         }
     )
+
+
+async def _release_claim(
+    store: SemanticTurnResultStore,
+    *,
+    idempotency_key: str,
+    request_digest: str,
+    claim_id: str,
+) -> None:
+    try:
+        await store.release(idempotency_key, request_digest, claim_id)
+    except Exception:  # noqa: BLE001 - claim cleanup failure retains fail-closed outcome
+        return
 
 
 def _canonical_projection(encoded: bytes, *, request_digest: str) -> bytes:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
@@ -16,6 +17,13 @@ from fdai.core.conversation.semantic_runtime import (
 from fdai.core.conversation.session import Principal, Role, Turn
 from fdai.core.ontology_platform import QueryNodeResult, QueryPlanExecution
 from fdai.core.ontology_platform.query_values import QueryRow, QueryTable
+from fdai.rule_catalog.schema.rule_semantic_generation import (
+    CatalogRetrievalReceipt,
+    RetrievalOperation,
+    RetrievalRank,
+    SemanticAvailability,
+)
+from fdai.rule_catalog.schema.rule_semantic_retrieval import RuleCorpus
 from fdai.shared.providers.event_bus import PublishReceipt
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
@@ -28,6 +36,7 @@ from fdai_core_service.semantic_turn_processor import (
     SemanticTurnProcessor,
     SemanticTurnRejectedError,
 )
+from fdai_service_contracts import RuleSearchReceipt, rule_search_query_digest
 from fdai_service_contracts.ontology_query import (
     GoalEvidenceMode,
     GoalTaskReceipt,
@@ -38,6 +47,19 @@ NOW = datetime(2026, 8, 11, 12, 0, tzinfo=UTC)
 RELEASE_DIGEST = "sha256:" + ("a" * 64)
 MANIFEST_DIGEST = "sha256:" + ("b" * 64)
 PLAN_DIGEST = "sha256:" + ("c" * 64)
+GENERATION_DIGEST = "sha256:" + ("d" * 64)
+RULE_QUERY = {
+    "query": "zone resilience",
+    "operation": "discover",
+    "corpus": "active",
+    "limit": 10,
+}
+RULE_QUERY_DIGEST = (
+    "sha256:"
+    + hashlib.sha256(
+        json.dumps(RULE_QUERY, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+)
 
 
 class _Runtime:
@@ -107,8 +129,16 @@ class _BlockingResultStore:
         await asyncio.Event().wait()
         raise AssertionError("unreachable")
 
-    async def claim(self, idempotency_key: str, request_digest: str) -> bool:
+    async def claim(self, idempotency_key: str, request_digest: str) -> str | None:
         raise AssertionError("blocked get MUST prevent claim")
+
+    async def release(
+        self,
+        idempotency_key: str,
+        request_digest: str,
+        claim_id: str,
+    ) -> bool:
+        raise AssertionError("blocked get MUST prevent release")
 
     async def put_if_absent(self, idempotency_key: str, projection: bytes) -> bool:
         raise AssertionError("blocked get MUST prevent put")
@@ -257,6 +287,116 @@ def _runtime_result(disposition: str) -> RuntimeSemanticTurnResult:
     )
 
 
+def _rule_search_runtime_result(*, execution_authority: bool = False) -> RuntimeSemanticTurnResult:
+    result = _runtime_result("answered")
+    assert result.execution is not None
+    receipt = CatalogRetrievalReceipt(
+        query_digest=RULE_QUERY_DIGEST,
+        operation=RetrievalOperation.DISCOVER,
+        corpus=RuleCorpus.ACTIVE,
+        catalog_digest=MANIFEST_DIGEST,
+        semantic_state=SemanticAvailability.AVAILABLE,
+        results=(RetrievalRank("rule.one", 1, (("hybrid", 0.9),)),),
+        generation_digest=GENERATION_DIGEST,
+    )
+    output = {
+        "candidates": [
+            {
+                "rule_ref": "rule.one",
+                "rank": 1,
+                "components": {"hybrid": 0.9},
+                "authority": "candidate_only",
+            }
+        ],
+        "retrieval_receipt": {
+            "schema_version": receipt.schema_version,
+            "query_digest": receipt.query_digest,
+            "operation": receipt.operation.value,
+            "corpus": receipt.corpus.value,
+            "catalog_digest": receipt.catalog_digest,
+            "semantic_state": receipt.semantic_state.value,
+            "generation_digest": receipt.generation_digest,
+            "results": [
+                {
+                    "rule_ref": "rule.one",
+                    "rank": 1,
+                    "components": {"hybrid": 0.9},
+                }
+            ],
+            "degraded_reason": None,
+            "unresolved_terms": [],
+            "clarification_required": False,
+            "truncated": False,
+            "execution_authority": False,
+        },
+        "retrieval_receipt_digest": receipt.digest,
+        "authority": "candidate_only",
+        "execution_authority": execution_authority,
+    }
+    node = SimpleNamespace(
+        node_id="resources",
+        kind=SimpleNamespace(value="function"),
+        arguments={
+            "function_name": "catalog.search_rules",
+            "arguments": RULE_QUERY,
+        },
+    )
+    plan = SimpleNamespace(
+        ontology_release_digest=RELEASE_DIGEST,
+        semantic_catalog_digest=MANIFEST_DIGEST,
+        plan_digest=PLAN_DIGEST,
+        nodes=(node,),
+    )
+    planning = SimpleNamespace(plan=plan, manifest_digest=MANIFEST_DIGEST)
+    function_receipt = result.execution.receipts[0].model_copy(
+        update={
+            "goal_id": "resources",
+            "intent": "function",
+            "capability": "query.function",
+        }
+    )
+    execution = QueryPlanExecution(
+        plan_digest=PLAN_DIGEST,
+        status="completed",
+        results=MappingProxyType(
+            {
+                "resources": QueryNodeResult(
+                    value=output,
+                    evidence_refs=("inventory:evidence-1",),
+                )
+            }
+        ),
+        receipts=(function_receipt,),
+        output_node_ids=("resources",),
+    )
+    return RuntimeSemanticTurnResult(
+        disposition="answered",
+        reason=result.reason,
+        planning=cast(Any, planning),
+        execution=execution,
+        intent_graph={
+            **cast(dict[str, object], result.intent_graph),
+            "goals": [
+                {
+                    **cast(dict[str, object], result.intent_graph)["goals"][0],
+                    "intent": "function",
+                    "capability": "query.function",
+                }
+            ],
+        },
+        intent_graph_evidence={
+            **cast(dict[str, object], result.intent_graph_evidence),
+            "goals": [
+                {
+                    **cast(dict[str, object], result.intent_graph_evidence)["goals"][0],
+                    "intent": "function",
+                    "capability": "query.function",
+                }
+            ],
+        },
+    )
+
+
 async def test_malformed_semantic_request_goes_to_dlq() -> None:
     bus = InMemoryEventBus()
     await bus.publish("operator.request", "bad", {"schema_version": "1.2.0"})
@@ -338,6 +478,16 @@ async def test_expired_deadline_and_pre_cancel_never_call_runtime() -> None:
 
     assert expired["semantic_result"]["reason_code"] == "semantic_deadline_exceeded"
     assert cancelled["status"] == "cancelled"
+    assert runtime.calls == 0
+
+
+async def test_overlong_deadline_is_rejected_before_runtime() -> None:
+    runtime = _Runtime(_runtime_result("answered"))
+    processor = _processor(runtime)
+
+    with pytest.raises(SemanticTurnRejectedError, match="semantic_deadline_too_far"):
+        await processor.process(_request(deadline_at=NOW + timedelta(seconds=91)))
+
     assert runtime.calls == 0
 
 
@@ -445,6 +595,89 @@ async def test_concurrent_duplicate_executes_runtime_once() -> None:
     assert runtime.calls == 1
 
 
+async def test_abandoned_claim_is_recovered_only_after_lease_expiry() -> None:
+    state_store = InMemoryStateStore()
+    before_expiry = StateStoreSemanticTurnResultStore(
+        state_store,
+        claim_lease_seconds=30,
+        now=lambda: NOW,
+    )
+    after_expiry = StateStoreSemanticTurnResultStore(
+        state_store,
+        claim_lease_seconds=30,
+        now=lambda: NOW + timedelta(seconds=31),
+    )
+
+    original_claim = await before_expiry.claim("turn-1", "sha256:request")
+
+    assert original_claim is not None
+    assert await before_expiry.claim("turn-1", "sha256:request") is None
+    recovered_claim = await after_expiry.claim("turn-1", "sha256:request")
+    assert recovered_claim is not None
+    assert recovered_claim != original_claim
+    assert not await after_expiry.release(
+        "turn-1",
+        "sha256:request",
+        original_claim,
+    )
+    assert await after_expiry.release(
+        "turn-1",
+        "sha256:request",
+        recovered_claim,
+    )
+    assert await after_expiry.claim("turn-1", "sha256:request") is not None
+
+
+async def test_default_claim_lease_covers_healthy_request_deadline() -> None:
+    state_store = InMemoryStateStore()
+    owner = StateStoreSemanticTurnResultStore(state_store, now=lambda: NOW)
+    contender = StateStoreSemanticTurnResultStore(
+        state_store,
+        now=lambda: NOW + timedelta(seconds=90),
+    )
+
+    assert await owner.claim("turn-1", "sha256:request") is not None
+    assert await contender.claim("turn-1", "sha256:request") is None
+
+
+async def test_result_persistence_failure_releases_owned_claim() -> None:
+    class FailingResultStore:
+        released_claims: list[str]
+
+        def __init__(self) -> None:
+            self.released_claims = []
+
+        async def get(self, idempotency_key: str) -> bytes | None:
+            return None
+
+        async def claim(self, idempotency_key: str, request_digest: str) -> str | None:
+            return "claim-1"
+
+        async def release(
+            self,
+            idempotency_key: str,
+            request_digest: str,
+            claim_id: str,
+        ) -> bool:
+            self.released_claims.append(claim_id)
+            return True
+
+        async def put_if_absent(self, idempotency_key: str, projection: bytes) -> bool:
+            raise RuntimeError("state store unavailable")
+
+    store = FailingResultStore()
+    processor = SemanticTurnProcessor(
+        runtime=_Runtime(_runtime_result("answered")),
+        results=store,
+        now=lambda: NOW,
+    )
+
+    projection = _projection(await processor.process(_request()))
+
+    assert projection["semantic_result"]["reason_code"] == "semantic_result_store_unavailable"
+    assert store.released_claims == ["claim-1"]
+
+
 async def test_reused_idempotency_key_for_different_turn_is_rejected() -> None:
     runtime = _Runtime(_runtime_result("answered"))
     processor = _processor(runtime)
@@ -473,6 +706,164 @@ async def test_answered_projection_requires_complete_exact_evidence() -> None:
     assert semantic["evidence_refs"] == ["inventory:evidence-1"]
     assert semantic["checks_completed"] == semantic["checks_total"] == 1
     assert semantic["execution_authority"] is False
+
+
+async def test_answered_rule_search_projects_exact_candidate_receipt() -> None:
+    projection = _projection(
+        await _processor(_Runtime(_rule_search_runtime_result())).process(_request())
+    )
+
+    rule_search = projection["payload"]["rule_search"]
+    assert projection["status"] == "answered"
+    assert rule_search["query_digest"].startswith("sha256:")
+    assert rule_search["retrieval_receipt"]["generation_digest"] == GENERATION_DIGEST
+    assert rule_search["candidates"] == [
+        {
+            "authority": "candidate_only",
+            "components": {"hybrid": 0.9},
+            "rank": 1,
+            "rule_ref": "rule.one",
+        }
+    ]
+    assert rule_search["authority"] == "candidate_only"
+    assert rule_search["execution_authority"] is False
+
+
+async def test_authority_bearing_rule_search_output_is_held() -> None:
+    projection = _projection(
+        await _processor(_Runtime(_rule_search_runtime_result(execution_authority=True))).process(
+            _request()
+        )
+    )
+
+    assert projection["status"] == "held"
+    assert projection["semantic_result"]["reason_code"] == "semantic_evidence_incomplete"
+    assert "rule_search" not in projection["payload"]
+
+
+async def test_rule_search_receipt_must_bind_exact_function_capability() -> None:
+    runtime_result = _rule_search_runtime_result()
+    assert runtime_result.execution is not None
+    assert runtime_result.intent_graph is not None
+    assert runtime_result.intent_graph_evidence is not None
+    receipt = runtime_result.execution.receipts[0].model_copy(
+        update={"intent": "object_set", "capability": "query.object_set"}
+    )
+    execution = QueryPlanExecution(
+        plan_digest=runtime_result.execution.plan_digest,
+        status=runtime_result.execution.status,
+        results=runtime_result.execution.results,
+        receipts=(receipt,),
+        output_node_ids=runtime_result.execution.output_node_ids,
+    )
+    graph = {
+        **runtime_result.intent_graph,
+        "goals": [
+            {
+                **runtime_result.intent_graph["goals"][0],
+                "intent": "object_set",
+                "capability": "query.object_set",
+            }
+        ],
+    }
+    evidence = {
+        **runtime_result.intent_graph_evidence,
+        "goals": [
+            {
+                **runtime_result.intent_graph_evidence["goals"][0],
+                "intent": "object_set",
+                "capability": "query.object_set",
+            }
+        ],
+    }
+    tampered = RuntimeSemanticTurnResult(
+        disposition=runtime_result.disposition,
+        reason=runtime_result.reason,
+        planning=runtime_result.planning,
+        execution=execution,
+        intent_graph=graph,
+        intent_graph_evidence=evidence,
+    )
+
+    projection = _projection(await _processor(_Runtime(tampered)).process(_request()))
+
+    assert projection["status"] == "held"
+    assert projection["semantic_result"]["reason_code"] == "semantic_evidence_incomplete"
+    assert "rule_search" not in projection["payload"]
+
+
+async def test_rule_search_receipt_must_match_function_operation_and_corpus() -> None:
+    runtime_result = _rule_search_runtime_result()
+    assert runtime_result.execution is not None
+    node_result = runtime_result.execution.results["resources"]
+    output = cast(dict[str, object], node_result.value)
+    receipt = RuleSearchReceipt.model_validate(output["retrieval_receipt"]).model_copy(
+        update={"operation": "explain", "corpus": "discovery"}
+    )
+    output["retrieval_receipt"] = receipt.model_dump(mode="json")
+    output["retrieval_receipt_digest"] = receipt.digest
+
+    projection = _projection(await _processor(_Runtime(runtime_result)).process(_request()))
+
+    assert projection["status"] == "held"
+    assert projection["semantic_result"]["reason_code"] == "semantic_evidence_incomplete"
+    assert "rule_search" not in projection["payload"]
+
+
+async def test_rule_search_candidates_must_not_exceed_function_limit() -> None:
+    runtime_result = _rule_search_runtime_result()
+    assert runtime_result.execution is not None
+    assert runtime_result.planning.plan is not None
+    original_node = runtime_result.planning.plan.nodes[0]
+    query = {**RULE_QUERY, "limit": 1}
+    node = SimpleNamespace(
+        node_id=original_node.node_id,
+        kind=original_node.kind,
+        arguments={"function_name": "catalog.search_rules", "arguments": query},
+    )
+    plan = SimpleNamespace(
+        ontology_release_digest=runtime_result.planning.plan.ontology_release_digest,
+        semantic_catalog_digest=runtime_result.planning.plan.semantic_catalog_digest,
+        plan_digest=runtime_result.planning.plan.plan_digest,
+        nodes=(node,),
+    )
+    output = cast(dict[str, object], runtime_result.execution.results["resources"].value)
+    candidates = cast(list[dict[str, object]], output["candidates"])
+    candidates.append(
+        {
+            "rule_ref": "rule.two",
+            "rank": 2,
+            "components": {"hybrid": 0.8},
+            "authority": "candidate_only",
+        }
+    )
+    receipt_payload = cast(dict[str, object], output["retrieval_receipt"])
+    receipt_results = cast(list[dict[str, object]], receipt_payload["results"])
+    receipt_results.append(
+        {
+            "rule_ref": "rule.two",
+            "rank": 2,
+            "components": {"hybrid": 0.8},
+        }
+    )
+    receipt_payload["query_digest"] = rule_search_query_digest(query)
+    receipt = RuleSearchReceipt.model_validate(receipt_payload)
+    output["retrieval_receipt"] = receipt.model_dump(mode="json")
+    output["retrieval_receipt_digest"] = receipt.digest
+    tampered = RuntimeSemanticTurnResult(
+        disposition=runtime_result.disposition,
+        reason=runtime_result.reason,
+        planning=SimpleNamespace(plan=plan, manifest_digest=MANIFEST_DIGEST),
+        execution=runtime_result.execution,
+        intent_graph=runtime_result.intent_graph,
+        intent_graph_evidence=runtime_result.intent_graph_evidence,
+    )
+
+    projection = _projection(await _processor(_Runtime(tampered)).process(_request()))
+
+    assert projection["status"] == "held"
+    assert projection["semantic_result"]["reason_code"] == "semantic_evidence_incomplete"
+    assert "rule_search" not in projection["payload"]
 
 
 async def test_answered_runtime_without_evidence_is_held() -> None:

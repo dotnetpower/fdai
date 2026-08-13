@@ -6,9 +6,11 @@ import asyncio
 import base64
 import hashlib
 import json
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Any
+from uuid import uuid4
 
 from fdai.core.conversation.semantic_runtime import SemanticConversationRuntime
 from fdai.shared.providers.event_bus import EventBus
@@ -21,6 +23,7 @@ from .semantic_turn_processor import (
 
 _STATE_PREFIX = "semantic-turn-result:"
 _CLAIM_PREFIX = "semantic-turn-claim:"
+_DEFAULT_CLAIM_LEASE_SECONDS = 120.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,10 +51,20 @@ class SemanticTurnConsumerBinding:
 
 
 class StateStoreSemanticTurnResultStore:
-    """Persist canonical projections with StateStore atomic create semantics."""
+    """Persist canonical projections and recover abandoned processing claims."""
 
-    def __init__(self, state_store: StateStore) -> None:
+    def __init__(
+        self,
+        state_store: StateStore,
+        *,
+        claim_lease_seconds: float = _DEFAULT_CLAIM_LEASE_SECONDS,
+        now: Callable[[], datetime] | None = None,
+    ) -> None:
+        if claim_lease_seconds <= 0:
+            raise ValueError("semantic claim lease MUST be positive")
         self._state_store = state_store
+        self._claim_lease_seconds = claim_lease_seconds
+        self._now = now or (lambda: datetime.now(UTC))
 
     async def get(self, idempotency_key: str) -> bytes | None:
         record = await self._state_store.read_state(_state_key(idempotency_key))
@@ -65,22 +78,67 @@ class StateStoreSemanticTurnResultStore:
         except ValueError as exc:
             raise RuntimeError("semantic result state is malformed") from exc
 
-    async def claim(self, idempotency_key: str, request_digest: str) -> bool:
+    async def claim(self, idempotency_key: str, request_digest: str) -> str | None:
         key = _claim_key(idempotency_key)
+        now = _claim_time(self._now())
+        claim_id = str(uuid4())
+        candidate = _claim_record(
+            idempotency_key=idempotency_key,
+            request_digest=request_digest,
+            claim_id=claim_id,
+            revision=0,
+            lease_expires_at=now + timedelta(seconds=self._claim_lease_seconds),
+        )
         created = await self._state_store.write_state_if_absent(
             key,
-            {
-                "schema_version": "1.0.0",
-                "idempotency_key": idempotency_key,
-                "request_digest": request_digest,
-            },
+            candidate,
         )
         if created:
-            return True
+            return claim_id
         existing = await self._state_store.read_state(key)
         if existing is None or existing.get("request_digest") != request_digest:
             raise SemanticTurnRejectedError("semantic_idempotency_conflict")
-        return False
+        revision, status, lease_expires_at = _claim_state(existing)
+        if status == "active" and lease_expires_at > now:
+            return None
+        recovered = {**candidate, "revision": revision + 1}
+        changed = await self._state_store.compare_and_set_state_with_audit(
+            key,
+            recovered,
+            expected_revision=revision,
+            audit_entry=_claim_audit("semantic_turn.claim_recovered"),
+        )
+        return claim_id if changed else None
+
+    async def release(
+        self,
+        idempotency_key: str,
+        request_digest: str,
+        claim_id: str,
+    ) -> bool:
+        key = _claim_key(idempotency_key)
+        existing = await self._state_store.read_state(key)
+        if (
+            existing is None
+            or existing.get("request_digest") != request_digest
+            or existing.get("claim_id") != claim_id
+        ):
+            return False
+        revision, status, _lease_expires_at = _claim_state(existing)
+        if status != "active":
+            return False
+        released = {
+            **existing,
+            "status": "released",
+            "revision": revision + 1,
+            "lease_expires_at": _claim_time(self._now()).isoformat(),
+        }
+        return await self._state_store.compare_and_set_state_with_audit(
+            key,
+            released,
+            expected_revision=revision,
+            audit_entry=_claim_audit("semantic_turn.claim_released"),
+        )
 
     async def put_if_absent(self, idempotency_key: str, projection: bytes) -> bool:
         return await self._state_store.write_state_if_absent(
@@ -253,6 +311,58 @@ def _state_key(idempotency_key: str) -> str:
 def _claim_key(idempotency_key: str) -> str:
     digest = hashlib.sha256(idempotency_key.encode()).hexdigest()
     return f"{_CLAIM_PREFIX}{digest}"
+
+
+def _claim_record(
+    *,
+    idempotency_key: str,
+    request_digest: str,
+    claim_id: str,
+    revision: int,
+    lease_expires_at: datetime,
+) -> dict[str, object]:
+    return {
+        "schema_version": "1.1.0",
+        "idempotency_key": idempotency_key,
+        "request_digest": request_digest,
+        "claim_id": claim_id,
+        "status": "active",
+        "revision": revision,
+        "lease_expires_at": lease_expires_at.isoformat(),
+    }
+
+
+def _claim_state(record: Mapping[str, Any]) -> tuple[int, str, datetime]:
+    revision = record.get("revision")
+    status = record.get("status")
+    lease_raw = record.get("lease_expires_at")
+    if (
+        not isinstance(revision, int)
+        or revision < 0
+        or status not in {"active", "released"}
+        or not isinstance(lease_raw, str)
+    ):
+        raise RuntimeError("semantic claim state is malformed")
+    try:
+        lease_expires_at = _claim_time(datetime.fromisoformat(lease_raw))
+    except ValueError as exc:
+        raise RuntimeError("semantic claim state is malformed") from exc
+    return revision, status, lease_expires_at
+
+
+def _claim_time(value: datetime) -> datetime:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise RuntimeError("semantic claim clock MUST be timezone-aware")
+    return value.astimezone(UTC)
+
+
+def _claim_audit(action_kind: str) -> dict[str, str]:
+    return {
+        "event_id": str(uuid4()),
+        "actor": "semantic-turn-consumer",
+        "action_kind": action_kind,
+        "mode": "shadow",
+    }
 
 
 __all__ = [

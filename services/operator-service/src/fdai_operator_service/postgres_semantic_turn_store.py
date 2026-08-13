@@ -10,8 +10,11 @@ from datetime import UTC, datetime
 from typing import Any, Final
 from uuid import uuid4
 
+from fdai_service_contracts import RuleSearchProjection, SemanticTurnRequest
+
 _OUTBOX_PREFIX: Final = "operator-semantic-outbox:"
 _RESULT_PREFIX: Final = "operator-semantic-result:"
+_RULE_SEARCH_PROJECTION_PREFIX: Final = "operator-projection:workflow:rule.search:"
 
 FetchAll = Callable[[str, Mapping[str, object]], Awaitable[list[dict[str, Any]]]]
 InsertIfAbsent = Callable[..., Awaitable[tuple[bool, dict[str, object]]]]
@@ -82,6 +85,17 @@ class PostgresSemanticTurnRepository:
         request_id = envelope.get("request_id")
         if not isinstance(request_id, str):
             raise ValueError("semantic envelope request_id MUST be a string")
+        _bounded_component("request_id", request_id)
+        requested_at = envelope.get("requested_at")
+        semantic_turn = envelope.get("semantic_turn")
+        if not isinstance(requested_at, str) or not isinstance(semantic_turn, Mapping):
+            raise ValueError("semantic envelope structure is malformed")
+        try:
+            request = SemanticTurnRequest.model_validate(semantic_turn)
+        except ValueError:
+            raise ValueError("semantic envelope structure is malformed") from None
+        if request.principal.subject_id != principal_id:
+            raise ValueError("semantic envelope principal MUST match the durable owner")
         key = _outbox_key(idempotency_key)
         record: dict[str, object] = {
             "kind": "operator.semantic_turn",
@@ -92,11 +106,15 @@ class PostgresSemanticTurnRepository:
             "request_digest": request_digest,
             "state": "pending",
             "attempt": 0,
-            "accepted_at": envelope.get("requested_at"),
+            "accepted_at": requested_at,
             "envelope": dict(envelope),
         }
         inserted, stored = await self._insert_if_absent(key=key, value=record)
-        if stored.get("request_digest") != request_digest:
+        if (
+            stored.get("request_digest") != request_digest
+            or stored.get("principal_id") != principal_id
+            or stored.get("request_id") != request_id
+        ):
             raise SemanticTurnConflictError(
                 "idempotency key conflicts with a different semantic turn"
             )
@@ -238,6 +256,17 @@ class PostgresSemanticTurnRepository:
             or not isinstance(turn_id, str)
         ):
             raise ValueError("semantic result turn identity is malformed")
+        payload = projection.get("payload")
+        if not isinstance(payload, dict):
+            raise ValueError("semantic projection payload MUST be an object")
+        rule_search_value = payload.get("rule_search")
+        rule_search = (
+            None
+            if rule_search_value is None
+            else RuleSearchProjection.model_validate(rule_search_value)
+        )
+        if rule_search is not None and semantic_result.get("disposition") != "answered":
+            raise ValueError("Rule search projection requires an answered semantic result")
         projection_digest = _digest(dict(projection))
         key = _result_key(request_id, projection_id)
         record = {
@@ -259,6 +288,22 @@ class PostgresSemanticTurnRepository:
             projection_digest=projection_digest,
             record=record,
             recorded_at=recorded_at,
+            rule_projection_record=(
+                None
+                if rule_search is None
+                else {
+                    "kind": "operator.workflow_rule_search_projection",
+                    "projection_id": projection_id,
+                    "request_id": request_id,
+                    "query_digest": rule_search.query_digest,
+                    "retrieval_receipt_digest": rule_search.retrieval_receipt_digest,
+                    "catalog_digest": rule_search.retrieval_receipt.catalog_digest,
+                    "generation_digest": rule_search.retrieval_receipt.generation_digest,
+                    "recorded_at": recorded_at,
+                    "_revision": projection_id,
+                    "data": rule_search.model_dump(mode="json"),
+                }
+            ),
         )
         if not rows:
             raise SemanticTurnConflictError("semantic result has no matching durable request")
@@ -298,7 +343,7 @@ class PostgresSemanticTurnRepository:
                AND value ->> 'request_id' = %(request_id)s
                AND (value ->> 'event_sequence')::bigint > %(after_sequence)s
              ORDER BY (value ->> 'event_sequence')::bigint,
-                      value ->> 'recorded_at',
+                                            (value ->> 'recorded_at')::timestamptz,
                       value ->> 'projection_id'
              LIMIT %(limit)s
             """,
@@ -349,6 +394,7 @@ class PostgresSemanticTurnRepository:
         projection_digest: str,
         record: Mapping[str, object],
         recorded_at: str,
+        rule_projection_record: Mapping[str, object] | None,
     ) -> list[dict[str, Any]]:
         return await self._fetch_all(
             """
@@ -363,6 +409,32 @@ class PostgresSemanticTurnRepository:
                        = %(turn_sequence)s
                  LIMIT 1
                  FOR UPDATE
+            ), rule_target AS (
+                SELECT %(rule_projection_prefix)s
+                           || encode(
+                               sha256(
+                                   convert_to(
+                                       owned_request.principal_id
+                                       || chr(31)
+                                       || %(rule_query_digest)s,
+                                       'UTF8'
+                                   )
+                               ),
+                               'hex'
+                           ) AS key,
+                       owned_request.principal_id,
+                       %(rule_query_digest)s::text AS query_digest
+                  FROM owned_request
+                      WHERE %(rule_projection_record)s::jsonb IS NOT NULL
+            ), rule_identity_conflict AS (
+                SELECT TRUE
+                  FROM state_kv AS target
+                  JOIN rule_target ON rule_target.key = target.key
+                      WHERE target.value ->> 'principal_id'
+                                    IS DISTINCT FROM rule_target.principal_id
+                          OR target.value ->> 'query_digest'
+                                    IS DISTINCT FROM rule_target.query_digest
+                 FOR UPDATE OF target
             ), existing AS (
                 SELECT existing.value
                   FROM state_kv AS existing
@@ -382,12 +454,17 @@ class PostgresSemanticTurnRepository:
                            'principal_id', owned_request.principal_id
                        )
                   FROM owned_request
+                                 WHERE NOT EXISTS (SELECT 1 FROM rule_identity_conflict)
                 ON CONFLICT (key) DO NOTHING
                 RETURNING value
             ), accepted AS (
-                SELECT TRUE AS inserted, value FROM inserted
+                                SELECT TRUE AS inserted, value
+                                    FROM inserted
+                                 WHERE NOT EXISTS (SELECT 1 FROM rule_identity_conflict)
                 UNION ALL
-                SELECT FALSE AS inserted, value FROM existing
+                                SELECT FALSE AS inserted, value
+                                    FROM existing
+                                 WHERE NOT EXISTS (SELECT 1 FROM rule_identity_conflict)
             ), completed AS (
                 UPDATE state_kv AS target
                    SET value = target.value || jsonb_build_object(
@@ -399,8 +476,35 @@ class PostgresSemanticTurnRepository:
                  WHERE target.key = owned_request.key
                    AND EXISTS (SELECT 1 FROM accepted)
                 RETURNING target.key
+            ), rule_projected AS (
+                INSERT INTO state_kv AS target (key, value)
+                SELECT rule_target.key,
+                       %(rule_projection_record)s::jsonb || jsonb_build_object(
+                           'principal_id', rule_target.principal_id
+                       )
+                  FROM accepted
+                  CROSS JOIN rule_target
+                ON CONFLICT (key) DO UPDATE
+                   SET value = EXCLUDED.value,
+                       updated_at = NOW()
+                 WHERE target.value ->> 'principal_id'
+                           = EXCLUDED.value ->> 'principal_id'
+                   AND target.value ->> 'query_digest'
+                           = EXCLUDED.value ->> 'query_digest'
+                   AND (target.value ->> 'recorded_at')::timestamptz
+                           <= (EXCLUDED.value ->> 'recorded_at')::timestamptz
+                   AND (
+                       (target.value ->> 'recorded_at')::timestamptz
+                           < (EXCLUDED.value ->> 'recorded_at')::timestamptz
+                       OR (target.value ->> 'projection_id')
+                           < (EXCLUDED.value ->> 'projection_id')
+                   )
+                RETURNING key
             )
-            SELECT inserted, value FROM accepted
+            SELECT inserted,
+                   value,
+                   (SELECT count(*) FROM rule_projected) AS rule_projection_writes
+              FROM accepted
             """,
             {
                 "outbox_prefix": f"{_OUTBOX_PREFIX}%",
@@ -413,8 +517,33 @@ class PostgresSemanticTurnRepository:
                 "projection_digest": projection_digest,
                 "record": json.dumps(dict(record), separators=(",", ":"), sort_keys=True),
                 "recorded_at": recorded_at,
+                "rule_projection_prefix": _RULE_SEARCH_PROJECTION_PREFIX,
+                "rule_query_digest": (
+                    None
+                    if rule_projection_record is None
+                    else rule_projection_record["query_digest"]
+                ),
+                "rule_projection_record": (
+                    None
+                    if rule_projection_record is None
+                    else json.dumps(
+                        dict(rule_projection_record),
+                        separators=(",", ":"),
+                        sort_keys=True,
+                    )
+                ),
             },
         )
+
+
+def rule_search_projection_key(principal_id: str, query_digest: str) -> str:
+    """Return the principal/query-isolated key used by the Rule-search materializer."""
+
+    _bounded_component("principal_id", principal_id)
+    _bounded_component("query_digest", query_digest)
+    identity = f"{principal_id}\x1f{query_digest}".encode()
+    digest = hashlib.sha256(identity).hexdigest()
+    return f"{_RULE_SEARCH_PROJECTION_PREFIX}{digest}"
 
 
 def _outbox_key(idempotency_key: str) -> str:
