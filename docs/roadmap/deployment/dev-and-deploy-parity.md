@@ -30,6 +30,7 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 | Automated-test fixture isolation | implemented | `tests/`, `console/tests/`, and the fixture-only composition paths exercised by the repository test suites | Deterministic fixtures remain outside authoritative interactive profiles. |
 | Authenticated live Console route assurance | in-progress | `console/playwright.live.config.ts`, `console/tests/live-e2e/operator_service.py`, `console/tests/live-e2e/console-routes.spec.ts`, and `console/tests/live-e2e/ontology-query-assurance*.ts`; focused route checks and provenance tests passed | A governed artifact binds the exact source revision, canonical run-configuration digest, workspace patch digest, authentication attestation, and per-turn request and projection ids. The full route, ontology cohort, and critique rounds remain open. |
 | Live observation consumer isolation | implemented | `services/operator-service/src/fdai_operator_service/environment.py`, `services/operator-service/src/fdai_operator_service/composition.py`, `console/tests/live-e2e/operator_service.py`, and focused regressions; 41 tests passed | `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID` binds each independently running Operator process or replica to a distinct group. The E2E launcher always replaces inherited values with a UUID-scoped group. |
+| Agent refresh latest-state hydration | validated | Focused stream tests: 9 passed; authenticated `/agents` reloads reached `Watching 2 / Idle 13 / Unobserved 0` in 224 ms, 232 ms, and 228 ms | The Agent hub seeds one latest validated `agent.state` event per agent into each new subscriber. Generic Live remains future-only, and neither hub provides durable history replay. |
 | Authenticated local Live event path | validated | Controlled 2026-08-13 Browser Entra run through `aw.change.events`, Core, `aw.pipeline.stages`, Operator SSE, and the existing authenticated Live DOM | The run preserved the authoritative ontology and rendered the event plus all four accepted stages. It did not validate a deployed revision, the browser Notifications API, or closed-browser push delivery. |
 | Local and deployed composition parity | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, service integration tests, and focused workspace task tests | Composition roots select credentials and adapters without changing evidence authority. Local and deployed preparation materialize the same reviewed Rule and Ontology reference projections before the Operator reads them. |
 | Local validation database isolation | implemented | `infra/local/docker-compose.yml`, `scripts/automation/validation_queue_context.py`, local preparation scripts, and focused validation and migration integration tests | Runtime state stays on local PostgreSQL port `5432`; destructive migration validation uses a separate local PostgreSQL cluster on port `5433`. |
@@ -49,6 +50,8 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 | 2026-08-13 | in-progress | Bound ontology assurance artifacts to exact source, configuration, workspace, authentication, request, and projection provenance before they can become governed evidence. | Current change in `console/tests/live-e2e/ontology-query-assurance*.ts`; focused Vitest: 25 passed; Console typecheck passed. | Obtain the exact centralized validation receipt, then run one authenticated probe before the seeded bilingual 100-case cohort. |
 | 2026-08-13 | implemented | Added a trusted-workspace aggregate task that prepares local state once and starts all five backend services plus the Console SPA without per-service confirmation clicks. | Current change in `.vscode/tasks.json` and `tests/integration/scripts/test_vscode_workspace_performance.py`; focused workspace task tests: 3 passed. | No remaining implementation work for automatic local full-stack startup. |
 | 2026-08-13 | implemented | Added preparation-time materialization of reviewed Rule and Ontology catalogs for both local startup and deployed Operator state. | Current change in `.vscode/tasks.json`, `scripts/deployment/local/materialize-authoritative-catalogs.py`, `infra/modules/operator-api/container-app/`, and `.github/workflows/deploy-dev.yml`; focused materializer, Operator, and deployment tests passed. | Record protected deployed evidence that migration completes before catalog materialization. |
+| 2026-08-13 | implemented | Added race-safe, process-local latest-state hydration for new Agent SSE subscribers while preserving future-only generic Live delivery. | Current change in the Operator stream hub, composition, and focused regressions; stream tests: 9 passed; Ruff passed for all touched Python files. | Validate immediate Agent fleet hydration in the authenticated browser session. |
+| 2026-08-13 | validated | Verified immediate Agent fleet hydration through the existing authenticated Browser Entra session after restarting the Operator with the changed code. | Three `/agents` reloads reached `Watching 2 / Idle 13 / Unobserved 0` in 224 ms, 232 ms, and 228 ms, well below the 15-second runtime heartbeat interval. | No remaining implementation work for Agent refresh latest-state hydration. |
 
 ### Remaining work
 
@@ -420,11 +423,14 @@ developers never join the same Event Hubs Kafka consumer group. Automation can s
 `FDAI_LOCAL_CONSUMER_INSTANCE` to a lowercase alphanumeric-and-hyphen identifier of at most 20
 characters when it needs a stable explicit name. Generated core, Pantheon, and Operator request groups
 use that instance, while deployed Operator request groups use their runtime hostname. Live and Agent
-observation use a different rule because each bounded process-local SSE hub is non-replay:
-`FDAI_LIVE_STAGE_CONSUMER_GROUP_ID` must be distinct for every independently running Operator process
-or replica so each hub consumes the complete `aw.pipeline.stages` stream. Its default preserves
-single-process compatibility only. The isolated E2E launcher always replaces an inherited value with
-a UUID-scoped group and never joins the group used by the browser-serving Operator.
+observation use different process-local replay rules. The generic Live stage hub remains future-only.
+The Agent hub retains one latest validated `agent.state` event per agent and seeds those values while
+registering each new subscriber under the same lock. This bounded process-local snapshot hydrates a
+refresh without polling, but it is not durable history replay and disappears when the Operator process
+restarts. `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID` must still be distinct for every independently running
+Operator process or replica so each hub consumes the complete `aw.pipeline.stages` stream. Its default
+preserves single-process compatibility only. The isolated E2E launcher always replaces an inherited
+value with a UUID-scoped group and never joins the group used by the browser-serving Operator.
 
 Workflow definitions use the deployment enforce allowlist; ActionTypes retain promotion and risk gates.
 Enforce requires Azure event transport and a durable database shared with workflow approval evidence.

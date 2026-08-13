@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 53ddbf51797bb0e4c6f45747c4e4dfe72e08d72a
+translation_source_sha: 42b743a88331f2270a6c8ae0fd4c1963546039d4
 translation_revised: 2026-08-13
 ---
 
@@ -33,6 +33,7 @@ translation_revised: 2026-08-13
 | 자동화 테스트 고정본 격리 | implemented | `tests/`, `console/tests/` 및 리포지토리 테스트 모음이 실행하는 고정본 전용 composition 경로 | 결정론적 고정본은 권위 있는 interactive 프로파일 밖에 유지됩니다. |
 | 인증된 라이브 Console 경로 보증 | in-progress | `console/playwright.live.config.ts`, `console/tests/live-e2e/operator_service.py`, `console/tests/live-e2e/console-routes.spec.ts`, `console/tests/live-e2e/ontology-query-assurance*.ts`, focused 경로 검사 및 출처 이력 테스트 통과 | 통제된 아티팩트는 정확한 source revision, 정규 run-configuration digest, workspace patch digest, authentication attestation 및 턴별 request와 projection id를 연결합니다. 전체 경로, 온톨로지 cohort 및 비평 라운드는 열려 있습니다. |
 | Live 관찰 소비자 격리 | implemented | `services/operator-service/src/fdai_operator_service/environment.py`, `services/operator-service/src/fdai_operator_service/composition.py`, `console/tests/live-e2e/operator_service.py` 및 focused 회귀 검사, 테스트 41개 통과 | `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID`는 독립적으로 실행되는 각 Operator 프로세스 또는 복제본을 고유한 그룹에 연결합니다. E2E launcher는 상속된 값을 항상 UUID 범위 그룹으로 교체합니다. |
+| Agent 새로 고침 최신 상태 초기화 | validated | focused 스트림 테스트 9개 통과, 인증된 `/agents` 새로 고침이 각각 224ms, 232ms, 228ms 안에 `Watching 2 / Idle 13 / Unobserved 0` 도달 | Agent hub는 agent별로 검증된 최신 `agent.state` 이벤트 하나를 새 구독자에게 초기값으로 제공합니다. 일반 Live는 이후 이벤트만 전달하며 어느 hub도 영속 이력 재생을 제공하지 않습니다. |
 | 인증된 로컬 Live 이벤트 경로 | validated | 2026-08-13 통제된 Browser Entra 실행이 `aw.change.events`, Core, `aw.pipeline.stages`, Operator SSE 및 기존 인증 Live DOM을 통과 | 이 실행은 권위 있는 온톨로지를 보존하고 이벤트와 허용된 네 단계를 모두 렌더링했습니다. 배포된 개정 번호, 브라우저 Notifications API 또는 브라우저 종료 상태의 push 전달은 검증하지 않았습니다. |
 | 로컬 및 배포 composition 동등성 | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, 서비스 통합 테스트 및 집중 workspace 작업 테스트 | Composition root는 근거 권한을 바꾸지 않고 자격 증명과 어댑터를 선택합니다. 로컬 및 배포 준비는 Operator가 읽기 전에 검토된 Rule 및 Ontology 참조 변환 결과를 동일하게 구체화합니다. |
 | 로컬 검증 데이터베이스 격리 | implemented | `infra/local/docker-compose.yml`, `scripts/automation/validation_queue_context.py`, 로컬 준비 스크립트 및 focused 검증과 migration 통합 테스트 | 런타임 상태는 로컬 PostgreSQL port `5432`에 유지하고 파괴적인 migration 검증은 port `5433`의 별도 로컬 PostgreSQL cluster를 사용합니다. |
@@ -52,6 +53,8 @@ translation_revised: 2026-08-13
 | 2026-08-13 | in-progress | 온톨로지 보증 아티팩트가 통제된 근거가 되기 전에 정확한 source, configuration, workspace, 인증, request 및 projection 출처 이력에 연결했습니다. | 현재 변경의 `console/tests/live-e2e/ontology-query-assurance*.ts`, focused Vitest 25개 통과 및 Console 타입 검사 통과. | 정확한 중앙 검증 receipt를 얻은 뒤 seeded 영/한 100-case cohort 전에 인증된 probe 하나를 실행합니다. |
 | 2026-08-13 | implemented | 로컬 상태를 한 번 준비하고 서비스별 확인 클릭 없이 백엔드 서비스 5개와 Console SPA를 모두 시작하는 신뢰된 workspace 집계 작업을 추가했습니다. | 현재 변경의 `.vscode/tasks.json` 및 `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 workspace 작업 테스트 3개 통과. | 로컬 full-stack 자동 시작에 남은 구현 작업은 없습니다. |
 | 2026-08-13 | implemented | 로컬 시작 및 배포된 Operator 상태에 검토된 Rule 및 Ontology 카탈로그를 준비 시점에 구체화하도록 추가했습니다. | 현재 변경의 `.vscode/tasks.json`, `scripts/deployment/local/materialize-authoritative-catalogs.py`, `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml`, 집중 materializer, Operator 및 배포 테스트 통과. | 카탈로그 구체화 전에 migration이 완료됨을 보여 주는 보호된 배포 근거를 기록합니다. |
+| 2026-08-13 | implemented | 일반 Live가 이후 이벤트만 전달하는 성질을 유지하면서 새 Agent SSE 구독자에게 경쟁 조건 없이 프로세스 내부 최신 상태를 제공하도록 했습니다. | 현재 변경의 Operator 스트림 hub, composition 및 focused 회귀 검사, 스트림 테스트 9개와 변경한 모든 Python 파일의 Ruff 검사 통과. | 인증된 브라우저 세션에서 Agent fleet이 즉시 초기화되는지 검증합니다. |
+| 2026-08-13 | validated | 변경한 코드로 Operator를 다시 시작한 후 기존의 인증된 Browser Entra 세션을 통해 Agent fleet이 즉시 초기화되는지 검증했습니다. | `/agents` 새로 고침 3회가 각각 224ms, 232ms, 228ms 안에 `Watching 2 / Idle 13 / Unobserved 0`에 도달해 15초 런타임 heartbeat 간격보다 충분히 짧았습니다. | Agent 새로 고침 최신 상태 초기화에 남은 구현 작업은 없습니다. |
 
 ### 잔여 작업
 
@@ -420,11 +423,15 @@ Azure CLI 구독을 비교하고 둘이 다르면 리소스 조회나 파일 생
 명시적으로 안정된 이름이 필요하면 `FDAI_LOCAL_CONSUMER_INSTANCE`에 최대 20자의 lowercase
 alphanumeric 및 hyphen 식별자를 설정할 수 있습니다. 생성된 코어, Pantheon 및 Operator 요청
 그룹은 이 인스턴스를 사용하고 deployed Operator 요청 그룹은 런타임 hostname을 사용합니다.
-Live 및 Agent 관찰에는 다른 규칙이 적용됩니다. 범위가 제한된 각 프로세스 내부 SSE hub에는
-재생 기능이 없으므로, 각 hub가 전체 `aw.pipeline.stages` 스트림을 consume하려면 독립적으로
-실행되는 Operator 프로세스 또는 복제본마다 `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID`가 고유해야 합니다.
-기본값은 단일 프로세스 호환성만 유지합니다. 격리된 E2E launcher는 상속된 값을 항상 UUID 범위
-그룹으로 교체하며 브라우저에 서비스를 제공하는 Operator가 사용하는 그룹에 참여하지 않습니다.
+Live 및 Agent 관찰에는 서로 다른 프로세스 내부 재생 규칙이 적용됩니다. 일반 Live 단계 hub는
+구독 이후 이벤트만 전달합니다. Agent hub는 agent별로 검증된 최신 `agent.state` 이벤트 하나를
+보존하고 새 구독자를 같은 잠금 안에서 등록하면서 이 값들을 초기값으로 제공합니다. 범위가 제한된
+이 프로세스 내부 스냅샷은 polling 없이 새로 고침을 초기화하지만 영속 이력 재생은 아니며 Operator
+프로세스가 다시 시작되면 사라집니다. 각 hub가 전체 `aw.pipeline.stages` 스트림을 consume하려면
+독립적으로 실행되는 Operator 프로세스 또는 복제본마다 `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID`가
+계속 고유해야 합니다. 기본값은 단일 프로세스 호환성만 유지합니다. 격리된 E2E launcher는 상속된
+값을 항상 UUID 범위 그룹으로 교체하며 브라우저에 서비스를 제공하는 Operator가 사용하는 그룹에
+참여하지 않습니다.
 
 작업 흐름 정의는 배포 강제 적용 허용 목록을 사용하며 ActionType은 승격 및 risk 게이트를 유지합니다.
 강제 적용에는 Azure 이벤트 전송 계층과 작업 흐름 승인 근거를 공유하는 영속 데이터베이스가 필요합니다.

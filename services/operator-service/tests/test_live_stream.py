@@ -7,10 +7,12 @@ import json
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
+import pytest
 from fdai_operator_service.adapters.live_stage_kafka import (
     LiveStageKafkaConfig,
     LiveStageKafkaRelay,
 )
+from fdai_operator_service.composition import _agent_state_key
 from fdai_operator_service.streaming.live_stream import (
     LiveStreamEvent,
     LiveStreamHub,
@@ -39,6 +41,51 @@ async def test_live_stream_hub_isolates_bounded_subscribers() -> None:
     assert await anext(subscription) == third
     assert await anext(subscription) == first
     await subscription.aclose()
+
+
+async def test_live_stream_hub_replays_latest_event_by_key_to_late_subscriber() -> None:
+    hub = LiveStreamHub(latest_key=lambda event: str(event.payload["agent"]))
+    stale = LiveStreamEvent(event_id="event-1", payload={"agent": "Huginn", "state": "idle"})
+    latest = LiveStreamEvent(event_id="event-2", payload={"agent": "Huginn", "state": "watching"})
+    other = LiveStreamEvent(event_id="event-3", payload={"agent": "Muninn", "state": "idle"})
+
+    await hub.publish(stale)
+    await hub.publish(latest)
+    await hub.publish(other)
+    subscription = hub.subscribe()
+
+    assert await anext(subscription) == latest
+    assert await anext(subscription) == other
+    await subscription.aclose()
+
+
+async def test_live_stream_hub_does_not_replay_without_latest_key() -> None:
+    hub = LiveStreamHub()
+    await hub.publish(LiveStreamEvent(event_id="event-1", payload={"sequence": 1}))
+    subscription = hub.subscribe()
+
+    with pytest.raises(TimeoutError):
+        await asyncio.wait_for(anext(subscription), timeout=0.01)
+
+
+async def test_agent_stream_hub_only_replays_agent_state() -> None:
+    hub = LiveStreamHub(latest_key=_agent_state_key)
+    activity = LiveStreamEvent(
+        event_id="event-1",
+        payload={"type": "incident.ticket", "agent": "Huginn"},
+    )
+    state = LiveStreamEvent(
+        event_id="event-2",
+        payload={"type": "agent.state", "agent": "Huginn", "state": "watching"},
+    )
+
+    await hub.publish(activity)
+    await hub.publish(state)
+    subscription = hub.subscribe()
+
+    assert await anext(subscription) == state
+    with pytest.raises(TimeoutError):
+        await asyncio.wait_for(anext(subscription), timeout=0.01)
 
 
 def test_live_stream_event_encoding_blocks_field_and_data_injection() -> None:
