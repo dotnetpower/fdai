@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: bc4154e1b1688e7916bf7db6dd5fe5b424c9c4c2
+translation_source_sha: 2e3e298903f6e5e74ef5b05eb50264c2b493b072
 translation_revised: 2026-08-13
 ---
 # 코드 맵
@@ -49,8 +49,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | 구현됨 | 플래너 함수 가시성을 실제 런타임 등록에 연결하고 바인딩되지 않은 읽기 가능 선언을 타입이 지정된 구조 coverage에 유지했습니다. | 현재 변경의 `wire_semantic_query.py`, `semantic_manifest.py`, `query_manifest.py` 및 해당 focused 테스트 | 영속 production 의미 인덱스는 이 변경 범위 밖에 있으며 아래 IS-09 원격 검증 항목을 완료합니다. |
 | 2026-08-13 | 구현됨 | 호출 상관관계를 논리적 요청 멱등성과 분리하고 영속 요청자 및 대화 ID를 불투명 참조로 바꿨습니다. | `current change`, `wire_read_investigation.py`, `test_wire_read_investigation.py`, 통과한 focused 테스트 5개 | 아래 IS-09 원격 검증 항목을 완료합니다. |
 | 2026-08-13 | 구현됨 | 카탈로그 세대를 프로바이더 중립적이고 범위가 제한된 순서 보장 문서 매니페스트에 연결하고 exact 문서 집합에서 세대 ID를 독립적으로 재현할 수 있게 했습니다. | `current change`, `shared/providers/catalog_search.py`, `delivery/catalog_search/generation.py`, `delivery/catalog_search/in_memory.py`, 통과한 focused 카탈로그, 온톨로지 조회, 스키마 및 조립 테스트 41개 | 영속 production 의미 인덱스를 조립하고 검증한 뒤 아래 IS-09 원격 검증 항목을 완료합니다. |
-| 2026-08-13 | 구현됨 | 검증된 정확한 함수 호출 증적 및 정규 다이제스트 보존을 포함하여 공유 의미 Rule 계약과 Core에서 Operator로 이어지는 영속 변환 결과 경계를 강화했습니다. | `current change`, 통과한 의미 경로 테스트 94개, 통과한 작업 범위 Ruff 및 변경한 운영 파일의 strict mypy 통과 | 온톨로지 조회 coverage 계획에 통제된 실제 증적을 기록하고 IS-09 원격 검증을 완료합니다. |
-| 2026-08-13 | 진행 중 | 의미 projection을 exact Operator 읽기와 영속 Console 렌더링까지 확장하고 인증된 통제 증적 및 seed 기반 이중 언어 보증 실행기를 추가했습니다. | `current change`, 통과한 focused shared, Core, Operator 및 Console 검사 | 준비 상태를 주장하기 전에 인증된 두 브라우저 경로를 실행하고 통과한 두 보존 근거 기록을 연결합니다. |
+| 2026-08-13 | 구현됨 | 공유 의미 Rule 계약과 Core에서 Operator로 이어지는 영속 변환 결과 경계를 강화했습니다. | `current change`, 통과한 의미 경로 테스트 88개, 통과한 작업 범위 Ruff 및 운영 파일 6개의 strict mypy 통과 | 온톨로지 조회 coverage 계획에 통제된 실제 증적을 기록하고 IS-09 원격 검증을 완료합니다. |
 | 2026-08-13 | 구현됨 | 점수 계산과 상위 결과 선택 전에 exact-generation Rule 검색에 범위가 제한된 목표 인식 후보 확인을 추가했습니다. | `current change`, `objective_rule_resolution.py`, `catalog_queries.py`, `catalog_search.py`, `in_memory.py`, 통과한 집중 온톨로지 조회 테스트 8개 | 정책 추상화 계획의 P1 바인딩 채우기, P2 영속 세대 근거 및 P4 롤아웃 보증은 열려 있습니다. |
 | 2026-08-13 | 구현됨 | Exact-generation Rule 검색을 위한 영속 PostgreSQL 세대 어댑터와 예상 이전 세대 활성화 compare-and-swap을 추가했습니다. | `current change`, `postgres.py`, 수명 주기 게시자, 직접 호출자 및 in-memory와 실제 PostgreSQL 경로에서 통과한 focused 카탈로그 테스트 44개, 변경한 수명 주기 출처의 Ruff와 strict mypy 통과 | Production bootstrap에서 어댑터를 연결하고 통제된 IS-09 원격 검증 근거를 기록합니다. |
 | 2026-08-13 | 구현됨 | 정확한 활성 세대 검사와 선택적 준비 상태 저하 뒤에서 영속 Rule 의미 인덱스를 운영 시작에 연결했습니다. | `current change`, `bootstrap.py`, `bootstrap_lifecycle.py`, `wire_semantic_query.py`, 통과한 집중 런타임 및 구성 검사 46개, Ruff 및 strict mypy 통과 | 통제된 IS-09 원격 검증 근거를 기록합니다. |
@@ -59,6 +58,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | 구현됨 | 영속 Rule 세대 활성화 결과를 위한 범위가 제한된 at-least-once EventBus 발행을 추가했습니다. Exact-topic 확인은 lease로 차단된 outbox 레코드를 완료하고, 실패는 결정론적 재시도를 위해 레코드를 해제하며, 취소는 lease 복구를 보존하고, 확인 영속성 실패는 lease 만료 replay로 복구합니다. | `current change`, `publication.py`, 패키지 export 및 통과한 집중 발행 테스트 7개, 작업 범위 Ruff와 strict mypy 통과 | 담당 agent를 연결하고 통제된 런타임 발행 근거를 기록합니다. |
 | 2026-08-13 | 구현됨 | Mimir를 유일한 Rule 세대 명령 및 결과 subscriber로 연결하고 하나의 공유 영속 ledger를 조립했으며 준비 상태와 독립적인 outbox drain을 시작했습니다. 해제된 전송 실패는 재시도하지만 receipt 계약 및 영속 상태 실패는 치명적으로 유지합니다. | `current change`, 집중 Mimir, 런타임, bootstrap, 활성화 및 발행 검사 32개 통과, Ruff, strict mypy, 번역 freshness 및 한국어 품질 검사 통과 | 통제된 실제 런타임 발행 증적을 기록하며 IS-09 원격 검증은 열려 있습니다. |
 | 2026-08-13 | 구현됨 | PostgreSQL 토폴로지 이력과 검토된 메트릭 및 근거 프로바이더를 선택적 기능이 안전하게 닫히는 exact-release 의미 조회 조립에 연결했습니다. | `current change`, `postgres_topology_history.py`, `wire_semantic_query.py`, `bootstrap.py`, `bootstrap_bindings.py`, `test_wire_semantic_query.py`, `test_bootstrap_config.py`, 통과한 집중 검사 16개 | 온톨로지 조회 coverage 계획에 통제된 실제 증적을 기록하고 IS-09 원격 검증을 완료합니다. |
+| 2026-08-13 | 진행 중 | 의미 projection을 exact Operator 읽기와 영속 Console 렌더링까지 확장하고 인증된 통제 증적 및 seed 기반 이중 언어 보증 실행기를 추가했습니다. | `current change`, 통과한 focused shared, Core, Operator 및 Console 검사 | 준비 상태를 주장하기 전에 인증된 두 브라우저 경로를 실행하고 통과한 두 보존 근거 기록을 연결합니다. |
 | 2026-08-13 | 진행 중 | Principal 또는 권한 검증을 바꾸지 않고 엄격한 Core 증적 typing을 바로잡고 인증된 근거 경로를 위한 일회성 Browser Entra 세션 복원을 준비했습니다. | `current change`, 통과한 strict mypy, Ruff, Console typecheck, 설계 경로 및 append-only 검사 | 준비 상태를 주장하기 전에 인증된 두 브라우저 경로를 실행하고 통과한 두 보존 근거 기록을 연결합니다. |
 
 ### 남은 작업
