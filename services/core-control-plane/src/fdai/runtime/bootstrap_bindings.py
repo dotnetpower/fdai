@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Protocol
 
@@ -19,12 +20,27 @@ from fdai.core.ontology_platform.reconciliation_binding import (
     ObservationContextVerifier,
     ReconciliationArtifactResolver,
 )
+from fdai.core.rule_semantic_generation import (
+    RuleGenerationActivationBinder,
+    RuleGenerationOutboxPublisher,
+    StateStoreRuleGenerationOutboxLedger,
+)
 from fdai.delivery.reconciliation_runtime import EffectReconciliationWorker
+from fdai.shared.providers.catalog_search import CatalogSemanticIndex
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 RECONCILIATION_TOPICS = frozenset({RECONCILIATION_REQUEST_TOPIC, RECONCILIATION_OUTBOX_TOPIC})
+
+
+@dataclass(frozen=True, slots=True)
+class RuleGenerationRuntimeBinding:
+    """Shared durable binding for activation command handling and result publication."""
+
+    ledger: StateStoreRuleGenerationOutboxLedger
+    activation_binder: RuleGenerationActivationBinder | None
+    outbox_publisher: RuleGenerationOutboxPublisher
 
 
 class WorkloadIdentityBuilder(Protocol):
@@ -41,6 +57,34 @@ def operational_event_bus(primary: EventBus, auxiliary: EventBus | None) -> Even
     """Select the isolated bus for raw inventory and canary traffic when configured."""
 
     return auxiliary or primary
+
+
+def build_rule_generation_runtime_binding(
+    *,
+    state_store: StateStore,
+    event_bus: EventBus,
+    catalog_index: CatalogSemanticIndex | None,
+    environment: Mapping[str, str],
+) -> RuleGenerationRuntimeBinding:
+    """Build one ledger, an index-gated binder, and a readiness-independent publisher."""
+
+    ledger = StateStoreRuleGenerationOutboxLedger(store=state_store)
+    binder = (
+        RuleGenerationActivationBinder(index=catalog_index, ledger=ledger)
+        if catalog_index is not None
+        else None
+    )
+    publisher = RuleGenerationOutboxPublisher(
+        ledger=ledger,
+        event_bus=event_bus,
+        claimant_id=environment.get("HOSTNAME", "").strip() or "fdai-core",
+        clock=lambda: datetime.now(tz=UTC),
+    )
+    return RuleGenerationRuntimeBinding(
+        ledger=ledger,
+        activation_binder=binder,
+        outbox_publisher=publisher,
+    )
 
 
 def build_effect_reconciliation_worker(

@@ -13,7 +13,7 @@ drains one hop.
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import cast
 
 import pytest
@@ -28,6 +28,7 @@ from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents.forseti import Forseti
 from fdai.agents.heimdall import Heimdall
 from fdai.agents.huginn import Huginn
+from fdai.agents.mimir import Mimir
 from fdai.agents.muninn import Muninn
 from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga
@@ -37,9 +38,17 @@ from fdai.core.chaos.symptom_index import build_from_entries
 from fdai.core.impact_analysis import ChangeAssessmentService
 from fdai.core.learning import PostTurnReviewInput, review_input_to_mapping
 from fdai.core.operational_planning import SpecialistPlanningCoordinator
+from fdai.core.rule_semantic_generation import (
+    RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
+    RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
+    RuleGenerationActivationBinder,
+)
 from fdai.rule_catalog.schema.rule_semantic_feedback import SemanticFeedbackCandidate
+from fdai.runtime.bootstrap_bindings import build_rule_generation_runtime_binding
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+from tests.core.rule_semantic_generation.test_activation import _command, _CountingIndex
 
 _RAW_TOPIC = "fdai.events"
 
@@ -132,6 +141,92 @@ def test_runtime_injects_durable_state_store_into_muninn() -> None:
     muninn = runtime.agents["Muninn"]
     assert isinstance(muninn, Muninn)
     assert muninn._durable_state_store is store
+
+
+def test_runtime_wires_rule_generation_results_to_mimir_with_durable_store() -> None:
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        rule_generation_state_store=InMemoryStateStore(),
+    )
+
+    subscribers = {
+        name for name, _ in runtime.bridge._subs[RULE_GENERATION_ACTIVATION_RESULT_TOPIC]
+    }
+    assert subscribers == {"Mimir"}
+
+
+def test_runtime_wires_rule_generation_commands_to_retained_mimir_only() -> None:
+    binder = cast(RuleGenerationActivationBinder, object())
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        rule_generation_activation_binder=binder,
+        rule_generation_state_store=InMemoryStateStore(),
+    )
+
+    mimir = runtime.agents["Mimir"]
+    assert isinstance(mimir, Mimir)
+    assert mimir._rule_generation_activation_binder is binder
+    assert {name for name, _ in runtime.bridge._subs[RULE_GENERATION_ACTIVATION_COMMAND_TOPIC]} == {
+        "Mimir"
+    }
+    assert {name for name, _ in runtime.bridge._subs[RULE_GENERATION_ACTIVATION_RESULT_TOPIC]} == {
+        "Mimir"
+    }
+    expected = sum(len(spec.subscribes) for spec in PANTHEON_SPECS) + 3
+    assert runtime.subscription_count == expected
+
+
+async def test_rule_generation_command_reaches_durable_mimir_result_projection() -> None:
+    event_bus = InMemoryEventBus()
+    state_store = InMemoryStateStore()
+    index = _CountingIndex()
+    command, metadata, documents = _command()
+    await index.stage_generation(metadata, documents)
+    binding = build_rule_generation_runtime_binding(
+        state_store=state_store,
+        event_bus=event_bus,
+        catalog_index=index,
+        environment={"HOSTNAME": "core-a"},
+    )
+    assert binding.activation_binder is not None
+    runtime = PantheonRuntime.build(
+        provider=event_bus,
+        raw_event_topic=_RAW_TOPIC,
+        rule_generation_activation_binder=binding.activation_binder,
+        rule_generation_state_store=state_store,
+    )
+
+    await event_bus.publish(
+        RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
+        command.command_digest,
+        command.model_dump(mode="json"),
+    )
+    await runtime.run()
+
+    assert index.activation_attempts == 1
+    published = await binding.outbox_publisher.publish_pending_once()
+    assert published is not None
+    await runtime.run()
+
+    projection = await state_store.read_state(
+        f"mimir:rule-generation-activation-result:{published.idempotency_key}"
+    )
+    assert projection is not None
+    assert projection["result_digest"] == published.result_digest
+    assert projection["projection_only"] is True
+    assert projection["grants_execution_authority"] is False
+    verification_time = datetime.now(UTC)
+    assert (
+        await binding.ledger.claim_outbox(
+            claimant_id="verification",
+            now=verification_time,
+            lease_until=verification_time + timedelta(seconds=1),
+        )
+        is None
+    )
+    assert await state_store.verify_chain()
 
 
 def test_forecast_findings_route_to_forseti_judgment() -> None:

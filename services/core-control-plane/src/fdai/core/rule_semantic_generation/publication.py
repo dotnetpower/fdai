@@ -13,7 +13,16 @@ from fdai.shared.providers.event_bus import EventBus
 
 from .ledger import RuleGenerationOutboxLedger
 
+RULE_GENERATION_ACTIVATION_COMMAND_TOPIC = "rule.semantic-generation.activation-commands"
 RULE_GENERATION_ACTIVATION_RESULT_TOPIC = "rule.semantic-generation.activation-results"
+
+
+class RuleGenerationPublishRetryableError(RuntimeError):
+    """The broker attempt failed after the durable claim was released."""
+
+
+class RuleGenerationReceiptMismatchError(RuntimeError):
+    """The broker acknowledged a topic other than the requested topic."""
 
 
 class RuleGenerationOutboxPublisher:
@@ -77,13 +86,16 @@ class RuleGenerationOutboxPublisher:
                     result.model_dump(mode="json"),
                 )
             if receipt.topic != self._topic:
-                raise RuntimeError("Rule generation broker receipt topic does not match")
+                raise RuleGenerationReceiptMismatchError(
+                    "Rule generation broker receipt topic does not match"
+                )
         except Exception as exc:
-            error = (
-                "broker_publish_timeout"
-                if isinstance(exc, TimeoutError)
-                else "broker_publish_failed"
-            )
+            if isinstance(exc, RuleGenerationReceiptMismatchError):
+                error = "broker_receipt_topic_mismatch"
+            elif isinstance(exc, TimeoutError):
+                error = "broker_publish_timeout"
+            else:
+                error = "broker_publish_failed"
             await self._ledger.release_outbox(
                 request_id,
                 result.idempotency_key,
@@ -91,7 +103,9 @@ class RuleGenerationOutboxPublisher:
                 available_at=claimed_at + self._retry_delay,
                 error=error,
             )
-            raise
+            if isinstance(exc, RuleGenerationReceiptMismatchError):
+                raise
+            raise RuleGenerationPublishRetryableError(error) from exc
         await self._ledger.complete_outbox(
             request_id,
             result.idempotency_key,
@@ -128,6 +142,9 @@ def _require_aware_clock(now: datetime) -> None:
 
 
 __all__ = [
+    "RULE_GENERATION_ACTIVATION_COMMAND_TOPIC",
     "RULE_GENERATION_ACTIVATION_RESULT_TOPIC",
     "RuleGenerationOutboxPublisher",
+    "RuleGenerationPublishRetryableError",
+    "RuleGenerationReceiptMismatchError",
 ]

@@ -15,6 +15,13 @@ from fdai.core.readiness import (
     ReadinessDecision,
     reduce_startup_readiness,
 )
+from fdai.core.rule_semantic_generation import (
+    RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
+    RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
+    RuleGenerationActivationBinder,
+    RuleGenerationOutboxPublisher,
+    RuleGenerationPublishRetryableError,
+)
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.runtime.bootstrap import (
@@ -24,6 +31,7 @@ from fdai.runtime.bootstrap import (
 from fdai.runtime.bootstrap_bindings import (
     RECONCILIATION_TOPICS,
     build_effect_reconciliation_worker,
+    build_rule_generation_runtime_binding,
 )
 from fdai.runtime.bootstrap_bindings import (
     build_runtime_workload_identity as _build_runtime_workload_identity,
@@ -38,9 +46,14 @@ from fdai.runtime.bootstrap_lifecycle import (
     build_semantic_turn_binding as _build_semantic_turn_binding,
 )
 from fdai.runtime.bootstrap_lifecycle import (
+    log_rule_generation_outbox_exit,
+    run_effect_reconciliation,
+    run_rule_generation_outbox_publisher,
+    runtime_process_lock,
+)
+from fdai.runtime.bootstrap_lifecycle import (
     raise_required_task_failure as _raise_required_task_failure,
 )
-from fdai.runtime.bootstrap_lifecycle import run_effect_reconciliation, runtime_process_lock
 from fdai.runtime.bootstrap_lifecycle import run_main as _run_main
 from fdai.runtime.bootstrap_lifecycle import (
     semantic_turn_readiness_registration as _semantic_turn_readiness_registration,
@@ -70,6 +83,14 @@ def test_runtime_multiplexes_semantic_turn_channels() -> None:
 def test_runtime_multiplexes_effect_reconciliation_channels() -> None:
     expected = {RECONCILIATION_REQUEST_TOPIC, RECONCILIATION_OUTBOX_TOPIC}
     assert RECONCILIATION_TOPICS == expected
+    assert expected.issubset(_RUNTIME_LOGICAL_TOPICS)
+
+
+def test_runtime_multiplexes_rule_generation_lifecycle_channels() -> None:
+    expected = {
+        RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
+        RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
+    }
     assert expected.issubset(_RUNTIME_LOGICAL_TOPICS)
 
 
@@ -109,6 +130,45 @@ def test_effect_reconciliation_binding_builds_configured_worker() -> None:
     assert worker is not None
 
 
+def test_rule_generation_binding_shares_one_ledger_when_index_is_available() -> None:
+    binding = build_rule_generation_runtime_binding(
+        state_store=InMemoryStateStore(),
+        event_bus=LocalEventBus(),
+        catalog_index=object(),  # type: ignore[arg-type]
+        environment={"HOSTNAME": "core-a"},
+    )
+
+    assert isinstance(binding.activation_binder, RuleGenerationActivationBinder)
+    assert isinstance(binding.outbox_publisher, RuleGenerationOutboxPublisher)
+    assert binding.activation_binder._ledger is binding.ledger
+    assert binding.outbox_publisher._ledger is binding.ledger
+
+
+def test_rule_generation_binding_keeps_publisher_when_index_is_unavailable() -> None:
+    binding = build_rule_generation_runtime_binding(
+        state_store=InMemoryStateStore(),
+        event_bus=LocalEventBus(),
+        catalog_index=None,
+        environment={},
+    )
+
+    assert binding.activation_binder is None
+    assert isinstance(binding.outbox_publisher, RuleGenerationOutboxPublisher)
+    assert binding.outbox_publisher._ledger is binding.ledger
+
+
+@pytest.mark.parametrize("hostname", ["", "   "])
+def test_rule_generation_binding_defaults_empty_claimant_identity(hostname: str) -> None:
+    binding = build_rule_generation_runtime_binding(
+        state_store=InMemoryStateStore(),
+        event_bus=LocalEventBus(),
+        catalog_index=None,
+        environment={"HOSTNAME": hostname},
+    )
+
+    assert binding.outbox_publisher._claimant_id == "fdai-core"
+
+
 async def test_effect_reconciliation_lifecycle_bounds_drain_and_cancels_subscriber() -> None:
     stop = asyncio.Event()
 
@@ -143,6 +203,106 @@ async def test_effect_reconciliation_lifecycle_bounds_drain_and_cancels_subscrib
 
     assert worker.drain_limits == [100]
     assert worker.subscriber_cancelled is True
+
+
+async def test_rule_generation_outbox_lifecycle_bounds_drain_and_stops() -> None:
+    stop = asyncio.Event()
+
+    class _Publisher:
+        def __init__(self) -> None:
+            self.drain_limits: list[int] = []
+
+        async def drain_pending(self, *, limit: int = 100) -> tuple[object, ...]:
+            self.drain_limits.append(limit)
+            stop.set()
+            return ()
+
+    publisher = _Publisher()
+
+    await run_rule_generation_outbox_publisher(
+        publisher=publisher,  # type: ignore[arg-type]
+        stop=stop,
+        drain_limit=17,
+        drain_interval_seconds=0.01,
+    )
+
+    assert publisher.drain_limits == [17]
+
+
+@pytest.mark.parametrize(
+    ("drain_limit", "drain_interval_seconds"),
+    [(0, 1.0), (1001, 1.0), (100, 0.0)],
+)
+async def test_rule_generation_outbox_lifecycle_rejects_invalid_bounds(
+    drain_limit: int,
+    drain_interval_seconds: float,
+) -> None:
+    with pytest.raises(ValueError, match="Rule generation outbox"):
+        await run_rule_generation_outbox_publisher(
+            publisher=object(),  # type: ignore[arg-type]
+            stop=asyncio.Event(),
+            drain_limit=drain_limit,
+            drain_interval_seconds=drain_interval_seconds,
+        )
+
+
+async def test_rule_generation_outbox_lifecycle_propagates_transport_failure() -> None:
+    class _Publisher:
+        async def drain_pending(self, *, limit: int = 100) -> tuple[object, ...]:
+            raise RuntimeError("broker unavailable")
+
+    with pytest.raises(RuntimeError, match="broker unavailable"):
+        await run_rule_generation_outbox_publisher(
+            publisher=_Publisher(),  # type: ignore[arg-type]
+            stop=asyncio.Event(),
+            drain_interval_seconds=0.01,
+        )
+
+
+async def test_rule_generation_outbox_lifecycle_retries_released_publish_failure(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    stop = asyncio.Event()
+
+    class _Publisher:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def drain_pending(self, *, limit: int = 100) -> tuple[object, ...]:
+            self.calls += 1
+            if self.calls == 1:
+                raise RuleGenerationPublishRetryableError("broker_publish_failed")
+            stop.set()
+            return ()
+
+    publisher = _Publisher()
+    caplog.set_level("WARNING", logger="fdai.startup")
+
+    await run_rule_generation_outbox_publisher(
+        publisher=publisher,  # type: ignore[arg-type]
+        stop=stop,
+        drain_interval_seconds=0.001,
+    )
+
+    assert publisher.calls == 2
+    assert "rule_generation_outbox_publish_retry_scheduled" in caplog.messages
+
+
+async def test_rule_generation_outbox_fatal_exit_is_logged(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    async def _fail() -> None:
+        raise RuntimeError("broker unavailable")
+
+    caplog.set_level("ERROR", logger="fdai.startup")
+    task = asyncio.create_task(_fail())
+    task.add_done_callback(log_rule_generation_outbox_exit)
+
+    with pytest.raises(RuntimeError, match="broker unavailable"):
+        await task
+    await asyncio.sleep(0)
+
+    assert "rule_generation_outbox_failed" in caplog.messages
 
 
 async def test_semantic_turn_bootstrap_exposes_exact_missing_runtime_reason() -> None:

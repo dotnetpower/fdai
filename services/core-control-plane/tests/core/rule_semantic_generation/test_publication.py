@@ -11,6 +11,8 @@ import pytest
 from fdai.core.rule_semantic_generation import (
     RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
     RuleGenerationOutboxPublisher,
+    RuleGenerationPublishRetryableError,
+    RuleGenerationReceiptMismatchError,
     StateStoreRuleGenerationOutboxLedger,
 )
 from fdai.rule_catalog.schema.rule_semantic_generation_events import (
@@ -143,18 +145,18 @@ async def test_publish_acknowledges_exact_receipt_and_suppresses_duplicate() -> 
     assert delivery.published_at == NOW
 
 
-@pytest.mark.parametrize("failure_mode", ("fail", "wrong_receipt"))
-async def test_publish_failure_releases_for_restart_safe_retry(failure_mode: str) -> None:
+async def test_publish_failure_releases_for_restart_safe_retry() -> None:
     store = InMemoryStateStore()
     ledger = StateStoreRuleGenerationOutboxLedger(store=store)
     result = await ledger.commit_result(_result())
     event_bus = _ControlledEventBus()
-    setattr(event_bus, failure_mode, True)
+    event_bus.fail = True
     clock = _FakeClock(NOW)
     publisher = _publisher(ledger=ledger, event_bus=event_bus, clock=clock)
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuleGenerationPublishRetryableError) as exc_info:
         await publisher.publish_pending_once()
+    assert isinstance(exc_info.value.__cause__, RuntimeError)
     delivery = await _delivery(store, result)
     assert delivery.state is RuleGenerationOutboxDeliveryState.PENDING
     assert delivery.attempts == 1
@@ -162,7 +164,7 @@ async def test_publish_failure_releases_for_restart_safe_retry(failure_mode: str
     assert delivery.last_error == "broker_publish_failed"
     assert await publisher.publish_pending_once() is None
 
-    setattr(event_bus, failure_mode, False)
+    event_bus.fail = False
     clock.advance(timedelta(seconds=5))
     restarted = _publisher(
         ledger=StateStoreRuleGenerationOutboxLedger(store=store),
@@ -172,6 +174,22 @@ async def test_publish_failure_releases_for_restart_safe_retry(failure_mode: str
     )
     assert await restarted.publish_pending_once() == result
     assert event_bus.attempts == 2
+
+
+async def test_wrong_receipt_topic_is_classified_as_fatal_contract_failure() -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreRuleGenerationOutboxLedger(store=store)
+    result = await ledger.commit_result(_result())
+    event_bus = _ControlledEventBus()
+    event_bus.wrong_receipt = True
+    publisher = _publisher(ledger=ledger, event_bus=event_bus, clock=_FakeClock(NOW))
+
+    with pytest.raises(RuleGenerationReceiptMismatchError):
+        await publisher.publish_pending_once()
+
+    delivery = await _delivery(store, result)
+    assert delivery.state is RuleGenerationOutboxDeliveryState.PENDING
+    assert delivery.last_error == "broker_receipt_topic_mismatch"
 
 
 async def test_publish_timeout_releases_without_inline_retry() -> None:
@@ -187,8 +205,9 @@ async def test_publish_timeout_releases_without_inline_retry() -> None:
         publish_timeout_seconds=0.01,
     )
 
-    with pytest.raises(TimeoutError):
+    with pytest.raises(RuleGenerationPublishRetryableError) as exc_info:
         await asyncio.wait_for(publisher.publish_pending_once(), timeout=_WATCHDOG_SECONDS)
+    assert isinstance(exc_info.value.__cause__, TimeoutError)
     delivery = await _delivery(store, result)
     assert delivery.state is RuleGenerationOutboxDeliveryState.PENDING
     assert delivery.last_error == "broker_publish_timeout"

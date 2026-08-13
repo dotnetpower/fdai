@@ -30,6 +30,9 @@ evaluation gates, and failed-query feedback loop.
 > `POST /rules/search` reads an Operator
 > Service projection; it does not directly invoke the Core function. Retrieval and function
 > receipts retain `execution_authority: false` wherever the Core capability is bound.
+> Validated generation-activation commands enter only through Mimir. A durable, lease-fenced
+> outbox publisher emits terminal results, and Mimir stores a projection-only receipt that grants
+> no index, policy, approval, mutation, or execution authority.
 > Reproduced retrieval-owned failures flow through Huginn ingress, Heimdall validation, Saga audit,
 > and Muninn context materialization. Norns then persists an inert challenger with shadow audit
 > before ordinary consensus and Mimir intake.
@@ -53,6 +56,7 @@ evaluation gates, and failed-query feedback loop.
 | Corpus-scale generation identity | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/generation.py`; `delivery/catalog_search/in_memory.py`; focused generation and Rule-catalog tests | Provider-neutral metadata carries count, hierarchical root, bounded ordered chunks, and small-generation inline digests. Generation construction, validation receipts, staging, activation, active lookup, search, rollback, and rollback receipts reject identity drift. |
 | Durable PostgreSQL index | implemented | `delivery/catalog_search/postgres.py`; migrations `0077` and `0080`; `tests/delivery/catalog_search/test_postgres.py`; `test_postgres_integration.py`; `test_postgres_rule_corpora_integration.py` | Persists and revalidates exact generation manifests, atomically stages, activates, searches, and rolls back corpus-local generations, and proves lifecycle isolation for all 62 active and 8,487 discovery documents against PostgreSQL. |
 | Governed generation activation | implemented | `core/rule_semantic_generation/activation.py`; `core/rule_semantic_generation/ledger.py`; provider and delivery activation contracts; focused activation and live PostgreSQL checks | Activation binds the exact target digest and validation receipt to the expected prior active identity inside the mutation boundary. Completed-command replay returns the durable terminal result before provider access, and the first result and pending outbox record commit atomically. |
+| Durable activation publication and projection | implemented | `core/rule_semantic_generation/publication.py`; `agents/mimir.py`; `agents/_framework/runtime.py`; `runtime/bootstrap.py`; focused publication, Mimir, runtime, and bootstrap checks | A timeout-bounded, lease-fenced publisher drains terminal results independently of semantic-index readiness. Mimir alone consumes activation commands and projects terminal results without gaining index or execution authority. Production composition shares one durable ledger between the binder and publisher. |
 | Production bootstrap binding | implemented | `runtime/bootstrap.py`; `runtime/bootstrap_lifecycle.py`; `composition/wire_semantic_query.py`; `tests/runtime/test_catalog_semantic_bootstrap.py`; focused bootstrap and composition checks (`46 passed`) | Startup binds only an exact active generation. Missing, stale, inaccessible, or unavailable state produces a stable optional-readiness reason and leaves Rule search unregistered. Governed live evidence remains open. |
 | Operator Rule-search projection | implemented | Operator Service workflow manifest, routes, and PostgreSQL workflow adapter | `POST /rules/search` reads a revisioned materialized projection and grants no policy, approval, mutation, or execution authority. |
 
@@ -72,6 +76,7 @@ evaluation gates, and failed-query feedback loop.
 | 2026-08-13 | implemented | Made held-out evaluation fail closed when retrieval is stale or unavailable. Provider failures now produce validation-only `HOLD` evidence, penalize positive recall and rank, and cannot turn a failed negative query into successful no-match evidence. | `current change`; the focused evaluator and real-catalog modules passed 15 tests. Ruff, strict mypy, and editor diagnostics passed for the changed evaluator slice. | Exercise stale state through the real semantic index and connect complete cohort receipts to configuration-backed governed promotion. |
 | 2026-08-13 | implemented | Expanded the shipped-catalog promotion probe with English ambiguity, adversarial-input, corpus-isolation, and real-index stale-generation cohorts. English ambiguity recall and rank were 1.0. Adversarial and discovery-only no-match precision were 0.0 because unrelated active Rules remained lexical false positives; no discovery document crossed into active results. A stale catalog digest produced retrieval errors, zero positive recall and rank, no negative no-match credit, and a validation-only `HOLD`. | `current change`; `tests/rule_catalog/test_discovery_catalog_search.py`; the focused module passed 10 tests, Ruff and format checks passed, and editor diagnostics were clean. | Add governed Korean surfaces, remove the measured active-corpus false positives, and connect configuration-backed thresholds to governed promotion before claiming readiness. |
 | 2026-08-13 | implemented | Added the exact activation binder for validated Rule generations. It verifies the target validation receipt and expected prior identity inside the provider mutation boundary, suppresses completed-command provider replay, reconciles an observed effect after provider errors, and durably closes one stable terminal result plus outbox record. | `current change`; focused activation, ledger, generation, and live PostgreSQL checks passed; Ruff and strict mypy passed the touched lifecycle files. | Publish the durable outbox through the EventBus, compose accountable agent ownership, and record governed runtime evidence. |
+| 2026-08-13 | implemented | Added lease-fenced durable activation-result publication, Mimir-owned command ingress and result projection, shared production ledger composition, and readiness-independent backlog draining. Released broker failures remain retryable without hiding receipt-contract or ledger failures. The integrated runtime proof covers command delivery through activation, outbox publication, and projection-only result persistence. | `current change`; focused bootstrap, runtime, Mimir, activation, and publication selection passed 32 tests, including restart, duplicate, lease-expiry, cancellation, broker-failure retry, fatal receipt-topic mismatch, acknowledged delivery, and integrated command-to-projection cases. | Record governed live runtime evidence before changing this area to `validated`; the separate retrieval and function-invocation projection remains open. |
 
 ### Remaining work
 
@@ -86,9 +91,10 @@ evaluation gates, and failed-query feedback loop.
   readiness. Startup binds only the exact current Rule catalog, semantic schema, ontology release,
   and embedder dimension; stable degradation reasons cover missing, stale, inaccessible, and
   unavailable state. Focused bootstrap and composition checks pass 46 tests.
-- [ ] Publish durable activation results through a timeout-bounded EventBus worker and compose the
-  accountable agent subscriber. Exit when restart, duplicate delivery, lease expiry, cancellation,
-  broker failure, and acknowledged delivery checks pass without granting index or execution authority.
+- [x] A timeout-bounded EventBus worker publishes durable activation results, and Mimir is the only
+  accountable command and result subscriber. Focused restart, duplicate delivery, lease expiry,
+  cancellation, broker failure, acknowledged delivery, and integrated runtime checks pass without
+  granting index or execution authority.
 - [ ] Publish Core retrieval and function-invocation receipts into the Operator projection; exit
   when `POST /rules/search` returns the exact receipt-backed projection without direct Core calls,
   preserving the [query lifecycle](#query-lifecycle).

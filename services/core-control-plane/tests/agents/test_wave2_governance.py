@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import timedelta
+from typing import cast
+from unittest.mock import AsyncMock
 
 import pytest
 from fdai.agents._framework.adapters import AuditChainError, InMemoryAuditChain
@@ -12,6 +15,20 @@ from fdai.agents.mimir import Mimir
 from fdai.agents.muninn import Muninn
 from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga, compute_fingerprint
+from fdai.core.rule_semantic_generation import (
+    RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
+    RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
+    RuleGenerationActivationBinder,
+    StateStoreRuleGenerationOutboxLedger,
+)
+from fdai.rule_catalog.schema.rule_semantic_generation_events import (
+    RuleGenerationActivationResultEvent,
+)
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from pydantic import ValidationError
+
+from tests.core.rule_semantic_generation.test_activation import _command, _CountingIndex
+from tests.core.rule_semantic_generation.test_ledger import _result
 
 # ---------------------------------------------------------------------------
 # Saga - audit chain + issue dedup
@@ -443,6 +460,168 @@ def _mimir_with_bus() -> Mimir:
     mimir = Mimir()
     mimir.bind_bus(InMemoryBus(registry=load_pantheon()))
     return mimir
+
+
+async def test_mimir_rule_generation_command_requires_bound_binder() -> None:
+    command = _result().command
+
+    with pytest.raises(RuntimeError, match="activation binder is unavailable"):
+        await Mimir().on_typed_message(
+            RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
+            command.model_dump(mode="json"),
+        )
+
+
+async def test_mimir_rejects_malformed_rule_generation_command_before_delegation() -> None:
+    command = _result().command
+    malformed = command.model_dump(mode="json")
+    malformed["command_digest"] = "sha256:" + "0" * 64
+    handle = AsyncMock()
+    mimir = Mimir()
+    mimir.bind_rule_generation_activation_binder(
+        cast(RuleGenerationActivationBinder, type("Binder", (), {"handle": handle})())
+    )
+
+    with pytest.raises(ValidationError):
+        await mimir.on_typed_message(RULE_GENERATION_ACTIVATION_COMMAND_TOPIC, malformed)
+
+    handle.assert_not_awaited()
+
+
+async def test_mimir_delegates_valid_rule_generation_command_once() -> None:
+    command = _result().command
+    handle = AsyncMock()
+    mimir = Mimir()
+    mimir.bind_rule_generation_activation_binder(
+        cast(RuleGenerationActivationBinder, type("Binder", (), {"handle": handle})())
+    )
+
+    await mimir.on_typed_message(
+        RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
+        command.model_dump(mode="json"),
+    )
+
+    handle.assert_awaited_once_with(command)
+
+
+async def test_mimir_rule_generation_command_redelivery_is_activation_effect_safe() -> None:
+    index = _CountingIndex()
+    command, metadata, documents = _command()
+    await index.stage_generation(metadata, documents)
+    mimir = Mimir()
+    mimir.bind_rule_generation_activation_binder(
+        RuleGenerationActivationBinder(
+            index=index,
+            ledger=StateStoreRuleGenerationOutboxLedger(store=InMemoryStateStore()),
+        )
+    )
+    payload = command.model_dump(mode="json")
+
+    await mimir.on_typed_message(RULE_GENERATION_ACTIVATION_COMMAND_TOPIC, payload)
+    await mimir.on_typed_message(RULE_GENERATION_ACTIVATION_COMMAND_TOPIC, payload)
+
+    assert index.activation_attempts == 1
+
+
+async def test_mimir_rule_generation_result_never_invokes_activation_binder() -> None:
+    result = _result()
+    handle = AsyncMock()
+    mimir = Mimir()
+    mimir.bind_rule_generation_activation_binder(
+        cast(RuleGenerationActivationBinder, type("Binder", (), {"handle": handle})())
+    )
+    mimir.bind_rule_generation_state_store(InMemoryStateStore())
+
+    await mimir.on_typed_message(
+        RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
+        result.model_dump(mode="json"),
+    )
+
+    handle.assert_not_awaited()
+
+
+async def test_mimir_records_rule_generation_result_as_no_authority_projection() -> None:
+    store = InMemoryStateStore()
+    mimir = Mimir()
+    mimir.bind_rule_generation_state_store(store)
+    result = _result()
+
+    await mimir.on_typed_message(
+        RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
+        result.model_dump(mode="json"),
+    )
+
+    receipt = await store.read_state(
+        f"mimir:rule-generation-activation-result:{result.idempotency_key}"
+    )
+    assert receipt is not None
+    assert receipt["result_digest"] == result.result_digest
+    assert receipt["projection_only"] is True
+    assert receipt["grants_execution_authority"] is False
+    assert len(tuple(store.audit_entries)) == 1
+    assert await store.verify_chain()
+
+
+async def test_mimir_rule_generation_result_redelivery_is_restart_safe() -> None:
+    store = InMemoryStateStore()
+    result = _result()
+    payload = result.model_dump(mode="json")
+    first = Mimir()
+    first.bind_rule_generation_state_store(store)
+
+    await asyncio.gather(
+        first.on_typed_message(RULE_GENERATION_ACTIVATION_RESULT_TOPIC, payload),
+        first.on_typed_message(RULE_GENERATION_ACTIVATION_RESULT_TOPIC, payload),
+    )
+    restarted = Mimir()
+    restarted.bind_rule_generation_state_store(store)
+    await restarted.on_typed_message(RULE_GENERATION_ACTIVATION_RESULT_TOPIC, payload)
+
+    assert len(tuple(store.audit_entries)) == 1
+    assert first.behavior_snapshot()["rule_generation_activation_result_recorded"] == 1
+    assert first.behavior_snapshot()["rule_generation_activation_result_duplicate"] == 1
+    assert restarted.behavior_snapshot()["rule_generation_activation_result_duplicate"] == 1
+
+
+async def test_mimir_rejects_rule_generation_result_idempotency_conflict() -> None:
+    store = InMemoryStateStore()
+    mimir = Mimir()
+    mimir.bind_rule_generation_state_store(store)
+    result = _result()
+    conflicting = RuleGenerationActivationResultEvent.create(
+        command=result.command,
+        status=result.status,
+        completed_at=result.completed_at + timedelta(seconds=1),
+    )
+
+    await mimir.on_typed_message(
+        RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
+        result.model_dump(mode="json"),
+    )
+    with pytest.raises(ValueError, match="idempotency conflict"):
+        await mimir.on_typed_message(
+            RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
+            conflicting.model_dump(mode="json"),
+        )
+    assert len(tuple(store.audit_entries)) == 1
+
+
+async def test_mimir_rejects_malformed_or_unbound_rule_generation_result() -> None:
+    result = _result()
+    malformed = result.model_dump(mode="json")
+    malformed["result_digest"] = "sha256:" + "0" * 64
+    store = InMemoryStateStore()
+    mimir = Mimir()
+    mimir.bind_rule_generation_state_store(store)
+
+    with pytest.raises(ValidationError):
+        await mimir.on_typed_message(RULE_GENERATION_ACTIVATION_RESULT_TOPIC, malformed)
+    with pytest.raises(RuntimeError, match="receipt store is unavailable"):
+        await Mimir().on_typed_message(
+            RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
+            result.model_dump(mode="json"),
+        )
+    assert len(tuple(store.audit_entries)) == 0
 
 
 def test_mimir_accepts_and_drains_rule_candidates() -> None:
