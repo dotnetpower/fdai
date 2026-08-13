@@ -22,7 +22,7 @@
     "chat.contextUsage.enabled": true,
     "chat.useNestedAgentsMdFiles": false,
     "github.copilot.chat.summarizeAgentConversationHistory.enabled": true,
-    "github.copilot.chat.summarizeAgentConversationHistoryThreshold": 160000,
+    "github.copilot.chat.summarizeAgentConversationHistoryThreshold": 0.8,
     "github.copilot.nextEditSuggestions.enabled": false,
     "git.autofetch": false,
     "python.analysis.include": [
