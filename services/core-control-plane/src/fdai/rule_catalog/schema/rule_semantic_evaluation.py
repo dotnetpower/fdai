@@ -134,6 +134,8 @@ async def evaluate_semantic_surface(
         raise ValueError("semantic surface evaluation case ids MUST be unique")
     training_digests = tuple(sorted(query_digest(item) for item in surface.training_queries))
     evaluation_digests = tuple(sorted(item.digest for item in cases))
+    if len(evaluation_digests) != len(set(evaluation_digests)):
+        raise ValueError("held-out evaluation queries MUST be canonically unique")
     if set(training_digests).intersection(evaluation_digests):
         raise ValueError("held-out evaluation query MUST NOT occur in surface training data")
     if not any(item.expected_rule_refs for item in cases) or not any(

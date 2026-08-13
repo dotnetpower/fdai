@@ -1,6 +1,6 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: 56264f354bf1d94eafd6a1824ba9dff0ea3c24c5
+translation_source_sha: b11a0ae84dacf4354a00aadac2c864a28e63e00a
 translation_revised: 2026-08-13
 ---
 # Rule 의미 검색
@@ -17,7 +17,8 @@ translation_revised: 2026-08-13
 > 스키마에 맞고 현재 상태인 근거를 사용하는 정확한 활성 Rule만 평가합니다.
 >
 > **구현 상태 (2026-08-13):** FDAI는 결정론적 Rego 및 표현식 매니페스트, strict promoted
-> 표면 로딩, held-out 집단 evaluation, privacy-safe challenger feedback, retained-generation
+> 표면 및 내용 기반 주소를 가진 검증 증적 로딩, held-out 집단 evaluation, privacy-safe
+> challenger feedback, retained-generation
 > 롤백 증적을 포함한 atomic in-memory 세대, 읽기 전용
 > `catalog.search_rules` 함수, concept-first 범위가 제한된
 > 수집, lexical 성능 저하, 영속 StateStore challenger 저장소 및 활성과 발견 세대를
@@ -52,7 +53,8 @@ translation_revised: 2026-08-13
 | 선택적 의미 런타임 바인딩 | implemented | `composition/wire_semantic_query.py`; `tests/composition/test_wire_semantic_query.py` | 의미 인덱스와 정확한 카탈로그 다이제스트를 함께 요구합니다. |
 | Planner 가용성 계상 | implemented | `core/ontology_platform/query_manifest.py`; `tests/core/ontology_platform/test_query_manifest.py`; current change focused checks | 읽을 수 있지만 바인딩되지 않은 함수는 구조 커버리지에 `runtime_binding_unavailable`로 남고 planning에서는 숨겨집니다. |
 | 이중 언어 held-out 평가기 계약 | implemented | `rule_catalog/schema/rule_semantic_evaluation.py`; `tests/rule_catalog/test_rule_semantic_evaluation.py`; current change focused check | 영어 및 한국어 양성 사례와 명시적 no-match 고정본이 검증 전용 집단 근거를 생성합니다. 두 언어 모두에서 training 질의 재사용을 거부합니다. 검색 실패는 `HOLD`를 생성하고 양성 사례를 실패로 계산하며 no-match 정밀도 근거로 사용하지 않습니다. 부분 검색 성능 저하는 집단별로 측정되며 승격 검토 대상이 되지 않습니다. 증적 스키마 `1.1.0`은 평가한 정확한 세대와 카탈로그 다이제스트를 고정합니다. |
-| 카탈로그 기반 승격 보증 | implemented | `tests/rule_catalog/test_discovery_catalog_search.py`; 커밋 `d1787f4d8`; current change 배포 카탈로그 집중 검사 | 실제 활성 Rule 62개 세대는 정확한 영어, 모호성, 적대적 no-match 및 발견 전용 no-match 집단을 통과합니다. 통제된 한국어 표면 부재와 오래된 정확한 세대 검색은 검토 가능한 검증 전용 `HOLD` 근거를 생성합니다. 발견 문서는 활성 결과에 유출되지 않습니다. 이는 검색 준비 완료가 아니라 부정적 게이트 근거입니다. |
+| 카탈로그 기반 승격 보증 | implemented | `rule-catalog/surfaces/kubernetes-node-pool.multi-zone.ko.yaml`; `rule-catalog/surface-validation-receipts/`; `tests/rule_catalog/test_discovery_catalog_search.py`; current change 집중 검사 | 실제 활성 Rule 62개 세대는 영어, 한국어, 모호성, 적대적 no-match, 코퍼스 격리 및 정확한 세대로 통제된 집단 7개를 모두 통과합니다. 승격된 한국어 표면은 정확한 통과 검증 전용 증적을 replay하고 후보 형식과 동일한 세대를 생성합니다. 발견 문서는 활성 결과에 유출되지 않습니다. 이는 구현 근거이며 통제된 실제 런타임 근거가 아닙니다. |
+| 검증 증적 카탈로그 | implemented | `rule_catalog/schema/rule_semantic_validation_receipt_catalog.py`; `rule_semantic_validation_receipt.schema.json`; `tests/rule_catalog/test_rule_semantic_validation_receipt_catalog.py`; current change 집중 검사 | 내용 기반 주소를 가진 JSON에서 통과 증적 전체 본문을 strict하게 로드합니다. 증적이 없거나, malformed, 변조되었거나, 통과하지 않았거나, 권한을 포함하거나, 대상이 다르거나, 정책이 오래된 경우 승격된 표면을 안전하게 차단합니다. |
 | 통제된 승격 검토 | implemented | `config/rule-semantic-evaluation.json`; `rule_catalog/schema/rule_semantic_evaluation_policy.py`; `rule_catalog/schema/rule_semantic_promotion_review.py`; current change 집중 검사 | 내용 기반 주소를 가진 통제된 구성에서 임계값과 필수 집단을 로드합니다. 검토 자격은 오래된 정책, 세대 또는 카탈로그 ID, 누락되거나 이름이 바뀐 메트릭, 알 수 없는 증적 스키마, 실패한 집단, 권한을 포함한 근거 및 현재 임계값 미만의 값을 안전하게 보류합니다. 자격은 승격 또는 실행 권한을 부여하지 않습니다. |
 | In-memory 세대 및 검증 | implemented | `delivery/catalog_search/in_memory.py`; `delivery/catalog_search/generation.py`; `tests/delivery/catalog_search/test_ontology_generation.py`; `tests/rule_catalog/test_discovery_catalog_search.py` | 결정론적 off-path 세대, 독립적인 활성 및 발견 포인터, 코퍼스별 롤백 및 영속 어댑터와 같은 활성화 compare-and-swap을 지원합니다. |
 | 코퍼스 규모 세대 식별자 | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/generation.py`; `delivery/catalog_search/in_memory.py`; 집중 세대 및 Rule 카탈로그 테스트 | 프로바이더 중립 메타데이터는 개수, 계층형 루트, 범위가 제한된 순서가 있는 청크 및 작은 세대의 인라인 다이제스트를 포함합니다. 세대 생성, 검증 증적, 준비, 활성화, 활성 조회, 검색, 롤백 및 롤백 증적은 식별자 차이를 거부합니다. |
@@ -85,6 +87,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | implemented | 구분하지 못하는 영어 기능어, 카탈로그 전체에 공통인 `rule` 및 숫자 조각만으로 발생한 활성 코퍼스 오탐을 제거했습니다. 정확한 ID 일치, 도메인 용어, 의미 점수 및 구성 임계값은 변경하지 않았습니다. 적대적 no-match와 발견 전용 no-match 집단은 이제 각각 `1.0`이며, 배포 카탈로그 증적은 한국어 양성 재현율과 순위에 대해서만 `HOLD`를 유지합니다. | `current change`; 전체 배포 활성 및 발견 카탈로그 모듈에서 테스트 11개, 카탈로그 질의 및 구성 소비자에서 테스트 21개가 통과했습니다. 변경한 운영 어댑터에서 strict mypy가 통과했고 편집기 진단은 깨끗했습니다. | 통제된 한국어 표면을 추가하고 검증을 주장하기 전에 통제된 실제 근거를 별도로 기록합니다. |
 | 2026-08-13 | implemented | 의미 표면 증적의 식별자 순환을 제거했습니다. 검증 증적은 변경 불가능한 후보 형식의 의미 대상을 연결하고, 승격된 Git 아티팩트는 수명 주기 상태와 증적 참조를 포함하는 별도 다이제스트를 유지합니다. 기존 후보 증적 식별자는 변경되지 않습니다. | `current change`; 집중 의미 검색 및 평가 계약 모음에서 테스트 30개가 통과했습니다. 작업 소유 운영 및 테스트 파일에서 Ruff, 형식 및 strict mypy가 통과했습니다. | 승격 검토 전에 통제된 한국어 표면과 실제 통과 held-out 증적을 추가하고 재현합니다. 검증을 주장하기 전에 통제된 실제 근거를 별도로 기록합니다. |
 | 2026-08-13 | implemented | 각 표면 검증 증적을 평가에 사용한 정확한 검색 세대와 카탈로그에 연결했습니다. 이제 승격 검토는 오래된 세대 또는 오래된 카탈로그 ID를 각각 독립적으로 보류하며, 증적 스키마 `1.1.0`은 두 ID를 검증과 내용 기반 다이제스트 변환 결과에 포함합니다. | `current change`; 전체 의미 증적, 검색 및 배포 카탈로그 범위에서 테스트 42개가 통과했습니다. 작업 소유 파일 6개에서 Ruff와 형식 검사가 통과했고 운영 계약 3개에서 strict mypy가 통과했으며 편집기 진단은 깨끗했습니다. | 승격 검토 전에 통제된 한국어 표면과 실제 통과 held-out 증적을 추가하고 재현합니다. 검증을 주장하기 전에 통제된 실제 근거를 별도로 기록합니다. |
+| 2026-08-13 | implemented | 실제 통제된 한국어 표면을 추가하고 전체 통과 증적을 다시 계산한 내용 주소에 저장했습니다. 승격된 표면 로딩은 이제 정확한 후보 대상, 현재 정책, 통과 결정, 빈 실패 및 검증 전용 권한을 확인합니다. 검색 변환 v5는 변경 불가능한 대상 ID를 사용하므로 후보와 승격 형식이 정확히 같은 Rule 62개 세대를 replay합니다. | `current change`; 의미 검색, 평가, 정책, 승격된 표면, 증적 카탈로그 및 배포 카탈로그 집중 모음에서 테스트 61개가 통과했습니다. 작업 소유 Python 범위에서 Ruff와 strict mypy가 통과했습니다. | 이 기능을 `validated`로 변경하기 전에 통제된 실제 런타임 근거를 별도로 기록합니다. |
 
 ### 남은 작업
 
@@ -111,8 +114,9 @@ translation_revised: 2026-08-13
 - [x] 배포된 카탈로그 probe는 영어 및 한국어 양성, 모호성, 적대적 입력, 코퍼스 격리 및
   실제 인덱스의 오래된 세대 집단을 포함합니다. 적대적 입력과 발견 전용 no-match 정밀도는
   `1.0`이며 발견 문서는 활성 결과와 격리됩니다.
-- [ ] 통제된 한국어 표면을 추가합니다. 정확한 세대, no-match 및 코퍼스 격리 검사를 약화하지
-  않고 배포 카탈로그 집단이 검토 가능한 통과 증적을 생성하면 완료합니다.
+- [x] 통제된 한국어 표면과 내용 기반 주소를 가진 전체 검증 증적이 실제 Rule 62개 세대에서
+  replay됩니다. 정확한 세대, no-match 및 코퍼스 격리 검사를 약화하지 않고 필수 집단 7개가
+  모두 통과하며 후보와 승격의 변환 결과가 동일함을 명시적으로 검사합니다.
 - [x] 평가 임계값과 필수 집단을 내용 기반 주소를 가진 통제된 구성에서 로드합니다. 결정론적인
   검토 전용 게이트는 오래된 정책 ID, 실패하거나 불완전한 근거, 알 수 없는 증적 스키마,
   권한을 포함한 증적 및 현재 임계값 미만의 값을 거부하며 승격 또는 실행 권한을 부여하지
@@ -194,6 +198,18 @@ flowchart LR
 순환을 만들 수 없습니다. 승격된 Git 아티팩트는 `state: promoted`와 정확한 검증 증적 참조를
 포함하는 자체 다이제스트를 가집니다.
 
+Git 카탈로그는 전체 검증 증적을 내용 다이제스트에서 파생된 경로에 저장합니다. Strict
+loader는 해당 다이제스트를 다시 계산하고 모든 승격된 표면 참조를 확인하며, 같은 후보 형식
+대상과 현재 평가 정책에 대한 통과한 검증 전용 결정을 검증합니다. 증적이 없거나, malformed,
+변조되었거나, 보류되었거나, 권한을 포함하거나, 대상이 일치하지 않거나, 정책이 오래된 경우
+표면 로딩을 차단합니다. 현재 세대 및 카탈로그 식별자는 정확한 승격 검토와 세대 발행 검사로
+유지하므로 과거 근거 로딩이 표면과 세대 사이의 순환을 만들지 않습니다.
+
+검색 문서 식별자는 표면 수명 주기 아티팩트 다이제스트가 아니라 순서가 있는 후보 형식 의미
+대상 다이제스트 집합을 사용합니다. 따라서 후보와 증적에 연결된 승격 형식은 동일한 정확한
+검색 문서와 세대를 생성합니다. 승격은 증적이 평가한 세대를 무효화하지 않고 검토 메타데이터만
+변경합니다.
+
 ### CatalogSearchGeneration
 
 하나의 세대는 완전한 검색 가능 코퍼스를 고정합니다.
@@ -237,6 +253,10 @@ Rollback은 보존된 이전 세대만 다시 활성화합니다. 호출자는 �
 메트릭 구성, 집단 결과, 실패 및 결정을 고정합니다. 검토 replay는 평가한 검색 ID 중 하나라도
 예상 세대와 다르면 보류합니다. 검증은 후보를 검토 대상으로 승인하거나 보류할 수 있습니다.
 자체적으로 표면을 승격할 수는 없습니다.
+
+통과한 증적은 내용 기반 주소를 가진 JSON 아티팩트로 저장됩니다. 승격된 표면이 검색 변환
+결과에 들어가기 전에 파일명, 스키마에 맞는 본문, 정규 내용 다이제스트, 대상 식별자, 정책
+식별자, 결정, 실패 및 검증 전용 권한을 독립적으로 replay합니다.
 
 ## 빌드 및 의미 확장 수명 주기
 

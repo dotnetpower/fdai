@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.1.0",
+  "surface_digest": "sha256:44daa60d3ca9ec3e655724ba85ef5a4f141ea23204ab5b98d193c867751ad0b9",
+  "generation_digest": "sha256:a32adb86ee7da1507a551619219ca77ae80173b8c9e1d598b4653befa60d54d8",
+  "catalog_digest": "sha256:05ef7c7b44c3c6387d625b620684df4ce90d6c69023fdf933bcd49fc8cf45817",
+  "dataset_digest": "sha256:1307e83d264c8c0b6fdc4342f840b51cebe18f930ca4bd9242387052da54d6de",
+  "evaluator_ref": "heimdall:shipped-catalog-ko@1",
+  "evaluation_policy_digest": "sha256:5a6412eef415d374c9705e21b05313e348aed98e657071713d306f6e8e2654c6",
+  "training_query_digests": [
+    "sha256:2500a6b4014c0dddf6c53d2465b583a764c6b996cad7402a683e74a5e0704271"
+  ],
+  "evaluation_query_digests": [
+    "sha256:0ee575f6f897d310752bfc57d66b30a2483cbdbd4296d59b6eb18308c7435375",
+    "sha256:50df5c39b2400e486b18c241cc7362006f255b67282e60e55161eb8a71d2d16d",
+    "sha256:73e2286bb0e55aeeccd3519cdf6faa4e0b79eb90b52fa27b4ff8e2ee22ba245e",
+    "sha256:7d2eb251e1e7e9586dffc51cfeba4c3513f2147629ec1d44160524b70dacaa33",
+    "sha256:c85e8e9c04dbd3a77bbe5e05f3d6cf97579fa7045f309ffcd27a5a530372df45",
+    "sha256:e36d4ed9baca8df6306a7da2ed60e61895b4c6f1e46513bd6bfdff52db2ad466",
+    "sha256:eaf7a8f9a07f117d1afe7f45411bd4d3895cd4388ddcac5221af0820bdec5a2d"
+  ],
+  "cohort_metrics": [
+    {"cohort": "adversarial-negative", "metric": "no-match-precision", "value": 1.0, "sample_count": 1},
+    {"cohort": "corpus-isolation", "metric": "no-match-precision", "value": 1.0, "sample_count": 1},
+    {"cohort": "en-ambiguity", "metric": "mean-reciprocal-rank", "value": 1.0, "sample_count": 1},
+    {"cohort": "en-ambiguity", "metric": "recall-at-5", "value": 1.0, "sample_count": 1},
+    {"cohort": "en-exact", "metric": "mean-reciprocal-rank", "value": 1.0, "sample_count": 1},
+    {"cohort": "en-exact", "metric": "recall-at-5", "value": 1.0, "sample_count": 1},
+    {"cohort": "ko-negative", "metric": "no-match-precision", "value": 1.0, "sample_count": 1},
+    {"cohort": "ko-positive", "metric": "mean-reciprocal-rank", "value": 1.0, "sample_count": 1},
+    {"cohort": "ko-positive", "metric": "recall-at-5", "value": 1.0, "sample_count": 1},
+    {"cohort": "stale-active-generation", "metric": "mean-reciprocal-rank", "value": 1.0, "sample_count": 1},
+    {"cohort": "stale-active-generation", "metric": "recall-at-5", "value": 1.0, "sample_count": 1}
+  ],
+  "failure_codes": [],
+  "decision": "pass",
+  "validation_authority": "validation_only"
+}

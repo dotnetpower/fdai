@@ -567,6 +567,36 @@ async def test_training_query_cannot_leak_into_held_out_evaluation() -> None:
         )
 
 
+async def test_held_out_queries_must_be_canonically_unique() -> None:
+    cases = (
+        RetrievalEvaluationCase(
+            "positive-en",
+            "Which policy prevents public storage?",
+            "en-positive",
+            ("rule:public-access@1",),
+            EvaluationQueryOrigin.USER,
+        ),
+        RetrievalEvaluationCase(
+            "duplicate-negative-en",
+            "  WHICH policy prevents public storage?  ",
+            "en-negative",
+            (),
+            EvaluationQueryOrigin.USER,
+        ),
+    )
+
+    with pytest.raises(ValueError, match="canonically unique"):
+        await evaluate_semantic_surface(
+            _surface(),
+            cases,
+            retriever=_Retriever(),
+            policy=_policy(),
+            evaluator_ref="heimdall:rule-retrieval@1",
+            generation_digest=_DIGEST,
+            catalog_digest=_DIGEST,
+        )
+
+
 def test_generated_evaluation_case_requires_origin_receipt() -> None:
     with pytest.raises(ValueError, match="generator"):
         RetrievalEvaluationCase(

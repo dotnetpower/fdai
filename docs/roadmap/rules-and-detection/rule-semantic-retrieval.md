@@ -16,7 +16,8 @@ evaluation gates, and failed-query feedback loop.
 > only an exact active Rule against schema-valid, current evidence through the existing T0 path.
 >
 > **Implementation status (2026-08-13):** FDAI ships deterministic Rego and expression manifests,
-> strict promoted-surface loading, held-out cohort evaluation, privacy-safe challenger feedback,
+> strict promoted-surface and content-addressed validation-receipt loading, held-out cohort
+> evaluation, privacy-safe challenger feedback,
 > atomic in-memory generations, the read-only `catalog.search_rules` function,
 > concept-first bounded retrieval, lexical degradation, a durable StateStore challenger store,
 > and a durable PostgreSQL `CatalogSemanticIndex` with isolated active and discovery generations.
@@ -51,7 +52,8 @@ evaluation gates, and failed-query feedback loop.
 | Optional semantic-runtime binding | implemented | `composition/wire_semantic_query.py`; `tests/composition/test_wire_semantic_query.py` | Requires the semantic index and exact catalog digest together. |
 | Planner availability accounting | implemented | `core/ontology_platform/query_manifest.py`; `tests/core/ontology_platform/test_query_manifest.py`; current change focused checks | A readable but unbound function remains in structural coverage as `runtime_binding_unavailable` and is hidden from planning. |
 | Bilingual held-out evaluator contract | implemented | `rule_catalog/schema/rule_semantic_evaluation.py`; `tests/rule_catalog/test_rule_semantic_evaluation.py`; current change focused check | English and Korean positive and explicit no-match fixtures produce validation-only cohort evidence. Training-query reuse is rejected in both languages. Retrieval failures produce `HOLD`, count positive cases as misses, and never receive no-match precision credit. Partial retrieval degradation is measured per cohort and remains ineligible for promotion review. Receipt schema `1.1.0` pins the exact evaluated generation and catalog digests. |
-| Catalog-backed promotion assurance | implemented | `tests/rule_catalog/test_discovery_catalog_search.py`; commit `d1787f4d8`; current change focused shipped-catalog checks | The real 62-Rule active generation passes exact English, ambiguity, adversarial no-match, and discovery-only no-match cohorts. Missing governed Korean surfaces and stale exact-generation retrieval produce reviewable validation-only `HOLD` evidence. Discovery documents do not leak into active results. This is negative gate evidence, not retrieval readiness. |
+| Catalog-backed promotion assurance | implemented | `rule-catalog/surfaces/kubernetes-node-pool.multi-zone.ko.yaml`; `rule-catalog/surface-validation-receipts/`; `tests/rule_catalog/test_discovery_catalog_search.py`; current change focused checks | The real 62-Rule active generation passes all seven governed English, Korean, ambiguity, adversarial no-match, corpus-isolation, and exact-generation cohorts. The promoted Korean surface replays the exact passing validation-only receipt and produces the same generation as its candidate form. Discovery documents do not leak into active results. This is implementation evidence, not governed live runtime evidence. |
+| Validation receipt catalog | implemented | `rule_catalog/schema/rule_semantic_validation_receipt_catalog.py`; `rule_semantic_validation_receipt.schema.json`; `tests/rule_catalog/test_rule_semantic_validation_receipt_catalog.py`; current change focused checks | Strictly loads full passing receipt bodies from content-addressed JSON. Promoted surfaces fail closed on missing, malformed, tampered, non-passing, authority-bearing, wrong-subject, or stale-policy evidence. |
 | Governed promotion review | implemented | `config/rule-semantic-evaluation.json`; `rule_catalog/schema/rule_semantic_evaluation_policy.py`; `rule_catalog/schema/rule_semantic_promotion_review.py`; current change focused checks | Loads content-addressed thresholds and required cohorts from governed configuration. Review eligibility fails closed on stale policy, generation, or catalog identity; incomplete or renamed metrics; unknown receipt schemas; failed cohorts; authority-bearing evidence; and values below current thresholds. Eligibility grants no promotion or execution authority. |
 | In-memory generation and validation | implemented | `delivery/catalog_search/in_memory.py`; `delivery/catalog_search/generation.py`; `tests/delivery/catalog_search/test_ontology_generation.py`; `tests/rule_catalog/test_discovery_catalog_search.py` | Supports deterministic off-path generation, independent active/discovery pointers, corpus-local rollback, and activation compare-and-swap parity with the durable adapter. |
 | Corpus-scale generation identity | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/generation.py`; `delivery/catalog_search/in_memory.py`; focused generation and Rule-catalog tests | Provider-neutral metadata carries count, hierarchical root, bounded ordered chunks, and small-generation inline digests. Generation construction, validation receipts, staging, activation, active lookup, search, rollback, and rollback receipts reject identity drift. |
@@ -84,6 +86,7 @@ evaluation gates, and failed-query feedback loop.
 | 2026-08-13 | implemented | Removed active-corpus false positives caused only by non-discriminating English function words, catalog-generic `rule`, and numeric fragments. Exact-id matching, domain terms, semantic scores, and configured thresholds remain unchanged. The adversarial and discovery-only no-match cohorts now each measure `1.0`; the shipped-catalog receipt remains `HOLD` only for Korean positive recall and rank. | `current change`; the complete shipped active/discovery catalog module passed 11 tests, catalog-query and composition consumers passed 21 tests, strict mypy passed the changed production adapter, and editor diagnostics were clean. | Add governed Korean surfaces and record governed live evidence separately before claiming validation. |
 | 2026-08-13 | implemented | Removed the semantic-surface receipt identity cycle. Validation receipts now bind the immutable candidate-form semantic subject, while the promoted Git artifact retains a distinct digest that includes its lifecycle state and receipt reference. Existing candidate receipt identities remain unchanged. | `current change`; the focused semantic retrieval and evaluation contract suites passed 30 tests. Ruff, formatting, and strict mypy passed the task-owned production and test files. | Add and replay a governed Korean surface and its real passing held-out receipt before promotion review. Record governed live evidence separately before claiming validation. |
 | 2026-08-13 | implemented | Bound each surface validation receipt to the exact search generation and catalog evaluated. Promotion review now holds independently on a stale generation or stale catalog identity, and receipt schema `1.1.0` includes both identities in validation and content-addressed digest projection. | `current change`; the complete semantic receipt, retrieval, and shipped-catalog slice passed 42 tests. Ruff and formatting passed six task-owned files, strict mypy passed three production contracts, and editor diagnostics were clean. | Add and replay a governed Korean surface and its real passing held-out receipt before promotion review. Record governed live evidence separately before claiming validation. |
+| 2026-08-13 | implemented | Added a genuine governed Korean surface and persisted its full passing receipt at its recomputed content address. Promoted-surface loading now resolves and revalidates exact candidate subject, current policy, passing decision, empty failures, and validation-only authority. Search projection v5 uses immutable subject identities, so candidate and promoted forms replay the exact same 62-Rule generation. | `current change`; the semantic retrieval, evaluation, policy, promoted-surface, receipt-catalog, and shipped-catalog focused suite passed 61 tests. Ruff and strict mypy passed the task-owned Python slice. | Record governed live runtime evidence separately before changing this capability to `validated`. |
 
 ### Remaining work
 
@@ -111,8 +114,9 @@ evaluation gates, and failed-query feedback loop.
 - [x] The shipped-catalog probe covers English and Korean positive, ambiguity, adversarial-input,
   corpus-isolation, and real-index stale-generation cohorts. Adversarial and discovery-only
   no-match precision are `1.0`; discovery documents remain isolated from active results.
-- [ ] Add governed Korean surfaces. Exit when the shipped-catalog cohorts produce reviewable
-  passing receipts without weakening exact-generation, no-match, or corpus-isolation checks.
+- [x] A governed Korean surface and its full content-addressed validation receipt replay against
+  the real 62-Rule generation. All seven required cohorts pass without weakening exact-generation,
+  no-match, or corpus-isolation checks, and candidate/promotion projection equality is explicit.
 - [x] Evaluation thresholds and required cohorts load from content-addressed governed configuration.
   The deterministic review-only gate rejects stale policy identity, failed or incomplete evidence,
   unknown receipt schemas, authority-bearing receipts, and values below current thresholds without
@@ -191,6 +195,19 @@ receipt reference are normalized to `candidate` and absent. Promotion therefore 
 content that was evaluated or create a digest cycle. The promoted Git artifact has its own digest,
 including `state: promoted` and the exact validation receipt reference.
 
+The Git catalog stores the full validation receipt at a path derived from its content digest. The
+strict loader recomputes that digest, resolves every promoted surface reference, and verifies a
+passing validation-only decision for the same candidate-form subject and current evaluation
+policy. Missing, malformed, tampered, held, authority-bearing, subject-mismatched, or stale-policy
+receipts block the surface from loading. Current generation and catalog identity remain an exact
+promotion-review and generation-publication check so loading historical evidence does not create a
+surface-to-generation cycle.
+
+Search document identity uses the ordered set of candidate-form semantic subject digests, not the
+surface lifecycle artifact digests. A candidate and its receipt-linked promoted form therefore
+produce the same exact search documents and generation. Promotion changes review metadata without
+invalidating the generation that the receipt evaluated.
+
 ### CatalogSearchGeneration
 
 A generation pins one complete searchable corpus:
@@ -233,6 +250,11 @@ A validation receipt pins the candidate-form surface subject, exact search gener
 frozen dataset, evaluator, metric configuration, cohort results, failures, and decision. Review
 replay holds when either evaluated search identity differs from the expected generation. Validation
 can approve a candidate for review or hold it. It cannot promote the surface by itself.
+
+Passing receipts are persisted as content-addressed JSON artifacts. Their filenames, schema-valid
+bodies, canonical content digests, subject identities, policy identities, decisions, failures, and
+validation-only authority are independently replayed before a promoted surface enters a search
+projection.
 
 ## Build and enrichment lifecycle
 

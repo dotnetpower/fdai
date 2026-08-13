@@ -236,13 +236,13 @@ def catalog_search_document_digest(document: CatalogSearchDocument) -> str:
 def catalog_search_schema_digest() -> str:
     """Return the versioned projection formula identity."""
 
-    return "sha256:" + hashlib.sha256(b"catalog-search-document:v4").hexdigest()
+    return "sha256:" + hashlib.sha256(b"catalog-search-document:v5").hexdigest()
 
 
 def catalog_semantic_surface_digest(surfaces: Sequence[RuleSemanticSurface]) -> str:
-    """Hash the complete promoted surface set attached to one Rule."""
+    """Hash immutable semantic subjects without review lifecycle metadata."""
 
-    digests = tuple(sorted(item.digest for item in surfaces))
+    digests = tuple(sorted(item.validation_subject_digest for item in surfaces))
     if not digests:
         raise ValueError("semantic surface digest requires at least one surface")
     encoded = json.dumps(digests, separators=(",", ":")).encode()
