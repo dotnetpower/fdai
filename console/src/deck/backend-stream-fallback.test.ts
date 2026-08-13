@@ -553,6 +553,121 @@ describe("askBackendStream fallback typewriter", () => {
     expect(reply.trajectoryDetail?.milestones[0]?.text).toBe("Inventory complete");
   });
 
+  test("reduces progressive semantic evidence into a readable structured answer", async () => {
+    const ref = "audit:1";
+    const progress = vi.fn();
+    const verification = {
+      status: "verified",
+      authority: "ontology-query",
+      checks_completed: 1,
+      checks_total: 1,
+      evidence_refs: [ref],
+      reason_code: "semantic_answer_verified",
+      claims: [],
+      failed_claim_ids: [],
+    };
+    const frames = [
+      ["status", { seq: 1, phase: "accepted", label: "Semantic request accepted." }],
+      ["status", { seq: 2, phase: "planning", label: "Waiting for a verified semantic plan." }],
+      ["status", { seq: 3, phase: "evidence", label: "Evidence execution completed." }],
+      ["verification", { seq: 4, phase: "verification", label: "Evidence verification completed." }],
+      ["status", { seq: 5, phase: "presentation", label: "Operator answer prepared." }],
+      ["done", {
+        seq: 6,
+        answer: "## Verified incident evidence\n\nReadable answer.",
+        source: "ontology-query",
+        conversation_context: {
+          kind: "incident",
+          incident_id: "incident-1",
+          correlation_id: "correlation-1",
+        },
+        verification,
+        answer_plan: {
+          intent: "diagnosis",
+          detail_level: "standard",
+          format: "mixed",
+          sections: ["verified_facts", "limitations", "next_safe_step"],
+          evidence_requirement: "server_read_model",
+          max_words: 500,
+          discuss: "skip",
+          explicit_overrides: [],
+          preference_applied: false,
+        },
+        presentation_artifact: {
+          schema_version: 1,
+          layout: "stack",
+          evidence_refs: [ref],
+          blocks: [{
+            slot_id: "overview",
+            kind: "summary",
+            title: "Verified incident evidence",
+            emphasis: "primary",
+            collapsed: false,
+            evidence_refs: [ref],
+            data: { items: [{ label: "Audit records", value: "1", tone: "neutral" }] },
+          }],
+        },
+        trajectory_detail: {
+          schema_version: 1,
+          activities: [{
+            activity_id: "semantic-query-evidence",
+            kind: "query",
+            status: "completed",
+            label: "Verified semantic query evidence",
+            completed: 1,
+            total: 1,
+            authority: "read_only",
+            execution: {
+              tool: "ontology-query",
+              command: "semantic_query_outputs",
+              input_kind: "query",
+              redacted: true,
+              output: '{"schema_version":1,"outputs":[{"node_id":"incident-evidence"}]}',
+              output_truncated: false,
+            },
+          }],
+          branches: [],
+          milestones: [],
+          omitted: { activities: 0, branches: 0, milestones: 0 },
+          truncated_outputs: 0,
+        },
+      }],
+    ] as const;
+    const body = frames.map(([event, data]) =>
+      `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
+    ).join("");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    const mod = await import("./backend");
+
+    const reply = await mod.askBackendStream("q", snap(), [], {
+      onToken: () => undefined,
+      onProgress: progress,
+    });
+
+    expect(progress.mock.calls.map(([value]) => value.phase)).toEqual([
+      "accepted",
+      "planning",
+      "evidence",
+      "verification",
+      "presentation",
+    ]);
+    expect(reply.text).toBe("## Verified incident evidence\n\nReadable answer.");
+    expect(reply.conversationBinding).toEqual({
+      kind: "incident",
+      incidentId: "incident-1",
+      correlationId: "correlation-1",
+    });
+    expect(reply.presentationArtifact?.blocks[0]?.slotId).toBe("overview");
+    expect(reply.answerPlan?.sections).toEqual([
+      "verified_facts",
+      "limitations",
+      "next_safe_step",
+    ]);
+    expect(reply.trajectoryDetail?.activities[0]?.execution?.output).toContain(
+      '"node_id":"incident-evidence"',
+    );
+  });
+
   test("treats an explicit interrupted event as a stopped turn", async () => {
     const body =
       'event: interrupted\ndata: {"seq":1,"detail":"chat turn interrupted"}\n\n';

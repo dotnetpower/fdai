@@ -48,6 +48,8 @@ import {
   presentationArtifactToWire,
 } from "./presentation-artifact";
 import { parseTurnAttachments, type TurnAttachment } from "./turn-attachments";
+import { normalizeIncidentBinding } from "./conversation-sessions";
+import type { IncidentConversationBinding } from "./open-deck";
 
 export const TRANSCRIPT_KEY = "fdai.deck.transcript.v1";
 export const MAX_TRANSCRIPT_JSON_CHARS = 4 * 1024 * 1024;
@@ -117,6 +119,7 @@ export interface PersistedTurn {
   readonly intentGraphEvidence?: import("./backend-types").IntentGraphEvidence;
   readonly evidenceMode?: import("./backend-types").IntentEvidenceMode;
   readonly semanticReceipt?: SemanticProjectionReceipt;
+  readonly conversationBinding?: IncidentConversationBinding;
 }
 
 interface MaybeStreamingTurn extends PersistedTurn {
@@ -172,6 +175,7 @@ export function serializeTurns(
       const intentGraph = parseIntentGraph(t.intentGraph);
       const intentGraphEvidence = parseIntentGraphEvidence(t.intentGraphEvidence);
       const semanticReceipt = parseSemanticProjectionReceipt(t.semanticReceipt);
+      const conversationBinding = normalizeIncidentBinding(t.conversationBinding);
       const presentationArtifact = verification && t.presentationArtifact
         ? parsePresentationArtifact(
             presentationArtifactToWire(t.presentationArtifact),
@@ -212,6 +216,7 @@ export function serializeTurns(
           evidenceMode: intentGraphEvidence.evidence_mode,
         } : {}),
         ...(semanticReceipt ? { semanticReceipt } : {}),
+        ...(conversationBinding ? { conversationBinding } : {}),
       };
     });
   let serialized = JSON.stringify(persisted);
@@ -276,6 +281,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
     const intentGraph = parseIntentGraph(rec.intentGraph);
     const intentGraphEvidence = parseIntentGraphEvidence(rec.intentGraphEvidence);
     const semanticReceipt = parseSemanticProjectionReceipt(rec.semanticReceipt);
+    const conversationBinding = normalizeIncidentBinding(rec.conversationBinding);
     const attachments = parseTurnAttachments(rec.attachments);
     const turn: PersistedTurn = {
       id: rec.id,
@@ -315,6 +321,7 @@ export function parseTurns(raw: string | null): PersistedTurn[] {
         evidenceMode: intentGraphEvidence.evidence_mode,
       } : {}),
       ...(semanticReceipt ? { semanticReceipt } : {}),
+      ...(conversationBinding ? { conversationBinding } : {}),
     };
     out.push(turn);
   }

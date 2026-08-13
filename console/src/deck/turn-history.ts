@@ -12,5 +12,8 @@ export function backendHistoryForTurns(turns: readonly Turn[]): BackendTurn[] {
       ...(turn.evidenceFreshnessContext
         ? { evidenceFreshnessContext: turn.evidenceFreshnessContext }
         : {}),
+      ...(turn.conversationBinding
+        ? { conversationBinding: turn.conversationBinding }
+        : {}),
     }));
 }

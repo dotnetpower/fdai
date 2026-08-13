@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Protocol
 from uuid import UUID, uuid5
@@ -28,7 +29,7 @@ from fdai_service_contracts import (
 from fdai_service_contracts import (
     SemanticTurnResult as ContractSemanticTurnResult,
 )
-from fdai_service_contracts.ontology_query import SemanticOperation, TaskStatus, content_digest
+from fdai_service_contracts.ontology_query import TaskStatus, content_digest
 
 from .contract_codecs import (
     OPERATOR_PROJECTION_PRODUCER_V12,
@@ -59,6 +60,12 @@ _AUTHORITATIVE_EVIDENCE_UNAVAILABLE_REASONS = {
     "semantic_evidence_held",
     "semantic_evidence_incomplete",
 }
+
+
+@dataclass(frozen=True, slots=True)
+class _SemanticProjectionExtensions:
+    rule_search: RuleSearchProjection | None = None
+    technical_details: dict[str, object] | None = None
 
 
 class SemanticTurnRejectedError(ValueError):
@@ -262,7 +269,7 @@ class SemanticTurnProcessor:
         claim_finalized = False
         try:
             try:
-                result, rule_search = await self._execute(
+                result, extensions = await self._execute(
                     request=request,
                     requested_at=requested_at,
                     principal=principal,
@@ -272,7 +279,7 @@ class SemanticTurnProcessor:
                     envelope,
                     request,
                     result,
-                    rule_search=rule_search,
+                    extensions=extensions,
                     request_digest=request_digest,
                 )
                 created = await self._results.put_if_absent(idempotency_key, projection)
@@ -358,7 +365,7 @@ class SemanticTurnProcessor:
         requested_at: datetime,
         principal: Principal,
         cancelled: asyncio.Event | None,
-    ) -> tuple[ContractSemanticTurnResult, RuleSearchProjection | None]:
+    ) -> tuple[ContractSemanticTurnResult, _SemanticProjectionExtensions | None]:
         if request.cancelled or (cancelled is not None and cancelled.is_set()):
             return _terminal_result(request, "cancelled", "semantic_request_cancelled"), None
         now = _aware_utc(self._now(), field="semantic processor clock")
@@ -422,7 +429,7 @@ class SemanticTurnProcessor:
         request: SemanticTurnRequest,
         result: ContractSemanticTurnResult,
         *,
-        rule_search: RuleSearchProjection | None,
+        extensions: _SemanticProjectionExtensions | None,
         request_digest: str,
     ) -> bytes:
         semantic_result = result.model_dump(mode="json", exclude_none=True)
@@ -437,8 +444,11 @@ class SemanticTurnProcessor:
             "request_kind": "semantic_query",
             "request_digest": request_digest,
         }
-        if rule_search is not None:
-            payload["rule_search"] = rule_search.model_dump(mode="json")
+        if extensions is not None:
+            if extensions.rule_search is not None:
+                payload["rule_search"] = extensions.rule_search.model_dump(mode="json")
+            if extensions.technical_details is not None:
+                payload["technical_details"] = extensions.technical_details
         projection = {
             "schema_version": "1.2.0",
             "projection_id": projection_id,
@@ -466,7 +476,7 @@ class SemanticTurnProcessor:
             envelope,
             request,
             _terminal_result(request, disposition, reason_code),
-            rule_search=None,
+            extensions=None,
             request_digest=request_digest,
         )
 
@@ -550,7 +560,7 @@ def _bound_context_turn(
 def _project_runtime_result(
     request: SemanticTurnRequest,
     result: RuntimeSemanticTurnResult,
-) -> tuple[ContractSemanticTurnResult, RuleSearchProjection | None]:
+) -> tuple[ContractSemanticTurnResult, _SemanticProjectionExtensions | None]:
     if result.disposition != "answered":
         reason_codes = {
             "clarification": "semantic_clarification_required",
@@ -606,7 +616,7 @@ def _project_runtime_result(
     )
     if incident_found and incident_evidence is None:
         return _terminal_result(request, "held", "semantic_evidence_incomplete"), None
-    answer = _render_query_answer(
+    answer, technical_details = _render_query_answer(
         request,
         execution,
         rule_search=rule_search,
@@ -614,7 +624,7 @@ def _project_runtime_result(
         incident_evidence=incident_evidence,
         incident_node_id=incident_node_id,
     )
-    if answer is None:
+    if answer is None or technical_details is None:
         return _terminal_result(request, "held", "semantic_evidence_incomplete"), None
     return ContractSemanticTurnResult(
         disposition=SemanticTurnDisposition.ANSWERED,
@@ -633,7 +643,10 @@ def _project_runtime_result(
         checks_completed=checks_total,
         checks_total=checks_total,
         answer=answer,
-    ), rule_search
+    ), _SemanticProjectionExtensions(
+        rule_search=rule_search,
+        technical_details=technical_details,
+    )
 
 
 def _project_rule_search(
@@ -899,18 +912,18 @@ def _render_query_answer(
     rule_search_node_id: str | None = None,
     incident_evidence: dict[str, object] | None = None,
     incident_node_id: str | None = None,
-) -> str | None:
+) -> tuple[str | None, dict[str, object] | None]:
     outputs: list[dict[str, object]] = []
     projected_rule_search = False
     projected_incident = False
     for node_id in execution.output_node_ids:
         result = execution.results.get(node_id)
         if result is None:
-            return None
+            return None, None
         if isinstance(result.value, dict):
             if incident_evidence is not None and node_id == incident_node_id:
                 if projected_incident:
-                    return None
+                    return None, None
                 outputs.append(
                     _incident_answer_output(
                         node_id=node_id,
@@ -920,7 +933,7 @@ def _render_query_answer(
                 projected_incident = True
             elif rule_search is not None and node_id == rule_search_node_id:
                 if projected_rule_search:
-                    return None
+                    return None, None
                 outputs.append(
                     {
                         "node_id": node_id,
@@ -929,10 +942,10 @@ def _render_query_answer(
                 )
                 projected_rule_search = True
             else:
-                return None
+                return None, None
             continue
         if not isinstance(result.value, QueryTable):
-            return None
+            return None, None
         table = result.value
         rows: list[dict[str, object]] = []
         for row in table.rows[:20]:
@@ -949,17 +962,22 @@ def _render_query_answer(
             rows = candidate_rows
         outputs.append(_answer_output(node_id=node_id, table=table, rows=rows))
     if rule_search is not None and not projected_rule_search:
-        return None
+        return None, None
     if incident_evidence is not None and not projected_incident:
-        return None
-    encoded = _answer_json(outputs)
-    heading = (
-        "검증된 온톨로지 쿼리가 완료되었습니다."
-        if request.locale.casefold().startswith("ko")
-        else "Verified ontology query completed."
+        return None, None
+    technical_details = {
+        "schema_version": 1,
+        "kind": "semantic_query_outputs",
+        "outputs": outputs,
+    }
+    if len(_answer_json(outputs).encode("utf-8")) > 48_000:
+        return None, None
+    answer = (
+        _render_incident_answer(request, outputs[0])
+        if projected_incident and len(outputs) == 1
+        else _render_general_query_answer(request, outputs)
     )
-    answer = f"{heading}\n\n```json\n{encoded}\n```"
-    return answer if len(answer) <= 64_000 else None
+    return (answer, technical_details) if len(answer) <= 64_000 else (None, None)
 
 
 def _incident_answer_output(
@@ -983,11 +1001,103 @@ def _incident_answer_output(
             "reason": "causal_analysis_not_implemented",
         },
         "next_safe_step": {
-            "operation": SemanticOperation.ACTION_DRAFT.value,
-            "authority": "candidate_only",
+            "operation": "collect_evidence",
+            "authority": "read_only",
             "execution_authority": False,
         },
     }
+
+
+def _render_incident_answer(
+    request: SemanticTurnRequest,
+    output: Mapping[str, object],
+) -> str:
+    evidence = output.get("correlated_evidence")
+    profile = output.get("incident_profile")
+    gaps = output.get("evidence_gaps")
+    evidence_count = len(evidence) if isinstance(evidence, list) else 0
+    status = profile.get("status") if isinstance(profile, Mapping) else None
+    status_text = status if isinstance(status, str) and status else "unknown"
+    gap_values = (
+        tuple(item for item in gaps if isinstance(item, str)) if isinstance(gaps, list) else ()
+    )
+    korean = request.locale.casefold().startswith("ko")
+    if korean:
+        gap_labels = {
+            "impact_evidence_missing": "영향 근거",
+            "grounded_citations_missing": "근거 인용",
+        }
+        missing = ", ".join(gap_labels.get(gap, gap) for gap in gap_values) or "없음"
+        return (
+            "## 검증된 인시던트 근거\n\n"
+            f"- 상관관계가 있는 감사 기록 {evidence_count}건을 검증했습니다.\n"
+            f"- 인시던트 상태: `{status_text}`\n\n"
+            "## 제한 사항\n\n"
+            "- 인과 분석이 구현되지 않아 근본 원인을 확인할 수 없습니다.\n"
+            f"- 누락된 근거: {missing}\n\n"
+            "## 다음 안전 단계\n\n"
+            "변경을 제안하기 전에 누락된 근거를 수집하세요. "
+            "이 결과는 읽기 전용이며 실행 권한을 부여하지 않습니다."
+        )
+    gap_labels = {
+        "impact_evidence_missing": "impact evidence",
+        "grounded_citations_missing": "grounded citations",
+    }
+    missing = ", ".join(gap_labels.get(gap, gap) for gap in gap_values) or "none"
+    evidence_label = "record was" if evidence_count == 1 else "records were"
+    return (
+        "## Verified incident evidence\n\n"
+        f"- {evidence_count} correlated audit {evidence_label} verified.\n"
+        f"- Incident status: `{status_text}`\n\n"
+        "## Limitations\n\n"
+        "- Root cause isn't available because causal analysis hasn't been implemented.\n"
+        f"- Missing evidence: {missing}\n\n"
+        "## Next safe step\n\n"
+        "Collect the missing evidence before proposing a change. "
+        "This result is read-only and grants no execution authority."
+    )
+
+
+def _render_general_query_answer(
+    request: SemanticTurnRequest,
+    outputs: list[dict[str, object]],
+) -> str:
+    korean = request.locale.casefold().startswith("ko")
+    lines = ["## 검증된 온톨로지 쿼리" if korean else "## Verified ontology query", ""]
+    for output in outputs:
+        node_id = output.get("node_id")
+        rule_search = output.get("rule_search")
+        if isinstance(rule_search, Mapping):
+            candidates = rule_search.get("candidates")
+            count = len(candidates) if isinstance(candidates, list) else 0
+            lines.append(
+                f"- `{node_id}`: 규칙 후보 {count}건을 검증했습니다."
+                if korean
+                else f"- `{node_id}`: verified {count} rule candidates."
+            )
+            continue
+        returned = output.get("returned_rows")
+        total = output.get("total_rows")
+        lines.append(
+            f"- `{node_id}`: 전체 {total}개 행 중 {returned}개를 검증했습니다."
+            if korean
+            else f"- `{node_id}`: verified {returned} of {total} rows."
+        )
+    lines.extend(
+        [
+            "",
+            (
+                "정확한 행과 증적은 기술 상세에서 확인할 수 있습니다. "
+                "이 결과는 실행 권한을 부여하지 않습니다."
+                if korean
+                else (
+                    "Exact rows and receipts are available in technical details. "
+                    "This result grants no execution authority."
+                )
+            ),
+        ]
+    )
+    return "\n".join(lines)
 
 
 def _answer_output(

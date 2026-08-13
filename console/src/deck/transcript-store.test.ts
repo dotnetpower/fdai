@@ -88,6 +88,27 @@ describe("serializeTurns", () => {
     }
   });
 
+  it("round-trips the verified incident binding for regenerated turns", () => {
+    const serialized = serializeTurns([{
+      id: "turn-incident-binding",
+      role: "deck",
+      text: "Verified incident evidence",
+      at: "10:00:00",
+      terminal: true,
+      conversationBinding: {
+        kind: "incident",
+        incidentId: "incident-1",
+        correlationId: "correlation-1",
+      },
+    }]);
+
+    expect(parseTurns(serialized)[0]?.conversationBinding).toEqual({
+      kind: "incident",
+      incidentId: "incident-1",
+      correlationId: "correlation-1",
+    });
+  });
+
   it("persists image descriptors without persisting inline image bytes", () => {
     const serialized = serializeTurns([{
       id: "turn-image",

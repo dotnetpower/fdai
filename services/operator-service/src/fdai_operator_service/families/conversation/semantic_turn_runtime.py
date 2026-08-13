@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import json
 import logging
+from collections import deque
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -28,6 +29,9 @@ from fdai_operator_service.families.conversation.contracts import (
     StreamEvent,
 )
 from fdai_operator_service.families.conversation.semantic_turn import SemanticTurnEnvelopeBuilder
+from fdai_operator_service.families.conversation.semantic_turn_presentation import (
+    semantic_done_event_data as _done_event_data,
+)
 from fdai_operator_service.postgres_family_store import (
     SemanticTurnClaim,
     StoredSemanticResult,
@@ -47,18 +51,6 @@ SEMANTIC_RESULT_TOPIC = "core.semantic-turn.projections"
 SEMANTIC_RESULT_GROUP = "operator-semantic-turn-v1"
 _IDENTITY_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
 _LOGGER = logging.getLogger(__name__)
-_SEMANTIC_ROUTE_BY_DISPOSITION = {
-    "answered": "verified_query_plan",
-    "clarification": "semantic_clarification",
-    "unsupported": "semantic_unsupported",
-    "action_draft": "semantic_action_draft",
-    "cancelled": "semantic_cancellation",
-}
-_SEMANTIC_UNAVAILABLE_REASONS = {
-    "authoritative_evidence_unavailable",
-    "historical_evidence_unavailable",
-    "semantic_planner_unavailable",
-}
 
 
 class SemanticTurnStore(Protocol):
@@ -128,21 +120,159 @@ class SemanticTurnResultSource(Protocol):
     ) -> AsyncIterator[Mapping[str, object]]: ...
 
 
+@dataclass(frozen=True, slots=True)
+class _SemanticReplayCursor:
+    projection_sequence: int
+    phase: str
+
+
 class _SemanticEventIterator(AsyncIterator[StreamEvent]):
-    def __init__(self, events: tuple[StreamEvent, ...]) -> None:
-        self._events = iter(events)
+    """Stream observed semantic acceptance, waiting, and durable terminal phases."""
+
+    def __init__(
+        self,
+        *,
+        store: SemanticTurnStore,
+        consumer: SemanticTurnProjectionConsumer,
+        stored: StoredSemanticTurn,
+        principal_id: str,
+        cursor: _SemanticReplayCursor | None,
+        retry_seconds: float,
+    ) -> None:
+        semantic = stored.envelope.get("semantic_turn")
+        if not isinstance(semantic, Mapping):
+            raise ValueError("stored semantic request is missing")
+        self._store = store
+        self._consumer = consumer
+        self._stored = stored
+        self._principal_id = principal_id
+        self._cursor = cursor
+        self._retry_seconds = retry_seconds
+        self._request = SemanticTurnRequest.model_validate(semantic)
+        self._events: deque[StreamEvent] = deque()
+        self._closed = False
+        self._terminal_loaded = False
+        self._stream_sequence = 0
+        self._queue_pending_progress()
 
     def __aiter__(self) -> _SemanticEventIterator:
         return self
 
     async def __anext__(self) -> StreamEvent:
-        try:
-            return next(self._events)
-        except StopIteration as exc:
-            raise StopAsyncIteration from exc
+        if self._events:
+            return self._events.popleft()
+        if self._closed or self._terminal_loaded:
+            raise StopAsyncIteration
+        await self._load_terminal_events()
+        if self._events:
+            return self._events.popleft()
+        raise StopAsyncIteration
 
     async def aclose(self) -> None:
-        """Close the finite durable semantic replay iterator."""
+        """Stop polling for a durable semantic terminal after HTTP disconnect."""
+        self._closed = True
+
+    def _queue_pending_progress(self) -> None:
+        if self._cursor is not None and self._cursor.projection_sequence > 0:
+            return
+        for phase, label in _pending_progress(self._request.locale):
+            if _cursor_includes(self._cursor, 0, phase):
+                continue
+            self._append_event("status", phase, label, event_id=f"0:{phase}")
+
+    def _append_event(
+        self,
+        event: str,
+        phase: str,
+        label: str,
+        *,
+        event_id: str,
+        completed: int | None = None,
+        total: int | None = None,
+    ) -> None:
+        self._stream_sequence += 1
+        self._events.append(
+            StreamEvent(
+                event=event,
+                event_id=event_id,
+                data=cast(
+                    JsonObject,
+                    {
+                        "seq": self._stream_sequence,
+                        "revision": 0,
+                        "phase": phase,
+                        "label": label,
+                        "completed": completed,
+                        "total": total,
+                        "sources": [],
+                    },
+                ),
+            )
+        )
+
+    async def _load_terminal_events(self) -> None:
+        store_after = _store_after_sequence(self._cursor)
+        while not self._closed:
+            results = await self._store.replay_semantic_turn(
+                principal_id=self._principal_id,
+                request_id=self._stored.request_id,
+                after_sequence=store_after,
+            )
+            if results:
+                for result in results:
+                    self._queue_result(result)
+                self._terminal_loaded = True
+                return
+            if self._cursor is not None and self._cursor.phase == "done":
+                self._terminal_loaded = True
+                return
+            remaining = (self._request.deadline_at - datetime.now(UTC)).total_seconds()
+            if remaining <= 0:
+                await self._consumer.consume(_held_projection(self._stored.envelope))
+                store_after = _store_after_sequence(self._cursor)
+                continue
+            await asyncio.sleep(min(self._retry_seconds, remaining))
+
+    def _queue_result(self, result: StoredSemanticResult) -> None:
+        semantic = result.data.get("semantic_result")
+        if not isinstance(semantic, Mapping):
+            raise ValueError("stored semantic projection is missing semantic_result")
+        disposition = semantic.get("disposition")
+        checks_completed = semantic.get("checks_completed", 0)
+        checks_total = semantic.get("checks_total", 0)
+        if (
+            disposition == "answered"
+            and isinstance(checks_completed, int)
+            and isinstance(checks_total, int)
+        ):
+            labels = _terminal_progress(self._request.locale)
+            for event, phase in (
+                ("status", "evidence"),
+                ("verification", "verification"),
+                ("status", "presentation"),
+            ):
+                if _cursor_includes(self._cursor, result.sequence, phase):
+                    continue
+                self._append_event(
+                    event,
+                    phase,
+                    labels[phase],
+                    event_id=f"{result.sequence}:{phase}",
+                    completed=checks_completed,
+                    total=checks_total,
+                )
+        if _cursor_includes(self._cursor, result.sequence, "done"):
+            return
+        self._stream_sequence += 1
+        done = _done_event_data(result.data, locale=self._request.locale)
+        done["seq"] = self._stream_sequence
+        self._events.append(
+            StreamEvent(
+                event="done",
+                event_id=str(result.sequence),
+                data=done,
+            )
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -293,56 +423,14 @@ class SemanticTurnBridge:
                 "semantic_turn_not_found",
                 "semantic turn not found",
             )
-        after_sequence = _after_sequence(request.after_event_id)
-        results = await self._replay_until_deadline(
+        return _SemanticEventIterator(
+            store=self._store,
+            consumer=self._consumer,
             stored=stored,
             principal_id=request.scope.subject_id,
-            after_sequence=after_sequence,
+            cursor=_after_sequence(request.after_event_id),
+            retry_seconds=self._retry_seconds,
         )
-        if not results:
-            await self._consumer.consume(_held_projection(stored.envelope))
-            results = await self._store.replay_semantic_turn(
-                principal_id=request.scope.subject_id,
-                request_id=stored.request_id,
-                after_sequence=after_sequence,
-            )
-        return _SemanticEventIterator(
-            tuple(
-                StreamEvent(
-                    event="done",
-                    event_id=str(result.sequence),
-                    data=_done_event_data(result.data),
-                )
-                for result in results
-            )
-        )
-
-    async def _replay_until_deadline(
-        self,
-        *,
-        stored: StoredSemanticTurn,
-        principal_id: str,
-        after_sequence: int | None,
-    ) -> tuple[StoredSemanticResult, ...]:
-        semantic = stored.envelope.get("semantic_turn")
-        if not isinstance(semantic, Mapping):
-            raise ValueError("stored semantic request is missing")
-        request = SemanticTurnRequest.model_validate(semantic)
-        loop = asyncio.get_running_loop()
-        remaining_seconds = (request.deadline_at - datetime.now(UTC)).total_seconds()
-        deadline = loop.time() + max(0.0, remaining_seconds)
-        while True:
-            results = await self._store.replay_semantic_turn(
-                principal_id=principal_id,
-                request_id=stored.request_id,
-                after_sequence=after_sequence,
-            )
-            if results:
-                return results
-            remaining = deadline - loop.time()
-            if remaining <= 0:
-                return ()
-            await asyncio.sleep(min(self._retry_seconds, remaining))
 
     def health(self) -> JsonObject:
         """Return a credential-free projection of semantic transport readiness."""
@@ -488,113 +576,6 @@ def _held_projection(envelope: Mapping[str, object]) -> dict[str, object]:
     }
 
 
-def _done_event_data(projection: Mapping[str, object]) -> JsonObject:
-    semantic = projection.get("semantic_result")
-    if not isinstance(semantic, Mapping):
-        raise ValueError("stored semantic projection is missing semantic_result")
-    semantic_receipt = _semantic_receipt(projection, semantic)
-    answer = semantic.get("answer")
-    disposition = semantic.get("disposition")
-    if not isinstance(disposition, str):
-        raise ValueError("stored semantic projection is missing terminal disposition")
-    missing_answer = not isinstance(answer, str) or not answer
-    if missing_answer:
-        answer = (
-            "The stored semantic result predates terminal presentation support. "
-            "Review its evidence record before relying on it."
-        )
-    evidence_refs = semantic.get("evidence_refs", [])
-    checks_completed = semantic.get("checks_completed", 0)
-    checks_total = semantic.get("checks_total", 0)
-    if (
-        not isinstance(evidence_refs, list)
-        or any(not isinstance(item, str) for item in evidence_refs)
-        or not isinstance(checks_completed, int)
-        or not isinstance(checks_total, int)
-    ):
-        raise ValueError("stored semantic verification is malformed")
-    verified = disposition == "answered" and not missing_answer
-    return cast(
-        JsonObject,
-        {
-            "seq": 1,
-            "revision": 0,
-            "status": disposition,
-            "answer": answer,
-            "source": "ontology-query",
-            "verification": {
-                "status": "verified" if verified else "unverified",
-                "authority": "ontology-query",
-                "checks_completed": checks_completed,
-                "checks_total": checks_total,
-                "evidence_refs": evidence_refs,
-                "reason_code": (
-                    "semantic_answer_missing" if missing_answer else semantic.get("reason_code")
-                ),
-                "claims": [],
-                "failed_claim_ids": [],
-            },
-            "intent_graph": semantic.get("intent_graph"),
-            "intent_graph_evidence": semantic.get("intent_graph_evidence"),
-            "semantic_result": dict(semantic),
-            **({"semantic_receipt": semantic_receipt} if semantic_receipt is not None else {}),
-        },
-    )
-
-
-def _semantic_receipt(
-    projection: Mapping[str, object],
-    semantic: Mapping[str, object],
-) -> dict[str, object] | None:
-    """Return bounded no-authority identity for a stored semantic projection."""
-    projection_id = projection.get("projection_id")
-    request_id = projection.get("request_id")
-    if projection_id is None and request_id is None:
-        return None
-    if not isinstance(projection_id, str) or not projection_id:
-        raise ValueError("stored semantic projection_id is malformed")
-    if not isinstance(request_id, str) or not request_id:
-        raise ValueError("stored semantic request_id is malformed")
-    disposition = _mapping_text(semantic, "disposition")
-    reason_code = _mapping_text(semantic, "reason_code")
-    semantic_route = semantic.get("semantic_route")
-    unavailable_reason = semantic.get("unavailable_reason")
-    expected_route = _SEMANTIC_ROUTE_BY_DISPOSITION.get(disposition)
-    if disposition == "held":
-        if semantic_route is not None or unavailable_reason not in _SEMANTIC_UNAVAILABLE_REASONS:
-            raise ValueError("stored held semantic projection has invalid typed unavailability")
-    elif semantic_route != expected_route or unavailable_reason is not None:
-        raise ValueError("stored semantic projection route does not match disposition")
-    digest_fields = (
-        "ontology_release_digest",
-        "principal_manifest_digest",
-        "plan_digest",
-        "execution_receipt_digest",
-    )
-    digests: dict[str, object] = {}
-    for field in digest_fields:
-        value = semantic.get(field)
-        if value is not None:
-            if not isinstance(value, str) or not value:
-                raise ValueError(f"stored semantic {field} is malformed")
-            digests[field] = value
-    if disposition == "answered" and len(digests) != len(digest_fields):
-        raise ValueError("stored answered semantic projection is missing exact evidence digests")
-    if semantic.get("execution_authority") is not False:
-        raise ValueError("stored semantic projection MUST deny execution authority")
-    return {
-        "schema_version": "1.0.0",
-        "projection_id": projection_id,
-        "request_id": request_id,
-        "disposition": disposition,
-        "reason_code": reason_code,
-        **({"semantic_route": semantic_route} if semantic_route is not None else {}),
-        **({"unavailable_reason": unavailable_reason} if unavailable_reason is not None else {}),
-        **digests,
-        "execution_authority": False,
-    }
-
-
 def _proposal_digest(proposal: ConversationProposal) -> str:
     value = {
         "operation": proposal.operation,
@@ -634,20 +615,80 @@ def _projection_quarantine_key(payload: Mapping[str, object]) -> str:
     return f"semantic-projection-rejected:{hashlib.sha256(identity.encode()).hexdigest()}"
 
 
-def _after_sequence(value: str | None) -> int | None:
+_SEMANTIC_PHASES = (
+    "accepted",
+    "planning",
+    "evidence",
+    "verification",
+    "presentation",
+    "done",
+)
+
+
+def _after_sequence(value: str | None) -> _SemanticReplayCursor | None:
     if value is None:
         return None
+    if ":" in value:
+        raw_sequence, phase = value.split(":", 1)
+    else:
+        raw_sequence, phase = value, "done"
     try:
-        parsed = int(value)
+        parsed = int(raw_sequence)
     except ValueError as exc:
         raise ConversationBoundaryError(
             400,
             "invalid_replay_cursor",
             "Last-Event-ID is invalid",
         ) from exc
-    if parsed < 0:
+    if parsed < 0 or phase not in _SEMANTIC_PHASES:
         raise ConversationBoundaryError(400, "invalid_replay_cursor", "Last-Event-ID is invalid")
-    return parsed
+    if parsed == 0 and phase not in {"accepted", "planning"}:
+        raise ConversationBoundaryError(400, "invalid_replay_cursor", "Last-Event-ID is invalid")
+    return _SemanticReplayCursor(parsed, phase)
+
+
+def _store_after_sequence(cursor: _SemanticReplayCursor | None) -> int | None:
+    if cursor is None or cursor.projection_sequence == 0:
+        return None
+    if cursor.phase == "done":
+        return cursor.projection_sequence
+    return cursor.projection_sequence - 1
+
+
+def _cursor_includes(
+    cursor: _SemanticReplayCursor | None,
+    projection_sequence: int,
+    phase: str,
+) -> bool:
+    if cursor is None or cursor.projection_sequence != projection_sequence:
+        return False
+    return _SEMANTIC_PHASES.index(phase) <= _SEMANTIC_PHASES.index(cursor.phase)
+
+
+def _pending_progress(locale: str) -> tuple[tuple[str, str], ...]:
+    if locale.casefold().startswith("ko"):
+        return (
+            ("accepted", "의미 요청을 수락했습니다."),
+            ("planning", "검증된 의미 계획을 기다리는 중입니다."),
+        )
+    return (
+        ("accepted", "Semantic request accepted."),
+        ("planning", "Waiting for a verified semantic plan."),
+    )
+
+
+def _terminal_progress(locale: str) -> dict[str, str]:
+    if locale.casefold().startswith("ko"):
+        return {
+            "evidence": "근거 실행이 완료되었습니다.",
+            "verification": "근거 검증이 완료되었습니다.",
+            "presentation": "운영자 답변을 준비했습니다.",
+        }
+    return {
+        "evidence": "Evidence execution completed.",
+        "verification": "Evidence verification completed.",
+        "presentation": "Operator answer prepared.",
+    }
 
 
 def _mapping_text(value: Mapping[str, Any], key: str) -> str:

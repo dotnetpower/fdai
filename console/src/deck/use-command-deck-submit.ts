@@ -533,6 +533,20 @@ export function useCommandDeckSubmit({
         }
       }
       if (isCurrent()) {
+        if (reply.conversationBinding) {
+          updateConversationIndex({
+            key: originSessionKey,
+            label: sessionSummary?.label ?? text,
+            kind: sessionSummary?.kind ?? "screen-default",
+            ...(sessionSummary?.agent ? { agent: sessionSummary.agent } : {}),
+            binding: reply.conversationBinding,
+            originPath: sessionSummary?.originPath ?? conversationPath(currentPathname()),
+            originLabel: sessionSummary?.originLabel ?? snapshot?.routeLabel ?? currentPathname(),
+            createdAt: sessionSummary?.createdAt ?? activityAt,
+            updatedAt: terminalRecordedAt,
+            lastReadAt: terminalRecordedAt,
+          });
+        }
         setTurns((current) => {
           const next = current.map((turn) => {
             if (activityTurnIds.has(turn.id)) {
@@ -576,6 +590,9 @@ export function useCommandDeckSubmit({
                   } : {}),
                   ...(reply.evidenceMode ? { evidenceMode: reply.evidenceMode } : {}),
                   ...(reply.semanticReceipt ? { semanticReceipt: reply.semanticReceipt } : {}),
+                  ...(reply.conversationBinding
+                    ? { conversationBinding: reply.conversationBinding }
+                    : {}),
                 }
               : turn;
           });

@@ -5,6 +5,7 @@ export interface BackendTurn {
   readonly content: string;
   readonly resourceContext?: ResourceContext;
   readonly evidenceFreshnessContext?: EvidenceFreshnessContext;
+  readonly conversationBinding?: import("./open-deck").IncidentConversationBinding;
 }
 
 export interface ResourceContext {
@@ -498,6 +499,7 @@ export type ProgressiveAnswer = Answer & {
   readonly semanticReceipt?: SemanticProjectionReceipt;
   readonly incidentCandidates?: readonly IncidentCandidate[];
   readonly presentationArtifact?: PresentationArtifact;
+  readonly conversationBinding?: import("./open-deck").IncidentConversationBinding;
 };
 
 export interface BackendHealth {

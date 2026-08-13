@@ -45,6 +45,7 @@ import type {
   ProgressiveAnswer,
 } from "./backend-types";
 import type { IncidentConversationBinding } from "./open-deck";
+import { normalizeIncidentBinding } from "./conversation-sessions";
 import { parseTrajectoryDetail } from "./trajectory-detail";
 import { parseIntentGraph, parseIntentGraphEvidence } from "./intent-graph";
 import { parsePresentationArtifact } from "./presentation-artifact";
@@ -159,6 +160,7 @@ export async function askBackend(
     payloadRecord?.presentation_artifact,
     verification,
   );
+  const conversationBinding = normalizeIncidentBinding(payloadRecord?.conversation_context);
   const canonicalAnswer = extractString(payload, "answer");
   const answerText = presentationArtifact
     ? canonicalAnswer
@@ -260,6 +262,7 @@ export async function askBackend(
     ...(codeArtifacts.length > 0 ? { codeArtifacts } : {}),
     ...(incidentCandidates.length > 0 ? { incidentCandidates } : {}),
     ...(presentationArtifact ? { presentationArtifact } : {}),
+    ...(conversationBinding ? { conversationBinding } : {}),
     ...(resourceContext ? { resourceContext } : {}),
     ...(evidenceFreshnessContext ? { evidenceFreshnessContext } : {}),
     ...(modelTrace ? { modelTrace } : {}),

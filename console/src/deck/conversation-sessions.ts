@@ -274,9 +274,11 @@ export function mergeConversationActivity(
 export function normalizeIncidentBinding(value: unknown): IncidentConversationBinding | null {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
-  const incidentId = typeof record.incidentId === "string" ? record.incidentId.trim() : "";
-  const correlationId = typeof record.correlationId === "string"
-    ? record.correlationId.trim()
+  const rawIncidentId = record.incidentId ?? record.incident_id;
+  const rawCorrelationId = record.correlationId ?? record.correlation_id;
+  const incidentId = typeof rawIncidentId === "string" ? rawIncidentId.trim() : "";
+  const correlationId = typeof rawCorrelationId === "string"
+    ? rawCorrelationId.trim()
     : "";
   if (
     record.kind !== "incident" ||
