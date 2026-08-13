@@ -205,3 +205,22 @@ def test_evaluator_rejects_duplicate_and_wrong_universe_records() -> None:
         questions=(cancelled,),
     )
     assert receipt.passed is True
+
+
+def test_epistemic_coverage_receipt_rejects_tampered_counts_and_digest() -> None:
+    universe = _universe("answer")
+    receipt = evaluate_epistemic_coverage(
+        universe=universe,
+        questions=(_question("answer", universe),),
+    )
+
+    with pytest.raises(ValueError, match="expected case count is outside"):
+        replace(receipt, expected_case_count=-1)
+    with pytest.raises(ValueError, match="closed case count is outside"):
+        replace(receipt, closed_case_count=2)
+    with pytest.raises(ValueError, match="violation count MUST be non-negative"):
+        replace(receipt, violation_count=-1)
+    with pytest.raises(ValueError, match="pass state does not match"):
+        replace(receipt, passed=False)
+    with pytest.raises(ValueError, match="digest does not match"):
+        replace(receipt, receipt_digest=DIGEST_B)

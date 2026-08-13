@@ -224,7 +224,7 @@
     "services/core-control-plane/src/fdai/core/conversation/coordinator.py": "f3833ad0aa0c92d3c2bf347262146aa23cda82db6bc2773b62c263ddbab7e765",
     "services/core-control-plane/src/fdai/core/conversation/coverage_gate.py": "7ee5699e716c674756ade41251e73f1a0ec5af30355bb397558ab53dacf9e680",
     "services/core-control-plane/src/fdai/core/conversation/creation.py": "f220a81dc7636a6ac0ff57cc9981345119ee10152bd478ebbe5c01cc93c3410e",
-    "services/core-control-plane/src/fdai/core/conversation/epistemic_coverage.py": "33a48bfb379105a6526265f7e4593330e3fce0125d37f590e7dad850c01aa088",
+    "services/core-control-plane/src/fdai/core/conversation/epistemic_coverage.py": "206d88c9a574fad63b173e62ef57bbee403f9b29a61d5dee83c53adc1bc72ccd",
     "services/core-control-plane/src/fdai/core/conversation/grounded_answer_validation.py": "412426de78e05190870cd5dd2f499a68f66d019b26a7c40fa23292a8f5a3234b",
     "services/core-control-plane/src/fdai/core/conversation/identity_links.py": "13a1aec07c4e0087598c3a7f78498bc35d59bd98db1e6b1d2ae838082a660b0f",
     "services/core-control-plane/src/fdai/core/conversation/identity_verification.py": "42d9ae0d546d7302d3d8a252e6767895398eee0beb3e14962f52dcb19762232f",
@@ -1060,7 +1060,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-13T13:48:51Z",
+  "generated_at": "2026-08-13T13:52:30Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",
