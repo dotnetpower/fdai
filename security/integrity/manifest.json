@@ -448,7 +448,7 @@
     "services/core-control-plane/src/fdai/core/oncall/resolver.py": "35fa432f02b240fd04b03995ade748032093c702272a473004a42ff08a80b178",
     "services/core-control-plane/src/fdai/core/ontology_explorer.py": "013a0fb74b5f42ce905408eba84710d33ed4c45fb1a0cdcb02a059fcd353f950",
     "services/core-control-plane/src/fdai/core/ontology_platform/__init__.py": "94bec05e97d4ff64eac36de6acc1fb87b7778ac2e19d60f6f57e7ac56f7ceddf",
-    "services/core-control-plane/src/fdai/core/ontology_platform/action_plans.py": "a232c6a0b9424a991479bc5446cfac8836c1af3e12f25ddde903e792a1ebff55",
+    "services/core-control-plane/src/fdai/core/ontology_platform/action_plans.py": "38fae498e49e523b20e27257a56244d58318d148781465edc3855e1e13f05e72",
     "services/core-control-plane/src/fdai/core/ontology_platform/catalog_projection.py": "cd6494934154264cdd0eb9451e6dbca735510251024f43e71fd9e590bc3aef45",
     "services/core-control-plane/src/fdai/core/ontology_platform/catalog_queries.py": "395b61dd56f9c51a164b440a29c1c081b7e21cdee4d2a08a089715883a08a9df",
     "services/core-control-plane/src/fdai/core/ontology_platform/diagnostic_ledger.py": "c6863e75d45a2aa550bb71afad872bb74c2196f2446854cfbf45ebd370c2f8dc",
@@ -1059,7 +1059,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-13T06:32:29Z",
+  "generated_at": "2026-08-13T07:39:50Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",
