@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 87a6f320844a7ce4333c02084bc2f1f4a76f9067
-translation_revised: 2026-08-13
+translation_source_sha: db85ada473a0d66614b7c57eeab861c12623874a
+translation_revised: 2026-08-14
 ---
 
 # 프로젝트 구조
@@ -23,6 +23,7 @@ translation_revised: 2026-08-13
 |------|------|------|------|
 | 현재 상태 활동 identity | 구현됨 | `read_investigation_latency.py`, `activity_projection.py`, focused 영속성 및 projection 테스트 (`6 passed`) | Latency 프로파일은 hash된 correlation 참조만 유지하고 감사 항목은 correlation-free로 남으며, 영속 활동과 실제 운영 활동은 실행 권한을 포함하지 않고 하나의 identity를 공유합니다. |
 | Rule 세대 reconciliation 경계 | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/`; `runtime/rule_generation_documents.py`; 집중 adapter, Pantheon, 활성화 및 bootstrap 검사 | 프로바이더 계약은 정확한 준비 상태 증적 연결을 소유하고 delivery는 원자적 어댑터를 소유하며 runtime은 정책 또는 실행 권한을 인프라 코드로 옮기지 않고 엄격한 카탈로그 스냅샷과 replay가 동일한 요청을 구성합니다. |
+| 인시던트 현재 상태 온톨로지 projection | 구현됨 | `core/incident/ontology_projection.py`, `test_ontology_projection.py`, focused 인시던트 projection 및 lifecycle 검사 (`47 passed`) | 시작 시 추가 전용 인시던트 감사를 replay해 `Incident` 객체를 만들고, 이후 lifecycle 변경은 액션 권한을 부여하지 않으면서 같은 bounded 읽기 모델을 갱신합니다. |
 
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
@@ -30,6 +31,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 범위가 제한된 현재 상태 활동 identity 변경을 기록했습니다. | 현재 출처와 `test_read_investigation_latency.py`, `test_activity_projection.py`, 통과한 focused 테스트 | 아래에 설명된 연기된 Phase 2 물리 패키지 이동을 완료합니다. |
 | 2026-08-13 | implemented | Mimir와 Heimdall 소유권을 유지하면서 프로바이더 계약, 원자적 어댑터 및 시작 구성 전체에 운영 Rule 세대 reconciliation 경계를 추가했습니다. | `current change`; `catalog_search.py`, `rule_generation_documents.py` 및 집중 worker, PostgreSQL, 런타임, 활성화 검사 | 통제된 실제 세대 증적을 보존하며 연기된 Phase 2 패키지 이동은 별도로 유지합니다. |
 | 2026-08-13 | implemented | 책임 소유자인 Mimir 또는 Heimdall이 maintenance-disabled이면 시작 시 Rule 세대 reconciliation을 억제하도록 변경했습니다. | `current change`; `bootstrap.py` 및 집중 disabled-agent 유입 검사 | 두 소유자가 활성화된 상태에서 통제된 실제 세대 증적을 보존합니다. |
+| 2026-08-14 | 구현됨 | Rehydrate된 canonical 인시던트 상태와 이후 실제 상태를 bounded 현재 상태 읽기 모델로 온톨로지 인스턴스 저장소에 projection했습니다. | `current change`, `ontology_projection.py`, `registry.py`, `bootstrap.py`, `test_ontology_projection.py`, focused 인시던트 검사 47개 통과 | 읽기 전용 인시던트 근거 함수를 등록하고 인증된 Console 근거를 보존합니다. |
 
 ### 남은 작업
 - [ ] 호환성 import deprecation 주기 뒤 연기된 Phase 2 물리 `git mv`를 완료하고 이 배치를 결과 service-owned 경로로 갱신합니다.
@@ -79,7 +81,7 @@ fdai/
 │   │   ├── audit/              # append-only 해시 체인 감사 로그 + KPI/메트릭 발행
 │   │   ├── notifications/      # notifications matrix 위에 얹은 채널 라우팅 레이어
 │   │   ├── detection/          # anomaly/forecast 평가, 변경 불가능한 episode, event-time closure 및 outbox contract
-│   │   ├── incident/           # lifecycle + 32-key/1024-char identity, evidence, severity 및 notice
+│   │   ├── incident/           # lifecycle + 32-key/1024-char identity, 감사 기반 ontology projection, evidence, severity 및 notice
 │   │   ├── slo/                # 워크로드 SLO / burn-rate 평가기 (컨트롤 플레인 SLO 와는 구분)
 │   │   ├── runbook/            # 런북 오케스트레이터 (선형 시퀀스 + on-failure 브랜치)
 │   │   ├── workflow/           # version-pinned WorkflowDefinition + principal WorkflowBinding 컴파일; 승인 플래너 + shadow 오케스트레이터 + 트리거 인덱스 + 이벤트 코디네이터

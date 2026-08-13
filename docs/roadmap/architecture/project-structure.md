@@ -19,6 +19,7 @@ with service-owned managed implementations without changing the shared wire cont
 |------|-------|----------|-------|
 | Current-state activity identity | implemented | `read_investigation_latency.py`; `activity_projection.py`; focused persistence and projection tests (`6 passed`) | The latency profile retains only the hashed correlation reference, the audit entry remains correlation-free, and durable and live activity share one identity without carrying execution authority. |
 | Rule generation reconciliation boundary | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/`; `runtime/rule_generation_documents.py`; focused adapter, Pantheon, activation, and bootstrap checks | The provider contract owns exact staged receipt binding, delivery owns atomic adapters, and runtime composes strict catalog snapshots plus replay-identical requests without moving policy or execution authority into infrastructure code. |
+| Incident current-state ontology projection | implemented | `core/incident/ontology_projection.py`; `test_ontology_projection.py`; focused Incident projection and lifecycle checks (`47 passed`) | Startup replays the append-only Incident audit into `Incident` objects, and later lifecycle changes update the same bounded read model without granting action authority. |
 
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
@@ -26,6 +27,7 @@ with service-owned managed implementations without changing the shared wire cont
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and recorded the bounded current-state activity identity change. | Current source plus `test_read_investigation_latency.py` and `test_activity_projection.py`; the focused suites passed. | Complete the deferred Phase 2 physical package move described below. |
 | 2026-08-13 | implemented | Added the production Rule generation reconciliation boundary across the provider contract, atomic adapters, and startup composition while retaining Mimir and Heimdall ownership. | `current change`; `catalog_search.py`, `rule_generation_documents.py`, and focused worker, PostgreSQL, runtime, and activation checks. | Retain governed live generation receipts; the deferred Phase 2 package move remains separate. |
 | 2026-08-13 | implemented | Suppressed startup generation reconciliation when either accountable owner, Mimir or Heimdall, is maintenance-disabled. | `current change`; `bootstrap.py` and focused disabled-agent ingress checks. | Retain governed live generation receipts with both owners enabled. |
+| 2026-08-14 | implemented | Projected rehydrated and live canonical Incident state into the ontology instance store as a bounded current-state read model. | `current change`; `ontology_projection.py`, `registry.py`, `bootstrap.py`, and `test_ontology_projection.py`; focused Incident checks passed 47 cases. | Register the read-only incident-evidence function and retain authenticated Console evidence. |
 
 ### Remaining work
 - [ ] Complete the deferred Phase 2 physical `git mv` after the compatibility import deprecation cycle, then update this layout to the resulting service-owned paths.
@@ -75,7 +77,7 @@ fdai/
 │   │   ├── audit/              # append-only, hash-chained audit log + KPI/metric emission
 │   │   ├── notifications/      # channel-routing layer over the notifications matrix
 │   │   ├── detection/          # anomaly/forecast evaluation, immutable episodes, event-time closure, and outbox contracts
-│   │   ├── incident/           # lifecycle + 32-key/1024-char identities, evidence, severity, and notices
+│   │   ├── incident/           # lifecycle + 32-key/1024-char identities, audit-backed ontology projection, evidence, severity, and notices
 │   │   ├── slo/                # workload SLO / burn-rate evaluator (distinct from control-plane SLOs)
 │   │   ├── runbook/            # runbook orchestrator (linear sequence + on-failure branch)
 │   │   ├── workflow/           # version-pinned WorkflowDefinition + principal WorkflowBinding compilation; approval planner + shadow orchestrator + trigger index + event coordinator

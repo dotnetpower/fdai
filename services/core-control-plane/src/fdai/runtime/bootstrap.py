@@ -386,6 +386,7 @@ async def _run() -> int:
             from fdai.core.incident import (
                 IncidentAutoOpenPolicy,
                 IncidentLifecycleWorkflow,
+                IncidentOntologyProjector,
                 IncidentRegistry,
                 incident_severity,
                 link_ticket_receipt,
@@ -533,6 +534,11 @@ async def _run() -> int:
                 human_access_enabled=runtime_values["human_access.enabled"] is True,
                 mutation_dependency_readiness=core_mutation_readiness,
             )
+            if control_loop.ontology_instance_store is not None:
+                await incident_registry.bind_projection(
+                    IncidentOntologyProjector(store=control_loop.ontology_instance_store),
+                    entries=incident_entries,
+                )
             catalog_projection_result = await project_catalog_ontology(control_loop)
             operating_model_result = await project_operating_model_from_env(
                 store=control_loop.ontology_instance_store,

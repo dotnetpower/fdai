@@ -61,6 +61,7 @@ from .notification_delivery import (
     NotificationDeliveryClaim,
 )
 from .notifications import RoutedIncidentLifecycleNotifier
+from .ontology_projection import IncidentOntologyProjector
 from .proposal_store import (
     IncidentProposalStore,
     InMemoryIncidentProposalStore,
@@ -103,6 +104,7 @@ __all__ = [
     "IncidentLifecycleWorkflow",
     "IncidentLifecycleMetrics",
     "IncidentNoticeKind",
+    "IncidentOntologyProjector",
     "IncidentNotificationDeferred",
     "IncidentNotificationDeliveryStore",
     "IncidentMutationResult",
