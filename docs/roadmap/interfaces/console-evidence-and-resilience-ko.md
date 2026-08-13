@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: fd8c5894d7a9b56a244380defb5681498bb58a3a
+translation_source_sha: 5dc8726e42f590eb45ddf27b4b2496430624f1d3
 translation_revised: 2026-08-14
 ---
 
@@ -17,6 +17,7 @@ translation_revised: 2026-08-14
 |------|------|------|-----------|
 | 통제된 온톨로지 보증 출처 이력 | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`, focused Vitest 25개 및 Console 타입 검사 통과 | 인증된 seeded cohort가 통제된 runtime 아티팩트를 만들 때까지 in-progress로 유지합니다. |
 | 에이전트 활동 하트비트 표현 | 구현됨 | `console/src/routes/agents.model.ts`, `console/src/routes/agents.model.test.ts`, focused Vitest 31개 통과 | 주기적인 런타임 초기화 스냅샷은 현재 에이전트 상태와 마지막 관찰 시각을 갱신하지만 최초 로드 또는 새로고침 후 활동 행이 되지 않습니다. Browser Entra 새로고침 동작은 관찰했지만 통제된 아티팩트는 보존하지 않았습니다. |
+| Command Deck JSON 대비 | 구현됨 | `console/src/styles.css`, `console/src/deck/command-deck-workspace-visual.test.ts`, focused Vitest 10개 통과 및 인증된 브라우저 검사 | 구문 강조 JSON은 전역의 밝은 `pre` 스타일과 관계없이 고정된 어두운 코드 표면을 유지합니다. 브라우저 검사는 통제된 런타임 근거로 보존하지 않았습니다. |
 
 ### 구현 이력
 
@@ -24,6 +25,7 @@ translation_revised: 2026-08-14
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 온톨로지 보증 아티팩트를 정확한 source, configuration, workspace, 인증, request 및 projection 출처 이력에 연결했습니다. | 현재 변경의 `console/tests/live-e2e/ontology-query-assurance*.ts`, focused Vitest 25개 및 Console 타입 검사 통과. | 정확한 중앙 검증 receipt를 얻은 뒤 seeded 영/한 100-case cohort 전에 인증된 probe 하나를 실행합니다. |
 | 2026-08-14 | 구현됨 | 현재 상태와 하트비트 최신성을 유지하면서 주기적인 `Runtime agent initialized` 스냅샷이 페이지를 새로고칠 때마다 chronological 활동으로 다시 나타나지 않도록 수정했습니다. | `current change`, `agents.model.test.ts` focused 테스트 31개 통과, 인증된 브라우저에서 두 번 새로고침하는 동안 초기화 행 0개 확인 | 런타임 검증을 주장하기 전에 두 번 새로고침한 Browser Entra 결과를 통제된 아티팩트로 보존합니다. |
+| 2026-08-14 | 구현됨 | 전역 `pre` 배경이 덮어쓴 Command Deck JSON 구문 강조 영역 아래에 고정된 어두운 표면을 복원했습니다. | `current change`, 작업 소유 Console CSS 및 시각 계약 테스트, focused Vitest 10개 통과, Console 타입 검사 통과, 인증된 브라우저에서 의도한 어두운 표면과 토큰 색상 계산 확인 | 범위가 제한된 잔여 작업은 없습니다. 향후 테마 변경은 focused 회귀 테스트가 확인합니다. |
 
 ### 잔여 작업
 
@@ -343,8 +345,7 @@ cell을 줄바꿈합니다.
 검증 증적 및 최종 전달 증적이 포함됩니다. 해당 페이로드 타입이 없는 레인도 빈
 패널 대신 상태, 시작, 완료 및 사용 가능한 사실을 표시합니다. 답변 레인은 전달
 메타데이터를 기록하며 답변 본문을 반복하지 않습니다.
-인벤토리 실행은 정본 턴 조회를 `IQL` 활동으로 표시합니다. 이어지는 별도 활동은
-exact 범위가 제한된 Azure CLI 또는 ARG 증적을 같은 최종 icon으로 표시합니다. 인증된 구독 id,
+인벤토리 실행은 정본 턴 조회를 `IQL` 활동으로 표시합니다. 이어지는 별도 활동은 exact 범위가 제한된 Azure CLI 또는 ARG 증적을 같은 최종 icon으로 표시합니다. 인증된 구독 id,
 범용 argv, 측정된 명령 소요 시간, 개수 및 허용 목록된 미리 보기 행 최대 10개는 표시하지만 페이지 나누기 토큰, 자격 증명,
 raw 리소스 id 및 프로바이더 오류는 민감정보 제거합니다. IQL 출처와 결과는 각각 토글되며 행은 스냅샷 refresh를 설명하지만 명령 재실행을 주장하지 않습니다. 브라우저는 IQL 또는 출처 이름에서 명령을 파생하지 않습니다. 프로바이더 메시지, 액션 인자, 명령 및 출력의 유효한 객체 또는 array JSON은 indentation, 구문 highlighting 및
 copy를 제공하며 malformed 또는 plain 텍스트는 변경하지 않습니다. Terminal-only visual 노출은 최대 30개 조각으로 제한하고 답변 레인은 그리기 완료가 아닌 서버 완료 시각을 사용하므로 표현 pacing을 실행 공백으로 표시하지 않습니다. 최종 재생 페이로드는 ID별 최종
@@ -514,12 +515,11 @@ Cross-origin direct-upload 대상에는 내용 헤더를 보내지만 Operator A
 에이전트 스트림의 `401`은 전체 화면 login 복구를 기다리고, `403`은 새 App 역할을 페이지 reload 없이
 반영할 수 있도록 reconnect합니다.
 
-Command Deck 조사 활동에는 선택적인 관찰된 실행 근거가 포함될 수 있습니다. 서버는
-발행 전에 자격 증명과 민감한 식별자를 제거하고 `redacted=true`를 설정하며, 브라우저는 이 확인이
+Command Deck 조사 활동에는 선택적인 관찰된 실행 근거가 포함될 수 있습니다. 서버는 발행 전에 자격 증명과 민감한 식별자를 제거하고 `redacted=true`를 설정하며, 브라우저는 이 확인이
 없는 입력 근거를 폐기합니다. `input_kind=command`는 기록된 프로세스 호출이 필요하며 exit
 코드를 포함할 수 있습니다. `input_kind=query`는 정본 타입이 지정된 서버 조회를 전달하고 reconstructed
 프로바이더 명령을 만들지 않으며 exit 코드를 포함할 수 없습니다. 허용된 활동은 일치하는 `TOOL`
-또는 `QUERY` 배지, 도구 라벨, 권한 및 완료 상태를 표시합니다. Command 출력, 조회 결과 및 시각은 기본적으로 접힌 상태를 유지합니다. 유효한 객체 또는 array JSON은 테마에 맞는 scrollbar가 적용된 범위가 제한된 코드 표면에서 pretty-print됩니다.
+또는 `QUERY` 배지, 도구 라벨, 권한 및 완료 상태를 표시합니다. Command 출력, 조회 결과 및 시각은 기본적으로 접힌 상태를 유지합니다. 유효한 객체 또는 array JSON은 테마에 맞는 scrollbar가 적용된 범위가 제한된 고정된 어두운 코드 표면에서 pretty-print됩니다.
 인벤토리 결과는 일치한 리소스, 개수, 커버리지 및 스냅샷 출처 이력을 포함하는 verifier-accepted detailed 변환 결과를 유지합니다. 입력은 16 KiB, 결과 미리 보기는 64 KiB로 제한됩니다. 크기를 초과하는 collection tail은 omission 개수와 함께 제거해 출력을 유효한 JSON으로 유지합니다. 활동 및 수집 라벨은 512자, 상세 및 이정표 텍스트는 16 KiB로 제한되며
 completed/합계 진행 상황이 모순되면 거부합니다. 브라우저는
 표시된 명령 또는 조회를 복사할 수 있지만 실행하거나 다시 시도할 수 없습니다. 이 근거는 권한 있는
