@@ -103,3 +103,18 @@ def test_semantic_plan_prompt_pins_the_object_set_verifier_envelope() -> None:
     assert '"as_of":"a current RFC3339 UTC timestamp"' in body
     assert '"purpose":"the supplied purpose"' in body
     assert '"limit":1..1000' in body
+
+
+def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> None:
+    prompts = FileSystemPromptRegistry(_CATALOG)
+    frame = prompts.get_base("semantic.query.frame")
+    plan = prompts.get_base("semantic.query.plan")
+
+    assert frame.version == 2
+    assert "query.incident_evidence" in frame.body
+    assert "cause_claim_supported=false" in frame.body
+    assert "Do not claim a cause" in frame.body
+    assert plan.version == 2
+    assert "only object_set, function, union" in plan.body
+    assert '"function_name":"query.incident_evidence"' in plan.body
+    assert '"dependency_arguments":{}' in plan.body
