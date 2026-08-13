@@ -1,13 +1,36 @@
 ---
 title: Agent Workflow Shadow Rollout
 translation_of: agent-workflow-rollout.md
-translation_source_sha: 1cfcee5397c8e80406509d6cee568fe06c214037
-translation_revised: 2026-08-11
+translation_source_sha: a602ebb89e05cb8c5c2e2c59f701dc9fa356506a
+translation_revised: 2026-08-13
 ---
 # 에이전트 작업 흐름 shadow 롤아웃
 
 이 문서는 cross-agent 작업 흐름의 롤아웃 순서와 공통 exit 게이트를 소유합니다. 각 작업 흐름은
 독립적으로 검토할 수 있으며 적용 모드로 승격하기 전에 shadow 모드에서 시작합니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 13개 작업 흐름 롤아웃 인벤토리 | implemented | `docs/roadmap/agents/agent-workflows.md`; `services/core-control-plane/src/fdai/agents/_framework/workflows.py`; `services/core-control-plane/tests/agents/test_wave7_workflows.py` | 레지스트리와 테스트가 문서화된 작업 흐름 수와 shadow 기본값을 유지합니다. |
+| 집중 shadow 경로 근거 | implemented | `services/core-control-plane/tests/agents/test_wave7_workflows.py`; 등록된 `trace_ref` 대상 | 집중 테스트는 구현 동작을 증명할 뿐이며, 보존된 런타임 롤아웃 추적은 아닙니다. |
+| 공통 운영 종료 게이트 | not-started | 이 문서의 종료 조건 | 모든 작업 흐름에 대해 KPI 기준선, 필요한 shadow 기간, 정책 위반 탈출 0건을 입증하는 보존 근거가 없습니다. |
+| 독립 적용 모드 승격 | not-started | `docs/roadmap/agents/agent-workflows.md`의 승격 게이트 | 모든 레지스트리 항목은 `shadow`에 머물며, 회고적 가정 분석은 계속 shadow로 유지됩니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | implemented | 구현 원장을 도입하고 집중 shadow 경로 구현과 운영 롤아웃 검증을 분리했습니다. 이전 구현 이력은 재구성하지 않았습니다. | 현재 변경; 집중 작업 흐름 테스트 | 런타임 종료 게이트 근거를 수집하고 독립 승격 결과를 기록합니다. |
+
+### 남은 작업
+
+- [ ] 운영 환경에서 작업 흐름별 영구 shadow 추적, KPI 기준선, 정책 위반 탈출 관찰을 수집합니다.
+- [ ] 적용 기간과 임계값 근거가 존재한 뒤에만 승격을 평가합니다.
+- [ ] 승격 대상 작업 흐름마다 승격 또는 shadow 유지 결과를 별도로 기록합니다.
 
 ## 작업 흐름 순서
 
