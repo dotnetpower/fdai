@@ -2,7 +2,7 @@
 title: Architecture Review Board 패킷
 translation_of: architecture-review-board.md
 translation_source_sha: 616b10287ea0c403d3ea2f2d82e06ca0fe8e81d2
-translation_revised: 2026-08-13
+translation_revised: 2026-08-14
 ---
 # Architecture Review Board 패킷
 
@@ -231,14 +231,14 @@ Owner는 `architecture-review`가 `FDAI_WORKFLOW_ENFORCE_ALLOWLIST`에 있을 �
 `mode=enforce`를 요청할 수 있습니다. ARB는 control-only이므로 enforce는 실제 approval 및
 decision transition을 저장하지만 resource를 배포하거나 ActionType을 승격하지 않습니다.
 
-## Implementation status
+## 구현 상태
 
 재사용 가능한 ARB contract, fail-closed production gate, workflow, ontology projection,
 read-only workflow app은 구현되어 있습니다. Upstream manifest에는 의도적으로 customer owner
 및 evidence binding이 없고 모든 critical/high blocker가 open 상태이므로 production readiness는
 blocked 상태를 유지합니다.
 
-### Implementation scope
+### 구현 범위
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
@@ -247,13 +247,13 @@ blocked 상태를 유지합니다.
 | 선언형 운영자 review 화면 | implemented | `rule-catalog/operator-console/architecture-review.yaml`, `views/architecture-review.yaml`, `reports/architecture-review-process.yaml`; 집중 view 및 report test | 게시된 read-only workflow app과 Process view는 catalog로 검증된 경로를 통해 projection된 review 상태를 노출합니다. |
 | Production owner binding, evidence, approval | in-progress | `config/architecture-review.yaml`은 `production_approval_status: blocked`, 빈 binding map, open 상태의 critical/high blocker를 보고합니다. | Repository test는 gate 동작을 입증하지만 customer production 승인 또는 거버넌스된 runtime 결과를 입증하지 않습니다. |
 
-### Implementation history
+### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 구현 원장을 도입하고 runtime 노출을 선언형 workflow app에 맞게 수정했으며 재사용 가능한 ARB 구현과 production 승인을 구분했습니다. | Current change: 이 문서 쌍과 위 scope evidence이며 집중 ARB readiness, projection, view, report test 명령에서 19개 test가 통과했습니다. 이전 provenance는 재구성하지 않았습니다. | Production owner와 거버넌스된 evidence를 binding하고 blocker를 해결하며 승인된 runtime decision을 기록해야 합니다. |
 
-### Remaining work
+### 남은 작업
 
 - [ ] Customer fork에서 모든 필수 owner 및 evidence binding을 채우고 모든 critical/high blocker를 해결하거나 정식으로 accept한 뒤 만료되지 않은 거버넌스 evidence에 대해 `python3 scripts/governance/check-arb-readiness.py --require-production-ready` 통과 결과를 기록합니다.
 - [ ] Production gate를 통과하고 필요한 독립 owner 승인을 받은 staging `architecture-review` Process를 기록하며 resource 배포나 ActionType 승격 없이 signed decision과 audit receipt가 영속화되는지 입증합니다.
