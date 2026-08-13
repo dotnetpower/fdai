@@ -2,8 +2,8 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: d8692afbb13932b7c7aafccccb0137b3054ead3e
-translation_revised: 2026-08-11
+translation_source_sha: 2b2674a00d0e1692c63e35d2bbc01f3bca8cbb70
+translation_revised: 2026-08-13
 ---
 
 # 처리 중인 대화 입력 모드
@@ -273,6 +273,35 @@ race-recovery counter를 기록합니다. Pending 점검은 cross-owner 상태�
 커버리지는 세 모드, 중복 및 conflicting ID, 용량, 만료, 권한 확인, exactly-once consume,
 turn-end와 steer race, 재시작 영속성, one-shot 및 스트림 정리, 부분 assistant 이력 방지,
 제한된 steer rerun, 모드 및 점검 경로, shared Slack 및 Teams 게이트웨이 확인 응답을 포함합니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 핵심 계약 및 결정론적 중재 | implemented | `services/core-control-plane/src/fdai/core/conversation/busy_input.py`; `services/core-control-plane/tests/conversation/test_busy_input.py` | 범위가 제한된 레코드, 모드, 처리 결과, 멱등성 규칙, 용량 초과 동작 및 턴 종료 대체 동작에 focused 단위 테스트가 있습니다. |
+| 메모리 내 저장소 및 조정기 | implemented | `services/core-control-plane/src/fdai/core/conversation/busy_input_store.py`; `services/core-control-plane/src/fdai/core/conversation/busy_input_coordinator.py`; `services/core-control-plane/tests/conversation/test_busy_input_store.py` | 프로토콜 참조 저장소, 개정 번호 검사, exactly-once 소비, 취소 신호 및 steer 경계가 프로세스 내 구성에 구현되어 있습니다. |
+| PostgreSQL 영속성 및 동시성 | in-progress | `alembic/versions/20260720_0041_busy_input.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_busy_input.py`; `services/core-control-plane/tests/persistence/test_busy_input.py` | 마이그레이션과 저장소는 있지만 live 사례에는 `FDAI_DATABASE_URL`이 필요하며 관리되는 재시작 또는 운영 증적이 여기에 기록되어 있지 않습니다. |
+| Slack 및 Teams 채널 게이트웨이 | implemented | `services/core-control-plane/src/fdai/core/conversation/channel_gateway.py`; `services/core-control-plane/tests/conversation/test_channel_gateway.py` | 두 채널 어댑터가 범위가 제한된 확인 응답과 함께 조정기 제출 및 시작/종료 의미를 공유합니다. |
+| JSON 및 SSE 활성 턴 통합 | not-started | `services/core-control-plane/src/fdai/core/conversation/busy_input_coordinator.py` | 조정기의 프로덕션 사용은 현재 채널 게이트웨이로 제한되며 one-shot 및 스트림 턴 실행기는 취소 또는 steer 신호를 소비하지 않습니다. |
+| Operator API 경로 및 구체화 | in-progress | `services/operator-service/src/fdai_operator_service/families/conversation/manifest.py`; `services/operator-service/src/fdai_operator_service/families/conversation/factory.py`; `services/operator-service/tests/test_operator_conversation_family.py` | 일반 읽기 및 제안 경로는 있지만 프로덕션 busy-input 제안 소비자 또는 권위 있는 변환 결과 구체화 로직은 확인되지 않았습니다. |
+| FDAI Console 및 클라이언트 컨트롤 | not-started | `console/src` | 현재 source 클라이언트는 busy-input 경로를 통해 제출, 점검, 모드 변경 또는 취소를 수행하지 않습니다. |
+| 메트릭 및 운영 근거 | in-progress | `services/core-control-plane/src/fdai/core/conversation/busy_input_coordinator.py` | 카운터 이름과 증가 호출은 있지만 프로덕션 원격 분석 연결 또는 관리되는 런타임 근거가 방출, 재시작 복구 또는 race 동작을 증명하지 않습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-13 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | 현재 owner 문서 쌍 변경과 구현 범위 표에 나열된 focused core, channel, persistence 및 Operator API 검사입니다. | Web 턴 실행기를 연결하고 API 경계를 구체화하며 클라이언트 컨트롤을 추가하고 live 영속성 검사를 실행한 후 관리되는 운영 근거를 기록해야 합니다. |
+
+### 남은 작업
+
+- [ ] 지원되는 로컬 PostgreSQL 서비스에서 `services/core-control-plane/tests/persistence/test_busy_input.py`의 모든 live 사례를 실행하고 건너뛴 사례 없이 통과한 영속성 및 동시성 증적을 기록합니다.
+- [ ] JSON 및 SSE 활성 턴 실행기를 `BusyInputCoordinator`에 연결한 후 interrupt 정리, 범위가 제한된 steer 재실행, queue 대체 동작 및 부분 assistant 이력 방지를 증명하는 focused 테스트를 추가합니다.
+- [ ] 네 가지 Operator API 작업을 위한 프로덕션 소비자 및 권위 있는 변환 결과 구체화 로직을 추가한 후 principal 범위, 멱등성, 개정 번호 충돌 및 동등한 not-found 응답을 focused 경로 테스트로 증명합니다.
+- [ ] 제출, 점검, 모드 변경 및 conversational 취소를 위한 FDAI Console 클라이언트 컨트롤과 focused 상호 작용 및 접근성 검사를 추가합니다.
+- [ ] 조정기 카운터를 프로덕션 원격 분석에 연결하고 어느 영역이든 `validated`로 승격하기 전에 관리되는 재시작, 만료, race-recovery 및 채널 동등성 근거를 기록합니다.
 
 ## 관련 문서
 
