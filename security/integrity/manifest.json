@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1051,
+  "file_count": 1053,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "767d30b9a69ee481b736652645e723b44ac61262b8ccc96e8e0594379d764955",
     ".github/instructions/agent-stewardship.instructions.md": "e2e2224db17159323f910252e0f9f6efb44c0f1d7e0d217d5159745c15c9ff46",
@@ -93,7 +93,7 @@
     "services/core-control-plane/src/fdai/composition/wire_metric_provider.py": "88795822182f54be23aeedacb77e446d9032a4ba73e459b9826e7805598e14d8",
     "services/core-control-plane/src/fdai/composition/wire_observation_providers.py": "0457b1e8f4d2d2ae2d8d4a309c54cb3c4884a0ad6ec7373ba39139265e1391d6",
     "services/core-control-plane/src/fdai/composition/wire_read_investigation.py": "ba359981a83136b8225cf1aba04bd2024fc32c2f73abcdca1ac9b06b9c330dab",
-    "services/core-control-plane/src/fdai/composition/wire_semantic_query.py": "b0e11a9f38c98b61d6d945b60875877c58b89b47db3b7412b9f6ee6fb899fe7b",
+    "services/core-control-plane/src/fdai/composition/wire_semantic_query.py": "6b35495135efd1ddd2db4c97a4edcb7070f00ca174864d174af82ff713176a75",
     "services/core-control-plane/src/fdai/composition/wire_trajectory.py": "e4956f27caf996ab368b311105633434ab90a2787083c999c1eea4b99988ed40",
     "services/core-control-plane/src/fdai/core/README.md": "d3832549ad3825cf5f65a830b8d399244c7d7ca10bca00fbdb623c6e45bc0639",
     "services/core-control-plane/src/fdai/core/__init__.py": "2089fdfc47357f4a4a12c6bb4bd9bf0d7aa471492e4957d50af8aa4293b1f9f6",
@@ -690,6 +690,8 @@
     "services/core-control-plane/src/fdai/core/rule_catalog_profiles/__init__.py": "6842d30727c63104d722a07fdc3a0ffeaadd701bae1aa9d83095c563dfa9b144",
     "services/core-control-plane/src/fdai/core/rule_catalog_profiles/models.py": "9cdf4a24e4ccf6e1f1739f014a525ae081d086fe6d1043a1e08f64b1afba3f6b",
     "services/core-control-plane/src/fdai/core/rule_catalog_profiles/registry.py": "b51ac6fa8761f641a2b5c874dae056817c117a3a33a5d9c35ad9af82edd8e499",
+    "services/core-control-plane/src/fdai/core/rule_semantic_generation/__init__.py": "c4febfd3999d7fa269a634894fe6ce892dae2a5135b9b474943b051a957bd23c",
+    "services/core-control-plane/src/fdai/core/rule_semantic_generation/ledger.py": "2a3846976a658cf48bde85f6be22f8ddf7f05909e6e5a4cb12b41be68aeb6a06",
     "services/core-control-plane/src/fdai/core/runbook/__init__.py": "c0ed326649a9eaf3d50a8e38e306d7ac5581ba1b8da6cddf40a6a05920acaeeb",
     "services/core-control-plane/src/fdai/core/runbook/models.py": "28f85b5fd61d5da04604c477b8315a50b3c570119d8ea680c87d0a3806bd9065",
     "services/core-control-plane/src/fdai/core/runbook/runner.py": "dc4e190542d5542257724ba9e8eea8f0b054b84bf2805ff838284154f13d4833",
@@ -1054,7 +1056,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-13T01:07:12Z",
+  "generated_at": "2026-08-13T01:36:24Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",
