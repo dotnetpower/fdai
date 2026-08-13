@@ -1,7 +1,7 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: fcad57575773af39e8f205cb9e61f006ad9b6180
-translation_revised: 2026-08-12
+translation_source_sha: a550e9a71fe9dd3b99d7299783a9144ce7ee0cfb
+translation_revised: 2026-08-14
 ---
 # 서비스 승격과 데이터 소유권
 
@@ -30,6 +30,30 @@ translation_revised: 2026-08-12
 만들면 **거절**됩니다. 현재 배포에는 shadow 모드 Isolated 실행기를 포함한 5개 런타임
 서비스가 있습니다. 추적되는 전환은 exact 실제 운영 근거를 닫은 후에만 Core의 변경 역할을
 제거합니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 5개 서비스 승격 결정과 권한 전환 | validated | `config/service-decomposition.json`; `config/independent-services.json`; [서비스 분해 근거 로그](service-decomposition-execution-plan-ko.md#근거-로그) | 필수 및 승인된 서비스 후보는 정확한 토폴로지, 신원, 상태, 롤백 및 원격 전이 근거를 완료했습니다. |
+| 단일 쓰기 담당 데이터 소유권과 서비스 migration 가지 | validated | `service-migrations/branches/`; 실행 계획의 독립 서비스 도입 및 peer-isolation 근거 | 5개 migration 가지와 서비스 역할은 보호된 N/N-1/N 전이 전체에서 겹치지 않는 쓰기 담당 소유권을 유지합니다. |
+| 버전이 지정된 프로세스 간 계약과 격리된 신원 | validated | `packages/service-contracts/`; `infra/services/`; IS-03, IS-05, IS-07 및 IS-09 근거 | 서비스 분포는 다른 서비스 구현을 가져오지 않고 공유 계약 SDK를 소비하며 Isolated 실행기만 효과 권한을 보유할 수 있습니다. |
+| 보류 및 거절된 향후 후보 | deferred | [후보 결정](#후보-결정) | Operator 애플리케이션, 읽기, SSE 분리, 대화 런타임 및 background 읽기 작업은 측정된 강제 트리거와 완전한 게이트 근거가 생길 때까지 보류됩니다. Ad hoc 제어 루프 서비스 분리는 계속 거절됩니다. |
+| 경계 docstring 강제 적용 | implemented | `scripts/quality/architecture/check-boundary-docstrings.py`; SD-09 근거 | 검토된 모든 분해 범위에서 구조적 docstring 계약을 강제 적용합니다. 의미 정확성은 계속 집중 아키텍처 테스트에 의존합니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | validated | 원장 도입 이전의 설계 이력을 재구성하지 않고 완료된 5개 서비스 근거와 보류된 향후 후보를 분리해 기록했습니다. | `current change`; 구현 범위 표에 인용한 머신 매니페스트, 서비스 migration 가지, 공유 계약 및 보존된 전이 근거입니다. | 관찰 가능한 강제 트리거와 완전한 점수표 근거가 생긴 보류 후보만 다시 평가합니다. |
+
+### 남은 작업
+
+- [x] 승인된 5개 서비스 토폴로지에 남은 작업이 없습니다. 승격, 쓰기 담당 소유권, 신원 격리, 롤백 및 원격 전이 근거는 분해 프로그램에 보존돼 있습니다.
+- [ ] Operator 애플리케이션, 읽기 변환 결과 및 SSE 후보 중 하나가 고정된 개정 번호에서 점수표 강제 트리거와 모든 binary 게이트 근거를 기록한 뒤에만 다시 평가합니다.
+- [ ] 대화 런타임과 background 읽기 작업 실행기는 각각 독립 전송 계층, 신원, 영속성, 비용 또는 실패 근거, 배포 smoke 및 테스트된 롤백 증적을 갖춘 뒤에만 다시 평가합니다.
 
 ## 승격 점수표
 

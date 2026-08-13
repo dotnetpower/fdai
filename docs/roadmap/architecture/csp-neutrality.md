@@ -14,6 +14,30 @@ boundaries in [project-structure.md](project-structure.md), the tech choices in
 [tech-stack.md](tech-stack.md), and the identity model in
 [security-and-identity.md](security-and-identity.md).
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Event bus, runtime, secret, and workload-identity contracts | implemented | `shared/providers/`; `delivery/azure/`; `infra/modules/event-bus/`; `infra/modules/compute/`; `infra/modules/secret-store/`; focused adapter and infrastructure tests | Azure uses Kafka on Event Hubs, OCI Container Apps, native secret references, and workload identity behind provider-neutral contracts. |
+| Inventory snapshot, delta, and bounded graph projection | implemented | `shared/providers/inventory.py`; `delivery/azure/inventory.py`; `delivery/inventory_sync_cli.py`; focused inventory and projection tests | Full reconciliation, ordered deltas, atomic generation promotion, and bounded read projections are implemented. Live completeness remains deployment evidence, not a code-path claim. |
+| Metric, log, and trace query contracts | implemented | `shared/providers/metric.py`; `log_query.py`; `trace_query.py`; `delivery/azure/metric_logs.py`; `delivery/azure/log_query.py`; `delivery/azure/telemetry_query.py` | Azure Monitor and Log Analytics adapters exist, while absent configuration intentionally leaves the no-op bindings active. |
+| Governed operational evidence for all eight contracts | in-progress | [Deploy and Onboard implementation status](../deployment/deploy-and-onboard.md#implementation-status); observation campaign adapters under `delivery/azure/` | Independent-service deployment is validated, but this owner document does not retain one current governed campaign proving every inventory and telemetry contract together. |
+| Non-Azure provider implementations | deferred | [Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must) | Contract shapes are retained for portability. No AWS, GCP, or other provider adapter is in the approved implementation scope. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and recorded Azure contract implementations separately from operational evidence and deferred non-Azure adapters. | `current change`; provider, delivery, infrastructure, and deployment evidence listed in the scope table. | Retain one governed eight-contract campaign and keep non-Azure work deferred until explicitly scoped. |
+
+### Remaining work
+
+- [ ] Retain a governed Azure campaign receipt that binds the exact revision and proves event, runtime, secret, identity, inventory, metric, log, and trace behavior with failure and freshness cases.
+- [ ] Prove the bounded inventory graph route against a current complete generation, including rooted traversal, truncation reasons, stale fallback, and no authority gain.
+- [ ] Keep non-Azure adapters unimplemented until an approved target supplies contract-parity tests for ordering, replay, identity, inventory, and telemetry behavior.
+
 ## Principle
 
 Anything the core touches from a cloud provider MUST be reached through **one wire-level
@@ -553,32 +577,14 @@ without knowing which backend recorded it.
 
 ## Azure-Phase Realization (Summary)
 
-Today's implementation slots into the five foundational contracts as follows. Every named service is a
-**recommendation to confirm at adoption time** ([tech-stack.md](tech-stack.md)); the
-contract is what does not change.
-
-| Contract | Azure realization | Idle cost posture |
-|---|---|---|
-| Event bus | **Event Hubs Standard** (Kafka endpoint on `:9093`, 1 TU, auto-inflate off) | low idle; scales on TU |
-| Runtime | **Container Apps** (Consumption, KEDA scale-to-zero) - one app + sidecars | `$0` when idle |
-| Secret | Container Apps native secret + **Key Vault reference** | negligible |
-| Workload identity | **User-assigned MI** + workload identity federation for CI/CD | free |
-| Inventory | **Azure Resource Graph** (initial parallel full-scan sharded by `resource_type`) + **Activity Log** delta forwarded to a Kafka topic | free (ARG); Log-based delta covered by the observability inventory |
-
-`Service Bus` and `Event Grid` are **not** in the minimum inventory going forward; the
-event bus is Kafka wire only. Any provider-native pub/sub is used solely as a **source of
-events into the Kafka bus** (e.g. an Event Grid subscription that forwards to an Event Hubs
-Kafka topic) and never as a runtime dependency of `core/`.
+The current Azure realization is the one recorded in the contract table and implementation ledger
+above; confirm concrete tiers at adoption time. Provider-native event sources may forward into the
+Kafka bus, but they never become a `core/` runtime dependency.
 
 ## Approved Alternative Azure Implementations
 
-The foundational contracts and adjacent platform seams keep the core CSP-portable. This table
-lists the **Azure-internal** alternates each seam may swap to without touching `core/`. Swapping
-happens at the **infra module boundary** - a fork picks a different sub-module under
-`infra/modules/<seam>/` (or overrides the DI binding at the composition root when the
-change is purely code-level). Everything in the "What stays" column is contract, not
-implementation, and is preserved across the swap; anything in "What changes" is confined to
-the swapped module and its immediate config.
+Azure-internal alternates swap at the infrastructure module or composition boundary without
+changing `core/`. The contract column remains stable; only the selected module and configuration change.
 
 | Seam | Day-zero default | Approved alternates (Azure) | What changes on swap | What stays (contract) |
 |------|------------------|-----------------------------|----------------------|------------------------|
@@ -594,20 +600,9 @@ the swapped module and its immediate config.
 | Read-only console hosting | Static Web Apps (Free) | Storage static-website + **Front Door**; **App Service Static Sites** | HTTPS surface, custom domain wiring | read-only guarantee, Entra sign-in, no privileged calls |
 | Inventory | Azure Resource Graph + Activity Log delta | Direct **ARM list** polling (per-resource-type, sharded) for tenants where ARG lags; **Microsoft Defender for Cloud Inventory** when its coverage is authoritative for the target set | query language (Kusto vs REST), delta cursor semantics, freshness lag | `Inventory` Protocol shape, CSP-neutral `resource_type` + link kinds, idempotent upsert, fail-closed partial snapshot |
 
-**Rules across the whole table (MUST):**
-
-- Every alternate uses the **same output contract** its default module exposes
-  (`endpoint`, `identity_resource_id`, `secret_ref_envelope`, `event_topic_names`, ...) so
-  downstream Terraform / `main.tf` composition never branches on the alternate.
-- Alternates ship as **separate Terraform sub-modules** under `infra/modules/<seam>/`,
-  selected by a top-level `var.<seam>_kind` (e.g. `var.runtime_kind = "container_apps"`).
-- Any alternate MUST honor the **naming convention** in
-  [deploy-and-onboard.md § Resource Naming Convention](../deployment/deploy-and-onboard.md#resource-naming-convention);
-  a swap does not license a hand-picked name.
-- Alternates are **build-when-needed**: only the default lands with W4.1. Adding an
-  alternate is its own PR with its own shadow-mode validation.
-- No alternate is allowed to re-introduce a vendor SDK dependency in `core/`. That is the
-  original CSP-neutrality rule and it wins.
+Every alternate preserves the default module output contract, ships as a separate selected module,
+follows the deployment naming convention, and receives its own shadow validation. An alternate
+never introduces a vendor SDK dependency in `core/`.
 
 ## Non-Azure Path (Additive)
 

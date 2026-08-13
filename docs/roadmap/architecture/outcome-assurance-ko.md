@@ -1,8 +1,8 @@
 ---
 title: Outcome Assurance
 translation_of: outcome-assurance.md
-translation_source_sha: 5f1a7eaa67da00599f5d9707700fe97b5ed02ad6
-translation_revised: 2026-08-12
+translation_source_sha: ec3d2c11abe863db58ac9687bcd9ee477cbf79e7
+translation_revised: 2026-08-14
 ---
 # 결과 Assurance
 
@@ -41,6 +41,31 @@ flowchart LR
   G[Guard and promotion evidence] --> P
   P --> C[Read-only console]
 ```
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 재사용하는 온톨로지, 준비 상태, 감사 및 측정 출처 | in-progress | `core/decision_case/`; `core/readiness/`; `core/measurement/`; `core/audit/`; 각 소유 문서의 현재 구현 원장 | 출처 기능은 서로 다른 근거 수준으로 존재하지만 하나의 결과 Assurance 변환 결과로 결합되지 않았습니다. |
+| `OutcomeAssuranceProjection` 타입이 지정된 읽기 모델 | not-started | [변환 결과 계약](#변환-결과-계약); `services/` 아래에 일치하는 구현 없음 | 설계는 범위가 제한된 그룹과 근거 상태를 정의합니다. 정본 계약, decoder 또는 재현 구현은 없습니다. |
+| 목표 귀속과 집계 평가 | not-started | [목표 귀속](#목표-귀속) | 완전한 이벤트에서 목표와 결과까지의 체인을 종결하거나 귀속되지 않은 이벤트를 이 변환 결과의 분모에 보존하는 집계기는 없습니다. |
+| 인증된 Operator API와 Console 경험 | not-started | [Operator API와 console](#operator-api와-console); `services/operator-service/` 또는 `console/` 아래에 일치하는 경로나 Console 모듈 없음 | 제안된 읽기 전용 endpoint, 요약, 근거 상세 경로 및 사용 불가 상태는 구현되지 않았습니다. |
+| 변경 안전성 파일럿과 버티컬 확장 | not-started | [전달 순서](#전달-순서) | 비합성 OA3 파일럿 또는 OA4 확장이 근거를 생성하려면 OA0-OA2가 먼저 구현돼야 합니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | not-started | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 부분적으로 구현된 출처 시스템 위의 설계 전용 변환 결과로 기록했습니다. | `current change`; 계약, API 경로, Console 표면에 대한 저장소 검색과 위에 인용한 출처 소유 문서입니다. | 파일럿과 버티컬 확장을 시작하기 전에 OA0부터 OA2까지 전달합니다. |
+
+### 남은 작업
+
+- [ ] 새 권한 객체를 추가하지 않고 타입이 지정된 `OutcomeAssuranceProjection`, 범위가 제한된 근거 상태, correction 규칙 및 결정론적 재현을 정의하고 테스트합니다.
+- [ ] 완전한 목표 귀속 join을 구현하고 해결되지 않은 finalized 이벤트를 명시적 커버리지와 함께 분모에 유지합니다.
+- [ ] 인증된 권위 있는 출처를 연결하고 읽기 전용 Operator API와 Console 상세 경로를 추가하며, 누락되거나 stale한 데이터가 합성되지 않고 사용 불가로 표시됨을 입증합니다.
+- [ ] 하나의 고정된 서비스와 시나리오 집합에서 변경 안전성 파일럿을 실행한 다음 수락 기준에 권위 있는 비합성 근거가 생긴 후에만 확장합니다.
 
 ## 범위 경계
 

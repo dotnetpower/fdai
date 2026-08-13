@@ -15,6 +15,31 @@ satisfy the safety and code rules in
 [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)
 and the threat model in [security-and-identity.md](security-and-identity.md).
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Python service distributions and five-service runtime | validated | `services/`; `packages/service-contracts/`; `config/independent-service-live-evidence-manifest.json`; `config/independent-service-remote-evidence.attestation.jsonl` | The five service distributions, images, health boundaries, and protected N/N-1/N transitions have retained remote evidence. |
+| Terraform Azure platform, Event Hubs Kafka, and PostgreSQL plus pgvector | implemented | `infra/`; `alembic/`; `service-migrations/branches/`; focused infrastructure and migration tests | The stack and protected deployment mechanics exist. The general platform owner still requires a retained governed apply receipt before it can claim validation. |
+| OPA/Rego policy and catalog execution | implemented | `policies/`; `rule-catalog/`; `scripts/catalog/sync-rule-semantics.py`; focused policy and catalog tests | Shipped Rego, normalized catalog metadata, OPA compilation, semantic drift checks, and deterministic evaluation are executable. |
+| OpenTelemetry and Azure observation adapters | in-progress | `shared/telemetry/`; `delivery/azure/metric_logs.py`; `delivery/azure/log_query.py`; `delivery/azure/telemetry_query.py`; observation campaign tests | Instrumentation and bounded Azure adapters are implemented. One retained end-to-end operational telemetry campaign across all five services remains open. |
+| Non-Azure managed alternatives | deferred | [OD-3](#od-3-multi-cloud-event-bus-phase-4--tbd); [Implementation Focus](../../../.github/copilot-instructions.md#implementation-focus-must) | Alternatives remain design options, not implemented or parity-validated targets. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and aligned the stack with the current five-service, Rego, telemetry, and Azure-only implementation. | `current change`; service evidence, infrastructure, policy, telemetry, and focused test paths cited above. | Retain platform apply and telemetry campaign evidence; keep non-Azure targets deferred. |
+
+### Remaining work
+
+- [ ] Retain a governed platform apply receipt binding the exact Terraform plan, source revision, service images, migrations, identities, and post-apply health.
+- [ ] Retain one end-to-end OpenTelemetry and Azure query campaign across all five services with correlation, retention, failure, and unavailable-state evidence.
+- [ ] Implement the reviewed weekly model reconciler before describing model replacement as operational, and keep all swaps draft-PR plus shadow-replay gated.
+- [ ] Keep non-Azure alternatives unimplemented until one target is explicitly approved with parity and rollback evidence.
+
 ## How to Read This Document
 
 - **Bold** entries are named managed services offered as recommendations; each is paired with a
@@ -49,7 +74,7 @@ and the threat model in [security-and-identity.md](security-and-identity.md).
 | Event bus | **Event Hubs** consumed **only via its Kafka endpoint on `:9093`** (Kafka wire protocol is the CSP-neutral contract - see [csp-neutrality.md](csp-neutrality.md#1-event-bus-contract--kafka-wire-protocol)) | one wire protocol serves every managed target (MSK, GCP Managed Kafka, Confluent, Redpanda), so a non-Azure adapter is a config swap | MSK Serverless / GCP Managed Kafka / Confluent / Redpanda / self-hosted Strimzi - non-Azure options are TBD |
 | Event/message schema | JSON Schema (or CloudEvents envelope) in a versioned registry | typed, versioned event contracts; enables safe evolution and validation at ingress | Avro/Protobuf + Confluent-compatible registry |
 | Dead-letter handling | Kafka **dead-letter topic** convention (e.g. `<topic>.dlq`) + a replay/redrive worker | no event is silently dropped; poison messages are quarantined and re-processable; identical across providers | vendor-native DLQ **not used** (behavior diverges per provider) |
-| Compute | **Azure Container Apps** (Consumption) - one modular core app, separated Operator API and ingestion gateway apps, plus bounded Jobs in one environment, all rendered from **OCI images + a Knative-compatible manifest subset** (see [csp-neutrality.md](csp-neutrality.md#2-runtime-contract--oci-image--knative-compatible-manifest)) | independent edge/read scaling and bounded jobs without changing the headless core contract; manifests also render to Cloud Run / App Runner / Knative on K8s | Cloud Run (native Knative), App Runner, Knative on AKS/EKS/GKE; AKS when custom networking/DaemonSets/GPU are needed |
+| Compute | **Azure Container Apps** (Consumption) - five independently packaged runtime services plus bounded Jobs, rendered from **OCI images + a Knative-compatible manifest subset** (see [csp-neutrality.md](csp-neutrality.md#2-runtime-contract--oci-image--knative-compatible-manifest)) | independent service scaling and bounded jobs without changing the headless core contract; manifests also render to Cloud Run / App Runner / Knative on K8s | Cloud Run (native Knative), App Runner, Knative on AKS/EKS/GKE; AKS when custom networking/DaemonSets/GPU are needed |
 | Light triggers | **Container Apps Jobs** (same environment as Compute); renders to K8s `CronJob` / Cloud Run Job / EventBridge on other targets | out-of-band change detection, cost-anomaly hooks, scheduled probes - avoids provisioning a separate Functions plan | Azure Functions if a native binding is required; Knative eventing |
 | State / audit / KPI | **PostgreSQL** (default) or **Cosmos DB** | append-only audit log, pattern library, KPI store; also hosts the runtime ontology instance state ([llm-strategy.md § Ontology Storage Layout](llm-strategy.md#ontology-storage-layout)) | see [Data Store Selection](#data-store-selection-criteria) |
 | Vector search (T1) | pgvector (co-located with PostgreSQL) | keep embeddings next to audit/state; one datastore to operate | dedicated vector DB (Qdrant/Milvus) at higher scale - see [Vector Search Rationale](#vector-search-rationale) |
@@ -59,7 +84,7 @@ and the threat model in [security-and-identity.md](security-and-identity.md).
 | CI/CD | GitHub Actions or Azure Pipelines | runs lint, tests, coverage gate, secret scan (gitleaks), dependency/SBOM audit | GitLab CI |
 | PR gate | **GitHub App** (Checks API) or Azure DevOps service hooks | audit/rollback/approval already live in git | remediation delivered as PRs regardless of host |
 | HIL channel | **Bot Framework / Teams** Adaptive Cards | reach operators where they are | Slack adapter; email/webhook fallback behind a notifier interface - see [channels-and-notifications.md](../interfaces/channels-and-notifications.md) |
-| LLM access (T2) | provider-agnostic gateway/router over 2+ distinct models | mixed-model cross-check per [llm-strategy.md](llm-strategy.md); models auto-provisioned at bootstrap from a capability-preferences registry and reconciled weekly - [llm-strategy.md § Model Provisioning and Lifecycle](llm-strategy.md#model-provisioning-and-lifecycle) | LiteLLM/OpenRouter-style router |
+| LLM access (T2) | provider-agnostic gateway/router over 2+ distinct models | mixed-model cross-check per [llm-strategy.md](llm-strategy.md); models resolve from a capability-preferences registry, while the weekly reviewed reconciler remains planned - [llm-strategy.md § Model Provisioning and Lifecycle](llm-strategy.md#model-provisioning-and-lifecycle) | LiteLLM/OpenRouter-style router |
 | Observability | OpenTelemetry (traces/metrics/logs) → collector → backend (**Log Analytics** with App Insights bound to it - no separate APM resource) | measurement-first requires first-class telemetry; retention defaults to 30 days and is UI-configurable ([deploy-and-onboard.md](../deployment/deploy-and-onboard.md#azure-resource-inventory-minimum-set)) | Prometheus + Grafana + Tempo/Loki (OSS); vendor APM |
 
 ## Data Store Selection Criteria

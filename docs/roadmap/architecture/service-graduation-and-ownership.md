@@ -29,6 +29,30 @@ spread, an unversioned wire contract, or no tested rollback. The current deploym
 services with the Isolated Executor in shadow mode. The tracked cutover removes mutation roles from
 Core only after the exact live evidence closes.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Five-service graduation decisions and authority cutover | validated | `config/service-decomposition.json`; `config/independent-services.json`; [Service Decomposition evidence log](service-decomposition-execution-plan.md#evidence-log) | The required and approved service candidates completed exact topology, identity, health, rollback, and remote transition evidence. |
+| Single-writer data ownership and service migration branches | validated | `service-migrations/branches/`; independent-service adoption and peer-isolation evidence in the execution plan | Five migration branches and service roles retain disjoint writer ownership across the protected N/N-1/N transition. |
+| Versioned cross-process contracts and isolated identities | validated | `packages/service-contracts/`; `infra/services/`; IS-03, IS-05, IS-07, and IS-09 evidence | Service distributions consume the shared contract SDK without importing another service implementation, and only the isolated Executor can hold effect authority. |
+| Deferred and rejected future candidates | deferred | [Candidate decisions](#candidate-decisions) | Operator application/read/SSE splits, conversation runtime, and background read tasks remain deferred until their measured forcing triggers and complete gate evidence exist. Ad hoc control-loop service splits remain rejected. |
+| Boundary docstring enforcement | implemented | `scripts/quality/architecture/check-boundary-docstrings.py`; SD-09 evidence | All reviewed decomposition scopes enforce the structural docstring contract. Semantic correctness still depends on focused architecture tests. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | validated | Adopted the implementation ledger without reconstructing pre-ledger design history and recorded the completed five-service evidence separately from deferred future candidates. | `current change`; machine manifests, service migration branches, shared contracts, and retained transition evidence cited in the scope table. | Re-evaluate only the deferred candidates whose observable forcing triggers and complete scorecard evidence become available. |
+
+### Remaining work
+
+- [x] No work remains for the approved five-service topology; its graduation, writer ownership, identity isolation, rollback, and remote transition evidence is retained in the decomposition program.
+- [ ] Re-evaluate Operator application, read-projection, and SSE candidates only after one candidate records a scorecard forcing trigger and all binary gate evidence on one pinned revision.
+- [ ] Re-evaluate the conversation runtime and background read-task executor only after each has independent transport, identity, persistence, cost/failure evidence, deployment smoke, and a tested rollback receipt.
+
 ## Graduation scorecard
 
 Use the same observation window and candidate revision for every measured row. The minimum window is

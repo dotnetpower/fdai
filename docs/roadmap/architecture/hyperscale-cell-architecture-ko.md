@@ -1,8 +1,8 @@
 ---
 title: 초대규모 셀 아키텍처 (B안)
 translation_of: hyperscale-cell-architecture.md
-translation_source_sha: 3024209d31e26e417a87bc63d2adb382b14db507
-translation_revised: 2026-08-11
+translation_source_sha: d979b87b25d7d18369baa98362160e2453188cf3
+translation_revised: 2026-08-14
 ---
 # 초대규모 셀 아키텍처 (B안)
 
@@ -61,6 +61,30 @@ flowchart TB
   style TEL fill:#225,stroke:#08f
   style POL fill:#252,stroke:#0a0
 ```
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 셀 토폴로지와 결정론적 라우팅 | not-started | [Phase 4 확장 계획](../phases/phase-4-scale-ko.md#확장성과-성능); 현재 소스에는 `CellRouter`, 셀 토폴로지 매니페스트 또는 셀별 인프라 모듈이 없습니다. | 최소 비용 배포는 하나의 논리적 셀로 유지됩니다. 측정된 초대규모 트리거를 넘는 것이 이 토폴로지 구현의 선행 조건입니다. |
+| CQRS 감사 원장과 비동기 인덱스 평면 | not-started | [감사 원장 CQRS](#감사-원장-cqrs-쓰기-평면--인덱스-평면); 현재 감사 영속성은 `services/core-control-plane/src/fdai/delivery/persistence/postgres.py`에 있습니다. | 현재 경로는 PostgreSQL 감사 계약을 유지합니다. `AuditLedger`, `AuditQueryStore`, 파티션 감사 토픽, Merkle 앵커 또는 감사 인덱서 구현은 아직 없습니다. |
+| ADX 텔레메트리 계층화와 셀 범위 성능 저하 | not-started | [초대규모 인덱싱과 조회](#초대규모-인덱싱과-조회); [Phase 4 확장 계획](../phases/phase-4-scale-ko.md#런타임-스케일아웃-aks---연기됨) | 기존 텔레메트리 프로바이더 연결부와 시스템 수준 성능 저하는 선행 기반일 뿐, B안의 ADX, 셀별 또는 소버린 런타임 구현 근거는 아닙니다. |
+| 정책 fan-in과 배포 프로파일 | not-started | [Fan-in 설계](#fan-in-코드가-아니라-정책-기반); [배포 프로파일](#배포-프로파일-standard-vs-sovereign) | 관리 그룹 `DeployIfNotExists` 패키지, `deployment.profile` 바인딩, 소버린 AKS 렌더 또는 프로파일별 Terraform 구성이 아직 구현되지 않았습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | deferred | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며, B안을 트리거 기반 Phase 4 작업으로 기록했습니다. | `current change`; 구현 범위 표에 인용한 현재 소스 경계와 Phase 4 소유 문서입니다. | 초대규모 트리거를 측정하고 프로파일과 셀 경계를 승인한 다음 아래의 범위가 제한된 작업을 구현하고 검증합니다. |
+
+### 남은 작업
+
+- [ ] 고정된 하나의 배포 개정에서 이 문서의 초대규모 트리거 중 하나 이상이 충족됨을 보여 주는 검토된 용량 및 거버넌스 증적을 기록합니다.
+- [ ] `CellRouter`, 토폴로지 매니페스트 및 격리된 추가 셀 하나를 구현한 다음 결정론적 할당, 셀별 성능 저하, 재현 및 변경되지 않은 권한을 집중 테스트로 입증합니다.
+- [ ] 파티션 감사 쓰기 평면, Merkle 앵커, 비동기 인덱서 및 ADX 또는 승인된 소버린 텔레메트리 바인딩을 구현한 다음 부하, 복구 및 변조 방지 증적을 보존합니다.
+- [ ] 검토된 `standard` 및 `sovereign` 배포 프로파일 바인딩과 정책 fan-in 인프라를 추가한 다음 선택한 프로파일의 보호된 계획 및 적용 근거를 보존합니다.
 
 ## 언제 적용되나 (초대규모 트리거)
 

@@ -13,6 +13,29 @@ This document is the source of truth for KPIs. It aligns with the tier coverage 
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) and is
 operationalized by [phase-0-instrumentation.md](../phases/phase-0-instrumentation.md).
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Deterministic KPI and guard-metric aggregation | implemented | `core/measurement/mttr.py`; `dora.py`; `regression.py`; focused tests under `tests/core/measurement/` | MTTR, change, regression, latency, model, and pattern metrics have executable reducers and fail-closed checks. |
+| Promotion and operational evidence evaluation | implemented | `core/measurement/promotion_gate.py`; `operational_promotion.py`; focused promotion tests | Promotion evaluation binds revision, scenario, samples, confidence, guards, and outcome evidence. It does not itself prove a live cohort exists. |
+| Frozen scenario-set accounting | in-progress | `tests/scenarios/manifests/v2026.07.json`; `test_frozen.py`; `test_v2026_07_replay.py` | The manifest and executable coverage checks exist, but SRE and other required constitutional dimensions remain incomplete as described below. |
+| Live KPI baseline, treatment, and dashboard closure | in-progress | [Data Collection and Telemetry](#data-collection-and-telemetry); `config/constitution-traceability.json` requirement `FDAI-CONST-002` | Runtime records and jobs exist, but no retained full live baseline/treatment cohort proves all success and zero-threshold guard metrics on one pinned revision. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and separated executable measurement mechanics from unproven outcome claims. | `current change`; measurement source, focused tests, scenario manifest, and constitutional register cited above. | Complete scenario coverage and retain a live baseline/treatment cohort with authoritative outcome closure. |
+
+### Remaining work
+
+- [ ] Complete all five constitutional scenario packs with success, deny or unknown, conflict, partial-failure recovery, A3-E or non-applicability, and deterministic replay cases.
+- [ ] Retain one reference baseline and FDAI treatment on the identical frozen scenario set with sample sizes, confidence intervals, absolute values, and no unsupported multiplier claim.
+- [ ] Bind live incident, change, cost, human-touchpoint, and independently verified outcome records into the KPI projection, then prove all zero-threshold guards remain zero.
+
 ## Primary Objective
 
 Minimize human intervention in cloud operations across three initial verticals under an

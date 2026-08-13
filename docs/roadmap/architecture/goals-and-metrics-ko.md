@@ -1,8 +1,8 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: 28fc74aa7c0414e08d1a81e8e8ba55f509ebb209
-translation_revised: 2026-08-11
+translation_source_sha: 08851b7e817602fea3f1d420ea66e5b3e113162a
+translation_revised: 2026-08-14
 ---
 
 # 목표와 메트릭
@@ -18,6 +18,29 @@ translation_revised: 2026-08-11
 티어 커버리지 목표와 정합하며
 [phase-0-instrumentation-ko.md](../phases/phase-0-instrumentation-ko.md) 에서 운영으로
 구현됩니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 결정론적 KPI와 가드 메트릭 집계 | implemented | `core/measurement/mttr.py`; `dora.py`; `regression.py`; `tests/core/measurement/` 아래의 집중 테스트 | MTTR, 변경, 회귀, 지연 시간, 모델 및 pattern 메트릭에 실행 가능한 reducer와 실패 시 차단 검사가 있습니다. |
+| 승격 및 운영 근거 평가 | implemented | `core/measurement/promotion_gate.py`; `operational_promotion.py`; 집중 승격 테스트 | 승격 평가는 개정 번호, 시나리오, 표본, 신뢰 구간, 가드 및 결과 근거를 연결합니다. 그 자체로 실제 운영 집단의 존재를 입증하지는 않습니다. |
+| 고정된 시나리오 집합 계산 | in-progress | `tests/scenarios/manifests/v2026.07.json`; `test_frozen.py`; `test_v2026_07_replay.py` | 매니페스트와 실행 가능한 커버리지 검사가 있지만 아래에 설명한 대로 SRE 및 다른 필수 헌법 차원은 아직 불완전합니다. |
+| 실제 운영 KPI 기준선, 처리 및 대시보드 종결 | in-progress | [데이터 수집과 원격측정](#데이터-수집과-원격측정); `config/constitution-traceability.json`의 `FDAI-CONST-002` 요구 사항 | 런타임 기록과 작업은 있지만 하나의 고정된 개정에서 모든 성공 및 임계값 0 가드 메트릭을 입증하는 완전한 실제 운영 기준선 및 처리 집단은 보존되지 않았습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 실행 가능한 측정 mechanics를 입증되지 않은 결과 주장과 분리했습니다. | `current change`; 위에 인용한 측정 소스, 집중 테스트, 시나리오 매니페스트 및 헌법 레지스터입니다. | 시나리오 커버리지를 완료하고 권위 있는 결과 종결을 포함한 실제 운영 기준선 및 처리 집단을 보존합니다. |
+
+### 남은 작업
+
+- [ ] 성공, 거부 또는 알 수 없음, 충돌, 부분 실패 복구, A3-E 또는 해당 없음, 결정론적 재현 사례를 포함해 헌법상 5개 시나리오 묶음을 모두 완료합니다.
+- [ ] 동일한 고정 시나리오 집합에서 표본 크기, 신뢰 구간, 절대값 및 지원되지 않는 배수 주장이 없는 하나의 참조 기준선과 FDAI 처리를 보존합니다.
+- [ ] 실제 운영 인시던트, 변경, 비용, 사람 터치포인트 및 독립적으로 검증된 결과 기록을 KPI 변환 결과에 연결한 다음 모든 임계값 0 가드가 0을 유지함을 입증합니다.
 
 ## 주요 목표(기본 목표)
 

@@ -1,8 +1,8 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: ce68d9b11bc0c5ed9ed2505db0b40f4aa5fc3bd2
-translation_revised: 2026-08-11
+translation_source_sha: 15157b514d1706c7fb9d538d3b77d95d82b1ddca
+translation_revised: 2026-08-14
 ---
 
 # LLM 전략(LLM Strategy)
@@ -17,6 +17,24 @@ translation_revised: 2026-08-11
 > 아래 모델 이름은 **채택 시점에 확인** 할 권장. 가용성, 가격, 미리 보기 상태는 변경됨; 구체
 > 모델은 시나리오 세트에서 측정된 비용/quality로 선택, 가정 아님. 이 문서로 특정 모델이 고정되지
 > 않음.
+
+## 구현 상태
+### 구현 범위
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 기능 레지스트리, 해석 및 프로비저닝 평가 | implemented | `rule-catalog/llm-registry.yaml`; `rule_catalog/schema/llm_resolver.py`; `provisioning_assessment.py`; 집중 resolver 테스트 | 기능과 모델 대응, 명시적 용량 단위, 혼합 발행기 불변식 및 실패 시 차단 준비 상태를 실행할 수 있습니다. |
+| T2 교차 검사, 검증기, 근거 확인, 신뢰도 및 rubric | implemented | `core/quality_gate/`; `delivery/azure/llm/rubric.py`; 집중 quality 게이트 및 Azure 어댑터 테스트 | 필수 4개 경로와 선택적 감산 rubric이 있습니다. 근거가 없거나 잘못되면 거부, 판단 보류 또는 사람 검토로 결과를 낮춥니다. |
+| 에스컬레이션 정책과 같은 발행기 primary 지연 시간 라우팅 | implemented | `core/quality_gate/escalation_ladder.py`; `delivery/azure/llm/latency_routed_cross_check.py`; `composition/wire_llm.py`; 집중 라우팅 테스트 | 에스컬레이션 단계는 권한을 갖지 않으며 primary 대체 경로는 secondary 발행기로 넘어갈 수 없습니다. |
+| 운영 모델 근거와 강제 적용 승격 | in-progress | `core/measurement/model_tracking.py`; [목표와 메트릭](goals-and-metrics-ko.md#구현-상태) | 측정과 승격 계약이 있지만 모든 활성 T1/T2 기능의 보존된 실제 운영 집단은 이 문서에서 입증되지 않습니다. |
+| 주간 모델 조정기와 검토된 교체 흐름 | not-started | [조정기 작업](#조정기-작업) | 설계는 초안 PR과 shadow 재현을 요구합니다. 이 소유 문서는 완전한 scheduled 조정기 구현과 통제된 실행 증적을 인용하지 않습니다. |
+### 구현 이력
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 quality 게이트 상태를 현재 resolver, rubric, 에스컬레이션 및 지연 시간 라우팅 코드에 맞췄습니다. | `current change`; 위의 레지스트리, quality 게이트, Azure 어댑터, 조립 및 측정 경로입니다. | 운영 모델 근거를 보존하고 통제된 조정기 흐름을 구현합니다. |
+### 남은 작업
+- [ ] 활성화된 모든 T1/T2 기능에 대해 모델 신원, 비용, 지연 시간, 불일치, 근거 확인, 검증기, rubric, 결과 및 가드 근거가 포함된 고정된 실제 운영 shadow 집단을 보존합니다.
+- [ ] 사용 중단과 측정된 표류가 범위가 제한된 이슈 또는 초안 PR만 만들도록 scheduled 조정기를 구현하고, 병합되지 않은 만료가 해당 기능을 사람 검토로 낮춤을 입증합니다.
+- [ ] 선택적 rubric, 에스컬레이션 호출 또는 primary pool 행동은 고정된 재현과 독립 검토 후 권위 있는 레지스트리를 통해서만 승격하며 누락된 바인딩은 실패 시 차단을 유지합니다.
 
 ## 모델 티어
 
@@ -479,24 +497,10 @@ collapse" 위험은 *쌍 전체*를 속도로 라우팅할 때의 문제이고, 
 
 ### 조정기 작업
 
-주간 Container Apps 작업(코어와 같은 환경; 별도 컴퓨트 없음) 이 세 신호를 감시하고
-**초안 PR을 통해 변경 제안** - 절대 라이브 레지스트리 변형이나 배포 auto-swap 아님.
-
-| 신호 | 트리거 | 조정기 액션 |
-|------|--------|----------------|
-| 새 계열 가용 | 카탈로그가 `preferences` 에 더 높이 나열된 계열 (또는 포크가 pin하려는 새 계열) 제공 | 선호 순서 올리는 초안 PR; A2 알림 |
-| 폐기 공지 ≤ 60일 | Azure 폐기 피드가 in-use 배포와 매칭 | 여전히 지원되는 계열로 재정렬하는 초안 PR; A2 알림 + 미머지 시 `governance_pr_aging_weekly` 다이제스트 적중 |
-| 용량 / 품질 표류 | 측정된 429 비율, 지연, 또는 hallucination-비율 회귀(Quality 측정) | 선호 재정렬 제안하는 이슈(PR 아님); A2 알림 |
-
-조정기가 준수하는 규칙(MUST):
-
-- **절대 프로덕션 매핑 auto-swap 안 함.** 하드 폐기라도 초안 PR 오픈. 폐기 날짜가 병합된 대체
-  없이 지나면, 그 기능의 티어는 저렴 계열로 조용히 다운그레이드가 아니라 **HIL로 강등**.
-- **모델에도 Shadow before 강제 적용.** 병합된 레지스트리 변경이 해석기를 shadow에서 재실행: 새
-  배포가 병렬로 프로비저닝되고, quality-measurement 리플레이가 고정 시나리오 세트에서
-  스코어링, 클린 리플레이만이 `resolved-models.json` 컷오버 승격.
-- `rule-catalog/llm-registry.yaml` 의 **PR 리뷰어** 는 Owner-티어 - 모델 스왑은 high-blast-radius
-  거버넌스 변경.
+계획된 주간 작업은 더 선호되는 새 계열, 60일 안의 사용 중단, 측정된 용량 또는 품질 표류를
+감시합니다. 범위가 제한된 이슈 또는 초안 PR과 A2 알림만 만들며 실제 매핑을 바꾸지 않습니다.
+병합되지 않은 교체가 만료되면 기능을 사람 검토로 낮추고, 승인된 레지스트리 변경도 Owner 검토와
+고정 시나리오 shadow 재현을 통과해야 합니다.
 
 ### Mixed-Model 계열 전략
 
@@ -513,15 +517,9 @@ Quality 게이트는 두 독립 모델 계열 필요. 포크가 실제로 얻는
 
 ### 포크 vs 상류 분리
 
-| 항목 | 상류 (이 리포) | 포크 |
-|------|--------------|------|
-| 기능 이름(`t1.judge`, `t2.reasoner.primary`, ...) | ✓ | - |
-| `llm-registry.yaml` 기본 선호(mini → Opus 티어) | ✓ | 리전 / 컴플라이언스 / 비용 오버라이드 |
-| 부트스트랩 해석기 스크립트 + IaC 훅 | ✓ | 구독 / 리전 / 명명 |
-| 조정기 작업 (스케줄, 폐기-피드 파서, draft-PR opener) | ✓ | cron 타임존, 알림 채널 |
-| `resolved-models.json` 스키마 + Key Vault 경로 | ✓ | 실제 값(포크 테넌트만) |
-| Mixed-model 계열 불변식 | ✓ | `azure-foundry` / `external` / `hil-only` 선택 |
-| Azure OpenAI / Foundry 리소스 IaC | ✓ (Bicep 템플릿) | 구독 / 리전 / SKU 티어 |
+상류는 기능 이름, 스키마, 기본 선호, resolver 행동, mixed-model 불변식 및 범용 Azure IaC를
+소유합니다. 포크는 지원되는 구성과 DI 경계로 지역, compliance, 비용, 일정, 알림, 리소스 및
+해석된 모델 값을 제공합니다.
 
 ## Rule-to-Decision 조회 파이프라인
 

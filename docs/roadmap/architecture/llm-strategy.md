@@ -14,6 +14,24 @@ the threat model in [security-and-identity.md](security-and-identity.md).
 > pricing, and preview status change; pick the concrete model by measured cost/quality on the
 > scenario set, never by assumption. No specific model is fixed by this document.
 
+## Implementation status
+### Implementation scope
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Capability registry, resolution, and provisioning assessment | implemented | `rule-catalog/llm-registry.yaml`; `rule_catalog/schema/llm_resolver.py`; `provisioning_assessment.py`; focused resolver tests | Capability-to-model mappings, explicit capacity units, mixed-publisher invariants, and fail-closed readiness are executable. |
+| T2 cross-check, verifier, grounding, confidence, and rubric | implemented | `core/quality_gate/`; `delivery/azure/llm/rubric.py`; focused quality-gate and Azure adapter tests | The four required legs and optional subtractive rubric exist. Missing or invalid evidence lowers the result to denial, abstention, or human review. |
+| Escalation policy and same-publisher primary latency routing | implemented | `core/quality_gate/escalation_ladder.py`; `delivery/azure/llm/latency_routed_cross_check.py`; `composition/wire_llm.py`; focused routing tests | The ladder remains never-authoritative, and primary failover cannot cross into the secondary publisher. |
+| Operational model evidence and enforce promotion | in-progress | `core/measurement/model_tracking.py`; [Goals and Metrics](goals-and-metrics.md#implementation-status) | Measurement and promotion contracts exist, but one retained live cohort for every active T1/T2 capability is not evidenced here. |
+| Weekly model reconciler and reviewed replacement flow | not-started | [Reconciler Job](#reconciler-job) | The design requires draft PRs and shadow replay. No complete scheduled reconciler implementation and governed run receipt is cited by this owner document. |
+### Implementation history
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and aligned the quality-gate status with current resolver, rubric, escalation, and latency-routing code. | `current change`; registry, quality-gate, Azure adapter, composition, and measurement paths listed above. | Retain operational model evidence and implement the governed reconciler flow. |
+### Remaining work
+- [ ] Retain a pinned live-shadow cohort for every enabled T1/T2 capability with model identity, cost, latency, disagreement, grounding, verifier, rubric, outcome, and guard evidence.
+- [ ] Implement the scheduled reconciler so deprecation and measured drift create only bounded issues or draft PRs, then prove an unmerged expiry lowers the affected capability to human review.
+- [ ] Promote optional rubric, escalation invocation, or primary-pool behavior only through the authoritative registry after frozen replay and independent review; keep missing bindings fail-closed.
+
 ## Model Tiers
 
 Coverage figures are **targets to validate against a measured baseline**
@@ -506,27 +524,10 @@ otherwise it binds the single primary unchanged.
 
 ### Reconciler Job
 
-A weekly Container Apps Job (same environment as core; no separate compute) watches three
-signals and **proposes changes via draft PR** - it never mutates the live registry or
-swaps deployments autonomously.
-
-| Signal | Trigger | Reconciler action |
-|--------|---------|-------------------|
-| Newer family available | catalog now offers a family listed higher in `preferences` (or a new family the fork wants to pin) | draft PR raising the preference order; A2 alert |
-| Deprecation notice ≤ 60 days | Azure deprecation feed matches an in-use deployment | draft PR that reorders to a still-supported family; A2 alert **and** a `governance_pr_aging_weekly` digest hit if unmerged |
-| Capacity / quality drift | measured 429 rate, latency, or hallucination-rate regression per Quality Measurement | issue (not PR) proposing a preference re-order; A2 alert |
-
-Rules the reconciler obeys (MUST):
-
-- **Never auto-swap the production mapping.** Even a hard deprecation opens a draft PR.
-  If the deprecation date passes with no merged replacement, the capability's tier
-  **degrades to HIL** rather than silently downgrading to a cheaper family.
-- **Shadow before enforce for models too.** A merged registry change re-runs the resolver
-  in shadow: the new deployment is provisioned in parallel, the quality-measurement replay
-  scores it against the frozen scenario set, and only a clean replay promotes the
-  `resolved-models.json` cutover.
-- **PR reviewers** on `rule-catalog/llm-registry.yaml` are Owner-tier - a model swap is a
-  high-blast-radius governance change.
+The planned weekly Job watches newer preferred families, deprecations within 60 days, and measured
+capacity or quality drift. It opens only a bounded issue or draft PR and an A2 alert; it never
+changes the live mapping. An expired unmerged replacement lowers the capability to human review,
+and any accepted registry change still needs Owner review plus frozen-scenario shadow replay.
 
 ### Mixed-Model Family Strategies
 
@@ -545,15 +546,9 @@ a runtime toggle.
 
 ### Fork vs Upstream Split
 
-| Item | Upstream (this repo) | Fork |
-|------|----------------------|------|
-| Capability names (`t1.judge`, `t2.reasoner.primary`, ...) | ✓ | - |
-| `llm-registry.yaml` default preferences (mini → Opus tier) | ✓ | region / compliance / cost overrides |
-| Bootstrap resolver script + IaC hooks | ✓ | subscription / region / naming |
-| Reconciler Job (schedule, deprecation feed parser, draft-PR opener) | ✓ | cron timezone, alert channel |
-| `resolved-models.json` schema + Key Vault path | ✓ | actual values (fork tenant only) |
-| Mixed-model family invariant | ✓ | choose `azure-foundry` / `external` / `hil-only` |
-| Azure OpenAI / Foundry resource IaC | ✓ (Bicep templates) | subscription / region / SKU tier |
+Upstream owns capability names, schemas, default preferences, resolver behavior, mixed-model
+invariants, and generic Azure IaC. A fork supplies region, compliance, cost, schedule, alert,
+resource, and resolved-model values through the supported configuration and DI boundaries.
 
 ## Rule-to-Decision Lookup Pipeline
 
