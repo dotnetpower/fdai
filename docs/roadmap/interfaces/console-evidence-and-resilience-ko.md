@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 2e85184fe9738bda4c222d7a8230c4ff11213488
-translation_revised: 2026-08-13
+translation_source_sha: fd8c5894d7a9b56a244380defb5681498bb58a3a
+translation_revised: 2026-08-14
 ---
 
 # 콘솔 근거 및 복원력
@@ -16,16 +16,19 @@ translation_revised: 2026-08-13
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|-----------|
 | 통제된 온톨로지 보증 출처 이력 | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`, focused Vitest 25개 및 Console 타입 검사 통과 | 인증된 seeded cohort가 통제된 runtime 아티팩트를 만들 때까지 in-progress로 유지합니다. |
+| 에이전트 활동 하트비트 표현 | 구현됨 | `console/src/routes/agents.model.ts`, `console/src/routes/agents.model.test.ts`, focused Vitest 31개 통과 | 주기적인 런타임 초기화 스냅샷은 현재 에이전트 상태와 마지막 관찰 시각을 갱신하지만 최초 로드 또는 새로고침 후 활동 행이 되지 않습니다. Browser Entra 새로고침 동작은 관찰했지만 통제된 아티팩트는 보존하지 않았습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 온톨로지 보증 아티팩트를 정확한 source, configuration, workspace, 인증, request 및 projection 출처 이력에 연결했습니다. | 현재 변경의 `console/tests/live-e2e/ontology-query-assurance*.ts`, focused Vitest 25개 및 Console 타입 검사 통과. | 정확한 중앙 검증 receipt를 얻은 뒤 seeded 영/한 100-case cohort 전에 인증된 probe 하나를 실행합니다. |
+| 2026-08-14 | 구현됨 | 현재 상태와 하트비트 최신성을 유지하면서 주기적인 `Runtime agent initialized` 스냅샷이 페이지를 새로고칠 때마다 chronological 활동으로 다시 나타나지 않도록 수정했습니다. | `current change`, `agents.model.test.ts` focused 테스트 31개 통과, 인증된 브라우저에서 두 번 새로고침하는 동안 초기화 행 0개 확인 | 런타임 검증을 주장하기 전에 두 번 새로고침한 Browser Entra 결과를 통제된 아티팩트로 보존합니다. |
 
 ### 잔여 작업
 
 - [ ] 정확한 중앙 검증 receipt와 인증된 probe를 확보한 뒤 seeded 영/한 100-case cohort에서 통과한 통제 아티팩트 하나를 보존합니다.
+- [ ] 에이전트 스트림 열림, 갱신된 하트비트 시각, 페이지를 두 번 새로고친 뒤 `Runtime agent initialized` 활동 행 0개를 보여 주는 통제된 Browser Entra 아티팩트를 보존합니다.
 
 ## 탐색 컨텍스트
 

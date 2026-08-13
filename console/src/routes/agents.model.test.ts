@@ -162,7 +162,7 @@ describe("agents.model", () => {
       .toEqual(["collecting"]);
   });
 
-  it("coalesces repeated passive runtime snapshots while refreshing current state", () => {
+  it("keeps runtime initialization snapshots out of activity while refreshing state", () => {
     let state = makeInitialState();
     for (let cycle = 1; cycle <= 3; cycle += 1) {
       for (const agent of PANTHEON) {
@@ -181,8 +181,8 @@ describe("agents.model", () => {
       }
     }
 
-    expect(state.liveActivity).toHaveLength(PANTHEON.length);
-    expect(state.nextLiveActivitySequence).toBe(PANTHEON.length + 1);
+    expect(state.liveActivity).toEqual([]);
+    expect(state.nextLiveActivitySequence).toBe(1);
     expect(state.agents.Odin?.since).toBe("2026-07-12T00:00:01+00:00");
     expect(state.agents.Huginn?.since).toBe("2026-07-12T00:00:01+00:00");
   });

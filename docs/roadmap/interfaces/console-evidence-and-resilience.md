@@ -14,16 +14,19 @@ RBAC contract remains in [operator-console.md](operator-console.md).
 | Area | State | Evidence | Notes |
 |------|-------|----------|-----------|
 | Governed ontology assurance provenance | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`; focused Vitest: 25 passed; Console typecheck passed | Remains in progress until the authenticated seeded cohort produces a governed runtime artifact. |
+| Agent Activity heartbeat presentation | implemented | `console/src/routes/agents.model.ts`; `console/src/routes/agents.model.test.ts`; focused Vitest: 31 passed | Periodic runtime initialization snapshots update current agent state and last-observed time without becoming activity rows after initial load or refresh. Browser Entra refresh behavior was observed but no governed artifact was retained. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance, and bound ontology assurance artifacts to exact source, configuration, workspace, authentication, request, and projection provenance. | Current change in `console/tests/live-e2e/ontology-query-assurance*.ts`; focused Vitest: 25 passed; Console typecheck passed. | Obtain the exact centralized receipt, then run one authenticated probe before the seeded bilingual 100-case cohort. |
+| 2026-08-14 | implemented | Stopped periodic `Runtime agent initialized` snapshots from reappearing as chronological activity after each page refresh while preserving current state and heartbeat freshness. | `current change`; `agents.model.test.ts` passed 31 focused tests, and the authenticated browser showed zero initialization rows across two refreshes. | Retain the two-refresh Browser Entra result as a governed artifact before claiming runtime validation. |
 
 ### Remaining work
 
 - [ ] Retain one passing governed artifact from the seeded bilingual 100-case cohort after the exact centralized receipt and authenticated probe exist.
+- [ ] Retain a governed Browser Entra artifact that shows an open agent stream, refreshed heartbeat time, and zero `Runtime agent initialized` activity rows across two page refreshes.
 
 ## Navigation context
 
