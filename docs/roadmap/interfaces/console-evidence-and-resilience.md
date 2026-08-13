@@ -7,47 +7,42 @@ title: Console Evidence and Resilience
 This document owns the operator console contracts for evidence provenance, localization, stream recovery, durable replay, and Architecture-map resilience. The conversational tool and
 RBAC contract remains in [operator-console.md](operator-console.md).
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-----------|
+| Governed ontology assurance provenance | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`; focused Vitest: 25 passed; Console typecheck passed | Remains in progress until the authenticated seeded cohort produces a governed runtime artifact. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance, and bound ontology assurance artifacts to exact source, configuration, workspace, authentication, request, and projection provenance. | Current change in `console/tests/live-e2e/ontology-query-assurance*.ts`; focused Vitest: 25 passed; Console typecheck passed. | Obtain the exact centralized receipt, then run one authenticated probe before the seeded bilingual 100-case cohort. |
+
+### Remaining work
+
+- [ ] Retain one passing governed artifact from the seeded bilingual 100-case cohort after the exact centralized receipt and authenticated probe exist.
+
 ## Navigation context
 
-Selecting an Activity Bar domain opens its Explorer and navigates to the first visible panel under the operator's local order and visibility preferences. This navigation remains active when the
-Command Deck is closed or floating; a full-workspace Deck closes before the route changes.
-Selecting a cached conversation from another screen is the bounded exception: the console navigates to that conversation's origin while suppressing only the synchronous conversation-owned route
-event, then activates its transcript. The Deck remains open without a transient default-session
-switch or close/reopen focus cycle. Same-screen and agent conversations switch without navigation.
+Selecting an Activity Bar domain opens its Explorer and navigates to the first visible panel under the operator's local order and visibility preferences. This navigation remains active when the Command Deck is closed or floating; a full-workspace Deck closes before the route changes.
+Selecting a cached conversation from another screen is the bounded exception: the console navigates to that conversation's origin while suppressing only the synchronous conversation-owned route event, then activates its transcript. The Deck remains open without a transient default-session switch or close/reopen focus cycle. Same-screen and agent conversations switch without navigation.
 Reselecting the already active same-screen conversation is focus-only; it does not reload the sessionStorage transcript over newer in-memory turns.
 Selecting an inactive conversation records only a browser-local read acknowledgement and does not change its activity timestamp, so the history order remains stable. Principal-scoped `Mine`, `Unread`, and `Favorites` filters use only browser-local navigation metadata; toggling a favorite doesn't change server activity, evidence, or ordering. A conversation title is bold
 only while its observed activity is newer than its persisted read timestamp; selecting it clears
 that cue without moving the row. Only newer server activity advances the ordering timestamp.
-For a non-agent conversation, the first operator question becomes the title while the originating
-screen remains separate metadata. The normalized question is bounded to 512 characters in history
-metadata and preserved across browser and durable restoration. When the title is visually
-truncated, its visible text keeps the ellipsis. Pointer hover anywhere on the selectable conversation
-row, including its time, or keyboard focus shows the bounded full question through the shared console
-tooltip, including titles that fit.
-Layout and close icon controls use the same localized tooltip component. The connected-backend
-tooltip preserves separate mode, endpoint, route-choice, and candidate lines, fills every localized
-placeholder, and wraps long endpoint or deployment tokens within its viewport bound.
-An agent-card Ask action always opens a new empty agent conversation with a unique user-scoped key. The new summary carries the selected agent immediately, so the first submit sends the same agent
-target to the Operator API. Existing agent conversations are preserved as separate history entries and
-are restored only when the operator selects one explicitly.
-Removing the active cached conversation selects only a current-route default (including the legacy `screen` key) or current-route thread. If neither exists, the console creates a new current-route
-default instead of activating an unrelated-route or agent transcript.
+For a non-agent conversation, the first operator question becomes the title while the originating screen remains separate metadata. The normalized question is bounded to 512 characters in history metadata and preserved across browser and durable restoration. When the title is visually truncated, its visible text keeps the ellipsis. Pointer hover anywhere on the selectable conversation row, including its time, or keyboard focus shows the bounded full question through the shared console tooltip, including titles that fit.
+Layout and close icon controls use the same localized tooltip component. The connected-backend tooltip preserves separate mode, endpoint, route-choice, and candidate lines, fills every localized placeholder, and wraps long endpoint or deployment tokens within its viewport bound.
+An agent-card Ask action always opens a new empty agent conversation with a unique user-scoped key. The new summary carries the selected agent immediately, so the first submit sends the same agent target to the Operator API. Existing agent conversations are preserved as separate history entries and are restored only when the operator selects one explicitly.
+Removing the active cached conversation selects only a current-route default (including the legacy `screen` key) or current-route thread. If neither exists, the console creates a new current-route default instead of activating an unrelated-route or agent transcript.
 default instead of activating an unrelated-route or agent transcript. Context-dependent cancellation, runbook, knowledge, memory, learning, ordinal-resource, ambiguity, reformatting, and partial-source questions require a verified prior conversation record. The server reconstructs the active investigation, selected resource, prior answer, or source-failure receipt from the latest usable assistant replay in the principal-scoped `ConversationHistoryStore`. The browser transcript cannot mint this authority, and a fresh conversation stays unavailable. After a verified or corrected prior turn, `KnowledgeContextChatTools` can load one unique trusted runbook, report enabled source authorization and refresh state, or show explicit-consent memory visible only to that principal. It reports learning as reusable only when the exact assistant-turn review points to a materialized memory or runtime-skill proposal. Drafts and ambiguous runbooks stay empty, provider failures stay unavailable, and ordinary chat never writes memory or review state. Every completed continuation cites the durable assistant turn and content-addressed source receipts.
 Verified fresh inventory answers can include a bounded `resource_result_context` in server-owned replay metadata. It carries no raw resource ID, is never accepted from browser context, and preserves source, snapshot, scope, query digest, freshness, truncation, and up to 40 ordered selectors for later deterministic follow-ups.
 Ordinal follow-ups revalidate the selected position through exact fresh inventory predicates. Ambiguity follow-ups show only equal-name candidates from a complete prior result set. Incomplete context stays unavailable and cannot fall back to current-screen or narrator output.
 Verified source-manifest answers also preserve bounded unavailable or unknown entries as `source_failure_context`. Partial-source continuations render available facts and exact gaps from that receipt, including reason and last observation when present, without treating an arbitrary unverified answer as source authority. Verified or corrected `query_llm_usage` answers preserve a bounded `analysis_context` with the domain, capability, token measure, grouping, `usage_scope`, and numeric 1-90 day lookback. A refinement that changes only the period, grouping, table, or chart reuses that server-owned anchor and re-reads metering evidence. Comparison, export, missing-anchor, client-supplied-anchor, and explicit different-metric requests return a context-required hold instead of selecting inventory, Resource Health, or narrator output.
 Full-workspace Command Deck sessions start with the transcript as the only open content column. An empty transcript keeps situational suggestions and adds localized Resilience, Change Safety, and Cost Governance quick starts without changing tool selection or authority. The transcript toolbar exposes filtered conversation history in workspace, docked, and floating layouts; the narrower layouts open it over the transcript instead of reducing transcript width. In workspace, a pointer or keyboard separator resizes conversation history from 180 to 360 px and stores the last width locally. Narrow layouts hide the separator. The history header keeps search and icon-only creation in one compact row, uses lightweight filter tabs, and leaves scrolling to the list rather than the controls. The current-screen digest remains a workspace control. The Deck reads the composition-owned data-source manifest once per open surface and shows compact Inventory, Incidents, Audit, Knowledge, and Automation readiness links above the transcript. Missing or non-authoritative sources remain `unknown`; the browser doesn't infer health, expose raw provider details, or replace the manifest with route presence. Loading uses a stable skeleton, and manifest failure links to Diagnostics without blocking conversation history.
-History preserves stable cursor order but renders only 20 summaries initially. Nearing the history
-scroll boundary reveals the next 20 already loaded summaries. After the local window is exhausted,
-the same boundary requests the next server page of 20 and reveals it without replacing prior rows.
-The count shows `20+` while another page exists. Turn
-bodies hydrate only on selection. An operator image is visible in its sent turn. Browser cache
-serialization drops inline bytes and keeps a bounded descriptor; durable restoration fetches the
-binary through the authenticated principal-and-conversation-scoped image route. A transcript restored from browser or durable history shows a
-resumed-session marker until the operator starts a new conversation. The Deck header owns the route
-and optional agent context; it never repeats a non-agent conversation question. Digest owns record
-count, snapshot age, and stale refresh; the composer keeps attachments, question entry, and send or
-stop.
+History preserves stable cursor order but renders only 20 summaries initially. Nearing the history scroll boundary reveals the next 20 already loaded summaries. After the local window is exhausted, the same boundary requests the next server page of 20 and reveals it without replacing prior rows. The count shows `20+` while another page exists. Turn bodies hydrate only on selection. An operator image is visible in its sent turn. Browser cache serialization drops inline bytes and keeps a bounded descriptor; durable restoration fetches the binary through the authenticated principal-and-conversation-scoped image route. A transcript restored from browser or durable history shows a resumed-session marker until the operator starts a new conversation. The Deck header owns the route and optional agent context; it never repeats a non-agent conversation question. Digest owns record count, snapshot age, and stale refresh; the composer keeps attachments, question entry, and send or stop.
 
 The shared page title renders the domain and panel labels when they differ, including `Overview / Dashboard`. A domain root whose panel title repeats the domain label and a standalone
 utility keep a single title.
@@ -403,12 +398,6 @@ rendered deterministically from typed evidence. Ontology browse requires a targe
 forwards only allowlisted identity fields with prompt values up to 256 characters, and renders
 duplicate or malformed counts and selections unavailable. Ontology projection and its deterministic
 browse answer stay in their own prompt module, separate from general prompt assembly.
-An authenticated live-assurance artifact qualifies as governed evidence only when it binds the run
-to an exact `source_revision`, embeds the exact `run_configuration` with a matching
-`configuration_digest`, records the `workspace_patch_digest`, and carries an
-`authentication_attestation`. Every measured turn retains its deterministic `question_id` and the
-exact `request_id` and `projection_id` returned by the protected request. The runner rejects a
-missing or malformed source revision or workspace patch digest before sending the first request.
 The Reader-gated `/ontology/graph` projection includes only operating-model status, source revision,
 and aggregate object and link counts. It never returns deployment instance properties.
 Ordinary delegated answers keep Bragi as narrator while displaying the verified specialist as
@@ -729,7 +718,5 @@ transient failures with bounded 2-to-30-second backoff while the stale graph rem
 - Catalog parity and route-local fallback tests cover localization.
 - Replay tests cover JSON, SSE, and cross-transport idempotency.
 - Provenance tests cover unavailable, unknown, malformed, and route-owner states.
-- Live-assurance provenance tests cover source, configuration, workspace state, and authentication
-	bindings before an authenticated cohort can produce governed evidence.
 - Stream tests cover inactivity, authentication classification, frame limits, and action timeout.
 - Architecture tests cover layout, selection, accessibility, cache freshness, and bounded polling.
