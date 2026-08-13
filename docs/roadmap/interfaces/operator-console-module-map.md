@@ -25,7 +25,7 @@ An intentional default route addition updates this reviewed baseline in the same
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Current-state activity projection boundary | implemented | `fdai_operator_service/activity_projection.py`; `test_activity_projection.py`; focused persistence and projection tests (`6 passed`) | Durable rows require the hashed correlation reference, use the same activity id as live frames, retain only the newest duplicate, and keep `execution_authority=false`. |
-| Governed semantic receipt presentation | implemented | `console/src/deck/backend-normalizers.ts`; `backend-stream.ts`; `transcript-store.ts`; `conversation-trajectory-view.tsx`; focused Console tests | The Console parses terminal semantic receipts fail closed, persists and replays the exact typed fields, and renders route, unavailable reason, assurance digests, evidence references, and no-execution-authority state. Authenticated browser evidence remains pending. |
+| Governed semantic receipt presentation | implemented | `console/src/deck/backend-normalizers.ts`; `backend-stream.ts`; `transcript-store.ts`; `conversation-trajectory-view.tsx`; `console-routes.spec.ts`; focused Console tests | The Console parses terminal semantic receipts fail closed, persists and replays the exact typed fields, and renders route, unavailable reason, assurance digests, evidence references, and no-execution-authority state. The authenticated runner binds the terminal receipt to the caller request UUID and reads a cloned response stream so application consumption remains unchanged. Authenticated browser evidence remains pending. |
 
 ### Implementation history
 
@@ -33,6 +33,7 @@ An intentional default route addition updates this reviewed baseline in the same
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and recorded the durable/live current-state projection identity. | Current source plus `test_activity_projection.py`; the focused projection and persistence suites passed. | Reduce the report-only dependency debt through the reviewed migration families below. |
 | 2026-08-13 | in-progress | Added exact typed semantic receipt parsing, stream capture, durable replay, presentation, and authenticated evidence runners. | `current change`; focused Console tests and typecheck pass. | Run the governed request-to-Console and bilingual randomized assurance browser paths and retain both passing records. |
+| 2026-08-13 | implemented | Bound authenticated terminal-receipt capture to the caller request UUID and captured the SSE body from `Response.clone()` without consuming the application's original stream. | `current change`; `console-routes.spec.ts`; Console typecheck and Playwright discovery pass. | Execute the authenticated governed runner and retain its passing record before randomized assurance. |
 
 ### Remaining work
 

@@ -38,7 +38,7 @@ class SemanticTurnEnvelopeBuilder:
             raise ValueError("semantic turn builder accepts only chat.stream proposals")
         requested_at = _aware_utc(self._clock())
         identity_seed = f"{proposal.scope.subject_id}\0{proposal.idempotency_key}"
-        request_id = str(uuid5(_IDENTITY_NAMESPACE, f"request\0{identity_seed}"))
+        request_id = _request_id(proposal, identity_seed)
         session_id = _session_id(proposal, identity_seed)
         turn_id = str(uuid5(_IDENTITY_NAMESPACE, f"turn\0{identity_seed}"))
         semantic_turn = SemanticTurnRequest(
@@ -69,6 +69,18 @@ class SemanticTurnEnvelopeBuilder:
         }
         self._validator.validate("operator-core-request", envelope, version="1.2.0")
         return envelope
+
+
+def _request_id(proposal: ConversationProposal, identity_seed: str) -> str:
+    supplied = proposal.body.get("request_id")
+    if supplied is None:
+        return str(uuid5(_IDENTITY_NAMESPACE, f"request\0{identity_seed}"))
+    if not isinstance(supplied, str):
+        raise ValueError("request_id MUST be a UUID string")
+    try:
+        return str(UUID(supplied))
+    except ValueError as exc:
+        raise ValueError("request_id MUST be a UUID string") from exc
 
 
 def _authorized_roles(proposal: ConversationProposal) -> tuple[OperatorRole, ...]:

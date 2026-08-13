@@ -373,6 +373,17 @@ def test_semantic_turn_identity_is_stable_across_retry_clocks() -> None:
     assert first_turn["turn_id"] == retried_turn["turn_id"]
 
 
+def test_semantic_turn_preserves_caller_request_id() -> None:
+    request_id = str(UUID(int=1, version=4))
+
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal(body={"prompt": "Show the current incident evidence.", "request_id": request_id})
+    )
+
+    assert envelope["request_id"] == request_id
+    assert envelope["correlation_id"] == f"semantic-turn:{request_id}"
+
+
 def test_semantic_turn_rejects_deadline_beyond_supported_window() -> None:
     requested_at = datetime(2026, 8, 11, tzinfo=UTC)
     proposal = _proposal(
