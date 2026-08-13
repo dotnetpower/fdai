@@ -23,7 +23,7 @@ from fdai.delivery.observation_campaign import (
 )
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
-InventoryGraphReader = Callable[..., Awaitable[Mapping[str, Any]]]
+InventoryCoverageReader = Callable[[int], Awaitable[Mapping[str, Any]]]
 
 _ARG_API_VERSION = "2022-10-01"
 _ACTIVITY_API_VERSION = "2015-04-01"
@@ -42,20 +42,20 @@ class AzureResourceGraphObservation(StrEnum):
 _ARG_QUERIES: Mapping[AzureResourceGraphObservation, str] = {
     AzureResourceGraphObservation.RESOURCE_HEALTH: (
         "healthresources | where type =~ 'microsoft.resourcehealth/availabilitystatuses' "
-        "| project id, properties"
+        "| summarize evidence_count=count()"
     ),
     AzureResourceGraphObservation.SERVICE_HEALTH: (
         "servicehealthresources | where type =~ 'microsoft.resourcehealth/events' "
-        "| project id, properties"
+        "| where properties.Status =~ 'Active' | summarize evidence_count=count()"
     ),
     AzureResourceGraphObservation.NETWORK_CONFIG: (
         "resources | where type in~ ('microsoft.network/networksecuritygroups', "
         "'microsoft.network/virtualnetworks', 'microsoft.network/routetables') "
-        "| project id, type, properties"
+        "| summarize evidence_count=count()"
     ),
     AzureResourceGraphObservation.RECOVERY: (
         "resources | where type in~ ('microsoft.recoveryservices/vaults', "
-        "'microsoft.dataprotection/backupvaults') | project id, type, properties"
+        "'microsoft.dataprotection/backupvaults') | summarize evidence_count=count()"
     ),
 }
 
@@ -124,8 +124,8 @@ class AzureResourceGraphObservationProbe:
             content=json.dumps(
                 {
                     "subscriptions": list(subscriptions),
-                    "query": f"{_ARG_QUERIES[self._query]} | take {spec.max_results + 1}",
-                    "options": {"$top": spec.max_results + 1, "resultFormat": "objectArray"},
+                    "query": _ARG_QUERIES[self._query],
+                    "options": {"$top": 1, "resultFormat": "objectArray"},
                 }
             ),
             timeout=spec.timeout_seconds,
@@ -136,7 +136,8 @@ class AzureResourceGraphObservationProbe:
         data = payload.get("data")
         if not isinstance(data, list):
             raise RuntimeError("Resource Graph response data MUST be an array")
-        result_limited = len(data) > spec.max_results or bool(payload.get("skipToken"))
+        count = _aggregate_count(data, "Resource Graph")
+        result_limited = count > spec.max_results or bool(payload.get("skipToken"))
         reasons = tuple(
             reason
             for condition, reason in (
@@ -151,7 +152,7 @@ class AzureResourceGraphObservationProbe:
                 if result_limited or target_limited
                 else ObservationCoverage.READY
             ),
-            evidence_count=min(len(data), spec.max_results),
+            evidence_count=min(count, spec.max_results),
             reason_codes=reasons,
         )
 
@@ -418,8 +419,8 @@ class AzureLogAnalyticsObservationProbe:
 class PromotedInventoryObservationProbe:
     """Verify the promoted PostgreSQL graph without starting another scan."""
 
-    def __init__(self, graph_reader: InventoryGraphReader) -> None:
-        self._graph_reader = graph_reader
+    def __init__(self, coverage_reader: InventoryCoverageReader) -> None:
+        self._coverage_reader = coverage_reader
 
     async def collect(
         self,
@@ -428,26 +429,23 @@ class PromotedInventoryObservationProbe:
         cursor: str | None,
     ) -> ObservationProbeResult:
         del cursor
-        graph = await self._graph_reader(None, 1, (), limit=spec.max_results)
-        resources = graph.get("resources")
-        links = graph.get("links")
-        if not isinstance(resources, Sequence) or isinstance(resources, (str, bytes)):
-            raise RuntimeError("promoted inventory resources MUST be an array")
-        if not isinstance(links, Sequence) or isinstance(links, (str, bytes)):
-            raise RuntimeError("promoted inventory links MUST be an array")
-        count = len(resources) + len(links)
-        if graph.get("source") == "unavailable":
+        summary = await self._coverage_reader(spec.max_results)
+        count = _bounded_aggregate(summary, "resource_count") + _bounded_aggregate(
+            summary,
+            "link_count",
+        )
+        if summary.get("source") == "unavailable":
             return ObservationProbeResult(
                 coverage=ObservationCoverage.UNCONFIGURED,
                 reason_codes=("source_unconfigured",),
             )
-        if graph.get("freshness") == "stale":
+        if summary.get("freshness") in {"stale", "unknown"}:
             return ObservationProbeResult(
                 coverage=ObservationCoverage.STALE,
                 evidence_count=min(count, spec.max_results),
                 reason_codes=("source_stale",),
             )
-        truncated = bool(graph.get("truncated")) or count > spec.max_results
+        truncated = bool(summary.get("truncated")) or count > spec.max_results
         return ObservationProbeResult(
             coverage=(ObservationCoverage.PARTIAL if truncated else ObservationCoverage.READY),
             evidence_count=min(count, spec.max_results),
@@ -494,6 +492,19 @@ def _mapping(value: object, field: str) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         raise RuntimeError(f"{field} MUST be an object")
     return value
+
+
+def _bounded_aggregate(value: Mapping[str, Any], field: str) -> int:
+    count = value.get(field)
+    if not isinstance(count, int) or isinstance(count, bool) or count < 0:
+        raise RuntimeError(f"{field} MUST be a non-negative integer")
+    return count
+
+
+def _aggregate_count(rows: Sequence[object], source: str) -> int:
+    if len(rows) != 1 or not isinstance(rows[0], Mapping):
+        raise RuntimeError(f"{source} aggregate MUST contain one row")
+    return _bounded_aggregate(rows[0], "evidence_count")
 
 
 def _latest_activity_timestamp(values: Sequence[object]) -> str | None:

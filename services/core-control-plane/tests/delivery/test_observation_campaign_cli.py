@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import httpx
 import pytest
+from fdai.delivery.azure.metric_logs import AzureMonitorLogsMetricProvider
 from fdai.delivery.observation_campaign_cli import (
+    _build_probes,
     _campaign_id,
     _csv,
     _required_consistent,
     _required_first,
 )
+from fdai.shared.providers.testing.workload_identity import StaticWorkloadIdentity
 
 
 def test_campaign_id_is_bounded_machine_identifier() -> None:
@@ -37,3 +41,24 @@ def test_required_consistent_rejects_conflicting_aliases(monkeypatch) -> None:
 
     with pytest.raises(ValueError, match="MUST agree"):
         _required_consistent("FIRST", "SECOND")
+
+
+async def test_workspace_metric_coverage_uses_target_free_log_analytics(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("FDAI_MONITOR_WORKSPACE_ID", "workspace")
+    monkeypatch.delenv("FDAI_PROMETHEUS_ENDPOINT", raising=False)
+    identity = StaticWorkloadIdentity(
+        audience="https://management.azure.com/.default",
+        token="token",
+    )
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _request: None)) as client:
+        probes = _build_probes(
+            dsn="postgresql://example",
+            subscriptions=("sub",),
+            identity=identity,
+            http_client=client,
+        )
+
+    metric_probe = probes["metrics"]
+    assert isinstance(metric_probe._provider, AzureMonitorLogsMetricProvider)
