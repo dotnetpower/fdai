@@ -206,7 +206,7 @@ class PostgresStateStore(StateStore):
                        SET value = %s::jsonb,
                            updated_at = NOW()
                      WHERE key = %s
-                       AND value ->> 'revision' = %s
+                       AND COALESCE(value ->> 'revision', '0') = %s
                     RETURNING key
                     """,
                     (

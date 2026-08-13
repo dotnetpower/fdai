@@ -20,6 +20,7 @@ from fdai_operator_service.postgres_family_store import (
 from fdai_operator_service.postgres_iam import PostgresIamAdapters
 from fdai_operator_service.postgres_sql import (
     AGENT_INVENTORY_ACTIVITY_SQL,
+    AGENT_OBSERVATION_ACTIVITY_SQL,
     AGENT_ONTOLOGY_ACTIVITY_SQL,
     AGENT_READ_ACTIVITY_SQL,
     AUDIT_PAGE_SQL,
@@ -206,6 +207,7 @@ class StubPostgresReadModel(PostgresOperatorReadModel):
         self.inventory_activity_rows: list[dict[str, object]] = []
         self.ontology_activity_rows: list[dict[str, object]] = []
         self.read_activity_rows: list[dict[str, object]] = []
+        self.observation_activity_rows: list[dict[str, object]] = []
 
     async def _fetch_all(
         self,
@@ -235,6 +237,8 @@ class StubPostgresReadModel(PostgresOperatorReadModel):
             return self.ontology_activity_rows
         if statement == AGENT_READ_ACTIVITY_SQL:
             return self.read_activity_rows
+        if statement == AGENT_OBSERVATION_ACTIVITY_SQL:
+            return self.observation_activity_rows
         raise AssertionError("unexpected SQL statement")
 
 

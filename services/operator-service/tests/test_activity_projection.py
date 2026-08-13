@@ -66,6 +66,70 @@ def test_projection_merges_authoritative_sources_newest_first() -> None:
     assert items[0]["activity_id"] == "current-state.read:read-correlation:one:completed"
 
 
+def test_projects_durable_observation_campaign_activity() -> None:
+    payload = durable_activity_projection(
+        inventory_rows=(),
+        ontology_rows=(),
+        read_rows=(),
+        observation_rows=(
+            {
+                "key": "observation-campaign:source:resource-health",
+                "value": {
+                    "source_id": "resource-health",
+                    "domain": "resource-health",
+                    "campaign_id": "campaign-1",
+                    "status": "completed",
+                    "freshness": "fresh",
+                    "evidence_count": 2,
+                    "duration_ms": 50,
+                    "reason_codes": [],
+                    "completed_at": "2026-08-14T00:00:00+00:00",
+                },
+                "updated_at": "2026-08-14T00:00:00+00:00",
+            },
+        ),
+        limit=10,
+    )
+
+    item = payload["items"][0]
+    assert item["schema_version"] == "1.1.0"
+    assert item["kind"] == "observation"
+    assert item["observation_domain"] == "resource-health"
+    assert item["owner_agent"] == "Heimdall"
+    assert item["activity_id"] == "observation:resource-health:campaign-1:completed"
+
+
+def test_projects_in_progress_observation_without_terminal_fields() -> None:
+    payload = durable_activity_projection(
+        inventory_rows=(),
+        ontology_rows=(),
+        read_rows=(),
+        observation_rows=(
+            {
+                "key": "observation-campaign:source:activity-log",
+                "value": {
+                    "source_id": "activity-log",
+                    "domain": "activity-log",
+                    "campaign_id": "campaign-active",
+                    "status": "started",
+                    "freshness": "unknown",
+                    "evidence_count": 0,
+                    "reason_codes": [],
+                    "started_at": "2026-08-14T00:00:00+00:00",
+                },
+                "updated_at": "2026-08-14T00:00:00+00:00",
+            },
+        ),
+        limit=10,
+    )
+
+    item = payload["items"][0]
+    assert item["status"] == "started"
+    assert item["freshness"] == "unknown"
+    assert item["duration_ms"] is None
+    assert item["activity_id"] == "observation:activity-log:campaign-active:started"
+
+
 def test_projection_rejects_failed_inventory_without_reason() -> None:
     with pytest.raises(ValueError, match="failure code"):
         durable_activity_projection(

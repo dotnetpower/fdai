@@ -1,0 +1,103 @@
+version: 1
+max_concurrency: 4
+sources:
+  - id: inventory
+    domain: inventory
+    owner_agent: Huginn
+    interval_seconds: 600
+    lookback_seconds: 21600
+    timeout_seconds: 120
+    max_targets: 1
+    max_results: 10000
+    max_output_bytes: 2000000
+    required: true
+  - id: activity-log
+    domain: activity-log
+    owner_agent: Huginn
+    interval_seconds: 300
+    lookback_seconds: 600
+    timeout_seconds: 30
+    max_targets: 16
+    max_results: 200
+    max_output_bytes: 256000
+    required: true
+  - id: resource-health
+    domain: resource-health
+    owner_agent: Heimdall
+    interval_seconds: 300
+    lookback_seconds: 3600
+    timeout_seconds: 20
+    max_targets: 16
+    max_results: 200
+    max_output_bytes: 128000
+    required: true
+  - id: service-health
+    domain: service-health
+    owner_agent: Heimdall
+    interval_seconds: 300
+    lookback_seconds: 3600
+    timeout_seconds: 20
+    max_targets: 16
+    max_results: 100
+    max_output_bytes: 128000
+    required: true
+  - id: metrics
+    domain: metrics
+    owner_agent: Heimdall
+    interval_seconds: 60
+    lookback_seconds: 300
+    timeout_seconds: 30
+    max_targets: 16
+    max_results: 1000
+    max_output_bytes: 256000
+    required: true
+  - id: logs
+    domain: logs
+    owner_agent: Heimdall
+    interval_seconds: 300
+    lookback_seconds: 900
+    timeout_seconds: 45
+    max_targets: 16
+    max_results: 500
+    max_output_bytes: 512000
+    required: true
+  - id: guest-logs
+    domain: guest-logs
+    owner_agent: Heimdall
+    interval_seconds: 900
+    lookback_seconds: 3600
+    timeout_seconds: 45
+    max_targets: 16
+    max_results: 200
+    max_output_bytes: 256000
+    required: true
+  - id: network-config
+    domain: network-config
+    owner_agent: Heimdall
+    interval_seconds: 600
+    lookback_seconds: 3600
+    timeout_seconds: 30
+    max_targets: 16
+    max_results: 500
+    max_output_bytes: 512000
+    required: true
+  - id: cost
+    domain: cost
+    owner_agent: Njord
+    interval_seconds: 86400
+    lookback_seconds: 2592000
+    timeout_seconds: 60
+    max_targets: 16
+    max_results: 500
+    max_output_bytes: 512000
+    required: true
+  - id: recovery
+    domain: recovery
+    owner_agent: Vidar
+    interval_seconds: 300
+    lookback_seconds: 3600
+    timeout_seconds: 30
+    max_targets: 16
+    max_results: 500
+    max_output_bytes: 512000
+    required: true

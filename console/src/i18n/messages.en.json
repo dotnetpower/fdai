@@ -385,7 +385,8 @@
         },
         "current-state": {
           "read": "Current state"
-        }
+        },
+        "observation": "Observation campaign"
       },
       "find": "Find",
       "searchPlaceholder": "message, action, resource, or correlation",
@@ -393,6 +394,18 @@
       "retention": "Showing at most the newest {count} audit and runtime rows in memory.",
       "openAudit": "Open full audit",
       "activity": "Activity"
+    },
+    "observationDomain": {
+      "inventory": "Inventory",
+      "activity-log": "Activity log",
+      "resource-health": "Resource health",
+      "service-health": "Service health",
+      "metrics": "Metrics",
+      "logs": "Logs",
+      "guest-logs": "Guest logs",
+      "network-config": "Network configuration",
+      "cost": "Cost",
+      "recovery": "Recovery"
     },
     "main": {
       "auditUnavailable": "Durable audit unavailable",

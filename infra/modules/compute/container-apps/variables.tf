@@ -200,6 +200,12 @@ variable "inventory_cron_expression" {
   default     = ""
 }
 
+variable "observation_campaign_cron_expression" {
+  description = "Cron for the due-checked observation campaign. Empty disables the job."
+  type        = string
+  default     = ""
+}
+
 variable "inventory_sources" {
   description = "Ordered inventory source fallback list."
   type        = string

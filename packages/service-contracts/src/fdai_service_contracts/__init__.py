@@ -167,6 +167,7 @@ from fdai_service_contracts.operator import (
 )
 from fdai_service_contracts.operational_activity import (
     AgentOperationalActivity,
+    ObservationDomain,
     OperationalActivityKind,
     OperationalActivityStatus,
     OperationalFreshness,
@@ -334,6 +335,7 @@ __all__ = [
     "MalwareVerdict",
     "Mode",
     "Operation",
+    "ObservationDomain",
     "OperationalActivityKind",
     "OperationalActivityStatus",
     "OperationalFreshness",

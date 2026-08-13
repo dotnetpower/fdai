@@ -671,6 +671,24 @@ resource "azurerm_role_assignment" "inventory_reader" {
   principal_id         = module.inventory_identity.principal_id
 }
 
+resource "azurerm_role_assignment" "inventory_monitoring_reader" {
+  scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+  role_definition_name = "Monitoring Reader"
+  principal_id         = module.inventory_identity.principal_id
+}
+
+resource "azurerm_role_assignment" "inventory_log_analytics_reader" {
+  scope                = module.log_analytics.workspace_id
+  role_definition_name = "Log Analytics Reader"
+  principal_id         = module.inventory_identity.principal_id
+}
+
+resource "azurerm_role_assignment" "inventory_cost_reader" {
+  scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+  role_definition_name = "Cost Management Reader"
+  principal_id         = module.inventory_identity.principal_id
+}
+
 resource "azurerm_role_assignment" "inventory_acr_pull" {
   scope                = module.container_registry.id
   role_definition_name = "AcrPull"
@@ -679,6 +697,12 @@ resource "azurerm_role_assignment" "inventory_acr_pull" {
 
 resource "azurerm_role_assignment" "inventory_eventhubs_sender" {
   scope                = module.event_bus.topic_ids[local.event_topics[0]]
+  role_definition_name = "Azure Event Hubs Data Sender"
+  principal_id         = module.inventory_identity.principal_id
+}
+
+resource "azurerm_role_assignment" "inventory_stage_sender" {
+  scope                = module.event_bus.auxiliary_topic_ids["aw.pipeline.stages"]
   role_definition_name = "Azure Event Hubs Data Sender"
   principal_id         = module.inventory_identity.principal_id
 }
@@ -1787,6 +1811,7 @@ module "compute" {
   )
   inventory_dsn_secret_id                   = azurerm_key_vault_secret.state_store_dsn.id
   inventory_cron_expression                 = var.inventory_cron_expression
+  observation_campaign_cron_expression      = var.observation_campaign_cron_expression
   inventory_sources                         = var.inventory_sources
   inventory_freshness_seconds               = var.inventory_freshness_seconds
   inventory_reconciliation_interval_seconds = var.inventory_reconciliation_interval_seconds
@@ -1844,9 +1869,13 @@ module "compute" {
     azurerm_role_assignment.executor_eventhubs_data_owner,
     azurerm_role_assignment.executor_acr_pull,
     azurerm_role_assignment.inventory_reader,
+    azurerm_role_assignment.inventory_monitoring_reader,
+    azurerm_role_assignment.inventory_log_analytics_reader,
+    azurerm_role_assignment.inventory_cost_reader,
     azurerm_role_assignment.inventory_kv_secrets_user,
     azurerm_role_assignment.inventory_acr_pull,
     azurerm_role_assignment.inventory_eventhubs_sender,
+    azurerm_role_assignment.inventory_stage_sender,
     azurerm_role_assignment.canary_acr_pull,
     azurerm_role_assignment.canary_eventhubs_sender,
     azurerm_role_assignment.ohl_evidence_acr_pull,

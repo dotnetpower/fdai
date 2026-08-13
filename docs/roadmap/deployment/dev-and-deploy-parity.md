@@ -33,6 +33,7 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 | Agent refresh latest-state hydration | validated | Focused stream tests: 9 passed; authenticated `/agents` reloads reached `Watching 2 / Idle 13 / Unobserved 0` in 224 ms, 232 ms, and 228 ms | The Agent hub seeds one latest validated `agent.state` event per agent into each new subscriber. Generic Live remains future-only, and neither hub provides durable history replay. |
 | Authenticated local Live event path | validated | Controlled 2026-08-13 Browser Entra run through `aw.change.events`, Core, `aw.pipeline.stages`, Operator SSE, and the existing authenticated Live DOM | The run preserved the authoritative ontology and rendered the event plus all four accepted stages. It did not validate a deployed revision, the browser Notifications API, or closed-browser push delivery. |
 | Local and deployed composition parity | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, service integration tests, and focused workspace task tests | Composition roots select credentials and adapters without changing evidence authority. Local and deployed preparation materialize the same reviewed Rule and Ontology reference projections before the Operator reads them. |
+| Permission-aware observation campaign parity | implemented | `config/observation-sources.yaml`; `fdai.delivery.observation_campaign*`; `.vscode/tasks.json`; `infra/modules/compute/container-apps/observation_campaign_job.tf`; focused Core, Operator, Console, workspace, and infrastructure checks | Local and deployed profiles use the same source catalog, due state, runner, normalized activity contract, and one-minute wake. Runtime artifacts are still required before validation. |
 | Local validation database isolation | implemented | `infra/local/docker-compose.yml`, `scripts/automation/validation_queue_context.py`, local preparation scripts, and focused validation and migration integration tests | Runtime state stays on local PostgreSQL port `5432`; destructive migration validation uses a separate local PostgreSQL cluster on port `5433`. |
 | FDAI workspace and profile pressure controls | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`; focused profile and workspace tests: 11 passed | Resource-scoped analysis controls stay in the workspace. Copilot compacts agent history at 80% of the selected model's context window, and the portable profile rejects Remote WSL Pylance machine settings that it cannot isolate. |
 | FDAI Pylance launch ceiling runtime proof | deferred | A clean FDAI Remote WSL restart still launched Pylance with the bundled VS Code Node executable and without `--max-old-space-size=2048`. VS Code Server 1.133 creates one Remote Machine settings resource independently of the active profile service. | Blocked pending an isolated runtime. A shared Remote Machine override would also affect excluded workspaces, so runtime isolation requires a separate VS Code Server data root or WSL distribution before the ceiling can be enabled. |
@@ -54,6 +55,7 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 | 2026-08-13 | validated | Verified immediate Agent fleet hydration through the existing authenticated Browser Entra session after restarting the Operator with the changed code. | Three `/agents` reloads reached `Watching 2 / Idle 13 / Unobserved 0` in 224 ms, 232 ms, and 228 ms, well below the 15-second runtime heartbeat interval. | No remaining implementation work for Agent refresh latest-state hydration. |
 | 2026-08-13 | implemented | Replaced the fixed 160000-token Copilot agent-history compaction threshold with 80% of the selected model's context window. | Current change in `.vscode/settings.json` and `tests/integration/scripts/test_vscode_workspace_performance.py`; VS Code JSON diagnostics passed, and the focused compaction contract test passed (1 test). | No remaining implementation work for proportional Copilot conversation compaction. |
 | 2026-08-14 | implemented | Made repeated automatic full-stack task requests preserve each running singleton instead of opening the VS Code task-instance picker. | Current change in `.vscode/tasks.json` and `tests/integration/scripts/test_vscode_workspace_performance.py`; the focused automatic-start contract test passed (1 test). | No remaining implementation work for click-free duplicate startup requests. |
+| 2026-08-14 | implemented | Added one permission-aware observation campaign for every registered source and wired the same due-checked CLI into full-stack local and the deployed Container Apps Job. | `current change`; versioned activity contract, source catalog, provider probes, persistent runner, Operator projection, Console lane, and focused checks. | Retain one governed local run and one deployed-revision run over the same catalog digest before claiming validation. |
 
 ### Remaining work
 
@@ -62,6 +64,9 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 - [ ] Record a deployed-revision event that reaches an authenticated Live DOM through a replica-specific `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID`; track browser Notifications API and closed-browser push delivery separately if those capabilities enter scope.
 - [ ] Record a protected deployment receipt showing the Operator schema migration succeeds before
   the catalog Job writes the reviewed Rule and Ontology reference projections.
+- [ ] Retain a governed local and deployed observation campaign pair with the same catalog digest,
+  including authorized, unavailable, partial, skipped, and completed source outcomes plus
+  snapshot-first/live Agent Activity deduplication.
 
 ## Audit - What Works Local, What Needs Azure
 
@@ -514,34 +519,20 @@ domain routing. Embedding is a conversational fallback only and never enters typ
 
 | Subsystem | Status | Gap |
 |-----------|--------|-----|
-| Azure Resource Graph inventory | Production reads the promoted PostgreSQL snapshot plus Huginn's real-time delta overlay | Full-stack local maps every registered Azure ARM type through read-only `AzureCliInventory`, uses bounded `az graph query` properties for relationships and VM power state without a separate `az vm list --show-details`, and stores a `.fdai/cache/inventory` snapshot isolated by subscription and Azure CLI profile fingerprint; synthetic opt-out is rejected |
+| Permission-aware Azure observation | Local and deployment use the same registered source catalog, due gate, bounded provider probes, PostgreSQL result state, and Agent Activity contract | Runtime validation remains open until governed local and deployed runs prove the same catalog digest and source outcomes |
 | Azure Monitor Logs KQL | Production and local adapters share `AzureLogAnalyticsQueryProvider` | Requires server-owned `FDAI_MONITOR_WORKSPACE_ID`; explicit `query_log` fails closed when unavailable |
 | Managed Identity token (`WorkloadIdentity`) | Deployed adapter exists | interactive local publishes to the deployed executor; fixture tests may use a local issuer |
 | Governed execution backend | Provider-neutral Protocol, profile registry, durable PostgreSQL ledger, bubblewrap/VM adapters, and Azure Container Apps Job adapter exist | profiles are disabled by default; local interactive has no executor binding, and live Azure Job evidence remains required before promotion |
 | Browser evidence | Provider-neutral contracts, optional Playwright adapter, PostgreSQL artifacts, and GET-only inspection exist | unbound by default; interactive local has no executor identity and renders unavailable until an isolated restricted-egress browser runtime and exact origin policies are configured |
 | Key Vault secret provider (`SecretProvider`) | deployment injects Key Vault references | interactive adapters use environment references; fixture values remain test-only |
 | GitOps PR publisher | Real GitHub adapter exists | interactive execution uses the configured adapter; recording publishers are test-only |
-The local inventory cache promotes only scans that reach the final fence and writes them by atomic
-replace. Operator API startup loads the persistent cache and schedules a stale or missing refresh without blocking readiness; shutdown cancels and drains that task. A fresh cache returns immediately across restarts. A fresh-required query waits only when warmup is still running. An expired or Huginn-invalidated cache returns immediately as `stale` with `cache.status=refreshing`, then a background Azure CLI scan atomically replaces it. When a provisioned `aw.inventory.raw` topic is configured through
-`FDAI_INVENTORY_RAW_TOPIC`, accepted write/delete events invalidate the local cache after durable
-projection. A stack without that auxiliary-topic binding converges through TTL refresh.
-Inventory projection changes that add resource types or relationships increment the cache envelope
-schema revision so an older complete snapshot is refreshed instead of being presented with stale
-semantics. Schema revision 10 invalidates every earlier snapshot, including revisions that predate
-normalized Azure service state and catalog-driven resource-type and Azure `kind` disambiguation.
-The first database-status or shared-ARM-type query therefore cannot replay an older `unknown` or
-misclassified state. A missing explicit subscription disables persistent cache reuse rather than risking a
-snapshot from another active Azure CLI subscription. The cache envelope also binds the resource
-limit, rejects malformed
-or materially future-dated snapshots, and bounds each local refresh to 240 seconds. Cache-file or
-marker I/O failure preserves the last complete in-memory graph. Marker write failure falls back to
-TTL convergence; marker metadata read failure is treated as stale and schedules refresh rather than
-trusting uncertain cache state. Persistent reads accept only user-private regular files and enforce
-the 5 MB limit on an already-open descriptor. Writes repair the cache directory to mode `0700`,
-create mode-`0600` files, cap serialized bytes before replace, and fsync the directory. Both live
-and cached graphs reject duplicate resources or links, dangling/self links, non-finite or out-of-
-world geometry, invalid roots or parent cycles, future timestamps, invalid envelopes, and counts
-beyond the configured limit.
+The [Permission-Aware Observation Campaign](../operations/observation-campaign.md) coordinates
+periodic coverage checks for inventory, Activity Log, Resource and Service Health, metrics, Log
+Analytics, guest-log, network, cost, and recovery sources. The authoritative inventory CLI owns
+full reconciliation. Full-stack local and deployment run the same source catalog and due-checked
+CLIs. Local PostgreSQL and the approved local read credential replace their managed deployment
+bindings without changing scheduling, cursor, normalization, or evidence semantics. The Operator
+API reads promoted PostgreSQL state and never owns an in-process inventory or log refresh.
 The local graph default is 500 resources plus the synthetic subscription root. Larger inventories
 set `truncated=true` instead of silently claiming complete coverage.
 Local projection preserves discovered relationships only when the link type is registered, both

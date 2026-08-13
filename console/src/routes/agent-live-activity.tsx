@@ -46,6 +46,7 @@ const OPERATIONAL_LANES: readonly OperationalLane[] = [
   "inventory.scan",
   "current-state.read",
   "inventory.ontology-projection",
+  "observation",
 ];
 
 
@@ -390,7 +391,12 @@ function AgentLogRowView({
       {visibleColumns.includes("detail") ? (
         <span role="cell" data-column="detail" class="aa-log-detail">
           <strong>{row.detail}</strong>
-          <small>{row.context ? `${row.context} - ` : ""}{sourceLabel(row.source)}</small>
+          <small>
+            {row.observationDomain
+              ? `${t(`agentActivity.observationDomain.${row.observationDomain}`)} - `
+              : ""}
+            {row.context ? `${row.context} - ` : ""}{sourceLabel(row.source)}
+          </small>
         </span>
       ) : null}
       {visibleColumns.includes("correlation") ? (
