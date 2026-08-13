@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: 56fbc2ca1e4ba379156e1f7256741fab12a2033b
-translation_revised: 2026-08-11
+translation_source_sha: f99d946845d68e4cfb71a76facde19c3374b5eb3
+translation_revised: 2026-08-14
 ---
 
 # Operator Console - Narrator, DI Seams, and 세션 모델
@@ -498,3 +498,28 @@ introspection)는 correlation-scoped 대화 기록 위에서 같은 작성기를
 no-LLM 결정론 히스토리와 LLM 대화를 하나의 타임라인에 유지하되 trust 경계를
 넘지 않는다 - 외부/모델 생성 내용은 `trusted="false"`로 남아 데이터로
 wrapping 되며, 이는 T2 quality 게이트가 이벤트 페이로드를 다루는 방식과 동일.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| Core narrator, answer-plan 및 session 계약 | implemented | `services/core-control-plane/src/fdai/core/conversation/`; focused conversation 테스트 | 결정론적 계획, 서술 경계, session 레코드 및 실행 권한 부재에 focused 검사가 있습니다. |
+| Working-context 조립 및 정책 | implemented | `services/core-control-plane/src/fdai/core/working_context/`; `services/core-control-plane/tests/core/working_context/`; context-bridge 테스트 | 예산 계층, 검증, 요약 계획, 재생, governance, shadow 비교 및 타입이 지정된 fact trust 경계가 구현됐습니다. |
+| 영속 principal 범위 history 및 complete-history 조립 | in-progress | Conversation history 프로바이더 및 PostgreSQL 영속성 테스트; Operator conversation application | 저장소와 요청 준비는 있습니다. 건너뛰는 사례가 없는 PostgreSQL 재시작 실행과 관리되는 장기 session 증적이 남아 있습니다. |
+| 독립 service narrator 및 모델 연결 | in-progress | `services/operator-service/src/fdai_operator_service/application/conversation/`; service-local narrator 어댑터; focused Operator 테스트 | Application 및 어댑터 경계는 있지만 이동 지연 시간 라우팅, 사용자별 pinning 및 완전한 프로덕션 변환/stream 근거가 남아 있습니다. |
+| 프로세스 간 agent introspection | implemented | `services/core-control-plane/src/fdai/delivery/agent_introspection_bus.py`; focused introspection 및 conversation 테스트 | 범위가 제한된 request/reply 전송이 Bragi의 presentation-only 권한을 보존하고 실행기 신원을 제외합니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|-----------|
+| 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 conversation, working-context, history, Operator application 및 introspection 근거입니다. | 영속 재시작, 독립 narrator routing 및 인증된 장기 session 근거를 완료해야 합니다. |
+
+### 남은 작업
+
+- [ ] Principal 범위 PostgreSQL conversation history, 이미지, 최신 context 및 검색 사례를 건너뛰지 않고 실행하고 complete-history 조립의 재시작 근거를 보존합니다.
+- [ ] 범위가 제한된 prompt 조립, 최신 turn 보존, 타입이 지정된 fact trust, 차단된 내용 생략, 시간 초과 성능 저하 및 결정론적 재생을 입증하는 관리되는 장기 session 증적을 보존합니다.
+- [ ] Narrator Routing and Latency에서 추적하는 독립 service 이동 narrator 및 TTFT 라우팅과 사용자별 선호 설정 변환 결과를 완료합니다.
+- [ ] 하나의 request, history 개정, working-context 매니페스트, 모델 경로, 검증 결과, 최종 답변 및 영속 turn을 묶는 인증된 JSON 및 SSE 증적을 보존합니다.

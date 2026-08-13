@@ -36,25 +36,27 @@ Two constraints preserve this boundary:
 A fork that needs a latency-routed judge declares a separate capability with its own quality gate,
 composition binding, and audit evidence.
 
-The Operator API refreshes text and multimodal pools independently of operator traffic. Text uses
-`narrator_candidates`; image turns intersect provisioned deployments with `t1.vision` preferences
-and emit `vision_candidates`. Each pool keeps separate eight-sample latency and time-to-first-token
-(TTFT) windows. Startup probes text candidates twice and vision candidates with a bounded 1 px
-image. Periodic checks add a sample every `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS`, which defaults to
-`300`. Missing vision capacity makes image turns unavailable instead of borrowing a text binding.
+The target independent service refreshes text and multimodal pools independently of operator
+traffic. The current local adapter tries ordered `narrator_candidates`, but it does not maintain
+the rolling latency and time-to-first-token (TTFT) windows described below. The target text pool
+uses `narrator_candidates`; image turns intersect provisioned deployments with `t1.vision`
+preferences and emit `vision_candidates`. Each pool keeps separate eight-sample latency and TTFT
+windows. Startup probes text candidates twice and vision candidates with a bounded 1 px image.
+Periodic checks add a sample every `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS`, which defaults to `300`.
+Missing vision capacity makes image turns unavailable instead of borrowing a text binding.
 
 ## Per-user preference and TTFT
 
-Settings > Models projects the resolved T1/T2 inventory, bootstrap state, and runtime latency
+The target Settings > Models surface projects the resolved T1/T2 inventory, bootstrap state, and runtime latency
 evidence without endpoints or credentials. Each authenticated principal can use `Auto` routing or
 pin one deployment from the current narrator allowlist. Removed or unavailable preferences fall
 back to `Auto`; the server rejects arbitrary model ids.
 
-Preferences use explicit revisions. Creation sends revision `0`; later writes match the current
+Target preferences use explicit revisions. Creation sends revision `0`; later writes match the current
 revision. State and audit commit in one transaction, so concurrent sessions receive `409` instead
 of overwriting each other.
 
-The streaming router records TTFT when the first non-empty model token arrives. TTFT p50/p95 and
+The target streaming router records TTFT when the first non-empty model token arrives. TTFT p50/p95 and
 total-latency p50/p95 use separate rolling windows and include sample counts. Unmeasured TTFT stays
 unavailable. The preference applies only to the T1 narrator. T1 internal judgment, embeddings, and
 all T2 secondary, critic, rubric, and escalation assignments remain system-governed. The T2 primary
@@ -123,6 +125,31 @@ evidence.
   fixture would be an explicit model binding and would not redefine the interactive local profile.
 - **Reconciler alerts**: Teams is the current assumption and remains to be confirmed when the
   reconciler is implemented.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Local ordered narrator candidate fallback | implemented | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; `services/operator-service/tests/test_local_narrator.py` | The service-local adapter loads the resolved artifact, obtains a short-lived token, tries ordered candidates, and exposes sanitized health without Core imports or execution authority. |
+| Resolved narrator candidate collection | implemented | `services/core-control-plane/tests/rule_catalog/schema/test_narrator_collection.py`; model resolver and registry | Focused checks cover collection of `narrator_candidates` from reviewed model-resolution inputs. |
+| Rolling p50/TTFT and multimodal routing | not-started | [Narrator latency routing](#narrator-latency-routing) | The retired in-process router is not composed in the independent service, and no replacement rolling-window implementation was found. |
+| Per-user routing preference and runtime latency projection | not-started | [Per-user preference and TTFT](#per-user-preference-and-ttft) | The revisioned preference, TTFT projection, and deployment pinning contract remains target behavior. |
+| Public-web candidate routing | in-progress | `services/operator-service/src/fdai_operator_service/application/conversation/capabilities/web_search/`; `services/operator-service/src/fdai_operator_service/adapters/conversation/web_search/`; focused Operator tests | Provider-neutral and Azure construction paths exist. Governed rolling-latency and failover evidence from local and deployed profiles remains open. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger and clarified which latency and preference behavior remains target design; earlier provenance was not reconstructed. | `current change`; current local narrator, resolver, web-search source, and focused checks listed in the scope table. | Implement independent-service latency windows and preferences, then retain governed local and deployed evidence. |
+
+### Remaining work
+
+- [ ] Implement and focused-test independent text and vision candidate probes, separate rolling latency and TTFT windows, bounded refresh, failover, and unavailable behavior.
+- [ ] Implement revisioned per-principal `Auto` or allowlisted narrator preference storage and sanitized Settings projection without personalizing T2 bindings.
+- [ ] Retain governed local and deployed receipts for narrator and web-search candidate selection, first-token timing, failure, recovery, and sanitized health.
+- [ ] Implement the deferred direct Key Vault resolved-model loader and reconciler alert path only through reviewed service-owned adapter boundaries.
 
 ## Related docs
 

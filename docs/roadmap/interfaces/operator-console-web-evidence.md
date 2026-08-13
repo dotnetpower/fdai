@@ -81,3 +81,32 @@ deployment enables `FDAI_WEB_SEARCH_ENABLED` and configures an approved domain a
   and Japanese prompts that aren't present in the T0 pattern set.
   Alternative discovery adds ten observable relevance checks for goal, subject, capabilities,
   candidate count and diversity, self exclusion, direct pages, and conceptual-content exclusion.
+
+No dedicated frozen-corpus artifact path or focused command is identified in the current document
+or test tree. The rubric remains the acceptance contract until those cases are materialized as a
+reviewable versioned fixture and focused suite.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Core web-search policy, provider seam, and sanitizer | implemented | `services/core-control-plane/src/fdai/core/web_search/`; `services/core-control-plane/tests/core/web_search/` | Focused tests cover allowlists, sensitive-input denial, bounded evidence, sanitization, and no execution authority. |
+| Operator classifier, resolver, and Azure adapter paths | in-progress | `services/operator-service/src/fdai_operator_service/application/conversation/capabilities/web_search/`; `services/operator-service/src/fdai_operator_service/adapters/conversation/web_search/` | Production paths exist, but this owner document does not cite a bounded focused suite for the complete eligibility, alternative-discovery, and provider-call contract. |
+| Local-evidence precedence and current-screen fast paths | implemented | Operator conversation application and Console answerer; focused conversation and Console tests | Deterministic screen and local-tool precedence exist and prevent speculative public-web fallback from replacing authoritative local evidence. |
+| Frozen English and Korean regression corpus | not-started | [Regression rubric](#public-web-evidence) | The ten-case acceptance shape is documented, but no dedicated versioned corpus artifact or focused command was found. |
+| Held-out multilingual and live provider evidence | not-started | [Regression rubric](#public-web-evidence) | No governed English, Spanish, French, and Japanese held-out receipt or alternative-discovery relevance artifact is retained. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger and clarified that the frozen regression corpus is not yet materialized; earlier provenance was not reconstructed. | `current change`; current Core and Operator web-search paths and focused checks listed in the scope table. | Materialize the corpus, close focused orchestration coverage, and retain governed live evidence. |
+
+### Remaining work
+
+- [ ] Materialize a versioned English and Korean ten-case route and provider-call corpus with explicit local, web, none, sensitive, current-screen, and alternative-discovery expectations.
+- [ ] Add a focused Operator suite that proves eligibility ordering, exact local precedence, classifier bounds, normalized query, provider-call suppression, candidate diversity, and partial comparison rendering.
+- [ ] Retain a governed held-out multilingual receipt and alternative-discovery relevance artifact with exact model, policy, allowlist, source, and revision provenance.
+- [ ] Retain local and deployed failure, failover, unavailable, sanitization, citation, and no-authority receipts before claiming runtime validation.

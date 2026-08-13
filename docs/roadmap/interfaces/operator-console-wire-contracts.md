@@ -260,3 +260,29 @@ may be zero or absent on an older deployment, while ObjectType and LinkType
 exploration continues to work. ActionTypes stay out of the selected ObjectType one-hop graph, but
 the generated Ontology map includes them as catalog nodes with Rule, Workflow, and Agent links.
 All four views are read-only and issue no action or approval call.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Audit, ontology, and read-only wire projections | implemented | Operator family manifests and projections; `services/operator-service/tests/test_operator_service_composition.py`; Console ontology and trace tests | Default GET/HEAD routes, bounded envelopes, read-only ontology catalogs, and unavailable behavior have focused coverage. |
+| HIL callback contract | implemented | Operator IAM family routes; `services/operator-service/tests/test_operator_iam_family.py`; full-composition tests | Signature, replay window, role, no-self-approval, exact pending id, and idempotent decision behavior are implemented. |
+| Python task workbench and grounded code | implemented | `services/core-control-plane/src/fdai/core/python_task/`; `services/core-control-plane/tests/core/python_task/`; Operator workflow family; Console Python task tests | Static validation, inert artifacts, capabilities, and no-chat-execution boundaries have focused coverage. |
+| Semantic action draft and typed confirmation | in-progress | Operator conversation and workflow application paths | Bounded draft and proposal paths exist, but this owner document retains no governed request-to-audit confirmation receipt across every conflict and denial case. |
+| CLI, Teams, and Slack wire parity | in-progress | `cli/`; channel adapters and tests | Shared presentation contracts exist. No current governed multi-channel parity receipt is retained here. |
+| Governed cross-contract runtime evidence | in-progress | Operator and Console focused tests | Unit and integration checks prove mechanics, not one authenticated receipt spanning callback, proposal, code artifact, ontology, and durable audit surfaces. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. | `current change`; current Operator, Core Python task, CLI, channel, Console, and focused test evidence listed in the scope table. | Close semantic confirmation, channel parity, and governed cross-contract evidence. |
+
+### Remaining work
+
+- [ ] Retain an authenticated semantic action-draft receipt that proves schema bounds, exact source revision, no-self-approval, stale and idempotency conflicts, typed confirmation, audit correlation, and no direct execution.
+- [ ] Retain Python task capability, static validation, grounded-code rendering, malformed artifact, and no-execution receipts across Operator API and Console.
+- [ ] Run and retain CLI, Teams, Slack, and Web parity cases for terminal status, evidence references, truncation, cancellation, replay, and unavailable behavior.
+- [ ] Retain one read-only ontology projection receipt that binds catalog digest, ObjectType, LinkType, ActionType, and generated map without presenting catalog data as runtime evidence.

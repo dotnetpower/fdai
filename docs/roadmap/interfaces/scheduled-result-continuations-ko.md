@@ -1,7 +1,7 @@
 ---
 translation_of: scheduled-result-continuations.md
-translation_source_sha: 626d15940a1eaef02b82288c2581584034eb65db
-translation_revised: 2026-08-11
+translation_source_sha: 934ed241f2f3619c6ebdd7fd72f9fc7d7ec053d1
+translation_revised: 2026-08-14
 ---
 # 예약 결과 이어가기
 
@@ -182,6 +182,32 @@ deletion 또는 legal-hold 적용 완료로 표현하면 안 됩니다.
 - PostgreSQL 행 codec, compare-and-set 만료, 동시 winner-only 감사, 멱등적 수명 주기 감사 재시도, 이행 head, 환경 조건부 실제 운영 테스트입니다.
 - 구성 review evidence-run 멱등성, proposer self-review 차단, acceptance 전 작업 없음,
  strict weekly 구체화 및 중복 작업 suppression입니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 앵커 계약, 권한 확인, 타입이 지정된 fact 변환 결과 및 수명 주기 | implemented | `services/core-control-plane/src/fdai/shared/providers/scheduled_continuation.py`; `services/core-control-plane/src/fdai/core/scheduler/continuation.py`; `services/core-control-plane/tests/core/scheduler/test_continuation.py` | Focused 테스트는 소유자 및 범위 검사, 멱등적 생성, 만료, 감사 및 명령 권한 부재를 다룹니다. |
+| PostgreSQL 앵커 영속성 | in-progress | `services/core-control-plane/src/fdai/delivery/persistence/postgres_scheduled_continuation.py`; `services/core-control-plane/tests/persistence/test_scheduled_continuation.py` | 행 codec과 compare-and-set 경로가 있습니다. 건너뛰는 사례가 없는 실제 데이터베이스 및 재시작 실행이 남아 있습니다. |
+| Configuration review campaign | implemented | `services/core-control-plane/src/fdai/core/detection/configuration_review.py`; focused configuration-review 테스트 | 범위가 제한된 세 실행 집약기, 감사 및 상태 전이, 재개, 청사진 제안 및 구체화 guard가 있으며 schedule 권한을 부여하지 않습니다. |
+| Operator 경로 및 Console 변환 결과 | in-progress | `services/operator-service/src/fdai_operator_service/families/conversation/manifest.py`; `console/src/routes/scheduled-continuations.tsx`; focused 경로 및 Console 테스트 | 읽기 및 명령 화면은 있지만 관리되는 인증된 종단 간 이어가기 증적은 보존되지 않았습니다. |
+| Slack 및 Teams 전달 동등성 | in-progress | [채널 동작](#채널-동작) | 계약과 어댑터가 설명돼 있으며 외부 채널 및 영속 원장 연결에는 배포 근거가 필요합니다. |
+| Legal-hold-aware 물리 보존 | not-started | [감사 및 보존](#감사-및-보존) | 만료는 있지만 legal hold 아래에서 결과, 앵커 및 변환된 턴을 제거하는 조정된 삭제 worker는 없습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 앵커, 영속성, campaign, 경로 및 Console 근거입니다. | 건너뛰는 사례가 없는 영속성, 인증된 전달, 외부 채널 및 물리 보존 근거를 완료해야 합니다. |
+
+### 남은 작업
+
+- [ ] 지원되는 로컬 데이터베이스에서 PostgreSQL 앵커 사례를 건너뛰지 않고 실행하고 재시작, 동시 만료, winner-only 감사 및 멱등적 재시도 근거를 보존합니다.
+- [ ] 예약 결과에서 앵커 열기, 타입이 지정된 fact, 후속 답변, 만료 및 사용 불가 재생까지 이어지는 인증된 web 이어가기 증적 하나를 보존합니다.
+- [ ] 대상을 넓히지 않으면서 Slack 및 Teams 출처 스레드, dedicated 스레드, 성능 저하, 모호한 확인 응답 및 영속 재시도 증적을 보존합니다.
+- [ ] 만료를 물리 삭제로 표시하기 전에 출처 결과, 앵커, 변환된 턴, 감사, 재시도 및 부분 실패 동작을 조정하는 legal-hold-aware 보존 worker를 구현합니다.
 
 ## 관련 문서
 

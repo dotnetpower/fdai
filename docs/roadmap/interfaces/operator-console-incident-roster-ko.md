@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: 39ffd3244e7c7347bd3fb881d9d41c4a25230104
-translation_revised: 2026-08-11
+translation_source_sha: 875ee536d4643565a6f70dfa788388fa91057efb
+translation_revised: 2026-08-14
 ---
 
 # Operator Console - 인시던트 명단 and Fix 이력
@@ -317,17 +317,10 @@ API 계약은 단일 GET 경로입니다:
 
 리포트 카탈로그는 `incident-rca-dossier`를 포함합니다. 필수
 `correlation_id` 변수가 가설, 인용, causal 홉, 대응, 시간 순서 위젯을 단일
-인시던트로 한정합니다. 선택적 `pdf-report` extra가 설치되면 Reports가 인증된
-GET-only **PDF 다운로드** 컨트롤을 노출합니다. PDF는 표지, at-a-glance 페이지,
-목차, 섹션 페이지, running 헤더/footer, 출처 SHA-256을 갖춘 FDAI 소유 A4
-레이아웃을 사용합니다. RCA 전용 렌더러는 단색 Calm Slate steel-blue 표지, executive
-요약, 근거 완성도, 측정된 영향, 시간 순서, 인과/대안 가설, 대응/복구,
-컨트롤 공백, 교정/예방 조치, 제한사항, 감사 부록을 제공합니다. 카드는 색상 상단선이나
-좌측선 대신 균일한 neutral hairline을 사용합니다. 서버 소유 보고 묶음을
-렌더링할 뿐 새 RCA를 수행하지 않으며, 기록되지 않은 섹션은 명시적으로 사용할
-수 없음으로 표시합니다. Print-native 시간 순서 표와 SVG causal diagram은
-브라우저 Grid/Flex 페이지 나누기 결함을 피하고, content-driven chapter 그룹은 참조
-보고를 9페이지로 유지합니다.
+인시던트로 한정합니다. PDF 전달은 대상 선택적 format으로 남아 있습니다. 현재 upstream에는
+`pdf-report` encoder나 인증된 PDF 다운로드 컨트롤이 구현되지 않았습니다. 향후 renderer는 서버가
+소유한 보고 묶음만 배치하고 기록되지 않은 섹션을 사용 불가로 유지하며 새 RCA를 수행하지 않아야
+합니다.
 
 RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 여전히 리스크
 게이트 + 검증기에 있습니다. 경로는 읽기 담당 게이트가 적용되고, 변경 동사에는
@@ -335,3 +328,27 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 버튼은 없습니다. 투영은 순수 함수
 (`services/operator-service/src/fdai_operator_service/`)이며
 `services/operator-service/tests/`로 커버됩니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| Incident 수명 주기, roster 변환 결과 및 Console 보기 | implemented | `services/core-control-plane/src/fdai/core/incident/`; `services/core-control-plane/tests/core/incident/`; `console/src/routes/incidents.tsx`; focused Console incident 테스트 | Incident 상태, 상관관계, 수명 주기, roster, attention 및 범위가 제한된 presentation에 focused 검사가 있습니다. |
+| RCA 계약, 변환 결과 및 읽기 전용 경로 | implemented | `services/core-control-plane/src/fdai/core/rca/`; `services/core-control-plane/tests/core/rca/`; `services/operator-service/src/fdai_operator_service/rca_projection.py`; `services/operator-service/tests/test_operator_service_composition.py`; `console/src/routes/rca.test.ts` | 경로는 알 수 없는 상관관계를 구분하고 기록된 가설과 대응 근거를 변환하며 액션 권한을 노출하지 않습니다. |
+| RCA 보고 카탈로그 및 데이터 원본 | implemented | `rule-catalog/reports/incident-rca-dossier.yaml`; `services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py`; reporting 테스트 | 선언형 dossier와 범위가 제한된 감사 변환 결과가 있습니다. |
+| RCA PDF format 및 다운로드 컨트롤 | not-started | [RCA 보기](#1351-rca-보기근본-원인-분석) | Upstream PDF encoder, 선택적 delivery 모듈 또는 인증된 다운로드 컨트롤이 없습니다. |
+| 관리되는 인증된 런타임 근거 | in-progress | Console incident 및 RCA 보기; Operator 읽기 경로 | Focused 검사는 구현을 입증하지만 이 owner 문서는 현재 관리되는 Browser Entra roster-to-RCA 증적을 보존하지 않습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 구현 ledger를 도입하고 RCA PDF 주장을 대상 상태로 수정했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 incident, RCA, reporting, Operator 및 Console 근거입니다. | 선택적 PDF delivery를 구현하고 관리되는 roster-to-RCA 런타임 근거를 보존해야 합니다. |
+
+### 남은 작업
+
+- [ ] Incident, 상관관계, 가설, 인용, 대응 계획, 감사 행 및 사용 불가 동작을 하나의 source 개정에 묶는 인증된 roster-to-RCA 증적 하나를 보존합니다.
+- [ ] 기존 보고 묶음만 렌더링하고 extra를 사용할 수 없을 때 등록되지 않는 선택적 PDF `FormatEncoder`와 GET-only 다운로드 경로를 구현하고 focused 테스트를 추가합니다.
+- [ ] 참조 페이지 수를 문서화하기 전에 PDF 페이지 나누기, escape, source 다이제스트, 사용 불가 섹션 및 새 분석 부재 회귀 검사를 추가합니다.

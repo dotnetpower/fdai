@@ -384,3 +384,28 @@ counts, and measured guard metrics require server-owned read-model fields; the
 browser shows them as unavailable until that contract exists. CFR,
 false-positive rate, rollback rate, and policy-violation escapes belong in
 Control Assurance with their measurement window, baseline, and sample size.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| ViewSnapshot contract and deterministic screen answering | implemented | `console/src/deck/context.tsx`; `console/src/deck/answerer.ts`; `console/src/deck/answerer.test.ts`; `console/src/routes/view-contract.test.ts` | Focused Console tests cover bounded facts and records, route contracts, unsupported fields, and deterministic fallback. |
+| Answer planning and qualification | implemented | `services/core-control-plane/src/fdai/core/conversation/answer_plan.py`; `answer_planning.py`; `answer_planning_qualification.py`; focused conversation tests | Bounded plans, shadow records, immutable qualification batches, and readiness-only receipts exist without activation authority. |
+| Shadow contributor collection | in-progress | Answer-planning source and terminal metadata paths | Phase C shadow records exist. Phase D selective activation and Phase E conflict handling remain unpromoted as documented. |
+| Live observation presentation | implemented | Console Live models, routes, and focused tests; [Live observation contract](#1343-live-observation-contract) | Queue and Flow presentation, source and mode handling, replay dedupe, freeze, retention, and drill-down behavior are implemented in the browser. |
+| Governed cross-screen runtime receipt | in-progress | Console live E2E harness and route tests | Focused tests prove contracts, but this owner document retains no current authenticated receipt binding snapshot hydration, observed work, terminal verification, and navigation. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. | `current change`; ViewSnapshot, planning, Live, and focused test evidence listed in the scope table. | Retain governed cross-screen and shadow-qualification evidence before promotion. |
+
+### Remaining work
+
+- [ ] Retain one authenticated cross-screen receipt that binds the visible snapshot digest, server evidence, branch lifecycle, terminal verification, stale transition, and route navigation.
+- [ ] Run the frozen bilingual answer-planning qualification set and retain its immutable receipt with zero unsupported-claim and authority escapes before any selective activation review.
+- [ ] Add and retain Phase E conflict cases proving that contradictory contributors preserve both evidence sets and cannot change the primary verified answer or grant authority.
+- [ ] Retain Live reconnect, replay, freeze, stuck-budget, source-mixing, terminal replacement, and keyboard-contained drill-down evidence from the standard full stack.

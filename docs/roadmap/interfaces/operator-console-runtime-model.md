@@ -524,3 +524,28 @@ correlation-scoped transcript. Typed-pipeline events flow in as trusted
 conversation on one timeline without crossing the trust boundary -
 external or model-generated content stays `trusted="false"` and is wrapped
 as data, exactly as the T2 quality gate treats event payloads.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Core narrator, answer-plan, and session contracts | implemented | `services/core-control-plane/src/fdai/core/conversation/`; focused conversation tests | Deterministic planning, narration boundaries, session records, and no-execution authority have focused coverage. |
+| Working-context assembly and policy | implemented | `services/core-control-plane/src/fdai/core/working_context/`; `services/core-control-plane/tests/core/working_context/`; context-bridge tests | Budget tiers, validation, summarization planning, replay, governance, shadow comparison, and typed-fact trust boundaries are implemented. |
+| Durable principal-scoped history and complete-history assembly | in-progress | Conversation history providers and PostgreSQL persistence tests; Operator conversation application | Stores and request preparation exist. A no-skip PostgreSQL restart run and governed long-session receipt remain open. |
+| Independent-service narrator and model bindings | in-progress | `services/operator-service/src/fdai_operator_service/application/conversation/`; service-local narrator adapter; focused Operator tests | The application and adapter seams exist, but rolling latency routing, per-user pinning, and complete production projection/stream evidence remain open. |
+| Cross-process agent introspection | implemented | `services/core-control-plane/src/fdai/delivery/agent_introspection_bus.py`; focused introspection and conversation tests | Bounded request/reply transport preserves Bragi's presentation-only authority and excludes executor identity. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. | `current change`; current conversation, working-context, history, Operator application, and introspection evidence listed in the scope table. | Close durable restart, independent narrator routing, and authenticated long-session evidence. |
+
+### Remaining work
+
+- [ ] Run principal-scoped PostgreSQL conversation history, image, latest-context, and search cases with no skips and retain restart evidence for complete-history assembly.
+- [ ] Retain a governed long-session receipt proving bounded prompt assembly, newest-turn preservation, typed-fact trust, blocked-content omission, timeout degradation, and deterministic replay.
+- [ ] Complete the independent-service rolling narrator and TTFT routing plus per-user preference projection tracked in Narrator Routing and Latency.
+- [ ] Retain authenticated JSON and SSE receipts that bind one request, history revision, working-context manifest, model route, verification result, terminal answer, and durable turn.

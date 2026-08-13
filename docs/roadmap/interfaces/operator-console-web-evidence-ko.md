@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 공개 웹 근거
 translation_of: operator-console-web-evidence.md
-translation_source_sha: 42206ada02c1122137d6c1b13e70cb91b424ed3d
-translation_revised: 2026-08-11
+translation_source_sha: a28df4b4163cd4ad7e7a483f959b80825a75d302
+translation_revised: 2026-08-14
 ---
 
 # 오퍼레이터 콘솔 공개 웹 근거
@@ -81,3 +81,32 @@ translation_revised: 2026-08-11
   없는 영어, 스페인어, 프랑스어, 일본어 프롬프트로 의미 기반 분류와 조회문 정규화를
   측정합니다. 대안 탐색은 목표, 대상, 기능, 후보 수와 다양성, 자기 제외, 직접적인 페이지
   여부, 개념성 콘텐츠 제외에 대한 관찰 가능한 관련성 검사 10개를 더합니다.
+
+현재 문서나 테스트 트리에는 전용 고정 corpus 산출물 경로나 focused 명령이 없습니다. 해당 사례가
+검토 가능한 버전이 지정된 고정본 및 focused 모음으로 구체화될 때까지 rubric은 acceptance 계약으로
+남아 있습니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| Core 웹 검색 정책, 프로바이더 경계 및 sanitizer | implemented | `services/core-control-plane/src/fdai/core/web_search/`; `services/core-control-plane/tests/core/web_search/` | Focused 테스트는 허용 목록, 민감한 입력 차단, 범위가 제한된 근거, 정제 및 실행 권한 부재를 다룹니다. |
+| Operator classifier, resolver 및 Azure 어댑터 경로 | in-progress | `services/operator-service/src/fdai_operator_service/application/conversation/capabilities/web_search/`; `services/operator-service/src/fdai_operator_service/adapters/conversation/web_search/` | 프로덕션 경로는 있지만 이 owner 문서는 전체 eligibility, 대안 탐색 및 프로바이더 호출 계약을 위한 범위가 제한된 focused 모음을 인용하지 않습니다. |
+| 로컬 근거 우선순위 및 현재 화면 fast path | implemented | Operator conversation application 및 Console answerer; focused conversation 및 Console 테스트 | 결정론적 화면 및 로컬 tool 우선순위가 있으며 추측 기반 공개 웹 fallback이 권위 있는 로컬 근거를 대체하지 못하게 합니다. |
+| 고정된 영어 및 한국어 regression corpus | not-started | [Regression rubric](#공개-웹-근거) | 10개 사례 acceptance 형태는 문서화됐지만 전용 버전이 지정된 corpus 산출물이나 focused 명령을 찾지 못했습니다. |
+| Held-out 다국어 및 실제 프로바이더 근거 | not-started | [Regression rubric](#공개-웹-근거) | 관리되는 영어, 스페인어, 프랑스어 및 일본어 held-out 증적이나 대안 탐색 관련성 산출물이 보존되지 않았습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 구현 ledger를 도입하고 고정 regression corpus가 아직 구체화되지 않았음을 명확히 했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 Core 및 Operator 웹 검색 경로와 focused 검사입니다. | Corpus를 구체화하고 focused orchestration coverage를 완료하며 관리되는 실제 근거를 보존해야 합니다. |
+
+### 남은 작업
+
+- [ ] 명시적인 local, web, none, sensitive, current-screen 및 대안 탐색 예상 결과가 있는 버전이 지정된 영어 및 한국어 10개 route 및 프로바이더 호출 corpus를 구체화합니다.
+- [ ] Eligibility 순서, 정확한 로컬 우선순위, classifier 한도, 정규화된 query, 프로바이더 호출 차단, 후보 다양성 및 부분 비교 rendering을 입증하는 focused Operator 모음을 추가합니다.
+- [ ] 정확한 모델, 정책, 허용 목록, source 및 개정 출처가 있는 관리되는 held-out 다국어 증적과 대안 탐색 관련성 산출물을 보존합니다.
+- [ ] 런타임 validation을 주장하기 전에 로컬 및 배포 실패, 장애 조치, 사용 불가, 정제, 인용 및 권한 부재 증적을 보존합니다.

@@ -1,8 +1,8 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: 148ad1cc69796f5c93591f9c3c102e7b2de4faf5
-translation_revised: 2026-08-12
+translation_source_sha: bf35ef30725011bc43a48f539964c6cb243db0bd
+translation_revised: 2026-08-14
 ---
 # 서술기 라우팅과 지연 시간
 
@@ -37,26 +37,27 @@ translation_revised: 2026-08-12
 지연 시간으로 라우팅되는 판정자가 필요한 포크는 자체 품질 게이트, 조립 연결, 감사 근거를 갖춘
 별도 기능을 선언합니다.
 
-Operator API는 운영자 트래픽과 무관하게 텍스트 및 멀티모달 풀을 갱신합니다. 텍스트는
-`narrator_candidates`를 쓰고, 이미지 턴은 프로비저닝된 배포와 `t1.vision` 선호 설정의
-교집합을 `vision_candidates`로 내보냅니다. 각 풀은 샘플 8개짜리 지연 시간 창과 첫 토큰까지의
-시간(TTFT) 창을 따로 유지합니다. 시작 시에는 텍스트 후보를 두 번, 비전 후보는 크기가 제한된
-1픽셀 이미지로 탐색합니다. 주기적인 검사는 기본값이 `300`인
-`FDAI_NARRATOR_PROBE_INTERVAL_SECONDS`마다 샘플을 더합니다. 비전 용량이 없으면 텍스트 연결을
-빌려 쓰지 않고 이미지 턴을 사용 불가 상태로 둡니다.
+대상 독립 service는 운영자 트래픽과 무관하게 텍스트 및 멀티모달 풀을 갱신합니다. 현재 로컬
+어댑터는 정렬된 `narrator_candidates`를 시도하지만 아래에서 설명하는 이동 지연 시간 및 첫
+토큰까지의 시간(TTFT) 창은 유지하지 않습니다. 대상 텍스트 풀은 `narrator_candidates`를 쓰고,
+이미지 턴은 프로비저닝된 배포와 `t1.vision` 선호 설정의 교집합을 `vision_candidates`로
+내보냅니다. 각 풀은 샘플 8개짜리 지연 시간 창과 TTFT 창을 따로 유지합니다. 시작 시에는 텍스트
+후보를 두 번, 비전 후보는 크기가 제한된 1픽셀 이미지로 탐색합니다. 주기적인 검사는 기본값이
+`300`인 `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS`마다 샘플을 더합니다. 비전 용량이 없으면 텍스트
+연결을 빌려 쓰지 않고 이미지 턴을 사용 불가 상태로 둡니다.
 
 ## 사용자별 선호 설정과 TTFT
 
-Settings > Models는 엔드포인트나 자격 증명 없이 해석된 T1/T2 목록, 초기화 상태, 런타임 지연
+대상 Settings > Models 화면은 엔드포인트나 자격 증명 없이 해석된 T1/T2 목록, 초기화 상태, 런타임 지연
 시간 근거를 보여줍니다. 인증된 principal은 `Auto` 라우팅을 쓰거나 현재 서술기 허용 목록에 있는
 배포 하나를 고를 수 있습니다. 제거됐거나 쓸 수 없게 된 선호 설정은 `Auto`로 되돌리며, 서버는
 임의의 모델 식별자를 차단합니다.
 
-선호 설정은 명시적인 개정 번호를 씁니다. 생성 시에는 개정 번호 `0`을 보내고 이후 쓰기는 현재
+대상 선호 설정은 명시적인 개정 번호를 씁니다. 생성 시에는 개정 번호 `0`을 보내고 이후 쓰기는 현재
 개정 번호와 일치해야 합니다. 상태와 감사 기록은 하나의 트랜잭션에서 커밋되므로, 동시에 진행된
 세션은 서로 덮어쓰지 않고 `409`를 받습니다.
 
-스트리밍 라우터는 비어 있지 않은 첫 모델 토큰이 도착할 때 TTFT를 기록합니다. TTFT p50/p95와 전체
+대상 스트리밍 라우터는 비어 있지 않은 첫 모델 토큰이 도착할 때 TTFT를 기록합니다. TTFT p50/p95와 전체
 지연 시간 p50/p95는 각각 별도의 이동 창과 샘플 개수를 씁니다. 측정되지 않은 TTFT는 사용 불가로
 둡니다. 선호 설정은 T1 서술기에만 적용됩니다. T1 내부 판단, 임베딩, 그리고 모든 T2 보조,
 비평자, 평가 기준, 에스컬레이션 배정은 시스템이 통제하는 상태로 남습니다. T2 기본 풀은
@@ -122,6 +123,31 @@ Settings > Models는 Owner에게 배포 전체의 웹 검색 활성화와 정확
 - **로컬 모델 고정본**: Ollama나 LM Studio 고정본은 현재 포함하지 않습니다. 나중에 추가하더라도
   명시적인 모델 연결일 뿐, 대화형 로컬 프로파일을 다시 정의하지 않습니다.
 - **조정기 경고**: 현재는 Teams를 가정하며 조정기를 구현할 때 확정합니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 로컬 정렬 narrator 후보 fallback | implemented | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; `services/operator-service/tests/test_local_narrator.py` | Service 내부 어댑터는 해석된 산출물을 읽고 수명이 짧은 토큰을 얻어 정렬된 후보를 시도하며 Core를 가져오거나 실행 권한을 받지 않고 정제된 상태를 노출합니다. |
+| 해석된 narrator 후보 수집 | implemented | `services/core-control-plane/tests/rule_catalog/schema/test_narrator_collection.py`; 모델 해석기 및 레지스트리 | Focused 검사는 검토된 모델 해석 입력에서 `narrator_candidates` 수집을 다룹니다. |
+| 이동 p50/TTFT 및 멀티모달 라우팅 | not-started | [서술기 지연 시간 라우팅](#서술기-지연-시간-라우팅) | 제거된 프로세스 내부 라우터는 독립 service에 구성되지 않았으며 대체 이동 창 구현을 찾지 못했습니다. |
+| 사용자별 라우팅 선호 설정 및 런타임 지연 시간 변환 결과 | not-started | [사용자별 선호 설정과 TTFT](#사용자별-선호-설정과-ttft) | 개정 번호 기반 선호 설정, TTFT 변환 결과 및 배포 pinning 계약은 대상 동작으로 남아 있습니다. |
+| 공개 웹 후보 라우팅 | in-progress | `services/operator-service/src/fdai_operator_service/application/conversation/capabilities/web_search/`; `services/operator-service/src/fdai_operator_service/adapters/conversation/web_search/`; focused Operator 테스트 | 프로바이더 중립 및 Azure 구성 경로가 있습니다. 로컬 및 배포 프로파일의 관리되는 이동 지연 시간 및 장애 조치 근거가 남아 있습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 구현 ledger를 도입하고 어떤 지연 시간 및 선호 설정 동작이 대상 설계로 남는지 명확히 했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 로컬 narrator, 해석기, 웹 검색 source 및 focused 검사입니다. | 독립 service 지연 시간 창과 선호 설정을 구현한 뒤 관리되는 로컬 및 배포 근거를 보존해야 합니다. |
+
+### 남은 작업
+
+- [ ] 독립 텍스트 및 비전 후보 탐색, 별도 이동 지연 시간 및 TTFT 창, 범위가 제한된 갱신, 장애 조치 및 사용 불가 동작을 구현하고 focused 테스트를 추가합니다.
+- [ ] T2 연결을 개인화하지 않으면서 개정 번호 기반 principal별 `Auto` 또는 허용된 narrator 선호 설정 저장소와 정제된 Settings 변환 결과를 구현합니다.
+- [ ] Narrator 및 웹 검색 후보 선택, 첫 토큰 시간, 실패, 복구 및 정제된 상태에 대한 관리되는 로컬 및 배포 증적을 보존합니다.
+- [ ] 검토된 service-owned 어댑터 경계를 통해서만 연기된 직접 Key Vault 모델 해석 결과 loader와 조정기 알림 경로를 구현합니다.
 
 ## 관련 문서
 

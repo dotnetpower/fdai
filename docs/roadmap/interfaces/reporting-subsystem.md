@@ -224,50 +224,25 @@ and lowers completeness; it never becomes an implicit passing control.
 | `text` | `text/plain; charset=utf-8` | Stdout-friendly summary |
 | `ndjson` | `application/x-ndjson` | Header line + one line per widget |
 | `prometheus` **(opt-in)** | `text/plain; version=0.0.4` | Scalar / timeseries widgets only; NOT registered by default |
-| `pdf` **(opt-in)** | `application/pdf` | A4 evidence dossier; installed with the `pdf-report` extra and registered only when WeasyPrint imports cleanly |
+| `pdf` **(target opt-in)** | `application/pdf` | Not implemented upstream; requires a downstream or future reviewed `FormatEncoder` |
 
 A fork adds `pdf` / `xlsx` / whatever by implementing `FormatEncoder`
 and calling `FormatRegistry.register`.
 
-The upstream delivery adapter at `delivery/reporting/pdf_format.py` implements
-the optional PDF format without importing WeasyPrint into `core/`. It escapes
-all widget values, adds a source-envelope SHA-256, and renders cover,
-at-a-glance, table-of-contents, chapter, and provenance surfaces. Install with
-`uv sync --extra pdf-report`; deployments without the extra do not advertise
-`pdf` in the format registry. The `incident-rca-dossier` catalog report uses
-correlation-scoped audit projections for hypotheses, citations, causal hops,
-response history, and chronology.
-
-`incident-rca-dossier` uses a dedicated renderer rather than the generic
-widget-per-page layout. Its FDAI-owned print language uses a solid Calm Slate
-steel-blue cover, an executive brief, evidence-completeness score, and
-13 chapters: incident profile and measured impact, chronology, root cause,
-causal chain, contributing factors, alternatives, evidence register, response,
-recovery validation, control gaps, corrective/preventive actions, limitations,
-and the audit appendix. Content cards use uniform neutral hairlines, off-white
-surfaces, and whitespace rather than colored top or left rails. The renderer
-never fills an empty chapter with prose; it marks the evidence unavailable.
-
-Print layout primitives are intentionally distinct from the browser mock's
-layout implementation. Chronology uses a semantic table with repeated headers,
-not CSS Grid or negative margins. The causal chain is native SVG (`rect`,
-`line`, `polygon`, and `text`) with literal paint/font attributes so WeasyPrint
-does not depend on CSS cascade support inside SVG. Pagination groups related
-chapters and starts only profile, root-cause, response, and audit groups on a
-new page. The customer-neutral reference fixture renders in nine pages rather
-than reserving one page per chapter.
-
-PDF regression tests render the real WeasyPrint box tree and enforce a 9-11
-page range, full-width chronology table, full-width SVG diagram, and 13 intact
-chapter headers. They also reject the retired grid timeline and grid causal
-markup so the original narrow-card failure cannot return silently.
+Upstream currently ships no `delivery/reporting/pdf_format.py`, `pdf-report`
+extra, PDF registry binding, or PDF regression suite. The
+`incident-rca-dossier` catalog report and its correlation-scoped audit
+datasource are implemented for the existing report envelope. They do not prove
+PDF delivery. A future optional adapter must remain outside `core/`, escape all
+values, bind the source-envelope digest, preserve unavailable sections, and add
+focused pagination and rendering checks before `pdf` can be advertised.
 
 Optional recorded audit fields (`rca_impact`, `rca_contributing_factors`,
 `rca_alternative_hypotheses`, `rca_recovery_validation`, `rca_control_gaps`,
 `rca_recommendations`, and `rca_limitations`) populate the analytical chapters.
 Each field is a bounded list of mappings projected by
-`core/reporting/datasources/audit_rca.py`. The PDF layer only arranges these
-server-owned facts and performs no analysis of its own.
+`core/reporting/datasources/audit_rca.py`. Any future PDF layer may only arrange
+these server-owned facts and must perform no analysis of its own.
 
 ## FE JSON contract
 
@@ -491,7 +466,7 @@ class PdfFormatEncoder:
 formats.register(PdfFormatEncoder())
 ```
 
-`GET /reports/{id}/render?format=pdf` now works.
+After that encoder is registered, `GET /reports/{id}/render?format=pdf` can work.
 
 ### 5. Change the route prefix
 
@@ -589,6 +564,31 @@ never crash serialization or misorder a chart. Each item is covered in
 10. **`__all__` placement** - the late-defined `EventStreamBuilder` /
     `RetentionBuilder` are exported after their class definitions, not
     before, so `import *` and static analysis stay consistent.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Core contracts, registries, engine, widgets, and default formats | implemented | `services/core-control-plane/src/fdai/core/reporting/`; `services/core-control-plane/tests/core/reporting/` | Focused tests cover catalog loading, bounds, substitution, per-widget isolation, datasource contracts, widgets, formats, and hardening safeguards. |
+| Declarative report catalog and schema | implemented | `rule-catalog/reports/`; `rule-catalog/reports/schema/report.schema.json`; reporting catalog tests | Reviewed YAML reports and capability metadata load through the bounded schema. |
+| Operator API read routes and Console Reports view | implemented | `services/operator-service/tests/test_operator_operations_family.py`; `console/src/routes/reports.tsx`; focused reporting model and route tests | GET/HEAD-only inventory, render, health, format, widget, and datasource surfaces are implemented without mutation authority. |
+| Authoritative datasource bindings and operational freshness | in-progress | Reporting datasource adapters and provenance envelope | Adapters exist, but each deployment must bind authoritative providers and retain freshness, unavailable, timeout, and partial-widget evidence. |
+| Optional PDF format and RCA dossier delivery | not-started | [Format catalog](#format-catalog) | No upstream PDF encoder, extra, registry binding, download control, or PDF regression suite is present. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger and corrected the optional PDF implementation claim; earlier provenance was not reconstructed. | `current change`; current reporting core, catalog, Operator, Console, and focused checks listed in the scope table. | Retain authoritative datasource evidence and implement optional PDF delivery before advertising it. |
+
+### Remaining work
+
+- [ ] Retain governed render receipts for each production datasource showing source identity, cutoff, freshness, unavailable and timeout behavior, partial-widget isolation, and no synthetic-to-live substitution.
+- [ ] Retain authenticated Operator API and Console receipts for report inventory, explicit unavailable report selection, variable rejection, unknown format, render error isolation, and read-only method enforcement.
+- [ ] Implement an optional PDF delivery module, registry binding, package extra, authenticated GET-only control, and focused escaping, digest, pagination, unavailable-section, and no-analysis tests before advertising `pdf`.
+- [ ] Keep downstream format additions behind `FormatEncoder` and composition registration without importing delivery dependencies into `core/`.
 
 ## Related
 

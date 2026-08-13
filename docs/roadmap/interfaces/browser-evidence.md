@@ -7,11 +7,10 @@ Browser evidence collection fills gaps where an approved dashboard or legacy web
 suitable API. It captures bounded, read-only evidence in shadow mode and never creates a general
 browser-control, approval, or execution surface.
 
-> **Implementation status (2026-07-21):** Provider-neutral contracts, URL and DNS policy,
-> redaction and custody, an optional Playwright delivery adapter, PostgreSQL metadata, a typed
-> console tool, an evidence workflow step, shadow comparison, and a read-only inspection panel are
-> implemented. A real isolated browser image and live dashboard scenario still require deployment
-> evidence before the capability can be considered for promotion.
+> **Current implementation boundary:** Provider-neutral contracts, URL and DNS policy, redaction,
+> in-memory custody, an optional Playwright delivery adapter, typed tool and workflow surfaces, and
+> shadow comparison exist. A production durable artifact adapter, dedicated Operator API and
+> Console inspection surface, isolated browser image, and live dashboard evidence remain open.
 
 ## Design at a glance
 
@@ -40,9 +39,9 @@ flowchart LR
 | Policy, canonicalization, redaction, hashing, shadow comparison | `core/browser_evidence/` | Pure and provider-neutral |
 | Public capture facade | `shared/providers/browser_evidence.py` | Async `capture(...)`; no browser handle |
 | Browser runtime | `delivery/browser/` | Optional async Playwright adapter |
-| Durable artifact metadata and payload | `delivery/persistence/postgres_browser_evidence.py` | Alembic `0050` |
+| Durable artifact metadata and payload | Not implemented; the current concrete store is in-memory | `BrowserEvidenceArtifactStore` protocol |
 | Runtime binding | `composition/wire_browser_evidence.py` | Explicit, fail-closed DI seam |
-| Inspection | Operator API and Console Evidence domain | GET-only metadata, no controls |
+| Inspection | Target Operator API and Console Evidence domain | No dedicated production route or panel is registered |
 
 The provider exposes one operation: `capture(policy, request)`. It exposes no `click`, `fill`,
 `press`, `select`, clipboard, page, context, script-evaluation, upload, or download API. Bragi can
@@ -125,10 +124,11 @@ uses a separate `WorkflowEvidenceDispatcher`; it does not resolve an `ActionType
 the action dispatcher, risk gate, or executor. Unavailable or abstained evidence fails that workflow
 step closed.
 
-The Console Evidence view is inspection-only. It shows source host, policy, capture and expiry,
-redaction count, prompt-injection scan status, isolation status, hashes, and custody reference. The
-Operator API doesn't return screenshot, visible text, or snapshot payloads through this panel, and the
-view has no capture, promotion, approval, or execution controls.
+The target Console Evidence view is inspection-only. It shows source host, policy, capture and
+expiry, redaction count, prompt-injection scan status, isolation status, hashes, and custody
+reference. No dedicated Operator API route or Console panel is currently registered. When added,
+the API must omit screenshot, visible text, and snapshot payloads, and the view must expose no
+capture, promotion, approval, or execution controls.
 
 ## Shadow measurement and promotion
 
@@ -152,19 +152,44 @@ worker, preserve custody records and runtime logs, revoke the affected auth prof
 artifact, inspect egress and DNS telemetry, and keep the capability in shadow mode. Never retry with
 a wider policy to make the capture pass.
 
-Retention is policy-owned. Artifact rows carry an expiry timestamp, and
-`BrowserEvidenceArtifactStore.purge_expired(now, limit)` provides bounded cleanup with row locking
-in PostgreSQL while preserving the append-only custody audit. Production invokes it from a separate
-job. A legal-hold extension belongs in the deployment's governed retention process, not a Console
-control.
+Retention is policy-owned. The store contract includes bounded expiry cleanup, and the in-memory
+implementation exercises that lifecycle. A production durable adapter and separate cleanup job
+must add row locking while preserving append-only custody audit. A legal-hold extension belongs in
+the deployment's governed retention process, not a Console control.
 
 ## Verification
 
-Focused tests cover SSRF and metadata addresses, DNS rebinding, redirects, Unicode hostnames, file
+Focused core tests cover SSRF and metadata addresses, DNS rebinding, redirects, Unicode hostnames, file
 URLs, popup/download/upload events, mutation methods, cross-origin requests, public API minimization,
 secret and visual/text redaction, injection scanning, bounds, timeout/crash handling, hashes,
-custody, replay, human/API conflict, unavailable abstention, no executor credential, workflow
-authority separation, Operator API projection, and Console decoding.
+custody, replay, human/API conflict, unavailable abstention, no executor credential, and workflow
+authority separation. Dedicated persistence, Operator API projection, and Console decoding tests
+remain open with those implementation surfaces.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Contracts, policy, redaction, storage rules, and shadow comparison | implemented | `services/core-control-plane/src/fdai/core/browser_evidence/`; `services/core-control-plane/src/fdai/shared/providers/browser_evidence.py`; `services/core-control-plane/tests/core/browser_evidence/` | Focused core tests cover bounded policy, evidence-only authority, redaction, in-memory custody, replay, and shadow abstention. |
+| Optional Playwright delivery adapter | in-progress | `services/core-control-plane/src/fdai/delivery/browser/` | The adapter exists, but no dedicated focused delivery suite or restricted-egress image receipt was found. |
+| Durable persistence and retention job | not-started | `BrowserEvidenceArtifactStore` protocol; `InMemoryBrowserEvidenceArtifactStore` | No PostgreSQL artifact adapter, migration, or production cleanup job is present. |
+| Operator API and Console inspection | not-started | [Operator and workflow surfaces](#operator-and-workflow-surfaces) | The tool and workflow contracts exist, but no dedicated production read route or Console panel is registered. |
+| Promotion evidence | not-started | [Shadow measurement and promotion](#shadow-measurement-and-promotion) | The comparator always reports `promotion_eligible=false`; no governed live fidelity or security-drill window is retained. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger and corrected stale claims for PostgreSQL persistence and the inspection surface; earlier provenance was not reconstructed. | `current change`; current source and focused core checks listed in the scope table. | Implement durable custody and read surfaces, then retain isolated live evidence before promotion review. |
+
+### Remaining work
+
+- [ ] Implement a PostgreSQL `BrowserEvidenceArtifactStore` and migration with hash-conflict, replay, bounded expiry, legal-hold, and concurrent cleanup tests.
+- [ ] Register Owner- or Reader-scoped GET-only Operator API metadata routes and a Console inspection panel that never returns captured payload bytes or exposes capture controls.
+- [ ] Add focused Playwright delivery tests and retain restricted-egress image receipts covering SSRF, redirect, DNS rebinding, mutation, credential, redaction, timeout, crash, and custody-replay drills.
+- [ ] Retain a frozen live fidelity window with zero policy escapes before requesting any promotion review.
 
 Real-browser release evidence should additionally run the optional Playwright adapter inside the
 target restricted-egress image against a synthetic allowlisted HTTPS fixture. Unit tests use a fake

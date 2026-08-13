@@ -496,7 +496,7 @@ The root `dev` extra binds both driver distributions as workspace-only dependenc
 from FDAI runtime dependencies and independently buildable wheels.
 
 ```bash
-.venv/bin/python -m pytest -q --no-cov evaluation-sdk/tests services/core-control-plane/tests/evaluation
+.venv/bin/python -m pytest -q --no-cov evaluation-sdk/tests
 PYTHONPATH=evaluation-sdk/src:benchmarks/sregym/src .venv/bin/python -m pytest \
   -q --no-cov benchmarks/sregym/tests
 PYTHONPATH=evaluation-sdk/src:benchmarks/cybergym/src .venv/bin/python -m pytest \
@@ -507,6 +507,32 @@ PYTHONPATH=evaluation-sdk/src:benchmarks/cybergym/src .venv/bin/python -m pytest
 The suites verify strict schemas, immutability, attenuation, custody, workspace isolation,
 correlation, idempotency, timeout, cancellation, cleanup, external validation, package boundaries,
 and both benchmark lifecycles.
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Evaluation SDK | implemented | `evaluation-sdk/src/fdai_evaluation_sdk/`; `evaluation-sdk/tests/` | Versioned contracts, capability attenuation, workspace policy, custody, and runner lifecycle have focused coverage. |
+| FDAI evaluation host integration | in-progress | `services/core-control-plane/src/fdai/evaluation/` | The host implementation exists, but no dedicated focused Core evaluation suite was found in the current tree. Driver tests exercise the public SDK boundary, not the complete FDAI host implementation. |
+| SREGym driver and readiness contract | implemented | `benchmarks/sregym/`; `benchmarks/sregym/tests/` | The independently packaged adapter and plugin exist. Passing a live cluster readiness probe and scenario campaign remains operational evidence, not package implementation. |
+| CyberGym driver and shadow runner | implemented | `benchmarks/cybergym/`; `benchmarks/cybergym/tests/`; `scripts/benchmarking/run_cybergym.py` | Both modes, external validation receipts, workspace isolation, path bounds, and staged validation are implemented and focused-tested. |
+| Evaluation dependency and compatibility gates | implemented | `scripts/quality/architecture/check-evaluation-boundaries.py`; `services/core-control-plane/src/fdai/benchmarking/` | AST boundary enforcement and the `0.1.x` compatibility facade exist; removal remains gated by the documented release window. |
+| Governed live benchmark evidence | in-progress | [SREGym driver](#sregym-driver); [CyberGym driver](#cybergym-driver) | Repository tests prove mechanics. Governed SREGym readiness and official CyberGym run receipts from the exact target images and dependencies are not retained here. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. | `current change`; package source, focused suites, and boundary checks listed in the scope table. | Retain governed readiness and benchmark-run evidence without raising execution authority. |
+
+### Remaining work
+
+- [ ] Add focused FDAI evaluation-host tests for ingress, workspace custody, attenuation, external validation, cleanup, and failure boundaries without importing benchmark implementations.
+- [ ] Run `fdai-evaluation-runner check --adapter sregym` in the digest-pinned target image and retain a governed receipt for every declared Kubernetes and grounded-RCA readiness probe.
+- [ ] Retain at least one official SREGym scenario receipt that preserves observation-only authority and one official CyberGym receipt that proves all required validation stages without exposing hidden inputs.
+- [ ] Record exact image, package, catalog, policy, benchmark revision, dependency, and validation-receipt digests before treating any live result as operational evidence.
 
 ## Related docs
 

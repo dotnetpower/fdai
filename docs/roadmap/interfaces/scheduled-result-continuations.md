@@ -181,6 +181,32 @@ Coverage includes:
 - Configuration review evidence-run idempotency, proposer self-review denial, no task before
     acceptance, strict weekly materialization, and duplicate task suppression.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Anchor contracts, authorization, typed-fact projection, and lifecycle | implemented | `services/core-control-plane/src/fdai/shared/providers/scheduled_continuation.py`; `services/core-control-plane/src/fdai/core/scheduler/continuation.py`; `services/core-control-plane/tests/core/scheduler/test_continuation.py` | Focused tests cover owner and scope checks, idempotent creation, expiry, audit, and no instruction authority. |
+| PostgreSQL anchor persistence | in-progress | `services/core-control-plane/src/fdai/delivery/persistence/postgres_scheduled_continuation.py`; `services/core-control-plane/tests/persistence/test_scheduled_continuation.py` | Row codecs and compare-and-set paths exist. A no-skip live database and restart run remains open. |
+| Configuration review campaign | implemented | `services/core-control-plane/src/fdai/core/detection/configuration_review.py`; focused configuration-review tests | The bounded three-run reducer, audit/state transitions, resume, blueprint proposal, and materialization guards exist without granting schedule authority. |
+| Operator routes and Console projection | in-progress | `services/operator-service/src/fdai_operator_service/families/conversation/manifest.py`; `console/src/routes/scheduled-continuations.tsx`; focused route and Console tests | Read and command surfaces exist, but no governed authenticated end-to-end continuation receipt is retained. |
+| Slack and Teams delivery parity | in-progress | [Channel behavior](#channel-behavior) | Contracts and adapters are described; external channel and durable-ledger wiring requires deployment evidence. |
+| Legal-hold-aware physical retention | not-started | [Audit and retention](#audit-and-retention) | Expiry exists, but no coordinated deletion worker removes the result, anchor, and projected turn under legal hold. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. | `current change`; anchor, persistence, campaign, route, and Console evidence listed in the scope table. | Close no-skip persistence, authenticated delivery, external channel, and physical retention evidence. |
+
+### Remaining work
+
+- [ ] Run PostgreSQL anchor cases against the supported local database with no skips and retain restart, concurrent expiry, winner-only audit, and idempotent retry evidence.
+- [ ] Retain one authenticated web continuation receipt from scheduled result through anchor open, typed fact, follow-up answer, expiry, and unavailable replay.
+- [ ] Retain Slack and Teams origin-thread, dedicated-thread, degradation, ambiguous acknowledgement, and durable retry receipts without widening the audience.
+- [ ] Implement a legal-hold-aware retention worker that coordinates source result, anchor, projected turn, audit, retry, and partial-failure behavior before presenting expiry as physical deletion.
+
 ## Related docs
 
 | To learn about | Read |

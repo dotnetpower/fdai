@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 58a807dfcbe683e35b3ccdf06cf55ae84840b0f0
-translation_revised: 2026-08-11
+translation_source_sha: 1e69d46b515040bce628c56c5536853979f021bc
+translation_revised: 2026-08-14
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -257,3 +257,29 @@ ActionType 변환 결과 은 가산 입니다. 이전 배포 에서는
 계속 동작합니다. ActionType은 선택된 ObjectType의 1단계 그래프에는 넣지 않지만, 생성된
 온톨로지 맵에는 Rule, 작업 흐름 및 에이전트 링크가 있는 카탈로그 노드로 포함됩니다. 네 보기는
 모두 읽기 전용이며 액션 또는 승인 호출을 실행하지 않습니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 감사, 온톨로지 및 읽기 전용 wire 변환 결과 | implemented | Operator family 매니페스트 및 변환 결과; `services/operator-service/tests/test_operator_service_composition.py`; Console 온톨로지 및 trace 테스트 | 기본 GET/HEAD 경로, 범위가 제한된 묶음, 읽기 전용 온톨로지 카탈로그 및 사용 불가 동작에 focused 검사가 있습니다. |
+| HIL callback 계약 | implemented | Operator IAM family 경로; `services/operator-service/tests/test_operator_iam_family.py`; full-composition 테스트 | 서명, 재생 구간, 역할, 자기 승인 금지, 정확한 pending id 및 멱등적 결정 동작이 구현됐습니다. |
+| Python task workbench 및 근거 기반 code | implemented | `services/core-control-plane/src/fdai/core/python_task/`; `services/core-control-plane/tests/core/python_task/`; Operator workflow family; Console Python task 테스트 | 정적 검증, inert 산출물, 기능 및 chat 실행 부재 경계에 focused 검사가 있습니다. |
+| Semantic action draft 및 타입이 지정된 확인 | in-progress | Operator conversation 및 workflow application 경로 | 범위가 제한된 draft 및 proposal 경로는 있지만 이 owner 문서는 모든 conflict 및 denial 사례를 통과하는 관리되는 request-to-audit 확인 증적을 보존하지 않습니다. |
+| CLI, Teams 및 Slack wire 동등성 | in-progress | `cli/`; channel 어댑터 및 테스트 | 공유 presentation 계약은 있습니다. 현재 관리되는 다중 채널 동등성 증적은 여기에 보존되지 않았습니다. |
+| 관리되는 계약 간 런타임 근거 | in-progress | Operator 및 Console focused 테스트 | 단위 및 통합 검사는 동작 방식을 입증하지만 callback, proposal, code 산출물, 온톨로지 및 영속 감사 화면을 잇는 인증 증적은 아닙니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 Operator, Core Python task, CLI, channel, Console 및 focused 테스트 근거입니다. | Semantic 확인, 채널 동등성 및 관리되는 계약 간 근거를 완료해야 합니다. |
+
+### 남은 작업
+
+- [ ] 스키마 한도, 정확한 source 개정, 자기 승인 금지, stale 및 멱등성 conflict, 타입이 지정된 확인, 감사 상관관계 및 직접 실행 부재를 입증하는 인증된 semantic action-draft 증적을 보존합니다.
+- [ ] Operator API와 Console 전반에서 Python task 기능, 정적 검증, 근거 기반 code rendering, malformed 산출물 및 실행 부재 증적을 보존합니다.
+- [ ] 최종 상태, 근거 참조, truncation, 취소, 재생 및 사용 불가 동작에 대한 CLI, Teams, Slack 및 Web 동등성 사례를 실행하고 보존합니다.
+- [ ] 카탈로그 데이터를 런타임 근거로 표현하지 않으면서 catalog 다이제스트, ObjectType, LinkType, ActionType 및 생성된 map을 묶는 읽기 전용 온톨로지 변환 증적 하나를 보존합니다.

@@ -1,8 +1,8 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: 2f5c4a6c86c1ccfb5eaff34234cadca6b540b934
-translation_revised: 2026-08-11
+translation_source_sha: 9e3f98b3d44a93b4fabc38104e077b207f3b9711
+translation_revised: 2026-08-14
 ---
 # 리포팅 서브시스템
 
@@ -229,46 +229,22 @@ patch 컨트롤, 우선순위별 교정, CVE 적용 가능성, 데이터 출처 
 | `text` | `text/plain; charset=utf-8` | stdout 친화 요약 |
 | `ndjson` | `application/x-ndjson` | 헤더 라인 + 위젯별 한 라인 |
 | `prometheus` **(명시적 선택)** | `text/plain; version=0.0.4` | scalar / timeseries만; 기본 등록 X |
-| `pdf` **(명시적 선택)** | `application/pdf` | A4 근거 dossier; `pdf-report` extra로 설치하고 WeasyPrint 가져오기가 정상일 때만 등록 |
+| `pdf` **(대상 명시적 선택)** | `application/pdf` | Upstream에서 구현되지 않음. Downstream 또는 향후 검토된 `FormatEncoder`가 필요 |
 
 포크는 `FormatEncoder`를 구현하고 `FormatRegistry.register`를
 호출해 `pdf` / `xlsx` / 무엇이든 추가합니다.
 
-업스트림 `delivery/reporting/pdf_format.py` 어댑터는 WeasyPrint를 `core/`로
-가져오지 않고 선택적 PDF 형식을 구현합니다. 모든 위젯 값을 escape하고 출처
-묶음 SHA-256을 추가하며 표지, at-a-glance, 목차, chapter, 출처 이력 표면을
-렌더링합니다. `uv sync --extra pdf-report`로 설치합니다. extra가 없는 배포는 format
-레지스트리에 `pdf`를 표시하지 않습니다. `incident-rca-dossier` 카탈로그 리포트는
-가설, 인용, causal 홉, 대응 이력, 시간 순서에 상관관계 범위 감사 변환 결과를
-사용합니다.
-
-`incident-rca-dossier`는 범용 widget-per-page 레이아웃 대신 전용 렌더러를
-사용합니다. FDAI 소유 인쇄 언어는 단색 Calm Slate steel-blue 표지,
-executive brief, 근거 완성도 점수, 13개 chapter를 사용합니다. Chapter는 인시던트
-프로파일과 측정된 영향, 시간 순서, 근본 원인, causal 체인, 기여 요인, 대안 가설,
-근거 register, 대응, 복구 검증, 컨트롤 공백, 교정/예방 조치, 제한사항, 감사 부록입니다.
-내용 카드는 색상 상단선이나 좌측선 대신 균일한 neutral hairline, off-white 면,
-여백을 사용합니다. 렌더러는 빈 chapter를 산문으로 채우지 않고 근거를 사용할 수
-없음으로 표시합니다.
-
-인쇄 레이아웃 기본 요소는 브라우저 mock의 레이아웃 구현과 의도적으로 분리합니다.
-시간 순서는 CSS Grid나 음수 margin이 아니라 반복 헤더가 있는 의미 표를
-사용합니다. Causal 체인은 리터럴 그리기/font 속성을 가진 native SVG(`rect`,
-`line`, `polygon`, `text`)이므로 WeasyPrint의 SVG 내부 CSS cascade 지원에 의존하지
-않습니다. 페이지 나누기는 관련 chapter를 묶고 프로파일, root-cause, 응답, 감사
-그룹만 새 페이지에서 시작합니다. 고객 중립 참조 고정본은 chapter당 한 페이지를
-예약하지 않고 9페이지로 렌더링됩니다.
-
-PDF 회귀 테스트는 실제 WeasyPrint box 트리를 렌더링하고 9-11페이지 범위,
-full-width 시간 순서 표, full-width SVG diagram, 온전한 chapter 헤더 13개를
-강제합니다. 폐기한 grid 타임라인과 grid causal markup도 거부하므로 원래의 좁은 카드
-실패가 조용히 재발할 수 없습니다.
+Upstream은 현재 `delivery/reporting/pdf_format.py`, `pdf-report` extra, PDF registry 연결 또는
+PDF regression 모음을 제공하지 않습니다. `incident-rca-dossier` 카탈로그 보고와 상관관계 범위
+감사 데이터 원본은 기존 보고 묶음용으로 구현됐지만 PDF delivery를 입증하지 않습니다. 향후 선택적
+어댑터는 `core/` 밖에 있어야 하고 모든 값을 escape하며 source 묶음 다이제스트를 연결하고 사용 불가
+섹션을 보존하며 `pdf`를 표시하기 전에 focused 페이지 나누기 및 rendering 검사를 추가해야 합니다.
 
 선택적으로 기록된 감사 필드(`rca_impact`, `rca_contributing_factors`,
 `rca_alternative_hypotheses`, `rca_recovery_validation`, `rca_control_gaps`,
 `rca_recommendations`, `rca_limitations`)가 분석 chapter를 채웁니다. 각 필드는
 `core/reporting/datasources/audit_rca.py`가 투영하는 범위가 제한된 대응 목록입니다.
-PDF 계층은 서버 소유 사실을 배치할 뿐 자체 분석을 수행하지 않습니다.
+향후 PDF 계층은 이러한 서버 소유 사실만 배치할 수 있으며 자체 분석을 수행하면 안 됩니다.
 
 ## FE JSON 계약
 
@@ -492,7 +468,7 @@ class PdfFormatEncoder:
 formats.register(PdfFormatEncoder())
 ```
 
-`GET /reports/{id}/render?format=pdf`가 이제 동작합니다.
+해당 encoder를 등록하면 `GET /reports/{id}/render?format=pdf`가 동작할 수 있습니다.
 
 ### 5. 경로 접두사 변경
 
@@ -591,6 +567,31 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
 10. **`__all__` 배치** - 늦게 정의된 `EventStreamBuilder` /
     `RetentionBuilder`를 클래스 정의 뒤에서 내보내기 → `import *`와 정적
     분석이 일관.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| Core 계약, 레지스트리, engine, widget 및 기본 format | implemented | `services/core-control-plane/src/fdai/core/reporting/`; `services/core-control-plane/tests/core/reporting/` | Focused 테스트는 카탈로그 로딩, 한도, 치환, widget별 격리, 데이터 원본 계약, widget, format 및 hardening safeguard를 다룹니다. |
+| 선언형 report 카탈로그 및 스키마 | implemented | `rule-catalog/reports/`; `rule-catalog/reports/schema/report.schema.json`; reporting 카탈로그 테스트 | 검토된 YAML report와 기능 메타데이터가 범위가 제한된 스키마를 통해 로드됩니다. |
+| Operator API 읽기 경로 및 Console Reports 보기 | implemented | `services/operator-service/tests/test_operator_operations_family.py`; `console/src/routes/reports.tsx`; focused reporting model 및 경로 테스트 | GET/HEAD-only inventory, render, health, format, widget 및 데이터 원본 화면이 변경 권한 없이 구현됐습니다. |
+| 권위 있는 데이터 원본 연결 및 운영 최신성 | in-progress | Reporting 데이터 원본 어댑터 및 출처 묶음 | 어댑터는 있지만 각 배포가 권위 있는 프로바이더를 연결하고 최신성, 사용 불가, 시간 초과 및 부분 widget 근거를 보존해야 합니다. |
+| 선택적 PDF format 및 RCA dossier delivery | not-started | [Format 카탈로그](#format-카탈로그) | Upstream PDF encoder, extra, registry 연결, 다운로드 컨트롤 또는 PDF regression 모음이 없습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-14 | in-progress | 구현 ledger를 도입하고 선택적 PDF 구현 주장을 수정했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 reporting core, 카탈로그, Operator, Console 및 focused 검사입니다. | 권위 있는 데이터 원본 근거를 보존하고 PDF를 표시하기 전에 선택적 delivery를 구현해야 합니다. |
+
+### 남은 작업
+
+- [ ] 각 프로덕션 데이터 원본에 대해 source 신원, cutoff, 최신성, 사용 불가 및 시간 초과 동작, 부분 widget 격리 및 synthetic-to-live 대체 부재를 보여주는 관리되는 render 증적을 보존합니다.
+- [ ] Report inventory, 명시적 사용 불가 report 선택, variable 차단, 알 수 없는 format, render 오류 격리 및 읽기 전용 method 적용에 대한 인증된 Operator API 및 Console 증적을 보존합니다.
+- [ ] `pdf`를 표시하기 전에 선택적 PDF delivery 모듈, registry 연결, package extra, 인증된 GET-only 컨트롤 및 focused escape, 다이제스트, 페이지 나누기, 사용 불가 섹션, 분석 부재 테스트를 구현합니다.
+- [ ] Delivery 의존성을 `core/`로 가져오지 않고 downstream format 추가를 `FormatEncoder`와 조립 등록 뒤에 유지합니다.
 
 ## 관련 문서
 
