@@ -56,6 +56,7 @@ remain incomplete, so no area is claimed as fully operationally validated.
 | Correlation-based audit investigation and unified version/configuration exposure | in-progress | [`rule_fire_trace.py`](../../../services/core-control-plane/src/fdai/core/audit/rule_fire_trace.py), [`audit_rca.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py), and runtime state projections | Correlation and reporting primitives exist, but one public read surface doesn't yet expose every version, hash, rule effect, override, canary, kill-switch, and break-glass field listed below. |
 | Pre-launch latency measurement and frozen-scenario replay | implemented | [`latency_budget.py`](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py), [`baseline_run.py`](../../../tools/baseline_run.py), and focused tests | The primitives produce bounded measurements and release-gate results; an external load generator and deployment-specific budgets remain operator inputs. |
 | Live Azure read-investigation scenarios | in-progress | [Azure Read Investigations](../interfaces/azure-read-investigations.md#implementation-status) | Four bounded read-only scenarios passed, while guest-event matching, an actual provider `429`, and cross-service parity receipts remain open release evidence. |
+| ActionType operator-runbook schema and coverage | implemented | [`check-action-runbooks.py`](../../../scripts/quality/documentation/check-action-runbooks.py), [`incident-mitigation-and-rollback.md`](../../runbooks/incident-mitigation-and-rollback.md), and [`test_check_action_runbooks.py`](../../../tests/integration/scripts/test_check_action_runbooks.py) | Every shipped ActionType matches exactly one generic upstream runbook whose declared precondition, procedure, verification, rollback, and audit sections exist. Deployment-specific commands remain fork-owned. |
 | Post-launch stabilization composition | in-progress | [`core/scheduler/`](../../../services/core-control-plane/src/fdai/core/scheduler) and measurement primitives | The daily health, drift, and deployment-baseline jobs and `console.recurrent_query` signal aren't registered upstream. |
 
 ### Implementation history
@@ -63,6 +64,7 @@ remain incomplete, so no area is claimed as fully operationally validated.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger and separated tested self-observability primitives from incomplete operational evidence; earlier provenance wasn't reconstructed. | Current change; focused readiness, telemetry, canary, latency, and baseline-runner tests cited in the scope table. | Complete deployment round-trip evidence, alert and drill coverage, unified exposure, and stabilization bindings. |
+| 2026-08-14 | implemented | Defined the operator-runbook front-matter schema and added CI coverage for every shipped ActionType. | Current change; `check-action-runbooks.py` and `test_check_action_runbooks.py`. | Keep deployment-owned commands and procedures aligned with the same required semantic sections. |
 
 ### Remaining work
 
@@ -73,7 +75,7 @@ remain incomplete, so no area is claimed as fully operationally validated.
   delivery receipt, then record the governed operational evidence.
 - [ ] Expose the complete version, configuration, rule-effect, override, discovery, canary,
   kill-switch, and break-glass state through one authorized read surface and test field freshness.
-- [ ] Define a required runbook schema and add a check proving every automated ActionType has a
+- [x] Define a required runbook schema and add a check proving every automated ActionType has a
   generic upstream or deployment-owned runbook with verification and rollback instructions.
 - [ ] Register the daily stabilization jobs and recurrent-query signal, then prove the window opens,
   lowers authority on guard-metric breach, and closes only after its configured exit conditions.
@@ -219,7 +221,10 @@ Every automated action should have an operator-facing runbook. Upstream ships ge
 runbooks under `docs/runbooks/`; deployment-specific values and procedures stay in a fork-local
 runbook set per
 [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md).
-The repository doesn't yet enforce one runbook per ActionType or a required-section schema.
+The `fdai_runbook` front-matter block declares the schema version, covered ActionType patterns, and
+the headings that provide preconditions, procedure, verification, rollback, and audit guidance.
+`check-action-runbooks.py` fails CI when a shipped ActionType has no runbook, matches more than one
+runbook, or a declared required heading is absent.
 
 | Runbook | Purpose | Trigger |
 |---------|---------|---------|
@@ -241,7 +246,8 @@ Every runbook MUST state:
 - **Rollback of the runbook itself** (undo of the operator step).
 - The **audit trail** the runbook leaves.
 
-> **Open decision**: Define the runbook required-section schema and the ActionType coverage gate.
+> **Deployment boundary**: The upstream schema and generic procedure are enforced in CI. A fork
+> supplies provider commands, exact resource values, and any narrower deployment-owned runbooks.
 
 ## Version and Configuration Exposure
 
@@ -349,7 +355,7 @@ then hands off to steady-state operation once stabilization signals hold.
   defaults to five minutes and the canonical payload/idempotency shape is implemented.
 - [ ] Smoke-test suite composition (fixture set, per-step budgets, promotion-gate wiring).
 - [ ] Alert channel ownership matrix (fork vs upstream) and the fallback channel selection.
-- [ ] Runbook template - required sections, format, and CI check that a runbook is present
+- [x] Runbook template - required sections, format, and CI check that a runbook is present
       for every automated action.
 - [ ] Retention window and query model for the audit investigation flow.
 - [ ] Cold-start deadline value (shared with
