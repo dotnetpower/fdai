@@ -32,8 +32,8 @@ def test_report_command_has_no_write_tool_and_denies_side_effects(tmp_path: Path
     agent = sys.modules["roadmap_verification_agent"]
     command = agent.copilot_command(tmp_path / "copilot", "prompt", tmp_path, apply=False)
 
-    assert "--available-tools=read,shell" in command
-    assert "--available-tools=read,shell,write" not in command
+    assert "--available-tools=read,glob,grep,shell" in command
+    assert "--available-tools=read,glob,grep,shell,write" not in command
     assert "--deny-tool=shell(git push)" in command
     assert "--deny-tool=shell(git commit)" in command
     assert "--deny-tool=shell(terraform)" in command
@@ -45,7 +45,7 @@ def test_apply_command_allows_worktree_writes_but_still_denies_push(tmp_path: Pa
     agent = sys.modules["roadmap_verification_agent"]
     command = agent.copilot_command(tmp_path / "copilot", "prompt", tmp_path, apply=True)
 
-    assert "--available-tools=read,shell,write" in command
+    assert "--available-tools=read,glob,grep,shell,write" in command
     assert "--allow-all-paths" not in command
     assert "--allow-all-urls" not in command
     assert "--deny-tool=shell(git push)" in command
