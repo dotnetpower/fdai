@@ -535,7 +535,8 @@ def _project_runtime_result(
         }
         reason_code = reason_codes.get(result.disposition, "semantic_runtime_failed")
         disposition = result.disposition if result.disposition in reason_codes else "held"
-        return _terminal_result(request, disposition, reason_code), None
+        answer = result.planning.clarification if result.disposition == "clarification" else None
+        return _terminal_result(request, disposition, reason_code, answer=answer), None
 
     planning = result.planning
     plan = planning.plan
@@ -733,6 +734,8 @@ def _terminal_result(
     request: SemanticTurnRequest,
     disposition: str,
     reason_code: str,
+    *,
+    answer: str | None = None,
 ) -> ContractSemanticTurnResult:
     semantic_route = _ROUTE_BY_DISPOSITION.get(disposition)
     unavailable_reason: SemanticUnavailableReason | None = None
@@ -750,7 +753,7 @@ def _terminal_result(
         session_id=request.session_id,
         turn_id=request.turn_id,
         turn_sequence=request.turn_sequence,
-        answer=_terminal_answer(request.locale, disposition, reason_code),
+        answer=answer or _terminal_answer(request.locale, disposition, reason_code),
     )
 
 

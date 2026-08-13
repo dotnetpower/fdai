@@ -22,6 +22,7 @@ function verification(reasonCode: string | null): AnswerVerification {
 describe("verification presentation", () => {
   it.each([
     ["prior_context_required", "contextRequired", "Context required"],
+    ["semantic_clarification_required", "contextRequired", "Context required"],
     ["capability_invalid_arguments", "invalidQuery", "Invalid query"],
     ["provider_unavailable", "sourceUnavailable", "Source unavailable"],
     ["screen_claim_mismatch", "unsupportedClaim", "Unsupported claim"],

@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 3a0321942472bdd400984f4d2be9f5e794a62797
+translation_source_sha: 7c7db334cfd577f1c3c4e20ead949abf526b924e
 translation_revised: 2026-08-13
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -18,12 +18,14 @@ translation_revised: 2026-08-13
 | Web 점진적 스트림 집약 | 구현됨 | [`backend-stream.ts`](../../../console/src/deck/backend-stream.ts), [`backend-stream-fallback.test.ts`](../../../console/src/deck/backend-stream-fallback.test.ts), [`backend-stream-v1-contract.test.ts`](../../../console/src/deck/backend-stream-v1-contract.test.ts) | 집중 테스트는 순서가 있는 프레임, 재생 거부, 가지 수명 주기, 확정된 개정판, 부분 턴을 다룹니다. 이 행은 Teams 또는 Slack 런타임 검증을 주장하지 않습니다. |
 | 드로어 표현 및 새 대화 정체성 | 진행 중 | [`use-command-deck-sessions.ts`](../../../console/src/deck/use-command-deck-sessions.ts), [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | Console은 저장된 드로어 표시 여부와 독립적으로 새 세션을 만들며, 라이브 테스트는 이제 새 대화에서 요청을 격리합니다. 인증된 런타임 증적 통과가 아직 필요합니다. |
 | 통제된 4단계 온톨로지 증적 | 진행 중 | [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | 요청부터 Console까지 이어지는 검증은 있지만, `검증됨`을 뒷받침하는 새 보존 통과 산출물은 없습니다. |
+| 의미 명확화 표현 | 구현됨 | [`verification-presentation.ts`](../../../console/src/deck/verification-presentation.ts), [`verification-presentation.test.ts`](../../../console/src/deck/verification-presentation.test.ts) | `semantic_clarification_required`를 `Context required`로 표시하며 Console 집중 테스트 12개가 통과했습니다. 인증되고 보존된 증적은 열린 항목으로 남아 있습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | 진행 중 | 구현 장부를 도입했으며 이전 출처는 복원하지 않았습니다. 저장된 열린 상태와 새 대화 상태에서 라이브 증적 준비를 안정화했습니다. | 현재 변경의 [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts)와 이 문서 쌍, Console 타입 검사 및 대상 Playwright 검색이 통과했습니다. | 인증된 4단계 증적을 확보한 뒤, 런타임 보증을 승격하기 전에 seed가 지정된 이중 언어 보증 산출물을 보존해야 합니다. |
+| 2026-08-13 | 구현됨 | 범위가 제한된 의미 명확화를 지원되지 않는 주장이 아니라 필요한 맥락으로 분류했습니다. | `current change`, [`verification-presentation.ts`](../../../console/src/deck/verification-presentation.ts), [`verification-presentation.test.ts`](../../../console/src/deck/verification-presentation.test.ts), 통과한 Console 집중 테스트 12개 | 런타임 검증을 주장하기 전에 아래에 이미 나열된 인증된 4단계 증적을 확보해야 합니다. |
 
 ### 남은 작업
 
