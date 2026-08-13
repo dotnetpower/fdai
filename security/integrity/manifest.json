@@ -234,7 +234,7 @@
     "services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py": "12cd729b3aecd5703963d7dc9118716b1d41a66e23ff3078d441f23ec3b7b2ce",
     "services/core-control-plane/src/fdai/core/conversation/policy_prompt.py": "b3d8227662dd6653f49ec2df41ef406010e10ec5e6582e904dc2b1770dba3a07",
     "services/core-control-plane/src/fdai/core/conversation/principal_binding.py": "ce72cdc5254a5ea8eb5b81d0e7871355e2590b41ab8176e9e47bbb672ec4e948",
-    "services/core-control-plane/src/fdai/core/conversation/question_universe.py": "eb9f88041eb9153a5616d24da75bcd872b428a48b1b6c888f93d546ca29bf872",
+    "services/core-control-plane/src/fdai/core/conversation/question_universe.py": "b73821b5bb0acca856e4f381a141644469fc4d56563e231b44d8fa588f7a945a",
     "services/core-control-plane/src/fdai/core/conversation/read_plan.py": "dc5e990289c2454873b7f3d3f3d5a48340041355eb97dfdbbe42063d81c47230",
     "services/core-control-plane/src/fdai/core/conversation/semantic_manifest.py": "e7165a42d4a565ff2e549b7a29b1ed94ebda05977bd91a32a1de98f31cfee908",
     "services/core-control-plane/src/fdai/core/conversation/semantic_planning.py": "41b93c34c270905df4f0248601927077150a9fad6876bd78344cb1cc906fb4d6",
@@ -1060,7 +1060,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-13T12:13:20Z",
+  "generated_at": "2026-08-13T13:48:51Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",

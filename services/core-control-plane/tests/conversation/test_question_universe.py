@@ -162,6 +162,7 @@ def test_generation_fails_preflight_before_case_expansion_exceeds_bound() -> Non
         ({"locales": ("en-US",), "path_depths": (0,)}, "path depths MUST be in"),
         ({"locales": ("en-US",), "result_bounds": (100_001,)}, "result bounds MUST be in"),
         ({"locales": ("en-US",), "max_cases": 0}, "max_cases MUST be in"),
+        ({"locales": ("en-US",), "max_cases": 10_001}, "max_cases MUST be in"),
     ),
 )
 def test_grammar_rejects_empty_or_out_of_bounds_axes(
