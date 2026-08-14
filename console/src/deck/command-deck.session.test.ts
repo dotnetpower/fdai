@@ -11,6 +11,7 @@ import {
   sessionIdFor,
 } from "./command-deck";
 import { regenerationSubmission } from "./use-command-deck-composer";
+import { requestSnapshotForSubmit } from "./use-command-deck-submit";
 import { sessionStore } from "./use-command-deck-sessions";
 
 afterEach(() => {
@@ -30,55 +31,74 @@ describe("Deck scheduled work", () => {
 });
 
 describe("Deck regeneration", () => {
-  test("replays the question with only preceding history and the verified binding", () => {
-      const binding = {
-        kind: "incident" as const,
-        incidentId: "incident-1",
-        correlationId: "correlation-1",
-      };
-      const requestSnapshot = {
-        routeId: "agent-activity",
-        routeLabel: "Agent activity",
-        headline: "Incident activity",
-        capturedAt: "2026-08-14T00:00:00Z",
-        facts: [],
-      };
-      const turns = [
-        { id: "context", role: "deck" as const, text: "Bound incident", at: "10:00:00" },
-        {
-          id: "question",
-          role: "operator" as const,
-          text: "Investigate it",
-          at: "10:00:01",
-          requestSnapshot,
-        },
-        {
-          id: "answer",
-          role: "deck" as const,
-          text: "Verified incident evidence",
-          at: "10:00:02",
-          conversationBinding: binding,
-          semanticReceipt: {
-            schema_version: "1.0.0" as const,
-            projection_id: "00000000-0000-0000-0000-000000000000",
-            request_id: "00000000-0000-0000-0000-000000000000",
-            disposition: "answered" as const,
-            reason_code: "query_completed",
-            semantic_route: "verified_query_plan" as const,
-            execution_authority: false as const,
-          },
-        },
-      ];
+  test("freezes the view snapshot before route refresh can mutate it", () => {
+    const source = {
+      routeId: "agent-activity",
+      routeLabel: "Agent activity",
+      headline: "Incident activity",
+      capturedAt: "2026-08-14T00:00:00Z",
+      facts: [{ key: "incidents", value: 1 }],
+      records: { incidents: [{ count: 1 }] },
+    };
 
-      expect(regenerationSubmission(turns, 2)).toEqual({
+    const frozen = requestSnapshotForSubmit(source, undefined);
+    source.facts[0]!.value = 2;
+    source.records.incidents[0]!.count = 2;
+
+    expect(frozen).not.toBe(source);
+    expect(frozen?.facts[0]?.value).toBe(1);
+    expect(frozen?.records?.incidents?.[0]).toEqual({ count: 1 });
+  });
+
+  test("replays the question with only preceding history and the verified binding", () => {
+    const binding = {
+      kind: "incident" as const,
+      incidentId: "incident-1",
+      correlationId: "correlation-1",
+    };
+    const requestSnapshot = {
+      routeId: "agent-activity",
+      routeLabel: "Agent activity",
+      headline: "Incident activity",
+      capturedAt: "2026-08-14T00:00:00Z",
+      facts: [],
+    };
+    const turns = [
+      { id: "context", role: "deck" as const, text: "Bound incident", at: "10:00:00" },
+      {
+        id: "question",
+        role: "operator" as const,
         text: "Investigate it",
-        options: {
-          historyTurns: [turns[0]],
-          conversationBinding: binding,
-          requestId: "00000000-0000-0000-0000-000000000000",
-          snapshot: requestSnapshot,
+        at: "10:00:01",
+        requestSnapshot,
+      },
+      {
+        id: "answer",
+        role: "deck" as const,
+        text: "Verified incident evidence",
+        at: "10:00:02",
+        conversationBinding: binding,
+        semanticReceipt: {
+          schema_version: "1.0.0" as const,
+          projection_id: "00000000-0000-0000-0000-000000000000",
+          request_id: "00000000-0000-0000-0000-000000000000",
+          disposition: "answered" as const,
+          reason_code: "query_completed",
+          semantic_route: "verified_query_plan" as const,
+          execution_authority: false as const,
         },
-      });
+      },
+    ];
+
+    expect(regenerationSubmission(turns, 2)).toEqual({
+      text: "Investigate it",
+      options: {
+        historyTurns: [turns[0]],
+        conversationBinding: binding,
+        requestId: "00000000-0000-0000-0000-000000000000",
+        snapshot: requestSnapshot,
+      },
+    });
   });
 });
 
