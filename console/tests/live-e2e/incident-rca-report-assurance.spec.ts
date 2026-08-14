@@ -140,7 +140,7 @@ test("Browser Entra binds Incident RCA evidence to the optional PDF report", asy
     return isJsonResponse(response, "/rca") &&
       url.searchParams.get("correlation") === targetCorrelation;
   });
-  await page.goto(`/rca?correlation=${encodeURIComponent(targetCorrelation)}`, {
+  await page.goto(`/root-cause-analysis?correlation=${encodeURIComponent(targetCorrelation)}`, {
     waitUntil: "domcontentloaded",
   });
   await waitForReadyShell(page);
@@ -200,7 +200,7 @@ test("Browser Entra binds Incident RCA evidence to the optional PDF report", asy
     return isJsonResponse(response, "/rca") &&
       url.searchParams.get("correlation") === noRcaCorrelation;
   });
-  await page.goto(`/rca?correlation=${encodeURIComponent(noRcaCorrelation)}`, {
+  await page.goto(`/root-cause-analysis?correlation=${encodeURIComponent(noRcaCorrelation)}`, {
     waitUntil: "domcontentloaded",
   });
   await waitForReadyShell(page);
