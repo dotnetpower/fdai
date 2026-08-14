@@ -36,7 +36,7 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 | Permission-aware observation campaign parity | implemented | `config/observation-sources.yaml`; `fdai.delivery.observation_campaign*`; `.vscode/tasks.json`; `infra/modules/compute/container-apps/observation_campaign_job.tf`; focused Core, Operator, Console, workspace, and infrastructure checks | Local and deployed profiles use the same source catalog, due state, runner, normalized activity contract, and one-minute wake. Runtime artifacts are still required before validation. |
 | Local validation database isolation | implemented | `infra/local/docker-compose.yml`, `scripts/automation/validation_queue_context.py`, local preparation scripts, and focused validation and migration integration tests | Runtime state stays on local PostgreSQL port `5432`; destructive migration validation uses a separate local PostgreSQL cluster on port `5433`. |
 | FDAI workspace and profile pressure controls | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`; focused profile and workspace tests: 11 passed | Resource-scoped analysis controls stay in the workspace. Copilot compacts agent history at 80% of the selected model's context window, and the portable profile rejects Remote WSL Pylance machine settings that it cannot isolate. |
-| Isolated Console E2E developer loop | implemented | `console/playwright.config.ts`, `console/package.json`, `.vscode/tasks.json`, and the Playwright guidance in `.github/skills/vscode-profile-onboarding/SKILL.md`; Console typecheck and focused desktop E2E passed | The runner discovers only `*.spec.ts`, waits for Vite's stdout readiness marker, and exposes one root command and VS Code test task without changing the full desktop and mobile matrix. |
+| Isolated Console E2E developer loop | implemented | `console/playwright.config.ts`, `console/playwright.live.config.ts`, `console/scripts/playwright-port-pool.ts`, its focused tests, and the Playwright guidance in `.github/skills/vscode-profile-onboarding/SKILL.md`; Console typecheck and concurrent focused desktop E2E passed | Each session atomically leases one of ten frontend/API port pairs, shares it with workers, isolates artifacts by slot, and reclaims exited-PID locks without changing the full desktop and mobile matrix. |
 | FDAI Pylance launch ceiling runtime proof | deferred | A clean FDAI Remote WSL restart still launched Pylance with the bundled VS Code Node executable and without `--max-old-space-size=2048`. VS Code Server 1.133 creates one Remote Machine settings resource independently of the active profile service. | Blocked pending an isolated runtime. A shared Remote Machine override would also affect excluded workspaces, so runtime isolation requires a separate VS Code Server data root or WSL distribution before the ceiling can be enabled. |
 
 ### Implementation history
@@ -59,6 +59,7 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 | 2026-08-14 | implemented | Added one permission-aware observation campaign for every registered source and wired the same due-checked CLI into full-stack local and the deployed Container Apps Job. | `current change`; versioned activity contract, source catalog, provider probes, persistent runner, Operator projection, Console lane, and focused checks. | Retain one governed local run and one deployed-revision run over the same catalog digest before claiming validation. |
 | 2026-08-14 | implemented | Aligned mocked Terraform coverage with the retired ingestion co-host path and the independent Document Ingestion API and Document Processing Worker service roots. | `current change`; Terraform validation passed and focused ingestion tests passed 5 cases. | Keep the deployment guides and mocked tests aligned with the independent service roots. |
 | 2026-08-14 | implemented | Removed the isolated Playwright startup probe stall and added direct desktop E2E entry points for the repository root and VS Code. | `current change`; Console typecheck passed, live discovery listed 58 tests from 4 `*.spec.ts` files, and the focused desktop E2E passed 1 test in 2.8 seconds. | No remaining implementation work for the isolated Console E2E developer loop. |
+| 2026-08-14 | implemented | Added an atomic ten-slot port pool for concurrent fixture and live Playwright sessions, with paired frontend and Operator API ports plus slot-scoped artifacts. | `current change`; allocator tests passed 6 cases, Console typecheck passed, and two focused Playwright processes passed concurrently on frontend ports `5274` and `5275` with no remaining listener or lock. | No remaining implementation work for concurrent isolated Playwright port allocation. |
 
 ### Remaining work
 
@@ -100,10 +101,13 @@ bounded terminal turn-timing contract through the real Starlette route and evide
 
 Both isolated Playwright configurations discover only `*.spec.ts` files so colocated unit tests
 cannot load an incompatible test runtime. The fixture runner starts Vite immediately and waits for
-its `ready in` stdout marker instead of probing an unused loopback URL or dual-stack port. From the
-repository root, `npm --prefix console run test:e2e:quick` runs the desktop slice, and the
-`console: Playwright quick (desktop)` VS Code test task exposes the same path. The existing
-`npm --prefix console run test:e2e` command remains the complete desktop and mobile matrix.
+its `ready in` stdout marker instead of probing an unused loopback URL or dual-stack port. Each
+process atomically leases one of ten slots: frontend ports `5274-5283` pair with live Operator API
+ports `8020-8029`. Playwright workers inherit the parent's slot, exited-PID locks are reclaimed,
+and traces, screenshots, and videos use a slot-scoped output directory. From the repository root,
+`npm --prefix console run test:e2e:quick` runs the desktop slice, and the `console: Playwright quick
+(desktop)` VS Code test task exposes the same path. The existing `npm --prefix console run
+test:e2e` command remains the complete desktop and mobile matrix.
 
 The complementary `npm --prefix console run test:e2e:live` suite starts an isolated Operator Service
 with production data adapters and test-only identity verification, without route interception. It
