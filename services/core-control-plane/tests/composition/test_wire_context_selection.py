@@ -33,7 +33,6 @@ from fdai.core.working_context import (
     EntryKind,
     EntryRole,
     ModelCapabilityMetadata,
-    StateStoreContextSelectionEvaluationStore,
     TranscriptEntry,
     execute_context_selection_policy,
 )
@@ -137,17 +136,6 @@ def _enable_shadow_candidate(container: Container) -> Container:
 
 def test_default_container_leaves_shadow_evaluation_unbound(container: Container) -> None:
     assert container.context_selection_shadow_runner is None
-    assert container.context_selection_evaluation_store is None
-
-
-def test_half_bound_shadow_evaluation_is_rejected(container: Container) -> None:
-    with pytest.raises(ValueError, match="MUST be bound together"):
-        replace(
-            container,
-            context_selection_evaluation_store=StateStoreContextSelectionEvaluationStore(
-                InMemoryStateStore()
-            ),
-        )
 
 
 def test_shadow_binding_requires_policy_authority(container: Container) -> None:
@@ -166,8 +154,7 @@ async def test_assembled_turn_persists_bounded_shadow_comparison(container: Cont
         config=ContextShadowConfig(max_candidates=1),
     )
     runner = bound.context_selection_shadow_runner
-    store = bound.context_selection_evaluation_store
-    assert runner is not None and store is not None
+    assert runner is not None
 
     context = await assemble_turn_context(
         session=_session(),
@@ -180,7 +167,7 @@ async def test_assembled_turn_persists_bounded_shadow_comparison(container: Cont
 
     assert context.manifest.verbatim_ids == ("turn-1",)
     await runner.drain()
-    comparisons = await store.list(limit=10)
+    comparisons = await runner.store.list(limit=10)
     assert len(comparisons) == 1
     assert comparisons[0].candidate_policy_ref == POLICY_REF
     assert comparisons[0].failure_reason is None
@@ -193,10 +180,10 @@ async def test_bundle_install_rebinds_runner_to_refreshed_authority(container: C
     reinstalled = _enable_shadow_candidate(bound)
 
     runner = reinstalled.context_selection_shadow_runner
-    store = reinstalled.context_selection_evaluation_store
-    assert runner is not None and store is not None
+    assert runner is not None
     assert runner is not bound.context_selection_shadow_runner
-    assert store is bound.context_selection_evaluation_store
+    assert bound.context_selection_shadow_runner is not None
+    assert runner.store is bound.context_selection_shadow_runner.store
 
     selection_input = _selection_input()
     records = await runner.evaluate(
