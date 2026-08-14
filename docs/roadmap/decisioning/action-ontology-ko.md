@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 0ee13f89fd100a1ff9a76c43d09bcfdda37bfde1
+translation_source_sha: a08251d9ac81682874a70dbaca2be0308f1f604a
 translation_revised: 2026-08-14
 ---
 
@@ -786,7 +786,7 @@ verbatim 기록되므로 과거 감사 항목 를 절대 break 하지 않음.
 | ActionType 스키마 및 카탈로그 로딩 | implemented | [`action_type.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/action_type.py), [`ontology_action.py`](../../../services/core-control-plane/src/fdai/shared/contracts/models/ontology_action.py), [`test_action_type_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_action_type_catalog.py) | Category, trigger, 인자, 상한, 실행 경로, probe 참조 및 fail-closed 카탈로그 제약이 실행 가능합니다. |
 | 계층, 역할 및 운영 downgrade 상한 | implemented | [`ceiling.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/ceiling.py), [`test_ceiling.py`](../../../services/core-control-plane/tests/core/risk_gate/test_ceiling.py), [`test_approval.py`](../../../services/core-control-plane/tests/core/workflow/test_approval.py) | `prod_downgrade`와 환경 범위가 결정론적 상한 및 사람 승인 요구사항에 영향을 줍니다. |
 | 의미 ActionType, `MutationPlan` V2 및 kinetic artifact binding | implemented | [`action_plans.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/action_plans.py), `core/operational_planning/kinetic_safety.py`, `delivery/kinetic_safety.py`, `delivery/reconciliation_artifacts.py`, `runtime/control_loop.py`, 집중 kinetic 검사(`119 passed`) | 컴파일은 exact 선언과 safeguard를 고정합니다. Runtime-bound writer는 영속 OperationalPlan과 proposal lineage를 다시 검증하고 모든 Thor 실행기 전에 기존 exact V2 plan만 저장하며 raw Action argument를 제외하고 missing-proposal legacy 동작을 유지하며 conflicting, orphaned, late, corrupt 또는 substituted body를 차단합니다. Verified independent observation source는 열린 작업입니다. |
-| Live blast probe 실행 | in-progress | [`blast_probe.py`](../../../services/core-control-plane/src/fdai/shared/providers/blast_probe.py), [`test_action_type_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_action_type_catalog.py)의 카탈로그 참조 검사 | Probe 계약과 카탈로그 검증은 존재하지만 커밋된 RiskGate는 아직 `live_probe_ref`를 소비하거나 결과를 resolved ceiling에 기록하지 않습니다. |
+| Live blast probe 실행 | in-progress | [`live_probe.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/live_probe.py), [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_live_probe.py`](../../../services/core-control-plane/tests/core/risk_gate/test_live_probe.py), [`test_action_type_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_action_type_catalog.py)의 카탈로그 참조 검사 | 통합 권한 파이프라인이 `live_probe_ref`를 Axis E로 해석하고 그 사유를 resolved ceiling에 기록합니다. 운영 probe 어댑터와 실패 연속 횟수 출처는 아직 연결되지 않아 실제 관측값이 파이프라인에 도달하지 않습니다. |
 | 거버넌스 및 도구 실행 커버리지 | in-progress | [`promotion.py`](../../../services/core-control-plane/src/fdai/delivery/promotion.py), [`graph_model_promotion.py`](../../../services/core-control-plane/src/fdai/delivery/graph_model_promotion.py), [`override_writer.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/override_writer.py) | 승격 및 상한 재정의 경로는 존재합니다. `governance.retire-rule`과 런타임 예외 생성에는 문서화된 PR-native writer가 아직 없습니다. |
 | 운영자 요청 trigger 종료 | in-progress | 위 스키마/로더 근거와 [액션 온톨로지 라이프사이클](action-ontology-lifecycle-ko.md) | 카탈로그 유효성만으로는 인증된 운영자 요청이 하나의 보존된 운영 증적에서 판단, RiskGate, 실행, 복구, 감사를 통과했음을 입증하지 않습니다. |
 
@@ -798,6 +798,7 @@ verbatim 기록되므로 과거 감사 항목 를 절대 break 하지 않음.
 | 2026-08-14 | implemented | Legacy Action schema를 바꾸거나 raw Action argument를 저장하지 않고 실행 후 reconciliation이 pre-dispatch exact V2 plan만 resolve하도록 별도의 영속 kinetic safety receipt를 추가했습니다. | `current change`, `delivery/reconciliation_artifacts.py`, 집중 adversarial 테스트 15개 통과, strict mypy 및 작업 범위 Ruff 통과 | Producer를 operational로 만들기 전에 실제 pre-dispatch writer와 verified independent observation source를 연결합니다. |
 | 2026-08-14 | implemented | 모든 Core Thor 실행기 전에 exact kinetic safety receipt writer를 연결했습니다. 기존 correlation-indexed proposal만 해석하고 missing-proposal legacy 동작을 유지하며 provider dispatch 전에 invalid evidence를 차단합니다. | `current change`, `core/operational_planning/kinetic_safety.py`, `delivery/kinetic_safety.py`, `delivery/kinetic_proposal.py`, `runtime/control_loop.py` 및 집중 kinetic 검사 115개 통과 | Verified independent observation source를 연결하고 통제된 end-to-end 종결 근거를 보존합니다. |
 | 2026-08-14 | implemented | 내부적으로 valid한 proposal이 OperationalPlan, Process, selected option, correlation, target, selected ActionType 또는 plan lineage를 바꾸지 못하도록 dispatch-time cross-record 검증을 추가했습니다. | `current change`, `delivery/kinetic_proposal.py`, adversarial substitution 테스트 및 집중 kinetic 검사 119개 통과 | Verified independent observation source를 연결하고 통제된 end-to-end 종결 근거를 보존합니다. |
+| 2026-08-14 | in-progress | `live_probe_ref`를 통합 권한 파이프라인의 순수 Axis-E 입력으로 통합하고 해석 사유를 resolved ceiling에 기록했습니다. | `current change`, [`live_probe.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/live_probe.py), [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`ceiling.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/ceiling.py), [`test_live_probe.py`](../../../services/core-control-plane/tests/core/risk_gate/test_live_probe.py); 집중 risk-gate 및 control-loop 권한 검사 252개 통과 | 운영 probe 어댑터와 실패 연속 횟수 출처를 연결한 뒤 실제 관측값을 담은 통제된 런타임 증적을 보존합니다. |
 
 ### 남은 작업
 
@@ -807,7 +808,11 @@ verbatim 기록되므로 과거 감사 항목 를 절대 break 하지 않음.
   유지하며 invalid 또는 substituted evidence는 provider dispatch를 차단함을 입증합니다.
 - [ ] Verified independent observation source를 추가하고 exact observation evidence를 사용할 수
   없으면 일반 producer가 held 상태를 유지함을 입증합니다.
-- [ ] `live_probe_ref`를 RiskGate 평가에 통합하고 `quiet`, `active`, `overloaded`, unavailable, stale 결과가 자율성을 유지하거나 낮출 수만 있음을 입증하는 focused 검사를 보존합니다.
+- [x] `live_probe_ref`를 RiskGate 평가에 통합했으며, `quiet`, `active`, `overloaded`, 요청하지 않은
+  관측, unavailable, 대체된 관측, 의견 없음, degraded, stale, 지속적 blind 결과가 자율성을
+  유지하거나 낮출 수만 있음을 집중 검사로 입증합니다.
+- [ ] 운영 `LiveBlastProbe` 어댑터와 실패 연속 횟수 출처를 dispatch에 연결한 뒤, resolved ceiling에
+  실제 probe 관측값이 담긴 통제된 런타임 증적을 보존합니다.
 - [ ] `governance.retire-rule` 및 런타임 예외 생성에 문서화된 PR-native writer를 구현하고 검토, 롤백 또는 만료, 감사 근거를 포함해 테스트합니다.
 - [ ] Trigger 종료를 `validated`로 표시하기 전에 exact ActionType 및 인자를 판단, RiskGate, 실행 또는 타입이 지정된 보류, 복구 자세, 감사까지 바인딩하는 인증된 운영자 요청 증적을 보존합니다.
 
