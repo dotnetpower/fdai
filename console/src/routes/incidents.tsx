@@ -185,18 +185,34 @@ export function IncidentsRoute({ client }: Props) {
       ...(verticalFilter ? { vertical: verticalFilter } : {}),
     }).then(
       (page) => {
-        if (rosterGeneration.current !== generation) return;
+        if (
+          rosterGeneration.current !== generation
+          || exactLookup.current !== lookupKey
+        ) return;
+        if (!incidentPageMatchesSnapshot(state.data.metrics, page.metrics)) {
+          exactLookup.current = null;
+          setPageError("Incident exact lookup snapshot changed");
+          return;
+        }
         setState((current) => current.status === "ready"
           ? {
               status: "ready",
               data: {
                 ...current.data,
                 items: mergeIncidentItems(page.items, current.data.items),
+                metrics: page.metrics,
               },
             }
           : current);
       },
-      () => undefined,
+      (error: unknown) => {
+        if (
+          rosterGeneration.current !== generation
+          || exactLookup.current !== lookupKey
+        ) return;
+        exactLookup.current = null;
+        setPageError(error instanceof Error ? error.message : String(error));
+      },
     );
   }, [client, filter, selectedId, state, verticalFilter]);
 

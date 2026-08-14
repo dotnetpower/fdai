@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: abef29142fa82f85fc3bc9bad4a72d77f73a7c6a
+translation_source_sha: 83d53e0928f31b0a9602c7cd0d179d04f6dbeb7d
 translation_revised: 2026-08-14
 ---
 
@@ -165,6 +165,9 @@ principal 범위 Command Deck 턴과 답변 계획 수립은 대화 이력에 �
 Shared KPI 카드는 `not-measured`, `not-connected`, `insufficient-sample` 및 `not-applicable`
 근거 상태를 구분합니다. 이 상태들은 neutral copy와 style을 사용하며, 실제 요청 또는 탐색
 실패만 오류 컴포넌트를 사용해 시각적으로 구분합니다.
+Exact Incident deep link는 두 변환 결과의 analytical snapshot sequence가 같을 때만 기존 roster에
+합칩니다. Concurrent snapshot 변경은 서로 다른 근거 revision의 record와 metric을 섞지 않고
+사용 불가 상태로 유지합니다.
 권위 있는 visible 내용이 제자리에서 변경되는 카드는 공유 `top-edge shimmer`를 사용합니다.
 이 효과는 높이 2 px, 길이 1.35초의 neutral blue 일괄 점검 한 번으로 제한합니다. 기본 요소 shared KPI
 값은 자동 적용하고 복잡한 실제 운영 카드는 semantic 갱신 키를 제공합니다. 첫 렌더링, 변경되지 않은
