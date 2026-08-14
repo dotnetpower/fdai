@@ -1,7 +1,7 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: 1e112bfe1bfb907c235d323e8be05eddf6e60f20
+translation_source_sha: 98015f60bf9d1eca5ec6a86222f85620a5969bc9
 translation_revised: 2026-08-14
 ---
 
@@ -417,7 +417,7 @@ PR review comment on rem PR     --/         v
 | 2.5-B 단계 2b | `AzureOpenAICrossCheckModel`이 강제 적용 모드 도구에 대해 `tools=[...]`를 발행하고, 범위가 제한된 multi-turn 루프로 모델 발행 `tool_calls`를 실행기로 라우팅하며, 알 수 없는 함수명 / 잘못된 arguments / half-wired 설정을 실패 시 차단으로 거부 | yes |
 | 3 단계 A | `core/operator_memory/` 타입 + 비동기 `OperatorMemoryStore` 프로토콜 + `InMemoryOperatorMemoryStore` + `wrap_operator_note` / `detect_injection_markers` sanitizer + 쓰기 시점 정책 강제(범위 <= resource-group, 서로 다른 승인자, 추가 전용 대체, 선택적 TTL, 주입 마커 거부) | yes |
 | 3 단계 B 저장소 | `PostgresOperatorMemoryStore` + alembic 이행 `20260706_0006_operator_memory` (추가 전용 테이블, Python 정책을 미러링한 검사 제약, `(scope_kind, scope_ref)` scope-lookup 인덱스, `InMemoryOperatorMemoryStore`와 TTL + 대체 시맨틱 동등성, `FDAI_DATABASE_URL` unset 시 스킵되는 통합 테스트) | yes |
-| 3 단계 B 파이프라인 구획 1 | `HilResponse(decision=REJECT, reason=...)` + 별개의 `second_approver`를 주입된 `OperatorMemoryStore`를 통해 저장된 `OperatorMemoryEntry`로 변환하는 `HilRejectMaterializer` 코어 모듈; 5개의 pipeline-level 오류 코드 (`wrong_decision`, `empty_reason`, `missing_first_approver`, `missing_second_approver`, `same_principal`)가 저장소 접근 전에 fail-fast, store-side 정책 오류(중복 id, 주입 표시)는 그대로 표면 | yes |
+| 3 단계 B 파이프라인 구획 1 | `HilResponse(decision=REJECT, reason=...)` + 별개의 `second_approver`를 주입된 `OperatorMemoryStore`를 통해 저장된 `OperatorMemoryEntry`로 변환하는 `HilRejectMaterializer` 코어 모듈; 7개의 pipeline-level 오류 코드 (`wrong_decision`, `empty_reason`, `missing_first_approver`, `missing_second_approver`, `same_principal`, `missing_response_time`, `approval_expired`)가 저장소 접근 전에 fail-fast, 재전달은 `already_materialized`로 표면, 다른 store-side 정책 오류(주입 표시)는 그대로 표면 | yes |
 | 3 단계 B 파이프라인 구획 2 | Composition-root wire: `_build_operator_memory_store()`가 `FDAI_OPERATOR_MEMORY_DSN`으로 Postgres를 선택하거나 기본값으로 in-memory 가짜를 사용하고, `_finalize_llm_bindings`가 저장소를 `DefaultPromptComposer`에 인계하므로 operator-memory 레이어가 데이터베이스 없이도 종단 간으로 도달 가능 (포크가 `HilRejectMaterializer`로 덧붙이기한 항목이 즉시 작성기에 보임) | yes |
 | 3 단계 B 파이프라인 구획 3 | 실제로 materializer를 invoke하는 second-approval 채널 (Teams Adaptive 카드 / git PR / fork-authored CLI). 승인 채널은 배포마다 다르므로 fork-first 유지; 업스트림은 `HilRejectMaterializer` 경계와 operator-memory 저장소만 배포하고 특정 UI는 배포하지 않음 | 계획됨 |
 | 3 단계 C-1 | `DefaultPromptComposer`가 선택적 `operator_memory_store` + `scope`를 받고 operator-memory 레이어를 발행. 각 항목은 `wrap_operator_note`로 wrap. 계층 해석은 resource-group note를 리소스 note 앞에 배치 | yes |
@@ -697,30 +697,42 @@ Wave 3 단계 B 파이프라인 구획 1은 HIL 거부 이유를 두 번째 별�
 트리거되든 동일 클래스가 2차 승인 로직을 처리합니다.
 
 - `services/core-control-plane/src/fdai/core/operator_memory/hil_pipeline.py` -
-  `HilRejectMaterializer(*, store, entry_id_fn=uuid4, now_fn=None)`가
+  `HilRejectMaterializer(*, store, entry_id_fn=None, now_fn=None)`가
   단일 비동기 메서드 `materialize(*, hil_response, second_approver,
   자료)`를 노출합니다. 결정론적 훅 (`entry_id_fn`, `now_fn`)이
   전역을 monkey-patch하지 않고도 테스트에서 id와 시각을 pin할
-  수 있게 합니다.
+  수 있게 합니다. `entry_id_fn`을 주지 않으면 id는 승인 신원에서
+  **파생**됩니다. `<approval_id>|<정규화된 2차 승인자>`에 대한
+  `uuid5`이므로 같은 승인은 항상 같은 항목을 가리킵니다. 무작위
+  기본값이었다면 모든 재전달이 새 메모리처럼 보였을 것입니다.
 - `HilRejectMaterial(scope_kind, scope_ref, category, source_ref,
-  ttl_seconds=None, 메타데이터=...)`가 작업 흐름이 공급하는 컨텍스트
+  ttl_seconds=None, approval_window_seconds=3600, 메타데이터=...)`가
+  작업 흐름이 공급하는 컨텍스트
   (ChatOps 명령, HTTP 엔드포인트, 조정기 poll)를 운반합니다.
   `source_ref`는 관례적으로 `hil.reject:<approval_id>`이며 감사자가
   항목을 정확한 HIL 실행으로 역추적할 수 있게 합니다.
-- `HilMaterializationError`의 5개 fail-fast 오류 코드가 저장소 접근
+- `HilMaterializationError`의 7개 fail-fast 오류 코드가 저장소 접근
   전에 short-circuit: `wrong_decision` (거부 아님),
   `empty_reason` (기억할 만한 콘텐츠 없음),
   `missing_first_approver` (`HilResponse.approver_id` 없음),
   `missing_second_approver` (검토자 없음),
   `same_principal` (`strip().lower()` 정규화 후 rejecter가
-  self-approve 시도). 마지막은 저장소의 `self_approval` 코드와
+  self-approve 시도), `missing_response_time` (거부에 `received_at`이
+  없어 경과 시간을 증명할 수 없음),
+  `approval_expired` (거부가 `approval_window_seconds`보다 오래됨).
+  `same_principal`은 저장소의 `self_approval` 코드와
   의도적으로 구분되므로 UI가 "이 단계에서는 self-approve할 수
   없음"과 "저장소의 더 깊은 정책이 다른 이유로 거부"를 구별할 수
-  있습니다.
-- Store-side 정책 오류는 그대로 흐릅니다. Sanitizer가 이유에서
-  prompt-injection 표시를 감지하거나 호출자의 `entry_id_fn`이
-  중복 id를 반환하면, 저장소의 `OperatorMemoryPolicyError`
-  (코드 `injection_marker_detected`, `duplicate_id` 등)가 호출자에게
+  있습니다. 증명할 수 없는 경과 시간은 신선하다고 가정하지 않고 거부하므로,
+  타임스탬프를 누락하는 채널은 임의로 오래된 승인을 통과시킬 수
+  없습니다.
+- 재전달된 승인은 새 메모리가 아니라 **재실행**입니다. Materializer는
+  저장소의 `duplicate_id` 정책 오류를 잡아 `already_materialized`로
+  다시 제기하므로 호출자는 가짜 백엔드 장애 대신 해당 안내가 이미
+  저장되었음을 알게 되고, 저장소에는 여전히 항목이 정확히 하나 남습니다.
+- 다른 store-side 정책 오류는 그대로 흐릅니다. Sanitizer가 이유에서
+  prompt-injection 표시를 감지하면, 저장소의 `OperatorMemoryPolicyError`
+  (코드 `injection_marker_detected` 등)가 호출자에게
   보이는 것 - materializer는 이를 절대 삼키거나 re-code하지
   않습니다.
 - `core/`-safe 유지: 모듈은 `fdai.core.operator_memory`와
