@@ -51,6 +51,32 @@ const NOOP_ACTIONS: ControllerActions = {
   focusNode: () => undefined,
 };
 
+export type OntologyKnowledgeKeyboardCommand =
+  | "pan-up"
+  | "pan-down"
+  | "pan-left"
+  | "pan-right"
+  | "zoom-in"
+  | "zoom-out"
+  | "fit";
+
+export function ontologyKnowledgeKeyboardCommand(
+  key: string,
+): OntologyKnowledgeKeyboardCommand | null {
+  const commands: Readonly<Record<string, OntologyKnowledgeKeyboardCommand>> = {
+    ArrowUp: "pan-up",
+    ArrowDown: "pan-down",
+    ArrowLeft: "pan-left",
+    ArrowRight: "pan-right",
+    "+": "zoom-in",
+    "=": "zoom-in",
+    "-": "zoom-out",
+    "0": "fit",
+    Home: "fit",
+  };
+  return commands[key] ?? null;
+}
+
 function paletteFor(element: HTMLElement): OntologyKnowledgeGraphPalette {
   const styles = getComputedStyle(element);
   const dark = document.documentElement.getAttribute("data-theme") === "dark";
@@ -226,12 +252,36 @@ export function useOntologyKnowledgeGraphController({
       const point = pointFor(event);
       zoomAt(event.deltaY < 0 ? 1.12 : .89, point.x, point.y);
     };
+    const keyDown = (event: KeyboardEvent) => {
+      const command = ontologyKnowledgeKeyboardCommand(event.key);
+      if (command === null) return;
+      event.preventDefault();
+      if (command === "fit") {
+        fit();
+        return;
+      }
+      if (command === "zoom-in" || command === "zoom-out") {
+        zoomAt(
+          command === "zoom-in" ? 1.25 : .8,
+          viewport.clientWidth / 2,
+          viewport.clientHeight / 2,
+        );
+        return;
+      }
+      const step = 36;
+      if (command === "pan-up") camera.y += step;
+      if (command === "pan-down") camera.y -= step;
+      if (command === "pan-left") camera.x += step;
+      if (command === "pan-right") camera.x -= step;
+      requestDraw();
+    };
 
     viewport.addEventListener("pointerdown", pointerDown);
     viewport.addEventListener("pointermove", pointerMove);
     viewport.addEventListener("pointerup", pointerUp);
     viewport.addEventListener("pointercancel", pointerCancel);
     viewport.addEventListener("wheel", wheel, { passive: false });
+    canvas.addEventListener("keydown", keyDown);
     const observer = new ResizeObserver(() => {
       resize();
       if (selectedIdRef.current === null) {
@@ -251,6 +301,7 @@ export function useOntologyKnowledgeGraphController({
       viewport.removeEventListener("pointerup", pointerUp);
       viewport.removeEventListener("pointercancel", pointerCancel);
       viewport.removeEventListener("wheel", wheel);
+      canvas.removeEventListener("keydown", keyDown);
       if (drawFrame !== null) cancelAnimationFrame(drawFrame);
       if (pointerFrame !== null) cancelAnimationFrame(pointerFrame);
       requestDrawRef.current = () => undefined;

@@ -25,6 +25,7 @@ import { OntologyKnowledgeMap } from "./ontology-knowledge-map";
 import { OntologyLinksView } from "./ontology-links";
 import { formatNumber, t } from "./i18n/ontology";
 import {
+  decodeOntologyGraphResponse,
   ontologyView,
   type OntologyGraphResponse,
   type OntologyView,
@@ -150,10 +151,11 @@ export function OntologyRoute({ client }: Props) {
     setState({ status: "loading" });
     (async () => {
       try {
-        const data = await client.panel<OntologyGraphResponse>(
+        const payload = await client.panel<unknown>(
           "/ontology/graph",
           { include_properties: includeProperties ? "true" : "false" },
         );
+        const data = decodeOntologyGraphResponse(payload);
         if (!cancelled) setState({ status: "ready", data });
       } catch (err) {
         if (!cancelled) {

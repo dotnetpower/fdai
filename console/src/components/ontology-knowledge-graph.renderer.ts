@@ -2,6 +2,7 @@ import {
   convexHull,
   ontologyArrowHead,
   ontologyNodeRadius,
+  ontologySelfLoop,
   ontologyWorldToScreen,
   type KnowledgeGraphCamera,
   type KnowledgeGraphIndex,
@@ -139,24 +140,29 @@ function drawEdge(context: CanvasRenderingContext2D, edge: OntologyKnowledgeEdge
   const source = ontologyWorldToScreen(sourceNode, state.camera);
   const target = ontologyWorldToScreen(targetNode, state.camera);
   const visualState = edgeState(edge, state.selectedId);
+  const selfLoop = edge.source === edge.target
+    ? ontologySelfLoop(source, ontologyNodeRadius(sourceNode) * state.camera.scale + 3)
+    : null;
   const deltaX = target.x - source.x;
   const deltaY = target.y - source.y;
   const distance = Math.max(1, Math.hypot(deltaX, deltaY));
   const direction = [...edge.id].reduce((total, character) => total + character.charCodeAt(0), 0) % 2 ? 1 : -1;
   const bend = Math.min(24, distance * .08) * direction;
-  const controlX = (source.x + target.x) / 2 - deltaY / distance * bend;
-  const controlY = (source.y + target.y) / 2 + deltaX / distance * bend;
+  const curveStart = selfLoop?.start ?? source;
+  const curveEnd = selfLoop?.end ?? target;
+  const controlX = selfLoop?.control.x ?? (source.x + target.x) / 2 - deltaY / distance * bend;
+  const controlY = selfLoop?.control.y ?? (source.y + target.y) / 2 + deltaX / distance * bend;
   context.beginPath();
-  context.moveTo(source.x, source.y);
-  context.quadraticCurveTo(controlX, controlY, target.x, target.y);
+  context.moveTo(curveStart.x, curveStart.y);
+  context.quadraticCurveTo(controlX, controlY, curveEnd.x, curveEnd.y);
   context.strokeStyle = EDGE_COLORS[edge.kind];
   context.globalAlpha = visualState === "related" ? .82 : visualState === "muted" ? .018 : .10;
   context.lineWidth = visualState === "related" ? 2 : 1;
   context.stroke();
   const arrow = ontologyArrowHead(
     { x: controlX, y: controlY },
-    target,
-    ontologyNodeRadius(targetNode) * state.camera.scale + 2,
+    curveEnd,
+    selfLoop === null ? ontologyNodeRadius(targetNode) * state.camera.scale + 2 : 0,
     visualState === "related" ? 8 : 6,
   );
   context.beginPath();
@@ -167,8 +173,8 @@ function drawEdge(context: CanvasRenderingContext2D, edge: OntologyKnowledgeEdge
   context.fillStyle = EDGE_COLORS[edge.kind];
   context.fill();
   if (visualState === "related" && state.camera.scale > .5) {
-    const middleX = .25 * source.x + .5 * controlX + .25 * target.x;
-    const middleY = .25 * source.y + .5 * controlY + .25 * target.y;
+    const middleX = .25 * curveStart.x + .5 * controlX + .25 * curveEnd.x;
+    const middleY = .25 * curveStart.y + .5 * controlY + .25 * curveEnd.y;
     context.globalAlpha = 1;
     context.font = "10px 'Cascadia Code', Consolas, monospace";
     context.textAlign = "center";

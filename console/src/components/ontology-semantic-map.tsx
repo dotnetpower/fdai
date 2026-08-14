@@ -18,14 +18,6 @@ interface Props {
   readonly projectionRevision: string;
 }
 
-const ACTION_TYPES = new Set([
-  "DecisionCase",
-  "ActionOption",
-  "ExpectedEffect",
-  "ActionRun",
-  "ObservedOutcome",
-]);
-
 export function OntologySemanticMap({
   model,
   nodes,
@@ -45,6 +37,30 @@ export function OntologySemanticMap({
   const [lens, setLens] = useState<OntologySemanticLens>("relationship");
   const selected = nodes.find((node) => node.name === selectedName) ?? null;
   const selectedRelations = relationshipsForSemanticNode(projection.relations, selectedName);
+  const relationCountByNode = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const relation of projection.relations) {
+      counts.set(relation.from, (counts.get(relation.from) ?? 0) + 1);
+      if (relation.to !== relation.from) {
+        counts.set(relation.to, (counts.get(relation.to) ?? 0) + 1);
+      }
+    }
+    return counts;
+  }, [projection.relations]);
+  const actionTypes = useMemo(
+    () => new Set(
+      projection.bands
+        .find((band) => band.id === "decision_and_learning")
+        ?.nodes.map((node) => node.name) ?? [],
+    ),
+    [projection.bands],
+  );
+  const actionRelations = useMemo(
+    () => projection.relations.filter(
+      (relation) => actionTypes.has(relation.from) || actionTypes.has(relation.to),
+    ),
+    [actionTypes, projection.relations],
+  );
 
   return (
     <section class="ontology-semantic-map" aria-labelledby="ontology-semantic-title">
@@ -94,11 +110,7 @@ export function OntologySemanticMap({
                       onClick={() => setSelectedName(node.name)}
                     >
                       <code>{node.name}</code>
-                      <span>{formatNumber(
-                        projection.relations.filter(
-                          (relation) => relation.from === node.name || relation.to === node.name,
-                        ).length,
-                      )} {t("ontology.semantic.links")}</span>
+                      <span>{formatNumber(relationCountByNode.get(node.name) ?? 0)} {t("ontology.semantic.links")}</span>
                     </button>
                   ))}
                 </div>
@@ -118,9 +130,7 @@ export function OntologySemanticMap({
             <ContextStatus releaseDigest={releaseDigest} projectionRevision={projectionRevision} />
           ) : null}
           {lens === "action" ? (
-            <RelationList relations={projection.relations.filter(
-              (relation) => ACTION_TYPES.has(relation.from) || ACTION_TYPES.has(relation.to)
-            )} />
+            <RelationList relations={actionRelations} />
           ) : null}
         </div>
 
@@ -151,11 +161,23 @@ function RelationList({ relations }: { readonly relations: readonly OntologySema
               <code>{relation.from}</code>
               <span>--{relation.name}--&gt;</span>
               <code>{relation.to}</code>
+              <RelationshipFlags relation={relation} />
             </li>
           ))}
         </ul>
       )}
     </section>
+  );
+}
+
+function RelationshipFlags({ relation }: { readonly relation: OntologySemanticRelation }) {
+  const flags = [
+    relation.isCausal ? t("ontology.semantic.causal") : null,
+    relation.isTemporal ? t("ontology.semantic.temporal") : null,
+    relation.isTransitive ? t("ontology.semantic.transitive") : null,
+  ].filter((value): value is string => value !== null);
+  return flags.length === 0 ? null : (
+    <small class="ontology-semantic-relation-flags">{flags.join(" / ")}</small>
   );
 }
 
@@ -236,6 +258,7 @@ function RelationshipDirection({
               <code>{relation.from}</code>
               <span>--{relation.name}--&gt;</span>
               <code>{relation.to}</code>
+              <RelationshipFlags relation={relation} />
             </li>
           ))}
         </ul>

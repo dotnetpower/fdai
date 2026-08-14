@@ -84,10 +84,20 @@ function requiredString(record: UnknownRecord, key: string): string {
   return value;
 }
 
-function requiredNumber(record: UnknownRecord, key: string): number {
+function requiredNumber(
+  record: UnknownRecord,
+  key: string,
+  options: { readonly min?: number; readonly max?: number } = {},
+): number {
   const value = record[key];
   if (typeof value !== "number" || !Number.isFinite(value)) {
     throw new Error(`ontology knowledge graph ${key} MUST be a finite number`);
+  }
+  if (options.min !== undefined && value < options.min) {
+    throw new Error(`ontology knowledge graph ${key} MUST be non-negative`);
+  }
+  if (options.max !== undefined && Math.abs(value) > options.max) {
+    throw new Error(`ontology knowledge graph ${key} exceeds the supported bound`);
   }
   return value;
 }
@@ -111,10 +121,10 @@ function decodeNode(value: unknown): OntologyKnowledgeNode {
     kind: kind as OntologyKnowledgeNodeKind,
     group: requiredString(value, "group"),
     detail: requiredString(value, "detail"),
-    community: requiredNumber(value, "community"),
-    degree: requiredNumber(value, "degree"),
-    x: requiredNumber(value, "x"),
-    y: requiredNumber(value, "y"),
+    community: requiredNumber(value, "community", { min: 1 }),
+    degree: requiredNumber(value, "degree", { min: 0 }),
+    x: requiredNumber(value, "x", { max: 1_000_000 }),
+    y: requiredNumber(value, "y", { max: 1_000_000 }),
   };
 }
 
@@ -141,6 +151,8 @@ export function decodeOntologyKnowledgeGraph(value: unknown): OntologyKnowledgeG
   const nodeIds = new Set(nodes.map((node) => node.id));
   if (nodeIds.size !== nodes.length) throw new Error("ontology knowledge graph node ids MUST be unique");
   const edges = value.edges.map(decodeEdge);
+  const edgeIds = new Set(edges.map((edge) => edge.id));
+  if (edgeIds.size !== edges.length) throw new Error("ontology knowledge graph edge ids MUST be unique");
   for (const edge of edges) {
     if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target)) {
       throw new Error(`ontology knowledge graph edge ${edge.id} has a missing endpoint`);

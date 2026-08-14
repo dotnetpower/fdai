@@ -3,6 +3,7 @@ import {
   fitOntologyKnowledgeGraph,
   hitTestOntologyNode,
   ontologyArrowHead,
+  ontologySelfLoop,
   ontologyWorldToScreen,
 } from "./ontology-knowledge-graph.geometry";
 import type { OntologyKnowledgeGraph } from "./ontology-knowledge-graph.model";
@@ -48,5 +49,15 @@ describe("ontology knowledge graph geometry", () => {
     expect(arrow.right.x).toBeLessThan(arrow.tip.x);
     expect(arrow.left.y).toBeLessThan(0);
     expect(arrow.right.y).toBeGreaterThan(0);
+  });
+
+  it("creates a visible self-loop outside the node boundary", () => {
+    const loop = ontologySelfLoop({ x: 100, y: 100 }, 14);
+
+    expect(loop.start).not.toEqual(loop.end);
+    expect(loop.control.x).toBeGreaterThan(114);
+    expect(loop.control.y).toBeLessThan(86);
+    expect(Math.hypot(loop.start.x - 100, loop.start.y - 100)).toBeGreaterThanOrEqual(14);
+    expect(Math.hypot(loop.end.x - 100, loop.end.y - 100)).toBeGreaterThanOrEqual(14);
   });
 });

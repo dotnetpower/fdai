@@ -36,7 +36,14 @@ const edges: readonly OntologyEdge[] = [
 const model: OntologySemanticModel = {
   schema_version: "1.0.0",
   bands: [
-    { id: "scope", label: "Operating scope", object_types: nodes.map((node) => node.name) },
+    {
+      id: "operating_scope",
+      label: "Operating scope",
+      object_types: nodes.map((node) => node.name),
+    },
+    { id: "operating_intent", label: "Operating intent", object_types: [] },
+    { id: "operating_reality", label: "Operating reality", object_types: [] },
+    { id: "decision_and_learning", label: "Decision and learning", object_types: [] },
   ],
   lenses: ["object", "relationship", "state", "context", "action"],
   mutation_authority: false,
@@ -64,13 +71,20 @@ describe("ontology semantic model", () => {
     expect(() => buildOntologySemanticProjection({
       ...model,
       bands: [
-        { id: "one", label: "One", object_types: ["Workload"] },
-        { id: "two", label: "Two", object_types: ["Workload"] },
+        { id: "operating_scope", label: "Scope", object_types: ["Workload"] },
+        { id: "operating_intent", label: "Intent", object_types: ["Workload"] },
+        { id: "operating_reality", label: "Reality", object_types: [] },
+        { id: "decision_and_learning", label: "Decision", object_types: [] },
       ],
     }, nodes, edges)).toThrow("MUST belong to one band");
     expect(() => buildOntologySemanticProjection({
       ...model,
-      bands: [{ id: "one", label: "One", object_types: ["Missing"] }],
+      bands: [
+        { id: "operating_scope", label: "Scope", object_types: ["Missing"] },
+        { id: "operating_intent", label: "Intent", object_types: [] },
+        { id: "operating_reality", label: "Reality", object_types: [] },
+        { id: "decision_and_learning", label: "Decision", object_types: [] },
+      ],
     }, nodes, edges)).toThrow("unknown ObjectType Missing");
   });
 });
