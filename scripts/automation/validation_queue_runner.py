@@ -40,8 +40,6 @@ from scripts.automation.validation_queue_support import (
     validation_base,
 )
 
-MAX_COMMITS_PER_COHORT = 5
-
 
 class StageResult(TypedDict):
     """One timed or cached validation stage result."""
@@ -192,39 +190,7 @@ def _record_receipts(
         (paths.pending / f"{commit}.json").unlink(missing_ok=True)
 
 
-def _is_documentation_only_commit(paths: QueuePaths, commit: str) -> bool:
-    changed = git(
-        "diff-tree",
-        "--root",
-        "--no-commit-id",
-        "--name-only",
-        "-r",
-        commit,
-        cwd=paths.repo_root,
-    ).stdout.splitlines()
-    return bool(changed) and all(
-        path in {"README.md", "README-ko.md"} or path.startswith("docs/") for path in changed
-    )
-
-
-def _select_cohort(paths: QueuePaths, remaining: list[str], *, mode: str) -> list[str]:
-    if mode != "fast":
-        return remaining
-    first = remaining[0]
-    parent = validation_base(paths, first)
-    parent_is_validated = (paths.receipts / f"{parent}.json").is_file()
-    if not parent_is_validated or not _is_documentation_only_commit(paths, first):
-        return remaining[:MAX_COMMITS_PER_COHORT]
-
-    cohort: list[str] = []
-    for commit in remaining[:MAX_COMMITS_PER_COHORT]:
-        if not _is_documentation_only_commit(paths, commit):
-            break
-        cohort.append(commit)
-    return cohort
-
-
-def _run_cohort(
+def _run_batch(
     paths: QueuePaths,
     mode: str,
     *,
@@ -232,7 +198,7 @@ def _run_cohort(
     selected: list[str],
     history_commits: list[str],
 ) -> int:
-    """Validate one bounded pending cohort against its immutable last commit."""
+    """Validate one pending batch against its immutable newest commit."""
     base = validation_base(paths, selected[0])
     revision_range = f"{base}..{head}"
     started_at = datetime.now(UTC).isoformat()
@@ -436,6 +402,44 @@ def _run_cohort(
         )
 
 
+def _localize_failure(
+    paths: QueuePaths,
+    mode: str,
+    *,
+    selected: list[str],
+    history_commits: list[str],
+    positions: dict[str, int],
+    status: int,
+) -> int:
+    """Receipt the longest passing prefix of a failed batch and name the culprit."""
+    passing = 0
+    failing = len(selected)
+    while failing - passing > 1:
+        middle = (passing + failing) // 2
+        head = selected[middle - 1]
+        print(
+            f"validation-queue: localizing failure across {failing - passing} commit(s) "
+            f"at {head[:12]}"
+        )
+        result = _run_batch(
+            paths,
+            mode,
+            head=head,
+            selected=selected[:middle],
+            history_commits=history_commits[: positions[head] + 1],
+        )
+        if result == 0:
+            passing = middle
+        else:
+            failing = middle
+            status = result
+    print(
+        f"validation-queue: first failing pending commit is {selected[passing][:12]}; "
+        f"{passing} earlier commit(s) received receipts"
+    )
+    return status
+
+
 def _run_locked(paths: QueuePaths, mode: str, *, target: str | None = None) -> int:
     queue_head = resolve_commit(paths, target or "HEAD")
     pending = pending_commits(paths)
@@ -446,30 +450,25 @@ def _run_locked(paths: QueuePaths, mode: str, *, target: str | None = None) -> i
         print("validation-queue: no pending commits reachable from HEAD")
         return 0
 
-    history_positions = {commit: index for index, commit in enumerate(history_commits)}
-    remaining = selected
-    while remaining:
-        cohort = _select_cohort(paths, remaining, mode=mode)
-        while True:
-            cohort_head = cohort[-1]
-            cohort_history = history_commits[: history_positions[cohort_head] + 1]
-            result = _run_cohort(
-                paths,
-                mode,
-                head=cohort_head,
-                selected=cohort,
-                history_commits=cohort_history,
-            )
-            if result == 0:
-                break
-            if len(cohort) == len(remaining):
-                return result
-            cohort.append(remaining[len(cohort)])
-            print(
-                f"validation-queue: expanding failed cohort through pending fix {cohort[-1][:12]}"
-            )
-        remaining = remaining[len(cohort) :]
-    return 0
+    positions = {commit: index for index, commit in enumerate(history_commits)}
+    head = selected[-1]
+    status = _run_batch(
+        paths,
+        mode,
+        head=head,
+        selected=selected,
+        history_commits=history_commits[: positions[head] + 1],
+    )
+    if status == 0 or mode != "fast" or len(selected) == 1:
+        return status
+    return _localize_failure(
+        paths,
+        mode,
+        selected=selected,
+        history_commits=history_commits,
+        positions=positions,
+        status=status,
+    )
 
 
 def _run_record(

@@ -274,14 +274,15 @@ def _last_failed_stage(paths: QueuePaths, commit: str) -> str | None:
 
 
 def _last_reachable_failed_stage(paths: QueuePaths, head: str) -> str | None:
+    """Describe the earliest reachable pending snapshot that failed validation."""
     pending = pending_commits(paths)
-    history = git("rev-list", head, cwd=paths.repo_root).stdout.splitlines()
+    history = git("rev-list", "--reverse", head, cwd=paths.repo_root).stdout.splitlines()
     for commit in history:
         if commit not in pending:
             continue
         failed_stage = _last_failed_stage(paths, commit)
         if failed_stage is not None:
-            return failed_stage
+            return f"{failed_stage} on {commit[:12]}"
     return None
 
 

@@ -18,12 +18,12 @@ release boundary. Do not invoke `scripts/verify.sh`, broad pytest, operator buil
 repository-wide checks directly; the queue runner owns resource limits, isolation, locking, and
 receipts.
 
-One run drains reachable commits in bounded oldest-first cohorts. Each cohort validates its
-immutable last commit and receives full dependency, fast-gate, structural-gate, and changed-test
-evidence before any receipt is written. A documentation-only prefix with a validated parent closes
-before later source commits. A failed cohort expands through subsequent pending fixes until the
-smallest passing descendant snapshot is found. Intermediate stage success is progress metadata,
-not a push receipt.
+One run validates every reachable pending commit as one newest-first snapshot, so unrelated
+sessions receive receipts from a single batch. Each snapshot receives full dependency, fast-gate,
+structural-gate, and changed-test evidence before any receipt is written. A broken commit that a
+later pending commit already fixes passes inside that same batch. When the batch fails, the runner
+bisects the pending list, receipts the longest passing prefix, and names the
+first failing pending commit. Intermediate stage success is progress metadata, not a push receipt.
 
 Background drain always targets the commit in the shared wake request, even when another linked
 worktree owns the validator process. The process worktree never selects the validation branch.
