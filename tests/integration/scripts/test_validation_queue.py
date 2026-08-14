@@ -145,6 +145,7 @@ def git_repo(tmp_path: Path) -> Path:
         'test "$UV_NO_SYNC" = 1 || exit 13\n'
         'printf "verify:%s\\n" "$*" >> "$FDAI_VALIDATION_TEST_LOG"\n'
         '[[ "$(git rev-parse HEAD)" != "${FDAI_VALIDATION_VERIFY_FAIL_AT_HEAD:-}" ]] || exit 17\n'
+        '[[ "${FDAI_VALIDATION_VERIFY_FAIL_WITH_MARKER:-0}" != 1 || ! -f broken.txt ]] || exit 17\n'
         '[[ "${FDAI_VALIDATION_VERIFY_FAIL:-0}" != 1 ]] || exit 17\n',
         encoding="utf-8",
     )
@@ -333,11 +334,11 @@ def test_run_batches_pending_commits_and_records_receipts(git_repo: Path, tmp_pa
     assert (state_root / "worktree").is_dir()
 
 
-def test_run_validates_pending_commits_in_bounded_oldest_first_cohorts(
+def test_run_validates_every_reachable_pending_commit_in_one_snapshot(
     git_repo: Path, tmp_path: Path
 ) -> None:
     script = git_repo / "scripts" / "automation" / "validation_queue.py"
-    log_path = tmp_path / "bounded-validation.log"
+    log_path = tmp_path / "batched-validation.log"
     commits: list[str] = []
     for index in range(7):
         (git_repo / "source.txt").write_text(f"change {index}\n", encoding="utf-8")
@@ -360,34 +361,32 @@ def test_run_validates_pending_commits_in_bounded_oldest_first_cohorts(
     receipts = [
         json.loads((state_root / "receipts" / f"{commit}.json").read_text()) for commit in commits
     ]
-    assert {receipt["validated_head"] for receipt in receipts[:5]} == {commits[4]}
-    assert {receipt["validated_head"] for receipt in receipts[5:]} == {commits[6]}
+    assert {receipt["validated_head"] for receipt in receipts} == {commits[-1]}
     assert not any((state_root / "pending" / f"{commit}.json").exists() for commit in commits)
+    log_lines = log_path.read_text(encoding="utf-8").splitlines()
+    assert len([line for line in log_lines if line.startswith("verify:")]) == 1
 
 
-def test_validated_parent_docs_lane_closes_before_a_later_source_commit(
-    git_repo: Path, tmp_path: Path
-) -> None:
+def test_failed_batch_receipts_its_longest_passing_prefix(git_repo: Path, tmp_path: Path) -> None:
     script = git_repo / "scripts" / "automation" / "validation_queue.py"
-    log_path = tmp_path / "docs-lane-validation.log"
-    parent = _run(git_repo, "git", "rev-parse", "HEAD").stdout.strip()
-    state_root = git_repo / ".git" / "fdai-validation-queue"
-    receipts_dir = state_root / "receipts"
-    receipts_dir.mkdir(parents=True)
-    (receipts_dir / f"{parent}.json").write_text("{}\n", encoding="utf-8")
-
+    log_path = tmp_path / "localized-validation.log"
     docs_path = git_repo / "docs/guide.md"
     docs_path.parent.mkdir()
     docs_path.write_text("# Guide\n", encoding="utf-8")
-    assert _run(git_repo, "git", "add", str(docs_path)).returncode == 0
-    assert _run(git_repo, "git", "commit", "--quiet", "-m", "docs").returncode == 0
-    docs_commit = _run(git_repo, "git", "rev-parse", "HEAD").stdout.strip()
-
-    (git_repo / "source.txt").write_text("source change\n", encoding="utf-8")
-    assert _run(git_repo, "git", "add", "source.txt").returncode == 0
-    assert _run(git_repo, "git", "commit", "--quiet", "-m", "source").returncode == 0
-    source_commit = _run(git_repo, "git", "rev-parse", "HEAD").stdout.strip()
-    for commit in (docs_commit, source_commit):
+    (git_repo / "broken.txt").write_text("broken\n", encoding="utf-8")
+    staged = (
+        ("docs", str(docs_path)),
+        ("source", "source.txt"),
+        ("broken", "broken.txt"),
+        ("later", "source.txt"),
+    )
+    commits: list[str] = []
+    for message, path in staged:
+        (git_repo / "source.txt").write_text(f"{message}\n", encoding="utf-8")
+        assert _run(git_repo, "git", "add", path).returncode == 0
+        assert _run(git_repo, "git", "commit", "--quiet", "-m", message).returncode == 0
+        commit = _run(git_repo, "git", "rev-parse", "HEAD").stdout.strip()
+        commits.append(commit)
         assert _run(git_repo, "python3", str(script), "enqueue", commit).returncode == 0
 
     validated = _run(
@@ -395,20 +394,21 @@ def test_validated_parent_docs_lane_closes_before_a_later_source_commit(
         "python3",
         str(script),
         "run",
-        env={"FDAI_VALIDATION_TEST_LOG": str(log_path)},
+        env={
+            "FDAI_VALIDATION_TEST_LOG": str(log_path),
+            "FDAI_VALIDATION_VERIFY_FAIL_WITH_MARKER": "1",
+        },
     )
 
-    assert validated.returncode == 0, validated.stderr
-    docs_receipt = json.loads((receipts_dir / f"{docs_commit}.json").read_text())
-    source_receipt = json.loads((receipts_dir / f"{source_commit}.json").read_text())
-    assert docs_receipt["validated_head"] == docs_commit
-    assert source_receipt["validated_head"] == source_commit
-    assert [stage["name"] for stage in docs_receipt["stages"]] == [
-        "dependency-sync",
-        "fast-gates",
-        "structural-gates",
-        "changed-tests",
+    assert validated.returncode != 0
+    state_root = git_repo / ".git" / "fdai-validation-queue"
+    passing_receipts = [
+        json.loads((state_root / "receipts" / f"{commit}.json").read_text())
+        for commit in commits[:2]
     ]
+    assert {receipt["validated_head"] for receipt in passing_receipts} == {commits[1]}
+    assert all((state_root / "pending" / f"{commit}.json").exists() for commit in commits[2:])
+    assert f"first failing pending commit is {commits[2][:12]}" in validated.stdout
 
 
 def test_full_validation_keeps_one_snapshot_for_all_pending_commits(
@@ -443,11 +443,11 @@ def test_full_validation_keeps_one_snapshot_for_all_pending_commits(
     assert validated_heads == {commits[-1]}
 
 
-def test_failed_bounded_cohort_expands_through_a_pending_fix(
+def test_a_pending_fix_validates_its_broken_ancestor_in_one_snapshot(
     git_repo: Path, tmp_path: Path
 ) -> None:
     script = git_repo / "scripts" / "automation" / "validation_queue.py"
-    log_path = tmp_path / "expanded-validation.log"
+    log_path = tmp_path / "fixed-validation.log"
     commits: list[str] = []
     for index in range(6):
         (git_repo / "source.txt").write_text(f"expanded {index}\n", encoding="utf-8")
@@ -472,7 +472,8 @@ def test_failed_bounded_cohort_expands_through_a_pending_fix(
     state_root = git_repo / ".git" / "fdai-validation-queue"
     first_receipt = json.loads((state_root / "receipts" / f"{commits[0]}.json").read_text())
     assert first_receipt["validated_head"] == commits[5]
-    assert "expanding failed cohort through pending fix" in validated.stdout
+    log_lines = log_path.read_text(encoding="utf-8").splitlines()
+    assert len([line for line in log_lines if line.startswith("verify:")]) == 1
 
 
 def test_linked_worktree_uses_the_shared_git_queue(git_repo: Path, tmp_path: Path) -> None:
@@ -795,7 +796,10 @@ def test_status_reports_a_failed_earlier_pending_cohort(git_repo: Path) -> None:
     blocked = _run(git_repo, "python3", str(script), "check-commit", later_commit)
 
     assert "validator failed at structural-gates" in status.stdout
-    assert "Last background validation failed at structural-gates." in blocked.stderr
+    assert (
+        f"Last background validation failed at structural-gates on {failed_commit[:12]}."
+        in blocked.stderr
+    )
 
 
 def test_concurrent_enqueue_of_same_commit_is_atomic(git_repo: Path) -> None:
@@ -960,8 +964,10 @@ def test_validator_agent_is_read_execute_only_and_uses_make_facade() -> None:
     assert config["agents"] == []
     assert config["user-invocable"] is True
     assert "Post-commit normally wakes a low-priority background validator" in body
-    assert "bounded oldest-first cohorts" in body
-    assert "smallest passing descendant snapshot" in body
+    assert "one newest-first snapshot" in body
+    assert "bisects the pending list" in body
+    assert "longest passing prefix" in body
+    assert "first failing pending commit" in body
     assert "Intermediate stage success is progress metadata" in body
     assert "not a push receipt" in body
     assert "shared wake request" in body
