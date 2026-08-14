@@ -275,6 +275,42 @@ def test_progress_updates_require_monotonic_canonical_final_snapshot() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    "channel_kind",
+    (ConversationChannelKind.TEAMS, ConversationChannelKind.SLACK),
+)
+def test_teams_and_slack_preserve_the_same_canonical_terminal_reduction(
+    channel_kind: ConversationChannelKind,
+) -> None:
+    canonical_text = (
+        "Three correlated records were verified.\n\n"
+        "Limitations: Root cause and impact evidence are unavailable."
+    )
+    response = _response(
+        channel_kind=channel_kind,
+        status="verified",
+        text=canonical_text,
+        data={
+            "limitations": ["root_cause_unavailable", "impact_evidence_unavailable"],
+            "execution_authority": False,
+        },
+        evidence_refs=("audit:correlation-records",),
+        progress_updates=(
+            ChannelProgressUpdate(0, ChannelProgressStatus.RUNNING, "Checking evidence", 0),
+            ChannelProgressUpdate(1, ChannelProgressStatus.CONFIRMED, canonical_text, 0),
+        ),
+    )
+
+    restored = outbound_response_from_json(outbound_response_to_json(response))
+
+    assert restored.channel_kind is channel_kind
+    assert restored.text == canonical_text
+    assert restored.data == response.data
+    assert restored.evidence_refs == response.evidence_refs
+    assert restored.progress_updates == response.progress_updates
+    assert restored.data["execution_authority"] is False
+
+
 def test_durable_progress_rejects_scalar_coercion() -> None:
     response = _response(
         progress_updates=(

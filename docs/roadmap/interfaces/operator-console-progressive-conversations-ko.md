@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 4d84c4b404eb43b70a40d48618d01f35c13809bd
+translation_source_sha: a648901bbc442c2934ed06ad6dd6d0c3aae18ce8
 translation_revised: 2026-08-14
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -16,6 +16,7 @@ translation_revised: 2026-08-14
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | Web 점진적 스트림 집약 | 구현됨 | [`backend-stream.ts`](../../../console/src/deck/backend-stream.ts), [`backend-stream-fallback.test.ts`](../../../console/src/deck/backend-stream-fallback.test.ts), [`backend-stream-v1-contract.test.ts`](../../../console/src/deck/backend-stream-v1-contract.test.ts) | 집중 테스트는 순서가 있는 프레임, 재생 거부, 가지 수명 주기, 확정된 개정판, 부분 턴을 다룹니다. 이 행은 Teams 또는 Slack 런타임 검증을 주장하지 않습니다. |
+| 채널 중립적 최종 집약 | 구현됨 | [`conversation_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_channel.py), [`test_rich_contract.py`](../../../services/core-control-plane/tests/delivery/channels/test_rich_contract.py) | 집중 계약 테스트 36개가 통과했습니다. Teams와 Slack은 영속 재생 전체에서 동일한 정본 답변, 제한, 근거 참조, `execution_authority=false`, 단조 증가하는 최종 확정 갱신을 보존합니다. 운영 A3 게시자나 통제된 채널 런타임 증적을 주장하지 않습니다. |
 | 드로어 표현 및 새 대화 정체성 | 진행 중 | [`use-command-deck-sessions.ts`](../../../console/src/deck/use-command-deck-sessions.ts), [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | Console은 저장된 드로어 표시 여부와 독립적으로 새 세션을 만들며, 라이브 테스트는 이제 새 대화에서 요청을 격리합니다. 인증된 런타임 증적 통과가 아직 필요합니다. |
 | 통제된 4단계 온톨로지 증적 | 진행 중 | [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | 요청부터 Console까지 이어지는 검증은 있지만, `검증됨`을 뒷받침하는 새 보존 통과 산출물은 없습니다. |
 | 의미 명확화 표현 | 구현됨 | [`verification-presentation.ts`](../../../console/src/deck/verification-presentation.ts), [`verification-presentation.test.ts`](../../../console/src/deck/verification-presentation.test.ts) | `semantic_clarification_required`를 `Context required`로 표시하며 Console 집중 테스트 13개가 통과했습니다. 분류는 제어 평면이 실제로 방출하는 이유 코드만 다룹니다. 인증되고 보존된 증적은 열린 항목으로 남아 있습니다. |
@@ -33,6 +34,7 @@ translation_revised: 2026-08-14
 | 2026-08-14 | 구현됨 | 정본 top-level locale을 전달하고, 재생성 history를 원래 질문 경계로 제한하고, 검증된 의미 요청 신원을 한 번 재생하고, 해당 신원을 Operator 멱등성에 결속하고, 반복되는 Azure throttling 또는 schema-invalid 후보를 범위 안에서 재시도하도록 했습니다. | `current change`, Console stream, normalizer, session 및 event 집중 검사 128개와 Azure 의미 계획 adapter 검사 5개가 통과했고 Console 타입 검사와 작업 범위 Ruff가 통과했습니다. 보존된 인증 한국어 Browser working-tree 실행은 두 턴 모두 `request_identity_replayed=true`이고 Core 계획 수명 주기 5단계가 정확히 한 번인 상태로 통과했습니다. | 이 변경을 커밋하고 중앙 검증한 뒤 exact-source 인증 Browser 산출물을 보존합니다. Teams 및 Slack 집약 증적은 열린 상태로 유지합니다. |
 | 2026-08-14 | 구현됨 | Submit 시점에 원래 view snapshot을 deep clone해 route refresh가 검증된 요청 재생에 결속된 내용을 변경하지 못하게 했습니다. | `current change`, Console session 집중 검사 16개와 Console 타입 검사가 통과했고 request snapshot mutation 회귀에서 중첩된 fact 및 record 값이 보존됐습니다. | Provider capacity가 오염시키지 않는 첫 턴을 허용할 때 post-validation 인증 Browser 산출물을 보존합니다. |
 | 2026-08-14 | 검증됨 | 구현 커밋의 중앙 검증 뒤 인증된 한국어 의미 표현 및 재생성 산출물을 보존했습니다. | Source revision `7f2b740b1` 및 `244d003ef`에 중앙 receipt가 있습니다. 보존된 post-validation 산출물은 `passed=true`, 보호된 요청 2개, 진행 단계 5개, 표현 slot 3개, 일치하는 요청·바인딩·기술 출력 digest, 읽기 전용 권한, Core 계획 수명 주기 5단계 1회를 기록합니다. | Teams 및 Slack 집약 receipt, 별도 4단계 receipt, 이중 언어 100-case 집단은 열린 상태로 유지합니다. |
+| 2026-08-14 | 구현됨 | 채널 중립적 최종 집약기에 명시적인 Teams 및 Slack 동등성 검사를 추가했습니다. | `current change`, [`test_rich_contract.py`](../../../services/core-control-plane/tests/delivery/channels/test_rich_contract.py)의 집중 검사 36개가 통과했고 두 채널 종류에서 정본 내용, 제한, 근거 참조, 실행 권한 없음, 최종 확정 갱신을 보존했습니다. | 통제된 Teams 및 Slack 런타임 증적을 보존하기 전에 운영 A3 게시자를 구현하고 실행합니다. |
 
 ### 남은 작업
 
