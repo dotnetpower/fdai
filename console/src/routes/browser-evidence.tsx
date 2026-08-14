@@ -13,34 +13,65 @@ import {
 } from "../components/ui";
 import { t } from "../i18n";
 import { routeHref } from "../router";
+import { formatConsoleTimestamp, isRfc3339Timestamp } from "../time-format";
 import {
   panelArray,
   panelBoolean,
   panelNonEmptyString,
   panelNonNegativeInteger,
+  panelNullableString,
   panelRecord,
-  panelStringArray,
 } from "./panel-decode";
 
 export interface BrowserEvidenceRow {
   readonly artifact_id: string;
   readonly policy_ref: string;
   readonly source_host: string;
+  readonly final_host: string;
   readonly captured_at: string;
   readonly expires_at: string;
+  readonly selector_count: number;
   readonly redaction_count: number;
-  readonly prompt_injection_findings: readonly string[];
-  readonly content_digest: string;
+  readonly prompt_injection_finding_count: number;
+  readonly hash_count: number;
+  readonly browser_version: string;
   readonly custody_ref: string;
   readonly isolation_verified: boolean;
+  readonly untrusted: boolean;
+  readonly legal_hold: boolean;
+  readonly legal_hold_ref: string | null;
+  readonly legal_hold_at: string | null;
 }
 
 export interface BrowserEvidenceResponse {
-  readonly read_only: boolean;
-  readonly shadow_only: boolean;
+  readonly surface: "browser-evidence";
   readonly count: number;
-  readonly artifacts: readonly BrowserEvidenceRow[];
+  readonly items: readonly BrowserEvidenceRow[];
 }
+
+const ROOT_KEYS = new Set(["surface", "items", "count"]);
+const ITEM_KEYS = new Set([
+  "artifact_id",
+  "policy_id",
+  "policy_version",
+  "source_url",
+  "final_url",
+  "captured_at",
+  "expires_at",
+  "selector_count",
+  "screenshot_hash",
+  "text_hash",
+  "snapshot_hash",
+  "redaction_count",
+  "browser_version",
+  "custody_audit_ref",
+  "prompt_injection_finding_count",
+  "isolation_verified",
+  "untrusted",
+  "legal_hold",
+  "legal_hold_ref",
+  "legal_hold_at",
+]);
 
 export function BrowserEvidenceRoute({ client }: { readonly client: OperatorApiClient }) {
   const [state, setState] = useState<AsyncState<BrowserEvidenceResponse>>({
@@ -48,22 +79,9 @@ export function BrowserEvidenceRoute({ client }: { readonly client: OperatorApiC
   });
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      try {
-        const data = decodeBrowserEvidence(await client.panel<unknown>("/browser-evidence"));
-        if (!cancelled) setState({ status: "ready", data });
-      } catch (error) {
-        if (cancelled) return;
-        if (isOptionalOperatorApiUnavailable(error)) {
-          setState({ status: "unavailable", message: "Browser evidence is not wired." });
-        } else {
-          setState({
-            status: "error",
-            message: error instanceof Error ? error.message : String(error),
-          });
-        }
-      }
-    })();
+    void loadBrowserEvidenceState(client).then((next) => {
+      if (!cancelled) setState(next);
+    });
     return () => { cancelled = true; };
   }, [client]);
 
@@ -73,74 +91,180 @@ export function BrowserEvidenceRoute({ client }: { readonly client: OperatorApiC
         title={t("route.browserEvidence")}
         subtitle={t("browserEvidence.subtitle")}
       />
-      <AsyncBoundary state={state} resourceLabel="browser evidence">
+      <AsyncBoundary state={state} resourceLabel={t("browserEvidence.resourceLabel")}>
         {(data) => <BrowserEvidenceBody data={data} />}
       </AsyncBoundary>
     </div>
   );
 }
 
-export function decodeBrowserEvidence(value: unknown): BrowserEvidenceResponse {
-  const root = panelRecord(value, "browser evidence");
-  const readOnly = panelBoolean(root, "read_only", "browser evidence");
-  const shadowOnly = panelBoolean(root, "shadow_only", "browser evidence");
-  const captureControls = panelBoolean(root, "capture_controls", "browser evidence");
-  const promotionControls = panelBoolean(root, "promotion_controls", "browser evidence");
-  const mutationControls = panelBoolean(root, "mutation_controls", "browser evidence");
-  if (!readOnly || !shadowOnly || captureControls || promotionControls || mutationControls) {
-    throw new OperatorApiError(502, "invalid Operator API response: browser evidence MUST be read-only and shadow-only");
+export async function loadBrowserEvidenceState(
+  client: Pick<OperatorApiClient, "panel">,
+): Promise<AsyncState<BrowserEvidenceResponse>> {
+  try {
+    return {
+      status: "ready",
+      data: decodeBrowserEvidence(await client.panel<unknown>("/browser-evidence")),
+    };
+  } catch (error) {
+    if (isOptionalOperatorApiUnavailable(error)) {
+      return { status: "unavailable", message: t("browserEvidence.unavailable") };
+    }
+    return {
+      status: "error",
+      message: error instanceof Error ? error.message : String(error),
+    };
   }
-  const artifacts = panelArray(root["artifacts"], "browser evidence.artifacts")
-    .map((item, index) => decodeArtifact(item, index));
-  const count = panelNonNegativeInteger(root, "count", "browser evidence");
-  if (count !== artifacts.length) {
-    throw new OperatorApiError(502, "invalid Operator API response: browser evidence count MUST match rows");
-  }
-  return { read_only: readOnly, shadow_only: shadowOnly, count, artifacts };
 }
 
-function decodeArtifact(value: unknown, index: number): BrowserEvidenceRow {
-  const row = panelRecord(value, `browser evidence[${index}]`);
-  const sourceUrl = panelNonEmptyString(row, "canonical_source_url", "browser evidence");
-  let sourceHost: string;
-  try {
-    const parsed = new URL(sourceUrl);
-    if (parsed.protocol !== "https:") throw new Error("HTTPS required");
-    sourceHost = parsed.host;
-  } catch {
-    throw new OperatorApiError(502, "invalid Operator API response: browser evidence source URL MUST be HTTPS");
+export function decodeBrowserEvidence(value: unknown): BrowserEvidenceResponse {
+  const root = panelRecord(value, "browser evidence");
+  requireExactKeys(root, ROOT_KEYS, "browser evidence");
+  if (panelNonEmptyString(root, "surface", "browser evidence") !== "browser-evidence") {
+    throw new OperatorApiError(502, "invalid Operator API response: browser evidence surface is invalid");
   }
-  if (panelBoolean(row, "can_authorize_action", "browser evidence")) {
-    throw new OperatorApiError(502, "invalid Operator API response: browser evidence cannot authorize action");
+  const rawItems = panelArray(root["items"], "browser evidence.items");
+  if (rawItems.length > 500) {
+    throw new OperatorApiError(502, "invalid Operator API response: browser evidence items exceed 500");
+  }
+  const items = rawItems.map((item, index) => decodeItem(item, index));
+  const count = panelNonNegativeInteger(root, "count", "browser evidence");
+  if (count !== items.length) {
+    throw new OperatorApiError(502, "invalid Operator API response: browser evidence count MUST match rows");
+  }
+  return { surface: "browser-evidence", count, items };
+}
+
+function decodeItem(value: unknown, index: number): BrowserEvidenceRow {
+  const row = panelRecord(value, `browser evidence[${index}]`);
+  requireExactKeys(row, ITEM_KEYS, `browser evidence[${index}]`);
+  const artifactId = panelNonEmptyString(row, "artifact_id", "browser evidence");
+  if (!/^sha256:[0-9a-f]{64}$/.test(artifactId)) {
+    throw new OperatorApiError(502, "invalid Operator API response: browser evidence artifact id is invalid");
+  }
+  const policyVersion = positiveInteger(row, "policy_version");
+  const sourceHost = httpsHost(panelNonEmptyString(row, "source_url", "browser evidence"));
+  const finalHost = httpsHost(panelNonEmptyString(row, "final_url", "browser evidence"));
+  const capturedAt = timestamp(row, "captured_at");
+  const expiresAt = timestamp(row, "expires_at");
+  if (Date.parse(capturedAt) >= Date.parse(expiresAt)) {
+    throw new OperatorApiError(502, "invalid Operator API response: browser evidence retention window is invalid");
   }
   if (!panelBoolean(row, "untrusted", "browser evidence")) {
     throw new OperatorApiError(502, "invalid Operator API response: browser evidence MUST be untrusted");
   }
+  if (!panelBoolean(row, "isolation_verified", "browser evidence")) {
+    throw new OperatorApiError(502, "invalid Operator API response: browser evidence isolation MUST be verified");
+  }
+  const legalHold = panelBoolean(row, "legal_hold", "browser evidence");
+  const legalHoldRef = optionalNonEmptyString(row, "legal_hold_ref");
+  const legalHoldAt = optionalTimestamp(row, "legal_hold_at");
+  if (
+    (legalHold && (legalHoldRef === null || legalHoldAt === null))
+    || (!legalHold && (legalHoldRef !== null || legalHoldAt !== null))
+  ) {
+    throw new OperatorApiError(502, "invalid Operator API response: browser evidence legal hold is inconsistent");
+  }
+  const hashes = ["screenshot_hash", "text_hash", "snapshot_hash"]
+    .map((key) => optionalHash(row, key));
   return {
-    artifact_id: panelNonEmptyString(row, "artifact_id", "browser evidence"),
-    policy_ref: `${panelNonEmptyString(row, "policy_id", "browser evidence")}@${panelNonNegativeInteger(row, "policy_version", "browser evidence")}`,
+    artifact_id: artifactId,
+    policy_ref: `${panelNonEmptyString(row, "policy_id", "browser evidence")}@${policyVersion}`,
     source_host: sourceHost,
-    captured_at: panelNonEmptyString(row, "captured_at", "browser evidence"),
-    expires_at: panelNonEmptyString(row, "expires_at", "browser evidence"),
+    final_host: finalHost,
+    captured_at: capturedAt,
+    expires_at: expiresAt,
+    selector_count: panelNonNegativeInteger(row, "selector_count", "browser evidence"),
     redaction_count: panelNonNegativeInteger(row, "redaction_count", "browser evidence"),
-    prompt_injection_findings: panelStringArray(row["prompt_injection_findings"], "browser evidence.prompt injection findings"),
-    content_digest: panelNonEmptyString(row, "content_digest", "browser evidence"),
-    custody_ref: panelNonEmptyString(row, "chain_of_custody_audit_ref", "browser evidence"),
-    isolation_verified: panelBoolean(row, "isolation_verified", "browser evidence"),
+    prompt_injection_finding_count: panelNonNegativeInteger(row, "prompt_injection_finding_count", "browser evidence"),
+    hash_count: hashes.filter((hash) => hash !== null).length,
+    browser_version: panelNonEmptyString(row, "browser_version", "browser evidence"),
+    custody_ref: panelNonEmptyString(row, "custody_audit_ref", "browser evidence"),
+    isolation_verified: true,
+    untrusted: true,
+    legal_hold: legalHold,
+    legal_hold_ref: legalHoldRef,
+    legal_hold_at: legalHoldAt,
   };
+}
+
+function requireExactKeys(
+  value: Readonly<Record<string, unknown>>,
+  allowed: ReadonlySet<string>,
+  label: string,
+): void {
+  const unsupported = Object.keys(value).find((key) => !allowed.has(key));
+  if (unsupported) {
+    throw new OperatorApiError(502, `invalid Operator API response: ${label}.${unsupported} is not allowed`);
+  }
+}
+
+function positiveInteger(row: Readonly<Record<string, unknown>>, key: string): number {
+  const value = panelNonNegativeInteger(row, key, "browser evidence");
+  if (value < 1) {
+    throw new OperatorApiError(502, `invalid Operator API response: browser evidence.${key} MUST be positive`);
+  }
+  return value;
+}
+
+function httpsHost(value: string): string {
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.hash) {
+      throw new Error("invalid HTTPS metadata URL");
+    }
+    return parsed.host;
+  } catch {
+    throw new OperatorApiError(502, "invalid Operator API response: browser evidence URL MUST be canonical HTTPS");
+  }
+}
+
+function timestamp(row: Readonly<Record<string, unknown>>, key: string): string {
+  const value = panelNonEmptyString(row, key, "browser evidence");
+  if (!isRfc3339Timestamp(value)) {
+    throw new OperatorApiError(502, `invalid Operator API response: browser evidence.${key} MUST be RFC 3339`);
+  }
+  return value;
+}
+
+function optionalTimestamp(row: Readonly<Record<string, unknown>>, key: string): string | null {
+  const value = panelNullableString(row, key, "browser evidence");
+  if (value !== null && !isRfc3339Timestamp(value)) {
+    throw new OperatorApiError(502, `invalid Operator API response: browser evidence.${key} MUST be RFC 3339 or null`);
+  }
+  return value;
+}
+
+function optionalNonEmptyString(
+  row: Readonly<Record<string, unknown>>,
+  key: string,
+): string | null {
+  const value = panelNullableString(row, key, "browser evidence");
+  if (value !== null && value.trim().length === 0) {
+    throw new OperatorApiError(502, `invalid Operator API response: browser evidence.${key} MUST NOT be empty`);
+  }
+  return value;
+}
+
+function optionalHash(row: Readonly<Record<string, unknown>>, key: string): string | null {
+  const value = panelNullableString(row, key, "browser evidence");
+  if (value !== null && !/^[0-9a-f]{64}$/.test(value)) {
+    throw new OperatorApiError(502, `invalid Operator API response: browser evidence.${key} is invalid`);
+  }
+  return value;
 }
 
 function BrowserEvidenceBody({ data }: { readonly data: BrowserEvidenceResponse }) {
   const artifactsHref = `${routeHref("browser-evidence")}#browser-evidence-artifacts`;
   const columns: readonly Column<BrowserEvidenceRow>[] = [
-    { key: "source", header: "Source", render: (row) => row.source_host },
-    { key: "policy", header: "Policy", render: (row) => row.policy_ref, cellClass: "mono" },
-    { key: "captured", header: "Captured", render: (row) => new Date(row.captured_at).toLocaleString() },
-    { key: "redactions", header: "Redactions", render: (row) => row.redaction_count, cellClass: "num" },
-    { key: "injection", header: "Untrusted content", render: (row) => row.prompt_injection_findings.length ? <StatusPill kind="warning" label={`${row.prompt_injection_findings.length} finding(s)`} /> : <StatusPill kind="success" label="scan clear" /> },
-    { key: "isolation", header: "Isolation", render: (row) => <StatusPill kind={row.isolation_verified ? "success" : "danger"} label={row.isolation_verified ? "verified" : "unverified"} /> },
-    { key: "digest", header: "Content digest", render: (row) => row.content_digest.slice(0, 16), cellClass: "mono" },
-    { key: "custody", header: "Custody", render: (row) => row.custody_ref, cellClass: "mono" },
+    { key: "source", header: t("browserEvidence.column.source"), render: (row) => row.source_host === row.final_host ? row.source_host : `${row.source_host} -> ${row.final_host}` },
+    { key: "policy", header: t("browserEvidence.column.policy"), render: (row) => row.policy_ref, cellClass: "mono" },
+    { key: "captured", header: t("browserEvidence.column.captured"), render: (row) => formatConsoleTimestamp(row.captured_at) },
+    { key: "expires", header: t("browserEvidence.column.expires"), render: (row) => formatConsoleTimestamp(row.expires_at) },
+    { key: "sanitization", header: t("browserEvidence.column.sanitization"), render: (row) => t("browserEvidence.sanitization", { selectors: row.selector_count, redactions: row.redaction_count, findings: row.prompt_injection_finding_count }) },
+    { key: "integrity", header: t("browserEvidence.column.integrity"), render: (row) => <span class="mono">{t("browserEvidence.integrity", { hashes: row.hash_count, custody: row.custody_ref })}</span> },
+    { key: "isolation", header: t("browserEvidence.column.isolation"), render: () => <StatusPill kind="success" label={t("browserEvidence.verified")} /> },
+    { key: "retention", header: t("browserEvidence.column.retention"), render: (row) => row.legal_hold ? <StatusPill kind="warning" label={t("browserEvidence.held")} /> : <StatusPill kind="neutral" label={t("browserEvidence.scheduled")} /> },
   ];
   return (
     <div class="stack">
@@ -150,12 +274,13 @@ function BrowserEvidenceBody({ data }: { readonly data: BrowserEvidenceResponse 
       </div>
       <KpiGrid>
         <KpiCard href={artifactsHref} label={t("browserEvidence.artifacts")} value={data.count} />
-        <KpiCard href={artifactsHref} label={t("browserEvidence.mode")} value={t("browserEvidence.shadow")} />
+        <KpiCard href={artifactsHref} label={t("browserEvidence.mode")} value={t("browserEvidence.metadataOnly")} />
+        <KpiCard href={artifactsHref} label={t("browserEvidence.legalHolds")} value={data.items.filter((row) => row.legal_hold).length} />
       </KpiGrid>
       <div id="browser-evidence-artifacts">
         <DataTable
           columns={columns}
-          rows={data.artifacts}
+          rows={data.items}
           keyOf={(row) => row.artifact_id}
           empty={t("browserEvidence.empty")}
         />
