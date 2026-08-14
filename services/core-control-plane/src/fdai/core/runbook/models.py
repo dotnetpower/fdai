@@ -64,6 +64,9 @@ class Runbook:
       branching is failure-only, a self-referential fallback would make the
       step unreachable and a backward fallback would record one step twice
       in a single run.
+    - A fallback step declares no ``on_failure`` of its own. The runner does
+      not chain fallbacks, so a chained declaration would be silently
+      unreachable rather than honored.
     """
 
     id: str
@@ -96,6 +99,14 @@ class Runbook:
                 raise RunbookRunError(
                     f"runbook {self.id!r} step {step.id!r} on_failure -> "
                     f"{step.on_failure!r} MUST appear later in the runbook"
+                )
+        fallback_ids = {step.on_failure for step in self.steps if step.on_failure is not None}
+        for step in self.steps:
+            if step.id in fallback_ids and step.on_failure is not None:
+                raise RunbookRunError(
+                    f"runbook {self.id!r} step {step.id!r} is a fallback and MUST NOT "
+                    f"declare its own on_failure {step.on_failure!r}; "
+                    "chained fallbacks are not executed"
                 )
 
 

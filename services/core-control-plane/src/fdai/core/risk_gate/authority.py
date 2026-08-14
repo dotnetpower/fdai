@@ -50,6 +50,42 @@ _LEVEL_TO_DECISION: dict[AxisLevel, str] = {
 
 
 @dataclass(frozen=True, slots=True)
+class CeilingInputs:
+    """The ceiling inputs the feature vector does not already carry.
+
+    Recorded verbatim on the audit entry so a replay reconstructs the same
+    six-axis ceiling from the record instead of re-reading a live probe or
+    re-observing control-plane health (execution-model.md 4.2).
+    """
+
+    principal_role: str | None
+    graph_affected: int | None
+    live_probe: LiveProbeObservation | None
+    live_probe_failure_streak: int
+    system_degraded: bool
+    kill_switch_engaged: bool
+
+    def as_audit_dict(self) -> dict[str, Any]:
+        probe = self.live_probe
+        return {
+            "principal_role": self.principal_role,
+            "graph_affected": self.graph_affected,
+            "live_probe": None
+            if probe is None
+            else {
+                "probe_id": probe.probe_id,
+                "verdict": probe.verdict.value,
+                "degraded": probe.degraded,
+                "age_seconds": probe.age_seconds,
+                "max_age_seconds": probe.max_age_seconds,
+            },
+            "live_probe_failure_streak": self.live_probe_failure_streak,
+            "system_degraded": self.system_degraded,
+            "kill_switch_engaged": self.kill_switch_engaged,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class ExecutionAuthorityDecision:
     """The single result of the unified pipeline."""
 
@@ -59,6 +95,7 @@ class ExecutionAuthorityDecision:
     table_verdict: RiskTableVerdict
     feature_vector: FeatureVector
     catalog_version: str
+    ceiling_inputs: CeilingInputs
 
     @property
     def decision(self) -> str:
@@ -83,7 +120,10 @@ class ExecutionAuthorityDecision:
         replay can re-evaluate the recorded signals against the exact
         risk-classification revision that classified the action, instead of
         against whatever the catalog says today (risk-classification.md
-        \N{SECTION SIGN} Audit).
+        \N{SECTION SIGN} Audit). ``ceiling_inputs`` carries the remaining
+        six-axis inputs - role, graph count, live-probe reading, and the two
+        fail-safe flags - so the replay never re-queries a probe or re-reads
+        control-plane health to reproduce the ceiling.
         """
         return {
             "decision": self.decision,
@@ -91,6 +131,7 @@ class ExecutionAuthorityDecision:
             "matched_rule_id": self.table_verdict.rule_id,
             "catalog_version": self.catalog_version,
             "feature_vector": self.feature_vector.as_lookup(),
+            "ceiling_inputs": self.ceiling_inputs.as_audit_dict(),
             "resolved_ceiling": self.resolved_ceiling.as_audit_dict(),
         }
 
@@ -178,7 +219,15 @@ def evaluate_execution_authority(
         table_verdict=verdict,
         feature_vector=feature,
         catalog_version=table.version,
+        ceiling_inputs=CeilingInputs(
+            principal_role=None if principal_role is None else str(principal_role),
+            graph_affected=graph_affected,
+            live_probe=live_probe_observation,
+            live_probe_failure_streak=live_probe_failure_streak,
+            system_degraded=system_degraded,
+            kill_switch_engaged=kill_switch_engaged,
+        ),
     )
 
 
-__all__ = ["ExecutionAuthorityDecision", "evaluate_execution_authority"]
+__all__ = ["CeilingInputs", "ExecutionAuthorityDecision", "evaluate_execution_authority"]

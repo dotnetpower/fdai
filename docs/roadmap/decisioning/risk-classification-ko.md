@@ -1,7 +1,7 @@
 ---
 title: 위험 분류 (자동 실행 vs 사람 승인 vs 차단)
 translation_of: risk-classification.md
-translation_source_sha: 1093f566dfdbda7f0f4da8bb0a3c7f336085c902
+translation_source_sha: 8cbb5cdb5b352f9be1baf45ef7378c021f3ed725
 translation_revised: 2026-08-14
 ---
 
@@ -38,6 +38,7 @@ translation_revised: 2026-08-14
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 이전 전달 이력을 재구성하지 않고 근거 범위 안에서 구현 원장을 도입했습니다. | `current change`; 범위 테이블에 나열된 현재 소스 및 집중 검사; 위험 관련 집중 검사 113건과 준비 상태 조정기 검사 33건이 통과했습니다. | 거버넌스 적용을 증명하고, 재현에 충분한 메타데이터를 추가하며, 관리되는 런타임 근거를 보존해야 합니다. |
 | 2026-08-14 | implemented | 정확한 특성 벡터와 위험 테이블 카탈로그 버전을 권한 감사 페이로드에 직렬화하여, 과거 판정이 자신을 분류한 리비전으로 재현되도록 했습니다. | `current change`; [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py); 권한, 평가기 및 control-loop 권한 집중 검사 43건이 통과했습니다. | 거버넌스 적용을 증명하고 관리되는 런타임 증적을 보존해야 합니다. |
+| 2026-08-14 | implemented | 나머지 상한 입력인 역할, 그래프 영향 개수, live probe 관측값, 두 개의 안전 플래그를 같은 감사 페이로드에 추가해, 재현이 probe를 다시 조회하거나 제어 평면 상태를 다시 읽지 않고도 6축 상한을 재구성하도록 했습니다. | `current change`; [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py); risk-gate, runbook, workflow, skills 및 control-loop 권한 집중 검사 438건이 통과했습니다. | 거버넌스 적용을 증명하고 관리되는 런타임 증적을 보존해야 합니다. |
 
 ### 남은 작업
 
@@ -266,10 +267,12 @@ catch-all. First-match wins이므로 가장 엄격한 적용 가능한 규칙이
 - 해당 액션을 분류한 `risk-classification.yaml` 리비전의 `catalog_version`.
 - 설정되지 않은 차원까지 포함한 `feature_vector` 스냅샷. 신호가 없었던 것인지
   누락된 것인지 구분할 수 있습니다.
+- `ceiling_inputs` 블록: 해석된 역할, 그래프 기반 영향 개수, 기록된 live probe
+  관측값과 연속 실패 횟수, 그리고 `system_degraded` 와 `kill_switch_engaged` 안전 플래그.
 
-마지막 두 필드가 재현을 자기완결적으로 만듭니다. 기록된 페이로드는 자신이 명시한
-테이블 버전으로 다시 평가되므로, 이후 카탈로그 변경이 과거 판정을 조용히 바꿔
-쓸 수 없습니다.
+마지막 세 항목이 재현을 자기완결적으로 만듭니다. 기록된 페이로드는 자신이 명시한
+테이블 버전과 자신이 담은 입력으로 다시 평가되므로, 이후 카탈로그 변경이 과거 판정을
+조용히 바꿔 쓸 수 없고 재현이 live probe를 다시 조회하지도 않습니다.
 
 향후 회고에서 매칭 규칙 id로 감사 로그를 필터링하여 과도하게 트리거된 규칙(예: "모든 prod
 변경이 HIL - 모든 것이 Rule 5에 걸림")을 식별하고, 같은 거버넌스 PR 흐름을 통해 개선을

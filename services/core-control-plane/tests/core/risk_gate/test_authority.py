@@ -6,6 +6,7 @@ from pathlib import Path
 
 from fdai.core.risk_gate.authority import evaluate_execution_authority
 from fdai.core.risk_gate.ceiling import AxisLevel
+from fdai.core.risk_gate.live_probe import LiveProbeObservation
 from fdai.core.risk_gate.risk_table import (
     FeatureVector,
     load_risk_table,
@@ -26,6 +27,7 @@ from fdai.shared.contracts.models import (
     Tier,
     TierCeiling,
 )
+from fdai.shared.providers.blast_probe import ProbeVerdict
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 TABLE_PATH = REPO_ROOT / "rule-catalog" / "risk-classification.yaml"
@@ -295,3 +297,89 @@ def test_recorded_payload_replays_against_its_own_catalog_version() -> None:
     # The same recorded signals against the newer table decide differently,
     # so the version stamp is what keeps the replay honest.
     assert tightened.evaluate(replayed_vector).rule_id == "hil-all-non-prod"
+
+
+def _probe_at() -> OntologyActionType:
+    return _low_risk_at().model_copy(update={"live_probe_ref": "vm_traffic_last_5m"})
+
+
+def test_audit_records_every_ceiling_input_the_feature_vector_omits() -> None:
+    observation = LiveProbeObservation(
+        probe_id="vm_traffic_last_5m",
+        verdict=ProbeVerdict.ACTIVE,
+        age_seconds=5.0,
+        max_age_seconds=60.0,
+    )
+    audit = evaluate_execution_authority(
+        tier=Tier.T0,
+        action_type=_probe_at(),
+        table=_table(),
+        principal_role=None,
+        environment="non-prod",
+        live_probe_observation=observation,
+        live_probe_failure_streak=1,
+        graph_affected=3,
+        system_degraded=True,
+        kill_switch_engaged=False,
+    ).as_audit_dict()
+
+    inputs = audit["ceiling_inputs"]
+    assert inputs["live_probe"] == {
+        "probe_id": "vm_traffic_last_5m",
+        "verdict": "active",
+        "degraded": False,
+        "age_seconds": 5.0,
+        "max_age_seconds": 60.0,
+    }
+    assert inputs["live_probe_failure_streak"] == 1
+    assert inputs["graph_affected"] == 3
+    assert inputs["system_degraded"] is True
+    assert inputs["kill_switch_engaged"] is False
+
+
+def test_recorded_probe_reading_replays_without_re_querying_the_probe() -> None:
+    original = evaluate_execution_authority(
+        tier=Tier.T0,
+        action_type=_probe_at(),
+        table=_table(),
+        principal_role=None,
+        environment="non-prod",
+        live_probe_observation=LiveProbeObservation(
+            probe_id="vm_traffic_last_5m",
+            verdict=ProbeVerdict.QUIET,
+            age_seconds=5.0,
+            max_age_seconds=60.0,
+        ),
+    )
+    recorded = original.as_audit_dict()["ceiling_inputs"]["live_probe"]
+
+    replayed = evaluate_execution_authority(
+        tier=Tier.T0,
+        action_type=_probe_at(),
+        table=_table(),
+        principal_role=None,
+        environment="non-prod",
+        live_probe_observation=LiveProbeObservation(
+            probe_id=recorded["probe_id"],
+            verdict=ProbeVerdict(recorded["verdict"]),
+            degraded=recorded["degraded"],
+            age_seconds=recorded["age_seconds"],
+            max_age_seconds=recorded["max_age_seconds"],
+        ),
+    )
+
+    assert replayed.as_audit_dict() == original.as_audit_dict()
+    # Losing the recorded reading must not replay as if the probe were quiet:
+    # an unavailable probe lowers the Axis-E contribution to HIL.
+    without_reading = evaluate_execution_authority(
+        tier=Tier.T0,
+        action_type=_probe_at(),
+        table=_table(),
+        principal_role=None,
+        environment="non-prod",
+    )
+    original_axis = original.as_audit_dict()["resolved_ceiling"]["axes"]["live_blast"]
+    blind_axis = without_reading.as_audit_dict()["resolved_ceiling"]["axes"]["live_blast"]
+    assert original_axis["level"] == "enforce_auto"
+    assert blind_axis["level"] == "enforce_hil"
+    assert "unavailable" in blind_axis["reason"]
