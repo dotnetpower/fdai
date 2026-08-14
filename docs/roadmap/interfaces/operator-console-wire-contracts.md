@@ -256,7 +256,10 @@ the narrator.
   FunctionTypes, ResourceTypes, active Rules, ActionTypes, Workflows, Pantheon Agents,
   SignalTypes, and Properties. Weighted communities support dependency exploration only; they
   never represent the semantic bands, evidence completeness, or authority. The topology and the
-  declaration views come from the same materialized projection.
+  declaration views come from the same materialized projection. On initial entry, nodes use one
+  deterministic 900 ms spring-settle toward their stored coordinates. Pointer or keyboard input
+  ends the effect immediately, reduced-motion preference skips it, and no simulation remains active
+  after settling.
 
 A **Context snapshot** is a separate, purpose-scoped runtime projection reached from an evidence,
 incident, or query receipt. It pins the ontology release, query profile, cutoff, object and link
@@ -291,6 +294,7 @@ registry and context views are read-only and issue no action or approval call.
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. | `current change`; current Operator, Core Python task, CLI, channel, Console, and focused test evidence listed in the scope table. | Close semantic confirmation, channel parity, and governed cross-contract evidence. |
 | 2026-08-14 | in-progress | Defined separate Semantic model, Catalog topology, and receipt-bound Context snapshot contracts instead of presenting one generated force graph as the operating ontology. | `current change`; paired Console contract documents and focused documentation gates. | Implement one exact-release producer and retain focused and authenticated Console evidence. |
+| 2026-08-14 | in-progress | Added a bounded deterministic spring-settle when Catalog topology first appears without changing its stored layout. Interaction and reduced-motion requests end or skip the effect, and no persistent simulation runs. | `current change`; `ontology-knowledge-graph.geometry.ts`, `ontology-knowledge-graph.renderer.ts`, `use-ontology-knowledge-graph-controller.ts`; focused Console topology tests report 12 passed and Console typecheck passed. | Retain the separately governed authenticated Context snapshot evidence described below. |
 
 ### Remaining work
 

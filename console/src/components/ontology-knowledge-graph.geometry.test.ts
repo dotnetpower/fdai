@@ -4,6 +4,7 @@ import {
   hitTestOntologyNode,
   ontologyArrowHead,
   ontologySelfLoop,
+  ontologySettledScreenPoint,
   ontologyWorldToScreen,
 } from "./ontology-knowledge-graph.geometry";
 import type { OntologyKnowledgeGraph } from "./ontology-knowledge-graph.model";
@@ -59,5 +60,17 @@ describe("ontology knowledge graph geometry", () => {
     expect(loop.control.y).toBeLessThan(86);
     expect(Math.hypot(loop.start.x - 100, loop.start.y - 100)).toBeGreaterThanOrEqual(14);
     expect(Math.hypot(loop.end.x - 100, loop.end.y - 100)).toBeGreaterThanOrEqual(14);
+  });
+
+  it("settles deterministically onto the exact layout point", () => {
+    const point = { x: 180, y: 120 };
+    const center = { x: 100, y: 100 };
+    const initial = ontologySettledScreenPoint(point, center, 0, "node-a");
+
+    expect(initial).toEqual(ontologySettledScreenPoint(point, center, 0, "node-a"));
+    expect(Math.hypot(initial.x - center.x, initial.y - center.y)).toBeLessThan(
+      Math.hypot(point.x - center.x, point.y - center.y),
+    );
+    expect(ontologySettledScreenPoint(point, center, 1, "node-a")).toEqual(point);
   });
 });

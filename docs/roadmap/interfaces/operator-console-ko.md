@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 0e5cb87b1420d7c392ecc5583361122fde50e93d
+translation_source_sha: 606cd4c16fb21518ba0dcd563d6f29ced8f3f408
 translation_revised: 2026-08-14
 ---
 
@@ -15,6 +15,7 @@ Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](cha
 [project-structure.md § 콘솔/](../architecture/project-structure-ko.md#console-static-web-app)에 있습니다. 근거 출처 이력, 스트림 복구, localization 및 아키텍처 지도 복원력은 [console-evidence-and-resilience-ko.md](console-evidence-and-resilience-ko.md)가 소유합니다. Login 초기화는 역할이 할당된 principal의 접근을 검증된 App 역할에서 도출하고 선택적 access-request 변환 결과를 요구하지 않으며, 역할이 없을 때 해당 변환 결과가 사용 불가이면 접근을 계속 차단합니다. 로컬 개발의 독립 서비스 어댑터는 모델 서술에만 Azure CLI를 사용할 수 있고 provider-read 또는 실행 권한은 없습니다. 온톨로지는 하나의 exact-release 레지스트리 변환 결과에서 검토된 의미 모델과 카탈로그 토폴로지를 제공합니다. 런타임 인스턴스는 보안 receipt를 기반으로 하는 별도의 목적 범위 컨텍스트 스냅샷에만 표시됩니다.
 Settings > Integrations에서는 합성 자리 표시자로 운영 incident-open 이메일 렌더러를 미리 볼 수 있습니다. 이 GET-only 미리 보기는 이메일을 보내거나 승인 또는 실행 권한을 부여하지 않습니다.
 선택적 Console 변환 결과에서는 타입이 지정된 `404`, `501`, source-gate `503` 응답을 사용 불가 상태로 표시합니다. 인증 실패, 예기치 않은 전송 또는 `500` 응답, 디코더 실패는 확인할 수 있는 오류로 유지합니다.
+카탈로그 토폴로지는 결정적인 exact-release 좌표를 보존하면서 처음 진입할 때 범위가 제한된 900 ms spring-settle 효과를 한 번 사용합니다. 조작하면 효과가 끝나고 동작 감소 설정에서는 효과를 건너뛰며, 지속적인 simulation은 실행하지 않습니다.
 에이전트 활동은 행이 영속 감사 근거를 기반으로 할 때만 상관관계를 추적 화면에 연결합니다.
 인벤토리 스캔, 온톨로지 변환 결과 및 현재 상태 읽기 상관관계는 감사 추적 링크 없이 식별자로
 표시합니다. 일치하는 감사 단계가 없는 수동 조회는 운영 실패가 아니라 중립적인 사용 불가 상태로
@@ -53,6 +54,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 2026-08-14 | implemented | 서버 소유 프로바이더 실행 증적 생성기를 추가하고 실행 가능하거나 민감한 프로바이더 텍스트를 거부하도록 Console 파서를 강화했습니다. | `current change`, 집중 Azure delivery 테스트 `8 passed`, Console 파서 테스트 `6 passed` 및 Console typecheck 통과 | Azure 검색 owner 문서에서 추적하는 읽기 전용 실제 운영 canary 증적을 보존합니다. |
 | 2026-08-14 | implemented | 서버에서 렌더링하고 브라우저가 허용하는 프로바이더 명령 모두에서 환경 할당을 거부했습니다. | `current change`, 집중 Azure delivery 테스트 `10 passed`, Console 파서 테스트 `7 passed` 및 Console typecheck 통과 | Azure 검색 owner 문서에서 추적하는 읽기 전용 실제 운영 canary 증적을 보존합니다. |
 | 2026-08-14 | implemented | 등록된 자리 표시자를 보존하면서 서버 및 브라우저 프로바이더 명령 검증기 모두에서 redirect, 제어 문자 및 실행 가능한 shell 단어를 거부했습니다. | `current change`, 집중 Azure delivery 테스트 `18 passed`, Console 파서 테스트 `11 passed` 및 Console typecheck 통과 | Azure 검색 owner 문서에서 추적하는 읽기 전용 실제 운영 canary 증적을 보존합니다. |
+| 2026-08-14 | implemented | 저장된 좌표를 바꾸거나 지속적인 simulation을 남기지 않으면서 exact-release 카탈로그 토폴로지에 범위가 제한된 결정적 spring-settle 효과를 추가했습니다. | `current change`; 집중 토폴로지 테스트 12개와 Console 타입 검사가 통과했고, 인증된 표준 포트 브라우저에서 overflow 없이 비어 있지 않은 canvas를 렌더링했습니다. | wire-contract owner가 추적하는 별도의 인증된 컨텍스트 스냅샷 근거를 보존해야 합니다. |
 
 ### 남은 작업
 
