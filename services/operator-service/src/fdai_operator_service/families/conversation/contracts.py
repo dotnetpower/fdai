@@ -173,8 +173,12 @@ class ConversationProposalOutbox(Protocol):
     async def append(self, proposal: ConversationProposal) -> OutboxReceipt: ...
 
 
-class ConversationEventStream(AsyncIterator[StreamEvent], Protocol):
+class ConversationEventStream(Protocol):
     """Closeable event iterator so HTTP disconnects cancel upstream observation."""
+
+    def __aiter__(self) -> AsyncIterator[StreamEvent]: ...
+
+    async def __anext__(self) -> StreamEvent: ...
 
     async def aclose(self) -> None: ...
 

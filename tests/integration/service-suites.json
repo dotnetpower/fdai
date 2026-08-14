@@ -26,8 +26,7 @@
           "services/core-control-plane/tests/quality_gate",
           "services/core-control-plane/tests/rbac",
           "services/core-control-plane/tests/telemetry",
-          "services/core-control-plane/tests/tools",
-          "services/core-control-plane/tests/verified_shadow_executor.py"
+          "services/core-control-plane/tests/tools"
         ],
         "contract": [
           "services/core-control-plane/tests/contracts",
@@ -63,6 +62,7 @@
           "services/operator-service/tests/test_local_narrator.py"
         ],
         "contract": [
+          "services/operator-service/tests/test_conversation_contracts.py",
           "services/operator-service/tests/test_operator_conversation_family.py",
           "services/operator-service/tests/test_operator_iam_family.py",
           "services/operator-service/tests/test_operator_operations_family.py",
