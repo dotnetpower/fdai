@@ -12,6 +12,7 @@ from pydantic import ValidationError
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
 
 from .semantic_planning_models import (
+    ClarificationRequirement,
     QueryPlanProposal,
     SemanticFrameProposal,
     SemanticPlanningModel,
@@ -19,6 +20,9 @@ from .semantic_planning_models import (
 from .session import Principal
 
 _LOGGER = logging.getLogger(__name__)
+_SERVER_BOUND_REQUIREMENTS = frozenset(
+    {ClarificationRequirement.PRINCIPAL_SCOPE, ClarificationRequirement.PURPOSE}
+)
 
 
 class FrameBuilder(Protocol):
@@ -93,6 +97,7 @@ class SemanticPlanningCascade:
                 return None
             try:
                 proposal = SemanticFrameProposal.model_validate(raw)
+                _validate_frame_proposal(proposal)
             except (ValidationError, TypeError, ValueError) as exc:
                 if self._should_escalate(tier=tier, stage="frame", reason="invalid"):
                     continue
@@ -166,6 +171,11 @@ class SemanticPlanningCascade:
             extra={"stage": stage, "reason": reason},
         )
         return True
+
+
+def _validate_frame_proposal(proposal: SemanticFrameProposal) -> None:
+    if _SERVER_BOUND_REQUIREMENTS.intersection(proposal.clarification_requirements):
+        raise ValueError("semantic clarification requests server-bound context")
 
 
 __all__ = ["ProposalRejectedError", "SemanticPlanningCascade"]
