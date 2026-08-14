@@ -23,6 +23,7 @@ dependencies = [
 
 [project.scripts]
 fdai-core-control-plane = "fdai_core_service.main:main"
+fdai-browser-evidence-cleanup = "fdai.delivery.browser_evidence_cleanup_cli:main"
 
 [build-system]
 requires = ["hatchling>=1.24"]
