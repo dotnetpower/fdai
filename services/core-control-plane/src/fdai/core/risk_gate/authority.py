@@ -24,11 +24,14 @@ from fdai.core.risk_gate.ceiling import (
     AxisLevel,
     Env,
     PrincipalRole,
-    ProbeResult,
     ResolvedCeiling,
     resolve_ceiling,
 )
 from fdai.core.risk_gate.feature import feature_vector_from
+from fdai.core.risk_gate.live_probe import (
+    LiveProbeObservation,
+    resolve_live_probe_axis,
+)
 from fdai.core.risk_gate.risk_table import (
     FeatureVector,
     RiskTable,
@@ -111,7 +114,8 @@ def evaluate_execution_authority(
     cross_resource_impact: int | None = None,
     allowlist_prod_auto: bool = False,
     graph_affected: int | None = None,
-    live_probe: ProbeResult | None = None,
+    live_probe_observation: LiveProbeObservation | None = None,
+    live_probe_failure_streak: int = 0,
     system_degraded: bool = False,
     kill_switch_engaged: bool = False,
 ) -> ExecutionAuthorityDecision:
@@ -131,6 +135,13 @@ def evaluate_execution_authority(
     when engaged, autonomy is capped to shadow so all auto-execution halts
     (security-and-identity.md). Like ``system_degraded`` it is an explicit
     input, so a replay reproduces the decision.
+
+    ``live_probe_observation`` is the already-measured Axis-E reading and
+    ``live_probe_failure_streak`` the count of consecutive blind attempts for
+    the ActionType's ``live_probe_ref``. Both are explicit inputs so replay
+    re-derives the axis without re-querying the probe (execution-model.md 4.2).
+    When the ActionType declares a probe but no reading is supplied, the axis
+    lowers to HIL rather than treating the missing signal as consent.
     """
     feature = feature_vector_from(
         action_type,
@@ -143,6 +154,11 @@ def evaluate_execution_authority(
         allowlist_prod_auto=allowlist_prod_auto,
     )
     verdict = table.evaluate(feature)
+    probe_axis = resolve_live_probe_axis(
+        action_type,
+        observation=live_probe_observation,
+        failure_streak=live_probe_failure_streak,
+    )
     ceiling = resolve_ceiling(
         tier=tier,
         action_type=action_type,
@@ -150,7 +166,8 @@ def evaluate_execution_authority(
         principal_role=principal_role,
         env=_ceiling_env(environment),
         graph_affected=graph_affected,
-        live_probe=live_probe,
+        live_probe=probe_axis.result,
+        live_probe_reason=probe_axis.reason,
         system_degraded=system_degraded,
         kill_switch_engaged=kill_switch_engaged,
     )

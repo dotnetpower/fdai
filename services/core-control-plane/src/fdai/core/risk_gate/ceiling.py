@@ -213,15 +213,17 @@ def _axis_d_static_blast(at: OntologyActionType, graph_affected: int | None) -> 
     return AxisContribution("static_blast", AxisLevel.ENFORCE_AUTO, "static_bucket=resource")
 
 
-def _axis_e_live_blast(probe: ProbeResult | None) -> AxisContribution:
+def _axis_e_live_blast(probe: ProbeResult | None, reason: str | None) -> AxisContribution:
     if probe is None:
-        return AxisContribution("live_blast", AxisLevel.ENFORCE_AUTO, "no live probe (no opinion)")
+        return AxisContribution(
+            "live_blast", AxisLevel.ENFORCE_AUTO, reason or "no live probe (no opinion)"
+        )
     mapping: dict[str, AxisLevel] = {
         "quiet": AxisLevel.ENFORCE_AUTO,
         "active": AxisLevel.ENFORCE_HIL,
         "overloaded": AxisLevel.SHADOW_ONLY,
     }
-    return AxisContribution("live_blast", mapping[probe], f"probe={probe}")
+    return AxisContribution("live_blast", mapping[probe], reason or f"probe={probe}")
 
 
 def _axis_f_role(
@@ -312,6 +314,7 @@ def resolve_ceiling(
     env: Env,
     graph_affected: int | None = None,
     live_probe: ProbeResult | None = None,
+    live_probe_reason: str | None = None,
     system_degraded: bool = False,
     kill_switch_engaged: bool = False,
 ) -> ResolvedCeiling:
@@ -331,13 +334,17 @@ def resolve_ceiling(
     ``kill_switch`` emergency-halt axis, also capped to shadow
     (security-and-identity.md). Both fail-safe axes are appended only when
     active, so the normal path stays byte-identical to the six-axis result.
+
+    ``live_probe_reason`` replaces the default Axis-E audit reason so the
+    breakdown records *why* the probe axis landed where it did (unavailable,
+    stale, substituted, ...), not just the resulting level.
     """
     axes: tuple[AxisContribution, ...] = (
         _axis_a_table(risk_table),
         _axis_b_tier(tier),
         _axis_c_ceiling(tier, action_type),
         _axis_d_static_blast(action_type, graph_affected),
-        _axis_e_live_blast(live_probe),
+        _axis_e_live_blast(live_probe, live_probe_reason),
         _axis_f_role(tier, action_type, principal_role),
         _axis_g_env(action_type, env),
     )
