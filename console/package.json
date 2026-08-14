@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --exclude \"tests/e2e/**\" --exclude \"tests/live-e2e/**\"",
     "test:e2e": "playwright test",
+    "test:e2e:quick": "playwright test --project=desktop-chromium --workers=1",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:live": "playwright test --config playwright.live.config.ts"
   },
