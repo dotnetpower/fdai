@@ -180,6 +180,10 @@ class StateStoreKineticActionProposalStore:
         raw: Mapping[str, object],
         operational_plan: OperationalPlan,
     ) -> KineticActionProposal:
+        try:
+            validate_operational_plan_identity(operational_plan)
+        except ValueError as exc:
+            raise RuntimeError("stored kinetic proposal operational plan is malformed") from exc
         if (
             raw.get("kind") != "operational_planning.kinetic_proposal"
             or raw.get("operational_plan_id") != operational_plan.plan_id
@@ -188,7 +192,27 @@ class StateStoreKineticActionProposalStore:
         ):
             raise RuntimeError("stored kinetic proposal identity is malformed")
         proposal = KineticActionProposal.model_validate(raw.get("proposal"))
-        if proposal.operational_plan_id != operational_plan.plan_id:
+        selected_option_id = operational_plan.selection.selected_option_id
+        selected_option = next(
+            (
+                option
+                for option in operational_plan.decision_case.options
+                if option.option_id == selected_option_id
+            ),
+            None,
+        )
+        if (
+            not operational_plan.complete
+            or selected_option_id is None
+            or selected_option is None
+            or selected_option.action_type is None
+            or proposal.correlation_id != operational_plan.decision_case.correlation_id
+            or proposal.process_id != operational_plan.process_id
+            or proposal.operational_plan_id != operational_plan.plan_id
+            or proposal.selected_option_id != selected_option_id
+            or proposal.target_resource_ref != operational_plan.target_resource_id
+            or proposal.plan.action_type_ref.name != selected_option.action_type
+        ):
             raise RuntimeError("stored kinetic proposal does not match its operational plan")
         return proposal
 

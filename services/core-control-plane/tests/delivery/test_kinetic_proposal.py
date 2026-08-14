@@ -8,7 +8,7 @@ from datetime import timedelta
 import pytest
 from fdai.core.ontology_platform.kinetics import MutationPlan
 from fdai.core.ontology_platform.planning import build_mutation_plan
-from fdai.core.operational_planning import OperationalPlan
+from fdai.core.operational_planning import KineticActionProposal, OperationalPlan
 from fdai.delivery.kinetic_proposal import (
     KineticActionProposalConflictError,
     StateStoreKineticActionProposalStore,
@@ -282,6 +282,69 @@ async def test_corrupted_durable_record_fails_closed() -> None:
 
     with pytest.raises(RuntimeError, match="identity is malformed"):
         await adapter.resolve(operational_plan)
+
+
+@pytest.mark.parametrize(
+    "proposal_update",
+    (
+        {"correlation_id": "correlation:substituted"},
+        {"process_id": "process-substituted"},
+        {"selected_option_id": "option-substituted"},
+    ),
+)
+async def test_internally_valid_cross_record_lineage_substitution_fails_closed(
+    proposal_update: dict[str, str],
+) -> None:
+    operational_plan, mutation_plan = _inputs()
+    state_store = InMemoryStateStore()
+    adapter = StateStoreKineticActionProposalStore(store=state_store)
+    proposal = await adapter.commit(
+        operational_plan=operational_plan,
+        mutation_plan=mutation_plan,
+        arguments={},
+        created_at=mutation_plan.created_at + timedelta(seconds=1),
+    )
+    substituted = KineticActionProposal.create(
+        correlation_id=proposal_update.get("correlation_id", proposal.correlation_id),
+        process_id=proposal_update.get("process_id", proposal.process_id),
+        operational_plan_id=proposal.operational_plan_id,
+        selected_option_id=proposal_update.get(
+            "selected_option_id",
+            proposal.selected_option_id,
+        ),
+        plan=proposal.plan,
+        target_resource_ref=proposal.target_resource_ref,
+        arguments=proposal.arguments(),
+        created_at=proposal.created_at,
+    )
+    key = f"operational-planning:kinetic-proposal:{operational_plan.plan_id}"
+    raw = dict((await state_store.read_state(key)) or {})
+    raw["proposal"] = substituted.model_dump(mode="json")
+    await state_store.write_state(key, raw)
+
+    with pytest.raises(RuntimeError, match="does not match its operational plan"):
+        await adapter.resolve_by_correlation(proposal.correlation_id)
+
+
+async def test_substituted_operational_plan_body_fails_closed() -> None:
+    operational_plan, mutation_plan = _inputs()
+    state_store = InMemoryStateStore()
+    adapter = StateStoreKineticActionProposalStore(store=state_store)
+    proposal = await adapter.commit(
+        operational_plan=operational_plan,
+        mutation_plan=mutation_plan,
+        arguments={},
+        created_at=mutation_plan.created_at + timedelta(seconds=1),
+    )
+    key = f"operational-planning:kinetic-proposal:{operational_plan.plan_id}"
+    raw = dict((await state_store.read_state(key)) or {})
+    stored_plan = dict(raw["operational_plan"])
+    stored_plan["process_id"] = "process-substituted"
+    raw["operational_plan"] = stored_plan
+    await state_store.write_state(key, raw)
+
+    with pytest.raises(RuntimeError, match="operational plan is malformed"):
+        await adapter.resolve_by_correlation(proposal.correlation_id)
 
 
 async def test_argument_mismatch_is_rejected_by_exact_proposal_contract() -> None:
