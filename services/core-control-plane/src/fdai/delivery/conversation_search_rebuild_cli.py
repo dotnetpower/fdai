@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 import os
 import sys
 from collections.abc import Awaitable, Callable, Mapping
@@ -65,7 +66,12 @@ def _bounded_metrics(metrics: Mapping[str, int | float]) -> dict[str, int | floa
     result: dict[str, int | float | str] = {"status": "completed"}
     for key in ("index_rows", "index_bytes", "duration_ms"):
         value = metrics.get(key)
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+            or value < 0
+        ):
             raise RuntimeError("conversation search rebuild returned invalid metrics")
         result[key] = value
     return result
