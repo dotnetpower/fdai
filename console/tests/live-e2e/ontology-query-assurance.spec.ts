@@ -244,6 +244,11 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     result.checks_total !== undefined && result.checks_total > 0 &&
     result.checks_completed === result.checks_total
   ).length;
+  const answeredLocaleCounts: Record<string, number> = {};
+  for (const result of answeredResults) increment(answeredLocaleCounts, result.locale);
+  const answeredLocaleCoverageComplete = answeredLocaleCounts.en !== undefined &&
+    answeredLocaleCounts.en > 0 && answeredLocaleCounts.ko !== undefined &&
+    answeredLocaleCounts.ko > 0;
   const authoritativeOutcomeCount = retained.filter((result) =>
     result.passed && result.disposition !== undefined &&
     (result.disposition !== "answered" || result.evidence_ref_count !== undefined)
@@ -266,6 +271,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     operationCoverageComplete,
     answeredCount: answeredResults.length,
     answeredWithCompleteEvidenceCount: answeredEvidenceCount,
+    answeredLocaleCoverageComplete,
   });
   const artifact = {
     schema_version: "1.1.0",
@@ -296,6 +302,8 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
       unauthorized_execution_count: unauthorizedExecutionCount,
       answered_count: answeredResults.length,
       answered_with_complete_evidence_count: answeredEvidenceCount,
+      answered_locale_coverage_complete: answeredLocaleCoverageComplete,
+      answered_locale_counts: answeredLocaleCounts,
       authoritative_outcome_count: authoritativeOutcomeCount,
       locale_coverage_complete: localeCoverageComplete,
       operation_coverage_complete: operationCoverageComplete,
