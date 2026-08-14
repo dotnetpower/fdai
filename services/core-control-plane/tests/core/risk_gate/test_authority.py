@@ -6,7 +6,11 @@ from pathlib import Path
 
 from fdai.core.risk_gate.authority import evaluate_execution_authority
 from fdai.core.risk_gate.ceiling import AxisLevel
-from fdai.core.risk_gate.risk_table import load_risk_table
+from fdai.core.risk_gate.risk_table import (
+    FeatureVector,
+    load_risk_table,
+    load_risk_table_from_mapping,
+)
 from fdai.shared.contracts.models import (
     ActionBlastRadius,
     ActionInterface,
@@ -232,3 +236,62 @@ def test_environment_normalization_feeds_both_axes() -> None:
     )
     assert d_prod.feature_vector.environment == "prod"
     assert d_prod.decision == "hil"
+
+
+def test_audit_dict_serializes_the_exact_feature_vector_and_catalog_version() -> None:
+    table = _table()
+    d = evaluate_execution_authority(
+        tier=Tier.T0,
+        action_type=_low_risk_at(),
+        table=table,
+        principal_role=None,
+        environment="non-prod",
+        cost_impact_monthly=50.0,
+    )
+    audit = d.as_audit_dict()
+    assert audit["catalog_version"] == table.version
+    assert audit["feature_vector"] == d.feature_vector.as_lookup()
+    # Every declared dimension is present, including the unset ones, so a
+    # replay never has to guess whether a signal was absent or dropped.
+    assert set(audit["feature_vector"]) == set(FeatureVector().as_lookup())
+    assert audit["feature_vector"]["environment"] == "non-prod"
+    assert audit["feature_vector"]["cost_impact_monthly"] == 50.0
+    assert audit["feature_vector"]["verifier_confidence"] is None
+
+
+def test_recorded_payload_replays_against_its_own_catalog_version() -> None:
+    # A historical decision must stay reconstructable after the table changes.
+    audit = evaluate_execution_authority(
+        tier=Tier.T0,
+        action_type=_low_risk_at(),
+        table=_table(),
+        principal_role=None,
+        environment="non-prod",
+        cost_impact_monthly=50.0,
+    ).as_audit_dict()
+
+    historical = _table()
+    tightened = load_risk_table_from_mapping(
+        {
+            "version": "9.9.9",
+            "owner_group": "aw-owners",
+            "rules": [
+                {
+                    "id": "hil-all-non-prod",
+                    "if": {"environment": "non-prod"},
+                    "decision": "hil",
+                    "reason": "tightened after the original decision",
+                },
+                {"id": "default-hil", "default": "hil", "reason": "fail toward safety"},
+            ],
+        }
+    )
+    replayed_vector = FeatureVector(**audit["feature_vector"])
+
+    assert audit["catalog_version"] == historical.version != tightened.version
+    replayed = historical.evaluate(replayed_vector)
+    assert replayed.rule_id == audit["matched_rule_id"]
+    assert replayed.decision.value == audit["decision"]
+    # The same recorded signals against the newer table decide differently,
+    # so the version stamp is what keeps the replay honest.
+    assert tightened.evaluate(replayed_vector).rule_id == "hil-all-non-prod"

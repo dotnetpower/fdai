@@ -26,18 +26,19 @@ policy (auto vs HIL) and initial policy approver"* from
 | Unified authority decision and never-raising ceiling | implemented | [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py) | The table baseline and contextual ceilings combine without raising authority. |
 | Existing control-loop audit projection | implemented | [`_helpers.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_helpers.py), [`test_control_loop_authority.py`](../../../services/core-control-plane/tests/core/test_control_loop_authority.py) | Audit data includes the matched rule, final decision, quorum, and resolved ceiling. |
 | Approval and change-governance enforcement | in-progress | [Change Process](#change-process), [CODEOWNERS](../../../.github/CODEOWNERS) | Path ownership exists, but repository evidence does not yet prove the complete two-person approval, Owner review, justification, and metadata-policy contract. |
-| Replay-complete feature and catalog metadata | not-started | [Audit](#audit), [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py) | The decision retains a feature vector and the table retains a version, but the audit payload does not serialize both for self-contained replay. |
+| Replay-complete feature and catalog metadata | implemented | [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py) | The authority audit payload serializes the exact feature vector and the risk-table catalog version, and focused checks replay a recorded payload against its own catalog version after the table changes. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted an evidence-bounded implementation ledger without reconstructing earlier delivery history. | `current change`; current source and focused checks listed in the scope table; risk-focused checks passed 113 cases and readiness coordinator checks passed 33 cases. | Prove governance enforcement, add replay-complete metadata, and retain governed runtime evidence. |
+| 2026-08-14 | implemented | Serialized the exact feature vector and the risk-table catalog version into the authority audit payload so a historical decision replays against the revision that classified it. | `current change`; [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py); focused authority, evaluator, and control-loop authority checks passed 43 cases. | Prove governance enforcement and retain governed runtime receipts. |
 
 ### Remaining work
 
 - [ ] Enforce and test the complete two-person approval, Owner review, justification, and metadata-policy contract for every risk-table change.
-- [ ] Serialize the exact feature vector and risk-table catalog version into the authority audit payload, then prove deterministic replay after a catalog change.
+- [x] The authority audit payload serializes the exact feature vector and the catalog version, and a focused check replays a recorded payload against its own version after a tightening table change.
 - [ ] Retain governed runtime receipts for risk decisions on one pinned revision before promoting any scope row to `validated`.
 
 ## Where the Table Lives
@@ -265,10 +266,12 @@ The current control-loop audit entry records:
 - The matched rule id (`default-hil` on fail-through).
 - The final decision (`auto` / `hil` / `shadow` / `deny`) and quorum.
 - The `resolved_ceiling` with every axis that contributed to the final decision.
+- The `catalog_version` of the `risk-classification.yaml` revision that classified the action.
+- The `feature_vector` snapshot, including the dimensions that were unset, so an absent
+  signal is distinguishable from a dropped one.
 
-The feature-vector snapshot and `risk-classification.yaml` catalog version exist on the
-`ExecutionAuthorityDecision`/`RiskTable` objects but are not serialized into the audit payload yet.
-Both fields are needed to make replay self-contained after a catalog change.
+The last two make replay self-contained: a recorded payload is re-evaluated against the table
+version it names, so a later catalog change cannot silently rewrite a historical decision.
 
 A future retrospective can filter the audit log by matched rule id to identify
 over-triggered rules (e.g. "every prod change is HIL because everything hits Rule 5") and
