@@ -367,7 +367,7 @@ def _resource_group_parent(arm_id: str) -> str | None:
     if marker_index == -1:
         return None
     next_slash = arm_id.find("/", marker_index + len(marker))
-    return arm_id if next_slash == -1 else arm_id[:next_slash]
+    return None if next_slash == -1 else arm_id[:next_slash]
 
 
 __all__ = [

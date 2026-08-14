@@ -1840,6 +1840,46 @@ def test_reviewed_mapping_drives_vm_attachment_orientation() -> None:
     assert attached[0].mapping_evidence.mapping_id == "azure.vm-nic-attached-to-vm"
 
 
+def test_reviewed_mapping_does_not_make_resource_group_contain_itself() -> None:
+    from pathlib import Path
+
+    from fdai.delivery.azure.arg_projection import (
+        arm_id_to_type,
+        build_arm_to_neutral_map,
+        to_neutral_id,
+    )
+    from fdai.delivery.azure.arg_relationships import project_provider_relationships
+    from fdai.rule_catalog.schema.provider_relationship_mapping import (
+        load_provider_relationship_mapping_catalog,
+    )
+
+    catalog = load_provider_relationship_mapping_catalog(
+        Path("rule-catalog/vocabulary/provider-relationship-mappings")
+    )
+    reverse = build_arm_to_neutral_map(_vocab())
+    resource_group_id = "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg-a"
+    owner = ResourceRecord(
+        resource_id=to_neutral_id(resource_group_id),
+        type="resource-group",
+        provider_ref=resource_group_id,
+    )
+
+    result = project_provider_relationships(
+        {
+            "id": resource_group_id,
+            "type": "Microsoft.Resources/subscriptions/resourceGroups",
+        },
+        owner=owner,
+        arm_to_neutral=reverse,
+        catalog=catalog,
+        arm_id_to_type=arm_id_to_type,
+        to_neutral_id=to_neutral_id,
+    )
+
+    assert result.links == ()
+    assert result.dropped == ()
+
+
 def test_reviewed_peering_mapping_correlates_connected_predicate() -> None:
     from pathlib import Path
 
