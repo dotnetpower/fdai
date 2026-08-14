@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 05b51bf5ae64290f2af7ce233a62e6139e00b742
+translation_source_sha: ea13db85ffad2fd634da82a461a451403e5835d5
 translation_revised: 2026-08-15
 ---
 # FDAI 온톨로지 안전 인프라
@@ -96,7 +96,7 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | K0 exact release 신원 및 영속성 | implemented | [`release.py`](../../../services/core-control-plane/src/fdai/shared/ontology/release.py), [`postgres_ontology.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_ontology.py), [`inventory_ontology.py`](../../../services/core-control-plane/src/fdai/runtime/inventory_ontology.py), [`20260813_0081_ontology_release_registry.py`](../../../alembic/versions/20260813_0081_ontology_release_registry.py), focused 영속성/런타임 테스트 | Exact 신원, release에 고정된 쓰기, 재시작에 안전한 매니페스트 로딩, release에 결속된 인벤토리 변환 근거가 존재합니다. 이행 전 행과 과거 인벤토리 매니페스트는 정직하게 고정하지 않은 상태로 유지합니다. 운영 Live 근거는 아직 남아 있습니다. |
-| K1-K5 범위가 제한된 의미 조회 및 함수 인프라 | in-progress | [`operational_functions.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py), [`incident_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/incident_queries.py), [`kubernetes_relationships.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_relationships.py), [`inventory_sync.py`](../../../services/core-control-plane/src/fdai/delivery/inventory_sync.py), [`test_inventory_sync.py`](../../../services/core-control-plane/tests/delivery/test_inventory_sync.py), [`test_wire_pod_telemetry.py`](../../../services/core-control-plane/tests/composition/test_wire_pod_telemetry.py) | Core 기본 요소, 서로 다른 canonical 인시던트 신원과 감사 상관관계 신원을 보존하는 범위가 제한된 인시던트 감사 근거, 공급된 Kubernetes 기록을 위한 production 인벤토리 조립, 발급된 Pod 조립 검사가 존재합니다. 인증된 인시던트 및 Kubernetes live 근거는 아직 남아 있습니다. |
+| K1-K5 범위가 제한된 의미 조회 및 함수 인프라 | in-progress | [`operational_functions.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py), [`instance_relationships.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/instance_relationships.py), [`incident_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/incident_queries.py), [`kubernetes_relationships.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_relationships.py), [`inventory_sync.py`](../../../services/core-control-plane/src/fdai/delivery/inventory_sync.py), [`test_instance_relationships.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_instance_relationships.py), [`test_wire_pod_telemetry.py`](../../../services/core-control-plane/tests/composition/test_wire_pod_telemetry.py) | Core 기본 요소, 증적 인증을 거치는 현재 인스턴스 관계, 서로 다른 canonical 인시던트 신원과 감사 상관관계 신원을 보존하는 범위가 제한된 인시던트 감사 근거, 공급된 Kubernetes 기록을 위한 운영 인벤토리 조립 및 발급된 Pod 조립 검사가 존재합니다. 통제된 실제 운영 근거는 남아 있습니다. |
 | 카탈로그 변환 결과와 exact-generation Rule 검색 | implemented | [`catalog_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/catalog_queries.py), [`test_catalog_queries.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_catalog_queries.py), 커밋 `e4d9483a5` | `catalog.search_rules`는 exact 세대 증적과 함께 범위가 제한된 순위 후보를 반환하며 판단 또는 액션 권한을 부여하지 않습니다. 시작 변환 결과는 아직 control-objective 인스턴스를 구체화하지 않습니다. |
 | 과거 토폴로지, 메트릭 의미 규칙 및 조정 | in-progress | [`topology_history.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/topology_history.py), [`metric_semantics.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/metric_semantics.py), [`reconciliation_state_store.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_state_store.py) | 계약과 순수 또는 영속 기반은 존재하지만 운영 조립과 발행자는 아직 완성되지 않았습니다. |
 | K6-K8 그래프 전체 Dynamic 근거 | in-progress | [Dynamic 모델 성숙도](#dynamic-모델-성숙도) | 액션 및 메트릭 시뮬레이션은 존재하지만 그래프 전파, trajectory 종결 및 실패 귀속은 남아 있습니다. |
@@ -122,6 +122,7 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 | 2026-08-14 | implemented | prompt v3에 대한 인증된 Browser 재실행을 완료했습니다. 화면에 표시된 답변은 Incident와 감사 correlation identity를 분리해 보존하고, causal analysis를 사용할 수 없다고 보고하며, 제한된 evidence gap과 실행 권한이 없는 후보 `action_draft`만 반환했습니다. | 로컬 Console `/agent-activity` 02:28:52 KST, evidence reference 1건에 대한 verification 완료, Core에서 plan rejection 없이 semantic planning 5단계 기록 | A1-A3를 shadow mode로 유지하고 캡처한 turn을 로컬 근거로 사용합니다. causal analysis는 별도 후속 작업으로 남습니다. |
 | 2026-08-14 | in-progress | 현재 prompt 및 assurance 변경이 보존된 v3 runtime claim을 대체해 incident semantic evidence path를 다시 열었습니다. | `current change`, focused prompt, Console assurance 및 ontology-query 검사 | Validation을 복원하기 전에 인증된 incident path를 다시 실행하고 새 governed artifact를 보존합니다. |
 | 2026-08-15 | implemented | 의미 frame prompt를 v4로 versioning하고 타입이 지정된 명확화 requirement를 추가했습니다. Principal 범위와 용도는 trusted server-bound 입력이므로 둘 중 하나를 요청하는 T1 제안은 범위가 제한된 T2 frame 재시도 한 번 전에 결정론적으로 거부됩니다. 정당하게 누락된 사용자 맥락은 T2 호출 없이 T1 명확화로 유지됩니다. | `current change`, focused tier-routing, planner, prompt 및 Azure adapter 검사 31개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 중앙 검증 뒤 Core를 재시작하고 대체 인증 보증 근거를 보존합니다. |
+| 2026-08-14 | implemented | 발급된 보안 ObjectSet 하나를 사용하는 exact-release `query.instance_relationships`를 추가했습니다. principal 범위 스냅샷의 정확한 LinkType만 필터링하고 저장 방향과 완전성을 보존하며, 불완전한 빈 결과를 부재 주장으로 바꾸지 않습니다. | `current change`, 평가기, 조립 DAG, prompt 및 Core 변환 집중 검사를 통과했습니다. | 런타임 검증을 보고하기 전에 통제된 인증 관계 근거를 보존합니다. |
 
 ### 남은 작업
 
@@ -359,6 +360,12 @@ signed planner FunctionType identity를 `planner_ref`에 보존하고, 해당 li
 노드는 건너뛴 상태로 남습니다. 런타임은 허용 목록에 있는 `node_kind`와 `failure_type` 필드만
 포함한 `ontology_query_node_failed`를 기록합니다. 이러한 안정적 실패에는 예외 본문, 인자,
 노드 식별자, 프로바이더 페이로드 또는 운영자 데이터를 기록하지 않습니다.
+
+현재 관계 조회는 `query.instance_relationships`를 exact-release 결정론적 `query` 함수로
+선언합니다. 조립에서 발급한 보안 ObjectSet 결과, 활성 release의 정확한 LinkType 이름 및 범위가
+제한된 행 상한만 받습니다. 프로바이더 I/O를 수행하지 않고 저장된 종단점 방향을 보존하며, 출처
+증적이 현재 스냅샷의 완전성을 입증할 때만 검증된 빈 결과를 보고합니다. 잘림이 있으면 추가 관계와
+관계 부재를 모두 알 수 없는 상태로 유지하며 모든 결과는 `execution_authority: false`를 보존합니다.
 
 진단 런타임은 Kubernetes 집약기 22개를 exact-release `derive` 함수로 등록합니다.
 실제 운영 프로바이더는 `diagnostic-evaluation` 용도에서 Heimdall로 레지스트리를 호출하고 각 호출

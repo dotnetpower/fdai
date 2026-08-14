@@ -8,6 +8,7 @@ from fdai.shared.contracts.models import OntologyFunctionType
 
 from .catalog_queries import catalog_search_rules_function_type
 from .incident_queries import incident_evidence_function_type
+from .instance_relationships import instance_relationships_function_type
 from .network_path import network_path_function_type
 from .pod_telemetry import pod_telemetry_function_type
 from .relationship_queries import ontology_relationships_function_type
@@ -21,6 +22,7 @@ def operational_function_types(
     combined = tuple(catalog_functions) + (
         catalog_search_rules_function_type(),
         incident_evidence_function_type(),
+        instance_relationships_function_type(),
         network_path_function_type(),
         ontology_relationships_function_type(),
         pod_telemetry_function_type(),

@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: b2b9f2eff759a62722944051511c96873eb0ad77
+translation_source_sha: 94a347cebe59299774527d04096dac047d6f7c74
 translation_revised: 2026-08-15
 ---
 
@@ -148,6 +148,7 @@ translation_revised: 2026-08-15
 | Operator 영속성과 Rule 변환 결과 | 구현됨 | `semantic_turn.py`, `semantic_turn_runtime.py`, `postgres_semantic_turn_store.py`, `test_semantic_turn_bridge.py`, 통과한 의미 경로 테스트 88개 및 롤백 전용 PostgreSQL 트랜잭션 검사 | 유효한 호출자 제공 요청 UUID를 의미 묶음과 상관관계 신원 전체에서 보존하면서 멱등성 키는 분리합니다. 요청 UUID를 생략하면 재시도에도 안정적인 결정론적 대체값을 사용합니다. 발신함과 결과 점유를 복구할 수 있고 잘못된 소유권은 안전하게 차단됩니다. 재생 순서는 타임스탬프를 인식하며 exact Rule 읽기는 principal과 조회 다이제스트로 격리됩니다. `SemanticTurnBridge`는 권위 있는 저장소와 의미 전송이 있을 때만 활성화되고, 로컬 서술기가 구성되면 주기적 갱신은 독립적인 Operator 수명 주기 서비스로 유지됩니다. |
 | 과거 토폴로지 영속성과 발행 | 구현됨 | `inventory_topology_history.py`, `postgres_topology_history.py`, `inventory_sync_cli.py`, 통과한 범위가 제한된 인벤토리/토폴로지 테스트 31개 | 완전한 승격 관측은 bitemporal 개정 번호를 하나의 트랜잭션으로 추가합니다. 과거/현재 파생 쓰기는 서로 독립적으로 시도하며 불완전한 관측은 완전한 과거 기준선을 만들 수 없습니다. |
 | Temporal, metric 및 근거 프로바이더 조립 | 구현됨 | `wire_semantic_query.py`, `bootstrap.py`, `bootstrap_bindings.py`, `test_wire_semantic_query.py`, `test_bootstrap_config.py`, 통과한 focused 조립 및 프로바이더 선택 테스트 16개 | 하나의 핸들러 맵이 검증기 가용성과 실행을 함께 제어합니다. 운영 환경은 상태 저장소 DSN에서 PostgreSQL 이력을 연결하고 검토된 레지스트리와 no-op이 아닌 프로바이더가 모두 있을 때만 metric/evidence 핸들러를 연결합니다. |
+| 현재 인스턴스 관계 조회 | 구현됨 | `instance_relationships.py`, `semantic_instance_relationship_projection.py`, `test_instance_relationships.py`, `test_wire_ontology_relationships.py`, `test_semantic_turn_processor.py`, 통과한 관계 집중 검사 | 스키마 제한 계획이 정확한 LinkType을 선택하고 범위가 제한된 보안 ObjectSet 하나를 구체화한 뒤 증적 인증을 거치는 exact-release 함수를 호출합니다. 빈 결과는 완전한 스냅샷에서만 종결되며 지역화된 답변은 실행 권한을 부여하지 않습니다. |
 | 통제된 운영 보증 | 진행 중 | [온톨로지 조회 무작위 보증](ontology-query-randomized-assurance-ko.md)과 아래의 검증된 기준선 공백 표 | 로컬 검사는 안전하게 실패하는 조립을 입증하지만 운영 준비 상태를 입증하는 통제된 실제 서비스 간 증적은 없습니다. |
 | 타입 기반 Console 보증 실행기 | 구현됨 | `console-routes.spec.ts`, `ontology-query-assurance.ts`, `ontology-query-assurance.spec.ts`, focused Console 검사 | 한 실행기는 게시, Core 처리, exact projection 읽기 및 인증된 증적 렌더링을 검증합니다. Seed 기반 100-turn 실행기는 타입 전용 oracle로 영어 50개와 한국어 50개 prompt를 다룹니다. 보존 artifact가 통과하기 전에는 어느 구현도 실제 운영 근거가 아닙니다. |
 | T1 명확화 평가 | 구현됨 | `semantic_planning_models.py`, `semantic_planning_cascade.py`, focused tier-routing 및 prompt 검사 | Frame 제안은 누락된 사용자 맥락을 범위가 제한된 `clarification_requirements`로 분류합니다. 정당한 T1 명확화는 T2 없이 종료되고, Core가 이미 바인딩한 principal 범위 또는 용도를 요청하는 제안은 결정론적으로 유효하지 않으며 frame 단계만 T2로 한 번 재시도할 수 있습니다. |
@@ -175,6 +176,7 @@ translation_revised: 2026-08-15
 | 2026-08-14 | in-progress | 현재 bounded action-draft 및 browser-readiness 변경에 새 governed artifact가 필요해 incident assurance를 다시 열었습니다. | `current change`, focused semantic, Console 및 browser-assurance 검사 | `validated`를 복원하기 전에 replacement request-to-Console 및 bilingual randomized evidence를 보존합니다. |
 | 2026-08-15 | 구현됨 | 로컬 서술기 갱신을 의미 전송과 독립적으로 유지하면서 전송에 의해 제한되는 `SemanticTurnBridge` 활성화 계약을 보존했습니다. | `current change`, 집중 운영 조립 및 의미 브리지 검사 2개와 작업 범위 Ruff가 통과했습니다. | 운영 보증 상태를 변경하기 전에 통제된 요청-Console 및 이중 언어 무작위 근거를 보존합니다. |
 | 2026-08-15 | 구현됨 | Machine-readable 명확화 requirement를 추가하고 Core가 이미 바인딩한 principal 범위 또는 용도를 묻는 T1 frame 제안을 거부했습니다. 의미 frame prompt v4는 두 tier 모두 해당 값을 trusted server context로 취급하도록 지시합니다. | `current change`, focused 의미 planner 검사 21개, prompt 및 Azure adapter 검사 10개, 작업 범위 Ruff와 strict mypy 통과 | 중앙 검증 뒤 Core를 재시작하고 통제된 요청-Console 보증 경로를 다시 실행합니다. |
+| 2026-08-14 | 구현됨 | 일반 현재 인스턴스 관계 경로를 추가했습니다. 플래너는 exact release LinkType을 선택하고, 실행기는 발급된 보안 ObjectSet 증적을 통해서만 저장된 방향성 링크를 읽으며, Core는 지역화 렌더링 전에 release, 증적, 범위 또는 권한 변동을 차단합니다. | `current change`, 인스턴스 평가기, 의미 조립, prompt 계약 및 Core 처리기 집중 검사를 통과했습니다. | 정확한 소스의 스택을 다시 시작하고 인증된 관계 답변을 보존한 뒤 전체 이중 언어 집단을 실행합니다. |
 
 ### 남은 작업
 
@@ -214,7 +216,7 @@ flowchart LR
 | 객체 조회 | `OntologyQueryPlan`은 이제 변경할 수 없는 내용 기반 주소를 가진 표 위에서 secured ObjectSet, 집합 algebra, 정렬, 변환 결과, grouped 집계 및 타입이 지정된 읽기 전용 함수를 구성합니다. | Temporal 스냅샷, 메트릭 series 및 근거 결합에는 등록된 확장 핸들러가 필요합니다. |
 | 조회 매니페스트 | principal 범위로 한정된 내용 기반 주소를 가진 빌더가 ObjectType/filtered 속성, LinkType 양쪽 엔드포인트 side, Interface, 읽기 전용 함수 및 초안 전용 ActionType을 변환 결과합니다. | 운영 서술기는 아직 매니페스트를 사용하지 않으며 완전한 운영자/근거 가용성 서술자가 남아 있습니다. |
 | Interface | 운영 카탈로그 로딩은 `Identifiable`, 출처 이력 및 모든 현재 ObjectType의 명시적 연결을 검증합니다. 런타임 조립은 이를 compile하고 exact release에 pin합니다. | 추가 기능 Interface와 운영 ObjectSet 조회 연결은 남아 있습니다. |
-| 관계 | 모든 directed LinkType은 엔드포인트, cardinality, causal, transitive 및 temporal 메타데이터와 함께 결정론적 `<name>.outgoing`/`<name>.incoming` 머신 조회 id를 변환 결과합니다. | 이 side를 사용하는 범용 계획 검증기와 플래너 연결은 남아 있습니다. |
+| 관계 | 모든 방향성 LinkType은 종단점, cardinality, causal, transitive 및 temporal 메타데이터와 함께 결정론적 `<name>.outgoing`/`<name>.incoming` 머신 조회 식별자를 변환합니다. 현재 인스턴스 질문은 정확한 LinkType을 선택하고 증적 인증을 거친 완전한 스냅샷에서 저장된 방향성 행을 필터링할 수 있습니다. | 타입 기반 다중 홉 종단점 탐색과 통제된 인증 근거는 남아 있습니다. |
 | 의미 세대 | 구체적인 service-owned atomic in-memory 인덱스와 off-path full/incremental 온톨로지 세대 발행기가 선언 및 조건을 충족한 deployment-local 객체를 독립적인 검증과 함께 다룹니다. | 영속 PostgreSQL 어댑터, scheduled 발행기 프로세스 및 운영 의미 서술자 선택자는 남아 있습니다. |
 | 현재 토폴로지 | Azure 변환 결과는 containment, attachment, dependency, peering 및 exact-resource routing 후보에 검토된 관계 mapping을 사용합니다. 완전한 세대 verifier는 두 엔드포인트, 독립 verifier 신원, 변경할 수 없는 receipt 및 정본 state-fact 메타데이터를 갖춘 링크만 허용합니다. | 워크로드 및 서비스 의존성 커버리지와 운영 network-path 발급자가 아직 불완전합니다. |
 | Historical 토폴로지 | Bitemporal 추가 전용 개정 번호 계약, 이행, retained 세대 참조, tombstone, `graph_at`, `topology_diff`, late-evidence 재생 및 타입이 지정된 조회 핸들러가 있습니다. | PostgreSQL 읽기 담당/쓰기 담당 조립과 inventory-promotion 발행은 남아 있습니다. |

@@ -1,8 +1,8 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 94c2d25516d6d36bf26261d69bf5ac3d372c9306
-translation_revised: 2026-08-13
+translation_source_sha: a6135a7a6a9786c4012d80d33f86e04ae30644be
+translation_revised: 2026-08-14
 ---
 
 # 계층형 대화 계획
@@ -50,7 +50,7 @@ T1 제안을 사용할 수 없거나 스키마, 매니페스트, 구성 또는 �
 | Durable Operator bridge 및 Console projection | implemented | [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`postgres_semantic_turn_store.py`](../../../services/operator-service/src/fdai_operator_service/postgres_semantic_turn_store.py), [`test_semantic_turn_bridge.py`](../../../services/operator-service/tests/test_semantic_turn_bridge.py) | Operator는 durable acceptance, outbox claim, result projection, 인증된 replay, typed hold 및 `done` event 변환을 담당합니다. |
 | Event transport 및 배포 설정 | implemented | [`semantic_kafka.py`](../../../services/operator-service/src/fdai_operator_service/adapters/semantic_kafka.py), [`main.tf`](../../../infra/main.tf), [`test_semantic_turn_topics.py`](../../../tests/integration/infra/test_semantic_turn_topics.py) | 논리 request 및 projection topic은 통제된 물리 event stream을 공유하며 두 service에 설정됩니다. |
 | 구조 및 인식 상태 커버리지 기반 | in-progress | [`epistemic_coverage.py`](../../../services/core-control-plane/src/fdai/core/conversation/epistemic_coverage.py), [`test_epistemic_coverage.py`](../../../services/core-control-plane/tests/conversation/test_epistemic_coverage.py) | Receipt와 gate 계약은 존재하지만 완전한 descriptor generation, runtime question receipt 및 L3/L4 인증은 제공되지 않았습니다. |
-| 완전한 temporal, metric, causal 및 relationship query surface | in-progress | [`wire_semantic_query.py`](../../../services/core-control-plane/src/fdai/composition/wire_semantic_query.py), [Ontology Query Coverage 구현 계획](ontology-query-coverage-implementation-plan-ko.md) | ObjectSet, set operation, projection, aggregation 및 일부 read function은 연결됐지만 나머지 provider-backed query kind는 미완성입니다. |
+| 완전한 temporal, metric, causal 및 relationship query surface | in-progress | [`wire_semantic_query.py`](../../../services/core-control-plane/src/fdai/composition/wire_semantic_query.py), [`instance_relationships.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/instance_relationships.py), [Ontology Query Coverage 구현 계획](ontology-query-coverage-implementation-plan-ko.md) | ObjectSet, 집합 연산, 변환, 집계 및 일부 읽기 함수는 연결됐습니다. 현재 인스턴스 관계는 보안이 적용된 완전한 스냅샷 하나에서 정확한 LinkType을 선택할 수 있습니다. 타입 기반 다중 홉 관계 탐색과 나머지 프로바이더 기반 조회 종류는 미완성입니다. |
 | Multimodal semantic planning 입력 | not-started | [Conversation Attachments](conversation-attachments-ko.md) | Semantic-turn 요청은 현재 범위가 제한된 text와 prior-turn context를 전달하며 server-validated image 또는 document evidence는 전달하지 않습니다. |
 | 통제된 운영 인증 | not-started | 이 문서의 검증 계약 | 운영 준비 상태를 입증하는 보존된 인증 cross-service browser 증적 또는 randomized assurance 증적이 현재 없습니다. |
 
@@ -60,13 +60,14 @@ T1 제안을 사용할 수 없거나 스키마, 매니페스트, 구성 또는 �
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 목표 아키텍처를 현재 Core runtime, Operator bridge, service contract, 배포 설정 및 집중 테스트와 대조했습니다. | 구현 범위 표에 나열한 현재 소스와 집중 검사입니다. | 완전한 query coverage, multimodal transport, descriptor generation, runtime coverage receipt 및 통제된 live 인증이 남아 있습니다. |
 | 2026-08-14 | implemented | 즉시 T2를 사용하는 의미 계획을 T1 우선 cascade로 교체했습니다. T2를 호출하는 유일한 조건은 T1 frame 또는 plan 제안이 없거나 결정론적 검증을 통과하지 못한 경우입니다. | `current change`, 의미 플래너 및 조립 회귀 테스트는 T1 성공, 명확화, 근거 보류가 T2를 호출하지 않고 범위가 제한된 제안 실패만 한 단계를 다시 시도할 수 있음을 검증합니다. | tier 선택을 기록하는 인증 근거를 보존하고 기존 통제된 실제 인증을 완료합니다. |
+| 2026-08-14 | implemented | 보안이 적용된 `Identifiable` ObjectSet과 정확한 `query.instance_relationships` FunctionType을 통해 서술자 기반 현재 인스턴스 관계 계획을 추가했습니다. 함수는 저장된 방향, 완전성, 정확한 release 신원 및 실행 권한이 없음을 보존합니다. | `current change`, `test_instance_relationships.py`, `test_wire_ontology_relationships.py` 및 의미 턴 처리기 집중 회귀 테스트를 통과했습니다. | 전체 관계 커버리지를 주장하기 전에 인증된 관계 답변을 보존하고 타입 기반 다중 홉 관계 측면 계획을 완성합니다. |
 
 ### 남은 작업
 
 - [ ] 읽을 수 있는 모든 ontology declaration과 runtime availability state에 대해 release에서
     파생한 descriptor generation 및 독립적으로 검증된 atomic activation을 완성합니다.
-- [ ] 남은 temporal, metric-series, evidence-join, causal, relationship-side 및 provider-backed
-    read capability를 secured query gateway를 통해 연결합니다.
+- [ ] 남은 temporal, metric-series, evidence-join, causal, 타입 기반 다중 홉 relationship-side
+    및 프로바이더 기반 읽기 기능을 보안 조회 게이트웨이를 통해 연결합니다.
 - [ ] Attachment ingestion 및 custody 경로가 범위가 제한된 immutable reference를 만든 뒤에만
     인증된 image와 document evidence를 semantic planning으로 전달합니다.
 - [ ] 고정된 bilingual question universe의 runtime epistemic receipt를 만들고 structural coverage
@@ -399,7 +400,7 @@ Bragi는 근거를 모으고 검증한 뒤에 서술을 스트리밍합니다. �
 | 의도 그래프 | 검증된 계획이 범위가 제한된 그래프와 작업 근거를 만들고, Operator가 둘 다 Console 호환 `done` 프레임에 붙입니다. | 인증된 실제 실행으로 브라우저에 보이는 경로를 새로 검증해야 합니다. |
 | 의미 계획과 ObjectSet | 정확한 release에 구속된 후보, principal 매니페스트 검증, 범위가 제한된 조건식과 탐색, 보안된 증적, 범용 집합/정렬/투영/집계 핸들러가 운영 semantic-turn 읽기 표면을 이룹니다. | 시계열 및 근거 결합 확장은 권위 있는 프로바이더가 연결될 때까지 사용할 수 없습니다. |
 | Interface | 운영 로딩이 현재의 모든 ObjectType에 대해 검토된 `Identifiable` Interface를 검증하고 컴파일하며, ObjectSet 계약에 Interface 선택자가 있습니다. | 추가 기능 Interface와 운영용 다형 ObjectSet 조회 연결은 아직 붙지 않았습니다. |
-| 관계 방향 | 방향이 있는 모든 LinkType이 결정론적인 나가는/들어오는 종단점별 조회 식별자를 제공하며, 저장소는 타입이 지정된 방향을 보존합니다. | 범용 검증기와 자연어 플래너는 아직 이 방향을 쓰지 않습니다. |
+| 관계 방향 | 방향이 있는 모든 LinkType이 결정론적인 나가는/들어오는 종단점별 조회 식별자를 제공하며, 저장소는 타입 기반 방향을 보존합니다. 현재 인스턴스 질문은 정확한 LinkType을 선택하고 증적에 결속된 완전한 스냅샷 하나에서 저장된 방향성 행을 읽을 수 있습니다. | 일반 플래너는 아직 타입 기반 다중 홉 종단점 탐색을 조합하지 않습니다. 새 현재 인스턴스 경로의 통제된 인증 근거도 남아 있습니다. |
 | 의미 세대 | 룰 검색은 완전한 세대와 후보 전용 순위를 제공합니다. | 선언과 런타임 객체 커버리지가 아직 온톨로지 전체로 넓어지지 않았습니다. |
 | 과거 그래프 | 추가 전용 양방향 시간 리비전 계약, 툼스톤, 늦게 도착한 근거 재생, `graph_at`, `topology_diff`, 타입이 지정된 핸들러가 있습니다. | PostgreSQL 읽기/쓰기 구성과 인벤토리 승격 발행이 남아 있습니다. |
 | 네트워크 및 인과 함수 | 현재 피어링, 프라이빗 링크 대상, 정확한 리소스의 다음 홉 변환과 메트릭 개념, 정렬된 구간, 토폴로지를 아는 시간적 지지/반증 기반이 있습니다. | 운영 증적 발급기, 프로바이더 메트릭 연결, 남은 Azure 워크로드/서비스 관계가 아직 불완전합니다. |

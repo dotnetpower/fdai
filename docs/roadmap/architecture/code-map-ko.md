@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 92894b0e9afc6858a60d376fd43ea1f3679c5944
+translation_source_sha: b91e59359a21f34a4e9e5ad5e1e99d33f54752bf
 translation_revised: 2026-08-15
 ---
 # 코드 맵
@@ -35,6 +35,7 @@ translation_revised: 2026-08-15
 | Receipt 기반 운영 컨텍스트 표현 | 구현됨 | `core/operational_context/console_projection.py`, `tests/core/operational_context/test_console_projection.py`, focused 테스트 5개 통과 | 목적, 릴리스, 기준 시각, 실행 권한 및 그래프 범위가 일치해야 범위가 제한된 메타데이터를 변환합니다. Raw 속성은 제외하며 principal 범위 전송은 연결하지 않은 상태로 유지합니다. |
 | 런타임 바인딩 기반 플래너 가시성 | 구현됨 | `composition/wire_semantic_query.py`, `core/conversation/semantic_manifest.py`, `core/ontology_platform/query_manifest.py`, focused 조립 및 매니페스트 테스트 | 플래너 서술자는 조립된 런타임에 등록된 함수만 노출합니다. 읽을 수 있지만 바인딩되지 않은 선언은 타입이 지정된 구조 coverage에 남으며 어떤 권한도 얻지 않습니다. |
 | Exact-release 스키마 관계 조회 | 구현됨 | `core/ontology_platform/relationship_queries.py`, `composition/wire_semantic_query.py`, `fdai_core_service/semantic_relationship_projection.py`, 집중 조립 및 processor 테스트(`42 passed`) | `query.ontology_relationships`는 ObjectType과 LinkType 선언을 읽고 direction, cardinality, description을 보존하며 판단, 승인, 변경 또는 실행 권한을 포함하지 않습니다. 인증된 Browser 근거는 열린 작업입니다. |
+| 증적 기반 현재 인스턴스 관계 조회 | 구현됨 | `core/ontology_platform/instance_relationships.py`, `composition/wire_semantic_query.py`, `fdai_core_service/semantic_instance_relationship_projection.py`, 집중 평가기, 조립 및 처리기 테스트 | `query.instance_relationships`는 principal 범위에서 발급된 ObjectSet 증적 하나의 exact active-release LinkType만 필터링하고 저장 방향과 출처 완전성을 보존하며, 불완전한 빈 결과를 부재 주장으로 바꾸지 않습니다. 인증된 Browser 근거는 열린 작업입니다. |
 | 선언 기반 유한 질문 집합 | 구현됨 | `core/conversation/question_universe.py`, `core/conversation/__init__.py`, `core/conversation/epistemic_coverage.py`, `core/conversation/coverage_gate.py`, `tests/conversation/test_question_universe.py`, `tests/conversation/test_epistemic_coverage.py`, `tests/conversation/test_coverage_gate.py`, 집중 release gate 테스트(`41 passed`, 생성기 branch coverage `100%`, 인식 상태 branch coverage `99%`, coverage gate branch coverage `100%`) | Principal 범위의 완전한 매니페스트를 정규화된 범위 제한 문법으로 확장해 conversation 패키지가 노출하는 안정적인 사례 ID를 만듭니다. 문법과 receipt는 10,000개라는 하나의 사례 상한을 공유하고, 인식 상태 및 최종 gate receipt는 release ID, 불변이며 직렬화 가능한 근거 계수, 통과 및 production 상태와 content digest를 검증하며, 사용할 수 없는 선언은 타입 기반 제외 항목으로 유지하고, 한도 초과는 확장 전에 실패하며, 생성된 레코드는 실행 권한을 부여하지 않습니다. |
 | 운영 Rule 의미 준비 상태 | 구현됨 | `runtime/bootstrap.py`, `runtime/bootstrap_lifecycle.py`, `composition/wire_semantic_query.py`, `tests/runtime/test_catalog_semantic_bootstrap.py`, 집중 bootstrap 및 구성 검사(`46 passed`) | 운영 시작은 활성 세대가 현재 Rule 카탈로그, 의미 스키마, 온톨로지 release 및 embedder 차원과 정확히 일치할 때만 Rule 의미 검색을 등록합니다. 안정적인 선택적 준비 상태 저하는 오래된 함수를 노출하지 않고 시작을 유지합니다. |
 | 영속 Rule 세대 종결 | 구현됨 | `core/rule_semantic_generation/activation.py`, `core/rule_semantic_generation/ledger.py`, `core/rule_semantic_generation/publication.py`, `rule_catalog/schema/rule_semantic_generation_events.py`, 집중 활성화, 계약, ledger, 발행 및 실제 PostgreSQL 검사 | Core는 활성화 전에 정확한 검증 증적과 예상 이전 활성 식별자를 확인하고, 완료된 명령이 프로바이더에 다시 전달되지 않게 하며, 첫 최종 결과를 lease로 차단된 하나의 발행 레코드에 원자적으로 연결하고, exact-topic broker 확인 뒤에만 발행 완료로 표시합니다. Delivery 상태는 정책, 승인, 변경 또는 실행 권한을 부여하지 않습니다. |
@@ -77,6 +78,7 @@ translation_revised: 2026-08-15
 | 2026-08-14 | 구현됨 | 전역 런타임 그래프 경로를 만들지 않고 receipt 기반 운영 컨텍스트 표현을 추가했습니다. | `current change`, `console_projection.py` 및 불일치와 변환을 검증하는 focused 테스트 5개 통과 | 기존 principal 범위 근거 응답을 통해서만 연결하고 인증된 Console 근거를 보존해야 합니다. |
 | 2026-08-14 | 구현됨 | 즉시 T2를 사용하는 의미 계획을 결정론적으로 평가하는 T1 우선 cascade로 교체했습니다. | `current change`, 집중 의미 플래너 및 조립 테스트는 T1 성공, 명확화, 범위 거부 및 근거 보류가 T2 용량을 사용하지 않음을 검증합니다. | 기존 온톨로지 보증 캠페인에서 인증된 tier 선택 근거를 보존합니다. |
 | 2026-08-15 | 구현됨 | 공유 Operator 읽기 계약에 범위가 제한된 payload-free 브라우저 근거 메타데이터 메서드를 추가하고 security-barrier service view 뒤에서 구현했습니다. | `current change`, focused Operator 및 service-contract 검사 `148 passed`, service migration 인벤토리 검사 `46 passed`, strict mypy 통과 | 인증된 배포 읽기 근거를 보존하고 Console 메타데이터 패널을 추가합니다. |
+| 2026-08-14 | 구현됨 | 증적 기반 현재 인스턴스 관계 선택과 지역화 변환을 스키마 관계 의미와 별도의 권한 표면으로 추가했습니다. | `current change`, 인스턴스 평가기, 의미 조립 DAG, prompt 및 Core 처리기 집중 검사를 통과했습니다. | 런타임 검증을 보고하기 전에 인증된 현재 관계 답변을 보존합니다. |
 
 ### 남은 작업
 

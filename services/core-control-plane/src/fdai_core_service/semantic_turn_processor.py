@@ -35,6 +35,10 @@ from .contract_codecs import (
     OPERATOR_PROJECTION_PRODUCER_V12,
     OPERATOR_REQUEST_CONSUMER_V13,
 )
+from .semantic_instance_relationship_projection import (
+    project_instance_relationships,
+    render_instance_relationship_answer,
+)
 from .semantic_relationship_projection import (
     project_ontology_relationships,
     render_ontology_relationship_answer,
@@ -626,6 +630,11 @@ def _project_runtime_result(
     )
     if relationships_found and relationships is None:
         return _terminal_result(request, "held", "semantic_evidence_incomplete"), None
+    instance_relationships_found, instance_relationships, instance_relationships_node_id = (
+        project_instance_relationships(result, execution)
+    )
+    if instance_relationships_found and instance_relationships is None:
+        return _terminal_result(request, "held", "semantic_evidence_incomplete"), None
     answer, technical_details = _render_query_answer(
         request,
         execution,
@@ -635,6 +644,8 @@ def _project_runtime_result(
         incident_node_id=incident_node_id,
         ontology_relationships=relationships,
         ontology_relationships_node_id=relationships_node_id,
+        instance_relationships=instance_relationships,
+        instance_relationships_node_id=instance_relationships_node_id,
     )
     if answer is None or technical_details is None:
         return _terminal_result(request, "held", "semantic_evidence_incomplete"), None
@@ -926,11 +937,14 @@ def _render_query_answer(
     incident_node_id: str | None = None,
     ontology_relationships: dict[str, object] | None = None,
     ontology_relationships_node_id: str | None = None,
+    instance_relationships: dict[str, object] | None = None,
+    instance_relationships_node_id: str | None = None,
 ) -> tuple[str | None, dict[str, object] | None]:
     outputs: list[dict[str, object]] = []
     projected_rule_search = False
     projected_incident = False
     projected_relationships = False
+    projected_instance_relationships = False
     for node_id in execution.output_node_ids:
         result = execution.results.get(node_id)
         if result is None:
@@ -956,6 +970,16 @@ def _render_query_answer(
                     }
                 )
                 projected_relationships = True
+            elif instance_relationships is not None and node_id == instance_relationships_node_id:
+                if projected_instance_relationships:
+                    return None, None
+                outputs.append(
+                    {
+                        "node_id": node_id,
+                        "instance_relationships": instance_relationships,
+                    }
+                )
+                projected_instance_relationships = True
             elif rule_search is not None and node_id == rule_search_node_id:
                 if projected_rule_search:
                     return None, None
@@ -992,6 +1016,8 @@ def _render_query_answer(
         return None, None
     if ontology_relationships is not None and not projected_relationships:
         return None, None
+    if instance_relationships is not None and not projected_instance_relationships:
+        return None, None
     technical_details = {
         "schema_version": 1,
         "kind": "semantic_query_outputs",
@@ -1005,7 +1031,11 @@ def _render_query_answer(
         else (
             render_ontology_relationship_answer(request.locale, outputs[0])
             if projected_relationships and len(outputs) == 1
-            else _render_general_query_answer(request, outputs)
+            else (
+                render_instance_relationship_answer(request.locale, outputs[0])
+                if projected_instance_relationships and len(outputs) == 1
+                else _render_general_query_answer(request, outputs)
+            )
         )
     )
     return (answer, technical_details) if len(answer) <= 64_000 else (None, None)

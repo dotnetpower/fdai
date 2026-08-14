@@ -52,6 +52,10 @@ from fdai.core.ontology_platform.incident_queries import (
     IncidentEvidenceReader,
     incident_evidence_function,
 )
+from fdai.core.ontology_platform.instance_relationships import (
+    INSTANCE_RELATIONSHIPS_FUNCTION_NAME,
+    instance_relationships_function,
+)
 from fdai.core.ontology_platform.network_path import (
     NETWORK_PATH_FUNCTION_NAME,
     network_path_function,
@@ -214,6 +218,17 @@ def build_semantic_query_runtime(
         ),
     )
     bound_function_names.add(relationship_declaration.name)
+    instance_relationship_declaration = declarations[INSTANCE_RELATIONSHIPS_FUNCTION_NAME]
+    function_registry.register_contextual(
+        instance_relationship_declaration,
+        instance_relationships_function(
+            ontology_release,
+            known_link_types=tuple(item.name for item in ontology_catalog.link_types),
+            receipt_verifier=receipt_authority,
+            verification_context=receipt_authority.verification_context,
+        ),
+    )
+    bound_function_names.add(instance_relationship_declaration.name)
     network_declaration = declarations[NETWORK_PATH_FUNCTION_NAME]
     function_registry.register_contextual(
         network_declaration,
