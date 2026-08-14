@@ -33,7 +33,8 @@ central planner or another authority surface.
 > partial-execution proof and live graph shadow measurement remain release evidence, not completed
 > live claims. Production graph evidence and the development `ops.scale-out` VM Scale Set executor
 > bindings are implemented and covered by focused tests. Independent Core and Operator service
-> HIL bindings, the protected-runner drill, independent closure, and the full recurrence window
+> HIL bindings, the pre-dispatch kinetic receipt writer, the Heimdall-owned verified independent
+> effect observer, the protected-runner drill, independent closure, and the full recurrence window
 > remain outstanding.
 
 ## Implementation status
@@ -44,6 +45,7 @@ central planner or another authority surface.
 |------|-------|----------|-------|
 | P1-P7 operational-planning core | implemented | `services/core-control-plane/src/fdai/core/operational_planning/` and focused planning tests | Planning remains A0 and reuses existing Process and authority paths. |
 | Production graph evidence and scale-out executor bindings | implemented | `services/core-control-plane/src/fdai/delivery/azure/` and focused composition/delivery tests | Code presence and tests don't count as live outcome evidence. |
+| Exact kinetic handoff and independent effect-observation runtime binding | in-progress | `services/core-control-plane/src/fdai/delivery/reconciliation_artifacts.py`, `config/ohl-scale-out-evidence.json`, and focused artifact/manifest tests | The immutable store exists; the pre-dispatch writer and Heimdall-owned verified observer remain unbound. |
 | Independent-service HIL binding | in-progress | `config/ohl-scale-out-evidence.json` and the deployed Core/Operator environment contract | The service roots must bind the HIL channel and callback signing secret before approval can park and resolve the action. |
 | OHL Lane F live evidence | in-progress | `docs/runbooks/ohl-scale-out-evidence.md` | Protected execution, independent closure, 100 samples, and the 14-day recurrence window remain open. |
 
@@ -52,9 +54,12 @@ central planner or another authority surface.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and exposed the independent-service HIL binding residual. | current change; `services/core-control-plane/tests/scenarios/operational-planning/test_manifest.py` reports 7 passed. | Bind HIL in both service roots, deploy the exact revision, and complete the live evidence campaign. |
+| 2026-08-14 | in-progress | Exposed the missing exact-plan writer and verified independent effect observer as separate Lane F runtime residuals. | `current change`; the Lane F contract, runbook gate, artifact-store tests, and manifest tests. | Bind both sources without reconstructing plans or substituting executor/provider receipts. |
 
 ### Remaining work
 
+- [ ] Persist the existing exact V2 plan's kinetic receipt before provider dispatch and bind a
+  Heimdall-owned verified independent effect observer; retain focused substitution and replay tests.
 - [ ] Bind and verify the Core HIL channel plus Operator callback signing secret so a distinct human
   approval parks, resolves, and resumes one `ops.scale-out` proposal.
 - [ ] Complete the protected-runner drill and record independent graph closure, 100 live-shadow
@@ -219,6 +224,12 @@ result contributes promotion evidence only when independent observation closes i
 An eligible selection compiles to an immutable MutationPlan with exact target revisions, read and
 write sets, expected effects, rollback or compensation, impact evidence, and a digest. The bridge
 submits the selected ActionType through typed ingress. It does not call Thor.
+
+Before provider dispatch, the execution path must persist a kinetic safety receipt for that
+existing exact V2 plan. It must not reconstruct a plan from an Action. After dispatch, a
+Heimdall-owned adapter must authenticate an independent effect observation; an executor or provider
+receipt is dispatch evidence and cannot substitute for the observed outcome. The immutable store is
+implemented, but these two runtime bindings remain release blockers.
 
 Risk evaluation rechecks current policy, promotion state, role, environment, impact, approval,
 target revision, and all seven safeguards. Planning evidence can only preserve or lower the

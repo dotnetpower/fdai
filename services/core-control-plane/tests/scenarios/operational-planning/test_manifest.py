@@ -102,6 +102,8 @@ def test_ohl_scale_out_evidence_contract_is_bounded_and_schema_valid() -> None:
         "completed_at": None,
     }
     assert EVIDENCE_CONFIG["residuals"] == [
+        "pre_dispatch_kinetic_receipt_writer",
+        "verified_independent_effect_observation_adapter",
         "independent_service_hil_binding",
         "protected_runner_live_execution",
     ]

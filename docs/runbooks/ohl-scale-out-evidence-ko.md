@@ -1,8 +1,8 @@
 ---
 title: OHL Scale-Out 근거 Runbook
 translation_of: ohl-scale-out-evidence.md
-translation_source_sha: 4ab0b9283695b1b3cbc8030445efc713aef52f3a
-translation_revised: 2026-08-13
+translation_source_sha: 886b5a1753cd0305f56e8f44060aa950187ed2d5
+translation_revised: 2026-08-14
 ---
 # OHL Scale-Out 근거 Runbook
 
@@ -14,7 +14,10 @@ translation_revised: 2026-08-13
 > non-production VM Scale Set 하나를 최대 인스턴스 1개만큼 변경하고 exact 기준선으로
 > 복원합니다. 이 runbook을 사용하기 전에 protected 배포 작업 흐름을 통해 선택적 대상을
 > 프로비저닝하세요. 기존 승인, dry-run, audit intent, lock, automation hold 경로를 사용할 수
-> 있을 때만 훈련을 실행하세요.
+> 있을 때만 훈련을 실행하세요. 실행 경로는 pre-dispatch exact V2 plan의 kinetic safety receipt도
+> 저장해야 하며 Heimdall 소유 adapter는 post-effect observation을 독립적으로 authenticate해야
+> 합니다. Action에서 plan을 reconstruct하거나 executor 또는 provider receipt를 observed outcome으로
+> 사용하지 마세요.
 >
 > **근거 경계:** 아래의 direct Azure CLI 변경은 provider-side staging 근거입니다.
 > `ops.scale-out` executor binding이 기존 typed receipt를 생성하기 전에는 FDAI end-to-end 실행
@@ -63,6 +66,12 @@ Manual proposal Job은 ACR pull과 primary ingress Event Hub Data Sender 권한�
 Identity를 사용합니다. State-store secret, Key Vault role, gateway role 또는 Azure provider
 mutation 권한은 없습니다. Job을 시작하면 retry-stable `operator_request` 하나만 게시하며 target을
 scale하지 않습니다.
+
+현재 repository는 immutable kinetic receipt store를 구현했지만 dispatch 전 writer를 아직 연결하지
+않았고 verified independent effect-observation adapter도 제공하지 않습니다. 두 residual이 focused
+runtime evidence로 제거되기 전까지 contract를 `prepared`로 유지하고 live mutation 단계를 시작하지
+마세요. 항상 unavailable을 반환하는 deferred observer는 production binding이 아니며 이 gate를
+충족할 수 없습니다.
 
 ## 필요한 runner 구성
 
