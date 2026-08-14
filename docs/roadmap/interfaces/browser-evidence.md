@@ -160,12 +160,13 @@ retention process, not a Console control.
 
 ## Verification
 
-Focused core tests cover SSRF and metadata addresses, DNS rebinding, redirects, Unicode hostnames, file
-URLs, popup/download/upload events, mutation methods, cross-origin requests, public API minimization,
-secret and visual/text redaction, injection scanning, bounds, timeout/crash handling, hashes,
-custody, replay, human/API conflict, unavailable abstention, no executor credential, and workflow
-authority separation. Dedicated persistence, Operator API projection, and Console decoding tests
-remain open with those implementation surfaces.
+Focused core and delivery tests cover SSRF and metadata addresses, DNS rebinding, redirects, Unicode
+hostnames, file URLs, popup/download/upload events, mutation methods, cross-origin requests, public
+API minimization, secret and visual/text redaction, injection scanning, declared response, aggregate
+response, and screenshot bounds, auth-state forwarding, timeout/crash handling, hashes, custody,
+replay, human/API conflict, unavailable abstention, no executor credential, and workflow authority
+separation. Focused persistence tests cover durable decoding, replay, legal hold, and concurrent
+cleanup. Operator API projection and Console decoding tests remain open with those surfaces.
 
 ## Implementation status
 
@@ -174,7 +175,8 @@ remain open with those implementation surfaces.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Contracts, policy, redaction, storage rules, and shadow comparison | implemented | `services/core-control-plane/src/fdai/core/browser_evidence/`; `services/core-control-plane/src/fdai/shared/providers/browser_evidence.py`; `services/core-control-plane/tests/core/browser_evidence/` | Focused core tests cover bounded policy, evidence-only authority, redaction, in-memory custody, replay, and shadow abstention. |
-| Optional Playwright delivery adapter | in-progress | `services/core-control-plane/src/fdai/delivery/browser/` | The adapter exists, but no dedicated focused delivery suite or restricted-egress image receipt was found. |
+| Playwright delivery policy and byte bounds | implemented | `services/core-control-plane/src/fdai/delivery/browser/`; `services/core-control-plane/tests/delivery/browser/`; focused delivery and integrated checks (`46 passed`) | The adapter propagates policy-owned response and screenshot bounds to the driver, rejects oversized or malformed declared responses before capture, rejects oversized screenshots and aggregate response material before return, and normalizes URL or DNS policy failures as unavailable. |
+| Restricted-egress browser image evidence | not-started | [Verification](#verification) | Focused fakes prove delivery enforcement without a browser binary. No governed real-browser image receipt is retained. |
 | Durable persistence and retention job | implemented | `alembic/versions/20260721_0050_browser_evidence.py`; `alembic/versions/20260814_0083_browser_evidence_legal_hold.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_browser_evidence.py`; focused codec and live PostgreSQL tests (`9 passed`, no skips) | Exact payload replay, conflict rejection, strict durable JSONB decoding, monotonic legal hold, restart reads, and winner-only concurrent cleanup are implemented. A separately scheduled production cleanup job remains open. |
 | Operator API and Console inspection | not-started | [Operator and workflow surfaces](#operator-and-workflow-surfaces) | The tool and workflow contracts exist, but no dedicated production read route or Console panel is registered. |
 | Promotion evidence | not-started | [Shadow measurement and promotion](#shadow-measurement-and-promotion) | The comparator always reports `promotion_eligible=false`; no governed live fidelity or security-drill window is retained. |
@@ -186,12 +188,14 @@ remain open with those implementation surfaces.
 | 2026-08-14 | in-progress | Adopted the implementation ledger and corrected stale claims for PostgreSQL persistence and the inspection surface; earlier provenance was not reconstructed. | `current change`; current source and focused core checks listed in the scope table. | Implement durable custody and read surfaces, then retain isolated live evidence before promotion review. |
 | 2026-08-14 | implemented | Added PostgreSQL browser-evidence custody and monotonic legal hold on the existing artifact schema, with bounded winner-only expiry cleanup and read-time hash verification. | `current change`; migrations `0050` and `0083`; PostgreSQL adapter; codec and supported local PostgreSQL tests `2 passed`, no skips. | Bind the cleanup job, implement read-only Operator and Console inspection, and retain isolated live evidence. |
 | 2026-08-14 | implemented | Hardened durable row decoding to reject malformed JSONB arrays, objects, redaction surfaces, string members, and coerced booleans before artifact materialization. | `current change`; PostgreSQL adapter and focused codec plus supported local PostgreSQL tests `9 passed`, no skips. | Cleanup-job binding, read-only inspection, and isolated live evidence remain open. |
+| 2026-08-15 | implemented | Propagated policy-owned response and screenshot byte limits into the Playwright driver and added focused delivery enforcement for read-only methods, redirect and DNS denial, auth-state forwarding, browser side-effect events, and oversized or malformed material. | `current change`; `services/core-control-plane/src/fdai/delivery/browser/`; `services/core-control-plane/tests/delivery/browser/`; Ruff, strict mypy, and focused plus integrated browser checks `46 passed`. | Build and exercise the restricted-egress browser image, then retain governed real-browser receipts. |
 
 ### Remaining work
 
 - [x] Implement a PostgreSQL `BrowserEvidenceArtifactStore` and migration with hash-conflict, replay, bounded expiry, legal-hold, and concurrent cleanup tests.
 - [ ] Register Owner- or Reader-scoped GET-only Operator API metadata routes and a Console inspection panel that never returns captured payload bytes or exposes capture controls.
-- [ ] Add focused Playwright delivery tests and retain restricted-egress image receipts covering SSRF, redirect, DNS rebinding, mutation, credential, redaction, timeout, crash, and custody-replay drills.
+- [x] Add focused Playwright delivery tests for read-only method gating, redirect and DNS denial, auth-state forwarding, browser side-effect events, and policy-owned response and screenshot bounds (`46 passed` with integrated browser checks).
+- [ ] Retain restricted-egress image receipts covering SSRF, redirect, DNS rebinding, mutation, credential, redaction, timeout, crash, and custody-replay drills.
 - [ ] Retain a frozen live fidelity window with zero policy escapes before requesting any promotion review.
 
 Real-browser release evidence should additionally run the optional Playwright adapter inside the
