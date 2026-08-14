@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 19c0d852dd9822cc631fce96e92ff602a88174c8
+translation_source_sha: 837d3df6e41fc74d777018159d0108ac8e4ada29
 translation_revised: 2026-08-14
 ---
 # 프로젝트 구조
@@ -25,7 +25,7 @@ translation_revised: 2026-08-14
 | 인시던트 온톨로지 projection 및 근거 조회 | 구현됨 | `core/incident/ontology_projection.py`, `core/ontology_platform/incident_queries.py`, focused 인시던트 및 의미 조립 검사 (`62 passed`) | 시작 시 추가 전용 인시던트 감사를 replay해 `Incident` 객체를 만듭니다. Exact-release `query.incident_evidence` 함수는 correlation-scoped 감사 기록을 읽고 원인 또는 액션 권한 없이 프로파일, 근거 및 공백을 노출합니다. |
 | 권한 인식 관측 경계 | implemented | `fdai_service_contracts/operational_activity.py`, `delivery/observation_campaign.py`, `delivery/observation_source_catalog.py`, 집중 계약, 수명 주기 및 projection 검사 | 공유 계약은 권한이 없는 요약을 전달하고 delivery는 프로바이더 읽기, 원자적 캠페인 상태 및 로컬 또는 배포 어댑터 선택을 소유합니다. 출처별 경로는 의미 있는 근거 소유권을 유지합니다. |
 | 리소스 검색 계약 경계 | implemented | `fdai_service_contracts/discovery.py`, `fdai_service_contracts/discovery_evidence.py`, `core/discovery/router.py`, 집중 검색 검사 (`44 passed`) | 공유 SDK는 불변이고 권한이 없는 wire 레코드를 소유하고 Core는 프로바이더 중립적인 정확히 동등한 라우팅과 병합을 소유하며 Azure delivery는 버전이 고정된 프로파일, 렌더링, 실행 증적 및 커버리지 조정을 소유합니다. |
-| Pre-dispatch kinetic safety 경계 | implemented | `core/operational_planning/kinetic_safety.py`, `delivery/kinetic_safety.py`, `delivery/kinetic_proposal.py`, `runtime/control_loop.py`, 집중 dispatch, HIL, artifact, proposal 및 runtime 검사(`115 passed`) | Core는 프로바이더 중립 ordering seam을 선언합니다. Delivery는 correlation index에 있는 기존 exact V2 proposal과 기존 typed Action을 결합하며 runtime은 모든 Thor 실행기 전에 ControlLoop와 HIL resume이 하나의 writer를 공유하도록 합니다. Proposal이 없으면 legacy 동작을 유지하고 invalid evidence는 권한을 높이지 않은 채 dispatch를 차단합니다. |
+| Pre-dispatch kinetic safety 경계 | implemented | `core/operational_planning/kinetic_safety.py`, `delivery/kinetic_safety.py`, `delivery/kinetic_proposal.py`, `runtime/control_loop.py`, 집중 dispatch, HIL, artifact, proposal 및 runtime 검사(`119 passed`) | Core는 프로바이더 중립 ordering seam을 선언합니다. Delivery는 영속 OperationalPlan 및 proposal lineage를 다시 검증하고 correlation index에 있는 기존 exact V2 proposal과 기존 typed Action을 결합하며 runtime은 모든 Thor 실행기 전에 ControlLoop와 HIL resume이 하나의 writer를 공유하도록 합니다. Proposal이 없으면 legacy 동작을 유지하고 invalid evidence는 권한을 높이지 않은 채 dispatch를 차단합니다. |
 
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
@@ -43,6 +43,7 @@ translation_revised: 2026-08-14
 | 2026-08-14 | implemented | 카탈로그 소유 자리 표시자를 유지하면서 redirect, 제어 문자 및 실행 가능한 shell 단어를 거부하도록 공유 명령 근거를 강화했습니다. | `current change`, 집중 검색 테스트 `44 passed`, 작업 범위 Ruff 및 strict mypy 통과 | Azure 검색 owner 문서에서 추적하는 통제된 실제 운영 canary 근거를 보존합니다. |
 | 2026-08-14 | implemented | 승인, dispatch 또는 감사 권한을 바꾸지 않고 영속 HIL park key, 만료 decoding 및 on-call serialization을 focused record helper로 분리했습니다. | `current change`, focused HIL coordinator 테스트 33개 통과, strict mypy 및 Core import gate 통과 | 연기된 Phase 2 패키지 이동은 변경 없이 남아 있습니다. |
 | 2026-08-14 | implemented | Risk, 승인, 실행 또는 감사 소유권을 바꾸지 않고 하나의 프로바이더 중립 pre-dispatch kinetic safety seam을 추가하고 일반 ControlLoop dispatch와 승인된 HIL resume이 구체적인 StateStore writer를 공유하도록 했습니다. | `current change`, 집중 kinetic 및 HIL 검사 115개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 운영 Forseti proposal source 조립, verified independent observer 및 통제된 실제 종결 근거는 Operational Planning에서 계속 소유합니다. |
+| 2026-08-14 | implemented | Receipt 저장 전에 영속 OperationalPlan identity와 모든 proposal lineage 필드를 다시 검증해 내부적으로 valid한 cross-record substitution을 차단하도록 delivery join을 강화했습니다. | `current change`, `delivery/kinetic_proposal.py`, 집중 kinetic 검사 119개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 운영 Forseti proposal source 조립, verified independent observer 및 통제된 실제 종결 근거는 Operational Planning에서 계속 소유합니다. |
 
 ### 남은 작업
 - [ ] 호환성 import deprecation 주기 뒤 연기된 Phase 2 물리 `git mv`를 완료하고 이 배치를 결과 service-owned 경로로 갱신합니다.
