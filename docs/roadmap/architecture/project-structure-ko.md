@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ea0adb20fc6f74f768a160864a606c0a52b8bed3
+translation_source_sha: 61c170ad003afd5b1e20937f9889024e2c8b67aa
 translation_revised: 2026-08-14
 ---
 # 프로젝트 구조
@@ -83,7 +83,7 @@ fdai/
 │   │   ├── rule_semantic_generation/ # agent-facing 빌드/검증 handler Protocol, exact 활성화, 영속 종결 및 발행. 실행 권한 없음
 │   │   ├── quality_gate/       # mixed-model 교차 검사, verifier, grounding; 실패한 fan-out은 sibling을 cancel+drain (T2 방어)
 │   │   ├── rca/                # 루트 원인 분석 (T0 deterministic + seam 뒤의 T2 reasoner; grounding-gated)
-│   │   ├── risk_gate/          # 통합 authority: 리스크 스코어 + auto vs HIL vs deny; malformed promotion metric 거부 + 7개 안전조건 강제 + 기록된 관측값으로 Axis-E live probe 해석 + 자기완결적 재현을 위한 feature vector, catalog version, 나머지 상한 입력 감사
+│   │   ├── risk_gate/          # 통합 authority: 리스크 스코어 + auto vs HIL vs deny; malformed promotion metric 거부 + 7개 안전조건 강제 + 카탈로그 probe id 기반 기록 관측값으로 Axis-E live probe 해석 + 자기완결적 재현을 위한 feature vector, catalog version, 나머지 상한 입력 감사
 │   │   ├── execution_authorization/ # 온톨로지 기반 pre-dispatch capability policy, grant lifecycle, replay-stable decision
 │   │   ├── rbac/               # Operator API 를 위한 사람 RBAC (5개 롤 매트릭스, resolver, enforcer)
 │   │   ├── human_assignment/   # 변경 불가능한 역할/임무 의도, 정규화된 검토 정족수, 리비전 기반 StateStore lifecycle, 결과 영수증
@@ -542,8 +542,8 @@ raw 산출물, detached 서명, 발행기 출처, 다이제스트, 비활성화�
 `fdai.skill-bundle-signature.v1` 도메인을 사용합니다. 시작은 스킬을 번들보다 먼저 재구성해
 shared 런타임 스냅샷 publish 전에 exact 구성원 버전과 활성화된 상태를 검증합니다.
 세 읽기 화면은 이 스냅샷 하나를 공유합니다. 스냅샷을 다시 publish하면 Bragi 명령, 읽기 범위
-`skill_bundles.*` RPC 연산, Skills 패널 점검 페이로드가 함께 움직이며, 모든 번들 거절은 각
-화면에서 내용 없는 동일한 안정 이유를 반환합니다.
+`skill_bundles.*` RPC 연산, Skills 패널 점검 페이로드가 함께 움직이며, 모든 번들 거절은 고정된
+영어 토큰 어휘에서 가져온 내용 없는 동일한 안정 이유를 반환합니다.
 
 승인된 외부 스킬 저장소는
 [skill-source-management.md](../interfaces/skill-source-management-ko.md)의 별도 영속 출처

@@ -314,7 +314,7 @@ def test_audit_records_every_ceiling_input_the_feature_vector_omits() -> None:
         tier=Tier.T0,
         action_type=_probe_at(),
         table=_table(),
-        principal_role=None,
+        principal_role=CeilingRole.OWNER,
         environment="non-prod",
         live_probe_observation=observation,
         live_probe_failure_streak=1,
@@ -335,6 +335,12 @@ def test_audit_records_every_ceiling_input_the_feature_vector_omits() -> None:
     assert inputs["graph_affected"] == 3
     assert inputs["system_degraded"] is True
     assert inputs["kill_switch_engaged"] is False
+    # The role is recorded as its canonical token, not a Python repr.
+    assert inputs["principal_role"] == "owner"
+    # A degraded control plane must leave its own fail-safe axis in the record,
+    # otherwise the recorded flag and the recorded breakdown could disagree.
+    system_health = audit["resolved_ceiling"]["axes"]["system_health"]
+    assert system_health["level"] == "shadow_only"
 
 
 def test_recorded_probe_reading_replays_without_re_querying_the_probe() -> None:

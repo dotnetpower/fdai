@@ -42,9 +42,12 @@ class LiveProbeObservation:
 
     ``probe_id`` is compared against ``ActionType.live_probe_ref`` so a
     reading measured for a different probe is never credited to this action.
-    ``age_seconds`` and ``max_age_seconds`` are both required to prove
-    freshness; either one missing leaves freshness unproven, which floors the
-    axis at ``active`` rather than trusting an undatable reading.
+    It is the catalog probe id (for example ``vm_traffic_last_5m``), never a
+    substrate target reference, so the recorded reading stays
+    customer-agnostic. ``age_seconds`` and ``max_age_seconds`` are both
+    required to prove freshness; either one missing leaves freshness
+    unproven, which floors the axis at ``active`` rather than trusting an
+    undatable reading.
 
     Raises:
         ValueError: when ``probe_id`` is empty.
