@@ -1,7 +1,7 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: aa7a66eab1dfbeea92702797439e7c9de6a9b900
+translation_source_sha: c3c020f825fa326f00a5e19b90e4ba305a26ca95
 translation_revised: 2026-08-14
 ---
 
@@ -28,6 +28,7 @@ trust 라우팅을 확장합니다.
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 카탈로그 레지스트리, 작성기, 도구 및 런타임 스킬 | implemented | [`test_composer.py`](../../../services/core-control-plane/tests/core/prompts/test_composer.py) | 카탈로그 로드, 결정론적 레이어 조립, 도구 매니페스트, 스킬, canary 및 시작 대체 경로에 집중 테스트가 있습니다. |
+| 승인된 외부 skill-source fetch | implemented | [`skill_source.py`](../../../services/core-control-plane/src/fdai/delivery/github/skill_source.py); [`test_skill_source.py`](../../../services/core-control-plane/tests/delivery/github/test_skill_source.py) | GitHub delivery 어댑터는 불변 commit을 해석하고 범위가 제한된 exact 파일만 반환합니다. Fetch는 prompt eligibility를 부여하지 않으며 격리, publisher 검증, 승인, disabled-first installation이 계속 권위 있는 경계입니다. |
 | 운영자 기억, 토론 및 QualityGate 통합 | implemented | [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py), [`test_gate.py`](../../../services/core-control-plane/tests/core/quality_gate/test_gate.py) | 제한된 기억과 1회 비평자/Judge 토론은 권한을 부여하지 않고 결정론적 검증기에 근거를 제공합니다. |
 | 검토된 웹 검색 및 코어 T2 프롬프트 통합 | in-progress | [`test_web_search.py`](../../../services/core-control-plane/tests/core/web_search/test_web_search.py), [Wave 5 alpha](#wave-5-alpha---무엇이-배포되었나) | 안전한 프로바이더 경계와 검토된 어댑터가 있지만 스니펫은 코어 T2 도구 매니페스트에 연결되지 않았습니다. |
 | 포크 우선 두 번째 승인 채널 | not-started | [롤아웃 waves](#롤아웃-waves) | 문서화된 파이프라인 구획에는 구현 근거가 없으며 일반 HIL 지원에서 추론할 수 없습니다. |
@@ -37,6 +38,7 @@ trust 라우팅을 확장합니다.
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 기존의 T2 완전 실제 운영 주장을 바로잡았습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 코어 T2 웹 근거 확인, 두 번째 승인 및 통제된 런타임 근거를 완료해야 합니다. |
+| 2026-08-14 | implemented | 격리, 승인, runtime prompt eligibility를 변경하지 않고 범위가 제한된 GitHub skill-source delivery 어댑터를 추가했습니다. | `current change`; 구현 범위 표의 구체 어댑터와 focused 거부 경로 테스트입니다. | Scheduled source owner를 조립하고 governed refresh, 승인, 철회 근거를 보존합니다. |
 
 ### 남은 작업
 
@@ -230,7 +232,9 @@ I/O-bound 경계는
 - **승인된 출처 새로 고침:** 등록된 GitHub 출처는 ETag 상태로 변경할 수 없는 커밋을 해석하고
   declared 파일만 가져와 exact 바이트를 격리 구역에 저장합니다. 통과한 내용은 비활성화된
   후보가 됩니다. Approver installation은 disabled-first를 유지하고 Owner 철회는
-  출처 이력을 삭제하지 않고 출처와 영속 산출물을 비활성화합니다.
+  출처 이력을 삭제하지 않고 출처와 영속 산출물을 비활성화합니다. 구체 delivery 어댑터는
+  격리 구역에 바이트를 전달하기 전에 redirect, path substitution, symlink, malformed 또는
+  oversized content, authentication 실패, rate limit을 거부합니다.
   [스킬 소스 관리](../interfaces/skill-source-management-ko.md)를 참조하세요.
 
 ### Operator-memory 검토 및 compaction
