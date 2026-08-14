@@ -30,6 +30,7 @@ from fdai_operator_service.families.conversation.semantic_turn_runtime import (
     SemanticTurnResultSource,
 )
 from fdai_operator_service.families.iam import HilCallbackConfig, IamFamilyBindings
+from fdai_operator_service.families.operations.contracts import ProjectionReader
 from fdai_operator_service.family_adapters import (
     PostgresConversationAdapters,
     PostgresOperationsAdapters,
@@ -51,6 +52,9 @@ from fdai_operator_service.postgres_family_store import (
 from fdai_operator_service.postgres_iam import PostgresIamAdapters
 from fdai_operator_service.projections import UnavailableOperatorReadModel
 from fdai_operator_service.reporting import optional_pdf_report_encoder
+from fdai_operator_service.reporting.incident_rca_projection import (
+    IncidentRcaReportingProjectionReader,
+)
 from fdai_operator_service.routes import OperatorRouteFamilies
 from fdai_operator_service.runtime import OperatorRuntime
 from fdai_operator_service.streaming import LiveStreamEvent, LiveStreamHub
@@ -133,6 +137,7 @@ class ProductionOperatorComposition:
                 authenticator=authenticator,
                 store=family_store,
                 semantic_bridge=semantic_bridge,
+                read_model=configured_read_model,
             ),
             readiness_probe=self.readiness_probe
             or _readiness_probe(family_store, semantic_bus, semantic_bridge, live_stage_relay),
@@ -160,6 +165,7 @@ def _build_route_families(
     authenticator: OperatorAuthenticator,
     store: PostgresFamilyStore | None,
     semantic_bridge: SemanticTurnBridge | None,
+    read_model: OperatorReadModel | None,
 ) -> OperatorRouteFamilies:
     authorizer = OperatorFamilyAuthorizer(authenticator)
     report_pdf_encoder = optional_pdf_report_encoder()
@@ -226,6 +232,11 @@ def _build_route_families(
         store,
         webhook_secret=environment.values.get(WEBHOOK_SIGNING_SECRET_ENV, "").strip() or None,
     )
+    operations_reader: ProjectionReader = (
+        IncidentRcaReportingProjectionReader(postgres_operations, read_model)
+        if read_model is not None
+        else postgres_operations
+    )
     hil_secret = environment.values.get(HIL_SIGNING_SECRET_ENV, "").strip() or None
     return OperatorRouteFamilies(
         conversation=ConversationFamilyDependencies(
@@ -254,7 +265,7 @@ def _build_route_families(
         workflow_authorize=authorizer.workflow,
         workflow_read_store=postgres_workflow,
         workflow_proposal_writer=postgres_workflow,
-        operations_projection_reader=postgres_operations,
+        operations_projection_reader=operations_reader,
         operations_proposal_writer=postgres_operations,
         operations_replay_reader=postgres_operations,
         operations_webhook_verifier=postgres_operations,
