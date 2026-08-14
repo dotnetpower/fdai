@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 994e054d795026b331468e7e4e87be3dbdab7cfe
+translation_source_sha: 115c906a83607e7b2818c23c1f9501e113b38568
 translation_revised: 2026-08-14
 ---
 
@@ -59,6 +59,7 @@ translation_revised: 2026-08-14
 | 2026-08-13 | implemented | 고정된 160000토큰 Copilot 에이전트 이력 압축 임계값을 선택한 모델의 맥락 창 80%로 바꿨습니다. | 현재 변경의 `.vscode/settings.json`과 `tests/integration/scripts/test_vscode_workspace_performance.py`, VS Code JSON 진단 통과 및 집중 압축 계약 테스트 1개 통과. | 비율 기반 Copilot 대화 압축에 남은 구현 작업은 없습니다. |
 | 2026-08-14 | implemented | 자동 full-stack 작업을 반복 요청해도 VS Code 작업 인스턴스 선택창을 열지 않고 실행 중인 각 단일 인스턴스를 유지하도록 했습니다. | 현재 변경의 `.vscode/tasks.json`과 `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 자동 시작 계약 테스트 1개 통과. | 클릭 없는 중복 시작 요청에 남은 구현 작업은 없습니다. |
 | 2026-08-14 | implemented | 등록된 모든 출처를 위한 하나의 권한 인식 관측 캠페인을 추가하고 실행 조건을 확인하는 같은 CLI를 full-stack 로컬과 배포된 Container Apps Job에 연결했습니다. | `current change`, 버전 관리 활동 계약, 출처 카탈로그, 프로바이더 probe, 영속 실행기, Operator 변환 결과, Console lane 및 집중 검사 | 검증을 주장하기 전에 같은 카탈로그 digest를 사용하는 통제된 로컬 실행 하나와 배포 개정 실행 하나를 보존합니다. |
+| 2026-08-14 | implemented | 제거된 인제스트 co-host 경로와 독립 Document Ingestion API 및 Document Processing Worker 서비스 루트에 맞게 mock Terraform 검사를 정렬했습니다. | `current change`, Terraform 검증 통과 및 집중 인제스트 테스트 5개 통과 | 배포 가이드와 mock 테스트를 독립 서비스 루트에 맞게 유지합니다. |
 
 ### 잔여 작업
 

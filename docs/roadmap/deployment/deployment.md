@@ -33,6 +33,7 @@ bindings through configuration (see
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and added deployed Operator catalog bootstrap after schema migration. | current change; focused deployment workflow and Terraform checks | Capture governed apply evidence for the catalog Job and implement the progressive-delivery targets. |
+| 2026-08-14 | implemented | Corrected ingestion rollback guidance after the co-host compatibility path was retired. Rollback now restores exact prior independent API and worker revisions. | `current change`; focused Terraform validation and mocked ingestion tests passed 5 cases. | Keep deployment guides and mocked tests aligned with the independent service roots. |
 
 ### Remaining work
 
@@ -228,8 +229,9 @@ deployment rollback complements, not replaces, per-action rollback.
   digest-pinned image after immediate health failure, then verifies the recovery revision before
   closing the deployment as failed. The isolated Executor also returns its cutover setting to the
   declared `core-in-process` authority fallback.
-- **Ingestion topology rollback**: set `ingestion_cohost_worker=true` to remove the split worker and
-  restore its loops and ClamAV sidecar to the API app without changing consumer groups or offsets.
+- **Ingestion topology rollback**: restore the exact prior Document Ingestion API and Document
+  Processing Worker revisions and digest-pinned images without changing consumer groups or
+  offsets. The retired `ingestion_cohost_worker` input is rejected before planning.
 - **Action rollback**: PR-native actions revert via git; stateful actions (e.g. DB DR) follow
   the per-action rollback path (snapshot/replica restore) and **verify** the restore against
   the action's stop-condition before closing.

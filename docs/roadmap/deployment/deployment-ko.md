@@ -1,8 +1,8 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: d8487d1fc9fa90fe7cb03744c5ba1fdcaf5cd6fc
-translation_revised: 2026-08-13
+translation_source_sha: f23f9e9e0be46e67486ec6aa5d4ee8aad9be3b09
+translation_revised: 2026-08-14
 ---
 
 # 배포(배포)
@@ -37,6 +37,7 @@ translation_revised: 2026-08-13
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | implemented | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 schema migration 뒤 배포된 Operator catalog 초기화를 추가했습니다. | current change, 집중 deployment workflow 및 Terraform 검사 | Catalog Job의 통제된 적용 증적을 수집하고 점진적 배포 목표를 구현합니다. |
+| 2026-08-14 | implemented | Co-host 호환 경로가 제거된 뒤 인제스트 롤백 지침을 수정했습니다. 이제 롤백은 독립 API 및 워커의 정확한 이전 개정 번호를 복원합니다. | `current change`, 집중 Terraform 검증 및 mock 인제스트 테스트 5개 통과 | 배포 가이드와 mock 테스트를 독립 서비스 루트에 맞게 유지합니다. |
 
 ### 남은 작업
 
@@ -227,8 +228,9 @@ Traffic-split canary 전략은 아직 자동 배선되지 않았습니다. Platf
 - **애플리케이션 롤백**: 독립 서비스 배포는 immediate 상태 실패 뒤 exact captured 개정 번호와
   digest-pinned 이미지를 복원하고 복구 개정 번호를 검증한 다음 배포를 실패로 닫습니다.
   Isolated 실행기는 전환 설정도 선언된 `core-in-process` 권한 대체 경로로 되돌립니다.
-- **인제스트 토폴로지 롤백**: `ingestion_cohost_worker=true`로 분리 워커를 제거하고 소비자
-  그룹이나 오프셋 변경 없이 워커 루프와 ClamAV sidecar를 API 앱으로 복원합니다.
+- **인제스트 토폴로지 롤백**: 소비자 그룹이나 오프셋을 변경하지 않고 Document Ingestion
+  API와 Document Processing Worker의 정확한 이전 개정 번호 및 digest-pinned 이미지를
+  복원합니다. 제거된 `ingestion_cohost_worker` 입력은 계획 전에 거부됩니다.
 - **액션 롤백**: PR-네이티브 액션은 git으로 되돌림; stateful 액션(예: DB DR)은 액션당 롤백 경로
   (스냅샷/복제본 복원)를 따르고 종료 전에 액션의 stop-condition에 대해 **복원을 검증**.
 - **Rule-catalog 롤백**: 규칙은 catalog-as-code이며 버전 관리; 나쁜 규칙 세트는 업데이트

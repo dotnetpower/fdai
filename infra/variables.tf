@@ -1157,9 +1157,14 @@ variable "ingestion_worker_scale_out_verified" {
 }
 
 variable "ingestion_cohost_worker" {
-  description = "Rollback-only switch that restores worker loops and ClamAV to the API app and removes the split worker app."
+  description = "Retired compatibility input. The ingestion API and worker deploy only as independent services."
   type        = bool
   default     = false
+
+  validation {
+    condition     = !var.ingestion_cohost_worker
+    error_message = "ingestion cohost mode is retired; deploy the independent API and worker services."
+  }
 }
 
 # ---------------------------------------------------------------------------

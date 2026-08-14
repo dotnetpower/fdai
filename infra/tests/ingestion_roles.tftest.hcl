@@ -359,96 +359,14 @@ run "split_roles_are_independent_by_default" {
   }
 }
 
-run "cohost_flag_restores_single_app_rollback" {
+run "cohost_flag_is_rejected" {
   command = plan
 
   variables {
     ingestion_cohost_worker = true
   }
 
-  assert {
-    condition     = length(module.ingestion_worker_identity) == 0
-    error_message = "co-host rollback must remove the split worker identity"
-  }
-
-  assert {
-    condition     = module.ingestion_gateway[0].worker_name == ""
-    error_message = "co-host rollback must remove the split worker Container App"
-  }
-
-  assert {
-    condition = (
-      azurerm_role_assignment.ingestion_eventhubs_receiver[0].principal_id ==
-      module.ingestion_identity[0].principal_id
-    )
-    error_message = "co-host rollback must return receive permission to the API identity"
-  }
-
-  assert {
-    condition = (
-      length(azurerm_role_assignment.ingestion_document_data) == 1 &&
-      azurerm_role_assignment.ingestion_document_data[0].role_definition_name ==
-      "Storage Blob Data Contributor" &&
-      azurerm_role_assignment.ingestion_document_data[0].scope ==
-      module.document_storage[0].id &&
-      azurerm_role_assignment.ingestion_document_data[0].principal_id ==
-      module.ingestion_identity[0].principal_id &&
-      azurerm_role_assignment.ingestion_document_data[0].principal_id !=
-      module.identity.principal_id
-    )
-    error_message = "co-host rollback must keep one API-owned ADLS contributor role without executor spread"
-  }
-
-  assert {
-    condition     = length(azurerm_role_assignment.ingestion_worker_document_data) == 0
-    error_message = "co-host rollback must not retain a separate worker ADLS role"
-  }
-
-  assert {
-    condition = (
-      output.ingestion_effective_access_evidence.topology == "cohost" &&
-      output.ingestion_effective_access_evidence.identities.api.database_role == "fdai_ingestion_cohost" &&
-      !output.ingestion_effective_access_evidence.identities.worker.present &&
-      output.ingestion_effective_access_evidence.identities.worker.principal_id == "" &&
-      length(output.ingestion_effective_access_evidence.identities.worker.expected_role_assignments) == 0
-    )
-    error_message = "co-host evidence must remove the worker identity and select the co-host database role"
-  }
-
-  assert {
-    condition = (
-      length(output.ingestion_effective_access_evidence.identities.api.expected_role_assignments) == 6 &&
-      contains(
-        output.ingestion_effective_access_evidence.identities.api.expected_role_assignments,
-        {
-          role_name = "Azure Event Hubs Data Receiver"
-          scope     = module.event_bus.topic_ids["aw.pantheon.objects"]
-        },
-      ) &&
-      contains(
-        output.ingestion_effective_access_evidence.identities.api.expected_role_assignments,
-        {
-          role_name = "Storage Blob Data Contributor"
-          scope     = module.document_storage[0].id
-        },
-      )
-    )
-    error_message = "co-host rollback must return worker receive authority to the API while preserving the ADLS ceiling"
-  }
-
-  assert {
-    condition = (
-      output.ingestion_effective_access_evidence.checks.identities_distinct_from_executor &&
-      output.ingestion_effective_access_evidence.checks.runtime_identities_are_distinct &&
-      length(output.ingestion_effective_access_evidence.checks.executor_authority_role_overlap) == 0 &&
-      output.ingestion_effective_access_evidence.cohost_rollback.adls_owner == "api" &&
-      output.ingestion_effective_access_evidence.cohost_rollback.eventhubs_receive_owner == "api" &&
-      output.ingestion_effective_access_evidence.cohost_rollback.migration_identity_preserved &&
-      output.ingestion_effective_access_evidence.cohost_rollback.executor_identity_preserved &&
-      !output.ingestion_effective_access_evidence.cohost_rollback.worker_identity_present
-    )
-    error_message = "co-host rollback mapping must preserve migration and executor boundaries without authority overlap"
-  }
+  expect_failures = [var.ingestion_cohost_worker]
 }
 
 run "worker_scale_to_zero_is_rejected_without_kafka_scaler" {
