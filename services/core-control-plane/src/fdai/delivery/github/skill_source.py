@@ -24,6 +24,7 @@ _API_BASE: Final[str] = "https://api.github.com"
 _API_VERSION: Final[str] = "2022-11-28"
 _FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
 _REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}$")
+_ETAG = re.compile(r'^(?:W/)?"[\x21\x23-\x7e]*"$')
 _MAX_PATHS = 64
 _MAX_PATH_CHARS = 512
 _MAX_FILE_BYTES = 256 * 1024
@@ -72,7 +73,7 @@ class GitHubSkillSourceAdapter:
         if response.status_code == 304:
             return SkillSourceRevision(
                 revision=None,
-                etag=_optional_etag(response.headers.get("etag")) or prior_etag,
+                etag=_response_etag(response.headers.get("etag")) or prior_etag,
                 not_modified=True,
             )
         self._require_success(response)
@@ -82,7 +83,7 @@ class GitHubSkillSourceAdapter:
             raise GitHubSkillSourceError("GitHub skill source revision is not a full commit SHA")
         return SkillSourceRevision(
             revision=revision,
-            etag=_optional_etag(response.headers.get("etag")),
+            etag=_response_etag(response.headers.get("etag")),
         )
 
     async def fetch_files(
@@ -120,7 +121,12 @@ class GitHubSkillSourceAdapter:
         return tuple(files)
 
     async def _headers(self) -> dict[str, str]:
-        token = await self._token_provider()
+        try:
+            token = await self._token_provider()
+        except Exception:
+            raise GitHubSkillSourceError(
+                "GitHub skill source authentication is unavailable"
+            ) from None
         if not token or len(token) > 4096 or any(ord(char) < 32 for char in token):
             raise GitHubSkillSourceError("GitHub skill source authentication is unavailable")
         return {
@@ -226,13 +232,18 @@ def _path(value: str) -> str:
 
 
 def _etag(value: str) -> str:
-    if not value or len(value) > 512 or any(ord(char) < 32 for char in value):
-        raise ValueError("GitHub skill source ETag MUST be bounded header text")
+    if len(value) > 512 or _ETAG.fullmatch(value) is None:
+        raise ValueError("GitHub skill source ETag MUST be a bounded quoted entity tag")
     return value
 
 
-def _optional_etag(value: str | None) -> str | None:
-    return _etag(value) if value is not None else None
+def _response_etag(value: str | None) -> str | None:
+    if value is None:
+        return None
+    try:
+        return _etag(value)
+    except ValueError:
+        raise GitHubSkillSourceError("GitHub skill source returned an invalid ETag") from None
 
 
 def _retry_at(headers: Mapping[str, str], *, now: datetime) -> datetime | None:

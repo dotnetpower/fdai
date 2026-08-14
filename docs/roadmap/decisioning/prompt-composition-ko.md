@@ -1,7 +1,7 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: c3c020f825fa326f00a5e19b90e4ba305a26ca95
+translation_source_sha: 4dcae533be7cd5afced179d81c45d8b092d65114
 translation_revised: 2026-08-14
 ---
 
@@ -39,6 +39,7 @@ trust 라우팅을 확장합니다.
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 기존의 T2 완전 실제 운영 주장을 바로잡았습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 코어 T2 웹 근거 확인, 두 번째 승인 및 통제된 런타임 근거를 완료해야 합니다. |
 | 2026-08-14 | implemented | 격리, 승인, runtime prompt eligibility를 변경하지 않고 범위가 제한된 GitHub skill-source delivery 어댑터를 추가했습니다. | `current change`; 구현 범위 표의 구체 어댑터와 focused 거부 경로 테스트입니다. | Scheduled source owner를 조립하고 governed refresh, 승인, 철회 근거를 보존합니다. |
+| 2026-08-14 | implemented | 격리 및 disabled-first prompt eligibility를 유지하면서 strict ETag 검증과 정제된 credential-provider 실패로 외부 source delivery를 강화했습니다. | `current change`; focused skill-source adapter 테스트 `28 passed`. | Scheduled 조립과 governed lifecycle 근거는 남아 있습니다. |
 
 ### 남은 작업
 

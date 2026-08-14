@@ -1,7 +1,7 @@
 ---
 title: 스킬 소스 관리
 translation_of: skill-source-management.md
-translation_source_sha: 6ca0bdf6aac9a6fc37a931520330ffe5f9f3133c
+translation_source_sha: e082ed203b819f384a0876d59b469898c165bfae
 translation_revised: 2026-08-14
 ---
 # 스킬 소스 관리
@@ -160,7 +160,7 @@ Core `SkillSourceAdministrationService`는 설치 전에 다음을 모두 다시
 | 출처, 격리, 검사, 검증, 후보, 승인, 철회 도메인 수명 주기 | implemented | [`source_registry.py`](../../../services/core-control-plane/src/fdai/core/skills/source_registry.py), [`skill_source_pipeline.py`](../../../services/core-control-plane/src/fdai/core/supply_chain/skill_source_pipeline.py), [`skill_source_admin.py`](../../../services/core-control-plane/src/fdai/core/supply_chain/skill_source_admin.py), 집중 supply-chain 테스트 | 현재 집중 테스트는 등록, 갱신, 차단, 후보 생성, 승인 보호 조건, 철회 위임을 검사합니다. |
 | PostgreSQL 스키마, 저장소, 영속 점유, 트랜잭션 철회 | implemented | [Alembic 개정 번호 `20260720_0045`](../../../alembic/versions/20260720_0045_skill_source_quarantine.py), [`postgres_skill_source.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_skill_source.py), [`postgres_skill_quarantine.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_skill_quarantine.py), codec 테스트 | 오프라인 저장소 테스트는 통과합니다. 실제 PostgreSQL 재시작 및 출처 이력 테스트는 존재하지만 `FDAI_DATABASE_URL`이 필요합니다. |
 | Operator HTTP read 및 proposal 계약 | implemented | [`manifest.py`](../../../services/operator-service/src/fdai_operator_service/families/workflow/manifest.py), [`routes.py`](../../../services/operator-service/src/fdai_operator_service/families/workflow/routes.py), [`test_operator_workflow_family.py`](../../../services/operator-service/tests/test_operator_workflow_family.py) | Reader GET 경로와 Approver/Owner proposal 경로가 등록되어 있고 역할 테스트가 있습니다. 의도적으로 core 권한 구현을 가져오거나 호출하지 않습니다. |
-| 구체 GitHub fetch 어댑터 | implemented | [`skill_source.py`](../../../services/core-control-plane/src/fdai/delivery/github/skill_source.py); [`test_skill_source.py`](../../../services/core-control-plane/tests/delivery/github/test_skill_source.py); focused 어댑터 테스트(`21 passed`) | 어댑터는 ETag 지원과 함께 전체 불변 commit SHA를 해석하고 redirect, substitution, symlink, malformed content, 인증 실패, rate limit을 거부하면서 정확하고 범위가 제한된 regular file을 가져옵니다. Runtime 조립은 별도 작업으로 남아 있습니다. |
+| 구체 GitHub fetch 어댑터 | implemented | [`skill_source.py`](../../../services/core-control-plane/src/fdai/delivery/github/skill_source.py); [`test_skill_source.py`](../../../services/core-control-plane/tests/delivery/github/test_skill_source.py); focused 어댑터 테스트(`28 passed`) | 어댑터는 엄격한 ETag 지원과 함께 전체 불변 commit SHA를 해석하고 redirect, substitution, symlink, malformed content, 인증 실패, rate limit을 거부하면서 정확하고 범위가 제한된 regular file을 가져옵니다. Provider 및 credential 실패는 정제된 상태를 유지합니다. Runtime 조립은 별도 작업으로 남아 있습니다. |
 | 운영 조립과 scheduled 실행기 | not-started | 현재 runtime/bootstrap 사용처 점검 | `SkillSourceRefreshService`, `SkillSourceRefreshOrchestrator`, `SkillSourceAdministrationService` 또는 해당 PostgreSQL 어댑터를 생성하는 bootstrap 경로가 없습니다. |
 | Console 출처 관리 projection과 관리되는 런타임 근거 | not-started | 현재 Console 사용처 점검과 집중 테스트 실행 | Console은 출처 관리 경로를 호출하지 않으며 fetch-to-proposal 또는 승인/철회 실행을 입증하는 현재 런타임 증적이 없습니다. |
 
@@ -170,6 +170,7 @@ Core `SkillSourceAdministrationService`는 설치 전에 다음을 모두 다시
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 구현 원장을 도입하고 오래된 운영 연결 및 HTTP 실행 설명을 바로잡았으며 집중 테스트 명령을 수정했습니다. 이전 구현 출처 이력은 재구성하지 않았습니다. | `current change`; 정확한 경로를 지정한 skill-source 및 Operator workflow suite의 `37 passed, 1 skipped`; 로드맵, 번역, 문장 부호, 한글, 문서 크기, 링크 검사. | 누락된 어댑터와 런타임 경로를 구현 및 연결하고, 실제 영속성을 검증하며, 읽기 전용 projection과 관리되는 런타임 근거를 기록합니다. |
 | 2026-08-14 | implemented | 불변 개정 번호, conditional request, exact-path, content bound, authentication, redirect, rate-limit 강제를 갖춘 구체 GitHub skill-source 어댑터를 추가했습니다. | `current change`; `services/core-control-plane/src/fdai/delivery/github/skill_source.py`; `services/core-control-plane/tests/delivery/github/test_skill_source.py`; focused 어댑터 테스트 `21 passed`. | 독립 실행 가능한 소유 서비스를 조립하고 권한을 보유한 event 경로를 연결하며 실제 영속성을 검증하고 읽기 전용 projection을 노출합니다. |
+| 2026-08-14 | implemented | 범위가 제한된 quoted entity tag만 수락하도록 conditional request를 강화하고 credential-provider exception context를 억제해 chained error로 secret이 유출되지 않게 했습니다. | `current change`; `services/core-control-plane/src/fdai/delivery/github/skill_source.py`; `services/core-control-plane/tests/delivery/github/test_skill_source.py`; focused 어댑터 테스트 `28 passed`. | Runtime 조립, 권한을 보유한 event 통합, live 영속성 및 읽기 전용 projection은 남아 있습니다. |
 
 ### 남은 작업
 
