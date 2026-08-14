@@ -63,3 +63,23 @@ def test_validation_environment_drops_hook_local_git_pointers(
     assert module._REPOSITORY_LOCAL_GIT_ENV.isdisjoint(environment)
     assert environment["GIT_CONFIG_GLOBAL"] == global_config
     assert environment["GIT_CONFIG_SYSTEM"] == system_config
+
+
+def test_validation_environment_pins_python_313_despite_primary_venv(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+    primary_python = tmp_path / "repo" / ".venv" / "bin" / "python"
+    primary_python.parent.mkdir(parents=True)
+    primary_python.touch()
+    monkeypatch.setenv("UV_PYTHON", str(primary_python))
+    monkeypatch.setenv("FDAI_VALIDATION_DATABASE_URL", "postgresql://validation")
+    paths = SimpleNamespace(
+        repo_root=tmp_path / "repo",
+        state_root=tmp_path / "state",
+    )
+
+    environment = module.validation_environment(paths)
+
+    assert environment["UV_PYTHON"] == "3.13"
