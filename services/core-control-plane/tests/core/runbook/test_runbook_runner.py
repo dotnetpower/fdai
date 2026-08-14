@@ -162,3 +162,71 @@ async def test_terminal_audit_row_carries_every_step_outcome() -> None:
     assert entry["terminal_outcome"] == "success"
     step_outcomes = entry["step_outcomes"]
     assert [s["step_id"] for s in step_outcomes] == ["s1", "s2"]
+
+
+# ---------------------------------------------------------------------------
+# Failure-only branching - a fallback never runs on the success path
+# ---------------------------------------------------------------------------
+
+
+def _branching_runbook() -> Runbook:
+    return Runbook(
+        id="rb.failure-only",
+        steps=(
+            RunbookStep(id="main", action_type="ops.failover", on_failure="rollback"),
+            RunbookStep(id="verify", action_type="ops.healthcheck"),
+            RunbookStep(id="rollback", action_type="ops.rollback"),
+        ),
+    )
+
+
+async def test_fallback_step_is_skipped_on_the_success_path() -> None:
+    executor = _StubExecutor(outcomes={})
+    runner = RunbookRunner(executor=executor, audit_store=InMemoryStateStore())
+    result = await runner.run(_branching_runbook())
+    assert result.terminal_outcome is RunbookStepOutcome.SUCCESS
+    # The rollback is a declared fallback, so a fully successful run must not
+    # execute it as an ordinary forward step.
+    assert executor.calls == ["main", "verify"]
+    outcomes = {r.step_id: r for r in result.step_results}
+    assert outcomes["rollback"].outcome is RunbookStepOutcome.SKIPPED
+    assert outcomes["rollback"].reason == "fallback_not_triggered"
+
+
+async def test_untriggered_fallback_is_visible_in_the_terminal_audit_row() -> None:
+    audit = InMemoryStateStore()
+    runner = RunbookRunner(executor=_StubExecutor(outcomes={}), audit_store=audit)
+    await runner.run(_branching_runbook())
+    entry = list(audit.audit_entries)[0]["entry"]
+    recorded = {s["step_id"]: s for s in entry["step_outcomes"]}
+    assert recorded["rollback"]["outcome"] == "skipped"
+    assert recorded["rollback"]["reason"] == "fallback_not_triggered"
+
+
+async def test_fallback_still_runs_when_its_triggering_step_fails() -> None:
+    executor = _StubExecutor(outcomes={"main": RunbookStepOutcome.FAILURE})
+    runner = RunbookRunner(executor=executor, audit_store=InMemoryStateStore())
+    result = await runner.run(_branching_runbook())
+    assert result.terminal_outcome is RunbookStepOutcome.FAILURE
+    assert executor.calls == ["main", "rollback"]
+    outcomes = {r.step_id: r.outcome for r in result.step_results}
+    assert outcomes["rollback"] is RunbookStepOutcome.SUCCESS
+    assert outcomes["verify"] is RunbookStepOutcome.SKIPPED
+
+
+async def test_unrelated_failure_does_not_trigger_another_steps_fallback() -> None:
+    executor = _StubExecutor(outcomes={"verify": RunbookStepOutcome.FAILURE})
+    runner = RunbookRunner(executor=executor, audit_store=InMemoryStateStore())
+    result = await runner.run(_branching_runbook())
+    assert result.terminal_outcome is RunbookStepOutcome.FAILURE
+    assert executor.calls == ["main", "verify"]
+    outcomes = {r.step_id: r.outcome for r in result.step_results}
+    assert outcomes["rollback"] is RunbookStepOutcome.SKIPPED
+
+
+async def test_explicit_resume_at_a_fallback_step_still_executes_it() -> None:
+    executor = _StubExecutor(outcomes={})
+    runner = RunbookRunner(executor=executor, audit_store=InMemoryStateStore())
+    result = await runner.run(_branching_runbook(), start_step_id="rollback")
+    assert result.terminal_outcome is RunbookStepOutcome.SUCCESS
+    assert executor.calls == ["rollback"]

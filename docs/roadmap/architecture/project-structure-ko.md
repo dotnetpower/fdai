@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 67896e2e323c479eeaafdd8444fa6f0388bb03d0
+translation_source_sha: 172832c7fb861ba3af91c118a67ae48c0709f8db
 translation_revised: 2026-08-14
 ---
 # 프로젝트 구조
@@ -95,7 +95,7 @@ fdai/
 │   │   ├── detection/          # anomaly/forecast 평가, 변경 불가능한 episode, event-time closure 및 outbox contract
 │   │   ├── incident/           # lifecycle + 32-key/1024-char identity, 감사 기반 ontology projection, evidence, severity 및 notice
 │   │   ├── slo/                # 워크로드 SLO / burn-rate 평가기 (컨트롤 플레인 SLO 와는 구분)
-│   │   ├── runbook/            # 런북 오케스트레이터 (선형 시퀀스 + on-failure 브랜치)
+│   │   ├── runbook/            # 런북 오케스트레이터 (선형 시퀀스 + 실패 시에만 실행되는 on-failure 브랜치)
 │   │   ├── workflow/           # version-pinned WorkflowDefinition + principal WorkflowBinding 컴파일; 승인 플래너 + shadow 오케스트레이터 + 트리거 인덱스 + 이벤트 코디네이터
 │   │   ├── python_task/         # generated multi-file PythonTask artifact 및 reviewed programmatic pipeline static validation; task code 를 import 또는 실행하지 않음
 │   │   ├── programmatic_pipeline/ # capability-scoped read-only tool loop: immutable contract, broker, receipt, compact result, deterministic benchmark

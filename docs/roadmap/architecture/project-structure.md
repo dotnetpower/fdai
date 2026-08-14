@@ -91,7 +91,7 @@ fdai/
 │   │   ├── detection/          # anomaly/forecast evaluation, immutable episodes, event-time closure, and outbox contracts
 │   │   ├── incident/           # lifecycle + 32-key/1024-char identities, audit-backed ontology projection, evidence, severity, and notices
 │   │   ├── slo/                # workload SLO / burn-rate evaluator (distinct from control-plane SLOs)
-│   │   ├── runbook/            # runbook orchestrator (linear sequence + on-failure branch)
+│   │   ├── runbook/            # runbook orchestrator (linear sequence + failure-only on-failure branch)
 │   │   ├── workflow/           # version-pinned WorkflowDefinition + principal WorkflowBinding compilation; approval planner + shadow orchestrator + trigger index + event coordinator
 │   │   ├── python_task/         # static validation for generated multi-file PythonTask artifacts and reviewed programmatic pipelines; never imports or executes task code
 │   │   ├── programmatic_pipeline/ # capability-scoped read-only tool loops: immutable contracts, broker, receipts, compact result, and deterministic benchmark
