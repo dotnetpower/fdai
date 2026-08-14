@@ -104,6 +104,7 @@
         ".github/workflows/issue-lifecycle.yml",
         "CONTRIBUTING.md",
         "scripts/automation/project-board.py",
+        "scripts/automation/project_board_support.py",
         "scripts/quality/repository/check-issue-lifecycle.py",
         "tests/integration/scripts/test_project_board.py"
       ],

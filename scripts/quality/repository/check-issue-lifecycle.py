@@ -17,6 +17,7 @@ WORKFLOW_PATH = REPO_ROOT / ".github/workflows/issue-lifecycle.yml"
 INSTRUCTIONS_PATH = REPO_ROOT / ".github/copilot-instructions.md"
 CONTRIBUTING_PATH = REPO_ROOT / "CONTRIBUTING.md"
 HELPER_PATH = REPO_ROOT / "scripts/automation/project-board.py"
+HELPER_SUPPORT_PATH = REPO_ROOT / "scripts/automation/project_board_support.py"
 
 
 def _mapping(path: Path) -> dict[str, Any]:
@@ -35,6 +36,7 @@ def validate() -> list[str]:
         INSTRUCTIONS_PATH,
         CONTRIBUTING_PATH,
         HELPER_PATH,
+        HELPER_SUPPORT_PATH,
     ):
         if not path.is_file():
             errors.append(f"missing required issue lifecycle file: {path.relative_to(REPO_ROOT)}")
@@ -111,9 +113,13 @@ def validate() -> list[str]:
             errors.append(f"CONTRIBUTING.md missing issue procedure: {token}")
 
     helper = HELPER_PATH.read_text(encoding="utf-8")
-    for token in ("def desired_status", "def start", "def sync", "sync deferred", "--strict"):
+    for token in ("def start", "def sync", "sync deferred", "--strict"):
         if token not in helper:
             errors.append(f"project-board.py missing non-blocking contract: {token}")
+    helper_support = HELPER_SUPPORT_PATH.read_text(encoding="utf-8")
+    for token in ("def desired_status", "class GitHubClient", "def has_exit_contract"):
+        if token not in helper_support:
+            errors.append(f"project_board_support.py missing board policy: {token}")
     return errors
 
 
