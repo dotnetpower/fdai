@@ -211,6 +211,7 @@ def issue_records(client: GitHubClient, repository: str) -> dict[int, IssueRecor
 def project_items(
     client: GitHubClient,
     *,
+    repository: str,
     owner: str,
     project_number: int,
 ) -> dict[int, ProjectItem]:
@@ -232,7 +233,11 @@ def project_items(
     if not isinstance(values, list):
         raise BoardUnavailableError("gh project item-list did not return items")
     records = (project_item_from_json(value) for value in values if isinstance(value, dict))
-    return {record.number: record for record in records if record is not None}
+    return {
+        record.number: record
+        for record in records
+        if record is not None and record.repository == repository
+    }
 
 
 def project_metadata(
