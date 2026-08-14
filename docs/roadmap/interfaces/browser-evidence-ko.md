@@ -1,6 +1,6 @@
 ---
 translation_of: browser-evidence.md
-translation_source_sha: 586393edd4e2b06ede3ccc0f622b945b6cdcbad3
+translation_source_sha: c1478375c5d0a1cd09c63321005171c8cf7fa7c4
 translation_revised: 2026-08-14
 ---
 # 브라우저 근거 수집
@@ -170,7 +170,7 @@ visual/텍스트 민감정보 제거, 주입 검사, 한계, 시간 초과/비�
 |------|------|------|------|
 | 계약, 정책, 민감정보 제거, 저장 규칙 및 shadow 비교 | implemented | `services/core-control-plane/src/fdai/core/browser_evidence/`; `services/core-control-plane/src/fdai/shared/providers/browser_evidence.py`; `services/core-control-plane/tests/core/browser_evidence/` | Focused core 테스트는 범위가 제한된 정책, 근거 전용 권한, 민감정보 제거, 메모리 내 보관, 재생 및 shadow 판단 보류를 다룹니다. |
 | 선택적 Playwright 전달 어댑터 | in-progress | `services/core-control-plane/src/fdai/delivery/browser/` | 어댑터는 있지만 전용 focused delivery 모음이나 제한된 egress 이미지 증적은 찾지 못했습니다. |
-| 영속성 및 보존 작업 | implemented | `alembic/versions/20260721_0050_browser_evidence.py`; `alembic/versions/20260814_0083_browser_evidence_legal_hold.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_browser_evidence.py`; focused codec 및 live PostgreSQL 테스트(`2 passed`, skip 없음) | Exact payload replay, conflict 거부, 단조 증가 legal hold, 재시작 읽기, winner-only 동시 정리가 구현됐습니다. 별도 scheduled 프로덕션 cleanup 작업은 남아 있습니다. |
+| 영속성 및 보존 작업 | implemented | `alembic/versions/20260721_0050_browser_evidence.py`; `alembic/versions/20260814_0083_browser_evidence_legal_hold.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_browser_evidence.py`; focused codec 및 live PostgreSQL 테스트(`9 passed`, skip 없음) | Exact payload replay, conflict 거부, 엄격한 durable JSONB decoding, 단조 증가 legal hold, 재시작 읽기, winner-only 동시 정리가 구현됐습니다. 별도 scheduled 프로덕션 cleanup 작업은 남아 있습니다. |
 | Operator API 및 Console 검사 | not-started | [Operator 및 작업 흐름 화면](#operator-및-작업-흐름-화면) | 도구 및 작업 흐름 계약은 있지만 전용 프로덕션 읽기 경로나 Console 패널은 등록되지 않았습니다. |
 | 승격 근거 | not-started | [Shadow 측정 및 승격](#shadow-측정-및-승격) | 비교기는 항상 `promotion_eligible=false`를 보고하며 관리되는 실제 fidelity 또는 보안 훈련 구간은 보존되지 않았습니다. |
 
@@ -180,6 +180,7 @@ visual/텍스트 민감정보 제거, 주입 검사, 한계, 시간 초과/비�
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 구현 ledger를 도입하고 PostgreSQL 영속성 및 검사 화면에 대한 오래된 주장을 수정했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 source 및 focused core 검사입니다. | 영속 보관 및 읽기 화면을 구현한 뒤 승격 검토 전에 격리된 실제 근거를 보존해야 합니다. |
 | 2026-08-14 | implemented | 기존 산출물 스키마에 PostgreSQL browser-evidence custody와 단조 증가 legal hold를 추가하고 범위가 제한된 winner-only 만료 정리 및 읽기 시 hash 검증을 구현했습니다. | `current change`; migration `0050` 및 `0083`; PostgreSQL 어댑터; codec 및 지원되는 로컬 PostgreSQL 테스트 `2 passed`, skip 없음. | Cleanup 작업을 binding하고 read-only Operator 및 Console 검사를 구현하며 격리된 실제 근거를 보존합니다. |
+| 2026-08-14 | implemented | Artifact materialization 전에 malformed JSONB 배열, 객체, redaction surface, 문자열 member 및 강제 변환된 boolean을 거부하도록 durable row decoding을 강화했습니다. | `current change`; PostgreSQL 어댑터와 focused codec 및 지원되는 로컬 PostgreSQL 테스트 `9 passed`, skip 없음. | Cleanup 작업 binding, read-only 검사 및 격리된 live 근거는 남아 있습니다. |
 
 ### 남은 작업
 

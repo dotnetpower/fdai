@@ -96,6 +96,15 @@ def _stored(*, suffix: str = "", expires_at: datetime | None = None) -> StoredBr
 
 def test_browser_evidence_row_codec_round_trips_and_revalidates_hashes() -> None:
     stored = _stored()
+    row = _row(stored)
+
+    assert _row_to_stored(row) == stored
+    row["visible_text"] = "tampered"
+    with pytest.raises(ValueError, match="visible text hash"):
+        _row_to_stored(row)
+
+
+def _row(stored: StoredBrowserEvidence) -> dict[str, object]:
     columns = (
         "artifact_id content_digest policy_id policy_version canonical_source_url "
         "canonical_final_url captured_at expires_at selectors screenshot visible_text "
@@ -104,11 +113,44 @@ def test_browser_evidence_row_codec_round_trips_and_revalidates_hashes() -> None
         "untrusted"
     ).split()
     values = tuple(value.obj if hasattr(value, "obj") else value for value in _values(stored))
-    row = dict(zip(columns, values, strict=True))
+    return dict(zip(columns, values, strict=True))
 
-    assert _row_to_stored(row) == stored
-    row["visible_text"] = "tampered"
-    with pytest.raises(ValueError, match="visible text hash"):
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    (
+        ("selectors", "main", "selectors MUST be an array"),
+        ("selectors", [1], "selectors MUST contain strings"),
+        ("redaction_manifest", {}, "redaction_manifest MUST be an array"),
+        (
+            "redaction_manifest",
+            [{"surface": "unknown", "rule": "account-id", "replacements": 1}],
+            "surface is invalid",
+        ),
+        (
+            "isolation",
+            {
+                "executor_identity_present": "false",
+                "host_filesystem_mounted": False,
+                "environment_scrubbed": True,
+                "restricted_egress": True,
+                "ephemeral_profile": True,
+            },
+            "MUST be a boolean",
+        ),
+        ("prompt_injection_findings", {}, "MUST be an array"),
+        ("untrusted", "true", "untrusted MUST be a boolean"),
+    ),
+)
+def test_browser_evidence_row_codec_rejects_malformed_durable_shapes(
+    field: str,
+    value: object,
+    message: str,
+) -> None:
+    row = _row(_stored())
+    row[field] = value
+
+    with pytest.raises(ValueError, match=message):
         _row_to_stored(row)
 
 
