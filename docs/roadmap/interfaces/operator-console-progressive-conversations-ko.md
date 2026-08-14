@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: f921ebc92d664c9b8e34a3985785174207942904
+translation_source_sha: e8981e4b142069c1f2be5ff7ec489af9adf87235
 translation_revised: 2026-08-14
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -31,6 +31,7 @@ translation_revised: 2026-08-14
 | 2026-08-14 | 진행 중 | 인증된 인시던트 턴이 근거에 결속된 증적을 반환했지만 점진적 서버 프레임 없이 fenced JSON을 기본 답변으로 노출한 것을 확인하고 검증된 의미 최종 표현 공백을 기록했습니다. | 구현 범위 표의 현재 출처와 인증된 Browser 관찰, 이 문서 변경에서는 런타임 산출물을 보존하지 않았고 제품 코드도 변경하지 않았습니다. | 아래 의미 표현 작업 패키지를 완료하고 종료 근거를 보존합니다. |
 | 2026-08-14 | 구현됨 | 변경할 수 없는 의미 machine 출력과 지역화된 정본 답변을 분리하고, 재생 가능한 관찰 수명 주기 프레임을 추가하고, 증적에 결속된 인시던트 표현과 답변 계획을 compile하고, 정확한 출력을 접힌 실행 상세에 보존하고, 재생과 재생성에서 검증된 인시던트 정체성을 유지했습니다. | 구현 범위 표의 현재 출처와 집중 검사, 보존하지 않은 인증된 Browser Entra 관찰에서 서버가 관찰한 계획 단계의 `Preparing answer`, 검증된 감사 기록 3건, 명시된 인과 및 근거 제한, 읽기 전용 근거 수집 다음 단계, 접힌 exact JSON, 재생성 뒤 동일한 검증 결과를 확인했습니다. | 채널 전체 런타임 검증을 주장하기 전에 통제된 인증 산출물을 보존하고, 한국어 동등 실행을 수행하고, Teams 및 Slack 집약 증적을 기록합니다. |
 | 2026-08-14 | 구현됨 | 정본 top-level locale을 전달하고, 재생성 history를 원래 질문 경계로 제한하고, 검증된 의미 요청 신원을 한 번 재생하고, 해당 신원을 Operator 멱등성에 결속하고, 반복되는 Azure throttling 또는 schema-invalid 후보를 범위 안에서 재시도하도록 했습니다. | `current change`, Console stream, normalizer, session 및 event 집중 검사 128개와 Azure 의미 계획 adapter 검사 5개가 통과했고 Console 타입 검사와 작업 범위 Ruff가 통과했습니다. 보존된 인증 한국어 Browser working-tree 실행은 두 턴 모두 `request_identity_replayed=true`이고 Core 계획 수명 주기 5단계가 정확히 한 번인 상태로 통과했습니다. | 이 변경을 커밋하고 중앙 검증한 뒤 exact-source 인증 Browser 산출물을 보존합니다. Teams 및 Slack 집약 증적은 열린 상태로 유지합니다. |
+| 2026-08-14 | 구현됨 | Submit 시점에 원래 view snapshot을 deep clone해 route refresh가 검증된 요청 재생에 결속된 내용을 변경하지 못하게 했습니다. | `current change`, Console session 집중 검사 16개와 Console 타입 검사가 통과했고 request snapshot mutation 회귀에서 중첩된 fact 및 record 값이 보존됐습니다. | Provider capacity가 오염시키지 않는 첫 턴을 허용할 때 post-validation 인증 Browser 산출물을 보존합니다. |
 
 ### 남은 작업
 

@@ -58,6 +58,15 @@ interface MutableValueRef<T> {
   current: T;
 }
 
+/** Capture request context without retaining mutable route snapshot references. */
+export function requestSnapshotForSubmit(
+  current: ViewSnapshot | null,
+  supplied: ViewSnapshot | null | undefined,
+): ViewSnapshot | null {
+  const selected = supplied === undefined ? current : supplied;
+  return selected === null ? null : structuredClone(selected);
+}
+
 interface UseCommandDeckSubmitOptions {
   readonly snapshot: ViewSnapshot | null;
   readonly pending: boolean;
@@ -155,7 +164,7 @@ export function useCommandDeckSubmit({
       activeRequestRef.current?.id === request.id &&
       sessionKeyRef.current === originSessionKey;
     const activityAt = new Date().toISOString();
-    const requestSnapshot = options.snapshot === undefined ? snapshot : options.snapshot;
+    const requestSnapshot = requestSnapshotForSubmit(snapshot, options.snapshot);
     const operatorTurn: Turn = {
       id: newId(),
       role: "operator",
