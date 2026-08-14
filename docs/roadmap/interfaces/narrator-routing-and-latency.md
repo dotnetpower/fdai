@@ -137,12 +137,14 @@ evidence.
 | Rolling p50/TTFT and multimodal routing | not-started | [Narrator latency routing](#narrator-latency-routing) | The retired in-process router is not composed in the independent service, and no replacement rolling-window implementation was found. |
 | Per-user routing preference and runtime latency projection | not-started | [Per-user preference and TTFT](#per-user-preference-and-ttft) | The revisioned preference, TTFT projection, and deployment pinning contract remains target behavior. |
 | Public-web candidate routing | in-progress | `services/operator-service/src/fdai_operator_service/application/conversation/capabilities/web_search/`; `services/operator-service/src/fdai_operator_service/adapters/conversation/web_search/`; focused Operator tests | Provider-neutral and Azure construction paths exist. Governed rolling-latency and failover evidence from local and deployed profiles remains open. |
+| Optional report-format parity | implemented | `fdai_operator_service.reporting.optional_pdf_report_encoder`; Operator composition and route tests | Local and deployed Operator composition use the same service-local loader. Only package-extra availability registers `pdf`; venue, environment, and identity do not change report authority. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger and clarified which latency and preference behavior remains target design; earlier provenance was not reconstructed. | `current change`; current local narrator, resolver, web-search source, and focused checks listed in the scope table. | Implement independent-service latency windows and preferences, then retain governed local and deployed evidence. |
+| 2026-08-14 | implemented | Kept optional PDF report registration identical across local and deployed Operator composition. | `current change`; service-local optional loader, package-extra contract, composition binding, and focused route/composition tests. | Retain the separate authenticated Incident report receipt without treating package availability as execution authority. |
 
 ### Remaining work
 

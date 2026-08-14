@@ -28,6 +28,8 @@ from fdai_operator_service.families.operations.contracts import (
     ReplayBatch,
     ReplayEvent,
     ReplayQuery,
+    ReportPdfEncoder,
+    ReportPdfEncodingError,
     WebhookVerifier,
 )
 from fdai_operator_service.families.operations.factory import PanelRoute, build_operations_routes
@@ -46,6 +48,8 @@ __all__ = [
     "ProjectionQuery",
     "ProjectionReader",
     "ProjectionUnavailableError",
+    "ReportPdfEncoder",
+    "ReportPdfEncodingError",
     "ProposalConflictError",
     "ProposalReceipt",
     "ReplayBatch",

@@ -1,7 +1,7 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: bf35ef30725011bc43a48f539964c6cb243db0bd
+translation_source_sha: 7b08e31d4a1524a45695687d0cdd0787235626f4
 translation_revised: 2026-08-14
 ---
 # 서술기 라우팅과 지연 시간
@@ -135,12 +135,14 @@ Settings > Models는 Owner에게 배포 전체의 웹 검색 활성화와 정확
 | 이동 p50/TTFT 및 멀티모달 라우팅 | not-started | [서술기 지연 시간 라우팅](#서술기-지연-시간-라우팅) | 제거된 프로세스 내부 라우터는 독립 service에 구성되지 않았으며 대체 이동 창 구현을 찾지 못했습니다. |
 | 사용자별 라우팅 선호 설정 및 런타임 지연 시간 변환 결과 | not-started | [사용자별 선호 설정과 TTFT](#사용자별-선호-설정과-ttft) | 개정 번호 기반 선호 설정, TTFT 변환 결과 및 배포 pinning 계약은 대상 동작으로 남아 있습니다. |
 | 공개 웹 후보 라우팅 | in-progress | `services/operator-service/src/fdai_operator_service/application/conversation/capabilities/web_search/`; `services/operator-service/src/fdai_operator_service/adapters/conversation/web_search/`; focused Operator 테스트 | 프로바이더 중립 및 Azure 구성 경로가 있습니다. 로컬 및 배포 프로파일의 관리되는 이동 지연 시간 및 장애 조치 근거가 남아 있습니다. |
+| 선택적 report-format parity | implemented | `fdai_operator_service.reporting.optional_pdf_report_encoder`; Operator composition 및 경로 테스트 | 로컬 및 배포 Operator composition은 같은 service-local loader를 사용합니다. Package-extra availability만 `pdf`를 등록하며 venue, 환경 및 identity는 report 권한을 바꾸지 않습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 구현 ledger를 도입하고 어떤 지연 시간 및 선호 설정 동작이 대상 설계로 남는지 명확히 했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 로컬 narrator, 해석기, 웹 검색 source 및 focused 검사입니다. | 독립 service 지연 시간 창과 선호 설정을 구현한 뒤 관리되는 로컬 및 배포 근거를 보존해야 합니다. |
+| 2026-08-14 | implemented | 로컬 및 배포 Operator composition에서 선택적 PDF report 등록을 동일하게 유지했습니다. | `current change`; service-local optional loader, package-extra 계약, composition binding 및 focused 경로/composition 테스트입니다. | Package availability를 실행 권한으로 취급하지 않고 별도의 인증된 Incident report 증적을 보존해야 합니다. |
 
 ### 남은 작업
 

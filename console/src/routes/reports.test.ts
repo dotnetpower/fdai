@@ -4,6 +4,7 @@ import { OperatorApiError } from "../api";
 import {
   aggregateEvidenceAsOf,
   defaultReport,
+  pdfDownloadAvailable,
   reportVariableErrors,
   reportDownloadCanComplete,
   reportHeadlineState,
@@ -110,6 +111,12 @@ describe("report variable evidence", () => {
     expect(reportDownloadCanComplete(false, 2, 2)).toBe(false);
     expect(reportDownloadCanComplete(true, 3, 2)).toBe(false);
     expect(reportDownloadCanComplete(true, 2, 2)).toBe(true);
+  });
+
+  test("offers PDF only when catalog and runtime registry agree", () => {
+    expect(pdfDownloadAvailable(["json", "pdf"], ["json", "pdf"])).toBe(true);
+    expect(pdfDownloadAvailable(["json", "pdf"], ["json"])).toBe(false);
+    expect(pdfDownloadAvailable(["json"], ["json", "pdf"])).toBe(false);
   });
 
   test("rejects an unsupported enum query before rendering", () => {

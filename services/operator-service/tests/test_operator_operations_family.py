@@ -18,6 +18,7 @@ from fdai_operator_service.families.operations import (
     ReplayBatch,
     ReplayEvent,
     ReplayQuery,
+    ReportPdfEncodingError,
     build_operations_routes,
 )
 from fdai_service_contracts import OperatorRole
@@ -66,6 +67,7 @@ class RecordingDependencies:
         self.proposals: list[EventProposal] = []
         self.replays: list[ReplayQuery] = []
         self.unavailable = False
+        self.projections: dict[str, Mapping[str, object]] = {}
         self.replay_events = (
             ReplayEvent(8, "message", {"type": "provision.progress", "secret": "x"}),
         )
@@ -74,7 +76,10 @@ class RecordingDependencies:
         self.queries.append(query)
         if self.unavailable:
             raise ProjectionUnavailableError
-        return {"operation": query.operation, "token": "hidden", "items": []}
+        return self.projections.get(
+            query.operation,
+            {"operation": query.operation, "token": "hidden", "items": []},
+        )
 
     async def propose(self, proposal: EventProposal) -> ProposalReceipt:
         self.proposals.append(proposal)
@@ -107,13 +112,35 @@ def _verify(token: str) -> Mapping[str, object]:
     return {"oid": f"{token}-oid", "roles": [role.value]}
 
 
-def _client(dependencies: RecordingDependencies) -> TestClient:
+class RecordingPdfEncoder:
+    """Record the already-redacted report envelope passed to PDF delivery."""
+
+    name = "pdf"
+    content_type = "application/pdf"
+
+    def __init__(self, *, fail: bool = False) -> None:
+        self.fail = fail
+        self.reports: list[Mapping[str, object]] = []
+
+    def encode(self, report: Mapping[str, object]) -> bytes:
+        self.reports.append(report)
+        if self.fail:
+            raise ReportPdfEncodingError("private renderer detail")
+        return b"%PDF-1.7\n%%EOF\n"
+
+
+def _client(
+    dependencies: RecordingDependencies,
+    *,
+    pdf_encoder: RecordingPdfEncoder | None = None,
+) -> TestClient:
     routes = build_operations_routes(
         authenticator=OperatorAuthenticator(verifier=_verify, group_ids={}),
         projection_reader=dependencies,
         proposal_writer=dependencies,
         replay_reader=dependencies,
         webhook_verifier=dependencies,
+        report_pdf_encoder=pdf_encoder,
         panels=(PanelRoute("/capabilities", "capabilities", "panel.capabilities"),),
     )
     return TestClient(Starlette(routes=list(routes)))
@@ -176,6 +203,90 @@ def test_unavailable_projection_is_explicit_not_fake_empty_state() -> None:
     assert (response.status_code, response.json()) == (
         503,
         {"error": {"status": 503, "message": "authoritative projection is unavailable"}},
+    )
+
+
+def test_pdf_format_is_absent_and_blocked_before_projection_without_extra() -> None:
+    dependencies = RecordingDependencies()
+    dependencies.projections["report.list"] = {"items": [], "formats": ["json", "pdf"]}
+    client = _client(dependencies)
+
+    catalog = client.get("/reports", headers=HEADERS)
+    before = len(dependencies.queries)
+    download = client.get(
+        "/reports/incident-rca-dossier/render?format=pdf",
+        headers=HEADERS,
+    )
+
+    assert catalog.json()["formats"] == ["json"]
+    assert (download.status_code, download.json()) == (
+        400,
+        {"error": {"status": 400, "message": "unknown format 'pdf'"}},
+    )
+    assert len(dependencies.queries) == before
+
+
+def test_registered_pdf_is_advertised_and_encodes_redacted_projection() -> None:
+    dependencies = RecordingDependencies()
+    dependencies.projections.update(
+        {
+            "report.list": {"items": [], "formats": ["json"]},
+            "report.registry": {"datasources": [], "widgets": [], "formats": ["json"]},
+            "report.formats": {"items": [{"name": "json", "content_type": "application/json"}]},
+            "report.render": {
+                "id": "incident-rca-dossier",
+                "version": "1.0.0",
+                "name": "Incident RCA Dossier",
+                "generated_at": "2026-08-14T00:00:00Z",
+                "widgets": [],
+                "secret": "must-not-leak",
+            },
+        }
+    )
+    encoder = RecordingPdfEncoder()
+    client = _client(dependencies, pdf_encoder=encoder)
+
+    catalog = client.get("/reports", headers=HEADERS).json()
+    registry = client.get("/reports/registry", headers=HEADERS).json()
+    formats = client.get("/reports/formats", headers=HEADERS).json()
+    response = client.get(
+        "/reports/incident-rca-dossier/render?format=pdf&correlation_id=corr-1",
+        headers=HEADERS,
+    )
+
+    assert catalog["formats"] == ["json", "pdf"]
+    assert registry["formats"] == ["json", "pdf"]
+    assert formats["items"][-1] == {"name": "pdf", "content_type": "application/pdf"}
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    assert response.headers["content-disposition"] == (
+        'attachment; filename="incident-rca-dossier.pdf"'
+    )
+    assert response.content.startswith(b"%PDF-")
+    assert encoder.reports == [
+        {
+            "id": "incident-rca-dossier",
+            "version": "1.0.0",
+            "name": "Incident RCA Dossier",
+            "generated_at": "2026-08-14T00:00:00Z",
+            "widgets": [],
+            "secret": "[REDACTED]",
+        }
+    ]
+
+
+def test_pdf_encoding_failure_is_sanitized_and_fail_closed() -> None:
+    dependencies = RecordingDependencies()
+    dependencies.projections["report.render"] = {"id": "incident-rca-dossier"}
+
+    response = _client(
+        dependencies,
+        pdf_encoder=RecordingPdfEncoder(fail=True),
+    ).get("/reports/incident-rca-dossier/render?format=pdf", headers=HEADERS)
+
+    assert (response.status_code, response.json()) == (
+        503,
+        {"error": {"status": 503, "message": "report PDF encoding is unavailable"}},
     )
 
 

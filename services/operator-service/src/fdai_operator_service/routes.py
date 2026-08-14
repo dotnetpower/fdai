@@ -52,6 +52,7 @@ from fdai_operator_service.families.operations import (
     DurableReplayReader,
     EventProposalWriter,
     ProjectionReader,
+    ReportPdfEncoder,
     WebhookVerifier,
     build_operations_routes,
 )
@@ -101,6 +102,7 @@ class OperatorRouteFamilies:
     operations_proposal_writer: EventProposalWriter
     operations_replay_reader: DurableReplayReader
     operations_webhook_verifier: WebhookVerifier
+    report_pdf_encoder: ReportPdfEncoder | None = None
 
 
 MINIMAL_ROUTE_MANIFEST: Final = (
@@ -360,6 +362,7 @@ def build_operator_app(
             proposal_writer=route_families.operations_proposal_writer,
             replay_reader=route_families.operations_replay_reader,
             webhook_verifier=route_families.operations_webhook_verifier,
+            report_pdf_encoder=route_families.report_pdf_encoder,
         ),
     ]
     routes = [*minimal_routes, *family_routes]

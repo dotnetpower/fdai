@@ -224,18 +224,20 @@ and lowers completeness; it never becomes an implicit passing control.
 | `text` | `text/plain; charset=utf-8` | Stdout-friendly summary |
 | `ndjson` | `application/x-ndjson` | Header line + one line per widget |
 | `prometheus` **(opt-in)** | `text/plain; version=0.0.4` | Scalar / timeseries widgets only; NOT registered by default |
-| `pdf` **(target opt-in)** | `application/pdf` | Not implemented upstream; requires a downstream or future reviewed `FormatEncoder` |
+| `pdf` **(target opt-in)** | `application/pdf` | Independent Operator Service adapter; advertised only when the `pdf-report` extra is installed and registered |
 
 A fork adds `pdf` / `xlsx` / whatever by implementing `FormatEncoder`
 and calling `FormatRegistry.register`.
 
-Upstream currently ships no `delivery/reporting/pdf_format.py`, `pdf-report`
-extra, PDF registry binding, or PDF regression suite. The
-`incident-rca-dossier` catalog report and its correlation-scoped audit
-datasource are implemented for the existing report envelope. They do not prove
-PDF delivery. A future optional adapter must remain outside `core/`, escape all
-values, bind the source-envelope digest, preserve unavailable sections, and add
-focused pagination and rendering checks before `pdf` can be advertised.
+The reviewed target adapter lives at
+`services/operator-service/src/fdai_operator_service/reporting/pdf_format.py`, outside
+`core/` and without importing another service implementation. The Operator route reads the same
+materialized report envelope used by JSON presentation, then the adapter only arranges those
+recorded values. It escapes every value, binds the canonical source-envelope digest, preserves
+unavailable and errored sections, and performs no new RCA or recommendation analysis. Composition
+advertises `pdf` only when the `pdf-report` package extra imports and the encoder is registered;
+otherwise an explicit `format=pdf` request fails before projection access. Focused pagination,
+rendering, digest, unavailable-section, and no-analysis checks are required before registration.
 
 Optional recorded audit fields (`rca_impact`, `rca_contributing_factors`,
 `rca_alternative_hypotheses`, `rca_recovery_validation`, `rca_control_gaps`,
@@ -385,7 +387,7 @@ Eight GETs, mounted under a configurable prefix (default `/reports`) by
 | `GET /reports/datasources` | Registered datasource names |
 | `GET /reports/health` | Engine diagnostic snapshot (counts + config) |
 | `GET /reports/{id}` | Full report definition (projection of the loaded `ReportSpec`) |
-| `GET /reports/{id}/render?format=json\|markdown\|csv\|html\|text\|ndjson&<vars>` | The rendered payload |
+| `GET /reports/{id}/render?format=json\|markdown\|csv\|html\|text\|ndjson\|pdf&<vars>` | The rendered payload; `pdf` is present only with the Operator `pdf-report` extra |
 
 The routes plug into the existing Operator API through `OperatorApiConfig.reporting`:
 
@@ -575,19 +577,20 @@ never crash serialization or misorder a chart. Each item is covered in
 | Declarative report catalog and schema | implemented | `rule-catalog/reports/`; `rule-catalog/reports/schema/report.schema.json`; reporting catalog tests | Reviewed YAML reports and capability metadata load through the bounded schema. |
 | Operator API read routes and Console Reports view | implemented | `services/operator-service/tests/test_operator_operations_family.py`; `console/src/routes/reports.tsx`; focused reporting model and route tests | GET/HEAD-only inventory, render, health, format, widget, and datasource surfaces are implemented without mutation authority. |
 | Authoritative datasource bindings and operational freshness | in-progress | Reporting datasource adapters and provenance envelope | Adapters exist, but each deployment must bind authoritative providers and retain freshness, unavailable, timeout, and partial-widget evidence. |
-| Optional PDF format and RCA dossier delivery | not-started | [Format catalog](#format-catalog) | No upstream PDF encoder, extra, registry binding, download control, or PDF regression suite is present. |
+| Optional PDF format and RCA dossier delivery | implemented | `fdai_operator_service/reporting/pdf_format.py`; Operator operations routes; `console/src/routes/reports.tsx`; focused Operator and Console tests | The service-local extra registers PDF only when installed, renders the existing redacted envelope, blocks external fetches, and preserves gaps without adding analysis. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger and corrected the optional PDF implementation claim; earlier provenance was not reconstructed. | `current change`; current reporting core, catalog, Operator, Console, and focused checks listed in the scope table. | Retain authoritative datasource evidence and implement optional PDF delivery before advertising it. |
+| 2026-08-14 | implemented | Added opt-in PDF delivery to the independent Operator Service and exposed the Console download control only when catalog and runtime registry agree. | `current change`; service-local encoder, operations route negotiation, package extra, Console control, and focused PDF, route, composition, and Console tests. | Retain authenticated inventory, render, unavailable, error-isolation, and read-only runtime receipts. |
 
 ### Remaining work
 
 - [ ] Retain governed render receipts for each production datasource showing source identity, cutoff, freshness, unavailable and timeout behavior, partial-widget isolation, and no synthetic-to-live substitution.
 - [ ] Retain authenticated Operator API and Console receipts for report inventory, explicit unavailable report selection, variable rejection, unknown format, render error isolation, and read-only method enforcement.
-- [ ] Implement an optional PDF delivery module, registry binding, package extra, authenticated GET-only control, and focused escaping, digest, pagination, unavailable-section, and no-analysis tests before advertising `pdf`.
+- [x] Implement an optional PDF delivery module, registry binding, package extra, authenticated GET-only control, and focused escaping, digest, pagination, unavailable-section, no-analysis, and no-network tests before advertising `pdf`.
 - [ ] Keep downstream format additions behind `FormatEncoder` and composition registration without importing delivery dependencies into `core/`.
 
 ## Related

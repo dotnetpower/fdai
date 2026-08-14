@@ -99,6 +99,13 @@ export function reportDownloadCanComplete(
   return mounted && currentGeneration === candidateGeneration;
 }
 
+export function pdfDownloadAvailable(
+  catalogFormats: readonly string[],
+  registryFormats: readonly string[],
+): boolean {
+  return catalogFormats.includes("pdf") && registryFormats.includes("pdf");
+}
+
 export function triggerBlobDownload(blob: Blob, fileName: string): void {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -446,15 +453,18 @@ function ReportsBody({
                 <button type="button" class="primary" disabled={refreshing || !variablesComplete} onClick={() => void onRender()}>
                   {refreshing ? t("reports.refreshing") : t("reports.refresh")}
                 </button>
-                {data.catalog.formats.includes("pdf") ? (
-                  <button
-                    type="button"
-                    disabled={downloading || !variablesComplete || data.rendered === null}
-                    onClick={() => void onDownload()}
-                  >
-                    {downloading ? t("reports.downloadingPdf") : t("reports.downloadPdf")}
-                  </button>
-                ) : null}
+              </div>
+            ) : null}
+
+            {pdfDownloadAvailable(data.catalog.formats, data.registry.formats) ? (
+              <div class="reports-actions">
+                <button
+                  type="button"
+                  disabled={downloading || !variablesComplete || data.rendered === null}
+                  onClick={() => void onDownload()}
+                >
+                  {downloading ? t("reports.downloadingPdf") : t("reports.downloadPdf")}
+                </button>
               </div>
             ) : null}
 
