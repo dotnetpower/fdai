@@ -1,9 +1,12 @@
 """PostgreSQL storage primitives for independently composed Operator families."""
 
+# ruff: noqa: S608 - SQL clauses are module-owned; request values remain bound parameters.
+
 from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -27,6 +30,10 @@ from fdai_operator_service.postgres_semantic_turn_store import (
 _PROJECTION_PREFIX: Final = "operator-projection:"
 _PROPOSAL_PREFIX: Final = "operator-proposal:"
 _CONTEXT_SELECTION_PREFIX: Final = "context-selection:evaluation:"
+_CONVERSATION_TURN_COLUMNS: Final = (
+    "turn.turn_id, turn.conversation_id, turn.turn_index, turn.role, turn.content, "
+    "turn.recorded_at, turn.metadata, record.channel_id"
+)
 _READINESS_SQL: Final = """
 SELECT (
            current_user = %(expected_role)s
@@ -69,6 +76,14 @@ SELECT (
     AND has_table_privilege(current_user, 'inventory_snapshot_link', 'SELECT')
     AND NOT has_table_privilege(
         current_user, 'inventory_snapshot_link', 'INSERT,UPDATE,DELETE'
+    )
+    AND has_table_privilege(current_user, 'conversation_record', 'SELECT')
+    AND NOT has_table_privilege(
+        current_user, 'conversation_record', 'INSERT,UPDATE,DELETE'
+    )
+    AND has_table_privilege(current_user, 'conversation_turn', 'SELECT')
+    AND NOT has_table_privilege(
+        current_user, 'conversation_turn', 'INSERT,UPDATE,DELETE'
     )
        ) AS ready
   FROM pg_catalog.pg_roles AS login_role
@@ -231,6 +246,197 @@ class PostgresFamilyStore:
                 f"authoritative {family} projection is unavailable for {operation}"
             )
         return _json_object(rows[0].get("value"), label=key)
+
+    async def search_conversation_turns(
+        self,
+        *,
+        principal_id: str,
+        normalized_text: str,
+        mode: str,
+        tokens: tuple[str, ...],
+        channels: tuple[str, ...],
+        roles: tuple[str, ...],
+        conversation_id: str | None,
+        incident_id: str | None,
+        correlation_id: str | None,
+        recorded_after: datetime | None,
+        recorded_before: datetime | None,
+        candidate_limit: int,
+    ) -> list[dict[str, Any]]:
+        """Read bounded search candidates inside the authenticated principal scope."""
+
+        clauses = ["turn.principal_id = %(principal_id)s"]
+        parameters: dict[str, object] = {
+            "principal_id": principal_id,
+            "normalized_text": normalized_text,
+            "candidate_limit": candidate_limit,
+        }
+        if channels:
+            clauses.append("record.channel_id = ANY(%(channels)s)")
+            parameters["channels"] = list(channels)
+        if roles:
+            clauses.append("turn.role = ANY(%(roles)s)")
+            parameters["roles"] = list(roles)
+        for field, sql, item in (
+            ("conversation_id", "turn.conversation_id = %(conversation_id)s", conversation_id),
+            ("incident_id", "turn.metadata ->> 'incident_id' = %(incident_id)s", incident_id),
+            (
+                "correlation_id",
+                "turn.metadata ->> 'correlation_id' = %(correlation_id)s",
+                correlation_id,
+            ),
+            ("recorded_after", "turn.recorded_at > %(recorded_after)s", recorded_after),
+            ("recorded_before", "turn.recorded_at < %(recorded_before)s", recorded_before),
+        ):
+            if item is not None:
+                clauses.append(sql)
+                parameters[field] = item
+        if mode == "phrase":
+            clauses.append("turn.search_text LIKE %(phrase)s ESCAPE '\\'")
+            parameters["phrase"] = f"%{_escape_like(normalized_text)}%"
+        elif mode == "prefix":
+            for index, token in enumerate(tokens):
+                key = f"prefix_{index}"
+                clauses.append(f"turn.search_text ~ %({key})s")
+                parameters[key] = r"(^|[^[:alnum:]_])" + re.escape(token)
+        else:
+            for index, token in enumerate(tokens):
+                key = f"term_{index}"
+                clauses.append(f"turn.search_text LIKE %({key})s ESCAPE '\\'")
+                parameters[key] = f"%{_escape_like(token)}%"
+        return await self._fetch_all(
+            f"SELECT {_CONVERSATION_TURN_COLUMNS}, "  # noqa: S608
+            "GREATEST(similarity(turn.search_text, %(normalized_text)s), 0) AS sql_rank "
+            "FROM conversation_turn AS turn "
+            "JOIN conversation_record AS record "
+            "ON record.principal_id = turn.principal_id "
+            "AND record.conversation_id = turn.conversation_id "
+            f"WHERE {' AND '.join(clauses)} "  # noqa: S608
+            "ORDER BY sql_rank DESC, turn.recorded_at DESC, turn.turn_id "
+            "LIMIT %(candidate_limit)s",
+            parameters,
+        )
+
+    async def measure_conversation_turns(
+        self,
+        *,
+        principal_id: str,
+        channels: tuple[str, ...],
+        conversation_id: str | None,
+    ) -> dict[str, int]:
+        """Measure only rows visible inside the authenticated principal scope."""
+
+        clauses = ["turn.principal_id = %(principal_id)s"]
+        parameters: dict[str, object] = {"principal_id": principal_id}
+        if channels:
+            clauses.append("record.channel_id = ANY(%(channels)s)")
+            parameters["channels"] = list(channels)
+        if conversation_id is not None:
+            clauses.append("turn.conversation_id = %(conversation_id)s")
+            parameters["conversation_id"] = conversation_id
+        statement = (
+            "SELECT COUNT(*) AS index_rows, "
+            "COALESCE(SUM(octet_length(turn.content)), 0) AS index_bytes "
+            "FROM conversation_turn AS turn "
+            "JOIN conversation_record AS record "
+            "ON record.principal_id = turn.principal_id "
+            "AND record.conversation_id = turn.conversation_id "
+            f"WHERE {' AND '.join(clauses)}"
+        )
+        rows = await self._fetch_all(statement, parameters)
+        if len(rows) != 1:
+            raise PostgresFamilyStoreUnavailable("conversation search measurements are unavailable")
+        return {
+            "index_rows": int(rows[0].get("index_rows", -1)),
+            "index_bytes": int(rows[0].get("index_bytes", -1)),
+        }
+
+    async def read_conversation_search_context(
+        self,
+        *,
+        principal_id: str,
+        turn_id: str,
+        before: int,
+        after: int,
+    ) -> list[dict[str, Any]]:
+        """Read one scoped hit and bounded neighbors in a single SQL snapshot."""
+
+        return await self._fetch_all(
+            f"""
+            WITH target AS (
+                SELECT turn.conversation_id, turn.turn_index
+                  FROM conversation_turn AS turn
+                 WHERE turn.principal_id = %(principal_id)s
+                   AND turn.turn_id = %(turn_id)s
+            ), selected AS (
+                (SELECT {_CONVERSATION_TURN_COLUMNS}, 'before' AS section
+                   FROM conversation_turn AS turn
+                   JOIN conversation_record AS record
+                     ON record.principal_id = turn.principal_id
+                    AND record.conversation_id = turn.conversation_id
+                   JOIN target ON target.conversation_id = turn.conversation_id
+                  WHERE turn.principal_id = %(principal_id)s
+                    AND turn.turn_index < target.turn_index
+                  ORDER BY turn.turn_index DESC
+                  LIMIT %(before)s)
+                UNION ALL
+                (SELECT {_CONVERSATION_TURN_COLUMNS}, 'hit' AS section
+                   FROM conversation_turn AS turn
+                   JOIN conversation_record AS record
+                     ON record.principal_id = turn.principal_id
+                    AND record.conversation_id = turn.conversation_id
+                  WHERE turn.principal_id = %(principal_id)s
+                    AND turn.turn_id = %(turn_id)s)
+                UNION ALL
+                (SELECT {_CONVERSATION_TURN_COLUMNS}, 'after' AS section
+                   FROM conversation_turn AS turn
+                   JOIN conversation_record AS record
+                     ON record.principal_id = turn.principal_id
+                    AND record.conversation_id = turn.conversation_id
+                   JOIN target ON target.conversation_id = turn.conversation_id
+                  WHERE turn.principal_id = %(principal_id)s
+                    AND turn.turn_index > target.turn_index
+                  ORDER BY turn.turn_index ASC
+                  LIMIT %(after)s)
+            )
+            SELECT * FROM selected
+             ORDER BY turn_index, turn_id
+            """,  # noqa: S608
+            {
+                "principal_id": principal_id,
+                "turn_id": turn_id,
+                "before": before,
+                "after": after,
+            },
+        )
+
+    async def read_conversation_lineage(
+        self,
+        *,
+        principal_id: str,
+        conversation_id: str,
+    ) -> dict[str, Any] | None:
+        """Read one scoped conversation and its bounded ordered turn lineage."""
+
+        rows = await self._fetch_all(
+            """
+            SELECT record.conversation_id, record.channel_id,
+                   record.started_at, record.last_active,
+                   ARRAY(
+                       SELECT turn.turn_id
+                         FROM conversation_turn AS turn
+                        WHERE turn.principal_id = record.principal_id
+                          AND turn.conversation_id = record.conversation_id
+                        ORDER BY turn.turn_index
+                        LIMIT 1000
+                   ) AS turn_ids
+              FROM conversation_record AS record
+             WHERE record.principal_id = %(principal_id)s
+               AND record.conversation_id = %(conversation_id)s
+            """,
+            {"principal_id": principal_id, "conversation_id": conversation_id},
+        )
+        return rows[0] if rows else None
 
     async def read_context_selection_comparisons(
         self,
@@ -855,6 +1061,10 @@ def _bounded_component(name: str, value: str) -> None:
 def _digest(value: Mapping[str, object]) -> str:
     encoded = json.dumps(value, separators=(",", ":"), sort_keys=True).encode()
     return hashlib.sha256(encoded).hexdigest()
+
+
+def _escape_like(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 def _json_object(value: object, *, label: str) -> dict[str, object]:
