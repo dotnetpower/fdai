@@ -1,6 +1,6 @@
 ---
 translation_of: context-selection-policy.md
-translation_source_sha: 420eb85fefd5cd8e3f1fa51580b94fc699656bb9
+translation_source_sha: e3a3b0f5f15d70aa361564693003180842deae61
 translation_revised: 2026-08-14
 ---
 # 컨텍스트 선택 정책
@@ -36,7 +36,7 @@ translation_revised: 2026-08-14
 | 범위가 제한된 shadow 평가, 비교 저장 어댑터, 승인된 고정본 재생 | implemented | `services/core-control-plane/src/fdai/core/working_context/shadow.py`; `services/core-control-plane/src/fdai/core/working_context/evidence.py`; `services/core-control-plane/src/fdai/core/working_context/replay.py`; `services/core-control-plane/tests/core/working_context/test_policy_shadow.py`; `services/core-control-plane/tests/core/working_context/test_evidence.py` | 구성 요소와 실패 격리가 focused test를 통과합니다. 이 상태는 운영 composition에 해당 요소가 연결되었다고 주장하지 않습니다. |
 | 운영 shadow composition 및 영속 비교 저장 | implemented | `services/core-control-plane/src/fdai/composition/wire_context_selection.py`; `services/core-control-plane/src/fdai/composition/_helpers.py`; `services/core-control-plane/tests/composition/test_wire_context_selection.py` | `bind_context_selection_shadow`가 `StateStore` 비교 저장소를 직접 소유하는 실행기 하나를 연결하고, 번들 설치는 갱신된 권한으로 실행기를 다시 연결하며, 일반적인 turn assembly가 범위가 제한된 비교 한 건을 저장합니다. |
 | Reader 비교 API 및 Console 화면 | implemented | `services/operator-service/src/fdai_operator_service/context_selection_projection.py`; `services/operator-service/src/fdai_operator_service/families/workflow/manifest.py`; `services/operator-service/tests/test_operator_workflow_family.py`; `console/src/routes/context-selection-comparisons.test.ts` | Reader 역할로 제한된 `GET /context-selection-comparisons` 경로가 범위가 제한된 영속 기록을 투영하고, 손상된 기록은 실패 시 차단되며, Console decoder가 권위 있는 페이로드를 수용합니다. |
-| 범위가 제한된 비교 보관 | implemented | `services/core-control-plane/src/fdai/shared/providers/state_store.py`; `services/core-control-plane/src/fdai/core/working_context/evidence.py`; `services/core-control-plane/src/fdai/core/working_context/shadow.py`; `services/core-control-plane/tests/core/working_context/test_policy_shadow.py` | `ContextShadowConfig.retain_evaluations`가 영속 비교 행을 제한합니다. 보관 정리는 각 shadow 배치 뒤 요청 밖에서 실행되며, 범위가 제한된 최신순 읽기가 반환하지 않는 행만 제거하고, 정리가 실패해도 방금 기록한 비교를 버리지 않습니다. `delete_states_beyond` 원시 연산은 키를 지정할 수 없으므로 권위 있는 기록이나 감사 항목을 지울 수 없습니다. |
+| 범위가 제한된 비교 보관 | implemented | `services/core-control-plane/src/fdai/shared/providers/state_store.py`; `services/core-control-plane/src/fdai/core/working_context/evidence.py`; `services/core-control-plane/src/fdai/core/working_context/shadow.py`; `services/core-control-plane/tests/core/working_context/test_policy_shadow.py`; `services/core-control-plane/tests/persistence/test_state_store_retention.py` | `ContextShadowConfig.retain_evaluations`가 영속 비교 행을 제한합니다. 보관 정리는 각 shadow 배치 뒤 요청 밖에서 실행되며, 범위가 제한된 최신순 읽기가 반환하지 않는 행만 제거하고, 정리가 실패해도 방금 기록한 비교를 버리지 않습니다. `delete_states_beyond` 원시 연산은 키를 지정할 수 없고 빈 접두사를 거부하며 멱등이고 이웃 접두사를 건들지 않으므로, 권위 있는 기록이나 감사 항목을 지울 수 없습니다. |
 
 ### 구현 이력
 
