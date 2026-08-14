@@ -26,8 +26,9 @@ def bind_context_selection_shadow(
 ) -> Container:
     """Return a new container that persists bounded shadow comparisons.
 
-    The runner is bound to the container's current policy authority, so install every
-    capability bundle first; a later
+    The runner owns its durable store, so this is the only binding a deployment
+    needs. It is bound to the container's current policy authority: install every
+    capability bundle first, because a later
     :func:`~fdai.composition.wire_capabilities.install_capability_bundle` rebinds the
     runner to the refreshed authority and keeps this store.
 
@@ -38,13 +39,11 @@ def bind_context_selection_shadow(
     authority = container.context_selection_policy_authority
     if authority is None:
         raise ValueError("context-selection shadow evaluation requires a policy authority")
-    store = StateStoreContextSelectionEvaluationStore(state_store)
     return replace(
         container,
-        context_selection_evaluation_store=store,
         context_selection_shadow_runner=ContextSelectionShadowRunner(
             authority=authority,
-            store=store,
+            store=StateStoreContextSelectionEvaluationStore(state_store),
             config=config,
         ),
     )

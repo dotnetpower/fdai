@@ -41,6 +41,9 @@ _EXPECTED_FILES = frozenset(
         # Validates additive fork capability bundles and keeps their
         # catalog cross-reference assembly out of the facade.
         "wire_capabilities.py",
+        # Binds the bounded context-selection shadow runner and its durable
+        # comparison store; candidates never reach the active prompt path.
+        "wire_context_selection.py",
         # Application-level ORR wiring: composes assurance + preflight through
         # injected providers, audits the verdict, then publishes a read model.
         "readiness.py",

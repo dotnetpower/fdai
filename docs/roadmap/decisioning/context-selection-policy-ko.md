@@ -1,6 +1,6 @@
 ---
 translation_of: context-selection-policy.md
-translation_source_sha: 7efd9663447a29836f570726e265939304c20e54
+translation_source_sha: a941a6acae383e04f3f506cb40fb5cdc720add57
 translation_revised: 2026-08-14
 ---
 # 컨텍스트 선택 정책
@@ -34,7 +34,7 @@ translation_revised: 2026-08-14
 | 결정론적 정책 계약, 계층형 어댑터, 불변식 래퍼 | implemented | `services/core-control-plane/src/fdai/core/working_context/`; `services/core-control-plane/tests/core/working_context/test_policy_validation.py`; `services/core-control-plane/tests/core/working_context/test_working_context.py` | 고정된 입력, 이중 실행, 매니페스트 검사, 고정 항목 검사, 실패 시 차단 동작에 focused test가 있습니다. |
 | 정책 레지스트리 및 거버넌스 전환 | implemented | `services/core-control-plane/src/fdai/core/working_context/governance.py`; `services/core-control-plane/tests/core/working_context/test_policy_governance.py`; `services/core-control-plane/tests/core/capability_catalog/test_runtime.py` | 자동 승격 없이 설치, shadow 활성화, 명시적 승격, 강등, 비상 정지, 롤백, 개정 번호 compare-and-set이 구현되어 있습니다. |
 | 범위가 제한된 shadow 평가, 비교 저장 어댑터, 승인된 고정본 재생 | implemented | `services/core-control-plane/src/fdai/core/working_context/shadow.py`; `services/core-control-plane/src/fdai/core/working_context/evidence.py`; `services/core-control-plane/src/fdai/core/working_context/replay.py`; `services/core-control-plane/tests/core/working_context/test_policy_shadow.py`; `services/core-control-plane/tests/core/working_context/test_evidence.py` | 구성 요소와 실패 격리가 focused test를 통과합니다. 이 상태는 운영 composition에 해당 요소가 연결되었다고 주장하지 않습니다. |
-| 운영 shadow composition 및 영속 비교 저장 | implemented | `services/core-control-plane/src/fdai/composition/wire_context_selection.py`; `services/core-control-plane/src/fdai/composition/_helpers.py`; `services/core-control-plane/tests/composition/test_wire_context_selection.py` | `bind_context_selection_shadow`가 실행기와 `StateStore` 비교 저장소를 함께 연결하고, 번들 설치는 갱신된 권한으로 실행기를 다시 연결하며, 일반적인 turn assembly가 범위가 제한된 비교 한 건을 저장합니다. |
+| 운영 shadow composition 및 영속 비교 저장 | implemented | `services/core-control-plane/src/fdai/composition/wire_context_selection.py`; `services/core-control-plane/src/fdai/composition/_helpers.py`; `services/core-control-plane/tests/composition/test_wire_context_selection.py` | `bind_context_selection_shadow`가 `StateStore` 비교 저장소를 직접 소유하는 실행기 하나를 연결하고, 번들 설치는 갱신된 권한으로 실행기를 다시 연결하며, 일반적인 turn assembly가 범위가 제한된 비교 한 건을 저장합니다. |
 | Reader 비교 API 및 Console 화면 | implemented | `services/operator-service/src/fdai_operator_service/context_selection_projection.py`; `services/operator-service/src/fdai_operator_service/families/workflow/manifest.py`; `services/operator-service/tests/test_operator_workflow_family.py`; `console/src/routes/context-selection-comparisons.test.ts` | Reader 역할로 제한된 `GET /context-selection-comparisons` 경로가 범위가 제한된 영속 기록을 투영하고, 손상된 기록은 실패 시 차단되며, Console decoder가 권위 있는 페이로드를 수용합니다. |
 
 ### 구현 이력
@@ -126,8 +126,8 @@ operator-memory 경계로 항목을 준비하고 하나의 입력을 고정하�
 내구성과 atomic 생성 의미 규칙을 재사용하므로 새 표이나 Alembic 이행이 필요하지
 않습니다. 동시 확산, pending 실행, 시간 초과는 모두 제한됩니다.
 
-`bind_context_selection_shadow`는 실행기와 영속 저장소를 함께 연결하는 composition 경계입니다.
-`Container`는 한쪽만 연결된 쌍을 거부하므로, 기록할 곳 없이 평가만 예약하는 배포는 불가능합니다.
+`bind_context_selection_shadow`는 실행기를 연결하는 composition 경계입니다. 실행기가 영속 저장소를
+직접 소유하므로, 기록할 곳 없이 평가만 예약하는 배포는 불가능합니다.
 모든 capability 번들을 먼저 설치하십시오. 이후의 `install_capability_bundle`은 갱신된 정책 권한
 위에 실행기를 다시 만들고 같은 저장소를 유지합니다.
 

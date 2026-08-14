@@ -59,6 +59,12 @@ class ContextSelectionShadowRunner:
 
         return self._config
 
+    @property
+    def store(self) -> ContextSelectionEvaluationStore:
+        """Return the durable comparison store this runner appends to."""
+
+        return self._store
+
     def schedule(
         self,
         *,

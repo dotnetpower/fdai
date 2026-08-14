@@ -32,7 +32,7 @@ store, retriever, summarizer, renderer, model client, tool, or executor.
 | Deterministic policy contract, tiered adapter, and invariant wrapper | implemented | `services/core-control-plane/src/fdai/core/working_context/`; `services/core-control-plane/tests/core/working_context/test_policy_validation.py`; `services/core-control-plane/tests/core/working_context/test_working_context.py` | The frozen input, double execution, manifest checks, pinned-entry checks, and fail-closed behavior have focused coverage. |
 | Policy registry and governance transitions | implemented | `services/core-control-plane/src/fdai/core/working_context/governance.py`; `services/core-control-plane/tests/core/working_context/test_policy_governance.py`; `services/core-control-plane/tests/core/capability_catalog/test_runtime.py` | Install, shadow enablement, explicit promotion, demotion, kill switch, rollback, and revision compare-and-set are implemented without automatic promotion. |
 | Bounded shadow evaluation, comparison storage adapter, and approved-fixture replay | implemented | `services/core-control-plane/src/fdai/core/working_context/shadow.py`; `services/core-control-plane/src/fdai/core/working_context/evidence.py`; `services/core-control-plane/src/fdai/core/working_context/replay.py`; `services/core-control-plane/tests/core/working_context/test_policy_shadow.py`; `services/core-control-plane/tests/core/working_context/test_evidence.py` | The components and their failure isolation pass focused tests. This state does not claim that the production composition binds them. |
-| Production shadow composition and durable comparison persistence | implemented | `services/core-control-plane/src/fdai/composition/wire_context_selection.py`; `services/core-control-plane/src/fdai/composition/_helpers.py`; `services/core-control-plane/tests/composition/test_wire_context_selection.py` | `bind_context_selection_shadow` binds the runner and the `StateStore` comparison store together, a bundle install rebinds the runner to the refreshed authority, and a normally assembled turn persists one bounded comparison. |
+| Production shadow composition and durable comparison persistence | implemented | `services/core-control-plane/src/fdai/composition/wire_context_selection.py`; `services/core-control-plane/src/fdai/composition/_helpers.py`; `services/core-control-plane/tests/composition/test_wire_context_selection.py` | `bind_context_selection_shadow` binds one runner that owns its `StateStore` comparison store, a bundle install rebinds the runner to the refreshed authority, and a normally assembled turn persists one bounded comparison. |
 | Reader comparison API and Console view | implemented | `services/operator-service/src/fdai_operator_service/context_selection_projection.py`; `services/operator-service/src/fdai_operator_service/families/workflow/manifest.py`; `services/operator-service/tests/test_operator_workflow_family.py`; `console/src/routes/context-selection-comparisons.test.ts` | The Reader-gated `GET /context-selection-comparisons` route projects bounded durable records, a malformed record fails closed, and the Console decoder accepts the authoritative payload. |
 
 ### Implementation history
@@ -125,10 +125,10 @@ The production adapter stores these records under the existing `StateStore` trac
 This reuses PostgreSQL durability and atomic create semantics; no new table or Alembic migration is
 required. Fan-out, pending runs, and timeouts are all bounded.
 
-`bind_context_selection_shadow` is the composition seam that binds the runner and the durable store
-together. `Container` rejects a half-bound pair, so a deployment cannot schedule evaluation without
-somewhere to record it. Install every capability bundle first: a later `install_capability_bundle`
-rebuilds the runner on the refreshed policy authority and keeps the same store.
+`bind_context_selection_shadow` is the composition seam that binds the runner. The runner owns its
+durable store, so a deployment cannot schedule evaluation without somewhere to record it. Install
+every capability bundle first: a later `install_capability_bundle` rebuilds the runner on the
+refreshed policy authority and keeps the same store.
 
 Comparison rows are append-only and the store has no prune operation, so the binder is opt-in per
 deployment: enabling it on a high-volume conversation surface grows the tracked-state table by one
