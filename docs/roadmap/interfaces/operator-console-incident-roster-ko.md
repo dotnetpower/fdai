@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: 84a33a1059e6e7ab5952e67e32929db1b8afdc18
+translation_source_sha: 786ebaaa72e7c3805faab81fd8411317eb225b22
 translation_revised: 2026-08-14
 ---
 
@@ -217,9 +217,8 @@ variable editor를 제거하지 않으며, 경로 변경 후 도착한 download�
 진단은 프로세스 생존과 인증된 KPI 읽기 경로를 구분합니다. `/healthz` 성공만으로
 운영 데이터가 healthy하다고 주장하지 않습니다. 마찬가지로 last-observed 에이전트 프레임은 이력으로
 유지하지만 Engaged, Watching, Idle은 에이전트 스트림이 열림일 때만 현재 개수입니다. 인증된 실제 운영 및
-에이전트 스트림이 열림일 때만 현재 개수입니다. 캔버스 visualization은 동등한 keyboard 및
-screen-reader 리소스 선택자를 제공하고 composite 탭 위젯은 roving 선택과 함께 DOM
-focus를 이동합니다.
+에이전트 스트림이 열림일 때만 현재 개수입니다. 캔버스 visualization은 동등한 keyboard 및 screen-reader
+리소스 선택자를 제공하고 composite 탭 위젯은 roving 선택과 함께 DOM focus를 이동합니다.
 
 
 Time-bound 및 집계 근거는 경로가 열린 동안에도 보수적으로 유지됩니다. Approval과

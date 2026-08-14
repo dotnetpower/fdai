@@ -79,6 +79,17 @@ export function incidentDisplayTitle(
   return incident.title_source === "identifier_fallback" ? unavailable : incident.title;
 }
 
+export function incidentVerticalDisplayLabel(vertical: IncidentVertical): string {
+  return localized("vertical", vertical);
+}
+
+export function incidentPageMatchesSnapshot(
+  current: Pick<IncidentOutcomeMetrics, "snapshot_seq">,
+  incoming: Pick<IncidentOutcomeMetrics, "snapshot_seq">,
+): boolean {
+  return current.snapshot_seq === incoming.snapshot_seq;
+}
+
 export function IncidentsRoute({ client }: Props) {
   const initialRoute = currentRoute();
   const initialStatus = initialRoute.search.get("status");
@@ -221,6 +232,7 @@ export function IncidentsRoute({ client }: Props) {
     if (state.status !== "ready" || loadingMore || state.data.nextCursor !== cursor) return;
     const generation = rosterGeneration.current;
     const requestedFilter = filter;
+    const requestedVertical = verticalFilter;
     setLoadingMore(true);
     setPageError(null);
     try {
@@ -228,9 +240,16 @@ export function IncidentsRoute({ client }: Props) {
         status: requestedFilter,
         limit: PAGE_SIZE,
         cursor,
-        ...(verticalFilter ? { vertical: verticalFilter } : {}),
+        ...(requestedVertical ? { vertical: requestedVertical } : {}),
       });
-      if (rosterGeneration.current !== generation || filter !== requestedFilter) return;
+      if (
+        rosterGeneration.current !== generation
+        || filter !== requestedFilter
+        || verticalFilter !== requestedVertical
+      ) return;
+      if (!incidentPageMatchesSnapshot(state.data.metrics, page.metrics)) {
+        throw new Error("Incident page snapshot changed during pagination");
+      }
       setState((current) => current.status === "ready"
         ? {
             status: "ready",
@@ -244,10 +263,18 @@ export function IncidentsRoute({ client }: Props) {
           }
         : current);
     } catch (error) {
-      if (rosterGeneration.current !== generation || filter !== requestedFilter) return;
+      if (
+        rosterGeneration.current !== generation
+        || filter !== requestedFilter
+        || verticalFilter !== requestedVertical
+      ) return;
       setPageError(error instanceof Error ? error.message : String(error));
     } finally {
-      if (rosterGeneration.current === generation && filter === requestedFilter) {
+      if (
+        rosterGeneration.current === generation
+        && filter === requestedFilter
+        && verticalFilter === requestedVertical
+      ) {
         setLoadingMore(false);
       }
     }
@@ -261,7 +288,7 @@ export function IncidentsRoute({ client }: Props) {
         <span>{t("incidents.bannerBody")}</span>
       </aside>
       {verticalFilter ? (
-        <div class="filter-summary"><span>{t("evidence.incidents.verticalFilter")}: <strong>{verticalFilter}</strong></span></div>
+        <div class="filter-summary"><span>{t("evidence.incidents.verticalFilter")}: <strong>{incidentVerticalDisplayLabel(verticalFilter)}</strong></span></div>
       ) : null}
       <div class="segmented-control" role="group" aria-label={t("incidents.filterLabel")}>
         {FILTERS.map((value) => (
