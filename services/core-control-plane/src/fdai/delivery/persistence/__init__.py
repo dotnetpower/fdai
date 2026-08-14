@@ -33,6 +33,10 @@ from fdai.delivery.persistence.postgres_briefing import (
     PostgresBriefingSubscriptionStore,
     PostgresConversationPolicyStore,
 )
+from fdai.delivery.persistence.postgres_browser_evidence import (
+    PostgresBrowserEvidenceArtifactStore,
+    PostgresBrowserEvidenceArtifactStoreConfig,
+)
 from fdai.delivery.persistence.postgres_busy_input import (
     PostgresBusyInputStore,
     PostgresBusyInputStoreConfig,
@@ -219,6 +223,8 @@ __all__ = [
     "PostgresAdvisoryResourceLockConfig",
     "PostgresBackgroundTaskStore",
     "PostgresBackgroundTaskStoreConfig",
+    "PostgresBrowserEvidenceArtifactStore",
+    "PostgresBrowserEvidenceArtifactStoreConfig",
     "ReadLatencyStoreConflictError",
     "StateStoreReadLatencyConfig",
     "StateStoreReadLatencyProfileStore",
