@@ -1,7 +1,7 @@
 ---
 title: Workflow Control-Loop Integration
 translation_of: workflow-control-loop-integration.md
-translation_source_sha: bcff68dbfc8fb0edf7bb37847ad3ede54ddf19bd
+translation_source_sha: e7d936ff0fe68e6e95860174a381a87f79f15ab2
 translation_revised: 2026-08-14
 ---
 
@@ -18,7 +18,7 @@ translation_revised: 2026-08-14
 | Shadow 및 타입이 지정된 적용 오케스트레이션 | implemented | [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_coordinator.py`](../../../services/core-control-plane/tests/core/workflow/test_coordinator.py) | Shadow는 변경할 수 없으며 적용 제안은 시도별 신원으로 타입이 지정된 유입 경로에 재진입합니다. |
 | 영속 저널, 변환 결과 및 승인 | implemented | [`test_projection.py`](../../../services/core-control-plane/tests/core/workflow/test_projection.py), [`test_workflow_approval.py`](../../../services/core-control-plane/tests/delivery/persistence/test_workflow_approval.py) | 리비전이 지정된 Process 상태, 재시도 가능한 변환, 정족수, 시간 초과 및 자기 승인 방지에 집중 테스트가 있습니다. |
 | 보상 및 영속 대상 hold | implemented | [`test_automation_hold.py`](../../../services/core-control-plane/tests/core/workflow/test_automation_hold.py), [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_control_loop_authority.py`](../../../services/core-control-plane/tests/core/test_control_loop_authority.py), [`test_gate.py`](../../../services/core-control-plane/tests/core/risk_gate/test_gate.py) | 불완전한 복구는 재시작과 중복 전달에 안전한 hold를 만들고 일반 정방향 전달을 차단합니다. 일치하는 검증된 복구만 hold를 해제할 수 있습니다. |
-| 가드 평가 | in-progress | [가드 평가](#42-가드-평가-경계) | 경계와 실패 시 차단되는 감사 상태가 있습니다. 배포별 정책 평가는 주입된 연결로 남아 있습니다. |
+| 가드 평가 | implemented | [가드 평가](#42-가드-평가-경계), [`test_guard_fail_closed.py`](../../../services/core-control-plane/tests/core/workflow/test_guard_fail_closed.py) | 런타임은 architecture-review 게이트 위에 `ChangeWindowWorkflowGuardEvaluator`를 연결합니다. 누락, 오래됨, 형식 오류 및 사용할 수 없는 근거는 모두 단계를 차단하고 범위가 제한된 `guard_error`를 기록합니다. |
 | 통제된 Python, 예약, 명령 및 shell 경로 | in-progress | [통제된 작업 및 예약](#45-통제된-python-작업-및-cron-예약) | 검증과 제한된 샌드박스 동작은 있지만 실제 실행기와 운영 확장 근거는 불완전합니다. |
 
 ### 구현 이력
@@ -27,11 +27,12 @@ translation_revised: 2026-08-14
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 정책 연결과 운영 동시성 근거를 완료해야 합니다. |
 | 2026-08-14 | implemented | 검증된 FDAI-CONST-009 컨트롤 루프 경계를 기록했습니다. 불완전한 보상은 영속 hold를 발행하고 일반 전달은 차단되며, 일치하는 복구는 검증된 해제 전까지 사람 승인으로 제한됩니다. | `228f0779e`; 집중 hold, 보상, control-loop 및 risk-gate 검사 10개가 통과했고 중앙 검증도 통과했습니다. | 아래의 관련 없는 가드 연결, 분산 전달 근거 및 통제된 작업을 완료해야 합니다. |
+| 2026-08-14 | implemented | 연결된 가드 평가를 실패 시 차단으로 만들었습니다. 오래된 평가 시점, 예외를 던지거나 사용할 수 없는 평가기, 불리언이 아닌 결과는 각각 단계를 차단하고 `workflow.step` 감사 행에 범위가 제한된 `guard_error`를 기록합니다. | `current change`; `workflow_step_executor.py`와 `test_guard_fail_closed.py`; 집중 workflow 검사 101건이 통과했고 작업 범위 Ruff와 strict mypy가 통과했습니다. | 아래의 다중 replica 전달 근거와 통제된 Python 작업 실행기 작업을 완료해야 합니다. |
 
 ### 남은 작업
 
-- [ ] 구체적인 가드 정책 평가기를 연결하고 테스트하며 누락, 오래됨, 형식 오류 및 사용할 수
-  없는 근거에 대한 실패 시 차단 동작을 유지합니다.
+- [x] 구체적인 `ChangeWindowWorkflowGuardEvaluator` 연결을 종단 간으로 테스트했으며, 누락, 오래됨,
+  형식 오류 및 사용할 수 없는 근거는 각각 실패 시 차단으로 단계를 막습니다.
 - [ ] Process 단계와 시도마다 정방향 전달이 하나뿐임을 증명하는 다중 replica 잠금 및 중복
   전달 근거를 보존합니다.
 - [ ] Operator API에 실행기 신원을 부여하지 않고 통제된 Python 작업 실제 실행기를 완료하고
@@ -117,7 +118,21 @@ non-mutating 관측을 활성 상태로 유지한다.
 `guard_passed: false` 를 기록하고 그 스텝을 judged no-op 로 취급한다 (사유
 `guard_blocked_shadow_noop`) - 실행은 계속되고 아무것도 mutate 하지 않는다. 모든
 `workflow.step` 감사 행 는 `guard_rule_ref` / `guard_evaluated` /
-`guard_passed` 를 담아 리뷰어가 어느 가드 가 어느 스텝을 게이트 했는지 정확히 본다.
+`guard_passed` / `guard_error` 를 담아 리뷰어가 어느 가드 가 어느 스텝을 게이트 했는지 정확히 본다.
+
+가드 해석은 실패 시 차단이다. 실행기는 전체 실행에 대해 평가 시점 하나를 고정해 모든 스텝이
+하나의 인과 시계를 공유하게 한다. 그 시점이 `guard_evidence_max_age` (기본 15분)보다
+오래되면 가드는 더 이상 세계를 설명하지 못하는 시계로 판단하는 대신 `guard_evidence_stale`
+로 차단한다. 예외를 던지거나 사용할 수 없는 평가기는 `guard_evaluator_error:<ExceptionType>`
+로, 불리언이 아닌 결과는 `guard_result_malformed` 로 차단된다. 깨끗한 정책 차단 - 근거
+소스가 답했고 대상을 덮는 유효 구간이 없는 경우 - 은 `guard_error: null` 을 유지하므로
+운영자는 거부된 가드와 고장 난 가드를 구분할 수 있다. 취소는 그대로 전파되어 종료 절차가
+협조적으로 유지된다.
+
+런타임은 `ArchitectureReviewProductionGateEvaluator` 폴백 위에
+`ChangeWindowWorkflowGuardEvaluator` 를 바인딩한다: `gate_ref: change-window.active` 는
+정확한 프로세스 대상에 대해 온톨로지의 검토된 `ChangeWindow` 기록으로 해석되고, 다른 모든
+게이트 참조는 architecture-review 평가기로 위임된다.
 
 ### 4.3 런타임 저널 과 온톨로지 변환 결과
 

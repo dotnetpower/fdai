@@ -16,6 +16,7 @@ import yaml
 from fdai.composition import (
     Container,
 )
+from fdai.composition._helpers import LlmBindings
 from fdai.core.architecture_review import (
     ArchitectureReviewProductionGateEvaluator,
     ArchitectureReviewProjector,
@@ -58,7 +59,9 @@ from fdai.core.quality_gate import (
     QualityGateConfig,
     RagGroundingSource,
     RuleBasedVerifier,
+    SelfConsistencySampler,
 )
+from fdai.core.quality_gate.self_consistency import SelfConsistencyCascade
 from fdai.core.rbac.resolver import GroupMapping
 from fdai.core.rca import (
     CausalRuntimeCoordinator,
@@ -152,6 +155,30 @@ from fdai.shared.resilience import StateStoreKillSwitch
 
 _LOGGER = logging.getLogger("fdai.startup")
 _TEMPORAL_CAUSAL_METHOD_VERSION = "temporal-causality-v1"
+
+
+def _build_self_consistency_cascade(
+    container: Container,
+    llm_bindings: LlmBindings,
+) -> SelfConsistencyCascade | None:
+    """Return the configured T2 stability cascade, or ``None`` when disabled.
+
+    Sampling costs one extra model call per sample, so it stays opt-in through
+    ``llm.self_consistency_samples``. The primary cross-check model is the sampled
+    proposer seam.
+    """
+
+    llm_config = container.config.llm
+    if llm_config.self_consistency_samples < 1:
+        return None
+    return SelfConsistencyCascade(
+        sampler=SelfConsistencySampler(
+            proposer=llm_bindings.cross_check_models[0],
+            samples=llm_config.self_consistency_samples,
+        ),
+        sample_threshold=llm_config.self_consistency_sample_threshold,
+        stability_threshold=llm_config.self_consistency_stability_threshold,
+    )
 
 
 def _legacy_executor_bindings(
@@ -538,6 +565,7 @@ def _build_control_loop(
     t2 = T2Tier(
         proposer=llm_bindings.require_t2_proposer(),
         quality_gate=quality_gate,
+        self_consistency=_build_self_consistency_cascade(container, llm_bindings),
     )
 
     if thor_execution_port is None:

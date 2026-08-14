@@ -116,6 +116,18 @@ class LlmConfig(_ConfigBase):
     t1_min_success_rate: Annotated[float, Field(ge=0.0, le=1.0)] = 0.9
     quality_gate_confidence_threshold: Annotated[float, Field(ge=0.0, le=1.0)] = 0.7
     quality_gate_quorum: Annotated[int, Field(ge=2)] = 2
+    self_consistency_samples: Annotated[int, Field(ge=0, le=9)] = 0
+    """Number of T2 self-consistency samples. ``0`` (default) leaves the cascade
+    unbound so the production T2 path is byte-for-byte unchanged. See
+    docs/roadmap/decisioning/hallucination-rubric-gate.md § Self-consistency."""
+
+    self_consistency_sample_threshold: Annotated[float, Field(ge=0.0, le=1.0)] = 0.7
+    """Cheap-signal ceiling. Sampling runs only when the candidate's aggregate
+    confidence is below this value, so a confident proposal spends no extra tokens."""
+
+    self_consistency_stability_threshold: Annotated[float, Field(ge=0.0, le=1.0)] = 0.7
+    """Minimum measured action stability. Below it the T2 outcome is held at
+    escalate; the measurement can never raise eligibility."""
     t2_primary_latency_routing: bool = True
     """Latency routing of the T2 primary proposer among its same-publisher
     candidate pool (invariant-safe). Enforced on by default; takes effect

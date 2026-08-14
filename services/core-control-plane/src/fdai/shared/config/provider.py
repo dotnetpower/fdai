@@ -67,6 +67,17 @@ _ENV_VAR_MAP: tuple[tuple[str, tuple[str, ...], bool], ...] = (
         False,
     ),
     ("QUALITY_GATE_QUORUM", ("llm", "quality_gate_quorum"), False),
+    ("SELF_CONSISTENCY_SAMPLES", ("llm", "self_consistency_samples"), False),
+    (
+        "SELF_CONSISTENCY_SAMPLE_THRESHOLD",
+        ("llm", "self_consistency_sample_threshold"),
+        False,
+    ),
+    (
+        "SELF_CONSISTENCY_STABILITY_THRESHOLD",
+        ("llm", "self_consistency_stability_threshold"),
+        False,
+    ),
 )
 
 _FLOAT_ENV_VARS = frozenset(
@@ -74,9 +85,11 @@ _FLOAT_ENV_VARS = frozenset(
         "T1_SIMILARITY_THRESHOLD",
         "T1_MIN_SUCCESS_RATE",
         "QUALITY_GATE_CONFIDENCE_THRESHOLD",
+        "SELF_CONSISTENCY_SAMPLE_THRESHOLD",
+        "SELF_CONSISTENCY_STABILITY_THRESHOLD",
     }
 )
-_INT_ENV_VARS = frozenset({"QUALITY_GATE_QUORUM"})
+_INT_ENV_VARS = frozenset({"QUALITY_GATE_QUORUM", "SELF_CONSISTENCY_SAMPLES"})
 
 
 class EnvVarConfigProvider:
