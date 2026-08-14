@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: d2897e692d0dd4dff03c0a1ec2e5443f0018d97f
-translation_revised: 2026-08-14
+translation_source_sha: 83f8ab8b73bdd6150bc0df02835b4c4b6ceb4efa
+translation_revised: 2026-08-15
 ---
 
 # 온톨로지 조회 커버리지 구현 계획
@@ -145,7 +145,7 @@ translation_revised: 2026-08-14
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 서비스 간 의미 계약 및 Core 처리 | 구현됨 | `semantic_turn.py`, `semantic_turn_consumer.py`, `semantic_turn_processor.py`, 통과한 의미 경로 테스트 88개 | 버전 1.2 요청은 90초로 제한되고 결과는 멱등성을 보장하며 점유를 복구할 수 있습니다. Rule 결과는 실행 권한이 없는 후보 전용으로 유지됩니다. |
-| Operator 영속성과 Rule 변환 결과 | 구현됨 | `semantic_turn.py`, `semantic_turn_runtime.py`, `postgres_semantic_turn_store.py`, `test_semantic_turn_bridge.py`, 통과한 의미 경로 테스트 88개 및 롤백 전용 PostgreSQL 트랜잭션 검사 | 유효한 호출자 제공 요청 UUID를 의미 묶음과 상관관계 신원 전체에서 보존하면서 멱등성 키는 분리합니다. 요청 UUID를 생략하면 재시도에도 안정적인 결정론적 대체값을 사용합니다. 발신함과 결과 점유를 복구할 수 있고 잘못된 소유권은 안전하게 차단됩니다. 재생 순서는 타임스탬프를 인식하며 exact Rule 읽기는 principal과 조회 다이제스트로 격리됩니다. |
+| Operator 영속성과 Rule 변환 결과 | 구현됨 | `semantic_turn.py`, `semantic_turn_runtime.py`, `postgres_semantic_turn_store.py`, `test_semantic_turn_bridge.py`, 통과한 의미 경로 테스트 88개 및 롤백 전용 PostgreSQL 트랜잭션 검사 | 유효한 호출자 제공 요청 UUID를 의미 묶음과 상관관계 신원 전체에서 보존하면서 멱등성 키는 분리합니다. 요청 UUID를 생략하면 재시도에도 안정적인 결정론적 대체값을 사용합니다. 발신함과 결과 점유를 복구할 수 있고 잘못된 소유권은 안전하게 차단됩니다. 재생 순서는 타임스탬프를 인식하며 exact Rule 읽기는 principal과 조회 다이제스트로 격리됩니다. `SemanticTurnBridge`는 권위 있는 저장소와 의미 전송이 있을 때만 활성화되고, 로컬 서술기가 구성되면 주기적 갱신은 독립적인 Operator 수명 주기 서비스로 유지됩니다. |
 | 과거 토폴로지 영속성과 발행 | 구현됨 | `inventory_topology_history.py`, `postgres_topology_history.py`, `inventory_sync_cli.py`, 통과한 범위가 제한된 인벤토리/토폴로지 테스트 31개 | 완전한 승격 관측은 bitemporal 개정 번호를 하나의 트랜잭션으로 추가합니다. 과거/현재 파생 쓰기는 서로 독립적으로 시도하며 불완전한 관측은 완전한 과거 기준선을 만들 수 없습니다. |
 | Temporal, metric 및 근거 프로바이더 조립 | 구현됨 | `wire_semantic_query.py`, `bootstrap.py`, `bootstrap_bindings.py`, `test_wire_semantic_query.py`, `test_bootstrap_config.py`, 통과한 focused 조립 및 프로바이더 선택 테스트 16개 | 하나의 핸들러 맵이 검증기 가용성과 실행을 함께 제어합니다. 운영 환경은 상태 저장소 DSN에서 PostgreSQL 이력을 연결하고 검토된 레지스트리와 no-op이 아닌 프로바이더가 모두 있을 때만 metric/evidence 핸들러를 연결합니다. |
 | 통제된 운영 보증 | 진행 중 | [온톨로지 조회 무작위 보증](ontology-query-randomized-assurance-ko.md)과 아래의 검증된 기준선 공백 표 | 로컬 검사는 안전하게 실패하는 조립을 입증하지만 운영 준비 상태를 입증하는 통제된 실제 서비스 간 증적은 없습니다. |
@@ -172,6 +172,7 @@ translation_revised: 2026-08-14
 | 2026-08-14 | 구현됨 | 원래의 범위가 제한된 history와 검증된 요청 신원을 보존하고, 요청 신원을 Operator 멱등성에 결속하고, 정본 locale을 전달하고, 반복되는 Azure throttling 또는 schema-invalid 후보를 adapter budget 안에서 재시도해 의미 재생성을 재시도에 안정적으로 만들었습니다. | `current change`, Console stream, normalizer, session 및 event 집중 검사 128개와 Azure 의미 계획 adapter 검사 5개가 통과했고 Console 타입 검사와 작업 범위 Ruff가 통과했습니다. 보존된 인증 한국어 Browser working-tree 실행은 두 턴 모두 통과했고 Core 계획 수명 주기 5단계가 한 번만 관찰됐습니다. | 범위가 제한된 변경을 커밋하고 중앙 검증한 뒤 exact-source 인증 Browser 산출물을 보존해야 인시던트 답변 행을 `검증됨`으로 승격할 수 있습니다. |
 | 2026-08-14 | 검증됨 | 중앙 검증 뒤 범위가 제한된 인증 인시던트 답변 근거 공백을 닫았습니다. | Source revision `7f2b740b1` 및 `244d003ef`에 중앙 receipt가 있고, 보존된 post-validation 한국어 Browser 산출물은 재생성 전체에서 일치하는 요청, 인시던트 바인딩 및 기술 출력 digest, 관찰된 단계 5개, 실행 권한 없음을 기록합니다. | 전체 request-to-Console 실행기와 이중 언어 무작위 집단은 운영 보증의 열린 작업으로 유지합니다. |
 | 2026-08-14 | in-progress | 현재 bounded action-draft 및 browser-readiness 변경에 새 governed artifact가 필요해 incident assurance를 다시 열었습니다. | `current change`, focused semantic, Console 및 browser-assurance 검사 | `validated`를 복원하기 전에 replacement request-to-Console 및 bilingual randomized evidence를 보존합니다. |
+| 2026-08-15 | 구현됨 | 로컬 서술기 갱신을 의미 전송과 독립적으로 유지하면서 전송에 의해 제한되는 `SemanticTurnBridge` 활성화 계약을 보존했습니다. | `current change`, 집중 운영 조립 및 의미 브리지 검사 2개와 작업 범위 Ruff가 통과했습니다. | 운영 보증 상태를 변경하기 전에 통제된 요청-Console 및 이중 언어 무작위 근거를 보존합니다. |
 
 ### 남은 작업
 
