@@ -44,6 +44,12 @@ OPERATIONS_ROUTE_MANIFEST: tuple[OperationRoute, ...] = (
         "process.events",
     ),
     OperationRoute("/detection-readiness", "GET", "handler", "detection.readiness"),
+    OperationRoute(
+        "/automation-blueprints",
+        "GET",
+        "handler",
+        "automation_blueprint.list",
+    ),
     OperationRoute("/audit/{correlation_id}/what-if", "GET", "handler", "audit.what_if"),
     OperationRoute("/scope", "GET", "handler", "scope.effective"),
     OperationRoute("/stewardship", "GET", "handler", "stewardship.coverage"),

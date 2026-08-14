@@ -39,6 +39,7 @@ LEGACY_ROUTE_SNAPSHOT = {
     (("GET", "HEAD"), "/views/process/{process_id:str}", "render_process"),
     (("GET", "HEAD"), "/views/process/{process_id:str}/events", "process_events"),
     (("GET", "HEAD"), "/detection-readiness", "handler"),
+    (("GET", "HEAD"), "/automation-blueprints", "handler"),
     (("GET", "HEAD"), "/audit/{correlation_id}/what-if", "handler"),
     (("GET", "HEAD"), "/scope", "handler"),
     (("GET", "HEAD"), "/stewardship", "handler"),
@@ -165,7 +166,46 @@ def test_manifest_preserves_exact_legacy_paths_methods_and_names() -> None:
         )
         for entry in OPERATIONS_ROUTE_MANIFEST
     } == LEGACY_ROUTE_SNAPSHOT
-    assert len(OPERATIONS_ROUTE_MANIFEST) == 26
+    assert len(OPERATIONS_ROUTE_MANIFEST) == 27
+
+
+def test_automation_blueprints_projection_is_reader_gated_and_read_only() -> None:
+    dependencies = RecordingDependencies()
+    dependencies.projections["automation_blueprint.list"] = {
+        "candidates": [{"id": "cand-1", "state": "proposed", "token": "hidden"}],
+        "metrics": {"proposed": 1},
+    }
+    client = _client(dependencies)
+
+    assert client.get("/automation-blueprints").status_code == 401
+    response = client.get("/automation-blueprints?limit=10", headers=HEADERS)
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "candidates": [{"id": "cand-1", "state": "proposed", "token": "[REDACTED]"}],
+        "metrics": {"proposed": 1},
+    }
+    assert dependencies.queries[-1].operation == "automation_blueprint.list"
+    assert dependencies.queries[-1].principal_id == "reader-oid"
+    # The candidate surface is inert: no write method is registered for it.
+    app = cast(Starlette, client.app)
+    blueprint_methods = {
+        method
+        for route in app.router.routes
+        if isinstance(route, Route) and route.path == "/automation-blueprints"
+        for method in route.methods or ()
+    }
+    assert blueprint_methods == {"GET", "HEAD"}
+
+
+def test_automation_blueprints_projection_fails_closed_when_unavailable() -> None:
+    dependencies = RecordingDependencies()
+    dependencies.unavailable = True
+
+    response = _client(dependencies).get("/automation-blueprints", headers=HEADERS)
+
+    assert response.status_code == 503
+    assert "candidates" not in response.text
 
 
 def test_projection_requires_reader_bounds_pagination_and_redacts() -> None:
