@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "legacy_head": "20260814_0082",
-  "legacy_revision_count": 84,
+  "legacy_head": "20260814_0083",
+  "legacy_revision_count": 85,
   "services": {
     "core-control-plane": {
       "digest": "sha256:6cbaab476846fba8ba76d1d04173382eb62c1e8f2d43ee47f52d03e59a8a6bde",
