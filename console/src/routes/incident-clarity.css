@@ -6,6 +6,62 @@
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
+.incident-source-context {
+  display: grid;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-subtle);
+}
+.incident-source-context h3,
+.incident-source-context p { margin: 0; }
+.incident-source-context p { color: var(--fg-muted); font-size: 12px; line-height: 1.5; }
+.incident-source-context dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px 18px;
+  margin: 0;
+}
+.incident-source-context dt { color: var(--fg-muted); font-size: 9.5px; text-transform: uppercase; }
+.incident-source-context dd { margin: 3px 0 0; overflow-wrap: anywhere; font-size: 12px; font-weight: 650; }
+.incident-source-context a { width: fit-content; color: var(--cs-steel); font-size: 12px; font-weight: 700; }
+.incident-roster-identifier { overflow-wrap: anywhere; color: var(--fg-muted); font-size: 10px; }
+.incident-roster-item:focus-visible { outline: 2px solid var(--cs-steel); outline-offset: -2px; }
+.incident-milestones { display: grid; gap: 10px; padding: 16px 20px; border-top: 1px solid var(--border); }
+.incident-milestones > header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.incident-milestones h3 { margin: 0; font-size: 14px; }
+.incident-milestones > header span { color: var(--fg-muted); font-size: 11px; }
+.incident-milestones ol { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--border); }
+.incident-milestones li { display: grid; gap: 6px; padding: 11px 0; border-bottom: 1px solid var(--border); }
+.incident-milestone-heading { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+.incident-milestone-heading strong { overflow-wrap: anywhere; font-size: 12px; }
+.incident-milestone-heading time,
+.incident-milestones li > div:not(.incident-milestone-heading) { color: var(--fg-muted); font-size: 10.5px; }
+.incident-milestones li p { margin: 0; color: var(--fg-muted); font-size: 11.5px; line-height: 1.5; }
+.incident-milestones li b { color: var(--fg); }
+.incident-outcome-analytics { display: grid; gap: 12px; padding: 16px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.incident-outcome-analytics > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.incident-outcome-analytics h2 { margin: 3px 0 0; font-size: 16px; }
+.incident-outcome-analytics > header > span { color: var(--fg-muted); font-size: 11px; }
+.incident-analytics-provenance { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 18px; margin: 0; }
+.incident-analytics-provenance dt { color: var(--fg-muted); font-size: 9.5px; text-transform: uppercase; }
+.incident-analytics-provenance dd { margin: 3px 0 0; overflow-wrap: anywhere; font-size: 11.5px; font-weight: 650; }
+.incident-cohort-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-top: 1px solid var(--border); }
+.incident-cohort { min-width: 0; padding: 10px 12px; border-right: 1px solid var(--border); }
+.incident-cohort:last-child { border-right: 0; }
+.incident-cohort summary { display: grid; gap: 5px; cursor: pointer; }
+.incident-cohort summary span { min-height: 30px; color: var(--fg-muted); font-size: 10.5px; line-height: 1.35; }
+.incident-cohort summary strong { font-size: 18px; }
+.incident-cohort ul { max-height: 150px; margin: 8px 0 0; padding-left: 16px; overflow: auto; }
+.incident-cohort li,
+.incident-cohort p { margin: 4px 0 0; overflow-wrap: anywhere; font-size: 10px; }
+.incident-cohort a { color: var(--cs-steel); }
+@media (max-width: 1100px) {
+  .incident-source-context dl,
+  .incident-analytics-provenance { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .incident-cohort-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .incident-cohort { border-bottom: 1px solid var(--border); }
+}
 .incident-current-state-head {
   display: flex;
   align-items: flex-start;
@@ -159,10 +215,18 @@
 .trace-summary-facts dd { margin: 3px 0 0; font-size: 12px; font-weight: 650; }
 @media (max-width: 680px) {
   .incident-current-state,
-  .incident-related-views { padding-left: 15px; padding-right: 15px; }
+  .incident-related-views,
+  .incident-source-context,
+  .incident-milestones { padding-left: 15px; padding-right: 15px; }
   .incident-current-state-head { flex-direction: column; }
   .incident-current-facts { grid-template-columns: minmax(0, 1fr); }
   .incident-response-routing dl { grid-template-columns: minmax(0, 1fr); }
+  .incident-source-context dl { grid-template-columns: minmax(0, 1fr); }
+  .incident-milestone-heading { grid-template-columns: auto minmax(0, 1fr); }
+  .incident-milestone-heading time { grid-column: 2; }
+  .incident-analytics-provenance,
+  .incident-cohort-grid { grid-template-columns: minmax(0, 1fr); }
+  .incident-cohort { border-right: 0; border-bottom: 1px solid var(--border); }
   .incident-view-row { grid-template-columns: minmax(0, 1fr); gap: 4px; }
   .trace-summary-facts { grid-template-columns: minmax(0, 1fr); }
 }

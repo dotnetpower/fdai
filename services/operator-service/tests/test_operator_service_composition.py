@@ -46,6 +46,7 @@ from fdai_service_contracts import (
     HilQueueQuery,
     IncidentAttentionProjection,
     IncidentAttentionQuery,
+    IncidentPageProjection,
     IncidentQuery,
     JsonProjection,
     OperatorReadModel,
@@ -112,9 +113,9 @@ class EmptyReadModel(OperatorReadModel):
         del query
         return HilQueueProjection(items=(), total=0)
 
-    async def list_incidents(self, query: IncidentQuery) -> PageProjection:
+    async def list_incidents(self, query: IncidentQuery) -> IncidentPageProjection:
         del query
-        return PageProjection(items=(), next_cursor=None)
+        return IncidentPageProjection(items=(), next_cursor=None, metrics={})
 
     async def incident_attention(
         self, query: IncidentAttentionQuery

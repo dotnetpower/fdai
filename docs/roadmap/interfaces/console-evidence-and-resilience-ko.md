@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 49eba27399111b1575761737d5abf21fa64fc4a7
+translation_source_sha: e0ff12047c0df02357659c56703fd5cfd103f217
 translation_revised: 2026-08-14
 ---
 
@@ -18,7 +18,7 @@ translation_revised: 2026-08-14
 | 통제된 온톨로지 보증 출처 이력 | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`, focused Vitest 25개 및 Console 타입 검사 통과 | 인증된 seeded cohort가 통제된 runtime 아티팩트를 만들 때까지 in-progress로 유지합니다. |
 | 에이전트 활동 하트비트 표현 | 구현됨 | `console/src/routes/agents.model.ts`, `console/src/routes/agents.model.test.ts`, focused Vitest 31개 통과 | 주기적인 런타임 초기화 스냅샷은 현재 에이전트 상태와 마지막 관찰 시각을 갱신하지만 최초 로드 또는 새로고침 후 활동 행이 되지 않습니다. Browser Entra 새로고침 동작은 관찰했지만 통제된 아티팩트는 보존하지 않았습니다. |
 | Command Deck JSON 대비 | 구현됨 | `console/src/styles.css`, `console/src/deck/command-deck-workspace-visual.test.ts`, focused Vitest 10개 통과 및 인증된 브라우저 검사 | 구문 강조 JSON은 전역의 밝은 `pre` 스타일과 관계없이 고정된 어두운 코드 표면을 유지합니다. 브라우저 검사는 통제된 런타임 근거로 보존하지 않았습니다. |
-| 탭 간 SSE 연결 예산 | 구현됨 | `console/src/hooks/browser-stream-leader.ts`, `console/src/hooks/cross-tab-stream.ts`, attention 스트림 훅, focused Vitest 8개 및 Console 타입 검사 통과 | Web Locks는 각 attention 또는 알림 채널에 대해 principal 범위로 한정된 읽기 담당 하나를 선출합니다. Attention leader는 검증된 스냅샷을 follower 탭과 공유합니다. 통제된 다중 탭 브라우저 아티팩트는 보존하지 않았습니다. |
+| 탭 간 SSE 및 인시던트 복원력 | 구현됨 | 탭 간 stream hook, `incidents.milestones.ts`, incident projection 및 focused Console/Operator test | Principal-scoped leader는 검증된 stream state를 공유하고 bounded milestone과 action confirmation projection은 execution authority 없이 incident progress를 보존합니다. 보존된 deterministic baseline은 인증된 live evidence를 대체하지 않습니다. |
 
 ### 구현 이력
 
@@ -28,13 +28,13 @@ translation_revised: 2026-08-14
 | 2026-08-14 | 구현됨 | 현재 상태와 하트비트 최신성을 유지하면서 주기적인 `Runtime agent initialized` 스냅샷이 페이지를 새로고칠 때마다 chronological 활동으로 다시 나타나지 않도록 수정했습니다. | `current change`, `agents.model.test.ts` focused 테스트 31개 통과, 인증된 브라우저에서 두 번 새로고침하는 동안 초기화 행 0개 확인 | 런타임 검증을 주장하기 전에 두 번 새로고침한 Browser Entra 결과를 통제된 아티팩트로 보존합니다. |
 | 2026-08-14 | 구현됨 | 전역 `pre` 배경이 덮어쓴 Command Deck JSON 구문 강조 영역 아래에 고정된 어두운 표면을 복원했습니다. | `current change`, 작업 소유 Console CSS 및 시각 계약 테스트, focused Vitest 10개 통과, Console 타입 검사 통과, 인증된 브라우저에서 의도한 어두운 표면과 토큰 색상 계산 확인 | 범위가 제한된 잔여 작업은 없습니다. 향후 테마 변경은 focused 회귀 테스트가 확인합니다. |
 | 2026-08-14 | 구현됨 | 각 attention 및 알림 채널에서 탭 간 읽기 담당 하나를 선출하고 검증된 attention 스냅샷을 follower 탭과 공유해 HTTP/1.1에서 일반 Operator API 용량을 확보했습니다. | `current change`, 작업 소유 스트림 훅, focused Vitest 8개 및 Console 타입 검사 통과 | SSE 읽기 담당이 활성화된 상태에서 새 Dashboard 접근 검사가 완료되는 통제된 세 탭 Browser Entra 아티팩트를 보존합니다. |
+| 2026-08-14 | 구현됨 | Principal-scoped cross-tab stream leadership를 확장하고 bounded incident milestone, action confirmation projection 및 deterministic resilience baseline을 추가했습니다. | `current change`, focused Console/Operator test 및 Console typecheck | Runtime validation을 주장하기 전에 인증된 multi-tab 및 incident Browser evidence를 보존합니다. |
 
 ### 잔여 작업
 
 - [ ] 정확한 중앙 검증 receipt와 인증된 probe를 확보한 뒤 seeded 영/한 100-case cohort에서 통과한 통제 아티팩트 하나를 보존합니다.
 - [ ] 에이전트 스트림 열림, 갱신된 하트비트 시각, 페이지를 두 번 새로고친 뒤 `Runtime agent initialized` 활동 행 0개를 보여 주는 통제된 Browser Entra 아티팩트를 보존합니다.
 - [ ] 백그라운드 알림과 활성 탭 attention 스트림을 유지하면서 새 Dashboard 접근 검사가 완료되는 통제된 세 탭 Browser Entra 아티팩트를 보존합니다.
-
 ## 탐색 컨텍스트
 
 활동 Bar 영역을 선택하면 Explorer가 열리고 운영자의 로컬 순서 및 표시 설정에 따라 첫 번째 visible 패널로 이동합니다. Command Deck이 닫혀 있거나 floating 상태여도 이 탐색은 동작하며, full-workspace Deck은 경로가 변경되기 전에 닫힙니다.

@@ -18,6 +18,7 @@ from fdai_service_contracts import (
     HilQueueQuery,
     IncidentAttentionProjection,
     IncidentAttentionQuery,
+    IncidentPageProjection,
     IncidentQuery,
     JsonObject,
     JsonProjection,
@@ -26,6 +27,7 @@ from fdai_service_contracts import (
 from psycopg.rows import dict_row
 
 from fdai_operator_service.activity_projection import durable_activity_projection
+from fdai_operator_service.incident_projection import incident_outcome_metrics, incident_summary
 from fdai_operator_service.postgres_sql import (
     AGENT_INVENTORY_ACTIVITY_SQL,
     AGENT_OBSERVATION_ACTIVITY_SQL,
@@ -35,6 +37,7 @@ from fdai_operator_service.postgres_sql import (
     HIL_COUNT_SQL,
     HIL_PAGE_SQL,
     INCIDENT_PAGE_SQL,
+    INCIDENT_SNAPSHOT_SQL,
     KPI_SAMPLE_SQL,
     LLM_USAGE_CONVERSATIONS_SQL,
     LLM_USAGE_RECORDS_SQL,
@@ -46,7 +49,6 @@ from fdai_operator_service.projection_logic import (
     audit_item,
     dashboard_kpi,
     hil_item,
-    incident_summary,
     llm_usage_projection,
     rule_fire_trace,
 )
@@ -180,9 +182,36 @@ class PostgresOperatorReadModel:
         total = int(rows[0]["total_count"]) if rows else 0
         return HilQueueProjection(items=tuple(items), total=total)
 
-    async def list_incidents(self, query: IncidentQuery) -> PageProjection:
-        page, _ = await self._incident_page(query)
-        return page
+    async def list_incidents(self, query: IncidentQuery) -> IncidentPageProjection:
+        page, snapshot_seq = await self._incident_page(query)
+        metrics = await self._incident_metrics(query, snapshot_seq)
+        return IncidentPageProjection(
+            items=page.items,
+            next_cursor=page.next_cursor,
+            metrics=metrics,
+        )
+
+    async def _incident_metrics(self, query: IncidentQuery, snapshot_seq: int) -> JsonObject:
+        """Project one bounded all-status cohort at the page's exact snapshot."""
+        rows = await self._fetch_all(
+            INCIDENT_PAGE_SQL,
+            {
+                "snapshot_seq": snapshot_seq,
+                "before_seq": None,
+                "status": "all",
+                "vertical": query.vertical,
+                "correlation_id": None,
+                "fetch": 501,
+                "history_limit": INCIDENT_HISTORY_LIMIT,
+            },
+        )
+        groups = _group_incident_rows(rows)
+        incidents = tuple(incident_summary(group) for group in groups[:500])
+        return incident_outcome_metrics(
+            incidents,
+            snapshot_seq=snapshot_seq,
+            truncated=len(groups) > 500,
+        )
 
     async def incident_attention(
         self, query: IncidentAttentionQuery
@@ -252,6 +281,9 @@ class PostgresOperatorReadModel:
         visible = grouped[: query.limit]
         items = tuple(_without_last_seq(incident_summary(group)) for group in visible)
         snapshot_seq = int(rows[0]["snapshot_seq"]) if rows else cursor[0] if cursor else 0
+        if not rows and cursor is None:
+            snapshot_rows = await self._fetch_all(INCIDENT_SNAPSHOT_SQL, {})
+            snapshot_seq = int(snapshot_rows[0]["snapshot_seq"]) if snapshot_rows else 0
         next_cursor = None
         if len(grouped) > query.limit and visible:
             next_cursor = _encode_incident_cursor(

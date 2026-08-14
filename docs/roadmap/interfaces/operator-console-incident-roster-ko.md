@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: e10b5c5bae110d8d6787885893e0c447aff04b74
+translation_source_sha: 84a33a1059e6e7ab5952e67e32929db1b8afdc18
 translation_revised: 2026-08-14
 ---
 
@@ -95,7 +95,7 @@ FDAI는 Azure SRE Agent 문서에 나타난 운영자 중심 강점을 차용하
 
 | 확인한 방식 | FDAI 차용 방식 | 유지하는 경계 |
 |-------------|----------------|---------------|
-| [풍부한 Incident 카드](https://learn.microsoft.com/azure/sre-agent/incident-platforms#rich-incident-cards) | 운영자가 읽을 수 있는 제목, 설명, 원본 플랫폼과 ID, 심각도, 원본 상태와 시각, 대응 계획 참조, 원본 상세 링크를 표시합니다. `title_source`를 추가하고 식별자 fallback을 대상 제목처럼 표시하는 대신 `제목 사용 불가`로 표시합니다. | 정본 수명 주기 상태를 원본 플랫폼 상태와 분리하고 모든 표시 필드를 기록된 근거로 유지합니다. |
+| [풍부한 Incident 카드](https://learn.microsoft.com/azure/sre-agent/incident-platforms#rich-incident-cards) | 운영자가 읽을 수 있는 제목, 설명, 원본 플랫폼과 ID, 심각도, 원본 상태와 시각, 대응 계획 참조, 서버 소유 신뢰 marker가 있는 원본 상세 링크를 표시합니다. `title_source`를 추가하고 식별자 fallback을 대상 제목처럼 표시하는 대신 `제목 사용 불가`로 표시합니다. | 정본 수명 주기 상태를 원본 플랫폼 상태와 분리하고 모든 표시 필드를 기록된 근거로 유지합니다. |
 | [조사 thread 및 세션 insight](https://learn.microsoft.com/azure/sre-agent/review-agent-insights) | 근거 참조, 명시적 공백, 평가, 비활성 학습 후보와 함께 범위가 제한된 `initial`, `progress`, `issue`, `success`, `resolved` milestone을 투영합니다. | 대화 transcript는 근거가 아닙니다. 자체 평가가 아니라 독립적 효과 검증이 복구를 종결하거나 학습을 승격합니다. |
 | [대응 계획](https://learn.microsoft.com/azure/sre-agent/response-plan) | 활성화 전에 과거 일치 항목을 미리 보고, 계획 개정을 고정하고, 활성 상태를 노출하며, 명시적 cooldown 및 중복 제거 키에 따라 반복 경보를 병합합니다. | 계획은 조사만 라우팅합니다. 형식화된 `ActionType`, 위험, 승인, 실행자, 롤백, 감사 게이트가 모든 상태 변경을 계속 결정합니다. |
 | [Incident 가치 추적](https://learn.microsoft.com/azure/sre-agent/track-incident-value) | 정확한 구간, 분모, Incident drill-down과 함께 에이전트 완화, 에이전트 지원, 사람 완화, 대기, 완화 시간 cohort를 측정합니다. | 권위 있는 종결 상태와 독립적으로 검증된 결과 근거가 없으면 집계 결과도 성공을 주장하지 않습니다. |
@@ -349,7 +349,7 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | Incident 수명 주기, roster 변환 결과 및 Console 보기 | implemented | `services/core-control-plane/src/fdai/core/incident/`; `services/core-control-plane/tests/core/incident/`; `console/src/routes/incidents.tsx`; focused Console incident 테스트 | Incident 상태, 상관관계, 수명 주기, roster, attention 및 범위가 제한된 presentation에 focused 검사가 있습니다. |
-| 운영자가 읽을 수 있는 identity 및 단계별 조사 | in-progress | `services/operator-service/src/fdai_operator_service/projection_logic.py`; `console/src/routes/incidents.tsx`; [선택적 차용 계약](#azure-sre-agent-선택적-차용) | 기본 제목 및 이력 projection은 있지만 제목 출처, 풍부한 원본 context, 계획 미리 보기, 근거 milestone, 결과 cohort는 아직 완전하지 않습니다. |
+| 운영자가 읽을 수 있는 identity 및 단계별 조사 | implemented | `incident_projection.py`; `projection_logic.py`; `postgres.py`; `incidents.tsx`; `incidents.detail-sections.tsx`; `incidents.milestones.ts`; focused Operator 테스트(`31 passed`), Console 테스트(`66 passed`), typecheck, strict mypy, Ruff, Pylance 및 catalog parity | 제목 출처, 신뢰된 원본 context, 계획 미리 보기, 범위가 제한된 근거 milestone, 독립적으로 검증된 결과 cohort를 실행 권한 없이 구현했습니다. |
 | RCA 계약, 변환 결과 및 읽기 전용 경로 | implemented | `services/core-control-plane/src/fdai/core/rca/`; `services/core-control-plane/tests/core/rca/`; `services/operator-service/src/fdai_operator_service/rca_projection.py`; `services/operator-service/tests/test_operator_service_composition.py`; `console/src/routes/rca.test.ts` | 경로는 알 수 없는 상관관계를 구분하고 기록된 가설과 대응 근거를 변환하며 액션 권한을 노출하지 않습니다. |
 | RCA 보고 카탈로그 및 데이터 원본 | implemented | `rule-catalog/reports/incident-rca-dossier.yaml`; `services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py`; reporting 테스트 | 선언형 dossier와 범위가 제한된 감사 변환 결과가 있습니다. |
 | RCA PDF format 및 다운로드 컨트롤 | not-started | [RCA 보기](#1351-rca-보기근본-원인-분석) | Upstream PDF encoder, 선택적 delivery 모듈 또는 인증된 다운로드 컨트롤이 없습니다. |
@@ -361,13 +361,14 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 구현 ledger를 도입하고 RCA PDF 주장을 대상 상태로 수정했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 incident, RCA, reporting, Operator 및 Console 근거입니다. | 선택적 PDF delivery를 구현하고 관리되는 roster-to-RCA 런타임 근거를 보존해야 합니다. |
 | 2026-08-14 | in-progress | 현재 Microsoft Learn Azure SRE Agent 지침과 비교하여 풍부한 Incident identity, 단계별 조사, 대응 계획 미리 보기, 근거 기반 결과 분석 방식만 수락했습니다. | `current change`; [선택적 차용 계약](#azure-sre-agent-선택적-차용) 및 구현 범위 표의 현재 Operator/Console 경로입니다. | FDAI 실행 권한을 넓히지 않고 범위가 제한된 운영자 중심 공백 네 가지를 구현하고 검증해야 합니다. |
+| 2026-08-14 | implemented | FDAI 권한 경계를 유지하면서 서버 소유 제목 출처, 신뢰된 원본 및 고정 계획 context, 범위가 제한된 감사 milestone, 정확한 drill-down이 있는 같은 스냅샷 결과 cohort를 추가했습니다. | `current change`; `incident_projection.py`, `incidents.detail-sections.tsx` 및 작업 소유 Operator, service-contract, Console, catalog, focused 테스트 경로입니다. Operator `31 passed`, Console `66 passed`, typecheck, strict mypy, Ruff, Pylance 및 catalog parity를 통과했으며 비평 15회 후 Low finding만 남았습니다. | 관리되는 런타임 근거를 별도로 보존해야 합니다. |
 
 ### 남은 작업
 
-- [ ] 기록된 제목, 요약, 룰, signal, 정리된 resource 대상을 우선하고 식별자 fallback을 사용 불가로 표시하는 범위가 제한된 `title_source` 계약과 focused projection, decoder, render 테스트를 추가합니다.
-- [ ] 정본 수명 주기 상태를 대체하지 않고 원본 플랫폼 identity, 설명, 상태, 시각, 원본 링크, 고정된 대응 계획 개정, 과거 일치 미리 보기, cooldown 및 중복 제거 근거를 투영합니다.
-- [ ] 정확한 근거 참조, 사용 불가 공백, 평가 receipt, 비활성 학습 후보가 있는 순서가 지정된 조사 milestone을 렌더링하고 transcript 텍스트가 근거를 만들거나 복구를 종결하거나 학습을 승격할 수 없음을 입증합니다.
-- [ ] 정확한 출처, 구간, 분모, 종결 상태 규칙, 독립적 결과 검증, Incident drill-down과 함께 에이전트 완화, 지원, 사람 완화, 대기, 완화 시간 cohort를 게시합니다.
+- [x] 기록된 제목, 요약, 룰, signal, 정리된 resource 대상을 우선하고 식별자 fallback을 사용 불가로 표시하는 범위가 제한된 `title_source` 계약과 focused projection, decoder, render 테스트를 추가합니다.
+- [x] 정본 수명 주기 상태를 대체하지 않고 원본 플랫폼 identity, 설명, 상태, 시각, 원본 링크, 고정된 대응 계획 개정, 과거 일치 미리 보기, cooldown 및 중복 제거 근거를 투영합니다.
+- [x] 정확한 근거 참조, 사용 불가 공백, 평가 receipt, 비활성 학습 후보가 있는 순서가 지정된 조사 milestone을 렌더링하고 transcript 텍스트가 근거를 만들거나 복구를 종결하거나 학습을 승격할 수 없음을 입증합니다.
+- [x] 정확한 출처, 구간, 분모, 종결 상태 규칙, 독립적 결과 검증, Incident drill-down과 함께 에이전트 완화, 지원, 사람 완화, 대기, 완화 시간 cohort를 게시합니다.
 - [ ] Incident, 상관관계, 가설, 인용, 대응 계획, 감사 행 및 사용 불가 동작을 하나의 source 개정에 묶는 인증된 roster-to-RCA 증적 하나를 보존합니다.
 - [ ] 기존 보고 묶음만 렌더링하고 extra를 사용할 수 없을 때 등록되지 않는 선택적 PDF `FormatEncoder`와 GET-only 다운로드 경로를 구현하고 focused 테스트를 추가합니다.
 - [ ] 참조 페이지 수를 문서화하기 전에 PDF 페이지 나누기, escape, source 다이제스트, 사용 불가 섹션 및 새 분석 부재 회귀 검사를 추가합니다.

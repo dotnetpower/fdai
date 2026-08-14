@@ -16,7 +16,7 @@ RBAC contract remains in [operator-console.md](operator-console.md).
 | Governed ontology assurance provenance | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`; focused Vitest: 25 passed; Console typecheck passed | Remains in progress until the authenticated seeded cohort produces a governed runtime artifact. |
 | Agent Activity heartbeat presentation | implemented | `console/src/routes/agents.model.ts`; `console/src/routes/agents.model.test.ts`; focused Vitest: 31 passed | Periodic runtime initialization snapshots update current agent state and last-observed time without becoming activity rows after initial load or refresh. Browser Entra refresh behavior was observed but no governed artifact was retained. |
 | Command Deck JSON contrast | implemented | `console/src/styles.css`; `console/src/deck/command-deck-workspace-visual.test.ts`; focused Vitest: 10 passed; authenticated browser inspection | Syntax-highlighted JSON keeps the fixed dark code surface despite the global light `pre` style. Browser inspection is not retained as governed runtime evidence. |
-| Cross-tab SSE connection budget | implemented | `console/src/hooks/browser-stream-leader.ts`; `console/src/hooks/cross-tab-stream.ts`; attention stream hooks; focused Vitest: 8 passed; Console typecheck passed | Web Locks elect one principal-scoped reader for each attention or notification channel. Attention leaders share validated snapshots with follower tabs. A governed multi-tab browser artifact isn't retained. |
+| Cross-tab SSE and incident resilience | implemented | Cross-tab stream hooks; `incidents.milestones.ts`; incident projections; focused Console and Operator tests | Principal-scoped leaders share validated stream state, while bounded milestones and action confirmations preserve incident progress without granting execution authority. Retained deterministic baselines don't replace authenticated live evidence. |
 
 ### Implementation history
 
@@ -26,13 +26,13 @@ RBAC contract remains in [operator-console.md](operator-console.md).
 | 2026-08-14 | implemented | Stopped periodic `Runtime agent initialized` snapshots from reappearing as chronological activity after each page refresh while preserving current state and heartbeat freshness. | `current change`; `agents.model.test.ts` passed 31 focused tests, and the authenticated browser showed zero initialization rows across two refreshes. | Retain the two-refresh Browser Entra result as a governed artifact before claiming runtime validation. |
 | 2026-08-14 | implemented | Restored the fixed dark surface beneath syntax-highlighted Command Deck JSON after the global `pre` background overrode it. | `current change`; task-owned Console CSS and visual contract test; focused Vitest passed 10 tests; Console typecheck passed; authenticated browser computed the intended dark surface and token colors. | No bounded residual work remains; the focused regression test owns future theme changes. |
 | 2026-08-14 | implemented | Reserved ordinary Operator API capacity under HTTP/1.1 by electing one cross-tab reader per attention and notification channel and sharing validated attention snapshots with follower tabs. | `current change`; task-owned stream hooks and focused Vitest passed 8 tests; Console typecheck passed. | Retain a governed three-tab Browser Entra artifact that proves a fresh Dashboard access check completes while SSE readers are enabled. |
+| 2026-08-14 | implemented | Extended principal-scoped cross-tab stream leadership and added bounded incident milestones, action confirmation projections, and deterministic resilience baselines. | `current change`; focused Console and Operator tests plus Console typecheck. | Retain authenticated multi-tab and incident Browser evidence before claiming runtime validation. |
 
 ### Remaining work
 
 - [ ] Retain one passing governed artifact from the seeded bilingual 100-case cohort after the exact centralized receipt and authenticated probe exist.
 - [ ] Retain a governed Browser Entra artifact that shows an open agent stream, refreshed heartbeat time, and zero `Runtime agent initialized` activity rows across two page refreshes.
 - [ ] Retain a governed three-tab Browser Entra artifact that shows a fresh Dashboard access check completing while background notifications and active-tab attention streams remain enabled.
-
 ## Navigation context
 
 Selecting an Activity Bar domain opens its Explorer and navigates to the first visible panel under the operator's local order and visibility preferences. This navigation remains active when the Command Deck is closed or floating; a full-workspace Deck closes before the route changes.

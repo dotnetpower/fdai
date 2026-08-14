@@ -3,6 +3,7 @@ import type { OperatorApiClient } from "../api";
 import type {
   AuditItem,
   IncidentPage,
+  IncidentOutcomeMetrics,
   IncidentStatusFilter,
   IncidentSummary,
 } from "../types";
@@ -20,6 +21,11 @@ import { formatConsoleTimestamp } from "../time-format";
 import { t } from "./i18n/evidence";
 import "./incident-clarity.css";
 import {
+  IncidentMilestones,
+  IncidentOutcomeAnalytics,
+  IncidentSourceContext,
+} from "./incidents.detail-sections";
+import {
   incidentAgentStatus,
   incidentOperationalOverview,
   type IncidentOperationalOverview,
@@ -35,6 +41,7 @@ interface Props {
 interface IncidentData {
   readonly items: readonly IncidentSummary[];
   readonly nextCursor: string | null;
+  readonly metrics: IncidentOutcomeMetrics;
 }
 
 const PAGE_SIZE = 25;
@@ -63,6 +70,13 @@ export function resolveIncidentSelection(
   requested: string | null,
 ): string | null {
   return requested ?? items[0]?.correlation_id ?? null;
+}
+
+export function incidentDisplayTitle(
+  incident: Pick<IncidentSummary, "title" | "title_source">,
+  unavailable: string,
+): string {
+  return incident.title_source === "identifier_fallback" ? unavailable : incident.title;
 }
 
 export function IncidentsRoute({ client }: Props) {
@@ -128,7 +142,7 @@ export function IncidentsRoute({ client }: Props) {
         if (rosterGeneration.current !== generation) return;
         setState({
           status: "ready",
-          data: { items: page.items, nextCursor: page.next_cursor },
+          data: { items: page.items, nextCursor: page.next_cursor, metrics: page.metrics },
         });
         setSelectedId((current) => resolveIncidentSelection(page.items, current));
       },
@@ -225,6 +239,7 @@ export function IncidentsRoute({ client }: Props) {
                 ...mergeIncidentItems(current.data.items, page.items),
               ],
               nextCursor: page.next_cursor,
+              metrics: page.metrics,
             },
           }
         : current);
@@ -331,7 +346,9 @@ function IncidentBody({
   );
 
   return (
-    <div class="incidents-workspace">
+    <>
+      <IncidentOutcomeAnalytics metrics={data.metrics} />
+      <div class="incidents-workspace">
       <section class="incidents-roster" aria-labelledby="incident-roster-title">
         <header class="incidents-roster-head">
           <h2 id="incident-roster-title">{t("incidents.roster")}</h2>
@@ -348,7 +365,14 @@ function IncidentBody({
                   aria-controls={INCIDENT_DETAIL_ID}
                   onClick={() => onSelect(item.correlation_id)}
                 >
-                  <span class="incident-roster-title">{item.title}</span>
+                  <span class="incident-roster-title">
+                    {incidentDisplayTitle(item, t("incidents.titleUnavailable"))}
+                  </span>
+                  {item.title_source === "identifier_fallback" ? (
+                    <span class="incident-roster-identifier mono">
+                      {item.incident_id ?? item.correlation_id}
+                    </span>
+                  ) : null}
                   <span class="incident-roster-meta">
                     <StatusPill kind={severityPill(item.severity)} label={localized("severity", item.severity)} />
                     <span class={`incident-status-dot status-${item.status}`} aria-hidden="true" />
@@ -401,7 +425,8 @@ function IncidentBody({
           ) : <p class="muted">{t("incidents.select")}</p>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }
 
@@ -422,7 +447,9 @@ function IncidentDetail({
     <section id={INCIDENT_DETAIL_ID} class="incident-detail" aria-labelledby={`${INCIDENT_DETAIL_ID}-title`}>
       <header class="incident-detail-head">
         <div class="incident-detail-title-row">
-          <h2 id={`${INCIDENT_DETAIL_ID}-title`}>{incident.title}</h2>
+          <h2 id={`${INCIDENT_DETAIL_ID}-title`}>
+            {incidentDisplayTitle(incident, t("incidents.titleUnavailable"))}
+          </h2>
           <StatusPill kind={severityPill(incident.severity)} label={localized("severity", incident.severity)} />
           <StatusPill kind={statusPill(incident.status)} label={localized("status", incident.status)} />
         </div>
@@ -442,14 +469,17 @@ function IncidentDetail({
             <div><dt>{t("incidents.currentVerdict")}</dt><dd><StatusPill kind={verdictPill(incident.verdict)} label={localized("verdict", incident.verdict)} /></dd></div>
             <div><dt>{t("incidents.verticalLabel")}</dt><dd>{localized("vertical", incident.vertical)}</dd></div>
             <div><dt>{t("incidents.statusSource")}</dt><dd class="mono">{incident.status_source}</dd></div>
+            <div><dt>{t("incidents.titleSource")}</dt><dd class="mono">{incident.title_source}</dd></div>
             <div><dt>{t("incidents.involvedAgents")}</dt><dd>{incident.involved_agents.length > 0 ? incident.involved_agents.join(", ") : t("incidents.none")}</dd></div>
           </dl>
         </details>
       </header>
+      <IncidentSourceContext incident={incident} />
       <AsyncBoundary state={history} resourceLabel={t("incidents.timeline")}>
         {(items) => (
           <>
             <IncidentCurrentState incident={incident} items={items} />
+            <IncidentMilestones items={items} />
             <IncidentEvidenceViews
               incident={incident}
               overview={incidentOperationalOverview(incident, items)}

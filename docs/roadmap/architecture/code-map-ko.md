@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c6bd66a2eeb11900c16492cb8fe1ba70fd80a3a0
+translation_source_sha: fce1fcf5f1d6149d0a5e8d98a9ae85b7c51e65d2
 translation_revised: 2026-08-14
 ---
 # 코드 맵
@@ -34,7 +34,7 @@ translation_revised: 2026-08-14
 | 목표 인식 Rule 후보 확인 | 구현됨 | `core/ontology_platform/objective_rule_resolution.py`, `core/ontology_platform/catalog_queries.py`, `shared/providers/catalog_search.py`, `delivery/catalog_search/in_memory.py`, 집중 온톨로지 조회 테스트(`8 passed`) | 검토 또는 승격된 활성 관계는 순위 계산 전에 exact-generation 후보 집합을 좁힙니다. 유효하지 않거나 불완전한 맥락은 원자적으로 대체 경로를 사용하며, 목표 맥락은 평가 또는 실행 권한을 추가하지 않고 조회 ID를 변경합니다. |
 | 런타임 바인딩 기반 플래너 가시성 | 구현됨 | `composition/wire_semantic_query.py`, `core/conversation/semantic_manifest.py`, `core/ontology_platform/query_manifest.py`, focused 조립 및 매니페스트 테스트 | 플래너 서술자는 조립된 런타임에 등록된 함수만 노출합니다. 읽을 수 있지만 바인딩되지 않은 선언은 타입이 지정된 구조 coverage에 남으며 어떤 권한도 얻지 않습니다. |
 | Exact-release 스키마 관계 조회 | 구현됨 | `core/ontology_platform/relationship_queries.py`, `composition/wire_semantic_query.py`, `fdai_core_service/semantic_relationship_projection.py`, 집중 조립 및 processor 테스트(`42 passed`) | `query.ontology_relationships`는 ObjectType과 LinkType 선언을 읽고 direction, cardinality, description을 보존하며 판단, 승인, 변경 또는 실행 권한을 포함하지 않습니다. 인증된 Browser 근거는 열린 작업입니다. |
-| 선언 기반 유한 질문 집합 | 구현됨 | `core/conversation/question_universe.py`, `core/conversation/__init__.py`, `core/conversation/epistemic_coverage.py`, `core/conversation/coverage_gate.py`, `tests/conversation/test_question_universe.py`, `tests/conversation/test_epistemic_coverage.py`, `tests/conversation/test_coverage_gate.py`, 집중 release gate 테스트(`41 passed`, 생성기 branch coverage `100%`, 인식 상태 branch coverage `99%`, coverage gate branch coverage `100%`) | Principal 범위의 완전한 매니페스트를 정규화된 범위 제한 문법으로 확장해 conversation 패키지가 노출하는 안정적인 사례 ID를 만듭니다. 문법과 receipt는 10,000개라는 하나의 사례 상한을 공유하고, 인식 상태 및 최종 gate receipt는 release ID, 불변 근거 계수, 통과 및 production 상태와 content digest를 검증하며, 사용할 수 없는 선언은 타입 기반 제외 항목으로 유지하고, 한도 초과는 확장 전에 실패하며, 생성된 레코드는 실행 권한을 부여하지 않습니다. |
+| 선언 기반 유한 질문 집합 | 구현됨 | `core/conversation/question_universe.py`, `core/conversation/__init__.py`, `core/conversation/epistemic_coverage.py`, `core/conversation/coverage_gate.py`, `tests/conversation/test_question_universe.py`, `tests/conversation/test_epistemic_coverage.py`, `tests/conversation/test_coverage_gate.py`, 집중 release gate 테스트(`41 passed`, 생성기 branch coverage `100%`, 인식 상태 branch coverage `99%`, coverage gate branch coverage `100%`) | Principal 범위의 완전한 매니페스트를 정규화된 범위 제한 문법으로 확장해 conversation 패키지가 노출하는 안정적인 사례 ID를 만듭니다. 문법과 receipt는 10,000개라는 하나의 사례 상한을 공유하고, 인식 상태 및 최종 gate receipt는 release ID, 불변이며 직렬화 가능한 근거 계수, 통과 및 production 상태와 content digest를 검증하며, 사용할 수 없는 선언은 타입 기반 제외 항목으로 유지하고, 한도 초과는 확장 전에 실패하며, 생성된 레코드는 실행 권한을 부여하지 않습니다. |
 | 운영 Rule 의미 준비 상태 | 구현됨 | `runtime/bootstrap.py`, `runtime/bootstrap_lifecycle.py`, `composition/wire_semantic_query.py`, `tests/runtime/test_catalog_semantic_bootstrap.py`, 집중 bootstrap 및 구성 검사(`46 passed`) | 운영 시작은 활성 세대가 현재 Rule 카탈로그, 의미 스키마, 온톨로지 release 및 embedder 차원과 정확히 일치할 때만 Rule 의미 검색을 등록합니다. 안정적인 선택적 준비 상태 저하는 오래된 함수를 노출하지 않고 시작을 유지합니다. |
 | 영속 Rule 세대 종결 | 구현됨 | `core/rule_semantic_generation/activation.py`, `core/rule_semantic_generation/ledger.py`, `core/rule_semantic_generation/publication.py`, `rule_catalog/schema/rule_semantic_generation_events.py`, 집중 활성화, 계약, ledger, 발행 및 실제 PostgreSQL 검사 | Core는 활성화 전에 정확한 검증 증적과 예상 이전 활성 식별자를 확인하고, 완료된 명령이 프로바이더에 다시 전달되지 않게 하며, 첫 최종 결과를 lease로 차단된 하나의 발행 레코드에 원자적으로 연결하고, exact-topic broker 확인 뒤에만 발행 완료로 표시합니다. Delivery 상태는 정책, 승인, 변경 또는 실행 권한을 부여하지 않습니다. |
 | Rule 세대 발행 소유권 | 구현됨 | `agents/mimir.py`, `agents/_framework/runtime.py`, `runtime/bootstrap.py`, `runtime/bootstrap_bindings.py`, `runtime/bootstrap_lifecycle.py`, 집중 Mimir, 런타임, bootstrap, 활성화 및 발행 검사(`32 passed`) | Mimir만 활성화 명령과 결과를 구독합니다. 명령을 exact binder에 위임하고 안전하게 재시도할 수 있는 변환 전용 결과 증적을 저장합니다. 준비 상태와 독립적인 drain은 해제된 전송 실패만 재시도하며 Mimir에 인덱스, 정책, 승인, 변경 또는 실행 권한을 부여하지 않습니다. |
@@ -192,6 +192,8 @@ failure는 held 또는 pending evidence로 남으며 executor outcome을 다시 
 공유하는 versioned wire 서술자, codec, 호환성 검사, 준비 상태 기록, 문서 계약,
 운영자 계약 및 실행기 계약을 소유합니다. 서비스 조립, 프로바이더 구현,
 데이터베이스 접근 또는 business 작업 흐름은 포함하지 않습니다.
+`IncidentPageProjection`은 일반 `PageProjection` wire 형태를 안정적으로 유지하면서 Incident
+roster page와 같은 스냅샷의 결과 metric을 하나의 읽기 전용 Operator 계약으로 연결합니다.
 
 Shared SDK는 Core/Operator 경계에서 사용하는 no-authority ontology-query 기록도 소유합니다.
 의미 problem 프레임, 범위가 제한된 조회 DAG, 의도 그래프, 작업 증적 및 structural 커버리지 증적입니다.

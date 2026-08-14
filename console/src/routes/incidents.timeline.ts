@@ -51,8 +51,9 @@ export function incidentTimelinePresentation(item: AuditItem): IncidentTimelineP
 
 function inferredDescription(item: AuditItem, title: string): string {
   if (item.action_kind === "incident.open") {
+    const severity = firstString(item, "severity") ?? "unknown";
     return t("incidents.event.description.opened", {
-      severity: humanizeToken(firstString(item, "severity") ?? t("incidents.none")),
+      severity: localizedIncidentValue("severity", severity),
     });
   }
   if (item.action_kind === "incident.members") {
@@ -62,8 +63,9 @@ function inferredDescription(item: AuditItem, title: string): string {
       : t("incidents.event.description.correlatedMany", { count });
   }
   if (item.action_kind === "incident.transition") {
+    const state = firstString(item, "to_state", "state") ?? "unknown";
     return t("incidents.event.description.transitioned", {
-      state: humanizeToken(firstString(item, "to_state", "state") ?? t("incidents.none")),
+      state: localizedIncidentValue("status", state),
     });
   }
   if (item.action_kind === "notification.escalation") {
@@ -75,8 +77,9 @@ function inferredDescription(item: AuditItem, title: string): string {
         });
   }
   if (item.action_kind === "notification.route") {
+    const outcome = firstString(item, "outcome") ?? "unknown";
     return t("incidents.event.description.notificationRoute", {
-      outcome: humanizeToken(firstString(item, "outcome") ?? t("incidents.none")),
+      outcome: localizedIncidentValue("disposition", outcome),
     });
   }
   if (item.action_kind === "hil.requested") {
@@ -117,11 +120,11 @@ function timelineFacts(item: AuditItem): readonly IncidentTimelineFact[] {
   const facts: IncidentTimelineFact[] = [
     { label: t("incidents.mode"), value: humanizeToken(item.mode) },
   ];
-  addFact(facts, t("incidents.fact.decision"), firstString(item, "decision"), true);
-  addFact(facts, t("incidents.fact.outcome"), firstString(item, "outcome"), true);
-  addFact(facts, t("incidents.fact.state"), firstString(item, "to_state", "state"), true);
+  addFact(facts, t("incidents.fact.decision"), firstString(item, "decision"), true, "verdict");
+  addFact(facts, t("incidents.fact.outcome"), firstString(item, "outcome"), true, "disposition");
+  addFact(facts, t("incidents.fact.state"), firstString(item, "to_state", "state"), true, "status");
   addFact(facts, t("incidents.fact.stage"), firstString(item, "pipeline_stage", "stage"), true);
-  addFact(facts, t("incidents.fact.severity"), firstString(item, "severity"), true);
+  addFact(facts, t("incidents.fact.severity"), firstString(item, "severity"), true, "severity");
   addFact(facts, t("incidents.fact.category"), firstString(item, "category"), true);
   addFact(facts, t("incidents.fact.tier"), firstString(item, "tier", "trust_tier"), true);
   addFact(facts, t("incidents.fact.rule"), firstString(item, "rule_id"), false);
@@ -144,9 +147,23 @@ function addFact(
   label: string,
   value: string | null,
   humanize: boolean,
+  catalogGroup?: string,
 ): void {
   if (value === null) return;
-  facts.push({ label, value: humanize ? humanizeToken(value) : value });
+  facts.push({
+    label,
+    value: catalogGroup
+      ? localizedIncidentValue(catalogGroup, value)
+      : humanize
+        ? humanizeToken(value)
+        : value,
+  });
+}
+
+function localizedIncidentValue(group: string, value: string): string {
+  const key = `incidents.${group}.${value}`;
+  const translated = t(key);
+  return translated === key ? humanizeToken(value) : translated;
 }
 
 function firstString(item: AuditItem, ...keys: string[]): string | null {

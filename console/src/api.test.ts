@@ -161,6 +161,23 @@ describe("Operator API response decoders", () => {
       incident_id: null,
       ticket_id: null,
       title: "Rule example.rule",
+      title_source: "rule_id",
+      source: {
+        platform: "Azure Monitor",
+        incident_id: "alert-example",
+        status: "triggered",
+        fired_at: "2026-07-14T09:59:00Z",
+        description: "Latency exceeded the objective.",
+        url: "https://example.com/incidents/alert-example",
+      },
+      response_plan: {
+        id: "latency-response",
+        revision: "rev-2",
+        enabled: true,
+        historical_match_count: 3,
+        reinvestigation_cooldown_seconds: 10800,
+        deduplication_key: "latency:example",
+      },
       severity: "high",
       status: "in_progress",
       status_source: "audit_projection",
@@ -172,12 +189,46 @@ describe("Operator API response decoders", () => {
       latest_mode: "shadow",
       history_count: 2,
     };
-    expect(decodeIncidentPage({ items: [item], next_cursor: null }).items[0]?.status)
+    const metrics = {
+        source: "operator-postgres-incident-projection",
+        snapshot_seq: 7,
+        denominator: 2,
+        truncated: false,
+        window_from: "2026-07-14T09:59:00Z",
+        window_to: "2026-07-14T10:01:00Z",
+        cohorts: { agent_mitigated: 0, agent_assisted: 1, human_mitigated: 0, pending: 1, integrity_excluded: 0 },
+        drilldown: { agent_mitigated: [], agent_assisted: ["corr-2"], human_mitigated: [], pending: ["corr-1"], integrity_excluded: [] },
+        drilldown_truncated: { agent_mitigated: false, agent_assisted: false, human_mitigated: false, pending: false, integrity_excluded: false },
+        median_time_to_mitigate_seconds: 120.5,
+        time_to_mitigate_sample_size: 1,
+        terminal_rule: "resolved_and_independently_verified",
+    };
+    expect(decodeIncidentPage({ items: [item], next_cursor: null, metrics }).items[0]?.status)
       .toBe("in_progress");
+    expect(decodeIncidentPage({ items: [item], next_cursor: null, metrics }).items[0]?.response_plan)
+      .toMatchObject({ revision: "rev-2", historical_match_count: 3 });
+    expect(decodeIncidentPage({ items: [item], next_cursor: null, metrics }).metrics)
+      .toMatchObject({ median_time_to_mitigate_seconds: 120.5, time_to_mitigate_sample_size: 1 });
     expect(() => decodeIncidentPage({
       items: [{ ...item, status: "closed" }],
       next_cursor: null,
+      metrics,
     })).toThrow(/status MUST/);
+    expect(() => decodeIncidentPage({
+      items: [{ ...item, title_source: "browser_guess" }],
+      next_cursor: null,
+      metrics,
+    })).toThrow(/title_source MUST/);
+    expect(() => decodeIncidentPage({
+      items: [{ ...item, source: { ...item.source, url: "javascript:alert(1)" } }],
+      next_cursor: null,
+      metrics,
+    })).toThrow(/absolute HTTPS URL/);
+    expect(() => decodeIncidentPage({
+      items: [item],
+      next_cursor: null,
+      metrics: { ...metrics, denominator: 3 },
+    })).toThrow(/equal denominator/);
   });
 
   test("decodes an RCA view and rejects an invalid tier", () => {

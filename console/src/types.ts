@@ -24,12 +24,61 @@ export interface AuditPage {
 
 export type IncidentStatus = "open" | "in_progress" | "resolved";
 export type IncidentStatusFilter = "active" | "resolved" | "all";
+export type IncidentTitleSource =
+  | "recorded_title"
+  | "recorded_summary"
+  | "rule_id"
+  | "correlation_subject"
+  | "identifier_fallback";
+
+export interface IncidentSourceContext {
+  readonly platform: string | null;
+  readonly incident_id: string | null;
+  readonly status: string | null;
+  readonly fired_at: string | null;
+  readonly description: string | null;
+  readonly url: string | null;
+}
+
+export interface IncidentResponsePlan {
+  readonly id: string | null;
+  readonly revision: string | null;
+  readonly enabled: boolean | null;
+  readonly historical_match_count: number | null;
+  readonly reinvestigation_cooldown_seconds: number | null;
+  readonly deduplication_key: string | null;
+}
+
+export type IncidentOutcomeCohort =
+  | "agent_mitigated"
+  | "agent_assisted"
+  | "human_mitigated"
+  | "pending"
+  | "integrity_excluded";
+
+export interface IncidentOutcomeMetrics {
+  readonly source: string;
+  readonly snapshot_seq: number;
+  readonly denominator: number;
+  readonly truncated: boolean;
+  readonly window_from: string | null;
+  readonly window_to: string | null;
+  readonly cohorts: Readonly<Record<IncidentOutcomeCohort, number>>;
+  readonly drilldown: Readonly<Record<IncidentOutcomeCohort, readonly string[]>>;
+  readonly drilldown_truncated: Readonly<Record<IncidentOutcomeCohort, boolean>>;
+  readonly median_time_to_mitigate_seconds: number | null;
+  readonly time_to_mitigate_sample_size: number;
+  readonly terminal_rule: "resolved_and_independently_verified";
+}
 
 export interface IncidentSummary {
   readonly correlation_id: string;
   readonly incident_id: string | null;
   readonly ticket_id: string | null;
   readonly title: string;
+  readonly title_source: IncidentTitleSource;
+  readonly source: IncidentSourceContext | null;
+  readonly response_plan: IncidentResponsePlan | null;
   readonly severity: string;
   readonly status: IncidentStatus;
   readonly status_source: "incident_lifecycle" | "audit_projection";
@@ -46,6 +95,7 @@ export interface IncidentSummary {
 export interface IncidentPage {
   readonly items: readonly IncidentSummary[];
   readonly next_cursor: string | null;
+  readonly metrics: IncidentOutcomeMetrics;
 }
 
 export type RcaTier = "t0" | "t1" | "t2" | "unknown";
