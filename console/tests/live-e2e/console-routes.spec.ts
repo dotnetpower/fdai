@@ -155,9 +155,14 @@ async function openCommandDeck(page: Page) {
   return deck;
 }
 
-async function revealSemanticReceipt(deck: Locator, requestId: string): Promise<Locator> {
+async function revealSemanticReceipt(
+  deck: Locator,
+  requestId: string,
+  projectionId: string,
+): Promise<Locator> {
   const receipt = deck.getByTestId("semantic-projection-receipt")
     .filter({ hasText: requestId })
+    .filter({ hasText: projectionId })
     .last();
   await expect(receipt).toBeAttached();
   await receipt.evaluate((element) => {
@@ -207,7 +212,22 @@ test("Command Deck renders the exact governed ontology projection receipt", asyn
         method.toUpperCase() === "POST" &&
         new URL(requestUrl, window.location.href).pathname === "/chat/stream"
       ) {
-        testWindow.__fdaiChatStreamBody = response.clone().text();
+        testWindow.__fdaiChatStreamBody = (async () => {
+          const reader = response.clone().body?.getReader();
+          if (!reader) throw new Error("chat stream clone did not expose a response body");
+          const decoder = new TextDecoder();
+          let body = "";
+          for (;;) {
+            const chunk = await reader.read();
+            if (chunk.done) return body + decoder.decode();
+            body += decoder.decode(chunk.value, { stream: true });
+            const completeFrames = body.split(/\r?\n\r?\n/).slice(0, -1);
+            if (completeFrames.some((frame) => /^event:\s*done\s*$/m.test(frame))) {
+              void reader.cancel().catch(() => undefined);
+              return body;
+            }
+          }
+        })();
         window.fetch = originalFetch;
       }
       return response;
@@ -241,7 +261,11 @@ test("Command Deck renders the exact governed ontology projection receipt", asyn
   expect(requestPayload.request_id).toBe(semanticReceipt.request_id);
 
   await deck.getByText("Run record", { exact: true }).last().click();
-  const receipt = await revealSemanticReceipt(deck, semanticReceipt.request_id);
+  const receipt = await revealSemanticReceipt(
+    deck,
+    semanticReceipt.request_id,
+    semanticReceipt.projection_id,
+  );
   await expect(receipt.getByTestId("semantic-projection-id")).toHaveText(
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
   );
