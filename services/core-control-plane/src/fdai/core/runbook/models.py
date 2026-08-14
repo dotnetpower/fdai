@@ -58,7 +58,12 @@ class Runbook:
 
     - At least one step.
     - Step ids are unique within the runbook.
-    - Every ``on_failure`` target refers to an existing step id.
+    - Every ``on_failure`` target refers to an existing step id that
+      appears **later** in the list and is not the step itself. These are
+      the same invariants the ``Workflow`` contract enforces. Because
+      branching is failure-only, a self-referential fallback would make the
+      step unreachable and a backward fallback would record one step twice
+      in a single run.
     """
 
     id: str
@@ -74,11 +79,23 @@ class Runbook:
             if step.id in seen:
                 raise RunbookRunError(f"runbook {self.id!r} has duplicate step id {step.id!r}")
             seen.add(step.id)
-        for step in self.steps:
-            if step.on_failure is not None and step.on_failure not in seen:
+        index_by_id = {step.id: index for index, step in enumerate(self.steps)}
+        for index, step in enumerate(self.steps):
+            if step.on_failure is None:
+                continue
+            if step.on_failure not in seen:
                 raise RunbookRunError(
                     f"runbook {self.id!r} step {step.id!r} on_failure -> "
                     f"unknown step {step.on_failure!r}"
+                )
+            if step.on_failure == step.id:
+                raise RunbookRunError(
+                    f"runbook {self.id!r} step {step.id!r} on_failure points at itself"
+                )
+            if index_by_id[step.on_failure] <= index:
+                raise RunbookRunError(
+                    f"runbook {self.id!r} step {step.id!r} on_failure -> "
+                    f"{step.on_failure!r} MUST appear later in the runbook"
                 )
 
 

@@ -52,6 +52,28 @@ def test_on_failure_targeting_a_known_step_is_accepted() -> None:
     )
 
 
+def test_self_referential_on_failure_is_rejected() -> None:
+    # Branching is failure-only, so a self-fallback would make the step
+    # unreachable rather than retry it.
+    with pytest.raises(RunbookRunError, match="points at itself"):
+        Runbook(
+            id="rb.self",
+            steps=(RunbookStep(id="a", action_type="ops.x", on_failure="a"),),
+        )
+
+
+def test_backward_on_failure_is_rejected() -> None:
+    # A backward fallback would record the already-walked step twice in one run.
+    with pytest.raises(RunbookRunError, match="MUST appear later"):
+        Runbook(
+            id="rb.backward",
+            steps=(
+                RunbookStep(id="rollback", action_type="ops.rollback"),
+                RunbookStep(id="main", action_type="ops.x", on_failure="rollback"),
+            ),
+        )
+
+
 # ---------------------------------------------------------------------------
 # Runner behavior - happy path + failure + on_failure branch
 # ---------------------------------------------------------------------------
