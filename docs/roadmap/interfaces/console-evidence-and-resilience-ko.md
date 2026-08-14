@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 83d53e0928f31b0a9602c7cd0d179d04f6dbeb7d
+translation_source_sha: 59e6b0fa9d1c8ed21d69d6f266c4ffd5b88901b2
 translation_revised: 2026-08-14
 ---
 
@@ -16,6 +16,8 @@ translation_revised: 2026-08-14
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|-----------|
 | 통제된 온톨로지 보증 출처 이력 | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`, focused Vitest 52개 통과 | 강화된 release gate는 두 locale의 모든 operation에 완전하게 검증된 답변을 요구합니다. 인증된 probe는 semantic planning을 사용할 수 없을 때 held 상태였으므로 full-cohort readiness 아티팩트를 주장하지 않습니다. |
+| Exact-release 온톨로지 카탈로그 변환 결과 | 구현됨 | `ontology_console_projection.py`, `materialize-authoritative-catalogs.py`, focused materializer 동등성 테스트, Console 토폴로지 모델 테스트 및 타입 검사 | 하나의 생산자가 릴리스 신원 및 변경 권한 부재와 함께 선언 보기와 카탈로그 토폴로지를 제공합니다. 의미 모델 렌더링과 receipt 기반 컨텍스트 근거는 남아 있습니다. |
+| 의미 모델 및 관계 방향 | 구현됨 | `ontology-semantic-model.ts`, `ontology-semantic-map.tsx`, 카탈로그 토폴로지 renderer 및 inspector, focused Vitest 23개 및 Console 타입 검사 통과 | 검토된 네 가지 의미 영역, 다섯 가지 운영 보기, 화살표 및 분리된 들어오는 관계와 나가는 관계를 구현했습니다. 인증된 데스크톱 및 모바일 근거는 남아 있습니다. |
 | 에이전트 활동 하트비트 표현 | validated | `console/src/routes/agents.model.ts`, `console/src/routes/agents.model.test.ts`, `docs/baselines/agent-activity-heartbeat-assurance-2026-08-14.json`, focused Vitest 31개 통과 및 인증된 Browser Entra assurance | 두 번 새로고치는 동안 연속된 하트비트 시각 세 개가 증가했고 인증된 self 검사 세 번이 모두 성공했으며 런타임 초기화 행은 0개였습니다. |
 | Command Deck JSON 대비 | 구현됨 | `console/src/styles.css`, `console/src/deck/command-deck-workspace-visual.test.ts`, focused Vitest 10개 통과 및 인증된 브라우저 검사 | 구문 강조 JSON은 전역의 밝은 `pre` 스타일과 관계없이 고정된 어두운 코드 표면을 유지합니다. 브라우저 검사는 통제된 런타임 근거로 보존하지 않았습니다. |
 | 탭 간 SSE 및 인시던트 복원력 | 구현됨 | 탭 간 stream hook, `incidents.milestones.ts`, incident projection, `docs/baselines/console-cross-tab-sse-assurance-2026-08-14.json`, focused Console/Operator test 및 인증된 Browser Entra assurance | 정확히 하나의 leader가 세 탭의 세 채널을 소유했고 failover가 leader client를 바꿨으며 인증된 self 검사 세 번이 모두 성공했습니다. Notification delivery는 명시적으로 주장하지 않습니다. 관리되는 incident-detail 런타임 근거는 아직 남아 있습니다. |
@@ -30,6 +32,10 @@ translation_revised: 2026-08-14
 | 2026-08-14 | 구현됨 | 각 attention 및 알림 채널에서 탭 간 읽기 담당 하나를 선출하고 검증된 attention 스냅샷을 follower 탭과 공유해 HTTP/1.1에서 일반 Operator API 용량을 확보했습니다. | `current change`, 작업 소유 스트림 훅, focused Vitest 8개 및 Console 타입 검사 통과 | SSE 읽기 담당이 활성화된 상태에서 새 Dashboard 접근 검사가 완료되는 통제된 세 탭 Browser Entra 아티팩트를 보존합니다. |
 | 2026-08-14 | 구현됨 | Principal-scoped cross-tab stream leadership를 확장하고 bounded incident milestone, action confirmation projection 및 deterministic resilience baseline을 추가했습니다. | `current change`, focused Console/Operator test 및 Console typecheck | Runtime validation을 주장하기 전에 인증된 multi-tab 및 incident Browser evidence를 보존합니다. |
 | 2026-08-14 | validated | 인증된 Browser Entra 복원력 아티팩트를 보존하고 SSE 및 탭 간 경계에서 모호한 local-date timestamp를 거부했습니다. | `current change`, strict stream timestamp 테스트 9개 통과, 인증된 Playwright 복원력 테스트 2개 통과, tracked cross-tab 및 heartbeat 아티팩트가 source revision `848e1021786c2bb7f3fb0a533d9d113c3020d5cf`와 하나의 workspace patch digest에 연결됩니다. | 관리되는 incident-detail 근거를 별도로 보존하고 중앙 검증된 revision에서 semantic-planning capacity를 사용할 수 있을 때 강화된 ontology cohort를 완료합니다. |
+| 2026-08-14 | 구현됨 | Operator 온톨로지 레지스트리와 카탈로그 토폴로지를 하나의 exact-release 생산자로 통합하고 InterfaceType 및 FunctionType 노드를 추가했으며 SPA의 생성된 토폴로지 복사본을 제거했습니다. | `current change`, materializer 동등성 테스트 2개, focused Console 테스트 13개 및 Console 타입 검사 통과 | 검토된 의미 모델을 렌더링하고 receipt 기반 컨텍스트 스냅샷과 인증된 Browser 근거를 보존해야 합니다. |
+| 2026-08-14 | 구현됨 | 네 영역 의미 모델을 기본 온톨로지 보기로 만들고 dense graph를 카탈로그 토폴로지로 유지했으며 semantic inspector와 topology canvas 모두에 canonical 방향을 렌더링했습니다. | `current change`, focused ontology Vitest 23개, 카탈로그 동등성 및 Console 타입 검사 통과 | 인증된 데스크톱 및 모바일 Browser 근거를 보존하고 런타임 근거를 표시하기 전에 authoritative 컨텍스트 receipt를 연결해야 합니다. |
+| 2026-08-14 | 구현됨 | 독립적인 비평 라운드 10개를 완료하고 범위가 제한된 구획에서 검증된 모든 Medium 이상 finding을 수정했습니다. Fail-closed 응답 decoding, canonical 영역, profile 기반 action membership, self-loop, 관계 flag, 키보드 제어, 접근 가능한 landmark 및 focus, topology bound, localized node kind를 포함합니다. | `current change`, focused Python 테스트 7개, ontology Vitest 27개, 카탈로그 동등성, Console 타입 검사 및 Core import 경계 통과 | 남은 구현 finding은 Low입니다. Principal 범위 컨텍스트 전송과 인증된 Browser 근거는 가용성을 추론하지 않고 명시적 검증 작업으로 유지합니다. |
+| 2026-08-14 | 구현됨 | 인증된 Browser 검사에서 동작하지 않는 topology 키보드 경로와 390 px intrinsic-width overflow를 찾아 수정했습니다. 이후 의미 모델은 네 영역, 다섯 보기, 하나의 exact release, 명시적 컨텍스트 사용 불가 상태, body overflow 0, node overlap 0 및 잘린 node control 0으로 렌더링됐고 카탈로그 토폴로지 canvas에는 빈 화면이 아닌 pixel이 있었습니다. | 5273 로컬 Browser Entra 및 `current change`, focused 키보드, geometry, decoder, semantic, i18n 및 타입 검사 통과 | Browser 관측은 통제된 아티팩트로 보존하지 않았고 hidden-tab `requestAnimationFrame` 제한 때문에 screenshot 기반 키보드 이동 receipt를 신뢰성 있게 만들지 못했습니다. |
 
 ### 잔여 작업
 
@@ -37,6 +43,7 @@ translation_revised: 2026-08-14
 - [x] 에이전트 스트림 열림, 갱신된 하트비트 시각, 페이지를 두 번 새로고친 뒤 `Runtime agent initialized` 활동 행 0개를 보여 주는 통제된 Browser Entra 아티팩트를 보존합니다.
 - [x] 백그라운드 알림과 활성 탭 attention 스트림을 유지하면서 새 Dashboard 접근 검사가 완료되는 통제된 세 탭 Browser Entra 아티팩트를 보존합니다.
 - [ ] Milestone, 원본, 대응 계획 및 같은 스냅샷 결과 표현을 위한 관리되는 incident-detail Browser 근거를 보존합니다.
+- [ ] 의미 모델과 카탈로그 토폴로지가 일치하는 하나의 온톨로지 릴리스를 표시하고 보안 receipt가 없으면 컨텍스트가 사용 불가로 유지됨을 보여 주는 인증된 Browser 근거를 보존합니다.
 ## 탐색 컨텍스트
 
 활동 Bar 영역을 선택하면 Explorer가 열리고 운영자의 로컬 순서 및 표시 설정에 따라 첫 번째 visible 패널로 이동합니다. Command Deck이 닫혀 있거나 floating 상태여도 이 탐색은 동작하며, full-workspace Deck은 경로가 변경되기 전에 닫힙니다.
@@ -406,8 +413,11 @@ Read-source 출처 이력, 온톨로지 browse, 화면 간 operational 및 인�
 허용 목록에 있는 신원 필드와 256자 이하 프롬프트 값만 전달하며, 중복되거나 malformed인 개수와
 선택을 사용 불가로 표시합니다. 온톨로지 변환 결과와 결정론적 browse 답변은 일반 프롬프트
 assembly와 분리된 자체 프롬프트 모듈에 위치합니다.
-Reader-gated `/ontology/graph` 변환 결과는 operating-model 상태, 출처 개정 번호, 집계
-객체 및 링크 개수만 포함합니다. 배포 instance 속성은 반환하지 않습니다.
+Reader-gated `/ontology/graph` 변환 결과는 스키마 버전, 변환 결과 개정, 릴리스 다이제스트,
+선언 기록, 의미 맵 프로필 및 카탈로그 토폴로지를 포함하는 하나의 exact 카탈로그 릴리스를
+제공합니다. 배포 인스턴스 속성은 반환하지 않습니다. 런타임 객체와 상태 사실은 기준 시각,
+freshness, 완전성, 충돌, 잘림 및 근거 참조를 보존하는 별도 권한 확인 컨텍스트 스냅샷을
+통해서만 Console에 들어옵니다.
 일반 delegated 답변은 Bragi를 서술기로 유지하면서 검증된 specialist를 응답 소유자로
 표시합니다. Dedicated 대상 세션은 명시적 인계가 서술을 Bragi로 돌려보낼 때까지 해당
 specialist의 검증된 voice를 사용합니다.

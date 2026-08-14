@@ -30,6 +30,7 @@ export interface OntologyKnowledgeGraphController {
   readonly fit: () => void;
   readonly zoomIn: () => void;
   readonly zoomOut: () => void;
+  readonly panBy: (deltaX: number, deltaY: number) => void;
   readonly focusNode: (id: string) => void;
 }
 
@@ -41,6 +42,7 @@ interface ControllerActions {
   fit: () => void;
   zoomIn: () => void;
   zoomOut: () => void;
+  panBy: (deltaX: number, deltaY: number) => void;
   focusNode: (id: string) => void;
 }
 
@@ -48,8 +50,54 @@ const NOOP_ACTIONS: ControllerActions = {
   fit: () => undefined,
   zoomIn: () => undefined,
   zoomOut: () => undefined,
+  panBy: () => undefined,
   focusNode: () => undefined,
 };
+
+export const ONTOLOGY_KNOWLEDGE_SETTLE_DURATION_MS = 900;
+
+export interface OntologyKnowledgeSettleFrame {
+  readonly progress: number;
+  readonly done: boolean;
+}
+
+export function ontologyKnowledgeSettleFrame(
+  elapsedMs: number,
+  reduceMotion: boolean,
+): OntologyKnowledgeSettleFrame {
+  if (reduceMotion || elapsedMs >= ONTOLOGY_KNOWLEDGE_SETTLE_DURATION_MS) {
+    return { progress: 1, done: true };
+  }
+  const time = Math.max(0, elapsedMs) / ONTOLOGY_KNOWLEDGE_SETTLE_DURATION_MS;
+  const progress = Math.min(1.12, Math.max(0, 1 - Math.exp(-7 * time) * Math.cos(10 * time)));
+  return { progress, done: false };
+}
+
+export type OntologyKnowledgeKeyboardCommand =
+  | "pan-up"
+  | "pan-down"
+  | "pan-left"
+  | "pan-right"
+  | "zoom-in"
+  | "zoom-out"
+  | "fit";
+
+export function ontologyKnowledgeKeyboardCommand(
+  key: string,
+): OntologyKnowledgeKeyboardCommand | null {
+  const commands: Readonly<Record<string, OntologyKnowledgeKeyboardCommand>> = {
+    ArrowUp: "pan-up",
+    ArrowDown: "pan-down",
+    ArrowLeft: "pan-left",
+    ArrowRight: "pan-right",
+    "+": "zoom-in",
+    "=": "zoom-in",
+    "-": "zoom-out",
+    "0": "fit",
+    Home: "fit",
+  };
+  return commands[key] ?? null;
+}
 
 function paletteFor(element: HTMLElement): OntologyKnowledgeGraphPalette {
   const styles = getComputedStyle(element);
@@ -103,6 +151,9 @@ export function useOntologyKnowledgeGraphController({
     let pendingPointer: { readonly x: number; readonly y: number } | null = null;
     let drawFrame: number | null = null;
     let pointerFrame: number | null = null;
+    let settleFrame: number | null = null;
+    let settleStartedAt: number | null = null;
+    let settleProgress = 1;
 
     const draw = () => {
       drawFrame = null;
@@ -115,18 +166,44 @@ export function useOntologyKnowledgeGraphController({
         hoveredId,
         enabledEdges: enabledEdgesRef.current,
         palette: paletteFor(viewport),
+        settleProgress,
+        viewportCenter: { x: rect.width / 2, y: rect.height / 2 },
       });
     };
     const requestDraw = () => {
-      if (drawFrame === null) drawFrame = requestAnimationFrame(draw);
+      if (settleFrame === null && drawFrame === null) drawFrame = requestAnimationFrame(draw);
     };
     requestDrawRef.current = requestDraw;
 
+    const finishSettle = () => {
+      settleProgress = 1;
+      if (settleFrame !== null) cancelAnimationFrame(settleFrame);
+      settleFrame = null;
+      settleStartedAt = null;
+    };
+    const settle = (timestamp: number) => {
+      settleFrame = null;
+      settleStartedAt ??= timestamp;
+      const frame = ontologyKnowledgeSettleFrame(timestamp - settleStartedAt, false);
+      settleProgress = frame.progress;
+      draw();
+      if (!frame.done) settleFrame = requestAnimationFrame(settle);
+    };
+    const beginSettle = () => {
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const initial = ontologyKnowledgeSettleFrame(0, reduceMotion);
+      settleProgress = initial.progress;
+      draw();
+      if (!initial.done) settleFrame = requestAnimationFrame(settle);
+    };
+
     const fit = () => {
+      finishSettle();
       Object.assign(camera, fitOntologyKnowledgeGraph(mutableGraph, viewport.clientWidth, viewport.clientHeight));
       requestDraw();
     };
     const zoomAt = (factor: number, screenX: number, screenY: number) => {
+      finishSettle();
       const world = ontologyScreenToWorld({ x: screenX, y: screenY }, camera);
       const scale = Math.max(.18, Math.min(4, camera.scale * factor));
       camera.x = screenX - world.x * scale;
@@ -135,6 +212,7 @@ export function useOntologyKnowledgeGraphController({
       requestDraw();
     };
     const focusNode = (id: string) => {
+      finishSettle();
       const node = index.nodeById.get(id);
       if (!node) return;
       camera.scale = Math.max(1.05, camera.scale);
@@ -147,6 +225,12 @@ export function useOntologyKnowledgeGraphController({
       fit,
       zoomIn: () => zoomAt(1.25, viewport.clientWidth / 2, viewport.clientHeight / 2),
       zoomOut: () => zoomAt(.8, viewport.clientWidth / 2, viewport.clientHeight / 2),
+      panBy: (deltaX, deltaY) => {
+        finishSettle();
+        camera.x += deltaX;
+        camera.y += deltaY;
+        requestDraw();
+      },
       focusNode,
     };
 
@@ -184,6 +268,8 @@ export function useOntologyKnowledgeGraphController({
     };
     const pointerDown = (event: PointerEvent) => {
       if (event.button !== 0) return;
+      finishSettle();
+      draw();
       const point = pointFor(event);
       const hit = hitTestOntologyNode(mutableGraph, camera, point);
       gesture = hit
@@ -193,6 +279,10 @@ export function useOntologyKnowledgeGraphController({
       viewport.classList.add("is-dragging");
     };
     const pointerMove = (event: PointerEvent) => {
+      if (settleFrame !== null) {
+        finishSettle();
+        draw();
+      }
       if (gesture) {
         pendingPointer = { x: event.clientX, y: event.clientY };
         if (pointerFrame === null) pointerFrame = requestAnimationFrame(applyPendingPointer);
@@ -242,7 +332,7 @@ export function useOntologyKnowledgeGraphController({
     observer.observe(viewport);
     resize();
     Object.assign(camera, fitOntologyKnowledgeGraph(mutableGraph, viewport.clientWidth, viewport.clientHeight));
-    draw();
+    beginSettle();
 
     return () => {
       observer.disconnect();
@@ -253,6 +343,7 @@ export function useOntologyKnowledgeGraphController({
       viewport.removeEventListener("wheel", wheel);
       if (drawFrame !== null) cancelAnimationFrame(drawFrame);
       if (pointerFrame !== null) cancelAnimationFrame(pointerFrame);
+      if (settleFrame !== null) cancelAnimationFrame(settleFrame);
       requestDrawRef.current = () => undefined;
       actionsRef.current = NOOP_ACTIONS;
     };
@@ -264,6 +355,7 @@ export function useOntologyKnowledgeGraphController({
     fit: () => actionsRef.current.fit(),
     zoomIn: () => actionsRef.current.zoomIn(),
     zoomOut: () => actionsRef.current.zoomOut(),
+    panBy: (deltaX, deltaY) => actionsRef.current.panBy(deltaX, deltaY),
     focusNode: (id) => actionsRef.current.focusNode(id),
   };
 }

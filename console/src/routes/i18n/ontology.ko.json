@@ -22,9 +22,10 @@
     "noneDeclared": "선언된 항목이 없습니다.",
     "noDescription": "기록된 설명이 없습니다.",
     "objects": "객체",
-    "links": "링크",
+    "links": "관계",
     "actions": "작업",
-    "map": "온톨로지 맵",
+    "map": "의미 모델",
+    "topology": "카탈로그 토폴로지",
     "properties": "속성",
     "incoming": "들어오는 관계",
     "outgoing": "나가는 관계",
@@ -95,9 +96,61 @@
     "productionDowngrade": "프로덕션 하향 조정",
     "tierCeilings": "티어 상한"
   },
+  "semantic": {
+    "title": "운영 온톨로지 의미 모델",
+    "description": "검토된 ObjectType을 FDAI가 운영하는 대상, 보호하는 의도, 관측하는 현실, 결정이 결과로 종결되는 방식에 따라 구성합니다. 카탈로그 의미는 읽기 전용이며 런타임 상태를 주장하지 않습니다.",
+    "release": "온톨로지 릴리스",
+    "projection": "변환 결과 개정",
+    "lenses": "운영 보기 기준",
+    "lens": {
+      "object": "객체",
+      "relationship": "관계",
+      "state": "상태",
+      "context": "컨텍스트",
+      "action": "작업"
+    },
+    "band": {
+      "operating_scope": "운영 범위",
+      "operating_intent": "운영 의도",
+      "operating_reality": "운영 현실",
+      "decision_and_learning": "결정 및 학습"
+    },
+    "bandDescription": {
+      "operating_scope": "운영 대상과 중요성",
+      "operating_intent": "보호해야 하는 목표와 제약",
+      "operating_reality": "관측, 탐지 및 예측된 상태",
+      "decision_and_learning": "대안, 실행, 결과 및 검토된 재사용"
+    },
+    "links": "관계",
+    "relationships": "방향이 지정된 관계",
+    "causal": "인과",
+    "temporal": "시간 순서",
+    "transitive": "전이",
+    "noRelationships": "이 선택 항목을 의미 모델 안에서 연결하는 검토된 관계가 없습니다.",
+    "stateLanes": "권한이 분리된 상태 lane",
+    "state": {
+      "observed": "관측 상태",
+      "derived": "운영 파생 상태",
+      "desired": "목표 상태",
+      "execution": "실행 상태"
+    },
+    "stateDescription": {
+      "observed": "Provider 또는 telemetry 근거",
+      "derived": "근거를 포함한 버전형 함수 결과",
+      "desired": "승인된 목표, 정책 또는 구성",
+      "execution": "계획, 전달, 검증 또는 롤백 상태"
+    },
+    "contextStatus": "컨텍스트 스냅샷 상태",
+    "receiptRequired": "보안 receipt 필요",
+    "runtimeEvidence": "런타임 근거",
+    "notSelected": "목적 범위 컨텍스트 스냅샷이 선택되지 않았습니다.",
+    "mutationAuthority": "변경 권한",
+    "properties": "선언된 속성",
+    "none": "없음"
+  },
   "map": {
-    "title": "전체 온톨로지 지식 그래프",
-    "description": "카탈로그에 정의된 모든 ObjectType, ResourceType, Rule, ActionType, Workflow, Agent, SignalType 및 Property를 하나의 그래프에 표시합니다. 노드 크기는 연결 수, 색상은 온톨로지 종류를 나타내며 연결이 밀집된 항목은 토폴로지 커뮤니티를 형성합니다.",
+    "title": "카탈로그 토폴로지",
+    "description": "카탈로그에 정의된 모든 ObjectType, InterfaceType, FunctionType, ResourceType, Rule, ActionType, Workflow, Agent, SignalType 및 Property를 하나의 참조 그래프에 표시합니다. 노드 크기는 연결 수, 색상은 온톨로지 종류를 나타내며 연결이 밀집된 항목은 토폴로지 커뮤니티를 형성합니다.",
     "sourceTitle": "결정론적 커뮤니티 force 레이아웃",
     "summaryLabel": "온톨로지 지식 그래프 요약",
     "nodes": "카탈로그 노드",
@@ -118,12 +171,28 @@
     "relationshipFilters": "관계 필터",
     "edgeKind": {
       "link_type": "LinkType",
+      "interface": "인터페이스",
       "instance_of": "인스턴스 관계",
       "rule_dispatch": "규칙 디스패치",
-      "workflow": "Workflow",
+      "workflow": "작업 흐름",
       "agent": "담당 관계"
     },
-    "canvasDescription": "노드 {nodes}개와 관계 {edges}개를 표시하는 대화형 온톨로지 지식 그래프입니다.",
+    "nodeKind": {
+      "object_type": "객체 유형",
+      "interface_type": "인터페이스 유형",
+      "function_type": "함수 유형",
+      "resource_type": "리소스 유형",
+      "rule": "규칙",
+      "action_type": "작업 유형",
+      "workflow": "작업 흐름",
+      "agent": "에이전트",
+      "signal_type": "신호 유형",
+      "property": "속성"
+    },
+    "canvasDescription": "노드 {nodes}개와 관계 {edges}개를 표시하는 대화형 온톨로지 카탈로그 토폴로지입니다. 선택 항목: {selected}. 화살표 키로 이동하고 더하기 또는 빼기 키로 확대 및 축소하며 숫자 0으로 맞춥니다.",
+    "viewportLabel": "이동할 수 있는 온톨로지 카탈로그 토폴로지",
+    "inspectorLabel": "온톨로지 카탈로그 토폴로지 검사기",
+    "noSelection": "없음",
     "nodeTypeColors": "노드 종류별 색상",
     "lowDegree": "연결 적음",
     "highDegree": "연결 많음",

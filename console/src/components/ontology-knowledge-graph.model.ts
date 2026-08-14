@@ -1,5 +1,7 @@
 export const ONTOLOGY_NODE_KINDS = [
   "object_type",
+  "interface_type",
+  "function_type",
   "resource_type",
   "rule",
   "action_type",
@@ -11,6 +13,7 @@ export const ONTOLOGY_NODE_KINDS = [
 
 export const ONTOLOGY_EDGE_KINDS = [
   "link_type",
+  "interface",
   "instance_of",
   "rule_dispatch",
   "workflow",
@@ -43,6 +46,8 @@ export interface OntologyKnowledgeEdge {
 export interface OntologyKnowledgeGraph {
   readonly schemaVersion: string;
   readonly generatedFrom: string;
+  readonly ontologyReleaseDigest: string;
+  readonly mutationAuthority: false;
   readonly nodes: readonly OntologyKnowledgeNode[];
   readonly edges: readonly OntologyKnowledgeEdge[];
 }
@@ -54,6 +59,15 @@ export interface OntologyKnowledgeGraphSummary {
   readonly actions: number;
   readonly agents: number;
   readonly topHub: OntologyKnowledgeNode | null;
+}
+
+export interface OntologyKnowledgeRelationship {
+  readonly direction: "incoming" | "outgoing";
+  readonly fromId: string;
+  readonly toId: string;
+  readonly fromLabel: string;
+  readonly toLabel: string;
+  readonly otherId: string;
 }
 
 type UnknownRecord = Record<string, unknown>;
@@ -70,12 +84,29 @@ function requiredString(record: UnknownRecord, key: string): string {
   return value;
 }
 
-function requiredNumber(record: UnknownRecord, key: string): number {
+function requiredNumber(
+  record: UnknownRecord,
+  key: string,
+  options: { readonly min?: number; readonly max?: number } = {},
+): number {
   const value = record[key];
   if (typeof value !== "number" || !Number.isFinite(value)) {
     throw new Error(`ontology knowledge graph ${key} MUST be a finite number`);
   }
+  if (options.min !== undefined && value < options.min) {
+    throw new Error(`ontology knowledge graph ${key} MUST be non-negative`);
+  }
+  if (options.max !== undefined && Math.abs(value) > options.max) {
+    throw new Error(`ontology knowledge graph ${key} exceeds the supported bound`);
+  }
   return value;
+}
+
+function requiredFalse(record: UnknownRecord, key: string): false {
+  if (record[key] !== false) {
+    throw new Error(`ontology knowledge graph ${key} MUST be false`);
+  }
+  return false;
 }
 
 function decodeNode(value: unknown): OntologyKnowledgeNode {
@@ -90,10 +121,10 @@ function decodeNode(value: unknown): OntologyKnowledgeNode {
     kind: kind as OntologyKnowledgeNodeKind,
     group: requiredString(value, "group"),
     detail: requiredString(value, "detail"),
-    community: requiredNumber(value, "community"),
-    degree: requiredNumber(value, "degree"),
-    x: requiredNumber(value, "x"),
-    y: requiredNumber(value, "y"),
+    community: requiredNumber(value, "community", { min: 1 }),
+    degree: requiredNumber(value, "degree", { min: 0 }),
+    x: requiredNumber(value, "x", { max: 1_000_000 }),
+    y: requiredNumber(value, "y", { max: 1_000_000 }),
   };
 }
 
@@ -120,6 +151,8 @@ export function decodeOntologyKnowledgeGraph(value: unknown): OntologyKnowledgeG
   const nodeIds = new Set(nodes.map((node) => node.id));
   if (nodeIds.size !== nodes.length) throw new Error("ontology knowledge graph node ids MUST be unique");
   const edges = value.edges.map(decodeEdge);
+  const edgeIds = new Set(edges.map((edge) => edge.id));
+  if (edgeIds.size !== edges.length) throw new Error("ontology knowledge graph edge ids MUST be unique");
   for (const edge of edges) {
     if (!nodeIds.has(edge.source) || !nodeIds.has(edge.target)) {
       throw new Error(`ontology knowledge graph edge ${edge.id} has a missing endpoint`);
@@ -128,6 +161,8 @@ export function decodeOntologyKnowledgeGraph(value: unknown): OntologyKnowledgeG
   return {
     schemaVersion: requiredString(value, "schemaVersion"),
     generatedFrom: requiredString(value, "generatedFrom"),
+    ontologyReleaseDigest: requiredString(value, "ontologyReleaseDigest"),
+    mutationAuthority: requiredFalse(value, "mutationAuthority"),
     nodes,
     edges,
   };
@@ -146,5 +181,28 @@ export function ontologyKnowledgeGraphSummary(
       (top, node) => top === null || node.degree > top.degree ? node : top,
       null,
     ),
+  };
+}
+
+export function ontologyKnowledgeRelationship(
+  edge: OntologyKnowledgeEdge,
+  selectedId: string,
+  nodeById: ReadonlyMap<string, OntologyKnowledgeNode>,
+): OntologyKnowledgeRelationship {
+  const direction = edge.source === selectedId
+    ? "outgoing"
+    : edge.target === selectedId
+      ? "incoming"
+      : null;
+  if (direction === null) {
+    throw new Error(`ontology knowledge edge ${edge.id} is unrelated to ${selectedId}`);
+  }
+  return {
+    direction,
+    fromId: edge.source,
+    toId: edge.target,
+    fromLabel: nodeById.get(edge.source)?.label ?? edge.source,
+    toLabel: nodeById.get(edge.target)?.label ?? edge.target,
+    otherId: direction === "outgoing" ? edge.target : edge.source,
   };
 }

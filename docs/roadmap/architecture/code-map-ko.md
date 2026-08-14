@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 1c0e9981c7f39f4bbe071f5d6120eee7a625f537
+translation_source_sha: 4d3756d2e10d0eee397de1b31187f28e02c631de
 translation_revised: 2026-08-14
 ---
 # 코드 맵
@@ -32,6 +32,7 @@ translation_revised: 2026-08-14
 | Service-owned 출처 및 테스트 지도 | 진행 중 | 이 지도, `tests/integration/` 및 위에 명시한 범위가 제한된 IS-08과 IS-07 근거 | 로컬 소유권과 롤백 근거는 매핑되었으며 IS-09 원격 검증은 남아 있습니다. |
 | Exact-generation Rule 검색 | 구현됨 | `shared/providers/catalog_search.py`, `delivery/catalog_search/generation.py`, `delivery/catalog_search/in_memory.py`, `delivery/catalog_search/postgres.py`, focused 카탈로그, 온톨로지 조회, 스키마, 조립 및 실제 PostgreSQL 테스트(`44 passed`) | 결과는 후보 전용이며 활성 Rule 세대를 exact 온톨로지 release와 범위가 제한된 순서 보장 문서 매니페스트에 연결하고 판단, 승인 또는 실행 권한을 포함하지 않습니다. PostgreSQL 활성화는 같은 트랜잭션에서 예상 이전 세대를 확인합니다. |
 | 목표 인식 Rule 후보 확인 | 구현됨 | `core/ontology_platform/objective_rule_resolution.py`, `core/ontology_platform/catalog_queries.py`, `shared/providers/catalog_search.py`, `delivery/catalog_search/in_memory.py`, 집중 온톨로지 조회 테스트(`8 passed`) | 검토 또는 승격된 활성 관계는 순위 계산 전에 exact-generation 후보 집합을 좁힙니다. 유효하지 않거나 불완전한 맥락은 원자적으로 대체 경로를 사용하며, 목표 맥락은 평가 또는 실행 권한을 추가하지 않고 조회 ID를 변경합니다. |
+| Receipt 기반 운영 컨텍스트 표현 | 구현됨 | `core/operational_context/console_projection.py`, `tests/core/operational_context/test_console_projection.py`, focused 테스트 5개 통과 | 목적, 릴리스, 기준 시각, 실행 권한 및 그래프 범위가 일치해야 범위가 제한된 메타데이터를 변환합니다. Raw 속성은 제외하며 principal 범위 전송은 연결하지 않은 상태로 유지합니다. |
 | 런타임 바인딩 기반 플래너 가시성 | 구현됨 | `composition/wire_semantic_query.py`, `core/conversation/semantic_manifest.py`, `core/ontology_platform/query_manifest.py`, focused 조립 및 매니페스트 테스트 | 플래너 서술자는 조립된 런타임에 등록된 함수만 노출합니다. 읽을 수 있지만 바인딩되지 않은 선언은 타입이 지정된 구조 coverage에 남으며 어떤 권한도 얻지 않습니다. |
 | Exact-release 스키마 관계 조회 | 구현됨 | `core/ontology_platform/relationship_queries.py`, `composition/wire_semantic_query.py`, `fdai_core_service/semantic_relationship_projection.py`, 집중 조립 및 processor 테스트(`42 passed`) | `query.ontology_relationships`는 ObjectType과 LinkType 선언을 읽고 direction, cardinality, description을 보존하며 판단, 승인, 변경 또는 실행 권한을 포함하지 않습니다. 인증된 Browser 근거는 열린 작업입니다. |
 | 선언 기반 유한 질문 집합 | 구현됨 | `core/conversation/question_universe.py`, `core/conversation/__init__.py`, `core/conversation/epistemic_coverage.py`, `core/conversation/coverage_gate.py`, `tests/conversation/test_question_universe.py`, `tests/conversation/test_epistemic_coverage.py`, `tests/conversation/test_coverage_gate.py`, 집중 release gate 테스트(`41 passed`, 생성기 branch coverage `100%`, 인식 상태 branch coverage `99%`, coverage gate branch coverage `100%`) | Principal 범위의 완전한 매니페스트를 정규화된 범위 제한 문법으로 확장해 conversation 패키지가 노출하는 안정적인 사례 ID를 만듭니다. 문법과 receipt는 10,000개라는 하나의 사례 상한을 공유하고, 인식 상태 및 최종 gate receipt는 release ID, 불변이며 직렬화 가능한 근거 계수, 통과 및 production 상태와 content digest를 검증하며, 사용할 수 없는 선언은 타입 기반 제외 항목으로 유지하고, 한도 초과는 확장 전에 실패하며, 생성된 레코드는 실행 권한을 부여하지 않습니다. |
@@ -71,6 +72,7 @@ translation_revised: 2026-08-14
 | 2026-08-14 | 구현됨 | 일반 실행을 기존 exact V2 plan과 lease로 보호되는 영속 outbox를 통해 effect-reconciliation request 생성에 연결했습니다. | `d3c0437fd`, 집중 조정, ControlLoop, 런타임 및 조립 검사 163개 통과, production 파일 12개의 strict mypy 통과 | Production exact-plan artifact 및 independent-observation adapter를 연결한 뒤 통제된 live closure 근거를 보존합니다. |
 | 2026-08-14 | 구현됨 | 스키마 관계 질문을 위해 exact-release 읽기 전용 FunctionType과 localized projection을 추가했습니다. | `current change`, 집중 조립 및 processor 테스트 42개 통과, Ruff, format 및 strict mypy 통과 | 로컬 스택을 재시작하고 원래 관계 질문의 인증된 Browser 증적 하나를 보존합니다. |
 | 2026-08-14 | 구현됨 | Topic 또는 action authority를 바꾸지 않고 delivery 소유 exact kinetic proposal 생성을 Forseti의 기존 Verdict 경로에 연결했습니다. | `current change`, 집중 producer, Forseti, Thor, factory, framework, Ruff 및 strict mypy 검사 | 런타임 검증을 주장하기 전에 운영 조립에서 source를 연결하고 pre-dispatch 증적 및 독립 관측 경로를 완료합니다. |
+| 2026-08-14 | 구현됨 | 전역 런타임 그래프 경로를 만들지 않고 receipt 기반 운영 컨텍스트 표현을 추가했습니다. | `current change`, `console_projection.py` 및 불일치와 변환을 검증하는 focused 테스트 5개 통과 | 기존 principal 범위 근거 응답을 통해서만 연결하고 인증된 Console 근거를 보존해야 합니다. |
 
 ### 남은 작업
 
