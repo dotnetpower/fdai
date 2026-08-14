@@ -7,6 +7,7 @@ import argparse
 import fcntl
 import os
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import TextIO
 
@@ -42,18 +43,32 @@ def _recent_copilot_activity(idle_seconds: int) -> list[str]:
     if not storage.is_dir():
         return []
     cutoff = time.time() - idle_seconds
-    markers = (
-        "*/GitHub.copilot-chat/transcripts/*.jsonl",
-        "*/GitHub.copilot-chat/debug-logs/*/main.jsonl",
-    )
     active: set[str] = set()
-    for path in (candidate for pattern in markers for candidate in storage.glob(pattern)):
-        try:
-            if path.stat().st_mtime >= cutoff:
-                active.add(path.stem)
-        except OSError:
-            continue
+    markers: tuple[tuple[str, Callable[[Path], str]], ...] = (
+        ("*/GitHub.copilot-chat/transcripts/*.jsonl", _transcript_session_id),
+        ("*/GitHub.copilot-chat/debug-logs/*/main.jsonl", _debug_session_id),
+    )
+    for pattern, session_id in markers:
+        for path in storage.glob(pattern):
+            try:
+                if path.stat().st_mtime >= cutoff:
+                    active.add(session_id(path))
+            except OSError:
+                continue
     return sorted(active)
+
+
+def _transcript_session_id(path: Path) -> str:
+    return path.stem
+
+
+def _debug_session_id(path: Path) -> str:
+    return path.parent.name
+
+
+def _active_session_count(leases: list[str], sessions: list[str]) -> int:
+    """Estimate active sessions without double-counting lease and log views."""
+    return max(len(leases), len(sessions))
 
 
 def _acquire_lock(path: Path) -> TextIO | None:
@@ -78,6 +93,7 @@ def run_cycle(
     timeout: int,
     base_ref: str,
     integrate: bool,
+    max_active_sessions: int = 0,
 ) -> str:
     if (paths.state_root / "STOP").exists() or (paths.repo_root / ".improve/STOP").exists():
         return "held: stop file present"
@@ -87,12 +103,14 @@ def run_cycle(
     with lock:
         leases = _active_session_leases(paths.repo_root, idle_seconds)
         sessions = _recent_copilot_activity(idle_seconds)
-        if not force and (leases or sessions):
+        active_sessions = _active_session_count(leases, sessions)
+        if not force and active_sessions > max_active_sessions:
             reasons: list[str] = []
             if leases:
                 reasons.append(f"session-leases={len(leases)}")
             if sessions:
                 reasons.append(f"recent-copilot-sessions={len(sessions)}")
+            reasons.append(f"active-session-limit={max_active_sessions}")
             return "held: " + ", ".join(reasons)
         result = worker.run_one(
             paths,
@@ -114,6 +132,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--lease-seconds", type=int, default=5400)
     parser.add_argument("--timeout", type=int, default=3600)
     parser.add_argument("--integrate", action="store_true")
+    parser.add_argument("--max-active-sessions", type=int, default=0)
     return parser
 
 
@@ -129,6 +148,7 @@ def main(argv: list[str] | None = None) -> int:
         timeout=max(60, arguments.timeout),
         base_ref=arguments.base_ref,
         integrate=arguments.integrate,
+        max_active_sessions=max(0, arguments.max_active_sessions),
     )
     print(f"roadmap-verification watchdog {message}")
     return 0

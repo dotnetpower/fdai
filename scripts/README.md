@@ -297,3 +297,44 @@ Removing the timer leaves the campaign branch, receipts, and diagnostics intact:
 ```bash
 python3 scripts/automation/install_roadmap_verification_timer.py remove
 ```
+
+### Randomized implementation campaign
+
+The randomized implementation campaign is a separate, explicit apply-only workflow. It scans
+immediate `docs/roadmap/<folder>/` groups for canonical English documents that still contain an
+unchecked task. A cycle randomly chooses only among folders with at least 10 eligible documents,
+then gives Copilot the complete candidate list for that folder.
+
+One accepted batch must commit updates for exactly 10 English/Korean document pairs, focused
+implementation and test evidence, at least 10 critique and hardening rounds, and no verified
+finding above Low. The orchestration layer independently runs the diff-selected tests and
+translation check. It then registers every batch commit with the central validation queue. A new
+batch waits until the previous campaign HEAD has a central validation receipt.
+
+The timer allows at most one active interactive session. It treats fresh session leases and recent
+Copilot logs as overlapping observations, so one editor session is not counted twice. Two or more
+active sessions hold the cycle. Each tick runs at most one batch, and the persistent timer repeats
+until it is stopped. Starting requires both an explicit command and an existing GitHub issue with
+observable exit criteria:
+
+```bash
+make roadmap-implementation-start ISSUE=<number>
+make roadmap-implementation-status
+```
+
+The implementation runs on the isolated `roadmap-implementation/campaign` branch in the sibling
+`fdai-roadmap-implementation-campaign` worktree. It never pushes or deploys. Review and integrate
+validated campaign commits into `main` through the normal maintainer workflow.
+
+Stop repeating without deleting the worktree, branch, ledger, or central receipts:
+
+```bash
+make roadmap-implementation-stop
+```
+
+Create `.git/fdai-roadmap-implementation/STOP` or the global `.improve/STOP` file for an additional
+hold. Remove the user-systemd unit files while preserving campaign state with:
+
+```bash
+make roadmap-implementation-remove
+```
