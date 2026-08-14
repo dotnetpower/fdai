@@ -10,6 +10,9 @@ from pathlib import Path
 
 import fdai_operator_service.composition as operator_composition
 import pytest
+from fdai_operator_service.adapters.narrator_periodic_scheduler import (
+    PeriodicNarratorRefreshScheduler,
+)
 from fdai_operator_service.application import create_app
 from fdai_operator_service.composition import ProductionOperatorComposition
 from fdai_operator_service.contracts import ReadinessProbe
@@ -25,6 +28,7 @@ from fdai_operator_service.environment import (
     LIVE_STAGE_CONSUMER_GROUP_ENV,
     LOCAL_AZURE_NARRATOR_ENV,
     MANAGED_IDENTITY_CLIENT_ID_ENV,
+    NARRATOR_PROBE_INTERVAL_ENV,
     PORT_ENV,
     SEMANTIC_CONSUMER_GROUP_ENV,
     SEMANTIC_KAFKA_CLIENT_ID_ENV,
@@ -414,6 +418,32 @@ def test_database_url_binds_service_owned_postgres_projection() -> None:
     source = next(item for item in runtime.data_sources if item.key == "operational-state")
     assert source.configured is True
     assert source.authoritative is True
+    assert runtime.lifecycle is None
+
+
+def test_local_narrator_binds_periodic_scheduler_lifecycle(tmp_path: Path) -> None:
+    model_path = tmp_path / "models.json"
+    model_path.write_text(
+        '{"narrator":{"endpoint":"https://example.openai.azure.com",'
+        '"deployment":"narrator","api_version":"2024-08-01-preview"}}',
+        encoding="utf-8",
+    )
+    runtime = ProductionOperatorComposition(
+        verifier_factory=lambda environment: _verify
+    ).build_runtime(
+        {
+            **BASE_ENV,
+            DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
+            DATABASE_ROLE_ENV: "fdai_operator",
+            LOCAL_AZURE_NARRATOR_ENV: "1",
+            NARRATOR_PROBE_INTERVAL_ENV: "30",
+            "RUNTIME_ENV": "dev",
+            "LLM_RESOLVED_MODELS_PATH": str(model_path),
+        }
+    )
+
+    assert isinstance(runtime.lifecycle, PeriodicNarratorRefreshScheduler)
+    assert runtime.lifecycle.interval_seconds == 30
 
 
 @pytest.mark.parametrize(

@@ -15,7 +15,16 @@ from fdai_operator_service.adapters.local_narrator import (
     NarratorLatencyPool,
     NarratorTarget,
 )
-from fdai_operator_service.environment import LOCAL_AZURE_NARRATOR_ENV, OperatorEnvironment
+from fdai_operator_service.adapters.narrator_periodic_scheduler import (
+    PeriodicNarratorRefreshScheduler,
+)
+from fdai_operator_service.environment import (
+    DEFAULT_NARRATOR_PROBE_INTERVAL_SECONDS,
+    LOCAL_AZURE_NARRATOR_ENV,
+    NARRATOR_PROBE_INTERVAL_ENV,
+    OperatorEnvironment,
+    OperatorServiceConfigurationError,
+)
 from fdai_operator_service.families.conversation.contracts import (
     ConversationBoundaryError,
     ConversationQuery,
@@ -79,12 +88,17 @@ class BlockingHttpClient:
         self.calls: list[tuple[str, dict[str, object]]] = []
         self.started = asyncio.Event()
         self.release = asyncio.Event()
+        self.cancelled = asyncio.Event()
 
     @asynccontextmanager
     async def stream(self, url: str, **kwargs: object) -> AsyncIterator[httpx.Response]:
         self.calls.append((url, kwargs))
         self.started.set()
-        await self.release.wait()
+        try:
+            await self.release.wait()
+        except asyncio.CancelledError:
+            self.cancelled.set()
+            raise
         yield _stream_response()
 
 
@@ -244,7 +258,19 @@ def test_local_narrator_flag_is_dev_only() -> None:
     }
     with pytest.raises(ValueError, match="requires RUNTIME_ENV=dev"):
         OperatorEnvironment.parse({**base, "RUNTIME_ENV": "prod"})
-    assert OperatorEnvironment.parse({**base, "RUNTIME_ENV": "dev"}).local_azure_narrator is True
+    environment = OperatorEnvironment.parse({**base, "RUNTIME_ENV": "dev"})
+    assert environment.local_azure_narrator is True
+    assert environment.narrator_probe_interval_seconds == DEFAULT_NARRATOR_PROBE_INTERVAL_SECONDS
+
+    for value in ("29", "3601", "invalid"):
+        with pytest.raises(OperatorServiceConfigurationError, match=NARRATOR_PROBE_INTERVAL_ENV):
+            OperatorEnvironment.parse(
+                {
+                    **base,
+                    "RUNTIME_ENV": "dev",
+                    NARRATOR_PROBE_INTERVAL_ENV: value,
+                }
+            )
 
 
 def test_local_narrator_rejects_non_azure_token_destination(tmp_path: Path) -> None:
@@ -381,6 +407,25 @@ async def test_narrator_refresh_coalesces_bounded_text_and_vision_probes(
     )
     vision_body = client.calls[-1][1]["json"]
     assert "image_url" in json.dumps(vision_body)
+
+
+async def test_periodic_scheduler_closes_real_shielded_probe(tmp_path: Path) -> None:
+    client = BlockingHttpClient()
+    fallback = FallbackAdapters()
+    adapter = LocalAzureNarratorAdapters.from_environment(
+        {"LLM_RESOLVED_MODELS_PATH": str(_pool_artifact(tmp_path / "models.json"))},
+        fallback_projections=fallback,
+        fallback_streams=fallback,
+        token_provider=lambda _audience: _token(),
+        http_client=client,
+    )
+    scheduler = PeriodicNarratorRefreshScheduler(adapter, interval_seconds=60)
+
+    await scheduler.start()
+    await asyncio.wait_for(client.started.wait(), timeout=1)
+    await asyncio.wait_for(scheduler.aclose(), timeout=1)
+
+    assert client.cancelled.is_set()
 
 
 async def test_narrator_failure_penalty_fails_over_and_reorders_pool(tmp_path: Path) -> None:

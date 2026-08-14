@@ -44,8 +44,10 @@ Failures receive a bounded penalty rather than disappearing from the pool.
 
 Image turns remain unavailable because the Operator Service has no server-owned resolver from an
 opaque conversation-image id to validated bounded bytes. Client-provided image fields cannot become
-that authority. A periodic scheduler for `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS` also remains target
-behavior; the implemented `refresh()` entry point is explicit and process-local.
+that authority. A process-owned scheduler now runs one immediate refresh and later cycles at the
+validated `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS` interval, which defaults to `300` and is bounded to
+`30-3600`. Provider failures wait for the next interval, and shutdown cancels the loop plus its
+coalesced probe task.
 
 ## Per-user preference and TTFT
 
@@ -137,6 +139,7 @@ evidence.
 | Local ordered narrator candidate fallback | implemented | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; `services/operator-service/tests/test_local_narrator.py` | The service-local adapter loads the resolved artifact, obtains a short-lived token, tries ordered candidates, and exposes sanitized health without Core imports or execution authority. |
 | Resolved narrator candidate collection | implemented | `services/core-control-plane/tests/rule_catalog/schema/test_narrator_collection.py`; model resolver and registry | Focused checks cover collection of `narrator_candidates` from reviewed model-resolution inputs. |
 | Rolling text p50/TTFT, bounded refresh, and failover | implemented | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; `narrator_latency.py`; `narrator_payloads.py`; focused Operator tests | The independent service keeps eight-sample latency and TTFT windows, measures the first non-empty SSE token, coalesces bounded probes, ranks text candidates, preserves unanimous 429/503 status, and fails closed on malformed or oversized output. |
+| Periodic narrator refresh owner | implemented | `services/operator-service/src/fdai_operator_service/adapters/narrator_periodic_scheduler.py`; `environment.py`; `composition.py`; focused scheduler and composition tests | The Operator lifecycle owns exactly one immediate-and-periodic loop, validates a 30-3600 second interval, isolates provider failures until the next cycle, and cancels in-flight probes during shutdown. It is bound only with the local Azure narrator. |
 | Vision candidate probes and image-turn routing | in-progress | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; focused vision-probe and image-unavailable tests | Vision candidates have an independent measured probe window. Image turns remain unavailable until a server-owned image resolver supplies validated bounded bytes; text bindings are never borrowed. |
 | Per-user routing preference and runtime latency projection | not-started | [Per-user preference and TTFT](#per-user-preference-and-ttft) | The revisioned preference, TTFT projection, and deployment pinning contract remains target behavior. |
 | Public-web candidate routing | in-progress | `services/operator-service/src/fdai_operator_service/application/conversation/capabilities/web_search/`; `services/operator-service/src/fdai_operator_service/adapters/conversation/web_search/`; focused Operator tests | Provider-neutral and Azure construction paths exist. Governed rolling-latency and failover evidence from local and deployed profiles remains open. |
@@ -150,11 +153,13 @@ evidence.
 | 2026-08-14 | implemented | Kept optional PDF report registration identical across local and deployed Operator composition. | `current change`; service-local optional loader, package-extra contract, composition binding, and focused route/composition tests. | Retain the separate authenticated Incident report receipt without treating package availability as execution authority. |
 | 2026-08-14 | implemented | Kept authoritative Incident RCA report materialization identical across local and deployed Operator composition. | `current change`; service-local audit-backed report reader, composition binding, and focused reader/family tests. | Retain the separate authenticated Incident report receipt. |
 | 2026-08-14 | implemented | Added service-local rolling text latency and TTFT routing with bounded coalesced text and vision probes, measured failover, strict SSE and output limits, and bounded Azure CLI credential acquisition. | `current change`; narrator adapter modules; focused local narrator and credential tests `21 passed`; integrated Operator and Core narrator checks passed. | Bind periodic refresh and a server-owned image resolver, then retain governed local and deployed timing evidence. |
+| 2026-08-14 | implemented | Bound one immediate-and-periodic narrator refresh loop to the Operator lifecycle with validated interval configuration, failure isolation, duplicate-start suppression, and shutdown cleanup. | `current change`; scheduler, environment, composition, local narrator cleanup, and focused tests `66 passed`. | Bind a server-owned image resolver and retain governed local and deployed timing evidence. |
 
 ### Remaining work
 
 - [x] Implement and focused-test independent text and vision candidate probes, separate rolling latency and TTFT windows, bounded refresh, failover, and unavailable behavior.
-- [ ] Bind a periodic refresh owner and server-owned conversation-image resolver before marking image-turn routing complete.
+- [x] Bind a periodic refresh owner with validated interval, failure isolation, duplicate-start suppression, and shutdown cleanup.
+- [ ] Bind a server-owned conversation-image resolver before marking image-turn routing complete.
 - [ ] Implement revisioned per-principal `Auto` or allowlisted narrator preference storage and sanitized Settings projection without personalizing T2 bindings.
 - [ ] Retain governed local and deployed receipts for narrator and web-search candidate selection, first-token timing, failure, recovery, and sanitized health.
 - [ ] Implement the deferred direct Key Vault resolved-model loader and reconciler alert path only through reviewed service-owned adapter boundaries.

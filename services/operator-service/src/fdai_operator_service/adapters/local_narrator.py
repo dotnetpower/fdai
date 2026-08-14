@@ -154,6 +154,19 @@ class LocalAzureNarratorAdapters:
 
         return self._pool.snapshot(vision=vision)
 
+    async def aclose(self) -> None:
+        """Cancel and join the process-local coalesced probe task."""
+
+        task = self._refresh_task
+        self._refresh_task = None
+        if task is None or task.done():
+            return
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
     async def open(self, request: ConversationStreamRequest) -> ConversationEventStream:
         """Call the configured narrator and expose one bounded canonical SSE turn."""
         if request.operation != "chat.stream":
