@@ -24,6 +24,7 @@ the trust routing in
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Catalog registry, composer, tools, and runtime skills | implemented | [`test_composer.py`](../../../services/core-control-plane/tests/core/prompts/test_composer.py) | Catalog loading, deterministic layer assembly, tool manifests, skills, canaries, and startup fallback have focused coverage. |
+| Approved external skill-source fetch | implemented | [`skill_source.py`](../../../services/core-control-plane/src/fdai/delivery/github/skill_source.py); [`test_skill_source.py`](../../../services/core-control-plane/tests/delivery/github/test_skill_source.py) | The GitHub delivery adapter resolves immutable commits and returns only bounded exact files. Fetch never grants prompt eligibility; quarantine, publisher verification, approval, and disabled-first installation remain authoritative. |
 | Operator memory, debate, and QualityGate integration | implemented | [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py), [`test_gate.py`](../../../services/core-control-plane/tests/core/quality_gate/test_gate.py) | Bounded memory and one-round Critic/Judge debate feed the deterministic verifier without granting authority. |
 | Reviewed web search and core T2 prompt integration | in-progress | [`test_web_search.py`](../../../services/core-control-plane/tests/core/web_search/test_web_search.py), [Wave 5 alpha](#wave-5-alpha---what-shipped) | The safe provider seam and reviewed adapter exist, but snippets are not threaded into the core T2 tool manifest. |
 | Fork-first second-approval channel | not-started | [Rollout waves](#rollout-waves) | The documented pipeline slice has no implementation evidence and cannot be inferred from ordinary HIL support. |
@@ -33,6 +34,7 @@ the trust routing in
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and corrected the former fully-live T2 claim. | `current change`; current source and focused tests listed in the scope table. | Complete core T2 web grounding, second approval, and governed runtime evidence. |
+| 2026-08-14 | implemented | Added the bounded GitHub skill-source delivery adapter without changing quarantine, approval, or runtime prompt eligibility. | `current change`; concrete adapter and focused rejection-path tests listed in the scope table. | Compose the scheduled source owner and retain governed refresh, approval, and revocation evidence. |
 
 ### Remaining work
 
@@ -230,7 +232,9 @@ Capability declarations separately show the deterministic operator request path;
 - **Approved source refresh:** registered GitHub sources resolve immutable commits with ETag state,
   fetch only declared files, and persist exact bytes in quarantine. Passing content becomes a
   disabled candidate. Approver installation remains disabled-first, and Owner revocation disables
-  the source and durable artifacts without deleting provenance. See
+  the source and durable artifacts without deleting provenance. The concrete delivery adapter
+  rejects redirects, path substitution, symlinks, malformed or oversized content, authentication
+  failure, and rate limits before quarantine receives any bytes. See
   [Skill Source Management](../interfaces/skill-source-management.md).
 
 ### Operator-memory review and compaction
