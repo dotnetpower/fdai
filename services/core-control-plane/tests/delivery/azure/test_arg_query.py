@@ -2099,7 +2099,7 @@ def test_extract_attached_to_returns_empty_when_no_properties() -> None:
     )
 
 
-def test_extract_attached_to_duplicate_edge_fails_closed() -> None:
+def test_extract_attached_to_identical_row_references_coalesces_edge() -> None:
     from pathlib import Path
 
     from fdai.delivery.azure.arg_projection import (
@@ -2111,7 +2111,6 @@ def test_extract_attached_to_duplicate_edge_fails_closed() -> None:
     from fdai.rule_catalog.schema.provider_relationship_mapping import (
         load_provider_relationship_mapping_catalog,
     )
-    from fdai.shared.providers.inventory import RelationshipDropReason
 
     reverse = build_arm_to_neutral_map(_vocab())
     same_target = (
@@ -2139,8 +2138,11 @@ def test_extract_attached_to_duplicate_edge_fails_closed() -> None:
         arm_id_to_type=arm_id_to_type,
         to_neutral_id=to_neutral_id,
     )
-    assert result.links == ()
-    assert [drop.reason for drop in result.dropped] == [RelationshipDropReason.DUPLICATE_EDGE]
+    assert len(result.links) == 1
+    assert result.links[0].link_type == "attached_to"
+    assert result.links[0].from_id == to_neutral_id(same_target)
+    assert result.links[0].to_id == child.resource_id
+    assert result.dropped == ()
 
 
 @pytest.mark.asyncio

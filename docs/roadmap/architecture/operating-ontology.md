@@ -544,11 +544,12 @@ ownership across revisions. The optional
 projection status, source revision, and aggregate counts, never deployment instance properties.
 
 The promoted inventory projection validates every resource and link record before graph projection.
-Malformed identities, properties, or observation timestamps fail the attempt, and conflicting
-duplicate links are rejected instead of being interpreted as complete absence. If promoted
-observation accumulation is incomplete, the runtime preserves the prior graph and ownership
-manifest and records the new attempt as `unavailable`; only a complete projection can replace the
-owned resource subgraph.
+Malformed identities, properties, or observation timestamps fail the attempt. Byte-identical
+references repeated within one authenticated provider row are coalesced into one candidate before
+generation verification; conflicting or cross-observation duplicate links are rejected instead of
+being interpreted as complete absence. If promoted observation accumulation is incomplete, the
+runtime preserves the prior graph and ownership manifest and records the new attempt as
+`unavailable`; only a complete projection can replace the owned resource subgraph.
 
 Cost and capacity specialist event-time travels with their advice. Forseti materializes one
 time-consistent snapshot, builds the shared case, and includes it in the arbitration request. Odin's

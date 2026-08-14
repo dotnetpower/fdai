@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 6a153fb9a48fae65f6064b9acfd4cc65ab9a0fd2
+translation_source_sha: b452789060a55d291fbd0ffa84a8d6c83df5c4e1
 translation_revised: 2026-08-14
 ---
 # FDAI 운영 온톨로지
@@ -545,8 +545,9 @@ deletion과 비정상 종료 복구를 위해 이전 및 현재 owned 신원의 
 상태, 출처 개정 번호, 집계 개수만 노출하며 배포 인스턴스 속성은 반환하지 않습니다.
 
 Promoted 인벤토리 변환 결과는 그래프 변환 결과 전에 모든 리소스 및 링크 기록을 검증합니다.
-Malformed 신원, 속성 또는 관측 시각은 시도를 실패시키며, 충돌하는 중복
-링크는 완전한 absence로 해석하지 않고 거부합니다. Promoted 관측 accumulation이
+Malformed 신원, 속성 또는 관측 시각은 시도를 실패시킵니다. 인증된 하나의 프로바이더 행에서
+반복된 byte-identical 참조는 세대 검증 전에 하나의 후보로 합치며, 충돌하거나 관측 간에
+중복된 링크는 완전한 absence로 해석하지 않고 거부합니다. Promoted 관측 accumulation이
 불완전한이면 런타임은 기존 그래프와 소유권 매니페스트를 유지하고 새 시도를 `unavailable`로
 기록합니다. 완전한 변환 결과만 owned 리소스 subgraph를 교체할 수 있습니다.
 

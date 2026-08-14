@@ -163,12 +163,12 @@ def project_provider_relationships(
             continue
         records = [candidates[index].record for index in indexes]
         identical = all(record == records[0] for record in records[1:])
-        reason = (
-            RelationshipDropReason.DUPLICATE_EDGE
-            if identical
-            else RelationshipDropReason.CONFLICTING_DUPLICATE
+        if identical:
+            links.append(records[0])
+            continue
+        dropped.append(
+            _drop(RelationshipDropReason.CONFLICTING_DUPLICATE, candidates[indexes[0]].mapping)
         )
-        dropped.append(_drop(reason, candidates[indexes[0]].mapping))
 
     return RelationshipProjectionResult(
         links=tuple(links),
