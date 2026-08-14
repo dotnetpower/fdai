@@ -175,7 +175,7 @@ the existing Norns-to-Mimir quality gate.
 | Read-only admin routes | `services/operator-service/src/fdai_operator_service/` |
 | Offline CLI | Not implemented |
 | Migration | `alembic/versions/20260720_0048_trajectory_dataset.py` |
-| Focused tests | `services/core-control-plane/tests/core/trajectory/`, `services/core-control-plane/tests/composition/test_trajectory.py`, `services/core-control-plane/tests/agents/test_norns_trajectory.py` |
+| Focused tests | `services/core-control-plane/tests/core/trajectory/`, `services/core-control-plane/tests/persistence/test_postgres_trajectory.py`, `services/core-control-plane/tests/composition/test_trajectory.py`, `services/core-control-plane/tests/agents/test_norns_trajectory.py` |
 
 ## Implementation status
 
@@ -185,7 +185,7 @@ the existing Norns-to-Mimir quality gate.
 |------|-------|----------|-------|
 | Envelope and projection | implemented | `services/core-control-plane/src/fdai/core/trajectory/`; `services/core-control-plane/tests/core/trajectory/` | Focused tests cover bounded records, projection, version policy, retention decisions, and authorization-before-read. |
 | Scanning, export, and offline validation | in-progress | `services/core-control-plane/src/fdai/core/trajectory/scanning.py`; `services/core-control-plane/src/fdai/core/trajectory/validation.py`; `services/core-control-plane/src/fdai/delivery/trajectory/` | Implementations exist, but no focused exporter, quarantine, checksum, or replay-validation tests were found in the current tree. |
-| Metadata persistence, retention, and Owner-only read routes | in-progress | `alembic/versions/20260720_0048_trajectory_dataset.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_trajectory.py`; `services/operator-service/src/fdai_operator_service/families/workflow/`; `services/operator-service/tests/test_operator_workflow_family.py` | The schema, adapters, and routes exist. A no-skip PostgreSQL run and governed retention and legal-hold drill remain open. |
+| Metadata persistence, retention, and Owner-only read routes | implemented | `alembic/versions/20260720_0048_trajectory_dataset.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_trajectory.py`; `services/core-control-plane/tests/persistence/test_postgres_trajectory.py`; `services/operator-service/src/fdai_operator_service/families/workflow/`; `services/operator-service/tests/test_operator_workflow_family.py` | The schema, adapter, and routes exist. Focused PostgreSQL tests prove restart reads, scoped lookup, exact idempotency, monotonic legal holds, retryable deletion failure, and tombstones. Governed runtime custody and deletion evidence remains open. |
 | Offline CLI validation | not-started | [Administrative surfaces](#administrative-surfaces) | The command contract is designed, but no packaged `fdaictl trajectory validate` implementation is registered. |
 | Reviewed Norns intake | implemented | `services/core-control-plane/src/fdai/agents/norns.py`; `services/core-control-plane/tests/agents/test_norns_trajectory.py` | Norns accepts only `ReviewedTrajectoryDataset`, deduplicates by digest, and receives no raw record or automatic training authority. |
 | Operational artifact custody and deletion | in-progress | `services/core-control-plane/src/fdai/core/trajectory/datasets.py`; `services/core-control-plane/src/fdai/delivery/trajectory/service.py` | Retention and cleanup behavior exist in code, but no governed runtime receipt proves end-to-end artifact deletion, legal-hold preservation, and retry after provider failure. |
@@ -195,10 +195,11 @@ the existing Norns-to-Mimir quality gate.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. | `current change`; current source and focused checks listed in the scope table. | Close the PostgreSQL, packaged CLI, and governed artifact-custody evidence below. |
+| 2026-08-14 | implemented | Added the missing PostgreSQL trajectory metadata adapter and proved retention semantics against a live database. | `current change`; `test_postgres_trajectory.py` passed three cases with zero skips against a disposable supported database. | Add focused export and packaged CLI checks, then retain governed artifact-custody evidence. |
 
 ### Remaining work
 
-- [ ] Run the focused PostgreSQL trajectory cases against the supported local database with no skips, including legal-hold compare-and-set and retryable deletion failure coverage.
+- [x] Run the focused PostgreSQL trajectory cases against the supported local database with no skips, including legal-hold compare-and-set and retryable deletion failure coverage.
 - [ ] Add focused exporter, scanner, quarantine, checksum, offline validation, and judge-only replay checks, then keep every generated artifact outside source control.
 - [ ] Implement and pass a packaged `fdaictl trajectory validate` check over generated JSONL and manifest artifacts, including purpose and access-scope mismatch cases.
 - [ ] Record a governed end-to-end receipt that exports, validates, reviews, retains, and deletes one dataset while proving that legal hold blocks deletion and no raw record reaches Norns.

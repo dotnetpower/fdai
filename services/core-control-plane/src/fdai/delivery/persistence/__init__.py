@@ -170,6 +170,10 @@ from fdai.delivery.persistence.postgres_task_worker import (
     PostgresTaskWorkerStore,
     PostgresTaskWorkerStoreConfig,
 )
+from fdai.delivery.persistence.postgres_trajectory import (
+    PostgresTrajectoryDatasetStore,
+    PostgresTrajectoryDatasetStoreConfig,
+)
 from fdai.delivery.persistence.postgres_trusted_artifact import (
     PostgresTrustedArtifactStore,
     PostgresTrustedArtifactStoreConfig,
@@ -297,6 +301,8 @@ __all__ = [
     "PostgresSkillSourceStore",
     "PostgresSkillSourceStoreConfig",
     "PostgresSkillUpdateCandidateStore",
+    "PostgresTrajectoryDatasetStore",
+    "PostgresTrajectoryDatasetStoreConfig",
     "PostgresTrustedArtifactStore",
     "PostgresTrustedArtifactStoreConfig",
     "PostgresTaskWorkerStore",

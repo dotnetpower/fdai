@@ -1,7 +1,7 @@
 ---
 title: 관리형 Trajectory 데이터셋
 translation_of: governed-trajectory-datasets.md
-translation_source_sha: 3d24a676c90d45357857b2348396ed24a773f2a0
+translation_source_sha: 561c419d3b48b197ac6dbf4f2b2db2828f4ae42a
 translation_revised: 2026-08-14
 ---
 
@@ -180,7 +180,7 @@ Norns-to-Mimir quality gate를 사용합니다.
 | 읽기 전용 admin 경로 | `services/operator-service/src/fdai_operator_service/` |
 | 오프라인 CLI | 구현되지 않음 |
 | 이행 | `alembic/versions/20260720_0048_trajectory_dataset.py` |
-| Focused 테스트 | `services/core-control-plane/tests/core/trajectory/`, `services/core-control-plane/tests/composition/test_trajectory.py`, `services/core-control-plane/tests/agents/test_norns_trajectory.py` |
+| Focused 테스트 | `services/core-control-plane/tests/core/trajectory/`, `services/core-control-plane/tests/persistence/test_postgres_trajectory.py`, `services/core-control-plane/tests/composition/test_trajectory.py`, `services/core-control-plane/tests/agents/test_norns_trajectory.py` |
 
 ## 구현 상태
 
@@ -190,7 +190,7 @@ Norns-to-Mimir quality gate를 사용합니다.
 |------|------|------|------|
 | 묶음 및 변환 결과 | implemented | `services/core-control-plane/src/fdai/core/trajectory/`; `services/core-control-plane/tests/core/trajectory/` | Focused 테스트는 범위가 제한된 레코드, 변환 결과, 버전 정책, 보존 결정 및 읽기 전 권한 확인을 다룹니다. |
 | 스캔, 내보내기 및 오프라인 검증 | in-progress | `services/core-control-plane/src/fdai/core/trajectory/scanning.py`; `services/core-control-plane/src/fdai/core/trajectory/validation.py`; `services/core-control-plane/src/fdai/delivery/trajectory/` | 구현은 있지만 현재 트리에서 focused 내보내기, 격리, 체크섬 또는 재생 검증 테스트를 찾지 못했습니다. |
-| 메타데이터 영속성, 보존 및 Owner 전용 읽기 경로 | in-progress | `alembic/versions/20260720_0048_trajectory_dataset.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_trajectory.py`; `services/operator-service/src/fdai_operator_service/families/workflow/`; `services/operator-service/tests/test_operator_workflow_family.py` | 스키마, 어댑터 및 경로는 있습니다. 건너뛰는 사례가 없는 PostgreSQL 실행과 관리되는 보존 및 legal-hold 훈련이 남아 있습니다. |
+| 메타데이터 영속성, 보존 및 Owner 전용 읽기 경로 | implemented | `alembic/versions/20260720_0048_trajectory_dataset.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_trajectory.py`; `services/core-control-plane/tests/persistence/test_postgres_trajectory.py`; `services/operator-service/src/fdai_operator_service/families/workflow/`; `services/operator-service/tests/test_operator_workflow_family.py` | 스키마, 어댑터 및 경로가 있습니다. Focused PostgreSQL 테스트가 재시작 후 읽기, 범위 지정 조회, exact 멱등성, monotonic legal hold, 재시도 가능한 삭제 실패 및 tombstone을 증명합니다. 통제된 runtime custody 및 삭제 근거는 남아 있습니다. |
 | 오프라인 CLI 검증 | not-started | [관리 표면](#관리-표면) | 명령 계약은 설계됐지만 패키지 `fdaictl trajectory validate` 구현은 등록되지 않았습니다. |
 | 검토된 Norns 수집 | implemented | `services/core-control-plane/src/fdai/agents/norns.py`; `services/core-control-plane/tests/agents/test_norns_trajectory.py` | Norns는 `ReviewedTrajectoryDataset`만 허용하고 다이제스트로 중복을 제거하며 raw 기록이나 자동 학습 권한을 받지 않습니다. |
 | 운영 산출물 보관 및 삭제 | in-progress | `services/core-control-plane/src/fdai/core/trajectory/datasets.py`; `services/core-control-plane/src/fdai/delivery/trajectory/service.py` | 보존 및 정리 동작은 코드에 있지만 종단 간 산출물 삭제, legal hold 보존 및 프로바이더 실패 후 재시도를 입증하는 관리되는 런타임 증적은 없습니다. |
@@ -200,10 +200,11 @@ Norns-to-Mimir quality gate를 사용합니다.
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 source와 focused 검사입니다. | 아래 PostgreSQL, 패키지 CLI 및 관리되는 산출물 보관 근거를 완료해야 합니다. |
+| 2026-08-14 | implemented | 누락된 PostgreSQL trajectory 메타데이터 어댑터를 추가하고 실제 데이터베이스에서 보존 의미 규칙을 증명했습니다. | `current change`; `test_postgres_trajectory.py`가 지원되는 일회용 데이터베이스에서 세 건을 건너뛰기 없이 통과했습니다. | Focused export와 패키지 CLI 검사를 추가한 뒤 관리되는 산출물 보관 근거를 보존해야 합니다. |
 
 ### 남은 작업
 
-- [ ] 지원되는 로컬 데이터베이스에서 focused PostgreSQL trajectory 사례를 건너뛰지 않고 실행하고 legal-hold compare-and-set 및 재시도 가능한 삭제 실패 검사를 포함합니다.
+- [x] 지원되는 로컬 데이터베이스에서 focused PostgreSQL trajectory 사례를 건너뛰지 않고 실행하고 legal-hold compare-and-set 및 재시도 가능한 삭제 실패 검사를 포함합니다.
 - [ ] Focused 내보내기, scanner, 격리, 체크섬, 오프라인 검증 및 판정 전용 재생 검사를 추가하고 생성된 모든 산출물을 source control 밖에 유지합니다.
 - [ ] 생성된 JSONL 및 매니페스트 산출물을 사용하는 패키지 `fdaictl trajectory validate`를 구현하고 검사를 통과시키며 용도 및 접근 범위 불일치 사례를 포함합니다.
 - [ ] 데이터셋 하나를 내보내고 검증하고 검토하고 보존하고 삭제하는 관리되는 종단 간 증적을 기록하며 legal hold가 삭제를 차단하고 raw 기록이 Norns에 도달하지 않음을 입증합니다.
