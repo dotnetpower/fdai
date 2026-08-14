@@ -104,6 +104,12 @@ EXPECTED_DEPENDENCIES = {
     },
 }
 
+EXPECTED_OPTIONAL_DEPENDENCIES = {
+    "operator-service": {
+        "pdf-report": {"weasyprint"},
+    },
+}
+
 INDIRECT_RUNTIME_DEPENDENCIES = {
     "document-ingestion-api": {"aiohttp"},
     "document-processing-worker": {"aiohttp"},
@@ -122,6 +128,7 @@ IMPORT_DISTRIBUTIONS = {
     "pypdf": "pypdf",
     "starlette": "starlette",
     "uvicorn": "uvicorn",
+    "weasyprint": "weasyprint",
 }
 
 
@@ -190,13 +197,25 @@ def test_service_distributions_declare_only_owned_runtime_dependencies() -> None
         assert actual == expected, service_id
 
 
+def test_service_distributions_declare_owned_optional_dependencies() -> None:
+    for service_id in EXPECTED:
+        project = tomllib.loads((SERVICE_ROOT / service_id / "pyproject.toml").read_text())
+        actual = {
+            extra: {_requirement_name(value) for value in dependencies}
+            for extra, dependencies in project["project"].get("optional-dependencies", {}).items()
+        }
+        assert actual == EXPECTED_OPTIONAL_DEPENDENCIES.get(service_id, {}), service_id
+
+
 def test_extracted_service_direct_imports_are_declared() -> None:
     for service_id in EXPECTED:
         if service_id == "core-control-plane":
             continue
         source_root = SERVICE_ROOT / service_id / "src"
+        optional = set().union(*EXPECTED_OPTIONAL_DEPENDENCIES.get(service_id, {}).values())
         assert _direct_import_distributions(source_root) == (
             EXPECTED_DEPENDENCIES[service_id] - INDIRECT_RUNTIME_DEPENDENCIES.get(service_id, set())
+            | optional
         )
 
 
