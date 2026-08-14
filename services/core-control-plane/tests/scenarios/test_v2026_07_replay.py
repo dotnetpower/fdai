@@ -88,8 +88,7 @@ from fdai.shared.providers.testing import (
     InMemoryStateStore,
     RecordingRemediationPrPublisher,
 )
-
-from tests.verified_shadow_executor import VerifiedShadowExecutor
+from fdai_core_test_support.verified_shadow_executor import VerifiedShadowExecutor
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 ACTION_TYPES_ROOT = REPO_ROOT / "rule-catalog" / "action-types"
