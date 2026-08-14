@@ -79,7 +79,7 @@ fdai/
 │   │   ├── rule_semantic_generation/ # agent-facing build/validation handler Protocols plus exact activation, durable closure, and publication; no execution authority
 │   │   ├── quality_gate/       # mixed-model cross-check, verifier, grounding; failed fan-out cancels and drains siblings (guards T2)
 │   │   ├── rca/                # root-cause analysis (T0 deterministic + T2 reasoner behind seam; grounding-gated)
-│   │   ├── risk_gate/          # unified authority: risk score + auto vs HIL vs deny; rejects malformed promotion metrics, enforces the seven safeguards, resolves the Axis-E live probe from a recorded reading, and audits the feature vector, catalog version, and remaining ceiling inputs for self-contained replay
+│   │   ├── risk_gate/          # unified authority: risk score + auto vs HIL vs deny; rejects malformed promotion metrics, enforces the seven safeguards, resolves the Axis-E live probe from a recorded catalog-probe-id reading, and audits the feature vector, catalog version, and remaining ceiling inputs for self-contained replay
 │   │   ├── execution_authorization/ # ontology-driven pre-dispatch capability policy, grant lifecycle, and replay-stable decisions
 │   │   ├── rbac/               # human RBAC for the Operator API (5-role matrix, resolver, enforcer)
 │   │   ├── human_assignment/   # immutable role/duty intent, normalized review quorum, revisioned StateStore lifecycle, and effect receipts
@@ -548,7 +548,7 @@ Governed multi-skill manifests use the separate `skill_bundle` artifact kind and
 versions and enabled state are validated before the shared runtime snapshot is published. The three
 read surfaces share that one snapshot: republishing it moves the Bragi commands, the read-scoped
 `skill_bundles.*` RPC operations, and the Skills panel inspection payload together, and every bundle
-rejection returns one stable content-free reason on each surface.
+rejection returns one stable content-free reason drawn from a fixed English token vocabulary.
 
 Approved external skill repositories use the separate durable source pipeline in
 [skill-source-management.md](../interfaces/skill-source-management.md). `core/skills/source_registry.py`

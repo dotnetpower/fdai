@@ -696,7 +696,7 @@
     "services/core-control-plane/src/fdai/core/risk_gate/evaluator.py": "78d8d15ffe0e0bb7f47fac4a3dc6793a4ae81199a4cf0bbe5235771b066852b4",
     "services/core-control-plane/src/fdai/core/risk_gate/feature.py": "e28ef89e5424bb2fe8a884e4a883d01a45e086f575d83fe8e3edd9fa1ff8ab23",
     "services/core-control-plane/src/fdai/core/risk_gate/gate.py": "a0f2b5f7999e49d2d3843a3912955fbe1b9c941119e806a085624cb8f91814f1",
-    "services/core-control-plane/src/fdai/core/risk_gate/live_probe.py": "f2248d9f82c54bc9f33a0c20bf1e60e40caa4fb4bbe12d1304bb59ea3ac30562",
+    "services/core-control-plane/src/fdai/core/risk_gate/live_probe.py": "1fc619baa83514aa59ecce103d43929c92c61feb9aa0c93a5e14e64b7be223b6",
     "services/core-control-plane/src/fdai/core/risk_gate/ontology_preconditions.py": "2d4377e4567edafe560413471c0d443747d6233f8096a7b1c43e4c6de14a00de",
     "services/core-control-plane/src/fdai/core/risk_gate/override_writer.py": "58d6feced637f1833c86f3516c28ac4bd520dc8974680f35ee42db5132ce9e46",
     "services/core-control-plane/src/fdai/core/risk_gate/precedence.py": "a977b3d9d33a7a23087c9906581102bdd35f97668389b3eaa60f334ae52d41c3",
@@ -1078,7 +1078,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-14T09:19:36Z",
+  "generated_at": "2026-08-14T09:29:30Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",

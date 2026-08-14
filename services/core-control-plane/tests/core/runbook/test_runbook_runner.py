@@ -275,3 +275,24 @@ async def test_ordinary_run_records_no_resume_override() -> None:
     runner = RunbookRunner(executor=_StubExecutor(outcomes={}), audit_store=audit)
     await runner.run(_branching_runbook())
     assert list(audit.audit_entries)[0]["entry"]["start_step_id"] is None
+
+
+@pytest.mark.parametrize(
+    ("failing", "start"),
+    [
+        (None, None),
+        ("main", None),
+        ("verify", None),
+        (None, "rollback"),
+        ("main", "main"),
+    ],
+)
+async def test_every_step_is_recorded_exactly_once(failing: str | None, start: str | None) -> None:
+    """No branch may drop a step from the record or report one twice."""
+    executor = _StubExecutor(
+        outcomes={} if failing is None else {failing: RunbookStepOutcome.FAILURE}
+    )
+    runner = RunbookRunner(executor=executor, audit_store=InMemoryStateStore())
+    result = await runner.run(_branching_runbook(), start_step_id=start)
+    recorded = [record.step_id for record in result.step_results]
+    assert len(recorded) == len(set(recorded))

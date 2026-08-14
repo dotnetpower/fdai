@@ -9,6 +9,8 @@ inspection).
 
 from __future__ import annotations
 
+import re
+
 from fdai.core.conversation.session import Principal, Role
 from fdai.core.conversation.skill_discovery import (
     DescribeRuntimeSkillBundleTool,
@@ -23,7 +25,7 @@ from fdai.core.rpc import (
     skill_discovery_rpc_methods,
 )
 from fdai.core.skills import RuntimeSkill, RuntimeSkillDisclosure, SkillCatalog, skill_body_digest
-from fdai.core.skills.bundle_catalog import SkillBundleCatalog
+from fdai.core.skills.bundle_catalog import SkillBundleCatalog, SkillBundleRejectionReason
 from fdai.core.skills.bundle_manifest import RuntimeSkillBundle, encode_skill_bundle_manifest
 
 _BUNDLE = "incident-evidence-pack"
@@ -163,6 +165,13 @@ def test_bragi_bundle_commands_reject_without_content_or_raising() -> None:
         assert result.data["error"]["code"] == "skill_bundle_access_rejected"
         assert result.data["error"]["reason"] == "skill_bundle_not_installed"
         assert "PRIVATE" not in repr(result)
+
+
+def test_every_bundle_rejection_reason_is_a_stable_content_free_token() -> None:
+    # A future reason must stay a fixed English token so a diagnostic can never
+    # carry a member body, a customer value, or a substrate identifier.
+    for reason in SkillBundleRejectionReason:
+        assert re.fullmatch(r"skill_bundle_[a-z_]+", reason.value), reason
 
 
 def test_bragi_bundle_commands_stay_read_only_at_the_reader_floor() -> None:

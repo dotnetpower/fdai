@@ -187,6 +187,19 @@ def test_automation_blueprints_projection_is_reader_gated_and_read_only() -> Non
     }
     assert dependencies.queries[-1].operation == "automation_blueprint.list"
     assert dependencies.queries[-1].principal_id == "reader-oid"
+    # Reader is the floor, not the ceiling: every ladder role keeps read access.
+    entry = next(
+        item for item in OPERATIONS_ROUTE_MANIFEST if item.path == "/automation-blueprints"
+    )
+    assert entry.kind == "projection"
+    assert entry.roles == frozenset(
+        {
+            OperatorRole.READER,
+            OperatorRole.CONTRIBUTOR,
+            OperatorRole.APPROVER,
+            OperatorRole.OWNER,
+        }
+    )
     # The candidate surface is inert: no write method is registered for it.
     app = cast(Starlette, client.app)
     blueprint_methods = {
