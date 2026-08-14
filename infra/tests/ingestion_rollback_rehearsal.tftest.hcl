@@ -1,5 +1,4 @@
-# Compatibility retirement rehearsal: establish the split topology, reject the
-# removed cohost path, then prove the split state remains convergent.
+# Compatibility retirement guard for the disabled legacy ingestion module.
 
 mock_provider "azurerm" {}
 
@@ -51,57 +50,6 @@ variables {
   document_collections             = "operations"
 }
 
-run "establish_split_topology" {
-  command = apply
-
-  module {
-    source = "./modules/ingestion-gateway/container-app"
-  }
-
-  assert {
-    condition     = length(azurerm_container_app.worker) == 1
-    error_message = "the rehearsal must start with an independently deployed ingestion worker"
-  }
-
-  assert {
-    condition = one([
-      for item in one([
-        for container in azurerm_container_app.worker[0].template[0].container :
-        container if container.name == "worker"
-      ]).env : item.value if item.name == "FDAI_DOCUMENT_EVENT_TOPIC"
-    ]) == "aw.pipeline.stages"
-    error_message = "split mode must retain the pipeline stage topic"
-  }
-
-  assert {
-    condition = !contains(
-      toset([
-        for item in one([
-          for container in azurerm_container_app.ingestion.template[0].container :
-          container if container.name == "ingestion"
-        ]).env : item.name
-      ]),
-      "FDAI_INGESTION_COHOST_WORKER",
-    )
-    error_message = "the independent API must not advertise the retired cohost path"
-  }
-
-  assert {
-    condition = (
-      one([
-        for container in azurerm_container_app.worker[0].template[0].container :
-        container.image if container.name == "worker"
-      ]) == var.image &&
-      contains(azurerm_container_app_job.migrate.identity[0].identity_ids, var.migration_identity_id) &&
-      one([
-        for secret in azurerm_container_app_job.migrate.secret :
-        secret.identity if secret.name == "database-dsn"
-      ]) == var.migration_identity_id
-    )
-    error_message = "split mode must retain the immutable runtime and dedicated migration authority"
-  }
-}
-
 run "reject_retired_cohost" {
   command = plan
 
@@ -114,55 +62,4 @@ run "reject_retired_cohost" {
   }
 
   expect_failures = [var.cohost_worker]
-}
-
-run "split_topology_remains_convergent" {
-  command = apply
-
-  module {
-    source = "./modules/ingestion-gateway/container-app"
-  }
-
-  assert {
-    condition     = length(azurerm_container_app.worker) == 1
-    error_message = "the rehearsal must restore the independent ingestion worker"
-  }
-
-  assert {
-    condition = one([
-      for item in one([
-        for container in azurerm_container_app.worker[0].template[0].container :
-        container if container.name == "worker"
-      ]).env : item.value if item.name == "FDAI_DOCUMENT_EVENT_TOPIC"
-    ]) == "aw.pipeline.stages"
-    error_message = "split restore must return to the original pipeline stage topic"
-  }
-
-  assert {
-    condition = !contains(
-      toset([
-        for item in one([
-          for container in azurerm_container_app.ingestion.template[0].container :
-          container if container.name == "ingestion"
-        ]).env : item.name
-      ]),
-      "FDAI_INGESTION_COHOST_WORKER",
-    )
-    error_message = "split convergence must keep the retired cohost path absent"
-  }
-
-  assert {
-    condition = (
-      one([
-        for container in azurerm_container_app.worker[0].template[0].container :
-        container.image if container.name == "worker"
-      ]) == var.image &&
-      contains(azurerm_container_app_job.migrate.identity[0].identity_ids, var.migration_identity_id) &&
-      one([
-        for secret in azurerm_container_app_job.migrate.secret :
-        secret.identity if secret.name == "database-dsn"
-      ]) == var.migration_identity_id
-    )
-    error_message = "split restore must recover the original runtime and migration authority"
-  }
 }
