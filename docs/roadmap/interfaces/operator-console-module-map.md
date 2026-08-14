@@ -506,6 +506,12 @@ PostgreSQL and Alembic remain the shared migration authority during these moves.
 migration does not create a second schema owner; service-owned schemas and migration lanes require
 a separately reviewed boundary.
 
+The workflow route family also owns the Reader-gated `GET /context-selection-comparisons` panel.
+It reads bounded context-selection shadow comparisons from the existing tracked-state prefix,
+projects only presentation fields, and always declares `read_only` with `mutation_controls: false`.
+An empty result is authoritative; a malformed durable record fails closed. Owning design:
+[Context Selection Policy](../decisioning/context-selection-policy.md).
+
 ## Core and delivery map
 
 - [`services/core-control-plane/src/fdai/core/conversation/`](../../../services/core-control-plane/src/fdai/core/conversation)

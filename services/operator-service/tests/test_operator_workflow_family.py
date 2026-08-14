@@ -17,6 +17,7 @@ from fdai_operator_service.families.workflow import (
     WorkflowReadResult,
     build_workflow_family_routes,
 )
+from fdai_operator_service.families.workflow.manifest import READER_ROLES
 from fdai_operator_service.family_adapters import PostgresWorkflowAdapters
 from fdai_operator_service.postgres_family_store import StoredProposal
 from fdai_service_contracts import (
@@ -47,6 +48,7 @@ EXPECTED_MANIFEST = (
     ("GET", "/mcsb-controls", "list_handler"),
     ("GET", "/mcsb-controls/{benchmark_version}/{control_id}", "detail_handler"),
     ("GET", "/kpi/promotion-gates", "handler"),
+    ("GET", "/context-selection-comparisons", "handler"),
     ("GET", "/workflows/action-types", "handler"),
     ("POST", "/workflows/validate", "handler"),
     ("GET", "/workflows/catalog", "handler"),
@@ -152,7 +154,7 @@ def test_manifest_preserves_exact_legacy_method_path_and_name_surface() -> None:
         tuple((spec.method, spec.path, spec.name) for spec in WORKFLOW_FAMILY_ROUTE_MANIFEST)
         == EXPECTED_MANIFEST
     )
-    assert len(WORKFLOW_FAMILY_ROUTE_MANIFEST) == 38
+    assert len(WORKFLOW_FAMILY_ROUTE_MANIFEST) == 39
     assert sum(spec.dispatch == "proposal" for spec in WORKFLOW_FAMILY_ROUTE_MANIFEST) == 13
 
     client, _, _, _ = _client()
@@ -528,3 +530,181 @@ def test_family_has_no_fdai_import_or_direct_authority_call() -> None:
 def test_synthetic_projection_is_rejected_at_the_contract_boundary() -> None:
     with pytest.raises(ValueError, match="MUST NOT return synthetic"):
         ProjectionProvenance("fixture", "revision-1", synthetic=True)
+
+
+def _comparison_record(**overrides: object) -> dict[str, object]:
+    record: dict[str, object] = {
+        "evaluation_id": "eval-1",
+        "input_fingerprint": "a" * 64,
+        "baseline_policy_ref": "deterministic-tiered-v1@1.0.0",
+        "candidate_policy_ref": "candidate-v1@1.0.0",
+        "baseline_manifest": {"verbatim_ids": ["turn-1"]},
+        "candidate_manifest": {"verbatim_ids": ["turn-1"]},
+        "baseline_tokens": 10,
+        "candidate_tokens": 9,
+        "evidence_overlap": 1.0,
+        "omissions": [],
+        "pinned_preserved": True,
+        "relevance": None,
+        "answer_quality_ref": None,
+        "answer_quality_score": None,
+        "latency_ms": 2.5,
+        "failure_reason": None,
+        "created_at": "2026-08-14T00:00:00+00:00",
+    }
+    record.update(overrides)
+    return record
+
+
+class _ComparisonStore:
+    """Return durable comparison records without touching PostgreSQL."""
+
+    def __init__(self, records: tuple[dict[str, object], ...], revision: str) -> None:
+        self.records = records
+        self.revision = revision
+        self.limits: list[int] = []
+
+    async def read_context_selection_comparisons(
+        self,
+        *,
+        limit: int,
+    ) -> tuple[tuple[dict[str, object], ...], str]:
+        self.limits.append(limit)
+        return self.records, self.revision
+
+
+def test_context_selection_comparisons_route_is_reader_gated_and_bounded() -> None:
+    client, authorizer, reads, proposals = _client(role=OperatorRole.READER)
+
+    response = client.get("/context-selection-comparisons?limit=25")
+
+    assert response.status_code == 200
+    assert reads.requests[0].operation is WorkflowOperation.CONTEXT_SELECTION_COMPARISON_LIST
+    assert reads.requests[0].limit == 25
+    assert reads.requests[0].offset is None
+    assert authorizer.required[0] == READER_ROLES
+    assert proposals.proposals == []
+    assert client.get("/context-selection-comparisons?offset=1").status_code == 400
+    assert client.get("/context-selection-comparisons?limit=501").status_code == 400
+
+
+async def test_context_selection_route_returns_the_authoritative_projection() -> None:
+    store = _ComparisonStore((_comparison_record(),), "2026-08-14T00:00:01+00:00")
+    authorizer = RecordingAuthorizer(OperatorRole.READER)
+    routes = build_workflow_family_routes(
+        authorize=authorizer,
+        read_store=PostgresWorkflowAdapters(cast(Any, store)),
+        proposal_writer=RecordingProposalWriter(),
+    )
+    client = TestClient(Starlette(routes=list(routes)))
+
+    response = client.get("/context-selection-comparisons")
+
+    assert response.status_code == 200
+    assert response.headers["x-fdai-revision"] == "2026-08-14T00:00:01+00:00"
+    body = response.json()
+    assert body["read_only"] is True
+    assert body["mutation_controls"] is False
+    assert body["count"] == 1
+    assert body["invariant_failures"] == 0
+    assert body["comparisons"][0]["evaluation_id"] == "eval-1"
+    assert body["comparisons"][0]["failure_reason"] is None
+    assert "input_fingerprint" not in body["comparisons"][0]
+    assert "baseline_manifest" not in body["comparisons"][0]
+
+
+async def test_context_selection_adapter_projects_read_only_panel() -> None:
+    store = _ComparisonStore(
+        (
+            _comparison_record(),
+            _comparison_record(
+                evaluation_id="eval-2",
+                candidate_tokens=None,
+                evidence_overlap=None,
+                failure_reason="timeout>0.250s",
+            ),
+        ),
+        "2026-08-14T00:00:01+00:00",
+    )
+    adapter = PostgresWorkflowAdapters(cast(Any, store))
+
+    result = await adapter.read(
+        WorkflowReadRequest(
+            operation=WorkflowOperation.CONTEXT_SELECTION_COMPARISON_LIST,
+            principal_id="operator-a",
+            query={},
+            path_parameters={},
+            limit=100,
+        )
+    )
+
+    assert store.limits == [100]
+    assert result.payload["read_only"] is True
+    assert result.payload["mutation_controls"] is False
+    assert result.payload["count"] == 2
+    assert result.payload["invariant_failures"] == 1
+    rows = cast(list[dict[str, object]], result.payload["comparisons"])
+    assert [row["evaluation_id"] for row in rows] == ["eval-1", "eval-2"]
+    assert set(rows[0]) == {
+        "evaluation_id",
+        "baseline_policy_ref",
+        "candidate_policy_ref",
+        "baseline_tokens",
+        "candidate_tokens",
+        "evidence_overlap",
+        "omissions",
+        "pinned_preserved",
+        "latency_ms",
+        "failure_reason",
+        "created_at",
+    }
+    assert result.provenance.source_ref == "state_kv:context-selection:evaluation"
+    assert result.provenance.revision == "2026-08-14T00:00:01+00:00"
+
+
+async def test_context_selection_adapter_returns_empty_authoritative_panel() -> None:
+    adapter = PostgresWorkflowAdapters(cast(Any, _ComparisonStore((), "0")))
+
+    result = await adapter.read(
+        WorkflowReadRequest(
+            operation=WorkflowOperation.CONTEXT_SELECTION_COMPARISON_LIST,
+            principal_id="operator-a",
+            query={},
+            path_parameters={},
+            limit=None,
+        )
+    )
+
+    assert result.payload["count"] == 0
+    assert result.payload["comparisons"] == []
+    assert result.provenance.revision == "0"
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"evaluation_id": ""},
+        {"baseline_tokens": -1},
+        {"evidence_overlap": 1.5},
+        {"pinned_preserved": "yes"},
+        {"latency_ms": -0.1},
+        {"omissions": "none"},
+    ],
+)
+async def test_malformed_comparison_fails_closed(overrides: dict[str, object]) -> None:
+    adapter = PostgresWorkflowAdapters(
+        cast(Any, _ComparisonStore((_comparison_record(**overrides),), "revision-1"))
+    )
+
+    with pytest.raises(HTTPException) as error:
+        await adapter.read(
+            WorkflowReadRequest(
+                operation=WorkflowOperation.CONTEXT_SELECTION_COMPARISON_LIST,
+                principal_id="operator-a",
+                query={},
+                path_parameters={},
+                limit=10,
+            )
+        )
+
+    assert error.value.status_code == 503

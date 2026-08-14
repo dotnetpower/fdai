@@ -16,6 +16,7 @@ from fdai.core.detection.configuration_drift_service import (
     ConfigurationObservationSource,
 )
 from fdai.core.tools.types import ToolArtifact
+from fdai.core.working_context import ContextSelectionShadowRunner
 from fdai.delivery.configuration_drift import build_configuration_drift_bundle
 from fdai.shared.contracts.models import OntologyActionType, Workflow
 from fdai.shared.providers.knowledge import KnowledgeSource
@@ -55,12 +56,25 @@ def install_capability_bundle(
         ),
     )
     authority = container.context_selection_policy_authority
+    shadow_runner = container.context_selection_shadow_runner
+    evaluation_store = container.context_selection_evaluation_store
     if authority is not None:
         authority = authority.with_capability_runtime(runtime)
+        if shadow_runner is not None and evaluation_store is not None:
+            # A runner pinned to the pre-install authority would keep measuring a stale
+            # candidate set; rebuild it on the refreshed authority and the same store.
+            # Evaluations already scheduled on the previous runner still complete and
+            # append to that shared store, but only the new runner can be drained.
+            shadow_runner = ContextSelectionShadowRunner(
+                authority=authority,
+                store=evaluation_store,
+                config=shadow_runner.config,
+            )
     return replace(
         container,
         capability_runtime=runtime,
         context_selection_policy_authority=authority,
+        context_selection_shadow_runner=shadow_runner,
     )
 
 

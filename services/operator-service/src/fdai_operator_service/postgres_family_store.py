@@ -26,6 +26,7 @@ from fdai_operator_service.postgres_semantic_turn_store import (
 
 _PROJECTION_PREFIX: Final = "operator-projection:"
 _PROPOSAL_PREFIX: Final = "operator-proposal:"
+_CONTEXT_SELECTION_PREFIX: Final = "context-selection:evaluation:"
 _READINESS_SQL: Final = """
 SELECT (
            current_user = %(expected_role)s
@@ -230,6 +231,36 @@ class PostgresFamilyStore:
                 f"authoritative {family} projection is unavailable for {operation}"
             )
         return _json_object(rows[0].get("value"), label=key)
+
+    async def read_context_selection_comparisons(
+        self,
+        *,
+        limit: int,
+    ) -> tuple[tuple[dict[str, object], ...], str]:
+        """Read the newest bounded context-selection shadow comparisons.
+
+        Returns the decoded records newest-first with the revision derived from the
+        newest ``updated_at``. No comparison is an authoritative empty answer rather
+        than an unavailable projection, so it returns an empty tuple and revision "0".
+        """
+        if limit < 1 or limit > 500:
+            raise ValueError("context-selection comparison limit MUST be between 1 and 500")
+        rows = await self._fetch_all(
+            """
+            SELECT value, updated_at
+              FROM state_kv
+             WHERE key LIKE %(prefix)s ESCAPE '\\'
+             ORDER BY updated_at DESC, key DESC
+             LIMIT %(limit)s
+            """,
+            {"prefix": f"{_CONTEXT_SELECTION_PREFIX}%", "limit": limit},
+        )
+        records = tuple(
+            _json_object(row.get("value"), label=_CONTEXT_SELECTION_PREFIX) for row in rows
+        )
+        newest = rows[0].get("updated_at") if rows else None
+        revision = newest.isoformat() if isinstance(newest, datetime) else "0"
+        return records, revision
 
     async def read_rule_search_projection(
         self,

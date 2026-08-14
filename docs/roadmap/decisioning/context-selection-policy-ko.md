@@ -1,7 +1,7 @@
 ---
 translation_of: context-selection-policy.md
-translation_source_sha: 9b853630f4a6e4352f2a9339f226537bf6a388db
-translation_revised: 2026-08-13
+translation_source_sha: 7efd9663447a29836f570726e265939304c20e54
+translation_revised: 2026-08-14
 ---
 # 컨텍스트 선택 정책
 
@@ -34,25 +34,28 @@ translation_revised: 2026-08-13
 | 결정론적 정책 계약, 계층형 어댑터, 불변식 래퍼 | implemented | `services/core-control-plane/src/fdai/core/working_context/`; `services/core-control-plane/tests/core/working_context/test_policy_validation.py`; `services/core-control-plane/tests/core/working_context/test_working_context.py` | 고정된 입력, 이중 실행, 매니페스트 검사, 고정 항목 검사, 실패 시 차단 동작에 focused test가 있습니다. |
 | 정책 레지스트리 및 거버넌스 전환 | implemented | `services/core-control-plane/src/fdai/core/working_context/governance.py`; `services/core-control-plane/tests/core/working_context/test_policy_governance.py`; `services/core-control-plane/tests/core/capability_catalog/test_runtime.py` | 자동 승격 없이 설치, shadow 활성화, 명시적 승격, 강등, 비상 정지, 롤백, 개정 번호 compare-and-set이 구현되어 있습니다. |
 | 범위가 제한된 shadow 평가, 비교 저장 어댑터, 승인된 고정본 재생 | implemented | `services/core-control-plane/src/fdai/core/working_context/shadow.py`; `services/core-control-plane/src/fdai/core/working_context/evidence.py`; `services/core-control-plane/src/fdai/core/working_context/replay.py`; `services/core-control-plane/tests/core/working_context/test_policy_shadow.py`; `services/core-control-plane/tests/core/working_context/test_evidence.py` | 구성 요소와 실패 격리가 focused test를 통과합니다. 이 상태는 운영 composition에 해당 요소가 연결되었다고 주장하지 않습니다. |
-| 운영 shadow composition 및 영속 비교 저장 | in-progress | `services/core-control-plane/src/fdai/core/conversation/context_bridge.py`; `services/core-control-plane/src/fdai/composition/_helpers.py` | Turn assembly는 선택적인 shadow 실행기 경계를 제공하고 기본 컨테이너는 정책 권한을 생성하지만, `ContextSelectionShadowRunner`와 `StateStoreContextSelectionEvaluationStore`의 기본 운영 연결은 없습니다. |
-| Reader 비교 API 및 Console 화면 | in-progress | `console/src/routes/context-selection-comparisons.tsx`; `console/src/routes/context-selection-comparisons.test.ts`; `console/src/panel-sources.ts` | SPA 경로와 decoder가 있습니다. 일치하는 Operator Service `GET /context-selection-comparisons` 경로가 없으므로 브라우저 화면은 아직 권위 있는 비교를 end-to-end로 읽을 수 없습니다. |
+| 운영 shadow composition 및 영속 비교 저장 | implemented | `services/core-control-plane/src/fdai/composition/wire_context_selection.py`; `services/core-control-plane/src/fdai/composition/_helpers.py`; `services/core-control-plane/tests/composition/test_wire_context_selection.py` | `bind_context_selection_shadow`가 실행기와 `StateStore` 비교 저장소를 함께 연결하고, 번들 설치는 갱신된 권한으로 실행기를 다시 연결하며, 일반적인 turn assembly가 범위가 제한된 비교 한 건을 저장합니다. |
+| Reader 비교 API 및 Console 화면 | implemented | `services/operator-service/src/fdai_operator_service/context_selection_projection.py`; `services/operator-service/src/fdai_operator_service/families/workflow/manifest.py`; `services/operator-service/tests/test_operator_workflow_family.py`; `console/src/routes/context-selection-comparisons.test.ts` | Reader 역할로 제한된 `GET /context-selection-comparisons` 경로가 범위가 제한된 영속 기록을 투영하고, 손상된 기록은 실패 시 차단되며, Console decoder가 권위 있는 페이로드를 수용합니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 이전 출처를 재구성하지 않고 구현 ledger를 도입했습니다. focused test로 뒷받침되는 core 정책, 거버넌스, shadow, 저장 어댑터, 재생 구성 요소를 구현됨으로 기록하고, 누락된 운영 composition과 Operator API 제공을 분리했습니다. | `current change`; 범위 표에 나열된 소스 및 focused test; `uv run pytest -q --no-cov services/core-control-plane/tests/core/working_context services/core-control-plane/tests/core/capability_catalog/test_runtime.py services/core-control-plane/tests/core/conversation/test_context_bridge.py services/core-control-plane/tests/core/conversation/test_assemble_turn_context.py` (`70 passed`); `npm --prefix console test -- --run src/routes/context-selection-comparisons.test.ts` (`3 passed`) | `validated`를 주장하기 전에 영속적인 운영 shadow 평가를 연결하고 입증하며, Reader 역할로 제한된 비교 경로를 제공하고, 거버넌스가 적용된 런타임 근거를 수집합니다. |
+| 2026-08-14 | implemented | `bind_context_selection_shadow` composition 경계와 짝을 이루는 `Container` 불변식을 추가하고, 기존 tracked-state 접두사 위에 Reader 역할로 제한된 Operator Service `GET /context-selection-comparisons` 투영을 추가했습니다. | `current change`; `wire_context_selection.py`, `context_selection_projection.py`, workflow route 매니페스트; focused check가 core composition 53건, Operator 34건, Console decoder 5건을 통과했고 작업 범위 Ruff와 strict mypy가 통과했습니다. | 범위 행을 `validated`로 올리기 전에 적격 shadow 평가 하나가 영속 저장과 Operator API 조회까지 이어짐을 추적하는 거버넌스 적용 런타임 근거를 기록합니다. |
 
 ### 남은 작업
 
-- [ ] 운영 composition에 `ContextSelectionShadowRunner`와
-   `StateStoreContextSelectionEvaluationStore`를 연결한 뒤, 일반적인 turn assembly가 범위가
-   제한된 후보 평가를 예약하고 `StateStore`를 통해 비교를 저장함을 입증하는 통합 테스트를
-   통과합니다.
-- [ ] Reader 역할로 제한된 Operator Service `GET /context-selection-comparisons` 경로를 추가한
-   뒤, 권위 있는 응답을 대상으로 API 통합 테스트와 Console decoder 테스트를 통과합니다.
+- [x] `bind_context_selection_shadow`로 범위가 제한된 운영 shadow 평가를 구성했고, 일반적인
+   turn assembly가 범위가 제한된 후보 평가를 예약하고 `StateStore`를 통해 비교를 저장함을
+   통합 테스트로 입증했습니다.
+- [x] Reader 역할로 제한된 Operator Service `GET /context-selection-comparisons` 경로를 workflow
+   route family 매니페스트에 등록했고, 권위 있는 응답을 대상으로 API 통합 테스트와 Console
+   decoder 테스트를 통과했습니다.
 - [ ] 범위 행을 `validated`로 변경하기 전에 적격 shadow 평가 하나가 영속 저장과 Operator API
    조회까지 이어짐을 추적하는 거버넌스 적용 런타임 근거를 기록합니다.
+- [ ] 장기 운영 배포가 tracked-state 무한 증가 없이 shadow 평가를 켜 둘 수 있도록 영속 비교 행에
+   범위가 제한된 보관 정책을 추가합니다.
 
 ## 계약 경계
 
@@ -123,6 +126,16 @@ operator-memory 경계로 항목을 준비하고 하나의 입력을 고정하�
 내구성과 atomic 생성 의미 규칙을 재사용하므로 새 표이나 Alembic 이행이 필요하지
 않습니다. 동시 확산, pending 실행, 시간 초과는 모두 제한됩니다.
 
+`bind_context_selection_shadow`는 실행기와 영속 저장소를 함께 연결하는 composition 경계입니다.
+`Container`는 한쪽만 연결된 쌍을 거부하므로, 기록할 곳 없이 평가만 예약하는 배포는 불가능합니다.
+모든 capability 번들을 먼저 설치하십시오. 이후의 `install_capability_bundle`은 갱신된 정책 권한
+위에 실행기를 다시 만들고 같은 저장소를 유지합니다.
+
+비교 행은 추가 전용이고 저장소에는 정리 연산이 없으므로 이 경계는 배포별 옵인입니다. 트래픽이
+많은 대화 화면에서 켜면 turn당 후보마다 tracked-state 표가 한 행씩 늘어납니다. 범위가 제한된
+보관 정책은 남은 작업으로 추적하며, 그것이 들어오기 전까지는 무기한 켜 두지 말고 측정 기간
+동안만 활성화하십시오.
+
 ## 재생 및 콘솔
 
 `replay_approved_context_fixtures`는 approved 표시된 고정본만 실행하고 전체 ordered 출력과
@@ -133,6 +146,12 @@ Console 경로 `GET /context-selection-comparisons`는 Reader-gated `ReadPanel`�
 overlap, omission, pinned preservation, 지연 시간, 정확한 실패를 표시합니다. SPA에는 install,
 활성화, promote, demote, 롤백 또는 비상 정지 컨트롤이 없습니다. 거버넌스 전이는
 계속 서버 측에 있고 소유 명령 경로를 통해 감사됩니다.
+
+Operator Service는 workflow route family에서 이 화면을 제공합니다. tracked-state 접두사 아래의
+최신 기록을 범위를 제한해 읽고, 표시용 필드 11개만 투영하며, 항상 `read_only`와
+`mutation_controls: false`를 선언하므로 브라우저는 거버넌스 컨트롤을 암시하는 응답을 거부할 수
+있습니다. 결과가 비어 있는 것은 사용 불가가 아니라 권위 있는 답이며, 손상된 영속 기록은 부분
+화면 대신 HTTP 503으로 차단됩니다.
 
 ## 실패 자세
 

@@ -74,6 +74,7 @@ from ._helpers import Container, LlmBindings, LlmBindingsUnavailableError  # noq
 
 install_capability_bundle = _wire_capabilities.install_capability_bundle
 bind_configuration_drift = _wire_capabilities.bind_configuration_drift
+from .wire_context_selection import bind_context_selection_shadow  # noqa: E402
 from .wire_distiller import bind_azure_ontology_distiller  # noqa: E402
 from .wire_execution_authorization import bind_execution_authorization  # noqa: E402
 from .wire_execution_backends import (  # noqa: E402 - public composition facade
@@ -377,6 +378,7 @@ __all__ = [
     "attach_metric_provider",
     "bind_browser_evidence",
     "bind_configuration_drift",
+    "bind_context_selection_shadow",
     "bind_execution_authorization",
     "bind_execution_backends",
     "bind_azure_llm_bindings",
