@@ -1,8 +1,8 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: ff50b3fa9d76a28aa005bd02620f4e28d9326cbd
-translation_revised: 2026-08-14
+translation_source_sha: e9eef8f4f9a5191ad9da207e6df20d7bcdc0b1ac
+translation_revised: 2026-08-15
 ---
 # 서술기 라우팅과 지연 시간
 
@@ -37,14 +37,16 @@ translation_revised: 2026-08-14
 지연 시간으로 라우팅되는 판정자가 필요한 포크는 자체 품질 게이트, 조립 연결, 감사 근거를 갖춘
 별도 기능을 선언합니다.
 
-대상 독립 service는 운영자 트래픽과 무관하게 텍스트 및 멀티모달 풀을 갱신합니다. 현재 로컬
-어댑터는 정렬된 `narrator_candidates`를 시도하지만 아래에서 설명하는 이동 지연 시간 및 첫
-토큰까지의 시간(TTFT) 창은 유지하지 않습니다. 대상 텍스트 풀은 `narrator_candidates`를 쓰고,
-이미지 턴은 프로비저닝된 배포와 `t1.vision` 선호 설정의 교집합을 `vision_candidates`로
-내보냅니다. 각 풀은 샘플 8개짜리 지연 시간 창과 TTFT 창을 따로 유지합니다. 시작 시에는 텍스트
-후보를 두 번, 비전 후보는 크기가 제한된 1픽셀 이미지로 탐색합니다. 주기적인 검사는 기본값이
-`300`인 `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS`마다 샘플을 더합니다. 비전 용량이 없으면 텍스트
-연결을 빌려 쓰지 않고 이미지 턴을 사용 불가 상태로 둡니다.
+독립 로컬 service는 이제 coalescing되고 범위가 제한된 명시적 주기 하나로 텍스트 및 비전 풀을
+갱신합니다. 각 텍스트 후보를 두 번, 각 비전 후보를 범위가 제한된 1픽셀 이미지로 한 번 탐색하고,
+샘플 8개짜리 지연 시간 및 첫 토큰까지의 시간(TTFT) 창을 따로 유지하며, 측정된 p50으로 텍스트
+턴을 정렬하고 범위가 제한된 장애 조치를 수행합니다. 측정되지 않은 후보에는 한 번의 warm-up
+기회를 주고 실패한 후보는 풀에서 제거하지 않고 범위가 제한된 penalty를 기록합니다.
+
+Operator Service에는 opaque conversation-image id를 검증되고 범위가 제한된 byte로 바꾸는 서버
+소유 resolver가 없으므로 이미지 턴은 계속 사용 불가 상태입니다. 클라이언트가 제공한 이미지
+필드는 이 권한을 대신할 수 없습니다. `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS`의 주기적 scheduler도
+대상 동작으로 남아 있으며 구현된 `refresh()` 진입점은 명시적이고 process-local입니다.
 
 ## 사용자별 선호 설정과 TTFT
 
@@ -132,7 +134,8 @@ Settings > Models는 Owner에게 배포 전체의 웹 검색 활성화와 정확
 |------|------|------|------|
 | 로컬 정렬 narrator 후보 fallback | implemented | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; `services/operator-service/tests/test_local_narrator.py` | Service 내부 어댑터는 해석된 산출물을 읽고 수명이 짧은 토큰을 얻어 정렬된 후보를 시도하며 Core를 가져오거나 실행 권한을 받지 않고 정제된 상태를 노출합니다. |
 | 해석된 narrator 후보 수집 | implemented | `services/core-control-plane/tests/rule_catalog/schema/test_narrator_collection.py`; 모델 해석기 및 레지스트리 | Focused 검사는 검토된 모델 해석 입력에서 `narrator_candidates` 수집을 다룹니다. |
-| 이동 p50/TTFT 및 멀티모달 라우팅 | not-started | [서술기 지연 시간 라우팅](#서술기-지연-시간-라우팅) | 제거된 프로세스 내부 라우터는 독립 service에 구성되지 않았으며 대체 이동 창 구현을 찾지 못했습니다. |
+| 이동 text p50/TTFT, 범위가 제한된 refresh 및 장애 조치 | implemented | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; `narrator_latency.py`; `narrator_payloads.py`; focused Operator 테스트 | 독립 service는 샘플 8개짜리 latency 및 TTFT 창을 유지하고 비어 있지 않은 첫 SSE token을 측정하며 범위가 제한된 probe를 coalescing하고 text 후보를 정렬하며 unanimous 429/503 상태를 보존하고 malformed 또는 oversized 출력을 fail closed로 처리합니다. |
+| 비전 후보 probe 및 이미지 턴 라우팅 | in-progress | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; focused vision-probe 및 image-unavailable 테스트 | 비전 후보는 독립된 측정 probe 창을 갖습니다. 서버 소유 image resolver가 검증되고 범위가 제한된 byte를 공급할 때까지 이미지 턴은 사용 불가 상태이며 text binding을 빌리지 않습니다. |
 | 사용자별 라우팅 선호 설정 및 런타임 지연 시간 변환 결과 | not-started | [사용자별 선호 설정과 TTFT](#사용자별-선호-설정과-ttft) | 개정 번호 기반 선호 설정, TTFT 변환 결과 및 배포 pinning 계약은 대상 동작으로 남아 있습니다. |
 | 공개 웹 후보 라우팅 | in-progress | `services/operator-service/src/fdai_operator_service/application/conversation/capabilities/web_search/`; `services/operator-service/src/fdai_operator_service/adapters/conversation/web_search/`; focused Operator 테스트 | 프로바이더 중립 및 Azure 구성 경로가 있습니다. 로컬 및 배포 프로파일의 관리되는 이동 지연 시간 및 장애 조치 근거가 남아 있습니다. |
 | 선택적 report-format parity | implemented | `fdai_operator_service.reporting.optional_pdf_report_encoder`; `IncidentRcaReportingProjectionReader`; Operator composition 및 경로 테스트 | 로컬 및 배포 Operator composition은 같은 service-local loader와 authoritative audit-backed Incident report reader를 사용합니다. Venue, 환경 및 identity는 report 권한을 바꾸지 않습니다. |
@@ -144,10 +147,12 @@ Settings > Models는 Owner에게 배포 전체의 웹 검색 활성화와 정확
 | 2026-08-14 | in-progress | 구현 ledger를 도입하고 어떤 지연 시간 및 선호 설정 동작이 대상 설계로 남는지 명확히 했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 로컬 narrator, 해석기, 웹 검색 source 및 focused 검사입니다. | 독립 service 지연 시간 창과 선호 설정을 구현한 뒤 관리되는 로컬 및 배포 근거를 보존해야 합니다. |
 | 2026-08-14 | implemented | 로컬 및 배포 Operator composition에서 선택적 PDF report 등록을 동일하게 유지했습니다. | `current change`; service-local optional loader, package-extra 계약, composition binding 및 focused 경로/composition 테스트입니다. | Package availability를 실행 권한으로 취급하지 않고 별도의 인증된 Incident report 증적을 보존해야 합니다. |
 | 2026-08-14 | implemented | 로컬 및 배포 Operator composition에서 authoritative Incident RCA report materialization을 동일하게 유지했습니다. | `current change`; service-local audit-backed report reader, composition binding 및 focused reader/family 테스트입니다. | 별도의 인증된 Incident report 증적을 보존해야 합니다. |
+| 2026-08-14 | implemented | 범위가 제한되고 coalescing된 text 및 vision probe, 측정된 장애 조치, 엄격한 SSE 및 출력 제한, 범위가 제한된 Azure CLI credential 획득을 갖춘 service-local 이동 text latency 및 TTFT 라우팅을 추가했습니다. | `current change`; narrator adapter 모듈; focused local narrator 및 credential 테스트 `21 passed`; 통합 Operator 및 Core narrator 검사가 통과했습니다. | 주기적 refresh와 서버 소유 image resolver를 binding한 뒤 관리되는 local 및 deployed timing 근거를 보존합니다. |
 
 ### 남은 작업
 
-- [ ] 독립 텍스트 및 비전 후보 탐색, 별도 이동 지연 시간 및 TTFT 창, 범위가 제한된 갱신, 장애 조치 및 사용 불가 동작을 구현하고 focused 테스트를 추가합니다.
+- [x] 독립 텍스트 및 비전 후보 탐색, 별도 이동 지연 시간 및 TTFT 창, 범위가 제한된 갱신, 장애 조치 및 사용 불가 동작을 구현하고 focused 테스트를 추가합니다.
+- [ ] 이미지 턴 라우팅을 완료로 표시하기 전에 주기적 refresh owner와 서버 소유 conversation-image resolver를 binding합니다.
 - [ ] T2 연결을 개인화하지 않으면서 개정 번호 기반 principal별 `Auto` 또는 허용된 narrator 선호 설정 저장소와 정제된 Settings 변환 결과를 구현합니다.
 - [ ] Narrator 및 웹 검색 후보 선택, 첫 토큰 시간, 실패, 복구 및 정제된 상태에 대한 관리되는 로컬 및 배포 증적을 보존합니다.
 - [ ] 검토된 service-owned 어댑터 경계를 통해서만 연기된 직접 Key Vault 모델 해석 결과 loader와 조정기 알림 경로를 구현합니다.
