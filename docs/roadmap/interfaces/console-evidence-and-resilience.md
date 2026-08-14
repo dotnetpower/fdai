@@ -16,6 +16,7 @@ RBAC contract remains in [operator-console.md](operator-console.md).
 | Governed ontology assurance provenance | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`; focused Vitest: 25 passed; Console typecheck passed | Remains in progress until the authenticated seeded cohort produces a governed runtime artifact. |
 | Agent Activity heartbeat presentation | implemented | `console/src/routes/agents.model.ts`; `console/src/routes/agents.model.test.ts`; focused Vitest: 31 passed | Periodic runtime initialization snapshots update current agent state and last-observed time without becoming activity rows after initial load or refresh. Browser Entra refresh behavior was observed but no governed artifact was retained. |
 | Command Deck JSON contrast | implemented | `console/src/styles.css`; `console/src/deck/command-deck-workspace-visual.test.ts`; focused Vitest: 10 passed; authenticated browser inspection | Syntax-highlighted JSON keeps the fixed dark code surface despite the global light `pre` style. Browser inspection is not retained as governed runtime evidence. |
+| Cross-tab SSE connection budget | implemented | `console/src/hooks/browser-stream-leader.ts`; `console/src/hooks/cross-tab-stream.ts`; attention stream hooks; focused Vitest: 8 passed; Console typecheck passed | Web Locks elect one principal-scoped reader for each attention or notification channel. Attention leaders share validated snapshots with follower tabs. A governed multi-tab browser artifact isn't retained. |
 
 ### Implementation history
 
@@ -24,11 +25,13 @@ RBAC contract remains in [operator-console.md](operator-console.md).
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance, and bound ontology assurance artifacts to exact source, configuration, workspace, authentication, request, and projection provenance. | Current change in `console/tests/live-e2e/ontology-query-assurance*.ts`; focused Vitest: 25 passed; Console typecheck passed. | Obtain the exact centralized receipt, then run one authenticated probe before the seeded bilingual 100-case cohort. |
 | 2026-08-14 | implemented | Stopped periodic `Runtime agent initialized` snapshots from reappearing as chronological activity after each page refresh while preserving current state and heartbeat freshness. | `current change`; `agents.model.test.ts` passed 31 focused tests, and the authenticated browser showed zero initialization rows across two refreshes. | Retain the two-refresh Browser Entra result as a governed artifact before claiming runtime validation. |
 | 2026-08-14 | implemented | Restored the fixed dark surface beneath syntax-highlighted Command Deck JSON after the global `pre` background overrode it. | `current change`; task-owned Console CSS and visual contract test; focused Vitest passed 10 tests; Console typecheck passed; authenticated browser computed the intended dark surface and token colors. | No bounded residual work remains; the focused regression test owns future theme changes. |
+| 2026-08-14 | implemented | Reserved ordinary Operator API capacity under HTTP/1.1 by electing one cross-tab reader per attention and notification channel and sharing validated attention snapshots with follower tabs. | `current change`; task-owned stream hooks and focused Vitest passed 8 tests; Console typecheck passed. | Retain a governed three-tab Browser Entra artifact that proves a fresh Dashboard access check completes while SSE readers are enabled. |
 
 ### Remaining work
 
 - [ ] Retain one passing governed artifact from the seeded bilingual 100-case cohort after the exact centralized receipt and authenticated probe exist.
 - [ ] Retain a governed Browser Entra artifact that shows an open agent stream, refreshed heartbeat time, and zero `Runtime agent initialized` activity rows across two page refreshes.
+- [ ] Retain a governed three-tab Browser Entra artifact that shows a fresh Dashboard access check completing while background notifications and active-tab attention streams remain enabled.
 
 ## Navigation context
 
@@ -582,13 +585,18 @@ detail to 4 KiB, and milestone agent identities to 64 characters.
 The Web composer sends selected, dropped, and clipboard-pasted raster images through the same bounded attachment tray and validation path. Before staging, the browser fits each raster within a 2048 px longest edge without upscaling and re-encodes it below the 4 MiB per-image ceiling. Clipboard text and HTML retain native textarea paste behavior and never become attachments.
 When a turn carries validated inline image attachments, the streaming route also emits read-only `vision_analyzing` before the narrator composes and `vision_grounded` before the answer, each with image source previews (name, media type, size) but never the base64 payload. The turn escalates to a vision-capable narrator, and the preparing-answer trace renders these stages the same way it renders web-search grounding.
 
-The interactive Live route pauses its SSE reader while the tab is hidden. An operator-enabled
-browser notification consumer is the bounded exception: it keeps the authenticated live reader open
-in the background, retries authentication failures with the existing capped backoff, and stops as
-soon as notification permission or the principal-scoped opt-in is removed. It emits only human
-approval, denial, and failure outcomes from non-replay frames. A shared browser ledger suppresses
-the same event tag for five minutes across tabs and limits system notification delivery to five per
-minute without removing any audit or Incident evidence.
+The interactive Live route pauses its SSE reader while the tab is hidden. The shell's incident,
+access-grant, and operator-enabled browser notification consumers instead use Web Locks to elect one
+principal-scoped reader per channel across same-origin tabs. Incident and access-grant leaders send
+validated snapshots to follower tabs through `BroadcastChannel`, so every shell keeps its attention
+state without opening a duplicate SSE connection. The notification leader keeps its authenticated
+live reader open in the background. This fixed connection budget leaves capacity for ordinary
+Operator API requests under HTTP/1.1. The notification leader retries authentication failures with
+the existing capped backoff and stops as soon as notification permission or the principal-scoped
+opt-in is removed. It emits only human approval, denial, and failure outcomes from non-replay
+frames. A shared browser ledger suppresses the same event tag for five minutes across tabs and
+limits system notification delivery to five per minute without removing any audit or Incident
+evidence.
 
 The Agent Activity route loads bounded durable inventory scan, ontology projection, and current-state
 read records before opening the shared agent stream. Exact activity ids deduplicate replay and live

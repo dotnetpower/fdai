@@ -66,7 +66,10 @@ export function Shell({ activePanelId, auth, client, children, onExitLocalSessio
           <span class="brand-product">{t("shell.console")}</span>
         </a>
         <div class="principal">
-          <IncidentAttention client={client} />
+          <IncidentAttention
+            client={client}
+            principalId={auth.account?.homeAccountId ?? null}
+          />
           <AccessGrantAttention
             auth={auth}
             client={client}

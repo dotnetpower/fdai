@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 5dc8726e42f590eb45ddf27b4b2496430624f1d3
+translation_source_sha: 49eba27399111b1575761737d5abf21fa64fc4a7
 translation_revised: 2026-08-14
 ---
 
@@ -18,6 +18,7 @@ translation_revised: 2026-08-14
 | 통제된 온톨로지 보증 출처 이력 | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`, focused Vitest 25개 및 Console 타입 검사 통과 | 인증된 seeded cohort가 통제된 runtime 아티팩트를 만들 때까지 in-progress로 유지합니다. |
 | 에이전트 활동 하트비트 표현 | 구현됨 | `console/src/routes/agents.model.ts`, `console/src/routes/agents.model.test.ts`, focused Vitest 31개 통과 | 주기적인 런타임 초기화 스냅샷은 현재 에이전트 상태와 마지막 관찰 시각을 갱신하지만 최초 로드 또는 새로고침 후 활동 행이 되지 않습니다. Browser Entra 새로고침 동작은 관찰했지만 통제된 아티팩트는 보존하지 않았습니다. |
 | Command Deck JSON 대비 | 구현됨 | `console/src/styles.css`, `console/src/deck/command-deck-workspace-visual.test.ts`, focused Vitest 10개 통과 및 인증된 브라우저 검사 | 구문 강조 JSON은 전역의 밝은 `pre` 스타일과 관계없이 고정된 어두운 코드 표면을 유지합니다. 브라우저 검사는 통제된 런타임 근거로 보존하지 않았습니다. |
+| 탭 간 SSE 연결 예산 | 구현됨 | `console/src/hooks/browser-stream-leader.ts`, `console/src/hooks/cross-tab-stream.ts`, attention 스트림 훅, focused Vitest 8개 및 Console 타입 검사 통과 | Web Locks는 각 attention 또는 알림 채널에 대해 principal 범위로 한정된 읽기 담당 하나를 선출합니다. Attention leader는 검증된 스냅샷을 follower 탭과 공유합니다. 통제된 다중 탭 브라우저 아티팩트는 보존하지 않았습니다. |
 
 ### 구현 이력
 
@@ -26,11 +27,13 @@ translation_revised: 2026-08-14
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 온톨로지 보증 아티팩트를 정확한 source, configuration, workspace, 인증, request 및 projection 출처 이력에 연결했습니다. | 현재 변경의 `console/tests/live-e2e/ontology-query-assurance*.ts`, focused Vitest 25개 및 Console 타입 검사 통과. | 정확한 중앙 검증 receipt를 얻은 뒤 seeded 영/한 100-case cohort 전에 인증된 probe 하나를 실행합니다. |
 | 2026-08-14 | 구현됨 | 현재 상태와 하트비트 최신성을 유지하면서 주기적인 `Runtime agent initialized` 스냅샷이 페이지를 새로고칠 때마다 chronological 활동으로 다시 나타나지 않도록 수정했습니다. | `current change`, `agents.model.test.ts` focused 테스트 31개 통과, 인증된 브라우저에서 두 번 새로고침하는 동안 초기화 행 0개 확인 | 런타임 검증을 주장하기 전에 두 번 새로고침한 Browser Entra 결과를 통제된 아티팩트로 보존합니다. |
 | 2026-08-14 | 구현됨 | 전역 `pre` 배경이 덮어쓴 Command Deck JSON 구문 강조 영역 아래에 고정된 어두운 표면을 복원했습니다. | `current change`, 작업 소유 Console CSS 및 시각 계약 테스트, focused Vitest 10개 통과, Console 타입 검사 통과, 인증된 브라우저에서 의도한 어두운 표면과 토큰 색상 계산 확인 | 범위가 제한된 잔여 작업은 없습니다. 향후 테마 변경은 focused 회귀 테스트가 확인합니다. |
+| 2026-08-14 | 구현됨 | 각 attention 및 알림 채널에서 탭 간 읽기 담당 하나를 선출하고 검증된 attention 스냅샷을 follower 탭과 공유해 HTTP/1.1에서 일반 Operator API 용량을 확보했습니다. | `current change`, 작업 소유 스트림 훅, focused Vitest 8개 및 Console 타입 검사 통과 | SSE 읽기 담당이 활성화된 상태에서 새 Dashboard 접근 검사가 완료되는 통제된 세 탭 Browser Entra 아티팩트를 보존합니다. |
 
 ### 잔여 작업
 
 - [ ] 정확한 중앙 검증 receipt와 인증된 probe를 확보한 뒤 seeded 영/한 100-case cohort에서 통과한 통제 아티팩트 하나를 보존합니다.
 - [ ] 에이전트 스트림 열림, 갱신된 하트비트 시각, 페이지를 두 번 새로고친 뒤 `Runtime agent initialized` 활동 행 0개를 보여 주는 통제된 Browser Entra 아티팩트를 보존합니다.
+- [ ] 백그라운드 알림과 활성 탭 attention 스트림을 유지하면서 새 Dashboard 접근 검사가 완료되는 통제된 세 탭 Browser Entra 아티팩트를 보존합니다.
 
 ## 탐색 컨텍스트
 
@@ -574,12 +577,16 @@ Web 작성기는 선택, 폐기 및 clipboard paste raster를 동일한 범위�
 Turn이 검증된 inline 이미지 첨부를 carry하면 스트리밍 경로는 서술기가 작성하기 전에 읽기 전용 `vision_analyzing`을, 답변 전에 `vision_grounded`를 발행하며, 각 프레임은 이미지 출처 미리 보기(이름, media 타입, 크기)를 포함하되 base64 페이로드는 절대 포함하지 않습니다.
 해당 턴은 vision 지원 서술기로 escalate되고, 답변 준비 trace는 이 단계를 웹 검색 grounding과 동일하게 렌더링합니다.
 
-Interactive 실제 운영 경로는 tab이 hidden 상태일 때 SSE 읽기 담당을 pause합니다. Operator가 활성화한
-브라우저 notification 소비자만 범위가 제한된 exception으로 background에서 인증된 실제 운영 읽기 담당을
-유지하고, 기존 capped 재시도 대기로 authentication 실패를 재시도하며, notification 권한 또는
-principal 범위로 한정된 명시적 선택이 제거되면 즉시 중지합니다. 재생이 아닌 프레임의 사람 승인, 거부, 실패
-결과만 발행합니다. Shared 브라우저 원장은 여러 tab에서 같은 이벤트 tag를 5분 동안 억제하고 system
-notification 전달을 분당 5건으로 제한하지만 감사 또는 인시던트 근거는 제거하지 않습니다.
+Interactive 실제 운영 경로는 tab이 hidden 상태일 때 SSE 읽기 담당을 pause합니다. Shell의 인시던트,
+액세스 권한 및 Operator가 활성화한 브라우저 notification 소비자는 Web Locks를 사용해 same-origin 탭의
+각 채널에서 principal 범위로 한정된 읽기 담당 하나를 선출합니다. 인시던트 및 액세스 권한 leader는
+검증된 스냅샷을 `BroadcastChannel`을 통해 follower 탭으로 보내므로 각 shell은 중복 SSE 연결을 열지
+않고 attention 상태를 유지합니다. Notification leader는 background에서 인증된 실제 운영 읽기 담당을
+유지합니다. 이 고정 연결 예산은 HTTP/1.1에서 일반 Operator API 요청에 필요한 용량을 남깁니다.
+Notification leader는 기존 capped 재시도 대기로 authentication 실패를 재시도하며, notification 권한
+또는 principal 범위로 한정된 명시적 선택이 제거되면 즉시 중지합니다. 재생이 아닌 프레임의 사람 승인,
+거부, 실패 결과만 발행합니다. Shared 브라우저 원장은 여러 tab에서 같은 이벤트 tag를 5분 동안 억제하고
+system notification 전달을 분당 5건으로 제한하지만 감사 또는 인시던트 근거는 제거하지 않습니다.
 
 에이전트 활동 경로는 shared 에이전트 스트림을 열기 전에 범위가 제한된 영속 인벤토리 검사,
 온톨로지 변환 및 현재 상태 읽기 기록을 불러옵니다. 정확한 activity id로 재생과 실제 운영 전달을
