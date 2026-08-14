@@ -621,10 +621,9 @@ test_...` runs without a per-test marker.
 
 `StateStore` exposes exactly one removal primitive, `delete_states_beyond(prefix, retain_newest)`.
 It bounds the growth of an append-only evidence projection by dropping the oldest rows past the
-bound, in the same order that backend's own `read_states` returns. Newest-first is defined per
-backend, not across backends, so a pruned prefix MUST be write-once; rewriting a row could move it
-in one backend's order and not another's. It cannot name a key, so it can never erase an
-authoritative record or an audit entry.
+bound, in the same order `read_states` returns. Newest-first means last-written first in every
+backend, so which rows survive does not depend on which backend is bound. It cannot name a key, so
+it can never erase an authoritative record or an audit entry.
 
 ## Control-Loop Wiring
 

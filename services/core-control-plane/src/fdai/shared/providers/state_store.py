@@ -107,22 +107,17 @@ class StateStore(Protocol):
         evidence rather than authority - a long-lived deployment can leave
         such a projection enabled without unbounded tracked-state growth.
 
-        Ordering matches this implementation's own :meth:`read_states`, so
-        the rows this removes are exactly the ones that read would never
-        return. It is NOT a cross-implementation ordering guarantee: each
-        backend defines newest-first for itself, and a backend MAY order by
-        last write rather than by first write. A caller therefore MUST only
-        prune a write-once prefix. Rewriting a row under a pruned prefix can
-        move it in one backend's order and not another's, which would make
-        which row survives backend-dependent.
+        Ordering matches :meth:`read_states`: newest-first means last-written
+        first, so the rows this removes are exactly the ones that read would
+        never return. Every backend MUST define newest-first that way, so
+        which rows survive is the same whichever backend is bound.
 
         This is deliberately NOT a general delete: it cannot remove a named
         key, so it can never be used to erase an authoritative record or an
         audit entry.
 
         Args:
-            prefix: The key prefix whose rows are subject to retention. Its
-                rows MUST be written once and never rewritten.
+            prefix: The key prefix whose rows are subject to retention.
             retain_newest: How many newest rows to keep. MUST be >= 1.
 
         Returns:

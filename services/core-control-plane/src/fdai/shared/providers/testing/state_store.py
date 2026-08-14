@@ -64,13 +64,13 @@ class InMemoryStateStore(StateStore):
 
     async def write_state(self, key: str, value: Mapping[str, Any]) -> None:
         with self._lock:
-            self._state[key] = deepcopy(dict(value))
+            self._write_locked(key, value)
 
     async def write_state_if_absent(self, key: str, value: Mapping[str, Any]) -> bool:
         with self._lock:
             if key in self._state:
                 return False
-            self._state[key] = deepcopy(dict(value))
+            self._write_locked(key, value)
             return True
 
     async def write_state_with_audit_if_absent(
@@ -82,7 +82,7 @@ class InMemoryStateStore(StateStore):
         with self._lock:
             if key in self._state:
                 return False
-            self._state[key] = deepcopy(dict(value))
+            self._write_locked(key, value)
             self._append_audit_locked(audit_entry)
             return True
 
@@ -99,9 +99,21 @@ class InMemoryStateStore(StateStore):
             current_revision = existing.get("revision", 0) if existing is not None else 0
             if current_revision != expected_revision:
                 return False
-            self._state[key] = deepcopy(dict(value))
+            self._write_locked(key, value)
             self._append_audit_locked(audit_entry)
             return True
+
+    def _write_locked(self, key: str, value: Mapping[str, Any]) -> None:
+        """Store ``key`` as the most recently written row.
+
+        Rewriting drops the prior insertion position first so newest-first
+        here means last-written-first, the same order the durable backend
+        produces with ``ORDER BY updated_at DESC``. Without this the two
+        backends would disagree about which rows a bounded read returns, and
+        therefore about which rows retention removes.
+        """
+        self._state.pop(key, None)
+        self._state[key] = deepcopy(dict(value))
 
     async def find_state(
         self,

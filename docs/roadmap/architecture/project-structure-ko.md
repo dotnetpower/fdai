@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 3603d8f4253d097641ead78950a336c9e238f9f6
+translation_source_sha: 66ec1274041e8375cad4e8ea1487bf308a5e13b5
 translation_revised: 2026-08-14
 ---
 # 프로젝트 구조
@@ -615,11 +615,10 @@ shared 런타임 스냅샷 publish 전에 exact 구성원 버전과 활성화된
 "auto"` 로 실행되어 평범한 `비동기 def test_...` 가 per-test 마커 없이 동작합니다.
 
 `StateStore`는 제거 원시 연산을 `delete_states_beyond(prefix, retain_newest)` 하나만 노출합니다.
-해당 백엔드 자신의 `read_states`와 같은 순서로 한계를 넘는 가장 오래된 행을 버려, 추가 전용
-근거 투영의 증가를 제한합니다. 최신순은 백엔드마다 정의되며 백엔드 사이에서 보장되지 않으므로,
-정리 대상 접두사는 한 번만 기록해야 합니다. 행을 다시 기록하면 어떤 백엔드에서는 순서가
-바뀌고 다른 백엔드에서는 바뀌지 않을 수 있습니다. 키를 지정할 수 없으므로 권위 있는 기록이나
-감사 항목을 지울 수 없습니다.
+`read_states`와 같은 순서로 한계를 넘는 가장 오래된 행을 버려, 추가 전용 근거 투영의 증가를
+제한합니다. 최신순은 모든 백엔드에서 마지막으로 기록된 순서를 뜻하므로, 어떤 백엔드를
+연결하든 남는 행은 같습니다. 키를 지정할 수 없으므로 권위 있는 기록이나 감사 항목을 지울 수
+없습니다.
 
 ## 컨트롤 루프 배선
 
