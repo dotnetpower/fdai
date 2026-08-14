@@ -161,6 +161,9 @@ retain a complete-border focus or hover cue; the visual treatment never sets dis
 The shared KPI card distinguishes `not-measured`, `not-connected`, `insufficient-sample`, and
 `not-applicable` evidence states. These states use neutral copy and styling; actual request or probe
 failures use the error component and remain visually distinct.
+An exact Incident deep link joins an existing roster only when both projections carry the same
+analytical snapshot sequence. A concurrent snapshot change remains unavailable rather than mixing
+records and metrics from different evidence revisions.
 Cards whose authoritative visible content changes in place use the shared `top-edge shimmer`: one
 neutral blue sweep, 2 px high and 1.35 seconds long. Primitive shared KPI values opt in
 automatically; complex live cards provide a semantic update key. The first render, unchanged parent

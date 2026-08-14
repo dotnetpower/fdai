@@ -223,7 +223,9 @@ Exact entity lookups filter on the server before page limits. Incident
 correlation links, Audit entry links, and Approval searches therefore resolve
 beyond the first roster page instead of reporting a false absence. Approval
 search remains unavailable to count-only roles so filtered totals cannot leak
-hidden queue content. Independent sources are isolated: an optional principal
+hidden queue content. An exact Incident result joins the visible roster only when its analytical
+snapshot matches the current roster snapshot; a concurrent snapshot change stays unavailable
+instead of mixing evidence revisions. Independent sources are isolated: an optional principal
 workflow projection cannot hide the built-in workflow catalog, and an unused
 analytics source cannot replace another hub with an error screen. Report render
 and PDF failures stay local to the selected operation and do not remove the

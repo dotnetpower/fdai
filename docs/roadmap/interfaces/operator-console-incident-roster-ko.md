@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: 786ebaaa72e7c3805faab81fd8411317eb225b22
+translation_source_sha: e5f21d5117ecd9be6d022e2b581f8c367f00133d
 translation_revised: 2026-08-14
 ---
 
@@ -209,7 +209,9 @@ Operational 읽기 표면은 static 점유 대신 페이로드의 출처 이력�
 정확한 개체 조회는 페이지 한도 전에 서버에서 필터링합니다. 따라서 인시던트 상관관계 링크,
 감사 항목 링크, Approval 검색은 첫 명단 페이지 밖에서도 false absence 없이 해석됩니다.
 Count-only 역할에는 Approval 검색을 적용하지 않아 filtered 합계로 숨겨진 큐 내용을
-추론할 수 없게 합니다. 독립 출처는 격리합니다. 선택적 principal 작업 흐름 변환 결과가
+추론할 수 없게 합니다. Exact Incident 결과는 analytical snapshot이 현재 roster snapshot과
+일치할 때만 visible roster에 합칩니다. Concurrent snapshot 변경은 서로 다른 근거 revision을
+섞지 않고 사용 불가 상태로 유지합니다. 독립 출처는 격리합니다. 선택적 principal 작업 흐름 변환 결과가
 built-in 작업 흐름 카탈로그를 숨기지 않으며, 사용하지 않는 analytics 출처가 다른 허브를 오류
 화면으로 교체하지 않습니다. 보고 렌더링과 PDF 실패는 선택된 연산에만 남고 카탈로그나
 variable editor를 제거하지 않으며, 경로 변경 후 도착한 download는 폐기합니다.
