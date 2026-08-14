@@ -2,45 +2,30 @@ import type { JSX } from "preact";
 import { useState } from "preact/hooks";
 import type { PanelProps } from "../panels";
 import { t } from "../i18n";
-import { EmptyState, ErrorState, LoadingState, PageHeader } from "../components/ui";
+import { EmptyState, ErrorState, LoadingState, PageHeader, UnavailableState } from "../components/ui";
 import {
-  fetchConversationSearchContext,
   searchConversations,
   type ConversationSearchContextPayload,
   type ConversationSearchHitPayload,
   type ConversationSearchPayload,
 } from "../user-context-client";
-
-type SearchMode = "terms" | "phrase" | "prefix";
-type SearchRole = "" | "operator" | "assistant" | "tool" | "system";
-
-interface SearchForm {
-  readonly query: string;
-  readonly mode: SearchMode;
-  readonly channel: string;
-  readonly role: SearchRole;
-  readonly conversationId: string;
-  readonly incidentId: string;
-  readonly after: string;
-  readonly before: string;
-}
-
-const EMPTY_FORM: SearchForm = {
-  query: "",
-  mode: "terms",
-  channel: "",
-  role: "",
-  conversationId: "",
-  incidentId: "",
-  after: "",
-  before: "",
-};
+import {
+  conversationSearchFailureMessage,
+  conversationSearchHighlightSegments,
+  conversationSearchInput,
+  conversationSearchViewStatus,
+  EMPTY_FORM,
+  type SearchForm,
+  type SearchMode,
+  type SearchRole,
+  toggleConversationSearchContext,
+} from "./conversation-search.model";
 
 export function ConversationSearchRoute(_props: PanelProps) {
   const [form, setForm] = useState<SearchForm>(EMPTY_FORM);
   const [result, setResult] = useState<ConversationSearchPayload | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
   const [contexts, setContexts] = useState<Readonly<Record<string, ConversationSearchContextPayload>>>({});
   const [contextLoading, setContextLoading] = useState<string | null>(null);
 
@@ -50,18 +35,9 @@ export function ConversationSearchRoute(_props: PanelProps) {
     setError(null);
     setContexts({});
     try {
-      setResult(await searchConversations({
-        query: form.query.trim(),
-        mode: form.mode,
-        ...(form.channel.trim() ? { channel: form.channel.trim() } : {}),
-        ...(form.role ? { role: form.role } : {}),
-        ...(form.conversationId.trim() ? { conversationId: form.conversationId.trim() } : {}),
-        ...(form.incidentId.trim() ? { incidentId: form.incidentId.trim() } : {}),
-        ...(form.after ? { recordedAfter: new Date(form.after).toISOString() } : {}),
-        ...(form.before ? { recordedBefore: new Date(form.before).toISOString() } : {}),
-      }));
+      setResult(await searchConversations(conversationSearchInput(form)));
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
+      setError(reason);
       setResult(null);
     } finally {
       setLoading(false);
@@ -69,22 +45,17 @@ export function ConversationSearchRoute(_props: PanelProps) {
   }
 
   async function loadContext(hit: ConversationSearchHitPayload): Promise<void> {
-    if (contexts[hit.result_id]) {
-      const next = { ...contexts };
-      delete next[hit.result_id];
-      setContexts(next);
-      return;
-    }
     setContextLoading(hit.result_id);
     try {
-      const context = await fetchConversationSearchContext(hit.result_id, 1, 1);
-      setContexts((current) => ({ ...current, [hit.result_id]: context }));
+      setContexts(await toggleConversationSearchContext(contexts, hit.result_id));
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
+      setError(reason);
     } finally {
       setContextLoading(null);
     }
   }
+
+  const viewStatus = conversationSearchViewStatus(loading, error, result);
 
   return (
     <div class="stack conversation-search-view">
@@ -150,12 +121,13 @@ export function ConversationSearchRoute(_props: PanelProps) {
         <button type="submit" disabled={loading}>{t("conversationSearch.search")}</button>
       </form>
 
-      {loading ? <LoadingState label={t("conversationSearch.loading")} /> : null}
-      {error ? <ErrorState message={error} /> : null}
-      {!loading && result?.hits.length === 0 ? (
+      {viewStatus === "loading" ? <LoadingState label={t("conversationSearch.loading")} /> : null}
+      {viewStatus === "unavailable" ? <UnavailableState message={conversationSearchFailureMessage(error)} /> : null}
+      {viewStatus === "error" ? <ErrorState message={conversationSearchFailureMessage(error)} /> : null}
+      {viewStatus === "empty" ? (
         <EmptyState title={t("conversationSearch.empty")} />
       ) : null}
-      {result && result.hits.length > 0 ? (
+      {viewStatus === "results" && result ? (
         <section class="conversation-search-results" aria-label={t("conversationSearch.results")}>
           <header>
             <strong>{t("conversationSearch.resultCount", { count: result.hits.length })}</strong>
@@ -190,17 +162,11 @@ export function ConversationSearchRoute(_props: PanelProps) {
 }
 
 function HighlightedSnippet({ hit }: { readonly hit: ConversationSearchHitPayload }) {
-  const ranges = hit.snippet.highlights;
-  if (ranges.length === 0) return <>{hit.snippet.text}</>;
-  const parts: JSX.Element[] = [];
-  let cursor = 0;
-  ranges.forEach((range, index) => {
-    if (range.start > cursor) parts.push(<span key={`text-${index}`}>{hit.snippet.text.slice(cursor, range.start)}</span>);
-    parts.push(<mark key={`mark-${index}`}>{hit.snippet.text.slice(range.start, range.end)}</mark>);
-    cursor = range.end;
-  });
-  if (cursor < hit.snippet.text.length) parts.push(<span key="tail">{hit.snippet.text.slice(cursor)}</span>);
-  return <>{parts}</>;
+  return <>{conversationSearchHighlightSegments(hit).map((part, index) => (
+    part.highlighted
+      ? <mark key={`mark-${index}`}>{part.text}</mark>
+      : <span key={`text-${index}`}>{part.text}</span>
+  ))}</>;
 }
 
 function ContextRows({ context }: { readonly context: ConversationSearchContextPayload }) {

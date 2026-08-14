@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 4476b35150a66e111b41adf5cc7d4a668d18b04b
+translation_source_sha: 1cf78bdb1883db4a45ee027d963e3ae786578a8c
 translation_revised: 2026-08-14
 ---
 
@@ -43,6 +43,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 감사 추적 탐색 적격성 | 구현됨 | `agent-activity-log-model.ts`, `agent-live-activity.tsx`, `rule-trace.tsx`, focused Console 테스트 (`26 passed`) 및 타입 검사 | 감사 기반 행만 추적 화면으로 연결합니다. 예상된 `404`, `501` 및 source-gate `503` 응답은 사용 불가로 표시하고 예기치 않은 실패는 오류로 유지합니다. Browser Entra 동작은 관찰했지만 통제된 산출물은 보존하지 않았습니다. |
 | 인벤토리 프로바이더 실행 경계 | implemented | `discovery_receipts.py`, `inventory-execution-display.ts`, 집중 Azure delivery 테스트 (`18 passed`), 파서 테스트 (`11 passed`) 및 Console typecheck | 새 서버 증적은 등록된 계획에서 자리 표시자 전용 명령을 파생합니다. Console은 shell 제어, redirect, 환경 할당, 실행 가능한 shell 단어, 실제 GUID, raw ARM id, 자격 증명, 연속 토큰 및 프로바이더 오류를 독립적으로 거부합니다. |
 | 채널 중립적 최종 응답 동등성 | 구현됨 | [오퍼레이터 콘솔 점진적 대화](operator-console-progressive-conversations-ko.md), `test_rich_contract.py`, 집중 채널 계약 테스트 (`36 passed`) | Teams와 Slack은 영속 재생 전체에서 하나의 정본 최종 답변, 제한, 근거 참조, 실행 권한 없음, 최종 확정 갱신을 보존합니다. 운영 A3 게시자와 통제된 런타임 증적은 열린 상태로 유지합니다. |
+| 읽기 전용 Conversation Search interaction | implemented | `conversation-search.tsx`, `conversation-search.model.ts`, `conversation-search.test.ts`, focused route 테스트(`5 passed`) 및 Console typecheck | Bounded filter, 안전한 text highlight, exact context toggle, empty 및 unavailable 상태, fail-closed decoder 오류는 승인 또는 실행 권한을 추가하지 않습니다. |
 
 ### 구현 이력
 
@@ -58,6 +59,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 2026-08-14 | implemented | 기능 디렉터리의 지역화된 사용 불가 문구를 복구하고 기존 Console 디자인 mock에서 지속적인 위쪽 및 왼쪽 edge 강조를 제거했습니다. | `current change`, `mock-visual-boundary.test.ts` 및 `catalog-usage.test.ts` focused 테스트 6개 통과, catalog parity 통과 | 운영자 표면 CI 경로에서 시각적 경계 및 catalog 사용 검사를 계속 유지합니다. |
 | 2026-08-14 | 구현됨 | 공급자별 권한을 추가하지 않고 공유 최종 응답 집약기를 Teams와 Slack에 명시적으로 검증했습니다. | `current change`, `test_rich_contract.py`의 집중 검사 36개가 통과했고 상세 소유권은 [오퍼레이터 콘솔 점진적 대화](operator-console-progressive-conversations-ko.md)에 유지합니다. | 채널 런타임 검증을 주장하기 전에 운영 A3 게시자를 구현하고 실행합니다. |
 | 2026-08-14 | implemented | 저장된 좌표를 바꾸거나 지속적인 simulation을 남기지 않으면서 exact-release 카탈로그 토폴로지에 범위가 제한된 결정적 spring-settle 효과를 추가했습니다. | `current change`; 집중 토폴로지 테스트 12개와 Console 타입 검사가 통과했고, 인증된 표준 포트 브라우저에서 overflow 없이 비어 있지 않은 canvas를 렌더링했습니다. | wire-contract owner가 추적하는 별도의 인증된 컨텍스트 스냅샷 근거를 보존해야 합니다. |
+| 2026-08-14 | implemented | Console을 read-only projection surface로 유지하면서 focused Conversation Search route interaction을 추가했습니다. | `current change`; route model 및 focused 테스트 `5 passed`, Console typecheck. | Conversation Search owner 아래에서 governed cross-surface 검색 근거를 보존합니다. |
 
 ### 남은 작업
 

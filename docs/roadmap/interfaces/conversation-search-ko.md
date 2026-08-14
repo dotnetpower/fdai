@@ -1,7 +1,7 @@
 ---
 title: Access-Scoped 대화 검색
 translation_of: conversation-search.md
-translation_source_sha: bdab585746a594f5276b33adb9cfd0f8ae8975bc
+translation_source_sha: 5e9abd1c1cd3d83a067c7f6b43f5dfab06744079
 translation_revised: 2026-08-14
 ---
 
@@ -154,7 +154,7 @@ API denial, Console 디코딩, 탐색 registration, responsive 타입 검사를 
 | PostgreSQL projection, 인덱싱, 보존, 재구축 | implemented | `alembic/versions/20260720_0038_conversation_search.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_conversation_search.py`; `services/core-control-plane/src/fdai/delivery/conversation_search_rebuild_cli.py`; focused CLI 및 live PostgreSQL 테스트(`10 passed`, skip 없음) | 마이그레이션, 어댑터, headless 재구축 진입점은 구성된 session statement timeout 아래에서 source turn을 보존하면서 파생 인덱스를 재구축합니다. 관리되는 재시작 근거는 남아 있습니다. |
 | Reader-floor 서술기 검색 도구 | implemented | `services/core-control-plane/src/fdai/core/conversation/_system_conversation_search_tool.py`; `services/core-control-plane/tests/conversation/test_search_conversations_tool.py` | 집중 테스트는 Reader principal에 대해 principal 범위 결과, 범위가 제한된 검증 오류, 근거 참조, 명시적인 `trusted: false` 출력을 입증합니다. |
 | Operator API 검색, 맥락, 계보 경로 | implemented | `services/operator-service/src/fdai_operator_service/families/conversation/conversation_search.py`; `services/operator-service/src/fdai_operator_service/postgres_family_store.py`; `service-migrations/branches/operator-service/versions/20260814_operator_conversation_search_read.py`; focused API 및 live PostgreSQL 테스트(`11 passed`, skip 없음) | Operator는 인증된 principal을 해석하고 범위가 제한된 filter를 검증하며 SELECT-only 역할로 source table을 읽습니다. 범위 밖 결과와 누락 결과에 동일한 404 envelope를 반환하고 내부 query duration을 생략합니다. |
-| Console 검색 및 맥락 패널 | in-progress | `console/src/routes/conversation-search.tsx`; `console/src/user-context-client.ts`; `console/src/user-context-client.test.ts`; `console/src/panels.test.ts` | 패널, 클라이언트, 범위가 제한된 decoder 검사, 탐색 등록이 있습니다. 제출, 강조, 맥락 로드, fail-closed 렌더링을 함께 입증하는 집중 경로 상호 작용 테스트는 없습니다. |
+| Console 검색 및 맥락 패널 | implemented | `console/src/routes/conversation-search.tsx`; `console/src/routes/conversation-search.model.ts`; `console/src/routes/conversation-search.test.ts`; `console/src/user-context-client.test.ts`; focused route 테스트(`5 passed`) 및 Console typecheck | 패널은 bounded filter를 compile하고 안전한 text segment를 렌더링하며 exact context를 toggle합니다. Empty와 unavailable 상태를 구분하고 decoder 실패 시 합성 content 없이 fail closed합니다. |
 
 ### 구현 이력
 
@@ -164,6 +164,7 @@ API denial, Console 디코딩, 탐색 registration, responsive 타입 검사를 
 | 2026-08-14 | implemented | 범위가 제한된 JSON 측정값과 fail-closed 구성 및 오류 처리를 갖춘 headless conversation-search projection 재구축 명령을 추가한 다음 지원되는 로컬 데이터베이스에서 전체 PostgreSQL 검색 suite를 실행했습니다. | `current change`; `services/core-control-plane/src/fdai/delivery/conversation_search_rebuild_cli.py`; `services/core-control-plane/tests/delivery/test_conversation_search_rebuild_cli.py`; CLI 테스트 `6 passed`; live PostgreSQL 테스트 `3 passed`, skip 없음. | Operator projection을 materialize하고 Console 경로 coverage를 완료하며 governed runtime 근거를 보존합니다. |
 | 2026-08-14 | implemented | 차단된 재구축이 서버 소유 범위 없이 대기하지 않도록 concurrent reindex 전에 autocommit 재구축 session에 구성된 statement timeout을 적용했습니다. | `current change`; PostgreSQL 검색 어댑터와 focused timeout-order 및 live PostgreSQL 테스트 `4 passed`, skip 없음. | Operator 및 Console projection 작업과 governed runtime 근거는 남아 있습니다. |
 | 2026-08-14 | implemented | 인증된 principal 범위, bounded wire projection, SELECT-only database access 및 timing 생략과 함께 search, context, lineage를 Operator API 뒤에 materialize했습니다. | `current change`; Operator materializer, family adapter, PostgreSQL store, service-owned grant migration, focused API 테스트 `10 passed`, restricted-role live PostgreSQL 테스트 `1 passed`, skip 없음. | Focused Console interaction suite를 추가하고 governed cross-surface runtime 근거를 보존합니다. |
+| 2026-08-14 | implemented | Filter compilation, 안전한 highlight, exact context toggle, empty 및 unavailable 상태, 합성 content 없는 decoder 실패를 다루는 focused Console route model 및 interaction suite를 추가했습니다. | `current change`; Conversation Search route, route model, focused 테스트 `5 passed`, Console typecheck. | PostgreSQL-to-Operator-to-Console-to-narrator governed runtime 증적 하나를 보존합니다. |
 
 ### 남은 작업
 
@@ -174,7 +175,7 @@ API denial, Console 디코딩, 탐색 registration, responsive 타입 검사를 
 - [x] Operator API 뒤에 세 검색 projection을 materialize하고 server-resolved 범위, 범위 밖
   결과와 구분할 수 없는 404 응답, 범위가 제한된 payload, 내부 조회 시간 생략을 입증하는
   집중 API 테스트를 추가합니다.
-- [ ] Form filter, 안전한 강조, 맥락 로드, 빈 결과와 사용 불가 결과, 합성 콘텐츠 없는 decoder
+- [x] Form filter, 안전한 강조, 맥락 로드, 빈 결과와 사용 불가 결과, 합성 콘텐츠 없는 decoder
   실패를 다루는 집중 Console 경로 테스트를 추가합니다.
 - [ ] 어떤 범위 행도 `validated`로 올리기 전에 PostgreSQL, Operator API, Console, 서술기 경로에
   대한 governed runtime 근거를 기록합니다.
