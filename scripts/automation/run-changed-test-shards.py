@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -68,6 +69,7 @@ def _run_shard(
     environment: dict[str, str],
 ) -> tuple[ShardResult, str]:
     cache_dir = cache_root / f"shard-{index}"
+    basetemp = cache_root / f"tmp-shard-{index}"
     command = [
         "uv",
         "run",
@@ -79,6 +81,7 @@ def _run_shard(
         "--durations=25",
         "-o",
         f"cache_dir={cache_dir}",
+        f"--basetemp={basetemp}",
     ]
     shard_environment = environment.copy()
     if count > 1:
@@ -94,6 +97,8 @@ def _run_shard(
     except OSError:
         pass
 
+    shutil.rmtree(basetemp, ignore_errors=True)
+    basetemp.parent.mkdir(parents=True, exist_ok=True)
     started = time.monotonic()
     completed = subprocess.run(
         command,
