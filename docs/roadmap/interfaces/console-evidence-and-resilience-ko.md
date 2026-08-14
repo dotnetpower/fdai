@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: ee39eae91fe15034798bf81ea9ef90a644ff28d6
+translation_source_sha: 090960aa10805fd858aa450fd315c8e3dcc2e793
 translation_revised: 2026-08-14
 ---
 
@@ -40,6 +40,7 @@ translation_revised: 2026-08-14
 | 2026-08-14 | implemented | Browser authorization 또는 분석 동작을 추가하지 않고 opt-in Incident RCA PDF 다운로드 컨트롤을 추가했습니다. | `current change`; catalog 및 registry 가용성 확인, stale 다운로드 억제, service-local PDF 경로, focused Console 및 Operator 테스트입니다. | 하나의 exact-revision 인증된 roster-to-RCA-to-report/PDF 아티팩트를 보존해야 합니다. |
 | 2026-08-14 | implemented | Incident roster, RCA 근거, report 묶음, PDF 응답, no-RCA 상태 및 실제로 unavailable인 source 또는 plan context를 위한 exact-source Browser Entra runner를 추가했습니다. | `current change`; `incident-rca-report-assurance.spec.ts`, Console typecheck 및 focused Playwright discovery입니다. | Source commit의 중앙 receipt가 생긴 뒤에만 runner를 실행하고 redacted 아티팩트를 보존해야 합니다. |
 | 2026-08-14 | implemented | 같은 경로의 SPA 문서가 API 근거 대기를 충족할 수 없도록 Incident assurance runner를 JSON Operator 응답에 연결했습니다. | `current change`; `incident-rca-report-assurance.spec.ts`, Console typecheck 및 focused Playwright discovery입니다. | 이 runner revision을 중앙 검증한 뒤 다시 실행해 redacted 아티팩트를 보존해야 합니다. |
+| 2026-08-14 | implemented | 일치하지 않는 legacy 경로가 Overview로 fallback하지 않도록 Incident assurance runner를 canonical `/root-cause-analysis` 경로로 이동했습니다. | `current change`; `incident-rca-report-assurance.spec.ts`, Console typecheck 및 focused Playwright discovery입니다. | 이 runner revision을 중앙 검증한 뒤 다시 실행해 redacted 아티팩트를 보존해야 합니다. |
 
 ### 잔여 작업
 
