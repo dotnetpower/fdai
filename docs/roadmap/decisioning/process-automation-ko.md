@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: a430f230bf837031e886ba22ad48721c35c13bd2
+translation_source_sha: 35dbdd0cd54fe05ae362def6069758ea20105397
 translation_revised: 2026-08-14
 ---
 
@@ -161,7 +161,9 @@ anti_scope: >-                          # 선택적; 워크플로가 의도적�
 > **해결됨.** 분기는 이제 실패 시에만 실행됩니다. 어떤 스텝의 `on_failure` 대상으로
 > 지정된 스텝은 성공 경로에서 `fallback_not_triggered` 사유로 건너뛰며, 자신을
 > 가리키는 스텝이 실패했을 때만 실행됩니다. 명시적 재개(`start_step_id`)는 여전히
-> 대체 스텝으로 직접 진입할 수 있습니다.
+> 대체 스텝으로 직접 진입할 수 있으며, `runbook.terminal` 감사 행이 그 스텝을 기록해
+> 재정의가 드러나도록 합니다. 자기 참조, 역방향, 연쇄 대체는 조용히 건너뛰는 대신
+> 구성 시점에 거부됩니다.
 > [`runner.py`](../../../services/core-control-plane/src/fdai/core/runbook/runner.py) 와
 > [`test_runbook_runner.py`](../../../services/core-control-plane/tests/core/runbook/test_runbook_runner.py)
 > 를 보세요.

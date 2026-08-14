@@ -158,7 +158,9 @@ Field rules the loader enforces:
 > `on_failure` target is skipped on the success path with reason
 > `fallback_not_triggered` and executes only when its triggering step fails.
 > An explicit resume (`start_step_id`) may still re-enter directly at a
-> fallback step. See
+> fallback step, and the `runbook.terminal` audit row records that step so the
+> override is visible. A self-referential, backward, or chained fallback is
+> rejected at construction rather than silently skipped. See
 > [`runner.py`](../../../services/core-control-plane/src/fdai/core/runbook/runner.py)
 > and
 > [`test_runbook_runner.py`](../../../services/core-control-plane/tests/core/runbook/test_runbook_runner.py).

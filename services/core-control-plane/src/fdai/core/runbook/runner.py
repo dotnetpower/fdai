@@ -144,6 +144,7 @@ class RunbookRunner:
             "action_kind": "runbook.terminal",
             "mode": "shadow",
             "runbook_id": runbook.id,
+            "start_step_id": start_step_id,
             "terminal_outcome": terminal.value,
             "step_outcomes": [
                 {"step_id": r.step_id, "outcome": r.outcome.value, "reason": r.reason}

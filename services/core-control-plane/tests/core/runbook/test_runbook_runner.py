@@ -74,6 +74,19 @@ def test_backward_on_failure_is_rejected() -> None:
         )
 
 
+def test_chained_fallback_is_rejected_instead_of_silently_ignored() -> None:
+    # The runner does not chain fallbacks, so declaring one would be a no-op.
+    with pytest.raises(RunbookRunError, match="chained fallbacks"):
+        Runbook(
+            id="rb.chained",
+            steps=(
+                RunbookStep(id="main", action_type="ops.x", on_failure="rollback"),
+                RunbookStep(id="rollback", action_type="ops.rollback", on_failure="escalate"),
+                RunbookStep(id="escalate", action_type="ops.escalate"),
+            ),
+        )
+
+
 # ---------------------------------------------------------------------------
 # Runner behavior - happy path + failure + on_failure branch
 # ---------------------------------------------------------------------------
@@ -248,7 +261,17 @@ async def test_unrelated_failure_does_not_trigger_another_steps_fallback() -> No
 
 async def test_explicit_resume_at_a_fallback_step_still_executes_it() -> None:
     executor = _StubExecutor(outcomes={})
-    runner = RunbookRunner(executor=executor, audit_store=InMemoryStateStore())
+    audit = InMemoryStateStore()
+    runner = RunbookRunner(executor=executor, audit_store=audit)
     result = await runner.run(_branching_runbook(), start_step_id="rollback")
     assert result.terminal_outcome is RunbookStepOutcome.SUCCESS
     assert executor.calls == ["rollback"]
+    # The audit records that the fallback-only rule was overridden by a resume.
+    assert list(audit.audit_entries)[0]["entry"]["start_step_id"] == "rollback"
+
+
+async def test_ordinary_run_records_no_resume_override() -> None:
+    audit = InMemoryStateStore()
+    runner = RunbookRunner(executor=_StubExecutor(outcomes={}), audit_store=audit)
+    await runner.run(_branching_runbook())
+    assert list(audit.audit_entries)[0]["entry"]["start_step_id"] is None

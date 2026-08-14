@@ -34,6 +34,7 @@ policy (auto vs HIL) and initial policy approver"* from
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted an evidence-bounded implementation ledger without reconstructing earlier delivery history. | `current change`; current source and focused checks listed in the scope table; risk-focused checks passed 113 cases and readiness coordinator checks passed 33 cases. | Prove governance enforcement, add replay-complete metadata, and retain governed runtime evidence. |
 | 2026-08-14 | implemented | Serialized the exact feature vector and the risk-table catalog version into the authority audit payload so a historical decision replays against the revision that classified it. | `current change`; [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py); focused authority, evaluator, and control-loop authority checks passed 43 cases. | Prove governance enforcement and retain governed runtime receipts. |
+| 2026-08-14 | implemented | Added the remaining ceiling inputs - role, graph count, live-probe reading, and the two fail-safe flags - to the same audit payload so a replay reconstructs the six-axis ceiling without re-querying a probe or re-reading control-plane health. | `current change`; [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py); focused risk-gate, runbook, workflow, skills, and control-loop authority checks passed 438 cases. | Prove governance enforcement and retain governed runtime receipts. |
 
 ### Remaining work
 
@@ -269,9 +270,13 @@ The current control-loop audit entry records:
 - The `catalog_version` of the `risk-classification.yaml` revision that classified the action.
 - The `feature_vector` snapshot, including the dimensions that were unset, so an absent
   signal is distinguishable from a dropped one.
+- The `ceiling_inputs` block: resolved role, graph-derived affected count, the recorded
+  live-probe reading, its consecutive-failure streak, and the `system_degraded` and
+  `kill_switch_engaged` fail-safe flags.
 
-The last two make replay self-contained: a recorded payload is re-evaluated against the table
-version it names, so a later catalog change cannot silently rewrite a historical decision.
+The last three make replay self-contained: a recorded payload is re-evaluated against the table
+version it names and the inputs it carries, so a later catalog change cannot silently rewrite a
+historical decision and a replay never re-queries a live probe.
 
 A future retrospective can filter the audit log by matched rule id to identify
 over-triggered rules (e.g. "every prod change is HIL because everything hits Rule 5") and
