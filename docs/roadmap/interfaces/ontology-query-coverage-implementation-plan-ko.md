@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 7594478c5938355ad70194c8bb945b59524c41c9
+translation_source_sha: d2897e692d0dd4dff03c0a1ec2e5443f0018d97f
 translation_revised: 2026-08-14
 ---
 
@@ -150,7 +150,7 @@ translation_revised: 2026-08-14
 | Temporal, metric 및 근거 프로바이더 조립 | 구현됨 | `wire_semantic_query.py`, `bootstrap.py`, `bootstrap_bindings.py`, `test_wire_semantic_query.py`, `test_bootstrap_config.py`, 통과한 focused 조립 및 프로바이더 선택 테스트 16개 | 하나의 핸들러 맵이 검증기 가용성과 실행을 함께 제어합니다. 운영 환경은 상태 저장소 DSN에서 PostgreSQL 이력을 연결하고 검토된 레지스트리와 no-op이 아닌 프로바이더가 모두 있을 때만 metric/evidence 핸들러를 연결합니다. |
 | 통제된 운영 보증 | 진행 중 | [온톨로지 조회 무작위 보증](ontology-query-randomized-assurance-ko.md)과 아래의 검증된 기준선 공백 표 | 로컬 검사는 안전하게 실패하는 조립을 입증하지만 운영 준비 상태를 입증하는 통제된 실제 서비스 간 증적은 없습니다. |
 | 타입 기반 Console 보증 실행기 | 구현됨 | `console-routes.spec.ts`, `ontology-query-assurance.ts`, `ontology-query-assurance.spec.ts`, focused Console 검사 | 한 실행기는 게시, Core 처리, exact projection 읽기 및 인증된 증적 렌더링을 검증합니다. Seed 기반 100-turn 실행기는 타입 전용 oracle로 영어 50개와 한국어 50개 prompt를 다룹니다. 보존 artifact가 통과하기 전에는 어느 구현도 실제 운영 근거가 아닙니다. |
-| 인시던트 의미 근거와 답변 | 검증됨 | `core/incident/ontology_projection.py`, `core/ontology_platform/incident_queries.py`, `semantic_turn_processor.py`, `semantic_turn_presentation.py`, `semantic-answer-presentation.spec.ts`, `.fdai/live-validation/semantic-answer-presentation-244d003ef77bd37dc0041f0b6a29634cdbaacb91-post-validation/` | Canonical 인시던트 상태를 ObjectSet으로 조회할 수 있고 `query.incident_evidence`는 서로 다른 canonical 인시던트 신원과 감사 상관관계 신원을 보존합니다. 중앙 검증된 인증 한국어 Browser 산출물은 검증된 기록, 명시적인 인과 및 근거 제한, 접힌 exact 출력, 읽기 전용 근거 수집, 재생된 요청 신원, 재생성 전체의 `execution_authority=false`를 입증합니다. 이 범위가 제한된 검증은 더 넓은 이중 언어 무작위 집단을 대체하지 않습니다. |
+| 인시던트 의미 근거 | 진행 중 | `core/incident/ontology_projection.py`, `core/ontology_platform/incident_queries.py`, focused 인시던트 및 의미 조립 검사 (`63 passed`) | Canonical 인시던트 상태를 ObjectSet으로 조회할 수 있고 `query.incident_evidence`는 서로 다른 canonical 인시던트 신원과 감사 상관관계 신원을 보존하면서 감사 기반 프로파일, 상관 기록, 명시적 공백 및 원인 주장 권한이 없는 결과를 반환합니다. A3 답변 계약과 인증된 Console 근거는 아직 남아 있습니다. |
 
 ### 구현 이력
 
@@ -171,13 +171,14 @@ translation_revised: 2026-08-14
 | 2026-08-14 | 구현됨 | 지역화되고 읽기 쉬운 내용, 재생 가능한 관찰 진행 상황, 접힌 exact 기술 출력, 명시적인 인과 및 근거 공백, 기본 다음 단계인 읽기 전용 근거 수집, 재생성에서 유지되는 검증된 인시던트 정체성을 포함하도록 인시던트 답변 변환을 완료했습니다. | `current change`, Core 집중 검사 36개, Operator 46개, 교차 서비스 1개, Console 74개와 Console 타입 검사 및 작업 범위 Ruff 통과, 보존하지 않은 인증된 Browser Entra 관찰에서 재생성 뒤에도 동일한 검증된 감사 기록 3건 결과를 확인했습니다. | 이 범위를 `검증됨`으로 승격하기 전에 통제된 request-to-Console 근거와 한국어 동등 근거를 보존합니다. |
 | 2026-08-14 | 구현됨 | 원래의 범위가 제한된 history와 검증된 요청 신원을 보존하고, 요청 신원을 Operator 멱등성에 결속하고, 정본 locale을 전달하고, 반복되는 Azure throttling 또는 schema-invalid 후보를 adapter budget 안에서 재시도해 의미 재생성을 재시도에 안정적으로 만들었습니다. | `current change`, Console stream, normalizer, session 및 event 집중 검사 128개와 Azure 의미 계획 adapter 검사 5개가 통과했고 Console 타입 검사와 작업 범위 Ruff가 통과했습니다. 보존된 인증 한국어 Browser working-tree 실행은 두 턴 모두 통과했고 Core 계획 수명 주기 5단계가 한 번만 관찰됐습니다. | 범위가 제한된 변경을 커밋하고 중앙 검증한 뒤 exact-source 인증 Browser 산출물을 보존해야 인시던트 답변 행을 `검증됨`으로 승격할 수 있습니다. |
 | 2026-08-14 | 검증됨 | 중앙 검증 뒤 범위가 제한된 인증 인시던트 답변 근거 공백을 닫았습니다. | Source revision `7f2b740b1` 및 `244d003ef`에 중앙 receipt가 있고, 보존된 post-validation 한국어 Browser 산출물은 재생성 전체에서 일치하는 요청, 인시던트 바인딩 및 기술 출력 digest, 관찰된 단계 5개, 실행 권한 없음을 기록합니다. | 전체 request-to-Console 실행기와 이중 언어 무작위 집단은 운영 보증의 열린 작업으로 유지합니다. |
+| 2026-08-14 | in-progress | 현재 bounded action-draft 및 browser-readiness 변경에 새 governed artifact가 필요해 incident assurance를 다시 열었습니다. | `current change`, focused semantic, Console 및 browser-assurance 검사 | `validated`를 복원하기 전에 replacement request-to-Console 및 bilingual randomized evidence를 보존합니다. |
 
 ### 남은 작업
 
 - [ ] Operator 게시, Core 처리, exact Operator 변환 결과 읽기 및 인증된 Console 렌더링을 포함하는 통제된 요청-Console 증적 하나를 기록합니다. 이중 언어 무작위 보증 집단을 다시 실행하고 통과한 두 근거 기록을 연결합니다.
 - [x] Canonical `Incident` 인스턴스를 현재 온톨로지 저장소에 projection해 bounded `ObjectSet`으로 선택할 수 있게 했습니다.
 - [x] 명시적 공백과 원인 주장 권한이 없는 correlation-scoped 감사 근거 위에 읽기 전용 `query.incident_evidence` FunctionType을 등록했습니다.
-- [x] 인시던트 답변을 프로파일, 상관 근거, 명시적 공백 및 읽기 전용 근거 수집 다음 단계로 제한하면서 `execution_authority=false`와 exact 기술 출력을 보존합니다.
+- [ ] 인시던트 답변을 프로파일, 상관 근거 및 명시적 공백으로 제한하고 다음 안전 단계를 후보 `SemanticOperation.ACTION_DRAFT`로만 표현합니다. 인증된 Console 증적도 보존합니다.
 - [x] Console에서 Operator를 거쳐 Core까지 바인딩된 대화 맥락을 추가적인 타입 요청 상태로 전달합니다.
 - [x] 영속 의미 인덱스, 과거 토폴로지 읽기 경로, metric-series 및 evidence-join 프로바이더를 타입이 지정된 사용 불가 동작과 focused 검사와 함께 조립합니다.
 

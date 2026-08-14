@@ -67,6 +67,15 @@ from fdai.core.executor.tool_call import (
     ToolCallExecutionResult,
     ToolCallShadowExecutor,
 )
+from fdai.core.hil_resume.approval_records import (
+    approval_expired as _approval_expired,
+)
+from fdai.core.hil_resume.approval_records import (
+    on_call_detail as _on_call_detail,
+)
+from fdai.core.hil_resume.approval_records import (
+    park_key as _park_key,
+)
 from fdai.core.hil_resume.delegation import (
     DelegationMode,
     DelegationRefusal,
@@ -100,45 +109,8 @@ from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger(__name__)
 
-_PARK_PREFIX = "hil_park:"
 _STATUS_PENDING = "pending"
 _STATUS_RESOLVED = "resolved"
-
-
-def _park_key(approval_id: str) -> str:
-    return f"{_PARK_PREFIX}{approval_id}"
-
-
-def _approval_expired(parked: Mapping[str, Any], *, now: datetime) -> bool:
-    context = parked.get("approval_context")
-    if not isinstance(context, Mapping):
-        return True
-    raw = context.get("expires_at")
-    if not isinstance(raw, str) or not raw:
-        return True
-    try:
-        expires_at = datetime.fromisoformat(raw.replace("Z", "+00:00"))
-        return expires_at.tzinfo is None or expires_at <= now
-    except ValueError:
-        return True
-
-
-def _on_call_detail(resolution: OnCallResolution | None) -> dict[str, Any] | None:
-    """Serialize an on-call resolution for the park record + audit entry.
-
-    ``None`` when no on-call resolver is configured (the coordinator routes by
-    role exactly as before). Otherwise a flat, secret-free dict recording who
-    was on shift - or why the resolver fell back to role-based routing.
-    """
-    if resolution is None:
-        return None
-    return {
-        "rotation": resolution.rotation,
-        "primary_oid": resolution.primary_oid,
-        "secondary_oid": resolution.secondary_oid,
-        "from_schedule": resolution.from_schedule,
-        "fallback_reason": resolution.fallback_reason,
-    }
 
 
 class RequestOutcome(StrEnum):

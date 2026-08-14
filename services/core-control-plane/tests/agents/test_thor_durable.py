@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import asyncio
+from copy import deepcopy
+from unittest.mock import AsyncMock
 
+import pytest
 from fdai.agents._framework.provider_adapters import StateStoreActionRunStore
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents.thor import ActionRun, ActionRunState, Thor
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+from tests.core.operational_planning.test_kinetic_proposal import _proposal
 
 _RAW_TOPIC = "fdai.events"
 
@@ -32,6 +37,7 @@ class _FakeActionRunStore:
 
 
 def test_action_run_dict_round_trip() -> None:
+    proposal = _proposal()
     run = ActionRun(
         correlation_id="c",
         action_type="ops.restart-service",
@@ -46,6 +52,7 @@ def test_action_run_dict_round_trip() -> None:
             "step_id": "restart",
             "proposal_ref": "proposal-1",
         },
+        kinetic_proposal=proposal.model_dump(mode="json"),
     )
     run.transition(ActionRunState.SUCCEEDED)
     back = ActionRun.from_dict(run.to_dict())
@@ -56,6 +63,181 @@ def test_action_run_dict_round_trip() -> None:
     assert back.outcome == "x"
     assert back.idempotency_key == "action-1"
     assert back.workflow_action == run.workflow_action
+    assert back.kinetic_proposal == run.kinetic_proposal
+
+
+def _decision_case() -> dict[str, object]:
+    proposal = _proposal()
+    return {
+        "case_id": "case-1",
+        "process_id": proposal.process_id,
+        "correlation_id": proposal.correlation_id,
+        "context_snapshot_id": "context-1",
+        "created_at": proposal.created_at.isoformat(),
+        "selected_option_id": proposal.selected_option_id,
+        "protected_objective_ids": ["objective-1"],
+        "active_constraint_ids": [],
+        "no_action_effects": [{"metric": "replicas", "value": 2}],
+        "options": [
+            {
+                "option_id": proposal.selected_option_id,
+                "action_type": proposal.plan.action_type_ref.name,
+                "effects": [{"metric": "replicas", "value": 3}],
+            }
+        ],
+        "evidence_refs": ["evidence-1"],
+        "operational_plan": {
+            "plan_id": proposal.operational_plan_id,
+            "complete": True,
+        },
+    }
+
+
+def _verdict() -> dict[str, object]:
+    proposal = _proposal()
+    return {
+        "correlation_id": proposal.correlation_id,
+        "action_type": proposal.plan.action_type_ref.name,
+        "risk_verdict": "auto",
+        "resource_id": proposal.target_resource_ref,
+        "params": proposal.arguments(),
+        "quorum_required": 2,
+        "decision_case": _decision_case(),
+        "kinetic_proposal": proposal.model_dump(mode="json"),
+    }
+
+
+def test_thor_preserves_valid_kinetic_proposal_without_raising_authority() -> None:
+    executor = AsyncMock(return_value=True)
+    thor = Thor(executor=executor, shadow_by_default=True)
+
+    run = asyncio.run(thor.dispatch_verdict(_verdict()))
+
+    assert run.verdict == "auto"
+    assert run.quorum_required == 2
+    assert run.shadow_mode is True
+    assert run.kinetic_proposal == _proposal().model_dump(mode="json")
+    executor.assert_not_awaited()
+    assert thor.behavior_snapshot()["kinetic_proposal:validated"] == 1
+
+
+def test_thor_persists_valid_hil_kinetic_proposal() -> None:
+    store = _FakeActionRunStore()
+    thor = Thor(state_store=store)
+    verdict = _verdict()
+    verdict["risk_verdict"] = "hil"
+
+    run = asyncio.run(thor.dispatch_verdict(verdict))
+
+    assert run.state is ActionRunState.HIL_PENDING
+    assert store.saved[run.correlation_id].kinetic_proposal == run.kinetic_proposal
+
+
+def test_durable_action_run_rejects_corrupt_kinetic_proposal() -> None:
+    run = ActionRun(
+        correlation_id="correlation-1",
+        action_type="ops.scale",
+        resource_id="workload-a",
+        state=ActionRunState.HIL_PENDING,
+        verdict="hil",
+        kinetic_proposal=_proposal().model_dump(mode="json"),
+    )
+    raw = run.to_dict()
+    assert isinstance(raw["kinetic_proposal"], dict)
+    raw["kinetic_proposal"]["correlation_id"] = "substituted"
+
+    with pytest.raises(ValueError, match="durable ActionRun kinetic proposal"):
+        ActionRun.from_dict(raw)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (
+        ("correlation_id", "correlation-substituted"),
+        ("action_type", "ops.restart-service"),
+        ("resource_id", "workload-substituted"),
+        ("params", {"replica_count": 99}),
+    ),
+)
+def test_thor_denies_substituted_kinetic_verdict(field: str, value: object) -> None:
+    executor = AsyncMock(return_value=True)
+    thor = Thor(executor=executor)
+    verdict = _verdict()
+    verdict[field] = value
+
+    run = asyncio.run(thor.dispatch_verdict(verdict))
+
+    assert run.state is ActionRunState.DENY_DROPPED
+    assert run.verdict == "deny"
+    assert run.kinetic_proposal is None
+    executor.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    ("path", "value"),
+    (
+        (("process_id",), "process-substituted"),
+        (("selected_option_id",), "option-substituted"),
+        (("correlation_id",), "correlation-substituted"),
+        (("operational_plan", "plan_id"), "plan-substituted"),
+        (("operational_plan", "complete"), False),
+    ),
+)
+def test_thor_denies_substituted_planning_lineage(path: tuple[str, ...], value: object) -> None:
+    executor = AsyncMock(return_value=True)
+    thor = Thor(executor=executor)
+    verdict = _verdict()
+    decision_case = deepcopy(verdict["decision_case"])
+    assert isinstance(decision_case, dict)
+    cursor = decision_case
+    for key in path[:-1]:
+        nested = cursor[key]
+        assert isinstance(nested, dict)
+        cursor = nested
+    cursor[path[-1]] = value
+    verdict["decision_case"] = decision_case
+
+    run = asyncio.run(thor.dispatch_verdict(verdict))
+
+    assert run.state is ActionRunState.DENY_DROPPED
+    assert run.kinetic_proposal is None
+    executor.assert_not_awaited()
+
+
+def test_thor_denies_malformed_kinetic_proposal() -> None:
+    executor = AsyncMock(return_value=True)
+    thor = Thor(executor=executor)
+    verdict = _verdict()
+    proposal = deepcopy(verdict["kinetic_proposal"])
+    assert isinstance(proposal, dict)
+    proposal["mode"] = "enforce"
+    verdict["kinetic_proposal"] = proposal
+
+    run = asyncio.run(thor.dispatch_verdict(verdict))
+
+    assert run.state is ActionRunState.DENY_DROPPED
+    assert run.kinetic_proposal is None
+    executor.assert_not_awaited()
+
+
+def test_legacy_verdict_without_kinetic_proposal_is_unchanged() -> None:
+    executor = AsyncMock(return_value=True)
+    thor = Thor(executor=executor)
+
+    run = asyncio.run(
+        thor.dispatch_verdict(
+            {
+                "correlation_id": "legacy-1",
+                "action_type": "ops.restart-service",
+                "risk_verdict": "auto",
+                "resource_id": "vm-1",
+            }
+        )
+    )
+
+    assert run.state is ActionRunState.SUCCEEDED
+    assert run.kinetic_proposal is None
+    executor.assert_awaited_once()
 
 
 def test_thor_deletes_terminal_run_from_store() -> None:

@@ -20,6 +20,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, Protocol, runtime_checkable
 
+from pydantic import ValidationError
+
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.introspection import (
@@ -28,6 +30,7 @@ from fdai.agents._framework.introspection import (
     mentioned,
 )
 from fdai.agents._framework.pantheon import _THOR
+from fdai.core.operational_planning import KineticActionProposal
 
 
 class ActionRunState(StrEnum):
@@ -78,6 +81,7 @@ class ActionRun:
     rollback_ref: str | None = None
     decision_case: dict[str, Any] | None = None
     workflow_action: dict[str, str] | None = None
+    kinetic_proposal: dict[str, Any] | None = None
     history: list[ActionRunState] = field(default_factory=list)
 
     def transition(self, new_state: ActionRunState) -> None:
@@ -102,6 +106,7 @@ class ActionRun:
             "rollback_ref": self.rollback_ref,
             "decision_case": self.decision_case,
             "workflow_action": deepcopy(self.workflow_action),
+            "kinetic_proposal": deepcopy(self.kinetic_proposal),
             "history": [s.value for s in self.history],
         }
 
@@ -123,6 +128,7 @@ class ActionRun:
             rollback_ref=data.get("rollback_ref"),
             decision_case=_bounded_decision_case(data.get("decision_case")),
             workflow_action=_bounded_workflow_action(data.get("workflow_action")),
+            kinetic_proposal=_durable_kinetic_proposal(data.get("kinetic_proposal")),
         )
         run.history = [ActionRunState(s) for s in data.get("history", [])]
         return run
@@ -248,6 +254,10 @@ class Thor(Agent):
         resource_id = verdict.get("resource_id")
         raw_decision_case = verdict.get("decision_case")
         decision_case = _bounded_decision_case(raw_decision_case)
+        raw_params = verdict.get("params")
+        params = deepcopy(dict(raw_params)) if isinstance(raw_params, Mapping) else {}
+        raw_kinetic_proposal = verdict.get("kinetic_proposal")
+        kinetic_proposal = _kinetic_proposal(raw_kinetic_proposal)
         semantic_arbitration = verdict.get("reason") in {
             "arbitration_resolved",
             "arbitration_unresolved",
@@ -257,9 +267,29 @@ class Thor(Agent):
             or not action_type
             or not _selected_action_matches(decision_case, action_type)
         )
-        if (semantic_arbitration and decision_case is None) or invalid_decision_case:
+        invalid_kinetic_proposal = raw_kinetic_proposal is not None and (
+            kinetic_proposal is None
+            or not _kinetic_proposal_matches(
+                kinetic_proposal,
+                correlation_id=correlation,
+                action_type=action_type,
+                resource_id=resource_id,
+                params=params,
+                decision_case=decision_case,
+            )
+        )
+        if (
+            (semantic_arbitration and decision_case is None)
+            or invalid_decision_case
+            or invalid_kinetic_proposal
+        ):
             risk_verdict = "deny"
             action_type = ""
+            kinetic_proposal = None
+            if invalid_kinetic_proposal:
+                self.record_behavior("kinetic_proposal:invalid")
+        elif kinetic_proposal is not None:
+            self.record_behavior("kinetic_proposal:validated")
 
         # Idempotency: at-least-once delivery means the same verdict can arrive
         # twice. Keying the run by correlation is not enough - a re-delivery
@@ -292,9 +322,6 @@ class Thor(Agent):
         # action execute with no approver; Thor MUST NOT hard-code 1 and drop
         # the judge's two-approver requirement.
         quorum_required = max(1, int(verdict.get("quorum_required", 1)))
-        raw_params = verdict.get("params")
-        params = deepcopy(dict(raw_params)) if isinstance(raw_params, Mapping) else {}
-
         run = ActionRun(
             correlation_id=correlation,
             action_type=action_type,
@@ -309,6 +336,9 @@ class Thor(Agent):
             rollback_contract=str(verdict.get("rollback_contract", "state_forward_only")),
             decision_case=decision_case,
             workflow_action=_bounded_workflow_action(verdict.get("workflow_action")),
+            kinetic_proposal=(
+                kinetic_proposal.model_dump(mode="json") if kinetic_proposal is not None else None
+            ),
         )
         self.action_runs[correlation] = run
         if resource_id:
@@ -488,6 +518,7 @@ class Thor(Agent):
             "rollback_ref": run.rollback_ref,
             "decision_case": run.decision_case,
             "workflow_action": deepcopy(run.workflow_action),
+            "kinetic_proposal": deepcopy(run.kinetic_proposal),
         }
         await self.bus.publish("Thor", "object.action-run", payload)
 
@@ -600,6 +631,50 @@ def _bounded_workflow_action(raw: object) -> dict[str, str] | None:
     if any(not item or len(item) > 512 for item in bounded.values()):
         return None
     return bounded
+
+
+def _kinetic_proposal(raw: object) -> KineticActionProposal | None:
+    if raw is None:
+        return None
+    try:
+        return KineticActionProposal.model_validate(raw)
+    except (TypeError, ValueError, ValidationError):
+        return None
+
+
+def _durable_kinetic_proposal(raw: object) -> dict[str, Any] | None:
+    proposal = _kinetic_proposal(raw)
+    if raw is not None and proposal is None:
+        raise ValueError("durable ActionRun kinetic proposal is invalid")
+    return proposal.model_dump(mode="json") if proposal is not None else None
+
+
+def _kinetic_proposal_matches(
+    proposal: KineticActionProposal,
+    *,
+    correlation_id: str,
+    action_type: str,
+    resource_id: object,
+    params: Mapping[str, Any],
+    decision_case: Mapping[str, Any] | None,
+) -> bool:
+    if (
+        proposal.correlation_id != correlation_id
+        or proposal.plan.action_type_ref.name != action_type
+        or proposal.target_resource_ref != str(resource_id or "")
+        or proposal.arguments() != dict(params)
+        or decision_case is None
+    ):
+        return False
+    operational_plan = decision_case.get("operational_plan")
+    return bool(
+        decision_case.get("correlation_id") == proposal.correlation_id
+        and decision_case.get("process_id") == proposal.process_id
+        and decision_case.get("selected_option_id") == proposal.selected_option_id
+        and isinstance(operational_plan, Mapping)
+        and operational_plan.get("complete") is True
+        and operational_plan.get("plan_id") == proposal.operational_plan_id
+    )
 
 
 def _selected_action_matches(decision_case: Mapping[str, Any], action_type: str) -> bool:

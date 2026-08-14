@@ -1,6 +1,6 @@
 ---
 translation_of: operational-planning.md
-translation_source_sha: 264bcc577717aea70edd1741bf60cdb0cd4a6bb1
+translation_source_sha: 82797adfbd8fb9bfa669bf0288e9d56451bb463f
 translation_revised: 2026-08-14
 ---
 # 운영 계획
@@ -44,6 +44,7 @@ DecisionCase, ActionOption, 타입이 지정된 온톨로지 함수, Assurance T
 |------|------|------|------|
 | P1-P7 operational-planning core | implemented | `services/core-control-plane/src/fdai/core/operational_planning/` 및 focused planning test | 계획은 A0로 유지되고 기존 Process 및 권한 경로를 재사용합니다. |
 | Production graph evidence 및 scale-out executor binding | implemented | `services/core-control-plane/src/fdai/delivery/azure/` 및 focused composition/delivery test | Code와 test만으로는 live outcome evidence가 되지 않습니다. |
+| Argument-bound kinetic proposal contract 및 Thor lineage | implemented | `services/core-control-plane/src/fdai/core/operational_planning/kinetic_proposal.py`, `services/core-control-plane/src/fdai/agents/thor.py` 및 focused contract/agent test | Optional A0 proposal은 verdict, quorum, mode 또는 authority를 바꾸지 않고 기존 exact V2 plan을 보존합니다. |
 | Exact kinetic handoff 및 independent effect-observation runtime binding | in-progress | `services/core-control-plane/src/fdai/delivery/reconciliation_artifacts.py`, `config/ohl-scale-out-evidence.json` 및 focused artifact/manifest test | Immutable store는 존재하지만 pre-dispatch writer와 Heimdall 소유 verified observer는 아직 연결되지 않았습니다. |
 | Independent-service HIL binding | in-progress | `config/ohl-scale-out-evidence.json` 및 배포된 Core/Operator environment contract | Approval이 action을 park하고 resolve하기 전에 service root가 HIL channel 및 callback signing secret을 bind해야 합니다. |
 | OHL Lane F live evidence | in-progress | `docs/runbooks/ohl-scale-out-evidence-ko.md` | Protected execution, independent closure, sample 100개 및 14일 recurrence window가 열려 있습니다. |
@@ -54,9 +55,12 @@ DecisionCase, ActionOption, 타입이 지정된 온톨로지 함수, Assurance T
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 independent-service HIL binding residual을 드러냈습니다. | current change, `services/core-control-plane/tests/scenarios/operational-planning/test_manifest.py` 결과 7 passed | 두 service root에 HIL을 bind하고 exact revision을 배포한 뒤 live evidence campaign을 완료합니다. |
 | 2026-08-14 | in-progress | 누락된 exact-plan writer와 verified independent effect observer를 별도 Lane F runtime residual로 드러냈습니다. | `current change`, Lane F contract, runbook gate, artifact-store test 및 manifest test | Plan을 reconstruct하거나 executor/provider receipt로 대체하지 않고 두 source를 모두 연결합니다. |
+| 2026-08-14 | implemented | Authority-free argument-bound kinetic proposal contract를 추가하고 valid proposal을 Thor의 durable ActionRun까지 보존했습니다. | `current change`, focused kinetic-proposal, Thor dispatch, persistence 및 role-invariant 검사 | Runtime residual을 제거하기 전에 Forseti 소유 producer와 Core pre-dispatch consumer를 추가합니다. |
 
 ### 남은 작업
 
+- [ ] Complete operational plan에서만 `KineticActionProposal`을 생성하고 dispatch 전에 Core typed
+  ingress에서 소비하며 proposal이 없을 때 legacy Action이 변경되지 않음을 입증합니다.
 - [ ] Provider dispatch 전에 기존 exact V2 plan의 kinetic receipt를 저장하고 Heimdall 소유 verified
   independent effect observer를 연결한 뒤 focused substitution 및 replay test를 보존합니다.
 - [ ] Core HIL channel 및 Operator callback signing secret을 bind하고 검증해 서로 다른 human
@@ -227,6 +231,21 @@ Action에서 plan을 reconstruct하면 안 됩니다. Dispatch 후에는 Heimdal
 effect observation을 authenticate해야 합니다. Executor 또는 provider receipt는 dispatch evidence이며
 observed outcome을 대체할 수 없습니다. Immutable store는 구현되었지만 이 두 runtime binding은
 release blocker로 남아 있습니다.
+
+### Argument-bound kinetic proposal
+
+`KineticActionProposal`은 complete operational plan과 기존 typed execution path 사이의 authority-free
+bridge입니다. 기존 semantic V2 `MutationPlan` 하나, exact raw Action argument와 digest, 대상 하나,
+Process, plan, selection 및 correlation lineage를 content-addressing합니다. Proposal timestamp는 plan보다
+앞설 수 없고 canonical body에는 hard byte ceiling이 있습니다. Approval, mode, promotion 또는 execution
+authority를 포함하지 않습니다.
+
+Forseti는 이 optional proposal을 기존 `object.verdict` 안에서만 전달할 수 있습니다. Thor는 correlation,
+selected ActionType, target, argument 및 DecisionCase lineage가 exact한지 검증한 뒤 durable `ActionRun`에
+보존합니다. Malformed 또는 substituted proposal은 실행 전에 verdict를 deny로 바꿉니다. Proposal이
+없으면 legacy path는 변경되지 않으며 V2 plan을 만들지 않습니다. 후속 delivery 소유 producer와 Core
+consumer가 event bus를 통해 runtime gap을 닫아야 하며 contract 존재만으로는 production binding
+evidence가 되지 않습니다.
 
 Risk evaluation은 현재 정책, 승격 상태, 역할, 환경, 영향, 승인, 대상 개정 번호,
 일곱 safeguard를 다시 검사합니다. 계획 수립 근거는 결과 권한을 유지하거나 낮출 수만

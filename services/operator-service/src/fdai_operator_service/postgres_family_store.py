@@ -8,6 +8,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Final
+from uuid import uuid4
 
 import psycopg
 from psycopg.rows import dict_row
@@ -114,6 +115,17 @@ class StoredProposal:
     accepted_at: str
     duplicate: bool
     record: Mapping[str, object]
+
+
+@dataclass(frozen=True, slots=True)
+class ActionProposalClaim:
+    """One lease-fenced generic Operator proposal awaiting Core publication."""
+
+    key: str
+    claim_id: str
+    principal_id: str
+    payload: Mapping[str, object]
+    attempt: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -314,6 +326,171 @@ class PostgresFamilyStore:
             raise PostgresFamilyStoreUnavailable(
                 "authoritative semantic turn outbox is unavailable"
             ) from exc
+
+    async def claim_action_proposal(
+        self,
+        *,
+        worker_id: str,
+        lease_seconds: int,
+    ) -> ActionProposalClaim | None:
+        """Lease the oldest pending or expired generic proposal for publication."""
+        _bounded_component("worker_id", worker_id)
+        if not 1 <= lease_seconds <= 300:
+            raise ValueError("lease_seconds MUST be in [1, 300]")
+        claim_id = str(uuid4())
+        rows = await self._fetch_all(
+            """
+            WITH candidate AS (
+                SELECT key
+                  FROM state_kv
+                 WHERE key LIKE 'operator-proposal:%'
+                                     AND value ->> 'family' = 'conversation'
+                                     AND value ->> 'operation' = 'chat.action.confirm'
+                   AND (
+                        value ->> 'dispatch_status' = 'pending'
+                        OR (
+                            value ->> 'dispatch_status' = 'claimed'
+                            AND (value ->> 'claim_expires_at')::timestamptz <= NOW()
+                        )
+                   )
+                 ORDER BY COALESCE((value ->> 'attempt')::integer, 0),
+                          value ->> 'accepted_at', key
+                 FOR UPDATE SKIP LOCKED
+                 LIMIT 1
+            )
+            UPDATE state_kv AS proposal
+               SET value = proposal.value || jsonb_build_object(
+                   'dispatch_status', 'claimed',
+                   'claim_id', %(claim_id)s,
+                   'claim_worker_id', %(worker_id)s,
+                   'claim_expires_at', NOW() + make_interval(secs => %(lease_seconds)s),
+                   'attempt', COALESCE((proposal.value ->> 'attempt')::integer, 0) + 1
+               ),
+                   updated_at = NOW()
+              FROM candidate
+             WHERE proposal.key = candidate.key
+         RETURNING proposal.key, proposal.value
+            """,
+            {
+                "claim_id": claim_id,
+                "worker_id": worker_id,
+                "lease_seconds": lease_seconds,
+            },
+        )
+        if not rows:
+            return None
+        key = rows[0].get("key")
+        value = _json_object(rows[0].get("value"), label="action proposal claim")
+        principal_id = value.get("principal_id")
+        payload = value.get("payload")
+        attempt = value.get("attempt")
+        if (
+            not isinstance(key, str)
+            or not isinstance(principal_id, str)
+            or not isinstance(payload, Mapping)
+            or not isinstance(attempt, int)
+            or isinstance(attempt, bool)
+        ):
+            raise PostgresFamilyStoreUnavailable("action proposal claim is malformed")
+        return ActionProposalClaim(
+            key=key,
+            claim_id=str(value.get("claim_id") or claim_id),
+            principal_id=principal_id,
+            payload=dict(payload),
+            attempt=attempt,
+        )
+
+    async def mark_action_proposal_published(self, *, key: str, claim_id: str) -> bool:
+        """Close one active proposal claim after broker acceptance."""
+        rows = await self._fetch_all(
+            """
+            UPDATE state_kv
+               SET value = value || jsonb_build_object(
+                   'dispatch_status', %(state)s::text,
+                   'published_at', NOW()
+               ),
+                   updated_at = NOW()
+             WHERE key = %(key)s
+               AND value ->> 'dispatch_status' = 'claimed'
+               AND value ->> 'claim_id' = %(claim_id)s
+         RETURNING value
+            """,
+            {"state": "published", "key": key, "claim_id": claim_id},
+        )
+        return bool(rows)
+
+    async def release_action_proposal_claim(self, *, key: str, claim_id: str) -> bool:
+        """Release one active proposal claim for bounded retry."""
+        rows = await self._fetch_all(
+            """
+            UPDATE state_kv
+               SET value = (value - 'claim_id' - 'claim_worker_id' - 'claim_expires_at')
+                           || jsonb_build_object('dispatch_status', 'pending'),
+                   updated_at = NOW()
+             WHERE key = %(key)s
+               AND value ->> 'dispatch_status' = 'claimed'
+               AND value ->> 'claim_id' = %(claim_id)s
+         RETURNING value
+            """,
+            {"key": key, "claim_id": claim_id},
+        )
+        return bool(rows)
+
+    async def mark_action_proposal_rejected(
+        self,
+        *,
+        key: str,
+        claim_id: str,
+        reason_code: str,
+    ) -> bool:
+        """Close one invalid active claim without transport retry."""
+        rows = await self._fetch_all(
+            """
+            UPDATE state_kv
+               SET value = value || jsonb_build_object(
+                   'dispatch_status', 'rejected',
+                   'rejection_reason', %(reason_code)s
+               ),
+                   updated_at = NOW()
+             WHERE key = %(key)s
+               AND value ->> 'dispatch_status' = 'claimed'
+               AND value ->> 'claim_id' = %(claim_id)s
+         RETURNING value
+            """,
+            {"reason_code": reason_code, "key": key, "claim_id": claim_id},
+        )
+        return bool(rows)
+
+    async def read_semantic_action_draft_source(
+        self,
+        *,
+        principal_id: str,
+        request_id: str,
+        projection_id: str,
+    ) -> dict[str, object] | None:
+        """Read one exact principal-owned semantic action-draft projection."""
+        rows = await self._fetch_all(
+            """
+                        SELECT result.value -> 'data' AS data
+              FROM state_kv AS request
+              JOIN state_kv AS result
+                ON result.value ->> 'request_id' = request.value ->> 'request_id'
+                         WHERE request.value ->> 'kind' = 'operator.semantic_turn'
+                             AND result.value ->> 'kind' = 'operator.semantic_result'
+                             AND request.value ->> 'principal_id' = %(principal_id)s
+                             AND result.value ->> 'principal_id' = %(principal_id)s
+               AND result.value ->> 'request_id' = %(request_id)s
+               AND result.value ->> 'projection_id' = %(projection_id)s
+                             AND result.value #>> '{data,status}' = 'action_draft'
+             LIMIT 1
+            """,
+            {
+                "principal_id": principal_id,
+                "request_id": request_id,
+                "projection_id": projection_id,
+            },
+        )
+        return None if not rows else _json_object(rows[0].get("data"), label="action draft")
 
     async def claim_semantic_turn(
         self,

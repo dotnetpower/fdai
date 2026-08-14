@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import asdict, replace
 
 import pytest
 from fdai.core.conversation.coverage_gate import (
@@ -368,6 +368,8 @@ def test_coverage_receipt_rejects_forged_identity_counts_and_readiness() -> None
 
     with pytest.raises(TypeError):
         receipt.answer_counts_by_cohort["forged"] = 1  # type: ignore[index]
+    assert len(receipt.answer_counts_by_cohort) == 1
+    assert asdict(receipt)["answer_counts_by_cohort"] == {"exact-en": 1}
 
     with pytest.raises(ValueError, match="ontology_release_digest MUST be a canonical"):
         replace(receipt, ontology_release_digest="invalid")
