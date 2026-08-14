@@ -549,7 +549,8 @@ versions and enabled state are validated before the shared runtime snapshot is p
 read surfaces share that one snapshot: republishing it moves the Bragi commands, the read-scoped
 `skill_bundles.*` RPC operations, and the Skills panel inspection payload together, and every bundle
 rejection returns one stable content-free reason drawn from a fixed English token vocabulary.
-A refused describe and a refused load each append their own rejection diagnostic.
+A refused describe and a refused load each append their own rejection diagnostic, and an unbound
+bundle catalog is one of those stable reasons rather than a caller-parameter error.
 
 Approved external skill repositories use the separate durable source pipeline in
 [skill-source-management.md](../interfaces/skill-source-management.md). `core/skills/source_registry.py`

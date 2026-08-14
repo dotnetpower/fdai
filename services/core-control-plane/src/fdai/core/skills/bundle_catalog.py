@@ -24,6 +24,7 @@ from fdai.core.skills.disclosure import (
 
 class SkillBundleRejectionReason(StrEnum):
     NOT_INSTALLED = "skill_bundle_not_installed"
+    CATALOG_UNAVAILABLE = "skill_bundle_catalog_unavailable"
     DISABLED = "skill_bundle_disabled"
     TRUST_FAILED = "skill_bundle_trust_verification_failed"
     STORED_ARTIFACT_INVALID = "skill_bundle_stored_artifact_invalid"

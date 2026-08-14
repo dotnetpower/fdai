@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 8ce0b37f4c28c0964af17c78a7d5d94c44ed5099
+translation_source_sha: 0f354fd2107547dd6b3eddfde572b1d357c874dc
 translation_revised: 2026-08-14
 ---
 # 프로젝트 구조
@@ -544,7 +544,8 @@ shared 런타임 스냅샷 publish 전에 exact 구성원 버전과 활성화된
 세 읽기 화면은 이 스냅샷 하나를 공유합니다. 스냅샷을 다시 publish하면 Bragi 명령, 읽기 범위
 `skill_bundles.*` RPC 연산, Skills 패널 점검 페이로드가 함께 움직이며, 모든 번들 거절은 고정된
 영어 토큰 어휘에서 가져온 내용 없는 동일한 안정 이유를 반환합니다.
-거부된 describe 와 거부된 load 는 각각 자신의 거절 진단을 추가합니다.
+거부된 describe 와 거부된 load 는 각각 자신의 거절 진단을 추가하며, 연결되지 않은 번들
+카탈로그는 호출자 매개변수 오류가 아니라 그 안정 이유 중 하나입니다.
 
 승인된 외부 스킬 저장소는
 [skill-source-management.md](../interfaces/skill-source-management-ko.md)의 별도 영속 출처

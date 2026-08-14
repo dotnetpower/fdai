@@ -14,6 +14,7 @@ from typing import Any, Final
 from fdai.core.skills.bundle_catalog import (
     ResolvedSkillBundle,
     SkillBundleCatalog,
+    SkillBundleRejectionReason,
     SkillBundleResolutionError,
 )
 from fdai.core.skills.bundle_manifest import SkillBundleTrustVerifier
@@ -186,10 +187,32 @@ class RuntimeSkillDisclosure:
         ][:limit]
         return {"bundles": bundles, "returned_count": len(bundles)}
 
+    def _bundle_unavailable(self, operation: str, name: str) -> SkillBundleResolutionError:
+        """Diagnose an unbound bundle catalog as a typed rejection.
+
+        A missing catalog is an availability fact, not a caller mistake, so it
+        returns the same stable rejection vocabulary every other refused bundle
+        read uses instead of surfacing as an invalid-parameter error.
+        """
+        self._append(
+            RuntimeSkillDiagnostic(
+                operation=operation,
+                name=name,
+                reference=None,
+                status="rejected",
+                reason=SkillBundleRejectionReason.CATALOG_UNAVAILABLE.value,
+                digests=(),
+            )
+        )
+        return SkillBundleResolutionError(
+            SkillBundleRejectionReason.CATALOG_UNAVAILABLE,
+            bundle_name=name,
+        )
+
     def describe_bundle(self, name: str) -> dict[str, Any]:
         bundle_catalog, _bundle_verifier = self._current_bundle_snapshot()
         if bundle_catalog is None:
-            raise ValueError("runtime skill bundle catalog is unavailable")
+            raise self._bundle_unavailable("describe_bundle", name)
         try:
             bundle = bundle_catalog.get(name)
         except SkillBundleResolutionError as exc:
@@ -224,7 +247,7 @@ class RuntimeSkillDisclosure:
     def load_bundle(self, name: str) -> dict[str, Any]:
         bundle_catalog, bundle_verifier = self._current_bundle_snapshot()
         if bundle_catalog is None or bundle_verifier is None:
-            raise ValueError("runtime skill bundle catalog is unavailable")
+            raise self._bundle_unavailable("load_bundle", name)
         skill_catalog, skill_verifier = self._current_snapshot()
         try:
             resolved = bundle_catalog.resolve(
