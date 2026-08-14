@@ -107,6 +107,20 @@ from .reconciliation_events import (
     ReconciliationOutboxRecord,
     ReconciliationTargetRevision,
 )
+from .reconciliation_producer import (
+    EffectReconciliationRequestSink,
+    ExecutedActionObservation,
+    ExecutedActionObservationSource,
+    ExecutedActionReconciliationArtifactSource,
+    ReconciliationRequestProduction,
+    ReconciliationRequestProductionStatus,
+)
+from .reconciliation_request_outbox import (
+    ReconciliationRequestOutbox,
+    ReconciliationRequestOutboxConflictError,
+    ReconciliationRequestOutboxState,
+    StateStoreReconciliationRequestOutbox,
+)
 from .sdk_codegen import GeneratedOntologySdk, generate_ontology_sdk
 from .semantic_plans import (
     ActiveSemanticCatalog,
@@ -151,6 +165,7 @@ __all__ = [
     "EffectReconciliationBinder",
     "EffectReconciliationCoordinator",
     "EffectReconciliationRequestEvent",
+    "EffectReconciliationRequestSink",
     "EffectReconciliationResultEvent",
     "InterfaceImplementation",
     "InterpretationCandidateSource",
@@ -167,6 +182,14 @@ __all__ = [
     "MutationEffect",
     "MutationEffectKind",
     "MutationPlan",
+    "ExecutedActionObservation",
+    "ExecutedActionObservationSource",
+    "ExecutedActionReconciliationArtifactSource",
+    "ReconciliationRequestProduction",
+    "ReconciliationRequestProductionStatus",
+    "ReconciliationRequestOutbox",
+    "ReconciliationRequestOutboxConflictError",
+    "ReconciliationRequestOutboxState",
     "MetricAggregation",
     "METRIC_ARGUMENT_SCHEMAS",
     "MetricSemanticDefinition",
@@ -210,6 +233,7 @@ __all__ = [
     "SecuredObjectSetNodeHandler",
     "SetOperationNodeHandler",
     "StateStoreReconciliationLedger",
+    "StateStoreReconciliationRequestOutbox",
     "TargetRevision",
     "TopologyDiff",
     "TopologyDiffNodeHandler",

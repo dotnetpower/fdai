@@ -61,7 +61,11 @@ from fdai.delivery.startup_probe import OpaCompileStartupProbe
 from fdai.runtime.bootstrap_bindings import (
     RECONCILIATION_TOPICS,
     RULE_GENERATION_TOPICS,
+    EffectReconciliationRequestRuntimeBinding,
     RuleGenerationRuntimeBinding,
+)
+from fdai.runtime.bootstrap_bindings import (
+    build_effect_reconciliation_request_binding as _build_effect_reconciliation_request_binding,
 )
 from fdai.runtime.bootstrap_bindings import (
     build_effect_reconciliation_worker as _build_effect_reconciliation_worker,
@@ -110,6 +114,9 @@ from fdai.runtime.bootstrap_lifecycle import (
 )
 from fdai.runtime.bootstrap_lifecycle import (
     run_effect_reconciliation as _run_effect_reconciliation,
+)
+from fdai.runtime.bootstrap_lifecycle import (
+    run_effect_reconciliation_request_outbox as _run_effect_reconciliation_request_outbox,
 )
 from fdai.runtime.bootstrap_lifecycle import (
     run_main as _run_main,
@@ -265,6 +272,7 @@ async def _run() -> int:
     t2_recovery_maintenance: Any = None
     assignment_reconciliation_worker: Any = None
     effect_reconciliation_worker: Any = None
+    effect_reconciliation_request_binding: EffectReconciliationRequestRuntimeBinding | None = None
     semantic_turn_binding: Any = None
     rule_generation_binding: RuleGenerationRuntimeBinding | None = None
     rule_generation_reconciliation: RuleGenerationReconciliation | None = None
@@ -513,6 +521,20 @@ async def _run() -> int:
                     "effect_reconciliation_unavailable",
                     extra={"reason": "artifact_resolver_and_observation_verifier_absent"},
                 )
+            effect_reconciliation_request_binding = _build_effect_reconciliation_request_binding(
+                state_store=incident_audit_store,
+                event_bus=bus,
+                artifact_source=container.executed_action_reconciliation_artifact_source,
+                observation_source=container.executed_action_observation_source,
+                environment=os.environ,
+            )
+            if effect_reconciliation_request_binding is not None:
+                _LOGGER.info("effect_reconciliation_request_producer_ready")
+            else:
+                _LOGGER.info(
+                    "effect_reconciliation_request_producer_unavailable",
+                    extra={"reason": "executed_action_sources_absent"},
+                )
             runtime_saga = _build_runtime_saga(incident_audit_store)
             core_mutation_readiness = _build_mutation_dependency_readiness(
                 saga=runtime_saga,
@@ -531,6 +553,11 @@ async def _run() -> int:
                 ),
                 direct_api_execution_port=isolated_executor_client,
                 response_outcome_sink=_relay_response_outcome,
+                effect_reconciliation_request_sink=(
+                    effect_reconciliation_request_binding.producer
+                    if effect_reconciliation_request_binding is not None
+                    else None
+                ),
                 human_access_enabled=runtime_values["human_access.enabled"] is True,
                 mutation_dependency_readiness=core_mutation_readiness,
             )
@@ -1195,6 +1222,7 @@ async def _run() -> int:
             t2_recovery_task: asyncio.Task[None] | None = None
             assignment_reconciliation_task: asyncio.Task[None] | None = None
             effect_reconciliation_task: asyncio.Task[None] | None = None
+            effect_reconciliation_request_task: asyncio.Task[None] | None = None
             rule_generation_outbox_task: asyncio.Task[None] | None = None
             rule_generation_reconciliation_task: asyncio.Task[None] | None = None
             case_history_retention_task: asyncio.Task[None] | None = None
@@ -1250,6 +1278,17 @@ async def _run() -> int:
                     ),
                     name="effect-reconciliation",
                 )
+            if effect_reconciliation_request_binding is not None:
+                effect_reconciliation_request_task = asyncio.create_task(
+                    startup_readiness_runtime.run_when_ready(
+                        stop,
+                        lambda: _run_effect_reconciliation_request_outbox(
+                            publisher=effect_reconciliation_request_binding.outbox_publisher,
+                            stop=stop,
+                        ),
+                    ),
+                    name="effect-reconciliation-request-outbox",
+                )
             if rule_generation_binding is not None:
                 rule_generation_outbox_task = asyncio.create_task(
                     _run_rule_generation_outbox_publisher(
@@ -1298,6 +1337,7 @@ async def _run() -> int:
                     hil_escalation_task,
                     case_history_retention_task,
                     semantic_turn_task,
+                    effect_reconciliation_request_task,
                 ),
                 background=(
                     pantheon_task,

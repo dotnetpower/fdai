@@ -33,6 +33,9 @@ from fdai.core.hil_resume import HilResumeCoordinator
 from fdai.core.mscp_profile import ExpectedEffectProvider, IndependentEffectObserver
 from fdai.core.notifications.router import NotificationRouter
 from fdai.core.ontology_platform.metric_semantics import MetricSemanticRegistry
+from fdai.core.ontology_platform.reconciliation_producer import (
+    EffectReconciliationRequestSink,
+)
 from fdai.core.rca import CausalRuntimeCoordinator, IncidentMemberSource, RcaCoordinator
 from fdai.core.risk_gate.gate import RiskGate
 from fdai.core.risk_gate.preconditions import (
@@ -127,6 +130,7 @@ class ControlLoop(
         mscp_effect_observer: IndependentEffectObserver | None = None,
         response_outcome_sink: Callable[[ResponseOutcome], Awaitable[None]] | None = None,
         workflow_outcome_recorder: WorkflowOutcomeRecorder | None = None,
+        effect_reconciliation_request_sink: EffectReconciliationRequestSink | None = None,
         ontology_instance_store: OntologyInstanceStore | None = None,
         property_semantics: PropertySemanticRegistry | None = None,
         metric_semantics: MetricSemanticRegistry | None = None,
@@ -189,6 +193,7 @@ class ControlLoop(
         self._mscp_effect_observer = mscp_effect_observer
         self._response_outcome_sink = response_outcome_sink
         self._workflow_outcome_recorder = workflow_outcome_recorder
+        self._effect_reconciliation_request_sink = effect_reconciliation_request_sink
         self._ontology_instance_store = ontology_instance_store
         self._property_semantics = property_semantics
         self._metric_semantics = metric_semantics

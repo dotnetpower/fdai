@@ -50,7 +50,7 @@ from fdai.core.hil_resume import (
     HumanNonResponseSupervisor,
 )
 from fdai.core.notifications.matrix import load_matrix_from_yaml
-from fdai.core.ontology_platform import compile_interfaces
+from fdai.core.ontology_platform import EffectReconciliationRequestSink, compile_interfaces
 from fdai.core.ontology_platform.operational_functions import operational_function_types
 from fdai.core.quality_gate import (
     HashedRuleEmbeddingIndex,
@@ -319,6 +319,7 @@ def _build_control_loop(
     symptom_index: SymptomIndex | None = None,
     identity: WorkloadIdentity | None = None,
     response_outcome_sink: Callable[[ResponseOutcome], Awaitable[None]] | None = None,
+    effect_reconciliation_request_sink: EffectReconciliationRequestSink | None = None,
     current_reuse_verifier: CurrentReuseVerifier | None = None,
     causal_runtime_coordinator: CausalRuntimeCoordinator | None = None,
     dynamic_runtime_coordinator: DynamicRuntimeCoordinator | None = None,
@@ -796,6 +797,7 @@ def _build_control_loop(
         mscp_expected_effect_provider=container.mscp_expected_effect_provider,
         mscp_effect_observer=container.mscp_effect_observer,
         response_outcome_sink=response_outcome_sink,
+        effect_reconciliation_request_sink=effect_reconciliation_request_sink,
         workflow_outcome_recorder=workflow_outcome_ledger,
         ontology_instance_store=ontology_instance_store,
         property_semantics=property_semantics,

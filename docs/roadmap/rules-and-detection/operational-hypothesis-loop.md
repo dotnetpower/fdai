@@ -146,6 +146,14 @@ not new Pantheon-owned object topics. The outbox payload always carries `proposa
 Event handling keeps the lane's 5-second default, broker publication keeps its 2-second deadline,
 and shutdown bounds child cancellation to 5 seconds instead of awaiting indefinitely.
 
+Ordinary execution produces a reconciliation request only when the executed Action already cites
+an exact semantic V2 plan whose ActionType, operation, target, and argument digest still match.
+Legacy Actions aren't upgraded by manufacturing a V2 plan. The producer obtains the observation
+through an injected independent source, commits the request to a durable leased outbox before
+publication, and records unavailable observation as held evidence. Broker failure or an unknown
+publication outcome leaves the request pending or held for replay and never changes the executor's
+already returned outcome.
+
 Learner, closure, projection, and outbox failures do not rewrite an already returned execution
 result. They remain visible as unavailable, held, pending, or failed evidence. Promotion fails
 closed when its durable store, exact receipt, artifact, active pointer, ontology release, property
@@ -207,7 +215,8 @@ contracts. They don't modify, wrap, rename, or duplicate their implementations.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Lane A graph evidence | implemented | `services/core-control-plane/src/fdai/delivery/azure/graph_dynamic_evidence.py`; `services/core-control-plane/tests/delivery/azure/test_graph_dynamic_evidence.py`; `services/core-control-plane/tests/composition/test_wire_azure_operational_evidence.py` | Bounded concurrent evidence construction fails closed on partial prerequisites and timeouts. |
-| Lane B effect reconciliation | implemented | `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation.py`; `reconciliation_events.py`; `delivery/reconciliation_runtime.py`; focused reconciliation tests | Request, outcome, ledger, and proposal-only outbox paths are implemented without execution authority. |
+| Lane B effect reconciliation | implemented | `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation.py`; `reconciliation_events.py`; `reconciliation_producer.py`; `reconciliation_request_outbox.py`; `delivery/reconciliation_runtime.py`; `delivery/reconciliation_request.py`; `delivery/reconciliation_request_publication.py`; focused reconciliation and ControlLoop tests | Request, outcome, ledger, ordinary-execution producer, and proposal-only outbox paths are implemented without execution authority. Legacy Actions remain outside the producer. |
+| Production reconciliation sources | in-progress | `ReconciliationArtifactSource` and `ReconciliationObservationSource` protocols; runtime composition tests | The runtime accepts production exact-plan and independent-observation sources, but no upstream production adapter or governed live receipt exists yet. |
 | Lane C lineage and competency queries | implemented | `services/core-control-plane/src/fdai/core/assurance_twin/`; `services/core-control-plane/tests/rule_catalog/test_operational_hypothesis_loop_competency.py` | Existing ontology objects answer all six frozen query classes without a parallel aggregate. |
 | Lane D graph-model promotion | implemented | `services/core-control-plane/src/fdai/delivery/graph_model_promotion.py`; `core/assurance_twin/model_promotion.py`; `tests/delivery/test_graph_model_promotion.py` | Exact artifact and rollback identity reach the existing approval and action path; evidence cannot self-promote. |
 | Protected live evidence | in-progress | [Hardening status](#design-at-a-glance); current change source audit | Code hardening is complete, but the protected live drill, recurrence window, and richer observer identity remain release evidence. |
@@ -217,9 +226,12 @@ contracts. They don't modify, wrap, rename, or duplicate their implementations.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; integrated lane source and focused tests listed in the scope table. | Retain protected live-drill and recurrence evidence. |
+| 2026-08-14 | implemented | Connected ordinary execution to effect-reconciliation request production through existing exact V2 plans and a durable lease-fenced publication outbox without changing executor outcomes on downstream failure. | `current change`; reconciliation producer, outbox, publication, ControlLoop, runtime, and composition paths; focused validation passed 163 tests. | Bind production exact-plan and independent-observation sources, then retain governed live closure evidence. |
 
 ### Remaining work
 
+- [ ] Bind production exact-plan artifact and independent-observation adapters, then pass a focused
+  integration test that preserves held or pending evidence across publication failure and restart.
 - [ ] Run the protected live drill and retain exact precondition, dry-run, provider, independent-outcome, rollback, and audit receipts.
 - [ ] Close the recurrence observation window and prove that censored or conflicting episodes remain unscorable.
 - [ ] Add richer observer-identity records and the final timeout classification, then rerun the focused reconciliation and promotion checks.

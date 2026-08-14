@@ -32,6 +32,11 @@ from fdai.core.mscp_profile import (
     response_outcome_audit_entry,
     verify_effect,
 )
+from fdai.core.ontology_platform.reconciliation_producer import (
+    EffectReconciliationRequestSink,
+    ReconciliationRequestProduction,
+    ReconciliationRequestProductionStatus,
+)
 from fdai.core.risk_gate.evaluator import UnifiedRiskDecision
 from fdai.core.risk_gate.gate import RiskGate
 from fdai.core.risk_gate.preconditions import (
@@ -92,6 +97,7 @@ class ControlLoopExecutionMixin:
     _mscp_expected_effect_provider: ExpectedEffectProvider | None
     _response_outcome_sink: Callable[[ResponseOutcome], Awaitable[None]] | None
     _workflow_outcome_recorder: WorkflowOutcomeRecorder | None
+    _effect_reconciliation_request_sink: EffectReconciliationRequestSink | None
     _promotion_state_refresher: Callable[[str], Awaitable[None]] | None
     _precondition_evaluator: PreconditionEvaluator
     _automation_hold_reader: AutomationHoldReader | None
@@ -300,23 +306,69 @@ class ControlLoopExecutionMixin:
             )
         else:
             result = await self._executor.execute(action=action, rule=rule)
+        request_production = await self._produce_effect_reconciliation_request(
+            action=action,
+            result=result,
+        )
         verification = await self._record_mscp_effect_shadow(
             action=action,
             result=result,
             expected=expected,
             prediction_failure=prediction_failure,
         )
-        if verification is None:
+        if verification is None and request_production is None:
             return result
+        audit_context = dict(result.audit_context)
+        if request_production is not None:
+            audit_context.update(
+                {
+                    "effect_reconciliation_request_status": request_production.status.value,
+                    "effect_reconciliation_request_reason": request_production.reason_code,
+                    **(
+                        {"effect_reconciliation_id": request_production.reconciliation_id}
+                        if request_production.reconciliation_id is not None
+                        else {}
+                    ),
+                }
+            )
+        if verification is not None:
+            audit_context.update(
+                {
+                    "effect_verified": (verification.status is EffectVerificationStatus.VERIFIED),
+                    "effect_verification_status": verification.status.value,
+                    "effect_verification_reason": verification.reason.value,
+                }
+            )
         return replace(
             result,
-            audit_context={
-                **result.audit_context,
-                "effect_verified": verification.status is EffectVerificationStatus.VERIFIED,
-                "effect_verification_status": verification.status.value,
-                "effect_verification_reason": verification.reason.value,
-            },
+            audit_context=audit_context,
         )
+
+    async def _produce_effect_reconciliation_request(
+        self,
+        *,
+        action: Action,
+        result: ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult,
+    ) -> ReconciliationRequestProduction | None:
+        sink = self._effect_reconciliation_request_sink
+        if sink is None:
+            return None
+        try:
+            return await sink(
+                action,
+                result.outcome.value,
+                getattr(result, "receipt_ref", None) or getattr(result, "pr_ref", None),
+            )
+        except Exception:  # noqa: BLE001 - dispatch cannot become observed success
+            _LOGGER.warning(
+                "effect_reconciliation_request_failed",
+                extra={"action_type": action.action_type},
+                exc_info=True,
+            )
+            return ReconciliationRequestProduction(
+                status=ReconciliationRequestProductionStatus.HELD,
+                reason_code="request_publication_failed",
+            )
 
     async def _prepare_mscp_effect(
         self,

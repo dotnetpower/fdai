@@ -34,6 +34,7 @@ from fdai.runtime.bootstrap import (
 )
 from fdai.runtime.bootstrap_bindings import (
     RECONCILIATION_TOPICS,
+    build_effect_reconciliation_request_binding,
     build_effect_reconciliation_worker,
     build_rule_generation_runtime_binding,
     semantic_query_providers,
@@ -195,6 +196,43 @@ def test_effect_reconciliation_binding_builds_configured_worker() -> None:
     )
 
     assert worker is not None
+
+
+def test_reconciliation_request_binding_requires_complete_producer_sources() -> None:
+    store = InMemoryStateStore()
+    bus = LocalEventBus()
+
+    assert (
+        build_effect_reconciliation_request_binding(
+            state_store=store,
+            event_bus=bus,
+            artifact_source=None,
+            observation_source=None,
+            environment={},
+        )
+        is None
+    )
+    with pytest.raises(RuntimeError, match="requires artifact and observation sources"):
+        build_effect_reconciliation_request_binding(
+            state_store=store,
+            event_bus=bus,
+            artifact_source=object(),  # type: ignore[arg-type]
+            observation_source=None,
+            environment={},
+        )
+
+
+def test_reconciliation_request_binding_shares_one_durable_outbox() -> None:
+    binding = build_effect_reconciliation_request_binding(
+        state_store=InMemoryStateStore(),
+        event_bus=LocalEventBus(),
+        artifact_source=object(),  # type: ignore[arg-type]
+        observation_source=object(),  # type: ignore[arg-type]
+        environment={"HOSTNAME": "core-a"},
+    )
+
+    assert binding is not None
+    assert binding.producer._outbox is binding.outbox_publisher._outbox
 
 
 def test_rule_generation_binding_shares_one_ledger_when_index_is_available() -> None:

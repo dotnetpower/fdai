@@ -15,6 +15,10 @@ from fdai.core.executor.direct_api import (
     DirectApiExecutionResult,
 )
 from fdai.core.mscp_profile import ExpectedEffect, ObservedEffect
+from fdai.core.ontology_platform import (
+    ReconciliationRequestProduction,
+    ReconciliationRequestProductionStatus,
+)
 from fdai.shared.contracts.models import Action, Event, Mode, Rule
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
@@ -96,6 +100,7 @@ def _loop(
     effect_observer: Any = None,
     response_outcome_sink: Any = None,
     workflow_outcome_recorder: Any = None,
+    effect_reconciliation_request_sink: Any = None,
 ) -> ControlLoop:
     return ControlLoop(
         event_ingest=MagicMock(),
@@ -109,6 +114,7 @@ def _loop(
         mscp_effect_observer=effect_observer,
         response_outcome_sink=response_outcome_sink,
         workflow_outcome_recorder=workflow_outcome_recorder,
+        effect_reconciliation_request_sink=effect_reconciliation_request_sink,
     )
 
 
@@ -134,6 +140,51 @@ def test_partial_binding_fails_fast() -> None:
 
 def test_missing_effect_verification_is_not_execution_success() -> None:
     assert _is_execution_success(_result()) is False
+
+
+async def test_reconciliation_request_receipt_is_preserved_after_dispatch() -> None:
+    executor = AsyncMock()
+    executor.execute.return_value = _result()
+    sink = AsyncMock(
+        return_value=ReconciliationRequestProduction(
+            ReconciliationRequestProductionStatus.NOT_APPLICABLE,
+            "semantic_v2_plan_unavailable",
+        )
+    )
+    loop = _loop(
+        executor=executor,
+        audit_store=InMemoryStateStore(),
+        effect_reconciliation_request_sink=sink,
+    )
+
+    result = await loop._dispatch_action(action=_action(), rule=_rule())
+
+    assert result.outcome is ExecutorOutcome.PUBLISHED
+    assert result.audit_context["effect_reconciliation_request_status"] == "not_applicable"
+    assert (
+        result.audit_context["effect_reconciliation_request_reason"]
+        == "semantic_v2_plan_unavailable"
+    )
+    sink.assert_awaited_once_with(_action(), "published", None)
+
+
+async def test_reconciliation_request_failure_holds_without_changing_dispatch() -> None:
+    executor = AsyncMock()
+    executor.execute.return_value = _result()
+    sink = AsyncMock(side_effect=ConnectionError("broker unavailable"))
+    loop = _loop(
+        executor=executor,
+        audit_store=InMemoryStateStore(),
+        effect_reconciliation_request_sink=sink,
+    )
+
+    result = await loop._dispatch_action(action=_action(), rule=_rule())
+
+    assert result.outcome is ExecutorOutcome.PUBLISHED
+    assert result.audit_context["effect_reconciliation_request_status"] == "held"
+    assert (
+        result.audit_context["effect_reconciliation_request_reason"] == "request_publication_failed"
+    )
 
 
 async def test_missing_effect_verification_never_returns_executed_auto() -> None:
