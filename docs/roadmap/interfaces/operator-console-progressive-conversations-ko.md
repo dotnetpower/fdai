@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: fa9a428699cc5d1c366b50b490df303f25782662
+translation_source_sha: 04e402f24ff3597238cb17964446932dc343310b
 translation_revised: 2026-08-14
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -19,7 +19,7 @@ translation_revised: 2026-08-14
 | 채널 중립적 최종 집약 | 구현됨 | [`conversation_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_channel.py), [`test_rich_contract.py`](../../../services/core-control-plane/tests/delivery/channels/test_rich_contract.py) | 집중 계약 테스트 36개가 통과했습니다. Teams와 Slack은 영속 재생 전체에서 동일한 정본 답변, 제한, 근거 참조, `execution_authority=false`, 단조 증가하는 최종 확정 갱신을 보존합니다. 운영 A3 게시자나 통제된 채널 런타임 증적을 주장하지 않습니다. |
 | 드로어 표현 및 새 대화 정체성 | 진행 중 | [`use-command-deck-sessions.ts`](../../../console/src/deck/use-command-deck-sessions.ts), [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | Console은 저장된 드로어 표시 여부와 독립적으로 새 세션을 만들며, 라이브 테스트는 이제 새 대화에서 요청을 격리합니다. 인증된 런타임 증적 통과가 아직 필요합니다. |
 | 통제된 4단계 온톨로지 증적 | 진행 중 | [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | 요청부터 Console까지 이어지는 검증은 있지만, `검증됨`을 뒷받침하는 새 보존 통과 산출물은 없습니다. |
-| 이중 언어 무작위 릴리스 게이트 | 진행 중 | [`ontology-query-assurance-readiness.ts`](../../../console/tests/live-e2e/ontology-query-assurance-readiness.ts), [`ontology-query-assurance.test.ts`](../../../console/tests/live-e2e/ontology-query-assurance.test.ts) | 집중 보증 테스트 40개가 통과했습니다. 전체 집단은 근거에 결속된 answered 턴이 0건이면 `production_ready=true`를 보고할 수 없으며 실제 운영 spec은 운영 준비 판정을 단언합니다. 새 100-case 통과 산출물은 여전히 필요합니다. |
+| 이중 언어 무작위 릴리스 게이트 | 진행 중 | [`ontology-query-assurance-readiness.ts`](../../../console/tests/live-e2e/ontology-query-assurance-readiness.ts), [`ontology-query-assurance.test.ts`](../../../console/tests/live-e2e/ontology-query-assurance.test.ts) | 집중 보증 테스트 41개가 통과했습니다. 전체 집단은 영어와 한국어 모두에서 근거가 완전한 answered 턴이 없으면 `production_ready=true`를 보고할 수 없으며 실제 운영 spec은 운영 준비 판정을 단언합니다. 새 100-case 통과 산출물은 여전히 필요합니다. |
 | 의미 명확화 표현 | 구현됨 | [`verification-presentation.ts`](../../../console/src/deck/verification-presentation.ts), [`verification-presentation.test.ts`](../../../console/src/deck/verification-presentation.test.ts) | `semantic_clarification_required`를 `Context required`로 표시하며 Console 집중 테스트 13개가 통과했습니다. 분류는 제어 평면이 실제로 방출하는 이유 코드만 다룹니다. 인증되고 보존된 증적은 열린 항목으로 남아 있습니다. |
 | 검증된 의미 답변 표현 | 검증됨 | [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`semantic_turn_presentation.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_presentation.py), [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`semantic-answer-presentation.spec.ts`](../../../console/tests/live-e2e/semantic-answer-presentation.spec.ts), `.fdai/live-validation/semantic-answer-presentation-244d003ef77bd37dc0041f0b6a29634cdbaacb91-post-validation/` | 범위가 제한된 인증 Web/한국어 경로는 명시적 workspace patch digest와 함께 중앙 검증된 source revision `244d003ef`에서 검증됐습니다. 최초 턴과 재생성 턴은 관찰된 5단계, 동일한 인시던트 및 기술 출력 digest, 읽기 전용 근거 수집, primary JSON 미노출, `execution_authority=false`를 유지했습니다. 이 상태는 Teams, Slack, 4단계 온톨로지 실행기 또는 이중 언어 100-case 집단을 주장하지 않습니다. |
 
@@ -37,13 +37,14 @@ translation_revised: 2026-08-14
 | 2026-08-14 | 검증됨 | 구현 커밋의 중앙 검증 뒤 인증된 한국어 의미 표현 및 재생성 산출물을 보존했습니다. | Source revision `7f2b740b1` 및 `244d003ef`에 중앙 receipt가 있습니다. 보존된 post-validation 산출물은 `passed=true`, 보호된 요청 2개, 진행 단계 5개, 표현 slot 3개, 일치하는 요청·바인딩·기술 출력 digest, 읽기 전용 권한, Core 계획 수명 주기 5단계 1회를 기록합니다. | Teams 및 Slack 집약 receipt, 별도 4단계 receipt, 이중 언어 100-case 집단은 열린 상태로 유지합니다. |
 | 2026-08-14 | 구현됨 | 채널 중립적 최종 집약기에 명시적인 Teams 및 Slack 동등성 검사를 추가했습니다. | `current change`, [`test_rich_contract.py`](../../../services/core-control-plane/tests/delivery/channels/test_rich_contract.py)의 집중 검사 36개가 통과했고 두 채널 종류에서 정본 내용, 제한, 근거 참조, 실행 권한 없음, 최종 확정 갱신을 보존했습니다. | 통제된 Teams 및 Slack 런타임 증적을 보존하기 전에 운영 A3 게시자를 구현하고 실행합니다. |
 | 2026-08-14 | 진행 중 | answered 턴이 0건인 100-case 집단을 운영 준비 상태로 분류하던 무작위 보증 오탐을 해소했습니다. | `current change`, [`ontology-query-assurance.test.ts`](../../../console/tests/live-e2e/ontology-query-assurance.test.ts)의 집중 검사 40개가 통과했으며 답변 0건과 불완전한 근거를 거부하는 사례를 포함합니다. | 릴리스 준비 상태를 변경하기 전에 근거에 결속된 answered 턴이 1건 이상인 새 인증 100-case 산출물을 보존합니다. |
+| 2026-08-14 | 진행 중 | 한 언어에만 답변이 있는 집합을 이중 언어 운영 준비 상태로 인정하지 않도록 무작위 릴리스 게이트를 강화했습니다. | `current change`, [`ontology-query-assurance.test.ts`](../../../console/tests/live-e2e/ontology-query-assurance.test.ts)의 집중 검사 41개가 통과했으며 언어 누락 거부 사례를 포함합니다. | 릴리스 준비 상태를 변경하기 전에 두 언어 모두에서 근거가 완전한 answered 턴이 있는 새 인증 100-case 산출물을 보존합니다. |
 
 ### 남은 작업
 
 - [ ] 인증된 요청부터 Console까지 이어지는 4단계 온톨로지 통과 증적을 새 저장소 경로에
   보존합니다.
-- [ ] 2026-08-11 기준선을 교체하지 않고, 근거에 결속된 answered 턴이 1건 이상인 seed
-  `0x0fda1`의 영어/한국어 100-case 무작위 보증 통과 산출물을 보존합니다.
+- [ ] 2026-08-11 기준선을 교체하지 않고, 두 언어 모두에서 근거가 완전한 answered 턴이 있는
+  seed `0x0fda1`의 영어/한국어 100-case 무작위 보증 통과 산출물을 보존합니다.
 - [ ] 채널 전체 런타임 검증을 주장하기 전에 통제된 Teams 및 Slack 집약 증적을 기록합니다.
 - [x] 정확한 machine payload와 최종 검증 증적은 접힌 기술 상세에 보존하면서 primary semantic
   답변의 fenced machine JSON을 지역화되고 결정론적인 운영자 대상 내용으로 교체합니다.

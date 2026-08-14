@@ -5,6 +5,7 @@ export interface OntologyAssuranceReadinessInput {
   readonly operationCoverageComplete: boolean;
   readonly answeredCount: number;
   readonly answeredWithCompleteEvidenceCount: number;
+  readonly answeredLocaleCoverageComplete: boolean;
 }
 
 export function isOntologyAssuranceProductionReady(
@@ -15,5 +16,6 @@ export function isOntologyAssuranceProductionReady(
     input.localeCoverageComplete &&
     input.operationCoverageComplete &&
     input.answeredCount > 0 &&
-    input.answeredWithCompleteEvidenceCount === input.answeredCount;
+    input.answeredWithCompleteEvidenceCount === input.answeredCount &&
+    input.answeredLocaleCoverageComplete;
 }

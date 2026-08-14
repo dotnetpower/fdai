@@ -20,8 +20,9 @@ describe("ontology query assurance production readiness", () => {
     runScope: "full_cohort" as const,
     localeCoverageComplete: true,
     operationCoverageComplete: true,
-    answeredCount: 1,
-    answeredWithCompleteEvidenceCount: 1,
+    answeredCount: 2,
+    answeredWithCompleteEvidenceCount: 2,
+    answeredLocaleCoverageComplete: true,
   };
 
   it("rejects a full cohort that answers no questions", () => {
@@ -36,6 +37,13 @@ describe("ontology query assurance production readiness", () => {
     expect(isOntologyAssuranceProductionReady({
       ...completeRun,
       answeredWithCompleteEvidenceCount: 0,
+    })).toBe(false);
+  });
+
+  it("rejects a full cohort without answered turns in both locales", () => {
+    expect(isOntologyAssuranceProductionReady({
+      ...completeRun,
+      answeredLocaleCoverageComplete: false,
     })).toBe(false);
   });
 
