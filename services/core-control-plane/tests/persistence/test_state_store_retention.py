@@ -84,19 +84,19 @@ async def test_prune_refuses_an_empty_prefix() -> None:
     assert len(await store.read_states(_PREFIX, limit=10)) == 2
 
 
-async def test_the_pruned_prefix_is_write_once() -> None:
-    """Backends order newest-first differently, so a pruned row is never rewritten.
+async def test_a_rewritten_row_becomes_the_newest() -> None:
+    """Newest-first means last-written first, in every backend.
 
-    One backend may order by first write and another by last write. Both agree
-    only while a row is written once, which is the precondition the retention
-    contract states and the evaluation store enforces with
-    ``write_state_if_absent``.
+    The durable backend orders by last write. The fake MUST agree, otherwise a
+    rewrite would move a row in one backend and not the other, and which row
+    retention keeps would depend on which backend is bound.
     """
     store = InMemoryStateStore()
+    await _seed(store, _PREFIX, 3)
 
-    created = await store.write_state_if_absent(f"{_PREFIX}00", {"index": 0})
-    rewritten = await store.write_state_if_absent(f"{_PREFIX}00", {"index": 99})
+    await store.write_state(f"{_PREFIX}00", {"index": 0, "rewritten": True})
+    newest = await store.read_states(_PREFIX, limit=1)
+    await store.delete_states_beyond(_PREFIX, retain_newest=1)
 
-    assert created is True
-    assert rewritten is False
-    assert (await store.read_states(_PREFIX, limit=10))[0]["index"] == 0
+    assert newest[0]["rewritten"] is True
+    assert await store.read_states(_PREFIX, limit=10) == newest
