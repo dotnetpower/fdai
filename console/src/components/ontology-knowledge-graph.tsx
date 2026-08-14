@@ -10,7 +10,10 @@ import {
 } from "./ontology-knowledge-graph.model";
 import { ONTOLOGY_NODE_STYLES } from "./ontology-knowledge-graph.renderer";
 import { Tooltip } from "./tooltip";
-import { useOntologyKnowledgeGraphController } from "./use-ontology-knowledge-graph-controller";
+import {
+  ontologyKnowledgeKeyboardCommand,
+  useOntologyKnowledgeGraphController,
+} from "./use-ontology-knowledge-graph-controller";
 
 export function OntologyKnowledgeGraphExplorer({ graph }: { readonly graph: OntologyKnowledgeGraph }) {
   const shellRef = useRef<HTMLElement>(null);
@@ -63,6 +66,18 @@ export function OntologyKnowledgeGraphExplorer({ graph }: { readonly graph: Onto
     if (document.fullscreenElement) await document.exitFullscreen();
     else await shell.requestFullscreen({ navigationUI: "hide" });
     window.setTimeout(controller.fit, 30);
+  };
+  const handleCanvasKeyDown = (event: KeyboardEvent) => {
+    const command = ontologyKnowledgeKeyboardCommand(event.key);
+    if (command === null) return;
+    event.preventDefault();
+    if (command === "fit") controller.fit();
+    else if (command === "zoom-in") controller.zoomIn();
+    else if (command === "zoom-out") controller.zoomOut();
+    else if (command === "pan-up") controller.panBy(0, 36);
+    else if (command === "pan-down") controller.panBy(0, -36);
+    else if (command === "pan-left") controller.panBy(36, 0);
+    else controller.panBy(-36, 0);
   };
 
   return (
@@ -126,6 +141,7 @@ export function OntologyKnowledgeGraphExplorer({ graph }: { readonly graph: Onto
             ref={controller.canvasRef}
             role="img"
             tabIndex={0}
+            onKeyDown={handleCanvasKeyDown}
             aria-label={t("ontology.map.canvasDescription", {
               nodes: summary.nodes,
               edges: summary.edges,
