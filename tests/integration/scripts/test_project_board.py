@@ -117,15 +117,15 @@ def test_project_items_ignore_same_number_from_another_repository(board: ModuleT
                 "items": [
                     {
                         "id": "other-item",
-                        "repository": "example/other",
+                        "repository": "https://github.com/example/other",
                         "status": "Done",
                         "content": {"number": 95},
                     },
                     {
                         "id": "fdai-item",
-                        "repository": "dotnetpower/fdai",
+                        "repository": "https://github.com/dotnetpower/fdai",
                         "status": "In progress",
-                        "content": {"number": 95},
+                        "content": {"number": 95, "repository": "dotnetpower/fdai"},
                     },
                 ]
             }
