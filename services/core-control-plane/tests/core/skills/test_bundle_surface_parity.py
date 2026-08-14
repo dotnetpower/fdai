@@ -178,10 +178,55 @@ def test_bragi_bundle_commands_reject_without_content_or_raising() -> None:
 
 
 def test_every_bundle_rejection_reason_is_a_stable_content_free_token() -> None:
-    # A future reason must stay a fixed English token so a diagnostic can never
+    # A reason must stay a fixed English token so a diagnostic can never
     # carry a member body, a customer value, or a substrate identifier.
     for reason in SkillBundleRejectionReason:
         assert re.fullmatch(r"skill_bundle_[a-z_]+", reason.value), reason
+
+
+def test_unbound_bundle_catalog_is_a_typed_rejection_on_both_surfaces() -> None:
+    # An unavailable catalog is an availability fact, not a caller mistake, so
+    # it must not surface as an invalid-parameter error or an uncaught raise.
+    disclosure, _ = _runtime()
+    disclosure_without_bundles = RuntimeSkillDisclosure(
+        catalog=SkillCatalog(),
+        verifier=_SkillVerifier(),
+        agent="Bragi",
+        available_tools=frozenset(),
+    )
+    del disclosure
+
+    described = DescribeRuntimeSkillBundleTool(disclosure_without_bundles).call(
+        arguments={"name": _BUNDLE}, principal=_READER
+    )
+    loaded = LoadRuntimeSkillBundleTool(disclosure_without_bundles).call(
+        arguments={"name": _BUNDLE}, principal=_READER
+    )
+
+    for result in (described, loaded):
+        assert result.status == "error"
+        assert result.data["error"]["code"] == "skill_bundle_access_rejected"
+        assert result.data["error"]["reason"] == "skill_bundle_catalog_unavailable"
+    assert [entry["reason"] for entry in disclosure_without_bundles.diagnostics()] == [
+        "skill_bundle_catalog_unavailable"
+    ] * 2
+
+
+async def test_unbound_bundle_catalog_rpc_is_rejected_not_invalid_params() -> None:
+    disclosure_without_bundles = RuntimeSkillDisclosure(
+        catalog=SkillCatalog(),
+        verifier=_SkillVerifier(),
+        agent="Bragi",
+        available_tools=frozenset(),
+    )
+    registry = _registry(disclosure_without_bundles)
+
+    described = await _rpc(registry, "skill_bundles.describe", name=_BUNDLE)
+    loaded = await _rpc(registry, "skill_bundles.load", name=_BUNDLE)
+
+    for response in (described, loaded):
+        assert response.error_code == "skill_bundle_access_rejected"
+        assert response.error_message == "skill_bundle_catalog_unavailable"
 
 
 def test_bragi_bundle_commands_stay_read_only_at_the_reader_floor() -> None:

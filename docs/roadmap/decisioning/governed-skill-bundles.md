@@ -136,9 +136,11 @@ approval, or execution controls.
 ## Failure reasons
 
 Stable diagnostics distinguish missing, disabled, version-incompatible, untrusted, undeclared
-dependency, unavailable tool, disallowed agent, ambiguous name, cycle, unsupported nesting, and
-combined-budget failures. Rejection records may include public IDs and digests. They never include
-the optional instruction, member bodies, or reference content.
+dependency, unavailable tool, disallowed agent, ambiguous name, cycle, unsupported nesting,
+unavailable catalog, and combined-budget failures. An unbound bundle catalog is one of those
+stable reasons rather than a caller-parameter error, so a describe or load refused for
+availability reads the same on every surface. Rejection records may include public IDs and
+digests. They never include the optional instruction, member bodies, or reference content.
 
 ## Verification
 

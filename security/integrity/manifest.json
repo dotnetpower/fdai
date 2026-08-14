@@ -740,7 +740,7 @@
     "services/core-control-plane/src/fdai/core/security/assessment.py": "6c87f2bce96e87c1a732bce4e66bc6a4a9709fef0e96d51f5c9805751fbd7a6d",
     "services/core-control-plane/src/fdai/core/security/observations.py": "b92dc86cc7fe696067a0d81cdcf75262110e58f5013d5c6155ad0a9ddecf620d",
     "services/core-control-plane/src/fdai/core/skills/__init__.py": "8815d1d187c3597df01851f9a4dc8f4a5b4ef3ef8f86b1e844c69400dccb344f",
-    "services/core-control-plane/src/fdai/core/skills/bundle_catalog.py": "05ab9aafa10f95789342998f8c8571591e8b7732b56cb7970a535d199615318b",
+    "services/core-control-plane/src/fdai/core/skills/bundle_catalog.py": "2a2c54bb01cd315b65b74f0b45084361da166dd1aaf68e93fb043b4308d72332",
     "services/core-control-plane/src/fdai/core/skills/bundle_lifecycle.py": "ad3a5106aad0279a33d937ba665012a92f09c98eccf9fa5ba1c50bbfb8347843",
     "services/core-control-plane/src/fdai/core/skills/bundle_manifest.py": "4cffb4e3be240fd7e99e9314bbb75974737dfdbbd5ff15a492d0f73b6a7af1a1",
     "services/core-control-plane/src/fdai/core/skills/bundle_workshop.py": "a96b38f5c81c9a0cd28fa2759984ee087c79123dd05075aec56fa6eb462b9fc9",
@@ -748,7 +748,7 @@
     "services/core-control-plane/src/fdai/core/skills/disclosure.py": "ad2b5afb825745e3e764cf26d2ca2be100cc82316d9e9dd7d5bc9e5cb21035ed",
     "services/core-control-plane/src/fdai/core/skills/errors.py": "5808476905c345c223e784b5ac79bd2b38abd29a3d6f7d8fa2970df6e30394aa",
     "services/core-control-plane/src/fdai/core/skills/references.py": "91cbcae70c9ee6e808d32986b559e1f724906aefcfd0f90cda6dbe8fcb0b87b0",
-    "services/core-control-plane/src/fdai/core/skills/runtime.py": "d65a41e5f9b191ce2ae27805b90d6ac9bd436aec2db72cfa0d6a50f0149f08dd",
+    "services/core-control-plane/src/fdai/core/skills/runtime.py": "aeaee23e547ccef7f842b95820bb1b27635710b07b50e0943e15f4c0b43fa9c0",
     "services/core-control-plane/src/fdai/core/skills/source_registry.py": "df6b738157e9b635ae3a3d1bbbb7fc45dd53c45755877d94701378b1f7918279",
     "services/core-control-plane/src/fdai/core/skills/workshop.py": "40450018c8ec0b9223b2b8dd91a8b42ecdd6a842fe7bfc97dbca7045b8290572",
     "services/core-control-plane/src/fdai/core/slo/__init__.py": "ff8bc9f218c2d5edba38c6ad2ea4ad9dfc33448de0ed24bb8d2598a6b0920520",
@@ -1078,7 +1078,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-14T09:36:10Z",
+  "generated_at": "2026-08-14T09:45:26Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",
