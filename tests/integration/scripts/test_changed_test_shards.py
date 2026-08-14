@@ -31,7 +31,7 @@ def test_parallel_shard_uses_clean_isolated_basetemp(
     tmp_path: Path,
 ) -> None:
     cache_root = tmp_path / "cache"
-    basetemp = cache_root / "tmp-shard-2"
+    basetemp = shard_runner._shard_basetemp(cache_root, 2)
     stale = basetemp / "stale"
     stale.mkdir(parents=True)
     observed: list[str] = []
@@ -64,7 +64,7 @@ def test_parallel_shard_creates_basetemp_parent(
     tmp_path: Path,
 ) -> None:
     cache_root = tmp_path / "missing-cache"
-    basetemp = cache_root / "tmp-shard-1"
+    basetemp = shard_runner._shard_basetemp(cache_root, 1)
 
     def run(argv: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         del kwargs
