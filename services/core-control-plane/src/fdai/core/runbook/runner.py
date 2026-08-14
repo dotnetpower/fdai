@@ -3,7 +3,9 @@
 Composes an ordered sequence of :class:`RunbookStep` calls into a
 single execution. The runner is intentionally thin: it walks the step
 list, delegates each step to the injected :class:`StepExecutor`, and
-follows the ``on_failure`` branch when a step fails.
+follows the ``on_failure`` branch when a step fails. Branching is
+failure-only - a step that is some step's declared fallback does not also
+run on the success path.
 
 Every terminal outcome writes an audit entry through the executor
 (``StepExecutor.execute`` is responsible for the audit; the runner
@@ -53,7 +55,16 @@ class StepExecutor(Protocol):
 
 
 class RunbookRunner:
-    """Walk the step list, honor ``on_failure`` on the first failure."""
+    """Walk the step list, honor ``on_failure`` on the first failure.
+
+    A step named as any step's ``on_failure`` target is **fallback-only**: it
+    runs when its triggering step fails and is skipped on the success path
+    (``fallback_not_triggered``). Without that rule a declared fallback would
+    also execute as an ordinary forward step, which is why a workflow with a
+    non-null ``on_failure`` was previously ineligible for enforce promotion
+    (process-automation.md 2.1). An explicit ``start_step_id`` overrides the
+    rule so a resume can re-enter directly at a fallback step.
+    """
 
     def __init__(
         self,
@@ -81,10 +92,23 @@ class RunbookRunner:
             else 0
         )
         active_steps = runbook.steps[start_index:]
+        fallback_ids = frozenset(
+            step.on_failure for step in runbook.steps if step.on_failure is not None
+        )
         results: list[RunbookStepResult] = []
         terminal = RunbookStepOutcome.SUCCESS
 
-        for step in active_steps:
+        for position, step in enumerate(active_steps):
+            if step.id in fallback_ids and step.id != start_step_id:
+                results.append(
+                    RunbookStepResult(
+                        step_id=step.id,
+                        action_type=step.action_type,
+                        outcome=RunbookStepOutcome.SKIPPED,
+                        reason="fallback_not_triggered",
+                    )
+                )
+                continue
             outcome = await self._executor.execute(runbook_id=runbook.id, step=step)
             results.append(outcome)
             if outcome.outcome is RunbookStepOutcome.WAITING:
@@ -102,7 +126,7 @@ class RunbookRunner:
                 # Mark every subsequent authored step as SKIPPED so the
                 # audit row shows the runner made a decision, not that
                 # steps silently disappeared.
-                for skipped in active_steps[active_steps.index(step) + 1 :]:
+                for skipped in active_steps[position + 1 :]:
                     if step.on_failure is not None and skipped.id == step.on_failure:
                         continue
                     results.append(
