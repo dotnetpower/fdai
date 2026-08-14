@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 79866a212a479109704f3fd3f514b4d3d54fe03f
+translation_source_sha: 576e04ffebe8d7278dd46f20c7e9827289ed2762
 translation_revised: 2026-08-14
 ---
 
@@ -250,7 +250,10 @@ Console 은 기본적으로 코드 를 **코드 근거** 아래에 접어서 표
 - **카탈로그 토폴로지**: 전체 참조 토폴로지는 ObjectType, InterfaceType, FunctionType,
   ResourceType, 활성 Rule, ActionType, Workflow, Pantheon Agent, SignalType 및 Property를
   결합합니다. 가중 커뮤니티는 의존성 탐색만 지원하며 의미 영역, 근거 완전성 또는 권한을
-  나타내지 않습니다. 토폴로지와 선언 보기는 동일한 구체화된 변환 결과에서 제공됩니다.
+  나타내지 않습니다. 토폴로지와 선언 보기는 동일한 구체화된 변환 결과에서 제공됩니다. 처음
+  진입할 때 노드는 저장된 좌표를 향해 결정적인 900 ms spring-settle 효과로 정착합니다. 포인터나
+  키보드 입력은 효과를 즉시 끝내고 동작 감소 설정은 효과를 건너뛰며, 정착한 뒤에는 simulation이
+  계속 실행되지 않습니다.
 
 **컨텍스트 스냅샷**은 근거, 인시던트 또는 쿼리 receipt에서 진입하는 별도의 목적 범위 런타임
 변환 결과입니다. 온톨로지 릴리스, 쿼리 프로필, 기준 시각, 객체 및 링크 개정, 상태 lane, source
@@ -284,6 +287,7 @@ ActionType 변환 결과 은 가산 입니다. 이전 배포 에서는
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 Operator, Core Python task, CLI, channel, Console 및 focused 테스트 근거입니다. | Semantic 확인, 채널 동등성 및 관리되는 계약 간 근거를 완료해야 합니다. |
 | 2026-08-14 | in-progress | 생성된 하나의 force graph를 운영 온톨로지로 표현하는 대신 의미 모델, 카탈로그 토폴로지 및 receipt 기반 컨텍스트 스냅샷 계약을 분리했습니다. | `current change`; 영문 및 한국어 Console 계약 문서와 focused 문서 게이트입니다. | 하나의 exact-release 생산자를 구현하고 focused 및 인증된 Console 근거를 보존해야 합니다. |
+| 2026-08-14 | in-progress | 저장된 레이아웃을 바꾸지 않으면서 카탈로그 토폴로지가 처음 나타날 때 범위가 제한된 결정적 spring-settle 효과를 추가했습니다. 조작하거나 동작 감소를 요청하면 효과를 끝내거나 건너뛰며, 지속적인 simulation은 실행하지 않습니다. | `current change`; `ontology-knowledge-graph.geometry.ts`, `ontology-knowledge-graph.renderer.ts`, `use-ontology-knowledge-graph-controller.ts`; Console 토폴로지 focused 테스트 12개와 Console 타입 검사가 통과했습니다. | 아래에 설명한 별도 관리 대상인 인증된 컨텍스트 스냅샷 근거를 보존해야 합니다. |
 
 ### 남은 작업
 

@@ -3,6 +3,7 @@ import {
   ontologyArrowHead,
   ontologyNodeRadius,
   ontologySelfLoop,
+  ontologySettledScreenPoint,
   ontologyWorldToScreen,
   type KnowledgeGraphCamera,
   type KnowledgeGraphIndex,
@@ -60,9 +61,22 @@ export interface OntologyKnowledgeGraphRenderState {
   readonly hoveredId: string | null;
   readonly enabledEdges: ReadonlySet<OntologyKnowledgeEdgeKind>;
   readonly palette: OntologyKnowledgeGraphPalette;
+  readonly settleProgress: number;
+  readonly viewportCenter: KnowledgeGraphPoint;
+}
+
+interface OntologyKnowledgeGraphFrameState extends OntologyKnowledgeGraphRenderState {
+  readonly positionById: ReadonlyMap<string, KnowledgeGraphPoint>;
 }
 
 type VisualState = "selected" | "hovered" | "related" | "normal" | "muted";
+
+function nodePosition(
+  node: OntologyKnowledgeNode,
+  state: OntologyKnowledgeGraphFrameState,
+): KnowledgeGraphPoint {
+  return state.positionById.get(node.id) ?? ontologyWorldToScreen(node, state.camera);
+}
 
 function nodeState(node: OntologyKnowledgeNode, state: OntologyKnowledgeGraphRenderState): VisualState {
   if (node.id === state.selectedId) return "selected";
@@ -90,11 +104,11 @@ function drawGrid(context: CanvasRenderingContext2D, width: number, height: numb
   context.stroke();
 }
 
-function drawCommunities(context: CanvasRenderingContext2D, state: OntologyKnowledgeGraphRenderState): void {
+function drawCommunities(context: CanvasRenderingContext2D, state: OntologyKnowledgeGraphFrameState): void {
   const groups = new Map<number, KnowledgeGraphPoint[]>();
   for (const node of state.graph.nodes) {
     const points = groups.get(node.community) ?? [];
-    points.push(ontologyWorldToScreen(node, state.camera));
+    points.push(nodePosition(node, state));
     groups.set(node.community, points);
   }
   const selectedCommunity = state.selectedId === null
@@ -132,13 +146,13 @@ function drawCommunities(context: CanvasRenderingContext2D, state: OntologyKnowl
   }
 }
 
-function drawEdge(context: CanvasRenderingContext2D, edge: OntologyKnowledgeEdge, state: OntologyKnowledgeGraphRenderState): void {
+function drawEdge(context: CanvasRenderingContext2D, edge: OntologyKnowledgeEdge, state: OntologyKnowledgeGraphFrameState): void {
   if (!state.enabledEdges.has(edge.kind)) return;
   const sourceNode = state.index.nodeById.get(edge.source);
   const targetNode = state.index.nodeById.get(edge.target);
   if (!sourceNode || !targetNode) return;
-  const source = ontologyWorldToScreen(sourceNode, state.camera);
-  const target = ontologyWorldToScreen(targetNode, state.camera);
+  const source = nodePosition(sourceNode, state);
+  const target = nodePosition(targetNode, state);
   const visualState = edgeState(edge, state.selectedId);
   const selfLoop = edge.source === edge.target
     ? ontologySelfLoop(source, ontologyNodeRadius(sourceNode) * state.camera.scale + 3)
@@ -187,8 +201,8 @@ function drawEdge(context: CanvasRenderingContext2D, edge: OntologyKnowledgeEdge
   }
 }
 
-function drawNode(context: CanvasRenderingContext2D, node: OntologyKnowledgeNode, state: OntologyKnowledgeGraphRenderState): void {
-  const position = ontologyWorldToScreen(node, state.camera);
+function drawNode(context: CanvasRenderingContext2D, node: OntologyKnowledgeNode, state: OntologyKnowledgeGraphFrameState): void {
+  const position = nodePosition(node, state);
   const visualState = nodeState(node, state);
   const radius = Math.max(3.2, ontologyNodeRadius(node) * Math.min(1.15, Math.max(.65, state.camera.scale)));
   context.globalAlpha = visualState === "muted" ? .11 : 1;
@@ -210,8 +224,8 @@ function drawNode(context: CanvasRenderingContext2D, node: OntologyKnowledgeNode
 
 interface LabelBox { readonly left: number; readonly right: number; readonly top: number; readonly bottom: number }
 
-function drawNodeLabel(context: CanvasRenderingContext2D, node: OntologyKnowledgeNode, boxes: LabelBox[], state: OntologyKnowledgeGraphRenderState): void {
-  const position = ontologyWorldToScreen(node, state.camera);
+function drawNodeLabel(context: CanvasRenderingContext2D, node: OntologyKnowledgeNode, boxes: LabelBox[], state: OntologyKnowledgeGraphFrameState): void {
+  const position = nodePosition(node, state);
   const visualState = nodeState(node, state);
   if (!(visualState === "selected" || visualState === "hovered" || visualState === "related" || node.degree >= 8 || state.camera.scale > 1.05)) return;
   const radius = Math.max(3.2, ontologyNodeRadius(node) * Math.min(1.15, Math.max(.65, state.camera.scale)));
@@ -237,6 +251,18 @@ export function renderOntologyKnowledgeGraph(
   height: number,
   state: OntologyKnowledgeGraphRenderState,
 ): void {
+  const frameState: OntologyKnowledgeGraphFrameState = {
+    ...state,
+    positionById: new Map(state.graph.nodes.map((node) => [
+      node.id,
+      ontologySettledScreenPoint(
+        ontologyWorldToScreen(node, state.camera),
+        state.viewportCenter,
+        state.settleProgress,
+        node.id,
+      ),
+    ])),
+  };
   context.clearRect(0, 0, width, height);
   context.fillStyle = state.palette.background;
   context.fillRect(0, 0, width, height);
@@ -244,10 +270,10 @@ export function renderOntologyKnowledgeGraph(
   const ordered = [...state.graph.nodes].sort((left, right) => left.degree - right.degree);
   const priority: Readonly<Record<VisualState, number>> = { selected: 4, hovered: 3, related: 2, normal: 1, muted: 0 };
   const labels = [...ordered].reverse().sort((left, right) => priority[nodeState(right, state)] - priority[nodeState(left, state)] || right.degree - left.degree);
-  drawCommunities(context, state);
-  state.graph.edges.forEach((edge) => drawEdge(context, edge, state));
-  ordered.forEach((node) => drawNode(context, node, state));
+  drawCommunities(context, frameState);
+  state.graph.edges.forEach((edge) => drawEdge(context, edge, frameState));
+  ordered.forEach((node) => drawNode(context, node, frameState));
   const labelBoxes: LabelBox[] = [];
-  labels.forEach((node) => drawNodeLabel(context, node, labelBoxes, state));
+  labels.forEach((node) => drawNodeLabel(context, node, labelBoxes, frameState));
   context.globalAlpha = 1;
 }

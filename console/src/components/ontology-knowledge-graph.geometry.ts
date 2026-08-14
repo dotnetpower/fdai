@@ -57,6 +57,27 @@ export function ontologyWorldToScreen(
   return { x: node.x * camera.scale + camera.x, y: node.y * camera.scale + camera.y };
 }
 
+export function ontologySettledScreenPoint(
+  point: KnowledgeGraphPoint,
+  center: KnowledgeGraphPoint,
+  progress: number,
+  seed: string,
+): KnowledgeGraphPoint {
+  if (progress === 1) return point;
+  const hash = [...seed].reduce(
+    (total, character) => (total * 31 + character.charCodeAt(0)) >>> 0,
+    0,
+  );
+  const angle = hash % 360 * Math.PI / 180;
+  const displacement = 1 - progress;
+  const radialScale = .82 + .18 * progress;
+  const drift = 8 * displacement;
+  return {
+    x: center.x + (point.x - center.x) * radialScale + Math.cos(angle) * drift,
+    y: center.y + (point.y - center.y) * radialScale + Math.sin(angle) * drift,
+  };
+}
+
 export function ontologyScreenToWorld(
   point: KnowledgeGraphPoint,
   camera: KnowledgeGraphCamera,
