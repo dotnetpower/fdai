@@ -1,5 +1,4 @@
 import {
-  fetchConversationSearchContext,
   type ConversationSearchContextPayload,
   type ConversationSearchHitPayload,
   type ConversationSearchPayload,
@@ -44,12 +43,6 @@ export interface HighlightSegment {
   readonly highlighted: boolean;
 }
 
-type ContextFetcher = (
-  resultId: string,
-  before: number,
-  after: number,
-) => Promise<ConversationSearchContextPayload>;
-
 export function conversationSearchInput(form: SearchForm) {
   return {
     query: form.query.trim(),
@@ -69,7 +62,10 @@ export function conversationSearchViewStatus(
   result: ConversationSearchPayload | null,
 ): ConversationSearchViewStatus {
   if (loading) return "loading";
-  if (error instanceof UserContextRequestError && error.status === 503) return "unavailable";
+  if (
+    error instanceof UserContextRequestError
+    && (error.status === 404 || error.status === 501 || error.status === 503)
+  ) return "unavailable";
   if (error !== null) return "error";
   if (result === null) return "idle";
   return result.hits.length === 0 ? "empty" : "results";
@@ -79,17 +75,16 @@ export function conversationSearchFailureMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-export async function toggleConversationSearchContext(
+export function toggleConversationSearchContext(
   contexts: Readonly<Record<string, ConversationSearchContextPayload>>,
   resultId: string,
-  fetcher: ContextFetcher = fetchConversationSearchContext,
-): Promise<Readonly<Record<string, ConversationSearchContextPayload>>> {
-  if (contexts[resultId]) {
+  context: ConversationSearchContextPayload | null,
+): Readonly<Record<string, ConversationSearchContextPayload>> {
+  if (context === null) {
     const next = { ...contexts };
     delete next[resultId];
     return next;
   }
-  const context = await fetcher(resultId, 1, 1);
   return { ...contexts, [resultId]: context };
 }
 
@@ -100,13 +95,16 @@ export function conversationSearchHighlightSegments(
   if (ranges.length === 0) return [{ text: hit.snippet.text, highlighted: false }];
   const parts: HighlightSegment[] = [];
   let cursor = 0;
-  ranges.forEach((range) => {
+  for (const range of ranges) {
+    if (range.start < cursor || range.end <= range.start || range.end > hit.snippet.text.length) {
+      return [{ text: hit.snippet.text, highlighted: false }];
+    }
     if (range.start > cursor) {
       parts.push({ text: hit.snippet.text.slice(cursor, range.start), highlighted: false });
     }
     parts.push({ text: hit.snippet.text.slice(range.start, range.end), highlighted: true });
     cursor = range.end;
-  });
+  }
   if (cursor < hit.snippet.text.length) {
     parts.push({ text: hit.snippet.text.slice(cursor), highlighted: false });
   }

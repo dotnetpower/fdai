@@ -1,4 +1,6 @@
-"""PostgreSQL metadata custody for governed trajectory datasets."""
+"""PostgreSQL metadata persistence for governed trajectory datasets."""
+
+# ruff: noqa: S608 - interpolated columns are fixed module constants; values are bound.
 
 from __future__ import annotations
 
@@ -20,7 +22,7 @@ _COLUMNS: Final = (
 
 @dataclass(frozen=True, slots=True)
 class PostgresTrajectoryDatasetStoreConfig:
-    """Validated PostgreSQL settings for trajectory metadata custody."""
+    """Connection and statement bounds for trajectory metadata persistence."""
 
     dsn: str
     statement_timeout_ms: int = 15_000
@@ -28,13 +30,13 @@ class PostgresTrajectoryDatasetStoreConfig:
 
     def __post_init__(self) -> None:
         if not self.dsn:
-            raise ValueError("trajectory dataset PostgreSQL DSN MUST NOT be empty")
+            raise ValueError("trajectory dataset store DSN MUST NOT be empty")
         if self.statement_timeout_ms < 1 or self.connect_timeout_s < 1:
-            raise ValueError("trajectory dataset PostgreSQL timeouts MUST be positive")
+            raise ValueError("trajectory dataset store timeouts MUST be positive")
 
 
 class PostgresTrajectoryDatasetStore:
-    """Persist metadata with scoped reads and legal-hold-safe deletion."""
+    """Store access-scoped metadata and recheck legal hold before tombstoning."""
 
     def __init__(self, *, config: PostgresTrajectoryDatasetStoreConfig) -> None:
         self._config = config
@@ -43,19 +45,17 @@ class PostgresTrajectoryDatasetStore:
         async with await self._connect() as connection, connection.transaction():
             await self._timeout(connection)
             cursor = await connection.execute(
-                f"""
-                INSERT INTO trajectory_dataset ({_COLUMNS})
-                VALUES ({", ".join(["%s"] * 16)})
-                ON CONFLICT DO NOTHING
-                RETURNING {_COLUMNS}
-                """,  # noqa: S608 - columns and placeholders are module constants
+                f"INSERT INTO trajectory_dataset ({_COLUMNS}) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, "
+                "%s, %s, %s) ON CONFLICT (dataset_id) DO NOTHING "
+                f"RETURNING {_COLUMNS}",
                 _values(record),
             )
             row = await cursor.fetchone()
             if row is not None:
                 return _row_to_record(row)
             existing = await self._get(connection, record.dataset_id, lock=True)
-            if existing != record:
+            if existing is None or existing != record:
                 raise ValueError("trajectory dataset id was reused with different metadata")
             return existing
 
@@ -68,7 +68,7 @@ class PostgresTrajectoryDatasetStore:
         async with await self._connect() as connection:
             await self._timeout(connection)
             cursor = await connection.execute(
-                f"SELECT {_COLUMNS} FROM trajectory_dataset "  # noqa: S608
+                f"SELECT {_COLUMNS} FROM trajectory_dataset "
                 "WHERE dataset_id = %s AND access_scope = %s",
                 (dataset_id, access_scope),
             )
@@ -83,11 +83,11 @@ class PostgresTrajectoryDatasetStore:
         limit: int,
     ) -> tuple[TrajectoryDatasetRecord, ...]:
         if not 1 <= limit <= 500:
-            raise ValueError("trajectory dataset list limit MUST be in [1, 500]")
+            raise ValueError("trajectory dataset query limit MUST be in [1, 500]")
         async with await self._connect() as connection:
             await self._timeout(connection)
             cursor = await connection.execute(
-                f"SELECT {_COLUMNS} FROM trajectory_dataset "  # noqa: S608
+                f"SELECT {_COLUMNS} FROM trajectory_dataset "
                 "WHERE access_scope = %s AND purpose = %s "
                 "ORDER BY created_at DESC, dataset_id DESC LIMIT %s",
                 (access_scope, purpose, limit),
@@ -101,17 +101,17 @@ class PostgresTrajectoryDatasetStore:
         now: datetime,
         limit: int,
     ) -> tuple[TrajectoryDatasetRecord, ...]:
-        if now.tzinfo is None:
-            raise ValueError("trajectory retention time MUST include timezone")
+        _require_aware("trajectory retention time", now)
         if not 1 <= limit <= 5_000:
             raise ValueError("trajectory retention deletion limit MUST be in [1, 5000]")
         async with await self._connect() as connection:
             await self._timeout(connection)
             cursor = await connection.execute(
-                f"SELECT {_COLUMNS} FROM trajectory_dataset "  # noqa: S608
-                "WHERE state <> %s AND legal_hold = FALSE AND deletion_due_at <= %s "
+                f"SELECT {_COLUMNS} FROM trajectory_dataset "
+                "WHERE state IN ('completed', 'deleting') AND legal_hold = FALSE "
+                "AND deletion_due_at <= %s "
                 "ORDER BY deletion_due_at, dataset_id LIMIT %s",
-                (TrajectoryDatasetState.DELETED.value, now, limit),
+                (now, limit),
             )
             rows = await cursor.fetchall()
         return tuple(_row_to_record(row) for row in rows)
@@ -126,8 +126,13 @@ class PostgresTrajectoryDatasetStore:
             record = await self._get(connection, dataset_id, lock=True)
             if record is None:
                 return None
-            if record.state is TrajectoryDatasetState.DELETED:
-                raise ValueError("deleted trajectory dataset cannot be placed under legal hold")
+            if record.state in (
+                TrajectoryDatasetState.DELETING,
+                TrajectoryDatasetState.DELETED,
+            ):
+                raise ValueError(
+                    "deleting or deleted trajectory dataset cannot be placed under legal hold"
+                )
             if record.legal_hold:
                 if record.legal_hold_ref != hold_ref:
                     raise ValueError("trajectory dataset already has a different legal hold")
@@ -139,36 +144,61 @@ class PostgresTrajectoryDatasetStore:
             )
             return True
 
+    async def claim_deletion(
+        self,
+        dataset_id: str,
+        *,
+        now: datetime,
+    ) -> TrajectoryDatasetRecord | None:
+        _require_aware("trajectory retention time", now)
+        async with await self._connect() as connection, connection.transaction():
+            await self._timeout(connection)
+            cursor = await connection.execute(
+                "UPDATE trajectory_dataset SET state = 'deleting' "
+                "WHERE dataset_id = %s AND state = 'completed' AND legal_hold = FALSE "
+                f"AND deletion_due_at <= %s RETURNING {_COLUMNS}",
+                (dataset_id, now),
+            )
+            row = await cursor.fetchone()
+            if row is None:
+                existing = await connection.execute(
+                    f"SELECT {_COLUMNS} FROM trajectory_dataset WHERE dataset_id = %s "
+                    "AND state = 'deleting' AND legal_hold = FALSE AND deletion_due_at <= %s",
+                    (dataset_id, now),
+                )
+                row = await existing.fetchone()
+        return _row_to_record(row) if row is not None else None
+
     async def mark_deleted(
         self,
         dataset_id: str,
         *,
         deleted_at: datetime,
     ) -> TrajectoryDatasetRecord:
-        if deleted_at.tzinfo is None:
-            raise ValueError("trajectory deletion time MUST include timezone")
+        _require_aware("trajectory deletion time", deleted_at)
         async with await self._connect() as connection, connection.transaction():
             await self._timeout(connection)
-            record = await self._get(connection, dataset_id, lock=True)
-            if record is None:
-                raise LookupError(f"trajectory dataset was not found: {dataset_id}")
-            if record.legal_hold:
-                raise PermissionError("trajectory dataset is under legal hold")
-            if record.state is TrajectoryDatasetState.DELETED:
-                return record
             cursor = await connection.execute(
-                f"""
-                UPDATE trajectory_dataset
-                   SET state = %s, storage_ref = NULL, deleted_at = %s
-                 WHERE dataset_id = %s
-                RETURNING {_COLUMNS}
-                """,  # noqa: S608 - columns are a module constant
-                (TrajectoryDatasetState.DELETED.value, deleted_at, dataset_id),
+                "UPDATE trajectory_dataset SET state = 'deleted', storage_ref = NULL, "
+                "deleted_at = %s WHERE dataset_id = %s AND state = 'deleting' "
+                f"AND legal_hold = FALSE RETURNING {_COLUMNS}",
+                (deleted_at, dataset_id),
             )
             row = await cursor.fetchone()
             if row is None:
-                raise RuntimeError("trajectory dataset deletion update returned no row")
-            return _row_to_record(row)
+                existing = await connection.execute(
+                    f"SELECT {_COLUMNS} FROM trajectory_dataset WHERE dataset_id = %s",
+                    (dataset_id,),
+                )
+                row = await existing.fetchone()
+        if row is None:
+            raise LookupError(f"trajectory dataset was not found: {dataset_id}")
+        record = _row_to_record(row)
+        if record.legal_hold:
+            raise PermissionError("trajectory dataset is under legal hold")
+        if record.state is not TrajectoryDatasetState.DELETED:
+            raise RuntimeError("trajectory dataset deletion state changed concurrently")
+        return record
 
     async def _get(
         self,
@@ -178,7 +208,7 @@ class PostgresTrajectoryDatasetStore:
         lock: bool,
     ) -> TrajectoryDatasetRecord | None:
         cursor = await connection.execute(
-            f"SELECT {_COLUMNS} FROM trajectory_dataset WHERE dataset_id = %s"  # noqa: S608
+            f"SELECT {_COLUMNS} FROM trajectory_dataset WHERE dataset_id = %s"
             + (" FOR UPDATE" if lock else ""),
             (dataset_id,),
         )
@@ -186,8 +216,9 @@ class PostgresTrajectoryDatasetStore:
         return _row_to_record(row) if row is not None else None
 
     async def _connect(self) -> psycopg.AsyncConnection[dict[str, Any]]:
+        dsn = self._config.dsn.replace("postgresql+psycopg://", "postgresql://", 1)
         return await psycopg.AsyncConnection.connect(
-            self._config.dsn,
+            dsn,
             row_factory=dict_row,
             connect_timeout=self._config.connect_timeout_s,
         )
@@ -249,6 +280,11 @@ def _row_to_record(row: dict[str, Any]) -> TrajectoryDatasetRecord:
 
 def _optional_str(value: object) -> str | None:
     return str(value) if value is not None else None
+
+
+def _require_aware(name: str, value: datetime) -> None:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError(f"{name} MUST include timezone")
 
 
 __all__ = ["PostgresTrajectoryDatasetStore", "PostgresTrajectoryDatasetStoreConfig"]

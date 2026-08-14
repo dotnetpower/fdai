@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 6d6daef870b312e9fd3fac503774c2180901a3fb
+translation_source_sha: 298ac672f391a8f1e91ada13f3559eb43ac450a5
 translation_revised: 2026-08-14
 ---
 
@@ -22,6 +22,7 @@ translation_revised: 2026-08-14
 | Command Deck JSON 대비 | 구현됨 | `console/src/styles.css`, `console/src/deck/command-deck-workspace-visual.test.ts`, focused Vitest 10개 통과 및 인증된 브라우저 검사 | 구문 강조 JSON은 전역의 밝은 `pre` 스타일과 관계없이 고정된 어두운 코드 표면을 유지합니다. 브라우저 검사는 통제된 런타임 근거로 보존하지 않았습니다. |
 | 탭 간 SSE 및 인시던트 복원력 | 구현됨 | 탭 간 stream hook, `incidents.milestones.ts`, incident projection, `docs/baselines/console-cross-tab-sse-assurance-2026-08-14.json`, focused Console/Operator test 및 인증된 Browser Entra assurance | 정확히 하나의 leader가 세 탭의 세 채널을 소유했고 failover가 leader client를 바꿨으며 인증된 self 검사 세 번이 모두 성공했습니다. Notification delivery는 명시적으로 주장하지 않습니다. 관리되는 incident-detail 런타임 근거는 아직 남아 있습니다. |
 | 선택적 report PDF 컨트롤 | implemented | `console/src/routes/reports.tsx`; service-local Operator PDF 어댑터; focused Console 및 Operator 테스트 | Catalog와 runtime registry가 모두 `pdf`를 표시할 때만 컨트롤이 나타나고 variable이 없는 report에서도 동작하며 stale 또는 unmounted 다운로드를 browser effect로 만들지 않습니다. |
+| 대화 검색 요청 복원력 | implemented | `console/src/routes/conversation-search.tsx`, `console/src/routes/conversation-search.test.tsx`, focused Console 테스트 (`22 passed`) 및 타입 검사 | 검색 generation은 오래된 결과 및 맥락 쓰기를 거부합니다. Generation 범위 in-flight key는 rerender 전 중복 맥락 요청을 억제하고 검색 간 결과를 섞지 않습니다. |
 
 ### 구현 이력
 
@@ -42,6 +43,7 @@ translation_revised: 2026-08-14
 | 2026-08-14 | implemented | 같은 경로의 SPA 문서가 API 근거 대기를 충족할 수 없도록 Incident assurance runner를 JSON Operator 응답에 연결했습니다. | `current change`; `incident-rca-report-assurance.spec.ts`, Console typecheck 및 focused Playwright discovery입니다. | 이 runner revision을 중앙 검증한 뒤 다시 실행해 redacted 아티팩트를 보존해야 합니다. |
 | 2026-08-14 | implemented | 일치하지 않는 legacy 경로가 Overview로 fallback하지 않도록 Incident assurance runner를 canonical `/root-cause-analysis` 경로로 이동했습니다. | `current change`; `incident-rca-report-assurance.spec.ts`, Console typecheck 및 focused Playwright discovery입니다. | 이 runner revision을 중앙 검증한 뒤 다시 실행해 redacted 아티팩트를 보존해야 합니다. |
 | 2026-08-14 | implemented | 인증된 assurance에서 서버의 최신순 hypothesis 정렬을 거부하는 동작이 드러나 Console RCA decoder를 수정했습니다. | `current change`; `api-operations.ts`, `api.test.ts`, focused decoder 테스트 13개 및 Console typecheck입니다. | 수정 commit을 중앙 검증한 뒤 다시 실행해 redacted 아티팩트를 보존해야 합니다. |
+| 2026-08-14 | implemented | 오래되거나 중복된 대화 검색 맥락 응답이 현재 Console 상태를 대체하지 않도록 차단했습니다. | `current change`; focused 경로 및 decoder 테스트 22개, Console 타입 검사 및 catalog parity 검사가 통과했습니다. | 관리되는 Browser 근거는 이 로컬 요청 상태 검사가 아니라 더 넓은 Console 보증 캠페인에서 계속 다룹니다. |
 
 ### 잔여 작업
 

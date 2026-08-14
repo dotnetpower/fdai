@@ -107,7 +107,7 @@ class PostgresScheduledConversationAnchorStore:
 
     async def _connect(self) -> psycopg.AsyncConnection[dict[str, Any]]:
         return await psycopg.AsyncConnection.connect(
-            self._config.dsn,
+            _psycopg_dsn(self._config.dsn),
             row_factory=dict_row,
             connect_timeout=self._config.connect_timeout_s,
         )
@@ -115,6 +115,10 @@ class PostgresScheduledConversationAnchorStore:
     async def _timeout(self, connection: psycopg.AsyncConnection[Any]) -> None:
         timeout = int(self._config.statement_timeout_ms)
         await connection.execute(f"SET LOCAL statement_timeout = {timeout}")
+
+
+def _psycopg_dsn(value: str) -> str:
+    return value.replace("postgresql+psycopg://", "postgresql://", 1)
 
 
 def _origin_json(origin: ScheduledResultOrigin) -> str:

@@ -307,6 +307,8 @@ __all__ = [
     "PostgresTrustedArtifactStoreConfig",
     "PostgresTaskWorkerStore",
     "PostgresTaskWorkerStoreConfig",
+    "PostgresTrajectoryDatasetStore",
+    "PostgresTrajectoryDatasetStoreConfig",
     "PostgresStateStore",
     "PostgresStateStoreConfig",
     "PostgresUserContextStoreConfig",

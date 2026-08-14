@@ -15,7 +15,25 @@ class ArtifactDeleter:
     async def delete(self, storage_ref: str) -> None:
         if self.fail:
             raise RuntimeError("artifact delete failed")
-        self.deleted.append(storage_ref)
+        if storage_ref not in self.deleted:
+            self.deleted.append(storage_ref)
+
+
+class MarkFailOnceStore(InMemoryTrajectoryDatasetStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self.failed = False
+
+    async def mark_deleted(
+        self,
+        dataset_id: str,
+        *,
+        deleted_at: datetime,
+    ) -> TrajectoryDatasetRecord:
+        if not self.failed:
+            self.failed = True
+            raise RuntimeError("metadata tombstone failed")
+        return await super().mark_deleted(dataset_id, deleted_at=deleted_at)
 
 
 def _record(dataset_id: str, *, legal_hold: bool = False) -> TrajectoryDatasetRecord:
@@ -73,9 +91,36 @@ async def test_retention_keeps_metadata_retryable_when_artifact_delete_fails() -
 
     record = await store.get("retry-me", access_scope="scope-example")
     assert record is not None
-    assert record.state is TrajectoryDatasetState.COMPLETED
+    assert record.state is TrajectoryDatasetState.DELETING
     assert record.storage_ref == "dataset:retry-me"
     assert record.deleted_at is None
+
+
+async def test_late_legal_hold_prevents_deletion_claim_without_stopping_batch() -> None:
+    store = InMemoryTrajectoryDatasetStore()
+    artifacts = ArtifactDeleter()
+    await store.put(_record("first", legal_hold=True))
+    await store.put(_record("second"))
+
+    assert await TrajectoryRetentionService(store=store, artifacts=artifacts).delete_due(
+        now=NOW
+    ) == ("second",)
+    assert artifacts.deleted == ["dataset:second"]
+
+
+async def test_retention_resumes_claim_after_artifact_delete_and_tombstone_failure() -> None:
+    store = MarkFailOnceStore()
+    artifacts = ArtifactDeleter()
+    await store.put(_record("resume-me"))
+    service = TrajectoryRetentionService(store=store, artifacts=artifacts)
+
+    with pytest.raises(RuntimeError, match="metadata tombstone failed"):
+        await service.delete_due(now=NOW)
+    claimed = await store.get("resume-me", access_scope="scope-example")
+    assert claimed is not None and claimed.state is TrajectoryDatasetState.DELETING
+
+    assert await service.delete_due(now=NOW) == ("resume-me",)
+    assert artifacts.deleted == ["dataset:resume-me"]
 
 
 async def test_dataset_store_denies_cross_scope_reads() -> None:

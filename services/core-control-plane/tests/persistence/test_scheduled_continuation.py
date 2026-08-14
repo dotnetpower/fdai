@@ -15,6 +15,7 @@ from fdai.core.scheduler.continuation import (
 from fdai.delivery.persistence.postgres_scheduled_continuation import (
     PostgresScheduledContinuationStoreConfig,
     PostgresScheduledConversationAnchorStore,
+    _psycopg_dsn,
     _row_to_anchor,
     _values,
 )
@@ -27,6 +28,11 @@ from fdai.shared.providers.scheduled_continuation import (
 )
 
 NOW = datetime(2026, 7, 20, 21, 0, tzinfo=UTC)
+
+
+def test_psycopg_dsn_accepts_sqlalchemy_driver_scheme() -> None:
+    assert _psycopg_dsn("postgresql+psycopg://example") == "postgresql://example"
+    assert _psycopg_dsn("postgresql://example") == "postgresql://example"
 
 
 def _anchor(*, suffix: str = "") -> ScheduledConversationAnchor:

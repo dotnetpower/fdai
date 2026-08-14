@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Narrator, DI Seams, and Session Model
 translation_of: operator-console-runtime-model.md
-translation_source_sha: d56f0a7652945277d840c665e75204e095c82646
+translation_source_sha: 3cde049634d68b569a2badf44975d4cfa7609fa3
 translation_revised: 2026-08-14
 ---
 
@@ -507,7 +507,7 @@ wrapping 되며, 이는 T2 quality 게이트가 이벤트 페이로드를 다루
 |------|------|------|------|
 | Core narrator, answer-plan 및 session 계약 | implemented | `services/core-control-plane/src/fdai/core/conversation/`; focused conversation 테스트 | 결정론적 계획, 서술 경계, session 레코드 및 실행 권한 부재에 focused 검사가 있습니다. |
 | Working-context 조립 및 정책 | implemented | `services/core-control-plane/src/fdai/core/working_context/`; `services/core-control-plane/tests/core/working_context/`; context-bridge 테스트 | 예산 계층, 검증, 요약 계획, 재생, governance, shadow 비교 및 타입이 지정된 fact trust 경계가 구현됐습니다. |
-| 영속 principal 범위 history 및 complete-history 조립 | implemented | Conversation history 프로바이더; `services/core-control-plane/tests/persistence/test_postgres_user_context_latest.py`; `services/core-control-plane/tests/persistence/test_postgres_conversation_images.py`; `services/core-control-plane/tests/persistence/test_conversation_search.py`; Operator conversation application | 재시작 후 읽기, principal 격리, 전체 turn history, 최신 context, 첫 질문, 이미지 및 검색이 focused PostgreSQL 테스트를 통과했습니다. 관리되는 장기 session 증적은 남아 있습니다. |
+| 영속 principal 범위 history 및 complete-history 조립 | implemented | Conversation history 프로바이더, `services/core-control-plane/tests/persistence/test_postgres_user_context_latest.py`, `services/core-control-plane/tests/persistence/test_postgres_conversation_history_restart.py`, `services/core-control-plane/tests/persistence/test_postgres_conversation_images.py`, `services/core-control-plane/tests/persistence/test_conversation_search.py`, Operator conversation application | 재시작 후 읽기, principal 격리, 전체 turn history, 최신 context, 첫 질문, 이미지, 검색 및 working-context 매니페스트 조립이 focused PostgreSQL 테스트를 통과했습니다. 관리되는 장기 session 증적은 남아 있습니다. |
 | 독립 service narrator 및 모델 연결 | in-progress | `services/operator-service/src/fdai_operator_service/application/conversation/`; service-local narrator 어댑터; focused Operator 테스트 | Application 및 어댑터 경계는 있지만 이동 지연 시간 라우팅, 사용자별 pinning 및 완전한 프로덕션 변환/stream 근거가 남아 있습니다. |
 | 프로세스 간 agent introspection | implemented | `services/core-control-plane/src/fdai/delivery/agent_introspection_bus.py`; focused introspection 및 conversation 테스트 | 범위가 제한된 request/reply 전송이 Bragi의 presentation-only 권한을 보존하고 실행기 신원을 제외합니다. |
 
@@ -517,6 +517,7 @@ wrapping 되며, 이는 T2 quality 게이트가 이벤트 페이로드를 다루
 |------|------|------|-----------|
 | 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 conversation, working-context, history, Operator application 및 introspection 근거입니다. | 영속 재시작, 독립 narrator routing 및 인증된 장기 session 근거를 완료해야 합니다. |
 | 2026-08-14 | implemented | 실제 재시작 및 principal 격리 검사를 추가한 뒤 영속 history와 complete-history 조립을 승격했습니다. | `current change`; history/latest-context, 이미지 및 검색 suite가 지원되는 일회용 PostgreSQL 데이터베이스에서 12건을 건너뛰기 없이 통과했습니다. | 독립 narrator routing 및 인증된 장기 session 근거를 완료해야 합니다. |
+| 2026-08-14 | implemented | 다른 principal의 history를 빌리지 않고 complete principal 범위 turn 순서를 working-context 매니페스트로 재구축하는 전용 재시작 검사를 추가했습니다. | `current change`; `test_postgres_conversation_history_restart.py`의 focused live 사례가 skip 없이 통과했고 focused Ruff 및 mypy가 통과했습니다. | 관리되는 장기 session 및 인증된 JSON/SSE 근거를 보존해야 합니다. |
 
 ### 남은 작업
 

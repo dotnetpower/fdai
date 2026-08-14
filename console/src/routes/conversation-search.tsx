@@ -1,9 +1,10 @@
 import type { JSX } from "preact";
-import { useState } from "preact/hooks";
+import { useRef, useState } from "preact/hooks";
 import type { PanelProps } from "../panels";
 import { t } from "../i18n";
 import { EmptyState, ErrorState, LoadingState, PageHeader, UnavailableState } from "../components/ui";
 import {
+  fetchConversationSearchContext,
   searchConversations,
   type ConversationSearchContextPayload,
   type ConversationSearchHitPayload,
@@ -27,31 +28,56 @@ export function ConversationSearchRoute(_props: PanelProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [contexts, setContexts] = useState<Readonly<Record<string, ConversationSearchContextPayload>>>({});
-  const [contextLoading, setContextLoading] = useState<string | null>(null);
+  const [contextLoading, setContextLoading] = useState<ReadonlySet<string>>(new Set());
+  const searchGeneration = useRef(0);
+  const contextRequests = useRef(new Set<string>());
 
   async function submit(event: JSX.TargetedSubmitEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
+    const generation = ++searchGeneration.current;
     setLoading(true);
     setError(null);
+    setResult(null);
     setContexts({});
     try {
-      setResult(await searchConversations(conversationSearchInput(form)));
+      const next = await searchConversations(conversationSearchInput(form));
+      if (generation === searchGeneration.current) setResult(next);
     } catch (reason) {
-      setError(reason);
-      setResult(null);
+      if (generation === searchGeneration.current) {
+        setError(reason);
+      }
     } finally {
-      setLoading(false);
+      if (generation === searchGeneration.current) setLoading(false);
     }
   }
 
   async function loadContext(hit: ConversationSearchHitPayload): Promise<void> {
-    setContextLoading(hit.result_id);
+    if (contexts[hit.result_id]) {
+      setContexts((current) => toggleConversationSearchContext(current, hit.result_id, null));
+      return;
+    }
+    const generation = searchGeneration.current;
+    const requestKey = `${generation}:${hit.result_id}`;
+    if (contextRequests.current.has(requestKey)) return;
+    contextRequests.current.add(requestKey);
+    setError(null);
+    setContextLoading((current) => new Set(current).add(hit.result_id));
     try {
-      setContexts(await toggleConversationSearchContext(contexts, hit.result_id));
+      const context = await fetchConversationSearchContext(hit.result_id, 1, 1);
+      if (generation === searchGeneration.current) {
+        setContexts((current) => toggleConversationSearchContext(current, hit.result_id, context));
+      }
     } catch (reason) {
-      setError(reason);
+      if (generation === searchGeneration.current) {
+        setError(reason);
+      }
     } finally {
-      setContextLoading(null);
+      contextRequests.current.delete(requestKey);
+      setContextLoading((current) => {
+        const next = new Set(current);
+        next.delete(hit.result_id);
+        return next;
+      });
     }
   }
 
@@ -145,7 +171,12 @@ export function ConversationSearchRoute(_props: PanelProps) {
               </div>
               <p><HighlightedSnippet hit={hit} /></p>
               <div class="conversation-search-actions">
-                <button type="button" onClick={() => void loadContext(hit)} disabled={contextLoading === hit.result_id}>
+                <button
+                  type="button"
+                  onClick={() => void loadContext(hit)}
+                  disabled={contextLoading.has(hit.result_id)}
+                  aria-expanded={Boolean(context)}
+                >
                   {contexts[hit.result_id]
                     ? t("conversationSearch.hideContext")
                     : t("conversationSearch.showContext")}
@@ -162,22 +193,30 @@ export function ConversationSearchRoute(_props: PanelProps) {
 }
 
 function HighlightedSnippet({ hit }: { readonly hit: ConversationSearchHitPayload }) {
-  return <>{conversationSearchHighlightSegments(hit).map((part, index) => (
-    part.highlighted
-      ? <mark key={`mark-${index}`}>{part.text}</mark>
-      : <span key={`text-${index}`}>{part.text}</span>
-  ))}</>;
+  return <>{conversationSearchHighlightSegments(hit).map((segment, index) => segment.highlighted
+    ? <mark key={`mark-${index}`}>{segment.text}</mark>
+    : <span key={`text-${index}`}>{segment.text}</span>)}</>;
 }
 
 function ContextRows({ context }: { readonly context: ConversationSearchContextPayload }) {
   return (
     <div class="conversation-search-context">
-      {[...context.before, ...context.after].map((turn) => (
-        <div key={turn.result_id}>
-          <span class="muted">{t(`conversationSearch.roles.${turn.role}`)}</span>
-          <span>{turn.snippet.text}</span>
-        </div>
-      ))}
+      <div aria-label={t("conversationSearch.contextBefore")}>
+        {context.before.map((turn) => (
+          <div key={turn.result_id}>
+            <span class="muted">{t(`conversationSearch.roles.${turn.role}`)}</span>
+            <span>{turn.snippet.text}</span>
+          </div>
+        ))}
+      </div>
+      <div aria-label={t("conversationSearch.contextAfter")}>
+        {context.after.map((turn) => (
+          <div key={turn.result_id}>
+            <span class="muted">{t(`conversationSearch.roles.${turn.role}`)}</span>
+            <span>{turn.snippet.text}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

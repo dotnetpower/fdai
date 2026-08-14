@@ -38,8 +38,8 @@ SERVICE_IDS = (
 def test_legacy_migration_inventory_is_linear_and_complete() -> None:
     inventory = inventory_module.load_legacy_inventory(REPO_ROOT / "alembic" / "versions")
 
-    assert len(inventory.down_revisions) == 85
-    assert inventory.heads == ("20260814_0083",)
+    assert len(inventory.down_revisions) == 86
+    assert inventory.heads == ("20260814_0084",)
     assert len(inventory.table_sources) == 101
     assert "IF" not in inventory.table_sources
     assert inventory.table_sources["document_worker_claim"] == ("20260806_0075",)

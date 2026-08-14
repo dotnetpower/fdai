@@ -94,6 +94,7 @@ class TrajectoryDatasetState(StrEnum):
     COMPLETED = "completed"
     CANCELLED = "cancelled"
     QUARANTINED = "quarantined"
+    DELETING = "deleting"
     DELETED = "deleted"
 
 
@@ -142,6 +143,13 @@ class TrajectoryDatasetRecord:
         if self.state is TrajectoryDatasetState.COMPLETED:
             if not all((self.storage_ref, self.dataset_checksum, self.manifest_checksum)):
                 raise ValueError("completed trajectory dataset MUST carry storage and checksums")
+        if self.state is TrajectoryDatasetState.DELETING:
+            if self.legal_hold or not all(
+                (self.storage_ref, self.dataset_checksum, self.manifest_checksum)
+            ):
+                raise ValueError(
+                    "deleting trajectory dataset MUST retain storage and exclude legal hold"
+                )
         if self.state is TrajectoryDatasetState.DELETED:
             if self.storage_ref is not None or self.deleted_at is None:
                 raise ValueError(
@@ -193,6 +201,13 @@ class TrajectoryDatasetStore(Protocol):
         limit: int,
     ) -> tuple[TrajectoryDatasetRecord, ...]: ...
 
+    async def claim_deletion(
+        self,
+        dataset_id: str,
+        *,
+        now: datetime,
+    ) -> TrajectoryDatasetRecord | None: ...
+
     async def mark_deleted(
         self,
         dataset_id: str,
@@ -202,6 +217,8 @@ class TrajectoryDatasetStore(Protocol):
 
 
 class TrajectoryArtifactDeleter(Protocol):
+    """Delete an artifact idempotently; an already absent reference is success."""
+
     async def delete(self, storage_ref: str) -> None: ...
 
 

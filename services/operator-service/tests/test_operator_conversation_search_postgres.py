@@ -71,8 +71,17 @@ async def test_operator_conversation_search_is_live_scoped_and_timing_free() -> 
             )
         )
         assert isinstance(search.body, dict)
-        assert [item["conversation_id"] for item in search.body["hits"]] == [conversation]
-        assert search.body["index_rows"] == 1
+        hits = search.body.get("hits")
+        assert isinstance(hits, list)
+        conversation_ids: list[str] = []
+        for item in hits:
+            assert isinstance(item, dict)
+            raw_conversation_id = item.get("conversation_id")
+            assert isinstance(raw_conversation_id, str)
+            conversation_ids.append(raw_conversation_id)
+        assert conversation_ids == [conversation]
+        index_rows = search.body.get("index_rows")
+        assert isinstance(index_rows, int) and index_rows == 1
         assert "query_ms" not in search.body
         context = await adapter.read(
             ConversationQuery(
@@ -89,10 +98,14 @@ async def test_operator_conversation_search_is_live_scoped_and_timing_free() -> 
                 path_params={"conversation_id": conversation},
             )
         )
-        assert (
-            isinstance(context.body, dict) and context.body["hit"]["turn_id"] == f"turn-{principal}"
-        )
-        assert isinstance(lineage.body, dict) and lineage.body["turn_ids"] == [f"turn-{principal}"]
+        assert isinstance(context.body, dict)
+        context_hit = context.body.get("hit")
+        assert isinstance(context_hit, dict)
+        assert context_hit.get("turn_id") == f"turn-{principal}"
+        assert isinstance(lineage.body, dict)
+        turn_ids = lineage.body.get("turn_ids")
+        assert isinstance(turn_ids, list)
+        assert turn_ids == [f"turn-{principal}"]
         assert (
             await store.read_conversation_lineage(
                 principal_id=principal,

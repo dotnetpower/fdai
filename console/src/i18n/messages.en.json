@@ -976,11 +976,14 @@
     "search": "Search",
     "loading": "Searching prior conversations...",
     "empty": "No authorized turns matched",
+    "unavailable": "Conversation search is unavailable",
     "results": "Conversation search results",
     "resultCount": "{count} results",
     "indexScope": "{count} authorized turns indexed",
     "showContext": "Show context",
-    "hideContext": "Hide context"
+    "hideContext": "Hide context",
+    "contextBefore": "Earlier turns",
+    "contextAfter": "Later turns"
   },
   "processesView": {
     "subtitle": "Workflow run status from authoritative Process snapshots and append-only journals. Execution remains outside the console.",
