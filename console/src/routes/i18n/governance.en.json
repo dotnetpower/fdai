@@ -89,6 +89,7 @@
   },
   "capabilities": {
     "resourceLabel": "capabilities",
+    "unavailable": "Capability data is currently unavailable.",
     "column": {
       "id": "Capability id",
       "name": "Name",

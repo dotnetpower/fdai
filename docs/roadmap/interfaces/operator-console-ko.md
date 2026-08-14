@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: ddfb8a4f29f0547321cfd956db5ac19e8613678e
+translation_source_sha: 439ce807ab85dfbc253c47ec8823af3cb69346f7
 translation_revised: 2026-08-14
 ---
 
@@ -53,6 +53,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 2026-08-14 | implemented | 서버 소유 프로바이더 실행 증적 생성기를 추가하고 실행 가능하거나 민감한 프로바이더 텍스트를 거부하도록 Console 파서를 강화했습니다. | `current change`, 집중 Azure delivery 테스트 `8 passed`, Console 파서 테스트 `6 passed` 및 Console typecheck 통과 | Azure 검색 owner 문서에서 추적하는 읽기 전용 실제 운영 canary 증적을 보존합니다. |
 | 2026-08-14 | implemented | 서버에서 렌더링하고 브라우저가 허용하는 프로바이더 명령 모두에서 환경 할당을 거부했습니다. | `current change`, 집중 Azure delivery 테스트 `10 passed`, Console 파서 테스트 `7 passed` 및 Console typecheck 통과 | Azure 검색 owner 문서에서 추적하는 읽기 전용 실제 운영 canary 증적을 보존합니다. |
 | 2026-08-14 | implemented | 등록된 자리 표시자를 보존하면서 서버 및 브라우저 프로바이더 명령 검증기 모두에서 redirect, 제어 문자 및 실행 가능한 shell 단어를 거부했습니다. | `current change`, 집중 Azure delivery 테스트 `18 passed`, Console 파서 테스트 `11 passed` 및 Console typecheck 통과 | Azure 검색 owner 문서에서 추적하는 읽기 전용 실제 운영 canary 증적을 보존합니다. |
+| 2026-08-14 | implemented | 기능 디렉터리의 지역화된 사용 불가 문구를 복구하고 기존 Console 디자인 mock에서 지속적인 위쪽 및 왼쪽 edge 강조를 제거했습니다. | `current change`, `mock-visual-boundary.test.ts` 및 `catalog-usage.test.ts` focused 테스트 6개 통과, catalog parity 통과 | 운영자 표면 CI 경로에서 시각적 경계 및 catalog 사용 검사를 계속 유지합니다. |
 
 ### 남은 작업
 
