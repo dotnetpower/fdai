@@ -101,12 +101,15 @@ from fdai.core.workflow import (
     WorkflowTriggerCoordinator,
     WorkflowTriggerIndex,
 )
+from fdai.delivery.kinetic_proposal import StateStoreKineticActionProposalStore
+from fdai.delivery.kinetic_safety import ExistingProposalKineticSafetyWriter
 from fdai.delivery.persistence.state_store_preconditions import (
     StateStoreOpenActionEvidenceProvider,
 )
 from fdai.delivery.persistence.workflow_approval import (
     StateStoreWorkflowApprovalProvider,
 )
+from fdai.delivery.reconciliation_artifacts import StateStoreExecutedActionArtifactStore
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.rule_catalog.schema.governance_catalog import load_governance_catalog
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
@@ -675,6 +678,12 @@ def _build_control_loop(
         if hil_channel is not None and approval_load_policy is not None
         else None
     )
+    pre_dispatch_kinetic_safety_writer = ExistingProposalKineticSafetyWriter(
+        proposal_store=StateStoreKineticActionProposalStore(store=audit_store),
+        artifact_store=StateStoreExecutedActionArtifactStore(store=audit_store),
+        action_types_by_name=action_types_by_name,
+        active_release=ontology_release,
+    )
     hil_resume_coordinator = HilResumeCoordinator(
         state_store=audit_store,
         executor=executor,
@@ -688,6 +697,7 @@ def _build_control_loop(
         approval_reminder_dispatcher=approval_reminder_dispatcher,
         escalation_supervisor=escalation_supervisor,
         default_escalation_rungs=escalation_rungs,
+        pre_dispatch_kinetic_safety_writer=pre_dispatch_kinetic_safety_writer,
         thor_execution_port=thor_execution_port,
         mutation_dependency_readiness=mutation_dependency_readiness,
     )
@@ -798,6 +808,7 @@ def _build_control_loop(
         mscp_effect_observer=container.mscp_effect_observer,
         response_outcome_sink=response_outcome_sink,
         effect_reconciliation_request_sink=effect_reconciliation_request_sink,
+        pre_dispatch_kinetic_safety_writer=pre_dispatch_kinetic_safety_writer,
         workflow_outcome_recorder=workflow_outcome_ledger,
         ontology_instance_store=ontology_instance_store,
         property_semantics=property_semantics,

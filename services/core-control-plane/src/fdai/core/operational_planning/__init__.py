@@ -11,6 +11,7 @@ from .coordinator import (
 from .execution import close_operational_plan, compile_selected_mutation_plan
 from .journal import PlanningPhaseOrderError, append_planning_phase
 from .kinetic_proposal import KineticActionProposal, KineticActionProposalSource
+from .kinetic_safety import PreDispatchKineticSafetyWriter
 from .models import (
     MAX_PLAN_CANDIDATES,
     MAX_PLAN_CONSTRAINTS,
@@ -71,6 +72,7 @@ __all__ = [
     "PlanningCandidateSimulator",
     "PlanningConstraintEvaluator",
     "PlanningProjectionRecorder",
+    "PreDispatchKineticSafetyWriter",
     "PlanningRequest",
     "PlanningProgram",
     "ProgrammaticPlanningRunner",

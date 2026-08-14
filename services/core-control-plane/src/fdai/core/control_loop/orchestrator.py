@@ -36,6 +36,7 @@ from fdai.core.ontology_platform.metric_semantics import MetricSemanticRegistry
 from fdai.core.ontology_platform.reconciliation_producer import (
     EffectReconciliationRequestSink,
 )
+from fdai.core.operational_planning import PreDispatchKineticSafetyWriter
 from fdai.core.rca import CausalRuntimeCoordinator, IncidentMemberSource, RcaCoordinator
 from fdai.core.risk_gate.gate import RiskGate
 from fdai.core.risk_gate.preconditions import (
@@ -131,6 +132,7 @@ class ControlLoop(
         response_outcome_sink: Callable[[ResponseOutcome], Awaitable[None]] | None = None,
         workflow_outcome_recorder: WorkflowOutcomeRecorder | None = None,
         effect_reconciliation_request_sink: EffectReconciliationRequestSink | None = None,
+        pre_dispatch_kinetic_safety_writer: PreDispatchKineticSafetyWriter | None = None,
         ontology_instance_store: OntologyInstanceStore | None = None,
         property_semantics: PropertySemanticRegistry | None = None,
         metric_semantics: MetricSemanticRegistry | None = None,
@@ -194,6 +196,7 @@ class ControlLoop(
         self._response_outcome_sink = response_outcome_sink
         self._workflow_outcome_recorder = workflow_outcome_recorder
         self._effect_reconciliation_request_sink = effect_reconciliation_request_sink
+        self._pre_dispatch_kinetic_safety_writer = pre_dispatch_kinetic_safety_writer
         self._ontology_instance_store = ontology_instance_store
         self._property_semantics = property_semantics
         self._metric_semantics = metric_semantics

@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 4ab0f5a2730523f7465f061223658fdb15a87443
+translation_source_sha: 01d35a2b4e80592a7f196f3c6e93f270cccce16b
 translation_revised: 2026-08-14
 ---
 
@@ -50,12 +50,14 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 | 2026-08-13 | implemented | 권한 있는 임베딩 식별자, 엄격한 시작 문서 스냅샷, replay가 동일한 reconciliation 요청, 정확한 준비 상태 증적 연결 및 Heimdall 검증 뒤의 Mimir 소유 활성화 명령 발행으로 운영 Rule 세대 체인을 완료했습니다. | `current change`; `rule_generation_documents.py`, `mimir.py`, `activation.py`, 의미 인덱스 어댑터 및 집중 worker, 런타임, 활성화, bootstrap 검사 | 운영 검증을 주장하기 전에 통제된 실제 빌드, 검증, 활성화 및 변환 결과 증적을 보존합니다. |
 | 2026-08-14 | implemented | Topic 또는 action authority를 바꾸지 않고 Thor가 optional argument-bound kinetic proposal을 검증하고 durable하게 보존하도록 했습니다. | `current change`, focused contract, Thor, durable replay, layout 및 role 검사 | End-to-end kinetic handoff를 주장하기 전에 Forseti producer와 Core pre-dispatch consumer를 연결합니다. |
 | 2026-08-14 | implemented | Forseti에 선택적 exact proposal source를 주입하고 조정이 해결된 Verdict와 사람 검토 Verdict에 일치하는 proposal을 보존했습니다. Proposal이 없으면 legacy 동작을 유지하고 잘못된 source record는 권한을 deny로 낮춥니다. | `current change`, `forseti.py`, `factory.py`, `runtime.py` 및 집중 producer, Forseti, Thor, factory, framework 검사 | 런타임 검증을 주장하기 전에 운영 조립에서 source를 연결하고 pre-dispatch 증적 및 독립 관측 경로를 완료합니다. |
+| 2026-08-14 | implemented | AgentSpec, topic, 판단, 승인 또는 실행 소유권을 바꾸지 않고 모든 Thor 소유 실행기 전에 Core pre-dispatch kinetic receipt consumer를 연결했습니다. | `current change`, `core/operational_planning/kinetic_safety.py`, `delivery/kinetic_safety.py`, `runtime/control_loop.py` 및 집중 kinetic/HIL/Thor 조립 검사 115개 통과 | 운영 조립에서 Forseti source를 연결하고 독립 observer를 추가한 뒤 통제된 실제 근거를 보존합니다. |
 
 ### 남은 작업
 - [ ] 하나의 고정된 리비전에서 에이전트별 및 시스템 KPI, 표본 수, 신뢰 구간, 보호 메트릭과 권위 있는 결과 증적을 측정한 실제 shadow 코호트를 보존합니다.
 - [ ] 에이전트 권한을 넓히지 않고 주입된 장애만이 아닌 운영 의존성에 대해 선언된 성능 저하 동작을 입증합니다.
 - [x] AgentSpec, 소유권, 구독 또는 발행을 바꾸지 않고 기존 Verdict 경로에 argument-bound kinetic proposal producer와 선택적 Forseti source를 연결합니다.
-- [ ] 운영 조립에서 source를 연결하고 기존 Verdict 및 ActionRun topic을 통해 Core pre-dispatch 증적 consumer와 독립 observer를 완료한 뒤 통제된 실제 운영 근거를 보존합니다.
+- [x] AgentSpec, topic 또는 agent 권한을 바꾸지 않고 모든 Thor 소유 실행기 전에 Core pre-dispatch receipt consumer를 완료합니다.
+- [ ] 운영 조립에서 Forseti source와 독립 observer를 기존 Verdict 및 ActionRun topic을 통해 연결한 뒤 통제된 실제 운영 근거를 보존합니다.
 - [x] 운영 trigger, 정확한 Heimdall 증적 연결 및 Mimir 소유 활성화 발행으로 Rule 세대
   체인을 완료했으며, 집중 검사는 권한 추가 없이 `activated` 결과에 도달합니다.
 - [ ] 적격 기능마다 독립적인 승격 검토를 완료하고, enforce 운영을 보고하기 전에 권위 있는 승격 증적을 보존합니다.

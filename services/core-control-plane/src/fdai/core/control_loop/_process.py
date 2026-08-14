@@ -357,7 +357,11 @@ async def process_event(host: Any, raw_event: Event | Mapping[str, Any]) -> Cont
                     correlation_id=correlation_id,
                 )
             continue
-        result = await host._dispatch_action(action=action, rule=rule)
+        result = await host._dispatch_action(
+            action=action,
+            rule=rule,
+            correlation_id=correlation_id,
+        )
         exec_results.append(result)
         exec_success = _is_execution_success(result)
         exec_stage_detail: dict[str, Any] = {

@@ -57,7 +57,13 @@ class OperatorRequestHost(Protocol):
         action: Action,
     ) -> ExecutionAuthorizationResult | None: ...
 
-    async def _dispatch_action(self, *, action: Action, rule: Rule) -> ExecutionResultType: ...
+    async def _dispatch_action(
+        self,
+        *,
+        action: Action,
+        rule: Rule,
+        correlation_id: str = "",
+    ) -> ExecutionResultType: ...
 
     def _bind_authorized_identity(
         self,
@@ -195,7 +201,11 @@ async def process_operator_request(
             "shadow",
         )
 
-    result = await host._dispatch_action(action=action, rule=rule)
+    result = await host._dispatch_action(
+        action=action,
+        rule=rule,
+        correlation_id=correlation_id,
+    )
     succeeded = _is_execution_success(result)
     await host._emit_stage(
         event_id=event_id,

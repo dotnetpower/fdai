@@ -15,6 +15,7 @@ from fdai.core.executor import (
     ShadowExecutor,
     ToolCallShadowExecutor,
 )
+from fdai.delivery.kinetic_safety import ExistingProposalKineticSafetyWriter
 from fdai.runtime.bootstrap_lifecycle import build_mutation_dependency_readiness
 from fdai.runtime.control_loop import _build_control_loop, _legacy_executor_bindings
 from fdai.shared.config import AppConfig
@@ -104,5 +105,9 @@ def test_core_and_hil_share_port_instances_and_readiness(app_config: AppConfig) 
     assert loop._executor is coordinator._executor is pr_native
     assert loop._direct_api_executor is coordinator._direct_api_executor is direct_api
     assert loop._tool_executor is coordinator._tool_executor is tool_call
+    writer = loop._pre_dispatch_kinetic_safety_writer
+    assert isinstance(writer, ExistingProposalKineticSafetyWriter)
+    assert coordinator._pre_dispatch_kinetic_safety_writer is writer
+    assert writer._proposal_store._store is writer._artifact_store._store is loop._audit_store
     assert loop._risk_gate is not None
     assert "governance.promote-effect-model" in loop._risk_gate._config.hil_authority_action_types

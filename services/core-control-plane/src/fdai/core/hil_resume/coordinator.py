@@ -56,6 +56,7 @@ from uuid import uuid4
 from fdai.core.executor import (
     DirectApiExecutionPort,
     ExecutionResult,
+    ExecutorOutcome,
     MutationDependencyReadiness,
     ShadowExecutor,
     ThorExecutionPort,
@@ -92,6 +93,7 @@ from fdai.core.hil_resume.load_control import (
     approval_request_from_park,
 )
 from fdai.core.oncall import OnCallResolution, OnCallResolver
+from fdai.core.operational_planning import PreDispatchKineticSafetyWriter
 from fdai.shared.contracts.models import (
     Action,
     ExecutionPath,
@@ -211,6 +213,7 @@ class HilResumeCoordinator:
         approval_reminder_dispatcher: ApprovalReminderDispatcher | None = None,
         escalation_supervisor: HumanNonResponseSupervisor | None = None,
         default_escalation_rungs: Sequence[EscalationRung] = (),
+        pre_dispatch_kinetic_safety_writer: PreDispatchKineticSafetyWriter | None = None,
         thor_execution_port: ThorExecutionPort | None = None,
         mutation_dependency_readiness: MutationDependencyReadiness | None = None,
     ) -> None:
@@ -250,6 +253,7 @@ class HilResumeCoordinator:
         self.reminder_dispatcher = approval_reminder_dispatcher
         self.escalation_supervisor = escalation_supervisor
         self._default_escalation_rungs = tuple(default_escalation_rungs)
+        self._pre_dispatch_kinetic_safety_writer = pre_dispatch_kinetic_safety_writer
 
     async def _resolve_on_call(self) -> OnCallResolution | None:
         """Resolve the current on-call responder, or ``None`` when unconfigured.
@@ -687,7 +691,11 @@ class HilResumeCoordinator:
                 assignee_oid=assignee_oid,
             )
 
-        result = await self._dispatch(action=action, rule=rule)
+        result = await self._dispatch(
+            action=action,
+            rule=rule,
+            correlation_id=correlation_id,
+        )
         succeeded = _is_success(result)
         delegation_mode = (
             delegation.mode.value
@@ -721,8 +729,31 @@ class HilResumeCoordinator:
     # ------------------------------------------------------------------
 
     async def _dispatch(
-        self, *, action: Action, rule: Rule
+        self,
+        *,
+        action: Action,
+        rule: Rule,
+        correlation_id: str,
     ) -> ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult:
+        writer = self._pre_dispatch_kinetic_safety_writer
+        if writer is not None:
+            try:
+                await writer.persist(action=action, correlation_id=correlation_id)
+            except Exception:  # noqa: BLE001 - kinetic ambiguity blocks every executor
+                _LOGGER.warning(
+                    "hil_pre_dispatch_kinetic_safety_failed",
+                    extra={
+                        "action_type": action.action_type,
+                        "idempotency_key": action.idempotency_key,
+                    },
+                    exc_info=True,
+                )
+                return ExecutionResult(
+                    action_id=str(action.action_id),
+                    outcome=ExecutorOutcome.REJECTED_INVARIANT,
+                    mode=action.mode,
+                    reason="pre-dispatch kinetic safety evidence is invalid",
+                )
         if self._action_types_by_name:
             action_type = self._action_types_by_name.get(action.action_type)
             if action_type is not None:

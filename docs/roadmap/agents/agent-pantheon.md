@@ -49,6 +49,7 @@ Consumers of this document:
 | 2026-08-13 | implemented | Completed the production Rule generation chain with authoritative embedding identity, strict startup document snapshots, replay-identical reconciliation requests, exact staged-receipt binding, and Mimir-owned activation-command publication after Heimdall validation. | `current change`; `rule_generation_documents.py`, `mimir.py`, `activation.py`, semantic-index adapters, and focused worker, runtime, activation, and bootstrap checks. | Retain governed live build, validation, activation, and projection receipts before claiming operational validation. |
 | 2026-08-14 | implemented | Made Thor validate and durably preserve an optional argument-bound kinetic proposal without changing topics or action authority. | `current change`; focused contract, Thor, durable replay, layout, and role checks. | Bind the Forseti producer and Core pre-dispatch consumer before claiming an end-to-end kinetic handoff. |
 | 2026-08-14 | implemented | Injected an optional exact proposal source into Forseti and preserved matching proposals on resolved and human-review Verdicts. Missing proposals retain legacy behavior; invalid source records lower authority to deny. | `current change`; `forseti.py`, `factory.py`, `runtime.py`, and focused producer, Forseti, Thor, factory, and framework checks. | Bind the source in production composition and complete the pre-dispatch receipt and independent-observation path before claiming runtime validation. |
+| 2026-08-14 | implemented | Bound the Core pre-dispatch kinetic receipt consumer before every Thor-owned executor without changing AgentSpec, topics, judgment, approval, or execution ownership. | `current change`; `core/operational_planning/kinetic_safety.py`, `delivery/kinetic_safety.py`, `runtime/control_loop.py`, and focused kinetic, HIL, and Thor composition checks passed 115 cases. | Bind the Forseti source in production composition, add the independent observer, and retain governed live evidence. |
 
 ### Remaining work
 - [ ] Retain a live-shadow cohort with measured per-agent and system KPIs, sample counts,
@@ -56,7 +57,8 @@ Consumers of this document:
 - [ ] Demonstrate the declared degradation behavior against operational dependencies rather than
   only injected failures, without widening any agent's authority.
 - [x] Bind the argument-bound kinetic proposal producer and optional Forseti source through the existing Verdict path without changing AgentSpec, ownership, subscriptions, or publications.
-- [ ] Bind the source in production composition and complete the Core pre-dispatch receipt consumer and independent observer through the existing Verdict and ActionRun topics, then retain governed live evidence.
+- [x] Complete the Core pre-dispatch receipt consumer before every Thor-owned executor without changing AgentSpec, topics, or agent authority.
+- [ ] Bind the Forseti source in production composition and the independent observer through the existing Verdict and ActionRun topics, then retain governed live evidence.
 - [x] Complete the Rule generation chain with a production trigger, exact Heimdall receipt binding,
   and Mimir-owned activation publication; focused checks reach `activated` without added authority.
 - [ ] Complete an independent promotion review for each eligible capability and retain the
