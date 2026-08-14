@@ -147,10 +147,12 @@ def project_item_from_json(raw: dict[str, Any]) -> ProjectItem | None:
     content = raw.get("content")
     if not isinstance(content, dict) or not isinstance(content.get("number"), int):
         return None
+    raw_repository = content.get("repository") or raw.get("repository") or ""
+    repository = str(raw_repository).removeprefix("https://github.com/").rstrip("/")
     return ProjectItem(
         item_id=str(raw["id"]),
         number=int(content["number"]),
-        repository=str(raw.get("repository") or ""),
+        repository=repository,
         status=str(raw["status"]) if raw.get("status") is not None else None,
         work_type=str(raw["work type"]) if raw.get("work type") is not None else None,
         priority=str(raw["priority"]) if raw.get("priority") is not None else None,
