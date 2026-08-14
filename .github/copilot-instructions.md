@@ -70,7 +70,11 @@ only within the Constitution's bounds; the Constitution always prevails.
    status and fallback-drain surface; it runs `make validation-run` once only when pending work is
    not already active. Use `make validation-all` only at an explicit merge or release boundary.
    Normal pushes check receipts without waiting and are blocked until every outgoing commit has a
-   centralized validation receipt.
+   centralized validation receipt. When a session must wait for a receipt or another filesystem
+   completion artifact, it MUST use an event-driven watcher such as `inotifywait` instead of timed
+   polling or repeated status checks. Start the watcher before rechecking whether the artifact
+   already exists to avoid a check-to-watch race; if event watching is unavailable, use one bounded
+   fallback check and report the pending state rather than polling.
 8. Commit each focused-check-passing user-requested change before reporting completion unless the user says
    not to commit. Stage only task-owned files and hunks; never commit failed or incomplete work.
 9. Treat slow network-dependent work as a post-validation phase. Do not watch or rerun GitHub
