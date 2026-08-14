@@ -1,6 +1,6 @@
 ---
 translation_of: automation-blueprints.md
-translation_source_sha: 1f24f9c1a308f72e8463bd2a5edad8412d094382
+translation_source_sha: bd3efb41ff4086b875c99a2789888acd6a059082
 translation_revised: 2026-08-11
 ---
 # Reviewable 자동화 Blueprints
@@ -33,7 +33,7 @@ translation_revised: 2026-08-11
 | 제안 조정 및 구성 검토 변환 | in-progress | `services/core-control-plane/src/fdai/core/scheduler/blueprints/suggestion.py`; `services/core-control-plane/src/fdai/core/scheduler/blueprints/configuration_review.py` | 별도 경로 제안 서비스와 inert 구성 검토 변환은 있지만, 운영 근거 피드, composition 연결, focused orchestration test는 없습니다. |
 | PostgreSQL 내구성 및 compare-and-swap 전환 | in-progress | `alembic/versions/20260720_0043_automation_blueprint.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_automation_blueprint.py`; `services/core-control-plane/tests/persistence/test_automation_blueprint.py` | 이행, 저장소, codec이 있고 codec test가 통과합니다. `FDAI_DATABASE_URL`이 설정되지 않아 데이터베이스 기반 영속성 및 compare-and-swap test가 건너뛰어졌으므로 내구성 동작을 implemented로 판단하지 않습니다. |
 | 읽기 전용 Console 경로 및 응답 decoder | implemented | `console/src/routes/automation-blueprints.tsx`; `console/src/routes/automation-blueprints.test.ts`; `console/src/panel-sources.ts` | 경로는 inert 후보와 메트릭 필드를 표시하고 모순된 응답을 거부하며 변경 control을 제공하지 않습니다. 이 상태는 end-to-end Operator API 출처를 주장하지 않습니다. |
-| Operator API 변환 결과 및 권한이 적용된 ChatOps 검토 경로 | in-progress | `services/operator-service/src/fdai_operator_service/families/operations/manifest.py`; `services/operator-service/tests/test_operator_operations_family.py`; `console/src/panel-sources.ts` | Reader 역할로 제한된 `GET /automation-blueprints` 변환 결과가 operations family에 등록되어 경계가 제한되고 민감 값이 가려지며 권위 있는 변환 결과가 구체화되지 않으면 실패 시 차단합니다. 별도로 권한이 적용된 ChatOps 수락, 거절, 구체화 경로는 아직 없습니다. |
+| Operator API 변환 결과 및 권한이 적용된 ChatOps 검토 경로 | in-progress | `services/operator-service/src/fdai_operator_service/families/operations/manifest.py`; `services/operator-service/tests/test_operator_operations_family.py`; `console/src/panel-sources.ts` | Reader 역할로 제한된 `GET /automation-blueprints` 변환 결과와 별도로 권한이 적용된 `POST /automation-blueprints/{accept,reject,materialize}` 경로가 등록되었습니다. 읽기 경로는 경계가 제한되고 민감 값이 가려지며 실패 시 차단하고, 세 개의 검토 경로는 contributor 권한을 요구하며 idempotency 키를 요구하고 영속 제안만 대기시키며 충돌하는 키를 거부합니다. 그 제안을 검토 서비스에 연결하는 작업은 열려 있습니다. |
 
 ### 구현 이력
 
@@ -41,6 +41,7 @@ translation_revised: 2026-08-11
 |------|-------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 ledger를 도입했습니다. focused test로 뒷받침되는 집계, 검토, 구체화, 초안 작성, 메트릭, Console decoder를 implemented로 기록하고, 연결되지 않은 조정, 입증되지 않은 PostgreSQL 내구성, 누락된 운영자 화면을 분리했습니다. | `current change`; 범위 표에 나열된 소스 및 focused test; `uv run pytest -q --no-cov services/core-control-plane/tests/core/scheduler/test_blueprint_aggregator.py services/core-control-plane/tests/core/scheduler/test_blueprint_review.py services/core-control-plane/tests/persistence/test_automation_blueprint.py` (`FDAI_DATABASE_URL`이 설정되지 않아 `12 passed, 1 skipped`); `npm --prefix console test -- --run src/routes/automation-blueprints.test.ts` (`2 passed`) | `validated`를 주장하기 전에 운영 서비스를 연결하고, 데이터베이스 기반 전환을 입증하고, 거버넌스가 적용된 Operator API 및 ChatOps 경로를 제공하고, 런타임 근거를 수집합니다. |
 | 2026-08-14 | in-progress | Reader 역할로 제한된 `GET /automation-blueprints` 변환 결과를 Operator operations family에 등록해, Console 패널 출처가 선언만 되고 없는 경로 대신 실제 읽기 전용 경로로 해석되도록 했습니다. | `current change`; `services/operator-service/src/fdai_operator_service/families/operations/manifest.py`; `services/operator-service/tests/test_operator_operations_family.py`; Operator Service suite 240개와 `npm --prefix console test -- --run src/routes/automation-blueprints.test.ts` 2개가 통과했습니다. | 별도로 권한이 적용된 ChatOps 수락, 거절, 구체화 경로를 추가하고, 운영 연결에서 권위 있는 변환 결과를 구체화하며, 런타임 근거를 수집합니다. |
+| 2026-08-14 | in-progress | 별도로 권한이 적용된 수락, 거절, 구체화 검토 경로를 영속 제안으로 등록해, 후보를 읽을 수 있는 reader가 그 후보에 조치할 수 없게 하고 어느 경로도 인라인으로 검토하거나 구체화하지 않도록 했습니다. | `current change`; `services/operator-service/src/fdai_operator_service/families/operations/manifest.py`; `services/operator-service/tests/test_operator_operations_family.py`; Operator Service suite 244개와 경로 동등성 통합 검사 54개가 통과했습니다. | 대기한 제안을 `AutomationBlueprintReviewService`에 연결하고, 운영 연결에서 권위 있는 변환 결과를 구체화하며, 런타임 근거를 수집합니다. |
 
 ### 남은 작업
 
@@ -53,8 +54,11 @@ translation_revised: 2026-08-11
 - [x] Reader 역할로 제한된 Operator Service `GET /automation-blueprints` 변환 결과가
   등록되어 경계가 제한되고 민감 값이 가려지며 실패 시 차단하며, Console decoder 테스트도
   그대로 통과합니다.
-- [ ] 별도로 권한이 적용된 ChatOps 수락, 거절, 구체화 경로를 추가하고, 읽기 경로와
-  분리된 권한 경계를 포함해 API 통합 테스트를 통과합니다.
+- [x] 별도로 권한이 적용된 `POST /automation-blueprints/{accept,reject,materialize}` 경로가
+  등록되어 contributor 권한과 idempotency 키를 요구하며 제안만 남깁니다. API 통합 테스트가
+  reader가 거부되고 어느 경로도 인라인으로 검토하거나 구체화하지 않음을 입증합니다.
+- [ ] 대기한 수락, 거절, 구체화 제안을 `AutomationBlueprintReviewService`에 연결해, 권한이
+  있는 결정이 경로에 권한을 주지 않은 채로 영속 후보에 도달하도록 합니다.
 - [ ] 운영 연결에서 권위 있는 `automation_blueprint.list` 변환 결과를 구체화해, 등록된 읽기
   경로가 사용 불가 응답 대신 후보를 반환하도록 합니다.
 - [ ] 운영 연결에서 문서화된 blueprint 메트릭을 내보내고, 범위 행을 `validated`로 변경하기

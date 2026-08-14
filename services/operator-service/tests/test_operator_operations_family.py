@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import cast
 
+import pytest
 from fdai_operator_service.auth import OperatorAuthenticator
 from fdai_operator_service.families.operations import (
     OPERATIONS_ROUTE_MANIFEST,
@@ -14,6 +15,7 @@ from fdai_operator_service.families.operations import (
     PanelRoute,
     ProjectionQuery,
     ProjectionUnavailableError,
+    ProposalConflictError,
     ProposalReceipt,
     ReplayBatch,
     ReplayEvent,
@@ -40,6 +42,9 @@ LEGACY_ROUTE_SNAPSHOT = {
     (("GET", "HEAD"), "/views/process/{process_id:str}/events", "process_events"),
     (("GET", "HEAD"), "/detection-readiness", "handler"),
     (("GET", "HEAD"), "/automation-blueprints", "handler"),
+    (("POST",), "/automation-blueprints/accept", "handler"),
+    (("POST",), "/automation-blueprints/reject", "handler"),
+    (("POST",), "/automation-blueprints/materialize", "handler"),
     (("GET", "HEAD"), "/audit/{correlation_id}/what-if", "handler"),
     (("GET", "HEAD"), "/scope", "handler"),
     (("GET", "HEAD"), "/stewardship", "handler"),
@@ -68,6 +73,7 @@ class RecordingDependencies:
         self.proposals: list[EventProposal] = []
         self.replays: list[ReplayQuery] = []
         self.unavailable = False
+        self.conflict = False
         self.projections: dict[str, Mapping[str, object]] = {}
         self.replay_events = (
             ReplayEvent(8, "message", {"type": "provision.progress", "secret": "x"}),
@@ -84,6 +90,8 @@ class RecordingDependencies:
 
     async def propose(self, proposal: EventProposal) -> ProposalReceipt:
         self.proposals.append(proposal)
+        if self.conflict:
+            raise ProposalConflictError
         return ProposalReceipt(
             request_id="request-1",
             correlation_id=proposal.correlation_id,
@@ -166,7 +174,7 @@ def test_manifest_preserves_exact_legacy_paths_methods_and_names() -> None:
         )
         for entry in OPERATIONS_ROUTE_MANIFEST
     } == LEGACY_ROUTE_SNAPSHOT
-    assert len(OPERATIONS_ROUTE_MANIFEST) == 27
+    assert len(OPERATIONS_ROUTE_MANIFEST) == 30
 
 
 def test_automation_blueprints_projection_is_reader_gated_and_read_only() -> None:
@@ -219,6 +227,71 @@ def test_automation_blueprints_projection_fails_closed_when_unavailable() -> Non
 
     assert response.status_code == 503
     assert "candidates" not in response.text
+
+
+@pytest.mark.parametrize(
+    ("path", "operation"),
+    [
+        ("/automation-blueprints/accept", "automation_blueprint.accept"),
+        ("/automation-blueprints/reject", "automation_blueprint.reject"),
+        ("/automation-blueprints/materialize", "automation_blueprint.materialize"),
+    ],
+)
+def test_blueprint_review_routes_are_separately_authorized_proposals(
+    path: str, operation: str
+) -> None:
+    dependencies = RecordingDependencies()
+    client = _client(dependencies)
+
+    unauthenticated = client.post(path, json={"candidate_id": "cand-1"})
+    # The reader who may read the candidate list may not act on it.
+    reader = client.post(
+        path, headers={**HEADERS, "Idempotency-Key": "idem-1"}, json={"candidate_id": "cand-1"}
+    )
+    without_key = client.post(
+        path,
+        headers={"Authorization": "Bearer contributor"},
+        json={"candidate_id": "cand-1"},
+    )
+    accepted = client.post(
+        path,
+        headers={
+            "Authorization": "Bearer contributor",
+            "Idempotency-Key": "idem-1",
+            "X-Correlation-ID": "corr-1",
+        },
+        json={"candidate_id": "cand-1", "reason": "recurring and bounded"},
+    )
+
+    assert unauthenticated.status_code == 401
+    assert reader.status_code == 403
+    assert without_key.status_code == 400
+    assert accepted.status_code == 202
+    assert accepted.json()["durably_queued"] is True
+    # The route only queues intent; it never reviews or materializes itself.
+    assert dependencies.proposals == [
+        EventProposal(
+            operation=operation,
+            principal_id="contributor-oid",
+            idempotency_key="idem-1",
+            correlation_id="corr-1",
+            payload={"candidate_id": "cand-1", "reason": "recurring and bounded"},
+        )
+    ]
+    assert dependencies.queries == []
+
+
+def test_blueprint_review_routes_reject_a_conflicting_idempotency_key() -> None:
+    dependencies = RecordingDependencies()
+    dependencies.conflict = True
+
+    response = _client(dependencies).post(
+        "/automation-blueprints/accept",
+        headers={"Authorization": "Bearer contributor", "Idempotency-Key": "idem-1"},
+        json={"candidate_id": "cand-1"},
+    )
+
+    assert response.status_code == 409
 
 
 def test_projection_requires_reader_bounds_pagination_and_redacts() -> None:
