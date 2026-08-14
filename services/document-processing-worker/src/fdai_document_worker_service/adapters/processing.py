@@ -544,7 +544,12 @@ def _text_units(text: str) -> tuple[StructuralUnit, ...]:
 def _pdf_units(content: bytes) -> tuple[StructuralUnit, ...]:
     reader = pypdf.PdfReader(io.BytesIO(content))
     return tuple(
-        StructuralUnit(unit_id=f"page-{index}", kind="page", locator=f"page:{index}", text=text)
+        StructuralUnit(
+            unit_id=f"page-{index}",
+            kind="page",
+            locator=f"pdf/page:{index}/block:1",
+            text=text,
+        )
         for index, page in enumerate(reader.pages, start=1)
         if (text := (page.extract_text() or "").strip())
     )
