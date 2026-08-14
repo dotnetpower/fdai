@@ -258,6 +258,15 @@ test("Command Deck renders the exact governed ontology projection receipt", asyn
   const judgment = judgeSemanticTurn(done.semantic_receipt, done.verification);
   expect(judgment.passed, judgment.failure_reason).toBe(true);
   const semanticReceipt = judgment.receipt!;
+  if (semanticReceipt.disposition !== "answered") {
+    throw new Error(`governed ontology turn did not answer: ${JSON.stringify({
+      disposition: semanticReceipt.disposition,
+      unavailable_reason: semanticReceipt.unavailable_reason,
+      request_id: semanticReceipt.request_id,
+      projection_id: semanticReceipt.projection_id,
+      semantic_route: semanticReceipt.semantic_route,
+    })}`);
+  }
   expect(requestPayload.request_id).toBe(semanticReceipt.request_id);
 
   await deck.getByText("Run record", { exact: true }).last().click();
