@@ -10,7 +10,7 @@ from .coordinator import (
 )
 from .execution import close_operational_plan, compile_selected_mutation_plan
 from .journal import PlanningPhaseOrderError, append_planning_phase
-from .kinetic_proposal import KineticActionProposal
+from .kinetic_proposal import KineticActionProposal, KineticActionProposalSource
 from .models import (
     MAX_PLAN_CANDIDATES,
     MAX_PLAN_CONSTRAINTS,
@@ -33,7 +33,7 @@ from .models import (
     SpecialistContribution,
 )
 from .projection import operational_plan_event_payload, project_planning_room
-from .selection import build_operational_plan
+from .selection import build_operational_plan, validate_operational_plan_identity
 from .simulation import (
     PlanningProgram,
     ProgrammaticPlanningRunner,
@@ -53,6 +53,7 @@ __all__ = [
     "ConstraintStatus",
     "ConstitutionalPlanningConstraintEvaluator",
     "KineticActionProposal",
+    "KineticActionProposalSource",
     "AssuranceTwinPlanningSimulator",
     "MAX_PLAN_CANDIDATES",
     "MAX_PLAN_CONSTRAINTS",
@@ -82,6 +83,7 @@ __all__ = [
     "SpecialistPlanningProjection",
     "append_planning_phase",
     "build_operational_plan",
+    "validate_operational_plan_identity",
     "close_operational_plan",
     "compile_selected_mutation_plan",
     "operational_plan_event_payload",

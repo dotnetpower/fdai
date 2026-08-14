@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from datetime import datetime, timedelta
-from typing import Annotated, Any, Self
+from typing import Annotated, Any, Protocol, Self
 
 from pydantic import Field, model_validator
 
@@ -14,6 +14,8 @@ from fdai.core.ontology_platform.kinetics import MutationPlan
 from fdai.core.ontology_platform.planning import build_mutation_plan
 from fdai.shared.contracts.models import ContractBase, OntologyDeclarationKind, SemVer
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
+
+from .models import OperationalPlan
 
 _MAX_PROPOSAL_BYTES = 1_048_576
 _DIGEST_PATTERN = r"^sha256:[a-f0-9]{64}$"
@@ -139,6 +141,15 @@ class KineticActionProposal(ContractBase):
         return _arguments(self.arguments_json)
 
 
+class KineticActionProposalSource(Protocol):
+    """Resolve a previously produced proposal for one exact operational plan."""
+
+    async def resolve(
+        self,
+        operational_plan: OperationalPlan,
+    ) -> KineticActionProposal | None: ...
+
+
 def _arguments(arguments_json: str) -> dict[str, Any]:
     try:
         decoded = json.loads(arguments_json)
@@ -197,4 +208,4 @@ def _validate_plan_identity(plan: MutationPlan) -> None:
         raise ValueError("kinetic action proposal plan identity does not match its content")
 
 
-__all__ = ["KineticActionProposal"]
+__all__ = ["KineticActionProposal", "KineticActionProposalSource"]

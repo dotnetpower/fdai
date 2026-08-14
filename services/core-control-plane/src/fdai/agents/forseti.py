@@ -53,8 +53,11 @@ from fdai.core.decision_case import DomainDecisionCoordinator, DomainDecisionPro
 from fdai.core.impact_analysis import ChangeAssessment
 from fdai.core.operational_context import OperationalContextMaterializer, SourceFreshness
 from fdai.core.operational_planning import (
+    KineticActionProposal,
+    KineticActionProposalSource,
     SpecialistPlanningCoordinator,
     SpecialistPlanningProjection,
+    validate_operational_plan_identity,
 )
 from fdai.core.readiness import AuthorityCeiling, DetectionReadinessDecision
 
@@ -124,6 +127,7 @@ class Forseti(Agent):
         operational_context: OperationalContextMaterializer | None = None,
         decision_coordinator: DomainDecisionCoordinator | None = None,
         operational_planner: SpecialistPlanningCoordinator | None = None,
+        kinetic_proposal_source: KineticActionProposalSource | None = None,
         change_assessor: _ChangeAssessor | None = None,
     ) -> None:
         super().__init__(spec=_FORSETI)
@@ -133,6 +137,7 @@ class Forseti(Agent):
         self._operational_context = operational_context
         self._decision_coordinator = decision_coordinator or DomainDecisionCoordinator()
         self._operational_planner = operational_planner
+        self._kinetic_proposal_source = kinetic_proposal_source
         self._change_assessor = change_assessor
         # Latest arbitration winner per correlation id (populated when Odin
         # resolves a cross-vertical conflict Forseti raised).
@@ -473,6 +478,13 @@ class Forseti(Agent):
     ) -> None:
         self._pending_decision_cases.pop(correlation_id, None)
         risk_verdict = _RISK_VERDICT.get(action_type, "hil")
+        kinetic_proposal, invalid_kinetic_proposal = await self._resolve_kinetic_proposal(
+            correlation_id=correlation_id,
+            projection=projection,
+            action_type=action_type,
+        )
+        if invalid_kinetic_proposal:
+            risk_verdict = "deny"
         verdict = {
             "producer_principal": "Forseti",
             "correlation_id": correlation_id,
@@ -494,6 +506,9 @@ class Forseti(Agent):
             "rollback_contract": rollback_contract_for(action_type, self._action_semantics),
             "initiator_principal": None,
         }
+        if kinetic_proposal is not None:
+            verdict["params"] = kinetic_proposal.arguments()
+            verdict["kinetic_proposal"] = kinetic_proposal.model_dump(mode="json")
         self.record_behavior(f"verdict:{risk_verdict}")
         self.record_behavior("arbitration_resolved")
         if self.bus is not None:
@@ -536,8 +551,14 @@ class Forseti(Agent):
             if winning_option is not None and winning_option.action_type is not None
             else ""
         )
+        kinetic_proposal, invalid_kinetic_proposal = await self._resolve_kinetic_proposal(
+            correlation_id=correlation_id,
+            projection=projection,
+            action_type=action_type,
+        )
+        risk_verdict = "deny" if invalid_kinetic_proposal else "hil"
         self._unresolved_arbitrations.set(correlation_id, grounding)
-        self.record_behavior("verdict:hil")
+        self.record_behavior(f"verdict:{risk_verdict}")
         self.record_behavior("arbitration_escalated")
         verdict = {
             "producer_principal": "Forseti",
@@ -547,7 +568,7 @@ class Forseti(Agent):
             # Odin's winner is the concrete recommendation under review; the
             # complete DecisionCase keeps every alternative visible.
             "action_type": action_type,
-            "risk_verdict": "hil",
+            "risk_verdict": risk_verdict,
             "reason": "arbitration_unresolved",
             "arbitration": grounding,
             "decision_case": (
@@ -559,9 +580,65 @@ class Forseti(Agent):
             "rollback_contract": rollback_contract_for(action_type, self._action_semantics),
             "initiator_principal": None,
         }
+        if kinetic_proposal is not None:
+            verdict["params"] = kinetic_proposal.arguments()
+            verdict["kinetic_proposal"] = kinetic_proposal.model_dump(mode="json")
         if self.bus is not None:
             await self.bus.publish("Forseti", "object.verdict", verdict)
         return verdict
+
+    async def _resolve_kinetic_proposal(
+        self,
+        *,
+        correlation_id: str,
+        projection: _DecisionProjection | None,
+        action_type: str,
+    ) -> tuple[KineticActionProposal | None, bool]:
+        """Resolve exact A0 evidence without creating or upgrading a mutation plan."""
+
+        if self._kinetic_proposal_source is None or not isinstance(
+            projection, SpecialistPlanningProjection
+        ):
+            return None, False
+        operational_plan = projection.plan
+        try:
+            validate_operational_plan_identity(operational_plan)
+            proposal = await self._kinetic_proposal_source.resolve(operational_plan)
+            if proposal is None:
+                return None, False
+            if not isinstance(proposal, KineticActionProposal):
+                raise ValueError("kinetic proposal source returned an invalid contract")
+            proposal = KineticActionProposal.model_validate_json(proposal.model_dump_json())
+        except Exception:  # noqa: BLE001 - optional proposal evidence fails closed
+            self.record_behavior("kinetic_proposal:invalid")
+            return None, True
+
+        selected_option_id = operational_plan.selection.selected_option_id
+        selected_option = next(
+            (
+                option
+                for option in operational_plan.decision_case.options
+                if option.option_id == selected_option_id
+            ),
+            None,
+        )
+        if (
+            not operational_plan.complete
+            or selected_option_id is None
+            or selected_option is None
+            or selected_option.action_type != action_type
+            or operational_plan.decision_case.correlation_id != correlation_id
+            or proposal.correlation_id != correlation_id
+            or proposal.process_id != operational_plan.process_id
+            or proposal.operational_plan_id != operational_plan.plan_id
+            or proposal.selected_option_id != selected_option_id
+            or proposal.plan.action_type_ref.name != action_type
+            or proposal.target_resource_ref != operational_plan.target_resource_id
+        ):
+            self.record_behavior("kinetic_proposal:invalid")
+            return None, True
+        self.record_behavior("kinetic_proposal:resolved")
+        return proposal, False
 
     # ---- judgment ------------------------------------------------------
 

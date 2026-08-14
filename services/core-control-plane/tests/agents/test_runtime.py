@@ -39,7 +39,10 @@ from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.chaos.symptom_index import build_from_entries
 from fdai.core.impact_analysis import ChangeAssessmentService
 from fdai.core.learning import PostTurnReviewInput, review_input_to_mapping
-from fdai.core.operational_planning import SpecialistPlanningCoordinator
+from fdai.core.operational_planning import (
+    KineticActionProposalSource,
+    SpecialistPlanningCoordinator,
+)
 from fdai.core.rule_semantic_generation import (
     RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
     RULE_GENERATION_ACTIVATION_RESULT_TOPIC,
@@ -117,6 +120,20 @@ def test_build_injects_operational_planner_into_forseti() -> None:
     forseti = runtime.agents["Forseti"]
     assert isinstance(forseti, Forseti)
     assert forseti._operational_planner is planner
+
+
+def test_build_injects_kinetic_proposal_source_into_forseti() -> None:
+    source = cast(KineticActionProposalSource, object())
+
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        kinetic_proposal_source=source,
+    )
+
+    forseti = runtime.agents["Forseti"]
+    assert isinstance(forseti, Forseti)
+    assert forseti._kinetic_proposal_source is source
 
 
 def test_build_injects_change_assessor_into_forseti() -> None:

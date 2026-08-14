@@ -28,9 +28,13 @@ from fdai.agents.var import Var
 from fdai.agents.vidar import Vidar
 from fdai.core.impact_analysis import ChangeAssessmentService
 from fdai.core.operational_context import OperationalContextMaterializer
-from fdai.core.operational_planning import SpecialistPlanningCoordinator
+from fdai.core.operational_planning import (
+    KineticActionProposalSource,
+    SpecialistPlanningCoordinator,
+)
 
 PlanningCoordinator = SpecialistPlanningCoordinator
+KineticProposalSource = KineticActionProposalSource
 
 # Every pantheon subclass provides a zero-arg constructor that builds
 # its baseline in-memory dependencies. Wave-2+ subclasses accept
@@ -71,6 +75,7 @@ def configured_forseti(
     action_semantics: ActionSemanticsCatalog | None,
     operational_context: OperationalContextMaterializer | None,
     operational_planner: SpecialistPlanningCoordinator | None,
+    kinetic_proposal_source: KineticActionProposalSource | None,
     change_assessor: ChangeAssessmentService | None,
 ) -> Forseti | None:
     """Build Forseti only when composition supplies an optional binding."""
@@ -81,6 +86,7 @@ def configured_forseti(
             action_semantics,
             operational_context,
             operational_planner,
+            kinetic_proposal_source,
             change_assessor,
         )
     ):
@@ -90,8 +96,14 @@ def configured_forseti(
         action_semantics=action_semantics,
         operational_context=operational_context,
         operational_planner=operational_planner,
+        kinetic_proposal_source=kinetic_proposal_source,
         change_assessor=change_assessor,
     )
 
 
-__all__ = ["PlanningCoordinator", "configured_forseti", "instantiate_pantheon"]
+__all__ = [
+    "KineticProposalSource",
+    "PlanningCoordinator",
+    "configured_forseti",
+    "instantiate_pantheon",
+]
