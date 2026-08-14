@@ -135,7 +135,10 @@ class DescribeRuntimeSkillBundleTool:
 
     def call(self, *, arguments: Mapping[str, Any], principal: Principal) -> ToolResult:
         name = _required_string(arguments, key="name", operation=self.name)
-        payload = self._disclosure.describe_bundle(name)
+        try:
+            payload = self._disclosure.describe_bundle(name)
+        except SkillBundleResolutionError as exc:
+            return _bundle_rejected(exc)
         return ToolResult(status="ok", data=payload, preview=f"described skill bundle {name}")
 
 
@@ -153,17 +156,17 @@ class LoadRuntimeSkillBundleTool:
         try:
             payload = self._disclosure.load_bundle(name)
         except SkillBundleResolutionError as exc:
-            return ToolResult(
-                status="error",
-                data={
-                    "error": {
-                        "code": "skill_bundle_access_rejected",
-                        "reason": exc.reason.value,
-                    }
-                },
-                preview=f"skill bundle read rejected: {exc.reason.value}",
-            )
+            return _bundle_rejected(exc)
         return ToolResult(status="ok", data=payload, preview=f"loaded skill bundle {name}")
+
+
+def _bundle_rejected(exc: SkillBundleResolutionError) -> ToolResult:
+    """Return one stable, content-free bundle rejection for every bundle command."""
+    return ToolResult(
+        status="error",
+        data={"error": {"code": "skill_bundle_access_rejected", "reason": exc.reason.value}},
+        preview=f"skill bundle read rejected: {exc.reason.value}",
+    )
 
 
 def _required_string(arguments: Mapping[str, Any], *, key: str, operation: str) -> str:
