@@ -196,26 +196,38 @@ async def test_postgres_history_and_latest_context_survive_restart_with_scope() 
         principal_id=principal_id,
         conversation_id=conversation_id,
     ) == replace_last_active(conversation, turns[-1].recorded_at)
-    assert await restarted.get_conversation(
-        principal_id=other_principal_id,
-        conversation_id=conversation_id,
-    ) is None
-    assert await restarted.list_all_turns(
-        principal_id=principal_id,
-        conversation_id=conversation_id,
-    ) == turns
-    assert await restarted.list_all_turns(
-        principal_id=other_principal_id,
-        conversation_id=conversation_id,
-    ) == ()
+    assert (
+        await restarted.get_conversation(
+            principal_id=other_principal_id,
+            conversation_id=conversation_id,
+        )
+        is None
+    )
+    assert (
+        await restarted.list_all_turns(
+            principal_id=principal_id,
+            conversation_id=conversation_id,
+        )
+        == turns
+    )
+    assert (
+        await restarted.list_all_turns(
+            principal_id=other_principal_id,
+            conversation_id=conversation_id,
+        )
+        == ()
+    )
     assert await restarted.latest_operator_turn_ids(
         principal_id=principal_id,
         conversation_ids=(conversation_id,),
     ) == {conversation_id: turns[-1].turn_id}
-    assert await restarted.latest_operator_turn_ids(
-        principal_id=other_principal_id,
-        conversation_ids=(conversation_id,),
-    ) == {}
+    assert (
+        await restarted.latest_operator_turn_ids(
+            principal_id=other_principal_id,
+            conversation_ids=(conversation_id,),
+        )
+        == {}
+    )
     assert await restarted.first_operator_questions(
         principal_id=principal_id,
         conversation_ids=(conversation_id,),
