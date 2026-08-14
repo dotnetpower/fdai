@@ -59,6 +59,9 @@ _EXPECTED_FILES = frozenset(
         "wire_browser_evidence.py",
         # Binds exact-release semantic planning and request-role query executors.
         "wire_semantic_query.py",
+        # Resolves the separate T1 and T2 planning request targets so the
+        # semantic wire keeps one binding responsibility.
+        "semantic_query_model_targets.py",
         # Composes authoritative inventory state with ontology-native shadow parity.
         "wire_read_investigation.py",
     }
