@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 35dac0cd0927e8014ffb089ed9a1730f6e1bf74f
+translation_source_sha: f3d9cc4203adc74fafa0916bf9a77649d6c94974
 translation_revised: 2026-08-13
 ---
 # 판테온 대화형 숙의
@@ -26,8 +26,9 @@ situational 계층을 더해 자신의 프롬프트를 조립합니다.
 [상황별 프롬프트 조립](#상황별-prompt-조립)을 참조하세요.
 
 `PantheonRuntime.deliberate`는 명시적인 discussion API를 제공합니다. T1 의미 participant
-선택을 요구하고 기본 position 하나와 peer 비평을 실행한 다음, 선택적으로
-composition-bound T2 synthesizer에 범위가 제한된 점유 렌더링을 요청합니다.
+선택을 요구하고 기본 position 하나와 peer 비평을 실행합니다. 결정론적 답변 평가는 같은
+identity의 범위가 제한된 high-signal fact를 비교합니다. 검증된 충돌이 있을 때만 선택적인
+composition-bound T2 synthesizer를 호출할 수 있습니다.
 
 ## 상황별 프롬프트 조립
 
@@ -273,6 +274,19 @@ Discussion 경로는 clear T0 경로를 재사용하지 않습니다. T1 임베�
 의도 또는 응답자 실패는 abstention을 반환합니다. Discussion을 만들기 위해 T0를
 대체하지 않습니다.
 
+### T1 답변 평가
+
+수락된 각 claim은 결정론적 비교에 필요한 필드만 보존합니다. Identity는 `resource_id`,
+`scope_ref`, `id` 또는 `correlation_id`에서 가져옵니다. 비교 가능한 결론은 고정된 `state`,
+`status`, `verdict`, `mode`, `health`, `outcome`, `recommendation` 필드에서 가져옵니다. 두
+claim이 같은 identity 필드와 정본 identity 값을 사용하고, 같은 결론 필드에 서로 다른 정본
+값을 가질 때만 평가기가 T2를 허용합니다. 렌더링된 값이 우연히 같아도 서로 다른 identity
+필드는 별도 namespace로 취급합니다.
+
+비교 가능한 신호가 없으면 T2가 필요하지 않습니다. 산문 차이, 사용 가능한 synthesizer 또는
+남은 예산만으로는 에스컬레이션을 열지 않습니다. 근거 참조가 없으면 평가 전에 T1에서 판단을
+보류하며, 평가기는 비교한 값 대신 범위가 제한된 owner 및 field 메타데이터를 기록합니다.
+
 ## 에스컬레이션 경제성
 
 T0 답변과 T1 라우팅은 결정론적하며 모델 호출이 없습니다. 라우팅은 요청을 소유자가
@@ -348,6 +362,10 @@ pricing, 모델 키 없이 바인딩된 대화 synthesizer를 거부합니다. �
 조립 루트에서 구현을 연결할 수 있습니다. 요청은 질문, 요청자,
 상관관계 id, 기본 소유자, 범위가 제한된 owner-attributed 점유, 근거 참조, 프롬프트 다이제스트 및
 변경할 수 없는 participant 프롬프트를 포함합니다.
+
+가용성은 admission이 아닙니다. Deliberator는 T1 답변 평가에서 구조적 충돌을 하나 이상
+보고한 뒤에만 이 Protocol을 호출합니다. 충돌이 없거나 비교할 수 없는 T1 답변은 T2 예산을
+예약하지 않고 바로 반환합니다.
 
 Synthesized conclusion은 presentation-only입니다. 4,000자로 제한하며 민감한 내용을
 검사합니다. 프로바이더 오류, 빈 출력, oversized 출력 또는 민감한 출력은 T1 결과를
@@ -481,7 +499,7 @@ charter가 같은 participant에 귀속되도록 유지합니다.
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 변경할 수 없는 charter와 상황별 프롬프트 조립 | implemented | `services/core-control-plane/src/fdai/agents/_framework/charters.py`, `services/core-control-plane/src/fdai/agents/_framework/conversation_prompt.py` 및 집중 프롬프트 조립 테스트 | 서버가 소유하는 기준선, 선택 계층, 프롬프트 다이제스트 및 신뢰할 수 없는 맥락 경계가 결정론적이며 집중 검사로 검증됩니다. |
-| 범위가 제한된 T1 숙의와 권한 격리 | implemented | `services/core-control-plane/src/fdai/agents/_framework/deliberation.py`, `services/core-control-plane/src/fdai/agents/bragi.py`, `services/core-control-plane/src/fdai/agents/_framework/runtime.py` 및 `services/core-control-plane/tests/agents/test_prompt_deliberation.py` | 입장과 비평 라운드는 읽기 전용으로 유지되고, 작업 의도를 차단하며, 표현 전용 결과를 반환합니다. |
+| 범위가 제한된 T1 숙의와 권한 격리 | implemented | `services/core-control-plane/src/fdai/agents/_framework/deliberation.py`, `services/core-control-plane/src/fdai/agents/_framework/deliberation_evaluation.py`, `services/core-control-plane/src/fdai/agents/bragi.py`, `services/core-control-plane/src/fdai/agents/_framework/runtime.py` 및 `services/core-control-plane/tests/agents/test_prompt_deliberation.py` | 입장과 비평 라운드는 읽기 전용으로 유지되고, 작업 의도를 차단하며, 범위가 제한된 high-signal fact를 평가하고, 표현 전용 결과를 반환합니다. |
 | 선택적 T2 계약과 보호된 조립 주입 지점 | implemented | `T2ConversationSynthesizer`, `LlmBindings`, 런타임 부트스트랩 연결 및 집중 숙의와 조립 바인딩 테스트 | T2 요청은 참여자 신원, 프롬프트 출처, 제한된 출력, 예산 예약, 가격 및 계측 필수 조건을 적용합니다. |
 | 프로덕션 호출과 통제된 런타임 검증 | in-progress | `services/core-control-plane/src/fdai/runtime/bootstrap.py`는 선택적 바인딩을 `PantheonRuntime`에 전달하지만, 구체적인 업스트림 종합기, Operator API 경로, 콘솔 경로 또는 통제된 런타임 증적은 없습니다. | 테스트된 코어는 T1과 주입된 T2 구현을 실행할 수 있습니다. 저장소 근거만으로는 배포된 T2 호출, 실제 비용 청구 또는 운영자 대상 호출을 입증할 수 없습니다. |
 
@@ -490,6 +508,7 @@ charter가 같은 participant에 귀속되도록 유지합니다.
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 구현 원장을 도입했으며 이전 출처는 재구성하지 않았습니다. 결정론적 테스트를 운영 검증으로 취급하지 않고 테스트된 charter, 프롬프트, T1 및 보호된 T2 주입 지점을 implemented로 분류했습니다. | 현재 변경, 구현 범위 표에 나열한 소스 및 아래 집중 명령(`6 passed in 0.11s`). | 구체적인 계측형 T2 종합기를 바인딩하고 실행하며, 승인된 런타임 경계를 통해 숙의 경로를 호출하고, 통제된 런타임 근거를 기록합니다. |
+| 2026-08-14 | implemented | 선택적 T2 종합을 무조건 호출하던 동작을 범위가 제한된 T1 답변 신호의 결정론적 평가로 교체했습니다. | `current change`, `deliberation_evaluation.py`와 집중 숙의 테스트 36개는 충돌이 없거나 비교할 수 없는 T1 claim이 T2를 한 번도 호출하지 않고 구조적 충돌만 범위가 제한된 호출 한 번을 만든다는 것을 입증합니다. | 에스컬레이션하지 않는 분기와 충돌로 에스컬레이션하는 분기의 통제된 런타임 근거를 보존합니다. |
 
 ### 남은 작업
 
@@ -497,8 +516,8 @@ charter가 같은 participant에 귀속되도록 유지합니다.
   `conversation_pricing` 및 `conversation_t2_model_key`와 함께 바인딩한 다음, 성공적인 종합과
   정확한 예산 및 계측 청구를 입증하는 집중 통합 결과를 기록합니다.
 - [ ] 승인된 운영자 또는 런타임 경계를 통해 `PantheonRuntime.deliberate`를 호출하고 T1
-  폴백, T2 사용, 표현 전용 권한, 판단 보류 및 프로바이더 실패를 포함하는 통제된 런타임
-  근거를 첨부합니다.
+  충돌 없는 완료, 구조적 충돌이 있을 때의 T2 사용, 표현 전용 권한, 판단 보류 및 프로바이더
+  실패를 포함하는 통제된 런타임 근거를 첨부합니다.
 
 ## 검증
 

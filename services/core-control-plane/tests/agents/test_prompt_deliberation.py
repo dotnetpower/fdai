@@ -15,6 +15,10 @@ from fdai.agents._framework.deliberation import (
     T2ConversationSynthesizer,
     _claim,
 )
+from fdai.agents._framework.deliberation_evaluation import (
+    evaluate_t1_answers,
+    evaluation_signals,
+)
 from fdai.agents._framework.pantheon import PANTHEON_SPECS
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents._framework.semantic_routing import SemanticRouterConfig
@@ -207,8 +211,44 @@ class _T2FailureSynthesizer:
         return SynthesisOutcome(conclusion=self.outcome)
 
 
+def _bind_t1_recommendations(
+    runtime: PantheonRuntime,
+    recommendations: tuple[str | None, str | None],
+) -> PantheonRuntime:
+    bragi = runtime.agents["Bragi"]
+    recommendation_by_agent = dict(zip(("Njord", "Freyr"), recommendations, strict=True))
+
+    async def responder(
+        agent_name: str,
+        _question: str,
+        context: dict[str, object],
+    ) -> tuple[dict[str, object], None]:
+        recommendation = recommendation_by_agent[agent_name]
+        facts: dict[str, object] = {
+            "resource_id": "resource-example",
+            "evidence_refs": [f"agent-state:{agent_name}"],
+        }
+        if recommendation is not None:
+            facts["recommendation"] = recommendation
+        return (
+            {
+                "primary_agent": agent_name,
+                "answer": f"{agent_name} grounded evidence.",
+                "facts": facts,
+                "prompt_composition": {
+                    "prompt_sha256": ("a" if agent_name == "Njord" else "b") * 64
+                },
+                "trace_ref": context.get("correlation_id", ""),
+            },
+            None,
+        )
+
+    bragi._deliberator._call_responder = responder  # noqa: SLF001
+    return runtime
+
+
 def _runtime(*, t2: T2ConversationSynthesizer | None = None) -> PantheonRuntime:
-    return PantheonRuntime.build(
+    runtime = PantheonRuntime.build(
         provider=InMemoryEventBus(),
         raw_event_topic="fdai.events",
         conversation_embedding_model=_CrossDomainEmbedding(),
@@ -217,6 +257,9 @@ def _runtime(*, t2: T2ConversationSynthesizer | None = None) -> PantheonRuntime:
             margin_threshold=0.08,
         ),
         conversation_t2_synthesizer=t2,
+    )
+    return (
+        _bind_t1_recommendations(runtime, ("scale_down", "scale_up")) if t2 is not None else runtime
     )
 
 
@@ -413,6 +456,66 @@ def test_t2_deliberation_synthesizes_without_raising_authority() -> None:
 
 
 @pytest.mark.parametrize(
+    ("recommendations", "reason", "signal_count"),
+    (
+        (("scale_up", "scale_up"), "no_structured_conflict", 2),
+        ((None, None), "no_comparable_signals", 0),
+    ),
+)
+def test_t1_answer_evaluation_skips_t2_when_not_required(
+    recommendations: tuple[str | None, str | None],
+    reason: str,
+    signal_count: int,
+) -> None:
+    synthesizer = _T2Synthesizer()
+    runtime = _bind_t1_recommendations(_runtime(t2=synthesizer), recommendations)
+
+    result = asyncio.run(
+        runtime.deliberate(
+            question="Compare cost and capacity evidence.",
+            requester="Forseti",
+            correlation_id=f"corr-{reason}",
+        )
+    )
+
+    assert result["tier"] == "T1"
+    assert result["t2_status"] == "not_required"
+    assert result["t1_evaluation"] == {
+        "status": "not_required",
+        "reason": reason,
+        "signal_count": signal_count,
+        "conflicts": [],
+    }
+    assert synthesizer.requests == []
+
+
+def test_t1_answer_evaluation_keeps_identity_fields_in_separate_namespaces() -> None:
+    left = _test_claim("Njord", "a")
+    right = _test_claim("Freyr", "b")
+    left = DeliberationClaim(
+        agent=left.agent,
+        answer=left.answer,
+        evidence_refs=left.evidence_refs,
+        prompt_sha256=left.prompt_sha256,
+        evaluation_signals=evaluation_signals(
+            {"resource_id": "same-text", "recommendation": "scale_down"}
+        ),
+    )
+    right = DeliberationClaim(
+        agent=right.agent,
+        answer=right.answer,
+        evidence_refs=right.evidence_refs,
+        prompt_sha256=right.prompt_sha256,
+        evaluation_signals=evaluation_signals({"id": "same-text", "recommendation": "scale_up"}),
+    )
+
+    evaluation = evaluate_t1_answers((left, right))
+
+    assert evaluation.requires_t2 is False
+    assert evaluation.reason == "no_structured_conflict"
+
+
+@pytest.mark.parametrize(
     ("outcome", "expected_status"),
     (
         (None, "abstained"),
@@ -461,13 +564,18 @@ def test_deliberation_action_intent_requires_typed_pipeline() -> None:
 
 def test_t2_synthesis_stops_at_the_declared_budget_instead_of_calling_again() -> None:
     synthesizer = _T2Synthesizer()
-    runtime = PantheonRuntime.build(
-        provider=InMemoryEventBus(),
-        raw_event_topic="fdai.events",
-        conversation_embedding_model=_CrossDomainEmbedding(),
-        semantic_router_config=SemanticRouterConfig(cosine_threshold=0.6, margin_threshold=0.08),
-        conversation_t2_synthesizer=synthesizer,
-        conversation_escalation_budget=ModelBudget(max_calls_per_correlation=1),
+    runtime = _bind_t1_recommendations(
+        PantheonRuntime.build(
+            provider=InMemoryEventBus(),
+            raw_event_topic="fdai.events",
+            conversation_embedding_model=_CrossDomainEmbedding(),
+            semantic_router_config=SemanticRouterConfig(
+                cosine_threshold=0.6, margin_threshold=0.08
+            ),
+            conversation_t2_synthesizer=synthesizer,
+            conversation_escalation_budget=ModelBudget(max_calls_per_correlation=1),
+        ),
+        ("scale_down", "scale_up"),
     )
 
     first = asyncio.run(
@@ -518,7 +626,11 @@ def test_unattributed_participants_see_the_budget_that_gates_synthesis() -> None
             {
                 "primary_agent": agent_name,
                 "answer": f"{agent_name} evidence",
-                "facts": {"evidence_refs": [f"agent-state:{agent_name}"]},
+                "facts": {
+                    "resource_id": "resource-example",
+                    "recommendation": ("scale_down" if agent_name == "Njord" else "scale_up"),
+                    "evidence_refs": [f"agent-state:{agent_name}"],
+                },
                 "conversation_policy": spec.conversation_policy(),
                 "prompt_composition": composition,
             },
@@ -543,16 +655,21 @@ def test_unattributed_participants_see_the_budget_that_gates_synthesis() -> None
 
 def test_a_zero_budget_never_calls_the_model_at_all() -> None:
     synthesizer = _T2Synthesizer()
-    runtime = PantheonRuntime.build(
-        provider=InMemoryEventBus(),
-        raw_event_topic="fdai.events",
-        conversation_embedding_model=_CrossDomainEmbedding(),
-        semantic_router_config=SemanticRouterConfig(cosine_threshold=0.6, margin_threshold=0.08),
-        conversation_t2_synthesizer=synthesizer,
-        conversation_escalation_budget=ModelBudget(
-            max_calls_per_correlation=0,
-            max_calls_total=0,
+    runtime = _bind_t1_recommendations(
+        PantheonRuntime.build(
+            provider=InMemoryEventBus(),
+            raw_event_topic="fdai.events",
+            conversation_embedding_model=_CrossDomainEmbedding(),
+            semantic_router_config=SemanticRouterConfig(
+                cosine_threshold=0.6, margin_threshold=0.08
+            ),
+            conversation_t2_synthesizer=synthesizer,
+            conversation_escalation_budget=ModelBudget(
+                max_calls_per_correlation=0,
+                max_calls_total=0,
+            ),
         ),
+        ("scale_down", "scale_up"),
     )
 
     result = asyncio.run(
@@ -666,19 +783,24 @@ def _priced_runtime(
     taught to account for money twice.
     """
     ledger = InMemoryBudgetLedger(budget)
-    return PantheonRuntime.build(
-        provider=InMemoryEventBus(),
-        raw_event_topic="fdai.events",
-        conversation_embedding_model=_CrossDomainEmbedding(),
-        semantic_router_config=SemanticRouterConfig(cosine_threshold=0.6, margin_threshold=0.08),
-        conversation_t2_synthesizer=synthesizer,
-        conversation_escalation_budget=budget,
-        conversation_escalation_ledger=ledger,
-        conversation_pricing=pricing if pricing is not None else _PRICING,
-        # A plain sink on purpose: the deliberator wraps it with the
-        # charging sink itself, so no composition root can forget to.
-        conversation_metering=metering if metering is not None else InMemoryMeteringSink(),
-        conversation_t2_model_key="gpt-test",
+    return _bind_t1_recommendations(
+        PantheonRuntime.build(
+            provider=InMemoryEventBus(),
+            raw_event_topic="fdai.events",
+            conversation_embedding_model=_CrossDomainEmbedding(),
+            semantic_router_config=SemanticRouterConfig(
+                cosine_threshold=0.6, margin_threshold=0.08
+            ),
+            conversation_t2_synthesizer=synthesizer,
+            conversation_escalation_budget=budget,
+            conversation_escalation_ledger=ledger,
+            conversation_pricing=pricing if pricing is not None else _PRICING,
+            # A plain sink on purpose: the deliberator wraps it with the
+            # charging sink itself, so no composition root can forget to.
+            conversation_metering=metering if metering is not None else InMemoryMeteringSink(),
+            conversation_t2_model_key="gpt-test",
+        ),
+        ("scale_down", "scale_up"),
     )
 
 

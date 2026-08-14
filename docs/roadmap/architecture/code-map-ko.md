@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 862a1caabdb05d44832be2f9f547029df4a9913c
+translation_source_sha: 6e9a696e6298eeba5fcac99868939a57d82e7fdc
 translation_revised: 2026-08-14
 ---
 # 코드 맵
@@ -46,7 +46,7 @@ translation_revised: 2026-08-14
 | Console 의미 증적 projection | 구현됨 | `semantic_turn.py`, `semantic_turn_processor.py`, `semantic_turn_runtime.py`, `console/src/deck/backend-normalizers.ts`, focused shared, Core, Operator 및 Console 테스트 | 타입이 지정된 경로, 구체적인 명확화 답변, 사용 불가 사유, 네 개의 보증 다이제스트, 근거 참조 및 `execution_authority=false`가 prose 추론 없이 shared 계약, Core 결과, exact Operator 읽기, 최종 스트림, 영속 transcript, replay 및 Console 표현을 통과합니다. 통과한 실제 브라우저 및 무작위 보증 기록은 온톨로지 조회 coverage 계획의 열린 항목으로 남아 있습니다. |
 | 결정론적 누락 incident 맥락 | 구현됨 | `core/conversation/semantic_planning.py`, `tests/conversation/test_semantic_planning.py`, 집중 플래너 및 최종 projection 테스트(`43 passed`) | 첫 turn의 "this incident" 참조는 매니페스트 또는 모델 작업 전에 범위가 제한된 명확화 하나를 반환합니다. 이전 incident 맥락이 있으면 일반 의미 계획 수립을 계속하며 어느 경로도 실행 권한을 부여하지 않습니다. |
 | 의미 시간 및 근거 조립 | 구현됨 | `delivery/persistence/postgres_topology_history.py`, `composition/wire_semantic_query.py`, `runtime/bootstrap.py`, `runtime/bootstrap_bindings.py`, 통과한 집중 조립 및 프로바이더 선택 테스트 16개 | 상태 저장소 DSN이 있을 때만 PostgreSQL 토폴로지 이력을 사용할 수 있습니다. 메트릭 시계열과 근거 결합 기능에는 검토된 메트릭 레지스트리와 no-op이 아닌 프로바이더가 모두 필요합니다. 하나의 핸들러 맵이 검증기와 실행기의 가용성을 함께 제어하며 모든 결과는 `execution_authority=False`인 읽기 전용으로 유지됩니다. |
-| T1 우선 의미 계획 | 구현됨 | `core/conversation/semantic_planning.py`, `core/conversation/semantic_planning_cascade.py`, `composition/semantic_query_model_targets.py`, `composition/wire_semantic_query.py`, 집중 tier 라우팅 및 조립 테스트 | 의미 계획은 항상 해석된 T1 소형 모델을 먼저 사용합니다. T1 frame 또는 plan 제안을 사용할 수 없거나 결정론적 검증을 통과하지 못한 경우에만 같은 단계를 선택적 T2 reasoner로 한 번 다시 시도할 수 있습니다. 명확화, 범위 거부 및 근거 보류는 T2를 호출하지 않습니다. |
+| T1 우선 의미 계획 | 구현됨 | `core/conversation/semantic_planning.py`, `core/conversation/semantic_planning_cascade.py`, `composition/semantic_query_model_targets.py`, `composition/wire_semantic_query.py`, 집중 tier 라우팅 및 조립 테스트 | 의미 계획은 항상 해석된 T1 소형 모델을 먼저 사용합니다. T1 frame 또는 plan 제안을 사용할 수 없거나 결정론적 검증을 통과하지 못한 경우에만 같은 단계를 선택적 T2 primary reasoner로 한 번 다시 시도할 수 있습니다. 플래너는 secondary 품질 교차 검증 역할을 사용하지 않습니다. 명확화, 범위 거부 및 근거 보류는 T2를 호출하지 않습니다. |
 
 ### 구현 이력
 
