@@ -1,0 +1,36 @@
+# Escalation ladder for a forecast breach that will hit production.
+#
+# Selected first-match by `priority` (lower wins). Every channel id and
+# audience group here is an upstream placeholder; a deployment overlay
+# replaces them with real values. Upstream never carries a tenant value
+# (see .github/instructions/generic-scope.instructions.md).
+version: 1
+kind: escalation_ladder
+id: prod-forecast-breach
+description: >-
+  Production forecast breach at resource-group blast radius or wider. Walks
+  primary on-call, secondary on-call, then the incident commander, adding
+  non-deciding paging as the ladder climbs.
+priority: 10
+select_when:
+  environment: prod
+  finding_class: forecast.breach
+  impact_at_least: resource_group
+rungs:
+  - rung: on_call_primary
+    audience_group: aw-oncall-primary
+    ttl_seconds: 300
+    category: hil_approval
+  - rung: on_call_secondary
+    audience_group: aw-oncall-secondary
+    ttl_seconds: 300
+    category: hil_approval
+    also_page: [pagerduty-primary]
+  - rung: incident_commander
+    audience_group: aw-incident-commander
+    ttl_seconds: 600
+    category: hil_approval
+    also_page: [pagerduty-primary, sms-oncall]
+# 1200s of rungs inside a 1500s cap: every declared rung is reachable at its
+# full TTL, and the remaining 300s is the terminal no-op margin.
+overall_deadline_seconds: 1500

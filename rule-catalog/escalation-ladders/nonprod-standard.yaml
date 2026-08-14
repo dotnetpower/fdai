@@ -1,0 +1,22 @@
+# Baseline ladder for non-production findings.
+#
+# Deliberately shallower and slower than the production ladder: a non-prod
+# finding does not justify paging an incident commander. It still ends in a
+# terminal no-op rather than an unattended action.
+version: 1
+kind: escalation_ladder
+id: nonprod-standard
+description: >-
+  Non-production finding at resource blast radius or wider. One approving
+  audience, no paging, and a single hard deadline.
+priority: 90
+select_when:
+  environment: nonprod
+  finding_class: forecast.breach
+  impact_at_least: resource
+rungs:
+  - rung: service_owner
+    audience_group: aw-service-owner
+    ttl_seconds: 1800
+    category: hil_approval
+overall_deadline_seconds: 3600

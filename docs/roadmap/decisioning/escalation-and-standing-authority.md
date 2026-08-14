@@ -30,7 +30,7 @@ existing single-pass control loop.
 |------|-------|----------|-------|
 | Durable shadow escalation supervisor | implemented | [`escalation_supervisor.py`](../../../services/core-control-plane/src/fdai/core/hil_resume/escalation_supervisor.py), [`test_escalation_supervisor.py`](../../../services/core-control-plane/tests/core/hil_resume/test_escalation_supervisor.py) | Bounded scans, delivery claims, and would-escalate observations are implemented without advancing approval or execution authority. |
 | HIL resume and delegated-rung verification | implemented | [`coordinator.py`](../../../services/core-control-plane/src/fdai/core/hil_resume/coordinator.py), [`test_delegation.py`](../../../services/core-control-plane/tests/core/hil_resume/test_delegation.py) | Resume snapshots and rung eligibility are verified before the typed path continues. |
-| Escalation ladder and urgency catalogs | in-progress | [Escalation ladder](#the-escalation-ladder), [Time-decaying urgency](#time-decaying-urgency) | The supervisor mechanics exist, but reviewed catalog instances and measured urgency-compression evidence do not. |
+| Escalation ladder and urgency catalogs | in-progress | [`escalation_ladder.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/escalation_ladder.py), [`test_escalation_ladder_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_escalation_ladder_catalog.py), [`rule-catalog/escalation-ladders/`](../../../rule-catalog/escalation-ladders/README.md) | Reviewed ladder and urgency-policy instances ship with a fail-closed loader and pure schedule functions, and focused checks cover expiry, fallback delivery, starvation prevention, and deterministic replay. The supervisor does not yet read the catalog, and no measured urgency-compression evidence from a running cohort exists. |
 | A3-E standing human authorization | not-started | [`constitution-traceability.json`](../../../config/constitution-traceability.json), [Standing authorization](#standing-authorization-pre-authorized-conditional-execution) | No executable standing-authority schema, evaluator, or production promotion path is evidenced. Silence never grants authority. |
 
 ### Implementation history
@@ -38,11 +38,15 @@ existing single-pass control loop.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and corrected the prior broad status summary. | `current change`; current source, focused tests, and constitutional traceability listed in the scope table. | Deliver catalog-backed urgency and standing-authorization evaluation, then retain governed shadow evidence. |
+| 2026-08-14 | in-progress | Shipped reviewed escalation-ladder and urgency-policy catalog instances with a fail-closed loader, deterministic first-match selection, and pure schedule functions. | `current change`; [`escalation_ladder.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/escalation_ladder.py), [`test_escalation_ladder_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_escalation_ladder_catalog.py); focused catalog checks passed 37 cases and the whole rule-catalog suite passed 1251 cases; strict mypy passed. | Bind the supervisor to the catalog and retain measured urgency-compression evidence from a governed shadow cohort. |
 
 ### Remaining work
 
-- [ ] Add reviewed escalation-ladder and urgency-policy catalog instances, then retain focused
-  evidence for expiry, fallback delivery, starvation prevention, and deterministic replay.
+- [x] Reviewed escalation-ladder and urgency-policy catalog instances ship with a fail-closed
+  loader, and focused checks cover expiry, fallback delivery, starvation prevention, and
+  deterministic replay.
+- [ ] Bind the escalation supervisor to the catalog and retain measured urgency-compression
+  evidence from a running cohort.
 - [ ] Implement the A3-E standing-authorization schema and evaluator with quorum, revocation,
   validity, responder confirmation, exact envelope, and no-self-approval negative tests.
 - [ ] Retain a governed shadow cohort with zero envelope escapes before any independent promotion
@@ -139,32 +143,43 @@ finding may only ever reach the primary on-call; a `subscription`-adjacent
 impact recruits the incident commander quickly.
 
 ```yaml
-# Proposed catalog-as-code artifact (shadow-first; see Rollout).
-# rule-catalog/escalation-ladders/<name>.yaml
+# Shipped catalog-as-code artifact (shadow-first; see Rollout).
+# rule-catalog/escalation-ladders/prod-forecast-breach.yaml
 version: 1
-id: prod-outage-imminent
-select_when:                     # first-match, evaluated by the risk gate
+kind: escalation_ladder
+id: prod-forecast-breach
+priority: 10                     # unique; first-match in ascending order
+select_when:
   environment: prod
   finding_class: forecast.breach
   impact_at_least: resource_group
 rungs:
   - rung: on_call_primary
     audience_group: aw-oncall-primary   # placeholder; fork supplies real group
-    ttl: 5m
-    category: a1_hil_approval
+    ttl_seconds: 300
+    category: hil_approval
   - rung: on_call_secondary
     audience_group: aw-oncall-secondary
-    ttl: 5m
-    category: a1_hil_approval
+    ttl_seconds: 300
+    category: hil_approval
     also_page: [pagerduty-primary]      # A2 awareness, non-deciding
   - rung: incident_commander
     audience_group: aw-incident-commander
-    ttl: 10m
-    category: a1_hil_approval
+    ttl_seconds: 600
+    category: hil_approval
     also_page: [pagerduty-primary, sms-oncall]
-overall_deadline: 25m            # hard cap; on expiry -> terminal no-op unless
+overall_deadline_seconds: 1500   # hard cap; on expiry -> terminal no-op unless
                                  # a standing authorization trips first
 ```
+
+Durations are integer seconds rather than `5m` strings, so a replayed schedule
+never depends on a duration parser. `priority` makes first-match selection a
+total order; the loader refuses a duplicate, because two ladders sharing a
+priority would make selection depend on directory order. The loader also refuses
+a ladder whose rung TTLs do not fit inside `overall_deadline_seconds`, so a
+ladder cannot name an audience the deadline silently makes unreachable, and
+refuses a rung that pages its own deciding audience, because paging is awareness
+and never approval authority.
 
 - **No self-approval survives escalation.** A later rung is a *different*
   principal; the approver-of-record is whoever actually decides, and the executor
@@ -192,6 +207,25 @@ and uses it to **compress** rung TTLs and to **raise the starting rung**:
   prediction-interval band clears the configured confidence level
   ([observability-and-detection.md § 3](../rules-and-detection/observability-and-detection.md#3-predictive--forecasting));
   a noisy point-estimate breach does not get to compress deadlines.
+- **A floor prevents starvation.** Compression is clamped to
+  `[min_effective_ttl_seconds, rung.ttl_seconds]`, so an imminent breach cannot
+  shrink a rung to a window no human could answer in.
+
+```yaml
+# rule-catalog/escalation-ladders/urgency.default.yaml
+version: 1
+kind: urgency_policy
+id: default-forecast-urgency
+lead_time_factor: 0.5            # the k above
+min_forecast_confidence: 0.9     # below this, nothing compresses
+min_effective_ttl_seconds: 60    # starvation floor
+```
+
+The schedule is computed by a pure function that takes the remaining lead time
+and the forecast confidence as arguments rather than reading a clock, so a
+recorded escalation replays to the same timeline. An absent policy, an absent
+forecast, or a forecast below `min_forecast_confidence` all leave every rung at
+its declared TTL: an unproven urgency signal never shortens a human's window.
 
 Urgency changes **how fast** the ladder is walked; it never changes **whether**
 an unattended approved execution is allowed. That gate is standing authorization.

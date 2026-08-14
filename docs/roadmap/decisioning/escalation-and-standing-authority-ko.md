@@ -1,7 +1,7 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: 3a50db1c95e25a46c99eedc09b982ee6eb85bf7a
+translation_source_sha: d9680d10faf48efe25376a3598cdb352f85ec3dc
 translation_revised: 2026-08-14
 ---
 
@@ -32,7 +32,7 @@ translation_revised: 2026-08-14
 |------|------|------|------|
 | 영구 shadow 에스컬레이션 supervisor | implemented | [`escalation_supervisor.py`](../../../services/core-control-plane/src/fdai/core/hil_resume/escalation_supervisor.py), [`test_escalation_supervisor.py`](../../../services/core-control-plane/tests/core/hil_resume/test_escalation_supervisor.py) | 제한된 스캔, 전달 claim 및 에스컬레이션 예정 관찰이 승인 또는 실행 권한을 진행하지 않도록 구현되어 있습니다. |
 | HIL 재개 및 위임 단계 검증 | implemented | [`coordinator.py`](../../../services/core-control-plane/src/fdai/core/hil_resume/coordinator.py), [`test_delegation.py`](../../../services/core-control-plane/tests/core/hil_resume/test_delegation.py) | 타입이 지정된 경로를 계속하기 전에 재개 스냅샷과 단계 자격을 검증합니다. |
-| 에스컬레이션 사다리 및 긴급도 카탈로그 | in-progress | [에스컬레이션 사다리](#에스컬레이션-사다리), [시간 감쇠 긴급도](#시간-감쇠-긴급도) | Supervisor 동작은 있지만 검토된 카탈로그 인스턴스와 측정된 긴급도 압축 근거는 없습니다. |
+| 에스컬레이션 사다리 및 긴급도 카탈로그 | in-progress | [`escalation_ladder.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/escalation_ladder.py), [`test_escalation_ladder_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_escalation_ladder_catalog.py), [`rule-catalog/escalation-ladders/`](../../../rule-catalog/escalation-ladders/README.md) | 검토된 사다리 및 긴급도 정책 인스턴스가 fail-closed 로더 및 순수 스케줄 함수와 함께 배포되었으며, 집중 검사가 만료, 대체 전달, starvation 방지, 결정론적 재실행을 다룹니다. Supervisor는 아직 카탈로그를 읽지 않으며, 실행 중인 집합에서 측정된 긴급도 압축 근거는 없습니다. |
 | A3-E 상시 사람 권한 | not-started | [`constitution-traceability.json`](../../../config/constitution-traceability.json), [상시 권한](#상시-권한사전-승인-조건부-실행) | 실행 가능한 상시 권한 스키마, 평가기 또는 운영 승격 경로가 입증되지 않았습니다. 침묵은 권한을 부여하지 않습니다. |
 
 ### 구현 이력
@@ -40,11 +40,14 @@ translation_revised: 2026-08-14
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 기존의 포괄적인 상태 요약을 바로잡았습니다. | `current change`; 구현 범위 표의 현재 소스, 집중 테스트 및 헌법 추적성입니다. | 카탈로그 기반 긴급도와 상시 권한 평가를 제공한 뒤 통제된 shadow 근거를 보존해야 합니다. |
+| 2026-08-14 | in-progress | 검토된 에스컬레이션 사다리와 긴급도 정책 카탈로그 인스턴스를 fail-closed 로더, 결정론적 first-match 선택, 순수 스케줄 함수와 함께 배포했습니다. | `current change`; [`escalation_ladder.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/escalation_ladder.py), [`test_escalation_ladder_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_escalation_ladder_catalog.py); 집중 카탈로그 검사 37건과 rule-catalog 전체 스위트 1251건이 통과했고 strict mypy가 통과했습니다. | Supervisor를 카탈로그에 연결하고 통제된 shadow 집합에서 측정된 긴급도 압축 근거를 보존해야 합니다. |
 
 ### 남은 작업
 
-- [ ] 검토된 에스컬레이션 사다리와 긴급도 정책 카탈로그 인스턴스를 추가하고 만료,
-  대체 전달, starvation 방지 및 결정론적 재실행의 집중 근거를 보존합니다.
+- [x] 검토된 에스컬레이션 사다리와 긴급도 정책 카탈로그 인스턴스가 fail-closed 로더와 함께
+  배포되었으며, 집중 검사가 만료, 대체 전달, starvation 방지, 결정론적 재실행을 다룹니다.
+- [ ] 에스컬레이션 supervisor를 카탈로그에 연결하고 실행 중인 집합에서 측정된 긴급도 압축
+  근거를 보존합니다.
 - [ ] 정족수, 철회, 유효성, 대응자 확인, 정확한 묶음 및 자기 승인 방지 부정 테스트를
   갖춘 A3-E 상시 권한 스키마와 평가기를 구현합니다.
 - [ ] 독립 승격 검토 전에 묶음 이탈 0건인 통제된 shadow 집합을 보존하고, 해당 근거가
@@ -135,32 +138,41 @@ flowchart LR
 commander 를 빠르게 소집한다.
 
 ```yaml
-# Proposed catalog-as-code artifact (shadow-first; see Rollout).
-# rule-catalog/escalation-ladders/<name>.yaml
+# 배포된 catalog-as-code 아티팩트 (shadow-first; 롤아웃 참고).
+# rule-catalog/escalation-ladders/prod-forecast-breach.yaml
 version: 1
-id: prod-outage-imminent
-select_when:                     # first-match, evaluated by the risk gate
+kind: escalation_ladder
+id: prod-forecast-breach
+priority: 10                     # 고유값; 오름차순 first-match
+select_when:
   environment: prod
   finding_class: forecast.breach
   impact_at_least: resource_group
 rungs:
   - rung: on_call_primary
-    audience_group: aw-oncall-primary   # placeholder; fork supplies real group
-    ttl: 5m
-    category: a1_hil_approval
+    audience_group: aw-oncall-primary   # placeholder; fork가 실제 그룹 공급
+    ttl_seconds: 300
+    category: hil_approval
   - rung: on_call_secondary
     audience_group: aw-oncall-secondary
-    ttl: 5m
-    category: a1_hil_approval
-    also_page: [pagerduty-primary]      # A2 awareness, non-deciding
+    ttl_seconds: 300
+    category: hil_approval
+    also_page: [pagerduty-primary]      # A2 인지용, 비결정
   - rung: incident_commander
     audience_group: aw-incident-commander
-    ttl: 10m
-    category: a1_hil_approval
+    ttl_seconds: 600
+    category: hil_approval
     also_page: [pagerduty-primary, sms-oncall]
-overall_deadline: 25m            # hard cap; on expiry -> terminal no-op unless
-                                 # a standing authorization trips first
+overall_deadline_seconds: 1500   # hard cap; 만료 시 -> 상시 권한이 먼저
+                                 # 발동하지 않는 한 종료성 no-op
 ```
+
+지속 시간은 `5m` 문자열이 아니라 정수 초이므로, 재실행된 스케줄이 지속시간 파서에
+의존하지 않습니다. `priority`는 first-match 선택을 전순서로 만들며, 로더는 중복을
+거부합니다. 우선순위를 공유하는 두 사다리는 선택을 디렉터리 순서에 의존하게 만들기
+때문입니다. 또한 로더는 rung TTL 합이 `overall_deadline_seconds`에 들어가지 않는 사다리를
+거부하므로 마감이 조용히 도달 불가로 만드는 청중을 선언할 수 없고, 자신의 결정 청중을
+페이징하는 rung도 거부합니다. 페이징은 인지일 뿐 절대 승인 권한이 아니기 때문입니다.
 
 - **에스컬레이션을 거쳐도 자기 승인 은 성립하지 않는다.** 이후 rung 은 *다른*
   principal 이다; approver-of-record 는 실제로 결정한 사람이고, 실행기 는 여전히 별개
@@ -184,6 +196,23 @@ rung 을 올린다**:
 - **신뢰도는 여전히 게이트다.** 예보는 그 예측구간 band 가 설정된 신뢰 수준을 통과할
   때만 긴급도를 몰아간다([observability-and-detection-ko.md § 3](../rules-and-detection/observability-and-detection-ko.md#3-예측--예보predictive--forecasting));
   잡음 섞인 point-estimate 위반은 데드라인을 압축하지 못한다.
+- **바닥이 starvation을 막는다.** 압축은 `[min_effective_ttl_seconds, rung.ttl_seconds]`로
+  제한되므로, 임박한 위반이라도 rung을 사람이 답할 수 없는 창으로 줄이지 못한다.
+
+```yaml
+# rule-catalog/escalation-ladders/urgency.default.yaml
+version: 1
+kind: urgency_policy
+id: default-forecast-urgency
+lead_time_factor: 0.5            # 위의 k
+min_forecast_confidence: 0.9     # 이보다 낮으면 아무것도 압축되지 않음
+min_effective_ttl_seconds: 60    # starvation 바닥
+```
+
+스케줄은 시계를 읽는 대신 남은 lead time과 예보 신뢰도를 인자로 받는 순수 함수가
+계산하므로, 기록된 에스컬레이션은 같은 타임라인으로 재실행됩니다. 정책이 없거나, 예보가
+없거나, 예보가 `min_forecast_confidence` 미만이면 모든 rung은 선언된 TTL을 그대로
+유지합니다. 증명되지 않은 긴급도 신호는 사람의 창을 절대 줄이지 않습니다.
 
 긴급도는 사다리를 **얼마나 빨리** 걷는지를 바꿉니다. 무인 상태의 승인된 실행을 허용할지는
 바꾸지 않으며 그 게이트가 상시 권한입니다.

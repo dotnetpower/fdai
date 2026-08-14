@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schema/urgency-policy.json",
+  "title": "Time-decaying urgency policy",
+  "description": "Compresses ladder rung TTLs as a forecast breach closes. Urgency changes how fast the ladder is walked; it never changes whether an unattended execution is allowed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "kind",
+    "id",
+    "lead_time_factor",
+    "min_forecast_confidence",
+    "min_effective_ttl_seconds"
+  ],
+  "properties": {
+    "version": { "const": 1 },
+    "kind": { "const": "urgency_policy" },
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(?:[-.][a-z0-9]+)*$" },
+    "description": { "type": "string", "minLength": 1 },
+    "lead_time_factor": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 1,
+      "description": "The k in effective_ttl = min(rung.ttl, k * remaining_lead_time). Capped at 1 so urgency can never hand a rung more time than the lead it has."
+    },
+    "min_forecast_confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "A forecast below this confidence does not compress anything. A noisy point estimate must not shorten a human's window."
+    },
+    "min_effective_ttl_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Starvation floor. Compression never drives a rung below this, so a human is always given a usable window."
+    }
+  }
+}
