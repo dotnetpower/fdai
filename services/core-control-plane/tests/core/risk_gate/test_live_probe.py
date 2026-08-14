@@ -200,6 +200,8 @@ def test_streak_below_the_threshold_does_not_escalate() -> None:
 def test_empty_probe_id_is_rejected() -> None:
     with pytest.raises(ValueError, match="probe_id"):
         LiveProbeObservation(probe_id="", verdict=ProbeVerdict.QUIET)
+    with pytest.raises(ValueError, match="probe_id"):
+        LiveProbeObservation(probe_id="   ", verdict=ProbeVerdict.QUIET)
 
 
 # --- the ceiling-lowering invariant ---------------------------------------------

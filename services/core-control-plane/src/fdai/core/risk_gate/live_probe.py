@@ -60,7 +60,7 @@ class LiveProbeObservation:
     max_age_seconds: float | None = None
 
     def __post_init__(self) -> None:
-        if not self.probe_id:
+        if not self.probe_id.strip():
             raise ValueError("LiveProbeObservation.probe_id MUST be non-empty")
 
     @property

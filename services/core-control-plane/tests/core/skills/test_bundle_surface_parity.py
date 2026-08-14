@@ -165,6 +165,16 @@ def test_bragi_bundle_commands_reject_without_content_or_raising() -> None:
         assert result.data["error"]["code"] == "skill_bundle_access_rejected"
         assert result.data["error"]["reason"] == "skill_bundle_not_installed"
         assert "PRIVATE" not in repr(result)
+    # Both refused reads leave their own diagnostic, not just the load.
+    operations = [
+        (entry["operation"], entry["reason"])
+        for entry in disclosure.diagnostics()
+        if entry["status"] == "rejected"
+    ]
+    assert operations == [
+        ("describe_bundle", "skill_bundle_not_installed"),
+        ("load_bundle", "skill_bundle_not_installed"),
+    ]
 
 
 def test_every_bundle_rejection_reason_is_a_stable_content_free_token() -> None:
