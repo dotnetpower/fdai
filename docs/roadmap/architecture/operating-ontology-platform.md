@@ -327,7 +327,9 @@ and autonomy ceilings. Version 2 adds these semantic fields:
 
 Planning produces an immutable `MutationPlan`. It contains exact target revisions, the computed
 write set, commands, impact evidence, rollback or compensation steps, expected effects, and a
-digest. Approval and execution revalidate the digest and current revisions. A stale plan returns
+digest. Semantic plans preserve the signed planner FunctionType identity in `planner_ref` and bind
+an upstream selected operational plan separately in `operational_plan_ref` when that lineage
+exists. Approval and execution revalidate the digest and current revisions. A stale plan returns
 to planning or human review and never executes with widened scope.
 
 ## Typed ontology functions

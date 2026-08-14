@@ -35,6 +35,7 @@ def build_mutation_plan(
     lock_scope: ActionLockScope | None = None,
     lock_keys: Sequence[str] = (),
     irreversible: bool = False,
+    operational_plan_ref: str | None = None,
 ) -> MutationPlan:
     if created_at.tzinfo is None:
         raise ValueError("MutationPlan.created_at MUST be timezone-aware")
@@ -69,6 +70,8 @@ def build_mutation_plan(
         "max_affected_objects": max_affected_objects if schema_version == "2.0.0" else None,
         "irreversible": irreversible,
     }
+    if operational_plan_ref is not None:
+        material["operational_plan_ref"] = operational_plan_ref
     if schema_version == "2.0.0":
         material["schema_version"] = schema_version
         material["created_at"] = canonical_created_at.isoformat().replace("+00:00", "Z")
@@ -79,6 +82,7 @@ def build_mutation_plan(
         digest=digest,
         action_type_ref=action_type_ref,
         planner_ref=planner_ref,
+        operational_plan_ref=operational_plan_ref,
         targets=tuple(pinned),
         effects=tuple(effects),
         rollback_effects=tuple(rollback_effects),

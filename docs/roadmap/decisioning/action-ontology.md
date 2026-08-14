@@ -246,8 +246,7 @@ without embedding the containing release digest recursively. The pure
 active `OntologyRelease`. It checks that read sets use `query` functions, submission and function
 postconditions use `validate` functions, and the planner uses a `plan` function.
 
-Compilation returns only an immutable, proposal-only `MutationPlan` version 2. The compiler applies
-these checks before it creates the plan identity:
+Compilation returns only an immutable, proposal-only `MutationPlan` version 2. The signed `plan` FunctionType remains `planner_ref`; optional `operational_plan_ref` binds separate decision lineage into the digest without replacing planner provenance. The compiler applies these checks before it creates the plan identity:
 
 - Canonical arguments contain every required parameter, contain no undeclared parameter, and pass
   each inline JSON Schema. The plan stores a digest of the complete canonical argument object plus

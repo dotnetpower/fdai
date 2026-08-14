@@ -272,6 +272,7 @@ def test_compiler_produces_proposal_only_exact_plan_and_validates_existing() -> 
     target = _target("workload-a", object_type, release)
     command, rollback, expected = _effects(target.id)
     created_at = datetime(2026, 8, 8, tzinfo=UTC)
+    operational_plan_ref = "operational-plan:" + "a" * 64
 
     plan = compile_action_mutation_plan(
         action_type=action_type,
@@ -282,6 +283,7 @@ def test_compiler_produces_proposal_only_exact_plan_and_validates_existing() -> 
         rollback_effects=(rollback,),
         expected_effects=(expected,),
         created_at=created_at,
+        operational_plan_ref=operational_plan_ref,
         **_compile_evidence(action_type, created_at),
     )
     validated = compile_action_mutation_plan(
@@ -298,6 +300,8 @@ def test_compiler_produces_proposal_only_exact_plan_and_validates_existing() -> 
     )
     assert action_type.semantic is not None
     assert action_type.semantic.planner_ref.declaration_digest in plan.planner_ref
+    assert plan.operational_plan_ref == operational_plan_ref
+    assert plan.planner_ref != plan.operational_plan_ref
     assert plan.schema_version == "2.0.0"
     assert plan.transaction_mode is ActionTransactionMode.SAGA
     assert plan.lock_scope is ActionLockScope.TARGET_SET

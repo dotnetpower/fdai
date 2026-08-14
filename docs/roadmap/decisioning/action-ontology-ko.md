@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: ada5034b3b0c08da163fa5ce860f360cabcd45bf
+translation_source_sha: c88f358d92016997bfc6144998c0776231b9f148
 translation_revised: 2026-08-14
 ---
 
@@ -243,8 +243,7 @@ direct-API 및 tool-call 요청과 감사 항목은 같은 목록을 flatten하�
 확인합니다. 읽기 집합은 `query` 함수, 제출 및 함수 postcondition은 `validate` 함수,
 플래너는 `plan` 함수를 사용해야 합니다.
 
-컴파일은 변경할 수 없는한 제안 전용 `MutationPlan` 버전 2만 반환합니다. 컴파일러는 계획
-신원을 만들기 전에 다음을 확인합니다.
+컴파일은 변경할 수 없는 제안 전용 `MutationPlan` 버전 2만 반환합니다. Signed `plan` FunctionType은 `planner_ref`로 유지되며 optional `operational_plan_ref`는 planner provenance를 대체하지 않고 별도의 decision lineage를 digest에 결속합니다. 컴파일러는 계획 신원을 만들기 전에 다음을 확인합니다.
 
 - 정본 인자에는 모든 필수 매개변수가 있어야 하고 undeclared 매개변수가 없어야
   하며 각 inline JSON 스키마를 통과해야 합니다. 계획은 전체 정본 인자 객체의 다이제스트와

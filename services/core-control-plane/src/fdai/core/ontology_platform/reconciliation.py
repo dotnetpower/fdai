@@ -356,6 +356,7 @@ def _validate_plan_integrity(plan: MutationPlan) -> None:
         lock_scope=plan.lock_scope,
         lock_keys=plan.lock_keys,
         irreversible=plan.irreversible,
+        operational_plan_ref=plan.operational_plan_ref,
     )
     if rebuilt.digest != plan.digest or rebuilt.plan_id != plan.plan_id:
         raise ValueError("reconciliation plan digest does not match plan content")

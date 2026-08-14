@@ -26,6 +26,9 @@ def _canonical(value: object) -> str:
     )
 
 
+OPERATIONAL_PLAN_REF = "operational-plan:" + "a" * 64
+
+
 def _plan(arguments: dict[str, object] | None = None) -> MutationPlan:
     _release, _target, base, _action_type = _fixture()
     values = arguments or {}
@@ -65,6 +68,7 @@ def _plan(arguments: dict[str, object] | None = None) -> MutationPlan:
         lock_scope=base.lock_scope,
         lock_keys=base.lock_keys,
         irreversible=base.irreversible,
+        operational_plan_ref=OPERATIONAL_PLAN_REF,
     )
 
 
@@ -74,7 +78,7 @@ def _proposal(arguments: dict[str, object] | None = None) -> KineticActionPropos
     return KineticActionProposal.create(
         correlation_id="correlation-1",
         process_id="process-1",
-        operational_plan_id=plan.planner_ref,
+        operational_plan_id=OPERATIONAL_PLAN_REF,
         selected_option_id="option-1",
         plan=plan,
         target_resource_ref=plan.targets[0].object_id,
@@ -91,6 +95,8 @@ def _rebuild(
     lock_scope: ActionLockScope | None = None,
     lock_keys: tuple[str, ...] | None = None,
     max_affected_objects: int | None = None,
+    operational_plan_ref: str | None = OPERATIONAL_PLAN_REF,
+    schema_version: str | None = None,
 ) -> MutationPlan:
     target_records = targets or tuple(
         OntologyObjectRecord(
@@ -111,7 +117,7 @@ def _rebuild(
         expected_effects=plan.expected_effects,
         created_at=plan.created_at,
         max_affected_objects=max_affected_objects or plan.max_affected_objects or 1,
-        schema_version=plan.schema_version,
+        schema_version=schema_version or plan.schema_version,
         arguments_digest=plan.arguments_digest,
         argument_bindings=(
             argument_bindings if argument_bindings is not None else plan.argument_bindings
@@ -122,6 +128,7 @@ def _rebuild(
         lock_scope=lock_scope or plan.lock_scope,
         lock_keys=lock_keys or plan.lock_keys,
         irreversible=plan.irreversible,
+        operational_plan_ref=operational_plan_ref,
     )
 
 
@@ -134,7 +141,28 @@ def test_proposal_is_content_addressed_and_replay_stable() -> None:
         "reason": "Scale for verified demand.",
         "replica_count": 3,
     }
+    assert replay.plan.operational_plan_ref == replay.operational_plan_id
+    assert replay.plan.planner_ref != replay.operational_plan_id
     assert KineticActionProposal.model_validate_json(first.model_dump_json()) == first
+
+
+def test_proposal_rejects_plan_without_operational_lineage() -> None:
+    plan = _rebuild(
+        _plan({"replica_count": 3}),
+        operational_plan_ref=None,
+    )
+
+    with pytest.raises(ValidationError, match="does not cite its operational plan"):
+        KineticActionProposal.create(
+            correlation_id="correlation-1",
+            process_id="process-1",
+            operational_plan_id=OPERATIONAL_PLAN_REF,
+            selected_option_id="option-1",
+            plan=plan,
+            target_resource_ref=plan.targets[0].object_id,
+            arguments={"replica_count": 3},
+            created_at=plan.created_at + timedelta(seconds=1),
+        )
 
 
 def test_proposal_identity_rejects_content_substitution() -> None:
@@ -155,7 +183,7 @@ def test_plan_identity_rejects_content_substitution() -> None:
         KineticActionProposal.create(
             correlation_id="correlation-1",
             process_id="process-1",
-            operational_plan_id=tampered.planner_ref,
+            operational_plan_id=OPERATIONAL_PLAN_REF,
             selected_option_id="option-1",
             plan=tampered,
             target_resource_ref=target.object_id,
@@ -165,13 +193,17 @@ def test_plan_identity_rejects_content_substitution() -> None:
 
 
 def test_v1_plan_is_rejected_without_upgrade() -> None:
-    plan = _plan().model_copy(update={"schema_version": "1.0.0"})
+    plan = _rebuild(
+        _plan(),
+        operational_plan_ref=None,
+        schema_version="1.0.0",
+    )
 
     with pytest.raises(ValidationError, match="existing semantic V2 plan"):
         KineticActionProposal.create(
             correlation_id="correlation-1",
             process_id="process-1",
-            operational_plan_id=plan.planner_ref,
+            operational_plan_id=OPERATIONAL_PLAN_REF,
             selected_option_id="option-1",
             plan=plan,
             target_resource_ref=plan.targets[0].object_id,
@@ -187,7 +219,7 @@ def test_operational_plan_lineage_must_match_planner() -> None:
         KineticActionProposal.create(
             correlation_id="correlation-1",
             process_id="process-1",
-            operational_plan_id="operational-plan:substituted",
+            operational_plan_id="operational-plan:" + "b" * 64,
             selected_option_id="option-1",
             plan=plan,
             target_resource_ref=plan.targets[0].object_id,
@@ -203,7 +235,7 @@ def test_target_substitution_is_rejected() -> None:
         KineticActionProposal.create(
             correlation_id="correlation-1",
             process_id="process-1",
-            operational_plan_id=plan.planner_ref,
+            operational_plan_id=OPERATIONAL_PLAN_REF,
             selected_option_id="option-1",
             plan=plan,
             target_resource_ref="workload-substituted",
@@ -241,7 +273,7 @@ def test_multi_target_plan_is_rejected() -> None:
         KineticActionProposal.create(
             correlation_id="correlation-1",
             process_id="process-1",
-            operational_plan_id=unsafe.planner_ref,
+            operational_plan_id=OPERATIONAL_PLAN_REF,
             selected_option_id="option-1",
             plan=unsafe,
             target_resource_ref=target.object_id,
@@ -257,7 +289,7 @@ def test_argument_body_must_match_plan_digest() -> None:
         KineticActionProposal.create(
             correlation_id="correlation-1",
             process_id="process-1",
-            operational_plan_id=plan.planner_ref,
+            operational_plan_id=OPERATIONAL_PLAN_REF,
             selected_option_id="option-1",
             plan=plan,
             target_resource_ref=plan.targets[0].object_id,
@@ -273,7 +305,7 @@ def test_argument_binding_set_must_be_complete() -> None:
         KineticActionProposal.create(
             correlation_id="correlation-1",
             process_id="process-1",
-            operational_plan_id=plan.planner_ref,
+            operational_plan_id=OPERATIONAL_PLAN_REF,
             selected_option_id="option-1",
             plan=plan,
             target_resource_ref=plan.targets[0].object_id,
@@ -291,7 +323,7 @@ def test_argument_binding_value_digest_must_match() -> None:
         KineticActionProposal.create(
             correlation_id="correlation-1",
             process_id="process-1",
-            operational_plan_id=plan.planner_ref,
+            operational_plan_id=OPERATIONAL_PLAN_REF,
             selected_option_id="option-1",
             plan=plan,
             target_resource_ref=plan.targets[0].object_id,
@@ -309,7 +341,7 @@ def test_safe_argument_projection_must_match() -> None:
         KineticActionProposal.create(
             correlation_id="correlation-1",
             process_id="process-1",
-            operational_plan_id=plan.planner_ref,
+            operational_plan_id=OPERATIONAL_PLAN_REF,
             selected_option_id="option-1",
             plan=plan,
             target_resource_ref=plan.targets[0].object_id,
@@ -334,7 +366,7 @@ def test_proposal_cannot_predate_plan() -> None:
         KineticActionProposal.create(
             correlation_id="correlation-1",
             process_id="process-1",
-            operational_plan_id=plan.planner_ref,
+            operational_plan_id=OPERATIONAL_PLAN_REF,
             selected_option_id="option-1",
             plan=plan,
             target_resource_ref=plan.targets[0].object_id,
@@ -350,7 +382,7 @@ def test_proposal_rejects_naive_timestamp() -> None:
         KineticActionProposal.create(
             correlation_id="correlation-1",
             process_id="process-1",
-            operational_plan_id=plan.planner_ref,
+            operational_plan_id=OPERATIONAL_PLAN_REF,
             selected_option_id="option-1",
             plan=plan,
             target_resource_ref=plan.targets[0].object_id,
@@ -366,7 +398,7 @@ def test_proposal_rejects_oversized_arguments() -> None:
         KineticActionProposal.create(
             correlation_id="correlation-1",
             process_id="process-1",
-            operational_plan_id=plan.planner_ref,
+            operational_plan_id=OPERATIONAL_PLAN_REF,
             selected_option_id="option-1",
             plan=plan,
             target_resource_ref=plan.targets[0].object_id,
