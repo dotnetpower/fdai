@@ -35,6 +35,7 @@ FDAI treats the following axes as independent configuration:
 | Human identity | Entra principal plus App Roles | browser token and RBAC policy |
 | Executor identity | managed workload identity | deployed executor boundary |
 | Authorization policy | signed scoped policy bundle plus effective-access evidence | execution-authorization resolver |
+| Kinetic evidence availability | missing, stored exact V2 plan, independently observed outcome | evidence producers and durable stores |
 | Distribution | `upstream`, `fork` | source and customization boundary |
 | Operational safety profile | `mscp-operational-v1` | versioned core policy; never an execution authority |
 
@@ -47,6 +48,9 @@ No value on one axis selects a value on another axis. In particular:
 - A production deployment may keep any action in shadow mode.
 - Evidence profiles preserve source limitations and truncation reasons as typed values. Changing
   execution venue or environment cannot turn partial or unavailable evidence into complete evidence.
+- A stored kinetic safety receipt proves only that one Action was bound to a pre-dispatch exact V2
+  plan. Its presence does not promote an action, grant execution authority, or substitute for an
+  independent observed outcome. Its absence cannot be repaired from current catalog state.
 - Conversation route completion is not evidence authority. Deterministic assurance requires a
   nonempty terminal evidence manifest regardless of venue, environment, or answer source.
 - Chat-policy promotion requires a statistically positive measured gain. Venue, environment, or
