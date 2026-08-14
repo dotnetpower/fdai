@@ -8,6 +8,7 @@ import json
 import re
 import shlex
 import subprocess
+from fnmatch import fnmatchcase
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -105,6 +106,30 @@ def _docker_copy_sources() -> tuple[str, ...]:
     return tuple(sources)
 
 
+def _dockerignore_pattern_matches(pattern: str, path: str) -> bool:
+    normalized_pattern = pattern.lstrip("/").rstrip("/")
+    normalized_path = path.lstrip("/").rstrip("/")
+    if not normalized_pattern:
+        return False
+    if pattern.endswith("/"):
+        return fnmatchcase(normalized_path, normalized_pattern) or fnmatchcase(
+            normalized_path, f"{normalized_pattern}/**"
+        )
+    if "/" not in normalized_pattern:
+        return any(fnmatchcase(part, normalized_pattern) for part in normalized_path.split("/"))
+    return fnmatchcase(normalized_path, normalized_pattern)
+
+
+def _docker_path_is_ignored(path: str, rules: tuple[str, ...]) -> bool:
+    ignored = False
+    for rule in rules:
+        exception = rule.startswith("!")
+        pattern = rule[1:] if exception else rule
+        if _dockerignore_pattern_matches(pattern, path):
+            ignored = not exception
+    return ignored
+
+
 def _validate_build_context() -> list[str]:
     errors: list[str] = []
     tracked = _tracked_paths()
@@ -120,6 +145,11 @@ def _validate_build_context() -> list[str]:
         if path not in tracked:
             errors.append(f"required clean-checkout input is not tracked: {path}")
 
+    dockerignore_rules = tuple(
+        line.strip()
+        for line in (REPO_ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    )
     docker_sources = _docker_copy_sources()
     for source in docker_sources:
         if any(character in source for character in "*?["):
@@ -132,15 +162,12 @@ def _validate_build_context() -> list[str]:
                         f"container-supply-chain.yml does not materialize Docker source "
                         f"{source}: missing {fragment}"
                     )
-            continue
-        if not (REPO_ROOT / source.rstrip("/")).exists():
+        elif not (REPO_ROOT / source.rstrip("/")).exists():
             errors.append(f"Dockerfile COPY source is missing: {source}")
+        if _docker_path_is_ignored(source, dockerignore_rules):
+            errors.append(f"Dockerfile COPY source is excluded by .dockerignore: {source}")
 
-    dockerignore = {
-        line.strip()
-        for line in (REPO_ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
-        if line.strip() and not line.lstrip().startswith("#")
-    }
+    dockerignore = set(dockerignore_rules)
     if "tests/" in dockerignore:
         errors.append(".dockerignore must not exclude tests/ before its scenarios exception")
     for rule in (
