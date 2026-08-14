@@ -113,6 +113,23 @@ class PageProjection:
 
 
 @dataclass(frozen=True, slots=True)
+class IncidentPageProjection:
+    """Incident page plus same-snapshot outcome metrics owned by the read model."""
+
+    items: tuple[JsonObject, ...]
+    next_cursor: str | None
+    metrics: JsonObject
+
+    def to_dict(self) -> JsonObject:
+        """Return the stable Incident HTTP envelope with top-level metrics."""
+        return {
+            "items": [dict(item) for item in self.items],
+            "next_cursor": self.next_cursor,
+            "metrics": dict(self.metrics),
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class HilQueueProjection:
     """Approval queue projection with an explicit total and detail level."""
 
@@ -203,7 +220,7 @@ class OperatorReadModel(Protocol):
 
     async def list_hil_queue(self, query: HilQueueQuery) -> HilQueueProjection: ...
 
-    async def list_incidents(self, query: IncidentQuery) -> PageProjection: ...
+    async def list_incidents(self, query: IncidentQuery) -> IncidentPageProjection: ...
 
     async def incident_attention(
         self, query: IncidentAttentionQuery
@@ -228,6 +245,7 @@ __all__ = [
     "HilQueueQuery",
     "IncidentAttentionQuery",
     "IncidentAttentionProjection",
+    "IncidentPageProjection",
     "IncidentQuery",
     "JsonObject",
     "JsonProjection",

@@ -1,12 +1,20 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { setLocale } from "../i18n";
 import type { AuditItem } from "../types";
-import { mergeIncidentItems, parseIncidentVertical, resolveIncidentSelection } from "./incidents";
+import {
+  incidentDisplayTitle,
+  mergeIncidentItems,
+  parseIncidentVertical,
+  resolveIncidentSelection,
+} from "./incidents";
 import { incidentTimelinePresentation } from "./incidents.timeline";
 
 const incidents = [
   { correlation_id: "correlation-1" },
   { correlation_id: "correlation-2" },
 ];
+
+afterEach(() => setLocale("en"));
 
 describe("incident deep-link selection", () => {
   it("uses the first incident only when no correlation was requested", () => {
@@ -48,6 +56,22 @@ describe("incident pagination", () => {
     const exact = [{ correlation_id: "b" }];
     expect(mergeIncidentItems(exact as never, current as never).map((item) => item.correlation_id))
       .toEqual(["b", "a"]);
+  });
+});
+
+describe("incident title presentation", () => {
+  it("keeps an evidence-backed title", () => {
+    expect(incidentDisplayTitle(
+      { title: "Checkout latency increased", title_source: "recorded_summary" },
+      "Title unavailable",
+    )).toBe("Checkout latency increased");
+  });
+
+  it("does not present an identifier fallback as the incident subject", () => {
+    expect(incidentDisplayTitle(
+      { title: "Incident corr-1", title_source: "identifier_fallback" },
+      "Title unavailable",
+    )).toBe("Title unavailable");
   });
 });
 
@@ -128,5 +152,18 @@ describe("incident timeline presentation", () => {
     ));
 
     expect(presentation.description).toBe("Attached one related signal to this incident.");
+  });
+
+  it("localizes known severity values in Korean timeline text", () => {
+    setLocale("ko");
+
+    const presentation = incidentTimelinePresentation(auditItem(
+      "incident.open",
+      "Heimdall",
+      { severity: "high", state: "open" },
+    ));
+
+    expect(presentation.description).toContain("높음");
+    expect(presentation.facts).toContainEqual({ label: "심각도", value: "높음" });
   });
 });

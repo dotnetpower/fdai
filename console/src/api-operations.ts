@@ -68,6 +68,9 @@ export function decodeIncidentPage(value: unknown): IncidentPage {
         incident_id: apiNullableString(item, "incident_id", "incident item"),
         ticket_id: apiNullableString(item, "ticket_id", "incident item"),
         title: apiString(item, "title", "incident item"),
+        title_source: apiIncidentTitleSource(item["title_source"]),
+        source: decodeIncidentSource(item["source"]),
+        response_plan: decodeIncidentResponsePlan(item["response_plan"]),
         severity: apiString(item, "severity", "incident item"),
         status: apiIncidentStatus(item["status"]),
         status_source: apiStatusSource(item["status_source"]),
@@ -82,6 +85,95 @@ export function decodeIncidentPage(value: unknown): IncidentPage {
       };
     }),
     next_cursor: cursor,
+    metrics: decodeIncidentMetrics(root["metrics"]),
+  };
+}
+
+const INCIDENT_COHORTS = [
+  "agent_mitigated",
+  "agent_assisted",
+  "human_mitigated",
+  "pending",
+  "integrity_excluded",
+] as const;
+
+function decodeIncidentMetrics(value: unknown): import("./types").IncidentOutcomeMetrics {
+  const metrics = apiRecord(value, "incident page.metadata.incident_metrics");
+  const cohorts = apiRecord(metrics["cohorts"], "incident metrics.cohorts");
+  const drilldown = apiRecord(metrics["drilldown"], "incident metrics.drilldown");
+  const drilldownTruncated = apiRecord(
+    metrics["drilldown_truncated"], "incident metrics.drilldown_truncated"
+  );
+  const decodedCohorts = Object.fromEntries(INCIDENT_COHORTS.map((cohort) => [
+    cohort,
+    apiNonNegativeInteger(cohorts, cohort, "incident metrics.cohorts"),
+  ])) as Record<(typeof INCIDENT_COHORTS)[number], number>;
+  const seen = new Set<string>();
+  const decodedDrilldown: Record<(typeof INCIDENT_COHORTS)[number], readonly string[]> = {
+    agent_mitigated: [],
+    agent_assisted: [],
+    human_mitigated: [],
+    pending: [],
+    integrity_excluded: [],
+  };
+  const decodedDrilldownTruncated = Object.fromEntries(INCIDENT_COHORTS.map((cohort) => [
+    cohort,
+    apiBoolean(drilldownTruncated, cohort, "incident metrics.drilldown_truncated"),
+  ])) as unknown as Record<(typeof INCIDENT_COHORTS)[number], boolean>;
+  for (const cohort of INCIDENT_COHORTS) {
+    const refs = drilldown[cohort];
+    if (!Array.isArray(refs) || refs.length > 200 || refs.some((ref) => typeof ref !== "string" || !ref.trim())) {
+      throw contractError(`incident metrics.drilldown.${cohort} MUST be up to 200 non-empty strings`);
+    }
+    for (const ref of refs) {
+      if (seen.has(ref)) throw contractError("incident metrics drill-down refs MUST be unique across cohorts");
+      seen.add(ref);
+    }
+    decodedDrilldown[cohort] = refs;
+  }
+  const denominator = apiNonNegativeInteger(metrics, "denominator", "incident metrics");
+  if (Object.values(decodedCohorts).reduce((sum, count) => sum + count, 0) !== denominator) {
+    throw contractError("incident metrics cohort counts MUST equal denominator");
+  }
+  for (const cohort of INCIDENT_COHORTS) {
+    if (decodedDrilldown[cohort].length > decodedCohorts[cohort]) {
+      throw contractError(`incident metrics.drilldown.${cohort} MUST NOT exceed its cohort count`);
+    }
+    if (!decodedDrilldownTruncated[cohort] && decodedDrilldown[cohort].length !== decodedCohorts[cohort]) {
+      throw contractError(`incident metrics.drilldown.${cohort} MUST be complete unless truncated`);
+    }
+  }
+  const windowFrom = apiNullableString(metrics, "window_from", "incident metrics");
+  const windowTo = apiNullableString(metrics, "window_to", "incident metrics");
+  if ((windowFrom !== null && !isRfc3339Timestamp(windowFrom)) ||
+      (windowTo !== null && !isRfc3339Timestamp(windowTo))) {
+    throw contractError("incident metrics window bounds MUST be RFC 3339 timestamps or null");
+  }
+  const terminalRule = apiString(metrics, "terminal_rule", "incident metrics");
+  if (terminalRule !== "resolved_and_independently_verified") {
+    throw contractError("incident metrics.terminal_rule MUST require independent verification");
+  }
+  const medianTtm = metrics["median_time_to_mitigate_seconds"] === null
+    ? null
+    : apiNumber(metrics, "median_time_to_mitigate_seconds", "incident metrics");
+  if (medianTtm !== null && medianTtm < 0) {
+    throw contractError("incident metrics.median_time_to_mitigate_seconds MUST be non-negative");
+  }
+  return {
+    source: apiString(metrics, "source", "incident metrics"),
+    snapshot_seq: apiNonNegativeInteger(metrics, "snapshot_seq", "incident metrics"),
+    denominator,
+    truncated: apiBoolean(metrics, "truncated", "incident metrics"),
+    window_from: windowFrom,
+    window_to: windowTo,
+    cohorts: decodedCohorts,
+    drilldown: decodedDrilldown,
+    drilldown_truncated: decodedDrilldownTruncated,
+    median_time_to_mitigate_seconds: medianTtm,
+    time_to_mitigate_sample_size: apiNonNegativeInteger(
+      metrics, "time_to_mitigate_sample_size", "incident metrics"
+    ),
+    terminal_rule: terminalRule,
   };
 }
 
@@ -249,6 +341,63 @@ function apiIncidentStatus(value: unknown): "open" | "in_progress" | "resolved" 
 function apiStatusSource(value: unknown): "incident_lifecycle" | "audit_projection" {
   if (value === "incident_lifecycle" || value === "audit_projection") return value;
   throw contractError("incident item.status_source MUST name a supported projection source");
+}
+
+function apiIncidentTitleSource(value: unknown): import("./types").IncidentTitleSource {
+  if (
+    value === "recorded_title" ||
+    value === "recorded_summary" ||
+    value === "rule_id" ||
+    value === "correlation_subject" ||
+    value === "identifier_fallback"
+  ) return value;
+  throw contractError("incident item.title_source MUST be a supported title source");
+}
+
+function decodeIncidentSource(value: unknown): import("./types").IncidentSourceContext | null {
+  if (value === null) return null;
+  const source = apiRecord(value, "incident item.source");
+  const firedAt = apiNullableString(source, "fired_at", "incident item.source");
+  if (firedAt !== null && !isRfc3339Timestamp(firedAt)) {
+    throw contractError("incident item.source.fired_at MUST be an RFC 3339 timestamp or null");
+  }
+  const url = apiNullableString(source, "url", "incident item.source");
+  if (url !== null) {
+    try {
+      if (new URL(url).protocol !== "https:") throw new Error("unsupported protocol");
+    } catch {
+      throw contractError("incident item.source.url MUST be an absolute HTTPS URL or null");
+    }
+  }
+  return {
+    platform: apiNullableString(source, "platform", "incident item.source"),
+    incident_id: apiNullableString(source, "incident_id", "incident item.source"),
+    status: apiNullableString(source, "status", "incident item.source"),
+    fired_at: firedAt,
+    description: apiNullableString(source, "description", "incident item.source"),
+    url,
+  };
+}
+
+function decodeIncidentResponsePlan(value: unknown): import("./types").IncidentResponsePlan | null {
+  if (value === null) return null;
+  const plan = apiRecord(value, "incident item.response_plan");
+  const enabled = plan["enabled"];
+  if (enabled !== null && typeof enabled !== "boolean") {
+    throw contractError("incident item.response_plan.enabled MUST be a boolean or null");
+  }
+  return {
+    id: apiNullableString(plan, "id", "incident item.response_plan"),
+    revision: apiNullableString(plan, "revision", "incident item.response_plan"),
+    enabled,
+    historical_match_count: apiOptionalNullableNonNegativeInteger(
+      plan, "historical_match_count", "incident item.response_plan"
+    ),
+    reinvestigation_cooldown_seconds: apiOptionalNullableNonNegativeInteger(
+      plan, "reinvestigation_cooldown_seconds", "incident item.response_plan"
+    ),
+    deduplication_key: apiNullableString(plan, "deduplication_key", "incident item.response_plan"),
+  };
 }
 
 function apiRcaTier(value: unknown): "t0" | "t1" | "t2" | "unknown" {

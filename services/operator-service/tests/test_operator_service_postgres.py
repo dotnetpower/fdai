@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
+from fdai_operator_service.incident_projection import incident_outcome_metrics, incident_summary
 from fdai_operator_service.postgres import (
     PostgresOperatorReadModel,
     PostgresOperatorReadModelConfig,
@@ -27,6 +28,7 @@ from fdai_operator_service.postgres_sql import (
     HIL_COUNT_SQL,
     HIL_PAGE_SQL,
     INCIDENT_PAGE_SQL,
+    INCIDENT_SNAPSHOT_SQL,
     KPI_SAMPLE_SQL,
     LLM_USAGE_CONVERSATIONS_SQL,
     LLM_USAGE_RECORDS_SQL,
@@ -201,6 +203,7 @@ class StubPostgresReadModel(PostgresOperatorReadModel):
         self.audit_rows: list[dict[str, object]] = []
         self.hil_rows: list[dict[str, object]] = []
         self.incident_rows: list[dict[str, object]] = []
+        self.incident_snapshot_seq = 0
         self.llm_summary_rows: list[dict[str, object]] = []
         self.llm_conversation_rows: list[dict[str, object]] = []
         self.llm_record_rows: list[dict[str, object]] = []
@@ -225,6 +228,8 @@ class StubPostgresReadModel(PostgresOperatorReadModel):
             return self.hil_rows
         if statement == INCIDENT_PAGE_SQL:
             return self.incident_rows
+        if statement == INCIDENT_SNAPSHOT_SQL:
+            return [{"snapshot_seq": self.incident_snapshot_seq}]
         if statement == LLM_USAGE_SUMMARIES_SQL:
             return self.llm_summary_rows
         if statement == LLM_USAGE_CONVERSATIONS_SQL:
@@ -455,6 +460,19 @@ async def test_incident_page_and_attention_replay_use_durable_sequence() -> None
             "state": "open",
             "opened_at": _NOW.isoformat(),
             "correlation_keys": ["resource:example-app"],
+            "source_platform": "Azure Monitor",
+            "source_incident_id": "alert-example",
+            "source_status": "triggered",
+            "source_fired_at": _NOW.isoformat(),
+            "source_url": "https://example.com/incidents/alert-example",
+            "source_url_trusted": True,
+            "description": "Inventory refresh exceeded its freshness objective.",
+            "response_plan_id": "inventory-freshness",
+            "response_plan_revision": "rev-7",
+            "response_plan_enabled": True,
+            "response_plan_match_count": 4,
+            "reinvestigation_cooldown_seconds": 10800,
+            "deduplication_key": "inventory:example-app",
         },
     )
     row.update(
@@ -472,6 +490,23 @@ async def test_incident_page_and_attention_replay_use_durable_sequence() -> None
     replayed = await model.incident_attention(IncidentAttentionQuery(after_seq=7, limit=50))
 
     assert page.items[0]["title"] == "Resource example-app"
+    assert page.items[0]["title_source"] == "correlation_subject"
+    assert page.items[0]["source"] == {
+        "platform": "Azure Monitor",
+        "incident_id": "alert-example",
+        "status": "triggered",
+        "fired_at": _NOW.isoformat(),
+        "description": "Inventory refresh exceeded its freshness objective.",
+        "url": "https://example.com/incidents/alert-example",
+    }
+    assert page.items[0]["response_plan"] == {
+        "id": "inventory-freshness",
+        "revision": "rev-7",
+        "enabled": True,
+        "historical_match_count": 4,
+        "reinvestigation_cooldown_seconds": 10800,
+        "deduplication_key": "inventory:example-app",
+    }
     assert page.items[0]["status"] == "open"
     assert initial is not None
     assert initial.sequence == 7
@@ -480,6 +515,85 @@ async def test_incident_page_and_attention_replay_use_durable_sequence() -> None
     assert _sse_frame(initial).startswith(
         b'id: 7\nevent: incident-attention\ndata: {"event":"incident_attention.snapshot"'
     )
+
+
+@pytest.mark.parametrize(
+    ("entry", "expected_title", "expected_source"),
+    [
+        (
+            {"title": "Database connection saturation"},
+            "Database connection saturation",
+            "recorded_title",
+        ),
+        (
+            {"summary": "Checkout latency increased"},
+            "Checkout latency increased",
+            "recorded_summary",
+        ),
+        ({"rule_id": "slo.burn-rate"}, "Rule Slo burn rate", "rule_id"),
+        (
+            {
+                "correlation_keys": [
+                    "signal:resource_inventory_change",
+                    "resource:/subscriptions/example/resourceGroups/example/providers/"
+                    "Microsoft.Storage/storageAccounts/storage-example",
+                ]
+            },
+            "Resource inventory change - Storage accounts storage-example",
+            "correlation_subject",
+        ),
+        ({}, "Incident INC-1", "identifier_fallback"),
+    ],
+)
+def test_incident_title_precedence_and_provenance(
+    entry: dict[str, object],
+    expected_title: str,
+    expected_source: str,
+) -> None:
+    row = _audit_row(1, entry={"incident_id": "INC-1", **entry})
+    row.update(
+        {
+            "normalized_correlation_id": "corr-1",
+            "group_last_seq": 1,
+            "group_history_count": 1,
+        }
+    )
+
+    summary = incident_summary([row])
+
+    assert summary["title"] == expected_title
+    assert summary["title_source"] == expected_source
+
+
+def test_incident_title_bound_and_partial_response_plan() -> None:
+    row = _audit_row(
+        1,
+        entry={
+            "incident_id": "INC-1",
+            "title": "x" * 161,
+            "response_plan_id": "plan-1",
+        },
+    )
+    row.update(
+        {
+            "normalized_correlation_id": "corr-1",
+            "group_last_seq": 1,
+            "group_history_count": 1,
+        }
+    )
+
+    summary = incident_summary([row])
+
+    assert len(summary["title"]) == 160
+    assert summary["title"].endswith("...")
+    assert summary["response_plan"] == {
+        "id": "plan-1",
+        "revision": None,
+        "enabled": None,
+        "historical_match_count": None,
+        "reinvestigation_cooldown_seconds": None,
+        "deduplication_key": None,
+    }
 
 
 def test_incident_projection_rejects_null_string_correlation_sentinels() -> None:
@@ -497,6 +611,134 @@ def test_incident_projection_rejects_null_string_correlation_sentinels() -> None
 
     assert grouped == [[valid]]
     assert "LOWER(BTRIM(normalized_correlation_id)) NOT IN ('none', 'null')" in (INCIDENT_PAGE_SQL)
+
+
+def test_incident_outcome_metrics_require_independent_verification() -> None:
+    incidents = [
+        {
+            "correlation_id": "corr-agent",
+            "status": "resolved",
+            "independent_outcome_verified": True,
+            "mitigated_by": "agent",
+            "agent_assisted": False,
+            "opened_at": "2026-08-14T00:00:00Z",
+            "last_updated_at": "2026-08-14T00:10:00Z",
+        },
+        {
+            "correlation_id": "corr-assisted",
+            "status": "resolved",
+            "independent_outcome_verified": True,
+            "mitigated_by": "human",
+            "agent_assisted": True,
+            "opened_at": "2026-08-14T00:00:00Z",
+            "last_updated_at": "2026-08-14T00:20:00Z",
+        },
+        {
+            "correlation_id": "corr-unverified",
+            "status": "resolved",
+            "independent_outcome_verified": False,
+            "mitigated_by": "agent",
+            "agent_assisted": False,
+            "opened_at": "2026-08-14T00:00:00Z",
+            "last_updated_at": "2026-08-14T00:30:00Z",
+        },
+        {
+            "correlation_id": "corr-pending",
+            "status": "in_progress",
+            "independent_outcome_verified": False,
+            "mitigated_by": None,
+            "agent_assisted": False,
+            "opened_at": "2026-08-14T00:40:00Z",
+            "last_updated_at": "2026-08-14T00:40:00Z",
+        },
+    ]
+
+    metrics = incident_outcome_metrics(incidents, snapshot_seq=44, truncated=False)
+
+    assert metrics["denominator"] == 4
+    assert metrics["cohorts"] == {
+        "agent_mitigated": 1,
+        "agent_assisted": 1,
+        "human_mitigated": 0,
+        "pending": 1,
+        "integrity_excluded": 1,
+    }
+    assert metrics["median_time_to_mitigate_seconds"] == 900
+    assert metrics["time_to_mitigate_sample_size"] == 2
+    assert metrics["drilldown"] == {
+        "agent_mitigated": ["corr-agent"],
+        "agent_assisted": ["corr-assisted"],
+        "human_mitigated": [],
+        "pending": ["corr-pending"],
+        "integrity_excluded": ["corr-unverified"],
+    }
+
+
+def test_incident_metrics_preserve_half_second_median_and_mark_drilldown_cap() -> None:
+    base = {
+        "status": "resolved",
+        "independent_outcome_verified": True,
+        "mitigated_by": "agent",
+        "agent_assisted": False,
+        "opened_at": "2026-08-14T00:00:00Z",
+    }
+    precise = [
+        {**base, "correlation_id": "corr-0", "last_updated_at": "2026-08-14T00:01:40Z"},
+        {**base, "correlation_id": "corr-1", "last_updated_at": "2026-08-14T00:01:41Z"},
+    ]
+    large = [
+        {
+            **base,
+            "correlation_id": f"corr-{index}",
+            "last_updated_at": "2026-08-14T00:02:00Z",
+        }
+        for index in range(201)
+    ]
+
+    metrics = incident_outcome_metrics(precise, snapshot_seq=2, truncated=False)
+    capped = incident_outcome_metrics(large, snapshot_seq=201, truncated=False)
+
+    assert metrics["median_time_to_mitigate_seconds"] == 100.5
+    assert metrics["time_to_mitigate_sample_size"] == 2
+    assert len(capped["drilldown"]["agent_mitigated"]) == 200
+    assert capped["drilldown_truncated"]["agent_mitigated"] is True
+
+
+@pytest.mark.asyncio
+async def test_empty_incident_page_pins_metrics_to_current_snapshot() -> None:
+    model = StubPostgresReadModel()
+    model.incident_snapshot_seq = 42
+
+    page = await model.list_incidents(IncidentQuery(status="active", limit=25))
+
+    assert page.items == ()
+    assert page.metrics["snapshot_seq"] == 42
+    incident_calls = [call for call in model.calls if call[0] == INCIDENT_PAGE_SQL]
+    assert incident_calls[1][1]["snapshot_seq"] == 42
+
+
+def test_incident_source_link_and_agent_attribution_require_trusted_records() -> None:
+    row = _audit_row(
+        1,
+        entry={
+            "incident_id": "INC-1",
+            "source_url": "https://example.com/incidents/INC-1",
+            "source_url_trusted": False,
+        },
+    )
+    row["actor"] = "external-monitor"
+    row.update(
+        {
+            "normalized_correlation_id": "corr-1",
+            "group_last_seq": 1,
+            "group_history_count": 1,
+        }
+    )
+
+    summary = incident_summary([row])
+
+    assert summary["source"] is None
+    assert summary["involved_agents"] == []
 
 
 @pytest.mark.asyncio

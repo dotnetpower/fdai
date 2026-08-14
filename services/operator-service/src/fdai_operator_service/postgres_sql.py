@@ -312,6 +312,8 @@ SELECT ranked.seq, ranked.event_id, ranked.correlation_id, ranked.actor,
  ORDER BY selected.last_seq DESC, ranked.seq ASC
 """
 
+INCIDENT_SNAPSHOT_SQL: Final = "SELECT COALESCE(MAX(seq), 0) AS snapshot_seq FROM audit_log"
+
 __all__ = [
     "AGENT_INVENTORY_ACTIVITY_SQL",
     "AGENT_OBSERVATION_ACTIVITY_SQL",
@@ -321,6 +323,7 @@ __all__ = [
     "HIL_COUNT_SQL",
     "HIL_PAGE_SQL",
     "INCIDENT_PAGE_SQL",
+    "INCIDENT_SNAPSHOT_SQL",
     "KPI_SAMPLE_SQL",
     "LLM_USAGE_CONVERSATIONS_SQL",
     "LLM_USAGE_RECORDS_SQL",

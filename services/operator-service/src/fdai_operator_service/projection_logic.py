@@ -252,110 +252,6 @@ def rule_fire_trace(correlation_id: str, items: Sequence[JsonObject]) -> JsonObj
     )
 
 
-def incident_summary(rows: Sequence[Mapping[str, Any]]) -> JsonObject:
-    """Project one oldest-first correlated audit history into an incident summary."""
-    items = [audit_item(row) for row in rows]
-    newest = list(reversed(items))
-    correlation_id = str(rows[-1]["normalized_correlation_id"])
-    incident_id = _first_entry_string(newest, "incident_id")
-    ticket_id = _first_entry_string(newest, "ticket_id")
-    lifecycle = _incident_status(newest)
-    vertical = _vertical(_first_entry_string(newest, "vertical", "category"))
-    title = _first_entry_string(newest, "title", "summary") or _resource_title(items)
-    return cast(
-        JsonObject,
-        {
-            "correlation_id": correlation_id,
-            "incident_id": incident_id,
-            "ticket_id": ticket_id,
-            "title": title or f"Incident {incident_id or correlation_id}",
-            "severity": _first_entry_string(newest, "severity") or "unknown",
-            "status": lifecycle[0],
-            "status_source": lifecycle[1],
-            "disposition": _first_entry_string(newest, "outcome") or "unknown",
-            "verdict": _verdict(newest),
-            "vertical": vertical,
-            "opened_at": _first_entry_string(items, "opened_at") or str(items[0]["recorded_at"]),
-            "last_updated_at": str(newest[0]["recorded_at"]),
-            "latest_mode": str(newest[0]["mode"]),
-            "history_count": int(rows[-1].get("group_history_count", len(rows))),
-            "involved_agents": sorted({str(item["actor"]) for item in items}),
-            "last_seq": int(rows[-1]["group_last_seq"]),
-        },
-    )
-
-
-def _incident_status(items: Sequence[JsonObject]) -> tuple[str, str]:
-    for item in items:
-        entry = _mapping(item.get("entry"))
-        kind = _nonempty(entry.get("kind"))
-        state = (
-            _nonempty(entry.get("to_state"))
-            if kind == "incident.transition"
-            else _nonempty(entry.get("state"))
-            if kind == "incident.open"
-            else None
-        )
-        if state:
-            return ("resolved" if state in {"resolved", "closed"} else state, kind or "audit")
-    if _first_entry_string(items, "outcome") in {
-        "resolved",
-        "remediated",
-        "mitigated",
-        "rollback_succeeded",
-        "rollback_completed",
-    }:
-        return ("resolved", "audit_projection")
-    if len(items) > 1 or _verdict(items) == "hil":
-        return ("in_progress", "audit_projection")
-    return ("open", "audit_projection")
-
-
-def _verdict(items: Sequence[JsonObject]) -> str:
-    for item in items:
-        entry = _mapping(item.get("entry"))
-        tokens = {
-            str(item.get("action_kind") or "").lower(),
-            str(entry.get("decision") or "").lower(),
-            str(entry.get("gate_decision") or "").lower(),
-            str(entry.get("outcome") or "").lower(),
-            str(entry.get("status") or "").lower(),
-        }
-        for verdict in ("auto", "hil", "deny", "abstain"):
-            if verdict in tokens or (verdict == "abstain" and "abstained" in tokens):
-                return verdict
-    return "unknown"
-
-
-def _resource_title(items: Sequence[JsonObject]) -> str | None:
-    for item in items:
-        keys = _mapping(item.get("entry")).get("correlation_keys")
-        for value in _strings(keys):
-            if value.startswith("resource:") and value[9:]:
-                return f"Resource {value[9:]}"
-    return None
-
-
-def _vertical(value: str | None) -> str:
-    normalized = (value or "").lower().replace("-", "_")
-    if normalized in {"resilience", "dr", "reliability", "chaos"}:
-        return "resilience"
-    if normalized in {"change", "change_safety", "config_drift", "security"}:
-        return "change_safety"
-    if normalized in {"cost", "cost_governance", "finops"}:
-        return "cost_governance"
-    return "unknown"
-
-
-def _first_entry_string(items: Sequence[JsonObject], *keys: str) -> str | None:
-    for item in items:
-        entry = _mapping(item.get("entry"))
-        for key in keys:
-            if value := _nonempty(entry.get(key)):
-                return value
-    return None
-
-
 def _mapping(value: object) -> dict[str, Any]:
     if isinstance(value, str):
         try:
@@ -398,7 +294,6 @@ __all__ = [
     "audit_item",
     "dashboard_kpi",
     "hil_item",
-    "incident_summary",
     "llm_usage_projection",
     "redact",
     "rule_fire_trace",

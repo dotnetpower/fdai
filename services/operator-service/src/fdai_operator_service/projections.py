@@ -13,6 +13,7 @@ from fdai_service_contracts import (
     HilQueueQuery,
     IncidentAttentionProjection,
     IncidentAttentionQuery,
+    IncidentPageProjection,
     IncidentQuery,
     JsonProjection,
     PageProjection,
@@ -51,7 +52,7 @@ class UnavailableOperatorReadModel:
         del query
         self._raise()
 
-    async def list_incidents(self, query: IncidentQuery) -> PageProjection:
+    async def list_incidents(self, query: IncidentQuery) -> IncidentPageProjection:
         del query
         self._raise()
 
