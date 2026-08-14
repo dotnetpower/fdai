@@ -118,6 +118,12 @@ or dual-stack TCP readiness probe stalling before Vite starts under WSL or VPN n
 replace the stdout marker with `webServer.url` or `webServer.port` unless a clean sequential
 benchmark proves the probe returns promptly in the supported environment.
 
+Both isolated Playwright configurations atomically lease one of ten shared slots. Frontend ports
+are `5274-5283`; a live E2E slot pairs them with Operator API ports `8020-8029`. The lease is shared
+with Playwright workers, stale locks from exited PIDs are reclaimed, and artifacts are written
+under the leased slot's output directory. Do not hard-code or randomly select another port. If all
+ten slots are occupied, stop a stale test session or wait for one slot to be released.
+
 Do not change Console behavior, Playwright timeouts, workers, or server topology merely to hide a
 large browser-tool payload. Change runner configuration only when a clean sequential CLI benchmark
 reproduces the delay.
