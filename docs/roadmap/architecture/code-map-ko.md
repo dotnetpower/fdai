@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 4d3756d2e10d0eee397de1b31187f28e02c631de
+translation_source_sha: 862a1caabdb05d44832be2f9f547029df4a9913c
 translation_revised: 2026-08-14
 ---
 # 코드 맵
@@ -46,6 +46,7 @@ translation_revised: 2026-08-14
 | Console 의미 증적 projection | 구현됨 | `semantic_turn.py`, `semantic_turn_processor.py`, `semantic_turn_runtime.py`, `console/src/deck/backend-normalizers.ts`, focused shared, Core, Operator 및 Console 테스트 | 타입이 지정된 경로, 구체적인 명확화 답변, 사용 불가 사유, 네 개의 보증 다이제스트, 근거 참조 및 `execution_authority=false`가 prose 추론 없이 shared 계약, Core 결과, exact Operator 읽기, 최종 스트림, 영속 transcript, replay 및 Console 표현을 통과합니다. 통과한 실제 브라우저 및 무작위 보증 기록은 온톨로지 조회 coverage 계획의 열린 항목으로 남아 있습니다. |
 | 결정론적 누락 incident 맥락 | 구현됨 | `core/conversation/semantic_planning.py`, `tests/conversation/test_semantic_planning.py`, 집중 플래너 및 최종 projection 테스트(`43 passed`) | 첫 turn의 "this incident" 참조는 매니페스트 또는 모델 작업 전에 범위가 제한된 명확화 하나를 반환합니다. 이전 incident 맥락이 있으면 일반 의미 계획 수립을 계속하며 어느 경로도 실행 권한을 부여하지 않습니다. |
 | 의미 시간 및 근거 조립 | 구현됨 | `delivery/persistence/postgres_topology_history.py`, `composition/wire_semantic_query.py`, `runtime/bootstrap.py`, `runtime/bootstrap_bindings.py`, 통과한 집중 조립 및 프로바이더 선택 테스트 16개 | 상태 저장소 DSN이 있을 때만 PostgreSQL 토폴로지 이력을 사용할 수 있습니다. 메트릭 시계열과 근거 결합 기능에는 검토된 메트릭 레지스트리와 no-op이 아닌 프로바이더가 모두 필요합니다. 하나의 핸들러 맵이 검증기와 실행기의 가용성을 함께 제어하며 모든 결과는 `execution_authority=False`인 읽기 전용으로 유지됩니다. |
+| T1 우선 의미 계획 | 구현됨 | `core/conversation/semantic_planning.py`, `core/conversation/semantic_planning_cascade.py`, `composition/semantic_query_model_targets.py`, `composition/wire_semantic_query.py`, 집중 tier 라우팅 및 조립 테스트 | 의미 계획은 항상 해석된 T1 소형 모델을 먼저 사용합니다. T1 frame 또는 plan 제안을 사용할 수 없거나 결정론적 검증을 통과하지 못한 경우에만 같은 단계를 선택적 T2 reasoner로 한 번 다시 시도할 수 있습니다. 명확화, 범위 거부 및 근거 보류는 T2를 호출하지 않습니다. |
 
 ### 구현 이력
 
@@ -73,6 +74,7 @@ translation_revised: 2026-08-14
 | 2026-08-14 | 구현됨 | 스키마 관계 질문을 위해 exact-release 읽기 전용 FunctionType과 localized projection을 추가했습니다. | `current change`, 집중 조립 및 processor 테스트 42개 통과, Ruff, format 및 strict mypy 통과 | 로컬 스택을 재시작하고 원래 관계 질문의 인증된 Browser 증적 하나를 보존합니다. |
 | 2026-08-14 | 구현됨 | Topic 또는 action authority를 바꾸지 않고 delivery 소유 exact kinetic proposal 생성을 Forseti의 기존 Verdict 경로에 연결했습니다. | `current change`, 집중 producer, Forseti, Thor, factory, framework, Ruff 및 strict mypy 검사 | 런타임 검증을 주장하기 전에 운영 조립에서 source를 연결하고 pre-dispatch 증적 및 독립 관측 경로를 완료합니다. |
 | 2026-08-14 | 구현됨 | 전역 런타임 그래프 경로를 만들지 않고 receipt 기반 운영 컨텍스트 표현을 추가했습니다. | `current change`, `console_projection.py` 및 불일치와 변환을 검증하는 focused 테스트 5개 통과 | 기존 principal 범위 근거 응답을 통해서만 연결하고 인증된 Console 근거를 보존해야 합니다. |
+| 2026-08-14 | 구현됨 | 즉시 T2를 사용하는 의미 계획을 결정론적으로 평가하는 T1 우선 cascade로 교체했습니다. | `current change`, 집중 의미 플래너 및 조립 테스트는 T1 성공, 명확화, 범위 거부 및 근거 보류가 T2 용량을 사용하지 않음을 검증합니다. | 기존 온톨로지 보증 캠페인에서 인증된 tier 선택 근거를 보존합니다. |
 
 ### 남은 작업
 
@@ -148,9 +150,12 @@ Safety-core 커버리지 하한은 Core 패키지 안의 결정론적 계층과 
 검증된 조회 표만 렌더링하며 transient 변환 결과 게시는 dead-letter 전에 같은 영속
 멱등적 결과를 재시도합니다.
 Azure 의미 계획 수립은 기존 `httpx` 및 `WorkloadIdentity` 어댑터를 사용하여 검증된 JSON-object
-제안 두 개를 만듭니다. 각 제안은 기본 90초 예산을 가지며, 범위가 제한된 `Retry-After` 지연이
-이 예산 안에 들어올 때 제한된 후보 하나를 최대 한 번 재시도합니다. 조립은 권위 있는 프로바이더가
-연결된 핸들러만 노출합니다. 공개
+제안 두 개를 만듭니다. 조립은 해석된 narrator 또는 `t1.judge` 후보를 T1 플래너로 연결하고
+`t2.reasoner.primary` 후보는 별도의 선택적 escalation 어댑터에 유지합니다. Core는 T1 제안을
+사용할 수 없거나 결정론적 스키마, 매니페스트, 구성 또는 계획 검증을 통과하지 못한 경우에만 T2를
+호출합니다. 각 제안은 기본 90초 예산을 가지며, 범위가 제한된 `Retry-After` 지연이 이 예산 안에
+들어올 때 제한된 후보 하나를 최대 한 번 재시도합니다. 조립은 권위 있는 프로바이더가 연결된
+핸들러만 노출합니다. 공개
 프레임 제안은 Core가 서버 소유 다이제스트를 다시 만들기 전에 shared wire 식별자 제약을
 적용합니다. 구조화된 진단은 계획 단계, 후보 인덱스, 실패 클래스 및 입력을 포함하지 않는
 검증 위치만 기록하며 운영자 텍스트와 프로바이더 상세는 제외합니다. 공개

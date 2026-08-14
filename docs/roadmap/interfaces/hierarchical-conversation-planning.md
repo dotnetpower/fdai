@@ -17,18 +17,23 @@ renders only evidence and verified limitations.
 ```mermaid
 flowchart LR
     INPUT[Text, screen, image, document] --> CONTEXT[Bounded context resolver]
-    CONTEXT --> PLAN[Mini-model intent graph]
+    CONTEXT --> PLAN[T1 mini-model intent graph]
     PLAN --> VALIDATE[Deterministic graph validator]
-    VALIDATE --> BIND[Available capability binding]
+    VALIDATE -->|valid| BIND[Available capability binding]
+    VALIDATE -->|proposal unavailable or invalid| ESCALATE[T2 reasoner retry]
+    ESCALATE --> VALIDATE
     BIND --> DAG[Read task DAG]
     DAG --> EVIDENCE[Evidence ledger]
     EVIDENCE --> VERIFY[Claim verification]
     VERIFY --> BRAGI[Bragi presentation]
 ```
 
-The mini-model interprets language and proposes a graph. It sees only capabilities available to the
-current principal and deployment. The validator blocks unknown capabilities, cycles, unresolved
-dependencies, invalid arguments, scope invention, and writes outside a confirmation draft.
+The T1 mini-model interprets language and proposes a graph. It sees only capabilities available to
+the current principal and deployment. The validator blocks unknown capabilities, cycles,
+unresolved dependencies, invalid arguments, scope invention, and writes outside a confirmation
+draft. T2 is never the first semantic planner. Core retries one frame or plan stage with T2 only
+when the T1 proposal is unavailable or fails schema, manifest, build, or plan verification. A valid
+T1 clarification, action draft, scope denial, or evidence-execution hold never spends T2 capacity.
 
 ## Implementation status
 
@@ -36,8 +41,8 @@ dependencies, invalid arguments, scope invention, and writes outside a confirmat
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Semantic frame, verified plan, and intent graph | implemented | [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), [`test_semantic_planning.py`](../../../services/core-control-plane/tests/conversation/test_semantic_planning.py) | Whole-turn proposals are bounded, release-scoped, verified, and projected without execution authority. |
-| Production Core semantic runtime composition | implemented | [`wire_semantic_query.py`](../../../services/core-control-plane/src/fdai/composition/wire_semantic_query.py), [`bootstrap.py`](../../../services/core-control-plane/src/fdai/runtime/bootstrap.py), [`test_wire_semantic_query.py`](../../../services/core-control-plane/tests/composition/test_wire_semantic_query.py) | Azure planning, principal-scoped manifests, secured ObjectSets, read functions, and bounded DAG execution are composed when prerequisites are available. |
+| Semantic frame, verified plan, and intent graph | implemented | [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_planning_cascade.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning_cascade.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), focused semantic-planning tests | Whole-turn proposals are bounded, release-scoped, verified, and projected without execution authority. T1 is always attempted first; only a missing or deterministically invalid T1 proposal can retry the same stage with T2. |
+| Production Core semantic runtime composition | implemented | [`wire_semantic_query.py`](../../../services/core-control-plane/src/fdai/composition/wire_semantic_query.py), [`semantic_query_model_targets.py`](../../../services/core-control-plane/src/fdai/composition/semantic_query_model_targets.py), [`bootstrap.py`](../../../services/core-control-plane/src/fdai/runtime/bootstrap.py), focused semantic-query composition tests | Azure T1 and T2 planning adapters are bound separately. Principal-scoped manifests, secured ObjectSets, read functions, and bounded DAG execution are composed when prerequisites are available. |
 | Versioned cross-service semantic-turn contract | implemented | [`semantic_turn.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_turn.py), [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`test_semantic_turn_processor.py`](../../../services/core-control-plane/tests/test_semantic_turn_processor.py) | Version 1.2 requests and projections bind identity, purpose, deadlines, digests, dispositions, and evidence without granting execution authority. |
 | Durable Operator bridge and Console projection | implemented | [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`postgres_semantic_turn_store.py`](../../../services/operator-service/src/fdai_operator_service/postgres_semantic_turn_store.py), [`test_semantic_turn_bridge.py`](../../../services/operator-service/tests/test_semantic_turn_bridge.py) | The Operator owns durable acceptance, outbox claims, result projection, authenticated replay, typed holds, and `done` event adaptation. |
 | Event transport and deployment configuration | implemented | [`semantic_kafka.py`](../../../services/operator-service/src/fdai_operator_service/adapters/semantic_kafka.py), [`main.tf`](../../../infra/main.tf), [`test_semantic_turn_topics.py`](../../../tests/integration/infra/test_semantic_turn_topics.py) | Logical request and projection topics share the governed physical event stream and are configured for both services. |
@@ -51,6 +56,7 @@ dependencies, invalid arguments, scope invention, and writes outside a confirmat
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Reconciled the target architecture with the active Core runtime, Operator bridge, service contract, deployment configuration, and focused tests without reconstructing earlier provenance. | Current source and focused checks listed in the scope table. | Complete query coverage, multimodal transport, descriptor generations, runtime coverage receipts, and governed live certification remain open. |
+| 2026-08-14 | implemented | Replaced immediate T2 semantic planning with a T1-first cascade whose only T2 trigger is an unavailable or deterministically invalid T1 frame or plan proposal. | `current change`; semantic planner and composition regressions verify T1 success, clarification, and evidence holds do not invoke T2, while bounded proposal failure can retry one stage. | Retain authenticated evidence that records tier selection and complete the existing governed live certification. |
 
 ### Remaining work
 
