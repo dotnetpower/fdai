@@ -3,6 +3,7 @@ import { writeFile } from "node:fs/promises";
 import { expect, test, type Locator, type Page, type Response } from "@playwright/test";
 
 import { restoreBrowserEntraSessionStorage } from "./browser-entra-state";
+import { buildBrowserEvidenceProvenance } from "./browser-evidence-provenance";
 import { judgeSemanticTurn } from "./ontology-query-assurance";
 
 const AUTHENTICATED_EXTERNAL_STACK = Boolean(
@@ -192,6 +193,22 @@ test("Command Deck renders the exact governed ontology projection receipt", asyn
     !AUTHENTICATED_EXTERNAL_STACK,
     "requires an external Console and Browser Entra storage state",
   );
+  const operatorApiUrl = process.env.FDAI_E2E_OPERATOR_API_URL;
+  if (!operatorApiUrl) {
+    throw new Error("FDAI_E2E_OPERATOR_API_URL is required for external four-stage evidence");
+  }
+  const runConfiguration = {
+    schema_version: "1.0.0",
+    authentication: "browser_entra",
+    console_origin: new URL(process.env.FDAI_E2E_BASE_URL!).origin,
+    operator_api_origin: new URL(operatorApiUrl).origin,
+    question_contract: "all_queryable_ontology_types_in_current_scope",
+  };
+  const provenance = buildBrowserEvidenceProvenance(
+    process.env.FDAI_E2E_SOURCE_REVISION,
+    process.env.FDAI_E2E_WORKSPACE_PATCH_SHA256,
+    runConfiguration,
+  );
   test.setTimeout(150_000);
   await restoreBrowserEntraSessionStorage(page);
   const deck = await openCommandDeck(page);
@@ -239,7 +256,7 @@ test("Command Deck renders the exact governed ontology projection receipt", asyn
     response.request().method() === "POST"
   ));
   await deck.getByPlaceholder(/Ask anything/i).fill(
-    "Which ontology object types are available to this operator?",
+    "List all queryable ontology object types visible to this operator in the current scope.",
   );
   await deck.getByRole("button", { name: "Send" }).click();
 
@@ -321,6 +338,8 @@ test("Command Deck renders the exact governed ontology projection receipt", asyn
     evidence_type: "governed_request_to_authenticated_console",
     captured_at: new Date().toISOString(),
     passed: true,
+    ...provenance,
+    run_configuration: runConfiguration,
     authentication: "browser_entra",
     stages: {
       operator_publication: {
