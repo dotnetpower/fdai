@@ -59,7 +59,8 @@
       ],
       "test_groups": {
         "unit": [
-          "services/operator-service/tests/test_local_narrator.py"
+          "services/operator-service/tests/test_local_narrator.py",
+          "services/operator-service/tests/test_pdf_report_encoder.py"
         ],
         "contract": [
           "services/operator-service/tests/test_conversation_contracts.py",
