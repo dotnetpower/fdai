@@ -187,7 +187,7 @@ evidence.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Provider protocol, profiles, no-widening checks, and coordinator | implemented | `services/core-control-plane/src/fdai/shared/providers/execution_backend.py`; `services/core-control-plane/src/fdai/core/execution_backend/`; `services/core-control-plane/tests/core/execution_backend/` | Focused tests cover profile bounds, lifecycle transitions, idempotency, ambiguity, cancellation, cleanup, and shadow probes. |
-| PostgreSQL ledger and startup binding | in-progress | `alembic/versions/20260721_0049_execution_backend.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_execution_backend.py`; `services/core-control-plane/src/fdai/composition/wire_execution_backends.py`; focused persistence and composition tests | The durable path and binding exist. A no-skip live PostgreSQL run and restart receipt remain open. |
+| PostgreSQL ledger and startup binding | implemented | `alembic/versions/20260721_0049_execution_backend.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_execution_backend.py`; `services/core-control-plane/src/fdai/composition/wire_execution_backends.py`; `services/core-control-plane/tests/persistence/test_execution_backend_ledger.py`; focused composition tests | The durable path, startup binding, restart read, idempotent duplicate handling, attempt history, and CAS conflict behavior pass focused tests. The PostgreSQL ledger suite passed two cases with zero skips against a disposable supported database. |
 | Bubblewrap and governed VM adapters | not-started | [Adapter behavior](#adapter-behavior) | No `BubblewrapExecutionBackend` or `VmTaskExecutionBackend` implementation is present. |
 | Azure Container Apps Job adapter | not-started | [Azure Container Apps Job](#azure-container-apps-job) | No governed Job backend implementation or focused adapter test is present. |
 | Live shadow and promotion evidence | not-started | [Shadow probes and promotion residual](#shadow-probes-and-promotion-residual) | Mock lifecycle checks do not prove identity, ARM reachability, races, receipt completeness, retention, or measured cost. |
@@ -197,10 +197,11 @@ evidence.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger and corrected stale adapter code-map paths; earlier provenance was not reconstructed. | `current change`; current protocol, core, persistence, composition, and focused checks listed in the scope table. | Implement the three delivery adapters and retain durable and live lifecycle evidence. |
+| 2026-08-14 | implemented | Promoted the PostgreSQL ledger and startup binding after proving restart reconciliation against PostgreSQL. | `current change`; `test_execution_backend_ledger.py` passed two cases with zero skips against a disposable supported database. | Implement the three delivery adapters and retain governed live lifecycle evidence. |
 
 ### Remaining work
 
-- [ ] Run the focused PostgreSQL ledger cases against the supported local database with no skips and retain a process-restart reconciliation receipt.
+- [x] Run the focused PostgreSQL ledger cases against the supported local database with no skips and retain a process-restart reconciliation receipt.
 - [ ] Implement and focused-test `BubblewrapExecutionBackend` and `VmTaskExecutionBackend` without widening their existing sandbox authority.
 - [ ] Implement and focused-test `AzureContainerAppsJobExecutionBackend` with pinned-image, idempotency, host/path validation, retry, circuit-breaker, cancel-race, receipt, and provider-retention behavior.
 - [ ] Retain governed shadow receipts for identity scope, ARM reachability, duplicate start, timeout and stop races, receipt completeness, provider retention, and measured cost before promotion review.
