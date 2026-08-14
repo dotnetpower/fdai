@@ -1,8 +1,8 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: f23f9e9e0be46e67486ec6aa5d4ee8aad9be3b09
-translation_revised: 2026-08-14
+translation_source_sha: f57c488e1287a97419f9cc533f4630cdc6882a9c
+translation_revised: 2026-08-15
 ---
 
 # 배포(배포)
@@ -30,6 +30,7 @@ translation_revised: 2026-08-14
 | Terraform 계획/적용 및 공급망 게이트 | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/container-supply-chain.yml` 및 집중 workflow 테스트 | 운영 입력, 이미지 증명, 표류 계획 및 post-apply smoke 검사가 제공됩니다. |
 | 독립 서비스 protected 배포 | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Protected 계획은 출처, 백엔드, 대상, 신원 및 이미지를 결합하고 peer 격리와 롤백 증적을 보존합니다. |
 | Operator schema 및 catalog 초기화 | implemented | 현재 변경의 `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml` 및 `tests/integration/scripts/test_service_deploy_workflow.py` | Alembic Job 성공 후 별도의 Core-image Job이 변경 불가능한 Rule 및 Ontology 참조 projection을 기록합니다. |
+| 브라우저 근거 보존 Job | implemented | `infra/modules/compute/container-apps/browser_evidence_cleanup_job.tf`; focused Terraform 계약 검사(`4 passed`) 및 `terraform validate` | 명시적으로 선택하는 예약 Job은 실행기 신원이 아닌 신원과 범위가 제한된 1회 정리를 사용합니다. 관리되는 적용 및 실행 증적은 보존되지 않았습니다. |
 | 자동 승격 및 점진적 배포 | not-started | 이 문서의 목표 설계 | 자동 dev -> staging -> prod 승격, traffic-split canary, SLO 롤백 및 콘솔 blue/green은 구현되지 않았습니다. |
 
 ### 구현 이력
@@ -38,11 +39,13 @@ translation_revised: 2026-08-14
 |------|------|------|------|-----------|
 | 2026-08-13 | implemented | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 schema migration 뒤 배포된 Operator catalog 초기화를 추가했습니다. | current change, 집중 deployment workflow 및 Terraform 검사 | Catalog Job의 통제된 적용 증적을 수집하고 점진적 배포 목표를 구현합니다. |
 | 2026-08-14 | implemented | Co-host 호환 경로가 제거된 뒤 인제스트 롤백 지침을 수정했습니다. 이제 롤백은 독립 API 및 워커의 정확한 이전 개정 번호를 복원합니다. | `current change`, 집중 Terraform 검증 및 mock 인제스트 테스트 5개 통과 | 배포 가이드와 mock 테스트를 독립 서비스 루트에 맞게 유지합니다. |
+| 2026-08-15 | implemented | 실행기 신원이나 즉시 플랫폼 재시도 없이 범위가 제한된 브라우저 근거 보존을 수행하는 명시적 선택 예약 Container Apps Job을 추가했습니다. | `current change`; focused Terraform 계약 검사 `4 passed`; `terraform validate`. | Protected 적용 및 성공과 실패 Job 실행 증적을 수집합니다. |
 
 ### 남은 작업
 
 - [ ] Operator migration Job이 catalog Job보다 먼저 성공하고 이후 두 immutable projection
   key를 읽을 수 있음을 보여 주는 리포지토리에 안전한 통제된 적용 증적을 보존합니다.
+- [ ] 브라우저 근거 보존 Job의 리포지토리에 안전한 protected 적용 및 성공과 실패 실행 증적을 보존합니다.
 - [ ] 문서화된 자동 artifact 승격, traffic-split canary, SLO 롤백 및 콘솔 blue/green
   흐름을 집중 테스트와 통제된 런타임 증적으로 구현합니다.
 

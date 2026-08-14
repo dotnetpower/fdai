@@ -77,6 +77,10 @@ additional_tags = {
 # analyzer_window_seconds = "300"   # optional; CLI default when unset
 # analyzer_budget_seconds = "60"    # optional; CLI default when unset
 
+# Browser-evidence retention is opt-in until capture is deployed.
+# browser_evidence_cleanup_cron_expression = "0 3 * * *"
+# browser_evidence_cleanup_limit           = 100 # default; override if needed
+
 # Prometheus primary route (recommended for AKS-scoped metrics -
 # gives sub-minute detection instead of the AML 2-5 min floor).
 # When both prometheus_endpoint and the Log Analytics workspace

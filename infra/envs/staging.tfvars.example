@@ -41,3 +41,6 @@ additional_tags = {
 # analyzer_targets_json = <<-EOT
 #   [{"resource_id": "/subscriptions/<sub>/.../managedClusters/<name>", "kind": "aks_cluster"}]
 # EOT
+
+# browser_evidence_cleanup_cron_expression = "0 3 * * *"
+# browser_evidence_cleanup_limit           = 100 # default; override if needed

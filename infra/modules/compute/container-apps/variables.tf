@@ -24,6 +24,11 @@ variable "rule_watcher_job_name" {
   type        = string
 }
 
+variable "browser_evidence_cleanup_job_name" {
+  description = "Container Apps Job name for browser-evidence retention cleanup (CAF: caj-<workload>[-env][-region]-browser-gc)."
+  type        = string
+}
+
 variable "rule_watcher_cron_expression" {
   description = "Cron for the rule watcher job. Daily at 03:00 UTC; the CLI filters by manifest cadence so weekly / monthly sources fire from the same job."
   type        = string
@@ -198,6 +203,23 @@ variable "inventory_cron_expression" {
   description = "Cron for inventory due checks and failed-attempt retries. Empty disables the job."
   type        = string
   default     = ""
+}
+
+variable "browser_evidence_cleanup_cron_expression" {
+  description = "Cron for browser-evidence retention cleanup. Empty disables the Job."
+  type        = string
+  default     = ""
+}
+
+variable "browser_evidence_cleanup_limit" {
+  description = "Maximum expired browser-evidence artifacts removed by one scheduled run."
+  type        = number
+  default     = 100
+
+  validation {
+    condition     = var.browser_evidence_cleanup_limit >= 1 && var.browser_evidence_cleanup_limit <= 500 && floor(var.browser_evidence_cleanup_limit) == var.browser_evidence_cleanup_limit
+    error_message = "browser_evidence_cleanup_limit must be an integer in [1, 500]."
+  }
 }
 
 variable "observation_campaign_cron_expression" {

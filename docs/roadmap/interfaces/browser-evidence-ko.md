@@ -1,6 +1,6 @@
 ---
 translation_of: browser-evidence.md
-translation_source_sha: a641315f54f42d4872957640e98b8a222bd655c6
+translation_source_sha: fbcc336ec1aab5e608e9679099717c6c347349d4
 translation_revised: 2026-08-15
 ---
 # 브라우저 근거 수집
@@ -174,7 +174,8 @@ visual/텍스트 민감정보 제거, 주입 검사, 선언된 응답, 집계 �
 | Playwright 전달 정책 및 바이트 한계 | implemented | `services/core-control-plane/src/fdai/delivery/browser/`; `services/core-control-plane/tests/delivery/browser/`; focused 전달 및 통합 검사(`46 passed`) | 어댑터는 정책이 소유한 응답 및 스크린샷 한계를 driver에 전달하고, 수집 전에 초과되거나 잘못된 선언 응답을 차단하며, 반환 전에 초과된 스크린샷과 집계 응답 자료를 차단합니다. URL 또는 DNS 정책 실패는 사용 불가로 정규화합니다. |
 | Restricted-egress 브라우저 이미지 근거 | not-started | [검증](#검증) | Focused 가짜 구현은 브라우저 binary 없이 전달 적용을 입증합니다. 관리되는 real-browser 이미지 증적은 보존되지 않았습니다. |
 | 영속성 및 제거 기본 기능 | implemented | `alembic/versions/20260721_0050_browser_evidence.py`; `alembic/versions/20260814_0083_browser_evidence_legal_hold.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_browser_evidence.py`; focused codec 및 live PostgreSQL 테스트(`9 passed`, skip 없음) | Exact payload replay, conflict 거부, 엄격한 durable JSONB decoding, 단조 증가 legal hold, 재시작 읽기 및 winner-only 동시 정리가 구현됐습니다. |
-| 1회 보존 작업 진입점 | implemented | `services/core-control-plane/src/fdai/delivery/browser_evidence_cleanup_cli.py`; `services/core-control-plane/tests/delivery/test_browser_evidence_cleanup_cli.py`; focused 검사(`7 passed`) | 패키지된 CLI는 시간대가 포함된 UTC 기준 시각으로 범위가 제한된 제거를 한 번 시도하고 상태 및 제거 수만 출력합니다. 배포 일정 구성 및 관리되는 실행 증적은 남아 있습니다. |
+| 1회 보존 작업 진입점 | implemented | `services/core-control-plane/src/fdai/delivery/browser_evidence_cleanup_cli.py`; `services/core-control-plane/tests/delivery/test_browser_evidence_cleanup_cli.py`; focused 검사(`7 passed`) | 패키지된 CLI는 시간대가 포함된 UTC 기준 시각으로 범위가 제한된 제거를 한 번 시도하고 상태 및 제거 수만 출력합니다. |
+| Azure 보존 일정 | implemented | `infra/modules/compute/container-apps/browser_evidence_cleanup_job.tf`; `tests/integration/infra/test_browser_evidence_cleanup_job.py`; focused Terraform 계약 검사(`4 passed`) 및 `terraform validate` | `browser_evidence_cleanup_cron_expression`은 `FDAI_DATABASE_URL`을 Key Vault state-store DSN에서, `FDAI_BROWSER_EVIDENCE_CLEANUP_LIMIT`을 검증된 1..500 입력에서 연결하는 Container Apps Job을 명시적으로 선택합니다. 이 Job은 실행기 신원이 아닌 인벤토리 신원, 병렬 실행 수 1 및 플랫폼 재시도 없음을 사용합니다. Protected 적용 및 실행 증적과 이식 가능한 CronJob 렌더링은 남아 있습니다. |
 | Operator API 및 Console 검사 | not-started | [Operator 및 작업 흐름 화면](#operator-및-작업-흐름-화면) | 도구 및 작업 흐름 계약은 있지만 전용 프로덕션 읽기 경로나 Console 패널은 등록되지 않았습니다. |
 | 승격 근거 | not-started | [Shadow 측정 및 승격](#shadow-측정-및-승격) | 비교기는 항상 `promotion_eligible=false`를 보고하며 관리되는 실제 fidelity 또는 보안 훈련 구간은 보존되지 않았습니다. |
 
@@ -187,12 +188,14 @@ visual/텍스트 민감정보 제거, 주입 검사, 선언된 응답, 집계 �
 | 2026-08-14 | implemented | Artifact materialization 전에 malformed JSONB 배열, 객체, redaction surface, 문자열 member 및 강제 변환된 boolean을 거부하도록 durable row decoding을 강화했습니다. | `current change`; PostgreSQL 어댑터와 focused codec 및 지원되는 로컬 PostgreSQL 테스트 `9 passed`, skip 없음. | Cleanup 작업 binding, read-only 검사 및 격리된 live 근거는 남아 있습니다. |
 | 2026-08-15 | implemented | 정책이 소유한 응답 및 스크린샷 바이트 한계를 Playwright driver에 전달하고 read-only 메서드, redirect 및 DNS 차단, 인증 상태 전달, 브라우저 부작용 이벤트 및 초과되거나 잘못된 자료에 대한 focused 전달 적용을 추가했습니다. | `current change`; `services/core-control-plane/src/fdai/delivery/browser/`; `services/core-control-plane/tests/delivery/browser/`; Ruff, strict mypy 및 focused와 통합 브라우저 검사 `46 passed`. | Restricted-egress 브라우저 이미지를 빌드하고 실행한 뒤 관리되는 real-browser 증적을 보존합니다. |
 | 2026-08-15 | implemented | 기존 winner-only PostgreSQL 제거 기능을 감싸는 패키지된 1회 보존 진입점을 추가하고 범위가 제한된 구성, 한 번의 시도, 개수 전용 출력 및 민감정보가 제거된 프로세스 실패를 구현했습니다. | `current change`; `services/core-control-plane/src/fdai/delivery/browser_evidence_cleanup_cli.py`; focused 검사 `7 passed`; Ruff 및 strict mypy 통과. | 진입점을 Container Apps Job 또는 이식 가능한 CronJob으로 예약하고 관리되는 실행 증적을 보존합니다. |
+| 2026-08-15 | implemented | 실행기 신원이나 즉시 플랫폼 재시도 없이 범위가 제한된 보존 진입점을 예약하는 명시적 선택 Azure Container Apps Job을 추가했습니다. | `current change`; `infra/modules/compute/container-apps/browser_evidence_cleanup_job.tf`; focused Terraform 계약 검사 `4 passed`; `terraform validate`. | Protected 적용 및 성공과 실패 실행 증적을 보존하고 이식 가능한 CronJob 렌더링을 추가합니다. |
 
 ### 남은 작업
 
 - [x] 해시 충돌, 재생, 범위가 제한된 만료, legal hold 및 동시 정리 테스트가 있는 PostgreSQL `BrowserEvidenceArtifactStore`와 이행을 구현합니다.
 - [x] 범위가 제한된 제거를 한 번 수행하고 산출물 또는 데이터베이스 식별자를 출력하지 않는 패키지된 1회 보존 진입점을 추가합니다(`7 passed`).
-- [ ] 보존 진입점을 Container Apps Job 또는 이식 가능한 CronJob으로 예약하고 관리되는 성공 및 실패 실행 증적을 보존합니다.
+- [x] 실행기 신원이 아닌 신원, 병렬 실행 수 1 및 즉시 플랫폼 재시도 없이 보존 진입점을 명시적 선택 Azure Container Apps Job으로 예약합니다(`4 passed`; `terraform validate`).
+- [ ] 관리되는 Azure 적용 및 성공과 실패 실행 증적을 보존하고 이식 가능한 CronJob 렌더링을 추가합니다.
 - [ ] 수집한 페이로드 바이트를 반환하거나 수집 컨트롤을 노출하지 않는 Owner 또는 Reader 범위 GET-only Operator API 메타데이터 경로와 Console 검사 패널을 등록합니다.
 - [x] Read-only 메서드 제한, redirect 및 DNS 차단, 인증 상태 전달, 브라우저 부작용 이벤트, 정책이 소유한 응답 및 스크린샷 한계에 대한 focused Playwright 전달 테스트를 추가합니다(통합 브라우저 검사와 함께 `46 passed`).
 - [ ] SSRF, redirect, DNS rebinding, 변경, 자격 증명, 민감정보 제거, 시간 초과, 비정상 종료 및 보관 재생 훈련을 다루는 restricted-egress 이미지 증적을 보존합니다.
