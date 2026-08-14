@@ -28,6 +28,8 @@ class ContextShadowConfig:
     max_candidates: int = 3
     timeout_seconds: float = 0.25
     max_pending_runs: int = 16
+    retain_evaluations: int = 500
+    """Newest comparison rows kept durably; older rows are pruned after each run."""
 
     def __post_init__(self) -> None:
         if self.max_candidates < 1:
@@ -36,6 +38,8 @@ class ContextShadowConfig:
             raise ValueError("timeout_seconds MUST be > 0")
         if self.max_pending_runs < 1:
             raise ValueError("max_pending_runs MUST be >= 1")
+        if self.retain_evaluations < 1:
+            raise ValueError("retain_evaluations MUST be >= 1")
 
 
 class ContextSelectionShadowRunner:
@@ -117,6 +121,13 @@ class ContextSelectionShadowRunner:
         )
         for record in records:
             await self._store.append(record)
+        # Retention runs off-request with the rest of shadow evaluation, so a
+        # long-lived deployment can leave it enabled without unbounded growth.
+        # A failed prune must not discard the comparisons just written.
+        try:
+            await self._store.prune(retain_newest=self._config.retain_evaluations)
+        except Exception:
+            _LOGGER.exception("context_selection_shadow_prune_failed")
         return tuple(records)
 
     async def drain(self) -> None:

@@ -131,6 +131,18 @@ class InMemoryStateStore(StateStore):
             ]
         return tuple(matching[:limit])
 
+    async def delete_states_beyond(self, prefix: str, *, retain_newest: int) -> int:
+        if not prefix:
+            raise ValueError("prefix MUST be non-empty")
+        if retain_newest < 1:
+            raise ValueError("retain_newest MUST be >= 1")
+        with self._lock:
+            newest_first = [key for key in reversed(tuple(self._state)) if key.startswith(prefix)]
+            expired = newest_first[retain_newest:]
+            for key in expired:
+                del self._state[key]
+        return len(expired)
+
     async def read_state_page(
         self,
         prefix: str,

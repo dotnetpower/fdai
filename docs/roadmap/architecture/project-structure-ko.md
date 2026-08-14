@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: aabb2099eb47edf9217742d0764f74c79f7f2834
+translation_source_sha: 77da438b7f41e06ac5ba0b4f2012e088b5a27466
 translation_revised: 2026-08-14
 ---
 # 프로젝트 구조
@@ -613,6 +613,10 @@ shared 런타임 스냅샷 publish 전에 exact 구성원 버전과 활성화된
 `ConfigProvider` - 은 **sync 유지**: 시작 시 한 번 실행되거나, I/O 없는 순수 CPU 경계
 검증이므로 비동기 래퍼는 노이즈만 추가합니다. 테스트는 `pytest-asyncio` + `asyncio_mode =
 "auto"` 로 실행되어 평범한 `비동기 def test_...` 가 per-test 마커 없이 동작합니다.
+
+`StateStore`는 제거 원시 연산을 `delete_states_beyond(prefix, retain_newest)` 하나만 노출합니다.
+`read_states`와 같은 순서로 한계를 넘는 가장 오래된 행을 버려, 추가 전용 근거 투영의 증가를
+제한합니다. 키를 지정할 수 없으므로 권위 있는 기록이나 감사 항목을 지울 수 없습니다.
 
 ## 컨트롤 루프 배선
 

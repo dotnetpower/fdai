@@ -41,6 +41,16 @@ class ContextSelectionEvaluationStore(Protocol):
 
     async def list(self, *, limit: int) -> tuple[ContextSelectionEvaluation, ...]: ...
 
+    async def prune(self, *, retain_newest: int) -> int:
+        """Drop comparison rows past ``retain_newest`` and return how many went.
+
+        Comparisons are shadow evidence, never authority, so bounding them
+        keeps a long-lived deployment from growing tracked state without
+        limit. The rows removed are exactly those a newest-first read past
+        the bound would never return.
+        """
+        ...
+
 
 class InMemoryContextSelectionEvaluationStore:
     """Concurrency-safe test and local store with append-only ids."""
@@ -66,6 +76,20 @@ class InMemoryContextSelectionEvaluationStore:
             )
             return tuple(records[:limit])
 
+    async def prune(self, *, retain_newest: int) -> int:
+        if retain_newest < 1:
+            raise ValueError("retain_newest MUST be >= 1")
+        async with self._lock:
+            records = sorted(
+                self._records.values(),
+                key=lambda item: (item.created_at, item.evaluation_id),
+                reverse=True,
+            )
+            expired = records[retain_newest:]
+            for record in expired:
+                del self._records[record.evaluation_id]
+        return len(expired)
+
 
 class StateStoreContextSelectionEvaluationStore:
     """Durable adapter over the existing tracked-state store."""
@@ -86,6 +110,14 @@ class StateStoreContextSelectionEvaluationStore:
             raise ValueError("evaluation limit MUST be >= 1")
         rows = await self._state_store.read_states(_STATE_PREFIX, limit=limit)
         return tuple(_decode(row) for row in rows)
+
+    async def prune(self, *, retain_newest: int) -> int:
+        if retain_newest < 1:
+            raise ValueError("retain_newest MUST be >= 1")
+        return await self._state_store.delete_states_beyond(
+            _STATE_PREFIX,
+            retain_newest=retain_newest,
+        )
 
 
 def _encode(evaluation: ContextSelectionEvaluation) -> dict[str, Any]:

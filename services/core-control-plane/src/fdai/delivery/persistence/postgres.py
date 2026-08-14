@@ -280,6 +280,33 @@ class PostgresStateStore(StateStore):
                 rows = await cursor.fetchall()
         return tuple(_json_object(row["value"]) for row in rows)
 
+    async def delete_states_beyond(self, prefix: str, *, retain_newest: int) -> int:
+        if not prefix:
+            raise ValueError("prefix MUST be non-empty")
+        if retain_newest < 1:
+            raise ValueError("retain_newest MUST be >= 1")
+        escaped_prefix = prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        async with await psycopg.AsyncConnection.connect(
+            self._config.dsn,
+            connect_timeout=self._config.connect_timeout_s,
+        ) as conn:
+            async with conn.transaction():
+                await self._set_statement_timeout(conn)
+                cursor = await conn.execute(
+                    """
+                    DELETE FROM state_kv
+                     WHERE key IN (
+                           SELECT key
+                             FROM state_kv
+                            WHERE key LIKE %s ESCAPE '\\'
+                            ORDER BY updated_at DESC, key DESC
+                           OFFSET %s
+                     )
+                    """,
+                    (f"{escaped_prefix}%", retain_newest),
+                )
+        return cursor.rowcount if cursor.rowcount > 0 else 0
+
     async def read_state_page(
         self,
         prefix: str,

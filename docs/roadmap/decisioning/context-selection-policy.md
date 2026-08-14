@@ -34,6 +34,7 @@ store, retriever, summarizer, renderer, model client, tool, or executor.
 | Bounded shadow evaluation, comparison storage adapter, and approved-fixture replay | implemented | `services/core-control-plane/src/fdai/core/working_context/shadow.py`; `services/core-control-plane/src/fdai/core/working_context/evidence.py`; `services/core-control-plane/src/fdai/core/working_context/replay.py`; `services/core-control-plane/tests/core/working_context/test_policy_shadow.py`; `services/core-control-plane/tests/core/working_context/test_evidence.py` | The components and their failure isolation pass focused tests. This state does not claim that the production composition binds them. |
 | Production shadow composition and durable comparison persistence | implemented | `services/core-control-plane/src/fdai/composition/wire_context_selection.py`; `services/core-control-plane/src/fdai/composition/_helpers.py`; `services/core-control-plane/tests/composition/test_wire_context_selection.py` | `bind_context_selection_shadow` binds one runner that owns its `StateStore` comparison store, a bundle install rebinds the runner to the refreshed authority, and a normally assembled turn persists one bounded comparison. |
 | Reader comparison API and Console view | implemented | `services/operator-service/src/fdai_operator_service/context_selection_projection.py`; `services/operator-service/src/fdai_operator_service/families/workflow/manifest.py`; `services/operator-service/tests/test_operator_workflow_family.py`; `console/src/routes/context-selection-comparisons.test.ts` | The Reader-gated `GET /context-selection-comparisons` route projects bounded durable records, a malformed record fails closed, and the Console decoder accepts the authoritative payload. |
+| Bounded comparison retention | implemented | `services/core-control-plane/src/fdai/shared/providers/state_store.py`; `services/core-control-plane/src/fdai/core/working_context/evidence.py`; `services/core-control-plane/src/fdai/core/working_context/shadow.py`; `services/core-control-plane/tests/core/working_context/test_policy_shadow.py` | `ContextShadowConfig.retain_evaluations` bounds durable comparison rows. Retention runs off-request after each shadow batch, removes exactly the rows a bounded newest-first read would never return, and a failed prune never discards the comparisons just written. The `delete_states_beyond` primitive cannot name a key, so it can never erase an authoritative record or an audit entry. |
 
 ### Implementation history
 
@@ -41,6 +42,7 @@ store, retriever, summarizer, renderer, model client, tool, or executor.
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. Recorded the focused-test-backed core policy, governance, shadow, storage-adapter, and replay components as implemented, while separating missing production composition and Operator API delivery. | `current change`; source and focused tests listed in the scope table; `uv run pytest -q --no-cov services/core-control-plane/tests/core/working_context services/core-control-plane/tests/core/capability_catalog/test_runtime.py services/core-control-plane/tests/core/conversation/test_context_bridge.py services/core-control-plane/tests/core/conversation/test_assemble_turn_context.py` (`70 passed`); `npm --prefix console test -- --run src/routes/context-selection-comparisons.test.ts` (`3 passed`) | Bind and prove durable production shadow evaluation, expose the Reader-gated comparison route, and collect governed runtime evidence before claiming `validated`. |
 | 2026-08-14 | implemented | Added the `bind_context_selection_shadow` composition seam, the paired `Container` invariant, and the Reader-gated Operator Service `GET /context-selection-comparisons` projection over the existing tracked-state prefix. | `current change`; `wire_context_selection.py`, `context_selection_projection.py`, workflow route manifest; focused checks passed 53 core composition cases, 34 Operator cases, and 5 Console decoder cases; task-scoped Ruff and strict mypy passed. | Record governed runtime evidence tracing one eligible shadow evaluation through durable persistence and Operator API retrieval before any scope row becomes `validated`. |
+| 2026-08-14 | implemented | Bounded durable comparison retention with a prefix-scoped `delete_states_beyond` primitive that cannot name a key, so shadow evaluation can stay enabled without unbounded tracked-state growth. | `current change`; `state_store.py`, `testing/state_store.py`, `persistence/postgres.py`, `evidence.py`, `shadow.py`, `test_policy_shadow.py`; focused working-context, composition, and provider checks passed 187 cases; strict mypy passed 1421 source files. | Record governed runtime evidence tracing one eligible shadow evaluation through durable persistence and Operator API retrieval before any scope row becomes `validated`. |
 
 ### Remaining work
 
@@ -52,8 +54,9 @@ store, retriever, summarizer, renderer, model client, tool, or executor.
    its authoritative response.
 - [ ] Record governed runtime evidence that traces one eligible shadow evaluation through durable
    persistence and Operator API retrieval before changing any scope row to `validated`.
-- [ ] Add bounded retention for durable comparison rows so a long-lived deployment can leave shadow
-   evaluation enabled without unbounded tracked-state growth.
+- [x] Durable comparison rows are bounded by `ContextShadowConfig.retain_evaluations`; retention runs
+   off-request after each shadow batch, keeps exactly the readable newest rows, and a failed prune
+   never discards the comparisons just written.
 
 ## Contract boundary
 
@@ -130,10 +133,12 @@ durable store, so a deployment cannot schedule evaluation without somewhere to r
 every capability bundle first: a later `install_capability_bundle` rebuilds the runner on the
 refreshed policy authority and keeps the same store.
 
-Comparison rows are append-only and the store has no prune operation, so the binder is opt-in per
-deployment: enabling it on a high-volume conversation surface grows the tracked-state table by one
-row per candidate per turn. Bounded retention is tracked in remaining work; until it lands, enable
-the binder for a measured evidence window rather than leaving it on indefinitely.
+Comparison rows are append-only, so enabling the binder on a high-volume conversation surface adds
+one row per candidate per turn. Retention bounds that growth: after each shadow batch the runner
+prunes everything past `ContextShadowConfig.retain_evaluations` (500 rows by default), so the binder
+can stay enabled instead of running only for a measured evidence window. Retention removes exactly
+the rows a bounded newest-first read would never return, and it cannot name a key, so it can never
+erase an authoritative record or an audit entry.
 
 ## Replay and console
 
