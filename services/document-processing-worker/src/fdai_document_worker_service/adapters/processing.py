@@ -244,12 +244,17 @@ class BoundedDocumentExtractor:
         elif observed == "ooxml":
             units = extract_ooxml(content, budget=self._ooxml_budget)
         elif observed == "pdf":
-            units = _pdf_units(content)
-            if units:
+            pdf_pages = _pdf_units(content)
+            native_units = tuple(unit for unit in pdf_pages if unit is not None)
+            if pdf_pages and len(native_units) == len(pdf_pages):
+                units = native_units
                 extractor_name = "pypdf"
                 extractor_version = pypdf.__version__
             else:
-                units = await self._image_ocr.extract(version=version, content=content)
+                ocr_units = _normalize_pdf_ocr_units(
+                    await self._image_ocr.extract(version=version, content=content)
+                )
+                units = _merge_pdf_units(pdf_pages, ocr_units) if pdf_pages else ocr_units
         elif observed == "image":
             units = await self._image_ocr.extract(version=version, content=content)
         else:
@@ -541,7 +546,8 @@ def _text_units(text: str) -> tuple[StructuralUnit, ...]:
     )
 
 
-def _pdf_units(content: bytes) -> tuple[StructuralUnit, ...]:
+def _pdf_units(content: bytes) -> tuple[StructuralUnit | None, ...]:
+    """Preserve every source page so blank pages remain eligible for OCR."""
     reader = pypdf.PdfReader(io.BytesIO(content))
     return tuple(
         StructuralUnit(
@@ -550,9 +556,79 @@ def _pdf_units(content: bytes) -> tuple[StructuralUnit, ...]:
             locator=f"pdf/page:{index}/block:1",
             text=text,
         )
-        for index, page in enumerate(reader.pages, start=1)
         if (text := (page.extract_text() or "").strip())
+        else None
+        for index, page in enumerate(reader.pages, start=1)
     )
+
+
+def _normalize_pdf_ocr_units(units: Sequence[StructuralUnit]) -> tuple[StructuralUnit, ...]:
+    """Validate ordered provider citations and emit canonical PDF OCR locators."""
+    normalized: list[StructuralUnit] = []
+    seen_unit_ids: set[str] = set()
+    seen_locators: set[str] = set()
+    previous_position = (0, 0)
+    for unit in units:
+        if unit.unit_id in seen_unit_ids or unit.locator in seen_locators:
+            raise ValueError("PDF OCR units MUST have unique identities and locators")
+        seen_unit_ids.add(unit.unit_id)
+        seen_locators.add(unit.locator)
+        page_number, block_number = _pdf_ocr_position(unit.locator)
+        if (page_number, block_number) <= previous_position:
+            raise ValueError("PDF OCR units MUST be ordered by page and block")
+        previous_position = (page_number, block_number)
+        text = " ".join(unit.text.split())
+        if not text:
+            continue
+        normalized.append(
+            StructuralUnit(
+                unit_id=f"pdf-page-{page_number}-ocr-{block_number}",
+                kind="page",
+                locator=f"pdf/page:{page_number}/ocr:{block_number}",
+                text=text,
+            )
+        )
+    if not normalized:
+        raise ValueError("PDF OCR returned no cited text")
+    return tuple(normalized)
+
+
+def _merge_pdf_units(
+    pdf_pages: Sequence[StructuralUnit | None],
+    ocr_units: Sequence[StructuralUnit],
+) -> tuple[StructuralUnit, ...]:
+    """Use one extraction path per page and reject incomplete OCR fallback."""
+    ocr_by_page: dict[int, list[StructuralUnit]] = {}
+    for unit in ocr_units:
+        page_number, _ = _pdf_ocr_position(unit.locator)
+        if page_number > len(pdf_pages):
+            raise ValueError("PDF OCR cited a page outside the source document")
+        ocr_by_page.setdefault(page_number, []).append(unit)
+
+    merged: list[StructuralUnit] = []
+    for page_number, native_unit in enumerate(pdf_pages, start=1):
+        if native_unit is not None:
+            merged.append(native_unit)
+            continue
+        page_ocr = ocr_by_page.get(page_number)
+        if not page_ocr:
+            raise ValueError(f"PDF OCR returned no cited text for page {page_number}")
+        merged.extend(page_ocr)
+    return tuple(merged)
+
+
+def _pdf_ocr_position(locator: str) -> tuple[int, int]:
+    """Decode a positive provider page/block citation without trusting its prefix."""
+    match = re.fullmatch(
+        r"(?:pdf/)?page:(\d+)(?:/(?:ocr|block):(\d+)|:line:(\d+))",
+        locator,
+    )
+    if match is None or int(match.group(1)) < 1:
+        raise ValueError("PDF OCR unit locator MUST identify a positive page and block")
+    block_number = int(match.group(2) or match.group(3) or 0)
+    if block_number < 1:
+        raise ValueError("PDF OCR unit locator MUST identify a positive page and block")
+    return int(match.group(1)), block_number
 
 
 def _ocr_units(
