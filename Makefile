@@ -64,11 +64,12 @@ service-test-all: ## run all service-owned suites in canonical order
 operator: ## console + CLI tests, typecheck, build, and entry-bundle budget
 	bash scripts/quality/ci/run-operator-surfaces.sh
 
-gates: ## repo hygiene: punctuation / guids / translations / core-imports
+gates: ## repo hygiene: punctuation / guids / translations / core-imports / risk table
 	bash scripts/quality/repository/check-punctuation.sh
 	bash scripts/quality/repository/check-guids.sh
 	bash scripts/quality/localization/check-translations.sh
 	bash scripts/quality/architecture/check-core-imports.sh
+	python3 scripts/quality/architecture/check-risk-table-change.py
 
 check: lint gates test operator ## full local CI parity
 

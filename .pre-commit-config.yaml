@@ -91,6 +91,12 @@ repos:
         language: system
         pass_filenames: false
         files: ^(rule-catalog/action-types/.*\.yaml|docs/runbooks/.*\.md|scripts/quality/documentation/check-action-runbooks\.py)$
+      - id: check-risk-table-change
+        name: check-risk-table-change.py (staged snapshot)
+        entry: python3 scripts/quality/architecture/check-risk-table-change.py --cached
+        language: system
+        pass_filenames: false
+        files: ^(rule-catalog/risk-classification\.yaml|scripts/quality/architecture/check-risk-table-change\.py)$
       - id: check-reference-only-sources
         name: check-reference-only-sources.py (staged snapshot)
         entry: python3 scripts/quality/repository/check-reference-only-sources.py --cached
