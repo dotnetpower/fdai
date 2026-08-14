@@ -27,6 +27,20 @@ describe("incident attention stream decoder", () => {
     });
   });
 
+  test("preserves an opaque printable incident correlation", () => {
+    expect(decodeIncidentAttentionSnapshot(snapshot({
+      incidents: [{
+        incident_id: "INC/opaque?revision=2",
+        correlation_id: "correlation/path?window=latest",
+        title: "Pod restart detected",
+        severity: "high",
+        status: "open",
+        opened_at: "2026-08-04T00:00:00Z",
+        last_updated_at: "2026-08-04T00:01:00Z",
+      }],
+    }))?.incidents[0]?.correlation_id).toBe("correlation/path?window=latest");
+  });
+
   test("rejects malformed, resolved, and control-character fields", () => {
     expect(decodeIncidentAttentionSnapshot("not-json")).toBeNull();
     expect(decodeIncidentAttentionSnapshot(snapshot({

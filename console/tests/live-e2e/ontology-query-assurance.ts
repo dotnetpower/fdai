@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-
 import type {
   AnswerVerification,
   SemanticProjectionReceipt,
@@ -8,6 +6,7 @@ import {
   parseAnswerVerification,
   parseSemanticProjectionReceipt,
 } from "../../src/deck/backend-normalizers";
+import { buildBrowserEvidenceProvenance } from "./browser-evidence-provenance";
 
 export type AssuranceLocale = "en" | "ko";
 
@@ -72,9 +71,6 @@ const RETRYABLE_TRANSPORT_SOURCES = new Set([
   "partial (missing terminal verification)",
 ]);
 
-const SOURCE_REVISION = /^[0-9a-f]{40}$/;
-const SHA256_DIGEST = /^sha256:[0-9a-f]{64}$/;
-
 const OPERATIONS: readonly AssuranceOperation[] = [
   "inventory_listing",
   "relationship_traversal",
@@ -86,6 +82,16 @@ const OPERATIONS: readonly AssuranceOperation[] = [
   "action_draft_boundary",
   "ambiguous_clarification",
   "unsupported_domain",
+];
+
+const ANSWER_REQUIRED_OPERATIONS: readonly AssuranceOperation[] = [
+  "inventory_listing",
+  "relationship_traversal",
+  "property_filter",
+  "aggregation",
+  "temporal_comparison",
+  "causal_analysis",
+  "evidence_validation",
 ];
 
 const ENGLISH_TEMPLATES: Readonly<Record<AssuranceOperation, readonly string[]>> = {
@@ -352,6 +358,28 @@ export function assuranceOperations(): readonly AssuranceOperation[] {
   return OPERATIONS;
 }
 
+export function requiredAnswerOperations(): readonly AssuranceOperation[] {
+  return ANSWER_REQUIRED_OPERATIONS;
+}
+
+export function hasRequiredAnswerCoverage(
+  results: readonly {
+    readonly operation: AssuranceOperation;
+    readonly locale: AssuranceLocale;
+    readonly disposition?: string;
+    readonly complete_verified_evidence: boolean;
+  }[],
+): boolean {
+  return ANSWER_REQUIRED_OPERATIONS.every((operation) => (
+    (["en", "ko"] as const).every((locale) => results.some((result) => (
+      result.operation === operation &&
+      result.locale === locale &&
+      result.disposition === "answered" &&
+      result.complete_verified_evidence
+    )))
+  ));
+}
+
 export function assuranceTransportRetrySources(): readonly string[] {
   return [...RETRYABLE_TRANSPORT_SOURCES];
 }
@@ -368,18 +396,9 @@ export function buildAssuranceRunProvenance(
   workspacePatchDigest: string | undefined,
   configuration: AssuranceRunConfiguration,
 ): AssuranceRunProvenance {
-  if (!sourceRevision || !SOURCE_REVISION.test(sourceRevision)) {
-    throw new Error("FDAI_E2E_SOURCE_REVISION must be a lowercase 40-character git SHA");
-  }
-  if (!workspacePatchDigest || !SHA256_DIGEST.test(workspacePatchDigest)) {
-    throw new Error("FDAI_E2E_WORKSPACE_PATCH_SHA256 must be a sha256-prefixed digest");
-  }
-  const configurationDigest = createHash("sha256")
-    .update(JSON.stringify(configuration))
-    .digest("hex");
-  return {
-    source_revision: sourceRevision,
-    configuration_digest: `sha256:${configurationDigest}`,
-    workspace_patch_digest: workspacePatchDigest,
-  };
+  return buildBrowserEvidenceProvenance(
+    sourceRevision,
+    workspacePatchDigest,
+    configuration,
+  );
 }

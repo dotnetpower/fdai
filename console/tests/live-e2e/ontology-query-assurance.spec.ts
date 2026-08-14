@@ -9,6 +9,7 @@ import {
   assuranceTransportRetrySources,
   buildAssuranceRunProvenance,
   generateOntologyAssuranceCohort,
+  hasRequiredAnswerCoverage,
   isRetryableAssuranceTransportFailure,
   judgeSemanticTurn,
   selectOntologyAssuranceQuestions,
@@ -118,7 +119,9 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   test.setTimeout(TEST_TIMEOUT_MS);
   await restoreBrowserEntraSessionStorage(page);
   await page.goto("/architecture", { waitUntil: "domcontentloaded" });
-  await expect(page.locator(".shell")).toBeVisible();
+  await expect(page.locator(".shell")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator("main [aria-busy='true']")).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.getByText("FDAI could not verify your access.")).toHaveCount(0);
 
   const startedAt = new Date().toISOString();
   const completeCohort = generateOntologyAssuranceCohort(COHORT_SEED);
@@ -258,6 +261,16 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   const operationCoverageComplete = runScope === "full_cohort" && assuranceOperations().every(
     (operation) => operationCounts[operation] === 10,
   );
+  const requiredAnswerCoverageComplete = runScope === "full_cohort" &&
+    hasRequiredAnswerCoverage(retained.map((result) => ({
+      operation: result.operation,
+      locale: result.locale,
+      disposition: result.disposition,
+      complete_verified_evidence:
+        result.evidence_ref_count !== undefined && result.evidence_ref_count > 0 &&
+        result.checks_total !== undefined && result.checks_total > 0 &&
+        result.checks_completed === result.checks_total,
+    })));
   const passed = retained.length === questions.length && failures.length === 0 &&
     exhaustedTransportRetryCount === 0 &&
     duplicateRequestIds === 0 && duplicateProjectionIds === 0 &&
@@ -272,6 +285,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     answeredCount: answeredResults.length,
     answeredWithCompleteEvidenceCount: answeredEvidenceCount,
     answeredLocaleCoverageComplete,
+    requiredAnswerCoverageComplete,
   });
   const artifact = {
     schema_version: "1.1.0",
@@ -307,6 +321,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
       authoritative_outcome_count: authoritativeOutcomeCount,
       locale_coverage_complete: localeCoverageComplete,
       operation_coverage_complete: operationCoverageComplete,
+      required_answer_coverage_complete: requiredAnswerCoverageComplete,
       locale_counts: localeCounts,
       operation_counts: operationCounts,
       disposition_counts: dispositionCounts,

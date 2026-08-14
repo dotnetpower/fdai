@@ -2,6 +2,8 @@ import { describe, expect, test, vi } from "vitest";
 import {
   crossTabStreamName,
   openCrossTabSnapshotChannel,
+  shouldAcceptCrossTabSnapshot,
+  tryOpenCrossTabSnapshotChannel,
 } from "./cross-tab-stream";
 
 describe("cross-tab stream snapshots", () => {
@@ -30,5 +32,29 @@ describe("cross-tab stream snapshots", () => {
     expect(postMessage).toHaveBeenCalledWith("snapshot-1");
     expect(received).toEqual(["snapshot-2"]);
     expect(close).toHaveBeenCalledOnce();
+  });
+
+  test("rejects a stale snapshot after leader turnover", () => {
+    expect(shouldAcceptCrossTabSnapshot(null, "2026-08-14T01:00:00Z")).toBe(true);
+    expect(shouldAcceptCrossTabSnapshot(null, "2026/08/14 01:00:00")).toBe(false);
+    expect(shouldAcceptCrossTabSnapshot("2026/08/14 01:00:00", "2026-08-14T01:00:01Z"))
+      .toBe(false);
+    expect(shouldAcceptCrossTabSnapshot(
+      "2026-08-14T01:00:00Z",
+      "2026-08-14T01:00:01Z",
+    )).toBe(true);
+    expect(shouldAcceptCrossTabSnapshot(
+      "2026-08-14T01:00:01Z",
+      "2026-08-14T01:00:00Z",
+    )).toBe(false);
+  });
+
+  test("degrades an unavailable BroadcastChannel without throwing", () => {
+    expect(tryOpenCrossTabSnapshotChannel(
+      "fdai:incident-attention:principal-1",
+      () => null,
+      () => undefined,
+      () => { throw new Error("channel blocked"); },
+    )).toBeNull();
   });
 });

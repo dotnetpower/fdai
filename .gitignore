@@ -54,6 +54,7 @@ coverage.xml
 .pytest_cache/
 .vite/
 cover/
+/test-results/
 console/playwright-report/
 console/test-results/
 

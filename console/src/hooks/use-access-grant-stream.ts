@@ -3,13 +3,15 @@ import { useExclusiveBrowserStreamLeader } from "./browser-stream-leader";
 import {
   browserStreamSharingSupported,
   crossTabStreamName,
-  openCrossTabSnapshotChannel,
+  isCanonicalStreamTimestamp,
+  shouldAcceptCrossTabSnapshot,
+  tryOpenCrossTabSnapshotChannel,
   type CrossTabSnapshotChannel,
 } from "./cross-tab-stream";
 import { liveReconnectDelay, liveStreamHeaders } from "./use-live-stream";
 import { readSseChunk } from "./sse-reader";
 
-const SAFE_ID = /^[A-Za-z0-9._:-]{1,256}$/;
+const CANONICAL_GRANT_ID = /^[A-Za-z0-9._:-]{1,256}$/;
 const SAFE_TEXT = /^[\x20-\x7E]{1,512}$/;
 
 export interface AccessGrantRequestProjection {
@@ -42,7 +44,7 @@ export function decodeAccessGrantSnapshot(data: string): AccessGrantSnapshot | n
   const snapshot = value as Record<string, unknown>;
   if (
     snapshot.event !== "access_grant.snapshot" ||
-    !validTimestamp(snapshot.ts) ||
+    !isCanonicalStreamTimestamp(snapshot.ts) ||
     !Array.isArray(snapshot.requests) ||
     snapshot.requests.length > 50
   ) return null;
@@ -95,21 +97,32 @@ export function useAccessGrantStream(options: {
 }): readonly AccessGrantRequestProjection[] {
   const [requests, setRequests] = useState<readonly AccessGrantRequestProjection[]>([]);
   const channelRef = useRef<CrossTabSnapshotChannel<AccessGrantSnapshot> | null>(null);
+  const latestSnapshotAtRef = useRef<string | null>(null);
   const sharingSupported = browserStreamSharingSupported();
   const streamLeader = useExclusiveBrowserStreamLeader(
     options.enabled && sharingSupported,
     "access-grant-attention",
     options.principalId,
   );
-  const streamEnabled = options.enabled && (!sharingSupported || streamLeader);
+  const streamEnabled = options.enabled && streamLeader;
+
+  useEffect(() => {
+    latestSnapshotAtRef.current = null;
+    setRequests([]);
+  }, [options.principalId]);
 
   useEffect(() => {
     if (!options.enabled || !sharingSupported) return undefined;
-    const channel = openCrossTabSnapshotChannel(
+    const channel = tryOpenCrossTabSnapshotChannel(
       crossTabStreamName("access-grant-attention", options.principalId),
       decodeAccessGrantSnapshotValue,
-      (snapshot) => setRequests(snapshot.requests),
+      (snapshot) => {
+        if (!shouldAcceptCrossTabSnapshot(latestSnapshotAtRef.current, snapshot.ts)) return;
+        latestSnapshotAtRef.current = snapshot.ts;
+        setRequests(snapshot.requests);
+      },
     );
+    if (channel === null) return undefined;
     channelRef.current = channel;
     return () => {
       channelRef.current = null;
@@ -140,6 +153,8 @@ export function useAccessGrantStream(options: {
         await consumeAccessGrantSse(response, (snapshot) => {
           if (!cancelled && controller === active) {
             attempt = 0;
+            if (!shouldAcceptCrossTabSnapshot(latestSnapshotAtRef.current, snapshot.ts)) return;
+            latestSnapshotAtRef.current = snapshot.ts;
             setRequests(snapshot.requests);
             channelRef.current?.publish(snapshot);
           }
@@ -178,22 +193,18 @@ function decodeAccessGrantSnapshotValue(value: unknown): AccessGrantSnapshot | n
 function validRequest(value: unknown): value is AccessGrantRequestProjection {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const request = value as Record<string, unknown>;
-  return SAFE_ID.test(String(request.request_id ?? ""))
-    && SAFE_ID.test(String(request.correlation_id ?? ""))
-    && SAFE_ID.test(String(request.capability_id ?? ""))
+  return CANONICAL_GRANT_ID.test(String(request.request_id ?? ""))
+    && CANONICAL_GRANT_ID.test(String(request.correlation_id ?? ""))
+    && CANONICAL_GRANT_ID.test(String(request.capability_id ?? ""))
     && typeof request.scope_ref === "string"
     && request.scope_ref.startsWith("scope://")
     && SAFE_TEXT.test(request.scope_ref)
-    && SAFE_ID.test(String(request.grant_mode ?? ""))
-    && validTimestamp(request.requested_at)
-    && validTimestamp(request.expires_at)
+    && CANONICAL_GRANT_ID.test(String(request.grant_mode ?? ""))
+    && isCanonicalStreamTimestamp(request.requested_at)
+    && isCanonicalStreamTimestamp(request.expires_at)
     && request.status === "pending"
     && Number.isInteger(request.quorum)
     && Number(request.quorum) >= 1
     && Number.isInteger(request.revision)
     && Number(request.revision) >= 0;
-}
-
-function validTimestamp(value: unknown): value is string {
-  return typeof value === "string" && value.length <= 64 && Number.isFinite(Date.parse(value));
 }

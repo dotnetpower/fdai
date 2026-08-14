@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0.0",
+  "evidence_type": "authenticated_agent_activity_heartbeat_assurance",
+  "receipt_source": "live_assurance",
+  "source_revision": "848e1021786c2bb7f3fb0a533d9d113c3020d5cf",
+  "configuration_digest": "sha256:759bc4743f035547908680c0861afcc447e7a64a2b2681f336258fa50f6ddfd9",
+  "workspace_patch_digest": "sha256:a320814505bf86f9353a80d892f72b023f1543ff6f7df7a3d5ef3e7622ee0640",
+  "run_configuration": {
+    "schema_version": "1.0.0",
+    "authentication": "browser_entra",
+    "route": "/agent-activity",
+    "refresh_count": 2
+  },
+  "captured_at": "2026-08-14T04:04:51.299Z",
+  "authentication": "browser_entra",
+  "authentication_attestation": {
+    "storage_state_restored": true,
+    "authenticated_self_response_count": 3
+  },
+  "passed": true,
+  "summary": {
+    "samples": [
+      {
+        "last_observed_at": "2026-08-14T04:04:17.781Z",
+        "row_count": 200,
+        "initialization_row_count": 0
+      },
+      {
+        "last_observed_at": "2026-08-14T04:04:35.755Z",
+        "row_count": 200,
+        "initialization_row_count": 0
+      },
+      {
+        "last_observed_at": "2026-08-14T04:04:50.840Z",
+        "row_count": 200,
+        "initialization_row_count": 0
+      }
+    ],
+    "initialization_row_count": 0,
+    "heartbeat_timestamp_present_after_each_load": true,
+    "heartbeat_timestamp_advanced_before_refresh": true
+  }
+}
