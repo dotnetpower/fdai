@@ -1,8 +1,8 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 0d2c3295a389e05004e72f62bc9a8eb132bc8873
-translation_revised: 2026-08-13
+translation_source_sha: b0df9a0697d83c40632147c14729eae193bae182
+translation_revised: 2026-08-15
 ---
 # 배포 리소스 규약
 
@@ -24,6 +24,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | 이전 방식 platform 및 ops-bootstrap Terraform state root | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, `.github/workflows/deploy-dev.yml` 및 집중 Terraform과 workflow 검사 | 안정적인 backend key와 배포 메커니즘은 제공되지만, 이 두 root의 통제된 적용 증적은 리포지토리에 보존되어 있지 않습니다. |
 | OHL scale-out evidence target 명명 및 tag | implemented | `infra/main.tf`의 current change, `terraform -chdir=infra test -filter=tests/dev_operations_gateway.tftest.hcl` 결과 8 passed | 실제 프로비저닝 및 recurrence evidence는 열려 있습니다. |
 | Operator schema 및 catalog Job 명명 | implemented | `infra/main.tf`, `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml` 및 집중 배포 workflow 테스트 | 결정론적 이름과 digest-pinned image를 연결했으며 순서가 지정된 Job의 보호된 적용 증적은 열려 있습니다. |
+| 브라우저 근거 정리 Job 명명 | implemented | `infra/main.tf`; `tests/integration/infra/test_browser_evidence_cleanup_job.py`; focused 검사(`4 passed`) 및 `terraform validate` | `caj-<workload>[-env][-region]-browser-gc`는 허용된 모든 환경에서 Azure 32자 한계를 지킵니다. Protected 적용 근거는 남아 있습니다. |
 
 ### 구현 이력
 
@@ -32,6 +33,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | 2026-08-13 | implemented | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 선택적 OHL VM Scale Set 규약을 추가했습니다. | current change, 집중 Terraform test 결과 8 passed | Exact protected 적용 및 실제 OHL 근거를 수집합니다. |
 | 2026-08-13 | implemented | 증적이 있는 service root 5개는 `validated`로 유지하고 이전 방식 platform 및 ops-bootstrap root는 `implemented`로 분류해 광범위한 state-root 주장을 정정했습니다. | current change, `config/independent-service-live-evidence-manifest.json`, `config/independent-service-remote-evidence.json`, roadmap, 번역 및 문서 검사 | `validated`로 전환하기 전에 platform 및 bootstrap root의 통제된 적용 증적을 보존합니다. |
 | 2026-08-13 | implemented | Schema migration Job이 성공한 뒤에만 실행되는 결정론적 Operator catalog Job을 추가했습니다. | 현재 변경의 `infra/main.tf`, `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml`, Terraform validate 통과 및 집중 배포 테스트 22개 통과. | 보호된 적용 및 Job 실행 증적을 수집합니다. |
+| 2026-08-15 | implemented | 예약된 브라우저 근거 보존을 위해 결정론적이고 길이가 안전한 `browser-gc` Job 컴포넌트를 추가했습니다. | `current change`; focused Terraform 계약 검사 `4 passed`; `terraform validate`. | Protected 적용 및 Job 실행 증적을 수집합니다. |
 
 ### 남은 작업
 
@@ -42,6 +44,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
   `fdai:` tag를 유지함을 보여 주는 protected 적용 증적을 기록합니다.
 - [ ] `caj-<workload>-migrate`가 성공한 뒤 검토된 Core image digest를 사용하는
   `caj-<workload>-catalog`가 시작됨을 보여 주는 보호된 적용 및 실행 증적을 기록합니다.
+- [ ] 결정론적 `caj-<workload>[-env][-region]-browser-gc` Job의 protected 적용 및 실행 증적을 기록합니다.
 
 ## 리소스 명명 규약(Resource Naming Convention)
 
@@ -75,7 +78,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | User-assigned Managed Identity | `id-` | 3-128 | `id-fdai-executor` |
 | Container Apps 환경 | `cae-` | 2-32; 영숫자 + 하이픈 | `cae-fdai` |
 | Container App (코어) | `ca-` | 2-32 | `ca-fdai-core` |
-| Container Apps 작업 (out-of-band) | `caj-` | 2-32 | `caj-fdai-oob` |
+| Container Apps 작업 (out-of-band) | `caj-` | 2-32 | `caj-fdai-oob`, `caj-fdai-browser-gc` |
 | Virtual Machine Scale Set | `vmss-` | 1-64 | `vmss-fdai-ohl-dev-krc` |
 | Event Hubs 이름 공간 | `evhns-` | 6-50 | `evhns-fdai` |
 | PostgreSQL Flexible Server | `psql-` | 3-63; 소문자 | `psql-fdai` |
@@ -98,6 +101,8 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
   `design-mocks` 컴포넌트와 Static Web Apps 지역을 포함합니다. 예를 들면
   `stapp-fdai-design-mocks-dev-ea`입니다. Static Web Apps는 모든 Azure 지역에서 제공되지
   않으므로 이 지역은 컨트롤 플레인 지역과 다를 수 있습니다.
+- 브라우저 근거 정리 Job은 짧은 컴포넌트 `browser-gc`를 사용하므로 가장 긴 허용 형식인
+  `caj-fdai-staging-<region>-browser-gc`도 32자를 넘지 않습니다.
 - env/지역/인스턴스를 추가한 합법적 이름이 문자 제한을 넘으면 해당 리소스 종류에만
   문서화된 짧은 이름 `aip`를 `fdai` 대신 사용합니다. 전체 이름이 제한 안에 있으면
   `aip`를 사용하지 않습니다.

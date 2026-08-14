@@ -448,6 +448,23 @@ variable "inventory_cron_expression" {
   default     = "*/10 * * * *"
 }
 
+variable "browser_evidence_cleanup_cron_expression" {
+  description = "Cron for the bounded browser-evidence retention Job. Empty disables the Job."
+  type        = string
+  default     = ""
+}
+
+variable "browser_evidence_cleanup_limit" {
+  description = "Maximum expired browser-evidence artifacts removed by one scheduled run."
+  type        = number
+  default     = 100
+
+  validation {
+    condition     = var.browser_evidence_cleanup_limit >= 1 && var.browser_evidence_cleanup_limit <= 500 && floor(var.browser_evidence_cleanup_limit) == var.browser_evidence_cleanup_limit
+    error_message = "browser_evidence_cleanup_limit must be an integer in [1, 500]."
+  }
+}
+
 variable "observation_campaign_cron_expression" {
   description = "Cron for the due-checked permission-aware observation campaign. Empty disables the job."
   type        = string

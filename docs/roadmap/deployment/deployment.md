@@ -26,6 +26,7 @@ bindings through configuration (see
 | Terraform plan/apply and supply-chain gates | implemented | `.github/workflows/deploy-dev.yml`, `.github/workflows/container-supply-chain.yml`, and focused workflow tests | Production inputs, image attestations, drift plans, and post-apply smoke checks are shipped. |
 | Independent-service protected deployment | validated | `config/independent-service-live-evidence-manifest.json` and `config/independent-service-remote-evidence.json` | Protected plans bind source, backend, target, identities, and images; peer isolation and rollback evidence are retained. |
 | Operator schema and catalog bootstrap | implemented | `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml`, and `tests/integration/scripts/test_service_deploy_workflow.py` in the current change | A successful Alembic Job gates a separate Core-image Job that writes immutable Rule and Ontology reference projections. |
+| Browser-evidence retention Job | implemented | `infra/modules/compute/container-apps/browser_evidence_cleanup_job.tf`; focused Terraform contract checks (`4 passed`) and `terraform validate` | The opt-in scheduled Job uses a non-executor identity and bounded one-shot cleanup. Governed apply and run receipts are not retained. |
 | Automated promotion and progressive delivery | not-started | Target design in this document | Automated dev -> staging -> prod promotion, traffic-split canaries, SLO rollback, and console blue/green are not implemented. |
 
 ### Implementation history
@@ -34,11 +35,13 @@ bindings through configuration (see
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and added deployed Operator catalog bootstrap after schema migration. | current change; focused deployment workflow and Terraform checks | Capture governed apply evidence for the catalog Job and implement the progressive-delivery targets. |
 | 2026-08-14 | implemented | Corrected ingestion rollback guidance after the co-host compatibility path was retired. Rollback now restores exact prior independent API and worker revisions. | `current change`; focused Terraform validation and mocked ingestion tests passed 5 cases. | Keep deployment guides and mocked tests aligned with the independent service roots. |
+| 2026-08-15 | implemented | Added an opt-in scheduled Container Apps Job for bounded browser-evidence retention with no executor identity or immediate platform retry. | `current change`; focused Terraform contract checks `4 passed`; `terraform validate`. | Capture the protected apply and successful and failed Job run receipts. |
 
 ### Remaining work
 
 - [ ] Retain a repository-safe governed apply receipt showing that the Operator migration Job
   succeeds before the catalog Job and that both immutable projection keys are readable afterward.
+- [ ] Retain a repository-safe protected apply and successful and failed execution receipts for the browser-evidence retention Job.
 - [ ] Implement the documented automated artifact promotion, traffic-split canary, SLO rollback,
   and console blue/green flows with focused tests and governed runtime evidence.
 

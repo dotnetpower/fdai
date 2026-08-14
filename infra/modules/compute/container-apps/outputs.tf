@@ -47,6 +47,11 @@ output "inventory_job_id" {
   value       = try(azurerm_container_app_job.inventory[0].id, null)
 }
 
+output "browser_evidence_cleanup_job_id" {
+  description = "Scheduled browser-evidence cleanup Job resource id, or null when disabled."
+  value       = try(azurerm_container_app_job.browser_evidence_cleanup[0].id, null)
+}
+
 output "observation_campaign_job_id" {
   description = "Scheduled observation campaign Job resource id, or null when disabled."
   value       = try(azurerm_container_app_job.observation_campaign[0].id, null)

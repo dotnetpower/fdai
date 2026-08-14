@@ -109,3 +109,6 @@ document_storage_replication_type = "ZRS"
 # EOT
 # prometheus_endpoint = "https://<data-collection-endpoint>.prometheus.monitor.azure.com"
 # prometheus_audience = "https://prometheus.monitor.azure.com"
+
+# browser_evidence_cleanup_cron_expression = "0 3 * * *"
+# browser_evidence_cleanup_limit           = 100 # default; override if needed

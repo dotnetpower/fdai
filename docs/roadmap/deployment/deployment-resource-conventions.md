@@ -21,6 +21,7 @@ deployment-specific values outside the upstream distribution.
 | Legacy platform and ops-bootstrap Terraform state roots | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, `.github/workflows/deploy-dev.yml`, and focused Terraform and workflow checks | Stable backend keys and deployment mechanisms are shipped; governed apply receipts for these two roots are not retained in the repository. |
 | OHL scale-out evidence target naming and tags | implemented | current change in `infra/main.tf`; `terraform -chdir=infra test -filter=tests/dev_operations_gateway.tftest.hcl` reports 8 passed | Live provisioning and recurrence evidence remain open. |
 | Operator schema and catalog Job naming | implemented | `infra/main.tf`, `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml`, and focused deployment workflow tests | Deterministic names and digest-pinned images are wired; a protected apply receipt for the ordered Jobs remains open. |
+| Browser-evidence cleanup Job naming | implemented | `infra/main.tf`; `tests/integration/infra/test_browser_evidence_cleanup_job.py`; focused checks (`4 passed`) and `terraform validate` | `caj-<workload>[-env][-region]-browser-gc` stays within the 32-character Azure limit for every allowed environment. Protected apply evidence remains open. |
 
 ### Implementation history
 
@@ -29,6 +30,7 @@ deployment-specific values outside the upstream distribution.
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and added the optional OHL VM Scale Set convention. | current change; focused Terraform tests report 8 passed. | Capture the exact protected apply and live OHL evidence. |
 | 2026-08-13 | implemented | Corrected the broad state-root claim by keeping the five receipt-backed service roots `validated` and classifying the legacy platform and ops-bootstrap roots as `implemented`. | current change; `config/independent-service-live-evidence-manifest.json`, `config/independent-service-remote-evidence.json`, and roadmap, translation, and documentation checks. | Retain governed apply receipts for the platform and bootstrap roots before advancing them to `validated`. |
 | 2026-08-13 | implemented | Added a deterministic Operator catalog Job that runs only after the schema migration Job succeeds. | Current change in `infra/main.tf`, `infra/modules/operator-api/container-app/`, and `.github/workflows/deploy-dev.yml`; Terraform validate passed and focused deployment tests report 22 passed. | Capture the protected apply and Job execution receipt. |
+| 2026-08-15 | implemented | Added the deterministic length-safe `browser-gc` Job component for scheduled browser-evidence retention. | `current change`; focused Terraform contract checks `4 passed`; `terraform validate`. | Capture the protected apply and Job execution receipts. |
 
 ### Remaining work
 
@@ -39,6 +41,7 @@ deployment-specific values outside the upstream distribution.
   application-resource-group placement, private subnet, and required `fdai:` tags.
 - [ ] Record a protected apply and execution receipt showing `caj-<workload>-migrate` succeeds
   before `caj-<workload>-catalog` starts with the reviewed Core image digest.
+- [ ] Record a protected apply and execution receipt for the deterministic `caj-<workload>[-env][-region]-browser-gc` Job.
 
 ## Resource Naming Convention
 
@@ -73,7 +76,7 @@ placement (none today).
 | User-assigned Managed Identity | `id-` | 3-128 | `id-fdai-executor` |
 | Container Apps environment | `cae-` | 2-32; alphanumerics + hyphens | `cae-fdai` |
 | Container App (core) | `ca-` | 2-32 | `ca-fdai-core` |
-| Container Apps Job (out-of-band) | `caj-` | 2-32 | `caj-fdai-oob` |
+| Container Apps Job (out-of-band) | `caj-` | 2-32 | `caj-fdai-oob`, `caj-fdai-browser-gc` |
 | Virtual Machine Scale Set | `vmss-` | 1-64 | `vmss-fdai-ohl-dev-krc` |
 | Event Hubs namespace | `evhns-` | 6-50 | `evhns-fdai` |
 | PostgreSQL Flexible Server | `psql-` | 3-63; lowercase | `psql-fdai` |
@@ -99,6 +102,8 @@ placement (none today).
 - If a legal name exceeds the character limit after adding env/region/instance, use the
   documented short-name `aip` in place of `fdai` - and only for that resource kind.
   Do not sprinkle `aip` where the full name still fits.
+- The browser-evidence cleanup Job uses the short component `browser-gc`, so the longest allowed
+  `caj-fdai-staging-<region>-browser-gc` form remains at or below 32 characters.
 
 ### What this rule prevents
 

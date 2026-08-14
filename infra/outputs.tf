@@ -155,6 +155,11 @@ output "canary_job_name" {
   value       = module.compute.canary_job_name
 }
 
+output "browser_evidence_cleanup_job_id" {
+  description = "Scheduled browser-evidence cleanup Job resource id, or null when disabled."
+  value       = module.compute.browser_evidence_cleanup_job_id
+}
+
 output "measurement_baseline_job_name" {
   description = "Automated-baseline regression Container Apps Job name (Phase-4 continuous measurement)."
   value       = module.measurement_runners.baseline_job_name
