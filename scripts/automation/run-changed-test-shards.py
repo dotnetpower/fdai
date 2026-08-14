@@ -59,6 +59,13 @@ def _command_digest(command: list[str], environment: dict[str, str]) -> str:
     return digest.hexdigest()
 
 
+def _shard_basetemp(cache_root: Path, index: int) -> Path:
+    """Place one deterministic shard temp root outside the repository ancestry."""
+
+    identity = hashlib.sha256(str(cache_root.resolve()).encode()).hexdigest()[:16]
+    return Path(tempfile.gettempdir()) / "fdai-pytest-shards" / identity / f"shard-{index}"
+
+
 def _run_shard(
     *,
     index: int,
@@ -69,7 +76,7 @@ def _run_shard(
     environment: dict[str, str],
 ) -> tuple[ShardResult, str]:
     cache_dir = cache_root / f"shard-{index}"
-    basetemp = cache_root / f"tmp-shard-{index}"
+    basetemp = _shard_basetemp(cache_root, index)
     command = [
         "uv",
         "run",
