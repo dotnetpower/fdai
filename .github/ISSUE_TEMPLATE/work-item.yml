@@ -1,12 +1,15 @@
 name: FDAI work item
 description: Track a task, enhancement, or documentation change with verifiable completion criteria.
-title: ""
+title: "task: "
 labels: ["type:task", "needs-triage"]
 body:
   - type: markdown
     attributes:
       value: |
-        Issues are English-only and customer-agnostic. Apply at least one `area:` label and one `priority:` label after creation. Use the epic, user story, bug, or spike form when one of those fits better.
+        Issues are English-only and customer-agnostic. This fast path requires an outcome and
+        checkable exit criteria. Apply an `area:` label after creation. Priority, Size, Iteration,
+        Quarter, and project availability do not block explicitly requested work. Use the epic,
+        user story, bug, or spike form when one of those fits better.
   - type: textarea
     id: problem
     attributes:
@@ -21,8 +24,6 @@ body:
       label: Scope and constraints
       description: Name the intended scope, important boundaries, and explicit non-goals.
       placeholder: Include safety, compatibility, and rollout constraints where relevant.
-    validations:
-      required: true
   - type: textarea
     id: exit_criteria
     attributes:
@@ -40,8 +41,6 @@ body:
       label: Verification evidence
       description: List the commands, scenarios, metrics, or artifacts that will prove the exit criteria.
       placeholder: Tests, screenshots, logs, measurements, or review evidence.
-    validations:
-      required: true
   - type: checkboxes
     id: safety
     attributes:

@@ -82,6 +82,16 @@ only within the Constitution's bounds; the Constitution always prevails.
 ## Issue Lifecycle (MUST)
 
 - Every new issue includes explicit, observable **Exit criteria** as a checkbox list.
+- Read-only analysis and reproduction do not require an issue. Reuse or create one before the
+   first task-owned commit or external state change.
+- Use `python3 scripts/automation/project-board.py start <issue-number>` when GitHub is available.
+   Project updates are best-effort and MUST NOT block local implementation, focused validation,
+   commits, pushes, or centralized validation. Report deferred synchronization and retry later.
+- Issue content, labels, evidence comments, and open or closed state are authoritative. Project
+   fields are a derived execution view. Assignment records accountability; only `In progress`
+   records active work.
+- The WIP limit of two applies to active `Story` and `Bug` outcomes per maintainer. Child `Task`
+   items do not consume another outcome slot and the board never replaces edit reservations.
 - After working on or reviewing an issue, add an English comment with evidence and residual work.
 - When every exit criterion is satisfied, add the `completed` label. Keep the issue open while
   any residual work remains; close it only when no residual work remains.

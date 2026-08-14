@@ -35,7 +35,7 @@ body:
     id: stories
     attributes:
       label: Child stories
-      description: List the planned stories. Convert each line into a sub-issue after creation so the board tracks progress automatically.
+      description: List candidate stories. Convert a line into a sub-issue when it is scheduled or started so the board tracks real delivery without pre-creating the full roadmap backlog.
       placeholder: |
         - [ ] story: ...
         - [ ] story: ...

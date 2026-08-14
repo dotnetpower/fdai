@@ -139,8 +139,11 @@ make dev-down                     # stops (volumes preserved)
 
 Planning happens in GitHub issues; the
 [FDAI delivery board](https://github.com/users/dotnetpower/projects/7) is the single view over
-them. Every repository issue is added to the board automatically, so an issue that is not on the
-board is a bug in the automation, not a work item that escaped tracking.
+them. The issue body, labels, comments, and open or closed state are authoritative. The board is a
+best-effort execution projection and never a prerequisite for local investigation, implementation,
+focused validation, commit, push, or centralized validation. Every repository issue is added to
+the board automatically, so an issue that is not on the board is synchronization drift to repair,
+not a reason to stop delivery.
 
 ### Work item hierarchy
 
@@ -154,15 +157,16 @@ board is a bug in the automation, not a work item that escaped tracking.
 
 Link children to their parent through **sub-issues** (`Add sub-issue` on the parent), not a manual
 checklist in the body. The board's `Sub-issues progress` field then reports epic progress without
-anyone updating it. A story that cannot finish inside one iteration is an epic that has not been
-split yet.
+anyone updating it. Keep candidate story lines in an epic until they are scheduled or started;
+do not pre-create the complete roadmap backlog. A story that cannot finish inside one iteration is
+an epic that has not been split yet.
 
 ### Board columns
 
 | Status | Meaning | Leaves the column when |
 |--------|---------|------------------------|
 | `Backlog` | accepted, not scheduled | triage assigns a `priority:` and a Size |
-| `Ready` | triaged, sized, unblocked | someone assigns themselves |
+| `Ready` | triaged, sized, unblocked | someone explicitly starts the work |
 | `In progress` | assigned and actively worked | the exit criteria are satisfied |
 | `In review` | exit criteria met, evidence posted | the author or a reviewer confirms |
 | `Blocked` | a named external dependency is missing | that dependency clears |
@@ -173,10 +177,15 @@ split yet.
 
 ### Working agreement
 
-- **Work starts from an issue.** An unassigned issue is unclaimed. Assign yourself before you
-  start so nobody duplicates the work.
-- **WIP limit is two.** At most two items per person in `In progress`. Finish or hand one back
-  before pulling a third.
+- **Create the durable record before the durable change.** Read-only analysis and reproduction may
+  start immediately. Reuse or open an issue before the first task-owned commit or external state
+  change. An explicitly requested item may move directly from `Backlog` to `In progress`; `Ready`
+  is a queue, not an approval gate.
+- **Assignee means accountable owner.** An issue may be assigned while it is in `Backlog` or
+  `Ready`. `Status = In progress`, not assignment alone, means work is active.
+- **WIP limit is two active outcomes.** Count `Story` and `Bug` items per maintainer. Child `Task`
+  items under those outcomes do not consume another outcome slot, so bounded parallel agents can
+  work without turning the board into a concurrency lock.
 - **Priority is a commitment, not a wish.** `priority:p0` blocks a release, a safety invariant, or
   another maintainer; `priority:p1` is committed to the current or next iteration; `priority:p2`
   and `priority:p3` are not scheduled.
@@ -188,6 +197,32 @@ split yet.
 - The board mirrors public issues only. Never put a tenant id, subscription id, resource name,
   endpoint, or secret in an issue, a comment, or a board field
   ([generic-scope.instructions.md](.github/instructions/generic-scope.instructions.md)).
+
+### Non-blocking board operation
+
+Keep the start path short. The hard issue contract is an outcome, an `area:`, one work type, and
+observable Exit criteria. Priority, Size, Iteration, Quarter, Team, parent linkage, and a successful
+Project API call are planning metadata that may be completed during triage.
+
+Use the local helper for bounded Project updates:
+
+```bash
+python3 scripts/automation/project-board.py start <issue-number>
+python3 scripts/automation/project-board.py sync
+python3 scripts/automation/project-board.py sync --apply
+```
+
+`start` assigns the current maintainer and attempts to set `Status = In progress`, `Work type`, and
+`Priority`. `sync` previews drift. `sync --apply` derives lifecycle-owned status from the issue and
+copies canonical type and priority labels into Project fields. GitHub and Project failures emit a
+warning and return success by default so local work continues. Use `--strict` only for a dedicated
+board-health check. Never call the helper from pre-commit, pre-push, centralized validation, or a
+test gate.
+
+If GitHub is unavailable, continue local investigation, implementation, focused validation, and
+task-owned commits. Record the deferred synchronization in the completion report and retry it when
+GitHub returns. A security finding remains the exception: use the private advisory path and never
+create a public tracking issue.
 
 ### Delivery milestones
 
@@ -211,9 +246,16 @@ milestone spans two sprints.
 
 ### Board fields
 
-`Status`, `Priority`, `Size`, and `Work type` mirror the labels above so the board stays usable
-without opening every issue. `Iteration` drives the sprint board and `Quarter` drives the roadmap
-view; set `Start date` and `Target date` on epics so they render on the roadmap timeline.
+`Work type` and `Priority` mirror canonical issue labels. Closed issues project to `Done`; open
+`completed` issues project to `In review`; `blocked` projects to `Blocked`; explicit `Ready` and
+`In progress` states are preserved. Reopened or otherwise unclassified work returns to `Backlog`.
+Project fields never override issue criteria, labels, evidence comments, or issue state.
+
+Size is required only before an item is deliberately queued in `Ready`. `Iteration` applies only
+to scheduled stories, tasks, spikes, and bugs. `Quarter`, `Start date`, and `Target date` apply to
+epics when they are placed on a roadmap. Leave `Team` empty until real teams exist; use existing
+`area:` labels rather than placeholder squads. Keep the Task Board focused on non-epic executable
+work, the monthly roadmap on scheduled stories, and the quarterly roadmap on epics.
 
 Issues that predate this scheme were mapped retrospectively: `Priority` came from the `[P0-2]`
 style prefix where the title carried one, otherwise from the safety and security labels;
@@ -228,7 +270,8 @@ Issues are English-only project-tracking artifacts (never translated - see
 [language.instructions.md](.github/instructions/language.instructions.md)).
 Start from the form that matches the work - **Epic**, **User story**, **Bug report**, **Spike**, or
 the generic **FDAI work item**. Each form applies its `type:` label and `needs-triage`, and each
-one requires exit criteria.
+one requires exit criteria. The generic work item is the fast path: scope and planned evidence may
+be refined after creation without delaying explicitly requested work.
 **Always apply at least one domain label** so triage and filtering work; the
 catalog uses a `prefix:` convention so related labels group together.
 

@@ -100,16 +100,20 @@
       "id": "issue-lifecycle",
       "paths": [
         ".github/ISSUE_TEMPLATE/**",
+        ".github/copilot-instructions.md",
         ".github/workflows/issue-lifecycle.yml",
         "CONTRIBUTING.md",
-        "scripts/quality/repository/check-issue-lifecycle.py"
+        "scripts/automation/project-board.py",
+        "scripts/quality/repository/check-issue-lifecycle.py",
+        "tests/integration/scripts/test_project_board.py"
       ],
       "must_read": [
         ".github/copilot-instructions.md",
         "CONTRIBUTING.md"
       ],
       "validate": [
-        "python3 scripts/quality/repository/check-issue-lifecycle.py"
+        "python3 scripts/quality/repository/check-issue-lifecycle.py",
+        "PYTHONPATH=. .venv/bin/pytest -q --no-cov tests/integration/scripts/test_project_board.py"
       ]
     },
     {

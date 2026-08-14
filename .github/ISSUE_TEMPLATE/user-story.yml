@@ -9,15 +9,14 @@ body:
         Issues are English-only and customer-agnostic. Add at least one `area:` label and one
         `priority:` label after creation. A story that cannot fit in one iteration belongs in an
         epic instead. Link this story to its parent epic through GitHub sub-issues so board
-        progress stays automatic.
+        progress stays automatic. Parent and planning fields may be completed during triage and
+        do not block an explicitly requested start.
   - type: input
     id: parent_epic
     attributes:
       label: Parent epic
       description: Issue number of the parent epic, or `none` for standalone work.
       placeholder: "#123"
-    validations:
-      required: true
   - type: textarea
     id: story
     attributes:
