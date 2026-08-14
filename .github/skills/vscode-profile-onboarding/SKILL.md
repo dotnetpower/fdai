@@ -1,6 +1,6 @@
 ---
 name: vscode-profile-onboarding
-description: "Configure, validate, troubleshoot, or explain the shared FDAI VS Code Profile and local servers. Use when someone asks about VS Code setup, Profiles, extensions, WSL remote settings, editor slowness, onboarding, importing fdai.code-profile, or starting, running, restarting, or checking the Console web, design mock server, backend, local servers, or full stack."
+description: "Configure, validate, troubleshoot, or explain the shared FDAI VS Code Profile and local servers. Use for VS Code setup, Profiles, extensions, WSL remote settings, editor slowness, Playwright tests, browser tools, screenshots, frontend visual validation, browser-tool slowness, onboarding, importing fdai.code-profile, or starting, restarting, and checking the Console, design mock server, backend, local servers, or full stack."
 argument-hint: "Set up or diagnose the FDAI VS Code Profile"
 ---
 
@@ -78,6 +78,33 @@ maintainer's local VS Code state.
   backend readiness from a frontend HTTP `200` response.
 - Start only the specifically named component when the user explicitly narrows the request, such as
   "frontend only", "Operator API only", or "design server only".
+
+## Playwright and browser-tool latency
+
+Preserve the authentication and port rules in the
+[Local Console Port Contract](../../instructions/app-shape.instructions.md#local-console-port-contract-must).
+Do not treat the repository Playwright runner and Copilot browser tools as one performance path.
+
+1. Classify the slow operation:
+  - CLI runner: `playwright test`, worker startup, configured projects, `webServer`, traces, or tests.
+  - Browser tool: `read_page`, `run_playwright_code`, interactions, screenshots, and the following
+    model round.
+2. Benchmark one CLI test sequentially. Use one file or `--grep` title and one project. Add
+  `DEBUG=pw:webserver` only when startup readiness is suspect. Never run timing samples in
+  parallel terminals that share the same directory, port, or Playwright output.
+3. For a shared page, reuse its page ID and gather navigation timing, DOM size, and required state
+  in one browser call. A sub-second page with a large accessibility snapshot indicates tool
+  serialization and context cost, not a slow renderer.
+4. Check host pressure separately with `code --status`, `/proc/pressure/{cpu,io,memory}`, and the
+  remote extension host's CPU and RSS. Identify the process that owns the Console port before
+  assuming the page belongs to the current checkout.
+5. Apply the narrow remedy: focused CLI tests for behavior, one batched browser call for
+  authenticated or interactive state, and one targeted screenshot for visual evidence. Reload
+  the VS Code window only when extension-host growth is material and active work can tolerate it.
+
+Do not change Console behavior, Playwright timeouts, workers, or server topology merely to hide a
+large browser-tool payload. Change runner configuration only when a clean sequential CLI benchmark
+reproduces the delay.
 
 ## Boundaries
 
