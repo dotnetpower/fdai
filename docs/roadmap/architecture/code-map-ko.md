@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 6e9a696e6298eeba5fcac99868939a57d82e7fdc
-translation_revised: 2026-08-14
+translation_source_sha: 017f1b7f419b64d2725e82357523a387c5ddba21
+translation_revised: 2026-08-15
 ---
 # 코드 맵
 
@@ -42,6 +42,7 @@ translation_revised: 2026-08-14
 | 일반 영향 조정 요청 | 구현됨 | `core/ontology_platform/reconciliation_producer.py`, `core/ontology_platform/reconciliation_request_outbox.py`, `delivery/reconciliation_request.py`, `delivery/reconciliation_request_publication.py`, 집중 조정, ControlLoop, 런타임 및 조립 검사(`163 passed`) | 실행된 Action은 일치하는 exact V2 plan을 이미 참조해야 합니다. 독립 observation은 발행 전에 영속 대기열에 저장되며 downstream failure는 executor outcome을 다시 쓰지 않고 held 또는 pending evidence로 남습니다. Production artifact 및 observation adapter는 열린 작업입니다. |
 | Exact kinetic proposal handoff | 구현됨 | `core/operational_planning/kinetic_proposal.py`, `delivery/kinetic_proposal.py`, `agents/forseti.py`, `agents/thor.py`, 집중 producer, Forseti, Thor, factory 및 framework 검사 | 완전한 operational plan은 기존 Verdict 경로를 통해 영속된 기존 exact V2 proposal 하나를 해석할 수 있습니다. Proposal이 없으면 legacy 동작을 유지하고 잘못된 record는 권한을 deny로 낮춥니다. 운영 source 조립과 pre-dispatch 증적 writer는 아직 남아 있습니다. |
 | 읽기 조사 활동 ID | 구현됨 | `composition/wire_read_investigation.py`, `test_wire_read_investigation.py`, focused 테스트 | 각 호출은 실시간 및 영속 활동에서 하나의 불투명한 상관관계 값을 공유하고, 별도 호출은 서로 다른 상관관계 값을 사용하며, 논리적 요청 멱등성은 안정적으로 유지됩니다. |
+| 브라우저 근거 메타데이터 읽기 계약 | 구현됨 | `fdai_service_contracts/operator.py`, `fdai_operator_service/browser_evidence_projection.py`, Operator migration, focused Operator 및 공유 계약 검사(`148 passed`) | `BrowserEvidenceQuery`는 구현이 없는 Operator 계약에 범위가 제한된 읽기 전용 메서드 하나를 추가합니다. Service 역할은 security-barrier 메타데이터 view만 조회할 수 있으며 수집 및 구조화된 페이로드는 서비스 간 계약 밖에 유지됩니다. |
 | 서비스 간 의미 Rule 변환 결과 | 구현됨 | `fdai_service_contracts/semantic_turn.py`, `fdai_core_service/semantic_turn_processor.py`, `fdai_operator_service/postgres_semantic_turn_store.py`, 통과한 의미 경로 테스트 94개 | 공유 버전 1.2 계약, Core 처리 및 Operator 영속성은 후보 전용 권한, 범위가 제한된 기한, 복구 가능한 소유권 및 principal 범위의 exact 읽기와 함께 검증된 정확한 함수 호출 증적 및 정규 다이제스트를 보존합니다. 계약 검증은 내용, 다이제스트, 작업, 의도, 기능 및 최종 상태 차이를 거부합니다. 통제된 실제 운영 보증은 [온톨로지 조회 coverage 계획](../interfaces/ontology-query-coverage-implementation-plan-ko.md#남은-작업)에 열린 항목으로 남아 있습니다. |
 | Console 의미 증적 projection | 구현됨 | `semantic_turn.py`, `semantic_turn_processor.py`, `semantic_turn_runtime.py`, `console/src/deck/backend-normalizers.ts`, focused shared, Core, Operator 및 Console 테스트 | 타입이 지정된 경로, 구체적인 명확화 답변, 사용 불가 사유, 네 개의 보증 다이제스트, 근거 참조 및 `execution_authority=false`가 prose 추론 없이 shared 계약, Core 결과, exact Operator 읽기, 최종 스트림, 영속 transcript, replay 및 Console 표현을 통과합니다. 통과한 실제 브라우저 및 무작위 보증 기록은 온톨로지 조회 coverage 계획의 열린 항목으로 남아 있습니다. |
 | 결정론적 누락 incident 맥락 | 구현됨 | `core/conversation/semantic_planning.py`, `tests/conversation/test_semantic_planning.py`, 집중 플래너 및 최종 projection 테스트(`43 passed`) | 첫 turn의 "this incident" 참조는 매니페스트 또는 모델 작업 전에 범위가 제한된 명확화 하나를 반환합니다. 이전 incident 맥락이 있으면 일반 의미 계획 수립을 계속하며 어느 경로도 실행 권한을 부여하지 않습니다. |
@@ -75,6 +76,7 @@ translation_revised: 2026-08-14
 | 2026-08-14 | 구현됨 | Topic 또는 action authority를 바꾸지 않고 delivery 소유 exact kinetic proposal 생성을 Forseti의 기존 Verdict 경로에 연결했습니다. | `current change`, 집중 producer, Forseti, Thor, factory, framework, Ruff 및 strict mypy 검사 | 런타임 검증을 주장하기 전에 운영 조립에서 source를 연결하고 pre-dispatch 증적 및 독립 관측 경로를 완료합니다. |
 | 2026-08-14 | 구현됨 | 전역 런타임 그래프 경로를 만들지 않고 receipt 기반 운영 컨텍스트 표현을 추가했습니다. | `current change`, `console_projection.py` 및 불일치와 변환을 검증하는 focused 테스트 5개 통과 | 기존 principal 범위 근거 응답을 통해서만 연결하고 인증된 Console 근거를 보존해야 합니다. |
 | 2026-08-14 | 구현됨 | 즉시 T2를 사용하는 의미 계획을 결정론적으로 평가하는 T1 우선 cascade로 교체했습니다. | `current change`, 집중 의미 플래너 및 조립 테스트는 T1 성공, 명확화, 범위 거부 및 근거 보류가 T2 용량을 사용하지 않음을 검증합니다. | 기존 온톨로지 보증 캠페인에서 인증된 tier 선택 근거를 보존합니다. |
+| 2026-08-15 | 구현됨 | 공유 Operator 읽기 계약에 범위가 제한된 payload-free 브라우저 근거 메타데이터 메서드를 추가하고 security-barrier service view 뒤에서 구현했습니다. | `current change`, focused Operator 및 service-contract 검사 `148 passed`, service migration 인벤토리 검사 `46 passed`, strict mypy 통과 | 인증된 배포 읽기 근거를 보존하고 Console 메타데이터 패널을 추가합니다. |
 
 ### 남은 작업
 

@@ -12,6 +12,21 @@ SELECT seq, event_id, correlation_id, actor, action_kind, mode,
  LIMIT %(fetch)s
 """
 
+BROWSER_EVIDENCE_PAGE_SQL: Final = """
+SELECT artifact_id, policy_id, policy_version,
+       canonical_source_url, canonical_final_url,
+       captured_at, expires_at,
+       selector_count,
+       screenshot_hash, text_hash, snapshot_hash,
+       redaction_count,
+       browser_version, chain_of_custody_audit_ref,
+       prompt_injection_finding_count, isolation_verified,
+       untrusted, legal_hold, legal_hold_ref, legal_hold_at
+  FROM operator_browser_evidence_metadata
+ ORDER BY captured_at DESC, artifact_id DESC
+ LIMIT %(limit)s
+"""
+
 AGENT_INVENTORY_ACTIVITY_SQL: Final = """
 SELECT s.id, s.status, s.source, s.observation_kind, s.started_at,
        s.completed_at, s.promoted_at, s.failure_code,

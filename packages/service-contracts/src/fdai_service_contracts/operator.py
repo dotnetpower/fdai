@@ -47,6 +47,17 @@ class AuditQuery:
 
 
 @dataclass(frozen=True, slots=True)
+class BrowserEvidenceQuery:
+    """Bound one browser-evidence metadata page request."""
+
+    limit: int
+
+    def __post_init__(self) -> None:
+        if not 1 <= self.limit <= 500:
+            raise ValueError("browser evidence limit must be in [1, 500]")
+
+
+@dataclass(frozen=True, slots=True)
 class HilQueueQuery:
     """Bounded approval queue request with server-authorized detail visibility."""
 
@@ -214,6 +225,8 @@ class OperatorReadModel(Protocol):
 
     async def list_audit(self, query: AuditQuery) -> PageProjection: ...
 
+    async def list_browser_evidence(self, query: BrowserEvidenceQuery) -> JsonProjection: ...
+
     async def dashboard_metrics(self) -> JsonProjection: ...
 
     async def llm_usage(self, range_start: datetime, range_end: datetime) -> JsonProjection: ...
@@ -241,6 +254,7 @@ __all__ = [
     "AgentActivityQuery",
     "AgentActivityReadModel",
     "AuditQuery",
+    "BrowserEvidenceQuery",
     "HilQueueProjection",
     "HilQueueQuery",
     "IncidentAttentionQuery",
