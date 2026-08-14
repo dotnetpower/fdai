@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import Any
 
+import pytest
+from fdai.core.ontology_platform.functions import FunctionInvocationContext
 from fdai.core.ontology_platform.instance_relationships import (
     evaluate_instance_relationships,
+    instance_relationships_function,
+    instance_relationships_function_type,
 )
 from fdai.core.ontology_platform.models import (
     ObjectSelector,
@@ -18,6 +23,14 @@ from fdai.core.ontology_platform.query_gateway import (
     SecuredObjectSetQueryReceipt,
     SecuredObjectSetQueryResult,
     _projected_result_digest,
+)
+from fdai.shared.contracts.models import (
+    LinkCardinality,
+    OntologyLinkType,
+    OntologyObjectType,
+    OntologyRelease,
+    PropertyDecl,
+    PropertyType,
 )
 from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.ontology_instance import (
@@ -33,6 +46,7 @@ def _secured_result(
     *,
     links: tuple[OntologyLinkRecord, ...],
     complete: bool = True,
+    ontology_release: OntologyRelease | None = None,
 ) -> SecuredObjectSetQueryResult:
     objects = tuple(
         OntologyObjectRecord(
@@ -60,7 +74,7 @@ def _secured_result(
         truncation_reason=("result_limit" if not complete else None),
     )
     receipt = SecuredObjectSetQueryReceipt(
-        ontology_release=build_ontology_release().ref(),
+        ontology_release=(ontology_release or build_ontology_release()).ref(),
         projected_result_digest=_projected_result_digest(materialization),
         purpose=definition.purpose,
         caller_role="reader",
@@ -91,6 +105,37 @@ def _link(link_type: str, from_id: str, to_id: str) -> OntologyLinkRecord:
         from_id=from_id,
         to_id=to_id,
         properties={},
+    )
+
+
+class _ReceiptVerifier:
+    def __init__(self, *, valid: bool) -> None:
+        self.valid = valid
+
+    def verify(self, **_kwargs: Any) -> bool:
+        return self.valid
+
+
+def _release() -> OntologyRelease:
+    resource = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Resource",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    routes_to = OntologyLinkType(
+        schema_version="1.0.0",
+        name="routes_to",
+        version="1.0.0",
+        from_type="Resource",
+        to_type="Resource",
+        cardinality=LinkCardinality.MANY_TO_MANY,
+    )
+    return build_ontology_release(
+        object_types=(resource,),
+        link_types=(routes_to,),
+        function_types=(instance_relationships_function_type(),),
     )
 
 
@@ -154,3 +199,52 @@ def test_relationship_limit_marks_result_incomplete() -> None:
     assert len(result.relationships) == 1
     assert result.complete is False
     assert result.truncation_reasons == ("relationship_limit",)
+
+
+def test_rejects_secured_graph_with_missing_link_endpoint() -> None:
+    with pytest.raises(ValueError, match="link has a missing endpoint"):
+        evaluate_instance_relationships(
+            _secured_result(links=(_link("routes_to", "resource-a", "missing"),)),
+            link_types=("routes_to",),
+            limit=100,
+        )
+
+
+def test_function_binding_rejects_link_type_absent_from_release() -> None:
+    with pytest.raises(KeyError, match="has no link declaration 'contains'"):
+        instance_relationships_function(
+            _release(),
+            known_link_types=("contains",),
+            receipt_verifier=_ReceiptVerifier(valid=True),
+            verification_context=object(),
+        )
+
+
+async def test_contextual_function_rejects_unverified_receipt() -> None:
+    release = _release()
+    secured = _secured_result(
+        links=(_link("routes_to", "resource-a", "resource-b"),),
+        ontology_release=release,
+    )
+    verification_context = object()
+    function = instance_relationships_function(
+        release,
+        known_link_types=("routes_to",),
+        receipt_verifier=_ReceiptVerifier(valid=False),
+        verification_context=verification_context,
+    )
+
+    with pytest.raises(PermissionError, match="receipt verification failed"):
+        await function(
+            {
+                "query_result": secured.model_dump(mode="json"),
+                "link_types": ["routes_to"],
+                "limit": 100,
+            },
+            FunctionInvocationContext(
+                caller_agent="Bragi",
+                caller_role="reader",
+                purposes=("operations-review",),
+                evidence_refs=(secured.receipt.projected_result_digest,),
+            ),
+        )

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: b91e59359a21f34a4e9e5ad5e1e99d33f54752bf
+translation_source_sha: 8fd71d011302b93d76d7b6fb58cfbd0ef74032df
 translation_revised: 2026-08-15
 ---
 # 코드 맵
@@ -79,6 +79,7 @@ translation_revised: 2026-08-15
 | 2026-08-14 | 구현됨 | 즉시 T2를 사용하는 의미 계획을 결정론적으로 평가하는 T1 우선 cascade로 교체했습니다. | `current change`, 집중 의미 플래너 및 조립 테스트는 T1 성공, 명확화, 범위 거부 및 근거 보류가 T2 용량을 사용하지 않음을 검증합니다. | 기존 온톨로지 보증 캠페인에서 인증된 tier 선택 근거를 보존합니다. |
 | 2026-08-15 | 구현됨 | 공유 Operator 읽기 계약에 범위가 제한된 payload-free 브라우저 근거 메타데이터 메서드를 추가하고 security-barrier service view 뒤에서 구현했습니다. | `current change`, focused Operator 및 service-contract 검사 `148 passed`, service migration 인벤토리 검사 `46 passed`, strict mypy 통과 | 인증된 배포 읽기 근거를 보존하고 Console 메타데이터 패널을 추가합니다. |
 | 2026-08-14 | 구현됨 | 증적 기반 현재 인스턴스 관계 선택과 지역화 변환을 스키마 관계 의미와 별도의 권한 표면으로 추가했습니다. | `current change`, 인스턴스 평가기, 의미 조립 DAG, prompt 및 Core 처리기 집중 검사를 통과했습니다. | 런타임 검증을 보고하기 전에 인증된 현재 관계 답변을 보존합니다. |
+| 2026-08-15 | 구현됨 | 현재 인스턴스 관계 연결에서 exact release에 없는 LinkType을 차단하고, 객체 신원이 중복되거나 링크 종단점이 누락된 보안 그래프를 변환 전에 거부하도록 강화했습니다. | `current change`, 관계 및 Core 처리기 집중 테스트 52개 통과, Ruff와 strict mypy 통과, 독립 검토에서 재현 가능한 Medium 이상 결함 없음 | 런타임 검증을 보고하기 전에 인증된 현재 관계 답변을 보존합니다. |
 
 ### 남은 작업
 

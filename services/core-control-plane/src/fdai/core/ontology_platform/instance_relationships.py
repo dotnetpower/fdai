@@ -13,6 +13,7 @@ from fdai.shared.contracts.models import (
     CeilingRole,
     ContractBase,
     LogicExecutionClass,
+    OntologyDeclarationKind,
     OntologyFunctionKind,
     OntologyFunctionType,
     OntologyRelease,
@@ -149,7 +150,16 @@ def instance_relationships_function(
     if verification_context is None:
         raise ValueError("instance relationship receipt verification context MUST be non-null")
     expected_release = ontology_release.ref()
-    known = frozenset(known_link_types)
+    declared_link_types = tuple(known_link_types)
+    known = frozenset(declared_link_types)
+    if len(known) != len(declared_link_types):
+        raise ValueError("instance relationship LinkType bindings MUST be unique")
+    ontology_release.type_ref(
+        OntologyDeclarationKind.FUNCTION,
+        INSTANCE_RELATIONSHIPS_FUNCTION_NAME,
+    )
+    for link_type in declared_link_types:
+        ontology_release.type_ref(OntologyDeclarationKind.LINK, link_type)
 
     async def evaluate(
         arguments: Mapping[str, Any],
@@ -208,10 +218,13 @@ def evaluate_instance_relationships(
     if not 1 <= limit <= _MAX_RELATIONSHIPS:
         raise ValueError("instance relationship limit MUST be between 1 and 100")
 
-    objects = {item.id: item for item in secured.materialization.graph.objects}
-    matching = tuple(
-        link for link in secured.materialization.graph.links if link.link_type in set(requested)
-    )
+    graph = secured.materialization.graph
+    objects = {item.id: item for item in graph.objects}
+    if len(objects) != len(graph.objects):
+        raise ValueError("secured instance relationship object ids MUST be unique")
+    if any(link.from_id not in objects or link.to_id not in objects for link in graph.links):
+        raise ValueError("secured instance relationship link has a missing endpoint")
+    matching = tuple(link for link in graph.links if link.link_type in set(requested))
     selected = matching[:limit]
     source_complete = secured.receipt.complete
     result_complete = source_complete and len(selected) == len(matching)
