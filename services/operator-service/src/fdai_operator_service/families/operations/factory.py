@@ -45,7 +45,6 @@ MAX_QUERY_VALUE_CHARS: Final = 2048
 MAX_BODY_BYTES: Final = 256 * 1024
 MAX_SSE_FRAME_BYTES: Final = 256 * 1024
 _EVENT_NAME: Final = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
-_CONTRIBUTOR_ROLES: Final = frozenset({OperatorRole.CONTRIBUTOR, OperatorRole.OWNER})
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,7 +100,7 @@ def _build_route(
         try:
             principal = authenticator.require_any(
                 request.headers.get("authorization"),
-                _CONTRIBUTOR_ROLES if entry.kind == "proposal" else entry.roles,
+                entry.roles,
             )
         except AuthenticationError as exc:
             return _error(401, str(exc))
@@ -446,6 +445,11 @@ def _validate_entries(entries: Sequence[OperationRoute]) -> None:
     for entry in entries:
         if not entry.path.startswith("/") or not entry.name or not entry.operation:
             raise ValueError("operations route path, name, and operation MUST be non-empty")
+        # A proposal writes intent on the caller's behalf, so it must never be
+        # reachable at the read floor even if a manifest entry forgets to
+        # narrow its roles.
+        if entry.kind == "proposal" and OperatorRole.READER in entry.roles:
+            raise ValueError(f"proposal route {entry.path} MUST NOT admit the reader role")
 
 
 def _error(status: int, message: str) -> JSONResponse:

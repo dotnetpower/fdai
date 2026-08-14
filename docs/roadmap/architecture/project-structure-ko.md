@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 710c1c929729d4839e66adfeadee8fadd165e915
+translation_source_sha: 5bbf6f2198f0554cadaa17fb27c808ad71c0e5ed
 translation_revised: 2026-08-14
 ---
 # 프로젝트 구조
@@ -63,7 +63,7 @@ fdai/
 │   │   ├── tools/              # T2 툴 카탈로그 레지스트리 + `ToolExecutor` (shadow-mode 게이팅)
 │   │   ├── web_search/         # 최후 수단 웹 검색 seam (`NoOpWebSearchProvider` 기본; 도메인 allowlist + sanitizer)
 │   │   ├── browser_evidence/   # 읽기 전용 origin/DNS policy, redaction, immutable artifact, custody, shadow comparison
-│   │   ├── operator_memory/    # HIL 승인된 오퍼레이터 메모리를 untrusted `<operator_note>` 데이터로 주입. 두 번째 승인 단계는 시간 범위가 제한되고 재실행에 안전 (항목 id를 승인에서 파생하므로 재전달은 중복 대신 거부)
+│   │   ├── operator_memory/    # HIL 승인된 오퍼레이터 메모리를 untrusted `<operator_note>` 데이터로 주입. 두 번째 승인 단계는 시간 범위가 제한되고 재실행에 안전 (항목 id와 기록된 승인자가 같은 정규 형태를 쓰므로 재전달은 중복 대신 거부되고 만료는 종결적)
 │   │   ├── learning/           # 동의 기반 off-path turn eligibility, consensus, dedup ledger, 비활성 proposal routing
 │   │   ├── conversation_assurance/ # deterministic-first 완료 turn 점수, exact failure attribution, hold-first ontology adequacy review, mixed-family 평가, 범위 제한 이의 제기, 구독별 학습, chat-policy 승격 및 롤백, versioned 50-item hard-cap quality scorecard
 │   │   ├── trajectory/         # authorization-first observable trajectory projection, version policy, reviewed aggregate, offline validation
