@@ -58,7 +58,11 @@ from ..core.risk_gate import (
 from ..core.tiers.t1_lightweight import CurrentReuseVerifier, EmbeddingModel
 from ..core.tiers.t2_reasoning import T2Proposer
 from ..core.trajectory import TrajectoryJoinService
-from ..core.working_context import ContextSelectionPolicyAuthority
+from ..core.working_context import (
+    ContextSelectionEvaluationStore,
+    ContextSelectionPolicyAuthority,
+    ContextSelectionShadowRunner,
+)
 from ..shared.config.models import AppConfig
 from ..shared.contracts.models import (
     OntologyFunctionType,
@@ -235,6 +239,8 @@ class Container:
     manual_classifier: ManualClassifier = field(default_factory=AbstainingManualClassifier)
     capability_runtime: CapabilityRuntime = field(default_factory=CapabilityRuntime)
     context_selection_policy_authority: ContextSelectionPolicyAuthority | None = None
+    context_selection_evaluation_store: ContextSelectionEvaluationStore | None = None
+    context_selection_shadow_runner: ContextSelectionShadowRunner | None = None
     trajectory_dataset_store: TrajectoryDatasetStore | None = None
     trajectory_join_service: TrajectoryJoinService | None = None
     mscp_expected_effect_provider: ExpectedEffectProvider | None = None
@@ -323,6 +329,13 @@ class Container:
                 self,
                 "context_selection_policy_authority",
                 ContextSelectionPolicyAuthority(capability_runtime=self.capability_runtime),
+            )
+        if (self.context_selection_shadow_runner is None) != (
+            self.context_selection_evaluation_store is None
+        ):
+            raise ValueError(
+                "Container context-selection shadow runner and evaluation store "
+                "MUST be bound together"
             )
 
     def require_llm_bindings(self) -> LlmBindings:

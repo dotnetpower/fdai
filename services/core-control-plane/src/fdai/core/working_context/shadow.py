@@ -53,6 +53,12 @@ class ContextSelectionShadowRunner:
         self._config = config or ContextShadowConfig()
         self._pending: set[asyncio.Task[tuple[ContextSelectionEvaluation, ...]]] = set()
 
+    @property
+    def config(self) -> ContextShadowConfig:
+        """Return the immutable fan-out, timeout, and pending-run bounds."""
+
+        return self._config
+
     def schedule(
         self,
         *,

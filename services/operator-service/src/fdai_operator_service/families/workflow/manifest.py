@@ -121,6 +121,14 @@ WORKFLOW_FAMILY_ROUTE_MANIFEST: tuple[WorkflowRouteSpec, ...] = (
     ),
     WorkflowRouteSpec(
         "GET",
+        "/context-selection-comparisons",
+        "handler",
+        WorkflowOperation.CONTEXT_SELECTION_COMPARISON_LIST,
+        "read",
+        pagination=PaginationSpec(100, 500, supports_offset=False),
+    ),
+    WorkflowRouteSpec(
+        "GET",
         "/workflows/action-types",
         "handler",
         WorkflowOperation.WORKFLOW_ACTION_TYPE_LIST,

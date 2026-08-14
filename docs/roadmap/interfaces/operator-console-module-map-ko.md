@@ -1,8 +1,8 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 2e1bf71d13ed1008c4c5b7eb29ac236028ec909e
-translation_revised: 2026-08-13
+translation_source_sha: 7ff4bd35d7dc48c59c74648c5e1adbcce632010d
+translation_revised: 2026-08-14
 ---
 # Operator Console 모듈 지도 and Boundaries
 
@@ -498,6 +498,12 @@ known HTTP 실패는 범위가 제한된 상태와 사유를 유지하며, 생�
 이 이동 동안 PostgreSQL과 Alembic은 shared 이행 권한으로 유지됩니다. 모듈 또는 경로 이행은
 두 번째 스키마 소유자를 만들지 않습니다. Service-owned 스키마 및 이행 레인에는 별도 검토된 경계가
 필요합니다.
+
+Workflow route family는 Reader 역할로 제한된 `GET /context-selection-comparisons` 패널도
+소유합니다. 기존 tracked-state 접두사에서 범위가 제한된 context-selection shadow 비교를 읽고,
+표시용 필드만 투영하며, 항상 `read_only`와 `mutation_controls: false`를 선언합니다. 빈 결과는
+권위 있는 답이고, 손상된 영속 기록은 실패 시 차단됩니다. 소유 설계:
+[컨텍스트 선택 정책](../decisioning/context-selection-policy-ko.md).
 
 ## Core 및 전달 지도
 

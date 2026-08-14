@@ -13,6 +13,9 @@ from typing import cast
 from fdai_service_contracts import RuleSearchProjection, rule_search_query_digest
 from starlette.exceptions import HTTPException
 
+from fdai_operator_service.context_selection_projection import (
+    project_context_selection_comparisons,
+)
 from fdai_operator_service.families.conversation.contracts import (
     ConversationProposal,
     ConversationQuery,
@@ -164,6 +167,8 @@ class PostgresWorkflowAdapters:
     async def read(self, request: WorkflowReadRequest) -> WorkflowReadResult:
         """Read a revisioned authoritative workflow projection."""
         try:
+            if request.operation is WorkflowOperation.CONTEXT_SELECTION_COMPARISON_LIST:
+                return await self._read_context_selection_comparisons(request)
             if request.operation is WorkflowOperation.RULE_SEARCH:
                 query_digest = rule_search_query_digest(request.body)
                 stored = await self.store.read_rule_search_projection(
@@ -210,6 +215,22 @@ class PostgresWorkflowAdapters:
             payload=cast(JsonObject, payload),
             provenance=ProjectionProvenance(
                 source_ref=f"state_kv:{projection_key}",
+                revision=revision,
+            ),
+        )
+
+    async def _read_context_selection_comparisons(
+        self,
+        request: WorkflowReadRequest,
+    ) -> WorkflowReadResult:
+        """Project bounded durable shadow comparisons as a read-only panel."""
+        records, revision = await self.store.read_context_selection_comparisons(
+            limit=request.limit or 100,
+        )
+        return WorkflowReadResult(
+            payload=project_context_selection_comparisons(records),
+            provenance=ProjectionProvenance(
+                source_ref="state_kv:context-selection:evaluation",
                 revision=revision,
             ),
         )

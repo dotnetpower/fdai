@@ -55,4 +55,46 @@ describe("context selection comparison decoder", () => {
     expect(() => decodeContextSelectionComparisons(payload({ evidence_overlap: 1.1 }))).toThrow(/between 0 and 1/);
     expect(() => decodeContextSelectionComparisons(payload({ candidate_tokens: -1 }))).toThrow(/non-negative integer/);
   });
+
+  // Mirrors the authoritative Operator Service GET /context-selection-comparisons payload,
+  // including a failed candidate whose candidate-side fields are null.
+  it("accepts the authoritative Operator API projection", () => {
+    const result = decodeContextSelectionComparisons({
+      read_only: true,
+      mutation_controls: false,
+      count: 2,
+      invariant_failures: 1,
+      comparisons: [
+        comparison,
+        {
+          evaluation_id: "eval-2",
+          baseline_policy_ref: "deterministic-tiered-v1@1.0.0",
+          candidate_policy_ref: "candidate-v1@1.0.0",
+          baseline_tokens: 10,
+          candidate_tokens: null,
+          evidence_overlap: null,
+          omissions: [],
+          pinned_preserved: false,
+          latency_ms: 250,
+          failure_reason: "timeout>0.250s",
+          created_at: "2026-08-14T00:00:00+00:00",
+        },
+      ],
+    });
+    expect(result.count).toBe(2);
+    expect(result.invariant_failures).toBe(1);
+    expect(result.comparisons[1]?.failure_reason).toBe("timeout>0.250s");
+    expect(result.comparisons[1]?.evidence_overlap).toBeNull();
+  });
+
+  it("accepts the authoritative empty projection", () => {
+    const result = decodeContextSelectionComparisons({
+      read_only: true,
+      mutation_controls: false,
+      count: 0,
+      invariant_failures: 0,
+      comparisons: [],
+    });
+    expect(result.comparisons).toEqual([]);
+  });
 });

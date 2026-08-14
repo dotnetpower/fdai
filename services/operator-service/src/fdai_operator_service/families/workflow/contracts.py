@@ -31,6 +31,7 @@ class WorkflowOperation(StrEnum):
     MCSB_LIST = "mcsb.list"
     MCSB_DETAIL = "mcsb.detail"
     PROMOTION_GATE_LIST = "promotion-gate.list"
+    CONTEXT_SELECTION_COMPARISON_LIST = "context-selection.comparison-list"
     WORKFLOW_ACTION_TYPE_LIST = "workflow.action-type-list"
     WORKFLOW_VALIDATE = "workflow.validate"
     WORKFLOW_CATALOG = "workflow.catalog"
