@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 044ae134235ef0cd95e384568acdc73450357113
+translation_source_sha: 4ab0f5a2730523f7465f061223658fdb15a87443
 translation_revised: 2026-08-14
 ---
 
@@ -35,7 +35,7 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 | 타입이 지정된 pub/sub 소유권 및 동시 실행 런타임 | implemented | [`topics.py`](../../../services/core-control-plane/src/fdai/agents/_framework/topics.py), [`runtime.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime.py), [`runtime_subscriptions.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime_subscriptions.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py), [`test_pantheon_concurrency_proof.py`](../../../services/core-control-plane/tests/agents/test_pantheon_concurrency_proof.py) | 집중 검사는 토픽 소유권, 파티셔닝, 15개 소비자 신원 및 작업을 가로채지 않는 팬아웃을 다룹니다. |
 | Mimir Rule 세대 책임 | implemented | [`mimir.py`](../../../services/core-control-plane/src/fdai/agents/mimir.py), [`runtime.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime.py), [`runtime_subscriptions.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime_subscriptions.py), [`test_wave2_governance.py`](../../../services/core-control-plane/tests/agents/test_wave2_governance.py), [`test_runtime.py`](../../../services/core-control-plane/tests/agents/test_runtime.py) | Mimir만 활성화 명령과 최종 결과를 수신합니다. Exact 활성화를 주입된 binder에 위임하고 인덱스, 정책, 승인, 변경 또는 실행 권한 없이 변환 전용 증적을 저장합니다. |
 | Rule 세대 빌드, 검증 및 활성화 체인 | implemented | `mimir.py`; `heimdall.py`; `runtime.py`; `runtime/rule_generation_documents.py`; 집중 worker, 런타임, 활성화 및 bootstrap 검사 | 운영 시작 시 엄격하게 검증한 승격 표면 문서를 고정하고 replay가 동일한 reconciliation 요청을 영속화한 뒤 Mimir와 Heimdall을 통해 전달합니다. Mimir는 정책 또는 실행 권한을 얻지 않고 활성화 명령을 발행하기 전에 정확한 독립 증적을 연결합니다. 통제된 실제 근거는 남아 있습니다. |
-| 판단, 승인, 실행, 감사 및 복구 분리 | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py) | 합성 검사는 분리된 권한, 영속 `ActionRun` 동작 및 exact optional kinetic-proposal 보존을 실행하지만 실제 운영 결과를 증명하지는 않습니다. |
+| 판단, 승인, 실행, 감사 및 복구 분리 | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_decision_case_e2e.py`](../../../services/core-control-plane/tests/agents/test_decision_case_e2e.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py) | Forseti는 선택적으로 exact proposal을 기존 Verdict에 해석하고 Thor는 독립 검증 후 이를 보존합니다. 합성 테스트는 역할 경계를 입증하지만 실제 운영 결과를 증명하지는 않습니다. |
 | 대화 및 인계 메커니즘 | implemented | [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py), [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | 범위가 제한된 읽기 전용 대화 경로와 shadow 작업 흐름 추적을 집중 검사에서 실행할 수 있습니다. |
 | KPI 근거 상태, 승격 검사 및 성능 저하 훈련 | implemented | [`test_wave8_kpi_degradation.py`](../../../services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py) | KPI 근거가 없거나 측정되지 않으면 승격을 차단하고, 주입된 장애로 선언된 성능 저하 동작을 실행합니다. |
 | 실제 운영 KPI 검증 및 enforce 승격 | not-started | [목표와 메트릭](../architecture/goals-and-metrics-ko.md) | 보존된 실제 shadow 코호트, 운영 KPI 증적 집합, 독립적인 승격 검토 또는 실제 판테온 enforce 승격 근거가 아직 없습니다. |
@@ -49,16 +49,16 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 | 2026-08-13 | in-progress | 활성화 전 빌드 체인을 Mimir에 할당하고 독립 세대 검증을 Heimdall에 할당했으며 두 agent 모두에 활성화 또는 실행 권한을 부여하지 않았습니다. | `current change`; 집중 소유권, handler, 동등성 및 런타임 연결 검사 221개와 exact chain 및 위조/미연결 검사가 통과했습니다. | 운영 카탈로그 reconciliation trigger와 Mimir 소유의 활성화 명령 발행을 추가합니다. |
 | 2026-08-13 | implemented | 권한 있는 임베딩 식별자, 엄격한 시작 문서 스냅샷, replay가 동일한 reconciliation 요청, 정확한 준비 상태 증적 연결 및 Heimdall 검증 뒤의 Mimir 소유 활성화 명령 발행으로 운영 Rule 세대 체인을 완료했습니다. | `current change`; `rule_generation_documents.py`, `mimir.py`, `activation.py`, 의미 인덱스 어댑터 및 집중 worker, 런타임, 활성화, bootstrap 검사 | 운영 검증을 주장하기 전에 통제된 실제 빌드, 검증, 활성화 및 변환 결과 증적을 보존합니다. |
 | 2026-08-14 | implemented | Topic 또는 action authority를 바꾸지 않고 Thor가 optional argument-bound kinetic proposal을 검증하고 durable하게 보존하도록 했습니다. | `current change`, focused contract, Thor, durable replay, layout 및 role 검사 | End-to-end kinetic handoff를 주장하기 전에 Forseti producer와 Core pre-dispatch consumer를 연결합니다. |
+| 2026-08-14 | implemented | Forseti에 선택적 exact proposal source를 주입하고 조정이 해결된 Verdict와 사람 검토 Verdict에 일치하는 proposal을 보존했습니다. Proposal이 없으면 legacy 동작을 유지하고 잘못된 source record는 권한을 deny로 낮춥니다. | `current change`, `forseti.py`, `factory.py`, `runtime.py` 및 집중 producer, Forseti, Thor, factory, framework 검사 | 런타임 검증을 주장하기 전에 운영 조립에서 source를 연결하고 pre-dispatch 증적 및 독립 관측 경로를 완료합니다. |
 
 ### 남은 작업
-
 - [ ] 하나의 고정된 리비전에서 에이전트별 및 시스템 KPI, 표본 수, 신뢰 구간, 보호 메트릭과 권위 있는 결과 증적을 측정한 실제 shadow 코호트를 보존합니다.
 - [ ] 에이전트 권한을 넓히지 않고 주입된 장애만이 아닌 운영 의존성에 대해 선언된 성능 저하 동작을 입증합니다.
-- [ ] 기존 Verdict 및 ActionRun topic을 통해 argument-bound kinetic proposal producer와 pre-dispatch consumer를 연결한 뒤 governed live evidence를 보존합니다.
+- [x] AgentSpec, 소유권, 구독 또는 발행을 바꾸지 않고 기존 Verdict 경로에 argument-bound kinetic proposal producer와 선택적 Forseti source를 연결합니다.
+- [ ] 운영 조립에서 source를 연결하고 기존 Verdict 및 ActionRun topic을 통해 Core pre-dispatch 증적 consumer와 독립 observer를 완료한 뒤 통제된 실제 운영 근거를 보존합니다.
 - [x] 운영 trigger, 정확한 Heimdall 증적 연결 및 Mimir 소유 활성화 발행으로 Rule 세대
   체인을 완료했으며, 집중 검사는 권한 추가 없이 `activated` 결과에 도달합니다.
 - [ ] 적격 기능마다 독립적인 승격 검토를 완료하고, enforce 운영을 보고하기 전에 권위 있는 승격 증적을 보존합니다.
-
 ## 1. 설계 원칙
 
 판테온은 기존 FDAI 컨트롤 루프를 명명된 조직 역할로 얇게 재구성한 것이다.
@@ -127,8 +127,7 @@ graph TD
 전달합니다. Action verdict는 Thor가 Vidar, Var 또는 실행으로 전달하며 Thor는 document-ingestion
 verdict를 무시합니다. Var와 Saga는 document HIL의 stable idempotency를 보존하고 Saga는 gated 및
 terminal audit을 영속화합니다. Workflow request는 Huginn, Forseti, Thor를 통해 bounded
-`workflow_action` lineage를 보존합니다. Optional argument-bound kinetic proposal도 strict validation
-뒤 같은 Verdict-to-ActionRun path를 따릅니다. 둘 다 attribution 및 evidence 전용이며 quorum, mode,
+`workflow_action` lineage를 보존합니다. Delivery 소유 producer는 하나의 완전한 operational plan에 대한 optional argument-bound kinetic proposal을 저장하고 Forseti는 주입된 source로 이를 해석해 strict validation 뒤 같은 Verdict-to-ActionRun path에 보존합니다. 둘 다 attribution 및 evidence 전용이며 quorum, mode,
 judgment, approval 또는 execution authority를 바꾸지 않습니다.
 Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다.
 

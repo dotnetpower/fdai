@@ -86,7 +86,6 @@ from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.state_store import StateStore
 
 _LOG = logging.getLogger(__name__)
-
 _INGRESS_PRINCIPAL = "Huginn"
 _DEFAULT_GROUP_PREFIX = "fdai-pantheon"
 _OBSERVER_PRINCIPAL = "runtime-observer"
@@ -152,6 +151,7 @@ class PantheonRuntime:
         case_history_analyzer: CaseHistoryAnalyzer | None = None,
         operational_context_materializer: OperationalContextMaterializer | None = None,
         operational_planner: factory.PlanningCoordinator | None = None,
+        kinetic_proposal_source: factory.KineticProposalSource | None = None,
         change_assessor: ChangeAssessmentService | None = None,
         catalog_review: CatalogReviewBindings | None = None,
         case_history_retention: CaseHistoryRetentionService | None = None,
@@ -284,6 +284,7 @@ class PantheonRuntime:
             action_semantics=action_semantics,
             operational_context=operational_context_materializer,
             operational_planner=operational_planner,
+            kinetic_proposal_source=kinetic_proposal_source,
             change_assessor=change_assessor,
         )
         if forseti is not None:

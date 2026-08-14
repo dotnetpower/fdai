@@ -96,26 +96,8 @@ def build_operational_plan(request: PlanningRequest) -> OperationalPlan:
                 (),
             )
     ordered_assessments = tuple(assessments[candidate_id] for candidate_id in sorted(assessments))
-    material = {
-        "process_id": request.process_id,
-        "target_resource_id": request.context.target_resource_id,
-        "case_id": decision_case.case_id,
-        "logic_release_digest": request.logic_release_digest,
-        "selection": selection.selected_option_id,
-        "assessments": [
-            {
-                "candidate_id": item.candidate_id,
-                "disposition": item.disposition.value,
-                "reasons": list(item.reasons),
-            }
-            for item in ordered_assessments
-        ],
-    }
-    digest = hashlib.sha256(
-        json.dumps(material, sort_keys=True, separators=(",", ":")).encode()
-    ).hexdigest()
-    return OperationalPlan(
-        plan_id=f"operational-plan:{digest}",
+    plan = OperationalPlan(
+        plan_id="operational-plan:" + "0" * 64,
         process_id=request.process_id,
         target_resource_id=request.context.target_resource_id,
         logic_release_digest=request.logic_release_digest,
@@ -125,6 +107,36 @@ def build_operational_plan(request: PlanningRequest) -> OperationalPlan:
         complete=complete,
         reason=reason,
     )
+    return replace(plan, plan_id=_operational_plan_id(plan))
+
+
+def validate_operational_plan_identity(plan: OperationalPlan) -> None:
+    """Reject an OperationalPlan whose content-addressed identity was substituted."""
+
+    if plan.plan_id != _operational_plan_id(plan):
+        raise ValueError("operational plan identity does not match its content")
+
+
+def _operational_plan_id(plan: OperationalPlan) -> str:
+    material = {
+        "process_id": plan.process_id,
+        "target_resource_id": plan.target_resource_id,
+        "case_id": plan.decision_case.case_id,
+        "logic_release_digest": plan.logic_release_digest,
+        "selection": plan.selection.selected_option_id,
+        "assessments": [
+            {
+                "candidate_id": item.candidate_id,
+                "disposition": item.disposition.value,
+                "reasons": list(item.reasons),
+            }
+            for item in plan.assessments
+        ],
+    }
+    digest = hashlib.sha256(
+        json.dumps(material, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    return f"operational-plan:{digest}"
 
 
 def _ineligibility_reasons(candidate: PlanCandidate, *, context_id: str) -> tuple[str, ...]:
@@ -195,4 +207,4 @@ def _action_option(candidate: PlanCandidate) -> ActionOption:
     )
 
 
-__all__ = ["build_operational_plan"]
+__all__ = ["build_operational_plan", "validate_operational_plan_identity"]

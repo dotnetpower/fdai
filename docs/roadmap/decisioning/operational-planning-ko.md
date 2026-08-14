@@ -1,6 +1,6 @@
 ---
 translation_of: operational-planning.md
-translation_source_sha: a3c8fbc353a8261378ab6f71c4df953a5e008378
+translation_source_sha: b26db96a5ed2da83bce9bbc84d46980d9f644544
 translation_revised: 2026-08-14
 ---
 # 운영 계획
@@ -44,8 +44,8 @@ DecisionCase, ActionOption, 타입이 지정된 온톨로지 함수, Assurance T
 |------|------|------|------|
 | P1-P7 operational-planning core | implemented | `services/core-control-plane/src/fdai/core/operational_planning/` 및 focused planning test | 계획은 A0로 유지되고 기존 Process 및 권한 경로를 재사용합니다. |
 | Production graph evidence 및 scale-out executor binding | implemented | `services/core-control-plane/src/fdai/delivery/azure/` 및 focused composition/delivery test | Code와 test만으로는 live outcome evidence가 되지 않습니다. |
-| Argument-bound kinetic proposal contract 및 Thor lineage | implemented | `services/core-control-plane/src/fdai/core/operational_planning/kinetic_proposal.py`, `services/core-control-plane/src/fdai/agents/thor.py` 및 focused contract/agent test | Optional A0 proposal은 verdict, quorum, mode 또는 authority를 바꾸지 않고 기존 exact V2 plan을 보존합니다. |
-| Exact kinetic handoff 및 independent effect-observation runtime binding | in-progress | `services/core-control-plane/src/fdai/delivery/reconciliation_artifacts.py`, `config/ohl-scale-out-evidence.json` 및 focused artifact/manifest test | Immutable store는 존재하지만 pre-dispatch writer와 Heimdall 소유 verified observer는 아직 연결되지 않았습니다. |
+| 인자 연결 kinetic proposal 생성 및 Verdict 계보 | implemented | `services/core-control-plane/src/fdai/core/operational_planning/kinetic_proposal.py`, `services/core-control-plane/src/fdai/delivery/kinetic_proposal.py`, `services/core-control-plane/src/fdai/agents/forseti.py`, `services/core-control-plane/src/fdai/agents/thor.py` 및 집중 producer/agent 테스트 | Delivery 소유 producer는 완전한 plan과 기존 exact V2 plan만 허용합니다. Forseti는 선택적 source를 통해 proposal을 해석하고 quorum, mode, 승인 또는 실행 권한을 바꾸지 않은 채 기존 Verdict에 보존합니다. |
+| Exact kinetic handoff 및 독립 효과 관측 런타임 연결 | in-progress | `services/core-control-plane/src/fdai/delivery/reconciliation_artifacts.py`, `config/ohl-scale-out-evidence.json` 및 집중 artifact/manifest 테스트 | Producer와 agent source 경계는 구현되었습니다. 운영 source 조립, pre-dispatch 증적 writer 및 Heimdall 소유 verified observer는 아직 연결되지 않았습니다. |
 | Independent-service HIL binding | in-progress | `config/ohl-scale-out-evidence.json` 및 배포된 Core/Operator environment contract | Approval이 action을 park하고 resolve하기 전에 service root가 HIL channel 및 callback signing secret을 bind해야 합니다. |
 | OHL Lane F live evidence | in-progress | `docs/runbooks/ohl-scale-out-evidence-ko.md` | Protected execution, independent closure, sample 100개 및 14일 recurrence window가 열려 있습니다. |
 
@@ -56,12 +56,14 @@ DecisionCase, ActionOption, 타입이 지정된 온톨로지 함수, Assurance T
 | 2026-08-13 | in-progress | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 independent-service HIL binding residual을 드러냈습니다. | current change, `services/core-control-plane/tests/scenarios/operational-planning/test_manifest.py` 결과 7 passed | 두 service root에 HIL을 bind하고 exact revision을 배포한 뒤 live evidence campaign을 완료합니다. |
 | 2026-08-14 | in-progress | 누락된 exact-plan writer와 verified independent effect observer를 별도 Lane F runtime residual로 드러냈습니다. | `current change`, Lane F contract, runbook gate, artifact-store test 및 manifest test | Plan을 reconstruct하거나 executor/provider receipt로 대체하지 않고 두 source를 모두 연결합니다. |
 | 2026-08-14 | implemented | Authority-free argument-bound kinetic proposal contract를 추가하고 valid proposal을 Thor의 durable ActionRun까지 보존했습니다. | `current change`, focused kinetic-proposal, Thor dispatch, persistence 및 role-invariant 검사 | Runtime residual을 제거하기 전에 Forseti 소유 producer와 Core pre-dispatch consumer를 추가합니다. |
+| 2026-08-14 | implemented | Delivery 소유 exact proposal 생성과 선택적 Forseti source 해석을 조정이 해결된 Verdict와 사람 검토 Verdict 양쪽에 추가했습니다. Proposal이 없으면 기존 Verdict를 유지하고 source failure, corruption 또는 lineage substitution이 있으면 Verdict를 deny로 낮춥니다. | `current change`, `kinetic_proposal.py`, `forseti.py`, `test_kinetic_proposal.py`, `test_decision_case_e2e.py` 및 집중 producer, Forseti, Thor, factory, framework 검사 | 운영 조립에서 source를 연결하고 pre-dispatch kinetic safety receipt를 저장한 뒤 통제된 실제 운영 근거를 보존합니다. |
 
 ### 남은 작업
 
-- [ ] Complete operational plan에서만 `KineticActionProposal`을 생성하고 dispatch 전에 Core typed
-  ingress에서 소비하며 proposal이 없을 때 legacy Action이 변경되지 않음을 입증합니다.
-- [ ] Provider dispatch 전에 기존 exact V2 plan의 kinetic receipt를 저장하고 Heimdall 소유 verified
+- [x] 완전한 operational plan에서만 `KineticActionProposal`을 생성하고 기존 typed Verdict 경로의
+  Forseti 선택적 source를 통해 해석하며 proposal이 없을 때 legacy Action이 변경되지 않음을 입증합니다.
+- [ ] 운영 조립에서 proposal source를 연결하고 provider dispatch 전에 기존 exact V2 plan의
+  kinetic receipt를 저장하며 Heimdall 소유 verified
   independent effect observer를 연결한 뒤 focused substitution 및 replay test를 보존합니다.
 - [ ] Core HIL channel 및 Operator callback signing secret을 bind하고 검증해 서로 다른 human
   approver가 하나의 `ops.scale-out` proposal을 park, resolve 및 resume하도록 합니다.
@@ -244,12 +246,14 @@ authority를 포함하지 않습니다.
 plan은 `operational_plan_ref`를 통해 별도로 참조합니다. 이 identity를 혼합하면 안 됩니다. Planner
 provenance와 decision lineage는 서로 다른 replay 검사입니다.
 
-Forseti는 이 optional proposal을 기존 `object.verdict` 안에서만 전달할 수 있습니다. Thor는 correlation,
-selected ActionType, target, argument 및 DecisionCase lineage가 exact한지 검증한 뒤 durable `ActionRun`에
-보존합니다. Malformed 또는 substituted proposal은 실행 전에 verdict를 deny로 바꿉니다. Proposal이
-없으면 legacy path는 변경되지 않으며 V2 plan을 만들지 않습니다. 후속 delivery 소유 producer와 Core
-consumer가 event bus를 통해 runtime gap을 닫아야 하며 contract 존재만으로는 production binding
-evidence가 되지 않습니다.
+Forseti는 이 optional proposal을 기존 `object.verdict` 안에서만 전달할 수 있습니다. Delivery 소유
+StateStore producer와 선택적 Forseti source가 구현되었습니다. Producer는 plan을 compile하거나
+upgrade하지 않으며 proposal이 없으면 기존 Verdict를 유지합니다. Thor는 correlation, selected
+ActionType, target, argument 및 DecisionCase lineage가 exact한지 검증한 뒤 durable `ActionRun`에
+보존합니다. Malformed 또는 substituted proposal은 실행 전에 Verdict를 deny로 낮춥니다. Proposal이
+없으면 legacy path는 변경되지 않으며 V2 plan을 만들지 않습니다. 운영 source 조립, Core pre-dispatch
+kinetic receipt writer, 독립 observer 및 통제된 실제 운영 근거는 아직 남아 있습니다. 집중 테스트만으로
+운영 연결을 입증할 수는 없습니다.
 
 Risk evaluation은 현재 정책, 승격 상태, 역할, 환경, 영향, 승인, 대상 개정 번호,
 일곱 safeguard를 다시 검사합니다. 계획 수립 근거는 결과 권한을 유지하거나 낮출 수만

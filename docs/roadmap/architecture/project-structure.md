@@ -71,7 +71,7 @@ fdai/
 │   │   ├── operational_context/ # atomic owned-subgraph replacement, time-consistent snapshots, and cutoff-bound graph+document evidence bundles with typed paths, provenance, source-freshness receipts, and fail-closed truncation
 │   │   ├── decision_case/      # protected-objective options, deterministic selection, and response closure
 │   │   ├── change_lineage/     # immutable replay-stable Change -> assessment -> decision -> action -> outcome join; no execution or promotion authority
-│   │   ├── operational_planning/ # hard-constraint eligibility, Pareto pruning, Process planning phases, and replay-stable plan identity; no execution authority
+│   │   ├── operational_planning/ # hard-constraint eligibility, Pareto pruning, Process planning phases, replay-stable plan identity, and exact kinetic proposal contracts; no execution authority
 │   │   ├── operational_learning/ # sealed-case classification, fingerprint/action cohort gates, immutable citations, and inert candidate mappings
 │   │   ├── rule_semantic_generation/ # agent-facing build/validation handler Protocols plus exact activation, durable closure, and publication; no execution authority
 │   │   ├── quality_gate/       # mixed-model cross-check, verifier, grounding; failed fan-out cancels and drains siblings (guards T2)
@@ -154,7 +154,7 @@ fdai/
 │   │   ├── sources/            # per-source collectors (WAF, CIS, OPA, IaC scanners, ...)
 │   │   ├── pipeline/           # watch -> collect -> shadow/regression; distill adds the DocumentEnvelope provenance bridge, cross-format equivalence, and review-only ontology gates
 │   │   └── codegen/            # authoring helpers (`new_action_type`, `new_object_type`) - generate scaffolds, never mutate the live catalog
-│   ├── agents/                # pantheon runtime - 15 named agents, typed topics, v2 conversation charters, and bounded T1/T2 deliberation; see [agent-pantheon.md](../agents/agent-pantheon.md)
+│   ├── agents/                # pantheon runtime - 15 named agents, typed topics, optional exact-proposal Verdict binding, v2 conversation charters, and bounded T1/T2 deliberation; see [agent-pantheon.md](../agents/agent-pantheon.md)
 │   ├── evaluation/            # public EvaluationHost implementation, capability attenuation, workspace policy, artifact custody, typed ingress, and pre-judgment diagnostic ontology observation
 │   ├── benchmarking/          # temporary 0.1.x compatibility facade for legacy benchmark contracts and runners
 │   ├── composition/           # composition root package (G-3, tracker #14): `__init__.py` facade + `_helpers.py` Container/LlmBindings (including optional conversation T2 synthesis) + focused `wire_*` binders, including exact-release semantic query assembly with request-role executors
