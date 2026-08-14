@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: e5f21d5117ecd9be6d022e2b581f8c367f00133d
+translation_source_sha: 7a9eed018d28039990b2296261d4f21e0b346a34
 translation_revised: 2026-08-14
 ---
 
@@ -331,10 +331,9 @@ API 계약은 단일 GET 경로입니다:
 
 리포트 카탈로그는 `incident-rca-dossier`를 포함합니다. 필수
 `correlation_id` 변수가 가설, 인용, causal 홉, 대응, 시간 순서 위젯을 단일
-인시던트로 한정합니다. PDF 전달은 대상 선택적 format으로 남아 있습니다. 현재 upstream에는
-`pdf-report` encoder나 인증된 PDF 다운로드 컨트롤이 구현되지 않았습니다. 향후 renderer는 서버가
-소유한 보고 묶음만 배치하고 기록되지 않은 섹션을 사용 불가로 유지하며 새 RCA를 수행하지 않아야
-합니다.
+인시던트로 한정합니다. 선택적 PDF delivery는 독립 Operator Service가 소유하고 redacted된 서버 소유
+report 묶음만 배치하며 기록되지 않은 섹션을 사용 불가로 유지하고 새 RCA를 수행하지 않습니다.
+`pdf-report` extra가 없으면 이 format은 제공되지 않습니다.
 
 RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 여전히 리스크
 게이트 + 검증기에 있습니다. 경로는 읽기 담당 게이트가 적용되고, 변경 동사에는
@@ -353,7 +352,7 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 | 운영자가 읽을 수 있는 identity 및 단계별 조사 | implemented | `incident_projection.py`; `projection_logic.py`; `postgres.py`; `incidents.tsx`; `incidents.detail-sections.tsx`; `incidents.milestones.ts`; focused Operator 테스트(`31 passed`), Console 테스트(`66 passed`), typecheck, strict mypy, Ruff, Pylance 및 catalog parity | 제목 출처, 신뢰된 원본 context, 계획 미리 보기, 범위가 제한된 근거 milestone, 독립적으로 검증된 결과 cohort를 실행 권한 없이 구현했습니다. |
 | RCA 계약, 변환 결과 및 읽기 전용 경로 | implemented | `services/core-control-plane/src/fdai/core/rca/`; `services/core-control-plane/tests/core/rca/`; `services/operator-service/src/fdai_operator_service/rca_projection.py`; `services/operator-service/tests/test_operator_service_composition.py`; `console/src/routes/rca.test.ts` | 경로는 알 수 없는 상관관계를 구분하고 기록된 가설과 대응 근거를 변환하며 액션 권한을 노출하지 않습니다. |
 | RCA 보고 카탈로그 및 데이터 원본 | implemented | `rule-catalog/reports/incident-rca-dossier.yaml`; `services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py`; reporting 테스트 | 선언형 dossier와 범위가 제한된 감사 변환 결과가 있습니다. |
-| RCA PDF format 및 다운로드 컨트롤 | not-started | [RCA 보기](#1351-rca-보기근본-원인-분석) | Upstream PDF encoder, 선택적 delivery 모듈 또는 인증된 다운로드 컨트롤이 없습니다. |
+| RCA PDF format 및 다운로드 컨트롤 | implemented | `fdai_operator_service/reporting/pdf_format.py`; Operator report 경로; Console Reports 컨트롤; focused PDF 및 경로 테스트 | Opt-in 어댑터는 기존 redacted report 묶음만 렌더링하고 package extra가 없으면 제공되지 않습니다. |
 | 관리되는 인증된 런타임 근거 | in-progress | Console incident 및 RCA 보기; Operator 읽기 경로 | Focused 검사는 구현을 입증하지만 이 owner 문서는 현재 관리되는 Browser Entra roster-to-RCA 증적을 보존하지 않습니다. |
 
 ### 구현 이력
@@ -363,6 +362,7 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 | 2026-08-14 | in-progress | 구현 ledger를 도입하고 RCA PDF 주장을 대상 상태로 수정했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 incident, RCA, reporting, Operator 및 Console 근거입니다. | 선택적 PDF delivery를 구현하고 관리되는 roster-to-RCA 런타임 근거를 보존해야 합니다. |
 | 2026-08-14 | in-progress | 현재 Microsoft Learn Azure SRE Agent 지침과 비교하여 풍부한 Incident identity, 단계별 조사, 대응 계획 미리 보기, 근거 기반 결과 분석 방식만 수락했습니다. | `current change`; [선택적 차용 계약](#azure-sre-agent-선택적-차용) 및 구현 범위 표의 현재 Operator/Console 경로입니다. | FDAI 실행 권한을 넓히지 않고 범위가 제한된 운영자 중심 공백 네 가지를 구현하고 검증해야 합니다. |
 | 2026-08-14 | implemented | FDAI 권한 경계를 유지하면서 서버 소유 제목 출처, 신뢰된 원본 및 고정 계획 context, 범위가 제한된 감사 milestone, 정확한 drill-down이 있는 같은 스냅샷 결과 cohort를 추가했습니다. | `current change`; `incident_projection.py`, `incidents.detail-sections.tsx` 및 작업 소유 Operator, service-contract, Console, catalog, focused 테스트 경로입니다. Operator `31 passed`, Console `66 passed`, typecheck, strict mypy, Ruff, Pylance 및 catalog parity를 통과했으며 비평 15회 후 Low finding만 남았습니다. | 관리되는 런타임 근거를 별도로 보존해야 합니다. |
+| 2026-08-14 | implemented | 다른 분석 또는 실행 경로를 만들지 않고 기존 Incident RCA dossier에 선택적 PDF delivery를 추가했습니다. | `current change`; service-local PDF encoder, package extra, GET-only 경로, Console 컨트롤, 페이지 나누기, escape, source 다이제스트, 사용 불가 섹션, 분석 부재 및 no-network 회귀 검사입니다. | 하나의 exact-revision 인증된 roster-to-RCA-to-report 증적을 보존해야 합니다. |
 
 ### 남은 작업
 
@@ -371,5 +371,5 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 - [x] 정확한 근거 참조, 사용 불가 공백, 평가 receipt, 비활성 학습 후보가 있는 순서가 지정된 조사 milestone을 렌더링하고 transcript 텍스트가 근거를 만들거나 복구를 종결하거나 학습을 승격할 수 없음을 입증합니다.
 - [x] 정확한 출처, 구간, 분모, 종결 상태 규칙, 독립적 결과 검증, Incident drill-down과 함께 에이전트 완화, 지원, 사람 완화, 대기, 완화 시간 cohort를 게시합니다.
 - [ ] Incident, 상관관계, 가설, 인용, 대응 계획, 감사 행 및 사용 불가 동작을 하나의 source 개정에 묶는 인증된 roster-to-RCA 증적 하나를 보존합니다.
-- [ ] 기존 보고 묶음만 렌더링하고 extra를 사용할 수 없을 때 등록되지 않는 선택적 PDF `FormatEncoder`와 GET-only 다운로드 경로를 구현하고 focused 테스트를 추가합니다.
-- [ ] 참조 페이지 수를 문서화하기 전에 PDF 페이지 나누기, escape, source 다이제스트, 사용 불가 섹션 및 새 분석 부재 회귀 검사를 추가합니다.
+- [x] 기존 보고 묶음만 렌더링하고 extra를 사용할 수 없을 때 등록되지 않는 선택적 PDF `FormatEncoder`와 GET-only 다운로드 경로를 구현하고 focused 테스트를 추가합니다.
+- [x] 고정 참조 페이지 수를 문서화하지 않고 PDF 페이지 나누기, escape, source 다이제스트, 사용 불가 섹션, 새 분석 부재 및 no-network 회귀 검사를 추가합니다.

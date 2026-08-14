@@ -187,10 +187,25 @@ def test_service_distribution_has_no_fdai_runtime_dependency() -> None:
     )["project"]
     dependencies = project["dependencies"]
     assert "fdai-service-contracts==0.1.0" in dependencies
+    assert not any(dependency.startswith("weasyprint") for dependency in dependencies)
+    assert project["optional-dependencies"]["pdf-report"] == ["weasyprint>=66,<70"]
     assert not any(
         dependency == "fdai" or dependency.startswith(("fdai[", "fdai==", "fdai>=", "fdai<"))
         for dependency in dependencies
     )
+
+
+def test_pdf_report_extra_registers_only_service_local_encoder() -> None:
+    runtime = ProductionOperatorComposition(
+        verifier_factory=lambda environment: _verify,
+        read_model=EmptyReadModel(),
+    ).build_runtime(BASE_ENV)
+
+    encoder = runtime.route_families.report_pdf_encoder
+
+    assert encoder is not None
+    assert encoder.name == "pdf"
+    assert encoder.content_type == "application/pdf"
 
 
 def test_service_package_imports_no_fdai_core_module() -> None:

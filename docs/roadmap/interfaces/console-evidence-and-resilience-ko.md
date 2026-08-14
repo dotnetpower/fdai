@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 59e6b0fa9d1c8ed21d69d6f266c4ffd5b88901b2
+translation_source_sha: 1c3dfc3a2fd1636a5fcc973fa4100c00a1547be7
 translation_revised: 2026-08-14
 ---
 
@@ -21,6 +21,7 @@ translation_revised: 2026-08-14
 | 에이전트 활동 하트비트 표현 | validated | `console/src/routes/agents.model.ts`, `console/src/routes/agents.model.test.ts`, `docs/baselines/agent-activity-heartbeat-assurance-2026-08-14.json`, focused Vitest 31개 통과 및 인증된 Browser Entra assurance | 두 번 새로고치는 동안 연속된 하트비트 시각 세 개가 증가했고 인증된 self 검사 세 번이 모두 성공했으며 런타임 초기화 행은 0개였습니다. |
 | Command Deck JSON 대비 | 구현됨 | `console/src/styles.css`, `console/src/deck/command-deck-workspace-visual.test.ts`, focused Vitest 10개 통과 및 인증된 브라우저 검사 | 구문 강조 JSON은 전역의 밝은 `pre` 스타일과 관계없이 고정된 어두운 코드 표면을 유지합니다. 브라우저 검사는 통제된 런타임 근거로 보존하지 않았습니다. |
 | 탭 간 SSE 및 인시던트 복원력 | 구현됨 | 탭 간 stream hook, `incidents.milestones.ts`, incident projection, `docs/baselines/console-cross-tab-sse-assurance-2026-08-14.json`, focused Console/Operator test 및 인증된 Browser Entra assurance | 정확히 하나의 leader가 세 탭의 세 채널을 소유했고 failover가 leader client를 바꿨으며 인증된 self 검사 세 번이 모두 성공했습니다. Notification delivery는 명시적으로 주장하지 않습니다. 관리되는 incident-detail 런타임 근거는 아직 남아 있습니다. |
+| 선택적 report PDF 컨트롤 | implemented | `console/src/routes/reports.tsx`; service-local Operator PDF 어댑터; focused Console 및 Operator 테스트 | Catalog와 runtime registry가 모두 `pdf`를 표시할 때만 컨트롤이 나타나고 variable이 없는 report에서도 동작하며 stale 또는 unmounted 다운로드를 browser effect로 만들지 않습니다. |
 
 ### 구현 이력
 
@@ -36,6 +37,7 @@ translation_revised: 2026-08-14
 | 2026-08-14 | 구현됨 | 네 영역 의미 모델을 기본 온톨로지 보기로 만들고 dense graph를 카탈로그 토폴로지로 유지했으며 semantic inspector와 topology canvas 모두에 canonical 방향을 렌더링했습니다. | `current change`, focused ontology Vitest 23개, 카탈로그 동등성 및 Console 타입 검사 통과 | 인증된 데스크톱 및 모바일 Browser 근거를 보존하고 런타임 근거를 표시하기 전에 authoritative 컨텍스트 receipt를 연결해야 합니다. |
 | 2026-08-14 | 구현됨 | 독립적인 비평 라운드 10개를 완료하고 범위가 제한된 구획에서 검증된 모든 Medium 이상 finding을 수정했습니다. Fail-closed 응답 decoding, canonical 영역, profile 기반 action membership, self-loop, 관계 flag, 키보드 제어, 접근 가능한 landmark 및 focus, topology bound, localized node kind를 포함합니다. | `current change`, focused Python 테스트 7개, ontology Vitest 27개, 카탈로그 동등성, Console 타입 검사 및 Core import 경계 통과 | 남은 구현 finding은 Low입니다. Principal 범위 컨텍스트 전송과 인증된 Browser 근거는 가용성을 추론하지 않고 명시적 검증 작업으로 유지합니다. |
 | 2026-08-14 | 구현됨 | 인증된 Browser 검사에서 동작하지 않는 topology 키보드 경로와 390 px intrinsic-width overflow를 찾아 수정했습니다. 이후 의미 모델은 네 영역, 다섯 보기, 하나의 exact release, 명시적 컨텍스트 사용 불가 상태, body overflow 0, node overlap 0 및 잘린 node control 0으로 렌더링됐고 카탈로그 토폴로지 canvas에는 빈 화면이 아닌 pixel이 있었습니다. | 5273 로컬 Browser Entra 및 `current change`, focused 키보드, geometry, decoder, semantic, i18n 및 타입 검사 통과 | Browser 관측은 통제된 아티팩트로 보존하지 않았고 hidden-tab `requestAnimationFrame` 제한 때문에 screenshot 기반 키보드 이동 receipt를 신뢰성 있게 만들지 못했습니다. |
+| 2026-08-14 | implemented | Browser authorization 또는 분석 동작을 추가하지 않고 opt-in Incident RCA PDF 다운로드 컨트롤을 추가했습니다. | `current change`; catalog 및 registry 가용성 확인, stale 다운로드 억제, service-local PDF 경로, focused Console 및 Operator 테스트입니다. | 하나의 exact-revision 인증된 roster-to-RCA-to-report/PDF 아티팩트를 보존해야 합니다. |
 
 ### 잔여 작업
 
@@ -43,6 +45,7 @@ translation_revised: 2026-08-14
 - [x] 에이전트 스트림 열림, 갱신된 하트비트 시각, 페이지를 두 번 새로고친 뒤 `Runtime agent initialized` 활동 행 0개를 보여 주는 통제된 Browser Entra 아티팩트를 보존합니다.
 - [x] 백그라운드 알림과 활성 탭 attention 스트림을 유지하면서 새 Dashboard 접근 검사가 완료되는 통제된 세 탭 Browser Entra 아티팩트를 보존합니다.
 - [ ] Milestone, 원본, 대응 계획 및 같은 스냅샷 결과 표현을 위한 관리되는 incident-detail Browser 근거를 보존합니다.
+- [ ] 사용할 수 없는 RCA 사실을 주장하지 않고 하나의 source revision과 workspace digest를 연결하는 인증된 roster-to-RCA-to-report/PDF 근거를 보존합니다.
 - [ ] 의미 모델과 카탈로그 토폴로지가 일치하는 하나의 온톨로지 릴리스를 표시하고 보안 receipt가 없으면 컨텍스트가 사용 불가로 유지됨을 보여 주는 인증된 Browser 근거를 보존합니다.
 ## 탐색 컨텍스트
 

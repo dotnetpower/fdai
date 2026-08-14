@@ -15,6 +15,11 @@ dependencies = [
 	"azure-identity>=1.23,<2",
 ]
 
+[project.optional-dependencies]
+pdf-report = [
+	"weasyprint>=66,<70",
+]
+
 [project.scripts]
 fdai-operator-service = "fdai_operator_service.main:main"
 

@@ -35,6 +35,28 @@ class ProjectionReader(Protocol):
         ...
 
 
+class ReportPdfEncodingError(RuntimeError):
+    """A materialized report envelope cannot be encoded without guessing."""
+
+
+class ReportPdfEncoder(Protocol):
+    """Encode one materialized report envelope without analysis or provider access."""
+
+    @property
+    def name(self) -> str:
+        """Return the advertised report format name."""
+        ...
+
+    @property
+    def content_type(self) -> str:
+        """Return the exact HTTP content type for the encoded bytes."""
+        ...
+
+    def encode(self, report: Mapping[str, object]) -> bytes:
+        """Return a PDF that contains only values from the supplied envelope."""
+        ...
+
+
 @dataclass(frozen=True, slots=True)
 class EventProposal:
     """A non-authoritative event proposal persisted before broker publication."""
@@ -130,6 +152,8 @@ __all__ = [
     "ProjectionQuery",
     "ProjectionReader",
     "ProjectionUnavailableError",
+    "ReportPdfEncoder",
+    "ReportPdfEncodingError",
     "ProposalConflictError",
     "ProposalReceipt",
     "ReplayBatch",

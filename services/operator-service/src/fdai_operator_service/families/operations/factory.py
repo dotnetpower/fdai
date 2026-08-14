@@ -6,7 +6,7 @@ import json
 import re
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Final
+from typing import Final, cast
 
 from fdai_operator_service.auth import (
     AuthenticationError,
@@ -23,6 +23,8 @@ from fdai_operator_service.families.operations.contracts import (
     ProposalConflictError,
     ReplayEvent,
     ReplayQuery,
+    ReportPdfEncoder,
+    ReportPdfEncodingError,
     WebhookVerifier,
 )
 from fdai_operator_service.families.operations.manifest import (
@@ -63,6 +65,7 @@ def build_operations_routes(
     proposal_writer: EventProposalWriter,
     replay_reader: DurableReplayReader,
     webhook_verifier: WebhookVerifier,
+    report_pdf_encoder: ReportPdfEncoder | None = None,
     panels: Sequence[PanelRoute] = (),
 ) -> tuple[Route, ...]:
     """Build exact legacy routes over injected read, proposal, and replay ports."""
@@ -76,6 +79,7 @@ def build_operations_routes(
             proposal_writer=proposal_writer,
             replay_reader=replay_reader,
             webhook_verifier=webhook_verifier,
+            report_pdf_encoder=report_pdf_encoder,
         )
         for entry in entries
     )
@@ -89,6 +93,7 @@ def _build_route(
     proposal_writer: EventProposalWriter,
     replay_reader: DurableReplayReader,
     webhook_verifier: WebhookVerifier,
+    report_pdf_encoder: ReportPdfEncoder | None,
 ) -> Route:
     async def endpoint(request: Request) -> Response:
         if entry.kind == "webhook":
@@ -112,7 +117,13 @@ def _build_route(
             )
         if entry.kind == "stream":
             return await _stream(request, entry, principal, replay_reader)
-        return await _projection(request, entry, principal, projection_reader)
+        return await _projection(
+            request,
+            entry,
+            principal,
+            projection_reader,
+            report_pdf_encoder,
+        )
 
     endpoint.__name__ = entry.name
     return Route(entry.path, endpoint, methods=[entry.method], name=entry.name)
@@ -123,9 +134,17 @@ async def _projection(
     entry: OperationRoute,
     principal: OperatorPrincipal,
     reader: ProjectionReader,
+    report_pdf_encoder: ReportPdfEncoder | None,
 ) -> Response:
     try:
         params = _bounded_params(request)
+        requested_format = params.get("format", ("json",))[-1]
+        if entry.operation == "report.render" and requested_format == "pdf":
+            if report_pdf_encoder is None:
+                return _error(400, "unknown format 'pdf'")
+            report_id = request.path_params.get("report_id", "")
+            if re.fullmatch(r"[a-z0-9][a-z0-9-]{1,63}", str(report_id)) is None:
+                return _error(400, "malformed report id")
         payload = await reader.read(
             ProjectionQuery(
                 operation=entry.operation,
@@ -136,11 +155,68 @@ async def _projection(
                 cursor=_cursor(params),
             )
         )
+        redacted_value = redact_projection(payload)
+        if not isinstance(redacted_value, Mapping):
+            return _error(503, "authoritative report projection is malformed")
+        redacted = cast(Mapping[str, object], redacted_value)
+        if entry.operation == "report.render" and requested_format == "pdf":
+            if report_pdf_encoder is None:
+                return _error(400, "unknown format 'pdf'")
+            try:
+                encoded = report_pdf_encoder.encode(redacted)
+            except ReportPdfEncodingError:
+                return _error(503, "report PDF encoding is unavailable")
+            return Response(
+                encoded,
+                media_type=report_pdf_encoder.content_type,
+                headers={
+                    "Content-Disposition": (
+                        f'attachment; filename="{request.path_params["report_id"]}.pdf"'
+                    )
+                },
+            )
+        payload = _report_catalog_projection(
+            redacted,
+            operation=entry.operation,
+            report_pdf_encoder=report_pdf_encoder,
+        )
     except ProjectionUnavailableError:
         return _error(503, "authoritative projection is unavailable")
     except ValueError as exc:
         return _error(400, str(exc))
-    return JSONResponse(redact_projection(payload))
+    return JSONResponse(payload)
+
+
+def _report_catalog_projection(
+    payload: Mapping[str, object],
+    *,
+    operation: str,
+    report_pdf_encoder: ReportPdfEncoder | None,
+) -> Mapping[str, object]:
+    if operation in {"report.list", "report.registry"}:
+        formats = payload.get("formats")
+        if not isinstance(formats, Sequence) or isinstance(formats, (str, bytes)):
+            return payload
+        names = [name for name in formats if isinstance(name, str) and name != "pdf"]
+        if report_pdf_encoder is not None:
+            names.append(report_pdf_encoder.name)
+        return {**payload, "formats": names}
+    if operation == "report.formats":
+        items = payload.get("items")
+        if not isinstance(items, Sequence) or isinstance(items, (str, bytes)):
+            return payload
+        normalized = [
+            item for item in items if not (isinstance(item, Mapping) and item.get("name") == "pdf")
+        ]
+        if report_pdf_encoder is not None:
+            normalized.append(
+                {
+                    "name": report_pdf_encoder.name,
+                    "content_type": report_pdf_encoder.content_type,
+                }
+            )
+        return {**payload, "items": normalized}
+    return payload
 
 
 async def _proposal(

@@ -1,7 +1,7 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: 9e3f98b3d44a93b4fabc38104e077b207f3b9711
+translation_source_sha: 24a98483cbdf769ed32cecfe07dab62d12392c44
 translation_revised: 2026-08-14
 ---
 # 리포팅 서브시스템
@@ -229,16 +229,19 @@ patch 컨트롤, 우선순위별 교정, CVE 적용 가능성, 데이터 출처 
 | `text` | `text/plain; charset=utf-8` | stdout 친화 요약 |
 | `ndjson` | `application/x-ndjson` | 헤더 라인 + 위젯별 한 라인 |
 | `prometheus` **(명시적 선택)** | `text/plain; version=0.0.4` | scalar / timeseries만; 기본 등록 X |
-| `pdf` **(대상 명시적 선택)** | `application/pdf` | Upstream에서 구현되지 않음. Downstream 또는 향후 검토된 `FormatEncoder`가 필요 |
+| `pdf` **(대상 명시적 선택)** | `application/pdf` | 독립 Operator Service 어댑터이며 `pdf-report` extra가 설치되고 등록된 경우에만 표시 |
 
 포크는 `FormatEncoder`를 구현하고 `FormatRegistry.register`를
 호출해 `pdf` / `xlsx` / 무엇이든 추가합니다.
 
-Upstream은 현재 `delivery/reporting/pdf_format.py`, `pdf-report` extra, PDF registry 연결 또는
-PDF regression 모음을 제공하지 않습니다. `incident-rca-dossier` 카탈로그 보고와 상관관계 범위
-감사 데이터 원본은 기존 보고 묶음용으로 구현됐지만 PDF delivery를 입증하지 않습니다. 향후 선택적
-어댑터는 `core/` 밖에 있어야 하고 모든 값을 escape하며 source 묶음 다이제스트를 연결하고 사용 불가
-섹션을 보존하며 `pdf`를 표시하기 전에 focused 페이지 나누기 및 rendering 검사를 추가해야 합니다.
+검토된 대상 어댑터는 다른 서비스 구현을 가져오지 않고 `core/` 밖의
+`services/operator-service/src/fdai_operator_service/reporting/pdf_format.py`에 위치합니다.
+Operator 경로는 JSON presentation과 같은 materialized report 묶음을 읽고, 어댑터는 기록된 값만
+배치합니다. 모든 값을 escape하고 정본 source-envelope 다이제스트를 연결하며 사용 불가 및 오류
+섹션을 보존하고 새로운 RCA 또는 권장 사항 분석을 수행하지 않습니다. 조립은 `pdf-report` package
+extra를 가져오고 encoder가 등록된 경우에만 `pdf`를 표시합니다. 그렇지 않으면 명시적
+`format=pdf` 요청은 projection에 접근하기 전에 실패합니다. 등록 전에 focused 페이지 나누기,
+rendering, 다이제스트, 사용 불가 섹션 및 분석 부재 검사가 필요합니다.
 
 선택적으로 기록된 감사 필드(`rca_impact`, `rca_contributing_factors`,
 `rca_alternative_hypotheses`, `rca_recovery_validation`, `rca_control_gaps`,
@@ -385,7 +388,7 @@ widgets:
 | `GET /reports/datasources` | 등록된 데이터 원본 이름 |
 | `GET /reports/health` | 엔진 진단 스냅샷 (counts + 구성) |
 | `GET /reports/{id}` | 리포트 정의 전체 (로드된 `ReportSpec`의 변환 결과) |
-| `GET /reports/{id}/render?format=json\|markdown\|csv\|html\|text\|ndjson&<vars>` | 렌더된 페이로드 |
+| `GET /reports/{id}/render?format=json\|markdown\|csv\|html\|text\|ndjson\|pdf&<vars>` | 렌더된 페이로드이며 `pdf`는 Operator `pdf-report` extra가 있을 때만 제공됩니다. |
 
 라우트는 `OperatorApiConfig.reporting`을 통해 기존 Operator API에
 연결됩니다:
@@ -578,19 +581,20 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
 | 선언형 report 카탈로그 및 스키마 | implemented | `rule-catalog/reports/`; `rule-catalog/reports/schema/report.schema.json`; reporting 카탈로그 테스트 | 검토된 YAML report와 기능 메타데이터가 범위가 제한된 스키마를 통해 로드됩니다. |
 | Operator API 읽기 경로 및 Console Reports 보기 | implemented | `services/operator-service/tests/test_operator_operations_family.py`; `console/src/routes/reports.tsx`; focused reporting model 및 경로 테스트 | GET/HEAD-only inventory, render, health, format, widget 및 데이터 원본 화면이 변경 권한 없이 구현됐습니다. |
 | 권위 있는 데이터 원본 연결 및 운영 최신성 | in-progress | Reporting 데이터 원본 어댑터 및 출처 묶음 | 어댑터는 있지만 각 배포가 권위 있는 프로바이더를 연결하고 최신성, 사용 불가, 시간 초과 및 부분 widget 근거를 보존해야 합니다. |
-| 선택적 PDF format 및 RCA dossier delivery | not-started | [Format 카탈로그](#format-카탈로그) | Upstream PDF encoder, extra, registry 연결, 다운로드 컨트롤 또는 PDF regression 모음이 없습니다. |
+| 선택적 PDF format 및 RCA dossier delivery | implemented | `fdai_operator_service/reporting/pdf_format.py`; Operator operations 경로; `console/src/routes/reports.tsx`; focused Operator 및 Console 테스트 | Service-local extra가 설치된 경우에만 PDF를 등록하고, 기존 redacted 묶음을 렌더링하며, 외부 fetch를 차단하고, 새 분석 없이 공백을 보존합니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 구현 ledger를 도입하고 선택적 PDF 구현 주장을 수정했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 reporting core, 카탈로그, Operator, Console 및 focused 검사입니다. | 권위 있는 데이터 원본 근거를 보존하고 PDF를 표시하기 전에 선택적 delivery를 구현해야 합니다. |
+| 2026-08-14 | implemented | 독립 Operator Service에 opt-in PDF delivery를 추가하고 catalog와 runtime registry가 일치할 때만 Console 다운로드 컨트롤을 노출했습니다. | `current change`; service-local encoder, operations 경로 negotiation, package extra, Console 컨트롤, focused PDF, 경로, composition 및 Console 테스트입니다. | 인증된 inventory, render, 사용 불가, 오류 격리 및 읽기 전용 runtime 증적을 보존해야 합니다. |
 
 ### 남은 작업
 
 - [ ] 각 프로덕션 데이터 원본에 대해 source 신원, cutoff, 최신성, 사용 불가 및 시간 초과 동작, 부분 widget 격리 및 synthetic-to-live 대체 부재를 보여주는 관리되는 render 증적을 보존합니다.
 - [ ] Report inventory, 명시적 사용 불가 report 선택, variable 차단, 알 수 없는 format, render 오류 격리 및 읽기 전용 method 적용에 대한 인증된 Operator API 및 Console 증적을 보존합니다.
-- [ ] `pdf`를 표시하기 전에 선택적 PDF delivery 모듈, registry 연결, package extra, 인증된 GET-only 컨트롤 및 focused escape, 다이제스트, 페이지 나누기, 사용 불가 섹션, 분석 부재 테스트를 구현합니다.
+- [x] `pdf`를 표시하기 전에 선택적 PDF delivery 모듈, registry 연결, package extra, 인증된 GET-only 컨트롤 및 focused escape, 다이제스트, 페이지 나누기, 사용 불가 섹션, 분석 부재, no-network 테스트를 구현합니다.
 - [ ] Delivery 의존성을 `core/`로 가져오지 않고 downstream format 추가를 `FormatEncoder`와 조립 등록 뒤에 유지합니다.
 
 ## 관련 문서

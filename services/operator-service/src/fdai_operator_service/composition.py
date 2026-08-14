@@ -50,6 +50,7 @@ from fdai_operator_service.postgres_family_store import (
 )
 from fdai_operator_service.postgres_iam import PostgresIamAdapters
 from fdai_operator_service.projections import UnavailableOperatorReadModel
+from fdai_operator_service.reporting import optional_pdf_report_encoder
 from fdai_operator_service.routes import OperatorRouteFamilies
 from fdai_operator_service.runtime import OperatorRuntime
 from fdai_operator_service.streaming import LiveStreamEvent, LiveStreamHub
@@ -161,6 +162,7 @@ def _build_route_families(
     semantic_bridge: SemanticTurnBridge | None,
 ) -> OperatorRouteFamilies:
     authorizer = OperatorFamilyAuthorizer(authenticator)
+    report_pdf_encoder = optional_pdf_report_encoder()
     role_group_ids = {role.value: group_id for role, group_id in environment.group_ids.items()}
     if store is None:
         unavailable_conversation = UnavailableConversationAdapters()
@@ -195,6 +197,7 @@ def _build_route_families(
             operations_proposal_writer=unavailable_operations,
             operations_replay_reader=unavailable_operations,
             operations_webhook_verifier=unavailable_operations,
+            report_pdf_encoder=report_pdf_encoder,
         )
 
     postgres_conversation = PostgresConversationAdapters(store)
@@ -255,6 +258,7 @@ def _build_route_families(
         operations_proposal_writer=postgres_operations,
         operations_replay_reader=postgres_operations,
         operations_webhook_verifier=postgres_operations,
+        report_pdf_encoder=report_pdf_encoder,
     )
 
 
