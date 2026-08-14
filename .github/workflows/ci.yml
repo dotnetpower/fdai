@@ -357,7 +357,7 @@ jobs:
         uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
 
       - name: Install frozen runtime workspace
-        run: uv sync --frozen --package fdai --no-dev
+        run: uv sync --frozen --package fdai-core-control-plane --no-dev
 
       - name: check-chaos-scenarios.sh
         run: bash scripts/catalog/check-chaos-scenarios.sh
@@ -569,7 +569,7 @@ jobs:
           save-cache: false
 
       - name: Install dependencies
-        run: uv sync --extra dev --frozen
+        run: uv sync --frozen --package fdai-core-control-plane --no-dev
 
       - name: Validate every rule-catalog/exemptions/*.json
         # No-op when the directory is empty (fresh clone).
@@ -601,7 +601,7 @@ jobs:
           save-cache: false
 
       - name: Install dependencies
-        run: uv sync --extra dev --frozen
+        run: uv sync --frozen --package fdai-core-control-plane --no-dev
 
       - name: Reject disallowed governance effect transitions
         # Compares the governance catalog at the base ref against the working
