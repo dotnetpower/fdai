@@ -313,6 +313,19 @@ def test_shipped_build_context_is_complete_or_materialized() -> None:
     assert module._validate_build_context() == []
 
 
+def test_dockerignore_copy_source_check_honors_ordered_exceptions() -> None:
+    module = _load_contract_module()
+    rules = (
+        "scripts/",
+        "!scripts/deployment/local/materialize-authoritative-catalogs.py",
+    )
+
+    assert not module._docker_path_is_ignored(
+        "scripts/deployment/local/materialize-authoritative-catalogs.py", rules
+    )
+    assert module._docker_path_is_ignored("scripts/deployment/local/other.py", rules)
+
+
 def test_resolved_model_manifest_reaches_container_build_context() -> None:
     repo_root = Path(__file__).resolve().parents[3]
     dockerfile = (
