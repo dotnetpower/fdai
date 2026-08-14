@@ -25,7 +25,7 @@ policy (auto vs HIL) and initial policy approver"* from
 | Feature extraction and environment classification | implemented | [`feature.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/feature.py), [`test_control_loop_authority.py`](../../../services/core-control-plane/tests/core/test_control_loop_authority.py) | Typed features are extracted, and missing or unknown environment tags resolve to production risk. |
 | Unified authority decision and never-raising ceiling | implemented | [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py) | The table baseline and contextual ceilings combine without raising authority. |
 | Existing control-loop audit projection | implemented | [`_helpers.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_helpers.py), [`test_control_loop_authority.py`](../../../services/core-control-plane/tests/core/test_control_loop_authority.py) | Audit data includes the matched rule, final decision, quorum, and resolved ceiling. |
-| Approval and change-governance enforcement | in-progress | [Change Process](#change-process), [CODEOWNERS](../../../.github/CODEOWNERS) | Path ownership exists, but repository evidence does not yet prove the complete two-person approval, Owner review, justification, and metadata-policy contract. |
+| Approval and change-governance enforcement | in-progress | [`check-risk-table-change.py`](../../../scripts/quality/architecture/check-risk-table-change.py), [`test_check_risk_table_change.py`](../../../tests/integration/scripts/test_check_risk_table_change.py), [Change Process](#change-process), [CODEOWNERS](../../../.github/CODEOWNERS) | A commit gate now enforces the metadata half of the contract - a strictly increasing version, unchanged Owner-tier ownership, a written justification on every rule, and a fail-close default that stays last - and classifies the change direction so a loosening edit cannot hide behind a patch bump. The two-person quorum and Owner-tier review half is branch protection on the deployment's fork and stays unproven from a local checkout. |
 | Replay-complete feature and catalog metadata | implemented | [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py) | The authority audit payload serializes the exact feature vector and the risk-table catalog version, and focused checks replay a recorded payload against its own catalog version after the table changes. |
 
 ### Implementation history
@@ -35,10 +35,15 @@ policy (auto vs HIL) and initial policy approver"* from
 | 2026-08-13 | in-progress | Adopted an evidence-bounded implementation ledger without reconstructing earlier delivery history. | `current change`; current source and focused checks listed in the scope table; risk-focused checks passed 113 cases and readiness coordinator checks passed 33 cases. | Prove governance enforcement, add replay-complete metadata, and retain governed runtime evidence. |
 | 2026-08-14 | implemented | Serialized the exact feature vector and the risk-table catalog version into the authority audit payload so a historical decision replays against the revision that classified it. | `current change`; [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py); focused authority, evaluator, and control-loop authority checks passed 43 cases. | Prove governance enforcement and retain governed runtime receipts. |
 | 2026-08-14 | implemented | Added the remaining ceiling inputs - role, graph count, live-probe reading, and the two fail-safe flags - to the same audit payload so a replay reconstructs the six-axis ceiling without re-querying a probe or re-reading control-plane health. | `current change`; [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py); focused risk-gate, runbook, workflow, skills, and control-loop authority checks passed 438 cases. | Prove governance enforcement and retain governed runtime receipts. |
+| 2026-08-14 | in-progress | Enforced the metadata half of the change contract with a commit gate and made loosening edits legible in the version string. | `current change`; [`check-risk-table-change.py`](../../../scripts/quality/architecture/check-risk-table-change.py), [`test_check_risk_table_change.py`](../../../tests/integration/scripts/test_check_risk_table_change.py); focused gate checks passed 26 cases, and the gate was exercised against the shipped table for the unchanged, loosening-without-bump, loosening-patch-bump, and loosening-minor-bump cases. | Approval quorum and Owner-tier review stay branch protection on the deployment's fork; retain governed runtime receipts. |
 
 ### Remaining work
 
-- [ ] Enforce and test the complete two-person approval, Owner review, justification, and metadata-policy contract for every risk-table change.
+- [x] A commit gate enforces the metadata contract on every risk-table change - increasing
+  version, unchanged owner group, a written justification per rule, a single fail-close default
+  that stays last - and refuses a loosening change that only bumps the patch version.
+- [ ] Prove the two-person approval quorum and the Owner-tier review for loosening changes. That
+  evidence lives in the deployment's branch protection, not in this repository.
 - [x] The authority audit payload serializes the exact feature vector and the catalog version, and a focused check replays a recorded payload against its own version after a tightening table change.
 - [ ] Retain governed runtime receipts for risk decisions on one pinned revision before promoting any scope row to `validated`.
 
@@ -259,6 +264,30 @@ Updating the risk table follows the standard governance PR flow:
 - The table version is bumped on every change and captured in the catalog version, so the
   risk decision that classified any historical action is reconstructable
   ([llm-strategy.md § Signature Composition](../architecture/llm-strategy.md#signature-composition)).
+
+### What the commit gate proves
+
+The approval quorum lives in branch protection and cannot be read from a local checkout, so
+[`check-risk-table-change.py`](../../../scripts/quality/architecture/check-risk-table-change.py)
+enforces only the half that the diff decides. On every commit that touches the table it requires:
+
+- A strictly increasing `MAJOR.MINOR.PATCH` version, so no change reaches the audit payload
+  wearing the version of the revision it replaced.
+- An unchanged `owner_group`, so a table edit cannot quietly re-home ownership away from the
+  Owner tier that the table's blast radius demands.
+- A non-empty `reason` on every rule, which is the in-file half of the PR `Justification:` block.
+- Unique rule ids, exactly one fail-close `default`, and that default last - a default that
+  drifts upward would stop catching the cases no rule matched.
+- At least a **minor** version bump for a loosening change. The catalog version is all a replayed
+  audit record shows, so a loosening that hid behind a patch bump would be indistinguishable from
+  a typo fix months later.
+
+Direction classification is fail-closed. Widening a decision, dropping a guardrail rule, lowering
+a quorum, editing a match condition, or reordering rules all count as loosening, because first-match
+evaluation means the gate cannot prove any of those narrows the table on its own. Only a provably
+safety-side edit is reported as tightening, so an unrecognized edit shape raises the review bar
+rather than lowering it. The gate never claims to have checked the reviewer quorum or the
+Owner-tier reviewer; it prints which one the change needs.
 
 ## Audit
 

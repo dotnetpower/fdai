@@ -1,7 +1,7 @@
 ---
 title: 위험 분류 (자동 실행 vs 사람 승인 vs 차단)
 translation_of: risk-classification.md
-translation_source_sha: 8cbb5cdb5b352f9be1baf45ef7378c021f3ed725
+translation_source_sha: 1fcfb3ec579184fecf01619303af30b654887351
 translation_revised: 2026-08-14
 ---
 
@@ -29,7 +29,7 @@ translation_revised: 2026-08-14
 | 특성 추출 및 환경 분류 | implemented | [`feature.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/feature.py), [`test_control_loop_authority.py`](../../../services/core-control-plane/tests/core/test_control_loop_authority.py) | 타입이 지정된 특성을 추출하며, 환경 태그가 없거나 알 수 없으면 프로덕션 위험으로 분류합니다. |
 | 통합 권한 판정 및 권한을 높이지 않는 상한 | implemented | [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py) | 테이블 기준선과 컨텍스트 상한을 권한이 높아지지 않도록 결합합니다. |
 | 기존 control-loop 감사 변환 결과 | implemented | [`_helpers.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_helpers.py), [`test_control_loop_authority.py`](../../../services/core-control-plane/tests/core/test_control_loop_authority.py) | 감사 데이터에는 매칭된 규칙, 최종 판정, 정족수 및 해석된 상한이 포함됩니다. |
-| 승인 및 변경 거버넌스 적용 | in-progress | [변경 프로세스](#변경-프로세스), [CODEOWNERS](../../../.github/CODEOWNERS) | 경로 소유권은 있지만, 저장소 근거만으로는 2인 승인, Owner 검토, 정당화 및 메타데이터 정책 계약 전체가 적용됨을 아직 증명하지 못합니다. |
+| 승인 및 변경 거버넌스 적용 | in-progress | [`check-risk-table-change.py`](../../../scripts/quality/architecture/check-risk-table-change.py), [`test_check_risk_table_change.py`](../../../tests/integration/scripts/test_check_risk_table_change.py), [변경 프로세스](#변경-프로세스), [CODEOWNERS](../../../.github/CODEOWNERS) | 커밋 게이트가 계약의 메타데이터 절반을 적용합니다. 엄격히 증가하는 버전, 변하지 않는 Owner 계층 소유권, 모든 규칙의 서면 정당화, 마지막에 남는 fail-close 기본값입니다. 또한 변경 방향을 분류하므로 완화 편집은 patch bump 뒤에 숨을 수 없습니다. 2인 정족수와 Owner 계층 검토 절반은 배포 포크의 branch protection이므로 로컬 체크아웃에서는 증명되지 않은 상태로 남습니다. |
 | 재현에 충분한 특성 및 카탈로그 메타데이터 | implemented | [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py) | 권한 감사 페이로드가 정확한 특성 벡터와 위험 테이블 카탈로그 버전을 직렬화하며, 테이블이 바뀐 뒤에도 기록된 페이로드를 자신의 카탈로그 버전으로 재현하는 집중 검사가 있습니다. |
 
 ### 구현 이력
@@ -39,10 +39,15 @@ translation_revised: 2026-08-14
 | 2026-08-13 | in-progress | 이전 전달 이력을 재구성하지 않고 근거 범위 안에서 구현 원장을 도입했습니다. | `current change`; 범위 테이블에 나열된 현재 소스 및 집중 검사; 위험 관련 집중 검사 113건과 준비 상태 조정기 검사 33건이 통과했습니다. | 거버넌스 적용을 증명하고, 재현에 충분한 메타데이터를 추가하며, 관리되는 런타임 근거를 보존해야 합니다. |
 | 2026-08-14 | implemented | 정확한 특성 벡터와 위험 테이블 카탈로그 버전을 권한 감사 페이로드에 직렬화하여, 과거 판정이 자신을 분류한 리비전으로 재현되도록 했습니다. | `current change`; [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py); 권한, 평가기 및 control-loop 권한 집중 검사 43건이 통과했습니다. | 거버넌스 적용을 증명하고 관리되는 런타임 증적을 보존해야 합니다. |
 | 2026-08-14 | implemented | 나머지 상한 입력인 역할, 그래프 영향 개수, live probe 관측값, 두 개의 안전 플래그를 같은 감사 페이로드에 추가해, 재현이 probe를 다시 조회하거나 제어 평면 상태를 다시 읽지 않고도 6축 상한을 재구성하도록 했습니다. | `current change`; [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`test_authority.py`](../../../services/core-control-plane/tests/core/risk_gate/test_authority.py); risk-gate, runbook, workflow, skills 및 control-loop 권한 집중 검사 438건이 통과했습니다. | 거버넌스 적용을 증명하고 관리되는 런타임 증적을 보존해야 합니다. |
+| 2026-08-14 | in-progress | 변경 계약의 메타데이터 절반을 커밋 게이트로 적용하고, 완화 편집을 버전 문자열에서 드러나게 했습니다. | `current change`; [`check-risk-table-change.py`](../../../scripts/quality/architecture/check-risk-table-change.py), [`test_check_risk_table_change.py`](../../../tests/integration/scripts/test_check_risk_table_change.py); 집중 게이트 검사 26건이 통과했고, 배포된 테이블에 대해 변경 없음, bump 없는 완화, patch bump 완화, minor bump 완화 경우를 실행해 확인했습니다. | 승인 정족수와 Owner 계층 검토는 배포 포크의 branch protection으로 남으며, 관리되는 런타임 증적을 보존해야 합니다. |
 
 ### 남은 작업
 
-- [ ] 모든 위험 테이블 변경에 2인 승인, Owner 검토, 정당화 및 메타데이터 정책 계약 전체를 적용하고 검사합니다.
+- [x] 커밋 게이트가 모든 위험 테이블 변경에 메타데이터 계약을 적용합니다. 증가하는 버전,
+  변하지 않는 소유 그룹, 규칙별 서면 정당화, 마지막에 남는 단일 fail-close 기본값이며,
+  patch 버전만 bump한 완화 변경은 거부합니다.
+- [ ] 2인 승인 정족수와 완화 변경에 대한 Owner 계층 검토를 증명합니다. 해당 근거는 이
+  저장소가 아니라 배포의 branch protection에 있습니다.
 - [x] 권한 감사 페이로드가 정확한 특성 벡터와 카탈로그 버전을 직렬화하며, 테이블을 강화하는 변경 뒤에도 기록된 페이로드를 자신의 버전으로 재현하는 집중 검사가 있습니다.
 - [ ] 범위 행을 `validated`로 높이기 전에 하나의 고정된 리비전에서 위험 판정의 관리되는 런타임 증적을 보존합니다.
 
@@ -256,6 +261,28 @@ catch-all. First-match wins이므로 가장 엄격한 적용 가능한 규칙이
 - 테이블 버전은 모든 변경에 bump되고 카탈로그 버전에 캡처되어, 어떤 과거 액션을 분류한 리스크
   결정도 재구성 가능
   ([llm-strategy-ko.md § 서명 조립](../architecture/llm-strategy-ko.md#signature-composition)).
+
+### 커밋 게이트가 증명하는 것
+
+승인 정족수는 branch protection에 있어 로컬 체크아웃에서 읽을 수 없으므로,
+[`check-risk-table-change.py`](../../../scripts/quality/architecture/check-risk-table-change.py)는
+차이(diff)로 판정되는 절반만 적용합니다. 테이블을 건드리는 모든 커밋에서 다음을 요구합니다:
+
+- 엄격히 증가하는 `MAJOR.MINOR.PATCH` 버전. 그래야 어떤 변경도 자신이 대체한 리비전의
+  버전을 달고 감사 페이로드에 도달하지 않습니다.
+- 변하지 않는 `owner_group`. 테이블의 blast radius가 요구하는 Owner 계층에서 소유권을
+  조용히 옮기는 테이블 편집을 막습니다.
+- 모든 규칙의 비어 있지 않은 `reason`. PR `Justification:` 블록의 파일 내 절반입니다.
+- 고유한 규칙 id, 정확히 하나의 fail-close `default`, 그리고 그 기본값이 마지막에 위치.
+  기본값이 위로 흘러가면 어떤 규칙도 매치하지 않은 경우를 더 이상 잡지 못합니다.
+- 완화 변경에는 최소 **minor** 버전 bump. 재현된 감사 기록이 보여주는 것은 카탈로그
+  버전뿐이므로, patch bump 뒤에 숨은 완화는 몇 달 뒤 오타 수정과 구분되지 않습니다.
+
+방향 분류는 fail-closed입니다. 판정 확대, 가드레일 규칙 제거, 정족수 하향, 매치 조건 편집,
+규칙 재정렬은 모두 완화로 셉니다. first-match 평가에서는 게이트가 그중 어느 것도 테이블을
+좁힌다고 증명할 수 없기 때문입니다. 증명 가능한 안전-측 편집만 강화로 보고되므로, 알아보지
+못한 편집 형태는 검토 기준을 낮추는 대신 높입니다. 게이트는 리뷰어 정족수나 Owner 계층
+리뷰어를 확인했다고 주장하지 않으며, 해당 변경에 무엇이 필요한지를 출력합니다.
 
 ## 감사
 
