@@ -1662,8 +1662,20 @@ def test_production_composition_activates_semantic_bridge_only_with_transport(
         semantic_result_source=Source(),
     ).build_runtime(environment)
 
-    assert default_runtime.lifecycle is None
-    assert isinstance(semantic_runtime.lifecycle, SemanticTurnBridge)
+    default_lifecycle = default_runtime.lifecycle
+    default_services = getattr(default_lifecycle, "services", (default_lifecycle,))
+    assert not any(isinstance(service, SemanticTurnBridge) for service in default_services)
+    assert any(
+        service.__class__.__name__ == "PeriodicNarratorRefreshScheduler"
+        for service in default_services
+    )
+    semantic_lifecycle = semantic_runtime.lifecycle
+    semantic_services = getattr(semantic_lifecycle, "services", (semantic_lifecycle,))
+    assert any(isinstance(service, SemanticTurnBridge) for service in semantic_services)
+    assert any(
+        service.__class__.__name__ == "PeriodicNarratorRefreshScheduler"
+        for service in semantic_services
+    )
     semantic_conversation = semantic_runtime.route_families.conversation
     assert isinstance(semantic_conversation.projections, SemanticTurnConversationAdapters)
     assert semantic_conversation.projections is semantic_conversation.outbox
