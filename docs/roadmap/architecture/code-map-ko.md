@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 98c248ee156b5becc3dd67d26bc733c647160b4e
-translation_revised: 2026-08-13
+translation_source_sha: 8c08a72339d595f20d809314b7ddf8919c646133
+translation_revised: 2026-08-14
 ---
 # 코드 맵
 
@@ -37,6 +37,7 @@ translation_revised: 2026-08-13
 | 운영 Rule 의미 준비 상태 | 구현됨 | `runtime/bootstrap.py`, `runtime/bootstrap_lifecycle.py`, `composition/wire_semantic_query.py`, `tests/runtime/test_catalog_semantic_bootstrap.py`, 집중 bootstrap 및 구성 검사(`46 passed`) | 운영 시작은 활성 세대가 현재 Rule 카탈로그, 의미 스키마, 온톨로지 release 및 embedder 차원과 정확히 일치할 때만 Rule 의미 검색을 등록합니다. 안정적인 선택적 준비 상태 저하는 오래된 함수를 노출하지 않고 시작을 유지합니다. |
 | 영속 Rule 세대 종결 | 구현됨 | `core/rule_semantic_generation/activation.py`, `core/rule_semantic_generation/ledger.py`, `core/rule_semantic_generation/publication.py`, `rule_catalog/schema/rule_semantic_generation_events.py`, 집중 활성화, 계약, ledger, 발행 및 실제 PostgreSQL 검사 | Core는 활성화 전에 정확한 검증 증적과 예상 이전 활성 식별자를 확인하고, 완료된 명령이 프로바이더에 다시 전달되지 않게 하며, 첫 최종 결과를 lease로 차단된 하나의 발행 레코드에 원자적으로 연결하고, exact-topic broker 확인 뒤에만 발행 완료로 표시합니다. Delivery 상태는 정책, 승인, 변경 또는 실행 권한을 부여하지 않습니다. |
 | Rule 세대 발행 소유권 | 구현됨 | `agents/mimir.py`, `agents/_framework/runtime.py`, `runtime/bootstrap.py`, `runtime/bootstrap_bindings.py`, `runtime/bootstrap_lifecycle.py`, 집중 Mimir, 런타임, bootstrap, 활성화 및 발행 검사(`32 passed`) | Mimir만 활성화 명령과 결과를 구독합니다. 명령을 exact binder에 위임하고 안전하게 재시도할 수 있는 변환 전용 결과 증적을 저장합니다. 준비 상태와 독립적인 drain은 해제된 전송 실패만 재시도하며 Mimir에 인덱스, 정책, 승인, 변경 또는 실행 권한을 부여하지 않습니다. |
+| 일반 영향 조정 요청 | 구현됨 | `core/ontology_platform/reconciliation_producer.py`, `core/ontology_platform/reconciliation_request_outbox.py`, `delivery/reconciliation_request.py`, `delivery/reconciliation_request_publication.py`, 집중 조정, ControlLoop, 런타임 및 조립 검사(`163 passed`) | 실행된 Action은 일치하는 exact V2 plan을 이미 참조해야 합니다. 독립 observation은 발행 전에 영속 대기열에 저장되며 downstream failure는 executor outcome을 다시 쓰지 않고 held 또는 pending evidence로 남습니다. Production artifact 및 observation adapter는 열린 작업입니다. |
 | 읽기 조사 활동 ID | 구현됨 | `composition/wire_read_investigation.py`, `test_wire_read_investigation.py`, focused 테스트 | 각 호출은 실시간 및 영속 활동에서 하나의 불투명한 상관관계 값을 공유하고, 별도 호출은 서로 다른 상관관계 값을 사용하며, 논리적 요청 멱등성은 안정적으로 유지됩니다. |
 | 서비스 간 의미 Rule 변환 결과 | 구현됨 | `fdai_service_contracts/semantic_turn.py`, `fdai_core_service/semantic_turn_processor.py`, `fdai_operator_service/postgres_semantic_turn_store.py`, 통과한 의미 경로 테스트 94개 | 공유 버전 1.2 계약, Core 처리 및 Operator 영속성은 후보 전용 권한, 범위가 제한된 기한, 복구 가능한 소유권 및 principal 범위의 exact 읽기와 함께 검증된 정확한 함수 호출 증적 및 정규 다이제스트를 보존합니다. 계약 검증은 내용, 다이제스트, 작업, 의도, 기능 및 최종 상태 차이를 거부합니다. 통제된 실제 운영 보증은 [온톨로지 조회 coverage 계획](../interfaces/ontology-query-coverage-implementation-plan-ko.md#남은-작업)에 열린 항목으로 남아 있습니다. |
 | Console 의미 증적 projection | 구현됨 | `semantic_turn.py`, `semantic_turn_processor.py`, `semantic_turn_runtime.py`, `console/src/deck/backend-normalizers.ts`, focused shared, Core, Operator 및 Console 테스트 | 타입이 지정된 경로, 구체적인 명확화 답변, 사용 불가 사유, 네 개의 보증 다이제스트, 근거 참조 및 `execution_authority=false`가 prose 추론 없이 shared 계약, Core 결과, exact Operator 읽기, 최종 스트림, 영속 transcript, replay 및 Console 표현을 통과합니다. 통과한 실제 브라우저 및 무작위 보증 기록은 온톨로지 조회 coverage 계획의 열린 항목으로 남아 있습니다. |
@@ -65,6 +66,7 @@ translation_revised: 2026-08-13
 | 2026-08-13 | 구현됨 | 플래너의 범위가 제한된 명확화 질문을 일반적인 최종 답변으로 바꾸지 않고 Core 의미 projection에 보존했습니다. | `current change`, `fdai_core_service/semantic_turn_processor.py`, `test_semantic_turn_processor.py`, 통과한 Core processor 집중 테스트 30개 | 런타임 검증을 주장하기 전에 통제된 브라우저 및 무작위 보증 근거를 기록합니다. |
 | 2026-08-13 | 구현됨 | 이전 incident 맥락이 있으면 일반 계획 수립을 보존하면서 첫 turn의 바인딩되지 않은 incident 참조를 매니페스트 또는 모델 작업 전에 누락 맥락으로 분류했습니다. | `current change`, `semantic_planning.py`, `test_semantic_planning.py`, 통과한 집중 플래너 및 최종 projection 테스트 43개, 통과한 작업 범위 Ruff와 strict mypy | 이 범위를 검증됨으로 올리기 전에 통제된 인증 브라우저 근거를 보존하고 연결합니다. |
 | 2026-08-13 | 구현됨 | 유한 질문 집합의 분모를 위해 결정론적인 선언 기반 생성을 추가했습니다. 완전한 exact-release 매니페스트는 정규화된 범위 제한 문법으로 확장하고, 사용할 수 없는 선언은 타입 기반 제외 항목으로 유지합니다. | `current change`, `question_universe.py`, `epistemic_coverage.py`, `test_question_universe.py`, 통과한 집중 질문 집합 및 인식 상태 coverage 테스트 10개, 작업 범위 Ruff 및 strict mypy 통과 | 런타임 및 통제된 보증 근거는 해당 coverage 계획에서 계속 추적합니다. |
+| 2026-08-14 | 구현됨 | 일반 실행을 기존 exact V2 plan과 lease로 보호되는 영속 outbox를 통해 effect-reconciliation request 생성에 연결했습니다. | `d3c0437fd`, 집중 조정, ControlLoop, 런타임 및 조립 검사 163개 통과, production 파일 12개의 strict mypy 통과 | Production exact-plan artifact 및 independent-observation adapter를 연결한 뒤 통제된 live closure 근거를 보존합니다. |
 
 ### 남은 작업
 
@@ -99,7 +101,7 @@ Core 분포는 전체 `fdai` 이름 공간을 유지합니다. 내부 모듈 경
 | Rule 의미 세대 종결 | 타입 기반 활성화 명령 및 최종 결과, 정확한 대상 증적과 예상 이전 세대 compare-and-swap, 프로바이더 접근 전 replay 차단, 원자적 StateStore 결과/outbox 영속성, lease 차단, 재시도 예약, 손상 거부 및 정책 또는 실행 권한이 없는 broker 확인 기반 발행 상태 | [rule_semantic_generation](../../../services/core-control-plane/src/fdai/core/rule_semantic_generation/) | [Rule 의미 세대 테스트](../../../services/core-control-plane/tests/core/rule_semantic_generation/) |
 | 온톨로지 의미 세대 | 프로바이더 중립적이고 범위가 제한된 순서 보장 문서 매니페스트, 자체 검증 가능한 세대 ID, 후보 전용 구체적인 인덱스, 영속 PostgreSQL 저장, 예상 이전 세대 활성화 compare-and-swap, full/incremental 선언 및 deployment-object 문서, 독립적인 검증 증적, stale detection 및 롤백 | [catalog_search 프로바이더](../../../services/core-control-plane/src/fdai/shared/providers/catalog_search.py) 및 [catalog_search 전달](../../../services/core-control-plane/src/fdai/delivery/catalog_search/) | [카탈로그 검색 테스트](../../../services/core-control-plane/tests/delivery/catalog_search/) |
 | 메트릭 의미 프로바이더 연결 | Alias-free 검토된 메트릭 개념과 관찰된 zero를 프로바이더 공백과 구분하는 exact `MetricProvider` 구간 | [metric_window.py](../../../services/core-control-plane/src/fdai/delivery/metric_window.py) 및 [metric_semantic_catalog.py](../../../services/core-control-plane/src/fdai/runtime/metric_semantic_catalog.py) | [메트릭 의미 카탈로그 테스트](../../../services/core-control-plane/tests/runtime/test_metric_semantic_catalog.py) |
-| 운영 가설 루프 | 완전한 graph Dynamic 근거 연결, 기한이 제한된 독립 궤적 종결, 감독되는 타입 기반 효과 조정, 변경 불가능한 운영 계보 및 Owner 사람 승인을 거치는 graph-model pointer 승격 | [graph 근거](../../../services/core-control-plane/src/fdai/delivery/azure/graph_dynamic_evidence.py), [종결](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_closure.py), [조정](../../../services/core-control-plane/src/fdai/delivery/reconciliation_runtime.py), [계보](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py) 및 [승격](../../../services/core-control-plane/src/fdai/delivery/graph_model_promotion.py) | [graph 근거 테스트](../../../services/core-control-plane/tests/delivery/azure/test_graph_dynamic_evidence.py), [종결 테스트](../../../services/core-control-plane/tests/assurance_twin/test_graph_closure.py), [조정 테스트](../../../services/core-control-plane/tests/delivery/test_reconciliation_runtime.py), [계보 테스트](../../../services/core-control-plane/tests/core/operational_planning/test_hypothesis_lineage.py) 및 [승격 테스트](../../../services/core-control-plane/tests/delivery/test_graph_model_promotion.py) |
+| 운영 가설 루프 | 완전한 graph Dynamic 근거 연결, 기한이 제한된 독립 궤적 종결, 일반 exact-plan 실행에서 시작하는 감독되는 타입 기반 효과 조정, 변경 불가능한 운영 계보 및 Owner 사람 승인을 거치는 graph-model pointer 승격 | [graph 근거](../../../services/core-control-plane/src/fdai/delivery/azure/graph_dynamic_evidence.py), [종결](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_closure.py), [조정](../../../services/core-control-plane/src/fdai/delivery/reconciliation_runtime.py), [일반 요청 producer](../../../services/core-control-plane/src/fdai/delivery/reconciliation_request.py), [계보](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py) 및 [승격](../../../services/core-control-plane/src/fdai/delivery/graph_model_promotion.py) | [graph 근거 테스트](../../../services/core-control-plane/tests/delivery/azure/test_graph_dynamic_evidence.py), [종결 테스트](../../../services/core-control-plane/tests/assurance_twin/test_graph_closure.py), [조정 테스트](../../../services/core-control-plane/tests/delivery/test_reconciliation_runtime.py), [일반 요청 테스트](../../../services/core-control-plane/tests/delivery/test_reconciliation_request.py), [계보 테스트](../../../services/core-control-plane/tests/core/operational_planning/test_hypothesis_lineage.py) 및 [승격 테스트](../../../services/core-control-plane/tests/delivery/test_graph_model_promotion.py) |
 | 에이전트 pantheon | 고정 에이전트 15개와 타입이 지정된 이벤트 런타임 | [에이전트](../../../services/core-control-plane/src/fdai/agents/) | [에이전트 테스트](../../../services/core-control-plane/tests/agents/) |
 | 조립 | Exact-release 의미 조회 assembly, request-role 실행기 factory 및 호출 범위의 불투명 상관관계를 사용하는 리소스 상태 활동 게시를 포함한 프로바이더/런타임 의존성 주입 | [조립](../../../services/core-control-plane/src/fdai/composition/) | [조립 테스트](../../../services/core-control-plane/tests/composition/) |
 | Core 어댑터 | Core에 남은 프로바이더, 영속성, 알림 및 platform 어댑터 | [전달](../../../services/core-control-plane/src/fdai/delivery/) | [전달 테스트](../../../services/core-control-plane/tests/delivery/) |
@@ -160,9 +162,11 @@ Continuous 커버리지 증적은 결정론적 고정본 structural 검증과 �
 연결 보조 로직에 위임하여 기본 조립 루트를 검토된 fanout 상한 아래로 유지합니다. Thin
 초기화 래퍼는 injected identity-builder 테스트 및 포크 경계를 보존합니다.
 운영 가설 루프는 service 또는 agent를 추가하지 않습니다. 완전한 graph prerequisite는
-composition에서 연결되고 effect reconciliation은 범위가 제한된 drain을 포함하는 supervised
-request/outbox transport를 사용하며 model pointer 변경은 기존 governance ActionType, risk, Owner
-승인, Thor execution, rollback 및 Saga audit 경로 안에 유지됩니다.
+composition에서 연결됩니다. 일반 실행은 일치하는 기존 exact V2 plan에서만 effect-reconciliation
+request를 생성하고 broker 발행 전에 영속 outbox에 commit합니다. 누락된 observation 또는 발행
+failure는 held 또는 pending evidence로 남으며 executor outcome을 다시 쓰지 않습니다. Model pointer
+변경은 기존 governance ActionType, risk, Owner 승인, Thor execution, rollback 및 Saga audit 경로
+안에 유지됩니다.
 
 ## 독립 서비스 지도
 
