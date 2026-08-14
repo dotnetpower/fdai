@@ -74,6 +74,30 @@ def test_materialized_operator_memory_proposal_has_foreign_key() -> None:
     assert "VALIDATE CONSTRAINT" in migration
 
 
+def test_llm_invocation_identity_includes_usage_scope() -> None:
+    path = MIGRATIONS_DIR / "20260814_0082_llm_invocation_scope_identity.py"
+    migration = path.read_text(encoding="utf-8")
+    module = _load_migration(path)
+
+    assert 'down_revision: str | None = "20260813_0081"' in migration
+    assert "ADD CONSTRAINT uq_llm_invocation_identity" in migration
+    assert module._SCOPED_COLUMNS == (
+        "occurred_at",
+        "correlation_id",
+        "capability_id",
+        "model_key",
+        "tier",
+        "mode",
+        "usage_scope",
+        "prompt_tokens",
+        "completion_tokens",
+    )
+    assert "usage_scope" not in module._LEGACY_COLUMNS
+    downgrade = migration.split("def downgrade()", maxsplit=1)[1]
+    assert "DROP CONSTRAINT uq_llm_invocation_identity" in downgrade
+    assert "_LEGACY_COLUMNS" in downgrade
+
+
 def test_ontology_direction_migration_invalidates_only_reversed_links() -> None:
     migration = (MIGRATIONS_DIR / "20260808_0078_ontology_link_direction.py").read_text(
         encoding="utf-8"
