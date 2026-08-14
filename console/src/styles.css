@@ -10894,7 +10894,7 @@ main { padding-bottom: 60px !important; }
 /* Ontology registry views ------------------------------------------------ */
 .ontology-tabs {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 1px;
   padding: 3px;
   border: 1px solid var(--border);
@@ -10929,6 +10929,71 @@ main { padding-bottom: 60px !important; }
   font-size: 10.5px;
   text-align: center;
 }
+.ontology-semantic-map { display: grid; gap: 12px; min-width: 0; }
+.ontology-semantic-map > * { min-width: 0; width: 100%; max-width: 100%; }
+.ontology-semantic-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 4px 0; }
+.ontology-semantic-header h3 { margin: 0 0 6px; font-size: 18px; }
+.ontology-semantic-header p { max-width: 84ch; margin: 0; color: var(--fg-muted); font-size: 12px; line-height: 1.5; }
+.ontology-semantic-source { flex: 0 1 360px; min-width: 0; padding: 6px 9px; border: 1px solid var(--border); border-radius: var(--cs-radius-sm); background: var(--bg-elevated); color: var(--fg-muted); font-size: 10.5px; }
+.ontology-semantic-source strong { display: block; margin-bottom: 2px; color: var(--fg); font-size: 11px; }
+.ontology-semantic-source code { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ontology-semantic-lenses { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; max-width: 720px; padding: 3px; border: 1px solid var(--border); border-radius: var(--cs-radius); background: var(--cs-shade); }
+.ontology-semantic-lenses button { min-width: 0; min-height: 34px; padding: 6px 10px; border: 0; border-radius: var(--cs-radius-sm); background: transparent; color: var(--fg-muted); font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+.ontology-semantic-lenses button:hover { color: var(--fg); background: color-mix(in oklab, var(--bg-elevated) 62%, transparent); }
+.ontology-semantic-lenses button[aria-pressed="true"] { background: var(--bg-elevated); color: var(--fg); box-shadow: var(--cs-shadow); }
+.ontology-semantic-workbench { display: grid; grid-template-columns: minmax(0, 1fr) 304px; min-width: 0; min-height: 680px; overflow: hidden; border: 1px solid var(--border); border-radius: var(--cs-radius); background: var(--bg-elevated); box-shadow: var(--cs-shadow); }
+.ontology-semantic-canvas { min-width: 0; padding: 14px; background: var(--bg); }
+.ontology-semantic-bands { overflow: hidden; border: 1px solid var(--border); border-radius: var(--cs-radius-sm); }
+.ontology-semantic-band { padding: 12px; border-bottom: 1px solid var(--border); }
+.ontology-semantic-band:last-child { border-bottom: 0; }
+.ontology-semantic-band.is-operating_scope { background: color-mix(in oklab, #3f7d76 7%, var(--bg-elevated)); }
+.ontology-semantic-band.is-operating_intent { background: color-mix(in oklab, #9a7638 7%, var(--bg-elevated)); }
+.ontology-semantic-band.is-operating_reality { background: color-mix(in oklab, #4f668a 7%, var(--bg-elevated)); }
+.ontology-semantic-band.is-decision_and_learning { background: color-mix(in oklab, #8a5d68 7%, var(--bg-elevated)); }
+.ontology-semantic-band > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 9px; }
+.ontology-semantic-band > header div { min-width: 0; }
+.ontology-semantic-band > header span { display: block; font-size: 12px; font-weight: 800; }
+.ontology-semantic-band > header small { display: block; margin-top: 2px; color: var(--fg-muted); font-size: 10.5px; }
+.ontology-semantic-band > header strong { min-width: 28px; color: var(--fg-muted); font-size: 11px; text-align: right; }
+.ontology-semantic-nodes { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 7px; }
+.ontology-semantic-nodes button { min-width: 0; min-height: 58px; padding: 8px 9px; border: 1px solid var(--border); border-radius: var(--cs-radius-sm); background: color-mix(in oklab, var(--bg-elevated) 94%, transparent); color: var(--fg); text-align: left; cursor: pointer; }
+.ontology-semantic-nodes button:hover { border-color: var(--accent); }
+.ontology-semantic-nodes button.is-selected { border-color: var(--accent-strong); outline: 2px solid color-mix(in oklab, var(--accent) 28%, transparent); background: var(--bg-elevated); }
+.ontology-semantic-nodes code { display: block; overflow-wrap: anywhere; color: inherit; font-size: 11px; font-weight: 700; }
+.ontology-semantic-nodes span { display: block; margin-top: 5px; color: var(--fg-muted); font-size: 9.5px; }
+.ontology-semantic-relations, .ontology-semantic-state, .ontology-semantic-context { margin-top: 12px; border: 1px solid var(--border); border-radius: var(--cs-radius-sm); background: var(--bg-elevated); }
+.ontology-semantic-relations > header { display: flex; justify-content: space-between; gap: 12px; padding: 9px 11px; border-bottom: 1px solid var(--border); font-size: 11px; }
+.ontology-semantic-relations > p { margin: 0; padding: 12px; color: var(--fg-muted); font-size: 11px; }
+.ontology-semantic-relations ul { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0; margin: 0; padding: 0; list-style: none; }
+.ontology-semantic-relations li { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; align-items: center; gap: 7px; min-height: 38px; padding: 7px 10px; border-bottom: 1px solid var(--border); font-size: 10px; }
+.ontology-semantic-relations li code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ontology-semantic-relations li span { color: var(--accent-strong); font-family: ui-monospace, monospace; white-space: nowrap; }
+.ontology-semantic-relation-flags { color: var(--fg-muted); font-size: 9px; white-space: nowrap; }
+.ontology-semantic-state { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: hidden; }
+.ontology-semantic-state > div { min-width: 0; padding: 12px; border-right: 1px solid var(--border); }
+.ontology-semantic-state > div:last-child { border-right: 0; }
+.ontology-semantic-state strong, .ontology-semantic-state span { display: block; }
+.ontology-semantic-state strong { font-size: 11px; }
+.ontology-semantic-state span { margin-top: 5px; color: var(--fg-muted); font-size: 10px; line-height: 1.4; }
+.ontology-semantic-context { padding: 12px; }
+.ontology-semantic-context dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 10px 0 0; }
+.ontology-semantic-context dl > div { min-width: 0; padding: 8px 10px; border-top: 1px solid var(--border); }
+.ontology-semantic-context dt { color: var(--fg-muted); font-size: 9.5px; text-transform: uppercase; }
+.ontology-semantic-context dd { margin: 3px 0 0; overflow-wrap: anywhere; font-size: 11px; }
+.ontology-semantic-inspector { min-width: 0; overflow-y: auto; padding: 14px; border-left: 1px solid var(--border); background: var(--bg-subtle); }
+.ontology-semantic-inspector h3 { margin: 8px 0; overflow-wrap: anywhere; font-size: 16px; }
+.ontology-semantic-inspector > p { margin: 0 0 12px; color: var(--fg-muted); font-size: 11px; line-height: 1.45; }
+.ontology-semantic-inspector dl { margin: 0; }
+.ontology-semantic-inspector dl > div { padding: 7px 0; border-top: 1px solid var(--border); }
+.ontology-semantic-inspector dt { color: var(--fg-muted); font-size: 9.5px; text-transform: uppercase; }
+.ontology-semantic-inspector dd { margin: 2px 0 0; font-size: 11px; }
+.ontology-semantic-inspector section { margin-top: 15px; }
+.ontology-semantic-inspector h4 { margin: 0 0 6px; font-size: 11px; }
+.ontology-semantic-inspector section > p { margin: 0; color: var(--fg-muted); font-size: 10.5px; }
+.ontology-semantic-inspector ul { margin: 0; padding: 0; list-style: none; }
+.ontology-semantic-inspector li { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; align-items: center; gap: 5px; padding: 5px 0; border-top: 1px solid var(--border); font-size: 9px; }
+.ontology-semantic-inspector li code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ontology-semantic-inspector li span { color: var(--accent-strong); font-family: ui-monospace, monospace; white-space: nowrap; }
 .ontology-knowledge-map { display: grid; gap: 10px; min-width: 0; }
 .ontology-knowledge-map-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 28px; padding: 4px 0; }
 .ontology-knowledge-map-header h3 { margin: 0 0 6px; font-size: 18px; }
@@ -10953,6 +11018,7 @@ main { padding-bottom: 60px !important; }
 .ontology-knowledge-viewport { position: relative; min-width: 0; overflow: hidden; cursor: grab; background: var(--bg); }
 .ontology-knowledge-viewport.is-dragging { cursor: grabbing; }
 .ontology-knowledge-viewport canvas { display: block; width: 100%; height: 100%; touch-action: none; user-select: none; }
+.ontology-knowledge-viewport canvas:focus-visible { outline: 3px solid var(--accent); outline-offset: -4px; }
 .ontology-knowledge-type-legend { position: absolute; top: 12px; left: 12px; display: grid; grid-template-columns: repeat(2, max-content); gap: 5px 13px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--cs-radius-sm); background: color-mix(in oklab, var(--bg-elevated) 92%, transparent); color: var(--fg-muted); font-size: 10px; pointer-events: none; backdrop-filter: blur(5px); }
 .ontology-knowledge-type-legend span, .ontology-knowledge-overlay span { display: inline-flex; align-items: center; gap: 5px; }
 .ontology-knowledge-type-legend i { width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 0 1px var(--bg-elevated), 0 0 0 2px color-mix(in oklab, var(--fg) 14%, transparent); }
@@ -10971,6 +11037,7 @@ main { padding-bottom: 60px !important; }
 .ontology-knowledge-inspector ul { margin: 0; padding: 0; list-style: none; }
 .ontology-knowledge-inspector li { margin: 3px 0; }
 .ontology-knowledge-inspector li button { max-width: 100%; padding: 2px 0; overflow: hidden; border: 0; background: transparent; color: var(--accent-strong); font: 11px ui-monospace, monospace; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.ontology-knowledge-inspector li button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .ontology-knowledge-footer { display: flex; justify-content: space-between; gap: 16px; padding: 9px 12px; border-top: 1px solid var(--border); color: var(--fg-muted); font-size: 11.5px; }
 .ontology-knowledge-shell:fullscreen { display: flex; flex-direction: column; width: 100vw; height: 100vh; border: 0; border-radius: 0; background: var(--bg-elevated); }
 .ontology-knowledge-shell:fullscreen .ontology-knowledge-workbench { display: block; flex: 1 1 auto; min-height: 0; height: auto; }
@@ -10984,6 +11051,13 @@ main { padding-bottom: 60px !important; }
   .ontology-knowledge-inspector { max-height: 340px; border-top: 1px solid var(--border); border-left: 0; }
 }
 @media (max-width: 900px) {
+  .ontology-semantic-header { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .ontology-semantic-source { width: 100%; flex-basis: auto; }
+  .ontology-semantic-workbench { grid-template-columns: 1fr; }
+  .ontology-semantic-inspector { max-height: 360px; border-top: 1px solid var(--border); border-left: 0; }
+  .ontology-semantic-state { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ontology-semantic-state > div:nth-child(2) { border-right: 0; }
+  .ontology-semantic-state > div:nth-child(-n+2) { border-bottom: 1px solid var(--border); }
   .ontology-knowledge-map-header { align-items: flex-start; flex-direction: column; gap: 10px; }
   .ontology-knowledge-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .ontology-knowledge-summary > div:nth-child(3) { border-right: 0; }
@@ -10991,6 +11065,10 @@ main { padding-bottom: 60px !important; }
 }
 @media (max-width: 620px) {
   .ontology-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ontology-semantic-lenses { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: none; }
+  .ontology-semantic-nodes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ontology-semantic-relations ul { grid-template-columns: 1fr; }
+  .ontology-semantic-context dl { grid-template-columns: 1fr; }
   .ontology-knowledge-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ontology-knowledge-summary > div:nth-child(2n) { border-right: 0; }
   .ontology-knowledge-summary > div:nth-child(3) { border-right: 1px solid var(--border); }

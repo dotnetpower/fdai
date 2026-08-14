@@ -22,9 +22,10 @@
     "noneDeclared": "None declared.",
     "noDescription": "No description recorded.",
     "objects": "Objects",
-    "links": "Links",
+    "links": "Relationships",
     "actions": "Actions",
-    "map": "Ontology map",
+    "map": "Semantic model",
+    "topology": "Catalog topology",
     "properties": "Properties",
     "incoming": "Incoming",
     "outgoing": "Outgoing",
@@ -95,9 +96,61 @@
     "productionDowngrade": "Production downgrade",
     "tierCeilings": "Tier ceilings"
   },
+  "semantic": {
+    "title": "Operating ontology semantic model",
+    "description": "Reviewed ObjectTypes are organized by what FDAI operates, what it protects, what it observes, and how decisions close into outcomes. Catalog meaning is read-only and does not assert runtime state.",
+    "release": "Ontology release",
+    "projection": "Projection revision",
+    "lenses": "Operational lenses",
+    "lens": {
+      "object": "Object",
+      "relationship": "Relationship",
+      "state": "State",
+      "context": "Context",
+      "action": "Action"
+    },
+    "band": {
+      "operating_scope": "Operating scope",
+      "operating_intent": "Operating intent",
+      "operating_reality": "Operating reality",
+      "decision_and_learning": "Decision and learning"
+    },
+    "bandDescription": {
+      "operating_scope": "What is operated and why it matters",
+      "operating_intent": "Objectives and constraints to preserve",
+      "operating_reality": "Observed, detected, and predicted conditions",
+      "decision_and_learning": "Alternatives, execution, outcomes, and reviewed reuse"
+    },
+    "links": "relationships",
+    "relationships": "Directed relationships",
+    "causal": "causal",
+    "temporal": "temporal",
+    "transitive": "transitive",
+    "noRelationships": "No reviewed relationship connects this selection within the semantic model.",
+    "stateLanes": "Authority-separated state lanes",
+    "state": {
+      "observed": "Observed",
+      "derived": "Derived operational",
+      "desired": "Desired",
+      "execution": "Execution"
+    },
+    "stateDescription": {
+      "observed": "Provider or telemetry evidence",
+      "derived": "Versioned function output with evidence",
+      "desired": "Approved objectives, policy, or configuration",
+      "execution": "Planned, dispatched, verified, or rolled back"
+    },
+    "contextStatus": "Context snapshot status",
+    "receiptRequired": "Secured receipt required",
+    "runtimeEvidence": "Runtime evidence",
+    "notSelected": "No purpose-scoped Context snapshot selected",
+    "mutationAuthority": "Mutation authority",
+    "properties": "Declared properties",
+    "none": "None"
+  },
   "map": {
-    "title": "Full ontology knowledge graph",
-    "description": "All catalog-backed ObjectTypes, ResourceTypes, Rules, ActionTypes, Workflows, Agents, SignalTypes, and Properties share one graph. Node size follows degree, color identifies ontology kind, and dense links form topology communities.",
+    "title": "Catalog topology",
+    "description": "All catalog-backed ObjectTypes, InterfaceTypes, FunctionTypes, ResourceTypes, Rules, ActionTypes, Workflows, Agents, SignalTypes, and Properties share one reference graph. Node size follows degree, color identifies ontology kind, and dense links form topology communities.",
     "sourceTitle": "Deterministic community force layout",
     "summaryLabel": "Ontology knowledge graph summary",
     "nodes": "Catalog nodes",
@@ -118,12 +171,28 @@
     "relationshipFilters": "Relationship filters",
     "edgeKind": {
       "link_type": "LinkTypes",
+      "interface": "Interfaces",
       "instance_of": "Instance of",
       "rule_dispatch": "Rule dispatch",
       "workflow": "Workflow",
       "agent": "Ownership"
     },
-    "canvasDescription": "Interactive ontology knowledge graph with {nodes} nodes and {edges} relationships.",
+    "nodeKind": {
+      "object_type": "Object type",
+      "interface_type": "Interface type",
+      "function_type": "Function type",
+      "resource_type": "Resource type",
+      "rule": "Rule",
+      "action_type": "Action type",
+      "workflow": "Workflow",
+      "agent": "Agent",
+      "signal_type": "Signal type",
+      "property": "Property"
+    },
+    "canvasDescription": "Interactive ontology catalog topology with {nodes} nodes and {edges} relationships. Selected: {selected}. Use arrow keys to pan, plus or minus to zoom, and zero to fit.",
+    "viewportLabel": "Pannable ontology catalog topology",
+    "inspectorLabel": "Ontology catalog topology inspector",
+    "noSelection": "none",
     "nodeTypeColors": "Node type colors",
     "lowDegree": "Low degree",
     "highDegree": "High degree",

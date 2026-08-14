@@ -13,6 +13,7 @@ import {
   type OntologyEdge,
   type OntologyNode,
 } from "../components/ontology-graph";
+import { OntologySemanticMap } from "../components/ontology-semantic-map";
 import {
   type ViewExplanations,
   usePublishViewContext,
@@ -24,6 +25,7 @@ import { OntologyKnowledgeMap } from "./ontology-knowledge-map";
 import { OntologyLinksView } from "./ontology-links";
 import { formatNumber, t } from "./i18n/ontology";
 import {
+  decodeOntologyGraphResponse,
   ontologyView,
   type OntologyGraphResponse,
   type OntologyView,
@@ -149,10 +151,11 @@ export function OntologyRoute({ client }: Props) {
     setState({ status: "loading" });
     (async () => {
       try {
-        const data = await client.panel<OntologyGraphResponse>(
+        const payload = await client.panel<unknown>(
           "/ontology/graph",
           { include_properties: includeProperties ? "true" : "false" },
         );
+        const data = decodeOntologyGraphResponse(payload);
         if (!cancelled) setState({ status: "ready", data });
       } catch (err) {
         if (!cancelled) {
@@ -320,10 +323,11 @@ function OntologyBody({
   return (
     <div class="stack governance-ontology">
       <nav class="ontology-tabs" aria-label={t("ontology.objects.viewsLabel")}>
+        <OntologyTab view="map" active={view} label={t("ontology.common.map")} />
         <OntologyTab view="objects" active={view} count={data.object_type_count} label={t("ontology.common.objects")} />
         <OntologyTab view="links" active={view} count={data.link_type_count} label={t("ontology.common.links")} />
         <OntologyTab view="actions" active={view} count={data.action_type_count ?? actionTypes.length} label={t("ontology.common.actions")} />
-        <OntologyTab view="map" active={view} label={t("ontology.common.map")} />
+        <OntologyTab view="topology" active={view} label={t("ontology.common.topology")} />
       </nav>
 
       {view === "objects" ? (
@@ -393,7 +397,17 @@ function OntologyBody({
         <OntologyActionsView actions={actionTypes} selectedName={selectedAction} />
       ) : null}
 
-      {view === "map" ? <OntologyKnowledgeMap /> : null}
+      {view === "map" ? (
+        <OntologySemanticMap
+          model={data.semantic_model}
+          nodes={data.nodes ?? []}
+          edges={data.edges ?? []}
+          releaseDigest={data.ontology_release_digest}
+          projectionRevision={data._revision}
+        />
+      ) : null}
+
+      {view === "topology" ? <OntologyKnowledgeMap graph={data.catalog_topology} /> : null}
     </div>
   );
 }

@@ -15,6 +15,18 @@ export interface KnowledgeGraphPoint {
   readonly y: number;
 }
 
+export interface KnowledgeGraphArrowHead {
+  readonly tip: KnowledgeGraphPoint;
+  readonly left: KnowledgeGraphPoint;
+  readonly right: KnowledgeGraphPoint;
+}
+
+export interface KnowledgeGraphSelfLoop {
+  readonly start: KnowledgeGraphPoint;
+  readonly control: KnowledgeGraphPoint;
+  readonly end: KnowledgeGraphPoint;
+}
+
 export interface KnowledgeGraphIndex {
   readonly nodeById: ReadonlyMap<string, OntologyKnowledgeNode>;
   readonly adjacency: ReadonlyMap<string, readonly OntologyKnowledgeEdge[]>;
@@ -45,11 +57,81 @@ export function ontologyWorldToScreen(
   return { x: node.x * camera.scale + camera.x, y: node.y * camera.scale + camera.y };
 }
 
+export function ontologySettledScreenPoint(
+  point: KnowledgeGraphPoint,
+  center: KnowledgeGraphPoint,
+  progress: number,
+  seed: string,
+): KnowledgeGraphPoint {
+  if (progress === 1) return point;
+  const hash = [...seed].reduce(
+    (total, character) => (total * 31 + character.charCodeAt(0)) >>> 0,
+    0,
+  );
+  const angle = hash % 360 * Math.PI / 180;
+  const displacement = 1 - progress;
+  const radialScale = .82 + .18 * progress;
+  const drift = 8 * displacement;
+  return {
+    x: center.x + (point.x - center.x) * radialScale + Math.cos(angle) * drift,
+    y: center.y + (point.y - center.y) * radialScale + Math.sin(angle) * drift,
+  };
+}
+
 export function ontologyScreenToWorld(
   point: KnowledgeGraphPoint,
   camera: KnowledgeGraphCamera,
 ): KnowledgeGraphPoint {
   return { x: (point.x - camera.x) / camera.scale, y: (point.y - camera.y) / camera.scale };
+}
+
+export function ontologyArrowHead(
+  control: KnowledgeGraphPoint,
+  target: KnowledgeGraphPoint,
+  targetRadius: number,
+  size: number,
+): KnowledgeGraphArrowHead {
+  const deltaX = target.x - control.x;
+  const deltaY = target.y - control.y;
+  const distance = Math.max(1, Math.hypot(deltaX, deltaY));
+  const unitX = deltaX / distance;
+  const unitY = deltaY / distance;
+  const tip = {
+    x: target.x - unitX * targetRadius,
+    y: target.y - unitY * targetRadius,
+  };
+  const base = {
+    x: tip.x - unitX * size,
+    y: tip.y - unitY * size,
+  };
+  const wing = size * .62;
+  return {
+    tip,
+    left: { x: base.x + unitY * wing, y: base.y - unitX * wing },
+    right: { x: base.x - unitY * wing, y: base.y + unitX * wing },
+  };
+}
+
+export function ontologySelfLoop(
+  center: KnowledgeGraphPoint,
+  radius: number,
+): KnowledgeGraphSelfLoop {
+  const startAngle = -Math.PI / 3;
+  const endAngle = Math.PI / 6;
+  return {
+    start: {
+      x: center.x + Math.cos(startAngle) * radius,
+      y: center.y + Math.sin(startAngle) * radius,
+    },
+    control: {
+      x: center.x + radius * 3,
+      y: center.y - radius * 3,
+    },
+    end: {
+      x: center.x + Math.cos(endAngle) * radius,
+      y: center.y + Math.sin(endAngle) * radius,
+    },
+  };
 }
 
 export function fitOntologyKnowledgeGraph(

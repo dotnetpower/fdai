@@ -1,6 +1,9 @@
 import {
   convexHull,
+  ontologyArrowHead,
   ontologyNodeRadius,
+  ontologySelfLoop,
+  ontologySettledScreenPoint,
   ontologyWorldToScreen,
   type KnowledgeGraphCamera,
   type KnowledgeGraphIndex,
@@ -16,6 +19,8 @@ import type {
 
 export const ONTOLOGY_NODE_STYLES: Readonly<Record<OntologyKnowledgeNodeKind, { readonly label: string; readonly fill: string }>> = {
   object_type: { label: "ObjectType", fill: "#44688e" },
+  interface_type: { label: "InterfaceType", fill: "#57758f" },
+  function_type: { label: "FunctionType", fill: "#9b7048" },
   resource_type: { label: "ResourceType", fill: "#4f847e" },
   rule: { label: "Rule", fill: "#7b6c9c" },
   action_type: { label: "ActionType", fill: "#bc7449" },
@@ -27,6 +32,7 @@ export const ONTOLOGY_NODE_STYLES: Readonly<Record<OntologyKnowledgeNodeKind, { 
 
 const EDGE_COLORS: Readonly<Record<OntologyKnowledgeEdgeKind, string>> = {
   link_type: "#4f847e",
+  interface: "#57758f",
   instance_of: "#a5a8ab",
   rule_dispatch: "#6f88a5",
   workflow: "#7b6c9c",
@@ -55,9 +61,22 @@ export interface OntologyKnowledgeGraphRenderState {
   readonly hoveredId: string | null;
   readonly enabledEdges: ReadonlySet<OntologyKnowledgeEdgeKind>;
   readonly palette: OntologyKnowledgeGraphPalette;
+  readonly settleProgress: number;
+  readonly viewportCenter: KnowledgeGraphPoint;
+}
+
+interface OntologyKnowledgeGraphFrameState extends OntologyKnowledgeGraphRenderState {
+  readonly positionById: ReadonlyMap<string, KnowledgeGraphPoint>;
 }
 
 type VisualState = "selected" | "hovered" | "related" | "normal" | "muted";
+
+function nodePosition(
+  node: OntologyKnowledgeNode,
+  state: OntologyKnowledgeGraphFrameState,
+): KnowledgeGraphPoint {
+  return state.positionById.get(node.id) ?? ontologyWorldToScreen(node, state.camera);
+}
 
 function nodeState(node: OntologyKnowledgeNode, state: OntologyKnowledgeGraphRenderState): VisualState {
   if (node.id === state.selectedId) return "selected";
@@ -85,11 +104,11 @@ function drawGrid(context: CanvasRenderingContext2D, width: number, height: numb
   context.stroke();
 }
 
-function drawCommunities(context: CanvasRenderingContext2D, state: OntologyKnowledgeGraphRenderState): void {
+function drawCommunities(context: CanvasRenderingContext2D, state: OntologyKnowledgeGraphFrameState): void {
   const groups = new Map<number, KnowledgeGraphPoint[]>();
   for (const node of state.graph.nodes) {
     const points = groups.get(node.community) ?? [];
-    points.push(ontologyWorldToScreen(node, state.camera));
+    points.push(nodePosition(node, state));
     groups.set(node.community, points);
   }
   const selectedCommunity = state.selectedId === null
@@ -127,31 +146,49 @@ function drawCommunities(context: CanvasRenderingContext2D, state: OntologyKnowl
   }
 }
 
-function drawEdge(context: CanvasRenderingContext2D, edge: OntologyKnowledgeEdge, state: OntologyKnowledgeGraphRenderState): void {
+function drawEdge(context: CanvasRenderingContext2D, edge: OntologyKnowledgeEdge, state: OntologyKnowledgeGraphFrameState): void {
   if (!state.enabledEdges.has(edge.kind)) return;
   const sourceNode = state.index.nodeById.get(edge.source);
   const targetNode = state.index.nodeById.get(edge.target);
   if (!sourceNode || !targetNode) return;
-  const source = ontologyWorldToScreen(sourceNode, state.camera);
-  const target = ontologyWorldToScreen(targetNode, state.camera);
+  const source = nodePosition(sourceNode, state);
+  const target = nodePosition(targetNode, state);
   const visualState = edgeState(edge, state.selectedId);
+  const selfLoop = edge.source === edge.target
+    ? ontologySelfLoop(source, ontologyNodeRadius(sourceNode) * state.camera.scale + 3)
+    : null;
   const deltaX = target.x - source.x;
   const deltaY = target.y - source.y;
   const distance = Math.max(1, Math.hypot(deltaX, deltaY));
   const direction = [...edge.id].reduce((total, character) => total + character.charCodeAt(0), 0) % 2 ? 1 : -1;
   const bend = Math.min(24, distance * .08) * direction;
-  const controlX = (source.x + target.x) / 2 - deltaY / distance * bend;
-  const controlY = (source.y + target.y) / 2 + deltaX / distance * bend;
+  const curveStart = selfLoop?.start ?? source;
+  const curveEnd = selfLoop?.end ?? target;
+  const controlX = selfLoop?.control.x ?? (source.x + target.x) / 2 - deltaY / distance * bend;
+  const controlY = selfLoop?.control.y ?? (source.y + target.y) / 2 + deltaX / distance * bend;
   context.beginPath();
-  context.moveTo(source.x, source.y);
-  context.quadraticCurveTo(controlX, controlY, target.x, target.y);
+  context.moveTo(curveStart.x, curveStart.y);
+  context.quadraticCurveTo(controlX, controlY, curveEnd.x, curveEnd.y);
   context.strokeStyle = EDGE_COLORS[edge.kind];
   context.globalAlpha = visualState === "related" ? .82 : visualState === "muted" ? .018 : .10;
   context.lineWidth = visualState === "related" ? 2 : 1;
   context.stroke();
+  const arrow = ontologyArrowHead(
+    { x: controlX, y: controlY },
+    curveEnd,
+    selfLoop === null ? ontologyNodeRadius(targetNode) * state.camera.scale + 2 : 0,
+    visualState === "related" ? 8 : 6,
+  );
+  context.beginPath();
+  context.moveTo(arrow.tip.x, arrow.tip.y);
+  context.lineTo(arrow.left.x, arrow.left.y);
+  context.lineTo(arrow.right.x, arrow.right.y);
+  context.closePath();
+  context.fillStyle = EDGE_COLORS[edge.kind];
+  context.fill();
   if (visualState === "related" && state.camera.scale > .5) {
-    const middleX = .25 * source.x + .5 * controlX + .25 * target.x;
-    const middleY = .25 * source.y + .5 * controlY + .25 * target.y;
+    const middleX = .25 * curveStart.x + .5 * controlX + .25 * curveEnd.x;
+    const middleY = .25 * curveStart.y + .5 * controlY + .25 * curveEnd.y;
     context.globalAlpha = 1;
     context.font = "10px 'Cascadia Code', Consolas, monospace";
     context.textAlign = "center";
@@ -164,8 +201,8 @@ function drawEdge(context: CanvasRenderingContext2D, edge: OntologyKnowledgeEdge
   }
 }
 
-function drawNode(context: CanvasRenderingContext2D, node: OntologyKnowledgeNode, state: OntologyKnowledgeGraphRenderState): void {
-  const position = ontologyWorldToScreen(node, state.camera);
+function drawNode(context: CanvasRenderingContext2D, node: OntologyKnowledgeNode, state: OntologyKnowledgeGraphFrameState): void {
+  const position = nodePosition(node, state);
   const visualState = nodeState(node, state);
   const radius = Math.max(3.2, ontologyNodeRadius(node) * Math.min(1.15, Math.max(.65, state.camera.scale)));
   context.globalAlpha = visualState === "muted" ? .11 : 1;
@@ -187,8 +224,8 @@ function drawNode(context: CanvasRenderingContext2D, node: OntologyKnowledgeNode
 
 interface LabelBox { readonly left: number; readonly right: number; readonly top: number; readonly bottom: number }
 
-function drawNodeLabel(context: CanvasRenderingContext2D, node: OntologyKnowledgeNode, boxes: LabelBox[], state: OntologyKnowledgeGraphRenderState): void {
-  const position = ontologyWorldToScreen(node, state.camera);
+function drawNodeLabel(context: CanvasRenderingContext2D, node: OntologyKnowledgeNode, boxes: LabelBox[], state: OntologyKnowledgeGraphFrameState): void {
+  const position = nodePosition(node, state);
   const visualState = nodeState(node, state);
   if (!(visualState === "selected" || visualState === "hovered" || visualState === "related" || node.degree >= 8 || state.camera.scale > 1.05)) return;
   const radius = Math.max(3.2, ontologyNodeRadius(node) * Math.min(1.15, Math.max(.65, state.camera.scale)));
@@ -214,6 +251,18 @@ export function renderOntologyKnowledgeGraph(
   height: number,
   state: OntologyKnowledgeGraphRenderState,
 ): void {
+  const frameState: OntologyKnowledgeGraphFrameState = {
+    ...state,
+    positionById: new Map(state.graph.nodes.map((node) => [
+      node.id,
+      ontologySettledScreenPoint(
+        ontologyWorldToScreen(node, state.camera),
+        state.viewportCenter,
+        state.settleProgress,
+        node.id,
+      ),
+    ])),
+  };
   context.clearRect(0, 0, width, height);
   context.fillStyle = state.palette.background;
   context.fillRect(0, 0, width, height);
@@ -221,10 +270,10 @@ export function renderOntologyKnowledgeGraph(
   const ordered = [...state.graph.nodes].sort((left, right) => left.degree - right.degree);
   const priority: Readonly<Record<VisualState, number>> = { selected: 4, hovered: 3, related: 2, normal: 1, muted: 0 };
   const labels = [...ordered].reverse().sort((left, right) => priority[nodeState(right, state)] - priority[nodeState(left, state)] || right.degree - left.degree);
-  drawCommunities(context, state);
-  state.graph.edges.forEach((edge) => drawEdge(context, edge, state));
-  ordered.forEach((node) => drawNode(context, node, state));
+  drawCommunities(context, frameState);
+  state.graph.edges.forEach((edge) => drawEdge(context, edge, frameState));
+  ordered.forEach((node) => drawNode(context, node, frameState));
   const labelBoxes: LabelBox[] = [];
-  labels.forEach((node) => drawNodeLabel(context, node, labelBoxes, state));
+  labels.forEach((node) => drawNodeLabel(context, node, labelBoxes, frameState));
   context.globalAlpha = 1;
 }

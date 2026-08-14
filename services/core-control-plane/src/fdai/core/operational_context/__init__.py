@@ -1,5 +1,6 @@
 """Time-consistent operating context for governed decisions."""
 
+from .console_projection import SecuredContextResult, project_context_snapshot
 from .evidence_bundle import (
     bind_citation,
     bind_evidence_item_source,
@@ -39,6 +40,8 @@ __all__ = [
     "EvidenceTemporalScope",
     "OntologyEvidenceItem",
     "OperationalContextMaterializer",
+    "SecuredContextResult",
+    "project_context_snapshot",
     "OperationalContextEvidenceLink",
     "OperationalContextEvidencePath",
     "OperationalContextSnapshot",

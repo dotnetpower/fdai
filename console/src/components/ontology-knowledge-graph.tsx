@@ -3,13 +3,17 @@ import { formatNumber, t } from "../routes/i18n/ontology";
 import {
   ONTOLOGY_EDGE_KINDS,
   ontologyKnowledgeGraphSummary,
+  ontologyKnowledgeRelationship,
   type OntologyKnowledgeEdgeKind,
   type OntologyKnowledgeGraph,
   type OntologyKnowledgeNode,
 } from "./ontology-knowledge-graph.model";
 import { ONTOLOGY_NODE_STYLES } from "./ontology-knowledge-graph.renderer";
 import { Tooltip } from "./tooltip";
-import { useOntologyKnowledgeGraphController } from "./use-ontology-knowledge-graph-controller";
+import {
+  ontologyKnowledgeKeyboardCommand,
+  useOntologyKnowledgeGraphController,
+} from "./use-ontology-knowledge-graph-controller";
 
 export function OntologyKnowledgeGraphExplorer({ graph }: { readonly graph: OntologyKnowledgeGraph }) {
   const shellRef = useRef<HTMLElement>(null);
@@ -63,6 +67,18 @@ export function OntologyKnowledgeGraphExplorer({ graph }: { readonly graph: Onto
     else await shell.requestFullscreen({ navigationUI: "hide" });
     window.setTimeout(controller.fit, 30);
   };
+  const handleCanvasKeyDown = (event: KeyboardEvent) => {
+    const command = ontologyKnowledgeKeyboardCommand(event.key);
+    if (command === null) return;
+    event.preventDefault();
+    if (command === "fit") controller.fit();
+    else if (command === "zoom-in") controller.zoomIn();
+    else if (command === "zoom-out") controller.zoomOut();
+    else if (command === "pan-up") controller.panBy(0, 36);
+    else if (command === "pan-down") controller.panBy(0, -36);
+    else if (command === "pan-left") controller.panBy(36, 0);
+    else controller.panBy(-36, 0);
+  };
 
   return (
     <section class="ontology-knowledge-shell" ref={shellRef} aria-label={t("ontology.map.explorerLabel")}>
@@ -71,6 +87,9 @@ export function OntologyKnowledgeGraphExplorer({ graph }: { readonly graph: Onto
           <label>
             <span class="sr-only">{t("ontology.map.search")}</span>
             <input
+              role="combobox"
+              aria-autocomplete="list"
+              aria-controls="ontology-knowledge-node-list"
               ref={searchRef}
               type="search"
               list="ontology-knowledge-node-list"
@@ -98,8 +117,9 @@ export function OntologyKnowledgeGraphExplorer({ graph }: { readonly graph: Onto
         </div>
         <div class="ontology-knowledge-filters" aria-label={t("ontology.map.relationshipFilters")}>
           {ONTOLOGY_EDGE_KINDS.map((kind) => (
-            <label key={kind}>
+            <label key={kind} for={`ontology-edge-filter-${kind}`}>
               <input
+                id={`ontology-edge-filter-${kind}`}
                 type="checkbox"
                 checked={enabledEdges.has(kind)}
                 onChange={(event) => toggleEdge(kind, event.currentTarget.checked)}
@@ -111,19 +131,26 @@ export function OntologyKnowledgeGraphExplorer({ graph }: { readonly graph: Onto
       </div>
 
       <div class="ontology-knowledge-workbench">
-        <div class="ontology-knowledge-viewport" ref={controller.viewportRef}>
+        <div
+          class="ontology-knowledge-viewport"
+          ref={controller.viewportRef}
+          role="region"
+          aria-label={t("ontology.map.viewportLabel")}
+        >
           <canvas
             ref={controller.canvasRef}
             role="img"
             tabIndex={0}
+            onKeyDown={handleCanvasKeyDown}
             aria-label={t("ontology.map.canvasDescription", {
               nodes: summary.nodes,
               edges: summary.edges,
+              selected: selected?.label ?? t("ontology.map.noSelection"),
             })}
           />
           <div class="ontology-knowledge-type-legend" aria-label={t("ontology.map.nodeTypeColors")}>
             {Object.entries(ONTOLOGY_NODE_STYLES).map(([kind, style]) => (
-              <span key={kind}><i style={`background:${style.fill}`} />{style.label}</span>
+              <span key={kind}><i style={`background:${style.fill}`} />{t(`ontology.map.nodeKind.${kind}`)}</span>
             ))}
           </div>
           <div class="ontology-knowledge-overlay">
@@ -161,7 +188,7 @@ function KnowledgeInspector({
   const summary = ontologyKnowledgeGraphSummary(graph);
   if (!selected) {
     return (
-      <aside class="ontology-knowledge-inspector" aria-live="polite">
+      <aside class="ontology-knowledge-inspector" aria-live="polite" aria-label={t("ontology.map.inspectorLabel")}>
         <span class="badge">{t("ontology.map.communityGraph")}</span>
         <h3>{t("ontology.map.catalogNodes", { count: formatNumber(summary.nodes) })}</h3>
         <p>{t("ontology.map.inspectorDefault", { count: summary.communities })}</p>
@@ -180,32 +207,57 @@ function KnowledgeInspector({
     neighborIds.add(edge.target);
   }
   const nodesById = new Map(graph.nodes.map((node) => [node.id, node]));
+  const directed = relationships.map((edge) => ({
+    edge,
+    relationship: ontologyKnowledgeRelationship(edge, selected.id, nodesById),
+  }));
+  const incoming = directed.filter((item) => item.relationship.direction === "incoming");
+  const outgoing = directed.filter((item) => item.relationship.direction === "outgoing");
   return (
-    <aside class="ontology-knowledge-inspector" aria-live="polite">
+    <aside class="ontology-knowledge-inspector" aria-live="polite" aria-label={t("ontology.map.inspectorLabel")}>
       <span class="badge">{t("ontology.map.knowledgeNode")}</span>
       <h3><code>{selected.label}</code></h3>
       <p>{selected.detail}</p>
       <dl>
-        <div><dt>{t("ontology.map.ontologyKind")}</dt><dd>{ONTOLOGY_NODE_STYLES[selected.kind].label}</dd></div>
+        <div><dt>{t("ontology.map.ontologyKind")}</dt><dd>{t(`ontology.map.nodeKind.${selected.kind}`)}</dd></div>
         <div><dt>{t("ontology.map.community")}</dt><dd>C{selected.community}</dd></div>
         <div><dt>{t("ontology.map.evidenceState")}</dt><dd>{t(selected.kind === "object_type" ? "ontology.map.declared" : "ontology.map.catalogBacked")}</dd></div>
         <div><dt>{t("ontology.map.degree")}</dt><dd>{formatNumber(selected.degree)}</dd></div>
         <div><dt>{t("ontology.map.relationships")}</dt><dd>{formatNumber(relationships.length)}</dd></div>
         <div><dt>{t("ontology.map.neighborhood")}</dt><dd>{formatNumber(neighborIds.size)}</dd></div>
       </dl>
-      <h4>{t("ontology.map.neighbors")}</h4>
-      <ul>
-        {relationships.slice(0, 28).map((edge) => {
-          const otherId = edge.source === selected.id ? edge.target : edge.source;
-          return (
+      <KnowledgeRelationshipList title={t("ontology.common.outgoing")} items={outgoing} onFocus={onFocus} />
+      <KnowledgeRelationshipList title={t("ontology.common.incoming")} items={incoming} onFocus={onFocus} />
+    </aside>
+  );
+}
+
+function KnowledgeRelationshipList({
+  title,
+  items,
+  onFocus,
+}: {
+  readonly title: string;
+  readonly items: readonly {
+    readonly edge: OntologyKnowledgeGraph["edges"][number];
+    readonly relationship: ReturnType<typeof ontologyKnowledgeRelationship>;
+  }[];
+  readonly onFocus: (id: string) => void;
+}) {
+  return (
+    <section class="ontology-knowledge-direction">
+      <h4>{title}</h4>
+      {items.length === 0 ? <p>{t("ontology.semantic.none")}</p> : (
+        <ul>
+          {items.slice(0, 28).map(({ edge, relationship }) => (
             <li key={edge.id}>
-              <button type="button" onClick={() => onFocus(otherId)}>
-                {edge.label} -&gt; {nodesById.get(otherId)?.label ?? otherId}
+              <button type="button" onClick={() => onFocus(relationship.otherId)}>
+                {relationship.fromLabel} --{edge.label}--&gt; {relationship.toLabel}
               </button>
             </li>
-          );
-        })}
-      </ul>
-    </aside>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
