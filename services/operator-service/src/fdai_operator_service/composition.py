@@ -17,6 +17,9 @@ from fdai_operator_service.adapters import (
     OperatorSemanticKafkaBus,
     OperatorSemanticKafkaConfig,
 )
+from fdai_operator_service.adapters.narrator_periodic_scheduler import (
+    PeriodicNarratorRefreshScheduler,
+)
 from fdai_operator_service.auth import EntraJwtVerifier, OperatorAuthenticator
 from fdai_operator_service.contracts import ApplicationLifecycle, ReadinessProbe
 from fdai_operator_service.environment import OperatorEnvironment
@@ -127,23 +130,37 @@ class ProductionOperatorComposition:
             verifier=self.verifier_factory(environment),
             group_ids=environment.group_ids,
         )
+        route_families, local_narrator = _build_route_families(
+            environment=environment,
+            authenticator=authenticator,
+            store=family_store,
+            semantic_bridge=semantic_bridge,
+            read_model=configured_read_model,
+        )
+        narrator_scheduler = (
+            PeriodicNarratorRefreshScheduler(
+                local_narrator,
+                interval_seconds=environment.narrator_probe_interval_seconds,
+            )
+            if local_narrator is not None
+            else None
+        )
         return OperatorRuntime(
             environment=environment,
             authenticator=authenticator,
             read_model=configured_read_model or UnavailableOperatorReadModel(),
             data_sources=_build_data_sources(configured=configured_read_model is not None),
-            route_families=_build_route_families(
-                environment=environment,
-                authenticator=authenticator,
-                store=family_store,
-                semantic_bridge=semantic_bridge,
-                read_model=configured_read_model,
-            ),
+            route_families=route_families,
             readiness_probe=self.readiness_probe
             or _readiness_probe(family_store, semantic_bus, semantic_bridge, live_stage_relay),
             live_stream_hub=live_stream_hub,
             agent_stream_hub=agent_stream_hub,
-            lifecycle=_application_lifecycle(semantic_bridge, semantic_bus, live_stage_relay),
+            lifecycle=_application_lifecycle(
+                semantic_bridge,
+                semantic_bus,
+                live_stage_relay,
+                narrator_scheduler,
+            ),
         )
 
 
@@ -166,7 +183,7 @@ def _build_route_families(
     store: PostgresFamilyStore | None,
     semantic_bridge: SemanticTurnBridge | None,
     read_model: OperatorReadModel | None,
-) -> OperatorRouteFamilies:
+) -> tuple[OperatorRouteFamilies, LocalAzureNarratorAdapters | None]:
     authorizer = OperatorFamilyAuthorizer(authenticator)
     report_pdf_encoder = optional_pdf_report_encoder()
     role_group_ids = {role.value: group_id for role, group_id in environment.group_ids.items()}
@@ -175,7 +192,7 @@ def _build_route_families(
         unavailable_workflow = UnavailableWorkflowAdapters()
         unavailable_operations = UnavailableOperationsAdapters()
         unavailable_iam = PostgresIamAdapters(UnavailablePostgresFamilyStore())
-        return OperatorRouteFamilies(
+        routes = OperatorRouteFamilies(
             conversation=ConversationFamilyDependencies(
                 authorizer=authorizer,
                 projections=unavailable_conversation,
@@ -205,17 +222,19 @@ def _build_route_families(
             operations_webhook_verifier=unavailable_operations,
             report_pdf_encoder=report_pdf_encoder,
         )
+        return routes, None
 
     postgres_conversation = PostgresConversationAdapters(store)
-    conversation = (
+    local_narrator = (
         LocalAzureNarratorAdapters.from_environment(
             environment.values,
             fallback_projections=postgres_conversation,
             fallback_streams=postgres_conversation,
         )
         if environment.local_azure_narrator
-        else postgres_conversation
+        else None
     )
+    conversation = local_narrator or postgres_conversation
     semantic_adapters = (
         SemanticTurnConversationAdapters(
             bridge=semantic_bridge,
@@ -238,7 +257,7 @@ def _build_route_families(
         else postgres_operations
     )
     hil_secret = environment.values.get(HIL_SIGNING_SECRET_ENV, "").strip() or None
-    return OperatorRouteFamilies(
+    routes = OperatorRouteFamilies(
         conversation=ConversationFamilyDependencies(
             authorizer=authorizer,
             projections=semantic_adapters or conversation,
@@ -271,6 +290,7 @@ def _build_route_families(
         operations_webhook_verifier=postgres_operations,
         report_pdf_encoder=report_pdf_encoder,
     )
+    return routes, local_narrator
 
 
 def _postgres_family_store(environment: OperatorEnvironment) -> PostgresFamilyStore | None:
@@ -404,8 +424,13 @@ def _application_lifecycle(
     bridge: SemanticTurnBridge | None,
     bus: OperatorSemanticKafkaBus | None,
     live_stage_relay: LiveStageKafkaRelay | None,
+    narrator_scheduler: PeriodicNarratorRefreshScheduler | None,
 ) -> ApplicationLifecycle | None:
-    services = tuple(service for service in (bus, bridge, live_stage_relay) if service is not None)
+    services = tuple(
+        service
+        for service in (bus, bridge, live_stage_relay, narrator_scheduler)
+        if service is not None
+    )
     if not services:
         return None
     if len(services) == 1:

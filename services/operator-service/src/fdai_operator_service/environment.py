@@ -21,6 +21,7 @@ DATABASE_STATEMENT_TIMEOUT_ENV = "FDAI_OPERATOR_DATABASE_STATEMENT_TIMEOUT_MS"
 DATABASE_CONNECT_TIMEOUT_ENV = "FDAI_OPERATOR_DATABASE_CONNECT_TIMEOUT_S"
 EXPECTED_DATABASE_ROLE = "fdai_operator"
 LOCAL_AZURE_NARRATOR_ENV = "FDAI_OPERATOR_SERVICE_LOCAL_AZURE_NARRATOR"
+NARRATOR_PROBE_INTERVAL_ENV = "FDAI_NARRATOR_PROBE_INTERVAL_SECONDS"
 KAFKA_BOOTSTRAP_SERVERS_ENV = "FDAI_KAFKA_BOOTSTRAP_SERVERS"
 STAGE_TOPIC_ENV = "FDAI_STAGE_TOPIC"
 LIVE_STAGE_CONSUMER_GROUP_ENV = "FDAI_LIVE_STAGE_CONSUMER_GROUP_ID"
@@ -38,6 +39,9 @@ DEFAULT_SEMANTIC_CONSUMER_GROUP = "operator-semantic-turn-v1"
 DEFAULT_SEMANTIC_KAFKA_CLIENT_ID = "fdai-operator-service"
 DEFAULT_STAGE_TOPIC = "aw.pipeline.stages"
 DEFAULT_LIVE_STAGE_CONSUMER_GROUP = "fdai-operator-live-stage-v1"
+DEFAULT_NARRATOR_PROBE_INTERVAL_SECONDS = 300
+MIN_NARRATOR_PROBE_INTERVAL_SECONDS = 30
+MAX_NARRATOR_PROBE_INTERVAL_SECONDS = 3_600
 
 GROUP_ENV: Mapping[OperatorRole, str] = MappingProxyType(
     {
@@ -72,6 +76,7 @@ class OperatorEnvironment:
     database_statement_timeout_ms: int
     database_connect_timeout_s: int
     local_azure_narrator: bool
+    narrator_probe_interval_seconds: int
     kafka_bootstrap_servers: str | None
     stage_topic: str
     live_stage_consumer_group_id: str
@@ -141,6 +146,13 @@ class OperatorEnvironment:
             DEFAULT_DATABASE_CONNECT_TIMEOUT_S,
         )
         local_azure_narrator = _boolean(values, LOCAL_AZURE_NARRATOR_ENV, default=False)
+        narrator_probe_interval_seconds = _bounded_int(
+            values,
+            NARRATOR_PROBE_INTERVAL_ENV,
+            DEFAULT_NARRATOR_PROBE_INTERVAL_SECONDS,
+            minimum=MIN_NARRATOR_PROBE_INTERVAL_SECONDS,
+            maximum=MAX_NARRATOR_PROBE_INTERVAL_SECONDS,
+        )
         if local_azure_narrator and values.get("RUNTIME_ENV", "").strip().lower() != "dev":
             raise OperatorServiceConfigurationError(
                 f"{LOCAL_AZURE_NARRATOR_ENV} requires RUNTIME_ENV=dev"
@@ -197,6 +209,7 @@ class OperatorEnvironment:
             database_statement_timeout_ms=database_statement_timeout_ms,
             database_connect_timeout_s=database_connect_timeout_s,
             local_azure_narrator=local_azure_narrator,
+            narrator_probe_interval_seconds=narrator_probe_interval_seconds,
             kafka_bootstrap_servers=kafka_bootstrap_servers,
             stage_topic=stage_topic,
             live_stage_consumer_group_id=live_stage_consumer_group_id,
@@ -227,6 +240,20 @@ def _positive_int(environ: Mapping[str, str], key: str, default: int) -> int:
     return value
 
 
+def _bounded_int(
+    environ: Mapping[str, str],
+    key: str,
+    default: int,
+    *,
+    minimum: int,
+    maximum: int,
+) -> int:
+    value = _positive_int(environ, key, default)
+    if not minimum <= value <= maximum:
+        raise OperatorServiceConfigurationError(f"{key} MUST be in [{minimum}, {maximum}]")
+    return value
+
+
 def _boolean(environ: Mapping[str, str], key: str, *, default: bool) -> bool:
     raw = environ.get(key, str(default)).strip().lower()
     if raw in {"1", "true", "yes", "on"}:
@@ -244,6 +271,7 @@ __all__ = [
     "DATABASE_STATEMENT_TIMEOUT_ENV",
     "DATABASE_URL_ENV",
     "DEFAULT_HOST",
+    "DEFAULT_NARRATOR_PROBE_INTERVAL_SECONDS",
     "DEFAULT_PORT",
     "EXPECTED_DATABASE_ROLE",
     "GROUP_ENV",
@@ -253,7 +281,10 @@ __all__ = [
     "LIVE_STAGE_CONSUMER_GROUP_ENV",
     "STAGE_TOPIC_ENV",
     "LOCAL_AZURE_NARRATOR_ENV",
+    "MAX_NARRATOR_PROBE_INTERVAL_SECONDS",
     "MANAGED_IDENTITY_CLIENT_ID_ENV",
+    "MIN_NARRATOR_PROBE_INTERVAL_SECONDS",
+    "NARRATOR_PROBE_INTERVAL_ENV",
     "JWKS_URI_ENV",
     "PORT_ENV",
     "SEMANTIC_CONSUMER_GROUP_ENV",
