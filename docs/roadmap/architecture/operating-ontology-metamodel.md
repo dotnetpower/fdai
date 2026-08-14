@@ -39,7 +39,7 @@ flowchart TB
         OI[Object and Link instances]
         SF[Observed and derived facts]
         CS[Immutable context snapshot]
-        MP[MutationPlan and ActionRun]
+        MP[MutationPlan, KineticSafetyReceipt, and ActionRun]
     end
 
     L --> D
@@ -58,7 +58,7 @@ evidence, and decisions under those contracts.
 | Relationship | How are objects connected? | `OntologyLinkType` and `OntologyLinkRecord`. |
 | State | What was observed, derived, desired, or executed? | Typed objects, observations, trajectories, and journals with explicit authority. |
 | Context | Which bounded evidence was used for this question or decision? | A versioned query profile and immutable context snapshot. |
-| Action | What change may be proposed under which safeguards? | `OntologyActionType`, `MutationPlan`, and `ActionRun`. |
+| Action | What change may be proposed under which safeguards? | `OntologyActionType`, `MutationPlan`, `KineticSafetyReceipt`, and `ActionRun`. |
 
 State and Context are first-class in the operational model, but that does not require new
 `STATE` and `CONTEXT` values in `OntologyDeclarationKind`. A declaration kind is justified only
@@ -147,7 +147,12 @@ FDAI separates state by authority rather than storing one mutable `state` bag.
 | Observed | Provider power state, provisioning result, metric sample. | Authoritative provider or telemetry receipt, then owned projection or `Observation`. |
 | Derived operational | Healthy, degraded, resource pressure, forecast risk. | Versioned derive function plus immutable evidence and uncertainty. |
 | Desired | SLO, RTO, budget, reviewed configuration. | Approved policy, configuration, or effective-time objective. |
-| Execution | Planned, dispatched, verified, rolled back. | Process journal, `ActionRun`, outcome, and audit ledger. |
+| Execution | Planned, dispatched, verified, rolled back. | Process journal, pre-dispatch `KineticSafetyReceipt`, `ActionRun`, outcome, and audit ledger. |
+
+The kinetic safety receipt is a content-addressed execution-state artifact, not a new declaration
+kind. It binds an existing exact V2 `MutationPlan` to one Action and omits raw Action arguments.
+Post-execution consumers can resolve the stored plan but cannot reconstruct or upgrade a legacy
+Action. The receipt grants no judgment, approval, execution, observation, or promotion authority.
 
 Every decision-relevant state fact records or resolves these fields:
 
@@ -270,6 +275,7 @@ FunctionType, exact release refs, and immutable snapshots.
 | Canonical declaration release | implemented | [`ontology_catalog.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/ontology_catalog.py), [`release.py`](../../../services/core-control-plane/src/fdai/shared/ontology/release.py), and [`test_ontology_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_catalog.py) | Object, Link, Action, Interface, and Function declarations contribute to an exact release. |
 | Bounded ObjectSet execution and lineage | implemented | [`semantic_query.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/semantic_query.py), [`test_interfaces_and_object_sets.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_interfaces_and_object_sets.py), and [`test_semantic_query.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_semantic_query.py) | The secured query path preserves release, plan, invocation, truncation, and evidence references without granting authority. |
 | Provider state and relationship evidence contracts | implemented | [`state_evidence.py`](../../../services/core-control-plane/src/fdai/shared/providers/state_evidence.py) and [`test_state_evidence.py`](../../../services/core-control-plane/tests/providers/test_state_evidence.py) | Typed metadata distinguishes observed state and link evidence from derived interpretation. |
+| Kinetic execution-state artifact | implemented | [`reconciliation_artifacts.py`](../../../services/core-control-plane/src/fdai/delivery/reconciliation_artifacts.py) and focused adversarial tests (`15 passed`) | A bounded immutable delivery receipt binds one existing exact V2 plan without storing raw Action arguments or granting authority. The pre-dispatch writer and independent observation source remain open. |
 | Relationship direction and classification hardening | in-progress | The direction contract and `resource_classified_as` design in this document; [`kubernetes_relationships.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_relationships.py), [`direction_shadow`](../../../services/core-control-plane/src/fdai/core/ontology_platform/direction_shadow), [`inventory_ontology.py`](../../../services/core-control-plane/src/fdai/runtime/inventory_ontology.py), focused tests, and retained receipt `sha256:ad64c267b6f0c6ac5a1a037067f926aa5613f1fe5a84702877eb607e368736f6`. | D1 and D3 are covered. A real D4 comparison is replayable and retained as `review_required`; the historical release is unbound and the aligned generation is incomplete with unverified links, so it isn't migration evidence. |
 | Network and Pod telemetry competency | in-progress | [`operational_functions.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py), [`inventory_sync.py`](../../../services/core-control-plane/src/fdai/delivery/inventory_sync.py), [`test_inventory_sync.py`](../../../services/core-control-plane/tests/delivery/test_inventory_sync.py), and [`test_wire_pod_telemetry.py`](../../../services/core-control-plane/tests/composition/test_wire_pod_telemetry.py). | Production inventory composition now projects and independently verifies Kubernetes relationships whenever an authoritative source supplies Service, Pod, and Endpoints records. No production Kubernetes inventory source or retained live receipt exists yet. |
 | Production metamodel assurance | in-progress | Focused source and test evidence above. | Authenticated cross-service and operational receipts are still required before this document can claim production validation. |
@@ -287,6 +293,7 @@ FunctionType, exact release refs, and immutable snapshots.
 | 2026-08-14 | implemented | Bound every newly built inventory ontology projection result, durable manifest, and status to the exact catalog release used by the inventory job. Invalid or absent release digests fail before projection. Historical manifests are not assigned a reconstructed release. | `current change`; focused `test_inventory_ontology.py` reports 9 passed. | Refresh inventory after central validation, then retain release-bound D4 and M5 evidence from new generations; historical comparison remains review-required. |
 | 2026-08-14 | in-progress | Allowed retained graph generations to preserve an explicitly unbound release and captured a replay-identical D4 comparison in the deployment-local StateStore. The receipt reports 607 added, 0 removed, and 0 reversed links and grants no migration or graph authority. | `current change`; focused direction-shadow suite reports 8 passed; StateStore receipt `sha256:ad64c267b6f0c6ac5a1a037067f926aa5613f1fe5a84702877eb607e368736f6` has `review_required` with `legacy_release_unbound`, `aligned_generation_incomplete`, and `aligned_link_evidence_unverified`. | Review the measured differences and capture a complete aligned generation with verified link metadata before migration. |
 | 2026-08-14 | implemented | Bound the reviewed Kubernetes relationship projector through the common promoted-inventory observation path and injected the shipped mapping catalog from scheduled and local inventory composition. | `current change`; the focused inventory observer test reports 1 passed and the two caller-wiring checks report 2 passed. | Add an authoritative Kubernetes inventory source and retain exact-release Pod telemetry evidence; current Azure inventory doesn't supply Kubernetes workload objects. |
+| 2026-08-14 | implemented | Added a bounded delivery-owned kinetic execution-state receipt and immutable artifact adapter for exact pre-dispatch V2 plans without changing the legacy Action schema. | `current change`; focused adversarial tests passed 15 cases; strict mypy and task-scoped Ruff passed. | Bind the writer before dispatch and add a verified independent observation source before enabling ordinary production reconciliation. |
 
 ### Remaining work
 
@@ -295,6 +302,8 @@ FunctionType, exact release refs, and immutable snapshots.
 - [x] Bind the reviewed Kubernetes relationship projector through production and local inventory composition and verify that supplied Service, Pod, and Endpoints records produce independently verified links.
 - [ ] Add an authoritative Kubernetes inventory source, then run the VM connectivity and Pod telemetry competency checks against retained inventory evidence on the exact release.
 - [ ] Retain authenticated cross-service and live-assurance receipts that bind the exact ontology release before changing production metamodel assurance to `validated`.
+- [ ] Bind the kinetic receipt writer before provider dispatch and retain independent-observation
+    evidence without reconstructing a plan for legacy Actions.
 
 ## Verification checklist
 

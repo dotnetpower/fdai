@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: 3384e267e1289737193523c8d2495f15af3a6603
+translation_source_sha: 8dd3f3f0070601bfa62bfee8222fdc2caab35fe0
 translation_revised: 2026-08-14
 ---
 # FDAI 운영 온톨로지 메타모델
@@ -42,7 +42,7 @@ flowchart TB
   OI[Object and Link instances]
   SF[Observed and derived facts]
   CS[Immutable context snapshot]
-  MP[MutationPlan and ActionRun]
+    MP[MutationPlan, KineticSafetyReceipt, and ActionRun]
  end
 
  L --> D
@@ -61,7 +61,7 @@ flowchart TB
 | 관계 | 객체가 어떻게 연결됩니까? | `OntologyLinkType` 및 `OntologyLinkRecord`입니다. |
 | 상태 | 무엇이 관측, 파생, 의도 또는 실행되었습니까? | 명시적 권한이 있는 타입이 지정된 객체, 관측, trajectory, 저널입니다. |
 | 맥락 | 이 질문 또는 결정에 어떤 범위가 제한된 근거를 사용했습니까? | Versioned 조회 프로파일 및 변경할 수 없는 맥락 스냅샷입니다. |
-| 액션 | 어떤 safeguard에서 어떤 변경을 제안할 수 있습니까? | `OntologyActionType`, `MutationPlan`, `ActionRun`입니다. |
+| 액션 | 어떤 safeguard에서 어떤 변경을 제안할 수 있습니까? | `OntologyActionType`, `MutationPlan`, `KineticSafetyReceipt`, `ActionRun`입니다. |
 
 상태와 맥락은 operational 모델에서 일급이지만 새로운 `STATE` 및 `CONTEXT`
 `OntologyDeclarationKind`가 필요하다는 뜻은 아닙니다. 선언 종류는 독립 호환성, exact
@@ -148,7 +148,12 @@ FDAI는 하나의 변경 가능한 `state` bag을 저장하지 않고 권한에 
 | 관찰된 | 프로바이더 power 상태, 프로비저닝 결과, 메트릭 샘플입니다. | 권위 있는 프로바이더/텔레메트리 증적 이후 owned 변환 결과 또는 `Observation`입니다. |
 | Derived operational | Healthy, degraded, 리소스 pressure, 예측 risk입니다. | Versioned derive 함수와 변경할 수 없는 근거/uncertainty입니다. |
 | Desired | SLO, RTO, 예산, 검토된 구성입니다. | Approved 정책, 구성 또는 effective-time 목표입니다. |
-| 실행 | Planned, dispatched, 검증된, rolled back입니다. | 프로세스 저널, `ActionRun`, 결과, 감사 원장입니다. |
+| 실행 | Planned, dispatched, 검증된, rolled back입니다. | 프로세스 저널, pre-dispatch `KineticSafetyReceipt`, `ActionRun`, 결과, 감사 원장입니다. |
+
+Kinetic safety receipt는 새 선언 종류가 아니라 내용 기반 주소를 가진 실행 상태 산출물입니다.
+기존 exact V2 `MutationPlan`을 하나의 Action에 연결하고 raw Action argument는 제외합니다. 실행 후
+consumer는 저장된 plan을 resolve할 수 있지만 legacy Action을 reconstruct하거나 upgrade할 수
+없습니다. 이 증적은 판단, 승인, 실행, observation 또는 promotion 권한을 부여하지 않습니다.
 
 모든 decision-relevant 상태 사실은 다음 필드를 기록하거나 해석합니다.
 
@@ -268,6 +273,7 @@ declaration-kind 제안이 됩니다.
 | 정본 선언 release | implemented | [`ontology_catalog.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/ontology_catalog.py), [`release.py`](../../../services/core-control-plane/src/fdai/shared/ontology/release.py), [`test_ontology_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_catalog.py) | 객체, 링크, 액션, Interface, 함수 선언이 exact release에 기여합니다. |
 | 범위가 제한된 ObjectSet 실행 및 계보 | implemented | [`semantic_query.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/semantic_query.py), [`test_interfaces_and_object_sets.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_interfaces_and_object_sets.py), [`test_semantic_query.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_semantic_query.py) | 보안 조회 경로는 권한을 부여하지 않으면서 release, 계획, 호출, 잘림, 근거 참조를 보존합니다. |
 | 프로바이더 상태 및 관계 근거 계약 | implemented | [`state_evidence.py`](../../../services/core-control-plane/src/fdai/shared/providers/state_evidence.py), [`test_state_evidence.py`](../../../services/core-control-plane/tests/providers/test_state_evidence.py) | 타입이 지정된 메타데이터는 관측된 상태와 링크 근거를 파생 해석과 구분합니다. |
+| Kinetic 실행 상태 산출물 | implemented | [`reconciliation_artifacts.py`](../../../services/core-control-plane/src/fdai/delivery/reconciliation_artifacts.py), 집중 adversarial 테스트(`15 passed`) | 범위가 제한된 immutable delivery 증적이 raw Action argument를 저장하거나 권한을 부여하지 않고 기존 exact V2 plan 하나를 연결합니다. Pre-dispatch writer와 independent observation source는 열린 작업입니다. |
 | 관계 direction 및 분류 보강 | in-progress | 이 문서의 direction 계약 및 `resource_classified_as` 설계, [`kubernetes_relationships.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_relationships.py), [`direction_shadow`](../../../services/core-control-plane/src/fdai/core/ontology_platform/direction_shadow), [`inventory_ontology.py`](../../../services/core-control-plane/src/fdai/runtime/inventory_ontology.py), focused 테스트, 보존된 증적 `sha256:ad64c267b6f0c6ac5a1a037067f926aa5613f1fe5a84702877eb607e368736f6` | D1과 D3을 다룹니다. 실제 D4 비교는 재생 가능하며 `review_required`로 보존되었습니다. 과거 release가 결속되지 않았고 정렬 후 세대가 불완전하며 링크가 검증되지 않았으므로 이행 근거가 아닙니다. |
 | 네트워크 및 Pod 텔레메트리 competency | in-progress | [`operational_functions.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py), [`inventory_sync.py`](../../../services/core-control-plane/src/fdai/delivery/inventory_sync.py), [`test_inventory_sync.py`](../../../services/core-control-plane/tests/delivery/test_inventory_sync.py), [`test_wire_pod_telemetry.py`](../../../services/core-control-plane/tests/composition/test_wire_pod_telemetry.py) | 이제 운영 인벤토리 조립은 권한 있는 출처가 Service, Pod, Endpoints 기록을 공급할 때 Kubernetes 관계를 변환하고 독립적으로 검증합니다. 운영 Kubernetes 인벤토리 출처와 보존된 live 증적은 아직 없습니다. |
 | 운영 메타모델 보증 | in-progress | 위의 focused 소스 및 테스트 근거 | 이 문서가 운영 검증을 주장하려면 인증된 cross-service 및 운영 증적이 더 필요합니다. |
@@ -285,6 +291,7 @@ declaration-kind 제안이 됩니다.
 | 2026-08-14 | implemented | 새로 생성되는 모든 인벤토리 온톨로지 변환 결과, 영속 매니페스트, 상태를 인벤토리 작업이 사용한 exact 카탈로그 release에 결속했습니다. 잘못되거나 누락된 release 다이제스트는 변환 전에 차단됩니다. 과거 매니페스트에는 재구성한 release를 할당하지 않습니다. | `current change`; focused `test_inventory_ontology.py`에서 9개 테스트를 통과했습니다. | 중앙 검증 뒤 인벤토리를 새로 고친 다음 새 세대에서 release에 결속된 D4/M5 근거를 보존해야 합니다. 과거 비교는 검토 필요 상태로 유지합니다. |
 | 2026-08-14 | in-progress | 보존된 그래프 세대가 결속되지 않은 release를 명시적으로 유지하도록 하고 deployment-local StateStore에 재생 결과가 동일한 D4 비교를 보존했습니다. 증적은 추가 링크 607개, 제거 링크 0개, 역방향 링크 0개를 보고하며 이행 또는 그래프 권한을 부여하지 않습니다. | `current change`; focused direction-shadow 모음에서 8개 테스트를 통과했습니다. StateStore 증적 `sha256:ad64c267b6f0c6ac5a1a037067f926aa5613f1fe5a84702877eb607e368736f6`은 `legacy_release_unbound`, `aligned_generation_incomplete`, `aligned_link_evidence_unverified` 사유와 함께 `review_required`입니다. | 측정된 차이를 검토하고 이행 전에 검증된 링크 메타데이터가 있는 완전한 정렬 후 세대를 보존해야 합니다. |
 | 2026-08-14 | implemented | 검토된 Kubernetes 관계 변환기를 공통 promoted-inventory 관찰 경로에 연결하고 scheduled/local 인벤토리 조립에서 shipped mapping 카탈로그를 주입했습니다. | `current change`; focused 인벤토리 observer 테스트 1개와 caller wiring 테스트 2개를 통과했습니다. | 권한 있는 Kubernetes 인벤토리 출처를 추가하고 exact-release Pod 텔레메트리 근거를 보존해야 합니다. 현재 Azure 인벤토리는 Kubernetes workload 객체를 공급하지 않습니다. |
+| 2026-08-14 | implemented | Legacy Action schema를 바꾸지 않고 exact pre-dispatch V2 plan을 위한 범위가 제한된 delivery-owned kinetic 실행 상태 증적과 immutable artifact adapter를 추가했습니다. | `current change`, 집중 adversarial 테스트 15개 통과, strict mypy 및 작업 범위 Ruff 통과 | 일반 production reconciliation을 활성화하기 전에 dispatch 전 writer와 verified independent observation source를 연결합니다. |
 
 ### 남은 작업
 
@@ -293,6 +300,8 @@ declaration-kind 제안이 됩니다.
 - [x] 검토된 Kubernetes 관계 변환기를 production/local 인벤토리 조립에 연결하고 공급된 Service, Pod, Endpoints 기록이 독립적으로 검증된 링크를 생성하는지 확인했습니다.
 - [ ] 권한 있는 Kubernetes 인벤토리 출처를 추가한 다음 VM 연결 및 Pod 텔레메트리 competency 검사를 exact release의 보존된 인벤토리 근거에 실행합니다.
 - [ ] 운영 메타모델 보증을 `validated`로 변경하기 전에 exact 온톨로지 release를 바인딩하는 인증된 cross-service 및 live-assurance 증적을 보존합니다.
+- [ ] Provider dispatch 전에 kinetic receipt writer를 연결하고 legacy Action의 plan을 reconstruct하지
+    않으면서 independent-observation evidence를 보존합니다.
 
 ## 검증 체크리스트
 

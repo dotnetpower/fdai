@@ -275,15 +275,6 @@ without the version 2 identity fields, but semantic compilation always emits ver
 compiler does not call the RiskGate, an agent, an executor, or a provider, and neither an effect nor
 a postcondition can declare authority.
 
-The catalog backfill has completed with:
-
-- `trigger_kind.kind = rule_violation`
-- `category = remediation`
-- `ceiling_by_tier` filled from the current implicit defaults (T0 → `enforce_hil` for
-  medium/high severity, `enforce_auto` for low; T1/T2 → `shadow_only`)
-- No schema-breaking rename; the loader treats missing new fields as
-  the safest value.
-
 ## 3. Category catalog
 
 Four top-level categories. New categories require a doc PR plus a short-form entry in
@@ -829,7 +820,7 @@ ceiling that was in effect at dispatch time is recorded verbatim.
 |------|-------|----------|-------|
 | ActionType schema and catalog loading | implemented | [`action_type.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/action_type.py), [`ontology_action.py`](../../../services/core-control-plane/src/fdai/shared/contracts/models/ontology_action.py), and [`test_action_type_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_action_type_catalog.py) | Category, trigger, argument, ceiling, execution-path, probe-reference, and fail-closed catalog constraints are executable. |
 | Tier, role, and production downgrade ceilings | implemented | [`ceiling.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/ceiling.py), [`test_ceiling.py`](../../../services/core-control-plane/tests/core/risk_gate/test_ceiling.py), and [`test_approval.py`](../../../services/core-control-plane/tests/core/workflow/test_approval.py) | `prod_downgrade` and environment scope affect deterministic ceilings and human approval requirements. |
-| Semantic ActionType and `MutationPlan` version 2 compilation | implemented | [`action_plans.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/action_plans.py) and [`test_action_plans.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_action_plans.py) | Compilation pins exact declarations, bounded targets, receipts, effects, postconditions, locks, and recovery without granting authority. |
+| Semantic ActionType, `MutationPlan` V2, and kinetic artifact binding | implemented | [`action_plans.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/action_plans.py), `delivery/reconciliation_artifacts.py`, and focused adversarial tests (`15 passed`) | Compilation pins exact declarations and safeguards. The bounded immutable delivery adapter stores only an existing exact V2 plan, omits raw Action arguments, and rejects conflicts, corruption, and substituted bodies. The pre-dispatch writer and verified independent observation source remain open. |
 | Live blast probe execution | in-progress | [`blast_probe.py`](../../../services/core-control-plane/src/fdai/shared/providers/blast_probe.py) and catalog reference checks in [`test_action_type_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_action_type_catalog.py) | Probe contracts and catalog validation exist, but the committed RiskGate does not yet consume `live_probe_ref` and record its result in the resolved ceiling. |
 | Governance and tool execution coverage | in-progress | [`promotion.py`](../../../services/core-control-plane/src/fdai/delivery/promotion.py), [`graph_model_promotion.py`](../../../services/core-control-plane/src/fdai/delivery/graph_model_promotion.py), and [`override_writer.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/override_writer.py) | Promotion and ceiling-override paths exist; `governance.retire-rule` and runtime exemption creation remain without their documented PR-native writers. |
 | Operator-request trigger closure | in-progress | The schema and loader evidence above plus [Action Ontology Lifecycle](action-ontology-lifecycle.md). | Catalog validity does not prove an authenticated operator request reached judgment, RiskGate, execution, recovery, and audit in one retained production receipt. |
@@ -839,9 +830,14 @@ ceiling that was in effect at dispatch time is recorded verbatim.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted the implementation ledger and separated implemented schema, ceiling, and compiler behavior from incomplete probe and consumer closure; earlier provenance was not reconstructed. | `current change`; the source and focused checks listed in the scope table. | Wire live probes, close the remaining governance writers, and retain operator-request runtime evidence. |
+| 2026-08-14 | implemented | Added a separate durable kinetic safety receipt so post-execution reconciliation can resolve only a pre-dispatch exact V2 plan without changing the legacy Action schema or persisting raw Action arguments. | `current change`; `delivery/reconciliation_artifacts.py` and focused adversarial tests passed 15 cases; strict mypy and task-scoped Ruff passed. | Bind a real pre-dispatch writer and verified independent observation source before making the producer operational. |
 
 ### Remaining work
 
+- [x] Persist and resolve the exact V2 plan through the kinetic safety receipt; focused conflict,
+  corruption, replay, legacy-missing, argument-redaction, and substituted-body tests pass 15 cases.
+- [ ] Bind the receipt writer before provider dispatch and add a verified independent observation
+  source, then prove the ordinary producer remains held when either exact source is unavailable.
 - [ ] Integrate `live_probe_ref` into RiskGate evaluation and retain focused checks proving `quiet`, `active`, `overloaded`, unavailable, and stale outcomes can only preserve or lower autonomy.
 - [ ] Implement and test the documented PR-native writers for `governance.retire-rule` and runtime exemption creation, including review, rollback or expiry, and audit evidence.
 - [ ] Retain an authenticated operator-request receipt that binds the exact ActionType and arguments through judgment, RiskGate, execution or typed hold, recovery posture, and audit before marking trigger closure `validated`.
