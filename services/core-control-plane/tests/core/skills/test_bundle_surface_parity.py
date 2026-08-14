@@ -212,6 +212,28 @@ def test_unbound_bundle_catalog_is_a_typed_rejection_on_both_surfaces() -> None:
     ] * 2
 
 
+def test_listing_an_unbound_catalog_reports_a_proven_empty_registry() -> None:
+    # Listing can complete its absence claim without a catalog - nothing is
+    # installed - so it reports zero instead of rejecting. Only a read that
+    # names one bundle escalates to catalog_unavailable.
+    disclosure_without_bundles = RuntimeSkillDisclosure(
+        catalog=SkillCatalog(),
+        verifier=_SkillVerifier(),
+        agent="Bragi",
+        available_tools=frozenset(),
+    )
+
+    listed = ListRuntimeSkillBundlesTool(disclosure_without_bundles).call(
+        arguments={"query": ""}, principal=_READER
+    )
+
+    assert listed.status == "ok"
+    assert listed.data == {"bundles": [], "returned_count": 0}
+    assert disclosure_without_bundles.inspect()["installed_bundle_count"] == 0
+    # Listing is not a refused read, so it leaves no rejection diagnostic.
+    assert list(disclosure_without_bundles.diagnostics()) == []
+
+
 async def test_unbound_bundle_catalog_rpc_is_rejected_not_invalid_params() -> None:
     disclosure_without_bundles = RuntimeSkillDisclosure(
         catalog=SkillCatalog(),

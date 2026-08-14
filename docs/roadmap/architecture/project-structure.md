@@ -550,7 +550,8 @@ read surfaces share that one snapshot: republishing it moves the Bragi commands,
 `skill_bundles.*` RPC operations, and the Skills panel inspection payload together, and every bundle
 rejection returns one stable content-free reason drawn from a fixed English token vocabulary.
 A refused describe and a refused load each append their own rejection diagnostic, and an unbound
-bundle catalog is one of those stable reasons rather than a caller-parameter error.
+bundle catalog is one of those stable reasons rather than a caller-parameter error. Listing an
+unbound catalog still reports zero, because with no catalog bound nothing is installed.
 
 Approved external skill repositories use the separate durable source pipeline in
 [skill-source-management.md](../interfaces/skill-source-management.md). `core/skills/source_registry.py`

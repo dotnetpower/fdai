@@ -1,6 +1,6 @@
 ---
 translation_of: governed-skill-bundles.md
-translation_source_sha: e6845246a999a51fe28e6232eade36893a44fadf
+translation_source_sha: 5091aa14debba5008575fcbc638ca1d5df929ee0
 translation_revised: 2026-08-14
 ---
 # 통제된 스킬 Bundles
@@ -137,8 +137,9 @@ recheck 상태, effective 충족 여부를 표시합니다. Install, 활성화, 
 사용 불가 도구, disallowed 에이전트, 모호한 이름, cycle, 지원하지 않는 중첩, 사용 불가 카탈로그,
 combined-budget 실패를 구분합니다. 연결되지 않은 번들 카탈로그는 호출자 매개변수 오류가 아니라
 이 안정 이유 중 하나이므로, 가용성 때문에 거부된 describe 와 load 는 모든 화면에서 같게
-읽힙니다. 거절 기록은 공개 ID와 다이제스트를 포함할 수 있지만 선택적 instruction, 구성원 본문,
-참조 내용은 포함하지 않습니다.
+읽힙니다. 목록 조회만 예외입니다. 카탈로그가 연결되지 않으면 설치된 번들이 없으므로, 목록
+조회는 부재 주장을 완성하고 거절 대신 0을 보고합니다. 거절 기록은 공개 ID와 다이제스트를
+포함할 수 있지만 선택적 instruction, 구성원 본문, 참조 내용은 포함하지 않습니다.
 
 ## 검증
 
