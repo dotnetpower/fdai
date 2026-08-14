@@ -286,10 +286,19 @@ describe("Operator API response decoders", () => {
     ).toThrow(/tier MUST/);
     expect(() => decodeRcaView({ ...grounded, correlation_id: " " }))
       .toThrow(/correlation_id MUST NOT be empty/);
+    const olderHypothesis = { ...grounded.hypotheses[0], seq: 1 };
+    expect(decodeRcaView({
+      ...grounded,
+      hypotheses: [grounded.hypotheses[0], olderHypothesis],
+    }).hypotheses.map((hypothesis) => hypothesis.seq)).toEqual([2, 1]);
     expect(() => decodeRcaView({
       ...grounded,
       hypotheses: [grounded.hypotheses[0], grounded.hypotheses[0]],
-    })).toThrow(/unique ascending seq/);
+    })).toThrow(/unique descending seq/);
+    expect(() => decodeRcaView({
+      ...grounded,
+      hypotheses: [olderHypothesis, grounded.hypotheses[0]],
+    })).toThrow(/unique descending seq/);
     expect(() => decodeRcaView({
       ...grounded,
       hypotheses: [{ ...grounded.hypotheses[0], recorded_at: "2026-07-14" }],

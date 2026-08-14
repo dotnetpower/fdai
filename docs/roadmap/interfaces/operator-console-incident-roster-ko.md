@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: 7a9eed018d28039990b2296261d4f21e0b346a34
+translation_source_sha: a4dd3cdc2c900e473a2a225d88b4c6d9d9294089
 translation_revised: 2026-08-14
 ---
 
@@ -363,6 +363,7 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 | 2026-08-14 | in-progress | 현재 Microsoft Learn Azure SRE Agent 지침과 비교하여 풍부한 Incident identity, 단계별 조사, 대응 계획 미리 보기, 근거 기반 결과 분석 방식만 수락했습니다. | `current change`; [선택적 차용 계약](#azure-sre-agent-선택적-차용) 및 구현 범위 표의 현재 Operator/Console 경로입니다. | FDAI 실행 권한을 넓히지 않고 범위가 제한된 운영자 중심 공백 네 가지를 구현하고 검증해야 합니다. |
 | 2026-08-14 | implemented | FDAI 권한 경계를 유지하면서 서버 소유 제목 출처, 신뢰된 원본 및 고정 계획 context, 범위가 제한된 감사 milestone, 정확한 drill-down이 있는 같은 스냅샷 결과 cohort를 추가했습니다. | `current change`; `incident_projection.py`, `incidents.detail-sections.tsx` 및 작업 소유 Operator, service-contract, Console, catalog, focused 테스트 경로입니다. Operator `31 passed`, Console `66 passed`, typecheck, strict mypy, Ruff, Pylance 및 catalog parity를 통과했으며 비평 15회 후 Low finding만 남았습니다. | 관리되는 런타임 근거를 별도로 보존해야 합니다. |
 | 2026-08-14 | implemented | 다른 분석 또는 실행 경로를 만들지 않고 기존 Incident RCA dossier에 선택적 PDF delivery를 추가했습니다. | `current change`; service-local PDF encoder, package extra, GET-only 경로, Console 컨트롤, 페이지 나누기, escape, source 다이제스트, 사용 불가 섹션, 분석 부재 및 no-network 회귀 검사입니다. | 하나의 exact-revision 인증된 roster-to-RCA-to-report 증적을 보존해야 합니다. |
+| 2026-08-14 | implemented | 인증된 Browser assurance에서 발견한 서버 소유 최신순 hypothesis projection에 Console RCA decoder를 맞췄습니다. | `current change`; `api-operations.ts`, `api.test.ts` 및 focused decoder 테스트 13개입니다. | 인증된 roster-to-RCA-to-report 증적을 다시 실행해 보존해야 합니다. |
 
 ### 남은 작업
 
