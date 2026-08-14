@@ -50,7 +50,7 @@ _SEMANTIC_BANDS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
 def semantic_model_profile(ontology: OntologyCatalog) -> dict[str, object]:
     """Project the reviewed operating layers without creating declaration kinds."""
 
-    available = {item.name for item in ontology.object_types}
+    available = {object_type.name for object_type in ontology.object_types}
     bands = [
         {
             "id": identifier,
@@ -79,55 +79,55 @@ def build_catalog_topology(
 
     nodes: list[dict[str, Any]] = []
     edges: list[dict[str, Any]] = []
-    object_names = {item.name for item in ontology.object_types}
-    action_names = {item.name for item in ontology.action_types}
+    object_names = {object_type.name for object_type in ontology.object_types}
+    action_names = {action_type.name for action_type in ontology.action_types}
 
-    for item in ontology.object_types:
+    for object_type in ontology.object_types:
         nodes.append(
             _node(
-                f"ot:{item.name}",
-                item.name,
+                f"ot:{object_type.name}",
+                object_type.name,
                 "object_type",
                 "ObjectTypes",
-                item.description or "Registered ObjectType declaration.",
+                object_type.description or "Registered ObjectType declaration.",
             )
         )
-    for item in ontology.link_types:
+    for link_type in ontology.link_types:
         edges.append(
             _edge(
-                f"link:{item.name}",
-                f"ot:{item.from_type}",
-                f"ot:{item.to_type}",
+                f"link:{link_type.name}",
+                f"ot:{link_type.from_type}",
+                f"ot:{link_type.to_type}",
                 "link_type",
-                item.name,
+                link_type.name,
             )
         )
 
-    for item in ontology.interface_types:
+    for interface_type in ontology.interface_types:
         nodes.append(
             _node(
-                f"it:{item.name}",
-                item.name,
+                f"it:{interface_type.name}",
+                interface_type.name,
                 "interface_type",
                 "InterfaceTypes",
-                item.description or "Registered InterfaceType declaration.",
+                interface_type.description or "Registered InterfaceType declaration.",
             )
         )
         if "InterfaceType" in object_names:
             edges.append(
                 _edge(
-                    f"instance:it:{item.name}",
-                    f"it:{item.name}",
+                    f"instance:it:{interface_type.name}",
+                    f"it:{interface_type.name}",
                     "ot:InterfaceType",
                     "instance_of",
                     "instance_of",
                 )
             )
-        for extended in item.extends:
+        for extended in interface_type.extends:
             edges.append(
                 _edge(
-                    f"interface:{item.name}:extends:{extended}",
-                    f"it:{item.name}",
+                    f"interface:{interface_type.name}:extends:{extended}",
+                    f"it:{interface_type.name}",
                     f"it:{extended}",
                     "interface",
                     "extends",
@@ -145,26 +145,26 @@ def build_catalog_topology(
                 )
             )
 
-    for item in ontology.function_types:
+    for function_type in ontology.function_types:
         nodes.append(
             _node(
-                f"ft:{item.name}",
-                item.name,
+                f"ft:{function_type.name}",
+                function_type.name,
                 "function_type",
                 "FunctionTypes",
-                f"{item.kind.value} function / {item.execution_class.value}.",
+                f"{function_type.kind.value} function / {function_type.execution_class.value}.",
             )
         )
 
-    for item in resource_types:
-        identifier = str(item["id"])
+    for resource_type_record in resource_types:
+        identifier = str(resource_type_record["id"])
         nodes.append(
             _node(
                 f"rt:{identifier}",
                 identifier,
                 "resource_type",
                 "ResourceTypes",
-                str(item["description"]),
+                str(resource_type_record["description"]),
             )
         )
         edges.append(
@@ -177,8 +177,12 @@ def build_catalog_topology(
             )
         )
 
-    signal_values = sorted({str(value) for rule in rules for value in rule["triggered_by"]})
-    property_values = sorted({str(value) for rule in rules for value in rule["evaluates"]})
+    signal_values = sorted(
+        {value for rule_record in rules for value in _string_sequence(rule_record, "triggered_by")}
+    )
+    property_values = sorted(
+        {value for rule_record in rules for value in _string_sequence(rule_record, "evaluates")}
+    )
     for value in signal_values:
         nodes.append(
             _node(
@@ -218,15 +222,16 @@ def build_catalog_topology(
             )
         )
 
-    for rule in rules:
-        rule_id = str(rule["id"])
+    for rule_record in rules:
+        rule_id = str(rule_record["id"])
         nodes.append(
             _node(
                 f"rule:{rule_id}",
                 rule_id,
                 "rule",
                 "Rules",
-                f"{rule['severity']} {rule['category']} rule from {rule['source']}.",
+                f"{rule_record['severity']} {rule_record['category']} rule from "
+                f"{rule_record['source']}.",
             )
         )
         edges.append(
@@ -238,27 +243,27 @@ def build_catalog_topology(
                 "instance_of",
             )
         )
-        for resource_type in rule["applies_to"]:
+        for resource_type_name in _string_sequence(rule_record, "applies_to"):
             edges.append(
                 _edge(
-                    f"rule:{rule_id}:applies:{resource_type}",
+                    f"rule:{rule_id}:applies:{resource_type_name}",
                     f"rule:{rule_id}",
-                    f"rt:{resource_type}",
+                    f"rt:{resource_type_name}",
                     "rule_dispatch",
                     "applies_to",
                 )
             )
-        for signal_type in rule["triggered_by"]:
+        for signal_type_name in _string_sequence(rule_record, "triggered_by"):
             edges.append(
                 _edge(
-                    f"rule:{rule_id}:trigger:{signal_type}",
+                    f"rule:{rule_id}:trigger:{signal_type_name}",
                     f"rule:{rule_id}",
-                    f"signal:{signal_type}",
+                    f"signal:{signal_type_name}",
                     "rule_dispatch",
                     "triggered_by",
                 )
             )
-        for property_name in rule["evaluates"]:
+        for property_name in _string_sequence(rule_record, "evaluates"):
             edges.append(
                 _edge(
                     f"rule:{rule_id}:evaluates:{property_name}",
@@ -272,36 +277,48 @@ def build_catalog_topology(
             _edge(
                 f"rule:{rule_id}:remediates",
                 f"rule:{rule_id}",
-                f"at:{rule['remediates']}",
+                f"at:{rule_record['remediates']}",
                 "rule_dispatch",
                 "remediates",
             )
         )
 
-    for item in ontology.action_types:
+    for action_type in ontology.action_types:
+        category = action_type.category.value if action_type.category is not None else "unspecified"
+        execution_path = (
+            action_type.execution_path.value
+            if action_type.execution_path is not None
+            else "unspecified"
+        )
         nodes.append(
             _node(
-                f"at:{item.name}",
-                item.name,
+                f"at:{action_type.name}",
+                action_type.name,
                 "action_type",
                 "ActionTypes",
-                f"{item.category.value} / {item.operation.value} / {item.execution_path.value}.",
+                f"{category} / {action_type.operation.value} / {execution_path}.",
             )
         )
         edges.append(
             _edge(
-                f"instance:at:{item.name}",
-                f"at:{item.name}",
+                f"instance:at:{action_type.name}",
+                f"at:{action_type.name}",
                 "ot:ActionType",
                 "instance_of",
                 "instance_of",
             )
         )
 
-    for workflow in workflows:
-        name = str(workflow["name"])
+    for workflow_record in workflows:
+        name = str(workflow_record["name"])
         nodes.append(
-            _node(f"wf:{name}", name, "workflow", "Workflows", str(workflow["description"]))
+            _node(
+                f"wf:{name}",
+                name,
+                "workflow",
+                "Workflows",
+                str(workflow_record["description"]),
+            )
         )
         edges.append(
             _edge(
@@ -312,7 +329,7 @@ def build_catalog_topology(
                 "instance_of",
             )
         )
-        for step in workflow.get("steps", []):
+        for step in _mapping_sequence(workflow_record, "steps"):
             action_ref = step.get("action_type_ref")
             if action_ref:
                 edges.append(
@@ -336,9 +353,17 @@ def build_catalog_topology(
                     )
                 )
 
-    for agent in agents:
-        name = str(agent["name"])
-        nodes.append(_node(f"agent:{name}", name, "agent", "Agents", f"{agent['layer']} agent."))
+    for agent_record in agents:
+        name = str(agent_record["name"])
+        nodes.append(
+            _node(
+                f"agent:{name}",
+                name,
+                "agent",
+                "Agents",
+                f"{agent_record['layer']} agent.",
+            )
+        )
         edges.append(
             _edge(
                 f"instance:agent:{name}",
@@ -348,7 +373,7 @@ def build_catalog_topology(
                 "instance_of",
             )
         )
-        reports_to = agent.get("reports_to")
+        reports_to = agent_record.get("reports_to")
         if reports_to:
             edges.append(
                 _edge(
@@ -359,7 +384,7 @@ def build_catalog_topology(
                     "reports_to",
                 )
             )
-        for owned in sorted(set(agent["owns"]) & object_names):
+        for owned in sorted(set(_string_sequence(agent_record, "owns")) & object_names):
             edges.append(
                 _edge(
                     f"agent:{name}:owns:{owned}",
@@ -369,7 +394,7 @@ def build_catalog_topology(
                     "owns_type",
                 )
             )
-        for action_ref in sorted(set(agent["actions"]) & action_names):
+        for action_ref in sorted(set(_string_sequence(agent_record, "actions")) & action_names):
             edges.append(
                 _edge(
                     f"agent:{name}:action:{action_ref}",
@@ -380,13 +405,13 @@ def build_catalog_topology(
                 )
             )
 
-    for item in ontology.function_types:
-        for agent_name in sorted(item.allowed_agents):
+    for function_type in ontology.function_types:
+        for agent_name in sorted(function_type.allowed_agents):
             edges.append(
                 _edge(
-                    f"function:{item.name}:agent:{agent_name}",
+                    f"function:{function_type.name}:agent:{agent_name}",
                     f"agent:{agent_name}",
-                    f"ft:{item.name}",
+                    f"ft:{function_type.name}",
                     "agent",
                     "may_invoke",
                 )
@@ -416,6 +441,27 @@ def _edge(
     label: str,
 ) -> dict[str, Any]:
     return {"id": identifier, "source": source, "target": target, "kind": kind, "label": label}
+
+
+def _string_sequence(record: Mapping[str, object], key: str) -> tuple[str, ...]:
+    value = record.get(key)
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        raise ValueError(f"ontology topology {key} MUST be a sequence")
+    if any(not isinstance(item, str) or not item for item in value):
+        raise ValueError(f"ontology topology {key} values MUST be non-empty strings")
+    return tuple(value)
+
+
+def _mapping_sequence(
+    record: Mapping[str, object],
+    key: str,
+) -> tuple[Mapping[str, object], ...]:
+    value = record.get(key, ())
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        raise ValueError(f"ontology topology {key} MUST be a sequence")
+    if any(not isinstance(item, Mapping) for item in value):
+        raise ValueError(f"ontology topology {key} values MUST be mappings")
+    return tuple(value)
 
 
 __all__ = ["build_catalog_topology", "semantic_model_profile"]
