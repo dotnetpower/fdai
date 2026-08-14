@@ -14,7 +14,11 @@ from fdai.core.assurance_twin import (
     GraphEffectModelCausalEvidenceVerifier,
     GraphEffectModelReader,
 )
-from fdai.core.ontology_platform import ObservationContextVerifier, ReconciliationArtifactResolver
+from fdai.core.ontology_platform import (
+    ExecutedActionReconciliationArtifactSource,
+    ObservationContextVerifier,
+    ReconciliationArtifactResolver,
+)
 from fdai.core.rca import TemporalCausalityConfig
 from fdai.delivery.azure.graph_dynamic_evidence import (
     AzureGraphDynamicSimulationRequestProvider,
@@ -139,6 +143,15 @@ def test_partial_reconciliation_prerequisites_fail_at_container(container: Conta
         replace(
             container,
             reconciliation_artifact_resolver=cast(ReconciliationArtifactResolver, object()),
+        )
+
+    with pytest.raises(ValueError, match="executed-Action artifact"):
+        replace(
+            container,
+            executed_action_reconciliation_artifact_source=cast(
+                ExecutedActionReconciliationArtifactSource,
+                object(),
+            ),
         )
 
 

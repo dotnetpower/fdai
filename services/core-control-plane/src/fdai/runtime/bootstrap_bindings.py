@@ -12,8 +12,11 @@ import httpx
 
 from fdai.core.ontology_platform import (
     EffectReconciliationCoordinator,
+    ExecutedActionObservationSource,
+    ExecutedActionReconciliationArtifactSource,
     MetricSemanticRegistry,
     StateStoreReconciliationLedger,
+    StateStoreReconciliationRequestOutbox,
 )
 from fdai.core.ontology_platform.reconciliation_binding import (
     RECONCILIATION_OUTBOX_TOPIC,
@@ -32,6 +35,10 @@ from fdai.delivery.metric_window import ProviderMetricWindowReader
 from fdai.delivery.persistence.postgres_topology_history import (
     PostgresTopologyHistoryStore,
     PostgresTopologyHistoryStoreConfig,
+)
+from fdai.delivery.reconciliation_request import EffectReconciliationRequestProducer
+from fdai.delivery.reconciliation_request_publication import (
+    EffectReconciliationRequestPublisher,
 )
 from fdai.delivery.reconciliation_runtime import EffectReconciliationWorker
 from fdai.shared.providers.catalog_search import CatalogSemanticIndex
@@ -53,6 +60,14 @@ class RuleGenerationRuntimeBinding:
     ledger: StateStoreRuleGenerationOutboxLedger
     activation_binder: RuleGenerationActivationBinder | None
     outbox_publisher: RuleGenerationOutboxPublisher
+
+
+@dataclass(frozen=True, slots=True)
+class EffectReconciliationRequestRuntimeBinding:
+    """Shared durable producer and recovery publisher for observation requests."""
+
+    producer: EffectReconciliationRequestProducer
+    outbox_publisher: EffectReconciliationRequestPublisher
 
 
 class WorkloadIdentityBuilder(Protocol):
@@ -152,6 +167,42 @@ def build_effect_reconciliation_worker(
             "fdai-effect-reconciliation",
         ).strip(),
         clock=lambda: datetime.now(tz=UTC),
+    )
+
+
+def build_effect_reconciliation_request_binding(
+    *,
+    state_store: StateStore,
+    event_bus: EventBus,
+    artifact_source: ExecutedActionReconciliationArtifactSource | None,
+    observation_source: ExecutedActionObservationSource | None,
+    environment: Mapping[str, str],
+) -> EffectReconciliationRequestRuntimeBinding | None:
+    """Build producer recovery only for a complete exact-plan observation pair."""
+
+    if artifact_source is None and observation_source is None:
+        return None
+    if artifact_source is None or observation_source is None:
+        raise RuntimeError(
+            "effect reconciliation request production requires artifact and observation sources"
+        )
+    clock = lambda: datetime.now(tz=UTC)  # noqa: E731 - shared injected clock identity
+    outbox = StateStoreReconciliationRequestOutbox(store=state_store)
+    publisher = EffectReconciliationRequestPublisher(
+        outbox=outbox,
+        event_bus=event_bus,
+        claimant_id=environment.get("HOSTNAME", "").strip() or "fdai-core",
+        clock=clock,
+    )
+    return EffectReconciliationRequestRuntimeBinding(
+        producer=EffectReconciliationRequestProducer(
+            outbox=outbox,
+            publisher=publisher,
+            artifact_source=artifact_source,
+            observation_source=observation_source,
+            clock=clock,
+        ),
+        outbox_publisher=publisher,
     )
 
 

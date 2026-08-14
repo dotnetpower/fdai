@@ -1,6 +1,6 @@
 ---
 translation_of: operational-hypothesis-loop.md
-translation_source_sha: 724cace21b069e51ce2f25f60014c55fe64287fa
+translation_source_sha: a4cf212ff3520ed009ffba8715fb80aaaba468c9
 translation_revised: 2026-08-14
 ---
 # 운영 가설 루프
@@ -145,6 +145,14 @@ Effect reconciliation은 `ontology.effect-reconciliation.requests` 및
 publication은 2초 deadline을 유지하며, shutdown은 무기한 기다리지 않고 child cancellation을
 5초로 제한합니다.
 
+일반 실행은 실행된 Action이 ActionType, operation, target 및 argument digest가 여전히 일치하는
+정확한 semantic V2 plan을 이미 참조할 때만 reconciliation request를 생성합니다. Legacy Action에
+V2 plan을 새로 만들어 붙이지 않습니다. Producer는 주입된 독립 source를 통해 observation을
+가져오고 publication 전에 request를 lease로 보호되는 durable outbox에 commit하며, 사용할 수 없는
+observation은 held evidence로 기록합니다. Broker failure 또는 알 수 없는 publication outcome은
+request를 replay를 위한 pending 또는 held 상태로 남기며, executor가 이미 반환한 outcome을 변경하지
+않습니다.
+
 Learner, closure, projection 및 outbox 실패는 이미 반환된 execution result를 rewrite하지
 않습니다. Unavailable, held, pending 또는 failed evidence로 계속 표시됩니다. Durable store,
 exact receipt, artifact, active pointer, ontology release, property semantics, invariant evidence
@@ -205,7 +213,8 @@ Worker는 public contract를 통해 이러한 capability를 evidence source 또�
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | Lane A 그래프 근거 | implemented | `services/core-control-plane/src/fdai/delivery/azure/graph_dynamic_evidence.py`; `services/core-control-plane/tests/delivery/azure/test_graph_dynamic_evidence.py`; `services/core-control-plane/tests/composition/test_wire_azure_operational_evidence.py` | 범위가 제한된 병렬 근거 구성이 일부 전제 조건과 시간 초과에 실패 시 차단됩니다. |
-| Lane B 영향 조정 | implemented | `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation.py`; `reconciliation_events.py`; `delivery/reconciliation_runtime.py`; 집중 조정 테스트 | 요청, 결과, 원장, 제안 전용 보낼 편지함 경로가 실행 권한 없이 구현되어 있습니다. |
+| Lane B 영향 조정 | implemented | `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation.py`; `reconciliation_events.py`; `reconciliation_producer.py`; `reconciliation_request_outbox.py`; `delivery/reconciliation_runtime.py`; `delivery/reconciliation_request.py`; `delivery/reconciliation_request_publication.py`; 집중 조정 및 ControlLoop 테스트 | 요청, 결과, 원장, 일반 실행 producer 및 제안 전용 outbox 경로가 실행 권한 없이 구현되어 있습니다. Legacy Action은 producer 대상이 아닙니다. |
+| Production reconciliation source | in-progress | `ReconciliationArtifactSource` 및 `ReconciliationObservationSource` protocol; runtime composition 테스트 | Runtime은 production exact-plan 및 independent-observation source를 받을 수 있지만 upstream production adapter 또는 통제된 live 증적은 아직 없습니다. |
 | Lane C 계보 및 역량 조회 | implemented | `services/core-control-plane/src/fdai/core/assurance_twin/`; `services/core-control-plane/tests/rule_catalog/test_operational_hypothesis_loop_competency.py` | 기존 온톨로지 객체가 병렬 집계 없이 고정된 여섯 조회 등급에 답합니다. |
 | Lane D 그래프 모델 승격 | implemented | `services/core-control-plane/src/fdai/delivery/graph_model_promotion.py`; `core/assurance_twin/model_promotion.py`; `tests/delivery/test_graph_model_promotion.py` | 정확한 아티팩트와 롤백 신원이 기존 승인 및 작업 경로에 도달하며, 근거는 스스로 승격할 수 없습니다. |
 | 보호된 live 근거 | in-progress | [하드닝 상태](#설계-요약); 현재 변경의 소스 감사 | 코드 하드닝은 완료됐지만 보호된 live 훈련, 재발 구간, 더 풍부한 관찰자 신원은 release 근거로 남아 있습니다. |
@@ -215,9 +224,12 @@ Worker는 public contract를 통해 이러한 capability를 evidence source 또�
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 통합 lane 소스와 집중 테스트. | 보호된 live 훈련 및 재발 근거를 보존합니다. |
+| 2026-08-14 | implemented | 일반 실행을 기존 exact V2 plan과 lease로 보호되는 durable publication outbox를 통해 effect-reconciliation request 생성에 연결했으며 downstream failure가 executor outcome을 변경하지 않도록 했습니다. | `current change`; reconciliation producer, outbox, publication, ControlLoop, runtime 및 composition 경로; 집중 검증 163개를 통과했습니다. | Production exact-plan 및 independent-observation source를 연결한 뒤 통제된 live closure 근거를 보존합니다. |
 
 ### 남은 작업
 
+- [ ] Production exact-plan artifact 및 independent-observation adapter를 연결한 뒤 publication
+  failure와 restart 동안 held 또는 pending evidence를 보존하는 집중 통합 테스트를 통과합니다.
 - [ ] 보호된 live 훈련을 실행하고 정확한 사전 조건, dry-run, 프로바이더, 독립 결과, 롤백, 감사 증적을 보존합니다.
 - [ ] 재발 관측 구간을 닫고 검열되거나 충돌하는 에피소드가 계속 채점 불가로 남음을 증명합니다.
 - [ ] 더 풍부한 관찰자 신원 기록과 최종 시간 초과 분류를 추가한 뒤 집중 조정 및 승격 검사를 다시 실행합니다.

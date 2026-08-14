@@ -33,6 +33,8 @@ from ..core.metering.sink import MeteringSink
 from ..core.mscp_profile import ExpectedEffectProvider, IndependentEffectObserver
 from ..core.ontology_platform import (
     CompiledInterfaceCatalog,
+    ExecutedActionObservationSource,
+    ExecutedActionReconciliationArtifactSource,
     ObservationContextVerifier,
     ReconciliationArtifactResolver,
 )
@@ -259,6 +261,10 @@ class Container:
     )
     reconciliation_artifact_resolver: ReconciliationArtifactResolver | None = None
     reconciliation_observation_verifier: ObservationContextVerifier | None = None
+    executed_action_reconciliation_artifact_source: (
+        ExecutedActionReconciliationArtifactSource | None
+    ) = None
+    executed_action_observation_source: ExecutedActionObservationSource | None = None
     operational_promotion_receipt_verifier: OperationalPromotionReceiptVerifier | None = None
     persisted_promotion_authority_verifier: PersistedPromotionAuthorityVerifier | None = None
 
@@ -303,6 +309,13 @@ class Container:
         ):
             raise ValueError(
                 "Container reconciliation artifact resolver and observation verifier "
+                "MUST be bound together"
+            )
+        if (self.executed_action_reconciliation_artifact_source is None) != (
+            self.executed_action_observation_source is None
+        ):
+            raise ValueError(
+                "Container executed-Action artifact and independent observation sources "
                 "MUST be bound together"
             )
         if self.context_selection_policy_authority is None:

@@ -46,6 +46,10 @@ from fdai.delivery.catalog_search.postgres import (
     PostgresCatalogSemanticIndex,
     PostgresCatalogSemanticIndexConfig,
 )
+from fdai.delivery.reconciliation_request_publication import (
+    EffectReconciliationRequestPublisher,
+    ReconciliationRequestPublishRetryableError,
+)
 from fdai.delivery.reconciliation_runtime import EffectReconciliationWorker
 from fdai.rule_catalog.schema.catalog_search import (
     catalog_search_schema_digest,
@@ -440,6 +444,36 @@ async def run_effect_reconciliation(
                 await asyncio.gather(*tasks, return_exceptions=True)
         except TimeoutError:
             _LOGGER.warning("effect_reconciliation_shutdown_timed_out")
+
+
+async def run_effect_reconciliation_request_outbox(
+    *,
+    publisher: EffectReconciliationRequestPublisher,
+    stop: asyncio.Event,
+    drain_limit: int = 100,
+    drain_interval_seconds: float = 1.0,
+) -> None:
+    """Retry durable post-execution requests until shutdown."""
+
+    if not 1 <= drain_limit <= 1000:
+        raise ValueError("reconciliation request drain limit MUST be in [1, 1000]")
+    if drain_interval_seconds <= 0:
+        raise ValueError("reconciliation request drain interval MUST be positive")
+    while not stop.is_set():
+        try:
+            await publisher.drain_pending(limit=drain_limit)
+        except ReconciliationRequestPublishRetryableError as exc:
+            _LOGGER.warning(
+                "effect_reconciliation_request_retry_scheduled",
+                extra={"error_type": type(exc.__cause__).__name__},
+                exc_info=exc,
+            )
+        await asyncio.sleep(0)
+        try:
+            async with asyncio.timeout(drain_interval_seconds):
+                await stop.wait()
+        except TimeoutError:
+            continue
 
 
 async def run_rule_generation_outbox_publisher(
