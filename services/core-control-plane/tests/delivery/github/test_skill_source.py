@@ -99,6 +99,34 @@ async def test_resolve_revision_rejects_nonimmutable_ref() -> None:
         await client.aclose()
 
 
+@pytest.mark.parametrize("etag", ("unquoted", "W/unquoted", '"unterminated'))
+async def test_resolve_revision_rejects_malformed_prior_etag(etag: str) -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError("invalid ETag MUST fail before HTTP")
+
+    adapter, client = _adapter(handler)
+    try:
+        with pytest.raises(ValueError, match="quoted entity tag"):
+            await adapter.resolve_revision(
+                repository="example-org/skills",
+                prior_etag=etag,
+            )
+    finally:
+        await client.aclose()
+
+
+async def test_resolve_revision_rejects_malformed_response_etag() -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, headers={"etag": "unquoted"}, json={"sha": REVISION})
+
+    adapter, client = _adapter(handler)
+    try:
+        with pytest.raises(GitHubSkillSourceError, match="invalid ETag"):
+            await adapter.resolve_revision(repository="example-org/skills")
+    finally:
+        await client.aclose()
+
+
 async def test_fetch_files_preserves_order_and_exact_content() -> None:
     requested = {
         "skills/example/SKILL.md": b"---\nname: example\n---\n",
@@ -301,3 +329,38 @@ async def test_authentication_failure_is_redacted() -> None:
         await client.aclose()
     assert "test-token" not in str(raised.value)
     assert "private response" not in str(raised.value)
+
+
+async def test_token_provider_failure_suppresses_sensitive_cause() -> None:
+    async def token_provider() -> str:
+        raise RuntimeError("private vault and credential detail")
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError("authentication failure MUST prevent HTTP")
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    adapter = GitHubSkillSourceAdapter(
+        http_client=client,
+        token_provider=token_provider,
+    )
+    try:
+        with pytest.raises(GitHubSkillSourceError) as raised:
+            await adapter.resolve_revision(repository="example-org/skills")
+    finally:
+        await client.aclose()
+    assert str(raised.value) == "GitHub skill source authentication is unavailable"
+    assert raised.value.__suppress_context__ is True
+
+
+@pytest.mark.parametrize("status_code", (403, 206))
+async def test_non_success_responses_are_redacted(status_code: int) -> None:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(status_code, text="private provider response")
+
+    adapter, client = _adapter(handler)
+    try:
+        with pytest.raises(GitHubSkillSourceError) as raised:
+            await adapter.resolve_revision(repository="example-org/skills")
+    finally:
+        await client.aclose()
+    assert "private provider response" not in str(raised.value)
