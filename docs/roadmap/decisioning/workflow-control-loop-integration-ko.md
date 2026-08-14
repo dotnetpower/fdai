@@ -1,7 +1,7 @@
 ---
 title: Workflow Control-Loop Integration
 translation_of: workflow-control-loop-integration.md
-translation_source_sha: c68d401d7ad6a023355edb085079e3e51254509a
+translation_source_sha: bcff68dbfc8fb0edf7bb37847ad3ede54ddf19bd
 translation_revised: 2026-08-14
 ---
 
@@ -17,6 +17,7 @@ translation_revised: 2026-08-14
 |------|------|------|------|
 | Shadow 및 타입이 지정된 적용 오케스트레이션 | implemented | [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_coordinator.py`](../../../services/core-control-plane/tests/core/workflow/test_coordinator.py) | Shadow는 변경할 수 없으며 적용 제안은 시도별 신원으로 타입이 지정된 유입 경로에 재진입합니다. |
 | 영속 저널, 변환 결과 및 승인 | implemented | [`test_projection.py`](../../../services/core-control-plane/tests/core/workflow/test_projection.py), [`test_workflow_approval.py`](../../../services/core-control-plane/tests/delivery/persistence/test_workflow_approval.py) | 리비전이 지정된 Process 상태, 재시도 가능한 변환, 정족수, 시간 초과 및 자기 승인 방지에 집중 테스트가 있습니다. |
+| 보상 및 영속 대상 hold | implemented | [`test_automation_hold.py`](../../../services/core-control-plane/tests/core/workflow/test_automation_hold.py), [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_control_loop_authority.py`](../../../services/core-control-plane/tests/core/test_control_loop_authority.py), [`test_gate.py`](../../../services/core-control-plane/tests/core/risk_gate/test_gate.py) | 불완전한 복구는 재시작과 중복 전달에 안전한 hold를 만들고 일반 정방향 전달을 차단합니다. 일치하는 검증된 복구만 hold를 해제할 수 있습니다. |
 | 가드 평가 | in-progress | [가드 평가](#42-가드-평가-경계) | 경계와 실패 시 차단되는 감사 상태가 있습니다. 배포별 정책 평가는 주입된 연결로 남아 있습니다. |
 | 통제된 Python, 예약, 명령 및 shell 경로 | in-progress | [통제된 작업 및 예약](#45-통제된-python-작업-및-cron-예약) | 검증과 제한된 샌드박스 동작은 있지만 실제 실행기와 운영 확장 근거는 불완전합니다. |
 
@@ -25,6 +26,7 @@ translation_revised: 2026-08-14
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 정책 연결과 운영 동시성 근거를 완료해야 합니다. |
+| 2026-08-14 | implemented | 검증된 FDAI-CONST-009 컨트롤 루프 경계를 기록했습니다. 불완전한 보상은 영속 hold를 발행하고 일반 전달은 차단되며, 일치하는 복구는 검증된 해제 전까지 사람 승인으로 제한됩니다. | `228f0779e`; 집중 hold, 보상, control-loop 및 risk-gate 검사 10개가 통과했고 중앙 검증도 통과했습니다. | 아래의 관련 없는 가드 연결, 분산 전달 근거 및 통제된 작업을 완료해야 합니다. |
 
 ### 남은 작업
 
@@ -78,6 +80,11 @@ ActionType 승격, risk, HIL, Thor 실행을 계속 통과합니다. 명시적�
 `compensated`로 닫습니다. 디스패처, 검증기, 증적이 없거나 가드가 실패하면 프로세스는
 보류 또는 실패 시 차단됩니다. ARB 같은 control-only 작업 흐름은 리소스
 변경 권한 없이 실제 승인 및 결정 전이를 저장할 수 있습니다.
+누락, 실패 또는 채점 불가능한 모든 보상 경로는 복구를 미완료로 종료하기 전에 영속 대상
+자동화 hold도 발행합니다. 다시 구성된 ledger는 같은 활성 hold를 읽으며 중복 전달은 원래의
+프로세스, 사유, 개정 번호 또는 감사 항목을 바꾸지 않습니다. Headless control loop는 일반
+전달 전에 hold를 확인하고 `deny`를 반환합니다. 일치하는 Process와 보상 단계의 복구만 진행할
+수 있고, 이 경로도 검증된 복구 증적이 hold를 해제할 때까지 사람 승인으로 제한됩니다.
 Approval 요청은 attempt-scoped입니다. 거부는 완전한 정족수 시도를 닫고 거부 또는 시간 초과
 뒤 재시도는 fresh Var 자리를 만들며 시도 1 durable-key 호환성을 유지합니다.
 
