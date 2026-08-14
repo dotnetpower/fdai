@@ -1,8 +1,8 @@
 ---
 title: 프로그래밍 방식 도구 파이프라인
 translation_of: programmatic-tool-pipelines.md
-translation_source_sha: e8f307d360260453ba906315407cc6c3b4d1ec20
-translation_revised: 2026-08-13
+translation_source_sha: 89330c7f406a71492c78d2bac0459f71aacec426
+translation_revised: 2026-08-14
 ---
 # 프로그래밍 방식 도구 파이프라인
 
@@ -25,7 +25,7 @@ translation_revised: 2026-08-13
 | 기능 권한 및 상위 브로커 | implemented | [`capability.py`](../../../services/core-control-plane/src/fdai/core/programmatic_pipeline/capability.py), [`broker.py`](../../../services/core-control-plane/src/fdai/core/programmatic_pipeline/broker.py), [`test_capability_and_broker.py`](../../../services/core-control-plane/tests/core/programmatic_pipeline/test_capability_and_broker.py) | 권한 부여, 일회성 호출 소비, 등록된 도구 호출, 바이트 한도 및 범위가 제한된 증적이 집중 검사를 통과했습니다. |
 | 프로바이더 프로토콜 및 Azure 호환 어댑터 | implemented | [`programmatic_pipeline.py`](../../../services/core-control-plane/src/fdai/shared/providers/programmatic_pipeline.py), [`programmatic_pipeline.py`](../../../services/core-control-plane/src/fdai/delivery/azure/programmatic_pipeline.py), [`test_programmatic_pipeline.py`](../../../services/core-control-plane/tests/delivery/azure/test_programmatic_pipeline.py) | 프로바이더 중립 프로토콜과 엄격한 관리형 제출 어댑터가 구현됐고 주입된 클라이언트로 검사됐습니다. 실제 Azure 실행 증적은 아닙니다. |
 | 로컬 격리 실행기 | not-started | [실행기 어댑터](#실행기-어댑터) | 문서에 정의된 Unix 소켓, 프로세스 그룹, 리소스 한도 및 Bubblewrap 실행기는 구체적인 프로덕션 구현이 없습니다. 검사는 메모리 내 실행기 대역을 사용합니다. |
-| PostgreSQL 영속성 | in-progress | [`20260720_0046_programmatic_pipeline.py`](../../../alembic/versions/20260720_0046_programmatic_pipeline.py), [`postgres_programmatic_pipeline.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_programmatic_pipeline.py), [`test_postgres_programmatic_pipeline.py`](../../../services/core-control-plane/tests/persistence/test_postgres_programmatic_pipeline.py) | 스키마와 저장소는 있지만 이 행을 `implemented`로 높이려면 현재 검증 환경에서 실제 데이터베이스 집중 검사가 통과해야 합니다. |
+| PostgreSQL 영속성 | implemented | [`20260720_0046_programmatic_pipeline.py`](../../../alembic/versions/20260720_0046_programmatic_pipeline.py), [`postgres_programmatic_pipeline.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_programmatic_pipeline.py), [`test_postgres_programmatic_pipeline.py`](../../../services/core-control-plane/tests/persistence/test_postgres_programmatic_pipeline.py) | 스키마, 저장소, codec, 호출 증적 영속성 및 집계 결과 영속성이 지원되는 일회용 PostgreSQL 데이터베이스에서 세 건의 집중 사례를 건너뛰기 없이 통과했습니다. |
 | 결정론적 벤치마크 | implemented | [`benchmark.py`](../../../services/core-control-plane/src/fdai/core/programmatic_pipeline/benchmark.py), [`test_benchmark.py`](../../../services/core-control-plane/tests/core/programmatic_pipeline/test_benchmark.py) | 고정된 20회 호출 회귀 fixture가 문서의 맥락 및 지연 시간 임계값을 검사합니다. 프로덕션 성능 근거는 아닙니다. |
 | 프로덕션 조립 및 운영자 제출 | not-started | [`service.py`](../../../services/core-control-plane/src/fdai/core/programmatic_pipeline/service.py), [운영자 표면](#운영자-표면) | 서비스는 내보내지만 프로덕션 조립 호출자, 인증된 Operator API 경로 또는 콘솔 제출 표면이 없습니다. |
 
@@ -34,12 +34,13 @@ translation_revised: 2026-08-13
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 이전 전달 이력을 재구성하지 않고 근거 범위 안에서 구현 원장을 도입했습니다. | `current change`; 범위 테이블에 나열된 현재 소스; 구성 요소 집중 검사 25건이 통과했고 PostgreSQL 검사는 2건이 통과했지만 `FDAI_DATABASE_URL`이 설정되지 않아 실제 데이터베이스 검사 1건을 건너뛰었습니다. | 로컬 실행기와 프로덕션 조립을 구현하고, 실제 영속성 검사를 통과하며, 관리되는 종단 간 근거를 보존해야 합니다. |
+| 2026-08-14 | implemented | 실제 데이터베이스에서 호출과 집계 결과 round trip을 증명한 뒤 PostgreSQL 영속성을 승격했습니다. | `current change`; `test_postgres_programmatic_pipeline.py`가 지원되는 일회용 데이터베이스에서 세 건을 건너뛰기 없이 통과했습니다. | 로컬 실행기와 프로덕션 조립을 구현한 뒤 관리되는 종단 간 근거를 보존해야 합니다. |
 
 ### 남은 작업
 
 - [ ] 문서에 정의된 Unix 소켓 브로커, 프로세스 그룹 종료, CPU 및 주소 공간 한도, Bubblewrap 격리와 모든 최종 경로의 정리 검사를 갖춘 로컬 `ProgrammaticPipelineRunner`를 구현합니다.
 - [ ] 프로덕션 조립 루트에 `ProgrammaticPipelineService`를 바인딩하고 접근, 민감정보 제거 또는 감사 동작을 우회하지 않은 채 등록된 `ToolExecutor`를 통해 검토된 파이프라인을 실행하는 종단 간 집중 검사를 통과합니다.
-- [ ] 지원되는 실제 데이터베이스 fixture에서 PostgreSQL 파이프라인 영속성 검사를 통과하고, persistence 상태를 `implemented`로 높이기 전에 집중 검사 결과를 보존합니다.
+- [x] 지원되는 실제 데이터베이스 fixture에서 PostgreSQL 파이프라인 영속성 검사를 통과하고, persistence 상태를 `implemented`로 높이기 전에 집중 검사 결과를 보존합니다.
 - [ ] 검토된 출처 다이제스트 바인딩을 적용하고 기능 토큰, 실행기 전송 세부 정보 및 자격 증명이 API 경계를 넘지 않음을 증명하는 검사를 갖춘 경우에만 인증된 Operator API 제출 경로를 추가합니다.
 - [ ] 범위 행을 `validated`로 높이기 전에 고정된 리비전에서 호출별 및 집계 감사 영속성, 중복 억제, 실패 정리 및 범위가 제한된 출력을 증명하는 관리되는 런타임 증적을 보존합니다.
 
