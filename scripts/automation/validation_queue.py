@@ -145,6 +145,34 @@ def _wake_request(paths: QueuePaths) -> str:
         return ""
 
 
+def _checkout_heads(paths: QueuePaths) -> list[str]:
+    """Return each registered checkout head except the validator's own mirror."""
+    output = git("worktree", "list", "--porcelain", cwd=paths.repo_root).stdout
+    validation_root = paths.worktree.resolve()
+    heads: list[str] = []
+    current_root: Path | None = None
+    for line in output.splitlines():
+        if line.startswith("worktree "):
+            current_root = Path(line.removeprefix("worktree ")).resolve()
+        elif line.startswith("HEAD ") and current_root != validation_root:
+            commit = line.removeprefix("HEAD ").strip()
+            if COMMIT_PATTERN.fullmatch(commit) and commit not in heads:
+                heads.append(commit)
+    return heads
+
+
+def _drain_every_lane(paths: QueuePaths, target: str | None) -> int:
+    """Serve the wake request, then every other checkout so no lane starves."""
+    result = run(paths, "fast", wait_for_lock=True, target=target)
+    for head in _checkout_heads(paths):
+        if head == target:
+            continue
+        outcome = run(paths, "fast", wait_for_lock=True, target=head)
+        if result == 0:
+            result = outcome
+    return result
+
+
 def drain(paths: QueuePaths) -> int:
     """Drain batches, reloading validator code when the requested head advances."""
     initialize(paths)
@@ -156,7 +184,7 @@ def drain(paths: QueuePaths) -> int:
         while True:
             requested = _wake_request(paths)
             target = requested if COMMIT_PATTERN.fullmatch(requested) else None
-            result = run(paths, "fast", wait_for_lock=True, target=target)
+            result = _drain_every_lane(paths, target)
             time.sleep(0.25)
             if _wake_request(paths) != requested:
                 os.execv(sys.executable, _background_command(paths))  # noqa: S606
