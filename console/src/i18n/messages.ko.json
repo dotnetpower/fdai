@@ -976,11 +976,14 @@
     "search": "검색",
     "loading": "이전 대화를 검색하는 중...",
     "empty": "일치하는 접근 가능 turn이 없습니다",
+    "unavailable": "대화 검색을 사용할 수 없습니다",
     "results": "대화 검색 결과",
     "resultCount": "결과 {count}개",
     "indexScope": "접근 가능한 turn {count}개 인덱싱",
     "showContext": "문맥 보기",
-    "hideContext": "문맥 숨기기"
+    "hideContext": "문맥 숨기기",
+    "contextBefore": "이전 턴",
+    "contextAfter": "이후 턴"
   },
   "processesView": {
     "subtitle": "권위 있는 Process 스냅샷과 추가 전용 저널의 워크플로우 실행 상태입니다. 실행은 콘솔 외부에서 유지됩니다.",

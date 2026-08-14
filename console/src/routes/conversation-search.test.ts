@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
 import { UserContextRequestError } from "../user-context-client";
 import type {
   ConversationSearchContextPayload,
@@ -73,31 +73,28 @@ describe("conversation search route interactions", () => {
     ]);
   });
 
-  test("loads and hides one exact context without mutating prior state", async () => {
+  test("loads and hides one exact context without mutating prior state", () => {
     const context: ConversationSearchContextPayload = {
       hit: hit(),
       before: [],
       after: [],
     };
-    const fetcher = vi.fn(async () => context);
     const prior = {};
 
-    const loaded = await toggleConversationSearchContext(
+    const loaded = toggleConversationSearchContext(
       prior,
       "conversation-search:turn-one",
-      fetcher,
+      context,
     );
-    const hidden = await toggleConversationSearchContext(
+    const hidden = toggleConversationSearchContext(
       loaded,
       "conversation-search:turn-one",
-      fetcher,
+      null,
     );
 
-    expect(fetcher).toHaveBeenCalledWith("conversation-search:turn-one", 1, 1);
     expect(loaded).toEqual({ "conversation-search:turn-one": context });
     expect(hidden).toEqual({});
     expect(prior).toEqual({});
-    expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
   test("distinguishes idle, loading, empty, unavailable, error, and results", () => {
@@ -107,6 +104,11 @@ describe("conversation search route interactions", () => {
     expect(conversationSearchViewStatus(
       false,
       new UserContextRequestError("projection unavailable", 503),
+      null,
+    )).toBe("unavailable");
+    expect(conversationSearchViewStatus(
+      false,
+      new UserContextRequestError("projection unavailable", 404),
       null,
     )).toBe("unavailable");
     expect(conversationSearchViewStatus(false, new Error("decoder failed"), null)).toBe("error");

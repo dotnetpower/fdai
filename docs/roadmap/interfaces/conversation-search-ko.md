@@ -1,7 +1,7 @@
 ---
 title: Access-Scoped 대화 검색
 translation_of: conversation-search.md
-translation_source_sha: 5e9abd1c1cd3d83a067c7f6b43f5dfab06744079
+translation_source_sha: 60c0d32a2e849b2c39b0b11e8402a5d5b49384a3
 translation_revised: 2026-08-14
 ---
 
@@ -154,7 +154,7 @@ API denial, Console 디코딩, 탐색 registration, responsive 타입 검사를 
 | PostgreSQL projection, 인덱싱, 보존, 재구축 | implemented | `alembic/versions/20260720_0038_conversation_search.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_conversation_search.py`; `services/core-control-plane/src/fdai/delivery/conversation_search_rebuild_cli.py`; focused CLI 및 live PostgreSQL 테스트(`10 passed`, skip 없음) | 마이그레이션, 어댑터, headless 재구축 진입점은 구성된 session statement timeout 아래에서 source turn을 보존하면서 파생 인덱스를 재구축합니다. 관리되는 재시작 근거는 남아 있습니다. |
 | Reader-floor 서술기 검색 도구 | implemented | `services/core-control-plane/src/fdai/core/conversation/_system_conversation_search_tool.py`; `services/core-control-plane/tests/conversation/test_search_conversations_tool.py` | 집중 테스트는 Reader principal에 대해 principal 범위 결과, 범위가 제한된 검증 오류, 근거 참조, 명시적인 `trusted: false` 출력을 입증합니다. |
 | Operator API 검색, 맥락, 계보 경로 | implemented | `services/operator-service/src/fdai_operator_service/families/conversation/conversation_search.py`; `services/operator-service/src/fdai_operator_service/postgres_family_store.py`; `service-migrations/branches/operator-service/versions/20260814_operator_conversation_search_read.py`; focused API 및 live PostgreSQL 테스트(`11 passed`, skip 없음) | Operator는 인증된 principal을 해석하고 범위가 제한된 filter를 검증하며 SELECT-only 역할로 source table을 읽습니다. 범위 밖 결과와 누락 결과에 동일한 404 envelope를 반환하고 내부 query duration을 생략합니다. |
-| Console 검색 및 맥락 패널 | implemented | `console/src/routes/conversation-search.tsx`; `console/src/routes/conversation-search.model.ts`; `console/src/routes/conversation-search.test.ts`; `console/src/user-context-client.test.ts`; focused route 테스트(`5 passed`) 및 Console typecheck | 패널은 bounded filter를 compile하고 안전한 text segment를 렌더링하며 exact context를 toggle합니다. Empty와 unavailable 상태를 구분하고 decoder 실패 시 합성 content 없이 fail closed합니다. |
+| Console 검색 및 맥락 패널 | implemented | `console/src/routes/conversation-search.tsx`, `console/src/routes/conversation-search.model.ts`, `console/src/routes/conversation-search.test.ts`, `console/src/routes/conversation-search.test.tsx`, `console/src/user-context-client.test.ts`, focused route, model 및 decoder 테스트와 Console typecheck | 패널은 범위가 제한된 filter를 compile하고 안전한 text segment를 렌더링하며 malformed highlight를 거부합니다. Empty와 unavailable 상태를 구분하고 오래되거나 중복된 맥락 요청이 현재 결과를 대체하지 않도록 합니다. |
 
 ### 구현 이력
 
@@ -165,6 +165,8 @@ API denial, Console 디코딩, 탐색 registration, responsive 타입 검사를 
 | 2026-08-14 | implemented | 차단된 재구축이 서버 소유 범위 없이 대기하지 않도록 concurrent reindex 전에 autocommit 재구축 session에 구성된 statement timeout을 적용했습니다. | `current change`; PostgreSQL 검색 어댑터와 focused timeout-order 및 live PostgreSQL 테스트 `4 passed`, skip 없음. | Operator 및 Console projection 작업과 governed runtime 근거는 남아 있습니다. |
 | 2026-08-14 | implemented | 인증된 principal 범위, bounded wire projection, SELECT-only database access 및 timing 생략과 함께 search, context, lineage를 Operator API 뒤에 materialize했습니다. | `current change`; Operator materializer, family adapter, PostgreSQL store, service-owned grant migration, focused API 테스트 `10 passed`, restricted-role live PostgreSQL 테스트 `1 passed`, skip 없음. | Focused Console interaction suite를 추가하고 governed cross-surface runtime 근거를 보존합니다. |
 | 2026-08-14 | implemented | Filter compilation, 안전한 highlight, exact context toggle, empty 및 unavailable 상태, 합성 content 없는 decoder 실패를 다루는 focused Console route model 및 interaction suite를 추가했습니다. | `current change`; Conversation Search route, route model, focused 테스트 `5 passed`, Console typecheck. | PostgreSQL-to-Operator-to-Console-to-narrator governed runtime 증적 하나를 보존합니다. |
+| 2026-08-14 | implemented | 직접 검사되는 필터, 강조, 맥락 및 선택적 출처 결정에 Console 경로를 연결했습니다. | `current change`; focused 경로 및 decoder 테스트 22개, Console 타입 검사 및 catalog parity 검사가 통과했습니다. | Operator projection을 materialize하고 관리되는 런타임 근거를 보존해야 합니다. |
+| 2026-08-14 | implemented | 오래된 검색 generation과 같은 generation의 중복 맥락 요청이 Console 상태를 덮어쓰거나 요청을 증폭하지 않도록 차단했습니다. | `current change`; focused 경로 및 decoder 테스트 22개, Console 타입 검사 및 catalog parity 검사가 통과했습니다. | Operator projection을 materialize하고 관리되는 런타임 근거를 보존해야 합니다. |
 
 ### 남은 작업
 

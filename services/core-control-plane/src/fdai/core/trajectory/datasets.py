@@ -151,13 +151,34 @@ class InMemoryTrajectoryDatasetStore:
                 (
                     record
                     for record in self._records.values()
-                    if record.state is not TrajectoryDatasetState.DELETED
+                    if record.state
+                    in (TrajectoryDatasetState.COMPLETED, TrajectoryDatasetState.DELETING)
                     and not record.legal_hold
                     and record.deletion_due_at <= now
                 ),
                 key=lambda record: (record.deletion_due_at, record.dataset_id),
             )[:limit]
         )
+
+    async def claim_deletion(
+        self,
+        dataset_id: str,
+        *,
+        now: datetime,
+    ) -> TrajectoryDatasetRecord | None:
+        record = self._records.get(dataset_id)
+        if (
+            record is None
+            or record.legal_hold
+            or record.deletion_due_at > now
+            or record.state
+            not in (TrajectoryDatasetState.COMPLETED, TrajectoryDatasetState.DELETING)
+        ):
+            return None
+        if record.state is TrajectoryDatasetState.COMPLETED:
+            record = replace(record, state=TrajectoryDatasetState.DELETING)
+            self._records[dataset_id] = record
+        return record
 
     async def mark_deleted(
         self,
@@ -172,6 +193,8 @@ class InMemoryTrajectoryDatasetStore:
             raise PermissionError("trajectory dataset is under legal hold")
         if record.state is TrajectoryDatasetState.DELETED:
             return record
+        if record.state is not TrajectoryDatasetState.DELETING:
+            raise RuntimeError("trajectory dataset deletion was not claimed")
         deleted = replace(
             record,
             state=TrajectoryDatasetState.DELETED,
@@ -197,9 +220,10 @@ class TrajectoryRetentionService:
     async def delete_due(self, *, now: datetime, limit: int = 500) -> tuple[str, ...]:
         due = await self._store.list_due(now=now, limit=limit)
         deleted: list[str] = []
-        for record in due:
-            if record.legal_hold:
-                raise PermissionError("trajectory retention source returned a legal-hold record")
+        for candidate in due:
+            record = await self._store.claim_deletion(candidate.dataset_id, now=now)
+            if record is None:
+                continue
             if record.storage_ref is not None:
                 await self._artifacts.delete(record.storage_ref)
             await self._store.mark_deleted(record.dataset_id, deleted_at=now)

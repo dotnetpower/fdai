@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "legacy_head": "20260814_0083",
-  "legacy_revision_count": 85,
+  "legacy_head": "20260814_0084",
+  "legacy_revision_count": 86,
   "services": {
     "core-control-plane": {
       "digest": "sha256:6cbaab476846fba8ba76d1d04173382eb62c1e8f2d43ee47f52d03e59a8a6bde",
@@ -11,10 +11,10 @@
       "extensions": ["pg_trgm", "plpgsql", "vector"]
     },
     "operator-service": {
-      "digest": "sha256:61cb45f72613cb655ccd1f3c224765fb32e79e3c9d53e1dedf6ff02aa11a8701",
+      "digest": "sha256:9039659400686c4debbc3255b1aa31cbe4a9f55c2a4921e0cca305c8ee85bfbd",
       "table_count": 61,
-      "column_count": 638,
-      "constraint_count": 414,
+      "column_count": 641,
+      "constraint_count": 416,
       "extensions": ["pg_trgm", "plpgsql", "vector"]
     },
     "document-ingestion-api": {
