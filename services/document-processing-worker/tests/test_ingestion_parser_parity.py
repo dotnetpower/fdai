@@ -9,6 +9,7 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import uuid4
 
+import pypdf
 import pytest
 from fdai_document_worker_service.adapters import processing as processing_module
 from fdai_document_worker_service.adapters.ooxml import OoxmlParserBudget, extract_ooxml
@@ -50,6 +51,21 @@ async def test_input_byte_budget_reports_typed_extraction_reason() -> None:
         await processing_module._read_bounded(_chunks(b"1234"), 3)
 
     assert exceeded.value.reason is ExtractionUnavailableReason.INPUT_BUDGET
+
+
+def test_native_pdf_uses_canonical_page_block_locator(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _Page:
+        def extract_text(self) -> str:
+            return "Native text"
+
+    class _Reader:
+        pages = (_Page(),)
+
+    monkeypatch.setattr(pypdf, "PdfReader", lambda _stream: _Reader())
+
+    units = processing_module._pdf_units(b"pdf")
+
+    assert [unit.locator for unit in units] == ["pdf/page:1/block:1"]
 
 
 async def test_scanned_pdf_reports_ocr_extractor_provenance(
