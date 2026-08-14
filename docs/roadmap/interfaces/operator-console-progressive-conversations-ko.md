@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: e8981e4b142069c1f2be5ff7ec489af9adf87235
+translation_source_sha: 4d84c4b404eb43b70a40d48618d01f35c13809bd
 translation_revised: 2026-08-14
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -19,7 +19,7 @@ translation_revised: 2026-08-14
 | 드로어 표현 및 새 대화 정체성 | 진행 중 | [`use-command-deck-sessions.ts`](../../../console/src/deck/use-command-deck-sessions.ts), [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | Console은 저장된 드로어 표시 여부와 독립적으로 새 세션을 만들며, 라이브 테스트는 이제 새 대화에서 요청을 격리합니다. 인증된 런타임 증적 통과가 아직 필요합니다. |
 | 통제된 4단계 온톨로지 증적 | 진행 중 | [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | 요청부터 Console까지 이어지는 검증은 있지만, `검증됨`을 뒷받침하는 새 보존 통과 산출물은 없습니다. |
 | 의미 명확화 표현 | 구현됨 | [`verification-presentation.ts`](../../../console/src/deck/verification-presentation.ts), [`verification-presentation.test.ts`](../../../console/src/deck/verification-presentation.test.ts) | `semantic_clarification_required`를 `Context required`로 표시하며 Console 집중 테스트 13개가 통과했습니다. 분류는 제어 평면이 실제로 방출하는 이유 코드만 다룹니다. 인증되고 보존된 증적은 열린 항목으로 남아 있습니다. |
-| 검증된 의미 답변 표현 | 구현됨 | [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`semantic_turn_presentation.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_presentation.py), [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`backend-stream.ts`](../../../console/src/deck/backend-stream.ts) | Core는 지역화된 읽기 쉬운 Markdown과 정확하고 타입이 지정된 기술 출력을 내보냅니다. Operator는 관찰된 수명 주기 프레임을 재생하고 증적에 결속된 표현, 답변 계획, trajectory 및 검증된 인시던트 맥락을 compile합니다. Console은 재생과 재생성에서 해당 맥락을 보존합니다. Core 집중 검사 36개, Operator 46개, 교차 서비스 1개, Console 74개와 타입 검사가 통과했습니다. 인증된 Browser Entra 턴과 재생성은 모두 primary JSON 없이 검증된 인시던트 답변을 표시했습니다. 이 관찰은 통제된 산출물로 보존되지 않았으므로 `검증됨` 상태를 뒷받침하지 않으며 Teams, Slack 또는 한국어 런타임 집약도 다루지 않습니다. |
+| 검증된 의미 답변 표현 | 검증됨 | [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`semantic_turn_presentation.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_presentation.py), [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`semantic-answer-presentation.spec.ts`](../../../console/tests/live-e2e/semantic-answer-presentation.spec.ts), `.fdai/live-validation/semantic-answer-presentation-244d003ef77bd37dc0041f0b6a29634cdbaacb91-post-validation/` | 범위가 제한된 인증 Web/한국어 경로는 명시적 workspace patch digest와 함께 중앙 검증된 source revision `244d003ef`에서 검증됐습니다. 최초 턴과 재생성 턴은 관찰된 5단계, 동일한 인시던트 및 기술 출력 digest, 읽기 전용 근거 수집, primary JSON 미노출, `execution_authority=false`를 유지했습니다. 이 상태는 Teams, Slack, 4단계 온톨로지 실행기 또는 이중 언어 100-case 집단을 주장하지 않습니다. |
 
 ### 구현 이력
 
@@ -32,6 +32,7 @@ translation_revised: 2026-08-14
 | 2026-08-14 | 구현됨 | 변경할 수 없는 의미 machine 출력과 지역화된 정본 답변을 분리하고, 재생 가능한 관찰 수명 주기 프레임을 추가하고, 증적에 결속된 인시던트 표현과 답변 계획을 compile하고, 정확한 출력을 접힌 실행 상세에 보존하고, 재생과 재생성에서 검증된 인시던트 정체성을 유지했습니다. | 구현 범위 표의 현재 출처와 집중 검사, 보존하지 않은 인증된 Browser Entra 관찰에서 서버가 관찰한 계획 단계의 `Preparing answer`, 검증된 감사 기록 3건, 명시된 인과 및 근거 제한, 읽기 전용 근거 수집 다음 단계, 접힌 exact JSON, 재생성 뒤 동일한 검증 결과를 확인했습니다. | 채널 전체 런타임 검증을 주장하기 전에 통제된 인증 산출물을 보존하고, 한국어 동등 실행을 수행하고, Teams 및 Slack 집약 증적을 기록합니다. |
 | 2026-08-14 | 구현됨 | 정본 top-level locale을 전달하고, 재생성 history를 원래 질문 경계로 제한하고, 검증된 의미 요청 신원을 한 번 재생하고, 해당 신원을 Operator 멱등성에 결속하고, 반복되는 Azure throttling 또는 schema-invalid 후보를 범위 안에서 재시도하도록 했습니다. | `current change`, Console stream, normalizer, session 및 event 집중 검사 128개와 Azure 의미 계획 adapter 검사 5개가 통과했고 Console 타입 검사와 작업 범위 Ruff가 통과했습니다. 보존된 인증 한국어 Browser working-tree 실행은 두 턴 모두 `request_identity_replayed=true`이고 Core 계획 수명 주기 5단계가 정확히 한 번인 상태로 통과했습니다. | 이 변경을 커밋하고 중앙 검증한 뒤 exact-source 인증 Browser 산출물을 보존합니다. Teams 및 Slack 집약 증적은 열린 상태로 유지합니다. |
 | 2026-08-14 | 구현됨 | Submit 시점에 원래 view snapshot을 deep clone해 route refresh가 검증된 요청 재생에 결속된 내용을 변경하지 못하게 했습니다. | `current change`, Console session 집중 검사 16개와 Console 타입 검사가 통과했고 request snapshot mutation 회귀에서 중첩된 fact 및 record 값이 보존됐습니다. | Provider capacity가 오염시키지 않는 첫 턴을 허용할 때 post-validation 인증 Browser 산출물을 보존합니다. |
+| 2026-08-14 | 검증됨 | 구현 커밋의 중앙 검증 뒤 인증된 한국어 의미 표현 및 재생성 산출물을 보존했습니다. | Source revision `7f2b740b1` 및 `244d003ef`에 중앙 receipt가 있습니다. 보존된 post-validation 산출물은 `passed=true`, 보호된 요청 2개, 진행 단계 5개, 표현 slot 3개, 일치하는 요청·바인딩·기술 출력 digest, 읽기 전용 권한, Core 계획 수명 주기 5단계 1회를 기록합니다. | Teams 및 Slack 집약 receipt, 별도 4단계 receipt, 이중 언어 100-case 집단은 열린 상태로 유지합니다. |
 
 ### 남은 작업
 
@@ -44,7 +45,7 @@ translation_revised: 2026-08-14
   답변의 fenced machine JSON을 지역화되고 결정론적인 운영자 대상 내용으로 교체합니다.
 - [x] `Preparing answer`가 `done` 전에 관찰된 수락, 계획, 근거, 검증 및 표현 작업을 반영하도록
   단조 증가하는 의미 수명 주기 프레임을 내보내고 재생합니다.
-- [ ] 완료된 의미 표현 및 재생성 경로의 통제된 인증 Browser 산출물을 보존한 뒤 한국어 동등
+- [x] 완료된 의미 표현 및 재생성 경로의 통제된 인증 Browser 산출물을 보존한 뒤 한국어 동등
   실행을 수행하고 보존합니다.
 
 ## 의미 최종 표현 계획
