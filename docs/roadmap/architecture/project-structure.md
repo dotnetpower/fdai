@@ -545,7 +545,10 @@ public keys from `FDAI_SKILL_TRUSTED_PUBLISHERS_PATH`, and atomically publishes 
 composition publishes an empty fail-closed snapshot when no durable skill store is configured.
 Governed multi-skill manifests use the separate `skill_bundle` artifact kind and
 `fdai.skill-bundle-signature.v1` domain. Startup rebuilds skills before bundles so exact member
-versions and enabled state are validated before the shared runtime snapshot is published.
+versions and enabled state are validated before the shared runtime snapshot is published. The three
+read surfaces share that one snapshot: republishing it moves the Bragi commands, the read-scoped
+`skill_bundles.*` RPC operations, and the Skills panel inspection payload together, and every bundle
+rejection returns one stable content-free reason on each surface.
 
 Approved external skill repositories use the separate durable source pipeline in
 [skill-source-management.md](../interfaces/skill-source-management.md). `core/skills/source_registry.py`
