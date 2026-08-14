@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: 5858f8f6a762737434a3d4406a0927196ecb1b9e
+translation_source_sha: f3383a65d8dbb6e62fe9abd7f0fb40e83ea4fe16
 translation_revised: 2026-08-14
 ---
 # FDAI 운영 온톨로지 메타모델
@@ -272,7 +272,7 @@ declaration-kind 제안이 됩니다.
 |------|------|------|------|
 | 정본 선언 release | implemented | [`ontology_catalog.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/ontology_catalog.py), [`release.py`](../../../services/core-control-plane/src/fdai/shared/ontology/release.py), [`test_ontology_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_catalog.py) | 객체, 링크, 액션, Interface, 함수 선언이 exact release에 기여합니다. |
 | 범위가 제한된 ObjectSet 실행 및 계보 | implemented | [`semantic_query.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/semantic_query.py), [`test_interfaces_and_object_sets.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_interfaces_and_object_sets.py), [`test_semantic_query.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_semantic_query.py) | 보안 조회 경로는 권한을 부여하지 않으면서 release, 계획, 호출, 잘림, 근거 참조를 보존합니다. |
-| 스키마 관계 대화 조회 | implemented | [`relationship_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/relationship_queries.py), [`wire_semantic_query.py`](../../../services/core-control-plane/src/fdai/composition/wire_semantic_query.py), [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), focused 영어/한국어 조립, prompt, processor 및 stale-release 검사(`6 passed`) | `query.ontology_relationships`는 exact ObjectType/LinkType 선언을 읽고 direction, cardinality, description을 보존하며 영어 또는 한국어로 렌더링하고 `execution_authority=false`를 고정합니다. 인증된 Browser 근거는 열린 작업입니다. |
+| 스키마 관계 대화 조회 | validated | [`relationship_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/relationship_queries.py), [`wire_semantic_query.py`](../../../services/core-control-plane/src/fdai/composition/wire_semantic_query.py), [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), focused 영어/한국어 조립, prompt, processor 및 stale-release 검사(`6 passed`), 인증된 Browser 호출 `ontology-function:logic-invocation:e584c59db128d045eeea01aa68f878984dfce93da7f6189fb6f624dc26dded4c` | `query.ontology_relationships`는 exact ObjectType/LinkType 선언을 읽고 direction, cardinality, description을 보존하며 영어 또는 한국어로 렌더링하고 `execution_authority=false`를 고정합니다. 표준 Browser Entra 경로에서 사용할 수 없음 처리 결과 없이 release에 결속된 검증 근거를 반환했습니다. |
 | 프로바이더 상태 및 관계 근거 계약 | implemented | [`state_evidence.py`](../../../services/core-control-plane/src/fdai/shared/providers/state_evidence.py), [`test_state_evidence.py`](../../../services/core-control-plane/tests/providers/test_state_evidence.py) | 타입이 지정된 메타데이터는 관측된 상태와 링크 근거를 파생 해석과 구분합니다. |
 | Kinetic 실행 상태 산출물 | implemented | [`reconciliation_artifacts.py`](../../../services/core-control-plane/src/fdai/delivery/reconciliation_artifacts.py), 집중 adversarial 테스트(`15 passed`) | 범위가 제한된 immutable delivery 증적이 raw Action argument를 저장하거나 권한을 부여하지 않고 기존 exact V2 plan 하나를 연결합니다. Pre-dispatch writer와 independent observation source는 열린 작업입니다. |
 | 관계 direction 및 분류 보강 | in-progress | 이 문서의 direction 계약 및 `resource_classified_as` 설계, [`kubernetes_relationships.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_relationships.py), [`direction_shadow`](../../../services/core-control-plane/src/fdai/core/ontology_platform/direction_shadow), [`inventory_ontology.py`](../../../services/core-control-plane/src/fdai/runtime/inventory_ontology.py), focused 테스트, 보존된 증적 `sha256:ad64c267b6f0c6ac5a1a037067f926aa5613f1fe5a84702877eb607e368736f6` | D1과 D3을 다룹니다. 실제 D4 비교는 재생 가능하며 `review_required`로 보존되었습니다. 과거 release가 결속되지 않았고 정렬 후 세대가 불완전하며 링크가 검증되지 않았으므로 이행 근거가 아닙니다. |
@@ -294,6 +294,7 @@ declaration-kind 제안이 됩니다.
 | 2026-08-14 | implemented | 검토된 Kubernetes 관계 변환기를 공통 promoted-inventory 관찰 경로에 연결하고 scheduled/local 인벤토리 조립에서 shipped mapping 카탈로그를 주입했습니다. | `current change`; focused 인벤토리 observer 테스트 1개와 caller wiring 테스트 2개를 통과했습니다. | 권한 있는 Kubernetes 인벤토리 출처를 추가하고 exact-release Pod 텔레메트리 근거를 보존해야 합니다. 현재 Azure 인벤토리는 Kubernetes workload 객체를 공급하지 않습니다. |
 | 2026-08-14 | implemented | Legacy Action schema를 바꾸지 않고 exact pre-dispatch V2 plan을 위한 범위가 제한된 delivery-owned kinetic 실행 상태 증적과 immutable artifact adapter를 추가했습니다. | `current change`, 집중 adversarial 테스트 15개 통과, strict mypy 및 작업 범위 Ruff 통과 | 일반 production reconciliation을 활성화하기 전에 dispatch 전 writer와 verified independent observation source를 연결합니다. |
 | 2026-08-14 | implemented | ObjectType 관계 질문을 위해 exact-release `query.ontology_relationships` FunctionType, production 의미 연결, schema-constrained planner 지침, 결정론적 localized 답변 변환을 추가했습니다. | `current change`, focused 영어/한국어 조립, prompt, localized processor, stale-release 검사 6개 통과 | 런타임 검증을 주장하기 전에 로컬 스택을 재시작하고 원래 관계 질문의 인증된 Browser 증적 하나를 보존합니다. |
+| 2026-08-14 | validated | 인증된 표준 Browser Entra Console에서 원래의 한국어 `PythonTask` 및 `VmTaskRun` 관계 질문을 실행했습니다. 검증된 조회는 `VmTaskRun -> PythonTask`, `executes_task`, `many_to_one`, 변경할 수 없는 산출물 설명, exact-release 근거, `execution_authority=false`를 반환했습니다. | 커밋 `5202a10ba`; Browser 호출 `ontology-function:logic-invocation:e584c59db128d045eeea01aa68f878984dfce93da7f6189fb6f624dc26dded4c`; 온톨로지 release `sha256:9e95d5618570d7a69fbdf5bea33b24f2c242ddaa0a4bae123b41608858ec788c`; 실행 증적 `sha256:f0af7b596fd10bf172c405cfd790e013678398e038aeb6acb60117264fd9b031` | 스키마 관계 대화 조회의 남은 작업은 없습니다. 더 넓은 운영 메타모델 보증은 아래의 열린 작업으로 유지합니다. |
 
 ### 남은 작업
 
@@ -302,7 +303,7 @@ declaration-kind 제안이 됩니다.
 - [x] 검토된 Kubernetes 관계 변환기를 production/local 인벤토리 조립에 연결하고 공급된 Service, Pod, Endpoints 기록이 독립적으로 검증된 링크를 생성하는지 확인했습니다.
 - [ ] 권한 있는 Kubernetes 인벤토리 출처를 추가한 다음 VM 연결 및 Pod 텔레메트리 competency 검사를 exact release의 보존된 인벤토리 근거에 실행합니다.
 - [ ] 운영 메타모델 보증을 `validated`로 변경하기 전에 exact 온톨로지 release를 바인딩하는 인증된 cross-service 및 live-assurance 증적을 보존합니다.
-- [ ] ObjectType 관계 질문이 exact LinkType direction, cardinality, description, release-bound 근거, `execution_authority=false`를 반환함을 보여 주는 인증된 Browser 증적을 보존합니다.
+- [x] 원래 ObjectType 관계 질문이 exact LinkType direction, cardinality, description, release-bound 근거, `execution_authority=false`를 반환함을 보여 주는 인증된 Browser 호출 `ontology-function:logic-invocation:e584c59db128d045eeea01aa68f878984dfce93da7f6189fb6f624dc26dded4c`를 보존했습니다.
 - [ ] Provider dispatch 전에 kinetic receipt writer를 연결하고 legacy Action의 plan을 reconstruct하지
     않으면서 independent-observation evidence를 보존합니다.
 
