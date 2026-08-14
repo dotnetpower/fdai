@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 8583a244a5d1a8c134400a1d8b05afb272322be9
+translation_source_sha: 451168dbc48e617da6db4d031d8a96b15439a6e5
 translation_revised: 2026-08-14
 ---
 
@@ -33,7 +33,7 @@ translation_revised: 2026-08-14
 |------|------|------|------|
 | 워크플로 카탈로그, 스키마 및 온톨로지 계약 | implemented | [`test_workflow_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_workflow_catalog.py), [`Process.yaml`](../../../rule-catalog/vocabulary/object-types/Process.yaml) | 로더, 교차 참조, shadow 기본값 및 Process 어휘 검사가 구현되어 있습니다. |
 | 런타임 저널, 변환 결과, 승인 및 명령 | implemented | [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_projection.py`](../../../services/core-control-plane/tests/core/workflow/test_projection.py), [`test_workflow_approval.py`](../../../services/core-control-plane/tests/delivery/persistence/test_workflow_approval.py) | 영속 스냅샷, 추가 전용 이벤트, 승인, 재시도, 재개 및 취소 동작에 집중 테스트가 있습니다. |
-| 보상 및 영속 자동화 hold | in-progress | [`test_automation_hold.py`](../../../services/core-control-plane/tests/core/workflow/test_automation_hold.py), [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`constitution-traceability.json`](../../../config/constitution-traceability.json) | Hold 발행과 로컬 전달 차단은 구현되어 있습니다. 완전한 재시작, 중복 전달 및 교차 경로 근거는 헌법 추적성에서 열린 상태입니다. |
+| 보상 및 영속 자동화 hold | implemented | [`test_automation_hold.py`](../../../services/core-control-plane/tests/core/workflow/test_automation_hold.py), [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_control_loop_authority.py`](../../../services/core-control-plane/tests/core/test_control_loop_authority.py), [`test_gate.py`](../../../services/core-control-plane/tests/core/risk_gate/test_gate.py) | 모든 불완전 보상 경로가 영속 대상 hold를 발행합니다. 재시작과 중복 전달에서도 hold를 유지하고 일반 정방향 전달을 차단하며, 일치하는 검증된 복구만 hold를 해제할 수 있습니다. |
 | 저작 및 읽기 전용 Process 화면 | implemented | [`workflow-builder.chat.ts`](../../../console/src/routes/workflow-builder.chat.ts), [저작 화면](#8-저작-표면-콘솔-workflow-builder) | 콘솔은 실행 권한 없이 비공개 초안을 만들고 검증하며 Process 변환 결과를 조회할 수 있습니다. |
 
 ### 구현 이력
@@ -41,11 +41,13 @@ translation_revised: 2026-08-14
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 남은 헌법상 보상 공백을 표시했습니다. | `current change`; 구현 범위 표의 현재 소스, 집중 테스트 및 추적성입니다. | 아래의 보상 hold 및 승격 종료 조건을 완료해야 합니다. |
+| 2026-08-14 | implemented | 보상 실패, ledger 재시작, 중복 전달, 정방향 전달 차단 및 일치하는 복구 해제 전반에서 영속 자동화 hold를 검증하고 FDAI-CONST-009를 implemented로 기록했습니다. | `current change`; `test_automation_hold.py`, `test_orchestrator.py`, `test_control_loop_authority.py`, `test_gate.py`; 집중 검사 10개가 통과했습니다. | 아래의 독립 워크플로 승격 근거와 관련 없는 트리거 및 분기 작업은 계속 남아 있습니다. |
 
 ### 남은 작업
 
-- [ ] 누락, 실패 또는 채점 불가능한 모든 보상이 재시작과 중복 전달을 거쳐 이후 정방향
-  전달을 차단하는 영속 대상 hold를 만드는지 증명합니다.
+- [x] 누락, 실패 또는 채점 불가능한 보상에 대한 영속 대상 hold가 재시작과 중복 전달에서도
+  유지되고 이후 정방향 전달을 차단하며, 일치하는 검증된 복구를 통해서만 해제되는 것을
+  집중 hold, orchestrator, control-loop 및 risk-gate 테스트로 증명했습니다.
 - [ ] 타입이 지정된 `SignalType` 트리거 참조와 실패 시에만 실행되는 `on_failure` 분기를
   구현하고 적용 모드 자격 전에 로더 및 런타임 부정 테스트를 보존합니다.
 - [ ] 하나의 고정된 Workflow 및 ActionType 카탈로그 리비전에서 독립 효과 및 복구 종결을

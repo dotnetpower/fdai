@@ -83,13 +83,13 @@
     },
     {
       "id": "FDAI-CONST-009",
-      "status": "partial",
+      "status": "implemented",
       "owner_docs": ["docs/roadmap/decisioning/process-automation.md", "docs/roadmap/decisioning/workflow-control-loop-integration.md"],
       "implementation": ["services/core-control-plane/src/fdai/core/workflow", "services/core-control-plane/src/fdai/shared/providers/process_runtime.py"],
       "schemas": ["services/core-control-plane/src/fdai/shared/contracts/workflow/schema.json"],
-      "tests": ["services/core-control-plane/tests/core/workflow/test_orchestrator.py", "services/core-control-plane/tests/core/workflow/test_coordinator.py"],
+      "tests": ["services/core-control-plane/tests/core/workflow/test_automation_hold.py", "services/core-control-plane/tests/core/workflow/test_orchestrator.py", "services/core-control-plane/tests/core/test_control_loop_authority.py", "services/core-control-plane/tests/core/risk_gate/test_gate.py"],
       "runtime_evidence": ["services/core-control-plane/src/fdai/shared/providers/process_runtime.py"],
-      "gap": "Compensation failure does not yet create an executable durable automation hold that blocks later forward dispatch."
+      "gap": null
     },
     {
       "id": "FDAI-CONST-010",

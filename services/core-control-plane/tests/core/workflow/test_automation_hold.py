@@ -34,6 +34,29 @@ async def test_malformed_hold_state_fails_closed() -> None:
     assert await ledger.is_held(target_ref="resource-1")
 
 
+async def test_active_hold_survives_restart_and_duplicate_delivery() -> None:
+    store = InMemoryStateStore()
+    first_ledger = StateStoreAutomationHoldLedger(store)
+    await first_ledger.issue(
+        target_ref="resource-1",
+        process_id="process-1",
+        reason="compensation_failed",
+    )
+
+    restarted_ledger = StateStoreAutomationHoldLedger(store)
+    await restarted_ledger.issue(
+        target_ref="resource-1",
+        process_id="process-1",
+        reason="duplicate_delivery",
+    )
+
+    assert await restarted_ledger.is_held(target_ref="resource-1")
+    assert len(store.audit_entries) == 1
+    record = next(iter(store._state.values()))
+    assert record["revision"] == 1
+    assert record["reason"] == "compensation_failed"
+
+
 async def test_only_matching_compensation_can_release_verified_hold() -> None:
     store = InMemoryStateStore()
     ledger = StateStoreAutomationHoldLedger(store)
