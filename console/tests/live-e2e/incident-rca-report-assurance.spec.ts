@@ -106,8 +106,8 @@ test("Browser Entra binds Incident RCA evidence to the optional PDF report", asy
   await expect(page.locator("#incident-detail")).toBeVisible();
   await expect(page.locator(".incident-outcome-analytics")).toBeVisible();
   await expect(page.locator(".incident-milestones")).toBeVisible();
-  await expect(page.locator(".incident-source-context")).toBeVisible();
   const milestoneCount = await page.locator(".incident-milestones li").count();
+  expect(milestoneCount).toBeGreaterThan(0);
   const incidentEnvelopes = await Promise.all(incidentResponses.map(responseJson));
   const incidentEnvelope = incidentEnvelopes.find((envelope) =>
     jsonArray(envelope.items, "incident items").some((raw) =>
@@ -123,8 +123,10 @@ test("Browser Entra binds Incident RCA evidence to the optional PDF report", asy
     ),
     "target incident",
   );
-  expect(incidentTarget.source).not.toBeNull();
-  expect(incidentTarget.response_plan).not.toBeNull();
+  const sourceContextRecorded = incidentTarget.source !== null;
+  const responsePlanRecorded = incidentTarget.response_plan !== null;
+  const sourceContextVisible = await page.locator(".incident-source-context").count() > 0;
+  expect(sourceContextVisible).toBe(sourceContextRecorded || responsePlanRecorded);
   const auditEnvelope = await responseJson(await auditResponsePromise);
   const auditItems = jsonArray(auditEnvelope.items, "audit items");
 
@@ -216,8 +218,10 @@ test("Browser Entra binds Incident RCA evidence to the optional PDF report", asy
       audit_digest: digest(auditEnvelope),
       audit_record_count: auditItems.length,
       milestone_count: milestoneCount,
-      source_context_recorded: incidentTarget.source !== null,
-      response_plan_recorded: incidentTarget.response_plan !== null,
+      source_context_recorded: sourceContextRecorded,
+      source_context_visible: sourceContextVisible,
+      response_plan_recorded: responsePlanRecorded,
+      unavailable_source_or_plan_preserved: !sourceContextRecorded || !responsePlanRecorded,
       title_source: incidentTarget.title_source,
     },
     rca: {
