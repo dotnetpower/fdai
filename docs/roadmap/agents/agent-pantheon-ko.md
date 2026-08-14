@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 01d35a2b4e80592a7f196f3c6e93f270cccce16b
+translation_source_sha: c67cef335d4a90226e3115cda47723f90ff5c025
 translation_revised: 2026-08-14
 ---
 
@@ -36,7 +36,7 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 | Mimir Rule 세대 책임 | implemented | [`mimir.py`](../../../services/core-control-plane/src/fdai/agents/mimir.py), [`runtime.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime.py), [`runtime_subscriptions.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime_subscriptions.py), [`test_wave2_governance.py`](../../../services/core-control-plane/tests/agents/test_wave2_governance.py), [`test_runtime.py`](../../../services/core-control-plane/tests/agents/test_runtime.py) | Mimir만 활성화 명령과 최종 결과를 수신합니다. Exact 활성화를 주입된 binder에 위임하고 인덱스, 정책, 승인, 변경 또는 실행 권한 없이 변환 전용 증적을 저장합니다. |
 | Rule 세대 빌드, 검증 및 활성화 체인 | implemented | `mimir.py`; `heimdall.py`; `runtime.py`; `runtime/rule_generation_documents.py`; 집중 worker, 런타임, 활성화 및 bootstrap 검사 | 운영 시작 시 엄격하게 검증한 승격 표면 문서를 고정하고 replay가 동일한 reconciliation 요청을 영속화한 뒤 Mimir와 Heimdall을 통해 전달합니다. Mimir는 정책 또는 실행 권한을 얻지 않고 활성화 명령을 발행하기 전에 정확한 독립 증적을 연결합니다. 통제된 실제 근거는 남아 있습니다. |
 | 판단, 승인, 실행, 감사 및 복구 분리 | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_decision_case_e2e.py`](../../../services/core-control-plane/tests/agents/test_decision_case_e2e.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py) | Forseti는 선택적으로 exact proposal을 기존 Verdict에 해석하고 Thor는 독립 검증 후 이를 보존합니다. 합성 테스트는 역할 경계를 입증하지만 실제 운영 결과를 증명하지는 않습니다. |
-| 대화 및 인계 메커니즘 | implemented | [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py), [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | 범위가 제한된 읽기 전용 대화 경로와 shadow 작업 흐름 추적을 집중 검사에서 실행할 수 있습니다. |
+| 대화 및 인계 메커니즘 | implemented | [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py), [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py), [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | 범위가 제한된 읽기 전용 대화 경로는 선택적 T2 종합 전에 T1 답변 신호를 평가하며, shadow 작업 흐름 추적을 집중 검사에서 실행할 수 있습니다. |
 | KPI 근거 상태, 승격 검사 및 성능 저하 훈련 | implemented | [`test_wave8_kpi_degradation.py`](../../../services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py) | KPI 근거가 없거나 측정되지 않으면 승격을 차단하고, 주입된 장애로 선언된 성능 저하 동작을 실행합니다. |
 | 실제 운영 KPI 검증 및 enforce 승격 | not-started | [목표와 메트릭](../architecture/goals-and-metrics-ko.md) | 보존된 실제 shadow 코호트, 운영 KPI 증적 집합, 독립적인 승격 검토 또는 실제 판테온 enforce 승격 근거가 아직 없습니다. |
 
@@ -51,6 +51,7 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 | 2026-08-14 | implemented | Topic 또는 action authority를 바꾸지 않고 Thor가 optional argument-bound kinetic proposal을 검증하고 durable하게 보존하도록 했습니다. | `current change`, focused contract, Thor, durable replay, layout 및 role 검사 | End-to-end kinetic handoff를 주장하기 전에 Forseti producer와 Core pre-dispatch consumer를 연결합니다. |
 | 2026-08-14 | implemented | Forseti에 선택적 exact proposal source를 주입하고 조정이 해결된 Verdict와 사람 검토 Verdict에 일치하는 proposal을 보존했습니다. Proposal이 없으면 legacy 동작을 유지하고 잘못된 source record는 권한을 deny로 낮춥니다. | `current change`, `forseti.py`, `factory.py`, `runtime.py` 및 집중 producer, Forseti, Thor, factory, framework 검사 | 런타임 검증을 주장하기 전에 운영 조립에서 source를 연결하고 pre-dispatch 증적 및 독립 관측 경로를 완료합니다. |
 | 2026-08-14 | implemented | AgentSpec, topic, 판단, 승인 또는 실행 소유권을 바꾸지 않고 모든 Thor 소유 실행기 전에 Core pre-dispatch kinetic receipt consumer를 연결했습니다. | `current change`, `core/operational_planning/kinetic_safety.py`, `delivery/kinetic_safety.py`, `runtime/control_loop.py` 및 집중 kinetic/HIL/Thor 조립 검사 115개 통과 | 운영 조립에서 Forseti source를 연결하고 독립 observer를 추가한 뒤 통제된 실제 근거를 보존합니다. |
+| 2026-08-14 | implemented | Bragi의 표현 전용 숙의가 선택적 T2 종합을 호출하기 전에 결정론적 T1 답변 평가를 요구하도록 했습니다. | `current change`, 집중 숙의 테스트 36개는 충돌이 없거나 비교할 수 없는 claim에 T2를 호출하지 않고 구조적 충돌에만 범위가 제한된 호출을 유지함을 입증합니다. | AgentSpec, topic 또는 권한을 바꾸지 않고 통제된 운영자 경로 근거를 보존합니다. |
 
 ### 남은 작업
 - [ ] 하나의 고정된 리비전에서 에이전트별 및 시스템 KPI, 표본 수, 신뢰 구간, 보호 메트릭과 권위 있는 결과 증적을 측정한 실제 shadow 코호트를 보존합니다.
@@ -463,6 +464,11 @@ Bragi는 라우터이지 answerer가 아닙니다. 영어 및 한국어 Azure �
 5. **인계.** T0와 T1이 모두 임계값 미만이면
   `HandoffEscalation` 발행 (§6.4). 시스템은 추측 대신 GitHub issue 를
    생성한다.
+
+명시적 숙의 API는 participant 선택 뒤 범위가 제한된 T1 position 및 critique 라운드 하나를
+추가합니다. Bragi는 같은 identity의 고정 high-signal fact만 비교합니다. 충돌이 없거나 비교할
+수 없는 claim은 T1에서 끝나며, 검증된 구조적 충돌만 예산이 제한된 T2 종합 한 번을 호출할 수
+있습니다. Synthesizer 가용성과 자유 형식 산문 차이는 에스컬레이션을 일으키지 않습니다.
 
 여러 에이전트가 매칭될 때 승자 선택은 first-match 가 아니라 점수제:
 

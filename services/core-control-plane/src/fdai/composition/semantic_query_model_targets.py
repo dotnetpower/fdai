@@ -67,14 +67,6 @@ def t2_model_targets(
         )
         if primary is not None:
             targets.append(primary)
-    secondary = _target_for_capability(
-        resolved,
-        "t2.reasoner.secondary",
-        endpoint=endpoint,
-        endpoint_resolver=endpoint_resolver,
-    )
-    if secondary is not None:
-        targets.append(secondary)
     return _unique_targets(targets)
 
 

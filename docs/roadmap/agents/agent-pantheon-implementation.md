@@ -36,7 +36,7 @@ review until graph freshness is authoritative.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | W0-W1 documentation, ontology, and framework scaffolding | implemented | [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py) | The fixed registry, package boundary, documentation parity, and typed-topic foundation are executable and checked. |
-| W2-W6 governance, pipeline, interface, specialist, handoff, and security mechanics | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py), [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py) | Focused synthetic tests exercise the bounded mechanics; they do not establish live operational validation. |
+| W2-W6 governance, pipeline, interface, specialist, handoff, and security mechanics | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py), [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py), [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py) | Focused synthetic tests exercise the bounded mechanics, including T1 answer evaluation before optional T2 synthesis. They do not establish live operational validation. |
 | W7 cross-agent shadow workflow mechanics | implemented | [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | Workflows have executable synthetic shadow traces and no evidence here of a default enforce workflow. |
 | W8 KPI, promotion, and degradation machinery | implemented | [`test_wave8_kpi_degradation.py`](../../../services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py) | KPI reports distinguish measured values from unavailable evidence, promotion fails closed on missing evidence, and injected degradation drills cover the fixed pantheon. |
 | Live operational KPI validation and actual enforce promotion | not-started | [Goals and Metrics](../architecture/goals-and-metrics.md) | No retained live-shadow sample set, operational promotion receipt, independent review, or actual pantheon enforce promotion is evidenced by this plan. |
@@ -46,6 +46,7 @@ review until graph freshness is authoritative.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Replaced the broad W0-W8 completion claim with independently evidenced implementation areas. | current change | Gather live evidence and complete separately reviewed promotion before claiming validation or enforce operation. |
+| 2026-08-14 | implemented | Made optional conversational T2 synthesis conditional on deterministic conflict evaluation over bounded T1 answer signals. | `current change`; 36 focused deliberation tests and framework-layout checks. | Retain governed runtime evidence for the no-escalation and conflict-escalation branches. |
 
 ### Remaining work
 
@@ -352,11 +353,14 @@ defaults and never invokes the privileged executor.
   ([operator-console.md](../interfaces/operator-console.md)) reused. Implement:
   - Intent classification: T0 keyword match against
     `Agent.question_domains`; T1 embedding similarity via Muninn's
-    context index; T2 LLM classifier as fallback (bindings from
-    fork config).
+    context index. If both remain unresolved, hand off instead of using a
+    T2 classifier.
   - Winner selection scoring (§6.3 of pantheon doc).
   - Multi-agent aggregation: send typed queries to primary +
     contributors, aggregate their responses, render NL response.
+  - Bounded deliberation: evaluate the T1 position and critique facts
+    deterministically, and invoke optional T2 synthesis only for a verified
+    structured conflict.
   - Conversation state: session, turn, per-user partitioning,
     retention.
 - **Odin (`services/core-control-plane/src/fdai/agents/odin.py`)** - subscribe to

@@ -23,8 +23,9 @@ the baseline plus the situational layers that the turn selects. See
 [Situational prompt composition](#situational-prompt-composition).
 
 `PantheonRuntime.deliberate` provides the explicit discussion API. It requires T1 semantic
-participant selection, runs one primary position plus peer critiques, and optionally asks a
-composition-bound T2 synthesizer to render the bounded claims.
+participant selection and runs one primary position plus peer critiques. A deterministic answer
+evaluation compares bounded high-signal facts for the same identity. Only a verified conflict can
+admit the optional composition-bound T2 synthesizer.
 
 ## Situational prompt composition
 
@@ -278,6 +279,20 @@ Missing embeddings, provider failure, low confidence, one relevant agent, unknow
 action intent, or responder failure results in an abstention. The path never substitutes T0 to
 manufacture a discussion.
 
+### T1 answer evaluation
+
+Each accepted claim retains only the fields needed for deterministic comparison. Identity comes
+from `resource_id`, `scope_ref`, `id`, or `correlation_id`. Comparable conclusions come from the
+fixed `state`, `status`, `verdict`, `mode`, `health`, `outcome`, and `recommendation` fields. The
+evaluator admits T2 only when two claims use the same identity field and canonical identity value,
+then name the same conclusion field with different canonical values. Different identity fields are
+separate namespaces even when their rendered values happen to match.
+
+No comparable signal means that T2 is not required. A prose difference, an available synthesizer,
+or remaining budget never opens escalation by itself. Missing evidence references still cause T1
+abstention before evaluation, and the evaluator records bounded owner and field metadata rather
+than the compared values.
+
 ## Escalation economy
 
 T0 answers and T1 routing are deterministic and free of model calls: routing matches a request to
@@ -357,6 +372,10 @@ silently refund it, and a ceiling that refunds itself is not a ceiling.
 implementation at the composition root. The request contains the question, requester, correlation
 id, primary owner, bounded owner-attributed claims, evidence refs, prompt digests, and immutable
 participant prompts.
+
+Availability is not admission. The deliberator invokes this Protocol only after the T1 answer
+evaluation reports at least one structured conflict. A conflict-free or uncomparable T1 answer
+returns directly without reserving T2 budget.
 
 The synthesized conclusion is presentation-only. It is bounded to 4,000 characters and scanned for
 sensitive content. Provider errors, empty output, oversized output, or sensitive output preserve
@@ -490,7 +509,7 @@ to the same participant before a provider receives the request.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Immutable charters and situational prompt composition | implemented | `services/core-control-plane/src/fdai/agents/_framework/charters.py`, `services/core-control-plane/src/fdai/agents/_framework/conversation_prompt.py`, and the focused prompt composition tests | The server-owned baseline, selected layers, prompt digests, and untrusted-context boundary are deterministic and covered by focused checks. |
-| Bounded T1 deliberation and authority isolation | implemented | `services/core-control-plane/src/fdai/agents/_framework/deliberation.py`, `services/core-control-plane/src/fdai/agents/bragi.py`, `services/core-control-plane/src/fdai/agents/_framework/runtime.py`, and `services/core-control-plane/tests/agents/test_prompt_deliberation.py` | Position and critique rounds remain read-only, reject action intent, and return presentation-only outcomes. |
+| Bounded T1 deliberation and authority isolation | implemented | `services/core-control-plane/src/fdai/agents/_framework/deliberation.py`, `services/core-control-plane/src/fdai/agents/_framework/deliberation_evaluation.py`, `services/core-control-plane/src/fdai/agents/bragi.py`, `services/core-control-plane/src/fdai/agents/_framework/runtime.py`, and `services/core-control-plane/tests/agents/test_prompt_deliberation.py` | Position and critique rounds remain read-only, reject action intent, evaluate bounded high-signal facts, and return presentation-only outcomes. |
 | Optional T2 contract and guarded composition seam | implemented | `T2ConversationSynthesizer`, `LlmBindings`, runtime bootstrap wiring, and the focused deliberation and composition binding tests | T2 requests enforce participant identity, prompt provenance, bounded output, budget reservation, pricing, and metering prerequisites. |
 | Production invocation and governed runtime validation | in-progress | `services/core-control-plane/src/fdai/runtime/bootstrap.py` forwards an optional binding to `PantheonRuntime`, but no concrete upstream synthesizer, Operator API route, console route, or governed runtime receipt is present. | The tested core can run T1 and a supplied T2 implementation. Repository evidence does not prove a deployed T2 call, live cost charge, or operator-facing invocation. |
 
@@ -499,6 +518,7 @@ to the same participant before a provider receives the request.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Classified the tested charter, prompt, T1, and guarded T2 seams as implemented without treating deterministic tests as operational validation. | Current change; source listed in the scope table and the focused command below (`6 passed in 0.11s`). | Bind and exercise a concrete metered T2 synthesizer, invoke the discussion path through an approved runtime boundary, and record governed runtime evidence. |
+| 2026-08-14 | implemented | Replaced unconditional optional T2 synthesis with deterministic evaluation of bounded T1 answer signals. | `current change`; `deliberation_evaluation.py` and 36 focused deliberation tests prove conflict-free and uncomparable T1 claims make zero T2 calls while a structured conflict makes one bounded call. | Retain governed runtime evidence for both the no-escalation and conflict-escalation branches. |
 
 ### Remaining work
 
@@ -507,8 +527,8 @@ to the same participant before a provider receives the request.
   focused integration result that proves successful synthesis and the exact budget and metering
   charge.
 - [ ] Invoke `PantheonRuntime.deliberate` through an approved operator or runtime boundary and
-  attach governed runtime evidence that covers T1 fallback, T2 use, presentation-only authority,
-  abstention, and provider failure.
+  attach governed runtime evidence that covers conflict-free T1 completion, structured-conflict T2
+  use, presentation-only authority, abstention, and provider failure.
 
 ## Verification
 

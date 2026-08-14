@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: ed7925abdae04b0e800aab5bd87913ca7ad4f47b
+translation_source_sha: 0255e9bee724598f62ffee8ef2e65222f47c664a
 translation_revised: 2026-08-13
 ---
 
@@ -38,7 +38,7 @@ Forseti의 범위가 제한된 평가는 권한을 유지하거나 낮출 수만
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | W0-W1 문서, 온톨로지 및 프레임워크 기반 | implemented | [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py) | 고정 레지스트리, 패키지 경계, 문서 일치 및 타입이 지정된 토픽 기반을 실행하고 검사할 수 있습니다. |
-| W2-W6 거버넌스, 파이프라인, 인터페이스, 전문 에이전트, 인계 및 보안 메커니즘 | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py), [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py) | 범위가 제한된 메커니즘을 집중 합성 검사로 실행하지만 실제 운영 검증을 입증하지는 않습니다. |
+| W2-W6 거버넌스, 파이프라인, 인터페이스, 전문 에이전트, 인계 및 보안 메커니즘 | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py), [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py), [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py) | 선택적 T2 종합 전의 T1 답변 평가를 포함한 범위가 제한된 메커니즘을 집중 합성 검사로 실행하지만 실제 운영 검증을 입증하지는 않습니다. |
 | W7 에이전트 간 shadow 작업 흐름 메커니즘 | implemented | [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | 작업 흐름에 실행 가능한 합성 shadow 추적이 있으며, enforce 작업 흐름을 기본값으로 사용하는 근거는 이 문서에 없습니다. |
 | W8 KPI, 승격 및 성능 저하 메커니즘 | implemented | [`test_wave8_kpi_degradation.py`](../../../services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py) | KPI 보고는 측정값과 사용 불가능한 근거를 구분하고, 근거가 없으면 승격을 차단하며, 주입된 성능 저하 훈련이 고정 판테온을 다룹니다. |
 | 실제 운영 KPI 검증 및 실제 enforce 승격 | not-started | [목표와 메트릭](../architecture/goals-and-metrics-ko.md) | 이 계획에는 보존된 실제 shadow 표본 집합, 운영 승격 증적, 독립적인 검토 또는 실제 판테온 enforce 승격 근거가 없습니다. |
@@ -48,6 +48,7 @@ Forseti의 범위가 제한된 평가는 권한을 유지하거나 낮출 수만
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | W0-W8 전체 완료 주장을 독립적으로 근거를 확인할 수 있는 구현 영역으로 교체했습니다. | 현재 변경 | 검증 완료 또는 enforce 운영을 주장하기 전에 실제 근거를 수집하고 별도 검토를 거친 승격을 완료합니다. |
+| 2026-08-14 | implemented | 선택적 대화 T2 종합을 범위가 제한된 T1 답변 신호의 결정론적 충돌 평가 결과에만 실행하도록 했습니다. | `current change`, 집중 숙의 테스트 36개 및 framework layout 검사 | 에스컬레이션하지 않는 분기와 충돌로 에스컬레이션하는 분기의 통제된 런타임 근거를 보존합니다. |
 
 ### 남은 작업
 
@@ -340,11 +341,13 @@ Muninn 은 Forseti 가 사유 하기 전에 맥락 를 서브해야 하고; Norn
   지점. 기존 operator-console 어댑터
   ([operator-console.md](../interfaces/operator-console-ko.md)) 재사용. 구현:
   - 의도 분류: `Agent.question_domains` 대비 T0 키워드 일치;
-    Muninn 의 맥락 인덱스 를 통한 T1 임베딩 유사도; 대체 경로
-    으로 T2 LLM classifier (포크 구성 에서 연결).
+    Muninn 의 맥락 인덱스 를 통한 T1 임베딩 유사도. 둘 다 해결하지 못하면
+    T2 classifier 대신 인계합니다.
   - 승자 선택 채점 (판테온 문서 §6.3).
   - Multi-agent 집계: 기본 + contributors 에 타입이 지정된 조회
     보냄, 응답을 집계, NL 응답 로 렌더링.
+  - 범위가 제한된 숙의: T1 position 및 critique fact를 결정론적으로 평가하고,
+    검증된 구조적 충돌이 있을 때만 선택적 T2 종합을 호출합니다.
   - 대화 상태: 세션, 턴, per-user partitioning, 보존.
 - **Odin (`services/core-control-plane/src/fdai/agents/odin.py`)** - Forseti 가 발행한
   `object.arbitration-request` 구독. 룰 카탈로그에서 fork-configured

@@ -249,6 +249,15 @@ def test_composition_separates_t1_and_t2_candidates() -> None:
                 capacity_tpm=1000,
                 invocation="always",
             ),
+            ResolvedCapability(
+                name="t2.reasoner.secondary",
+                status=CapabilityStatus.RESOLVED,
+                publisher="Anthropic",
+                family="claude-opus-4",
+                sku="Standard",
+                capacity_tpm=1000,
+                invocation="always",
+            ),
         ),
         narrator_candidates=(
             NarratorCandidate(

@@ -13,6 +13,11 @@ from typing import Any, Protocol
 
 from fdai.agents._framework.base import AgentSpec
 from fdai.agents._framework.bragi_models import RoutingDecision
+from fdai.agents._framework.deliberation_evaluation import (
+    DeliberationSignal,
+    evaluate_t1_answers,
+    evaluation_signals,
+)
 from fdai.agents._framework.introspection import is_action_intent
 from fdai.agents._framework.semantic_routing import SemanticAgentRouter
 from fdai.core.metering.budget import (
@@ -53,6 +58,7 @@ class DeliberationClaim:
     answer: str
     evidence_refs: tuple[str, ...]
     prompt_sha256: str
+    evaluation_signals: tuple[DeliberationSignal, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.agent or not self.answer or len(self.answer) > _MAX_ANSWER_CHARS:
@@ -276,7 +282,13 @@ class ConversationDeliberator:
             "semantic_score": decision.semantic_score,
             "semantic_margin": decision.semantic_margin,
         }
+        evaluation = evaluate_t1_answers(claims)
+        result["t1_evaluation"] = evaluation.to_mapping()
+        if not evaluation.requires_t2:
+            result["t2_status"] = "not_required"
+            return result
         if self._t2_synthesizer is None:
+            result["t2_status"] = "unavailable"
             return result
         return await self._synthesize(
             result,
@@ -472,6 +484,7 @@ def _claim(agent_name: str, response: dict[str, Any] | None) -> DeliberationClai
         answer=response["answer"],
         evidence_refs=evidence_refs,
         prompt_sha256=prompt_sha256,
+        evaluation_signals=evaluation_signals(facts),
     )
 
 
