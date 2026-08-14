@@ -196,6 +196,7 @@ def test_service_distribution_has_no_fdai_runtime_dependency() -> None:
 
 
 def test_pdf_report_extra_registers_only_service_local_encoder() -> None:
+    pytest.importorskip("weasyprint", reason="requires fdai-operator-service[pdf-report]")
     runtime = ProductionOperatorComposition(
         verifier_factory=lambda environment: _verify,
         read_model=EmptyReadModel(),
