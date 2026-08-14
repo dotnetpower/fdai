@@ -59,7 +59,10 @@
       ],
       "test_groups": {
         "unit": [
+          "services/operator-service/tests/test_azure_cli_token.py",
+          "services/operator-service/tests/test_browser_evidence_projection.py",
           "services/operator-service/tests/test_local_narrator.py",
+          "services/operator-service/tests/test_narrator_periodic_scheduler.py",
           "services/operator-service/tests/test_pdf_report_encoder.py"
         ],
         "contract": [
