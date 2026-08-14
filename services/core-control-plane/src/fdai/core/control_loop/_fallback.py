@@ -80,7 +80,13 @@ class ControlLoopFallbackMixin:
         action: Action,
     ) -> ExecutionAuthorizationResult | None: ...
 
-    async def _dispatch_action(self, *, action: Action, rule: Rule) -> Any: ...
+    async def _dispatch_action(
+        self,
+        *,
+        action: Action,
+        rule: Rule,
+        correlation_id: str = "",
+    ) -> Any: ...
 
     def _bind_authorized_identity(
         self,
@@ -516,7 +522,11 @@ class ControlLoopFallbackMixin:
                 t1_decision=t1,
             )
 
-        execution = await self._dispatch_action(action=action, rule=rule)
+        execution = await self._dispatch_action(
+            action=action,
+            rule=rule,
+            correlation_id=correlation_id,
+        )
         succeeded = _is_execution_success(execution)
         await self._emit_stage(
             event_id=event_id,

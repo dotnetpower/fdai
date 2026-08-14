@@ -116,6 +116,7 @@ def _make_loop(
     pr_executor: MagicMock,
     direct_api_executor: MagicMock | None = None,
     action_types_by_name: dict[str, OntologyActionType] | None = None,
+    pre_dispatch_kinetic_safety_writer: MagicMock | None = None,
 ) -> ControlLoop:
     return ControlLoop(
         event_ingest=MagicMock(),
@@ -127,6 +128,7 @@ def _make_loop(
         rules_by_id={"example.rule.x": _rule()},
         action_types_by_name=action_types_by_name,
         direct_api_executor=direct_api_executor,
+        pre_dispatch_kinetic_safety_writer=pre_dispatch_kinetic_safety_writer,
     )
 
 
@@ -173,6 +175,83 @@ async def test_direct_api_executor_selected_when_action_type_opts_in() -> None:
 
     assert got is da_result
     da_exec.execute.assert_awaited_once()
+    pr_exec.execute.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "receipt_ref",
+    [None, "sha256:1111111111111111111111111111111111111111111111111111111111111111"],
+)
+async def test_kinetic_safety_writer_precedes_direct_api_dispatch(
+    receipt_ref: str | None,
+) -> None:
+    calls: list[str] = []
+    pr_exec = MagicMock()
+    pr_exec.execute = AsyncMock()
+
+    async def _persist(**_kwargs: Any) -> str | None:
+        calls.append("persist")
+        return receipt_ref
+
+    writer = MagicMock()
+    writer.persist = AsyncMock(side_effect=_persist)
+    da_result = DirectApiExecutionResult(
+        action_id="00000000-0000-0000-0000-000000000010",
+        outcome=DirectApiExecutionOutcome.DISPATCHED,
+    )
+
+    async def _execute(**_kwargs: Any) -> DirectApiExecutionResult:
+        calls.append("execute")
+        return da_result
+
+    da_exec = MagicMock()
+    da_exec.execute = AsyncMock(side_effect=_execute)
+    action = _action()
+    loop = _make_loop(
+        pr_executor=pr_exec,
+        direct_api_executor=da_exec,
+        action_types_by_name={"ops.scale-out": _action_type()},
+        pre_dispatch_kinetic_safety_writer=writer,
+    )
+
+    got = await loop._dispatch_action(
+        action=action,
+        rule=_rule(),
+        correlation_id="correlation-example",
+    )
+
+    assert got is da_result
+    assert calls == ["persist", "execute"]
+    writer.persist.assert_awaited_once_with(
+        action=action,
+        correlation_id="correlation-example",
+    )
+    pr_exec.execute.assert_not_called()
+
+
+async def test_kinetic_safety_writer_failure_blocks_every_executor() -> None:
+    pr_exec = MagicMock()
+    pr_exec.execute = AsyncMock()
+    da_exec = MagicMock()
+    da_exec.execute = AsyncMock()
+    writer = MagicMock()
+    writer.persist = AsyncMock(side_effect=ValueError("proposal identity mismatch"))
+    loop = _make_loop(
+        pr_executor=pr_exec,
+        direct_api_executor=da_exec,
+        action_types_by_name={"ops.scale-out": _action_type()},
+        pre_dispatch_kinetic_safety_writer=writer,
+    )
+
+    got = await loop._dispatch_action(
+        action=_action(),
+        rule=_rule(),
+        correlation_id="correlation-example",
+    )
+
+    assert got.outcome is ExecutorOutcome.REJECTED_INVARIANT
+    assert got.reason == "pre-dispatch kinetic safety evidence is invalid"
+    da_exec.execute.assert_not_called()
     pr_exec.execute.assert_not_called()
 
 

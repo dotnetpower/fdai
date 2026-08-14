@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
@@ -27,6 +28,7 @@ class StateStoreKineticActionProposalStore:
     """Commit and resolve proposals built only from existing exact planning artifacts."""
 
     _KEY_PREFIX = "operational-planning:kinetic-proposal:"
+    _CORRELATION_KEY_PREFIX = "operational-planning:kinetic-proposal-correlation:"
 
     def __init__(self, *, store: StateStore) -> None:
         self._store = store
@@ -76,12 +78,17 @@ class StateStoreKineticActionProposalStore:
         key = self._key(operational_plan.plan_id)
         record = {
             "kind": "operational_planning.kinetic_proposal",
+            "correlation_id": proposal.correlation_id,
             "operational_plan_id": operational_plan.plan_id,
             "operational_plan": _OPERATIONAL_PLAN_ADAPTER.dump_python(
                 operational_plan, mode="json"
             ),
             "proposal": proposal.model_dump(mode="json"),
         }
+        await self._claim_correlation_index(
+            correlation_id=proposal.correlation_id,
+            operational_plan_id=operational_plan.plan_id,
+        )
         created = await self._store.write_state_with_audit_if_absent(
             key,
             record,
@@ -112,6 +119,61 @@ class StateStoreKineticActionProposalStore:
         raw = await self._store.read_state(self._key(operational_plan.plan_id))
         return None if raw is None else self._parse(raw, operational_plan)
 
+    async def resolve_by_correlation(
+        self,
+        correlation_id: str,
+    ) -> KineticActionProposal | None:
+        """Resolve one exact proposal without synthesizing a planning artifact."""
+
+        if not correlation_id:
+            raise ValueError("kinetic proposal correlation id MUST be non-empty")
+        index = await self._store.read_state(self._correlation_key(correlation_id))
+        if index is None:
+            return None
+        if (
+            index.get("kind") != "operational_planning.kinetic_proposal_correlation"
+            or index.get("correlation_id") != correlation_id
+            or not isinstance(index.get("operational_plan_id"), str)
+        ):
+            raise RuntimeError("stored kinetic proposal correlation index is malformed")
+        raw = await self._store.read_state(self._key(str(index["operational_plan_id"])))
+        if raw is None:
+            raise RuntimeError("kinetic proposal correlation index has no proposal record")
+        proposal = self._parse_record(raw)
+        if proposal.correlation_id != correlation_id:
+            raise RuntimeError("stored kinetic proposal correlation does not match its index")
+        return proposal
+
+    async def _claim_correlation_index(
+        self,
+        *,
+        correlation_id: str,
+        operational_plan_id: str,
+    ) -> None:
+        record = {
+            "kind": "operational_planning.kinetic_proposal_correlation",
+            "correlation_id": correlation_id,
+            "operational_plan_id": operational_plan_id,
+        }
+        key = self._correlation_key(correlation_id)
+        if await self._store.write_state_if_absent(key, record):
+            return
+        existing = await self._store.read_state(key)
+        if existing is None or dict(existing) != record:
+            raise KineticActionProposalConflictError(
+                "correlation identity conflicts with another kinetic proposal"
+            )
+
+    @classmethod
+    def _parse_record(cls, raw: Mapping[str, object]) -> KineticActionProposal:
+        try:
+            operational_plan = _OPERATIONAL_PLAN_ADAPTER.validate_python(
+                raw.get("operational_plan")
+            )
+        except (TypeError, ValueError) as exc:
+            raise RuntimeError("stored kinetic proposal operational plan is malformed") from exc
+        return cls._parse(raw, operational_plan)
+
     @classmethod
     def _parse(
         cls,
@@ -133,6 +195,11 @@ class StateStoreKineticActionProposalStore:
     @classmethod
     def _key(cls, operational_plan_id: str) -> str:
         return f"{cls._KEY_PREFIX}{operational_plan_id}"
+
+    @classmethod
+    def _correlation_key(cls, correlation_id: str) -> str:
+        digest = hashlib.sha256(correlation_id.encode("utf-8")).hexdigest()
+        return f"{cls._CORRELATION_KEY_PREFIX}{digest}"
 
 
 __all__ = [

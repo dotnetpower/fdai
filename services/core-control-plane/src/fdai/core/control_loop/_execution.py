@@ -37,6 +37,7 @@ from fdai.core.ontology_platform.reconciliation_producer import (
     ReconciliationRequestProduction,
     ReconciliationRequestProductionStatus,
 )
+from fdai.core.operational_planning import PreDispatchKineticSafetyWriter
 from fdai.core.risk_gate.evaluator import UnifiedRiskDecision
 from fdai.core.risk_gate.gate import RiskGate
 from fdai.core.risk_gate.preconditions import (
@@ -98,6 +99,7 @@ class ControlLoopExecutionMixin:
     _response_outcome_sink: Callable[[ResponseOutcome], Awaitable[None]] | None
     _workflow_outcome_recorder: WorkflowOutcomeRecorder | None
     _effect_reconciliation_request_sink: EffectReconciliationRequestSink | None
+    _pre_dispatch_kinetic_safety_writer: PreDispatchKineticSafetyWriter | None
     _promotion_state_refresher: Callable[[str], Awaitable[None]] | None
     _precondition_evaluator: PreconditionEvaluator
     _automation_hold_reader: AutomationHoldReader | None
@@ -276,9 +278,32 @@ class ControlLoopExecutionMixin:
         return await resolve_cost_impact_monthly(self._cost_estimator, action_type, arguments=None)
 
     async def _dispatch_action(
-        self, *, action: Action, rule: Rule
+        self,
+        *,
+        action: Action,
+        rule: Rule,
+        correlation_id: str = "",
     ) -> ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult:
         """Route an action to the executor its ActionType declares."""
+        writer = self._pre_dispatch_kinetic_safety_writer
+        if writer is not None:
+            try:
+                await writer.persist(action=action, correlation_id=correlation_id)
+            except Exception:  # noqa: BLE001 - kinetic ambiguity blocks every executor
+                _LOGGER.warning(
+                    "pre_dispatch_kinetic_safety_failed",
+                    extra={
+                        "action_type": action.action_type,
+                        "idempotency_key": action.idempotency_key,
+                    },
+                    exc_info=True,
+                )
+                return ExecutionResult(
+                    action_id=str(action.action_id),
+                    outcome=ExecutorOutcome.REJECTED_INVARIANT,
+                    mode=action.mode,
+                    reason="pre-dispatch kinetic safety evidence is invalid",
+                )
         expected, prediction_failure = await self._prepare_mscp_effect(action)
         action_type = self._action_types_by_name.get(action.action_type)
         path = action_type.execution_path if action_type is not None else None

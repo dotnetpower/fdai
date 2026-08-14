@@ -72,6 +72,63 @@ async def test_commit_and_resolve_existing_exact_v2_plan() -> None:
     assert proposal.plan.planner_ref != operational_plan.plan_id
 
 
+async def test_resolve_by_exact_correlation_uses_committed_proposal() -> None:
+    operational_plan, mutation_plan = _inputs()
+    adapter = StateStoreKineticActionProposalStore(store=InMemoryStateStore())
+    proposal = await adapter.commit(
+        operational_plan=operational_plan,
+        mutation_plan=mutation_plan,
+        arguments={},
+        created_at=mutation_plan.created_at + timedelta(seconds=1),
+    )
+
+    assert await adapter.resolve_by_correlation(proposal.correlation_id) == proposal
+
+
+async def test_missing_correlation_declines_without_plan_synthesis() -> None:
+    adapter = StateStoreKineticActionProposalStore(store=InMemoryStateStore())
+
+    assert await adapter.resolve_by_correlation("correlation:missing") is None
+
+
+async def test_correlation_conflict_is_rejected_before_second_proposal_write() -> None:
+    operational_plan, mutation_plan = _inputs()
+    state_store = InMemoryStateStore()
+    adapter = StateStoreKineticActionProposalStore(store=state_store)
+    proposal = await adapter.commit(
+        operational_plan=operational_plan,
+        mutation_plan=mutation_plan,
+        arguments={},
+        created_at=mutation_plan.created_at + timedelta(seconds=1),
+    )
+    with pytest.raises(KineticActionProposalConflictError, match="correlation identity"):
+        await adapter._claim_correlation_index(
+            correlation_id=proposal.correlation_id,
+            operational_plan_id="operational-plan:" + "f" * 64,
+        )
+
+    assert await adapter.resolve_by_correlation(proposal.correlation_id) == proposal
+
+
+async def test_orphaned_correlation_index_fails_closed() -> None:
+    operational_plan, mutation_plan = _inputs()
+    state_store = InMemoryStateStore()
+    adapter = StateStoreKineticActionProposalStore(store=state_store)
+    proposal = await adapter.commit(
+        operational_plan=operational_plan,
+        mutation_plan=mutation_plan,
+        arguments={},
+        created_at=mutation_plan.created_at + timedelta(seconds=1),
+    )
+    await state_store.write_state(
+        f"operational-planning:kinetic-proposal:{operational_plan.plan_id}",
+        {},
+    )
+
+    with pytest.raises(RuntimeError, match="operational plan is malformed"):
+        await adapter.resolve_by_correlation(proposal.correlation_id)
+
+
 async def test_identical_commit_replay_is_one_durable_record() -> None:
     operational_plan, mutation_plan = _inputs()
     state_store = InMemoryStateStore()

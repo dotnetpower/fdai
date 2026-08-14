@@ -19,9 +19,11 @@ from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fdai.core.executor import (
+    ExecutorOutcome,
     ResourceLockManager,
     ShadowExecutor,
     TemplateRenderer,
@@ -179,6 +181,7 @@ def _coordinator(
     send_error: BaseException | None = None,
     with_escalation: bool = False,
     state_store: InMemoryStateStore | None = None,
+    pre_dispatch_kinetic_safety_writer: Any | None = None,
 ) -> tuple[
     HilResumeCoordinator,
     RecordingRemediationPrPublisher,
@@ -209,6 +212,7 @@ def _coordinator(
         hil_channel=channel,
         rules_by_id={_RULE_ID: _rule()},
         escalation_supervisor=escalation_supervisor,
+        pre_dispatch_kinetic_safety_writer=pre_dispatch_kinetic_safety_writer,
     )
     return coordinator, publisher, store, channel
 
@@ -599,6 +603,50 @@ async def test_approve_resumes_and_executes() -> None:
     assert parked is not None
     assert parked["status"] == "resolved"
     assert parked["decision"] == "approve"
+
+
+@pytest.mark.asyncio
+async def test_approve_persists_kinetic_safety_before_resume_dispatch() -> None:
+    writer = MagicMock()
+    writer.persist = AsyncMock(return_value=None)
+    coordinator, publisher, _, _ = _coordinator(
+        pre_dispatch_kinetic_safety_writer=writer,
+    )
+    await _park(coordinator, approval_id="aid-kinetic-order")
+
+    result = await coordinator.resolve(
+        approval_id="aid-kinetic-order",
+        decision=HilDecision.APPROVE,
+        approver_oid=_APPROVER,
+    )
+
+    assert result.outcome is ResolveOutcome.EXECUTED
+    writer.persist.assert_awaited_once_with(
+        action=_action(),
+        correlation_id="c1",
+    )
+    assert len(publisher.records) == 1
+
+
+@pytest.mark.asyncio
+async def test_approve_blocks_resume_dispatch_when_kinetic_safety_fails() -> None:
+    writer = MagicMock()
+    writer.persist = AsyncMock(side_effect=ValueError("proposal identity mismatch"))
+    coordinator, publisher, _, _ = _coordinator(
+        pre_dispatch_kinetic_safety_writer=writer,
+    )
+    await _park(coordinator, approval_id="aid-kinetic-invalid")
+
+    result = await coordinator.resolve(
+        approval_id="aid-kinetic-invalid",
+        decision=HilDecision.APPROVE,
+        approver_oid=_APPROVER,
+    )
+
+    assert result.outcome is ResolveOutcome.EXECUTE_FAILED
+    assert result.execution_result is not None
+    assert result.execution_result.outcome is ExecutorOutcome.REJECTED_INVARIANT
+    assert publisher.records == ()
 
 
 @pytest.mark.asyncio

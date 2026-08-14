@@ -1,6 +1,6 @@
 ---
 translation_of: operational-planning.md
-translation_source_sha: b26db96a5ed2da83bce9bbc84d46980d9f644544
+translation_source_sha: cd2f5b2b9c6b708174ccd62b34b486c74efb1ff3
 translation_revised: 2026-08-14
 ---
 # 운영 계획
@@ -32,9 +32,10 @@ DecisionCase, ActionOption, 타입이 지정된 온톨로지 함수, Assurance T
 > effect-model 읽기 담당, causal 검증기가 모두 있을 때만 계획 수립을 연결합니다. Staging 부분
 > 실행 증명과 live graph shadow 측정은 완료된 live claim이 아니라 release 근거로 남습니다.
 > Production graph evidence와 개발 `ops.scale-out` VM Scale Set 실행기 연결은 구현되어 focused
-> test로 검증됩니다. Independent Core 및 Operator service HIL binding, 보호된 러너 훈련, 독립
-> pre-dispatch kinetic receipt writer, Heimdall 소유 verified independent effect observer, 종결 및
-> 전체 recurrence window는 아직 남아 있습니다.
+> test로 검증됩니다. Independent Core 및 Operator service HIL binding, 운영 Forseti proposal
+> source 조립, 보호된 러너 훈련, Heimdall 소유 verified independent effect observer, 독립 종결 및
+> 전체 recurrence window는 아직 남아 있습니다. Core runtime은 proposal이 있으면 모든 Thor 소유
+> 실행기 전에 exact kinetic safety receipt를 저장하고, 없으면 legacy path를 유지합니다.
 
 ## 구현 상태
 
@@ -45,7 +46,7 @@ DecisionCase, ActionOption, 타입이 지정된 온톨로지 함수, Assurance T
 | P1-P7 operational-planning core | implemented | `services/core-control-plane/src/fdai/core/operational_planning/` 및 focused planning test | 계획은 A0로 유지되고 기존 Process 및 권한 경로를 재사용합니다. |
 | Production graph evidence 및 scale-out executor binding | implemented | `services/core-control-plane/src/fdai/delivery/azure/` 및 focused composition/delivery test | Code와 test만으로는 live outcome evidence가 되지 않습니다. |
 | 인자 연결 kinetic proposal 생성 및 Verdict 계보 | implemented | `services/core-control-plane/src/fdai/core/operational_planning/kinetic_proposal.py`, `services/core-control-plane/src/fdai/delivery/kinetic_proposal.py`, `services/core-control-plane/src/fdai/agents/forseti.py`, `services/core-control-plane/src/fdai/agents/thor.py` 및 집중 producer/agent 테스트 | Delivery 소유 producer는 완전한 plan과 기존 exact V2 plan만 허용합니다. Forseti는 선택적 source를 통해 proposal을 해석하고 quorum, mode, 승인 또는 실행 권한을 바꾸지 않은 채 기존 Verdict에 보존합니다. |
-| Exact kinetic handoff 및 독립 효과 관측 런타임 연결 | in-progress | `services/core-control-plane/src/fdai/delivery/reconciliation_artifacts.py`, `config/ohl-scale-out-evidence.json` 및 집중 artifact/manifest 테스트 | Producer와 agent source 경계는 구현되었습니다. 운영 source 조립, pre-dispatch 증적 writer 및 Heimdall 소유 verified observer는 아직 연결되지 않았습니다. |
+| Exact kinetic handoff 및 독립 효과 관측 런타임 연결 | in-progress | `services/core-control-plane/src/fdai/core/operational_planning/kinetic_safety.py`, `services/core-control-plane/src/fdai/delivery/kinetic_safety.py`, `services/core-control-plane/src/fdai/delivery/reconciliation_artifacts.py`, `services/core-control-plane/src/fdai/runtime/control_loop.py`, `config/ohl-scale-out-evidence.json` 및 집중 dispatch, HIL, artifact, runtime 테스트(`115 passed`) | Core는 index에 있는 기존 proposal을 해석하고 모든 Thor 소유 실행기 전에 exact V2 plan을 저장합니다. Proposal이 없으면 legacy 동작을 유지하며 malformed, ambiguous, orphaned 또는 substituted evidence는 dispatch를 차단합니다. 운영 Forseti source 조립과 Heimdall 소유 verified observer는 아직 연결되지 않았습니다. |
 | Independent-service HIL binding | in-progress | `config/ohl-scale-out-evidence.json` 및 배포된 Core/Operator environment contract | Approval이 action을 park하고 resolve하기 전에 service root가 HIL channel 및 callback signing secret을 bind해야 합니다. |
 | OHL Lane F live evidence | in-progress | `docs/runbooks/ohl-scale-out-evidence-ko.md` | Protected execution, independent closure, sample 100개 및 14일 recurrence window가 열려 있습니다. |
 
@@ -57,14 +58,17 @@ DecisionCase, ActionOption, 타입이 지정된 온톨로지 함수, Assurance T
 | 2026-08-14 | in-progress | 누락된 exact-plan writer와 verified independent effect observer를 별도 Lane F runtime residual로 드러냈습니다. | `current change`, Lane F contract, runbook gate, artifact-store test 및 manifest test | Plan을 reconstruct하거나 executor/provider receipt로 대체하지 않고 두 source를 모두 연결합니다. |
 | 2026-08-14 | implemented | Authority-free argument-bound kinetic proposal contract를 추가하고 valid proposal을 Thor의 durable ActionRun까지 보존했습니다. | `current change`, focused kinetic-proposal, Thor dispatch, persistence 및 role-invariant 검사 | Runtime residual을 제거하기 전에 Forseti 소유 producer와 Core pre-dispatch consumer를 추가합니다. |
 | 2026-08-14 | implemented | Delivery 소유 exact proposal 생성과 선택적 Forseti source 해석을 조정이 해결된 Verdict와 사람 검토 Verdict 양쪽에 추가했습니다. Proposal이 없으면 기존 Verdict를 유지하고 source failure, corruption 또는 lineage substitution이 있으면 Verdict를 deny로 낮춥니다. | `current change`, `kinetic_proposal.py`, `forseti.py`, `test_kinetic_proposal.py`, `test_decision_case_e2e.py` 및 집중 producer, Forseti, Thor, factory, framework 검사 | 운영 조립에서 source를 연결하고 pre-dispatch kinetic safety receipt를 저장한 뒤 통제된 실제 운영 근거를 보존합니다. |
+| 2026-08-14 | implemented | Action이나 plan을 재구성하지 않고 모든 Core Thor 실행기 전에 exact-proposal kinetic safety writer를 연결했습니다. Proposal이 없으면 legacy no-op이고 malformed, conflicting, orphaned, late 또는 substituted evidence는 provider dispatch 전에 invariant rejection을 반환합니다. | `current change`, `core/operational_planning/kinetic_safety.py`, `delivery/kinetic_safety.py`, `delivery/kinetic_proposal.py`, `runtime/control_loop.py` 및 집중 dispatch, HIL, artifact, proposal, runtime 검사 115개 통과 | 운영 Forseti 조립에서 proposal source를 연결하고 verified independent observer를 추가한 뒤 통제된 실제 운영 근거를 보존합니다. |
 
 ### 남은 작업
 
 - [x] 완전한 operational plan에서만 `KineticActionProposal`을 생성하고 기존 typed Verdict 경로의
   Forseti 선택적 source를 통해 해석하며 proposal이 없을 때 legacy Action이 변경되지 않음을 입증합니다.
-- [ ] 운영 조립에서 proposal source를 연결하고 provider dispatch 전에 기존 exact V2 plan의
-  kinetic receipt를 저장하며 Heimdall 소유 verified
-  independent effect observer를 연결한 뒤 focused substitution 및 replay test를 보존합니다.
+- [x] 모든 Core Thor 실행기 전에 기존 proposal의 exact V2 plan을 저장하고 proposal이 없으면
+  legacy 동작을 유지하며 malformed 또는 substituted evidence가 dispatch를 차단함을 입증합니다.
+- [ ] 운영 Forseti 조립에서 proposal source와 Heimdall 소유 verified independent effect
+  observer를 연결하고 executor 또는 provider receipt로 observed outcome을 대체하지 않는 통제된
+  end-to-end 근거를 보존합니다.
 - [ ] Core HIL channel 및 Operator callback signing secret을 bind하고 검증해 서로 다른 human
   approver가 하나의 `ops.scale-out` proposal을 park, resolve 및 resume하도록 합니다.
 - [ ] Protected-runner drill을 완료하고 independent graph closure, live-shadow sample 100개,
@@ -231,8 +235,8 @@ ActionOption은 proposing 에이전트, logic 호출 증적, 시뮬레이션 증
 Provider dispatch 전에 실행 경로는 기존 exact V2 plan의 kinetic safety receipt를 저장해야 합니다.
 Action에서 plan을 reconstruct하면 안 됩니다. Dispatch 후에는 Heimdall 소유 adapter가 independent
 effect observation을 authenticate해야 합니다. Executor 또는 provider receipt는 dispatch evidence이며
-observed outcome을 대체할 수 없습니다. Immutable store는 구현되었지만 이 두 runtime binding은
-release blocker로 남아 있습니다.
+observed outcome을 대체할 수 없습니다. Immutable store와 Core pre-dispatch writer는 구현되어
+runtime에 연결되었습니다. Verified independent observation binding은 release blocker로 남아 있습니다.
 
 ### Argument-bound kinetic proposal
 
@@ -251,9 +255,10 @@ StateStore producer와 선택적 Forseti source가 구현되었습니다. Produc
 upgrade하지 않으며 proposal이 없으면 기존 Verdict를 유지합니다. Thor는 correlation, selected
 ActionType, target, argument 및 DecisionCase lineage가 exact한지 검증한 뒤 durable `ActionRun`에
 보존합니다. Malformed 또는 substituted proposal은 실행 전에 Verdict를 deny로 낮춥니다. Proposal이
-없으면 legacy path는 변경되지 않으며 V2 plan을 만들지 않습니다. 운영 source 조립, Core pre-dispatch
-kinetic receipt writer, 독립 observer 및 통제된 실제 운영 근거는 아직 남아 있습니다. 집중 테스트만으로
-운영 연결을 입증할 수는 없습니다.
+없으면 legacy path는 변경되지 않으며 V2 plan을 만들지 않습니다. Core runtime 조립은 exact
+correlation으로 proposal을 해석하고 모든 Thor 소유 실행기 전에 기존 plan을 저장하며 malformed 또는
+substituted evidence를 차단합니다. 운영 Forseti source 조립, 독립 observer 및 통제된 실제 운영 근거는
+아직 남아 있습니다. 집중 테스트만으로 end-to-end runtime 검증을 입증할 수는 없습니다.
 
 Risk evaluation은 현재 정책, 승격 상태, 역할, 환경, 영향, 승인, 대상 개정 번호,
 일곱 safeguard를 다시 검사합니다. 계획 수립 근거는 결과 권한을 유지하거나 낮출 수만
