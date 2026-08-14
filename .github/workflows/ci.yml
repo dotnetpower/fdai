@@ -53,6 +53,7 @@ jobs:
       - name: Set up uv (Python 3.13)
         uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
+          python-version: "3.13"
           enable-cache: true
 
       - name: Install dependencies
@@ -98,6 +99,7 @@ jobs:
       - name: Set up uv (Python 3.13)
         uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
+          python-version: "3.13"
           enable-cache: true
           save-cache: false
 
@@ -139,6 +141,7 @@ jobs:
       - name: Set up uv (Python 3.13)
         uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
+          python-version: "3.13"
           enable-cache: true
           save-cache: false
 
@@ -190,6 +193,7 @@ jobs:
       - name: Set up uv (Python 3.13)
         uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
+          python-version: "3.13"
           enable-cache: true
           save-cache: false
 
@@ -560,6 +564,7 @@ jobs:
       - name: Set up uv (Python 3.13)
         uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
+          python-version: "3.13"
           enable-cache: true
           save-cache: false
 
@@ -591,6 +596,7 @@ jobs:
       - name: Set up uv (Python 3.13)
         uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
+          python-version: "3.13"
           enable-cache: true
           save-cache: false
 
@@ -680,6 +686,7 @@ jobs:
       - name: Set up uv (Python 3.13)
         uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
+          python-version: "3.13"
           enable-cache: true
           save-cache: false
 

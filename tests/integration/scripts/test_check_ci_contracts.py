@@ -248,6 +248,7 @@ def test_uv_cache_contract_allows_one_writer(
         "      - name: Set up uv (Python 3.13)\n"
         "        uses: astral-sh/setup-uv@v8.3.2\n"
         "        with:\n"
+        '          python-version: "3.13"\n'
         "          enable-cache: true\n"
     )
     workflow.write_text(f"jobs:\n  first:\n{setup}  second:\n{setup}", encoding="utf-8")
@@ -262,6 +263,27 @@ def test_uv_cache_contract_allows_one_writer(
         encoding="utf-8",
     )
     assert module._validate_uv_cache_writers() == []
+
+
+def test_uv_cache_contract_requires_python_313_pin(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_contract_module()
+    workflow_dir = tmp_path / ".github" / "workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "ci.yml").write_text(
+        "      - name: Set up uv (Python 3.13)\n"
+        "        uses: astral-sh/setup-uv@v8.3.2\n"
+        "        with:\n"
+        "          enable-cache: true\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    assert module._validate_uv_cache_writers() == [
+        "every ci.yml Python 3.13 setup-uv block must pin python-version: 3.13"
+    ]
 
 
 def test_base_images_must_stay_mirror_overridable_and_digest_pinned(

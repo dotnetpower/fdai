@@ -374,6 +374,11 @@ def _validate_uv_cache_writers() -> list[str]:
         for block in blocks
         if "enable-cache: true" not in block
     ]
+    errors.extend(
+        "every ci.yml Python 3.13 setup-uv block must pin python-version: 3.13"
+        for block in blocks
+        if 'python-version: "3.13"' not in block
+    )
     writer_count = sum("save-cache: false" not in block for block in blocks)
     if writer_count != 1:
         errors.append(f"ci.yml must have exactly one setup-uv cache writer; found {writer_count}")

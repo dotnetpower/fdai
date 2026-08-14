@@ -30,6 +30,7 @@ _REPOSITORY_LOCAL_GIT_ENV = frozenset(
     }
 )
 _LOCAL_RUNTIME_ENV = Path(".fdai/local-runtime.env")
+_VALIDATION_PYTHON = "3.13"
 
 
 def _local_validation_database_url(paths: QueuePaths) -> str:
@@ -82,8 +83,7 @@ def validation_environment(paths: QueuePaths) -> dict[str, str]:
     environment.setdefault("MYPY_CACHE_DIR", str(cache_root / "mypy"))
     environment.setdefault("RUFF_CACHE_DIR", str(cache_root / "ruff"))
     environment["UV_PROJECT_ENVIRONMENT"] = str(paths.state_root / "venv")
-    primary_python = paths.repo_root / ".venv" / "bin" / "python"
-    environment["UV_PYTHON"] = str(primary_python) if primary_python.is_file() else "3.13"
+    environment["UV_PYTHON"] = _VALIDATION_PYTHON
     environment["FDAI_VALIDATION_ACTIVE"] = "1"
     validation_database_url = environment.get("FDAI_VALIDATION_DATABASE_URL", "").strip()
     if not validation_database_url:
