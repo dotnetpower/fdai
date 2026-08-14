@@ -153,9 +153,10 @@ artifact, inspect egress and DNS telemetry, and keep the capability in shadow mo
 a wider policy to make the capture pass.
 
 Retention is policy-owned. The store contract includes bounded expiry cleanup, and the in-memory
-implementation exercises that lifecycle. A production durable adapter and separate cleanup job
-must add row locking while preserving append-only custody audit. A legal-hold extension belongs in
-the deployment's governed retention process, not a Console control.
+implementation exercises that lifecycle. The PostgreSQL adapter now claims and deletes bounded
+expired rows with row locking while preserving append-only custody audit. A separate cleanup job
+remains open. Legal hold is monotonic in the store and belongs in the deployment's governed
+retention process, not a Console control.
 
 ## Verification
 
@@ -174,7 +175,7 @@ remain open with those implementation surfaces.
 |------|-------|----------|-------|
 | Contracts, policy, redaction, storage rules, and shadow comparison | implemented | `services/core-control-plane/src/fdai/core/browser_evidence/`; `services/core-control-plane/src/fdai/shared/providers/browser_evidence.py`; `services/core-control-plane/tests/core/browser_evidence/` | Focused core tests cover bounded policy, evidence-only authority, redaction, in-memory custody, replay, and shadow abstention. |
 | Optional Playwright delivery adapter | in-progress | `services/core-control-plane/src/fdai/delivery/browser/` | The adapter exists, but no dedicated focused delivery suite or restricted-egress image receipt was found. |
-| Durable persistence and retention job | not-started | `BrowserEvidenceArtifactStore` protocol; `InMemoryBrowserEvidenceArtifactStore` | No PostgreSQL artifact adapter, migration, or production cleanup job is present. |
+| Durable persistence and retention job | implemented | `alembic/versions/20260721_0050_browser_evidence.py`; `alembic/versions/20260814_0083_browser_evidence_legal_hold.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_browser_evidence.py`; focused codec and live PostgreSQL tests (`2 passed`, no skips) | Exact payload replay, conflict rejection, monotonic legal hold, restart reads, and winner-only concurrent cleanup are implemented. A separately scheduled production cleanup job remains open. |
 | Operator API and Console inspection | not-started | [Operator and workflow surfaces](#operator-and-workflow-surfaces) | The tool and workflow contracts exist, but no dedicated production read route or Console panel is registered. |
 | Promotion evidence | not-started | [Shadow measurement and promotion](#shadow-measurement-and-promotion) | The comparator always reports `promotion_eligible=false`; no governed live fidelity or security-drill window is retained. |
 
@@ -183,10 +184,11 @@ remain open with those implementation surfaces.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger and corrected stale claims for PostgreSQL persistence and the inspection surface; earlier provenance was not reconstructed. | `current change`; current source and focused core checks listed in the scope table. | Implement durable custody and read surfaces, then retain isolated live evidence before promotion review. |
+| 2026-08-14 | implemented | Added PostgreSQL browser-evidence custody and monotonic legal hold on the existing artifact schema, with bounded winner-only expiry cleanup and read-time hash verification. | `current change`; migrations `0050` and `0083`; PostgreSQL adapter; codec and supported local PostgreSQL tests `2 passed`, no skips. | Bind the cleanup job, implement read-only Operator and Console inspection, and retain isolated live evidence. |
 
 ### Remaining work
 
-- [ ] Implement a PostgreSQL `BrowserEvidenceArtifactStore` and migration with hash-conflict, replay, bounded expiry, legal-hold, and concurrent cleanup tests.
+- [x] Implement a PostgreSQL `BrowserEvidenceArtifactStore` and migration with hash-conflict, replay, bounded expiry, legal-hold, and concurrent cleanup tests.
 - [ ] Register Owner- or Reader-scoped GET-only Operator API metadata routes and a Console inspection panel that never returns captured payload bytes or exposes capture controls.
 - [ ] Add focused Playwright delivery tests and retain restricted-egress image receipts covering SSRF, redirect, DNS rebinding, mutation, credential, redaction, timeout, crash, and custody-replay drills.
 - [ ] Retain a frozen live fidelity window with zero policy escapes before requesting any promotion review.
