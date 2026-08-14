@@ -162,14 +162,17 @@ def _checkout_heads(paths: QueuePaths) -> list[str]:
 
 
 def _drain_every_lane(paths: QueuePaths, target: str | None) -> int:
-    """Serve the wake request, then every other checkout so no lane starves."""
+    """Serve the wake request, then every other checkout so no lane starves.
+
+    Only the requested lane decides the drain result; an unrelated checkout that
+    stays broken must not mask or replace the outcome the waker asked about.
+    """
     result = run(paths, "fast", wait_for_lock=True, target=target)
     for head in _checkout_heads(paths):
         if head == target:
             continue
-        outcome = run(paths, "fast", wait_for_lock=True, target=head)
-        if result == 0:
-            result = outcome
+        if run(paths, "fast", wait_for_lock=True, target=head) != 0:
+            print(f"validation-queue: other checkout {head[:12]} still fails", file=sys.stderr)
     return result
 
 
