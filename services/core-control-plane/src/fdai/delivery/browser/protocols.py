@@ -16,6 +16,8 @@ class BrowserDriverRequest:
     sensitive_region_selectors: tuple[str, ...]
     capture_kinds: tuple[BrowserCaptureKind, ...]
     timeout_seconds: float
+    max_response_bytes: int
+    max_screenshot_bytes: int
     max_text_chars: int
     max_snapshot_chars: int
 

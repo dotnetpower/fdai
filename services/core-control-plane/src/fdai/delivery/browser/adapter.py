@@ -93,7 +93,12 @@ class IsolatedBrowserEvidenceProvider:
         request: BrowserCaptureRequest,
     ) -> BrowserCaptureMaterial:
         validator = BrowserUrlPolicyValidator(policy=policy, resolver=self._resolver)
-        source = await validator.validate_navigation(request.source_url)
+        try:
+            source = await validator.validate_navigation(request.source_url)
+        except BrowserPolicyViolationError as exc:
+            raise BrowserEvidenceUnavailableError(
+                "browser navigation was denied by policy"
+            ) from exc
         gate = _ReadOnlyRequestGate(validator=validator, source=source)
         auth_state = await self._auth_states.load(policy.auth_profile_ref)
         result = await self._driver.capture(
@@ -103,13 +108,18 @@ class IsolatedBrowserEvidenceProvider:
                 sensitive_region_selectors=policy.sensitive_region_selectors,
                 capture_kinds=request.capture_kinds,
                 timeout_seconds=policy.limits.timeout_seconds,
+                max_response_bytes=policy.limits.max_response_bytes,
+                max_screenshot_bytes=policy.limits.max_screenshot_bytes,
                 max_text_chars=policy.limits.max_text_chars,
                 max_snapshot_chars=policy.limits.max_snapshot_chars,
             ),
             gate=gate,
             auth_state=auth_state,
         )
-        final = await validator.validate_connection(result.final_url)
+        try:
+            final = await validator.validate_connection(result.final_url)
+        except BrowserPolicyViolationError as exc:
+            raise BrowserEvidenceUnavailableError("browser request was denied by policy") from exc
         if gate.denials:
             raise BrowserEvidenceUnavailableError("browser request was denied by policy")
         if result.popup_detected:

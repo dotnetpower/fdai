@@ -88,6 +88,12 @@ class AsyncPlaywrightCaptureDriver:
                 )
                 if response is None:
                     raise BrowserEvidenceUnavailableError("browser navigation returned no response")
+                declared_response_bytes = _declared_response_bytes(response)
+                if (
+                    declared_response_bytes is not None
+                    and declared_response_bytes > request.max_response_bytes
+                ):
+                    raise BrowserEvidenceUnavailableError("browser response exceeds the byte limit")
                 for selector in request.stable_selectors:
                     await page.locator(selector).wait_for(state="visible", timeout=timeout_ms)
                 redacted_selectors = await _present_selectors(
@@ -104,6 +110,10 @@ class AsyncPlaywrightCaptureDriver:
                         timeout=timeout_ms,
                         type="png",
                     )
+                    if len(screenshot) > request.max_screenshot_bytes:
+                        raise BrowserEvidenceUnavailableError(
+                            "browser screenshot exceeds the byte limit"
+                        )
                 await _redact_regions(page, redacted_selectors)
                 visible_text = None
                 if "visible_text" in request.capture_kinds:
@@ -119,6 +129,8 @@ class AsyncPlaywrightCaptureDriver:
                     aria_snapshot = await body.aria_snapshot(timeout=timeout_ms)
                     aria_snapshot = aria_snapshot[: request.max_snapshot_chars + 1]
                 response_bytes = _response_bytes(response, visible_text, aria_snapshot)
+                if response_bytes > request.max_response_bytes:
+                    raise BrowserEvidenceUnavailableError("browser response exceeds the byte limit")
                 return BrowserDriverResult(
                     final_url=page.url,
                     screenshot=screenshot,
@@ -203,10 +215,19 @@ async def _redact_regions(page: Any, selectors: tuple[str, ...]) -> None:
 
 
 def _response_bytes(response: Any, visible_text: str | None, aria_snapshot: str | None) -> int:
-    content_length = str(response.headers.get("content-length", ""))
-    if content_length.isdigit():
-        return int(content_length)
-    return len((visible_text or "").encode()) + len((aria_snapshot or "").encode())
+    content_length = _declared_response_bytes(response)
+    extracted_bytes = len((visible_text or "").encode()) + len((aria_snapshot or "").encode())
+    return max(content_length or 0, extracted_bytes)
+
+
+def _declared_response_bytes(response: Any) -> int | None:
+    raw_content_length = response.headers.get("content-length")
+    if raw_content_length is None:
+        return None
+    content_length = str(raw_content_length).strip()
+    if not content_length.isascii() or not content_length.isdecimal():
+        raise BrowserEvidenceUnavailableError("browser response byte length is invalid")
+    return int(content_length)
 
 
 __all__ = ["AsyncPlaywrightCaptureDriver", "SystemBrowserDnsResolver"]
