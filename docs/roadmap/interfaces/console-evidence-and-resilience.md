@@ -4,8 +4,7 @@ title: Console Evidence and Resilience
 
 # Console Evidence and Resilience
 
-This document owns the operator console contracts for evidence provenance, localization, stream recovery, durable replay, and Architecture-map resilience. The conversational tool and
-RBAC contract remains in [operator-console.md](operator-console.md).
+This document owns the operator console contracts for evidence provenance, localization, stream recovery, durable replay, and Architecture-map resilience. The conversational tool and RBAC contract remains in [operator-console.md](operator-console.md).
 
 ## Implementation status
 
@@ -39,6 +38,7 @@ RBAC contract remains in [operator-console.md](operator-console.md).
 | 2026-08-14 | implemented | Added an exact-source Browser Entra runner for the Incident roster, RCA evidence, report envelope, PDF response, no-RCA state, and authentically unavailable source or plan context. | `current change`; `incident-rca-report-assurance.spec.ts`, Console typecheck, and focused Playwright discovery. | Execute the runner only after its source commit has a centralized receipt, then retain the redacted artifact. |
 | 2026-08-14 | implemented | Bound the Incident assurance runner to JSON Operator responses so a same-path SPA document cannot satisfy an API evidence wait. | `current change`; `incident-rca-report-assurance.spec.ts`, Console typecheck, and focused Playwright discovery. | Centrally validate this runner revision, then rerun and retain the redacted artifact. |
 | 2026-08-14 | implemented | Navigated the Incident assurance runner through the canonical `/root-cause-analysis` route so an unmatched legacy path cannot fall back to Overview. | `current change`; `incident-rca-report-assurance.spec.ts`, Console typecheck, and focused Playwright discovery. | Centrally validate this runner revision, then rerun and retain the redacted artifact. |
+| 2026-08-14 | implemented | Fixed the Console RCA decoder after authenticated assurance exposed that it rejected the server's newest-first hypothesis order. | `current change`; `api-operations.ts`, `api.test.ts`, 13 focused decoder tests, and Console typecheck. | Centrally validate the fix, then rerun and retain the redacted artifact. |
 
 ### Remaining work
 
@@ -53,9 +53,7 @@ RBAC contract remains in [operator-console.md](operator-console.md).
 Selecting an Activity Bar domain opens its Explorer and navigates to the first visible panel under the operator's local order and visibility preferences. This navigation remains active when the Command Deck is closed or floating; a full-workspace Deck closes before the route changes.
 Selecting a cached conversation from another screen is the bounded exception: the console navigates to that conversation's origin while suppressing only the synchronous conversation-owned route event, then activates its transcript. The Deck remains open without a transient default-session switch or close/reopen focus cycle. Same-screen and agent conversations switch without navigation.
 Reselecting the already active same-screen conversation is focus-only; it does not reload the sessionStorage transcript over newer in-memory turns.
-Selecting an inactive conversation records only a browser-local read acknowledgement and does not change its activity timestamp, so the history order remains stable. Principal-scoped `Mine`, `Unread`, and `Favorites` filters use only browser-local navigation metadata; toggling a favorite doesn't change server activity, evidence, or ordering. A conversation title is bold
-only while its observed activity is newer than its persisted read timestamp; selecting it clears
-that cue without moving the row. Only newer server activity advances the ordering timestamp.
+Selecting an inactive conversation records only a browser-local read acknowledgement and does not change its activity timestamp, so the history order remains stable. Principal-scoped `Mine`, `Unread`, and `Favorites` filters use only browser-local navigation metadata; toggling a favorite doesn't change server activity, evidence, or ordering. A conversation title is bold only while its observed activity is newer than its persisted read timestamp; selecting it clears that cue without moving the row. Only newer server activity advances the ordering timestamp.
 For a non-agent conversation, the first operator question becomes the title while the originating screen remains separate metadata. The normalized question is bounded to 512 characters in history metadata and preserved across browser and durable restoration. When the title is visually truncated, its visible text keeps the ellipsis. Pointer hover anywhere on the selectable conversation row, including its time, or keyboard focus shows the bounded full question through the shared console tooltip, including titles that fit.
 Layout and close icon controls use the same localized tooltip component. The connected-backend tooltip preserves separate mode, endpoint, route-choice, and candidate lines, fills every localized placeholder, and wraps long endpoint or deployment tokens within its viewport bound.
 An agent-card Ask action always opens a new empty agent conversation with a unique user-scoped key. The new summary carries the selected agent immediately, so the first submit sends the same agent target to the Operator API. Existing agent conversations are preserved as separate history entries and are restored only when the operator selects one explicitly.

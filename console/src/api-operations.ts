@@ -217,8 +217,8 @@ export function decodeRcaView(value: unknown): RcaView {
       };
     });
   const sequence = hypotheses.map((hypothesis) => hypothesis.seq);
-  if (new Set(sequence).size !== sequence.length || sequence.some((seq, index) => index > 0 && seq <= sequence[index - 1]!)) {
-    throw contractError("RCA hypotheses MUST have unique ascending seq values");
+  if (new Set(sequence).size !== sequence.length || sequence.some((seq, index) => index > 0 && seq >= sequence[index - 1]!)) {
+    throw contractError("RCA hypotheses MUST have unique descending seq values");
   }
   const decodedResponse = response === null
     ? null

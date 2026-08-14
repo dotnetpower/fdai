@@ -355,8 +355,7 @@ section 4). The panel reads the correlated audit rows and projects:
   relationship, and confidence. Malformed or absent chain data renders
   unavailable instead of being partially reconstructed in the browser.
 
-The reporting catalog includes `incident-rca-dossier`. Its required `correlation_id` variable scopes hypothesis, citation, causal-hop, response,
-and chronology widgets to one incident. Optional PDF delivery is owned by the independent Operator Service,
+The reporting catalog includes `incident-rca-dossier`. Its required `correlation_id` variable scopes hypothesis, citation, causal-hop, response, and chronology widgets to one incident. Optional PDF delivery is owned by the independent Operator Service,
 arranges only the redacted server-owned report envelope, keeps unrecorded sections
 unavailable, performs no new RCA, and remains absent without the `pdf-report` extra.
 
@@ -388,6 +387,7 @@ approve / rollback button. The projection is a pure function
 | 2026-08-14 | in-progress | Compared current Microsoft Learn guidance for Azure SRE Agent and accepted only its rich incident identity, phased investigation, response-plan preview, and evidence-backed outcome analytics patterns. | `current change`; [selective adoption contract](#selective-azure-sre-agent-adoption) and current Operator/Console paths in the scope table. | Implement and validate the four bounded operator-facing gaps without widening FDAI execution authority. |
 | 2026-08-14 | implemented | Added server-owned title provenance, trusted source and pinned-plan context, bounded audit milestones, and same-snapshot outcome cohorts with exact drill-down while preserving FDAI authority boundaries. | `current change`; `incident_projection.py`, `incidents.detail-sections.tsx`, and task-owned Operator, service-contract, Console, catalog, and focused test paths; Operator `31 passed`, Console `66 passed`, typecheck, strict mypy, Ruff, Pylance, and catalog parity passed; 15 critique rounds left only Low findings. | Retain governed runtime evidence separately. |
 | 2026-08-14 | implemented | Added optional PDF delivery for the existing Incident RCA dossier without creating another analysis or execution path. | `current change`; service-local PDF encoder, package extra, GET-only route, Console control, and pagination, escaping, source-digest, unavailable-section, no-analysis, and no-network regression checks. | Retain one exact-revision authenticated roster-to-RCA-to-report receipt. |
+| 2026-08-14 | implemented | Aligned the Console RCA decoder with the server-owned newest-first hypothesis projection found by authenticated Browser assurance. | `current change`; `api-operations.ts`, `api.test.ts`, and 13 focused decoder tests. | Rerun and retain the authenticated roster-to-RCA-to-report receipt. |
 
 ### Remaining work
 

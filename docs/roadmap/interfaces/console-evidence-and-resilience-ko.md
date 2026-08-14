@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 090960aa10805fd858aa450fd315c8e3dcc2e793
+translation_source_sha: 6d6daef870b312e9fd3fac503774c2180901a3fb
 translation_revised: 2026-08-14
 ---
 
@@ -41,6 +41,7 @@ translation_revised: 2026-08-14
 | 2026-08-14 | implemented | Incident roster, RCA 근거, report 묶음, PDF 응답, no-RCA 상태 및 실제로 unavailable인 source 또는 plan context를 위한 exact-source Browser Entra runner를 추가했습니다. | `current change`; `incident-rca-report-assurance.spec.ts`, Console typecheck 및 focused Playwright discovery입니다. | Source commit의 중앙 receipt가 생긴 뒤에만 runner를 실행하고 redacted 아티팩트를 보존해야 합니다. |
 | 2026-08-14 | implemented | 같은 경로의 SPA 문서가 API 근거 대기를 충족할 수 없도록 Incident assurance runner를 JSON Operator 응답에 연결했습니다. | `current change`; `incident-rca-report-assurance.spec.ts`, Console typecheck 및 focused Playwright discovery입니다. | 이 runner revision을 중앙 검증한 뒤 다시 실행해 redacted 아티팩트를 보존해야 합니다. |
 | 2026-08-14 | implemented | 일치하지 않는 legacy 경로가 Overview로 fallback하지 않도록 Incident assurance runner를 canonical `/root-cause-analysis` 경로로 이동했습니다. | `current change`; `incident-rca-report-assurance.spec.ts`, Console typecheck 및 focused Playwright discovery입니다. | 이 runner revision을 중앙 검증한 뒤 다시 실행해 redacted 아티팩트를 보존해야 합니다. |
+| 2026-08-14 | implemented | 인증된 assurance에서 서버의 최신순 hypothesis 정렬을 거부하는 동작이 드러나 Console RCA decoder를 수정했습니다. | `current change`; `api-operations.ts`, `api.test.ts`, focused decoder 테스트 13개 및 Console typecheck입니다. | 수정 commit을 중앙 검증한 뒤 다시 실행해 redacted 아티팩트를 보존해야 합니다. |
 
 ### 잔여 작업
 
