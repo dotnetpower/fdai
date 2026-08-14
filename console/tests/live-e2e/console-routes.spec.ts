@@ -1,6 +1,6 @@
 import { writeFile } from "node:fs/promises";
 
-import { expect, test, type Page, type Response } from "@playwright/test";
+import { expect, test, type Locator, type Page, type Response } from "@playwright/test";
 
 import { restoreBrowserEntraSessionStorage } from "./browser-entra-state";
 import { judgeSemanticTurn } from "./ontology-query-assurance";
@@ -155,6 +155,20 @@ async function openCommandDeck(page: Page) {
   return deck;
 }
 
+async function revealSemanticReceipt(deck: Locator, requestId: string): Promise<Locator> {
+  const receipt = deck.getByTestId("semantic-projection-receipt")
+    .filter({ hasText: requestId })
+    .last();
+  await expect(receipt).toBeAttached();
+  await receipt.evaluate((element) => {
+    for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
+      if (ancestor instanceof HTMLDetailsElement) ancestor.open = true;
+    }
+  });
+  await expect(receipt).toBeVisible();
+  return receipt;
+}
+
 test("Command Deck returns a verified server-time answer", async ({ page }) => {
   test.setTimeout(120_000);
   const deck = await openCommandDeck(page);
@@ -227,11 +241,7 @@ test("Command Deck renders the exact governed ontology projection receipt", asyn
   expect(requestPayload.request_id).toBe(semanticReceipt.request_id);
 
   await deck.getByText("Run record", { exact: true }).last().click();
-  await deck.getByText("Execution details", { exact: true }).last().click();
-  await deck.getByText("Technical details", { exact: true }).last().click();
-
-  const receipt = deck.getByTestId("semantic-projection-receipt");
-  await expect(receipt).toBeVisible();
+  const receipt = await revealSemanticReceipt(deck, semanticReceipt.request_id);
   await expect(receipt.getByTestId("semantic-projection-id")).toHaveText(
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
   );
