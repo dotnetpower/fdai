@@ -62,7 +62,10 @@ PRIVILEGED_COMMAND_RE = re.compile(
     r"az\s+\S+\s+(?:create|delete|deploy|import|restart|set|start|stop|update))\b"
 )
 PROTECTED_WORKFLOW_GUARD = "Verify protected workflow source"
-UV_SETUP_BLOCK_RE = re.compile(r"(?ms)^\s+- name: Set up uv \(Python 3\.13\).*?(?=^\s+- name:|\Z)")
+UV_SETUP_BLOCK_RE = re.compile(
+    r"(?ms)^\s+- name: [^\n]+\n"
+    r"\s+uses: astral-sh/setup-uv@[^\n]+.*?(?=^\s+- name:|\Z)"
+)
 BASE_IMAGE_REGISTRY_ARG = "BASE_IMAGE_REGISTRY"
 BASE_IMAGE_PREFIX = "${" + BASE_IMAGE_REGISTRY_ARG + "}/"
 
@@ -366,7 +369,7 @@ def _validate_privileged_workflow_guards() -> list[str]:
 
 def _validate_uv_cache_writers() -> list[str]:
     workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    blocks = UV_SETUP_BLOCK_RE.findall(workflow)
+    blocks = [block for block in UV_SETUP_BLOCK_RE.findall(workflow) if "enable-cache:" in block]
     if not blocks:
         return ["ci.yml has no setup-uv cache blocks"]
     errors = [

@@ -273,7 +273,7 @@ def test_uv_cache_contract_requires_python_313_pin(
     workflow_dir = tmp_path / ".github" / "workflows"
     workflow_dir.mkdir(parents=True)
     (workflow_dir / "ci.yml").write_text(
-        "      - name: Set up uv (Python 3.13)\n"
+        "      - name: Install uv for regression tests\n"
         "        uses: astral-sh/setup-uv@v8.3.2\n"
         "        with:\n"
         "          enable-cache: true\n",
