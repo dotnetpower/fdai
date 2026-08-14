@@ -44,7 +44,7 @@ def _replace_identity(columns: tuple[str, ...]) -> None:
              WHERE constraint_record.conrelid = 'llm_invocation'::regclass
                AND constraint_record.contype = 'u'
                AND ARRAY(
-                    SELECT attribute.attname
+                SELECT attribute.attname::TEXT
                       FROM unnest(constraint_record.conkey)
                            WITH ORDINALITY AS key_column(attnum, position)
                       JOIN pg_attribute AS attribute

@@ -81,6 +81,7 @@ def test_llm_invocation_identity_includes_usage_scope() -> None:
 
     assert 'down_revision: str | None = "20260813_0081"' in migration
     assert "ADD CONSTRAINT uq_llm_invocation_identity" in migration
+    assert "SELECT attribute.attname::TEXT" in migration
     assert module._SCOPED_COLUMNS == (
         "occurred_at",
         "correlation_id",
