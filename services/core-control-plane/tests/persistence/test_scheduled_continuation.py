@@ -1,10 +1,17 @@
 from __future__ import annotations
 
+import asyncio
 import os
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
+from fdai.core.scheduler.continuation import (
+    ContinuationAccess,
+    ContinuationAuditKind,
+    InMemoryContinuationAuditSink,
+    ScheduledContinuationService,
+)
 from fdai.delivery.persistence.postgres_scheduled_continuation import (
     PostgresScheduledContinuationStoreConfig,
     PostgresScheduledConversationAnchorStore,
@@ -58,17 +65,62 @@ def test_anchor_row_codec_round_trips() -> None:
     assert _row_to_anchor(row) == anchor
 
 
+class _BarrierAnchorStore:
+    def __init__(self, store: PostgresScheduledConversationAnchorStore) -> None:
+        self._store = store
+        self._expiry_barrier = asyncio.Barrier(2)
+
+    async def create(self, anchor: ScheduledConversationAnchor) -> ScheduledConversationAnchor:
+        return await self._store.create(anchor)
+
+    async def get(self, anchor_id: str) -> ScheduledConversationAnchor | None:
+        return await self._store.get(anchor_id)
+
+    async def expire(
+        self,
+        *,
+        anchor_id: str,
+        expected_state: ContinuationAnchorState,
+    ) -> ScheduledConversationAnchor | None:
+        await self._expiry_barrier.wait()
+        return await self._store.expire(anchor_id=anchor_id, expected_state=expected_state)
+
+    async def list_for_principal(
+        self,
+        *,
+        principal_id: str,
+        limit: int = 100,
+    ) -> tuple[ScheduledConversationAnchor, ...]:
+        return await self._store.list_for_principal(principal_id=principal_id, limit=limit)
+
+
 @pytest.mark.skipif(not os.environ.get("FDAI_DATABASE_URL"), reason="FDAI_DATABASE_URL is unset")
 async def test_postgres_anchor_store_is_idempotent_and_expires_with_cas() -> None:
-    store = PostgresScheduledConversationAnchorStore(
-        config=PostgresScheduledContinuationStoreConfig(dsn=os.environ["FDAI_DATABASE_URL"])
-    )
+    config = PostgresScheduledContinuationStoreConfig(dsn=os.environ["FDAI_DATABASE_URL"])
+    store = PostgresScheduledConversationAnchorStore(config=config)
     anchor = _anchor(suffix=uuid4().hex[:8])
+    audit = InMemoryContinuationAuditSink()
+    service = ScheduledContinuationService(store=store, audit=audit)
 
-    assert await store.create(anchor) == anchor
-    assert await store.create(anchor) == anchor
-    expired = await store.expire(
-        anchor_id=anchor.anchor_id,
-        expected_state=ContinuationAnchorState.ACTIVE,
+    assert await service.create(anchor) == anchor
+    assert await service.create(anchor) == anchor
+    restarted = PostgresScheduledConversationAnchorStore(config=config)
+    assert await restarted.get(anchor.anchor_id) == anchor
+    assert anchor in await restarted.list_for_principal(principal_id=anchor.owner_principal_id)
+
+    concurrent = ScheduledContinuationService(
+        store=_BarrierAnchorStore(restarted),
+        audit=audit,
     )
-    assert expired is not None and expired.state is ContinuationAnchorState.EXPIRED
+    access = ContinuationAccess(principal_id=anchor.owner_principal_id)
+    first, second = await asyncio.gather(
+        concurrent.expire(anchor_id=anchor.anchor_id, access=access, now=NOW),
+        concurrent.expire(anchor_id=anchor.anchor_id, access=access, now=NOW),
+    )
+
+    assert first.state is ContinuationAnchorState.EXPIRED
+    assert second.state is ContinuationAnchorState.EXPIRED
+    assert (await restarted.get(anchor.anchor_id)).state is ContinuationAnchorState.EXPIRED  # type: ignore[union-attr]
+    assert [event.kind for event in audit.events].count(ContinuationAuditKind.CREATED) == 1
+    assert [event.kind for event in audit.events].count(ContinuationAuditKind.CONTINUED) == 1
+    assert [event.kind for event in audit.events].count(ContinuationAuditKind.EXPIRED) == 1
