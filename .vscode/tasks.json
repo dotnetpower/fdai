@@ -66,6 +66,23 @@
       }
     },
     {
+      "label": "console: Playwright quick (desktop)",
+      "type": "shell",
+      "command": "npm --prefix console run test:e2e:quick",
+      "problemMatcher": [],
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "console-playwright",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 1
+      }
+    },
+    {
       "label": "design mocks: serve (5373)",
       "type": "shell",
       "command": "python3 -u -m http.server 5373 --bind 127.0.0.1",

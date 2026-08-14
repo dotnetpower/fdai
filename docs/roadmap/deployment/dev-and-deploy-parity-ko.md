@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 115c906a83607e7b2818c23c1f9501e113b38568
+translation_source_sha: a3e6b8f2d82329ae73a440f586d285ad29f24ba6
 translation_revised: 2026-08-14
 ---
 
@@ -39,6 +39,7 @@ translation_revised: 2026-08-14
 | 권한 인식 관측 캠페인 동등성 | implemented | `config/observation-sources.yaml`, `fdai.delivery.observation_campaign*`, `.vscode/tasks.json`, `infra/modules/compute/container-apps/observation_campaign_job.tf`, 집중 Core, Operator, Console, workspace 및 인프라 검사 | 로컬과 배포 프로필은 같은 출처 카탈로그, 실행 조건 상태, 실행기, 정규화 활동 계약 및 1분 기동을 사용합니다. 검증 전에는 런타임 산출물이 더 필요합니다. |
 | 로컬 검증 데이터베이스 격리 | implemented | `infra/local/docker-compose.yml`, `scripts/automation/validation_queue_context.py`, 로컬 준비 스크립트 및 focused 검증과 migration 통합 테스트 | 런타임 상태는 로컬 PostgreSQL port `5432`에 유지하고 파괴적인 migration 검증은 port `5433`의 별도 로컬 PostgreSQL cluster를 사용합니다. |
 | FDAI workspace 및 프로파일 부하 제어 | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`, focused 프로파일 및 workspace 테스트 11개 통과 | Resource 범위 분석 제어는 workspace에 둡니다. Copilot은 선택한 모델의 맥락 창 80%에서 에이전트 이력을 압축하며, Portable 프로파일은 격리할 수 없는 Remote WSL Pylance machine 설정을 거부합니다. |
+| 격리된 Console E2E 개발 루프 | implemented | `console/playwright.config.ts`, `console/package.json`, `.vscode/tasks.json` 및 `.github/skills/vscode-profile-onboarding/SKILL.md`의 Playwright 지침, Console 타입 검사와 focused desktop E2E 통과 | 실행기는 `*.spec.ts`만 찾고 Vite의 stdout 준비 신호를 기다립니다. 전체 desktop 및 mobile 행렬을 바꾸지 않고 root 명령 하나와 VS Code 테스트 작업을 제공합니다. |
 | FDAI Pylance launch ceiling 런타임 증명 | deferred | FDAI Remote WSL을 clean restart해도 Pylance는 bundled VS Code Node 실행 파일로 시작했고 `--max-old-space-size=2048`이 없었습니다. VS Code Server 1.133은 활성 프로파일 서비스와 별개로 Remote Machine 설정 리소스 하나를 생성합니다. | 격리된 런타임을 마련할 때까지 blocked 상태입니다. Shared Remote Machine 재정의는 제외 대상 workspace에도 영향을 주므로 ceiling을 활성화하려면 별도 VS Code Server data root 또는 WSL 배포판으로 런타임을 격리해야 합니다. |
 
 ### 구현 이력
@@ -60,6 +61,7 @@ translation_revised: 2026-08-14
 | 2026-08-14 | implemented | 자동 full-stack 작업을 반복 요청해도 VS Code 작업 인스턴스 선택창을 열지 않고 실행 중인 각 단일 인스턴스를 유지하도록 했습니다. | 현재 변경의 `.vscode/tasks.json`과 `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 자동 시작 계약 테스트 1개 통과. | 클릭 없는 중복 시작 요청에 남은 구현 작업은 없습니다. |
 | 2026-08-14 | implemented | 등록된 모든 출처를 위한 하나의 권한 인식 관측 캠페인을 추가하고 실행 조건을 확인하는 같은 CLI를 full-stack 로컬과 배포된 Container Apps Job에 연결했습니다. | `current change`, 버전 관리 활동 계약, 출처 카탈로그, 프로바이더 probe, 영속 실행기, Operator 변환 결과, Console lane 및 집중 검사 | 검증을 주장하기 전에 같은 카탈로그 digest를 사용하는 통제된 로컬 실행 하나와 배포 개정 실행 하나를 보존합니다. |
 | 2026-08-14 | implemented | 제거된 인제스트 co-host 경로와 독립 Document Ingestion API 및 Document Processing Worker 서비스 루트에 맞게 mock Terraform 검사를 정렬했습니다. | `current change`, Terraform 검증 통과 및 집중 인제스트 테스트 5개 통과 | 배포 가이드와 mock 테스트를 독립 서비스 루트에 맞게 유지합니다. |
+| 2026-08-14 | implemented | 격리된 Playwright 시작 probe 지연을 제거하고 repository root와 VS Code에 직접 desktop E2E 항목 지점을 추가했습니다. | `current change`, Console 타입 검사 통과, 라이브 수집이 `*.spec.ts` 파일 4개에서 테스트 58개를 나열했으며 focused desktop E2E 테스트 1개가 2.8초에 통과했습니다. | 격리된 Console E2E 개발 루프에 남은 구현 작업은 없습니다. |
 
 ### 잔여 작업
 
@@ -98,6 +100,13 @@ Operator 브라우저 E2E 테스트는 명시적인 dev-test 프로파일에서 
 채팅 SSE 응답을 제공합니다. 이 고정본은 테스트 실행기 안에서만 존재하며 `Console Web: Full
 Stack`에서는 활성화되지 않습니다. 백엔드 통합 테스트는 같은 요청과 범위가 제한된 최종
 turn-timing 계약을 실제 Starlette 경로와 근거 해석기로 별도 검증합니다.
+
+두 격리 Playwright 구성은 `*.spec.ts` 파일만 찾아 같은 위치의 단위 테스트가 호환되지 않는
+테스트 런타임을 불러오지 않게 합니다. 고정본 실행기는 Vite를 즉시 시작하고 사용하지 않는
+loopback URL 또는 dual-stack port를 probe하는 대신 stdout의 `ready in` 표시를 기다립니다.
+repository root에서 `npm --prefix console run test:e2e:quick`은 desktop 범위를 실행하며,
+VS Code의 `console: Playwright quick (desktop)` 테스트 작업도 같은 경로를 제공합니다. 기존
+`npm --prefix console run test:e2e` 명령은 전체 desktop 및 mobile 행렬을 계속 실행합니다.
 
 이를 보완하는 `npm --prefix console run test:e2e:live` 모음은 경로 interception 없이 운영 데이터
 어댑터와 테스트 전용 신원 검증을 사용하는 격리된 Operator Service를 시작합니다. 등록된 모든

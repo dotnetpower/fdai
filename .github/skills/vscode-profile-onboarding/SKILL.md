@@ -85,6 +85,17 @@ Preserve the authentication and port rules in the
 [Local Console Port Contract](../../instructions/app-shape.instructions.md#local-console-port-contract-must).
 Do not treat the repository Playwright runner and Copilot browser tools as one performance path.
 
+Use the committed entry points instead of searching for a config before each run:
+
+- Run or debug one test from the VS Code Testing sidebar. The shared profile recommends the
+  Playwright extension, and its default Chrome profile is the fastest editor feedback path.
+- Run `console: Playwright quick (desktop)` from **Tasks: Run Test Task** for the complete desktop
+  E2E slice.
+- From the repository root, run
+  `npm --prefix console run test:e2e:quick -- tests/e2e/<name>.spec.ts` for one file or omit the
+  file for the desktop slice. Reserve `npm --prefix console run test:e2e` for the complete desktop
+  and mobile matrix.
+
 1. Classify the slow operation:
   - CLI runner: `playwright test`, worker startup, configured projects, `webServer`, traces, or tests.
   - Browser tool: `read_page`, `run_playwright_code`, interactions, screenshots, and the following
@@ -101,6 +112,11 @@ Do not treat the repository Playwright runner and Copilot browser tools as one p
 5. Apply the narrow remedy: focused CLI tests for behavior, one batched browser call for
   authenticated or interactive state, and one targeted screenshot for visual evidence. Reload
   the VS Code window only when extension-host growth is material and active work can tolerate it.
+
+The isolated runner waits for Vite's `ready in` stdout marker. This avoids an unused-loopback HTTP
+or dual-stack TCP readiness probe stalling before Vite starts under WSL or VPN networking. Do not
+replace the stdout marker with `webServer.url` or `webServer.port` unless a clean sequential
+benchmark proves the probe returns promptly in the supported environment.
 
 Do not change Console behavior, Playwright timeouts, workers, or server topology merely to hide a
 large browser-tool payload. Change runner configuration only when a clean sequential CLI benchmark
