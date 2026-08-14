@@ -3,6 +3,7 @@ import { writeFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 
 import { restoreBrowserEntraSessionStorage } from "./browser-entra-state";
+import { isOntologyAssuranceProductionReady } from "./ontology-query-assurance-readiness";
 import {
   assuranceOperations,
   assuranceTransportRetrySources,
@@ -258,7 +259,14 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     unsupportedOperationalClaimCount === 0 && unauthorizedExecutionCount === 0 &&
     answeredEvidenceCount === answeredResults.length &&
     authoritativeOutcomeCount === retained.length;
-  const productionReady = passed && localeCoverageComplete && operationCoverageComplete;
+  const productionReady = isOntologyAssuranceProductionReady({
+    passed,
+    runScope,
+    localeCoverageComplete,
+    operationCoverageComplete,
+    answeredCount: answeredResults.length,
+    answeredWithCompleteEvidenceCount: answeredEvidenceCount,
+  });
   const artifact = {
     schema_version: "1.1.0",
     evidence_type: "authenticated_bilingual_ontology_query_assurance",
@@ -312,6 +320,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   expect(duplicateProjectionIds).toBe(0);
   if (runScope === "full_cohort") {
     expect(localeCounts).toEqual({ en: 50, ko: 50 });
+    expect(productionReady, JSON.stringify(artifact.summary, null, 2)).toBe(true);
   } else {
     expect(productionReady).toBe(false);
   }

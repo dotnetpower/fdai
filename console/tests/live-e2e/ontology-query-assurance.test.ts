@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { isOntologyAssuranceProductionReady } from "./ontology-query-assurance-readiness";
 import {
   assuranceOperations,
   assuranceTransportRetrySources,
@@ -12,6 +13,36 @@ import {
 } from "./ontology-query-assurance";
 
 const DIGEST = `sha256:${"a".repeat(64)}`;
+
+describe("ontology query assurance production readiness", () => {
+  const completeRun = {
+    passed: true,
+    runScope: "full_cohort" as const,
+    localeCoverageComplete: true,
+    operationCoverageComplete: true,
+    answeredCount: 1,
+    answeredWithCompleteEvidenceCount: 1,
+  };
+
+  it("rejects a full cohort that answers no questions", () => {
+    expect(isOntologyAssuranceProductionReady({
+      ...completeRun,
+      answeredCount: 0,
+      answeredWithCompleteEvidenceCount: 0,
+    })).toBe(false);
+  });
+
+  it("rejects answered turns without complete evidence", () => {
+    expect(isOntologyAssuranceProductionReady({
+      ...completeRun,
+      answeredWithCompleteEvidenceCount: 0,
+    })).toBe(false);
+  });
+
+  it("accepts a complete full cohort with an evidence-bound answer", () => {
+    expect(isOntologyAssuranceProductionReady(completeRun)).toBe(true);
+  });
+});
 
 function runConfiguration(): AssuranceRunConfiguration {
   return {
