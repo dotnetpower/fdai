@@ -90,6 +90,19 @@ resource type and final resource name, so the roster can show a subject such as
 Only an incident with no recorded subject evidence falls back to its event id; the browser does not
 invent a replacement title.
 
+#### Selective Azure SRE Agent adoption
+
+FDAI adopts the operator-facing strengths documented for Azure SRE Agent without adopting its execution model:
+
+| Observed practice | FDAI adaptation | Preserved boundary |
+|-------------------|-----------------|--------------------|
+| [Rich incident cards](https://learn.microsoft.com/azure/sre-agent/incident-platforms#rich-incident-cards) | Show an operator-readable title, description, source platform and id, severity, source status and time, response-plan reference, and source-detail link. Add `title_source`; mark identifier fallback as `Title unavailable` instead of presenting a GUID as the subject. | Canonical lifecycle state stays separate from source-platform status, and every displayed field remains recorded evidence. |
+| [Investigation threads and session insights](https://learn.microsoft.com/azure/sre-agent/review-agent-insights) | Project bounded `initial`, `progress`, `issue`, `success`, and `resolved` milestones with evidence references, explicit gaps, evaluation, and an inert learning candidate. | A conversation transcript is not evidence; independent effect verification, not self-evaluation, closes recovery or promotes learning. |
+| [Response plans](https://learn.microsoft.com/azure/sre-agent/response-plan) | Preview historical matches before activation, pin the plan revision, expose enabled state, and merge repeated alerts under an explicit cooldown and deduplication key. | A plan routes investigation only; typed `ActionType`, risk, approval, executor, rollback, and audit gates still decide every state change. |
+| [Incident value tracking](https://learn.microsoft.com/azure/sre-agent/track-incident-value) | Measure agent-mitigated, agent-assisted, human-mitigated, pending, and time-to-mitigate cohorts with exact windows, denominators, and incident drill-down. | No aggregate claims success without authoritative terminal state and independently verified outcome evidence. |
+
+> FDAI does not adopt arbitrary Azure CLI writes, default autonomous response plans, or permission-as-authority behavior from Azure SRE Agent run modes. The seven safeguards and separated judge, approver, executor, observer, and auditor roles remain authoritative.
+
 Missing correlations remain missing. The projection treats empty values and historical `None` or
 `null` string sentinels as absent, so unrelated audit-only rows cannot form a synthetic Incident.
 
@@ -362,6 +375,7 @@ approve / rollback button. The projection is a pure function
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Incident lifecycle, roster projection, and Console views | implemented | `services/core-control-plane/src/fdai/core/incident/`; `services/core-control-plane/tests/core/incident/`; `console/src/routes/incidents.tsx`; focused Console incident tests | Incident state, correlation, lifecycle, roster, attention, and bounded presentation have focused coverage. |
+| Operator-readable identity and phased investigation | in-progress | `services/operator-service/src/fdai_operator_service/projection_logic.py`; `console/src/routes/incidents.tsx`; [selective adoption contract](#selective-azure-sre-agent-adoption) | Basic title and history projection exists, but title provenance, rich source context, plan preview, evidence milestones, and outcome cohorts remain incomplete. |
 | RCA contracts, projection, and read-only route | implemented | `services/core-control-plane/src/fdai/core/rca/`; `services/core-control-plane/tests/core/rca/`; `services/operator-service/src/fdai_operator_service/rca_projection.py`; `services/operator-service/tests/test_operator_service_composition.py`; `console/src/routes/rca.test.ts` | The route distinguishes unknown correlations, projects recorded hypotheses and response evidence, and exposes no action authority. |
 | RCA report catalog and datasource | implemented | `rule-catalog/reports/incident-rca-dossier.yaml`; `services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py`; reporting tests | The declarative dossier and bounded audit projection exist. |
 | RCA PDF format and download control | not-started | [RCA view](#1351-rca-view-root-cause-analysis) | No upstream PDF encoder, optional delivery module, or authenticated download control is present. |
@@ -372,9 +386,14 @@ approve / rollback button. The projection is a pure function
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger and corrected the RCA PDF claim to target status; earlier provenance was not reconstructed. | `current change`; current incident, RCA, reporting, Operator, and Console evidence listed in the scope table. | Implement optional PDF delivery and retain governed roster-to-RCA runtime evidence. |
+| 2026-08-14 | in-progress | Compared current Microsoft Learn guidance for Azure SRE Agent and accepted only its rich incident identity, phased investigation, response-plan preview, and evidence-backed outcome analytics patterns. | `current change`; [selective adoption contract](#selective-azure-sre-agent-adoption) and current Operator/Console paths in the scope table. | Implement and validate the four bounded operator-facing gaps without widening FDAI execution authority. |
 
 ### Remaining work
 
+- [ ] Add a bounded `title_source` contract and focused projection, decoder, and render tests that prefer recorded title, summary, rule, signal, and sanitized resource subjects, while labeling identifier fallback as unavailable.
+- [ ] Project source-platform identity, description, status, timestamp, source link, pinned response-plan revision, historical-match preview, and cooldown/deduplication evidence without replacing canonical lifecycle state.
+- [ ] Render ordered investigation milestones with exact evidence references, unavailable gaps, evaluation receipts, and inert learning candidates; prove transcript text cannot create evidence, close recovery, or promote learning.
+- [ ] Publish agent-mitigated, assisted, human-mitigated, pending, and time-to-mitigate cohorts with exact source, window, denominator, terminal-state rules, independent outcome verification, and incident drill-down.
 - [ ] Retain one authenticated roster-to-RCA receipt that binds the incident, correlation, hypothesis, citations, response plan, audit rows, and unavailable behavior to one source revision.
 - [ ] Implement and focused-test an optional PDF `FormatEncoder` and GET-only download path that render only the existing report envelope and remain absent when the extra is unavailable.
 - [ ] Add PDF pagination, escaping, source-digest, unavailable-section, and no-new-analysis regression checks before documenting a reference page count.
