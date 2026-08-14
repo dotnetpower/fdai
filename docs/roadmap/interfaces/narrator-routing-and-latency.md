@@ -36,14 +36,16 @@ Two constraints preserve this boundary:
 A fork that needs a latency-routed judge declares a separate capability with its own quality gate,
 composition binding, and audit evidence.
 
-The target independent service refreshes text and multimodal pools independently of operator
-traffic. The current local adapter tries ordered `narrator_candidates`, but it does not maintain
-the rolling latency and time-to-first-token (TTFT) windows described below. The target text pool
-uses `narrator_candidates`; image turns intersect provisioned deployments with `t1.vision`
-preferences and emit `vision_candidates`. Each pool keeps separate eight-sample latency and TTFT
-windows. Startup probes text candidates twice and vision candidates with a bounded 1 px image.
-Periodic checks add a sample every `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS`, which defaults to `300`.
-Missing vision capacity makes image turns unavailable instead of borrowing a text binding.
+The independent local service now refreshes text and vision pools through one coalesced, bounded
+on-demand cycle. It probes each text candidate twice and each vision candidate once with a bounded
+1 px image, keeps separate eight-sample latency and time-to-first-token (TTFT) windows, and ranks
+text turns by measured p50 with bounded failover. Unmeasured candidates receive one warm-up chance.
+Failures receive a bounded penalty rather than disappearing from the pool.
+
+Image turns remain unavailable because the Operator Service has no server-owned resolver from an
+opaque conversation-image id to validated bounded bytes. Client-provided image fields cannot become
+that authority. A periodic scheduler for `FDAI_NARRATOR_PROBE_INTERVAL_SECONDS` also remains target
+behavior; the implemented `refresh()` entry point is explicit and process-local.
 
 ## Per-user preference and TTFT
 
@@ -134,7 +136,8 @@ evidence.
 |------|-------|----------|-------|
 | Local ordered narrator candidate fallback | implemented | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; `services/operator-service/tests/test_local_narrator.py` | The service-local adapter loads the resolved artifact, obtains a short-lived token, tries ordered candidates, and exposes sanitized health without Core imports or execution authority. |
 | Resolved narrator candidate collection | implemented | `services/core-control-plane/tests/rule_catalog/schema/test_narrator_collection.py`; model resolver and registry | Focused checks cover collection of `narrator_candidates` from reviewed model-resolution inputs. |
-| Rolling p50/TTFT and multimodal routing | not-started | [Narrator latency routing](#narrator-latency-routing) | The retired in-process router is not composed in the independent service, and no replacement rolling-window implementation was found. |
+| Rolling text p50/TTFT, bounded refresh, and failover | implemented | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; `narrator_latency.py`; `narrator_payloads.py`; focused Operator tests | The independent service keeps eight-sample latency and TTFT windows, measures the first non-empty SSE token, coalesces bounded probes, ranks text candidates, preserves unanimous 429/503 status, and fails closed on malformed or oversized output. |
+| Vision candidate probes and image-turn routing | in-progress | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; focused vision-probe and image-unavailable tests | Vision candidates have an independent measured probe window. Image turns remain unavailable until a server-owned image resolver supplies validated bounded bytes; text bindings are never borrowed. |
 | Per-user routing preference and runtime latency projection | not-started | [Per-user preference and TTFT](#per-user-preference-and-ttft) | The revisioned preference, TTFT projection, and deployment pinning contract remains target behavior. |
 | Public-web candidate routing | in-progress | `services/operator-service/src/fdai_operator_service/application/conversation/capabilities/web_search/`; `services/operator-service/src/fdai_operator_service/adapters/conversation/web_search/`; focused Operator tests | Provider-neutral and Azure construction paths exist. Governed rolling-latency and failover evidence from local and deployed profiles remains open. |
 | Optional report-format parity | implemented | `fdai_operator_service.reporting.optional_pdf_report_encoder`; `IncidentRcaReportingProjectionReader`; Operator composition and route tests | Local and deployed Operator composition use the same service-local loader and authoritative audit-backed Incident report reader. Venue, environment, and identity do not change report authority. |
@@ -146,10 +149,12 @@ evidence.
 | 2026-08-14 | in-progress | Adopted the implementation ledger and clarified which latency and preference behavior remains target design; earlier provenance was not reconstructed. | `current change`; current local narrator, resolver, web-search source, and focused checks listed in the scope table. | Implement independent-service latency windows and preferences, then retain governed local and deployed evidence. |
 | 2026-08-14 | implemented | Kept optional PDF report registration identical across local and deployed Operator composition. | `current change`; service-local optional loader, package-extra contract, composition binding, and focused route/composition tests. | Retain the separate authenticated Incident report receipt without treating package availability as execution authority. |
 | 2026-08-14 | implemented | Kept authoritative Incident RCA report materialization identical across local and deployed Operator composition. | `current change`; service-local audit-backed report reader, composition binding, and focused reader/family tests. | Retain the separate authenticated Incident report receipt. |
+| 2026-08-14 | implemented | Added service-local rolling text latency and TTFT routing with bounded coalesced text and vision probes, measured failover, strict SSE and output limits, and bounded Azure CLI credential acquisition. | `current change`; narrator adapter modules; focused local narrator and credential tests `21 passed`; integrated Operator and Core narrator checks passed. | Bind periodic refresh and a server-owned image resolver, then retain governed local and deployed timing evidence. |
 
 ### Remaining work
 
-- [ ] Implement and focused-test independent text and vision candidate probes, separate rolling latency and TTFT windows, bounded refresh, failover, and unavailable behavior.
+- [x] Implement and focused-test independent text and vision candidate probes, separate rolling latency and TTFT windows, bounded refresh, failover, and unavailable behavior.
+- [ ] Bind a periodic refresh owner and server-owned conversation-image resolver before marking image-turn routing complete.
 - [ ] Implement revisioned per-principal `Auto` or allowlisted narrator preference storage and sanitized Settings projection without personalizing T2 bindings.
 - [ ] Retain governed local and deployed receipts for narrator and web-search candidate selection, first-token timing, failure, recovery, and sanitized health.
 - [ ] Implement the deferred direct Key Vault resolved-model loader and reconciler alert path only through reviewed service-owned adapter boundaries.
