@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schema/escalation-ladder.json",
+  "title": "Approval escalation ladder",
+  "description": "One ordered ladder of human-approval rungs, selected first-match by priority. Not the T2 model-class ladder in fdai.core.quality_gate.escalation_ladder.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "kind",
+    "id",
+    "priority",
+    "select_when",
+    "rungs",
+    "overall_deadline_seconds"
+  ],
+  "properties": {
+    "version": { "const": 1 },
+    "kind": { "const": "escalation_ladder" },
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(?:[-.][a-z0-9]+)*$" },
+    "description": { "type": "string", "minLength": 1 },
+    "priority": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total order for first-match selection. Lower wins. Unique across the catalog so selection replays identically."
+    },
+    "select_when": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["environment", "finding_class", "impact_at_least"],
+      "properties": {
+        "environment": { "type": "string", "minLength": 1 },
+        "finding_class": { "type": "string", "minLength": 1 },
+        "impact_at_least": { "enum": ["resource", "resource_group", "subscription"] }
+      }
+    },
+    "rungs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rung", "audience_group", "ttl_seconds", "category"],
+        "properties": {
+          "rung": { "type": "string", "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$" },
+          "audience_group": { "type": "string", "minLength": 1 },
+          "ttl_seconds": { "type": "integer", "minimum": 1 },
+          "category": { "type": "string", "minLength": 1 },
+          "also_page": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "description": "Non-deciding awareness channels delivered alongside the rung. Paging never grants approval authority."
+          }
+        }
+      }
+    },
+    "overall_deadline_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Hard cap across the whole ladder. On expiry the loop reaches a terminal no-op unless a standing authorization trips first."
+    }
+  }
+}

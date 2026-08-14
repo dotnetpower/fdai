@@ -1,0 +1,14 @@
+# Default time-decaying urgency policy.
+#
+# As a forecast breach closes, the window each human gets shrinks and the
+# loop climbs the ladder faster. It never lengthens a rung past its declared
+# TTL, and never shortens one below the starvation floor.
+version: 1
+kind: urgency_policy
+id: default-forecast-urgency
+description: >-
+  Halves the remaining lead time into each rung, ignores forecasts below the
+  configured confidence, and guarantees every human at least one minute.
+lead_time_factor: 0.5
+min_forecast_confidence: 0.9
+min_effective_ttl_seconds: 60
