@@ -203,6 +203,7 @@ def test_drain_reloads_validator_code_when_wake_request_advances(
     executed: list[tuple[str, list[str]]] = []
 
     monkeypatch.setattr(validation_queue, "initialize", lambda _paths: None)
+    monkeypatch.setattr(validation_queue, "_checkout_heads", lambda _paths: [])
     monkeypatch.setattr(validation_queue, "_wake_request", lambda _paths: next(requests))
     monkeypatch.setattr(
         validation_queue,
@@ -236,6 +237,7 @@ def test_drain_reloads_after_failure_when_wake_request_advances(
     requests = iter(("failed-head", "fixed-head"))
 
     monkeypatch.setattr(validation_queue, "initialize", lambda _paths: None)
+    monkeypatch.setattr(validation_queue, "_checkout_heads", lambda _paths: [])
     monkeypatch.setattr(validation_queue, "_wake_request", lambda _paths: next(requests))
     monkeypatch.setattr(
         validation_queue,
@@ -260,6 +262,7 @@ def test_drain_returns_failure_when_wake_request_is_unchanged(
     paths = SimpleNamespace(wake_lock=tmp_path / "wake.lock")
 
     monkeypatch.setattr(validation_queue, "initialize", lambda _paths: None)
+    monkeypatch.setattr(validation_queue, "_checkout_heads", lambda _paths: [])
     monkeypatch.setattr(validation_queue, "_wake_request", lambda _paths: "failed-head")
     monkeypatch.setattr(
         validation_queue,
@@ -532,6 +535,41 @@ def test_linked_worktree_drain_validates_the_shared_requested_head(
     receipt = json.loads((paths.receipts / f"{requested}.json").read_text())
     assert receipt["validated_head"] == requested
     assert _run(linked, "git", "rev-parse", "HEAD").stdout.strip() != requested
+
+
+def test_drain_serves_every_checkout_so_a_branch_cannot_starve_main(
+    git_repo: Path, tmp_path: Path
+) -> None:
+    branch = tmp_path / "branch-lane"
+    assert (
+        _run(git_repo, "git", "worktree", "add", "--quiet", "-b", "lane", str(branch)).returncode
+        == 0
+    )
+    script = git_repo / "scripts" / "automation" / "validation_queue.py"
+    log_path = tmp_path / "lane-validation.log"
+    main_commit = _commit_change(git_repo)
+    (branch / "source.txt").write_text("branch work\n", encoding="utf-8")
+    assert _run(branch, "git", "add", "source.txt").returncode == 0
+    assert _run(branch, "git", "commit", "--quiet", "-m", "branch work").returncode == 0
+    branch_commit = _run(branch, "git", "rev-parse", "HEAD").stdout.strip()
+    for cwd, commit in ((git_repo, main_commit), (branch, branch_commit)):
+        assert _run(cwd, "python3", str(script), "enqueue", commit).returncode == 0
+    paths = queue_paths(git_repo)
+    paths.wake_request.write_text(branch_commit + "\n", encoding="utf-8")
+
+    drained = _run(
+        branch,
+        "python3",
+        str(script),
+        "drain",
+        env={"FDAI_VALIDATION_TEST_LOG": str(log_path)},
+    )
+
+    assert drained.returncode == 0, drained.stderr
+    assert (paths.receipts / f"{branch_commit}.json").is_file()
+    assert (paths.receipts / f"{main_commit}.json").is_file(), (
+        "the main checkout must still be validated when a branch owns the wake request"
+    )
 
 
 def test_retry_reuses_sync_and_passed_fast_gates(git_repo: Path, tmp_path: Path) -> None:
