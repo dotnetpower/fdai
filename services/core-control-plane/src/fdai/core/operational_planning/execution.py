@@ -22,6 +22,7 @@ def compile_selected_mutation_plan(
     plan: OperationalPlan,
     target: OntologyObjectRecord,
     action_type_ref: OntologyTypeRef,
+    planner_ref: str,
     command_ref: str,
     rollback_command_ref: str,
     created_at: datetime,
@@ -71,7 +72,8 @@ def compile_selected_mutation_plan(
     )
     return build_mutation_plan(
         action_type_ref=action_type_ref,
-        planner_ref=plan.plan_id,
+        planner_ref=planner_ref,
+        operational_plan_ref=plan.plan_id,
         targets=(target,),
         effects=effects,
         rollback_effects=rollback_effects,
@@ -96,7 +98,7 @@ def close_operational_plan(
         ),
         None,
     )
-    if mutation.planner_ref != plan.plan_id:
+    if mutation.operational_plan_ref != plan.plan_id:
         raise ValueError("mutation plan does not cite the operational plan")
     if selected is None or mutation.action_type_ref.name != selected.action_type:
         raise ValueError("mutation plan ActionType does not match selected option")

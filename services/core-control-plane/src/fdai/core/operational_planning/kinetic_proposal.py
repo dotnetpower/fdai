@@ -31,7 +31,7 @@ class KineticActionProposal(ContractBase):
     proposal_id: Annotated[str, Field(pattern=_PROPOSAL_PATTERN)]
     correlation_id: Annotated[str, Field(min_length=1, max_length=512)]
     process_id: Annotated[str, Field(min_length=1, max_length=200)]
-    operational_plan_id: Annotated[str, Field(min_length=1, max_length=512)]
+    operational_plan_id: Annotated[str, Field(pattern=r"^operational-plan:[a-f0-9]{64}$")]
     selected_option_id: Annotated[str, Field(min_length=1, max_length=256)]
     plan: MutationPlan
     target_resource_ref: Annotated[str, Field(min_length=1, max_length=512)]
@@ -94,7 +94,7 @@ class KineticActionProposal(ContractBase):
         if self.plan.action_type_ref.kind is not OntologyDeclarationKind.ACTION:
             raise ValueError("kinetic action proposal plan MUST reference an ActionType")
         _validate_plan_identity(self.plan)
-        if self.plan.planner_ref != self.operational_plan_id:
+        if self.plan.operational_plan_ref != self.operational_plan_id:
             raise ValueError("kinetic action proposal plan does not cite its operational plan")
         if len(self.plan.targets) != 1:
             raise ValueError("kinetic action proposal requires exactly one target")
@@ -191,6 +191,7 @@ def _validate_plan_identity(plan: MutationPlan) -> None:
         lock_scope=plan.lock_scope,
         lock_keys=plan.lock_keys,
         irreversible=plan.irreversible,
+        operational_plan_ref=plan.operational_plan_ref,
     )
     if rebuilt.plan_id != plan.plan_id or rebuilt.digest != plan.digest:
         raise ValueError("kinetic action proposal plan identity does not match its content")

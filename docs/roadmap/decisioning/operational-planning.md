@@ -243,6 +243,10 @@ exact raw Action arguments and digest, one target, and the Process, plan, select
 lineage. The proposal timestamp cannot precede the plan, and its canonical body has a hard byte
 ceiling. It never carries approval, mode, promotion, or execution authority.
 
+The `MutationPlan` preserves its signed planner FunctionType identity in `planner_ref` and cites
+the selected operational plan independently through `operational_plan_ref`. These identities must
+not be conflated: planner provenance and decision lineage are separate replay checks.
+
 Forseti may carry this optional proposal only inside its existing `object.verdict`. Thor validates
 that its correlation, selected ActionType, target, arguments, and DecisionCase lineage are exact,
 then preserves it on the durable `ActionRun`. A malformed or substituted proposal changes the

@@ -110,6 +110,9 @@ class MutationPlan(ContractBase):
     digest: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
     action_type_ref: OntologyTypeRef
     planner_ref: Annotated[str, Field(min_length=1)]
+    operational_plan_ref: (
+        Annotated[str, Field(pattern=r"^operational-plan:[a-f0-9]{64}$")] | None
+    ) = None
     targets: tuple[TargetRevision, ...]
     effects: tuple[MutationEffect, ...]
     rollback_effects: tuple[MutationEffect, ...]

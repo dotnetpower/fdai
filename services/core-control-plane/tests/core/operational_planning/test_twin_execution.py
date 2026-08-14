@@ -48,6 +48,7 @@ from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 
 NOW = datetime(2026, 8, 3, tzinfo=UTC)
+PLANNER_REF = "function:plan.scale-out@1.0.0"
 ROOT = Path(__file__).resolve().parents[5]
 
 
@@ -332,6 +333,7 @@ def test_selected_plan_compiles_exact_mutation_plan_and_closes_outcome() -> None
         plan=plan,
         target=target,
         action_type_ref=release.type_ref(OntologyDeclarationKind.ACTION, "ops.scale-out"),
+        planner_ref=PLANNER_REF,
         command_ref="provider.scale-out",
         rollback_command_ref="provider.scale-in",
         created_at=NOW,
@@ -384,6 +386,7 @@ def test_mutation_compiler_rejects_action_mismatch_or_incomplete_plan() -> None:
             plan=plan,
             target=target,
             action_type_ref=mismatch,
+            planner_ref=PLANNER_REF,
             command_ref="provider.scale-out",
             rollback_command_ref="provider.scale-in",
             created_at=NOW,
@@ -405,6 +408,7 @@ def test_mutation_compiler_rejects_action_mismatch_or_incomplete_plan() -> None:
             plan=incomplete,
             target=target,
             action_type_ref=release.type_ref(OntologyDeclarationKind.ACTION, "ops.scale-out"),
+            planner_ref=PLANNER_REF,
             command_ref="provider.scale-out",
             rollback_command_ref="provider.scale-in",
             created_at=NOW,
@@ -421,6 +425,7 @@ def test_mutation_compiler_rejects_cross_resource_target() -> None:
             plan=plan,
             target=wrong_target,
             action_type_ref=release.type_ref(OntologyDeclarationKind.ACTION, "ops.scale-out"),
+            planner_ref=PLANNER_REF,
             command_ref="provider.scale-out",
             rollback_command_ref="provider.scale-in",
             created_at=NOW,
@@ -434,6 +439,7 @@ def test_outcome_closure_requires_exact_mutation_prediction() -> None:
         plan=plan,
         target=target,
         action_type_ref=release.type_ref(OntologyDeclarationKind.ACTION, "ops.scale-out"),
+        planner_ref=PLANNER_REF,
         command_ref="provider.scale-out",
         rollback_command_ref="provider.scale-in",
         created_at=NOW,
@@ -455,6 +461,7 @@ def test_partial_failure_keeps_rollback_and_is_not_reusable() -> None:
         plan=plan,
         target=target,
         action_type_ref=release.type_ref(OntologyDeclarationKind.ACTION, "ops.scale-out"),
+        planner_ref=PLANNER_REF,
         command_ref="provider.scale-out",
         rollback_command_ref="provider.scale-in",
         created_at=NOW,
@@ -502,13 +509,15 @@ def test_a0_planning_and_scale_out_make_a3e_inapplicable() -> None:
         plan=plan,
         target=target,
         action_type_ref=release.type_ref(OntologyDeclarationKind.ACTION, "ops.scale-out"),
+        planner_ref=PLANNER_REF,
         command_ref="provider.scale-out",
         rollback_command_ref="provider.scale-in",
         created_at=NOW,
         max_affected_objects=1,
     )
 
-    assert mutation.planner_ref == plan.plan_id
+    assert mutation.planner_ref == PLANNER_REF
+    assert mutation.operational_plan_ref == plan.plan_id
     assert not hasattr(mutation, "approval")
     assert not hasattr(mutation, "executor_identity")
     action_type = next(

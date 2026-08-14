@@ -51,6 +51,7 @@ def compile_action_mutation_plan(
     created_at: datetime | None = None,
     interfaces: CompiledInterfaceCatalog | None = None,
     existing_plan: MutationPlan | None = None,
+    operational_plan_ref: str | None = None,
 ) -> MutationPlan:
     """Build or verify an immutable proposal without granting execution authority.
 
@@ -83,6 +84,7 @@ def compile_action_mutation_plan(
             or read_set_receipts
             or criterion_results
             or created_at is not None
+            or operational_plan_ref is not None
         ):
             raise ValueError("existing MutationPlan validation does not accept replacement fields")
         _validate_effects(
@@ -111,6 +113,7 @@ def compile_action_mutation_plan(
             lock_scope=semantic.transaction_policy.lock_scope,
             lock_keys=_lock_keys(targets),
             irreversible=action_type.irreversible,
+            operational_plan_ref=existing_plan.operational_plan_ref,
         )
         if candidate != existing_plan:
             raise ValueError("existing MutationPlan does not match the active ActionType contract")
@@ -154,6 +157,7 @@ def compile_action_mutation_plan(
         lock_scope=semantic.transaction_policy.lock_scope,
         lock_keys=_lock_keys(targets),
         irreversible=action_type.irreversible,
+        operational_plan_ref=operational_plan_ref,
     )
 
 

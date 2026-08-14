@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 9b07237045d8c96f169b49faee71225819e1e2a3
+translation_source_sha: 450f54ad7556e891184bb38830c956a42a0adb1f
 translation_revised: 2026-08-14
 ---
 # FDAI 온톨로지 안전 인프라
@@ -326,7 +326,9 @@ Property 조건식은 `equals`, `not_equals`, `in`, `exists`, `absent`, `at_leas
   affected 객체 개수입니다.
 
 계획 수립은 변경할 수 없는 `MutationPlan`을 만듭니다. Exact 대상 개정 번호, computed 쓰기 집합, 명령,
-영향 근거, 롤백 또는 보상 단계, 예상 효과, 다이제스트를 포함합니다. Approval과
+영향 근거, 롤백 또는 보상 단계, 예상 효과, 다이제스트를 포함합니다. Semantic plan은
+signed planner FunctionType identity를 `planner_ref`에 보존하고, 해당 lineage가 있으면 upstream에서
+선택된 operational plan을 `operational_plan_ref`에 별도로 결속합니다. Approval과
 실행은 다이제스트와 현재 개정 번호를 다시 검증합니다. Stale 계획은 계획 수립 또는 사람 검토로
 돌아가며 넓어진 범위로 실행되지 않습니다.
 

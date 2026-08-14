@@ -1,6 +1,6 @@
 ---
 translation_of: operational-planning.md
-translation_source_sha: 82797adfbd8fb9bfa669bf0288e9d56451bb463f
+translation_source_sha: a3c8fbc353a8261378ab6f71c4df953a5e008378
 translation_revised: 2026-08-14
 ---
 # 운영 계획
@@ -239,6 +239,10 @@ bridge입니다. 기존 semantic V2 `MutationPlan` 하나, exact raw Action argu
 Process, plan, selection 및 correlation lineage를 content-addressing합니다. Proposal timestamp는 plan보다
 앞설 수 없고 canonical body에는 hard byte ceiling이 있습니다. Approval, mode, promotion 또는 execution
 authority를 포함하지 않습니다.
+
+`MutationPlan`은 signed planner FunctionType identity를 `planner_ref`에 보존하고, 선택된 operational
+plan은 `operational_plan_ref`를 통해 별도로 참조합니다. 이 identity를 혼합하면 안 됩니다. Planner
+provenance와 decision lineage는 서로 다른 replay 검사입니다.
 
 Forseti는 이 optional proposal을 기존 `object.verdict` 안에서만 전달할 수 있습니다. Thor는 correlation,
 selected ActionType, target, argument 및 DecisionCase lineage가 exact한지 검증한 뒤 durable `ActionRun`에
