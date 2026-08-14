@@ -514,7 +514,20 @@ export function parseDelegation(raw: unknown): DelegationMetadata | undefined {
   };
 }
 
+let queuedRequestId: string | null = null;
+
+/** Queue one verified semantic request UUID for the next single in-flight stream. */
+export function queueNextRequestId(requestId: string): void {
+  if (!UUID_PATTERN.test(requestId)) throw new Error("queued request ID must be a UUID");
+  queuedRequestId = requestId;
+}
+
 export function newRequestId(): string {
+  if (queuedRequestId !== null) {
+    const requestId = queuedRequestId;
+    queuedRequestId = null;
+    return requestId;
+  }
   const cryptoLike = globalThis.crypto as { randomUUID?: () => string } | undefined;
   return cryptoLike?.randomUUID?.() ?? `chat-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }

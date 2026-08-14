@@ -30,7 +30,7 @@ _MAX_DESCRIPTORS = 512
 _MAX_PROMPT_BYTES = 786_432
 _MAX_RESPONSE_BYTES = 65_536
 _MAX_SYSTEM_PROMPT_CHARS = 16_384
-_MAX_ATTEMPTS_PER_CANDIDATE = 2
+_MAX_ATTEMPTS_PER_CANDIDATE = 3
 _ProposalT = TypeVar("_ProposalT", bound=BaseModel)
 
 
@@ -220,20 +220,33 @@ class AzureOpenAISemanticPlanningModel:
                             json=body,
                             timeout=candidate_timeout,
                         )
-                        if (
-                            response.status_code != 429
-                            or attempt + 1 >= _MAX_ATTEMPTS_PER_CANDIDATE
-                        ):
-                            break
-                        retry_after = _retry_after_seconds(
-                            response.headers.get("Retry-After"),
-                            maximum=candidate_timeout - 1.0,
-                        )
-                        if retry_after is None:
-                            break
-                        await asyncio.sleep(retry_after)
-                    response.raise_for_status()
-                    return _validated_content(response, proposal_type)
+                        if response.status_code == 429:
+                            if attempt + 1 >= _MAX_ATTEMPTS_PER_CANDIDATE:
+                                response.raise_for_status()
+                            retry_after = _retry_after_seconds(
+                                response.headers.get("Retry-After"),
+                                maximum=candidate_timeout - 1.0,
+                            )
+                            if retry_after is not None:
+                                await asyncio.sleep(retry_after)
+                                continue
+                            response.raise_for_status()
+                        response.raise_for_status()
+                        try:
+                            return _validated_content(response, proposal_type)
+                        except (ValidationError, ValueError) as exc:
+                            if attempt + 1 >= _MAX_ATTEMPTS_PER_CANDIDATE:
+                                raise
+                            _LOGGER.info(
+                                "semantic_planning_candidate_retry",
+                                extra={
+                                    "operation": operation,
+                                    "candidate_index": index,
+                                    "attempt": attempt + 1,
+                                    "failure_type": type(exc).__name__,
+                                },
+                            )
+                    raise RuntimeError("semantic planning retry loop exhausted")
             except Exception as exc:  # noqa: BLE001 - bounded fallback hides provider details
                 failure: dict[str, Any] = {
                     "operation": operation,

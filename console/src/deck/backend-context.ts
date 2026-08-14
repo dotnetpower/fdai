@@ -67,9 +67,12 @@ export function createBackendRequestPayload(
   const resourceContext = latestResourceContext(history);
   const evidenceFreshnessContext = latestEvidenceFreshnessContext(history);
   return {
-    ...(requestId === undefined ? {} : { request_id: requestId }),
+    ...(requestId === undefined
+      ? {}
+      : { request_id: requestId, idempotency_key: requestId }),
     ...(includeModelTrace ? { include_model_trace: true } : {}),
     prompt,
+    locale: getLocale(),
     session_id: sessionId,
     ...(targetAgent ? { target_agent: targetAgent } : {}),
     ...(resourceContext ? { resource_context: resourceContext } : {}),

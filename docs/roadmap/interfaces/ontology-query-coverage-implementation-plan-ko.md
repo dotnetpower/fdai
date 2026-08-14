@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 70038dba3b0fecfb06c752d92aab99c3f14a728e
+translation_source_sha: d19b6e8a882947b16845b8de25a47688a2667506
 translation_revised: 2026-08-14
 ---
 
@@ -169,6 +169,7 @@ translation_revised: 2026-08-14
 | 2026-08-14 | 진행 중 | 초기 인시던트 FunctionType 계약을 수정해 바인딩된 Console 맥락의 canonical `incident_id`와 감사 `correlation_id`가 검증된 계획 실행 및 근거 변환 전체에서 서로 다르게 유지되도록 했습니다. | `current change`, 인시던트 FunctionType 테스트와 end-to-end 의미 조립 회귀가 통과해 focused 범위가 63개 사례가 되었습니다. | 로컬 스택을 재시작하고 같은 인증된 인시던트 턴을 검증한 뒤 기능 상태를 변경하기 전에 통제된 근거를 보존합니다. |
 | 2026-08-14 | 진행 중 | 의미 frame 및 plan prompt v2를 서로 다른 바인딩 신원에 맞춰 모델이 잘못된 부분 인자 집합을 만들지 않고 검증된 Function node에 `incident_id`와 `correlation_id`를 모두 보존하도록 했습니다. | `current change`, focused prompt registry 계약 5개 사례 통과 | 기능 상태를 변경하기 전에 로컬 스택을 재시작하고 같은 인증된 인시던트 턴을 검증합니다. |
 | 2026-08-14 | 구현됨 | 지역화되고 읽기 쉬운 내용, 재생 가능한 관찰 진행 상황, 접힌 exact 기술 출력, 명시적인 인과 및 근거 공백, 기본 다음 단계인 읽기 전용 근거 수집, 재생성에서 유지되는 검증된 인시던트 정체성을 포함하도록 인시던트 답변 변환을 완료했습니다. | `current change`, Core 집중 검사 36개, Operator 46개, 교차 서비스 1개, Console 74개와 Console 타입 검사 및 작업 범위 Ruff 통과, 보존하지 않은 인증된 Browser Entra 관찰에서 재생성 뒤에도 동일한 검증된 감사 기록 3건 결과를 확인했습니다. | 이 범위를 `검증됨`으로 승격하기 전에 통제된 request-to-Console 근거와 한국어 동등 근거를 보존합니다. |
+| 2026-08-14 | 구현됨 | 원래의 범위가 제한된 history와 검증된 요청 신원을 보존하고, 요청 신원을 Operator 멱등성에 결속하고, 정본 locale을 전달하고, 반복되는 Azure throttling 또는 schema-invalid 후보를 adapter budget 안에서 재시도해 의미 재생성을 재시도에 안정적으로 만들었습니다. | `current change`, Console stream, normalizer, session 및 event 집중 검사 128개와 Azure 의미 계획 adapter 검사 5개가 통과했고 Console 타입 검사와 작업 범위 Ruff가 통과했습니다. 보존된 인증 한국어 Browser working-tree 실행은 두 턴 모두 통과했고 Core 계획 수명 주기 5단계가 한 번만 관찰됐습니다. | 범위가 제한된 변경을 커밋하고 중앙 검증한 뒤 exact-source 인증 Browser 산출물을 보존해야 인시던트 답변 행을 `검증됨`으로 승격할 수 있습니다. |
 
 ### 남은 작업
 

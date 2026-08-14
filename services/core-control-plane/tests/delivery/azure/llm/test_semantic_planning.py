@@ -170,7 +170,7 @@ async def test_adapter_normalizes_non_authoritative_frame_tokens() -> None:
     ]
 
 
-async def test_adapter_retries_one_throttled_candidate_within_its_budget(monkeypatch) -> None:
+async def test_adapter_retries_repeated_throttling_within_its_budget(monkeypatch) -> None:
     requests = 0
     delays: list[float] = []
 
@@ -180,8 +180,8 @@ async def test_adapter_retries_one_throttled_candidate_within_its_budget(monkeyp
     def handler(request: httpx.Request) -> httpx.Response:
         nonlocal requests
         requests += 1
-        if requests == 1:
-            return httpx.Response(429, headers={"Retry-After": "60"})
+        if requests <= 2:
+            return httpx.Response(429, headers={"Retry-After": "30"})
         return _response(_frame_payload())
 
     monkeypatch.setattr(asyncio, "sleep", record_sleep)
@@ -206,8 +206,38 @@ async def test_adapter_retries_one_throttled_candidate_within_its_budget(monkeyp
         )
 
     assert frame_raw is not None
-    assert requests == 2
-    assert delays == [60.0]
+    assert requests == 3
+    assert delays == [30.0, 30.0]
+
+
+async def test_adapter_retries_schema_invalid_structured_outputs() -> None:
+    requests = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal requests
+        requests += 1
+        if requests <= 2:
+            return _response({"operation": "select", "unexpected": True})
+        return _response(_frame_payload())
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        model = AzureOpenAISemanticPlanningModel(
+            identity=_Identity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=_config(),
+            owner_loop=asyncio.get_running_loop(),
+        )
+        frame_raw = await asyncio.to_thread(
+            model.propose_frame,
+            utterance="Show resources",
+            context=(),
+            descriptors=({"kind": "object", "name": "Resource"},),
+            principal_role="reader",
+            purpose="operations-review",
+        )
+
+    assert frame_raw is not None
+    assert requests == 3
 
 
 async def test_adapter_uses_candidate_order_and_returns_none_after_malformed_outputs(
@@ -239,7 +269,7 @@ async def test_adapter_uses_candidate_order_and_returns_none_after_malformed_out
             )
 
     assert result is None
-    assert deployments == ["primary", "secondary"]
+    assert deployments == ["primary", "secondary", "secondary", "secondary"]
     failures = [
         record.failure_type
         for record in caplog.records
