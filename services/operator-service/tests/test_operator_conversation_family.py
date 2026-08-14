@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import ast
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any, cast
 
 from fdai_operator_service.families.conversation import (
     CONVERSATION_ROUTE_MANIFEST,
     ConversationFamilyDependencies,
+    ConversationProjectionReader,
     ConversationProposal,
     ConversationQuery,
     ConversationResponse,
@@ -19,6 +22,8 @@ from fdai_operator_service.families.conversation import (
     StreamEvent,
     build_conversation_routes,
 )
+from fdai_operator_service.family_adapters import PostgresConversationAdapters
+from fdai_operator_service.postgres_family_store import PostgresFamilyStore
 from httpx import ASGITransport, AsyncClient
 from starlette.applications import Starlette
 from starlette.requests import Request
@@ -76,6 +81,44 @@ class _Reader:
             },
         }
         return ConversationResponse(body=bodies.get(query.operation, {"items": []}))
+
+
+class _SearchStore:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, dict[str, object]]] = []
+        self.context_rows: list[dict[str, Any]] = []
+        self.lineage_row: dict[str, Any] | None = None
+
+    async def search_conversation_turns(self, **kwargs: Any) -> list[dict[str, Any]]:
+        self.calls.append(("search", dict(kwargs)))
+        return [
+            {
+                "turn_id": "turn-one",
+                "conversation_id": "conversation-one",
+                "turn_index": 1,
+                "role": "assistant",
+                "content": "Database latency changed after deployment.",
+                "recorded_at": datetime(2026, 8, 14, 7, 0, tzinfo=UTC),
+                "metadata": {
+                    "incident_id": "incident-one",
+                    "correlation_id": "correlation-one",
+                    "evidence_refs": ["audit:one"],
+                },
+                "channel_id": "web",
+            }
+        ]
+
+    async def measure_conversation_turns(self, **kwargs: Any) -> dict[str, int]:
+        self.calls.append(("measure", dict(kwargs)))
+        return {"index_rows": 7, "index_bytes": 321}
+
+    async def read_conversation_search_context(self, **kwargs: Any) -> list[dict[str, Any]]:
+        self.calls.append(("context", dict(kwargs)))
+        return list(self.context_rows)
+
+    async def read_conversation_lineage(self, **kwargs: Any) -> dict[str, Any] | None:
+        self.calls.append(("lineage", dict(kwargs)))
+        return self.lineage_row
 
 
 class _Outbox:
@@ -166,7 +209,7 @@ class _Streams:
 
 def _app(
     *,
-    reader: _Reader | None = None,
+    reader: ConversationProjectionReader | None = None,
     outbox: _Outbox | None = None,
     streams: _Streams | None = None,
 ) -> Starlette:
@@ -182,6 +225,11 @@ def _app(
             )
         )
     )
+
+
+def _search_app(store: _SearchStore) -> Starlette:
+    adapter = PostgresConversationAdapters(cast(PostgresFamilyStore, store))
+    return _app(reader=adapter)
 
 
 async def test_representative_read_envelopes_are_scoped_and_redacted() -> None:
@@ -205,6 +253,131 @@ async def test_representative_read_envelopes_are_scoped_and_redacted() -> None:
     assert context.json()["conversation_page"] == {"has_more": False, "next_cursor": None}
     assert assurance.json()["source"] == "conversation-assurance-ledger"
     assert all(item.scope.subject_id == "principal-a" for item in reader.queries)
+
+
+async def test_conversation_search_materializes_scoped_bounded_projection() -> None:
+    store = _SearchStore()
+    async with AsyncClient(
+        transport=ASGITransport(app=_search_app(store)), base_url="http://test"
+    ) as client:
+        response = await client.get(
+            "/me/conversations/search",
+            params=[
+                ("q", "database latency"),
+                ("mode", "terms"),
+                ("limit", "5"),
+                ("channel", "web"),
+                ("role", "assistant"),
+                ("conversation_id", "conversation-one"),
+                ("incident_id", "incident-one"),
+                ("after", "2026-08-14T06:00:00+00:00"),
+                ("before", "2026-08-14T08:00:00+00:00"),
+            ],
+            headers={"x-principal": "principal-authenticated"},
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload == {
+        "hits": [
+            {
+                "result_id": "conversation-search:turn-one",
+                "turn_id": "turn-one",
+                "conversation_id": "conversation-one",
+                "channel_id": "web",
+                "role": "assistant",
+                "snippet": {
+                    "text": "Database latency changed after deployment.",
+                    "highlights": [{"start": 0, "end": 8}, {"start": 9, "end": 16}],
+                },
+                "recorded_at": "2026-08-14T07:00:00+00:00",
+                "rank": 1.0,
+                "incident_id": "incident-one",
+                "correlation_id": "correlation-one",
+                "evidence_refs": ["audit:one"],
+            }
+        ],
+        "result_cap": 5,
+        "index_rows": 7,
+        "index_bytes": 321,
+    }
+    assert "query_ms" not in payload
+    search_call = store.calls[0]
+    assert search_call[0] == "search"
+    assert search_call[1]["principal_id"] == "principal-authenticated"
+    assert search_call[1]["channels"] == ("web",)
+    assert search_call[1]["roles"] == ("assistant",)
+
+
+async def test_conversation_search_context_lineage_and_not_found_are_scope_bound() -> None:
+    store = _SearchStore()
+    target = {
+        "turn_id": "turn-one",
+        "conversation_id": "conversation-one",
+        "turn_index": 1,
+        "role": "operator",
+        "content": "Investigate latency.",
+        "recorded_at": datetime(2026, 8, 14, 7, 0, tzinfo=UTC),
+        "metadata": {},
+        "channel_id": "web",
+        "section": "hit",
+    }
+    store.context_rows = [target]
+    store.lineage_row = {
+        "conversation_id": "conversation-one",
+        "channel_id": "web",
+        "started_at": datetime(2026, 8, 14, 6, 0, tzinfo=UTC),
+        "last_active": datetime(2026, 8, 14, 7, 0, tzinfo=UTC),
+        "turn_ids": ["turn-zero", "turn-one"],
+    }
+    async with AsyncClient(
+        transport=ASGITransport(app=_search_app(store)), base_url="http://test"
+    ) as client:
+        context = await client.get(
+            "/me/conversations/search/conversation-search:turn-one/context?before=1&after=1"
+        )
+        lineage = await client.get("/me/conversations/conversation-one/lineage")
+        store.context_rows = []
+        store.lineage_row = None
+        missing_context = await client.get(
+            "/me/conversations/search/conversation-search:missing/context"
+        )
+        missing_lineage = await client.get("/me/conversations/missing/lineage")
+
+    assert context.status_code == lineage.status_code == 200
+    assert context.json()["hit"]["turn_id"] == "turn-one"
+    assert lineage.json()["turn_ids"] == ["turn-zero", "turn-one"]
+    assert missing_context.status_code == missing_lineage.status_code == 404
+    assert (
+        missing_context.json()
+        == missing_lineage.json()
+        == {
+            "error": {
+                "code": "not_found",
+                "message": "conversation search resource is unavailable",
+            }
+        }
+    )
+    assert all(call[1]["principal_id"] == "principal-a" for call in store.calls)
+
+
+async def test_conversation_search_rejects_invalid_requests_before_storage() -> None:
+    store = _SearchStore()
+    async with AsyncClient(
+        transport=ASGITransport(app=_search_app(store)), base_url="http://test"
+    ) as client:
+        responses = [
+            await client.get("/me/conversations/search?q=%%%___"),
+            await client.get("/me/conversations/search?q=valid&mode=unknown"),
+            await client.get("/me/conversations/search?q=valid&limit=51"),
+            await client.get("/me/conversations/search?q=valid&principal_id=other"),
+            await client.get(
+                "/me/conversations/search/conversation-search:turn-one/context?before=4"
+            ),
+        ]
+
+    assert {response.status_code for response in responses} == {400}
+    assert not store.calls
 
 
 async def test_mutations_only_append_scoped_idempotent_proposals() -> None:
