@@ -59,7 +59,7 @@ fdai/
 │   │   ├── tools/              # T2 tool-catalog registry + `ToolExecutor` (shadow-mode gated)
 │   │   ├── web_search/         # last-resort web-search seam (`NoOpWebSearchProvider` default; domain allowlist + sanitizer)
 │   │   ├── browser_evidence/   # read-only origin/DNS policy, redaction, immutable artifacts, custody, and shadow comparison
-│   │   ├── operator_memory/    # HIL-approved operator memory injected as untrusted `<operator_note>` data
+│   │   ├── operator_memory/    # HIL-approved operator memory injected as untrusted `<operator_note>` data; the second-approval step is bounded in time and replay-safe (entry id derived from the approval, so a redelivery refuses instead of duplicating)
 │   │   ├── learning/           # consent-gated off-path turn eligibility, consensus, dedup ledger, and inert proposal routing
 │   │   ├── conversation_assurance/ # deterministic-first completed-turn scoring, exact failure attribution, hold-first ontology adequacy review, mixed-family review, scoped disputes, subscription learning, chat-policy promotion/rollback, and the versioned 50-item hard-cap quality scorecard
 │   │   ├── trajectory/         # authorization-first observable trajectory projection, version policy, reviewed aggregate, and offline validation

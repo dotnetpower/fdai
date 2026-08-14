@@ -541,7 +541,7 @@
     "services/core-control-plane/src/fdai/core/operator_memory/README.md": "5f969f43c9549f182ed11e071478fadcfd6e94d712636fb0d6828d47028c56e5",
     "services/core-control-plane/src/fdai/core/operator_memory/__init__.py": "0619f63543ea5b4313567f25fac2fabf4f20377fb2eef89f7bdaa39dea046b3a",
     "services/core-control-plane/src/fdai/core/operator_memory/compaction.py": "c24ff64f071a002fd020e229343057a59df7aa9dbb97a86c8e61c56ad36778ec",
-    "services/core-control-plane/src/fdai/core/operator_memory/hil_pipeline.py": "f2027108423a1264a9b9f5a8c2c77e373b2a1e68bb579d0e8ff756d3e1db8ddf",
+    "services/core-control-plane/src/fdai/core/operator_memory/hil_pipeline.py": "ef26054ebab0112c8615c160b510ba338b6cfc2d44fdc37a4452f154163c61f9",
     "services/core-control-plane/src/fdai/core/operator_memory/proposals.py": "6a5a33a3e0c6ef83708fb8dce41378effab2fcfafe64e6b679903acefe4cd461",
     "services/core-control-plane/src/fdai/core/operator_memory/review.py": "3b85ff2b7a6836463b60c6543ff6346017b5b6c5a13597ef449fdbea67ef6726",
     "services/core-control-plane/src/fdai/core/operator_memory/sanitizer.py": "bf3250d49c42ef0ae0f7800ead5ba5c17a3e4554a66dadaf6d2e239d4589370c",
@@ -1078,7 +1078,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-14T12:56:42Z",
+  "generated_at": "2026-08-14T13:07:05Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",
