@@ -17,6 +17,7 @@ def _load_module() -> ModuleType:
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
+    sys.path.insert(0, str(SCRIPT.parent))
     spec.loader.exec_module(module)
     return module
 
@@ -124,7 +125,7 @@ def test_remote_failure_is_nonblocking_unless_strict(
         arguments.append("--strict")
     arguments.extend(["start", "95"])
     monkeypatch.setattr(sys, "argv", arguments)
-    monkeypatch.setattr(board, "_repository", unavailable)
+    monkeypatch.setattr(board, "repository_name", unavailable)
 
     assert board.main() == expected
     level = "ERROR" if strict else "WARN"
