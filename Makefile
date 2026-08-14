@@ -8,7 +8,9 @@
 .PHONY: dev-up dev-down dev-logs dev-nuke help \
 	lint format test test-changed service-test service-test-all operator gates check validation-status validation-run \
 	validation-all worktree-maintenance worktree-cleanup roadmap-verification-sync roadmap-verification-status \
-	roadmap-verification-report roadmap-verification-retry roadmap-verification-apply pre-commit-install hooks-install \
+	roadmap-verification-report roadmap-verification-retry roadmap-verification-apply \
+	roadmap-implementation-start roadmap-implementation-status roadmap-implementation-stop \
+	roadmap-implementation-remove pre-commit-install hooks-install \
         azd-up genesis-up
 
 help: ## show this help
@@ -99,6 +101,19 @@ roadmap-verification-retry: ## retry one failed roadmap audit without claiming q
 
 roadmap-verification-apply: ## apply one job in a clean campaign worktree and fast-forward it
 	@python3 scripts/automation/roadmap_verification_worker.py --apply --integrate
+
+roadmap-implementation-start: ## start explicit randomized repeat campaign (required: ISSUE=<number>)
+	@test -n "$(ISSUE)" || { echo "ISSUE=<number> is required" >&2; exit 2; }
+	@python3 scripts/automation/install_roadmap_implementation_campaign.py start --issue "$(ISSUE)"
+
+roadmap-implementation-status: ## show randomized repeat campaign timer state
+	@python3 scripts/automation/install_roadmap_implementation_campaign.py status
+
+roadmap-implementation-stop: ## stop repeat campaign while preserving worktree and state
+	@python3 scripts/automation/install_roadmap_implementation_campaign.py stop
+
+roadmap-implementation-remove: ## remove repeat campaign units while preserving worktree and state
+	@python3 scripts/automation/install_roadmap_implementation_campaign.py remove
 
 pre-commit-install: hooks-install ## backwards-compatible alias for hooks-install
 	@echo "pre-commit-install is configured through the tracked .githooks/pre-commit hook."

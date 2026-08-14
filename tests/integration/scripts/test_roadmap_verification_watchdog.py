@@ -50,12 +50,22 @@ def test_active_session_lease_holds_watchdog(tmp_path: Path) -> None:
 def test_recent_copilot_activity_holds_watchdog(tmp_path: Path, monkeypatch) -> None:
     module = _load("fdai_roadmap_watchdog_activity", "roadmap_verification_watchdog.py")
     storage = tmp_path / "workspaceStorage"
-    log = storage / "workspace/GitHub.copilot-chat/debug-logs/session/main.jsonl"
-    log.parent.mkdir(parents=True)
-    log.write_text("{}\n", encoding="utf-8")
+    first = storage / "workspace/GitHub.copilot-chat/debug-logs/session-a/main.jsonl"
+    second = storage / "workspace/GitHub.copilot-chat/debug-logs/session-b/main.jsonl"
+    first.parent.mkdir(parents=True)
+    second.parent.mkdir(parents=True)
+    first.write_text("{}\n", encoding="utf-8")
+    second.write_text("{}\n", encoding="utf-8")
     monkeypatch.setenv("FDAI_VSCODE_WORKSPACE_STORAGE", str(storage))
 
-    assert module._recent_copilot_activity(900) == ["main"]
+    assert module._recent_copilot_activity(900) == ["session-a", "session-b"]
+
+
+def test_active_session_count_uses_the_larger_observation() -> None:
+    module = _load("fdai_roadmap_watchdog_capacity", "roadmap_verification_watchdog.py")
+
+    assert module._active_session_count(["editor"], ["session-a"]) == 1
+    assert module._active_session_count(["editor"], ["session-a", "session-b"]) == 2
 
 
 def test_timer_is_persistent_and_apply_is_explicit(tmp_path: Path) -> None:
