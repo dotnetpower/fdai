@@ -139,7 +139,9 @@ Stable diagnostics distinguish missing, disabled, version-incompatible, untruste
 dependency, unavailable tool, disallowed agent, ambiguous name, cycle, unsupported nesting,
 unavailable catalog, and combined-budget failures. An unbound bundle catalog is one of those
 stable reasons rather than a caller-parameter error, so a describe or load refused for
-availability reads the same on every surface. Rejection records may include public IDs and
+availability reads the same on every surface. Listing is the one exception: with no catalog
+bound nothing is installed, so listing completes its absence claim and reports zero instead of
+rejecting. Rejection records may include public IDs and
 digests. They never include the optional instruction, member bodies, or reference content.
 
 ## Verification

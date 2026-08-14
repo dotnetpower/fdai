@@ -174,6 +174,15 @@ class RuntimeSkillDisclosure:
             return tuple(item.to_dict() for item in self._diagnostics)
 
     def list_bundles(self, *, query: str, limit: int = 20) -> dict[str, Any]:
+        """List governed bundle metadata for the current snapshot.
+
+        An unbound bundle catalog reports zero bundles rather than rejecting.
+        That is a proven-empty registry, not concealed data: with no catalog
+        bound, no bundle is installed, so the absence claim is complete. A
+        read that names one bundle cannot make that claim and instead returns
+        ``skill_bundle_catalog_unavailable`` (see :meth:`describe_bundle` and
+        :meth:`load_bundle`).
+        """
         if not 1 <= limit <= 50:
             raise ValueError("skill bundle list limit MUST be in [1, 50]")
         bundle_catalog, _bundle_verifier = self._current_bundle_snapshot()
