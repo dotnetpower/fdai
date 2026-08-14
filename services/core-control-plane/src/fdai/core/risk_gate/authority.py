@@ -55,6 +55,7 @@ class ExecutionAuthorityDecision:
     resolved_ceiling: ResolvedCeiling
     table_verdict: RiskTableVerdict
     feature_vector: FeatureVector
+    catalog_version: str
 
     @property
     def decision(self) -> str:
@@ -73,10 +74,20 @@ class ExecutionAuthorityDecision:
         return self.final_level is AxisLevel.DENY
 
     def as_audit_dict(self) -> dict[str, Any]:
+        """Return the replay-complete audit projection of this decision.
+
+        ``feature_vector`` and ``catalog_version`` are serialized so a later
+        replay can re-evaluate the recorded signals against the exact
+        risk-classification revision that classified the action, instead of
+        against whatever the catalog says today (risk-classification.md
+        \N{SECTION SIGN} Audit).
+        """
         return {
             "decision": self.decision,
             "quorum": self.quorum,
             "matched_rule_id": self.table_verdict.rule_id,
+            "catalog_version": self.catalog_version,
+            "feature_vector": self.feature_vector.as_lookup(),
             "resolved_ceiling": self.resolved_ceiling.as_audit_dict(),
         }
 
@@ -149,6 +160,7 @@ def evaluate_execution_authority(
         resolved_ceiling=ceiling,
         table_verdict=verdict,
         feature_vector=feature,
+        catalog_version=table.version,
     )
 
 
