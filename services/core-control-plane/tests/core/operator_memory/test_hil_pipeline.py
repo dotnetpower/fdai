@@ -336,6 +336,46 @@ class TestSecondApprovalReplay:
         assert listed == (first,)
 
     @pytest.mark.asyncio
+    async def test_the_recorded_approver_is_canonical_not_the_raw_casing(self) -> None:
+        # The entry id normalizes the approver, so the recorded identity must
+        # normalize too - otherwise one approval could be attributed to two
+        # spellings of the same principal.
+        store = InMemoryOperatorMemoryStore()
+        entry = await HilRejectMaterializer(store=store).materialize(
+            hil_response=_hil_response(),
+            second_approver="  BOB@example.com  ",
+            material=_material(),
+        )
+        assert entry.approved_by == "BOB@example.com"
+
+    @pytest.mark.asyncio
+    async def test_expiry_is_terminal_even_for_an_already_materialized_approval(self) -> None:
+        # The window is checked before the store, so a replay that arrives past
+        # the window is refused rather than reported as a replay. That is fail
+        # closed: it grants nothing and leaves the earlier entry untouched.
+        store = InMemoryOperatorMemoryStore()
+        received_at = datetime(2026, 7, 6, 15, 0, tzinfo=UTC)
+        now = [received_at]
+        materializer = HilRejectMaterializer(store=store, now_fn=lambda: now[0])
+        first = await materializer.materialize(
+            hil_response=_hil_response(received_at=received_at),
+            second_approver="bob@example.com",
+            material=_material(approval_window_seconds=600),
+        )
+        now[0] = received_at + timedelta(seconds=601)
+        with pytest.raises(HilMaterializationError) as info:
+            await materializer.materialize(
+                hil_response=_hil_response(received_at=received_at),
+                second_approver="bob@example.com",
+                material=_material(approval_window_seconds=600),
+            )
+        assert info.value.code == "approval_expired"
+        listed = await store.list_active_for_scope(
+            scope_kind=ScopeKind.RESOURCE_GROUP, scope_ref="rg-example"
+        )
+        assert listed == (first,)
+
+    @pytest.mark.asyncio
     async def test_a_different_approval_is_not_treated_as_a_replay(self) -> None:
         store = InMemoryOperatorMemoryStore()
         materializer = HilRejectMaterializer(store=store)

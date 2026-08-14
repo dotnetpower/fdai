@@ -183,8 +183,15 @@ class HilRejectMaterializer:
         The entry id is derived from the approval identity and the second
         approver, so a redelivered approval collides with its own prior
         entry instead of planting a second copy of the same guidance.
+
+        ``approval_expired`` is terminal, not transient. The window is
+        checked before the store is touched, so an approval that arrives
+        past its window is refused whether or not the same approval was
+        already materialized inside the window. A caller MUST NOT retry it;
+        the earlier entry, if any, is already durable and unchanged.
         """
 
+        second_approver = second_approver.strip()
         self._reject_pipeline_violations(hil_response=hil_response, second_approver=second_approver)
         self._reject_stale_approval(hil_response=hil_response, material=material)
         # Types narrow after validation: ``approver_id`` and ``reason``
@@ -218,7 +225,7 @@ class HilRejectMaterializer:
     def _entry_id(self, *, hil_response: HilResponse, second_approver: str) -> UUID:
         if self._entry_id_fn is not None:
             return self._entry_id_fn()
-        identity = f"{hil_response.approval_id}|{second_approver.strip().lower()}"
+        identity = f"{hil_response.approval_id}|{_normalize(second_approver)}"
         return uuid5(_ENTRY_NAMESPACE, identity)
 
     def _reject_stale_approval(
@@ -276,12 +283,17 @@ class HilRejectMaterializer:
                 "missing_second_approver",
                 "second_approver MUST be a non-empty principal",
             )
-        if first_approver.strip().lower() == second_approver.strip().lower():
+        if first_approver.strip().lower() == _normalize(second_approver):
             raise HilMaterializationError(
                 "same_principal",
                 "first and second approvers MUST be distinct - "
                 "the rejecter cannot self-approve the memory entry",
             )
+
+
+def _normalize(principal: str) -> str:
+    """Canonical principal form shared by the entry id and the identity checks."""
+    return principal.strip().lower()
 
 
 __all__ = [

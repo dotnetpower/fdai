@@ -117,7 +117,10 @@ class RecordingDependencies:
 
 
 def _verify(token: str) -> Mapping[str, object]:
-    role = OperatorRole.CONTRIBUTOR if token == "contributor" else OperatorRole.READER
+    role = {
+        "contributor": OperatorRole.CONTRIBUTOR,
+        "approver": OperatorRole.APPROVER,
+    }.get(token, OperatorRole.READER)
     return {"oid": f"{token}-oid", "roles": [role.value]}
 
 
@@ -248,15 +251,22 @@ def test_blueprint_review_routes_are_separately_authorized_proposals(
     reader = client.post(
         path, headers={**HEADERS, "Idempotency-Key": "idem-1"}, json={"candidate_id": "cand-1"}
     )
+    # A review decision carries human approval, so proposing is not enough:
+    # the contributor who can propose a blueprint cannot review one.
+    contributor = client.post(
+        path,
+        headers={"Authorization": "Bearer contributor", "Idempotency-Key": "idem-1"},
+        json={"candidate_id": "cand-1"},
+    )
     without_key = client.post(
         path,
-        headers={"Authorization": "Bearer contributor"},
+        headers={"Authorization": "Bearer approver"},
         json={"candidate_id": "cand-1"},
     )
     accepted = client.post(
         path,
         headers={
-            "Authorization": "Bearer contributor",
+            "Authorization": "Bearer approver",
             "Idempotency-Key": "idem-1",
             "X-Correlation-ID": "corr-1",
         },
@@ -265,6 +275,7 @@ def test_blueprint_review_routes_are_separately_authorized_proposals(
 
     assert unauthenticated.status_code == 401
     assert reader.status_code == 403
+    assert contributor.status_code == 403
     assert without_key.status_code == 400
     assert accepted.status_code == 202
     assert accepted.json()["durably_queued"] is True
@@ -272,7 +283,7 @@ def test_blueprint_review_routes_are_separately_authorized_proposals(
     assert dependencies.proposals == [
         EventProposal(
             operation=operation,
-            principal_id="contributor-oid",
+            principal_id="approver-oid",
             idempotency_key="idem-1",
             correlation_id="corr-1",
             payload={"candidate_id": "cand-1", "reason": "recurring and bounded"},
@@ -281,13 +292,21 @@ def test_blueprint_review_routes_are_separately_authorized_proposals(
     assert dependencies.queries == []
 
 
+def test_no_proposal_route_is_reachable_at_the_read_floor() -> None:
+    # A proposal writes intent on the caller's behalf, so a manifest entry that
+    # forgot to narrow its roles must fail construction, not ship silently.
+    for entry in OPERATIONS_ROUTE_MANIFEST:
+        if entry.kind == "proposal":
+            assert OperatorRole.READER not in entry.roles, entry.path
+
+
 def test_blueprint_review_routes_reject_a_conflicting_idempotency_key() -> None:
     dependencies = RecordingDependencies()
     dependencies.conflict = True
 
     response = _client(dependencies).post(
         "/automation-blueprints/accept",
-        headers={"Authorization": "Bearer contributor", "Idempotency-Key": "idem-1"},
+        headers={"Authorization": "Bearer approver", "Idempotency-Key": "idem-1"},
         json={"candidate_id": "cand-1"},
     )
 

@@ -3,11 +3,28 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Final, Literal
 
 from fdai_service_contracts import OperatorRole
 
 RouteKind = Literal["projection", "proposal", "stream", "webhook"]
+
+READ_ROLES: Final[frozenset[OperatorRole]] = frozenset(
+    {
+        OperatorRole.READER,
+        OperatorRole.CONTRIBUTOR,
+        OperatorRole.APPROVER,
+        OperatorRole.OWNER,
+    }
+)
+CONTRIBUTOR_ROLES: Final[frozenset[OperatorRole]] = frozenset(
+    {OperatorRole.CONTRIBUTOR, OperatorRole.OWNER}
+)
+# A review decision carries human approval, so it starts at the approver rung.
+# Contributor can propose a blueprint but never accept, reject, or materialize one.
+APPROVER_ROLES: Final[frozenset[OperatorRole]] = frozenset(
+    {OperatorRole.APPROVER, OperatorRole.OWNER}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,14 +36,7 @@ class OperationRoute:
     name: str
     operation: str
     kind: RouteKind = "projection"
-    roles: frozenset[OperatorRole] = frozenset(
-        {
-            OperatorRole.READER,
-            OperatorRole.CONTRIBUTOR,
-            OperatorRole.APPROVER,
-            OperatorRole.OWNER,
-        }
-    )
+    roles: frozenset[OperatorRole] = READ_ROLES
 
 
 OPERATIONS_ROUTE_MANIFEST: tuple[OperationRoute, ...] = (
@@ -56,6 +66,7 @@ OPERATIONS_ROUTE_MANIFEST: tuple[OperationRoute, ...] = (
         "handler",
         "automation_blueprint.accept",
         "proposal",
+        APPROVER_ROLES,
     ),
     OperationRoute(
         "/automation-blueprints/reject",
@@ -63,6 +74,7 @@ OPERATIONS_ROUTE_MANIFEST: tuple[OperationRoute, ...] = (
         "handler",
         "automation_blueprint.reject",
         "proposal",
+        APPROVER_ROLES,
     ),
     OperationRoute(
         "/automation-blueprints/materialize",
@@ -70,6 +82,7 @@ OPERATIONS_ROUTE_MANIFEST: tuple[OperationRoute, ...] = (
         "handler",
         "automation_blueprint.materialize",
         "proposal",
+        APPROVER_ROLES,
     ),
     OperationRoute("/audit/{correlation_id}/what-if", "GET", "handler", "audit.what_if"),
     OperationRoute("/scope", "GET", "handler", "scope.effective"),
@@ -82,7 +95,14 @@ OPERATIONS_ROUTE_MANIFEST: tuple[OperationRoute, ...] = (
     OperationRoute("/reports/health", "GET", "get_health", "report.health"),
     OperationRoute("/reports/{report_id:str}", "GET", "get_report", "report.detail"),
     OperationRoute("/reports/{report_id:str}/render", "GET", "render_report", "report.render"),
-    OperationRoute("/read-investigations", "POST", "start", "read_investigation.start", "proposal"),
+    OperationRoute(
+        "/read-investigations",
+        "POST",
+        "start",
+        "read_investigation.start",
+        "proposal",
+        CONTRIBUTOR_ROLES,
+    ),
     OperationRoute("/simulate/blast-radius", "GET", "handler", "blast_radius.simulate"),
     OperationRoute("/audit/{correlation_id}/bitemporal", "GET", "handler", "audit.bitemporal"),
     OperationRoute("/webhook", "POST", "handler", "webhook.generic", "webhook"),
@@ -91,4 +111,11 @@ OPERATIONS_ROUTE_MANIFEST: tuple[OperationRoute, ...] = (
 )
 
 
-__all__ = ["OPERATIONS_ROUTE_MANIFEST", "OperationRoute", "RouteKind"]
+__all__ = [
+    "APPROVER_ROLES",
+    "CONTRIBUTOR_ROLES",
+    "OPERATIONS_ROUTE_MANIFEST",
+    "READ_ROLES",
+    "OperationRoute",
+    "RouteKind",
+]
