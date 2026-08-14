@@ -34,7 +34,17 @@ def test_docx_preserves_heading_context_and_table_roles() -> None:
     assert units[1].parent_locator == "docx/heading:1:1"
 
 
-def test_pptx_preserves_shape_paragraphs_tables_and_notes() -> None:
+@pytest.mark.parametrize(
+    ("notes_target", "notes_name"),
+    [
+        ("../notesSlides/notesSlide9.xml", "ppt/notesSlides/notesSlide9.xml"),
+        ("../../notesSlides/notesSlide9.xml", "notesSlides/notesSlide9.xml"),
+    ],
+)
+def test_pptx_preserves_shape_paragraphs_tables_and_notes(
+    notes_target: str,
+    notes_name: str,
+) -> None:
     slide = (
         b"<p:sld xmlns:p='urn:p' xmlns:a='urn:a'><p:cSld><p:spTree>"
         b"<p:sp><p:nvSpPr><p:cNvPr name='Summary'/></p:nvSpPr><p:txBody>"
@@ -61,9 +71,9 @@ def test_pptx_preserves_shape_paragraphs_tables_and_notes() -> None:
                 "ppt/slides/_rels/slide1.xml.rels": (
                     b"<Relationships><Relationship Id='rId8' "
                     b"Type='urn:office/relationships/notesSlide' "
-                    b"Target='../notesSlides/notesSlide9.xml'/></Relationships>"
+                    + f"Target='{notes_target}'/></Relationships>".encode()
                 ),
-                "ppt/notesSlides/notesSlide9.xml": notes,
+                notes_name: notes,
             }
         ),
         budget=OoxmlParserBudget(),
