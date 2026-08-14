@@ -5,9 +5,11 @@ import {
   assuranceTransportRetrySources,
   buildAssuranceRunProvenance,
   generateOntologyAssuranceCohort,
+  hasRequiredAnswerCoverage,
   isRetryableAssuranceTransportFailure,
   judgeSemanticReceipt,
   judgeSemanticTurn,
+  requiredAnswerOperations,
   selectOntologyAssuranceQuestions,
   type AssuranceRunConfiguration,
 } from "./ontology-query-assurance";
@@ -23,6 +25,7 @@ describe("ontology query assurance production readiness", () => {
     answeredCount: 2,
     answeredWithCompleteEvidenceCount: 2,
     answeredLocaleCoverageComplete: true,
+    requiredAnswerCoverageComplete: true,
   };
 
   it("rejects a full cohort that answers no questions", () => {
@@ -44,6 +47,13 @@ describe("ontology query assurance production readiness", () => {
     expect(isOntologyAssuranceProductionReady({
       ...completeRun,
       answeredLocaleCoverageComplete: false,
+    })).toBe(false);
+  });
+
+  it("rejects a full cohort without bilingual answers for every read operation", () => {
+    expect(isOntologyAssuranceProductionReady({
+      ...completeRun,
+      requiredAnswerCoverageComplete: false,
     })).toBe(false);
   });
 
@@ -141,6 +151,29 @@ describe("ontology query assurance cohort", () => {
     }
   });
 
+  it("requires one complete verified answer for every read operation", () => {
+    const complete = requiredAnswerOperations().flatMap((operation) => (
+      (["en", "ko"] as const).map((locale) => ({
+        operation,
+        locale,
+        disposition: "answered",
+        complete_verified_evidence: true,
+      }))
+    ));
+    expect(hasRequiredAnswerCoverage(complete)).toBe(true);
+    expect(hasRequiredAnswerCoverage(complete.slice(1))).toBe(false);
+    expect(hasRequiredAnswerCoverage(complete.map((result) => ({
+      ...result,
+      disposition: "held",
+    })))).toBe(false);
+    expect(hasRequiredAnswerCoverage(complete.filter((result) => result.locale === "en")))
+      .toBe(false);
+    expect(hasRequiredAnswerCoverage(complete.map((result, index) => ({
+      ...result,
+      complete_verified_evidence: index !== 0,
+    })))).toBe(false);
+  });
+
   it("selects exact question ids while preserving seeded cohort order", () => {
     const cohort = generateOntologyAssuranceCohort(0x0fda1);
     const selected = selectOntologyAssuranceQuestions(
@@ -182,7 +215,7 @@ describe("ontology query assurance provenance", () => {
       runConfiguration(),
     )).toEqual({
       source_revision: "b".repeat(40),
-      configuration_digest: "sha256:f13161ff406f4b691ff5f30c4a21509e4d0c37991ae954e29087d5c51f272fd1",
+      configuration_digest: "sha256:d1602501d494dfccda9be0bf3dc68e4beaec6ffde912112c395e86e691b5cf93",
       workspace_patch_digest: `sha256:${"c".repeat(64)}`,
     });
   });

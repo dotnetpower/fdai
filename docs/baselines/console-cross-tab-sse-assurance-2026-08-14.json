@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0.0",
+  "evidence_type": "authenticated_console_cross_tab_sse_assurance",
+  "receipt_source": "live_assurance",
+  "source_revision": "848e1021786c2bb7f3fb0a533d9d113c3020d5cf",
+  "configuration_digest": "sha256:c4ceaa62af4a1c8548f12ddcdc79673cff2e3eeb0d301238defe95c389f1e8c1",
+  "workspace_patch_digest": "sha256:a320814505bf86f9353a80d892f72b023f1543ff6f7df7a3d5ef3e7622ee0640",
+  "run_configuration": {
+    "schema_version": "1.0.0",
+    "authentication": "browser_entra",
+    "routes": [
+      "/overview",
+      "/ontology",
+      "/agent-activity"
+    ],
+    "expected_stream_channels": 3,
+    "page_count": 3,
+    "notification_permission": "synthetic_granted_for_connection_mechanics"
+  },
+  "captured_at": "2026-08-14T04:04:02.930Z",
+  "authentication": "browser_entra",
+  "authentication_attestation": {
+    "storage_state_restored": true,
+    "authenticated_self_response_count": 3,
+    "synthetic_notification_permission": true,
+    "notification_delivery_claimed": false
+  },
+  "passed": true,
+  "summary": {
+    "initial_iam_duration_ms": 3.7000000001862645,
+    "held_stream_leader_count_after_one_page": 3,
+    "held_stream_leader_count_after_three_pages": 3,
+    "pending_lock_count_after_three_pages": 6,
+    "held_stream_leader_count_after_leader_close": 3,
+    "pending_lock_count_after_leader_close": 3,
+    "follower_pages_healthy": 2,
+    "initial_leader_client_count": 1,
+    "failover_leader_client_count": 1,
+    "leader_client_changed": true,
+    "initial_leader_request_attempt_count": 4,
+    "failover_leader_request_attempt_count": 3
+  }
+}

@@ -15,7 +15,11 @@ describe("browser stream leadership", () => {
   test("holds leadership until the owning tab aborts", async () => {
     const controller = new AbortController();
     const states: boolean[] = [];
-    const requestLock = vi.fn(async (_name: string, callback: () => Promise<void>) => {
+    const requestLock = vi.fn(async (
+      _name: string,
+      _signal: AbortSignal,
+      callback: () => Promise<void>,
+    ) => {
       await callback();
     });
 
@@ -31,5 +35,22 @@ describe("browser stream leadership", () => {
 
     expect(states).toEqual([true, false]);
     expect(requestLock).toHaveBeenCalledOnce();
+    expect(requestLock.mock.calls[0]?.[1]).toBe(controller.signal);
+  });
+
+  test("never publishes leadership when lock acquisition fails", async () => {
+    const states: boolean[] = [];
+    const requestLock = vi.fn(async () => {
+      throw new Error("lock manager unavailable");
+    });
+
+    await expect(holdBrowserStreamLeadership(
+      requestLock,
+      "fdai:notifications:principal-1",
+      new AbortController().signal,
+      (leader) => states.push(leader),
+    )).rejects.toThrow("lock manager unavailable");
+
+    expect(states).toEqual([]);
   });
 });

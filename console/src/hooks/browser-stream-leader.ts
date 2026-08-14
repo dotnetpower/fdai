@@ -2,6 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 
 type BrowserLockRequest = (
   name: string,
+  signal: AbortSignal,
   callback: () => Promise<void>,
 ) => Promise<unknown>;
 
@@ -18,7 +19,7 @@ export async function holdBrowserStreamLeadership(
   signal: AbortSignal,
   onLeadershipChange: (leader: boolean) => void,
 ): Promise<void> {
-  await requestLock(name, async () => {
+  await requestLock(name, signal, async () => {
     if (signal.aborted) return;
     onLeadershipChange(true);
     await new Promise<void>((resolve) => {
@@ -39,18 +40,15 @@ export function useExclusiveBrowserStreamLeader(
     setLeader(false);
     if (!enabled) return undefined;
     const lockManager = typeof navigator === "undefined" ? undefined : navigator.locks;
-    if (!lockManager) {
-      setLeader(true);
-      return () => setLeader(false);
-    }
+    if (!lockManager) return undefined;
     const controller = new AbortController();
     void holdBrowserStreamLeadership(
-      (name, callback) => lockManager.request(name, () => callback()),
+      (name, signal, callback) => lockManager.request(name, { signal }, () => callback()),
       browserStreamLockName(channel, principalId),
       controller.signal,
       setLeader,
     ).catch(() => {
-      if (!controller.signal.aborted) setLeader(true);
+      if (!controller.signal.aborted) setLeader(false);
     });
     return () => controller.abort();
   }, [channel, enabled, principalId]);

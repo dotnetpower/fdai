@@ -3,13 +3,15 @@ import { useExclusiveBrowserStreamLeader } from "./browser-stream-leader";
 import {
   browserStreamSharingSupported,
   crossTabStreamName,
-  openCrossTabSnapshotChannel,
+  isCanonicalStreamTimestamp,
+  shouldAcceptCrossTabSnapshot,
+  tryOpenCrossTabSnapshotChannel,
   type CrossTabSnapshotChannel,
 } from "./cross-tab-stream";
 import { liveReconnectDelay, liveStreamHeaders } from "./use-live-stream";
 import { readSseChunk } from "./sse-reader";
 
-const SAFE_ID = /^[\x21-\x7E]{1,256}$/;
+const BOUNDED_PRINTABLE_TOKEN = /^[\x21-\x7E]{1,256}$/;
 const CONTROL_CHAR = /[\u0000-\u001F\u007F]/;
 const INCIDENT_STATUSES = new Set(["open", "in_progress"]);
 
@@ -40,7 +42,7 @@ export function decodeIncidentAttentionSnapshot(data: string): IncidentAttention
   const snapshot = value as Record<string, unknown>;
   if (
     snapshot.event !== "incident_attention.snapshot"
-    || !validTimestamp(snapshot.ts)
+    || !isCanonicalStreamTimestamp(snapshot.ts)
     || !Array.isArray(snapshot.incidents)
     || snapshot.incidents.length > 50
   ) return null;
@@ -92,21 +94,32 @@ export function useIncidentAttentionStream(options: {
 }): readonly IncidentAttentionProjection[] {
   const [incidents, setIncidents] = useState<readonly IncidentAttentionProjection[]>([]);
   const channelRef = useRef<CrossTabSnapshotChannel<IncidentAttentionSnapshot> | null>(null);
+  const latestSnapshotAtRef = useRef<string | null>(null);
   const sharingSupported = browserStreamSharingSupported();
   const streamLeader = useExclusiveBrowserStreamLeader(
     sharingSupported,
     "incident-attention",
     options.principalId,
   );
-  const streamEnabled = !sharingSupported || streamLeader;
+  const streamEnabled = streamLeader;
+
+  useEffect(() => {
+    latestSnapshotAtRef.current = null;
+    setIncidents([]);
+  }, [options.principalId]);
 
   useEffect(() => {
     if (!sharingSupported) return undefined;
-    const channel = openCrossTabSnapshotChannel(
+    const channel = tryOpenCrossTabSnapshotChannel(
       crossTabStreamName("incident-attention", options.principalId),
       decodeIncidentAttentionSnapshotValue,
-      (snapshot) => setIncidents(snapshot.incidents),
+      (snapshot) => {
+        if (!shouldAcceptCrossTabSnapshot(latestSnapshotAtRef.current, snapshot.ts)) return;
+        latestSnapshotAtRef.current = snapshot.ts;
+        setIncidents(snapshot.incidents);
+      },
     );
+    if (channel === null) return undefined;
     channelRef.current = channel;
     return () => {
       channelRef.current = null;
@@ -134,6 +147,8 @@ export function useIncidentAttentionStream(options: {
         await consumeIncidentAttentionSse(response, (snapshot) => {
           if (!cancelled && controller === active) {
             attempt = 0;
+            if (!shouldAcceptCrossTabSnapshot(latestSnapshotAtRef.current, snapshot.ts)) return;
+            latestSnapshotAtRef.current = snapshot.ts;
             setIncidents(snapshot.incidents);
             channelRef.current?.publish(snapshot);
           }
@@ -172,13 +187,13 @@ function decodeIncidentAttentionSnapshotValue(value: unknown): IncidentAttention
 function validIncident(value: unknown): value is IncidentAttentionProjection {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const incident = value as Record<string, unknown>;
-  return SAFE_ID.test(String(incident.incident_id ?? ""))
-    && SAFE_ID.test(String(incident.correlation_id ?? ""))
+  return BOUNDED_PRINTABLE_TOKEN.test(String(incident.incident_id ?? ""))
+    && BOUNDED_PRINTABLE_TOKEN.test(String(incident.correlation_id ?? ""))
     && safeText(incident.title, 512)
     && safeText(incident.severity, 64)
     && INCIDENT_STATUSES.has(String(incident.status ?? ""))
-    && validTimestamp(incident.opened_at)
-    && validTimestamp(incident.last_updated_at);
+    && isCanonicalStreamTimestamp(incident.opened_at)
+    && isCanonicalStreamTimestamp(incident.last_updated_at);
 }
 
 function safeText(value: unknown, maxLength: number): value is string {
@@ -186,8 +201,4 @@ function safeText(value: unknown, maxLength: number): value is string {
     && value.length >= 1
     && value.length <= maxLength
     && !CONTROL_CHAR.test(value);
-}
-
-function validTimestamp(value: unknown): value is string {
-  return typeof value === "string" && value.length <= 64 && Number.isFinite(Date.parse(value));
 }

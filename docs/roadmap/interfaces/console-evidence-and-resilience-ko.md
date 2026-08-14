@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: e0ff12047c0df02357659c56703fd5cfd103f217
+translation_source_sha: abef29142fa82f85fc3bc9bad4a72d77f73a7c6a
 translation_revised: 2026-08-14
 ---
 
@@ -15,10 +15,10 @@ translation_revised: 2026-08-14
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|-----------|
-| 통제된 온톨로지 보증 출처 이력 | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`, focused Vitest 25개 및 Console 타입 검사 통과 | 인증된 seeded cohort가 통제된 runtime 아티팩트를 만들 때까지 in-progress로 유지합니다. |
-| 에이전트 활동 하트비트 표현 | 구현됨 | `console/src/routes/agents.model.ts`, `console/src/routes/agents.model.test.ts`, focused Vitest 31개 통과 | 주기적인 런타임 초기화 스냅샷은 현재 에이전트 상태와 마지막 관찰 시각을 갱신하지만 최초 로드 또는 새로고침 후 활동 행이 되지 않습니다. Browser Entra 새로고침 동작은 관찰했지만 통제된 아티팩트는 보존하지 않았습니다. |
+| 통제된 온톨로지 보증 출처 이력 | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`, focused Vitest 52개 통과 | 강화된 release gate는 두 locale의 모든 operation에 완전하게 검증된 답변을 요구합니다. 인증된 probe는 semantic planning을 사용할 수 없을 때 held 상태였으므로 full-cohort readiness 아티팩트를 주장하지 않습니다. |
+| 에이전트 활동 하트비트 표현 | validated | `console/src/routes/agents.model.ts`, `console/src/routes/agents.model.test.ts`, `docs/baselines/agent-activity-heartbeat-assurance-2026-08-14.json`, focused Vitest 31개 통과 및 인증된 Browser Entra assurance | 두 번 새로고치는 동안 연속된 하트비트 시각 세 개가 증가했고 인증된 self 검사 세 번이 모두 성공했으며 런타임 초기화 행은 0개였습니다. |
 | Command Deck JSON 대비 | 구현됨 | `console/src/styles.css`, `console/src/deck/command-deck-workspace-visual.test.ts`, focused Vitest 10개 통과 및 인증된 브라우저 검사 | 구문 강조 JSON은 전역의 밝은 `pre` 스타일과 관계없이 고정된 어두운 코드 표면을 유지합니다. 브라우저 검사는 통제된 런타임 근거로 보존하지 않았습니다. |
-| 탭 간 SSE 및 인시던트 복원력 | 구현됨 | 탭 간 stream hook, `incidents.milestones.ts`, incident projection 및 focused Console/Operator test | Principal-scoped leader는 검증된 stream state를 공유하고 bounded milestone과 action confirmation projection은 execution authority 없이 incident progress를 보존합니다. 보존된 deterministic baseline은 인증된 live evidence를 대체하지 않습니다. |
+| 탭 간 SSE 및 인시던트 복원력 | 구현됨 | 탭 간 stream hook, `incidents.milestones.ts`, incident projection, `docs/baselines/console-cross-tab-sse-assurance-2026-08-14.json`, focused Console/Operator test 및 인증된 Browser Entra assurance | 정확히 하나의 leader가 세 탭의 세 채널을 소유했고 failover가 leader client를 바꿨으며 인증된 self 검사 세 번이 모두 성공했습니다. Notification delivery는 명시적으로 주장하지 않습니다. 관리되는 incident-detail 런타임 근거는 아직 남아 있습니다. |
 
 ### 구현 이력
 
@@ -29,12 +29,14 @@ translation_revised: 2026-08-14
 | 2026-08-14 | 구현됨 | 전역 `pre` 배경이 덮어쓴 Command Deck JSON 구문 강조 영역 아래에 고정된 어두운 표면을 복원했습니다. | `current change`, 작업 소유 Console CSS 및 시각 계약 테스트, focused Vitest 10개 통과, Console 타입 검사 통과, 인증된 브라우저에서 의도한 어두운 표면과 토큰 색상 계산 확인 | 범위가 제한된 잔여 작업은 없습니다. 향후 테마 변경은 focused 회귀 테스트가 확인합니다. |
 | 2026-08-14 | 구현됨 | 각 attention 및 알림 채널에서 탭 간 읽기 담당 하나를 선출하고 검증된 attention 스냅샷을 follower 탭과 공유해 HTTP/1.1에서 일반 Operator API 용량을 확보했습니다. | `current change`, 작업 소유 스트림 훅, focused Vitest 8개 및 Console 타입 검사 통과 | SSE 읽기 담당이 활성화된 상태에서 새 Dashboard 접근 검사가 완료되는 통제된 세 탭 Browser Entra 아티팩트를 보존합니다. |
 | 2026-08-14 | 구현됨 | Principal-scoped cross-tab stream leadership를 확장하고 bounded incident milestone, action confirmation projection 및 deterministic resilience baseline을 추가했습니다. | `current change`, focused Console/Operator test 및 Console typecheck | Runtime validation을 주장하기 전에 인증된 multi-tab 및 incident Browser evidence를 보존합니다. |
+| 2026-08-14 | validated | 인증된 Browser Entra 복원력 아티팩트를 보존하고 SSE 및 탭 간 경계에서 모호한 local-date timestamp를 거부했습니다. | `current change`, strict stream timestamp 테스트 9개 통과, 인증된 Playwright 복원력 테스트 2개 통과, tracked cross-tab 및 heartbeat 아티팩트가 source revision `848e1021786c2bb7f3fb0a533d9d113c3020d5cf`와 하나의 workspace patch digest에 연결됩니다. | 관리되는 incident-detail 근거를 별도로 보존하고 중앙 검증된 revision에서 semantic-planning capacity를 사용할 수 있을 때 강화된 ontology cohort를 완료합니다. |
 
 ### 잔여 작업
 
 - [ ] 정확한 중앙 검증 receipt와 인증된 probe를 확보한 뒤 seeded 영/한 100-case cohort에서 통과한 통제 아티팩트 하나를 보존합니다.
-- [ ] 에이전트 스트림 열림, 갱신된 하트비트 시각, 페이지를 두 번 새로고친 뒤 `Runtime agent initialized` 활동 행 0개를 보여 주는 통제된 Browser Entra 아티팩트를 보존합니다.
-- [ ] 백그라운드 알림과 활성 탭 attention 스트림을 유지하면서 새 Dashboard 접근 검사가 완료되는 통제된 세 탭 Browser Entra 아티팩트를 보존합니다.
+- [x] 에이전트 스트림 열림, 갱신된 하트비트 시각, 페이지를 두 번 새로고친 뒤 `Runtime agent initialized` 활동 행 0개를 보여 주는 통제된 Browser Entra 아티팩트를 보존합니다.
+- [x] 백그라운드 알림과 활성 탭 attention 스트림을 유지하면서 새 Dashboard 접근 검사가 완료되는 통제된 세 탭 Browser Entra 아티팩트를 보존합니다.
+- [ ] Milestone, 원본, 대응 계획 및 같은 스냅샷 결과 표현을 위한 관리되는 incident-detail Browser 근거를 보존합니다.
 ## 탐색 컨텍스트
 
 활동 Bar 영역을 선택하면 Explorer가 열리고 운영자의 로컬 순서 및 표시 설정에 따라 첫 번째 visible 패널로 이동합니다. Command Deck이 닫혀 있거나 floating 상태여도 이 탐색은 동작하며, full-workspace Deck은 경로가 변경되기 전에 닫힙니다.
@@ -50,8 +52,7 @@ Same-screen 및 에이전트 대화는 탐색 없이 전환합니다.
 대화 행 어디에서든 포인터 hover하거나 keyboard focus하면 제목 길이와 관계없이 공용 콘솔
 툴팁으로 제한된 질문 전체를 표시합니다. 배치 및 닫기 icon 컨트롤도 같은 localized 툴팁 컴포넌트를 사용합니다. 연결된 백엔드 툴팁은 모드, 엔드포인트, 경로 choice 및 후보를 별도 줄로 유지하고 localized 자리 표시자를 모두 채우며 긴 엔드포인트 또는 배포 토큰을 뷰포트 경계 안에서 줄바꿈합니다.
 에이전트 카드의 Ask 액션은 항상 unique user-scoped 키를 가진 비어 있는 새 에이전트 대화를 엽니다. 새 요약은 선택한 에이전트를 즉시 보유하므로 첫 제출부터 같은 에이전트 대상을 Operator API에 전달합니다. 기존 에이전트 대화는 별도 이력 항목으로 보존하며 운영자가 명시적으로 선택할 때만 복원합니다.
-활성 cached 대화를 제거하면 current-route 기본값(이전 방식 `screen` 키 포함) 또는 current-route 스레드만 선택합니다. 둘 다 없으면 unrelated-route 또는 에이전트 대화 기록을 활성화하지 않고 새 current-route 기본값을 만듭니다.
-않고 새 current-route 기본값을 만듭니다. Context-dependent 취소, 런북, knowledge, 기억, learning, ordinal-resource, 모호함, reformatting 및 partial-source 질문에는 검증된 이전 대화 기록이 필요합니다. 서버는 principal 범위로 한정된 `ConversationHistoryStore`의 최신 사용 가능한 assistant 재생에서 활성 조사, 선택된 리소스, 이전 답변 또는 source-failure 증적을 재구성합니다. 브라우저 대화 기록은 이 권한을 만들 수 없으며 fresh 대화는 사용 불가 상태를 유지합니다. 검증된 또는 corrected 이전 턴 이후 `KnowledgeContextChatTools`는 unique trusted 런북 하나를 부하하거나 활성화된 출처의 권한 확인 및 refresh 상태를 보고하거나 해당 principal만 볼 수 있는 explicit-consent 기억을 표시합니다. Exact assistant-turn 검토가 materialized 기억 또는 runtime-skill 제안을 가리킬 때만 learning을 reusable로 보고합니다. 초안과 모호한 런북은 빈으로, 프로바이더 실패는 사용 불가로 유지하며 ordinary chat은 기억 또는 검토 상태를 쓰지 않습니다. 완료된 이어가기는 영속 assistant 턴과 내용 기반 주소를 가진 출처 증적을 인용합니다.
+활성 cached 대화를 제거하면 current-route 기본값(이전 방식 `screen` 키 포함) 또는 current-route 스레드만 선택합니다. 둘 다 없으면 unrelated-route 또는 에이전트 대화 기록을 활성화하지 않고 새 current-route 기본값을 만듭니다. Context-dependent 취소, 런북, knowledge, 기억, learning, ordinal-resource, 모호함, reformatting 및 partial-source 질문에는 검증된 이전 대화 기록이 필요합니다. 서버는 principal 범위로 한정된 `ConversationHistoryStore`의 최신 사용 가능한 assistant 재생에서 활성 조사, 선택된 리소스, 이전 답변 또는 source-failure 증적을 재구성합니다. 브라우저 대화 기록은 이 권한을 만들 수 없으며 fresh 대화는 사용 불가 상태를 유지합니다. 검증된 또는 corrected 이전 턴 이후 `KnowledgeContextChatTools`는 unique trusted 런북 하나를 부하하거나 활성화된 출처의 권한 확인 및 refresh 상태를 보고하거나 해당 principal만 볼 수 있는 explicit-consent 기억을 표시합니다. Exact assistant-turn 검토가 materialized 기억 또는 runtime-skill 제안을 가리킬 때만 learning을 reusable로 보고합니다. 초안과 모호한 런북은 빈으로, 프로바이더 실패는 사용 불가로 유지하며 ordinary chat은 기억 또는 검토 상태를 쓰지 않습니다. 완료된 이어가기는 영속 assistant 턴과 내용 기반 주소를 가진 출처 증적을 인용합니다.
 검증된 fresh 인벤토리 답변은 서버가 소유한 재생 메타데이터에 범위가 제한된 `resource_result_context`를 포함할 수 있습니다. Raw 리소스 ID를 포함하지 않고 브라우저 맥락에서는 수락하지 않으며 출처, 스냅샷, 범위, 조회 다이제스트, 최신성, 잘림 및 이후 결정론적 후속 조치에 사용할 최대 40개의 ordered 선택자를 보존합니다.
 Ordinal 후속 조치는 선택한 위치를 exact fresh 인벤토리 조건식으로 다시 검증합니다. 모호함 후속 조치는 완전한 이전 결과 집합의 equal-name 후보만 표시합니다. 불완전한 맥락은 사용 불가 상태를 유지하며 current-screen 또는 서술기 출력으로 대체 경로할 수 없습니다.
 검증된 source-manifest 답변은 범위가 제한된 사용 불가 또는 알 수 없음 항목을 `source_failure_context`로 보존합니다. Partial-source 이어가기는 해당 증적의 available 사실과 exact 공백을 렌더링하고 사유 및 last 관측이 있으면 함께 표시하며 arbitrary 검증되지 않은 답변을 출처 권한으로 취급하지 않습니다. 검증된 또는 corrected `query_llm_usage` 답변은 domain, 기능, 토큰 measure, 그룹화, `usage_scope` 및 numeric 1-90일 조회 구간이 포함된 범위가 제한된 `analysis_context`를 보존합니다. 기간, 그룹화, 표 또는 chart만 바꾸는 구체화는 이 서버가 소유한 anchor를 재사용하고 metering 근거를 다시 읽습니다. 비교, 내보내기, missing-anchor, client-supplied-anchor 및 명시적인 다른 메트릭 요청은 인벤토리, Resource Health 또는 서술기 출력을 선택하지 않고 context-required 보류를 반환합니다.
