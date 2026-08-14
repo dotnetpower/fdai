@@ -36,14 +36,72 @@ class _ImageOcr:
             StructuralUnit(
                 unit_id="ocr-1",
                 kind="page",
-                locator="ocr/page:1/line:1",
+                locator="page:1:line:1",
                 text="Scanned text",
+            ),
+        )
+
+
+class _MixedPdfOcr:
+    async def extract(
+        self, *, version: DocumentVersion, content: bytes
+    ) -> tuple[StructuralUnit, ...]:
+        del version, content
+        return (
+            StructuralUnit(
+                unit_id="ocr-1",
+                kind="page",
+                locator="page:1:line:1",
+                text="Duplicated native text",
+            ),
+            StructuralUnit(
+                unit_id="ocr-2",
+                kind="page",
+                locator="page:2:line:1",
+                text="Scanned text",
+            ),
+        )
+
+
+class _IncompletePdfOcr:
+    async def extract(
+        self, *, version: DocumentVersion, content: bytes
+    ) -> tuple[StructuralUnit, ...]:
+        del version, content
+        return (
+            StructuralUnit(
+                unit_id="ocr-1",
+                kind="page",
+                locator="page:1:line:1",
+                text="Duplicated native text",
             ),
         )
 
 
 async def _chunks(content: bytes) -> AsyncIterator[bytes]:
     yield content
+
+
+def _pdf_version() -> DocumentVersion:
+    now = datetime.now(UTC)
+    return DocumentVersion(
+        document_id=uuid4(),
+        version_id=uuid4(),
+        upload_id=uuid4(),
+        source_name="scan.pdf",
+        source_sha256="0" * 64,
+        size_bytes=4,
+        media_type="application/pdf",
+        observed_format="pdf",
+        state=DocumentState.EXTRACTING,
+        protection_state=ProtectionState.NONE,
+        access=AccessDescriptor(reference="collection:test", collection_id="test"),
+        retention=RetentionPolicy(policy_version="test"),
+        purposes=(DocumentPurpose.KNOWLEDGE_BASE,),
+        uploader_id="test-operator",
+        created_at=now,
+        updated_at=now,
+    )
 
 
 async def test_input_byte_budget_reports_typed_extraction_reason() -> None:
@@ -72,36 +130,71 @@ async def test_scanned_pdf_reports_ocr_extractor_provenance(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(processing_module, "_pdf_units", lambda _content: ())
-    now = datetime.now(UTC)
-    version = DocumentVersion(
-        document_id=uuid4(),
-        version_id=uuid4(),
-        upload_id=uuid4(),
-        source_name="scan.pdf",
-        source_sha256="0" * 64,
-        size_bytes=4,
-        media_type="application/pdf",
-        observed_format="pdf",
-        state=DocumentState.EXTRACTING,
-        protection_state=ProtectionState.NONE,
-        access=AccessDescriptor(reference="collection:test", collection_id="test"),
-        retention=RetentionPolicy(policy_version="test"),
-        purposes=(DocumentPurpose.KNOWLEDGE_BASE,),
-        uploader_id="test-operator",
-        created_at=now,
-        updated_at=now,
-    )
     extractor = BoundedDocumentExtractor(
         image_ocr=_ImageOcr(),
         max_input_bytes=1024,
         max_characters=1024,
     )
 
-    envelope = await extractor.extract(version=version, chunks=_chunks(b"scan"))
+    envelope = await extractor.extract(version=_pdf_version(), chunks=_chunks(b"scan"))
 
     assert envelope.extractor_name == "service-bounded"
     assert envelope.extractor_version == "1.0.0"
     assert [unit.text for unit in envelope.units] == ["Scanned text"]
+
+
+async def test_mixed_pdf_uses_ocr_only_for_pages_without_native_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Page:
+        def __init__(self, text: str) -> None:
+            self._text = text
+
+        def extract_text(self) -> str:
+            return self._text
+
+    class _Reader:
+        pages = (_Page("Native text"), _Page(""))
+
+    monkeypatch.setattr(pypdf, "PdfReader", lambda _stream: _Reader())
+    extractor = BoundedDocumentExtractor(
+        image_ocr=_MixedPdfOcr(),
+        max_input_bytes=1024,
+        max_characters=1024,
+    )
+
+    envelope = await extractor.extract(version=_pdf_version(), chunks=_chunks(b"pdf"))
+
+    assert envelope.extractor_name == "service-bounded"
+    assert [unit.locator for unit in envelope.units] == [
+        "pdf/page:1/block:1",
+        "pdf/page:2/ocr:1",
+    ]
+    assert [unit.text for unit in envelope.units] == ["Native text", "Scanned text"]
+
+
+async def test_mixed_pdf_fails_closed_when_scanned_page_has_no_ocr_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Page:
+        def __init__(self, text: str) -> None:
+            self._text = text
+
+        def extract_text(self) -> str:
+            return self._text
+
+    class _Reader:
+        pages = (_Page("Native text"), _Page(""))
+
+    monkeypatch.setattr(pypdf, "PdfReader", lambda _stream: _Reader())
+    extractor = BoundedDocumentExtractor(
+        image_ocr=_IncompletePdfOcr(),
+        max_input_bytes=1024,
+        max_characters=1024,
+    )
+
+    with pytest.raises(ValueError, match="no cited text for page 2"):
+        await extractor.extract(version=_pdf_version(), chunks=_chunks(b"pdf"))
 
 
 def test_docx_preserves_heading_context_and_table_roles() -> None:
