@@ -44,6 +44,7 @@ export function AccessGrantAttention({ auth, client, principalId }: Props) {
   const requests = useAccessGrantStream({
     url: `${client.operatorApiBaseUrl.replace(/\/$/, "")}/access-grants/stream`,
     enabled: Boolean(principalId),
+    principalId: principalId ?? null,
     getAuthorizationHeader: client.authorizationHeader,
   });
   const [deckReady, setDeckReady] = useState(isDeckOpenListenerReady);

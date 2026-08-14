@@ -14,6 +14,7 @@ import { t } from "../i18n";
 
 interface Props {
   readonly client: OperatorApiClient;
+  readonly principalId?: string | null;
 }
 
 const AUTO_INVESTIGATION_PREFIX = "fdai:incident:auto-investigated:";
@@ -41,9 +42,10 @@ export function incidentDeckDetail(incident: IncidentAttentionProjection): DeckO
   };
 }
 
-export function IncidentAttention({ client }: Props) {
+export function IncidentAttention({ client, principalId }: Props) {
   const incidents = useIncidentAttentionStream({
     url: `${client.operatorApiBaseUrl.replace(/\/$/, "")}/incidents/stream`,
+    principalId: principalId ?? null,
     getAuthorizationHeader: client.authorizationHeader,
   });
   const [deckReady, setDeckReady] = useState(isDeckOpenListenerReady);

@@ -1,4 +1,11 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
+import { useExclusiveBrowserStreamLeader } from "./browser-stream-leader";
+import {
+  browserStreamSharingSupported,
+  crossTabStreamName,
+  openCrossTabSnapshotChannel,
+  type CrossTabSnapshotChannel,
+} from "./cross-tab-stream";
 import { liveReconnectDelay, liveStreamHeaders } from "./use-live-stream";
 import { readSseChunk } from "./sse-reader";
 
@@ -83,11 +90,35 @@ export async function consumeAccessGrantSse(
 export function useAccessGrantStream(options: {
   readonly url: string;
   readonly enabled: boolean;
+  readonly principalId?: string | null;
   readonly getAuthorizationHeader: () => Promise<string | null>;
 }): readonly AccessGrantRequestProjection[] {
   const [requests, setRequests] = useState<readonly AccessGrantRequestProjection[]>([]);
+  const channelRef = useRef<CrossTabSnapshotChannel<AccessGrantSnapshot> | null>(null);
+  const sharingSupported = browserStreamSharingSupported();
+  const streamLeader = useExclusiveBrowserStreamLeader(
+    options.enabled && sharingSupported,
+    "access-grant-attention",
+    options.principalId,
+  );
+  const streamEnabled = options.enabled && (!sharingSupported || streamLeader);
+
   useEffect(() => {
-    if (!options.enabled) {
+    if (!options.enabled || !sharingSupported) return undefined;
+    const channel = openCrossTabSnapshotChannel(
+      crossTabStreamName("access-grant-attention", options.principalId),
+      decodeAccessGrantSnapshotValue,
+      (snapshot) => setRequests(snapshot.requests),
+    );
+    channelRef.current = channel;
+    return () => {
+      channelRef.current = null;
+      channel.close();
+    };
+  }, [options.enabled, options.principalId, sharingSupported]);
+
+  useEffect(() => {
+    if (!streamEnabled) {
       setRequests([]);
       return undefined;
     }
@@ -110,6 +141,7 @@ export function useAccessGrantStream(options: {
           if (!cancelled && controller === active) {
             attempt = 0;
             setRequests(snapshot.requests);
+            channelRef.current?.publish(snapshot);
           }
         });
       } catch {
@@ -131,8 +163,16 @@ export function useAccessGrantStream(options: {
       if (timer !== null) window.clearTimeout(timer);
       controller?.abort();
     };
-  }, [options.enabled, options.getAuthorizationHeader, options.url]);
+  }, [options.getAuthorizationHeader, options.url, streamEnabled]);
   return requests;
+}
+
+function decodeAccessGrantSnapshotValue(value: unknown): AccessGrantSnapshot | null {
+  try {
+    return decodeAccessGrantSnapshot(JSON.stringify(value));
+  } catch {
+    return null;
+  }
 }
 
 function validRequest(value: unknown): value is AccessGrantRequestProjection {

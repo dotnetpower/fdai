@@ -11,6 +11,7 @@ import {
   writeBrowserNotificationPreference,
   type BrowserAlertKind,
 } from "../browser-notifications";
+import { useExclusiveBrowserStreamLeader } from "../hooks/browser-stream-leader";
 import { useLiveStream } from "../hooks/use-live-stream";
 import { t } from "../i18n";
 
@@ -96,9 +97,16 @@ export function BrowserNotificationControl({ client, principalId }: Props) {
     };
   }, [supported, principalId]);
 
+  const streamEnabled = state === "on" && workerReady;
+  const streamLeader = useExclusiveBrowserStreamLeader(
+    streamEnabled,
+    "browser-notifications",
+    principalId,
+  );
+
   useLiveStream({
     url: `${client.operatorApiBaseUrl.replace(/\/$/, "")}/live/stream`,
-    enabled: state === "on" && workerReady,
+    enabled: streamEnabled && streamLeader,
     pauseWhenHidden: false,
     retryAuthenticationFailures: true,
     getAuthorizationHeader: client.authorizationHeader,

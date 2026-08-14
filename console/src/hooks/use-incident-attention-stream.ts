@@ -1,4 +1,11 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
+import { useExclusiveBrowserStreamLeader } from "./browser-stream-leader";
+import {
+  browserStreamSharingSupported,
+  crossTabStreamName,
+  openCrossTabSnapshotChannel,
+  type CrossTabSnapshotChannel,
+} from "./cross-tab-stream";
 import { liveReconnectDelay, liveStreamHeaders } from "./use-live-stream";
 import { readSseChunk } from "./sse-reader";
 
@@ -80,10 +87,35 @@ export async function consumeIncidentAttentionSse(
 
 export function useIncidentAttentionStream(options: {
   readonly url: string;
+  readonly principalId?: string | null;
   readonly getAuthorizationHeader: () => Promise<string | null>;
 }): readonly IncidentAttentionProjection[] {
   const [incidents, setIncidents] = useState<readonly IncidentAttentionProjection[]>([]);
+  const channelRef = useRef<CrossTabSnapshotChannel<IncidentAttentionSnapshot> | null>(null);
+  const sharingSupported = browserStreamSharingSupported();
+  const streamLeader = useExclusiveBrowserStreamLeader(
+    sharingSupported,
+    "incident-attention",
+    options.principalId,
+  );
+  const streamEnabled = !sharingSupported || streamLeader;
+
   useEffect(() => {
+    if (!sharingSupported) return undefined;
+    const channel = openCrossTabSnapshotChannel(
+      crossTabStreamName("incident-attention", options.principalId),
+      decodeIncidentAttentionSnapshotValue,
+      (snapshot) => setIncidents(snapshot.incidents),
+    );
+    channelRef.current = channel;
+    return () => {
+      channelRef.current = null;
+      channel.close();
+    };
+  }, [options.principalId, sharingSupported]);
+
+  useEffect(() => {
+    if (!streamEnabled) return undefined;
     let cancelled = false;
     let controller: AbortController | null = null;
     let timer: number | null = null;
@@ -103,6 +135,7 @@ export function useIncidentAttentionStream(options: {
           if (!cancelled && controller === active) {
             attempt = 0;
             setIncidents(snapshot.incidents);
+            channelRef.current?.publish(snapshot);
           }
         });
       } catch {
@@ -124,8 +157,16 @@ export function useIncidentAttentionStream(options: {
       if (timer !== null) window.clearTimeout(timer);
       controller?.abort();
     };
-  }, [options.getAuthorizationHeader, options.url]);
+  }, [options.getAuthorizationHeader, options.url, streamEnabled]);
   return incidents;
+}
+
+function decodeIncidentAttentionSnapshotValue(value: unknown): IncidentAttentionSnapshot | null {
+  try {
+    return decodeIncidentAttentionSnapshot(JSON.stringify(value));
+  } catch {
+    return null;
+  }
 }
 
 function validIncident(value: unknown): value is IncidentAttentionProjection {
