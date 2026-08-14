@@ -8,17 +8,27 @@ under asyncio_mode="auto".
 
 from __future__ import annotations
 
+from typing import cast
+
 import pytest
 from fdai.core.metering.budget import InMemoryBudgetLedger, ModelBudget
+from fdai.core.quality_gate._audit import quality_decision_audit_fields
+from fdai.core.quality_gate.escalation_ladder import EscalationLadderConfig
 from fdai.core.quality_gate.gate import (
     QualityCandidate,
     QualityDecision,
     QualityGate,
     QualityOutcome,
 )
+from fdai.core.quality_gate.self_consistency import (
+    STABILITY_SIGNAL_KEY,
+    SelfConsistencyCascade,
+    SelfConsistencySampler,
+)
 from fdai.core.quality_gate.testing import (
     MatchTypeCrossCheckModel,
     MismatchCrossCheckModel,
+    SequenceCrossCheckModel,
     StaticVerifier,
 )
 from fdai.core.tiers.t2_reasoning import T2Outcome, T2ProposalContext, T2Tier
@@ -329,3 +339,146 @@ async def test_the_tier_never_carries_a_money_limb_it_cannot_observe() -> None:
         assert (await tier.evaluate(context=context)).reason != "t2_budget_exhausted"
 
     assert proposer.calls == 4
+
+
+# ---------------------------------------------------------------------------
+# Self-consistency cascade (hallucination-rubric-gate.md § Self-consistency)
+# ---------------------------------------------------------------------------
+
+
+def _cascade(
+    *,
+    sequence: tuple[str, ...],
+    sample_threshold: float = 1.0,
+    stability_threshold: float = 0.7,
+) -> tuple[SelfConsistencyCascade, SequenceCrossCheckModel]:
+    proposer = SequenceCrossCheckModel(sequence=sequence)
+    return (
+        SelfConsistencyCascade(
+            sampler=SelfConsistencySampler(proposer=proposer, samples=len(sequence)),
+            sample_threshold=sample_threshold,
+            stability_threshold=stability_threshold,
+        ),
+        proposer,
+    )
+
+
+def _ladder_gate() -> QualityGate:
+    return QualityGate(
+        verifier=StaticVerifier(outcome=True),
+        cross_check_models=(
+            MatchTypeCrossCheckModel(model_id="m1"),
+            MatchTypeCrossCheckModel(model_id="m2"),
+        ),
+        grounding=_Grounding(),
+        escalation_ladder_config=EscalationLadderConfig(),
+    )
+
+
+async def test_unstable_cascade_reaches_the_decision_without_granting_eligibility() -> None:
+    cascade, _ = _cascade(sequence=("a", "b", "c"))
+    tier = T2Tier(
+        proposer=_Proposer(_candidate()),
+        quality_gate=_ladder_gate(),
+        self_consistency=cascade,
+    )
+
+    decision = await tier.evaluate(context=_context())
+
+    assert decision.outcome is T2Outcome.ESCALATE
+    assert decision.reason == "self_consistency_unstable"
+    assert decision.eligible_for_risk_gate is False
+    assert decision.quality_decision is not None
+    assert decision.quality_decision.self_consistency == pytest.approx(1 / 3)
+    assert decision.candidate is not None
+    assert decision.candidate.confidence_signals[STABILITY_SIGNAL_KEY] == pytest.approx(1 / 3)
+    audit = quality_decision_audit_fields(decision.quality_decision)
+    assert audit["self_consistency"] == pytest.approx(1 / 3)
+
+
+async def test_stable_cascade_preserves_eligibility_without_raising_confidence() -> None:
+    cascade, _ = _cascade(sequence=("a", "a", "a"))
+    candidate = _candidate(confidence={"a": 0.7, "b": 0.8})
+    tier = T2Tier(
+        proposer=_Proposer(candidate),
+        quality_gate=_ladder_gate(),
+        self_consistency=cascade,
+    )
+
+    decision = await tier.evaluate(context=_context())
+
+    assert decision.outcome is T2Outcome.PROPOSED
+    assert decision.reason == "quality_gate_eligible"
+    assert decision.quality_decision is not None
+    # 1.0 is above the 0.75 aggregate, so merging it would raise the mean.
+    assert decision.quality_decision.self_consistency is None
+    assert decision.quality_decision.aggregate_confidence == pytest.approx(0.75)
+
+
+async def test_a_subtractive_stability_lowers_the_recorded_confidence() -> None:
+    cascade, _ = _cascade(sequence=("a", "a", "b", "b"), stability_threshold=0.4)
+    candidate = _candidate(confidence={"a": 0.9, "b": 0.9})
+    tier = T2Tier(
+        proposer=_Proposer(candidate),
+        quality_gate=_ladder_gate(),
+        self_consistency=cascade,
+    )
+
+    decision = await tier.evaluate(context=_context())
+
+    assert decision.quality_decision is not None
+    assert decision.quality_decision.self_consistency == pytest.approx(0.5)
+    assert decision.quality_decision.aggregate_confidence == pytest.approx((0.9 + 0.9 + 0.5) / 3)
+
+
+async def test_a_confident_candidate_spends_no_sampling_calls() -> None:
+    cascade, proposer = _cascade(sequence=("a", "b", "c"), sample_threshold=0.0)
+    tier = T2Tier(
+        proposer=_Proposer(_candidate()),
+        quality_gate=_ladder_gate(),
+        self_consistency=cascade,
+    )
+
+    decision = await tier.evaluate(context=_context())
+
+    assert decision.outcome is T2Outcome.PROPOSED
+    assert decision.quality_decision is not None
+    assert decision.quality_decision.self_consistency is None
+    assert proposer._idx == 0
+
+
+async def test_a_failed_stability_measurement_fails_closed() -> None:
+    class _BrokenSampler:
+        async def sample(self, candidate: QualityCandidate) -> object:
+            del candidate
+            raise RuntimeError("sampler down")
+
+    tier = T2Tier(
+        proposer=_Proposer(_candidate()),
+        quality_gate=_FakeGate(QualityOutcome.ELIGIBLE),
+        self_consistency=SelfConsistencyCascade(
+            sampler=cast(SelfConsistencySampler, _BrokenSampler()),
+            sample_threshold=1.0,
+            stability_threshold=0.7,
+        ),
+    )
+
+    decision = await tier.evaluate(context=_context())
+
+    assert decision.outcome is T2Outcome.ESCALATE
+    assert decision.reason == "self_consistency_error:RuntimeError"
+    assert decision.quality_decision is None
+
+
+async def test_an_unstable_candidate_cannot_upgrade_a_denied_outcome() -> None:
+    cascade, _ = _cascade(sequence=("a", "b"))
+    tier = T2Tier(
+        proposer=_Proposer(_candidate()),
+        quality_gate=_FakeGate(QualityOutcome.DENY),
+        self_consistency=cascade,
+    )
+
+    decision = await tier.evaluate(context=_context())
+
+    assert decision.outcome is T2Outcome.DENIED
+    assert decision.reason == "quality_gate_deny"

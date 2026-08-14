@@ -1,7 +1,7 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 451168dbc48e617da6db4d031d8a96b15439a6e5
+translation_source_sha: 9025591467894990645a53e50bd2dd1926d516a8
 translation_revised: 2026-08-14
 ---
 
@@ -266,7 +266,10 @@ catalog-root, 어댑터 라우팅, 저널, 명령 및 샌드박스 실행 세부
 
 `ChangeWindowWorkflowGuardEvaluator`는 정확한 프로세스 대상과 evaluation 시간으로
 `gate_ref: change-window.active`를 해석합니다. 다른 참조는 기존 가드 평가기에 delegate하므로
-architecture-review 운영 게이트는 그대로 유지됩니다. Shipped `planned-vm-start-change`
+architecture-review 운영 게이트는 그대로 유지됩니다. 가드 해석은 실패 시 차단입니다: 오래된 평가 시점,
+예외를 던지거나 사용할 수 없는 평가기, 불리언이 아닌 결과는 각각 단계를 차단하고 범위가 제한된
+`guard_error`를 기록하며, 깨끗한 정책 차단은 `guard_error`를 null로 유지합니다.
+Shipped `planned-vm-start-change`
 작업 흐름은 활성 구간, Owner 정족수, `ops.start-vm`, 독립 결과 검증, 변경 요약,
 `ops.deallocate-vm` 보상의 재사용 가능한 전체 pattern을 보여 줍니다. Versioned 작업 흐름
 design이 이 ActionType들을 pin하며 런타임에서 arbitrary 변경을 선택하는 방식은 의도적으로

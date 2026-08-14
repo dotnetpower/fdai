@@ -192,9 +192,43 @@ async def run_consistency_cascade(
     )
 
 
+@dataclass(frozen=True, slots=True)
+class SelfConsistencyCascade:
+    """Composition-owned cascade trigger handed to the production T2 path.
+
+    Bundles the sampler with its two thresholds so the tier depends on one
+    seam instead of re-deriving cost policy. Binding it is optional; an
+    unbound cascade leaves T2 behavior byte-for-byte unchanged.
+    """
+
+    sampler: SelfConsistencySampler
+    sample_threshold: float
+    stability_threshold: float
+
+    async def decide(
+        self,
+        candidate: QualityCandidate,
+        *,
+        aggregate_confidence: float,
+    ) -> CascadeDecision:
+        """Run :func:`run_consistency_cascade` with the bound thresholds.
+
+        Raises whatever the sampler raises; the caller MUST treat that as a
+        fail-closed signal and route to HIL.
+        """
+        return await run_consistency_cascade(
+            self.sampler,
+            candidate,
+            aggregate_confidence=aggregate_confidence,
+            sample_threshold=self.sample_threshold,
+            stability_threshold=self.stability_threshold,
+        )
+
+
 __all__ = [
     "STABILITY_SIGNAL_KEY",
     "CascadeDecision",
+    "SelfConsistencyCascade",
     "SelfConsistencyResult",
     "SelfConsistencySampler",
     "compute_stability",

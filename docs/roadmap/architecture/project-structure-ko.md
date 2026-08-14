@@ -58,7 +58,7 @@ fdai/
 │   │   ├── tiers/
 │   │   │   ├── t0_deterministic/    # deterministic-engine: policy, checklist, what-if, drift eval
 │   │   │   ├── t1_lightweight/      # 임베딩 유사도 및 learned-action 재사용; operational case는 persisted immutable context와 fresh graph, owner, policy, dry-run, safety evidence를 요구
-│   │   │   └── t2_reasoning/        # 프론티어 모델 추론과 budgeted proposer failover, durable route selection 및 sanitized attempt receipt
+│   │   │   └── t2_reasoning/        # 프론티어 모델 추론과 budgeted proposer failover, durable route selection, sanitized attempt receipt 및 측정된 안정성이 티어 결과를 유지하거나 낮추기만 하는 선택적 self-consistency cascade
 │   │   ├── prompts/            # catalog-as-code 프롬프트 컴포저 (`rule-catalog/prompts/` 로드, T2에 공급)
 │   │   ├── tools/              # T2 툴 카탈로그 레지스트리 + `ToolExecutor` (shadow-mode 게이팅)
 │   │   ├── web_search/         # 최후 수단 웹 검색 seam (`NoOpWebSearchProvider` 기본; 도메인 allowlist + sanitizer)

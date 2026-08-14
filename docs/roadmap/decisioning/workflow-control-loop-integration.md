@@ -15,7 +15,7 @@ title: Workflow Control-Loop Integration
 | Shadow and typed enforce orchestration | implemented | [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_coordinator.py`](../../../services/core-control-plane/tests/core/workflow/test_coordinator.py) | Shadow cannot mutate, and enforce proposals re-enter typed ingress with attempt-scoped identity. |
 | Durable journal, projection, and approval | implemented | [`test_projection.py`](../../../services/core-control-plane/tests/core/workflow/test_projection.py), [`test_workflow_approval.py`](../../../services/core-control-plane/tests/delivery/persistence/test_workflow_approval.py) | Revisioned Process state, retryable projection, quorum, timeout, and no-self-approval have focused coverage. |
 | Compensation and durable target hold | implemented | [`test_automation_hold.py`](../../../services/core-control-plane/tests/core/workflow/test_automation_hold.py), [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_control_loop_authority.py`](../../../services/core-control-plane/tests/core/test_control_loop_authority.py), [`test_gate.py`](../../../services/core-control-plane/tests/core/risk_gate/test_gate.py) | Incomplete recovery creates a restart-safe, duplicate-safe hold that denies ordinary forward dispatch. Only matching verified recovery can release it. |
-| Guard evaluation | in-progress | [Guard evaluation](#42-guard-evaluation-seam) | The seam and fail-closed audit state exist; deployment-specific policy evaluation remains an injected binding. |
+| Guard evaluation | implemented | [Guard evaluation](#42-guard-evaluation-seam), [`test_guard_fail_closed.py`](../../../services/core-control-plane/tests/core/workflow/test_guard_fail_closed.py) | The runtime binds `ChangeWindowWorkflowGuardEvaluator` over the architecture-review gate. Missing, stale, malformed, and unavailable evidence all block the step and record a bounded `guard_error`. |
 | Governed Python, schedule, command, and shell paths | in-progress | [Governed tasks and schedules](#45-governed-python-tasks-and-cron-schedules) | Validation and bounded sandbox mechanics exist, but live executor and production scale-out evidence remain incomplete. |
 
 ### Implementation history
@@ -24,11 +24,12 @@ title: Workflow Control-Loop Integration
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source and focused tests listed in the scope table. | Complete policy binding and production concurrency evidence. |
 | 2026-08-14 | implemented | Recorded the validated FDAI-CONST-009 control-loop boundary: incomplete compensation issues a durable hold, ordinary dispatch is denied, and matching recovery remains Human approval-gated until verified release. | `228f0779e`; focused hold, compensation, control-loop, and risk-gate checks passed 10 tests; centralized validation passed. | Complete the unrelated guard binding, distributed dispatch evidence, and governed task work below. |
+| 2026-08-14 | implemented | Made bound guard evaluation fail closed: a stale evaluation clock, a raising or unavailable evaluator, and a non-boolean result each block the step and record a bounded `guard_error` in the `workflow.step` audit row. | `current change`; `workflow_step_executor.py` and `test_guard_fail_closed.py`; focused workflow checks passed 101 cases; task-scoped Ruff and strict mypy passed. | Complete the multi-replica dispatch evidence and governed Python-task executor work below. |
 
 ### Remaining work
 
-- [ ] Bind and test a concrete guard policy evaluator while preserving fail-closed behavior for
-  missing, stale, malformed, and unavailable evidence.
+- [x] The concrete `ChangeWindowWorkflowGuardEvaluator` binding is tested end to end, and missing,
+  stale, malformed, and unavailable evidence each block the step fail-closed.
 - [ ] Retain multi-replica locking and duplicate-delivery evidence proving one forward dispatch per
   Process step and attempt.
 - [ ] Complete the governed Python-task live executor and retain sandbox, outcome, and recovery
@@ -116,7 +117,23 @@ this seam. When an evaluator is bound and a step's guard returns false, the
 shadow run records `guard_passed: false` and treats the step as a judged no-op
 (reason `guard_blocked_shadow_noop`) - the run continues, nothing mutates. Every
 `workflow.step` audit row carries `guard_rule_ref` / `guard_evaluated` /
-`guard_passed` so a reviewer sees exactly which guard gated which step.
+`guard_passed` / `guard_error` so a reviewer sees exactly which guard gated which step.
+
+Guard resolution is fail-closed. The executor pins one evaluation instant for the whole
+run so every step shares one causal clock; when that instant is older than
+`guard_evidence_max_age` (15 minutes by default) the guard blocks with
+`guard_evidence_stale` instead of judging against a clock that no longer describes the
+world. A raising or unavailable evaluator blocks with
+`guard_evaluator_error:<ExceptionType>`, and a non-boolean result blocks with
+`guard_result_malformed`. A clean policy block - the evidence source answered and no
+effective window covers the target - keeps `guard_error: null`, so an operator can tell a
+denied guard apart from a broken one. Cancellation still propagates, so shutdown stays
+cooperative.
+
+The runtime binds `ChangeWindowWorkflowGuardEvaluator` over the
+`ArchitectureReviewProductionGateEvaluator` fallback: `gate_ref: change-window.active`
+resolves against the ontology's reviewed `ChangeWindow` records for the exact process
+target, and every other gate reference delegates to the architecture-review evaluator.
 
 ### 4.3 Runtime journal and ontology projection
 

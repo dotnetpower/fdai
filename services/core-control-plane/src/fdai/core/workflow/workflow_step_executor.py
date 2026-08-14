@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Mapping
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fdai.core.runbook.models import RunbookStep, RunbookStepOutcome, RunbookStepResult
 from fdai.core.workflow.approval import StepApproval
@@ -34,6 +34,14 @@ from fdai.shared.providers.process_runtime import (
     ProcessStatus,
 )
 from fdai.shared.providers.state_store import StateStore
+
+DEFAULT_GUARD_EVIDENCE_MAX_AGE = timedelta(minutes=15)
+"""Maximum age of the evaluation instant a guard may be resolved against.
+
+The executor pins one instant for the whole run so every step shares one causal
+clock. A long-running Process would otherwise resolve a late step against an
+instant that no longer describes the world, so an over-aged clock fails closed.
+"""
 
 
 def _normalized_principal(value: object) -> str:
@@ -66,6 +74,7 @@ class ShadowWorkflowStepExecutor:
         "_snapshot",
         "_context",
         "_now",
+        "_guard_evidence_max_age",
         "_mode",
         "_target_resource_id",
         "_attempt",
@@ -89,12 +98,15 @@ class ShadowWorkflowStepExecutor:
         snapshot: ProcessSnapshot,
         context: Mapping[str, str] | None = None,
         now: datetime | None = None,
+        guard_evidence_max_age: timedelta = DEFAULT_GUARD_EVIDENCE_MAX_AGE,
         mode: Mode = Mode.SHADOW,
         target_resource_id: str = "",
         attempt: int = 1,
     ) -> None:
         if attempt < 1:
             raise ValueError("workflow step attempt MUST be >= 1")
+        if guard_evidence_max_age <= timedelta(0):
+            raise ValueError("guard_evidence_max_age MUST be positive")
         self._process_id = process_id
         self._action_types = action_types
         self._action_dispatcher = action_dispatcher
@@ -110,9 +122,50 @@ class ShadowWorkflowStepExecutor:
         self._snapshot = snapshot
         self._context = context or {}
         self._now = now or datetime.now(tz=UTC)
+        self._guard_evidence_max_age = guard_evidence_max_age
         self._mode = mode
         self._target_resource_id = target_resource_id or snapshot.target_resource_id
         self._attempt = attempt
+
+    async def _evaluate_guard(
+        self,
+        evaluator: WorkflowGuardEvaluator | WorkflowContextualGuardEvaluator,
+        *,
+        guard_ref: str,
+        step_id: str,
+    ) -> tuple[bool, str | None]:
+        """Resolve one guard fail-closed and return ``(passed, error)``.
+
+        A stale evaluation clock, an unavailable or raising evaluator, and a
+        non-boolean result all resolve to ``False`` with a bounded machine reason.
+        Missing evidence is the evaluator's own contract; it never becomes a pass
+        here. ``asyncio.CancelledError`` propagates so shutdown stays cooperative.
+        """
+
+        if datetime.now(tz=UTC) - self._now > self._guard_evidence_max_age:
+            return False, "guard_evidence_stale"
+        try:
+            if isinstance(evaluator, WorkflowContextualGuardEvaluator):
+                outcome = await evaluator.evaluate_context(
+                    rule_id=guard_ref,
+                    step_id=step_id,
+                    process_id=self._process_id,
+                    target_resource_id=self._target_resource_id,
+                    at=self._now,
+                )
+            else:
+                outcome = await evaluator.evaluate(
+                    rule_id=guard_ref,
+                    step_id=step_id,
+                    process_id=self._process_id,
+                )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - deployment-specific policy boundary
+            return False, f"guard_evaluator_error:{type(exc).__name__}"
+        if not isinstance(outcome, bool):
+            return False, "guard_result_malformed"
+        return outcome, None
 
     async def execute(self, *, runbook_id: str, step: RunbookStep) -> RunbookStepResult:
         if await cancellation_blocks_new_step(
@@ -140,22 +193,14 @@ class ShadowWorkflowStepExecutor:
 
         guard_evaluated = False
         guard_passed: bool | None = None
+        guard_error: str | None = None
         if guard_ref is not None and self._guard_evaluator is not None:
             guard_evaluated = True
-            if isinstance(self._guard_evaluator, WorkflowContextualGuardEvaluator):
-                guard_passed = await self._guard_evaluator.evaluate_context(
-                    rule_id=guard_ref,
-                    step_id=step.id,
-                    process_id=self._process_id,
-                    target_resource_id=self._target_resource_id,
-                    at=self._now,
-                )
-            else:
-                guard_passed = await self._guard_evaluator.evaluate(
-                    rule_id=guard_ref,
-                    step_id=step.id,
-                    process_id=self._process_id,
-                )
+            guard_passed, guard_error = await self._evaluate_guard(
+                self._guard_evaluator,
+                guard_ref=guard_ref,
+                step_id=step.id,
+            )
 
         await self._audit.append_audit_entry(
             {
@@ -182,6 +227,7 @@ class ShadowWorkflowStepExecutor:
                 "guard_rule_ref": guard_ref,
                 "guard_evaluated": guard_evaluated,
                 "guard_passed": guard_passed,
+                "guard_error": guard_error,
                 "params": redacted_params,
                 "params_redacted": sorted(redacted_paths),
                 "recorded_at": datetime.now(tz=UTC).isoformat(),

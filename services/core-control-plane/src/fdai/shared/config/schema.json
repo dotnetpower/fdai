@@ -140,6 +140,27 @@
           "minimum": 2,
           "default": 2
         },
+        "self_consistency_samples": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9,
+          "default": 0,
+          "description": "T2 self-consistency samples per triggered call. 0 leaves the cascade unbound so the T2 path is unchanged. See docs/roadmap/decisioning/hallucination-rubric-gate.md."
+        },
+        "self_consistency_sample_threshold": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "default": 0.7,
+          "description": "Sampling runs only when the candidate aggregate confidence is below this value."
+        },
+        "self_consistency_stability_threshold": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "default": 0.7,
+          "description": "Measured action stability below this value holds the T2 outcome at escalate."
+        },
         "t2_primary_latency_routing": {
           "type": "boolean",
           "default": true,

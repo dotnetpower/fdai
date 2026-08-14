@@ -1,8 +1,8 @@
 ---
 title: Hallucination Rubric Gate
 translation_of: hallucination-rubric-gate.md
-translation_source_sha: 937e800606931dd6db90fb5fd90e0b9cefa7e64c
-translation_revised: 2026-08-13
+translation_source_sha: 4f7cf6bd58bb31e7118915549cbdda0d246b007c
+translation_revised: 2026-08-14
 ---
 # Hallucination 평가 기준 게이트 (환각 루브릭 게이트)
 
@@ -22,9 +22,9 @@ translation_revised: 2026-08-13
 |------|------|------|------|
 | 루브릭 축약 및 빼기 전용 게이트 동작 | implemented | [`rubric.py`](../../../services/core-control-plane/src/fdai/core/quality_gate/rubric.py), [`gate.py`](../../../services/core-control-plane/src/fdai/core/quality_gate/gate.py), [`test_rubric_gate.py`](../../../services/core-control-plane/tests/core/quality_gate/test_rubric_gate.py) | 집중 검사는 전체 기준 포함, 실패 시 차단 결과, shadow 격리 및 `min()`만 사용하는 확신도 반영을 증명합니다. |
 | 독립 판정자 및 프롬프트 카탈로그 제약 | implemented | [`llm_resolver.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver.py), [`t2-rubric.v1.yaml`](../../../rule-catalog/prompts/base/t2-rubric.v1.yaml), [`test_mixed_model_cross_check.py`](../../../services/core-control-plane/tests/quality_gate/test_mixed_model_cross_check.py) | 해석된 루브릭 판정자가 기본 추론기와 같은 제공자를 사용하지 못하도록 해석기가 검사하며, 카탈로그 검사는 프롬프트를 루브릭 기능에 결속합니다. |
-| 런타임 바인딩 및 컨트롤 루프 감사 변환 결과 | implemented | [`control_loop.py`](../../../services/core-control-plane/src/fdai/runtime/control_loop.py), [`_audit_helpers.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_audit_helpers.py), [`_audit.py`](../../../services/core-control-plane/src/fdai/core/quality_gate/_audit.py) | 런타임은 선택적 평가기를 quality 게이트에 전달하고 T2 quality 판정이 있으면 범위가 제한된 루브릭 출처를 직렬화합니다. 이는 실제 평가기가 바인딩되었음을 증명하지 않습니다. |
+| 런타임 바인딩 및 컨트롤 루프 감사 변환 결과 | implemented | [`control_loop.py`](../../../services/core-control-plane/src/fdai/runtime/control_loop.py), [`_audit_helpers.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_audit_helpers.py), [`test_control_loop_rubric_audit.py`](../../../services/core-control-plane/tests/core/test_control_loop_rubric_audit.py) | 루브릭 평가기를 바인딩한 종단 간 상담은 `control_loop.t2_evaluate` 행에 범위가 제한된 `rubric_*` 출처를 영속화하며 판정자의 근거 설명은 제외합니다. |
 | Azure 판정자 어댑터 및 엄격한 응답 파싱 | implemented | [`rubric.py`](../../../services/core-control-plane/src/fdai/delivery/azure/llm/rubric.py), [`test_rubric.py`](../../../services/core-control-plane/tests/delivery/azure/llm/test_rubric.py) | 모의 전송 검사는 구성에서 소유하는 임계값, 엄격한 파싱 및 잘못된 응답 실패를 다룹니다. 실제 모델 근거는 아닙니다. |
-| Self-consistency cascade 통합 | in-progress | [`self_consistency.py`](../../../services/core-control-plane/src/fdai/core/quality_gate/self_consistency.py), [`test_self_consistency.py`](../../../services/core-control-plane/tests/core/quality_gate/test_self_consistency.py) | 범위가 제한된 cascade와 엄격한 안정성 판정은 구현 및 검사됐지만, 프로덕션 T2 호출자는 cascade를 호출하지 않습니다. |
+| Self-consistency cascade 통합 | implemented | [`self_consistency.py`](../../../services/core-control-plane/src/fdai/core/quality_gate/self_consistency.py), [`tier.py`](../../../services/core-control-plane/src/fdai/core/tiers/t2_reasoning/tier.py), [`test_tier.py`](../../../services/core-control-plane/tests/core/tiers/t2_reasoning/test_tier.py), [`test_self_consistency_binding.py`](../../../services/core-control-plane/tests/runtime/test_self_consistency_binding.py) | `SelfConsistencyCascade`는 `llm.self_consistency_*` 구성으로 만드는 선택적 T2 바인딩입니다. 불안정한 결과는 quality 판정과 감사 기록에 도달하지만 티어 결과는 escalate에 멈춥니다. |
 | 지표 기반 승격 및 운영 검증 | not-started | [승격 지표](#승격-지표), [한계](#한계-하지-못하는-것) | 저장소에는 자동 루브릭 승격 레지스트리나 고정된 리비전에서 포착률, 오탐률, 지연 시간, 토큰 비용 및 정책 위반 우회 0건을 증명하는 관리되는 shadow 증적이 없습니다. |
 
 ### 구현 이력
@@ -32,11 +32,12 @@ translation_revised: 2026-08-13
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 이전 전달 이력을 재구성하지 않고 근거 범위 안에서 구현 원장을 도입했습니다. | `current change`; 범위 테이블에 나열된 현재 소스 및 집중 검사; 루브릭 관련 집중 검사 103건이 통과했습니다. | Self-consistency cascade를 연결하고, 종단 간 감사 영속성을 증명하며, 관리되는 shadow 및 승격 근거를 보존해야 합니다. |
+| 2026-08-14 | implemented | 옵인 구성 뒤에서 프로덕션 T2 경로가 self-consistency cascade를 호출하도록 하고, 신뢰할 수 없는 근거 설명 없이 종단 간 루브릭 출처 영속성을 증명했습니다. | `current change`; `tier.py`, `self_consistency.py`, `control_loop.py`, `models.py`; 집중 검사가 quality 게이트와 T2 172건, 컨트롤 루프 감사 3건, 런타임 바인딩 11건을 통과했고 작업 범위 Ruff와 strict mypy가 통과했습니다. | 포착률, 오탐률, 지연 시간, 토큰 비용, 우회 0건에 대한 관리되는 shadow 증적을 보존한 뒤 승격 전환을 결정합니다. |
 
 ### 남은 작업
 
-- [ ] 프로덕션 T2 경로에서 self-consistency cascade를 호출하고, 불안정한 결과가 자격을 부여하지 않은 채 quality 판정 및 감사 기록에 도달함을 집중 검사로 증명합니다.
-- [ ] 루브릭 평가기를 바인딩하고 범위가 제한된 `rubric_*` 출처는 영속화하되 신뢰할 수 없는 근거 설명은 제외함을 증명하는 종단 간 컨트롤 루프 검사를 추가합니다.
+- [x] 프로덕션 T2 경로는 `llm.self_consistency_samples`가 양수일 때 cascade를 호출하며, 불안정한 결과가 quality 판정과 감사 기록에 도달하되 티어 결과는 escalate에 멈춤을 집중 검사로 증명합니다.
+- [x] 루브릭 평가기를 바인딩하고 범위가 제한된 `rubric_*` 출처는 영속화하되 신뢰할 수 없는 근거 설명은 제외함을 증명하는 종단 간 컨트롤 루프 검사를 추가했습니다.
 - [ ] 고정된 레이블 시나리오 집합에서 고정된 기준선과 처리를 평가한 뒤 환각 포착률, 오탐률, 추가 지연 시간, 토큰 비용 및 정책 위반 우회 0건에 대한 관리되는 증적을 보존합니다.
 - [ ] 기본 shadow 상태를 변경하기 전에 지표 기반 shadow 승격 및 회귀 시 강등을 구현하거나, 이 전환을 수동으로 유지한다는 승인된 결정을 기록합니다.
 
@@ -164,6 +165,23 @@ T2 candidate (+ reasoning_trace)
 토큰 비용을 배가하므로 **cascade** 로 - 더 저렴한 신호가 약할 때만 - 실행되고, 매 T2
 호출마다 돌지 않는다. 단독으로 자격을 부여하지 않는다.
 
+프로덕션 T2 경로는 `T2Tier` 의 선택적 `SelfConsistencyCascade` 바인딩으로 이 cascade를
+소비한다. 비용과 엄격도 정책은 구성 키 세 개가 소유한다:
+
+| 키 | 기본값 | 의미 |
+|-----|--------|------|
+| `llm.self_consistency_samples` | `0` | 발동된 호출당 샘플 수. `0` 은 cascade를 바인딩하지 않아 T2 동작이 그대로 유지된다. |
+| `llm.self_consistency_sample_threshold` | `0.7` | 후보의 집계 확신도가 이 값 미만일 때만 샘플링한다. |
+| `llm.self_consistency_stability_threshold` | `0.7` | 측정된 안정성이 이 값 미만이면 티어 결과를 escalate에 멈춴 둔다. |
+
+측정된 `action_stability` 는 후보의 현재 집계 확신도보다 엄격히 낮을 때만 quality 게이트 앞에서
+후보에 병합된다. 집계가 평균이므로 그 이상의 안정성을 병합하면 확신도가 *오른다*. 측정은
+권한을 유지하거나 낮출 수만 있기 때문이다. 병합된 경우 quality 판정과 그 감사 변환 결과에
+`self_consistency` 로 기록된다. 임계값 미만 측정은 티어 결과를 `self_consistency_unstable`
+사유로 escalate에 멈춰 두며, 게이트 `deny` 는 그대로 deny로 남는다 - 이 보류는 권한을
+낮출 수만 있기 때문이다. 샘플러 실패는 합의가 아니라 근거 부재이므로 티어는
+`self_consistency_error:<ExceptionType>` 로 escalate한다.
+
 ## 관찰 모드
 
 루브릭은 shadow-first로 출시한다. `QualityGateConfig.rubric_shadow` 가 기본 `True` 이고
@@ -193,6 +211,7 @@ T2 candidate (+ reasoning_trace)
 | `RubricEvaluator` | `rubric.py` | 포크가 실제 판정자 모델로 구현하는 프로토콜 |
 | `evaluate_rubric_output` | `rubric.py` | `RubricDecision` 로의 순수 축약 |
 | `SelfConsistencySampler` | `self_consistency.py` | 제안자를 N회 샘플해 안정성 측정 |
+| `SelfConsistencyCascade` | `self_consistency.py` | `T2Tier` 에 바인딩되는 composition 소유 cascade 트리거 |
 | `AzureOpenAIRubricEvaluator` | `delivery/azure/llm/rubric.py` | httpx 판정자 클라이언트, 구성 주입 임계 |
 
 ## 안전 불변식

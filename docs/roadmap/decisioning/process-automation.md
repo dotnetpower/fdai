@@ -265,7 +265,10 @@ older Process cannot release the newer hold.
 
 `ChangeWindowWorkflowGuardEvaluator` resolves `gate_ref: change-window.active` with the exact
 Process target and evaluation time. It delegates other refs to the existing guard evaluator, so
-the architecture-review production gate remains unchanged. The shipped
+the architecture-review production gate remains unchanged. Guard resolution is fail-closed: a
+stale evaluation clock, a raising or unavailable evaluator, and a non-boolean result each block
+the step and record a bounded `guard_error`, while a clean policy block keeps `guard_error` null.
+The shipped
 `planned-vm-start-change` workflow demonstrates the complete reusable pattern: active window,
 Owner quorum, `ops.start-vm`, independent outcome verification, change summary, and
 `ops.deallocate-vm` compensation. It pins those ActionTypes by versioned workflow design; runtime

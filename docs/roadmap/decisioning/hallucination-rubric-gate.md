@@ -20,9 +20,9 @@ its DI seams; it extends the T2 gate rules in
 |------|-------|----------|-------|
 | Rubric reduction and subtractive gate behavior | implemented | [`rubric.py`](../../../services/core-control-plane/src/fdai/core/quality_gate/rubric.py), [`gate.py`](../../../services/core-control-plane/src/fdai/core/quality_gate/gate.py), [`test_rubric_gate.py`](../../../services/core-control-plane/tests/core/quality_gate/test_rubric_gate.py) | Focused checks prove complete criterion coverage, fail-closed outcomes, shadow isolation, and `min()`-only confidence folding. |
 | Independent judge and prompt catalog constraints | implemented | [`llm_resolver.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver.py), [`t2-rubric.v1.yaml`](../../../rule-catalog/prompts/base/t2-rubric.v1.yaml), [`test_mixed_model_cross_check.py`](../../../services/core-control-plane/tests/quality_gate/test_mixed_model_cross_check.py) | Resolver checks prevent a resolved rubric judge from sharing the primary reasoner's publisher, and catalog checks bind the prompt to the rubric capability. |
-| Runtime binding and control-loop audit projection | implemented | [`control_loop.py`](../../../services/core-control-plane/src/fdai/runtime/control_loop.py), [`_audit_helpers.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_audit_helpers.py), [`_audit.py`](../../../services/core-control-plane/src/fdai/core/quality_gate/_audit.py) | The runtime passes an optional evaluator into the quality gate and serializes bounded rubric provenance when a T2 quality decision exists. This does not prove a live evaluator is bound. |
+| Runtime binding and control-loop audit projection | implemented | [`control_loop.py`](../../../services/core-control-plane/src/fdai/runtime/control_loop.py), [`_audit_helpers.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_audit_helpers.py), [`test_control_loop_rubric_audit.py`](../../../services/core-control-plane/tests/core/test_control_loop_rubric_audit.py) | An end-to-end consultation with a bound rubric evaluator persists bounded `rubric_*` provenance in the `control_loop.t2_evaluate` row while the judge's rationale stays excluded. |
 | Azure judge adapter and strict response parsing | implemented | [`rubric.py`](../../../services/core-control-plane/src/fdai/delivery/azure/llm/rubric.py), [`test_rubric.py`](../../../services/core-control-plane/tests/delivery/azure/llm/test_rubric.py) | Mocked transport checks cover configuration-owned thresholds, strict parsing, and malformed-response failure. They are not real-model evidence. |
-| Self-consistency cascade integration | in-progress | [`self_consistency.py`](../../../services/core-control-plane/src/fdai/core/quality_gate/self_consistency.py), [`test_self_consistency.py`](../../../services/core-control-plane/tests/core/quality_gate/test_self_consistency.py) | The bounded cascade and hard stability decision are implemented and tested, but no production T2 caller invokes the cascade. |
+| Self-consistency cascade integration | implemented | [`self_consistency.py`](../../../services/core-control-plane/src/fdai/core/quality_gate/self_consistency.py), [`tier.py`](../../../services/core-control-plane/src/fdai/core/tiers/t2_reasoning/tier.py), [`test_tier.py`](../../../services/core-control-plane/tests/core/tiers/t2_reasoning/test_tier.py), [`test_self_consistency_binding.py`](../../../services/core-control-plane/tests/runtime/test_self_consistency_binding.py) | `SelfConsistencyCascade` is an optional T2 binding built from `llm.self_consistency_*` configuration. An unstable result reaches the quality decision and audit record but holds the tier outcome at escalate. |
 | Metric-driven promotion and operational validation | not-started | [Promotion metrics](#promotion-metrics), [Limits](#limits-what-this-does-not-do) | The repository has no automatic rubric promotion registry or governed shadow receipt proving catch rate, false-positive rate, latency, token cost, and zero policy escapes on a pinned revision. |
 
 ### Implementation history
@@ -30,11 +30,12 @@ its DI seams; it extends the T2 gate rules in
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted an evidence-bounded implementation ledger without reconstructing earlier delivery history. | `current change`; current source and focused checks listed in the scope table; rubric-focused checks passed 103 cases. | Wire the self-consistency cascade, prove end-to-end audit persistence, and retain governed shadow and promotion evidence. |
+| 2026-08-14 | implemented | Invoked the self-consistency cascade from the production T2 path behind opt-in configuration, and proved end-to-end rubric provenance persistence without untrusted rationale. | `current change`; `tier.py`, `self_consistency.py`, `control_loop.py`, `models.py`; focused checks passed 172 quality-gate and T2 cases, 3 control-loop audit cases, and 11 runtime binding cases; task-scoped Ruff and strict mypy passed. | Retain governed shadow receipts for catch rate, false-positive rate, latency, token cost, and zero escapes, then decide the promotion transition. |
 
 ### Remaining work
 
-- [ ] Invoke the self-consistency cascade from the production T2 path and pass a focused test that proves an unstable result reaches the quality decision and audit record without granting eligibility.
-- [ ] Add an end-to-end control-loop test that binds a rubric evaluator and proves bounded `rubric_*` provenance is persisted while untrusted rationale stays excluded.
+- [x] The production T2 path invokes the cascade when `llm.self_consistency_samples` is positive; focused tests prove an unstable result reaches the quality decision and audit record while the tier outcome is held at escalate.
+- [x] An end-to-end control-loop test binds a rubric evaluator and proves bounded `rubric_*` provenance is persisted while untrusted rationale stays excluded.
 - [ ] Evaluate a pinned baseline and treatment on a frozen labeled scenario set, then retain governed receipts for hallucination-catch rate, false-positive rate, added latency, token cost, and zero policy-violation escapes.
 - [ ] Implement metric-driven shadow promotion and regression demotion, or record an approved decision that keeps this transition manual, before changing the default shadow posture.
 
@@ -176,6 +177,25 @@ lowers confidence. Sampling multiplies token cost, so it runs in a **cascade** -
 only when a cheaper signal is weak - not on every T2 call. It never grants
 eligibility on its own.
 
+The production T2 path consumes the cascade through the optional
+`SelfConsistencyCascade` binding on `T2Tier`. Three configuration keys own the cost and
+strictness policy:
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `llm.self_consistency_samples` | `0` | Samples per triggered call. `0` leaves the cascade unbound, so T2 behavior is unchanged. |
+| `llm.self_consistency_sample_threshold` | `0.7` | Sampling runs only when the candidate's aggregate confidence is below this value. |
+| `llm.self_consistency_stability_threshold` | `0.7` | Measured stability below this value holds the tier outcome at escalate. |
+
+The measured `action_stability` is merged into the candidate before the quality gate only when
+it is strictly below the candidate's current aggregate confidence. The aggregate is a mean, so
+merging a stability at or above it would *raise* confidence, and a measurement may only preserve
+or lower autonomy. When the merge happens it is recorded as `self_consistency` on the quality
+decision and its audit projection. A below-threshold measurement also holds the tier
+outcome at `escalate` with reason `self_consistency_unstable`; a gate `deny` stays denied,
+because the hold can only lower authority. A sampler failure is missing evidence, not
+agreement: the tier escalates with `self_consistency_error:<ExceptionType>`.
+
 ## Observe, then enable changes
 
 The rubric ships shadow-first. `QualityGateConfig.rubric_shadow` defaults to
@@ -208,6 +228,7 @@ adapter is in `delivery/`.
 | `RubricEvaluator` | `rubric.py` | Protocol a fork implements with a real judge model |
 | `evaluate_rubric_output` | `rubric.py` | Pure reduction to a `RubricDecision` |
 | `SelfConsistencySampler` | `self_consistency.py` | Sample a proposer N times for stability |
+| `SelfConsistencyCascade` | `self_consistency.py` | Composition-owned cascade trigger bound into `T2Tier` |
 | `AzureOpenAIRubricEvaluator` | `delivery/azure/llm/rubric.py` | httpx judge client, config-injected thresholds |
 
 ## Safety invariants
