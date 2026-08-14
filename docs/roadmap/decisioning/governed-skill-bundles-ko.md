@@ -1,6 +1,6 @@
 ---
 translation_of: governed-skill-bundles.md
-translation_source_sha: c4056677eff30f37d6dda897731a9207de956af1
+translation_source_sha: 45e96e92488f2a1d782560f208d78be0c3c48848
 translation_revised: 2026-08-14
 ---
 # 통제된 스킬 Bundles
@@ -41,6 +41,7 @@ instruction, 출처 이력, self-digest를 선언합니다. Detached 서명은 s
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 ledger를 도입했습니다. focused test로 뒷받침되는 매니페스트, 카탈로그, 수명 주기, workshop, 해석, 프롬프트, 재생, 산출물, 시작 loader 동작을 implemented로 기록하고 불완전한 전달 화면 근거와 배포된 런타임 검증을 분리했습니다. | `current change`; 구현 범위 표에 나열된 소스 및 focused test; route가 지정한 core suite (`51 passed`); `uv run pytest -q --no-cov services/core-control-plane/tests/core/rpc/test_skill_discovery.py` (`2 passed`); `npm --prefix console test -- --run src/routes/skills.test.ts` (`3 passed`) | Bragi 및 번들 RPC 연산 직접 coverage를 추가하고, 실제 영속 재시작과 운영 composition을 입증하며, `validated`를 주장하기 전에 거버넌스가 적용된 런타임 receipt를 수집합니다. |
 | 2026-08-14 | in-progress | Bragi 및 타입이 지정된 RPC 번들 연산 직접 coverage와 단일 권위 스냅샷 동등성 검사를 추가하고, `describe_skill_bundle`이 도구 밖으로 예외를 던지는 대신 `load_skill_bundle`과 동일한 안정 거절을 반환하도록 바꿈습니다. | `current change`; `services/core-control-plane/tests/core/skills/test_bundle_surface_parity.py`; `services/core-control-plane/src/fdai/core/conversation/skill_discovery.py`; 집중 skills, 번들 RPC, 번들 프롬프트 검사 72개가 통과했습니다. | 운영 composition이 트래픽 제공 전에 스냅샷을 게시함을 입증하고, 영속 이행을 적용하며, `validated`를 주장하기 전에 거버넌스가 적용된 런타임 receipt를 수집합니다. |
+| 2026-08-14 | in-progress | 거절된 번들 describe가 자신의 거절 진단을 추가하도록 해, 거부된 메타데이터 읽기가 호출측에서만이 아니라 진단 링에서도 보이도록 했습니다. | `current change`; `services/core-control-plane/src/fdai/core/skills/runtime.py`; `services/core-control-plane/tests/core/skills/test_bundle_surface_parity.py`; 집중 risk-gate, runbook, skills, RPC, 프롬프트 검사 402개가 통과했습니다. | 운영 composition이 트래픽 제공 전에 스냅샷을 게시함을 입증하고, 영속 이행을 적용하며, `validated`를 주장하기 전에 거버넌스가 적용된 런타임 receipt를 수집합니다. |
 
 ### 남은 작업
 

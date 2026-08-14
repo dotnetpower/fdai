@@ -190,7 +190,22 @@ class RuntimeSkillDisclosure:
         bundle_catalog, _bundle_verifier = self._current_bundle_snapshot()
         if bundle_catalog is None:
             raise ValueError("runtime skill bundle catalog is unavailable")
-        bundle = bundle_catalog.get(name)
+        try:
+            bundle = bundle_catalog.get(name)
+        except SkillBundleResolutionError as exc:
+            # Describe records its own rejection so the diagnostics ring shows
+            # the refused read, exactly as load_bundle does.
+            self._append(
+                RuntimeSkillDiagnostic(
+                    operation="describe_bundle",
+                    name=name,
+                    reference=None,
+                    status="rejected",
+                    reason=exc.reason.value,
+                    digests=(),
+                )
+            )
+            raise
         item = next(
             value for value in self._inspect_bundles(bundle_catalog) if value["name"] == name
         )
