@@ -82,7 +82,12 @@ def start(
             f"issue #{issue.number} needs an ## Exit criteria or ## Acceptance criteria checklist"
         )
     client.run(["issue", "edit", str(issue.number), "--repo", repository, "--add-assignee", "@me"])
-    items = project_items(client, owner=owner, project_number=project_number)
+    items = project_items(
+        client,
+        repository=repository,
+        owner=owner,
+        project_number=project_number,
+    )
     item = items.get(issue.number)
     if item is None:
         item = ProjectItem(
@@ -125,7 +130,12 @@ def sync(
 ) -> int:
     """Preview or apply issue-owned lifecycle fields across the project."""
     issues = issue_records(client, repository)
-    items = project_items(client, owner=owner, project_number=project_number)
+    items = project_items(
+        client,
+        repository=repository,
+        owner=owner,
+        project_number=project_number,
+    )
     project_id, metadata = project_metadata(
         client,
         owner=owner,

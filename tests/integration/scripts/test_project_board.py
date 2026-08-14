@@ -109,6 +109,38 @@ def test_exit_contract_requires_heading_and_checkbox(board: ModuleType) -> None:
     assert not board.has_exit_contract("- [ ] Focused checks pass.\n")
 
 
+def test_project_items_ignore_same_number_from_another_repository(board: ModuleType) -> None:
+    class Client:
+        @staticmethod
+        def json(_arguments: object) -> dict[str, object]:
+            return {
+                "items": [
+                    {
+                        "id": "other-item",
+                        "repository": "example/other",
+                        "status": "Done",
+                        "content": {"number": 95},
+                    },
+                    {
+                        "id": "fdai-item",
+                        "repository": "dotnetpower/fdai",
+                        "status": "In progress",
+                        "content": {"number": 95},
+                    },
+                ]
+            }
+
+    items = board.project_items(
+        Client(),
+        repository="dotnetpower/fdai",
+        owner="dotnetpower",
+        project_number=7,
+    )
+
+    assert items[95].item_id == "fdai-item"
+    assert items[95].status == "In progress"
+
+
 @pytest.mark.parametrize(("strict", "expected"), [(False, 0), (True, 1)])
 def test_remote_failure_is_nonblocking_unless_strict(
     board: ModuleType,
