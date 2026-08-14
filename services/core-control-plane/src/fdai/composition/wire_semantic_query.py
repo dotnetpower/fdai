@@ -64,6 +64,10 @@ from fdai.core.ontology_platform.pod_telemetry import (
 from fdai.core.ontology_platform.query_execution import QueryNodeHandler
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
 from fdai.core.ontology_platform.query_receipt_authority import SecuredQueryReceiptAuthority
+from fdai.core.ontology_platform.relationship_queries import (
+    ONTOLOGY_RELATIONSHIPS_FUNCTION_NAME,
+    ontology_relationships_function,
+)
 from fdai.core.prompts.registry import FileSystemPromptRegistry
 from fdai.delivery.azure.llm.request_target import ModelRequestTarget
 from fdai.delivery.azure.llm.semantic_planning import (
@@ -201,6 +205,16 @@ def build_semantic_query_runtime(
             ),
         )
         bound_function_names.add(incident_declaration.name)
+    relationship_declaration = declarations[ONTOLOGY_RELATIONSHIPS_FUNCTION_NAME]
+    function_registry.register_contextual(
+        relationship_declaration,
+        ontology_relationships_function(
+            ontology_release,
+            object_types=ontology_catalog.object_types,
+            link_types=ontology_catalog.link_types,
+        ),
+    )
+    bound_function_names.add(relationship_declaration.name)
     network_declaration = declarations[NETWORK_PATH_FUNCTION_NAME]
     function_registry.register_contextual(
         network_declaration,

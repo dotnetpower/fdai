@@ -10,6 +10,7 @@ from .catalog_queries import catalog_search_rules_function_type
 from .incident_queries import incident_evidence_function_type
 from .network_path import network_path_function_type
 from .pod_telemetry import pod_telemetry_function_type
+from .relationship_queries import ontology_relationships_function_type
 
 
 def operational_function_types(
@@ -21,6 +22,7 @@ def operational_function_types(
         catalog_search_rules_function_type(),
         incident_evidence_function_type(),
         network_path_function_type(),
+        ontology_relationships_function_type(),
         pod_telemetry_function_type(),
     )
     names = [item.name for item in combined]

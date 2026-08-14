@@ -523,6 +523,103 @@ def _incident_evidence_runtime_result(
     )
 
 
+def _ontology_relationship_runtime_result(
+    *,
+    output_release_digest: str = RELEASE_DIGEST,
+) -> RuntimeSemanticTurnResult:
+    result = _runtime_result("answered")
+    assert result.execution is not None
+    output = {
+        "object_types": ["PythonTask", "VmTaskRun"],
+        "relationships": [
+            {
+                "link_type": "executes_task",
+                "from_type": "VmTaskRun",
+                "to_type": "PythonTask",
+                "cardinality": "many_to_one",
+                "description": "The immutable PythonTask artifact selected by a VM task run.",
+            }
+        ],
+        "complete": True,
+        "authority": "ontology_release",
+        "ontology_release_digest": output_release_digest,
+        "execution_authority": False,
+    }
+    node = SimpleNamespace(
+        node_id="relationships",
+        kind=SimpleNamespace(value="function"),
+        arguments={
+            "function_name": "query.ontology_relationships",
+            "arguments": {
+                "object_types": ["PythonTask", "VmTaskRun"],
+                "limit": 100,
+            },
+        },
+    )
+    plan = SimpleNamespace(
+        ontology_release_digest=RELEASE_DIGEST,
+        semantic_catalog_digest=MANIFEST_DIGEST,
+        plan_digest=PLAN_DIGEST,
+        nodes=(node,),
+    )
+    planning = SimpleNamespace(plan=plan, manifest_digest=MANIFEST_DIGEST)
+    function_receipt = result.execution.receipts[0].model_copy(
+        update={
+            "task_id": "query:relationships",
+            "goal_id": "relationships",
+            "intent": "function",
+            "capability": "query.function",
+            "evidence_refs": ("ontology-function:relationships",),
+        }
+    )
+    execution = QueryPlanExecution(
+        plan_digest=PLAN_DIGEST,
+        status="completed",
+        results=MappingProxyType(
+            {
+                "relationships": QueryNodeResult(
+                    value=output,
+                    evidence_refs=("ontology-function:relationships",),
+                )
+            }
+        ),
+        receipts=(function_receipt,),
+        output_node_ids=("relationships",),
+    )
+    graph_goal = cast(dict[str, object], result.intent_graph)["goals"][0]
+    evidence_goal = cast(dict[str, object], result.intent_graph_evidence)["goals"][0]
+    return RuntimeSemanticTurnResult(
+        disposition="answered",
+        reason=result.reason,
+        planning=cast(Any, planning),
+        execution=execution,
+        intent_graph={
+            **cast(dict[str, object], result.intent_graph),
+            "goals": [
+                {
+                    **cast(dict[str, object], graph_goal),
+                    "goal_id": "relationships",
+                    "intent": "function",
+                    "capability": "query.function",
+                }
+            ],
+        },
+        intent_graph_evidence={
+            **cast(dict[str, object], result.intent_graph_evidence),
+            "goals": [
+                {
+                    **cast(dict[str, object], evidence_goal),
+                    "task_id": "query:relationships",
+                    "goal_id": "relationships",
+                    "intent": "function",
+                    "capability": "query.function",
+                    "evidence_refs": ["ontology-function:relationships"],
+                }
+            ],
+        },
+    )
+
+
 async def test_malformed_semantic_request_goes_to_dlq() -> None:
     bus = InMemoryEventBus()
     await bus.publish("operator.request", "bad", {"schema_version": "1.2.0"})
@@ -966,6 +1063,49 @@ async def test_incident_evidence_with_mismatched_correlation_is_held() -> None:
     encoded = await _processor(
         _Runtime(
             _incident_evidence_runtime_result(output_correlation_id="incident-correlation-other")
+        )
+    ).process(_request())
+
+    semantic = _projection(encoded)["semantic_result"]
+    assert semantic["disposition"] == "held"
+    assert semantic["reason_code"] == "semantic_evidence_incomplete"
+
+
+@pytest.mark.parametrize(
+    ("locale", "heading", "limitation"),
+    [
+        ("en", "## Ontology relationships", "grants no execution authority"),
+        ("ko", "## 온톨로지 관계", "실행 권한을 부여하지 않습니다"),
+    ],
+)
+async def test_ontology_relationship_answer_is_exact_and_localized(
+    locale: str,
+    heading: str,
+    limitation: str,
+) -> None:
+    encoded = await _processor(_Runtime(_ontology_relationship_runtime_result())).process(
+        _request(locale=locale)
+    )
+
+    projection = _projection(encoded)
+    semantic = projection["semantic_result"]
+    assert semantic["disposition"] == "answered"
+    answer = semantic["answer"]
+    assert answer.startswith(heading)
+    assert "`VmTaskRun` --`executes_task`--> `PythonTask` (`many_to_one`)" in answer
+    assert "immutable PythonTask artifact selected by a VM task run" in answer
+    assert limitation in answer
+    relationships = projection["payload"]["technical_details"]["outputs"][0][
+        "ontology_relationships"
+    ]
+    assert relationships["ontology_release_digest"] == RELEASE_DIGEST
+    assert relationships["execution_authority"] is False
+
+
+async def test_ontology_relationship_answer_rejects_stale_release_output() -> None:
+    encoded = await _processor(
+        _Runtime(
+            _ontology_relationship_runtime_result(output_release_digest="sha256:" + ("f" * 64))
         )
     ).process(_request())
 
