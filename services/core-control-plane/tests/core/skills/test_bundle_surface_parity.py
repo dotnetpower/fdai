@@ -15,7 +15,13 @@ from fdai.core.conversation.skill_discovery import (
     ListRuntimeSkillBundlesTool,
     LoadRuntimeSkillBundleTool,
 )
-from fdai.core.rpc import RpcRegistry, RpcRequest, RpcScope, skill_discovery_rpc_methods
+from fdai.core.rpc import (
+    RpcRegistry,
+    RpcRequest,
+    RpcResponse,
+    RpcScope,
+    skill_discovery_rpc_methods,
+)
 from fdai.core.skills import RuntimeSkill, RuntimeSkillDisclosure, SkillCatalog, skill_body_digest
 from fdai.core.skills.bundle_catalog import SkillBundleCatalog
 from fdai.core.skills.bundle_manifest import RuntimeSkillBundle, encode_skill_bundle_manifest
@@ -104,7 +110,7 @@ def _registry(disclosure: RuntimeSkillDisclosure) -> RpcRegistry:
     return registry
 
 
-async def _rpc(registry: RpcRegistry, method: str, **params: object):  # type: ignore[no-untyped-def]
+async def _rpc(registry: RpcRegistry, method: str, **params: object) -> RpcResponse:
     return await registry.invoke(
         RpcRequest(request_id=method, method=method, params=params),
         scopes=frozenset({RpcScope.READ}),
