@@ -619,6 +619,11 @@ startup, or are pure CPU boundary validation with no I/O, so an async wrapper wo
 noise. Tests use `pytest-asyncio` with `asyncio_mode = "auto"` so a plain `async def
 test_...` runs without a per-test marker.
 
+`StateStore` exposes exactly one removal primitive, `delete_states_beyond(prefix, retain_newest)`.
+It bounds the growth of an append-only evidence projection by dropping the oldest rows past the
+bound, in the same order `read_states` returns. It cannot name a key, so it can never erase an
+authoritative record or an audit entry.
+
 ## Control-Loop Wiring
 
 Every terminal path-including reject, HIL timeout, abstain, and deny-writes an audit entry.

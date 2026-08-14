@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import time
+from datetime import UTC, datetime
 from typing import cast
 
+import pytest
 from fdai.core.capability_catalog import (
     Capability,
     CapabilityBinding,
@@ -35,6 +37,12 @@ from fdai.core.working_context import (
     TranscriptEntry,
     execute_context_selection_policy,
 )
+from fdai.core.working_context.evidence import (
+    ContextSelectionEvaluation,
+    StateStoreContextSelectionEvaluationStore,
+)
+from fdai.core.working_context.types import ContextManifest
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 
 class _ExceptionPolicy:
@@ -232,3 +240,102 @@ async def test_async_composition_schedules_shadow_without_candidate_output() -> 
     comparisons = await store.list(limit=10)
     assert len(comparisons) == 1
     assert comparisons[0].candidate_policy_ref == "passing-policy-v1@1.0.0"
+
+
+def _evaluation(evaluation_id: str) -> ContextSelectionEvaluation:
+    empty = ContextManifest(
+        verbatim_ids=(),
+        summary_ids=(),
+        retrieved_ids=(),
+        pinned_ids=(),
+        typed_fact_ids=(),
+        verbatim_tokens=0,
+        summary_tokens=0,
+        retrieved_tokens=0,
+        pinned_tokens=0,
+        typed_fact_tokens=0,
+        dropped_ids=(),
+    )
+    return ContextSelectionEvaluation(
+        evaluation_id=evaluation_id,
+        input_fingerprint="fingerprint",
+        baseline_policy_ref="baseline@1.0.0",
+        candidate_policy_ref="candidate@1.0.0",
+        baseline_manifest=empty,
+        candidate_manifest=empty,
+        baseline_tokens=0,
+        candidate_tokens=0,
+        evidence_overlap=1.0,
+        omissions=(),
+        pinned_preserved=True,
+        relevance=None,
+        answer_quality_ref=None,
+        answer_quality_score=None,
+        latency_ms=1.0,
+        failure_reason=None,
+        created_at=datetime(2026, 8, 14, tzinfo=UTC),
+    )
+
+
+async def test_durable_comparisons_stay_bounded_across_many_runs() -> None:
+    authority = _authority(cast(ContextSelectionPolicy, _PassingPolicy()))
+    store = InMemoryContextSelectionEvaluationStore()
+    runner = ContextSelectionShadowRunner(
+        authority=authority,
+        store=store,
+        config=ContextShadowConfig(retain_evaluations=2),
+    )
+    selection_input = _selection_input()
+    baseline = execute_context_selection_policy(
+        policy=authority.active_policy(), selection_input=selection_input
+    )
+
+    for _ in range(5):
+        await runner.evaluate(selection_input=selection_input, baseline=baseline)
+
+    retained = await store.list(limit=50)
+    assert len(retained) == 2
+
+
+async def test_a_failed_prune_never_discards_the_comparisons_just_written() -> None:
+    class _PruneFailingStore(InMemoryContextSelectionEvaluationStore):
+        async def prune(self, *, retain_newest: int) -> int:
+            raise RuntimeError("retention backend unavailable")
+
+    authority = _authority(cast(ContextSelectionPolicy, _PassingPolicy()))
+    store = _PruneFailingStore()
+    runner = ContextSelectionShadowRunner(authority=authority, store=store)
+    selection_input = _selection_input()
+    baseline = execute_context_selection_policy(
+        policy=authority.active_policy(), selection_input=selection_input
+    )
+
+    records = await runner.evaluate(selection_input=selection_input, baseline=baseline)
+
+    assert len(records) == 1
+    assert len(await store.list(limit=10)) == 1
+
+
+async def test_retention_bound_below_one_is_rejected() -> None:
+    with pytest.raises(ValueError, match="retain_evaluations"):
+        ContextShadowConfig(retain_evaluations=0)
+
+
+async def test_state_store_retention_keeps_exactly_the_readable_newest_rows() -> None:
+    state_store = InMemoryStateStore()
+    store = StateStoreContextSelectionEvaluationStore(state_store)
+    for index in range(6):
+        await store.append(_evaluation(f"eval-{index}"))
+
+    newest_before = [item.evaluation_id for item in await store.list(limit=3)]
+    deleted = await store.prune(retain_newest=3)
+
+    # Retention removes exactly the rows a bounded newest-first read never sees.
+    assert deleted == 3
+    assert [item.evaluation_id for item in await store.list(limit=10)] == newest_before
+
+
+async def test_state_store_retention_rejects_a_bound_below_one() -> None:
+    store = StateStoreContextSelectionEvaluationStore(InMemoryStateStore())
+    with pytest.raises(ValueError, match="retain_newest"):
+        await store.prune(retain_newest=0)

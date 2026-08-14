@@ -100,6 +100,31 @@ class StateStore(Protocol):
         """
         ...
 
+    async def delete_states_beyond(self, prefix: str, *, retain_newest: int) -> int:
+        """Delete the oldest tracked rows under ``prefix`` past ``retain_newest``.
+
+        Bounds the growth of an append-only projection whose rows are
+        evidence rather than authority - a long-lived deployment can leave
+        such a projection enabled without unbounded tracked-state growth.
+        Ordering matches :meth:`read_states`, so the rows this removes are
+        exactly the ones that read would never return.
+
+        This is deliberately NOT a general delete: it cannot remove a named
+        key, so it can never be used to erase an authoritative record or an
+        audit entry.
+
+        Args:
+            prefix: The key prefix whose rows are subject to retention.
+            retain_newest: How many newest rows to keep. MUST be >= 1.
+
+        Returns:
+            The number of rows deleted.
+
+        Raises:
+            ValueError: when ``retain_newest`` is below 1 or ``prefix`` is empty.
+        """
+        ...
+
     async def read_state_page(
         self,
         prefix: str,
