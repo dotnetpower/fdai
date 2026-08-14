@@ -14,6 +14,7 @@ import psycopg
 from fdai_service_contracts import (
     AgentActivityQuery,
     AuditQuery,
+    BrowserEvidenceQuery,
     HilQueueProjection,
     HilQueueQuery,
     IncidentAttentionProjection,
@@ -27,6 +28,7 @@ from fdai_service_contracts import (
 from psycopg.rows import dict_row
 
 from fdai_operator_service.activity_projection import durable_activity_projection
+from fdai_operator_service.browser_evidence_projection import browser_evidence_projection
 from fdai_operator_service.incident_projection import incident_outcome_metrics, incident_summary
 from fdai_operator_service.postgres_sql import (
     AGENT_INVENTORY_ACTIVITY_SQL,
@@ -34,6 +36,7 @@ from fdai_operator_service.postgres_sql import (
     AGENT_ONTOLOGY_ACTIVITY_SQL,
     AGENT_READ_ACTIVITY_SQL,
     AUDIT_PAGE_SQL,
+    BROWSER_EVIDENCE_PAGE_SQL,
     HIL_COUNT_SQL,
     HIL_PAGE_SQL,
     INCIDENT_PAGE_SQL,
@@ -119,6 +122,18 @@ class PostgresOperatorReadModel:
         items = tuple(audit_item(row) for row in rows[: query.limit])
         next_cursor = str(items[-1]["seq"]) if len(rows) > query.limit and items else None
         return PageProjection(items=items, next_cursor=next_cursor)
+
+    async def list_browser_evidence(self, query: BrowserEvidenceQuery) -> JsonProjection:
+        """Read bounded metadata through the Operator column-level grant."""
+
+        rows = await self._fetch_all(BROWSER_EVIDENCE_PAGE_SQL, {"limit": query.limit})
+        try:
+            payload = browser_evidence_projection(rows)
+        except (TypeError, ValueError) as exc:
+            raise ProjectionUnavailableError(
+                "durable browser evidence metadata is malformed"
+            ) from exc
+        return JsonProjection(payload)
 
     async def dashboard_metrics(self) -> JsonProjection:
         rows = await self._fetch_all(KPI_SAMPLE_SQL, {"limit": KPI_SAMPLE_LIMIT})

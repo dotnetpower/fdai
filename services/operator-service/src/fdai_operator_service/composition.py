@@ -469,6 +469,7 @@ def _build_data_sources(*, configured: bool) -> tuple[ReadDataSource, ...]:
             routes=(
                 "/audit",
                 "/audit/{correlation_id}/trace",
+                "/browser-evidence",
                 "/hil-queue",
                 "/incidents",
                 "/incidents/stream",

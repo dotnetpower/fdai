@@ -13,6 +13,7 @@ from typing import Final, Literal, cast
 from fdai_service_contracts import (
     AgentActivityQuery,
     AuditQuery,
+    BrowserEvidenceQuery,
     HilQueueQuery,
     IncidentAttentionProjection,
     IncidentAttentionQuery,
@@ -109,6 +110,7 @@ MINIMAL_ROUTE_MANIFEST: Final = (
     RouteOwnership("GET", "/agents/activity", "minimal"),
     RouteOwnership("GET", "/audit", "minimal"),
     RouteOwnership("GET", "/audit/{correlation_id}/trace", "minimal"),
+    RouteOwnership("GET", "/browser-evidence", "minimal"),
     RouteOwnership("GET", "/agents/stream", "minimal"),
     RouteOwnership("GET", "/healthz", "minimal"),
     RouteOwnership("GET", "/hil-queue", "minimal"),
@@ -196,6 +198,13 @@ def build_operator_app(
             )
         except ValueError as exc:
             raise _BadQueryError(str(exc)) from exc
+        return JSONResponse(redact_projection(projection.to_dict()))
+
+    async def get_browser_evidence(request: Request) -> Response:
+        authorize(request)
+        projection = await read_model.list_browser_evidence(
+            BrowserEvidenceQuery(limit=_strict_limit(request))
+        )
         return JSONResponse(redact_projection(projection.to_dict()))
 
     async def get_kpi(request: Request) -> Response:
@@ -315,6 +324,12 @@ def build_operator_app(
             methods=["GET"],
             name="rule_fire_trace",
         ),
+        Route(
+            "/browser-evidence",
+            get_browser_evidence,
+            methods=["GET"],
+            name="get_browser_evidence",
+        ),
         make_live_stream_route(
             hub=agent_stream_hub,
             authorize=authorize,
@@ -426,6 +441,19 @@ def _parse_limit(request: Request) -> int:
     except ValueError as exc:
         raise _BadQueryError(f"query param 'limit' must be an integer, got {raw!r}") from exc
     return min(MAX_LIMIT, max(1, value))
+
+
+def _strict_limit(request: Request) -> int:
+    raw = request.query_params.get("limit")
+    if raw is None:
+        return DEFAULT_LIMIT
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise _BadQueryError(f"query param 'limit' must be an integer, got {raw!r}") from exc
+    if not 1 <= value <= MAX_LIMIT:
+        raise _BadQueryError(f"query param 'limit' must be in [1, {MAX_LIMIT}]")
+    return value
 
 
 def _bounded_query(request: Request, name: str, *, maximum: int) -> str | None:

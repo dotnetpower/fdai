@@ -7,6 +7,7 @@ import tomllib
 from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
+from typing import Any, cast
 
 import fdai_operator_service.composition as operator_composition
 import pytest
@@ -46,6 +47,7 @@ from fdai_operator_service.production import serve
 from fdai_service_contracts import (
     AgentActivityQuery,
     AuditQuery,
+    BrowserEvidenceQuery,
     HilQueueProjection,
     HilQueueQuery,
     IncidentAttentionProjection,
@@ -55,8 +57,10 @@ from fdai_service_contracts import (
     JsonProjection,
     OperatorReadModel,
     OperatorRole,
+    OperatorTokenVerifier,
     PageProjection,
 )
+from starlette.applications import Starlette
 from starlette.testclient import TestClient
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -73,6 +77,7 @@ EXPECTED_ROUTES = (
     (("GET", "HEAD"), "/agents/stream", "agent_stream"),
     (("GET", "HEAD"), "/audit", "get_audit"),
     (("GET", "HEAD"), "/audit/{correlation_id}/trace", "rule_fire_trace"),
+    (("GET", "HEAD"), "/browser-evidence", "get_browser_evidence"),
     (("GET", "HEAD"), "/healthz", "healthz"),
     (("GET", "HEAD"), "/hil-queue", "get_hil_queue"),
     (("GET", "HEAD"), "/incidents", "panel:incidents"),
@@ -100,6 +105,11 @@ class EmptyReadModel(OperatorReadModel):
     async def list_audit(self, query: AuditQuery) -> PageProjection:
         del query
         return PageProjection(items=(), next_cursor=None)
+
+    async def list_browser_evidence(self, query: BrowserEvidenceQuery) -> JsonProjection:
+        return JsonProjection(
+            {"surface": "browser-evidence", "items": [], "count": 0, "limit": query.limit}
+        )
 
     async def dashboard_metrics(self) -> JsonProjection:
         return JsonProjection({"event_count": 0})
@@ -251,7 +261,7 @@ def test_invalid_environment_fails_before_verifier_construction(
 ) -> None:
     called = False
 
-    def verifier_factory(environment: object) -> object:
+    def verifier_factory(environment: OperatorEnvironment) -> OperatorTokenVerifier:
         nonlocal called
         del environment
         called = True
@@ -266,7 +276,7 @@ def test_invalid_environment_fails_before_verifier_construction(
 
 
 def test_service_preserves_exact_frozen_minimal_routes() -> None:
-    app = _client(read_model=EmptyReadModel()).app
+    app = cast(Starlette, _client(read_model=EmptyReadModel()).app)
     minimal_paths = {item[1] for item in EXPECTED_ROUTES}
     snapshot = tuple(
         sorted(
@@ -351,6 +361,27 @@ def test_authenticated_audit_envelopes_are_stable() -> None:
     )
 
 
+def test_browser_evidence_is_reader_scoped_get_only_and_bounded() -> None:
+    client = _client(read_model=EmptyReadModel())
+    headers = {"Authorization": "Bearer reader"}
+
+    assert client.get("/browser-evidence").status_code == 401
+    assert (
+        client.get(
+            "/browser-evidence",
+            headers={"Authorization": "Bearer no-role"},
+        ).status_code
+        == 403
+    )
+    assert client.get("/browser-evidence?limit=0", headers=headers).status_code == 400
+    success = client.get("/browser-evidence?limit=25", headers=headers)
+    assert (success.status_code, success.json()) == (
+        200,
+        {"surface": "browser-evidence", "items": [], "count": 0, "limit": 25},
+    )
+    assert client.post("/browser-evidence", headers=headers).status_code == 405
+
+
 def test_llm_usage_requires_one_bounded_timezone_aware_range() -> None:
     client = _client(read_model=EmptyReadModel())
     headers = {"Authorization": "Bearer reader"}
@@ -418,6 +449,7 @@ def test_database_url_binds_service_owned_postgres_projection() -> None:
     source = next(item for item in runtime.data_sources if item.key == "operational-state")
     assert source.configured is True
     assert source.authoritative is True
+    assert "/browser-evidence" in source.routes
     assert runtime.lifecycle is None
 
 
@@ -529,7 +561,13 @@ def test_composition_forwards_live_stage_consumer_group(
 ) -> None:
     captured_group_ids: list[str] = []
 
-    def capture_live_stage_relay(*, config, hub, agent_hub, credential):
+    def capture_live_stage_relay(
+        *,
+        config: Any,
+        hub: Any,
+        agent_hub: Any,
+        credential: Any,
+    ) -> object:
         del hub, agent_hub, credential
         captured_group_ids.append(config.group_id)
         return object()

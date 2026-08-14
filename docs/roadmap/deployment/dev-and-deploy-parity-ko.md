@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 32db227116404d32eda2c421242ace8facae96c4
-translation_revised: 2026-08-14
+translation_source_sha: 6903ae48b05405737a4dadb67ee932cfd9fb6751
+translation_revised: 2026-08-15
 ---
 
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -35,7 +35,7 @@ translation_revised: 2026-08-14
 | Live 관찰 소비자 격리 | implemented | `services/operator-service/src/fdai_operator_service/environment.py`, `services/operator-service/src/fdai_operator_service/composition.py`, `console/tests/live-e2e/operator_service.py` 및 focused 회귀 검사, 테스트 41개 통과 | `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID`는 독립적으로 실행되는 각 Operator 프로세스 또는 복제본을 고유한 그룹에 연결합니다. E2E launcher는 상속된 값을 항상 UUID 범위 그룹으로 교체합니다. |
 | Agent 새로 고침 최신 상태 초기화 | validated | focused 스트림 테스트 9개 통과, 인증된 `/agents` 새로 고침이 각각 224ms, 232ms, 228ms 안에 `Watching 2 / Idle 13 / Unobserved 0` 도달 | Agent hub는 agent별로 검증된 최신 `agent.state` 이벤트 하나를 새 구독자에게 초기값으로 제공합니다. 일반 Live는 이후 이벤트만 전달하며 어느 hub도 영속 이력 재생을 제공하지 않습니다. |
 | 인증된 로컬 Live 이벤트 경로 | validated | 2026-08-13 통제된 Browser Entra 실행이 `aw.change.events`, Core, `aw.pipeline.stages`, Operator SSE 및 기존 인증 Live DOM을 통과 | 이 실행은 권위 있는 온톨로지를 보존하고 이벤트와 허용된 네 단계를 모두 렌더링했습니다. 배포된 개정 번호, 브라우저 Notifications API 또는 브라우저 종료 상태의 push 전달은 검증하지 않았습니다. |
-| 로컬 및 배포 composition 동등성 | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, 서비스 통합 테스트 및 집중 workspace 작업 테스트 | Composition root는 근거 권한을 바꾸지 않고 자격 증명과 어댑터를 선택합니다. 로컬 및 배포 준비는 Operator가 읽기 전에 검토된 Rule 및 Ontology 참조 변환 결과를 동일하게 구체화합니다. |
+| 로컬 및 배포 composition 동등성 | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, `fdai_operator_service/composition.py`, 서비스 통합 테스트 및 focused Operator 검사(`51 passed`) | Composition root는 근거 권한을 바꾸지 않고 자격 증명과 어댑터를 선택합니다. 로컬 및 배포 Operator composition은 같은 Reader 범위 `GET /browser-evidence` 경로와 권위 있는 데이터 출처 ID를 등록하며 PostgreSQL이 없으면 합성 데이터 대신 사용 불가를 반환합니다. |
 | 의미 계획 tier 동등성 | implemented | `composition/semantic_query_model_targets.py`, `composition/wire_semantic_query.py`, 해석된 모델 산출물, 집중 tier 라우팅 및 조립 테스트 | 로컬 및 배포 Core는 같은 기능 산출물을 로드하고 해석된 narrator 또는 `t1.judge` pool을 T1으로 연결하며 T2는 선택 사항으로 유지합니다. T1 제안을 사용할 수 없거나 결정론적 검증을 통과하지 못한 경우에만 해당 단계를 T2로 다시 시도할 수 있습니다. |
 | 권한 인식 관측 캠페인 동등성 | implemented | `config/observation-sources.yaml`, `fdai.delivery.observation_campaign*`, `.vscode/tasks.json`, `infra/modules/compute/container-apps/observation_campaign_job.tf`, 집중 Core, Operator, Console, workspace 및 인프라 검사 | 로컬과 배포 프로필은 같은 출처 카탈로그, 실행 조건 상태, 실행기, 정규화 활동 계약 및 1분 기동을 사용합니다. 검증 전에는 런타임 산출물이 더 필요합니다. |
 | 로컬 검증 데이터베이스 격리 | implemented | `infra/local/docker-compose.yml`, `scripts/automation/validation_queue_context.py`, 로컬 준비 스크립트 및 focused 검증과 migration 통합 테스트 | 런타임 상태는 로컬 PostgreSQL port `5432`에 유지하고 파괴적인 migration 검증은 port `5433`의 별도 로컬 PostgreSQL cluster를 사용합니다. |
@@ -65,7 +65,7 @@ translation_revised: 2026-08-14
 | 2026-08-14 | implemented | 격리된 Playwright 시작 probe 지연을 제거하고 repository root와 VS Code에 직접 desktop E2E 항목 지점을 추가했습니다. | `current change`, Console 타입 검사 통과, 라이브 수집이 `*.spec.ts` 파일 4개에서 테스트 58개를 나열했으며 focused desktop E2E 테스트 1개가 2.8초에 통과했습니다. | 격리된 Console E2E 개발 루프에 남은 구현 작업은 없습니다. |
 | 2026-08-14 | implemented | 동시에 실행되는 고정본 및 live Playwright 세션을 위해 frontend와 Operator API 포트를 짝지은 원자적 10-slot 포트 풀과 slot별 산출물 격리를 추가했습니다. | `current change`, allocator 테스트 6개와 Console 타입 검사가 통과했으며 focused Playwright 프로세스 2개가 frontend port `5274`와 `5275`에서 동시에 통과한 뒤 listener와 lock이 남지 않았습니다. | 동시에 실행되는 격리 Playwright 포트 할당에 남은 구현 작업은 없습니다. |
 | 2026-08-14 | implemented | T2를 최초 플래너로 연결하는 대신 로컬 및 배포 의미 계획을 하나의 T1 우선 모델 cascade로 정렬했습니다. | `current change`, 집중 플래너 및 조립 검사는 두 실행 장소가 사용하는 동일한 해석된 산출물 계약에서 통과합니다. | T1 선택과 범위가 제한된 T2 escalation의 통제된 로컬 및 배포 기록을 보존합니다. |
-
+| 2026-08-15 | implemented | 로컬 및 배포 Operator composition에 같은 payload-free 브라우저 근거 메타데이터 경로와 데이터 출처 소유권을 추가했습니다. | `current change`, focused Operator 검사 `51 passed`, Operator 경계 및 independent-service gate 통과 | 인증된 배포 읽기 증적 하나를 보존하고 Console 메타데이터 패널을 추가합니다. |
 ### 잔여 작업
 
 - [ ] FDAI 전용 Remote WSL server data root 또는 WSL 배포판을 마련한 뒤 제외 대상 workspace를 변경하지 않고 재시작한 Pylance process command에 `--max-old-space-size=2048`이 포함됨을 기록합니다.

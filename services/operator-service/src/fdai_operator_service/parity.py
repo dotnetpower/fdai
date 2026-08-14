@@ -20,6 +20,7 @@ ROUTE_PARITY: tuple[RouteParity, ...] = (
     RouteParity("/agents/stream", "service-owned"),
     RouteParity("/audit", "service-owned"),
     RouteParity("/audit/{correlation_id}/trace", "service-owned"),
+    RouteParity("/browser-evidence", "service-owned"),
     RouteParity("/healthz", "service-owned"),
     RouteParity("/hil-queue", "service-owned"),
     RouteParity("/incidents", "service-owned"),
