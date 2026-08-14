@@ -170,6 +170,12 @@ IMPLEMENTED_PROOF_TESTS: Mapping[str, tuple[str, ...]] = {
         "services/core-control-plane/tests/core/risk_gate/test_precedence.py::test_resilience_safety_hold_beats_change_safety_and_cost",
         "services/core-control-plane/tests/agents/test_arbitration.py::test_corrupt_impact_on_one_domain_escalates_not_silently_wins",
     ),
+    "FDAI-CONST-009": (
+        "services/core-control-plane/tests/core/workflow/test_automation_hold.py::test_active_hold_survives_restart_and_duplicate_delivery",
+        "services/core-control-plane/tests/core/workflow/test_orchestrator.py::test_compensation_failure_closes_process_as_recovery_incomplete",
+        "services/core-control-plane/tests/core/test_control_loop_authority.py::test_control_loop_automation_hold_lookup_failure_is_deny",
+        "services/core-control-plane/tests/core/risk_gate/test_gate.py::test_target_automation_hold_denies_before_human_approval",
+    ),
     "FDAI-CONST-010": (
         "tests/integration/scripts/test_constitution.py::test_repository_constitution_is_consistent",
         "tests/integration/scripts/test_design_context.py::test_pre_tool_use_denies_edit_without_current_reads",
