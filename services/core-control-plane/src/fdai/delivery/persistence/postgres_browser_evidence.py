@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Final, Literal, cast
@@ -25,6 +26,16 @@ _COLUMNS: Final = (
     "aria_snapshot, screenshot_hash, text_hash, snapshot_hash, redaction_manifest, "
     "browser_version, chain_of_custody_audit_ref, prompt_injection_findings, isolation, "
     "untrusted"
+)
+_REDACTION_SURFACES: Final = frozenset({"screenshot", "visible_text", "aria_snapshot"})
+_ISOLATION_FIELDS: Final = frozenset(
+    {
+        "executor_identity_present",
+        "host_filesystem_mounted",
+        "environment_scrubbed",
+        "restricted_egress",
+        "ephemeral_profile",
+    }
 )
 
 
@@ -227,23 +238,18 @@ def _values(evidence: StoredBrowserEvidence) -> tuple[object, ...]:
 
 def _row_to_stored(row: dict[str, Any]) -> StoredBrowserEvidence:
     redactions = tuple(
-        BrowserRedactionEntry(
-            surface=cast(
-                Literal["screenshot", "visible_text", "aria_snapshot"],
-                str(item["surface"]),
-            ),
-            rule=str(item["rule"]),
-            replacements=int(item["replacements"]),
-        )
-        for item in row["redaction_manifest"]
+        _redaction(item, index=index)
+        for index, item in enumerate(_json_array(row["redaction_manifest"], "redaction_manifest"))
     )
-    isolation_raw = row["isolation"]
+    isolation_raw = _json_object(row["isolation"], "isolation")
+    if frozenset(isolation_raw) != _ISOLATION_FIELDS:
+        raise ValueError("browser evidence isolation fields are invalid")
     isolation = BrowserRuntimeIsolation(
-        executor_identity_present=bool(isolation_raw["executor_identity_present"]),
-        host_filesystem_mounted=bool(isolation_raw["host_filesystem_mounted"]),
-        environment_scrubbed=bool(isolation_raw["environment_scrubbed"]),
-        restricted_egress=bool(isolation_raw["restricted_egress"]),
-        ephemeral_profile=bool(isolation_raw["ephemeral_profile"]),
+        executor_identity_present=_boolean(isolation_raw, "executor_identity_present"),
+        host_filesystem_mounted=_boolean(isolation_raw, "host_filesystem_mounted"),
+        environment_scrubbed=_boolean(isolation_raw, "environment_scrubbed"),
+        restricted_egress=_boolean(isolation_raw, "restricted_egress"),
+        ephemeral_profile=_boolean(isolation_raw, "ephemeral_profile"),
     )
     stored = StoredBrowserEvidence(
         artifact=BrowserEvidenceArtifact(
@@ -253,7 +259,7 @@ def _row_to_stored(row: dict[str, Any]) -> StoredBrowserEvidence:
             canonical_source_url=str(row["canonical_source_url"]),
             canonical_final_url=str(row["canonical_final_url"]),
             captured_at=row["captured_at"],
-            selectors=tuple(str(item) for item in row["selectors"]),
+            selectors=_text_tuple(row["selectors"], "selectors"),
             screenshot_hash=_optional_str(row["screenshot_hash"]),
             text_hash=_optional_str(row["text_hash"]),
             snapshot_hash=_optional_str(row["snapshot_hash"]),
@@ -261,10 +267,13 @@ def _row_to_stored(row: dict[str, Any]) -> StoredBrowserEvidence:
             browser_version=str(row["browser_version"]),
             chain_of_custody_audit_ref=str(row["chain_of_custody_audit_ref"]),
             content_digest=str(row["content_digest"]),
-            prompt_injection_findings=tuple(str(item) for item in row["prompt_injection_findings"]),
+            prompt_injection_findings=_text_tuple(
+                row["prompt_injection_findings"],
+                "prompt_injection_findings",
+            ),
             isolation=isolation,
             expires_at=row["expires_at"],
-            untrusted=bool(row["untrusted"]),
+            untrusted=_exact_bool(row["untrusted"], "untrusted"),
         ),
         payload=BrowserEvidencePayload(
             screenshot=bytes(row["screenshot"]) if row["screenshot"] is not None else None,
@@ -278,6 +287,56 @@ def _row_to_stored(row: dict[str, Any]) -> StoredBrowserEvidence:
 
 def _optional_str(value: object) -> str | None:
     return str(value) if value is not None else None
+
+
+def _json_array(value: object, field: str) -> list[object]:
+    if not isinstance(value, list):
+        raise ValueError(f"browser evidence {field} MUST be an array")
+    return value
+
+
+def _json_object(value: object, field: str) -> Mapping[str, object]:
+    if not isinstance(value, Mapping) or not all(isinstance(key, str) for key in value):
+        raise ValueError(f"browser evidence {field} MUST be an object")
+    return value
+
+
+def _text_tuple(value: object, field: str) -> tuple[str, ...]:
+    items = _json_array(value, field)
+    if not all(isinstance(item, str) for item in items):
+        raise ValueError(f"browser evidence {field} MUST contain strings")
+    return tuple(cast(str, item) for item in items)
+
+
+def _redaction(value: object, *, index: int) -> BrowserRedactionEntry:
+    field = f"redaction_manifest[{index}]"
+    item = _json_object(value, field)
+    if frozenset(item) != {"surface", "rule", "replacements"}:
+        raise ValueError(f"browser evidence {field} fields are invalid")
+    surface = item["surface"]
+    rule = item["rule"]
+    replacements = item["replacements"]
+    if not isinstance(surface, str) or surface not in _REDACTION_SURFACES:
+        raise ValueError(f"browser evidence {field}.surface is invalid")
+    if not isinstance(rule, str) or not rule:
+        raise ValueError(f"browser evidence {field}.rule MUST be non-empty text")
+    if isinstance(replacements, bool) or not isinstance(replacements, int) or replacements < 0:
+        raise ValueError(f"browser evidence {field}.replacements MUST be non-negative")
+    return BrowserRedactionEntry(
+        surface=cast(Literal["screenshot", "visible_text", "aria_snapshot"], surface),
+        rule=rule,
+        replacements=replacements,
+    )
+
+
+def _boolean(value: Mapping[str, object], field: str) -> bool:
+    return _exact_bool(value[field], f"isolation.{field}")
+
+
+def _exact_bool(value: object, field: str) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError(f"browser evidence {field} MUST be a boolean")
+    return value
 
 
 __all__ = [
