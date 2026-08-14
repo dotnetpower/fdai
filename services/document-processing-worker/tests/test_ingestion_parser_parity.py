@@ -4,11 +4,81 @@ from __future__ import annotations
 
 import io
 import zipfile
+from collections.abc import AsyncIterator
 from dataclasses import replace
+from datetime import UTC, datetime
+from uuid import uuid4
 
 import pytest
+from fdai_document_worker_service.adapters import processing as processing_module
 from fdai_document_worker_service.adapters.ooxml import OoxmlParserBudget, extract_ooxml
-from fdai_service_contracts import DocumentExtractionUnavailableError, ExtractionUnavailableReason
+from fdai_document_worker_service.adapters.processing import BoundedDocumentExtractor
+from fdai_service_contracts import (
+    AccessDescriptor,
+    DocumentExtractionUnavailableError,
+    DocumentPurpose,
+    DocumentState,
+    DocumentVersion,
+    ExtractionUnavailableReason,
+    ProtectionState,
+    RetentionPolicy,
+    StructuralUnit,
+)
+
+
+class _ImageOcr:
+    async def extract(
+        self, *, version: DocumentVersion, content: bytes
+    ) -> tuple[StructuralUnit, ...]:
+        del version, content
+        return (
+            StructuralUnit(
+                unit_id="ocr-1",
+                kind="page",
+                locator="ocr/page:1/line:1",
+                text="Scanned text",
+            ),
+        )
+
+
+async def _chunks(content: bytes) -> AsyncIterator[bytes]:
+    yield content
+
+
+async def test_scanned_pdf_reports_ocr_extractor_provenance(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(processing_module, "_pdf_units", lambda _content: ())
+    now = datetime.now(UTC)
+    version = DocumentVersion(
+        document_id=uuid4(),
+        version_id=uuid4(),
+        upload_id=uuid4(),
+        source_name="scan.pdf",
+        source_sha256="0" * 64,
+        size_bytes=4,
+        media_type="application/pdf",
+        observed_format="pdf",
+        state=DocumentState.EXTRACTING,
+        protection_state=ProtectionState.NONE,
+        access=AccessDescriptor(reference="collection:test", collection_id="test"),
+        retention=RetentionPolicy(policy_version="test"),
+        purposes=(DocumentPurpose.KNOWLEDGE_BASE,),
+        uploader_id="test-operator",
+        created_at=now,
+        updated_at=now,
+    )
+    extractor = BoundedDocumentExtractor(
+        image_ocr=_ImageOcr(),
+        max_input_bytes=1024,
+        max_characters=1024,
+    )
+
+    envelope = await extractor.extract(version=version, chunks=_chunks(b"scan"))
+
+    assert envelope.extractor_name == "service-bounded"
+    assert envelope.extractor_version == "1.0.0"
+    assert [unit.text for unit in envelope.units] == ["Scanned text"]
 
 
 def test_docx_preserves_heading_context_and_table_roles() -> None:

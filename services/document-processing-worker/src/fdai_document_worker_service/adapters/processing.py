@@ -237,13 +237,18 @@ class BoundedDocumentExtractor:
     ) -> DocumentEnvelope:
         content = await _read_bounded(chunks, self._max_input_bytes)
         observed = version.observed_format or "unknown"
+        extractor_name = "service-bounded"
+        extractor_version = "1.0.0"
         if observed == "text":
             units = _text_units(content.decode("utf-8-sig"))
         elif observed == "ooxml":
             units = extract_ooxml(content, budget=self._ooxml_budget)
         elif observed == "pdf":
             units = _pdf_units(content)
-            if not units:
+            if units:
+                extractor_name = "pypdf"
+                extractor_version = pypdf.__version__
+            else:
                 units = await self._image_ocr.extract(version=version, content=content)
         elif observed == "image":
             units = await self._image_ocr.extract(version=version, content=content)
@@ -263,8 +268,8 @@ class BoundedDocumentExtractor:
             protection_state=version.protection_state,
             access_descriptor_ref=version.access.reference,
             units=units,
-            extractor_name="pypdf" if observed == "pdf" else "service-bounded",
-            extractor_version=pypdf.__version__ if observed == "pdf" else "1.0.0",
+            extractor_name=extractor_name,
+            extractor_version=extractor_version,
         )
 
 
