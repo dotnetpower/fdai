@@ -527,7 +527,7 @@ async def _read_bounded(chunks: AsyncIterator[bytes], limit: int) -> bytes:
     async for chunk in chunks:
         content.extend(chunk)
         if len(content) > limit:
-            raise ValueError("document exceeds the parser byte budget")
+            raise DocumentExtractionUnavailableError(ExtractionUnavailableReason.INPUT_BUDGET)
     return bytes(content)
 
 

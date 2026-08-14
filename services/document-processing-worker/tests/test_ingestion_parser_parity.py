@@ -45,6 +45,13 @@ async def _chunks(content: bytes) -> AsyncIterator[bytes]:
     yield content
 
 
+async def test_input_byte_budget_reports_typed_extraction_reason() -> None:
+    with pytest.raises(DocumentExtractionUnavailableError) as exceeded:
+        await processing_module._read_bounded(_chunks(b"1234"), 3)
+
+    assert exceeded.value.reason is ExtractionUnavailableReason.INPUT_BUDGET
+
+
 async def test_scanned_pdf_reports_ocr_extractor_provenance(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
