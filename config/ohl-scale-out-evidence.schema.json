@@ -320,10 +320,12 @@
     },
     "residuals": {
       "type": "array",
-      "maxItems": 3,
+      "maxItems": 6,
       "uniqueItems": true,
       "items": {
         "enum": [
+          "pre_dispatch_kinetic_receipt_writer",
+          "verified_independent_effect_observation_adapter",
           "protected_runner_live_execution",
           "independent_service_hil_binding",
           "production_graph_provider_binding",

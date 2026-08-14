@@ -1,7 +1,7 @@
 ---
 translation_of: operational-planning.md
-translation_source_sha: 26142f89abd8b0837329410419c23e94a448961d
-translation_revised: 2026-08-12
+translation_source_sha: 264bcc577717aea70edd1741bf60cdb0cd4a6bb1
+translation_revised: 2026-08-14
 ---
 # 운영 계획
 
@@ -33,7 +33,8 @@ DecisionCase, ActionOption, 타입이 지정된 온톨로지 함수, Assurance T
 > 실행 증명과 live graph shadow 측정은 완료된 live claim이 아니라 release 근거로 남습니다.
 > Production graph evidence와 개발 `ops.scale-out` VM Scale Set 실행기 연결은 구현되어 focused
 > test로 검증됩니다. Independent Core 및 Operator service HIL binding, 보호된 러너 훈련, 독립
-> 종결 및 전체 recurrence window는 아직 남아 있습니다.
+> pre-dispatch kinetic receipt writer, Heimdall 소유 verified independent effect observer, 종결 및
+> 전체 recurrence window는 아직 남아 있습니다.
 
 ## 구현 상태
 
@@ -43,6 +44,7 @@ DecisionCase, ActionOption, 타입이 지정된 온톨로지 함수, Assurance T
 |------|------|------|------|
 | P1-P7 operational-planning core | implemented | `services/core-control-plane/src/fdai/core/operational_planning/` 및 focused planning test | 계획은 A0로 유지되고 기존 Process 및 권한 경로를 재사용합니다. |
 | Production graph evidence 및 scale-out executor binding | implemented | `services/core-control-plane/src/fdai/delivery/azure/` 및 focused composition/delivery test | Code와 test만으로는 live outcome evidence가 되지 않습니다. |
+| Exact kinetic handoff 및 independent effect-observation runtime binding | in-progress | `services/core-control-plane/src/fdai/delivery/reconciliation_artifacts.py`, `config/ohl-scale-out-evidence.json` 및 focused artifact/manifest test | Immutable store는 존재하지만 pre-dispatch writer와 Heimdall 소유 verified observer는 아직 연결되지 않았습니다. |
 | Independent-service HIL binding | in-progress | `config/ohl-scale-out-evidence.json` 및 배포된 Core/Operator environment contract | Approval이 action을 park하고 resolve하기 전에 service root가 HIL channel 및 callback signing secret을 bind해야 합니다. |
 | OHL Lane F live evidence | in-progress | `docs/runbooks/ohl-scale-out-evidence-ko.md` | Protected execution, independent closure, sample 100개 및 14일 recurrence window가 열려 있습니다. |
 
@@ -51,9 +53,12 @@ DecisionCase, ActionOption, 타입이 지정된 온톨로지 함수, Assurance T
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 independent-service HIL binding residual을 드러냈습니다. | current change, `services/core-control-plane/tests/scenarios/operational-planning/test_manifest.py` 결과 7 passed | 두 service root에 HIL을 bind하고 exact revision을 배포한 뒤 live evidence campaign을 완료합니다. |
+| 2026-08-14 | in-progress | 누락된 exact-plan writer와 verified independent effect observer를 별도 Lane F runtime residual로 드러냈습니다. | `current change`, Lane F contract, runbook gate, artifact-store test 및 manifest test | Plan을 reconstruct하거나 executor/provider receipt로 대체하지 않고 두 source를 모두 연결합니다. |
 
 ### 남은 작업
 
+- [ ] Provider dispatch 전에 기존 exact V2 plan의 kinetic receipt를 저장하고 Heimdall 소유 verified
+  independent effect observer를 연결한 뒤 focused substitution 및 replay test를 보존합니다.
 - [ ] Core HIL channel 및 Operator callback signing secret을 bind하고 검증해 서로 다른 human
   approver가 하나의 `ops.scale-out` proposal을 park, resolve 및 resume하도록 합니다.
 - [ ] Protected-runner drill을 완료하고 independent graph closure, live-shadow sample 100개,
@@ -216,6 +221,12 @@ ActionOption은 proposing 에이전트, logic 호출 증적, 시뮬레이션 증
 적격한 선택은 정확한 대상 개정 번호, 읽기 및 쓰기 집합, 예상 효과, 롤백 또는 보상,
 영향 근거, 다이제스트가 있는 변경할 수 없는 MutationPlan으로 compile됩니다. 브리지는 선택된 ActionType을
 타입이 지정된 유입으로 제출합니다. Thor를 호출하지 않습니다.
+
+Provider dispatch 전에 실행 경로는 기존 exact V2 plan의 kinetic safety receipt를 저장해야 합니다.
+Action에서 plan을 reconstruct하면 안 됩니다. Dispatch 후에는 Heimdall 소유 adapter가 independent
+effect observation을 authenticate해야 합니다. Executor 또는 provider receipt는 dispatch evidence이며
+observed outcome을 대체할 수 없습니다. Immutable store는 구현되었지만 이 두 runtime binding은
+release blocker로 남아 있습니다.
 
 Risk evaluation은 현재 정책, 승격 상태, 역할, 환경, 영향, 승인, 대상 개정 번호,
 일곱 safeguard를 다시 검사합니다. 계획 수립 근거는 결과 권한을 유지하거나 낮출 수만

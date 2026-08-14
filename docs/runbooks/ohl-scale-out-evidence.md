@@ -12,7 +12,10 @@ evidence.
 > pre-existing non-production VM Scale Set by at most one instance and restores the exact baseline.
 > Provision the optional target through the protected deployment workflow before using this
 > runbook. Run the drill only after the ordinary approval, dry-run, audit-intent, lock, and
-> automation-hold paths are available.
+> automation-hold paths are available. The execution path must also persist a kinetic safety
+> receipt for the pre-dispatch exact V2 plan, and a Heimdall-owned adapter must independently
+> authenticate the post-effect observation. Don't reconstruct a plan from the Action or use an
+> executor or provider receipt as the observed outcome.
 >
 > **Evidence boundary:** The direct Azure CLI mutation below is provider-side staging evidence. It
 > isn't FDAI end-to-end execution evidence until the `ops.scale-out` executor binding emits the
@@ -62,6 +65,12 @@ The manual proposal Job uses a separate Managed Identity with only ACR pull and 
 primary ingress Event Hub. It has no state-store secret, Key Vault role, gateway role, or Azure
 provider mutation permission. Starting the Job publishes one retry-stable `operator_request`; it
 doesn't scale the target.
+
+The current repository implements the immutable kinetic receipt store but doesn't yet bind its
+writer before dispatch or provide the verified independent effect-observation adapter. Keep the
+contract at `prepared` and don't start the live mutation phase until both residuals are removed by
+focused runtime evidence. A deferred observer that always returns unavailable isn't a production
+binding and cannot satisfy this gate.
 
 ## Required runner configuration
 

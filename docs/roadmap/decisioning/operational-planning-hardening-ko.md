@@ -1,7 +1,7 @@
 ---
 title: 운영 계획 하드닝 근거
 translation_of: operational-planning-hardening.md
-translation_source_sha: 5fab35c025e280f1be1d8bacffcb16f76e9c9fc1
+translation_source_sha: 7d75fe0e9de6541ac962b92b187785169a4da273
 translation_revised: 2026-08-14
 ---
 # 운영 계획 하드닝 근거
@@ -26,16 +26,19 @@ translation_revised: 2026-08-14
 | 계획, 시뮬레이션, 내구성 및 인계 동작 | implemented | [구현 근거](#구현-근거), [검토 라운드](#검토-라운드) | 12개 적대적 검토 라운드는 실행 권한을 부여하지 않는 집중 구현 및 회귀 근거를 보존합니다. |
 | 고정 시나리오 범위 | in-progress | [잔여 위험](#잔여-위험) | 부분 실행 복구가 명시적인 release 근거 대체 항목을 사용하므로 매니페스트는 `partial`로 남아 있습니다. |
 | 실패 시 차단되는 실제 shadow 관찰 | validated | [실제 운영 shadow 증명](#실제-운영-shadow-증명) | 보존된 2026-08-03 관찰은 변경 0건인 부적격 결과를 재현했습니다. 이는 적용 모드를 검증하지 않습니다. |
-| 적용 모드 준비 상태 | not-started | [잔여 위험](#잔여-위험) | Protected-runner 복구, 운영 그래프 Dynamic 근거 및 운영 실행기 연결은 미완료입니다. |
+| 적용 모드 준비 상태 | not-started | [잔여 위험](#잔여-위험) | Pre-dispatch kinetic writer, verified independent observer, protected-runner 복구, 운영 그래프 Dynamic 근거 및 운영 실행기 연결은 미완료입니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 검증된 shadow 근거와 적용 모드 준비 상태를 분리했습니다. | `current change`; 이 문서의 검토 라운드, 실제 shadow 증명 및 잔여 위험 근거입니다. | 아래의 세 release 근거 종료 조건을 완료해야 합니다. |
+| 2026-08-14 | in-progress | Executor 및 graph binding이 누락 source를 암시적으로 제공한다고 취급하지 않고 Lane F contract에 누락된 pre-dispatch exact-plan writer와 verified independent effect-observation adapter를 명시했습니다. | `current change`, `config/ohl-scale-out-evidence.json`, runbook gate 및 집중 manifest 검사 | Protected live mutation 단계를 시작하기 전에 두 exact source를 모두 연결합니다. |
 
 ### 남은 작업
 
+- [ ] Provider dispatch 전에 kinetic receipt writer와 Heimdall 소유 verified independent
+    effect-observation adapter를 연결하고 어느 source도 reconstruct 또는 substitute하지 않음을 입증합니다.
 - [ ] Protected-runner 부분 실행 복구 훈련을 완료하고 인증된 보상, 독립 종결, 롤백 및
     정리 증적을 보존합니다.
 - [ ] 운영 그래프 Dynamic 근거를 하나의 정확한 온톨로지 release에 연결하고 완전한 비합성
@@ -102,8 +105,9 @@ focused 회귀 테스트와 별도 강화 커밋을 추가했습니다. 제안 �
 
 A0 planning 및 제공되는 irreversible `ops.scale-out` ActionType이 이제 명시적인 A3-E
 non-applicability 근거를 제공합니다. 남은 완료 gate에는 protected-runner live drill,
-production graph Dynamic evidence binding 및 production `ops.scale-out` executor binding이
-필요합니다. Provider-side Azure CLI drill만으로는 FDAI end-to-end 실행 근거가 되지 않습니다.
+pre-dispatch kinetic writer, verified independent effect observer, production graph Dynamic evidence
+binding 및 production `ops.scale-out` executor binding이 필요합니다. Provider-side Azure CLI
+drill만으로는 FDAI end-to-end 실행 근거가 되지 않습니다.
 
 이 공백은 실행을 활성화할 수 없으므로 제공되는 shadow 기능에서는 Low입니다. 검증된 시나리오
 근거로 교체되기 전까지 향후 적용 승격을 차단합니다. 기능 상태, shadow 모드, 기존 risk 경로,
