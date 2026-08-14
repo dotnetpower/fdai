@@ -1,7 +1,7 @@
 ---
 title: 진화하는 시스템 프롬프트
 translation_of: prompt-composition.md
-translation_source_sha: 4dcae533be7cd5afced179d81c45d8b092d65114
+translation_source_sha: 1e112bfe1bfb907c235d323e8be05eddf6e60f20
 translation_revised: 2026-08-14
 ---
 
@@ -31,7 +31,7 @@ trust 라우팅을 확장합니다.
 | 승인된 외부 skill-source fetch | implemented | [`skill_source.py`](../../../services/core-control-plane/src/fdai/delivery/github/skill_source.py); [`test_skill_source.py`](../../../services/core-control-plane/tests/delivery/github/test_skill_source.py) | GitHub delivery 어댑터는 불변 commit을 해석하고 범위가 제한된 exact 파일만 반환합니다. Fetch는 prompt eligibility를 부여하지 않으며 격리, publisher 검증, 승인, disabled-first installation이 계속 권위 있는 경계입니다. |
 | 운영자 기억, 토론 및 QualityGate 통합 | implemented | [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py), [`test_gate.py`](../../../services/core-control-plane/tests/core/quality_gate/test_gate.py) | 제한된 기억과 1회 비평자/Judge 토론은 권한을 부여하지 않고 결정론적 검증기에 근거를 제공합니다. |
 | 검토된 웹 검색 및 코어 T2 프롬프트 통합 | in-progress | [`test_web_search.py`](../../../services/core-control-plane/tests/core/web_search/test_web_search.py), [Wave 5 alpha](#wave-5-alpha---무엇이-배포되었나) | 안전한 프로바이더 경계와 검토된 어댑터가 있지만 스니펫은 코어 T2 도구 매니페스트에 연결되지 않았습니다. |
-| 포크 우선 두 번째 승인 채널 | not-started | [롤아웃 waves](#롤아웃-waves) | 문서화된 파이프라인 구획에는 구현 근거가 없으며 일반 HIL 지원에서 추론할 수 없습니다. |
+| 포크 우선 두 번째 승인 채널 | in-progress | [`hil_pipeline.py`](../../../services/core-control-plane/src/fdai/core/operator_memory/hil_pipeline.py), [`test_hil_pipeline.py`](../../../services/core-control-plane/tests/core/operator_memory/test_hil_pipeline.py) | 업스트림 도메인 단계가 서로 다른 principal, 자기 승인 방지, 범위가 제한된 승인 창, 재실행을 입증합니다. 재전달된 승인은 두 번째 항목을 만드는 대신 `already_materialized` 로 거부하며, 증명할 수 없거나 만료된 창은 절대 구체화되지 않습니다. 그것을 호출하는 채널은 포크 우선으로 남아 미구현이므로 파이프라인 구획은 비활성 상태입니다. |
 
 ### 구현 이력
 
@@ -40,13 +40,17 @@ trust 라우팅을 확장합니다.
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 기존의 T2 완전 실제 운영 주장을 바로잡았습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 코어 T2 웹 근거 확인, 두 번째 승인 및 통제된 런타임 근거를 완료해야 합니다. |
 | 2026-08-14 | implemented | 격리, 승인, runtime prompt eligibility를 변경하지 않고 범위가 제한된 GitHub skill-source delivery 어댑터를 추가했습니다. | `current change`; 구현 범위 표의 구체 어댑터와 focused 거부 경로 테스트입니다. | Scheduled source owner를 조립하고 governed refresh, 승인, 철회 근거를 보존합니다. |
 | 2026-08-14 | implemented | 격리 및 disabled-first prompt eligibility를 유지하면서 strict ETag 검증과 정제된 credential-provider 실패로 외부 source delivery를 강화했습니다. | `current change`; focused skill-source adapter 테스트 `28 passed`. | Scheduled 조립과 governed lifecycle 근거는 남아 있습니다. |
+| 2026-08-14 | in-progress | 포크 우선 채널이 의존하는 업스트림 두 번째 승인 근거를 추가했습니다. 범위가 제한된 승인 창, 승인에서 파생된 재실행 안전 항목 식별자, 자기 승인 방지 전수 커버리지입니다. | `current change`; [`hil_pipeline.py`](../../../services/core-control-plane/src/fdai/core/operator_memory/hil_pipeline.py), [`test_hil_pipeline.py`](../../../services/core-control-plane/tests/core/operator_memory/test_hil_pipeline.py); 집중 operator-memory 및 bridge 검사 76건이 통과했고 strict mypy와 작업 범위 Ruff가 통과했습니다. | materializer를 호출하는 포크 우선 채널을 만든 뒤 파이프라인 구획을 활성화합니다. |
 
 ### 남은 작업
 
 - [ ] 정제되고 허용 목록으로 제한된 웹 스니펫을 정확한 소스 증적, 프롬프트 다이제스트 재실행
   및 부정 주입 테스트와 함께 코어 T2 도구 매니페스트에 연결합니다.
-- [ ] 해당 파이프라인 구획을 활성화하기 전에 서로 다른 principal, 만료, 재실행 및 자기 승인
-  방지 근거를 갖춘 포크 우선 두 번째 승인 채널을 구현합니다.
+- [x] 업스트림 두 번째 승인 단계가 서로 다른 principal, 자기 승인 방지, 범위가 제한된 승인 창,
+  재실행을 입증합니다. 재전달은 `already_materialized` 로 거부하고 구체화는 정확히 한 번만
+  일어납니다.
+- [ ] 두 번째 승인 단계를 호출하는 포크 우선 채널을 만든 뒤 해당 파이프라인 구획을
+  활성화합니다.
 - [ ] 하나의 고정 카탈로그 리비전에서 조립된 프롬프트, 토론, 인용, 최종 검증기 결과 및 실행
   권한 0을 증명하는 통제된 종단 간 T2 증적을 보존합니다.
 
