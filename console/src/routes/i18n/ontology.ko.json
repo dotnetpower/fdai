@@ -123,13 +123,16 @@
     },
     "links": "관계",
     "relationships": "방향이 지정된 관계",
+    "causal": "인과",
+    "temporal": "시간 순서",
+    "transitive": "전이",
     "noRelationships": "이 선택 항목을 의미 모델 안에서 연결하는 검토된 관계가 없습니다.",
     "stateLanes": "권한이 분리된 상태 lane",
     "state": {
-      "observed": "관측됨",
-      "derived": "운영 파생",
-      "desired": "희망 상태",
-      "execution": "실행"
+      "observed": "관측 상태",
+      "derived": "운영 파생 상태",
+      "desired": "목표 상태",
+      "execution": "실행 상태"
     },
     "stateDescription": {
       "observed": "Provider 또는 telemetry 근거",
@@ -171,10 +174,25 @@
       "interface": "인터페이스",
       "instance_of": "인스턴스 관계",
       "rule_dispatch": "규칙 디스패치",
-      "workflow": "Workflow",
+      "workflow": "작업 흐름",
       "agent": "담당 관계"
     },
-    "canvasDescription": "노드 {nodes}개와 관계 {edges}개를 표시하는 대화형 온톨로지 지식 그래프입니다.",
+    "nodeKind": {
+      "object_type": "객체 유형",
+      "interface_type": "인터페이스 유형",
+      "function_type": "함수 유형",
+      "resource_type": "리소스 유형",
+      "rule": "규칙",
+      "action_type": "작업 유형",
+      "workflow": "작업 흐름",
+      "agent": "에이전트",
+      "signal_type": "신호 유형",
+      "property": "속성"
+    },
+    "canvasDescription": "노드 {nodes}개와 관계 {edges}개를 표시하는 대화형 온톨로지 카탈로그 토폴로지입니다. 선택 항목: {selected}. 화살표 키로 이동하고 더하기 또는 빼기 키로 확대 및 축소하며 숫자 0으로 맞춥니다.",
+    "viewportLabel": "이동할 수 있는 온톨로지 카탈로그 토폴로지",
+    "inspectorLabel": "온톨로지 카탈로그 토폴로지 검사기",
+    "noSelection": "없음",
     "nodeTypeColors": "노드 종류별 색상",
     "lowDegree": "연결 적음",
     "highDegree": "연결 많음",

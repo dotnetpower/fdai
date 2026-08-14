@@ -72,6 +72,9 @@ export function OntologyKnowledgeGraphExplorer({ graph }: { readonly graph: Onto
           <label>
             <span class="sr-only">{t("ontology.map.search")}</span>
             <input
+              role="combobox"
+              aria-autocomplete="list"
+              aria-controls="ontology-knowledge-node-list"
               ref={searchRef}
               type="search"
               list="ontology-knowledge-node-list"
@@ -99,8 +102,9 @@ export function OntologyKnowledgeGraphExplorer({ graph }: { readonly graph: Onto
         </div>
         <div class="ontology-knowledge-filters" aria-label={t("ontology.map.relationshipFilters")}>
           {ONTOLOGY_EDGE_KINDS.map((kind) => (
-            <label key={kind}>
+            <label key={kind} for={`ontology-edge-filter-${kind}`}>
               <input
+                id={`ontology-edge-filter-${kind}`}
                 type="checkbox"
                 checked={enabledEdges.has(kind)}
                 onChange={(event) => toggleEdge(kind, event.currentTarget.checked)}
@@ -112,7 +116,12 @@ export function OntologyKnowledgeGraphExplorer({ graph }: { readonly graph: Onto
       </div>
 
       <div class="ontology-knowledge-workbench">
-        <div class="ontology-knowledge-viewport" ref={controller.viewportRef}>
+        <div
+          class="ontology-knowledge-viewport"
+          ref={controller.viewportRef}
+          role="region"
+          aria-label={t("ontology.map.viewportLabel")}
+        >
           <canvas
             ref={controller.canvasRef}
             role="img"
@@ -120,11 +129,12 @@ export function OntologyKnowledgeGraphExplorer({ graph }: { readonly graph: Onto
             aria-label={t("ontology.map.canvasDescription", {
               nodes: summary.nodes,
               edges: summary.edges,
+              selected: selected?.label ?? t("ontology.map.noSelection"),
             })}
           />
           <div class="ontology-knowledge-type-legend" aria-label={t("ontology.map.nodeTypeColors")}>
             {Object.entries(ONTOLOGY_NODE_STYLES).map(([kind, style]) => (
-              <span key={kind}><i style={`background:${style.fill}`} />{style.label}</span>
+              <span key={kind}><i style={`background:${style.fill}`} />{t(`ontology.map.nodeKind.${kind}`)}</span>
             ))}
           </div>
           <div class="ontology-knowledge-overlay">
@@ -162,7 +172,7 @@ function KnowledgeInspector({
   const summary = ontologyKnowledgeGraphSummary(graph);
   if (!selected) {
     return (
-      <aside class="ontology-knowledge-inspector" aria-live="polite">
+      <aside class="ontology-knowledge-inspector" aria-live="polite" aria-label={t("ontology.map.inspectorLabel")}>
         <span class="badge">{t("ontology.map.communityGraph")}</span>
         <h3>{t("ontology.map.catalogNodes", { count: formatNumber(summary.nodes) })}</h3>
         <p>{t("ontology.map.inspectorDefault", { count: summary.communities })}</p>
@@ -188,12 +198,12 @@ function KnowledgeInspector({
   const incoming = directed.filter((item) => item.relationship.direction === "incoming");
   const outgoing = directed.filter((item) => item.relationship.direction === "outgoing");
   return (
-    <aside class="ontology-knowledge-inspector" aria-live="polite">
+    <aside class="ontology-knowledge-inspector" aria-live="polite" aria-label={t("ontology.map.inspectorLabel")}>
       <span class="badge">{t("ontology.map.knowledgeNode")}</span>
       <h3><code>{selected.label}</code></h3>
       <p>{selected.detail}</p>
       <dl>
-        <div><dt>{t("ontology.map.ontologyKind")}</dt><dd>{ONTOLOGY_NODE_STYLES[selected.kind].label}</dd></div>
+        <div><dt>{t("ontology.map.ontologyKind")}</dt><dd>{t(`ontology.map.nodeKind.${selected.kind}`)}</dd></div>
         <div><dt>{t("ontology.map.community")}</dt><dd>C{selected.community}</dd></div>
         <div><dt>{t("ontology.map.evidenceState")}</dt><dd>{t(selected.kind === "object_type" ? "ontology.map.declared" : "ontology.map.catalogBacked")}</dd></div>
         <div><dt>{t("ontology.map.degree")}</dt><dd>{formatNumber(selected.degree)}</dd></div>

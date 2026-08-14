@@ -21,6 +21,12 @@ export interface KnowledgeGraphArrowHead {
   readonly right: KnowledgeGraphPoint;
 }
 
+export interface KnowledgeGraphSelfLoop {
+  readonly start: KnowledgeGraphPoint;
+  readonly control: KnowledgeGraphPoint;
+  readonly end: KnowledgeGraphPoint;
+}
+
 export interface KnowledgeGraphIndex {
   readonly nodeById: ReadonlyMap<string, OntologyKnowledgeNode>;
   readonly adjacency: ReadonlyMap<string, readonly OntologyKnowledgeEdge[]>;
@@ -82,6 +88,28 @@ export function ontologyArrowHead(
     tip,
     left: { x: base.x + unitY * wing, y: base.y - unitX * wing },
     right: { x: base.x - unitY * wing, y: base.y + unitX * wing },
+  };
+}
+
+export function ontologySelfLoop(
+  center: KnowledgeGraphPoint,
+  radius: number,
+): KnowledgeGraphSelfLoop {
+  const startAngle = -Math.PI / 3;
+  const endAngle = Math.PI / 6;
+  return {
+    start: {
+      x: center.x + Math.cos(startAngle) * radius,
+      y: center.y + Math.sin(startAngle) * radius,
+    },
+    control: {
+      x: center.x + radius * 3,
+      y: center.y - radius * 3,
+    },
+    end: {
+      x: center.x + Math.cos(endAngle) * radius,
+      y: center.y + Math.sin(endAngle) * radius,
+    },
   };
 }
 

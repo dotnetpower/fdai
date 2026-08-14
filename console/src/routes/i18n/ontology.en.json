@@ -123,6 +123,9 @@
     },
     "links": "relationships",
     "relationships": "Directed relationships",
+    "causal": "causal",
+    "temporal": "temporal",
+    "transitive": "transitive",
     "noRelationships": "No reviewed relationship connects this selection within the semantic model.",
     "stateLanes": "Authority-separated state lanes",
     "state": {
@@ -174,7 +177,22 @@
       "workflow": "Workflow",
       "agent": "Ownership"
     },
-    "canvasDescription": "Interactive ontology knowledge graph with {nodes} nodes and {edges} relationships.",
+    "nodeKind": {
+      "object_type": "Object type",
+      "interface_type": "Interface type",
+      "function_type": "Function type",
+      "resource_type": "Resource type",
+      "rule": "Rule",
+      "action_type": "Action type",
+      "workflow": "Workflow",
+      "agent": "Agent",
+      "signal_type": "Signal type",
+      "property": "Property"
+    },
+    "canvasDescription": "Interactive ontology catalog topology with {nodes} nodes and {edges} relationships. Selected: {selected}. Use arrow keys to pan, plus or minus to zoom, and zero to fit.",
+    "viewportLabel": "Pannable ontology catalog topology",
+    "inspectorLabel": "Ontology catalog topology inspector",
+    "noSelection": "none",
     "nodeTypeColors": "Node type colors",
     "lowDegree": "Low degree",
     "highDegree": "High degree",

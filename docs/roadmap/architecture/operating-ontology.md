@@ -86,7 +86,7 @@ cloud-operations concepts, while each deployment supplies its observed instances
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | O1 semantic spine and catalog integrity | implemented | [`test_ontology_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_catalog.py), [`test_ontology_provenance.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_provenance.py) | The integrated catalog validates the operating semantic spine, provenance, references, and cardinality. |
-| O2 bounded context and current-state projection | in-progress | [`ontology_instance.py`](../../../services/core-control-plane/src/fdai/shared/providers/ontology_instance.py), [`test_ontology_instance.py`](../../../services/core-control-plane/tests/providers/test_ontology_instance.py) | Typed current-state objects and links exist; production bindings remain capability-specific and fail closed when evidence is incomplete. |
+| O2 bounded context and current-state projection | in-progress | [`ontology_instance.py`](../../../services/core-control-plane/src/fdai/shared/providers/ontology_instance.py), [`console_projection.py`](../../../services/core-control-plane/src/fdai/core/operational_context/console_projection.py), focused instance and Context projection tests | Typed current-state objects and links exist. A secured receipt can now produce bounded no-authority Context metadata only when purpose, release, cutoff, and graph coverage match. Principal-scoped transport and authenticated runtime evidence remain open. |
 | O3-O5 decision, outcome, and governed-learning loops | in-progress | [Delivery plan](#delivery-plan), [`test_ontology_alignment.py`](../../../services/core-control-plane/tests/agents/test_ontology_alignment.py) | Core slices exist, but effect closure and governed learning are not complete across every production path. |
 | Wave 2 evidence, change, Property, and topology foundations | in-progress | [Implementation status narrative](#fdai-operating-ontology), [Operating Ontology Platform](operating-ontology-platform.md) | Reviewed foundations exist; the evidence bundle is not composed into runtime, planned changes cannot auto-clear graph freshness, and broader platform delivery remains open. |
 
@@ -95,6 +95,7 @@ cloud-operations concepts, while each deployment supplies its observed instances
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | Current source, tests, and delivery plan listed in the scope table. | Complete the observable exit conditions below. |
+| 2026-08-14 | implemented | Added a bounded Context presentation projector that rejects mismatched secured receipts and omits raw object properties. | `current change`; `test_console_projection.py` passed 5 focused cases. | Bind the projector only through a principal-scoped evidence response and retain authenticated Console evidence. |
 
 ### Remaining work
 
@@ -104,6 +105,8 @@ cloud-operations concepts, while each deployment supplies its observed instances
   automated clearance, including stale, incomplete, and conflicting negative cases.
 - [ ] Complete production bindings and replay evidence for the remaining context, outcome-closure,
   and governed-learning paths on one pinned ontology release.
+- [ ] Bind receipt-verified Context metadata through an existing principal-scoped evidence response;
+  prove wrong-principal, wrong-purpose, wrong-release, stale, and truncated cases remain unavailable.
 - [ ] Keep the operating ontology and platform ledgers synchronized as topology, temporal,
   reconciliation, and graph-wide Dynamic delivery reaches its focused exit conditions.
 

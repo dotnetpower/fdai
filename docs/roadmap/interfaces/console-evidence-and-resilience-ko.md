@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: b920e5e9bd155f951d6bcc4386eac3244384d62e
+translation_source_sha: 4992b22119559315e2b9db7048fe89b40447d549
 translation_revised: 2026-08-14
 ---
 
@@ -30,6 +30,7 @@ translation_revised: 2026-08-14
 | 2026-08-14 | 구현됨 | 전역 `pre` 배경이 덮어쓴 Command Deck JSON 구문 강조 영역 아래에 고정된 어두운 표면을 복원했습니다. | `current change`, 작업 소유 Console CSS 및 시각 계약 테스트, focused Vitest 10개 통과, Console 타입 검사 통과, 인증된 브라우저에서 의도한 어두운 표면과 토큰 색상 계산 확인 | 범위가 제한된 잔여 작업은 없습니다. 향후 테마 변경은 focused 회귀 테스트가 확인합니다. |
 | 2026-08-14 | 구현됨 | Operator 온톨로지 레지스트리와 카탈로그 토폴로지를 하나의 exact-release 생산자로 통합하고 InterfaceType 및 FunctionType 노드를 추가했으며 SPA의 생성된 토폴로지 복사본을 제거했습니다. | `current change`, materializer 동등성 테스트 2개, focused Console 테스트 13개 및 Console 타입 검사 통과 | 검토된 의미 모델을 렌더링하고 receipt 기반 컨텍스트 스냅샷과 인증된 Browser 근거를 보존해야 합니다. |
 | 2026-08-14 | 구현됨 | 네 영역 의미 모델을 기본 온톨로지 보기로 만들고 dense graph를 카탈로그 토폴로지로 유지했으며 semantic inspector와 topology canvas 모두에 canonical 방향을 렌더링했습니다. | `current change`, focused ontology Vitest 23개, 카탈로그 동등성 및 Console 타입 검사 통과 | 인증된 데스크톱 및 모바일 Browser 근거를 보존하고 런타임 근거를 표시하기 전에 authoritative 컨텍스트 receipt를 연결해야 합니다. |
+| 2026-08-14 | 구현됨 | 독립적인 비평 라운드 10개를 완료하고 범위가 제한된 구획에서 검증된 모든 Medium 이상 finding을 수정했습니다. Fail-closed 응답 decoding, canonical 영역, profile 기반 action membership, self-loop, 관계 flag, 키보드 제어, 접근 가능한 landmark 및 focus, topology bound, localized node kind를 포함합니다. | `current change`, focused Python 테스트 7개, ontology Vitest 27개, 카탈로그 동등성, Console 타입 검사 및 Core import 경계 통과 | 남은 구현 finding은 Low입니다. Principal 범위 컨텍스트 전송과 인증된 Browser 근거는 가용성을 추론하지 않고 명시적 검증 작업으로 유지합니다. |
 
 ### 잔여 작업
 
