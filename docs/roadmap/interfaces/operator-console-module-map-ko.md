@@ -1,8 +1,8 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: 7ff4bd35d7dc48c59c74648c5e1adbcce632010d
-translation_revised: 2026-08-14
+translation_source_sha: c1507ce36e03435331a00c347db14d84b6be7de0
+translation_revised: 2026-08-15
 ---
 # Operator Console 모듈 지도 and Boundaries
 
@@ -28,6 +28,7 @@ file-count 목표가 아닌 설명 기준이지만, executable 완전성 게이�
 |------|------|------|------|
 | 현재 상태 활동 projection 경계 | 구현됨 | `fdai_operator_service/activity_projection.py`, `test_activity_projection.py`, focused 영속성 및 projection 테스트 (`6 passed`) | 영속 행은 hash된 correlation 참조를 요구하고 실제 운영 프레임과 같은 activity id를 사용하며, 중복 중 가장 최신 항목만 유지하고 `execution_authority=false`를 보존합니다. |
 | 통제된 의미 증적 표현 | 구현됨 | `console/src/deck/backend-normalizers.ts`, `backend-stream.ts`, `transcript-store.ts`, `conversation-trajectory-view.tsx`, `console-routes.spec.ts`, focused Console 테스트 | Console은 최종 의미 증적을 안전하게 실패하도록 파싱하고 exact 타입 필드를 영속화 및 replay하며 경로, 사용 불가 사유, 보증 다이제스트, 근거 참조 및 실행 권한 없음 상태를 렌더링합니다. 인증된 실행기는 최종 증적을 호출자 요청 UUID에 연결하고 복제한 응답 스트림을 읽으므로 애플리케이션의 소비 동작을 변경하지 않습니다. 인증된 브라우저 근거는 아직 확보하지 않았습니다. |
+| 브라우저 근거 메타데이터 패널 경계 | 구현됨 | `console/src/routes/browser-evidence.tsx`, `console/src/panels.tsx`, focused decoder, panel 및 router 검사(`26 passed`) | 기존 Evidence 탐색 경로는 정확한 payload-free Operator 묶음만 사용합니다. 컨트롤과 수집 또는 구조화된 페이로드를 거부하고 변경 명령을 렌더링하지 않으며 인증된 배포 읽기 근거는 별도 런타임 gate로 유지합니다. |
 
 ### 구현 이력
 
@@ -37,6 +38,7 @@ file-count 목표가 아닌 설명 기준이지만, executable 완전성 게이�
 | 2026-08-13 | 진행 중 | Exact 타입 기반 의미 증적 파싱, 스트림 수집, 영속 replay, 표현 및 인증된 근거 실행기를 추가했습니다. | `current change`, 통과한 focused Console 테스트 및 typecheck | 통제된 요청-Console 및 이중 언어 무작위 보증 브라우저 경로를 실행하고 통과한 두 기록을 보존합니다. |
 | 2026-08-13 | 구현됨 | 인증된 최종 증적 수집을 호출자 요청 UUID에 연결하고 애플리케이션의 원본 스트림을 소비하지 않도록 `Response.clone()`에서 SSE 본문을 수집했습니다. | `current change`, `console-routes.spec.ts`, Console typecheck 및 Playwright discovery 통과 | 무작위 보증 전에 인증된 통제 실행기를 수행하고 통과한 기록을 보존합니다. |
 | 2026-08-13 | 구현됨 | 인증된 통제 실행기를 현재 접근 가능한 `Run record` 궤적 요약에 맞춰 중첩된 실행 및 기술 증적 상세를 펼칠 수 있게 했습니다. | `current change`, `console-routes.spec.ts`, Console typecheck 및 exact Playwright discovery 통과 | 무작위 보증 전에 인증된 통제 실행기를 수행하고 통과한 기록을 보존합니다. |
+| 2026-08-15 | 구현됨 | 등록된 브라우저 근거 경로를 payload-free Operator 메타데이터 계약과 엄격한 지역화 검사 상태에 맞췄습니다. | `current change`, `console/src/routes/browser-evidence.tsx`, focused 검사 `26 passed`, Console typecheck, build, catalog parity 및 desktop/mobile fixture 렌더링 통과 | 이행된 Operator 역할에 대한 인증된 배포 읽기 증적 하나를 보존합니다. |
 
 ### 남은 작업
 

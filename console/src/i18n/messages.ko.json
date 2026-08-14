@@ -831,10 +831,28 @@
     "subtitle": "범위가 제한된 브라우저 캡처의 읽기 전용 출처입니다. 추출한 콘텐츠는 신뢰되지 않은 상태로 유지됩니다.",
     "readOnlyTitle": "검사 전용입니다.",
     "readOnlyBody": "이 화면에서는 캡처, 승격, 승인 및 실행 제어를 사용할 수 없습니다.",
+    "resourceLabel": "브라우저 근거 메타데이터",
+    "unavailable": "권위 있는 브라우저 근거 메타데이터를 사용할 수 없습니다.",
     "artifacts": "아티팩트",
     "mode": "모드",
-    "shadow": "Shadow 전용",
-    "empty": "기록된 브라우저 근거 아티팩트가 없습니다."
+    "metadataOnly": "메타데이터 전용",
+    "legalHolds": "법적 보존",
+    "empty": "기록된 브라우저 근거 아티팩트가 없습니다.",
+    "verified": "검증됨",
+    "held": "보존 중",
+    "scheduled": "만료 예정",
+    "sanitization": "selector {selectors}개 / 민감정보 제거 {redactions}건 / 발견 사항 {findings}건",
+    "integrity": "해시 {hashes}/3개 / {custody}",
+    "column": {
+      "source": "출처",
+      "policy": "정책",
+      "captured": "수집 시각",
+      "expires": "만료 시각",
+      "sanitization": "정제",
+      "integrity": "무결성",
+      "isolation": "격리",
+      "retention": "보존"
+    }
   },
   "workflowApps": {
     "subtitle": "게시된 읽기 전용 워크플로우 화면입니다. 앱은 통제된 Process 저널과 ViewSpec을 재사용하며 동작 버튼이나 원격 코드를 추가하지 않습니다.",

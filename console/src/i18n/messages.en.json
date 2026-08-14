@@ -831,10 +831,28 @@
     "subtitle": "Read-only provenance for bounded browser captures. Extracted content remains untrusted.",
     "readOnlyTitle": "Inspection only.",
     "readOnlyBody": "Capture, promotion, approval, and execution controls are not available in this view.",
+    "resourceLabel": "browser evidence metadata",
+    "unavailable": "Authoritative browser evidence metadata is unavailable.",
     "artifacts": "Artifacts",
     "mode": "Mode",
-    "shadow": "Shadow only",
-    "empty": "No browser evidence artifacts recorded."
+    "metadataOnly": "Metadata only",
+    "legalHolds": "Legal holds",
+    "empty": "No browser evidence artifacts recorded.",
+    "verified": "Verified",
+    "held": "Held",
+    "scheduled": "Scheduled expiry",
+    "sanitization": "{selectors} selectors / {redactions} redactions / {findings} findings",
+    "integrity": "{hashes}/3 hashes / {custody}",
+    "column": {
+      "source": "Source",
+      "policy": "Policy",
+      "captured": "Captured",
+      "expires": "Expires",
+      "sanitization": "Sanitization",
+      "integrity": "Integrity",
+      "isolation": "Isolation",
+      "retention": "Retention"
+    }
   },
   "workflowApps": {
     "subtitle": "Published, read-only workflow surfaces. Apps reuse governed Process journals and ViewSpecs; they never add action buttons or remote code.",
