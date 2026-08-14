@@ -4,8 +4,7 @@ title: Project Structure
 # Project Structure
 
 The system is a **headless control plane + thin console + ChatOps**, not one web app. See [App Shape](../../../.github/instructions/app-shape.instructions.md).
-The layout below records the physical service-owned tree; completion evidence and retirement
-criteria are in the [Service Decomposition Execution Plan](service-decomposition-execution-plan.md#final-repository-layout).
+The layout below records the physical service-owned tree; completion evidence and retirement criteria are in the [Service Decomposition Execution Plan](service-decomposition-execution-plan.md#final-repository-layout).
 Fifteen fixed agents own the control loop through typed events. Process splits follow
 [Service Graduation and Data Ownership](service-graduation-and-ownership.md), and module names follow [Architecture](../../../.github/instructions/architecture.instructions.md).
 The local five-service profile keeps each package independent over loopback PostgreSQL,
@@ -37,6 +36,7 @@ with service-owned managed implementations without changing the shared wire cont
 | 2026-08-14 | implemented | Aligned the shared coverage enum and command sanitizer with the documented `unmapped` and no-environment-assignment contracts. | `current change`; focused discovery tests `36 passed`, task-scoped Ruff, and strict contract mypy passed. | Retain the governed live canary evidence tracked by the Azure discovery owner document. |
 | 2026-08-14 | implemented | Added provider-neutral normalization and validation-version pins to the shared plan while keeping concrete Azure values in delivery profiles. | `current change`; focused discovery tests `40 passed`, task-scoped Ruff, strict mypy, and the Core import boundary gate passed. | Retain the governed live canary evidence tracked by the Azure discovery owner document. |
 | 2026-08-14 | implemented | Hardened shared command evidence against redirects, control characters, and executable shell words while retaining catalog-owned placeholders. | `current change`; focused discovery tests `44 passed`, task-scoped Ruff, and strict mypy passed. | Retain the governed live canary evidence tracked by the Azure discovery owner document. |
+| 2026-08-14 | implemented | Split durable HIL park key, expiry decoding, and on-call serialization into a focused record helper without changing approval, dispatch, or audit authority. | `current change`; focused HIL coordinator tests passed 33 cases, and strict mypy and the Core import gate passed. | The deferred Phase 2 package move remains unchanged. |
 
 ### Remaining work
 - [ ] Complete the deferred Phase 2 physical `git mv` after the compatibility import deprecation cycle, then update this layout to the resulting service-owned paths.

@@ -1,8 +1,8 @@
 ---
 title: Agent Workflow Shadow Rollout
 translation_of: agent-workflow-rollout.md
-translation_source_sha: a602ebb89e05cb8c5c2e2c59f701dc9fa356506a
-translation_revised: 2026-08-13
+translation_source_sha: 4d17413106348693d475f7c342cfe0b7225bc543
+translation_revised: 2026-08-14
 ---
 # 에이전트 작업 흐름 shadow 롤아웃
 
@@ -25,6 +25,7 @@ translation_revised: 2026-08-13
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | implemented | 구현 원장을 도입하고 집중 shadow 경로 구현과 운영 롤아웃 검증을 분리했습니다. 이전 구현 이력은 재구성하지 않았습니다. | 현재 변경; 집중 작업 흐름 테스트 | 런타임 종료 게이트 근거를 수집하고 독립 승격 결과를 기록합니다. |
+| 2026-08-14 | implemented | Forseti의 순수 결정 mapping, conflict, impact 및 freshness helper를 private framework로 추출하고 판단 역할, topic, workflow mode 및 승격 상태는 변경하지 않았습니다. | `current change`, 집중 layout 및 Forseti 판단 검사 104개 통과, strict mypy 및 agent import gate 통과 | 런타임 종료 게이트 근거와 독립 승격 결과는 변경 없이 남아 있습니다. |
 
 ### 남은 작업
 

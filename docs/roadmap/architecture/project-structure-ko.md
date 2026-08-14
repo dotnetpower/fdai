@@ -1,10 +1,9 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 2245749aa01c4d95cb901502fcc6a0712d9f982c
+translation_source_sha: cc6b8442ffbb5b82825e24862d5ae148cd20481f
 translation_revised: 2026-08-14
 ---
-
 # 프로젝트 구조
 
 이 시스템은 하나의 웹 앱이 아니라 **headless 컨트롤 플레인 + 얇은 콘솔 + ChatOps**입니다. [App 형태](../../../.github/instructions/app-shape.instructions.md)를 참조하세요.
@@ -41,6 +40,7 @@ translation_revised: 2026-08-14
 | 2026-08-14 | implemented | 공유 커버리지 enum 및 명령 sanitizer를 문서화된 `unmapped` 및 환경 할당 금지 계약과 일치시켰습니다. | `current change`, 집중 검색 테스트 `36 passed`, 작업 범위 Ruff 및 strict 계약 mypy 통과 | Azure 검색 owner 문서에서 추적하는 통제된 실제 운영 canary 근거를 보존합니다. |
 | 2026-08-14 | implemented | 구체적인 Azure 값은 delivery 프로파일에 유지하면서 공유 계획에 프로바이더 중립 정규화 및 검증 버전 pin을 추가했습니다. | `current change`, 집중 검색 테스트 `40 passed`, 작업 범위 Ruff, strict mypy 및 Core import 경계 gate 통과 | Azure 검색 owner 문서에서 추적하는 통제된 실제 운영 canary 근거를 보존합니다. |
 | 2026-08-14 | implemented | 카탈로그 소유 자리 표시자를 유지하면서 redirect, 제어 문자 및 실행 가능한 shell 단어를 거부하도록 공유 명령 근거를 강화했습니다. | `current change`, 집중 검색 테스트 `44 passed`, 작업 범위 Ruff 및 strict mypy 통과 | Azure 검색 owner 문서에서 추적하는 통제된 실제 운영 canary 근거를 보존합니다. |
+| 2026-08-14 | implemented | 승인, dispatch 또는 감사 권한을 바꾸지 않고 영속 HIL park key, 만료 decoding 및 on-call serialization을 focused record helper로 분리했습니다. | `current change`, focused HIL coordinator 테스트 33개 통과, strict mypy 및 Core import gate 통과 | 연기된 Phase 2 패키지 이동은 변경 없이 남아 있습니다. |
 
 ### 남은 작업
 - [ ] 호환성 import deprecation 주기 뒤 연기된 Phase 2 물리 `git mv`를 완료하고 이 배치를 결과 service-owned 경로로 갱신합니다.

@@ -45,6 +45,7 @@ central planner or another authority surface.
 |------|-------|----------|-------|
 | P1-P7 operational-planning core | implemented | `services/core-control-plane/src/fdai/core/operational_planning/` and focused planning tests | Planning remains A0 and reuses existing Process and authority paths. |
 | Production graph evidence and scale-out executor bindings | implemented | `services/core-control-plane/src/fdai/delivery/azure/` and focused composition/delivery tests | Code presence and tests don't count as live outcome evidence. |
+| Argument-bound kinetic proposal contract and Thor lineage | implemented | `services/core-control-plane/src/fdai/core/operational_planning/kinetic_proposal.py`, `services/core-control-plane/src/fdai/agents/thor.py`, and focused contract/agent tests | The optional A0 proposal preserves an existing exact V2 plan without changing verdict, quorum, mode, or authority. |
 | Exact kinetic handoff and independent effect-observation runtime binding | in-progress | `services/core-control-plane/src/fdai/delivery/reconciliation_artifacts.py`, `config/ohl-scale-out-evidence.json`, and focused artifact/manifest tests | The immutable store exists; the pre-dispatch writer and Heimdall-owned verified observer remain unbound. |
 | Independent-service HIL binding | in-progress | `config/ohl-scale-out-evidence.json` and the deployed Core/Operator environment contract | The service roots must bind the HIL channel and callback signing secret before approval can park and resolve the action. |
 | OHL Lane F live evidence | in-progress | `docs/runbooks/ohl-scale-out-evidence.md` | Protected execution, independent closure, 100 samples, and the 14-day recurrence window remain open. |
@@ -55,9 +56,12 @@ central planner or another authority surface.
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and exposed the independent-service HIL binding residual. | current change; `services/core-control-plane/tests/scenarios/operational-planning/test_manifest.py` reports 7 passed. | Bind HIL in both service roots, deploy the exact revision, and complete the live evidence campaign. |
 | 2026-08-14 | in-progress | Exposed the missing exact-plan writer and verified independent effect observer as separate Lane F runtime residuals. | `current change`; the Lane F contract, runbook gate, artifact-store tests, and manifest tests. | Bind both sources without reconstructing plans or substituting executor/provider receipts. |
+| 2026-08-14 | implemented | Added an authority-free, argument-bound kinetic proposal contract and preserved valid proposals through Thor's durable ActionRun. | `current change`; focused kinetic-proposal, Thor dispatch, persistence, and role-invariant checks. | Add the Forseti-owned producer and Core pre-dispatch consumer before removing the runtime residual. |
 
 ### Remaining work
 
+- [ ] Produce `KineticActionProposal` only from a complete operational plan and consume it through
+  Core typed ingress before dispatch; prove missing proposals leave legacy Actions unchanged.
 - [ ] Persist the existing exact V2 plan's kinetic receipt before provider dispatch and bind a
   Heimdall-owned verified independent effect observer; retain focused substitution and replay tests.
 - [ ] Bind and verify the Core HIL channel plus Operator callback signing secret so a distinct human
@@ -230,6 +234,21 @@ existing exact V2 plan. It must not reconstruct a plan from an Action. After dis
 Heimdall-owned adapter must authenticate an independent effect observation; an executor or provider
 receipt is dispatch evidence and cannot substitute for the observed outcome. The immutable store is
 implemented, but these two runtime bindings remain release blockers.
+
+### Argument-bound kinetic proposal
+
+`KineticActionProposal` is an authority-free bridge between a complete operational plan and the
+ordinary typed execution path. It content-addresses one existing semantic V2 `MutationPlan`, the
+exact raw Action arguments and digest, one target, and the Process, plan, selection, and correlation
+lineage. The proposal timestamp cannot precede the plan, and its canonical body has a hard byte
+ceiling. It never carries approval, mode, promotion, or execution authority.
+
+Forseti may carry this optional proposal only inside its existing `object.verdict`. Thor validates
+that its correlation, selected ActionType, target, arguments, and DecisionCase lineage are exact,
+then preserves it on the durable `ActionRun`. A malformed or substituted proposal changes the
+verdict to deny before execution. An absent proposal leaves the legacy path unchanged and never
+causes a V2 plan to be created. A later delivery-owned producer and Core consumer must close the
+runtime gap through the event bus; contract presence alone is not production binding evidence.
 
 Risk evaluation rechecks current policy, promotion state, role, environment, impact, approval,
 target revision, and all seven safeguards. Planning evidence can only preserve or lower the

@@ -5,9 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from types import MappingProxyType
 from typing import Literal
 
 from fdai_service_contracts.ontology_query import StructuralCoverageReceipt
@@ -61,6 +60,25 @@ _ROUTE_BY_DISPOSITION = {
     "action_draft": "semantic_action_draft",
     "cancelled": "semantic_cancellation",
 }
+
+
+class _FrozenAnswerCounts(Mapping[str, int]):
+    __slots__ = ("_values",)
+
+    def __init__(self, values: Mapping[str, int]) -> None:
+        self._values = dict(values)
+
+    def __getitem__(self, key: str) -> int:
+        return self._values[key]
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._values)
+
+    def __len__(self) -> int:
+        return len(self._values)
+
+    def __deepcopy__(self, memo: object) -> dict[str, int]:
+        return dict(self._values)
 
 
 @dataclass(frozen=True, slots=True)
@@ -224,7 +242,7 @@ class OntologyQueryCoverageGateReceipt:
         object.__setattr__(
             self,
             "answer_counts_by_cohort",
-            MappingProxyType(dict(self.answer_counts_by_cohort)),
+            _FrozenAnswerCounts(self.answer_counts_by_cohort),
         )
 
     def _body(self) -> dict[str, object]:

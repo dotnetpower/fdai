@@ -34,7 +34,7 @@ Consumers of this document:
 | Typed pub/sub ownership and concurrent runtime | implemented | [`topics.py`](../../../services/core-control-plane/src/fdai/agents/_framework/topics.py), [`runtime.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime.py), [`runtime_subscriptions.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime_subscriptions.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py), [`test_pantheon_concurrency_proof.py`](../../../services/core-control-plane/tests/agents/test_pantheon_concurrency_proof.py) | Focused tests cover topic ownership, partitioning, all 15 consumer identities, and non-stealing fan-out. |
 | Mimir Rule generation accountability | implemented | [`mimir.py`](../../../services/core-control-plane/src/fdai/agents/mimir.py), [`runtime.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime.py), [`runtime_subscriptions.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime_subscriptions.py), [`test_wave2_governance.py`](../../../services/core-control-plane/tests/agents/test_wave2_governance.py), [`test_runtime.py`](../../../services/core-control-plane/tests/agents/test_runtime.py) | Mimir alone receives activation commands and terminal results. It delegates exact activation to the injected binder and stores projection-only receipts without index, policy, approval, mutation, or execution authority. |
 | Rule generation build, validation, and activation chain | implemented | `mimir.py`; `heimdall.py`; `runtime.py`; `runtime/rule_generation_documents.py`; focused worker, runtime, activation, and bootstrap checks | Production startup freezes strict promoted-surface documents, persists a replay-identical reconciliation request, and routes it through Mimir and Heimdall. Mimir binds the exact independent receipt before publishing activation without gaining policy or execution authority. Governed live evidence remains open. |
-| Judgment, approval, execution, audit, and recovery separation | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py) | Synthetic runtime tests exercise the separated lifecycle and durable ActionRun behavior; they do not prove a live production outcome. |
+| Judgment, approval, execution, audit, and recovery separation | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py) | Synthetic tests exercise separated authority, durable ActionRun behavior, and exact optional kinetic-proposal preservation; they do not prove a live production outcome. |
 | Conversational and handoff mechanics | implemented | [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py), [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | The bounded read-only conversation path and shadow workflow traces are executable in focused tests. |
 | KPI evidence states, promotion checks, and degradation drills | implemented | [`test_wave8_kpi_degradation.py`](../../../services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py) | Missing or unmeasured KPI evidence fails promotion closed, and injected failures exercise declared degradation behavior. |
 | Live operational KPI validation and enforce promotion | not-started | [Goals and Metrics](../architecture/goals-and-metrics.md) | No retained live-shadow cohort, operational KPI receipt set, independent promotion review, or actual pantheon enforce promotion is evidenced here. |
@@ -47,6 +47,7 @@ Consumers of this document:
 | 2026-08-13 | implemented | Extracted private Rule-generation subscription wiring to restore the runtime module's framework-layout boundary without changing topics, ownership, or authority. | [`runtime_subscriptions.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime_subscriptions.py); framework layout, runtime, and pantheon parity checks passed. | Retain the same governed live evidence required by the implementation scope. |
 | 2026-08-13 | in-progress | Assigned the pre-activation build chain to Mimir and independent generation validation to Heimdall without granting either agent activation or execution authority. | `current change`; focused ownership, handler, parity, and runtime wiring checks passed 221 tests; the exact chain and forged/unbound checks passed. | Add the production catalog-reconciliation trigger and Mimir activation-command publication. |
 | 2026-08-13 | implemented | Completed the production Rule generation chain with authoritative embedding identity, strict startup document snapshots, replay-identical reconciliation requests, exact staged-receipt binding, and Mimir-owned activation-command publication after Heimdall validation. | `current change`; `rule_generation_documents.py`, `mimir.py`, `activation.py`, semantic-index adapters, and focused worker, runtime, activation, and bootstrap checks. | Retain governed live build, validation, activation, and projection receipts before claiming operational validation. |
+| 2026-08-14 | implemented | Made Thor validate and durably preserve an optional argument-bound kinetic proposal without changing topics or action authority. | `current change`; focused contract, Thor, durable replay, layout, and role checks. | Bind the Forseti producer and Core pre-dispatch consumer before claiming an end-to-end kinetic handoff. |
 
 ### Remaining work
 
@@ -54,6 +55,7 @@ Consumers of this document:
   confidence intervals, guard metrics, and authoritative outcome receipts on one pinned revision.
 - [ ] Demonstrate the declared degradation behavior against operational dependencies rather than
   only injected failures, without widening any agent's authority.
+- [ ] Bind the argument-bound kinetic proposal producer and pre-dispatch consumer through the existing Verdict and ActionRun topics, then retain governed live evidence.
 - [x] Complete the Rule generation chain with a production trigger, exact Heimdall receipt binding,
   and Mimir-owned activation publication; focused checks reach `activated` without added authority.
 - [ ] Complete an independent promotion review for each eligible capability and retain the
@@ -124,14 +126,12 @@ graph TD
 
 ## 3. Runtime relationship diagram
 
-The org chart is reporting lines. The relationship diagram is data flow.
-Sensing and specialists feed Forseti. Action verdicts feed Thor for dispatch to
-Vidar (recovery), Var (human approval), or execution; document-ingestion verdicts
-return to the ingestion plane and Thor ignores them. Var and Saga preserve the stable idempotency key through document HIL; production binds Saga to the durable StateStore for gated decisions and terminal states. Saga's document audit event and Muninn's index command carry the additive `1.0.0` worker contract, after which the ingestion worker uses a separate durable stage claim that grants neither agent new authority.
-Forseti also preserves each action's stable idempotency key on its Verdict, while Thor stores it on the durable `ActionRun` separately from the per-state event key.
-For workflow-originated operator requests, Huginn also preserves the bounded `workflow_action`
-lineage, Forseti carries it unchanged on the Verdict, and Thor stores it on the durable
-`ActionRun`. The lineage is attribution only and does not change quorum or execution authority.
+The org chart is reporting lines; the relationship diagram is data flow. Sensing and specialists feed Forseti. Action verdicts feed Thor for dispatch to Vidar, Var, or execution; Thor ignores
+document-ingestion verdicts. Var and Saga preserve stable idempotency through document HIL, while
+Saga persists gated and terminal audit. Workflow requests preserve bounded `workflow_action`
+lineage through Huginn, Forseti, and Thor. An optional argument-bound kinetic proposal follows the
+same Verdict-to-ActionRun path after strict validation. Both are attribution and evidence only;
+neither changes quorum, mode, judgment, approval, or execution authority.
 Norns proposes to Mimir, and Odin arbitrates conflicts before judgment.
 
 ```mermaid

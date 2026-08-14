@@ -24,6 +24,24 @@ from fdai.agents._framework.action_semantics import (
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict
 from fdai.agents._framework.bus import PantheonBus
+from fdai.agents._framework.forseti_decision_helpers import (
+    change_assessment_mapping as _change_assessment_mapping,
+)
+from fdai.agents._framework.forseti_decision_helpers import (
+    copy_change_assessment as _copy_change_assessment,
+)
+from fdai.agents._framework.forseti_decision_helpers import (
+    decision_case_mapping as _decision_case_mapping,
+)
+from fdai.agents._framework.forseti_decision_helpers import (
+    is_conflict as _is_conflict,
+)
+from fdai.agents._framework.forseti_decision_helpers import (
+    signal_impact as _signal_impact,
+)
+from fdai.agents._framework.forseti_decision_helpers import (
+    source_freshness as _source_freshness,
+)
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
     capability_facts,
@@ -927,96 +945,3 @@ class Forseti(Agent):
 
 
 __all__ = ["Forseti"]
-
-
-def _copy_change_assessment(event: Mapping[str, Any], verdict: dict[str, Any]) -> None:
-    status = event.get("change_assessment_status")
-    if isinstance(status, str):
-        verdict["change_assessment_status"] = status
-    assessment = event.get("change_assessment")
-    if isinstance(assessment, Mapping):
-        verdict["change_assessment"] = dict(assessment)
-
-
-def _change_assessment_mapping(event: Mapping[str, Any]) -> dict[str, Any] | None:
-    assessment = event.get("change_assessment")
-    return dict(assessment) if isinstance(assessment, Mapping) else None
-
-
-def _decision_case_mapping(
-    projection: _DecisionProjection,
-    change_assessment: Mapping[str, Any] | None,
-) -> dict[str, object]:
-    mapping = projection.to_mapping()
-    if change_assessment is not None:
-        mapping["change_assessment"] = dict(change_assessment)
-    return mapping
-
-
-def _is_conflict(advice: dict[str, str]) -> bool:
-    """True when >=2 domains give >=2 distinct actionable recommendations.
-
-    ``hold`` is not actionable, so it never creates a conflict on its own.
-    """
-    active = {domain: rec for domain, rec in advice.items() if rec != "hold"}
-    return len(active) >= 2 and len(set(active.values())) >= 2
-
-
-def _signal_impact(domain: str, payload: dict[str, Any]) -> float:
-    """Read the impact magnitude in [0, 1] from a domain signal.
-
-    The domain specialist (Njord, Freyr, ...) is the authority: it owns
-    per-domain normalization and MUST attach an explicit ``impact`` field
-    to the payload it publishes. Forseti simply forwards it.
-
-    Raw-metric fallbacks (``ratio`` for cost, ``forecast_util`` for
-    capacity) exist only for backward compatibility with a fork publisher
-    that has not yet migrated. Absent any magnitude the impact defaults
-    to 1.0 so the call collapses to the priority order.
-    """
-    explicit = payload.get("impact")
-    if explicit is not None:
-        try:
-            return max(0.0, min(1.0, float(explicit)))
-        except (TypeError, ValueError):
-            pass
-    # Legacy fallbacks (kept for pre-migration fork publishers).
-    if domain == "cost" and "ratio" in payload:
-        try:
-            return max(0.0, min(1.0, float(payload["ratio"]) - 1.0))
-        except (TypeError, ValueError):
-            return 1.0
-    if domain == "capacity" and "forecast_util" in payload:
-        try:
-            return max(0.0, min(1.0, float(payload["forecast_util"])))
-        except (TypeError, ValueError):
-            return 1.0
-    return 1.0
-
-
-def _source_freshness(raw: object) -> tuple[SourceFreshness, ...]:
-    if raw is None:
-        return ()
-    if not isinstance(raw, list):
-        raise ValueError("source_freshness MUST be an array")
-    items: list[SourceFreshness] = []
-    for item in raw:
-        if not isinstance(item, Mapping):
-            raise ValueError("source_freshness entries MUST be objects")
-        source = item.get("source")
-        observed_at = item.get("observed_at")
-        max_age_seconds = item.get("max_age_seconds")
-        if not isinstance(source, str):
-            raise ValueError("source_freshness source MUST be a string")
-        if not isinstance(observed_at, str):
-            raise ValueError("source_freshness observed_at MUST be a timestamp")
-        if isinstance(max_age_seconds, bool) or not isinstance(max_age_seconds, int):
-            raise ValueError("source_freshness max_age_seconds MUST be an integer")
-        items.append(
-            SourceFreshness(
-                source=source,
-                observed_at=datetime.fromisoformat(observed_at.replace("Z", "+00:00")),
-                max_age_seconds=max_age_seconds,
-            )
-        )
-    return tuple(items)
