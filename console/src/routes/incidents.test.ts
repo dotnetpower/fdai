@@ -3,6 +3,8 @@ import { setLocale } from "../i18n";
 import type { AuditItem } from "../types";
 import {
   incidentDisplayTitle,
+  incidentPageMatchesSnapshot,
+  incidentVerticalDisplayLabel,
   mergeIncidentItems,
   parseIncidentVertical,
   resolveIncidentSelection,
@@ -41,6 +43,11 @@ describe("incident route filters", () => {
     expect(parseIncidentVertical("")).toBeNull();
     expect(parseIncidentVertical(null)).toBeNull();
   });
+
+  it("localizes the active vertical summary", () => {
+    setLocale("ko");
+    expect(incidentVerticalDisplayLabel("change_safety")).toBe("변경 안전");
+  });
 });
 
 describe("incident pagination", () => {
@@ -56,6 +63,11 @@ describe("incident pagination", () => {
     const exact = [{ correlation_id: "b" }];
     expect(mergeIncidentItems(exact as never, current as never).map((item) => item.correlation_id))
       .toEqual(["b", "a"]);
+  });
+
+  it("rejects a page from a different analytical snapshot", () => {
+    expect(incidentPageMatchesSnapshot({ snapshot_seq: 42 }, { snapshot_seq: 42 })).toBe(true);
+    expect(incidentPageMatchesSnapshot({ snapshot_seq: 42 }, { snapshot_seq: 43 })).toBe(false);
   });
 });
 
