@@ -90,6 +90,7 @@ describe("viewContextWithUser wiring", () => {
     const parsed = await callAskAndCaptureBody(liveSnap());
     const ctx = parsed?.view_context ?? {};
     // Default is 'en' - byte-identical default for English operators.
+    expect((parsed as Record<string, unknown>).locale).toBe("en");
     expect(ctx._locale).toBe("en");
   });
 
@@ -99,6 +100,7 @@ describe("viewContextWithUser wiring", () => {
     try {
       const parsed = await callAskAndCaptureBody(liveSnap());
       const ctx = parsed?.view_context ?? {};
+      expect((parsed as Record<string, unknown>).locale).toBe("ko");
       expect(ctx._locale).toBe("ko");
     } finally {
       i18n.setLocale("en");
@@ -108,6 +110,20 @@ describe("viewContextWithUser wiring", () => {
   test("sends the stable backend session id", async () => {
     const parsed = await callAskAndCaptureBody(liveSnap(), "session-42");
     expect((parsed as Record<string, unknown>).session_id).toBe("session-42");
+  });
+
+  test("binds a supplied request UUID to Operator idempotency", () => {
+    const requestId = "00000000-0000-0000-0000-000000000000";
+    const payload = createBackendRequestPayload(
+      "status",
+      liveSnap(),
+      [],
+      "session-42",
+      requestId,
+    );
+
+    expect(payload.request_id).toBe(requestId);
+    expect(payload.idempotency_key).toBe(requestId);
   });
 
   test("requests model traces only after the default-off preference is enabled", () => {

@@ -1,14 +1,29 @@
 import { describe, expect, it } from "vitest";
 import {
+  newRequestId,
   parseAnswerVerification,
   parseDelegation,
   parseSemanticProjectionReceipt,
+  queueNextRequestId,
   tokenSuffix,
 } from "./backend-normalizers";
 
 const PROJECTION_ID = `00000000-0000-4000-8000-${"0".repeat(12)}`;
 const REQUEST_ID = `00000000-0000-4000-8000-${"0".repeat(11)}1`;
 const DIGEST = `sha256:${"a".repeat(64)}`;
+
+describe("request identity replay", () => {
+  it("consumes a verified replay UUID exactly once", () => {
+    queueNextRequestId(REQUEST_ID);
+
+    expect(newRequestId()).toBe(REQUEST_ID);
+    expect(newRequestId()).not.toBe(REQUEST_ID);
+  });
+
+  it("rejects a malformed replay identity", () => {
+    expect(() => queueNextRequestId("request-1")).toThrow("must be a UUID");
+  });
+});
 
 function semanticReceipt(overrides: Record<string, unknown> = {}) {
   return {

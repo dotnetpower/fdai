@@ -34,6 +34,8 @@ import {
 } from "./stream-paint";
 import { completedWorkRevealTarget } from "./scroll-stick";
 import { backendHistoryForTurns } from "./turn-history";
+import type { IncidentConversationBinding } from "./open-deck";
+import { queueNextRequestId } from "./backend-normalizers";
 
 const MIN_PREPARING_VISIBLE_MS = 420;
 
@@ -42,6 +44,13 @@ export interface ActiveRequest {
   readonly sessionKey: string;
   readonly controller: AbortController;
   readonly kind: "stream";
+}
+
+export interface CommandDeckSubmitOptions {
+  readonly historyTurns?: readonly Turn[];
+  readonly conversationBinding?: IncidentConversationBinding;
+  readonly requestId?: string;
+  readonly snapshot?: ViewSnapshot | null;
 }
 
 type StateSetter<T> = (value: T | ((current: T) => T)) => void;
@@ -117,7 +126,7 @@ export function useCommandDeckSubmit({
   pinTranscriptToLatest,
   revealCompletedWork,
 }: UseCommandDeckSubmitOptions) {
-  return useCallback(async (raw: string) => {
+  return useCallback(async (raw: string, options: CommandDeckSubmitOptions = {}) => {
     const text = raw.trim();
     if (text.length === 0 || pending || inFlightRef.current) return;
     if (hasPendingComposerAttachments()) {
@@ -146,10 +155,12 @@ export function useCommandDeckSubmit({
       activeRequestRef.current?.id === request.id &&
       sessionKeyRef.current === originSessionKey;
     const activityAt = new Date().toISOString();
+    const requestSnapshot = options.snapshot === undefined ? snapshot : options.snapshot;
     const operatorTurn: Turn = {
       id: newId(),
       role: "operator",
       text,
+      ...(requestSnapshot ? { requestSnapshot } : {}),
       ...(attachments.length > 0
         ? {
             attachments: attachments.map((attachment) => ({
@@ -169,8 +180,10 @@ export function useCommandDeckSubmit({
       sessionMetadataRef.current,
       originSessionKey,
     );
-    const priorTurns = turnsRef.current;
-    const hasOperatorTurn = priorTurns.some((turn) => turn.role === "operator");
+    const currentTurns = turnsRef.current;
+    const historyTurns = options.historyTurns ?? currentTurns;
+    const conversationBinding = options.conversationBinding ?? sessionSummary?.binding;
+    const hasOperatorTurn = currentTurns.some((turn) => turn.role === "operator");
     updateConversationIndex({
       key: originSessionKey,
       label:
@@ -179,7 +192,7 @@ export function useCommandDeckSubmit({
           : t("deck.general"),
       kind: sessionSummary?.kind ?? "screen-default",
       ...(sessionSummary?.agent ? { agent: sessionSummary.agent } : {}),
-      ...(sessionSummary?.binding ? { binding: sessionSummary.binding } : {}),
+      ...(conversationBinding ? { binding: conversationBinding } : {}),
       originPath: sessionSummary?.originPath ?? conversationPath(currentPathname()),
       originLabel: sessionSummary?.originLabel ?? snapshot?.routeLabel ?? currentPathname(),
       createdAt: sessionSummary?.createdAt ?? activityAt,
@@ -187,7 +200,7 @@ export function useCommandDeckSubmit({
       lastReadAt: activityAt,
     });
     setTurns((current) => [...current, operatorTurn]);
-    turnsRef.current = [...priorTurns, operatorTurn];
+    turnsRef.current = [...currentTurns, operatorTurn];
     setDraft("");
     historyRef.current = recordHistory(historyRef.current, text);
     setPending(true);
@@ -195,7 +208,7 @@ export function useCommandDeckSubmit({
     setSrStatus(t("deck.announcement.retrieving"));
     setInFlight(true);
 
-    const history = backendHistoryForTurns(priorTurns);
+    const history = backendHistoryForTurns(historyTurns);
     const deckId = newId();
     let activityTurnId = newId();
     const activityTurnIds = new Set<string>();
@@ -281,12 +294,13 @@ export function useCommandDeckSubmit({
       };
       let reply: Awaited<ReturnType<typeof askBackendStream>>;
       try {
-        reply = await askBackendStream(text, snapshot, history, {
+        if (options.requestId) queueNextRequestId(options.requestId);
+        reply = await askBackendStream(text, requestSnapshot, history, {
           sessionId: conversationId,
           ...(sessionSummary?.agent ? { targetAgent: sessionSummary.agent } : {}),
           ...(attachments.length > 0 ? { attachments } : {}),
-          ...(sessionSummary?.binding
-            ? { conversationBinding: sessionSummary.binding }
+          ...(conversationBinding
+            ? { conversationBinding }
             : {}),
           onToken: (delta) => {
             if (!isCurrent()) return;

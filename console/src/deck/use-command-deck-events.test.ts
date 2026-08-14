@@ -144,8 +144,9 @@ describe("shouldDeferDeckOpen", () => {
   });
 
   it("builds backend history from the selected session before appending the prompt", () => {
-    expect(submitSource).toContain("const priorTurns = turnsRef.current");
-    expect(submitSource).toContain("backendHistoryForTurns(priorTurns)");
+    expect(submitSource).toContain("const currentTurns = turnsRef.current");
+    expect(submitSource).toContain("const historyTurns = options.historyTurns ?? currentTurns");
+    expect(submitSource).toContain("backendHistoryForTurns(historyTurns)");
     expect(submitSource).not.toContain("backendHistoryForTurns(turnsRef.current)");
   });
 });

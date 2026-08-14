@@ -12,6 +12,7 @@ import {
   recallOlder,
   type DraftHistory,
 } from "./draft-history";
+import type { CommandDeckSubmitOptions } from "./use-command-deck-submit";
 
 type StateSetter<T> = (value: T | ((current: T) => T)) => void;
 interface MutableValueRef<T> {
@@ -28,7 +29,7 @@ interface UseCommandDeckComposerOptions {
   readonly setTurns: StateSetter<readonly Turn[]>;
   readonly setSlashActiveIndex: StateSetter<number>;
   readonly setSrStatus: StateSetter<string>;
-  readonly submit: (text: string) => void;
+  readonly submit: (text: string, options?: CommandDeckSubmitOptions) => void;
   readonly startNewConversation: () => void;
   readonly clearTurns: () => void;
   readonly closeDeck: () => void;
@@ -42,6 +43,31 @@ function shortTime(): string {
 
 function newId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export function regenerationSubmission(
+  turns: readonly Turn[],
+  deckIndex: number,
+): { readonly text: string; readonly options: CommandDeckSubmitOptions } | null {
+  const answer = turns[deckIndex];
+  for (let index = deckIndex - 1; index >= 0; index--) {
+    const previous = turns[index];
+    if (previous?.role !== "operator") continue;
+    return {
+      text: previous.text,
+      options: {
+        historyTurns: turns.slice(0, index),
+        ...(previous.requestSnapshot ? { snapshot: previous.requestSnapshot } : {}),
+        ...(answer?.semanticReceipt?.disposition === "answered"
+          ? { requestId: answer.semanticReceipt.request_id }
+          : {}),
+        ...(answer?.conversationBinding
+          ? { conversationBinding: answer.conversationBinding }
+          : {}),
+      },
+    };
+  }
+  return null;
 }
 
 export function useCommandDeckComposer({
@@ -108,13 +134,8 @@ export function useCommandDeckComposer({
 
   const regenerateAt = useCallback(
     (deckIndex: number) => {
-      for (let index = deckIndex - 1; index >= 0; index--) {
-        const previous = turns[index];
-        if (previous && previous.role === "operator") {
-          void submit(previous.text);
-          return;
-        }
-      }
+      const regeneration = regenerationSubmission(turns, deckIndex);
+      if (regeneration) void submit(regeneration.text, regeneration.options);
     },
     [submit, turns],
   );
