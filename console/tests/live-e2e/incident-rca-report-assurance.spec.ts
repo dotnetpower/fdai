@@ -49,6 +49,11 @@ async function responseJson(response: Response): Promise<Record<string, unknown>
   return jsonRecord(await response.json(), new URL(response.url()).pathname);
 }
 
+function isJsonResponse(response: Response, pathname: string): boolean {
+  return new URL(response.url()).pathname === pathname &&
+    response.headers()["content-type"]?.includes("application/json") === true;
+}
+
 async function waitForReadyShell(page: Page): Promise<void> {
   await expect(page.locator(".shell")).toBeVisible({ timeout: 15_000 });
   await expect(page.locator("main [aria-busy='true']")).toHaveCount(0, { timeout: 20_000 });
@@ -88,13 +93,13 @@ test("Browser Entra binds Incident RCA evidence to the optional PDF report", asy
   await restoreBrowserEntraSessionStorage(page);
   const incidentResponses: Response[] = [];
   page.on("response", (response) => {
-    if (new URL(response.url()).pathname === "/incidents" && response.status() === 200) {
+    if (isJsonResponse(response, "/incidents") && response.status() === 200) {
       incidentResponses.push(response);
     }
   });
   const auditResponsePromise = page.waitForResponse((response) => {
     const url = new URL(response.url());
-    return url.pathname === "/audit" &&
+    return isJsonResponse(response, "/audit") &&
       url.searchParams.get("correlation_id") === targetCorrelation &&
       response.status() === 200;
   });
@@ -132,7 +137,7 @@ test("Browser Entra binds Incident RCA evidence to the optional PDF report", asy
 
   const rcaResponsePromise = page.waitForResponse((response) => {
     const url = new URL(response.url());
-    return url.pathname === "/rca" &&
+    return isJsonResponse(response, "/rca") &&
       url.searchParams.get("correlation") === targetCorrelation;
   });
   await page.goto(`/rca?correlation=${encodeURIComponent(targetCorrelation)}`, {
@@ -151,14 +156,14 @@ test("Browser Entra binds Incident RCA evidence to the optional PDF report", asy
   await expect(page.locator("a[href^='/reports/incident-rca-dossier']")).toBeVisible();
 
   const reportListPromise = page.waitForResponse((response) =>
-    new URL(response.url()).pathname === "/reports" && response.status() === 200,
+    isJsonResponse(response, "/reports") && response.status() === 200,
   );
   const registryPromise = page.waitForResponse((response) =>
-    new URL(response.url()).pathname === "/reports/registry" && response.status() === 200,
+    isJsonResponse(response, "/reports/registry") && response.status() === 200,
   );
   const reportRenderPromise = page.waitForResponse((response) => {
     const url = new URL(response.url());
-    return url.pathname === "/reports/incident-rca-dossier/render" &&
+    return isJsonResponse(response, "/reports/incident-rca-dossier/render") &&
       url.searchParams.get("format") === null &&
       response.status() === 200;
   });
@@ -192,7 +197,7 @@ test("Browser Entra binds Incident RCA evidence to the optional PDF report", asy
 
   const unavailableResponsePromise = page.waitForResponse((response) => {
     const url = new URL(response.url());
-    return url.pathname === "/rca" &&
+    return isJsonResponse(response, "/rca") &&
       url.searchParams.get("correlation") === noRcaCorrelation;
   });
   await page.goto(`/rca?correlation=${encodeURIComponent(noRcaCorrelation)}`, {

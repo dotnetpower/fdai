@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: f38e15b5f4d4fa52ef7c923fff996dc66b56dc5a
+translation_source_sha: ee39eae91fe15034798bf81ea9ef90a644ff28d6
 translation_revised: 2026-08-14
 ---
 
@@ -39,6 +39,7 @@ translation_revised: 2026-08-14
 | 2026-08-14 | 구현됨 | 인증된 Browser 검사에서 동작하지 않는 topology 키보드 경로와 390 px intrinsic-width overflow를 찾아 수정했습니다. 이후 의미 모델은 네 영역, 다섯 보기, 하나의 exact release, 명시적 컨텍스트 사용 불가 상태, body overflow 0, node overlap 0 및 잘린 node control 0으로 렌더링됐고 카탈로그 토폴로지 canvas에는 빈 화면이 아닌 pixel이 있었습니다. | 5273 로컬 Browser Entra 및 `current change`, focused 키보드, geometry, decoder, semantic, i18n 및 타입 검사 통과 | Browser 관측은 통제된 아티팩트로 보존하지 않았고 hidden-tab `requestAnimationFrame` 제한 때문에 screenshot 기반 키보드 이동 receipt를 신뢰성 있게 만들지 못했습니다. |
 | 2026-08-14 | implemented | Browser authorization 또는 분석 동작을 추가하지 않고 opt-in Incident RCA PDF 다운로드 컨트롤을 추가했습니다. | `current change`; catalog 및 registry 가용성 확인, stale 다운로드 억제, service-local PDF 경로, focused Console 및 Operator 테스트입니다. | 하나의 exact-revision 인증된 roster-to-RCA-to-report/PDF 아티팩트를 보존해야 합니다. |
 | 2026-08-14 | implemented | Incident roster, RCA 근거, report 묶음, PDF 응답, no-RCA 상태 및 실제로 unavailable인 source 또는 plan context를 위한 exact-source Browser Entra runner를 추가했습니다. | `current change`; `incident-rca-report-assurance.spec.ts`, Console typecheck 및 focused Playwright discovery입니다. | Source commit의 중앙 receipt가 생긴 뒤에만 runner를 실행하고 redacted 아티팩트를 보존해야 합니다. |
+| 2026-08-14 | implemented | 같은 경로의 SPA 문서가 API 근거 대기를 충족할 수 없도록 Incident assurance runner를 JSON Operator 응답에 연결했습니다. | `current change`; `incident-rca-report-assurance.spec.ts`, Console typecheck 및 focused Playwright discovery입니다. | 이 runner revision을 중앙 검증한 뒤 다시 실행해 redacted 아티팩트를 보존해야 합니다. |
 
 ### 잔여 작업
 
