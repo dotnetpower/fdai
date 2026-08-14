@@ -187,6 +187,7 @@ def test_unresolved_meaning_returns_one_clarification_without_plan() -> None:
     model = _Model(
         frame=_frame(
             unresolved_terms=["requests"],
+            clarification_requirements=["measure"],
             clarification="Do you mean HTTP requests or support requests?",
         ),
         plan=_plan(definition),

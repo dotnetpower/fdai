@@ -14,7 +14,7 @@ from fdai_service_contracts.ontology_query import (
     SemanticOperation,
     SemanticProblemFrame,
 )
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from fdai.core.ontology_platform import QueryManifest
 
@@ -27,6 +27,20 @@ class SemanticPlanningDisposition(StrEnum):
     ACTION_DRAFT = "action_draft"
     UNSUPPORTED = "unsupported"
     UNAVAILABLE = "unavailable"
+
+
+class ClarificationRequirement(StrEnum):
+    """Typed context category that a semantic frame still needs."""
+
+    SUBJECT = "subject"
+    MEASURE = "measure"
+    TEMPORAL_SCOPE = "temporal_scope"
+    COMPARISON_BASELINE = "comparison_baseline"
+    OUTPUT_SHAPE = "output_shape"
+    INCIDENT_REFERENCE = "incident_reference"
+    RESOURCE_IDENTITY = "resource_identity"
+    PRINCIPAL_SCOPE = "principal_scope"
+    PURPOSE = "purpose"
 
 
 class _Proposal(BaseModel):
@@ -45,6 +59,9 @@ class SemanticFrameProposal(_Proposal):
         Annotated[str, Field(pattern=r"^[a-z][a-z0-9_.-]{0,79}$")], ...
     ] = Field(default=(), max_length=32)
     unresolved_terms: tuple[str, ...] = Field(default=(), max_length=8)
+    clarification_requirements: tuple[ClarificationRequirement, ...] = Field(
+        default=(), max_length=8
+    )
     clarification: str | None = Field(default=None, min_length=1, max_length=512)
     confidence: float = Field(ge=0.0, le=1.0)
 
@@ -68,6 +85,16 @@ class SemanticFrameProposal(_Proposal):
         if value is not None and ("\n" in value or "\r" in value or not value.endswith("?")):
             raise ValueError("semantic clarification MUST be one question")
         return value
+
+    @model_validator(mode="after")
+    def _clarification_is_typed(self) -> SemanticFrameProposal:
+        if bool(self.unresolved_terms) != bool(self.clarification_requirements):
+            raise ValueError("semantic unresolved terms require typed clarification requirements")
+        if self.clarification is not None and not self.unresolved_terms:
+            raise ValueError("semantic clarification requires unresolved terms")
+        if len(self.clarification_requirements) != len(set(self.clarification_requirements)):
+            raise ValueError("semantic clarification requirements MUST be unique")
+        return self
 
 
 class QueryNodeProposal(_Proposal):
@@ -172,6 +199,7 @@ class SemanticPlanningOutcome:
 
 
 __all__ = [
+    "ClarificationRequirement",
     "CompleteManifestSelector",
     "QueryManifestProvider",
     "QueryNodeProposal",

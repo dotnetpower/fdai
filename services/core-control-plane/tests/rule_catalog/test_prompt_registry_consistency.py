@@ -110,7 +110,10 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     frame = prompts.get_base("semantic.query.frame")
     plan = prompts.get_base("semantic.query.plan")
 
-    assert frame.version == 3
+    assert frame.version == 4
+    assert "principal_role and purpose are trusted server-bound context" in frame.body
+    assert "never use principal_scope or purpose as a clarification_requirement" in frame.body
+    assert "empty unresolved_terms and clarification_requirements" in frame.body
     assert "query.incident_evidence" in frame.body
     assert "one incident_id and one correlation_id" in frame.body
     assert "cause_claim_supported=false" in frame.body

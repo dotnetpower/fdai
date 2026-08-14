@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 83f8ab8b73bdd6150bc0df02835b4c4b6ceb4efa
+translation_source_sha: b2b9f2eff759a62722944051511c96873eb0ad77
 translation_revised: 2026-08-15
 ---
 
@@ -150,6 +150,7 @@ translation_revised: 2026-08-15
 | Temporal, metric 및 근거 프로바이더 조립 | 구현됨 | `wire_semantic_query.py`, `bootstrap.py`, `bootstrap_bindings.py`, `test_wire_semantic_query.py`, `test_bootstrap_config.py`, 통과한 focused 조립 및 프로바이더 선택 테스트 16개 | 하나의 핸들러 맵이 검증기 가용성과 실행을 함께 제어합니다. 운영 환경은 상태 저장소 DSN에서 PostgreSQL 이력을 연결하고 검토된 레지스트리와 no-op이 아닌 프로바이더가 모두 있을 때만 metric/evidence 핸들러를 연결합니다. |
 | 통제된 운영 보증 | 진행 중 | [온톨로지 조회 무작위 보증](ontology-query-randomized-assurance-ko.md)과 아래의 검증된 기준선 공백 표 | 로컬 검사는 안전하게 실패하는 조립을 입증하지만 운영 준비 상태를 입증하는 통제된 실제 서비스 간 증적은 없습니다. |
 | 타입 기반 Console 보증 실행기 | 구현됨 | `console-routes.spec.ts`, `ontology-query-assurance.ts`, `ontology-query-assurance.spec.ts`, focused Console 검사 | 한 실행기는 게시, Core 처리, exact projection 읽기 및 인증된 증적 렌더링을 검증합니다. Seed 기반 100-turn 실행기는 타입 전용 oracle로 영어 50개와 한국어 50개 prompt를 다룹니다. 보존 artifact가 통과하기 전에는 어느 구현도 실제 운영 근거가 아닙니다. |
+| T1 명확화 평가 | 구현됨 | `semantic_planning_models.py`, `semantic_planning_cascade.py`, focused tier-routing 및 prompt 검사 | Frame 제안은 누락된 사용자 맥락을 범위가 제한된 `clarification_requirements`로 분류합니다. 정당한 T1 명확화는 T2 없이 종료되고, Core가 이미 바인딩한 principal 범위 또는 용도를 요청하는 제안은 결정론적으로 유효하지 않으며 frame 단계만 T2로 한 번 재시도할 수 있습니다. |
 | 인시던트 의미 근거 | 진행 중 | `core/incident/ontology_projection.py`, `core/ontology_platform/incident_queries.py`, focused 인시던트 및 의미 조립 검사 (`63 passed`) | Canonical 인시던트 상태를 ObjectSet으로 조회할 수 있고 `query.incident_evidence`는 서로 다른 canonical 인시던트 신원과 감사 상관관계 신원을 보존하면서 감사 기반 프로파일, 상관 기록, 명시적 공백 및 원인 주장 권한이 없는 결과를 반환합니다. A3 답변 계약과 인증된 Console 근거는 아직 남아 있습니다. |
 
 ### 구현 이력
@@ -173,6 +174,7 @@ translation_revised: 2026-08-15
 | 2026-08-14 | 검증됨 | 중앙 검증 뒤 범위가 제한된 인증 인시던트 답변 근거 공백을 닫았습니다. | Source revision `7f2b740b1` 및 `244d003ef`에 중앙 receipt가 있고, 보존된 post-validation 한국어 Browser 산출물은 재생성 전체에서 일치하는 요청, 인시던트 바인딩 및 기술 출력 digest, 관찰된 단계 5개, 실행 권한 없음을 기록합니다. | 전체 request-to-Console 실행기와 이중 언어 무작위 집단은 운영 보증의 열린 작업으로 유지합니다. |
 | 2026-08-14 | in-progress | 현재 bounded action-draft 및 browser-readiness 변경에 새 governed artifact가 필요해 incident assurance를 다시 열었습니다. | `current change`, focused semantic, Console 및 browser-assurance 검사 | `validated`를 복원하기 전에 replacement request-to-Console 및 bilingual randomized evidence를 보존합니다. |
 | 2026-08-15 | 구현됨 | 로컬 서술기 갱신을 의미 전송과 독립적으로 유지하면서 전송에 의해 제한되는 `SemanticTurnBridge` 활성화 계약을 보존했습니다. | `current change`, 집중 운영 조립 및 의미 브리지 검사 2개와 작업 범위 Ruff가 통과했습니다. | 운영 보증 상태를 변경하기 전에 통제된 요청-Console 및 이중 언어 무작위 근거를 보존합니다. |
+| 2026-08-15 | 구현됨 | Machine-readable 명확화 requirement를 추가하고 Core가 이미 바인딩한 principal 범위 또는 용도를 묻는 T1 frame 제안을 거부했습니다. 의미 frame prompt v4는 두 tier 모두 해당 값을 trusted server context로 취급하도록 지시합니다. | `current change`, focused 의미 planner 검사 21개, prompt 및 Azure adapter 검사 10개, 작업 범위 Ruff와 strict mypy 통과 | 중앙 검증 뒤 Core를 재시작하고 통제된 요청-Console 보증 경로를 다시 실행합니다. |
 
 ### 남은 작업
 

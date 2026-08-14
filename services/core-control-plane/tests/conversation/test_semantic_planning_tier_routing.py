@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
+import pytest
 from fdai.composition.semantic_query_model_targets import t1_model_targets, t2_model_targets
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
 from fdai.core.conversation.semantic_planning_models import SemanticPlanningDisposition
@@ -95,6 +96,7 @@ def _frame(**overrides: object) -> dict[str, object]:
         "output_shape": "resource_list",
         "evidence_requirements": ["authoritative_inventory"],
         "unresolved_terms": [],
+        "clarification_requirements": [],
         "clarification": None,
         "confidence": 0.9,
         **overrides,
@@ -151,6 +153,7 @@ def test_t1_clarification_never_invokes_t2() -> None:
     t1 = _Model(
         frame=_frame(
             unresolved_terms=["resource"],
+            clarification_requirements=["subject"],
             clarification="Which resource do you mean?",
         ),
         plan=_plan(definition),
@@ -162,6 +165,26 @@ def test_t1_clarification_never_invokes_t2() -> None:
     assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
     assert t1.plan_calls == 0
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+@pytest.mark.parametrize("requirement", ("principal_scope", "purpose"))
+def test_t1_server_bound_clarification_retries_only_frame_with_t2(requirement: str) -> None:
+    manifest, definition = _fixture()
+    t1 = _Model(
+        frame=_frame(
+            unresolved_terms=[requirement],
+            clarification_requirements=[requirement],
+            clarification="Which server context should I use?",
+        ),
+        plan=_plan(definition),
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+
+    outcome = _run(_service(t1, t2, manifest))
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (1, 0)
 
 
 def test_unavailable_t1_frame_retries_only_frame_with_t2() -> None:
