@@ -14,6 +14,7 @@ title: Workflow Control-Loop Integration
 |------|-------|----------|-------|
 | Shadow and typed enforce orchestration | implemented | [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_coordinator.py`](../../../services/core-control-plane/tests/core/workflow/test_coordinator.py) | Shadow cannot mutate, and enforce proposals re-enter typed ingress with attempt-scoped identity. |
 | Durable journal, projection, and approval | implemented | [`test_projection.py`](../../../services/core-control-plane/tests/core/workflow/test_projection.py), [`test_workflow_approval.py`](../../../services/core-control-plane/tests/delivery/persistence/test_workflow_approval.py) | Revisioned Process state, retryable projection, quorum, timeout, and no-self-approval have focused coverage. |
+| Compensation and durable target hold | implemented | [`test_automation_hold.py`](../../../services/core-control-plane/tests/core/workflow/test_automation_hold.py), [`test_orchestrator.py`](../../../services/core-control-plane/tests/core/workflow/test_orchestrator.py), [`test_control_loop_authority.py`](../../../services/core-control-plane/tests/core/test_control_loop_authority.py), [`test_gate.py`](../../../services/core-control-plane/tests/core/risk_gate/test_gate.py) | Incomplete recovery creates a restart-safe, duplicate-safe hold that denies ordinary forward dispatch. Only matching verified recovery can release it. |
 | Guard evaluation | in-progress | [Guard evaluation](#42-guard-evaluation-seam) | The seam and fail-closed audit state exist; deployment-specific policy evaluation remains an injected binding. |
 | Governed Python, schedule, command, and shell paths | in-progress | [Governed tasks and schedules](#45-governed-python-tasks-and-cron-schedules) | Validation and bounded sandbox mechanics exist, but live executor and production scale-out evidence remain incomplete. |
 
@@ -22,6 +23,7 @@ title: Workflow Control-Loop Integration
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source and focused tests listed in the scope table. | Complete policy binding and production concurrency evidence. |
+| 2026-08-14 | implemented | Recorded the validated FDAI-CONST-009 control-loop boundary: incomplete compensation issues a durable hold, ordinary dispatch is denied, and matching recovery remains Human approval-gated until verified release. | `228f0779e`; focused hold, compensation, control-loop, and risk-gate checks passed 10 tests; centralized validation passed. | Complete the unrelated guard binding, distributed dispatch evidence, and governed task work below. |
 
 ### Remaining work
 
@@ -75,6 +77,12 @@ verified applied steps. Compensation intent is committed before typed dispatch, 
 compensation receipts close the Process as `compensated`. A missing dispatcher, verifier, receipt,
 or failed guard holds or fails the Process closed. Control-only workflows such as ARB persist real approval and decision
 transitions without gaining resource mutation authority.
+Every missing, failed, or unscorable compensation path also issues a durable target automation
+hold before closing recovery as incomplete. A reconstructed ledger reads the same active hold, and
+duplicate delivery does not replace its original process, reason, revision, or audit entry. The
+headless control loop checks the hold before ordinary dispatch and returns `deny`; only recovery
+for the matching Process and compensation step may proceed, and that path remains capped at Human
+approval until verified recovery receipts release the hold.
 Approval requests are attempt-scoped. A reject closes the complete quorum attempt; retry after
 reject or timeout creates fresh Var slots and preserves attempt 1 durable-key compatibility.
 
