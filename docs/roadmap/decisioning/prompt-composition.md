@@ -425,7 +425,7 @@ promotion gates to hold.
 | 2.5-B step 2b | `AzureOpenAICrossCheckModel` emits `tools=[...]` for enforce-mode tools, routes model-issued `tool_calls` through the executor in a bounded multi-turn loop, and rejects unknown function names / malformed arguments / half-wired setups fail-closed | yes |
 | 3 step A | `core/operator_memory/` types + async `OperatorMemoryStore` Protocol + `InMemoryOperatorMemoryStore` + `wrap_operator_note` / `detect_injection_markers` sanitizer + write-time policy checks (scope <= resource-group, distinct approver, append-only supersede, optional TTL, injection-marker rejection) | yes |
 | 3 step B store | `PostgresOperatorMemoryStore` + alembic migration `20260706_0006_operator_memory` (append-only table, CHECK constraints mirroring the Python policy, `(scope_kind, scope_ref)` scope-lookup index, TTL + supersede semantics parity with `InMemoryOperatorMemoryStore`, integration tests skipped when `FDAI_DATABASE_URL` unset) | yes |
-| 3 step B pipeline slice 1 | `HilRejectMaterializer` core module that turns a `HilResponse(decision=REJECT, reason=...)` + a distinct `second_approver` into a stored `OperatorMemoryEntry` via the injected `OperatorMemoryStore`; five pipeline-level error codes (`wrong_decision`, `empty_reason`, `missing_first_approver`, `missing_second_approver`, `same_principal`) fail-fast before the store is touched, and store-side policy errors (duplicate id, injection marker) surface unchanged | yes |
+| 3 step B pipeline slice 1 | `HilRejectMaterializer` core module that turns a `HilResponse(decision=REJECT, reason=...)` + a distinct `second_approver` into a stored `OperatorMemoryEntry` via the injected `OperatorMemoryStore`; seven pipeline-level error codes (`wrong_decision`, `empty_reason`, `missing_first_approver`, `missing_second_approver`, `same_principal`, `missing_response_time`, `approval_expired`) fail-fast before the store is touched, a redelivery surfaces as `already_materialized`, and other store-side policy errors (injection marker) surface unchanged | yes |
 | 3 step B pipeline slice 2 | Composition-root wire: `_build_operator_memory_store()` picks Postgres via `FDAI_OPERATOR_MEMORY_DSN` or the in-memory fake by default, and `_finalize_llm_bindings` hands the store to `DefaultPromptComposer` so the operator-memory layer is fully reachable end-to-end without a database (an entry a fork appends via `HilRejectMaterializer` becomes visible to the composer immediately) | yes |
 | 3 step B pipeline slice 3 | Second-approval channel that actually invokes the materializer (Teams Adaptive Card / git PR / fork-authored CLI). Kept fork-first because the approval channel varies per deployment; upstream ships the `HilRejectMaterializer` seam and the operator-memory store, not a specific UI | planned |
 | 3 step C-1 | `DefaultPromptComposer` accepts optional `operator_memory_store` + `scope` and emits an operator-memory layer; every entry is wrapped via `wrap_operator_note`, hierarchy resolution places resource-group notes before resource notes | yes |
@@ -718,33 +718,48 @@ logic whether the trigger is a Teams Adaptive Card button, a
 reconciler poll, or a fork-authored CLI.
 
 - `services/core-control-plane/src/fdai/core/operator_memory/hil_pipeline.py` -
-  `HilRejectMaterializer(*, store, entry_id_fn=uuid4, now_fn=None)`
+  `HilRejectMaterializer(*, store, entry_id_fn=None, now_fn=None)`
   exposes one async method, `materialize(*, hil_response,
   second_approver, material)`. Deterministic hooks
   (`entry_id_fn`, `now_fn`) let tests pin the id and the timestamp
-  without monkey-patching a global.
+  without monkey-patching a global. When `entry_id_fn` is not
+  supplied the id is **derived** from the approval identity - a
+  `uuid5` over `<approval_id>|<normalized second approver>` - so
+  the same approval always names the same entry. A random default
+  would have made every redelivery look like a new memory.
 - `HilRejectMaterial(scope_kind, scope_ref, category, source_ref,
-  ttl_seconds=None, metadata=...)` carries the workflow-supplied
+  ttl_seconds=None, approval_window_seconds=3600, metadata=...)`
+  carries the workflow-supplied
   context (from a ChatOps command, an HTTP endpoint, or a
   reconciler poll). `source_ref` is conventionally
   `hil.reject:<approval_id>` so an auditor can trace the entry
   back to the exact HIL run.
-- Five fail-fast error codes on `HilMaterializationError` short-
+- Eight fail-fast error codes on `HilMaterializationError` short-
   circuit before the store is touched:
   `wrong_decision` (not a REJECT), `empty_reason` (no memory-
   worthy content), `missing_first_approver` (no
   `HilResponse.approver_id`), `missing_second_approver` (no
-  reviewer), and `same_principal` (the rejecter tried to self-
-  approve after `strip().lower()` normalization). The last one is
+  reviewer), `same_principal` (the rejecter tried to self-
+  approve after `strip().lower()` normalization),
+  `missing_response_time` (the rejection carries no `received_at`,
+  so its age cannot be proven), and `approval_expired` (the
+  rejection is older than `approval_window_seconds`). The
+  `same_principal` code is
   intentionally distinct from the store's `self_approval` code so
   the UI can distinguish "you cannot self-approve at this stage"
   from "the store's deeper policy refused for a different
-  reason".
-- Store-side policy errors flow through unchanged. When the
-  sanitizer detects a prompt-injection marker in the reason, or
-  when the caller's `entry_id_fn` returns a duplicate id, the
+  reason". An unprovable age is refused rather than assumed
+  fresh, so a channel that drops timestamps cannot smuggle an
+  arbitrarily old approval through.
+- A redelivered approval is a **replay**, not a new memory. The
+  materializer catches the store's `duplicate_id` policy error and
+  re-raises it as `already_materialized`, so the caller learns the
+  guidance is already stored instead of seeing a spurious backend
+  failure, and the store still holds exactly one entry.
+- Other store-side policy errors flow through unchanged. When the
+  sanitizer detects a prompt-injection marker in the reason, the
   store's `OperatorMemoryPolicyError` (with codes like
-  `injection_marker_detected`, `duplicate_id`) is what the caller
+  `injection_marker_detected`) is what the caller
   sees - the materializer never swallows or re-codes those.
 - Kept `core/`-safe: the module imports only from
   `fdai.core.operator_memory` and
