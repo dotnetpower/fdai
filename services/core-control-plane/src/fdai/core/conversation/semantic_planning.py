@@ -30,6 +30,7 @@ from fdai.core.ontology_platform import (
 )
 
 from .intent_graph import build_intent_graph
+from .semantic_planning_cascade import ProposalRejectedError, SemanticPlanningCascade
 from .semantic_planning_models import (
     CompleteManifestSelector,
     QueryManifestProvider,
@@ -52,20 +53,26 @@ _INCIDENT_REFERENCE_CLARIFICATION = "Which incident should I investigate?"
 
 
 class SemanticPlanningService:
-    """Build and verify a semantic read plan without language-specific routing."""
+    """Build a T1 proposal and escalate only a failed proposal to T2 verification."""
 
     def __init__(
         self,
         *,
         model: SemanticPlanningModel,
+        escalation_model: SemanticPlanningModel | None = None,
         manifests: QueryManifestProvider,
         verifier: OntologyQueryPlanVerifier,
         descriptor_selector: SemanticDescriptorSelector | None = None,
     ) -> None:
-        self._model = model
         self._manifests = manifests
-        self._verifier = verifier
         self._selector = descriptor_selector or CompleteManifestSelector()
+        self._cascade = SemanticPlanningCascade(
+            model=model,
+            escalation_model=escalation_model,
+            verifier=verifier,
+            frame_builder=_build_frame,
+            plan_builder=_build_plan,
+        )
 
     def plan(
         self,
@@ -100,25 +107,22 @@ class SemanticPlanningService:
             context = _bounded_context(prior_turns)
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
             stage = "frame_proposal"
-            frame_proposal_raw = self._model.propose_frame(
+            frame_result = self._cascade.propose_frame(
                 utterance=utterance,
                 context=context,
                 descriptors=descriptors,
-                principal_role=principal.role.value,
+                principal=principal,
                 purpose=purpose,
             )
-            if frame_proposal_raw is None:
+            if frame_result is None:
                 return _outcome(
                     SemanticPlanningDisposition.UNAVAILABLE,
                     "semantic_frame_unavailable",
                     manifest_digest=manifest.manifest_digest,
                 )
+            proposal, frame = frame_result
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
-            stage = "frame_validation"
-            proposal = SemanticFrameProposal.model_validate(frame_proposal_raw)
-            stage = "frame_build"
-            frame = _build_frame(proposal, utterance=utterance, context=context)
-            _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
+            _LOGGER.info("semantic_planning_stage_completed", extra={"stage": "frame_build"})
             if frame.unresolved_terms:
                 clarification = proposal.clarification or _clarification(frame.unresolved_terms)
                 return _outcome(
@@ -136,13 +140,14 @@ class SemanticPlanningService:
                     frame=frame,
                 )
             stage = "plan_proposal"
-            plan_proposal_raw = self._model.propose_plan(
+            plan = self._cascade.propose_plan(
                 frame=frame,
                 descriptors=descriptors,
-                principal_role=principal.role.value,
+                principal=principal,
                 purpose=purpose,
+                manifest=manifest,
             )
-            if plan_proposal_raw is None:
+            if plan is None:
                 return _outcome(
                     SemanticPlanningDisposition.UNSUPPORTED,
                     "semantic_plan_unavailable",
@@ -150,19 +155,7 @@ class SemanticPlanningService:
                     frame=frame,
                 )
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
-            stage = "plan_validation"
-            plan_proposal = QueryPlanProposal.model_validate(plan_proposal_raw)
-            stage = "plan_build"
-            plan = _build_plan(
-                plan_proposal,
-                frame=frame,
-                manifest=manifest,
-                principal=principal,
-                purpose=purpose,
-            )
-            stage = "plan_verify"
-            self._verifier.verify(plan, manifest=manifest)
-            _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
+            _LOGGER.info("semantic_planning_stage_completed", extra={"stage": "plan_verify"})
             graph = build_intent_graph(
                 frame=frame,
                 plan=plan,
@@ -178,6 +171,12 @@ class SemanticPlanningService:
             )
         except PermissionError:
             return _outcome(SemanticPlanningDisposition.UNSUPPORTED, "semantic_scope_denied")
+        except ProposalRejectedError as exc:
+            _LOGGER.warning(
+                "semantic_plan_rejected",
+                extra={"stage": exc.stage, "failure_type": exc.failure_type},
+            )
+            return _outcome(SemanticPlanningDisposition.UNSUPPORTED, "semantic_plan_invalid")
         except (ValidationError, TypeError, ValueError) as exc:
             _LOGGER.warning(
                 "semantic_plan_rejected",

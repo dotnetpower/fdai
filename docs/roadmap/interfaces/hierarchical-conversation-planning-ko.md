@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 9ee8930ed7f23c23742e9c47b805f937feeef88d
+translation_source_sha: 94c2d25516d6d36bf26261d69bf5ac3d372c9306
 translation_revised: 2026-08-13
 ---
 
@@ -20,18 +20,23 @@ translation_revised: 2026-08-13
 ```mermaid
 flowchart LR
     INPUT[Text, screen, image, document] --> CONTEXT[Bounded context resolver]
-    CONTEXT --> PLAN[Mini-model intent graph]
+    CONTEXT --> PLAN[T1 mini-model intent graph]
     PLAN --> VALIDATE[Deterministic graph validator]
-    VALIDATE --> BIND[Available capability binding]
+    VALIDATE -->|valid| BIND[Available capability binding]
+    VALIDATE -->|proposal unavailable or invalid| ESCALATE[T2 reasoner retry]
+    ESCALATE --> VALIDATE
     BIND --> DAG[Read task DAG]
     DAG --> EVIDENCE[Evidence ledger]
     EVIDENCE --> VERIFY[Claim verification]
     VERIFY --> BRAGI[Bragi presentation]
 ```
 
-소형 모델은 언어를 해석해 그래프를 제안합니다. 이 모델은 현재 principal과 배포 환경에서 쓸 수 있는
-기능만 볼 수 있습니다. 검증기는 알 수 없는 기능, 순환 참조, 해결되지 않은 의존성, 잘못된 인자,
-지어낸 범위, 확인 초안을 벗어난 쓰기를 차단합니다.
+T1 소형 모델은 언어를 해석해 그래프를 제안합니다. 이 모델은 현재 principal과 배포 환경에서 쓸 수
+있는 기능만 볼 수 있습니다. 검증기는 알 수 없는 기능, 순환 참조, 해결되지 않은 의존성, 잘못된
+인자, 지어낸 범위, 확인 초안을 벗어난 쓰기를 차단합니다. T2는 첫 의미 플래너로 사용되지 않습니다.
+T1 제안을 사용할 수 없거나 스키마, 매니페스트, 구성 또는 계획 검증을 통과하지 못한 경우에만 Core가
+같은 frame 또는 plan 단계를 T2로 한 번 재시도합니다. 유효한 T1 명확화, 액션 초안, 범위 거부 또는
+근거 실행 보류에는 T2 용량을 사용하지 않습니다.
 
 ## 구현 상태
 
@@ -39,8 +44,8 @@ flowchart LR
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| Semantic frame, 검증된 계획 및 intent graph | implemented | [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), [`test_semantic_planning.py`](../../../services/core-control-plane/tests/conversation/test_semantic_planning.py) | 전체 턴 제안은 범위와 release가 제한되고 검증되며 실행 권한 없이 projection됩니다. |
-| 운영 Core semantic runtime 조립 | implemented | [`wire_semantic_query.py`](../../../services/core-control-plane/src/fdai/composition/wire_semantic_query.py), [`bootstrap.py`](../../../services/core-control-plane/src/fdai/runtime/bootstrap.py), [`test_wire_semantic_query.py`](../../../services/core-control-plane/tests/composition/test_wire_semantic_query.py) | 전제 조건을 갖추면 Azure planning, principal 범위 manifest, 보안 ObjectSet, read function 및 bounded DAG 실행이 조립됩니다. |
+| Semantic frame, 검증된 계획 및 intent graph | implemented | [`semantic_planning.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning.py), [`semantic_planning_cascade.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning_cascade.py), [`semantic_runtime.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_runtime.py), 의미 계획 집중 테스트 | 전체 턴 제안은 범위와 release가 제한되고 검증되며 실행 권한 없이 projection됩니다. T1을 항상 먼저 시도하며, T1 제안이 없거나 결정론적 검증을 통과하지 못한 경우에만 같은 단계를 T2로 다시 시도할 수 있습니다. |
+| 운영 Core semantic runtime 조립 | implemented | [`wire_semantic_query.py`](../../../services/core-control-plane/src/fdai/composition/wire_semantic_query.py), [`semantic_query_model_targets.py`](../../../services/core-control-plane/src/fdai/composition/semantic_query_model_targets.py), [`bootstrap.py`](../../../services/core-control-plane/src/fdai/runtime/bootstrap.py), 의미 질의 조립 집중 테스트 | Azure T1 및 T2 계획 어댑터를 별도로 연결합니다. 전제 조건을 갖추면 principal 범위 매니페스트, 보안 ObjectSet, 읽기 함수 및 범위가 제한된 DAG 실행이 조립됩니다. |
 | 버전이 지정된 서비스 간 semantic-turn 계약 | implemented | [`semantic_turn.py`](../../../packages/service-contracts/src/fdai_service_contracts/semantic_turn.py), [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`test_semantic_turn_processor.py`](../../../services/core-control-plane/tests/test_semantic_turn_processor.py) | Version 1.2 요청과 projection은 실행 권한을 부여하지 않으면서 identity, purpose, deadline, digest, disposition 및 evidence를 결합합니다. |
 | Durable Operator bridge 및 Console projection | implemented | [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`postgres_semantic_turn_store.py`](../../../services/operator-service/src/fdai_operator_service/postgres_semantic_turn_store.py), [`test_semantic_turn_bridge.py`](../../../services/operator-service/tests/test_semantic_turn_bridge.py) | Operator는 durable acceptance, outbox claim, result projection, 인증된 replay, typed hold 및 `done` event 변환을 담당합니다. |
 | Event transport 및 배포 설정 | implemented | [`semantic_kafka.py`](../../../services/operator-service/src/fdai_operator_service/adapters/semantic_kafka.py), [`main.tf`](../../../infra/main.tf), [`test_semantic_turn_topics.py`](../../../tests/integration/infra/test_semantic_turn_topics.py) | 논리 request 및 projection topic은 통제된 물리 event stream을 공유하며 두 service에 설정됩니다. |
@@ -54,6 +59,7 @@ flowchart LR
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 목표 아키텍처를 현재 Core runtime, Operator bridge, service contract, 배포 설정 및 집중 테스트와 대조했습니다. | 구현 범위 표에 나열한 현재 소스와 집중 검사입니다. | 완전한 query coverage, multimodal transport, descriptor generation, runtime coverage receipt 및 통제된 live 인증이 남아 있습니다. |
+| 2026-08-14 | implemented | 즉시 T2를 사용하는 의미 계획을 T1 우선 cascade로 교체했습니다. T2를 호출하는 유일한 조건은 T1 frame 또는 plan 제안이 없거나 결정론적 검증을 통과하지 못한 경우입니다. | `current change`, 의미 플래너 및 조립 회귀 테스트는 T1 성공, 명확화, 근거 보류가 T2를 호출하지 않고 범위가 제한된 제안 실패만 한 단계를 다시 시도할 수 있음을 검증합니다. | tier 선택을 기록하는 인증 근거를 보존하고 기존 통제된 실제 인증을 완료합니다. |
 
 ### 남은 작업
 

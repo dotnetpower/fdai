@@ -33,6 +33,7 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 | Agent refresh latest-state hydration | validated | Focused stream tests: 9 passed; authenticated `/agents` reloads reached `Watching 2 / Idle 13 / Unobserved 0` in 224 ms, 232 ms, and 228 ms | The Agent hub seeds one latest validated `agent.state` event per agent into each new subscriber. Generic Live remains future-only, and neither hub provides durable history replay. |
 | Authenticated local Live event path | validated | Controlled 2026-08-13 Browser Entra run through `aw.change.events`, Core, `aw.pipeline.stages`, Operator SSE, and the existing authenticated Live DOM | The run preserved the authoritative ontology and rendered the event plus all four accepted stages. It did not validate a deployed revision, the browser Notifications API, or closed-browser push delivery. |
 | Local and deployed composition parity | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, service integration tests, and focused workspace task tests | Composition roots select credentials and adapters without changing evidence authority. Local and deployed preparation materialize the same reviewed Rule and Ontology reference projections before the Operator reads them. |
+| Semantic planning tier parity | implemented | `composition/semantic_query_model_targets.py`; `composition/wire_semantic_query.py`; resolved model artifacts; focused tier-routing and composition tests | Local and deployed Core load the same capability artifact, bind the resolved narrator or `t1.judge` pool as T1, and keep T2 optional. Only an unavailable or deterministically invalid T1 proposal can retry its stage with T2. |
 | Permission-aware observation campaign parity | implemented | `config/observation-sources.yaml`; `fdai.delivery.observation_campaign*`; `.vscode/tasks.json`; `infra/modules/compute/container-apps/observation_campaign_job.tf`; focused Core, Operator, Console, workspace, and infrastructure checks | Local and deployed profiles use the same source catalog, due state, runner, normalized activity contract, and one-minute wake. Runtime artifacts are still required before validation. |
 | Local validation database isolation | implemented | `infra/local/docker-compose.yml`, `scripts/automation/validation_queue_context.py`, local preparation scripts, and focused validation and migration integration tests | Runtime state stays on local PostgreSQL port `5432`; destructive migration validation uses a separate local PostgreSQL cluster on port `5433`. |
 | FDAI workspace and profile pressure controls | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`; focused profile and workspace tests: 11 passed | Resource-scoped analysis controls stay in the workspace. Copilot compacts agent history at 80% of the selected model's context window, and the portable profile rejects Remote WSL Pylance machine settings that it cannot isolate. |
@@ -60,6 +61,7 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 | 2026-08-14 | implemented | Aligned mocked Terraform coverage with the retired ingestion co-host path and the independent Document Ingestion API and Document Processing Worker service roots. | `current change`; Terraform validation passed and focused ingestion tests passed 5 cases. | Keep the deployment guides and mocked tests aligned with the independent service roots. |
 | 2026-08-14 | implemented | Removed the isolated Playwright startup probe stall and added direct desktop E2E entry points for the repository root and VS Code. | `current change`; Console typecheck passed, live discovery listed 58 tests from 4 `*.spec.ts` files, and the focused desktop E2E passed 1 test in 2.8 seconds. | No remaining implementation work for the isolated Console E2E developer loop. |
 | 2026-08-14 | implemented | Added an atomic ten-slot port pool for concurrent fixture and live Playwright sessions, with paired frontend and Operator API ports plus slot-scoped artifacts. | `current change`; allocator tests passed 6 cases, Console typecheck passed, and two focused Playwright processes passed concurrently on frontend ports `5274` and `5275` with no remaining listener or lock. | No remaining implementation work for concurrent isolated Playwright port allocation. |
+| 2026-08-14 | implemented | Aligned local and deployed semantic planning on one T1-first model cascade instead of binding T2 as the initial planner. | `current change`; focused planner and composition checks pass on the same resolved artifact contract used by both venues. | Retain governed local and deployed records of T1 selection and bounded T2 escalation. |
 
 ### Remaining work
 
@@ -528,6 +530,12 @@ Headless Bragi semantic routing uses the same bound embedding capability as T1. 
 `FDAI_AGENT_SEMANTIC_COSINE_THRESHOLD` and `FDAI_AGENT_SEMANTIC_MARGIN_THRESHOLD`; invalid values
 fail startup. Without an embedding binding the port keeps deterministic explicit, read-intent, and
 domain routing. Embedding is a conversational fallback only and never enters typed action traffic.
+
+Semantic query planning follows the same tier contract in every venue. Core uses resolved narrator
+or `t1.judge` candidates for the initial frame and plan proposals. It may retry the failed stage
+once with a separately resolved T2 reasoner only when the T1 proposal is unavailable or fails
+deterministic validation. A valid clarification, scope denial, or evidence hold never changes model
+tier. Missing T1 capacity makes semantic planning unavailable; it never starts with T2.
 
 ### Azure-backed integrations
 

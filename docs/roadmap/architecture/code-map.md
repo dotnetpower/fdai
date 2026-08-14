@@ -43,6 +43,7 @@ retired top-level application tree.
 | Console semantic receipt projection | implemented | `semantic_turn.py`; `semantic_turn_processor.py`; `semantic_turn_runtime.py`; `console/src/deck/backend-normalizers.ts`; focused shared, Core, Operator, and Console tests | The typed route, specific clarification answer, unavailable reason, four assurance digests, evidence references, and `execution_authority=false` cross the shared contract, Core result, exact Operator read, terminal stream, durable transcript, replay, and Console presentation without prose inference. Passing governed browser and randomized-assurance records remain open in the ontology query coverage plan. |
 | Deterministic missing incident context | implemented | `core/conversation/semantic_planning.py`; `tests/conversation/test_semantic_planning.py`; focused planner and terminal-projection tests (`43 passed`) | A first-turn reference to "this incident" returns one bounded clarification before manifest or model work. Prior incident context continues through normal semantic planning, and neither path grants execution authority. |
 | Semantic temporal and evidence composition | implemented | `delivery/persistence/postgres_topology_history.py`; `composition/wire_semantic_query.py`; `runtime/bootstrap.py`; `runtime/bootstrap_bindings.py`; focused composition and provider-selection tests passed 16 cases | PostgreSQL topology history is available only with the state-store DSN. Metric-series and evidence-join capabilities require both the reviewed metric registry and a non-noop provider. One handler map controls verifier and executor availability, and every result remains read-only with `execution_authority=False`. |
+| T1-first semantic planning | implemented | `core/conversation/semantic_planning.py`; `core/conversation/semantic_planning_cascade.py`; `composition/semantic_query_model_targets.py`; `composition/wire_semantic_query.py`; focused tier-routing and composition tests | Semantic planning always uses the resolved T1 mini-model first. Only an unavailable or deterministically invalid T1 frame or plan proposal can retry that same stage once with the optional T2 reasoner. Clarification, scope denial, and evidence holds do not invoke T2. |
 
 ### Implementation history
 
@@ -70,6 +71,7 @@ retired top-level application tree.
 | 2026-08-14 | implemented | Added an exact-release read-only FunctionType and localized projection for schema relationship questions. | `current change`; focused composition and processor tests passed 42 cases; Ruff, format, and strict mypy passed. | Restart the local stack and retain one authenticated Browser receipt for the original relationship question. |
 | 2026-08-14 | implemented | Bound delivery-owned exact kinetic proposal production to Forseti's existing Verdict path without changing topics or action authority. | `current change`; focused producer, Forseti, Thor, factory, framework, Ruff, and strict mypy checks. | Bind the source in production composition and complete the pre-dispatch receipt and independent-observation path before claiming runtime validation. |
 | 2026-08-14 | implemented | Added receipt-bound operational Context presentation without creating a global runtime graph route. | `current change`; `console_projection.py` and 5 focused mismatch and projection tests passed. | Bind only through an existing principal-scoped evidence response and retain authenticated Console evidence. |
+| 2026-08-14 | implemented | Replaced immediate T2 semantic planning with a T1-first, deterministically evaluated cascade. | `current change`; focused semantic planner and composition tests prove T1 success, clarification, scope denial, and evidence holds do not spend T2 capacity. | Retain authenticated tier-selection evidence with the existing ontology assurance campaign. |
 
 ### Remaining work
 
@@ -147,9 +149,12 @@ The verifier rejects outputs that don't name declared DAG nodes before I/O. Answ
 only bounded verified query tables, and transient projection publication retries the same durable
 idempotent result before dead-lettering.
 Azure semantic planning uses existing `httpx` and `WorkloadIdentity` adapters for two validated
-JSON-object proposals. Each proposal has a 90-second default budget and retries one throttled
-candidate at most once when its bounded `Retry-After` delay fits that budget. Composition exposes
-only handlers with bound authoritative providers. The
+JSON-object proposals. Composition binds resolved narrator or `t1.judge` candidates as the T1
+planner and keeps `t2.reasoner.primary` candidates in a separate optional escalation adapter. Core
+invokes T2 only after the T1 proposal is unavailable or fails deterministic schema, manifest,
+build, or plan verification. Each proposal has a 90-second default budget and retries one
+throttled candidate at most once when its bounded `Retry-After` delay fits that budget. Composition
+exposes only handlers with bound authoritative providers. The
 frame proposal applies the shared wire identifier constraints before Core rebuilds server-owned
 digests. Structured diagnostics record only the planning stage, candidate index, failure class,
 and input-free validation locations; they omit operator text and provider details. The
