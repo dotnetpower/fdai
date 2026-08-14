@@ -82,3 +82,21 @@ async def test_prune_refuses_an_empty_prefix() -> None:
     with pytest.raises(ValueError, match="prefix"):
         await store.delete_states_beyond("", retain_newest=1)
     assert len(await store.read_states(_PREFIX, limit=10)) == 2
+
+
+async def test_the_pruned_prefix_is_write_once() -> None:
+    """Backends order newest-first differently, so a pruned row is never rewritten.
+
+    One backend may order by first write and another by last write. Both agree
+    only while a row is written once, which is the precondition the retention
+    contract states and the evaluation store enforces with
+    ``write_state_if_absent``.
+    """
+    store = InMemoryStateStore()
+
+    created = await store.write_state_if_absent(f"{_PREFIX}00", {"index": 0})
+    rewritten = await store.write_state_if_absent(f"{_PREFIX}00", {"index": 99})
+
+    assert created is True
+    assert rewritten is False
+    assert (await store.read_states(_PREFIX, limit=10))[0]["index"] == 0
