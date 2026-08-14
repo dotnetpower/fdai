@@ -7,6 +7,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import psycopg
 import pytest
 from fdai.delivery.persistence import (
     PostgresConversationHistoryStore,
@@ -24,6 +25,59 @@ from fdai.shared.providers import (
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _NOW = datetime(2026, 7, 20, 4, tzinfo=UTC)
+
+
+async def test_rebuild_applies_session_timeout_before_reindex(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    statements: list[tuple[str, object]] = []
+
+    class _Cursor:
+        async def fetchone(self) -> dict[str, int]:
+            return {"row_count": 2, "byte_count": 10}
+
+    class _Connection:
+        async def execute(
+            self,
+            statement: str,
+            params: object = None,
+        ) -> _Cursor:
+            statements.append((statement, params))
+            return _Cursor()
+
+        async def close(self) -> None:
+            statements.append(("CLOSE", None))
+
+    async def connect(*args: object, **kwargs: object) -> _Connection:
+        return _Connection()
+
+    monkeypatch.setattr(psycopg.AsyncConnection, "connect", connect)
+    search = PostgresConversationSearch(
+        config=PostgresUserContextStoreConfig(
+            dsn="postgresql://example.invalid/db",
+            statement_timeout_ms=3210,
+        )
+    )
+
+    result = await search.rebuild_projection()
+
+    assert statements[:4] == [
+        (
+            "SELECT set_config('statement_timeout', %s, false)",
+            ("3210",),
+        ),
+        ("REINDEX INDEX CONCURRENTLY ix_conversation_turn_search_trgm", None),
+        ("ANALYZE conversation_turn", None),
+        (
+            "SELECT COUNT(*) AS row_count, "
+            "COALESCE(SUM(octet_length(content)), 0) AS byte_count "
+            "FROM conversation_turn",
+            None,
+        ),
+    ]
+    assert statements[-1] == ("CLOSE", None)
+    assert result["index_rows"] == 2
+    assert result["index_bytes"] == 10
 
 
 def _dsn() -> str:

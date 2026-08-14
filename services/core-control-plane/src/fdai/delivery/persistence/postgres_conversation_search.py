@@ -188,6 +188,10 @@ class PostgresConversationSearch:
             autocommit=True,
         )
         try:
+            await connection.execute(
+                "SELECT set_config('statement_timeout', %s, false)",
+                (str(self._config.statement_timeout_ms),),
+            )
             await connection.execute("REINDEX INDEX CONCURRENTLY ix_conversation_turn_search_trgm")
             await connection.execute("ANALYZE conversation_turn")
             cursor = await connection.execute(
