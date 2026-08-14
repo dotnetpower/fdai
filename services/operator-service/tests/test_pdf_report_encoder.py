@@ -5,15 +5,18 @@ from __future__ import annotations
 import io
 from collections.abc import Mapping
 
-import fdai_operator_service.reporting.pdf_format as pdf_format_module
 import pytest
+
+pytest.importorskip("weasyprint", reason="requires fdai-operator-service[pdf-report]")
+
+import fdai_operator_service.reporting.pdf_format as pdf_format_module  # noqa: E402
 from fdai_operator_service.families.operations import ReportPdfEncodingError
 from fdai_operator_service.reporting.pdf_format import (
     MAX_WIDGETS,
     PdfReportEncoder,
     source_envelope_digest,
 )
-from pypdf import PdfReader
+from pypdf import PdfReader  # noqa: E402
 
 
 def _report(*, widgets: tuple[Mapping[str, object], ...] | None = None) -> dict[str, object]:
