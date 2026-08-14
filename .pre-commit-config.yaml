@@ -109,6 +109,12 @@ repos:
         entry: python3 scripts/quality/architecture/check-design-doc-impact.py --cached
         language: system
         pass_filenames: false
+      - id: check-contract-pins
+        name: check-contract-pins.sh (composition layout + legacy migration pins)
+        entry: bash scripts/quality/architecture/check-contract-pins.sh
+        language: system
+        pass_filenames: false
+        files: ^(alembic/versions/|service-migrations/|services/core-control-plane/src/fdai/composition/|tests/integration/test_composition_package_split\.py$|tests/integration/services/test_service_migration_inventory\.py$)
       - id: check-core-imports
         name: check-core-imports.sh
         entry: bash scripts/quality/architecture/check-core-imports.sh
