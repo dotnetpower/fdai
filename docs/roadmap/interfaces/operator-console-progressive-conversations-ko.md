@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 2b468ab94004a3a737115c7f0df0b7983f0f28cb
+translation_source_sha: cc8b00d2fa96870788f73c0725ea6537c9cfc885
 translation_revised: 2026-08-14
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -41,6 +41,7 @@ translation_revised: 2026-08-14
 | 2026-08-14 | 구현됨 | 점진적 재렌더링 중 번역된 중첩 요약을 클릭하는 대신 최종 의미 요청에 4단계 증적 disclosure를 결속했습니다. | `current change`, focused Playwright 검색이 통과했습니다. 전체 Console 타입 검사는 이 변경 밖의 동시 incident 경로 working-tree 오류로 계속 차단됐습니다. | 선택자 수정을 커밋하고 중앙 검증한 뒤 인증된 4단계 통과 산출물을 보존합니다. |
 | 2026-08-14 | 구현됨 | 4단계 실행기를 최종 요청과 변환 결과의 정체성 모두에 결속하고, 애플리케이션이 reader를 닫은 뒤 transport EOF를 기다리는 대신 처음 완결된 `done` 프레임에서 복제된 SSE 근거 수집을 멈추도록 강화했습니다. | `current change`, 정확한 Playwright 검색과 focused esbuild compile이 통과했습니다. 인증 probe는 최종 수집까지 진행됐지만 런타임 재기동과 의미 planner 사용 불가 때문에 통과 산출물을 보존하지 않았습니다. | 현재 로컬 Core와 Operator 프로세스가 범위가 제한된 요청 동안 준비 상태를 유지한 뒤 안정된 인증 4단계 산출물을 보존합니다. |
 | 2026-08-14 | 구현됨 | 최종 의미 증적이 `answered`가 아니면 답변 전용 UI 단언이 보류 원인을 가리기 전에 4단계 실행기를 즉시 중단하도록 했습니다. | `current change`, [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts), 정확한 Playwright 검색과 focused esbuild compile이 통과했습니다. 진단은 처리 결과, 사용 불가 이유, 요청 식별자, 변환 결과 식별자, 의미 경로를 포함합니다. | 안정된 출처에서 인증된 4단계 경로를 다시 실행하고, 통과했으며 출처가 결속된 산출물만 보존합니다. |
+| 2026-08-14 | 진행 중 | 안정된 출처에서 인증된 4단계 경로를 다시 실행하고, typed hold가 답변 전용 단언 전에 중단되는 것을 확인했습니다. | 중앙 검증된 source revision `48b5d12bd6d2610a09acd756447e5108384cecd6`과 안정된 workspace patch digest `sha256:e509b6af05032a4875084e0978b2914c37bf2000a7ffafcfa58a8a0e50fd34d6`, 실행기는 `disposition=held`와 `unavailable_reason=semantic_planner_unavailable`을 보고했습니다. Core plan 후보는 HTTP 429 응답 뒤 범위가 제한된 재시도를 소진했습니다. 실패 산출물은 보존하지 않았습니다. | 의미 계획 모델 용량을 복구한 뒤 두 계약을 완화하지 않고 4단계 경로와 이중 언어 답변 coverage 14칸 게이트를 다시 실행합니다. |
 
 ### 남은 작업
 
