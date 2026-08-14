@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import posixpath
 import re
 import zipfile
 from dataclasses import dataclass
@@ -385,10 +386,7 @@ def _pptx_note_names(
             ),
             "",
         )
-        normalized = str(PurePosixPath(slide_path.parent, target))
-        while "/../" in normalized:
-            before, _, after = normalized.partition("/../")
-            normalized = f"{before.rsplit('/', 1)[0]}/{after}"
+        normalized = posixpath.normpath(posixpath.join(str(slide_path.parent), target))
         if normalized in names:
             resolved[slide_number] = normalized
     return resolved
