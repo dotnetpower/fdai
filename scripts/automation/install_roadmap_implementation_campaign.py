@@ -9,6 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import project_board_support as project_board
 from install_roadmap_verification_timer import _prepare_campaign_worktree, _project_root, _quote
 
 UNIT = "fdai-roadmap-implementation-campaign"
@@ -87,6 +88,22 @@ def _status() -> str:
     return ", ".join(states)
 
 
+def _validate_issue(issue: project_board.IssueRecord) -> None:
+    if issue.state.upper() != "OPEN":
+        raise RuntimeError(f"campaign issue #{issue.number} must be open")
+    if not project_board.has_exit_contract(issue.body):
+        raise RuntimeError(
+            f"campaign issue #{issue.number} needs an Exit criteria "
+            "or Acceptance criteria checklist"
+        )
+
+
+def _load_issue(issue_number: int) -> project_board.IssueRecord:
+    client = project_board.GitHubClient(timeout_seconds=30)
+    repository = project_board.repository_name(client, None)
+    return project_board.issue_record(client, repository, issue_number)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=("start", "status", "stop", "remove", "preview"))
@@ -124,6 +141,7 @@ def main(argv: list[str] | None = None) -> int:
         print(timer)
         return 0
 
+    _validate_issue(_load_issue(int(arguments.issue)))
     _prepare_campaign_worktree(project, campaign, arguments.campaign_branch)
     _write_units(service, timer)
     subprocess.run(  # noqa: S603 - fixed systemctl executable and unit

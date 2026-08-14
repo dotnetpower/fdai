@@ -126,3 +126,44 @@ def test_installer_requires_explicit_issue_and_repeats_persistently(tmp_path: Pa
     assert "OnUnitInactiveSec=5min" in timer
     assert "Persistent=true" in timer
     assert "TimeoutStartSec=5h" in service
+
+
+def test_installer_requires_open_issue_with_exit_contract() -> None:
+    path = AUTOMATION / "install_roadmap_implementation_campaign.py"
+    spec = importlib.util.spec_from_file_location("fdai_roadmap_campaign_issue", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load {path}")
+    installer = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = installer
+    spec.loader.exec_module(installer)
+    issue_type = installer.project_board.IssueRecord
+
+    installer._validate_issue(
+        issue_type(
+            number=123,
+            state="OPEN",
+            labels=frozenset(),
+            url="https://example.com/issues/123",
+            body="## Exit criteria\n- [ ] Complete one observable result.\n",
+        )
+    )
+    with pytest.raises(RuntimeError, match="must be open"):
+        installer._validate_issue(
+            issue_type(
+                number=123,
+                state="CLOSED",
+                labels=frozenset(),
+                url="https://example.com/issues/123",
+                body="## Exit criteria\n- [x] Complete one observable result.\n",
+            )
+        )
+    with pytest.raises(RuntimeError, match="needs an Exit criteria"):
+        installer._validate_issue(
+            issue_type(
+                number=123,
+                state="OPEN",
+                labels=frozenset(),
+                url="https://example.com/issues/123",
+                body="No checklist.\n",
+            )
+        )
