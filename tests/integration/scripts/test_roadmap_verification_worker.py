@@ -51,6 +51,22 @@ def test_apply_command_allows_worktree_writes_but_still_denies_push(tmp_path: Pa
     assert "--deny-tool=shell(git push)" in command
 
 
+def test_command_pins_an_explicit_model_and_honours_the_override(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _load_module()
+    agent = sys.modules["roadmap_verification_agent"]
+
+    monkeypatch.delenv("FDAI_COPILOT_MODEL", raising=False)
+    command = agent.copilot_command(tmp_path / "copilot", "prompt", tmp_path, apply=False)
+    assert command[command.index("--model") + 1] == agent.DEFAULT_MODEL
+    assert agent.DEFAULT_MODEL != "auto"
+
+    monkeypatch.setenv("FDAI_COPILOT_MODEL", "gpt-5.4")
+    overridden = agent.copilot_command(tmp_path / "copilot", "prompt", tmp_path, apply=False)
+    assert overridden[overridden.index("--model") + 1] == "gpt-5.4"
+
+
 def test_result_validation_rejects_evidence_outside_worktree(tmp_path: Path) -> None:
     _load_module()
     agent = sys.modules["roadmap_verification_agent"]
