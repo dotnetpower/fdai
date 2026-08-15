@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: ca0a3e29b44612e5815bb5de06658000c8c3eec9
+translation_source_sha: 56a4a6af5440c41a46cf3dc65868701002c81b35
 translation_revised: 2026-08-15
 ---
 
@@ -181,8 +181,8 @@ throttle, permanent error 및 retry exhaustion 집중 테스트가 해당 동작
 
 ### Top 20 보증 결과
 
-확장 캠페인은 라운드 11부터 26까지 16개 라운드를 완료했습니다. 독립 검토에서 추가 hardening
-및 evidence 라운드 6개가 열렸기 때문입니다.
+확장 캠페인은 라운드 11부터 28까지 18개 라운드를 완료했습니다. 독립 검토에서 추가 hardening
+및 evidence 라운드 8개가 열렸기 때문입니다.
 
 | 라운드 | 결과 | 근거 |
 |-------:|------|------|
@@ -202,10 +202,13 @@ throttle, permanent error 및 retry exhaustion 집중 테스트가 해당 동작
 | 24 | 수락 | Checkout 또는 ref가 commit을 다시 활성화하면 quarantine record가 pending으로 자동 복원됩니다. |
 | 25 | 수락 | Validator의 `reset --hard`와 `clean -ffdx`는 대상이 정확한 Git common-dir scratch worktree가 아니면 fail-closed 처리됩니다. |
 | 26 | 수락 | 명시적인 selector contract가 `developer-workflow.py` 변경이 `tests/integration/scripts`만 선택함을 증명합니다. |
+| 27 | 수락 | 실제 pre-tool dispatcher가 direct, absolute, `git -C`, `env` 및 shell-wrapped mutation과 commit을 deny policy로 전달합니다. |
+| 28 | 수락 | Validator scratch 준비는 reset 또는 clean 전에 symbolic-link path를 거부하며 sentinel 테스트가 target이 변경되지 않음을 증명합니다. |
 
 Review-driven 라운드 전에 focused integration 테스트 231개가 통과했습니다. 최종 focused suite는
-guard 테스트 15개, validation queue 테스트 37개 및 validator와 selector 테스트 85개가
-통과했습니다. 변경된 workflow source의 Ruff와 strict mypy도 통과했습니다.
+통합 dispatcher 및 guard 테스트 19개, scratch ownership 테스트 39개, validation queue 테스트
+37개 및 validator와 selector 테스트 85개가 통과했습니다. 변경된 workflow source의 Ruff와
+strict mypy도 통과했습니다.
 
 남은 Low 위험은 명시적이고 제한됩니다.
 
@@ -241,6 +244,7 @@ guard 테스트 15개, validation queue 테스트 37개 및 validator와 selecto
 | 2026-08-15 | in-progress | 측정된 Top 20 잔존 캠페인을 시작했습니다. | 이슈 #118 및 잔존 캠페인 표의 기준선입니다. | 추가 비평 라운드 10개 이상과 중앙 검증을 완료합니다. |
 | 2026-08-15 | implemented | 순위 11부터 20까지 추가 비평 및 hardening 라운드 14개를 완료했습니다. | 현재 변경, 위 Top 20 보증 결과, focused tests, Ruff 및 strict mypy입니다. | Exact revision을 통합하고 중앙 검증을 받은 후 이슈 #118을 완료합니다. |
 | 2026-08-15 | implemented | Validator scratch 소유권과 focused automation test 선택을 고정하는 review evidence 라운드 2개를 추가했습니다. | 현재 변경, validator 및 selector suite 테스트 85개 통과입니다. | Exact revision을 통합하고 중앙 검증을 받은 후 이슈 #118을 완료합니다. |
+| 2026-08-15 | implemented | 실제 pre-tool dispatcher와 validator scratch symlink 경계의 integration-level 우회를 닫았습니다. | 현재 변경, dispatcher 및 guard 테스트 19개와 scratch ownership 테스트 2개 통과입니다. | Exact 중앙 검증을 받고 이슈 #118을 완료합니다. |
 
 ### 남은 작업
 
@@ -248,7 +252,7 @@ guard 테스트 15개, validation queue 테스트 37개 및 validator와 selecto
   기록했습니다.
 - [x] 중앙 검증이 통합 구현 revision `d3f5257b9`를 수락했습니다.
 - [x] 최종 독립 검토에서 Low를 초과하는 잔존 발견 사항이 없었습니다.
-- [x] 위의 제한된 Low 잔존 사항만 남기고 추가 라운드 16개를 완료했습니다.
+- [x] 위의 제한된 Low 잔존 사항만 남기고 추가 라운드 18개를 완료했습니다.
 - [ ] Exact Top 20 revision을 통합하고 중앙 검증을 받은 후 이슈 #118을 완료합니다.
 
 ## 관련 문서
