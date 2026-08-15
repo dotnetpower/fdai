@@ -151,6 +151,28 @@ The final independent re-review found no residual above Low. It accepted these b
 The review also rejected one false finding that Azure retry was absent. The transport implementation
 and focused throttle, permanent-error, and retry-exhaustion tests prove that behavior.
 
+## Residual Top 20 campaign
+
+Issue [#118](https://github.com/dotnetpower/fdai/issues/118) extends assurance to the next ten
+measured bottlenecks. The original Top 10 controls remain unchanged.
+
+| Rank | Residual bottleneck | Measured baseline | Hardening round |
+|-----:|---------------------|-------------------|-----------------|
+| 11 | Validation records from inactive lanes | 822 pending records: 1 active checkout ancestor, 394 retained-ref commits, and 427 unreferenced commits | Conservatively retire only old records unreachable from every checkout and retained ref. |
+| 12 | Historical validation latency mixed with current throughput | Latest 50 receipts reported p95 779.346 seconds without cohort age | Separate current-cohort latency from historical debt. |
+| 13 | Automation test selection uncertainty | Automation changes already select `tests/integration/scripts`; prior broad selection came from a Makefile change | Verify and retain the existing focused ownership rule. |
+| 14 | Probe instrumentation in warning candidates | 905 of 1,901 warning rows used explicit `PROBE_` messages | Exclude explicit probes from actionable warning counts while retaining raw logs. |
+| 15 | Core runtime readiness attribution | The standard stack reported five of six ready while a runtime process existed in another checkout or wrapper | Bind readiness to the exact checkout and runtime command. |
+| 16 | Destructive Git commands from agent tools | Commit pathspecs were guarded, but reset, restore, clean, checkout, and stash were not | Require an explicit approval marker for destructive commands. |
+| 17 | Dirty-tree validation recovery | A validation subagent restored uncommitted documentation despite a no-edit instruction | Surface and block unsafe dirty-tree validation entry points. |
+| 18 | Issue lifecycle type drift | A completed task regained `needs-triage` because it lacked a canonical type label | Require a type label before project start. |
+| 19 | Sequential local readiness probes | Five HTTP probes each had an independent 0.5-second timeout | Run probes concurrently under one bounded budget. |
+| 20 | Repeated Git discovery subprocesses | One status invocation resolved the same repository and common directory for multiple sections | Reuse one invocation-scoped repository context. |
+
+Each round uses a focused falsifying check. A finding already covered by the current implementation
+is rejected with evidence instead of adding duplicate code. The exit condition is another
+independent review with no residual above Low.
+
 ## Implementation status
 
 ### Implementation scope
@@ -172,6 +194,7 @@ and focused throttle, permanent-error, and retry-exhaustion tests prove that beh
 | 2026-08-15 | in-progress | Revised the design after independent critique by defining the CLI contract, bounded evidence windows, failure behavior, authority separation, and 12-round sequence. | Current change; roadmap, translation, and punctuation checks. | Implement and verify each accepted finding. |
 | 2026-08-15 | implemented | Completed 13 critique-and-hardening rounds and removed every reproducible Medium-or-higher residual. | Current change; 163 focused Python control tests, 6 Playwright port-pool tests, 48 final false-ready tests, Ruff, and the final independent review. | Record the centralized validation receipt for the integrated revision. |
 | 2026-08-15 | validated | Central validation accepted the integrated implementation revision. | `validation_queue.py check-commit d3f5257b9` passed. | No remaining work in this bounded campaign. |
+| 2026-08-15 | in-progress | Started the measured Top 20 residual campaign. | Issue #118 and the baselines in the residual campaign table. | Complete at least 10 additional critique rounds and central validation. |
 
 ### Remaining work
 
@@ -179,6 +202,8 @@ and focused throttle, permanent-error, and retry-exhaustion tests prove that beh
   rejected findings above.
 - [x] Central validation accepted integrated implementation revision `d3f5257b9`.
 - [x] The final independent review found no residual finding above Low.
+- [ ] Complete issue #118 with at least 10 additional rounds, no residual above Low, and an exact
+  central validation receipt.
 
 ## Related docs
 
