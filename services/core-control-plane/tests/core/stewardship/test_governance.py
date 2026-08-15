@@ -24,9 +24,9 @@ from fdai_service_contracts.handover import (
     StewardshipDraft,
 )
 
-UPLOAD_ID = UUID("11111111-1111-4111-8111-111111111111")
-DOCUMENT_ID = UUID("22222222-2222-4222-8222-222222222222")
-VERSION_ID = UUID("33333333-3333-4333-8333-333333333333")
+UPLOAD_ID = UUID(int=1, version=4)
+DOCUMENT_ID = UUID(int=2, version=4)
+VERSION_ID = UUID(int=3, version=4)
 YAML = "version: 1\nagents:\n  - agent_name: Freyr\n"
 
 
