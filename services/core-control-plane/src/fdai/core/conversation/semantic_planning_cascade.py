@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import logging
+from datetime import datetime
 from typing import Any, Protocol
 
 from fdai_service_contracts.ontology_query import OntologyQueryPlan, SemanticProblemFrame
@@ -119,6 +120,7 @@ class SemanticPlanningCascade:
         principal: Principal,
         purpose: str,
         manifest: QueryManifest,
+        evaluation_time: datetime,
     ) -> OntologyQueryPlan | None:
         for tier, model in self._planning_models():
             raw = model.propose_plan(
@@ -126,6 +128,7 @@ class SemanticPlanningCascade:
                 descriptors=copy.deepcopy(descriptors),
                 principal_role=principal.role.value,
                 purpose=purpose,
+                evaluation_time=evaluation_time,
             )
             if raw is None:
                 if self._should_escalate(tier=tier, stage="plan", reason="unavailable"):

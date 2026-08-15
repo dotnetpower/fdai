@@ -48,13 +48,15 @@ class _Model:
         self.plan = plan
         self.frame_calls = 0
         self.plan_calls = 0
+        self.plan_evaluation_times: list[datetime] = []
 
     def propose_frame(self, **_kwargs: Any) -> Any:
         self.frame_calls += 1
         return self.frame
 
-    def propose_plan(self, **_kwargs: Any) -> Any:
+    def propose_plan(self, **kwargs: Any) -> Any:
         self.plan_calls += 1
+        self.plan_evaluation_times.append(kwargs["evaluation_time"])
         return self.plan
 
 
@@ -124,6 +126,7 @@ def _service(t1: _Model, t2: _Model, manifest: Any) -> SemanticPlanningService:
         escalation_model=t2,
         manifests=_ManifestProvider(manifest),
         verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.OBJECT_SET,)),
+        now=lambda: NOW,
     )
 
 
@@ -209,6 +212,8 @@ def test_invalid_t1_plan_retries_only_plan_with_t2() -> None:
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
     assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+    assert t1.plan_evaluation_times == [NOW]
+    assert t2.plan_evaluation_times == [NOW]
 
 
 def test_scope_denial_never_invokes_t2() -> None:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Any, Literal, Protocol
 
@@ -134,6 +135,7 @@ class SemanticPlanningModel(Protocol):
         descriptors: tuple[dict[str, Any], ...],
         principal_role: str,
         purpose: str,
+        evaluation_time: datetime,
     ) -> Mapping[str, Any] | None: ...
 
 

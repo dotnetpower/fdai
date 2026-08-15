@@ -8,6 +8,7 @@ import logging
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, TypeVar
 
 import httpx
@@ -121,6 +122,7 @@ class AzureOpenAISemanticPlanningModel:
         descriptors: tuple[dict[str, Any], ...],
         principal_role: str,
         purpose: str,
+        evaluation_time: datetime,
     ) -> Mapping[str, Any] | None:
         """Return one validated query-plan proposal or ``None`` on bounded failure."""
 
@@ -129,6 +131,7 @@ class AzureOpenAISemanticPlanningModel:
             "descriptors": descriptors,
             "principal_role": principal_role,
             "purpose": purpose,
+            "evaluation_time": evaluation_time.isoformat(),
         }
         if not _bounded_input(payload, context=(), descriptors=descriptors):
             return None

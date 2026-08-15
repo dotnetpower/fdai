@@ -10,7 +10,8 @@ from __future__ import annotations
 import copy
 import json
 import logging
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from datetime import UTC, datetime
 from typing import Any
 
 from fdai_service_contracts.ontology_query import (
@@ -63,9 +64,11 @@ class SemanticPlanningService:
         manifests: QueryManifestProvider,
         verifier: OntologyQueryPlanVerifier,
         descriptor_selector: SemanticDescriptorSelector | None = None,
+        now: Callable[[], datetime] | None = None,
     ) -> None:
         self._manifests = manifests
         self._selector = descriptor_selector or CompleteManifestSelector()
+        self._now = now or (lambda: datetime.now(UTC))
         self._cascade = SemanticPlanningCascade(
             model=model,
             escalation_model=escalation_model,
@@ -140,12 +143,16 @@ class SemanticPlanningService:
                     frame=frame,
                 )
             stage = "plan_proposal"
+            evaluation_time = self._now()
+            if evaluation_time.tzinfo is None:
+                raise ValueError("semantic planning evaluation time MUST be timezone-aware")
             plan = self._cascade.propose_plan(
                 frame=frame,
                 descriptors=descriptors,
                 principal=principal,
                 purpose=purpose,
                 manifest=manifest,
+                evaluation_time=evaluation_time,
             )
             if plan is None:
                 return _outcome(
