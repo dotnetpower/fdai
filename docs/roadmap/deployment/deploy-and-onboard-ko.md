@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: dcd1fa9fe47adb1f4047e55e165c66cb7c144fc5
+translation_source_sha: a7c737d3cec5ba50cfecfb5c7953609e46320607
 translation_revised: 2026-08-16
 ---
 
@@ -47,6 +47,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 | 2026-08-13 | implemented | 로컬 파괴적 migration 검증을 활성 로컬 런타임 PostgreSQL cluster에서 격리했습니다. | 현재 변경, Compose configuration 통과, focused queue 및 local-environment test 68개 통과, 격리된 migration upgrade/downgrade 검사 2개 통과. | 로컬 검증 데이터베이스 격리에 남은 구현 작업은 없습니다. |
 | 2026-08-13 | implemented | Protected platform 계획 및 exact 적용 상태를 `validated`에서 `implemented`로 정정했습니다. Workflow source는 메커니즘을 입증하지만 리포지토리는 통제된 platform 적용 증적을 보존하지 않습니다. | current change, `.github/workflows/deploy-dev.yml`, roadmap, 번역 및 문서 검사 | `validated`로 복원하기 전에 리포지토리에 안전한 통제된 platform 적용 증적을 보존합니다. |
 | 2026-08-16 | implemented | 아무것도 보고하지 않던 배포 대기를 제한했습니다. Container App health 폴링은 반복마다 한 줄을 출력하고 만료된 900초 deadline을 수렴처럼 통과시키는 대신 명시적으로 실패하며, 재시도하는 모든 워크플로 다운로드가 누적 `--retry-max-time` window를 선언해 재시도 횟수 곱하기 요청당 상한이 유일한 경계가 되지 않습니다. | 현재 변경, 집중 배포 워크플로 및 게이트 parity 테스트 71개 통과, health 스크립트의 `bash -n`입니다. | 이 경계에 남은 작업은 없으며 아래 platform 적용 증적 항목은 그대로입니다. |
+| 2026-08-16 | implemented | 6시간 러너 기본값만 있던 보호 배포 job 두 개에 예산을 선언했습니다. 그동안 단일 self-hosted 배포 러너를 붙잡았기 때문입니다. Platform Terraform job은 180분, 서비스 배포 job은 120분으로 제한하고, health 검증기는 자체 deadline 뒤에 실행하던 복구 검증과 readiness 경로 단계를 제한합니다. | 현재 변경, 배포 워크플로 집중 테스트 24개 통과, health 스크립트의 `bash -n`, 두 워크플로 문서의 YAML 파싱입니다. | 이 예산에 남은 작업은 없으며 아래 platform 적용 증적 항목은 그대로입니다. |
 
 ### 남은 작업
 

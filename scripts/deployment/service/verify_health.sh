@@ -82,7 +82,7 @@ if [[ "$health_converged" != true ]]; then
   echo "container app did not reach the healthy contract within its 900s health deadline." >&2
   exit 1
 fi
-python3 "$control_root/deployment_recovery.py" verify \
+timeout 120s python3 "$control_root/deployment_recovery.py" verify \
     --context "$context_path" \
     --service-output "$work_dir/service.json" \
     --account "$work_dir/account.json" \
@@ -91,7 +91,7 @@ python3 "$control_root/deployment_recovery.py" verify \
     --previous-revision "$previous_revision"
 
 if [[ -n "$fqdn" ]]; then
-  readiness_path="$(HEALTH_JSON="$health_json" python3 -c 'import json, os; print(json.loads(os.environ["HEALTH_JSON"])["readiness_path"])')"
+  readiness_path="$(HEALTH_JSON="$health_json" timeout 30s python3 -c 'import json, os; print(json.loads(os.environ["HEALTH_JSON"])["readiness_path"])')"
   timeout 60s curl --fail --silent --show-error --retry 5 --retry-delay 2 \
     --retry-max-time 40 --connect-timeout 5 --max-time 15 \
     "https://${fqdn}${readiness_path}" >/dev/null
