@@ -141,6 +141,31 @@ No separate benchmark rule format or learned-action executor is introduced. If a
 cannot express a required query with these links, it must first add a failing ontology query test.
 Only then may a focused `ObjectType` or `LinkType` extension be proposed.
 
+### Pattern and PatternObservation are one layer
+
+The `Pattern` named by [operating ontology](../architecture/operating-ontology.md) and the
+`PatternObservation` that `PANTHEON_SPECS` assigns to Norns are two names for the same inert
+compiled cohort record. They are not a raw observation and a reviewed generalization, because no
+code performs the review that a second layer would require.
+
+- [`OperatingPatternCompiler.compile()`](../../../services/core-control-plane/src/fdai/core/operational_learning/patterns.py)
+  applies mechanical predicates only: one shared failure fingerprint, resource type, and action
+  type, at least one reusable and one negative sealed case, no repeated immutable case reference,
+  and bounded evidence. Nothing reviews or generalizes its `OperatingPatternCandidate` output.
+- Review happens later, at Mimir, on a `Rule`. Calling a pattern record reviewed asserts a step
+  that no code performs.
+- The record is never published as its own object. `Norns._observe_operational_case_cohort`
+  flattens it through `to_rule_candidate_mapping()` onto `object.rule-candidate`, so the compiled
+  cohort reaches Mimir only inside a `RuleCandidate`.
+- `object.pattern-observation` is a registered topic with no publisher and no subscriber, so
+  `PatternObservation` is an owned object type that nothing produces.
+
+This is why `learned_as` (`ObservedOutcome -> Pattern`) has no producible endpoint pair. A cohort
+cites sealed cases as `case-history:<case_id>:<revision>:<manifest_digest>` and never receives an
+`ObservedOutcome` identity, so the edge could only be fabricated. If it is ever declared it stays a
+reviewed learning projection and MUST NOT create a path from a learned record to an active catalog
+entry or threshold; promotion remains the authority of the independently reviewed registry.
+
 ## Agent ownership
 
 | Agent | Responsibility |
