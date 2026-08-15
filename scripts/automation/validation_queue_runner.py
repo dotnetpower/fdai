@@ -142,9 +142,9 @@ def _registered_worktrees(paths: QueuePaths) -> set[Path]:
 
 
 def _prepare_validation_worktree(paths: QueuePaths, head: str) -> Path:
+    if paths.state_root.is_symlink() or paths.worktree.is_symlink():
+        raise RuntimeError("validation state or scratch worktree path MUST NOT be a symbolic link")
     registered = _registered_worktrees(paths)
-    if paths.worktree.is_symlink():
-        raise RuntimeError("validation scratch worktree path MUST NOT be a symbolic link")
     validation_root = paths.worktree.resolve()
     expected_root = (paths.state_root / "worktree").resolve()
     if validation_root != expected_root or validation_root == paths.repo_root.resolve():

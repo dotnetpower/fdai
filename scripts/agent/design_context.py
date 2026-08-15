@@ -434,11 +434,17 @@ def enforce_commit_scope(payload: dict[str, Any]) -> dict[str, Any]:
     command = str(_tool_input(payload).get("command") or "")
     for segment in _command_segments(command):
         git_index = _git_executable_index(segment)
-        if git_index is None or "commit" not in segment[git_index + 1 :]:
+        if git_index is None:
             continue
-        commit_index = segment.index("commit", git_index + 1)
-        if "--" in segment[commit_index + 1 :]:
+        arguments, unsafe_alias = _expand_git_aliases(segment[git_index + 1 :])
+        operation_index = _git_operation_index(arguments)
+        if not unsafe_alias and (operation_index is None or arguments[operation_index] != "commit"):
             continue
+        commit_arguments = arguments[operation_index + 1 :] if operation_index is not None else []
+        if "--" in commit_arguments:
+            separator_index = commit_arguments.index("--")
+            if separator_index + 1 < len(commit_arguments):
+                continue
         reason = (
             "Agent commits in the shared FDAI worktree must use an explicit pathspec: "
             "git commit ... -- <owned paths>. A bare commit can include another session's "
@@ -470,7 +476,7 @@ def _command_segments(command: str, *, depth: int = 0) -> list[list[str]]:
     try:
         lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|")
         lexer.whitespace_split = True
-        lexer.commenters = ""
+        lexer.commenters = "#"
         tokens = list(lexer)
     except ValueError:
         return []
@@ -500,7 +506,7 @@ def _command_segments(command: str, *, depth: int = 0) -> list[list[str]]:
     return expanded
 
 
-def _git_operation(arguments: list[str]) -> str | None:
+def _git_operation_index(arguments: list[str]) -> int | None:
     index = 0
     while index < len(arguments):
         argument = arguments[index]
@@ -513,8 +519,57 @@ def _git_operation(arguments: list[str]) -> str | None:
         if argument.startswith("-"):
             index += 1
             continue
-        return argument
+        return index
     return None
+
+
+def _git_operation(arguments: list[str]) -> str | None:
+    index = _git_operation_index(arguments)
+    return arguments[index] if index is not None else None
+
+
+def _git_alias(arguments: list[str], operation_index: int) -> str | None:
+    context_options: list[str] = []
+    index = 0
+    while index < operation_index:
+        argument = arguments[index]
+        if argument in {"-C", "-c"} and index + 1 < operation_index:
+            context_options.extend((argument, arguments[index + 1]))
+            index += 2
+            continue
+        if argument.startswith(("-C", "-c")):
+            context_options.append(argument)
+        index += 1
+    completed = subprocess.run(
+        ["git", *context_options, "config", "--get", f"alias.{arguments[operation_index]}"],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=2,
+    )
+    return completed.stdout.strip() if completed.returncode == 0 else None
+
+
+def _expand_git_aliases(arguments: list[str]) -> tuple[list[str], bool]:
+    expanded = list(arguments)
+    for _ in range(_MAX_NESTED_COMMAND_DEPTH + 1):
+        operation_index = _git_operation_index(expanded)
+        if operation_index is None:
+            return expanded, False
+        alias = _git_alias(expanded, operation_index)
+        if alias is None:
+            return expanded, False
+        if alias.lstrip().startswith("!"):
+            return expanded, True
+        try:
+            alias_arguments = shlex.split(alias, posix=True)
+        except ValueError:
+            return expanded, True
+        if not alias_arguments:
+            return expanded, True
+        expanded = expanded[:operation_index] + alias_arguments + expanded[operation_index + 1 :]
+    return expanded, True
 
 
 def _git_executable_index(segment: list[str]) -> int | None:
@@ -531,11 +586,13 @@ def enforce_destructive_git(payload: dict[str, Any]) -> dict[str, Any]:
     command = str(_tool_input(payload).get("command") or "")
     for segment in _command_segments(command):
         git_index = _git_executable_index(segment)
-        if _DESTRUCTIVE_GIT_APPROVAL in segment or git_index is None:
+        if git_index is None:
             continue
-        arguments = segment[git_index + 1 :]
+        if _DESTRUCTIVE_GIT_APPROVAL in segment[:git_index]:
+            continue
+        arguments, unsafe_alias = _expand_git_aliases(segment[git_index + 1 :])
         operation = _git_operation(arguments)
-        if operation not in _DESTRUCTIVE_GIT_OPERATIONS:
+        if not unsafe_alias and operation not in _DESTRUCTIVE_GIT_OPERATIONS:
             continue
         reason = (
             f"Destructive Git operation 'git {operation}' requires an explicit user request. "
