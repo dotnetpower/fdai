@@ -24,6 +24,7 @@ from fdai_operator_service.families.iam.http import (
     require_string,
 )
 from fdai_operator_service.redaction import redact_projection
+from fdai_operator_service.streaming.shutdown import shutting_down
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
@@ -108,7 +109,7 @@ def make_access_grant_routes(
             current = snapshot
             canonical = ""
             keepalive_elapsed = 0.0
-            while not await request.is_disconnected():
+            while not shutting_down(request) and not await request.is_disconnected():
                 current_canonical = json.dumps(
                     [item.to_dict() for item in current.requests],
                     sort_keys=True,
