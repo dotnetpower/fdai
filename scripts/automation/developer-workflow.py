@@ -102,6 +102,24 @@ def preflight_report(root: Path) -> dict[str, Any]:
     }
 
 
+def delegation_preflight_report(root: Path) -> dict[str, Any]:
+    """Require a clean committed snapshot before another process validates it."""
+    git_state = _git_diagnostic(root)
+    index_state = _index_diagnostic(root)
+    dirty_count = sum(
+        int(index_state.get(name, 0))
+        for name in ("staged_count", "unstaged_count", "untracked_count")
+    )
+    return {
+        "dirty_path_count": dirty_count,
+        "read_only": True,
+        "reason_code": "dirty_tree_delegation_unsafe" if dirty_count else "clean_snapshot",
+        "schema_version": SCHEMA_VERSION,
+        "sections": {"git": git_state, "index": index_state},
+        "status": "blocked" if dirty_count or git_state.get("status") != "ok" else "ok",
+    }
+
+
 def _relative_targets(root: Path, targets: list[str]) -> tuple[str, ...] | None:
     resolved = _git_common_dir(root)
     if resolved is None:
@@ -243,6 +261,8 @@ def _parser() -> argparse.ArgumentParser:
     resume_parser.add_argument("--json", action="store_true", dest="as_json")
     preflight_parser = subparsers.add_parser("preflight")
     preflight_parser.add_argument("--json", action="store_true", dest="as_json")
+    delegation_parser = subparsers.add_parser("delegation-preflight")
+    delegation_parser.add_argument("--json", action="store_true", dest="as_json")
     return parser
 
 
@@ -257,6 +277,9 @@ def main(argv: list[str] | None = None) -> int:
     elif arguments.command == "preflight":
         report = preflight_report(Path.cwd())
         renderer = _render_preflight
+    elif arguments.command == "delegation-preflight":
+        report = delegation_preflight_report(Path.cwd())
+        renderer = _render_preflight
     else:
         report = status_report(Path.cwd())
         renderer = _render_text
@@ -264,7 +287,8 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(report, sort_keys=True))
     else:
         print(renderer(report))
-    return 1 if arguments.command == "preflight" and report["status"] != "ok" else 0
+    blocking_commands = {"delegation-preflight", "preflight"}
+    return 1 if arguments.command in blocking_commands and report["status"] != "ok" else 0
 
 
 if __name__ == "__main__":
