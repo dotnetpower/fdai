@@ -171,12 +171,9 @@ The design docs are the single source of truth; code and docs MUST stay in sync.
 
 ## Testing
 
-- **External work ordering:** GitHub Actions troubleshooting, Azure mutation/deployment, remote
-  evaluation, and image build/push/pull MUST wait for focused checks, commit, and a successful
-  `validation_queue.py check-external-readiness HEAD`. That gate passes while newer commits are
-  still in flight and fails only when the line was never validated or its last centralized
-  validation failed; never idle waiting for another session's commit. Read-only preflight MAY run
-  earlier; edits restart the loop.
+- **External work ordering:** GitHub Actions troubleshooting, Azure mutation/deployment, remote evaluation, and image build/push/pull MUST wait for focused checks, commit, and a successful
+  `validation_queue.py check-external-readiness HEAD`. That gate passes with newer commits in flight and fails only when the line was never validated or its last centralized validation failed;
+  never wait for another session's commit. Read-only preflight MAY run earlier; edits restart the loop.
 - **Edit loop**: run the smallest executable test that can falsify the current change. Do not run a
   package, subsystem, or repository suite when one test file or node id is sufficient.
 - **Parallel sessions**: prefer separate worktrees; never run bare `make test-changed` over another session's dirty or untracked paths.
