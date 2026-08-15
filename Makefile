@@ -5,7 +5,8 @@
 #     contributor can reproduce a failing PR locally in one command.
 # Real deployment lives under `infra/` (Terraform); see the roadmap.
 
-.PHONY: dev-up dev-down dev-logs dev-nuke help \
+
+.PHONY: dev-up dev-down dev-logs dev-nuke help workflow-status \
 	lint format test test-changed service-test service-test-all operator gates check validation-status validation-run \
 	validation-all worktree-maintenance worktree-cleanup roadmap-verification-sync roadmap-verification-status \
 	roadmap-verification-report roadmap-verification-retry roadmap-verification-apply \
@@ -15,6 +16,9 @@
 
 help: ## show this help
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+workflow-status: ## show bounded read-only developer workflow diagnostics
+	@python3 scripts/automation/developer-workflow.py status
 
 dev-up: ## start pgvector + Redpanda locally (waits for healthchecks)
 	@scripts/deployment/local/dev-up.sh
