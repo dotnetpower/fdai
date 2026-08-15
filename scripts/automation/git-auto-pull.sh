@@ -12,9 +12,14 @@
 # Interval (seconds) via FDAI_AUTOPULL_INTERVAL (default 180). A shorter interval
 # detects remote drift sooner, which keeps rebases small and avoids rework that a
 # late detection would force onto an already-validated local line.
+#
+# Every remote call is bounded, because a black-holed origin makes an unbounded
+# `git fetch` stall the loop for far longer than the declared interval.
 set -uo pipefail
 
 interval="${FDAI_AUTOPULL_INTERVAL:-180}"
+fetch_timeout="${FDAI_AUTOPULL_FETCH_TIMEOUT:-60}"
+pull_timeout="${FDAI_AUTOPULL_PULL_TIMEOUT:-120}"
 toplevel="$(git rev-parse --show-toplevel 2>/dev/null || echo "")"
 if [ -z "$toplevel" ]; then
   echo "[auto-pull] not a git repository; exiting."
@@ -41,7 +46,7 @@ while true; do
   elif [ -f "$validation_lock" ] && command -v flock >/dev/null 2>&1 \
     && ! flock -n "$validation_lock" -c true; then
     echo "[auto-pull] centralized validation is active - skipping remote fetch."
-  elif git fetch --quiet origin "$branch" 2>/dev/null; then
+  elif timeout "$fetch_timeout" git fetch --quiet origin "$branch" 2>/dev/null; then
     behind="$(git rev-list --count HEAD..FETCH_HEAD 2>/dev/null || echo 0)"
     ahead="$(git rev-list --count FETCH_HEAD..HEAD 2>/dev/null || echo 0)"
     if [ "$behind" -gt 0 ]; then
@@ -49,13 +54,15 @@ while true; do
         echo "[auto-pull] $branch has diverged ($ahead ahead, $behind behind) - skipping. Rebase manually after reviewing local commits."
       else
         echo "[auto-pull] $branch is $behind behind origin - pulling (rebase)..."
-        if git pull --rebase --quiet origin "$branch"; then
+        if timeout "$pull_timeout" git pull --rebase --quiet origin "$branch"; then
           echo "[auto-pull] up to date."
         else
           echo "[auto-pull] pull --rebase failed - resolve manually (git status)."
         fi
       fi
     fi
+  else
+    echo "[auto-pull] fetch did not complete within ${fetch_timeout}s - retrying next cycle."
   fi
   sleep "$interval"
 done

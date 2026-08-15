@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: f38eba0e35540e6b71a03322b77ae8ad10ec06c9
+translation_source_sha: d7edfe42f1e2a793e9f7764d393933e3babe6c84
 translation_revised: 2026-08-16
 ---
 
@@ -266,6 +266,7 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 | 2026-08-16 | implemented | 실행되지 않던 게이트를 복구했습니다. `npm exec`가 호출자 디렉터리를 유지해 operator 게이트가 저장소 루트에서 `tsconfig.tests.json`을 요구하다 TS5058로 실패했고 `set -e` 아래에서 console build와 CLI 검사 두 개까지 함께 무너뜨렸습니다. 이제 게이트가 project를 저장소 루트 기준으로 지정하고 parity 테스트가 그 형태를 고정하며, 잘린 실행은 유효한 checkpoint를 유지하고, 실행 중 release 교체가 무효화한 turn만 정리하며, 앞뒤가 맞지 않는 통제된 거부는 실패하고, 부분 checkpoint 파일은 프로세스별 이름을 갖습니다. | 커밋 `1782464e4`, bounded wait 캠페인 표의 21위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
 | 2026-08-16 | implemented | 막힌 cohort가 자신을 재생하지 못하게 했습니다. 거부만 한 답변 필수 turn을 풀어 이후 실행이 다시 시도하게 하고, pacing 결함이나 checkpoint 쓰기 실패는 아티팩트 없이 빠져나가는 대신 통제된 중단 사유가 되며, parity 테스트가 호출 전체를 고정하고, 운영자가 지정한 checkpoint 경로를 다듬습니다. | 커밋 `ddf1e47f5`, bounded wait 캠페인 표의 22위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
 | 2026-08-16 | implemented | Pacing만이 아니라 질문 전체를 보호하도록 했습니다. Pacing과 질문 내 재시도 대기, turn이 하나의 중단 경로를 공유하므로 재시도 대기 중 페이지 결함이나 허용된 0 pacing 재정의 상황에서도 아티팩트가 남고, 예산으로 잘린 시도는 쓸 수 없는 reload를 소비하지 않으며, 예산 중단은 중단된 질문의 이름을 남깁니다. | 커밋 `62f68be0e`, bounded wait 캠페인 표의 23위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
+| 2026-08-16 | implemented | 24라운드가 assurance 러너 밖에서 찾아낸 대기를 제한했습니다. Container App health 폴링은 반복마다 진행 줄을 출력하고 자체 900초 deadline에서 실패하며, auto-pull은 `git fetch`와 `git pull --rebase`를 interval 아래로 제한하고 완료되지 못한 fetch를 보고하며, 재시도하는 모든 워크플로 다운로드가 누적 재시도 window를 선언하고, 재개된 cohort는 loop 전에 복원·잔여 개수를 출력합니다. | 현재 변경, 배포 워크플로·validation queue·게이트 parity 집중 테스트 71개 통과, 두 스크립트의 `bash -n`, `npm --prefix console run typecheck`, live-evidence Vitest 143개 통과입니다. | 24라운드의 findings 3건을 근거와 함께 기각했고 이슈 #122의 비평 라운드를 계속합니다. |
 
 ### 남은 작업
 
@@ -313,6 +314,7 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 | 21 | 실행되지 않은 게이트 | 강제된 테스트 타입 검사가 프로젝트 경로를 저장소 루트에서 해석해 실패하며 나머지 operator 게이트를 중단시켰고, 중단된 실행이 유효한 checkpoint를 폐기했습니다 | 프로젝트 경로를 해석하고, 해석되는 호출 형태를 고정하며, 완주한 실행이 모순을 관측한 경우에만 폐기합니다. |
 | 22 | 영원히 재생되는 차단된 cohort | 모든 turn이 통과했지만 release 기준을 놓친 완주 cohort가 같은 차단을 다시 발행하는 checkpoint를 유지했고, 페이지나 checkpoint 결함이 아티팩트 없이 빠져나갔습니다 | 거부한 answer-required turn을 풀고, pacing 및 checkpoint 결함을 통제된 중단 사유로 바꿉니다. |
 | 23 | 부분적으로만 보호된 질문 | 질문 사이 pacing 대기만 보호되어 재시도 대기 중이나 pacing 비활성 시 페이지 결함이 아티팩트 없이 빠져나갔고, 예산 중단이 컨텍스트 재설정 실패로 보고될 수 있었습니다 | 질문 전체를 보호하고, 예산이 무의미하게 만든 재설정을 건너뛰며, 실행을 끝낸 질문을 기록합니다. |
+| 24 | 조용한 배포·개발 대기 | 900초 Container App health 폴링이 아무것도 출력하지 않고 만료된 deadline을 수렴처럼 통과시켰고, auto-pull이 180초 loop 안에서 timeout 없이 `git fetch`와 `git pull --rebase`를 실행했으며, 재시도하는 워크플로 다운로드 7건이 재시도 횟수만 선언하고 누적 window는 선언하지 않았고, 재개된 assurance cohort가 복원한 turn 수를 최종 아티팩트에서만 공개했습니다 | Health 폴링마다 진행 줄 하나를 출력하고 health deadline에서 실패시키며, auto-pull의 모든 원격 호출을 interval 아래로 제한하고, 재시도하는 모든 다운로드에 `--retry-max-time`을 선언하며, cohort loop 앞에 재개 줄 하나를 출력합니다. |
 
 ### 계약
 
