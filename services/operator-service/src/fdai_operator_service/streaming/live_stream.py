@@ -13,6 +13,8 @@ from starlette.requests import Request
 from starlette.responses import Response, StreamingResponse
 from starlette.routing import Route
 
+from fdai_operator_service.streaming.shutdown import shutting_down
+
 _CHANNEL: Final = "aw.pipeline.stages"
 _KEEPALIVE: Final = b": keepalive\n\n"
 _MAX_FIELD_CHARS: Final = 8_192
@@ -97,6 +99,7 @@ def make_live_stream_route(
             _live_chunks(
                 hub=hub,
                 is_disconnected=request.is_disconnected,
+                is_shutting_down=lambda: shutting_down(request),
                 keepalive_seconds=keepalive_seconds,
                 channel=channel,
             ),
@@ -116,6 +119,7 @@ async def _live_chunks(
     hub: LiveStreamHub,
     is_disconnected: Callable[[], Awaitable[bool]],
     keepalive_seconds: float,
+    is_shutting_down: Callable[[], bool] = lambda: False,
     channel: str = _CHANNEL,
 ) -> AsyncGenerator[bytes]:
     yield _encode_frame(
@@ -140,7 +144,7 @@ async def _live_chunks(
     event_task = asyncio.create_task(event_pump(), name="operator-live-events")
     keepalive_task = asyncio.create_task(keepalive_pump(), name="operator-live-keepalive")
     try:
-        while not await is_disconnected():
+        while not is_shutting_down() and not await is_disconnected():
             try:
                 yield await asyncio.wait_for(output.get(), timeout=1.0)
             except TimeoutError:

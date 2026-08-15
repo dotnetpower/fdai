@@ -30,6 +30,7 @@ from fdai_operator_service.families.conversation.transport import (
     sse_frame,
     unavailable_response,
 )
+from fdai_operator_service.streaming.shutdown import shutting_down
 from starlette.requests import Request
 from starlette.responses import Response, StreamingResponse
 from starlette.routing import Route
@@ -197,7 +198,7 @@ def _stream_endpoint(
         async def events() -> AsyncIterator[bytes]:
             try:
                 async for event in source:
-                    if await request.is_disconnected():
+                    if shutting_down(request) or await request.is_disconnected():
                         return
                     yield sse_frame(event)
             finally:
