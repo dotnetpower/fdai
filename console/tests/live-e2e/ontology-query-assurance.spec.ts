@@ -51,6 +51,8 @@ import {
   selectOntologyAssuranceQuestions,
   type AssuranceRunConfiguration,
   type AssuranceQuestion,
+  type RetainedTransportAttempt,
+  type RetainedTurnResult,
 } from "./ontology-query-assurance";
 
 const COHORT_SEED = 0x0fda1;
@@ -63,44 +65,6 @@ interface BrowserTurnResult {
   readonly source: string;
   readonly semantic_receipt: unknown;
   readonly verification: unknown;
-}
-
-interface RetainedTransportAttempt {
-  readonly attempt: number;
-  readonly outcome:
-    | "semantic_terminal"
-    | "retryable_transport_failure"
-    | "non_retryable_receipt_missing"
-    | "per_attempt_deadline_exceeded"
-    | "question_budget_exhausted"
-    | "stalled_question"
-    | "turn_error";
-  readonly source?: string;
-}
-
-interface RetainedTurnResult {
-  readonly question_id: string;
-  readonly produced_by_run_id: string;
-  readonly locale: AssuranceQuestion["locale"];
-  readonly operation: AssuranceQuestion["operation"];
-  readonly attempt_count: number;
-  readonly transport_attempts: readonly RetainedTransportAttempt[];
-  readonly passed: boolean;
-  readonly unauthorized_execution_claim: boolean;
-  readonly failure_reason?: string;
-  readonly projection_id?: string;
-  readonly request_id?: string;
-  readonly disposition?: string;
-  readonly reason_code?: string;
-  readonly semantic_route?: string;
-  readonly unavailable_reason?: string;
-  readonly ontology_release_digest?: string;
-  readonly principal_manifest_digest?: string;
-  readonly plan_digest?: string;
-  readonly execution_receipt_digest?: string;
-  readonly checks_completed?: number;
-  readonly checks_total?: number;
-  readonly evidence_ref_count?: number;
 }
 
 async function runBrowserTurn(
@@ -127,6 +91,23 @@ async function runBrowserTurn(
 
 function increment(counts: Record<string, number>, key: string | undefined): void {
   counts[key ?? "none"] = (counts[key ?? "none"] ?? 0) + 1;
+}
+
+/**
+ * Destroys the execution context that still holds an abandoned turn.
+ *
+ * Reports failure instead of throwing, so a sick stack still produces a governed artifact.
+ */
+async function resetTurnContext(page: Page): Promise<boolean> {
+  try {
+    await page.reload({
+      waitUntil: "domcontentloaded",
+      timeout: PREAMBLE_NAVIGATION_TIMEOUT_MS,
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function claimsExecutionAuthority(raw: unknown): boolean {
@@ -240,6 +221,12 @@ async function resolveQuestion(
       });
       // A transient evaluate failure is not terminal evidence, so it may use a remaining attempt
       // instead of being persisted as a permanent failure.
+      if (deadlineExceeded) {
+        // The abandoned turn keeps consuming an authenticated stream, so the execution context is
+        // reset before the next question instead of accumulating orphaned work on the same page.
+        const reset = await resetTurnContext(page);
+        if (!reset) transportAttempts.push({ attempt, outcome: "turn_error", source: "context_reset_failed" });
+      }
       if (outcome === "turn_error" && attempt < MAX_TRANSPORT_ATTEMPTS) continue;
       return {
         result: null,
@@ -367,9 +354,11 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     {
       const transportAttempts = outcome.transportAttempts;
       const terminalOutcome = transportAttempts.at(-1)?.outcome;
-      // A turn that spent every attempt on transport failures is a transport failure, not a
-      // malformed receipt, so the artifact must not mislabel the stack.
-      const judgment = outcome.result === null || terminalOutcome === "retryable_transport_failure"
+      // A turn that ended in a transport outcome is a transport failure, not a malformed
+      // receipt, so the artifact must not mislabel the stack.
+      const transportTerminated = terminalOutcome === "retryable_transport_failure" ||
+        terminalOutcome === "non_retryable_receipt_missing";
+      const judgment = outcome.result === null || transportTerminated
         ? { passed: false, failure_reason: terminalOutcome ?? "turn_error" }
         : judgeSemanticTurn(outcome.result.semantic_receipt, outcome.result.verification);
       const receipt = "receipt" in judgment ? judgment.receipt : undefined;
@@ -623,6 +612,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     checkpointFile !== null &&
     checkpointRetirable({
       passed,
+      releaseSatisfied: runScope === "full_cohort" ? productionReady : !productionReady,
       stopReason,
       retainedCount: retained.length,
       cohortSize: questions.length,

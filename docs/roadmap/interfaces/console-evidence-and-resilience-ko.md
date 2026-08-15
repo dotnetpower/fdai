@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: d8841572063983550f10e7cedeb3ded450d7d94a
-translation_revised: 2026-08-15
+translation_source_sha: 0ebc4c85c79b9f53147527b18f379504ec8bfda2
+translation_revised: 2026-08-16
 ---
 
 # 콘솔 근거 및 복원력
@@ -58,6 +58,7 @@ translation_revised: 2026-08-15
 | 2026-08-15 | implemented | 재생 발행을 live 재검증으로 대체했습니다. Cohort 전체를 담은 checkpoint는 마지막 질문을 live stack으로 되돌려주므로 재개된 실행은 항상 현재 stack을 증명하고, checkpoint를 삭제한 뒤 실패하는 막힌 상태가 되지 않으며, 모든 보존 답변이 동일한 ontology release 및 principal manifest 세대를 보고해야 하므로 오래된 답변을 세탁할 수 없습니다. | `current change`; focused Vitest live-evidence 105개 통과, 두 프로젝트 `npm run typecheck` 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
 | 2026-08-15 | implemented | Live 증명을 반증 가능하게 만들었습니다. 재개된 실행은 마지막 answer-required 질문까지 cohort 꼬리를 풀고, 다시 발행되는 답변은 live 답변이 확인한 ontology release 및 principal manifest를 재현해야 하며, 완주했지만 실패한 cohort는 checkpoint를 유지하고, 중단된 live 실행은 재생이 아니라 `interrupted_partial`로 보고하며, checkpoint 신뢰·통과·회수·경로 정책을 테스트된 순수 함수로 옮겼습니다. | `current change`; focused Vitest live-evidence 123개 통과, 두 프로젝트 `npm run typecheck` 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
 | 2026-08-15 | implemented | 재개 실행이 수렴하도록 했습니다. 검증된 turn만 재개하므로 불안정한 turn은 영구 상속되지 않고 다시 시도되며, answer-required 증명 질문을 정확히 하나만 풀어 재개 비용이 turn 하나이고, Playwright가 navigation 및 action timeout을 기본으로 비활성화하므로 모든 preamble 단계가 자체 timeout을 선언하며, 세대를 증명할 수 없는 선택은 거부하고, 보존된 locale·operation·attempt outcome을 통제된 값으로 검증합니다. | `current change`; focused Vitest live-evidence 126개 통과, 두 프로젝트 `npm run typecheck` 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
+| 2026-08-15 | implemented | 남은 재개 함정을 닫았습니다. Live 증명 질문은 operation으로 고른 질문이 아니라 이전 실행이 generation digest와 함께 답변한 마지막 질문이며, 완주한 cohort는 실행기가 단언하는 결과를 만족할 때만 checkpoint를 회수하고, 버려진 turn이 재사용 페이지에 인증된 stream을 남기지 않으며, 누락된 receipt는 실제 transport 결과로 보고하고, 보존 결과 타입과 attempt outcome을 공유해 새 필드가 checkpoint 대신 빌드를 깨뜨립니다. | `current change`; focused Vitest live-evidence 129개 통과, 두 프로젝트 `npm run typecheck` 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
 
 ### 잔여 작업
 

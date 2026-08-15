@@ -178,8 +178,22 @@ describe("liveProofQuestionIds", () => {
     { question_id: "q4", operation: "unsupported_domain" as const },
   ];
 
-  it("releases exactly the last answer-required question", () => {
+  it("releases exactly the last answer-required question without stored evidence", () => {
     expect(liveProofQuestionIds(cohort)).toEqual(["q2"]);
+  });
+
+  it("prefers a question an earlier run actually answered", () => {
+    expect(liveProofQuestionIds(cohort, [
+      { question_id: "q1", disposition: "answered", ontology_release_digest: "a" },
+      { question_id: "q2", disposition: "held" },
+    ])).toEqual(["q1"]);
+  });
+
+  it("ignores stored evidence that proves no generation", () => {
+    expect(liveProofQuestionIds(cohort, [
+      { question_id: "q1", disposition: "answered" },
+      { question_id: "q1", disposition: "held", ontology_release_digest: "a" },
+    ])).toEqual(["q2"]);
   });
 
   it("names nothing when no question can prove a generation", () => {
@@ -206,6 +220,17 @@ describe("resumableWithLiveProof", () => {
   it("keeps resumed work that is not needed as live proof", () => {
     expect(resumableWithLiveProof([{ question_id: "q1" }, { question_id: "q3" }], cohort))
       .toEqual([{ question_id: "q1" }, { question_id: "q3" }]);
+  });
+
+  it("releases a proven answer rather than a question that only refused", () => {
+    const resumed = [
+      { question_id: "q1", disposition: "answered", ontology_release_digest: "a" },
+      { question_id: "q2", disposition: "held" },
+      { question_id: "q3" },
+    ];
+
+    expect(resumableWithLiveProof(resumed, cohort).map((result) => result.question_id))
+      .toEqual(["q2", "q3"]);
   });
 
   it("always releases the proof question for live re-verification", () => {
@@ -258,7 +283,13 @@ describe("evidenceGenerationConsistent", () => {
 });
 
 describe("checkpointRetirable", () => {
-  const complete = { passed: true, stopReason: null, retainedCount: 100, cohortSize: 100 };
+  const complete = {
+    passed: true,
+    releaseSatisfied: true,
+    stopReason: null,
+    retainedCount: 100,
+    cohortSize: 100,
+  };
 
   it("retires a complete cohort that published a passing result", () => {
     expect(checkpointRetirable(complete)).toBe(true);
@@ -266,6 +297,7 @@ describe("checkpointRetirable", () => {
 
   it("keeps the checkpoint when the cohort failed or did not complete", () => {
     expect(checkpointRetirable({ ...complete, passed: false })).toBe(false);
+    expect(checkpointRetirable({ ...complete, releaseSatisfied: false })).toBe(false);
     expect(checkpointRetirable({ ...complete, retainedCount: 99 })).toBe(false);
     expect(checkpointRetirable({ ...complete, stopReason: "run_budget_exhausted" })).toBe(false);
     expect(checkpointRetirable({ ...complete, cohortSize: 0, retainedCount: 0 })).toBe(false);
