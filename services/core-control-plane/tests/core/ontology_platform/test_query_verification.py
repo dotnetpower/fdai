@@ -139,6 +139,60 @@ def test_verifier_accepts_typed_object_projection_and_aggregation() -> None:
     assert verifier.verify(plan, manifest=manifest) is plan
 
 
+def test_verifier_validates_object_set_aggregate_fields() -> None:
+    release, manifest = _manifest()
+    definition = ObjectSetDefinition(
+        selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
+        as_of=NOW,
+        purpose="operations-review",
+        limit=10,
+    )
+    source = OntologyQueryNode(
+        node_id="resources",
+        kind=QueryNodeKind.OBJECT_SET,
+        arguments_json=canonical_json({"definition": definition.model_dump(mode="json")}),
+        output_kind="query.table",
+    )
+    verifier = OntologyQueryPlanVerifier(
+        available_kinds=(QueryNodeKind.OBJECT_SET, QueryNodeKind.AGGREGATE)
+    )
+    valid_nodes = (
+        source,
+        OntologyQueryNode(
+            node_id="count",
+            kind=QueryNodeKind.AGGREGATE,
+            depends_on=("resources",),
+            arguments_json=canonical_json({"operation": "count", "group_by": ["object_type"]}),
+            output_kind="query.table",
+        ),
+    )
+    valid_plan = _plan(
+        valid_nodes,
+        release_digest=release.digest,
+        manifest_digest=manifest.manifest_digest,
+    )
+    assert verifier.verify(valid_plan, manifest=manifest) is valid_plan
+
+    invalid_nodes = (
+        source,
+        OntologyQueryNode(
+            node_id="count",
+            kind=QueryNodeKind.AGGREGATE,
+            depends_on=("resources",),
+            arguments_json=canonical_json({"operation": "count", "group_by": ["type"]}),
+            output_kind="query.table",
+        ),
+    )
+    invalid_plan = _plan(
+        invalid_nodes,
+        release_digest=release.digest,
+        manifest_digest=manifest.manifest_digest,
+    )
+
+    with pytest.raises(ValueError, match="absent from object_set output schema"):
+        verifier.verify(invalid_plan, manifest=manifest)
+
+
 def test_verifier_rejects_output_that_does_not_reference_a_declared_node() -> None:
     release, manifest = _manifest()
     definition = ObjectSetDefinition(

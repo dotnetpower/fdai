@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 1836c35b233d31de8342714e72f12ed038483845
+translation_source_sha: b0f40b393e56370aad6367e1fb4525d91fb51fbe
 translation_revised: 2026-08-15
 ---
 
@@ -59,7 +59,7 @@ translation_revised: 2026-08-15
 > 핸들러는 이제 secured ObjectSet 구체화, union, intersection, subtraction, 정렬,
 > 변환 결과, grouped 집계 및 exact-release 조회/derive/validate 함수 호출을 다룹니다.
 > 결정론적 검증기는 I/O 전에 principal 매니페스트, readable 속성, LinkType, closed 노드 인자,
-> 의존성 출력 종류, 함수 스키마 및 등록된 확장 스키마를 검사합니다. Temporal, metric-series 및
+> 의존성 출력 종류와 직접 ObjectSet 집계 필드, 함수 스키마 및 등록된 확장 스키마를 검사합니다. Temporal, metric-series 및
 > evidence-join 핸들러는 이제 검증기와 실행기가 공유하는 핸들러 맵에 포함됩니다. 운영 조립은
 > 비어 있지 않은 state-store DSN에서 PostgreSQL 토폴로지 이력을 연결하고 검토된 레지스트리와
 > no-op이 아닌 프로바이더가 모두 있을 때만 metric/evidence 핸들러를 연결합니다. 그렇지 않으면
@@ -179,6 +179,7 @@ translation_revised: 2026-08-15
 | 2026-08-15 | 구현됨 | Machine-readable 명확화 requirement를 추가하고 Core가 이미 바인딩한 principal 범위 또는 용도를 묻는 T1 frame 제안을 거부했습니다. 의미 frame prompt v4는 두 tier 모두 해당 값을 trusted server context로 취급하도록 지시합니다. | `current change`, focused 의미 planner 검사 21개, prompt 및 Azure adapter 검사 10개, 작업 범위 Ruff와 strict mypy 통과 | 중앙 검증 뒤 Core를 재시작하고 통제된 요청-Console 보증 경로를 다시 실행합니다. |
 | 2026-08-15 | 구현됨 | 검증된 topology graph, topology diff, metric window 및 causal join 출력을 위한 범위 제한 projection을 추가했습니다. | `current change`, focused Core processor 테스트 43개와 작업 범위 Ruff 및 strict mypy 통과 | Planner 계약을 활성화한 뒤 인증된 temporal 및 causal 답변 근거를 보존합니다. |
 | 2026-08-15 | 구현됨 | `query.manifest`를 통한 exact-release 스키마 인벤토리 조회, 닫힌 함수 table 변환, 인벤토리, 속성 filter, topology, aggregation 및 causal 질문의 명시적 frame/plan grammar를 추가했습니다. | `current change`, focused 매니페스트, 핸들러, 조립, 관계, 의미 조립 및 prompt 검사 42개와 작업 범위 Ruff 및 strict mypy 통과 | Clean 통과 14-cell 산출물을 보존한 뒤 seed 기반 100-case 집단을 실행하고 답변 근거가 하나라도 누락되면 준비 상태를 계속 차단합니다. |
+| 2026-08-15 | 구현됨 | 직접 ObjectSet 집계 필드를 실행 전에 exact 행 스키마와 대조해 유효하지 않은 T1 plan만 T2로 plan 단계를 다시 시도하도록 했습니다. | `current change`, focused 검증기 및 tier 라우팅 검사 16개와 작업 범위 Ruff 및 strict mypy 통과 | Clean 14-cell 및 seed 기반 100-case 근거를 보존하기 전에 보류된 한국어 집계 cell을 다시 실행합니다. |
 
 ### 남은 작업
 

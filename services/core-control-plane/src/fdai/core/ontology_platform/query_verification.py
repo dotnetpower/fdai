@@ -143,16 +143,23 @@ class OntologyQueryPlanVerifier:
             if operation == "count":
                 if "field" in arguments:
                     raise ValueError("count aggregate MUST NOT declare field")
+                aggregate_fields: tuple[str, ...] = ()
             elif "field" not in arguments:
                 raise ValueError("numeric aggregate requires field")
             else:
-                _field(arguments["field"])
+                aggregate_fields = (_field(arguments["field"]),)
             group_by = arguments.get("group_by", [])
             if not isinstance(group_by, list) or len(group_by) > 4:
                 raise ValueError("aggregate group_by exceeds 4 fields")
             normalized_group = tuple(_field(item) for item in group_by)
             if len(normalized_group) != len(set(normalized_group)):
                 raise ValueError("aggregate group_by fields MUST be unique")
+            self._verify_object_set_dependency_fields(
+                node,
+                fields=aggregate_fields + normalized_group,
+                nodes_by_id=nodes_by_id,
+                descriptors=descriptors,
+            )
             _optional_limit(arguments)
             return
         if node.kind is QueryNodeKind.FUNCTION:
@@ -267,6 +274,29 @@ class OntologyQueryPlanVerifier:
                 errors = list(Draft202012Validator(property_schema).iter_errors(value))
                 if errors:
                     raise ValueError("function static argument violates input_schema")
+
+    @staticmethod
+    def _verify_object_set_dependency_fields(
+        node: OntologyQueryNode,
+        *,
+        fields: tuple[str, ...],
+        nodes_by_id: Mapping[str, OntologyQueryNode],
+        descriptors: Mapping[tuple[str, str], Mapping[str, Any]],
+    ) -> None:
+        dependency = nodes_by_id[node.depends_on[0]]
+        if dependency.kind is not QueryNodeKind.OBJECT_SET:
+            return
+        definition = ObjectSetDefinition.model_validate(dependency.arguments["definition"])
+        selector_kind = (
+            "object" if definition.selector.kind is ObjectSelectorKind.OBJECT_TYPE else "interface"
+        )
+        descriptor = descriptors[(selector_kind, definition.selector.name)]
+        readable_properties = cast_mapping(descriptor.get("properties"))
+        available_fields = {"id", "object_type"} | {
+            f"properties.{name}" for name in readable_properties
+        }
+        if any(field not in available_fields for field in fields):
+            raise ValueError("aggregate field is absent from object_set output schema")
 
     @staticmethod
     def _verify_table_dependencies(
