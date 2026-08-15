@@ -13,6 +13,7 @@ from fdai.shared.contracts.models import (
     PropertyType,
 )
 from fdai.shared.providers.ontology_instance import (
+    OntologyDirection,
     OntologyInstanceValidationError,
     OntologyLinkRecord,
     OntologyObjectRecord,
@@ -444,6 +445,50 @@ async def test_transitive_link_repeats_during_traversal() -> None:
     graph = await store.traverse(root_ids=("case-1",), max_depth=2)
 
     assert {item.id for item in graph.objects} == {"case-1", "case-2", "case-3"}
+
+
+@pytest.mark.parametrize("direction", ["incoming", "both"])
+async def test_inverse_traversal_preserves_stored_ownership_direction(
+    direction: OntologyDirection,
+) -> None:
+    """`contains` and `attached_to` stay parent->child and attached->anchor.
+
+    A query may traverse the inverse; it must never rewrite the stored edge.
+    """
+    resource = _object_type("Resource")
+    contains = OntologyLinkType(
+        schema_version="1.0.0",
+        name="contains",
+        version="2.0.0",
+        from_type="Resource",
+        to_type="Resource",
+        cardinality=LinkCardinality.ONE_TO_MANY,
+        is_transitive=True,
+    )
+    attached_to = OntologyLinkType(
+        schema_version="1.0.0",
+        name="attached_to",
+        version="1.1.0",
+        from_type="Resource",
+        to_type="Resource",
+        cardinality=LinkCardinality.MANY_TO_MANY,
+    )
+    store = InMemoryOntologyInstanceStore(
+        object_types=(resource,), link_types=(contains, attached_to)
+    )
+    for identifier in ("rg-1", "vm-1", "disk-1"):
+        await _upsert(store, identifier, "Resource", "observed")
+    await store.upsert_link(OntologyLinkRecord(link_type="contains", from_id="rg-1", to_id="vm-1"))
+    await store.upsert_link(
+        OntologyLinkRecord(link_type="attached_to", from_id="disk-1", to_id="vm-1")
+    )
+
+    graph = await store.traverse(root_ids=("vm-1",), direction=direction, max_depth=1)
+
+    assert {(item.link_type, item.from_id, item.to_id) for item in graph.links} == {
+        ("contains", "rg-1", "vm-1"),
+        ("attached_to", "disk-1", "vm-1"),
+    }
 
 
 async def test_temporal_links_are_ordered_by_target_property() -> None:

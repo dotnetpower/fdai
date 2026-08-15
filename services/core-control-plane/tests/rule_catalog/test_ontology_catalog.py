@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -74,6 +75,49 @@ def test_shipped_ontology_catalog_loads_as_one_graph() -> None:
         "security.transport.minimum_tls",
         "utilization.cpu.p95",
     }
+
+
+def test_documented_relationship_contract_is_backed_by_declarations() -> None:
+    """Every documented contract row is a declared LinkType or a named union row.
+
+    A documented relationship with no declaration claims a validated
+    relationship that no query can traverse.
+    """
+    document = (REPO_ROOT / "docs/roadmap/architecture/operating-ontology.md").read_text(
+        encoding="utf-8"
+    )
+    section = document.split("\n## Relationship contract\n", 1)[1].split("\n## ", 1)[0]
+    contract_table = section.split("\n### Deferred relationships\n", 1)[0]
+    documented = tuple(re.findall(r"^\| `([a-z_]+)` \|", contract_table, re.MULTILINE))
+    union_sentence = re.search(
+        r"conceptual union rows (.+?) therefore compile", " ".join(section.split())
+    )
+    conceptual = set(re.findall(r"`([a-z_]+)`", union_sentence.group(1) if union_sentence else ""))
+    declared = {
+        path.stem for path in (REPO_ROOT / "rule-catalog/vocabulary/link-types").glob("*.yaml")
+    }
+
+    assert documented, "the relationship contract table MUST list relationships"
+    assert conceptual, "the document MUST name its conceptual union rows"
+    assert conceptual <= set(documented)
+    assert [name for name in documented if name not in declared and name not in conceptual] == []
+
+
+def test_deferred_relationships_are_absent_from_the_catalog() -> None:
+    """A deferred relationship MUST NOT be declared before its endpoint types."""
+    document = (REPO_ROOT / "docs/roadmap/architecture/operating-ontology.md").read_text(
+        encoding="utf-8"
+    )
+    deferred_section = document.split("\n### Deferred relationships\n", 1)[1].split("\n## ", 1)[0]
+    deferred = tuple(re.findall(r"^\| `([a-z_]+)` \|", deferred_section, re.MULTILINE))
+    link_root = REPO_ROOT / "rule-catalog/vocabulary/link-types"
+    object_root = REPO_ROOT / "rule-catalog/vocabulary/object-types"
+
+    assert set(deferred) == {"learned_as", "predicts_breach_of"}
+    assert [name for name in deferred if (link_root / f"{name}.yaml").exists()] == []
+    assert [
+        name for name in ("Forecast", "Pattern") if (object_root / f"{name}.yaml").exists()
+    ] == []
 
 
 def test_shipped_resource_relationship_declarations_match_canonical_roles() -> None:
