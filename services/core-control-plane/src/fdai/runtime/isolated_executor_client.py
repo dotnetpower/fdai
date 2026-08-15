@@ -28,7 +28,7 @@ from fdai.shared.contracts import (
     ExecutorShadowReceipt,
 )
 from fdai.shared.contracts.models import Action, ExecutionPath, Mode
-from fdai.shared.providers.event_bus import EventBus
+from fdai.shared.providers.event_bus import EventBus, subscription
 from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger("fdai.runtime.isolated_executor_client")
@@ -208,33 +208,34 @@ class EventBusDirectApiExecutionClient:
     async def _consume(self) -> None:
         group_id = CORE_EXECUTOR_RECEIPT_CONSUMER_GROUP
         while True:
-            async for envelope in self.event_bus.subscribe(EXECUTOR_RECEIPT_TOPIC, group_id):
-                try:
-                    payload = _EXECUTOR_RECEIPT_CONSUMER.decode_mapping(envelope.payload)
-                    receipt = _executor_receipt_from_payload(payload)
-                except (CompatibilityError, ValidationError):
-                    _LOGGER.warning(
-                        "isolated_executor_receipt_rejected",
-                        extra={"consumer_group": group_id},
-                    )
-                    continue
-                pending = self._pending.get(str(receipt.command_id))
-                if pending is None or pending.future.done():
-                    continue
-                if not _receipt_matches_command(
-                    pending.command,
-                    receipt,
-                    partition_key=envelope.key,
-                ):
-                    _LOGGER.warning(
-                        "isolated_executor_receipt_binding_mismatch",
-                        extra={
-                            "command_id": str(receipt.command_id),
-                            "receipt_id": str(receipt.receipt_id),
-                        },
-                    )
-                    continue
-                pending.future.set_result(receipt)
+            async with subscription(self.event_bus, EXECUTOR_RECEIPT_TOPIC, group_id) as stream:
+                async for envelope in stream:
+                    try:
+                        payload = _EXECUTOR_RECEIPT_CONSUMER.decode_mapping(envelope.payload)
+                        receipt = _executor_receipt_from_payload(payload)
+                    except (CompatibilityError, ValidationError):
+                        _LOGGER.warning(
+                            "isolated_executor_receipt_rejected",
+                            extra={"consumer_group": group_id},
+                        )
+                        continue
+                    pending = self._pending.get(str(receipt.command_id))
+                    if pending is None or pending.future.done():
+                        continue
+                    if not _receipt_matches_command(
+                        pending.command,
+                        receipt,
+                        partition_key=envelope.key,
+                    ):
+                        _LOGGER.warning(
+                            "isolated_executor_receipt_binding_mismatch",
+                            extra={
+                                "command_id": str(receipt.command_id),
+                                "receipt_id": str(receipt.receipt_id),
+                            },
+                        )
+                        continue
+                    pending.future.set_result(receipt)
             await asyncio.sleep(self.retry_seconds)
 
 

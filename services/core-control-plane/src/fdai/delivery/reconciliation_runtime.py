@@ -20,7 +20,12 @@ from fdai.core.ontology_platform.reconciliation_binding import (
 )
 from fdai.core.ontology_platform.reconciliation_contracts import ReconciliationOutcome
 from fdai.core.ontology_platform.reconciliation_events import ReconciliationOutboxEvent
-from fdai.shared.providers.event_bus import EventBus, EventEnvelope, PublishReceipt
+from fdai.shared.providers.event_bus import (
+    EventBus,
+    EventEnvelope,
+    PublishReceipt,
+    subscription,
+)
 
 _DEFAULT_EVENT_HANDLING_TIMEOUT_SECONDS = 5.0
 _DEFAULT_PUBLISH_TIMEOUT_SECONDS = 2.0
@@ -132,8 +137,9 @@ class EffectReconciliationWorker:
     async def run_subscriber(self) -> None:
         """Consume requests until the EventBus iterator ends or cancellation propagates."""
 
-        async for envelope in self._event_bus.subscribe(self._request_topic, self._group_id):
-            await self.handle_payload(envelope.payload)
+        async with subscription(self._event_bus, self._request_topic, self._group_id) as stream:
+            async for envelope in stream:
+                await self.handle_payload(envelope.payload)
 
     async def publish_pending_once(self) -> ReconciliationOutboxEvent | None:
         """Claim and publish at most one due outbox event without inline retry."""

@@ -17,7 +17,7 @@ from typing import Any, Protocol
 
 from fdai.agents import PANTHEON_NAMES, PANTHEON_SPECS, agent_state_evidence_ref
 from fdai.rule_catalog.pipeline.distill.sensitivity import scan_text
-from fdai.shared.providers.event_bus import EventBus
+from fdai.shared.providers.event_bus import EventBus, subscription
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -222,13 +222,17 @@ class EventBusAgentIntrospectionServer:
             extra={"group_id": self.group_id},
         )
         try:
-            async for envelope in self.event_bus.subscribe(
+            async with subscription(
+                self.event_bus,
                 AGENT_INTROSPECTION_REQUEST_TOPIC,
                 self.group_id,
-            ):
-                task = asyncio.create_task(self._bounded_handle(dict(envelope.payload), semaphore))
-                self._tasks.add(task)
-                task.add_done_callback(self._tasks.discard)
+            ) as stream:
+                async for envelope in stream:
+                    task = asyncio.create_task(
+                        self._bounded_handle(dict(envelope.payload), semaphore)
+                    )
+                    self._tasks.add(task)
+                    task.add_done_callback(self._tasks.discard)
         finally:
             for task in self._tasks:
                 task.cancel()
@@ -618,23 +622,25 @@ class EventBusAgentIntrospectionClient:
 
     async def _consume(self) -> None:
         group_id = f"fdai-agent-introspection-client.{self.instance_id}"
-        async for envelope in self.event_bus.subscribe(
+        async with subscription(
+            self.event_bus,
             AGENT_INTROSPECTION_RESPONSE_TOPIC,
             group_id,
-        ):
-            payload = envelope.payload
-            if payload.get("reply_to") != self.instance_id or payload.get("v") != _WIRE_VERSION:
-                continue
-            if payload.get("kind") == "probe":
-                self._ready.set()
-                _LOGGER.info("agent_introspection_client_probe_received")
-                continue
-            request_id = _bounded_id(payload.get("request_id"))
-            if request_id is None:
-                continue
-            future = self._pending.get(request_id)
-            if future is not None and not future.done():
-                future.set_result(dict(payload))
+        ) as stream:
+            async for envelope in stream:
+                payload = envelope.payload
+                if payload.get("reply_to") != self.instance_id or payload.get("v") != _WIRE_VERSION:
+                    continue
+                if payload.get("kind") == "probe":
+                    self._ready.set()
+                    _LOGGER.info("agent_introspection_client_probe_received")
+                    continue
+                request_id = _bounded_id(payload.get("request_id"))
+                if request_id is None:
+                    continue
+                future = self._pending.get(request_id)
+                if future is not None and not future.done():
+                    future.set_result(dict(payload))
 
 
 __all__ = [

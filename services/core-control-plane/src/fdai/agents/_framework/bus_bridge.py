@@ -357,9 +357,10 @@ class EventBusBridge:
         # rest of the pantheon.
         attempt = 0
         while True:
+            stream = self.provider.subscribe(topic, group_id)
             try:
                 self._consumer_states[consumer_id] = "connecting"
-                async for envelope in self.provider.subscribe(topic, group_id):
+                async for envelope in stream:
                     self._consumer_states[consumer_id] = "running"
                     if not self._producer_authorized(topic, envelope.payload):
                         # Consumer-side single-writer check: a record whose
@@ -487,6 +488,12 @@ class EventBusBridge:
                 )
                 await asyncio.sleep(backoff)
                 # loop: re-subscribe, resuming from the committed offset.
+            finally:
+                # Close here so the provider tears the broker connection down
+                # inside this task rather than at interpreter finalization.
+                aclose = getattr(stream, "aclose", None)
+                if aclose is not None:
+                    await aclose()
 
     async def _notify_handler_observer(
         self,
@@ -670,33 +677,39 @@ class EventBusBridge:
         gid = group_id or f"{self.consumer_group_prefix}.redrive.{topic}"
         redriven = 0
         failed = 0
-        async for envelope in self.provider.subscribe(dlq_topic, gid):
-            wrapped = dict(envelope.payload)
-            # dead_letter wraps the record as {original_topic, reason,
-            # payload}; unwrap to the original payload for re-delivery.
-            original = wrapped.get("payload", wrapped)
-            payload = dict(original) if isinstance(original, Mapping) else {}
-            try:
-                if not self._producer_authorized(topic, payload):
-                    raise ValueError("redrive payload has an unauthorized producer principal")
-                self._check_envelope(topic, payload, str(payload.get("producer_principal", "")))
-                if self.payload_validator is not None:
-                    self.payload_validator(topic, payload)
-                await self._deliver(topic, handler, payload)
-                redriven += 1
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:  # noqa: BLE001 - re-park a still-failing record
-                failed += 1
-                await self._dead_letter_payload(
-                    group_id=gid,
-                    topic=topic,
-                    key=envelope.key,
-                    payload=payload,
-                    reason=f"redrive failed: {type(exc).__name__}",
-                )
-            if max_records is not None and (redriven + failed) >= max_records:
-                break
+        dlq_stream = self.provider.subscribe(dlq_topic, gid)
+        try:
+            async for envelope in dlq_stream:
+                wrapped = dict(envelope.payload)
+                # dead_letter wraps the record as {original_topic, reason,
+                # payload}; unwrap to the original payload for re-delivery.
+                original = wrapped.get("payload", wrapped)
+                payload = dict(original) if isinstance(original, Mapping) else {}
+                try:
+                    if not self._producer_authorized(topic, payload):
+                        raise ValueError("redrive payload has an unauthorized producer principal")
+                    self._check_envelope(topic, payload, str(payload.get("producer_principal", "")))
+                    if self.payload_validator is not None:
+                        self.payload_validator(topic, payload)
+                    await self._deliver(topic, handler, payload)
+                    redriven += 1
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:  # noqa: BLE001 - re-park a still-failing record
+                    failed += 1
+                    await self._dead_letter_payload(
+                        group_id=gid,
+                        topic=topic,
+                        key=envelope.key,
+                        payload=payload,
+                        reason=f"redrive failed: {type(exc).__name__}",
+                    )
+                if max_records is not None and (redriven + failed) >= max_records:
+                    break
+        finally:
+            aclose = getattr(dlq_stream, "aclose", None)
+            if aclose is not None:
+                await aclose()
         _LOG.info(
             "pantheon_redrive_complete",
             extra={"topic": topic, "redriven": redriven, "failed": failed},

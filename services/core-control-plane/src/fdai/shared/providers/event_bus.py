@@ -18,6 +18,7 @@ Concrete implementations:
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Mapping
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
 
@@ -92,4 +93,28 @@ class EventBus(Protocol):
         ...
 
 
-__all__ = ["EventBus", "EventEnvelope", "PublishReceipt"]
+@asynccontextmanager
+async def subscription(
+    bus: EventBus,
+    topic: str,
+    group_id: str,
+) -> AsyncIterator[AsyncIterator[EventEnvelope]]:
+    """Iterate a subscription and close it inside the consumer's own task.
+
+    A plain ``async for`` does not close the underlying async generator when
+    the frame unwinds, so an adapter that tears the broker connection down in
+    its ``finally`` would run that teardown during interpreter finalization -
+    after asyncio has already cancelled the client's internal tasks. Every
+    consumer MUST drive its subscription through this helper.
+    """
+
+    stream = bus.subscribe(topic, group_id)
+    try:
+        yield stream
+    finally:
+        aclose = getattr(stream, "aclose", None)
+        if aclose is not None:
+            await aclose()
+
+
+__all__ = ["EventBus", "EventEnvelope", "PublishReceipt", "subscription"]

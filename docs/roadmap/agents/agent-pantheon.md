@@ -51,6 +51,7 @@ Consumers of this document:
 | 2026-08-14 | implemented | Injected an optional exact proposal source into Forseti and preserved matching proposals on resolved and human-review Verdicts. Missing proposals retain legacy behavior; invalid source records lower authority to deny. | `current change`; `forseti.py`, `factory.py`, `runtime.py`, and focused producer, Forseti, Thor, factory, and framework checks. | Bind the source in production composition and complete the pre-dispatch receipt and independent-observation path before claiming runtime validation. |
 | 2026-08-14 | implemented | Bound the Core pre-dispatch kinetic receipt consumer before every Thor-owned executor without changing AgentSpec, topics, judgment, approval, or execution ownership. | `current change`; `core/operational_planning/kinetic_safety.py`, `delivery/kinetic_safety.py`, `runtime/control_loop.py`, and focused kinetic, HIL, and Thor composition checks passed 115 cases. | Bind the Forseti source in production composition, add the independent observer, and retain governed live evidence. |
 | 2026-08-14 | implemented | Required deterministic T1 answer evaluation before Bragi's presentation-only deliberation can invoke optional T2 synthesis. | `current change`; 36 focused deliberation tests prove T2 is not called for conflict-free or uncomparable claims and remains bounded for a structured conflict. | Retain governed operator-path evidence without changing AgentSpec, topics, or authority. |
+| 2026-08-15 | implemented | Made each bridge consumer close its subscription inside its own task so broker teardown runs during shutdown instead of interpreter finalization. No AgentSpec, topic, ownership, LLM, or safeguard change. | `current change`; [`bus_bridge.py`](../../../services/core-control-plane/src/fdai/agents/_framework/bus_bridge.py) and [`test_subscription_lifecycle.py`](../../../services/core-control-plane/tests/agents/test_subscription_lifecycle.py); focused agent, delivery, runtime, and provider checks passed 3127 cases. | Confirm the residual consumer stop timeout is absent from a live local shutdown. |
 
 ### Remaining work
 - [ ] Retain a live-shadow cohort with measured per-agent and system KPIs, sample counts,
@@ -393,6 +394,7 @@ One topic per object type, named `object.<type>`. Every message carries `correla
 The bus stamps authenticated `producer_principal` and integer `envelope_schema_version` while preserving a payload's `schema_version`; mutations require non-empty `correlation_id`, `resource_id`, and `idempotency_key`.
 Owned-topic producer checks cannot be disabled, and unknown `object.*` subscriptions fail registration. Ordered mutation consumers stop after parking poison so later mutations cannot pass it.
 Dead-letter writes retry with bounded backoff before consumer restart. Operator redrive repeats owner, envelope, and schema checks and re-parks only the original payload.
+Each consumer closes its subscription inside its own task, so the broker adapter releases the consumer group during shutdown rather than during interpreter finalization.
 
 | Topic | Publisher | Primary subscribers |
 |-------|-----------|---------------------|

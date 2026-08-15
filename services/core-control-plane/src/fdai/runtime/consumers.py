@@ -4,35 +4,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
 from typing import Any
 
 from fdai.agents import ShadowDivergenceLedger
 from fdai.core.control_loop import ControlLoop, ControlLoopOutcome, ControlLoopResult
 from fdai.core.hil_resume import HilResumeCoordinator
 from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
-from fdai.shared.providers.event_bus import EventBus, EventEnvelope
+from fdai.shared.providers.event_bus import EventBus, subscription
 
 _LOGGER = logging.getLogger("fdai.startup")
 _LOOP_LOGGER = logging.getLogger("fdai.control_loop")
-
-
-@asynccontextmanager
-async def _subscription(
-    bus: EventBus,
-    topic: str,
-    group_id: str,
-) -> AsyncIterator[AsyncIterator[EventEnvelope]]:
-    """Drain the provider stream inside this task instead of at loop finalization."""
-
-    stream = bus.subscribe(topic, group_id)
-    try:
-        yield stream
-    finally:
-        aclose = getattr(stream, "aclose", None)
-        if aclose is not None:
-            await aclose()
 
 
 async def _consume_resource_changes(
@@ -47,7 +28,7 @@ async def _consume_resource_changes(
 
     from fdai.delivery.azure.resource_change import normalize_resource_change_events
 
-    async with _subscription(bus, raw_topic, "fdai-huginn-resource-discovery") as stream:
+    async with subscription(bus, raw_topic, "fdai-huginn-resource-discovery") as stream:
         async for envelope in stream:
             if stop.is_set():
                 return
@@ -98,7 +79,7 @@ async def _consume(
     is recorded against the event's correlation id so it can be joined
     with the pantheon's shadow verdict (shadow-before-enforce baseline).
     """
-    async with _subscription(bus, topic, group_id) as stream:
+    async with subscription(bus, topic, group_id) as stream:
         async for envelope in stream:
             if stop.is_set():
                 return
@@ -175,7 +156,7 @@ async def _consume_hil_decisions(
 ) -> None:
     from fdai.shared.providers.hil_channel import HilDecision
 
-    async with _subscription(bus, topic, "fdai-hil-resume") as stream:
+    async with subscription(bus, topic, "fdai-hil-resume") as stream:
         async for envelope in stream:
             if stop.is_set():
                 return
@@ -211,7 +192,7 @@ async def _consume_canaries(
     stop: asyncio.Event,
 ) -> None:
     """Consume the separately authorized canary topic without IRP or learning hooks."""
-    async with _subscription(bus, topic, "fdai-canary") as stream:
+    async with subscription(bus, topic, "fdai-canary") as stream:
         async for envelope in stream:
             if stop.is_set():
                 return
