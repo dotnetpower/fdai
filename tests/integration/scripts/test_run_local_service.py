@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+import signal
 import stat
 import subprocess
 import sys
@@ -241,6 +242,40 @@ def test_runner_flushes_output_while_child_is_running(tmp_path: Path) -> None:
         assert process.poll() is None
     finally:
         process.terminate()
+        process.wait(timeout=5)
+
+
+def test_runner_isolates_child_from_terminal_process_group(tmp_path: Path) -> None:
+    log_file = tmp_path / "operator-api.log"
+    process = subprocess.Popen(  # noqa: S603 - fixed test command
+        [
+            _BASH,
+            str(_RUNNER),
+            "operator-api",
+            str(log_file),
+            "--",
+            sys.executable,
+            "-c",
+            (
+                "import os, time; "
+                "print(f'child-process-group={os.getpgrp()}', flush=True); "
+                "time.sleep(10)"
+            ),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        start_new_session=True,
+    )
+    try:
+        assert process.stdout is not None
+        assert process.stdout.readline().rstrip().endswith("event=starting")
+        child_group_line = process.stdout.readline().rstrip()
+        child_process_group = int(child_group_line.rsplit("=", 1)[1])
+
+        assert child_process_group != os.getpgid(process.pid)
+    finally:
+        os.killpg(process.pid, signal.SIGTERM)
         process.wait(timeout=5)
 
 
