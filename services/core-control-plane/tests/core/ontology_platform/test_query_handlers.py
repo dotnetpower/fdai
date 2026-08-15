@@ -229,6 +229,55 @@ async def test_function_handler_binds_dependencies_and_returns_exact_receipt() -
     assert result.evidence_refs[1].startswith("ontology-function:logic-invocation:")
 
 
+async def test_function_handler_converts_query_table_output() -> None:
+    declaration = OntologyFunctionType(
+        name="query.table_source",
+        version="1.0.0",
+        kind=OntologyFunctionKind.QUERY,
+        artifact_digest="sha256:" + ("b" * 64),
+        publisher="fdai",
+        input_schema={"type": "object", "additionalProperties": False},
+        output_schema={"type": "object"},
+        purpose_bindings=["operations-review"],
+    )
+    release = build_ontology_release(function_types=(declaration,))
+    registry = OntologyFunctionRegistry(release=release)
+
+    async def table_source(_arguments: dict[str, object]) -> dict[str, object]:
+        return {
+            "rows": [{"row_id": "row-a", "values": {"name": "Resource"}}],
+            "complete": True,
+            "truncation_reason": None,
+        }
+
+    registry.register(declaration, table_source)
+    handler = FunctionNodeHandler(
+        registry,
+        context=FunctionInvocationContext(
+            caller_agent="Bragi",
+            caller_role=CeilingRole.READER,
+            purposes=("operations-review",),
+        ),
+    )
+
+    result = await handler(
+        _node(
+            QueryNodeKind.FUNCTION,
+            dependencies=(),
+            arguments={
+                "function_name": "query.table_source",
+                "arguments": {},
+                "dependency_arguments": {},
+            },
+        ),
+        {},
+    )
+
+    assert isinstance(result.value, QueryTable)
+    assert result.value.rows[0].values == {"name": "Resource"}
+    assert result.value.complete is True
+
+
 async def test_secured_object_set_handler_applies_property_acl() -> None:
     resource = OntologyObjectType(
         schema_version="1.0.0",

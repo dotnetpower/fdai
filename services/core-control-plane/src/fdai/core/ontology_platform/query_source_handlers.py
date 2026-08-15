@@ -133,8 +133,13 @@ class FunctionNodeHandler:
             arguments,
             context=invocation_context,
         )
+        value = (
+            _query_table(result)
+            if node.output_kind == "query.table" and isinstance(result, Mapping)
+            else result
+        )
         return QueryNodeResult(
-            value=result,
+            value=value,
             evidence_refs=_evidence_refs(dependencies)
             + (f"ontology-function:{receipt.invocation_id}",),
         )
@@ -155,6 +160,37 @@ def _function_value(value: object) -> object:
     if hasattr(value, "model_dump"):
         return value.model_dump(mode="json")
     return value
+
+
+def _query_table(value: object) -> QueryTable:
+    if not isinstance(value, Mapping) or set(value) != {
+        "rows",
+        "complete",
+        "truncation_reason",
+    }:
+        raise ValueError("query.table function output is malformed")
+    raw_rows = value["rows"]
+    if not isinstance(raw_rows, list):
+        raise ValueError("query.table function rows MUST be a list")
+    rows: list[QueryRow] = []
+    for raw_row in raw_rows:
+        if not isinstance(raw_row, Mapping) or set(raw_row) != {"row_id", "values"}:
+            raise ValueError("query.table function row is malformed")
+        row_id = raw_row["row_id"]
+        if not isinstance(row_id, str):
+            raise ValueError("query.table function row_id MUST be a string")
+        rows.append(QueryRow.from_values(row_id, raw_row["values"]))
+    complete = value["complete"]
+    truncation_reason = value["truncation_reason"]
+    if not isinstance(complete, bool) or (
+        truncation_reason is not None and not isinstance(truncation_reason, str)
+    ):
+        raise ValueError("query.table function completeness is malformed")
+    return QueryTable(
+        rows=tuple(rows),
+        complete=complete,
+        truncation_reason=truncation_reason,
+    )
 
 
 def _evidence_refs(dependencies: Mapping[str, QueryNodeResult]) -> tuple[str, ...]:

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 6c5a725f7d2988d227fee4bc7bf779cfa6361bbe
+translation_source_sha: 5a08fd9b479e7c57cb43d96bea8c45700eb8f9f1
 translation_revised: 2026-08-15
 ---
 # 코드 맵
@@ -34,6 +34,7 @@ translation_revised: 2026-08-15
 | 목표 인식 Rule 후보 확인 | 구현됨 | `core/ontology_platform/objective_rule_resolution.py`, `core/ontology_platform/catalog_queries.py`, `shared/providers/catalog_search.py`, `delivery/catalog_search/in_memory.py`, 집중 온톨로지 조회 테스트(`8 passed`) | 검토 또는 승격된 활성 관계는 순위 계산 전에 exact-generation 후보 집합을 좁힙니다. 유효하지 않거나 불완전한 맥락은 원자적으로 대체 경로를 사용하며, 목표 맥락은 평가 또는 실행 권한을 추가하지 않고 조회 ID를 변경합니다. |
 | Receipt 기반 운영 컨텍스트 표현 | 구현됨 | `core/operational_context/console_projection.py`, `tests/core/operational_context/test_console_projection.py`, focused 테스트 5개 통과 | 목적, 릴리스, 기준 시각, 실행 권한 및 그래프 범위가 일치해야 범위가 제한된 메타데이터를 변환합니다. Raw 속성은 제외하며 principal 범위 전송은 연결하지 않은 상태로 유지합니다. |
 | 런타임 바인딩 기반 플래너 가시성 | 구현됨 | `composition/wire_semantic_query.py`, `core/conversation/semantic_manifest.py`, `core/ontology_platform/query_manifest.py`, focused 조립 및 매니페스트 테스트 | 플래너 서술자는 조립된 런타임에 등록된 함수만 노출합니다. 읽을 수 있지만 바인딩되지 않은 선언은 타입이 지정된 구조 coverage에 남으며 어떤 권한도 얻지 않습니다. |
+| Exact-release principal 매니페스트 조회 | 구현됨 | `core/ontology_platform/manifest_queries.py`, `core/ontology_platform/query_source_handlers.py`, `composition/wire_semantic_query.py`, focused 매니페스트, 핸들러, 조립 및 prompt 테스트(`42 passed`) | `query.manifest`는 기존 함수 증적과 일반 `QueryTable` 경로를 통해 role 및 purpose로 필터링된 범위 제한 선언 행을 반환합니다. 바인딩되지 않은 선언은 완전성을 낮추며 모든 행은 `execution_authority=false`를 고정합니다. |
 | Exact-release 스키마 관계 조회 | 구현됨 | `core/ontology_platform/relationship_queries.py`, `composition/wire_semantic_query.py`, `fdai_core_service/semantic_relationship_projection.py`, 집중 조립 및 processor 테스트(`42 passed`) | `query.ontology_relationships`는 ObjectType과 LinkType 선언을 읽고 direction, cardinality, description을 보존하며 판단, 승인, 변경 또는 실행 권한을 포함하지 않습니다. 인증된 Browser 근거는 열린 작업입니다. |
 | 선언 기반 유한 질문 집합 | 구현됨 | `core/conversation/question_universe.py`, `core/conversation/__init__.py`, `core/conversation/epistemic_coverage.py`, `core/conversation/coverage_gate.py`, `tests/conversation/test_question_universe.py`, `tests/conversation/test_epistemic_coverage.py`, `tests/conversation/test_coverage_gate.py`, 집중 release gate 테스트(`41 passed`, 생성기 branch coverage `100%`, 인식 상태 branch coverage `99%`, coverage gate branch coverage `100%`) | Principal 범위의 완전한 매니페스트를 정규화된 범위 제한 문법으로 확장해 conversation 패키지가 노출하는 안정적인 사례 ID를 만듭니다. 문법과 receipt는 10,000개라는 하나의 사례 상한을 공유하고, 인식 상태 및 최종 gate receipt는 release ID, 불변이며 직렬화 가능한 근거 계수, 통과 및 production 상태와 content digest를 검증하며, 사용할 수 없는 선언은 타입 기반 제외 항목으로 유지하고, 한도 초과는 확장 전에 실패하며, 생성된 레코드는 실행 권한을 부여하지 않습니다. |
 | 운영 Rule 의미 준비 상태 | 구현됨 | `runtime/bootstrap.py`, `runtime/bootstrap_lifecycle.py`, `composition/wire_semantic_query.py`, `tests/runtime/test_catalog_semantic_bootstrap.py`, 집중 bootstrap 및 구성 검사(`46 passed`) | 운영 시작은 활성 세대가 현재 Rule 카탈로그, 의미 스키마, 온톨로지 release 및 embedder 차원과 정확히 일치할 때만 Rule 의미 검색을 등록합니다. 안정적인 선택적 준비 상태 저하는 오래된 함수를 노출하지 않고 시작을 유지합니다. |
@@ -80,6 +81,7 @@ translation_revised: 2026-08-15
 | 2026-08-15 | 구현됨 | 공유 Operator 읽기 계약에 범위가 제한된 payload-free 브라우저 근거 메타데이터 메서드를 추가하고 security-barrier service view 뒤에서 구현했습니다. | `current change`, focused Operator 및 service-contract 검사 `148 passed`, service migration 인벤토리 검사 `46 passed`, strict mypy 통과 | 인증된 배포 읽기 근거를 보존하고 Console 메타데이터 패널을 추가합니다. |
 | 2026-08-15 | 구현됨 | 각 의미 plan 제안에 trusted evaluation timestamp 하나를 바인딩하고 범위가 제한된 T2 plan 재시도에서 변경 없이 재사용했습니다. | `current change`, focused planner 및 Azure adapter 검사와 작업 범위 Ruff 및 strict mypy | ObjectSet plan이 server-bound cutoff를 사용한다는 인증 근거를 보존합니다. |
 | 2026-08-15 | 구현됨 | 공유 이벤트 버스 `subscription` 컨텍스트 매니저를 추가하고 모든 Core 소비자를 그 경로로 옮겨서, 취소된 소비자가 인터프리터 종료 처리가 아니라 자기 task 안에서 broker 구독을 닫도록 했습니다. | `current change`, `shared/providers/event_bus.py`, 모든 Core 소비자 및 `tests/agents/test_subscription_lifecycle.py`, 집중 agent, delivery, runtime 및 provider 검사 3127건 통과, Ruff, format 및 strict mypy 통과 | 실제 로컬 종료에서 `event_bus_consumer_stop_timed_out`이 더는 나타나지 않는지 확인합니다. |
+| 2026-08-15 | 구현됨 | 스키마 인벤토리 질문을 위한 exact-release `query.manifest`를 추가하고 검증된 함수 table envelope를 기존 일반 조회 renderer로 변환했습니다. | `current change`, focused 매니페스트, 핸들러, 조립, 관계, 의미 조립 및 prompt 검사 42개와 작업 범위 Ruff 및 strict mypy 통과 | 준비 상태를 완화하지 않고 clean 이중 언어 14-cell 답변 coverage 산출물을 보존한 뒤 seed 기반 100-case 집단을 실행합니다. |
 
 ### 남은 작업
 

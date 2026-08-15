@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 8d061a9d6a0b51e006cd0fab4449a76c5819d995
+translation_source_sha: 4c04dd8fd2455145742d94f333a6a8d7817768b4
 translation_revised: 2026-08-15
 ---
 # 프로젝트 구조
@@ -23,6 +23,7 @@ translation_revised: 2026-08-15
 | 현재 상태 활동 identity | 구현됨 | `read_investigation_latency.py`, `activity_projection.py`, focused 영속성 및 projection 테스트 (`6 passed`) | Latency 프로파일은 hash된 correlation 참조만 유지하고 감사 항목은 correlation-free로 남으며, 영속 활동과 실제 운영 활동은 실행 권한을 포함하지 않고 하나의 identity를 공유합니다. |
 | Rule 세대 reconciliation 경계 | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/`; `runtime/rule_generation_documents.py`; 집중 adapter, Pantheon, 활성화 및 bootstrap 검사 | 프로바이더 계약은 정확한 준비 상태 증적 연결을 소유하고 delivery는 원자적 어댑터를 소유하며 runtime은 정책 또는 실행 권한을 인프라 코드로 옮기지 않고 엄격한 카탈로그 스냅샷과 replay가 동일한 요청을 구성합니다. |
 | 인시던트 온톨로지 projection 및 근거 조회 | 구현됨 | `core/incident/ontology_projection.py`, `core/ontology_platform/incident_queries.py`, focused 인시던트 및 의미 조립 검사 (`62 passed`) | 시작 시 추가 전용 인시던트 감사를 replay해 `Incident` 객체를 만듭니다. Exact-release `query.incident_evidence` 함수는 correlation-scoped 감사 기록을 읽고 원인 또는 액션 권한 없이 프로파일, 근거 및 공백을 노출합니다. |
+| Principal 매니페스트 조회 경계 | 구현됨 | `core/ontology_platform/manifest_queries.py`, `composition/wire_semantic_query.py`, focused 매니페스트 및 의미 조립 검사(`42 passed`) | Exact-release `query.manifest` 함수는 기존 조회 증적을 통해 role 및 purpose로 읽을 수 있는 범위 제한 선언 요약을 노출합니다. Provider, 변경, 승인 또는 실행 경로를 포함하지 않습니다. |
 | 권한 인식 관측 경계 | implemented | `fdai_service_contracts/operational_activity.py`, `delivery/observation_campaign.py`, `delivery/observation_source_catalog.py`, 집중 계약, 수명 주기 및 projection 검사 | 공유 계약은 권한이 없는 요약을 전달하고 delivery는 프로바이더 읽기, 원자적 캠페인 상태 및 로컬 또는 배포 어댑터 선택을 소유합니다. 출처별 경로는 의미 있는 근거 소유권을 유지합니다. |
 | 리소스 검색 계약 경계 | implemented | `fdai_service_contracts/discovery.py`, `fdai_service_contracts/discovery_evidence.py`, `core/discovery/router.py`, 집중 검색 검사 (`44 passed`) | 공유 SDK는 불변이고 권한이 없는 wire 레코드를 소유하고 Core는 프로바이더 중립적인 정확히 동등한 라우팅과 병합을 소유하며 Azure delivery는 버전이 고정된 프로파일, 렌더링, 실행 증적 및 커버리지 조정을 소유합니다. |
 | Pre-dispatch kinetic safety 경계 | implemented | `core/operational_planning/kinetic_safety.py`, `delivery/kinetic_safety.py`, `delivery/kinetic_proposal.py`, `runtime/control_loop.py`, 집중 dispatch, HIL, artifact, proposal 및 runtime 검사(`119 passed`) | Core는 프로바이더 중립 ordering seam을 선언합니다. Delivery는 영속 OperationalPlan 및 proposal lineage를 다시 검증하고 correlation index에 있는 기존 exact V2 proposal과 기존 typed Action을 결합하며 runtime은 모든 Thor 실행기 전에 ControlLoop와 HIL resume이 하나의 writer를 공유하도록 합니다. Proposal이 없으면 legacy 동작을 유지하고 invalid evidence는 권한을 높이지 않은 채 dispatch를 차단합니다. |
@@ -44,6 +45,7 @@ translation_revised: 2026-08-15
 | 2026-08-14 | implemented | 승인, dispatch 또는 감사 권한을 바꾸지 않고 영속 HIL park key, 만료 decoding 및 on-call serialization을 focused record helper로 분리했습니다. | `current change`, focused HIL coordinator 테스트 33개 통과, strict mypy 및 Core import gate 통과 | 연기된 Phase 2 패키지 이동은 변경 없이 남아 있습니다. |
 | 2026-08-14 | implemented | Risk, 승인, 실행 또는 감사 소유권을 바꾸지 않고 하나의 프로바이더 중립 pre-dispatch kinetic safety seam을 추가하고 일반 ControlLoop dispatch와 승인된 HIL resume이 구체적인 StateStore writer를 공유하도록 했습니다. | `current change`, 집중 kinetic 및 HIL 검사 115개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 운영 Forseti proposal source 조립, verified independent observer 및 통제된 실제 종결 근거는 Operational Planning에서 계속 소유합니다. |
 | 2026-08-14 | implemented | Receipt 저장 전에 영속 OperationalPlan identity와 모든 proposal lineage 필드를 다시 검증해 내부적으로 valid한 cross-record substitution을 차단하도록 delivery join을 강화했습니다. | `current change`, `delivery/kinetic_proposal.py`, 집중 kinetic 검사 119개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 운영 Forseti proposal source 조립, verified independent observer 및 통제된 실제 종결 근거는 Operational Planning에서 계속 소유합니다. |
+| 2026-08-15 | 구현됨 | Exact-release principal 매니페스트 조회 모듈 하나를 추가하고 기존 의미 Function registry와 일반 query-table renderer를 통해 연결했습니다. | `current change`, focused 매니페스트 및 의미 조립 검사 42개와 작업 범위 Ruff 및 strict mypy 통과 | Clean 이중 언어 답변 coverage와 seed 기반 전체 집단 Browser 근거를 보존합니다. |
 
 ### 남은 작업
 - [ ] 호환성 import deprecation 주기 뒤 연기된 Phase 2 물리 `git mv`를 완료하고 이 배치를 결과 service-owned 경로로 갱신합니다.
