@@ -281,6 +281,10 @@ Execution contract:
 - Preserve customer-agnostic scope, constitutional safety invariants, public contracts, and
   English GitHub issue records. End with a clean worktree and one or more focused commits.
 - Before returning, confirm every selected document and evidence path exists exactly as written.
+- The result is rejected if any field breaks these bounds, so keep every entry short: at most
+  50 `tests` entries of at most 500 characters each, at most 100 `evidence_paths`, and a
+  `summary` under 3000 characters. Report one command and its outcome per `tests` entry;
+  truncate long command lines rather than pasting whole invocations or captured output.
 - End with exactly one JSON object and no prose after it:
 {{"outcome":"completed|blocked","issue":{issue.number},"folder":"{folder}",
  "documents":["exactly ten canonical English paths"],"hardening_rounds":10,
