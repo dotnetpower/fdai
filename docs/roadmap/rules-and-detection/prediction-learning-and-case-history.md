@@ -181,7 +181,7 @@ with an unsuccessful exit instead of silently disabling future ticks.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Forecast detector, agent pub/sub runtime, and single-writer enforcement | implemented | [Forecast and outcome closure](#forecast-and-outcome-closure), pantheon single-writer registry | Shadow findings only; no execution authority. |
+| Forecast detector, agent pub/sub runtime, and single-writer enforcement | implemented | [Forecast outcome contract](#forecast-outcome-contract), pantheon single-writer registry | Shadow findings only; no execution authority. |
 | Governed trajectory serialization, scanning, checksum, and retention primitives | implemented | [Retention and deletion](#retention-and-deletion) | Reused rather than reimplemented. |
 | `ForecastOutcome` schema, episode closer, transactional outbox, and the positive, negative, and held-for-review ledger | implemented | [Learning and promotion](#learning-and-promotion) | Held episodes stay inert. |
 | StateStore authority, PostgreSQL shadow dual-write, and the episode, revision, chunk, migration-marker, and tombstone tables | implemented | [Target PostgreSQL hot index](#target-postgresql-hot-index), [Immutable artifact](#immutable-artifact) | Full-chain keyset backfill and the zero-mismatch cutover gate are included. |

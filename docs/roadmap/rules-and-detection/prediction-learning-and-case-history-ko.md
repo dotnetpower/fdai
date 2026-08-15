@@ -1,6 +1,6 @@
 ---
 translation_of: prediction-learning-and-case-history.md
-translation_source_sha: 099886250bc07f517c5791ae85295e6ce298d6e7
+translation_source_sha: a93ce5ddf0c82b532ead7ab84554c2b6476f2747
 translation_revised: 2026-08-15
 ---
 # 예측 학습 및 케이스 히스토리
@@ -184,13 +184,13 @@ retryable 상태로 남고 완료로 표시되지 않습니다. 기계 스케줄
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 예측 detector, 에이전트 pub/sub 런타임 및 single-writer 적용 | implemented | [예측과 결과 종결](#예측과-결과-종결), 판테온 single-writer 레지스트리 | Shadow 발견 사항만 있으며 실행 권한은 없습니다. |
-| 통제된 trajectory 직렬화, 검사, 체크섬 및 보존 기본 요소 | implemented | [보존과 삭제](#보존과-삭제) | 다시 구현하지 않고 재사용했습니다. |
-| `ForecastOutcome` 스키마, 에피소드 closer, transactional 발신함 및 긍정, 부정, 판단 보류 원장 | implemented | [학습과 승격](#학습과-승격) | 보류된 에피소드는 inert 상태로 유지됩니다. |
+| 예측 detector, 에이전트 pub/sub 런타임 및 single-writer 적용 | implemented | [예측 결과 계약](#예측-결과-계약), 판테온 single-writer 레지스트리 | Shadow 발견 사항만 있으며 실행 권한은 없습니다. |
+| 통제된 trajectory 직렬화, 검사, 체크섬 및 보존 기본 요소 | implemented | [보존 및 deletion](#보존-및-deletion) | 다시 구현하지 않고 재사용했습니다. |
+| `ForecastOutcome` 스키마, 에피소드 closer, transactional 발신함 및 긍정, 부정, 판단 보류 원장 | implemented | [Learning 및 승격](#learning-및-승격) | 보류된 에피소드는 inert 상태로 유지됩니다. |
 | StateStore 권한, PostgreSQL shadow dual-write 및 에피소드, 개정 번호, 조각, migration-marker, tombstone 표 | implemented | [대상 PostgreSQL hot 인덱스](#대상-postgresql-hot-인덱스), [변경할 수 없는 산출물](#변경할-수-없는-산출물) | 전체 체인 keyset backfill과 zero-mismatch 전환 게이트를 포함합니다. |
-| Operational 증적 컴파일러 및 액션/인시던트 사례 intake | implemented | [분석용 조회](#분석용-조회) | |
+| Operational 증적 컴파일러 및 액션/인시던트 사례 intake | implemented | [분석을 위한 수집](#분석을-위한-수집) | |
 | Azure 비공개 산출물 어댑터, 기계적 예측 틱 작업 및 읽기 전용 콘솔 상태 화면 | implemented | [변경할 수 없는 산출물](#변경할-수-없는-산출물) | 배포는 명시적 선택으로 유지됩니다. |
-| Muninn 사례 구체화, scheduled 보존, fingerprint-keyed 집단 및 inert Norns 후보 choreography | in-progress | [학습과 승격](#학습과-승격) | O2까지 구현되었으며 raw 응답 결과는 여전히 방식 근거가 부족합니다. |
+| Muninn 사례 구체화, scheduled 보존, fingerprint-keyed 집단 및 inert Norns 후보 choreography | in-progress | [Learning 및 승격](#learning-및-승격) | O2까지 구현되었으며 raw 응답 결과는 여전히 방식 근거가 부족합니다. |
 | 영속 `Pattern` 발행 | not-started | `PANTHEON_SPECS`, `agents/_framework/topics.py` | Norns가 `Pattern`을 소유하고 `object.pattern`도 등록되어 있지만 어느 곳도 발행하거나 구독하지 않으므로, 재발 여부 응답이 휘발성 인메모리 카운터에서 나옵니다. |
 
 ### 구현 이력
