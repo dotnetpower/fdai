@@ -1,7 +1,7 @@
 ---
 title: Operator Console - View Snapshot Contract
 translation_of: operator-console-view-snapshot.md
-translation_source_sha: 3fb5d4fcc517dcfb070ae37417022ce60c8a9334
+translation_source_sha: a32cf026111c4832772ff7b2171c6484a377bce5
 translation_revised: 2026-08-16
 ---
 
@@ -387,8 +387,8 @@ policy-violation escape는 측정 기간, 기준선, 표본 수와 함께 통제
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 ViewSnapshot, planning, Live 및 focused 테스트 근거입니다. | 승격 전에 관리되는 화면 간 및 shadow qualification 근거를 보존해야 합니다. |
-| 2026-08-16 | in-progress | 보존되는 Phase E conflict 사례와 권한 없는 shadow 레코드 키 계약을 추가했습니다. | `pytest services/core-control-plane/tests/core/conversation/`가 보존된 근거 집합, 확신도 기반 승자 없음, 변하지 않는 기본 agent, 권한 없는 레코드 키, 도메인 간 conflict, 계획 범위 내 section을 다루는 신규 conflict 사례 6개를 포함해 집중 테스트 111개를 통과했습니다. | Phase D 선택적 activation 검토를 마치고 관리되는 화면 간 증적을 보존해야 합니다. |
 | 2026-08-14 | implemented | 외부에서 측정한 sealed bilingual planning batch 하나를 검증하고 byte-stable하며 권한이 없는 qualification 증적을 내보내는 결정론적 CLI를 추가했습니다. | `current change`; `answer-planning-qualification.py`; 집중 CLI 테스트 5개가 통과했습니다. | 선택적 activation 전에 실제 EN/KO 100-case batch를 제공하고 별도 검토 결과를 보존해야 합니다. |
+| 2026-08-16 | in-progress | 보존되는 Phase E conflict 사례와 권한 없는 shadow 레코드 키 계약을 추가했습니다. | `pytest services/core-control-plane/tests/core/conversation/`가 보존된 근거 집합, 확신도 기반 승자 없음, 변하지 않는 기본 agent, 권한 없는 레코드 키, 도메인 간 conflict, 계획 범위 내 section을 다루는 신규 conflict 사례 6개를 포함해 집중 테스트 111개를 통과했습니다. | Phase D 선택적 activation 검토를 마치고 관리되는 화면 간 증적을 보존해야 합니다. |
 
 ### 남은 작업
 
