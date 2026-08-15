@@ -11,6 +11,8 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+MAX_CHANGED_FILES = 20
+
 
 def _git(root: Path, *arguments: str, check: bool = True) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
@@ -42,6 +44,24 @@ def _atomic_json(path: Path, payload: object) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def _worktree_status(root: Path) -> dict[str, object]:
+    result = _git(root, "status", "--porcelain=v1", "--untracked-files=all", check=False)
+    if result.returncode != 0:
+        return {"reason_code": "git_index_unavailable", "status": "unavailable"}
+    paths = [line[3:] for line in result.stdout.splitlines() if len(line) >= 4]
+    overlaps = [
+        line[3:]
+        for line in result.stdout.splitlines()
+        if len(line) >= 4 and line[0] not in {" ", "?"} and line[1] not in {" ", "?"}
+    ]
+    return {
+        "changed_count": len(paths),
+        "changed_files": paths[:MAX_CHANGED_FILES],
+        "overlap_count": len(overlaps),
+        "status": "warning" if overlaps else "ok",
+    }
+
+
 def record(root: Path, revision: str) -> int:
     """Persist a concise handover for one committed revision."""
     repo_root, state = _paths(root)
@@ -60,12 +80,13 @@ def record(root: Path, revision: str) -> int:
     payload = {
         "branch": branch,
         "changed_file_count": len(changed_files),
-        "changed_files": changed_files[:20],
+        "changed_files": changed_files[:MAX_CHANGED_FILES],
         "commit": commit,
         "recorded_at": datetime.now(timezone.utc).isoformat(),  # noqa: UP017 - system Python 3.10.
-        "schema_version": 1,
+        "schema_version": 2,
         "subject": subject,
         "worktree": str(repo_root),
+        "worktree_status": _worktree_status(repo_root),
     }
     _atomic_json(state / "records" / f"{commit}.json", payload)
     _atomic_json(state / "latest.json", payload)
@@ -102,29 +123,63 @@ def _load_relevant(root: Path, state: Path) -> dict[str, object] | None:
     return fallback
 
 
-def show(root: Path) -> int:
-    """Print the latest handover relevant to the current history."""
+def show_report(root: Path) -> dict[str, object]:
+    """Return the latest relevant handover with current drift and validation state."""
     repo_root, state = _paths(root)
     payload = _load_relevant(repo_root, state)
     if payload is None:
-        print("(no automatic handover recorded)")
-        return 0
+        return {
+            "reason_code": "handover_unavailable",
+            "schema_version": 2,
+            "status": "unavailable",
+        }
     commit = str(payload["commit"])
     raw_common = Path(_git(repo_root, "rev-parse", "--git-common-dir").stdout.strip())
     common = raw_common if raw_common.is_absolute() else repo_root / raw_common
     validated = (
         common.resolve() / "fdai-validation-queue" / "receipts" / f"{commit}.json"
     ).is_file()
-    changed = payload.get("changed_files")
+    current_head = _git(repo_root, "rev-parse", "--verify", "HEAD^{commit}").stdout.strip()
+    reachable = (
+        _git(repo_root, "merge-base", "--is-ancestor", commit, current_head, check=False).returncode
+        == 0
+    )
+    return {
+        **payload,
+        "current_head": current_head,
+        "current_worktree_status": _worktree_status(repo_root),
+        "history_relation": "reachable" if reachable else "divergent",
+        "next_action": (
+            "inspect_worktree_and_continue" if validated else "wait_for_integration_validation"
+        ),
+        "status": "ok" if reachable else "warning",
+        "validated": validated,
+    }
+
+
+def show(root: Path, *, as_json: bool = False) -> int:
+    """Print the latest handover relevant to the current history."""
+    report = show_report(root)
+    if as_json:
+        print(json.dumps(report, sort_keys=True))
+        return 0
+    if report["status"] == "unavailable":
+        print("(no automatic handover recorded)")
+        return 0
+    commit = str(report["commit"])
+    changed = report.get("changed_files")
     files = changed if isinstance(changed, list) else []
-    print(f"commit:     {commit[:12]} {payload.get('subject', '')}")
-    print(f"branch:     {payload.get('branch', 'unknown')}")
-    print(f"worktree:   {payload.get('worktree', 'unknown')}")
-    print(f"files:      {payload.get('changed_file_count', len(files))}")
+    print(f"commit:     {commit[:12]} {report.get('subject', '')}")
+    print(f"branch:     {report.get('branch', 'unknown')}")
+    print(f"worktree:   {report.get('worktree', 'unknown')}")
+    print(f"files:      {report.get('changed_file_count', len(files))}")
     for path in files[:5]:
         print(f"  {path}")
-    print(f"validation: {'validated' if validated else 'pending'}")
-    if validated:
+    print(f"validation: {'validated' if report['validated'] else 'pending'}")
+    current_status = report.get("current_worktree_status")
+    if isinstance(current_status, dict):
+        print(f"drift:      {current_status.get('changed_count', 'unknown')} changed path(s)")
+    if report["validated"]:
         print("next:       inspect the current working tree and continue the next focused batch")
     else:
         print("next:       let the Integration Validator drain this commit before external work")
@@ -136,7 +191,8 @@ def _parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
     record_parser = subparsers.add_parser("record")
     record_parser.add_argument("revision", nargs="?", default="HEAD")
-    subparsers.add_parser("show")
+    show_parser = subparsers.add_parser("show")
+    show_parser.add_argument("--json", action="store_true", dest="as_json")
     return parser
 
 
@@ -144,7 +200,7 @@ def main() -> int:
     arguments = _parser().parse_args()
     if arguments.command == "record":
         return record(Path.cwd(), arguments.revision)
-    return show(Path.cwd())
+    return show(Path.cwd(), as_json=arguments.as_json)
 
 
 if __name__ == "__main__":

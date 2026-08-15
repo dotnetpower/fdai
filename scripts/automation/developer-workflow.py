@@ -253,6 +253,37 @@ def context_plan_report(root: Path, targets: list[str]) -> dict[str, Any]:
     }
 
 
+def resume_report(root: Path) -> dict[str, Any]:
+    """Load the official handover JSON without duplicating its history selection."""
+    script = REPO_ROOT / "scripts" / "automation" / "session-handover.py"
+    completed = subprocess.run(  # noqa: S603 - fixed repository script and arguments.
+        [sys.executable, str(script), "show", "--json"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        return {
+            "read_only": True,
+            "reason_code": "handover_command_failed",
+            "schema_version": SCHEMA_VERSION,
+            "status": "unavailable",
+        }
+    try:
+        payload: object = json.loads(completed.stdout)
+    except json.JSONDecodeError:
+        payload = None
+    if not isinstance(payload, dict):
+        return {
+            "read_only": True,
+            "reason_code": "handover_output_invalid",
+            "schema_version": SCHEMA_VERSION,
+            "status": "unavailable",
+        }
+    return {"read_only": True, **payload}
+
+
 def _render_text(report: dict[str, Any]) -> str:
     git_state = report["sections"]["git"]
     if git_state["status"] != "ok":
@@ -278,6 +309,18 @@ def _render_context_plan(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _render_resume(report: dict[str, Any]) -> str:
+    if report["status"] == "unavailable":
+        return f"developer-workflow: unavailable ({report['reason_code']})"
+    return (
+        "developer-workflow: resume\n"
+        f"  commit:     {str(report['commit'])[:12]}\n"
+        f"  validation: {'validated' if report['validated'] else 'pending'}\n"
+        f"  relation:   {report['history_relation']}\n"
+        f"  next:       {report['next_action']}"
+    )
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -286,6 +329,8 @@ def _parser() -> argparse.ArgumentParser:
     context_parser = subparsers.add_parser("context-plan")
     context_parser.add_argument("targets", nargs="+")
     context_parser.add_argument("--json", action="store_true", dest="as_json")
+    resume_parser = subparsers.add_parser("resume")
+    resume_parser.add_argument("--json", action="store_true", dest="as_json")
     return parser
 
 
@@ -294,6 +339,9 @@ def main(argv: list[str] | None = None) -> int:
     if arguments.command == "context-plan":
         report = context_plan_report(Path.cwd(), arguments.targets)
         renderer = _render_context_plan
+    elif arguments.command == "resume":
+        report = resume_report(Path.cwd())
+        renderer = _render_resume
     else:
         report = status_report(Path.cwd())
         renderer = _render_text

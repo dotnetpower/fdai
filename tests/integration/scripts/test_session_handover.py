@@ -41,10 +41,18 @@ def test_record_and_show_include_validation_state(tmp_path: Path) -> None:
     common = Path(_run(repo, "git", "rev-parse", "--git-common-dir").stdout.strip())
     state = repo / common / "fdai-handovers"
     payload = json.loads((state / "latest.json").read_text(encoding="utf-8"))
+    assert payload["schema_version"] == 2
     assert payload["commit"] == commit
     assert payload["changed_files"] == ["example.txt"]
     assert payload["subject"] == "feat(example): add value"
     assert "validation: pending" in pending.stdout
+
+    (repo / "dirty.txt").write_text("dirty\n", encoding="utf-8")
+    json_result = _run(repo, "python3", str(SCRIPT), "show", "--json")
+    report = json.loads(json_result.stdout)
+    assert report["history_relation"] == "reachable"
+    assert report["current_worktree_status"]["changed_count"] == 1
+    assert report["next_action"] == "wait_for_integration_validation"
 
     receipts = repo / common / "fdai-validation-queue" / "receipts"
     receipts.mkdir(parents=True)
