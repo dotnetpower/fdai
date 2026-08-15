@@ -136,6 +136,9 @@ def summarize_latency(samples: Sequence[float]) -> LatencySummary:
 
 
 def _latency(deliveries: Sequence[OutboundDeliveryRecord]) -> LatencySummary:
+    # A negative sample can only come from clock skew between two writers. The panel
+    # drops it instead of failing the whole read, because health observation MUST NOT
+    # become unavailable when one record carries a skewed timestamp.
     samples = [
         (record.terminal_at - record.created_at).total_seconds() * 1000.0
         for record in deliveries
