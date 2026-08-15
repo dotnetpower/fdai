@@ -9,10 +9,12 @@ import math
 import os
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
@@ -26,6 +28,14 @@ MAX_PATHS = 20
 MAX_HISTORY_COMMITS = 64
 MAX_RECEIPTS = 50
 VALIDATION_WARN_SECONDS = 300
+PLAYWRIGHT_POOL_SIZE = 10
+LOCAL_SERVICE_ENDPOINTS = (
+    ("console-frontend", "http://127.0.0.1:5273/"),
+    ("operator-api", "http://127.0.0.1:8010/healthz"),
+    ("document-ingestion-api", "http://127.0.0.1:8011/healthz"),
+    ("document-processing-worker", "http://127.0.0.1:8012/ready"),
+    ("isolated-executor", "http://127.0.0.1:8013/ready"),
+)
 
 
 def _git(root: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
@@ -307,6 +317,94 @@ def _hook_diagnostic(root: Path) -> dict[str, Any]:
     }
 
 
+def _process_is_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except OSError:
+        return False
+    return True
+
+
+def _browser_runner_diagnostic(
+    lock_root: Path | None = None,
+    *,
+    is_alive: Any = _process_is_alive,
+) -> dict[str, Any]:
+    root = lock_root or Path(tempfile.gettempdir()) / f"fdai-playwright-port-pool-{os.getuid()}"
+    held = 0
+    stale = 0
+    invalid = 0
+    for slot in range(PLAYWRIGHT_POOL_SIZE):
+        owner_path = root / f"slot-{slot}" / "owner.json"
+        if not owner_path.is_file():
+            continue
+        try:
+            if owner_path.stat().st_size > 4_096:
+                raise ValueError
+            owner: object = json.loads(owner_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError, json.JSONDecodeError):
+            invalid += 1
+            continue
+        pid = owner.get("pid") if isinstance(owner, dict) else None
+        if not isinstance(pid, int) or pid <= 0:
+            invalid += 1
+        elif is_alive(pid):
+            held += 1
+        else:
+            stale += 1
+    available = PLAYWRIGHT_POOL_SIZE - held - stale - invalid
+    return {
+        "available_slots": max(0, available),
+        "held_slots": held,
+        "invalid_slots": invalid,
+        "stale_slots": stale,
+        "status": "warning" if available == 0 or invalid or stale else "ok",
+        "total_slots": PLAYWRIGHT_POOL_SIZE,
+    }
+
+
+def _http_ready(url: str) -> bool:
+    request = Request(url, method="GET")  # noqa: S310 - endpoints are fixed loopback URLs.
+    try:
+        with urlopen(request, timeout=0.5) as response:  # noqa: S310
+            return 200 <= response.status < 300
+    except OSError:
+        return False
+
+
+def _local_services_diagnostic(
+    root: Path,
+    *,
+    probe: Any = _http_ready,
+    process_lines: list[str] | None = None,
+) -> dict[str, Any]:
+    resolved = _git_common_dir(root)
+    if resolved is None:
+        return {"reason_code": "service_repository_unavailable", "status": "unavailable"}
+    repo_root, _common_dir = resolved
+    if not (repo_root / ".fdai").is_dir():
+        return {"reason_code": "local_stack_not_prepared", "status": "unavailable"}
+    services = [{"name": name, "ready": bool(probe(url))} for name, url in LOCAL_SERVICE_ENDPOINTS]
+    if process_lines is None:
+        process_result = subprocess.run(  # noqa: S603 - fixed process inventory command.
+            ["ps", "-eo", "args="],  # noqa: S607 - ps is the fixed local executable.
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        process_lines = process_result.stdout.splitlines() if process_result.returncode == 0 else []
+    core_ready = any(" -m fdai" in line and "pytest" not in line for line in process_lines)
+    services.insert(0, {"name": "core-runtime", "ready": core_ready})
+    unavailable = [str(service["name"]) for service in services if not service["ready"]]
+    return {
+        "ready_count": len(services) - len(unavailable),
+        "service_count": len(services),
+        "services": services,
+        "status": "warning" if unavailable else "ok",
+        "unavailable_services": unavailable,
+    }
+
+
 def status_report(root: Path) -> dict[str, Any]:
     """Build one versioned report without changing repository or process state."""
     return {
@@ -314,10 +412,12 @@ def status_report(root: Path) -> dict[str, Any]:
         "read_only": True,
         "schema_version": SCHEMA_VERSION,
         "sections": {
+            "browser_runner": _browser_runner_diagnostic(),
             "environment": _environment_diagnostic(root),
             "git": _git_diagnostic(root),
             "hooks": _hook_diagnostic(root),
             "index": _index_diagnostic(root),
+            "local_services": _local_services_diagnostic(root),
             "validation": _validation_diagnostic(root),
         },
     }
