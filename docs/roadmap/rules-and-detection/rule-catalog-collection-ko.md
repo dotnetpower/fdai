@@ -1,7 +1,7 @@
 ---
 title: 규칙 카탈로그 수집(Rule Catalog Collection)
 translation_of: rule-catalog-collection.md
-translation_source_sha: 6e9821aa9354e4725e1b86ab4d846d7387760128
+translation_source_sha: a6a598c9370a312f04f3925db50a3febeb31528b
 translation_revised: 2026-08-15
 ---
 
@@ -330,8 +330,8 @@ YAML 키는 **snake_case** ;
 - 정규화된 `Rule`은 `schema_version`이 필수이고 `kind` discriminator가 없습니다. Strict
   스키마 소유자는 `services/core-control-plane/src/fdai/shared/contracts/rule/schema.json`입니다. `BestPractice`는
   `best-practice` discriminator와 `services/core-control-plane/src/fdai/rule_catalog/schema/` 아래 strict 스키마를
-  사용합니다. Config-baseline과 measurement-baseline은 로더가 landing할 때까지 목표
-  형태로 남습니다.
+  사용합니다. Config-baseline과 measurement-baseline은 `config-baseline`, `measurement-baseline`
+  discriminator와 같은 디렉터리의 자체 strict 스키마를 사용합니다.
 - Enums: `severity` ∈ `critical | high | medium | low` (phase-1 우선순위와 매칭),
   `category` ∈ `security | reliability | cost | config_drift | compliance`, `redistribution` ∈
   `embeddable | reference-only`. `version` 은 semver 패턴 매칭; 모든 타임스탬프는 RFC 3339
@@ -599,7 +599,7 @@ Authored Rego는 `rule-catalog/` 아래에 **중첩되지 않음** ; T0와 검�
 | 매니페스트, 수집, 스냅샷, watcher 파이프라인 | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/collect/`; `watcher.py`; 집중 `tests/rule_catalog/pipeline/test_collect.py`; `test_watcher.py` | 요청 시 실행과 주기 평가가 결정론적 스냅샷 및 실패 시 차단 수집과 함께 구현되어 있습니다. |
 | 제공 파서 및 수집 Rule 말뭉치 | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/parse/`; `rule-catalog/collected/`; 집중 파서 및 전체 카탈로그 테스트 | Rule YAML, Rego, Azure Policy, kube-bench 경로가 구현됐으며 예약 파서는 명시적으로 실패합니다. |
 | 모범 사례 및 MCSB 카탈로그 | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/best_practice_catalog.py`; `mcsb_catalog.py`; `rule-catalog/best-practices/`; `rule-catalog/compliance/mcsb/` | 엄격한 로더와 현재 버전별 카탈로그가 구현되어 있습니다. |
-| 구성 및 측정 기준선 | not-started | [구성 기준선](#구성-기준선-하드닝된-참조-세트); [측정 기준선](#측정-기준선-성능-참조---별도-저장) | 전용 스키마와 로더가 없는 목표 형상으로 남아 있습니다. |
+| 구성 및 측정 기준선 | implemented | `services/core-control-plane/src/fdai/rule_catalog/schema/baseline_catalog.py`; `configuration_baseline.schema.json`; `measurement_baseline.schema.json`; `rule-catalog/baselines/`; `services/core-control-plane/tests/rule_catalog/test_baseline_catalog.py` | 스키마, id 네임스페이스, 저장소를 분리했습니다. 두 로더 모두 차단 기본이며 저장소가 없으면 빈 값으로 적재합니다. 업스트림은 두 저장소를 비운 채로 제공하므로 수집된 기준선 내용은 아직 없습니다. |
 | 선언된 reference-only 수집 및 저장소 가드 | implemented | [`collector.py`](../../../services/core-control-plane/src/fdai/rule_catalog/pipeline/collect/collector.py), [`check-reference-only-sources.py`](../../../scripts/quality/repository/check-reference-only-sources.py), 집중 collector 및 checker 테스트 | Non-dry 수집은 reference-only tree를 materialize할 수 없고 Git index 게이트는 선언된 reference-only snapshot 옆에 강제로 추가된 원문을 거부합니다. 임의의 미분류 텍스트는 이 선언 기반 주장 밖에 남습니다. |
 | 운영 발견 일정 및 pull request 전달 | in-progress | `services/core-control-plane/src/fdai/rule_catalog/pipeline/watcher_cli.py`; `promotion.py`; [열린 결정](#열림-decisions) | 핵심 단계는 있지만 배포 일정, 자격 증명, 관리되는 pull request 전달은 통합 작업으로 남아 있습니다. |
 
@@ -608,12 +608,14 @@ Authored Rego는 `rule-catalog/` 아래에 **중첩되지 않음** ; T0와 검�
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했으며, 근거 없는 저장소 전체 라이선스 강제 주장을 바로잡았습니다. | `current change`; 구현 범위 표의 현재 소스, 카탈로그, 집중 테스트. | 누락된 기준선 계약, 제한 콘텐츠 집중 게이트, 운영 전달 연결을 추가합니다. |
+| 2026-08-15 | implemented | 전용 `ConfigurationBaseline` 및 `MeasurementBaseline` 계약, strict 스키마, 차단 기본 디렉터리 로더, 분리된 `rule-catalog/baselines/` 저장소를 추가했습니다. | `current change`; `services/core-control-plane/src/fdai/rule_catalog/schema/baseline_catalog.py`; `rule-catalog/baselines/`; `pytest services/core-control-plane/tests/rule_catalog/test_baseline_catalog.py` (22 passed). | 실제 기준선 내용을 수집하거나 작성하고 저장소를 T0 표류 소비자에 연결합니다. |
 | 2026-08-14 | implemented | 영속 reference-only 수집을 차단하고 합성 fixture를 사용하는 staged snapshot 저장소 게이트를 추가했습니다. | 현재 변경의 `test_collect.py`와 `test_check_reference_only_sources.py`. | 소스 분류를 계속 검토합니다. 게이트는 선언된 manifest를 강제하며 임의 텍스트에서 라이선스를 추론하지 않습니다. |
 
 ### 남은 작업
 
-- [ ] 전용 `ConfigurationBaseline` 및 `MeasurementBaseline` 계약, 로더, 저장소 레이아웃을 구현하고 테스트합니다.
+- [x] 전용 `ConfigurationBaseline` 및 `MeasurementBaseline` 계약, strict 스키마, 차단 기본 로더, 분리된 `rule-catalog/baselines/configuration/` 및 `rule-catalog/baselines/measurement/` 저장소를 구현했으며 `services/core-control-plane/tests/rule_catalog/test_baseline_catalog.py`가 이를 증명합니다.
 - [x] 제한된 예제를 저장하지 않으면서 금지된 reference-only 원문을 거부하는 검토 가능한 픽스처 기반 집중 저장소 게이트를 추가합니다.
+- [ ] 검토된 기준선 내용을 제공 저장소에 반영하고 구성 저장소를 T0 표류 소비자에 연결하며, 적재된 기준선에 대한 집중 표류 평가로 이를 증명합니다.
 - [ ] 배포에서 watcher 주기, 출처 자격 증명, 스냅샷 저장소, 카탈로그 pull request 게시를 연결하고 재현 가능한 갱신 증적 하나를 보존합니다.
 
 ## 열림 Decisions
