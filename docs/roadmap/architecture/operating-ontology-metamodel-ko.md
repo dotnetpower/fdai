@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: 6ff941342d3294c07a7b521e6c6607590ac6fe71
+translation_source_sha: c0920e4cd274e943855f0c79de4eb9cb1644dc64
 translation_revised: 2026-08-15
 ---
 # FDAI 운영 온톨로지 메타모델
@@ -223,7 +223,7 @@ historical 완전성 점유로 취급하지 않고 명시적으로 지원하지 
 | 런타임 관측, 발견 사항, 예측, 독립적인 결과 근거 | Heimdall입니다. |
 | 비용 및 용량 상태 사실 | Owned 참고용 객체에 대해 Njord 및 Freyr입니다. |
 | Chaos 실험 상태 | Loki입니다. |
-| 변경할 수 없는 operational 맥락 스냅샷 | Muninn입니다. |
+| 변경할 수 없는 operational 맥락 스냅샷 | Forseti입니다. 자신의 결정 기준 시점에 `OperationalContextMaterializer`로 스냅샷 하나를 materialize합니다. |
 | 결정 사례 및 판정 | Forseti입니다. |
 | Cross-objective 중재 | Odin입니다. |
 | Human 승인 기록 | Var입니다. |

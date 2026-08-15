@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 9d8754fe8ec1707a75544e9ed263800563da1024
-translation_revised: 2026-08-14
+translation_source_sha: c623a4c494ef85beca9f7e33e5e282353aa866e3
+translation_revised: 2026-08-15
 ---
 # FDAI 운영 온톨로지
 
@@ -448,13 +448,13 @@ valid하고 검증을 주장하지 않습니다. 해당 메타데이터가 없�
 | Njord | 비용 관측, 비용 예측, 비용 목표 상태입니다. |
 | Freyr | Demand, 용량 예측, sizing 옵션입니다. |
 | Loki | 실험과 복원력 근거입니다. |
-| Forseti | 결정 사례와 통제된 결정입니다. |
+| Forseti | 결정 사례, 통제된 결정, 자신의 기준 시점에 materialize한 `OperationalContextMaterializer` 스냅샷입니다. |
 | Odin | Cross-objective 중재 결정과 점수 breakdown입니다. |
 | Var | 독립적인 승인 기록입니다. |
 | Thor | 액션 실행과 시도입니다. |
 | Vidar | Rollback 및 복구 결과입니다. |
 | Saga | 감사 근거와 변경할 수 없는 상관관계 링크입니다. |
-| Muninn | Time-consistent 맥락 스냅샷과 사례 개정 번호입니다. |
+| Muninn | 영속 상태 스냅샷과 변경할 수 없는 사례 이력 맥락 색인입니다. |
 | Norns | Pattern과 inert 후보입니다. |
 | Mimir | 검토된 온톨로지, 룰, 액션 카탈로그 수명 주기입니다. |
 | Bragi | 결정 쓰기가 없으며 cited 변환 결과를 localized explanation으로만 표현합니다. |
@@ -464,7 +464,7 @@ valid하고 검증을 주장하지 않습니다. 해당 메타데이터가 없�
 
 ## 운영 맥락과 결정
 
-Muninn은 각 결정 기준 시점에 변경할 수 없는 `OperationalContextSnapshot`을 materialize합니다. 새로운
+Forseti가 각 결정 기준 시점에 변경할 수 없는 `OperationalContextSnapshot`을 materialize합니다. 새로운
 권한이 아니라 변환 결과 계약입니다. 최소한 다음을 포함합니다.
 
 - 대상 서비스, 워크로드, 리소스, 환경, 의존성 neighborhood;

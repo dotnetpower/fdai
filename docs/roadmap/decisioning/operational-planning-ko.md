@@ -1,7 +1,7 @@
 ---
 translation_of: operational-planning.md
-translation_source_sha: 05a0db2e5825bb3b1a3b0f23d8357f8fcda13198
-translation_revised: 2026-08-14
+translation_source_sha: e15f9099e620e73c10cddb396aab3f579cb71698
+translation_revised: 2026-08-15
 ---
 # 운영 계획
 
@@ -83,7 +83,7 @@ DecisionCase와 ActionOption은 변경할 수 없는 의미 기반 결정 산출
 ```mermaid
 flowchart LR
     R[Typed planning request] --> P[Workflow and Process]
-    P --> C[Muninn context snapshot]
+    P --> C[Forseti operational context snapshot]
     C --> F[Forseti DecisionCase]
     F --> S[Specialist evidence]
     S --> L[Versioned logic assets]
@@ -104,7 +104,7 @@ flowchart LR
 | 관심사 | 기존 권위 원천 | 계획에서의 용도 |
 |--------|----------------|-----------------|
 | 지속 가능한 진행 상태 | 작업 흐름 선언과 프로세스 스냅샷 및 저널 | 하나의 shadow-first 계획 수립 작업 흐름이 제한된 단계와 최종 상태를 기록합니다. |
-| 시점이 일치하는 사실 | Muninn `OperationalContextSnapshot` | 모든 후보가 하나의 기준 시점, release 집합, 최신성 증적, 맥락 다이제스트를 사용합니다. |
+| 시점이 일치하는 사실 | Forseti의 결정 기준 시점에 materialize된 `OperationalContextSnapshot` | 모든 후보가 하나의 기준 시점, release 집합, 최신성 증적, 맥락 다이제스트를 사용합니다. |
 | 옵션과 효과 | Forseti `DecisionCase`, `ActionOption`, `ExpectedEffect` | 사례는 no-action, 보류, 실행 가능한 후보를 포함합니다. |
 | 목표 간 중재 | Odin `ArbitrationDecision` | Odin은 모든 hard 제약을 통과한 후보만 순위를 정합니다. |
 | 승인 | Var `Approval` | 승인은 계획 텍스트나 시뮬레이션 점수에서 나오지 않습니다. |

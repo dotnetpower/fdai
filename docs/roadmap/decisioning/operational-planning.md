@@ -87,7 +87,7 @@ progress, while DecisionCase and ActionOption remain the immutable semantic deci
 ```mermaid
 flowchart LR
     R[Typed planning request] --> P[Workflow and Process]
-    P --> C[Muninn context snapshot]
+    P --> C[Forseti operational context snapshot]
     C --> F[Forseti DecisionCase]
     F --> S[Specialist evidence]
     S --> L[Versioned logic assets]
@@ -108,7 +108,7 @@ Operational planning adds no authoritative `PlanningSession` object and no sixte
 | Concern | Existing authority | Planning use |
 |---------|--------------------|--------------|
 | Durable progress | Workflow declaration and Process snapshot plus journal | One shadow-first planning workflow records bounded phases and terminal state. |
-| Time-consistent facts | Muninn `OperationalContextSnapshot` | Every candidate uses one cutoff, release set, freshness receipt, and context digest. |
+| Time-consistent facts | `OperationalContextSnapshot` materialized at Forseti's decision cutoff | Every candidate uses one cutoff, release set, freshness receipt, and context digest. |
 | Options and effects | Forseti `DecisionCase`, `ActionOption`, and `ExpectedEffect` | The case includes no-action, hold, and executable candidates. |
 | Cross-objective arbitration | Odin `ArbitrationDecision` | Odin ranks only candidates that passed every hard constraint. |
 | Approval | Var `Approval` | Approval never comes from planning text or a simulation score. |
