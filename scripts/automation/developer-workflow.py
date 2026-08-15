@@ -6,11 +6,13 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
@@ -203,6 +205,66 @@ def _validation_diagnostic(root: Path) -> dict[str, Any]:
     }
 
 
+def _database_identity(value: str) -> tuple[str, int | None, str] | None:
+    try:
+        parsed = urlparse(value)
+        port = parsed.port
+    except ValueError:
+        return None
+    if not parsed.hostname or not parsed.path:
+        return None
+    return parsed.hostname.lower(), port, parsed.path.removeprefix("/")
+
+
+def _environment_diagnostic(root: Path) -> dict[str, Any]:
+    resolved = _git_common_dir(root)
+    if resolved is None:
+        return {"reason_code": "environment_repository_unavailable", "status": "unavailable"}
+    repo_root, _common_dir = resolved
+    reasons: list[str] = []
+    python_paths = [
+        Path(item).resolve() for item in os.environ.get("PYTHONPATH", "").split(":") if item
+    ]
+    foreign_python_paths = [
+        path
+        for path in python_paths
+        if path != repo_root and repo_root not in path.parents and "fdai" in path.as_posix().lower()
+    ]
+    if foreign_python_paths:
+        reasons.append("foreign_pythonpath")
+
+    virtual_env = os.environ.get("VIRTUAL_ENV")
+    virtual_env_scope = "unset"
+    if virtual_env:
+        virtual_env_path = Path(virtual_env).resolve()
+        virtual_env_scope = (
+            "current_worktree"
+            if virtual_env_path == repo_root or repo_root in virtual_env_path.parents
+            else "foreign"
+        )
+        if virtual_env_scope == "foreign":
+            reasons.append("foreign_virtual_env")
+
+    database_url = os.environ.get("FDAI_DATABASE_URL", "")
+    runtime_dsn = os.environ.get("FDAI_STATE_STORE_DSN", "")
+    database_collision = False
+    if database_url and runtime_dsn:
+        test_identity = _database_identity(database_url)
+        runtime_identity = _database_identity(runtime_dsn)
+        database_collision = test_identity is not None and test_identity == runtime_identity
+        if database_collision:
+            reasons.append("runtime_database_collision")
+
+    return {
+        "database_identity_collision": database_collision,
+        "foreign_pythonpath_count": len(foreign_python_paths),
+        "reason_codes": reasons,
+        "runtime_variable_count": sum(name.startswith("FDAI_") for name in os.environ),
+        "status": "warning" if reasons else "ok",
+        "virtual_env_scope": virtual_env_scope,
+    }
+
+
 def status_report(root: Path) -> dict[str, Any]:
     """Build one versioned report without changing repository or process state."""
     return {
@@ -210,10 +272,30 @@ def status_report(root: Path) -> dict[str, Any]:
         "read_only": True,
         "schema_version": SCHEMA_VERSION,
         "sections": {
+            "environment": _environment_diagnostic(root),
             "git": _git_diagnostic(root),
             "index": _index_diagnostic(root),
             "validation": _validation_diagnostic(root),
         },
+    }
+
+
+def preflight_report(root: Path) -> dict[str, Any]:
+    """Return the diagnostics that must be clean before a focused check."""
+    sections = {
+        "environment": _environment_diagnostic(root),
+        "git": _git_diagnostic(root),
+        "index": _index_diagnostic(root),
+    }
+    return {
+        "read_only": True,
+        "schema_version": SCHEMA_VERSION,
+        "sections": sections,
+        "status": (
+            "ok"
+            if all(section.get("status") == "ok" for section in sections.values())
+            else "blocked"
+        ),
     }
 
 
@@ -321,6 +403,13 @@ def _render_resume(report: dict[str, Any]) -> str:
     )
 
 
+def _render_preflight(report: dict[str, Any]) -> str:
+    lines = [f"developer-workflow: preflight {report['status']}"]
+    for name, section in report["sections"].items():
+        lines.append(f"  {name}: {section['status']}")
+    return "\n".join(lines)
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -331,6 +420,8 @@ def _parser() -> argparse.ArgumentParser:
     context_parser.add_argument("--json", action="store_true", dest="as_json")
     resume_parser = subparsers.add_parser("resume")
     resume_parser.add_argument("--json", action="store_true", dest="as_json")
+    preflight_parser = subparsers.add_parser("preflight")
+    preflight_parser.add_argument("--json", action="store_true", dest="as_json")
     return parser
 
 
@@ -342,6 +433,9 @@ def main(argv: list[str] | None = None) -> int:
     elif arguments.command == "resume":
         report = resume_report(Path.cwd())
         renderer = _render_resume
+    elif arguments.command == "preflight":
+        report = preflight_report(Path.cwd())
+        renderer = _render_preflight
     else:
         report = status_report(Path.cwd())
         renderer = _render_text
@@ -349,7 +443,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(report, sort_keys=True))
     else:
         print(renderer(report))
-    return 0
+    return 1 if arguments.command == "preflight" and report["status"] != "ok" else 0
 
 
 if __name__ == "__main__":
