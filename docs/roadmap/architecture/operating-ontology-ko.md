@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: e03006be1a73c69fc9d99df5b233c2de48ded35f
+translation_source_sha: bbd5decae11d2cd17a5cd3e1c076aa921f123141
 translation_revised: 2026-08-15
 ---
 # FDAI 운영 온톨로지
@@ -25,61 +25,31 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
 > 오래되거나 충돌하거나 입증되지 않은 맥락은 알 수 없음으로 남고 범위가 제한된 근거 복구,
 > 더 작은 safe 계획, no-op 또는 검토를 유발합니다. 실행 권한을 제공하지 않습니다.
 >
-> **구현 상태(2026-08-08):** O1-O4는 의미 선언, 변경할 수 없는 맥락, Forseti 상한
-> 배선, decision-case 선택, 응답 종결, Muninn/Norns learning intake를 구현합니다.
-> `OperatingModelProvider`는 범위가 제한된 배포 인스턴스를 project하고 맥락 스냅샷은 타입이 지정된
-> 근거 경로, 개정 번호, effective 시간, 출처 이력, 완전한 최신성 증적을 보존합니다.
-> M3는 관찰된, derived, desired, 실행 레인에 변경할 수 없는 `StateFactMetadata`를 추가합니다.
-> 선택적인 인벤토리 링크 관측 메타데이터는 온톨로지 변환 결과와 operational-context
-> 구체화를 거쳐 보존되고 스냅샷 신원에 반영됩니다. 근거가 stale, 불완전한,
-> conflicting, synthetic, future-cutoff 또는 검증되지 않은이면 스냅샷 상한을 낮춥니다.
-> 검증된 링크는 독립적인 검증기, 신뢰된 검증 메서드 및 변경할 수 없는 검증
-> 증적을 요구합니다. 필수 출처 최신성, 신뢰된 UTC 시계 신원, 기록된 시간 및
-> skew 범위의 future 검사도 맥락 안전성과 재생 신원에 반영됩니다.
-> Wave 2는 secured 온톨로지 경로, 권위 있는 상태 사실, 카탈로그 참조 및 통제된 문서 excerpt를
-> 분리된 권한 레인으로 유지하는 unwired 내용 기반 주소를 가진 `OperationalEvidenceBundle` 기반을
-> 제공합니다. Admission에는 온톨로지 release, 카탈로그 및 문서 개정 번호, 인증된 출처, 용도, 범위,
-> 민감정보 제거 요약, 타입이 지정된 temporal 범위를 고정하는 내용 기반 주소를 가진 출처 증적이
-> 필요합니다. 결정론적 점유 및 인용 검증, exact typed-claim contradiction detection, final-body
-> 바이트 및 항목 예산은 보류 근거를 출력하고 번들의 자율성 상한을 유지하거나 낮출 수만 있습니다.
-> 아직 런타임 또는 조립 경로가 이 번들을 소비하지 않으므로 운영 자율성 경로의 일부가 아니며 액션
-> 권한이 없습니다.
-> 변경관리는 `Change`에 planned-change 근거를 추가하고, 검토된 `ChangeWindow`와 대상 및
-> 결정에서 영향, 프로세스, 결과, 복구까지 이어지는 타입이 지정된 링크를 제공합니다. 이러한
-> 선언은 의미 근거일 뿐 승인 또는 실행 권한을 제공하지 않습니다. Huginn은 같은
-> 정규화된 변경을 causal Event와 소유자 토픽에 포함합니다. Forseti는 범위가 제한된
-> `ChangeAssessment`를 계산해 Verdict와 DecisionCase 근거에 보존하고, stale, 불완전한,
-> 실패한 또는 review-required 평가에는 사람 검토를 요구합니다. 현재 런타임에는
-> graph-freshness 권한이 없으므로 planned 변경은 이 게이트를 auto-clear할 수 없습니다.
-> Wave 2는 새 선언 종류를 추가하지 않고 검토된 shared Property 의미 규칙을 추가합니다. 카탈로그
-> 로더는 정본 meaning, 값 타입, 선택적 단위, enum 또는 범위, 정규화, 권한, 최신성 및 equivalent
-> 프로바이더 경로를 검증합니다. 카탈로그 변환 결과는 검토된 항목에만 이러한 필드를 노출하고 정확한
-> semantic-registry 버전과 내용 다이제스트를 포함합니다. 런타임 변환 결과는 파일을 다시 읽지 않고
-> 카탈로그 부하에서 검증된 레지스트리를 재사용합니다. 이전 방식 속성은 계속 유효하지만 정규화된
-> 동등성을 주장할 수 없습니다.
-> M5는 카탈로그에 선언된 `routes_to` 및 `peered_with` Resource 링크를 인벤토리 변환 결과에
-> 추가하고 읽기 전용 결정론적 네트워크 및 Pod 텔레메트리 함수를 제공합니다.
-> Composition-owned 범위가 제한된 발급자는 secured ObjectSet 결과를 기록하고 exact 함수
-> 핸들러는 발급된 dependency 다이제스트만 해석합니다. 검증기는 contextual 호출 및 opaque trust
-> 맥락에 대해 역할, 용도, exact release 및 projected-result 다이제스트를 인증합니다. 발급되지
-> 않았거나 self-minted인 증적은 차단됩니다. Evaluation 시간은 trusted 증적 기준 시점과
-> 같으며, future effective, 근거 또는 기록된 시간과 unbounded 최신성은 검증되지 않은으로
-> 남습니다. Stored 간선 direction을 보존하고 symmetric 피어링 구간 하나에 방향별로 구분된
-> 관측 및 검증 증적 계보를 가진 directed 기록 두 개를 요구합니다. 누락된
-> 엔드포인트, 불완전한 조회 또는 없는 경로는 트래픽이 흐르지 않는다는 결론이 아니라 알 수 없음으로
-> 유지됩니다. 인벤토리 변환 결과는 관찰된 리소스와 엔드포인트 타입이 충돌하면 차단합니다.
-> 함수는 source-derived 산출물 다이제스트를 사용하고 exact-release 호출 증적을 발행하며
-> 프로바이더 I/O 또는 실행 권한이 없습니다.
-> 현재 Azure 변환 결과는 프로바이더가 exact ARM 리소스 next-hop id를 제공할 때만 directed
-> `routes_to`를 발행합니다. IP 주소, 접두사, DNS 이름 및 경로 absence는 Resource 신원 또는
-> 도달 가능성 점유가 되지 않습니다. 스냅샷과 real-time 인벤토리 변환 결과는 검토된
-> 피어링/라우팅 링크 vocabulary를 모두 보존합니다.
-> 인벤토리 온톨로지 변환기는 이제 관찰된 각 Resource에서 검토된 ResourceType 하나로 향하는
-> 카탈로그 선언 `resource_classified_as` 관계를 지원합니다. 분류는 완전한 인벤토리 세대와
-> ResourceType 레지스트리 항목의 재생 가능한 다이제스트를 고정합니다. 미매핑 형식이 하나라도
-> 있으면 분류 범위가 불완전해지고 대체 그래프를 활성화하지 않습니다. 이 관계가 실제 변환
-> 결과에 나타나도록 운영 인벤토리 작업이 이미 로드한 레지스트리 다이제스트 맵을 주입하며,
-> 승격된 완전 세대는 실제 변환 결과에 이 관계를 저장합니다.
+> **구현 상태(2026-08-08):** O1-O4는 의미 선언, 변경할 수 없는 맥락, Forseti 상한 연결,
+> decision-case 선택, 응답 종결, Muninn/Norns learning 수집을 구현합니다.
+> `OperatingModelProvider`는 범위가 제한된 배포 인스턴스를 project하고, 맥락 스냅샷은 타입이 지정된 근거
+> 경로, 개정 번호, effective 시간, 출처 이력, 최신성 증적을 보존합니다. M3는 observed, derived,
+> desired, execution 레인용 변경할 수 없는 `StateFactMetadata`를 추가합니다. 선택적 인벤토리 링크
+> 관측 메타데이터는 변환 결과에서 유지되고 스냅샷 신원에 기여하며 근거가 stale, 불완전, conflicting,
+> synthetic, future-cutoff 또는 검증되지 않은 상태이면 상한을 낮춥니다. 검증된 링크에는 독립 검증기, 신뢰할
+> 수 있는 방법, 변경할 수 없는 증적이 필요하고 출처 최신성, 신뢰할 수 있는 UTC 시계 신원, 기록된 시간, skew 제한
+> 미래 검사도 맥락 안전성과 재생 신원을 형성합니다. Wave 2는 보안 온톨로지 경로, 권위 있는 state fact, 카탈로그
+> 참조, 통제된 문서 excerpt를 분리된 권한 레인으로 유지하는 unwired 내용 기반 주소
+> `OperationalEvidenceBundle`을 제공합니다. Admission에는 온톨로지 release, 카탈로그 및 문서
+> 개정 번호, 인증된 출처, 용도, 범위, 민감정보 제거 요약, 타입이 지정된 temporal 범위를 고정하는 출처 증적이
+> 필요합니다. 결정론적 점유 및 인용 검증, typed-claim contradiction detection, final-body
+> 바이트 및 항목 예산은 보류 근거를 출력하고 자율성 상한을 유지하거나 낮출 수만 있습니다. 아직 어떤 런타임 또는 조립 경로도 이
+> 번들을 소비하지 않으므로 액션 권한이 없습니다. Wave 2는 새 선언 종류 없이 검토된 shared Property 의미 규칙도
+> 추가합니다. 로더는 meaning, 값 타입, 단위, enum 또는 범위, 정규화, 권한, 최신성, equivalent 프로바이더
+> 경로를 검증하고, 카탈로그와 런타임 변환 결과는 검토된 항목에만 정확한 레지스트리 버전과 다이제스트를 함께 노출하며, 이전 방식
+> 속성은 계속 유효하지만 정규화된 동등성을 주장할 수 없습니다. 변경관리는 `Change`에 planned-change 근거,
+> 검토된 `ChangeWindow`, 대상 및 결정에서 영향, 프로세스, 결과, 복구까지 이어지는 타입이 지정된 링크를 추가합니다.
+> Huginn은 같은 정규화된 Change를 Event와 소유자 토픽에 포함하고, Forseti는 범위가 제한된
+> `ChangeAssessment`를 계산해 Verdict와 DecisionCase 근거에 보존하며, 런타임에
+> graph-freshness 권한이 없으므로 stale, 불완전, 실패 또는 review-required 평가에는 사람 검토를
+> 요구합니다. M5는 검토된 `routes_to`, `peered_with`, `resource_classified_as` 관계를
+> 인벤토리 변환 결과에 추가하고 읽기 전용 결정론적 네트워크 및 Pod 텔레메트리 함수를 제공합니다. 위 선언은 모두 의미 근거일
+> 뿐이며 승인, 승격 또는 실행 권한을 부여하지 않습니다.
 
 ## 구현 상태
 
@@ -92,6 +62,9 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
 | O3-O5 결정, 결과 및 통제된 learning 루프 | in-progress | [제공 계획](#제공-계획), [`test_ontology_alignment.py`](../../../services/core-control-plane/tests/agents/test_ontology_alignment.py) | 핵심 구획은 있지만 모든 운영 경로에서 효과 종결과 통제된 learning이 완료되지는 않았습니다. |
 | 결정과 학습 writer | not-started | [`hypothesis_lineage.py`](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py), [`pantheon.py`](../../../services/core-control-plane/src/fdai/agents/_framework/pantheon.py) | `considers`, `expects`, `executed_as`, `resulted_in`은 선언되어 있지만 `OperationalHypothesisLineageProjector`가 유일한 writer이며 어떤 조립 루트도 이를 구성하지 않습니다. `bootstrap.py`와 `control_loop.py`는 incident, 아키텍처 검토, process, 카탈로그, 인벤토리 projector를 연결하면서 이 projector는 연결하지 않으므로 운영 경로가 `ObservedOutcome` 인스턴스를 생성하지 않습니다. Norns 역시 `PatternObservation`을 소유하고 `object.pattern-observation`도 등록되어 있지만 어느 곳도 발행하거나 구독하지 않습니다. |
 | Wave 2 근거, 변경, Property 및 토폴로지 기반 | in-progress | [구현 상태 설명](#fdai-운영-온톨로지), [운영 온톨로지 플랫폼](operating-ontology-platform-ko.md) | 검토된 기반은 있지만 근거 번들이 런타임에 조립되지 않았고 계획 변경은 그래프 최신성 게이트를 자동 통과할 수 없으며 더 넓은 플랫폼 제공 작업도 남아 있습니다. |
+| Console 의미 band 선언 완전성 | implemented | [`Forecast.yaml`](../../../rule-catalog/vocabulary/object-types/Forecast.yaml), [`Pattern.yaml`](../../../rule-catalog/vocabulary/object-types/Pattern.yaml), [`test_ontology_console_projection.py`](../../../services/core-control-plane/tests/delivery/test_ontology_console_projection.py) | Console band가 지정하는 모든 객체 타입을 제공 릴리스가 선언하므로 band 구성원이 조용히 제외되지 않습니다. 두 선언은 의미 선언일 뿐이며 인스턴스 경로를 추가하지 않습니다. |
+| 운영 범위 `unknown_service` 커버리지 | implemented | [`operating_scope.py`](../../../services/core-control-plane/src/fdai/core/operational_context/operating_scope.py), [`test_operating_scope.py`](../../../services/core-control-plane/tests/core/operational_context/test_operating_scope.py) | 결정론적 읽기 전용 변환 결과가 대응되지 않은 리소스를 계속 표시하고 예약된 표시자를 서비스 id로 사용하는 입력을 차단합니다. 아직 런타임 또는 Console 소비자에 연결되지 않았습니다. |
+| 운영 의도 런타임 인스턴스 | in-progress | 의도 6종의 카탈로그 선언, [`ontology_console_projection.py`](../../../services/core-control-plane/src/fdai/delivery/ontology_console_projection.py) | `ServiceObjective`, `RecoveryObjective`, `CostObjective`, `ArchitectureConstraint`, `Ownership`, `ChangeWindow`는 선언되고 band에 포함되며 `OperatingModelProjector`가 배포 제공 인스턴스를 보존할 수 있습니다. 이를 도출하는 변환 결과와 end-to-end로 고정하는 집중 테스트는 없습니다. |
 
 ### 구현 이력
 
@@ -101,6 +74,8 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
 | 2026-08-14 | implemented | 일치하지 않는 보안 receipt를 거부하고 raw 객체 속성을 제외하는 범위 제한 컨텍스트 표현 projector를 추가했습니다. | `current change`, `test_console_projection.py` focused 테스트 5개 통과 | Principal 범위 근거 응답을 통해서만 projector를 연결하고 인증된 Console 근거를 보존해야 합니다. |
 | 2026-08-15 | implemented | 선언되지 않은 `predicts_breach_of`와 `learned_as` 행을 관계 계약에서 제거하고 이를 막고 있는 ObjectType을 기록했으며, 표를 제공되는 LinkType 카탈로그와 저장된 링크 방향에 고정했습니다. | `current change`, `test_ontology_catalog.py` 및 `test_ontology_instance.py` focused 테스트 | 두 관계는 엔드포인트 ObjectType과 이를 필요로 하는 competency 질문이 함께 준비될 때만 복원합니다. |
 | 2026-08-15 | implemented | Compiler와 발행 경로를 근거로 `Pattern`과 `PatternObservation`을 하나의 층위로 판정하고, 검토 주장을 바로잡았으며, 선언되지 않은 ObjectType 두 개를 제자리에 표시하고, 결정과 학습 계보 projector에 운영 호출자가 없음을 기록했습니다. | `current change`, `test_ontology_catalog.py` 문서 일관성 테스트 | 조립 루트에서 `OperationalHypothesisLineageProjector`를 구성해 통제된 에피소드가 `considers`, `expects`, `executed_as`, `resulted_in`을 기록하고 재생할 수 있게 한 뒤, Norns가 살아 있는 소비자와 함께 `PatternObservation`을 발행하거나 해당 ObjectType, 토픽, `PANTHEON_SPECS` 및 판테온 문서 행을 한 번에 폐기해야 합니다. |
+| 2026-08-15 | implemented | 카탈로그에 `Forecast`와 `Pattern`을 선언하고 `unknown_service` 범위 커버리지 표시자를 구현했으며 운영 의도 변환 결과 간극을 기록했습니다. 회전된 온톨로지 release 때문에 제공 한국어 의미 surface를 재검증하고 결정론적 competency 고정본 다이제스트를 다시 고정했습니다. | `current change`, `rule-catalog/vocabulary/object-types/{Forecast,Pattern}.yaml`, `Identifiable.yaml`, `rule-catalog/surfaces`, `rule-catalog/surface-validation-receipts`, `config/ontology-query-competency.json`, `core/operational_context/operating_scope.py`, `tests/core/operational_context/test_operating_scope.py`, `tests/delivery/test_ontology_console_projection.py`, `pytest -q --no-cov`가 대화, 카탈로그, 맥락, 변환 결과, alignment, 인스턴스, explorer, release 집중 사례 1461개를 통과했고 `check-ontology-query-coverage.py`와 로드맵, 번역, 문장부호, 링크, 문서 크기 게이트 및 작업 범위 Ruff와 mypy도 통과 | 범위 커버리지를 소비자에 연결하고 `predicts_breach_of`와 `learned_as`를 선언하며 운영 의도 인스턴스를 고정해야 합니다. |
+| 2026-08-15 | implemented | 제공되는 `Forecast`와 `Pattern` 선언을 채택해 미선언 표시를 제거하고, 보류된 관계 두 개의 실제 차단 사유를 어느 엔드포인트 쌍도 생산할 수 없다는 사실로 기록했습니다. | `current change`, `test_ontology_catalog.py` 문서 일관성 테스트, 집중 카탈로그, 컨텍스트, 변환 결과, 정합성, 인스턴스, explorer 및 release 테스트 1375개 통과 | 보류된 관계를 복원하기 전에 생산자를 마련하고, 결정과 학습 계보 projector를 연결해야 합니다. |
 
 ### 남은 작업
 
@@ -114,8 +89,12 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
   principal, 목적, 릴리스, stale 및 truncated 사례가 사용 불가로 유지됨을 입증합니다.
 - [ ] 토폴로지, 시간, reconciliation 및 graph-wide Dynamic 제공이 집중 종료 조건에 도달할
   때 운영 온톨로지와 플랫폼 원장을 동기화합니다.
-- [ ] `Forecast`와 `Pattern` ObjectType을 제공할지는 이를 필요로 하는 competency 질문을 근거로
-  결정하고, 그때에만 `predicts_breach_of`와 `learned_as`를 선언된 LinkType으로 복원합니다.
+- [ ] `project_operating_scope`를 읽기 전용 소비자 하나에 연결해 `unknown_service`가 운영자
+  화면에 도달하게 하고 해당 소비자의 집중 검사 통과 결과를 남깁니다.
+- [ ] `predicts_breach_of`와 `learned_as`를 명시적인 물리 엔드포인트 이름으로 선언하거나
+  도입하지 않음을 기록하고, 카탈로그가 여전히 하나의 그래프로 로드됨을 입증합니다.
+- [ ] 운영 의도 6종을 배포가 제공하는 출처에서 변환하고, 의도 타입이 인스턴스를 만들지
+  못하면 실패하는 집중 테스트로 고정합니다.
 
 ## 카탈로그 의미 변환 결과
 
@@ -270,6 +249,13 @@ FDAI는 domain-agnostic하지 않습니다. 안정적인 도메인 모델을 가
 `BusinessService`, `Workload`, 리소스 대응은 최소 operational spine을 구성합니다. 대응되지
 않은 리소스는 `unknown_service`로 계속 표시하며 synthetic 서비스에 자동 할당하지 않습니다.
 
+`project_operating_scope`가 이 표시자를 구현합니다. 관측된 모든 `Resource`는 커버리지 변환
+결과에 남으며, `implemented_by`와 `workload_runs_on`을 통해 검토된 서비스 하나만
+도달하면 그 서비스 id를 보고하고, 경로가 없거나 워크로드까지만 이어지거나 서비스가
+충돌하면 `unknown_service`로 남은 채 도달한 id를 그대로 유지합니다. 선언되지 않았거나
+타입이 다른 엔드포인트는 대응을 만들지 않고, 예약된 표시자는 서비스 id로 사용할 수 없으며,
+이 변환 결과는 어떤 권한도 부여하지 않습니다.
+
 ### 운영 의도
 
 다음 객체는 FDAI가 보존해야 하는 조건을 정의합니다.
@@ -295,7 +281,7 @@ bag에만 정보를 두는 대신 명시적인 시간 및 prediction 개념을 �
 |------------|------|
 | `Observation` | Event-time 기준 시점의 정규화된 측정 값과 근거 참조입니다. |
 | `Change` | 의도, desired-state 근거, affected 범위, 출처 이력이 있는 planned, proposed, 활성, drift-observed, completed 변경입니다. |
-| `Forecast` | Horizon, 간격, 확신도, feature 기준 시점이 있는 versioned 변환 결과입니다. 제공되는 카탈로그에 선언되어 있지 않습니다. |
+| `Forecast` | Horizon, 간격, 확신도, feature 기준 시점이 있는 versioned 변환 결과입니다. |
 | `Experiment` | 관측 에피소드에 intervention을 줄 수 있는 범위 제한 chaos 또는 검증 활동입니다. |
 
 ### 결정과 학습
@@ -310,10 +296,18 @@ bag에만 정보를 두는 대신 명시적인 시간 및 prediction 개념을 �
 | `ExpectedEffect` | Predicted 메트릭 범위, 관측 구간, uncertainty, predictor 버전입니다. |
 | `ActionRun` | 기존 실행 신원과 최종 증적입니다. |
 | `ObservedOutcome` | 관측된 효과, 롤백, SLO 복구, recurrence, 채점 상태입니다. |
-| `Pattern` | Balanced sealed-case 집단에서 compile된 inert 기록이며, Norns의 `PatternObservation`을 검토해 일반화한 것이 아니라 그것과 [하나의 층위](../rules-and-detection/operational-learning-ontology-ko.md#pattern과-patternobservation은-하나의-층위입니다)입니다. 제공되는 카탈로그에 선언되어 있지 않습니다. |
+| `Pattern` | Balanced sealed-case 집단에서 compile된 inert 범용 방식이며, Norns의 `PatternObservation`을 검토해 일반화한 것이 아니라 그것과 [하나의 층위](../rules-and-detection/operational-learning-ontology-ko.md#pattern과-patternobservation은-하나의-층위입니다)입니다. |
 
 `DecisionCase`는 RiskGate 결정 또는 감사 기록을 대체하지 않습니다. Forseti, Odin, Var,
 Saga, 재생 소비자가 같은 사실을 참조하게 하는 변경할 수 없는 의미 입력입니다.
+
+`Forecast`와 `Pattern`은 카탈로그가 선언하기 전부터 band에 있었고 가용성 필터가 신호 없이
+둘을 제외했습니다. 두 타입은 이미 고정 판테온 소유자와 생성 방식을 갖춰 지금 선언되었습니다.
+Heimdall이 `Forecast`를 소유하며 `core/detection/forecast.py`에서 생성하고, Norns가
+`PatternObservation`을 소유하며 `OperatingPatternCompiler`에서 balanced-cohort 방식을
+생성합니다. 두 이름을 band에서 삭제하고 미도입으로 기록하는 대안은 과장 표현을 바로잡는
+대신 구현된 동작을 가리게 되어 기각했습니다. 두 선언은 링크 타입, 변환 결과, 인스턴스 경로
+또는 권한을 추가하지 않으며 `predicts_breach_of`와 `learned_as`는 여전히 선언되지 않았습니다.
 
 ## 관계 계약
 
@@ -364,18 +358,20 @@ Cardinality, causal direction, temporal 정렬, allowed 엔드포인트 combinat
 
 ### 보류된 관계
 
-이전 개정판이 계약 행으로 표기했던 관계 두 개는 선언된 것이 아니라 보류된 상태입니다.
+이전 개정판이 계약 행으로 표기했던 관계 두 개는 선언된 것이 아니라 보류된 상태입니다. 엔드포인트
+ObjectType은 이제 둘 다 존재하므로, 남은 차단 사유는 어느 쌍도 생산할 수 없다는 점입니다.
 
 | 관계 | 의도한 엔드포인트 | 보류 사유 |
 |------|-----------------|----------|
-| `predicts_breach_of` | Forecast -> 목표 | `Forecast` ObjectType이 카탈로그에 선언되어 있지 않습니다. |
-| `learned_as` | ObservedOutcome -> Pattern | `Pattern` ObjectType이 카탈로그에 선언되어 있지 않으며, 쌍 자체도 생산할 수 없습니다. 집단은 sealed 사례를 `case-history:<case_id>:<revision>:<manifest_digest>`로 인용할 뿐 `ObservedOutcome` 신원을 받지 않습니다. 복원되더라도 검토된 학습 투영일 뿐 승격 경로가 되지 않습니다. |
+| `predicts_breach_of` | Forecast -> 목표 | `ForecastFinding`은 메트릭 임계값 breach를 예측할 뿐 objective 신원을 담지 않으므로 대상 엔드포인트를 공급할 수 있는 생산자가 없습니다. `목표` 역시 명시적인 물리 엔드포인트 이름이 필요한 개념 union입니다. |
+| `learned_as` | ObservedOutcome -> Pattern | 집단은 sealed 사례를 `case-history:<case_id>:<revision>:<manifest_digest>`로 인용할 뿐 `ObservedOutcome` 신원을 받지 않으므로 출발 엔드포인트를 생산할 수 없습니다. 복원되더라도 검토된 학습 투영일 뿐 승격 경로가 되지 않습니다. |
 
 카탈로그 로딩은 `from_type`과 `to_type`을 ObjectType 레지스트리에 교차 참조하고 fail-closed로
 동작하므로, 엔드포인트 ObjectType 두 개가 모두 존재하기 전에 LinkType을 선언해서는 안 됩니다.
-선언이 뒷받침하지 않는 상태에서 이 행들을 계약으로 표기하면 어떤 조회도 traverse할 수 없는
-관계를 검증된 것처럼 주장하게 됩니다. 각 관계는 엔드포인트 ObjectType과 그 관계가 답해야 하는
-competency 질문이 함께 준비될 때만 계약 표로 돌아옵니다.
+선언할 수 있다고 쓸 수 있는 것은 아닙니다. 어느 엔드포인트도 공급할 생산자가 없는 상태에서 행을
+계약으로 표기하면 어떤 조회도 traverse할 수 없는 관계를 검증된 것처럼 주장하게 됩니다. 각 관계는
+엔드포인트 둘 다의 생산자와 그 관계가 답해야 하는 competency 질문이 갖춰졌을 때만 계약 표로
+돌아옵니다.
 
 ## 신원과 시간
 

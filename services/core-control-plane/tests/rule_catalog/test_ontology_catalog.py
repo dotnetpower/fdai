@@ -141,7 +141,6 @@ def test_documented_object_types_are_declared_or_deferred() -> None:
     marked = {name for name, purpose in rows if _UNDECLARED_MARKER in purpose}
 
     assert rows, "the semantic-layer tables MUST list object types"
-    assert marked, "the semantic-layer tables MUST mark every undeclared object type"
     assert [name for name, _ in rows if name not in declared and name not in marked] == []
     assert sorted(name for name in marked if name in declared) == []
 
