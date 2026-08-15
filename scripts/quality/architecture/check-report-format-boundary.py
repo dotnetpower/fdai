@@ -103,6 +103,28 @@ def validate(root: Path) -> list[str]:
     exported = _imported_names(package_source) | _exported_names(package_source)
     registered = _imported_names(defaults_source)
 
+    # The package is a flat set of encoder modules. A subdirectory would carry
+    # encoders the per-file checks below never see.
+    for child in sorted(formats_root.iterdir()):
+        if child.is_dir() and child.name != "__pycache__":
+            errors.append(
+                f"{child.relative_to(root).as_posix()}: the formats package is flat; "
+                "an encoder MUST be a module directly under it"
+            )
+
+    # Infrastructure modules collect encoders; they never define one, because a
+    # class defined there would skip every check below.
+    for name in sorted(INFRASTRUCTURE_MODULES):
+        path = formats_root / name
+        if not path.exists():
+            continue
+        relative = path.relative_to(root).as_posix()
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=relative)
+        defined = _encoder_class_names(tree)
+        if defined:
+            errors.append(f"{relative}: MUST NOT define an encoder class, found {defined}")
+        errors.extend(_import_errors(tree, relative))
+
     for path in sorted(formats_root.glob("*.py")):
         if path.name in INFRASTRUCTURE_MODULES:
             continue
@@ -125,17 +147,23 @@ def validate(root: Path) -> list[str]:
                 f"{DEFAULTS_MODULE.as_posix()} nor listed as a reviewed opt-in encoder"
             )
 
-        if _has_relative_import(tree):
+        errors.extend(_import_errors(tree, relative))
+    return errors
+
+
+def _import_errors(tree: ast.AST, relative: str) -> list[str]:
+    errors: list[str] = []
+    if _has_relative_import(tree):
+        errors.append(
+            f"{relative}: relative imports are not allowed; a format module MUST name "
+            "every dependency so this gate can see it"
+        )
+    for name in sorted(_module_names(tree)):
+        if not _is_allowed_import(name):
             errors.append(
-                f"{relative}: relative imports are not allowed; a format module MUST name "
-                "every dependency so this gate can see it"
+                f"{relative}: forbidden import {name!r}; an encoder needing a delivery "
+                "dependency belongs outside core/ and is registered at the composition root"
             )
-        for name in sorted(_module_names(tree)):
-            if not _is_allowed_import(name):
-                errors.append(
-                    f"{relative}: forbidden import {name!r}; an encoder needing a delivery "
-                    "dependency belongs outside core/ and is registered at the composition root"
-                )
     return errors
 
 
