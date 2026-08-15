@@ -44,6 +44,21 @@ class ClarificationRequirement(StrEnum):
     PURPOSE = "purpose"
 
 
+class SemanticOutputShape(StrEnum):
+    """Bind one frame digest to a deterministic query capability family."""
+
+    AGGREGATION_TABLE = "aggregation_table"
+    CAUSAL_EVIDENCE = "causal_evidence"
+    EVIDENCE_VALIDATION = "evidence_validation"
+    INCIDENT_EVIDENCE = "incident_evidence"
+    ONTOLOGY_MANIFEST = "ontology_manifest"
+    ONTOLOGY_RELATIONSHIPS = "ontology_relationships"
+    PROPERTY_FILTERED_RESOURCES = "property_filtered_resources"
+    RESOURCE_LIST = "resource_list"
+    TEMPORAL_COMPARISON = "temporal_comparison"
+    TOPOLOGY_GRAPH = "topology_graph"
+
+
 class _Proposal(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
 
@@ -55,7 +70,7 @@ class SemanticFrameProposal(_Proposal):
     subject_constraints: tuple[str, ...] = Field(default=(), max_length=32)
     measure_concepts: tuple[str, ...] = Field(default=(), max_length=16)
     temporal_scope: dict[str, Any] = Field(default_factory=dict)
-    output_shape: str = Field(pattern=r"^[a-z][a-z0-9_.-]{0,79}$")
+    output_shape: SemanticOutputShape
     evidence_requirements: tuple[
         Annotated[str, Field(pattern=r"^[a-z][a-z0-9_.-]{0,79}$")], ...
     ] = Field(default=(), max_length=32)
@@ -208,6 +223,7 @@ __all__ = [
     "QueryPlanProposal",
     "SemanticDescriptorSelector",
     "SemanticFrameProposal",
+    "SemanticOutputShape",
     "SemanticPlanningDisposition",
     "SemanticPlanningModel",
     "SemanticPlanningOutcome",
