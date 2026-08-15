@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: c8312fc6bee81d93b81c39f33bc889052bbf6503
+translation_source_sha: f38eba0e35540e6b71a03322b77ae8ad10ec06c9
 translation_revised: 2026-08-16
 ---
 
@@ -258,6 +258,14 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 | 2026-08-15 | implemented | 앞 행을 정정합니다. 해당 변경은 Console typecheck script만 확장했고 강제되는 게이트는 확장하지 못했습니다. 이번 변경은 `run-operator-surfaces.sh`에서 `npm --prefix console run typecheck`를 실행하고, 만료된 시도가 실제로 잘린 경계를 공개하며, 해당 outcome을 `per_attempt_deadline_exceeded`로 이름을 바꾸고 일시적 turn 오류가 남은 시도를 사용하도록 합니다. | 현재 변경, live-evidence Vitest 98개 통과, 전체 Console suite 1802개 통과, `npm run typecheck` 통과입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
 | 2026-08-15 | implemented | Cohort를 완주했지만 발행 전에 중단된 실행이 영원히 통과하지 못하고 checkpoint까지 잃던 재개 함정을 제거했습니다. 완전히 재개된 cohort는 `run_mode: resumed_replay`로 발행되고, 회수는 발행을 전제하며, 강제 게이트는 중복 애플리케이션 typecheck를 피해 tests project만 실행하고, 해당 게이트 행을 parity 테스트로 고정했으며 아티팩트는 정체된 질문을 별도로 집계합니다. | 현재 변경, live-evidence Vitest 및 typecheck-parity suite 통과입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
 | 2026-08-15 | implemented | 앞 행이 열어 둔 재생 권한 구멍을 닫았습니다. Live 검증이 없는 실행은 `receipt_source: resumed_replay`로 발행되며 production-ready가 될 수 없고, 중단된 실행을 재생으로 잘못 표기하지 않습니다. 통과 기준이 읽는 모든 보존 필드를 검증하고, transport 재시도 집계 범위를 좁혔으며, checkpoint를 evidence identity로 키잉하고 아티팩트 schema를 올렸습니다. | 현재 변경, live-evidence Vitest 102개 통과, `npm run typecheck` 및 typecheck-parity 통과입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
+| 2026-08-15 | implemented | 재개된 cohort가 자신이 보고하는 stack을 실제로 증명하도록 했습니다. Checkpoint만으로 완주한 실행은 마지막 질문을 live stack에 다시 물으며, 보존된 모든 답변은 동일한 ontology release와 principal manifest 세대를 서술해야 하므로 오래된 답변이 live turn 하나에 편승할 수 없습니다. | 커밋 `344c445b8`, bounded wait 캠페인 표의 16위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
+| 2026-08-15 | implemented | 그 live 증명을 반증 가능하게 만들었습니다. 재개 시 답변이 필요한 마지막 질문까지 tail을 풀고, live 권한은 ontology release에 바인딩된 답변 turn을 요구하며, 재발행된 세대는 live 답변으로 확인되어야 하고, 완주했으나 실패한 cohort는 checkpoint를 유지하며, 실행 예산이 자신의 preamble까지 포함하고, checkpoint 신뢰·통과·회수·경로 정책을 게이트되지 않은 spec에서 테스트되는 순수 함수로 옮겼습니다. | 커밋 `d9adeccb2`, bounded wait 캠페인 표의 17위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
+| 2026-08-15 | implemented | 재개된 cohort가 수렴하도록 했습니다. 검증된 turn만 재개하고, 답변이 필요한 질문 정확히 하나만 live 증명으로 풀며, preamble의 각 단계가 자체 경계를 갖고, 세대를 증명할 수 없는 선택은 거부하며, 보존된 locale·operation·attempt outcome을 통제된 값으로 검증합니다. | 커밋 `11635c075`, bounded wait 캠페인 표의 18위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
+| 2026-08-16 | implemented | 실제로 증명할 수 있는 증명 질문을 풀도록 했습니다. 푸는 질문은 이전 실행이 세대 digest와 함께 답한 마지막 질문이며, 완주한 cohort는 러너가 단언하는 outcome이 충족될 때만 checkpoint를 회수하고, 포기한 turn이 재사용 페이지에 인증 스트림을 남기지 않으며, 누락된 receipt를 원래의 transport outcome으로 보고하고, 보존 결과 타입을 러너와 공유합니다. | 커밋 `d9eed948d`, bounded wait 캠페인 표의 19위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
+| 2026-08-16 | implemented | 탐지된 모든 결함을 복구 가능하게 만들었습니다. 세대가 섞인 checkpoint는 영원히 거부되는 대신 폐기되고, checkpoint 파일을 바인딩 전체로 키잉해 번갈아 쓰는 revision이나 target stack이 각자의 재개 상태를 유지하며, 실행 컨텍스트를 재설정할 수 없는 페이지는 실행을 중단시키고, `console/scripts`를 typecheck project에 넣자 실제 타입 결함이 드러나 수정했습니다. | 커밋 `6c2f0848b`, bounded wait 캠페인 표의 20위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
+| 2026-08-16 | implemented | 실행되지 않던 게이트를 복구했습니다. `npm exec`가 호출자 디렉터리를 유지해 operator 게이트가 저장소 루트에서 `tsconfig.tests.json`을 요구하다 TS5058로 실패했고 `set -e` 아래에서 console build와 CLI 검사 두 개까지 함께 무너뜨렸습니다. 이제 게이트가 project를 저장소 루트 기준으로 지정하고 parity 테스트가 그 형태를 고정하며, 잘린 실행은 유효한 checkpoint를 유지하고, 실행 중 release 교체가 무효화한 turn만 정리하며, 앞뒤가 맞지 않는 통제된 거부는 실패하고, 부분 checkpoint 파일은 프로세스별 이름을 갖습니다. | 커밋 `1782464e4`, bounded wait 캠페인 표의 21위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
+| 2026-08-16 | implemented | 막힌 cohort가 자신을 재생하지 못하게 했습니다. 거부만 한 답변 필수 turn을 풀어 이후 실행이 다시 시도하게 하고, pacing 결함이나 checkpoint 쓰기 실패는 아티팩트 없이 빠져나가는 대신 통제된 중단 사유가 되며, parity 테스트가 호출 전체를 고정하고, 운영자가 지정한 checkpoint 경로를 다듬습니다. | 커밋 `ddf1e47f5`, bounded wait 캠페인 표의 22위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
+| 2026-08-16 | implemented | Pacing만이 아니라 질문 전체를 보호하도록 했습니다. Pacing과 질문 내 재시도 대기, turn이 하나의 중단 경로를 공유하므로 재시도 대기 중 페이지 결함이나 허용된 0 pacing 재정의 상황에서도 아티팩트가 남고, 예산으로 잘린 시도는 쓸 수 없는 reload를 소비하지 않으며, 예산 중단은 중단된 질문의 이름을 남깁니다. | 커밋 `62f68be0e`, bounded wait 캠페인 표의 23위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
 
 ### 남은 작업
 
