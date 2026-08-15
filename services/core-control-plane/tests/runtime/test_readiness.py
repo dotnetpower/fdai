@@ -6,6 +6,7 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import pytest
 from fdai.core.readiness import (
     AuthorityCeiling,
     ProbeStatus,
@@ -252,3 +253,52 @@ async def test_guarded_operation_is_cancelled_on_blocker_and_restarts() -> None:
     await guarded
 
     assert starts == 2
+
+
+async def test_guarded_operation_is_drained_when_the_supervisor_is_cancelled() -> None:
+    now = datetime.now(UTC)
+    state = RuntimeReadinessState()
+    runtime = build_startup_readiness_runtime(
+        state_store=InMemoryStateStore(),
+        event_bus=LocalEventBus(),
+        event_validator=_Validator(),  # type: ignore[arg-type]
+        identity=LocalWorkloadIdentity(),
+        embedding_model=_Embedding(),
+        policy_compile_probe=_policy_probe(),
+        environment={"FDAI_STARTUP_KAFKA_SETTLE_SECONDS": "0"},
+    )
+    object.__setattr__(runtime, "state", state)
+    stop = asyncio.Event()
+    running = asyncio.Event()
+    cleaned = asyncio.Event()
+
+    async def operation() -> None:
+        running.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cleaned.set()
+
+    state.update(
+        StartupReadinessReport(
+            generated_at=now,
+            decision=ReadinessDecision.READY,
+            results=(
+                StartupProbeResult(
+                    probe_id="postgres",
+                    status=ProbeStatus.PASSED,
+                    observed_at=now,
+                    expires_at=now + timedelta(minutes=5),
+                    latency_ms=1,
+                ),
+            ),
+        )
+    )
+    guarded = asyncio.create_task(runtime.run_when_ready(stop, operation))
+    await running.wait()
+
+    guarded.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await guarded
+
+    assert cleaned.is_set()
