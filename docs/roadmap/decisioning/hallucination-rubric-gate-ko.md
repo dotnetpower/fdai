@@ -1,8 +1,8 @@
 ---
 title: Hallucination Rubric Gate
 translation_of: hallucination-rubric-gate.md
-translation_source_sha: 4f7cf6bd58bb31e7118915549cbdda0d246b007c
-translation_revised: 2026-08-14
+translation_source_sha: 1338a585c591f64024c14fda8912acbfa13fed4b
+translation_revised: 2026-08-16
 ---
 # Hallucination 평가 기준 게이트 (환각 루브릭 게이트)
 
@@ -33,6 +33,7 @@ translation_revised: 2026-08-14
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 이전 전달 이력을 재구성하지 않고 근거 범위 안에서 구현 원장을 도입했습니다. | `current change`; 범위 테이블에 나열된 현재 소스 및 집중 검사; 루브릭 관련 집중 검사 103건이 통과했습니다. | Self-consistency cascade를 연결하고, 종단 간 감사 영속성을 증명하며, 관리되는 shadow 및 승격 근거를 보존해야 합니다. |
 | 2026-08-14 | implemented | 옵인 구성 뒤에서 프로덕션 T2 경로가 self-consistency cascade를 호출하도록 하고, 신뢰할 수 없는 근거 설명 없이 종단 간 루브릭 출처 영속성을 증명했습니다. | `current change`; `tier.py`, `self_consistency.py`, `control_loop.py`, `models.py`; 집중 검사가 quality 게이트와 T2 172건, 컨트롤 루프 감사 3건, 런타임 바인딩 11건을 통과했고 작업 범위 Ruff와 strict mypy가 통과했습니다. | 포착률, 오탐률, 지연 시간, 토큰 비용, 우회 0건에 대한 관리되는 shadow 증적을 보존한 뒤 승격 전환을 결정합니다. |
+| 2026-08-16 | implemented | 동작이 아니라 안전 관련 서술을 바로잡았습니다. 이 문서와 `gate.py` 모듈 docstring은 모두 토론 `PROCEED` 가 교차 검증 불일치를 해소하는 경로를 서술했습니다. 그런 경로는 없습니다: `cross_check_below_quorum` 은 `reasons` 에서 절대 제거되지 않으므로 결과는 무조건 `DISAGREE` 입니다. 어느 쪽 서술이든 명세로 읽으면 구현자가 `DISAGREE` 를 `ELIGIBLE` 로 뒤집어 mixed-model 안전장치를 약화시키도록 유도했을 것입니다. | `current change`; `gate.py` 의 결과 선택은 다른 어떤 분기보다 먼저 `if any(r.startswith("cross_check_below_quorum") ...)` 를 읽습니다. `test_debate_proceed_keeps_disagreement_for_human_review` 가 이미 `DISAGREE` 와 남아 있는 사유를 단언합니다. | 이 정정에 대해서는 없음. |
 
 ### 남은 작업
 
@@ -66,12 +67,16 @@ RAG grounding(인용 유효성), mixed-model 교차 검사(구조적 합의), �
 - 루브릭 실패는 abstain 이유를 추가한다(HIL로 라우팅); 조건을 충족한 이유는 절대 추가하지
   않는다.
 - 루브릭은 검증기 거부를 우회하지 못하며, abstain 될 후보를 조건을 충족한으로 뒤집지 못한다.
-- 이는 **모든** 결과 경로에서 성립하며, 토론 오케스트레이터가 교차 검증 불일치를
-  해소하는 경로도 포함한다: 루브릭 사유가 있으면 토론이 proceed 하려 해도 결과는
-  abstain으로 유지된다.
+- 이는 **모든** 결과 경로에서 성립한다. 토론 경로에서는 자명하게 성립하는데, 애초에 토론은
+  교차 검증 불일치를 해소하지 않기 때문이다: `cross_check_below_quorum` 은 `reasons` 에서
+  절대 제거되지 않으므로 토론이 `PROCEED` 해도 결과는 `ABSTAIN` 이나 `ELIGIBLE` 에
+  이르지 못하고 `DISAGREE` 로 남는다. 토론은 감사 추적을 풍부하게 할 뿐 mixed-model
+  정족수를 되사올 수 없다.
 
-프로퍼티 테스트가 이를 직접 단언한다: 최대 루브릭 점수도 저-confidence 후보를 구제하지
-못하고, 토론 PROCEED 후에도 루브릭 FAIL은 존중된다.
+프로퍼티 테스트가 루브릭 규칙을 직접 단언한다: 최대 루브릭 점수도 저-confidence 후보를
+구제하지 못한다. `test_debate_proceed_keeps_disagreement_for_human_review` 는 토론 규칙을
+단언한다: 토론 `PROCEED` 이후에도 결과는 여전히 `DISAGREE` 이고
+`cross_check_below_quorum` 도 그대로 남는다.
 
 ## Works with
 
