@@ -5,10 +5,11 @@ import { dirname } from "node:path";
 
 import { canonicalJsonDigest } from "./browser-evidence-provenance";
 
-export const ASSURANCE_CHECKPOINT_SCHEMA_VERSION = "2.0.0";
+export const ASSURANCE_CHECKPOINT_SCHEMA_VERSION = "3.0.0";
 
 export interface AssuranceCheckpointBinding {
   readonly source_revision: string;
+  readonly target_origin: string;
   readonly evidence_identity_digest: string;
   readonly workspace_patch_digest: string;
 }
@@ -35,14 +36,15 @@ function isStringArray(value: unknown): value is readonly string[] {
 
 function parseBinding(value: unknown): AssuranceCheckpointBinding | null {
   if (!isPlainObject(value)) return null;
-  const { source_revision, evidence_identity_digest, workspace_patch_digest } = value;
+  const { source_revision, target_origin, evidence_identity_digest, workspace_patch_digest } =
+    value;
   if (
-    typeof source_revision !== "string" || typeof evidence_identity_digest !== "string" ||
-    typeof workspace_patch_digest !== "string"
+    typeof source_revision !== "string" || typeof target_origin !== "string" ||
+    typeof evidence_identity_digest !== "string" || typeof workspace_patch_digest !== "string"
   ) {
     return null;
   }
-  return { source_revision, evidence_identity_digest, workspace_patch_digest };
+  return { source_revision, target_origin, evidence_identity_digest, workspace_patch_digest };
 }
 
 /**
@@ -53,6 +55,7 @@ function parseBinding(value: unknown): AssuranceCheckpointBinding | null {
  */
 export function parseAssuranceCheckpoint<TResult extends AssuranceCheckpointResult>(
   raw: unknown,
+  isResult: (value: Record<string, unknown>) => boolean = () => true,
 ): AssuranceCheckpoint<TResult> | null {
   if (!isPlainObject(raw)) return null;
   if (raw.schema_version !== ASSURANCE_CHECKPOINT_SCHEMA_VERSION) return null;
@@ -67,6 +70,7 @@ export function parseAssuranceCheckpoint<TResult extends AssuranceCheckpointResu
   for (const result of raw.results) {
     if (!isPlainObject(result) || typeof result.question_id !== "string") return null;
     if (!questionIds.has(result.question_id) || seen.has(result.question_id)) return null;
+    if (!isResult(result)) return null;
     seen.add(result.question_id);
   }
   const results = raw.results as readonly TResult[];
@@ -89,6 +93,7 @@ export function resumableResults<TResult extends AssuranceCheckpointResult>(
   const { binding, questionIds } = expected;
   if (
     checkpoint.binding.source_revision !== binding.source_revision ||
+    checkpoint.binding.target_origin !== binding.target_origin ||
     checkpoint.binding.evidence_identity_digest !== binding.evidence_identity_digest ||
     checkpoint.binding.workspace_patch_digest !== binding.workspace_patch_digest
   ) {
@@ -123,8 +128,7 @@ export function buildAssuranceCheckpoint<TResult extends AssuranceCheckpointResu
 }
 
 export async function readAssuranceCheckpoint<TResult extends AssuranceCheckpointResult>(
-  path: string,
-): Promise<AssuranceCheckpoint<TResult> | null> {
+  path: string,  isResult?: (value: Record<string, unknown>) => boolean,): Promise<AssuranceCheckpoint<TResult> | null> {
   let raw: string;
   try {
     raw = await readFile(path, "utf8");

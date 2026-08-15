@@ -15,7 +15,7 @@ const BUDGET_BOUNDS = {
   FDAI_E2E_ASSURANCE_MIN_REQUEST_INTERVAL_MS: [0, 60_000],
   FDAI_E2E_ASSURANCE_PER_QUESTION_DEADLINE_MS: [10_000, 600_000],
   FDAI_E2E_ASSURANCE_NO_PROGRESS_DEADLINE_MS: [30_000, 1_800_000],
-  FDAI_E2E_ASSURANCE_RUN_BUDGET_MS: [60_000, 14_400_000],
+  FDAI_E2E_ASSURANCE_RUN_BUDGET_MS: [MINIMUM_RUN_BUDGET_MS, MAXIMUM_RUN_BUDGET_MS],
 } as const satisfies Record<string, readonly [number, number]>;
 
 type BudgetVariable = keyof typeof BUDGET_BOUNDS;
@@ -35,8 +35,6 @@ export interface TransportRetryDelayInput {
   readonly attempt: number;
   readonly baseMs: number;
   readonly maxMs: number;
-  /** Server-declared hint. Values above `maxMs` are clamped by the run budget contract. */
-  readonly retryAfterSeconds?: number;
 }
 
 /** Returns the wait needed to honor a minimum spacing between request starts. */
@@ -52,19 +50,14 @@ export function pacingDelayMs(minimumIntervalMs: number, elapsedSinceLastStartMs
 
 /** Returns a bounded transport retry delay derived from the observed failure. */
 export function transportRetryDelayMs(input: TransportRetryDelayInput): number {
-  const { attempt, baseMs, maxMs, retryAfterSeconds } = input;
+  const { attempt, baseMs, maxMs } = input;
   if (!Number.isInteger(attempt) || attempt < 1) {
     throw new Error("transport retry attempt MUST be a positive integer");
   }
   if (!Number.isFinite(baseMs) || baseMs < 0 || !Number.isFinite(maxMs) || maxMs < baseMs) {
     throw new Error("transport retry bounds MUST satisfy 0 <= base <= max");
   }
-  const exponential = baseMs * 2 ** Math.min(attempt - 1, 16);
-  const hintMs = retryAfterSeconds !== undefined &&
-      Number.isFinite(retryAfterSeconds) && retryAfterSeconds >= 0
-    ? retryAfterSeconds * 1_000
-    : 0;
-  return Math.min(Math.ceil(Math.max(exponential, hintMs)), maxMs);
+  return Math.min(Math.ceil(baseMs * 2 ** Math.min(attempt - 1, 16)), maxMs);
 }
 
 function boundedOverride(
@@ -89,7 +82,7 @@ function boundedOverride(
  * Derives the bounded run budget for one invocation.
  *
  * The envelope is deliberately not the primary stall protection: the per-question and
- * no-progress deadlines fail a stalled run in minutes, and an exhausted budget stops
+ * stalled-question deadlines fail a stalled question in minutes, and an exhausted budget stops
  * gracefully with a resumable checkpoint instead of hanging until the harness times out.
  */
 export function resolveAssuranceBudget(

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: c0452ada5bef0ab00ec2030918e24bf2c3fe4ec3
+translation_source_sha: 56c3561793b8b31a489cc71123c5dc32172f3648
 translation_revised: 2026-08-15
 ---
 
@@ -50,6 +50,7 @@ translation_revised: 2026-08-15
 | 2026-08-15 | implemented | 모든 assurance turn을 남은 실행 예산으로 제한하고, 아티팩트 발행 전에 checkpoint를 회수하며, 통과에 live turn 최소 1회를 요구하고, turn 오류와 deadline 위반을 구분하며, 기본 checkpoint 경로를 cohort별로 분리했습니다. | `current change`; focused Vitest live-evidence 80개 통과, Console 타입 검사 통과, 1차 독립 검토의 Medium 2건 해소입니다. | Release 경계에서 bounded cohort를 실행하고 그 아티팩트를 보존합니다. |
 | 2026-08-15 | implemented | 앞 행을 정정합니다. Checkpoint 회수는 아티팩트 발행 후 단언 전에 실행되므로 발행 실패가 완성된 cohort를 파괴하지 않으면서도 이후 실행이 재생할 수 없습니다. | `current change`; focused Vitest live-evidence 86개 통과입니다. | Checkpoint 회수 순서에 남은 작업이 없습니다. |
 | 2026-08-15 | implemented | Assurance checkpoint를 전체 run configuration이 아니라 결과 schema, seed, 순서가 있는 cohort, 인증을 담는 evidence identity에 바인딩해 per-run session id나 조정된 pacing, deadline, retry 노브가 완료된 turn을 폐기하지 않도록 했습니다. 모든 보존 결과는 생성 실행을 기록하며 귀속되지 않은 결과는 통과할 수 없습니다. | `current change`; focused Vitest live-evidence 80개 통과 및 전체 Console suite 1793개 통과, Console typecheck 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
+| 2026-08-15 | implemented | Checkpoint 바인딩에 대상 stack origin을 추가해 중단된 cohort가 다른 배포에서 재개되지 않도록 했고, 예산 소진으로 생긴 비결과를 영구 실패로 저장하지 않으며, 재시도 수를 보존 증거에서 유도하고 보존 결과 형태를 로드 시 검증합니다. | `current change`; focused Vitest live-evidence 89개 통과, Console typecheck 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
 
 ### 잔여 작업
 

@@ -16,6 +16,7 @@ import {
 
 const BINDING: AssuranceCheckpointBinding = {
   source_revision: "0".repeat(40),
+  target_origin: "https://console.example.test",
   evidence_identity_digest: `sha256:${"a".repeat(64)}`,
   workspace_patch_digest: `sha256:${"b".repeat(64)}`,
 };
@@ -55,6 +56,16 @@ describe("parseAssuranceCheckpoint", () => {
     expect(parseAssuranceCheckpoint({ ...checkpoint(), question_ids: [] })).toBeNull();
     expect(parseAssuranceCheckpoint({ ...checkpoint(), results: "all" })).toBeNull();
   });
+
+  it("rejects results the caller does not recognize as complete evidence", () => {
+    const complete = (value: Record<string, unknown>) => typeof value.passed === "boolean";
+
+    expect(parseAssuranceCheckpoint(checkpoint(), complete)).not.toBeNull();
+    expect(parseAssuranceCheckpoint(
+      buildAssuranceCheckpoint(BINDING, QUESTION_IDS, [{ question_id: "en-aggregation-1" }]),
+      complete,
+    )).toBeNull();
+  });
 });
 
 describe("resumableResults", () => {
@@ -65,7 +76,14 @@ describe("resumableResults", () => {
 
   it("discards a checkpoint from a different source revision or workspace", () => {
     const expected = { binding: BINDING, questionIds: QUESTION_IDS };
-    for (const field of ["source_revision", "evidence_identity_digest", "workspace_patch_digest"] as const) {
+    for (
+      const field of [
+        "source_revision",
+        "target_origin",
+        "evidence_identity_digest",
+        "workspace_patch_digest",
+      ] as const
+    ) {
       const drifted = buildAssuranceCheckpoint(
         { ...BINDING, [field]: `${BINDING[field]}-changed` },
         QUESTION_IDS,

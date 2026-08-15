@@ -143,11 +143,23 @@ function retainTransportAttempt(
   return { attempt, outcome: "non_retryable_receipt_missing" };
 }
 
+/** Rejects a checkpoint whose retained results lost the fields the artifact depends on. */
+function isRetainedTurnResult(value: Record<string, unknown>): boolean {
+  return typeof value.produced_by_run_id === "string" && value.produced_by_run_id.length > 0 &&
+    typeof value.passed === "boolean" &&
+    typeof value.unauthorized_execution_claim === "boolean" &&
+    typeof value.attempt_count === "number" &&
+    Array.isArray(value.transport_attempts);
+}
+
 interface QuestionOutcome {
   readonly result: BrowserTurnResult | null;
   readonly transportAttempts: readonly RetainedTransportAttempt[];
   readonly requestCount: number;
-  readonly lastRequestStartedAt: number;
+  /** `null` when no request started, so the caller does not charge spacing for a turn never made. */
+  readonly lastRequestStartedAt: number | null;
+  /** True when the run budget, not the stack, ended the question. */
+  readonly budgetExhausted: boolean;
 }
 
 async function resolveQuestion(
@@ -158,12 +170,12 @@ async function resolveQuestion(
   runDeadlineAt: number,
 ): Promise<QuestionOutcome> {
   const transportAttempts: RetainedTransportAttempt[] = [];
-  // The whole question, including retries, is bounded by the stalled-run guard and can never
+  // The whole question, including retries, is bounded by the stalled-question guard and can never
   // outlive the run budget.
   const questionDeadlineAt = Math.min(runDeadlineAt, Date.now() + budget.noProgressDeadlineMs);
   let result: BrowserTurnResult | null = null;
   let requestCount = 0;
-  let lastRequestStartedAt = Date.now();
+  let lastRequestStartedAt: number | null = null;
   for (let attempt = 1; attempt <= MAX_TRANSPORT_ATTEMPTS; attempt += 1) {
     if (attempt > 1) {
       const retryDelayMs = transportRetryDelayMs({
@@ -180,29 +192,42 @@ async function resolveQuestion(
     const remainingMs = questionDeadlineAt - Date.now();
     if (remainingMs <= 0) {
       transportAttempts.push({ attempt, outcome: "question_budget_exhausted" });
-      return { result: null, transportAttempts, requestCount, lastRequestStartedAt };
+      return {
+        result: null,
+        transportAttempts,
+        requestCount,
+        lastRequestStartedAt,
+        budgetExhausted: true,
+      };
     }
+    const attemptDeadlineMs = Math.min(budget.perQuestionDeadlineMs, remainingMs);
+    const attemptBoundedByBudget = remainingMs < budget.perQuestionDeadlineMs;
     lastRequestStartedAt = Date.now();
     requestCount += 1;
     try {
       result = await withDeadline(
         runBrowserTurn(page, question, runId),
-        Math.min(budget.perQuestionDeadlineMs, remainingMs),
+        attemptDeadlineMs,
         `assurance turn ${question.question_id}`,
       );
     } catch (error) {
+      const deadlineExceeded = error instanceof DeadlineExceededError;
       transportAttempts.push({
         attempt,
-        outcome: error instanceof DeadlineExceededError
-          ? "per_question_deadline_exceeded"
-          : "turn_error",
+        outcome: deadlineExceeded ? "per_question_deadline_exceeded" : "turn_error",
       });
-      return { result: null, transportAttempts, requestCount, lastRequestStartedAt };
+      return {
+        result: null,
+        transportAttempts,
+        requestCount,
+        lastRequestStartedAt,
+        budgetExhausted: deadlineExceeded && attemptBoundedByBudget,
+      };
     }
     transportAttempts.push(retainTransportAttempt(attempt, result));
     if (!isRetryableAssuranceTransportFailure(result.source, result.semantic_receipt)) break;
   }
-  return { result, transportAttempts, requestCount, lastRequestStartedAt };
+  return { result, transportAttempts, requestCount, lastRequestStartedAt, budgetExhausted: false };
 }
 
 test("authenticated Console completes the seeded bilingual ontology assurance cohort", async ({ page }, testInfo) => {
@@ -248,11 +273,12 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   const checkpointFile = checkpointPath(runScope, questions.length);
   const checkpointBinding = {
     source_revision: provenance.source_revision,
+    target_origin: new URL(process.env.FDAI_E2E_BASE_URL!).origin,
     evidence_identity_digest: canonicalJsonDigest(assuranceEvidenceIdentity(runConfiguration)),
     workspace_patch_digest: provenance.workspace_patch_digest,
   };
   const resumed = checkpointFile === null ? [] : resumableResults(
-    await readAssuranceCheckpoint<RetainedTurnResult>(checkpointFile),
+    await readAssuranceCheckpoint<RetainedTurnResult>(checkpointFile, isRetainedTurnResult),
     { binding: checkpointBinding, questionIds },
   );
   const retained: RetainedTurnResult[] = [...resumed];
@@ -281,7 +307,13 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
 
     const outcome = await resolveQuestion(page, question, runId, budget, runDeadlineAt);
     protectedRequestCount += outcome.requestCount;
-    lastRequestStartedAt = outcome.lastRequestStartedAt;
+    if (outcome.lastRequestStartedAt !== null) lastRequestStartedAt = outcome.lastRequestStartedAt;
+    if (outcome.budgetExhausted) {
+      // Leave the question outstanding so a resumed run retries it instead of inheriting a
+      // permanent failure that only the run budget caused.
+      stopReason = "run_budget_exhausted";
+      break;
+    }
     {
       const transportAttempts = outcome.transportAttempts;
       const terminalOutcome = transportAttempts.at(-1)?.outcome;
@@ -348,7 +380,10 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   const duplicateProjectionIds = projectionIds.length - new Set(projectionIds).size;
   const failures = retained.filter((result) => !result.passed);
   const retriedQuestionCount = retained.filter((result) => result.attempt_count > 1).length;
-  const transportRetryCount = protectedRequestCount - retained.length;
+  const transportRetryCount = retained.reduce(
+    (total, result) => total + result.transport_attempts.length,
+    0,
+  ) - retained.length;
   const exhaustedTransportRetryCount = retained.filter((result) =>
     result.transport_attempts.at(-1)?.outcome === "retryable_transport_failure"
   ).length;
@@ -439,13 +474,14 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     run_scope: runScope,
     ...provenance,
     evidence_identity_digest: checkpointBinding.evidence_identity_digest,
+    target_origin: checkpointBinding.target_origin,
     run_configuration: runConfiguration,
     started_at: startedAt,
     completed_at: new Date().toISOString(),
     authentication: "browser_entra",
     authentication_attestation: {
       storage_state_restored: true,
-      protected_request_count: protectedRequestCount,
+      live_protected_request_count: protectedRequestCount,
     },
     run_budget: {
       run_budget_ms: budget.runBudgetMs,
