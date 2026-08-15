@@ -67,6 +67,7 @@ from fdai_operator_service.families.workflow import (
 from fdai_operator_service.projections import ProjectionUnavailableError
 from fdai_operator_service.redaction import redact_projection
 from fdai_operator_service.streaming import LiveStreamHub, make_live_stream_route
+from fdai_operator_service.streaming.shutdown import STREAM_SHUTDOWN_STATE, shutting_down
 
 DEFAULT_LIMIT: Final = 50
 MAX_LIMIT: Final = 500
@@ -249,7 +250,7 @@ def build_operator_app(
         async def events() -> AsyncIterator[bytes]:
             current = after_seq
             projection = initial
-            while not await request.is_disconnected():
+            while not shutting_down(request) and not await request.is_disconnected():
                 if projection is not None:
                     current = projection.sequence
                     yield _sse_frame(projection)
@@ -394,12 +395,15 @@ def build_operator_app(
         )
 
     @asynccontextmanager
-    async def lifespan(_: Starlette) -> AsyncIterator[None]:
+    async def lifespan(app: Starlette) -> AsyncIterator[None]:
+        shutdown = asyncio.Event()
+        setattr(app.state, STREAM_SHUTDOWN_STATE, shutdown)
         if lifecycle is not None:
             await lifecycle.start()
         try:
             yield
         finally:
+            shutdown.set()
             if lifecycle is not None:
                 await lifecycle.aclose()
 
