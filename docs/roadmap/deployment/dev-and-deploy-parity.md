@@ -33,6 +33,7 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 | Agent refresh latest-state hydration | validated | Focused stream tests: 9 passed; authenticated `/agents` reloads reached `Watching 2 / Idle 13 / Unobserved 0` in 224 ms, 232 ms, and 228 ms | The Agent hub seeds one latest validated `agent.state` event per agent into each new subscriber. Generic Live remains future-only, and neither hub provides durable history replay. |
 | Authenticated local Live event path | validated | Controlled 2026-08-13 Browser Entra run through `aw.change.events`, Core, `aw.pipeline.stages`, Operator SSE, and the existing authenticated Live DOM | The run preserved the authoritative ontology and rendered the event plus all four accepted stages. It did not validate a deployed revision, the browser Notifications API, or closed-browser push delivery. |
 | Local and deployed composition parity | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, `fdai_operator_service/composition.py`, service integration tests, and focused Operator checks (`51 passed`) | Composition roots select credentials and adapters without changing evidence authority. Local and deployed Operator composition register the same Reader-scoped `GET /browser-evidence` route and authoritative data-source identity; missing PostgreSQL remains unavailable rather than synthetic. |
+| Primary-worktree automatic startup isolation | implemented | `.vscode/tasks.json` and `tests/integration/scripts/test_vscode_workspace_performance.py`; focused automatic-start contract passed | Folder-open startup runs only from the primary checkout so linked worktrees cannot race for the standard ports. Explicit preparation and service-start tasks remain available in linked worktrees. |
 | Semantic planning tier parity | implemented | `composition/semantic_query_model_targets.py`; `composition/wire_semantic_query.py`; resolved model artifacts; focused tier-routing and composition tests | Local and deployed Core load the same capability artifact, bind the resolved narrator or `t1.judge` pool as T1, and keep T2 optional. Only an unavailable or deterministically invalid T1 proposal can retry its stage with T2. |
 | Permission-aware observation campaign parity | implemented | `config/observation-sources.yaml`; `fdai.delivery.observation_campaign*`; `.vscode/tasks.json`; `infra/modules/compute/container-apps/observation_campaign_job.tf`; focused Core, Operator, Console, workspace, and infrastructure checks | Local and deployed profiles use the same source catalog, due state, runner, normalized activity contract, and one-minute wake. Runtime artifacts are still required before validation. |
 | Local validation database isolation | implemented | `infra/local/docker-compose.yml`, `scripts/automation/validation_queue_context.py`, local preparation scripts, and focused validation and migration integration tests | Runtime state stays on local PostgreSQL port `5432`; destructive migration validation uses a separate local PostgreSQL cluster on port `5433`. |
@@ -63,6 +64,7 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 | 2026-08-14 | implemented | Added an atomic ten-slot port pool for concurrent fixture and live Playwright sessions, with paired frontend and Operator API ports plus slot-scoped artifacts. | `current change`; allocator tests passed 6 cases, Console typecheck passed, and two focused Playwright processes passed concurrently on frontend ports `5274` and `5275` with no remaining listener or lock. | No remaining implementation work for concurrent isolated Playwright port allocation. |
 | 2026-08-14 | implemented | Aligned local and deployed semantic planning on one T1-first model cascade instead of binding T2 as the initial planner. | `current change`; focused planner and composition checks pass on the same resolved artifact contract used by both venues. | Retain governed local and deployed records of T1 selection and bounded T2 escalation. |
 | 2026-08-15 | implemented | Added the same payload-free browser-evidence metadata route and data-source ownership to local and deployed Operator composition. | `current change`; focused Operator checks `51 passed`; Operator boundary and independent-service gates passed. | Retain one authenticated deployed read receipt and add the Console metadata panel. |
+| 2026-08-15 | implemented | Restricted folder-open full-stack startup to the primary checkout after two linked workspaces raced for the standard Console, Operator, and Core processes. | Current change in `.vscode/tasks.json` and `tests/integration/scripts/test_vscode_workspace_performance.py`; focused automatic-start contract passed. | No remaining implementation work for linked-worktree automatic startup isolation. |
 ### Remaining work
 
 - [ ] Establish an FDAI-only Remote WSL server data root or WSL distribution, then record a restarted Pylance process command containing `--max-old-space-size=2048` without changing the excluded workspace.
@@ -157,9 +159,13 @@ transport uses Docker Redpanda on `127.0.0.1:19092`. A deployed Azure process se
 Event Hubs Kafka endpoint. Venue selection never changes evidence authority, promotion state,
 human identity, or executor authority.
 
-Opening the trusted workspace runs `console: start full stack automatically`. The aggregate task
-completes `console: prepare full stack` once, then starts the five backend services and Console SPA
-in parallel without per-service confirmation clicks. Preparation starts runtime PostgreSQL on port
+Opening the trusted primary checkout runs `console: start full stack automatically`. The aggregate
+task first confirms that the checkout owns the shared Git directory, completes
+`console: prepare full stack` once, then starts the five backend services and Console SPA in
+parallel without per-service confirmation clicks. A linked worktree skips folder-open startup so
+two VS Code windows cannot replace each other's processes on the standard ports. Developers can
+still run `console: prepare full stack` and `console: start local services` explicitly from a linked
+worktree after stopping the primary stack. Preparation starts runtime PostgreSQL on port
 `5432`, an isolated validation PostgreSQL cluster on port `5433`, Redpanda, and ClamAV. It advances
 the frozen legacy Alembic lineage and adopts and upgrades all five service-owned migration branches
 under a single-instance limit. The same preparation refreshes read-only Azure Resource Graph

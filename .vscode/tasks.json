@@ -244,9 +244,16 @@
       }
     },
     {
+      "label": "console: require primary worktree for automatic start",
+      "type": "shell",
+      "command": "git_dir=\"$(git rev-parse --path-format=absolute --git-dir)\" && common_dir=\"$(git rev-parse --path-format=absolute --git-common-dir)\" && if [[ \"$git_dir\" != \"$common_dir\" ]]; then echo \"Automatic full-stack startup is disabled in linked worktrees. Run 'console: prepare full stack' and 'console: start local services' manually when needed.\" >&2; exit 75; fi",
+      "problemMatcher": []
+    },
+    {
       "label": "console: start full stack automatically",
       "dependsOrder": "sequence",
       "dependsOn": [
+        "console: require primary worktree for automatic start",
         "console: prepare full stack",
         "console: start local services"
       ],
