@@ -9,7 +9,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
-from fdai_service_contracts.ontology_query import QueryNodeKind
+from fdai_service_contracts.ontology_query import QueryNodeKind, content_digest
 
 from fdai.core.conversation.semantic_manifest import CatalogQueryManifestProvider
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
@@ -36,11 +36,13 @@ from fdai.core.ontology_platform import (
     OntologyQueryPlanVerifier,
     OrderNodeHandler,
     ProjectNodeHandler,
+    QueryManifest,
     SecuredObjectSetNodeHandler,
     SetOperationNodeHandler,
     TopologyAtNodeHandler,
     TopologyDiffNodeHandler,
     TopologyHistoryReader,
+    build_query_manifest,
     compile_interfaces,
 )
 from fdai.core.ontology_platform.catalog_queries import (
@@ -51,6 +53,10 @@ from fdai.core.ontology_platform.incident_queries import (
     INCIDENT_EVIDENCE_FUNCTION_NAME,
     IncidentEvidenceReader,
     incident_evidence_function,
+)
+from fdai.core.ontology_platform.manifest_queries import (
+    ONTOLOGY_MANIFEST_FUNCTION_NAME,
+    ontology_manifest_function,
 )
 from fdai.core.ontology_platform.network_path import (
     NETWORK_PATH_FUNCTION_NAME,
@@ -234,6 +240,35 @@ def build_semantic_query_runtime(
         ),
     )
     bound_function_names.add(pod_declaration.name)
+    manifest_declaration = declarations[ONTOLOGY_MANIFEST_FUNCTION_NAME]
+
+    def manifest_for_context(
+        role: CeilingRole,
+        purposes: tuple[str, ...],
+    ) -> QueryManifest:
+        return build_query_manifest(
+            release=ontology_release,
+            principal_role=role,
+            purposes=purposes,
+            principal_scope_digest=content_digest({"role": role.value, "purposes": purposes}),
+            object_types=ontology_catalog.object_types,
+            link_types=ontology_catalog.link_types,
+            interfaces=ontology_catalog.interface_types,
+            action_types=ontology_catalog.action_types,
+            functions=function_types,
+            bound_function_names=tuple(
+                sorted(bound_function_names | {ONTOLOGY_MANIFEST_FUNCTION_NAME})
+            ),
+        )
+
+    function_registry.register_contextual(
+        manifest_declaration,
+        ontology_manifest_function(
+            ontology_release,
+            manifest_for_context=manifest_for_context,
+        ),
+    )
+    bound_function_names.add(manifest_declaration.name)
     handlers: dict[QueryNodeKind, QueryNodeHandler] = {
         QueryNodeKind.UNION: SetOperationNodeHandler("union"),
         QueryNodeKind.INTERSECTION: SetOperationNodeHandler("intersection"),

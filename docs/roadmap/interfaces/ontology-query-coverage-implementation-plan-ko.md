@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 07e5e8475ffd25b90926da38f47034b14e9a0c91
+translation_source_sha: 1836c35b233d31de8342714e72f12ed038483845
 translation_revised: 2026-08-15
 ---
 
@@ -152,6 +152,7 @@ translation_revised: 2026-08-15
 | 타입 기반 Console 보증 실행기 | 구현됨 | `console-routes.spec.ts`, `ontology-query-assurance.ts`, `ontology-query-assurance.spec.ts`, focused Console 검사 | 한 실행기는 게시, Core 처리, exact projection 읽기 및 인증된 증적 렌더링을 검증합니다. Seed 기반 100-turn 실행기는 타입 전용 oracle로 영어 50개와 한국어 50개 prompt를 다룹니다. 보존 artifact가 통과하기 전에는 어느 구현도 실제 운영 근거가 아닙니다. |
 | T1 명확화 평가 | 구현됨 | `semantic_planning_models.py`, `semantic_planning_cascade.py`, focused tier-routing 및 prompt 검사 | Frame 제안은 누락된 사용자 맥락을 범위가 제한된 `clarification_requirements`로 분류합니다. 정당한 T1 명확화는 T2 없이 종료되고, Core가 이미 바인딩한 principal 범위 또는 용도를 요청하는 제안은 결정론적으로 유효하지 않으며 frame 단계만 T2로 한 번 재시도할 수 있습니다. |
 | 타입 기반 extension 답변 projection | 구현됨 | `semantic_turn_processor.py`, focused Core processor 테스트 | 검증된 `TopologyGraphAt`, `TopologyDiff`, `MetricWindow`, `CausalEvidenceJoin` 출력은 exact digest, 완전성, 개수, 제한 사항 및 `execution_authority=false`가 있는 범위 제한 요약으로 렌더링됩니다. Raw provider payload는 계속 제외하고 evidence reference는 기존 receipt 경로로 전달합니다. |
+| Principal 범위 스키마 인벤토리 | 구현됨 | `core/ontology_platform/manifest_queries.py`, `composition/wire_semantic_query.py`, focused 매니페스트, 핸들러, 조립 및 prompt 검사(`42 passed`) | `query.manifest`는 exact role 및 purpose 필터가 적용된 매니페스트에서 선언 인벤토리 질문에 범위 제한 일반 table과 호출 증적 하나로 답합니다. 임의 관계 또는 인스턴스 조회로 대체하지 않습니다. |
 | 인시던트 의미 근거 | 진행 중 | `core/incident/ontology_projection.py`, `core/ontology_platform/incident_queries.py`, focused 인시던트 및 의미 조립 검사 (`63 passed`) | Canonical 인시던트 상태를 ObjectSet으로 조회할 수 있고 `query.incident_evidence`는 서로 다른 canonical 인시던트 신원과 감사 상관관계 신원을 보존하면서 감사 기반 프로파일, 상관 기록, 명시적 공백 및 원인 주장 권한이 없는 결과를 반환합니다. A3 답변 계약과 인증된 Console 근거는 아직 남아 있습니다. |
 
 ### 구현 이력
@@ -177,6 +178,7 @@ translation_revised: 2026-08-15
 | 2026-08-15 | 구현됨 | 로컬 서술기 갱신을 의미 전송과 독립적으로 유지하면서 전송에 의해 제한되는 `SemanticTurnBridge` 활성화 계약을 보존했습니다. | `current change`, 집중 운영 조립 및 의미 브리지 검사 2개와 작업 범위 Ruff가 통과했습니다. | 운영 보증 상태를 변경하기 전에 통제된 요청-Console 및 이중 언어 무작위 근거를 보존합니다. |
 | 2026-08-15 | 구현됨 | Machine-readable 명확화 requirement를 추가하고 Core가 이미 바인딩한 principal 범위 또는 용도를 묻는 T1 frame 제안을 거부했습니다. 의미 frame prompt v4는 두 tier 모두 해당 값을 trusted server context로 취급하도록 지시합니다. | `current change`, focused 의미 planner 검사 21개, prompt 및 Azure adapter 검사 10개, 작업 범위 Ruff와 strict mypy 통과 | 중앙 검증 뒤 Core를 재시작하고 통제된 요청-Console 보증 경로를 다시 실행합니다. |
 | 2026-08-15 | 구현됨 | 검증된 topology graph, topology diff, metric window 및 causal join 출력을 위한 범위 제한 projection을 추가했습니다. | `current change`, focused Core processor 테스트 43개와 작업 범위 Ruff 및 strict mypy 통과 | Planner 계약을 활성화한 뒤 인증된 temporal 및 causal 답변 근거를 보존합니다. |
+| 2026-08-15 | 구현됨 | `query.manifest`를 통한 exact-release 스키마 인벤토리 조회, 닫힌 함수 table 변환, 인벤토리, 속성 filter, topology, aggregation 및 causal 질문의 명시적 frame/plan grammar를 추가했습니다. | `current change`, focused 매니페스트, 핸들러, 조립, 관계, 의미 조립 및 prompt 검사 42개와 작업 범위 Ruff 및 strict mypy 통과 | Clean 통과 14-cell 산출물을 보존한 뒤 seed 기반 100-case 집단을 실행하고 답변 근거가 하나라도 누락되면 준비 상태를 계속 차단합니다. |
 
 ### 남은 작업
 
