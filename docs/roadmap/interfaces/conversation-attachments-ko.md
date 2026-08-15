@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: 6255e2a3eef89818751833b728f9e81006c763bb
-translation_revised: 2026-08-13
+translation_source_sha: 8ecb4b3bf9c81f0d7a5776e5cafd9d91e0a906f2
+translation_revised: 2026-08-16
 title: 대화 첨부파일
 ---
 # 대화 첨부파일
@@ -47,7 +47,7 @@ flowchart LR
 | Slack 메타데이터와 비공개 download | not-started | 이 문서의 Slack 계약 | Signed Slack inbound 어댑터, private-file fetcher, 운영 연결 및 집중 fetch 보안 테스트가 없습니다. |
 | Teams 메타데이터와 비공개 download | not-started | 이 문서의 Teams 계약 | 인증된 Teams inbound 어댑터, endpoint resolver, private-file fetcher, 운영 연결 및 집중 fetch 보안 테스트가 없습니다. |
 | Protected 채널 인제스트 조립 | not-started | 이 문서의 protected-ingestion 계약 | 채널 바이트를 검사, 추출, 인덱싱 및 인용에 연결하는 구체적인 ingestor가 현재 없습니다. |
-| Web 채팅 문서 참조 | not-started | 이 문서의 web 문서 참조 계약 | Operator 요청 스키마, semantic envelope 및 운영 조립은 `document_refs`를 받거나 해석하지 않습니다. |
+| Web 채팅 문서 참조 | in-progress | [`document_refs.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/document_refs.py), [`test_conversation_document_refs.py`](../../../services/operator-service/tests/test_conversation_document_refs.py) | 범위가 제한된 구문 분석, 참조 8개 상한, 고유성, UUID 구문, principal 범위 해석, 동일한 거부 응답, resolver 부재 501, 순서 및 정규 형식 무결성 검사가 구현되고 집중 테스트를 통과했습니다. 버전이 지정된 semantic envelope과 운영 resolver 조립은 아직 해석된 인용을 전달하지 않습니다. |
 | Web 채팅 inline vision 경로 | in-progress | [`composer-attachments.view.tsx`](../../../console/src/deck/composer-attachments.view.tsx), [`backend-context.ts`](../../../console/src/deck/backend-context.ts), [`conversation_images.py`](../../../services/core-control-plane/src/fdai/delivery/conversation_images.py), [`postgres_conversation_images.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_conversation_images.py) | Console 캡처와 요청 직렬화, 범위가 제한된 이미지 저장소, migration 및 과거 이미지 렌더링은 존재합니다. Operator semantic envelope와 local narrator는 현재 이미지 첨부를 버리며 운영은 이미지 저장소를 채팅 route에 연결하지 않습니다. |
 | 문서 이미지 OCR | implemented | [`processing.py`](../../../services/document-processing-worker/src/fdai_document_worker_service/adapters/processing.py), [`production.py`](../../../services/document-processing-worker/src/fdai_document_worker_service/production.py), [`test_ingestion_adapter_readiness.py`](../../../services/document-processing-worker/tests/test_ingestion_adapter_readiness.py) | Document worker는 OCR endpoint가 설정되면 범위가 제한된 Document Intelligence `prebuilt-read`를 연결하고 그렇지 않으면 실패 시 차단합니다. 이 구현만으로 채널 또는 inline 채팅 인제스트가 완성되지는 않습니다. |
 
@@ -56,6 +56,7 @@ flowchart LR
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 현재 계약, 어댑터, 조립, Console 코드 및 테스트와 설계를 대조했습니다. | 구현 범위 표에 나열한 현재 소스와 집중 검사입니다. | 벤더 어댑터, protected 인제스트, web 문서 해석, 서버 inline 이미지 경로 및 통제된 runtime 증적이 남아 있습니다. |
+| 2026-08-16 | in-progress | 범위가 제한된 `document_refs` 요청 계약과 semantic 처리 전에 동작하는 principal 범위의 닫힘 실패 해석 경계를 추가했습니다. | `pytest services/operator-service/tests/test_conversation_document_refs.py`가 구문 거부, 참조 8개 상한, 고유성, 동일한 거부 응답, resolver 부재 501, 순서 변경 및 대체 인용 거부를 다루는 집중 테스트 10개를 통과했습니다. | 해석된 인용을 버전이 지정된 semantic envelope로 전달하고 PostgreSQL 문서 메타데이터 기반 운영 resolver를 연결해야 합니다. |
 
 ### 남은 작업
 
@@ -65,8 +66,10 @@ flowchart LR
   byte 상한을 적용하는 비공개 벤더 fetcher를 구현합니다.
 - [ ] Malware, protection, 추출, 인덱싱, 권한 확인, 인용 및 인계 경로를 통과하는 구체적인
   채널 ingestor를 조립합니다.
-- [ ] 버전이 지정된 Operator 대화 계약에 `document_refs`를 추가하고 semantic 처리 전에
-  principal 범위 문서 권한 확인을 통해 해석합니다.
+- [x] Operator 대화 family에 범위가 제한된 `document_refs` 요청 계약을 추가하고 semantic 처리
+  전에 principal 범위 문서 권한 확인을 통해 해석합니다.
+- [ ] 해석된 `document_refs` 인용을 버전이 지정된 semantic envelope로 전달하고, 권위 있는
+  PostgreSQL 문서 메타데이터 기반 운영 resolver를 연결하며, 경로 수준 테스트를 추가합니다.
 - [ ] 서버 inline 이미지 parser, byte 및 media 검증, 저장소 연결, semantic transport, vision
   narrator 입력, 이력 메타데이터 및 인증된 조회 경로를 완성합니다.
 - [ ] End-to-end 첨부 경로를 validated로 표시하기 전에 통제된 runtime 증적을 수집합니다.
