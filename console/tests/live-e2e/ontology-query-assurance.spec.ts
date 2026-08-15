@@ -29,6 +29,7 @@ import { canonicalJsonDigest } from "./browser-evidence-provenance";
 import { isOntologyAssuranceProductionReady } from "./ontology-query-assurance-readiness";
 import {
   assuranceCarriesLiveAuthority,
+  assuranceOperationMatchesPlan,
   assuranceCheckpointPath,
   assuranceCohortPassed,
   assuranceEvidenceIdentity,
@@ -54,6 +55,7 @@ import {
   selectOntologyAssuranceQuestions,
   type AssuranceRunConfiguration,
   type AssuranceQuestion,
+  type AssurancePlanCapability,
   type RetainedTransportAttempt,
   type RetainedTurnResult,
 } from "./ontology-query-assurance";
@@ -68,6 +70,7 @@ interface BrowserTurnResult {
   readonly source: string;
   readonly semantic_receipt: unknown;
   readonly verification: unknown;
+  readonly plan_capabilities: readonly AssurancePlanCapability[];
 }
 
 async function runBrowserTurn(
@@ -85,6 +88,33 @@ async function runBrowserTurn(
       source: reply.source,
       semantic_receipt: reply.semanticReceipt ?? null,
       verification: reply.verification ?? null,
+      plan_capabilities: Array.from(new Set((reply.intentGraph?.goals ?? []).flatMap((goal) => {
+        if (goal.intent === "function" && typeof goal.arguments["function_name"] === "string") {
+          return [`function:${goal.arguments["function_name"]}`];
+        }
+        if (goal.intent === "object_set") {
+          const definition = goal.arguments["definition"];
+          const predicates = typeof definition === "object" && definition !== null &&
+              !Array.isArray(definition)
+            ? (definition as Record<string, unknown>)["predicates"]
+            : undefined;
+          return Array.isArray(predicates) && predicates.length > 0
+            ? ["object_set", "object_set:filtered"]
+            : ["object_set"];
+        }
+        return [goal.intent];
+      }))).filter((capability): capability is AssurancePlanCapability => [
+        "aggregate",
+        "evidence_join",
+        "function:query.incident_evidence",
+        "function:query.manifest",
+        "function:query.ontology_relationships",
+        "metric_series",
+        "object_set",
+        "object_set:filtered",
+        "topology_at",
+        "topology_diff",
+      ].includes(capability)),
     };
   }, {
     prompt: question.prompt,
@@ -279,7 +309,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   test.setTimeout(budget.testTimeoutMs);
   const questionIds = questions.map((question) => question.question_id);
   const runConfiguration: AssuranceRunConfiguration = {
-    schema_version: "1.3.0",
+    schema_version: "1.4.0",
     run_id: runId,
     seed: COHORT_SEED,
     minimum_request_interval_ms: budget.minimumRequestIntervalMs,
@@ -407,6 +437,9 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
         ? { passed: false, failure_reason: terminalOutcome ?? "turn_error" }
         : judgeSemanticTurn(outcome.result.semantic_receipt, outcome.result.verification);
       const receipt = "receipt" in judgment ? judgment.receipt : undefined;
+      const planCapabilities = outcome.result?.plan_capabilities ?? [];
+      const planCapabilityMatch = receipt?.disposition !== "answered" ||
+        assuranceOperationMatchesPlan(question.operation, planCapabilities);
       retained.push({
         question_id: question.question_id,
         produced_by_run_id: runId,
@@ -414,9 +447,15 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
         operation: question.operation,
         attempt_count: transportAttempts.length,
         transport_attempts: transportAttempts,
-        passed: judgment.passed,
+        passed: judgment.passed && planCapabilityMatch,
         unauthorized_execution_claim: claimsExecutionAuthority(outcome.result?.semantic_receipt),
-        ...(judgment.failure_reason ? { failure_reason: judgment.failure_reason } : {}),
+        plan_capabilities: planCapabilities,
+        plan_capability_match: planCapabilityMatch,
+        ...(judgment.failure_reason
+          ? { failure_reason: judgment.failure_reason }
+          : !planCapabilityMatch
+          ? { failure_reason: "semantic_plan_operation_mismatch" }
+          : {}),
         ...(receipt ? {
           projection_id: receipt.projection_id,
           request_id: receipt.request_id,
@@ -505,6 +544,9 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   const unauthorizedExecutionCount = retained.filter(
     (result) => result.unauthorized_execution_claim,
   ).length;
+  const planCapabilityMismatchCount = retained.filter(
+    (result) => !result.plan_capability_match,
+  ).length;
   const deadlineExceededCount = retained.filter((result) =>
     result.transport_attempts.some(
       (attempt) => attempt.outcome === "per_attempt_deadline_exceeded",
@@ -520,6 +562,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   for (const result of retained) increment(producedByRunIdCounts, result.produced_by_run_id);
   const answeredResults = retained.filter((result) => result.disposition === "answered");
   const answeredEvidenceCount = answeredResults.filter((result) =>
+    result.passed && result.plan_capability_match &&
     result.evidence_ref_count !== undefined && result.evidence_ref_count > 0 &&
     result.checks_total !== undefined && result.checks_total > 0 &&
     result.checks_completed === result.checks_total
@@ -544,6 +587,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
       locale: result.locale,
       ...(result.disposition === undefined ? {} : { disposition: result.disposition }),
       complete_verified_evidence:
+        result.passed && result.plan_capability_match &&
         result.evidence_ref_count !== undefined && result.evidence_ref_count > 0 &&
         result.checks_total !== undefined && result.checks_total > 0 &&
         result.checks_completed === result.checks_total,
@@ -580,7 +624,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
       requiredAnswerCoverageComplete,
     });
   const artifact = {
-    schema_version: "1.2.0",
+    schema_version: "1.3.0",
     evidence_type: "authenticated_bilingual_ontology_query_assurance",
     receipt_source: assuranceReceiptSource({
       runMode,
@@ -637,6 +681,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
       duplicate_projection_id_count: duplicateProjectionIds,
       unsupported_operational_claim_count: unsupportedOperationalClaimCount,
       unauthorized_execution_count: unauthorizedExecutionCount,
+      plan_capability_mismatch_count: planCapabilityMismatchCount,
       answered_count: answeredResults.length,
       answered_with_complete_evidence_count: answeredEvidenceCount,
       answered_locale_coverage_complete: answeredLocaleCoverageComplete,
