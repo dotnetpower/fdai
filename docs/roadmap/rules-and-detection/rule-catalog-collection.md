@@ -558,9 +558,12 @@ consumed by T0 and the verifier, exactly as in
 contains exactly one baseline type for unmatched events, so T0 coverage remains explicit instead
 of relying on `*`. Rule `evaluates` values use canonical `Property` identities.
 
-Run `scripts/catalog/sync-rule-semantics.py --check` to verify those properties against the
-authored Rego AST. The synchronizer invokes OPA, verifies the package `rule_id`, and compares every
-`input.resource.props` path with the Rule metadata. A mismatch blocks validation.
+`scripts/catalog/sync-rule-semantics.py --check` verifies those properties against the authored
+Rego AST. The synchronizer invokes OPA, verifies the package `rule_id`, `severity`, and
+`category`, and compares every `input.resource.props` path with the Rule metadata. It runs as the
+scoped `rule-semantics` gate in [`scripts/verify.sh`](../../../scripts/verify.sh) and as its own
+`.github/workflows/ci.yml` job, so a mismatch blocks validation. The gate fails when OPA is
+unavailable instead of skipping.
 
 ## Validation and Trust
 

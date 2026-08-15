@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-
 from fdai.rule_catalog.schema.rego_semantics import load_rego_semantics, property_ref
 
 _METRIC_TOKENS = (
@@ -64,20 +63,31 @@ def _synchronized(raw: dict[str, Any], *, repo_root: Path) -> dict[str, Any]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser()
+    """Report or repair rule semantic drift, failing loudly when OPA cannot run."""
+
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", type=Path, default=Path.cwd())
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
     repo_root = args.repo_root.resolve()
     changed: list[str] = []
     for path in sorted((repo_root / "rule-catalog" / "catalog").glob("*.yaml")):
+        relative = path.relative_to(repo_root).as_posix()
         raw = yaml.safe_load(path.read_text(encoding="utf-8"))
         if not isinstance(raw, dict):
-            raise ValueError(f"rule file MUST contain an object: {path}")
-        updated = _synchronized(raw, repo_root=repo_root)
+            print(
+                f"rule semantic check failed: {relative}: rule file MUST contain an object",
+                file=sys.stderr,
+            )
+            return 1
+        try:
+            updated = _synchronized(raw, repo_root=repo_root)
+        except ValueError as exc:
+            print(f"rule semantic check failed: {relative}: {exc}", file=sys.stderr)
+            return 1
         rendered = yaml.safe_dump(updated, sort_keys=False, allow_unicode=True)
         if rendered != path.read_text(encoding="utf-8"):
-            changed.append(path.relative_to(repo_root).as_posix())
+            changed.append(relative)
             if not args.check:
                 path.write_text(rendered, encoding="utf-8")
     if changed:
