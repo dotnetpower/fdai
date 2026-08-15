@@ -270,6 +270,12 @@ Execution contract:
   source SHA. Do not mark unrelated or evidence-dependent work complete.
 - Add or update focused tests for every behavior change. Run the narrowest executable checks after
   each edit and commit only focused passing changes with task-owned pathspecs.
+- Central validation rejects the whole branch on gates the focused checks never run, and one
+  rejected commit stops every later batch. Before each commit run
+  `python3 scripts/quality/localization/check-readable-hangul.py` and
+  `bash scripts/quality/repository/check-guids.sh`, and fix what they report. Write Korean and
+  Hangul character ranges as literal UTF-8, never as escaped code points, and never introduce a
+  concrete GUID.
 - After all {BATCH_SIZE} implementations pass, perform at least {MIN_HARDENING_ROUNDS} explicit
   critique and hardening rounds over the complete batch. Fix every verified finding above Low,
   rerun its focused check, and continue beyond round {MIN_HARDENING_ROUNDS} until the highest
@@ -520,6 +526,19 @@ def run_cycle(
             )
             _run_check(
                 ["bash", "scripts/quality/localization/check-translations.sh"],
+                repo_root=repo_root,
+                timeout=QUALITY_CHECK_TIMEOUT_SECONDS,
+            )
+            # Central validation runs these over the whole snapshot, and a single violation
+            # blocks every later batch on the branch. Failing here keeps the cause attached to
+            # the batch that caused it instead of surfacing hours later as a stalled lane.
+            _run_check(
+                ["python3", "scripts/quality/localization/check-readable-hangul.py"],
+                repo_root=repo_root,
+                timeout=QUALITY_CHECK_TIMEOUT_SECONDS,
+            )
+            _run_check(
+                ["bash", "scripts/quality/repository/check-guids.sh"],
                 repo_root=repo_root,
                 timeout=QUALITY_CHECK_TIMEOUT_SECONDS,
             )
