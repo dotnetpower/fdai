@@ -120,6 +120,7 @@ class AzureOpenAISemanticPlanningModel:
         *,
         frame: SemanticProblemFrame,
         descriptors: tuple[dict[str, Any], ...],
+        metric_concepts: tuple[str, ...],
         principal_role: str,
         purpose: str,
         evaluation_time: datetime,
@@ -129,6 +130,7 @@ class AzureOpenAISemanticPlanningModel:
         payload = {
             "frame": frame.model_dump(mode="json"),
             "descriptors": descriptors,
+            "metric_concepts": metric_concepts,
             "principal_role": principal_role,
             "purpose": purpose,
             "evaluation_time": evaluation_time.isoformat(),

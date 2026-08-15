@@ -29,6 +29,7 @@ _SET_KINDS = {
     QueryNodeKind.INTERSECTION,
     QueryNodeKind.SUBTRACTION,
 }
+_METRIC_KINDS = {QueryNodeKind.METRIC_SERIES, QueryNodeKind.METRIC_SCOPE_SERIES}
 
 
 class OntologyQueryPlanVerifier:
@@ -44,13 +45,17 @@ class OntologyQueryPlanVerifier:
         *,
         available_kinds: Sequence[QueryNodeKind],
         extension_argument_schemas: Mapping[QueryNodeKind, Mapping[str, object]] | None = None,
+        reviewed_metric_concepts: Sequence[str] = (),
     ) -> None:
         self._available_kinds = frozenset(available_kinds)
         self._extension_schemas = dict(extension_argument_schemas or {})
+        self._reviewed_metric_concepts = frozenset(reviewed_metric_concepts)
         if not set(self._extension_schemas) <= self._available_kinds:
             raise ValueError("query extension schemas MUST name available node kinds")
         if set(self._extension_schemas) & _TABLE_KINDS:
             raise ValueError("built-in query node schemas cannot be replaced")
+        if self._available_kinds & _METRIC_KINDS and not self._reviewed_metric_concepts:
+            raise ValueError("available metric query kinds require reviewed metric concepts")
         for schema in self._extension_schemas.values():
             Draft202012Validator.check_schema(dict(schema))
 
@@ -172,6 +177,11 @@ class OntologyQueryPlanVerifier:
         errors = list(Draft202012Validator(dict(schema)).iter_errors(arguments))
         if errors:
             raise ValueError("query extension arguments violate their registered schema")
+        if (
+            node.kind in _METRIC_KINDS
+            and arguments.get("concept_id") not in self._reviewed_metric_concepts
+        ):
+            raise ValueError("metric concept is absent from the reviewed registry")
 
     @staticmethod
     def _verify_temporal_dependencies(
@@ -190,6 +200,15 @@ class OntologyQueryPlanVerifier:
         elif node.kind is QueryNodeKind.METRIC_SERIES:
             if node.depends_on or node.output_kind != "metric.window":
                 raise ValueError("metric_series MUST be a metric.window source")
+        elif node.kind is QueryNodeKind.METRIC_SCOPE_SERIES:
+            if len(node.depends_on) != 1 or node.output_kind != "metric.window":
+                raise ValueError("metric_scope_series MUST read one object_set query.table")
+            dependency = nodes_by_id[node.depends_on[0]]
+            if (
+                dependency.kind is not QueryNodeKind.OBJECT_SET
+                or dependency.output_kind != "query.table"
+            ):
+                raise ValueError("metric_scope_series dependency MUST be an object_set query.table")
         elif node.kind is QueryNodeKind.EVIDENCE_JOIN:
             if len(node.depends_on) not in {2, 3} or node.output_kind != "causal.join":
                 raise ValueError("evidence_join MUST join two metrics and optional topology")

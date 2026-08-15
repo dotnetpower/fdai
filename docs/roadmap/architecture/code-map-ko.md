@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 8823aaab09650e41e1f6bbb382d0f55a44d9b8a6
+translation_source_sha: e971b08c056b1c612d7d7e7eb552f53ddf2be0c1
 translation_revised: 2026-08-16
 ---
 # 코드 맵
@@ -95,6 +95,7 @@ translation_revised: 2026-08-16
 | 2026-08-16 | 구현됨 | 자유 형식 의미 output shape를 타입이 지정된 capability family 10개로 교체하고, 각 운영 frame이 I/O 전에 최소 verified DAG capability를 선택하도록 요구했습니다. Frame prompt v6와 plan prompt v5는 같은 mapping을 가지며, special-purpose 함수 불일치와 누락된 aggregate, topology, filter, temporal, causal 또는 evidence node는 범위가 제한된 plan-stage 재시도만 유발합니다. | `current change`, focused shape-routing 및 prompt 검사 21개, tier-routing 검사 14개, 작업 범위 Ruff 및 strict mypy 통과 | 중앙 검증된 descendant에서 clean 이중 언어 14-cell 및 seed 기반 100-case Browser 근거를 보존합니다. |
 | 2026-08-16 | 구현됨 | 범위가 제한된 model planning이 끝난 뒤 current-state ObjectSet cutoff를 새로 고쳤습니다. Proposal evaluation time은 T1 및 T2 plan attempt 전체에서 고정된 상태를 유지하고, 그 뒤 Core가 ObjectSet node만 fresh trusted execution time으로 다시 바인딩하며 exact plan digest를 재계산하고 I/O 전에 다시 검증합니다. Topology 및 historical cutoff는 바꾸지 않습니다. | `current change`, gateway의 5초 current-state skew를 넘는 model 지연 회귀를 포함한 focused planner, tier-routing, composition 및 terminal processor 검사 93개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 중앙 검증된 descendant에서 clean 이중 언어 14-cell 및 seed 기반 100-case Browser 근거를 보존합니다. |
 | 2026-08-16 | 구현됨 | Special-purpose function alignment를 final output node로 좁혀 exact manifest가 최종 aggregation answer로 가장하지 않고 verified aggregate에 입력을 제공할 수 있게 했습니다. Frame prompt v7과 plan prompt v6는 모든 declaration count를 `aggregation_table`로 분류하고 `query.manifest -> aggregate`를 규정하며, declared type이 있는 visible resource는 비어 있지 않은 predicate를 가진 filtered-resource 경로로 유지합니다. | `current change`, production manifest count 실행을 포함한 focused planner, tier-routing, manifest composition 및 prompt 검사 39개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 중앙 검증된 descendant에서 clean 이중 언어 14-cell 및 seed 기반 100-case Browser 근거를 보존합니다. Generic causal 질문에는 여전히 범위가 제한된 visible-resource metric composition이 필요합니다. |
+| 2026-08-16 | 구현됨 | 보안이 적용된 visible-resource `QueryTable` 하나를 canonical reviewed metric 읽기 하나로 연결하는 읽기 전용 `metric_scope_series`를 추가했습니다. 비어 있거나 불완전하거나 여러 resource를 포함한 scope는 명시적으로 incomplete를 유지하고, provider와 scope gap을 모두 보존하며, exact provider identity, unit 또는 window drift는 fail closed합니다. Planner에는 범위가 제한된 등록 metric concept ID만 전달하고 plan prompt v8은 resource identity 또는 scope-wide causal claim을 만들지 않는 `ObjectSet -> two metric_scope_series -> evidence_join`을 규정합니다. | `current change`, focused service-contract, verifier, metric-semantics, composition, planner-adapter 및 prompt 검사 86개 통과, Console assurance 검사 96개 통과, 작업 범위 Ruff, format, strict mypy 및 Console typecheck 통과 | 중앙 검증된 descendant에서 clean 이중 언어 14-cell 및 seed 기반 100-case Browser 근거를 보존합니다. |
 
 ### 남은 작업
 
