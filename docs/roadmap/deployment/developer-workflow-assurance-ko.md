@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 13ab3e7f9be1da66f3159c2f4b072c06f1a0aed1
+translation_source_sha: 89e64d2cecf5bacc8cff798a5f636543022b1b77
 translation_revised: 2026-08-15
 ---
 
@@ -250,6 +250,7 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 | 2026-08-15 | implemented | Validator scratch 소유권과 focused automation test 선택을 고정하는 review evidence 라운드 2개를 추가했습니다. | 현재 변경, validator 및 selector suite 테스트 85개 통과입니다. | Exact revision을 통합하고 중앙 검증을 받은 후 이슈 #118을 완료합니다. |
 | 2026-08-15 | implemented | 실제 pre-tool dispatcher와 validator scratch symlink 경계의 integration-level 우회를 닫았습니다. | 현재 변경, dispatcher 및 guard 테스트 19개와 scratch ownership 테스트 2개 통과입니다. | Exact 중앙 검증을 받고 이슈 #118을 완료합니다. |
 | 2026-08-15 | implemented | Commit scope, approval comment, Git alias, config-env option form 및 symlink ancestor를 다루는 adversarial parser 라운드 4개를 닫았습니다. | 현재 변경, dispatcher 및 parser fixture 40개와 scratch ownership guard 3개 통과이며 독립 acceptance에서 Low를 초과하는 잔존 사항이 없었습니다. | Exact 중앙 검증을 받고 이슈 #118을 완료합니다. |
+| 2026-08-15 | validated | 중앙 검증이 최종 Top 20 구현과 assurance ledger revision을 수락했습니다. | `validation_queue.py check-commit 4a18ce982` 통과, 최종 focused join 테스트 221개 통과입니다. | 이슈 #118을 완료하고 project board를 동기화합니다. |
 
 ### 남은 작업
 
@@ -258,7 +259,8 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 - [x] 중앙 검증이 통합 구현 revision `d3f5257b9`를 수락했습니다.
 - [x] 최종 독립 검토에서 Low를 초과하는 잔존 발견 사항이 없었습니다.
 - [x] 위의 제한된 Low 잔존 사항만 남기고 추가 라운드 22개를 완료했습니다.
-- [ ] Exact Top 20 revision을 통합하고 중앙 검증을 받은 후 이슈 #118을 완료합니다.
+- [x] Top 20 revision `4a18ce982`를 통합하고 exact 중앙 validation receipt를 받았습니다.
+- [ ] 이슈 #118을 완료하고 project board를 동기화합니다.
 
 ## 관련 문서
 
