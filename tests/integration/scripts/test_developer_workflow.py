@@ -2,15 +2,25 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import ModuleType
 
 SCRIPT = Path(__file__).resolve().parents[3] / "scripts" / "automation" / "developer-workflow.py"
 UTC = timezone.utc  # noqa: UP017 - test remains compatible with system Python 3.10.
+
+
+def _load_module() -> ModuleType:
+    spec = importlib.util.spec_from_file_location("developer_workflow", SCRIPT)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _run(
@@ -288,3 +298,54 @@ def test_status_classifies_integrity_manifest_hook_overlap(tmp_path: Path) -> No
         "status": "warning",
     }
     assert _git(repo, "status", "--porcelain").stdout == before
+
+
+def test_browser_runner_reports_held_stale_and_invalid_slots(tmp_path: Path) -> None:
+    module = _load_module()
+    lock_root = tmp_path / "port-pool"
+    for slot, payload in (
+        (0, {"pid": 10}),
+        (1, {"pid": 20}),
+        (2, {"pid": "invalid"}),
+    ):
+        owner = lock_root / f"slot-{slot}" / "owner.json"
+        owner.parent.mkdir(parents=True)
+        owner.write_text(json.dumps(payload) + "\n", encoding="utf-8")
+
+    result = module._browser_runner_diagnostic(lock_root, is_alive=lambda pid: pid == 10)
+
+    assert result == {
+        "available_slots": 7,
+        "held_slots": 1,
+        "invalid_slots": 1,
+        "stale_slots": 1,
+        "status": "warning",
+        "total_slots": 10,
+    }
+
+
+def test_local_services_report_each_unavailable_owner(tmp_path: Path) -> None:
+    module = _load_module()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    assert _git(repo, "init", "--quiet", "--initial-branch=main").returncode == 0
+    assert _git(repo, "config", "user.email", "user@example.com").returncode == 0
+    assert _git(repo, "config", "user.name", "Example User").returncode == 0
+    (repo / "example.txt").write_text("value\n", encoding="utf-8")
+    assert _git(repo, "add", "example.txt").returncode == 0
+    assert _git(repo, "commit", "--quiet", "-m", "initial").returncode == 0
+    (repo / ".fdai").mkdir()
+
+    result = module._local_services_diagnostic(
+        repo,
+        probe=lambda url: not url.endswith(("8011/healthz", "8013/ready")),
+        process_lines=[".venv/bin/python -m fdai"],
+    )
+
+    assert result["status"] == "warning"
+    assert result["service_count"] == 6
+    assert result["ready_count"] == 4
+    assert result["unavailable_services"] == [
+        "document-ingestion-api",
+        "isolated-executor",
+    ]
