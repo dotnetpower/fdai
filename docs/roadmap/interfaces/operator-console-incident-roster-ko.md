@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: f02bf39f3c77848d146a5b232ce1c4af1a9f3a51
+translation_source_sha: 90ae05730f73201ea168705ed722ccfe3d7cf333
 translation_revised: 2026-08-15
 ---
 
@@ -405,13 +405,14 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 | 2026-08-15 | in-progress | RCA와 계층 평가를 기록된 outcome, reason, cause로 서술하고, 단계별 다음 단계 옆에 가장 최근 기록된 차단 사유를 드러내며, 약어를 보존하고, 대체 표시를 담당 에이전트 링크로 만들지 않으며, 매핑되지 않은 카탈로그 키를 렌더링하지 않도록 했습니다. | `current change`; `incidents.timeline.ts`, `incidents.overview.ts`, `incidents.tsx`, `incident-clarity.css`, 메시지 카탈로그 2개 및 각 focused 테스트입니다. Console `37 passed`, catalog usage `3 passed`, typecheck 및 번역 신선도를 통과했습니다. | 운영과 무관한 상관관계 그룹을 제외하고, cohort 구간과 절단 공개를 바로잡고, 목록 검색과 필터 컨트롤을 추가하며, 인시던트를 여는 감사 항목에 제목을 기록해야 합니다. |
 | 2026-08-15 | in-progress | 모든 행이 플랫폼 유지 관리인 상관관계 그룹을 제외하고, `matched_total` 측정 공개를 추가하고, 관측 구간 표기를 바로잡았으며, 측정할 수 없는 완화 시간이 그 사유를 밝히도록 했습니다. | `current change`; `postgres_sql.py`, `postgres.py`, `incident_projection.py`, `api-operations.ts`, `types.ts`, `incidents.detail-sections.tsx`, 메시지 카탈로그 2개 및 각 focused 테스트입니다. Operator `286 passed, 1 skipped`, Console `53 passed`, typecheck, Ruff, Ruff format 및 strict mypy를 통과했습니다. 갱신된 page SQL을 로컬 corpus에 실행한 결과 그룹 1,562개 중 1,557개를 선택하고 유지 관리 그룹 5개를 정확히 제외했습니다. | 목록 검색과 필터 컨트롤을 추가하고, 인시던트를 여는 감사 항목에 제목을 기록해야 합니다. |
 | 2026-08-15 | in-progress | 커서에 연결된 서버측 `severity` 필터를 추가하고 버티컬과 심각도를 해제 가능한 목록 컨트롤로 노출했습니다. | `current change`; `operator.py`, `routes.py`, `postgres_sql.py`, `postgres.py`, `api-operations-client.ts`, `incidents.tsx`, `incident-clarity.css`, 메시지 카탈로그 2개 및 focused 테스트입니다. Operator와 contracts `383 passed, 1 skipped`, Console `55 passed`입니다. 로컬 corpus에 필터를 실행한 결과 그룹 1,557개 중 low 380개, critical 19개, unknown 1,004개를 반환했습니다. | 인시던트를 여는 감사 항목에 제목을 기록해야 합니다. 자유 텍스트 목록 검색은 구체화된 대상이 서버측 필터를 사실에 맞게 만들기 전까지 사용 불가로 둘니다. |
+| 2026-08-15 | implemented | 남은 `identifier_fallback`이 그룹 1,562개 중 5개이고 기록된 인시던트가 모두 `correlation_subject`로 해석됨을 측정한 뒤 인시던트 대상 및 결과 분석 구획을 마무리했습니다. | `current change`; 로컬 corpus 최종 재생 결과는 `recorded_subject` 1,001개, `rule_id` 551개, `correlation_subject` 5개, `identifier_fallback` 5개입니다. fallback 5개는 이미 목록에서 제외된 운영 무관 `read:sha256:*` 읽기입니다. | 자유 텍스트 목록 검색은 구체화된 대상이 생길 때까지 의도적으로 사용 불가로 남습니다. |
 
 ### 남은 작업
 
 - [x] 기록된 제목, 요약, 룰, signal, 정리된 resource 대상을 우선하고 식별자 fallback을 사용 불가로 표시하는 범위가 제한된 `title_source` 계약과 focused projection, decoder, render 테스트를 추가합니다.
 - [x] 감사 봉투 `payload`를 읽어 기록된 운영 대상과 사유로 범위가 제한된 `recorded_subject`를 도출하고, 목록 식별자 fallback으로 correlation ID를 표시합니다.
 - [x] 운영과 무관한 상관관계 그룹(`background-task.*`, `iam.executor-grant-*`, `read:sha256:*`)을 목록과 cohort 분모에서 제외합니다.
-- [ ] 인시던트를 여는 감사 항목에 `title`을 기록해 `recorded_title`을 정상 출처로 만듭니다.
+- [x] 인시던트를 여는 감사 항목에 별도 `title`을 기록할 필요가 없음을 확인했습니다. `open_audit_entry`가 이미 `correlation_keys`를 기록하며 로컬 corpus의 모든 `incident.open` 그룹이 `correlation_subject`로 해석되므로, title 필드 추가는 공백을 메우는 것이 아니라 기존 대상을 중복하게 됩니다.
 - [x] 해당 필드가 있을 때는 일반 템플릿 대신 기록된 RCA 및 T1 필드에서 milestone과 권장 다음 단계 문구를 도출합니다.
 - [x] cohort 관측 구간을 사실대로 표기하고 상한과 제외된 나머지를 공개하며, 사용할 수 없는 time-to-mitigate 측정을 사유와 함께 사용 불가로 렌더링합니다.
 - [x] 서버 기반 심각도/vertical 필터 컨트롤을 추가하고, 설정된 범위 필터를 UI에서 해제할 수 있게 합니다. 자유 텍스트 목록 검색은 의도적으로 사용 불가로 둡니다. 표시되는 대상이 읽기 모델에서 구성되므로 구체화된 대상이 생기기 전에는 서버측도 브라우저측도 사실에 맞지 않습니다.
