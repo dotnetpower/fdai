@@ -1221,6 +1221,72 @@ def test_semantic_incident_presentation_localizes_korean_artifact() -> None:
     ]
 
 
+def test_general_query_presentation_projects_verified_rows() -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    projection = _projection(envelope, disposition="answered", answered_evidence=True)
+    projection["payload"] = {
+        "technical_details": {
+            "schema_version": 1,
+            "kind": "semantic_query_outputs",
+            "outputs": [
+                {
+                    "node_id": "resources",
+                    "rows": [
+                        {
+                            "row_id": "r1",
+                            "values": {"resource.name": "vm-a", "resource.status": "running"},
+                        },
+                        {"row_id": "r2", "values": {"resource.name": "vm-b"}},
+                    ],
+                    "returned_rows": 2,
+                    "total_rows": 7,
+                }
+            ],
+        }
+    }
+
+    done = semantic_turn_runtime_module._done_event_data(projection, locale="en")
+
+    artifact = cast(dict[str, object], done["presentation_artifact"])
+    blocks = cast(list[dict[str, object]], artifact["blocks"])
+    assert [block["slot_id"] for block in blocks] == ["overview", "records"]
+    overview = cast(dict[str, object], blocks[0]["data"])
+    assert overview["items"] == [{"label": "resources", "value": "2 of 7 rows", "tone": "neutral"}]
+    records = cast(dict[str, object], blocks[1]["data"])
+    assert records["columns"] == [
+        {"key": "c0", "label": "resource.name"},
+        {"key": "c1", "label": "resource.status"},
+    ]
+    assert records["rows"] == [
+        {"c0": "vm-a", "c1": "running"},
+        {"c0": "vm-b", "c1": "-"},
+    ]
+
+
+def test_general_query_presentation_without_rows_stays_a_summary() -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    projection = _projection(envelope, disposition="answered", answered_evidence=True)
+    projection["payload"] = {
+        "technical_details": {
+            "schema_version": 1,
+            "kind": "semantic_query_outputs",
+            "outputs": [{"node_id": "graph", "result_kind": "topology.graph", "summary": {}}],
+        }
+    }
+
+    done = semantic_turn_runtime_module._done_event_data(projection, locale="en")
+
+    artifact = cast(dict[str, object], done["presentation_artifact"])
+    blocks = cast(list[dict[str, object]], artifact["blocks"])
+    assert [block["slot_id"] for block in blocks] == ["overview"]
+    overview = cast(dict[str, object], blocks[0]["data"])
+    assert overview["items"] == [{"label": "graph", "value": "topology.graph", "tone": "neutral"}]
+
+
 def test_legacy_semantic_result_without_answer_replays_as_unverified_limitation() -> None:
     projection = {
         "semantic_result": {

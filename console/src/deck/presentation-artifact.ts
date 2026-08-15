@@ -57,8 +57,15 @@ export function parsePresentationArtifact(
   return { schemaVersion: 1, layout: "stack", blocks, evidenceRefs };
 }
 
-export function presentationArtifactToWire(artifact: PresentationArtifact): Record<string, unknown> {
-  return {
+/**
+ * An artifact that only restates an overview carries less than the answer text it
+ * would replace, so the reply keeps the markdown instead.
+ */
+export function presentationArtifactSupersedesText(artifact: PresentationArtifact): boolean {
+  return artifact.blocks.some((block) => block.slotId !== "overview");
+}
+
+export function presentationArtifactToWire(artifact: PresentationArtifact): Record<string, unknown> {  return {
     schema_version: artifact.schemaVersion,
     layout: artifact.layout,
     evidence_refs: [...artifact.evidenceRefs],

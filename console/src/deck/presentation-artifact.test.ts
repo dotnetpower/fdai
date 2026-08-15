@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { AnswerVerification } from "./backend-types";
-import { parsePresentationArtifact } from "./presentation-artifact";
+import {
+  parsePresentationArtifact,
+  presentationArtifactSupersedesText,
+} from "./presentation-artifact";
 
 const ref = "subscription-health:test@2026-08-05T00:00:00Z";
 const verification: AnswerVerification = {
@@ -111,5 +114,16 @@ describe("presentation artifact boundary", () => {
     data.items[1]!.label = "Checked";
 
     expect(parsePresentationArtifact(raw, verification)).toBeUndefined();
+  });
+
+  it("supersedes the answer text only when it carries content beyond the overview", () => {
+    const withCoverage = parsePresentationArtifact(artifact(), verification);
+    const overviewOnly = artifact();
+    overviewOnly.blocks = (overviewOnly.blocks as unknown[]).slice(0, 1);
+    const parsedOverviewOnly = parsePresentationArtifact(overviewOnly, verification);
+
+    expect(withCoverage && presentationArtifactSupersedesText(withCoverage)).toBe(true);
+    expect(parsedOverviewOnly && presentationArtifactSupersedesText(parsedOverviewOnly))
+      .toBe(false);
   });
 });
