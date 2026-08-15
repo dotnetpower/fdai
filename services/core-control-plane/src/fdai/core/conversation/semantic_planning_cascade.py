@@ -45,6 +45,7 @@ class PlanBuilder(Protocol):
         manifest: QueryManifest,
         principal: Principal,
         purpose: str,
+        evaluation_time: datetime,
     ) -> OntologyQueryPlan: ...
 
 
@@ -147,6 +148,7 @@ class SemanticPlanningCascade:
                     manifest=manifest,
                     principal=principal,
                     purpose=purpose,
+                    evaluation_time=evaluation_time,
                 )
             except (TypeError, ValueError) as exc:
                 if self._should_escalate(tier=tier, stage="plan", reason="invalid"):

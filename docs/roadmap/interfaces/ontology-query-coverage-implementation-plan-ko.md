@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 3a507ca6385cff64397da7ae7bbeb4b35d183603
+translation_source_sha: 00f57f699d41d4f3912aec4b52c9311178196961
 translation_revised: 2026-08-15
 ---
 
@@ -182,6 +182,7 @@ translation_revised: 2026-08-15
 | 2026-08-15 | 구현됨 | `query.manifest`를 통한 exact-release 스키마 인벤토리 조회, 닫힌 함수 table 변환, 인벤토리, 속성 filter, topology, aggregation 및 causal 질문의 명시적 frame/plan grammar를 추가했습니다. | `current change`, focused 매니페스트, 핸들러, 조립, 관계, 의미 조립 및 prompt 검사 42개와 작업 범위 Ruff 및 strict mypy 통과 | Clean 통과 14-cell 산출물을 보존한 뒤 seed 기반 100-case 집단을 실행하고 답변 근거가 하나라도 누락되면 준비 상태를 계속 차단합니다. |
 | 2026-08-15 | 구현됨 | 직접 ObjectSet 집계 필드를 실행 전에 exact 행 스키마와 대조해 유효하지 않은 T1 plan만 T2로 plan 단계를 다시 시도하도록 했습니다. | `current change`, focused 검증기 및 tier 라우팅 검사 16개와 작업 범위 Ruff 및 strict mypy 통과 | Clean 14-cell 및 seed 기반 100-case 근거를 보존하기 전에 보류된 한국어 집계 cell을 다시 실행합니다. |
 | 2026-08-15 | 구현됨 | 집계 필드 스키마를 table-transform 의존성 전체에 전파하고 점 표기 projection 필드를 결정론적 downstream 집계에서 보존했습니다. | `current change`, focused 검증기, 핸들러 및 tier 라우팅 검사 24개와 작업 범위 Ruff 및 strict mypy 통과 | Clean 14-cell 및 seed 기반 100-case 근거를 보존하기 전에 보류된 한국어 집계 cell을 다시 실행합니다. |
+| 2026-08-15 | 구현됨 | Plan 검증 전에 모델이 제안한 모든 ObjectSet 기준 시각을 단일 trusted evaluation time으로 다시 바인딩해, secured gateway 허용 구간을 벗어난 모델 timestamp 때문에 current-state 실행이 거부되지 않게 했습니다. | `current change`, stale 모델 기준 시각 회귀를 포함한 focused 의미 계획 테스트 15개 통과 | Exact-source Core stack을 재시작하고 clean 14-cell 및 seed 기반 100-case Browser 근거를 보존합니다. |
 
 ### 남은 작업
 
