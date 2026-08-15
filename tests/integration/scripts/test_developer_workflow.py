@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import ModuleType
@@ -399,6 +400,41 @@ def test_local_services_reject_core_owned_by_another_checkout(tmp_path: Path) ->
     assert result["unavailable_services"] == ["core-runtime"]
     assert result["core_runtime_owner_count"] == 1
     assert result["core_runtime_other_checkout_count"] == 1
+
+
+def test_local_service_probes_run_concurrently_in_stable_order(tmp_path: Path) -> None:
+    module = _load_module()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    assert _git(repo, "init", "--quiet", "--initial-branch=main").returncode == 0
+    assert _git(repo, "config", "user.email", "user@example.com").returncode == 0
+    assert _git(repo, "config", "user.name", "Example User").returncode == 0
+    (repo / "example.txt").write_text("value\n", encoding="utf-8")
+    assert _git(repo, "add", "example.txt").returncode == 0
+    assert _git(repo, "commit", "--quiet", "-m", "initial").returncode == 0
+    (repo / ".fdai").mkdir()
+    barrier = threading.Barrier(5)
+    seen: list[str] = []
+    lock = threading.Lock()
+
+    def probe(url: str) -> bool:
+        with lock:
+            seen.append(url)
+        barrier.wait(timeout=1)
+        return not url.endswith("8011/healthz")
+
+    result = module._local_services_diagnostic(repo, probe=probe, process_records=[])
+
+    assert len(seen) == 5
+    assert [item["name"] for item in result["services"]] == [
+        "core-runtime",
+        "console-frontend",
+        "operator-api",
+        "document-ingestion-api",
+        "document-processing-worker",
+        "isolated-executor",
+    ]
+    assert result["unavailable_services"] == ["core-runtime", "document-ingestion-api"]
 
 
 def test_resume_rejects_malformed_handover_schema(

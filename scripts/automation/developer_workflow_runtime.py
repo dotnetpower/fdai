@@ -10,6 +10,7 @@ import subprocess
 import tempfile
 from collections import Counter
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from hashlib import sha256
 from itertools import islice
 from pathlib import Path
@@ -35,6 +36,7 @@ MAX_PROCESSES = 4_096
 MAX_COMMAND_BYTES = 4_096
 MAX_WARNING_BYTES = 5 * 1_048_576
 MAX_WARNING_ROWS = 5_000
+LOCAL_PROBE_WORKERS = len(LOCAL_SERVICE_ENDPOINTS)
 
 
 def _process_is_alive(pid: int) -> bool:
@@ -131,7 +133,15 @@ def local_services_diagnostic(
     repo_root, _common_dir = resolved
     if not (repo_root / ".fdai").is_dir():
         return {"reason_code": "local_stack_not_prepared", "status": "unavailable"}
-    services = [{"name": name, "ready": bool(probe(url))} for name, url in LOCAL_SERVICE_ENDPOINTS]
+    with ThreadPoolExecutor(
+        max_workers=LOCAL_PROBE_WORKERS,
+        thread_name_prefix="fdai-readiness",
+    ) as executor:
+        readiness = list(executor.map(probe, (url for _name, url in LOCAL_SERVICE_ENDPOINTS)))
+    services = [
+        {"name": name, "ready": bool(ready)}
+        for (name, _url), ready in zip(LOCAL_SERVICE_ENDPOINTS, readiness, strict=True)
+    ]
     core_owners = _core_runtime_owners(process_records or _process_records())
     core_ready = repo_root in core_owners
     services.insert(0, {"name": "core-runtime", "ready": core_ready})
