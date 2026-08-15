@@ -9,6 +9,13 @@ export const RUN_BUDGET_PER_QUESTION_MS = 120_000;
 export const MINIMUM_RUN_BUDGET_MS = 300_000;
 export const MAXIMUM_RUN_BUDGET_MS = 5_400_000;
 export const TEST_TIMEOUT_SLACK_MS = 120_000;
+/**
+ * The bounded run preamble: session restore, navigation, and the readiness assertions.
+ *
+ * The runner anchors the run deadline before the preamble, so the preamble is charged to the run
+ * budget rather than to harness slack.
+ */
+export const PREAMBLE_BOUND_MS = 65_000;
 export const MAX_TRANSPORT_ATTEMPTS = 2;
 
 const BUDGET_BOUNDS = {

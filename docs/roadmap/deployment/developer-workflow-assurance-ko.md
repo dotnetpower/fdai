@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 6029dafe7098ba27a855f07a5ba93a75e2c770a5
+translation_source_sha: 1bc42a660b8b60f632899931f68a3420d8e40181
 translation_revised: 2026-08-15
 ---
 
@@ -298,6 +298,7 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 | 14 | 원격 drift 감지 | Auto-pull이 최대 600초 뒤에 원격 drift를 관측했습니다 | Clean-tree 및 validation guard를 유지하면서 180초마다 확인합니다. |
 | 15 | 제외된 빠른 테스트 | `tests/live-e2e/**`가 해당 디렉터리의 모든 Vitest 파일을 일반 실행에서 제외했습니다 | Playwright spec만 제외해 빠른 계약이 일반 loop에서 실행되게 합니다. |
 | 16 | 재생된 assurance 권한 | Checkpoint로 완성된 cohort가 live stack에 질문을 하나도 답하지 않고 발행될 수 있었습니다 | 최소 한 질문을 live로 재검증하고 모든 보존 답변이 하나의 통제된 세대를 기술하도록 요구합니다. |
+| 17 | 반증 불가능한 live 증명 | 풀려난 질문이 generation digest를 전혀 담지 않는 질문일 수 있었고, 완주했지만 실패한 cohort가 checkpoint를 버렸습니다 | 마지막 answer-required 질문까지 꼬리를 풀고, 재개 세대를 live 답변로 확인하며, 통과 발행 뒤에만 checkpoint를 회수합니다. |
 
 ### 계약
 
@@ -323,12 +324,12 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
   실행을 기록하므로 재개된 cohort도 귀속 가능하며, 해당 귀속이 없는 결과는 통과할 수 없습니다.
 - 시도별 deadline 위반은 질문을 종료하며, 재시도 가능한 transport source 또는 일시적 turn 오류만 남은
   시도를 사용합니다.
-- Live 답변이 없는 실행은 권위 있는 결과로 발행되지 않습니다. Checkpoint가 이미 cohort 전체를 담고 있으면
-  마지막 질문을 현재 stack에서 다시 답하므로, 재개는 이전 작업을 유지하면서도 검증하지 않은 stack을
-  주장하지 않습니다.
-- 모든 보존 답변은 하나의 통제된 세대를 기술해야 합니다. 재개된 답변이 live 답변과 다른 ontology
-  release 또는 principal manifest digest를 가지면, cohort는 혼합 세대 결과를 발행하지 않고
-  실패합니다.
+- Live 답변이 없는 실행은 권위 있는 결과로 발행되지 않습니다. 재개된 실행은 마지막 answer-required 질문까지의
+  cohort 꼬리를 항상 다시 실행하므로, 보고하는 stack의 ontology release와 principal manifest를 담은
+  질문을 최소 하나는 다시 답합니다.
+- 다시 발행되는 모든 답변은 live turn이 확인해야 합니다. Live 답변이 재현하지 못한 ontology release
+  또는 principal manifest digest를 가진 재개 답변은 혼합 세대 결과로 발행되지 않고 cohort를
+  실패시킵니다.
 - 완료된 cohort는 아티팩트 발행 후, 단언 전에 checkpoint를 회수합니다. 따라서 발행 실패가 완성된
   cohort를 파괴하지 않고 이후 실행도 재생할 수 없으며, live turn을 수행하지 않은 실행은
   `interrupted`로 보고되고 release 권한을 갖지 않으므로 production-ready 아티팩트를 보고할 수

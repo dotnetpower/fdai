@@ -293,6 +293,7 @@ deadline, a no-progress deadline, a progress signal, and a resumable checkpoint.
 | 14 | Remote drift detection | Auto-pull observed remote drift after at most 600 seconds | Poll every 180 seconds while preserving the clean-tree and validation guards. |
 | 15 | Excluded fast tests | `tests/live-e2e/**` excluded every Vitest file in that directory from every ordinary run | Exclude only Playwright specs so the fast contracts run in the normal loop. |
 | 16 | Replayed assurance authority | A cohort completed from a checkpoint could publish without answering any question against the live stack | Re-verify at least one question live and require every retained answer to describe one governed generation. |
+| 17 | Unfalsifiable live proof | The released question could be one that never carries a generation digest, and a complete-but-failing cohort discarded its checkpoint | Release the tail through the last answer-required question, confirm resumed generations against live answers, and retire a checkpoint only after a passing publication. |
 
 ### Contract
 
@@ -321,12 +322,12 @@ deadline, a no-progress deadline, a progress signal, and a resumable checkpoint.
   stays attributable and a result without that attribution cannot pass.
 - A per-attempt deadline breach ends the question; only a retryable transport source or a
   transient turn error uses a remaining attempt.
-- A run that answers nothing live never publishes as authoritative. When a checkpoint already
-  covers the whole cohort, the last question is re-answered against the current stack, so resuming
-  keeps earlier work without ever claiming a stack it did not verify.
-- Every retained answer must describe one governed generation. If a resumed answer carries a
-  different ontology release or principal manifest digest than the live answers, the cohort fails
-  instead of publishing a mixed-generation result set.
+- A run that answers nothing live never publishes as authoritative. A resumed run always releases
+  the cohort tail through the last answer-required question, so it re-answers at least one question
+  that carries the ontology release and principal manifest of the stack it reports.
+- Every republished answer must be confirmed by the live turns. A resumed answer whose ontology
+  release or principal manifest digest no live answer reproduces fails the cohort instead of
+  publishing as a mixed-generation result set.
 - A completed cohort retires its checkpoint after the artifact is published and before the
   assertions, so a failed publish cannot destroy a complete cohort and a later run cannot replay
   one; a run that performs no live turn is reported as `interrupted` and never carries release

@@ -65,12 +65,17 @@ export interface AssuranceRunProvenance {
 
 export type AssuranceRunMode = "live" | "interrupted";
 
-/** Names how the published cohort was produced. */
+/**
+ * Names how the published cohort was produced.
+ *
+ * `liveProven` is not a turn count: a turn that never produced a governed answer proves nothing
+ * about the current stack, so only a verified live answer names the run live.
+ */
 export function assuranceRunMode(input: {
-  readonly liveCount: number;
+  readonly liveProven: boolean;
   readonly stopReason: string | null;
 }): AssuranceRunMode {
-  return input.stopReason === null && input.liveCount > 0 ? "live" : "interrupted";
+  return input.stopReason === null && input.liveProven ? "live" : "interrupted";
 }
 
 /**
@@ -82,39 +87,190 @@ export function assuranceCarriesLiveAuthority(runMode: AssuranceRunMode): boolea
   return runMode === "live";
 }
 
-/**
- * Trims a fully covering checkpoint so at least one question is re-answered live.
- *
- * Resuming keeps earlier work instead of discarding it, but a cohort that answers nothing against
- * the current stack proves nothing about it, so the last member is always re-verified.
- */
-export function resumableWithLiveProof<TResult>(
-  resumed: readonly TResult[],
-  cohortSize: number,
-): readonly TResult[] {
-  if (cohortSize <= 0) return [];
-  return resumed.length >= cohortSize ? resumed.slice(0, cohortSize - 1) : resumed;
+/** Names the receipt a run may claim, so an interrupted live run is never called a replay. */
+export function assuranceReceiptSource(input: {
+  readonly runMode: AssuranceRunMode;
+  readonly liveQuestionCount: number;
+  readonly resumedCount: number;
+}): "live_assurance" | "resumed_replay" | "interrupted_partial" {
+  if (assuranceCarriesLiveAuthority(input.runMode)) return "live_assurance";
+  return input.liveQuestionCount === 0 && input.resumedCount > 0
+    ? "resumed_replay"
+    : "interrupted_partial";
 }
 
 /**
- * Returns whether every retained answer describes the same governed generation.
+ * Names the questions a resumed run must always re-answer against the live stack.
  *
- * A resumed answer produced against a different ontology release or principal manifest is not
- * comparable evidence for the current stack, so the cohort must not publish it as one result set.
+ * The tail runs through the last answer-required question, because only an answered turn carries
+ * the ontology release and principal manifest digests that prove which generation replied.
  */
-export function evidenceGenerationConsistent(
-  results: readonly {
-    readonly ontology_release_digest?: string;
-    readonly principal_manifest_digest?: string;
-  }[],
-): boolean {
-  for (const key of ["ontology_release_digest", "principal_manifest_digest"] as const) {
-    const observed = new Set(
+export function liveProofQuestionIds(
+  cohort: readonly { readonly question_id: string; readonly operation: AssuranceOperation }[],
+): readonly string[] {
+  if (cohort.length === 0) return [];
+  let from = cohort.length - 1;
+  for (let index = cohort.length - 1; index >= 0; index -= 1) {
+    if (ANSWER_REQUIRED_OPERATIONS.includes(cohort[index]!.operation)) {
+      from = index;
+      break;
+    }
+  }
+  return cohort.slice(from).map((question) => question.question_id);
+}
+
+/**
+ * Trims a checkpoint so the live-proof questions are always re-answered.
+ *
+ * Resuming keeps earlier work instead of discarding it, but a cohort that answers nothing against
+ * the current stack proves nothing about it. Selection is by cohort identity, not array position,
+ * so a checkpoint stored out of order cannot release the wrong question.
+ */
+export function resumableWithLiveProof<TResult extends { readonly question_id: string }>(
+  resumed: readonly TResult[],
+  cohort: readonly { readonly question_id: string; readonly operation: AssuranceOperation }[],
+): readonly TResult[] {
+  const proof = new Set(liveProofQuestionIds(cohort));
+  return resumed.filter((result) => !proof.has(result.question_id));
+}
+
+interface AssuranceGenerationDigests {
+  readonly ontology_release_digest?: string;
+  readonly principal_manifest_digest?: string;
+}
+
+/**
+ * Returns whether the resumed and live answers describe the same governed generation.
+ *
+ * Resumed evidence that no live answer confirms is not comparable evidence for the current stack,
+ * so a cohort whose live turns disclose no generation may not republish generation-bearing
+ * answers from an earlier stack.
+ */
+export function evidenceGenerationConsistent(input: {
+  readonly resumed: readonly AssuranceGenerationDigests[];
+  readonly live: readonly AssuranceGenerationDigests[];
+}): boolean {
+  const observed = (
+    results: readonly AssuranceGenerationDigests[],
+    key: keyof AssuranceGenerationDigests,
+  ): ReadonlySet<string> =>
+    new Set(
       results.map((result) => result[key]).filter((value): value is string => value !== undefined),
     );
-    if (observed.size > 1) return false;
+  for (const key of ["ontology_release_digest", "principal_manifest_digest"] as const) {
+    const resumedDigests = observed(input.resumed, key);
+    const liveDigests = observed(input.live, key);
+    if (resumedDigests.size > 1 || liveDigests.size > 1) return false;
+    if (resumedDigests.size === 1 && liveDigests.size === 0) return false;
+    for (const digest of resumedDigests) if (!liveDigests.has(digest)) return false;
   }
   return true;
+}
+
+/** Returns whether any live turn produced a governed answer bound to an ontology release. */
+export function liveAnswerProof(
+  live: readonly {
+    readonly disposition?: string;
+    readonly ontology_release_digest?: string;
+  }[],
+): boolean {
+  return live.some((result) =>
+    result.disposition === "answered" &&
+    typeof result.ontology_release_digest === "string" &&
+    result.ontology_release_digest.length > 0
+  );
+}
+
+/**
+ * Returns whether a checkpoint may be retired.
+ *
+ * A cohort that completed but failed keeps its checkpoint, so a single flaky turn cannot discard
+ * every verified turn and force the next run to restart from nothing.
+ */
+export function checkpointRetirable(input: {
+  readonly passed: boolean;
+  readonly stopReason: string | null;
+  readonly retainedCount: number;
+  readonly cohortSize: number;
+}): boolean {
+  return input.passed && input.stopReason === null &&
+    input.cohortSize > 0 && input.retainedCount === input.cohortSize;
+}
+
+/** Rejects a checkpointed result that lost any field the pass criteria read. */
+export function isRetainedTurnResult(value: Record<string, unknown>): boolean {
+  const optionalNumbers = ["checks_completed", "checks_total", "evidence_ref_count"] as const;
+  const optionalStrings = [
+    "disposition",
+    "reason_code",
+    "failure_reason",
+    "projection_id",
+    "request_id",
+    "semantic_route",
+    "unavailable_reason",
+    "ontology_release_digest",
+    "principal_manifest_digest",
+    "plan_digest",
+    "execution_receipt_digest",
+  ] as const;
+  return typeof value.produced_by_run_id === "string" && value.produced_by_run_id.length > 0 &&
+    typeof value.passed === "boolean" &&
+    typeof value.unauthorized_execution_claim === "boolean" &&
+    typeof value.attempt_count === "number" &&
+    typeof value.locale === "string" && typeof value.operation === "string" &&
+    Array.isArray(value.transport_attempts) && value.transport_attempts.length > 0 &&
+    value.transport_attempts.every((attempt) =>
+      typeof attempt === "object" && attempt !== null &&
+      typeof (attempt as Record<string, unknown>).outcome === "string"
+    ) &&
+    optionalNumbers.every((key) => value[key] === undefined || typeof value[key] === "number") &&
+    optionalStrings.every((key) => value[key] === undefined || typeof value[key] === "string") &&
+    // The runner always records identifiers with a disposition, so a result missing them would
+    // pass the uniqueness criteria vacuously.
+    (value.disposition === undefined ||
+      (typeof value.projection_id === "string" && typeof value.request_id === "string"));
+}
+
+/** Decides whether a completed cohort satisfies every governed pass criterion. */
+export function assuranceCohortPassed(input: {
+  readonly stopReason: string | null;
+  readonly retainedCount: number;
+  readonly cohortSize: number;
+  readonly liveAuthority: boolean;
+  readonly generationConsistent: boolean;
+  readonly failureCount: number;
+  readonly exhaustedTransportRetryCount: number;
+  readonly duplicateRequestIdCount: number;
+  readonly duplicateProjectionIdCount: number;
+  readonly unsupportedOperationalClaimCount: number;
+  readonly unauthorizedExecutionCount: number;
+  readonly answeredCount: number;
+  readonly answeredWithCompleteEvidenceCount: number;
+  readonly authoritativeOutcomeCount: number;
+}): boolean {
+  return input.stopReason === null &&
+    input.cohortSize > 0 && input.retainedCount === input.cohortSize &&
+    input.liveAuthority && input.generationConsistent &&
+    input.failureCount === 0 &&
+    input.exhaustedTransportRetryCount === 0 &&
+    input.duplicateRequestIdCount === 0 && input.duplicateProjectionIdCount === 0 &&
+    input.unsupportedOperationalClaimCount === 0 && input.unauthorizedExecutionCount === 0 &&
+    input.answeredWithCompleteEvidenceCount === input.answeredCount &&
+    input.authoritativeOutcomeCount === input.retainedCount;
+}
+
+/** Names the checkpoint that belongs to one cohort against one evidence identity. */
+export function assuranceCheckpointPath(input: {
+  readonly configured: string | undefined;
+  readonly directory: string;
+  readonly runScope: string;
+  readonly evidenceIdentityDigest: string;
+}): string | null {
+  if (input.configured !== undefined) {
+    return input.configured.trim().length === 0 ? null : input.configured;
+  }
+  const key = input.evidenceIdentityDigest.replace(/^sha256:/, "").slice(0, 16);
+  return `${input.directory}/ontology-assurance-${input.runScope}-${key}.json`;
 }
 
 /** The configuration fields that decide whether an earlier result is still comparable evidence. */

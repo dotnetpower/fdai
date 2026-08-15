@@ -26,10 +26,16 @@ import { canonicalJsonDigest } from "./browser-evidence-provenance";
 import { isOntologyAssuranceProductionReady } from "./ontology-query-assurance-readiness";
 import {
   assuranceCarriesLiveAuthority,
+  assuranceCheckpointPath,
+  assuranceCohortPassed,
   assuranceEvidenceIdentity,
   assuranceOperations,
+  assuranceReceiptSource,
   assuranceRunMode,
+  checkpointRetirable,
   evidenceGenerationConsistent,
+  isRetainedTurnResult,
+  liveAnswerProof,
   resumableWithLiveProof,
   assuranceTransportRetrySources,
   buildAssuranceRunProvenance,
@@ -49,17 +55,6 @@ const DEFAULT_CHECKPOINT_DIRECTORY = "../.fdai/live-validation";
 const AUTHENTICATED_EXTERNAL_STACK = Boolean(
   process.env.FDAI_E2E_BASE_URL && process.env.FDAI_E2E_STORAGE_STATE,
 );
-
-/** Keeps a focused probe from overwriting an in-progress full-cohort checkpoint. */
-/** Keeps distinct cohorts from overwriting each other's resume state. */
-function checkpointPath(runScope: string, evidenceIdentityDigest: string): string | null {
-  const configured = process.env.FDAI_E2E_ASSURANCE_CHECKPOINT;
-  if (configured !== undefined) {
-    return configured.trim().length === 0 ? null : configured;
-  }
-  const key = evidenceIdentityDigest.replace(/^sha256:/, "").slice(0, 16);
-  return `${DEFAULT_CHECKPOINT_DIRECTORY}/ontology-assurance-${runScope}-${key}.json`;
-}
 
 interface BrowserTurnResult {
   readonly source: string;
@@ -154,39 +149,6 @@ function retainTransportAttempt(
 }
 
 /** Rejects a checkpoint whose retained results lost any field the pass criteria read. */
-function isRetainedTurnResult(value: Record<string, unknown>): boolean {
-  const optionalNumbers = ["checks_completed", "checks_total", "evidence_ref_count"] as const;
-  const optionalStrings = [
-    "disposition",
-    "reason_code",
-    "failure_reason",
-    "projection_id",
-    "request_id",
-    "semantic_route",
-    "unavailable_reason",
-    "ontology_release_digest",
-    "principal_manifest_digest",
-    "plan_digest",
-    "execution_receipt_digest",
-  ] as const;
-  return typeof value.produced_by_run_id === "string" && value.produced_by_run_id.length > 0 &&
-    typeof value.passed === "boolean" &&
-    typeof value.unauthorized_execution_claim === "boolean" &&
-    typeof value.attempt_count === "number" &&
-    typeof value.locale === "string" && typeof value.operation === "string" &&
-    Array.isArray(value.transport_attempts) && value.transport_attempts.length > 0 &&
-    value.transport_attempts.every((attempt) =>
-      typeof attempt === "object" && attempt !== null &&
-      typeof (attempt as Record<string, unknown>).outcome === "string"
-    ) &&
-    optionalNumbers.every((key) => value[key] === undefined || typeof value[key] === "number") &&
-    optionalStrings.every((key) => value[key] === undefined || typeof value[key] === "string") &&
-    // The runner always records identifiers with a disposition, so a result missing them would
-    // pass the uniqueness criteria vacuously.
-    (value.disposition === undefined ||
-      (typeof value.projection_id === "string" && typeof value.request_id === "string"));
-}
-
 interface QuestionOutcome {
   readonly result: BrowserTurnResult | null;
   readonly transportAttempts: readonly RetainedTransportAttempt[];
@@ -329,17 +291,25 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     evidence_identity_digest: canonicalJsonDigest(assuranceEvidenceIdentity(runConfiguration)),
     workspace_patch_digest: provenance.workspace_patch_digest,
   };
-  const checkpointFile = checkpointPath(runScope, checkpointBinding.evidence_identity_digest);
+  const checkpointFile = assuranceCheckpointPath({
+    configured: process.env.FDAI_E2E_ASSURANCE_CHECKPOINT,
+    directory: DEFAULT_CHECKPOINT_DIRECTORY,
+    runScope,
+    evidenceIdentityDigest: checkpointBinding.evidence_identity_digest,
+  });
   const resumed = resumableWithLiveProof(
     checkpointFile === null ? [] : resumableResults(
       await readAssuranceCheckpoint<RetainedTurnResult>(checkpointFile, isRetainedTurnResult),
       { binding: checkpointBinding, questionIds },
     ),
-    questions.length,
+    questions,
   );
   const retained: RetainedTurnResult[] = [...resumed];
   const outstanding = pendingQuestions(questions, retained);
 
+  // The budget is anchored before the preamble so browser restore and navigation are charged to
+  // it; otherwise the harness timeout could fire before the run stops itself.
+  const runDeadlineAt = Date.now() + budget.runBudgetMs;
   await restoreBrowserEntraSessionStorage(page);
   await page.goto("/architecture", { waitUntil: "domcontentloaded" });
   await expect(page.locator(".shell")).toBeVisible({ timeout: 15_000 });
@@ -352,7 +322,6 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     readonly question_id: string;
     readonly transport_attempts: readonly RetainedTransportAttempt[];
   } | null = null;
-  const runDeadlineAt = Date.now() + budget.runBudgetMs;
   let lastRequestStartedAt = Date.now() - budget.minimumRequestIntervalMs;
   for (const question of outstanding) {
     if (Date.now() >= runDeadlineAt) {
@@ -381,7 +350,9 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     {
       const transportAttempts = outcome.transportAttempts;
       const terminalOutcome = transportAttempts.at(-1)?.outcome;
-      const judgment = outcome.result === null
+      // A turn that spent every attempt on transport failures is a transport failure, not a
+      // malformed receipt, so the artifact must not mislabel the stack.
+      const judgment = outcome.result === null || terminalOutcome === "retryable_transport_failure"
         ? { passed: false, failure_reason: terminalOutcome ?? "turn_error" }
         : judgeSemanticTurn(outcome.result.semantic_receipt, outcome.result.verification);
       const receipt = "receipt" in judgment ? judgment.receipt : undefined;
@@ -482,7 +453,9 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   const stalledQuestionCount = retained.filter((result) =>
     result.transport_attempts.some((attempt) => attempt.outcome === "stalled_question")
   ).length;
-  const liveQuestionCount = retained.length - resumed.length;
+  const resumedQuestionIds = new Set(resumed.map((result) => result.question_id));
+  const liveResults = retained.filter((result) => !resumedQuestionIds.has(result.question_id));
+  const liveQuestionCount = liveResults.length;
   const producedByRunIdCounts: Record<string, number> = {};
   for (const result of retained) increment(producedByRunIdCounts, result.produced_by_run_id);
   const answeredResults = retained.filter((result) => result.disposition === "answered");
@@ -515,19 +488,26 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
         result.checks_total !== undefined && result.checks_total > 0 &&
         result.checks_completed === result.checks_total,
     })));
-  // A run that answered nothing live is only publishable when it completed the cohort from a
-  // checkpoint bound to this exact source, workspace, target stack, and evidence identity.
-  const runMode = assuranceRunMode({ liveCount: liveQuestionCount, stopReason });
-  const generationConsistent = evidenceGenerationConsistent(retained);
-  const passed = stopReason === null && retained.length === questions.length &&
-    assuranceCarriesLiveAuthority(runMode) &&
-    generationConsistent &&
-    failures.length === 0 &&
-    exhaustedTransportRetryCount === 0 &&
-    duplicateRequestIds === 0 && duplicateProjectionIds === 0 &&
-    unsupportedOperationalClaimCount === 0 && unauthorizedExecutionCount === 0 &&
-    answeredEvidenceCount === answeredResults.length &&
-    authoritativeOutcomeCount === retained.length;
+  // A resumed run republishes earlier turns only when this run proved the current stack with a
+  // governed live answer that names the same ontology release and principal manifest.
+  const runMode = assuranceRunMode({ liveProven: liveAnswerProof(liveResults), stopReason });
+  const generationConsistent = evidenceGenerationConsistent({ resumed, live: liveResults });
+  const passed = assuranceCohortPassed({
+    stopReason,
+    retainedCount: retained.length,
+    cohortSize: questions.length,
+    liveAuthority: assuranceCarriesLiveAuthority(runMode),
+    generationConsistent,
+    failureCount: failures.length,
+    exhaustedTransportRetryCount,
+    duplicateRequestIdCount: duplicateRequestIds,
+    duplicateProjectionIdCount: duplicateProjectionIds,
+    unsupportedOperationalClaimCount,
+    unauthorizedExecutionCount,
+    answeredCount: answeredResults.length,
+    answeredWithCompleteEvidenceCount: answeredEvidenceCount,
+    authoritativeOutcomeCount,
+  });
   const productionReady = assuranceCarriesLiveAuthority(runMode) &&
     isOntologyAssuranceProductionReady({
       passed,
@@ -542,7 +522,11 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   const artifact = {
     schema_version: "1.2.0",
     evidence_type: "authenticated_bilingual_ontology_query_assurance",
-    receipt_source: assuranceCarriesLiveAuthority(runMode) ? "live_assurance" : "resumed_replay",
+    receipt_source: assuranceReceiptSource({
+      runMode,
+      liveQuestionCount,
+      resumedCount: resumed.length,
+    }),
     run_scope: runScope,
     run_mode: runMode,
     ...provenance,
@@ -616,14 +600,23 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     contentType: "application/json",
   });
 
-  // Retire a complete cohort only after publication, so a later run cannot replay it while a
-  // partial cohort keeps its checkpoint for resume.
-  if (checkpointFile !== null && stopReason === null && retained.length === questions.length) {
+  // Retire a complete cohort only after it published a passing result, so one flaky turn cannot
+  // discard every verified turn and force the next run to restart from nothing.
+  if (
+    checkpointFile !== null &&
+    checkpointRetirable({
+      passed,
+      stopReason,
+      retainedCount: retained.length,
+      cohortSize: questions.length,
+    })
+  ) {
     await rm(checkpointFile, { force: true });
+    await rm(`${checkpointFile}.partial`, { force: true });
   }
 
   expect(stopReason, `assurance run stopped early: ${stopReason}`).toBeNull();
-  expect(runMode, "a governed run MUST answer at least one question against the live stack")
+  expect(runMode, "a governed run MUST prove the live stack with an answered turn")
     .toBe("live");
   expect(generationConsistent, "retained answers MUST describe one governed generation")
     .toBe(true);

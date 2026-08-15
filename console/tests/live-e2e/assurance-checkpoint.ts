@@ -1,6 +1,6 @@
 /** Resumable checkpoint for bounded live assurance runs. */
 
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import { canonicalJsonDigest } from "./browser-evidence-provenance";
@@ -151,6 +151,12 @@ export async function writeAssuranceCheckpoint<TResult extends AssuranceCheckpoi
 ): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   const temporaryPath = `${path}.partial`;
-  await writeFile(temporaryPath, `${JSON.stringify(checkpoint, null, 2)}\n`, "utf8");
-  await rename(temporaryPath, path);
+  try {
+    await writeFile(temporaryPath, `${JSON.stringify(checkpoint, null, 2)}\n`, "utf8");
+    await rename(temporaryPath, path);
+  } catch (error) {
+    // A failed write must not leave an orphaned partial file behind the resume path.
+    await rm(temporaryPath, { force: true });
+    throw error;
+  }
 }
