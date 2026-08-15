@@ -225,6 +225,38 @@ def test_dispatcher_routes_mutating_and_wrapped_git_to_policy(command: str) -> N
     assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "FDAI_ALIAS='reset --hard HEAD' git --config-env=alias.wipe=FDAI_ALIAS wipe",
+        "FDAI_ALIAS=commit git --config-env=alias.ci=FDAI_ALIAS ci -m alias-bypass",
+        ": x#y; git reset --hard HEAD",
+        ": x#y; git commit -m alias-bypass",
+    ],
+)
+def test_dispatcher_denies_config_env_aliases_and_midword_hash_bypasses(
+    command: str,
+) -> None:
+    completed = subprocess.run(
+        ["/bin/bash", "scripts/agent/pre_tool_dispatch.sh"],
+        cwd=REPO_ROOT,
+        input=json.dumps(
+            {
+                "session_id": "git-parser-bypass-test",
+                "tool_name": "run_in_terminal",
+                "tool_input": {"command": command},
+            }
+        ),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    result = json.loads(completed.stdout)
+    assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
 @pytest.mark.parametrize("command", ["git wipe", "git ci -m alias-bypass"])
 def test_dispatcher_denies_preconfigured_mutating_git_aliases(command: str, tmp_path: Path) -> None:
     (tmp_path / ".gitconfig").write_text(
