@@ -74,6 +74,7 @@ class IncidentQuery:
     limit: int
     cursor: str | None = None
     vertical: str | None = None
+    severity: str | None = None
     correlation_id: str | None = None
 
 

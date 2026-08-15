@@ -7,6 +7,7 @@ import {
   incidentRosterIdentifier,
   incidentVerticalDisplayLabel,
   mergeIncidentItems,
+  parseIncidentSeverity,
   parseIncidentVertical,
   resolveIncidentSelection,
 } from "./incidents";
@@ -48,6 +49,18 @@ describe("incident route filters", () => {
   it("localizes the active vertical summary", () => {
     setLocale("ko");
     expect(incidentVerticalDisplayLabel("change_safety")).toBe("변경 안전");
+  });
+
+  it("normalizes the five server-supported severity values", () => {
+    expect(parseIncidentSeverity("CRITICAL")).toBe("critical");
+    expect(parseIncidentSeverity(" low ")).toBe("low");
+    expect(parseIncidentSeverity("unknown")).toBe("unknown");
+  });
+
+  it("drops an unsupported or empty severity so the roster cannot filter client-side", () => {
+    expect(parseIncidentSeverity("sev2")).toBeNull();
+    expect(parseIncidentSeverity("")).toBeNull();
+    expect(parseIncidentSeverity(null)).toBeNull();
   });
 });
 

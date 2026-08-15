@@ -1142,7 +1142,7 @@
     "subtitle": "Incident-centric status and recovery history from the append-only audit log. Read-only; actions and approvals stay in Git and ChatOps.",
     "bannerTitle": "Read-only.",
     "bannerBody": "This workspace composes incident and audit projections. Approvals and changes remain in ChatOps or remediation pull requests.",
-    "filter": {"active": "Active", "resolved": "Resolved", "all": "All"},
+    "filter": {"active": "Active", "resolved": "Resolved", "all": "All", "anyVertical": "Any vertical", "anySeverity": "Any severity", "clearScope": "Clear scope filters"},
     "column": {"title": "Incident", "severity": "Severity", "status": "Status", "disposition": "Disposition", "vertical": "Vertical", "updated": "Updated"},
     "status": {"open": "Open", "in_progress": "In progress", "resolved": "Resolved"},
     "disposition": {"pending": "Pending", "awaiting_hil": "Awaiting approval", "action_delivered": "Action delivered", "no_action": "No action", "failed": "Failed", "rolled_back": "Rolled back", "resolved": "Resolved", "unknown": "Unknown"},

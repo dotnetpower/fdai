@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: b3a4726c9bce20ea4602db7b072f3f5abab47ab7
+translation_source_sha: af5f317e50238dcbf46118ee06e0073d6d3c2556
 translation_revised: 2026-08-15
 ---
 # 코드 맵
@@ -44,6 +44,7 @@ translation_revised: 2026-08-15
 | Exact kinetic proposal handoff | 구현됨 | `core/operational_planning/kinetic_proposal.py`, `delivery/kinetic_proposal.py`, `agents/forseti.py`, `agents/thor.py`, 집중 producer, Forseti, Thor, factory 및 framework 검사 | 완전한 operational plan은 기존 Verdict 경로를 통해 영속된 기존 exact V2 proposal 하나를 해석할 수 있습니다. Proposal이 없으면 legacy 동작을 유지하고 잘못된 record는 권한을 deny로 낮춥니다. 운영 source 조립과 pre-dispatch 증적 writer는 아직 남아 있습니다. |
 | 읽기 조사 활동 ID | 구현됨 | `composition/wire_read_investigation.py`, `test_wire_read_investigation.py`, focused 테스트 | 각 호출은 실시간 및 영속 활동에서 하나의 불투명한 상관관계 값을 공유하고, 별도 호출은 서로 다른 상관관계 값을 사용하며, 논리적 요청 멱등성은 안정적으로 유지됩니다. |
 | 브라우저 근거 메타데이터 읽기 계약 | 구현됨 | `fdai_service_contracts/operator.py`, `fdai_operator_service/browser_evidence_projection.py`, Operator migration, focused Operator 및 공유 계약 검사(`148 passed`) | `BrowserEvidenceQuery`는 구현이 없는 Operator 계약에 범위가 제한된 읽기 전용 메서드 하나를 추가합니다. Service 역할은 security-barrier 메타데이터 view만 조회할 수 있으며 수집 및 구조화된 페이로드는 서비스 간 계약 밖에 유지됩니다. |
+| 인시던트 심각도 읽기 필터 | 구현됨 | `fdai_service_contracts/operator.py`, `fdai_operator_service/routes.py`, `fdai_operator_service/postgres_sql.py`, focused Operator 및 공유 계약 검사(`383 passed, 1 skipped`) | `IncidentQuery.severity`는 구현이 없는 Operator 계약에 범위가 제한된 선택적 읽기 필터 하나를 추가합니다. 서버가 기록된 심각도를 묶어 페이지 제한 이전에 적용하며, 페이지 커서가 그 값에 연결되므로 필터를 바꾸면 stale 커서를 재사용할 수 없습니다. |
 | 서비스 간 의미 Rule 변환 결과 | 구현됨 | `fdai_service_contracts/semantic_turn.py`, `fdai_core_service/semantic_turn_processor.py`, `fdai_operator_service/postgres_semantic_turn_store.py`, 통과한 의미 경로 테스트 94개 | 공유 버전 1.2 계약, Core 처리 및 Operator 영속성은 후보 전용 권한, 범위가 제한된 기한, 복구 가능한 소유권 및 principal 범위의 exact 읽기와 함께 검증된 정확한 함수 호출 증적 및 정규 다이제스트를 보존합니다. 계약 검증은 내용, 다이제스트, 작업, 의도, 기능 및 최종 상태 차이를 거부합니다. 통제된 실제 운영 보증은 [온톨로지 조회 coverage 계획](../interfaces/ontology-query-coverage-implementation-plan-ko.md#남은-작업)에 열린 항목으로 남아 있습니다. |
 | Console 의미 증적 projection | 구현됨 | `semantic_turn.py`, `semantic_turn_processor.py`, `semantic_turn_runtime.py`, `console/src/deck/backend-normalizers.ts`, focused shared, Core, Operator 및 Console 테스트 | 타입이 지정된 경로, 구체적인 명확화 답변, 사용 불가 사유, 네 개의 보증 다이제스트, 근거 참조 및 `execution_authority=false`가 prose 추론 없이 shared 계약, Core 결과, exact Operator 읽기, 최종 스트림, 영속 transcript, replay 및 Console 표현을 통과합니다. 통과한 실제 브라우저 및 무작위 보증 기록은 온톨로지 조회 coverage 계획의 열린 항목으로 남아 있습니다. |
 | 결정론적 누락 incident 맥락 | 구현됨 | `core/conversation/semantic_planning.py`, `tests/conversation/test_semantic_planning.py`, 집중 플래너 및 최종 projection 테스트(`43 passed`) | 첫 turn의 "this incident" 참조는 매니페스트 또는 모델 작업 전에 범위가 제한된 명확화 하나를 반환합니다. 이전 incident 맥락이 있으면 일반 의미 계획 수립을 계속하며 어느 경로도 실행 권한을 부여하지 않습니다. |

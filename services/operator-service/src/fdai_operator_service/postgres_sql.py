@@ -259,6 +259,17 @@ normalized AS (
                WHEN 'finops' THEN 'cost_governance'
                ELSE NULL
            END AS vertical_bucket,
+           CASE LOWER(BTRIM(COALESCE(audit.entry->>'severity', '')))
+               WHEN 'critical' THEN 'critical'
+               WHEN 'sev1' THEN 'critical'
+               WHEN 'high' THEN 'high'
+               WHEN 'sev2' THEN 'high'
+               WHEN 'medium' THEN 'medium'
+               WHEN 'sev3' THEN 'medium'
+               WHEN 'low' THEN 'low'
+               WHEN 'sev4' THEN 'low'
+               ELSE NULL
+           END AS severity_bucket,
            SPLIT_PART(LOWER(COALESCE(audit.action_kind, '')), '.', 1) IN (
                'background-task',
                'iam',
@@ -306,7 +317,12 @@ incident_groups AS (
                (ARRAY_AGG(vertical_bucket ORDER BY seq DESC)
                     FILTER (WHERE vertical_bucket IS NOT NULL))[1],
                'unknown'
-           ) AS projected_vertical
+           ) AS projected_vertical,
+           COALESCE(
+               (ARRAY_AGG(severity_bucket ORDER BY seq DESC)
+                    FILTER (WHERE severity_bucket IS NOT NULL))[1],
+               'unknown'
+           ) AS projected_severity
       FROM ranked
      GROUP BY normalized_correlation_id
     HAVING BOOL_OR(NOT platform_activity)
@@ -320,6 +336,7 @@ selected AS (
        AND (%(correlation_id)s::text IS NULL
             OR normalized_correlation_id = %(correlation_id)s::text)
        AND (%(vertical)s::text IS NULL OR projected_vertical = %(vertical)s::text)
+       AND (%(severity)s::text IS NULL OR projected_severity = %(severity)s::text)
        AND (%(status)s = 'all'
             OR (%(status)s = 'resolved' AND projected_state IN ('resolved', 'closed'))
             OR (%(status)s = 'active' AND projected_state NOT IN ('resolved', 'closed')))

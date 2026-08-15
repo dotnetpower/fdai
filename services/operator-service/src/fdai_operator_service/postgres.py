@@ -215,6 +215,7 @@ class PostgresOperatorReadModel:
                 "before_seq": None,
                 "status": "all",
                 "vertical": query.vertical,
+                "severity": query.severity,
                 "correlation_id": None,
                 "fetch": 501,
                 "history_limit": INCIDENT_HISTORY_LIMIT,
@@ -281,6 +282,7 @@ class PostgresOperatorReadModel:
             query.cursor,
             status=query.status,
             vertical=query.vertical,
+            severity=query.severity,
         )
         rows = await self._fetch_all(
             INCIDENT_PAGE_SQL,
@@ -289,6 +291,7 @@ class PostgresOperatorReadModel:
                 "before_seq": cursor[1] if cursor else None,
                 "status": query.status,
                 "vertical": query.vertical,
+                "severity": query.severity,
                 "correlation_id": query.correlation_id,
                 "fetch": query.limit + 1,
                 "history_limit": INCIDENT_HISTORY_LIMIT,
@@ -308,6 +311,7 @@ class PostgresOperatorReadModel:
                 int(visible[-1][-1]["group_last_seq"]),
                 query.status,
                 query.vertical,
+                query.severity,
             )
         return PageProjection(items=items, next_cursor=next_cursor), snapshot_seq
 
@@ -360,6 +364,7 @@ def _encode_incident_cursor(
     before_seq: int,
     status: str,
     vertical: str | None,
+    severity: str | None,
 ) -> str:
     payload = json.dumps(
         {
@@ -368,6 +373,7 @@ def _encode_incident_cursor(
             "before_seq": before_seq,
             "status": status,
             "vertical": vertical,
+            "severity": severity,
         },
         separators=(",", ":"),
         sort_keys=True,
@@ -380,6 +386,7 @@ def _decode_incident_cursor(
     *,
     status: str,
     vertical: str | None,
+    severity: str | None,
 ) -> tuple[int, int] | None:
     if not value:
         return None
@@ -392,6 +399,7 @@ def _decode_incident_cursor(
             payload.get("v") != 1
             or payload.get("status") != status
             or payload.get("vertical") != vertical
+            or payload.get("severity") != severity
             or not isinstance(snapshot_seq, int)
             or isinstance(snapshot_seq, bool)
             or snapshot_seq < 0

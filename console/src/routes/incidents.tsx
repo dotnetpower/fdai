@@ -48,12 +48,22 @@ const PAGE_SIZE = 25;
 const FILTERS: readonly IncidentStatusFilter[] = ["active", "resolved", "all"];
 const INCIDENT_VERTICALS = ["resilience", "change_safety", "cost_governance", "unknown"] as const;
 type IncidentVertical = typeof INCIDENT_VERTICALS[number];
+const INCIDENT_SEVERITIES = ["critical", "high", "medium", "low", "unknown"] as const;
+type IncidentSeverity = typeof INCIDENT_SEVERITIES[number];
 
 export function parseIncidentVertical(value: string | null): IncidentVertical | null {
   if (value === null) return null;
   const normalized = value.trim().toLowerCase().replaceAll("-", "_");
   return INCIDENT_VERTICALS.includes(normalized as IncidentVertical)
     ? normalized as IncidentVertical
+    : null;
+}
+
+export function parseIncidentSeverity(value: string | null): IncidentSeverity | null {
+  if (value === null) return null;
+  const normalized = value.trim().toLowerCase();
+  return INCIDENT_SEVERITIES.includes(normalized as IncidentSeverity)
+    ? normalized as IncidentSeverity
     : null;
 }
 
@@ -103,6 +113,9 @@ export function IncidentsRoute({ client }: Props) {
   const [verticalFilter, setVerticalFilter] = useState<IncidentVertical | null>(
     parseIncidentVertical(initialRoute.search.get("vertical")),
   );
+  const [severityFilter, setSeverityFilter] = useState<IncidentSeverity | null>(
+    parseIncidentSeverity(initialRoute.search.get("severity")),
+  );
   const [filter, setFilter] = useState<IncidentStatusFilter>(
     initialStatus === "resolved" || initialStatus === "all" ? initialStatus : "active",
   );
@@ -123,6 +136,7 @@ export function IncidentsRoute({ client }: Props) {
       const status = route.search.get("status");
       setFilter(status === "resolved" || status === "all" ? status : "active");
       setVerticalFilter(parseIncidentVertical(route.search.get("vertical")));
+      setSeverityFilter(parseIncidentSeverity(route.search.get("severity")));
       setSelectedId(route.search.get("correlation"));
     };
     window.addEventListener("popstate", sync);
@@ -138,7 +152,22 @@ export function IncidentsRoute({ client }: Props) {
       params: {
         status: status === "active" ? null : status,
         vertical: verticalFilter,
+        severity: severityFilter,
         correlation,
+      },
+    }));
+  };
+
+  const openFilters = (
+    vertical: IncidentVertical | null,
+    severity: IncidentSeverity | null,
+  ): void => {
+    navigate(routeHref("incidents", {
+      params: {
+        status: filter === "active" ? null : filter,
+        vertical,
+        severity,
+        correlation: null,
       },
     }));
   };
@@ -153,6 +182,7 @@ export function IncidentsRoute({ client }: Props) {
       status: filter,
       limit: PAGE_SIZE,
       ...(verticalFilter ? { vertical: verticalFilter } : {}),
+      ...(severityFilter ? { severity: severityFilter } : {}),
     } as const;
     exactLookup.current = null;
     void client.listIncidents(filters).then(
@@ -176,12 +206,12 @@ export function IncidentsRoute({ client }: Props) {
     return () => {
       if (rosterGeneration.current === generation) rosterGeneration.current += 1;
     };
-  }, [client, filter, verticalFilter]);
+  }, [client, filter, verticalFilter, severityFilter]);
 
   useEffect(() => {
     if (selectedId === null || state.status !== "ready") return;
     if (state.data.items.some((item) => item.correlation_id === selectedId)) return;
-    const lookupKey = `${filter}:${verticalFilter ?? "all"}:${selectedId}`;
+    const lookupKey = `${filter}:${verticalFilter ?? "all"}:${severityFilter ?? "all"}:${selectedId}`;
     if (exactLookup.current === lookupKey) return;
     exactLookup.current = lookupKey;
     const generation = rosterGeneration.current;
@@ -190,6 +220,7 @@ export function IncidentsRoute({ client }: Props) {
       limit: 1,
       correlationId: selectedId,
       ...(verticalFilter ? { vertical: verticalFilter } : {}),
+      ...(severityFilter ? { severity: severityFilter } : {}),
     }).then(
       (page) => {
         if (
@@ -256,6 +287,7 @@ export function IncidentsRoute({ client }: Props) {
     const generation = rosterGeneration.current;
     const requestedFilter = filter;
     const requestedVertical = verticalFilter;
+    const requestedSeverity = severityFilter;
     setLoadingMore(true);
     setPageError(null);
     try {
@@ -264,11 +296,13 @@ export function IncidentsRoute({ client }: Props) {
         limit: PAGE_SIZE,
         cursor,
         ...(requestedVertical ? { vertical: requestedVertical } : {}),
+        ...(requestedSeverity ? { severity: requestedSeverity } : {}),
       });
       if (
         rosterGeneration.current !== generation
         || filter !== requestedFilter
         || verticalFilter !== requestedVertical
+        || severityFilter !== requestedSeverity
       ) return;
       if (!incidentPageMatchesSnapshot(state.data.metrics, page.metrics)) {
         throw new Error("Incident page snapshot changed during pagination");
@@ -290,6 +324,7 @@ export function IncidentsRoute({ client }: Props) {
         rosterGeneration.current !== generation
         || filter !== requestedFilter
         || verticalFilter !== requestedVertical
+        || severityFilter !== requestedSeverity
       ) return;
       setPageError(error instanceof Error ? error.message : String(error));
     } finally {
@@ -297,6 +332,7 @@ export function IncidentsRoute({ client }: Props) {
         rosterGeneration.current === generation
         && filter === requestedFilter
         && verticalFilter === requestedVertical
+        && severityFilter === requestedSeverity
       ) {
         setLoadingMore(false);
       }
@@ -325,6 +361,43 @@ export function IncidentsRoute({ client }: Props) {
             {t(`incidents.filter.${value}`)}
           </button>
         ))}
+      </div>
+      <div class="incident-scope-filters">
+        <label>
+          <span>{t("incidents.verticalLabel")}</span>
+          <select
+            value={verticalFilter ?? ""}
+            onChange={(event) => openFilters(
+              parseIncidentVertical((event.currentTarget as HTMLSelectElement).value),
+              severityFilter,
+            )}
+          >
+            <option value="">{t("incidents.filter.anyVertical")}</option>
+            {INCIDENT_VERTICALS.map((value) => (
+              <option key={value} value={value}>{localized("vertical", value)}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>{t("incidents.overview.severity")}</span>
+          <select
+            value={severityFilter ?? ""}
+            onChange={(event) => openFilters(
+              verticalFilter,
+              parseIncidentSeverity((event.currentTarget as HTMLSelectElement).value),
+            )}
+          >
+            <option value="">{t("incidents.filter.anySeverity")}</option>
+            {INCIDENT_SEVERITIES.map((value) => (
+              <option key={value} value={value}>{localized("severity", value)}</option>
+            ))}
+          </select>
+        </label>
+        {verticalFilter || severityFilter ? (
+          <button type="button" onClick={() => openFilters(null, null)}>
+            {t("incidents.filter.clearScope")}
+          </button>
+        ) : null}
       </div>
       <AsyncBoundary state={state} resourceLabel={t("route.incidents")}>
         {(data) => (

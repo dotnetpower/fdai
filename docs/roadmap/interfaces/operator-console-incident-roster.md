@@ -153,12 +153,22 @@ per-user direct-message subscriptions. Assignment and external ticket linkage
 remain authenticated write-direction chat/tool operations and appear as audit
 history; the read-only roster surfaces the linked `ticket_id`.
 
-The roster accepts an optional canonical `vertical` filter, and the audit
+The roster accepts optional canonical `vertical` and `severity` filters, and the audit
 route applies `mode`, `tier`, `action`, `outcome`, `vertical`, and bounded
 `window=<n>d` filters on the server before cursor pagination. An analytical
 deep link therefore searches the complete filtered result set rather than
-filtering only the first browser page. The cursor is bound to the incident
-status and vertical, so changing either filter invalidates a stale cursor.
+filtering only the first browser page. `severity` accepts `critical`, `high`, `medium`, `low`, and
+`unknown`; the projection buckets `sev1` through `sev4` onto those canonical values and never
+filters in the browser. The console exposes both as select controls with an explicit any-value
+option and a clear action, so a filter that arrived through a deep link can be removed without
+editing the URL. The cursor is bound to the incident status, vertical, and severity, so changing any
+of them invalidates a stale cursor.
+
+The roster has no free-text search. The displayed subject can come from `recorded_subject`, which
+the projection composes in the read model rather than storing in a column, so a server-side text
+filter would not match what an operator sees, and a browser-side filter would search only the
+current page. Search stays unavailable until a materialized subject makes a server-side filter
+truthful.
 
 Overview audit KPIs aggregate the newest 500 audit rows in both the in-memory
 and Postgres read models. `GET /kpi` returns that immutable sample as
@@ -422,6 +432,7 @@ approve / rollback button. The projection is a pure function
 | 2026-08-15 | in-progress | Derived a `recorded_subject` title from the recorded operational target and reason, including the audit-envelope `payload`, and made the roster identifier fallback show the correlation id that every incident link resolves. | `current change`; `incident_projection.py`, `incidents.tsx`, `types.ts`, `api-operations.ts` and their focused tests; Operator `33 passed`, Console `29 passed`, Ruff, Ruff format, and strict mypy passed; replaying the projection over the local corpus of 1,562 correlation groups moved `identifier_fallback` from 1,007 (64.5%) to 5 (0.32%), and the 5 remaining groups are non-operational `read:sha256:*` reads. | Exclude non-operational correlation groups, derive milestone and next-step text from recorded RCA and T1 fields, correct the cohort window and truncation disclosure, add roster search and filter controls, preserve acronyms, and record a title on the opening audit entry. |
 | 2026-08-15 | in-progress | Described RCA and tier evaluations from their recorded outcome, reason, and cause, surfaced the newest recorded blocker beside the phase next step, preserved acronyms, stopped linking a placeholder as accountable agents, and stopped rendering an unmapped catalog key. | `current change`; `incidents.timeline.ts`, `incidents.overview.ts`, `incidents.tsx`, `incident-clarity.css`, both message catalogs, and their focused tests; Console `37 passed`, catalog usage `3 passed`, typecheck, and translation freshness passed. | Exclude non-operational correlation groups, correct the cohort window and truncation disclosure, add roster search and filter controls, and record a title on the opening audit entry. |
 | 2026-08-15 | in-progress | Excluded correlation groups whose every row is platform housekeeping, added a `matched_total` measurement disclosure, relabelled the observed range, and made an unmeasurable time to mitigate state its reason. | `current change`; `postgres_sql.py`, `postgres.py`, `incident_projection.py`, `api-operations.ts`, `types.ts`, `incidents.detail-sections.tsx`, both message catalogs, and their focused tests; Operator `286 passed, 1 skipped`, Console `53 passed`, typecheck, Ruff, Ruff format, and strict mypy passed; the updated page SQL run against the local corpus selected 1,557 of 1,562 groups and excluded exactly the 5 housekeeping groups. | Add roster search and filter controls, and record a title on the opening audit entry. |
+| 2026-08-15 | in-progress | Added a server-side `severity` filter bound to the cursor and exposed vertical and severity as clearable roster controls. | `current change`; `operator.py`, `routes.py`, `postgres_sql.py`, `postgres.py`, `api-operations-client.ts`, `incidents.tsx`, `incident-clarity.css`, both message catalogs, and focused tests; Operator and contracts `383 passed, 1 skipped`, Console `55 passed`; the filter run against the local corpus returned 380 low, 19 critical, and 1,004 unknown of 1,557 groups. | Record a title on the opening audit entry; free-text roster search stays unavailable until a materialized subject makes a server-side filter truthful. |
 
 ### Remaining work
 
@@ -437,5 +448,5 @@ approve / rollback button. The projection is a pure function
 - [ ] Record a `title` on the opening audit entry of every incident-bearing producer so `recorded_title` becomes the normal provenance.
 - [x] Derive investigation milestone and recommended-next-step text from recorded RCA and T1 fields instead of a generic template when those fields exist.
 - [x] Label the cohort observed range truthfully, disclose the bound and the excluded remainder, and render an unusable time-to-mitigate measurement as unavailable with a reason.
-- [ ] Add server-backed roster search and severity/vertical filter controls, including clearing a set vertical filter from the UI.
+- [x] Add server-backed severity and vertical filter controls, including clearing a set scope filter from the UI. Free-text roster search stays unavailable on purpose: the displayed subject is composed in the read model, so neither a server-side nor a browser-side text filter would be truthful until a materialized subject exists.
 - [x] Preserve acronyms through subject humanization and prevent a dynamic i18n key with no catalog entry from rendering a raw key string.
