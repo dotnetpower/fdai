@@ -7,7 +7,10 @@ import {
   DeadlineExceededError,
   MAXIMUM_RUN_BUDGET_MS,
   MINIMUM_RUN_BUDGET_MS,
+  PREAMBLE_ACCESS_TIMEOUT_MS,
   PREAMBLE_BOUND_MS,
+  PREAMBLE_NAVIGATION_TIMEOUT_MS,
+  PREAMBLE_READY_TIMEOUT_MS,
   RUN_BUDGET_PER_QUESTION_MS,
   TEST_TIMEOUT_SLACK_MS,
   attemptEndedByRunBudget,
@@ -186,6 +189,10 @@ describe("resolveAssuranceBudget", () => {
       // The preamble is charged to the run budget, so the budget must be able to hold it and
       // still leave room for questions.
       expect(budget.runBudgetMs).toBeGreaterThan(PREAMBLE_BOUND_MS);
+      // The bound must stay derived from the timeouts the runner actually passes.
+      expect(PREAMBLE_BOUND_MS).toBe(
+        PREAMBLE_NAVIGATION_TIMEOUT_MS + 2 * PREAMBLE_READY_TIMEOUT_MS + PREAMBLE_ACCESS_TIMEOUT_MS,
+      );
       // The envelope must stay dominated by the declared budget rather than by harness slack.
       expect(budget.testTimeoutMs - budget.runBudgetMs).toBeLessThan(budget.runBudgetMs);
     }

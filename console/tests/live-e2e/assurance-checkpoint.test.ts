@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -146,5 +146,19 @@ describe("checkpoint persistence", () => {
 
     expect(await readAssuranceCheckpoint(path, () => true)).not.toBeNull();
     expect(await readAssuranceCheckpoint(path, () => false)).toBeNull();
+  });
+  it("surfaces a read fault instead of silently restarting a cohort", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "fdai-assurance-"));
+
+    await expect(readAssuranceCheckpoint(directory)).rejects.toThrow();
+  });
+
+  it("leaves no partial file behind when the atomic write fails", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "fdai-assurance-"));
+    // A directory at the destination makes the rename fail after the partial write succeeded.
+    await writeFile(join(directory, "placeholder"), "", "utf8");
+
+    await expect(writeAssuranceCheckpoint(directory, checkpoint())).rejects.toThrow();
+    await expect(access(`${directory}.partial`)).rejects.toThrow();
   });
 });

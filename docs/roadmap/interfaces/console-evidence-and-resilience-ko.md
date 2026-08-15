@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 2cbb20574489161c6c981503ffc1cd7ff9a0bf62
+translation_source_sha: d8841572063983550f10e7cedeb3ded450d7d94a
 translation_revised: 2026-08-15
 ---
 
@@ -57,6 +57,7 @@ translation_revised: 2026-08-15
 | 2026-08-15 | implemented | 재생된 cohort는 보존 증거를 다시 발행하지만 release 권한을 갖지 않습니다. `receipt_source: resumed_replay`로 보고되고 production-ready가 될 수 없으며, 중단된 실행은 재생이 아니라 `interrupted`로 표기되고, checkpoint 로드는 통과 기준이 읽는 모든 보존 필드를 검증합니다. | `current change`; focused Vitest live-evidence 102개 통과, `npm run typecheck` 및 typecheck-parity 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
 | 2026-08-15 | implemented | 재생 발행을 live 재검증으로 대체했습니다. Cohort 전체를 담은 checkpoint는 마지막 질문을 live stack으로 되돌려주므로 재개된 실행은 항상 현재 stack을 증명하고, checkpoint를 삭제한 뒤 실패하는 막힌 상태가 되지 않으며, 모든 보존 답변이 동일한 ontology release 및 principal manifest 세대를 보고해야 하므로 오래된 답변을 세탁할 수 없습니다. | `current change`; focused Vitest live-evidence 105개 통과, 두 프로젝트 `npm run typecheck` 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
 | 2026-08-15 | implemented | Live 증명을 반증 가능하게 만들었습니다. 재개된 실행은 마지막 answer-required 질문까지 cohort 꼬리를 풀고, 다시 발행되는 답변은 live 답변이 확인한 ontology release 및 principal manifest를 재현해야 하며, 완주했지만 실패한 cohort는 checkpoint를 유지하고, 중단된 live 실행은 재생이 아니라 `interrupted_partial`로 보고하며, checkpoint 신뢰·통과·회수·경로 정책을 테스트된 순수 함수로 옮겼습니다. | `current change`; focused Vitest live-evidence 123개 통과, 두 프로젝트 `npm run typecheck` 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
+| 2026-08-15 | implemented | 재개 실행이 수렴하도록 했습니다. 검증된 turn만 재개하므로 불안정한 turn은 영구 상속되지 않고 다시 시도되며, answer-required 증명 질문을 정확히 하나만 풀어 재개 비용이 turn 하나이고, Playwright가 navigation 및 action timeout을 기본으로 비활성화하므로 모든 preamble 단계가 자체 timeout을 선언하며, 세대를 증명할 수 없는 선택은 거부하고, 보존된 locale·operation·attempt outcome을 통제된 값으로 검증합니다. | `current change`; focused Vitest live-evidence 126개 통과, 두 프로젝트 `npm run typecheck` 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
 
 ### 잔여 작업
 

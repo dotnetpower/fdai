@@ -134,8 +134,10 @@ export async function readAssuranceCheckpoint<TResult extends AssuranceCheckpoin
   let raw: string;
   try {
     raw = await readFile(path, "utf8");
-  } catch {
-    return null;
+  } catch (error) {
+    // A missing checkpoint is a fresh cohort; any other read fault must not silently restart one.
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
   }
   try {
     return parseAssuranceCheckpoint<TResult>(JSON.parse(raw), isResult);
