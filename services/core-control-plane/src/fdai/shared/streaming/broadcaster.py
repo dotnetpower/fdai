@@ -7,9 +7,10 @@ records for browser / webhook consumers. This class is the boundary.
 Design
 ------
 - Every ``(topic, channel)`` pair is served by one background async task.
-- Each task drives an ``async for envelope in event_bus.subscribe(topic,
-  group_id)`` loop and calls ``await sse_sink.publish(channel, SseEvent
-  (...))``.
+- Each task drives a ``subscription(event_bus, topic, group_id)`` loop and
+  calls ``await sse_sink.publish(channel, SseEvent(...))``. The shared
+  helper closes the provider stream inside the task so broker teardown is
+  never deferred to interpreter finalization.
 - Cancellation is cooperative: :meth:`stop` cancels every task and
   awaits them; :meth:`run` is idempotent (calling it twice is a no-op
   on the second call).
@@ -35,7 +36,7 @@ import logging
 from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
-from fdai.shared.providers.event_bus import EventBus, EventEnvelope
+from fdai.shared.providers.event_bus import EventBus, EventEnvelope, subscription
 from fdai.shared.providers.sse import SseEvent, SseSink
 
 _LOGGER = logging.getLogger(__name__)
@@ -124,8 +125,9 @@ class SseBroadcaster:
         # subscription (generator exhausted) returns.
         while True:
             try:
-                async for envelope in self._event_bus.subscribe(topic, group_id):
-                    await self._sse_sink.publish(channel, self._envelope_to_sse(envelope))
+                async with subscription(self._event_bus, topic, group_id) as stream:
+                    async for envelope in stream:
+                        await self._sse_sink.publish(channel, self._envelope_to_sse(envelope))
                 return
             except asyncio.CancelledError:
                 _LOGGER.debug("sse-relay:%s->%s cancelled", topic, channel)

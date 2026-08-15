@@ -13,7 +13,7 @@ from typing import Any
 from uuid import uuid4
 
 from fdai.core.conversation.semantic_runtime import SemanticConversationRuntime
-from fdai.shared.providers.event_bus import EventBus
+from fdai.shared.providers.event_bus import EventBus, subscription
 from fdai.shared.providers.state_store import StateStore
 
 from .semantic_turn_processor import (
@@ -234,43 +234,44 @@ async def consume_semantic_turns(
     injected EventBus dead-letter boundary with stable, detail-free reasons.
     """
 
-    async for envelope in bus.subscribe(request_topic, group_id):
-        if stop.is_set():
-            return
-        try:
-            encoded = await processor.process(envelope.payload, cancelled=stop)
-            projection = _projection_mapping(encoded)
-        except SemanticTurnRejectedError:
-            await bus.dead_letter(
-                envelope.topic,
-                envelope.key,
-                envelope.payload,
-                "semantic_turn_rejected",
-            )
-            continue
-        except Exception:  # noqa: BLE001 - process bugs are isolated at the broker boundary
-            await bus.dead_letter(
-                envelope.topic,
-                envelope.key,
-                envelope.payload,
-                "semantic_turn_process_failed",
-            )
-            continue
-        if not await _publish_projection(
-            bus=bus,
-            topic=projection_topic,
-            key=str(projection["idempotency_key"]),
-            projection=projection,
-            stop=stop,
-            attempts=publish_attempts,
-            retry_delay_seconds=publish_retry_delay_seconds,
-        ):
-            await bus.dead_letter(
-                envelope.topic,
-                envelope.key,
-                envelope.payload,
-                "semantic_turn_publish_failed",
-            )
+    async with subscription(bus, request_topic, group_id) as stream:
+        async for envelope in stream:
+            if stop.is_set():
+                return
+            try:
+                encoded = await processor.process(envelope.payload, cancelled=stop)
+                projection = _projection_mapping(encoded)
+            except SemanticTurnRejectedError:
+                await bus.dead_letter(
+                    envelope.topic,
+                    envelope.key,
+                    envelope.payload,
+                    "semantic_turn_rejected",
+                )
+                continue
+            except Exception:  # noqa: BLE001 - process bugs are isolated at the broker boundary
+                await bus.dead_letter(
+                    envelope.topic,
+                    envelope.key,
+                    envelope.payload,
+                    "semantic_turn_process_failed",
+                )
+                continue
+            if not await _publish_projection(
+                bus=bus,
+                topic=projection_topic,
+                key=str(projection["idempotency_key"]),
+                projection=projection,
+                stop=stop,
+                attempts=publish_attempts,
+                retry_delay_seconds=publish_retry_delay_seconds,
+            ):
+                await bus.dead_letter(
+                    envelope.topic,
+                    envelope.key,
+                    envelope.payload,
+                    "semantic_turn_publish_failed",
+                )
 
 
 async def _publish_projection(

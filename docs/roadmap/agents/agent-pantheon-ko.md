@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: c67cef335d4a90226e3115cda47723f90ff5c025
-translation_revised: 2026-08-14
+translation_source_sha: a957678de92986b307810efc892d2d1422828d3e
+translation_revised: 2026-08-15
 ---
 
 # 에이전트 판테온
@@ -52,6 +52,7 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 | 2026-08-14 | implemented | Forseti에 선택적 exact proposal source를 주입하고 조정이 해결된 Verdict와 사람 검토 Verdict에 일치하는 proposal을 보존했습니다. Proposal이 없으면 legacy 동작을 유지하고 잘못된 source record는 권한을 deny로 낮춥니다. | `current change`, `forseti.py`, `factory.py`, `runtime.py` 및 집중 producer, Forseti, Thor, factory, framework 검사 | 런타임 검증을 주장하기 전에 운영 조립에서 source를 연결하고 pre-dispatch 증적 및 독립 관측 경로를 완료합니다. |
 | 2026-08-14 | implemented | AgentSpec, topic, 판단, 승인 또는 실행 소유권을 바꾸지 않고 모든 Thor 소유 실행기 전에 Core pre-dispatch kinetic receipt consumer를 연결했습니다. | `current change`, `core/operational_planning/kinetic_safety.py`, `delivery/kinetic_safety.py`, `runtime/control_loop.py` 및 집중 kinetic/HIL/Thor 조립 검사 115개 통과 | 운영 조립에서 Forseti source를 연결하고 독립 observer를 추가한 뒤 통제된 실제 근거를 보존합니다. |
 | 2026-08-14 | implemented | Bragi의 표현 전용 숙의가 선택적 T2 종합을 호출하기 전에 결정론적 T1 답변 평가를 요구하도록 했습니다. | `current change`, 집중 숙의 테스트 36개는 충돌이 없거나 비교할 수 없는 claim에 T2를 호출하지 않고 구조적 충돌에만 범위가 제한된 호출을 유지함을 입증합니다. | AgentSpec, topic 또는 권한을 바꾸지 않고 통제된 운영자 경로 근거를 보존합니다. |
+| 2026-08-15 | implemented | Bridge 소비자가 자기 task 안에서 구독을 닫도록 해서 broker 정리가 인터프리터 종료 처리가 아니라 종료 절차 중에 실행되도록 했습니다. AgentSpec, topic, 소유권, LLM, 안전장치는 바뀌지 않았습니다. | `current change`, [`bus_bridge.py`](../../../services/core-control-plane/src/fdai/agents/_framework/bus_bridge.py)와 [`test_subscription_lifecycle.py`](../../../services/core-control-plane/tests/agents/test_subscription_lifecycle.py), 집중 agent/delivery/runtime/provider 검사 3127건 통과 | 실제 로컬 종료에서 남은 소비자 stop 타임아웃이 없는지 확인합니다. |
 
 ### 남은 작업
 - [ ] 하나의 고정된 리비전에서 에이전트별 및 시스템 KPI, 표본 수, 신뢰 구간, 보호 메트릭과 권위 있는 결과 증적을 측정한 실제 shadow 코호트를 보존합니다.
@@ -389,6 +390,7 @@ properties:
 버스는 인증된 `producer_principal`과 정수 `envelope_schema_version`을 기록하고 페이로드의 `schema_version`은 보존합니다. 변경은 비어 있지 않은 `correlation_id`, `resource_id`, `idempotency_key`가 필요합니다.
 Owned-topic 생산자 검사는 끌 수 없고 알 수 없는 `object.*` 구독은 등록에 실패합니다. Ordered 변경 소비자는 poison 기록을 보관한 뒤 중지해 후속 변경의 추월을 막습니다.
 Dead-letter 쓰기는 제한된 재시도 대기 후 소비자를 재시작합니다. 오퍼레이터 redrive도 소유자, 묶음, 스키마를 다시 검사하고 실패하면 원본 페이로드만 다시 보관합니다.
+각 소비자는 자기 task 안에서 구독을 닫으므로, broker adapter는 인터프리터 종료 처리 시점이 아니라 종료 절차 중에 소비자 그룹을 반납합니다.
 
 | 토픽 | 발행기 | 기본 subscribers |
 |-------|-----------|---------------------|

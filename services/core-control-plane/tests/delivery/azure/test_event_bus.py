@@ -472,7 +472,11 @@ async def test_consumer_bounds_group_leave_and_closes_client(
     caplog.set_level(logging.WARNING, logger=event_bus_module.__name__)
 
     await asyncio.wait_for(
-        event_bus_module._stop_consumer(_HangingConsumer()),  # type: ignore[arg-type]
+        event_bus_module._stop_consumer(
+            _HangingConsumer(),  # type: ignore[arg-type]
+            topic="aw.control.canary",
+            group_id="fdai-canary",
+        ),
         timeout=0.1,
     )
 
@@ -481,6 +485,8 @@ async def test_consumer_bounds_group_leave_and_closes_client(
         item for item in caplog.records if item.message == "event_bus_consumer_stop_timed_out"
     )
     assert record.timeout_seconds == 0.01
+    assert record.topic == "aw.control.canary"
+    assert record.consumer_group == "fdai-canary"
 
 
 @pytest.mark.asyncio

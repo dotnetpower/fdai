@@ -397,7 +397,7 @@ async def _iter_consumer(
                 await consumer.commit()
             _LOGGER.debug("event_bus_consumer_token_refresh", extra={"group_id": group_id})
         finally:
-            await _stop_consumer(consumer)
+            await _stop_consumer(consumer, topic=topic, group_id=group_id)
 
 
 async def _consume_messages(consumer: AIOKafkaConsumer) -> AsyncGenerator[EventEnvelope, None]:
@@ -430,7 +430,12 @@ def _transport_options(
     }
 
 
-async def _stop_consumer(consumer: AIOKafkaConsumer) -> None:
+async def _stop_consumer(
+    consumer: AIOKafkaConsumer,
+    *,
+    topic: str,
+    group_id: str,
+) -> None:
     """Cancel fetch I/O and bound the broker-dependent group leave."""
     fetcher = getattr(consumer, "_fetcher", None)
     close_fetcher = getattr(fetcher, "close", None)
@@ -442,7 +447,11 @@ async def _stop_consumer(consumer: AIOKafkaConsumer) -> None:
     except TimeoutError:
         _LOGGER.warning(
             "event_bus_consumer_stop_timed_out",
-            extra={"timeout_seconds": _CONSUMER_STOP_TIMEOUT_SECONDS},
+            extra={
+                "timeout_seconds": _CONSUMER_STOP_TIMEOUT_SECONDS,
+                "topic": topic,
+                "consumer_group": group_id,
+            },
         )
         client = getattr(consumer, "_client", None)
         close_client = getattr(client, "close", None)
