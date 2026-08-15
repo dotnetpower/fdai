@@ -160,6 +160,22 @@ def _aggregate_plan(definition: ObjectSetDefinition) -> dict[str, object]:
     return plan
 
 
+def _manifest_aggregate_plan() -> dict[str, object]:
+    plan = _function_plan("query.manifest", output_kind="query.table")
+    plan["nodes"] = [
+        *plan["nodes"],  # type: ignore[misc]
+        {
+            "node_id": "aggregate",
+            "kind": "aggregate",
+            "depends_on": ["function-result"],
+            "arguments": {"operation": "count", "group_by": [], "limit": 10},
+            "output_kind": "query.table",
+        },
+    ]
+    plan["output_node_ids"] = ["aggregate"]
+    return plan
+
+
 def _service(t1: _Model, t2: _Model, manifest: Any) -> SemanticPlanningService:
     return SemanticPlanningService(
         model=t1,
@@ -337,6 +353,26 @@ def test_aggregation_frame_requires_aggregate_plan() -> None:
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
     assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+
+
+def test_specialized_function_may_feed_matching_aggregate_output() -> None:
+    manifest, definition = _fixture()
+    aggregate_plan = _manifest_aggregate_plan()
+    t1 = _Model(frame=_frame(output_shape="aggregation_table"), plan=aggregate_plan)
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
 def test_property_filter_frame_requires_object_set_predicate() -> None:
