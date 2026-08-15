@@ -254,13 +254,17 @@ def _build_plan(
     manifest: QueryManifest,
     principal: Principal,
     purpose: str,
+    evaluation_time: datetime,
 ) -> OntologyQueryPlan:
+    current_as_of = evaluation_time.astimezone(UTC).isoformat()
     nodes = tuple(
         OntologyQueryNode(
             node_id=node.node_id,
             kind=node.kind,
             depends_on=node.depends_on,
-            arguments_json=canonical_json(node.arguments),
+            arguments_json=canonical_json(
+                _server_bound_node_arguments(node, current_as_of=current_as_of)
+            ),
             output_kind=node.output_kind,
         )
         for node in proposal.nodes
@@ -286,6 +290,21 @@ def _build_plan(
         output_node_ids=proposal.output_node_ids,
         plan_digest=content_digest(payload),
     )
+
+
+def _server_bound_node_arguments(
+    node: QueryNodeProposal,
+    *,
+    current_as_of: str,
+) -> dict[str, Any]:
+    arguments = copy.deepcopy(node.arguments)
+    if node.kind.value != "object_set":
+        return arguments
+    definition = arguments.get("definition")
+    if not isinstance(definition, dict):
+        raise ValueError("semantic ObjectSet node requires a definition object")
+    definition["as_of"] = current_as_of
+    return arguments
 
 
 def _validated_descriptors(
