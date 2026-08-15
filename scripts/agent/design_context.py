@@ -564,7 +564,10 @@ def _has_config_env_alias(arguments: list[str], operation_index: int) -> bool:
     while index < operation_index:
         argument = arguments[index]
         if argument == "--config-env" and index + 1 < operation_index:
-            return arguments[index + 1].casefold().startswith("alias.")
+            if arguments[index + 1].casefold().startswith("alias."):
+                return True
+            index += 2
+            continue
         if argument.casefold().startswith("--config-env=alias."):
             return True
         index += 1
