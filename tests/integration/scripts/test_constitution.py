@@ -37,6 +37,13 @@ def test_repository_constitution_is_consistent() -> None:
     assert module.validate() == []
 
 
+def test_agent_contract_requires_clean_snapshot_for_delegated_validation() -> None:
+    instructions = (REPO_ROOT / ".github" / "copilot-instructions.md").read_text(encoding="utf-8")
+
+    assert "MUST NOT delegate validation of a dirty worktree" in instructions
+    assert "clean committed snapshot in an isolated worktree" in instructions
+
+
 def test_traceability_manifest_is_complete() -> None:
     module = _load_module()
 
