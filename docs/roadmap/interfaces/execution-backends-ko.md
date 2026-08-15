@@ -1,7 +1,7 @@
 ---
 title: 거버넌스 적용 실행 백엔드
 translation_of: execution-backends.md
-translation_source_sha: 5440151544a78d7b444c105b3d3d2287a27c27ed
+translation_source_sha: 3604e9875edfd37fc725e55cecbc9e499132477c
 translation_revised: 2026-08-16
 ---
 
@@ -206,7 +206,8 @@ Azure Container Apps 작업 프로파일이 비활성화된 shadow 관측을 벗
 | 2026-08-14 | implemented | PostgreSQL에서 재시작 조정을 증명한 뒤 PostgreSQL 원장과 시작 연결을 승격했습니다. | `current change`; `test_execution_backend_ledger.py`가 지원되는 일회용 데이터베이스에서 두 건을 건너뛰기 없이 통과했습니다. | 세 delivery 어댑터를 구현하고 통제된 실제 수명 주기 근거를 보존해야 합니다. |
 | 2026-08-15 | implemented | `ExecutionBackend` 프로토콜 위에 `BubblewrapExecutionBackend`와 `VmTaskExecutionBackend` 어댑터를 추가했으며, 기존 sandbox 카탈로그를 통해 좁히기만 합니다. | `current change`; `services/core-control-plane/src/fdai/delivery/execution_backend/adapters.py`; `pytest services/core-control-plane/tests/delivery/test_execution_backend_adapters.py` (20 passed). | 조립 연결, Azure Container Apps Job 어댑터, 통제된 shadow 증적은 남아 있습니다. |
 | 2026-08-16 | in-progress | 위 2026-08-14 승격 행을 바로잡았습니다. 그 행은 "PostgreSQL 원장과 시작 연결"을 함께 승격했지만, 인용한 근거(`test_execution_backend_ledger.py`)는 원장만 검증합니다. 시작 연결은 애초에 승격 가능한 상태가 아니었습니다: `bind_execution_backends` 를 호출하는 런타임 경로가 없고 `load_execution_backend_registry_file` 은 테스트를 포함해 호출자가 0입니다. 구현 범위 표는 이제 `PostgreSQL 원장` 과 `시작 연결` 을 상태가 다른 별도 행으로 가지며, 이는 이 문서가 스스로 적어 둔 "조립 연결과 통제된 shadow 증적은 열려 있다" 및 미체크 연결 항목과의 모순도 제거합니다. | `current change`; `grep -rn bind_execution_backends --include=*.py services/` 는 정의, `composition` 파사드, `tests/composition/test_execution_backends.py` 만 일치시키고, `grep -rn load_execution_backend_registry_file` 은 정의와 파사드만 일치시킵니다. | 두 어댑터를 배포 조립으로 연결하고, 레지스트리 로더에 호출자와 focused 테스트를 부여합니다. |
-| 2026-08-16 | implemented | 런타임 레지스트리 문서 로더를 추가해 `load_execution_backend_registry_file` 에 실제 호출자를 부여했습니다. 경로가 없으면 프로파일이 없고, 설정된 문서가 없거나 일반 파일이 아니거나 크기를 초과하거나 형식이 잘못되었거나 객체가 아니거나 스스로 활성화하면 조용히 저하되지 않고 시작을 실패시킵니다. | `current change`; `services/core-control-plane/src/fdai/runtime/execution_backends.py`; `pytest services/core-control-plane/tests/runtime/test_execution_backends.py` (11 passed). | 두 어댑터를 배포 조립으로 연결하고 통제된 shadow 증적을 보존해야 합니다. |
+| 2026-08-16 | implemented | 런타임 레지스트리 문서 로더를 추가해 `load_execution_backend_registry_file` 에 실제 호출자를 부여했습니다. 경로가 없으면 프로파일이 없고, 설정된 문서가 없거나 크기를 초과하거나 형식이 잘못되었거나 객체가 아니거나 스스로 활성화하면 조용히 저하되지 않고 시작을 실패시킵니다. | `current change`; `services/core-control-plane/src/fdai/runtime/execution_backends.py`; `pytest services/core-control-plane/tests/runtime/test_execution_backends.py` (10 passed). | 두 어댑터를 배포 조립으로 연결하고 통제된 shadow 증적을 보존해야 합니다. |
+| 2026-08-16 | implemented | 구현 이력은 append-only이므로 위 행을 기록 당시 문구로 되돌리고 이후 변경을 여기에 별도로 남깁니다. 로더는 일반 파일이 아닌 레지스트리 경로도 거부하므로 디렉터리나 장치 노드는 문서로 읽히지 않고 시작을 실패시킵니다. | `current change`; `services/core-control-plane/src/fdai/runtime/execution_backends.py`; `pytest services/core-control-plane/tests/runtime/test_execution_backends.py` (11 passed). | 두 어댑터를 배포 조립으로 연결하고 통제된 shadow 증적을 보존해야 합니다. |
 
 ### 남은 작업
 
