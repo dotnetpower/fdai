@@ -1,7 +1,7 @@
 ---
 title: 거버넌스 적용 실행 백엔드
 translation_of: execution-backends.md
-translation_source_sha: c40327a72212297adef67c2b7da132a3fb2dc92a
+translation_source_sha: 7151c14e74fde08999af5caac605a50f7103f8d4
 translation_revised: 2026-08-16
 ---
 
@@ -190,7 +190,8 @@ Azure Container Apps 작업 프로파일이 비활성화된 shadow 관측을 벗
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 프로바이더 프로토콜, 프로파일, 권한 비확장 검사 및 조정기 | implemented | `services/core-control-plane/src/fdai/shared/providers/execution_backend.py`; `services/core-control-plane/src/fdai/core/execution_backend/`; `services/core-control-plane/tests/core/execution_backend/` | Focused 테스트는 프로파일 한도, 수명 주기 전이, 멱등성, 모호성, 취소, 정리 및 shadow 탐색을 다룹니다. |
-| PostgreSQL 원장 및 시작 연결 | implemented | `alembic/versions/20260721_0049_execution_backend.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_execution_backend.py`; `services/core-control-plane/src/fdai/composition/wire_execution_backends.py`; `services/core-control-plane/tests/persistence/test_execution_backend_ledger.py`; focused 조립 테스트 | 영속 경로, 시작 연결, 재시작 후 읽기, 멱등 중복 처리, 시도 이력 및 CAS 충돌 동작이 focused 테스트를 통과했습니다. PostgreSQL 원장 suite는 지원되는 일회용 데이터베이스에서 두 건을 건너뛰기 없이 통과했습니다. |
+| PostgreSQL 원장 | implemented | `alembic/versions/20260721_0049_execution_backend.py`; `services/core-control-plane/src/fdai/delivery/persistence/postgres_execution_backend.py`; `services/core-control-plane/tests/persistence/test_execution_backend_ledger.py` | 영속 경로, 재시작 후 읽기, 멱등 중복 처리, 시도 이력 및 CAS 충돌 동작이 focused 테스트를 통과했습니다. PostgreSQL 원장 suite는 지원되는 일회용 데이터베이스에서 두 건을 건너뛰기 없이 통과했습니다. |
+| 시작 연결 | in-progress | `services/core-control-plane/src/fdai/composition/wire_execution_backends.py`; `services/core-control-plane/tests/composition/test_execution_backends.py` | 이음매는 존재하고 `bind_execution_backends` 에는 focused 테스트가 있지만, 이를 호출하는 런타임 경로가 없습니다: `grep -rn bind_execution_backends` 는 정의, `composition` 파사드 재수출, 그리고 그 테스트만 일치시킵니다. `load_execution_backend_registry_file` 은 테스트를 포함해 어디에도 호출자가 없으므로 그것이 검증하는 레지스트리 문서는 한 번도 로드되지 않으며 `config/` 나 `infra/` 에 그런 문서도 없습니다. 테스트 역시 실제 어댑터와 PostgreSQL 원장이 아니라 `object()` 와 인메모리 원장을 바인딩합니다. |
 | Bubblewrap 및 통제된 VM 어댑터 | implemented | `services/core-control-plane/src/fdai/delivery/execution_backend/adapters.py`; `services/core-control-plane/tests/delivery/test_execution_backend_adapters.py` | 두 어댑터는 기존 sandbox `constrain`을 먼저 호출한 뒤 `intersect_execution_profile`을 적용하므로, 넓히는 프로파일은 프로바이더 I/O 전에 실패합니다. Bubblewrap은 취소를 선언하지 않고 흉내 내지도 않으며, VM 어댑터는 상태, 취소, 프로바이더 보존을 대응시킵니다. 조립 연결과 통제된 shadow 증적은 남아 있습니다. |
 | Azure Container Apps Job 어댑터 | not-started | [Azure Container Apps 작업](#azure-container-apps-작업) | 통제된 Job backend 구현이나 focused 어댑터 테스트가 없습니다. |
 | 실제 shadow 및 승격 근거 | not-started | [Shadow 탐색 및 승격 잔여](#shadow-탐색-및-승격-잔여) | Mock 수명 주기 검사는 신원, ARM 도달 가능성, race, 증적 완전성, 보존 또는 측정 비용을 입증하지 않습니다. |
@@ -202,12 +203,14 @@ Azure Container Apps 작업 프로파일이 비활성화된 shadow 관측을 벗
 | 2026-08-15 | implemented | `ExecutionBackend` 프로토콜 위에 `BubblewrapExecutionBackend`와 `VmTaskExecutionBackend` 어댑터를 추가했으며, 기존 sandbox 카탈로그를 통해 좁히기만 합니다. | `current change`; `services/core-control-plane/src/fdai/delivery/execution_backend/adapters.py`; `pytest services/core-control-plane/tests/delivery/test_execution_backend_adapters.py` (20 passed). | 조립 연결, Azure Container Apps Job 어댑터, 통제된 shadow 증적은 남아 있습니다. |
 | 2026-08-14 | in-progress | 구현 ledger를 도입하고 오래된 어댑터 코드 지도 경로를 수정했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 프로토콜, core, 영속성, 조립 및 focused 검사입니다. | 세 delivery 어댑터를 구현하고 영속 및 실제 수명 주기 근거를 보존해야 합니다. |
 | 2026-08-14 | implemented | PostgreSQL에서 재시작 조정을 증명한 뒤 PostgreSQL 원장과 시작 연결을 승격했습니다. | `current change`; `test_execution_backend_ledger.py`가 지원되는 일회용 데이터베이스에서 두 건을 건너뛰기 없이 통과했습니다. | 세 delivery 어댑터를 구현하고 통제된 실제 수명 주기 근거를 보존해야 합니다. |
+| 2026-08-16 | in-progress | 위 2026-08-14 승격 행을 바로잡았습니다. 그 행은 "PostgreSQL 원장과 시작 연결"을 함께 승격했지만, 인용한 근거(`test_execution_backend_ledger.py`)는 원장만 검증합니다. 시작 연결은 애초에 승격 가능한 상태가 아니었습니다: `bind_execution_backends` 를 호출하는 런타임 경로가 없고 `load_execution_backend_registry_file` 은 테스트를 포함해 호출자가 0입니다. 구현 범위 표는 이제 `PostgreSQL 원장` 과 `시작 연결` 을 상태가 다른 별도 행으로 가지며, 이는 이 문서가 스스로 적어 둔 "조립 연결과 통제된 shadow 증적은 열려 있다" 및 미체크 연결 항목과의 모순도 제거합니다. | `current change`; `grep -rn bind_execution_backends --include=*.py services/` 는 정의, `composition` 파사드, `tests/composition/test_execution_backends.py` 만 일치시키고, `grep -rn load_execution_backend_registry_file` 은 정의와 파사드만 일치시킵니다. | 두 어댑터를 배포 조립으로 연결하고, 레지스트리 로더에 호출자와 focused 테스트를 부여합니다. |
 
 ### 남은 작업
 
 - [x] 지원되는 로컬 데이터베이스에서 focused PostgreSQL 원장 사례를 건너뛰지 않고 실행하고 프로세스 재시작 조정 증적을 보존합니다.
 - [x] 기존 sandbox 권한을 넓히지 않는 `BubblewrapExecutionBackend` 및 `VmTaskExecutionBackend`를 구현하고 focused 테스트를 추가했으며, `services/core-control-plane/tests/delivery/test_execution_backend_adapters.py`가 이를 증명합니다.
 - [ ] 두 어댑터를 배포 조립으로 연결하고 focused 시작 및 재시작 검사를 보존합니다.
+- [ ] `load_execution_backend_registry_file` 에 호출자 하나와 focused 테스트 하나를 부여합니다. 현재 둘 다 0이므로 서버 소유 레지스트리 문서에 대해 수행하는 검증이 증명되지 않았고, 로드할 레지스트리 문서도 `config/` 나 `infra/` 에 존재하지 않습니다.
 - [ ] Pinned 이미지, 멱등성, 호스트와 경로 검증, 재시도, circuit breaker, 취소 race, 증적 및 프로바이더 보존 동작이 있는 `AzureContainerAppsJobExecutionBackend`를 구현하고 focused 테스트를 추가합니다.
 - [ ] 승격 검토 전에 신원 범위, ARM 도달 가능성, 중복 시작, 시간 초과 및 stop race, 증적 완전성, 프로바이더 보존 및 측정 비용에 대한 관리되는 shadow 증적을 보존합니다.
 
