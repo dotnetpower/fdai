@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 0fb4c479bad2ee3a1e9ac2769155bfbda4fef567
+translation_source_sha: 262aef194e3215694bcd08c7dfedf51b84a2b29f
 translation_revised: 2026-08-16
 ---
 
@@ -271,6 +271,7 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 | 2026-08-16 | implemented | 26라운드가 25라운드 변경에서 찾아낸 공유 상태와 지연 종료 위험을 제거했습니다. Auto-pull은 브랜치별 remote-tracking ref로 fetch해 그 ref를 기준으로 비교하고 전진하므로 같은 Git common directory의 동시 fetch가 비교 대상을 바꾸거나 무관한 ref로 브랜치를 전진시킬 수 없고, 단계 watchdog은 단계가 이미 종료했으면 종료 신호를 보내지 않으며 실제로 그 종료로 죽은 경우에만 만료를 인정합니다. | 현재 변경, validation queue 집중 테스트 44개 통과, strict mypy, Ruff, auto-pull 스크립트의 `bash -n`입니다. | 비평 라운드를 계속하고 이슈 #122의 exact 중앙 검증을 확보합니다. |
 | 2026-08-16 | implemented | 27라운드가 여전히 재현할 수 있던 마지막 대기를 닫았습니다. 검증기의 Git 헬퍼가 600초 경계를 선언해 단계 watchdog 밖의 어떤 검증기 단계도 문자 그대로 무한 대기하지 않고, roadmap 에이전트는 프로세스가 중단 불가 I/O에 걸린 경우 자신이 보낸 SIGKILL 뒤에 영원히 기다리지 않으며, auto-pull은 fetch timeout과 다른 이유의 fetch 실패를 구분합니다. 27라운드에서 Low를 넘는 재현 가능한 finding은 없었습니다. | 현재 변경, validation queue 집중 테스트 44개 통과, 변경된 두 모듈의 strict mypy, Ruff, auto-pull 스크립트의 `bash -n`입니다. | Exact 중앙 검증을 확보하고 이슈 #122를 완료합니다. |
 | 2026-08-16 | implemented | 러너 기본값만 있던 자리에 예산을 선언했습니다. 보호된 Terraform job은 180분, 보호된 서비스 배포 job은 120분으로 제한하고, health 검증기는 자체 deadline 뒤에 실행하던 복구 검증과 readiness 경로 단계를 제한합니다. 28라운드 수용 검토는 assurance 러너, 검증 단계, auto-pull, health 검증, Azure preflight, 배포 워크플로, roadmap 에이전트 예산, Playwright 포트 풀 전반에서 Low를 넘는 재현 가능한 finding을 더 찾지 못했습니다. | 현재 변경, 배포 워크플로 집중 테스트 24개 통과, health 스크립트의 `bash -n`, 두 워크플로 문서의 YAML 파싱입니다. | Exact 중앙 검증을 확보하고 이슈 #122를 완료합니다. |
+| 2026-08-16 | implemented | 29라운드는 28라운드가 선언한 예산을 각 job과 스크립트의 실제 최악 소요와 대조해, 느리지만 정상인 배포를 자르지 않고 그 위에 있음을 확인했고, `timeout` 래퍼가 `set -euo pipefail` 아래에서 종료 코드 전달을 보존하며 두 job 예산이 job 수준에서 유효한 YAML임을 확인했습니다. 캠페인 종료 조건을 충족합니다. Low를 넘는 재현 가능한 finding은 남아 있지 않습니다. | 현재 변경, 29라운드 확인 검토와 위 행들에 기록된 집중 테스트입니다. | Exact 중앙 검증을 확보하고 이슈 #122를 완료합니다. |
 
 ### 남은 작업
 
