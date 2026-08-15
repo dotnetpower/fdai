@@ -467,6 +467,71 @@ def enforce_commit_scope(payload: dict[str, Any]) -> dict[str, Any]:
     return {"continue": True}
 
 
+_DESTRUCTIVE_GIT_OPERATIONS = frozenset(
+    {"checkout", "clean", "reset", "restore", "stash", "switch"}
+)
+_DESTRUCTIVE_GIT_APPROVAL = "FDAI_USER_APPROVED_DESTRUCTIVE_GIT=1"
+_GIT_GLOBAL_OPTIONS_WITH_VALUE = frozenset({"-C", "-c", "--git-dir", "--namespace", "--work-tree"})
+
+
+def _git_operation(arguments: list[str]) -> str | None:
+    index = 0
+    while index < len(arguments):
+        argument = arguments[index]
+        if argument in _GIT_GLOBAL_OPTIONS_WITH_VALUE:
+            index += 2
+            continue
+        if argument.startswith(("--git-dir=", "--namespace=", "--work-tree=")):
+            index += 1
+            continue
+        if argument.startswith("-"):
+            index += 1
+            continue
+        return argument
+    return None
+
+
+def enforce_destructive_git(payload: dict[str, Any]) -> dict[str, Any]:
+    """Require an explicit user-approval marker for destructive Git operations."""
+    if _tool_name(payload) not in TERMINAL_TOOL_NAMES:
+        return {"continue": True}
+    command = str(_tool_input(payload).get("command") or "")
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|")
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        tokens = list(lexer)
+    except ValueError:
+        return {"continue": True}
+    segments: list[list[str]] = [[]]
+    for token in tokens:
+        if token in {";", "&", "&&", "|", "||"}:
+            segments.append([])
+        else:
+            segments[-1].append(token)
+    for segment in segments:
+        if _DESTRUCTIVE_GIT_APPROVAL in segment or "git" not in segment:
+            continue
+        git_index = segment.index("git")
+        arguments = segment[git_index + 1 :]
+        operation = _git_operation(arguments)
+        if operation not in _DESTRUCTIVE_GIT_OPERATIONS:
+            continue
+        reason = (
+            f"Destructive Git operation 'git {operation}' requires an explicit user request. "
+            f"Only after that request, add {_DESTRUCTIVE_GIT_APPROVAL} to the command."
+        )
+        return {
+            "systemMessage": reason,
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": reason,
+            },
+        }
+    return {"continue": True}
+
+
 def enforce_validation_route(payload: dict[str, Any]) -> dict[str, Any]:
     tool_name = _tool_name(payload)
     tool_input = _tool_input(payload)
@@ -504,6 +569,9 @@ def pre_tool_use(payload: dict[str, Any]) -> dict[str, Any]:
         return enforce_edit(payload)
     if tool_name not in TERMINAL_TOOL_NAMES and tool_name != "runTests":
         return {"continue": True}
+    destructive_result = enforce_destructive_git(payload)
+    if destructive_result.get("hookSpecificOutput", {}).get("permissionDecision") == "deny":
+        return destructive_result
     commit_result = enforce_commit_scope(payload)
     if commit_result.get("hookSpecificOutput", {}).get("permissionDecision") == "deny":
         return commit_result
