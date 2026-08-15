@@ -46,9 +46,14 @@ while true; do
   elif [ -f "$validation_lock" ] && command -v flock >/dev/null 2>&1 \
     && ! flock -n "$validation_lock" -c true; then
     echo "[auto-pull] centralized validation is active - skipping remote fetch."
-  elif timeout "$fetch_timeout" git fetch --quiet origin "$branch" 2>/dev/null; then
-    behind="$(git rev-list --count HEAD..FETCH_HEAD 2>/dev/null || echo 0)"
-    ahead="$(git rev-list --count FETCH_HEAD..HEAD 2>/dev/null || echo 0)"
+  elif timeout "$fetch_timeout" git fetch --quiet origin \
+    "+refs/heads/$branch:refs/remotes/origin/$branch" 2>/dev/null; then
+    # The default fetch head file is shared by every process on this Git common directory, so a
+    # concurrent fetch could redirect this comparison or advance the branch onto an unrelated
+    # ref. The per-branch remote-tracking ref this fetch writes cannot be reused that way.
+    remote="refs/remotes/origin/$branch"
+    behind="$(git rev-list --count "HEAD..$remote" 2>/dev/null || echo 0)"
+    ahead="$(git rev-list --count "$remote..HEAD" 2>/dev/null || echo 0)"
     if [ "$behind" -gt 0 ]; then
       if [ "$ahead" -gt 0 ]; then
         echo "[auto-pull] $branch has diverged ($ahead ahead, $behind behind) - skipping. Rebase manually after reviewing local commits."
@@ -57,7 +62,7 @@ while true; do
         # The branch is strictly behind, so advancing is a fast-forward over the ref already
         # fetched. A `pull --rebase` here would re-enter the network and could be killed
         # mid-rebase, leaving the developer a half-finished rebase to clean up by hand.
-        if timeout "$advance_timeout" git merge --ff-only --quiet FETCH_HEAD; then
+        if timeout "$advance_timeout" git merge --ff-only --quiet "$remote"; then
           echo "[auto-pull] up to date."
         else
           echo "[auto-pull] fast-forward failed - resolve manually (git status)."

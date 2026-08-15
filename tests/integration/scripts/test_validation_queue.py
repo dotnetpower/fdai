@@ -394,6 +394,21 @@ def test_run_stage_kills_a_stage_that_outlives_its_budget(tmp_path: Path) -> Non
     assert result["duration_seconds"] < 60
 
 
+def test_run_stage_keeps_the_result_of_a_stage_that_finished_before_the_kill(
+    tmp_path: Path,
+) -> None:
+    """A stage that completed must never be reported as killed by a late watchdog tick."""
+    result = _run_stage(
+        "fast-gates",
+        [sys.executable, "-c", "raise SystemExit(0)"],
+        cwd=tmp_path,
+        env={**os.environ, "FDAI_VALIDATION_STAGE_NO_PROGRESS_SECONDS": "1"},
+    )
+
+    assert result["status"] == 0
+    assert result["detail"] is None
+
+
 def test_drain_reloads_validator_code_when_wake_request_advances(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -1254,10 +1269,14 @@ def test_auto_pull_checks_local_blockers_before_fetching() -> None:
 def test_auto_pull_bounds_every_remote_call_below_its_interval() -> None:
     script = AUTO_PULL_SCRIPT.read_text(encoding="utf-8")
 
-    assert 'timeout "$fetch_timeout" git fetch --quiet origin "$branch"' in script
+    assert 'timeout "$fetch_timeout" git fetch --quiet origin \\' in script
+    # FETCH_HEAD is shared by every process on the Git common directory, so the loop must
+    # compare and advance against the per-branch remote-tracking ref it just wrote.
+    assert '"+refs/heads/$branch:refs/remotes/origin/$branch"' in script
+    assert "FETCH_HEAD" not in script
     # Killing a rebase would leave a half-finished rebase in the developer's tree, so the loop
     # advances a strictly-behind branch with a local fast-forward instead.
-    assert 'timeout "$advance_timeout" git merge --ff-only --quiet FETCH_HEAD' in script
+    assert 'timeout "$advance_timeout" git merge --ff-only --quiet "$remote"' in script
     assert "git pull --rebase" not in script
     assert "fetch did not complete within ${fetch_timeout}s" in script
     assert int(script.split('fetch_timeout="${FDAI_AUTOPULL_FETCH_TIMEOUT:-')[1].split("}")[0]) <= (

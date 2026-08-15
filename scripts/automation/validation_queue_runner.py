@@ -136,11 +136,14 @@ def _run_stage(
         while not finished.wait(1.0):
             now = time.monotonic()
             if now - progress.at >= no_progress_seconds:
-                expired.append(f"no output for {no_progress_seconds}s")
+                reason = f"no output for {no_progress_seconds}s"
             elif now - started >= budget_seconds:
-                expired.append(f"exceeded its {budget_seconds}s stage budget")
+                reason = f"exceeded its {budget_seconds}s stage budget"
             else:
                 continue
+            if process.poll() is not None:
+                return
+            expired.append(reason)
             with suppress(ProcessLookupError, PermissionError):
                 os.killpg(process.pid, signal.SIGKILL)
             return
@@ -162,6 +165,9 @@ def _run_stage(
         finished.set()
         watchdog.join(timeout=5)
     duration = round(time.monotonic() - started, 3)
+    if expired and status != -signal.SIGKILL:
+        # The stage finished on its own before the kill landed, so its real result stands.
+        expired.clear()
     if expired:
         # A killed stage must not look like an ordinary gate failure, or the localizer would
         # blame the commit for a bound that the environment, not the change, exceeded.
