@@ -323,6 +323,21 @@ def required_context(targets: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(sorted(required))
 
 
+def required_validation(targets: tuple[str, ...]) -> tuple[str, ...]:
+    """Return deduplicated focused checks for every route matching the targets."""
+    required: set[str] = set()
+    for route in _manifest()["routes"]:
+        patterns = tuple(route.get("paths", ())) + tuple(route.get("optional_paths", ()))
+        if any(
+            _matches(candidate, pattern)
+            for target in targets
+            for candidate in _route_paths(target)
+            for pattern in patterns
+        ):
+            required.update(str(command) for command in route.get("validate", ()))
+    return tuple(sorted(required))
+
+
 def missing_context(payload: dict[str, Any], targets: tuple[str, ...]) -> tuple[str, ...]:
     reads = _load_state(payload).get("reads", {})
     missing: list[str] = []
