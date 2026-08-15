@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: c8ba8e7df6abb59865110e74684471e1c1f4e758
+translation_source_sha: a462e18e9cf0c4cfab148fd0da16586bf29abdb0
 translation_revised: 2026-08-15
 ---
 
@@ -253,13 +253,23 @@ inherited 권한을 계산하지 않고 각 수준을 아키텍처로 연결합�
 상세는 이력 > Reports의 상관관계 범위 **인시던트 RCA Dossier**로 연결됩니다.
 
 조치 이력은 각 감사 행을 사람이 읽을 수 있는 이벤트로 표시합니다. 먼저 기록된
-`summary`, `detail`, `reason` 텍스트를 사용하고, 값이 없으면 알려진 수명 주기, 알림,
-사람 승인, 감사 이벤트 종류에 대한 결정론적 템플릿을 사용합니다. 담당 에이전트는 기록된
+`summary`, `detail`, `reason` 텍스트를 사용하고, 그다음 기록된 계층 판정을 사용하며, 값이 없으면
+알려진 수명 주기, 알림, 사람 승인, 감사 이벤트 종류에 대한 결정론적 템플릿을 사용합니다. 계층
+판정은 `rca`, `t1`, `t2`의 `<tier>_outcome`, `<tier>_reason`, `<tier>_cause` 필드를 직접 읽으므로
+abstain된 가설은 action kind를 되풀이하지 않고 `근본 원인 분석가 abstained을(를) 기록했습니다:
+T2 reasoner abstained.`처럼 읽힙니다. 알려진 약어는 정규화 과정에서 보존되며, 카탈로그 항목이
+없는 서버 값은 카탈로그 키가 아니라 정규화된 토큰으로 렌더링됩니다. 담당 에이전트는 기록된
 `producer_principal`, Pantheon 행위자 또는 정본 stage-owner 대응에서 가져옵니다.
 에이전트가 아닌 런타임은 에이전트로 귀속하지 않고 담당 서비스로 표시합니다. 각 행은
 정확한 머신 `action_kind`를 보조 텍스트로 유지하고 기록된 핵심 사실을 최대 5개까지
 표시합니다. Incidents에서는 raw 항목 JSON을 생략하며 상관관계 범위 감사 링크가 전체
 레코드 화면으로 유지됩니다.
+
+현재 상황 블록은 통제된 대응이 abstain, deny 또는 실패한 가장 최근 기록 사유를 함께 표시합니다.
+해당 사유는 판정이나 action kind가 그 중단을 기록한 항목에서 가져옵니다. 콘솔은 그 차단 사유를
+인용할 뿐이며 사유 코드를 조치 지시로 번역하지 않고, 중단된 항목이 사유를 기록하지 않았다면 차단
+사유 줄을 렌더링하지 않습니다. 담당 에이전트는 변환 결과가 에이전트를 하나 이상 기록했을 때만
+링크로 렌더링하므로 대체 표시가 이동 대상이 되지 않습니다.
 
 개요는 자율성 측정이 없거나 malformed여도 모든 필수 분석 섹션을
 계속 표시합니다. 섹션을 제거하거나 0으로 추정하지 않고 명시적 사용 불가
@@ -373,6 +383,7 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 | 2026-08-14 | implemented | 인증된 Browser assurance에서 발견한 서버 소유 최신순 hypothesis projection에 Console RCA decoder를 맞췄습니다. | `current change`; `api-operations.ts`, `api.test.ts` 및 focused decoder 테스트 13개입니다. | 인증된 roster-to-RCA-to-report 증적을 다시 실행해 보존해야 합니다. |
 | 2026-08-15 | validated | 사용 불가 source, plan 및 no-RCA 동작을 보존한 인증된 Incident roster-to-RCA-to-report/PDF 증적을 보존했습니다. | `current change`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; source `014974045e70e35c26e489fa238345cf70bc3ca3`에 중앙 검증 receipt가 있습니다. | 범위가 제한된 Incident SRE hardening 및 RCA PDF delivery 구획에 남은 작업이 없습니다. |
 | 2026-08-15 | in-progress | 감사 봉투 `payload`를 포함해 기록된 운영 대상과 사유에서 `recorded_subject` 제목을 도출하고, 목록 식별자 fallback이 모든 인시던트 링크가 해석하는 correlation ID를 표시하도록 했습니다. | `current change`; `incident_projection.py`, `incidents.tsx`, `types.ts`, `api-operations.ts` 및 각 focused 테스트입니다. Operator `33 passed`, Console `29 passed`, Ruff, Ruff format 및 strict mypy를 통과했습니다. 로컬 corpus의 상관관계 그룹 1,562개에 변환을 재생한 결과 `identifier_fallback`이 1,007개(64.5%)에서 5개(0.32%)로 줄었고, 남은 5개는 운영과 무관한 `read:sha256:*` 읽기입니다. | 운영과 무관한 상관관계 그룹을 제외하고, 기록된 RCA 및 T1 필드에서 milestone과 다음 단계 문구를 도출하며, cohort 구간과 절단 공개를 바로잡고, 목록 검색과 필터 컨트롤을 추가하고, 약어를 보존하며, 인시던트를 여는 감사 항목에 제목을 기록해야 합니다. |
+| 2026-08-15 | in-progress | RCA와 계층 평가를 기록된 outcome, reason, cause로 서술하고, 단계별 다음 단계 옆에 가장 최근 기록된 차단 사유를 드러내며, 약어를 보존하고, 대체 표시를 담당 에이전트 링크로 만들지 않으며, 매핑되지 않은 카탈로그 키를 렌더링하지 않도록 했습니다. | `current change`; `incidents.timeline.ts`, `incidents.overview.ts`, `incidents.tsx`, `incident-clarity.css`, 메시지 카탈로그 2개 및 각 focused 테스트입니다. Console `37 passed`, catalog usage `3 passed`, typecheck 및 번역 신선도를 통과했습니다. | 운영과 무관한 상관관계 그룹을 제외하고, cohort 구간과 절단 공개를 바로잡고, 목록 검색과 필터 컨트롤을 추가하며, 인시던트를 여는 감사 항목에 제목을 기록해야 합니다. |
 
 ### 남은 작업
 
@@ -380,10 +391,10 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 - [x] 감사 봉투 `payload`를 읽어 기록된 운영 대상과 사유로 범위가 제한된 `recorded_subject`를 도출하고, 목록 식별자 fallback으로 correlation ID를 표시합니다.
 - [ ] 운영과 무관한 상관관계 그룹(`background-task.*`, `iam.executor-grant-*`, `read:sha256:*`)을 목록과 cohort 분모에서 제외합니다.
 - [ ] 인시던트를 여는 감사 항목에 `title`을 기록해 `recorded_title`을 정상 출처로 만듭니다.
-- [ ] 해당 필드가 있을 때는 일반 템플릿 대신 기록된 RCA 및 T1 필드에서 milestone과 권장 다음 단계 문구를 도출합니다.
+- [x] 해당 필드가 있을 때는 일반 템플릿 대신 기록된 RCA 및 T1 필드에서 milestone과 권장 다음 단계 문구를 도출합니다.
 - [ ] cohort 관측 구간을 사실대로 표기하고 상한과 제외된 나머지를 공개하며, 사용할 수 없는 time-to-mitigate 측정을 사유와 함께 사용 불가로 렌더링합니다.
 - [ ] 서버 기반 목록 검색과 심각도/vertical 필터 컨트롤을 추가하고, 설정된 vertical 필터를 UI에서 해제할 수 있게 합니다.
-- [ ] 대상 정규화에서 약어를 보존하고, 카탈로그 항목이 없는 동적 i18n 키가 원본 키 문자열로 렌더링되지 않게 합니다.
+- [x] 대상 정규화에서 약어를 보존하고, 카탈로그 항목이 없는 동적 i18n 키가 원본 키 문자열로 렌더링되지 않게 합니다.
 - [x] 정본 수명 주기 상태를 대체하지 않고 원본 플랫폼 identity, 설명, 상태, 시각, 원본 링크, 고정된 대응 계획 개정, 과거 일치 미리 보기, cooldown 및 중복 제거 근거를 투영합니다.
 - [x] 정확한 근거 참조, 사용 불가 공백, 평가 receipt, 비활성 학습 후보가 있는 순서가 지정된 조사 milestone을 렌더링하고 transcript 텍스트가 근거를 만들거나 복구를 종결하거나 학습을 승격할 수 없음을 입증합니다.
 - [x] 정확한 출처, 구간, 분모, 종결 상태 규칙, 독립적 결과 검증, Incident drill-down과 함께 에이전트 완화, 지원, 사람 완화, 대기, 완화 시간 cohort를 게시합니다.

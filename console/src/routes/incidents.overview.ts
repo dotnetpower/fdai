@@ -16,7 +16,19 @@ export interface IncidentOperationalOverview {
   readonly traceAvailable: boolean;
   readonly auditAvailable: boolean;
   readonly activityCount: number;
+  readonly blockingReason: string | null;
 }
+
+/** Action kinds and verdicts that record why a governed response stopped. */
+const BLOCKING_VERDICTS = new Set([
+  "abstain",
+  "abstained",
+  "deny",
+  "denied",
+  "failed",
+  "failure",
+  "error",
+]);
 
 export type IncidentAgentStatus =
   | "completed"
@@ -82,7 +94,27 @@ export function incidentOperationalOverview(
     traceAvailable: history.length > 0,
     auditAvailable: history.length > 0,
     activityCount: history.length,
+    blockingReason: blockingReason(history),
   };
+}
+
+/** The newest recorded reason a governed response abstained, denied, or failed. */
+function blockingReason(history: readonly AuditItem[]): string | null {
+  for (const item of [...history].sort((left, right) => right.seq - left.seq)) {
+    if (!isBlocking(item)) continue;
+    const reason = item.entry["reason"];
+    if (typeof reason === "string" && reason.trim()) return reason.trim();
+  }
+  return null;
+}
+
+function isBlocking(item: AuditItem): boolean {
+  if (BLOCKING_VERDICTS.has(stringEntry(item, "decision"))) return true;
+  if (BLOCKING_VERDICTS.has(stringEntry(item, "outcome"))) return true;
+  return item.action_kind
+    .toLowerCase()
+    .split(/[._-]+/)
+    .some((token) => BLOCKING_VERDICTS.has(token));
 }
 
 function stringEntry(item: AuditItem | undefined, key: string): string {
