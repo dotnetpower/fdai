@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from uuid import uuid4
 
 import pytest
 from fdai_operator_service.families.conversation.contracts import PrincipalScope
@@ -12,6 +13,7 @@ from fdai_operator_service.families.conversation.document_refs import (
     DocumentRef,
     DocumentRefAccessDeniedError,
     DocumentRefIntegrityError,
+    DocumentRefResolutionFailedError,
     DocumentRefResolverUnavailableError,
     DocumentRefSyntaxError,
     parse_document_refs,
@@ -169,3 +171,28 @@ async def test_short_or_padded_resolver_results_are_denied() -> None:
     for resolver in (_Short(), _Padded()):
         with pytest.raises(DocumentRefAccessDeniedError):
             await resolve_document_refs(scope=SCOPE, refs=refs, resolver=resolver)
+
+
+async def test_non_canonical_uuid_forms_are_rejected() -> None:
+    for raw in (
+        "urn:uuid:11111111-1111-4111-8111-111111111111",
+        "{11111111-1111-4111-8111-111111111111}",
+        "11111111111141118111111111111111",
+    ):
+        with pytest.raises(DocumentRefSyntaxError, match="canonical"):
+            parse_document_refs([{"document_id": raw, "version_id": str(uuid4())}])
+
+
+async def test_unexpected_resolver_failure_fails_closed_without_internals() -> None:
+    class _BrokenResolver:
+        async def resolve(self, *, principal_id: str, refs: object) -> tuple[str, ...]:
+            del principal_id, refs
+            raise ConnectionError("postgres://internal-host unreachable")
+
+    refs = parse_document_refs([{"document_id": str(uuid4()), "version_id": str(uuid4())}])
+
+    with pytest.raises(DocumentRefResolutionFailedError) as failure:
+        await resolve_document_refs(scope=SCOPE, refs=refs, resolver=_BrokenResolver())
+
+    assert failure.value.status_code == 502
+    assert "internal-host" not in str(failure.value)
