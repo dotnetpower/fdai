@@ -254,12 +254,20 @@ describe("run preamble bound", () => {
     source.indexOf("let protectedRequestCount = 0;"),
   );
 
+  // Local, non-blocking calls need no wire timeout; every other awaited step must declare one.
+  const LOCAL_PREAMBLE_CALLS = ["restoreBrowserEntraSessionStorage"];
+
   it("bounds every preamble step with a declared timeout", () => {
     expect(preamble).not.toHaveLength(0);
-    const steps = preamble.match(/await (page\.goto|expect)\(/g) ?? [];
-    const timeouts = preamble.match(/PREAMBLE_[A-Z_]+_TIMEOUT_MS/g) ?? [];
-    expect(steps.length).toBeGreaterThan(0);
-    expect(timeouts).toHaveLength(steps.length);
+    const awaited = preamble.match(/^\s*await [\s\S]*?;$/gm) ?? [];
+    const remote = awaited.filter(
+      (statement) => !LOCAL_PREAMBLE_CALLS.some((name) => statement.includes(name)),
+    );
+
+    expect(remote.length).toBeGreaterThan(0);
+    for (const statement of remote) {
+      expect(statement, statement).toMatch(/PREAMBLE_[A-Z_]+_TIMEOUT_MS/);
+    }
   });
 
   it("keeps the declared bound equal to the sum of those steps", () => {

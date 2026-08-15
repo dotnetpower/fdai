@@ -8,6 +8,7 @@ import {
   assuranceEvidenceIdentity,
   assuranceReceiptSource,
   assuranceRunMode,
+  checkpointDiscardable,
   checkpointRetirable,
   evidenceGenerationConsistent,
   isRetainedTurnResult,
@@ -395,20 +396,40 @@ describe("isRetainedTurnResult", () => {
   });
 });
 
+describe("checkpointDiscardable", () => {
+  it("removes a retired checkpoint", () => {
+    expect(checkpointDiscardable({ retirable: true, generationConsistent: true })).toBe(true);
+  });
+
+  it("removes a checkpoint that mixes generations, because it can never pass again", () => {
+    expect(checkpointDiscardable({ retirable: false, generationConsistent: false })).toBe(true);
+  });
+
+  it("keeps a resumable checkpoint", () => {
+    expect(checkpointDiscardable({ retirable: false, generationConsistent: true })).toBe(false);
+  });
+});
+
 describe("assuranceCheckpointPath", () => {
   const base = {
     directory: "../.fdai/live-validation",
     runScope: "full_cohort",
-    evidenceIdentityDigest: `sha256:${"b".repeat(64)}`,
+    bindingDigest: `sha256:${"b".repeat(64)}`,
   };
 
-  it("separates cohorts by evidence identity and scope", () => {
+  it("separates cohorts by binding and scope", () => {
     const full = assuranceCheckpointPath({ ...base, configured: undefined });
     const probe = assuranceCheckpointPath({
       ...base,
       configured: undefined,
       runScope: "focused_probe",
     });
+    const otherStack = assuranceCheckpointPath({
+      ...base,
+      configured: undefined,
+      bindingDigest: `sha256:${"c".repeat(64)}`,
+    });
+    expect(otherStack).not.toBe(full);
     expect(full).toBe(`../.fdai/live-validation/ontology-assurance-full_cohort-${"b".repeat(16)}.json`);
     expect(probe).not.toBe(full);
   });

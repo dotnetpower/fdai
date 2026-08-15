@@ -36,6 +36,7 @@ import {
   assuranceReceiptSource,
   assuranceRunMode,
   checkpointRetirable,
+  checkpointDiscardable,
   evidenceGenerationConsistent,
   isRetainedTurnResult,
   liveAnswerProof,
@@ -141,6 +142,8 @@ interface QuestionOutcome {
   readonly lastRequestStartedAt: number | null;
   /** True when the run budget, not the stack, ended the question. */
   readonly budgetExhausted: boolean;
+  /** True when an abandoned turn could not be cleared from the page. */
+  readonly contextResetFailed: boolean;
 }
 
 async function resolveQuestion(
@@ -186,6 +189,7 @@ async function resolveQuestion(
         requestCount,
         lastRequestStartedAt,
         budgetExhausted: runBudgetIsBinding,
+        contextResetFailed: false,
       };
     }
     const attemptDeadlineMs = Math.min(budget.perQuestionDeadlineMs, remainingMs);
@@ -211,35 +215,45 @@ async function resolveQuestion(
           runBudgetIsBinding,
         })
         : "turn_error";
+      // The abandoned turn keeps consuming an authenticated stream, so the execution context is
+      // reset before the next question instead of accumulating orphaned work on the same page.
+      const contextResetFailed = deadlineExceeded && !await resetTurnContext(page);
       transportAttempts.push({
         attempt,
         outcome,
-        // A permanent page-side fault must stay distinguishable from a transient blip.
-        ...(outcome === "turn_error"
+        // A permanent page-side fault must stay distinguishable from a transient blip, and a page
+        // that could not be reset must not be mistaken for a clean deadline breach.
+        ...(contextResetFailed
+          ? { source: "context_reset_failed" }
+          : outcome === "turn_error"
           ? { source: error instanceof Error ? error.name : "unknown" }
           : {}),
       });
       // A transient evaluate failure is not terminal evidence, so it may use a remaining attempt
       // instead of being persisted as a permanent failure.
-      if (deadlineExceeded) {
-        // The abandoned turn keeps consuming an authenticated stream, so the execution context is
-        // reset before the next question instead of accumulating orphaned work on the same page.
-        const reset = await resetTurnContext(page);
-        if (!reset) transportAttempts.push({ attempt, outcome: "turn_error", source: "context_reset_failed" });
+      if (!contextResetFailed && outcome === "turn_error" && attempt < MAX_TRANSPORT_ATTEMPTS) {
+        continue;
       }
-      if (outcome === "turn_error" && attempt < MAX_TRANSPORT_ATTEMPTS) continue;
       return {
         result: null,
         transportAttempts,
         requestCount,
         lastRequestStartedAt,
         budgetExhausted: deadlineExceeded && attemptBoundedByBudget,
+        contextResetFailed,
       };
     }
     transportAttempts.push(retainTransportAttempt(attempt, result));
     if (!isRetryableAssuranceTransportFailure(result.source, result.semantic_receipt)) break;
   }
-  return { result, transportAttempts, requestCount, lastRequestStartedAt, budgetExhausted: false };
+  return {
+    result,
+    transportAttempts,
+    requestCount,
+    lastRequestStartedAt,
+    budgetExhausted: false,
+    contextResetFailed: false,
+  };
 }
 
 test("authenticated Console completes the seeded bilingual ontology assurance cohort", async ({ page }, testInfo) => {
@@ -292,7 +306,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     configured: process.env.FDAI_E2E_ASSURANCE_CHECKPOINT,
     directory: DEFAULT_CHECKPOINT_DIRECTORY,
     runScope,
-    evidenceIdentityDigest: checkpointBinding.evidence_identity_digest,
+    bindingDigest: canonicalJsonDigest(checkpointBinding),
   });
   const restored = checkpointFile === null ? [] : resumableResults(
     await readAssuranceCheckpoint<RetainedTurnResult>(checkpointFile, isRetainedTurnResult),
@@ -341,6 +355,16 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     const outcome = await resolveQuestion(page, question, runId, budget, runDeadlineAt);
     protectedRequestCount += outcome.requestCount;
     if (outcome.lastRequestStartedAt !== null) lastRequestStartedAt = outcome.lastRequestStartedAt;
+    if (outcome.contextResetFailed) {
+      // The page still holds an abandoned authenticated stream, so no later turn taken on it is
+      // trustworthy evidence.
+      stopReason = "context_reset_failed";
+      stoppedOn = {
+        question_id: question.question_id,
+        transport_attempts: outcome.transportAttempts,
+      };
+      break;
+    }
     if (outcome.budgetExhausted) {
       // Leave the question outstanding so a resumed run retries it instead of inheriting a
       // permanent failure that only the run budget caused, but keep the diagnosis auditable.
@@ -607,15 +631,19 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   });
 
   // Retire a complete cohort only after it published a passing result, so one flaky turn cannot
-  // discard every verified turn and force the next run to restart from nothing.
+  // discard every verified turn, and drop a checkpoint that mixes generations because it could
+  // never satisfy the pass criteria again.
   if (
     checkpointFile !== null &&
-    checkpointRetirable({
-      passed,
-      releaseSatisfied: runScope === "full_cohort" ? productionReady : !productionReady,
-      stopReason,
-      retainedCount: retained.length,
-      cohortSize: questions.length,
+    checkpointDiscardable({
+      retirable: checkpointRetirable({
+        passed,
+        releaseSatisfied: runScope !== "full_cohort" || productionReady,
+        stopReason,
+        retainedCount: retained.length,
+        cohortSize: questions.length,
+      }),
+      generationConsistent,
     })
   ) {
     await rm(checkpointFile, { force: true });
