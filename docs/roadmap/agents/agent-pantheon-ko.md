@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: d39ef7dace2b0f7c1f8302d4d98ab6e2df1cdd74
+translation_source_sha: 210a54610ce19e347e76e4b2d63617c629966c51
 translation_revised: 2026-08-15
 ---
 
@@ -195,7 +195,7 @@ operations / 인터페이스), `3` = 거버넌스 staff.
 | Saga | Auditor | 3 | AuditEntry, Issue | append_audit (누락 추적 정규화), escalate_to_github_issue | no |
 | Mimir | Rule 담당자 | 3 | Rule, Policy, RuleGenerationBuildRequest, RuleGenerationBuildResult | promote_rule, revoke_rule, build_rule_generation | no |
 | Muninn | Memory | 3 | StateSnapshot, ContextIndex | index_state, snapshot_state, seal_case_history | no |
-| Norns | Learner | 3 | RuleCandidate, PatternObservation | propose_rule_candidate, analyze_case_history, close_issue | yes (off-path 배치 만) |
+| Norns | Learner | 3 | RuleCandidate, Pattern | propose_rule_candidate, analyze_case_history, close_issue | yes (off-path 배치 만) |
 | Njord | 비용 | 1 | CostAnomaly, Budget | propose_cost_action | no |
 | Freyr | 용량 | 1 | CapacityForecast, SizingRecommendation | propose_capacity_action | no |
 | Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedule_experiment | no |

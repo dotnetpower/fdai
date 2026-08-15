@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: bbd5decae11d2cd17a5cd3e1c076aa921f123141
+translation_source_sha: 0c13f808015e1291cedf8016f9ff1b2f8f5b6ca5
 translation_revised: 2026-08-15
 ---
 # FDAI 운영 온톨로지
@@ -60,7 +60,7 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
 | O1 의미 체계와 카탈로그 무결성 | implemented | [`test_ontology_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_catalog.py), [`test_ontology_provenance.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_provenance.py) | 통합 카탈로그가 운영 의미 체계, 출처 이력, 참조 및 cardinality를 검증합니다. |
 | O2 범위 제한 맥락과 현재 상태 변환 결과 | in-progress | [`ontology_instance.py`](../../../services/core-control-plane/src/fdai/shared/providers/ontology_instance.py), [`console_projection.py`](../../../services/core-control-plane/src/fdai/core/operational_context/console_projection.py), focused 인스턴스 및 컨텍스트 변환 결과 테스트 | 타입이 지정된 현재 상태 객체와 링크가 있습니다. 이제 보안 receipt의 목적, 릴리스, 기준 시각 및 그래프 범위가 모두 일치할 때만 범위가 제한되고 권한이 없는 컨텍스트 메타데이터를 만들 수 있습니다. Principal 범위 전송과 인증된 런타임 근거는 남아 있습니다. |
 | O3-O5 결정, 결과 및 통제된 learning 루프 | in-progress | [제공 계획](#제공-계획), [`test_ontology_alignment.py`](../../../services/core-control-plane/tests/agents/test_ontology_alignment.py) | 핵심 구획은 있지만 모든 운영 경로에서 효과 종결과 통제된 learning이 완료되지는 않았습니다. |
-| 결정과 학습 writer | not-started | [`hypothesis_lineage.py`](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py), [`pantheon.py`](../../../services/core-control-plane/src/fdai/agents/_framework/pantheon.py) | `considers`, `expects`, `executed_as`, `resulted_in`은 선언되어 있지만 `OperationalHypothesisLineageProjector`가 유일한 writer이며 어떤 조립 루트도 이를 구성하지 않습니다. `bootstrap.py`와 `control_loop.py`는 incident, 아키텍처 검토, process, 카탈로그, 인벤토리 projector를 연결하면서 이 projector는 연결하지 않으므로 운영 경로가 `ObservedOutcome` 인스턴스를 생성하지 않습니다. Norns 역시 `PatternObservation`을 소유하고 `object.pattern-observation`도 등록되어 있지만 어느 곳도 발행하거나 구독하지 않습니다. |
+| 결정과 학습 writer | not-started | [`hypothesis_lineage.py`](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py), [`test_hypothesis_lineage.py`](../../../services/core-control-plane/tests/core/operational_planning/test_hypothesis_lineage.py) | 네 구간은 카탈로그 기준으로 유효하고 traverse됩니다. 집중 테스트가 제공되는 ObjectType과 LinkType 선언을 통해 계보 하나를 적재하고 `DecisionCase`에서 `ObservedOutcome`까지 traverse합니다. 빠진 것은 생산자입니다. `OperationalHypothesisLineageProjector`가 유일한 writer이고 어느 조립 루트도 이를 구성하지 않으며, `DecisionCase.target_ref`, `evidence_cutoff`, `uncertainty`, `ActionOption.arguments`, `preconditions`, `option_kind`, `ExpectedEffect.direction`, `predictor_version`, `ActionRun.action_type_version`, `started_at`, `receipt_ref`를 공급하는 도메인 모델이 없습니다. 이것들이 생기기 전에 연결하면 운영 근거를 날조하게 됩니다. Norns 역시 `Pattern`을 소유하고 `object.pattern`도 등록되어 있지만 어느 곳도 발행하거나 구독하지 않습니다. |
 | Wave 2 근거, 변경, Property 및 토폴로지 기반 | in-progress | [구현 상태 설명](#fdai-운영-온톨로지), [운영 온톨로지 플랫폼](operating-ontology-platform-ko.md) | 검토된 기반은 있지만 근거 번들이 런타임에 조립되지 않았고 계획 변경은 그래프 최신성 게이트를 자동 통과할 수 없으며 더 넓은 플랫폼 제공 작업도 남아 있습니다. |
 | Console 의미 band 선언 완전성 | implemented | [`Forecast.yaml`](../../../rule-catalog/vocabulary/object-types/Forecast.yaml), [`Pattern.yaml`](../../../rule-catalog/vocabulary/object-types/Pattern.yaml), [`test_ontology_console_projection.py`](../../../services/core-control-plane/tests/delivery/test_ontology_console_projection.py) | Console band가 지정하는 모든 객체 타입을 제공 릴리스가 선언하므로 band 구성원이 조용히 제외되지 않습니다. 두 선언은 의미 선언일 뿐이며 인스턴스 경로를 추가하지 않습니다. |
 | 운영 범위 `unknown_service` 커버리지 | implemented | [`operating_scope.py`](../../../services/core-control-plane/src/fdai/core/operational_context/operating_scope.py), [`test_operating_scope.py`](../../../services/core-control-plane/tests/core/operational_context/test_operating_scope.py) | 결정론적 읽기 전용 변환 결과가 대응되지 않은 리소스를 계속 표시하고 예약된 표시자를 서비스 id로 사용하는 입력을 차단합니다. 아직 런타임 또는 Console 소비자에 연결되지 않았습니다. |
@@ -76,6 +76,7 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
 | 2026-08-15 | implemented | Compiler와 발행 경로를 근거로 `Pattern`과 `PatternObservation`을 하나의 층위로 판정하고, 검토 주장을 바로잡았으며, 선언되지 않은 ObjectType 두 개를 제자리에 표시하고, 결정과 학습 계보 projector에 운영 호출자가 없음을 기록했습니다. | `current change`, `test_ontology_catalog.py` 문서 일관성 테스트 | 조립 루트에서 `OperationalHypothesisLineageProjector`를 구성해 통제된 에피소드가 `considers`, `expects`, `executed_as`, `resulted_in`을 기록하고 재생할 수 있게 한 뒤, Norns가 살아 있는 소비자와 함께 `PatternObservation`을 발행하거나 해당 ObjectType, 토픽, `PANTHEON_SPECS` 및 판테온 문서 행을 한 번에 폐기해야 합니다. |
 | 2026-08-15 | implemented | 카탈로그에 `Forecast`와 `Pattern`을 선언하고 `unknown_service` 범위 커버리지 표시자를 구현했으며 운영 의도 변환 결과 간극을 기록했습니다. 회전된 온톨로지 release 때문에 제공 한국어 의미 surface를 재검증하고 결정론적 competency 고정본 다이제스트를 다시 고정했습니다. | `current change`, `rule-catalog/vocabulary/object-types/{Forecast,Pattern}.yaml`, `Identifiable.yaml`, `rule-catalog/surfaces`, `rule-catalog/surface-validation-receipts`, `config/ontology-query-competency.json`, `core/operational_context/operating_scope.py`, `tests/core/operational_context/test_operating_scope.py`, `tests/delivery/test_ontology_console_projection.py`, `pytest -q --no-cov`가 대화, 카탈로그, 맥락, 변환 결과, alignment, 인스턴스, explorer, release 집중 사례 1461개를 통과했고 `check-ontology-query-coverage.py`와 로드맵, 번역, 문장부호, 링크, 문서 크기 게이트 및 작업 범위 Ruff와 mypy도 통과 | 범위 커버리지를 소비자에 연결하고 `predicts_breach_of`와 `learned_as`를 선언하며 운영 의도 인스턴스를 고정해야 합니다. |
 | 2026-08-15 | implemented | 제공되는 `Forecast`와 `Pattern` 선언을 채택해 미선언 표시를 제거하고, 보류된 관계 두 개의 실제 차단 사유를 어느 엔드포인트 쌍도 생산할 수 없다는 사실로 기록했습니다. | `current change`, `test_ontology_catalog.py` 문서 일관성 테스트, 집중 카탈로그, 컨텍스트, 변환 결과, 정합성, 인스턴스, explorer 및 release 테스트 1375개 통과 | 보류된 관계를 복원하기 전에 생산자를 마련하고, 결정과 학습 계보 projector를 연결해야 합니다. |
+| 2026-08-15 | implemented | 실제 검증 스토어로 결정과 학습 네 구간을 제공되는 카탈로그에 대해 입증하고, 소유 학습 객체 이름을 `Pattern`으로 통일해 스펙, 토픽, 모든 표가 한 이름을 쓰게 했습니다. | `current change`, `test_shipped_catalog_accepts_and_traverses_one_lineage` 및 `test_shipped_catalog_rejects_a_lineage_missing_a_required_property`. 이전 fake-store 테스트가 잡지 못하던 `resulted_in` 방향 역전이 이제 실패합니다. | 누락된 `DecisionCase`, `ActionOption`, `ExpectedEffect`, `ActionRun` 속성을 실제 생산자에서 공급한 뒤 조립 루트에서 projector를 구성하고, Norns가 `Pattern`을 발행하거나 해당 토픽을 폐기해야 합니다. |
 
 ### 남은 작업
 
@@ -296,7 +297,7 @@ bag에만 정보를 두는 대신 명시적인 시간 및 prediction 개념을 �
 | `ExpectedEffect` | Predicted 메트릭 범위, 관측 구간, uncertainty, predictor 버전입니다. |
 | `ActionRun` | 기존 실행 신원과 최종 증적입니다. |
 | `ObservedOutcome` | 관측된 효과, 롤백, SLO 복구, recurrence, 채점 상태입니다. |
-| `Pattern` | Balanced sealed-case 집단에서 compile된 inert 범용 방식이며, Norns의 `PatternObservation`을 검토해 일반화한 것이 아니라 그것과 [하나의 층위](../rules-and-detection/operational-learning-ontology-ko.md#pattern과-patternobservation은-하나의-층위입니다)입니다. |
+| `Pattern` | Balanced sealed-case 집단에서 compile된 inert 범용 방식이며, 별도 관측을 검토해 일반화한 것이 아니라 [하나의 층위](../rules-and-detection/operational-learning-ontology-ko.md#pattern은-두-층위가-아니라-하나입니다)입니다. |
 
 `DecisionCase`는 RiskGate 결정 또는 감사 기록을 대체하지 않습니다. Forseti, Odin, Var,
 Saga, 재생 소비자가 같은 사실을 참조하게 하는 변경할 수 없는 의미 입력입니다.
@@ -304,7 +305,7 @@ Saga, 재생 소비자가 같은 사실을 참조하게 하는 변경할 수 없
 `Forecast`와 `Pattern`은 카탈로그가 선언하기 전부터 band에 있었고 가용성 필터가 신호 없이
 둘을 제외했습니다. 두 타입은 이미 고정 판테온 소유자와 생성 방식을 갖춰 지금 선언되었습니다.
 Heimdall이 `Forecast`를 소유하며 `core/detection/forecast.py`에서 생성하고, Norns가
-`PatternObservation`을 소유하며 `OperatingPatternCompiler`에서 balanced-cohort 방식을
+`Pattern`을 소유하며 `OperatingPatternCompiler`에서 balanced-cohort 방식을
 생성합니다. 두 이름을 band에서 삭제하고 미도입으로 기록하는 대안은 과장 표현을 바로잡는
 대신 구현된 동작을 가리게 되어 기각했습니다. 두 선언은 링크 타입, 변환 결과, 인스턴스 경로
 또는 권한을 추가하지 않으며 `predicts_breach_of`와 `learned_as`는 여전히 선언되지 않았습니다.
@@ -368,10 +369,8 @@ ObjectType은 이제 둘 다 존재하므로, 남은 차단 사유는 어느 쌍
 
 카탈로그 로딩은 `from_type`과 `to_type`을 ObjectType 레지스트리에 교차 참조하고 fail-closed로
 동작하므로, 엔드포인트 ObjectType 두 개가 모두 존재하기 전에 LinkType을 선언해서는 안 됩니다.
-선언할 수 있다고 쓸 수 있는 것은 아닙니다. 어느 엔드포인트도 공급할 생산자가 없는 상태에서 행을
-계약으로 표기하면 어떤 조회도 traverse할 수 없는 관계를 검증된 것처럼 주장하게 됩니다. 각 관계는
-엔드포인트 둘 다의 생산자와 그 관계가 답해야 하는 competency 질문이 갖춰졌을 때만 계약 표로
-돌아옵니다.
+선언할 수 있다고 쓸 수 있는 것은 아니므로, 각 행은 엔드포인트 둘 다의 생산자와 그 관계가 답해야 하는
+competency 질문이 갖춰졌을 때만 계약 표로 돌아옵니다.
 
 ## 신원과 시간
 
@@ -451,7 +450,7 @@ valid하고 검증을 주장하지 않습니다. 해당 메타데이터가 없�
 | Vidar | Rollback 및 복구 결과입니다. |
 | Saga | 감사 근거와 변경할 수 없는 상관관계 링크입니다. |
 | Muninn | 영속 상태 스냅샷과 변경할 수 없는 사례 이력 맥락 색인입니다. |
-| Norns | Inert 룰 후보입니다. 소유한 `PatternObservation`은 등록된 토픽이 있지만 생산자가 없습니다. |
+| Norns | Inert 룰 후보입니다. 소유한 `Pattern`은 등록된 토픽이 있지만 생산자가 없습니다. |
 | Mimir | 검토된 온톨로지, 룰, 액션 카탈로그 수명 주기입니다. |
 | Bragi | 결정 쓰기가 없으며 cited 변환 결과를 localized explanation으로만 표현합니다. |
 

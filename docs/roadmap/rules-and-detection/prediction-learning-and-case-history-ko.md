@@ -1,7 +1,7 @@
 ---
 translation_of: prediction-learning-and-case-history.md
-translation_source_sha: a3a5d6d5928aeafe20ffa15ce62996f4108e2912
-translation_revised: 2026-08-11
+translation_source_sha: 099886250bc07f517c5791ae85295e6ce298d6e7
+translation_revised: 2026-08-15
 ---
 # 예측 학습 및 케이스 히스토리
 
@@ -50,7 +50,7 @@ flowchart LR
 | Vidar | 실패한 액션 | 선언된 롤백 실행 | `Rollback` |
 | Saga | 모든 최종 전이 | Tamper-evident 근거 추가 | `AuditEntry` |
 | Muninn | 예측 결과 감사 | Case-history 개정 번호 봉인 및 색인 | `StateSnapshot`, `ContextIndex` |
-| Norns | 종료된 사례 집단 | 실패를 off-path 분석하고 inert improvement 제안 | `PatternObservation`, `RuleCandidate` |
+| Norns | 종료된 사례 집단 | 실패를 off-path 분석하고 inert improvement 제안 | `Pattern`, `RuleCandidate` |
 | Mimir | Rule 후보 | 통제된 재생 및 shadow 승격 실행 | `Rule`, `Policy` |
 
 구독자는 독립적으로 실행됩니다. 느리거나 실패한 사례 구체화는 결과 감사,
@@ -180,20 +180,30 @@ retryable 상태로 남고 완료로 표시되지 않습니다. 기계 스케줄
 
 ## 구현 상태
 
-| 기능 | 상태 |
-|------------|--------|
-| 예측 detector 및 shadow 발견 사항 | 구현됨 |
-| 에이전트 pub/sub 런타임 및 single-writer 적용 | 구현됨 |
-| 통제된 trajectory 직렬화, 검사, 체크섬 및 보존 기본 요소 | 구현됨, 재사용 |
-| `ForecastOutcome` 스키마, 에피소드 closer 및 transactional 게시 발신함 | 구현됨 |
-| 긍정, 부정 및 판단 보류 에피소드 원장 | 구현됨 |
-| StateStore 권한과 PostgreSQL shadow dual-write | 구현됨 |
-| PostgreSQL 에피소드, 개정 번호, 조각, migration-marker 및 tombstone 표 | 구현됨 |
-| Operational 증적 컴파일러 및 액션/인시던트 사례 intake | 구현됨 |
-| 전체 체인 keyset backfill 및 zero-mismatch 전환 게이트 | 구현됨 |
-| Azure 비공개 산출물 어댑터 | 구현됨, 배포는 명시적 선택 |
-| Muninn 사례 구체화, scheduled 보존, fingerprint-keyed operational 집단 및 inert Norns 후보 choreography | O2까지 구현됨, raw 응답 결과는 방식 근거 부족으로 유지 |
-| 기계적 예측 틱 작업 및 읽기 전용 콘솔 상태 화면 | 구현됨, 배포는 명시적 선택 |
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 예측 detector, 에이전트 pub/sub 런타임 및 single-writer 적용 | implemented | [예측과 결과 종결](#예측과-결과-종결), 판테온 single-writer 레지스트리 | Shadow 발견 사항만 있으며 실행 권한은 없습니다. |
+| 통제된 trajectory 직렬화, 검사, 체크섬 및 보존 기본 요소 | implemented | [보존과 삭제](#보존과-삭제) | 다시 구현하지 않고 재사용했습니다. |
+| `ForecastOutcome` 스키마, 에피소드 closer, transactional 발신함 및 긍정, 부정, 판단 보류 원장 | implemented | [학습과 승격](#학습과-승격) | 보류된 에피소드는 inert 상태로 유지됩니다. |
+| StateStore 권한, PostgreSQL shadow dual-write 및 에피소드, 개정 번호, 조각, migration-marker, tombstone 표 | implemented | [대상 PostgreSQL hot 인덱스](#대상-postgresql-hot-인덱스), [변경할 수 없는 산출물](#변경할-수-없는-산출물) | 전체 체인 keyset backfill과 zero-mismatch 전환 게이트를 포함합니다. |
+| Operational 증적 컴파일러 및 액션/인시던트 사례 intake | implemented | [분석용 조회](#분석용-조회) | |
+| Azure 비공개 산출물 어댑터, 기계적 예측 틱 작업 및 읽기 전용 콘솔 상태 화면 | implemented | [변경할 수 없는 산출물](#변경할-수-없는-산출물) | 배포는 명시적 선택으로 유지됩니다. |
+| Muninn 사례 구체화, scheduled 보존, fingerprint-keyed 집단 및 inert Norns 후보 choreography | in-progress | [학습과 승격](#학습과-승격) | O2까지 구현되었으며 raw 응답 결과는 여전히 방식 근거가 부족합니다. |
+| 영속 `Pattern` 발행 | not-started | `PANTHEON_SPECS`, `agents/_framework/topics.py` | Norns가 `Pattern`을 소유하고 `object.pattern`도 등록되어 있지만 어느 곳도 발행하거나 구독하지 않으므로, 재발 여부 응답이 휘발성 인메모리 카운터에서 나옵니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-15 | in-progress | 기존 상태 표에서 구현 원장을 도입하고 이전 출처 이력은 재구성하지 않았으며, 소유 학습 객체 이름을 `Pattern`으로 변경했습니다. | 현재 소스와 구현 범위 표가 참조하는 절입니다. | 아래의 관찰 가능한 종료 조건을 완료해야 합니다. |
+
+### 남은 작업
+
+- [ ] Norns가 `object.pattern`으로 `Pattern`을 발행하고 살아 있는 소비자를 두거나, 해당 ObjectType과
+  토픽을 폐기하고 같은 변경에서 `PANTHEON_SPECS`와 판테온 문서 둘을 갱신합니다.
+- [ ] Raw 응답 결과를 O2 이후로 승격할 만큼 충분한 방식 근거를 마련합니다.
 
 ## 검증
 

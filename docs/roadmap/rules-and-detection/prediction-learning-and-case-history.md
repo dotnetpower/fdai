@@ -48,7 +48,7 @@ flowchart LR
 | Vidar | Failed action | Execute the declared rollback | `Rollback` |
 | Saga | Any terminal transition | Append tamper-evident evidence | `AuditEntry` |
 | Muninn | Forecast outcome audit | Seal and index a case-history revision | `StateSnapshot`, `ContextIndex` |
-| Norns | Closed case cohort | Analyze failures off-path and propose inert improvements | `PatternObservation`, `RuleCandidate` |
+| Norns | Closed case cohort | Analyze failures off-path and propose inert improvements | `Pattern`, `RuleCandidate` |
 | Mimir | Rule candidate | Run governed replay and shadow promotion | `Rule`, `Policy` |
 
 Subscribers run independently. Slow or failed case materialization does not block outcome audit,
@@ -177,20 +177,30 @@ with an unsuccessful exit instead of silently disabling future ticks.
 
 ## Implementation status
 
-| Capability | Status |
-|------------|--------|
-| Forecast detector and shadow finding | Implemented |
-| Agent pub/sub runtime and single-writer enforcement | Implemented |
-| Governed trajectory serialization, scanning, checksum, and retention primitives | Implemented and reused |
-| `ForecastOutcome` schema, episode closer, and transactional publication outbox | Implemented |
-| Positive, negative, and held-for-review episode ledger | Implemented |
-| StateStore authority plus PostgreSQL shadow dual-write | Implemented |
-| PostgreSQL episode, revision, chunk, migration-marker, and tombstone tables | Implemented |
-| Operational receipt compiler and action/incident case intake | Implemented |
-| Full-chain keyset backfill and zero-mismatch cutover gate | Implemented |
-| Azure private artifact adapter | Implemented; deployment remains opt-in |
-| Muninn case materialization, scheduled retention, fingerprint-keyed operational cohorts, and inert Norns candidate choreography | Implemented through O2; raw response outcomes remain insufficient mechanism evidence |
-| Mechanical forecast tick Job and read-only console health view | Implemented; deployment is opt-in |
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Forecast detector, agent pub/sub runtime, and single-writer enforcement | implemented | [Forecast and outcome closure](#forecast-and-outcome-closure), pantheon single-writer registry | Shadow findings only; no execution authority. |
+| Governed trajectory serialization, scanning, checksum, and retention primitives | implemented | [Retention and deletion](#retention-and-deletion) | Reused rather than reimplemented. |
+| `ForecastOutcome` schema, episode closer, transactional outbox, and the positive, negative, and held-for-review ledger | implemented | [Learning and promotion](#learning-and-promotion) | Held episodes stay inert. |
+| StateStore authority, PostgreSQL shadow dual-write, and the episode, revision, chunk, migration-marker, and tombstone tables | implemented | [Target PostgreSQL hot index](#target-postgresql-hot-index), [Immutable artifact](#immutable-artifact) | Full-chain keyset backfill and the zero-mismatch cutover gate are included. |
+| Operational receipt compiler and action/incident case intake | implemented | [Retrieval for analysis](#retrieval-for-analysis) | |
+| Azure private artifact adapter, mechanical forecast tick Job, and read-only console health view | implemented | [Immutable artifact](#immutable-artifact) | Deployment stays opt-in. |
+| Muninn case materialization, scheduled retention, fingerprint-keyed cohorts, and inert Norns candidate choreography | in-progress | [Learning and promotion](#learning-and-promotion) | Implemented through O2; raw response outcomes remain insufficient mechanism evidence. |
+| Durable `Pattern` publication | not-started | `PANTHEON_SPECS`; `agents/_framework/topics.py` | Norns owns `Pattern` and `object.pattern` is registered, but nothing publishes or subscribes it, so recurrence answers come from volatile in-memory counters. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-15 | in-progress | Adopted the implementation ledger from the existing status table without reconstructing earlier provenance, and renamed the owned learning object to `Pattern`. | Current source and the sections referenced in the scope table. | Complete the observable exit conditions below. |
+
+### Remaining work
+
+- [ ] Publish `Pattern` from Norns on `object.pattern` with a live consumer, or retire the object
+  type and its topic, updating `PANTHEON_SPECS` and both pantheon documents in the same change.
+- [ ] Supply mechanism evidence strong enough to promote raw response outcomes beyond O2.
 
 ## Verification
 
