@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: c43ab10a17e74e839ce70bdad5a761f376736d9f
+translation_source_sha: bf9909679c5358d8507fff72bbd852e90c9f8165
 translation_revised: 2026-08-15
 ---
 
@@ -45,6 +45,7 @@ translation_revised: 2026-08-15
 | 2026-08-14 | implemented | 인증된 assurance에서 서버의 최신순 hypothesis 정렬을 거부하는 동작이 드러나 Console RCA decoder를 수정했습니다. | `current change`; `api-operations.ts`, `api.test.ts`, focused decoder 테스트 13개 및 Console typecheck입니다. | 수정 commit을 중앙 검증한 뒤 다시 실행해 redacted 아티팩트를 보존해야 합니다. |
 | 2026-08-14 | implemented | 오래되거나 중복된 대화 검색 맥락 응답이 현재 Console 상태를 대체하지 않도록 차단했습니다. | `current change`; focused 경로 및 decoder 테스트 22개, Console 타입 검사 및 catalog parity 검사가 통과했습니다. | 관리되는 Browser 근거는 이 로컬 요청 상태 검사가 아니라 더 넓은 Console 보증 캠페인에서 계속 다룹니다. |
 | 2026-08-15 | validated | JSON 응답 연결, canonical 탐색, 최신순 decoding 및 audit-backed report materialization을 hardening한 뒤 인증된 Incident-to-RCA-to-report/PDF 아티팩트 하나를 보존했습니다. | `current change`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; source `014974045e70e35c26e489fa238345cf70bc3ca3`는 중앙 검증됐습니다. | Incident 상세 또는 RCA PDF Browser 근거에 남은 작업이 없습니다. |
+| 2026-08-15 | implemented | 온톨로지 relationship-direction 컴포넌트를 Console visible-title 인벤토리에 등록했습니다. 이는 해당 컴포넌트가 렌더링하는 `h4` 제목과 일치하며 공유 검증 큐의 차단을 해제합니다. | `current change`; 전체 Console Vitest suite 1782개 통과입니다. | 남은 작업이 없습니다. 인벤토리 계약이 이후 title prop 추가를 계속 소유합니다. |
 
 ### 잔여 작업
 

@@ -9,11 +9,13 @@ const VISIBLE_TITLE_COMPONENTS = new Set([
   "DetailSection",
   "EmptyState",
   "EvidenceSection",
+  "KnowledgeRelationshipList",
   "OverviewSection",
   "PageHeader",
   "PanelLoading",
   "RecordFacts",
   "RecordList",
+  "RelationshipDirection",
   "TypeSelector",
   "UnavailableView",
 ]);
