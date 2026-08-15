@@ -14,7 +14,13 @@ from fdai.core.conversation.semantic_runtime import (
     SemanticTurnResult as RuntimeSemanticTurnResult,
 )
 from fdai.core.conversation.session import Principal, Role, Turn
-from fdai.core.ontology_platform import QueryPlanExecution
+from fdai.core.ontology_platform import (
+    CausalEvidenceJoin,
+    MetricWindow,
+    QueryPlanExecution,
+    TopologyDiff,
+    TopologyGraphAt,
+)
 from fdai.core.ontology_platform.query_values import QueryTable
 from fdai_service_contracts import (
     OperatorRole,
@@ -969,6 +975,10 @@ def _render_query_answer(
             else:
                 return None, None
             continue
+        extension_output = _typed_extension_answer_output(node_id, result.value)
+        if extension_output is not None:
+            outputs.append(extension_output)
+            continue
         if not isinstance(result.value, QueryTable):
             return None, None
         table = result.value
@@ -1107,6 +1117,14 @@ def _render_general_query_answer(
                 else f"- `{node_id}`: verified {count} rule candidates."
             )
             continue
+        result_kind = output.get("result_kind")
+        if isinstance(result_kind, str):
+            lines.append(
+                f"- `{node_id}`: `{result_kind}` 결과를 검증했습니다."
+                if korean
+                else f"- `{node_id}`: verified a `{result_kind}` result."
+            )
+            continue
         returned = output.get("returned_rows")
         total = output.get("total_rows")
         lines.append(
@@ -1129,6 +1147,92 @@ def _render_general_query_answer(
         ]
     )
     return "\n".join(lines)
+
+
+def _typed_extension_answer_output(
+    node_id: str,
+    value: object,
+) -> dict[str, object] | None:
+    if isinstance(value, TopologyGraphAt):
+        return {
+            "node_id": node_id,
+            "result_kind": "topology.graph",
+            "summary": {
+                "as_of": value.as_of.isoformat(),
+                "known_at": value.known_at.isoformat(),
+                "object_count": len(value.graph.objects),
+                "link_count": len(value.graph.links),
+                "revision_count": len(value.revision_ids),
+                "provider_generation_count": len(value.provider_generation_refs),
+                "complete": value.complete,
+                "digest": value.digest,
+                "execution_authority": False,
+            },
+        }
+    if isinstance(value, TopologyDiff):
+        return {
+            "node_id": node_id,
+            "result_kind": "topology.diff",
+            "summary": {
+                "before_digest": value.before_digest,
+                "after_digest": value.after_digest,
+                "added_object_count": len(value.added_object_ids),
+                "removed_object_count": len(value.removed_object_ids),
+                "changed_object_count": len(value.changed_object_ids),
+                "added_link_count": len(value.added_link_keys),
+                "removed_link_count": len(value.removed_link_keys),
+                "changed_link_count": len(value.changed_link_keys),
+                "complete": value.complete,
+                "digest": value.digest,
+                "execution_authority": False,
+            },
+        }
+    if isinstance(value, MetricWindow):
+        return {
+            "node_id": node_id,
+            "result_kind": "metric.window",
+            "summary": {
+                "concept_id": value.concept_id,
+                "resource_id": value.resource_id,
+                "unit": value.unit,
+                "start": value.start.isoformat(),
+                "end": value.end.isoformat(),
+                "sample_count": len(value.samples),
+                "complete": value.complete,
+                "missing_reason": value.missing_reason,
+                "execution_authority": False,
+            },
+        }
+    if isinstance(value, CausalEvidenceJoin):
+        claim = value.temporal_claim
+        return {
+            "node_id": node_id,
+            "result_kind": "causal.join",
+            "summary": {
+                "status": value.status.value,
+                "topology_diff_digest": value.topology_diff_digest,
+                "competing_explanations": list(value.competing_explanations),
+                "limitations": list(value.limitations),
+                "temporal_claim": None
+                if claim is None
+                else {
+                    "claim_id": claim.claim_id,
+                    "cause_metric": claim.cause_metric,
+                    "effect_metric": claim.effect_metric,
+                    "lag_seconds": claim.lag_seconds,
+                    "sample_count": claim.sample_count,
+                    "correlation": claim.correlation,
+                    "reverse_correlation": claim.reverse_correlation,
+                    "adjusted_p_value": claim.adjusted_p_value,
+                    "evidence_grade": claim.evidence_grade.value,
+                    "feature_cutoff": claim.feature_cutoff.isoformat(),
+                    "confounder_metric": claim.confounder_metric,
+                    "falsifiers": list(claim.falsifiers),
+                },
+                "execution_authority": False,
+            },
+        }
+    return None
 
 
 def _answer_output(
