@@ -144,6 +144,11 @@ def _registered_worktrees(paths: QueuePaths) -> set[Path]:
 def _prepare_validation_worktree(paths: QueuePaths, head: str) -> Path:
     registered = _registered_worktrees(paths)
     validation_root = paths.worktree.resolve()
+    expected_root = (paths.state_root / "worktree").resolve()
+    if validation_root != expected_root or validation_root == paths.repo_root.resolve():
+        raise RuntimeError(
+            "validation reset/clean is restricted to the Git-common-dir scratch worktree"
+        )
     if validation_root not in registered:
         if paths.worktree.exists():
             shutil.rmtree(paths.worktree)

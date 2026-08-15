@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
@@ -14,7 +15,7 @@ import pytest
 import yaml
 from scripts.automation import validation_queue
 from scripts.automation.validation_queue_context import validation_environment
-from scripts.automation.validation_queue_runner import _run_stage
+from scripts.automation.validation_queue_runner import _prepare_validation_worktree, _run_stage
 from scripts.automation.validation_queue_support import pending_commits, queue_paths
 
 pytestmark = pytest.mark.no_cover
@@ -177,6 +178,16 @@ def _commit_change(repo: Path) -> str:
     result = _run(repo, "git", "rev-parse", "HEAD")
     assert result.returncode == 0
     return result.stdout.strip()
+
+
+def test_validation_reset_clean_is_restricted_to_owned_scratch(git_repo: Path) -> None:
+    paths = queue_paths(git_repo)
+    unsafe = replace(paths, worktree=git_repo)
+
+    with pytest.raises(RuntimeError, match="Git-common-dir scratch worktree"):
+        _prepare_validation_worktree(
+            unsafe, _run(git_repo, "git", "rev-parse", "HEAD").stdout.strip()
+        )
 
 
 def test_prune_stale_removes_only_old_unreferenced_pending_records(git_repo: Path) -> None:
