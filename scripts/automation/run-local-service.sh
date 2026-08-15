@@ -106,6 +106,42 @@ capture_output() {
     --backup-count "$backup_count"
 }
 
+active_owner() {
+  # The log-file lock above only isolates this checkout. A second checkout can
+  # already own the resources the service is a singleton on, so report those
+  # instead of starting a child that is guaranteed to fail.
+  local argument
+  local previous=""
+  local runtime_lock=""
+  local port=""
+  for argument in "$@"; do
+    case "$argument" in
+      FDAI_RUNTIME_LOCK_FILE=*) runtime_lock="${argument#FDAI_RUNTIME_LOCK_FILE=}" ;;
+      --port=*) port="${argument#--port=}" ;;
+    esac
+    if [[ "$previous" == "--port" ]]; then
+      port="$argument"
+    fi
+    previous="$argument"
+  done
+
+  if [[ -n "$runtime_lock" && -f "$runtime_lock" ]] \
+    && ! flock -n "$runtime_lock" true 2>/dev/null; then
+    printf 'runtime-lock=%s' "$runtime_lock"
+    return 0
+  fi
+  if [[ "$port" =~ ^[1-9][0-9]*$ ]] && (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; then
+    printf 'port=127.0.0.1:%s' "$port"
+    return 0
+  fi
+  return 1
+}
+
+if owner="$(active_owner "$@")"; then
+  echo "service already running: $service ($owner)" >&2
+  exit 75
+fi
+
 rotate_log
 write_marker "starting"
 

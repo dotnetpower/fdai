@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 import signal
+import socket
 import stat
 import subprocess
 import sys
@@ -325,3 +326,70 @@ def test_runner_rejects_a_second_instance_of_the_same_service(
     finally:
         first_process.terminate()
         first_process.wait(timeout=5)
+
+
+def test_runner_refuses_a_runtime_lock_owned_by_another_checkout(tmp_path: Path) -> None:
+    log_file = tmp_path / "logs" / "core-runtime.log"
+    runtime_lock = tmp_path / "core-runtime.lock"
+    runtime_lock.touch()
+
+    holder = subprocess.Popen(  # noqa: S603 - fixed test command
+        [_BASH, "-c", f'flock "{runtime_lock}" sleep 10'],
+    )
+    try:
+        time.sleep(0.5)
+        result = subprocess.run(  # noqa: S603 - fixed test command
+            [
+                _BASH,
+                str(_RUNNER),
+                "core-runtime",
+                str(log_file),
+                "--",
+                "env",
+                f"FDAI_RUNTIME_LOCK_FILE={runtime_lock}",
+                sys.executable,
+                "-c",
+                "print('child-ran')",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    finally:
+        holder.terminate()
+        holder.wait(timeout=5)
+
+    assert result.returncode == 75
+    assert f"runtime-lock={runtime_lock}" in result.stderr
+    assert not log_file.exists() or "child-ran" not in log_file.read_text(encoding="utf-8")
+
+
+def test_runner_refuses_a_port_owned_by_another_process(tmp_path: Path) -> None:
+    log_file = tmp_path / "logs" / "operator-api.log"
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+        listener.bind(("127.0.0.1", 0))
+        listener.listen(1)
+        port = listener.getsockname()[1]
+
+        result = subprocess.run(  # noqa: S603 - fixed test command
+            [
+                _BASH,
+                str(_RUNNER),
+                "operator-api",
+                str(log_file),
+                "--",
+                sys.executable,
+                "-c",
+                "print('child-ran')",
+                "--port",
+                str(port),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+    assert result.returncode == 75
+    assert f"port=127.0.0.1:{port}" in result.stderr
+    assert not log_file.exists() or "child-ran" not in log_file.read_text(encoding="utf-8")
