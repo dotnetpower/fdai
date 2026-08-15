@@ -15,7 +15,7 @@ import yaml
 from scripts.automation import validation_queue
 from scripts.automation.validation_queue_context import validation_environment
 from scripts.automation.validation_queue_runner import _run_stage
-from scripts.automation.validation_queue_support import queue_paths
+from scripts.automation.validation_queue_support import pending_commits, queue_paths
 
 pytestmark = pytest.mark.no_cover
 
@@ -248,6 +248,46 @@ def test_prune_stale_preserves_old_pending_reachable_only_from_branch(git_repo: 
 
     assert validation_queue.prune_stale(paths, min_age_hours=24, apply=True) == 0
 
+    assert (paths.pending / f"{commit}.json").is_file()
+    assert not (paths.state_root / "retired-pending" / f"{commit}.json").exists()
+
+
+def test_pending_commits_restores_quarantined_record_when_ref_reactivates_commit(
+    git_repo: Path,
+) -> None:
+    paths = queue_paths(git_repo)
+    old = datetime.now(timezone.utc) - timedelta(hours=48)  # noqa: UP017
+    orphan = _run(
+        git_repo,
+        "git",
+        "commit-tree",
+        "HEAD^{tree}",
+        "-p",
+        "HEAD",
+        "-m",
+        "reactivated",
+    )
+    assert orphan.returncode == 0, orphan.stderr
+    commit = orphan.stdout.strip()
+    validation_queue.initialize(paths)
+    (paths.pending / f"{commit}.json").write_text(
+        json.dumps(
+            {
+                "commit": commit,
+                "enqueued_at": old.isoformat(),
+                "schema_version": 1,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    assert validation_queue.prune_stale(paths, min_age_hours=24, apply=True) == 0
+    assert commit not in pending_commits(paths)
+    assert _run(git_repo, "git", "update-ref", "refs/heads/reactivated", commit).returncode == 0
+
+    restored = pending_commits(paths)
+
+    assert commit in restored
     assert (paths.pending / f"{commit}.json").is_file()
     assert not (paths.state_root / "retired-pending" / f"{commit}.json").exists()
 
