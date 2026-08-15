@@ -50,6 +50,13 @@ class DocumentRefResolverUnavailableError(ConversationBoundaryError):
         super().__init__(501, "document_refs_unsupported", message)
 
 
+class DocumentRefResolutionFailedError(ConversationBoundaryError):
+    """The resolver failed; fail closed without leaking provider internals."""
+
+    def __init__(self) -> None:
+        super().__init__(502, "document_ref_unavailable", "document reference resolution failed")
+
+
 class DocumentRefIntegrityError(ConversationBoundaryError):
     """The resolver returned citations that do not match the request."""
 
@@ -130,6 +137,8 @@ async def resolve_document_refs(
         raise
     except ConversationBoundaryError as exc:
         raise DocumentRefAccessDeniedError() from exc
+    except Exception as exc:  # noqa: BLE001 - never surface provider internals to the caller
+        raise DocumentRefResolutionFailedError() from exc
     citations = tuple(resolved)
     expected = tuple(ref.citation for ref in refs)
     if len(citations) != len(expected):
@@ -145,9 +154,12 @@ def _uuid(name: str, value: JsonValue) -> UUID:
     if not isinstance(value, str):
         raise DocumentRefSyntaxError(f"{name} MUST be a UUID string")
     try:
-        return UUID(value)
+        parsed = UUID(value)
     except ValueError as exc:
         raise DocumentRefSyntaxError(f"{name} MUST be a UUID string") from exc
+    if str(parsed) != value.lower():
+        raise DocumentRefSyntaxError(f"{name} MUST be a canonical hyphenated UUID string")
+    return parsed
 
 
 __all__ = [
@@ -157,6 +169,7 @@ __all__ = [
     "DocumentRefAccessDeniedError",
     "DocumentRefIntegrityError",
     "DocumentRefResolver",
+    "DocumentRefResolutionFailedError",
     "DocumentRefResolverUnavailableError",
     "DocumentRefSyntaxError",
     "parse_document_refs",
