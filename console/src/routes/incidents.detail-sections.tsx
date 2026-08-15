@@ -14,22 +14,44 @@ const OUTCOME_COHORTS: readonly IncidentOutcomeCohort[] = [
   "integrity_excluded",
 ];
 
-export function IncidentOutcomeAnalytics({ metrics }: { readonly metrics: IncidentOutcomeMetrics }) {
-  return (
+/** State how much of the matched population the bounded measurement actually covered. */
+export function outcomeDenominatorLabel(
+  metrics: Pick<IncidentOutcomeMetrics, "denominator" | "matched_total">,
+): string {
+  if (metrics.matched_total === null || metrics.matched_total === metrics.denominator) {
+    return String(metrics.denominator);
+  }
+  return t("incidents.analytics.measuredOf", {
+    measured: metrics.denominator,
+    matched: metrics.matched_total,
+  });
+}
+
+export function outcomeBoundLabel(
+  metrics: Pick<IncidentOutcomeMetrics, "denominator" | "matched_total" | "truncated">,
+): string {
+  if (!metrics.truncated) return t("incidents.analytics.complete");
+  if (metrics.matched_total === null) return t("incidents.analytics.truncated");
+  return t("incidents.analytics.truncatedExcluded", {
+    excluded: metrics.matched_total - metrics.denominator,
+  });
+}
+
+export function IncidentOutcomeAnalytics({ metrics }: { readonly metrics: IncidentOutcomeMetrics }) {  return (
     <section class="incident-outcome-analytics" aria-labelledby="incident-outcome-title">
       <header>
         <div>
           <span class="incident-section-label">{t("incidents.analytics.label")}</span>
           <h2 id="incident-outcome-title">{t("incidents.analytics.title")}</h2>
         </div>
-        <span>{t(metrics.truncated ? "incidents.analytics.truncated" : "incidents.analytics.complete")}</span>
+        <span>{outcomeBoundLabel(metrics)}</span>
       </header>
       <dl class="incident-analytics-provenance">
         <div><dt>{t("incidents.analytics.source")}</dt><dd class="mono">{metrics.source}</dd></div>
         <div><dt>{t("incidents.analytics.snapshot")}</dt><dd>{metrics.snapshot_seq}</dd></div>
-        <div><dt>{t("incidents.analytics.denominator")}</dt><dd>{metrics.denominator}</dd></div>
+        <div><dt>{t("incidents.analytics.denominator")}</dt><dd>{outcomeDenominatorLabel(metrics)}</dd></div>
         <div><dt>{t("incidents.analytics.window")}</dt><dd>{metrics.window_from && metrics.window_to ? `${formatConsoleTimestamp(metrics.window_from)} - ${formatConsoleTimestamp(metrics.window_to)}` : t("incidents.none")}</dd></div>
-        <div><dt>{t("incidents.analytics.medianTtm")}</dt><dd>{metrics.median_time_to_mitigate_seconds === null ? t("incidents.none") : t("incidents.analytics.seconds", { count: metrics.median_time_to_mitigate_seconds })}</dd></div>
+        <div><dt>{t("incidents.analytics.medianTtm")}</dt><dd>{metrics.median_time_to_mitigate_seconds === null ? t("incidents.analytics.ttmUnavailable") : t("incidents.analytics.seconds", { count: metrics.median_time_to_mitigate_seconds })}</dd></div>
         <div><dt>{t("incidents.analytics.ttmSample")}</dt><dd>{metrics.time_to_mitigate_sample_size}</dd></div>
         <div><dt>{t("incidents.analytics.terminalRule")}</dt><dd class="mono">{metrics.terminal_rule}</dd></div>
       </dl>

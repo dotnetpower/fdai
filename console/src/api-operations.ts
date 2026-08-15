@@ -159,10 +159,17 @@ function decodeIncidentMetrics(value: unknown): import("./types").IncidentOutcom
   if (medianTtm !== null && medianTtm < 0) {
     throw contractError("incident metrics.median_time_to_mitigate_seconds MUST be non-negative");
   }
+  const matchedTotal = metrics["matched_total"] === null
+    ? null
+    : apiNonNegativeInteger(metrics, "matched_total", "incident metrics");
+  if (matchedTotal !== null && matchedTotal < denominator) {
+    throw contractError("incident metrics.matched_total MUST NOT be below the measured denominator");
+  }
   return {
     source: apiString(metrics, "source", "incident metrics"),
     snapshot_seq: apiNonNegativeInteger(metrics, "snapshot_seq", "incident metrics"),
     denominator,
+    matched_total: matchedTotal,
     truncated: apiBoolean(metrics, "truncated", "incident metrics"),
     window_from: windowFrom,
     window_to: windowTo,

@@ -222,10 +222,12 @@ class PostgresOperatorReadModel:
         )
         groups = _group_incident_rows(rows)
         incidents = tuple(incident_summary(group) for group in groups[:500])
+        matched_total = _matched_total(rows)
         return incident_outcome_metrics(
             incidents,
             snapshot_seq=snapshot_seq,
             truncated=len(groups) > 500,
+            matched_total=matched_total,
         )
 
     async def incident_attention(
@@ -426,6 +428,14 @@ def _group_incident_rows(
 
 def _without_last_seq(item: JsonObject) -> JsonObject:
     return {key: value for key, value in item.items() if key != "last_seq"}
+
+
+def _matched_total(rows: Sequence[Mapping[str, Any]]) -> int | None:
+    """The count of incidents the snapshot matched before the measurement bound."""
+    if not rows:
+        return 0
+    value = rows[0].get("matched_groups")
+    return int(value) if isinstance(value, int) else None
 
 
 __all__ = ["PostgresOperatorReadModel", "PostgresOperatorReadModelConfig"]

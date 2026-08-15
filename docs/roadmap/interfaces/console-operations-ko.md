@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 7f17a758b2acaa49dd1300373b40af3139bc8809
+translation_source_sha: e99b324f41d8864cd1658d20be0b36d2aafec608
 translation_revised: 2026-08-15
 ---
 
@@ -149,6 +149,8 @@ Incidents 목록은 서버가 소유한 `title_source`를 그대로 렌더링하
 인시던트 타임라인은 기록된 계층 판정을 해당 `<tier>_outcome`, `<tier>_reason`,
 `<tier>_cause` 필드에서 인용하며, 현재 상황 블록은 통제된 대응이 abstain, deny 또는 실패한
 가장 최근 기록 사유를 함께 표시합니다. 콘솔은 그 사유를 인용할 뿐 조치 지시로 바꾸지 않습니다.
+목록과 결과 cohort는 모든 행이 플랫폼 유지 관리인 상관관계 그룹을 제외하며, cohort 패널은
+500건 상한을 완전한 측정처럼 제시하지 않고 일치한 모집단 중 측정한 비율을 밝힙니다.
 변환 계약은 [operator-console-incident-roster.md](operator-console-incident-roster.md)를 참고하세요.
 
 ### Operations 작업 화면
