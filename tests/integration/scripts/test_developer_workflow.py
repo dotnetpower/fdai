@@ -271,6 +271,30 @@ def test_preflight_blocks_environment_contamination_without_echoing_secrets(
     ]
 
 
+def test_delegation_preflight_requires_clean_committed_snapshot(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    assert _git(repo, "init", "--quiet", "--initial-branch=main").returncode == 0
+    assert _git(repo, "config", "user.email", "user@example.com").returncode == 0
+    assert _git(repo, "config", "user.name", "Example User").returncode == 0
+    (repo / "tracked.txt").write_text("initial\n", encoding="utf-8")
+    assert _git(repo, "add", "tracked.txt").returncode == 0
+    assert _git(repo, "commit", "--quiet", "-m", "initial").returncode == 0
+
+    clean = _run(repo, "delegation-preflight", "--json")
+    (repo / "tracked.txt").write_text("dirty\n", encoding="utf-8")
+    (repo / "untracked.txt").write_text("dirty\n", encoding="utf-8")
+    dirty = _run(repo, "delegation-preflight", "--json")
+
+    assert clean.returncode == 0
+    assert json.loads(clean.stdout)["status"] == "ok"
+    assert dirty.returncode == 1
+    payload = json.loads(dirty.stdout)
+    assert payload["status"] == "blocked"
+    assert payload["reason_code"] == "dirty_tree_delegation_unsafe"
+    assert payload["dirty_path_count"] == 2
+
+
 def test_status_classifies_integrity_manifest_hook_overlap(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()
