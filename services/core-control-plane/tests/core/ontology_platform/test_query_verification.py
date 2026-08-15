@@ -314,6 +314,7 @@ def test_extension_kind_requires_and_applies_registered_schema() -> None:
                 "properties": {"metric": {"type": "string"}},
             }
         },
+        reviewed_metric_concepts=("request.volume",),
     )
 
     with pytest.raises(ValueError, match="registered schema"):
@@ -386,6 +387,208 @@ def test_verifier_accepts_typed_temporal_metric_causal_dag() -> None:
     verifier = OntologyQueryPlanVerifier(
         available_kinds=tuple(schemas),
         extension_argument_schemas=schemas,
+        reviewed_metric_concepts=("network.change", "storage.write.success"),
     )
 
     assert verifier.verify(plan, manifest=manifest) is plan
+
+
+def test_verifier_rejects_scoped_metric_without_exactly_one_table_dependency() -> None:
+    release, manifest = _manifest()
+    arguments = canonical_json(
+        {
+            "concept_id": "request.volume",
+            "start": NOW.isoformat(),
+            "end": NOW.isoformat(),
+        }
+    )
+    verifier = OntologyQueryPlanVerifier(
+        available_kinds=(QueryNodeKind.OBJECT_SET, QueryNodeKind.METRIC_SCOPE_SERIES),
+        extension_argument_schemas={
+            QueryNodeKind.METRIC_SCOPE_SERIES: METRIC_ARGUMENT_SCHEMAS[
+                QueryNodeKind.METRIC_SCOPE_SERIES
+            ]
+        },
+        reviewed_metric_concepts=("request.volume",),
+    )
+    no_dependency = OntologyQueryNode(
+        node_id="metric",
+        kind=QueryNodeKind.METRIC_SCOPE_SERIES,
+        arguments_json=arguments,
+        output_kind="metric.window",
+    )
+
+    with pytest.raises(ValueError, match="MUST read one object_set query.table"):
+        verifier.verify(
+            _plan(
+                (no_dependency,),
+                release_digest=release.digest,
+                manifest_digest=manifest.manifest_digest,
+            ),
+            manifest=manifest,
+        )
+
+    definition = ObjectSetDefinition(
+        selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
+        as_of=NOW,
+        purpose="operations-review",
+        limit=10,
+    )
+    scopes = tuple(
+        OntologyQueryNode(
+            node_id=f"scope-{index}",
+            kind=QueryNodeKind.OBJECT_SET,
+            arguments_json=canonical_json({"definition": definition.model_dump(mode="json")}),
+            output_kind="query.table",
+        )
+        for index in range(2)
+    )
+    multiple_dependencies = no_dependency.model_copy(
+        update={"depends_on": tuple(node.node_id for node in scopes)}
+    )
+    with pytest.raises(ValueError, match="MUST read one object_set query.table"):
+        verifier.verify(
+            _plan(
+                (*scopes, multiple_dependencies),
+                release_digest=release.digest,
+                manifest_digest=manifest.manifest_digest,
+            ),
+            manifest=manifest,
+        )
+
+
+def test_verifier_rejects_scoped_metric_non_object_set_dependency() -> None:
+    release, manifest = _manifest()
+    topology = OntologyQueryNode(
+        node_id="topology",
+        kind=QueryNodeKind.TOPOLOGY_AT,
+        arguments_json=canonical_json({"as_of": NOW.isoformat(), "known_at": NOW.isoformat()}),
+        output_kind="topology.graph",
+    )
+    metric = OntologyQueryNode(
+        node_id="metric",
+        kind=QueryNodeKind.METRIC_SCOPE_SERIES,
+        depends_on=("topology",),
+        arguments_json=canonical_json(
+            {
+                "concept_id": "request.volume",
+                "start": NOW.isoformat(),
+                "end": NOW.isoformat(),
+            }
+        ),
+        output_kind="metric.window",
+    )
+    schemas = {
+        QueryNodeKind.TOPOLOGY_AT: TOPOLOGY_ARGUMENT_SCHEMAS[QueryNodeKind.TOPOLOGY_AT],
+        QueryNodeKind.METRIC_SCOPE_SERIES: METRIC_ARGUMENT_SCHEMAS[
+            QueryNodeKind.METRIC_SCOPE_SERIES
+        ],
+    }
+    verifier = OntologyQueryPlanVerifier(
+        available_kinds=(QueryNodeKind.TOPOLOGY_AT, QueryNodeKind.METRIC_SCOPE_SERIES),
+        extension_argument_schemas=schemas,
+        reviewed_metric_concepts=("request.volume",),
+    )
+
+    with pytest.raises(ValueError, match="dependency MUST be an object_set query.table"):
+        verifier.verify(
+            _plan(
+                (topology, metric),
+                release_digest=release.digest,
+                manifest_digest=manifest.manifest_digest,
+            ),
+            manifest=manifest,
+        )
+
+
+def test_verifier_rejects_scoped_metric_aggregate_table_dependency() -> None:
+    release, manifest = _manifest()
+    definition = ObjectSetDefinition(
+        selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
+        as_of=NOW,
+        purpose="operations-review",
+        limit=10,
+    )
+    scope = OntologyQueryNode(
+        node_id="scope",
+        kind=QueryNodeKind.OBJECT_SET,
+        arguments_json=canonical_json({"definition": definition.model_dump(mode="json")}),
+        output_kind="query.table",
+    )
+    count = OntologyQueryNode(
+        node_id="count",
+        kind=QueryNodeKind.AGGREGATE,
+        depends_on=("scope",),
+        arguments_json=canonical_json({"operation": "count", "group_by": [], "limit": 10}),
+        output_kind="query.table",
+    )
+    metric = OntologyQueryNode(
+        node_id="metric",
+        kind=QueryNodeKind.METRIC_SCOPE_SERIES,
+        depends_on=("count",),
+        arguments_json=canonical_json(
+            {
+                "concept_id": "request.volume",
+                "start": NOW.isoformat(),
+                "end": NOW.isoformat(),
+            }
+        ),
+        output_kind="metric.window",
+    )
+    verifier = OntologyQueryPlanVerifier(
+        available_kinds=(
+            QueryNodeKind.OBJECT_SET,
+            QueryNodeKind.AGGREGATE,
+            QueryNodeKind.METRIC_SCOPE_SERIES,
+        ),
+        extension_argument_schemas={
+            QueryNodeKind.METRIC_SCOPE_SERIES: METRIC_ARGUMENT_SCHEMAS[
+                QueryNodeKind.METRIC_SCOPE_SERIES
+            ]
+        },
+        reviewed_metric_concepts=("request.volume",),
+    )
+
+    with pytest.raises(ValueError, match="dependency MUST be an object_set query.table"):
+        verifier.verify(
+            _plan(
+                (scope, count, metric),
+                release_digest=release.digest,
+                manifest_digest=manifest.manifest_digest,
+            ),
+            manifest=manifest,
+        )
+
+
+def test_verifier_rejects_metric_concept_absent_from_reviewed_registry() -> None:
+    release, manifest = _manifest()
+    metric = OntologyQueryNode(
+        node_id="metric",
+        kind=QueryNodeKind.METRIC_SERIES,
+        arguments_json=canonical_json(
+            {
+                "concept_id": "model.invented",
+                "resource_id": "resource-a",
+                "start": NOW.isoformat(),
+                "end": NOW.isoformat(),
+            }
+        ),
+        output_kind="metric.window",
+    )
+    verifier = OntologyQueryPlanVerifier(
+        available_kinds=(QueryNodeKind.METRIC_SERIES,),
+        extension_argument_schemas={
+            QueryNodeKind.METRIC_SERIES: METRIC_ARGUMENT_SCHEMAS[QueryNodeKind.METRIC_SERIES]
+        },
+        reviewed_metric_concepts=("request.volume",),
+    )
+
+    with pytest.raises(ValueError, match="absent from the reviewed registry"):
+        verifier.verify(
+            _plan(
+                (metric,),
+                release_digest=release.digest,
+                manifest_digest=manifest.manifest_digest,
+            ),
+            manifest=manifest,
+        )

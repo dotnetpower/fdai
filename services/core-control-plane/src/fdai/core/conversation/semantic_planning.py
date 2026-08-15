@@ -10,6 +10,7 @@ from __future__ import annotations
 import copy
 import json
 import logging
+import re
 from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any
@@ -65,11 +66,13 @@ class SemanticPlanningService:
         manifests: QueryManifestProvider,
         verifier: OntologyQueryPlanVerifier,
         descriptor_selector: SemanticDescriptorSelector | None = None,
+        metric_concepts: Sequence[str] = (),
         now: Callable[[], datetime] | None = None,
     ) -> None:
         self._manifests = manifests
         self._verifier = verifier
         self._selector = descriptor_selector or CompleteManifestSelector()
+        self._metric_concepts = _validated_metric_concepts(metric_concepts)
         self._now = now or (lambda: datetime.now(UTC))
         self._cascade = SemanticPlanningCascade(
             model=model,
@@ -151,6 +154,7 @@ class SemanticPlanningService:
             plan = self._cascade.propose_plan(
                 frame=frame,
                 descriptors=descriptors,
+                metric_concepts=self._metric_concepts,
                 principal=principal,
                 purpose=purpose,
                 manifest=manifest,
@@ -381,6 +385,17 @@ def _validated_descriptors(
     if len(encoded) > _MAX_DESCRIPTOR_BYTES:
         raise ValueError("semantic descriptor selection exceeds byte bound")
     return tuple(result)
+
+
+def _validated_metric_concepts(values: Sequence[str]) -> tuple[str, ...]:
+    concepts = tuple(values)
+    if len(concepts) > 64 or len(concepts) != len(set(concepts)):
+        raise ValueError("semantic metric concepts MUST be unique and bounded")
+    if concepts != tuple(sorted(concepts)) or any(
+        re.fullmatch(r"[a-z][a-z0-9_.-]{0,127}", value) is None for value in concepts
+    ):
+        raise ValueError("semantic metric concepts MUST be sorted machine identifiers")
+    return concepts
 
 
 def _bounded_context(prior_turns: Sequence[Turn]) -> tuple[str, ...]:

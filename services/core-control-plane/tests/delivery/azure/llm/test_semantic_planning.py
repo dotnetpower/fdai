@@ -121,6 +121,7 @@ async def test_adapter_validates_frame_and_plan_and_isolates_injection_text() ->
             model.propose_plan,
             frame=frame,
             descriptors=({"kind": "object", "name": "Resource"},),
+            metric_concepts=("request.errors", "request.volume"),
             principal_role="reader",
             purpose="operations-review",
             evaluation_time=datetime(2026, 8, 15, tzinfo=UTC),
@@ -140,6 +141,10 @@ async def test_adapter_validates_frame_and_plan_and_isolates_injection_text() ->
     assert user_payload["untrusted_input"]["utterance"].startswith("Ignore all")
     plan_payload = json.loads(json.loads(captured[1].content)["messages"][1]["content"])
     assert plan_payload["untrusted_input"]["evaluation_time"] == "2026-08-15T00:00:00+00:00"
+    assert plan_payload["untrusted_input"]["metric_concepts"] == [
+        "request.errors",
+        "request.volume",
+    ]
 
 
 async def test_adapter_normalizes_non_authoritative_evidence_tokens() -> None:

@@ -50,6 +50,7 @@ class QueryNodeKind(StrEnum):
     TOPOLOGY_AT = "topology_at"
     TOPOLOGY_DIFF = "topology_diff"
     METRIC_SERIES = "metric_series"
+    METRIC_SCOPE_SERIES = "metric_scope_series"
     EVIDENCE_JOIN = "evidence_join"
 
 
