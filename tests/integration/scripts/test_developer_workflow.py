@@ -179,3 +179,35 @@ def test_context_plan_is_deduplicated_and_rejects_external_targets(tmp_path: Pat
     )
     assert external.returncode == 0, external.stderr
     assert json.loads(external.stdout)["reason_code"] == "context_target_outside_repository"
+
+
+def test_resume_uses_official_handover_json(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    assert _git(repo, "init", "--quiet", "--initial-branch=main").returncode == 0
+    assert _git(repo, "config", "user.email", "user@example.com").returncode == 0
+    assert _git(repo, "config", "user.name", "Example User").returncode == 0
+    (repo / "example.txt").write_text("value\n", encoding="utf-8")
+    assert _git(repo, "add", "example.txt").returncode == 0
+    assert _git(repo, "commit", "--quiet", "-m", "initial").returncode == 0
+    recorded = subprocess.run(  # noqa: S603 - fixed repository script and temporary repo.
+        [
+            sys.executable,
+            str(SCRIPT.parents[2] / "scripts/automation/session-handover.py"),
+            "record",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert recorded.returncode == 0, recorded.stderr
+
+    result = _run(repo, "resume", "--json")
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["read_only"] is True
+    assert payload["status"] == "ok"
+    assert payload["validated"] is False
+    assert payload["next_action"] == "wait_for_integration_validation"
