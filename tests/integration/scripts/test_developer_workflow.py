@@ -257,3 +257,34 @@ def test_preflight_blocks_environment_contamination_without_echoing_secrets(
         "foreign_virtual_env",
         "runtime_database_collision",
     ]
+
+
+def test_status_classifies_integrity_manifest_hook_overlap(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    assert _git(repo, "init", "--quiet", "--initial-branch=main").returncode == 0
+    assert _git(repo, "config", "user.email", "user@example.com").returncode == 0
+    assert _git(repo, "config", "user.name", "Example User").returncode == 0
+    assert _git(repo, "config", "core.hooksPath", ".githooks").returncode == 0
+    manifest = repo / "security" / "integrity" / "manifest.json"
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text('{"version":1}\n', encoding="utf-8")
+    assert _git(repo, "add", "security/integrity/manifest.json").returncode == 0
+    assert _git(repo, "commit", "--quiet", "-m", "initial").returncode == 0
+    manifest.write_text('{"version":2}\n', encoding="utf-8")
+    assert _git(repo, "add", "security/integrity/manifest.json").returncode == 0
+    manifest.write_text('{"version":3}\n', encoding="utf-8")
+    before = _git(repo, "status", "--porcelain").stdout
+
+    result = _run(repo, "status", "--json")
+
+    assert result.returncode == 0, result.stderr
+    hooks = json.loads(result.stdout)["sections"]["hooks"]
+    assert hooks == {
+        "hooks_path_status": "ok",
+        "overlap_count": 1,
+        "reason_codes": ["staged_unstaged_overlap", "integrity_manifest_overlap"],
+        "recovery_codes": ["restage_complete_paths", "preserve_manifest_before_resign"],
+        "status": "warning",
+    }
+    assert _git(repo, "status", "--porcelain").stdout == before

@@ -265,6 +265,48 @@ def _environment_diagnostic(root: Path) -> dict[str, Any]:
     }
 
 
+def _hook_diagnostic(root: Path) -> dict[str, Any]:
+    resolved = _git_common_dir(root)
+    if resolved is None:
+        return {"reason_code": "hook_repository_unavailable", "status": "unavailable"}
+    repo_root, _common_dir = resolved
+    index = _index_diagnostic(repo_root)
+    if index["status"] == "unavailable":
+        return {"reason_code": "hook_index_unavailable", "status": "unavailable"}
+    hooks_path_result = _git(repo_root, "config", "--get", "core.hooksPath")
+    hooks_path = hooks_path_result.stdout.strip() if hooks_path_result.returncode == 0 else ""
+    reasons: list[str] = []
+    if hooks_path != ".githooks":
+        reasons.append("repository_hooks_not_installed")
+    overlap_paths = index["overlap_paths"]
+    if index["overlap_count"]:
+        reasons.append("staged_unstaged_overlap")
+    manifest_paths = {
+        "security/integrity/manifest.json",
+        "security/integrity/manifest.json.sig",
+    }
+    if any(path in manifest_paths for path in overlap_paths):
+        reasons.append("integrity_manifest_overlap")
+    return {
+        "hooks_path_status": "ok" if hooks_path == ".githooks" else "missing",
+        "overlap_count": index["overlap_count"],
+        "reason_codes": reasons,
+        "recovery_codes": [
+            code
+            for code, applies in (
+                ("install_repository_hooks", hooks_path != ".githooks"),
+                ("restage_complete_paths", bool(index["overlap_count"])),
+                (
+                    "preserve_manifest_before_resign",
+                    "integrity_manifest_overlap" in reasons,
+                ),
+            )
+            if applies
+        ],
+        "status": "warning" if reasons else "ok",
+    }
+
+
 def status_report(root: Path) -> dict[str, Any]:
     """Build one versioned report without changing repository or process state."""
     return {
@@ -274,6 +316,7 @@ def status_report(root: Path) -> dict[str, Any]:
         "sections": {
             "environment": _environment_diagnostic(root),
             "git": _git_diagnostic(root),
+            "hooks": _hook_diagnostic(root),
             "index": _index_diagnostic(root),
             "validation": _validation_diagnostic(root),
         },
@@ -285,6 +328,7 @@ def preflight_report(root: Path) -> dict[str, Any]:
     sections = {
         "environment": _environment_diagnostic(root),
         "git": _git_diagnostic(root),
+        "hooks": _hook_diagnostic(root),
         "index": _index_diagnostic(root),
     }
     return {
