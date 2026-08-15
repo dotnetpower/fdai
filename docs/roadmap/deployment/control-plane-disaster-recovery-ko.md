@@ -1,8 +1,8 @@
 ---
 title: 컨트롤 플레인 재해 복구
 translation_of: control-plane-disaster-recovery.md
-translation_source_sha: cfc916f20f713f2a9d0de0578ab558b9c79c3d8b
-translation_revised: 2026-08-14
+translation_source_sha: 464f2e3fa1c6893b59c2730620647ef5b30b76da
+translation_revised: 2026-08-15
 ---
 
 # 컨트롤 플레인 재해 복구
@@ -25,18 +25,21 @@ translation_revised: 2026-08-14
 | 영속 compare-and-set 조정 및 감사 저장 | implemented | `services/core-control-plane/src/fdai/core/verticals/resilience/recovery_coordinator.py` 및 `services/core-control-plane/tests/core/verticals/test_recovery_coordinator.py` | 동일 요청 재전달, 쓰기 충돌, 개정 검사 및 상태와 감사의 원자적 쓰기가 구현되어 있습니다. |
 | 선택형 데이터베이스 복원 훈련 및 검증기 | implemented | `services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_drill_cli.py`, `infra/modules/compute/container-apps/dr_drill_job.tf` 및 DR 훈련 집중 테스트 | 작업은 기본적으로 dry-run이며 배포 입력이 필요합니다. 소스와 테스트만으로 실제 기반 환경 훈련 완료를 입증하지는 않습니다. |
 | 지역 프로바이더 작업 및 이벤트 데이터 연속성 | in-progress | 프로바이더 경계와 이 문서의 활성화 순서 | 대체 지역 프로비저닝, fencing, 범위가 제한된 이벤트 재생, 트래픽 전환 및 failback이 하나의 실제 경로로 조립되지 않았습니다. |
+| 단일 프로세스 예약 실행 | implemented | `infra/modules/compute/container-apps/*_job.tf`; `tests/integration/infra/test_scheduled_job_concurrency.py` | 예약된 모든 Container Apps Job이 `replica_completion_count`와 `parallelism`을 `1`로 고정하고 두 번째 트리거를 선언하지 않으므로 한 번의 tick은 정확히 한 프로세스에서 실행됩니다. Job이 추가되거나 완화되면 집중 검사가 실패합니다. |
 | 측정된 지역 장애 조치 및 failback | not-started | `docs/runbooks/control-plane-failover.md` | 승인된 RPO/RTO, 이전 epoch fencing, 이벤트 완전성, 트래픽 전환 및 failback을 입증하는 통제된 훈련 증적이 저장소에 없습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-15 | implemented | 검토 가능한 Terraform 구성으로 예약 실행을 단일 프로세스로 제한하고 예약된 모든 Job에 대한 집중 동시성 검사를 추가했습니다. | `current change`; `tests/integration/infra/test_scheduled_job_concurrency.py`; `pytest tests/integration/infra/test_scheduled_job_concurrency.py` (24 passed). | 프로세스 간 실험 예약, 조립된 지역 경로, 통제된 훈련 증적은 남아 있습니다. |
 | 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 테스트된 복구 동작과 지역 배포 및 운영 근거를 분리했습니다. | 현재 변경과 구현 범위 표에 기재한 복구 계획 및 조정기 집중 테스트 | 지역 프로바이더 경로를 조립하고 실행한 뒤 통제된 장애 조치 및 failback 근거를 보존해야 합니다. |
 
 ### 남은 작업
 
 - [ ] 대체 지역 프로비저닝, 기본 지역 fencing, 이벤트 복구, 트래픽 전환 및 failback을 프로바이더 어댑터로 연결하고, 두 번째 작성자를 활성화하지 않는 집중 종단 간 shadow 테스트를 통과합니다.
-- [ ] 프로세스 간 실험 예약을 입증하거나, 검토 가능한 구성과 집중 동시성 검사로 배포된 스케줄러를 단일 프로세스로 제한합니다.
+- [x] 검토 가능한 Terraform 구성으로 배포된 스케줄러를 한 번의 실행당 단일 프로세스로 제한했으며, 예약된 Job이 `replica_completion_count`나 `parallelism`을 완화하거나 두 번째 트리거를 추가하면 `tests/integration/infra/test_scheduled_job_concurrency.py`가 실패합니다.
+- [ ] 예약된 tick을 둘 이상의 프로세스에서 실행하기 전에 프로세스 간 실험 예약을 입증합니다.
 - [ ] 승인된 RPO/RTO와 달성값, 이벤트 누락, 이전 epoch 거부, 트래픽 전환, 롤백 또는 failback 및 정리를 기록한 저장소 보관 가능 통제 훈련 증적 하나를 남깁니다.
 
 ## 설계 요약
