@@ -193,6 +193,7 @@ describe("Operator API response decoders", () => {
         source: "operator-postgres-incident-projection",
         snapshot_seq: 7,
         denominator: 2,
+        matched_total: 2,
         truncated: false,
         window_from: "2026-07-14T09:59:00Z",
         window_to: "2026-07-14T10:01:00Z",
@@ -229,6 +230,16 @@ describe("Operator API response decoders", () => {
       next_cursor: null,
       metrics: { ...metrics, denominator: 3 },
     })).toThrow(/equal denominator/);
+    expect(decodeIncidentPage({
+      items: [item],
+      next_cursor: null,
+      metrics: { ...metrics, matched_total: null },
+    }).metrics.matched_total).toBeNull();
+    expect(() => decodeIncidentPage({
+      items: [item],
+      next_cursor: null,
+      metrics: { ...metrics, matched_total: 1 },
+    })).toThrow(/matched_total MUST NOT be below/);
   });
 
   test("decodes an RCA view and rejects an invalid tier", () => {

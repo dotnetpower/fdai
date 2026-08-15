@@ -113,6 +113,19 @@ FDAI adopts the operator-facing strengths documented for Azure SRE Agent without
 
 Missing correlations remain missing. The projection treats empty values and historical `None` or
 `null` string sentinels as absent, so unrelated audit-only rows cannot form a synthetic Incident.
+A correlation group whose every row is platform housekeeping is also not an Incident. The projection
+excludes a group when no row belongs to operational work, using the first `action_kind` segment
+(`background-task`, `iam`, `startup_readiness`, `semantic_turn`, `observation-campaign`, and
+`read-investigation`). One operational row keeps the whole group, so a new operational action kind is
+never hidden by the exclusion. Those groups stay visible in Audit, Trace, and Agent activity.
+
+The cohort panel discloses its own bound. The projection reports `matched_total`, the number of
+incidents the snapshot matched before the 500-incident measurement bound, so the panel can state
+`500 of 1557 matched` and how many matched incidents it did not measure. `matched_total` is null when
+the caller could not observe it, and the panel then reports only the measured count instead of
+inferring a remainder. The observed range is labelled as the activity range of that bounded sample,
+not as a chosen measurement window. A median time to mitigate with no independently verified outcome
+renders as unavailable with that reason rather than as an empty value.
 
 The roster returns summaries only. It does not embed every audit row, and the
 cursor bounds each server-side page. Selection performs a separate filtered
@@ -408,6 +421,7 @@ approve / rollback button. The projection is a pure function
 | 2026-08-15 | validated | Retained the authenticated Incident roster-to-RCA-to-report/PDF receipt with unavailable source, plan, and no-RCA behavior preserved. | `current change`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; source `014974045e70e35c26e489fa238345cf70bc3ca3` has a central validation receipt. | No remaining work for the bounded Incident SRE hardening and RCA PDF delivery slice. |
 | 2026-08-15 | in-progress | Derived a `recorded_subject` title from the recorded operational target and reason, including the audit-envelope `payload`, and made the roster identifier fallback show the correlation id that every incident link resolves. | `current change`; `incident_projection.py`, `incidents.tsx`, `types.ts`, `api-operations.ts` and their focused tests; Operator `33 passed`, Console `29 passed`, Ruff, Ruff format, and strict mypy passed; replaying the projection over the local corpus of 1,562 correlation groups moved `identifier_fallback` from 1,007 (64.5%) to 5 (0.32%), and the 5 remaining groups are non-operational `read:sha256:*` reads. | Exclude non-operational correlation groups, derive milestone and next-step text from recorded RCA and T1 fields, correct the cohort window and truncation disclosure, add roster search and filter controls, preserve acronyms, and record a title on the opening audit entry. |
 | 2026-08-15 | in-progress | Described RCA and tier evaluations from their recorded outcome, reason, and cause, surfaced the newest recorded blocker beside the phase next step, preserved acronyms, stopped linking a placeholder as accountable agents, and stopped rendering an unmapped catalog key. | `current change`; `incidents.timeline.ts`, `incidents.overview.ts`, `incidents.tsx`, `incident-clarity.css`, both message catalogs, and their focused tests; Console `37 passed`, catalog usage `3 passed`, typecheck, and translation freshness passed. | Exclude non-operational correlation groups, correct the cohort window and truncation disclosure, add roster search and filter controls, and record a title on the opening audit entry. |
+| 2026-08-15 | in-progress | Excluded correlation groups whose every row is platform housekeeping, added a `matched_total` measurement disclosure, relabelled the observed range, and made an unmeasurable time to mitigate state its reason. | `current change`; `postgres_sql.py`, `postgres.py`, `incident_projection.py`, `api-operations.ts`, `types.ts`, `incidents.detail-sections.tsx`, both message catalogs, and their focused tests; Operator `286 passed, 1 skipped`, Console `53 passed`, typecheck, Ruff, Ruff format, and strict mypy passed; the updated page SQL run against the local corpus selected 1,557 of 1,562 groups and excluded exactly the 5 housekeeping groups. | Add roster search and filter controls, and record a title on the opening audit entry. |
 
 ### Remaining work
 
@@ -419,9 +433,9 @@ approve / rollback button. The projection is a pure function
 - [x] Implement and focused-test an optional PDF `FormatEncoder` and GET-only download path that render only the existing report envelope and remain absent when the extra is unavailable.
 - [x] Add PDF pagination, escaping, source-digest, unavailable-section, no-new-analysis, and no-network regression checks without documenting a fixed reference page count.
 - [x] Derive a bounded `recorded_subject` from the recorded operational target and reason, reading the audit-envelope `payload`, and show the correlation id as the roster identifier fallback.
-- [ ] Exclude non-operational correlation groups (`background-task.*`, `iam.executor-grant-*`, `read:sha256:*`) from the roster and from the cohort denominator.
+- [x] Exclude non-operational correlation groups (`background-task.*`, `iam.executor-grant-*`, `read:sha256:*`) from the roster and from the cohort denominator.
 - [ ] Record a `title` on the opening audit entry of every incident-bearing producer so `recorded_title` becomes the normal provenance.
 - [x] Derive investigation milestone and recommended-next-step text from recorded RCA and T1 fields instead of a generic template when those fields exist.
-- [ ] Label the cohort observed range truthfully, disclose the bound and the excluded remainder, and render an unusable time-to-mitigate measurement as unavailable with a reason.
+- [x] Label the cohort observed range truthfully, disclose the bound and the excluded remainder, and render an unusable time-to-mitigate measurement as unavailable with a reason.
 - [ ] Add server-backed roster search and severity/vertical filter controls, including clearing a set vertical filter from the UI.
 - [x] Preserve acronyms through subject humanization and prevent a dynamic i18n key with no catalog entry from rendering a raw key string.

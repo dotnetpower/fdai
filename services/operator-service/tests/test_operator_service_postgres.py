@@ -641,6 +641,21 @@ def test_incident_projection_rejects_null_string_correlation_sentinels() -> None
     assert "LOWER(BTRIM(normalized_correlation_id)) NOT IN ('none', 'null')" in (INCIDENT_PAGE_SQL)
 
 
+def test_incident_page_excludes_platform_housekeeping_groups() -> None:
+    """A group of only platform activity is not an incident and not a cohort denominator."""
+    assert "HAVING BOOL_OR(NOT platform_activity)" in INCIDENT_PAGE_SQL
+    for prefix in (
+        "'background-task'",
+        "'iam'",
+        "'startup_readiness'",
+        "'semantic_turn'",
+        "'observation-campaign'",
+        "'read-investigation'",
+    ):
+        assert prefix in INCIDENT_PAGE_SQL
+    assert "SPLIT_PART(LOWER(COALESCE(audit.action_kind, '')), '.', 1) IN (" in INCIDENT_PAGE_SQL
+
+
 def test_incident_outcome_metrics_require_independent_verification() -> None:
     incidents = [
         {

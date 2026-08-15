@@ -81,8 +81,14 @@ def incident_outcome_metrics(
     *,
     snapshot_seq: int,
     truncated: bool,
+    matched_total: int | None = None,
 ) -> JsonObject:
-    """Aggregate bounded incident outcomes without inferring success from lifecycle state."""
+    """Aggregate bounded incident outcomes without inferring success from lifecycle state.
+
+    `matched_total` is the number of incidents the snapshot matched before the measurement
+    bound. It is `None` when the caller could not observe it, and it is never inferred from
+    the measured sample size.
+    """
     cohort_names = (
         "agent_mitigated",
         "agent_assisted",
@@ -145,6 +151,7 @@ def incident_outcome_metrics(
             "source": "operator-postgres-incident-projection",
             "snapshot_seq": snapshot_seq,
             "denominator": len(incidents),
+            "matched_total": matched_total,
             "truncated": truncated,
             "window_from": min(observed_times).isoformat() if observed_times else None,
             "window_to": max(observed_times).isoformat() if observed_times else None,

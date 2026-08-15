@@ -150,7 +150,9 @@ which is the identifier every Audit, Trace, RCA, and dossier link resolves. The 
 quotes a recorded tiered verdict from its own `<tier>_outcome`, `<tier>_reason`, and `<tier>_cause`
 fields, and the current-situation block adds the newest recorded reason a governed response
 abstained, denied, or failed. The console quotes that reason and does not convert it into a
-remediation instruction. See
+remediation instruction. The roster and its outcome cohorts exclude a correlation group whose every
+row is platform housekeeping, and the cohort panel states the measured share of the matched
+population instead of presenting its 500-incident bound as a complete measurement. See
 [operator-console-incident-roster.md](operator-console-incident-roster.md) for the projection
 contract.
 

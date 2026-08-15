@@ -258,7 +258,15 @@ normalized AS (
                WHEN 'cost_governance' THEN 'cost_governance'
                WHEN 'finops' THEN 'cost_governance'
                ELSE NULL
-           END AS vertical_bucket
+           END AS vertical_bucket,
+           SPLIT_PART(LOWER(COALESCE(audit.action_kind, '')), '.', 1) IN (
+               'background-task',
+               'iam',
+               'startup_readiness',
+               'semantic_turn',
+               'observation-campaign',
+               'read-investigation'
+           ) AS platform_activity
       FROM audit_log AS audit
       LEFT JOIN event_anchor ON event_anchor.event_id = audit.event_id
       LEFT JOIN incident_anchor
@@ -301,9 +309,12 @@ incident_groups AS (
            ) AS projected_vertical
       FROM ranked
      GROUP BY normalized_correlation_id
+    HAVING BOOL_OR(NOT platform_activity)
 ),
 selected AS (
-    SELECT normalized_correlation_id, last_seq
+    SELECT normalized_correlation_id,
+           last_seq,
+           COUNT(*) OVER () AS matched_groups
       FROM incident_groups
      WHERE (%(before_seq)s::bigint IS NULL OR last_seq < %(before_seq)s::bigint)
        AND (%(correlation_id)s::text IS NULL
@@ -319,6 +330,7 @@ SELECT ranked.seq, ranked.event_id, ranked.correlation_id, ranked.actor,
        ranked.action_kind, ranked.mode, ranked.entry, ranked.previous_hash,
        ranked.entry_hash, ranked.created_at, ranked.normalized_correlation_id,
        selected.last_seq AS group_last_seq, ranked.group_history_count,
+       selected.matched_groups,
        (SELECT snapshot_seq FROM snapshot) AS snapshot_seq
   FROM selected
   JOIN ranked

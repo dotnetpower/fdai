@@ -61,6 +61,7 @@ export interface IncidentOutcomeMetrics {
   readonly source: string;
   readonly snapshot_seq: number;
   readonly denominator: number;
+  readonly matched_total: number | null;
   readonly truncated: boolean;
   readonly window_from: string | null;
   readonly window_to: string | null;

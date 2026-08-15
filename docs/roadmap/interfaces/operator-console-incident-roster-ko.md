@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: a462e18e9cf0c4cfab148fd0da16586bf29abdb0
+translation_source_sha: 7e4e8f2fbb4fa16f370af77c5eb10c1750824aed
 translation_revised: 2026-08-15
 ---
 
@@ -111,7 +111,18 @@ FDAI는 Azure SRE Agent 문서에 나타난 운영자 중심 강점을 차용하
 
 누락된 상관관계는 누락 상태로 유지합니다. 변환 결과는 빈 값과 과거의 `None` 또는
 `null` 문자열 sentinel을 결측으로 처리하므로 관련 없는 audit-only 행이 synthetic 인시던트를
-구성하지 않습니다.
+구성하지 않습니다. 모든 행이 플랫폼 유지 관리인 상관관계 그룹 역시 인시던트가 아닙니다. 변환
+결과는 `action_kind`의 첫 세그먼트(`background-task`, `iam`, `startup_readiness`,
+`semantic_turn`, `observation-campaign`, `read-investigation`)를 사용해 운영 작업에 속한 행이
+하나도 없는 그룹을 제외합니다. 운영 행이 하나라도 있으면 그룹 전체를 유지하므로 새 운영 action
+kind가 제외로 숨겨지지 않습니다. 해당 그룹은 Audit, Trace, Agent 활동에는 계속 보입니다.
+
+cohort 패널은 자신의 상한을 공개합니다. 변환 결과는 500건 측정 상한 이전에 스냅샷이 일치시킨
+인시던트 수인 `matched_total`을 보고하므로 패널은 `일치 1557건 중 500건`과 측정하지 않은 일치
+인시던트 수를 함께 알릴 수 있습니다. 호출자가 관측할 수 없으면 `matched_total`은 null이며, 그때
+패널은 나머지를 추정하지 않고 측정된 수만 보고합니다. 관측 구간은 선택한 측정 구간이 아니라 그
+제한된 표본의 활동 구간으로 표기합니다. 독립적으로 검증된 결과가 없는 완화 시간 중앙값은 빈 값이
+아니라 그 사유와 함께 사용 불가로 렌더링됩니다.
 
 목록은 요약만 반환하며 모든 감사 행을 포함하지 않습니다. 커서가 각 서버
 페이지의 범위를 제한합니다. 항목을 선택하면 별도의 필터링된 GET으로 이력을
@@ -384,15 +395,16 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 | 2026-08-15 | validated | 사용 불가 source, plan 및 no-RCA 동작을 보존한 인증된 Incident roster-to-RCA-to-report/PDF 증적을 보존했습니다. | `current change`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; source `014974045e70e35c26e489fa238345cf70bc3ca3`에 중앙 검증 receipt가 있습니다. | 범위가 제한된 Incident SRE hardening 및 RCA PDF delivery 구획에 남은 작업이 없습니다. |
 | 2026-08-15 | in-progress | 감사 봉투 `payload`를 포함해 기록된 운영 대상과 사유에서 `recorded_subject` 제목을 도출하고, 목록 식별자 fallback이 모든 인시던트 링크가 해석하는 correlation ID를 표시하도록 했습니다. | `current change`; `incident_projection.py`, `incidents.tsx`, `types.ts`, `api-operations.ts` 및 각 focused 테스트입니다. Operator `33 passed`, Console `29 passed`, Ruff, Ruff format 및 strict mypy를 통과했습니다. 로컬 corpus의 상관관계 그룹 1,562개에 변환을 재생한 결과 `identifier_fallback`이 1,007개(64.5%)에서 5개(0.32%)로 줄었고, 남은 5개는 운영과 무관한 `read:sha256:*` 읽기입니다. | 운영과 무관한 상관관계 그룹을 제외하고, 기록된 RCA 및 T1 필드에서 milestone과 다음 단계 문구를 도출하며, cohort 구간과 절단 공개를 바로잡고, 목록 검색과 필터 컨트롤을 추가하고, 약어를 보존하며, 인시던트를 여는 감사 항목에 제목을 기록해야 합니다. |
 | 2026-08-15 | in-progress | RCA와 계층 평가를 기록된 outcome, reason, cause로 서술하고, 단계별 다음 단계 옆에 가장 최근 기록된 차단 사유를 드러내며, 약어를 보존하고, 대체 표시를 담당 에이전트 링크로 만들지 않으며, 매핑되지 않은 카탈로그 키를 렌더링하지 않도록 했습니다. | `current change`; `incidents.timeline.ts`, `incidents.overview.ts`, `incidents.tsx`, `incident-clarity.css`, 메시지 카탈로그 2개 및 각 focused 테스트입니다. Console `37 passed`, catalog usage `3 passed`, typecheck 및 번역 신선도를 통과했습니다. | 운영과 무관한 상관관계 그룹을 제외하고, cohort 구간과 절단 공개를 바로잡고, 목록 검색과 필터 컨트롤을 추가하며, 인시던트를 여는 감사 항목에 제목을 기록해야 합니다. |
+| 2026-08-15 | in-progress | 모든 행이 플랫폼 유지 관리인 상관관계 그룹을 제외하고, `matched_total` 측정 공개를 추가하고, 관측 구간 표기를 바로잡았으며, 측정할 수 없는 완화 시간이 그 사유를 밝히도록 했습니다. | `current change`; `postgres_sql.py`, `postgres.py`, `incident_projection.py`, `api-operations.ts`, `types.ts`, `incidents.detail-sections.tsx`, 메시지 카탈로그 2개 및 각 focused 테스트입니다. Operator `286 passed, 1 skipped`, Console `53 passed`, typecheck, Ruff, Ruff format 및 strict mypy를 통과했습니다. 갱신된 page SQL을 로컬 corpus에 실행한 결과 그룹 1,562개 중 1,557개를 선택하고 유지 관리 그룹 5개를 정확히 제외했습니다. | 목록 검색과 필터 컨트롤을 추가하고, 인시던트를 여는 감사 항목에 제목을 기록해야 합니다. |
 
 ### 남은 작업
 
 - [x] 기록된 제목, 요약, 룰, signal, 정리된 resource 대상을 우선하고 식별자 fallback을 사용 불가로 표시하는 범위가 제한된 `title_source` 계약과 focused projection, decoder, render 테스트를 추가합니다.
 - [x] 감사 봉투 `payload`를 읽어 기록된 운영 대상과 사유로 범위가 제한된 `recorded_subject`를 도출하고, 목록 식별자 fallback으로 correlation ID를 표시합니다.
-- [ ] 운영과 무관한 상관관계 그룹(`background-task.*`, `iam.executor-grant-*`, `read:sha256:*`)을 목록과 cohort 분모에서 제외합니다.
+- [x] 운영과 무관한 상관관계 그룹(`background-task.*`, `iam.executor-grant-*`, `read:sha256:*`)을 목록과 cohort 분모에서 제외합니다.
 - [ ] 인시던트를 여는 감사 항목에 `title`을 기록해 `recorded_title`을 정상 출처로 만듭니다.
 - [x] 해당 필드가 있을 때는 일반 템플릿 대신 기록된 RCA 및 T1 필드에서 milestone과 권장 다음 단계 문구를 도출합니다.
-- [ ] cohort 관측 구간을 사실대로 표기하고 상한과 제외된 나머지를 공개하며, 사용할 수 없는 time-to-mitigate 측정을 사유와 함께 사용 불가로 렌더링합니다.
+- [x] cohort 관측 구간을 사실대로 표기하고 상한과 제외된 나머지를 공개하며, 사용할 수 없는 time-to-mitigate 측정을 사유와 함께 사용 불가로 렌더링합니다.
 - [ ] 서버 기반 목록 검색과 심각도/vertical 필터 컨트롤을 추가하고, 설정된 vertical 필터를 UI에서 해제할 수 있게 합니다.
 - [x] 대상 정규화에서 약어를 보존하고, 카탈로그 항목이 없는 동적 i18n 키가 원본 키 문자열로 렌더링되지 않게 합니다.
 - [x] 정본 수명 주기 상태를 대체하지 않고 원본 플랫폼 identity, 설명, 상태, 시각, 원본 링크, 고정된 대응 계획 개정, 과거 일치 미리 보기, cooldown 및 중복 제거 근거를 투영합니다.
