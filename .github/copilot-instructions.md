@@ -65,6 +65,10 @@ the Constitution always prevails.
    generated runtime artifacts.
 6. Worker sessions run only the narrowest executable check that can falsify their change. They
    MUST NOT run repository-wide checks, unscoped tests, or direct `verify.sh --fast` / `--all`.
+   A session MUST NOT delegate validation of a dirty worktree to another execution session because
+   that process can stage, restore, or discard task-owned changes. Delegated validation requires a
+   clean committed snapshot in an isolated worktree; validate dirty task-owned paths directly in
+   the owning session until they are committed.
    Follow the diff-scoped and parallel-worktree rules in
    [coding-conventions.instructions.md](instructions/coding-conventions.instructions.md).
 7. Every commit is automatically registered in the Git-common-dir validation queue and wakes a
