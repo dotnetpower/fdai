@@ -156,6 +156,7 @@ def _service(model: _Model, manifest: Any) -> SemanticPlanningService:
         model=model,
         manifests=_ManifestProvider(manifest),
         verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.OBJECT_SET,)),
+        now=lambda: NOW,
     )
 
 
@@ -180,6 +181,23 @@ def test_whole_turn_model_proposal_becomes_verified_server_owned_plan() -> None:
     assert outcome.intent_graph.goals[0].arguments["definition"]["purpose"] == "operations-review"
     assert model.utterance.startswith("현재")
     assert manifest.descriptors[0]["name"] == "Resource"
+
+
+def test_object_set_cutoff_is_rebound_to_trusted_server_time() -> None:
+    manifest, definition = _fixture()
+    stale = definition.model_copy(update={"as_of": datetime(2020, 1, 1, tzinfo=UTC)})
+    model = _Model(frame=_frame(), plan=_plan(stale))
+
+    outcome = _service(model, manifest).plan(
+        utterance="Show current resources.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.plan is not None
+    definition_json = outcome.plan.nodes[0].arguments["definition"]
+    assert definition_json["as_of"] == NOW.isoformat()
 
 
 def test_unresolved_meaning_returns_one_clarification_without_plan() -> None:

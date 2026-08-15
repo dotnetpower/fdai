@@ -10,7 +10,9 @@ from __future__ import annotations
 import copy
 import json
 import logging
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from datetime import UTC, datetime
+from functools import partial
 from typing import Any
 
 from fdai_service_contracts.ontology_query import (
@@ -63,15 +65,17 @@ class SemanticPlanningService:
         manifests: QueryManifestProvider,
         verifier: OntologyQueryPlanVerifier,
         descriptor_selector: SemanticDescriptorSelector | None = None,
+        now: Callable[[], datetime] | None = None,
     ) -> None:
         self._manifests = manifests
         self._selector = descriptor_selector or CompleteManifestSelector()
+        trusted_now = now or (lambda: datetime.now(UTC))
         self._cascade = SemanticPlanningCascade(
             model=model,
             escalation_model=escalation_model,
             verifier=verifier,
             frame_builder=_build_frame,
-            plan_builder=_build_plan,
+            plan_builder=partial(_build_plan, now=trusted_now),
         )
 
     def plan(
@@ -231,13 +235,20 @@ def _build_plan(
     manifest: QueryManifest,
     principal: Principal,
     purpose: str,
+    now: Callable[[], datetime],
 ) -> OntologyQueryPlan:
+    trusted_now = now()
+    if trusted_now.tzinfo is None:
+        raise ValueError("semantic planning clock MUST be timezone-aware")
+    current_as_of = trusted_now.astimezone(UTC).isoformat()
     nodes = tuple(
         OntologyQueryNode(
             node_id=node.node_id,
             kind=node.kind,
             depends_on=node.depends_on,
-            arguments_json=canonical_json(node.arguments),
+            arguments_json=canonical_json(
+                _server_bound_node_arguments(node, current_as_of=current_as_of)
+            ),
             output_kind=node.output_kind,
         )
         for node in proposal.nodes
@@ -263,6 +274,21 @@ def _build_plan(
         output_node_ids=proposal.output_node_ids,
         plan_digest=content_digest(payload),
     )
+
+
+def _server_bound_node_arguments(
+    node: QueryNodeProposal,
+    *,
+    current_as_of: str,
+) -> dict[str, Any]:
+    arguments = copy.deepcopy(node.arguments)
+    if node.kind.value != "object_set":
+        return arguments
+    definition = arguments.get("definition")
+    if not isinstance(definition, dict):
+        raise ValueError("semantic ObjectSet node requires a definition object")
+    definition["as_of"] = current_as_of
+    return arguments
 
 
 def _validated_descriptors(

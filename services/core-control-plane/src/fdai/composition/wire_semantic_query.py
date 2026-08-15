@@ -295,6 +295,7 @@ def build_semantic_query_runtime(
             extension_argument_schemas=extension_schemas,
         ),
         descriptor_selector=CompleteManifestSelector(),
+        now=evaluation_cutoff,
     )
 
     def executor_for(principal: Principal) -> OntologyQueryPlanExecutor:

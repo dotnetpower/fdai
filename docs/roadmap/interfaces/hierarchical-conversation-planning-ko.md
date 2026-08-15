@@ -1,8 +1,8 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: a6135a7a6a9786c4012d80d33f86e04ae30644be
-translation_revised: 2026-08-14
+translation_source_sha: b9f5b013efc285d5b0b62ebea4fe07e2ed421f25
+translation_revised: 2026-08-15
 ---
 
 # 계층형 대화 계획
@@ -61,6 +61,7 @@ T1 제안을 사용할 수 없거나 스키마, 매니페스트, 구성 또는 �
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 목표 아키텍처를 현재 Core runtime, Operator bridge, service contract, 배포 설정 및 집중 테스트와 대조했습니다. | 구현 범위 표에 나열한 현재 소스와 집중 검사입니다. | 완전한 query coverage, multimodal transport, descriptor generation, runtime coverage receipt 및 통제된 live 인증이 남아 있습니다. |
 | 2026-08-14 | implemented | 즉시 T2를 사용하는 의미 계획을 T1 우선 cascade로 교체했습니다. T2를 호출하는 유일한 조건은 T1 frame 또는 plan 제안이 없거나 결정론적 검증을 통과하지 못한 경우입니다. | `current change`, 의미 플래너 및 조립 회귀 테스트는 T1 성공, 명확화, 근거 보류가 T2를 호출하지 않고 범위가 제한된 제안 실패만 한 단계를 다시 시도할 수 있음을 검증합니다. | tier 선택을 기록하는 인증 근거를 보존하고 기존 통제된 실제 인증을 완료합니다. |
 | 2026-08-14 | implemented | 보안이 적용된 `Identifiable` ObjectSet과 정확한 `query.instance_relationships` FunctionType을 통해 서술자 기반 현재 인스턴스 관계 계획을 추가했습니다. 함수는 저장된 방향, 완전성, 정확한 release 신원 및 실행 권한이 없음을 보존합니다. | `current change`, `test_instance_relationships.py`, `test_wire_ontology_relationships.py` 및 의미 턴 처리기 집중 회귀 테스트를 통과했습니다. | 전체 관계 커버리지를 주장하기 전에 인증된 관계 답변을 보존하고 타입 기반 다중 홉 관계 측면 계획을 완성합니다. |
+| 2026-08-15 | implemented | 모든 의미 ObjectSet `as_of`를 보안 게이트웨이가 사용하는 동일한 주입 시계로 다시 만들어 현재 상태의 시간 권한을 서버가 소유하도록 했습니다. 모델 타임스탬프는 범위가 제한된 계획 중에 만료되거나 과거 기준 시각을 선택할 수 없습니다. | `current change`, strict typing과 함께 집중 플래너, tier 라우팅 및 관계 조립 검사를 통과했습니다. | 운영 인증 상태를 변경하기 전에 인증된 answered 관계 probe를 보존합니다. |
 
 ### 남은 작업
 
