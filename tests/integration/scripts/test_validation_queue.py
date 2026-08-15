@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -176,6 +177,43 @@ def _commit_change(repo: Path) -> str:
     result = _run(repo, "git", "rev-parse", "HEAD")
     assert result.returncode == 0
     return result.stdout.strip()
+
+
+def test_prune_stale_removes_only_old_unreferenced_pending_records(git_repo: Path) -> None:
+    paths = queue_paths(git_repo)
+    old = datetime.now(timezone.utc) - timedelta(hours=48)  # noqa: UP017
+    retained = _commit_change(git_repo)
+    orphan = _run(git_repo, "git", "commit-tree", "HEAD^{tree}", "-p", retained, "-m", "orphan")
+    assert orphan.returncode == 0, orphan.stderr
+    orphan_commit = orphan.stdout.strip()
+    recent = _run(git_repo, "git", "commit-tree", "HEAD^{tree}", "-p", retained, "-m", "recent")
+    assert recent.returncode == 0, recent.stderr
+    recent_commit = recent.stdout.strip()
+    validation_queue.initialize(paths)
+    for commit, enqueued_at in (
+        (retained, old),
+        (orphan_commit, old),
+        (recent_commit, datetime.now(timezone.utc)),  # noqa: UP017
+    ):
+        (paths.pending / f"{commit}.json").write_text(
+            json.dumps(
+                {
+                    "commit": commit,
+                    "enqueued_at": enqueued_at.isoformat(),
+                    "schema_version": 1,
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+    assert validation_queue.prune_stale(paths, min_age_hours=24, apply=False) == 0
+    assert (paths.pending / f"{orphan_commit}.json").is_file()
+
+    assert validation_queue.prune_stale(paths, min_age_hours=24, apply=True) == 0
+    assert (paths.pending / f"{retained}.json").is_file()
+    assert not (paths.pending / f"{orphan_commit}.json").exists()
+    assert (paths.pending / f"{recent_commit}.json").is_file()
 
 
 def test_run_stage_records_failed_verify_gate_detail(tmp_path: Path) -> None:
