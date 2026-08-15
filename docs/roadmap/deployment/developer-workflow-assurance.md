@@ -245,6 +245,7 @@ The remaining Low risks are explicit and bounded:
 | 2026-08-15 | implemented | Closed integration-level bypasses in the real pre-tool dispatcher and validator scratch symlink boundary. | Current change; 19 dispatcher and guard tests plus 2 scratch ownership tests passed. | Obtain exact central validation and complete issue #118. |
 | 2026-08-15 | implemented | Closed four adversarial parser rounds covering commit scope, approval comments, Git aliases, config-env option forms, and symlink ancestors. | Current change; 40 dispatcher and parser fixtures plus 3 scratch ownership guards passed, and independent acceptance found no residual above Low. | Obtain exact central validation and complete issue #118. |
 | 2026-08-15 | validated | Central validation accepted the final Top 20 implementation and assurance ledger revision. | `validation_queue.py check-commit 4a18ce982` passed; the final focused join passed 221 tests. | Complete issue #118 and synchronize the project board. |
+| 2026-08-15 | in-progress | Started the measured bounded-wait campaign for issue #122 after session evidence showed 51 wait complaints across 36 sessions. | Issue #122 and the baselines in the bounded wait campaign table. | Implement the bounded budgets and complete at least 10 critique rounds. |
 
 ### Remaining work
 
@@ -255,11 +256,49 @@ The remaining Low risks are explicit and bounded:
 - [x] Completed 22 additional rounds with only the bounded Low residuals listed above.
 - [x] Integrated Top 20 revision `4a18ce982` and obtained its exact central validation receipt.
 - [ ] Complete issue #118 and synchronize the project board.
+- [ ] Complete the bounded wait campaign for issue #122 with at least 10 critique rounds, a final
+  review with no residual above Low, and exact central validation.
 
-## Related docs
+## Bounded wait campaign
 
-| To learn about | Read |
-|----------------|------|
+Issue [#122](https://github.com/dotnetpower/fdai/issues/122) bounds the long timeouts, fixed
+sleeps, and serial polling that dominate turnaround. Over seven days 68 of 143 sessions exceeded
+one hour and 36 sessions carried 51 explicit wait complaints.
+
+The governing rule is that a total timeout is not stall protection. A large envelope makes a
+stalled run indistinguishable from a slow one, so every long operation declares a per-stage
+deadline, a no-progress deadline, a progress signal, and a resumable checkpoint.
+
+| Rank | Bounded wait | Measured baseline | Remedy |
+|-----:|--------------|-------------------|--------|
+| 1 | Assurance request pacing | 99 fixed 15-second sleeps added 24 minutes 45 seconds to a healthy full cohort | Target a minimum spacing between request starts and absorb the turn duration. |
+| 2 | Transport retry delay | One fixed 60-second sleep per retryable failure | Derive a bounded exponential delay and honor a clamped server hint. |
+| 3 | Assurance stall detection | One 4-hour envelope with no per-turn or no-progress deadline | Fail a stalled turn in 3 minutes and a stalled run in 5 minutes. |
+| 4 | Assurance resume | An external termination discarded every completed question | Persist a provenance-bound checkpoint and resume the outstanding questions. |
+| 5 | Assurance progress evidence | A long run emitted no completion signal until the end | Emit one bounded progress line per completed question. |
+| 6 | Repeated live verification | Each small fix repeated a restart, canary, and full gate | Require batched verification and release-boundary cohort runs in the agent contract. |
+| 7 | Roadmap agent envelope | One 4-hour budget also bounded a one-second translation check | Give the agent, changed tests, and quality checks separate budgets. |
+| 8 | Roadmap service envelope | `TimeoutStartSec=5h` and `2h` exceeded the real stage sum | Bound both units to one hour above the declared stage budgets. |
+| 9 | Deployment migration polling | Each job carried its own 30-attempt product | Declare one cumulative 900-second migration deadline. |
+| 10 | Deployment revision polling | Each app carried its own 24-attempt product | Declare one cumulative 300-second revision deadline. |
+| 11 | Azure preflight budget | 32 pages times three attempts multiplied the per-attempt timeout | Add one overall preflight deadline that also caps each request. |
+| 12 | Browser server startup | Each Playwright server waited 120 seconds | Halve the wait so a misconfigured server surfaces sooner. |
+| 13 | Dependency download | `--retry 5` with a 300-second retry window per job | Reduce to `--retry 3` with a 90-second window. |
+| 14 | Remote drift detection | Auto-pull observed remote drift after at most 600 seconds | Poll every 180 seconds while preserving the clean-tree and validation guards. |
+| 15 | Excluded fast tests | `tests/live-e2e/**` excluded four Vitest files from every ordinary run | Exclude only Playwright specs so the fast contracts run in the normal loop. |
+
+### Contract
+
+- The assurance run budget is derived from the cohort size, floored at 5 minutes and capped at
+  90 minutes, and an operator may override it inside declared bounds.
+- Budget exhaustion stops the run, writes a checkpoint, and fails with `run_budget_exhausted`
+  instead of hanging; it never reports a passing or production-ready artifact.
+- A checkpoint resumes only when the source revision, configuration digest, workspace patch
+  digest, and ordered cohort all match, and a corrupt or torn checkpoint restarts the cohort.
+- A completed cohort deletes its checkpoint so a later run cannot claim fresh evidence without
+  live requests, and every artifact records resumed and live question counts.
+
+
 | Local and deployed runtime parity | [Runtime parity](dev-and-deploy-parity.md) |
 | Repository validation commands | [Scripts reference](../../../scripts/README.md) |
 | Deployment safety | [Deployment preflight](deployment-preflight.md) |

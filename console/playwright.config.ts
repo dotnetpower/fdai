@@ -28,7 +28,7 @@ export default defineConfig({
     wait: { stdout: /ready in/ },
     stdout: "ignore",
     stderr: "pipe",
-    timeout: 120_000,
+    timeout: 60_000,
   },
   projects: [
     { name: "desktop-chromium", use: { ...devices["Desktop Chrome"] } },

@@ -16,6 +16,7 @@ _ARM_AUDIENCE = "https://management.azure.com"
 _VAULT_AUDIENCE = "https://vault.azure.net"
 _TRANSIENT_HTTP_STATUSES = frozenset({408, 429, 500, 502, 503, 504})
 _DEFAULT_RETRY_DELAYS_SECONDS = (0.2, 0.5)
+_DEFAULT_OVERALL_DEADLINE_SECONDS = 300
 
 
 class PreflightError(RuntimeError):
@@ -52,16 +53,26 @@ class AzureCliReader:
         timeout_seconds: int = 20,
         retry_delays_seconds: tuple[float, ...] = _DEFAULT_RETRY_DELAYS_SECONDS,
         sleep: Callable[[float], None] = time.sleep,
+        overall_deadline_seconds: float = _DEFAULT_OVERALL_DEADLINE_SECONDS,
+        monotonic: Callable[[], float] = time.monotonic,
     ) -> None:
         if timeout_seconds <= 0:
             raise ValueError("Azure preflight timeout MUST be positive")
         if len(retry_delays_seconds) > 2 or any(delay < 0 for delay in retry_delays_seconds):
             raise ValueError("Azure preflight retries MUST use zero to two non-negative delays")
+        if overall_deadline_seconds <= 0:
+            raise ValueError("Azure preflight overall deadline MUST be positive")
         self._subscription_id = subscription_id
         self._timeout_seconds = timeout_seconds
         self._retry_delays_seconds = retry_delays_seconds
         self._sleep = sleep
+        self._monotonic = monotonic
+        self._overall_deadline_seconds = overall_deadline_seconds
+        self._deadline_at = monotonic() + overall_deadline_seconds
         self._tokens: dict[str, str] = {}
+
+    def _remaining_seconds(self) -> float:
+        return self._deadline_at - self._monotonic()
 
     def get_json(self, path: str, *, api_version: str) -> dict[str, Any]:
         url = f"{_ARM_ENDPOINT}{path}?{urlencode({'api-version': api_version})}"
@@ -140,6 +151,12 @@ class AzureCliReader:
     ) -> tuple[int, Any]:
         encoded = None if body is None else json.dumps(body).encode("utf-8")
         for attempt in range(len(self._retry_delays_seconds) + 1):
+            remaining = self._remaining_seconds()
+            if remaining <= 0:
+                raise PreflightError(
+                    "Azure reads exceeded the bounded "
+                    f"{self._overall_deadline_seconds:g}s preflight deadline"
+                )
             parsed = urlparse(url)
             hostname = parsed.hostname or ""
             if parsed.scheme != "https" or not (
@@ -157,7 +174,8 @@ class AzureCliReader:
                 },
             )
             try:
-                with urlopen(request, timeout=self._timeout_seconds) as response:  # noqa: S310
+                request_timeout = min(float(self._timeout_seconds), remaining)
+                with urlopen(request, timeout=request_timeout) as response:  # noqa: S310
                     payload = response.read()
                     try:
                         return response.status, json.loads(payload) if payload else {}

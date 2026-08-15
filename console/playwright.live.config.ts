@@ -53,7 +53,7 @@ export default defineConfig({
             reuseExistingServer: false,
             stdout: "ignore",
             stderr: "pipe",
-            timeout: 120_000,
+            timeout: 60_000,
           },
           {
             command:
@@ -64,7 +64,7 @@ export default defineConfig({
             wait: { stdout: /ready in/ },
             stdout: "ignore",
             stderr: "pipe",
-            timeout: 120_000,
+            timeout: 60_000,
           },
         ],
       }

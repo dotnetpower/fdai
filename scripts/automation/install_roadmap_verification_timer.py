@@ -47,7 +47,7 @@ ExecStart={_quote(Path(sys.executable))} {_quote(runner)}{apply_argument}
 Nice=10
 IOSchedulingClass=idle
 CPUWeight=20
-TimeoutStartSec=2h
+TimeoutStartSec=1h
 """
     timer = f"""[Unit]
 Description=Resume FDAI roadmap verification while interactive sessions are idle

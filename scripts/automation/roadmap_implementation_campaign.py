@@ -24,6 +24,9 @@ BATCH_SIZE = 10
 MIN_HARDENING_ROUNDS = 10
 STATE_DIRECTORY = "fdai-roadmap-implementation"
 ELIGIBLE_PROJECT_STATUSES = frozenset({"Ready", "In progress"})
+DEFAULT_AGENT_TIMEOUT_SECONDS = 1_800
+CHANGED_TEST_TIMEOUT_SECONDS = 900
+QUALITY_CHECK_TIMEOUT_SECONDS = 120
 
 
 def _git(*arguments: str, cwd: Path) -> str:
@@ -422,12 +425,12 @@ def run_cycle(
         _run_check(
             ["bash", "scripts/automation/tests-for-diff.sh", "--run", f"{base}..HEAD"],
             repo_root=repo_root,
-            timeout=timeout,
+            timeout=CHANGED_TEST_TIMEOUT_SECONDS,
         )
         _run_check(
             ["bash", "scripts/quality/localization/check-translations.sh"],
             repo_root=repo_root,
-            timeout=timeout,
+            timeout=QUALITY_CHECK_TIMEOUT_SECONDS,
         )
         _run_check(
             ["python3", "scripts/automation/validation_queue.py", "ensure-range", f"{base}..HEAD"],
@@ -458,7 +461,12 @@ def run_cycle(
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--idle-seconds", type=int, default=900)
-    parser.add_argument("--timeout", type=int, default=14_400)
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=DEFAULT_AGENT_TIMEOUT_SECONDS,
+        help="Bounded budget for one agent batch; verification stages carry their own budgets.",
+    )
     parser.add_argument("--max-active-sessions", type=int, default=2)
     return parser
 

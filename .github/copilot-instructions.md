@@ -101,6 +101,14 @@ the Constitution always prevails.
    verify only non-secret authentication state and resume without repeating completed work or
    requesting the value again. Never weaken authentication, authorization, certificate checks,
    or another security control to avoid the prompt.
+11. Bound every wait and every long-running command. Before starting work that can exceed a few
+   minutes, declare an explicit budget, a per-stage deadline, and a no-progress deadline, and emit
+   a progress signal as each unit completes. One long total timeout MUST NOT stand in for a
+   per-stage deadline or a progress signal, because it makes a stalled run indistinguishable from a
+   slow one. Make long work resumable so an interruption does not discard completed results, and
+   prefer many short verifiable steps over one long opaque step. Batch related fixes into one
+   verification round instead of repeating a full live gate after each small change, and run
+   full-cohort or release-scale checks only at an explicit release or evidence boundary.
 
 ## Issue Lifecycle (MUST)
 

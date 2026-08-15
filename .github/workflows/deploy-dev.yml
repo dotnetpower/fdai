@@ -1596,7 +1596,7 @@ jobs:
             echo "starting $purpose job $job in $rg..."
             az containerapp job start --name "$job" --resource-group "$rg" >/dev/null
             local completed=false
-            for _ in $(seq 1 30); do
+            while [ "$SECONDS" -lt "$migration_deadline" ]; do
               exec_name="$(az containerapp job execution list --name "$job" --resource-group "$rg" \
                 --query "sort_by([], &properties.startTime)[-1].name" -o tsv 2>/dev/null || true)"
               status="$(az containerapp job execution show --name "$job" --resource-group "$rg" \
@@ -1606,8 +1606,16 @@ jobs:
               [ "$status" = "Failed" ] && { echo "$job $purpose failed"; exit 1; }
               sleep 12
             done
-            [ "$completed" = "true" ] || { echo "$job $purpose did not complete in time"; exit 1; }
+            [ "$completed" = "true" ] || {
+              echo "$job $purpose did not complete within the shared ${migration_budget}s migration deadline"
+              exit 1
+            }
           }
+
+          # One cumulative budget for every migration job; a slow job can no longer
+          # multiply an implicit per-job attempt count across the whole step.
+          migration_budget=900
+          migration_deadline=$((SECONDS + migration_budget))
 
           jobs=()
           if [ "${{ inputs.deploy_operator_api }}" = "true" ]; then
@@ -1653,11 +1661,14 @@ jobs:
             worker="$(terraform output -raw ingestion_worker_name)"
             [ -z "$worker" ] || apps+=("$worker")
           fi
+          # One cumulative budget for every revision probe in this step.
+          health_budget=300
+          health_deadline=$((SECONDS + health_budget))
           for app in "${apps[@]}"; do
             revision="$(az containerapp show --name "$app" --resource-group "$rg" \
               --query properties.latestRevisionName -o tsv)"
             ready=false
-            for _ in $(seq 1 24); do
+            while [ "$SECONDS" -lt "$health_deadline" ]; do
               state="$(az containerapp revision show --name "$app" --resource-group "$rg" \
                 --revision "$revision" \
                 --query '[properties.provisioningState, properties.healthState] | join(`:`, @)' \
@@ -1666,7 +1677,10 @@ jobs:
               if [ "$state" = "Provisioned:Healthy" ]; then ready=true; break; fi
               sleep 5
             done
-            [ "$ready" = "true" ] || { echo "$app latest revision is not healthy"; exit 1; }
+            [ "$ready" = "true" ] || {
+              echo "$app latest revision is not healthy within the shared ${health_budget}s deadline"
+              exit 1
+            }
           done
           for target in "${targets[@]}"; do
             payload="$(curl --fail --silent --show-error --retry 12 --retry-delay 5 \

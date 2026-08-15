@@ -225,6 +225,58 @@ def test_azure_reader_retries_transient_throttle_then_succeeds(
     assert delays == [0.1, 0.2]
 
 
+def test_azure_reader_stops_at_the_overall_deadline(monkeypatch: pytest.MonkeyPatch) -> None:
+    clock = iter([0.0, 0.0, 301.0, 301.0, 301.0])
+
+    def fake_urlopen(request: object, *, timeout: float) -> _Response:
+        del request, timeout
+        raise HTTPError("https://management.azure.com", 503, "busy", {}, io.BytesIO())
+
+    monkeypatch.setattr(transport, "urlopen", fake_urlopen)
+    reader = transport.AzureCliReader(
+        subscription_id="00000000-0000-0000-0000-000000000000",
+        retry_delays_seconds=(0.1, 0.2),
+        sleep=lambda _seconds: None,
+        monotonic=lambda: next(clock),
+    )
+    reader._tokens["https://management.azure.com"] = "test-token"
+
+    with pytest.raises(_MODULE.PreflightError, match="bounded 300s preflight deadline"):
+        reader.get_json("/subscriptions/example", api_version="2024-01-01")
+
+
+def test_azure_reader_caps_each_request_by_the_remaining_deadline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: list[float] = []
+    clock = iter([0.0, 295.0, 295.0])
+
+    def fake_urlopen(request: object, *, timeout: float) -> _Response:
+        del request
+        observed.append(timeout)
+        return _Response(200, b'{"value":"ok"}')
+
+    monkeypatch.setattr(transport, "urlopen", fake_urlopen)
+    reader = transport.AzureCliReader(
+        subscription_id="00000000-0000-0000-0000-000000000000",
+        sleep=lambda _seconds: None,
+        monotonic=lambda: next(clock),
+    )
+    reader._tokens["https://management.azure.com"] = "test-token"
+
+    reader.get_json("/subscriptions/example", api_version="2024-01-01")
+
+    assert observed == [5.0]
+
+
+def test_azure_reader_rejects_an_unusable_overall_deadline() -> None:
+    with pytest.raises(ValueError, match="overall deadline MUST be positive"):
+        transport.AzureCliReader(
+            subscription_id="00000000-0000-0000-0000-000000000000",
+            overall_deadline_seconds=0,
+        )
+
+
 def test_azure_reader_does_not_retry_permanent_error(monkeypatch: pytest.MonkeyPatch) -> None:
     calls = 0
     delays: list[float] = []

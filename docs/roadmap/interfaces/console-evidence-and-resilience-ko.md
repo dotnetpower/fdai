@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: bf9909679c5358d8507fff72bbd852e90c9f8165
+translation_source_sha: e7bee8c5c7d2f17651df62b9f8cf0171eb9157f2
 translation_revised: 2026-08-15
 ---
 
@@ -15,7 +15,7 @@ translation_revised: 2026-08-15
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|-----------|
-| 통제된 온톨로지 보증 출처 이력 | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`, focused Vitest 52개 통과 | 강화된 release gate는 두 locale의 모든 operation에 완전하게 검증된 답변을 요구합니다. 인증된 probe는 semantic planning을 사용할 수 없을 때 held 상태였으므로 full-cohort readiness 아티팩트를 주장하지 않습니다. |
+| 통제된 온톨로지 보증 출처 이력 | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`, `console/tests/live-e2e/assurance-budget.ts`, `console/tests/live-e2e/assurance-checkpoint.ts`, focused Vitest 79개 통과 | 강화된 release gate는 두 locale의 모든 operation에 완전하게 검증된 답변을 요구합니다. 실행은 질문별 및 무진행 deadline을 갖춘 유도된 budget으로 제한되고 provenance에 바인딩된 checkpoint에서 재개하며, 소진된 budget은 ready 아티팩트를 보고하지 않습니다. |
 | Exact-release 온톨로지 카탈로그 변환 결과 | 구현됨 | `ontology_console_projection.py`, `materialize-authoritative-catalogs.py`, focused materializer 동등성 테스트, Console 토폴로지 모델 테스트 및 타입 검사 | 하나의 생산자가 릴리스 신원 및 변경 권한 부재와 함께 선언 보기와 카탈로그 토폴로지를 제공합니다. 의미 모델 렌더링과 receipt 기반 컨텍스트 근거는 남아 있습니다. |
 | 의미 모델 및 관계 방향 | 구현됨 | `ontology-semantic-model.ts`, `ontology-semantic-map.tsx`, 카탈로그 토폴로지 renderer 및 inspector, focused Vitest 23개 및 Console 타입 검사 통과 | 검토된 네 가지 의미 영역, 다섯 가지 운영 보기, 화살표 및 분리된 들어오는 관계와 나가는 관계를 구현했습니다. 인증된 데스크톱 및 모바일 근거는 남아 있습니다. |
 | 에이전트 활동 하트비트 표현 | validated | `console/src/routes/agents.model.ts`, `console/src/routes/agents.model.test.ts`, `docs/baselines/agent-activity-heartbeat-assurance-2026-08-14.json`, focused Vitest 31개 통과 및 인증된 Browser Entra assurance | 두 번 새로고치는 동안 연속된 하트비트 시각 세 개가 증가했고 인증된 self 검사 세 번이 모두 성공했으며 런타임 초기화 행은 0개였습니다. |
@@ -46,6 +46,7 @@ translation_revised: 2026-08-15
 | 2026-08-14 | implemented | 오래되거나 중복된 대화 검색 맥락 응답이 현재 Console 상태를 대체하지 않도록 차단했습니다. | `current change`; focused 경로 및 decoder 테스트 22개, Console 타입 검사 및 catalog parity 검사가 통과했습니다. | 관리되는 Browser 근거는 이 로컬 요청 상태 검사가 아니라 더 넓은 Console 보증 캠페인에서 계속 다룹니다. |
 | 2026-08-15 | validated | JSON 응답 연결, canonical 탐색, 최신순 decoding 및 audit-backed report materialization을 hardening한 뒤 인증된 Incident-to-RCA-to-report/PDF 아티팩트 하나를 보존했습니다. | `current change`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; source `014974045e70e35c26e489fa238345cf70bc3ca3`는 중앙 검증됐습니다. | Incident 상세 또는 RCA PDF Browser 근거에 남은 작업이 없습니다. |
 | 2026-08-15 | implemented | 온톨로지 relationship-direction 컴포넌트를 Console visible-title 인벤토리에 등록했습니다. 이는 해당 컴포넌트가 렌더링하는 `h4` 제목과 일치하며 공유 검증 큐의 차단을 해제합니다. | `current change`; 전체 Console Vitest suite 1782개 통과입니다. | 남은 작업이 없습니다. 인벤토리 계약이 이후 title prop 추가를 계속 소유합니다. |
+| 2026-08-15 | implemented | 통제된 온톨로지 assurance 실행기를 유도된 run budget, 질문별 및 무진행 deadline, 적응형 요청 간격, 제한된 transport 재시도, 질문별 진행 출력 및 provenance에 바인딩된 재개 가능 checkpoint로 제한했습니다. | `current change`; focused Vitest live-evidence 79개 및 전체 Console suite 1782개 통과, Console 타입 검사 통과입니다. | Release 경계에서 bounded cohort를 실행하고 그 아티팩트를 보존합니다. |
 
 ### 잔여 작업
 

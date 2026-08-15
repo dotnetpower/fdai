@@ -20,14 +20,19 @@ export function buildBrowserEvidenceProvenance(
   if (!workspacePatchDigest || !SHA256_DIGEST.test(workspacePatchDigest)) {
     throw new Error("FDAI_E2E_WORKSPACE_PATCH_SHA256 must be a sha256-prefixed digest");
   }
-  const configurationDigest = createHash("sha256")
-    .update(JSON.stringify(canonicalJsonValue(configuration)))
-    .digest("hex");
   return {
     source_revision: sourceRevision,
-    configuration_digest: `sha256:${configurationDigest}`,
+    configuration_digest: canonicalJsonDigest(configuration),
     workspace_patch_digest: workspacePatchDigest,
   };
+}
+
+/** Returns the stable `sha256:` digest of a JSON value with order-independent object keys. */
+export function canonicalJsonDigest(value: unknown): string {
+  const digest = createHash("sha256")
+    .update(JSON.stringify(canonicalJsonValue(value)))
+    .digest("hex");
+  return `sha256:${digest}`;
 }
 
 function canonicalJsonValue(value: unknown): unknown {

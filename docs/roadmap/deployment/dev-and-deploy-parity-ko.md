@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 39f5588138645fbb15c0566ff831a42809e01409
+translation_source_sha: e047bd326784c7c07b9c66d6bdef191015f9c41c
 translation_revised: 2026-08-15
 ---
 
@@ -69,6 +69,7 @@ translation_revised: 2026-08-15
 | 2026-08-15 | implemented | 로컬 및 배포 Operator composition에 같은 payload-free 브라우저 근거 메타데이터 경로와 데이터 출처 소유권을 추가했습니다. | `current change`, focused Operator 검사 `51 passed`, Operator 경계 및 independent-service gate 통과 | 인증된 배포 읽기 증적 하나를 보존하고 Console 메타데이터 패널을 추가합니다. |
 | 2026-08-15 | implemented | 연결된 두 작업 영역이 표준 Console, Operator 및 Core 프로세스를 두고 경합한 뒤 폴더 열기 full-stack 자동 시작을 primary checkout으로 제한했습니다. | 현재 변경의 `.vscode/tasks.json`과 `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 자동 시작 계약 통과. | 연결된 worktree 자동 시작 격리에 남은 구현 작업은 없습니다. |
 | 2026-08-15 | implemented | 로컬 서비스 실행기가 서비스가 실제로 소유하는 싱글턴을 확인하도록 해서, 런타임 lock 또는 포트가 이미 다른 인스턴스 소유일 때 실패가 예정된 자식 프로세스를 띄우지 않고 중단하도록 했습니다. | `current change`, `scripts/automation/run-local-service.sh`와 `tests/integration/scripts/test_run_local_service.py`, 실행기 테스트 11건 통과, 두 백엔드 작업 모두 provider 스택 추적 대신 `service already running`을 보고. | Console dev 서버는 자체 작업이 직접 실행하므로 포트 충돌은 아직 Vite 오류로 드러납니다. |
+| 2026-08-15 | implemented | 배포 준비 상태 polling의 job별, app별 시도 횟수 곱을 누적 migration deadline 하나와 누적 revision deadline 하나로 대체했습니다. | `current change`, `.github/workflows/deploy-dev.yml`, focused workflow 계약 테스트 통과. | 남은 준비 대기는 provider에 종속되며 선언된 deadline으로 보고됩니다. |
 ### 잔여 작업
 
 - [ ] FDAI 전용 Remote WSL server data root 또는 WSL 배포판을 마련한 뒤 제외 대상 workspace를 변경하지 않고 재시작한 Pylance process command에 `--max-old-space-size=2048`이 포함됨을 기록합니다.
