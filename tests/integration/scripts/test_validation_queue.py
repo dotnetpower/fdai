@@ -15,7 +15,11 @@ import pytest
 import yaml
 from scripts.automation import validation_queue
 from scripts.automation.validation_queue_context import validation_environment
-from scripts.automation.validation_queue_runner import _prepare_validation_worktree, _run_stage
+from scripts.automation.validation_queue_runner import (
+    STAGE_KILLED_STATUS,
+    _prepare_validation_worktree,
+    _run_stage,
+)
 from scripts.automation.validation_queue_support import pending_commits, queue_paths
 
 pytestmark = pytest.mark.no_cover
@@ -352,6 +356,42 @@ def test_run_stage_records_failed_verify_gate_detail(tmp_path: Path) -> None:
 
     assert result["status"] == 1
     assert result["detail"] == "derived-sources"
+
+
+def test_run_stage_kills_a_stage_that_stops_producing_output(tmp_path: Path) -> None:
+    """A hung gate must not block the queue, and every push behind it, forever."""
+    result = _run_stage(
+        "changed-tests",
+        [sys.executable, "-c", "import time; print('starting', flush=True); time.sleep(600)"],
+        cwd=tmp_path,
+        env={**os.environ, "FDAI_VALIDATION_STAGE_NO_PROGRESS_SECONDS": "2"},
+    )
+
+    assert result["status"] == STAGE_KILLED_STATUS
+    assert result["detail"] == "no output for 2s"
+    assert result["duration_seconds"] < 60
+
+
+def test_run_stage_kills_a_stage_that_outlives_its_budget(tmp_path: Path) -> None:
+    """Output alone must not buy unlimited time; the budget is the outer backstop."""
+    result = _run_stage(
+        "changed-tests",
+        [
+            sys.executable,
+            "-c",
+            "import time\nwhile True:\n    print('working', flush=True)\n    time.sleep(0.1)",
+        ],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "FDAI_VALIDATION_STAGE_NO_PROGRESS_SECONDS": "30",
+            "FDAI_VALIDATION_STAGE_BUDGET_SECONDS": "2",
+        },
+    )
+
+    assert result["status"] == STAGE_KILLED_STATUS
+    assert result["detail"] == "exceeded its 2s stage budget"
+    assert result["duration_seconds"] < 60
 
 
 def test_drain_reloads_validator_code_when_wake_request_advances(
@@ -1215,7 +1255,10 @@ def test_auto_pull_bounds_every_remote_call_below_its_interval() -> None:
     script = AUTO_PULL_SCRIPT.read_text(encoding="utf-8")
 
     assert 'timeout "$fetch_timeout" git fetch --quiet origin "$branch"' in script
-    assert 'timeout "$pull_timeout" git pull --rebase --quiet origin "$branch"' in script
+    # Killing a rebase would leave a half-finished rebase in the developer's tree, so the loop
+    # advances a strictly-behind branch with a local fast-forward instead.
+    assert 'timeout "$advance_timeout" git merge --ff-only --quiet FETCH_HEAD' in script
+    assert "git pull --rebase" not in script
     assert "fetch did not complete within ${fetch_timeout}s" in script
     assert int(script.split('fetch_timeout="${FDAI_AUTOPULL_FETCH_TIMEOUT:-')[1].split("}")[0]) <= (
         int(script.split('interval="${FDAI_AUTOPULL_INTERVAL:-')[1].split("}")[0])

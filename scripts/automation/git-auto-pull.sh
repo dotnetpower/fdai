@@ -6,8 +6,8 @@
 #
 # Safe by design: it NEVER rebases a dirty working tree or one that is
 # mid-rebase - in those cases it only reports and waits, so it cannot
-# clobber in-progress work. Only a clean tree that is strictly behind gets
-# a `pull --rebase`.
+# clobber in-progress work. Only a clean tree that is strictly behind is
+# fast-forwarded onto the ref this loop already fetched.
 #
 # Interval (seconds) via FDAI_AUTOPULL_INTERVAL (default 180). A shorter interval
 # detects remote drift sooner, which keeps rebases small and avoids rework that a
@@ -19,7 +19,7 @@ set -uo pipefail
 
 interval="${FDAI_AUTOPULL_INTERVAL:-180}"
 fetch_timeout="${FDAI_AUTOPULL_FETCH_TIMEOUT:-60}"
-pull_timeout="${FDAI_AUTOPULL_PULL_TIMEOUT:-120}"
+advance_timeout="${FDAI_AUTOPULL_ADVANCE_TIMEOUT:-120}"
 toplevel="$(git rev-parse --show-toplevel 2>/dev/null || echo "")"
 if [ -z "$toplevel" ]; then
   echo "[auto-pull] not a git repository; exiting."
@@ -53,11 +53,14 @@ while true; do
       if [ "$ahead" -gt 0 ]; then
         echo "[auto-pull] $branch has diverged ($ahead ahead, $behind behind) - skipping. Rebase manually after reviewing local commits."
       else
-        echo "[auto-pull] $branch is $behind behind origin - pulling (rebase)..."
-        if timeout "$pull_timeout" git pull --rebase --quiet origin "$branch"; then
+        echo "[auto-pull] $branch is $behind behind origin - fast-forwarding..."
+        # The branch is strictly behind, so advancing is a fast-forward over the ref already
+        # fetched. A `pull --rebase` here would re-enter the network and could be killed
+        # mid-rebase, leaving the developer a half-finished rebase to clean up by hand.
+        if timeout "$advance_timeout" git merge --ff-only --quiet FETCH_HEAD; then
           echo "[auto-pull] up to date."
         else
-          echo "[auto-pull] pull --rebase failed - resolve manually (git status)."
+          echo "[auto-pull] fast-forward failed - resolve manually (git status)."
         fi
       fi
     fi
