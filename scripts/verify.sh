@@ -14,6 +14,7 @@
 #   - check-catalog-parity.sh (L2 en/ko message catalogs)
 #   - check-stewardship.sh (handover map: 15 agents, maintainer floor, no role fields)
 #   - check-chaos-scenarios.sh (chaos-scenarios catalog + compiled symptom index)
+#   - sync-rule-semantics.py --check (rule <-> Rego semantic drift; needs OPA)
 #   - check-arb-readiness.py (ARB artifact, blocker, owner, evidence contract)
 #   - clean-checkout / Docker build-context contracts
 #   - mypy (strict static types)
@@ -199,6 +200,11 @@ run_gate_scoped "document-size" '^(docs/roadmap/|scripts/quality/architecture/ch
 run_gate_scoped "display-terminology" '^(README|docs/|rule-catalog/|console/|cli/|scripts/quality/documentation/check-display-terminology\.py$)' python3 scripts/quality/documentation/check-display-terminology.py
 run_gate_scoped "action-runbooks" '^(docs/runbooks/|rule-catalog/action-types/|scripts/quality/documentation/check-action-runbooks\.py$)' uv run python scripts/quality/documentation/check-action-runbooks.py
 run_gate_scoped "reference-only-sources" '^(rule-catalog/sources/|services/core-control-plane/src/fdai/rule_catalog/pipeline/collect/collector\.py$|scripts/quality/repository/check-reference-only-sources\.py$)' uv run python scripts/quality/repository/check-reference-only-sources.py
+# Rule-to-policy semantic drift: OPA parses every authored Rego and the catalog
+# entry MUST agree on rule_id, severity, category, and the evaluated properties.
+# Requires the pinned OPA binary; an unavailable OPA fails the gate rather than
+# skipping it.
+run_gate_scoped "rule-semantics" '^(rule-catalog/catalog/|policies/|services/core-control-plane/src/fdai/rule_catalog/schema/rego_semantics\.py$|scripts/catalog/sync-rule-semantics\.py$)' uv run python scripts/catalog/sync-rule-semantics.py --check
 
 run_gate "punctuation"  bash scripts/quality/repository/check-punctuation.sh
 run_gate "readable-hangul" python3 scripts/quality/localization/check-readable-hangul.py

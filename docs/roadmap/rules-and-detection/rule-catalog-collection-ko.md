@@ -1,8 +1,8 @@
 ---
 title: 규칙 카탈로그 수집(Rule Catalog Collection)
 translation_of: rule-catalog-collection.md
-translation_source_sha: 435b69cbbf4f2e015420d117a9d1e429a0a1eee2
-translation_revised: 2026-08-14
+translation_source_sha: 6e9821aa9354e4725e1b86ab4d846d7387760128
+translation_revised: 2026-08-15
 ---
 
 # 규칙 카탈로그 수집(Rule 카탈로그 수집)
@@ -555,9 +555,12 @@ Authored Rego는 `rule-catalog/` 아래에 **중첩되지 않음** ; T0와 검�
 매핑합니다. 일치하지 않는 이벤트를 위한 기준선 형식을 정확히 하나 포함하므로 T0 범위가 `*`에
 의존하지 않고 명시적으로 유지됩니다. Rule `evaluates` 값은 정본 `Property` ID를 사용합니다.
 
-작성된 Rego AST와 이러한 속성을 검증하려면 `scripts/catalog/sync-rule-semantics.py --check`를
-실행합니다. 동기화 도구는 OPA를 호출하고 패키지 `rule_id`를 검증하며 모든
-`input.resource.props` 경로를 Rule 메타데이터와 비교합니다. 불일치하면 검증이 차단됩니다.
+`scripts/catalog/sync-rule-semantics.py --check`는 작성된 Rego AST와 이러한 속성을 검증합니다.
+동기화 도구는 OPA를 호출하고 패키지 `rule_id`, `severity`, `category`를 검증하며 모든
+`input.resource.props` 경로를 Rule 메타데이터와 비교합니다. 이 검사는
+[`scripts/verify.sh`](../../../scripts/verify.sh)의 범위가 제한된 `rule-semantics` 게이트와
+`.github/workflows/ci.yml`의 전용 작업으로 실행되므로 불일치하면 검증이 차단됩니다. OPA를 쓸 수
+없으면 게이트는 건너뛰지 않고 실패합니다.
 
 ## 검증과 신뢰
 
