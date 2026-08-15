@@ -840,6 +840,65 @@ def test_status_reports_a_failed_earlier_pending_cohort(git_repo: Path) -> None:
     )
 
 
+def test_external_readiness_allows_in_flight_commits_on_a_validated_line(
+    git_repo: Path,
+) -> None:
+    script = git_repo / "scripts" / "automation" / "validation_queue.py"
+    validated = _commit_change(git_repo)
+    assert _run(git_repo, "python3", str(script), "enqueue", validated).returncode == 0
+    assert _run(git_repo, "python3", str(script), "run").returncode == 0
+    (git_repo / "source.txt").write_text("in flight\n", encoding="utf-8")
+    assert _run(git_repo, "git", "add", "source.txt").returncode == 0
+    assert _run(git_repo, "git", "commit", "--quiet", "-m", "in flight").returncode == 0
+    in_flight = _run(git_repo, "git", "rev-parse", "HEAD").stdout.strip()
+    assert _run(git_repo, "python3", str(script), "enqueue", in_flight).returncode == 0
+
+    blocked = _run(git_repo, "python3", str(script), "check-commit", "HEAD")
+    ready = _run(git_repo, "python3", str(script), "check-external-readiness", "HEAD")
+
+    assert blocked.returncode == 1
+    assert ready.returncode == 0, ready.stderr
+    assert f"line validated through {validated[:12]}" in ready.stdout
+
+
+def test_external_readiness_blocks_a_line_with_a_failed_validation(git_repo: Path) -> None:
+    script = git_repo / "scripts" / "automation" / "validation_queue.py"
+    validated = _commit_change(git_repo)
+    assert _run(git_repo, "python3", str(script), "enqueue", validated).returncode == 0
+    assert _run(git_repo, "python3", str(script), "run").returncode == 0
+    (git_repo / "source.txt").write_text("broken\n", encoding="utf-8")
+    assert _run(git_repo, "git", "add", "source.txt").returncode == 0
+    assert _run(git_repo, "git", "commit", "--quiet", "-m", "broken").returncode == 0
+    broken = _run(git_repo, "git", "rev-parse", "HEAD").stdout.strip()
+    assert _run(git_repo, "python3", str(script), "enqueue", broken).returncode == 0
+    assert (
+        _run(
+            git_repo,
+            "python3",
+            str(script),
+            "run",
+            env={"FDAI_VALIDATION_VERIFY_FAIL": "1"},
+        ).returncode
+        != 0
+    )
+
+    ready = _run(git_repo, "python3", str(script), "check-external-readiness", "HEAD")
+
+    assert ready.returncode == 1
+    assert "validation failed at" in ready.stderr
+
+
+def test_external_readiness_blocks_a_line_that_was_never_validated(git_repo: Path) -> None:
+    script = git_repo / "scripts" / "automation" / "validation_queue.py"
+    commit = _commit_change(git_repo)
+    assert _run(git_repo, "python3", str(script), "enqueue", commit).returncode == 0
+
+    ready = _run(git_repo, "python3", str(script), "check-external-readiness", "HEAD")
+
+    assert ready.returncode == 1
+    assert "no validated commit yet" in ready.stderr
+
+
 def test_concurrent_enqueue_of_same_commit_is_atomic(git_repo: Path) -> None:
     script = git_repo / "scripts" / "automation" / "validation_queue.py"
 

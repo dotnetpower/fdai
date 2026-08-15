@@ -704,13 +704,13 @@ def test_pre_tool_use_denies_only_unscoped_test_tool() -> None:
         "bash scripts/deployment/azure/azd-up.sh",
     ],
 )
-def test_pre_tool_use_defers_slow_external_work_until_head_is_validated(
+def test_pre_tool_use_defers_slow_external_work_on_an_unready_line(
     monkeypatch: pytest.MonkeyPatch, command: str
 ) -> None:
     module = _load_module()
     monkeypatch.setattr(
         module.external_operation_guard,
-        "_head_has_validation_receipt",
+        "_line_is_ready_for_external_work",
         lambda repo_root: False,
     )
     payload = {"tool_name": "run_in_terminal", "tool_input": {"command": command}}
@@ -718,16 +718,17 @@ def test_pre_tool_use_defers_slow_external_work_until_head_is_validated(
     result = module.pre_tool_use(payload)
 
     assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
-    assert "check-commit HEAD" in result["systemMessage"]
+    assert "check-external-readiness HEAD" in result["systemMessage"]
+    assert "do not have to wait for other sessions" in result["systemMessage"]
 
 
-def test_pre_tool_use_allows_slow_external_work_for_validated_head(
+def test_pre_tool_use_allows_slow_external_work_on_a_ready_line(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     module = _load_module()
     monkeypatch.setattr(
         module.external_operation_guard,
-        "_head_has_validation_receipt",
+        "_line_is_ready_for_external_work",
         lambda repo_root: True,
     )
     payload = {
@@ -757,7 +758,7 @@ def test_pre_tool_use_allows_lightweight_external_preflight(
     module = _load_module()
     monkeypatch.setattr(
         module.external_operation_guard,
-        "_head_has_validation_receipt",
+        "_line_is_ready_for_external_work",
         lambda repo_root: False,
     )
     payload = {"tool_name": "run_in_terminal", "tool_input": {"command": command}}

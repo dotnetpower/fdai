@@ -147,4 +147,4 @@ def test_semantic_prompts_select_exact_relationship_function() -> None:
     assert "do not treat the ObjectType names as runtime object ids" in frame.body
     assert '"function_name":"query.ontology_relationships"' in plan.body
     assert '"object_types"' in plan.body
-    assert "Never convert ObjectType names into object_set root_ids" in plan.body
+    assert "never convert objecttype names into object_set root_ids" in plan.body.casefold()

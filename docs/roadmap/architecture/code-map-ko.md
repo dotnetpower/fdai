@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: ae26315698bee75d4985186f5058b102d080a554
+translation_source_sha: 413f71ca08a8153b56d57d0b4ce0183aa102a35e
 translation_revised: 2026-08-15
 ---
 # 코드 맵
@@ -245,7 +245,7 @@ targeted Terraform 상태가 새 output을 아직 materialize하지 않았을 �
 | [policies/](../../../policies/) | OPA/Rego policy-as-code입니다. |
 | [콘솔/](../../../console/) | 얇은 운영자 SPA입니다. |
 | [cli/](../../../cli/) | Operator command-line 클라이언트입니다. |
-| [scripts/agent/design_context.py](../../../scripts/agent/design_context.py)와 [external_operation_guard.py](../../../scripts/agent/external_operation_guard.py) | Design 맥락 읽기를 기록하고 framework 및 constitution 편집의 stale 맥락을 hard-block하며, 중복 repository-wide 검증을 차단하고 `HEAD`에 검증 증적이 생길 때까지 느린 CI, 배포 및 이미지 작업을 지연합니다. |
+| [scripts/agent/design_context.py](../../../scripts/agent/design_context.py)와 [external_operation_guard.py](../../../scripts/agent/external_operation_guard.py) | Design 맥락 읽기를 기록하고 framework 및 constitution 편집의 stale 맥락을 hard-block하며, 중복 repository-wide 검증을 차단하고 현재 이력 line의 중앙 검증이 통과할 때까지 느린 CI, 배포 및 이미지 작업을 지연합니다. |
 
 ## 관련 문서
 

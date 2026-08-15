@@ -90,6 +90,50 @@ def check_commit(paths: QueuePaths, revision: str) -> int:
     return 1
 
 
+#: A healthy line is validated within a few commits, so bound the ancestor walk.
+_VALIDATED_ANCESTOR_SCAN = 64
+
+
+def _newest_validated_ancestor(paths: QueuePaths, head: str) -> str | None:
+    pending = pending_commits(paths)
+    history = git(
+        "rev-list", f"--max-count={_VALIDATED_ANCESTOR_SCAN}", head, cwd=paths.repo_root
+    ).stdout
+    for commit in history.splitlines():
+        if commit not in pending and (paths.receipts / f"{commit}.json").is_file():
+            return commit
+    return None
+
+
+def check_external_readiness(paths: QueuePaths, revision: str) -> int:
+    """Allow slow external work on a validated line that is not known broken.
+
+    Shared ``main`` advances faster than one validation batch, so requiring a
+    receipt for the exact moving head starves every session forever.
+    """
+    initialize(paths)
+    commit = resolve_commit(paths, revision)
+    if (paths.receipts / f"{commit}.json").is_file():
+        print(f"validation-queue: commit is validated: {commit}")
+        return 0
+    failed_stage = _last_reachable_failed_stage(paths, commit)
+    if failed_stage is not None:
+        print(
+            f"validation-queue: BLOCKED - validation failed at {failed_stage}",
+            file=sys.stderr,
+        )
+        return 1
+    validated = _newest_validated_ancestor(paths, commit)
+    if validated is None:
+        print(
+            "validation-queue: BLOCKED - this line has no validated commit yet",
+            file=sys.stderr,
+        )
+        return 1
+    print(f"validation-queue: line validated through {validated[:12]}; newer commits are in flight")
+    return 0
+
+
 def check_structural_gates(paths: QueuePaths, revision: str) -> int:
     """Accept structural-gate evidence only for the exact current snapshot."""
     initialize(paths)
@@ -351,6 +395,8 @@ def _parser() -> argparse.ArgumentParser:
     check_parser.add_argument("revision_range")
     check_commit_parser = subparsers.add_parser("check-commit")
     check_commit_parser.add_argument("revision", nargs="?", default="HEAD")
+    readiness_parser = subparsers.add_parser("check-external-readiness")
+    readiness_parser.add_argument("revision", nargs="?", default="HEAD")
     structural_parser = subparsers.add_parser("check-structural-gates")
     structural_parser.add_argument("revision", nargs="?", default="HEAD")
     run_parser = subparsers.add_parser("run")
@@ -388,6 +434,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     if arguments.command == "check-commit":
         return check_commit(paths, arguments.revision)
+    if arguments.command == "check-external-readiness":
+        return check_external_readiness(paths, arguments.revision)
     if arguments.command == "check-structural-gates":
         return check_structural_gates(paths, arguments.revision)
     if arguments.command == "run":
