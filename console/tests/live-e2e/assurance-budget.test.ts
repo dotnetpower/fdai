@@ -7,6 +7,7 @@ import {
   DeadlineExceededError,
   MAXIMUM_RUN_BUDGET_MS,
   MINIMUM_RUN_BUDGET_MS,
+  PREAMBLE_BOUND_MS,
   RUN_BUDGET_PER_QUESTION_MS,
   TEST_TIMEOUT_SLACK_MS,
   attemptEndedByRunBudget,
@@ -182,6 +183,9 @@ describe("resolveAssuranceBudget", () => {
       // the pre-question spacing plus one granted intra-question wait.
       const tailMs = 2 * budget.minimumRequestIntervalMs + budget.transportRetryMaxMs;
       expect(budget.testTimeoutMs - budget.runBudgetMs).toBeGreaterThan(tailMs);
+      // The preamble is charged to the run budget, so the budget must be able to hold it and
+      // still leave room for questions.
+      expect(budget.runBudgetMs).toBeGreaterThan(PREAMBLE_BOUND_MS);
       // The envelope must stay dominated by the declared budget rather than by harness slack.
       expect(budget.testTimeoutMs - budget.runBudgetMs).toBeLessThan(budget.runBudgetMs);
     }
