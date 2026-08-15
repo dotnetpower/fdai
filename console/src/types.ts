@@ -29,6 +29,7 @@ export type IncidentTitleSource =
   | "recorded_summary"
   | "rule_id"
   | "correlation_subject"
+  | "recorded_subject"
   | "identifier_fallback";
 
 export interface IncidentSourceContext {

@@ -87,8 +87,16 @@ The summary title also remains server-owned. The projection uses an explicit rec
 recorded `signal:` and `resource:` correlation keys. An Azure resource id contributes only its
 resource type and final resource name, so the roster can show a subject such as
 `Resource inventory change - Storage account storage-example` without exposing the complete path.
-Only an incident with no recorded subject evidence falls back to its event id; the browser does not
+When no correlation key was recorded either, the projection composes a `recorded_subject` from the
+recorded operational target and reason, reading each entry and then its audit-envelope `payload`, so
+a governed abstention reads as `Kubernetes namespace - No rule matches resource type`. Only an
+incident with no recorded subject evidence at all falls back to its event id; the browser does not
 invent a replacement title.
+
+When the roster shows that identifier fallback, it shows the `correlation_id`, which is the same
+identifier that the Audit, Trace, RCA, and dossier links resolve. A server-owned `incident_id`
+remains visible in the detail evidence list rather than in the roster, so the identifier an operator
+copies from the roster always resolves.
 
 #### Selective Azure SRE Agent adoption
 
@@ -387,6 +395,7 @@ approve / rollback button. The projection is a pure function
 | 2026-08-14 | implemented | Added optional PDF delivery for the existing Incident RCA dossier without creating another analysis or execution path. | `current change`; service-local PDF encoder, package extra, GET-only route, Console control, and pagination, escaping, source-digest, unavailable-section, no-analysis, and no-network regression checks. | Retain one exact-revision authenticated roster-to-RCA-to-report receipt. |
 | 2026-08-14 | implemented | Aligned the Console RCA decoder with the server-owned newest-first hypothesis projection found by authenticated Browser assurance. | `current change`; `api-operations.ts`, `api.test.ts`, and 13 focused decoder tests. | Rerun and retain the authenticated roster-to-RCA-to-report receipt. |
 | 2026-08-15 | validated | Retained the authenticated Incident roster-to-RCA-to-report/PDF receipt with unavailable source, plan, and no-RCA behavior preserved. | `current change`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; source `014974045e70e35c26e489fa238345cf70bc3ca3` has a central validation receipt. | No remaining work for the bounded Incident SRE hardening and RCA PDF delivery slice. |
+| 2026-08-15 | in-progress | Derived a `recorded_subject` title from the recorded operational target and reason, including the audit-envelope `payload`, and made the roster identifier fallback show the correlation id that every incident link resolves. | `current change`; `incident_projection.py`, `incidents.tsx`, `types.ts`, `api-operations.ts` and their focused tests; Operator `33 passed`, Console `29 passed`, Ruff, Ruff format, and strict mypy passed; replaying the projection over the local corpus of 1,562 correlation groups moved `identifier_fallback` from 1,007 (64.5%) to 5 (0.32%), and the 5 remaining groups are non-operational `read:sha256:*` reads. | Exclude non-operational correlation groups, derive milestone and next-step text from recorded RCA and T1 fields, correct the cohort window and truncation disclosure, add roster search and filter controls, preserve acronyms, and record a title on the opening audit entry. |
 
 ### Remaining work
 
@@ -397,3 +406,10 @@ approve / rollback button. The projection is a pure function
 - [x] Retain one authenticated roster-to-RCA receipt that binds the incident, correlation, hypothesis, citations, response plan, audit rows, and unavailable behavior to one source revision.
 - [x] Implement and focused-test an optional PDF `FormatEncoder` and GET-only download path that render only the existing report envelope and remain absent when the extra is unavailable.
 - [x] Add PDF pagination, escaping, source-digest, unavailable-section, no-new-analysis, and no-network regression checks without documenting a fixed reference page count.
+- [x] Derive a bounded `recorded_subject` from the recorded operational target and reason, reading the audit-envelope `payload`, and show the correlation id as the roster identifier fallback.
+- [ ] Exclude non-operational correlation groups (`background-task.*`, `iam.executor-grant-*`, `read:sha256:*`) from the roster and from the cohort denominator.
+- [ ] Record a `title` on the opening audit entry of every incident-bearing producer so `recorded_title` becomes the normal provenance.
+- [ ] Derive investigation milestone and recommended-next-step text from recorded RCA and T1 fields instead of a generic template when those fields exist.
+- [ ] Label the cohort observed range truthfully, disclose the bound and the excluded remainder, and render an unusable time-to-mitigate measurement as unavailable with a reason.
+- [ ] Add server-backed roster search and severity/vertical filter controls, including clearing a set vertical filter from the UI.
+- [ ] Preserve acronyms through subject humanization and prevent a dynamic i18n key with no catalog entry from rendering a raw key string.

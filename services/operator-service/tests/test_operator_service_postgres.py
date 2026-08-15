@@ -546,6 +546,30 @@ async def test_incident_page_and_attention_replay_use_durable_sequence() -> None
             "Resource inventory change - Storage accounts storage-example",
             "correlation_subject",
         ),
+        (
+            {
+                "resource_type": "compute.vm.novel",
+                "reason": "no_rule_matches_resource_and_signal_type",
+            },
+            "Compute vm novel - No rule matches resource and signal type",
+            "recorded_subject",
+        ),
+        (
+            {
+                "payload": {
+                    "resource_id": "scope-example/resource-group/rg-example/providers/"
+                    "microsoft.dbforpostgresql/flexibleservers/psql-example",
+                    "reason": "no_rule_match",
+                }
+            },
+            "Flexibleservers psql-example - No rule match",
+            "recorded_subject",
+        ),
+        (
+            {"reason": "control_loop_unhandled_error"},
+            "Control loop unhandled error",
+            "recorded_subject",
+        ),
         ({}, "Incident INC-1", "identifier_fallback"),
     ],
 )

@@ -1,8 +1,8 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 292aaa8de94564f2666e7c2d4bbb88f072226753
-translation_revised: 2026-08-13
+translation_source_sha: 76c6ee9a307a158e28492e5ab638c8568d9a207a
+translation_revised: 2026-08-15
 ---
 
 # 콘솔 운영
@@ -141,6 +141,12 @@ project합니다. 새 활성 인시던트가 관찰되면 탭과 Command Deck이
 active-incident 배지를 대신 유지합니다. Reconnect는 일시적인 agent-activity 프레임에 의존하지 않고
 영속 상태에서 스냅샷을 다시 만듭니다. 브라우저는 인시던트와 상관관계 선택자만 보내며,
 서버는 답변의 근거로 사용하기 전에 해당 연결을 다시 해석합니다.
+
+Incidents 목록은 서버가 소유한 `title_source`를 그대로 렌더링하므로 브라우저가 인시던트 대상을
+보정하지 않습니다. `recorded_subject`는 서버가 기록된 운영 대상과 사유로 구성한 대상을 뜻하며,
+`identifier_fallback`은 식별자를 대상처럼 제시하는 대신 계속 사용 불가로 표시합니다. 이 fallback
+에서는 Audit, Trace, RCA, dossier 링크가 모두 해석하는 식별자인 `correlation_id`를 표시합니다.
+변환 계약은 [operator-console-incident-roster.md](operator-console-incident-roster.md)를 참고하세요.
 
 ### Operations 작업 화면
 

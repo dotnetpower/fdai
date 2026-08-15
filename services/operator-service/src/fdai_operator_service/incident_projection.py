@@ -223,7 +223,39 @@ def _incident_title(
         return (_bounded_title(_humanize_subject(signal)), "correlation_subject")
     if resource:
         return (_bounded_title(f"Resource {_resource_subject(resource)}"), "correlation_subject")
+    if subject := _recorded_subject(newest):
+        return (_bounded_title(subject), "recorded_subject")
     return (_bounded_title(f"Incident {fallback_id}"), "identifier_fallback")
+
+
+def _recorded_subject(items: Sequence[JsonObject]) -> str | None:
+    """Compose a subject from the recorded operational target and the recorded reason.
+
+    Used only after an explicit title, summary, rule, and correlation key are all absent. It
+    reports what the control loop recorded about the incident rather than presenting an
+    identifier as the subject; it never infers a target that no entry recorded.
+    """
+    target = _first_recorded_string(items, "resource_id")
+    subject = _resource_subject(target) if target else None
+    if subject is None and (resource_type := _first_recorded_string(items, "resource_type")):
+        subject = _humanize_subject(resource_type)
+    reason = _first_recorded_string(items, "reason")
+    if subject and reason:
+        return f"{subject} - {_humanize_subject(reason)}"
+    if subject:
+        return subject
+    return _humanize_subject(reason) if reason else None
+
+
+def _first_recorded_string(items: Sequence[JsonObject], key: str) -> str | None:
+    """Read `key` from an entry, then from its audit-envelope `payload` before the next entry."""
+    for item in items:
+        entry = _mapping(item.get("entry"))
+        if value := _nonempty(entry.get(key)):
+            return value
+        if value := _nonempty(_mapping(entry.get("payload")).get(key)):
+            return value
+    return None
 
 
 def _incident_source_context(items: Sequence[JsonObject]) -> JsonObject | None:

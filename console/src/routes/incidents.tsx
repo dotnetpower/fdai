@@ -79,6 +79,13 @@ export function incidentDisplayTitle(
   return incident.title_source === "identifier_fallback" ? unavailable : incident.title;
 }
 
+/** The identifier an operator can carry into Audit, Trace, RCA, and the dossier. */
+export function incidentRosterIdentifier(
+  incident: Pick<IncidentSummary, "correlation_id">,
+): string {
+  return incident.correlation_id;
+}
+
 export function incidentVerticalDisplayLabel(vertical: IncidentVertical): string {
   return localized("vertical", vertical);
 }
@@ -413,7 +420,7 @@ function IncidentBody({
                   </span>
                   {item.title_source === "identifier_fallback" ? (
                     <span class="incident-roster-identifier mono">
-                      {item.incident_id ?? item.correlation_id}
+                      {incidentRosterIdentifier(item)}
                     </span>
                   ) : null}
                   <span class="incident-roster-meta">
