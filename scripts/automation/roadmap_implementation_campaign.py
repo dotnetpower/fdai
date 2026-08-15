@@ -204,21 +204,38 @@ def _campaign_relation(*, ahead: int, behind: int) -> str:
 
 
 def _sync_campaign_base(repo_root: Path) -> str:
-    """Fast-forward an idle campaign branch or report why work must hold."""
+    """Absorb main into the campaign branch or report why work must hold."""
     ahead = int(_git("rev-list", "--count", "main..HEAD", cwd=repo_root))
     behind = int(_git("rev-list", "--count", "HEAD..main", cwd=repo_root))
     relation = _campaign_relation(ahead=ahead, behind=behind)
-    if relation != "behind":
+    if relation in {"current", "ahead"}:
         return relation
-    result = subprocess.run(  # noqa: S603 - fixed git fast-forward operation
-        ["git", "merge", "--ff-only", "main"],
+    # Nothing lands campaign batches on main (#137), so the branch is routinely ahead when
+    # main moves. Fast-forward while that is still possible, otherwise take a real merge;
+    # refusing would hold every later run forever.
+    merge_arguments = ["git", "merge", "--ff-only", "main"]
+    if relation == "diverged":
+        merge_arguments = ["git", "merge", "--no-edit", "main"]
+    result = subprocess.run(  # noqa: S603 - fixed git merge operation
+        merge_arguments,
+        cwd=repo_root,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    if result.returncode == 0:
+        return "current"
+    # Never leave a half-merged worktree behind; the next run requires a clean tree.
+    subprocess.run(  # noqa: S603 - fixed git merge abort
+        ["git", "merge", "--abort"],
         cwd=repo_root,
         check=False,
         capture_output=True,
         text=True,
         timeout=60,
     )
-    return "current" if result.returncode == 0 else "sync-failed"
+    return "sync-failed"
 
 
 def campaign_prompt(
@@ -404,10 +421,8 @@ def run_cycle(
         if not branch.startswith("roadmap-implementation/"):
             return "held: campaign branch is not isolated"
         relation = _sync_campaign_base(repo_root)
-        if relation == "diverged":
-            return "held: campaign branch diverged from main"
         if relation == "sync-failed":
-            return "held: campaign branch could not fast-forward to main"
+            return "held: campaign branch could not absorb main; resolve the conflict by hand"
         if _git("rev-list", "--count", "main..HEAD", cwd=repo_root) != "0" and not (
             _validation_receipt_exists(repo_root, "HEAD")
         ):
