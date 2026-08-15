@@ -220,14 +220,15 @@ def _verify_frame_plan_alignment(
     ):
         raise ValueError("semantic property-filter plan requires a predicate")
 
-    selected_functions: set[str] = set()
+    output_node_ids = set(plan.output_node_ids)
+    selected_output_functions: set[str] = set()
     for node in plan.nodes:
-        if node.kind is not QueryNodeKind.FUNCTION:
+        if node.kind is not QueryNodeKind.FUNCTION or node.node_id not in output_node_ids:
             continue
         arguments = json.loads(node.arguments_json)
         function_name = arguments.get("function_name") if isinstance(arguments, Mapping) else None
         if isinstance(function_name, str):
-            selected_functions.add(function_name)
+            selected_output_functions.add(function_name)
 
     expected_function = next(
         (
@@ -237,12 +238,12 @@ def _verify_frame_plan_alignment(
         ),
         None,
     )
-    if expected_function is not None and expected_function not in selected_functions:
+    if expected_function is not None and expected_function not in selected_output_functions:
         raise ValueError("semantic plan does not satisfy specialized frame output")
     if any(
         output_shape != frame.output_shape
         for function_name, output_shape in _SPECIALIZED_FUNCTION_OUTPUT_SHAPES.items()
-        if function_name in selected_functions
+        if function_name in selected_output_functions
     ):
         raise ValueError("semantic plan selects a function outside the frame output")
 

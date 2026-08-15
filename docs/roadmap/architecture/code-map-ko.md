@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 6a3e67c00840784b8f1e87d43e58933eb60d4fad
+translation_source_sha: 8823aaab09650e41e1f6bbb382d0f55a44d9b8a6
 translation_revised: 2026-08-16
 ---
 # 코드 맵
@@ -94,6 +94,7 @@ translation_revised: 2026-08-16
 | 2026-08-16 | 구현됨 | 각 special-purpose 의미 함수를 실행 전에 해당 frame의 정확한 output 계약에 연결했습니다. 다른 output에 선택된 manifest, 스키마 관계 또는 incident-evidence 함수는 이제 invalid proposal이며, T1 불일치는 T2로 plan stage만 다시 시도할 수 있습니다. | `current change`, 불일치 escalation 및 일치하는 T1 control을 포함한 focused tier-routing 검사 12개 통과 | 중앙 검증된 descendant에서 clean 이중 언어 14-cell 및 seed 기반 100-case Browser 근거를 보존합니다. |
 | 2026-08-16 | 구현됨 | 자유 형식 의미 output shape를 타입이 지정된 capability family 10개로 교체하고, 각 운영 frame이 I/O 전에 최소 verified DAG capability를 선택하도록 요구했습니다. Frame prompt v6와 plan prompt v5는 같은 mapping을 가지며, special-purpose 함수 불일치와 누락된 aggregate, topology, filter, temporal, causal 또는 evidence node는 범위가 제한된 plan-stage 재시도만 유발합니다. | `current change`, focused shape-routing 및 prompt 검사 21개, tier-routing 검사 14개, 작업 범위 Ruff 및 strict mypy 통과 | 중앙 검증된 descendant에서 clean 이중 언어 14-cell 및 seed 기반 100-case Browser 근거를 보존합니다. |
 | 2026-08-16 | 구현됨 | 범위가 제한된 model planning이 끝난 뒤 current-state ObjectSet cutoff를 새로 고쳤습니다. Proposal evaluation time은 T1 및 T2 plan attempt 전체에서 고정된 상태를 유지하고, 그 뒤 Core가 ObjectSet node만 fresh trusted execution time으로 다시 바인딩하며 exact plan digest를 재계산하고 I/O 전에 다시 검증합니다. Topology 및 historical cutoff는 바꾸지 않습니다. | `current change`, gateway의 5초 current-state skew를 넘는 model 지연 회귀를 포함한 focused planner, tier-routing, composition 및 terminal processor 검사 93개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 중앙 검증된 descendant에서 clean 이중 언어 14-cell 및 seed 기반 100-case Browser 근거를 보존합니다. |
+| 2026-08-16 | 구현됨 | Special-purpose function alignment를 final output node로 좁혀 exact manifest가 최종 aggregation answer로 가장하지 않고 verified aggregate에 입력을 제공할 수 있게 했습니다. Frame prompt v7과 plan prompt v6는 모든 declaration count를 `aggregation_table`로 분류하고 `query.manifest -> aggregate`를 규정하며, declared type이 있는 visible resource는 비어 있지 않은 predicate를 가진 filtered-resource 경로로 유지합니다. | `current change`, production manifest count 실행을 포함한 focused planner, tier-routing, manifest composition 및 prompt 검사 39개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 중앙 검증된 descendant에서 clean 이중 언어 14-cell 및 seed 기반 100-case Browser 근거를 보존합니다. Generic causal 질문에는 여전히 범위가 제한된 visible-resource metric composition이 필요합니다. |
 
 ### 남은 작업
 
