@@ -1,7 +1,7 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: 19a58b76e3f520559ac119a174a21bd7856954ec
+translation_source_sha: 3c43d1d3e2195f241457856ec618fb90d8393e00
 translation_revised: 2026-08-15
 ---
 # 운영 학습 온톨로지
@@ -145,12 +145,12 @@ Norns는 집단을 기존 `RuleCandidate` 객체로 컴파일합니다. 후보 �
 필요한 조회를 표현할 수 없다면 먼저 실패하는 온톨로지 조회 테스트를 추가해야 합니다.
 그때에만 범위가 명확한 `ObjectType` 또는 `LinkType` 확장을 제안할 수 있습니다.
 
-### Pattern과 PatternObservation은 하나의 층위입니다
+### Pattern은 두 층위가 아니라 하나입니다
 
-[운영 온톨로지](../architecture/operating-ontology-ko.md)가 말하는 `Pattern`과 `PANTHEON_SPECS`가
-Norns에 할당한 `PatternObservation`은 같은 inert compiled cohort 기록을 가리키는 두 이름입니다.
-두 번째 층위가 필요로 할 검토를 수행하는 코드가 없으므로, 원시 관측과 검토된 일반화라는 서로 다른
-층위가 아닙니다.
+`PANTHEON_SPECS`는 한때 Norns에 `PatternObservation`을 할당했고 카탈로그는 같은 기록을 `Pattern`이라
+불렀습니다. 두 이름은 하나의 inert compiled cohort 기록을 가리켰을 뿐, 원시 관측과 검토된
+일반화라는 서로 다른 층위가 아닙니다. 두 번째 층위가 필요로 할 검토를 수행하는 코드가 없기 때문입니다.
+스펙, 토픽, 모든 표는 이제 `Pattern`을 사용합니다.
 
 - [`OperatingPatternCompiler.compile()`](../../../services/core-control-plane/src/fdai/core/operational_learning/patterns.py)은
   기계적 조건만 적용합니다. 실패 fingerprint, 리소스 타입, 액션 타입이 하나로 같고, reusable과
@@ -161,8 +161,8 @@ Norns에 할당한 `PatternObservation`은 같은 inert compiled cohort 기록�
 - 이 기록은 자체 객체로 발행되지 않습니다. `Norns._observe_operational_case_cohort`가
   `to_rule_candidate_mapping()`으로 평탄화해 `object.rule-candidate`로 보내므로, compiled cohort는
   `RuleCandidate` 안에 담겨서만 Mimir에 도달합니다.
-- `object.pattern-observation`은 발행자도 구독자도 없는 등록된 토픽이므로 `PatternObservation`은
-  어떤 것도 생산하지 않는 소유 ObjectType입니다.
+- `object.pattern`은 발행자도 구독자도 없는 등록된 토픽이므로 `Pattern`은 여전히 어느 것도
+  생산하지 않는 소유 ObjectType입니다. 이름 통일이 그 공백을 메우지는 않았습니다.
 
 그래서 `learned_as`(`ObservedOutcome -> Pattern`)에는 생산 가능한 엔드포인트 쌍이 없습니다. Cohort는
 sealed 사례를 `case-history:<case_id>:<revision>:<manifest_digest>`로 인용할 뿐 `ObservedOutcome`

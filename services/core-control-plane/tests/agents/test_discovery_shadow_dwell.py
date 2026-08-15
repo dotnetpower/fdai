@@ -2,7 +2,7 @@
 
 Role restatement (agent-pantheon.instructions.md 2):
 
-- **Norns** (governance, Learner) owns ``RuleCandidate`` / ``PatternObservation``,
+- **Norns** (governance, Learner) owns ``RuleCandidate`` / ``Pattern``,
   publishes ``object.rule-candidate``, subscribes to ``object.audit-entry`` among
   others, uses an LLM off-path only, and is not a hard dependency. Nothing here
   changes that: the dwell ledger is fed from the audit-entry subscription it
