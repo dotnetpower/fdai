@@ -218,8 +218,10 @@ async function resolveQuestion(
         })
         : "turn_error";
       // The abandoned turn keeps consuming an authenticated stream, so the execution context is
-      // reset before the next question instead of accumulating orphaned work on the same page.
-      const contextResetFailed = deadlineExceeded && !await resetTurnContext(page);
+      // reset before the next question instead of accumulating orphaned work on the same page. A
+      // budget-truncated attempt ends the run anyway, so it is not worth a reload.
+      const contextResetFailed = deadlineExceeded && !attemptBoundedByBudget &&
+        !await resetTurnContext(page);
       transportAttempts.push({
         attempt,
         outcome,
@@ -346,23 +348,25 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   for (const question of outstanding) {
     if (Date.now() >= runDeadlineAt) {
       stopReason = "run_budget_exhausted";
+      stoppedOn = { question_id: question.question_id, transport_attempts: [] };
       break;
     }
     const spacingMs = pacingDelayMs(
       budget.minimumRequestIntervalMs,
       Date.now() - lastRequestStartedAt,
     );
-    if (spacingMs > 0) {
-      // A page fault during pacing must still reach the artifact, not escape the test body.
-      const paced = await page.waitForTimeout(spacingMs).then(() => true, () => false);
-      if (!paced) {
-        stopReason = "page_unavailable";
-        stoppedOn = { question_id: question.question_id, transport_attempts: [] };
-        break;
-      }
+    // The guard covers pacing, the intra-question retry wait, and the turn itself, so a page fault
+    // anywhere in the question still reaches the artifact instead of escaping the test body. A
+    // zero-length wait doubles as a liveness probe when pacing is disabled.
+    let outcome: QuestionOutcome;
+    try {
+      await page.waitForTimeout(spacingMs);
+      outcome = await resolveQuestion(page, question, runId, budget, runDeadlineAt);
+    } catch {
+      stopReason = "page_unavailable";
+      stoppedOn = { question_id: question.question_id, transport_attempts: [] };
+      break;
     }
-
-    const outcome = await resolveQuestion(page, question, runId, budget, runDeadlineAt);
     protectedRequestCount += outcome.requestCount;
     if (outcome.lastRequestStartedAt !== null) lastRequestStartedAt = outcome.lastRequestStartedAt;
     if (outcome.contextResetFailed) {

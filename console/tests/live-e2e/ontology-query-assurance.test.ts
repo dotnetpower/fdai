@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 import { canonicalJsonDigest } from "./browser-evidence-provenance";
 import { isOntologyAssuranceProductionReady } from "./ontology-query-assurance-readiness";
@@ -470,6 +472,31 @@ describe("retainedForLiveGeneration", () => {
 
     expect(retainedForLiveGeneration(retained, live).map((result) => result.question_id))
       .toEqual(["q2"]);
+  });
+});
+
+describe("governed run loop", () => {
+  const source = readFileSync(
+    new URL("./ontology-query-assurance.spec.ts", import.meta.url),
+    "utf8",
+  );
+
+  it("keeps every per-question wait and turn inside a governed stop path", () => {
+    // A page fault anywhere in the question must reach the artifact, not escape the test body.
+    expect(source).toMatch(
+      /try \{[\s\S]{0,400}?await page\.waitForTimeout\(spacingMs\);[\s\S]{0,400}?await resolveQuestion\([\s\S]{0,400}?\} catch/,
+    );
+    expect(source).toMatch(/stopReason = "page_unavailable";/);
+    expect(source).toMatch(/stopReason = "checkpoint_write_failed";/);
+  });
+
+  it("names the question that ended a budget-stopped run", () => {
+    const budgetBreak = source.slice(
+      source.indexOf("for (const question of outstanding) {"),
+      source.indexOf("let outcome: QuestionOutcome;"),
+    );
+
+    expect(budgetBreak).toMatch(/stoppedOn = \{ question_id: question\.question_id/);
   });
 });
 
