@@ -69,7 +69,6 @@ _ROUTE_BY_DISPOSITION: dict[str, SemanticRoute] = {
 _AUTHORITATIVE_EVIDENCE_UNAVAILABLE_REASONS = {
     "semantic_evidence_held",
     "semantic_evidence_incomplete",
-    "incident_evidence_not_planned",
     "incident_evidence_mismatched_binding",
 }
 
@@ -681,17 +680,21 @@ def _unsatisfied_incident_binding(
     request: SemanticTurnRequest,
     incident_evidence: dict[str, object] | None,
 ) -> str | None:
-    """A turn anchored to an incident MUST answer from that incident's own evidence."""
+    """Reject incident evidence read for an incident other than the bound one.
+
+    The binding rides every turn of an incident conversation, including questions
+    that are not about the incident, so a plan that read no incident evidence is
+    not by itself a defect.
+    """
     binding = request.bound_context
     if (
         binding is None
         or binding.kind != "incident"
         or binding.incident_id is None
         or binding.correlation_id is None
+        or incident_evidence is None
     ):
         return None
-    if incident_evidence is None:
-        return "incident_evidence_not_planned"
     if (
         incident_evidence.get("incident_id") != binding.incident_id
         or incident_evidence.get("correlation_id") != binding.correlation_id
@@ -703,24 +706,24 @@ def _unsatisfied_incident_binding(
 def _incident_binding_hold_answer(locale: str) -> str:
     if locale.casefold().startswith("ko"):
         return (
-            "## 이 인시던트의 근거를 읽지 못했습니다\n\n"
-            "이 대화는 특정 인시던트에 묶여 있지만, 검증된 조회 계획이 해당 인시던트의 "
-            "감사 근거를 읽지 않았습니다.\n\n"
+            "## 다른 인시던트의 근거를 읽었습니다\n\n"
+            "이 대화는 특정 인시던트에 묶여 있지만, 검증된 조회 계획이 다른 인시던트의 "
+            "감사 근거를 읽었습니다.\n\n"
             "## 제한 사항\n\n"
-            "- 다른 근거로 답하면 이 인시던트에 대한 답변으로 오인될 수 있어 보류했습니다.\n\n"
+            "- 그 결과로 답하면 이 인시던트에 대한 답변으로 오인될 수 있어 보류했습니다.\n\n"
             "## 다음 안전 단계\n\n"
-            "같은 질문을 다시 보내거나 인시던트 식별자를 명시해서 질문하세요. "
+            "질문에 대상 인시던트 식별자를 명시하세요. "
             "이 결과는 읽기 전용이며 실행 권한을 부여하지 않습니다."
         )
     return (
-        "## This incident's evidence wasn't read\n\n"
-        "This conversation is bound to one incident, but the verified query plan didn't read "
-        "that incident's audit evidence.\n\n"
+        "## Evidence from a different incident was read\n\n"
+        "This conversation is bound to one incident, but the verified query plan read a "
+        "different incident's audit evidence.\n\n"
         "## Limitations\n\n"
-        "- The result is held because answering from other evidence would read as an answer "
-        "about this incident.\n\n"
+        "- The result is held because answering from it would read as an answer about this "
+        "incident.\n\n"
         "## Next safe step\n\n"
-        "Send the question again, or name the incident identifier in the question. "
+        "Name the intended incident identifier in the question. "
         "This result is read-only and grants no execution authority."
     )
 
