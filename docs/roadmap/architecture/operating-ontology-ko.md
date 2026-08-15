@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: b452789060a55d291fbd0ffa84a8d6c83df5c4e1
+translation_source_sha: 9d8754fe8ec1707a75544e9ed263800563da1024
 translation_revised: 2026-08-14
 ---
 # FDAI 운영 온톨로지
@@ -100,6 +100,7 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | 구현 범위 표의 현재 소스, 테스트 및 제공 계획입니다. | 아래의 관찰 가능한 종료 조건을 완료해야 합니다. |
 | 2026-08-14 | implemented | 일치하지 않는 보안 receipt를 거부하고 raw 객체 속성을 제외하는 범위 제한 컨텍스트 표현 projector를 추가했습니다. | `current change`, `test_console_projection.py` focused 테스트 5개 통과 | Principal 범위 근거 응답을 통해서만 projector를 연결하고 인증된 Console 근거를 보존해야 합니다. |
+| 2026-08-15 | implemented | 선언되지 않은 `predicts_breach_of`와 `learned_as` 행을 관계 계약에서 제거하고 이를 막고 있는 ObjectType을 기록했으며, 표를 제공되는 LinkType 카탈로그와 저장된 링크 방향에 고정했습니다. | `current change`, `test_ontology_catalog.py` 및 `test_ontology_instance.py` focused 테스트 | 두 관계는 엔드포인트 ObjectType과 이를 필요로 하는 competency 질문이 함께 준비될 때만 복원합니다. |
 
 ### 남은 작업
 
@@ -113,6 +114,8 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
   principal, 목적, 릴리스, stale 및 truncated 사례가 사용 불가로 유지됨을 입증합니다.
 - [ ] 토폴로지, 시간, reconciliation 및 graph-wide Dynamic 제공이 집중 종료 조건에 도달할
   때 운영 온톨로지와 플랫폼 원장을 동기화합니다.
+- [ ] `Forecast`와 `Pattern` ObjectType을 제공할지는 이를 필요로 하는 competency 질문을 근거로
+  결정하고, 그때에만 `predicts_breach_of`와 `learned_as`를 선언된 LinkType으로 복원합니다.
 
 ## 카탈로그 의미 변환 결과
 
@@ -224,14 +227,12 @@ flowchart LR
     W -->|depends_on| W2[Workload]
     BS -->|governed_by| O[Operational objectives]
     S[Signal] -->|observes| R
-    F[Forecast] -->|predicts_breach_of| O
     C[Change] -->|affects| W
     D[DecisionCase] -->|protects| O
     D -->|considers| AO[ActionOption]
     AO -->|expects| EE[ExpectedEffect]
     AO -->|executed_as| AR[ActionRun]
     AR -->|resulted_in| OO[ObservedOutcome]
-    OO -->|learned_as| P[Pattern]
 ```
 
 ## 도메인 관점
@@ -334,13 +335,11 @@ Saga, 재생 소비자가 같은 사실을 참조하게 하는 변경할 수 없
 | `observes` | 관측/신호 -> 서비스/워크로드/Resource | 측정 근거의 대상입니다. |
 | `observation_targets_resource` | 관측 -> Resource | 범위가 제한된 텔레메트리 검증에 사용하는 물리 measured-evidence 대상입니다. |
 | `affects` | 변경/인시던트/실험 -> 서비스/워크로드/Resource | 에피소드가 영향을 주는 범위입니다. |
-| `predicts_breach_of` | 예측 -> 목표 | 선언된 horizon 안에서 위험한 목표입니다. |
 | `considers` | DecisionCase -> ActionOption | 함께 평가한 범위가 제한된 대안입니다. |
 | `protects` | DecisionCase/ActionOption -> 목표 | 결정이 보존하려는 목표입니다. |
 | `expects` | ActionOption -> ExpectedEffect | 실행 전 predicted 효과입니다. |
 | `executed_as` | ActionOption -> ActionRun | 선택된 옵션의 통제된 실행입니다. |
 | `resulted_in` | ActionRun -> ObservedOutcome | 독립적인 효과 종결입니다. |
-| `learned_as` | ObservedOutcome -> Pattern | 검토된 learning 변환 결과이며 direct 승격이 아닙니다. |
 | `change_targets_resource` | 변경 -> Resource | 변경이 직접 대상으로 하는 managed 리소스입니다. |
 | `case_evaluates_change` | DecisionCase -> 변경 | 변경 개정 번호를 평가하는 변경할 수 없는 결정 맥락입니다. |
 | `change_instantiates_process` | 변경 -> 프로세스 | Multi-step 변경을 기록하는 영속 작업 흐름 저널입니다. |
@@ -354,12 +353,29 @@ Cardinality, causal direction, temporal 정렬, allowed 엔드포인트 combinat
 선언에 둡니다. 필수 competency 질문을 지원하지 못하는 관계는 visualization만을
 위해 추가하지 않는 것이 좋습니다.
 
-현재 LinkType 스키마는 선언마다 출처 및 대상 타입을 하나씩 사용합니다. 따라서 union
-관계는 `workload_runs_on`, `workload_depends_on`, `service_has_service_objective`,
+현재 LinkType 스키마는 선언마다 출처 및 대상 타입을 하나씩 사용합니다. 따라서 개념적 union
+행인 `depends_on`, `governed_by`, `owned_by`, `observes`, `affects`, `protects`는
+`workload_runs_on`, `workload_depends_on`, `service_has_service_objective`,
 `service_has_recovery_objective`, `service_has_cost_objective`,
 `service_has_architecture_constraint`, `service_owned_by`, `workload_owned_by`,
-`objective_owned_by`와 같은 명시적인 물리 이름으로 compile합니다. 엔드포인트 검증은
+`objective_owned_by`와 같은 명시적인 물리 이름으로 compile합니다. 표의 나머지 행은 모두
+`rule-catalog/vocabulary/link-types/` 아래에 선언된 LinkType입니다. 엔드포인트 검증은
 결정론적하게 유지됩니다.
+
+### 보류된 관계
+
+이전 개정판이 계약 행으로 표기했던 관계 두 개는 선언된 것이 아니라 보류된 상태입니다.
+
+| 관계 | 의도한 엔드포인트 | 보류 사유 |
+|------|-----------------|----------|
+| `predicts_breach_of` | Forecast -> 목표 | `Forecast` ObjectType이 카탈로그에 선언되어 있지 않습니다. |
+| `learned_as` | ObservedOutcome -> Pattern | `Pattern` ObjectType이 카탈로그에 선언되어 있지 않습니다. |
+
+카탈로그 로딩은 `from_type`과 `to_type`을 ObjectType 레지스트리에 교차 참조하고 fail-closed로
+동작하므로, 엔드포인트 ObjectType 두 개가 모두 존재하기 전에 LinkType을 선언해서는 안 됩니다.
+선언이 뒷받침하지 않는 상태에서 이 행들을 계약으로 표기하면 어떤 조회도 traverse할 수 없는
+관계를 검증된 것처럼 주장하게 됩니다. 각 관계는 엔드포인트 ObjectType과 그 관계가 답해야 하는
+competency 질문이 함께 준비될 때만 계약 표로 돌아옵니다.
 
 ## 신원과 시간
 

@@ -96,6 +96,7 @@ cloud-operations concepts, while each deployment supplies its observed instances
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | Current source, tests, and delivery plan listed in the scope table. | Complete the observable exit conditions below. |
 | 2026-08-14 | implemented | Added a bounded Context presentation projector that rejects mismatched secured receipts and omits raw object properties. | `current change`; `test_console_projection.py` passed 5 focused cases. | Bind the projector only through a principal-scoped evidence response and retain authenticated Console evidence. |
+| 2026-08-15 | implemented | Removed the undeclared `predicts_breach_of` and `learned_as` rows from the relationship contract, recorded their blocking ObjectTypes, and pinned the table against the shipped LinkType catalog and stored link direction. | `current change`; `test_ontology_catalog.py` and `test_ontology_instance.py` focused cases. | Restore either relationship only together with its endpoint ObjectType and the competency question it answers. |
 
 ### Remaining work
 
@@ -109,6 +110,8 @@ cloud-operations concepts, while each deployment supplies its observed instances
   prove wrong-principal, wrong-purpose, wrong-release, stale, and truncated cases remain unavailable.
 - [ ] Keep the operating ontology and platform ledgers synchronized as topology, temporal,
   reconciliation, and graph-wide Dynamic delivery reaches its focused exit conditions.
+- [ ] Decide whether the `Forecast` and `Pattern` ObjectTypes ship, driven by a competency question
+  that needs them; only then restore `predicts_breach_of` and `learned_as` as declared LinkTypes.
 
 ## Catalog semantic projection
 
@@ -221,14 +224,12 @@ flowchart LR
     W -->|depends_on| W2[Workload]
     BS -->|governed_by| O[Operational objectives]
     S[Signal] -->|observes| R
-    F[Forecast] -->|predicts_breach_of| O
     C[Change] -->|affects| W
     D[DecisionCase] -->|protects| O
     D -->|considers| AO[ActionOption]
     AO -->|expects| EE[ExpectedEffect]
     AO -->|executed_as| AR[ActionRun]
     AR -->|resulted_in| OO[ObservedOutcome]
-    OO -->|learned_as| P[Pattern]
 ```
 
 ## Domain stance
@@ -331,13 +332,11 @@ The initial relationship set should stay small and query-driven.
 | `observes` | Observation/Signal -> Service/Workload/Resource | Target of measured evidence. |
 | `observation_targets_resource` | Observation -> Resource | Physical measured-evidence target used by bounded telemetry verification. |
 | `affects` | Change/Incident/Experiment -> Service/Workload/Resource | Scope influenced by an episode. |
-| `predicts_breach_of` | Forecast -> Objective | Objective at risk within the declared horizon. |
 | `considers` | DecisionCase -> ActionOption | Bounded alternatives evaluated together. |
 | `protects` | DecisionCase/ActionOption -> Objective | Objective the decision seeks to preserve. |
 | `expects` | ActionOption -> ExpectedEffect | Predicted effect before execution. |
 | `executed_as` | ActionOption -> ActionRun | Governed execution of the selected option. |
 | `resulted_in` | ActionRun -> ObservedOutcome | Independent effect closure. |
-| `learned_as` | ObservedOutcome -> Pattern | Reviewed learning projection, never direct promotion. |
 | `change_targets_resource` | Change -> Resource | Direct managed-resource target of the change. |
 | `case_evaluates_change` | DecisionCase -> Change | Immutable decision context that evaluates the change revision. |
 | `change_instantiates_process` | Change -> Process | Durable Workflow journal for a multi-step change. |
@@ -351,11 +350,28 @@ Cardinality, causal direction, temporal ordering, and allowed endpoint combinati
 LinkType declaration. A relation that cannot support a required competency question should not be
 added for visualization alone.
 
-The current LinkType schema has one source and one target type per declaration. Conceptual union
-links therefore compile to explicit physical names such as `workload_runs_on`,
-`workload_depends_on`, `service_has_service_objective`, `service_has_recovery_objective`,
-`service_has_cost_objective`, `service_has_architecture_constraint`, `service_owned_by`,
-`workload_owned_by`, and `objective_owned_by`. This keeps endpoint validation deterministic.
+The current LinkType schema has one source and one target type per declaration. The conceptual
+union rows `depends_on`, `governed_by`, `owned_by`, `observes`, `affects`, and `protects` therefore
+compile to explicit physical names such as `workload_runs_on`, `workload_depends_on`,
+`service_has_service_objective`, `service_has_recovery_objective`, `service_has_cost_objective`,
+`service_has_architecture_constraint`, `service_owned_by`, `workload_owned_by`, and
+`objective_owned_by`. Every other row in the table is a declared LinkType under
+`rule-catalog/vocabulary/link-types/`. This keeps endpoint validation deterministic.
+
+### Deferred relationships
+
+Two relationships that earlier revisions listed as contract rows are deferred, not declared.
+
+| Relationship | Intended endpoints | Blocking reason |
+|--------------|--------------------|-----------------|
+| `predicts_breach_of` | Forecast -> Objective | The `Forecast` ObjectType is not declared in the catalog. |
+| `learned_as` | ObservedOutcome -> Pattern | The `Pattern` ObjectType is not declared in the catalog. |
+
+A LinkType MUST NOT be declared before both endpoint ObjectTypes exist, because catalog loading
+cross-references `from_type` and `to_type` against the ObjectType registry and fails closed. Listing
+these rows as contract while no declaration backs them claimed a validated relationship that no
+query could traverse. Each returns to the contract table only together with its endpoint ObjectType
+and a competency question that the relationship is required to answer.
 
 ## Identity and time
 
