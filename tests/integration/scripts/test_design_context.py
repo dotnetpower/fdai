@@ -238,6 +238,10 @@ def test_dispatcher_routes_mutating_and_wrapped_git_to_policy(command: str) -> N
         "git --config-env safe.key=SAFE --config-env alias.wipe=FDAI_ALIAS wipe",
         "export SAFE=value FDAI_ALIAS=commit; "
         "git --config-env safe.key=SAFE --config-env alias.ci=FDAI_ALIAS ci -m alias-bypass",
+        "export SAFE=value FDAI_ALIAS='reset --hard HEAD'; "
+        "git --config-env=safe.key=SAFE --config-env=alias.wipe=FDAI_ALIAS wipe",
+        "export SAFE=value FDAI_ALIAS=commit; "
+        "git --config-env=safe.key=SAFE --config-env=alias.ci=FDAI_ALIAS ci -m alias-bypass",
         ": x#y; git reset --hard HEAD",
         ": x#y; git commit -m alias-bypass",
     ],
