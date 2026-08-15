@@ -12,6 +12,7 @@ from typing import Any
 
 SCHEMA_VERSION = 1
 UTC = timezone.utc  # noqa: UP017 - tracked hooks also support system Python 3.10.
+MAX_PATHS = 20
 
 
 def _git(root: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
@@ -48,13 +49,49 @@ def _git_diagnostic(root: Path) -> dict[str, Any]:
     }
 
 
+def _index_diagnostic(root: Path) -> dict[str, Any]:
+    status = _git(root, "status", "--porcelain=v1", "--untracked-files=all")
+    if status.returncode != 0:
+        return {
+            "reason_code": "git_index_unavailable",
+            "status": "unavailable",
+        }
+    staged = 0
+    unstaged = 0
+    untracked = 0
+    overlaps: list[str] = []
+    for line in status.stdout.splitlines():
+        if len(line) < 4:
+            continue
+        index_state, worktree_state = line[0], line[1]
+        path = line[3:]
+        if index_state == "?" and worktree_state == "?":
+            untracked += 1
+            continue
+        staged += int(index_state != " ")
+        unstaged += int(worktree_state != " ")
+        if index_state != " " and worktree_state != " ":
+            overlaps.append(path)
+    return {
+        "overlap_count": len(overlaps),
+        "overlap_paths": overlaps[:MAX_PATHS],
+        "staged_count": staged,
+        "status": "warning" if overlaps else "ok",
+        "unstaged_count": unstaged,
+        "untracked_count": untracked,
+    }
+
+
 def status_report(root: Path) -> dict[str, Any]:
     """Build one versioned report without changing repository or process state."""
     return {
         "generated_at": datetime.now(UTC).isoformat(),
         "read_only": True,
         "schema_version": SCHEMA_VERSION,
-        "sections": {"git": _git_diagnostic(root)},
+        "sections": {
+            "git": _git_diagnostic(root),
+            "index": _index_diagnostic(root),
+        },
     }
 
 
@@ -62,11 +99,15 @@ def _render_text(report: dict[str, Any]) -> str:
     git_state = report["sections"]["git"]
     if git_state["status"] != "ok":
         return f"developer-workflow: unavailable ({git_state['reason_code']})"
+    index_state = report["sections"]["index"]
     return (
         "developer-workflow: ok\n"
         f"  worktree: {git_state['worktree']}\n"
         f"  branch:   {git_state['branch']}\n"
-        f"  head:     {git_state['head'][:12]}"
+        f"  head:     {git_state['head'][:12]}\n"
+        f"  index:    {index_state['status']} "
+        f"(staged={index_state['staged_count']}, unstaged={index_state['unstaged_count']}, "
+        f"untracked={index_state['untracked_count']}, overlap={index_state['overlap_count']})"
     )
 
 
