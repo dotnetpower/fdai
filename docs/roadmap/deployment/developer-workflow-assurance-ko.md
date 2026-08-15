@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 25d158a53a7ec61c376a4af9c48d91a72797c653
+translation_source_sha: 2053b58d28e140e1a34a0063d898a9d1c6dd33a7
 translation_revised: 2026-08-15
 ---
 
@@ -29,6 +29,7 @@ FDAI는 로컬 스크립트 전반에서 하나의 읽기 전용 개발 워크�
 | `status` | Git, 검증, 인계, 테스트 환경, hook 위험, 로컬 서비스, 브라우저 runner 및 편집기 부하 진단을 집계합니다. |
 | `resume` | 최신 관련 인계를 현재 검증 및 worktree drift와 함께 렌더링합니다. |
 | `context-plan <path>...` | 대상 경로의 중복 제거된 현재 설계 문서와 집중 검사를 출력합니다. |
+| `preflight` | Git index, hook 상태, Python path, virtual environment 또는 database identity가 오염되면 집중 검사 전에 실패합니다. |
 | `--json` | 명시적인 `ok`, `warning` 또는 `unavailable` 상태가 있는 하나의 version object를 출력합니다. |
 
 이 명령은 기존 Git common dir 상태와 프로세스 메타데이터를 읽습니다. 두 번째 감사 로그를
@@ -124,18 +125,50 @@ receipt, 변경 파일 출력은 최대 20개 경로, 프로세스 출력은 최
 | 11 | 기존 통제 적대적 검토 | 설계 문맥, route 및 port-pool 집중 suite |
 | 12 | 통합 잔존 위험 검토 | 모든 캠페인 집중 검사 및 정확한 diff selection |
 
+## 보증 결과
+
+캠페인은 13개의 독립 라운드를 완료했습니다. 수락된 각 발견 사항은 집중 커밋으로 반영했고,
+기각된 발견 사항은 기존 통제 또는 직접 테스트를 근거로 제시합니다.
+
+| 라운드 | 결과 | 집중 근거 |
+|-------:|------|-----------|
+| 1 | 수락 | Versioned 읽기 전용 status schema, workflow 테스트 2개가 통과했습니다. |
+| 2 | 수락 | 공유 index overlap 진단, workflow 테스트 3개가 통과했습니다. |
+| 3 | 수락 후 라운드 13에서 추가 hardening | Pending 시간과 receipt 지연, workflow 테스트 4개가 통과했습니다. |
+| 4 | 수락 | 중복 제거된 route 문서와 검사, design-context 및 workflow 테스트 93개가 통과했습니다. |
+| 5 | 수락 후 라운드 13에서 추가 hardening | Handover schema v2와 drift, handover 및 workflow 테스트 8개가 통과했습니다. |
+| 6 | 수락 | 비밀을 출력하지 않는 환경 오염 preflight, workflow 테스트 7개가 통과했습니다. |
+| 7 | 수락 | Hook 복구 분류, workflow 테스트 8개가 통과했습니다. |
+| 8 | 수락 후 라운드 13에서 추가 hardening | 브라우저 lease와 6개 서비스 준비 상태, workflow 테스트 10개가 통과했습니다. |
+| 9 | 수락 | Host와 client 부하 분리, 불필요한 client probe 제거 후 테스트 11개가 1.01초에 통과했습니다. |
+| 10 | 수락 | Azure transient-only 제한 retry, Azure 접근 없이 preflight 테스트 6개가 통과했습니다. |
+| 11 | 수락 | 기존 통제의 Python 테스트 163개와 Playwright port-pool 테스트 6개가 통과했습니다. |
+| 12 | 수락 | Collector를 248, 276, 195줄로 분리했고 workflow 테스트 11개가 통과했습니다. |
+| 13 | 수락 | Window 불확실성, invalid receipt, malformed handover 및 잘못된 checkout의 core readiness를 fail-closed 처리했고 테스트 48개가 통과했습니다. |
+
+최종 독립 재검토에서는 Low를 초과하는 잔존 사항이 없었습니다. 다음과 같은 제한된 Low 위험을
+수락했습니다.
+
+- Overlap 경로는 20개만 렌더링하지만 `overlap_count`는 정확한 전체 수를 유지합니다.
+- Linux PSI threshold는 권한 또는 autoscaling 결정이 아닌 보수적인 고정 진단입니다.
+- 저장소 외부로 해석되는 target symlink는 `context_target_outside_repository`와 함께
+  차단됩니다.
+
+검토에서는 Azure retry가 없다는 한 가지 false finding도 기각했습니다. 커밋 `583398431`과
+throttle, permanent error 및 retry exhaustion 집중 테스트가 구현을 증명합니다.
+
 ## 구현 상태
 
 ### 구현 범위
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 공유 쓰기 및 hook | in-progress | 기존 `scripts/agent/design_context.py` 및 pre-commit 중첩 guard | 캠페인 검증과 진단이 남아 있습니다. |
-| 검증 및 인계 | in-progress | 기존 validation queue 및 `scripts/automation/session-handover.py` | 지연 근거와 재개 가능 상태가 남아 있습니다. |
-| Hermetic 검사 및 로컬 서비스 | in-progress | 기존 changed-test 격리 및 로컬 서비스 task | 하나의 제한된 preflight 표면이 남아 있습니다. |
+| 공유 쓰기 및 hook | implemented | `developer_workflow_repository.py`, overlap 및 복구 분류 workflow 테스트 | 적용은 기존 hook에 남습니다. |
+| 검증 및 인계 | implemented | Versioned queue record, 제한된 지연 진단, handover schema v2, 최종 집중 테스트 48개 통과 | Window 불확실성과 malformed 상태를 fail-closed 처리합니다. |
+| Hermetic 검사 및 로컬 서비스 | implemented | Workflow 환경 preflight와 checkout 소유 서비스 준비 상태, 집중 workflow 테스트 | 진단은 서비스를 시작하거나 다시 시작하지 않습니다. |
 | 브라우저 및 편집기 부하 | implemented | 기존 집중 Playwright 진입점, 10-slot lease pool 및 profile 부하 통제 | 최종 비평에서 Medium 잔존이 없음을 검증해야 합니다. |
-| 원격 사전 검사 | in-progress | 호출별 timeout이 있는 기존 읽기 전용 Azure preflight | 제한된 transient retry가 남아 있습니다. |
-| 10회 보증 | in-progress | 이슈 #116 종료 기준 및 이 문서의 비평 순서 | 최소 10개의 독립 라운드가 통과해야 합니다. |
+| 원격 사전 검사 | implemented | `live_preflight/transport.py`, 집중 테스트 6개 | 읽기 시도는 최대 3회이며 영구 오류는 즉시 실패합니다. |
+| 10회 보증 | implemented | 위에 기록한 13개 라운드 및 최종 독립 재검토 | Low를 초과하는 잔존 발견 사항이 없습니다. |
 
 ### 구현 이력
 
@@ -143,13 +176,14 @@ receipt, 변경 파일 출력은 최대 20개 경로, 프로세스 출력은 최
 |------|------|------|------|-----------|
 | 2026-08-15 | in-progress | 개발 워크플로 보증 소유 문서를 도입하고 캠페인 범위를 제한했습니다. 이전 구현 출처는 재구성하지 않았습니다. | 현재 변경과 구현 범위 표에 나열된 기존 통제입니다. | 집중 라운드와 최종 잔존 위험 검토를 완료합니다. |
 | 2026-08-15 | in-progress | 독립 비평 후 CLI 계약, 제한된 근거 window, 실패 동작, 권한 분리 및 12회 순서를 정의해 설계를 수정했습니다. | 현재 변경, roadmap, 번역 및 punctuation 검사입니다. | 수락된 각 발견 사항을 구현하고 검증합니다. |
+| 2026-08-15 | implemented | 13개의 비평 및 hardening 라운드를 완료하고 재현 가능한 모든 Medium 이상 잔존 사항을 제거했습니다. | 현재 변경, 집중 Python 통제 테스트 163개, Playwright port-pool 테스트 6개, 최종 false-ready 테스트 48개, Ruff 및 최종 독립 검토입니다. | 통합 revision의 중앙 validation receipt를 기록합니다. |
 
 ### 남은 작업
 
-- [ ] 집중 검사와 함께 최소 10개의 독립 비평 라운드를 완료하고 수락 또는 기각된 모든 발견
-  사항을 기록합니다.
+- [x] 집중 검사와 함께 13개의 독립 비평 라운드를 완료하고 수락 또는 기각된 발견 사항을 위에
+  기록했습니다.
 - [ ] 통합된 캠페인 커밋의 중앙 validation receipt 하나를 기록합니다.
-- [ ] 최종 검토에서 Low를 초과하는 잔존 발견 사항이 없을 때만 이슈 #116을 닫습니다.
+- [x] 최종 독립 검토에서 Low를 초과하는 잔존 발견 사항이 없었습니다.
 
 ## 관련 문서
 
