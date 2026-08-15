@@ -141,11 +141,16 @@ def test_property_semantics_project_deterministically_without_upgrading_legacy()
         },
         {
             "provider": "azure",
+            "resource_type": "kubernetes-node-pool",
+            "path": "cpu_p95_percent",
+        },
+        {
+            "provider": "azure",
             "resource_type": "postgresql-server",
             "path": "cpu_p95_percent",
         },
     ]
 
-    legacy = projected["property.compute.vm.memory_p95_percent"]
+    legacy = projected["property.compute.vm.network_p95_bytes"]
     assert "semantic_id" not in legacy.properties
     assert "normalized_equivalence" not in legacy.properties

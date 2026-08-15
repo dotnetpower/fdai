@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: c623a4c494ef85beca9f7e33e5e282353aa866e3
+translation_source_sha: 1d5ff1aa24f5df7dd8ddc75184202fc7a303c0bf
 translation_revised: 2026-08-15
 ---
 # FDAI 운영 온톨로지
@@ -52,13 +52,6 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
 > `ChangeAssessment`를 계산해 Verdict와 DecisionCase 근거에 보존하고, stale, 불완전한,
 > 실패한 또는 review-required 평가에는 사람 검토를 요구합니다. 현재 런타임에는
 > graph-freshness 권한이 없으므로 planned 변경은 이 게이트를 auto-clear할 수 없습니다.
-> Wave 2는 새 선언 종류를 추가하지 않고 검토된 shared Property 의미 규칙을 추가합니다.
-> 카탈로그 로더는 정본 meaning, 값 타입, 선택적 단위, enum 또는 범위,
-> 정규화, 권한, 최신성 및 equivalent 프로바이더 경로를 검증합니다. 카탈로그
-> 변환 결과는 검토된 항목에만 이러한 필드를 노출하고 정확한 semantic-registry 버전과
-> 내용 다이제스트를 포함합니다. 런타임 변환 결과는 파일을 다시 읽지 않고 카탈로그 부하에서
-> 검증된 레지스트리를 재사용합니다. 이전 방식 속성은 계속 유효하지만 정규화된 동등성을
-> 주장할 수 없습니다.
 > M5는 카탈로그에 선언된 `routes_to` 및 `peered_with` Resource 링크를 인벤토리 변환 결과에
 > 추가하고 읽기 전용 결정론적 네트워크 및 Pod 텔레메트리 함수를 제공합니다.
 > Composition-owned 범위가 제한된 발급자는 secured ObjectSet 결과를 기록하고 exact 함수
@@ -92,7 +85,7 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
 | O1 의미 체계와 카탈로그 무결성 | implemented | [`test_ontology_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_catalog.py), [`test_ontology_provenance.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_provenance.py) | 통합 카탈로그가 운영 의미 체계, 출처 이력, 참조 및 cardinality를 검증합니다. |
 | O2 범위 제한 맥락과 현재 상태 변환 결과 | in-progress | [`ontology_instance.py`](../../../services/core-control-plane/src/fdai/shared/providers/ontology_instance.py), [`console_projection.py`](../../../services/core-control-plane/src/fdai/core/operational_context/console_projection.py), focused 인스턴스 및 컨텍스트 변환 결과 테스트 | 타입이 지정된 현재 상태 객체와 링크가 있습니다. 이제 보안 receipt의 목적, 릴리스, 기준 시각 및 그래프 범위가 모두 일치할 때만 범위가 제한되고 권한이 없는 컨텍스트 메타데이터를 만들 수 있습니다. Principal 범위 전송과 인증된 런타임 근거는 남아 있습니다. |
 | O3-O5 결정, 결과 및 통제된 learning 루프 | in-progress | [제공 계획](#제공-계획), [`test_ontology_alignment.py`](../../../services/core-control-plane/tests/agents/test_ontology_alignment.py) | 핵심 구획은 있지만 모든 운영 경로에서 효과 종결과 통제된 learning이 완료되지는 않았습니다. |
-| Wave 2 근거, 변경, Property 및 토폴로지 기반 | in-progress | [구현 상태 설명](#fdai-운영-온톨로지), [운영 온톨로지 플랫폼](operating-ontology-platform-ko.md) | 검토된 기반은 있지만 근거 번들이 런타임에 조립되지 않았고 계획 변경은 그래프 최신성 게이트를 자동 통과할 수 없으며 더 넓은 플랫폼 제공 작업도 남아 있습니다. |
+| Wave 2 근거, 변경, Property 및 토폴로지 기반 | in-progress | [구현 상태 설명](#fdai-운영-온톨로지), [운영 온톨로지 플랫폼](operating-ontology-platform-ko.md), [`check-property-semantic-coverage.py`](../../../scripts/quality/architecture/check-property-semantic-coverage.py) | 검토된 기반은 있지만 근거 번들이 런타임에 조립되지 않았고 계획 변경은 그래프 최신성 게이트를 자동 통과할 수 없으며 검토된 Property 커버리지는 측정되지만 일부이고 더 넓은 플랫폼 제공 작업도 남아 있습니다. |
 
 ### 구현 이력
 
@@ -101,6 +94,7 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | 구현 범위 표의 현재 소스, 테스트 및 제공 계획입니다. | 아래의 관찰 가능한 종료 조건을 완료해야 합니다. |
 | 2026-08-14 | implemented | 일치하지 않는 보안 receipt를 거부하고 raw 객체 속성을 제외하는 범위 제한 컨텍스트 표현 projector를 추가했습니다. | `current change`, `test_console_projection.py` focused 테스트 5개 통과 | Principal 범위 근거 응답을 통해서만 projector를 연결하고 인증된 Console 근거를 보존해야 합니다. |
 | 2026-08-15 | implemented | 선언되지 않은 `predicts_breach_of`와 `learned_as` 행을 관계 계약에서 제거하고 이를 막고 있는 ObjectType을 기록했으며, 표를 제공되는 LinkType 카탈로그와 저장된 링크 방향에 고정했습니다. | `current change`, `test_ontology_catalog.py` 및 `test_ontology_instance.py` focused 테스트 | 두 관계는 엔드포인트 ObjectType과 이를 필요로 하는 competency 질문이 함께 준비될 때만 복원합니다. |
+| 2026-08-15 | implemented | 측정되는 Property 의미 커버리지 게이트를 추가하고 커버리지와 그 결과를 양자 문서쌍에 공개했으며, 제공 Rego 비교에 맞춰 `public_access` 값 종류를 교정하고 근거가 있는 의미 6개를 추가했습니다. | `current change`, `check-property-semantic-coverage.py`가 검토된 참조 14/62를 보고, `test_property_semantic.py`, `test_ontology_catalog.py`, `test_catalog_projection.py`, `test_property_semantic_coverage.py` focused 테스트 | 컴렉션 값 참조는 범위가 제한된 정본 JSON Property 의미가 생길 때까지 검토되지 않은 상태로 남습니다. |
 
 ### 남은 작업
 
@@ -116,6 +110,7 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
   때 운영 온톨로지와 플랫폼 원장을 동기화합니다.
 - [ ] `Forecast`와 `Pattern` ObjectType을 제공할지는 이를 필요로 하는 competency 질문을 근거로
   결정하고, 그때에만 `predicts_breach_of`와 `learned_as`를 선언된 LinkType으로 복원합니다.
+- [ ] 범위가 제한된 정본 JSON Property 의미를 지원합니다. 커버리지 게이트가 차단된 참조를 순위화합니다.
 
 ## 카탈로그 의미 변환 결과
 
@@ -132,30 +127,35 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
 설명하며 현재 프로바이더 상태를 주장하거나 실행 권한을 부여하지 않습니다.
 
 Catalog-owned `Property` ObjectType은 룰 속성 참조를 위한 meta 객체로 유지됩니다.
-`rule-catalog/vocabulary/property-semantics.yaml`은 선택된 Property 인스턴스에 검토된 의미 규칙을
-데이터로 추가합니다. 각 항목은 정본 `semantic_id`, `PropertyType`, 선택적 정본 단위,
-enum 또는 numeric 범위, 정규화 룰 식별자, 권한과 최신성 정책 및 equivalent
-프로바이더 경로를 선언합니다. Provider-specific 경로는 이 vocabulary에 데이터로 남으며 코어 코드의
-프로바이더 가지가 되지 않습니다.
+`rule-catalog/vocabulary/property-semantics.yaml`은 명시적으로 검토된 소수의 Property 인스턴스에만
+정본 `semantic_id`, 값 종류, 선택적 단위, enum 또는 범위, 정규화 룰, 권한과 최신성 정책,
+equivalent 프로바이더 경로, 그리고 그 근거를 데이터로 추가합니다. 프로바이더 경로는 코어 코드를
+분기시키지 않으며 `scripts/quality/architecture/check-property-semantic-coverage.py`가 아래
+커버리지를 측정합니다.
 
-로더는 충돌을 확인하기 전에 단위와 프로바이더 신원 경로를 normalize하고 enum 값을
-normalize, deduplicate 및 순서합니다. 문자열 사례 접기 후에는 NFC 정규화를 적용합니다.
-Decimal 값은 context-independent canonicalization을 사용하고 입력, coefficient, exponent 및
-출력 크기를 제한합니다. 범위 검사는 렌더링 전에 exact parsed 값을 비교합니다. YAML
-numeric 범위 한계는 작성된 scalar lexeme에서 Pydantic 검증 전에 `Decimal`로 parse되고,
-내용 다이제스트에서는 정본 decimal 문자열로 serialize되며 binary floating 지점을 거치지
-않습니다. 수학적으로 integral인 finite JSON number는 유효한 정수 한계입니다. Datetime은
-앞뒤 whitespace를 거부하고 RFC 3339 `T` 구분자, 명시적 표준 시간대, 지원 datetime 범위 안의 UTC
-conversion 및 최대 6자리 fractional digit를 요구합니다. Boolean은 정수 또는 number로 허용되지
-않습니다. 범위가 제한된 정본 JSON 지원 전까지 객체 및 array Property 의미 규칙은 차단됩니다.
+<!-- property-semantic-coverage:begin -->
+측정된 검토 커버리지: 룰이 평가하는 Property 참조 62개 중 **14개**(22.6%)이며 검토된 의미는 10개입니다. 이 수치는 손으로 관리하지 않고 커버리지
+게이트가 계산합니다. 나머지 48개 참조는 이전 방식 변환 결과를 유지하므로 대부분의 Property는 `normalized_equivalence`를 주장할 수 없고 이
+레지스트리로 값을 normalize할 수 없습니다.
+<!-- property-semantic-coverage:end -->
 
-모든 레지스트리는 버전과 출처 이력 묶음을 요구하며, SHA-256은 출처 이력 묶음 자체를
-제외한 정본 내용을 포함합니다. 모든 의미는 인증된 출처 신원을 요구하고
-최신성에는 finite 긍정 upper 한계가 있습니다. 카탈로그 변환 결과는 검토된 각 Property에
-검증된 레지스트리 버전과 다이제스트를 고정합니다. 레지스트리 파일이 없으면 카탈로그 로딩과 런타임
-변환 결과가 하나의 고정된 이전 방식 빈 레지스트리를 사용합니다. 검토된 메타데이터가 없는 Property는
-이전 방식 변환 결과 필드를 유지하고 `normalized_equivalence`를 생략합니다. 호출자는 이 레지스트리를
-통해 해당 Property의 동등성을 추론하거나 값을 normalize할 수 없습니다.
+로더는 충돌을 확인하기 전에 단위와 프로바이더 신원 경로를 normalize하고 enum 값을 normalize,
+deduplicate 및 순서하며 문자열 사례 접기 뒤에 NFC 정규화를 적용합니다. Decimal 값은
+context-independent canonicalization을 사용하고 입력, coefficient, exponent 및 출력 크기를
+제한하며 범위 검사는 렌더링 전에 exact parsed 값을 비교합니다. YAML numeric 범위 한계는 작성된
+lexeme에서 Pydantic 검증 전에 `Decimal`로 parse되고 다이제스트에서는 정본 decimal 문자열로
+serialize되며 binary floating 지점을 거치지 않고, integral한 finite JSON number는 유효한 정수
+한계입니다. Datetime은 RFC 3339 `T` 구분자, 명시적 표준 시간대, 범위 안의 UTC conversion, 최대
+6자리 fractional digit를 요구하고 앞뒤 whitespace를 거부합니다. Boolean은 정수 또는 number가
+아니며, 범위가 제한된 정본 JSON 지원 전까지 객체 및 array 의미 규칙은 차단되므로 순위가 가장 높은
+공백은 컬렉션 참조입니다.
+
+모든 레지스트리는 버전과 출처 이력 묶음을 요구하며 SHA-256은 묶음 자체를 제외한 정본 내용을
+포함하고, 모든 의미는 인증된 출처 신원을 요구하며 최신성에는 finite 긍정 upper 한계가 있습니다.
+카탈로그 변환 결과는 검토된 각 Property에 검증된 레지스트리 버전과 다이제스트를 고정하고, 런타임
+변환 결과는 카탈로그 로딩에서 검증된 레지스트리를 재사용합니다. 레지스트리 파일이 없으면 하나의
+고정된 이전 방식 빈 레지스트리를 사용하며, 검토된 메타데이터가 없는 Property는 이전 방식 필드를
+유지하고 `normalized_equivalence`를 생략하며 여기서 normalize될 수 없습니다.
 
 ### 구성 표류 vocabulary
 
