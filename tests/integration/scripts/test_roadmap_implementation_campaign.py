@@ -217,3 +217,31 @@ def test_installer_discovers_issues_and_repeats_persistently(tmp_path: Path) -> 
     assert "OnUnitInactiveSec=5min" in timer
     assert "Persistent=true" in timer
     assert "TimeoutStartSec=2h" in service
+
+
+def test_refusal_memo_expires_and_fails_open(tmp_path: Path) -> None:
+    module = _load()
+
+    module.record_refusal(tmp_path, 63, "deployment", now=1_000.0)
+    module.record_refusal(tmp_path, 63, "architecture", now=1_000.0)
+
+    assert module.refused_folders(tmp_path, 63, now=1_000.0) == frozenset(
+        {"deployment", "architecture"}
+    )
+    # Another issue must not inherit this issue's refusals.
+    assert module.refused_folders(tmp_path, 64, now=1_000.0) == frozenset()
+    # A refusal is a hint with an expiry, not a permanent exclusion.
+    assert (
+        module.refused_folders(tmp_path, 63, now=1_000.0 + module.REFUSAL_TTL_SECONDS + 1)
+        == frozenset()
+    )
+
+
+def test_refusal_memo_survives_a_corrupt_state_file(tmp_path: Path) -> None:
+    module = _load()
+
+    (tmp_path / module.REFUSAL_FILE).write_text("not json", encoding="utf-8")
+
+    assert module.refused_folders(tmp_path, 63, now=1_000.0) == frozenset()
+    module.record_refusal(tmp_path, 63, "deployment", now=1_000.0)
+    assert module.refused_folders(tmp_path, 63, now=1_000.0) == frozenset({"deployment"})
