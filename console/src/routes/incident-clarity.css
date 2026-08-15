@@ -148,6 +148,22 @@
   color: var(--fg-muted);
   overflow-wrap: anywhere;
 }
+.incident-scope-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px;
+}
+.incident-scope-filters label {
+  display: grid;
+  gap: 3px;
+}
+.incident-scope-filters label span {
+  color: var(--fg-muted);
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
 .incident-related-views {
   display: grid;
   gap: 7px;

@@ -152,7 +152,9 @@ fields, and the current-situation block adds the newest recorded reason a govern
 abstained, denied, or failed. The console quotes that reason and does not convert it into a
 remediation instruction. The roster and its outcome cohorts exclude a correlation group whose every
 row is platform housekeeping, and the cohort panel states the measured share of the matched
-population instead of presenting its 500-incident bound as a complete measurement. See
+population instead of presenting its 500-incident bound as a complete measurement. Vertical and
+severity are clearable roster controls that filter on the server before the page limit; the roster
+has no free-text search, because the displayed subject is composed in the read model. See
 [operator-console-incident-roster.md](operator-console-incident-roster.md) for the projection
 contract.
 

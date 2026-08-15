@@ -1142,7 +1142,7 @@
     "subtitle": "추가 전용 감사 로그에서 가져온 인시던트 중심 상태 및 복구 이력입니다. 읽기 전용이며 작업과 승인은 Git 및 ChatOps에서 처리합니다.",
     "bannerTitle": "읽기 전용입니다.",
     "bannerBody": "이 작업 영역은 인시던트 및 감사 프로젝션을 구성합니다. 승인과 변경은 ChatOps 또는 수정 PR에서 처리합니다.",
-    "filter": {"active": "활성", "resolved": "해결됨", "all": "전체"},
+    "filter": {"active": "활성", "resolved": "해결됨", "all": "전체", "anyVertical": "버티컬 전체", "anySeverity": "심각도 전체", "clearScope": "범위 필터 해제"},
     "column": {"title": "인시던트", "severity": "심각도", "status": "상태", "disposition": "처분", "vertical": "영역", "updated": "업데이트"},
     "status": {"open": "열림", "in_progress": "진행 중", "resolved": "해결됨"},
     "disposition": {"pending": "대기 중", "awaiting_hil": "승인 대기", "action_delivered": "작업 전달됨", "no_action": "작업 없음", "failed": "실패", "rolled_back": "롤백됨", "resolved": "해결됨", "unknown": "알 수 없음"},

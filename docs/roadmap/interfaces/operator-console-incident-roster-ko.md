@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: 7e4e8f2fbb4fa16f370af77c5eb10c1750824aed
+translation_source_sha: f02bf39f3c77848d146a5b232ce1c4af1a9f3a51
 translation_revised: 2026-08-15
 ---
 
@@ -147,11 +147,19 @@ Console은 per-user direct-message 구독을 만들지 않습니다. 배정과 �
 티켓 연결은 인증된 write-direction 채팅/도구 연산으로 유지되고 감사
 이력에 표시됩니다. 읽기 전용 명단은 연결된 `ticket_id`를 표시합니다.
 
-목록은 선택적 정본 `vertical` 필터를 허용하며 감사 경로는 `mode`,
+목록은 선택적 정본 `vertical` 및 `severity` 필터를 허용하며 감사 경로는 `mode`,
 `tier`, `action`, `outcome`, `vertical`, 범위가 제한된 `window=<n>d` 필터를 커서
 페이지 나누기 전에 서버에서 적용합니다. 따라서 분석 deep 링크는 브라우저 첫 페이지만
-필터하지 않고 전체 filtered 결과 집합을 검색합니다. 커서는 인시던트 상태와
-버티컬에 연결되므로 두 필터 중 하나를 바꾸면 stale 커서가 무효화됩니다.
+필터하지 않고 전체 filtered 결과 집합을 검색합니다. `severity`는 `critical`, `high`,
+`medium`, `low`, `unknown`을 허용하며, 변환 결과가 `sev1`~`sev4`를 이 정본 값으로 묶고
+브라우저에서는 절대 필터하지 않습니다. 콘솔은 두 필터를 전체 선택 항목과 해제 동작이 있는
+select 컨트롤로 제공하므로 deep 링크로 들어온 필터를 URL을 편집하지 않고 제거할 수 있습니다.
+커서는 인시던트 상태, 버티컬, 심각도에 연결되므로 그중 하나만 바꿔도 stale 커서가 무효화됩니다.
+
+목록에는 자유 텍스트 검색이 없습니다. 표시되는 대상은 `recorded_subject`에서 올 수 있는데 이는
+변환 결과가 읽기 모델에서 구성하며 컬럼으로 저장하지 않으므로, 서버측 텍스트 필터는 운영자가
+보는 값과 일치하지 않고 브라우저측 필터는 현재 페이지만 검색하게 됩니다. 구체화된 대상 컬럼이
+서버측 필터를 사실에 맞게 만들기 전까지 검색은 사용 불가로 둡니다.
 
 개요 감사 KPI는 in-memory와 Postgres 읽기 모델 모두에서 가장 최근 감사 행
 500개를 집계합니다. `GET /kpi`는 이 변경할 수 없는 샘플을 inclusive `from_seq`와
@@ -396,6 +404,7 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 | 2026-08-15 | in-progress | 감사 봉투 `payload`를 포함해 기록된 운영 대상과 사유에서 `recorded_subject` 제목을 도출하고, 목록 식별자 fallback이 모든 인시던트 링크가 해석하는 correlation ID를 표시하도록 했습니다. | `current change`; `incident_projection.py`, `incidents.tsx`, `types.ts`, `api-operations.ts` 및 각 focused 테스트입니다. Operator `33 passed`, Console `29 passed`, Ruff, Ruff format 및 strict mypy를 통과했습니다. 로컬 corpus의 상관관계 그룹 1,562개에 변환을 재생한 결과 `identifier_fallback`이 1,007개(64.5%)에서 5개(0.32%)로 줄었고, 남은 5개는 운영과 무관한 `read:sha256:*` 읽기입니다. | 운영과 무관한 상관관계 그룹을 제외하고, 기록된 RCA 및 T1 필드에서 milestone과 다음 단계 문구를 도출하며, cohort 구간과 절단 공개를 바로잡고, 목록 검색과 필터 컨트롤을 추가하고, 약어를 보존하며, 인시던트를 여는 감사 항목에 제목을 기록해야 합니다. |
 | 2026-08-15 | in-progress | RCA와 계층 평가를 기록된 outcome, reason, cause로 서술하고, 단계별 다음 단계 옆에 가장 최근 기록된 차단 사유를 드러내며, 약어를 보존하고, 대체 표시를 담당 에이전트 링크로 만들지 않으며, 매핑되지 않은 카탈로그 키를 렌더링하지 않도록 했습니다. | `current change`; `incidents.timeline.ts`, `incidents.overview.ts`, `incidents.tsx`, `incident-clarity.css`, 메시지 카탈로그 2개 및 각 focused 테스트입니다. Console `37 passed`, catalog usage `3 passed`, typecheck 및 번역 신선도를 통과했습니다. | 운영과 무관한 상관관계 그룹을 제외하고, cohort 구간과 절단 공개를 바로잡고, 목록 검색과 필터 컨트롤을 추가하며, 인시던트를 여는 감사 항목에 제목을 기록해야 합니다. |
 | 2026-08-15 | in-progress | 모든 행이 플랫폼 유지 관리인 상관관계 그룹을 제외하고, `matched_total` 측정 공개를 추가하고, 관측 구간 표기를 바로잡았으며, 측정할 수 없는 완화 시간이 그 사유를 밝히도록 했습니다. | `current change`; `postgres_sql.py`, `postgres.py`, `incident_projection.py`, `api-operations.ts`, `types.ts`, `incidents.detail-sections.tsx`, 메시지 카탈로그 2개 및 각 focused 테스트입니다. Operator `286 passed, 1 skipped`, Console `53 passed`, typecheck, Ruff, Ruff format 및 strict mypy를 통과했습니다. 갱신된 page SQL을 로컬 corpus에 실행한 결과 그룹 1,562개 중 1,557개를 선택하고 유지 관리 그룹 5개를 정확히 제외했습니다. | 목록 검색과 필터 컨트롤을 추가하고, 인시던트를 여는 감사 항목에 제목을 기록해야 합니다. |
+| 2026-08-15 | in-progress | 커서에 연결된 서버측 `severity` 필터를 추가하고 버티컬과 심각도를 해제 가능한 목록 컨트롤로 노출했습니다. | `current change`; `operator.py`, `routes.py`, `postgres_sql.py`, `postgres.py`, `api-operations-client.ts`, `incidents.tsx`, `incident-clarity.css`, 메시지 카탈로그 2개 및 focused 테스트입니다. Operator와 contracts `383 passed, 1 skipped`, Console `55 passed`입니다. 로컬 corpus에 필터를 실행한 결과 그룹 1,557개 중 low 380개, critical 19개, unknown 1,004개를 반환했습니다. | 인시던트를 여는 감사 항목에 제목을 기록해야 합니다. 자유 텍스트 목록 검색은 구체화된 대상이 서버측 필터를 사실에 맞게 만들기 전까지 사용 불가로 둘니다. |
 
 ### 남은 작업
 
@@ -405,7 +414,7 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 - [ ] 인시던트를 여는 감사 항목에 `title`을 기록해 `recorded_title`을 정상 출처로 만듭니다.
 - [x] 해당 필드가 있을 때는 일반 템플릿 대신 기록된 RCA 및 T1 필드에서 milestone과 권장 다음 단계 문구를 도출합니다.
 - [x] cohort 관측 구간을 사실대로 표기하고 상한과 제외된 나머지를 공개하며, 사용할 수 없는 time-to-mitigate 측정을 사유와 함께 사용 불가로 렌더링합니다.
-- [ ] 서버 기반 목록 검색과 심각도/vertical 필터 컨트롤을 추가하고, 설정된 vertical 필터를 UI에서 해제할 수 있게 합니다.
+- [x] 서버 기반 심각도/vertical 필터 컨트롤을 추가하고, 설정된 범위 필터를 UI에서 해제할 수 있게 합니다. 자유 텍스트 목록 검색은 의도적으로 사용 불가로 둡니다. 표시되는 대상이 읽기 모델에서 구성되므로 구체화된 대상이 생기기 전에는 서버측도 브라우저측도 사실에 맞지 않습니다.
 - [x] 대상 정규화에서 약어를 보존하고, 카탈로그 항목이 없는 동적 i18n 키가 원본 키 문자열로 렌더링되지 않게 합니다.
 - [x] 정본 수명 주기 상태를 대체하지 않고 원본 플랫폼 identity, 설명, 상태, 시각, 원본 링크, 고정된 대응 계획 개정, 과거 일치 미리 보기, cooldown 및 중복 제거 근거를 투영합니다.
 - [x] 정확한 근거 참조, 사용 불가 공백, 평가 receipt, 비활성 학습 후보가 있는 순서가 지정된 조사 milestone을 렌더링하고 transcript 텍스트가 근거를 만들거나 복구를 종결하거나 학습을 승격할 수 없음을 입증합니다.

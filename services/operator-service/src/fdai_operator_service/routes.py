@@ -472,11 +472,15 @@ def _incident_query(request: Request) -> IncidentQuery:
         raise _BadQueryError(
             "vertical MUST be one of: resilience, change-safety, cost-governance, unknown"
         )
+    severity = (request.query_params.get("severity") or "").lower() or None
+    if severity not in {None, "critical", "high", "medium", "low", "unknown"}:
+        raise _BadQueryError("severity MUST be one of: critical, high, medium, low, unknown")
     return IncidentQuery(
         status=cast(Literal["active", "resolved", "all"], status),
         limit=_parse_limit(request),
         cursor=_bounded_query(request, "cursor", maximum=1024),
         vertical=vertical,
+        severity=severity,
         correlation_id=_bounded_query(request, "correlation_id", maximum=256),
     )
 
