@@ -130,18 +130,22 @@ class StartupReadinessRuntime:
             operation_task: asyncio.Task[None] = asyncio.create_task(invoke())
             blocked_task = asyncio.create_task(self.state._blocked_event.wait())
             stop_task = asyncio.create_task(stop.wait())
-            done, pending = await asyncio.wait(
-                {operation_task, blocked_task, stop_task},
-                return_when=asyncio.FIRST_COMPLETED,
-            )
-            for task in pending:
-                task.cancel()
-            await asyncio.gather(*pending, return_exceptions=True)
+            watched = (operation_task, blocked_task, stop_task)
+            try:
+                done, _pending = await asyncio.wait(
+                    set(watched),
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+            finally:
+                # Cancellation of this supervisor MUST NOT orphan the operation:
+                # an abandoned consumer keeps its broker session open until
+                # interpreter teardown, where its group leave can no longer complete.
+                for task in watched:
+                    task.cancel()
+                await asyncio.gather(*watched, return_exceptions=True)
             if operation_task in done:
                 await operation_task
                 return
-            operation_task.cancel()
-            await asyncio.gather(operation_task, return_exceptions=True)
             if stop_task in done:
                 return
 
