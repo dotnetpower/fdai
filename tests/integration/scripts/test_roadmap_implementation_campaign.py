@@ -330,3 +330,40 @@ def test_sync_leaves_no_half_merged_worktree_on_conflict(tmp_path: Path) -> None
     assert module._sync_campaign_base(repo) == "sync-failed"
     # A half-merged tree would make the next run refuse with "campaign worktree is dirty".
     assert run("status", "--porcelain") == ""
+
+
+def test_failed_batch_still_registers_its_commits(tmp_path: Path, monkeypatch) -> None:
+    module = _load()
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+
+    calls: list[list[str]] = []
+
+    def fake_run(arguments, **kwargs):  # type: ignore[no-untyped-def]
+        calls.append(list(arguments))
+
+        class Result:
+            returncode = 0
+
+        return Result()
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    monkeypatch.setattr(module, "_git", lambda *a, **k: "newhead")
+
+    module._register_committed_work(repo, "oldbase")
+
+    assert ["ensure-range", "oldbase..HEAD"] == calls[0][-2:]
+    assert calls[1][-1] == "wake"
+
+
+def test_unchanged_head_registers_nothing(tmp_path: Path, monkeypatch) -> None:
+    module = _load()
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        module.subprocess, "run", lambda arguments, **k: calls.append(list(arguments))
+    )
+    monkeypatch.setattr(module, "_git", lambda *a, **k: "same")
+
+    module._register_committed_work(tmp_path, "same")
+
+    assert calls == []

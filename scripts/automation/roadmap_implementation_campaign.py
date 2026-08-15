@@ -374,6 +374,24 @@ def _require_document_updates(result: Mapping[str, Any], changed_paths: Sequence
         raise RuntimeError("campaign did not commit every selected English/Korean document pair")
 
 
+def _register_committed_work(repo_root: Path, base: str) -> None:
+    """Register commits that exist so a failed batch does not strand unvalidatable work."""
+    if _git("rev-parse", "HEAD", cwd=repo_root) == base:
+        return
+    for arguments in (
+        ["python3", "scripts/automation/validation_queue.py", "ensure-range", f"{base}..HEAD"],
+        ["python3", "scripts/automation/validation_queue.py", "wake"],
+    ):
+        subprocess.run(  # noqa: S603 - fixed repository validation commands
+            arguments,
+            cwd=repo_root,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+
+
 def _run_check(arguments: list[str], *, repo_root: Path, timeout: int) -> None:
     completed = subprocess.run(  # noqa: S603 - fixed repository validation commands
         arguments,
@@ -446,78 +464,89 @@ def run_cycle(
         if cli is None:
             raise RuntimeError("Copilot CLI is unavailable")
         base = _git("rev-parse", "HEAD", cwd=repo_root)
-        output = agent.run_copilot(
-            cli,
-            campaign_prompt(folder, candidates, issue=issue),
-            repo_root,
-            apply=True,
-            timeout=timeout,
-            repo_root=repo_root,
-        )
-        result = validate_result(
-            agent.json_object(output),
-            repo_root=repo_root,
-            issue_number=issue.number,
-            folder=folder,
-            candidates=candidates,
-        )
-        if result["outcome"] == "blocked":
-            if _git("rev-parse", "HEAD", cwd=repo_root) != base or _git(
-                "status", "--porcelain", cwd=repo_root
-            ):
-                raise RuntimeError("blocked campaign must not leave repository changes")
-            record_refusal(state_root, issue.number, folder, now=time.time())
-            # A blocked run produces no commit, so its summary is the only evidence of why.
-            return f"blocked: issue #{issue.number}, docs/roadmap/{folder}: {result['summary']}"
-        if _git("status", "--porcelain", cwd=repo_root):
-            raise RuntimeError("campaign worker left uncommitted changes")
-        if _git("rev-parse", "HEAD", cwd=repo_root) == base:
-            raise RuntimeError("completed campaign did not commit changes")
-        changed_paths = _changed_paths(repo_root, base)
-        _require_document_updates(result, changed_paths)
-        forbidden = (
-            ".github/instructions/",
-            ".githooks/",
-            "scripts/automation/roadmap_",
-            "scripts/integrity/",
-            "scripts/quality/",
-        )
-        if any(path.startswith(forbidden) for path in changed_paths):
-            raise RuntimeError("campaign changed a repository-control surface")
-        _run_check(
-            ["bash", "scripts/automation/tests-for-diff.sh", "--run", f"{base}..HEAD"],
-            repo_root=repo_root,
-            timeout=CHANGED_TEST_TIMEOUT_SECONDS,
-        )
-        _run_check(
-            ["bash", "scripts/quality/localization/check-translations.sh"],
-            repo_root=repo_root,
-            timeout=QUALITY_CHECK_TIMEOUT_SECONDS,
-        )
-        _run_check(
-            ["python3", "scripts/automation/validation_queue.py", "ensure-range", f"{base}..HEAD"],
-            repo_root=repo_root,
-            timeout=60,
-        )
-        _run_check(
-            ["python3", "scripts/automation/validation_queue.py", "wake"],
-            repo_root=repo_root,
-            timeout=60,
-        )
-        state_root.mkdir(parents=True, exist_ok=True)
-        with (state_root / "ledger.jsonl").open("a", encoding="utf-8") as handle:
-            handle.write(
-                json.dumps(
-                    {"base": base, "head": _git("rev-parse", "HEAD", cwd=repo_root), **result},
-                    sort_keys=True,
-                )
-                + "\n"
+        try:
+            output = agent.run_copilot(
+                cli,
+                campaign_prompt(folder, candidates, issue=issue),
+                repo_root,
+                apply=True,
+                timeout=timeout,
+                repo_root=repo_root,
             )
-        return (
-            f"completed: issue #{issue.number}, claimed={str(issue_claimed).lower()}, "
-            f"docs/roadmap/{folder} "
-            f"({len(result['documents'])} documents)"
-        )
+            result = validate_result(
+                agent.json_object(output),
+                repo_root=repo_root,
+                issue_number=issue.number,
+                folder=folder,
+                candidates=candidates,
+            )
+            if result["outcome"] == "blocked":
+                if _git("rev-parse", "HEAD", cwd=repo_root) != base or _git(
+                    "status", "--porcelain", cwd=repo_root
+                ):
+                    raise RuntimeError("blocked campaign must not leave repository changes")
+                record_refusal(state_root, issue.number, folder, now=time.time())
+                # A blocked run produces no commit, so its summary is the only evidence of why.
+                return f"blocked: issue #{issue.number}, docs/roadmap/{folder}: {result['summary']}"
+            if _git("status", "--porcelain", cwd=repo_root):
+                raise RuntimeError("campaign worker left uncommitted changes")
+            if _git("rev-parse", "HEAD", cwd=repo_root) == base:
+                raise RuntimeError("completed campaign did not commit changes")
+            changed_paths = _changed_paths(repo_root, base)
+            _require_document_updates(result, changed_paths)
+            forbidden = (
+                ".github/instructions/",
+                ".githooks/",
+                "scripts/automation/roadmap_",
+                "scripts/integrity/",
+                "scripts/quality/",
+            )
+            if any(path.startswith(forbidden) for path in changed_paths):
+                raise RuntimeError("campaign changed a repository-control surface")
+            _run_check(
+                ["bash", "scripts/automation/tests-for-diff.sh", "--run", f"{base}..HEAD"],
+                repo_root=repo_root,
+                timeout=CHANGED_TEST_TIMEOUT_SECONDS,
+            )
+            _run_check(
+                ["bash", "scripts/quality/localization/check-translations.sh"],
+                repo_root=repo_root,
+                timeout=QUALITY_CHECK_TIMEOUT_SECONDS,
+            )
+            _run_check(
+                [
+                    "python3",
+                    "scripts/automation/validation_queue.py",
+                    "ensure-range",
+                    f"{base}..HEAD",
+                ],
+                repo_root=repo_root,
+                timeout=60,
+            )
+            _run_check(
+                ["python3", "scripts/automation/validation_queue.py", "wake"],
+                repo_root=repo_root,
+                timeout=60,
+            )
+            state_root.mkdir(parents=True, exist_ok=True)
+            with (state_root / "ledger.jsonl").open("a", encoding="utf-8") as handle:
+                handle.write(
+                    json.dumps(
+                        {"base": base, "head": _git("rev-parse", "HEAD", cwd=repo_root), **result},
+                        sort_keys=True,
+                    )
+                    + "\n"
+                )
+            return (
+                f"completed: issue #{issue.number}, claimed={str(issue_claimed).lower()}, "
+                f"docs/roadmap/{folder} "
+                f"({len(result['documents'])} documents)"
+            )
+        except BaseException:
+            # Commits already exist; without registration they can never earn a receipt
+            # and every later push of this branch stays blocked.
+            _register_committed_work(repo_root, base)
+            raise
 
 
 def _parser() -> argparse.ArgumentParser:
