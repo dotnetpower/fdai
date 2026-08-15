@@ -1,16 +1,11 @@
 ---
 name: agent-handover
 description: |
-  Runbook for the FDAI agent-stewardship handover: map the real humans who
-  did operational work (or several jobs at once) onto the fixed 15-agent
-  pantheon, so every agent has an accountable human for escalation and
-  knowledge handover, and FDAI itself has 1+ (recommended 2) maintainers.
-  Load this skill when onboarding a customer/team, when filling or reviewing
-  `config/agent-stewardship.yaml`, when a `check-stewardship.sh` gate fails,
-  or when someone asks "who owns agent X now that FDAI runs it". For the
-  design of record see
-  `docs/roadmap/interfaces/agent-stewardship-and-handover.md`; for the
-  always-on rules see `.github/instructions/agent-stewardship.instructions.md`.
+   Map accountable humans onto FDAI's fixed 15-agent pantheon for escalation
+   and knowledge handover. Use when onboarding a team, editing or reviewing
+   `config/agent-stewardship.yaml`, fixing `check-stewardship.sh`, or answering
+   who owns an agent. This skill assigns stewards; it never changes agent names,
+   role bindings, RBAC, approval, or execution authority.
 version: 1.0.0
 scope: repository
 ---

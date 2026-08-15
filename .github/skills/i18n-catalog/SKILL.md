@@ -1,17 +1,11 @@
 ---
 name: i18n-catalog
 description: |
-  FDAI i18n catalog workflow. FDAI is fully bilingual: English and Korean
-  are both allowed in any natural-language text anywhere in the repo (there
-  is no english-only gate). This skill covers the structured-localization
-  mechanisms: L1 developer docs ship `.md` + `-ko.md` pairs under a SHA
-  gate, L2 product surfaces (console, CLI, chatops, notifications, site)
-  localize via English-source message catalogs with mandatory English
-  fallback, L3 the Bragi narrator renders in the operator's locale.
-  Machine records (audit / events / log keys / config keys) SHOULD stay
-  English for replay. Load this skill when adding, editing, or reviewing
-  localized strings, message catalogs (`messages.{en,ko}.json`), bilingual
-  doc pairs, or when a check-catalog-parity / check-translations gate fails.
+  Author and validate FDAI's English/Korean localization mechanisms: paired
+  developer docs, product message catalogs with English fallback, and Bragi
+  locale rendering. Use when changing localized strings,
+  `messages.{en,ko}.json`, bilingual doc pairs, or fixing catalog-parity or
+  translation-sync gates. Use `translation-quality` for Korean prose quality.
 version: 1.0.0
 scope: repository
 ---

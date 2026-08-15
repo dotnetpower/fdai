@@ -1,19 +1,12 @@
 ---
 name: azure-selfprovision
 description: |
-  Self-provision the Azure resources FDAI needs into the operator's OWN
-  logged-in subscription, instead of borrowing another project's account.
-  Primary trigger: `resolved-models.json` / `resolved-models-local.json`
-  points a `narrator` / capability endpoint at a foreign resource group's
-  Azure OpenAI account (an endpoint FDAI does not own). Load this skill
-  when the project is opened with `az login` already active and you want
-  to propose + create the required resource group and resources, when an
-  AOAI endpoint in `resolved-models*.json` belongs to a different project,
-  when a local narrator / LLM path fails because no FDAI-owned AOAI exists,
-  or when onboarding a fresh subscription for local dev. For the full
-  private-tenant deploy pipeline (state SA + runner VM + app stack) use
-  `azure-deploy-runner` instead; this skill covers the lighter
-  "make the LLM path stand on its own resources" flow.
+  Provision the minimum FDAI-owned Azure OpenAI resources in the operator's
+  logged-in subscription. Use when `resolved-models*.json` points at another
+  project's endpoint, the local narrator lacks an FDAI-owned account, or a
+  fresh development subscription needs model deployments. This is not the
+  private tenant app-stack deployment path; use `azure-deploy-runner` for
+  state storage, runner VM, Terraform, and full deployment.
 version: 1.0.0
 scope: repository
 ---

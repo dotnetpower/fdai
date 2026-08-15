@@ -1,18 +1,12 @@
 ---
 name: fork-customization
 description: |
-  Decision + workflow skill for an agent working INSIDE a downstream FDAI
-  fork. Answers "can I edit this file, or must I customize by dependency
-  injection?" and routes every customization to the right seam. The fork
-  boundary is fork-locked: `services/core-control-plane/src/fdai/core/`, `services/core-control-plane/src/fdai/composition*`,
-  `services/core-control-plane/src/fdai/shared/providers/`, `services/core-control-plane/src/fdai/shared/contracts/`,
-  `services/core-control-plane/src/fdai/agents/`, `rule-catalog/schema/`, and `.github/instructions/`
-  are LOCKED; a fork adds implementations + data entries instead. Load this
-  skill when a maintainer asks to customize / extend / adapt FDAI in a fork,
-  when a `check-protected-paths.sh` or `check-integrity.sh` gate fails in
-  fork mode, when adding an LLM / HIL / search / scope adapter, a rule,
-  an ActionType / ObjectType, or a Rego overlay, or when you are tempted to
-  edit a file under `services/core-control-plane/src/fdai/core/`.
+  Route downstream FDAI customization through supported dependency-injection
+  seams without changing fork-locked definitions. Use when adapting a fork,
+  fixing `check-protected-paths.sh` or `check-integrity.sh`, adding an LLM,
+  HIL, search, or scope adapter, adding rule, ActionType, ObjectType, or Rego
+  data, or considering an edit under `core/`, `composition`, shared contracts,
+  providers, agents, schemas, or `.github/instructions/`.
 version: 1.0.0
 scope: repository
 ---
