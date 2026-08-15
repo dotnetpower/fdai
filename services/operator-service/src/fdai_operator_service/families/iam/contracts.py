@@ -346,6 +346,52 @@ class KillSwitchOutbox(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
+class BreakGlassActivationCommand:
+    """Time-boxed emergency activation request recorded for audit only."""
+
+    actor_oid: str
+    incident_id: str
+    reason: str
+    activated_at: datetime
+    expires_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class BreakGlassActivationRecord:
+    """Durable activation record.
+
+    The projection carries no role set, token, grant, or executor identity, so
+    an activation can never be mistaken for an approval or an execution right.
+    """
+
+    activation_id: str
+    actor_oid: str
+    incident_id: str
+    activated_at: datetime
+    expires_at: datetime
+
+    def to_dict(self) -> JsonObject:
+        """Return the exact bounded activation projection."""
+        return {
+            "activation_id": self.activation_id,
+            "actor_oid": self.actor_oid,
+            "incident_id": self.incident_id,
+            "activated_at": self.activated_at.isoformat(),
+            "expires_at": self.expires_at.isoformat(),
+            "grants_hil_approval": False,
+            "grants_executor_identity": False,
+        }
+
+
+class BreakGlassActivationOutbox(Protocol):
+    """Persist the activation audit record without elevating any principal."""
+
+    async def activate(
+        self, command: BreakGlassActivationCommand
+    ) -> BreakGlassActivationRecord: ...
+
+
+@dataclass(frozen=True, slots=True)
 class ConfigurationReviewCommand:
     """Typed evidence campaign request with an idempotency identity."""
 

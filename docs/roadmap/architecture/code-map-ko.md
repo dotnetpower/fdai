@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 7f6ddca67bb9bdeed591a054cf33f300d6b3ff94
-translation_revised: 2026-08-15
+translation_source_sha: bcaf6d507b8ef68938c87eb5be984ed31af44d55
+translation_revised: 2026-08-16
 ---
 # 코드 맵
 
@@ -32,6 +32,8 @@ translation_revised: 2026-08-15
 | Service-owned 출처 및 테스트 지도 | 진행 중 | 이 지도, `tests/integration/` 및 위에 명시한 범위가 제한된 IS-08과 IS-07 근거 | 로컬 소유권과 롤백 근거는 매핑되었으며 IS-09 원격 검증은 남아 있습니다. |
 | Exact-generation Rule 검색 | 구현됨 | `shared/providers/catalog_search.py`, `delivery/catalog_search/generation.py`, `delivery/catalog_search/in_memory.py`, `delivery/catalog_search/postgres.py`, focused 카탈로그, 온톨로지 조회, 스키마, 조립 및 실제 PostgreSQL 테스트(`44 passed`) | 결과는 후보 전용이며 활성 Rule 세대를 exact 온톨로지 release와 범위가 제한된 순서 보장 문서 매니페스트에 연결하고 판단, 승인 또는 실행 권한을 포함하지 않습니다. PostgreSQL 활성화는 같은 트랜잭션에서 예상 이전 세대를 확인합니다. |
 | 목표 인식 Rule 후보 확인 | 구현됨 | `core/ontology_platform/objective_rule_resolution.py`, `core/ontology_platform/catalog_queries.py`, `shared/providers/catalog_search.py`, `delivery/catalog_search/in_memory.py`, 집중 온톨로지 조회 테스트(`8 passed`) | 검토 또는 승격된 활성 관계는 순위 계산 전에 exact-generation 후보 집합을 좁힙니다. 유효하지 않거나 불완전한 맥락은 원자적으로 대체 경로를 사용하며, 목표 맥락은 평가 또는 실행 권한을 추가하지 않고 조회 ID를 변경합니다. |
+| 관측 충돌 판정 | 구현됨 | `core/ontology_platform/observation_adjudication.py`, `core/ontology_platform/inventory_projection.py`, `delivery/inventory_relationship_verifier.py`, 집중 온톨로지·인벤토리·런타임 테스트(`507 passed, 1 skipped`) | 한 세대 안에서 같은 리소스 신원을 반복 관측한 권위 있는 관측을 결정적으로 판정합니다. 내용이 같고 행 단위 관측 시각만 다르면 하나의 사실로 보고 가장 이른 시각을 유지하며, 불일치가 있으면 경합 중인 값을 제외한 채 명시적 `StateFactMetadata.conflicts` 항목으로 남깁니다. 서로 독립된 출처 사이의 교차 권위 판정은 [운영 온톨로지](operating-ontology-ko.md#충돌-판정-범위)에 열려 있습니다. |
+| 교차 출처 리소스 상태 판정 | 구현됨 | `core/read_investigation/resource_state_shadow_evidence.py`, `core/read_investigation/resource_state_shadow_service.py`, `composition/wire_read_investigation.py`, 집중 read-investigation·composition 테스트(`110 passed`) | 실시간 프로바이더 읽기와 인벤토리로 변환된 그래프 상태를 `deterministic_function` 권한을 가진 `derived` 사실 하나로 판정합니다. 상태나 신원 불일치는 shadow 증적 다이제스트에 보존되는 명시적 충돌이며, 관측 시각 차이는 충돌이 아닙니다. 이 판정은 처분을 낮추기만 하고 승인·변경·실행 권한을 부여하지 않습니다. |
 | Receipt 기반 운영 컨텍스트 표현 | 구현됨 | `core/operational_context/console_projection.py`, `tests/core/operational_context/test_console_projection.py`, focused 테스트 5개 통과 | 목적, 릴리스, 기준 시각, 실행 권한 및 그래프 범위가 일치해야 범위가 제한된 메타데이터를 변환합니다. Raw 속성은 제외하며 principal 범위 전송은 연결하지 않은 상태로 유지합니다. |
 | 운영 범위 `unknown_service` 커버리지 | 구현됨 | `core/operational_context/operating_scope.py`, `tests/core/operational_context/test_operating_scope.py`, focused 테스트 6개 통과 | 관측된 모든 Resource가 계속 보이고, 대응되지 않거나 충돌하는 리소스는 synthetic 서비스 대신 예약된 표시자를 유지하며, 변환 결과는 읽기 전용입니다. 아직 런타임 소비자에 연결하지 않았습니다. |
 | 런타임 바인딩 기반 플래너 가시성 | 구현됨 | `composition/wire_semantic_query.py`, `core/conversation/semantic_manifest.py`, `core/ontology_platform/query_manifest.py`, focused 조립 및 매니페스트 테스트 | 플래너 서술자는 조립된 런타임에 등록된 함수만 노출합니다. 읽을 수 있지만 바인딩되지 않은 선언은 타입이 지정된 구조 coverage에 남으며 어떤 권한도 얻지 않습니다. |
@@ -128,6 +130,7 @@ Core 분포는 전체 `fdai` 이름 공간을 유지합니다. 내부 모듈 경
 | 에이전트 pantheon | 고정 에이전트 15개와 타입이 지정된 이벤트 런타임 | [에이전트](../../../services/core-control-plane/src/fdai/agents/) | [에이전트 테스트](../../../services/core-control-plane/tests/agents/) |
 | 조립 | Exact-release 의미 조회 assembly, request-role 실행기 factory 및 호출 범위의 불투명 상관관계를 사용하는 리소스 상태 활동 게시를 포함한 프로바이더/런타임 의존성 주입 | [조립](../../../services/core-control-plane/src/fdai/composition/) | [조립 테스트](../../../services/core-control-plane/tests/composition/) |
 | Core 어댑터 | Core에 남은 프로바이더, 영속성, 알림 및 platform 어댑터 | [전달](../../../services/core-control-plane/src/fdai/delivery/) | [전달 테스트](../../../services/core-control-plane/tests/delivery/) |
+| Rule 카탈로그 프로파일 바인딩 | 관리되는 `FDAI_PROFILE_ID`를 시작 시 한 번 해석해 T0 색인과 워크플로 guard 검증이 함께 읽는 불변 Rule 튜플로 만들고, 선택과 등급 조정을 차단 기본으로 처리하며, 테넌트 값이 없는 시작 진단을 남깁니다 | [rule_profile.py](../../../services/core-control-plane/src/fdai/runtime/rule_profile.py) | [Rule 프로파일 테스트](../../../services/core-control-plane/tests/runtime/test_rule_profile.py) |
 | 런타임 | Core 프로세스 수명 주기, 준비 상태, 이벤트 전송 계층, supervision 및 의미 런타임 가용성 연결 | [런타임](../../../services/core-control-plane/src/fdai/runtime/) | [런타임 테스트](../../../services/core-control-plane/tests/runtime/) |
 | Core 계약과 프로바이더 경계 | Core 전용 타입, 프로바이더 프로토콜, 구성, 스트리밍 및 텔레메트리 | [shared](../../../services/core-control-plane/src/fdai/shared/) | [shared 테스트](../../../services/core-control-plane/tests/shared/) |
 | Rule 카탈로그 파이프라인 | 카탈로그 스키마 로딩, 수집, 검증, 정제 및 승격 support | [rule_catalog](../../../services/core-control-plane/src/fdai/rule_catalog/) | [Rule 카탈로그 테스트](../../../services/core-control-plane/tests/rule_catalog/) |

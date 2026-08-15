@@ -69,6 +69,7 @@
         ],
         "contract": [
           "services/operator-service/tests/test_conversation_contracts.py",
+          "services/operator-service/tests/test_operator_break_glass_activation.py",
           "services/operator-service/tests/test_operator_conversation_family.py",
           "services/operator-service/tests/test_operator_iam_family.py",
           "services/operator-service/tests/test_operator_operations_family.py",

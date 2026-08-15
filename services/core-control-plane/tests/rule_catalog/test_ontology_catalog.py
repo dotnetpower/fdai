@@ -87,8 +87,7 @@ def test_documented_relationship_contract_is_backed_by_declarations() -> None:
         encoding="utf-8"
     )
     section = document.split("\n## Relationship contract\n", 1)[1].split("\n## ", 1)[0]
-    contract_table = section.split("\n### Deferred relationships\n", 1)[0]
-    documented = tuple(re.findall(r"^\| `([a-z_]+)` \|", contract_table, re.MULTILINE))
+    documented = tuple(re.findall(r"^\| `([a-z_]+)` \|", section, re.MULTILINE))
     union_sentence = re.search(
         r"conceptual union rows (.+?) therefore compile", " ".join(section.split())
     )
@@ -119,13 +118,21 @@ def _semantic_layer_object_rows(document: str) -> tuple[tuple[str, str], ...]:
 
 def test_deferred_relationships_are_absent_from_the_catalog() -> None:
     """A deferred relationship MUST NOT be declared before its endpoint types."""
-    document = _operating_ontology_document()
-    deferred_section = document.split("\n### Deferred relationships\n", 1)[1].split("\n## ", 1)[0]
+    owner_document = (
+        REPO_ROOT / "docs/roadmap/rules-and-detection/operational-learning-ontology.md"
+    ).read_text(encoding="utf-8")
+    deferred_section = owner_document.split("\n### Deferred relationships\n", 1)[1].split(
+        "\n## ", 1
+    )[0]
     deferred = tuple(re.findall(r"^\| `([a-z_]+)` \|", deferred_section, re.MULTILINE))
     link_root = REPO_ROOT / "rule-catalog/vocabulary/link-types"
 
     assert set(deferred) == {"learned_as", "predicts_breach_of"}
     assert [name for name in deferred if (link_root / f"{name}.yaml").exists()] == []
+    # The relationship contract must keep naming both, or a reader of the contract alone
+    # cannot tell that their absence is deliberate.
+    contract = _operating_ontology_document().split("\n## Relationship contract\n", 1)[1]
+    assert all(f"`{name}`" in contract.split("\n## ", 1)[0] for name in deferred)
 
 
 def test_documented_object_types_are_declared_or_deferred() -> None:

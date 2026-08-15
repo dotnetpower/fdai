@@ -9,6 +9,10 @@ from fdai.core.ontology_platform.inventory_projection import (
     InventoryProjectionConflictError,
     build_inventory_ontology_projection,
 )
+from fdai.core.ontology_platform.pod_telemetry_evidence import (
+    TelemetrySegmentStatus,
+    evaluate_state_fact_metadata,
+)
 from fdai.shared.providers.inventory import LinkRecord, ResourceRecord
 from fdai.shared.providers.state_evidence import (
     LINK_OBSERVATION_METADATA_PROPERTY,
@@ -326,12 +330,108 @@ def test_repeated_identical_observation_is_idempotent() -> None:
     assert [item.id for item in projection.objects] == ["vm-1"]
 
 
-def test_conflicting_observation_for_one_id_is_rejected() -> None:
-    with pytest.raises(InventoryProjectionConflictError):
+def test_conflicting_observation_for_one_id_becomes_an_explicit_state_conflict() -> None:
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="vm-1",
+                type="compute.vm",
+                props={"status": "running", "name": "vm-one"},
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+            ResourceRecord(
+                resource_id="vm-1",
+                type="compute.vm",
+                props={"status": "deallocated", "name": "vm-one"},
+                last_seen=(OBSERVED_AT + timedelta(seconds=5)).isoformat(),
+            ),
+        ),
+    )
+
+    provider_properties = projection.objects[0].properties["properties"]
+    metadata = StateFactMetadata.from_mapping(provider_properties[STATE_FACT_METADATA_PROPERTY])
+    assert metadata.conflicts == ("observed_property_conflict:status",)
+    assert metadata.completeness == 0.0
+    assert metadata.synthetic is False
+    assert metadata.effective_at == OBSERVED_AT
+    assert "state" not in provider_properties
+    assert provider_properties["name"] == "vm-one"
+
+
+def test_conflicting_observed_type_for_one_id_is_rejected() -> None:
+    with pytest.raises(InventoryProjectionConflictError, match="conflicting type"):
         build_inventory_ontology_projection(
             generation="snapshot-1",
-            resources=(_resource("vm-1", name="vm-one"), _resource("vm-1", name="vm-two")),
+            resources=(
+                _resource("vm-1", type_id="compute.vm"),
+                _resource("vm-1", type_id="network.nic"),
+            ),
         )
+
+
+def test_repeated_observation_differing_only_by_clock_read_is_not_a_conflict() -> None:
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="vm-1",
+                type="compute.vm",
+                props={"status": "running"},
+                last_seen=(OBSERVED_AT + timedelta(seconds=9)).isoformat(),
+            ),
+            ResourceRecord(
+                resource_id="vm-1",
+                type="compute.vm",
+                props={"status": "running"},
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+        ),
+    )
+
+    provider_properties = projection.objects[0].properties["properties"]
+    metadata = StateFactMetadata.from_mapping(provider_properties[STATE_FACT_METADATA_PROPERTY])
+    assert metadata.conflicts == ()
+    assert metadata.completeness == 1.0
+    assert provider_properties["state"] == "running"
+    assert metadata.effective_at == OBSERVED_AT
+
+
+def test_conflicting_observation_demotes_the_existing_state_evidence_consumer() -> None:
+    def project(second_status: str) -> StateFactMetadata:
+        projection = build_inventory_ontology_projection(
+            generation="snapshot-1",
+            resources=(
+                ResourceRecord(
+                    resource_id="vm-1",
+                    type="compute.vm",
+                    props={"status": "running"},
+                    last_seen=OBSERVED_AT.isoformat(),
+                ),
+                ResourceRecord(
+                    resource_id="vm-1",
+                    type="compute.vm",
+                    props={"status": second_status},
+                    last_seen=OBSERVED_AT.isoformat(),
+                ),
+            ),
+        )
+        nested = projection.objects[0].properties["properties"]
+        return StateFactMetadata.from_mapping(nested[STATE_FACT_METADATA_PROPERTY])
+
+    agreed_status, agreed_reasons = evaluate_state_fact_metadata(
+        project("running"),
+        cutoff=OBSERVED_AT,
+    )
+    assert agreed_status is TelemetrySegmentStatus.VERIFIED
+    assert agreed_reasons == ()
+
+    contested_status, contested_reasons = evaluate_state_fact_metadata(
+        project("deallocated"),
+        cutoff=OBSERVED_AT,
+    )
+    assert contested_status is TelemetrySegmentStatus.UNVERIFIED
+    assert "state_evidence_conflict:observed_property_conflict:status" in contested_reasons
 
 
 def test_conflicting_duplicate_link_is_absent_and_reported() -> None:

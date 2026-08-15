@@ -44,6 +44,7 @@ risk and human-approval decision.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance. | Current source boundaries and focused checks listed in the scope table. | No upstream implementation work remains for this document's bounded scope. |
+| 2026-08-16 | implemented | Recorded the shipped enforcement default, which the document did not state. The control-loop integration is real, but `execution_authorization_evaluator` defaults to `None`, `execution_authorization_required` defaults to `False`, and only `bind_execution_authorization` sets them, so a default deployment runs with this gate inert. No scope row changes, because deployment-owned bindings are already declared outside this document's scope; the omission was the default itself. | `current change`; `composition/_helpers.py` lines defining both fields; separate searches for `execution_authorization_evaluator=` and `execution_authorization_required=` match only `wire_execution_authorization.py` and the two `control_loop.py` reads. | Bind the seam from a deployment path, or record a decision that binding stays deployment-owned. |
 
 ### Remaining work
 
@@ -365,6 +366,13 @@ final status. Replay uses those exact inputs and never substitutes current provi
 A fork marker never selects authorization behavior. One downstream distribution can support many
 deployments with different signed policy bundles. Fork additions can add constraints but cannot
 redefine upstream capability ids or raise an upstream maximum.
+
+The shipped default does not enforce this gate. `Container.execution_authorization_evaluator`
+defaults to `None` and `execution_authorization_required` defaults to `False`, and the only code
+that sets either is `bind_execution_authorization`, which no runtime or bootstrap path calls today.
+The control loop reads both fields, so the integration is present but inert until a deployment
+binds the seam. The paired container invariant still fails closed: `required` without an evaluator
+raises rather than running unauthorized.
 
 ## Verification matrix
 

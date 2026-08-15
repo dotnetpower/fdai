@@ -1,8 +1,8 @@
 ---
 title: 관리형 Trajectory 데이터셋
 translation_of: governed-trajectory-datasets.md
-translation_source_sha: 5cb54012810dcb02c80b3462f9523623786c6475
-translation_revised: 2026-08-14
+translation_source_sha: 017ca2c6fc816a7a9ecd7cab97e68254033985a3
+translation_revised: 2026-08-16
 ---
 
 # 관리형 Trajectory 데이터셋
@@ -193,7 +193,7 @@ Norns-to-Mimir quality gate를 사용합니다.
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 묶음 및 변환 결과 | implemented | `services/core-control-plane/src/fdai/core/trajectory/`; `services/core-control-plane/tests/core/trajectory/` | Focused 테스트는 범위가 제한된 레코드, 변환 결과, 버전 정책, 보존 결정 및 읽기 전 권한 확인을 다룹니다. |
-| 스캔, 내보내기 및 오프라인 검증 | in-progress | `services/core-control-plane/src/fdai/core/trajectory/scanning.py`; `services/core-control-plane/src/fdai/core/trajectory/validation.py`; `services/core-control-plane/src/fdai/delivery/trajectory/` | 구현은 있지만 현재 트리에서 focused 내보내기, 격리, 체크섬 또는 재생 검증 테스트를 찾지 못했습니다. |
+| 스캔, 내보내기 및 오프라인 검증 | implemented | `services/core-control-plane/src/fdai/core/trajectory/scanning.py`; `validation.py`; `services/core-control-plane/src/fdai/delivery/trajectory/exporter.py`; `services/core-control-plane/tests/core/trajectory/test_export_and_validation.py` | Focused 테스트는 일치한 값을 다시 노출하지 않는 scanner 발견, 산출물을 게시하지 않는 격리, 취소 정리, 용도 및 범위 불일치, 레코드/매니페스트/데이터셋 체크섬, 판정 전용 재생 순서와 출처 대응을 다룹니다. 생성된 산출물은 `.gitignore`로 추적되지 않습니다. |
 | 메타데이터 영속성, 보존 및 Owner 전용 읽기 경로 | implemented | trajectory 이행, `services/core-control-plane/src/fdai/delivery/persistence/postgres_trajectory.py`, `services/core-control-plane/tests/persistence/test_postgres_trajectory.py`, `services/operator-service/src/fdai_operator_service/families/workflow/`, `services/operator-service/tests/test_operator_workflow_family.py` | PostgreSQL 어댑터는 정확한 중복 메타데이터, 범위 제한 읽기, 기한 정렬, monotonic legal hold, 영속 `deleting` claim, late-hold 거부, 재시도 가능한 산출물 또는 tombstone 실패 및 실제 downgrade guard를 적용합니다. 통제된 runtime custody 및 삭제 근거는 남아 있습니다. |
 | 오프라인 CLI 검증 | not-started | [관리 표면](#관리-표면) | 명령 계약은 설계됐지만 패키지 `fdaictl trajectory validate` 구현은 등록되지 않았습니다. |
 | 검토된 Norns 수집 | implemented | `services/core-control-plane/src/fdai/agents/norns.py`; `services/core-control-plane/tests/agents/test_norns_trajectory.py` | Norns는 `ReviewedTrajectoryDataset`만 허용하고 다이제스트로 중복을 제거하며 raw 기록이나 자동 학습 권한을 받지 않습니다. |
@@ -208,11 +208,12 @@ Norns-to-Mimir quality gate를 사용합니다.
 | 2026-08-14 | implemented | Tombstone 전에 영속 `deleting` claim과 멱등 crash 복구를 사용하도록 보존 경로를 강화했습니다. | `current change`; focused core, PostgreSQL 및 migration 검사 186개가 통과했습니다. | 같은 claim 프로토콜의 관리되는 산출물 보관 근거를 보존해야 합니다. |
 | 2026-08-14 | implemented | 안전하지 않은 completed 상태를 추측하지 않고 외부 삭제 claim이 활성 상태인 동안 스키마 downgrade를 차단했습니다. | `current change`; focused Core, PostgreSQL 및 migration 검사 187개가 통과했습니다. | 의도적인 downgrade 전에 활성 claim을 조정해야 합니다. |
 | 2026-08-14 | implemented | 활성 PostgreSQL 삭제 claim에 정확한 migration downgrade guard를 실행하고 SQLSTATE `55000`을 검증했습니다. | `current change`; focused Core, PostgreSQL 및 migration 검사 188개가 통과했습니다. | Migration-focused 검증 경로에서 guard를 계속 유지해야 합니다. |
+| 2026-08-15 | implemented | 생성된 JSONL 및 매니페스트 산출물에 대해 focused 내보내기, scanner, 격리, 체크섬, 오프라인 검증, 판정 전용 재생 검사를 추가했습니다. | `current change`; `services/core-control-plane/tests/core/trajectory/test_export_and_validation.py`; `pytest services/core-control-plane/tests/core/trajectory/test_export_and_validation.py` (19 passed). | 패키지 오프라인 CLI 명령과 관리되는 런타임 보관 근거는 계속 열려 있습니다. |
 
 ### 남은 작업
 
 - [x] 지원되는 로컬 데이터베이스에서 focused PostgreSQL trajectory suite를 건너뛰지 않고 실행하고 legal-hold compare-and-set, 재시도 가능한 삭제 실패 및 실제 downgrade guard 검사를 포함합니다.
-- [ ] Focused 내보내기, scanner, 격리, 체크섬, 오프라인 검증 및 판정 전용 재생 검사를 추가하고 생성된 모든 산출물을 source control 밖에 유지합니다.
+- [x] Focused 내보내기, scanner, 격리, 체크섬, 오프라인 검증 및 판정 전용 재생 검사가 `services/core-control-plane/tests/core/trajectory/test_export_and_validation.py`에 있으며, `.gitignore`가 생성된 모든 내보내기, 매니페스트, 부분 산출물을 source control 밖에 유지합니다.
 - [ ] 생성된 JSONL 및 매니페스트 산출물을 사용하는 패키지 `fdaictl trajectory validate`를 구현하고 검사를 통과시키며 용도 및 접근 범위 불일치 사례를 포함합니다.
 - [ ] 데이터셋 하나를 내보내고 검증하고 검토하고 보존하고 삭제하는 관리되는 종단 간 증적을 기록하며 legal hold가 삭제를 차단하고 raw 기록이 Norns에 도달하지 않음을 입증합니다.
 

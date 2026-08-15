@@ -90,7 +90,7 @@ describe("Playwright port pool", () => {
 
   test("skips a slot whose real ports are unavailable", () => {
     const root = testRoot();
-    const checkedPorts: readonly number[][] = [];
+    const checkedPorts: number[][] = [];
     const lease = acquirePlaywrightPortLease({
       lockRoot: root,
       pid: 301,

@@ -1,6 +1,6 @@
 /** Resumable checkpoint for bounded live assurance runs. */
 
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import { canonicalJsonDigest } from "./browser-evidence-provenance";
@@ -128,15 +128,19 @@ export function buildAssuranceCheckpoint<TResult extends AssuranceCheckpointResu
 }
 
 export async function readAssuranceCheckpoint<TResult extends AssuranceCheckpointResult>(
-  path: string,  isResult?: (value: Record<string, unknown>) => boolean,): Promise<AssuranceCheckpoint<TResult> | null> {
+  path: string,
+  isResult?: (value: Record<string, unknown>) => boolean,
+): Promise<AssuranceCheckpoint<TResult> | null> {
   let raw: string;
   try {
     raw = await readFile(path, "utf8");
-  } catch {
-    return null;
+  } catch (error) {
+    // A missing checkpoint is a fresh cohort; any other read fault must not silently restart one.
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
   }
   try {
-    return parseAssuranceCheckpoint<TResult>(JSON.parse(raw));
+    return parseAssuranceCheckpoint<TResult>(JSON.parse(raw), isResult);
   } catch {
     return null;
   }
@@ -148,7 +152,14 @@ export async function writeAssuranceCheckpoint<TResult extends AssuranceCheckpoi
   checkpoint: AssuranceCheckpoint<TResult>,
 ): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
-  const temporaryPath = `${path}.partial`;
-  await writeFile(temporaryPath, `${JSON.stringify(checkpoint, null, 2)}\n`, "utf8");
-  await rename(temporaryPath, path);
+  // The suffix carries the writing process, so two runs of the same binding cannot race on it.
+  const temporaryPath = `${path}.${process.pid}.partial`;
+  try {
+    await writeFile(temporaryPath, `${JSON.stringify(checkpoint, null, 2)}\n`, "utf8");
+    await rename(temporaryPath, path);
+  } catch (error) {
+    // A failed write must not leave an orphaned partial file behind the resume path.
+    await rm(temporaryPath, { force: true });
+    throw error;
+  }
 }

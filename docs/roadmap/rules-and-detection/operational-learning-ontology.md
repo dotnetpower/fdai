@@ -166,6 +166,33 @@ cites sealed cases as `case-history:<case_id>:<revision>:<manifest_digest>` and 
 reviewed learning projection and MUST NOT create a path from a learned record to an active catalog
 entry or threshold; promotion remains the authority of the independently reviewed registry.
 
+### Why Forecast and Pattern are declared
+
+Both types were banded on the console before the catalog declared them, so the availability filter
+dropped them without a signal. Both are declared now because each already has a fixed-pantheon
+owner and a producing mechanism: Heimdall produces `Forecast` in
+[`forecast.py`](../../../services/core-control-plane/src/fdai/core/detection/forecast.py), and Norns
+produces `Pattern` in `OperatingPatternCompiler`. Deleting them from the bands would have hidden
+implemented behavior instead of correcting an overclaim. Neither declaration adds a link type,
+projection, instance path, or authority, and `predicts_breach_of` and `learned_as` stay undeclared
+because neither endpoint pair is producible.
+
+### Deferred relationships
+
+Two relationships that earlier revisions of the
+[relationship contract](../architecture/operating-ontology.md#relationship-contract) listed as
+contract rows are deferred, not declared. Both endpoint ObjectTypes now exist, so the remaining
+blocker is that neither pair is producible.
+
+| Relationship | Intended endpoints | Blocking reason |
+|--------------|--------------------|-----------------|
+| `predicts_breach_of` | Forecast -> Objective | `ForecastFinding` predicts a metric threshold breach and carries no objective identity, so no producer can supply the target endpoint. `Objective` is also a conceptual union that would need explicit physical endpoint names. |
+| `learned_as` | ObservedOutcome -> Pattern | A cohort cites sealed cases as `case-history:<case_id>:<revision>:<manifest_digest>` and never receives an `ObservedOutcome` identity, so the source endpoint is not producible. It would return as a reviewed learning projection only, never as a promotion path. |
+
+A LinkType MUST NOT be declared before both endpoint ObjectTypes exist, because catalog loading
+cross-references `from_type` and `to_type` and fails closed. Declarable is not usable, so each row
+returns only with a producer for both endpoints and a competency question it answers.
+
 ## Agent ownership
 
 | Agent | Responsibility |

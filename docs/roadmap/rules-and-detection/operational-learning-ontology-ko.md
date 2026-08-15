@@ -1,8 +1,8 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: 3c43d1d3e2195f241457856ec618fb90d8393e00
-translation_revised: 2026-08-15
+translation_source_sha: 3687f60c3f58ef29fc45614362cee9051417d8e5
+translation_revised: 2026-08-16
 ---
 # 운영 학습 온톨로지
 
@@ -169,6 +169,33 @@ sealed 사례를 `case-history:<case_id>:<revision>:<manifest_digest>`로 인용
 신원을 받지 않으므로 이 링크는 날조로만 만들 수 있습니다. 언젠가 선언되더라도 검토된 학습 투영으로
 남으며, 학습 기록에서 활성 카탈로그 항목이나 임계값으로 가는 경로를 만들어서는 안 됩니다. 승격은
 독립적으로 검토되는 registry의 권한으로 남습니다.
+
+### Forecast와 Pattern을 선언한 이유
+
+두 타입은 카탈로그가 선언하기 전부터 콘솔 band에 있었기 때문에, 가용성 필터가 아무 신호 없이 둘을
+제외했습니다. 지금 둘을 선언하는 이유는 각각 고정 판테온 소유자와 생산 방식을 이미 갖추었기
+때문입니다. Heimdall은
+[`forecast.py`](../../../services/core-control-plane/src/fdai/core/detection/forecast.py)에서
+`Forecast`를 생산하고, Norns는 `OperatingPatternCompiler`에서 `Pattern`을 생산합니다. Band에서 두
+이름을 지웠다면 과잉 주장을 바로잡는 대신 구현된 동작을 가렸을 것입니다. 두 선언은 링크 타입,
+투영, 인스턴스 경로, 권한을 추가하지 않으며, 생산 가능한 엔드포인트 쌍이 없으므로
+`predicts_breach_of`와 `learned_as`는 미선언으로 남습니다.
+
+### 보류된 관계
+
+이전 개정판이 [관계 계약](../architecture/operating-ontology-ko.md#관계-계약)의 계약 행으로 표기했던
+관계 두 개는 선언된 것이 아니라 보류 상태입니다. 두 엔드포인트 ObjectType은 이제 모두 존재하므로,
+남은 차단 사유는 어느 쌍도 생산할 수 없다는 점입니다.
+
+| 관계 | 의도한 엔드포인트 | 차단 사유 |
+|------|-------------------|-----------|
+| `predicts_breach_of` | Forecast -> 목표 | `ForecastFinding`은 메트릭 임계값 위반을 예측할 뿐 목표 신원을 담지 않으므로, 어떤 생산자도 대상 엔드포인트를 공급할 수 없습니다. `목표`도 명시적인 물리 엔드포인트 이름이 필요한 개념적 합집합입니다. |
+| `learned_as` | ObservedOutcome -> Pattern | Cohort는 sealed 사례를 `case-history:<case_id>:<revision>:<manifest_digest>`로 인용할 뿐 `ObservedOutcome` 신원을 받지 않으므로, 출발 엔드포인트를 생산할 수 없습니다. 복원되더라도 검토된 학습 투영으로만 남고 승격 경로가 되지는 않습니다. |
+
+두 엔드포인트 ObjectType이 모두 존재하기 전에는 LinkType을 선언해서는 안 됩니다. 카탈로그 적재가
+`from_type`과 `to_type`을 교차 참조하며 fail-closed로 동작하기 때문입니다. 선언할 수 있다고 해서 쓸
+수 있는 것은 아니므로, 각 행은 두 엔드포인트의 생산자와 그 관계가 답하는 competency 질문이 갖춰졌을
+때만 계약 표로 돌아옵니다.
 
 ## 에이전트 소유권
 

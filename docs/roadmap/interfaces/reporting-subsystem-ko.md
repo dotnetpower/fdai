@@ -1,8 +1,8 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: 3dac7716b952a7a82804e7dc2ce21e7a55f3314b
-translation_revised: 2026-08-15
+translation_source_sha: b4a35dc8f618f5381ce264d6a2ad857132a6ffaf
+translation_revised: 2026-08-16
 ---
 # 리포팅 서브시스템
 
@@ -591,13 +591,14 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
 | 2026-08-14 | implemented | 독립 Operator Service에 opt-in PDF delivery를 추가하고 catalog와 runtime registry가 일치할 때만 Console 다운로드 컨트롤을 노출했습니다. | `current change`; service-local encoder, operations 경로 negotiation, package extra, Console 컨트롤, focused PDF, 경로, composition 및 Console 테스트입니다. | 인증된 inventory, render, 사용 불가, 오류 격리 및 읽기 전용 runtime 증적을 보존해야 합니다. |
 | 2026-08-14 | implemented | Materialize되지 않은 generic operations row를 요구하는 대신 built-in Incident RCA dossier를 authoritative Operator audit reader에 연결했습니다. | `current change`; `incident_rca_projection.py`, composition binding, focused reader 테스트 3개 및 Operator family/composition 테스트 65개입니다. | 인증된 roster-to-RCA-to-report/PDF receipt를 보존해야 합니다. |
 | 2026-08-15 | validated | Built-in Incident dossier에 대한 인증된 inventory, registry, audit-backed render, Console, PDF 및 no-RCA 사용 불가 근거를 보존했습니다. | `current change`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; source `014974045e70e35c26e489fa238345cf70bc3ca3`에 중앙 receipt가 있습니다. | 더 넓은 프로덕션 데이터 원본 캠페인은 아래 열린 항목으로 유지합니다. |
+| 2026-08-15 | implemented | format 모듈이 정확히 하나의 `FormatEncoder`를 제공하고, 내보내진 뒤 등록되거나 opt-in으로 문서화되며, `core/reporting`과 공유 계약 밖의 어떤 것도 import하지 않도록 `check-report-format-boundary` 게이트를 추가했습니다. | `current change`; `scripts/quality/architecture/check-report-format-boundary.py`; `pytest tests/integration/scripts/test_report_format_boundary.py` (5 passed); pre-commit, `verify.sh`, CI 연결. | 프로덕션 데이터 원본 및 인증된 표면 증적은 계속 열려 있습니다. |
 
 ### 남은 작업
 
 - [ ] 각 프로덕션 데이터 원본에 대해 source 신원, cutoff, 최신성, 사용 불가 및 시간 초과 동작, 부분 widget 격리 및 synthetic-to-live 대체 부재를 보여주는 관리되는 render 증적을 보존합니다.
 - [ ] Report inventory, 명시적 사용 불가 report 선택, variable 차단, 알 수 없는 format, render 오류 격리 및 읽기 전용 method 적용에 대한 인증된 Operator API 및 Console 증적을 보존합니다.
 - [x] `pdf`를 표시하기 전에 선택적 PDF delivery 모듈, registry 연결, package extra, 인증된 GET-only 컨트롤 및 focused escape, 다이제스트, 페이지 나누기, 사용 불가 섹션, 분석 부재, no-network 테스트를 구현합니다.
-- [ ] Delivery 의존성을 `core/`로 가져오지 않고 downstream format 추가를 `FormatEncoder`와 조립 등록 뒤에 유지합니다.
+- [x] Downstream format 추가는 `FormatEncoder`와 조립 등록 뒤에 유지됩니다. `scripts/quality/architecture/check-report-format-boundary.py`는 각 format 모듈을 파싱해, 인코더를 정확히 하나 제공하지 않거나, 패키지가 실제로 import하거나 내보내지 않거나, `defaults.py`에 등록되지도 검토된 opt-in 목록에 있지도 않거나, 상대 import를 사용하거나, `core/reporting`과 공유 계약 밖의 의존성을 지정하는 모듈을 거부합니다. 패키지는 평면 구조를 유지하고 기반 모듈은 인코더를 정의할 수 없으므로, 하위 디렉터리나 `defaults.py` 자체가 검사되지 않은 인코더를 담을 수 없습니다. pre-commit, `verify.sh`, CI에서 실행됩니다.
 
 ## 관련 문서
 

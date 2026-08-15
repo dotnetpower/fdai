@@ -120,6 +120,7 @@ async def _hook(
     complete_metadata: bool = True,
     activity_bus: InMemoryEventBus | None = None,
     invocation_id_factory: Callable[[], str] | None = None,
+    semantic_state: str = "running",
 ) -> tuple[Any, InMemoryStateStore]:
     object_type = _object_type()
     function_type = _function_type()
@@ -141,7 +142,7 @@ async def _hook(
         synthetic=False,
         evidence_refs=("inventory-snapshot:snapshot-1",),
     )
-    provider_properties: dict[str, Any] = {"state": "running"}
+    provider_properties: dict[str, Any] = {"state": semantic_state}
     if complete_metadata:
         provider_properties[STATE_FACT_METADATA_PROPERTY] = metadata.to_mapping()
     await store.upsert_object(
@@ -301,3 +302,40 @@ async def test_repeated_resource_state_reads_keep_distinct_activity_identity(
         "invocation-two",
     ):
         assert sensitive_value not in serialized
+
+
+async def test_cross_source_state_conflict_lowers_the_answer_and_activity() -> None:
+    agreed_bus = InMemoryEventBus()
+    agreed_hook, _ = await _hook(activity_bus=agreed_bus)
+    agreed = await agreed_hook(
+        "What is the current state of vm-01?",
+        {"session_id": "session-one", "user_id": "reader-one"},
+    )
+    agreed_events = [event async for event in agreed_bus.subscribe("aw.pipeline.stages", "test")]
+
+    assert agreed is not None
+    assert agreed["answer"] == "vm-01 is currently running."
+    assert agreed["facts"]["state"] == "running"
+    assert agreed["facts"]["cross_source_conflicts"] == []
+    assert agreed_events[-1].payload["status"] == "completed"
+    assert agreed_events[-1].payload["freshness"] == "fresh"
+
+    contested_bus = InMemoryEventBus()
+    contested_hook, _ = await _hook(activity_bus=contested_bus, semantic_state="stopped")
+    contested = await contested_hook(
+        "What is the current state of vm-01?",
+        {"session_id": "session-one", "user_id": "reader-one"},
+    )
+    contested_events = [
+        event async for event in contested_bus.subscribe("aw.pipeline.stages", "test")
+    ]
+
+    assert contested is not None
+    assert contested["facts"]["cross_source_conflicts"] == ["cross_source_conflict:state"]
+    assert contested["facts"]["state"] is None
+    assert "contested" in contested["answer"]
+    assert "running" not in contested["answer"]
+    assert contested["facts"]["execution_authority"] is False
+    assert contested_events[-1].payload["status"] == "degraded"
+    assert contested_events[-1].payload["freshness"] == "unknown"
+    assert "cross_source_conflict:state" in contested_events[-1].payload["reason_codes"]

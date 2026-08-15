@@ -41,6 +41,7 @@ IAM_FAMILY_MANIFEST = (
     IamRouteManifestEntry("GET", "/runtime/settings", "get_settings"),
     IamRouteManifestEntry("PUT", "/runtime/settings", "put_settings"),
     IamRouteManifestEntry("POST", "/system/kill-switch", "handler"),
+    IamRouteManifestEntry("POST", "/system/break-glass/activation", "handler"),
     IamRouteManifestEntry("POST", "/configuration-baselines/review/run", "run_review"),
     IamRouteManifestEntry("POST", "/configuration-baselines/review/resume", "resume_review"),
     IamRouteManifestEntry("POST", "/hil/{approval_id}/decision", "handler"),
