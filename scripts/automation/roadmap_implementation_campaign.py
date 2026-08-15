@@ -11,6 +11,7 @@ import re
 import secrets
 import subprocess
 import sys
+import time
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path, PurePosixPath
 from typing import Any, TextIO
@@ -23,6 +24,8 @@ import roadmap_verification_watchdog as watchdog
 BATCH_SIZE = 10
 MIN_HARDENING_ROUNDS = 10
 STATE_DIRECTORY = "fdai-roadmap-implementation"
+REFUSAL_FILE = "refused-folders.json"
+REFUSAL_TTL_SECONDS = 12 * 3600
 ELIGIBLE_PROJECT_STATUSES = frozenset({"Ready", "In progress"})
 DEFAULT_AGENT_TIMEOUT_SECONDS = 3_600
 CHANGED_TEST_TIMEOUT_SECONDS = 900
@@ -62,6 +65,44 @@ def remaining_work_by_folder(repo_root: Path) -> dict[str, list[str]]:
             continue
         grouped.setdefault(candidate.parts[2], []).append(relative)
     return {folder: sorted(documents) for folder, documents in sorted(grouped.items())}
+
+
+def refused_folders(
+    state_root: Path, issue_number: int, *, now: float, ttl: int = REFUSAL_TTL_SECONDS
+) -> frozenset[str]:
+    """Return folders this issue was recently refused, so a run is not respent on them."""
+    try:
+        raw = json.loads((state_root / REFUSAL_FILE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return frozenset()
+    if not isinstance(raw, dict):
+        return frozenset()
+    prefix = f"{issue_number}:"
+    return frozenset(
+        key[len(prefix) :]
+        for key, recorded in raw.items()
+        if key.startswith(prefix) and isinstance(recorded, int | float) and now - recorded < ttl
+    )
+
+
+def record_refusal(
+    state_root: Path, issue_number: int, folder: str, *, now: float, ttl: int = REFUSAL_TTL_SECONDS
+) -> None:
+    path = state_root / REFUSAL_FILE
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        raw = {}
+    if not isinstance(raw, dict):
+        raw = {}
+    kept = {
+        key: value
+        for key, value in raw.items()
+        if isinstance(value, int | float) and now - value < ttl
+    }
+    kept[f"{issue_number}:{folder}"] = now
+    path.write_text(json.dumps(kept, indent=2, sort_keys=True), encoding="utf-8")
+    os.chmod(path, 0o600)
 
 
 def choose_folder(
@@ -377,7 +418,11 @@ def run_cycle(
             return "held: registered issue discovery is unavailable"
         if issue is None:
             return "idle: no eligible registered issue"
-        selected = choose_folder(remaining_work_by_folder(repo_root))
+        grouped = remaining_work_by_folder(repo_root)
+        refused = refused_folders(state_root, issue.number, now=time.time())
+        # Fail open: if every folder was refused, re-offer them all rather than idling forever.
+        narrowed = {name: docs for name, docs in grouped.items() if name not in refused}
+        selected = choose_folder(narrowed or grouped)
         if selected is None:
             return "idle: no roadmap folder has ten remaining-work documents"
         folder, candidates = selected
@@ -406,6 +451,7 @@ def run_cycle(
                 "status", "--porcelain", cwd=repo_root
             ):
                 raise RuntimeError("blocked campaign must not leave repository changes")
+            record_refusal(state_root, issue.number, folder, now=time.time())
             # A blocked run produces no commit, so its summary is the only evidence of why.
             return f"blocked: issue #{issue.number}, docs/roadmap/{folder}: {result['summary']}"
         if _git("status", "--porcelain", cwd=repo_root):
