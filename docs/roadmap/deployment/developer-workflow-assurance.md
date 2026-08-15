@@ -244,6 +244,7 @@ The remaining Low risks are explicit and bounded:
 | 2026-08-15 | implemented | Added two review-evidence rounds that pin validator scratch ownership and focused automation test selection. | Current change; validator and selector suites passed 85 tests. | Integrate the exact revision, obtain central validation, and complete issue #118. |
 | 2026-08-15 | implemented | Closed integration-level bypasses in the real pre-tool dispatcher and validator scratch symlink boundary. | Current change; 19 dispatcher and guard tests plus 2 scratch ownership tests passed. | Obtain exact central validation and complete issue #118. |
 | 2026-08-15 | implemented | Closed four adversarial parser rounds covering commit scope, approval comments, Git aliases, config-env option forms, and symlink ancestors. | Current change; 40 dispatcher and parser fixtures plus 3 scratch ownership guards passed, and independent acceptance found no residual above Low. | Obtain exact central validation and complete issue #118. |
+| 2026-08-15 | validated | Central validation accepted the final Top 20 implementation and assurance ledger revision. | `validation_queue.py check-commit 4a18ce982` passed; the final focused join passed 221 tests. | Complete issue #118 and synchronize the project board. |
 
 ### Remaining work
 
@@ -252,7 +253,8 @@ The remaining Low risks are explicit and bounded:
 - [x] Central validation accepted integrated implementation revision `d3f5257b9`.
 - [x] The final independent review found no residual finding above Low.
 - [x] Completed 22 additional rounds with only the bounded Low residuals listed above.
-- [ ] Integrate the exact Top 20 revision, obtain central validation, and complete issue #118.
+- [x] Integrated Top 20 revision `4a18ce982` and obtained its exact central validation receipt.
+- [ ] Complete issue #118 and synchronize the project board.
 
 ## Related docs
 
