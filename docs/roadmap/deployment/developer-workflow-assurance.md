@@ -148,8 +148,8 @@ The final independent re-review found no residual above Low. It accepted these b
 - A target symlink that resolves outside the repository is rejected with
   `context_target_outside_repository`.
 
-The review also rejected one false finding that Azure retry was absent. Commit `583398431` and the
-focused throttle, permanent-error, and retry-exhaustion tests prove that implementation.
+The review also rejected one false finding that Azure retry was absent. The transport implementation
+and focused throttle, permanent-error, and retry-exhaustion tests prove that behavior.
 
 ## Implementation status
 
