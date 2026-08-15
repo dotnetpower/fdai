@@ -299,7 +299,7 @@ test("authenticated Korean incident answer retains progressive presentation thro
   );
 
   const runConfiguration: AssuranceRunConfiguration = {
-    schema_version: "1.3.0",
+    schema_version: "1.4.0",
     run_id: "semantic-answer-presentation",
     seed: 0x0fda1,
     minimum_request_interval_ms: 0,

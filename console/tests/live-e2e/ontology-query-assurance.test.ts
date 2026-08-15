@@ -8,6 +8,7 @@ import {
   assuranceCheckpointPath,
   assuranceCohortPassed,
   assuranceEvidenceIdentity,
+  assuranceOperationMatchesPlan,
   assuranceReceiptSource,
   assuranceRunMode,
   checkpointDiscardable,
@@ -84,7 +85,7 @@ describe("ontology query assurance production readiness", () => {
 
 function runConfiguration(): AssuranceRunConfiguration {
   return {
-    schema_version: "1.3.0",
+    schema_version: "1.4.0",
     run_id: "issue63-20260815T120000Z",
     seed: 0x0fda1,
     minimum_request_interval_ms: 15_000,
@@ -364,6 +365,8 @@ describe("isRetainedTurnResult", () => {
     transport_attempts: [{ attempt: 1, outcome: "semantic_terminal" }],
     passed: true,
     unauthorized_execution_claim: false,
+    plan_capabilities: ["function:query.manifest"],
+    plan_capability_match: true,
   };
 
   it("accepts a fully attributed result", () => {
@@ -382,6 +385,18 @@ describe("isRetainedTurnResult", () => {
       { ...retained, produced_by_run_id: "" },
       { ...retained, passed: "yes" },
       { ...retained, unauthorized_execution_claim: undefined },
+      { ...retained, plan_capabilities: undefined },
+      { ...retained, plan_capabilities: ["query.anything"] },
+      { ...retained, plan_capabilities: ["object_set", "object_set"] },
+      { ...retained, plan_capability_match: undefined },
+      {
+        ...retained,
+        disposition: "answered",
+        projection_id: "p1",
+        request_id: "r1",
+        plan_capability_match: true,
+        plan_capabilities: ["aggregate"],
+      },
       { ...retained, attempt_count: "1" },
       { ...retained, transport_attempts: [] },
       { ...retained, transport_attempts: [{ attempt: 1 }] },
@@ -397,6 +412,40 @@ describe("isRetainedTurnResult", () => {
     for (const value of broken) {
       expect(isRetainedTurnResult(value), JSON.stringify(value)).toBe(false);
     }
+  });
+});
+
+describe("assuranceOperationMatchesPlan", () => {
+  it("accepts the exact minimum capability for each answer-required operation", () => {
+    expect(assuranceOperationMatchesPlan("inventory_listing", ["function:query.manifest"]))
+      .toBe(true);
+    expect(assuranceOperationMatchesPlan("relationship_traversal", ["topology_at"]))
+      .toBe(true);
+    expect(assuranceOperationMatchesPlan("property_filter", ["object_set:filtered"]))
+      .toBe(true);
+    expect(assuranceOperationMatchesPlan("aggregation", ["object_set", "aggregate"]))
+      .toBe(true);
+    expect(assuranceOperationMatchesPlan("temporal_comparison", ["topology_diff"]))
+      .toBe(true);
+    expect(assuranceOperationMatchesPlan("causal_analysis", ["evidence_join"]))
+      .toBe(true);
+    expect(assuranceOperationMatchesPlan("evidence_validation", ["object_set"]))
+      .toBe(true);
+  });
+
+  it("rejects evidence-complete plans for the wrong operation", () => {
+    expect(assuranceOperationMatchesPlan("aggregation", ["function:query.manifest"]))
+      .toBe(false);
+    expect(assuranceOperationMatchesPlan("property_filter", ["object_set"]))
+      .toBe(false);
+    expect(assuranceOperationMatchesPlan("causal_analysis", ["topology_at"]))
+      .toBe(false);
+  });
+
+  it("does not impose answer capabilities on governed refusal operations", () => {
+    expect(assuranceOperationMatchesPlan("action_draft_boundary", [])).toBe(true);
+    expect(assuranceOperationMatchesPlan("ambiguous_clarification", [])).toBe(true);
+    expect(assuranceOperationMatchesPlan("unsupported_domain", [])).toBe(true);
   });
 });
 
@@ -556,7 +605,7 @@ describe("assuranceCheckpointPath", () => {
 
 describe("ontology assurance evidence identity", () => {
   const configuration = {
-    schema_version: "1.3.0",
+    schema_version: "1.4.0",
     run_id: "run-1",
     seed: 0x0fda1,
     minimum_request_interval_ms: 15_000,
@@ -604,7 +653,7 @@ describe("ontology assurance evidence identity", () => {
       { seed: 1 },
       { question_ids: ["en-aggregation-1"] },
       { authentication: "other" },
-      { schema_version: "1.4.0" },
+      { schema_version: "1.3.0" },
     ]) {
       const identity = assuranceEvidenceIdentity(
         { ...configuration, ...override } as unknown as typeof configuration,
@@ -751,7 +800,7 @@ describe("ontology query assurance provenance", () => {
       runConfiguration(),
     )).toEqual({
       source_revision: "b".repeat(40),
-      configuration_digest: "sha256:25810cdb993e97b0df8dc431a1ab6a53d9a09aa554cb44fce11bab55b190a918",
+      configuration_digest: "sha256:87f6c85edca094cd22247224d89823d1e6979d4b96ee7aa5888fbd107687be8a",
       workspace_patch_digest: `sha256:${"c".repeat(64)}`,
     });
   });
