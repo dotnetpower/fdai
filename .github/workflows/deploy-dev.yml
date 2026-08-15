@@ -1593,7 +1593,9 @@ jobs:
           run_job() {
             local job="$1"
             local purpose="$2"
-            if [ "$SECONDS" -ge "$migration_deadline" ]; then
+            # Refuse a start that cannot be observed at least once: one poll cycle plus the
+            # ARM start round trip must still fit inside the shared budget.
+            if [ "$((SECONDS + migration_start_margin))" -ge "$migration_deadline" ]; then
               echo "refusing to start $purpose job $job with no budget left to observe it" >&2
               exit 1
             fi
@@ -1619,6 +1621,7 @@ jobs:
           # One cumulative budget for every migration job; a slow job can no longer
           # multiply an implicit per-job attempt count across the whole step.
           migration_budget=900
+          migration_start_margin=45
           migration_deadline=$((SECONDS + migration_budget))
 
           jobs=()

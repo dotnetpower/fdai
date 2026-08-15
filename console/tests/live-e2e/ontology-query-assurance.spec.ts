@@ -459,11 +459,6 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     },
     results: retained,
   };
-  // Retire the checkpoint before publishing the artifact so a later failure cannot leave a
-  // complete checkpoint that a following run would replay as fresh evidence.
-  if (checkpointFile !== null && stopReason === null && retained.length === questions.length) {
-    await rm(checkpointFile, { force: true });
-  }
   const artifactPath = testInfo.outputPath("ontology-query-randomized-assurance.json");
   await writeFile(artifactPath, `${JSON.stringify(artifact, null, 2)}\n`, "utf8");
   await testInfo.attach("ontology-query-randomized-assurance", {
@@ -471,10 +466,8 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     contentType: "application/json",
   });
 
-  if (checkpointFile !== null && stopReason === null && retained.length === questions.length) {
-    await rm(checkpointFile, { force: true });
-  }
-
+  // Retire a complete cohort before the assertions so a later run cannot replay it, while a
+  // partial cohort keeps its checkpoint for resume.
   if (checkpointFile !== null && stopReason === null && retained.length === questions.length) {
     await rm(checkpointFile, { force: true });
   }
