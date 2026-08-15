@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from pathlib import Path
 
 import httpx
@@ -408,6 +409,41 @@ async def test_rule_generation_outbox_fatal_exit_is_logged(
     await asyncio.sleep(0)
 
     assert "rule_generation_outbox_failed" in caplog.messages
+
+
+async def test_rule_generation_outbox_clean_shutdown_is_not_warned(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    stop = asyncio.Event()
+    stop.set()
+
+    async def _exit() -> None:
+        return None
+
+    caplog.set_level("WARNING", logger="fdai.startup")
+    task = asyncio.create_task(_exit())
+    task.add_done_callback(partial(log_rule_generation_outbox_exit, stop=stop))
+
+    await task
+    await asyncio.sleep(0)
+
+    assert "rule_generation_outbox_exited_early" not in caplog.messages
+
+
+async def test_rule_generation_outbox_exit_without_shutdown_is_warned(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    async def _exit() -> None:
+        return None
+
+    caplog.set_level("WARNING", logger="fdai.startup")
+    task = asyncio.create_task(_exit())
+    task.add_done_callback(partial(log_rule_generation_outbox_exit, stop=asyncio.Event()))
+
+    await task
+    await asyncio.sleep(0)
+
+    assert "rule_generation_outbox_exited_early" in caplog.messages
 
 
 async def test_semantic_turn_bootstrap_exposes_exact_missing_runtime_reason() -> None:

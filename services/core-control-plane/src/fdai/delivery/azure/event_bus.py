@@ -19,7 +19,8 @@ import hashlib
 import json
 import logging
 import ssl
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncGenerator, AsyncIterator, Mapping
+from contextlib import aclosing
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, ClassVar, Final, Literal
@@ -362,8 +363,11 @@ async def _iter_consumer(
                 },
             )
             if token_provider is None:
-                async for envelope in _consume_messages(consumer):
-                    yield envelope
+                # Closing the nested stream here keeps consumer teardown inside the
+                # caller's task instead of deferring it to loop finalization.
+                async with aclosing(_consume_messages(consumer)) as stream:
+                    async for envelope in stream:
+                        yield envelope
                 return
             refresh_at = asyncio.get_running_loop().time() + _token_refresh_delay(
                 token_provider=token_provider,
@@ -396,7 +400,7 @@ async def _iter_consumer(
             await _stop_consumer(consumer)
 
 
-async def _consume_messages(consumer: AIOKafkaConsumer) -> AsyncIterator[EventEnvelope]:
+async def _consume_messages(consumer: AIOKafkaConsumer) -> AsyncGenerator[EventEnvelope, None]:
     while True:
         message = await consumer.getone()
         key = _decode_key(message.key)

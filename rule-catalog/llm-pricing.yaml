@@ -36,6 +36,18 @@ models:
     input_per_1k: "15.00"
     output_per_1k: "60.00"
     currency: USD
+  gpt-4.1:
+    input_per_1k: "2.00"
+    output_per_1k: "8.00"
+    currency: USD
+  gpt-5:
+    input_per_1k: "1.25"
+    output_per_1k: "10.00"
+    currency: USD
+  gpt-5.4:
+    input_per_1k: "1.25"
+    output_per_1k: "10.00"
+    currency: USD
 
   # OpenAI mini judges (T1)
   gpt-4o-mini:

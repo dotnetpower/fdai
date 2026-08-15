@@ -507,7 +507,11 @@ async def run_rule_generation_outbox_publisher(
             continue
 
 
-def log_rule_generation_outbox_exit(task: asyncio.Task[None]) -> None:
+def log_rule_generation_outbox_exit(
+    task: asyncio.Task[None],
+    *,
+    stop: asyncio.Event | None = None,
+) -> None:
     """Surface fatal or unexpected publisher exits from its isolated task."""
 
     if task.cancelled():
@@ -515,7 +519,7 @@ def log_rule_generation_outbox_exit(task: asyncio.Task[None]) -> None:
     exc = task.exception()
     if exc is not None:
         _LOGGER.error("rule_generation_outbox_failed", exc_info=exc)
-    else:
+    elif stop is None or not stop.is_set():
         _LOGGER.warning("rule_generation_outbox_exited_early")
 
 
