@@ -64,20 +64,22 @@ __all__ = [
 
 def status_report(root: Path) -> dict[str, Any]:
     """Build one versioned report without changing repository or process state."""
+    resolved = _git_common_dir(root)
+    diagnostic_root = resolved[0] if resolved is not None else root
     return {
         "generated_at": datetime.now(UTC).isoformat(),
         "read_only": True,
         "schema_version": SCHEMA_VERSION,
         "sections": {
             "browser_runner": _browser_runner_diagnostic(),
-            "editor_pressure": _editor_pressure_for_root(root),
-            "environment": _environment_diagnostic(root),
-            "git": _git_diagnostic(root),
-            "hooks": _hook_diagnostic(root),
-            "index": _index_diagnostic(root),
-            "local_services": _local_services_diagnostic(root),
-            "validation": _validation_diagnostic(root),
-            "warnings": _warning_diagnostic(root),
+            "editor_pressure": _editor_pressure_for_root(root, resolved=resolved),
+            "environment": _environment_diagnostic(root, resolved=resolved),
+            "git": _git_diagnostic(root, resolved=resolved),
+            "hooks": _hook_diagnostic(root, resolved=resolved),
+            "index": _index_diagnostic(diagnostic_root),
+            "local_services": _local_services_diagnostic(root, resolved=resolved),
+            "validation": _validation_diagnostic(root, resolved=resolved),
+            "warnings": _warning_diagnostic(root, resolved=resolved),
         },
     }
 

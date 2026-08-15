@@ -74,6 +74,36 @@ def test_status_json_is_versioned_and_read_only(tmp_path: Path) -> None:
     assert after == before
 
 
+def test_status_resolves_repository_context_once(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_module()
+    repository_module = sys.modules["scripts.automation.developer_workflow_repository"]
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    assert _git(repo, "init", "--quiet", "--initial-branch=main").returncode == 0
+    assert _git(repo, "config", "user.email", "user@example.com").returncode == 0
+    assert _git(repo, "config", "user.name", "Example User").returncode == 0
+    (repo / "example.txt").write_text("value\n", encoding="utf-8")
+    assert _git(repo, "add", "example.txt").returncode == 0
+    assert _git(repo, "commit", "--quiet", "-m", "initial").returncode == 0
+    calls: list[tuple[str, ...]] = []
+    original_git = repository_module.git
+
+    def counting_git(root: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
+        calls.append(arguments)
+        return original_git(root, *arguments)
+
+    monkeypatch.setattr(repository_module, "git", counting_git)
+
+    report = module.status_report(repo)
+
+    assert report["sections"]["git"]["status"] == "ok"
+    assert calls.count(("rev-parse", "--show-toplevel")) == 1
+    assert calls.count(("rev-parse", "--git-common-dir")) == 1
+
+
 def test_status_reports_non_repository_as_unavailable(tmp_path: Path) -> None:
     result = _run(tmp_path, "status", "--json")
 
