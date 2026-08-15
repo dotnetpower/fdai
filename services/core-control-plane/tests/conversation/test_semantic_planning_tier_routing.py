@@ -144,6 +144,22 @@ def _function_plan(function_name: str, *, output_kind: str) -> dict[str, object]
     }
 
 
+def _aggregate_plan(definition: ObjectSetDefinition) -> dict[str, object]:
+    plan = _plan(definition)
+    plan["nodes"] = [
+        *plan["nodes"],  # type: ignore[misc]
+        {
+            "node_id": "aggregate",
+            "kind": "aggregate",
+            "depends_on": ["resources"],
+            "arguments": {"operation": "count", "group_by": [], "limit": 10},
+            "output_kind": "query.table",
+        },
+    ]
+    plan["output_node_ids"] = ["aggregate"]
+    return plan
+
+
 def _service(t1: _Model, t2: _Model, manifest: Any) -> SemanticPlanningService:
     return SemanticPlanningService(
         model=t1,
@@ -287,6 +303,48 @@ def test_incident_function_cannot_satisfy_resource_frame() -> None:
     t1 = _Model(
         frame=_frame(output_shape="resource_list"),
         plan=_function_plan("query.incident_evidence", output_kind="incident.evidence"),
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+
+
+def test_aggregation_frame_requires_aggregate_plan() -> None:
+    manifest, definition = _fixture()
+    t1 = _Model(frame=_frame(output_shape="aggregation_table"), plan=_plan(definition))
+    t2 = _Model(frame=_frame(), plan=_aggregate_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+
+
+def test_property_filter_frame_requires_object_set_predicate() -> None:
+    manifest, definition = _fixture()
+    unfiltered = definition.model_copy(update={"predicates": ()})
+    t1 = _Model(
+        frame=_frame(output_shape="property_filtered_resources"),
+        plan=_plan(unfiltered),
     )
     t2 = _Model(frame=_frame(), plan=_plan(definition))
     service = SemanticPlanningService(
