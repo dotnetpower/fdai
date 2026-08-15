@@ -25,10 +25,12 @@ from typing import cast
 
 from fdai_operator_service.families.iam.access_grants import make_access_grant_routes
 from fdai_operator_service.families.iam.assignments import make_assignment_routes
+from fdai_operator_service.families.iam.break_glass import make_break_glass_activation_route
 from fdai_operator_service.families.iam.contracts import (
     AccessGrantOutbox,
     AssignmentRequestOutbox,
     AuthorizePrincipal,
+    BreakGlassActivationOutbox,
     ConfigurationReviewOutbox,
     HandoverGoalOutbox,
     HilDecisionOutbox,
@@ -74,6 +76,7 @@ class IamFamilyBindings:
     model_settings: ModelSettingsOutbox | None = None
     runtime_settings: RuntimeSettingsOutbox | None = None
     kill_switch: KillSwitchOutbox | None = None
+    break_glass: BreakGlassActivationOutbox | None = None
     configuration_review: ConfigurationReviewOutbox | None = None
     hil_registry: HilDecisionRegistry | None = None
     hil_outbox: HilDecisionOutbox | None = None
@@ -117,6 +120,10 @@ def make_iam_family_routes(bindings: IamFamilyBindings) -> tuple[Route, ...]:
         ),
         make_kill_switch_route(
             outbox=bindings.kill_switch,
+            authorize=bindings.authorize,
+        ),
+        make_break_glass_activation_route(
+            outbox=bindings.break_glass,
             authorize=bindings.authorize,
         ),
         *make_configuration_review_routes(
