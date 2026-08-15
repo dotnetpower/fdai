@@ -31,6 +31,7 @@ its DI seams; it extends the T2 gate rules in
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted an evidence-bounded implementation ledger without reconstructing earlier delivery history. | `current change`; current source and focused checks listed in the scope table; rubric-focused checks passed 103 cases. | Wire the self-consistency cascade, prove end-to-end audit persistence, and retain governed shadow and promotion evidence. |
 | 2026-08-14 | implemented | Invoked the self-consistency cascade from the production T2 path behind opt-in configuration, and proved end-to-end rubric provenance persistence without untrusted rationale. | `current change`; `tier.py`, `self_consistency.py`, `control_loop.py`, `models.py`; focused checks passed 172 quality-gate and T2 cases, 3 control-loop audit cases, and 11 runtime binding cases; task-scoped Ruff and strict mypy passed. | Retain governed shadow receipts for catch rate, false-positive rate, latency, token cost, and zero escapes, then decide the promotion transition. |
+| 2026-08-16 | implemented | Corrected a safety-relevant description, not behavior. This document and the `gate.py` module docstring both described a path where a debate `PROCEED` resolves a cross-check disagreement. No such path exists: `cross_check_below_quorum` is never removed from `reasons`, so the outcome is unconditionally `DISAGREE`. Reading either text as a specification would have invited an implementer to flip `DISAGREE` to `ELIGIBLE` and weaken the mixed-model safeguard. | `current change`; `gate.py` outcome selection reads `if any(r.startswith("cross_check_below_quorum") ...)` before any other branch; `test_debate_proceed_keeps_disagreement_for_human_review` already asserts `DISAGREE` and the retained reason. | None for this correction. |
 
 ### Remaining work
 
@@ -68,13 +69,17 @@ keeps it consistent with "the verifier is the authority, never the model":
   eligible reason.
 - The rubric never short-circuits a verifier deny and never converts a
   would-be-abstain into eligible.
-- This holds on **every** outcome path, including the one where the debate
-  orchestrator resolves a cross-check disagreement: a rubric reason keeps the
-  outcome at abstain even when the debate would otherwise proceed.
+- This holds on **every** outcome path. It holds trivially on the debate path,
+  because a debate never resolves a cross-check disagreement in the first
+  place: `cross_check_below_quorum` is never removed from `reasons`, so a
+  debate `PROCEED` leaves the outcome at `DISAGREE` rather than reaching
+  `ABSTAIN` or `ELIGIBLE`. A debate enriches the audit trail; it cannot buy
+  back mixed-model quorum.
 
-A property test asserts this directly: a maximal rubric score cannot rescue a
-low-confidence candidate, and a rubric FAIL is honored even after a debate
-PROCEED.
+A property test asserts the rubric rule directly: a maximal rubric score cannot
+rescue a low-confidence candidate. `test_debate_proceed_keeps_disagreement_for_human_review`
+asserts the debate rule: after a debate `PROCEED` the outcome is still
+`DISAGREE` and `cross_check_below_quorum` is still present.
 
 ## Works with
 

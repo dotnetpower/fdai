@@ -36,9 +36,10 @@ Wave 4.5 delta-2b: the gate accepts an optional
 When cross-check quorum disagrees AND both are wired AND the router
 returns :attr:`DebateRoute.DEBATE`, the gate runs the debate and:
 
-- treats ``DebateOutcome(verdict=PROCEED)`` as resolving the
-  disagreement (outcome flips from ``DISAGREE`` to ``ELIGIBLE`` provided
-  no other reasons stand);
+- treats ``DebateOutcome(verdict=PROCEED)`` as audit evidence only. It
+  does NOT clear the disagreement. ``cross_check_below_quorum`` stays in
+  ``reasons``, so the outcome stays ``DISAGREE`` and the candidate still
+  reaches a human. A debate cannot buy back mixed-model quorum;
 - keeps the disagreement on ``DebateOutcome(verdict=ABORT)`` and adds
   the orchestrator's ``reason`` string to the audit trail.
 

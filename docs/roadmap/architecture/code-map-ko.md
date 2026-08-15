@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: a579bd0251c90514136c5c8def46f16dcf405ddd
+translation_source_sha: 8c52c4fd1f9cb24cf5681c1886e408562a8d7196
 translation_revised: 2026-08-16
 ---
 # 코드 맵
