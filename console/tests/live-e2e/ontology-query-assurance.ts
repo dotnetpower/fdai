@@ -221,6 +221,20 @@ export function checkpointRetirable(input: {
     input.cohortSize > 0 && input.retainedCount === input.cohortSize;
 }
 
+/**
+ * Returns whether the checkpoint file must be removed.
+ *
+ * A checkpoint that mixes generations can never satisfy the pass criteria again, so keeping it
+ * would make the cohort permanently unpassable. Detection without recovery is a sink, so the run
+ * discards the file and the next run restarts against one generation.
+ */
+export function checkpointDiscardable(input: {
+  readonly retirable: boolean;
+  readonly generationConsistent: boolean;
+}): boolean {
+  return input.retirable || !input.generationConsistent;
+}
+
 const LOCALES: readonly AssuranceLocale[] = ["en", "ko"];
 
 /** The transport outcomes the runner records for one attempt. */
@@ -346,17 +360,22 @@ export function assuranceCohortPassed(input: {
     input.authoritativeOutcomeCount === input.retainedCount;
 }
 
-/** Names the checkpoint that belongs to one cohort against one evidence identity. */
+/**
+ * Names the checkpoint that belongs to one cohort against one binding.
+ *
+ * The key covers every field the binding validates, so a run against another revision, workspace,
+ * or target stack keeps its own file instead of overwriting evidence it may not resume.
+ */
 export function assuranceCheckpointPath(input: {
   readonly configured: string | undefined;
   readonly directory: string;
   readonly runScope: string;
-  readonly evidenceIdentityDigest: string;
+  readonly bindingDigest: string;
 }): string | null {
   if (input.configured !== undefined) {
     return input.configured.trim().length === 0 ? null : input.configured;
   }
-  const key = input.evidenceIdentityDigest.replace(/^sha256:/, "").slice(0, 16);
+  const key = input.bindingDigest.replace(/^sha256:/, "").slice(0, 16);
   return `${input.directory}/ontology-assurance-${input.runScope}-${key}.json`;
 }
 

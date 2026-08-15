@@ -296,6 +296,7 @@ deadline, a no-progress deadline, a progress signal, and a resumable checkpoint.
 | 17 | Unfalsifiable live proof | The released question could be one that never carries a generation digest, and a complete-but-failing cohort discarded its checkpoint | Release the tail through the last answer-required question, confirm resumed generations against live answers, and retire a checkpoint only after a passing publication. |
 | 18 | Non-converging resume | A failed turn resumed as a permanent failure, the released tail could exceed one budget, and the run preamble had no declared timeout | Resume only verified turns, release exactly one proof question, and bound every preamble step. |
 | 19 | Proof question that cannot prove | The released question was chosen by operation, so a governed refusal left a resumed cohort unable to prove a generation, and a complete cohort that failed only its release criteria still discarded its checkpoint | Release a question an earlier run answered, retire only on the asserted release outcome, and reset the page after a deadline breach. |
+| 20 | Detected but unrecoverable state | A checkpoint that mixed generations was persisted and then permanently refused, one file served every binding, and a failed page reset kept the run going | Discard an inconsistent checkpoint, key the file by the whole binding, and stop when the page cannot be reset. |
 
 ### Contract
 
@@ -324,9 +325,10 @@ deadline, a no-progress deadline, a progress signal, and a resumable checkpoint.
   stays attributable and a result without that attribution cannot pass.
 - A per-attempt deadline breach ends the question; only a retryable transport source or a
   transient turn error uses a remaining attempt.
-- A run that answers nothing live never publishes as authoritative. A resumed run always releases
-  one question that an earlier run answered with a generation digest, so it re-answers a question
-  that can prove the ontology release and principal manifest of the stack it reports.
+- A run that answers nothing live never publishes as authoritative. A resumed run releases one
+  question that an earlier run answered with a generation digest, so it re-answers a question that
+  can prove the ontology release and principal manifest of the stack it reports. A cohort with no
+  such stored answer releases its last answer-required question instead.
 - Only a verified turn resumes. A failed turn is re-attempted rather than inherited, so one flaky
   turn cannot make a cohort permanently unpassable at a pinned revision, and a resume costs the
   proof question plus every question the earlier run left unverified.

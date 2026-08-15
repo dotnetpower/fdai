@@ -83,7 +83,7 @@ def test_console_test_types_run_in_the_enforced_operator_gate() -> None:
 
     assert "tsc --noEmit -p tsconfig.tests.json" in runner
     assert "tsc --noEmit -p tsconfig.tests.json" in package
-    assert '"include": ["tests"]' in tests_project
+    assert '"include": ["tests", "scripts"]' in tests_project
     # The gate must keep the application typecheck without paying for it twice.
     assert "npm --prefix console run typecheck" not in runner
     assert json.loads(package)["scripts"]["build"].startswith("tsc --noEmit")
