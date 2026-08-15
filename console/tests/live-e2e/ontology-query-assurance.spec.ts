@@ -29,6 +29,8 @@ import {
   assuranceEvidenceIdentity,
   assuranceOperations,
   assuranceRunMode,
+  evidenceGenerationConsistent,
+  resumableWithLiveProof,
   assuranceTransportRetrySources,
   buildAssuranceRunProvenance,
   assuranceSessionId,
@@ -154,7 +156,19 @@ function retainTransportAttempt(
 /** Rejects a checkpoint whose retained results lost any field the pass criteria read. */
 function isRetainedTurnResult(value: Record<string, unknown>): boolean {
   const optionalNumbers = ["checks_completed", "checks_total", "evidence_ref_count"] as const;
-  const optionalStrings = ["disposition", "reason_code", "failure_reason"] as const;
+  const optionalStrings = [
+    "disposition",
+    "reason_code",
+    "failure_reason",
+    "projection_id",
+    "request_id",
+    "semantic_route",
+    "unavailable_reason",
+    "ontology_release_digest",
+    "principal_manifest_digest",
+    "plan_digest",
+    "execution_receipt_digest",
+  ] as const;
   return typeof value.produced_by_run_id === "string" && value.produced_by_run_id.length > 0 &&
     typeof value.passed === "boolean" &&
     typeof value.unauthorized_execution_claim === "boolean" &&
@@ -166,7 +180,11 @@ function isRetainedTurnResult(value: Record<string, unknown>): boolean {
       typeof (attempt as Record<string, unknown>).outcome === "string"
     ) &&
     optionalNumbers.every((key) => value[key] === undefined || typeof value[key] === "number") &&
-    optionalStrings.every((key) => value[key] === undefined || typeof value[key] === "string");
+    optionalStrings.every((key) => value[key] === undefined || typeof value[key] === "string") &&
+    // The runner always records identifiers with a disposition, so a result missing them would
+    // pass the uniqueness criteria vacuously.
+    (value.disposition === undefined ||
+      (typeof value.projection_id === "string" && typeof value.request_id === "string"));
 }
 
 interface QuestionOutcome {
@@ -312,9 +330,12 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     workspace_patch_digest: provenance.workspace_patch_digest,
   };
   const checkpointFile = checkpointPath(runScope, checkpointBinding.evidence_identity_digest);
-  const resumed = checkpointFile === null ? [] : resumableResults(
-    await readAssuranceCheckpoint<RetainedTurnResult>(checkpointFile, isRetainedTurnResult),
-    { binding: checkpointBinding, questionIds },
+  const resumed = resumableWithLiveProof(
+    checkpointFile === null ? [] : resumableResults(
+      await readAssuranceCheckpoint<RetainedTurnResult>(checkpointFile, isRetainedTurnResult),
+      { binding: checkpointBinding, questionIds },
+    ),
+    questions.length,
   );
   const retained: RetainedTurnResult[] = [...resumed];
   const outstanding = pendingQuestions(questions, retained);
@@ -464,10 +485,6 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   const liveQuestionCount = retained.length - resumed.length;
   const producedByRunIdCounts: Record<string, number> = {};
   for (const result of retained) increment(producedByRunIdCounts, result.produced_by_run_id);
-  const attributedOutcomeCount = retained.filter(
-    (result) => typeof result.produced_by_run_id === "string" &&
-      result.produced_by_run_id.length > 0,
-  ).length;
   const answeredResults = retained.filter((result) => result.disposition === "answered");
   const answeredEvidenceCount = answeredResults.filter((result) =>
     result.evidence_ref_count !== undefined && result.evidence_ref_count > 0 &&
@@ -500,16 +517,11 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     })));
   // A run that answered nothing live is only publishable when it completed the cohort from a
   // checkpoint bound to this exact source, workspace, target stack, and evidence identity.
-  const runMode = assuranceRunMode({
-    cohortSize: questions.length,
-    resumedCount: resumed.length,
-    liveCount: liveQuestionCount,
-    stopReason,
-  });
-  const cohortIsAuthoritative = runMode !== "interrupted";
+  const runMode = assuranceRunMode({ liveCount: liveQuestionCount, stopReason });
+  const generationConsistent = evidenceGenerationConsistent(retained);
   const passed = stopReason === null && retained.length === questions.length &&
-    cohortIsAuthoritative &&
-    attributedOutcomeCount === retained.length &&
+    assuranceCarriesLiveAuthority(runMode) &&
+    generationConsistent &&
     failures.length === 0 &&
     exhaustedTransportRetryCount === 0 &&
     duplicateRequestIds === 0 && duplicateProjectionIds === 0 &&
@@ -571,6 +583,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
       live_question_count: liveQuestionCount,
       per_attempt_deadline_exceeded_count: deadlineExceededCount,
       stalled_question_count: stalledQuestionCount,
+      evidence_generation_consistent: generationConsistent,
       passed_count: retained.length - failures.length,
       failed_count: failures.length,
       retried_question_count: retriedQuestionCount,
@@ -610,7 +623,9 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   }
 
   expect(stopReason, `assurance run stopped early: ${stopReason}`).toBeNull();
-  expect(cohortIsAuthoritative, "a governed run MUST answer live or complete a bound checkpoint")
+  expect(runMode, "a governed run MUST answer at least one question against the live stack")
+    .toBe("live");
+  expect(generationConsistent, "retained answers MUST describe one governed generation")
     .toBe(true);
   expect(retained).toHaveLength(questions.length);
   expect(failures, JSON.stringify(failures, null, 2)).toEqual([]);

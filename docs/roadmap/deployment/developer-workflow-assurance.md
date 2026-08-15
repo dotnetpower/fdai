@@ -292,6 +292,7 @@ deadline, a no-progress deadline, a progress signal, and a resumable checkpoint.
 | 13 | Dependency download | `--retry 5` with a 300-second retry window per job | Reduce to `--retry 3` with a 120-second retry window and a 90-second transfer cap. |
 | 14 | Remote drift detection | Auto-pull observed remote drift after at most 600 seconds | Poll every 180 seconds while preserving the clean-tree and validation guards. |
 | 15 | Excluded fast tests | `tests/live-e2e/**` excluded every Vitest file in that directory from every ordinary run | Exclude only Playwright specs so the fast contracts run in the normal loop. |
+| 16 | Replayed assurance authority | A cohort completed from a checkpoint could publish without answering any question against the live stack | Re-verify at least one question live and require every retained answer to describe one governed generation. |
 
 ### Contract
 
@@ -320,12 +321,15 @@ deadline, a no-progress deadline, a progress signal, and a resumable checkpoint.
   stays attributable and a result without that attribution cannot pass.
 - A per-attempt deadline breach ends the question; only a retryable transport source or a
   transient turn error uses a remaining attempt.
-- A run that answers nothing live may still publish when it completed the cohort from a checkpoint
-  bound to the same source, workspace, target stack, and evidence identity. The artifact discloses
-  that as `run_mode: resumed_replay`, and a checkpoint is retired only once its cohort published.
+- A run that answers nothing live never publishes as authoritative. When a checkpoint already
+  covers the whole cohort, the last question is re-answered against the current stack, so resuming
+  keeps earlier work without ever claiming a stack it did not verify.
+- Every retained answer must describe one governed generation. If a resumed answer carries a
+  different ontology release or principal manifest digest than the live answers, the cohort fails
+  instead of publishing a mixed-generation result set.
 - A completed cohort retires its checkpoint after the artifact is published and before the
   assertions, so a failed publish cannot destroy a complete cohort and a later run cannot replay
-  one; a run that performs no live turn publishes as `resumed_replay` and never carries release
+  one; a run that performs no live turn is reported as `interrupted` and never carries release
   authority, so it can never report a production-ready artifact.
 
 ## Related docs
