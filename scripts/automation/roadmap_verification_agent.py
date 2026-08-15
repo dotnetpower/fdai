@@ -14,6 +14,7 @@ from typing import Any, Final
 
 MAX_OUTPUT_BYTES: Final = 200_000
 MAX_SUMMARY_CHARS: Final = 2_000
+DEFAULT_MODEL: Final = "claude-opus-5"
 UTC = timezone.utc  # noqa: UP017 - repository automation supports system Python 3.10.
 RESULTS: Final = frozenset(
     {"reviewed", "verified", "gap_found", "designed", "not_applicable", "blocked"}
@@ -46,6 +47,11 @@ def copilot_path() -> Path | None:
         (candidate for candidate in candidates if candidate and candidate.is_file()),
         None,
     )
+
+
+def copilot_model() -> str:
+    """Return the worker model, because the CLI default 'auto' is not reproducible."""
+    return os.environ.get("FDAI_COPILOT_MODEL", "").strip() or DEFAULT_MODEL
 
 
 def worker_environment(repo_root: Path, worktree: Path) -> dict[str, str]:
@@ -101,6 +107,8 @@ def copilot_command(cli: Path, prompt_text: str, worktree: Path, *, apply: bool)
         str(cli),
         "-p",
         prompt_text,
+        "--model",
+        copilot_model(),
         "--output-format",
         "text",
         "--add-dir",
