@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 7690bb5e33acdbfdfc48462112d075e2ec849ce0
-translation_revised: 2026-08-15
+translation_source_sha: f937e0516d51695200c766957f567972cb7a0e00
+translation_revised: 2026-08-16
 ---
 # 코드 맵
 
@@ -127,7 +127,7 @@ Core 분포는 전체 `fdai` 이름 공간을 유지합니다. 내부 모듈 경
 | 에이전트 pantheon | 고정 에이전트 15개와 타입이 지정된 이벤트 런타임 | [에이전트](../../../services/core-control-plane/src/fdai/agents/) | [에이전트 테스트](../../../services/core-control-plane/tests/agents/) |
 | 조립 | Exact-release 의미 조회 assembly, request-role 실행기 factory 및 호출 범위의 불투명 상관관계를 사용하는 리소스 상태 활동 게시를 포함한 프로바이더/런타임 의존성 주입 | [조립](../../../services/core-control-plane/src/fdai/composition/) | [조립 테스트](../../../services/core-control-plane/tests/composition/) |
 | Core 어댑터 | Core에 남은 프로바이더, 영속성, 알림 및 platform 어댑터 | [전달](../../../services/core-control-plane/src/fdai/delivery/) | [전달 테스트](../../../services/core-control-plane/tests/delivery/) |
-| Rule 카탈로그 프로파일 바인딩 | 관리되는 `FDAI_PROFILE_ID`를 시작 시 한 번 해석해 T0 색인이 담는 불변 Rule 튜플로 만들고, 선택과 등급 조정을 차단 기본으로 처리하며, 테넌트 값이 없는 시작 진단을 남깁니다 | [rule_profile.py](../../../services/core-control-plane/src/fdai/runtime/rule_profile.py) | [Rule 프로파일 테스트](../../../services/core-control-plane/tests/runtime/test_rule_profile.py) |
+| Rule 카탈로그 프로파일 바인딩 | 관리되는 `FDAI_PROFILE_ID`를 시작 시 한 번 해석해 T0 색인과 워크플로 guard 검증이 함께 읽는 불변 Rule 튜플로 만들고, 선택과 등급 조정을 차단 기본으로 처리하며, 테넌트 값이 없는 시작 진단을 남깁니다 | [rule_profile.py](../../../services/core-control-plane/src/fdai/runtime/rule_profile.py) | [Rule 프로파일 테스트](../../../services/core-control-plane/tests/runtime/test_rule_profile.py) |
 | 런타임 | Core 프로세스 수명 주기, 준비 상태, 이벤트 전송 계층, supervision 및 의미 런타임 가용성 연결 | [런타임](../../../services/core-control-plane/src/fdai/runtime/) | [런타임 테스트](../../../services/core-control-plane/tests/runtime/) |
 | Core 계약과 프로바이더 경계 | Core 전용 타입, 프로바이더 프로토콜, 구성, 스트리밍 및 텔레메트리 | [shared](../../../services/core-control-plane/src/fdai/shared/) | [shared 테스트](../../../services/core-control-plane/tests/shared/) |
 | Rule 카탈로그 파이프라인 | 카탈로그 스키마 로딩, 수집, 검증, 정제 및 승격 support | [rule_catalog](../../../services/core-control-plane/src/fdai/rule_catalog/) | [Rule 카탈로그 테스트](../../../services/core-control-plane/tests/rule_catalog/) |

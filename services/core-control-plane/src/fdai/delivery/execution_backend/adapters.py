@@ -74,6 +74,11 @@ class BubblewrapExecutionBackend:
     Submit returns only after the local process is terminal, so the process
     timeout remains the cancellation mechanism: an explicit cancel is rejected
     rather than reported as a guarantee the adapter cannot make.
+
+    Plans and receipts are process-local because the local runner keeps no
+    durable provider state. The coordinator releases them through
+    :meth:`cleanup` after a terminal state, and a restart drops them, which is
+    why :meth:`capabilities` reports ``durable_provider_state=False``.
     """
 
     backend_kind = ExecutionBackendKind.BUBBLEWRAP

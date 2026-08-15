@@ -1,8 +1,8 @@
 ---
 title: Rule-catalog profile 및 collector
 translation_of: rule-catalog-profiles.md
-translation_source_sha: 8a94670dcc69f1a2dbe337479f8d5c87f8d5b4fc
-translation_revised: 2026-08-15
+translation_source_sha: 4c972488ec6be616bed606e8099c8cb89ee7fb10
+translation_revised: 2026-08-16
 ---
 # Rule-catalog 프로파일 및 수집기
 
@@ -158,9 +158,10 @@ rules:
 > [`services/core-control-plane/src/fdai/runtime/rule_profile.py`](../../../services/core-control-plane/src/fdai/runtime/rule_profile.py)에서
 > `FDAI_PROFILE_ID`를 읽습니다. knob이 없거나 비어 있으면 전체 카탈로그를 적재하는 기본
 > 동작을 유지합니다. 그 밖의 해석 실패는 모두 차단이므로, 시작 과정이 선택된 태세를 조용히
-> 넓히지 않습니다. 프로파일은 Rule을 선택하고 등급만 조정합니다. 프로파일이 선언한 `enforce`
-> 모드는 시작 진단에 보고될 뿐 실행 권한을 부여하지 않으며, 실행 권한은 정본 승격 레지스트리에
-> 남습니다.
+> 넓히지 않습니다. 프로파일은 Rule을 선택하고 등급만 조정합니다. 프로파일이 선언한 모드는
+> 시작 진단에 보고될 뿐 실행 권한을 부여하지 않으며, 실행 권한은 정본 승격 레지스트리에
+> 남습니다. 워크플로 guard 참조도 같은 활성 집합으로 검증되므로, guard Rule을 제외하는
+> 프로파일은 첫 디스패치에서 실패하는 대신 부팅을 차단합니다.
 
 ## 구현 상태
 

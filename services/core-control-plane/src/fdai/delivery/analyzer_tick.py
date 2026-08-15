@@ -163,6 +163,11 @@ class AnalyzerTickRunner:
         )
 
     def _build_event(self, finding: AnalyzerFinding, *, at: datetime) -> Event:
+        if finding.occurred_at.tzinfo is None:
+            raise ValueError(
+                f"analyzer finding {finding.signal!r} carries a naive occurred_at; "
+                "a provider MUST return timezone-aware timestamps"
+            )
         return Event(
             schema_version="1.0.0",
             event_id=uuid4(),

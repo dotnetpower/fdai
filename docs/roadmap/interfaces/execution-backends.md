@@ -117,7 +117,9 @@ The coordinator handles these cases:
 > **Current adapter status:** `BubblewrapExecutionBackend` and `VmTaskExecutionBackend` are
 > implemented under the `ExecutionBackend` protocol in
 > [`delivery/execution_backend/adapters.py`](../../../services/core-control-plane/src/fdai/delivery/execution_backend/adapters.py).
-> Both wrap their existing sandbox catalog and can only narrow it. Governed shadow receipts and
+> Both wrap their existing sandbox catalog and can only narrow it. Their plan and receipt maps
+> are process-local, released by coordinator cleanup, and reported through
+> `durable_provider_state`. Governed shadow receipts and
 > composition binding are still outstanding. `AzureContainerAppsJobExecutionBackend` is not
 > implemented. The existing `delivery/azure/vm_task.py` provider remains a lower-level VM
 > capability, not the governed lifecycle adapter described here.

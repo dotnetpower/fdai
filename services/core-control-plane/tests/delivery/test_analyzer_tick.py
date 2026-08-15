@@ -186,6 +186,18 @@ async def test_unsupported_kinds_are_separated_from_analyzer_errors() -> None:
     assert not report.failed
 
 
+@pytest.mark.asyncio
+async def test_a_naive_finding_timestamp_fails_closed() -> None:
+    bus = RecordingBus()
+    naive = replace(_finding(), occurred_at=NOW.replace(tzinfo=None))
+    runner = _runner(StubCoordinator(findings=(naive,)), bus)
+
+    with pytest.raises(ValueError, match="naive occurred_at"):
+        await runner.run_once((AnalyzerTarget(resource_ref="res-1", resource_kind="aks"),))
+
+    assert bus.published == []
+
+
 def test_runner_rejects_a_non_positive_window() -> None:
     with pytest.raises(ValueError, match="window_seconds"):
         AnalyzerTickRunner(

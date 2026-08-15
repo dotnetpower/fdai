@@ -23,6 +23,11 @@ PACKAGE_INIT = FORMATS_ROOT / "__init__.py"
 DEFAULTS_MODULE = FORMATS_ROOT / "defaults.py"
 INFRASTRUCTURE_MODULES = frozenset({"__init__.py", "defaults.py"})
 
+# Encoders upstream ships but deliberately does not register by default. A new
+# encoder must either be registered in `defaults.py` or added here in a reviewed
+# change; prose in a docstring is not a registration.
+OPT_IN_ENCODERS = frozenset({"PrometheusFormatEncoder"})
+
 ALLOWED_IMPORT_PREFIXES = (
     "fdai.core.reporting",
     "fdai.shared.contracts",
@@ -35,9 +40,39 @@ def _module_names(tree: ast.AST) -> set[str]:
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             names.update(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module is not None and node.level == 0:
+        elif isinstance(node, ast.ImportFrom) and node.module is not None:
             names.add(node.module)
     return names
+
+
+def _has_relative_import(tree: ast.AST) -> bool:
+    """A relative import can reach outside the package without naming it."""
+    return any(isinstance(node, ast.ImportFrom) and node.level > 0 for node in ast.walk(tree))
+
+
+def _imported_names(source: str) -> set[str]:
+    """Return the names a module actually imports, ignoring prose mentions."""
+    names: set[str] = set()
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.ImportFrom | ast.Import):
+            names.update(alias.asname or alias.name for alias in node.names)
+    return names
+
+
+def _exported_names(source: str) -> set[str]:
+    """Return the names listed in a module's ``__all__``."""
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.Assign):
+            continue
+        targets = {target.id for target in node.targets if isinstance(target, ast.Name)}
+        if "__all__" not in targets or not isinstance(node.value, ast.List | ast.Tuple):
+            continue
+        return {
+            element.value
+            for element in node.value.elts
+            if isinstance(element, ast.Constant) and isinstance(element.value, str)
+        }
+    return set()
 
 
 def _encoder_class_names(tree: ast.AST) -> list[str]:
@@ -65,6 +100,8 @@ def validate(root: Path) -> list[str]:
     errors: list[str] = []
     package_source = (root / PACKAGE_INIT).read_text(encoding="utf-8")
     defaults_source = (root / DEFAULTS_MODULE).read_text(encoding="utf-8")
+    exported = _imported_names(package_source) | _exported_names(package_source)
+    registered = _imported_names(defaults_source)
 
     for path in sorted(formats_root.glob("*.py")):
         if path.name in INFRASTRUCTURE_MODULES:
@@ -80,14 +117,19 @@ def validate(root: Path) -> list[str]:
             continue
         encoder = encoders[0]
 
-        if encoder not in package_source:
+        if encoder not in exported:
             errors.append(f"{relative}: {encoder} is not exported from {PACKAGE_INIT.as_posix()}")
-        if encoder not in defaults_source:
+        if encoder not in registered and encoder not in OPT_IN_ENCODERS:
             errors.append(
-                f"{relative}: {encoder} is neither registered nor documented as opt-in in "
-                f"{DEFAULTS_MODULE.as_posix()}"
+                f"{relative}: {encoder} is neither registered in "
+                f"{DEFAULTS_MODULE.as_posix()} nor listed as a reviewed opt-in encoder"
             )
 
+        if _has_relative_import(tree):
+            errors.append(
+                f"{relative}: relative imports are not allowed; a format module MUST name "
+                "every dependency so this gate can see it"
+            )
         for name in sorted(_module_names(tree)):
             if not _is_allowed_import(name):
                 errors.append(

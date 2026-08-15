@@ -45,7 +45,35 @@ def test_unregistered_encoder_is_rejected(workspace: Path) -> None:
     errors = checker.validate(workspace)
 
     assert any("not exported" in error for error in errors)
-    assert any("neither registered nor documented" in error for error in errors)
+    assert any("neither registered" in error for error in errors)
+
+
+def test_a_prose_mention_does_not_count_as_registration(workspace: Path) -> None:
+    (workspace / FORMATS / "yaml_format.py").write_text(
+        "class YamlFormatEncoder:\n    pass\n", encoding="utf-8"
+    )
+    for module in ("__init__.py", "defaults.py"):
+        path = workspace / FORMATS / module
+        path.write_text(
+            path.read_text(encoding="utf-8") + '\n"""YamlFormatEncoder is handled."""\n',
+            encoding="utf-8",
+        )
+
+    errors = checker.validate(workspace)
+
+    assert any("not exported" in error for error in errors)
+    assert any("neither registered" in error for error in errors)
+
+
+def test_a_relative_import_cannot_hide_a_dependency(workspace: Path) -> None:
+    path = workspace / FORMATS / "json_format.py"
+    path.write_text(
+        "from ...delivery import pdf\n" + path.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+
+    errors = checker.validate(workspace)
+
+    assert any("relative imports are not allowed" in error for error in errors)
 
 
 def test_delivery_dependency_in_a_format_module_is_rejected(workspace: Path) -> None:

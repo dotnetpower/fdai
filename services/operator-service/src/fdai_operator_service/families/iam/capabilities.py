@@ -43,6 +43,8 @@ ROLE_CAPABILITIES: Final[dict[OperatorRole, frozenset[IamCapability]]] = {
             IamCapability.MANAGE_GROUP_MEMBERSHIP,
         }
     ),
+    # BreakGlass is a separately managed group, never nested inside Owner, so a
+    # compromised Owner account cannot activate emergency access.
     OperatorRole.BREAK_GLASS: frozenset(
         {
             IamCapability.VIEW_CONSOLE,

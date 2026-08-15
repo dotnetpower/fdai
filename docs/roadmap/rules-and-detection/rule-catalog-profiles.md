@@ -158,9 +158,10 @@ that evaluates an indexed `Rule` read the same immutable result.
 > [`services/core-control-plane/src/fdai/runtime/rule_profile.py`](../../../services/core-control-plane/src/fdai/runtime/rule_profile.py).
 > An absent or blank knob keeps the unprofiled default of loading the whole catalog. Any other
 > resolution failure is fail-closed, so startup never silently widens the selected posture.
-> A profile selects and grades rules only: a profile-declared `enforce` mode is reported in the
-> startup diagnostics and grants no execution authority, which stays with the authoritative
-> promotion registry.
+> A profile selects and grades rules only: a profile-declared mode is reported in the startup
+> diagnostics and grants no execution authority, which stays with the authoritative promotion
+> registry. Workflow guard references validate against the same activated set, so a profile that
+> excludes a guard rule blocks boot instead of failing at first dispatch.
 
 ## Implementation status
 
