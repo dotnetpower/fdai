@@ -559,6 +559,21 @@ def _git_alias(
     return completed.stdout.strip() if completed.returncode == 0 else None
 
 
+def _has_config_env_alias(arguments: list[str], operation_index: int) -> bool:
+    index = 0
+    while index < operation_index:
+        argument = arguments[index]
+        if argument == "--config-env" and index + 1 < operation_index:
+            if arguments[index + 1].casefold().startswith("alias."):
+                return True
+            index += 2
+            continue
+        if argument.casefold().startswith("--config-env=alias."):
+            return True
+        index += 1
+    return False
+
+
 def _expand_git_aliases(
     arguments: list[str], environment: dict[str, str]
 ) -> tuple[list[str], bool]:
@@ -569,7 +584,7 @@ def _expand_git_aliases(
             return expanded, False
         alias = _git_alias(expanded, operation_index, environment)
         if alias is None:
-            return expanded, False
+            return expanded, _has_config_env_alias(expanded, operation_index)
         if alias.lstrip().startswith("!"):
             return expanded, True
         try:

@@ -29,6 +29,9 @@ from fdai_operator_service.families.conversation.contracts import (
 from fdai_operator_service.families.conversation.conversation_search import (
     materialize_conversation_search,
 )
+from fdai_operator_service.families.conversation.user_context import (
+    materialize_user_context,
+)
 from fdai_operator_service.families.operations.contracts import (
     EventProposal,
     ProjectionQuery,
@@ -84,6 +87,9 @@ class PostgresConversationAdapters:
             search_response = await materialize_conversation_search(query, store=self.store)
             if search_response is not None:
                 return search_response
+            context_response = await materialize_user_context(query, store=self.store)
+            if context_response is not None:
+                return context_response
             payload = await self.store.read_projection(
                 family="conversation",
                 operation=query.operation,
