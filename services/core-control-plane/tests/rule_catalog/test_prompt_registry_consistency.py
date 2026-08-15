@@ -100,7 +100,7 @@ def test_semantic_plan_prompt_pins_the_object_set_verifier_envelope() -> None:
     body = artifacts[0].body
     assert 'arguments exactly shaped as {"definition":{"selector"' in body
     assert '"kind":"object_type" or "interface"' in body
-    assert '"as_of":"a current RFC3339 UTC timestamp"' in body
+    assert '"as_of":"the exact supplied evaluation_time"' in body
     assert '"purpose":"the supplied purpose"' in body
     assert '"limit":1..1000' in body
 
@@ -110,16 +110,22 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     frame = prompts.get_base("semantic.query.frame")
     plan = prompts.get_base("semantic.query.plan")
 
-    assert frame.version == 4
+    assert frame.version == 5
     assert "principal_role and purpose are trusted server-bound context" in frame.body
     assert "never use principal_scope or purpose as a clarification_requirement" in frame.body
     assert "empty unresolved_terms and clarification_requirements" in frame.body
+    assert "complete principal-scoped set" in frame.body
+    assert "Do not select that function for instance listing" in frame.body
     assert "query.incident_evidence" in frame.body
     assert "one incident_id and one correlation_id" in frame.body
     assert "cause_claim_supported=false" in frame.body
     assert "Do not claim a cause" in frame.body
-    assert plan.version == 3
+    assert plan.version == 4
     assert "only object_set, function, union" in plan.body
+    assert "topology_at, topology_diff, metric_series, or evidence_join" in plan.body
+    assert "evaluation_time is trusted server-bound context" in plan.body
+    assert "object_set source followed by an aggregate node" in plan.body
+    assert "Never use query.ontology_relationships for instance listing" in plan.body
     assert '"function_name":"query.incident_evidence"' in plan.body
     assert '"correlation_id":"the exact correlation_id' in plan.body
     assert '"dependency_arguments":{}' in plan.body

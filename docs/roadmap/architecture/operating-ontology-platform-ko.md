@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 05b51bf5ae64290f2af7ce233a62e6139e00b742
+translation_source_sha: 81ff4afcefd4c444a8f60a8312ee935d3c567eb8
 translation_revised: 2026-08-15
 ---
 # FDAI 온톨로지 안전 인프라
@@ -122,6 +122,7 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 | 2026-08-14 | implemented | prompt v3에 대한 인증된 Browser 재실행을 완료했습니다. 화면에 표시된 답변은 Incident와 감사 correlation identity를 분리해 보존하고, causal analysis를 사용할 수 없다고 보고하며, 제한된 evidence gap과 실행 권한이 없는 후보 `action_draft`만 반환했습니다. | 로컬 Console `/agent-activity` 02:28:52 KST, evidence reference 1건에 대한 verification 완료, Core에서 plan rejection 없이 semantic planning 5단계 기록 | A1-A3를 shadow mode로 유지하고 캡처한 turn을 로컬 근거로 사용합니다. causal analysis는 별도 후속 작업으로 남습니다. |
 | 2026-08-14 | in-progress | 현재 prompt 및 assurance 변경이 보존된 v3 runtime claim을 대체해 incident semantic evidence path를 다시 열었습니다. | `current change`, focused prompt, Console assurance 및 ontology-query 검사 | Validation을 복원하기 전에 인증된 incident path를 다시 실행하고 새 governed artifact를 보존합니다. |
 | 2026-08-15 | implemented | 의미 frame prompt를 v4로 versioning하고 타입이 지정된 명확화 requirement를 추가했습니다. Principal 범위와 용도는 trusted server-bound 입력이므로 둘 중 하나를 요청하는 T1 제안은 범위가 제한된 T2 frame 재시도 한 번 전에 결정론적으로 거부됩니다. 정당하게 누락된 사용자 맥락은 T2 호출 없이 T1 명확화로 유지됩니다. | `current change`, focused tier-routing, planner, prompt 및 Azure adapter 검사 31개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 중앙 검증 뒤 Core를 재시작하고 대체 인증 보증 근거를 보존합니다. |
+| 2026-08-15 | implemented | 의미 frame prompt를 v5로, plan prompt를 v4로 versioning했습니다. Frame은 visible/current 객체를 principal-scoped collection으로 취급하고 instance operation에서 schema relationship 함수가 과도하게 선택되지 않도록 하며 명시적 comparison baseline을 보존합니다. Plan은 collection, filter, aggregate, topology, metric 및 causal operation을 닫힌 검증 node grammar에 연결하고 현재 cutoff에 server-bound evaluation time을 사용합니다. | `current change`, focused prompt registry 및 Azure adapter 검사 10개 통과 | 중앙 검증 뒤 Core를 재시작하고 strict 이중 언어 답변 coverage probe를 다시 실행합니다. 지원되지 않는 exact identity는 명확화 또는 보류로 유지합니다. |
 
 ### 남은 작업
 
