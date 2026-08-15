@@ -33,8 +33,10 @@ def test_report_command_has_no_write_tool_and_denies_side_effects(tmp_path: Path
     agent = sys.modules["roadmap_verification_agent"]
     command = agent.copilot_command(tmp_path / "copilot", "prompt", tmp_path, apply=False)
 
-    assert "--available-tools=read,glob,grep,shell" in command
-    assert "--available-tools=read,glob,grep,shell,write" not in command
+    tools = next(a for a in command if a.startswith("--available-tools=")).split("=", 1)[1]
+    assert "create" not in tools.split(",")
+    assert "edit" not in tools.split(",")
+    assert "view" in tools.split(",")
     assert "--deny-tool=shell(git push)" in command
     assert "--deny-tool=shell(git commit)" in command
     assert "--deny-tool=shell(terraform)" in command
@@ -46,10 +48,45 @@ def test_apply_command_allows_worktree_writes_but_still_denies_push(tmp_path: Pa
     agent = sys.modules["roadmap_verification_agent"]
     command = agent.copilot_command(tmp_path / "copilot", "prompt", tmp_path, apply=True)
 
-    assert "--available-tools=read,glob,grep,shell,write" in command
+    tools = next(a for a in command if a.startswith("--available-tools=")).split("=", 1)[1]
+    assert {"create", "edit"}.issubset(set(tools.split(",")))
     assert "--allow-all-paths" not in command
     assert "--allow-all-urls" not in command
     assert "--deny-tool=shell(git push)" in command
+
+
+def test_available_tools_use_real_cli_tool_names(tmp_path: Path) -> None:
+    _load_module()
+    agent = sys.modules["roadmap_verification_agent"]
+
+    # CLI 1.0.80 tool names. `shell`, `read`, and `write` are permission-rule words, not tools;
+    # passing them to --available-tools silently yields a read-only agent that can never commit.
+    real_tools = {
+        "bash",
+        "read_bash",
+        "stop_bash",
+        "list_bash",
+        "view",
+        "create",
+        "edit",
+        "web_fetch",
+        "skill",
+        "sql",
+        "session_store_sql",
+        "read_agent",
+        "list_agents",
+        "write_agent",
+        "grep",
+        "glob",
+        "task",
+    }
+    for apply in (False, True):
+        command = agent.copilot_command(tmp_path / "copilot", "prompt", tmp_path, apply=apply)
+        declared = next(a for a in command if a.startswith("--available-tools=")).split("=", 1)[1]
+        assert set(declared.split(",")).issubset(real_tools), declared
+
+    # Permission rules stay in the other namespace, which is the form the CLI actually enforces.
+    assert all(rule.startswith(("shell(", "url")) for rule in agent.DENIED_TOOLS)
 
 
 def test_command_pins_an_explicit_model_and_honours_the_override(
