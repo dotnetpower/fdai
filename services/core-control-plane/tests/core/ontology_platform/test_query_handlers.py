@@ -174,6 +174,33 @@ async def test_empty_global_count_is_complete_zero() -> None:
     }
 
 
+async def test_aggregate_reads_flat_dotted_projection_fields() -> None:
+    source = QueryNodeResult(_table(("a", {"properties": {"health": "healthy"}})))
+    projected = await ProjectNodeHandler()(
+        _node(
+            QueryNodeKind.PROJECT,
+            dependencies=("source",),
+            arguments={"fields": ["properties.health"]},
+        ),
+        {"source": source},
+    )
+
+    result = await AggregateNodeHandler()(
+        _node(
+            QueryNodeKind.AGGREGATE,
+            dependencies=("project",),
+            arguments={"operation": "count", "group_by": ["properties.health"]},
+        ),
+        {"project": projected},
+    )
+
+    assert result.value.rows[0].values == {
+        "group": {"properties.health": "healthy"},
+        "operation": "count",
+        "value": 1,
+    }
+
+
 async def test_function_handler_binds_dependencies_and_returns_exact_receipt() -> None:
     declaration = OntologyFunctionType(
         name="query.row_count",

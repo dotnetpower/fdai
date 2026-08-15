@@ -262,6 +262,8 @@ def _field_name(value: object) -> str:
 
 
 def _path_value(values: Mapping[str, Any], path: str) -> object:
+    if path in values:
+        return values[path]
     current: object = values
     for part in path.split("."):
         if not isinstance(current, Mapping) or part not in current:

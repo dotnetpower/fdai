@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: a84580762d10d7930c54144cf8bc6cc4914b1e87
+translation_source_sha: b3a4726c9bce20ea4602db7b072f3f5abab47ab7
 translation_revised: 2026-08-15
 ---
 # 코드 맵
@@ -48,7 +48,7 @@ translation_revised: 2026-08-15
 | Console 의미 증적 projection | 구현됨 | `semantic_turn.py`, `semantic_turn_processor.py`, `semantic_turn_runtime.py`, `console/src/deck/backend-normalizers.ts`, focused shared, Core, Operator 및 Console 테스트 | 타입이 지정된 경로, 구체적인 명확화 답변, 사용 불가 사유, 네 개의 보증 다이제스트, 근거 참조 및 `execution_authority=false`가 prose 추론 없이 shared 계약, Core 결과, exact Operator 읽기, 최종 스트림, 영속 transcript, replay 및 Console 표현을 통과합니다. 통과한 실제 브라우저 및 무작위 보증 기록은 온톨로지 조회 coverage 계획의 열린 항목으로 남아 있습니다. |
 | 결정론적 누락 incident 맥락 | 구현됨 | `core/conversation/semantic_planning.py`, `tests/conversation/test_semantic_planning.py`, 집중 플래너 및 최종 projection 테스트(`43 passed`) | 첫 turn의 "this incident" 참조는 매니페스트 또는 모델 작업 전에 범위가 제한된 명확화 하나를 반환합니다. 이전 incident 맥락이 있으면 일반 의미 계획 수립을 계속하며 어느 경로도 실행 권한을 부여하지 않습니다. |
 | 의미 시간 및 근거 조립 | 구현됨 | `delivery/persistence/postgres_topology_history.py`, `composition/wire_semantic_query.py`, `runtime/bootstrap.py`, `runtime/bootstrap_bindings.py`, 통과한 집중 조립 및 프로바이더 선택 테스트 16개 | 상태 저장소 DSN이 있을 때만 PostgreSQL 토폴로지 이력을 사용할 수 있습니다. 메트릭 시계열과 근거 결합 기능에는 검토된 메트릭 레지스트리와 no-op이 아닌 프로바이더가 모두 필요합니다. 하나의 핸들러 맵이 검증기와 실행기의 가용성을 함께 제어하며 모든 결과는 `execution_authority=False`인 읽기 전용으로 유지됩니다. |
-| T1 우선 의미 계획 | 구현됨 | `core/conversation/semantic_planning.py`, `core/conversation/semantic_planning_cascade.py`, `core/conversation/semantic_planning_models.py`, `composition/semantic_query_model_targets.py`, `composition/wire_semantic_query.py`, 집중 tier 라우팅 및 조립 테스트 | 의미 계획은 항상 해석된 T1 소형 모델을 먼저 사용합니다. T1 frame 또는 plan 제안을 사용할 수 없거나 결정론적 검증을 통과하지 못한 경우에만 같은 단계를 선택적 T2 primary reasoner로 한 번 다시 시도할 수 있습니다. 타입이 지정된 명확화 requirement는 T1에서 종료되는 정당한 누락 사용자 맥락과, frame 전용 재시도 한 번 전에 T1 frame을 유효하지 않게 만드는 server-bound principal 범위 또는 용도 요청을 구분합니다. Core는 plan 제안에 timezone-aware evaluation time 하나를 바인딩하고 범위가 제한된 T2 plan 재시도에도 같은 값을 전달하므로 어느 tier도 현재 조회 시간을 만들지 않습니다. 직접 ObjectSet 집계 필드는 I/O 전에 exact query-table 행 스키마와 대조합니다. 플래너는 secondary 품질 교차 검증 역할을 사용하지 않습니다. 범위 거부 및 근거 보류는 T2를 호출하지 않습니다. |
+| T1 우선 의미 계획 | 구현됨 | `core/conversation/semantic_planning.py`, `core/conversation/semantic_planning_cascade.py`, `core/conversation/semantic_planning_models.py`, `composition/semantic_query_model_targets.py`, `composition/wire_semantic_query.py`, 집중 tier 라우팅 및 조립 테스트 | 의미 계획은 항상 해석된 T1 소형 모델을 먼저 사용합니다. T1 frame 또는 plan 제안을 사용할 수 없거나 결정론적 검증을 통과하지 못한 경우에만 같은 단계를 선택적 T2 primary reasoner로 한 번 다시 시도할 수 있습니다. 타입이 지정된 명확화 requirement는 T1에서 종료되는 정당한 누락 사용자 맥락과, frame 전용 재시도 한 번 전에 T1 frame을 유효하지 않게 만드는 server-bound principal 범위 또는 용도 요청을 구분합니다. Core는 plan 제안에 timezone-aware evaluation time 하나를 바인딩하고 범위가 제한된 T2 plan 재시도에도 같은 값을 전달하므로 어느 tier도 현재 조회 시간을 만들지 않습니다. 집계 필드는 I/O 전에 ObjectSet, Project, Order 및 집합 연산 의존성을 통해 전파된 exact query-table 행 스키마와 대조합니다. 플래너는 secondary 품질 교차 검증 역할을 사용하지 않습니다. 범위 거부 및 근거 보류는 T2를 호출하지 않습니다. |
 | 이벤트 버스 구독 수명주기 | 구현됨 | `shared/providers/event_bus.py`, `runtime/consumers.py`, `delivery/event_bus_multiplex.py`, `delivery/agent_introspection_bus.py`, `delivery/reconciliation_runtime.py`, `shared/streaming/broadcaster.py`, `agents/_framework/bus_bridge.py`, `fdai_core_service/semantic_turn_consumer.py`, `tests/agents/test_subscription_lifecycle.py`, 집중 agent, delivery, runtime 및 provider 테스트(`3127 passed`) | 모든 소비자가 공유 `subscription` 컨텍스트 매니저로 구독을 구동하므로 broker adapter는 인터프리터 종료 처리가 아니라 소비자 task 안에서 닫힙니다. 남은 소비자 stop 타임아웃은 topic과 소비자 그룹을 함께 기록합니다. |
 
 ### 구현 이력
@@ -83,6 +83,7 @@ translation_revised: 2026-08-15
 | 2026-08-15 | 구현됨 | 공유 이벤트 버스 `subscription` 컨텍스트 매니저를 추가하고 모든 Core 소비자를 그 경로로 옮겨서, 취소된 소비자가 인터프리터 종료 처리가 아니라 자기 task 안에서 broker 구독을 닫도록 했습니다. | `current change`, `shared/providers/event_bus.py`, 모든 Core 소비자 및 `tests/agents/test_subscription_lifecycle.py`, 집중 agent, delivery, runtime 및 provider 검사 3127건 통과, Ruff, format 및 strict mypy 통과 | 실제 로컬 종료에서 `event_bus_consumer_stop_timed_out`이 더는 나타나지 않는지 확인합니다. |
 | 2026-08-15 | 구현됨 | 스키마 인벤토리 질문을 위한 exact-release `query.manifest`를 추가하고 검증된 함수 table envelope를 기존 일반 조회 renderer로 변환했습니다. | `current change`, focused 매니페스트, 핸들러, 조립, 관계, 의미 조립 및 prompt 검사 42개와 작업 범위 Ruff 및 strict mypy 통과 | 준비 상태를 완화하지 않고 clean 이중 언어 14-cell 답변 coverage 산출물을 보존한 뒤 seed 기반 100-case 집단을 실행합니다. |
 | 2026-08-15 | 구현됨 | 직접 ObjectSet 의존성에 없는 집계 필드 경로를 조회 실행 전에 거부했습니다. | `current change`, focused 검증기 및 T1/T2 tier 라우팅 검사 16개와 작업 범위 Ruff 및 strict mypy 통과 | 보류된 한국어 집계 cell을 다시 실행한 뒤 clean 14-cell 및 seed 기반 100-case Browser 근거를 보존합니다. |
+| 2026-08-15 | 구현됨 | Exact 집계 필드 스키마를 Project, Order 및 집합 연산 의존성까지 전파하고 점 표기 projection 필드를 downstream 집계에서 보존했습니다. | `current change`, focused 검증기, 핸들러 및 tier 라우팅 검사 24개와 작업 범위 Ruff 및 strict mypy 통과 | Clean 14-cell 및 seed 기반 100-case Browser gate 전에 보류된 한국어 집계 cell을 다시 실행합니다. |
 
 ### 남은 작업
 

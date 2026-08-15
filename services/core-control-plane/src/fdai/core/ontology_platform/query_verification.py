@@ -154,7 +154,7 @@ class OntologyQueryPlanVerifier:
             normalized_group = tuple(_field(item) for item in group_by)
             if len(normalized_group) != len(set(normalized_group)):
                 raise ValueError("aggregate group_by fields MUST be unique")
-            self._verify_object_set_dependency_fields(
+            self._verify_dependency_fields(
                 node,
                 fields=aggregate_fields + normalized_group,
                 nodes_by_id=nodes_by_id,
@@ -276,7 +276,7 @@ class OntologyQueryPlanVerifier:
                     raise ValueError("function static argument violates input_schema")
 
     @staticmethod
-    def _verify_object_set_dependency_fields(
+    def _verify_dependency_fields(
         node: OntologyQueryNode,
         *,
         fields: tuple[str, ...],
@@ -284,19 +284,57 @@ class OntologyQueryPlanVerifier:
         descriptors: Mapping[tuple[str, str], Mapping[str, Any]],
     ) -> None:
         dependency = nodes_by_id[node.depends_on[0]]
-        if dependency.kind is not QueryNodeKind.OBJECT_SET:
+        available_fields = OntologyQueryPlanVerifier._table_fields(
+            dependency,
+            nodes_by_id=nodes_by_id,
+            descriptors=descriptors,
+        )
+        if available_fields is None:
             return
-        definition = ObjectSetDefinition.model_validate(dependency.arguments["definition"])
+        if any(field not in available_fields for field in fields):
+            raise ValueError("aggregate field is absent from dependency output schema")
+
+    @staticmethod
+    def _table_fields(
+        node: OntologyQueryNode,
+        *,
+        nodes_by_id: Mapping[str, OntologyQueryNode],
+        descriptors: Mapping[tuple[str, str], Mapping[str, Any]],
+    ) -> frozenset[str] | None:
+        if node.kind is QueryNodeKind.PROJECT:
+            return frozenset(_field(item) for item in node.arguments["fields"])
+        if node.kind is QueryNodeKind.ORDER:
+            return OntologyQueryPlanVerifier._table_fields(
+                nodes_by_id[node.depends_on[0]],
+                nodes_by_id=nodes_by_id,
+                descriptors=descriptors,
+            )
+        if node.kind in _SET_KINDS:
+            dependency_fields = tuple(
+                OntologyQueryPlanVerifier._table_fields(
+                    nodes_by_id[dependency],
+                    nodes_by_id=nodes_by_id,
+                    descriptors=descriptors,
+                )
+                for dependency in node.depends_on
+            )
+            if any(fields is None for fields in dependency_fields):
+                return None
+            known_fields = tuple(fields for fields in dependency_fields if fields is not None)
+            if node.kind is QueryNodeKind.SUBTRACTION:
+                return known_fields[0]
+            return frozenset.intersection(*known_fields)
+        if node.kind is not QueryNodeKind.OBJECT_SET:
+            return None
+        definition = ObjectSetDefinition.model_validate(node.arguments["definition"])
         selector_kind = (
             "object" if definition.selector.kind is ObjectSelectorKind.OBJECT_TYPE else "interface"
         )
         descriptor = descriptors[(selector_kind, definition.selector.name)]
         readable_properties = cast_mapping(descriptor.get("properties"))
-        available_fields = {"id", "object_type"} | {
-            f"properties.{name}" for name in readable_properties
-        }
-        if any(field not in available_fields for field in fields):
-            raise ValueError("aggregate field is absent from object_set output schema")
+        return frozenset(
+            {"id", "object_type"} | {f"properties.{name}" for name in readable_properties}
+        )
 
     @staticmethod
     def _verify_table_dependencies(
