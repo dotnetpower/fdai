@@ -42,6 +42,25 @@ def test_campaign_allows_two_active_sessions_and_holds_three() -> None:
     assert not module._within_session_capacity(3, 2)
 
 
+@pytest.mark.parametrize(
+    ("ahead", "behind", "expected"),
+    [
+        (0, 0, "current"),
+        (0, 2, "behind"),
+        (2, 0, "ahead"),
+        (1, 1, "diverged"),
+    ],
+)
+def test_campaign_relation_fails_closed_on_divergence(
+    ahead: int,
+    behind: int,
+    expected: str,
+) -> None:
+    module = _load()
+
+    assert module._campaign_relation(ahead=ahead, behind=behind) == expected
+
+
 def test_campaign_prompt_requires_exact_batch_and_hardening_floor() -> None:
     module = _load()
     candidates = [f"docs/roadmap/interfaces/doc-{index}.md" for index in range(12)]

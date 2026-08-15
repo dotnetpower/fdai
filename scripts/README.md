@@ -334,7 +334,10 @@ against an unregistered task.
 
 The implementation runs on the isolated `roadmap-implementation/campaign` branch in the sibling
 `fdai-roadmap-implementation-campaign` worktree. It never pushes or deploys. Review and integrate
-validated campaign commits into `main` through the normal maintainer workflow.
+validated campaign commits into `main` through the normal maintainer workflow. Before selecting an
+issue, a clean campaign branch with no campaign-only commits fast-forwards to the current `main`.
+If both branches have advanced, the cycle holds instead of implementing from a stale or diverged
+base.
 
 Stop repeating without deleting the worktree, branch, ledger, or central receipts:
 
