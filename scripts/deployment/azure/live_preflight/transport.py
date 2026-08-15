@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import json
 import subprocess
-from collections.abc import Mapping
+import time
+from collections.abc import Callable, Mapping
 from typing import Any, Protocol
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode, urlparse
@@ -13,6 +14,8 @@ from urllib.request import Request, urlopen
 _ARM_ENDPOINT = "https://management.azure.com"
 _ARM_AUDIENCE = "https://management.azure.com"
 _VAULT_AUDIENCE = "https://vault.azure.net"
+_TRANSIENT_HTTP_STATUSES = frozenset({408, 429, 500, 502, 503, 504})
+_DEFAULT_RETRY_DELAYS_SECONDS = (0.2, 0.5)
 
 
 class PreflightError(RuntimeError):
@@ -42,9 +45,22 @@ class AzureReader(Protocol):
 class AzureCliReader:
     """Read Azure control and data planes with short-lived Azure CLI tokens."""
 
-    def __init__(self, *, subscription_id: str, timeout_seconds: int = 20) -> None:
+    def __init__(
+        self,
+        *,
+        subscription_id: str,
+        timeout_seconds: int = 20,
+        retry_delays_seconds: tuple[float, ...] = _DEFAULT_RETRY_DELAYS_SECONDS,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
+        if timeout_seconds <= 0:
+            raise ValueError("Azure preflight timeout MUST be positive")
+        if len(retry_delays_seconds) > 2 or any(delay < 0 for delay in retry_delays_seconds):
+            raise ValueError("Azure preflight retries MUST use zero to two non-negative delays")
         self._subscription_id = subscription_id
         self._timeout_seconds = timeout_seconds
+        self._retry_delays_seconds = retry_delays_seconds
+        self._sleep = sleep
         self._tokens: dict[str, str] = {}
 
     def get_json(self, path: str, *, api_version: str) -> dict[str, Any]:
@@ -122,31 +138,41 @@ class AzureCliReader:
         method: str = "GET",
         body: Mapping[str, Any] | None = None,
     ) -> tuple[int, Any]:
-        parsed = urlparse(url)
-        hostname = parsed.hostname or ""
-        if parsed.scheme != "https" or not (
-            hostname == "management.azure.com" or hostname.endswith(".vault.azure.net")
-        ):
-            raise PreflightError("Azure preflight URL is outside the approved hosts")
         encoded = None if body is None else json.dumps(body).encode("utf-8")
-        request = Request(  # noqa: S310 - URL scheme and Azure host are validated above.
-            url,
-            data=encoded,
-            method=method,
-            headers={
-                "Accept": "application/json",
-                "Authorization": f"Bearer {self._token(audience)}",
-                "Content-Type": "application/json",
-            },
-        )
-        try:
-            with urlopen(request, timeout=self._timeout_seconds) as response:  # noqa: S310
-                payload = response.read()
-                return response.status, json.loads(payload) if payload else {}
-        except HTTPError as exc:
-            return exc.code, {}
-        except (OSError, URLError, ValueError) as exc:
-            raise PreflightError("Azure read did not return a complete result") from exc
+        for attempt in range(len(self._retry_delays_seconds) + 1):
+            parsed = urlparse(url)
+            hostname = parsed.hostname or ""
+            if parsed.scheme != "https" or not (
+                hostname == "management.azure.com" or hostname.endswith(".vault.azure.net")
+            ):
+                raise PreflightError("Azure preflight URL is outside the approved hosts")
+            request = Request(  # noqa: S310 - URL scheme and Azure host are validated above.
+                url,
+                data=encoded,
+                method=method,
+                headers={
+                    "Accept": "application/json",
+                    "Authorization": f"Bearer {self._token(audience)}",
+                    "Content-Type": "application/json",
+                },
+            )
+            try:
+                with urlopen(request, timeout=self._timeout_seconds) as response:  # noqa: S310
+                    payload = response.read()
+                    try:
+                        return response.status, json.loads(payload) if payload else {}
+                    except (TypeError, ValueError) as exc:
+                        raise PreflightError("Azure read returned an invalid JSON payload") from exc
+            except HTTPError as exc:
+                if exc.code not in _TRANSIENT_HTTP_STATUSES:
+                    return exc.code, {}
+                if attempt == len(self._retry_delays_seconds):
+                    return exc.code, {}
+            except (OSError, URLError) as exc:
+                if attempt == len(self._retry_delays_seconds):
+                    raise PreflightError("Azure read did not return a complete result") from exc
+            self._sleep(self._retry_delays_seconds[attempt])
+        raise PreflightError("Azure read exhausted its bounded retry budget")
 
     def _token(self, audience: str) -> str:
         token = self._tokens.get(audience)
