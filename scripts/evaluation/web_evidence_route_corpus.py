@@ -28,7 +28,7 @@ from typing import Any
 
 _ID = re.compile(r"^(en|ko)-[a-z0-9][a-z0-9-]{0,47}$")
 _NORMALIZED_QUERY = re.compile(r"^[a-z0-9][a-z0-9 .+-]{2,119}$")
-_HANGUL = re.compile(r"[\uac00-\ud7a3]")
+_HANGUL = re.compile(r"[가-힣]")
 _CASE_KEYS = frozenset(
     {
         "id",

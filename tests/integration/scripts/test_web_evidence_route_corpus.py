@@ -95,7 +95,7 @@ def test_korean_and_english_prompts_use_their_declared_language() -> None:
         if case.locale is Locale.EN:
             assert case.prompt.isascii()
         else:
-            assert any("\uac00" <= char <= "\ud7a3" for char in case.prompt)
+            assert any("가" <= char <= "힣" for char in case.prompt)
 
 
 def test_summary_is_content_free() -> None:
