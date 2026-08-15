@@ -113,6 +113,31 @@ Use the committed entry points instead of searching for a config before each run
   authenticated or interactive state, and one targeted screenshot for visual evidence. Reload
   the VS Code window only when extension-host growth is material and active work can tolerate it.
 
+### Browser Entra storage-state capture
+
+The shared browser page runs inside VS Code's Electron host. Its CDP compatibility layer accepts
+`Browser.setDownloadBehavior` without applying a download path, so
+`page.context().storageState({ path })` can open a native **Save As** dialog instead of writing the
+requested WSL path. A Blob or anchor download has the same user-visible failure mode.
+
+- MUST NOT use `storageState({ path })`, a Blob URL, or an anchor download to export authentication
+  state from a shared Browser Entra page.
+- MUST NOT import `node:fs` from `run_playwright_code`; the browser tool sandbox does not expose a
+  dynamic-import callback. Start `scripts/automation/capture_browser_entra_state.py` in a terminal,
+  wait for its `receiver-ready` marker, and leave it running for one request.
+- In one browser evaluation, POST an object containing `location.origin` and
+  `Object.entries(sessionStorage)` to the receiver as `text/plain;charset=UTF-8`. Keep this a CORS
+  simple request: adding JSON content type or custom headers introduces an `OPTIONS` preflight that
+  consumes the one-request receiver. Return only the HTTP status and item count; never return or log
+  the serialized authentication values.
+- The receiver accepts only the configured Console origin, validates the payload shape and size,
+  serializes `fdai:e2e:browser-entra-session` in the Playwright bootstrap shape used by
+  `console/tests/live-e2e/browser-entra-state.ts`, writes beneath ignored `.fdai/live-validation/`
+  with mode `0600`, and exits.
+- Verify the destination with `stat` and a shape-only JSON check. Do not inspect or print token,
+  cookie, or storage values. The resulting file can then be supplied through
+  `FDAI_E2E_STORAGE_STATE` to the isolated Playwright context.
+
 The isolated runner waits for Vite's `ready in` stdout marker. This avoids an unused-loopback HTTP
 or dual-stack TCP readiness probe stalling before Vite starts under WSL or VPN networking. Do not
 replace the stdout marker with `webServer.url` or `webServer.port` unless a clean sequential
