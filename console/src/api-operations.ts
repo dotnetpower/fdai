@@ -349,6 +349,7 @@ function apiIncidentTitleSource(value: unknown): import("./types").IncidentTitle
     value === "recorded_summary" ||
     value === "rule_id" ||
     value === "correlation_subject" ||
+    value === "recorded_subject" ||
     value === "identifier_fallback"
   ) return value;
   throw contractError("incident item.title_source MUST be a supported title source");

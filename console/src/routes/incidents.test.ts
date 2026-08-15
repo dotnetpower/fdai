@@ -4,6 +4,7 @@ import type { AuditItem } from "../types";
 import {
   incidentDisplayTitle,
   incidentPageMatchesSnapshot,
+  incidentRosterIdentifier,
   incidentVerticalDisplayLabel,
   mergeIncidentItems,
   parseIncidentVertical,
@@ -84,6 +85,14 @@ describe("incident title presentation", () => {
       { title: "Incident corr-1", title_source: "identifier_fallback" },
       "Title unavailable",
     )).toBe("Title unavailable");
+  });
+
+  it("shows the correlation id that Audit, Trace, RCA, and the dossier resolve", () => {
+    const summary = {
+      correlation_id: "live-proof-correlation",
+      incident_id: "00000000-0000-0000-0000-000000000000",
+    };
+    expect(incidentRosterIdentifier(summary)).toBe("live-proof-correlation");
   });
 });
 

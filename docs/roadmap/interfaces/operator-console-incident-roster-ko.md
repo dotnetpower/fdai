@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: 3ec32917e216073f16fea20e19ba5dd3aec31fdd
+translation_source_sha: c8ba8e7df6abb59865110e74684471e1c1f4e758
 translation_revised: 2026-08-15
 ---
 
@@ -86,8 +86,15 @@ delta를 적용합니다. 따라서 새 탭도 Incidents와 일치하면서 실�
 `resource:` 상관관계 키에서 길이가 제한된 대상을 만듭니다. Azure 리소스 ID는
 리소스 타입과 마지막 리소스 이름만 제공하므로 전체 경로를 노출하지 않고도 목록에
 `Resource inventory change - Storage account storage-example` 같은 대상을 표시할 수
-있습니다. 기록된 대상 근거가 전혀 없는 인시던트만 이벤트 ID로 대체되며 브라우저는
-대체 제목을 만들어내지 않습니다.
+있습니다. 상관관계 키도 기록되지 않았다면 각 항목과 그 감사 봉투 `payload`를 차례로
+읽어 기록된 운영 대상과 사유로 `recorded_subject`를 구성하므로, 관리된 abstain은
+`Kubernetes namespace - No rule matches resource type`처럼 읽힙니다. 기록된 대상
+근거가 전혀 없는 인시던트만 이벤트 ID로 대체되며 브라우저는 대체 제목을 만들어내지
+않습니다.
+
+목록이 그 식별자 대체를 표시할 때는 Audit, Trace, RCA, dossier 링크가 해석하는 것과
+같은 식별자인 `correlation_id`를 표시합니다. 서버가 소유한 `incident_id`는 목록이
+아니라 상세 근거 목록에 남으므로, 운영자가 목록에서 복사한 식별자는 항상 해석됩니다.
 
 #### Azure SRE Agent 선택적 차용
 
@@ -365,10 +372,18 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 | 2026-08-14 | implemented | 다른 분석 또는 실행 경로를 만들지 않고 기존 Incident RCA dossier에 선택적 PDF delivery를 추가했습니다. | `current change`; service-local PDF encoder, package extra, GET-only 경로, Console 컨트롤, 페이지 나누기, escape, source 다이제스트, 사용 불가 섹션, 분석 부재 및 no-network 회귀 검사입니다. | 하나의 exact-revision 인증된 roster-to-RCA-to-report 증적을 보존해야 합니다. |
 | 2026-08-14 | implemented | 인증된 Browser assurance에서 발견한 서버 소유 최신순 hypothesis projection에 Console RCA decoder를 맞췄습니다. | `current change`; `api-operations.ts`, `api.test.ts` 및 focused decoder 테스트 13개입니다. | 인증된 roster-to-RCA-to-report 증적을 다시 실행해 보존해야 합니다. |
 | 2026-08-15 | validated | 사용 불가 source, plan 및 no-RCA 동작을 보존한 인증된 Incident roster-to-RCA-to-report/PDF 증적을 보존했습니다. | `current change`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; source `014974045e70e35c26e489fa238345cf70bc3ca3`에 중앙 검증 receipt가 있습니다. | 범위가 제한된 Incident SRE hardening 및 RCA PDF delivery 구획에 남은 작업이 없습니다. |
+| 2026-08-15 | in-progress | 감사 봉투 `payload`를 포함해 기록된 운영 대상과 사유에서 `recorded_subject` 제목을 도출하고, 목록 식별자 fallback이 모든 인시던트 링크가 해석하는 correlation ID를 표시하도록 했습니다. | `current change`; `incident_projection.py`, `incidents.tsx`, `types.ts`, `api-operations.ts` 및 각 focused 테스트입니다. Operator `33 passed`, Console `29 passed`, Ruff, Ruff format 및 strict mypy를 통과했습니다. 로컬 corpus의 상관관계 그룹 1,562개에 변환을 재생한 결과 `identifier_fallback`이 1,007개(64.5%)에서 5개(0.32%)로 줄었고, 남은 5개는 운영과 무관한 `read:sha256:*` 읽기입니다. | 운영과 무관한 상관관계 그룹을 제외하고, 기록된 RCA 및 T1 필드에서 milestone과 다음 단계 문구를 도출하며, cohort 구간과 절단 공개를 바로잡고, 목록 검색과 필터 컨트롤을 추가하고, 약어를 보존하며, 인시던트를 여는 감사 항목에 제목을 기록해야 합니다. |
 
 ### 남은 작업
 
 - [x] 기록된 제목, 요약, 룰, signal, 정리된 resource 대상을 우선하고 식별자 fallback을 사용 불가로 표시하는 범위가 제한된 `title_source` 계약과 focused projection, decoder, render 테스트를 추가합니다.
+- [x] 감사 봉투 `payload`를 읽어 기록된 운영 대상과 사유로 범위가 제한된 `recorded_subject`를 도출하고, 목록 식별자 fallback으로 correlation ID를 표시합니다.
+- [ ] 운영과 무관한 상관관계 그룹(`background-task.*`, `iam.executor-grant-*`, `read:sha256:*`)을 목록과 cohort 분모에서 제외합니다.
+- [ ] 인시던트를 여는 감사 항목에 `title`을 기록해 `recorded_title`을 정상 출처로 만듭니다.
+- [ ] 해당 필드가 있을 때는 일반 템플릿 대신 기록된 RCA 및 T1 필드에서 milestone과 권장 다음 단계 문구를 도출합니다.
+- [ ] cohort 관측 구간을 사실대로 표기하고 상한과 제외된 나머지를 공개하며, 사용할 수 없는 time-to-mitigate 측정을 사유와 함께 사용 불가로 렌더링합니다.
+- [ ] 서버 기반 목록 검색과 심각도/vertical 필터 컨트롤을 추가하고, 설정된 vertical 필터를 UI에서 해제할 수 있게 합니다.
+- [ ] 대상 정규화에서 약어를 보존하고, 카탈로그 항목이 없는 동적 i18n 키가 원본 키 문자열로 렌더링되지 않게 합니다.
 - [x] 정본 수명 주기 상태를 대체하지 않고 원본 플랫폼 identity, 설명, 상태, 시각, 원본 링크, 고정된 대응 계획 개정, 과거 일치 미리 보기, cooldown 및 중복 제거 근거를 투영합니다.
 - [x] 정확한 근거 참조, 사용 불가 공백, 평가 receipt, 비활성 학습 후보가 있는 순서가 지정된 조사 milestone을 렌더링하고 transcript 텍스트가 근거를 만들거나 복구를 종결하거나 학습을 승격할 수 없음을 입증합니다.
 - [x] 정확한 출처, 구간, 분모, 종결 상태 규칙, 독립적 결과 검증, Incident drill-down과 함께 에이전트 완화, 지원, 사람 완화, 대기, 완화 시간 cohort를 게시합니다.

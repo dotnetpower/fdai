@@ -142,6 +142,14 @@ active-incident badge instead. Reconnect rebuilds the snapshot from durable stat
 depending on a transient agent-activity frame. The browser sends only the incident and correlation
 selectors; the server re-resolves that binding before it can support an answer.
 
+The Incidents roster renders the server-owned `title_source`, so the browser never repairs an
+incident subject. `recorded_subject` names a subject the server composed from the recorded
+operational target and reason; `identifier_fallback` still renders as unavailable rather than
+presenting an identifier as the subject. In that fallback the roster shows the `correlation_id`,
+which is the identifier every Audit, Trace, RCA, and dossier link resolves. See
+[operator-console-incident-roster.md](operator-console-incident-roster.md) for the projection
+contract.
+
 ### Operations task view
 
 The Tasks view is a presentation-level federation, not an ontology object or system of record. It
