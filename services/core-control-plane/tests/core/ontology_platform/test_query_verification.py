@@ -153,15 +153,27 @@ def test_verifier_validates_object_set_aggregate_fields() -> None:
         arguments_json=canonical_json({"definition": definition.model_dump(mode="json")}),
         output_kind="query.table",
     )
+    projection = OntologyQueryNode(
+        node_id="project",
+        kind=QueryNodeKind.PROJECT,
+        depends_on=("resources",),
+        arguments_json=canonical_json({"fields": ["object_type"]}),
+        output_kind="query.table",
+    )
     verifier = OntologyQueryPlanVerifier(
-        available_kinds=(QueryNodeKind.OBJECT_SET, QueryNodeKind.AGGREGATE)
+        available_kinds=(
+            QueryNodeKind.OBJECT_SET,
+            QueryNodeKind.PROJECT,
+            QueryNodeKind.AGGREGATE,
+        )
     )
     valid_nodes = (
         source,
+        projection,
         OntologyQueryNode(
             node_id="count",
             kind=QueryNodeKind.AGGREGATE,
-            depends_on=("resources",),
+            depends_on=("project",),
             arguments_json=canonical_json({"operation": "count", "group_by": ["object_type"]}),
             output_kind="query.table",
         ),
@@ -175,10 +187,11 @@ def test_verifier_validates_object_set_aggregate_fields() -> None:
 
     invalid_nodes = (
         source,
+        projection,
         OntologyQueryNode(
             node_id="count",
             kind=QueryNodeKind.AGGREGATE,
-            depends_on=("resources",),
+            depends_on=("project",),
             arguments_json=canonical_json({"operation": "count", "group_by": ["type"]}),
             output_kind="query.table",
         ),
@@ -189,8 +202,16 @@ def test_verifier_validates_object_set_aggregate_fields() -> None:
         manifest_digest=manifest.manifest_digest,
     )
 
-    with pytest.raises(ValueError, match="absent from object_set output schema"):
+    with pytest.raises(ValueError, match="absent from dependency output schema"):
         verifier.verify(invalid_plan, manifest=manifest)
+
+    direct_invalid_plan = _plan(
+        (source, invalid_nodes[-1].model_copy(update={"depends_on": ("resources",)})),
+        release_digest=release.digest,
+        manifest_digest=manifest.manifest_digest,
+    )
+    with pytest.raises(ValueError, match="absent from dependency output schema"):
+        verifier.verify(direct_invalid_plan, manifest=manifest)
 
 
 def test_verifier_rejects_output_that_does_not_reference_a_declared_node() -> None:
