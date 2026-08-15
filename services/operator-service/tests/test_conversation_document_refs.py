@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fdai_operator_service.families.conversation.contracts import PrincipalScope
@@ -20,9 +20,9 @@ from fdai_operator_service.families.conversation.document_refs import (
     resolve_document_refs,
 )
 
-DOCUMENT_ID = "11111111-1111-4111-8111-111111111111"
-VERSION_ID = "22222222-2222-4222-8222-222222222222"
-OTHER_VERSION_ID = "33333333-3333-4333-8333-333333333333"
+DOCUMENT_ID = str(UUID(int=1, version=4))
+VERSION_ID = str(UUID(int=2, version=4))
+OTHER_VERSION_ID = str(UUID(int=3, version=4))
 SCOPE = PrincipalScope(subject_id="principal-1", roles=frozenset({"operator"}))
 
 
@@ -77,7 +77,10 @@ def test_duplicates_and_overflow_are_rejected() -> None:
     with pytest.raises(DocumentRefSyntaxError, match="unique"):
         parse_document_refs(_body((DOCUMENT_ID, VERSION_ID), (DOCUMENT_ID, VERSION_ID)))
     oversized = [
-        {"document_id": DOCUMENT_ID, "version_id": f"{index:08x}-2222-4222-8222-222222222222"}
+        {
+            "document_id": DOCUMENT_ID,
+            "version_id": str(UUID(int=index, version=4)),
+        }
         for index in range(MAX_DOCUMENT_REFS + 1)
     ]
     with pytest.raises(DocumentRefSyntaxError, match="at most 8"):
@@ -175,9 +178,9 @@ async def test_short_or_padded_resolver_results_are_denied() -> None:
 
 async def test_non_canonical_uuid_forms_are_rejected() -> None:
     for raw in (
-        "urn:uuid:11111111-1111-4111-8111-111111111111",
-        "{11111111-1111-4111-8111-111111111111}",
-        "11111111111141118111111111111111",
+        f"urn:uuid:{DOCUMENT_ID}",
+        f"{{{DOCUMENT_ID}}}",
+        DOCUMENT_ID.replace("-", ""),
     ):
         with pytest.raises(DocumentRefSyntaxError, match="canonical"):
             parse_document_refs([{"document_id": raw, "version_id": str(uuid4())}])
