@@ -144,9 +144,30 @@ def test_enforce_mode_is_reported_but_grants_no_promotion() -> None:
     )
 
     assert binding.enforce_requested_rule_ids == ("rule-a",)
+    assert binding.shadow_requested_rule_ids == ()
     # The bound rule carries no execution authority field; promotion stays with
     # the authoritative registry.
     assert not hasattr(binding.rules[0], "mode")
+
+
+def test_shadow_mode_is_reported_so_an_operator_sees_the_whole_selection() -> None:
+    profile = Profile(
+        id="mixed",
+        title="Mixed",
+        rules=(
+            ProfileRule(id="rule-a", mode=ProfileMode.ENFORCE),
+            ProfileRule(id="rule-b", mode=ProfileMode.SHADOW),
+        ),
+    )
+
+    binding = resolve_rule_profile(
+        [_rule(rule_id="rule-a"), _rule(rule_id="rule-b")],
+        profile_id="mixed",
+        registry=_registry(profile),
+    )
+
+    assert binding.enforce_requested_rule_ids == ("rule-a",)
+    assert binding.shadow_requested_rule_ids == ("rule-b",)
 
 
 # ---------------------------------------------------------------------------
@@ -246,6 +267,7 @@ def test_startup_diagnostics_expose_profile_and_digest_only(
         "excluded_rules",
         "escalated_rules",
         "enforce_requested_rules",
+        "shadow_requested_rules",
     }
 
 

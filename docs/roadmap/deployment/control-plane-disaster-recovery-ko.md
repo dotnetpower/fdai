@@ -1,8 +1,8 @@
 ---
 title: 컨트롤 플레인 재해 복구
 translation_of: control-plane-disaster-recovery.md
-translation_source_sha: 464f2e3fa1c6893b59c2730620647ef5b30b76da
-translation_revised: 2026-08-15
+translation_source_sha: 53843976584ecafeb1877d70eb873f5c53ad6124
+translation_revised: 2026-08-16
 ---
 
 # 컨트롤 플레인 재해 복구
@@ -25,7 +25,7 @@ translation_revised: 2026-08-15
 | 영속 compare-and-set 조정 및 감사 저장 | implemented | `services/core-control-plane/src/fdai/core/verticals/resilience/recovery_coordinator.py` 및 `services/core-control-plane/tests/core/verticals/test_recovery_coordinator.py` | 동일 요청 재전달, 쓰기 충돌, 개정 검사 및 상태와 감사의 원자적 쓰기가 구현되어 있습니다. |
 | 선택형 데이터베이스 복원 훈련 및 검증기 | implemented | `services/core-control-plane/src/fdai/core/verticals/resilience/db_dr_drill_cli.py`, `infra/modules/compute/container-apps/dr_drill_job.tf` 및 DR 훈련 집중 테스트 | 작업은 기본적으로 dry-run이며 배포 입력이 필요합니다. 소스와 테스트만으로 실제 기반 환경 훈련 완료를 입증하지는 않습니다. |
 | 지역 프로바이더 작업 및 이벤트 데이터 연속성 | in-progress | 프로바이더 경계와 이 문서의 활성화 순서 | 대체 지역 프로비저닝, fencing, 범위가 제한된 이벤트 재생, 트래픽 전환 및 failback이 하나의 실제 경로로 조립되지 않았습니다. |
-| 단일 프로세스 예약 실행 | implemented | `infra/modules/compute/container-apps/*_job.tf`; `tests/integration/infra/test_scheduled_job_concurrency.py` | 예약된 모든 Container Apps Job이 `replica_completion_count`와 `parallelism`을 `1`로 고정하고 두 번째 트리거를 선언하지 않으므로 한 번의 tick은 정확히 한 프로세스에서 실행됩니다. Job이 추가되거나 완화되면 집중 검사가 실패합니다. |
+| 단일 프로세스 예약 실행 | implemented | `infra/modules/compute/container-apps/*_job.tf`; `tests/integration/infra/test_scheduled_job_concurrency.py` | 예약된 모든 Container Apps Job이 `replica_completion_count`와 `parallelism`을 `1`로 고정하고, 모든 Job이 정확히 한 종류의 트리거만 선언하므로 한 번의 tick은 정확히 한 프로세스에서 실행됩니다. 스케줄 블록이 파싱되지 않거나 값이 완화되거나 두 번째 트리거가 선언되면 집중 검사가 실패합니다. |
 | 측정된 지역 장애 조치 및 failback | not-started | `docs/runbooks/control-plane-failover.md` | 승인된 RPO/RTO, 이전 epoch fencing, 이벤트 완전성, 트래픽 전환 및 failback을 입증하는 통제된 훈련 증적이 저장소에 없습니다. |
 
 ### 구현 이력

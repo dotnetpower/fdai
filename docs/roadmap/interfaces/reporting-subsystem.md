@@ -594,7 +594,7 @@ never crash serialization or misorder a chart. Each item is covered in
 - [ ] Retain governed render receipts for each production datasource showing source identity, cutoff, freshness, unavailable and timeout behavior, partial-widget isolation, and no synthetic-to-live substitution.
 - [ ] Retain authenticated Operator API and Console receipts for report inventory, explicit unavailable report selection, variable rejection, unknown format, render error isolation, and read-only method enforcement.
 - [x] Implement an optional PDF delivery module, registry binding, package extra, authenticated GET-only control, and focused escaping, digest, pagination, unavailable-section, no-analysis, and no-network tests before advertising `pdf`.
-- [x] Downstream format additions stay behind `FormatEncoder` and composition registration: `scripts/quality/architecture/check-report-format-boundary.py` rejects an unexported, unregistered, ambiguous, or delivery-importing format module, and runs in pre-commit, `verify.sh`, and CI.
+- [x] Downstream format additions stay behind `FormatEncoder` and composition registration: `scripts/quality/architecture/check-report-format-boundary.py` parses each format module and rejects one that does not contribute exactly one encoder, is not really imported or exported by the package, is neither registered in `defaults.py` nor listed as a reviewed opt-in, uses a relative import, or names a dependency outside `core/reporting` and the shared contracts. It runs in pre-commit, `verify.sh`, and CI.
 
 ## Related
 

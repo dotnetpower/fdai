@@ -1,8 +1,8 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: aa14a4d8bd2dcfddc1ff0da65c2733a22c7a0567
-translation_revised: 2026-08-15
+translation_source_sha: 4864493b14cd6e0a55c37d7c87800d31659ba4c5
+translation_revised: 2026-08-16
 ---
 # 리포팅 서브시스템
 
@@ -598,7 +598,7 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
 - [ ] 각 프로덕션 데이터 원본에 대해 source 신원, cutoff, 최신성, 사용 불가 및 시간 초과 동작, 부분 widget 격리 및 synthetic-to-live 대체 부재를 보여주는 관리되는 render 증적을 보존합니다.
 - [ ] Report inventory, 명시적 사용 불가 report 선택, variable 차단, 알 수 없는 format, render 오류 격리 및 읽기 전용 method 적용에 대한 인증된 Operator API 및 Console 증적을 보존합니다.
 - [x] `pdf`를 표시하기 전에 선택적 PDF delivery 모듈, registry 연결, package extra, 인증된 GET-only 컨트롤 및 focused escape, 다이제스트, 페이지 나누기, 사용 불가 섹션, 분석 부재, no-network 테스트를 구현합니다.
-- [x] Downstream format 추가는 `FormatEncoder`와 조립 등록 뒤에 유지됩니다. `scripts/quality/architecture/check-report-format-boundary.py`가 내보내지지 않았거나 등록되지 않았거나 모호하거나 delivery를 import하는 format 모듈을 거부하며 pre-commit, `verify.sh`, CI에서 실행됩니다.
+- [x] Downstream format 추가는 `FormatEncoder`와 조립 등록 뒤에 유지됩니다. `scripts/quality/architecture/check-report-format-boundary.py`는 각 format 모듈을 파싱해, 인코더를 정확히 하나 제공하지 않거나, 패키지가 실제로 import하거나 내보내지 않거나, `defaults.py`에 등록되지도 검토된 opt-in 목록에 있지도 않거나, 상대 import를 사용하거나, `core/reporting`과 공유 계약 밖의 의존성을 지정하는 모듈을 거부합니다. pre-commit, `verify.sh`, CI에서 실행됩니다.
 
 ## 관련 문서
 

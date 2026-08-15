@@ -51,6 +51,7 @@ class RuleProfileBinding:
     excluded_rule_ids: tuple[str, ...]
     escalated_rule_ids: tuple[str, ...]
     enforce_requested_rule_ids: tuple[str, ...]
+    shadow_requested_rule_ids: tuple[str, ...] = ()
 
     def diagnostics(self) -> dict[str, object]:
         """Return the startup diagnostic fields.
@@ -66,6 +67,7 @@ class RuleProfileBinding:
             "excluded_rules": len(self.excluded_rule_ids),
             "escalated_rules": len(self.escalated_rule_ids),
             "enforce_requested_rules": len(self.enforce_requested_rule_ids),
+            "shadow_requested_rules": len(self.shadow_requested_rule_ids),
         }
 
 
@@ -113,6 +115,7 @@ def resolve_rule_profile(
     activated: list[Rule] = []
     escalated: list[str] = []
     enforce_requested: list[str] = []
+    shadow_requested: list[str] = []
     for resolved_rule in resolved.rules:
         source = catalog_by_id[resolved_rule.id]
         update: dict[str, object] = {}
@@ -127,6 +130,8 @@ def resolve_rule_profile(
                 update["parameters"] = merged
         if resolved_rule.mode is ProfileMode.ENFORCE:
             enforce_requested.append(resolved_rule.id)
+        else:
+            shadow_requested.append(resolved_rule.id)
         activated.append(source.model_copy(update=update) if update else source)
 
     excluded = sorted(set(catalog_by_id) - set(resolved.ids()))
@@ -138,6 +143,7 @@ def resolve_rule_profile(
         excluded_rule_ids=tuple(excluded),
         escalated_rule_ids=tuple(escalated),
         enforce_requested_rule_ids=tuple(enforce_requested),
+        shadow_requested_rule_ids=tuple(shadow_requested),
     )
 
 

@@ -1,8 +1,8 @@
 ---
 title: 거버넌스 적용 실행 백엔드
 translation_of: execution-backends.md
-translation_source_sha: da257c1cdcb9ce52b5c5c241fd30f004ea057427
-translation_revised: 2026-08-15
+translation_source_sha: c40327a72212297adef67c2b7da132a3fb2dc92a
+translation_revised: 2026-08-16
 ---
 
 # 거버넌스 적용 실행 백엔드
@@ -118,7 +118,8 @@ Alembic `0049`는 `execution_submission`과 `execution_submission_attempt`를 �
 > **현재 어댑터 상태:** `BubblewrapExecutionBackend`와 `VmTaskExecutionBackend`는
 > [`delivery/execution_backend/adapters.py`](../../../services/core-control-plane/src/fdai/delivery/execution_backend/adapters.py)에서
 > `ExecutionBackend` 프로토콜로 구현되어 있습니다. 두 어댑터 모두 기존 sandbox 카탈로그를 감싸고
-> 좁히기만 합니다. 통제된 shadow 증적과 조립 연결은 아직 남아 있습니다.
+> 좁히기만 합니다. plan과 증적 맵은 프로세스 로컬이며 coordinator cleanup으로 해제되고
+> `durable_provider_state`로 보고됩니다. 통제된 shadow 증적과 조립 연결은 아직 남아 있습니다.
 > `AzureContainerAppsJobExecutionBackend`는 구현되지 않았습니다. 기존 `delivery/azure/vm_task.py`
 > 프로바이더는 여전히 하위 수준 VM 기능이며 여기서 설명하는 통제된 수명 주기 어댑터가 아닙니다.
 

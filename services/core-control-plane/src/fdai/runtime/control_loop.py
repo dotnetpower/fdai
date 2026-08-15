@@ -456,8 +456,9 @@ def _build_control_loop(
     )
     # One resolution of the governed profile. The bound tuple is what the
     # index carries, so T0 and the safety check that evaluates an indexed Rule
-    # read the same immutable result. Workflow guard references still validate
-    # against the full authored catalog.
+    # read the same immutable result. Workflow guard references validate
+    # against the same active set, so a profile that excludes a guard rule
+    # blocks boot instead of failing at first dispatch.
     profile_binding = bind_rule_profile(rules, catalog_root=catalog_root)
     active_rules: Sequence[Rule] = rules if profile_binding is None else profile_binding.rules
     index = RuleIndex.build(active_rules, signal_types=signal_types)
@@ -474,7 +475,7 @@ def _build_control_loop(
             workflows_root,
             schema_registry=registry,
             action_type_names={a.name for a in action_types},
-            rule_ids={r.id for r in rules},
+            rule_ids={r.id for r in active_rules},
         )
         if workflows_root.is_dir()
         else ()
