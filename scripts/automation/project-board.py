@@ -81,6 +81,11 @@ def start(
         raise IssueContractError(
             f"issue #{issue.number} needs an ## Exit criteria or ## Acceptance criteria checklist"
         )
+    if desired_work_type(issue.labels) is None:
+        raise IssueContractError(
+            f"issue #{issue.number} needs exactly one canonical work type label "
+            "(bug or type:epic|story|task|spike)"
+        )
     client.run(["issue", "edit", str(issue.number), "--repo", repository, "--add-assignee", "@me"])
     items = project_items(
         client,
