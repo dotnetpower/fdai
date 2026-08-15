@@ -406,7 +406,8 @@ def run_cycle(
                 "status", "--porcelain", cwd=repo_root
             ):
                 raise RuntimeError("blocked campaign must not leave repository changes")
-            return f"blocked: issue #{issue.number}, docs/roadmap/{folder}"
+            # A blocked run produces no commit, so its summary is the only evidence of why.
+            return f"blocked: issue #{issue.number}, docs/roadmap/{folder}: {result['summary']}"
         if _git("status", "--porcelain", cwd=repo_root):
             raise RuntimeError("campaign worker left uncommitted changes")
         if _git("rev-parse", "HEAD", cwd=repo_root) == base:
