@@ -4,16 +4,35 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 
 from fdai.agents import ShadowDivergenceLedger
 from fdai.core.control_loop import ControlLoop, ControlLoopOutcome, ControlLoopResult
 from fdai.core.hil_resume import HilResumeCoordinator
 from fdai.rule_catalog.schema.resource_type import ResourceTypeRegistry
-from fdai.shared.providers.event_bus import EventBus
+from fdai.shared.providers.event_bus import EventBus, EventEnvelope
 
 _LOGGER = logging.getLogger("fdai.startup")
 _LOOP_LOGGER = logging.getLogger("fdai.control_loop")
+
+
+@asynccontextmanager
+async def _subscription(
+    bus: EventBus,
+    topic: str,
+    group_id: str,
+) -> AsyncIterator[AsyncIterator[EventEnvelope]]:
+    """Drain the provider stream inside this task instead of at loop finalization."""
+
+    stream = bus.subscribe(topic, group_id)
+    try:
+        yield stream
+    finally:
+        aclose = getattr(stream, "aclose", None)
+        if aclose is not None:
+            await aclose()
 
 
 async def _consume_resource_changes(
@@ -28,33 +47,34 @@ async def _consume_resource_changes(
 
     from fdai.delivery.azure.resource_change import normalize_resource_change_events
 
-    async for envelope in bus.subscribe(raw_topic, "fdai-huginn-resource-discovery"):
-        if stop.is_set():
-            return
-        try:
-            events = normalize_resource_change_events(
-                envelope.payload,
-                resource_types=resource_types,
-            )
-        except Exception as exc:  # noqa: BLE001 - broker boundary isolation
-            reason = f"resource_discovery_normalize_error:{type(exc).__name__}"
-            _LOOP_LOGGER.exception(
-                "resource_discovery_normalize_error",
-                extra={"key": envelope.key, "offset": envelope.offset},
-            )
-            await bus.dead_letter(
-                envelope.topic,
-                envelope.key,
-                envelope.payload,
-                reason,
-            )
-            continue
-        for event in events:
-            await bus.publish(
-                canonical_topic,
-                event.resource_ref or str(event.event_id),
-                event.model_dump(mode="json"),
-            )
+    async with _subscription(bus, raw_topic, "fdai-huginn-resource-discovery") as stream:
+        async for envelope in stream:
+            if stop.is_set():
+                return
+            try:
+                events = normalize_resource_change_events(
+                    envelope.payload,
+                    resource_types=resource_types,
+                )
+            except Exception as exc:  # noqa: BLE001 - broker boundary isolation
+                reason = f"resource_discovery_normalize_error:{type(exc).__name__}"
+                _LOOP_LOGGER.exception(
+                    "resource_discovery_normalize_error",
+                    extra={"key": envelope.key, "offset": envelope.offset},
+                )
+                await bus.dead_letter(
+                    envelope.topic,
+                    envelope.key,
+                    envelope.payload,
+                    reason,
+                )
+                continue
+            for event in events:
+                await bus.publish(
+                    canonical_topic,
+                    event.resource_ref or str(event.event_id),
+                    event.model_dump(mode="json"),
+                )
 
 
 async def _consume(
@@ -78,53 +98,29 @@ async def _consume(
     is recorded against the event's correlation id so it can be joined
     with the pantheon's shadow verdict (shadow-before-enforce baseline).
     """
-    async for envelope in bus.subscribe(topic, group_id):
-        if stop.is_set():
-            return
-        _LOOP_LOGGER.info(
-            "event_received",
-            extra={"topic": envelope.topic, "offset": envelope.offset, "key": envelope.key},
-        )
-        try:
-            result = await control_loop.process(envelope.payload)
-        except Exception as exc:  # noqa: BLE001 - process boundary isolation
-            reason = f"control_loop_unhandled_error:{type(exc).__name__}"
-            _LOOP_LOGGER.exception(
-                "control_loop_unhandled_error",
-                extra={"key": envelope.key, "offset": envelope.offset},
+    async with _subscription(bus, topic, group_id) as stream:
+        async for envelope in stream:
+            if stop.is_set():
+                return
+            _LOOP_LOGGER.info(
+                "event_received",
+                extra={"topic": envelope.topic, "offset": envelope.offset, "key": envelope.key},
             )
-            # Commit only after both the terminal audit and DLQ write
-            # succeed. If either isolation step fails, propagate so the
-            # async iterator closes before its post-yield commit and the
-            # broker redelivers the event.
-            await control_loop.record_unhandled_failure(
-                payload=envelope.payload,
-                reason=reason,
-            )
-            await bus.dead_letter(
-                envelope.topic,
-                envelope.key,
-                envelope.payload,
-                reason,
-            )
-            continue
-        if divergence is not None:
-            payload = envelope.payload
-            correlation_id = str(
-                payload.get("correlation_id")
-                or payload.get("event_id")
-                or payload.get("id")
-                or envelope.key
-            )
-            divergence.record_authoritative(correlation_id, _authoritative_decision(result))
-        if irp_handler is not None and result.outcome is not ControlLoopOutcome.DEDUPED:
             try:
-                await irp_handler.handle(envelope.payload)
-            except Exception as exc:  # noqa: BLE001 - isolate the alert-response boundary
-                reason = f"irp_event_handler_error:{type(exc).__name__}"
+                result = await control_loop.process(envelope.payload)
+            except Exception as exc:  # noqa: BLE001 - process boundary isolation
+                reason = f"control_loop_unhandled_error:{type(exc).__name__}"
                 _LOOP_LOGGER.exception(
-                    "irp_event_handler_error",
+                    "control_loop_unhandled_error",
                     extra={"key": envelope.key, "offset": envelope.offset},
+                )
+                # Commit only after both the terminal audit and DLQ write
+                # succeed. If either isolation step fails, propagate so the
+                # async iterator closes before its post-yield commit and the
+                # broker redelivers the event.
+                await control_loop.record_unhandled_failure(
+                    payload=envelope.payload,
+                    reason=reason,
                 )
                 await bus.dead_letter(
                     envelope.topic,
@@ -133,16 +129,41 @@ async def _consume(
                     reason,
                 )
                 continue
-        _LOOP_LOGGER.info(
-            "event_processed",
-            extra={
-                "outcome": result.outcome.value,
-                "tier": result.tier,
-                "decision": result.decision,
-                "resource_type": result.resource_type,
-                "citing_rule_ids": list(result.citing_rule_ids),
-            },
-        )
+            if divergence is not None:
+                payload = envelope.payload
+                correlation_id = str(
+                    payload.get("correlation_id")
+                    or payload.get("event_id")
+                    or payload.get("id")
+                    or envelope.key
+                )
+                divergence.record_authoritative(correlation_id, _authoritative_decision(result))
+            if irp_handler is not None and result.outcome is not ControlLoopOutcome.DEDUPED:
+                try:
+                    await irp_handler.handle(envelope.payload)
+                except Exception as exc:  # noqa: BLE001 - isolate the alert-response boundary
+                    reason = f"irp_event_handler_error:{type(exc).__name__}"
+                    _LOOP_LOGGER.exception(
+                        "irp_event_handler_error",
+                        extra={"key": envelope.key, "offset": envelope.offset},
+                    )
+                    await bus.dead_letter(
+                        envelope.topic,
+                        envelope.key,
+                        envelope.payload,
+                        reason,
+                    )
+                    continue
+            _LOOP_LOGGER.info(
+                "event_processed",
+                extra={
+                    "outcome": result.outcome.value,
+                    "tier": result.tier,
+                    "decision": result.decision,
+                    "resource_type": result.resource_type,
+                    "citing_rule_ids": list(result.citing_rule_ids),
+                },
+            )
 
 
 async def _consume_hil_decisions(
@@ -154,31 +175,32 @@ async def _consume_hil_decisions(
 ) -> None:
     from fdai.shared.providers.hil_channel import HilDecision
 
-    async for envelope in bus.subscribe(topic, "fdai-hil-resume"):
-        if stop.is_set():
-            return
-        payload = envelope.payload
-        try:
-            approval_id = str(payload["approval_id"])
-            decision = HilDecision(str(payload["decision"]))
-            approver_oid = str(payload["approver_oid"])
-            if not approval_id or not approver_oid:
-                raise ValueError("approval_id and approver_oid MUST be non-empty")
-            await coordinator.resolve(
-                approval_id=approval_id,
-                decision=decision,
-                approver_oid=approver_oid,
-                reason=str(payload.get("justification") or ""),
-            )
-        except Exception as exc:  # noqa: BLE001 - broker boundary isolation
-            reason = f"hil_decision_consume_error:{type(exc).__name__}"
-            await bus.dead_letter(
-                envelope.topic,
-                envelope.key,
-                envelope.payload,
-                reason,
-            )
-            continue
+    async with _subscription(bus, topic, "fdai-hil-resume") as stream:
+        async for envelope in stream:
+            if stop.is_set():
+                return
+            payload = envelope.payload
+            try:
+                approval_id = str(payload["approval_id"])
+                decision = HilDecision(str(payload["decision"]))
+                approver_oid = str(payload["approver_oid"])
+                if not approval_id or not approver_oid:
+                    raise ValueError("approval_id and approver_oid MUST be non-empty")
+                await coordinator.resolve(
+                    approval_id=approval_id,
+                    decision=decision,
+                    approver_oid=approver_oid,
+                    reason=str(payload.get("justification") or ""),
+                )
+            except Exception as exc:  # noqa: BLE001 - broker boundary isolation
+                reason = f"hil_decision_consume_error:{type(exc).__name__}"
+                await bus.dead_letter(
+                    envelope.topic,
+                    envelope.key,
+                    envelope.payload,
+                    reason,
+                )
+                continue
 
 
 async def _consume_canaries(
@@ -189,32 +211,33 @@ async def _consume_canaries(
     stop: asyncio.Event,
 ) -> None:
     """Consume the separately authorized canary topic without IRP or learning hooks."""
-    async for envelope in bus.subscribe(topic, "fdai-canary"):
-        if stop.is_set():
-            return
-        try:
-            result = await control_loop.process_canary(envelope.payload)
-        except Exception as exc:  # noqa: BLE001 - broker boundary isolation
-            reason = f"canary_consume_error:{type(exc).__name__}"
-            await control_loop.record_unhandled_failure(
-                payload=envelope.payload,
-                reason=reason,
+    async with _subscription(bus, topic, "fdai-canary") as stream:
+        async for envelope in stream:
+            if stop.is_set():
+                return
+            try:
+                result = await control_loop.process_canary(envelope.payload)
+            except Exception as exc:  # noqa: BLE001 - broker boundary isolation
+                reason = f"canary_consume_error:{type(exc).__name__}"
+                await control_loop.record_unhandled_failure(
+                    payload=envelope.payload,
+                    reason=reason,
+                )
+                await bus.dead_letter(
+                    envelope.topic,
+                    envelope.key,
+                    envelope.payload,
+                    reason,
+                )
+                continue
+            _LOOP_LOGGER.info(
+                "canary_processed",
+                extra={
+                    "outcome": result.outcome.value,
+                    "event_id": result.event_id,
+                    "topic": envelope.topic,
+                },
             )
-            await bus.dead_letter(
-                envelope.topic,
-                envelope.key,
-                envelope.payload,
-                reason,
-            )
-            continue
-        _LOOP_LOGGER.info(
-            "canary_processed",
-            extra={
-                "outcome": result.outcome.value,
-                "event_id": result.event_id,
-                "topic": envelope.topic,
-            },
-        )
 
 
 def _authoritative_decision(result: ControlLoopResult) -> str:

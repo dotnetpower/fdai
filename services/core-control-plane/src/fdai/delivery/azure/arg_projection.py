@@ -195,11 +195,11 @@ def build_arm_to_neutral_map(registry: ResourceTypeRegistry) -> dict[str, str]:
     for entry in registry:
         if entry.azure_arm_type is not None:
             by_arm_type.setdefault(entry.azure_arm_type.lower(), []).append(entry.id)
-    ambiguous_count = sum(1 for type_ids in by_arm_type.values() if len(type_ids) > 1)
-    if ambiguous_count:
+    ambiguous = sorted(arm_type for arm_type, type_ids in by_arm_type.items() if len(type_ids) > 1)
+    if ambiguous:
         _LOGGER.warning(
             "azure_arm_reverse_map_ambiguous_types",
-            extra={"count": ambiguous_count},
+            extra={"count": len(ambiguous), "arm_types": ambiguous},
         )
     return {
         arm_type: type_ids[0] for arm_type, type_ids in by_arm_type.items() if len(type_ids) == 1

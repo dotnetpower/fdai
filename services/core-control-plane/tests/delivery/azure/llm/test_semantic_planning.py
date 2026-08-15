@@ -279,6 +279,13 @@ async def test_adapter_uses_candidate_order_and_returns_none_after_malformed_out
         if record.message == "semantic_planning_candidate_failed"
     ]
     assert failures == ["HTTPStatusError", "ValidationError"]
+    http_failure = next(
+        record
+        for record in caplog.records
+        if record.message == "semantic_planning_candidate_failed"
+        and record.failure_type == "HTTPStatusError"
+    )
+    assert http_failure.status_code == 503
     validation_failure = next(
         record
         for record in caplog.records

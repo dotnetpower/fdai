@@ -256,6 +256,8 @@ class AzureOpenAISemanticPlanningModel:
                     "candidate_index": index,
                     "failure_type": type(exc).__name__,
                 }
+                if isinstance(exc, httpx.HTTPStatusError):
+                    failure["status_code"] = exc.response.status_code
                 if isinstance(exc, ValidationError):
                     failure["validation_errors"] = json.dumps(
                         [

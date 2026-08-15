@@ -6,6 +6,7 @@ import asyncio
 import logging
 import os
 from datetime import UTC, datetime
+from functools import partial
 from pathlib import Path
 from typing import Any, cast
 
@@ -1297,7 +1298,9 @@ async def _run() -> int:
                     ),
                     name="rule-generation-outbox",
                 )
-                rule_generation_outbox_task.add_done_callback(_log_rule_generation_outbox_exit)
+                rule_generation_outbox_task.add_done_callback(
+                    partial(_log_rule_generation_outbox_exit, stop=stop)
+                )
             if (
                 pantheon_runtime is not None
                 and {"Mimir", "Heimdall"}.issubset(pantheon_runtime.agents)

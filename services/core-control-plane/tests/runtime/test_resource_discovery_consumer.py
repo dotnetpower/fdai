@@ -103,3 +103,33 @@ async def test_resource_change_publish_failure_retries_raw_event() -> None:
     )
     records = [item async for item in bus.subscribe("aw.change.events", "assert")]
     assert len(records) == 1
+
+
+async def test_resource_change_consumer_closes_subscription_on_stop() -> None:
+    closed = asyncio.Event()
+
+    class ClosingBus(InMemoryEventBus):
+        def subscribe(self, topic, group_id):  # type: ignore[no-untyped-def]
+            async def _stream():
+                try:
+                    async for envelope in super(ClosingBus, self).subscribe(topic, group_id):
+                        yield envelope
+                finally:
+                    closed.set()
+
+            return _stream()
+
+    bus = ClosingBus()
+    await bus.publish("aw.inventory.raw", "raw-1", _raw_event())
+    stop = asyncio.Event()
+    stop.set()
+
+    await _consume_resource_changes(
+        bus=bus,
+        raw_topic="aw.inventory.raw",
+        canonical_topic="aw.change.events",
+        resource_types=_registry(),
+        stop=stop,
+    )
+
+    assert closed.is_set()
