@@ -15,8 +15,8 @@ import yaml
 
 from fdai.composition import (
     Container,
+    LlmBindings,
 )
-from fdai.composition._helpers import LlmBindings
 from fdai.core.architecture_review import (
     ArchitectureReviewProductionGateEvaluator,
     ArchitectureReviewProjector,
