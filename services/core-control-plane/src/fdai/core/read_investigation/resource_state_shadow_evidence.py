@@ -32,11 +32,16 @@ from fdai.shared.providers.read_investigation import (
 )
 from fdai.shared.providers.state_evidence import (
     STATE_FACT_METADATA_PROPERTY,
+    StateFactAuthority,
     StateFactLane,
     StateFactMetadata,
 )
 
 ResourceIdentityCanonicalizer = Callable[[str], str]
+
+CROSS_SOURCE_ADJUDICATOR_IDENTITY = "fdai-cross-source-state-adjudicator"
+CROSS_SOURCE_ADJUDICATOR_REVISION = "cross-source-state-adjudication.v1"
+CROSS_SOURCE_CONFLICT_PREFIX = "cross_source_conflict"
 
 _RESOURCE_STATE_MAX_AGE_SECONDS = 300
 _MAX_BOUNDED_INPUT_BYTES = 65_536
@@ -349,6 +354,51 @@ def observation_mismatches(
     return reasons
 
 
+def cross_source_state_fact(
+    baseline: NormalizedResourceStateObservation | None,
+    candidate: NormalizedResourceStateObservation | None,
+    *,
+    trusted_cutoff: datetime,
+) -> StateFactMetadata | None:
+    """Adjudicate two independent authorities that observed one resource state.
+
+    Returns ``None`` when either side produced no normalized observation, because no
+    adjudication happened. An empty conflict tuple means the two authorities agreed; it
+    never means one authority was corroborated.
+
+    A difference in observation time is not a conflict: two independent authorities
+    observe at different instants. Only a disagreement about the target's identity or its
+    state is a contradiction, and neither side wins it.
+    """
+
+    if baseline is None or candidate is None:
+        return None
+    conflicts: list[str] = []
+    if baseline.resource_identity != candidate.resource_identity:
+        conflicts.append(f"{CROSS_SOURCE_CONFLICT_PREFIX}:resource_identity")
+    if baseline.state != candidate.state:
+        conflicts.append(f"{CROSS_SOURCE_CONFLICT_PREFIX}:state")
+    cutoff = _utc(trusted_cutoff)
+    observed = (_utc(baseline.observed_at), _utc(candidate.observed_at))
+    latest = max(observed)
+    if latest > cutoff:
+        return None
+    return StateFactMetadata(
+        lane=StateFactLane.DERIVED,
+        authority=StateFactAuthority.DETERMINISTIC_FUNCTION,
+        source_identity=CROSS_SOURCE_ADJUDICATOR_IDENTITY,
+        source_revision=CROSS_SOURCE_ADJUDICATOR_REVISION,
+        effective_at=min(observed),
+        evidence_cutoff=latest,
+        recorded_at=cutoff,
+        freshness_ceiling_seconds=_RESOURCE_STATE_MAX_AGE_SECONDS,
+        completeness=0.0 if conflicts else 1.0,
+        synthetic=False,
+        conflicts=tuple(sorted(conflicts)),
+        evidence_refs=_bounded_evidence_refs((*baseline.evidence_refs, *candidate.evidence_refs)),
+    )
+
+
 def existing_input_digest(result: ReadInvestigationResult) -> str:
     """Digest stable existing evidence while excluding attempt timing."""
 
@@ -520,10 +570,14 @@ def _timestamp(value: datetime) -> str:
 
 
 __all__ = [
+    "CROSS_SOURCE_ADJUDICATOR_IDENTITY",
+    "CROSS_SOURCE_ADJUDICATOR_REVISION",
+    "CROSS_SOURCE_CONFLICT_PREFIX",
     "NormalizedResourceStateObservation",
     "ResourceIdentityCanonicalizer",
     "ResourceStateExtraction",
     "canonical_semantic_request_id",
+    "cross_source_state_fact",
     "existing_input_digest",
     "extract_existing_state",
     "extract_semantic_state",

@@ -104,6 +104,7 @@ cloud-operations concepts, while each deployment supplies its observed instances
 | 2026-08-15 | implemented | Removed the undeclared `predicts_breach_of` and `learned_as` rows from the relationship contract, recorded their blocking ObjectTypes, and pinned the table against the shipped LinkType catalog and stored link direction. | `current change`; `test_ontology_catalog.py` and `test_ontology_instance.py` focused cases. | Restore either relationship only together with its endpoint ObjectType and the competency question it answers. |
 | 2026-08-15 | implemented | Corrected the agent-ownership section to name the two independent ownership registries, replaced the prose ownership claims with the exact `lifecycle.owner` type list, and replaced the unsupported "authority class, freshness policy, retention, allowed purposes" claim with the fields the schema actually declares. | `current change`; `test_object_type_catalog.py::test_documented_semantic_write_owners_match_the_catalog`. | Decide per ObjectType whether an absent `lifecycle` block should gain a declared owner; do not add one to fill the field. |
 | 2026-08-15 | implemented | Added deterministic adjudication of repeated authoritative observations of one resource identity, so `StateFactMetadata.conflicts` has a production producer instead of only test fixtures. Benign repetition no longer fails the whole generation. | `current change`; `test_observation_adjudication.py` 15 focused cases and `test_inventory_projection.py` conflict-demotion cases passed; 354 focused ontology, inventory, and runtime cases passed. | Adjudicate genuinely independent authorities against each other; inventory projection versus live discovery is the next pair. |
+| 2026-08-15 | implemented | Adjudicated the first genuinely independent pair: the live provider read against the inventory-projected graph state. A state or identity disagreement becomes a `derived` cross-source conflict that is retained in the receipt digest and makes the hook abstain from asserting a state and degrade its activity; an observation-time difference alone is explicitly not a conflict. | `current change`; `test_resource_state_shadow.py` 6 added adjudication cases and `test_wire_read_investigation.py::test_cross_source_state_conflict_lowers_the_answer_and_activity` with a non-vacuous agreeing control. | Adjudicate two independent providers, and projected state against telemetry. |
 
 ### Remaining work
 
@@ -122,11 +123,12 @@ cloud-operations concepts, while each deployment supplies its observed instances
 - [ ] Review the shipped ObjectTypes that carry no `lifecycle` block and record, per type, whether an
   agent single-writer is required or whether catalog-as-code, a projection, or the event-bus
   registry is the correct authority ([#130](https://github.com/dotnetpower/fdai/issues/130)).
-- [ ] Adjudicate two genuinely independent authorities against each other and carry the verdict on
-  the state fact. Inventory projection against live resource-state discovery is the next pair;
-  today only repeated observations inside one generation are decided.
-- [ ] Give the shadow resource-state divergence verdict a governed path into a state fact, so a
-  classified divergence lowers autonomy instead of ending in a shadow receipt.
+- [ ] Adjudicate two independent cloud providers against each other, and projected state against
+  telemetry. Today only repeated observations inside one generation and the live-read against
+  inventory-projection pair are decided.
+- [ ] Decide whether an adjudicated cross-source conflict should also reach an autonomy ceiling
+  outside the read path, and which writer may carry it without breaking single-writer ownership of
+  the projected subgraph.
 
 ## Catalog semantic projection
 
@@ -466,9 +468,11 @@ Conflicting sources produce an explicit conflict or `unknown` state and lower au
 Conflict adjudication is deliberately narrower than conflict consumption. Read the two halves
 separately before relying on either.
 
-**Adjudicated today.** One pair is decided in a production path: two authoritative observations of
-the same neutral resource identity inside one promoted inventory generation.
-`adjudicate_observations` in `core/ontology_platform/observation_adjudication.py` compares the
+**Adjudicated today.** Two pairs are decided in production paths.
+
+The first is intra-source: two authoritative observations of the same neutral resource identity
+inside one promoted inventory generation. `adjudicate_observations` in
+`core/ontology_platform/observation_adjudication.py` compares the
 reported content of every observation of that identity, and
 `build_inventory_ontology_projection` carries the verdict on the projected `Resource` state fact.
 The rules are deterministic and value-blind:
@@ -486,11 +490,29 @@ The rules are deterministic and value-blind:
 - A contested identity cannot anchor a verified relationship. `verify_inventory_relationships`
   drops relationships whose endpoint or provider owner is contested.
 
-**Not adjudicated yet.** No production path compares two independent authorities against each
-other: not two cloud providers, not inventory projection against live discovery, not projected
-state against telemetry. `ShadowResourceStateComparisonService` does classify divergence between
-the read-investigation result and the semantic graph, but its verdict stays in a shadow receipt and
-never reaches a state fact.
+The second pair is decided in the read path: the live provider read versus the inventory-projected
+graph state for one resolved resource. `ResourceStateShadowHook` already runs both authorities for
+the same target, and `cross_source_state_fact` in
+`core/read_investigation/resource_state_shadow_evidence.py` adjudicates them into one `derived`
+fact with `deterministic_function` authority:
+
+- A disagreement about the target's state or identity is a cross-source conflict. Neither side
+  wins it, and the contested value is not asserted in the answer.
+- A difference in observation time is not a conflict. Two independent authorities observe at
+  different instants, so treating that as a contradiction would degrade every answer and destroy
+  the signal.
+- When either side is unavailable, stale, truncated, or malformed, there is no adjudicated fact at
+  all. The result is absent rather than an empty conflict tuple, because "not compared" must never
+  read as "agreed".
+- The conflict is retained on the shadow receipt and is part of its content digest, so the decision
+  replays.
+- The verdict can only lower the disposition. A conflict makes the hook abstain from asserting a
+  state and marks the terminal operational activity degraded with unknown freshness. It never
+  changes the authoritative value, and the shadow path still has no approval, mutation, or
+  execution authority.
+
+**Not adjudicated yet.** No production path compares two independent providers, and no path
+adjudicates projected state against telemetry.
 
 **Reading an empty conflict tuple.** An empty `StateFactMetadata.conflicts` means only that the
 observations that were compared agreed. It is not proof that the fact was independently

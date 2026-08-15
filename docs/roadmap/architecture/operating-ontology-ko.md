@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 3266e14125cbc1aca531c5916e370d3ae770e332
+translation_source_sha: e22c6319410dd15264ec75ac344400ee5a955dcc
 translation_revised: 2026-08-15
 ---
 # FDAI 운영 온톨로지
@@ -107,6 +107,7 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
 | 2026-08-15 | implemented | 선언되지 않은 `predicts_breach_of`와 `learned_as` 행을 관계 계약에서 제거하고 이를 막고 있는 ObjectType을 기록했으며, 표를 제공되는 LinkType 카탈로그와 저장된 링크 방향에 고정했습니다. | `current change`, `test_ontology_catalog.py` 및 `test_ontology_instance.py` focused 테스트 | 두 관계는 엔드포인트 ObjectType과 이를 필요로 하는 competency 질문이 함께 준비될 때만 복원합니다. |
 | 2026-08-15 | implemented | 에이전트 소유권 절을 바로잡아 두 개의 독립된 소유권 레지스트리를 명시하고, 산문으로 된 소유권 서술을 정확한 `lifecycle.owner` 타입 목록으로 교체했으며, 근거 없던 "권한 등급, 최신성 정책, 보존, allowed 용도" 서술을 스키마가 실제로 선언하는 필드로 바꿨습니다. | `current change`, `test_object_type_catalog.py::test_documented_semantic_write_owners_match_the_catalog` | `lifecycle` 블록이 없는 ObjectType별로 선언된 소유자가 필요한지 판단합니다. 빈칸을 유추하려는 목적으로 추가하지 않습니다. |
 | 2026-08-15 | implemented | 같은 리소스 신원을 반복 관측한 권위 있는 관측에 대한 결정적 판정을 추가해 `StateFactMetadata.conflicts`가 테스트 픽스처가 아니라 프로덕션 생산자를 갖게 했습니다. 무해한 반복 관측이 더 이상 세대 전체를 실패시키지 않습니다. | `current change`, `test_observation_adjudication.py` focused 테스트 15개와 `test_inventory_projection.py` 충돌 강등 테스트 통과, 온톨로지·인벤토리·런타임 focused 테스트 354개 통과 | 서로 독립된 권위끼리 판정해야 하며, 인벤토리 변환 결과와 실시간 디스커버리가 다음 쌍입니다. |
+| 2026-08-15 | implemented | 서로 독립된 첫 쌍을 판정했습니다. 실시간 프로바이더 읽기와 인벤토리로 변환된 그래프 상태입니다. 상태나 신원이 어긋나면 `derived` 교차 출처 충돌이 되어 영수증 다이제스트에 보존되고 hook이 상태 단정을 보류하며 활동을 강등합니다. 관측 시각 차이만 있는 경우는 명시적으로 충돌이 아닙니다. | `current change`, `test_resource_state_shadow.py` 판정 테스트 6개와 일치 대조군이 있는 `test_wire_read_investigation.py::test_cross_source_state_conflict_lowers_the_answer_and_activity` | 서로 독립된 두 프로바이더끼리, 그리고 변환된 상태와 텔레메트리를 판정해야 합니다. |
 
 ### 남은 작업
 
@@ -125,11 +126,12 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
 - [ ] `lifecycle` 블록이 없는 출하 ObjectType을 검토해, 타입별로 에이전트 단일 작성자가 필요한지
   아니면 catalog-as-code, 변환 결과, 이벤트 버스 레지스트리 중 무엇이 올바른 권한인지
   기록합니다 ([#130](https://github.com/dotnetpower/fdai/issues/130)).
-- [ ] 서로 독립된 두 권위를 맞대어 판정하고 그 결과를 상태 사실에 실어야 합니다. 인벤토리
-  변환 결과와 실시간 리소스 상태 디스커버리가 다음 쌍이며, 현재는 한 세대 안의 반복 관측만
+- [ ] 서로 독립된 두 클라우드 프로바이더를 맞대어 판정하고, 변환된 상태와 텔레메트리도
+  판정해야 합니다. 현재는 한 세대 안의 반복 관측과 실시간 읽기 대 인벤토리 변환 결과 쌍만
   판정합니다.
-- [ ] Shadow 리소스 상태 divergence 판정이 통제된 경로로 상태 사실에 도달하게 하여, 분류된
-  divergence가 shadow 영수증에서 끝나지 않고 자율성을 낮추도록 해야 합니다.
+- [ ] 판정된 교차 출처 충돌이 읽기 경로 밖의 자율성 상한에도 도달해야 하는지, 그리고 변환된
+  서브그래프의 단일 작성자 소유권을 깨지 않고 어느 작성자가 이를 실어 나를 수 있는지 정해야
+  합니다.
 
 ## 카탈로그 의미 변환 결과
 
@@ -466,7 +468,9 @@ owning 에이전트, 하나 이상의 생성 기준, 선택적인 중복 제거 
 충돌 판정 범위는 충돌 소비 범위보다 의도적으로 좁습니다. 둘 중 하나에 의존하기 전에 두 절반을
 따로 읽으세요.
 
-**현재 판정하는 범위.** 프로덕션 경로에서 판정되는 쌍은 하나입니다. 승격된 하나의 인벤토리
+**현재 판정하는 범위.** 프로덕션 경로에서 판정되는 쌍은 두 개입니다.
+
+첫 번째는 같은 소스 안의 쌍입니다. 승격된 하나의 인벤토리
 세대 안에서 같은 중립 리소스 신원을 관측한 둘 이상의 권위 있는 관측입니다.
 `core/ontology_platform/observation_adjudication.py`의 `adjudicate_observations`가 그 신원에
 대한 모든 관측 내용을 비교하고, `build_inventory_ontology_projection`이 그 판정을 변환된
@@ -484,11 +488,25 @@ owning 에이전트, 하나 이상의 생성 기준, 선택적인 중복 제거 
 - 경합 중인 신원은 verified 관계의 기준점이 될 수 없습니다. `verify_inventory_relationships`는
   종단이나 프로바이더 소유자가 경합 중인 관계를 버립니다.
 
-**아직 판정하지 않는 범위.** 서로 독립된 두 권위를 맞대어 비교하는 프로덕션 경로는 없습니다.
-두 클라우드 프로바이더 사이도, 인벤토리 변환 결과와 실시간 디스커버리 사이도, 변환된 상태와
-텔레메트리 사이도 아닙니다. `ShadowResourceStateComparisonService`가 read-investigation 결과와
-의미 그래프 사이의 divergence를 분류하기는 하지만, 그 판정은 shadow 영수증에 머무르고 상태
-사실에 도달하지 않습니다.
+두 번째 쌍은 읽기 경로에서 판정됩니다. 해석된 리소스 하나에 대한 실시간 프로바이더 읽기와
+인벤토리로 변환된 그래프 상태입니다. `ResourceStateShadowHook`은 이미 같은 대상에 대해 두 권위를
+모두 실행하고 있고, `core/read_investigation/resource_state_shadow_evidence.py`의
+`cross_source_state_fact`가 그 둘을 `deterministic_function` 권한을 가진 `derived` 사실 하나로
+판정합니다.
+
+- 대상의 상태나 신원이 어긋나면 교차 출처 충돌입니다. 어느 쪽도 이기지 않으며, 경합 중인 값은
+  답변에서 단정하지 않습니다.
+- 관측 시각 차이는 충돌이 아닙니다. 서로 독립된 두 권위는 서로 다른 순간에 관측하므로, 이를
+  모순으로 취급하면 모든 답변이 강등되어 신호 자체가 무의미해집니다.
+- 어느 한쪽이 사용 불가, stale, truncated 또는 malformed이면 판정된 사실이 아예 없습니다.
+  "비교하지 않음"이 "일치함"으로 읽히면 안 되므로, 빈 충돌 목록이 아니라 부재로 남깁니다.
+- 충돌은 shadow 영수증에 보존되고 그 내용 다이제스트에 포함되므로 결정이 재생됩니다.
+- 이 판정은 처분을 낮추기만 합니다. 충돌이 있으면 hook은 상태 단정을 보류하고 종료 운영 활동을
+  degraded/최신성 unknown으로 표시합니다. 권위 있는 값을 바꾸지 않으며, shadow 경로에는 여전히
+  승인·변경·실행 권한이 없습니다.
+
+**아직 판정하지 않는 범위.** 서로 독립된 두 클라우드 프로바이더를 비교하는 프로덕션 경로는
+없고, 변환된 상태와 텔레메트리를 판정하는 경로도 없습니다.
 
 **비어 있는 충돌 목록을 읽는 법.** 비어 있는 `StateFactMetadata.conflicts`는 비교한 관측들이
 일치했다는 뜻일 뿐입니다. 그 사실이 독립적으로 교차 확인되었다는 증거가 아니며, 충돌이 없다는

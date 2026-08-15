@@ -40,11 +40,15 @@ from fdai.core.read_investigation.models import (
     ReadInvestigationRequest,
     ReadInvestigationResult,
 )
+from fdai.core.read_investigation.resource_state_shadow_evidence import (
+    CROSS_SOURCE_ADJUDICATOR_IDENTITY,
+)
 from fdai.core.read_investigation.resource_state_shadow_models import (
     ShadowComparisonOutcome,
     ShadowComparisonReason,
     ShadowReceiptPersistence,
     ShadowSinkErrorKind,
+    build_shadow_receipt,
 )
 from fdai.core.read_investigation.resource_state_shadow_service import (
     ShadowResourceStateComparisonService,
@@ -670,3 +674,97 @@ async def test_malformed_semantic_state_emits_error_receipt_without_exception() 
 
     assert attempt.receipt.outcome is ShadowComparisonOutcome.ERROR
     assert attempt.receipt.reasons == (ShadowComparisonReason.SEMANTIC_EVIDENCE_MALFORMED,)
+
+
+async def test_state_divergence_is_adjudicated_as_a_cross_source_conflict() -> None:
+    query_result, semantic_receipt = _semantic_inputs(state="stopped")
+
+    attempt, _ = await _compare(
+        query_result=query_result,
+        semantic_receipt=semantic_receipt,
+    )
+
+    assert attempt.receipt.cross_source_conflicts == ("cross_source_conflict:state",)
+    fact = attempt.cross_source_state_fact
+    assert fact is not None
+    assert fact.lane is StateFactLane.DERIVED
+    assert fact.authority is StateFactAuthority.DETERMINISTIC_FUNCTION
+    assert fact.source_identity == CROSS_SOURCE_ADJUDICATOR_IDENTITY
+    assert fact.conflicts == ("cross_source_conflict:state",)
+    assert fact.completeness == 0.0
+    assert fact.synthetic is False
+
+
+async def test_identity_divergence_is_adjudicated_as_a_cross_source_conflict() -> None:
+    query_result, semantic_receipt = _semantic_inputs(resource_ref="resource:other-vm")
+
+    attempt, _ = await _compare(
+        query_result=query_result,
+        semantic_receipt=semantic_receipt,
+    )
+
+    assert "cross_source_conflict:resource_identity" in attempt.receipt.cross_source_conflicts
+
+
+async def test_observation_time_difference_alone_is_not_a_cross_source_conflict() -> None:
+    query_result, semantic_receipt = _semantic_inputs(observed_at=NOW - timedelta(seconds=1))
+
+    attempt, _ = await _compare(
+        query_result=query_result,
+        semantic_receipt=semantic_receipt,
+    )
+
+    assert attempt.receipt.outcome is ShadowComparisonOutcome.DIVERGENCE
+    assert attempt.receipt.cross_source_conflicts == ()
+    fact = attempt.cross_source_state_fact
+    assert fact is not None
+    assert fact.conflicts == ()
+    assert fact.completeness == 1.0
+
+
+async def test_matching_observations_adjudicate_without_a_conflict() -> None:
+    attempt, _ = await _compare()
+
+    assert attempt.receipt.outcome is ShadowComparisonOutcome.MATCH
+    assert attempt.receipt.cross_source_conflicts == ()
+    fact = attempt.cross_source_state_fact
+    assert fact is not None
+    assert fact.conflicts == ()
+
+
+async def test_unavailable_side_yields_no_adjudicated_fact() -> None:
+    query_result, semantic_receipt = _semantic_inputs(truncated=True)
+
+    attempt, _ = await _compare(
+        query_result=query_result,
+        semantic_receipt=semantic_receipt,
+    )
+
+    assert attempt.receipt.outcome is ShadowComparisonOutcome.UNAVAILABLE
+    assert attempt.cross_source_state_fact is None
+    assert attempt.receipt.cross_source_conflicts == ()
+
+
+async def test_cross_source_conflict_is_part_of_the_receipt_identity() -> None:
+    contested_result, contested_receipt = _semantic_inputs(state="stopped")
+    contested, _ = await _compare(
+        query_result=contested_result,
+        semantic_receipt=contested_receipt,
+    )
+    rebuilt = build_shadow_receipt(
+        outcome=contested.receipt.outcome,
+        reasons=contested.receipt.reasons,
+        cross_source_conflicts=(),
+        correlation_ref=contested.receipt.correlation_ref,
+        principal_ref=contested.receipt.principal_ref,
+        release_digest=contested.receipt.release_digest,
+        profile_digest=contested.receipt.profile_digest,
+        plan_digest=contested.receipt.plan_digest,
+        semantic_request_id=contested.receipt.semantic_request_id,
+        semantic_receipt_digest=contested.receipt.semantic_receipt_digest,
+        invocation_digest=contested.receipt.invocation_digest,
+        existing_evidence_digest=contested.receipt.existing_evidence_digest,
+        semantic_evidence_digest=contested.receipt.semantic_evidence_digest,
+    )
+
+    assert rebuilt.receipt_digest != contested.receipt.receipt_digest
