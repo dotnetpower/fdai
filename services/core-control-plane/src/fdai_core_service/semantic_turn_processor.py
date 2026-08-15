@@ -1110,6 +1110,30 @@ def _incident_answer_output(
     }
 
 
+def _humanized_gap(gap: str, *, korean: bool) -> str:
+    """Never surface a raw gap key: Markdown reads its underscores as emphasis."""
+    labels = (
+        {
+            "impact_evidence_missing": "영향 근거",
+            "grounded_citations_missing": "근거 인용",
+            "incident_profile_missing": "인시던트 프로파일",
+            "correlated_audit_truncated": "잘리지 않은 감사 기록",
+        }
+        if korean
+        else {
+            "impact_evidence_missing": "impact evidence",
+            "grounded_citations_missing": "grounded citations",
+            "incident_profile_missing": "the incident profile",
+            "correlated_audit_truncated": "untruncated audit records",
+        }
+    )
+    known = labels.get(gap)
+    if known is not None:
+        return known
+    readable = gap.replace("_", " ").strip()
+    return readable or gap
+
+
 def _render_incident_answer(
     request: SemanticTurnRequest,
     output: Mapping[str, object],
@@ -1119,21 +1143,28 @@ def _render_incident_answer(
     gaps = output.get("evidence_gaps")
     evidence_count = len(evidence) if isinstance(evidence, list) else 0
     status = profile.get("status") if isinstance(profile, Mapping) else None
-    status_text = status if isinstance(status, str) and status else "unknown"
+    status_text = status if isinstance(status, str) and status else None
     gap_values = (
         tuple(item for item in gaps if isinstance(item, str)) if isinstance(gaps, list) else ()
     )
     korean = request.locale.casefold().startswith("ko")
+    missing = ", ".join(_humanized_gap(gap, korean=korean) for gap in gap_values) or (
+        "없음" if korean else "none"
+    )
     if korean:
-        gap_labels = {
-            "impact_evidence_missing": "영향 근거",
-            "grounded_citations_missing": "근거 인용",
-        }
-        missing = ", ".join(gap_labels.get(gap, gap) for gap in gap_values) or "없음"
+        found = (
+            f"- 상관관계가 있는 감사 기록 {evidence_count}건을 검증했습니다.\n"
+            if evidence_count
+            else "- 이 상관관계로 조회한 감사 기록이 없습니다.\n"
+        )
+        found += (
+            f"- 인시던트 상태: `{status_text}`\n"
+            if status_text is not None
+            else "- 인시던트 프로파일이 없어 상태를 보고할 수 없습니다.\n"
+        )
         return (
             "## 검증된 인시던트 근거\n\n"
-            f"- 상관관계가 있는 감사 기록 {evidence_count}건을 검증했습니다.\n"
-            f"- 인시던트 상태: `{status_text}`\n\n"
+            f"{found}\n"
             "## 제한 사항\n\n"
             "- 인과 분석이 구현되지 않아 근본 원인을 확인할 수 없습니다.\n"
             f"- 누락된 근거: {missing}\n\n"
@@ -1141,16 +1172,20 @@ def _render_incident_answer(
             "변경을 제안하기 전에 누락된 근거를 수집하세요. "
             "이 결과는 읽기 전용이며 실행 권한을 부여하지 않습니다."
         )
-    gap_labels = {
-        "impact_evidence_missing": "impact evidence",
-        "grounded_citations_missing": "grounded citations",
-    }
-    missing = ", ".join(gap_labels.get(gap, gap) for gap in gap_values) or "none"
     evidence_label = "record was" if evidence_count == 1 else "records were"
+    found = (
+        f"- {evidence_count} correlated audit {evidence_label} verified.\n"
+        if evidence_count
+        else "- No audit record was found for this correlation.\n"
+    )
+    found += (
+        f"- Incident status: `{status_text}`\n"
+        if status_text is not None
+        else "- Status can't be reported because the incident profile is missing.\n"
+    )
     return (
         "## Verified incident evidence\n\n"
-        f"- {evidence_count} correlated audit {evidence_label} verified.\n"
-        f"- Incident status: `{status_text}`\n\n"
+        f"{found}\n"
         "## Limitations\n\n"
         "- Root cause isn't available because causal analysis hasn't been implemented.\n"
         f"- Missing evidence: {missing}\n\n"

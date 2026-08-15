@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: d3d880243d3b6aab6e75b37055e4821cd14c4659
+translation_source_sha: 46aaf68ba7f06f945140c634d29f9e9e3a8dfa26
 translation_revised: 2026-08-15
 ---
 # FDAI 온톨로지 안전 인프라
@@ -131,6 +131,7 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 | 2026-08-15 | implemented | 검증된 조회 출력 자체를 일반 표현 산출물에 투영했습니다. 산출물은 출력 노드 개수만이 아니라 노드별 결과와 경계가 있는 행 테이블을 담으며, 온톨로지 필드 이름은 Console 열 키로 유효하지 않으므로 셀은 경계가 있는 출력 가능 텍스트와 위치 기반 열 키로 렌더링합니다. | `current change`, focused Operator 의미 bridge 검사 48개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 인증된 로컬 Console에서 렌더링 결과를 확인합니다. |
 | 2026-08-15 | implemented | 인시던트에 묶인 turn이 해당 인시던트의 감사 근거를 읽지 않았을 때 fail closed 하도록 했습니다. 로컬 `plan_nodes` 근거에서 인시던트 바인딩 turn이 `query.manifest`를 계획한 사례가 확인되었고, 그 답변은 일반 응답이지만 해당 인시던트에 대한 답변처럼 읽혔습니다. 이제 `incident_evidence_not_planned` 또는 `incident_evidence_mismatched_binding`으로 보류합니다. | `current change`, 바인딩됐으나 계획되지 않은 보류, 교차 인시던트 보류, 바인딩 없는 응답 대조군을 포함한 focused 처리기 검사 46개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 바인딩된 인시던트 goal을 결정론적으로 시드해 계획기가 선택하거나 식별자를 복사하지 않아도 되게 합니다. |
 | 2026-08-15 | corrected | 앞 행의 보류를 교차 인시던트 사례로만 좁혔습니다. Console은 인시던트 대화의 모든 turn에 바인딩을 실어 보내며 여기에는 인시던트와 무관한 질문도 포함되므로, `incident_evidence_not_planned`가 정당한 무관 질문까지 보류했습니다. 바인딩된 인시던트가 아닌 다른 인시던트의 근거를 읽는 경우는 계속 보류합니다. | `current change`, 바인딩된 turn이 인시던트 근거 없이도 응답하고 교차 인시던트 읽기는 보류함을 단언하는 focused 처리기 검사 46개 통과, 작업 범위 Ruff 및 strict mypy 통과 | "바인딩된 인시던트를 항상 읽는다"는 보장은 결정론적 goal 시드가 있어야 성립하며, 그 뒤에야 인시던트 읽기 부재를 결함으로 취급할 수 있습니다. |
+| 2026-08-15 | implemented | 인시던트 답변이 빈 상관관계를 성공적인 읽기처럼 보고하지 않게 하고, 원문 gap 키가 운영자 문장에 노출되지 않게 했습니다. 상관 기록이 없으면 없다고 말하고, 프로파일이 없으면 상태를 `unknown`으로 보고하는 대신 없다고 밝히며, 매핑되지 않은 gap 키는 사람이 읽을 수 있게 바꿉니다. Markdown이 밑줄을 강조로 해석하기 때문입니다. | `current change`, 빈 상관관계 답변을 포함한 focused 처리기 검사 47개와 Operator bridge 검사 48개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 함수가 이미 반환하는 상관 근거 타임라인을 렌더링합니다. |
 
 ### 남은 작업
 

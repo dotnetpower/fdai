@@ -114,6 +114,12 @@ def semantic_done_event_data(
     )
 
 
+def _readable_gap(gap: str, *, korean: bool) -> str:
+    """Never surface a raw gap key: Markdown reads its underscores as emphasis."""
+    readable = gap.replace("_", " ").strip() or gap
+    return f"근거 공백: {readable}" if korean else f"Evidence gap: {readable}"
+
+
 def semantic_presentation_artifact(
     *,
     semantic: Mapping[str, object],
@@ -160,15 +166,21 @@ def semantic_presentation_artifact(
             {
                 "impact_evidence_missing": "영향 근거가 누락되었습니다.",
                 "grounded_citations_missing": "근거 인용이 누락되었습니다.",
+                "incident_profile_missing": "인시던트 프로파일이 누락되었습니다.",
+                "correlated_audit_truncated": "감사 기록이 잘렸습니다.",
             }
             if korean
             else {
                 "impact_evidence_missing": "Impact evidence is missing.",
                 "grounded_citations_missing": "Grounded citations are missing.",
+                "incident_profile_missing": "The incident profile is missing.",
+                "correlated_audit_truncated": "Audit records were truncated.",
             }
         )
         limitations.extend(
-            gap_labels.get(gap, f"Evidence gap: {gap}") for gap in gaps if isinstance(gap, str)
+            gap_labels.get(gap, _readable_gap(gap, korean=korean))
+            for gap in gaps
+            if isinstance(gap, str)
         )
         return cast(
             JsonObject,

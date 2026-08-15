@@ -485,6 +485,7 @@ def _rule_search_runtime_result(*, execution_authority: bool = False) -> Runtime
 def _incident_evidence_runtime_result(
     *,
     inject_cause: bool = False,
+    empty_evidence: bool = False,
     output_correlation_id: str = "incident-correlation-301",
 ) -> RuntimeSemanticTurnResult:
     result = _runtime_result("answered")
@@ -527,6 +528,11 @@ def _incident_evidence_runtime_result(
     }
     if inject_cause:
         output["cause"] = "unsupported causal claim"
+    if empty_evidence:
+        output["incident_profile"] = None
+        output["correlated_evidence"] = []
+        output["evidence_gaps"] = ["incident_profile_missing"]
+        output["evidence_refs"] = []
     node = SimpleNamespace(
         node_id="incident-evidence",
         kind=SimpleNamespace(value="function"),
@@ -1149,6 +1155,25 @@ async def test_incident_evidence_with_mismatched_correlation_is_held() -> None:
     semantic = _projection(encoded)["semantic_result"]
     assert semantic["disposition"] == "held"
     assert semantic["reason_code"] == "semantic_evidence_incomplete"
+
+
+async def test_incident_answer_states_an_empty_correlation_without_a_raw_gap_key() -> None:
+    result = _incident_evidence_runtime_result(empty_evidence=True)
+    encoded = await _processor(_Runtime(result)).process(
+        _request(
+            bound_context={
+                "kind": "incident",
+                "incident_id": "00000000-0000-0000-0000-000000000301",
+                "correlation_id": "incident-correlation-301",
+            }
+        )
+    )
+
+    answer = _projection(encoded)["semantic_result"]["answer"]
+    assert "No audit record was found for this correlation." in answer
+    assert "Status can't be reported because the incident profile is missing." in answer
+    assert "the incident profile" in answer
+    assert "incident_profile_missing" not in answer
 
 
 async def test_incident_bound_turn_without_incident_evidence_still_answers() -> None:
