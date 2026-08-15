@@ -61,7 +61,8 @@ units for 100% structural query coverage.
 > Built-in handlers now cover secured ObjectSet materialization, union, intersection, subtraction,
 > ordering, projection, grouped aggregation, and exact-release query/derive/validate function
 > invocation. A deterministic verifier checks the principal manifest, readable properties,
-> LinkTypes, closed node arguments, dependency output kinds, function schemas, and registered
+> LinkTypes, closed node arguments, dependency output kinds and direct ObjectSet aggregate fields,
+> function schemas, and registered
 > extension schemas before I/O. Temporal, metric-series, and evidence-join handlers now share the
 > verifier and executor handler map. Production composition binds PostgreSQL topology history from
 > a non-empty state-store DSN and binds metric/evidence handlers only when both a reviewed registry
@@ -184,6 +185,7 @@ units for 100% structural query coverage.
 | 2026-08-15 | implemented | Added machine-readable clarification requirements and rejected T1 frame proposals that ask for principal scope or purpose already bound by Core. Semantic frame prompt v4 tells both tiers to treat those values as trusted server context. | `current change`; focused semantic planner checks passed 21 cases, prompt and Azure adapter checks passed 10 cases, and task-scoped Ruff and strict mypy passed. | Restart Core after central validation and rerun the governed request-to-Console assurance path. |
 | 2026-08-15 | implemented | Added bounded projection for verified topology graph, topology diff, metric window, and causal join outputs. | `current change`; focused Core processor tests passed 43 cases, and task-scoped Ruff and strict mypy passed. | Retain authenticated temporal and causal answer evidence after the planner contract is active. |
 | 2026-08-15 | implemented | Added exact-release schema inventory querying through `query.manifest`, closed function-table conversion, and explicit frame/plan grammar for inventory, property-filter, topology, aggregation, and causal questions. | `current change`; focused manifest, handler, composition, relationship, semantic composition, and prompt checks passed 42 cases; task-scoped Ruff and strict mypy passed. | Preserve a clean passing 14-cell artifact, then run the seeded 100-case cohort and keep readiness blocked on any missing answer evidence. |
+| 2026-08-15 | implemented | Verified direct ObjectSet aggregate fields against the exact row schema before execution, allowing only invalid T1 plans to retry the plan stage with T2. | `current change`; focused verifier and tier-routing checks passed 16 cases; task-scoped Ruff and strict mypy passed. | Rerun the held Korean aggregation cell before retaining clean 14-cell and seeded 100-case evidence. |
 
 ### Remaining work
 
