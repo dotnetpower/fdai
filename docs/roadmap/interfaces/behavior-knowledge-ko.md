@@ -1,7 +1,7 @@
 ---
 title: Command Deck 행동 지식
 translation_of: behavior-knowledge.md
-translation_source_sha: 8e441c5c9c25d5e6a72d89a153dc94a53322f165
+translation_source_sha: 990d7e067f8ec96714d50c8bda50cf380e35c13e
 translation_revised: 2026-08-16
 ---
 
@@ -170,7 +170,7 @@ PostgreSQL, 시드, 테스트 구현은 제거되었습니다. 인메모리 검�
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 구현 원장을 도입하고 서비스 분해 이후 오래된 상태를 바로잡았습니다. 이전 구현 출처 이력은 재구성하지 않았습니다. | `current change`; 이 영문/한국어 문서 쌍; 현재 프로바이더 계약 점검; `git diff-tree --no-commit-id --name-status -r 0988b1552`; 로드맵, 번역, 문장 부호, 한글, 문서 크기, 링크 검사. | 아래의 구체 검색 및 답변 경로, 영속성, 집중 테스트, 관리되는 런타임 근거를 복원합니다. |
-| 2026-08-16 | in-progress | 현재 서비스 토폴로지에 인메모리 행동 인덱스와 추적 출처 최신성 검증기를 복원했습니다. | `pytest services/core-control-plane/tests/knowledge/test_behavior_index.py`가 멱등 upsert, 일치 등급 및 권위 정렬, 오래되거나 추적되지 않은 인용, 한국어 의역 검색, 비교 보류, 검색 하한, 인용 전용 노출을 다루는 집중 테스트 13개를 통과했습니다. | 참조 시드 13개를 복원하고 서버 소유 Operator 답변 경로를 연결하며 영속성을 추가하고 관리되는 런타임 근거를 기록해야 합니다. |
+| 2026-08-16 | in-progress | 현재 서비스 토폴로지에 인메모리 행동 인덱스와 추적 출처 최신성 검증기를 복원했습니다. | `pytest services/core-control-plane/tests/knowledge/test_behavior_index.py`가 멱등 upsert, 일치 등급 및 권위 정렬, 오래되거나 추적되지 않은 인용, 한국어 의역 검색, 비교 보류, 전부 오래된 경우의 비교 기권, 검색 하한, 인용 전용 노출을 다루는 집중 테스트 14개를 통과했습니다. | 참조 시드 13개를 복원하고 서버 소유 Operator 답변 경로를 연결하며 영속성을 추가하고 관리되는 런타임 근거를 기록해야 합니다. |
 
 ### 남은 작업
 

@@ -305,3 +305,27 @@ def test_token_normalization_separates_identifiers_and_korean_particles() -> Non
     assert "trustrouter" in tokens
     assert "route" in tokens
     assert "정책" in tokens
+
+
+async def test_comparison_signals_incompleteness_when_every_peer_is_stale() -> None:
+    index = _index()
+    await index.upsert(
+        _spec(
+            "behavior-a",
+            subject_id="trust routing",
+            aliases=("a alias",),
+            sources=(_source(CODE_PATH, blob_sha="blob-code-outdated"),),
+        )
+    )
+    await index.upsert(
+        _spec(
+            "behavior-b",
+            subject_id="quality gate",
+            aliases=("b alias",),
+            sources=(_source(CODE_PATH, blob_sha="blob-code-outdated"),),
+        )
+    )
+
+    compared = await index.compare("compare trust routing and quality gate")
+
+    assert compared == ()
