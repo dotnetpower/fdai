@@ -100,9 +100,47 @@ def atomic_write(path: Path, content: str) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def _restore_reactivated_pending(paths: QueuePaths) -> int:
+    retired = paths.state_root / "retired-pending"
+    if not retired.is_dir():
+        return 0
+    worktrees = git("worktree", "list", "--porcelain", cwd=paths.repo_root, check=False)
+    if worktrees.returncode != 0:
+        return 0
+    checkout_heads = [
+        line.removeprefix("HEAD ").strip()
+        for line in worktrees.stdout.splitlines()
+        if line.startswith("HEAD ") and COMMIT_PATTERN.fullmatch(line.removeprefix("HEAD ").strip())
+    ]
+    reachable = git(
+        "rev-list",
+        "--all",
+        *checkout_heads,
+        cwd=paths.repo_root,
+        check=False,
+    )
+    if reachable.returncode != 0:
+        return 0
+    retained = {
+        commit for commit in reachable.stdout.splitlines() if COMMIT_PATTERN.fullmatch(commit)
+    }
+    restored = 0
+    for path in retired.glob("*.json"):
+        if (
+            path.stem not in retained
+            or (paths.receipts / path.name).is_file()
+            or (paths.pending / path.name).exists()
+        ):
+            continue
+        path.replace(paths.pending / path.name)
+        restored += 1
+    return restored
+
+
 def pending_commits(paths: QueuePaths) -> set[str]:
     """Return syntactically valid commit ids currently awaiting validation."""
     initialize(paths)
+    _restore_reactivated_pending(paths)
     return {
         path.stem for path in paths.pending.glob("*.json") if COMMIT_PATTERN.fullmatch(path.stem)
     }
