@@ -402,8 +402,8 @@ Control Assurance with their measurement window, baseline, and sample size.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. | `current change`; ViewSnapshot, planning, Live, and focused test evidence listed in the scope table. | Retain governed cross-screen and shadow-qualification evidence before promotion. |
-| 2026-08-16 | in-progress | Added retained Phase E conflict cases and the explicit authority-free shadow record key contract. | `pytest services/core-control-plane/tests/core/conversation/` passed 111 focused tests, including six new conflict cases covering preserved evidence sets, no confidence winner, unchanged primary agent, authority-free record keys, cross-domain conflict, and plan-bounded sections. | Complete Phase D selective activation review and retain the governed cross-screen receipt. |
 | 2026-08-14 | implemented | Added a deterministic CLI that validates one externally measured, sealed bilingual planning batch and emits a byte-stable, no-authority qualification receipt. | `current change`; `answer-planning-qualification.py`; focused CLI tests passed 5 cases. | Supply the real 100-case EN/KO batch and retain its separate review before selective activation. |
+| 2026-08-16 | in-progress | Added retained Phase E conflict cases and the explicit authority-free shadow record key contract. | `pytest services/core-control-plane/tests/core/conversation/` passed 111 focused tests, including six new conflict cases covering preserved evidence sets, no confidence winner, unchanged primary agent, authority-free record keys, cross-domain conflict, and plan-bounded sections. | Complete Phase D selective activation review and retain the governed cross-screen receipt. |
 
 ### Remaining work
 
