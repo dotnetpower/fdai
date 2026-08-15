@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 89e64d2cecf5bacc8cff798a5f636543022b1b77
+translation_source_sha: 9de3c1ed3ac69ea69320a8eb04146bff391c92cb
 translation_revised: 2026-08-15
 ---
 
@@ -251,6 +251,7 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 | 2026-08-15 | implemented | 실제 pre-tool dispatcher와 validator scratch symlink 경계의 integration-level 우회를 닫았습니다. | 현재 변경, dispatcher 및 guard 테스트 19개와 scratch ownership 테스트 2개 통과입니다. | Exact 중앙 검증을 받고 이슈 #118을 완료합니다. |
 | 2026-08-15 | implemented | Commit scope, approval comment, Git alias, config-env option form 및 symlink ancestor를 다루는 adversarial parser 라운드 4개를 닫았습니다. | 현재 변경, dispatcher 및 parser fixture 40개와 scratch ownership guard 3개 통과이며 독립 acceptance에서 Low를 초과하는 잔존 사항이 없었습니다. | Exact 중앙 검증을 받고 이슈 #118을 완료합니다. |
 | 2026-08-15 | validated | 중앙 검증이 최종 Top 20 구현과 assurance ledger revision을 수락했습니다. | `validation_queue.py check-commit 4a18ce982` 통과, 최종 focused join 테스트 221개 통과입니다. | 이슈 #118을 완료하고 project board를 동기화합니다. |
+| 2026-08-15 | in-progress | 세션 근거에서 36개 세션에 걸쳐 대기 불만 51건이 확인된 뒤 이슈 #122의 측정된 bounded-wait 캠페인을 시작했습니다. | 이슈 #122 및 bounded wait 캠페인 표의 기준선입니다. | Bounded 예산을 구현하고 비평 라운드 10개 이상을 완료합니다. |
 
 ### 남은 작업
 
@@ -261,6 +262,46 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 - [x] 위의 제한된 Low 잔존 사항만 남기고 추가 라운드 22개를 완료했습니다.
 - [x] Top 20 revision `4a18ce982`를 통합하고 exact 중앙 validation receipt를 받았습니다.
 - [ ] 이슈 #118을 완료하고 project board를 동기화합니다.
+- [ ] 비평 라운드 10개 이상, Low를 초과하는 잔존 사항이 없는 최종 검토 및 exact 중앙 검증으로 이슈 #122의 bounded wait 캠페인을 완료합니다.
+
+## Bounded wait 캠페인
+
+이슈 [#122](https://github.com/dotnetpower/fdai/issues/122)는 처리 시간을 지배하는 긴 timeout,
+고정 sleep 및 순차 polling을 제한합니다. 7일 동안 143개 세션 중 68개가 1시간을 넘었고 36개
+세션에 명시적 대기 불만 51건이 있었습니다.
+
+지배 규칙은 총 timeout이 정체 보호 수단이 아니라는 것입니다. 큰 봉투는 정체된 실행과 느린
+실행을 구분할 수 없게 만들므로, 모든 장시간 작업은 단계별 deadline, 무진행 deadline, 진행
+신호 및 재개 가능한 checkpoint를 선언합니다.
+
+| 순위 | 제한 대상 | 측정된 기준선 | 조치 |
+|-----:|-----------|---------------|------|
+| 1 | Assurance 요청 pacing | 고정 15초 sleep 99회가 정상 full cohort에 24분 45초를 추가했습니다 | 요청 시작 사이 최소 간격을 목표로 하고 turn 소요 시간을 흡수합니다. |
+| 2 | Transport 재시도 지연 | 재시도 가능한 실패마다 고정 60초 sleep 1회입니다 | 제한된 지수 지연을 계산하고 clamp된 서버 hint를 존중합니다. |
+| 3 | Assurance 정체 감지 | turn별 또는 무진행 deadline 없이 4시간 봉투 하나입니다 | 정체된 turn은 3분, 정체된 실행은 5분에 실패시킵니다. |
+| 4 | Assurance 재개 | 외부 종료가 완료된 모든 질문을 폐기했습니다 | Provenance에 바인딩된 checkpoint를 저장하고 남은 질문을 재개합니다. |
+| 5 | Assurance 진행 근거 | 장시간 실행이 종료 전까지 완료 신호를 내지 않았습니다 | 완료된 질문마다 제한된 진행 줄 하나를 출력합니다. |
+| 6 | 반복된 live 검증 | 작은 수정마다 재시작, canary 및 전체 gate를 반복했습니다 | 에이전트 계약에서 batch 검증과 release 경계 cohort 실행을 요구합니다. |
+| 7 | Roadmap 에이전트 봉투 | 4시간 예산 하나가 1초짜리 번역 검사에도 적용됐습니다 | 에이전트, 변경 테스트 및 품질 검사에 별도 예산을 부여합니다. |
+| 8 | Roadmap 서비스 봉투 | `TimeoutStartSec=5h`와 `2h`가 실제 단계 합계를 초과했습니다 | 두 unit 모두 선언된 단계 예산보다 1시간 위로 제한합니다. |
+| 9 | 배포 migration polling | 각 job이 자체 30회 시도 곱을 가졌습니다 | 누적 900초 migration deadline 하나를 선언합니다. |
+| 10 | 배포 revision polling | 각 app이 자체 24회 시도 곱을 가졌습니다 | 누적 300초 revision deadline 하나를 선언합니다. |
+| 11 | Azure preflight 예산 | 32 페이지 곱하기 3회 시도가 per-attempt timeout을 곱했습니다 | 각 요청도 제한하는 전체 preflight deadline을 추가합니다. |
+| 12 | 브라우저 서버 기동 | 각 Playwright 서버가 120초를 대기했습니다 | 대기를 절반으로 줄여 잘못 설정된 서버가 더 빨리 드러나게 합니다. |
+| 13 | 의존성 다운로드 | job마다 300초 재시도 window와 `--retry 5`입니다 | 90초 window와 `--retry 3`으로 줄입니다. |
+| 14 | 원격 drift 감지 | Auto-pull이 최대 600초 뒤에 원격 drift를 관측했습니다 | Clean-tree 및 validation guard를 유지하면서 180초마다 확인합니다. |
+| 15 | 제외된 빠른 테스트 | `tests/live-e2e/**`가 Vitest 파일 4개를 모든 일반 실행에서 제외했습니다 | Playwright spec만 제외해 빠른 계약이 일반 loop에서 실행되게 합니다. |
+
+### 계약
+
+- Assurance 실행 예산은 cohort 크기에서 유도하며 최소 5분, 최대 90분이고 operator는 선언된
+  범위 안에서 재정의할 수 있습니다.
+- 예산 소진은 실행을 멈추고 checkpoint를 기록하며 `run_budget_exhausted`로 실패합니다. 정지하지
+  않으며 통과 또는 production-ready 아티팩트를 보고하지 않습니다.
+- Checkpoint는 source revision, configuration digest, workspace patch digest 및 순서가 있는
+  cohort가 모두 일치할 때만 재개하며, 손상되거나 잘린 checkpoint는 cohort를 다시 시작합니다.
+- 완료된 cohort는 checkpoint를 삭제해 이후 실행이 live 요청 없이 새 근거를 주장할 수 없게 하고,
+  모든 아티팩트는 재개 및 live 질문 수를 기록합니다.
 
 ## 관련 문서
 

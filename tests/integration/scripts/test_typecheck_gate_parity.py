@@ -51,8 +51,8 @@ def test_pre_push_ruff_uses_locked_development_dependencies() -> None:
 def test_opa_downloads_are_bounded_and_checksum_verified() -> None:
     ci = (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
 
-    assert ci.count("--retry 5 --retry-delay 2 --retry-all-errors") == 2
-    assert ci.count("--retry-max-time 300 --connect-timeout 15 --max-time 120") == 2
+    assert ci.count("--retry 3 --retry-delay 2 --retry-all-errors") == 2
+    assert ci.count("--retry-max-time 90 --connect-timeout 10 --max-time 60") == 2
     assert ci.count("dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa") == 2
 
 

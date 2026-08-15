@@ -216,4 +216,4 @@ def test_installer_discovers_issues_and_repeats_persistently(tmp_path: Path) -> 
     assert "--max-active-sessions 2" in service
     assert "OnUnitInactiveSec=5min" in timer
     assert "Persistent=true" in timer
-    assert "TimeoutStartSec=5h" in service
+    assert "TimeoutStartSec=1h" in service

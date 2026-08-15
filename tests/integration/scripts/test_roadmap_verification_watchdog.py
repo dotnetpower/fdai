@@ -82,7 +82,7 @@ def test_timer_is_persistent_and_apply_is_explicit(tmp_path: Path) -> None:
     assert " --apply --integrate" in apply_service
     assert "OnUnitInactiveSec=20min" in timer
     assert "Persistent=true" in timer
-    assert "TimeoutStartSec=2h" in report_service
+    assert "TimeoutStartSec=1h" in report_service
 
 
 def test_timer_installer_creates_dedicated_campaign_worktree(tmp_path: Path) -> None:

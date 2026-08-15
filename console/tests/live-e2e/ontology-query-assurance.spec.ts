@@ -1,7 +1,21 @@
-import { writeFile } from "node:fs/promises";
+import { rm, writeFile } from "node:fs/promises";
 
 import { expect, test, type Page } from "@playwright/test";
 
+import {
+  resolveAssuranceBudget,
+  transportRetryDelayMs,
+  pacingDelayMs,
+  withDeadline,
+  type AssuranceBudget,
+} from "./assurance-budget";
+import {
+  buildAssuranceCheckpoint,
+  pendingQuestions,
+  readAssuranceCheckpoint,
+  resumableResults,
+  writeAssuranceCheckpoint,
+} from "./assurance-checkpoint";
 import { restoreBrowserEntraSessionStorage } from "./browser-entra-state";
 import { isOntologyAssuranceProductionReady } from "./ontology-query-assurance-readiness";
 import {
@@ -18,14 +32,17 @@ import {
 } from "./ontology-query-assurance";
 
 const COHORT_SEED = 0x0fda1;
-const BATCH_SIZE = 1;
-const REQUEST_INTERVAL_MS = 15_000;
 const MAX_TRANSPORT_ATTEMPTS = 2;
-const TRANSPORT_RETRY_DELAY_MS = 60_000;
-const TEST_TIMEOUT_MS = 4 * 60 * 60 * 1_000;
+const DEFAULT_CHECKPOINT_PATH = "../.fdai/live-validation/ontology-assurance-checkpoint.json";
 const AUTHENTICATED_EXTERNAL_STACK = Boolean(
   process.env.FDAI_E2E_BASE_URL && process.env.FDAI_E2E_STORAGE_STATE,
 );
+
+function checkpointPath(): string | null {
+  const configured = process.env.FDAI_E2E_ASSURANCE_CHECKPOINT;
+  if (configured === undefined) return DEFAULT_CHECKPOINT_PATH;
+  return configured.trim().length === 0 ? null : configured;
+}
 
 interface BrowserTurnResult {
   readonly source: string;
@@ -38,7 +55,8 @@ interface RetainedTransportAttempt {
   readonly outcome:
     | "semantic_terminal"
     | "retryable_transport_failure"
-    | "non_retryable_receipt_missing";
+    | "non_retryable_receipt_missing"
+    | "per_question_deadline_exceeded";
   readonly source?: string;
 }
 
@@ -66,23 +84,21 @@ interface RetainedTurnResult {
   readonly evidence_ref_count?: number;
 }
 
-async function runBrowserBatch(
+async function runBrowserTurn(
   page: Page,
-  questions: readonly AssuranceQuestion[],
-): Promise<readonly BrowserTurnResult[]> {
-  return page.evaluate(async (batch) => {
+  question: AssuranceQuestion,
+): Promise<BrowserTurnResult> {
+  return page.evaluate(async (prompt) => {
     const { askBackendStream } = await import("/src/deck/backend-stream.ts");
-    return Promise.all(batch.map(async ({ prompt }) => {
-      const reply = await askBackendStream(prompt, null, [], {
-        onToken: () => undefined,
-      });
-      return {
-        source: reply.source,
-        semantic_receipt: reply.semanticReceipt ?? null,
-        verification: reply.verification ?? null,
-      };
-    }));
-  }, questions.map(({ prompt }) => ({ prompt })));
+    const reply = await askBackendStream(prompt, null, [], {
+      onToken: () => undefined,
+    });
+    return {
+      source: reply.source,
+      semantic_receipt: reply.semanticReceipt ?? null,
+      verification: reply.verification ?? null,
+    };
+  }, question.prompt);
 }
 
 function increment(counts: Record<string, number>, key: string | undefined): void {
@@ -111,18 +127,53 @@ function retainTransportAttempt(
   return { attempt, outcome: "non_retryable_receipt_missing" };
 }
 
+interface QuestionOutcome {
+  readonly result: BrowserTurnResult | null;
+  readonly transportAttempts: readonly RetainedTransportAttempt[];
+  readonly requestCount: number;
+  readonly lastRequestStartedAt: number;
+}
+
+async function resolveQuestion(
+  page: Page,
+  question: AssuranceQuestion,
+  budget: AssuranceBudget,
+): Promise<QuestionOutcome> {
+  const transportAttempts: RetainedTransportAttempt[] = [];
+  let result: BrowserTurnResult | null = null;
+  let requestCount = 0;
+  let lastRequestStartedAt = Date.now();
+  for (let attempt = 1; attempt <= MAX_TRANSPORT_ATTEMPTS; attempt += 1) {
+    if (attempt > 1) {
+      await page.waitForTimeout(transportRetryDelayMs({
+        attempt: attempt - 1,
+        baseMs: budget.transportRetryBaseMs,
+        maxMs: budget.transportRetryMaxMs,
+      }));
+    }
+    lastRequestStartedAt = Date.now();
+    requestCount += 1;
+    try {
+      result = await withDeadline(
+        runBrowserTurn(page, question),
+        budget.perQuestionDeadlineMs,
+        `assurance turn ${question.question_id}`,
+      );
+    } catch {
+      transportAttempts.push({ attempt, outcome: "per_question_deadline_exceeded" });
+      return { result: null, transportAttempts, requestCount, lastRequestStartedAt };
+    }
+    transportAttempts.push(retainTransportAttempt(attempt, result));
+    if (!isRetryableAssuranceTransportFailure(result.source, result.semantic_receipt)) break;
+  }
+  return { result, transportAttempts, requestCount, lastRequestStartedAt };
+}
+
 test("authenticated Console completes the seeded bilingual ontology assurance cohort", async ({ page }, testInfo) => {
   test.skip(
     !AUTHENTICATED_EXTERNAL_STACK,
     "requires an external Console and Browser Entra storage state",
   );
-  test.setTimeout(TEST_TIMEOUT_MS);
-  await restoreBrowserEntraSessionStorage(page);
-  await page.goto("/architecture", { waitUntil: "domcontentloaded" });
-  await expect(page.locator(".shell")).toBeVisible({ timeout: 15_000 });
-  await expect(page.locator("main [aria-busy='true']")).toHaveCount(0, { timeout: 15_000 });
-  await expect(page.getByText("FDAI could not verify your access.")).toHaveCount(0);
-
   const startedAt = new Date().toISOString();
   const completeCohort = generateOntologyAssuranceCohort(COHORT_SEED);
   const questions = selectOntologyAssuranceQuestions(
@@ -132,47 +183,74 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   const runScope = questions.length === completeCohort.length
     ? "full_cohort"
     : "focused_probe";
+  const budget = resolveAssuranceBudget(process.env, questions.length);
+  test.setTimeout(budget.testTimeoutMs);
+  const questionIds = questions.map((question) => question.question_id);
   const runConfiguration: AssuranceRunConfiguration = {
-    schema_version: "1.1.0",
+    schema_version: "1.2.0",
     seed: COHORT_SEED,
-    batch_size: BATCH_SIZE,
-    request_interval_ms: REQUEST_INTERVAL_MS,
-    timeout_ms: TEST_TIMEOUT_MS,
+    minimum_request_interval_ms: budget.minimumRequestIntervalMs,
+    per_question_deadline_ms: budget.perQuestionDeadlineMs,
+    no_progress_deadline_ms: budget.noProgressDeadlineMs,
+    run_budget_ms: budget.runBudgetMs,
     authentication: "browser_entra",
     transport_retry_policy: {
       max_attempts: MAX_TRANSPORT_ATTEMPTS,
-      retry_delay_ms: TRANSPORT_RETRY_DELAY_MS,
+      base_retry_delay_ms: budget.transportRetryBaseMs,
+      max_retry_delay_ms: budget.transportRetryMaxMs,
       retryable_sources: assuranceTransportRetrySources(),
     },
-    question_ids: questions.map((question) => question.question_id),
+    question_ids: questionIds,
   };
   const provenance = buildAssuranceRunProvenance(
     process.env.FDAI_E2E_SOURCE_REVISION,
     process.env.FDAI_E2E_WORKSPACE_PATCH_SHA256,
     runConfiguration,
   );
-  const retained: RetainedTurnResult[] = [];
+  const checkpointFile = checkpointPath();
+  const resumed = checkpointFile === null ? [] : resumableResults(
+    await readAssuranceCheckpoint<RetainedTurnResult>(checkpointFile),
+    { binding: provenance, questionIds },
+  );
+  const retained: RetainedTurnResult[] = [...resumed];
+  const outstanding = pendingQuestions(questions, retained);
+
+  await restoreBrowserEntraSessionStorage(page);
+  await page.goto("/architecture", { waitUntil: "domcontentloaded" });
+  await expect(page.locator(".shell")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator("main [aria-busy='true']")).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.getByText("FDAI could not verify your access.")).toHaveCount(0);
+
   let protectedRequestCount = 0;
-  for (let offset = 0; offset < questions.length; offset += BATCH_SIZE) {
-    const batch = questions.slice(offset, offset + BATCH_SIZE);
-    const results = await runBrowserBatch(page, batch);
-    protectedRequestCount += batch.length;
-    for (const [index, initialResult] of results.entries()) {
-      const question = batch[index]!;
-      let result = initialResult;
-      const transportAttempts = [retainTransportAttempt(1, result)];
-      while (
-        transportAttempts.length < MAX_TRANSPORT_ATTEMPTS &&
-        isRetryableAssuranceTransportFailure(result.source, result.semantic_receipt)
-      ) {
-        await page.waitForTimeout(TRANSPORT_RETRY_DELAY_MS);
-        const [retryResult] = await runBrowserBatch(page, [question]);
-        result = retryResult!;
-        protectedRequestCount += 1;
-        transportAttempts.push(retainTransportAttempt(transportAttempts.length + 1, result));
-      }
-      const judgment = judgeSemanticTurn(result.semantic_receipt, result.verification);
-      const receipt = judgment.receipt;
+  let stopReason: string | null = null;
+  const runDeadlineAt = Date.now() + budget.runBudgetMs;
+  let lastProgressAt = Date.now();
+  let lastRequestStartedAt = Date.now() - budget.minimumRequestIntervalMs;
+  for (const question of outstanding) {
+    if (Date.now() >= runDeadlineAt) {
+      stopReason = "run_budget_exhausted";
+      break;
+    }
+    if (Date.now() - lastProgressAt > budget.noProgressDeadlineMs) {
+      stopReason = "no_progress_deadline_exceeded";
+      break;
+    }
+    const spacingMs = pacingDelayMs(
+      budget.minimumRequestIntervalMs,
+      Date.now() - lastRequestStartedAt,
+    );
+    if (spacingMs > 0) await page.waitForTimeout(spacingMs);
+
+    const outcome = await resolveQuestion(page, question, budget);
+    protectedRequestCount += outcome.requestCount;
+    lastRequestStartedAt = outcome.lastRequestStartedAt;
+    lastProgressAt = Date.now();
+    {
+      const transportAttempts = outcome.transportAttempts;
+      const judgment = outcome.result === null
+        ? { passed: false, failure_reason: "per_question_deadline_exceeded" as const }
+        : judgeSemanticTurn(outcome.result.semantic_receipt, outcome.result.verification);
+      const receipt = "receipt" in judgment ? judgment.receipt : undefined;
       retained.push({
         question_id: question.question_id,
         locale: question.locale,
@@ -180,7 +258,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
         attempt_count: transportAttempts.length,
         transport_attempts: transportAttempts,
         passed: judgment.passed,
-        unauthorized_execution_claim: claimsExecutionAuthority(result.semantic_receipt),
+        unauthorized_execution_claim: claimsExecutionAuthority(outcome.result?.semantic_receipt),
         ...(judgment.failure_reason ? { failure_reason: judgment.failure_reason } : {}),
         ...(receipt ? {
           projection_id: receipt.projection_id,
@@ -200,17 +278,30 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
             execution_receipt_digest: receipt.execution_receipt_digest,
           } : {}),
         } : {}),
-        ...(judgment.verification ? {
+        ...("verification" in judgment && judgment.verification ? {
           checks_completed: judgment.verification.checks_completed,
           checks_total: judgment.verification.checks_total,
           evidence_ref_count: judgment.verification.evidence_refs.length,
         } : {}),
       });
     }
-    if (offset + BATCH_SIZE < questions.length && REQUEST_INTERVAL_MS > 0) {
-      await page.waitForTimeout(REQUEST_INTERVAL_MS);
+    if (checkpointFile !== null) {
+      await writeAssuranceCheckpoint(
+        checkpointFile,
+        buildAssuranceCheckpoint(provenance, questionIds, retained),
+      );
     }
+    const latest = retained.at(-1)!;
+    process.stdout.write(
+      `assurance-progress question=${latest.question_id} completed=${retained.length}/` +
+        `${questions.length} passed=${latest.passed} disposition=${latest.disposition ?? "none"} ` +
+        `remaining_budget_ms=${Math.max(0, runDeadlineAt - Date.now())}\n`,
+    );
   }
+  const cohortIndex = new Map(questionIds.map((id, index) => [id, index]));
+  retained.sort((left, right) =>
+    (cohortIndex.get(left.question_id) ?? 0) - (cohortIndex.get(right.question_id) ?? 0)
+  );
 
   const requestIds = retained.flatMap((result) => result.request_id ? [result.request_id] : []);
   const projectionIds = retained.flatMap((result) => result.projection_id ? [result.projection_id] : []);
@@ -240,6 +331,11 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   ).length;
   const unauthorizedExecutionCount = retained.filter(
     (result) => result.unauthorized_execution_claim,
+  ).length;
+  const deadlineExceededCount = retained.filter((result) =>
+    result.transport_attempts.some(
+      (attempt) => attempt.outcome === "per_question_deadline_exceeded",
+    )
   ).length;
   const answeredResults = retained.filter((result) => result.disposition === "answered");
   const answeredEvidenceCount = answeredResults.filter((result) =>
@@ -271,7 +367,8 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
         result.checks_total !== undefined && result.checks_total > 0 &&
         result.checks_completed === result.checks_total,
     })));
-  const passed = retained.length === questions.length && failures.length === 0 &&
+  const passed = stopReason === null && retained.length === questions.length &&
+    failures.length === 0 &&
     exhaustedTransportRetryCount === 0 &&
     duplicateRequestIds === 0 && duplicateProjectionIds === 0 &&
     unsupportedOperationalClaimCount === 0 && unauthorizedExecutionCount === 0 &&
@@ -301,10 +398,20 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
       storage_state_restored: true,
       protected_request_count: protectedRequestCount,
     },
+    run_budget: {
+      run_budget_ms: budget.runBudgetMs,
+      per_question_deadline_ms: budget.perQuestionDeadlineMs,
+      no_progress_deadline_ms: budget.noProgressDeadlineMs,
+      minimum_request_interval_ms: budget.minimumRequestIntervalMs,
+      stop_reason: stopReason,
+    },
     passed,
     production_ready: productionReady,
     summary: {
       question_count: retained.length,
+      resumed_question_count: resumed.length,
+      live_question_count: retained.length - resumed.length,
+      deadline_exceeded_count: deadlineExceededCount,
       passed_count: retained.length - failures.length,
       failed_count: failures.length,
       retried_question_count: retriedQuestionCount,
@@ -337,6 +444,11 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     contentType: "application/json",
   });
 
+  if (checkpointFile !== null && stopReason === null && retained.length === questions.length) {
+    await rm(checkpointFile, { force: true });
+  }
+
+  expect(stopReason, `assurance run stopped early: ${stopReason}`).toBeNull();
   expect(retained).toHaveLength(questions.length);
   expect(failures, JSON.stringify(failures, null, 2)).toEqual([]);
   expect(duplicateRequestIds).toBe(0);

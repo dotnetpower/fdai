@@ -40,15 +40,17 @@ export interface AssuranceTurnJudgment extends AssuranceJudgment {
 }
 
 export interface AssuranceRunConfiguration {
-  readonly schema_version: "1.1.0";
+  readonly schema_version: "1.2.0";
   readonly seed: number;
-  readonly batch_size: number;
-  readonly request_interval_ms: number;
-  readonly timeout_ms: number;
+  readonly minimum_request_interval_ms: number;
+  readonly per_question_deadline_ms: number;
+  readonly no_progress_deadline_ms: number;
+  readonly run_budget_ms: number;
   readonly authentication: "browser_entra";
   readonly transport_retry_policy: {
     readonly max_attempts: number;
-    readonly retry_delay_ms: number;
+    readonly base_retry_delay_ms: number;
+    readonly max_retry_delay_ms: number;
     readonly retryable_sources: readonly string[];
   };
   readonly question_ids: readonly string[];

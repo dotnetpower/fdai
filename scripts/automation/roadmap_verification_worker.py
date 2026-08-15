@@ -149,12 +149,12 @@ def _independent_checks(repo_root: Path, worktree: Path, base: str) -> list[str]
     environment = agent.worker_environment(repo_root, worktree)
     environment["FDAI_PYTEST_MAX_WORKERS"] = "2"
     commands = (
-        ["bash", "scripts/automation/tests-for-diff.sh", "--run", f"{base}..HEAD"],
-        ["bash", "scripts/quality/localization/check-translations.sh"],
+        (["bash", "scripts/automation/tests-for-diff.sh", "--run", f"{base}..HEAD"], 900),
+        (["bash", "scripts/quality/localization/check-translations.sh"], 120),
     )
     completed: list[str] = []
-    for command in commands:
-        result = _run(command, cwd=worktree, env=environment, timeout=3600)
+    for command, check_timeout in commands:
+        result = _run(command, cwd=worktree, env=environment, timeout=check_timeout)
         if result.returncode != 0:
             raise RuntimeError(f"independent roadmap check failed: {' '.join(command[:2])}")
         completed.append(" ".join(command))
@@ -300,7 +300,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--base-ref", default="HEAD")
     parser.add_argument("--lease-seconds", type=int, default=1800)
-    parser.add_argument("--timeout", type=int, default=3600)
+    parser.add_argument("--timeout", type=int, default=1800)
     parser.add_argument("--integrate", action="store_true")
     parser.add_argument("--retry-failed", action="store_true")
     return parser

@@ -130,7 +130,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--base-ref", default="HEAD")
     parser.add_argument("--idle-seconds", type=int, default=900)
     parser.add_argument("--lease-seconds", type=int, default=5400)
-    parser.add_argument("--timeout", type=int, default=3600)
+    parser.add_argument("--timeout", type=int, default=1800)
     parser.add_argument("--integrate", action="store_true")
     parser.add_argument("--max-active-sessions", type=int, default=0)
     return parser
