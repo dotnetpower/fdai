@@ -118,10 +118,12 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     frame = prompts.get_base("semantic.query.frame")
     plan = prompts.get_base("semantic.query.plan")
 
-    assert frame.version == 6
+    assert frame.version == 7
     assert "output_shape to exactly one capability family" in frame.body
     assert "aggregation_table for a count or grouping" in frame.body
     assert "topology_graph for current instance connectivity or containment" in frame.body
+    assert "including a count of queryable relationship or declaration types" in frame.body
+    assert "declared resource type is property_filtered_resources" in frame.body
     assert "principal_role and purpose are trusted server-bound context" in frame.body
     assert "never use principal_scope or purpose as a clarification_requirement" in frame.body
     assert "empty unresolved_terms and clarification_requirements" in frame.body
@@ -139,10 +141,12 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "do not require incident_id or correlation_id" in frame.body
     assert "cause_claim_supported=false" in frame.body
     assert "Do not claim a cause" in frame.body
-    assert plan.version == 5
+    assert plan.version == 6
     assert "Satisfy the frame's exact output_shape" in plan.body
     assert "aggregation_table requires aggregate" in plan.body
     assert "topology_graph requires topology_at" in plan.body
+    assert "use query.manifest as a query.table dependency followed by aggregate" in plan.body
+    assert "a matching selector without that predicate is invalid" in plan.body
     assert "only object_set, function, union" in plan.body
     assert "topology_at, topology_diff, metric_series, or evidence_join" in plan.body
     assert "evaluation_time is trusted server-bound context" in plan.body
