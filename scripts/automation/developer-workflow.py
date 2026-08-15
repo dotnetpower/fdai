@@ -161,6 +161,24 @@ def resume_report(root: Path) -> dict[str, Any]:
             "schema_version": SCHEMA_VERSION,
             "status": "unavailable",
         }
+    if payload.get("status") == "unavailable" and isinstance(payload.get("reason_code"), str):
+        return {"read_only": True, **payload}
+    required_types = {
+        "commit": str,
+        "history_relation": str,
+        "next_action": str,
+        "status": str,
+        "validated": bool,
+    }
+    if payload.get("schema_version") not in {1, 2} or any(
+        not isinstance(payload.get(name), expected) for name, expected in required_types.items()
+    ):
+        return {
+            "read_only": True,
+            "reason_code": "handover_schema_invalid",
+            "schema_version": SCHEMA_VERSION,
+            "status": "unavailable",
+        }
     return {"read_only": True, **payload}
 
 

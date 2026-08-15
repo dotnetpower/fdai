@@ -180,6 +180,7 @@ def _record_receipts(
             "validated_base": base,
             "validated_head": head,
             "mode": mode,
+            "schema_version": 1,
             "duration_seconds": run_record["duration_seconds"],
             "stages": run_record["stages"],
         }

@@ -11,6 +11,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import ModuleType
 
+import pytest
+
 SCRIPT = Path(__file__).resolve().parents[3] / "scripts" / "automation" / "developer-workflow.py"
 UTC = timezone.utc  # noqa: UP017 - test remains compatible with system Python 3.10.
 
@@ -339,7 +341,7 @@ def test_local_services_report_each_unavailable_owner(tmp_path: Path) -> None:
     result = module._local_services_diagnostic(
         repo,
         probe=lambda url: not url.endswith(("8011/healthz", "8013/ready")),
-        process_lines=[".venv/bin/python -m fdai"],
+        process_records=[(repo, [".venv/bin/python", "-m", "fdai"])],
     )
 
     assert result["status"] == "warning"
@@ -349,6 +351,98 @@ def test_local_services_report_each_unavailable_owner(tmp_path: Path) -> None:
         "document-ingestion-api",
         "isolated-executor",
     ]
+
+
+def test_local_services_reject_core_owned_by_another_checkout(tmp_path: Path) -> None:
+    module = _load_module()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    assert _git(repo, "init", "--quiet", "--initial-branch=main").returncode == 0
+    assert _git(repo, "config", "user.email", "user@example.com").returncode == 0
+    assert _git(repo, "config", "user.name", "Example User").returncode == 0
+    (repo / "example.txt").write_text("value\n", encoding="utf-8")
+    assert _git(repo, "add", "example.txt").returncode == 0
+    assert _git(repo, "commit", "--quiet", "-m", "initial").returncode == 0
+    (repo / ".fdai").mkdir()
+
+    result = module._local_services_diagnostic(
+        repo,
+        probe=lambda _url: True,
+        process_records=[(tmp_path / "other", ["python", "-m", "fdai"])],
+    )
+
+    assert result["status"] == "warning"
+    assert result["unavailable_services"] == ["core-runtime"]
+
+
+def test_resume_rejects_malformed_handover_schema(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+    completed = subprocess.CompletedProcess(
+        args=["session-handover.py", "show", "--json"],
+        returncode=0,
+        stdout='{"status":"ok"}\n',
+        stderr="",
+    )
+    monkeypatch.setattr(module.subprocess, "run", lambda *args, **kwargs: completed)
+
+    report = module.resume_report(tmp_path)
+
+    assert report["status"] == "unavailable"
+    assert report["reason_code"] == "handover_schema_invalid"
+
+
+def test_validation_warns_on_records_outside_window_and_invalid_receipts(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    assert _git(repo, "init", "--quiet", "--initial-branch=main").returncode == 0
+    assert _git(repo, "config", "user.email", "user@example.com").returncode == 0
+    assert _git(repo, "config", "user.name", "Example User").returncode == 0
+    (repo / "example.txt").write_text("value\n", encoding="utf-8")
+    assert _git(repo, "add", "example.txt").returncode == 0
+    assert _git(repo, "commit", "--quiet", "-m", "initial").returncode == 0
+    state = repo / ".git" / "fdai-validation-queue"
+    pending = state / "pending"
+    receipts = state / "receipts"
+    pending.mkdir(parents=True)
+    receipts.mkdir()
+    outside_commit = "0" * 40
+    invalid_commit = "f" * 40
+    (pending / f"{outside_commit}.json").write_text(
+        json.dumps(
+            {
+                "commit": outside_commit,
+                "enqueued_at": datetime.now(UTC).isoformat(),
+                "schema_version": 1,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (receipts / f"{invalid_commit}.json").write_text(
+        json.dumps(
+            {
+                "commit": invalid_commit,
+                "schema_version": 1,
+                "validated_at": datetime.now(UTC).isoformat(),
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = _run(repo, "status", "--json")
+
+    assert result.returncode == 0, result.stderr
+    validation = json.loads(result.stdout)["sections"]["validation"]
+    assert validation["status"] == "warning"
+    assert validation["pending_outside_history_window_count"] == 1
+    assert validation["invalid_record_count"] == 1
+    assert validation["receipt_sample_count"] == 0
 
 
 def test_editor_pressure_separates_host_and_client_state(tmp_path: Path) -> None:

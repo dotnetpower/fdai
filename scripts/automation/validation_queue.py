@@ -41,6 +41,7 @@ def enqueue(paths: QueuePaths, revision: str) -> str:
     payload = {
         "commit": commit,
         "enqueued_at": datetime.now(UTC).isoformat(),
+        "schema_version": 1,
         "worktree": str(paths.repo_root),
     }
     atomic_write(paths.pending / f"{commit}.json", json.dumps(payload, sort_keys=True) + "\n")
