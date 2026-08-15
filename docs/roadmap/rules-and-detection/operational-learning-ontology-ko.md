@@ -1,8 +1,8 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: a74d01ca1b71151a35d1387b4f7fbb48dd1d1dd9
-translation_revised: 2026-08-14
+translation_source_sha: 19a58b76e3f520559ac119a174a21bd7856954ec
+translation_revised: 2026-08-15
 ---
 # 운영 학습 온톨로지
 
@@ -144,6 +144,31 @@ Norns는 집단을 기존 `RuleCandidate` 객체로 컴파일합니다. 후보 �
 별도 벤치마크 룰 형식이나 learned-action 실행기를 도입하지 않습니다. 구현이 이 링크로
 필요한 조회를 표현할 수 없다면 먼저 실패하는 온톨로지 조회 테스트를 추가해야 합니다.
 그때에만 범위가 명확한 `ObjectType` 또는 `LinkType` 확장을 제안할 수 있습니다.
+
+### Pattern과 PatternObservation은 하나의 층위입니다
+
+[운영 온톨로지](../architecture/operating-ontology-ko.md)가 말하는 `Pattern`과 `PANTHEON_SPECS`가
+Norns에 할당한 `PatternObservation`은 같은 inert compiled cohort 기록을 가리키는 두 이름입니다.
+두 번째 층위가 필요로 할 검토를 수행하는 코드가 없으므로, 원시 관측과 검토된 일반화라는 서로 다른
+층위가 아닙니다.
+
+- [`OperatingPatternCompiler.compile()`](../../../services/core-control-plane/src/fdai/core/operational_learning/patterns.py)은
+  기계적 조건만 적용합니다. 실패 fingerprint, 리소스 타입, 액션 타입이 하나로 같고, reusable과
+  negative sealed 사례가 각각 최소 하나씩 있으며, 변경할 수 없는 사례 참조가 중복되지 않고, 근거
+  범위가 제한되어야 합니다. 그 `OperatingPatternCandidate` 출력을 검토하거나 일반화하는 것은 없습니다.
+- 검토는 이후 Mimir에서 `Rule`을 대상으로 일어납니다. Pattern 기록을 검토되었다고 부르는 것은 어느
+  코드도 수행하지 않는 단계를 주장하는 것입니다.
+- 이 기록은 자체 객체로 발행되지 않습니다. `Norns._observe_operational_case_cohort`가
+  `to_rule_candidate_mapping()`으로 평탄화해 `object.rule-candidate`로 보내므로, compiled cohort는
+  `RuleCandidate` 안에 담겨서만 Mimir에 도달합니다.
+- `object.pattern-observation`은 발행자도 구독자도 없는 등록된 토픽이므로 `PatternObservation`은
+  어떤 것도 생산하지 않는 소유 ObjectType입니다.
+
+그래서 `learned_as`(`ObservedOutcome -> Pattern`)에는 생산 가능한 엔드포인트 쌍이 없습니다. Cohort는
+sealed 사례를 `case-history:<case_id>:<revision>:<manifest_digest>`로 인용할 뿐 `ObservedOutcome`
+신원을 받지 않으므로 이 링크는 날조로만 만들 수 있습니다. 언젠가 선언되더라도 검토된 학습 투영으로
+남으며, 학습 기록에서 활성 카탈로그 항목이나 임계값으로 가는 경로를 만들어서는 안 됩니다. 승격은
+독립적으로 검토되는 registry의 권한으로 남습니다.
 
 ## 에이전트 소유권
 

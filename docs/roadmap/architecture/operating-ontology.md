@@ -26,58 +26,56 @@ cloud-operations concepts, while each deployment supplies its observed instances
 > **Implementation status (2026-08-08):** O1-O4 implement semantic declarations, immutable context,
 > Forseti ceiling wiring, decision-case selection, response closure, and Muninn/Norns learning
 > intake. `OperatingModelProvider` projects bounded deployment instances; context snapshots retain
-> typed evidence paths, revisions, effective time, provenance, and complete freshness receipts.
-> M3 adds immutable `StateFactMetadata` for observed, derived, desired, and execution lanes.
-> Optional inventory link observation metadata survives ontology projection and operational-context
+> typed evidence paths, revisions, effective time, provenance, and complete freshness receipts. M3
+> adds immutable `StateFactMetadata` for observed, derived, desired, and execution lanes. Optional
+> inventory link observation metadata survives ontology projection and operational-context
 > materialization, contributes to snapshot identity, and lowers the snapshot ceiling when evidence
-> is stale, incomplete, conflicting, synthetic, future-cutoff, or unverified.
-> Verified links require an independent verifier, a trusted verification method, and an immutable
-> verification receipt. Required source freshness, trusted UTC clock identity, recorded time, and
-> skew-bounded future checks also contribute to context safety and replay identity.
-> Wave 2 provides an unwired, content-addressed `OperationalEvidenceBundle` foundation that keeps
-> secured ontology paths, authoritative state facts, catalog references, and governed document
-> excerpts in separate authority lanes. Admission requires content-addressed source receipts that
-> pin the ontology release, catalog and document revisions, authenticated source, purpose, scope,
-> redaction summary, and typed temporal scope. Deterministic claim and citation validation, exact
-> typed-claim contradiction detection, and final-body byte and item budgets emit hold evidence and
-> can only preserve or lower the bundle's autonomy ceiling. No runtime or composition path consumes
-> this bundle yet, so it is not part of the production autonomy path and has no action authority.
-> Change management adds planned-change evidence to `Change`, a reviewed `ChangeWindow`, and typed
-> links from target and decision through impact, process, outcome, and recovery. These declarations
-> are semantic evidence only and grant no approval or execution authority. Huginn now carries the
-> same normalized Change on its causal Event and owner topic. Forseti computes a bounded
+> is stale, incomplete, conflicting, synthetic, future-cutoff, or unverified. Verified links require
+> an independent verifier, a trusted verification method, and an immutable verification receipt.
+> Required source freshness, trusted UTC clock identity, recorded time, and skew-bounded future
+> checks also contribute to context safety and replay identity. Wave 2 provides an unwired,
+> content-addressed `OperationalEvidenceBundle` foundation that keeps secured ontology paths,
+> authoritative state facts, catalog references, and governed document excerpts in separate
+> authority lanes. Admission requires content-addressed source receipts that pin the ontology
+> release, catalog and document revisions, authenticated source, purpose, scope, redaction summary,
+> and typed temporal scope. Deterministic claim and citation validation, exact typed-claim
+> contradiction detection, and final-body byte and item budgets emit hold evidence and can only
+> preserve or lower the bundle's autonomy ceiling. No runtime or composition path consumes this
+> bundle yet, so it is not part of the production autonomy path and has no action authority. Change
+> management adds planned-change evidence to `Change`, a reviewed `ChangeWindow`, and typed links
+> from target and decision through impact, process, outcome, and recovery. These declarations are
+> semantic evidence only and grant no approval or execution authority. Huginn now carries the same
+> normalized Change on its causal Event and owner topic. Forseti computes a bounded
 > `ChangeAssessment`, preserves it on Verdict and DecisionCase evidence, and requires human review
 > for stale, incomplete, failed, or review-required assessment. The runtime currently supplies no
-> graph-freshness authority, so planned changes cannot auto-clear this gate.
-> Wave 2 adds reviewed shared Property semantics without adding a declaration kind. The catalog
-> loader validates canonical meaning, value type, optional unit, enum or range, normalization,
-> authority, freshness, and equivalent provider paths. Catalog projection exposes those fields
-> only for reviewed entries and carries the exact semantic-registry version and content digest.
-> Runtime projection reuses the registry validated during catalog loading instead of reading the
-> file again. Legacy properties remain valid but cannot claim normalized equivalence.
-> M5 adds the catalog-declared `routes_to` and `peered_with` Resource links to inventory projection
-> and read-only deterministic network and Pod telemetry functions. A composition-owned bounded
-> issuer records secured ObjectSet results, and exact Function handlers resolve only the issued
-> dependency digest. The verifier authenticates role, purpose, exact release, and projected-result
-> digest against the contextual invocation and opaque trust context. Unissued and self-minted
-> receipts are rejected. Evaluation time equals
-> the trusted receipt cutoff; future effective, evidence, or recorded times and unbounded freshness
-> stay unverified. It preserves stored edge direction and requires two directed peering records with
+> graph-freshness authority, so planned changes cannot auto-clear this gate. Wave 2 adds reviewed
+> shared Property semantics without adding a declaration kind. The catalog loader validates
+> canonical meaning, value type, optional unit, enum or range, normalization, authority, freshness,
+> and equivalent provider paths. Catalog projection exposes those fields only for reviewed entries
+> and carries the exact semantic-registry version and content digest. Runtime projection reuses the
+> registry validated during catalog loading instead of reading the file again. Legacy properties
+> remain valid but cannot claim normalized equivalence. M5 adds the catalog-declared `routes_to` and
+> `peered_with` Resource links to inventory projection and read-only deterministic network and Pod
+> telemetry functions. A composition-owned bounded issuer records secured ObjectSet results, and
+> exact Function handlers resolve only the issued dependency digest. The verifier authenticates
+> role, purpose, exact release, and projected-result digest against the contextual invocation and
+> opaque trust context. Unissued and self-minted receipts are rejected. Evaluation time equals the
+> trusted receipt cutoff; future effective, evidence, or recorded times and unbounded freshness stay
+> unverified. It preserves stored edge direction and requires two directed peering records with
 > distinct direction-bound observation and verification receipt lineage. Missing endpoints,
 > incomplete queries, or absent paths remain unknown, never a claim that traffic cannot flow.
-> Inventory projection rejects endpoint-type conflicts against observed resources. The function
-> uses a source-derived artifact digest, emits exact-release invocation receipts, and has no
-> provider I/O or execution authority.
-> Current Azure projection now emits directed `routes_to` only when the provider supplies an exact
-> ARM resource next-hop id. IP addresses, prefixes, DNS names, and route absence never become
-> Resource identities or reachability claims. Both snapshot and real-time inventory projections
-> persist the reviewed peering and routing link vocabulary.
-> The inventory ontology projector now supports the catalog-declared `resource_classified_as`
-> relationship from each observed Resource to one reviewed ResourceType. Classification pins the
-> complete inventory generation and a replay-stable digest of the ResourceType registry entry.
-> An unmapped type makes classification coverage incomplete and activates no replacement graph.
-> The production inventory job injects the already loaded registry digest map, so promoted complete
-> generations persist this relationship in live projections.
+> Inventory projection rejects endpoint-type conflicts against observed resources. The function uses
+> a source-derived artifact digest, emits exact-release invocation receipts, and has no provider I/O
+> or execution authority. Current Azure projection now emits directed `routes_to` only when the
+> provider supplies an exact ARM resource next-hop id. IP addresses, prefixes, DNS names, and route
+> absence never become Resource identities or reachability claims. Both snapshot and real-time
+> inventory projections persist the reviewed peering and routing link vocabulary. The inventory
+> ontology projector now supports the catalog-declared `resource_classified_as` relationship from
+> each observed Resource to one reviewed ResourceType. Classification pins the complete inventory
+> generation and a replay-stable digest of the ResourceType registry entry. An unmapped type makes
+> classification coverage incomplete and activates no replacement graph. The production inventory
+> job injects the already loaded registry digest map, so promoted complete generations persist this
+> relationship in live projections.
 
 ## Implementation status
 
@@ -88,6 +86,7 @@ cloud-operations concepts, while each deployment supplies its observed instances
 | O1 semantic spine and catalog integrity | implemented | [`test_ontology_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_catalog.py), [`test_ontology_provenance.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_provenance.py) | The integrated catalog validates the operating semantic spine, provenance, references, and cardinality. |
 | O2 bounded context and current-state projection | in-progress | [`ontology_instance.py`](../../../services/core-control-plane/src/fdai/shared/providers/ontology_instance.py), [`console_projection.py`](../../../services/core-control-plane/src/fdai/core/operational_context/console_projection.py), focused instance and Context projection tests | Typed current-state objects and links exist. A secured receipt can now produce bounded no-authority Context metadata only when purpose, release, cutoff, and graph coverage match. Principal-scoped transport and authenticated runtime evidence remain open. |
 | O3-O5 decision, outcome, and governed-learning loops | in-progress | [Delivery plan](#delivery-plan), [`test_ontology_alignment.py`](../../../services/core-control-plane/tests/agents/test_ontology_alignment.py) | Core slices exist, but effect closure and governed learning are not complete across every production path. |
+| Decision-and-learning writers | not-started | [`hypothesis_lineage.py`](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py); [`pantheon.py`](../../../services/core-control-plane/src/fdai/agents/_framework/pantheon.py) | `considers`, `expects`, `executed_as`, and `resulted_in` are declared, but `OperationalHypothesisLineageProjector` is their only writer and no composition root constructs it: `bootstrap.py` and `control_loop.py` wire the incident, architecture-review, process, catalog, and inventory projectors and never this one, so no production path materializes an `ObservedOutcome` instance. Norns likewise owns `PatternObservation` and `object.pattern-observation` is registered, yet nothing publishes or subscribes it. |
 | Wave 2 evidence, change, Property, and topology foundations | in-progress | [Implementation status narrative](#fdai-operating-ontology), [Operating Ontology Platform](operating-ontology-platform.md) | Reviewed foundations exist; the evidence bundle is not composed into runtime, planned changes cannot auto-clear graph freshness, and broader platform delivery remains open. |
 
 ### Implementation history
@@ -97,6 +96,7 @@ cloud-operations concepts, while each deployment supplies its observed instances
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | Current source, tests, and delivery plan listed in the scope table. | Complete the observable exit conditions below. |
 | 2026-08-14 | implemented | Added a bounded Context presentation projector that rejects mismatched secured receipts and omits raw object properties. | `current change`; `test_console_projection.py` passed 5 focused cases. | Bind the projector only through a principal-scoped evidence response and retain authenticated Console evidence. |
 | 2026-08-15 | implemented | Removed the undeclared `predicts_breach_of` and `learned_as` rows from the relationship contract, recorded their blocking ObjectTypes, and pinned the table against the shipped LinkType catalog and stored link direction. | `current change`; `test_ontology_catalog.py` and `test_ontology_instance.py` focused cases. | Restore either relationship only together with its endpoint ObjectType and the competency question it answers. |
+| 2026-08-15 | implemented | Judged `Pattern` and `PatternObservation` to be one layer from the compiler and publish path, corrected the review claim, marked both undeclared object types in place, and recorded that the decision-and-learning lineage projector has no production caller. | `current change`; `test_ontology_catalog.py` document-consistency cases. | Construct `OperationalHypothesisLineageProjector` from a composition root so a governed episode writes and can replay `considers`, `expects`, `executed_as`, and `resulted_in`; then either publish `PatternObservation` from Norns with a live consumer or retire it, its topic, and its `PANTHEON_SPECS` and pantheon-document rows in one change. |
 
 ### Remaining work
 
@@ -292,7 +292,7 @@ and prediction concepts instead of placing them only in a finding's open `contex
 |------------|---------|
 | `Observation` | A normalized measured value and evidence reference at an event-time cutoff. |
 | `Change` | A planned, proposed, active, drift-observed, or completed change with intent, desired-state evidence, affected scope, and provenance. |
-| `Forecast` | A versioned projection with horizon, interval, confidence, and feature cutoff. |
+| `Forecast` | A versioned projection with horizon, interval, confidence, and feature cutoff. Not declared in the shipped catalog. |
 | `Experiment` | A bounded chaos or validation activity that may intervene in an observed episode. |
 
 ### Decision and learning
@@ -307,7 +307,7 @@ authority.
 | `ExpectedEffect` | Predicted metric range, observation window, uncertainty, and predictor version. |
 | `ActionRun` | The existing execution identity and terminal receipt. |
 | `ObservedOutcome` | Observed effect, rollback, SLO recovery, recurrence, and scoring status. |
-| `Pattern` | A reviewed generic mechanism supported by a balanced case cohort. |
+| `Pattern` | An inert record compiled from a balanced sealed-case cohort, and [one layer](../rules-and-detection/operational-learning-ontology.md#pattern-and-patternobservation-are-one-layer) with Norns' `PatternObservation` rather than a reviewed generalization of it. Not declared in the shipped catalog. |
 
 `DecisionCase` does not replace the RiskGate decision or the audit record. It is the immutable
 semantic input that lets Forseti, Odin, Var, Saga, and replay consumers refer to the same facts.
@@ -351,8 +351,8 @@ LinkType declaration. A relation that cannot support a required competency quest
 added for visualization alone.
 
 The current LinkType schema has one source and one target type per declaration. The conceptual
-union rows `depends_on`, `governed_by`, `owned_by`, `observes`, `affects`, and `protects` therefore
-compile to explicit physical names such as `workload_runs_on`, `workload_depends_on`,
+union rows `depends_on`, `governed_by`, `owned_by`, `observes`, `affects`, and `protects`
+therefore compile to explicit physical names such as `workload_runs_on`, `workload_depends_on`,
 `service_has_service_objective`, `service_has_recovery_objective`, `service_has_cost_objective`,
 `service_has_architecture_constraint`, `service_owned_by`, `workload_owned_by`, and
 `objective_owned_by`. Every other row in the table is a declared LinkType under
@@ -365,7 +365,7 @@ Two relationships that earlier revisions listed as contract rows are deferred, n
 | Relationship | Intended endpoints | Blocking reason |
 |--------------|--------------------|-----------------|
 | `predicts_breach_of` | Forecast -> Objective | The `Forecast` ObjectType is not declared in the catalog. |
-| `learned_as` | ObservedOutcome -> Pattern | The `Pattern` ObjectType is not declared in the catalog. |
+| `learned_as` | ObservedOutcome -> Pattern | The `Pattern` ObjectType is not declared in the catalog, and the pair is not producible: a cohort cites sealed cases as `case-history:<case_id>:<revision>:<manifest_digest>` and never receives an `ObservedOutcome` identity. It would return as a reviewed learning projection only, never as a promotion path. |
 
 A LinkType MUST NOT be declared before both endpoint ObjectTypes exist, because catalog loading
 cross-references `from_type` and `to_type` against the ObjectType registry and fails closed. Listing
@@ -452,7 +452,7 @@ The ontology makes the fixed pantheon more capable without adding a central coor
 | Vidar | Rollback and recovery outcomes. |
 | Saga | Audit evidence and immutable correlation links. |
 | Muninn | Durable state snapshots and the immutable case-history context index. |
-| Norns | Patterns and inert candidates. |
+| Norns | Inert rule candidates. The owned `PatternObservation` has a registered topic but no producer. |
 | Mimir | Reviewed ontology, rule, and action catalog lifecycle. |
 | Bragi | No decision write; localized explanation over cited projections only. |
 
