@@ -175,8 +175,8 @@ independent review with no residual above Low.
 
 ### Top 20 assurance results
 
-The extension completed 14 rounds, numbered 11 through 24 because independent review opened four
-additional hardening rounds.
+The extension completed 16 rounds, numbered 11 through 26 because independent review opened six
+additional hardening and evidence rounds.
 
 | Round | Result | Evidence |
 |------:|--------|----------|
@@ -194,10 +194,12 @@ additional hardening rounds.
 | 22 | accepted | Reachability uses one batched all-ref plus checkout-head traversal, apply recomputes the set, and retirement moves records to quarantine instead of deleting them. |
 | 23 | accepted | Recursive shell parsing covers `sh -c`, `bash -lc`, `zsh -c`, and wrapped bare commits. |
 | 24 | accepted | A quarantined record automatically returns to pending when a checkout or ref reactivates its commit. |
+| 25 | accepted | Validator `reset --hard` and `clean -ffdx` fail closed unless their target is the exact Git-common-dir scratch worktree. |
+| 26 | accepted | An explicit selector contract proves `developer-workflow.py` changes select only `tests/integration/scripts`. |
 
 Focused integration passed 231 tests before the review-driven rounds. The final focused suites
-passed 15 guard tests and 37 validation-queue tests. Ruff and strict mypy passed on the changed
-workflow source.
+passed 15 guard tests, 37 validation-queue tests, and 85 validator plus selector tests. Ruff and
+strict mypy passed on the changed workflow source.
 
 The remaining Low risks are explicit and bounded:
 
@@ -232,6 +234,7 @@ The remaining Low risks are explicit and bounded:
 | 2026-08-15 | validated | Central validation accepted the integrated implementation revision. | `validation_queue.py check-commit d3f5257b9` passed. | No remaining work in this bounded campaign. |
 | 2026-08-15 | in-progress | Started the measured Top 20 residual campaign. | Issue #118 and the baselines in the residual campaign table. | Complete at least 10 additional critique rounds and central validation. |
 | 2026-08-15 | implemented | Completed 14 additional critique and hardening rounds for ranks 11 through 20. | Current change; the Top 20 assurance results above, focused tests, Ruff, and strict mypy. | Integrate the exact revision, obtain central validation, and complete issue #118. |
+| 2026-08-15 | implemented | Added two review-evidence rounds that pin validator scratch ownership and focused automation test selection. | Current change; validator and selector suites passed 85 tests. | Integrate the exact revision, obtain central validation, and complete issue #118. |
 
 ### Remaining work
 
@@ -239,7 +242,7 @@ The remaining Low risks are explicit and bounded:
   rejected findings above.
 - [x] Central validation accepted integrated implementation revision `d3f5257b9`.
 - [x] The final independent review found no residual finding above Low.
-- [x] Completed 14 additional rounds with only the bounded Low residuals listed above.
+- [x] Completed 16 additional rounds with only the bounded Low residuals listed above.
 - [ ] Integrate the exact Top 20 revision, obtain central validation, and complete issue #118.
 
 ## Related docs
