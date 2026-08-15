@@ -162,7 +162,7 @@ and focused throttle, permanent-error, and retry-exhaustion tests prove that beh
 | Hermetic checks and local services | implemented | Workflow environment preflight and checkout-owned service readiness; focused workflow tests | The diagnostic never starts or restarts a service. |
 | Browser and editor pressure | implemented | Existing focused Playwright entry points, 10-slot lease pool, and profile pressure controls | Final critique must verify no Medium residual. |
 | Remote preflight | implemented | `live_preflight/transport.py`; 6 focused tests | At most three read attempts; permanent errors fail immediately. |
-| Ten-round assurance | implemented | 13 rounds and final independent re-review recorded above | No residual finding exceeds Low. |
+| Ten-round assurance | validated | 13 rounds, final independent re-review, and central receipt for `d3f5257b9` | No residual finding exceeds Low. |
 
 ### Implementation history
 
@@ -171,12 +171,13 @@ and focused throttle, permanent-error, and retry-exhaustion tests prove that beh
 | 2026-08-15 | in-progress | Adopted the developer workflow assurance owner and bounded the campaign; earlier implementation provenance was not reconstructed. | Current change and existing controls listed in the scope table. | Complete the focused rounds and final residual-risk review. |
 | 2026-08-15 | in-progress | Revised the design after independent critique by defining the CLI contract, bounded evidence windows, failure behavior, authority separation, and 12-round sequence. | Current change; roadmap, translation, and punctuation checks. | Implement and verify each accepted finding. |
 | 2026-08-15 | implemented | Completed 13 critique-and-hardening rounds and removed every reproducible Medium-or-higher residual. | Current change; 163 focused Python control tests, 6 Playwright port-pool tests, 48 final false-ready tests, Ruff, and the final independent review. | Record the centralized validation receipt for the integrated revision. |
+| 2026-08-15 | validated | Central validation accepted the integrated implementation revision. | `validation_queue.py check-commit d3f5257b9` passed. | No remaining work in this bounded campaign. |
 
 ### Remaining work
 
 - [x] Completed 13 independent critique rounds with focused checks and recorded accepted and
   rejected findings above.
-- [ ] Record one central validation receipt for the integrated campaign commit.
+- [x] Central validation accepted integrated implementation revision `d3f5257b9`.
 - [x] The final independent review found no residual finding above Low.
 
 ## Related docs
