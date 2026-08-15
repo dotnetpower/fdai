@@ -438,6 +438,110 @@ class PostgresFamilyStore:
         )
         return rows[0] if rows else None
 
+    async def read_conversation_summaries(
+        self,
+        *,
+        principal_id: str,
+        before_last_active: datetime | None,
+        before_conversation_id: str | None,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        """Read one bounded newest-first conversation page inside the principal scope."""
+
+        if (before_last_active is None) != (before_conversation_id is None):
+            raise ValueError("conversation cursor MUST be complete")
+        parameters: dict[str, object] = {"principal_id": principal_id, "limit": limit}
+        cursor_clause = ""
+        if before_last_active is not None:
+            cursor_clause = (
+                " AND (record.last_active, record.conversation_id)"
+                " < (%(before_last_active)s, %(before_conversation_id)s)"
+            )
+            parameters["before_last_active"] = before_last_active
+            parameters["before_conversation_id"] = before_conversation_id
+        return await self._fetch_all(
+            "SELECT record.conversation_id, record.channel_id, record.started_at,"
+            " record.last_active, record.status,"
+            " (SELECT turn.turn_id FROM conversation_turn AS turn"
+            "   WHERE turn.principal_id = record.principal_id"
+            "     AND turn.conversation_id = record.conversation_id"
+            "     AND turn.role = 'operator'"
+            "   ORDER BY turn.turn_index DESC LIMIT 1) AS latest_operator_turn_id,"
+            " (SELECT turn.content FROM conversation_turn AS turn"
+            "   WHERE turn.principal_id = record.principal_id"
+            "     AND turn.conversation_id = record.conversation_id"
+            "     AND turn.role = 'operator'"
+            "   ORDER BY turn.turn_index LIMIT 1) AS first_operator_question"
+            " FROM conversation_record AS record"
+            " WHERE record.principal_id = %(principal_id)s"  # noqa: S608
+            f"{cursor_clause}"
+            " ORDER BY record.last_active DESC, record.conversation_id DESC"
+            " LIMIT %(limit)s",
+            parameters,
+        )
+
+    async def read_user_context_records(
+        self,
+        *,
+        principal_id: str,
+        limit: int,
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Read every bounded durable user-context list inside the principal scope."""
+
+        parameters: dict[str, object] = {"principal_id": principal_id, "limit": limit}
+        preference = await self._fetch_all(
+            "SELECT principal_id, locale, verbosity, timezone, share_with_learner, revision,"
+            " answer_detail, answer_format, answer_preferences_enabled,"
+            " answer_intent_detail, answer_intent_format"
+            " FROM user_preference WHERE principal_id = %(principal_id)s",
+            {"principal_id": principal_id},
+        )
+        memories = await self._fetch_all(
+            "SELECT memory_id, category, body, source_turn_id, created_at, expires_at"
+            " FROM user_memory_fact"
+            " WHERE principal_id = %(principal_id)s AND superseded_by IS NULL"
+            " ORDER BY created_at, memory_id LIMIT %(limit)s",
+            parameters,
+        )
+        policies = await self._fetch_all(
+            "SELECT policy_id, kind, enabled, revision, source_turn_id,"
+            " briefing_spec, response_defaults"
+            " FROM conversation_policy WHERE principal_id = %(principal_id)s"
+            " ORDER BY policy_id LIMIT %(limit)s",
+            parameters,
+        )
+        subscriptions = await self._fetch_all(
+            "SELECT subscription_id, name, cron_expression, timezone, enabled,"
+            " next_run_at, spec, revision"
+            " FROM briefing_subscription WHERE principal_id = %(principal_id)s"
+            " ORDER BY next_run_at, subscription_id LIMIT %(limit)s",
+            parameters,
+        )
+        briefing_runs = await self._fetch_all(
+            "SELECT run_id, title, body_markdown, status, item_count,"
+            " evidence_refs, source_errors"
+            " FROM briefing_run WHERE principal_id = %(principal_id)s"
+            " ORDER BY scheduled_for DESC, run_id DESC LIMIT %(limit)s",
+            parameters,
+        )
+        continuations = await self._fetch_all(
+            "SELECT anchor_id, task_id, run_id, owner_principal_id, scope_ref, mode, origin,"
+            " result_digest, result_summary, evidence_refs, observation_started_at,"
+            " observation_ended_at, created_at, expires_at, state"
+            " FROM scheduled_conversation_anchor"
+            " WHERE owner_principal_id = %(principal_id)s"
+            " ORDER BY created_at DESC, anchor_id DESC LIMIT %(limit)s",
+            parameters,
+        )
+        return {
+            "preference": preference,
+            "memories": memories,
+            "policies": policies,
+            "subscriptions": subscriptions,
+            "briefing_runs": briefing_runs,
+            "scheduled_continuations": continuations,
+        }
+
     async def read_context_selection_comparisons(
         self,
         *,
@@ -958,6 +1062,26 @@ class UnavailablePostgresFamilyStore(PostgresFamilyStore):
     ) -> dict[str, object]:
         del principal_id, query_digest
         raise PostgresFamilyStoreUnavailable("authoritative projection is unavailable")
+
+    async def read_conversation_summaries(
+        self,
+        *,
+        principal_id: str,
+        before_last_active: datetime | None,
+        before_conversation_id: str | None,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        del principal_id, before_last_active, before_conversation_id, limit
+        raise PostgresFamilyStoreUnavailable("authoritative conversation history is unavailable")
+
+    async def read_user_context_records(
+        self,
+        *,
+        principal_id: str,
+        limit: int,
+    ) -> dict[str, list[dict[str, Any]]]:
+        del principal_id, limit
+        raise PostgresFamilyStoreUnavailable("authoritative user context is unavailable")
 
     async def append_proposal(
         self,
