@@ -1593,6 +1593,10 @@ jobs:
           run_job() {
             local job="$1"
             local purpose="$2"
+            if [ "$SECONDS" -ge "$migration_deadline" ]; then
+              echo "refusing to start $purpose job $job with no budget left to observe it" >&2
+              exit 1
+            fi
             echo "starting $purpose job $job in $rg..."
             az containerapp job start --name "$job" --resource-group "$rg" >/dev/null
             local completed=false

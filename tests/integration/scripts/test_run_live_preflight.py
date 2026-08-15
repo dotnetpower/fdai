@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import io
+import subprocess
 import sys
 from contextlib import AbstractContextManager
 from pathlib import Path
@@ -328,3 +329,50 @@ def test_azure_reader_bounds_network_retries(monkeypatch: pytest.MonkeyPatch) ->
 
     assert calls == 3
     assert delays == [0.1, 0.2]
+
+
+def test_azure_reader_caps_token_acquisition_by_the_remaining_deadline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: list[float] = []
+    clock = iter([0.0, 296.0, 296.0, 296.0])
+
+    def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        del command
+        observed.append(float(kwargs["timeout"]))  # type: ignore[arg-type]
+        return subprocess.CompletedProcess(args=[], returncode=0, stdout="token\n", stderr="")
+
+    monkeypatch.setattr(transport.subprocess, "run", fake_run)
+    monkeypatch.setattr(
+        transport,
+        "urlopen",
+        lambda _request, timeout: _Response(200, b'{"value":"ok"}'),  # noqa: ARG005
+    )
+    reader = transport.AzureCliReader(
+        subscription_id="00000000-0000-0000-0000-000000000000",
+        sleep=lambda _seconds: None,
+        monotonic=lambda: next(clock),
+    )
+
+    reader.get_json("/subscriptions/example", api_version="2024-01-01")
+
+    assert observed == [4.0]
+
+
+def test_azure_reader_refuses_token_acquisition_after_the_deadline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clock = iter([0.0, 301.0, 301.0])
+    monkeypatch.setattr(
+        transport,
+        "urlopen",
+        lambda _request, timeout: _Response(200, b"{}"),  # noqa: ARG005
+    )
+    reader = transport.AzureCliReader(
+        subscription_id="00000000-0000-0000-0000-000000000000",
+        sleep=lambda _seconds: None,
+        monotonic=lambda: next(clock),
+    )
+
+    with pytest.raises(_MODULE.PreflightError, match="bounded 300s preflight deadline"):
+        reader.get_json("/subscriptions/example", api_version="2024-01-01")

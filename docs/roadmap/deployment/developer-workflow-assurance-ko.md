@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 9de3c1ed3ac69ea69320a8eb04146bff391c92cb
+translation_source_sha: feb9b782ae8ce2d4087b207c36c8fcfa3689113c
 translation_revised: 2026-08-15
 ---
 
@@ -296,12 +296,14 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 
 - Assurance 실행 예산은 cohort 크기에서 유도하며 최소 5분, 최대 90분이고 operator는 선언된
   범위 안에서 재정의할 수 있습니다.
-- 예산 소진은 실행을 멈추고 checkpoint를 기록하며 `run_budget_exhausted`로 실패합니다. 정지하지
-  않으며 통과 또는 production-ready 아티팩트를 보고하지 않습니다.
+- 모든 turn은 남은 실행 예산으로 제한되므로 예산 소진은 실행을 멈추고 checkpoint를 기록하며
+  불투명한 harness timeout에 도달하는 대신 명시적 정지 사유로 실패합니다.
+- 무진행 deadline은 재시도를 포함한 질문 하나 전체를 제한하고 질문별 deadline은 시도 하나를
+  제한하며, 위반은 구분된 실패 사유로 기록됩니다.
 - Checkpoint는 source revision, configuration digest, workspace patch digest 및 순서가 있는
   cohort가 모두 일치할 때만 재개하며, 손상되거나 잘린 checkpoint는 cohort를 다시 시작합니다.
-- 완료된 cohort는 checkpoint를 삭제해 이후 실행이 live 요청 없이 새 근거를 주장할 수 없게 하고,
-  모든 아티팩트는 재개 및 live 질문 수를 기록합니다.
+- 완료된 cohort는 아티팩트 발행 전에 checkpoint를 회수하며, live turn을 수행하지 않은 실행은
+  통과 또는 production-ready 아티팩트를 보고할 수 없습니다.
 
 ## 관련 문서
 

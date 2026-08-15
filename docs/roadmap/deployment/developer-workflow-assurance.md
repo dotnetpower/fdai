@@ -291,12 +291,14 @@ deadline, a no-progress deadline, a progress signal, and a resumable checkpoint.
 
 - The assurance run budget is derived from the cohort size, floored at 5 minutes and capped at
   90 minutes, and an operator may override it inside declared bounds.
-- Budget exhaustion stops the run, writes a checkpoint, and fails with `run_budget_exhausted`
-  instead of hanging; it never reports a passing or production-ready artifact.
+- Every turn is clamped to the remaining run budget, so budget exhaustion stops the run, writes a
+  checkpoint, and fails with an explicit stop reason instead of reaching an opaque harness timeout.
+- The no-progress deadline bounds one whole question including its retries, and the per-question
+  deadline bounds one attempt; a breach is recorded as a distinct failure reason.
 - A checkpoint resumes only when the source revision, configuration digest, workspace patch
   digest, and ordered cohort all match, and a corrupt or torn checkpoint restarts the cohort.
-- A completed cohort deletes its checkpoint so a later run cannot claim fresh evidence without
-  live requests, and every artifact records resumed and live question counts.
+- A completed cohort retires its checkpoint before the artifact is published, and a run that
+  performs no live turn can never report a passing or production-ready artifact.
 
 
 | Local and deployed runtime parity | [Runtime parity](dev-and-deploy-parity.md) |
