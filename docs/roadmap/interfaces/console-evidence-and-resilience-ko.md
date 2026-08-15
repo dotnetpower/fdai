@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: d0852165424ae1151e4afdef7fbc037f13eb0281
+translation_source_sha: ab64aa441e08fffb6f2cf8dcfde5206a2447e96c
 translation_revised: 2026-08-16
 ---
 
@@ -63,6 +63,7 @@ translation_revised: 2026-08-16
 | 2026-08-15 | implemented | 강제 게이트와 남은 재개 함정을 고쳤습니다. 테스트 타입 검사가 저장소 루트에서 프로젝트를 해석하므로 콘솔 빌드와 CLI 검사 전에 operator 게이트를 중단시키지 않고, 중단된 실행은 증명하지 못한 것이 모순은 아니므로 checkpoint를 유지하며, 실행 중 release 회전은 완주한 모든 turn을 삭제하는 대신 대체된 turn만 정리하고, 일관성 없는 verification 아티팩트는 통제된 거부에서도 실패하며, partial 파일은 기록 프로세스를 포함합니다. | `current change`; focused Vitest live-evidence 139개 통과, typecheck-parity 6개 통과, 두 프로젝트 `npm run typecheck` 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
 | 2026-08-15 | implemented | 마지막 재생 고정점을 제거했습니다. 모든 turn이 통과했지만 release 기준을 놓친 cohort는 거부만 한 answer-required turn을 풀어 이후 실행이 같은 차단을 다시 발행하는 대신 재시도하게 하고, pacing 및 checkpoint 기록 결함은 아티팩트 없이 빠져나가는 대신 통제된 중단 사유가 됩니다. 게이트 패리티 테스트는 호출 전체를 고정하고, operator가 설정한 checkpoint 경로는 공백을 제거합니다. | `current change`; focused Vitest live-evidence 141개 통과, typecheck-parity 6개 통과, 두 프로젝트 `npm run typecheck` 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
 | 2026-08-15 | implemented | 통제된 중단 경로를 질문 전체로 확장했습니다. 질문 내 재시도 대기 중이거나 허용된 재정의로 pacing이 비활성일 때의 페이지 결함은 테스트 본문을 빠져나가는 대신 `page_unavailable`로 실행을 멈추고, 예산으로 잘린 시도는 쓸 수 없는 reload를 소비하거나 컨텍스트 재설정 실패를 원인으로 보고하지 않으며, 루프 상단의 예산 중단도 해당 질문을 기록합니다. | `current change`; focused Vitest live-evidence 143개 통과, 두 프로젝트 `npm run typecheck` 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
+| 2026-08-16 | implemented | Cohort 루프 앞에서 재개 판정을 공개합니다. Binding 검사에 실패한 checkpoint는 아무것도 조용히 복원하지 않아 운영자가 최종 아티팩트로만 알 수 있었는데, 이제 실행이 저장·재개·잔여 개수를 담은 `assurance-resume` 줄을 한 줄 출력합니다. | `current change`; focused Vitest live-evidence 143개 통과, 두 프로젝트 `npm run typecheck` 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
 
 ### 잔여 작업
 

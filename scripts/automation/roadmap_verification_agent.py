@@ -16,6 +16,8 @@ MAX_OUTPUT_BYTES: Final = 200_000
 MAX_SUMMARY_CHARS: Final = 2_000
 DEFAULT_MODEL: Final = "claude-opus-5"
 CLI_MISSING_MARKER: Final = "Cannot find GitHub Copilot CLI"
+READ_TOOLS: Final = ("view", "grep", "glob", "bash", "read_bash", "stop_bash", "list_bash")
+WRITE_TOOLS: Final = ("create", "edit")
 UTC = timezone.utc  # noqa: UP017 - repository automation supports system Python 3.10.
 RESULTS: Final = frozenset(
     {"reviewed", "verified", "gap_found", "designed", "not_applicable", "blocked"}
@@ -121,7 +123,11 @@ def _terminate(process: subprocess.Popen[str]) -> None:
 
 
 def copilot_command(cli: Path, prompt_text: str, worktree: Path, *, apply: bool) -> list[str]:
-    tools = "read,glob,grep,shell,write" if apply else "read,glob,grep,shell"
+    # `--available-tools` takes real tool names, while `--deny-tool` takes permission rules in a
+    # different namespace where shell commands are `shell(...)`. Verified against CLI 1.0.80:
+    # `--available-tools=shell,read,write` grants nothing, and `--deny-tool=bash(curl)` blocks
+    # nothing while `--deny-tool=shell(curl)` blocks.
+    tools = ",".join((*READ_TOOLS, *(WRITE_TOOLS if apply else ())))
     command = [
         str(cli),
         "-p",

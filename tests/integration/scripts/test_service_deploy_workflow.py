@@ -364,6 +364,14 @@ def test_initial_cutover_prepares_stamps_and_upgrades_service_migrations() -> No
     assert "az containerapp revision activate" in _HEALTH_SCRIPT
 
 
+def test_health_poll_reports_progress_and_fails_on_its_own_deadline() -> None:
+    assert "health poll: revision=" in _HEALTH_SCRIPT
+    assert _HEALTH_SCRIPT.index("health poll: revision=") < _HEALTH_SCRIPT.index("  sleep 5")
+    assert "health_converged=true" in _HEALTH_SCRIPT
+    assert 'if [[ "$health_converged" != true ]]; then' in _HEALTH_SCRIPT
+    assert "within its 900s health deadline" in _HEALTH_SCRIPT
+
+
 def test_apply_failure_uses_the_same_verified_rollback_path() -> None:
     rollback_condition = (
         "if: ${{ inputs.apply && (steps.apply.outcome == 'failure' || "

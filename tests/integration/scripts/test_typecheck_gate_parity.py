@@ -59,6 +59,27 @@ def test_opa_downloads_are_bounded_and_checksum_verified() -> None:
     assert ci.count("dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa") == downloads
 
 
+def test_every_retrying_deploy_curl_declares_a_cumulative_retry_window() -> None:
+    """A retry count times a per-request cap is a product, not a declared envelope."""
+    for relative in ("deploy-dev.yml", "service-deploy.yml", "ci.yml"):
+        workflow = (_ROOT / ".github" / "workflows" / relative).read_text(encoding="utf-8")
+        command: list[str] | None = None
+        for line in workflow.splitlines():
+            stripped = line.strip()
+            if command is None and "curl " not in stripped:
+                continue
+            if command is None:
+                command = []
+            command.append(stripped.removesuffix("\\"))
+            if stripped.endswith("\\"):
+                continue
+            joined = " ".join(command)
+            command = None
+            if "--retry " not in joined:
+                continue
+            assert "--retry-max-time " in joined, f"{relative}: unbounded retry envelope: {joined}"
+
+
 def test_container_opa_build_overrides_vulnerable_go_modules() -> None:
     dockerfile = (_ROOT / "services" / "core-control-plane" / "docker" / "Dockerfile").read_text(
         encoding="utf-8"

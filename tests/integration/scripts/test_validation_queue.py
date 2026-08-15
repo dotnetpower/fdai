@@ -1211,6 +1211,17 @@ def test_auto_pull_checks_local_blockers_before_fetching() -> None:
     assert checked.returncode == 0, checked.stderr
 
 
+def test_auto_pull_bounds_every_remote_call_below_its_interval() -> None:
+    script = AUTO_PULL_SCRIPT.read_text(encoding="utf-8")
+
+    assert 'timeout "$fetch_timeout" git fetch --quiet origin "$branch"' in script
+    assert 'timeout "$pull_timeout" git pull --rebase --quiet origin "$branch"' in script
+    assert "fetch did not complete within ${fetch_timeout}s" in script
+    assert int(script.split('fetch_timeout="${FDAI_AUTOPULL_FETCH_TIMEOUT:-')[1].split("}")[0]) <= (
+        int(script.split('interval="${FDAI_AUTOPULL_INTERVAL:-')[1].split("}")[0])
+    )
+
+
 def test_validator_agent_is_read_execute_only_and_uses_make_facade() -> None:
     _prefix, frontmatter, body = VALIDATOR_AGENT.read_text(encoding="utf-8").split("---", 2)
     config = yaml.safe_load(frontmatter)
