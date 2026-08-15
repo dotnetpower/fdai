@@ -347,6 +347,24 @@ def test_destructive_git_after_global_worktree_option_is_denied() -> None:
     assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "/usr/bin/git reset --hard HEAD^",
+        "env EXAMPLE=1 /usr/bin/git clean -fd",
+        "command git restore --source=HEAD -- example.py",
+    ],
+)
+def test_destructive_git_wrappers_and_absolute_executable_are_denied(command: str) -> None:
+    module = _load_module()
+
+    result = module.enforce_destructive_git(
+        {"tool_name": "run_in_terminal", "tool_input": {"command": command}}
+    )
+
+    assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
 def test_dispatcher_records_policy_relevant_parallel_reads(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
