@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[3] / "scripts" / "automation" / "developer-workflow.py"
+UTC = timezone.utc  # noqa: UP017 - test remains compatible with system Python 3.10.
 
 
 def _run(root: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
@@ -95,3 +97,59 @@ def test_status_reports_staged_and_unstaged_overlap(tmp_path: Path) -> None:
         "unstaged_count": 1,
         "untracked_count": 1,
     }
+
+
+def test_status_reports_validation_age_and_recent_latency(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    assert _git(repo, "init", "--quiet", "--initial-branch=main").returncode == 0
+    assert _git(repo, "config", "user.email", "user@example.com").returncode == 0
+    assert _git(repo, "config", "user.name", "Example User").returncode == 0
+    tracked = repo / "tracked.txt"
+    tracked.write_text("first\n", encoding="utf-8")
+    assert _git(repo, "add", "tracked.txt").returncode == 0
+    assert _git(repo, "commit", "--quiet", "-m", "first").returncode == 0
+    validated_commit = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    committed_at = datetime.fromisoformat(
+        _git(repo, "show", "-s", "--format=%cI", validated_commit).stdout.strip()
+    )
+    tracked.write_text("second\n", encoding="utf-8")
+    assert _git(repo, "add", "tracked.txt").returncode == 0
+    assert _git(repo, "commit", "--quiet", "-m", "second").returncode == 0
+    pending_commit = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    state = repo / ".git" / "fdai-validation-queue"
+    pending = state / "pending"
+    receipts = state / "receipts"
+    pending.mkdir(parents=True)
+    receipts.mkdir()
+    (pending / f"{pending_commit}.json").write_text(
+        json.dumps(
+            {
+                "commit": pending_commit,
+                "enqueued_at": (datetime.now(UTC) - timedelta(minutes=10)).isoformat(),
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (receipts / f"{validated_commit}.json").write_text(
+        json.dumps(
+            {
+                "commit": validated_commit,
+                "validated_at": (committed_at + timedelta(seconds=120)).isoformat(),
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = _run(repo, "status", "--json")
+
+    assert result.returncode == 0, result.stderr
+    validation = json.loads(result.stdout)["sections"]["validation"]
+    assert validation["status"] == "warning"
+    assert validation["reachable_pending_count"] == 1
+    assert validation["oldest_pending_seconds"] >= 599
+    assert validation["receipt_sample_count"] == 1
+    assert validation["latency_p95_seconds"] == 120
+    assert validation["invalid_record_count"] == 0
