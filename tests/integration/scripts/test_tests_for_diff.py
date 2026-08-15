@@ -174,6 +174,20 @@ def test_script_change_selects_moved_integration_script_tests(git_repo: Path) ->
     assert result.stdout.splitlines() == ["tests/integration/scripts"]
 
 
+def test_developer_workflow_change_selects_only_integration_script_tests(
+    git_repo: Path,
+) -> None:
+    _commit_final_test_layout(git_repo)
+    script = git_repo / "scripts" / "automation" / "developer-workflow.py"
+    script.parent.mkdir(parents=True, exist_ok=True)
+    script.write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+
+    result = _run(git_repo, "bash", str(_SELECTOR))
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == ["tests/integration/scripts"]
+
+
 def test_selects_tests_for_untracked_python_source(git_repo: Path) -> None:
     consumer = _core_test(git_repo, "verticals", "test_risk_consumer.py")
     consumer.write_text("from fdai.core.risk_gate import new_rule\n", encoding="utf-8")
