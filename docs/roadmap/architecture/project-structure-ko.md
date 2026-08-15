@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 4c04dd8fd2455145742d94f333a6a8d7817768b4
+translation_source_sha: d0e3f9f04782e2614bed266eb02581c001903777
 translation_revised: 2026-08-15
 ---
 # 프로젝트 구조
@@ -46,6 +46,7 @@ translation_revised: 2026-08-15
 | 2026-08-14 | implemented | Risk, 승인, 실행 또는 감사 소유권을 바꾸지 않고 하나의 프로바이더 중립 pre-dispatch kinetic safety seam을 추가하고 일반 ControlLoop dispatch와 승인된 HIL resume이 구체적인 StateStore writer를 공유하도록 했습니다. | `current change`, 집중 kinetic 및 HIL 검사 115개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 운영 Forseti proposal source 조립, verified independent observer 및 통제된 실제 종결 근거는 Operational Planning에서 계속 소유합니다. |
 | 2026-08-14 | implemented | Receipt 저장 전에 영속 OperationalPlan identity와 모든 proposal lineage 필드를 다시 검증해 내부적으로 valid한 cross-record substitution을 차단하도록 delivery join을 강화했습니다. | `current change`, `delivery/kinetic_proposal.py`, 집중 kinetic 검사 119개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 운영 Forseti proposal source 조립, verified independent observer 및 통제된 실제 종결 근거는 Operational Planning에서 계속 소유합니다. |
 | 2026-08-15 | 구현됨 | Exact-release principal 매니페스트 조회 모듈 하나를 추가하고 기존 의미 Function registry와 일반 query-table renderer를 통해 연결했습니다. | `current change`, focused 매니페스트 및 의미 조립 검사 42개와 작업 범위 Ruff 및 strict mypy 통과 | Clean 이중 언어 답변 coverage와 seed 기반 전체 집단 Browser 근거를 보존합니다. |
+| 2026-08-15 | 구현됨 | 검증된 plan이 선택한 역량을 `plan_verify` 단계 기록에 남기고 `stage`, `plan_nodes`, `failure_type`을 로컬 평문 로그 컨텍스트 허용 목록을 통해 출력하도록 했습니다. 허용 목록 방식을 그대로 유지해 목록에 없는 필드는 여전히 평문 로그에 답지 않습니다. | `current change`, `semantic_planning.py` 및 `capture-local-service-log.py`, focused 계획기 검사 14개와 로컬 서비스 로그 실행기 검사 11개 통과 | 이 필드로 인시던트 바인딩에 결정론적 plan seed가 필요한지 판단합니다. |
 
 ### 남은 작업
 - [ ] 호환성 import deprecation 주기 뒤 연기된 Phase 2 물리 `git mv`를 완료하고 이 배치를 결과 service-owned 경로로 갱신합니다.

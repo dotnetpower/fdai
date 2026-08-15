@@ -9,7 +9,17 @@ from datetime import datetime
 from pathlib import Path
 from typing import TextIO
 
-_PLAIN_CONTEXT_FIELDS = ("topic", "consumer_group", "client_id", "auth_mechanism")
+# Allowlist, not a denylist: an unlisted field never reaches the plain log, so a
+# record that carries a secret cannot leak through a newly added logger.
+_PLAIN_CONTEXT_FIELDS = (
+    "topic",
+    "consumer_group",
+    "client_id",
+    "auth_mechanism",
+    "stage",
+    "plan_nodes",
+    "failure_type",
+)
 
 
 def _render_line(raw: str, output_format: str) -> str:

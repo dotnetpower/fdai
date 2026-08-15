@@ -11,7 +11,7 @@ import pytest
 from fdai.core.conversation.coordinator import ConversationCoordinator, CoordinatorConfig
 from fdai.core.conversation.intent_graph import build_intent_graph_evidence
 from fdai.core.conversation.semantic_manifest import CatalogQueryManifestProvider
-from fdai.core.conversation.semantic_planning import SemanticPlanningService
+from fdai.core.conversation.semantic_planning import SemanticPlanningService, _plan_node_summary
 from fdai.core.conversation.semantic_planning_models import (
     SemanticFrameProposal,
     SemanticPlanningDisposition,
@@ -40,8 +40,11 @@ from fdai.shared.ontology.release import build_ontology_release
 from fdai_service_contracts.ontology_query import (
     GoalEvidenceMode,
     GoalTaskReceipt,
+    OntologyQueryNode,
+    OntologyQueryPlan,
     QueryNodeKind,
     TaskStatus,
+    content_digest,
 )
 from pydantic import ValidationError
 
@@ -320,7 +323,57 @@ def test_successful_plan_logs_only_stage_progress(caplog) -> None:
         if record.message == "semantic_planning_stage_completed"
     ]
     assert stages == ["manifest", "frame_proposal", "frame_build", "plan_proposal", "plan_verify"]
+    verify = next(
+        record
+        for record in caplog.records
+        if record.message == "semantic_planning_stage_completed" and record.stage == "plan_verify"
+    )
+    assert verify.plan_nodes == "object_set"
     assert "Show matching resources" not in caplog.text
+
+
+def test_plan_node_summary_names_selected_functions() -> None:
+    digest = f"sha256:{'a' * 64}"
+    nodes = (
+        OntologyQueryNode(
+            node_id="evidence",
+            kind=QueryNodeKind.FUNCTION,
+            arguments_json='{"function_name":"query.incident_evidence"}',
+            output_kind="query.value",
+        ),
+        OntologyQueryNode(
+            node_id="resources",
+            kind=QueryNodeKind.OBJECT_SET,
+            output_kind="query.table",
+        ),
+    )
+    plan_fields: dict[str, Any] = {
+        "ontology_release_digest": digest,
+        "semantic_catalog_digest": digest,
+        "problem_frame_digest": digest,
+        "purpose": "operations-review",
+        "caller_role": "reader",
+        "nodes": nodes,
+        "output_node_ids": ("evidence",),
+    }
+    plan = OntologyQueryPlan(
+        **plan_fields,
+        plan_digest=content_digest(
+            {
+                "schema_version": "1.0.0",
+                **{
+                    key: value
+                    for key, value in plan_fields.items()
+                    if key not in {"nodes", "output_node_ids"}
+                },
+                "nodes": [node.model_dump(mode="json") for node in nodes],
+                "output_node_ids": ("evidence",),
+                "execution_authority": False,
+            }
+        ),
+    )
+
+    assert _plan_node_summary(plan) == "function:query.incident_evidence,object_set"
 
 
 def test_execution_receipts_bind_to_intent_goal_ids() -> None:

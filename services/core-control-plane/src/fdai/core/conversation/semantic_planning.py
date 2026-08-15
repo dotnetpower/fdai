@@ -50,6 +50,7 @@ _MAX_CONTEXT_TURNS = 8
 _MAX_CONTEXT_CHARS = 12_000
 _MAX_DESCRIPTORS = 512
 _MAX_DESCRIPTOR_BYTES = 524_288
+_MAX_LOGGED_PLAN_NODES = 8
 _INCIDENT_REFERENCE_CLARIFICATION = "Which incident should I investigate?"
 
 
@@ -162,7 +163,10 @@ class SemanticPlanningService:
                     frame=frame,
                 )
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
-            _LOGGER.info("semantic_planning_stage_completed", extra={"stage": "plan_verify"})
+            _LOGGER.info(
+                "semantic_planning_stage_completed",
+                extra={"stage": "plan_verify", "plan_nodes": _plan_node_summary(plan)},
+            )
             graph = build_intent_graph(
                 frame=frame,
                 plan=plan,
@@ -196,6 +200,18 @@ class SemanticPlanningService:
                 extra={"principal_role": principal.role.value, "purpose": purpose},
             )
             return _outcome(SemanticPlanningDisposition.UNAVAILABLE, "semantic_planning_failed")
+
+
+def _plan_node_summary(plan: OntologyQueryPlan) -> str:
+    """Name the capabilities a verified plan selected, for operator diagnosis."""
+    parts: list[str] = []
+    for node in plan.nodes[:_MAX_LOGGED_PLAN_NODES]:
+        arguments = json.loads(node.arguments_json)
+        name = arguments.get("function_name") if isinstance(arguments, Mapping) else None
+        parts.append(f"{node.kind}:{name}" if isinstance(name, str) and name else str(node.kind))
+    if len(plan.nodes) > _MAX_LOGGED_PLAN_NODES:
+        parts.append(f"+{len(plan.nodes) - _MAX_LOGGED_PLAN_NODES}")
+    return ",".join(parts)
 
 
 def _build_frame(
