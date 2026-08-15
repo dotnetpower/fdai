@@ -1279,6 +1279,10 @@ def test_auto_pull_bounds_every_remote_call_below_its_interval() -> None:
     assert 'timeout "$advance_timeout" git merge --ff-only --quiet "$remote"' in script
     assert "git pull --rebase" not in script
     assert "fetch did not complete within ${fetch_timeout}s" in script
+    # A refspec that no longer exists on the remote is not a timeout, and reporting it as one
+    # would send a developer looking for a network fault that is not there.
+    assert "fetch_status=$?" in script
+    assert "fetch of $branch failed (exit $fetch_status)" in script
     assert int(script.split('fetch_timeout="${FDAI_AUTOPULL_FETCH_TIMEOUT:-')[1].split("}")[0]) <= (
         int(script.split('interval="${FDAI_AUTOPULL_INTERVAL:-')[1].split("}")[0])
     )
