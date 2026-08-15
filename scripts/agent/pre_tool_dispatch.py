@@ -28,10 +28,7 @@ TERMINAL_POLICY_HINTS = (
     "scripts/deployment/azure/",
     "scripts/deployment/release/",
 )
-GIT_POLICY_OPERATION = re.compile(
-    r"(?:^|[\s'\";&|])(?:[^\s'\";&|]*/)?git\b[^;&|]*"
-    r"\b(?:checkout|clean|commit|reset|restore|stash|switch)\b"
-)
+GIT_POLICY_OPERATION = re.compile(r"(?:^|[\s'\";&|])(?:[^\s'\";&|]*/)?git\b")
 Payload = dict[str, object]
 
 
