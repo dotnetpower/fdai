@@ -24,10 +24,12 @@ import {
   assuranceOperations,
   assuranceTransportRetrySources,
   buildAssuranceRunProvenance,
+  assuranceSessionId,
   generateOntologyAssuranceCohort,
   hasRequiredAnswerCoverage,
   isRetryableAssuranceTransportFailure,
   judgeSemanticTurn,
+  resolveAssuranceRunId,
   selectOntologyAssuranceQuestions,
   type AssuranceRunConfiguration,
   type AssuranceQuestion,
@@ -93,18 +95,23 @@ interface RetainedTurnResult {
 async function runBrowserTurn(
   page: Page,
   question: AssuranceQuestion,
+  runId: string,
 ): Promise<BrowserTurnResult> {
-  return page.evaluate(async (prompt) => {
+  return page.evaluate(async ({ prompt, sessionId }) => {
     const { askBackendStream } = await import("/src/deck/backend-stream.ts");
     const reply = await askBackendStream(prompt, null, [], {
       onToken: () => undefined,
+      sessionId,
     });
     return {
       source: reply.source,
       semantic_receipt: reply.semanticReceipt ?? null,
       verification: reply.verification ?? null,
     };
-  }, question.prompt);
+  }, {
+    prompt: question.prompt,
+    sessionId: assuranceSessionId(runId, question.question_id),
+  });
 }
 
 function increment(counts: Record<string, number>, key: string | undefined): void {
@@ -143,6 +150,7 @@ interface QuestionOutcome {
 async function resolveQuestion(
   page: Page,
   question: AssuranceQuestion,
+  runId: string,
   budget: AssuranceBudget,
   runDeadlineAt: number,
 ): Promise<QuestionOutcome> {
@@ -175,7 +183,7 @@ async function resolveQuestion(
     requestCount += 1;
     try {
       result = await withDeadline(
-        runBrowserTurn(page, question),
+        runBrowserTurn(page, question, runId),
         Math.min(budget.perQuestionDeadlineMs, remainingMs),
         `assurance turn ${question.question_id}`,
       );
@@ -200,6 +208,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     "requires an external Console and Browser Entra storage state",
   );
   const startedAt = new Date().toISOString();
+  const runId = resolveAssuranceRunId(process.env.FDAI_E2E_ASSURANCE_RUN_ID);
   const completeCohort = generateOntologyAssuranceCohort(COHORT_SEED);
   const questions = selectOntologyAssuranceQuestions(
     completeCohort,
@@ -212,7 +221,8 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   test.setTimeout(budget.testTimeoutMs);
   const questionIds = questions.map((question) => question.question_id);
   const runConfiguration: AssuranceRunConfiguration = {
-    schema_version: "1.2.0",
+    schema_version: "1.3.0",
+    run_id: runId,
     seed: COHORT_SEED,
     minimum_request_interval_ms: budget.minimumRequestIntervalMs,
     per_question_deadline_ms: budget.perQuestionDeadlineMs,
@@ -261,7 +271,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     );
     if (spacingMs > 0) await page.waitForTimeout(spacingMs);
 
-    const outcome = await resolveQuestion(page, question, budget, runDeadlineAt);
+    const outcome = await resolveQuestion(page, question, runId, budget, runDeadlineAt);
     protectedRequestCount += outcome.requestCount;
     lastRequestStartedAt = outcome.lastRequestStartedAt;
     {

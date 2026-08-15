@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 716040588a37fb142953cca597eff8725cd29392
+translation_source_sha: 83f13f80c2749d6e19f2653977090f407e7e64d4
 translation_revised: 2026-08-15
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -46,6 +46,7 @@ translation_revised: 2026-08-15
 | 2026-08-15 | 구현됨 | 표현 산출물이 답변 내용을 제거하지 못하게 했습니다. 일반 검증 조회 산출물은 출력 노드 개수만 보이는 대신 반환된 행과 노드별 결과를 투영하며, 산출물이 개요 요약 외에 아무것도 담지 않으면 답변은 Markdown을 그대로 유지합니다. | `current change`, [`presentation-artifact.ts`](../../../console/src/deck/presentation-artifact.ts) 및 [`grounded-reply.tsx`](../../../console/src/deck/grounded-reply.tsx), focused Console deck 검사 76개, Console 타입 검사, Operator bridge 검사 48개 통과 | 인증된 로컬 Console에서 렌더링 결과를 확인합니다. |
 | 2026-08-15 | 구현됨 | 무작위 보증의 각 실행과 질문을 고유한 backend session identity에 결속해 새 실행이 이전 실행의 영속 projection을 소비하지 못하게 하고 checkpoint 재개에서는 같은 정체성을 유지했습니다. | `current change`, [`ontology-query-assurance.ts`](../../../console/tests/live-e2e/ontology-query-assurance.ts), [`ontology-query-assurance.spec.ts`](../../../console/tests/live-e2e/ontology-query-assurance.spec.ts), [`ontology-query-assurance.test.ts`](../../../console/tests/live-e2e/ontology-query-assurance.test.ts), 집중 보증 테스트 49개와 Console 타입 검사 통과, 정확한 실제 운영 Playwright 테스트 검색 완료 | 새 exact-source 14-cell 산출물을 보존한 뒤 seed가 지정된 이중 언어 100-case 집단을 실행하고 보존합니다. |
 | 2026-08-15 | 구현됨 | 자동 인시던트 프롬프트를 시스템이 답할 수 있는 범위에 맞추고 브리핑의 관사 일치 오류를 고쳤습니다. 프롬프트는 원인을 요구했지만 인시던트 답변은 인과 분석을 사용 불가로 고정하고 있어 모든 자동 조사가 답할 수 없는 질문을 던졌습니다. 이제 근거로 확인되는 사실, 빠진 근거, 다음 안전한 읽기 전용 조치를 묻습니다. 브리핑은 severity가 unknown일 때 `a unknown`으로 렌더링되었습니다. | `current change`, focused Console 인시던트 주의 및 카탈로그 검사 8개 통과, 카탈로그 parity 16쌍 검증, Console 타입 검사 통과 | 인증된 로컬 Console에서 재작성된 자동 프롬프트를 확인합니다. |
+| 2026-08-15 | 구현됨 | 앞선 보증 장부 문구가 구현 파일보다 먼저 `6bb17dffe9f2`에 반영되어 있던 근거 경계를 정정했습니다. 실행 범위 session identity 구현은 이 이력 정정과 함께 반영됩니다. | `current change`, 위에 인용된 온톨로지 보증 경로 3개, 집중 보증 테스트 49개와 Console 타입 검사 통과, 정확한 실제 운영 Playwright 테스트 검색 완료 | 새 exact-source 14-cell 산출물을 보존한 뒤 seed가 지정된 이중 언어 100-case 집단을 실행하고 보존합니다. |
 
 ### 남은 작업
 

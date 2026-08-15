@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { isOntologyAssuranceProductionReady } from "./ontology-query-assurance-readiness";
 import {
   assuranceOperations,
+  assuranceSessionId,
   assuranceTransportRetrySources,
   buildAssuranceRunProvenance,
   generateOntologyAssuranceCohort,
@@ -10,6 +11,7 @@ import {
   judgeSemanticReceipt,
   judgeSemanticTurn,
   requiredAnswerOperations,
+  resolveAssuranceRunId,
   selectOntologyAssuranceQuestions,
   type AssuranceRunConfiguration,
 } from "./ontology-query-assurance";
@@ -64,20 +66,42 @@ describe("ontology query assurance production readiness", () => {
 
 function runConfiguration(): AssuranceRunConfiguration {
   return {
-    schema_version: "1.1.0",
+    schema_version: "1.3.0",
+    run_id: "issue63-20260815T120000Z",
     seed: 0x0fda1,
-    batch_size: 1,
-    request_interval_ms: 15_000,
-    timeout_ms: 14_400_000,
+    minimum_request_interval_ms: 15_000,
+    per_question_deadline_ms: 180_000,
+    no_progress_deadline_ms: 300_000,
+    run_budget_ms: 5_400_000,
     authentication: "browser_entra",
     transport_retry_policy: {
       max_attempts: 2,
-      retry_delay_ms: 60_000,
+      base_retry_delay_ms: 60_000,
+      max_retry_delay_ms: 120_000,
       retryable_sources: assuranceTransportRetrySources(),
     },
     question_ids: ["en-inventory_listing-1", "ko-inventory_listing-1"],
   };
 }
+
+describe("ontology assurance run identity", () => {
+  it("creates a stable question-scoped backend session identity", () => {
+    expect(assuranceSessionId("issue63-run-1", "ko-aggregation-1"))
+      .toBe("ontology-assurance:issue63-run-1:ko-aggregation-1");
+  });
+
+  it.each([undefined, "", "contains spaces", "a".repeat(65)])(
+    "rejects an invalid governed run id: %s",
+    (raw) => {
+      expect(() => resolveAssuranceRunId(raw)).toThrow("FDAI_E2E_ASSURANCE_RUN_ID");
+    },
+  );
+
+  it("accepts a bounded ASCII governed run id", () => {
+    expect(resolveAssuranceRunId("issue63.20260815_run-1"))
+      .toBe("issue63.20260815_run-1");
+  });
+});
 
 function answeredReceipt(overrides: Record<string, unknown> = {}) {
   return {
@@ -215,7 +239,7 @@ describe("ontology query assurance provenance", () => {
       runConfiguration(),
     )).toEqual({
       source_revision: "b".repeat(40),
-      configuration_digest: "sha256:d1602501d494dfccda9be0bf3dc68e4beaec6ffde912112c395e86e691b5cf93",
+      configuration_digest: "sha256:25810cdb993e97b0df8dc431a1ab6a53d9a09aa554cb44fce11bab55b190a918",
       workspace_patch_digest: `sha256:${"c".repeat(64)}`,
     });
   });
