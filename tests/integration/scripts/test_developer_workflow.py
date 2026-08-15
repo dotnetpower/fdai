@@ -373,6 +373,8 @@ def test_local_services_reject_core_owned_by_another_checkout(tmp_path: Path) ->
 
     assert result["status"] == "warning"
     assert result["unavailable_services"] == ["core-runtime"]
+    assert result["core_runtime_owner_count"] == 1
+    assert result["core_runtime_other_checkout_count"] == 1
 
 
 def test_resume_rejects_malformed_handover_schema(
