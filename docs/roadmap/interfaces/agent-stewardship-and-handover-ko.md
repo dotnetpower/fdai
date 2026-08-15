@@ -1,6 +1,6 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: 8db636bc1e4f7ba302ad3b76258c2dbb82eb4a3d
+translation_source_sha: c807c0fad354c18972711def29175db96e9e665d
 translation_revised: 2026-08-15
 title: 에이전트 스튜어드십과 인수인계
 ---
@@ -36,8 +36,8 @@ RBAC은 "누가 FDAI를 조작할 수 있나"(읽기 담당 / 기여자 / Approv
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
-| 2026-08-15 | implemented | 기본 abstain 동작, 문서별 호출, 제안 게이팅을 다루는 `HandoverInterpreter` 배포 시임의 집중 근거를 추가했습니다. | `current change`; `services/core-control-plane/tests/core/stewardship/handover_bootstrap/test_interpreter_binding.py`; `pytest services/core-control-plane/tests/core/stewardship/handover_bootstrap/` (26 passed). | 구체적인 적응형 해석기 배포 바인딩과 런타임 증적은 남아 있습니다. |
 | 2026-08-13 | implemented | 이전 출처를 재구성하지 않고 구현 원장을 도입했으며 이 문서의 범위를 스키마, 결정론적 담당 체계 기본 요소, 마이그레이션, 인수인계 부트스트랩으로 한정했습니다. | `current change`; 구현 범위 표에 나열된 담당 체계 소스와 집중 검사. | 업스트림 저장소에 테넌트 신원을 넣지 않고 배포별 스키마 v2 `primary` 및 `backup` 범위를 기록합니다. |
+| 2026-08-15 | implemented | 기본 abstain 동작, 문서별 호출, 제안 게이팅을 다루는 `HandoverInterpreter` 배포 시임의 집중 근거를 추가했습니다. | `current change`; `services/core-control-plane/tests/core/stewardship/handover_bootstrap/test_interpreter_binding.py`; `pytest services/core-control-plane/tests/core/stewardship/handover_bootstrap/` (26 passed). | 구체적인 적응형 해석기 배포 바인딩과 런타임 증적은 남아 있습니다. |
 
 ### 남은 작업
 

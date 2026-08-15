@@ -24,8 +24,8 @@ ActionType ontology. The canonical schema and catalog remain in
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
-| 2026-08-15 | in-progress | Added pure PR-native document writers for `governance.retire-rule` and `governance.grant-exemption`. | `current change`; `services/core-control-plane/src/fdai/delivery/gitops_pr/governance_writers.py`; `pytest services/core-control-plane/tests/delivery/test_governance_writers.py` (16 passed). | The `promote-action-type` dispatcher and the governed pull-request binding remain open. |
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | Current source, tests, and consumer-status section listed in the scope table. | Complete the observable governance-dispatch exit condition below. |
+| 2026-08-15 | in-progress | Added pure PR-native document writers for `governance.retire-rule` and `governance.grant-exemption`. | `current change`; `services/core-control-plane/src/fdai/delivery/gitops_pr/governance_writers.py`; `pytest services/core-control-plane/tests/delivery/test_governance_writers.py` (16 passed). | The `promote-action-type` dispatcher and the governed pull-request binding remain open. |
 
 ### Remaining work
 

@@ -1,7 +1,7 @@
 ---
 title: 관리형 Trajectory 데이터셋
 translation_of: governed-trajectory-datasets.md
-translation_source_sha: df47e4be6d7e205cfc25880244a5447b2ead3e3e
+translation_source_sha: 017ca2c6fc816a7a9ecd7cab97e68254033985a3
 translation_revised: 2026-08-15
 ---
 
@@ -203,12 +203,12 @@ Norns-to-Mimir quality gate를 사용합니다.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
-| 2026-08-15 | implemented | 생성된 JSONL 및 매니페스트 산출물에 대해 focused 내보내기, scanner, 격리, 체크섬, 오프라인 검증, 판정 전용 재생 검사를 추가했습니다. | `current change`; `services/core-control-plane/tests/core/trajectory/test_export_and_validation.py`; `pytest services/core-control-plane/tests/core/trajectory/test_export_and_validation.py` (19 passed). | 패키지 오프라인 CLI 명령과 관리되는 런타임 보관 근거는 계속 열려 있습니다. |
 | 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 source와 focused 검사입니다. | 아래 PostgreSQL, 패키지 CLI 및 관리되는 산출물 보관 근거를 완료해야 합니다. |
 | 2026-08-14 | implemented | 누락된 PostgreSQL trajectory 메타데이터 어댑터를 추가하고 실제 데이터베이스에서 보존 의미 규칙을 증명했습니다. | `current change`; `test_postgres_trajectory.py`가 지원되는 일회용 데이터베이스에서 세 건을 건너뛰기 없이 통과했습니다. | Focused export와 패키지 CLI 검사를 추가한 뒤 관리되는 산출물 보관 근거를 보존해야 합니다. |
 | 2026-08-14 | implemented | Tombstone 전에 영속 `deleting` claim과 멱등 crash 복구를 사용하도록 보존 경로를 강화했습니다. | `current change`; focused core, PostgreSQL 및 migration 검사 186개가 통과했습니다. | 같은 claim 프로토콜의 관리되는 산출물 보관 근거를 보존해야 합니다. |
 | 2026-08-14 | implemented | 안전하지 않은 completed 상태를 추측하지 않고 외부 삭제 claim이 활성 상태인 동안 스키마 downgrade를 차단했습니다. | `current change`; focused Core, PostgreSQL 및 migration 검사 187개가 통과했습니다. | 의도적인 downgrade 전에 활성 claim을 조정해야 합니다. |
 | 2026-08-14 | implemented | 활성 PostgreSQL 삭제 claim에 정확한 migration downgrade guard를 실행하고 SQLSTATE `55000`을 검증했습니다. | `current change`; focused Core, PostgreSQL 및 migration 검사 188개가 통과했습니다. | Migration-focused 검증 경로에서 guard를 계속 유지해야 합니다. |
+| 2026-08-15 | implemented | 생성된 JSONL 및 매니페스트 산출물에 대해 focused 내보내기, scanner, 격리, 체크섬, 오프라인 검증, 판정 전용 재생 검사를 추가했습니다. | `current change`; `services/core-control-plane/tests/core/trajectory/test_export_and_validation.py`; `pytest services/core-control-plane/tests/core/trajectory/test_export_and_validation.py` (19 passed). | 패키지 오프라인 CLI 명령과 관리되는 런타임 보관 근거는 계속 열려 있습니다. |
 
 ### 남은 작업
 

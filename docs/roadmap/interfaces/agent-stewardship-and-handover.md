@@ -34,8 +34,8 @@ the two are resolved and validated independently.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
-| 2026-08-15 | implemented | Added focused evidence for the `HandoverInterpreter` deployment seam covering the abstaining default, per-document consultation, and proposal gating. | `current change`; `services/core-control-plane/tests/core/stewardship/handover_bootstrap/test_interpreter_binding.py`; `pytest services/core-control-plane/tests/core/stewardship/handover_bootstrap/` (26 passed). | A concrete adaptive interpreter deployment binding and its runtime receipt remain open. |
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and bounded this document to schema, deterministic ownership primitives, migration, and handover bootstrap. | `current change`; ownership source and focused checks listed in the scope table. | Record deployment-specific schema v2 primary and backup coverage without placing tenant identities in the upstream repository. |
+| 2026-08-15 | implemented | Added focused evidence for the `HandoverInterpreter` deployment seam covering the abstaining default, per-document consultation, and proposal gating. | `current change`; `services/core-control-plane/tests/core/stewardship/handover_bootstrap/test_interpreter_binding.py`; `pytest services/core-control-plane/tests/core/stewardship/handover_bootstrap/` (26 passed). | A concrete adaptive interpreter deployment binding and its runtime receipt remain open. |
 
 ### Remaining work
 

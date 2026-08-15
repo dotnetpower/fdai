@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지 라이프사이클
 translation_of: action-ontology-lifecycle.md
-translation_source_sha: 21f2dd186d7fbff06a14752d3c2c77fd888f4e63
+translation_source_sha: 128362ad4cdcf05c80fe24f69c12757660a4403a
 translation_revised: 2026-08-15
 ---
 
@@ -27,8 +27,8 @@ translation_revised: 2026-08-15
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
-| 2026-08-15 | in-progress | `governance.retire-rule`과 `governance.grant-exemption`을 위한 순수 PR-native 문서 writer를 추가했습니다. | `current change`; `services/core-control-plane/src/fdai/delivery/gitops_pr/governance_writers.py`; `pytest services/core-control-plane/tests/delivery/test_governance_writers.py` (16 passed). | `promote-action-type` dispatcher와 관리되는 pull request 연결은 남아 있습니다. |
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | 구현 범위 표의 현재 소스, 테스트 및 소비자 상태 섹션입니다. | 아래의 관찰 가능한 거버넌스 dispatcher 종료 조건을 완료해야 합니다. |
+| 2026-08-15 | in-progress | `governance.retire-rule`과 `governance.grant-exemption`을 위한 순수 PR-native 문서 writer를 추가했습니다. | `current change`; `services/core-control-plane/src/fdai/delivery/gitops_pr/governance_writers.py`; `pytest services/core-control-plane/tests/delivery/test_governance_writers.py` (16 passed). | `promote-action-type` dispatcher와 관리되는 pull request 연결은 남아 있습니다. |
 
 ### 남은 작업
 

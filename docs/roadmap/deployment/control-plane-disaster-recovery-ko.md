@@ -1,7 +1,7 @@
 ---
 title: 컨트롤 플레인 재해 복구
 translation_of: control-plane-disaster-recovery.md
-translation_source_sha: 53843976584ecafeb1877d70eb873f5c53ad6124
+translation_source_sha: be14e7852eb2b35305a5b222c241b7aa6ec844f5
 translation_revised: 2026-08-16
 ---
 
@@ -32,8 +32,8 @@ translation_revised: 2026-08-16
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
-| 2026-08-15 | implemented | 검토 가능한 Terraform 구성으로 예약 실행을 단일 프로세스로 제한하고 예약된 모든 Job에 대한 집중 동시성 검사를 추가했습니다. | `current change`; `tests/integration/infra/test_scheduled_job_concurrency.py`; `pytest tests/integration/infra/test_scheduled_job_concurrency.py` (24 passed). | 프로세스 간 실험 예약, 조립된 지역 경로, 통제된 훈련 증적은 남아 있습니다. |
 | 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 테스트된 복구 동작과 지역 배포 및 운영 근거를 분리했습니다. | 현재 변경과 구현 범위 표에 기재한 복구 계획 및 조정기 집중 테스트 | 지역 프로바이더 경로를 조립하고 실행한 뒤 통제된 장애 조치 및 failback 근거를 보존해야 합니다. |
+| 2026-08-15 | implemented | 검토 가능한 Terraform 구성으로 예약 실행을 단일 프로세스로 제한하고 예약된 모든 Job에 대한 집중 동시성 검사를 추가했습니다. | `current change`; `tests/integration/infra/test_scheduled_job_concurrency.py`; `pytest tests/integration/infra/test_scheduled_job_concurrency.py` (24 passed). | 프로세스 간 실험 예약, 조립된 지역 경로, 통제된 훈련 증적은 남아 있습니다. |
 
 ### 남은 작업
 
