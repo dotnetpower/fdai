@@ -72,6 +72,9 @@ jobs:
   protected-service-deploy:
     if: github.ref == 'refs/heads/main'
     runs-on: [self-hosted, fdai-deploy]
+    # Declared budget. Without it the only bound is the six-hour runner default, which cannot
+    # tell a stalled provider from a slow apply and holds the single deploy runner meanwhile.
+    timeout-minutes: 120
     environment: ${{ inputs.migrate_state && format('service-state-migration-{0}', inputs.environment) || inputs.initial_cutover && format('service-initial-cutover-{0}', inputs.environment) || inputs.apply && format('service-apply-{0}', inputs.environment) || 'plan-only' }}
     env:
       ARM_USE_AZUREAD: "true"

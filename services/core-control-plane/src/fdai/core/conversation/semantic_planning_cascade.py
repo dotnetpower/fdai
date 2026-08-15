@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 import copy
+import json
 import logging
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, Protocol
 
-from fdai_service_contracts.ontology_query import OntologyQueryPlan, SemanticProblemFrame
+from fdai_service_contracts.ontology_query import (
+    OntologyQueryPlan,
+    QueryNodeKind,
+    SemanticProblemFrame,
+)
 from pydantic import ValidationError
 
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
@@ -24,6 +30,11 @@ _LOGGER = logging.getLogger(__name__)
 _SERVER_BOUND_REQUIREMENTS = frozenset(
     {ClarificationRequirement.PRINCIPAL_SCOPE, ClarificationRequirement.PURPOSE}
 )
+_SPECIALIZED_FUNCTION_OUTPUT_SHAPES = {
+    "query.incident_evidence": "incident_evidence",
+    "query.manifest": "ontology_manifest",
+    "query.ontology_relationships": "ontology_relationships",
+}
 
 
 class FrameBuilder(Protocol):
@@ -156,6 +167,7 @@ class SemanticPlanningCascade:
                 raise ProposalRejectedError("plan_build", type(exc).__name__) from exc
             try:
                 self._verifier.verify(plan, manifest=manifest)
+                _verify_frame_plan_alignment(frame, plan)
             except ValueError as exc:
                 if self._should_escalate(tier=tier, stage="plan", reason="invalid"):
                     continue
@@ -181,6 +193,37 @@ class SemanticPlanningCascade:
 def _validate_frame_proposal(proposal: SemanticFrameProposal) -> None:
     if _SERVER_BOUND_REQUIREMENTS.intersection(proposal.clarification_requirements):
         raise ValueError("semantic clarification requests server-bound context")
+
+
+def _verify_frame_plan_alignment(
+    frame: SemanticProblemFrame,
+    plan: OntologyQueryPlan,
+) -> None:
+    selected_functions: set[str] = set()
+    for node in plan.nodes:
+        if node.kind is not QueryNodeKind.FUNCTION:
+            continue
+        arguments = json.loads(node.arguments_json)
+        function_name = arguments.get("function_name") if isinstance(arguments, Mapping) else None
+        if isinstance(function_name, str):
+            selected_functions.add(function_name)
+
+    expected_function = next(
+        (
+            function_name
+            for function_name, output_shape in _SPECIALIZED_FUNCTION_OUTPUT_SHAPES.items()
+            if output_shape == frame.output_shape
+        ),
+        None,
+    )
+    if expected_function is not None and expected_function not in selected_functions:
+        raise ValueError("semantic plan does not satisfy specialized frame output")
+    if any(
+        output_shape != frame.output_shape
+        for function_name, output_shape in _SPECIALIZED_FUNCTION_OUTPUT_SHAPES.items()
+        if function_name in selected_functions
+    ):
+        raise ValueError("semantic plan selects a function outside the frame output")
 
 
 __all__ = ["ProposalRejectedError", "SemanticPlanningCascade"]

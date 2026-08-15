@@ -372,6 +372,14 @@ def test_health_poll_reports_progress_and_fails_on_its_own_deadline() -> None:
     assert "within its 900s health deadline" in _HEALTH_SCRIPT
 
 
+def test_every_deploy_command_declares_a_budget() -> None:
+    """The six-hour runner default cannot tell a stalled provider from a slow apply."""
+    assert "timeout 120s python3" in _HEALTH_SCRIPT
+    assert "timeout 30s python3 -c" in _HEALTH_SCRIPT
+    assert "\n    timeout-minutes: 180\n" in _LEGACY_WORKFLOW
+    assert "\n    timeout-minutes: 120\n" in _WORKFLOW
+
+
 def test_apply_failure_uses_the_same_verified_rollback_path() -> None:
     rollback_condition = (
         "if: ${{ inputs.apply && (steps.apply.outcome == 'failure' || "
