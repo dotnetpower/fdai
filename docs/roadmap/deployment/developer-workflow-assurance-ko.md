@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: a4065a41daa4b93732e38cdcdd895a21d3f514fd
+translation_source_sha: ca0a3e29b44612e5815bb5de06658000c8c3eec9
 translation_revised: 2026-08-15
 ---
 
@@ -181,8 +181,8 @@ throttle, permanent error 및 retry exhaustion 집중 테스트가 해당 동작
 
 ### Top 20 보증 결과
 
-확장 캠페인은 라운드 11부터 24까지 14개 라운드를 완료했습니다. 독립 검토에서 추가 hardening
-라운드 4개가 열렸기 때문입니다.
+확장 캠페인은 라운드 11부터 26까지 16개 라운드를 완료했습니다. 독립 검토에서 추가 hardening
+및 evidence 라운드 6개가 열렸기 때문입니다.
 
 | 라운드 | 결과 | 근거 |
 |-------:|------|------|
@@ -200,10 +200,12 @@ throttle, permanent error 및 retry exhaustion 집중 테스트가 해당 동작
 | 22 | 수락 | Reachability는 모든 ref와 checkout head를 한 번의 batch traversal로 계산하고 apply 전에 재계산하며, record를 삭제하지 않고 quarantine으로 이동합니다. |
 | 23 | 수락 | 재귀 shell parsing이 `sh -c`, `bash -lc`, `zsh -c` 및 wrapped bare commit을 다룹니다. |
 | 24 | 수락 | Checkout 또는 ref가 commit을 다시 활성화하면 quarantine record가 pending으로 자동 복원됩니다. |
+| 25 | 수락 | Validator의 `reset --hard`와 `clean -ffdx`는 대상이 정확한 Git common-dir scratch worktree가 아니면 fail-closed 처리됩니다. |
+| 26 | 수락 | 명시적인 selector contract가 `developer-workflow.py` 변경이 `tests/integration/scripts`만 선택함을 증명합니다. |
 
 Review-driven 라운드 전에 focused integration 테스트 231개가 통과했습니다. 최종 focused suite는
-guard 테스트 15개와 validation queue 테스트 37개가 통과했습니다. 변경된 workflow source의 Ruff와
-strict mypy도 통과했습니다.
+guard 테스트 15개, validation queue 테스트 37개 및 validator와 selector 테스트 85개가
+통과했습니다. 변경된 workflow source의 Ruff와 strict mypy도 통과했습니다.
 
 남은 Low 위험은 명시적이고 제한됩니다.
 
@@ -238,6 +240,7 @@ strict mypy도 통과했습니다.
 | 2026-08-15 | validated | 중앙 검증이 통합 구현 revision을 수락했습니다. | `validation_queue.py check-commit d3f5257b9`가 통과했습니다. | 이 제한된 캠페인에 남은 작업이 없습니다. |
 | 2026-08-15 | in-progress | 측정된 Top 20 잔존 캠페인을 시작했습니다. | 이슈 #118 및 잔존 캠페인 표의 기준선입니다. | 추가 비평 라운드 10개 이상과 중앙 검증을 완료합니다. |
 | 2026-08-15 | implemented | 순위 11부터 20까지 추가 비평 및 hardening 라운드 14개를 완료했습니다. | 현재 변경, 위 Top 20 보증 결과, focused tests, Ruff 및 strict mypy입니다. | Exact revision을 통합하고 중앙 검증을 받은 후 이슈 #118을 완료합니다. |
+| 2026-08-15 | implemented | Validator scratch 소유권과 focused automation test 선택을 고정하는 review evidence 라운드 2개를 추가했습니다. | 현재 변경, validator 및 selector suite 테스트 85개 통과입니다. | Exact revision을 통합하고 중앙 검증을 받은 후 이슈 #118을 완료합니다. |
 
 ### 남은 작업
 
@@ -245,7 +248,7 @@ strict mypy도 통과했습니다.
   기록했습니다.
 - [x] 중앙 검증이 통합 구현 revision `d3f5257b9`를 수락했습니다.
 - [x] 최종 독립 검토에서 Low를 초과하는 잔존 발견 사항이 없었습니다.
-- [x] 위의 제한된 Low 잔존 사항만 남기고 추가 라운드 14개를 완료했습니다.
+- [x] 위의 제한된 Low 잔존 사항만 남기고 추가 라운드 16개를 완료했습니다.
 - [ ] Exact Top 20 revision을 통합하고 중앙 검증을 받은 후 이슈 #118을 완료합니다.
 
 ## 관련 문서
