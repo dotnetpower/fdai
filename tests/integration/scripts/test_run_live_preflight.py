@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import sys
+from contextlib import AbstractContextManager
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError
 
 import pytest
 
@@ -15,6 +18,8 @@ assert _SPEC is not None and _SPEC.loader is not None
 _MODULE = importlib.util.module_from_spec(_SPEC)
 sys.modules[_SPEC.name] = _MODULE
 _SPEC.loader.exec_module(_MODULE)
+
+from live_preflight import transport  # noqa: E402 - imported after adding the script package root.
 
 
 class _Reader:
@@ -54,6 +59,18 @@ class _Reader:
     def secret_status(self, *, vault_endpoint: str, secret_name: str) -> int:
         del vault_endpoint
         return self.secret_statuses[secret_name]
+
+
+class _Response(AbstractContextManager["_Response"]):
+    def __init__(self, status: int, payload: bytes) -> None:
+        self.status = status
+        self._payload = payload
+
+    def read(self) -> bytes:
+        return self._payload
+
+    def __exit__(self, *args: object) -> None:
+        del args
 
 
 def _profile() -> dict[str, Any]:
@@ -177,3 +194,85 @@ def test_live_preflight_fails_closed_on_unmapped_created_resource() -> None:
 
     with pytest.raises(_MODULE.PreflightError, match="mapping is incomplete"):
         _MODULE.run_preflight(profile, _plan(), _environment(), _Reader())
+
+
+def test_azure_reader_retries_transient_throttle_then_succeeds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+    delays: list[float] = []
+
+    def fake_urlopen(request: object, *, timeout: int) -> _Response:
+        nonlocal calls
+        del request, timeout
+        calls += 1
+        if calls < 3:
+            raise HTTPError("https://management.azure.com", 429, "throttled", {}, io.BytesIO())
+        return _Response(200, b'{"value":"ok"}')
+
+    monkeypatch.setattr(transport, "urlopen", fake_urlopen)
+    reader = transport.AzureCliReader(
+        subscription_id="00000000-0000-0000-0000-000000000000",
+        retry_delays_seconds=(0.1, 0.2),
+        sleep=delays.append,
+    )
+    reader._tokens["https://management.azure.com"] = "test-token"
+
+    result = reader.get_json("/subscriptions/example", api_version="2024-01-01")
+
+    assert result == {"value": "ok"}
+    assert calls == 3
+    assert delays == [0.1, 0.2]
+
+
+def test_azure_reader_does_not_retry_permanent_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = 0
+    delays: list[float] = []
+
+    def fake_urlopen(request: object, *, timeout: int) -> _Response:
+        nonlocal calls
+        del request, timeout
+        calls += 1
+        raise HTTPError("https://management.azure.com", 403, "forbidden", {}, io.BytesIO())
+
+    monkeypatch.setattr(transport, "urlopen", fake_urlopen)
+    reader = transport.AzureCliReader(
+        subscription_id="00000000-0000-0000-0000-000000000000",
+        sleep=delays.append,
+    )
+    reader._tokens["https://management.azure.com"] = "test-token"
+    reader._tokens["https://vault.azure.net"] = "test-token"
+
+    status = reader.secret_status(
+        vault_endpoint="https://example.vault.azure.net",
+        secret_name="example",
+    )
+
+    assert status == 403
+    assert calls == 1
+    assert delays == []
+
+
+def test_azure_reader_bounds_network_retries(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = 0
+    delays: list[float] = []
+
+    def fake_urlopen(request: object, *, timeout: int) -> _Response:
+        nonlocal calls
+        del request, timeout
+        calls += 1
+        raise OSError("transient network failure")
+
+    monkeypatch.setattr(transport, "urlopen", fake_urlopen)
+    reader = transport.AzureCliReader(
+        subscription_id="00000000-0000-0000-0000-000000000000",
+        retry_delays_seconds=(0.1, 0.2),
+        sleep=delays.append,
+    )
+    reader._tokens["https://management.azure.com"] = "test-token"
+
+    with pytest.raises(transport.PreflightError, match="complete result"):
+        reader.get_json("/subscriptions/example", api_version="2024-01-01")
+
+    assert calls == 3
+    assert delays == [0.1, 0.2]
