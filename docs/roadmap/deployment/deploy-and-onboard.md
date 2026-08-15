@@ -202,9 +202,12 @@ inventory Job instead forwards bounded Activity Log recovery deltas to the prima
 each reconciliation, using its topic-scoped Data Sender role and durable idempotency cursor.
 An empty cron disables its job. Existing scheduler or analyzer jobs are safely adopted before a
 plan, and later image or configuration changes converge through the same plan and apply path.
-The analyzer job defaults to a one-minute shadow schedule. When explicit analyzer targets are
-empty, it reads supported targets from durable inventory and publishes AKS detection-readiness
-observations through Huginn. Set the analyzer cron to an explicit empty string to disable the job.
+The analyzer job defaults to a one-minute shadow schedule and runs
+`fdai.delivery.analyzer_tick_cli`, which publishes one canonical Event per finding keyed by
+resource, signal, and tick window. An empty `FDAI_ANALYZER_TARGETS` makes the tick a clean no-op
+that exits `0`; target discovery from durable inventory is not implemented yet. A publish failure
+exits non-zero so the Job retries. Set the analyzer cron to an explicit empty string to disable the
+job.
 
 #### Inventory discovery with restricted egress
 
@@ -558,7 +561,7 @@ secret, promotion, and test-only keys remain outside the editable surface.
 | `FDAI_INVENTORY_SOURCES` | env | upstream | Ordered fallback list: `arg,arm` by default; `declarative` is accepted only with a fixture path and SHA-256. |
 | `FDAI_INVENTORY_MANAGEMENT_ENDPOINT` / `FDAI_INVENTORY_MANAGEMENT_AUDIENCE` | env | deployment | Validated HTTPS ARM root and OIDC audience pair. Override both for an approved sovereign-cloud or validated Resource Management Private Link path. |
 | `FDAI_INVENTORY_FRESHNESS_SECONDS` | env | upstream | Maximum active snapshot age before the projection becomes stale and graph-dependent autonomy degrades to human review. Default `86400`. |
-| `FDAI_ANALYZER_TARGETS` / `FDAI_ANALYZER_WINDOW_SECONDS` / `FDAI_ANALYZER_BUDGET_SECONDS` | env | deployment / upstream | Optional explicit analyzer targets and bounds. When targets are empty, the analyzer Job discovers supported resource kinds from the active inventory through `FDAI_INVENTORY_DSN`. |
+| `FDAI_ANALYZER_TARGETS` / `FDAI_ANALYZER_WINDOW_SECONDS` / `FDAI_ANALYZER_BUDGET_SECONDS` | env | deployment / upstream | Explicit analyzer targets and bounds. An empty target list makes the tick a clean no-op; a malformed value fails closed. |
 | `KAFKA_TOPIC_EVENTS` | env | deployment | primary event ingest topic |
 | `KAFKA_TOPIC_DLQ_SUFFIX` | env | deployment | dead-letter suffix (default `.dlq`) |
 | `FDAI_EXECUTOR_COMMAND_TOPIC` / `FDAI_EXECUTOR_RECEIPT_TOPIC` | env | upstream / deployment | Isolated Executor command and versioned terminal receipt topics. Defaults are `object.executor-command` and `object.executor-receipt`; they must remain distinct. |

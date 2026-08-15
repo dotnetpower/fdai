@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: ee5cb4b04d08e3a89c1e95f77fdf0bc0fc457491
+translation_source_sha: 0d4ba667ee3b1ceb3705ac4df49b6a08ab57818a
 translation_revised: 2026-08-15
 ---
 
@@ -206,8 +206,10 @@ Public-network 프로파일에서 운영자가 realtime-inventory Event Grid 구
 전달하며 topic-scoped 데이터 발신자 역할과 영속 멱등성 커서를 사용합니다.
 빈 cron은 해당 작업을 비활성화합니다. 기존 스케줄러 또는 analyzer 작업은 계획 전에 안전하게
 가져오고 이후 이미지와 구성 변경은 같은 계획 및 적용 경로로 수렴합니다.
-Analyzer 작업은 기본 1분 shadow 예약을 사용합니다. 명시적 analyzer 대상이 비어 있으면
-영속 인벤토리에서 지원 대상을 읽고 Huginn을 통해 AKS 감지 준비도 관측을 발행합니다.
+Analyzer 작업은 기본 1분 shadow 예약으로 `fdai.delivery.analyzer_tick_cli`를 실행하며, 발견 건마다
+리소스, 신호, tick 창에서 파생된 키를 가진 정본 Event 하나를 게시합니다. `FDAI_ANALYZER_TARGETS`가
+비어 있으면 tick은 `0`으로 종료하는 무해한 no-op이며, 영속 인벤토리에서 대상을 탐색하는 기능은 아직
+구현되지 않았습니다. 게시 실패는 0이 아닌 종료 코드를 남겨 작업이 재시도됩니다.
 Analyzer cron을 명시적으로 빈 문자열로 설정하면 작업이 비활성화됩니다.
 
 #### 제한된 egress 환경의 인벤토리 디스커버리
@@ -559,7 +561,7 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `FDAI_INVENTORY_SOURCES` | env | 업스트림 | Ordered 대체 경로 목록. 기본값은 `arg,arm`입니다. `declarative`는 고정본 경로와 SHA-256이 모두 있을 때만 허용합니다. |
 | `FDAI_INVENTORY_MANAGEMENT_ENDPOINT` / `FDAI_INVENTORY_MANAGEMENT_AUDIENCE` | env | 배포 | 검증된 HTTPS ARM 루트 및 OIDC 대상 쌍. 승인된 sovereign-cloud 또는 검증된 Resource 관리 Private Link 경로에서는 둘 다 재정의합니다. |
 | `FDAI_INVENTORY_FRESHNESS_SECONDS` | env | 업스트림 | 활성 스냅샷이 stale 상태가 되고 그래프 기반 자율성을 사람 검토로 낮추기 전의 최대 age입니다. 기본값은 `86400`입니다. |
-| `FDAI_ANALYZER_TARGETS` / `FDAI_ANALYZER_WINDOW_SECONDS` / `FDAI_ANALYZER_BUDGET_SECONDS` | env | 배포 / 업스트림 | 선택적 analyzer 대상 및 한계. 대상이 비어 있으면 analyzer 작업이 `FDAI_INVENTORY_DSN`을 통해 활성 인벤토리에서 지원 리소스 종류를 탐색합니다. |
+| `FDAI_ANALYZER_TARGETS` / `FDAI_ANALYZER_WINDOW_SECONDS` / `FDAI_ANALYZER_BUDGET_SECONDS` | env | 배포 / 업스트림 | 명시적 analyzer 대상 및 한계. 대상 목록이 비어 있으면 tick은 무해한 no-op이며, 형식이 잘못된 값은 차단됩니다. |
 | `KAFKA_TOPIC_EVENTS` | env | 배포 | 주 이벤트 ingest 토픽 |
 | `KAFKA_TOPIC_DLQ_SUFFIX` | env | 배포 | dead-letter 접미사 (기본 `.dlq`) |
 | `FDAI_EXECUTOR_COMMAND_TOPIC` / `FDAI_EXECUTOR_RECEIPT_TOPIC` | env | 업스트림 / 배포 | Isolated 실행기 명령 및 versioned 최종 증적 토픽입니다. 기본값은 `object.executor-command`, `object.executor-receipt`이며 서로 달라야 합니다. |
