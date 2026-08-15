@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: d39ef7dace2b0f7c1f8302d4d98ab6e2df1cdd74
+translation_source_sha: be32cdfec57ee0d105ffdaa01e8606bba77cc773
 translation_revised: 2026-08-15
 ---
 
@@ -364,7 +364,7 @@ properties:
   name: string                     # "Odin", "Thor", ...
   layer: enum                      # domain | pipeline | governance
   reports_to: Agent?               # 조직도 edge
-  owns: [ObjectType]               # write 권한 (single-writer)
+  owns: [ObjectType]               # 버스 single-writer; publishes가 여기서 파생
   executes: [ActionType]           # action-ontology.md 참조
   initiates: [ActionType]          # propose 가능 (§7.1)
   subscribes: [Topic]              # typed-port 구독
@@ -377,9 +377,15 @@ properties:
     proposals_per_hour: int
 ```
 
-더 넓은 온톨로지의 모든 `object_type` 선언은 정확히 하나의 `Agent` 를
-가리키는 `owner_agent` 필드를 얻는다. 생산자 principal 은 스키마 레지스트리
-가 검증한다: 소유자 만 publish 가능하다.
+더 넓은 온톨로지의 `object_type` 선언은 선택적인 `lifecycle` 블록을 가질 수 있고,
+그 `owner`가 정확히 하나의 `Agent`를 가리킵니다. 이 필드가 온톨로지 의미 쓰기
+레지스트리이며, 그래프에서 누가 해당 타입의 인스턴스를 생성하고 종료할 수 있는지를
+말합니다. 이는 4절의 이벤트 버스 레지스트리와 별개입니다. 4절의 `owns`는 누가
+`object.<type>`을 publish할 수 있는지를 말합니다. 어떤 타입은 한쪽에만, 양쪽 모두에,
+또는 어느 쪽에도 없을 수 있으며, `lifecycle` 블록이 없는 타입은 두 번째 쓰기 권한을
+추가하지 않을 뿐입니다. 현재 에이전트별 목록과 읽는 규칙은
+[운영 온톨로지 - 에이전트 소유권](../architecture/operating-ontology-ko.md#에이전트-소유권)을
+참조하세요.
 
 ## 6. 통신 계약
 

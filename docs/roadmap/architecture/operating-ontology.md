@@ -97,6 +97,7 @@ cloud-operations concepts, while each deployment supplies its observed instances
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | Current source, tests, and delivery plan listed in the scope table. | Complete the observable exit conditions below. |
 | 2026-08-14 | implemented | Added a bounded Context presentation projector that rejects mismatched secured receipts and omits raw object properties. | `current change`; `test_console_projection.py` passed 5 focused cases. | Bind the projector only through a principal-scoped evidence response and retain authenticated Console evidence. |
 | 2026-08-15 | implemented | Removed the undeclared `predicts_breach_of` and `learned_as` rows from the relationship contract, recorded their blocking ObjectTypes, and pinned the table against the shipped LinkType catalog and stored link direction. | `current change`; `test_ontology_catalog.py` and `test_ontology_instance.py` focused cases. | Restore either relationship only together with its endpoint ObjectType and the competency question it answers. |
+| 2026-08-15 | implemented | Corrected the agent-ownership section to name the two independent ownership registries, replaced the prose ownership claims with the exact `lifecycle.owner` type list, and replaced the unsupported "authority class, freshness policy, retention, allowed purposes" claim with the fields the schema actually declares. | `current change`; `test_object_type_catalog.py::test_documented_semantic_write_owners_match_the_catalog`. | Decide per ObjectType whether an absent `lifecycle` block should gain a declared owner; do not add one to fill the field. |
 
 ### Remaining work
 
@@ -112,6 +113,9 @@ cloud-operations concepts, while each deployment supplies its observed instances
   reconciliation, and graph-wide Dynamic delivery reaches its focused exit conditions.
 - [ ] Decide whether the `Forecast` and `Pattern` ObjectTypes ship, driven by a competency question
   that needs them; only then restore `predicts_breach_of` and `learned_as` as declared LinkTypes.
+- [ ] Review the shipped ObjectTypes that carry no `lifecycle` block and record, per type, whether an
+  agent single-writer is required or whether catalog-as-code, a projection, or the event-bus
+  registry is the correct authority ([#130](https://github.com/dotnetpower/fdai/issues/130)).
 
 ## Catalog semantic projection
 
@@ -430,31 +434,81 @@ See [Execution Authorization Ontology](../decisioning/execution-authorization-on
 | Decisions, approvals, actions, rollback | Append-only audit and Process journal | Immutable semantic links. |
 | Cases and patterns | Case history plus reviewed catalogs | Learning projection and governed reuse. |
 
-Each ObjectType declares one owning agent, one authority class, a freshness policy, retention, and
-allowed purposes. Conflicting sources produce an explicit conflict or `unknown` state and lower
-autonomy.
+An ObjectType declaration MAY carry an optional `lifecycle` block. When present it declares exactly
+one owning agent, at least one creation criterion, an optional deduplication strategy, optional
+closure criteria, and at least one authority reference. The declaration schema carries no authority
+class, no freshness policy, no retention period, and no allowed-purpose list, so a reader MUST NOT
+expect those four from an ObjectType. They are declared elsewhere, at the level where they are
+actually enforced:
+
+| Concern | Where it is declared | Scope |
+|---------|----------------------|-------|
+| Owning agent, creation, closure, authority refs | `ObjectLifecycle` on the ObjectType | Per type, optional. |
+| Authority class, freshness ceiling, completeness, conflicts | `StateFactMetadata` on the fact | Per decision-relevant fact. |
+| Access scope and allowed purposes | `access_scope` and `purpose_binding` on `PropertyDecl` | Per property. |
+| Retention | The authoritative source system | Not declared in the ontology. |
+
+Conflicting sources produce an explicit conflict or `unknown` state and lower autonomy.
 
 ## Agent ownership
 
-The ontology makes the fixed pantheon more capable without adding a central coordinator.
+The ontology makes the fixed pantheon more capable without adding a central coordinator. Ownership
+is declared in two independent registries that answer different questions. Reading one as if it
+were the other is the usual source of a false ownership gap.
 
-| Agent | Owned semantic write |
-|-------|----------------------|
-| Huginn | Normalized observations and discovered topology change events. |
-| Heimdall | Findings, forecasts, and independent effect observations. |
-| Njord | Cost observations, cost forecasts, and cost objective status. |
-| Freyr | Demand, capacity forecasts, and sizing options. |
-| Loki | Experiments and resilience evidence. |
-| Forseti | Decision cases, governed decisions, and the `OperationalContextMaterializer` snapshot at its cutoff. |
-| Odin | Cross-objective arbitration decisions and score breakdowns. |
-| Var | Independent approval records. |
-| Thor | Action runs and attempts. |
-| Vidar | Rollback and recovery outcomes. |
-| Saga | Audit evidence and immutable correlation links. |
-| Muninn | Durable state snapshots and the immutable case-history context index. |
-| Norns | Patterns and inert candidates. |
-| Mimir | Reviewed ontology, rule, and action catalog lifecycle. |
-| Bragi | No decision write; localized explanation over cited projections only. |
+| Registry | Question it answers | Source of truth | Enforcement |
+|----------|---------------------|-----------------|-------------|
+| Event-bus single-writer | Which agent MAY publish `object.<type>`? | `owns` on each `AgentSpec` in `PANTHEON_SPECS` | `PantheonRegistry.assert_can_publish`, plus the derived-topic check in `test_topics.py`. |
+| Ontology semantic write | Which agent MAY create or close instances of an ObjectType in the graph? | `lifecycle.owner` in `rule-catalog/vocabulary/object-types/` | Catalog loading, and the doc-parity check in `test_object_type_catalog.py`. |
+
+An object type may appear in one registry, both, or neither. `Verdict` is a bus contract with no
+ObjectType declaration. `DecisionCase` is a graph object with no bus topic. `ActionRun` and `Issue`
+are in both. `AgentSpec.owns` therefore cannot list a graph-only type: `publishes` is derived from
+`owns`, and every derived topic must already exist in `OWNED_OBJECT_TOPICS`.
+
+Event-bus ownership is tabulated in [Agent pantheon](../agents/agent-pantheon.md) section 4 and is
+not duplicated here. The table below is the ontology semantic-write registry, listed by exact type
+name so it can be checked rather than interpreted.
+
+| Agent | ObjectTypes owned through `lifecycle.owner` |
+|-------|---------------------------------------------|
+| Odin | none declared |
+| Thor | `ActionRun` |
+| Forseti | `ActionOption`, `CausalHypothesis`, `DecisionCase`, `ExpectedEffect`, `ImpactEnvelope` |
+| Huginn | `Change`, `Observation` |
+| Heimdall | `Incident`, `ObservedOutcome` |
+| Vidar | `RecoveryPlan` |
+| Var | none declared |
+| Bragi | none declared |
+| Saga | `Issue` |
+| Mimir | `ArchitectureConstraint`, `ChangeWindow` |
+| Muninn | `BusinessCapability`, `BusinessService`, `Environment`, `Ownership`, `RecoveryObjective`, `ServiceObjective`, `Workload` |
+| Norns | none declared |
+| Njord | `CostObjective` |
+| Freyr | none declared |
+| Loki | `Experiment` |
+
+Three consequences of that table are load-bearing and easy to get wrong.
+
+- **Effect closure is not owned by the agent that acted.** `ObservedOutcome` is Heimdall's, not
+  Thor's and not Vidar's. Thor owns the execution receipt and Vidar owns the recovery plan, but
+  neither may write the record that says whether the intervention worked. Moving `ObservedOutcome`
+  to an acting agent would let a principal score its own action and is a defect.
+- **Reviewed intent is projected, not authored by the judge.** Muninn owns the operating spine and
+  the service and recovery objectives, Mimir owns architecture constraints and change windows, and
+  Njord owns the cost objective. Forseti owns the decision context built from them, never the
+  objectives it is judged against.
+- **Ontology, action, and rule definitions are not runtime writes.** Mimir stewards promotion and
+  revocation of catalog entries; the definitions themselves remain catalog-as-code in Git.
+
+An ObjectType with no `lifecycle` block has no declared ontology owner. That is not a claim that
+nobody may write it. It means the ObjectType declaration adds no second write authority, and the
+type is governed by whichever authority already applies: catalog-as-code for `ActionType`, `Rule`,
+`SignalType`, `ResourceType`, `Property`, and `PolicyArtifact`; a provider or service projection for
+`Resource`, `Signal`, `Finding`, and `Process`; and the event-bus registry for bus-carried objects
+such as `Approval`, `SecurityEvent`, `Conversation`, `Turn`, and `RuleCandidate`. Most shipped
+ObjectTypes are in this state today. Adding a `lifecycle` block to one is a deliberate act that
+introduces an agent single-writer, so it MUST NOT be added merely to fill the field in.
 
 Agents collaborate through typed events. No agent mutates another agent's object, calls another
 agent directly, or shares mutable workflow state.
