@@ -31,7 +31,7 @@ RETRIEVAL_FLOOR = 0.05
 RRF_K = 60
 _MAX_RESULTS = 20
 _WORD = re.compile(r"[a-z0-9]+")
-_HANGUL = re.compile(r"[\uac00-\ud7a3]+")
+_HANGUL = re.compile(r"[가-힣]+")
 _STATUS_RANK = {"implemented": 0, "configured": 1, "designed": 2, "not_applicable": 3}
 
 
