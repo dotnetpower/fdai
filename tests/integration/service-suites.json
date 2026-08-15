@@ -63,7 +63,9 @@
           "services/operator-service/tests/test_browser_evidence_projection.py",
           "services/operator-service/tests/test_local_narrator.py",
           "services/operator-service/tests/test_narrator_periodic_scheduler.py",
-          "services/operator-service/tests/test_pdf_report_encoder.py"
+          "services/operator-service/tests/test_operator_user_context_projection.py",
+          "services/operator-service/tests/test_pdf_report_encoder.py",
+          "services/operator-service/tests/test_stream_shutdown.py"
         ],
         "contract": [
           "services/operator-service/tests/test_conversation_contracts.py",
