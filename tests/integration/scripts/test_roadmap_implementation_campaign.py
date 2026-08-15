@@ -379,7 +379,8 @@ def test_unreceipted_campaign_head_is_registered_before_holding(
     monkeypatch.setattr(module.watchdog, "_active_session_leases", lambda *a, **k: [])
     monkeypatch.setattr(module.watchdog, "_recent_copilot_activity", lambda *a, **k: [])
     monkeypatch.setattr(module.watchdog, "_active_session_count", lambda *a, **k: 0)
-    monkeypatch.setattr(module, "_sync_campaign_base", lambda *_a: "ahead")
+    synced: list[Path] = []
+    monkeypatch.setattr(module, "_sync_campaign_base", lambda root: synced.append(root))
     monkeypatch.setattr(module, "_validation_receipt_exists", lambda *_a, **_k: False)
 
     def fake_git(*args: str, **_kwargs: object) -> str:
@@ -405,3 +406,6 @@ def test_unreceipted_campaign_head_is_registered_before_holding(
     # is never enqueued. Waiting for a receipt the queue was never asked to produce holds
     # every later run forever.
     assert registered == ["main"]
+    # Absorbing main first mints a new merge commit on every held run, so the head would
+    # outrun validation for as long as any other session keeps committing.
+    assert synced == []
