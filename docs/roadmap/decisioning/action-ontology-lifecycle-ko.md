@@ -1,8 +1,8 @@
 ---
 title: Action 온톨로지 라이프사이클
 translation_of: action-ontology-lifecycle.md
-translation_source_sha: 1d92e25d0722fa4d6d7e50ca5371ee4229d28497
-translation_revised: 2026-08-13
+translation_source_sha: 21f2dd186d7fbff06a14752d3c2c77fd888f4e63
+translation_revised: 2026-08-15
 ---
 
 # 액션 온톨로지 라이프사이클
@@ -20,20 +20,25 @@ translation_revised: 2026-08-13
 | 카탈로그 lifecycle과 inert 기본값 | implemented | [`test_action_type_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_action_type_catalog.py) | 제공되는 선언은 lifecycle 제약을 검증하고 shadow를 기본값으로 사용합니다. |
 | 룰 위반 교정 소비자 | implemented | [`test_unified_control_loop.py`](../../../services/core-control-plane/tests/pipeline/test_unified_control_loop.py) | 타입이 지정된 컨트롤 루프는 교정을 ActionBuilder, RiskGate 및 Executor를 거쳐 라우팅합니다. |
 | 운영자 요청 제안 소비자 | implemented | [`bragi.py`](../../../services/core-control-plane/src/fdai/agents/bragi.py), [`test_chat_to_pipeline_e2e.py`](../../../services/core-control-plane/tests/agents/test_chat_to_pipeline_e2e.py) | Bragi는 타입이 지정된 제안을 정본 유입 경로에 게시하며 실행기를 직접 호출하지 않습니다. |
-| 거버넌스 dispatcher | in-progress | [`override_writer.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/override_writer.py), [소비자 상태](#소비자-구현-상태-declared-vs-실제-운영) | override writer는 실제 운영 중이고 promote, retire 및 grant-exemption 선언은 PR-native writer가 제공될 때까지 inert 상태입니다. |
+| 거버넌스 dispatcher | in-progress | [`override_writer.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/override_writer.py), [`governance_writers.py`](../../../services/core-control-plane/src/fdai/delivery/gitops_pr/governance_writers.py), [`test_governance_writers.py`](../../../services/core-control-plane/tests/delivery/test_governance_writers.py) | override writer는 실제 운영 중입니다. `retire-rule`과 `grant-exemption`에는 이제 순수한 PR-native 문서 writer가 있으며, 렌더링 결과는 적용되지 않고 self-approval, 범위를 벗어난 입력, 구독 전체 exemption을 거부합니다. `promote-action-type`은 `execution_path: direct_api`를 선언하므로 그 dispatcher는 별도의 설계 결정이며 계속 inert 상태입니다. |
 | 선택된 실제 운영 probe | implemented | [`test_action_type_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_action_type_catalog.py) | 참조된 probe는 로더에서 검증되며 probe가 없는 액션은 static 영향 한계를 유지합니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-15 | in-progress | `governance.retire-rule`과 `governance.grant-exemption`을 위한 순수 PR-native 문서 writer를 추가했습니다. | `current change`; `services/core-control-plane/src/fdai/delivery/gitops_pr/governance_writers.py`; `pytest services/core-control-plane/tests/delivery/test_governance_writers.py` (16 passed). | `promote-action-type` dispatcher와 관리되는 pull request 연결은 남아 있습니다. |
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | 구현 범위 표의 현재 소스, 테스트 및 소비자 상태 섹션입니다. | 아래의 관찰 가능한 거버넌스 dispatcher 종료 조건을 완료해야 합니다. |
 
 ### 남은 작업
 
-- [ ] `governance.promote-action-type`, `governance.retire-rule` 및
-  `governance.grant-exemption`의 PR-native writer를 구현하고, 승인된 서로 다른 승인자 전환
-  없이는 각 항목이 shadow-only로 유지된다는 집중 근거를 보존합니다.
+- [x] `governance.retire-rule`과 `governance.grant-exemption`의 PR-native writer가 존재하며,
+  `services/core-control-plane/tests/delivery/test_governance_writers.py`가 렌더링된 문서마다
+  적용되지 않은 상태, 서로 다른 승인자 요구, 구독 전체 exemption 거부를 증명합니다.
+- [ ] 선언된 `direct_api` 실행 경로에 맞는 `governance.promote-action-type` dispatcher를 결정하고
+  구현한 뒤, 승인된 서로 다른 승인자 전환 없이는 inert로 유지된다는 집중 근거를 보존합니다.
+- [ ] 두 PR-native writer를 관리되는 pull request 어댑터에 연결하고 재현 가능한 open-to-merge
+  증적 하나를 보존합니다.
 
 ## 설계 경계와 라이프사이클
 
