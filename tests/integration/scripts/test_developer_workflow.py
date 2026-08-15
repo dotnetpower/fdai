@@ -349,3 +349,38 @@ def test_local_services_report_each_unavailable_owner(tmp_path: Path) -> None:
         "document-ingestion-api",
         "isolated-executor",
     ]
+
+
+def test_editor_pressure_separates_host_and_client_state(tmp_path: Path) -> None:
+    module = _load_module()
+    pressure = tmp_path / "pressure"
+    pressure.mkdir()
+    (pressure / "cpu").write_text(
+        "some avg10=75.00 avg60=20.00 avg300=10.00 total=1\nfull avg10=0.00 total=0\n",
+        encoding="utf-8",
+    )
+    (pressure / "io").write_text(
+        "some avg10=0.00 total=0\nfull avg10=0.25 avg60=0.10 total=1\n",
+        encoding="utf-8",
+    )
+    (pressure / "memory").write_text(
+        "some avg10=0.00 total=0\nfull avg10=0.00 total=0\n",
+        encoding="utf-8",
+    )
+    code_result = subprocess.CompletedProcess(
+        args=["code", "--status"],
+        returncode=0,
+        stdout="extension-host one\nextension-host two\n",
+        stderr="",
+    )
+
+    result = module._editor_pressure_diagnostic(
+        tmp_path,
+        code_status=lambda: code_result,
+    )
+
+    assert result["status"] == "warning"
+    assert result["host_pressure_exceeded"] == ["cpu_some_avg10"]
+    assert result["client_status"] == "ok"
+    assert result["extension_host_count"] == 2
+    assert result["browser_tool_payload"] == "upstream_bounded_by_cli_first_workflow"

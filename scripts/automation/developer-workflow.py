@@ -7,6 +7,8 @@ import argparse
 import json
 import math
 import os
+import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -36,6 +38,11 @@ LOCAL_SERVICE_ENDPOINTS = (
     ("document-processing-worker", "http://127.0.0.1:8012/ready"),
     ("isolated-executor", "http://127.0.0.1:8013/ready"),
 )
+PRESSURE_LIMITS = {
+    "cpu_some_avg10": 50.0,
+    "io_full_avg10": 5.0,
+    "memory_some_avg10": 1.0,
+}
 
 
 def _git(root: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
@@ -405,6 +412,83 @@ def _local_services_diagnostic(
     }
 
 
+def _pressure_avg10(path: Path, category: str) -> float | None:
+    try:
+        if path.stat().st_size > 4_096:
+            return None
+        content = path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    match = re.search(rf"^{re.escape(category)}\s+avg10=([0-9.]+)", content, re.MULTILINE)
+    if match is None:
+        return None
+    try:
+        return float(match.group(1))
+    except ValueError:
+        return None
+
+
+def _run_code_status() -> subprocess.CompletedProcess[str] | None:
+    executable = shutil.which("code")
+    if executable is None:
+        return None
+    try:
+        return subprocess.run(  # noqa: S603 - resolved VS Code executable and fixed arguments.
+            [executable, "--status"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=2,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
+def _editor_pressure_diagnostic(
+    proc_root: Path = Path("/proc"),
+    *,
+    code_status: Any = _run_code_status,
+) -> dict[str, Any]:
+    pressure = {
+        "cpu_some_avg10": _pressure_avg10(proc_root / "pressure" / "cpu", "some"),
+        "io_full_avg10": _pressure_avg10(proc_root / "pressure" / "io", "full"),
+        "memory_some_avg10": _pressure_avg10(proc_root / "pressure" / "memory", "some"),
+    }
+    exceeded = [
+        name
+        for name, value in pressure.items()
+        if value is not None and value >= PRESSURE_LIMITS[name]
+    ]
+    code_result = code_status()
+    if code_result is None or code_result.returncode != 0:
+        client_status = "unavailable"
+        extension_host_count = 0
+    else:
+        client_status = "ok"
+        extension_host_count = sum(
+            "extension-host" in line.lower()
+            for line in (code_result.stdout + code_result.stderr).splitlines()[:200]
+        )
+    return {
+        "browser_tool_payload": "upstream_bounded_by_cli_first_workflow",
+        "client_status": client_status,
+        "extension_host_count": extension_host_count,
+        "host_pressure_exceeded": exceeded,
+        "pressure": pressure,
+        "status": "warning" if exceeded else "ok",
+    }
+
+
+def _editor_pressure_for_root(root: Path) -> dict[str, Any]:
+    resolved = _git_common_dir(root)
+    if resolved is None:
+        return {"reason_code": "editor_repository_unavailable", "status": "unavailable"}
+    repo_root, _common_dir = resolved
+    if not (repo_root / ".fdai").is_dir():
+        return {"reason_code": "local_workspace_not_prepared", "status": "unavailable"}
+    return _editor_pressure_diagnostic()
+
+
 def status_report(root: Path) -> dict[str, Any]:
     """Build one versioned report without changing repository or process state."""
     return {
@@ -413,6 +497,7 @@ def status_report(root: Path) -> dict[str, Any]:
         "schema_version": SCHEMA_VERSION,
         "sections": {
             "browser_runner": _browser_runner_diagnostic(),
+            "editor_pressure": _editor_pressure_for_root(root),
             "environment": _environment_diagnostic(root),
             "git": _git_diagnostic(root),
             "hooks": _hook_diagnostic(root),
