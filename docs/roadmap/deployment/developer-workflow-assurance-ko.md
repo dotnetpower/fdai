@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 2053b58d28e140e1a34a0063d898a9d1c6dd33a7
+translation_source_sha: afa8651478388342975f50543681255820ce6cd6
 translation_revised: 2026-08-15
 ---
 
@@ -154,8 +154,8 @@ receipt, 변경 파일 출력은 최대 20개 경로, 프로세스 출력은 최
 - 저장소 외부로 해석되는 target symlink는 `context_target_outside_repository`와 함께
   차단됩니다.
 
-검토에서는 Azure retry가 없다는 한 가지 false finding도 기각했습니다. 커밋 `583398431`과
-throttle, permanent error 및 retry exhaustion 집중 테스트가 구현을 증명합니다.
+검토에서는 Azure retry가 없다는 한 가지 false finding도 기각했습니다. Transport 구현과
+throttle, permanent error 및 retry exhaustion 집중 테스트가 해당 동작을 증명합니다.
 
 ## 구현 상태
 
