@@ -147,7 +147,7 @@ test("Browser Entra binds Incident RCA evidence to the optional PDF report", asy
   const rcaEnvelope = await responseJson(await rcaResponsePromise);
   const hypotheses = jsonArray(rcaEnvelope.hypotheses, "RCA hypotheses");
   expect(hypotheses.length).toBeGreaterThan(0);
-  const citationCount = hypotheses.reduce((total, raw) => {
+  const citationCount = hypotheses.reduce((total: number, raw) => {
     const hypothesis = jsonRecord(raw, "RCA hypothesis");
     return total + jsonArray(hypothesis.citations, "RCA citations").length;
   }, 0);

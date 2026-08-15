@@ -30,16 +30,19 @@ for the *human* side; the executor-side mapping stays as declared there.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Human and workload identity separation for activity observation | implemented | `fdai_operator_service/activity_projection.py`; `test_activity_projection.py`; the authenticated observation contract in this document | Durable current-state activity carries only a hashed correlation reference, while the Reader bearer gate and the relay workload credential remain separate and no activity row gains executor authority. |
+| Break-Glass activation request boundary | implemented | `services/operator-service/src/fdai_operator_service/families/iam/break_glass.py`; `capabilities.py`; `services/operator-service/tests/test_operator_break_glass_activation.py` | `POST /system/break-glass/activation` requires the BreakGlass-only `activate-break-glass` capability, a non-empty incident id and reason, and a future offset-aware expiry inside a bounded maximum. It records an audit-only projection and grants no HIL approval or executor identity. The durable activation store, TTL enforcement, and sign-in alerting remain deployment work. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and recorded the bounded identity carried by durable current-state activity. | Current source plus `test_activity_projection.py`; the focused persistence and projection suites passed. | Add the separately designed production Break-Glass activation boundary. |
+| 2026-08-15 | implemented | Added the `POST /system/break-glass/activation` request boundary with a BreakGlass-only capability, incident id, reason, bounded future expiry, and an audit-only projection. | `current change`; `services/operator-service/src/fdai_operator_service/families/iam/break_glass.py`; `pytest services/operator-service/tests` (308 passed, 1 skipped). | Bind a durable activation store, TTL enforcement, and sign-in alerting in a deployment. |
 
 ### Remaining work
 
-- [ ] Add a production Break-Glass activation endpoint that requires an incident id and future expiry, records the activation audit evidence, and still grants no runtime HIL approval or executor identity.
+- [x] The production Break-Glass activation endpoint exists, requires an incident id, a reason, and a bounded future expiry, records the activation audit evidence, and grants no runtime HIL approval or executor identity, proven by `services/operator-service/tests/test_operator_break_glass_activation.py`.
+- [ ] Bind a durable activation store, TTL enforcement, and sign-in alerting in a deployment, and retain one governed activation receipt.
 
 ## 1. Design Principles Recalled
 
@@ -82,9 +85,12 @@ more roles.
   effective roles but retains a separate eligibility flag. Time-boxed activation checks that
   flag before adding the emergency role.
 - **Current activation boundary.** `RoleResolver.activate_break_glass` is a pure activation
-  primitive that validates an incident id and future expiry. The production API has no endpoint,
-  persistent activation store, or TTL-enforcement composition that invokes it. A BreakGlass token
-  claim therefore doesn't elevate a runtime principal or grant HIL approval eligibility.
+  primitive that validates an incident id and future expiry. `POST /system/break-glass/activation`
+  is the request boundary in front of it: it requires the BreakGlass-only `activate-break-glass`
+  capability, an incident id, a reason, and a bounded future expiry, and records an audit-only
+  projection. It does not elevate the calling principal, so a BreakGlass token claim still grants
+  no HIL approval eligibility. The persistent activation store and TTL-enforcement composition
+  remain deployment work.
 - **PIM is optional**. Upstream does not require it. A fork with Entra ID P2 MAY layer PIM
   on top of `aw-approvers` / `aw-owners` for just-in-time activation, but the default
   model works on P1.
@@ -517,8 +523,9 @@ Human users never hold PATs or long-lived secrets:
 - Break-glass is a **dedicated account** (not a human's personal account), stored with a
   hardware FIDO2 key in physical custody.
 - Alerting on every sign-in and writing an elevated audit record are deployment operations
-  requirements. The production API currently has no activation endpoint, persistent activation
-  store, or alerting composition.
+  requirements. The production API exposes `POST /system/break-glass/activation`, which records the
+  activation request; the persistent activation store and alerting composition remain deployment
+  work and the endpoint fails closed when no store is configured.
 - A verified `BreakGlass` entitlement must be activated separately through
   `RoleResolver.activate_break_glass`. Active BreakGlass alone carries kill-switch and emergency
   access-grant capabilities; the capability model doesn't require simultaneous `Owner` and

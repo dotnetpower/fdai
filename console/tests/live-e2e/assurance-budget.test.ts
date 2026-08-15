@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -7,10 +9,17 @@ import {
   DeadlineExceededError,
   MAXIMUM_RUN_BUDGET_MS,
   MINIMUM_RUN_BUDGET_MS,
+  PREAMBLE_ACCESS_TIMEOUT_MS,
+  PREAMBLE_BOUND_MS,
+  PREAMBLE_NAVIGATION_TIMEOUT_MS,
+  PREAMBLE_READY_TIMEOUT_MS,
   RUN_BUDGET_PER_QUESTION_MS,
   TEST_TIMEOUT_SLACK_MS,
+  attemptEndedByRunBudget,
+  classifyExpiredAttempt,
   pacingDelayMs,
   resolveAssuranceBudget,
+  resolveQuestionBound,
   transportRetryDelayMs,
   withDeadline,
 } from "./assurance-budget";
@@ -47,6 +56,88 @@ describe("transportRetryDelayMs", () => {
   });
 });
 
+describe("resolveQuestionBound", () => {
+  it("reports the stalled-question guard as binding while the run budget has room", () => {
+    const bound = resolveQuestionBound({
+      nowMs: 1_000,
+      runDeadlineAt: 1_000 + 1_680_000,
+      noProgressDeadlineMs: 300_000,
+    });
+
+    expect(bound.questionDeadlineAt).toBe(1_000 + 300_000);
+    expect(bound.runBudgetIsBinding).toBe(false);
+  });
+
+  it("reports the run budget as binding once it expires first", () => {
+    const bound = resolveQuestionBound({
+      nowMs: 1_000,
+      runDeadlineAt: 1_000 + 10_000,
+      noProgressDeadlineMs: 300_000,
+    });
+
+    expect(bound.questionDeadlineAt).toBe(1_000 + 10_000);
+    expect(bound.runBudgetIsBinding).toBe(true);
+  });
+
+  it("rejects unusable inputs instead of guessing a bound", () => {
+    expect(() =>
+      resolveQuestionBound({ nowMs: Number.NaN, runDeadlineAt: 1, noProgressDeadlineMs: 1 })
+    ).toThrow(/finite/);
+    expect(() =>
+      resolveQuestionBound({ nowMs: 0, runDeadlineAt: 1, noProgressDeadlineMs: 0 })
+    ).toThrow(/positive/);
+  });
+});
+
+describe("attemptEndedByRunBudget", () => {
+  it("never blames the run budget while the stalled-question guard is binding", () => {
+    expect(attemptEndedByRunBudget({
+      remainingMs: 128_000,
+      perAttemptDeadlineMs: 180_000,
+      runBudgetIsBinding: false,
+    })).toBe(false);
+  });
+
+  it("blames the run budget only when it truncated the attempt", () => {
+    expect(attemptEndedByRunBudget({
+      remainingMs: 128_000,
+      perAttemptDeadlineMs: 180_000,
+      runBudgetIsBinding: true,
+    })).toBe(true);
+    expect(attemptEndedByRunBudget({
+      remainingMs: 180_000,
+      perAttemptDeadlineMs: 180_000,
+      runBudgetIsBinding: true,
+    })).toBe(false);
+  });
+});
+
+describe("classifyExpiredAttempt", () => {
+  it("blames the attempt deadline only when the attempt ran its full length", () => {
+    expect(classifyExpiredAttempt({
+      attemptDeadlineMs: 180_000,
+      perAttemptDeadlineMs: 180_000,
+      runBudgetIsBinding: false,
+    })).toBe("per_attempt_deadline_exceeded");
+  });
+
+  it("reports a truncated attempt as a stalled question while the run budget has room", () => {
+    expect(classifyExpiredAttempt({
+      attemptDeadlineMs: 115_000,
+      perAttemptDeadlineMs: 180_000,
+      runBudgetIsBinding: false,
+    })).toBe("stalled_question");
+  });
+
+  it("reports a truncated attempt as budget exhaustion when the run budget is binding", () => {
+    expect(classifyExpiredAttempt({
+      attemptDeadlineMs: 8,
+      perAttemptDeadlineMs: 180_000,
+      runBudgetIsBinding: true,
+    })).toBe("question_budget_exhausted");
+  });
+});
+
 describe("resolveAssuranceBudget", () => {
   it("derives a bounded budget from the question count", () => {
     expect(resolveAssuranceBudget({}, 1).runBudgetMs).toBe(MINIMUM_RUN_BUDGET_MS);
@@ -80,24 +171,29 @@ describe("resolveAssuranceBudget", () => {
     );
   });
 
-  it("keeps the harness timeout above every wait the loop can still grant", () => {
+  it("keeps the harness timeout above the waits the loop can grant at the permitted extremes", () => {
     for (
       const override of [{}, { FDAI_E2E_ASSURANCE_RUN_BUDGET_MS: String(MINIMUM_RUN_BUDGET_MS) }]
     ) {
       const budget = resolveAssuranceBudget(
         {
           ...override,
+          FDAI_E2E_ASSURANCE_MIN_REQUEST_INTERVAL_MS: "60000",
           FDAI_E2E_ASSURANCE_PER_QUESTION_DEADLINE_MS: "600000",
           FDAI_E2E_ASSURANCE_NO_PROGRESS_DEADLINE_MS: "600000",
         },
         100,
       );
       // A turn is clamped to the run deadline, so the only work that can outlive the budget is
-      // one granted wait bounded by the spacing and the retry cap.
-      const tailMs = Math.max(budget.minimumRequestIntervalMs, budget.transportRetryMaxMs);
+      // the pre-question spacing plus one granted intra-question wait.
+      const tailMs = 2 * budget.minimumRequestIntervalMs + budget.transportRetryMaxMs;
       expect(budget.testTimeoutMs - budget.runBudgetMs).toBeGreaterThan(tailMs);
-      // The envelope must not silently absorb an unclamped per-question deadline again.
-      expect(budget.testTimeoutMs - budget.runBudgetMs).toBeLessThan(budget.perQuestionDeadlineMs);
+      // The preamble is charged to the run budget, so the budget must be able to hold it and
+      // still leave room for questions.
+      expect(budget.runBudgetMs).toBeGreaterThan(PREAMBLE_BOUND_MS);
+
+      // The envelope must stay dominated by the declared budget rather than by harness slack.
+      expect(budget.testTimeoutMs - budget.runBudgetMs).toBeLessThan(budget.runBudgetMs);
     }
   });
 
@@ -145,5 +241,47 @@ describe("withDeadline", () => {
 
   it("rejects an unusable deadline", async () => {
     await expect(withDeadline(Promise.resolve(1), 0, "turn")).rejects.toThrow(/positive finite/);
+  });
+});
+
+describe("run preamble bound", () => {
+  const source = readFileSync(
+    new URL("./ontology-query-assurance.spec.ts", import.meta.url),
+    "utf8",
+  );
+  const preamble = source.slice(
+    source.indexOf("await restoreBrowserEntraSessionStorage(page);"),
+    source.indexOf("let protectedRequestCount = 0;"),
+  );
+
+  // Local, non-blocking calls need no wire timeout; every other awaited step must declare one.
+  const LOCAL_PREAMBLE_CALLS = ["restoreBrowserEntraSessionStorage"];
+
+  it("bounds every preamble step with a declared timeout", () => {
+    expect(preamble).not.toHaveLength(0);
+    const awaited = preamble.match(/^\s*(?:(?:const|let|var)\s+[^=]+=\s*)?await [\s\S]*?;$/gm) ??
+      [];
+    const remote = awaited.filter(
+      (statement) => !LOCAL_PREAMBLE_CALLS.some((name) => statement.includes(name)),
+    );
+
+    expect(remote.length).toBeGreaterThan(0);
+    for (const statement of remote) {
+      expect(statement, statement).toMatch(/PREAMBLE_[A-Z_]+_TIMEOUT_MS/);
+    }
+  });
+
+  it("keeps the declared bound equal to the sum of those steps", () => {
+    const declared = {
+      PREAMBLE_NAVIGATION_TIMEOUT_MS,
+      PREAMBLE_READY_TIMEOUT_MS,
+      PREAMBLE_ACCESS_TIMEOUT_MS,
+    };
+    const used = (preamble.match(/PREAMBLE_[A-Z_]+_TIMEOUT_MS/g) ?? []).reduce(
+      (total, name) => total + declared[name as keyof typeof declared],
+      0,
+    );
+
+    expect(used).toBe(PREAMBLE_BOUND_MS);
   });
 });

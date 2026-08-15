@@ -1,5 +1,6 @@
 """Static contract keeping local type checks aligned with CI."""
 
+import json
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[3]
@@ -71,3 +72,20 @@ def test_container_opa_build_overrides_vulnerable_go_modules() -> None:
     assert "go build -mod=mod -o /go/bin/opa ." in dockerfile
     assert "awk '$2 == \"google.golang.org/grpc\" {print $3}'" in dockerfile
     assert "awk '$2 == \"golang.org/x/text\" {print $3}'" in dockerfile
+
+
+def test_console_test_types_run_in_the_enforced_operator_gate() -> None:
+    runner = (_ROOT / "scripts" / "quality" / "ci" / "run-operator-surfaces.sh").read_text(
+        encoding="utf-8"
+    )
+    package = (_ROOT / "console" / "package.json").read_text(encoding="utf-8")
+    tests_project = (_ROOT / "console" / "tsconfig.tests.json").read_text(encoding="utf-8")
+
+    assert "npm --prefix console exec -- tsc --noEmit -p console/tsconfig.tests.json" in runner
+    # `npm exec` keeps the caller's directory, so a bare project path would abort the whole gate.
+    assert "-p tsconfig.tests.json" not in runner
+    assert "tsc --noEmit -p tsconfig.tests.json" in package
+    assert '"include": ["tests", "scripts"]' in tests_project
+    # The gate must keep the application typecheck without paying for it twice.
+    assert "npm --prefix console run typecheck" not in runner
+    assert json.loads(package)["scripts"]["build"].startswith("tsc --noEmit")

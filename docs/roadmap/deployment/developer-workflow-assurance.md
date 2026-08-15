@@ -248,6 +248,18 @@ The remaining Low risks are explicit and bounded:
 | 2026-08-15 | in-progress | Started the measured bounded-wait campaign for issue #122 after session evidence showed 51 wait complaints across 36 sessions. | Issue #122 and the baselines in the bounded wait campaign table. | Implement the bounded budgets and complete at least 10 critique rounds. |
 | 2026-08-15 | implemented | Bound the assurance checkpoint to an evidence identity instead of the full run configuration, so a per-run session id or an adjusted pacing, deadline, or retry knob no longer discards completed turns, and attributed every retained result to its producing run. | Current change; console suite 1793 passed and TypeScript project check clean. | Complete the remaining hardening rounds for issue #122. |
 | 2026-08-15 | implemented | Added the target stack origin to the checkpoint binding, stopped persisting budget-derived non-results as permanent failures, constrained the run-budget override to the declared envelope, derived retry counts from retained evidence, validated retained result shape, and corrected six overclaiming ledger rows. | Current change; live-evidence Vitest passed 89 cases and TypeScript project check clean. | Complete the remaining hardening rounds for issue #122. |
+| 2026-08-15 | implemented | Separated the stalled-question bound from the run-budget bound behind a tested policy, forwarded the ignored result predicate on the checkpoint read path, disclosed the question that stopped a budget-limited run, and extended the Console typecheck gate to `console/tests`, which exposed and fixed a real type break this campaign had introduced in an untypechecked spec. | Current change; live-evidence Vitest passed 95 cases; `npm run typecheck` now covers `console/tests` and passed. | Complete the remaining hardening rounds for issue #122. |
+| 2026-08-15 | implemented | Corrected the preceding row: that change extended the Console typecheck script but not the enforced gate. This change runs `npm --prefix console run typecheck` inside `run-operator-surfaces.sh`, publishes the bound that actually truncated each expired attempt, renames that outcome to `per_attempt_deadline_exceeded`, and lets a transient turn error use its remaining attempt. | Current change; live-evidence Vitest passed 98 cases; full Console suite passed 1802 cases; `npm run typecheck` passed. | Complete the remaining hardening rounds for issue #122. |
+| 2026-08-15 | implemented | Removed the resume trap in which a cohort completed but interrupted before publish could never pass and lost its checkpoint: a fully resumed cohort now publishes as `run_mode: resumed_replay`, retirement requires publication, the enforced gate runs only the tests project to avoid a duplicate application typecheck, a parity test pins that gate line, and the artifact counts stalled questions separately. | Current change; live-evidence Vitest and typecheck-parity suites passed. | Complete the remaining hardening rounds for issue #122. |
+| 2026-08-15 | implemented | Closed the replay authority hole the preceding row opened: a run that verified nothing live now publishes as `receipt_source: resumed_replay`, can never be production-ready, and an interrupted run is no longer mislabelled a replay. Also validated every retained field the pass criteria read, scoped the transport retry counter, keyed the checkpoint on evidence identity, and bumped the artifact schema. | Current change; live-evidence Vitest passed 102 cases; `npm run typecheck` and typecheck-parity passed. | Complete the remaining hardening rounds for issue #122. |
+| 2026-08-15 | implemented | Made a resumed cohort prove the stack it reports: a run completed entirely from a checkpoint releases its last question back to the live stack, and every retained answer must describe the same ontology release and principal manifest generation, so stale answers cannot ride along with one live turn. | Commit `344c445b8` and rank 16 of the bounded wait campaign table. | Complete the remaining hardening rounds for issue #122. |
+| 2026-08-15 | implemented | Made that live proof falsifiable: the released tail now runs through the last answer-required question, live authority requires an answered turn bound to an ontology release, republished generations must be confirmed by live answers, a completed but failing cohort keeps its checkpoint, the run budget covers its own preamble, and the checkpoint-trust, pass, retirement, and path policy moved out of the ungated spec into tested pure functions. | Commit `d9adeccb2` and rank 17 of the bounded wait campaign table. | Complete the remaining hardening rounds for issue #122. |
+| 2026-08-15 | implemented | Made a resumed cohort converge: only verified turns resume, exactly one answer-required question is released as live proof, every preamble step carries its own bound, a selection that cannot prove a generation is rejected, and retained locale, operation, and attempt outcomes are validated as governed values. | Commit `11635c075` and rank 18 of the bounded wait campaign table. | Complete the remaining hardening rounds for issue #122. |
+| 2026-08-16 | implemented | Released a proof question that can prove: the released question is the last one an earlier run answered with a generation digest, a complete cohort retires its checkpoint only when the asserted outcome holds, an abandoned turn no longer leaks an authenticated stream onto the reused page, a missing receipt reports its transport outcome, and the retained result types are shared with the runner. | Commit `d9eed948d` and rank 19 of the bounded wait campaign table. | Complete the remaining hardening rounds for issue #122. |
+| 2026-08-16 | implemented | Made every detected fault recoverable: a mixed-generation checkpoint is discarded instead of refused forever, the checkpoint file is keyed by the whole binding so alternating revisions or target stacks keep separate resume state, a page whose execution context cannot be reset stops the run, and adding `console/scripts` to the typecheck project exposed and fixed a real type break. | Commit `6c2f0848b` and rank 20 of the bounded wait campaign table. | Complete the remaining hardening rounds for issue #122. |
+| 2026-08-16 | implemented | Restored the gate that never ran: `npm exec` kept the caller's directory, so the operator gate requested `tsconfig.tests.json` from the repository root, failed with TS5058, and under `set -e` took the console build and both CLI checks with it. The gate now names the project relative to the repository root, the parity test pins that form, a truncated run keeps a valid checkpoint, only turns superseded by a mid-run release rotation are pruned, an incoherent governed refusal fails, and the partial checkpoint file is per-process. | Commit `1782464e4` and rank 21 of the bounded wait campaign table. | Complete the remaining hardening rounds for issue #122. |
+| 2026-08-16 | implemented | Stopped a blocked cohort from replaying itself: answer-required turns that only refused are released so a later run re-attempts them, a pacing fault or failed checkpoint write becomes a governed stop reason instead of escaping without an artifact, the parity test pins the whole invocation, and an operator-configured checkpoint path is trimmed. | Commit `ddf1e47f5` and rank 22 of the bounded wait campaign table. | Complete the remaining hardening rounds for issue #122. |
+| 2026-08-16 | implemented | Guarded the whole question rather than only its pacing: pacing, the intra-question retry wait, and the turn share one stop path, so a page fault during a retry wait or under the permitted zero pacing override still produces an artifact; a budget-truncated attempt no longer spends a reload it cannot use, and a budget stop names the question it stopped on. | Commit `62f68be0e` and rank 23 of the bounded wait campaign table. | Complete the remaining hardening rounds for issue #122. |
 
 ### Remaining work
 
@@ -288,29 +300,59 @@ deadline, a no-progress deadline, a progress signal, and a resumable checkpoint.
 | 13 | Dependency download | `--retry 5` with a 300-second retry window per job | Reduce to `--retry 3` with a 120-second retry window and a 90-second transfer cap. |
 | 14 | Remote drift detection | Auto-pull observed remote drift after at most 600 seconds | Poll every 180 seconds while preserving the clean-tree and validation guards. |
 | 15 | Excluded fast tests | `tests/live-e2e/**` excluded every Vitest file in that directory from every ordinary run | Exclude only Playwright specs so the fast contracts run in the normal loop. |
+| 16 | Replayed assurance authority | A cohort completed from a checkpoint could publish without answering any question against the live stack | Re-verify at least one question live and require every retained answer to describe one governed generation. |
+| 17 | Unfalsifiable live proof | The released question could be one that never carries a generation digest, and a complete-but-failing cohort discarded its checkpoint | Release the tail through the last answer-required question, confirm resumed generations against live answers, and retire a checkpoint only after a passing publication. |
+| 18 | Non-converging resume | A failed turn resumed as a permanent failure, the released tail could exceed one budget, and the run preamble had no declared timeout | Resume only verified turns, release exactly one proof question, and bound every preamble step. |
+| 19 | Proof question that cannot prove | The released question was chosen by operation, so a governed refusal left a resumed cohort unable to prove a generation, and a complete cohort that failed only its release criteria still discarded its checkpoint | Release a question an earlier run answered, retire only on the asserted release outcome, and reset the page after a deadline breach. |
+| 20 | Detected but unrecoverable state | A checkpoint that mixed generations was persisted and then permanently refused, one file served every binding, and a failed page reset kept the run going | Discard an inconsistent checkpoint, key the file by the whole binding, and stop when the page cannot be reset. |
+| 21 | Gate that never ran | The enforced tests typecheck resolved its project from the repository root and aborted the rest of the operator gate, and a truncated run discarded a valid checkpoint | Resolve the project path, pin the resolvable invocation, and discard only what a completed run contradicted. |
+| 22 | Blocked cohort replayed forever | A complete cohort that passed every turn but missed its release criteria kept a checkpoint that republished the same block, and a page or checkpoint fault escaped without an artifact | Release the refusing answer-required turns, and turn a pacing or checkpoint fault into a governed stop reason. |
+| 23 | Partly guarded question | Only the inter-question pacing wait was guarded, so a page fault during a retry wait or with pacing disabled still escaped without an artifact, and a budget stop could be reported as a failed context reset | Guard the whole question, skip the reset the budget made pointless, and name the question that ended the run. |
 
 ### Contract
 
 - The assurance run budget is derived from the cohort size, floored at 5 minutes and capped at
   90 minutes, and an operator may override it inside declared bounds.
-- Every turn is clamped to the remaining run budget, so budget exhaustion stops the run, writes a
-  checkpoint, and fails with an explicit stop reason instead of reaching an opaque harness timeout.
-- The no-progress deadline bounds one whole question including its retries, and the per-question
-  deadline bounds one attempt; a breach is recorded as a distinct failure reason.
+- Every turn is clamped to the remaining run budget, so budget exhaustion stops the run, leaves the
+  last written checkpoint intact, and fails with an explicit stop reason instead of reaching an
+  opaque harness timeout.
+- The stalled-question deadline bounds one whole question including its retries, and the
+  per-attempt deadline bounds one attempt. Each attempt reports the bound that actually
+  truncated it, so `per_attempt_deadline_exceeded`, `stalled_question`, and
+  `question_budget_exhausted` stay distinguishable in the artifact.
 - A checkpoint resumes only when the source revision, workspace patch digest, target stack origin,
   evidence identity, and ordered cohort all match, and a corrupt, torn, or incomplete checkpoint
   restarts the cohort.
 - A question that ends only because the run budget ran out is never persisted as a failure. The
   run stops with an explicit stop reason and leaves that question outstanding, so a resumed run
   retries it instead of inheriting a permanent failure the stack never caused.
+- A question that ends because it stalled is a real failure. It is recorded with its own reason,
+  the cohort continues, and it never reports itself as budget exhaustion. The artifact also
+  discloses which question and attempts ended a budget-stopped run.
 - The evidence identity covers the result schema, cohort seed, ordered question ids, and
   authentication mode. It excludes the per-run session id and the pacing, deadline, and retry
   knobs, because those change what a run costs rather than whether a completed answer is still
   valid evidence. Every retained result records the run that produced it, so a resumed cohort
   stays attributable and a result without that attribution cannot pass.
+- A per-attempt deadline breach ends the question; only a retryable transport source or a
+  transient turn error uses a remaining attempt.
+- A run that answers nothing live never publishes as authoritative. A resumed run releases one
+  question that an earlier run answered with a generation digest, so it re-answers a question that
+  can prove the ontology release and principal manifest of the stack it reports. A cohort with no
+  such stored answer releases its last answer-required question instead.
+- Only a verified turn resumes. A failed turn is re-attempted rather than inherited, so one flaky
+  turn cannot make a cohort permanently unpassable at a pinned revision, and a resume costs the
+  proof question plus every question the earlier run left unverified.
+- Every republished answer must be confirmed by the live turns. A resumed answer whose ontology
+  release or principal manifest digest no live answer reproduces fails the cohort instead of
+  publishing as a mixed-generation result set. A governed refusal discloses no generation, so it is
+  neutral to this rule and is republished on its own terms.
+- A cohort that passed every turn but missed its release criteria releases the answer-required turns
+  that only refused, so a later run re-attempts them instead of replaying the same block.
 - A completed cohort retires its checkpoint after the artifact is published and before the
   assertions, so a failed publish cannot destroy a complete cohort and a later run cannot replay
-  one; a run that performs no live turn can never report a passing or production-ready artifact.
+  one; a run that performs no live turn is reported as `interrupted` and never carries release
+  authority, so it can never report a production-ready artifact.
 
 ## Related docs
 

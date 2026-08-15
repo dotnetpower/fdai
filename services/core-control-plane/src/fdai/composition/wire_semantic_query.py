@@ -301,6 +301,9 @@ def build_semantic_query_runtime(
     planner = SemanticPlanningService(
         model=model,
         escalation_model=escalation_model,
+        # The planner stamps ObjectSet as_of and the gateway validates it against the same
+        # cutoff within a 5s skew, so both MUST read one clock.
+        now=evaluation_cutoff,
         manifests=CatalogQueryManifestProvider(
             release=ontology_release,
             object_types=ontology_catalog.object_types,

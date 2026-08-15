@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: d0e3f9f04782e2614bed266eb02581c001903777
+translation_source_sha: 46ae877206e693ff75104c15ee073c4c044355a4
 translation_revised: 2026-08-15
 ---
 # 프로젝트 구조
@@ -73,7 +73,7 @@ fdai/
 │   │   ├── case_history/       # canonical revision, strict operational receipt, artifact-first intake, scoped retrieval, backfill 및 retention
 │   │   ├── task_worker/        # 격리된 depth-one 읽기 전용 worker: capability 축소, lifecycle, 영구 state, parent synthesis
 │   │   ├── background_task/    # 영구 detached read: lease/CAS, atomic completion outbox, bounded retry, process-loss, retention purge
-│   │   ├── read_investigation/ # Exact-resource VM/network planning, evidence, immutable provider-vs-graph shadow comparison, latency policy, owner-scoped direct/stream replay, honest cost usage, SSE heartbeat, stream-close cancellation. Cloud SDK와 execution authority 없음
+│   │   ├── read_investigation/ # Exact-resource VM/network planning, evidence, immutable provider-vs-graph shadow comparison과 그 결정적 교차 출처 충돌 판정, latency policy, owner-scoped direct/stream replay, honest cost usage, SSE heartbeat, stream-close cancellation. Cloud SDK와 execution authority 없음
 │   │   ├── briefing/           # report-feed evidence 기반 결정적 opening/scheduled briefing
 │   │   ├── scheduler/          # create/pause/resume/edit/run-now/cancel lifecycle, cron dispatch, run history, blueprint, 범위 제한 continuation
 │   │   ├── document_ingestion/ # upload lifecycle + split inspect/index worker; Forseti/Saga/Var/Muninn gate, durable stage lease/CAS claim, replay-only gated-state recovery

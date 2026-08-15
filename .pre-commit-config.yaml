@@ -127,6 +127,12 @@ repos:
         language: system
         pass_filenames: false
         files: ^services/core-control-plane/src/fdai/core/
+      - id: check-report-format-boundary
+        name: check-report-format-boundary.py
+        entry: python3 scripts/quality/architecture/check-report-format-boundary.py
+        language: system
+        pass_filenames: false
+        files: ^(services/core-control-plane/src/fdai/core/reporting/formats/|scripts/quality/architecture/check-report-format-boundary\.py$)
       - id: check-integrity
         name: check-integrity.sh (framework-surface signature, offline)
         entry: bash scripts/integrity/check-integrity.sh

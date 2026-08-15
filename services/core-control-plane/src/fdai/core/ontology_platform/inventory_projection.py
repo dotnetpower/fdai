@@ -10,6 +10,11 @@ observation yields objects without links, an unregistered link type is dropped,
 and a link whose endpoint was not observed is dropped. Every drop is reported in
 ``dropped_reasons`` so a consumer can distinguish an empty result from an
 unobserved one instead of reading absence as health.
+
+Repeated observations of one identity inside a generation are adjudicated rather
+than merged: agreement collapses to one object, and disagreement stays an explicit
+conflict on the state fact. An empty conflict tuple records agreement between the
+compared observations only; it is never evidence of independent corroboration.
 """
 
 from __future__ import annotations
@@ -31,6 +36,13 @@ from fdai.shared.providers.state_evidence import (
     StateFactAuthority,
     StateFactLane,
     StateFactMetadata,
+)
+
+from .observation_adjudication import (
+    ObservationIdentityConflictError,
+    ObservationVerdict,
+    ObservedClaim,
+    adjudicate_observations,
 )
 
 #: Registered ``Resource -> Resource`` observation links. A new topology link type
@@ -60,7 +72,7 @@ _DROP_UNMAPPED_RESOURCE_TYPE = "unmapped_resource_type"
 
 
 class InventoryProjectionConflictError(RuntimeError):
-    """One observed resource id resolved to conflicting content in the same batch."""
+    """One observed identity resolved to a contradictory type or endpoint meaning."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,13 +108,17 @@ def build_inventory_ontology_projection(
 
     Resources are idempotent by ``resource_id`` and links by
     ``(from_id, link_type, to_id)``, matching the ``Inventory`` batch contract, so
-    a caller may concatenate streamed batches. Repeating identical content is a
-    no-op; repeating one id with different content is a defect and raises.
+    a caller may concatenate streamed batches. Repeating identical observed content
+    is a no-op. Repeating one id with disagreeing content is adjudicated: the
+    contested values are withheld and the object's state fact carries an explicit
+    conflict that every downstream consumer demotes on. The disagreement is never
+    averaged, and neither the newest nor the first observation wins.
 
     Raises:
         ValueError: ``generation`` is blank or the observation exceeds its bounds.
-        InventoryProjectionConflictError: one ``resource_id`` carries conflicting
-            observed content within the same observation.
+        InventoryProjectionConflictError: one ``resource_id`` was observed with a
+            contradictory type, or a link endpoint type contradicts the observed
+            resources.
     """
     if not generation.strip():
         raise ValueError("inventory projection generation MUST be non-empty")
@@ -192,44 +208,64 @@ def _build_objects(
     *,
     generation: str,
 ) -> dict[str, OntologyObjectRecord]:
-    """Return deduplicated ``Resource`` objects keyed by observed resource id."""
-    objects: dict[str, OntologyObjectRecord] = {}
+    """Return adjudicated ``Resource`` objects keyed by observed resource id.
+
+    Repeated observations of one identity are adjudicated instead of deduplicated by
+    first-writer or last-writer. Equal observed content collapses to one object; any
+    disagreement stays an explicit conflict on the state fact and the contested values
+    are withheld.
+    """
+    claims: dict[str, list[ObservedClaim]] = {}
     for record in resources:
         resource_id = record.resource_id.strip()
         if not resource_id or not record.type.strip():
             raise ValueError("inventory resource identity and type MUST be non-empty")
-        projected = _resource_object(record, resource_id=resource_id, generation=generation)
-        existing = objects.get(resource_id)
-        if existing is None:
-            objects[resource_id] = projected
-        elif existing.properties != projected.properties:
-            raise InventoryProjectionConflictError(
-                f"inventory resource {resource_id!r} observed with conflicting content"
+        props = normalize_json_value(dict(record.props), path=f"inventory.{resource_id}")
+        claims.setdefault(resource_id, []).append(
+            ObservedClaim(
+                type=record.type.strip(),
+                properties=dict(props) if isinstance(props, Mapping) else {},
+                provider_ref=record.provider_ref,
+                observed_at=_observed_at(record.last_seen),
             )
+        )
+
+    objects: dict[str, OntologyObjectRecord] = {}
+    for resource_id, resource_claims in claims.items():
+        try:
+            verdict = adjudicate_observations(resource_claims)
+        except ObservationIdentityConflictError as exc:
+            raise InventoryProjectionConflictError(
+                f"inventory resource {resource_id!r} observed with conflicting type"
+            ) from exc
+        objects[resource_id] = _resource_object(
+            verdict,
+            resource_id=resource_id,
+            generation=generation,
+        )
     return objects
 
 
 def _resource_object(
-    record: ResourceRecord,
+    verdict: ObservationVerdict,
     *,
     resource_id: str,
     generation: str,
 ) -> OntologyObjectRecord:
-    """Map one observed resource onto the declared ``Resource`` property shape."""
-    props = normalize_json_value(dict(record.props), path=f"inventory.{resource_id}")
-    properties: dict[str, Any] = {"id": resource_id, "type": record.type.strip()}
-    if isinstance(props, Mapping):
-        provider_properties = dict(props)
-        _add_observed_state(
-            provider_properties,
-            generation=generation,
-            observed_at=_observed_at(record.last_seen),
-        )
-        for lifted in ("name", "parent_id"):
-            value = props.get(lifted)
-            if isinstance(value, str) and value.strip():
-                properties[lifted] = value
-        properties["properties"] = provider_properties
+    """Map one adjudicated resource onto the declared ``Resource`` property shape."""
+    properties: dict[str, Any] = {"id": resource_id, "type": verdict.type}
+    provider_properties = dict(verdict.agreed_properties)
+    _add_observed_state(
+        provider_properties,
+        generation=generation,
+        observed_at=verdict.observed_at,
+        conflicts=verdict.conflicts,
+    )
+    for lifted in ("name", "parent_id"):
+        value = verdict.agreed_properties.get(lifted)
+        if isinstance(value, str) and value.strip():
+            properties[lifted] = value
+    properties["properties"] = provider_properties
     return OntologyObjectRecord(
         id=resource_id,
         object_type=_RESOURCE_OBJECT_TYPE,
@@ -242,13 +278,20 @@ def _add_observed_state(
     *,
     generation: str,
     observed_at: datetime | None,
+    conflicts: tuple[str, ...],
 ) -> None:
-    """Add canonical observed state only when provider time and state are complete."""
+    """Add the observed state fact, carrying any adjudicated conflict explicitly.
+
+    An empty ``conflicts`` tuple records that the compared observations agreed. It is
+    not evidence that the fact was independently corroborated.
+    """
 
     state = properties.get("status")
-    if not isinstance(state, str) or not state.strip() or observed_at is None:
+    has_state = isinstance(state, str) and bool(state.strip())
+    if observed_at is None or not (has_state or conflicts):
         return
-    properties["state"] = state.strip()
+    if has_state:
+        properties["state"] = str(state).strip()
     properties[STATE_FACT_METADATA_PROPERTY] = StateFactMetadata(
         lane=StateFactLane.OBSERVED,
         authority=StateFactAuthority.PROVIDER,
@@ -258,8 +301,9 @@ def _add_observed_state(
         recorded_at=observed_at,
         evidence_cutoff=observed_at,
         freshness_ceiling_seconds=300,
-        completeness=1.0,
+        completeness=0.0 if conflicts else 1.0,
         synthetic=False,
+        conflicts=conflicts,
         evidence_refs=(f"inventory-generation:{generation}",),
     ).to_mapping()
 

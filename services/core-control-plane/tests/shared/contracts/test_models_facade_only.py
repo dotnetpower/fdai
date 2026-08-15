@@ -43,18 +43,23 @@ _SUBMODULE_IMPORT = re.compile(
 
 def _iter_python_files() -> list[Path]:
     tracked: list[Path] = []
-    for path in _REPO_ROOT.glob("src/**/*.py"):
-        # Skip the models package itself - relative imports are the intended
-        # pattern there.
-        if _MODELS_PATH in path.parents or path.parent == _MODELS_PATH:
-            continue
-        tracked.append(path)
+    source_roots = sorted(_REPO_ROOT.glob("services/*/src"))
+    assert source_roots, "no service source root resolved; this guard would pass vacuously"
+    for source_root in source_roots:
+        for path in source_root.glob("**/*.py"):
+            # Skip the models package itself - relative imports are the intended
+            # pattern there.
+            if _MODELS_PATH in path.parents or path.parent == _MODELS_PATH:
+                continue
+            tracked.append(path)
     for path in _REPO_ROOT.glob("services/core-control-plane/tests/**/*.py"):
         # Allow tests under shared/contracts/ - they deliberately introspect
         # the split.
         if "shared/contracts" in str(path.relative_to(_REPO_ROOT)).replace("\\", "/"):
             continue
         tracked.append(path)
+    # A layout move already silenced the source half of this scan once.
+    assert len(tracked) > 100, f"only {len(tracked)} files collected, so a glob no longer resolves"
     return tracked
 
 

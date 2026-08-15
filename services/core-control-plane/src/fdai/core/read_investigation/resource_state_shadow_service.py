@@ -16,6 +16,7 @@ from fdai.core.ontology_platform.semantic_query import SemanticQueryReceipt
 from fdai.core.read_investigation.models import ReadInvestigationResult
 from fdai.core.read_investigation.resource_state_shadow_evidence import (
     ResourceIdentityCanonicalizer,
+    cross_source_state_fact,
     existing_input_digest,
     extract_existing_state,
     extract_semantic_state,
@@ -39,6 +40,7 @@ from fdai.core.read_investigation.shadow_sink import (
     ShadowReceiptIdentityConflictError,
     ShadowSinkAppendResult,
 )
+from fdai.shared.providers.state_evidence import StateFactMetadata
 
 _LOG = logging.getLogger(__name__)
 
@@ -73,7 +75,7 @@ class ShadowResourceStateComparisonService:
     ) -> ShadowComparisonAttempt:
         """Record a comparison while preserving the original response object."""
 
-        receipt = _compare_receipt(
+        receipt, adjudicated = _compare_receipt(
             existing_result=existing_result,
             query_result=query_result,
             semantic_receipt=semantic_receipt,
@@ -91,6 +93,7 @@ class ShadowResourceStateComparisonService:
                 receipt=receipt,
                 correlation_ref=correlation_ref,
                 attempt_latency_ms=attempt_latency_ms,
+                cross_source_state_fact=adjudicated,
                 error_kind=ShadowSinkErrorKind.IDENTITY_CONFLICT,
             )
         except Exception as exc:  # noqa: BLE001 - shadow persistence cannot rewrite response
@@ -100,6 +103,7 @@ class ShadowResourceStateComparisonService:
                 receipt=receipt,
                 correlation_ref=correlation_ref,
                 attempt_latency_ms=attempt_latency_ms,
+                cross_source_state_fact=adjudicated,
                 error_kind=ShadowSinkErrorKind.APPEND_FAILED,
             )
         if not isinstance(append_result, ShadowSinkAppendResult):
@@ -108,6 +112,7 @@ class ShadowResourceStateComparisonService:
                 receipt=receipt,
                 correlation_ref=correlation_ref,
                 attempt_latency_ms=attempt_latency_ms,
+                cross_source_state_fact=adjudicated,
                 error_kind=ShadowSinkErrorKind.INVALID_RESULT,
             )
         if append_result.receipt != receipt:
@@ -116,6 +121,7 @@ class ShadowResourceStateComparisonService:
                 receipt=receipt,
                 correlation_ref=correlation_ref,
                 attempt_latency_ms=attempt_latency_ms,
+                cross_source_state_fact=adjudicated,
                 error_kind=ShadowSinkErrorKind.IDENTITY_CONFLICT,
             )
         return ShadowComparisonAttempt(
@@ -123,6 +129,7 @@ class ShadowResourceStateComparisonService:
             receipt=append_result.receipt,
             persistence=append_result.persistence,
             attempt_latency_ms=attempt_latency_ms,
+            cross_source_state_fact=adjudicated,
         )
 
 
@@ -136,7 +143,7 @@ def _compare_receipt(
     principal_ref: str,
     correlation_ref: str,
     identity_canonicalizer: ResourceIdentityCanonicalizer | None,
-) -> ShadowComparisonReceipt:
+) -> tuple[ShadowComparisonReceipt, StateFactMetadata | None]:
     reasons: set[ShadowComparisonReason] = set()
     try:
         existing_digest = existing_input_digest(existing_result)
@@ -182,6 +189,7 @@ def _compare_receipt(
     reasons.update(semantic.reasons)
 
     blocking_outcome, selected_reasons = select_shadow_outcome(reasons)
+    adjudicated: StateFactMetadata | None = None
     if blocking_outcome is not None:
         outcome = blocking_outcome
     else:
@@ -200,10 +208,16 @@ def _compare_receipt(
             selected_reasons = tuple(sorted(mismatch_reasons, key=str))
             existing_digest = baseline.evidence_digest
             semantic_digest = candidate.evidence_digest
+            adjudicated = cross_source_state_fact(
+                baseline,
+                candidate,
+                trusted_cutoff=trusted_cutoff,
+            )
 
-    return build_shadow_receipt(
+    receipt = build_shadow_receipt(
         outcome=outcome,
         reasons=selected_reasons,
+        cross_source_conflicts=adjudicated.conflicts if adjudicated is not None else (),
         correlation_ref=correlation_ref,
         principal_ref=principal_ref,
         release_digest=semantic_receipt.ontology_release.digest,
@@ -215,6 +229,7 @@ def _compare_receipt(
         existing_evidence_digest=existing_digest,
         semantic_evidence_digest=semantic_digest,
     )
+    return receipt, adjudicated
 
 
 def _failed_attempt(
@@ -223,6 +238,7 @@ def _failed_attempt(
     receipt: ShadowComparisonReceipt,
     correlation_ref: str,
     attempt_latency_ms: float | None,
+    cross_source_state_fact: StateFactMetadata | None,
     error_kind: ShadowSinkErrorKind,
 ) -> ShadowComparisonAttempt:
     _LOG.warning(
@@ -239,6 +255,7 @@ def _failed_attempt(
         persistence=ShadowReceiptPersistence.FAILED,
         attempt_latency_ms=attempt_latency_ms,
         sink_error_kind=error_kind,
+        cross_source_state_fact=cross_source_state_fact,
     )
 
 

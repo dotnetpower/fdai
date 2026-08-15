@@ -1,7 +1,7 @@
 ---
 translation_of: context-selection-policy.md
-translation_source_sha: e3a3b0f5f15d70aa361564693003180842deae61
-translation_revised: 2026-08-14
+translation_source_sha: 61ebd5bdfd18f5d4d8c49b6a03b255a3dd8acf7f
+translation_revised: 2026-08-16
 ---
 # 컨텍스트 선택 정책
 
@@ -34,7 +34,7 @@ translation_revised: 2026-08-14
 | 결정론적 정책 계약, 계층형 어댑터, 불변식 래퍼 | implemented | `services/core-control-plane/src/fdai/core/working_context/`; `services/core-control-plane/tests/core/working_context/test_policy_validation.py`; `services/core-control-plane/tests/core/working_context/test_working_context.py` | 고정된 입력, 이중 실행, 매니페스트 검사, 고정 항목 검사, 실패 시 차단 동작에 focused test가 있습니다. |
 | 정책 레지스트리 및 거버넌스 전환 | implemented | `services/core-control-plane/src/fdai/core/working_context/governance.py`; `services/core-control-plane/tests/core/working_context/test_policy_governance.py`; `services/core-control-plane/tests/core/capability_catalog/test_runtime.py` | 자동 승격 없이 설치, shadow 활성화, 명시적 승격, 강등, 비상 정지, 롤백, 개정 번호 compare-and-set이 구현되어 있습니다. |
 | 범위가 제한된 shadow 평가, 비교 저장 어댑터, 승인된 고정본 재생 | implemented | `services/core-control-plane/src/fdai/core/working_context/shadow.py`; `services/core-control-plane/src/fdai/core/working_context/evidence.py`; `services/core-control-plane/src/fdai/core/working_context/replay.py`; `services/core-control-plane/tests/core/working_context/test_policy_shadow.py`; `services/core-control-plane/tests/core/working_context/test_evidence.py` | 구성 요소와 실패 격리가 focused test를 통과합니다. 이 상태는 운영 composition에 해당 요소가 연결되었다고 주장하지 않습니다. |
-| 운영 shadow composition 및 영속 비교 저장 | implemented | `services/core-control-plane/src/fdai/composition/wire_context_selection.py`; `services/core-control-plane/src/fdai/composition/_helpers.py`; `services/core-control-plane/tests/composition/test_wire_context_selection.py` | `bind_context_selection_shadow`가 `StateStore` 비교 저장소를 직접 소유하는 실행기 하나를 연결하고, 번들 설치는 갱신된 권한으로 실행기를 다시 연결하며, 일반적인 turn assembly가 범위가 제한된 비교 한 건을 저장합니다. |
+| shadow composition 경계 및 영속 비교 저장 | in-progress | `services/core-control-plane/src/fdai/composition/wire_context_selection.py`; `services/core-control-plane/src/fdai/composition/_helpers.py`; `services/core-control-plane/tests/composition/test_wire_context_selection.py` | `bind_context_selection_shadow`는 자체 `StateStore` 비교 저장소를 소유한 실행기 하나를 연결하고, bundle 설치는 갱신된 권한으로 실행기를 재연결하며, 조립된 turn은 범위가 제한된 비교 하나를 저장합니다. 다만 이 경계는 운영 composition이 아닙니다: `grep -rn bind_context_selection_shadow --include=*.py services/ packages/` 는 정의, `composition` 파사드, 그리고 그 테스트 하나만 일치시키며 `test_default_container_leaves_shadow_evaluation_unbound` 는 기본 컨테이너가 이를 연결하지 않은 채로 둔다고 단언합니다. |
 | Reader 비교 API 및 Console 화면 | implemented | `services/operator-service/src/fdai_operator_service/context_selection_projection.py`; `services/operator-service/src/fdai_operator_service/families/workflow/manifest.py`; `services/operator-service/tests/test_operator_workflow_family.py`; `console/src/routes/context-selection-comparisons.test.ts` | Reader 역할로 제한된 `GET /context-selection-comparisons` 경로가 범위가 제한된 영속 기록을 투영하고, 손상된 기록은 실패 시 차단되며, Console decoder가 권위 있는 페이로드를 수용합니다. |
 | 범위가 제한된 비교 보관 | implemented | `services/core-control-plane/src/fdai/shared/providers/state_store.py`; `services/core-control-plane/src/fdai/core/working_context/evidence.py`; `services/core-control-plane/src/fdai/core/working_context/shadow.py`; `services/core-control-plane/tests/core/working_context/test_policy_shadow.py`; `services/core-control-plane/tests/persistence/test_state_store_retention.py` | `ContextShadowConfig.retain_evaluations`가 영속 비교 행을 제한합니다. 보관 정리는 각 shadow 배치 뒤 요청 밖에서 실행되며, 범위가 제한된 최신순 읽기가 반환하지 않는 행만 제거하고, 정리가 실패해도 방금 기록한 비교를 버리지 않습니다. `delete_states_beyond` 원시 연산은 키를 지정할 수 없고 빈 접두사를 거부하며 멱등이고 이웃 접두사를 건들지 않으므로, 권위 있는 기록이나 감사 항목을 지울 수 없습니다. |
 
@@ -45,12 +45,17 @@ translation_revised: 2026-08-14
 | 2026-08-13 | in-progress | 이전 출처를 재구성하지 않고 구현 ledger를 도입했습니다. focused test로 뒷받침되는 core 정책, 거버넌스, shadow, 저장 어댑터, 재생 구성 요소를 구현됨으로 기록하고, 누락된 운영 composition과 Operator API 제공을 분리했습니다. | `current change`; 범위 표에 나열된 소스 및 focused test; `uv run pytest -q --no-cov services/core-control-plane/tests/core/working_context services/core-control-plane/tests/core/capability_catalog/test_runtime.py services/core-control-plane/tests/core/conversation/test_context_bridge.py services/core-control-plane/tests/core/conversation/test_assemble_turn_context.py` (`70 passed`); `npm --prefix console test -- --run src/routes/context-selection-comparisons.test.ts` (`3 passed`) | `validated`를 주장하기 전에 영속적인 운영 shadow 평가를 연결하고 입증하며, Reader 역할로 제한된 비교 경로를 제공하고, 거버넌스가 적용된 런타임 근거를 수집합니다. |
 | 2026-08-14 | implemented | `bind_context_selection_shadow` composition 경계와 짝을 이루는 `Container` 불변식을 추가하고, 기존 tracked-state 접두사 위에 Reader 역할로 제한된 Operator Service `GET /context-selection-comparisons` 투영을 추가했습니다. | `current change`; `wire_context_selection.py`, `context_selection_projection.py`, workflow route 매니페스트; focused check가 core composition 53건, Operator 34건, Console decoder 5건을 통과했고 작업 범위 Ruff와 strict mypy가 통과했습니다. | 범위 행을 `validated`로 올리기 전에 적격 shadow 평가 하나가 영속 저장과 Operator API 조회까지 이어짐을 추적하는 거버넌스 적용 런타임 근거를 기록합니다. |
 | 2026-08-14 | implemented | 키를 지정할 수 없는 접두사 범위 `delete_states_beyond` 원시 연산으로 영속 비교 보관을 제한해, shadow 평가를 tracked-state 무한 증가 없이 켜 둘 수 있게 했습니다. | `current change`; `state_store.py`, `testing/state_store.py`, `persistence/postgres.py`, `evidence.py`, `shadow.py`, `test_policy_shadow.py`; 집중 working-context, composition, provider 검사 187건이 통과했고 strict mypy가 소스 1421개를 통과했습니다. | 범위 행을 `validated`로 올리기 전에 적격 shadow 평가 하나가 영속 저장과 Operator API 조회까지 이어짐을 추적하는 거버넌스 적용 런타임 근거를 기록합니다. |
+| 2026-08-16 | in-progress | 위 구현 범위 행을 바로잡았습니다. 그 행은 "운영 shadow composition ... implemented" 였고, `bind_context_selection_shadow` 로 운영 shadow 평가를 구성했다는 완료 체크 항목까지 있었습니다. 실제로는 아무것도 구성하지 않습니다: 이 경계는 자기 모듈, `composition` 파사드, 테스트 하나 밖에는 호출자가 없고, 이 문서가 인용하는 스위트 자체가 기본 컨테이너는 shadow 평가를 연결하지 않은 채로 둔다고 단언합니다. 경계의 동작은 구현되고 테스트되었으나 composition은 아니므로, 행은 `in-progress` 가 되고 완료 항목은 증명된 절반과 열린 절반으로 나뉩니다. | `current change`; `grep -rn bind_context_selection_shadow --include=*.py services/ packages/ scripts/` 는 `wire_context_selection.py`, `composition/__init__.py`, `tests/composition/test_wire_context_selection.py` 만 일치시킵니다. | bootstrap 경로에서 이 경계를 호출하고, 조립된 운영 컨테이너가 연결된 실행기를 노출함을 증명합니다. |
 
 ### 남은 작업
 
-- [x] `bind_context_selection_shadow`로 범위가 제한된 운영 shadow 평가를 구성했고, 일반적인
-   turn assembly가 범위가 제한된 후보 평가를 예약하고 `StateStore`를 통해 비교를 저장함을
-   통합 테스트로 입증했습니다.
+- [x] `bind_context_selection_shadow` 경계가 범위가 제한된 후보 평가를 예약하고 `StateStore`를
+   통해 비교를 저장합니다. `test_assembled_turn_persists_bounded_shadow_comparison` 이 이를 입증합니다.
+- [ ] 배포가 실제로 이 경계를 구성합니다. 현재 어떤 런타임이나 delivery 경로도
+   `bind_context_selection_shadow` 를 호출하지 않으며,
+   `test_default_container_leaves_shadow_evaluation_unbound` 는 기본 컨테이너가 이를 연결하지 않은
+   채로 둔다고 단언합니다. 종료 조건: bootstrap 경로가 이 경계를 호출하고, 조립된 운영 컨테이너가
+   연결된 실행기를 노출함을 집중 검사로 증명합니다.
 - [x] Reader 역할로 제한된 Operator Service `GET /context-selection-comparisons` 경로를 workflow
    route family 매니페스트에 등록했고, 권위 있는 응답을 대상으로 API 통합 테스트와 Console
    decoder 테스트를 통과했습니다.

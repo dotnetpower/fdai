@@ -148,18 +148,20 @@ rules:
     disabled: true                                      # customer-specific exemption
 ```
 
-The target composition contract reads `FDAI_PROFILE_ID=customer-a` and hands the resolved profile
-to `ControlLoop` / `T0Engine` / `RiskGate` at startup. The default composition doesn't implement
-that contract yet.
+The composition contract reads `FDAI_PROFILE_ID=customer-a` at startup, resolves it once, and folds
+the result into the rule tuple the T0 index carries, so the deterministic tier and the safety check
+that evaluates an indexed `Rule` read the same immutable result.
 
-> **Wiring status (2026-07):** the `ProfileRegistry` library
+> **Wiring status (2026-08):** the `ProfileRegistry` library
 > (`services/core-control-plane/src/fdai/core/rule_catalog_profiles/`) is shipped and covered by
-> tests, but the composition root does not yet read `FDAI_PROFILE_ID`.
-> The `resolve()` call must be added to
-> [`services/core-control-plane/src/fdai/composition/`](../../../services/core-control-plane/src/fdai/composition/) before this
-> knob has any runtime effect; fork maintainers who need the profile
-> layer today can bind their own resolved profile via a wrapping factory
-> until the upstream default binder wires it.
+> tests, and the runtime composition root now reads `FDAI_PROFILE_ID` in
+> [`services/core-control-plane/src/fdai/runtime/rule_profile.py`](../../../services/core-control-plane/src/fdai/runtime/rule_profile.py).
+> An absent or blank knob keeps the unprofiled default of loading the whole catalog. Any other
+> resolution failure is fail-closed, so startup never silently widens the selected posture.
+> A profile selects and grades rules only: a profile-declared mode is reported in the startup
+> diagnostics and grants no execution authority, which stays with the authoritative promotion
+> registry. Workflow guard references validate against the same activated set, so a profile that
+> excludes a guard rule blocks boot instead of failing at first dispatch.
 
 ## Implementation status
 
@@ -170,7 +172,7 @@ that contract yet.
 | Profile contract and deterministic resolution | implemented | `services/core-control-plane/src/fdai/core/rule_catalog_profiles/models.py`; `registry.py`; `services/core-control-plane/tests/core/rule_catalog_profiles/test_registry.py` | Inheritance, override precedence, cycle rejection, severity floors, and stable ordering are covered. |
 | Canonical upstream profiles | implemented | `rule-catalog/profiles/baseline.yaml`; `recommended.yaml`; `strict.yaml`; `services/core-control-plane/tests/core/rule_catalog_profiles/test_full_profile_resolution.py` | All three profiles resolve against the current known Rule ids. |
 | Imported compliance profiles | implemented | `rule-catalog/profiles/collected/`; `services/core-control-plane/tests/core/rule_catalog_profiles/test_full_profile_resolution.py` | Collected profiles remain reference bundles; their Rules don't gain enforcement authority from membership. |
-| Runtime profile selection | not-started | [Fork adoption playbook](#4-fork-adoption-playbook); current change source audit | The composition root doesn't read `FDAI_PROFILE_ID` or pass a resolved profile into T0 and the safety check. |
+| Runtime profile selection | implemented | `services/core-control-plane/src/fdai/runtime/rule_profile.py`; `services/core-control-plane/src/fdai/runtime/control_loop.py`; `services/core-control-plane/tests/runtime/test_rule_profile.py` | One startup resolution produces the rule tuple the T0 index carries, so the deterministic tier and the safety check read the same objects. Deployed-runtime evidence is still outstanding. |
 | Reserved parser support | not-started | [Reserved-but-unimplemented parsers](#reserved-but-unimplemented-parsers) | `checkov-yaml` and `gatekeeper-templates` remain explicit fail-closed placeholders. |
 
 ### Implementation history
@@ -178,11 +180,13 @@ that contract yet.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source, catalog, and focused tests listed in the scope table. | Wire runtime profile selection and implement only the parser plugins selected for delivery. |
+| 2026-08-15 | implemented | Bound `FDAI_PROFILE_ID` at startup with one resolution, fail-closed selection and grading, and startup diagnostics that expose only the profile id, digest, and counts. | `current change`; `services/core-control-plane/src/fdai/runtime/rule_profile.py`; `services/core-control-plane/src/fdai/runtime/control_loop.py`; `pytest services/core-control-plane/tests/runtime/test_rule_profile.py` (12 passed). | Deployed-runtime evidence for a bound profile; reserved parsers stay unimplemented. |
 
 ### Remaining work
 
-- [ ] Read a governed profile id at startup, resolve it once, and prove T0 and the safety check consume the same immutable result.
-- [ ] Add startup diagnostics that expose the selected profile and digest without leaking tenant values.
+- [x] The startup binder reads the governed profile id once and hands the resolved rule tuple to the T0 index that the safety check also reads, proven by `services/core-control-plane/tests/runtime/test_rule_profile.py`.
+- [x] Startup diagnostics expose the profile id, digest, and counts only; rule parameters contribute to the digest but never to a log record, proven by the same focused test module.
+- [ ] Retain a deployed-runtime receipt showing one bound profile id and digest on a pinned revision.
 - [ ] Implement and test each reserved parser only when its source manifest is approved; until then preserve `ParserNotImplementedError`.
 
 ## 5. What this document is not

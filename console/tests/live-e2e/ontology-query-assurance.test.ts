@@ -1,8 +1,24 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 import { canonicalJsonDigest } from "./browser-evidence-provenance";
 import { isOntologyAssuranceProductionReady } from "./ontology-query-assurance-readiness";
 import {
+  assuranceCarriesLiveAuthority,
+  assuranceCheckpointPath,
+  assuranceCohortPassed,
   assuranceEvidenceIdentity,
+  assuranceReceiptSource,
+  assuranceRunMode,
+  checkpointDiscardable,
+  checkpointRetirable,
+  evidenceGenerationConsistent,
+  isRetainedTurnResult,
+  liveAnswerProof,
+  liveProofQuestionIds,
+  resumableWithLiveProof,
+  releasableForCoverage,
+  retainedForLiveGeneration,
   assuranceOperations,
   assuranceSessionId,
   assuranceTransportRetrySources,
@@ -102,6 +118,439 @@ describe("ontology assurance run identity", () => {
   it("accepts a bounded ASCII governed run id", () => {
     expect(resolveAssuranceRunId("issue63.20260815_run-1"))
       .toBe("issue63.20260815_run-1");
+  });
+});
+
+describe("ontology assurance run mode", () => {
+  it("names a run that proved the live stack", () => {
+    expect(assuranceRunMode({ liveProven: true, stopReason: null })).toBe("live");
+  });
+
+  it("never grants live authority without a proven live answer", () => {
+    expect(assuranceRunMode({ liveProven: false, stopReason: null })).toBe("interrupted");
+    expect(assuranceRunMode({ liveProven: true, stopReason: "run_budget_exhausted" }))
+      .toBe("interrupted");
+    expect(assuranceCarriesLiveAuthority("live")).toBe(true);
+    expect(assuranceCarriesLiveAuthority("interrupted")).toBe(false);
+  });
+});
+
+describe("liveAnswerProof", () => {
+  it("accepts an answered turn bound to an ontology release", () => {
+    expect(liveAnswerProof([
+      { disposition: "unavailable" },
+      { disposition: "answered", ontology_release_digest: "a" },
+    ])).toBe(true);
+  });
+
+  it("rejects a turn that disclosed no generation", () => {
+    expect(liveAnswerProof([{ disposition: "answered" }])).toBe(false);
+    expect(liveAnswerProof([{ disposition: "answered", ontology_release_digest: "" }])).toBe(false);
+    expect(liveAnswerProof([{ disposition: "abstained", ontology_release_digest: "a" }]))
+      .toBe(false);
+    expect(liveAnswerProof([])).toBe(false);
+  });
+});
+
+describe("assuranceReceiptSource", () => {
+  it("names a live run", () => {
+    expect(assuranceReceiptSource({ runMode: "live", liveQuestionCount: 3, resumedCount: 0 }))
+      .toBe("live_assurance");
+  });
+
+  it("never calls an interrupted live run a replay", () => {
+    expect(assuranceReceiptSource({
+      runMode: "interrupted",
+      liveQuestionCount: 40,
+      resumedCount: 0,
+    })).toBe("interrupted_partial");
+  });
+
+  it("names a run that published only resumed evidence", () => {
+    expect(assuranceReceiptSource({
+      runMode: "interrupted",
+      liveQuestionCount: 0,
+      resumedCount: 99,
+    })).toBe("resumed_replay");
+  });
+});
+
+describe("liveProofQuestionIds", () => {
+  const cohort = [
+    { question_id: "q1", operation: "inventory_listing" as const },
+    { question_id: "q2", operation: "causal_analysis" as const },
+    { question_id: "q3", operation: "action_draft_boundary" as const },
+    { question_id: "q4", operation: "unsupported_domain" as const },
+  ];
+
+  it("releases exactly the last answer-required question without stored evidence", () => {
+    expect(liveProofQuestionIds(cohort)).toEqual(["q2"]);
+  });
+
+  it("prefers a question an earlier run actually answered", () => {
+    expect(liveProofQuestionIds(cohort, [
+      { question_id: "q1", disposition: "answered", ontology_release_digest: "a" },
+      { question_id: "q2", disposition: "held" },
+    ])).toEqual(["q1"]);
+  });
+
+  it("ignores stored evidence that proves no generation", () => {
+    expect(liveProofQuestionIds(cohort, [
+      { question_id: "q1", disposition: "answered" },
+      { question_id: "q1", disposition: "held", ontology_release_digest: "a" },
+    ])).toEqual(["q2"]);
+  });
+
+  it("names nothing when no question can prove a generation", () => {
+    expect(liveProofQuestionIds([
+      { question_id: "q1", operation: "action_draft_boundary" as const },
+      { question_id: "q2", operation: "unsupported_domain" as const },
+    ])).toEqual([]);
+    expect(liveProofQuestionIds([])).toEqual([]);
+  });
+
+  it("releases one question from the governed cohort, so a resume makes net progress", () => {
+    const full = generateOntologyAssuranceCohort(0x0fda1);
+    expect(liveProofQuestionIds(full)).toHaveLength(1);
+  });
+});
+
+describe("resumableWithLiveProof", () => {
+  const cohort = [
+    { question_id: "q1", operation: "inventory_listing" as const },
+    { question_id: "q2", operation: "causal_analysis" as const },
+    { question_id: "q3", operation: "action_draft_boundary" as const },
+  ];
+
+  it("keeps resumed work that is not needed as live proof", () => {
+    expect(resumableWithLiveProof([{ question_id: "q1" }, { question_id: "q3" }], cohort))
+      .toEqual([{ question_id: "q1" }, { question_id: "q3" }]);
+  });
+
+  it("releases a proven answer rather than a question that only refused", () => {
+    const resumed = [
+      { question_id: "q1", disposition: "answered", ontology_release_digest: "a" },
+      { question_id: "q2", disposition: "held" },
+      { question_id: "q3" },
+    ];
+
+    expect(resumableWithLiveProof(resumed, cohort).map((result) => result.question_id))
+      .toEqual(["q2", "q3"]);
+  });
+
+  it("always releases the proof question for live re-verification", () => {
+    expect(resumableWithLiveProof(
+      [{ question_id: "q1" }, { question_id: "q2" }, { question_id: "q3" }],
+      cohort,
+    )).toEqual([{ question_id: "q1" }, { question_id: "q3" }]);
+  });
+
+  it("selects by cohort identity rather than array position", () => {
+    expect(resumableWithLiveProof(
+      [{ question_id: "q3" }, { question_id: "q2" }, { question_id: "q1" }],
+      cohort,
+    )).toEqual([{ question_id: "q3" }, { question_id: "q1" }]);
+  });
+});
+
+describe("evidenceGenerationConsistent", () => {
+  it("accepts resumed answers the live turns confirm", () => {
+    expect(evidenceGenerationConsistent({
+      resumed: [{ ontology_release_digest: "a", principal_manifest_digest: "p" }, {}],
+      live: [{ ontology_release_digest: "a", principal_manifest_digest: "p" }],
+    })).toBe(true);
+  });
+
+  it("rejects resumed evidence that no live answer confirms", () => {
+    expect(evidenceGenerationConsistent({
+      resumed: [{ ontology_release_digest: "a" }],
+      live: [{}],
+    })).toBe(false);
+  });
+
+  it("rejects answers produced against different generations", () => {
+    expect(evidenceGenerationConsistent({
+      resumed: [{ ontology_release_digest: "a" }],
+      live: [{ ontology_release_digest: "b" }],
+    })).toBe(false);
+    expect(evidenceGenerationConsistent({
+      resumed: [{ principal_manifest_digest: "p" }],
+      live: [{ principal_manifest_digest: "q" }],
+    })).toBe(false);
+  });
+
+  it("accepts a fresh run that resumed nothing", () => {
+    expect(evidenceGenerationConsistent({
+      resumed: [],
+      live: [{ ontology_release_digest: "a" }, {}],
+    })).toBe(true);
+  });
+});
+
+describe("checkpointRetirable", () => {
+  const complete = {
+    passed: true,
+    releaseSatisfied: true,
+    stopReason: null,
+    retainedCount: 100,
+    cohortSize: 100,
+  };
+
+  it("retires a complete cohort that published a passing result", () => {
+    expect(checkpointRetirable(complete)).toBe(true);
+  });
+
+  it("keeps the checkpoint when the cohort failed or did not complete", () => {
+    expect(checkpointRetirable({ ...complete, passed: false })).toBe(false);
+    expect(checkpointRetirable({ ...complete, releaseSatisfied: false })).toBe(false);
+    expect(checkpointRetirable({ ...complete, retainedCount: 99 })).toBe(false);
+    expect(checkpointRetirable({ ...complete, stopReason: "run_budget_exhausted" })).toBe(false);
+    expect(checkpointRetirable({ ...complete, cohortSize: 0, retainedCount: 0 })).toBe(false);
+  });
+});
+
+describe("assuranceCohortPassed", () => {
+  const clean = {
+    stopReason: null,
+    retainedCount: 100,
+    cohortSize: 100,
+    liveAuthority: true,
+    generationConsistent: true,
+    failureCount: 0,
+    exhaustedTransportRetryCount: 0,
+    duplicateRequestIdCount: 0,
+    duplicateProjectionIdCount: 0,
+    unsupportedOperationalClaimCount: 0,
+    unauthorizedExecutionCount: 0,
+    answeredCount: 70,
+    answeredWithCompleteEvidenceCount: 70,
+    authoritativeOutcomeCount: 100,
+  };
+
+  it("passes a complete governed cohort", () => {
+    expect(assuranceCohortPassed(clean)).toBe(true);
+  });
+
+  it("fails when any governed criterion is unmet", () => {
+    const broken = [
+      { stopReason: "run_budget_exhausted" },
+      { retainedCount: 99 },
+      { cohortSize: 0, retainedCount: 0 },
+      { liveAuthority: false },
+      { generationConsistent: false },
+      { failureCount: 1 },
+      { exhaustedTransportRetryCount: 1 },
+      { duplicateRequestIdCount: 1 },
+      { duplicateProjectionIdCount: 1 },
+      { unsupportedOperationalClaimCount: 1 },
+      { unauthorizedExecutionCount: 1 },
+      { answeredWithCompleteEvidenceCount: 69 },
+      { authoritativeOutcomeCount: 99 },
+    ];
+    for (const override of broken) {
+      expect(assuranceCohortPassed({ ...clean, ...override }), JSON.stringify(override))
+        .toBe(false);
+    }
+  });
+});
+
+describe("isRetainedTurnResult", () => {
+  const retained: Record<string, unknown> = {
+    question_id: "q1",
+    produced_by_run_id: "run-1",
+    locale: "en",
+    operation: "inventory_listing",
+    attempt_count: 1,
+    transport_attempts: [{ attempt: 1, outcome: "semantic_terminal" }],
+    passed: true,
+    unauthorized_execution_claim: false,
+  };
+
+  it("accepts a fully attributed result", () => {
+    expect(isRetainedTurnResult(retained)).toBe(true);
+    expect(isRetainedTurnResult({
+      ...retained,
+      disposition: "answered",
+      projection_id: "p1",
+      request_id: "r1",
+      evidence_ref_count: 2,
+    })).toBe(true);
+  });
+
+  it("rejects a result that lost a field the pass criteria read", () => {
+    const broken: Record<string, unknown>[] = [
+      { ...retained, produced_by_run_id: "" },
+      { ...retained, passed: "yes" },
+      { ...retained, unauthorized_execution_claim: undefined },
+      { ...retained, attempt_count: "1" },
+      { ...retained, transport_attempts: [] },
+      { ...retained, transport_attempts: [{ attempt: 1 }] },
+      { ...retained, evidence_ref_count: "2" },
+      { ...retained, locale: "fr" },
+      { ...retained, operation: "unknown_operation" },
+      { ...retained, transport_attempts: [{ attempt: 1, outcome: "invented_outcome" }] },
+      { ...retained, transport_attempts: [{ outcome: "semantic_terminal" }] },
+      { ...retained, ontology_release_digest: 3 },
+      { ...retained, disposition: "answered" },
+      { ...retained, disposition: "answered", projection_id: "p1" },
+    ];
+    for (const value of broken) {
+      expect(isRetainedTurnResult(value), JSON.stringify(value)).toBe(false);
+    }
+  });
+});
+
+describe("checkpointDiscardable", () => {
+  it("removes a retired checkpoint", () => {
+    expect(checkpointDiscardable({
+      retirable: true,
+      generationConsistent: true,
+      stopReason: null,
+    })).toBe(true);
+  });
+
+  it("removes a completed checkpoint that mixes generations", () => {
+    expect(checkpointDiscardable({
+      retirable: false,
+      generationConsistent: false,
+      stopReason: null,
+    })).toBe(true);
+  });
+
+  it("keeps a truncated run's checkpoint, which may simply have proved nothing yet", () => {
+    expect(checkpointDiscardable({
+      retirable: false,
+      generationConsistent: false,
+      stopReason: "run_budget_exhausted",
+    })).toBe(false);
+    expect(checkpointDiscardable({
+      retirable: false,
+      generationConsistent: false,
+      stopReason: "context_reset_failed",
+    })).toBe(false);
+  });
+
+  it("keeps a resumable checkpoint", () => {
+    expect(checkpointDiscardable({
+      retirable: false,
+      generationConsistent: true,
+      stopReason: null,
+    })).toBe(false);
+  });
+});
+
+describe("retainedForLiveGeneration", () => {
+  const live = [
+    { question_id: "q9", ontology_release_digest: "b", principal_manifest_digest: "q" },
+  ];
+
+  it("keeps results that match the newest live generation", () => {
+    const retained = [
+      { question_id: "q1", ontology_release_digest: "a" },
+      { question_id: "q2", ontology_release_digest: "b", principal_manifest_digest: "q" },
+      { question_id: "q3" },
+      ...live,
+    ];
+
+    expect(retainedForLiveGeneration(retained, live).map((result) => result.question_id))
+      .toEqual(["q2", "q3", "q9"]);
+  });
+
+  it("keeps everything when the live turns disclosed no generation", () => {
+    const retained: { question_id: string; ontology_release_digest?: string }[] = [
+      { question_id: "q1", ontology_release_digest: "a" },
+    ];
+
+    expect(retainedForLiveGeneration(retained, [{ question_id: "q9" }])).toEqual(retained);
+  });
+
+  it("drops results bound to a superseded principal manifest", () => {
+    const retained = [
+      { question_id: "q1", principal_manifest_digest: "p" },
+      { question_id: "q2", principal_manifest_digest: "q" },
+    ];
+
+    expect(retainedForLiveGeneration(retained, live).map((result) => result.question_id))
+      .toEqual(["q2"]);
+  });
+});
+
+describe("governed run loop", () => {
+  const source = readFileSync(
+    new URL("./ontology-query-assurance.spec.ts", import.meta.url),
+    "utf8",
+  );
+
+  it("keeps every per-question wait and turn inside a governed stop path", () => {
+    // A page fault anywhere in the question must reach the artifact, not escape the test body.
+    expect(source).toMatch(
+      /try \{[\s\S]{0,400}?await page\.waitForTimeout\(spacingMs\);[\s\S]{0,400}?await resolveQuestion\([\s\S]{0,400}?\} catch/,
+    );
+    expect(source).toMatch(/stopReason = "page_unavailable";/);
+    expect(source).toMatch(/stopReason = "checkpoint_write_failed";/);
+  });
+
+  it("names the question that ended a budget-stopped run", () => {
+    const budgetBreak = source.slice(
+      source.indexOf("for (const question of outstanding) {"),
+      source.indexOf("let outcome: QuestionOutcome;"),
+    );
+
+    expect(budgetBreak).toMatch(/stoppedOn = \{ question_id: question\.question_id/);
+  });
+});
+
+describe("releasableForCoverage", () => {
+  it("releases an answer-required turn that only refused", () => {
+    const retained = [
+      { question_id: "q1", operation: "causal_analysis" as const, disposition: "held" },
+      { question_id: "q2", operation: "causal_analysis" as const, disposition: "answered" },
+      { question_id: "q3", operation: "action_draft_boundary" as const, disposition: "action_draft" },
+    ];
+
+    expect(releasableForCoverage(retained).map((result) => result.question_id))
+      .toEqual(["q2", "q3"]);
+  });
+
+  it("keeps a cohort that already answered every answer-required operation", () => {
+    const retained = [
+      { question_id: "q1", operation: "inventory_listing" as const, disposition: "answered" },
+    ];
+
+    expect(releasableForCoverage(retained)).toEqual(retained);
+  });
+});
+
+describe("assuranceCheckpointPath", () => {
+  const base = {
+    directory: "../.fdai/live-validation",
+    runScope: "full_cohort",
+    bindingDigest: `sha256:${"b".repeat(64)}`,
+  };
+
+  it("separates cohorts by binding and scope", () => {
+    const full = assuranceCheckpointPath({ ...base, configured: undefined });
+    const probe = assuranceCheckpointPath({
+      ...base,
+      configured: undefined,
+      runScope: "focused_probe",
+    });
+    const otherStack = assuranceCheckpointPath({
+      ...base,
+      configured: undefined,
+      bindingDigest: `sha256:${"c".repeat(64)}`,
+    });
+    expect(otherStack).not.toBe(full);
+    expect(full).toBe(`../.fdai/live-validation/ontology-assurance-full_cohort-${"b".repeat(16)}.json`);
+    expect(probe).not.toBe(full);
+  });
+
+  it("honours an explicit path and an explicit opt-out", () => {
+    expect(assuranceCheckpointPath({ ...base, configured: "/tmp/checkpoint.json" }))
+      .toBe("/tmp/checkpoint.json");
+    expect(assuranceCheckpointPath({ ...base, configured: "  " })).toBeNull();
+    expect(assuranceCheckpointPath({ ...base, configured: " /tmp/checkpoint.json " }))
+      .toBe("/tmp/checkpoint.json");
   });
 });
 
@@ -285,6 +734,7 @@ describe("ontology query assurance cohort", () => {
     ["en-aggregation-4,", "nonempty comma-separated ids"],
     ["en-aggregation-4,en-aggregation-4", "must not contain duplicate ids"],
     ["en-not_an_operation-1", "contains unknown ids"],
+    ["en-unsupported_domain-1", "at least one answer-required operation"],
   ])("rejects an invalid focused question selection: %s", (raw, message) => {
     expect(() => selectOntologyAssuranceQuestions(
       generateOntologyAssuranceCohort(0x0fda1),
@@ -378,6 +828,18 @@ describe("typed semantic receipt oracle", () => {
     });
 
     expect(judgeSemanticReceipt(held)).toEqual({ passed: true, receipt: held });
+  });
+
+  it("rejects a governed refusal that carried an incoherent verification artifact", () => {
+    expect(judgeSemanticTurn(
+      answeredReceipt({
+        disposition: "held",
+        semantic_route: undefined,
+        unavailable_reason: "semantic_planner_unavailable",
+        execution_receipt_digest: undefined,
+      }),
+      verifiedAnswer({ checks_completed: 5, checks_total: 2 }),
+    )).toEqual({ passed: false, failure_reason: "malformed_verification_artifact" });
   });
 
   it("requires complete verified evidence for answered turns", () => {

@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/catalog/measurement-baseline/1.0.0",
+  "title": "MeasurementBaseline",
+  "description": "Recorded KPI values for a reference agent on a frozen scenario set. Kept in its own id namespace and store; never mixed with Rule ids or Rule schemas.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "kind",
+    "id",
+    "scenario_set",
+    "reference_agent",
+    "window",
+    "metrics",
+    "sample_size",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "kind": {
+      "const": "measurement-baseline"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^baseline\\.[a-z0-9][a-z0-9._-]{1,120}$"
+    },
+    "scenario_set": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "reference_agent": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "window": {
+      "type": "string",
+      "pattern": "^P(?!$)(\\d+D)?(T(\\d+H)?(\\d+M)?(\\d+S)?)?$"
+    },
+    "metrics": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "number"
+      },
+      "propertyNames": {
+        "pattern": "^[a-z][a-z0-9_]{1,63}$"
+      }
+    },
+    "sample_size": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "measured_at",
+        "measured_by"
+      ],
+      "properties": {
+        "measured_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "measured_by": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    }
+  }
+}
