@@ -28,6 +28,10 @@ TERMINAL_POLICY_HINTS = (
     "scripts/deployment/azure/",
     "scripts/deployment/release/",
 )
+GIT_POLICY_OPERATION = re.compile(
+    r"(?:^|[\s'\";&|])(?:[^\s'\";&|]*/)?git\b[^;&|]*"
+    r"\b(?:checkout|clean|commit|reset|restore|stash|switch)\b"
+)
 Payload = dict[str, object]
 
 
@@ -50,7 +54,7 @@ def _tool_input(payload: Payload) -> dict[object, object]:
 
 def _terminal_requires_policy(tool_input: dict[object, object]) -> bool:
     normalized = " ".join(str(tool_input.get("command") or "").casefold().split())
-    if re.search(r"(?:^|[;&|]\s*)git\s+(?:-[^ ]+\s+)*commit(?:\s|$)", normalized):
+    if GIT_POLICY_OPERATION.search(normalized):
         return True
     if (
         normalized.startswith(("gh run list", "gh workflow list", "gh workflow view"))
