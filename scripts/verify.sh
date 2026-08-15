@@ -200,6 +200,7 @@ run_gate_scoped "document-size" '^(docs/roadmap/|scripts/quality/architecture/ch
 run_gate_scoped "display-terminology" '^(README|docs/|rule-catalog/|console/|cli/|scripts/quality/documentation/check-display-terminology\.py$)' python3 scripts/quality/documentation/check-display-terminology.py
 run_gate_scoped "action-runbooks" '^(docs/runbooks/|rule-catalog/action-types/|scripts/quality/documentation/check-action-runbooks\.py$)' uv run python scripts/quality/documentation/check-action-runbooks.py
 run_gate_scoped "reference-only-sources" '^(rule-catalog/sources/|services/core-control-plane/src/fdai/rule_catalog/pipeline/collect/collector\.py$|scripts/quality/repository/check-reference-only-sources\.py$)' uv run python scripts/quality/repository/check-reference-only-sources.py
+run_gate_scoped "report-format-boundary" '^(services/core-control-plane/src/fdai/core/reporting/formats/|scripts/quality/architecture/check-report-format-boundary\.py$)' python3 scripts/quality/architecture/check-report-format-boundary.py
 # Rule-to-policy semantic drift: OPA parses every authored Rego and the catalog
 # entry MUST agree on rule_id, severity, category, and the evaluated properties.
 # Requires the pinned OPA binary; an unavailable OPA fails the gate rather than
