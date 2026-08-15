@@ -8,7 +8,9 @@ import re
 import shutil
 import subprocess
 import tempfile
+from collections import Counter
 from collections.abc import Callable
+from hashlib import sha256
 from itertools import islice
 from pathlib import Path
 from typing import Any
@@ -31,6 +33,8 @@ PRESSURE_LIMITS = {
 }
 MAX_PROCESSES = 4_096
 MAX_COMMAND_BYTES = 4_096
+MAX_WARNING_BYTES = 5 * 1_048_576
+MAX_WARNING_ROWS = 5_000
 
 
 def _process_is_alive(pid: int) -> bool:
@@ -214,3 +218,57 @@ def editor_pressure_for_root(root: Path) -> dict[str, Any]:
     if not (repo_root / ".fdai").is_dir():
         return {"reason_code": "local_workspace_not_prepared", "status": "unavailable"}
     return editor_pressure_diagnostic()
+
+
+def warning_diagnostic(root: Path) -> dict[str, Any]:
+    """Separate explicit diagnostic probes from bounded actionable warning counts."""
+    resolved = git_common_dir(root)
+    if resolved is None:
+        return {"reason_code": "warning_repository_unavailable", "status": "unavailable"}
+    repo_root, _common_dir = resolved
+    path = repo_root / ".fdai" / "logs" / "warnings.jsonl"
+    if not path.is_file():
+        return {"reason_code": "warning_log_unavailable", "status": "unavailable"}
+    malformed = 0
+    probes = 0
+    actionable = 0
+    fingerprints: Counter[str] = Counter()
+    truncated = path.stat().st_size > MAX_WARNING_BYTES
+    with path.open("rb") as handle:
+        if truncated:
+            handle.seek(-MAX_WARNING_BYTES, os.SEEK_END)
+            handle.readline()
+        for row_index, raw in enumerate(handle):
+            if row_index >= MAX_WARNING_ROWS:
+                truncated = True
+                break
+            try:
+                payload: object = json.loads(raw)
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                malformed += 1
+                continue
+            if not isinstance(payload, dict):
+                malformed += 1
+                continue
+            message = payload.get("message")
+            if not isinstance(message, str):
+                malformed += 1
+                continue
+            if payload.get("diagnostic_probe") is True or message.startswith("PROBE_"):
+                probes += 1
+                continue
+            actionable += 1
+            logger = payload.get("logger") if isinstance(payload.get("logger"), str) else "unknown"
+            digest = sha256(f"{logger}\0{message}".encode()).hexdigest()[:16]
+            fingerprints[digest] += 1
+    return {
+        "actionable_count": actionable,
+        "malformed_count": malformed,
+        "probe_count": probes,
+        "status": "warning" if actionable or malformed else "ok",
+        "top_actionable_fingerprints": [
+            {"count": count, "fingerprint": fingerprint}
+            for fingerprint, count in fingerprints.most_common(10)
+        ],
+        "truncated": truncated,
+    }

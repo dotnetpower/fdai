@@ -47,6 +47,9 @@ from scripts.automation.developer_workflow_runtime import (
 from scripts.automation.developer_workflow_runtime import (
     local_services_diagnostic as _local_services_diagnostic,
 )
+from scripts.automation.developer_workflow_runtime import (
+    warning_diagnostic as _warning_diagnostic,
+)
 
 SCHEMA_VERSION = 1
 UTC = timezone.utc  # noqa: UP017 - tracked hooks also support system Python 3.10.
@@ -54,6 +57,7 @@ __all__ = [
     "_browser_runner_diagnostic",
     "_editor_pressure_diagnostic",
     "_local_services_diagnostic",
+    "_warning_diagnostic",
     "main",
 ]
 
@@ -73,6 +77,7 @@ def status_report(root: Path) -> dict[str, Any]:
             "index": _index_diagnostic(root),
             "local_services": _local_services_diagnostic(root),
             "validation": _validation_diagnostic(root),
+            "warnings": _warning_diagnostic(root),
         },
     }
 
