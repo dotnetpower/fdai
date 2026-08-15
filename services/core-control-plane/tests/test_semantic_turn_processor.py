@@ -15,7 +15,15 @@ from fdai.core.conversation.semantic_runtime import (
     SemanticTurnResult as RuntimeSemanticTurnResult,
 )
 from fdai.core.conversation.session import Principal, Role, Turn
-from fdai.core.ontology_platform import QueryNodeResult, QueryPlanExecution
+from fdai.core.ontology_platform import (
+    CausalEvidenceJoin,
+    CausalJoinStatus,
+    MetricWindow,
+    QueryNodeResult,
+    QueryPlanExecution,
+    TopologyDiff,
+    TopologyGraphAt,
+)
 from fdai.core.ontology_platform.query_values import QueryRow, QueryTable
 from fdai.rule_catalog.schema.rule_semantic_generation import (
     CatalogRetrievalReceipt,
@@ -25,6 +33,7 @@ from fdai.rule_catalog.schema.rule_semantic_generation import (
 )
 from fdai.rule_catalog.schema.rule_semantic_retrieval import RuleCorpus
 from fdai.shared.providers.event_bus import PublishReceipt
+from fdai.shared.providers.ontology_instance import OntologyGraphSnapshot
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai_core_service.semantic_turn_consumer import (
@@ -35,6 +44,7 @@ from fdai_core_service.semantic_turn_consumer import (
 from fdai_core_service.semantic_turn_processor import (
     SemanticTurnProcessor,
     SemanticTurnRejectedError,
+    _typed_extension_answer_output,
 )
 from fdai_service_contracts import RuleSearchReceipt, rule_search_query_digest
 from fdai_service_contracts.ontology_query import (
@@ -60,6 +70,76 @@ RULE_QUERY_DIGEST = (
         json.dumps(RULE_QUERY, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
 )
+
+
+@pytest.mark.parametrize(
+    ("value", "result_kind"),
+    (
+        (
+            TopologyGraphAt(
+                as_of=NOW,
+                known_at=NOW,
+                graph=OntologyGraphSnapshot(),
+                complete=True,
+                revision_ids=("revision-1",),
+                provider_generation_refs=("generation-1",),
+                evidence_refs=("topology:evidence-1",),
+                digest=RELEASE_DIGEST,
+            ),
+            "topology.graph",
+        ),
+        (
+            TopologyDiff(
+                before_digest=MANIFEST_DIGEST,
+                after_digest=RELEASE_DIGEST,
+                added_object_ids=("resource-1",),
+                removed_object_ids=(),
+                changed_object_ids=(),
+                added_link_keys=(),
+                removed_link_keys=(),
+                changed_link_keys=(),
+                complete=True,
+                evidence_refs=("topology:evidence-1",),
+                digest=PLAN_DIGEST,
+            ),
+            "topology.diff",
+        ),
+        (
+            MetricWindow(
+                concept_id="request_count",
+                resource_id="resource-1",
+                unit="count",
+                start=NOW - timedelta(minutes=5),
+                end=NOW,
+                samples=(),
+                complete=True,
+                evidence_refs=("metric:evidence-1",),
+            ),
+            "metric.window",
+        ),
+        (
+            CausalEvidenceJoin(
+                status=CausalJoinStatus.UNRESOLVED,
+                temporal_claim=None,
+                topology_diff_digest=None,
+                competing_explanations=("credential_change",),
+                limitations=("metric_window_incomplete",),
+                evidence_refs=("metric:evidence-1",),
+            ),
+            "causal.join",
+        ),
+    ),
+)
+def test_typed_extension_answer_output_is_bounded_and_authority_free(
+    value: object,
+    result_kind: str,
+) -> None:
+    output = _typed_extension_answer_output("result", value)
+
+    assert output is not None
+    assert output["result_kind"] == result_kind
+    assert output["summary"]["execution_authority"] is False
+    assert "evidence_refs" not in output["summary"]
 
 
 class _Runtime:
