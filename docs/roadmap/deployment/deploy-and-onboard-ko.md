@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 5c5d522c554718364d4697b04ed7773b7fd5a775
-translation_revised: 2026-08-13
+translation_source_sha: ee5cb4b04d08e3a89c1e95f77fdf0bc0fc457491
+translation_revised: 2026-08-15
 ---
 
 # 배포와 온보딩(Deploy and Onboard)
@@ -596,7 +596,7 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `FDAI_CHAOS_CONTEXT_JSON` / `FDAI_CHAOS_ENFORCE` | env | 배포 | promoted chaos injector 런타임 맥락. 명시 플래그가 `1`이고 시나리오가 promoted 상태이며 injector와 탐색이 모두 등록된 경우에만 강제 적용을 허용합니다. |
 | `FDAI_JIRA_BASE_URL` / `FDAI_JIRA_ACCOUNT_EMAIL` / `FDAI_JIRA_API_TOKEN_SECRET` / `FDAI_JIRA_TOOL_MAP_JSON` | env + KV 참조 | 배포 | 운영 `JiraToolExecutor`를 설정합니다. `TOOL_MAP_JSON`은 `tool.open-incident-ticket`을 Jira project 키에 매핑합니다. 토큰 값은 KV-backed `FDAI_SECRET_<API_TOKEN_SECRET>`에서 해석하며 대응에 토큰을 넣지 않습니다. 영속 Jira 원장과 distributed 리소스 잠금을 위해 `FDAI_STATE_STORE_DSN`이 필요합니다. |
 | `FDAI_JIRA_ENFORCE` | env | 배포 | unset/`0` 기본값은 Jira를 shadow-only로 유지합니다. `1`은 ActionType 승격 게이트와 risk/HIL 결정도 강제 적용을 허용한 경우에만 강제 적용 요청을 허용합니다. Shadow 증적은 실제 인시던트 티켓으로 링크되지 않습니다. |
-| `FDAI_PROFILE_ID` | env | 배포 | `rule-catalog/profiles/` 에서 한 프로파일을 선택 ([rule-catalog-profiles-ko.md](../rules-and-detection/rule-catalog-profiles-ko.md) 참조). **2026-07 기준 composition-root 배선 대기.** |
+| `FDAI_PROFILE_ID` | env | 배포 | `rule-catalog/profiles/` 에서 한 프로파일을 선택 ([rule-catalog-profiles-ko.md](../rules-and-detection/rule-catalog-profiles-ko.md) 참조). 시작 시 바인딩되며, 비어 있거나 없으면 전체 카탈로그를 유지합니다. |
 | `FDAI_NARRATOR_PROVIDER` / `FDAI_NARRATOR_BASE_URL` / `FDAI_NARRATOR_MODEL` / `FDAI_NARRATOR_API_VERSION` / `FDAI_NARRATOR_API_KEY` | env + KV 참조 | 배포 | Operator-console 서술기 translator 설정 ([operator-console-ko.md](../interfaces/operator-console-ko.md) 참조); `API_KEY` 는 반드시 KV 경유. 빈 프로바이더 = 결정론적 폴백. |
 | `FDAI_CHATOPS_APPROVE_CALLBACK_URL` / `FDAI_CHATOPS_REJECT_CALLBACK_URL` / `FDAI_CHATOPS_WEBHOOK_SECRET` / `FDAI_CHATOPS_TIMEOUT_SECONDS` | env + KV 참조 | 배포 | Chatops HIL 콜백 엔드포인트와 공유 웹훅 시크릿입니다. 시크릿 은 반드시 KV를 경유합니다. 시크릿 을 설정하면 운영 콜백 경로 와 영속 Postgres 결정 레지스트리 가 활성화됩니다. |
 | `FDAI_KAFKA_BOOTSTRAP_SERVERS` / `FDAI_HIL_DECISION_TOPIC` | env | 배포 / 업스트림 | Operator API 가 영속 HIL 결정 증적 를 publish 하는 Event Hubs Kafka 엔드포인트 입니다. 토픽 기본값은 `aw.hil.decisions`이며 코어 가 같은 토픽 을 소비하고 재개/실행 을 소유합니다. |

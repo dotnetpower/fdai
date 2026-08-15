@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
@@ -145,7 +145,8 @@ from fdai.runtime.providers import (
     _build_process_store,
     _build_resource_lock,
 )
-from fdai.shared.contracts.models import Mode, ResponseOutcome
+from fdai.runtime.rule_profile import bind_rule_profile
+from fdai.shared.contracts.models import Mode, ResponseOutcome, Rule
 from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.stage_publisher import StagePublisher
@@ -453,7 +454,13 @@ def _build_control_loop(
         policies_root=policies_root,
         remediation_root=remediation_root,
     )
-    index = RuleIndex.build(rules, signal_types=signal_types)
+    # One resolution of the governed profile. The bound tuple is what the
+    # index carries, so T0 and the safety check that evaluates an indexed Rule
+    # read the same immutable result. Workflow guard references still validate
+    # against the full authored catalog.
+    profile_binding = bind_rule_profile(rules, catalog_root=catalog_root)
+    active_rules: Sequence[Rule] = rules if profile_binding is None else profile_binding.rules
+    index = RuleIndex.build(active_rules, signal_types=signal_types)
     governance_catalog = load_governance_catalog(catalog_root)
 
     # Workflow catalog (fail-closed if the directory exists but any file is
