@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
 from fdai.agents import AdminCard, GitHubIssue
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
@@ -354,7 +355,10 @@ def test_bragi_abstain_creates_saga_issue_and_promotes_via_norns() -> None:
         )
     )
     assert len(mimir.pending_candidates()) == 1
-    mimir.promote("auto.gen.route", source="handoff")
+    # The candidate has no shadow dwell record, so promotion stays refused; the
+    # issue is closed by the reviewed catalog pull request, not by the loop.
+    with pytest.raises(ValueError, match="shadow dwell evidence is insufficient"):
+        mimir.promote("auto.gen.route", source="handoff")
 
     # Auto-close by Saga after promotion
     asyncio.run(saga.close_issue(fingerprint=fp, closed_by_pr="https://example.invalid/pr/7"))

@@ -27,6 +27,15 @@ from .review import (
     CatalogReviewPublicationReceipt,
     CatalogReviewPublisher,
 )
+from .shadow_dwell import (
+    ShadowDwellDecision,
+    ShadowDwellEvidence,
+    ShadowDwellEvidenceError,
+    ShadowDwellLedger,
+    ShadowDwellObservation,
+    ShadowDwellThresholds,
+    evaluate_shadow_dwell,
+)
 
 __all__ = [
     "CatalogCandidateCompiler",
@@ -49,5 +58,12 @@ __all__ = [
     "ReplayCheckReceipt",
     "SchemaCheckReceipt",
     "ShadowCheckReceipt",
+    "ShadowDwellDecision",
+    "ShadowDwellEvidence",
+    "ShadowDwellEvidenceError",
+    "ShadowDwellLedger",
+    "ShadowDwellObservation",
+    "ShadowDwellThresholds",
+    "evaluate_shadow_dwell",
     "pattern_case_from_operational_case",
 ]
