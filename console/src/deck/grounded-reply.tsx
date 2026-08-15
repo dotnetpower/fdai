@@ -31,6 +31,7 @@ import type {
   VerificationProgress,
 } from "./backend";
 import { confirmActionDraft, renderActionResult } from "./backend";
+import { presentationArtifactSupersedesText } from "./presentation-artifact";
 import { RichContent } from "./rich-content";
 import { StructuredReply } from "./structured-reply";
 import { openDeckWithContext, type DeckOpenDetail } from "./open-deck";
@@ -190,7 +191,8 @@ export function GroundedReply({
             {t(`deck.answerState.${answerState}`)}
           </span>
         ) : null}
-        {!streaming && presentationArtifact ? (
+        {!streaming && presentationArtifact
+          && presentationArtifactSupersedesText(presentationArtifact) ? (
           <StructuredReply artifact={presentationArtifact} />
         ) : (
           <RichContent

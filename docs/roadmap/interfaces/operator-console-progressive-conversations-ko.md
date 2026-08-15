@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 86c6d22e8ddd245805d0f21aef15aeab0dd4ce8b
-translation_revised: 2026-08-14
+translation_source_sha: ea4338730c48eecc545c23aa44101e0242bad2a1
+translation_revised: 2026-08-15
 ---
 # 오퍼레이터 콘솔 점진적 대화
 
@@ -43,6 +43,7 @@ translation_revised: 2026-08-14
 | 2026-08-14 | 구현됨 | 최종 의미 증적이 `answered`가 아니면 답변 전용 UI 단언이 보류 원인을 가리기 전에 4단계 실행기를 즉시 중단하도록 했습니다. | `current change`, [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts), 정확한 Playwright 검색과 focused esbuild compile이 통과했습니다. 진단은 처리 결과, 사용 불가 이유, 요청 식별자, 변환 결과 식별자, 의미 경로를 포함합니다. | 안정된 출처에서 인증된 4단계 경로를 다시 실행하고, 통과했으며 출처가 결속된 산출물만 보존합니다. |
 | 2026-08-14 | 진행 중 | 안정된 출처에서 인증된 4단계 경로를 다시 실행하고, typed hold가 답변 전용 단언 전에 중단되는 것을 확인했습니다. | 중앙 검증된 source revision `48b5d12bd6d2610a09acd756447e5108384cecd6`과 안정된 workspace patch digest `sha256:e509b6af05032a4875084e0978b2914c37bf2000a7ffafcfa58a8a0e50fd34d6`, 실행기는 `disposition=held`와 `unavailable_reason=semantic_planner_unavailable`을 보고했습니다. Core plan 후보는 HTTP 429 응답 뒤 범위가 제한된 재시도를 소진했습니다. 실패 산출물은 보존하지 않았습니다. | 의미 계획 모델 용량을 복구한 뒤 두 계약을 완화하지 않고 4단계 경로와 이중 언어 답변 coverage 14칸 게이트를 다시 실행합니다. |
 | 2026-08-14 | 구현됨 | 명시적 Operator API 원본이 없으면 외부 4단계 근거 실행이 즉시 실패하게 하고, 성공 경로 질문을 전체 조회 가능 유형 집합으로 좁히며, 산출물에 출처, 작업 영역 패치, 정본 실행 구성의 출처 정보를 포함했습니다. | `current change`, [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts), 정확한 Playwright 검색, 집중 보증 및 출처 검사 52개, Console 타입 검사가 통과했습니다. | 중앙 검증을 확보한 뒤 인증된 통과 산출물을 보존해야 범위 상태를 `검증됨`으로 변경할 수 있습니다. |
+| 2026-08-15 | 구현됨 | 표현 산출물이 답변 내용을 제거하지 못하게 했습니다. 일반 검증 조회 산출물은 출력 노드 개수만 보이는 대신 반환된 행과 노드별 결과를 투영하며, 산출물이 개요 요약 외에 아무것도 담지 않으면 답변은 Markdown을 그대로 유지합니다. | `current change`, [`presentation-artifact.ts`](../../../console/src/deck/presentation-artifact.ts) 및 [`grounded-reply.tsx`](../../../console/src/deck/grounded-reply.tsx), focused Console deck 검사 76개, Console 타입 검사, Operator bridge 검사 48개 통과 | 인증된 로컬 Console에서 렌더링 결과를 확인합니다. |
 
 ### 남은 작업
 

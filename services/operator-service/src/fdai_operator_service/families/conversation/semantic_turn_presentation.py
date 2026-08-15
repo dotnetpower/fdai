@@ -20,6 +20,11 @@ _SEMANTIC_UNAVAILABLE_REASONS = {
     "historical_evidence_unavailable",
     "semantic_planner_unavailable",
 }
+_MAX_SUMMARY_ITEMS = 16
+_MAX_TABLE_COLUMNS = 6
+_MAX_TABLE_ROWS = 40
+_MAX_CELL_CHARS = 512
+_CONTROL_CHARACTERS = {chr(code) for code in range(32)} | {chr(127)}
 
 
 def semantic_done_event_data(
@@ -237,27 +242,144 @@ def semantic_presentation_artifact(
             "schema_version": 1,
             "layout": "stack",
             "evidence_refs": bounded_refs,
-            "blocks": [
-                {
-                    "slot_id": "overview",
-                    "kind": "summary",
-                    "title": "검증된 온톨로지 쿼리" if korean else "Verified ontology query",
-                    "emphasis": "primary",
-                    "collapsed": False,
-                    "evidence_refs": bounded_refs,
-                    "data": {
-                        "items": [
-                            {
-                                "label": "검증된 출력" if korean else "Verified outputs",
-                                "value": str(len(outputs)),
-                                "tone": "neutral",
-                            }
-                        ]
-                    },
-                }
-            ],
+            "blocks": _general_query_blocks(outputs, bounded_refs=bounded_refs, korean=korean),
         },
     )
+
+
+def _general_query_blocks(
+    outputs: list[object],
+    *,
+    bounded_refs: list[str],
+    korean: bool,
+) -> list[JsonObject]:
+    """Project the verified outputs themselves, never only how many there are."""
+    items = _overview_items(outputs, korean=korean)
+    if not items:
+        items = [
+            {
+                "label": "검증된 출력" if korean else "Verified outputs",
+                "value": str(len(outputs)),
+                "tone": "neutral",
+            }
+        ]
+    blocks: list[JsonObject] = [
+        cast(
+            JsonObject,
+            {
+                "slot_id": "overview",
+                "kind": "summary",
+                "title": "검증된 온톨로지 쿼리" if korean else "Verified ontology query",
+                "emphasis": "primary",
+                "collapsed": False,
+                "evidence_refs": bounded_refs,
+                "data": {"items": items},
+            },
+        )
+    ]
+    for output in outputs:
+        records = _records_block(output, bounded_refs=bounded_refs, korean=korean)
+        if records is not None:
+            blocks.append(records)
+            break
+    return blocks
+
+
+def _overview_items(outputs: list[object], *, korean: bool) -> list[JsonObject]:
+    items: list[JsonObject] = []
+    labels: set[str] = set()
+    for output in outputs:
+        if len(items) >= _MAX_SUMMARY_ITEMS or not isinstance(output, Mapping):
+            break
+        node_id = output.get("node_id")
+        value = _output_summary_value(output, korean=korean)
+        if not isinstance(node_id, str) or not node_id or node_id in labels or value is None:
+            continue
+        labels.add(node_id)
+        items.append(cast(JsonObject, {"label": node_id, "value": value, "tone": "neutral"}))
+    return items
+
+
+def _output_summary_value(output: Mapping[str, object], *, korean: bool) -> str | None:
+    rule_search = output.get("rule_search")
+    if isinstance(rule_search, Mapping):
+        candidates = rule_search.get("candidates")
+        count = len(candidates) if isinstance(candidates, list) else 0
+        return f"규칙 후보 {count}건" if korean else f"{count} rule candidates"
+    result_kind = output.get("result_kind")
+    if isinstance(result_kind, str) and result_kind:
+        return result_kind
+    returned = output.get("returned_rows")
+    total = output.get("total_rows")
+    if isinstance(returned, int) and isinstance(total, int):
+        return f"전체 {total}개 행 중 {returned}개" if korean else f"{returned} of {total} rows"
+    return None
+
+
+def _records_block(
+    output: object,
+    *,
+    bounded_refs: list[str],
+    korean: bool,
+) -> JsonObject | None:
+    if not isinstance(output, Mapping):
+        return None
+    rows = output.get("rows")
+    if not isinstance(rows, list) or not rows:
+        return None
+    row_values: list[Mapping[str, object]] = []
+    fields: list[str] = []
+    for row in rows[:_MAX_TABLE_ROWS]:
+        values = row.get("values") if isinstance(row, Mapping) else None
+        if not isinstance(values, Mapping):
+            return None
+        row_values.append(values)
+        for field in values:
+            if isinstance(field, str) and field and field not in fields:
+                fields.append(field)
+    selected = fields[:_MAX_TABLE_COLUMNS]
+    if not selected:
+        return None
+    # Positional keys: an ontology field name is not a valid Console column key.
+    return cast(
+        JsonObject,
+        {
+            "slot_id": "records",
+            "kind": "table",
+            "title": "검증된 행" if korean else "Verified rows",
+            "emphasis": "secondary",
+            "collapsed": False,
+            "evidence_refs": bounded_refs,
+            "data": {
+                "columns": [
+                    {"key": f"c{index}", "label": field} for index, field in enumerate(selected)
+                ],
+                "rows": [
+                    {f"c{index}": _cell(values.get(field)) for index, field in enumerate(selected)}
+                    for values in row_values
+                ],
+                "status_key": None,
+            },
+        },
+    )
+
+
+def _cell(value: object) -> str:
+    """Render one bounded printable cell; the Console rejects empty or control text."""
+    if value is None:
+        rendered = ""
+    elif isinstance(value, str):
+        rendered = value
+    elif isinstance(value, bool):
+        rendered = "true" if value else "false"
+    elif isinstance(value, int | float):
+        rendered = str(value)
+    else:
+        rendered = json.dumps(value, allow_nan=False, ensure_ascii=False, sort_keys=True)
+    cleaned = "".join(
+        " " if character in _CONTROL_CHARACTERS else character for character in rendered
+    ).strip()
+    return cleaned[:_MAX_CELL_CHARS] if cleaned else "-"
 
 
 def semantic_technical_trajectory(
