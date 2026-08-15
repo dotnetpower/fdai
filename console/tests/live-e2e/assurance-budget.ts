@@ -9,6 +9,7 @@ export const RUN_BUDGET_PER_QUESTION_MS = 120_000;
 export const MINIMUM_RUN_BUDGET_MS = 300_000;
 export const MAXIMUM_RUN_BUDGET_MS = 5_400_000;
 export const TEST_TIMEOUT_SLACK_MS = 120_000;
+export const MAX_TRANSPORT_ATTEMPTS = 2;
 
 const BUDGET_BOUNDS = {
   FDAI_E2E_ASSURANCE_MIN_REQUEST_INTERVAL_MS: [0, 60_000],
@@ -107,6 +108,11 @@ export function resolveAssuranceBudget(
     "FDAI_E2E_ASSURANCE_RUN_BUDGET_MS",
     derivedBudget,
   );
+  const minimumRequestIntervalMs = boundedOverride(
+    environment,
+    "FDAI_E2E_ASSURANCE_MIN_REQUEST_INTERVAL_MS",
+    DEFAULT_MINIMUM_REQUEST_INTERVAL_MS,
+  );
   const perQuestionDeadlineMs = boundedOverride(
     environment,
     "FDAI_E2E_ASSURANCE_PER_QUESTION_DEADLINE_MS",
@@ -121,17 +127,15 @@ export function resolveAssuranceBudget(
     throw new Error("no-progress deadline MUST NOT be shorter than the per-question deadline");
   }
   return {
-    minimumRequestIntervalMs: boundedOverride(
-      environment,
-      "FDAI_E2E_ASSURANCE_MIN_REQUEST_INTERVAL_MS",
-      DEFAULT_MINIMUM_REQUEST_INTERVAL_MS,
-    ),
+    minimumRequestIntervalMs,
     perQuestionDeadlineMs,
     noProgressDeadlineMs,
     runBudgetMs,
     transportRetryBaseMs: DEFAULT_TRANSPORT_RETRY_BASE_MS,
     transportRetryMaxMs: DEFAULT_TRANSPORT_RETRY_MAX_MS,
-    testTimeoutMs: runBudgetMs + TEST_TIMEOUT_SLACK_MS,
+    // The loop clamps every turn to the run deadline, so the only work that can outlive the
+    // budget is one already-granted spacing wait.
+    testTimeoutMs: runBudgetMs + minimumRequestIntervalMs + TEST_TIMEOUT_SLACK_MS,
   };
 }
 

@@ -196,6 +196,12 @@ class AzureCliReader:
         token = self._tokens.get(audience)
         if token is not None:
             return token
+        remaining = self._remaining_seconds()
+        if remaining <= 0:
+            raise PreflightError(
+                "Azure reads exceeded the bounded "
+                f"{self._overall_deadline_seconds:g}s preflight deadline"
+            )
         command = [
             "az",
             "account",
@@ -216,7 +222,7 @@ class AzureCliReader:
                 check=True,
                 capture_output=True,
                 text=True,
-                timeout=self._timeout_seconds,
+                timeout=min(float(self._timeout_seconds), remaining),
             )
         except (OSError, subprocess.SubprocessError) as exc:
             raise PreflightError("Azure CLI token acquisition failed") from exc

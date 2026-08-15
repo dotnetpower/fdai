@@ -115,7 +115,7 @@ jobs:
         run: |
           set -euo pipefail
           curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
-            --retry-max-time 90 --connect-timeout 10 --max-time 60 -o /tmp/opa \
+            --retry-max-time 120 --connect-timeout 10 --max-time 90 -o /tmp/opa \
             "https://openpolicyagent.org/downloads/v0.68.0/opa_linux_amd64_static"
           echo "dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa  /tmp/opa" \
             | sha256sum -c -
@@ -160,7 +160,7 @@ jobs:
         run: |
           set -euo pipefail
           curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
-            --retry-max-time 90 --connect-timeout 10 --max-time 60 -o /tmp/opa \
+            --retry-max-time 120 --connect-timeout 10 --max-time 90 -o /tmp/opa \
             "https://openpolicyagent.org/downloads/v0.68.0/opa_linux_amd64_static"
           echo "dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa  /tmp/opa" \
             | sha256sum -c -

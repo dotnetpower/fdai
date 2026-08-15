@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: e7bee8c5c7d2f17651df62b9f8cf0171eb9157f2
+translation_source_sha: ed3024c0132b6df8cb799e5b7dfbfbe428716fa7
 translation_revised: 2026-08-15
 ---
 
@@ -47,6 +47,7 @@ translation_revised: 2026-08-15
 | 2026-08-15 | validated | JSON 응답 연결, canonical 탐색, 최신순 decoding 및 audit-backed report materialization을 hardening한 뒤 인증된 Incident-to-RCA-to-report/PDF 아티팩트 하나를 보존했습니다. | `current change`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; source `014974045e70e35c26e489fa238345cf70bc3ca3`는 중앙 검증됐습니다. | Incident 상세 또는 RCA PDF Browser 근거에 남은 작업이 없습니다. |
 | 2026-08-15 | implemented | 온톨로지 relationship-direction 컴포넌트를 Console visible-title 인벤토리에 등록했습니다. 이는 해당 컴포넌트가 렌더링하는 `h4` 제목과 일치하며 공유 검증 큐의 차단을 해제합니다. | `current change`; 전체 Console Vitest suite 1782개 통과입니다. | 남은 작업이 없습니다. 인벤토리 계약이 이후 title prop 추가를 계속 소유합니다. |
 | 2026-08-15 | implemented | 통제된 온톨로지 assurance 실행기를 유도된 run budget, 질문별 및 무진행 deadline, 적응형 요청 간격, 제한된 transport 재시도, 질문별 진행 출력 및 provenance에 바인딩된 재개 가능 checkpoint로 제한했습니다. | `current change`; focused Vitest live-evidence 79개 및 전체 Console suite 1782개 통과, Console 타입 검사 통과입니다. | Release 경계에서 bounded cohort를 실행하고 그 아티팩트를 보존합니다. |
+| 2026-08-15 | implemented | 모든 assurance turn을 남은 실행 예산으로 제한하고, 아티팩트 발행 전에 checkpoint를 회수하며, 통과에 live turn 최소 1회를 요구하고, turn 오류와 deadline 위반을 구분하며, 기본 checkpoint 경로를 cohort별로 분리했습니다. | `current change`; focused Vitest live-evidence 80개 통과, Console 타입 검사 통과, 1차 독립 검토의 Medium 2건 해소입니다. | Release 경계에서 bounded cohort를 실행하고 그 아티팩트를 보존합니다. |
 
 ### 잔여 작업
 
