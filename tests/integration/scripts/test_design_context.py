@@ -190,6 +190,37 @@ def test_hook_command_runs_without_pythonpath() -> None:
     assert json.loads(completed.stdout) == {"continue": True}
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git reset --hard HEAD^",
+        "git -C /tmp/example reset --hard HEAD",
+        "env EXAMPLE=1 /usr/bin/git restore -- example.py",
+        "bash -lc 'git clean -fd'",
+        "bash -lc 'git commit -m unsafe'",
+    ],
+)
+def test_dispatcher_routes_mutating_and_wrapped_git_to_policy(command: str) -> None:
+    completed = subprocess.run(
+        ["/bin/bash", "scripts/agent/pre_tool_dispatch.sh"],
+        cwd=REPO_ROOT,
+        input=json.dumps(
+            {
+                "session_id": "destructive-git-test",
+                "tool_name": "run_in_terminal",
+                "tool_input": {"command": command},
+            }
+        ),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    result = json.loads(completed.stdout)
+    assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
 def test_hook_shell_fast_path_invokes_python_only_for_policy_tools(tmp_path: Path) -> None:
     fake_python = tmp_path / "python3"
     fake_python.write_text("#!/usr/bin/env bash\nexit 99\n", encoding="utf-8")
