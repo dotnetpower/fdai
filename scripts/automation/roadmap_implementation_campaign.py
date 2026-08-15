@@ -448,6 +448,11 @@ def run_cycle(
         if _git("rev-list", "--count", "main..HEAD", cwd=repo_root) != "0" and not (
             _validation_receipt_exists(repo_root, "HEAD")
         ):
+            # `git merge` does not run the post-commit hook, so a merge commit made by
+            # _sync_campaign_base is never enqueued. Waiting on a receipt for a commit the
+            # queue was never told about holds every later run forever, so register the
+            # branch here instead of trusting the hook to have done it.
+            _register_committed_work(repo_root, "main")
             return "held: previous campaign head is awaiting central validation"
         try:
             issue = discover_issue(repo_root)
