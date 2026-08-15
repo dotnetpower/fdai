@@ -77,7 +77,26 @@ describe("resolveAssuranceBudget", () => {
     expect(budget.minimumRequestIntervalMs).toBe(DEFAULT_MINIMUM_REQUEST_INTERVAL_MS);
     expect(budget.perQuestionDeadlineMs).toBe(DEFAULT_PER_QUESTION_DEADLINE_MS);
     expect(budget.noProgressDeadlineMs).toBe(DEFAULT_NO_PROGRESS_DEADLINE_MS);
-    expect(budget.testTimeoutMs).toBe(budget.runBudgetMs + TEST_TIMEOUT_SLACK_MS);
+    expect(budget.testTimeoutMs).toBe(
+      budget.runBudgetMs + budget.minimumRequestIntervalMs + TEST_TIMEOUT_SLACK_MS,
+    );
+  });
+
+  it("keeps the harness timeout above every wait the loop can still grant", () => {
+    for (const override of [{}, { FDAI_E2E_ASSURANCE_RUN_BUDGET_MS: "60000" }]) {
+      const budget = resolveAssuranceBudget(
+        {
+          ...override,
+          FDAI_E2E_ASSURANCE_PER_QUESTION_DEADLINE_MS: "600000",
+          FDAI_E2E_ASSURANCE_NO_PROGRESS_DEADLINE_MS: "600000",
+        },
+        100,
+      );
+      // A turn is clamped to the run deadline, so only one granted spacing wait can outlive it.
+      expect(budget.testTimeoutMs).toBeGreaterThan(
+        budget.runBudgetMs + budget.minimumRequestIntervalMs,
+      );
+    }
   });
 
   it("accepts bounded operator overrides", () => {

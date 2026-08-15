@@ -3,6 +3,8 @@ import { rm, writeFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 
 import {
+  DeadlineExceededError,
+  MAX_TRANSPORT_ATTEMPTS,
   resolveAssuranceBudget,
   transportRetryDelayMs,
   pacingDelayMs,
@@ -32,16 +34,18 @@ import {
 } from "./ontology-query-assurance";
 
 const COHORT_SEED = 0x0fda1;
-const MAX_TRANSPORT_ATTEMPTS = 2;
-const DEFAULT_CHECKPOINT_PATH = "../.fdai/live-validation/ontology-assurance-checkpoint.json";
+const DEFAULT_CHECKPOINT_DIRECTORY = "../.fdai/live-validation";
 const AUTHENTICATED_EXTERNAL_STACK = Boolean(
   process.env.FDAI_E2E_BASE_URL && process.env.FDAI_E2E_STORAGE_STATE,
 );
 
-function checkpointPath(): string | null {
+/** Keeps a focused probe from overwriting an in-progress full-cohort checkpoint. */
+function checkpointPath(runScope: string, questionCount: number): string | null {
   const configured = process.env.FDAI_E2E_ASSURANCE_CHECKPOINT;
-  if (configured === undefined) return DEFAULT_CHECKPOINT_PATH;
-  return configured.trim().length === 0 ? null : configured;
+  if (configured !== undefined) {
+    return configured.trim().length === 0 ? null : configured;
+  }
+  return `${DEFAULT_CHECKPOINT_DIRECTORY}/ontology-assurance-${runScope}-${questionCount}.json`;
 }
 
 interface BrowserTurnResult {
@@ -56,7 +60,9 @@ interface RetainedTransportAttempt {
     | "semantic_terminal"
     | "retryable_transport_failure"
     | "non_retryable_receipt_missing"
-    | "per_question_deadline_exceeded";
+    | "per_question_deadline_exceeded"
+    | "question_budget_exhausted"
+    | "turn_error";
   readonly source?: string;
 }
 
@@ -138,29 +144,48 @@ async function resolveQuestion(
   page: Page,
   question: AssuranceQuestion,
   budget: AssuranceBudget,
+  runDeadlineAt: number,
 ): Promise<QuestionOutcome> {
   const transportAttempts: RetainedTransportAttempt[] = [];
+  // The whole question, including retries, is bounded by the stalled-run guard and can never
+  // outlive the run budget.
+  const questionDeadlineAt = Math.min(runDeadlineAt, Date.now() + budget.noProgressDeadlineMs);
   let result: BrowserTurnResult | null = null;
   let requestCount = 0;
   let lastRequestStartedAt = Date.now();
   for (let attempt = 1; attempt <= MAX_TRANSPORT_ATTEMPTS; attempt += 1) {
     if (attempt > 1) {
-      await page.waitForTimeout(transportRetryDelayMs({
+      const retryDelayMs = transportRetryDelayMs({
         attempt: attempt - 1,
         baseMs: budget.transportRetryBaseMs,
         maxMs: budget.transportRetryMaxMs,
-      }));
+      });
+      const spacingMs = pacingDelayMs(
+        budget.minimumRequestIntervalMs,
+        Date.now() - lastRequestStartedAt,
+      );
+      await page.waitForTimeout(Math.max(retryDelayMs, spacingMs));
+    }
+    const remainingMs = questionDeadlineAt - Date.now();
+    if (remainingMs <= 0) {
+      transportAttempts.push({ attempt, outcome: "question_budget_exhausted" });
+      return { result: null, transportAttempts, requestCount, lastRequestStartedAt };
     }
     lastRequestStartedAt = Date.now();
     requestCount += 1;
     try {
       result = await withDeadline(
         runBrowserTurn(page, question),
-        budget.perQuestionDeadlineMs,
+        Math.min(budget.perQuestionDeadlineMs, remainingMs),
         `assurance turn ${question.question_id}`,
       );
-    } catch {
-      transportAttempts.push({ attempt, outcome: "per_question_deadline_exceeded" });
+    } catch (error) {
+      transportAttempts.push({
+        attempt,
+        outcome: error instanceof DeadlineExceededError
+          ? "per_question_deadline_exceeded"
+          : "turn_error",
+      });
       return { result: null, transportAttempts, requestCount, lastRequestStartedAt };
     }
     transportAttempts.push(retainTransportAttempt(attempt, result));
@@ -207,7 +232,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     process.env.FDAI_E2E_WORKSPACE_PATCH_SHA256,
     runConfiguration,
   );
-  const checkpointFile = checkpointPath();
+  const checkpointFile = checkpointPath(runScope, questions.length);
   const resumed = checkpointFile === null ? [] : resumableResults(
     await readAssuranceCheckpoint<RetainedTurnResult>(checkpointFile),
     { binding: provenance, questionIds },
@@ -224,15 +249,10 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   let protectedRequestCount = 0;
   let stopReason: string | null = null;
   const runDeadlineAt = Date.now() + budget.runBudgetMs;
-  let lastProgressAt = Date.now();
   let lastRequestStartedAt = Date.now() - budget.minimumRequestIntervalMs;
   for (const question of outstanding) {
     if (Date.now() >= runDeadlineAt) {
       stopReason = "run_budget_exhausted";
-      break;
-    }
-    if (Date.now() - lastProgressAt > budget.noProgressDeadlineMs) {
-      stopReason = "no_progress_deadline_exceeded";
       break;
     }
     const spacingMs = pacingDelayMs(
@@ -241,14 +261,14 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     );
     if (spacingMs > 0) await page.waitForTimeout(spacingMs);
 
-    const outcome = await resolveQuestion(page, question, budget);
+    const outcome = await resolveQuestion(page, question, budget, runDeadlineAt);
     protectedRequestCount += outcome.requestCount;
     lastRequestStartedAt = outcome.lastRequestStartedAt;
-    lastProgressAt = Date.now();
     {
       const transportAttempts = outcome.transportAttempts;
+      const terminalOutcome = transportAttempts.at(-1)?.outcome;
       const judgment = outcome.result === null
-        ? { passed: false, failure_reason: "per_question_deadline_exceeded" as const }
+        ? { passed: false, failure_reason: terminalOutcome ?? "turn_error" }
         : judgeSemanticTurn(outcome.result.semantic_receipt, outcome.result.verification);
       const receipt = "receipt" in judgment ? judgment.receipt : undefined;
       retained.push({
@@ -337,6 +357,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
       (attempt) => attempt.outcome === "per_question_deadline_exceeded",
     )
   ).length;
+  const liveQuestionCount = retained.length - resumed.length;
   const answeredResults = retained.filter((result) => result.disposition === "answered");
   const answeredEvidenceCount = answeredResults.filter((result) =>
     result.evidence_ref_count !== undefined && result.evidence_ref_count > 0 &&
@@ -368,6 +389,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
         result.checks_completed === result.checks_total,
     })));
   const passed = stopReason === null && retained.length === questions.length &&
+    liveQuestionCount > 0 &&
     failures.length === 0 &&
     exhaustedTransportRetryCount === 0 &&
     duplicateRequestIds === 0 && duplicateProjectionIds === 0 &&
@@ -410,7 +432,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     summary: {
       question_count: retained.length,
       resumed_question_count: resumed.length,
-      live_question_count: retained.length - resumed.length,
+      live_question_count: liveQuestionCount,
       deadline_exceeded_count: deadlineExceededCount,
       passed_count: retained.length - failures.length,
       failed_count: failures.length,
@@ -437,6 +459,11 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     },
     results: retained,
   };
+  // Retire the checkpoint before publishing the artifact so a later failure cannot leave a
+  // complete checkpoint that a following run would replay as fresh evidence.
+  if (checkpointFile !== null && stopReason === null && retained.length === questions.length) {
+    await rm(checkpointFile, { force: true });
+  }
   const artifactPath = testInfo.outputPath("ontology-query-randomized-assurance.json");
   await writeFile(artifactPath, `${JSON.stringify(artifact, null, 2)}\n`, "utf8");
   await testInfo.attach("ontology-query-randomized-assurance", {
@@ -448,7 +475,13 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     await rm(checkpointFile, { force: true });
   }
 
+  if (checkpointFile !== null && stopReason === null && retained.length === questions.length) {
+    await rm(checkpointFile, { force: true });
+  }
+
   expect(stopReason, `assurance run stopped early: ${stopReason}`).toBeNull();
+  expect(liveQuestionCount, "a governed run MUST perform at least one live turn")
+    .toBeGreaterThan(0);
   expect(retained).toHaveLength(questions.length);
   expect(failures, JSON.stringify(failures, null, 2)).toEqual([]);
   expect(duplicateRequestIds).toBe(0);

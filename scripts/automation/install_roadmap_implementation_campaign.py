@@ -36,7 +36,7 @@ ExecStart={_quote(Path(sys.executable))} {_quote(runner)} --max-active-sessions 
 Nice=10
 IOSchedulingClass=idle
 CPUWeight=20
-TimeoutStartSec=1h
+TimeoutStartSec=2h
 """
     timer = f"""[Unit]
 Description=Repeat FDAI roadmap implementation while session capacity is available
