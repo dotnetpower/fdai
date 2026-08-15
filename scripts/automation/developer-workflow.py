@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,6 +14,9 @@ from typing import Any
 SCHEMA_VERSION = 1
 UTC = timezone.utc  # noqa: UP017 - tracked hooks also support system Python 3.10.
 MAX_PATHS = 20
+MAX_HISTORY_COMMITS = 64
+MAX_RECEIPTS = 50
+VALIDATION_WARN_SECONDS = 300
 
 
 def _git(root: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
@@ -82,6 +86,116 @@ def _index_diagnostic(root: Path) -> dict[str, Any]:
     }
 
 
+def _parse_timestamp(value: object) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else None
+
+
+def _git_common_dir(root: Path) -> tuple[Path, Path] | None:
+    top_level = _git(root, "rev-parse", "--show-toplevel")
+    if top_level.returncode != 0:
+        return None
+    repo_root = Path(top_level.stdout.strip()).resolve()
+    common = _git(repo_root, "rev-parse", "--git-common-dir")
+    if common.returncode != 0:
+        return None
+    raw = Path(common.stdout.strip())
+    return repo_root, (raw if raw.is_absolute() else repo_root / raw).resolve()
+
+
+def _percentile_95(values: list[float]) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    return ordered[max(0, math.ceil(len(ordered) * 0.95) - 1)]
+
+
+def _validation_diagnostic(root: Path) -> dict[str, Any]:
+    resolved = _git_common_dir(root)
+    if resolved is None:
+        return {"reason_code": "validation_repository_unavailable", "status": "unavailable"}
+    repo_root, common_dir = resolved
+    state_root = common_dir / "fdai-validation-queue"
+    pending_dir = state_root / "pending"
+    receipts_dir = state_root / "receipts"
+    if not pending_dir.is_dir() and not receipts_dir.is_dir():
+        return {"reason_code": "validation_state_unavailable", "status": "unavailable"}
+
+    history_result = _git(
+        repo_root,
+        "rev-list",
+        f"--max-count={MAX_HISTORY_COMMITS}",
+        "HEAD",
+    )
+    history = set(history_result.stdout.splitlines()) if history_result.returncode == 0 else set()
+    now = datetime.now(UTC)
+    pending_ages: list[float] = []
+    reachable_pending = 0
+    invalid_records = 0
+    for path in pending_dir.glob("*.json") if pending_dir.is_dir() else ():
+        if path.stem not in history:
+            continue
+        reachable_pending += 1
+        try:
+            payload: object = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            invalid_records += 1
+            continue
+        enqueued_at = _parse_timestamp(
+            payload.get("enqueued_at") if isinstance(payload, dict) else None
+        )
+        if enqueued_at is None:
+            invalid_records += 1
+            continue
+        pending_ages.append(max(0.0, (now - enqueued_at).total_seconds()))
+
+    receipt_rows: list[tuple[datetime, str]] = []
+    for path in receipts_dir.glob("*.json") if receipts_dir.is_dir() else ():
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            invalid_records += 1
+            continue
+        validated_at = _parse_timestamp(
+            payload.get("validated_at") if isinstance(payload, dict) else None
+        )
+        commit = payload.get("commit") if isinstance(payload, dict) else None
+        if validated_at is None or not isinstance(commit, str):
+            invalid_records += 1
+            continue
+        receipt_rows.append((validated_at, commit))
+
+    latencies: list[float] = []
+    for validated_at, commit in sorted(receipt_rows, reverse=True)[:MAX_RECEIPTS]:
+        committed = _git(repo_root, "show", "-s", "--format=%cI", commit)
+        committed_at = (
+            _parse_timestamp(committed.stdout.strip()) if committed.returncode == 0 else None
+        )
+        if committed_at is None:
+            invalid_records += 1
+            continue
+        latencies.append(max(0.0, (validated_at - committed_at).total_seconds()))
+
+    oldest_pending = max(pending_ages, default=0.0)
+    latency_p95 = _percentile_95(latencies)
+    warning = oldest_pending > VALIDATION_WARN_SECONDS or (
+        latency_p95 is not None and latency_p95 > VALIDATION_WARN_SECONDS
+    )
+    return {
+        "invalid_record_count": invalid_records,
+        "latency_p95_seconds": None if latency_p95 is None else round(latency_p95, 3),
+        "oldest_pending_seconds": round(oldest_pending, 3),
+        "reachable_pending_count": reachable_pending,
+        "receipt_sample_count": len(latencies),
+        "status": "warning" if warning else "ok",
+    }
+
+
 def status_report(root: Path) -> dict[str, Any]:
     """Build one versioned report without changing repository or process state."""
     return {
@@ -91,6 +205,7 @@ def status_report(root: Path) -> dict[str, Any]:
         "sections": {
             "git": _git_diagnostic(root),
             "index": _index_diagnostic(root),
+            "validation": _validation_diagnostic(root),
         },
     }
 
