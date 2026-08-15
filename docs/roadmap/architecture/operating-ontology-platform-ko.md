@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: d70a45012185058e63e3ecb7851f5120d01875f9
+translation_source_sha: 834fe5146ad0fcfa04a818f402f87d680b3665c5
 translation_revised: 2026-08-15
 ---
 # FDAI 온톨로지 안전 인프라
@@ -129,6 +129,7 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 | 2026-08-15 | implemented | 집계 필드 검증을 Project, Order 및 집합 연산 출력까지 확장하고 flat 점 표기 projection 필드를 downstream table 핸들러에서 읽을 수 있게 유지했습니다. | `current change`, focused 검증기, 핸들러 및 tier 라우팅 검사 24개와 작업 범위 Ruff 및 strict mypy 통과 | Clean 14-cell 및 seed 기반 100-case Browser gate 전에 보류된 한국어 집계 cell을 다시 실행합니다. |
 | 2026-08-15 | implemented | 검증된 plan이 선택한 역량을 `plan_verify` 단계 기록에 남기고, 로컬 평문 로그 컨텍스트 허용 목록에 `stage`, `plan_nodes`, `failure_type`을 추가했습니다. 이전에는 로컬 실행 기록만으로 한 turn이 어떤 함수를 계획했는지 판별할 수 없었습니다. | `current change`, focused 계획기 검사 14개와 로컬 서비스 로그 실행기 검사 11개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 이 필드로 인시던트에 바인딩된 turn이 실제로 어떤 역량을 계획하는지 확인합니다. |
 | 2026-08-15 | implemented | 검증된 조회 출력 자체를 일반 표현 산출물에 투영했습니다. 산출물은 출력 노드 개수만이 아니라 노드별 결과와 경계가 있는 행 테이블을 담으며, 온톨로지 필드 이름은 Console 열 키로 유효하지 않으므로 셀은 경계가 있는 출력 가능 텍스트와 위치 기반 열 키로 렌더링합니다. | `current change`, focused Operator 의미 bridge 검사 48개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 인증된 로컬 Console에서 렌더링 결과를 확인합니다. |
+| 2026-08-15 | implemented | 인시던트에 묶인 turn이 해당 인시던트의 감사 근거를 읽지 않았을 때 fail closed 하도록 했습니다. 로컬 `plan_nodes` 근거에서 인시던트 바인딩 turn이 `query.manifest`를 계획한 사례가 확인되었고, 그 답변은 일반 응답이지만 해당 인시던트에 대한 답변처럼 읽혔습니다. 이제 `incident_evidence_not_planned` 또는 `incident_evidence_mismatched_binding`으로 보류합니다. | `current change`, 바인딩됐으나 계획되지 않은 보류, 교차 인시던트 보류, 바인딩 없는 응답 대조군을 포함한 focused 처리기 검사 46개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 바인딩된 인시던트 goal을 결정론적으로 시드해 계획기가 선택하거나 식별자를 복사하지 않아도 되게 합니다. |
 
 ### 남은 작업
 

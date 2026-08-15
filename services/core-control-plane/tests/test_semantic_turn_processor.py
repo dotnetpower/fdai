@@ -1151,6 +1151,47 @@ async def test_incident_evidence_with_mismatched_correlation_is_held() -> None:
     assert semantic["reason_code"] == "semantic_evidence_incomplete"
 
 
+async def test_incident_bound_turn_without_incident_evidence_is_held() -> None:
+    encoded = await _processor(_Runtime(_runtime_result("answered"))).process(
+        _request(
+            bound_context={
+                "kind": "incident",
+                "incident_id": "00000000-0000-0000-0000-000000000301",
+                "correlation_id": "incident-correlation-301",
+            }
+        )
+    )
+
+    semantic = _projection(encoded)["semantic_result"]
+    assert semantic["disposition"] == "held"
+    assert semantic["reason_code"] == "incident_evidence_not_planned"
+    assert semantic["unavailable_reason"] == "authoritative_evidence_unavailable"
+    assert semantic["answer"].startswith("## This incident's evidence wasn't read")
+
+
+async def test_incident_bound_turn_reading_another_incident_is_held() -> None:
+    encoded = await _processor(_Runtime(_incident_evidence_runtime_result())).process(
+        _request(
+            bound_context={
+                "kind": "incident",
+                "incident_id": "00000000-0000-0000-0000-000000000999",
+                "correlation_id": "incident-correlation-999",
+            }
+        )
+    )
+
+    semantic = _projection(encoded)["semantic_result"]
+    assert semantic["disposition"] == "held"
+    assert semantic["reason_code"] == "incident_evidence_mismatched_binding"
+
+
+async def test_unbound_turn_without_incident_evidence_still_answers() -> None:
+    encoded = await _processor(_Runtime(_runtime_result("answered"))).process(_request())
+
+    semantic = _projection(encoded)["semantic_result"]
+    assert semantic["disposition"] == "answered"
+
+
 @pytest.mark.parametrize(
     ("locale", "heading", "limitation"),
     [
