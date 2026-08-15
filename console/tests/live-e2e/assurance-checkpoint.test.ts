@@ -16,7 +16,7 @@ import {
 
 const BINDING: AssuranceCheckpointBinding = {
   source_revision: "0".repeat(40),
-  configuration_digest: `sha256:${"a".repeat(64)}`,
+  evidence_identity_digest: `sha256:${"a".repeat(64)}`,
   workspace_patch_digest: `sha256:${"b".repeat(64)}`,
 };
 const QUESTION_IDS = ["en-aggregation-1", "ko-aggregation-1", "en-inventory-1"];
@@ -65,7 +65,7 @@ describe("resumableResults", () => {
 
   it("discards a checkpoint from a different source revision or workspace", () => {
     const expected = { binding: BINDING, questionIds: QUESTION_IDS };
-    for (const field of ["source_revision", "configuration_digest", "workspace_patch_digest"] as const) {
+    for (const field of ["source_revision", "evidence_identity_digest", "workspace_patch_digest"] as const) {
       const drifted = buildAssuranceCheckpoint(
         { ...BINDING, [field]: `${BINDING[field]}-changed` },
         QUESTION_IDS,

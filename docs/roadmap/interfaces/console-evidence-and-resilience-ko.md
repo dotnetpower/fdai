@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 2e2717ccc5439489b968fd29b308537637fa9aed
+translation_source_sha: c0452ada5bef0ab00ec2030918e24bf2c3fe4ec3
 translation_revised: 2026-08-15
 ---
 
@@ -15,7 +15,7 @@ translation_revised: 2026-08-15
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|-----------|
-| 통제된 온톨로지 보증 출처 이력 | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`, `console/tests/live-e2e/assurance-budget.ts`, `console/tests/live-e2e/assurance-checkpoint.ts`, focused Vitest 79개 통과 | 강화된 release gate는 두 locale의 모든 operation에 완전하게 검증된 답변을 요구합니다. 실행은 질문별 및 무진행 deadline을 갖춘 유도된 budget으로 제한되고 provenance에 바인딩된 checkpoint에서 재개하며, 소진된 budget은 ready 아티팩트를 보고하지 않습니다. |
+| 통제된 온톨로지 보증 출처 이력 | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`, `console/tests/live-e2e/assurance-budget.ts`, `console/tests/live-e2e/assurance-checkpoint.ts`, focused Vitest 79개 통과 | 강화된 release gate는 두 locale의 모든 operation에 완전하게 검증된 답변을 요구합니다. 실행은 질문별 및 무진행 deadline을 갖춘 유도된 budget으로 제한되고 evidence identity에 바인딩된 checkpoint에서 재개하며, 소진된 budget은 ready 아티팩트를 보고하지 않습니다. |
 | Exact-release 온톨로지 카탈로그 변환 결과 | 구현됨 | `ontology_console_projection.py`, `materialize-authoritative-catalogs.py`, focused materializer 동등성 테스트, Console 토폴로지 모델 테스트 및 타입 검사 | 하나의 생산자가 릴리스 신원 및 변경 권한 부재와 함께 선언 보기와 카탈로그 토폴로지를 제공합니다. 의미 모델 렌더링과 receipt 기반 컨텍스트 근거는 남아 있습니다. |
 | 의미 모델 및 관계 방향 | 구현됨 | `ontology-semantic-model.ts`, `ontology-semantic-map.tsx`, 카탈로그 토폴로지 renderer 및 inspector, focused Vitest 23개 및 Console 타입 검사 통과 | 검토된 네 가지 의미 영역, 다섯 가지 운영 보기, 화살표 및 분리된 들어오는 관계와 나가는 관계를 구현했습니다. 인증된 데스크톱 및 모바일 근거는 남아 있습니다. |
 | 에이전트 활동 하트비트 표현 | validated | `console/src/routes/agents.model.ts`, `console/src/routes/agents.model.test.ts`, `docs/baselines/agent-activity-heartbeat-assurance-2026-08-14.json`, focused Vitest 31개 통과 및 인증된 Browser Entra assurance | 두 번 새로고치는 동안 연속된 하트비트 시각 세 개가 증가했고 인증된 self 검사 세 번이 모두 성공했으며 런타임 초기화 행은 0개였습니다. |
@@ -49,6 +49,7 @@ translation_revised: 2026-08-15
 | 2026-08-15 | implemented | 통제된 온톨로지 assurance 실행기를 유도된 run budget, 질문별 및 무진행 deadline, 적응형 요청 간격, 제한된 transport 재시도, 질문별 진행 출력 및 provenance에 바인딩된 재개 가능 checkpoint로 제한했습니다. | `current change`; focused Vitest live-evidence 79개 및 전체 Console suite 1782개 통과, Console 타입 검사 통과입니다. | Release 경계에서 bounded cohort를 실행하고 그 아티팩트를 보존합니다. |
 | 2026-08-15 | implemented | 모든 assurance turn을 남은 실행 예산으로 제한하고, 아티팩트 발행 전에 checkpoint를 회수하며, 통과에 live turn 최소 1회를 요구하고, turn 오류와 deadline 위반을 구분하며, 기본 checkpoint 경로를 cohort별로 분리했습니다. | `current change`; focused Vitest live-evidence 80개 통과, Console 타입 검사 통과, 1차 독립 검토의 Medium 2건 해소입니다. | Release 경계에서 bounded cohort를 실행하고 그 아티팩트를 보존합니다. |
 | 2026-08-15 | implemented | 앞 행을 정정합니다. Checkpoint 회수는 아티팩트 발행 후 단언 전에 실행되므로 발행 실패가 완성된 cohort를 파괴하지 않으면서도 이후 실행이 재생할 수 없습니다. | `current change`; focused Vitest live-evidence 86개 통과입니다. | Checkpoint 회수 순서에 남은 작업이 없습니다. |
+| 2026-08-15 | implemented | Assurance checkpoint를 전체 run configuration이 아니라 결과 schema, seed, 순서가 있는 cohort, 인증을 담는 evidence identity에 바인딩해 per-run session id나 조정된 pacing, deadline, retry 노브가 완료된 turn을 폐기하지 않도록 했습니다. 모든 보존 결과는 생성 실행을 기록하며 귀속되지 않은 결과는 통과할 수 없습니다. | `current change`; focused Vitest live-evidence 80개 통과 및 전체 Console suite 1793개 통과, Console typecheck 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
 
 ### 잔여 작업
 

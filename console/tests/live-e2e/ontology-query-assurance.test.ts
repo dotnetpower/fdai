@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { canonicalJsonDigest } from "./browser-evidence-provenance";
 import { isOntologyAssuranceProductionReady } from "./ontology-query-assurance-readiness";
 import {
+  assuranceEvidenceIdentity,
   assuranceOperations,
   assuranceSessionId,
   assuranceTransportRetrySources,
@@ -100,6 +102,66 @@ describe("ontology assurance run identity", () => {
   it("accepts a bounded ASCII governed run id", () => {
     expect(resolveAssuranceRunId("issue63.20260815_run-1"))
       .toBe("issue63.20260815_run-1");
+  });
+});
+
+describe("ontology assurance evidence identity", () => {
+  const configuration = {
+    schema_version: "1.3.0",
+    run_id: "run-1",
+    seed: 0x0fda1,
+    minimum_request_interval_ms: 15_000,
+    per_question_deadline_ms: 120_000,
+    no_progress_deadline_ms: 300_000,
+    run_budget_ms: 1_800_000,
+    authentication: "browser_entra",
+    transport_retry_policy: {
+      max_attempts: 2,
+      base_retry_delay_ms: 2_000,
+      max_retry_delay_ms: 30_000,
+      retryable_sources: ["deterministic (offline)"],
+    },
+    question_ids: ["en-aggregation-1", "ko-aggregation-1"],
+  } as const;
+
+  it("excludes the per-run session identity so a rerun can resume completed turns", () => {
+    const first = assuranceEvidenceIdentity(configuration);
+    const second = assuranceEvidenceIdentity({ ...configuration, run_id: "run-2" });
+
+    expect(canonicalJsonDigest(second)).toBe(canonicalJsonDigest(first));
+  });
+
+  it("excludes operational pacing, deadline, and retry knobs", () => {
+    const baseline = canonicalJsonDigest(assuranceEvidenceIdentity(configuration));
+
+    for (const override of [
+      { minimum_request_interval_ms: 1_000 },
+      { per_question_deadline_ms: 60_000 },
+      { no_progress_deadline_ms: 90_000 },
+      { run_budget_ms: 600_000 },
+      {
+        transport_retry_policy: { ...configuration.transport_retry_policy, base_retry_delay_ms: 5 },
+      },
+    ]) {
+      const identity = assuranceEvidenceIdentity({ ...configuration, ...override });
+      expect(canonicalJsonDigest(identity)).toBe(baseline);
+    }
+  });
+
+  it("changes when the cohort, seed, authentication, or result shape changes", () => {
+    const baseline = canonicalJsonDigest(assuranceEvidenceIdentity(configuration));
+
+    for (const override of [
+      { seed: 1 },
+      { question_ids: ["en-aggregation-1"] },
+      { authentication: "other" },
+      { schema_version: "1.4.0" },
+    ]) {
+      const identity = assuranceEvidenceIdentity(
+        { ...configuration, ...override } as unknown as typeof configuration,
+      );
+      expect(canonicalJsonDigest(identity)).not.toBe(baseline);
+    }
   });
 });
 
