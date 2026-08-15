@@ -274,12 +274,23 @@ people, ownership, or recovery. The detail links to the correlation-scoped **Inc
 in History > Reports.
 
 The remediation history presents each audit row as a plain-language event. It uses recorded
-`summary`, `detail`, or `reason` text first, then a deterministic template for known lifecycle,
-notification, human approval, and audit event kinds. The responsible agent comes from a recorded
-`producer_principal`, Pantheon actor, or the canonical stage-owner mapping. A non-agent runtime is
-labelled as a responsible service instead of being attributed to an agent. Each row retains the
-exact machine `action_kind` as secondary text and shows at most five recorded facts. Raw entry JSON
-is omitted from Incidents; the correlation-scoped Audit link remains the complete record surface.
+`summary`, `detail`, or `reason` text first, then a recorded tiered verdict, then a deterministic
+template for known lifecycle, notification, human approval, and audit event kinds. A tiered verdict
+reads its own `<tier>_outcome`, `<tier>_reason`, and `<tier>_cause` fields for `rca`, `t1`, and `t2`,
+so an abstained hypothesis reads as `Root-cause analysis recorded abstained: T2 reasoner abstained.`
+instead of restating the action kind. Known acronyms survive humanization, and a server value with
+no catalog entry renders as a humanized token rather than its catalog key. The responsible agent
+comes from a recorded `producer_principal`, Pantheon actor, or the canonical stage-owner mapping. A
+non-agent runtime is labelled as a responsible service instead of being attributed to an agent. Each
+row retains the exact machine `action_kind` as secondary text and shows at most five recorded facts.
+Raw entry JSON is omitted from Incidents; the correlation-scoped Audit link remains the complete
+record surface.
+
+The current-situation block adds the newest recorded reason that a governed response abstained,
+denied, or failed, taken from an entry whose verdict or action kind records that stop. The console
+quotes that blocker; it does not translate a reason code into a remediation instruction, and it
+renders no blocker line when no stopped entry recorded a reason. Accountable agents render as a link
+only when the projection recorded at least one agent, so a placeholder is never a navigation target.
 
 Overview keeps every required analytical section visible when autonomy
 measurement is absent or malformed. It renders an explicit unavailable state
@@ -396,6 +407,7 @@ approve / rollback button. The projection is a pure function
 | 2026-08-14 | implemented | Aligned the Console RCA decoder with the server-owned newest-first hypothesis projection found by authenticated Browser assurance. | `current change`; `api-operations.ts`, `api.test.ts`, and 13 focused decoder tests. | Rerun and retain the authenticated roster-to-RCA-to-report receipt. |
 | 2026-08-15 | validated | Retained the authenticated Incident roster-to-RCA-to-report/PDF receipt with unavailable source, plan, and no-RCA behavior preserved. | `current change`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; source `014974045e70e35c26e489fa238345cf70bc3ca3` has a central validation receipt. | No remaining work for the bounded Incident SRE hardening and RCA PDF delivery slice. |
 | 2026-08-15 | in-progress | Derived a `recorded_subject` title from the recorded operational target and reason, including the audit-envelope `payload`, and made the roster identifier fallback show the correlation id that every incident link resolves. | `current change`; `incident_projection.py`, `incidents.tsx`, `types.ts`, `api-operations.ts` and their focused tests; Operator `33 passed`, Console `29 passed`, Ruff, Ruff format, and strict mypy passed; replaying the projection over the local corpus of 1,562 correlation groups moved `identifier_fallback` from 1,007 (64.5%) to 5 (0.32%), and the 5 remaining groups are non-operational `read:sha256:*` reads. | Exclude non-operational correlation groups, derive milestone and next-step text from recorded RCA and T1 fields, correct the cohort window and truncation disclosure, add roster search and filter controls, preserve acronyms, and record a title on the opening audit entry. |
+| 2026-08-15 | in-progress | Described RCA and tier evaluations from their recorded outcome, reason, and cause, surfaced the newest recorded blocker beside the phase next step, preserved acronyms, stopped linking a placeholder as accountable agents, and stopped rendering an unmapped catalog key. | `current change`; `incidents.timeline.ts`, `incidents.overview.ts`, `incidents.tsx`, `incident-clarity.css`, both message catalogs, and their focused tests; Console `37 passed`, catalog usage `3 passed`, typecheck, and translation freshness passed. | Exclude non-operational correlation groups, correct the cohort window and truncation disclosure, add roster search and filter controls, and record a title on the opening audit entry. |
 
 ### Remaining work
 
@@ -409,7 +421,7 @@ approve / rollback button. The projection is a pure function
 - [x] Derive a bounded `recorded_subject` from the recorded operational target and reason, reading the audit-envelope `payload`, and show the correlation id as the roster identifier fallback.
 - [ ] Exclude non-operational correlation groups (`background-task.*`, `iam.executor-grant-*`, `read:sha256:*`) from the roster and from the cohort denominator.
 - [ ] Record a `title` on the opening audit entry of every incident-bearing producer so `recorded_title` becomes the normal provenance.
-- [ ] Derive investigation milestone and recommended-next-step text from recorded RCA and T1 fields instead of a generic template when those fields exist.
+- [x] Derive investigation milestone and recommended-next-step text from recorded RCA and T1 fields instead of a generic template when those fields exist.
 - [ ] Label the cohort observed range truthfully, disclose the bound and the excluded remainder, and render an unusable time-to-mitigate measurement as unavailable with a reason.
 - [ ] Add server-backed roster search and severity/vertical filter controls, including clearing a set vertical filter from the UI.
-- [ ] Preserve acronyms through subject humanization and prevent a dynamic i18n key with no catalog entry from rendering a raw key string.
+- [x] Preserve acronyms through subject humanization and prevent a dynamic i18n key with no catalog entry from rendering a raw key string.

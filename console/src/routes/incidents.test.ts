@@ -187,4 +187,44 @@ describe("incident timeline presentation", () => {
     expect(presentation.description).toContain("높음");
     expect(presentation.facts).toContainEqual({ label: "심각도", value: "높음" });
   });
+
+  it("quotes a recorded RCA abstention instead of restating the action kind", () => {
+    const presentation = incidentTimelinePresentation(auditItem(
+      "rca.hypothesis",
+      "fdai.core.rca",
+      { rca_tier: "t2", rca_outcome: "abstained", rca_reason: "t2_reasoner_abstained" },
+    ));
+
+    expect(presentation.title).toBe("RCA hypothesis");
+    expect(presentation.description).toBe(
+      "Root-cause analysis recorded abstained: T2 reasoner abstained.",
+    );
+  });
+
+  it("quotes a recorded T1 verdict and its reason", () => {
+    const presentation = incidentTimelinePresentation(auditItem(
+      "control_loop.t1_evaluate",
+      "fdai.core.control_loop",
+      { t1_outcome: "abstain", t1_reason: "no_neighbour_found" },
+    ));
+
+    expect(presentation.title).toBe("Control loop T1 evaluate");
+    expect(presentation.description).toBe("T1 similarity recorded abstain: no neighbour found.");
+  });
+
+  it("prefers a recorded cause over the tier reason", () => {
+    const presentation = incidentTimelinePresentation(auditItem(
+      "rca.hypothesis",
+      "fdai.core.rca",
+      {
+        rca_outcome: "grounded",
+        rca_reason: "cited_rule_match",
+        rca_cause: "Connection pool exhaustion",
+      },
+    ));
+
+    expect(presentation.description).toBe(
+      "Root-cause analysis recorded a cause: Connection pool exhaustion.",
+    );
+  });
 });

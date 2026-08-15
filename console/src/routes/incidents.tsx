@@ -507,7 +507,7 @@ function IncidentDetail({
           <div><dt>{t("incidents.opened")}</dt><dd>{formatConsoleTimestamp(incident.opened_at)}</dd></div>
           <div><dt>{t("incidents.lastUpdated")}</dt><dd>{formatConsoleTimestamp(incident.last_updated_at)}</dd></div>
           <div><dt>{t("incidents.history")}</dt><dd>{t("incidents.recordCount", { count: incident.history_count })}</dd></div>
-          <div><dt>{t("incidents.latestMode")}</dt><dd>{t(`incidents.modeMeaning.${incident.latest_mode}`)}</dd></div>
+          <div><dt>{t("incidents.latestMode")}</dt><dd>{localized("modeMeaning", incident.latest_mode)}</dd></div>
         </dl>
         <details class="incident-additional-evidence">
           <summary>{t("incidents.additionalEvidence")}</summary>
@@ -579,20 +579,25 @@ function IncidentCurrentState({
         <div><dt>{t("incidents.overview.agentStatus")}</dt><dd>{t(`incidents.overview.agentState.${agentStatus}`)}</dd></div>
         <div><dt>{t("incidents.overview.userInput")}</dt><dd>{t(agentStatus === "pending_user_input" ? "incidents.overview.required" : "incidents.overview.notRequired")}</dd></div>
         <div><dt>{t("incidents.overview.decision")}</dt><dd>{overview.decisionRecorded ? localized("verdict", incident.verdict) : t("incidents.overview.noDecision")}</dd></div>
-        <div><dt>{t("incidents.overview.authority")}</dt><dd>{t(`incidents.modeMeaning.${incident.latest_mode}`)}</dd></div>
+        <div><dt>{t("incidents.overview.authority")}</dt><dd>{localized("modeMeaning", incident.latest_mode)}</dd></div>
       </dl>
       <section class="incident-response-routing" aria-label={t("incidents.overview.routingTitle")}>
         <h4>{t("incidents.overview.routingTitle")}</h4>
         <dl>
           <div><dt>{t("incidents.overview.severity")}</dt><dd>{localized("severity", incident.severity)}</dd></div>
-          <div><dt>{t("incidents.overview.accountableAgents")}</dt><dd><a href={routeHref("agents", { params: { incident: incident.correlation_id } })}>{incident.involved_agents.join(", ") || t("incidents.none")}</a></dd></div>
+          <div><dt>{t("incidents.overview.accountableAgents")}</dt><dd>{incident.involved_agents.length > 0 ? <a href={routeHref("agents", { params: { incident: incident.correlation_id } })}>{incident.involved_agents.join(", ")}</a> : t("incidents.none")}</dd></div>
           <div><dt>{t("incidents.overview.humanOwnership")}</dt><dd><a href={routeHref("handover")}>{t("incidents.overview.openOwnership")}</a></dd></div>
-          <div><dt>{t("incidents.overview.autonomy")}</dt><dd>{t(`incidents.modeMeaning.${incident.latest_mode}`)}</dd></div>
+          <div><dt>{t("incidents.overview.autonomy")}</dt><dd>{localized("modeMeaning", incident.latest_mode)}</dd></div>
         </dl>
       </section>
       <div class="incident-next-step">
         <strong>{t("incidents.overview.nextStep")}</strong>
         <span>{t(`incidents.overview.next.${overview.phase}`)}</span>
+        {overview.blockingReason !== null ? (
+          <span class="incident-next-step-blocker">
+            {t("incidents.overview.recordedBlocker", { reason: overview.blockingReason })}
+          </span>
+        ) : null}
       </div>
     </section>
   );
@@ -712,7 +717,15 @@ function IncidentTimeline({ items }: { readonly items: readonly AuditItem[] }) {
 }
 
 function localized(group: string, value: string): string {
-  return t(`incidents.${group}.${value}`);
+  const key = `incidents.${group}.${value}`;
+  const translated = t(key);
+  return translated === key ? humanizeIncidentToken(value) : translated;
+}
+
+/** Keep an unmapped server value readable instead of rendering its catalog key. */
+function humanizeIncidentToken(value: string): string {
+  const words = value.replace(/[._-]+/g, " ").trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 function statusPill(status: IncidentSummary["status"]): PillKind {

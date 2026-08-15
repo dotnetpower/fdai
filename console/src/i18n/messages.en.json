@@ -1236,6 +1236,11 @@
         "requestHeld": "Operator request held for review",
         "auditRecorded": "Audit evidence recorded"
       },
+      "analysis": {
+        "rca": "Root-cause analysis",
+        "t1": "T1 similarity",
+        "t2": "T2 reasoning"
+      },
       "description": {
         "opened": "Opened a {severity} incident and began correlating related signals.",
         "correlatedOne": "Attached one related signal to this incident.",
@@ -1249,6 +1254,9 @@
         "requestHeld": "Held the operator request because the available evidence was insufficient for a governed action.",
         "auditRecorded": "Recorded the latest decision and action evidence in the append-only audit log.",
         "result": "Recorded result: {result}.",
+        "analysisCause": "{analysis} recorded a cause: {cause}",
+        "analysisOutcome": "{analysis} recorded {outcome}.",
+        "analysisReason": "{analysis} recorded {outcome}: {reason}.",
         "recorded": "Recorded operational event: {action}."
       }
     },
@@ -1306,6 +1314,7 @@
       "authority": "Change authority",
       "noDecision": "No remediation decision recorded",
       "nextStep": "Recommended next step",
+      "recordedBlocker": "Recorded blocker: {reason}",
       "next": {
         "resolved": "Confirm the recorded recovery evidence and close any remaining operational follow-up.",
         "notification_failed": "Restore or configure an operational alert channel, then review the technical activity. Root-cause analysis has not started.",

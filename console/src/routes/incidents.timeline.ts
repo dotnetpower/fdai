@@ -33,6 +33,19 @@ const ACTION_TITLE_KEYS: Readonly<Record<string, string>> = {
   "audit.record": "incidents.event.title.auditRecorded",
 };
 
+/** Analyses that record their verdict under a prefixed outcome, reason, and cause. */
+const TIERED_ANALYSES: readonly { readonly prefix: string; readonly labelKey: string }[] = [
+  { prefix: "rca", labelKey: "incidents.event.analysis.rca" },
+  { prefix: "t1", labelKey: "incidents.event.analysis.t1" },
+  { prefix: "t2", labelKey: "incidents.event.analysis.t2" },
+];
+
+/** Tokens that lose their meaning when sentence-cased. */
+const ACRONYMS = new Set([
+  "rca", "hil", "sre", "slo", "sli", "sla", "kpi", "api", "iam", "rbac",
+  "dns", "vm", "aks", "pdf", "url", "t0", "t1", "t2",
+]);
+
 export function incidentTimelinePresentation(item: AuditItem): IncidentTimelinePresentation {
   const titleKey = ACTION_TITLE_KEYS[item.action_kind];
   const title = titleKey ? t(titleKey) : humanizeToken(item.action_kind);
@@ -94,6 +107,8 @@ function inferredDescription(item: AuditItem, title: string): string {
   if (item.action_kind === "audit.record") {
     return t("incidents.event.description.auditRecorded");
   }
+  const analysis = analysisDescription(item);
+  if (analysis !== null) return analysis;
   const reason = firstString(item, "reason");
   if (reason !== null) return reason;
   const outcome = firstString(item, "decision", "outcome", "to_state", "state");
@@ -101,6 +116,31 @@ function inferredDescription(item: AuditItem, title: string): string {
     return t("incidents.event.description.result", { result: humanizeToken(outcome) });
   }
   return t("incidents.event.description.recorded", { action: title });
+}
+
+/** Quote a recorded tiered verdict rather than restating the action kind as prose. */
+function analysisDescription(item: AuditItem): string | null {
+  for (const { prefix, labelKey } of TIERED_ANALYSES) {
+    const outcome = firstString(item, `${prefix}_outcome`);
+    if (outcome === null) continue;
+    const analysis = t(labelKey);
+    const cause = firstString(item, `${prefix}_cause`);
+    if (cause !== null) {
+      return t("incidents.event.description.analysisCause", { analysis, cause: sentence(cause) });
+    }
+    const reason = firstString(item, `${prefix}_reason`);
+    return reason === null
+      ? t("incidents.event.description.analysisOutcome", {
+          analysis,
+          outcome: tokenWords(outcome),
+        })
+      : t("incidents.event.description.analysisReason", {
+          analysis,
+          outcome: tokenWords(outcome),
+          reason: tokenWords(reason),
+        });
+  }
+  return null;
 }
 
 function timelineOwner(item: AuditItem): { readonly name: string; readonly kind: "agent" | "service" } {
@@ -181,8 +221,18 @@ function arrayLength(item: AuditItem, key: string): number {
 
 function humanizeToken(value: string): string {
   if (/^sev\d+$/i.test(value)) return value.toUpperCase();
-  const words = value.replace(/[._-]+/g, " ").trim();
+  const words = tokenWords(value);
   return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/** Split a machine token into words, keeping known acronyms uppercase. */
+function tokenWords(value: string): string {
+  return value
+    .replace(/[._-]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .map((word) => (ACRONYMS.has(word.toLowerCase()) ? word.toUpperCase() : word))
+    .join(" ");
 }
 
 function humanizeService(value: string): string {

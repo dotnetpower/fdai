@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 76c6ee9a307a158e28492e5ab638c8568d9a207a
+translation_source_sha: 7f17a758b2acaa49dd1300373b40af3139bc8809
 translation_revised: 2026-08-15
 ---
 
@@ -146,6 +146,9 @@ Incidents 목록은 서버가 소유한 `title_source`를 그대로 렌더링하
 보정하지 않습니다. `recorded_subject`는 서버가 기록된 운영 대상과 사유로 구성한 대상을 뜻하며,
 `identifier_fallback`은 식별자를 대상처럼 제시하는 대신 계속 사용 불가로 표시합니다. 이 fallback
 에서는 Audit, Trace, RCA, dossier 링크가 모두 해석하는 식별자인 `correlation_id`를 표시합니다.
+인시던트 타임라인은 기록된 계층 판정을 해당 `<tier>_outcome`, `<tier>_reason`,
+`<tier>_cause` 필드에서 인용하며, 현재 상황 블록은 통제된 대응이 abstain, deny 또는 실패한
+가장 최근 기록 사유를 함께 표시합니다. 콘솔은 그 사유를 인용할 뿐 조치 지시로 바꾸지 않습니다.
 변환 계약은 [operator-console-incident-roster.md](operator-console-incident-roster.md)를 참고하세요.
 
 ### Operations 작업 화면

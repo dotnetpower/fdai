@@ -71,6 +71,7 @@ describe("incident operational overview", () => {
       traceAvailable: true,
       auditAvailable: true,
       activityCount: 4,
+      blockingReason: null,
     });
   });
 
@@ -102,5 +103,24 @@ describe("incident operational overview", () => {
     ]);
 
     expect(overview.phase).toBe("monitoring");
+  });
+
+  it("reports the newest recorded reason a governed response stopped", () => {
+    const overview = incidentOperationalOverview(incident(), [
+      audit("control_loop.abstain", 1, { reason: "first_abstention" }),
+      audit("control_loop.abstain", 2, { reason: "no_rule_matches_resource_and_signal_type" }),
+      audit("control_loop.t1_evaluate", 3, { t1_outcome: "abstain" }),
+    ]);
+
+    expect(overview.blockingReason).toBe("no_rule_matches_resource_and_signal_type");
+  });
+
+  it("does not invent a blocker when no abstention recorded a reason", () => {
+    const overview = incidentOperationalOverview(incident(), [
+      audit("incident.open", 1, { reason: "operator opened the incident" }),
+      audit("control_loop.abstain", 2, {}),
+    ]);
+
+    expect(overview.blockingReason).toBeNull();
   });
 });

@@ -146,7 +146,11 @@ The Incidents roster renders the server-owned `title_source`, so the browser nev
 incident subject. `recorded_subject` names a subject the server composed from the recorded
 operational target and reason; `identifier_fallback` still renders as unavailable rather than
 presenting an identifier as the subject. In that fallback the roster shows the `correlation_id`,
-which is the identifier every Audit, Trace, RCA, and dossier link resolves. See
+which is the identifier every Audit, Trace, RCA, and dossier link resolves. The incident timeline
+quotes a recorded tiered verdict from its own `<tier>_outcome`, `<tier>_reason`, and `<tier>_cause`
+fields, and the current-situation block adds the newest recorded reason a governed response
+abstained, denied, or failed. The console quotes that reason and does not convert it into a
+remediation instruction. See
 [operator-console-incident-roster.md](operator-console-incident-roster.md) for the projection
 contract.
 

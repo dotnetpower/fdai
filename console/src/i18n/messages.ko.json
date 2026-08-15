@@ -1236,6 +1236,11 @@
         "requestHeld": "운영자 요청 검토 대기",
         "auditRecorded": "감사 근거 기록됨"
       },
+      "analysis": {
+        "rca": "근본 원인 분석",
+        "t1": "T1 유사도",
+        "t2": "T2 추론"
+      },
       "description": {
         "opened": "{severity} 인시던트를 열고 관련 신호 연결을 시작했습니다.",
         "correlatedOne": "관련 신호 1개를 이 인시던트에 연결했습니다.",
@@ -1249,6 +1254,9 @@
         "requestHeld": "통제된 작업을 수행할 근거가 충분하지 않아 운영자 요청을 보류했습니다.",
         "auditRecorded": "최신 결정 및 작업 근거를 추가 전용 감사 로그에 기록했습니다.",
         "result": "기록된 결과: {result}.",
+        "analysisCause": "{analysis}가 원인을 기록했습니다: {cause}",
+        "analysisOutcome": "{analysis}가 {outcome}을(를) 기록했습니다.",
+        "analysisReason": "{analysis}가 {outcome}을(를) 기록했습니다: {reason}.",
         "recorded": "운영 이벤트를 기록했습니다: {action}."
       }
     },
@@ -1306,6 +1314,7 @@
       "authority": "변경 권한",
       "noDecision": "기록된 수정 결정 없음",
       "nextStep": "권장 다음 단계",
+      "recordedBlocker": "기록된 차단 사유: {reason}",
       "next": {
         "resolved": "기록된 복구 근거를 확인하고 남은 운영 후속 작업을 마무리하세요.",
         "notification_failed": "운영 알림 채널을 복구하거나 구성한 뒤 기술 활동을 확인하세요. 근본 원인 분석은 아직 시작되지 않았습니다.",
