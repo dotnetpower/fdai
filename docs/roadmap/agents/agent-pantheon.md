@@ -368,7 +368,7 @@ properties:
   name: string                     # "Odin", "Thor", ...
   layer: enum                      # domain | pipeline | governance
   reports_to: Agent?               # org chart edge
-  owns: [ObjectType]               # write-authority (single-writer)
+  owns: [ObjectType]               # bus single-writer; publishes derives from it
   executes: [ActionType]           # references action-ontology.md
   initiates: [ActionType]          # can propose (see §7.1)
   subscribes: [Topic]              # typed-port subscriptions
@@ -381,9 +381,15 @@ properties:
     proposals_per_hour: int
 ```
 
-Every `object_type` declaration in the wider ontology gains an
-`owner_agent` field pointing back at exactly one `Agent`. The producer
-principal is checked by the schema registry: only the owner may publish.
+Every `object_type` declaration in the wider ontology MAY carry an
+optional `lifecycle` block whose `owner` names exactly one `Agent`. That
+field is the ontology semantic-write registry: it says who may create and
+close instances of the type in the graph. It is separate from the
+event-bus registry in section 4, where `owns` says who may publish
+`object.<type>`. A type may be in one, both, or neither; a type with no
+`lifecycle` block simply adds no second write authority. See
+[Operating ontology - Agent ownership](../architecture/operating-ontology.md#agent-ownership)
+for the current per-agent list and the rules for reading it.
 
 ## 6. Communication contract
 

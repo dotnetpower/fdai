@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: c623a4c494ef85beca9f7e33e5e282353aa866e3
+translation_source_sha: a50c505a1c17643d8bce5f8511ac30ecada763d9
 translation_revised: 2026-08-15
 ---
 # FDAI 운영 온톨로지
@@ -101,6 +101,7 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | 구현 범위 표의 현재 소스, 테스트 및 제공 계획입니다. | 아래의 관찰 가능한 종료 조건을 완료해야 합니다. |
 | 2026-08-14 | implemented | 일치하지 않는 보안 receipt를 거부하고 raw 객체 속성을 제외하는 범위 제한 컨텍스트 표현 projector를 추가했습니다. | `current change`, `test_console_projection.py` focused 테스트 5개 통과 | Principal 범위 근거 응답을 통해서만 projector를 연결하고 인증된 Console 근거를 보존해야 합니다. |
 | 2026-08-15 | implemented | 선언되지 않은 `predicts_breach_of`와 `learned_as` 행을 관계 계약에서 제거하고 이를 막고 있는 ObjectType을 기록했으며, 표를 제공되는 LinkType 카탈로그와 저장된 링크 방향에 고정했습니다. | `current change`, `test_ontology_catalog.py` 및 `test_ontology_instance.py` focused 테스트 | 두 관계는 엔드포인트 ObjectType과 이를 필요로 하는 competency 질문이 함께 준비될 때만 복원합니다. |
+| 2026-08-15 | implemented | 에이전트 소유권 절을 바로잡아 두 개의 독립된 소유권 레지스트리를 명시하고, 산문으로 된 소유권 서술을 정확한 `lifecycle.owner` 타입 목록으로 교체했으며, 근거 없던 "권한 등급, 최신성 정책, 보존, allowed 용도" 서술을 스키마가 실제로 선언하는 필드로 바꿨습니다. | `current change`, `test_object_type_catalog.py::test_documented_semantic_write_owners_match_the_catalog` | `lifecycle` 블록이 없는 ObjectType별로 선언된 소유자가 필요한지 판단합니다. 빈칸을 유추하려는 목적으로 추가하지 않습니다. |
 
 ### 남은 작업
 
@@ -116,6 +117,9 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
   때 운영 온톨로지와 플랫폼 원장을 동기화합니다.
 - [ ] `Forecast`와 `Pattern` ObjectType을 제공할지는 이를 필요로 하는 competency 질문을 근거로
   결정하고, 그때에만 `predicts_breach_of`와 `learned_as`를 선언된 LinkType으로 복원합니다.
+- [ ] `lifecycle` 블록이 없는 출하 ObjectType을 검토해, 타입별로 에이전트 단일 작성자가 필요한지
+  아니면 catalog-as-code, 변환 결과, 이벤트 버스 레지스트리 중 무엇이 올바른 권한인지
+  기록합니다 ([#130](https://github.com/dotnetpower/fdai/issues/130)).
 
 ## 카탈로그 의미 변환 결과
 
@@ -433,31 +437,80 @@ valid하고 검증을 주장하지 않습니다. 해당 메타데이터가 없�
 | 결정, 승인, 액션, 롤백 | 추가 전용 감사와 프로세스 저널 | 변경할 수 없는 의미 링크입니다. |
 | 사례 및 pattern | 사례 이력과 검토된 카탈로그 | Learning 변환 결과와 통제된 reuse입니다. |
 
-각 ObjectType은 하나의 owning 에이전트, 하나의 권한 등급, 최신성 정책, 보존, allowed
-용도를 선언합니다. 충돌하는 출처는 명시적인 충돌 또는 `unknown` 상태를 만들고 자율성을
-낮춥니다.
+ObjectType 선언은 선택적인 `lifecycle` 블록을 가질 수 있습니다. 이 블록이 있으면 정확히 하나의
+owning 에이전트, 하나 이상의 생성 기준, 선택적인 중복 제거 전략, 선택적인 종료 기준, 하나 이상의
+권한 참조를 선언합니다. 선언 스키마에는 권한 등급, 최신성 정책, 보존 기간, allowed 용도 목록이
+없으므로, 이 네 가지를 ObjectType에서 기대해서는 안 됩니다. 이들은 실제로 강제되는 층위에서
+따로 선언됩니다.
+
+| 관심사 | 선언 위치 | 범위 |
+|--------|-----------|------|
+| Owning 에이전트, 생성, 종료, 권한 참조 | ObjectType의 `ObjectLifecycle` | 타입 단위이며 선택적입니다. |
+| 권한 등급, 최신성 상한, 완전성, 충돌 | 사실의 `StateFactMetadata` | 결정에 관련된 사실 단위입니다. |
+| 접근 범위와 allowed 용도 | `PropertyDecl`의 `access_scope`와 `purpose_binding` | 속성 단위입니다. |
+| 보존 | 권한을 가진 원본 시스템 | 온톨로지에서 선언하지 않습니다. |
+
+충돌하는 출처는 명시적인 충돌 또는 `unknown` 상태를 만들고 자율성을 낮춥니다.
 
 ## 에이전트 소유권
 
-온톨로지는 중앙 조정기를 추가하지 않고 고정된 pantheon을 더 유능하게 만듭니다.
+온톨로지는 중앙 조정기를 추가하지 않고 고정된 pantheon을 더 유능하게 만듭니다. 소유권은 서로 다른
+질문에 답하는 두 개의 독립된 레지스트리에 선언됩니다. 한쪽을 다른 쪽으로 착각해 읽는 것이 존재하지
+않는 소유권 공백을 보고하게 되는 흔한 원인입니다.
 
-| 에이전트 | 소유 의미 쓰기 |
-|-------|---------------------|
-| Huginn | 정규화된 관측과 discovered 토폴로지 변경 이벤트입니다. |
-| Heimdall | 발견 사항, 예측, 독립적인 효과 관측입니다. |
-| Njord | 비용 관측, 비용 예측, 비용 목표 상태입니다. |
-| Freyr | Demand, 용량 예측, sizing 옵션입니다. |
-| Loki | 실험과 복원력 근거입니다. |
-| Forseti | 결정 사례, 통제된 결정, 자신의 기준 시점에 materialize한 `OperationalContextMaterializer` 스냅샷입니다. |
-| Odin | Cross-objective 중재 결정과 점수 breakdown입니다. |
-| Var | 독립적인 승인 기록입니다. |
-| Thor | 액션 실행과 시도입니다. |
-| Vidar | Rollback 및 복구 결과입니다. |
-| Saga | 감사 근거와 변경할 수 없는 상관관계 링크입니다. |
-| Muninn | 영속 상태 스냅샷과 변경할 수 없는 사례 이력 맥락 색인입니다. |
-| Norns | Pattern과 inert 후보입니다. |
-| Mimir | 검토된 온톨로지, 룰, 액션 카탈로그 수명 주기입니다. |
-| Bragi | 결정 쓰기가 없으며 cited 변환 결과를 localized explanation으로만 표현합니다. |
+| 레지스트리 | 답하는 질문 | 진실의 원천 | 강제 지점 |
+|-----------|------------|------------|----------|
+| 이벤트 버스 단일 작성자 | 어떤 에이전트가 `object.<type>`을 publish할 수 있는가? | `PANTHEON_SPECS`의 각 `AgentSpec`에 있는 `owns` | `PantheonRegistry.assert_can_publish`와 `test_topics.py`의 파생 토픽 검사입니다. |
+| 온톨로지 의미 쓰기 | 어떤 에이전트가 그래프에서 ObjectType 인스턴스를 생성하고 종료할 수 있는가? | `rule-catalog/vocabulary/object-types/`의 `lifecycle.owner` | 카탈로그 로딩과 `test_object_type_catalog.py`의 문서 파리티 검사입니다. |
+
+객체 타입은 한쪽 레지스트리에만, 양쪽 모두에, 또는 어느 쪽에도 없을 수 있습니다. `Verdict`는
+ObjectType 선언이 없는 버스 계약이고, `DecisionCase`는 버스 토픽이 없는 그래프 객체이며,
+`ActionRun`과 `Issue`는 양쪽 모두에 있습니다. 따라서 `AgentSpec.owns`는 그래프 전용 타입을
+나열할 수 없습니다. `publishes`가 `owns`에서 파생되고, 파생된 모든 토픽은 이미
+`OWNED_OBJECT_TOPICS`에 있어야 하기 때문입니다.
+
+이벤트 버스 소유권은 [Agent pantheon](../agents/agent-pantheon-ko.md) 4절에 정리되어 있으며 여기서
+중복하지 않습니다. 아래 표는 온톨로지 의미 쓰기 레지스트리이며, 해석이 아니라 검사가 가능하도록
+정확한 타입 이름으로 나열합니다.
+
+| 에이전트 | `lifecycle.owner` 로 소유하는 ObjectType |
+|-------|---------------------------------------------|
+| Odin | 선언 없음 |
+| Thor | `ActionRun` |
+| Forseti | `ActionOption`, `CausalHypothesis`, `DecisionCase`, `ExpectedEffect`, `ImpactEnvelope` |
+| Huginn | `Change`, `Observation` |
+| Heimdall | `Incident`, `ObservedOutcome` |
+| Vidar | `RecoveryPlan` |
+| Var | 선언 없음 |
+| Bragi | 선언 없음 |
+| Saga | `Issue` |
+| Mimir | `ArchitectureConstraint`, `ChangeWindow` |
+| Muninn | `BusinessCapability`, `BusinessService`, `Environment`, `Ownership`, `RecoveryObjective`, `ServiceObjective`, `Workload` |
+| Norns | 선언 없음 |
+| Njord | `CostObjective` |
+| Freyr | 선언 없음 |
+| Loki | `Experiment` |
+
+이 표에서 특히 중요하고 틀리기 쉬운 결론이 세 가지 있습니다.
+
+- **효과 종결은 행동한 에이전트가 소유하지 않습니다.** `ObservedOutcome`은 Thor나 Vidar가 아니라
+  Heimdall의 것입니다. Thor는 실행 영수증을, Vidar는 복구 계획을 소유하지만, 개입이 실제로
+  효과가 있었는지를 기록하는 객체는 어느 쪽도 쓸 수 없습니다. `ObservedOutcome`을 행동한
+  에이전트로 옮기면 주체가 자기 액션을 스스로 채점하게 되므로 defect입니다.
+- **검토된 의도는 판단자가 저작하지 않고 변환해 옵니다.** Muninn이 운영 spine과 서비스 및 복구
+  목표를, Mimir가 아키텍처 제약과 변경 창을, Njord가 비용 목표를 소유합니다. Forseti는 그것들로
+  구성한 결정 맥락을 소유할 뿐, 자신이 판단 기준으로 삼는 목표를 소유하지 않습니다.
+- **온톨로지, 액션, 룰 정의는 런타임 쓰기가 아닙니다.** Mimir는 카탈로그 항목의 승격과 철회를
+  관리하며, 정의 자체는 Git의 catalog-as-code로 남습니다.
+
+`lifecycle` 블록이 없는 ObjectType에는 선언된 온톨로지 소유자가 없습니다. 이는 아무도 그 타입을
+쓸 수 없다는 뜻이 아닙니다. ObjectType 선언이 두 번째 쓰기 권한을 추가하지 않는다는 뜻이며, 해당
+타입은 이미 적용되는 권한의 지배를 받습니다. `ActionType`, `Rule`, `SignalType`, `ResourceType`,
+`Property`, `PolicyArtifact`는 catalog-as-code가, `Resource`, `Signal`, `Finding`, `Process`는
+프로바이더 또는 서비스 변환 결과가, `Approval`, `SecurityEvent`, `Conversation`, `Turn`,
+`RuleCandidate`처럼 버스로 전달되는 객체는 이벤트 버스 레지스트리가 권한을 가집니다. 현재 출하되는
+대부분의 ObjectType이 이 상태입니다. 어떤 타입에 `lifecycle` 블록을 추가하는 것은 에이전트 단일
+작성자를 도입하는 의도적인 행위이므로, 빈칸을 채우려는 목적만으로 추가해서는 안 됩니다.
 
 에이전트는 타입이 지정된 이벤트로 협업합니다. 다른 에이전트의 객체를 mutate하거나 직접 호출하거나 변경 가능한
 작업 흐름 상태를 공유하지 않습니다.

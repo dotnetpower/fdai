@@ -98,6 +98,15 @@ MAY publish that object type's topic.
 > Do not publish or subscribe it. Override events flow through the exemption /
 > rule-catalog machinery, not a pantheon topic.
 
+> **"Owns" here means the event bus, not the ontology graph.** `AgentSpec.owns`
+> derives `publishes`, and every derived topic MUST already exist in
+> `OWNED_OBJECT_TOPICS`. A graph-only ObjectType such as `DecisionCase` or
+> `ObservedOutcome` therefore MUST NOT be added to `owns`; its semantic-write
+> owner is `lifecycle.owner` in `rule-catalog/vocabulary/object-types/`. The two
+> registries are independent, and an apparent gap in one is not evidence of a
+> missing owner in the other. See
+> [Operating ontology - Agent ownership](../../docs/roadmap/architecture/operating-ontology.md#agent-ownership).
+
 ## 3. Structural invariants that a code change MUST preserve
 
 1. **Single-writer topics (MUST).** An agent MUST publish only to a topic whose
