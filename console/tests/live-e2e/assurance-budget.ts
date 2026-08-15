@@ -79,6 +79,29 @@ export function attemptEndedByRunBudget(input: {
   return input.runBudgetIsBinding && input.remainingMs < input.perAttemptDeadlineMs;
 }
 
+export type ExpiredAttemptOutcome =
+  | "per_attempt_deadline_exceeded"
+  | "question_budget_exhausted"
+  | "stalled_question";
+
+/**
+ * Names the bound that actually truncated an expired attempt.
+ *
+ * An attempt is clamped to whichever of the attempt deadline and the remaining whole-question
+ * window is smaller, so the published reason must follow the bound that fired rather than
+ * always blaming the attempt deadline.
+ */
+export function classifyExpiredAttempt(input: {
+  readonly attemptDeadlineMs: number;
+  readonly perAttemptDeadlineMs: number;
+  readonly runBudgetIsBinding: boolean;
+}): ExpiredAttemptOutcome {
+  if (input.attemptDeadlineMs >= input.perAttemptDeadlineMs) {
+    return "per_attempt_deadline_exceeded";
+  }
+  return input.runBudgetIsBinding ? "question_budget_exhausted" : "stalled_question";
+}
+
 /** Returns the wait needed to honor a minimum spacing between request starts. */
 export function pacingDelayMs(minimumIntervalMs: number, elapsedSinceLastStartMs: number): number {
   if (!Number.isFinite(minimumIntervalMs) || minimumIntervalMs < 0) {

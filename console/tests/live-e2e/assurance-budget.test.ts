@@ -10,6 +10,7 @@ import {
   RUN_BUDGET_PER_QUESTION_MS,
   TEST_TIMEOUT_SLACK_MS,
   attemptEndedByRunBudget,
+  classifyExpiredAttempt,
   pacingDelayMs,
   resolveAssuranceBudget,
   resolveQuestionBound,
@@ -105,6 +106,32 @@ describe("attemptEndedByRunBudget", () => {
   });
 });
 
+describe("classifyExpiredAttempt", () => {
+  it("blames the attempt deadline only when the attempt ran its full length", () => {
+    expect(classifyExpiredAttempt({
+      attemptDeadlineMs: 180_000,
+      perAttemptDeadlineMs: 180_000,
+      runBudgetIsBinding: false,
+    })).toBe("per_attempt_deadline_exceeded");
+  });
+
+  it("reports a truncated attempt as a stalled question while the run budget has room", () => {
+    expect(classifyExpiredAttempt({
+      attemptDeadlineMs: 115_000,
+      perAttemptDeadlineMs: 180_000,
+      runBudgetIsBinding: false,
+    })).toBe("stalled_question");
+  });
+
+  it("reports a truncated attempt as budget exhaustion when the run budget is binding", () => {
+    expect(classifyExpiredAttempt({
+      attemptDeadlineMs: 8,
+      perAttemptDeadlineMs: 180_000,
+      runBudgetIsBinding: true,
+    })).toBe("question_budget_exhausted");
+  });
+});
+
 describe("resolveAssuranceBudget", () => {
   it("derives a bounded budget from the question count", () => {
     expect(resolveAssuranceBudget({}, 1).runBudgetMs).toBe(MINIMUM_RUN_BUDGET_MS);
@@ -138,13 +165,14 @@ describe("resolveAssuranceBudget", () => {
     );
   });
 
-  it("keeps the harness timeout above every wait the loop can still grant", () => {
+  it("keeps the harness timeout above the waits the loop can grant at the permitted extremes", () => {
     for (
       const override of [{}, { FDAI_E2E_ASSURANCE_RUN_BUDGET_MS: String(MINIMUM_RUN_BUDGET_MS) }]
     ) {
       const budget = resolveAssuranceBudget(
         {
           ...override,
+          FDAI_E2E_ASSURANCE_MIN_REQUEST_INTERVAL_MS: "60000",
           FDAI_E2E_ASSURANCE_PER_QUESTION_DEADLINE_MS: "600000",
           FDAI_E2E_ASSURANCE_NO_PROGRESS_DEADLINE_MS: "600000",
         },
@@ -154,8 +182,8 @@ describe("resolveAssuranceBudget", () => {
       // the pre-question spacing plus one granted intra-question wait.
       const tailMs = 2 * budget.minimumRequestIntervalMs + budget.transportRetryMaxMs;
       expect(budget.testTimeoutMs - budget.runBudgetMs).toBeGreaterThan(tailMs);
-      // The envelope must not silently absorb an unclamped per-question deadline again.
-      expect(budget.testTimeoutMs - budget.runBudgetMs).toBeLessThan(budget.perQuestionDeadlineMs);
+      // The envelope must stay dominated by the declared budget rather than by harness slack.
+      expect(budget.testTimeoutMs - budget.runBudgetMs).toBeLessThan(budget.runBudgetMs);
     }
   });
 
