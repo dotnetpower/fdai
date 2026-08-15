@@ -84,6 +84,19 @@ the Constitution always prevails.
    focused tests are incomplete. Commit the finished slice and obtain its centralized validation
    receipt first. Lightweight read-only identity and context checks may run earlier; they must not
    become long polling or remote troubleshooting.
+10. Prevent interactive sensitive-input prompts before starting a command. Prefer an existing
+   authenticated session, workload identity, credential-store reference, documented
+   non-interactive mode, or provider-hosted browser/device authorization flow, and use a
+   non-secret readiness check first. Passwords, passphrases, tokens, API keys, MFA or recovery
+   codes, connection strings, private keys, and secret values MUST NOT cross chat,
+   `vscode_askQuestions`, tool arguments, `send_to_terminal`, command lines, generated files,
+   logs, or task output. Do not start `sudo`, password login, or another known prompting command
+   through an agent tool. If a running terminal still requires sensitive input, tell the user to
+   enter it directly in that terminal, preserve the exact continuation point, and treat the pause
+   as an authentication handoff rather than task failure or completion. After confirmation,
+   verify only non-secret authentication state and resume without repeating completed work or
+   requesting the value again. Never weaken authentication, authorization, certificate checks,
+   or another security control to avoid the prompt.
 
 ## Issue Lifecycle (MUST)
 
