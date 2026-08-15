@@ -4,6 +4,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 import {
   attemptEndedByRunBudget,
+  classifyExpiredAttempt,
   DeadlineExceededError,
   MAX_TRANSPORT_ATTEMPTS,
   resolveAssuranceBudget,
@@ -66,7 +67,7 @@ interface RetainedTransportAttempt {
     | "semantic_terminal"
     | "retryable_transport_failure"
     | "non_retryable_receipt_missing"
-    | "per_question_deadline_exceeded"
+    | "per_attempt_deadline_exceeded"
     | "question_budget_exhausted"
     | "stalled_question"
     | "turn_error";
@@ -226,10 +227,17 @@ async function resolveQuestion(
       );
     } catch (error) {
       const deadlineExceeded = error instanceof DeadlineExceededError;
-      transportAttempts.push({
-        attempt,
-        outcome: deadlineExceeded ? "per_question_deadline_exceeded" : "turn_error",
-      });
+      const outcome = deadlineExceeded
+        ? classifyExpiredAttempt({
+          attemptDeadlineMs,
+          perAttemptDeadlineMs: budget.perQuestionDeadlineMs,
+          runBudgetIsBinding,
+        })
+        : "turn_error";
+      transportAttempts.push({ attempt, outcome });
+      // A transient evaluate failure is not terminal evidence, so it may use a remaining attempt
+      // instead of being persisted as a permanent failure.
+      if (outcome === "turn_error" && attempt < MAX_TRANSPORT_ATTEMPTS) continue;
       return {
         result: null,
         transportAttempts,
@@ -430,7 +438,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   ).length;
   const deadlineExceededCount = retained.filter((result) =>
     result.transport_attempts.some(
-      (attempt) => attempt.outcome === "per_question_deadline_exceeded",
+      (attempt) => attempt.outcome === "per_attempt_deadline_exceeded",
     )
   ).length;
   const liveQuestionCount = retained.length - resumed.length;
@@ -510,10 +518,11 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
       per_question_deadline_ms: budget.perQuestionDeadlineMs,
       no_progress_deadline_ms: budget.noProgressDeadlineMs,
       // The configuration keys mirror the operator environment variables; these state what each
-      // value actually bounds.
+      // value actually bounds. Attempt outcomes use the accurate names.
       deadline_semantics: {
-        per_question_deadline_ms: "one attempt",
-        no_progress_deadline_ms: "one whole question including retries",
+        per_question_deadline_ms: "one attempt; breaches report per_attempt_deadline_exceeded",
+        no_progress_deadline_ms:
+          "one whole question including retries; breaches report stalled_question",
       },
       minimum_request_interval_ms: budget.minimumRequestIntervalMs,
       stop_reason: stopReason,

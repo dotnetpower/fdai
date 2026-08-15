@@ -249,6 +249,7 @@ The remaining Low risks are explicit and bounded:
 | 2026-08-15 | implemented | Bound the assurance checkpoint to an evidence identity instead of the full run configuration, so a per-run session id or an adjusted pacing, deadline, or retry knob no longer discards completed turns, and attributed every retained result to its producing run. | Current change; console suite 1793 passed and TypeScript project check clean. | Complete the remaining hardening rounds for issue #122. |
 | 2026-08-15 | implemented | Added the target stack origin to the checkpoint binding, stopped persisting budget-derived non-results as permanent failures, constrained the run-budget override to the declared envelope, derived retry counts from retained evidence, validated retained result shape, and corrected six overclaiming ledger rows. | Current change; live-evidence Vitest passed 89 cases and TypeScript project check clean. | Complete the remaining hardening rounds for issue #122. |
 | 2026-08-15 | implemented | Separated the stalled-question bound from the run-budget bound behind a tested policy, forwarded the ignored result predicate on the checkpoint read path, disclosed the question that stopped a budget-limited run, and extended the Console typecheck gate to `console/tests`, which exposed and fixed a real type break this campaign had introduced in an untypechecked spec. | Current change; live-evidence Vitest passed 95 cases; `npm run typecheck` now covers `console/tests` and passed. | Complete the remaining hardening rounds for issue #122. |
+| 2026-08-15 | implemented | Corrected the preceding row: that change extended the Console typecheck script but not the enforced gate. This change runs `npm --prefix console run typecheck` inside `run-operator-surfaces.sh`, publishes the bound that actually truncated each expired attempt, renames that outcome to `per_attempt_deadline_exceeded`, and lets a transient turn error use its remaining attempt. | Current change; live-evidence Vitest passed 98 cases; full Console suite passed 1802 cases; `npm run typecheck` passed. | Complete the remaining hardening rounds for issue #122. |
 
 ### Remaining work
 
@@ -297,8 +298,10 @@ deadline, a no-progress deadline, a progress signal, and a resumable checkpoint.
 - Every turn is clamped to the remaining run budget, so budget exhaustion stops the run, leaves the
   last written checkpoint intact, and fails with an explicit stop reason instead of reaching an
   opaque harness timeout.
-- The no-progress deadline bounds one whole question including its retries, and the per-question
-  deadline bounds one attempt; a breach is recorded as a distinct failure reason.
+- The stalled-question deadline bounds one whole question including its retries, and the
+  per-attempt deadline bounds one attempt. Each attempt reports the bound that actually
+  truncated it, so `per_attempt_deadline_exceeded`, `stalled_question`, and
+  `question_budget_exhausted` stay distinguishable in the artifact.
 - A checkpoint resumes only when the source revision, workspace patch digest, target stack origin,
   evidence identity, and ordered cohort all match, and a corrupt, torn, or incomplete checkpoint
   restarts the cohort.
