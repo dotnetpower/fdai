@@ -30,12 +30,12 @@ DEFERRED_EXTERNAL_PATTERNS = (
 )
 
 
-def _head_has_validation_receipt(repo_root: Path) -> bool:
+def _line_is_ready_for_external_work(repo_root: Path) -> bool:
     completed = subprocess.run(
         [
             sys.executable,
             str(repo_root / "scripts/automation/validation_queue.py"),
-            "check-commit",
+            "check-external-readiness",
             "HEAD",
         ],
         cwd=repo_root,
@@ -57,14 +57,15 @@ def enforce_external_operation_order(
     command = str(tool_input.get("command") or "")
     if not any(pattern.search(command) for pattern in DEFERRED_EXTERNAL_PATTERNS):
         return {"continue": True}
-    if _head_has_validation_receipt(repo_root):
+    if _line_is_ready_for_external_work(repo_root):
         return {"continue": True}
     reason = (
         "Slow external FDAI work must follow completed, tested code. Finish the local slice, run "
-        "focused checks, commit it, and obtain a centralized validation receipt before watching "
-        "or mutating GitHub Actions, downloading run logs, deploying or provisioning Azure, or "
-        "building and pushing container images. Check readiness with "
-        "'python3 scripts/automation/validation_queue.py check-commit HEAD'."
+        "focused checks, and commit it before watching or mutating GitHub Actions, downloading "
+        "run logs, deploying or provisioning Azure, or building and pushing container images. "
+        "This line is either unvalidated or its last centralized validation failed, so fix that "
+        "first. You do not have to wait for other sessions' in-flight commits. Check readiness "
+        "with 'python3 scripts/automation/validation_queue.py check-external-readiness HEAD'."
     )
     return {
         "systemMessage": reason,
