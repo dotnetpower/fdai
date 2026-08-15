@@ -49,12 +49,6 @@ cloud-operations concepts, while each deployment supplies its observed instances
 > `ChangeAssessment`, preserves it on Verdict and DecisionCase evidence, and requires human review
 > for stale, incomplete, failed, or review-required assessment. The runtime currently supplies no
 > graph-freshness authority, so planned changes cannot auto-clear this gate.
-> Wave 2 adds reviewed shared Property semantics without adding a declaration kind. The catalog
-> loader validates canonical meaning, value type, optional unit, enum or range, normalization,
-> authority, freshness, and equivalent provider paths. Catalog projection exposes those fields
-> only for reviewed entries and carries the exact semantic-registry version and content digest.
-> Runtime projection reuses the registry validated during catalog loading instead of reading the
-> file again. Legacy properties remain valid but cannot claim normalized equivalence.
 > M5 adds the catalog-declared `routes_to` and `peered_with` Resource links to inventory projection
 > and read-only deterministic network and Pod telemetry functions. A composition-owned bounded
 > issuer records secured ObjectSet results, and exact Function handlers resolve only the issued
@@ -88,7 +82,7 @@ cloud-operations concepts, while each deployment supplies its observed instances
 | O1 semantic spine and catalog integrity | implemented | [`test_ontology_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_catalog.py), [`test_ontology_provenance.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_provenance.py) | The integrated catalog validates the operating semantic spine, provenance, references, and cardinality. |
 | O2 bounded context and current-state projection | in-progress | [`ontology_instance.py`](../../../services/core-control-plane/src/fdai/shared/providers/ontology_instance.py), [`console_projection.py`](../../../services/core-control-plane/src/fdai/core/operational_context/console_projection.py), focused instance and Context projection tests | Typed current-state objects and links exist. A secured receipt can now produce bounded no-authority Context metadata only when purpose, release, cutoff, and graph coverage match. Principal-scoped transport and authenticated runtime evidence remain open. |
 | O3-O5 decision, outcome, and governed-learning loops | in-progress | [Delivery plan](#delivery-plan), [`test_ontology_alignment.py`](../../../services/core-control-plane/tests/agents/test_ontology_alignment.py) | Core slices exist, but effect closure and governed learning are not complete across every production path. |
-| Wave 2 evidence, change, Property, and topology foundations | in-progress | [Implementation status narrative](#fdai-operating-ontology), [Operating Ontology Platform](operating-ontology-platform.md) | Reviewed foundations exist; the evidence bundle is not composed into runtime, planned changes cannot auto-clear graph freshness, and broader platform delivery remains open. |
+| Wave 2 evidence, change, Property, and topology foundations | in-progress | [Implementation status narrative](#fdai-operating-ontology), [Operating Ontology Platform](operating-ontology-platform.md), [`check-property-semantic-coverage.py`](../../../scripts/quality/architecture/check-property-semantic-coverage.py) | Reviewed foundations exist; the evidence bundle is not composed into runtime, planned changes cannot auto-clear graph freshness, reviewed Property coverage is measured but partial, and broader platform delivery remains open. |
 
 ### Implementation history
 
@@ -97,6 +91,7 @@ cloud-operations concepts, while each deployment supplies its observed instances
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | Current source, tests, and delivery plan listed in the scope table. | Complete the observable exit conditions below. |
 | 2026-08-14 | implemented | Added a bounded Context presentation projector that rejects mismatched secured receipts and omits raw object properties. | `current change`; `test_console_projection.py` passed 5 focused cases. | Bind the projector only through a principal-scoped evidence response and retain authenticated Console evidence. |
 | 2026-08-15 | implemented | Removed the undeclared `predicts_breach_of` and `learned_as` rows from the relationship contract, recorded their blocking ObjectTypes, and pinned the table against the shipped LinkType catalog and stored link direction. | `current change`; `test_ontology_catalog.py` and `test_ontology_instance.py` focused cases. | Restore either relationship only together with its endpoint ObjectType and the competency question it answers. |
+| 2026-08-15 | implemented | Added a measured Property semantic coverage gate, disclosed the coverage and its consequence in both language pairs, corrected the `public_access` value type against the shipped Rego comparison, and added six evidence-grounded semantics. | `current change`; `check-property-semantic-coverage.py` reports 14/62 reviewed references; `test_property_semantic.py`, `test_ontology_catalog.py`, `test_catalog_projection.py`, and `test_property_semantic_coverage.py` focused cases. | Collection-valued references stay uncovered until bounded canonical JSON Property semantics exist. |
 
 ### Remaining work
 
@@ -112,6 +107,7 @@ cloud-operations concepts, while each deployment supplies its observed instances
   reconciliation, and graph-wide Dynamic delivery reaches its focused exit conditions.
 - [ ] Decide whether the `Forecast` and `Pattern` ObjectTypes ship, driven by a competency question
   that needs them; only then restore `predicts_breach_of` and `learned_as` as declared LinkTypes.
+- [ ] Support bounded canonical JSON Property semantics; the coverage gate ranks the blocked reads.
 
 ## Catalog semantic projection
 
@@ -128,31 +124,35 @@ deterministic T0 coverage without retaining wildcard ontology links. These catal
 describe meaning only. They don't assert current provider state or grant execution authority.
 
 The catalog-owned `Property` ObjectType remains the meta object for rule property references.
-`rule-catalog/vocabulary/property-semantics.yaml` adds reviewed semantics to selected Property
-instances as data. Each entry declares a canonical `semantic_id`, `PropertyType`, optional
-canonical unit, enum or numeric range, normalization rule identifier, authority and freshness
-policy, and equivalent provider paths. Provider-specific paths stay in this vocabulary and don't
-become provider branches in core code.
+`rule-catalog/vocabulary/property-semantics.yaml` adds reviewed semantics to a small, explicitly
+reviewed minority of Property instances: canonical `semantic_id`, value type, optional unit, enum
+or range, normalization rule, authority and freshness policy, equivalent provider paths, and the
+shipped evidence behind them. Provider paths never branch core code, and
+`scripts/quality/architecture/check-property-semantic-coverage.py` measures the coverage below.
 
-The loader normalizes units and provider identity paths before rejecting collisions, and it
-normalizes, deduplicates, and orders enum values before use. String case folding is followed by NFC
-normalization. Decimal values use context-independent canonicalization with bounded input,
-coefficient, exponent, and output sizes; range checks compare the exact parsed value before
-rendering. YAML numeric range bounds are parsed from their authored scalar lexemes into `Decimal`
-before Pydantic validation, serialized as canonical decimal strings for content digests, and never
-pass through binary floating point. A finite JSON number with an integral mathematical value is a
-valid integer bound. Datetimes reject surrounding whitespace and require an RFC 3339 `T` separator,
-an explicit timezone, UTC conversion within the supported datetime range, and no more than six
-fractional digits. Booleans are never integers or numbers. Object and array Property semantics are
-rejected until bounded canonical JSON support exists.
+<!-- property-semantic-coverage:begin -->
+Measured reviewed coverage: **14 of 62** rule-evaluated Property references (22.6%) across 10
+reviewed semantics, computed by the gate rather than by hand. The other 48 keep their legacy
+projection, so most Property instances cannot claim `normalized_equivalence`.
+<!-- property-semantic-coverage:end -->
+
+The loader normalizes units and provider identity paths before rejecting collisions, normalizes,
+deduplicates, and orders enum values, and applies case folding before NFC normalization. Decimal
+values use context-independent canonicalization with bounded input, coefficient, exponent, and
+output sizes, and range checks compare the exact parsed value before rendering. YAML numeric bounds
+are parsed from their authored lexemes into `Decimal` before Pydantic validation, serialized as
+canonical decimal strings for digests, and never pass through binary floating point; a finite JSON
+number with an integral value is a valid integer bound. Datetimes require RFC 3339 `T` separation,
+an explicit timezone, in-range UTC conversion, at most six fractional digits, and no surrounding
+whitespace. Booleans are never integers or numbers, and object or array semantics are rejected
+until bounded canonical JSON support exists, which is why the highest-ranked gaps are collections.
 
 Every registry requires a version and provenance envelope whose SHA-256 covers canonical content
-excluding the provenance envelope itself. Every semantic requires authenticated source identity,
-and freshness has a finite positive upper bound. Catalog projection pins the verified registry
-version and digest on each reviewed Property. A missing registry file produces one stable legacy
-empty registry for loading and runtime projection. A Property without reviewed metadata keeps its
-legacy projection fields and omits `normalized_equivalence`; callers cannot infer equivalence or
-normalize it through this registry.
+excluding the envelope itself, every semantic requires authenticated source identity, and freshness
+has a finite positive upper bound. Catalog projection pins the verified registry version and digest
+on each reviewed Property; runtime projection reuses the registry validated during catalog loading.
+A missing registry file produces one stable legacy empty registry, and a Property without reviewed
+metadata keeps its legacy fields, omits `normalized_equivalence`, and cannot be normalized here.
 
 ### Configuration drift vocabulary
 

@@ -1,12 +1,169 @@
 schema_version: "1.0.0"
-version: "1.0.0"
+version: "2.0.0"
 provenance:
   source_url: repo://rule-catalog/vocabulary/property-semantics.yaml
-  resolved_ref: property-semantics@1.0.0
-  content_hash: sha256:045cfd529d8fa4274edcb7d0856f54492d91dbd58d777471b8002931889bccfe
+  resolved_ref: property-semantics@2.0.0
+  content_hash: sha256:c80f048754b632e695bf79e8d5e542a4ef8064793c9e65c25e292784e6a0df96
   license: Apache-2.0
-  retrieved_at: "2026-08-08T00:00:00Z"
+  retrieved_at: "2026-08-15T00:00:00Z"
+# Reviewed coverage is deliberately partial. Every Property reference without an entry here
+# keeps its legacy projection and cannot claim normalized equivalence.
+# `scripts/quality/architecture/check-property-semantic-coverage.py` measures the coverage,
+# prints the evidence-ranked backlog, and rejects a provider path that no shipped rule reads.
+# Freshness evidence: metric probes run at most every 900 s (`config/observation-sources.yaml`),
+# and inventory configuration reads carry the 86400 s default of
+# `FDAI_INVENTORY_FRESHNESS_SECONDS` in `fdai/delivery/inventory_sync_cli.py`.
 semantics:
+  - semantic_id: lifecycle.secret.age
+    value_type: integer
+    canonical_unit: day
+    range:
+      minimum: 0
+    normalization_rule: integer.strict
+    authority:
+      class: derived
+      source_identity_required: true
+    freshness:
+      max_age_seconds: 86400
+      stale_behavior: lower_autonomy
+    equivalent_provider_paths:
+      - provider: azure
+        resource_type: secret-store
+        path: age_days
+  # policies/postgresql/point_in_time_restore.rego compares this value against
+  # `min_retention_days` (default 7), so the canonical unit is whole days.
+  - semantic_id: retention.backup.days
+    value_type: integer
+    canonical_unit: day
+    range:
+      minimum: 0
+    normalization_rule: integer.strict
+    authority:
+      class: provider_observed
+      source_identity_required: true
+    freshness:
+      max_age_seconds: 86400
+      stale_behavior: unknown
+    equivalent_provider_paths:
+      - provider: azure
+        resource_type: postgresql-server
+        path: backup_retention_days
+  # policies/log_workspace/retention_excessive.rego compares this value against
+  # `max_retention_days` (default 90). Log retention is a different meaning from backup
+  # retention, so the two never share one semantic_id.
+  - semantic_id: retention.log.days
+    value_type: integer
+    canonical_unit: day
+    range:
+      minimum: 0
+    normalization_rule: integer.strict
+    authority:
+      class: provider_observed
+      source_identity_required: true
+    freshness:
+      max_age_seconds: 86400
+      stale_behavior: unknown
+    equivalent_provider_paths:
+      - provider: azure
+        resource_type: log-workspace
+        path: retention_days
+  # policies/object_storage/public_access.rego compares this value against the string
+  # "enabled", and the shipped T0 and end-to-end fixtures observe "enabled"/"disabled".
+  # This is anonymous data-plane access, not the network-plane toggle below.
+  - semantic_id: security.network.public_access
+    value_type: string
+    enum_values:
+      - disabled
+      - enabled
+    normalization_rule: string.trim_casefold
+    authority:
+      class: provider_observed
+      source_identity_required: true
+    freshness:
+      max_age_seconds: 86400
+      stale_behavior: unknown
+    equivalent_provider_paths:
+      - provider: azure
+        resource_type: object-storage
+        path: public_access
+  # policies/object_storage/private_endpoint_required.rego and
+  # policies/secret_store/public_network_access_disabled.rego both compare this value
+  # against the boolean `true`.
+  - semantic_id: security.network.public_network_access.enabled
+    value_type: boolean
+    normalization_rule: boolean.strict
+    authority:
+      class: provider_observed
+      source_identity_required: true
+    freshness:
+      max_age_seconds: 86400
+      stale_behavior: unknown
+    equivalent_provider_paths:
+      - provider: azure
+        resource_type: object-storage
+        path: public_network_access_enabled
+      - provider: azure
+        resource_type: secret-store
+        path: public_network_access_enabled
+  # policies/object_storage/min_tls_version.rego accepts "TLS1_2" and "TLS1_3"; case folding
+  # makes the reviewed enum lower case.
+  - semantic_id: security.transport.minimum_tls
+    value_type: string
+    enum_values:
+      - tls1_2
+      - tls1_3
+    normalization_rule: string.trim_casefold
+    authority:
+      class: provider_observed
+      source_identity_required: true
+    freshness:
+      max_age_seconds: 86400
+      stale_behavior: unknown
+    equivalent_provider_paths:
+      - provider: azure
+        resource_type: object-storage
+        path: min_tls_version
+  # policies/cache/tier_overprovisioned.rego compares this value against `min_hit_rate`
+  # (default 0.99), so the canonical form is a 0-1 ratio and never a percentage.
+  - semantic_id: utilization.cache.hit_rate
+    value_type: number
+    canonical_unit: ratio
+    range:
+      minimum: 0
+      maximum: 1
+    normalization_rule: number.decimal
+    authority:
+      class: provider_observed
+      source_identity_required: true
+    freshness:
+      max_age_seconds: 900
+      stale_behavior: lower_autonomy
+    equivalent_provider_paths:
+      - provider: azure
+        resource_type: cache
+        path: hit_rate
+  # policies/cache/tier_overprovisioned.rego compares this value against
+  # `server_load_p95_threshold` (default 30) as a percentage.
+  - semantic_id: utilization.cache.server_load.p95
+    value_type: number
+    canonical_unit: percent
+    range:
+      minimum: 0
+      maximum: 100
+    normalization_rule: number.decimal
+    authority:
+      class: provider_observed
+      source_identity_required: true
+    freshness:
+      max_age_seconds: 900
+      stale_behavior: lower_autonomy
+    equivalent_provider_paths:
+      - provider: azure
+        resource_type: cache
+        path: server_load_p95_percent
+  # policies/compute/vm_low_utilization.rego, policies/compute/vm_idle_detected.rego, and
+  # policies/kubernetes/node_pool_oversized.rego all compare this value against a percentage
+  # CPU threshold on their own resource type.
   - semantic_id: utilization.cpu.p95
     value_type: number
     canonical_unit: percent
@@ -28,50 +185,27 @@ semantics:
         resource_type: compute.vm-scale-set
         path: cpu_p95_percent
       - provider: azure
+        resource_type: kubernetes-node-pool
+        path: cpu_p95_percent
+      - provider: azure
         resource_type: postgresql-server
         path: cpu_p95_percent
-  - semantic_id: security.transport.minimum_tls
-    value_type: string
-    enum_values:
-      - tls1_2
-      - tls1_3
-    normalization_rule: string.trim_casefold
+  # policies/compute/vm_low_utilization.rego compares this value against
+  # `memory_p95_threshold` (default 30) as a percentage, never as bytes.
+  - semantic_id: utilization.memory.p95
+    value_type: number
+    canonical_unit: percent
+    range:
+      minimum: 0
+      maximum: 100
+    normalization_rule: number.decimal
     authority:
       class: provider_observed
       source_identity_required: true
     freshness:
-      max_age_seconds: 3600
-      stale_behavior: unknown
-    equivalent_provider_paths:
-      - provider: azure
-        resource_type: object-storage
-        path: min_tls_version
-  - semantic_id: lifecycle.secret.age
-    value_type: integer
-    canonical_unit: day
-    range:
-      minimum: 0
-    normalization_rule: integer.strict
-    authority:
-      class: derived
-      source_identity_required: true
-    freshness:
-      max_age_seconds: 86400
+      max_age_seconds: 900
       stale_behavior: lower_autonomy
     equivalent_provider_paths:
       - provider: azure
-        resource_type: secret-store
-        path: age_days
-  - semantic_id: security.network.public_access
-    value_type: boolean
-    normalization_rule: boolean.strict
-    authority:
-      class: provider_observed
-      source_identity_required: true
-    freshness:
-      max_age_seconds: 3600
-      stale_behavior: unknown
-    equivalent_provider_paths:
-      - provider: azure
-        resource_type: object-storage
-        path: public_access
+        resource_type: compute.vm
+        path: memory_p95_percent

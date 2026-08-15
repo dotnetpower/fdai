@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: af5f317e50238dcbf46118ee06e0073d6d3c2556
+translation_source_sha: 74d968964f20de6d5014f9f21b40fc4725c5a821
 translation_revised: 2026-08-15
 ---
 # 코드 맵
@@ -126,6 +126,7 @@ Core 분포는 전체 `fdai` 이름 공간을 유지합니다. 내부 모듈 경
 | 런타임 | Core 프로세스 수명 주기, 준비 상태, 이벤트 전송 계층, supervision 및 의미 런타임 가용성 연결 | [런타임](../../../services/core-control-plane/src/fdai/runtime/) | [런타임 테스트](../../../services/core-control-plane/tests/runtime/) |
 | Core 계약과 프로바이더 경계 | Core 전용 타입, 프로바이더 프로토콜, 구성, 스트리밍 및 텔레메트리 | [shared](../../../services/core-control-plane/src/fdai/shared/) | [shared 테스트](../../../services/core-control-plane/tests/shared/) |
 | Rule 카탈로그 파이프라인 | 카탈로그 스키마 로딩, 수집, 검증, 정제 및 승격 support | [rule_catalog](../../../services/core-control-plane/src/fdai/rule_catalog/) | [Rule 카탈로그 테스트](../../../services/core-control-plane/tests/rule_catalog/) |
+| 검토된 Property 의미 커버리지 | 룰이 평가하는 참조 대비 검토된 Property 의미의 측정 커버리지, 선언된 프로바이더 경로의 근거 규칙, 회귀 방지 하한, 결정론적 우선순위 백로그 | [check-property-semantic-coverage.py](../../../scripts/quality/architecture/check-property-semantic-coverage.py) 및 [property-semantics.yaml](../../../rule-catalog/vocabulary/property-semantics.yaml) | [커버리지 게이트 테스트](../../../tests/integration/scripts/test_property_semantic_coverage.py) |
 | Core 서비스 항목 지점 | Core 분포 시작과 서비스 조립 | [fdai_core_service](../../../services/core-control-plane/src/fdai_core_service/) | [Core 패키지 테스트](../../../services/core-control-plane/tests/) |
 
 Safety-core 커버리지 하한은 Core 패키지 안의 결정론적 계층과 risk 게이트에 적용됩니다. 해당
