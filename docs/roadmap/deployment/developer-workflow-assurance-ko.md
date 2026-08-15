@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: feb9b782ae8ce2d4087b207c36c8fcfa3689113c
+translation_source_sha: 3bf90f3cc7b7d56660d50dacfaee256c72f00429
 translation_revised: 2026-08-15
 ---
 
@@ -302,8 +302,9 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
   제한하며, 위반은 구분된 실패 사유로 기록됩니다.
 - Checkpoint는 source revision, configuration digest, workspace patch digest 및 순서가 있는
   cohort가 모두 일치할 때만 재개하며, 손상되거나 잘린 checkpoint는 cohort를 다시 시작합니다.
-- 완료된 cohort는 아티팩트 발행 전에 checkpoint를 회수하며, live turn을 수행하지 않은 실행은
-  통과 또는 production-ready 아티팩트를 보고할 수 없습니다.
+- 완료된 cohort는 아티팩트 발행 후, 단언 전에 checkpoint를 회수합니다. 따라서 발행 실패가 완성된
+  cohort를 파괴하지 않고 이후 실행도 재생할 수 없으며, live turn을 수행하지 않은 실행은 통과 또는
+  production-ready 아티팩트를 보고할 수 없습니다.
 
 ## 관련 문서
 
