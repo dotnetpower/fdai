@@ -35,6 +35,16 @@ _SPECIALIZED_FUNCTION_OUTPUT_SHAPES = {
     "query.manifest": "ontology_manifest",
     "query.ontology_relationships": "ontology_relationships",
 }
+_REQUIRED_NODE_KINDS_BY_OUTPUT_SHAPE = {
+    "aggregation_table": frozenset({QueryNodeKind.AGGREGATE}),
+    "causal_evidence": frozenset({QueryNodeKind.EVIDENCE_JOIN}),
+    "evidence_validation": frozenset({QueryNodeKind.OBJECT_SET}),
+    "property_filtered_resources": frozenset({QueryNodeKind.OBJECT_SET}),
+    "temporal_comparison": frozenset(
+        {QueryNodeKind.EVIDENCE_JOIN, QueryNodeKind.METRIC_SERIES, QueryNodeKind.TOPOLOGY_DIFF}
+    ),
+    "topology_graph": frozenset({QueryNodeKind.TOPOLOGY_AT}),
+}
 
 
 class FrameBuilder(Protocol):
@@ -199,6 +209,17 @@ def _verify_frame_plan_alignment(
     frame: SemanticProblemFrame,
     plan: OntologyQueryPlan,
 ) -> None:
+    selected_node_kinds = {node.kind for node in plan.nodes}
+    required_node_kinds = _REQUIRED_NODE_KINDS_BY_OUTPUT_SHAPE.get(frame.output_shape)
+    if required_node_kinds is not None and required_node_kinds.isdisjoint(selected_node_kinds):
+        raise ValueError("semantic plan does not satisfy frame capability")
+    if frame.output_shape == "property_filtered_resources" and not any(
+        _object_set_has_predicates(node.arguments_json)
+        for node in plan.nodes
+        if node.kind is QueryNodeKind.OBJECT_SET
+    ):
+        raise ValueError("semantic property-filter plan requires a predicate")
+
     selected_functions: set[str] = set()
     for node in plan.nodes:
         if node.kind is not QueryNodeKind.FUNCTION:
@@ -224,6 +245,14 @@ def _verify_frame_plan_alignment(
         if function_name in selected_functions
     ):
         raise ValueError("semantic plan selects a function outside the frame output")
+
+
+def _object_set_has_predicates(arguments_json: str) -> bool:
+    arguments = json.loads(arguments_json)
+    if not isinstance(arguments, Mapping):
+        return False
+    definition = arguments.get("definition")
+    return isinstance(definition, Mapping) and bool(definition.get("predicates"))
 
 
 __all__ = ["ProposalRejectedError", "SemanticPlanningCascade"]
