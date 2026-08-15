@@ -367,3 +367,41 @@ def test_unchanged_head_registers_nothing(tmp_path: Path, monkeypatch) -> None:
     module._register_committed_work(tmp_path, "same")
 
     assert calls == []
+
+
+def test_unreceipted_campaign_head_is_registered_before_holding(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module = _load()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    monkeypatch.setattr(module.watchdog, "_active_session_leases", lambda *a, **k: [])
+    monkeypatch.setattr(module.watchdog, "_recent_copilot_activity", lambda *a, **k: [])
+    monkeypatch.setattr(module.watchdog, "_active_session_count", lambda *a, **k: 0)
+    monkeypatch.setattr(module, "_sync_campaign_base", lambda *_a: "ahead")
+    monkeypatch.setattr(module, "_validation_receipt_exists", lambda *_a, **_k: False)
+
+    def fake_git(*args: str, **_kwargs: object) -> str:
+        return {
+            "status": "",
+            "branch": "roadmap-implementation/campaign",
+            "rev-list": "3",
+            "rev-parse": ".",
+        }[args[0]]
+
+    monkeypatch.setattr(module, "_git", fake_git)
+    registered: list[str] = []
+    monkeypatch.setattr(
+        module,
+        "_register_committed_work",
+        lambda _root, base: registered.append(base),
+    )
+
+    result = module.run_cycle(repo, idle_seconds=1, timeout=1)
+
+    assert result == "held: previous campaign head is awaiting central validation"
+    # `git merge` skips the post-commit hook, so a merge commit made while absorbing main
+    # is never enqueued. Waiting for a receipt the queue was never asked to produce holds
+    # every later run forever.
+    assert registered == ["main"]
