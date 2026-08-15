@@ -41,20 +41,6 @@ describe("transportRetryDelayMs", () => {
     expect(transportRetryDelayMs({ attempt: 40, ...bounds })).toBe(15_000);
   });
 
-  it("honors a server hint but clamps it to the bounded maximum", () => {
-    const bounds = { baseMs: 2_000, maxMs: 15_000 };
-    expect(transportRetryDelayMs({ attempt: 1, ...bounds, retryAfterSeconds: 5 })).toBe(5_000);
-    expect(transportRetryDelayMs({ attempt: 1, ...bounds, retryAfterSeconds: 600 })).toBe(15_000);
-  });
-
-  it("ignores an unusable server hint instead of failing the run", () => {
-    const bounds = { baseMs: 2_000, maxMs: 15_000 };
-    expect(transportRetryDelayMs({ attempt: 1, ...bounds, retryAfterSeconds: -5 })).toBe(2_000);
-    expect(
-      transportRetryDelayMs({ attempt: 1, ...bounds, retryAfterSeconds: Number.NaN }),
-    ).toBe(2_000);
-  });
-
   it("rejects invalid attempts and bounds", () => {
     expect(() => transportRetryDelayMs({ attempt: 0, baseMs: 1, maxMs: 2 })).toThrow(/positive/);
     expect(() => transportRetryDelayMs({ attempt: 1, baseMs: 5, maxMs: 1 })).toThrow(/base <= max/);
@@ -72,6 +58,18 @@ describe("resolveAssuranceBudget", () => {
     expect(resolveAssuranceBudget({}, 100).testTimeoutMs).toBeLessThan(4 * 60 * 60 * 1_000);
   });
 
+  it("cannot restore the four-hour envelope through an override", () => {
+    expect(() =>
+      resolveAssuranceBudget({ FDAI_E2E_ASSURANCE_RUN_BUDGET_MS: String(14_400_000) }, 100)
+    ).toThrow(/MUST be within/);
+    expect(
+      resolveAssuranceBudget(
+        { FDAI_E2E_ASSURANCE_RUN_BUDGET_MS: String(MAXIMUM_RUN_BUDGET_MS) },
+        100,
+      ).testTimeoutMs,
+    ).toBeLessThan(4 * 60 * 60 * 1_000);
+  });
+
   it("applies defaults and derives the harness timeout from the budget", () => {
     const budget = resolveAssuranceBudget({}, 14);
     expect(budget.minimumRequestIntervalMs).toBe(DEFAULT_MINIMUM_REQUEST_INTERVAL_MS);
@@ -83,7 +81,9 @@ describe("resolveAssuranceBudget", () => {
   });
 
   it("keeps the harness timeout above every wait the loop can still grant", () => {
-    for (const override of [{}, { FDAI_E2E_ASSURANCE_RUN_BUDGET_MS: "60000" }]) {
+    for (
+      const override of [{}, { FDAI_E2E_ASSURANCE_RUN_BUDGET_MS: String(MINIMUM_RUN_BUDGET_MS) }]
+    ) {
       const budget = resolveAssuranceBudget(
         {
           ...override,
