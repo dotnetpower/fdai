@@ -92,10 +92,12 @@ describe("resolveAssuranceBudget", () => {
         },
         100,
       );
-      // A turn is clamped to the run deadline, so only one granted spacing wait can outlive it.
-      expect(budget.testTimeoutMs).toBeGreaterThan(
-        budget.runBudgetMs + budget.minimumRequestIntervalMs,
-      );
+      // A turn is clamped to the run deadline, so the only work that can outlive the budget is
+      // one granted wait bounded by the spacing and the retry cap.
+      const tailMs = Math.max(budget.minimumRequestIntervalMs, budget.transportRetryMaxMs);
+      expect(budget.testTimeoutMs - budget.runBudgetMs).toBeGreaterThan(tailMs);
+      // The envelope must not silently absorb an unclamped per-question deadline again.
+      expect(budget.testTimeoutMs - budget.runBudgetMs).toBeLessThan(budget.perQuestionDeadlineMs);
     }
   });
 
