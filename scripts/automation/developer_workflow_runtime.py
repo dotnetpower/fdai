@@ -83,7 +83,8 @@ def _http_ready(url: str) -> bool:
     request = Request(url, method="GET")  # noqa: S310 - endpoints are fixed loopback URLs.
     try:
         with urlopen(request, timeout=0.5) as response:  # noqa: S310
-            return 200 <= response.status < 300
+            status = response.status
+            return isinstance(status, int) and 200 <= status < 300
     except OSError:
         return False
 
