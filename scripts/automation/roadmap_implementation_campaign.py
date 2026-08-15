@@ -442,18 +442,19 @@ def run_cycle(
         branch = _git("branch", "--show-current", cwd=repo_root)
         if not branch.startswith("roadmap-implementation/"):
             return "held: campaign branch is not isolated"
-        relation = _sync_campaign_base(repo_root)
-        if relation == "sync-failed":
-            return "held: campaign branch could not absorb main; resolve the conflict by hand"
+        # Settle the receipt before touching the branch. Absorbing main first mints a new
+        # merge commit on every held run, and main moves whenever another session commits,
+        # so the head would outrun validation forever instead of waiting once for it.
+        # `git merge` also skips the post-commit hook, so register the head here rather
+        # than waiting on a receipt the queue was never asked to produce.
         if _git("rev-list", "--count", "main..HEAD", cwd=repo_root) != "0" and not (
             _validation_receipt_exists(repo_root, "HEAD")
         ):
-            # `git merge` does not run the post-commit hook, so a merge commit made by
-            # _sync_campaign_base is never enqueued. Waiting on a receipt for a commit the
-            # queue was never told about holds every later run forever, so register the
-            # branch here instead of trusting the hook to have done it.
             _register_committed_work(repo_root, "main")
             return "held: previous campaign head is awaiting central validation"
+        relation = _sync_campaign_base(repo_root)
+        if relation == "sync-failed":
+            return "held: campaign branch could not absorb main; resolve the conflict by hand"
         try:
             issue = discover_issue(repo_root)
         except project_board.BoardUnavailableError:
