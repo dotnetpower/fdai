@@ -35,17 +35,77 @@ def test_choose_folder_requires_a_complete_batch() -> None:
     assert module.choose_folder({"operations": grouped["operations"]}) is None
 
 
+def test_campaign_allows_two_active_sessions_and_holds_three() -> None:
+    module = _load()
+
+    assert module._within_session_capacity(2, 2)
+    assert not module._within_session_capacity(3, 2)
+
+
 def test_campaign_prompt_requires_exact_batch_and_hardening_floor() -> None:
     module = _load()
     candidates = [f"docs/roadmap/interfaces/doc-{index}.md" for index in range(12)]
+    issue = module.project_board.IssueRecord(
+        number=123,
+        state="OPEN",
+        labels=frozenset({"type:task"}),
+        url="https://example.com/issues/123",
+        body="## Exit criteria\n- [ ] Complete the interface work.\n",
+    )
 
-    prompt = module.campaign_prompt("interfaces", candidates, issue=123)
+    prompt = module.campaign_prompt("interfaces", candidates, issue=issue)
 
     assert "exactly 10 canonical English documents" in prompt
     assert "at least 10 explicit" in prompt
     assert "remaining verified severity is Low or none" in prompt
     assert "issue #123" in prompt
+    assert "Complete the interface work" in prompt
     assert "Never run repository-wide validation" in prompt
+
+
+def test_choose_issue_requires_registered_executable_unfinished_work() -> None:
+    module = _load()
+    issue_type = module.project_board.IssueRecord
+    item_type = module.project_board.ProjectItem
+    issues = {
+        10: issue_type(
+            number=10,
+            state="OPEN",
+            labels=frozenset(),
+            url="https://example.com/issues/10",
+            body="## Exit criteria\n- [ ] Resume active work.\n",
+        ),
+        11: issue_type(
+            number=11,
+            state="OPEN",
+            labels=frozenset(),
+            url="https://example.com/issues/11",
+            body="## Exit criteria\n- [ ] Start ready work.\n",
+        ),
+        12: issue_type(
+            number=12,
+            state="OPEN",
+            labels=frozenset({"blocked"}),
+            url="https://example.com/issues/12",
+            body="## Exit criteria\n- [ ] Blocked work.\n",
+        ),
+        13: issue_type(
+            number=13,
+            state="OPEN",
+            labels=frozenset(),
+            url="https://example.com/issues/13",
+            body="## Exit criteria\n- [x] Already complete.\n",
+        ),
+    }
+    items = {
+        10: item_type("item-10", 10, "dotnetpower/fdai", "In progress", "Task", "P2 - later"),
+        11: item_type("item-11", 11, "dotnetpower/fdai", "Ready", "Task", "P0 - now"),
+        12: item_type("item-12", 12, "dotnetpower/fdai", "Ready", "Task", "P0 - now"),
+        13: item_type("item-13", 13, "dotnetpower/fdai", "Ready", "Task", "P0 - now"),
+    }
+
+    assert module.choose_issue(issues, items) == issues[10]
+    assert module.choose_issue({11: issues[11]}, {}) is None
 
 
 def test_validate_completed_result_enforces_batch_rounds_and_severity(tmp_path: Path) -> None:
@@ -62,6 +122,7 @@ def test_validate_completed_result_enforces_batch_rounds_and_severity(tmp_path: 
         path.write_text("# Example\n", encoding="utf-8")
     payload = {
         "outcome": "completed",
+        "issue": 123,
         "folder": "interfaces",
         "documents": candidates,
         "hardening_rounds": 10,
@@ -74,6 +135,7 @@ def test_validate_completed_result_enforces_batch_rounds_and_severity(tmp_path: 
     result = module.validate_result(
         payload,
         repo_root=tmp_path,
+        issue_number=123,
         folder="interfaces",
         candidates=candidates,
     )
@@ -83,6 +145,7 @@ def test_validate_completed_result_enforces_batch_rounds_and_severity(tmp_path: 
         module.validate_result(
             {**payload, "hardening_rounds": 9},
             repo_root=tmp_path,
+            issue_number=123,
             folder="interfaces",
             candidates=candidates,
         )
@@ -90,6 +153,15 @@ def test_validate_completed_result_enforces_batch_rounds_and_severity(tmp_path: 
         module.validate_result(
             {**payload, "remaining_max_severity": "medium"},
             repo_root=tmp_path,
+            issue_number=123,
+            folder="interfaces",
+            candidates=candidates,
+        )
+    with pytest.raises(RuntimeError, match="selected issue"):
+        module.validate_result(
+            {**payload, "issue": 456},
+            repo_root=tmp_path,
+            issue_number=123,
             folder="interfaces",
             candidates=candidates,
         )
@@ -109,7 +181,7 @@ def test_require_document_updates_checks_both_languages() -> None:
         module._require_document_updates({"documents": documents}, changed[:-1])
 
 
-def test_installer_requires_explicit_issue_and_repeats_persistently(tmp_path: Path) -> None:
+def test_installer_discovers_issues_and_repeats_persistently(tmp_path: Path) -> None:
     path = AUTOMATION / "install_roadmap_implementation_campaign.py"
     spec = importlib.util.spec_from_file_location("fdai_roadmap_campaign_installer", path)
     if spec is None or spec.loader is None:
@@ -118,52 +190,11 @@ def test_installer_requires_explicit_issue_and_repeats_persistently(tmp_path: Pa
     sys.modules[spec.name] = installer
     spec.loader.exec_module(installer)
 
-    service, timer = installer._unit_text(tmp_path.resolve(), issue=123)
+    service, timer = installer._unit_text(tmp_path.resolve())
 
     assert "roadmap_implementation_campaign.py" in service
-    assert "--issue 123" in service
-    assert "--max-active-sessions 1" in service
+    assert "--issue" not in service
+    assert "--max-active-sessions 2" in service
     assert "OnUnitInactiveSec=5min" in timer
     assert "Persistent=true" in timer
     assert "TimeoutStartSec=5h" in service
-
-
-def test_installer_requires_open_issue_with_exit_contract() -> None:
-    path = AUTOMATION / "install_roadmap_implementation_campaign.py"
-    spec = importlib.util.spec_from_file_location("fdai_roadmap_campaign_issue", path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"cannot load {path}")
-    installer = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = installer
-    spec.loader.exec_module(installer)
-    issue_type = installer.project_board.IssueRecord
-
-    installer._validate_issue(
-        issue_type(
-            number=123,
-            state="OPEN",
-            labels=frozenset(),
-            url="https://example.com/issues/123",
-            body="## Exit criteria\n- [ ] Complete one observable result.\n",
-        )
-    )
-    with pytest.raises(RuntimeError, match="must be open"):
-        installer._validate_issue(
-            issue_type(
-                number=123,
-                state="CLOSED",
-                labels=frozenset(),
-                url="https://example.com/issues/123",
-                body="## Exit criteria\n- [x] Complete one observable result.\n",
-            )
-        )
-    with pytest.raises(RuntimeError, match="needs an Exit criteria"):
-        installer._validate_issue(
-            issue_type(
-                number=123,
-                state="OPEN",
-                labels=frozenset(),
-                url="https://example.com/issues/123",
-                body="No checklist.\n",
-            )
-        )

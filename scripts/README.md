@@ -303,7 +303,12 @@ python3 scripts/automation/install_roadmap_verification_timer.py remove
 The randomized implementation campaign is a separate, explicit apply-only workflow. It scans
 immediate `docs/roadmap/<folder>/` groups for canonical English documents that still contain an
 unchecked task. A cycle randomly chooses only among folders with at least 10 eligible documents,
-then gives Copilot the complete candidate list for that folder.
+then gives Copilot the complete candidate list for that folder. On every tick, the runner also
+discovers the current repository's registered GitHub Project issues. It selects only open `Ready`
+or `In progress` items with an unchecked Exit criteria or Acceptance criteria task and without a
+`blocked` or `completed` label. `In progress` work is resumed first, followed by project priority
+and issue number. The selected issue body is included in the bounded worker contract, and all 10
+documents must directly advance one of its unchecked criteria.
 
 One accepted batch must commit updates for exactly 10 English/Korean document pairs, focused
 implementation and test evidence, at least 10 critique and hardening rounds, and no verified
@@ -311,16 +316,21 @@ finding above Low. The orchestration layer independently runs the diff-selected 
 translation check. It then registers every batch commit with the central validation queue. A new
 batch waits until the previous campaign HEAD has a central validation receipt.
 
-The timer allows at most one active interactive session. It treats fresh session leases and recent
-Copilot logs as overlapping observations, so one editor session is not counted twice. Two or more
-active sessions hold the cycle. Each tick runs at most one batch, and the persistent timer repeats
-until it is stopped. Starting requires both an explicit command and an existing GitHub issue with
-observable exit criteria:
+The timer allows at most two active interactive sessions. It treats fresh session leases and recent
+Copilot logs as overlapping observations, so one editor session is not counted twice. Three or
+more active sessions hold the cycle. Each tick runs at most one batch, and the persistent timer
+repeats until it is stopped. Starting still requires an explicit command, but the issue number is
+resolved from the project at runtime:
 
 ```bash
-make roadmap-implementation-start ISSUE=<number>
+make roadmap-implementation-start
 make roadmap-implementation-status
 ```
+
+When a registered issue is selected, the runner uses the existing project lifecycle command to
+move it to `In progress` on a best-effort basis. If no eligible issue exists, the tick exits without
+repository changes. If GitHub Project discovery is unavailable, the cycle holds instead of running
+against an unregistered task.
 
 The implementation runs on the isolated `roadmap-implementation/campaign` branch in the sibling
 `fdai-roadmap-implementation-campaign` worktree. It never pushes or deploys. Review and integrate

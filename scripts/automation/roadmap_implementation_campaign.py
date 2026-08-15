@@ -7,12 +7,15 @@ import argparse
 import fcntl
 import json
 import os
+import re
 import secrets
 import subprocess
+import sys
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path, PurePosixPath
 from typing import Any, TextIO
 
+import project_board_support as project_board
 import roadmap_verification_agent as agent
 import roadmap_verification_inventory as inventory
 import roadmap_verification_watchdog as watchdog
@@ -20,6 +23,7 @@ import roadmap_verification_watchdog as watchdog
 BATCH_SIZE = 10
 MIN_HARDENING_ROUNDS = 10
 STATE_DIRECTORY = "fdai-roadmap-implementation"
+ELIGIBLE_PROJECT_STATUSES = frozenset({"Ready", "In progress"})
 
 
 def _git(*arguments: str, cwd: Path) -> str:
@@ -72,10 +76,94 @@ def choose_folder(
     return selected, list(grouped[selected])
 
 
-def campaign_prompt(folder: str, candidates: Sequence[str], *, issue: int) -> str:
+def _has_unchecked_exit_criterion(issue: project_board.IssueRecord) -> bool:
+    return (
+        project_board.has_exit_contract(issue.body)
+        and re.search(r"^\s*-\s+\[ \]\s+\S", issue.body, re.MULTILINE) is not None
+    )
+
+
+def choose_issue(
+    issues: Mapping[int, project_board.IssueRecord],
+    items: Mapping[int, project_board.ProjectItem],
+) -> project_board.IssueRecord | None:
+    """Choose the highest-priority executable issue registered on the project board."""
+    status_rank = {"In progress": 0, "Ready": 1}
+    priority_rank = {"P0 - now": 0, "P1 - next": 1, "P2 - later": 2, "P3 - someday": 3}
+    candidates: list[tuple[int, int, int, project_board.IssueRecord]] = []
+    for number, item in items.items():
+        issue = issues.get(number)
+        if issue is None or issue.state.upper() != "OPEN":
+            continue
+        if item.status not in ELIGIBLE_PROJECT_STATUSES:
+            continue
+        if issue.labels.intersection({"blocked", "completed"}):
+            continue
+        if not _has_unchecked_exit_criterion(issue):
+            continue
+        candidates.append(
+            (
+                status_rank[item.status],
+                priority_rank.get(item.priority or "", len(priority_rank)),
+                number,
+                issue,
+            )
+        )
+    if not candidates:
+        return None
+    return min(candidates, key=lambda candidate: candidate[:3])[3]
+
+
+def discover_issue(repo_root: Path) -> project_board.IssueRecord | None:
+    """Read the current repository project and choose one executable issue."""
+    client = project_board.GitHubClient(timeout_seconds=30)
+    repository = project_board.repository_name(client, None)
+    owner = repository.partition("/")[0]
+    project_number = int(
+        os.environ.get("FDAI_GITHUB_PROJECT_NUMBER", project_board.DEFAULT_PROJECT_NUMBER)
+    )
+    issues = project_board.issue_records(client, repository)
+    items = project_board.project_items(
+        client,
+        repository=repository,
+        owner=owner,
+        project_number=project_number,
+    )
+    return choose_issue(issues, items)
+
+
+def _claim_issue(repo_root: Path, issue: project_board.IssueRecord) -> bool:
+    """Best-effort project the selected issue into the active work state."""
+    result = subprocess.run(  # noqa: S603 - fixed repository lifecycle command
+        [sys.executable, "scripts/automation/project-board.py", "start", str(issue.number)],
+        cwd=repo_root,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    return result.returncode == 0
+
+
+def _within_session_capacity(active_sessions: int, maximum: int) -> bool:
+    return active_sessions <= maximum
+
+
+def campaign_prompt(
+    folder: str,
+    candidates: Sequence[str],
+    *,
+    issue: project_board.IssueRecord,
+) -> str:
     """Build the bounded implementation and hardening contract for one batch."""
     candidate_lines = "\n".join(f"- {document}" for document in candidates)
-    return f"""Implement one FDAI roadmap residual-work campaign for issue #{issue}.
+    header = (
+        f"Implement one FDAI roadmap residual-work campaign for registered issue #{issue.number}."
+    )
+    return f"""{header}
+
+Issue contract:
+{issue.body}
 
 Target folder: docs/roadmap/{folder}/
 Batch size: exactly {BATCH_SIZE} canonical English documents
@@ -86,7 +174,8 @@ Execution contract:
 - Read the applicable repository instructions, route-selected design documents, each chosen
   English/Korean document pair, implementing code, and adjacent tests before editing.
 - Select exactly {BATCH_SIZE} candidates whose remaining work is comparatively quick to implement
-  without inventing runtime evidence, weakening a contract, or making an architecture decision.
+    and directly advances an unchecked exit criterion in issue #{issue.number}. If no coherent set
+    of ten documents advances that issue, return blocked without changing the repository.
 - Write a bounded execution plan, then implement every selected document's chosen remaining item.
 - Keep the implementation ledgers truthful. Update both language variants and refresh each Korean
   source SHA. Do not mark unrelated or evidence-dependent work complete.
@@ -99,12 +188,12 @@ Execution contract:
 - Do not modify repository instructions, hooks, automation, quality gates, test configuration,
   generated artifacts, or signed integrity files unless a selected implementation legitimately
   owns that surface. Never run repository-wide validation, deployment, cloud, network, push,
-  destructive git, or close issue #{issue}.
+    destructive git, or close issue #{issue.number}.
 - Preserve customer-agnostic scope, constitutional safety invariants, public contracts, and
   English GitHub issue records. End with a clean worktree and one or more focused commits.
 - Before returning, confirm every selected document and evidence path exists exactly as written.
 - End with exactly one JSON object and no prose after it:
-{{"outcome":"completed|blocked","folder":"{folder}",
+{{"outcome":"completed|blocked","issue":{issue.number},"folder":"{folder}",
  "documents":["exactly ten canonical English paths"],"hardening_rounds":10,
  "remaining_max_severity":"low|none","summary":"bounded factual result",
  "evidence_paths":["relative/path"],"tests":["focused command and result"]}}
@@ -127,6 +216,7 @@ def validate_result(
     payload: Mapping[str, Any],
     *,
     repo_root: Path,
+    issue_number: int,
     folder: str,
     candidates: Sequence[str],
 ) -> dict[str, Any]:
@@ -134,6 +224,8 @@ def validate_result(
     outcome = payload.get("outcome")
     if outcome not in {"completed", "blocked"}:
         raise RuntimeError("campaign outcome must be completed or blocked")
+    if payload.get("issue") != issue_number:
+        raise RuntimeError("campaign result issue does not match the selected issue")
     if payload.get("folder") != folder:
         raise RuntimeError("campaign result folder does not match the selected folder")
     raw_documents = payload.get("documents", [])
@@ -168,6 +260,7 @@ def validate_result(
             raise RuntimeError("completed campaign requires implementation and test evidence")
     return {
         "outcome": outcome,
+        "issue": issue_number,
         "folder": folder,
         "documents": documents,
         "hardening_rounds": rounds,
@@ -216,10 +309,9 @@ def _validation_receipt_exists(repo_root: Path, revision: str) -> bool:
 def run_cycle(
     repo_root: Path,
     *,
-    issue: int,
     idle_seconds: int,
     timeout: int,
-    max_active_sessions: int = 1,
+    max_active_sessions: int = 2,
 ) -> str:
     """Run at most one campaign batch and return a machine-readable status line."""
     state_root = _state_root(repo_root)
@@ -232,7 +324,7 @@ def run_cycle(
         leases = watchdog._active_session_leases(repo_root, idle_seconds)
         sessions = watchdog._recent_copilot_activity(idle_seconds)
         active = watchdog._active_session_count(leases, sessions)
-        if active > max_active_sessions:
+        if not _within_session_capacity(active, max_active_sessions):
             return f"held: active-sessions={active}, limit={max_active_sessions}"
         if _git("status", "--porcelain", cwd=repo_root):
             return "held: campaign worktree is dirty"
@@ -243,10 +335,17 @@ def run_cycle(
             _validation_receipt_exists(repo_root, "HEAD")
         ):
             return "held: previous campaign head is awaiting central validation"
+        try:
+            issue = discover_issue(repo_root)
+        except project_board.BoardUnavailableError:
+            return "held: registered issue discovery is unavailable"
+        if issue is None:
+            return "idle: no eligible registered issue"
         selected = choose_folder(remaining_work_by_folder(repo_root))
         if selected is None:
             return "idle: no roadmap folder has ten remaining-work documents"
         folder, candidates = selected
+        issue_claimed = _claim_issue(repo_root, issue)
         cli = agent.copilot_path()
         if cli is None:
             raise RuntimeError("Copilot CLI is unavailable")
@@ -262,6 +361,7 @@ def run_cycle(
         result = validate_result(
             agent.json_object(output),
             repo_root=repo_root,
+            issue_number=issue.number,
             folder=folder,
             candidates=candidates,
         )
@@ -270,7 +370,7 @@ def run_cycle(
                 "status", "--porcelain", cwd=repo_root
             ):
                 raise RuntimeError("blocked campaign must not leave repository changes")
-            return f"blocked: docs/roadmap/{folder}"
+            return f"blocked: issue #{issue.number}, docs/roadmap/{folder}"
         if _git("status", "--porcelain", cwd=repo_root):
             raise RuntimeError("campaign worker left uncommitted changes")
         if _git("rev-parse", "HEAD", cwd=repo_root) == base:
@@ -315,26 +415,26 @@ def run_cycle(
                 )
                 + "\n"
             )
-        return f"completed: docs/roadmap/{folder} ({len(result['documents'])} documents)"
+        return (
+            f"completed: issue #{issue.number}, claimed={str(issue_claimed).lower()}, "
+            f"docs/roadmap/{folder} "
+            f"({len(result['documents'])} documents)"
+        )
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--issue", type=int, required=True)
     parser.add_argument("--idle-seconds", type=int, default=900)
     parser.add_argument("--timeout", type=int, default=14_400)
-    parser.add_argument("--max-active-sessions", type=int, default=1)
+    parser.add_argument("--max-active-sessions", type=int, default=2)
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     arguments = _parser().parse_args(argv)
-    if arguments.issue <= 0:
-        raise SystemExit("--issue must be a positive integer")
     repo_root = Path(_git("rev-parse", "--show-toplevel", cwd=Path.cwd()))
     message = run_cycle(
         repo_root,
-        issue=arguments.issue,
         idle_seconds=max(60, arguments.idle_seconds),
         timeout=max(60, arguments.timeout),
         max_active_sessions=max(0, arguments.max_active_sessions),
