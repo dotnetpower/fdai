@@ -299,6 +299,7 @@ deadline, a no-progress deadline, a progress signal, and a resumable checkpoint.
 | 20 | Detected but unrecoverable state | A checkpoint that mixed generations was persisted and then permanently refused, one file served every binding, and a failed page reset kept the run going | Discard an inconsistent checkpoint, key the file by the whole binding, and stop when the page cannot be reset. |
 | 21 | Gate that never ran | The enforced tests typecheck resolved its project from the repository root and aborted the rest of the operator gate, and a truncated run discarded a valid checkpoint | Resolve the project path, pin the resolvable invocation, and discard only what a completed run contradicted. |
 | 22 | Blocked cohort replayed forever | A complete cohort that passed every turn but missed its release criteria kept a checkpoint that republished the same block, and a page or checkpoint fault escaped without an artifact | Release the refusing answer-required turns, and turn a pacing or checkpoint fault into a governed stop reason. |
+| 23 | Partly guarded question | Only the inter-question pacing wait was guarded, so a page fault during a retry wait or with pacing disabled still escaped without an artifact, and a budget stop could be reported as a failed context reset | Guard the whole question, skip the reset the budget made pointless, and name the question that ended the run. |
 
 ### Contract
 
