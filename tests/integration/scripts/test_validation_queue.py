@@ -190,6 +190,22 @@ def test_validation_reset_clean_is_restricted_to_owned_scratch(git_repo: Path) -
         )
 
 
+def test_validation_reset_clean_rejects_symlinked_scratch(git_repo: Path, tmp_path: Path) -> None:
+    paths = queue_paths(git_repo)
+    target = tmp_path / "other-worktree"
+    target.mkdir()
+    sentinel = target / "uncommitted.txt"
+    sentinel.write_text("preserve\n", encoding="utf-8")
+    paths.state_root.mkdir(parents=True, exist_ok=True)
+    paths.worktree.symlink_to(target, target_is_directory=True)
+    head = _run(git_repo, "git", "rev-parse", "HEAD").stdout.strip()
+
+    with pytest.raises(RuntimeError, match="MUST NOT be a symbolic link"):
+        _prepare_validation_worktree(paths, head)
+
+    assert sentinel.read_text(encoding="utf-8") == "preserve\n"
+
+
 def test_prune_stale_removes_only_old_unreferenced_pending_records(git_repo: Path) -> None:
     paths = queue_paths(git_repo)
     old = datetime.now(timezone.utc) - timedelta(hours=48)  # noqa: UP017
