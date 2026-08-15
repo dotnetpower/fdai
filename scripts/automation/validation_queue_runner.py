@@ -4,10 +4,15 @@ from __future__ import annotations
 
 import fcntl
 import json
+import os
 import shutil
+import signal
 import subprocess
 import sys
+import threading
 import time
+from contextlib import suppress
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import TypedDict
@@ -54,6 +59,20 @@ class StageResult(TypedDict):
     detail: str | None
 
 
+# A stage that has printed nothing for this long is stalled, not slow. The stage budget is the
+# outer backstop only; without the no-progress bound a hung gate would block every push forever.
+STAGE_NO_PROGRESS_SECONDS = 1_800
+STAGE_BUDGET_SECONDS = 14_400
+STAGE_KILLED_STATUS = 124
+
+
+@dataclass
+class _StageProgress:
+    """Last monotonic time at which the running stage produced output."""
+
+    at: float
+
+
 def _link_local_path(source: Path, destination: Path) -> None:
     if source.exists() and not destination.exists():
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -74,6 +93,13 @@ def _local_worktree_path(paths: QueuePaths, relative: Path) -> Path:
     )
 
 
+def _stage_bound(env: dict[str, str], variable: str, fallback: int) -> int:
+    raw = (env.get(variable) or "").strip()
+    if not raw.isdigit() or int(raw) <= 0:
+        return fallback
+    return int(raw)
+
+
 def _run_stage(
     name: str,
     arguments: list[str],
@@ -82,29 +108,71 @@ def _run_stage(
     env: dict[str, str],
 ) -> StageResult:
     started = time.monotonic()
+    no_progress_seconds = _stage_bound(
+        env, "FDAI_VALIDATION_STAGE_NO_PROGRESS_SECONDS", STAGE_NO_PROGRESS_SECONDS
+    )
+    budget_seconds = _stage_bound(env, "FDAI_VALIDATION_STAGE_BUDGET_SECONDS", STAGE_BUDGET_SECONDS)
     process = subprocess.Popen(  # noqa: S603 - arguments are repository-owned commands.
         arguments,
         cwd=cwd,
-        env=env,
+        # An unbuffered child keeps the no-progress deadline meaningful; a block-buffered gate
+        # would look stalled while it is working.
+        env={**env, "PYTHONUNBUFFERED": "1"},
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
         bufsize=1,
+        start_new_session=True,
     )
     failed_gates: list[str] = []
     in_summary = False
     if process.stdout is None:
         raise RuntimeError("validation stage stdout pipe was not created")
-    for line in process.stdout:
-        print(line, end="")
-        stripped = line.strip()
-        if stripped == "== summary ==":
-            in_summary = True
-            continue
-        if in_summary and stripped.endswith(" FAIL"):
-            failed_gates.append(stripped.removesuffix(" FAIL").rstrip())
-    status = process.wait()
+    progress = _StageProgress(at=time.monotonic())
+    expired: list[str] = []
+    finished = threading.Event()
+
+    def _watch() -> None:
+        while not finished.wait(1.0):
+            now = time.monotonic()
+            if now - progress.at >= no_progress_seconds:
+                reason = f"no output for {no_progress_seconds}s"
+            elif now - started >= budget_seconds:
+                reason = f"exceeded its {budget_seconds}s stage budget"
+            else:
+                continue
+            if process.poll() is not None:
+                return
+            expired.append(reason)
+            with suppress(ProcessLookupError, PermissionError):
+                os.killpg(process.pid, signal.SIGKILL)
+            return
+
+    watchdog = threading.Thread(target=_watch, daemon=True)
+    watchdog.start()
+    try:
+        for line in process.stdout:
+            progress.at = time.monotonic()
+            print(line, end="")
+            stripped = line.strip()
+            if stripped == "== summary ==":
+                in_summary = True
+                continue
+            if in_summary and stripped.endswith(" FAIL"):
+                failed_gates.append(stripped.removesuffix(" FAIL").rstrip())
+        status = process.wait()
+    finally:
+        finished.set()
+        watchdog.join(timeout=5)
     duration = round(time.monotonic() - started, 3)
+    if expired and status != -signal.SIGKILL:
+        # The stage finished on its own before the kill landed, so its real result stands.
+        expired.clear()
+    if expired:
+        # A killed stage must not look like an ordinary gate failure, or the localizer would
+        # blame the commit for a bound that the environment, not the change, exceeded.
+        status = STAGE_KILLED_STATUS
+        print(f"validation-queue: stage={name} killed: {expired[0]}", file=sys.stderr)
     print(f"validation-queue: stage={name} status={status} duration={duration:.3f}s")
     return {
         "name": name,
@@ -114,7 +182,7 @@ def _run_stage(
         "resumed_from": None,
         "resumed_failures": 0,
         "input_digest": None,
-        "detail": ", ".join(failed_gates) or None,
+        "detail": expired[0] if expired else (", ".join(failed_gates) or None),
     }
 
 
@@ -467,7 +535,7 @@ def _run_locked(paths: QueuePaths, mode: str, *, target: str | None = None) -> i
         selected=selected,
         history_commits=history_commits[: positions[head] + 1],
     )
-    if status == 0 or mode != "fast" or len(selected) == 1:
+    if status == 0 or mode != "fast" or len(selected) == 1 or status == STAGE_KILLED_STATUS:
         return status
     return _localize_failure(
         paths,

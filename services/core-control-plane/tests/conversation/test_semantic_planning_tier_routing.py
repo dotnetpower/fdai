@@ -60,6 +60,11 @@ class _Model:
         return self.plan
 
 
+class _AcceptingVerifier:
+    def verify(self, _plan: object, *, manifest: object) -> None:
+        assert manifest is not None
+
+
 def _fixture() -> tuple[Any, ObjectSetDefinition]:
     resource = OntologyObjectType(
         schema_version="1.0.0",
@@ -117,6 +122,25 @@ def _plan(definition: ObjectSetDefinition) -> dict[str, object]:
             }
         ],
         "output_node_ids": ["resources"],
+    }
+
+
+def _function_plan(function_name: str, *, output_kind: str) -> dict[str, object]:
+    return {
+        "nodes": [
+            {
+                "node_id": "function-result",
+                "kind": "function",
+                "depends_on": [],
+                "arguments": {
+                    "function_name": function_name,
+                    "arguments": {},
+                    "dependency_arguments": {},
+                },
+                "output_kind": output_kind,
+            }
+        ],
+        "output_node_ids": ["function-result"],
     }
 
 
@@ -214,6 +238,70 @@ def test_invalid_t1_plan_retries_only_plan_with_t2() -> None:
     assert (t2.frame_calls, t2.plan_calls) == (0, 1)
     assert t1.plan_evaluation_times == [NOW]
     assert t2.plan_evaluation_times == [NOW]
+
+
+def test_mismatched_specialized_t1_plan_retries_only_plan_with_t2() -> None:
+    manifest, definition = _fixture()
+    t1 = _Model(
+        frame=_frame(output_shape="resource_list"),
+        plan=_function_plan("query.manifest", output_kind="query.table"),
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+
+
+def test_matching_specialized_t1_plan_never_invokes_t2() -> None:
+    manifest, definition = _fixture()
+    manifest_plan = _function_plan("query.manifest", output_kind="query.table")
+    t1 = _Model(frame=_frame(output_shape="ontology_manifest"), plan=manifest_plan)
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_incident_function_cannot_satisfy_resource_frame() -> None:
+    manifest, definition = _fixture()
+    t1 = _Model(
+        frame=_frame(output_shape="resource_list"),
+        plan=_function_plan("query.incident_evidence", output_kind="incident.evidence"),
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
 
 
 def test_scope_denial_never_invokes_t2() -> None:

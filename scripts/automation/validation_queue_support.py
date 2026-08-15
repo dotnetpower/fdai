@@ -12,6 +12,7 @@ from pathlib import Path
 
 COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40,64}$")
 UTC = timezone.utc  # noqa: UP017 - tracked Git hooks run with the system Python 3.10.
+GIT_TIMEOUT_SECONDS = 600
 
 
 @dataclass(frozen=True)
@@ -45,6 +46,9 @@ def git(
         capture_output=True,
         text=True,
         input=input_text,
+        # Only local plumbing runs here, so this bound never truncates real work; it exists so
+        # no validator step outside the staged watchdog can wait without any limit at all.
+        timeout=GIT_TIMEOUT_SECONDS,
     )
 
 

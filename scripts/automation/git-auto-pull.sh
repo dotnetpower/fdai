@@ -6,8 +6,8 @@
 #
 # Safe by design: it NEVER rebases a dirty working tree or one that is
 # mid-rebase - in those cases it only reports and waits, so it cannot
-# clobber in-progress work. Only a clean tree that is strictly behind gets
-# a `pull --rebase`.
+# clobber in-progress work. Only a clean tree that is strictly behind is
+# fast-forwarded onto the ref this loop already fetched.
 #
 # Interval (seconds) via FDAI_AUTOPULL_INTERVAL (default 180). A shorter interval
 # detects remote drift sooner, which keeps rebases small and avoids rework that a
@@ -19,7 +19,7 @@ set -uo pipefail
 
 interval="${FDAI_AUTOPULL_INTERVAL:-180}"
 fetch_timeout="${FDAI_AUTOPULL_FETCH_TIMEOUT:-60}"
-pull_timeout="${FDAI_AUTOPULL_PULL_TIMEOUT:-120}"
+advance_timeout="${FDAI_AUTOPULL_ADVANCE_TIMEOUT:-120}"
 toplevel="$(git rev-parse --show-toplevel 2>/dev/null || echo "")"
 if [ -z "$toplevel" ]; then
   echo "[auto-pull] not a git repository; exiting."
@@ -46,23 +46,36 @@ while true; do
   elif [ -f "$validation_lock" ] && command -v flock >/dev/null 2>&1 \
     && ! flock -n "$validation_lock" -c true; then
     echo "[auto-pull] centralized validation is active - skipping remote fetch."
-  elif timeout "$fetch_timeout" git fetch --quiet origin "$branch" 2>/dev/null; then
-    behind="$(git rev-list --count HEAD..FETCH_HEAD 2>/dev/null || echo 0)"
-    ahead="$(git rev-list --count FETCH_HEAD..HEAD 2>/dev/null || echo 0)"
+  elif timeout "$fetch_timeout" git fetch --quiet origin \
+    "+refs/heads/$branch:refs/remotes/origin/$branch" 2>/dev/null; then
+    # The default fetch head file is shared by every process on this Git common directory, so a
+    # concurrent fetch could redirect this comparison or advance the branch onto an unrelated
+    # ref. The per-branch remote-tracking ref this fetch writes cannot be reused that way.
+    remote="refs/remotes/origin/$branch"
+    behind="$(git rev-list --count "HEAD..$remote" 2>/dev/null || echo 0)"
+    ahead="$(git rev-list --count "$remote..HEAD" 2>/dev/null || echo 0)"
     if [ "$behind" -gt 0 ]; then
       if [ "$ahead" -gt 0 ]; then
         echo "[auto-pull] $branch has diverged ($ahead ahead, $behind behind) - skipping. Rebase manually after reviewing local commits."
       else
-        echo "[auto-pull] $branch is $behind behind origin - pulling (rebase)..."
-        if timeout "$pull_timeout" git pull --rebase --quiet origin "$branch"; then
+        echo "[auto-pull] $branch is $behind behind origin - fast-forwarding..."
+        # The branch is strictly behind, so advancing is a fast-forward over the ref already
+        # fetched. A `pull --rebase` here would re-enter the network and could be killed
+        # mid-rebase, leaving the developer a half-finished rebase to clean up by hand.
+        if timeout "$advance_timeout" git merge --ff-only --quiet "$remote"; then
           echo "[auto-pull] up to date."
         else
-          echo "[auto-pull] pull --rebase failed - resolve manually (git status)."
+          echo "[auto-pull] fast-forward failed - resolve manually (git status)."
         fi
       fi
     fi
   else
-    echo "[auto-pull] fetch did not complete within ${fetch_timeout}s - retrying next cycle."
+    fetch_status=$?
+    if [ "$fetch_status" -eq 124 ]; then
+      echo "[auto-pull] fetch did not complete within ${fetch_timeout}s - retrying next cycle."
+    else
+      echo "[auto-pull] fetch of $branch failed (exit $fetch_status) - retrying next cycle."
+    fi
   fi
   sleep "$interval"
 done
