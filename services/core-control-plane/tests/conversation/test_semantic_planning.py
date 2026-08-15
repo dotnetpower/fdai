@@ -283,6 +283,11 @@ def test_frame_proposal_rejects_noncanonical_evidence_requirement() -> None:
         )
 
 
+def test_frame_proposal_rejects_free_form_output_shape() -> None:
+    with pytest.raises(ValidationError):
+        SemanticFrameProposal.model_validate(_frame(output_shape="whatever_the_model_wants"))
+
+
 def test_hidden_property_plan_is_rejected_before_execution() -> None:
     manifest, definition = _fixture()
     hidden = definition.model_copy(

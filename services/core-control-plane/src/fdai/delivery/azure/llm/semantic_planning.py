@@ -326,9 +326,6 @@ def _validated_content(  # noqa: UP047 - pinned mypy does not parse PEP 695 func
 
 def _normalize_frame_tokens(payload: dict[str, Any]) -> dict[str, Any]:
     normalized = dict(payload)
-    output_shape = normalized.get("output_shape")
-    if isinstance(output_shape, str):
-        normalized["output_shape"] = _machine_token(output_shape)
     evidence_requirements = normalized.get("evidence_requirements")
     if isinstance(evidence_requirements, list):
         normalized["evidence_requirements"] = [
