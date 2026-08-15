@@ -122,13 +122,13 @@ trap cleanup EXIT
 
 capture_output < "$output_pipe" &
 logger_pid=$!
-"$@" > "$output_pipe" 2>&1 &
+setsid -- "$@" > "$output_pipe" 2>&1 &
 child_pid=$!
 
 forward_signal() {
   local signal="$1"
   if kill -0 "$child_pid" 2>/dev/null; then
-    kill -s "$signal" "$child_pid" 2>/dev/null || true
+    kill -s "$signal" -- "-$child_pid" 2>/dev/null || true
   fi
 }
 
