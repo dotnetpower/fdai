@@ -40,7 +40,8 @@ export interface AssuranceTurnJudgment extends AssuranceJudgment {
 }
 
 export interface AssuranceRunConfiguration {
-  readonly schema_version: "1.2.0";
+  readonly schema_version: "1.3.0";
+  readonly run_id: string;
   readonly seed: number;
   readonly minimum_request_interval_ms: number;
   readonly per_question_deadline_ms: number;
@@ -72,6 +73,22 @@ const RETRYABLE_TRANSPORT_SOURCES = new Set([
   "partial (sequence gap)",
   "partial (missing terminal verification)",
 ]);
+
+const ASSURANCE_RUN_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+
+export function resolveAssuranceRunId(raw: string | undefined): string {
+  const runId = raw?.trim();
+  if (runId === undefined || !ASSURANCE_RUN_ID_PATTERN.test(runId)) {
+    throw new Error(
+      "FDAI_E2E_ASSURANCE_RUN_ID must be 1-64 ASCII letters, digits, dots, underscores, or hyphens",
+    );
+  }
+  return runId;
+}
+
+export function assuranceSessionId(runId: string, questionId: string): string {
+  return `ontology-assurance:${runId}:${questionId}`;
+}
 
 const OPERATIONS: readonly AssuranceOperation[] = [
   "inventory_listing",
