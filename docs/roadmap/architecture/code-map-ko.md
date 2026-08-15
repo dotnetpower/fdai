@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c5d655883f6b2d82a1aa4aa238525df9027096a5
+translation_source_sha: e81962cf0e88e54da3d503aaeb091c39c2875c8c
 translation_revised: 2026-08-15
 ---
 # 코드 맵
@@ -32,6 +32,7 @@ translation_revised: 2026-08-15
 | Service-owned 출처 및 테스트 지도 | 진행 중 | 이 지도, `tests/integration/` 및 위에 명시한 범위가 제한된 IS-08과 IS-07 근거 | 로컬 소유권과 롤백 근거는 매핑되었으며 IS-09 원격 검증은 남아 있습니다. |
 | Exact-generation Rule 검색 | 구현됨 | `shared/providers/catalog_search.py`, `delivery/catalog_search/generation.py`, `delivery/catalog_search/in_memory.py`, `delivery/catalog_search/postgres.py`, focused 카탈로그, 온톨로지 조회, 스키마, 조립 및 실제 PostgreSQL 테스트(`44 passed`) | 결과는 후보 전용이며 활성 Rule 세대를 exact 온톨로지 release와 범위가 제한된 순서 보장 문서 매니페스트에 연결하고 판단, 승인 또는 실행 권한을 포함하지 않습니다. PostgreSQL 활성화는 같은 트랜잭션에서 예상 이전 세대를 확인합니다. |
 | 목표 인식 Rule 후보 확인 | 구현됨 | `core/ontology_platform/objective_rule_resolution.py`, `core/ontology_platform/catalog_queries.py`, `shared/providers/catalog_search.py`, `delivery/catalog_search/in_memory.py`, 집중 온톨로지 조회 테스트(`8 passed`) | 검토 또는 승격된 활성 관계는 순위 계산 전에 exact-generation 후보 집합을 좁힙니다. 유효하지 않거나 불완전한 맥락은 원자적으로 대체 경로를 사용하며, 목표 맥락은 평가 또는 실행 권한을 추가하지 않고 조회 ID를 변경합니다. |
+| 관측 충돌 판정 | 구현됨 | `core/ontology_platform/observation_adjudication.py`, `core/ontology_platform/inventory_projection.py`, `delivery/inventory_relationship_verifier.py`, 집중 온톨로지·인벤토리·런타임 테스트(`507 passed, 1 skipped`) | 한 세대 안에서 같은 리소스 신원을 반복 관측한 권위 있는 관측을 결정적으로 판정합니다. 내용이 같고 행 단위 관측 시각만 다르면 하나의 사실로 보고 가장 이른 시각을 유지하며, 불일치가 있으면 경합 중인 값을 제외한 채 명시적 `StateFactMetadata.conflicts` 항목으로 남깁니다. 서로 독립된 출처 사이의 교차 권위 판정은 [운영 온톨로지](operating-ontology-ko.md#충돌-판정-범위)에 열려 있습니다. |
 | Receipt 기반 운영 컨텍스트 표현 | 구현됨 | `core/operational_context/console_projection.py`, `tests/core/operational_context/test_console_projection.py`, focused 테스트 5개 통과 | 목적, 릴리스, 기준 시각, 실행 권한 및 그래프 범위가 일치해야 범위가 제한된 메타데이터를 변환합니다. Raw 속성은 제외하며 principal 범위 전송은 연결하지 않은 상태로 유지합니다. |
 | 런타임 바인딩 기반 플래너 가시성 | 구현됨 | `composition/wire_semantic_query.py`, `core/conversation/semantic_manifest.py`, `core/ontology_platform/query_manifest.py`, focused 조립 및 매니페스트 테스트 | 플래너 서술자는 조립된 런타임에 등록된 함수만 노출합니다. 읽을 수 있지만 바인딩되지 않은 선언은 타입이 지정된 구조 coverage에 남으며 어떤 권한도 얻지 않습니다. |
 | Exact-release principal 매니페스트 조회 | 구현됨 | `core/ontology_platform/manifest_queries.py`, `core/ontology_platform/query_source_handlers.py`, `composition/wire_semantic_query.py`, focused 매니페스트, 핸들러, 조립 및 prompt 테스트(`42 passed`) | `query.manifest`는 기존 함수 증적과 일반 `QueryTable` 경로를 통해 role 및 purpose로 필터링된 범위 제한 선언 행을 반환합니다. 바인딩되지 않은 선언은 완전성을 낮추며 모든 행은 `execution_authority=false`를 고정합니다. |

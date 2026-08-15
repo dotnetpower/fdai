@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: a50c505a1c17643d8bce5f8511ac30ecada763d9
+translation_source_sha: 3266e14125cbc1aca531c5916e370d3ae770e332
 translation_revised: 2026-08-15
 ---
 # FDAI 운영 온톨로지
@@ -82,6 +82,10 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
 > 있으면 분류 범위가 불완전해지고 대체 그래프를 활성화하지 않습니다. 이 관계가 실제 변환
 > 결과에 나타나도록 운영 인벤토리 작업이 이미 로드한 레지스트리 다이제스트 맵을 주입하며,
 > 승격된 완전 세대는 실제 변환 결과에 이 관계를 저장합니다.
+> 한 세대 안에서 같은 리소스 신원을 반복 관측한 경우 이제 변환 전체를 실패시키는 대신
+> 결정적으로 판정합니다. 일치하면 하나의 객체로 합치고 가장 이른 관측 시각을 유지하며,
+> 불일치하면 경합 중인 값을 제외한 채 명시적 상태 사실 충돌로 남겨 기존 소비자를 모두
+> 강등시킵니다. 서로 독립된 출처 사이의 교차 권위 판정은 구현되어 있지 않습니다.
 
 ## 구현 상태
 
@@ -102,6 +106,7 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
 | 2026-08-14 | implemented | 일치하지 않는 보안 receipt를 거부하고 raw 객체 속성을 제외하는 범위 제한 컨텍스트 표현 projector를 추가했습니다. | `current change`, `test_console_projection.py` focused 테스트 5개 통과 | Principal 범위 근거 응답을 통해서만 projector를 연결하고 인증된 Console 근거를 보존해야 합니다. |
 | 2026-08-15 | implemented | 선언되지 않은 `predicts_breach_of`와 `learned_as` 행을 관계 계약에서 제거하고 이를 막고 있는 ObjectType을 기록했으며, 표를 제공되는 LinkType 카탈로그와 저장된 링크 방향에 고정했습니다. | `current change`, `test_ontology_catalog.py` 및 `test_ontology_instance.py` focused 테스트 | 두 관계는 엔드포인트 ObjectType과 이를 필요로 하는 competency 질문이 함께 준비될 때만 복원합니다. |
 | 2026-08-15 | implemented | 에이전트 소유권 절을 바로잡아 두 개의 독립된 소유권 레지스트리를 명시하고, 산문으로 된 소유권 서술을 정확한 `lifecycle.owner` 타입 목록으로 교체했으며, 근거 없던 "권한 등급, 최신성 정책, 보존, allowed 용도" 서술을 스키마가 실제로 선언하는 필드로 바꿨습니다. | `current change`, `test_object_type_catalog.py::test_documented_semantic_write_owners_match_the_catalog` | `lifecycle` 블록이 없는 ObjectType별로 선언된 소유자가 필요한지 판단합니다. 빈칸을 유추하려는 목적으로 추가하지 않습니다. |
+| 2026-08-15 | implemented | 같은 리소스 신원을 반복 관측한 권위 있는 관측에 대한 결정적 판정을 추가해 `StateFactMetadata.conflicts`가 테스트 픽스처가 아니라 프로덕션 생산자를 갖게 했습니다. 무해한 반복 관측이 더 이상 세대 전체를 실패시키지 않습니다. | `current change`, `test_observation_adjudication.py` focused 테스트 15개와 `test_inventory_projection.py` 충돌 강등 테스트 통과, 온톨로지·인벤토리·런타임 focused 테스트 354개 통과 | 서로 독립된 권위끼리 판정해야 하며, 인벤토리 변환 결과와 실시간 디스커버리가 다음 쌍입니다. |
 
 ### 남은 작업
 
@@ -120,6 +125,11 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
 - [ ] `lifecycle` 블록이 없는 출하 ObjectType을 검토해, 타입별로 에이전트 단일 작성자가 필요한지
   아니면 catalog-as-code, 변환 결과, 이벤트 버스 레지스트리 중 무엇이 올바른 권한인지
   기록합니다 ([#130](https://github.com/dotnetpower/fdai/issues/130)).
+- [ ] 서로 독립된 두 권위를 맞대어 판정하고 그 결과를 상태 사실에 실어야 합니다. 인벤토리
+  변환 결과와 실시간 리소스 상태 디스커버리가 다음 쌍이며, 현재는 한 세대 안의 반복 관측만
+  판정합니다.
+- [ ] Shadow 리소스 상태 divergence 판정이 통제된 경로로 상태 사실에 도달하게 하여, 분류된
+  divergence가 shadow 영수증에서 끝나지 않고 자율성을 낮추도록 해야 합니다.
 
 ## 카탈로그 의미 변환 결과
 
@@ -451,7 +461,38 @@ owning 에이전트, 하나 이상의 생성 기준, 선택적인 중복 제거 
 | 보존 | 권한을 가진 원본 시스템 | 온톨로지에서 선언하지 않습니다. |
 
 충돌하는 출처는 명시적인 충돌 또는 `unknown` 상태를 만들고 자율성을 낮춥니다.
+### 충돌 판정 범위
 
+충돌 판정 범위는 충돌 소비 범위보다 의도적으로 좁습니다. 둘 중 하나에 의존하기 전에 두 절반을
+따로 읽으세요.
+
+**현재 판정하는 범위.** 프로덕션 경로에서 판정되는 쌍은 하나입니다. 승격된 하나의 인벤토리
+세대 안에서 같은 중립 리소스 신원을 관측한 둘 이상의 권위 있는 관측입니다.
+`core/ontology_platform/observation_adjudication.py`의 `adjudicate_observations`가 그 신원에
+대한 모든 관측 내용을 비교하고, `build_inventory_ontology_projection`이 그 판정을 변환된
+`Resource` 상태 사실에 실어 보냅니다. 규칙은 결정적이며 값에 좌우되지 않습니다.
+
+- 내용은 같고 행 단위 관측 시각만 다른 관측은 하나의 사실을 두 번 보고한 것이며 충돌이 아닙니다.
+  가장 이른 관측 시각을 유지하므로 반복 관측이 최신성을 부풀리지 않습니다.
+- 내용이 다르면 어떤 차이든 속성 키로 이름 붙인 명시적 충돌입니다. 값을 평균내지 않고, 가장
+  최근 관측이 이기지 않으며, 어떤 출처에도 더 큰 가중치를 주지 않습니다.
+- 경합 중인 속성은 변환 결과에서 제외되므로 어떤 소비자도 경합 중인 값을 읽을 수 없습니다.
+  상태 사실의 `completeness`는 `0`으로 기록되고, `status` 자체가 경합 중이면 `state`를 아예
+  기록하지 않습니다.
+- 관측된 타입이 다른 경우는 값 충돌이 아니라 신원 모순입니다. 링크 종단 타입 판정이 여기에
+  의존하므로 `InventoryProjectionConflictError`로 fail-closed 처리합니다.
+- 경합 중인 신원은 verified 관계의 기준점이 될 수 없습니다. `verify_inventory_relationships`는
+  종단이나 프로바이더 소유자가 경합 중인 관계를 버립니다.
+
+**아직 판정하지 않는 범위.** 서로 독립된 두 권위를 맞대어 비교하는 프로덕션 경로는 없습니다.
+두 클라우드 프로바이더 사이도, 인벤토리 변환 결과와 실시간 디스커버리 사이도, 변환된 상태와
+텔레메트리 사이도 아닙니다. `ShadowResourceStateComparisonService`가 read-investigation 결과와
+의미 그래프 사이의 divergence를 분류하기는 하지만, 그 판정은 shadow 영수증에 머무르고 상태
+사실에 도달하지 않습니다.
+
+**비어 있는 충돌 목록을 읽는 법.** 비어 있는 `StateFactMetadata.conflicts`는 비교한 관측들이
+일치했다는 뜻일 뿐입니다. 그 사실이 독립적으로 교차 확인되었다는 증거가 아니며, 충돌이 없다는
+증거도 결코 아닙니다. 판정된 충돌이 없다는 사실만으로 자율성 상한이 올라가는 일은 없습니다.
 ## 에이전트 소유권
 
 온톨로지는 중앙 조정기를 추가하지 않고 고정된 pantheon을 더 유능하게 만듭니다. 소유권은 서로 다른

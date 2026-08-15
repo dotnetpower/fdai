@@ -78,6 +78,11 @@ cloud-operations concepts, while each deployment supplies its observed instances
 > An unmapped type makes classification coverage incomplete and activates no replacement graph.
 > The production inventory job injects the already loaded registry digest map, so promoted complete
 > generations persist this relationship in live projections.
+> Repeated authoritative observations of one resource identity inside a generation are now
+> adjudicated deterministically instead of failing the whole projection. Agreement collapses to one
+> object and keeps the earliest observation time; disagreement stays an explicit state-fact conflict
+> that withholds the contested value and demotes every existing consumer. Cross-authority
+> adjudication between independent sources is not implemented.
 
 ## Implementation status
 
@@ -98,6 +103,7 @@ cloud-operations concepts, while each deployment supplies its observed instances
 | 2026-08-14 | implemented | Added a bounded Context presentation projector that rejects mismatched secured receipts and omits raw object properties. | `current change`; `test_console_projection.py` passed 5 focused cases. | Bind the projector only through a principal-scoped evidence response and retain authenticated Console evidence. |
 | 2026-08-15 | implemented | Removed the undeclared `predicts_breach_of` and `learned_as` rows from the relationship contract, recorded their blocking ObjectTypes, and pinned the table against the shipped LinkType catalog and stored link direction. | `current change`; `test_ontology_catalog.py` and `test_ontology_instance.py` focused cases. | Restore either relationship only together with its endpoint ObjectType and the competency question it answers. |
 | 2026-08-15 | implemented | Corrected the agent-ownership section to name the two independent ownership registries, replaced the prose ownership claims with the exact `lifecycle.owner` type list, and replaced the unsupported "authority class, freshness policy, retention, allowed purposes" claim with the fields the schema actually declares. | `current change`; `test_object_type_catalog.py::test_documented_semantic_write_owners_match_the_catalog`. | Decide per ObjectType whether an absent `lifecycle` block should gain a declared owner; do not add one to fill the field. |
+| 2026-08-15 | implemented | Added deterministic adjudication of repeated authoritative observations of one resource identity, so `StateFactMetadata.conflicts` has a production producer instead of only test fixtures. Benign repetition no longer fails the whole generation. | `current change`; `test_observation_adjudication.py` 15 focused cases and `test_inventory_projection.py` conflict-demotion cases passed; 354 focused ontology, inventory, and runtime cases passed. | Adjudicate genuinely independent authorities against each other; inventory projection versus live discovery is the next pair. |
 
 ### Remaining work
 
@@ -116,6 +122,11 @@ cloud-operations concepts, while each deployment supplies its observed instances
 - [ ] Review the shipped ObjectTypes that carry no `lifecycle` block and record, per type, whether an
   agent single-writer is required or whether catalog-as-code, a projection, or the event-bus
   registry is the correct authority ([#130](https://github.com/dotnetpower/fdai/issues/130)).
+- [ ] Adjudicate two genuinely independent authorities against each other and carry the verdict on
+  the state fact. Inventory projection against live resource-state discovery is the next pair;
+  today only repeated observations inside one generation are decided.
+- [ ] Give the shadow resource-state divergence verdict a governed path into a state fact, so a
+  classified divergence lowers autonomy instead of ending in a shadow receipt.
 
 ## Catalog semantic projection
 
@@ -449,6 +460,42 @@ actually enforced:
 | Retention | The authoritative source system | Not declared in the ontology. |
 
 Conflicting sources produce an explicit conflict or `unknown` state and lower autonomy.
+
+### Conflict adjudication scope
+
+Conflict adjudication is deliberately narrower than conflict consumption. Read the two halves
+separately before relying on either.
+
+**Adjudicated today.** One pair is decided in a production path: two authoritative observations of
+the same neutral resource identity inside one promoted inventory generation.
+`adjudicate_observations` in `core/ontology_platform/observation_adjudication.py` compares the
+reported content of every observation of that identity, and
+`build_inventory_ontology_projection` carries the verdict on the projected `Resource` state fact.
+The rules are deterministic and value-blind:
+
+- Observations that agree on content but differ only in the per-row observation clock read are one
+  fact reported twice, not a conflict. The earliest observation time is kept, so repetition never
+  inflates freshness.
+- Any content disagreement is an explicit conflict named by property key. The value is never
+  averaged, the most recent observation never wins, and no source is weighted above another.
+- A contested property is withheld from the projection, so no consumer can read a contested value.
+  The state fact records `completeness` as `0`, and `state` is omitted when `status` itself is
+  contested.
+- A disagreement on the observed type is an identity contradiction, not a value conflict. It fails
+  closed with `InventoryProjectionConflictError` because link endpoint typing depends on it.
+- A contested identity cannot anchor a verified relationship. `verify_inventory_relationships`
+  drops relationships whose endpoint or provider owner is contested.
+
+**Not adjudicated yet.** No production path compares two independent authorities against each
+other: not two cloud providers, not inventory projection against live discovery, not projected
+state against telemetry. `ShadowResourceStateComparisonService` does classify divergence between
+the read-investigation result and the semantic graph, but its verdict stays in a shadow receipt and
+never reaches a state fact.
+
+**Reading an empty conflict tuple.** An empty `StateFactMetadata.conflicts` means only that the
+observations that were compared agreed. It is not proof that the fact was independently
+corroborated, and it is never evidence that no conflict exists. Absence of an adjudicated conflict
+never raises an autonomy ceiling.
 
 ## Agent ownership
 

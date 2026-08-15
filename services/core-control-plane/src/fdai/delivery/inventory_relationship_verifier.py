@@ -55,7 +55,7 @@ def verify_inventory_relationships(
         dropped.append(RelationshipDrop(reason=RelationshipDropReason.PARTIAL_GENERATION))
         return VerifiedInventoryRelationships(links=(), dropped=_canonical_drops(dropped))
 
-    resources_by_id = _resources_by_id(resources)
+    resources_by_id, contested_ids = _resources_by_id(resources)
     grouped: dict[tuple[str, str, str], list[LinkRecord]] = {}
     for link in links:
         grouped.setdefault((link.from_id, link.link_type, link.to_id), []).append(link)
@@ -101,6 +101,9 @@ def verify_inventory_relationships(
             continue
         if (source.type, target.type) != (link.from_type, link.to_type):
             dropped.append(_drop(RelationshipDropReason.CONFLICTING_DUPLICATE, link))
+            continue
+        if contested_ids & {link.from_id, link.to_id, evidence.provider_owner_id}:
+            dropped.append(_drop(RelationshipDropReason.UNVERIFIED_METADATA, link))
             continue
         if (
             verifier_identity is None
@@ -158,14 +161,40 @@ def verify_inventory_relationships(
     )
 
 
-def _resources_by_id(resources: Sequence[ResourceRecord]) -> Mapping[str, ResourceRecord]:
+def _resources_by_id(
+    resources: Sequence[ResourceRecord],
+) -> tuple[Mapping[str, ResourceRecord], frozenset[str]]:
+    """Index one generation and name the identities observed with disagreeing content.
+
+    Two observations that agree on content but differ only in the per-row observation
+    clock read are the same fact reported twice, not a conflict, and the earliest time
+    is kept so freshness is never inflated. A genuine disagreement makes the identity
+    contested. Verification then refuses to certify a relationship anchored on it, and
+    the ontology projection carries the disagreement as an explicit state-fact conflict
+    rather than the whole generation failing closed on one contested resource.
+    """
     indexed: dict[str, ResourceRecord] = {}
+    contested: set[str] = set()
     for resource in resources:
         prior = indexed.get(resource.resource_id)
-        if prior is not None and prior != resource:
-            raise ValueError("inventory generation contains conflicting resource observations")
-        indexed[resource.resource_id] = resource
-    return indexed
+        if prior is None:
+            indexed[resource.resource_id] = resource
+            continue
+        if prior.type != resource.type or dict(prior.props) != dict(resource.props):
+            contested.add(resource.resource_id)
+            continue
+        indexed[resource.resource_id] = _earlier_observation(prior, resource)
+    return indexed, frozenset(contested)
+
+
+def _earlier_observation(first: ResourceRecord, second: ResourceRecord) -> ResourceRecord:
+    """Keep the earliest observation time so freshness is never inflated."""
+
+    first_at = _observation_time(first)
+    second_at = _observation_time(second)
+    if first_at is None or (second_at is not None and second_at < first_at):
+        return second
+    return first
 
 
 def _observation_time(resource: ResourceRecord | None) -> datetime | None:
