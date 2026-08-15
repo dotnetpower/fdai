@@ -1151,7 +1151,7 @@ async def test_incident_evidence_with_mismatched_correlation_is_held() -> None:
     assert semantic["reason_code"] == "semantic_evidence_incomplete"
 
 
-async def test_incident_bound_turn_without_incident_evidence_is_held() -> None:
+async def test_incident_bound_turn_without_incident_evidence_still_answers() -> None:
     encoded = await _processor(_Runtime(_runtime_result("answered"))).process(
         _request(
             bound_context={
@@ -1163,10 +1163,7 @@ async def test_incident_bound_turn_without_incident_evidence_is_held() -> None:
     )
 
     semantic = _projection(encoded)["semantic_result"]
-    assert semantic["disposition"] == "held"
-    assert semantic["reason_code"] == "incident_evidence_not_planned"
-    assert semantic["unavailable_reason"] == "authoritative_evidence_unavailable"
-    assert semantic["answer"].startswith("## This incident's evidence wasn't read")
+    assert semantic["disposition"] == "answered"
 
 
 async def test_incident_bound_turn_reading_another_incident_is_held() -> None:
@@ -1183,6 +1180,8 @@ async def test_incident_bound_turn_reading_another_incident_is_held() -> None:
     semantic = _projection(encoded)["semantic_result"]
     assert semantic["disposition"] == "held"
     assert semantic["reason_code"] == "incident_evidence_mismatched_binding"
+    assert semantic["unavailable_reason"] == "authoritative_evidence_unavailable"
+    assert semantic["answer"].startswith("## Evidence from a different incident was read")
 
 
 async def test_unbound_turn_without_incident_evidence_still_answers() -> None:
