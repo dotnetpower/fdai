@@ -409,36 +409,30 @@ def _pending_enqueued_at(path: Path) -> datetime | None:
     return parsed if parsed.tzinfo is not None else None
 
 
-def _commit_is_retained(paths: QueuePaths, commit: str, checkout_heads: tuple[str, ...]) -> bool:
-    if any(
-        git(
-            "merge-base",
-            "--is-ancestor",
-            commit,
-            head,
-            cwd=paths.repo_root,
-            check=False,
-        ).returncode
-        == 0
-        for head in checkout_heads
-    ):
-        return True
-    refs = git(
-        "for-each-ref",
-        "--contains",
-        commit,
-        "--format=%(refname)",
+def _retained_commits(paths: QueuePaths) -> set[str] | None:
+    checkout_heads = _checkout_head_commits(paths)
+    result = git(
+        "rev-list",
+        "--all",
+        *checkout_heads,
         cwd=paths.repo_root,
         check=False,
     )
-    return refs.returncode == 0 and bool(refs.stdout.strip())
+    if result.returncode != 0:
+        return None
+    return {commit for commit in result.stdout.splitlines() if COMMIT_PATTERN.fullmatch(commit)}
 
 
 def prune_stale(paths: QueuePaths, *, min_age_hours: int, apply: bool) -> int:
     """Preview or retire old pending records unreachable from all checkouts and refs."""
     initialize(paths)
     cutoff = datetime.now(UTC) - timedelta(hours=min_age_hours)
-    checkout_heads = _checkout_head_commits(paths)
+    retained_commits = _retained_commits(paths)
+    if retained_commits is None:
+        print(
+            "validation-queue: cannot resolve retained commits; no records changed", file=sys.stderr
+        )
+        return 1
     candidates: list[Path] = []
     retained = 0
     recent_or_invalid = 0
@@ -450,19 +444,33 @@ def prune_stale(paths: QueuePaths, *, min_age_hours: int, apply: bool) -> int:
         if enqueued_at is None or enqueued_at > cutoff:
             recent_or_invalid += 1
             continue
-        if (paths.receipts / path.name).is_file() or _commit_is_retained(
-            paths, path.stem, checkout_heads
-        ):
+        if (paths.receipts / path.name).is_file() or path.stem in retained_commits:
             retained += 1
             continue
         candidates.append(path)
+    retired = 0
     if apply:
+        retained_commits = _retained_commits(paths)
+        if retained_commits is None:
+            print(
+                "validation-queue: retained commits changed or became unavailable; "
+                "no records changed",
+                file=sys.stderr,
+            )
+            return 1
+        retired_dir = paths.state_root / "retired-pending"
+        retired_dir.mkdir(parents=True, exist_ok=True)
         for path in candidates:
-            path.unlink()
+            if path.stem in retained_commits or (paths.receipts / path.name).is_file():
+                retained += 1
+                continue
+            path.replace(retired_dir / path.name)
+            retired += 1
     print(
         "validation-queue: stale pending "
         f"candidates={len(candidates)} retained={retained} "
-        f"recent_or_invalid={recent_or_invalid} apply={str(apply).lower()}"
+        f"recent_or_invalid={recent_or_invalid} retired={retired} "
+        f"apply={str(apply).lower()}"
     )
     return 0
 

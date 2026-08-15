@@ -213,7 +213,43 @@ def test_prune_stale_removes_only_old_unreferenced_pending_records(git_repo: Pat
     assert validation_queue.prune_stale(paths, min_age_hours=24, apply=True) == 0
     assert (paths.pending / f"{retained}.json").is_file()
     assert not (paths.pending / f"{orphan_commit}.json").exists()
+    assert (paths.state_root / "retired-pending" / f"{orphan_commit}.json").is_file()
     assert (paths.pending / f"{recent_commit}.json").is_file()
+
+
+def test_prune_stale_preserves_old_pending_reachable_only_from_branch(git_repo: Path) -> None:
+    paths = queue_paths(git_repo)
+    old = datetime.now(timezone.utc) - timedelta(hours=48)  # noqa: UP017
+    branch_commit = _run(
+        git_repo,
+        "git",
+        "commit-tree",
+        "HEAD^{tree}",
+        "-p",
+        "HEAD",
+        "-m",
+        "branch-only",
+    )
+    assert branch_commit.returncode == 0, branch_commit.stderr
+    commit = branch_commit.stdout.strip()
+    assert _run(git_repo, "git", "update-ref", "refs/heads/preserved", commit).returncode == 0
+    validation_queue.initialize(paths)
+    (paths.pending / f"{commit}.json").write_text(
+        json.dumps(
+            {
+                "commit": commit,
+                "enqueued_at": old.isoformat(),
+                "schema_version": 1,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert validation_queue.prune_stale(paths, min_age_hours=24, apply=True) == 0
+
+    assert (paths.pending / f"{commit}.json").is_file()
+    assert not (paths.state_root / "retired-pending" / f"{commit}.json").exists()
 
 
 def test_run_stage_records_failed_verify_gate_detail(tmp_path: Path) -> None:
