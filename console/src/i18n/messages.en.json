@@ -50,9 +50,9 @@
     "badge": "Incident {count}",
     "open": "Open {count} active incident conversation(s)",
     "sessionLabel": "Incident {ticket}",
-    "briefing": "FDAI detected a {severity} operational incident: {title}",
+    "briefing": "FDAI detected an operational incident ({severity}): {title}",
     "context": "Runtime detection opened incident {ticket} with correlation {correlation}. Use the incident evidence before making a root-cause or recovery claim.",
-    "investigationPrompt": "Investigate this incident using the available evidence and report the cause, gaps, and next safe step."
+    "investigationPrompt": "Report what the evidence for this incident establishes, which evidence is missing, and the next safe read-only step."
   },
   "shared": {
     "loading": "Loading...",

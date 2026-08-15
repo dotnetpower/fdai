@@ -50,9 +50,9 @@
     "badge": "인시던트 {count}",
     "open": "활성 인시던트 대화 {count}건 열기",
     "sessionLabel": "인시던트 {ticket}",
-    "briefing": "FDAI가 {severity} 운영 인시던트를 감지했습니다: {title}",
+    "briefing": "FDAI가 운영 인시던트를 감지했습니다({severity}): {title}",
     "context": "런타임 감지 결과 인시던트 {ticket}이 열렸으며 상관관계 ID는 {correlation}입니다. 근본 원인이나 복구를 판단하기 전에 인시던트 근거를 확인하세요.",
-    "investigationPrompt": "사용 가능한 근거로 이 인시던트를 조사하고 원인, 근거 공백 및 다음 안전 조치를 보고해줘."
+    "investigationPrompt": "이 인시던트의 근거로 확인되는 사실, 빠진 근거, 다음 안전한 읽기 전용 조치를 보고해줘."
   },
   "shared": {
     "loading": "불러오는 중...",
