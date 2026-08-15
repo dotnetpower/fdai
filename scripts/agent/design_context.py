@@ -432,23 +432,11 @@ def enforce_commit_scope(payload: dict[str, Any]) -> dict[str, Any]:
     if _tool_name(payload) not in TERMINAL_TOOL_NAMES:
         return {"continue": True}
     command = str(_tool_input(payload).get("command") or "")
-    try:
-        lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|")
-        lexer.whitespace_split = True
-        lexer.commenters = ""
-        tokens = list(lexer)
-    except ValueError:
-        return {"continue": True}
-    segments: list[list[str]] = [[]]
-    for token in tokens:
-        if token in {";", "&", "&&", "|", "||"}:
-            segments.append([])
-        else:
-            segments[-1].append(token)
-    for segment in segments:
-        if "git" not in segment or "commit" not in segment:
+    for segment in _command_segments(command):
+        git_index = _git_executable_index(segment)
+        if git_index is None or "commit" not in segment[git_index + 1 :]:
             continue
-        commit_index = segment.index("commit")
+        commit_index = segment.index("commit", git_index + 1)
         if "--" in segment[commit_index + 1 :]:
             continue
         reason = (
@@ -472,6 +460,44 @@ _DESTRUCTIVE_GIT_OPERATIONS = frozenset(
 )
 _DESTRUCTIVE_GIT_APPROVAL = "FDAI_USER_APPROVED_DESTRUCTIVE_GIT=1"
 _GIT_GLOBAL_OPTIONS_WITH_VALUE = frozenset({"-C", "-c", "--git-dir", "--namespace", "--work-tree"})
+_SHELL_EXECUTABLES = frozenset({"bash", "dash", "fish", "sh", "zsh"})
+_MAX_NESTED_COMMAND_DEPTH = 3
+
+
+def _command_segments(command: str, *, depth: int = 0) -> list[list[str]]:
+    if depth > _MAX_NESTED_COMMAND_DEPTH:
+        return []
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|")
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        tokens = list(lexer)
+    except ValueError:
+        return []
+    segments: list[list[str]] = [[]]
+    for token in tokens:
+        if token in {";", "&", "&&", "|", "||"}:
+            segments.append([])
+        else:
+            segments[-1].append(token)
+    expanded = [segment for segment in segments if segment]
+    for segment in tuple(expanded):
+        for index, token in enumerate(segment):
+            if Path(token).name not in _SHELL_EXECUTABLES:
+                continue
+            for option_index in range(index + 1, len(segment) - 1):
+                option = segment[option_index]
+                if option.startswith("-") and "c" in option[1:]:
+                    expanded.extend(_command_segments(segment[option_index + 1], depth=depth + 1))
+                    break
+        for token in segment:
+            if (
+                depth < _MAX_NESTED_COMMAND_DEPTH
+                and "git " in token
+                and any(character.isspace() for character in token)
+            ):
+                expanded.extend(_command_segments(token, depth=depth + 1))
+    return expanded
 
 
 def _git_operation(arguments: list[str]) -> str | None:
@@ -503,20 +529,7 @@ def enforce_destructive_git(payload: dict[str, Any]) -> dict[str, Any]:
     if _tool_name(payload) not in TERMINAL_TOOL_NAMES:
         return {"continue": True}
     command = str(_tool_input(payload).get("command") or "")
-    try:
-        lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|")
-        lexer.whitespace_split = True
-        lexer.commenters = ""
-        tokens = list(lexer)
-    except ValueError:
-        return {"continue": True}
-    segments: list[list[str]] = [[]]
-    for token in tokens:
-        if token in {";", "&", "&&", "|", "||"}:
-            segments.append([])
-        else:
-            segments[-1].append(token)
-    for segment in segments:
+    for segment in _command_segments(command):
         git_index = _git_executable_index(segment)
         if _DESTRUCTIVE_GIT_APPROVAL in segment or git_index is None:
             continue
