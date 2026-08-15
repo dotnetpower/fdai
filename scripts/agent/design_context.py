@@ -7,6 +7,7 @@ import fcntl
 import fnmatch
 import hashlib
 import json
+import os
 import re
 import shlex
 import subprocess
@@ -436,7 +437,9 @@ def enforce_commit_scope(payload: dict[str, Any]) -> dict[str, Any]:
         git_index = _git_executable_index(segment)
         if git_index is None:
             continue
-        arguments, unsafe_alias = _expand_git_aliases(segment[git_index + 1 :])
+        arguments, unsafe_alias = _expand_git_aliases(
+            segment[git_index + 1 :], _command_environment(segment[:git_index])
+        )
         operation_index = _git_operation_index(arguments)
         if not unsafe_alias and (operation_index is None or arguments[operation_index] != "commit"):
             continue
@@ -465,7 +468,9 @@ _DESTRUCTIVE_GIT_OPERATIONS = frozenset(
     {"checkout", "clean", "reset", "restore", "stash", "switch"}
 )
 _DESTRUCTIVE_GIT_APPROVAL = "FDAI_USER_APPROVED_DESTRUCTIVE_GIT=1"
-_GIT_GLOBAL_OPTIONS_WITH_VALUE = frozenset({"-C", "-c", "--git-dir", "--namespace", "--work-tree"})
+_GIT_GLOBAL_OPTIONS_WITH_VALUE = frozenset(
+    {"-C", "-c", "--config-env", "--git-dir", "--namespace", "--work-tree"}
+)
 _SHELL_EXECUTABLES = frozenset({"bash", "dash", "fish", "sh", "zsh"})
 _MAX_NESTED_COMMAND_DEPTH = 3
 
@@ -476,7 +481,7 @@ def _command_segments(command: str, *, depth: int = 0) -> list[list[str]]:
     try:
         lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|")
         lexer.whitespace_split = True
-        lexer.commenters = "#"
+        lexer.commenters = ""
         tokens = list(lexer)
     except ValueError:
         return []
@@ -528,16 +533,18 @@ def _git_operation(arguments: list[str]) -> str | None:
     return arguments[index] if index is not None else None
 
 
-def _git_alias(arguments: list[str], operation_index: int) -> str | None:
+def _git_alias(
+    arguments: list[str], operation_index: int, environment: dict[str, str]
+) -> str | None:
     context_options: list[str] = []
     index = 0
     while index < operation_index:
         argument = arguments[index]
-        if argument in {"-C", "-c"} and index + 1 < operation_index:
+        if argument in {"-C", "-c", "--config-env"} and index + 1 < operation_index:
             context_options.extend((argument, arguments[index + 1]))
             index += 2
             continue
-        if argument.startswith(("-C", "-c")):
+        if argument.startswith(("-C", "-c", "--config-env=")):
             context_options.append(argument)
         index += 1
     completed = subprocess.run(
@@ -545,19 +552,22 @@ def _git_alias(arguments: list[str], operation_index: int) -> str | None:
         cwd=REPO_ROOT,
         check=False,
         capture_output=True,
+        env=environment,
         text=True,
         timeout=2,
     )
     return completed.stdout.strip() if completed.returncode == 0 else None
 
 
-def _expand_git_aliases(arguments: list[str]) -> tuple[list[str], bool]:
+def _expand_git_aliases(
+    arguments: list[str], environment: dict[str, str]
+) -> tuple[list[str], bool]:
     expanded = list(arguments)
     for _ in range(_MAX_NESTED_COMMAND_DEPTH + 1):
         operation_index = _git_operation_index(expanded)
         if operation_index is None:
             return expanded, False
-        alias = _git_alias(expanded, operation_index)
+        alias = _git_alias(expanded, operation_index, environment)
         if alias is None:
             return expanded, False
         if alias.lstrip().startswith("!"):
@@ -570,6 +580,15 @@ def _expand_git_aliases(arguments: list[str]) -> tuple[list[str], bool]:
             return expanded, True
         expanded = expanded[:operation_index] + alias_arguments + expanded[operation_index + 1 :]
     return expanded, True
+
+
+def _command_environment(prefix: list[str]) -> dict[str, str]:
+    environment = os.environ.copy()
+    for token in prefix:
+        name, separator, value = token.partition("=")
+        if separator and name.isidentifier():
+            environment[name] = value
+    return environment
 
 
 def _git_executable_index(segment: list[str]) -> int | None:
@@ -590,7 +609,9 @@ def enforce_destructive_git(payload: dict[str, Any]) -> dict[str, Any]:
             continue
         if _DESTRUCTIVE_GIT_APPROVAL in segment[:git_index]:
             continue
-        arguments, unsafe_alias = _expand_git_aliases(segment[git_index + 1 :])
+        arguments, unsafe_alias = _expand_git_aliases(
+            segment[git_index + 1 :], _command_environment(segment[:git_index])
+        )
         operation = _git_operation(arguments)
         if not unsafe_alias and operation not in _DESTRUCTIVE_GIT_OPERATIONS:
             continue
