@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -189,10 +191,7 @@ describe("resolveAssuranceBudget", () => {
       // The preamble is charged to the run budget, so the budget must be able to hold it and
       // still leave room for questions.
       expect(budget.runBudgetMs).toBeGreaterThan(PREAMBLE_BOUND_MS);
-      // The bound must stay derived from the timeouts the runner actually passes.
-      expect(PREAMBLE_BOUND_MS).toBe(
-        PREAMBLE_NAVIGATION_TIMEOUT_MS + 2 * PREAMBLE_READY_TIMEOUT_MS + PREAMBLE_ACCESS_TIMEOUT_MS,
-      );
+
       // The envelope must stay dominated by the declared budget rather than by harness slack.
       expect(budget.testTimeoutMs - budget.runBudgetMs).toBeLessThan(budget.runBudgetMs);
     }
@@ -242,5 +241,38 @@ describe("withDeadline", () => {
 
   it("rejects an unusable deadline", async () => {
     await expect(withDeadline(Promise.resolve(1), 0, "turn")).rejects.toThrow(/positive finite/);
+  });
+});
+
+describe("run preamble bound", () => {
+  const source = readFileSync(
+    new URL("./ontology-query-assurance.spec.ts", import.meta.url),
+    "utf8",
+  );
+  const preamble = source.slice(
+    source.indexOf("await restoreBrowserEntraSessionStorage(page);"),
+    source.indexOf("let protectedRequestCount = 0;"),
+  );
+
+  it("bounds every preamble step with a declared timeout", () => {
+    expect(preamble).not.toHaveLength(0);
+    const steps = preamble.match(/await (page\.goto|expect)\(/g) ?? [];
+    const timeouts = preamble.match(/PREAMBLE_[A-Z_]+_TIMEOUT_MS/g) ?? [];
+    expect(steps.length).toBeGreaterThan(0);
+    expect(timeouts).toHaveLength(steps.length);
+  });
+
+  it("keeps the declared bound equal to the sum of those steps", () => {
+    const declared = {
+      PREAMBLE_NAVIGATION_TIMEOUT_MS,
+      PREAMBLE_READY_TIMEOUT_MS,
+      PREAMBLE_ACCESS_TIMEOUT_MS,
+    };
+    const used = (preamble.match(/PREAMBLE_[A-Z_]+_TIMEOUT_MS/g) ?? []).reduce(
+      (total, name) => total + declared[name as keyof typeof declared],
+      0,
+    );
+
+    expect(used).toBe(PREAMBLE_BOUND_MS);
   });
 });

@@ -295,6 +295,7 @@ deadline, a no-progress deadline, a progress signal, and a resumable checkpoint.
 | 16 | Replayed assurance authority | A cohort completed from a checkpoint could publish without answering any question against the live stack | Re-verify at least one question live and require every retained answer to describe one governed generation. |
 | 17 | Unfalsifiable live proof | The released question could be one that never carries a generation digest, and a complete-but-failing cohort discarded its checkpoint | Release the tail through the last answer-required question, confirm resumed generations against live answers, and retire a checkpoint only after a passing publication. |
 | 18 | Non-converging resume | A failed turn resumed as a permanent failure, the released tail could exceed one budget, and the run preamble had no declared timeout | Resume only verified turns, release exactly one proof question, and bound every preamble step. |
+| 19 | Proof question that cannot prove | The released question was chosen by operation, so a governed refusal left a resumed cohort unable to prove a generation, and a complete cohort that failed only its release criteria still discarded its checkpoint | Release a question an earlier run answered, retire only on the asserted release outcome, and reset the page after a deadline breach. |
 
 ### Contract
 
@@ -324,10 +325,11 @@ deadline, a no-progress deadline, a progress signal, and a resumable checkpoint.
 - A per-attempt deadline breach ends the question; only a retryable transport source or a
   transient turn error uses a remaining attempt.
 - A run that answers nothing live never publishes as authoritative. A resumed run always releases
-  the last answer-required question, so it re-answers exactly one question that carries the
-  ontology release and principal manifest of the stack it reports, and a resume costs one turn.
+  one question that an earlier run answered with a generation digest, so it re-answers a question
+  that can prove the ontology release and principal manifest of the stack it reports.
 - Only a verified turn resumes. A failed turn is re-attempted rather than inherited, so one flaky
-  turn cannot make a cohort permanently unpassable at a pinned revision.
+  turn cannot make a cohort permanently unpassable at a pinned revision, and a resume costs the
+  proof question plus every question the earlier run left unverified.
 - Every republished answer must be confirmed by the live turns. A resumed answer whose ontology
   release or principal manifest digest no live answer reproduces fails the cohort instead of
   publishing as a mixed-generation result set.

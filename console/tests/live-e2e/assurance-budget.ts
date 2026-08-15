@@ -204,7 +204,7 @@ export function resolveAssuranceBudget(
     transportRetryBaseMs: DEFAULT_TRANSPORT_RETRY_BASE_MS,
     transportRetryMaxMs: DEFAULT_TRANSPORT_RETRY_MAX_MS,
     // The loop clamps every turn to the run deadline, so the only work that can outlive the
-    // budget is one already-granted spacing wait.
+    // budget is the pre-question spacing plus one already-granted intra-question wait.
     testTimeoutMs: runBudgetMs + minimumRequestIntervalMs + TEST_TIMEOUT_SLACK_MS,
   };
 }

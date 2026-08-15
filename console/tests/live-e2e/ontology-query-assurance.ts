@@ -102,13 +102,32 @@ export function assuranceReceiptSource(input: {
 /**
  * Names the question a resumed run must always re-answer against the live stack.
  *
- * Exactly one answer-required question is released, because only an answered turn carries the
- * ontology release and principal manifest digests that prove which generation replied, and a
- * larger release would let a resumed run repeat work without net progress.
+ * The checkpoint decides, not the operation taxonomy: an answer-required operation may legitimately
+ * end in a governed refusal, so releasing it could leave the run unable to prove a generation. The
+ * released question is the last one an earlier run actually answered with a generation digest, and
+ * only a cohort with no such evidence falls back to the last answer-required question.
  */
 export function liveProofQuestionIds(
   cohort: readonly { readonly question_id: string; readonly operation: AssuranceOperation }[],
+  proven: readonly {
+    readonly question_id: string;
+    readonly disposition?: string;
+    readonly ontology_release_digest?: string;
+  }[] = [],
 ): readonly string[] {
+  const answered = new Set(
+    proven
+      .filter((result) =>
+        result.disposition === "answered" &&
+        typeof result.ontology_release_digest === "string" &&
+        result.ontology_release_digest.length > 0
+      )
+      .map((result) => result.question_id),
+  );
+  for (let index = cohort.length - 1; index >= 0; index -= 1) {
+    const question = cohort[index]!;
+    if (answered.has(question.question_id)) return [question.question_id];
+  }
   for (let index = cohort.length - 1; index >= 0; index -= 1) {
     const question = cohort[index]!;
     if (ANSWER_REQUIRED_OPERATIONS.includes(question.operation)) return [question.question_id];
@@ -117,17 +136,23 @@ export function liveProofQuestionIds(
 }
 
 /**
- * Trims a checkpoint so the live-proof questions are always re-answered.
+ * Trims a checkpoint so the live-proof question is always re-answered.
  *
  * Resuming keeps earlier work instead of discarding it, but a cohort that answers nothing against
  * the current stack proves nothing about it. Selection is by cohort identity, not array position,
  * so a checkpoint stored out of order cannot release the wrong question.
  */
-export function resumableWithLiveProof<TResult extends { readonly question_id: string }>(
+export function resumableWithLiveProof<
+  TResult extends {
+    readonly question_id: string;
+    readonly disposition?: string;
+    readonly ontology_release_digest?: string;
+  },
+>(
   resumed: readonly TResult[],
   cohort: readonly { readonly question_id: string; readonly operation: AssuranceOperation }[],
 ): readonly TResult[] {
-  const proof = new Set(liveProofQuestionIds(cohort));
+  const proof = new Set(liveProofQuestionIds(cohort, resumed));
   return resumed.filter((result) => !proof.has(result.question_id));
 }
 
@@ -181,31 +206,79 @@ export function liveAnswerProof(
 /**
  * Returns whether a checkpoint may be retired.
  *
- * A cohort that completed but failed keeps its checkpoint, so a single flaky turn cannot discard
- * every verified turn and force the next run to restart from nothing.
+ * Retirement requires the outcome the runner actually asserts, not only the pass conjunction, so a
+ * complete cohort that fails its release criteria keeps its checkpoint instead of restarting from
+ * nothing on the next run.
  */
 export function checkpointRetirable(input: {
   readonly passed: boolean;
+  readonly releaseSatisfied: boolean;
   readonly stopReason: string | null;
   readonly retainedCount: number;
   readonly cohortSize: number;
 }): boolean {
-  return input.passed && input.stopReason === null &&
+  return input.passed && input.releaseSatisfied && input.stopReason === null &&
     input.cohortSize > 0 && input.retainedCount === input.cohortSize;
 }
 
 const LOCALES: readonly AssuranceLocale[] = ["en", "ko"];
 
-/** The attempt outcomes the runner records, so a checkpoint cannot smuggle an unknown one. */
-const RETAINED_ATTEMPT_OUTCOMES: readonly string[] = [
-  "semantic_terminal",
-  "retryable_transport_failure",
-  "non_retryable_receipt_missing",
-  "per_attempt_deadline_exceeded",
-  "question_budget_exhausted",
-  "stalled_question",
-  "turn_error",
-];
+/** The transport outcomes the runner records for one attempt. */
+export type RetainedTransportAttemptOutcome =
+  | "semantic_terminal"
+  | "retryable_transport_failure"
+  | "non_retryable_receipt_missing"
+  | "per_attempt_deadline_exceeded"
+  | "question_budget_exhausted"
+  | "stalled_question"
+  | "turn_error";
+
+export interface RetainedTransportAttempt {
+  readonly attempt: number;
+  readonly outcome: RetainedTransportAttemptOutcome;
+  readonly source?: string;
+}
+
+/** One retained turn, as both the artifact and the checkpoint carry it. */
+export interface RetainedTurnResult {
+  readonly question_id: string;
+  readonly produced_by_run_id: string;
+  readonly locale: AssuranceLocale;
+  readonly operation: AssuranceOperation;
+  readonly attempt_count: number;
+  readonly transport_attempts: readonly RetainedTransportAttempt[];
+  readonly passed: boolean;
+  readonly unauthorized_execution_claim: boolean;
+  readonly failure_reason?: string;
+  readonly projection_id?: string;
+  readonly request_id?: string;
+  readonly disposition?: string;
+  readonly reason_code?: string;
+  readonly semantic_route?: string;
+  readonly unavailable_reason?: string;
+  readonly ontology_release_digest?: string;
+  readonly principal_manifest_digest?: string;
+  readonly plan_digest?: string;
+  readonly execution_receipt_digest?: string;
+  readonly checks_completed?: number;
+  readonly checks_total?: number;
+  readonly evidence_ref_count?: number;
+}
+
+/** Adding an outcome without listing it here breaks the build instead of the checkpoint. */
+const RETAINED_ATTEMPT_OUTCOME_MEMBERS: Record<RetainedTransportAttemptOutcome, true> = {
+  semantic_terminal: true,
+  retryable_transport_failure: true,
+  non_retryable_receipt_missing: true,
+  per_attempt_deadline_exceeded: true,
+  question_budget_exhausted: true,
+  stalled_question: true,
+  turn_error: true,
+};
+
+const RETAINED_ATTEMPT_OUTCOMES: readonly string[] = Object.keys(
+  RETAINED_ATTEMPT_OUTCOME_MEMBERS,
+);
 
 /** Rejects a checkpointed result that lost any field the pass criteria read. */
 export function isRetainedTurnResult(value: Record<string, unknown>): boolean {

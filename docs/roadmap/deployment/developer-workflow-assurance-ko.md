@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 118b2d32ca90223d3d5d81358003303f8aec3a9d
-translation_revised: 2026-08-15
+translation_source_sha: 113c81516b740b951b66e4d3b040443dcab81b2c
+translation_revised: 2026-08-16
 ---
 
 # 개발 워크플로 보증
@@ -300,6 +300,7 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 | 16 | 재생된 assurance 권한 | Checkpoint로 완성된 cohort가 live stack에 질문을 하나도 답하지 않고 발행될 수 있었습니다 | 최소 한 질문을 live로 재검증하고 모든 보존 답변이 하나의 통제된 세대를 기술하도록 요구합니다. |
 | 17 | 반증 불가능한 live 증명 | 풀려난 질문이 generation digest를 전혀 담지 않는 질문일 수 있었고, 완주했지만 실패한 cohort가 checkpoint를 버렸습니다 | 마지막 answer-required 질문까지 꼬리를 풀고, 재개 세대를 live 답변로 확인하며, 통과 발행 뒤에만 checkpoint를 회수합니다. |
 | 18 | 수렴하지 않는 재개 | 실패한 turn이 영구 실패로 재개되고, 풀린 꼬리가 예산 하나를 넘을 수 있었으며, 실행 preamble에 선언된 timeout이 없었습니다 | 검증된 turn만 재개하고, 증명 질문을 정확히 하나만 풀며, 모든 preamble 단계를 제한합니다. |
+| 19 | 증명할 수 없는 증명 질문 | 풀린 질문을 operation으로 골라 통제된 거부가 나오면 재개 cohort가 세대를 증명할 수 없었고, release 기준만 실패한 완주 cohort가 여전히 checkpoint를 버렸습니다 | 이전 실행이 답변한 질문을 풀고, 단언된 release 결과에만 회수하며, deadline 초과 뒤 페이지를 재설정합니다. |
 
 ### 계약
 
@@ -325,11 +326,12 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
   실행을 기록하므로 재개된 cohort도 귀속 가능하며, 해당 귀속이 없는 결과는 통과할 수 없습니다.
 - 시도별 deadline 위반은 질문을 종료하며, 재시도 가능한 transport source 또는 일시적 turn 오류만 남은
   시도를 사용합니다.
-- Live 답변이 없는 실행은 권위 있는 결과로 발행되지 않습니다. 재개된 실행은 마지막 answer-required 질문을
-  항상 다시 실행하므로, 보고하는 stack의 ontology release와 principal manifest를 담은 질문을
-  정확히 하나 다시 답하며, 재개 비용은 turn 하나입니다.
+- Live 답변이 없는 실행은 권위 있는 결과로 발행되지 않습니다. 재개된 실행은 이전 실행이 generation digest와
+  함께 답변한 질문 하나를 항상 풀어, 보고하는 stack의 ontology release와 principal manifest를
+  증명할 수 있는 질문을 다시 답합니다.
 - 검증된 turn만 재개합니다. 실패한 turn은 상속하지 않고 다시 시도하므로, 한 번의 불안정한 turn이 고정된
-  revision에서 cohort를 영구히 통과 불가능하게 만들지 않습니다.
+  revision에서 cohort를 영구히 통과 불가능하게 만들지 않으며, 재개 비용은 증명 질문과 이전 실행이
+  검증하지 못한 질문들입니다.
 - 다시 발행되는 모든 답변은 live turn이 확인해야 합니다. Live 답변이 재현하지 못한 ontology release
   또는 principal manifest digest를 가진 재개 답변은 혼합 세대 결과로 발행되지 않고 cohort를
   실패시킵니다.
