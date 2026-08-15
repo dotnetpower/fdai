@@ -31,6 +31,15 @@ def _load_dispatcher() -> ModuleType:
     return module
 
 
+def _load_design_route_checker() -> ModuleType:
+    path = REPO_ROOT / "scripts/quality/architecture/check-design-routes.py"
+    spec = importlib.util.spec_from_file_location("check_design_routes", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def test_required_context_composes_every_matching_route() -> None:
     module = _load_module()
 
@@ -39,7 +48,7 @@ def test_required_context_composes_every_matching_route() -> None:
     )
 
     assert ".github/copilot-instructions.md" in required
-    assert "docs/roadmap/architecture/fdai-constitution.md" in required
+    assert "docs/roadmap/architecture/fdai-constitution.md" not in required
     assert ".github/instructions/coding-conventions.instructions.md" in required
     assert ".github/instructions/app-shape.instructions.md" in required
     assert "docs/roadmap/deployment/dev-and-deploy-parity.md" in required
@@ -136,6 +145,7 @@ def test_constitutional_surface_requires_canonical_context() -> None:
 
     required = module.required_context((".github/instructions/architecture.instructions.md",))
 
+    assert ".github/copilot-instructions.md" in required
     assert "docs/roadmap/architecture/fdai-constitution.md" in required
     assert "docs/roadmap/decisioning/risk-classification.md" in required
     assert "docs/roadmap/decisioning/escalation-and-standing-authority.md" in required
@@ -384,6 +394,33 @@ def test_language_instructions_use_narrow_non_overlapping_source_scope() -> None
     routed = _load_module().required_context(("scripts/agent/pre_tool_dispatch.py",))
     assert ".github/instructions/source-language.instructions.md" in routed
     assert ".github/instructions/language.instructions.md" not in routed
+
+
+def test_resume_prompt_executes_by_default_and_keeps_status_read_only() -> None:
+    prompt = (REPO_ROOT / ".github" / "prompts" / "resume-session.prompt.md").read_text(
+        encoding="utf-8"
+    )
+
+    assert "Default - resume and execute" in prompt
+    assert "`status` - inspect only" in prompt
+    assert "Do not stop after the summary" in prompt
+    assert "Do not push" in prompt
+
+
+def test_design_route_checker_parses_multiline_skill_description(tmp_path: Path) -> None:
+    skill = tmp_path / "SKILL.md"
+    skill.write_text(
+        "---\nname: example\ndescription: |\n  Use when checking\n  multiline metadata.\n---\n",
+        encoding="utf-8",
+    )
+
+    metadata = _load_design_route_checker()._frontmatter(skill)
+
+    assert metadata["description"] == "Use when checking multiline metadata."
+
+
+def test_agent_customization_metadata_is_valid() -> None:
+    assert _load_design_route_checker().validate() == []
 
 
 @pytest.mark.parametrize(

@@ -16,9 +16,11 @@ This file is the small always-on contract. Detailed rules are loaded through
 per task before changing behavior. The workspace hook hard-blocks only framework-surface,
 constitutional, and design-gate edits when required context is missing or stale; ordinary edits
 remain unblocked. Pre-commit checks staged design-document impact, and pre-push validates the
-committed snapshot. The single pre-tool hook records only requested design-context files; no
-post-tool hook receives or logs tool response bodies. A more specific instruction wins a conflict
-only within the Constitution's bounds; the Constitution always prevails.
+committed snapshot. Request each route-selected context document with a direct `read_file` call;
+current VS Code does not invoke workspace hooks for reads nested in parallel wrappers. The single
+pre-tool hook records only requested design-context paths; no post-tool hook receives or logs tool
+response bodies. A more specific instruction wins a conflict only within the Constitution's bounds;
+the Constitution always prevails.
 
 ## Core Principles (MUST)
 

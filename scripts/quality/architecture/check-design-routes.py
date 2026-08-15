@@ -14,6 +14,8 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MANIFEST_PATH = REPO_ROOT / "scripts/lib/design-routes.json"
 INSTRUCTIONS_ROOT = REPO_ROOT / ".github/instructions"
+SKILLS_ROOT = REPO_ROOT / ".github/skills"
+PROMPTS_ROOT = REPO_ROOT / ".github/prompts"
 FRONTMATTER = re.compile(r"\A---\n(?P<body>.*?)\n---\n", re.DOTALL)
 
 
@@ -53,12 +55,31 @@ def _frontmatter(path: Path) -> dict[str, str]:
     if match is None:
         raise ValueError("missing YAML frontmatter")
     values: dict[str, str] = {}
-    for raw_line in match.group("body").splitlines():
-        if ":" not in raw_line:
+    lines = match.group("body").splitlines()
+    index = 0
+    while index < len(lines):
+        raw_line = lines[index]
+        if not raw_line or raw_line[0].isspace() or ":" not in raw_line:
+            index += 1
             continue
         key, raw_value = raw_line.split(":", 1)
-        values[key.strip()] = raw_value.strip().strip('"')
+        scalar = raw_value.strip()
+        if scalar in {"|", "|-", ">", ">-"}:
+            block: list[str] = []
+            index += 1
+            while index < len(lines) and (not lines[index] or lines[index][0].isspace()):
+                if content := lines[index].strip():
+                    block.append(content)
+                index += 1
+            values[key.strip()] = " ".join(block)
+            continue
+        values[key.strip()] = scalar.strip('"').strip("'")
+        index += 1
     return values
+
+
+def _content_line_count(path: Path) -> int:
+    return sum(bool(line.strip()) for line in path.read_text(encoding="utf-8").splitlines())
 
 
 def _matches(pattern: str, paths: tuple[str, ...]) -> bool:
@@ -77,7 +98,10 @@ def validate() -> list[str]:
     tracked = _tracked_paths()
     route_ids: set[str] = set()
     referenced_instructions: set[Path] = set()
-    budget = int(manifest.get("instruction_line_budget", 0))
+    instruction_budget = int(manifest.get("instruction_line_budget", 0))
+    skill_budget = int(manifest.get("skill_line_budget", 0))
+    skill_description_budget = int(manifest.get("skill_description_char_budget", 0))
+    prompt_budget = int(manifest.get("prompt_line_budget", 0))
 
     for route in routes:
         route_id = str(route.get("id", "")).strip()
@@ -130,15 +154,56 @@ def validate() -> list[str]:
             errors.append(f"{path.relative_to(REPO_ROOT)}: missing description")
         if not metadata.get("applyTo"):
             errors.append(f"{path.relative_to(REPO_ROOT)}: missing applyTo")
-        line_count = len(path.read_text(encoding="utf-8").splitlines())
-        if budget > 0 and line_count > budget:
+        line_count = _content_line_count(path)
+        if instruction_budget > 0 and line_count > instruction_budget:
             errors.append(
-                f"{path.relative_to(REPO_ROOT)}: {line_count} lines exceeds budget {budget}"
+                f"{path.relative_to(REPO_ROOT)}: {line_count} content lines exceeds budget "
+                f"{instruction_budget}"
             )
 
     unregistered = actual_instructions - referenced_instructions
     for path in sorted(unregistered):
         errors.append(f"instruction is not referenced by any route: {path.relative_to(REPO_ROOT)}")
+
+    skill_paths = sorted(SKILLS_ROOT.glob("*/SKILL.md"))
+    if not skill_paths:
+        errors.append(".github/skills must contain at least one */SKILL.md")
+    for path in skill_paths:
+        relative = path.relative_to(REPO_ROOT)
+        try:
+            metadata = _frontmatter(path)
+        except ValueError as exc:
+            errors.append(f"{relative}: {exc}")
+            continue
+        if metadata.get("name") != path.parent.name:
+            errors.append(f"{relative}: name must match skill directory {path.parent.name}")
+        description = metadata.get("description", "")
+        if not description:
+            errors.append(f"{relative}: missing description")
+        elif skill_description_budget > 0 and len(description) > skill_description_budget:
+            errors.append(
+                f"{relative}: description has {len(description)} characters; budget is "
+                f"{skill_description_budget}"
+            )
+        line_count = _content_line_count(path)
+        if skill_budget > 0 and line_count > skill_budget:
+            errors.append(f"{relative}: {line_count} content lines exceeds budget {skill_budget}")
+
+    prompt_paths = sorted(PROMPTS_ROOT.glob("*.prompt.md"))
+    if not prompt_paths:
+        errors.append(".github/prompts must contain at least one *.prompt.md")
+    for path in prompt_paths:
+        relative = path.relative_to(REPO_ROOT)
+        try:
+            metadata = _frontmatter(path)
+        except ValueError as exc:
+            errors.append(f"{relative}: {exc}")
+            continue
+        if not metadata.get("description"):
+            errors.append(f"{relative}: missing description")
+        line_count = _content_line_count(path)
+        if prompt_budget > 0 and line_count > prompt_budget:
+            errors.append(f"{relative}: {line_count} content lines exceeds budget {prompt_budget}")
     return errors
 
 

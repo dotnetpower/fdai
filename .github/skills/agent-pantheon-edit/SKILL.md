@@ -1,16 +1,12 @@
 ---
 name: agent-pantheon-edit
 description: |
-  Safe-edit workflow for the FDAI 15-agent pantheon under
-  `services/core-control-plane/src/fdai/agents/**`. The pantheon is fixed (Odin, Thor, Forseti,
-  Huginn, Heimdall, Var, Vidar, Bragi, Saga, Mimir, Norns, Muninn,
-  Njord, Freyr, Loki) and its role bindings are fork-locked. This
-  skill walks through the AgentSpec + layout + role-invariant
-  checklist and points at the machine-readable source of truth
-  (`PANTHEON_SPECS` in `services/core-control-plane/src/fdai/agents/_framework/pantheon.py`).
-  Load when you are about to edit any file under `services/core-control-plane/src/fdai/agents/**`,
-  when you see a `test_framework_layout.py` failure, or when adding
-  an ActionType binding.
+  Safely edit FDAI's fixed 15-agent pantheon and preserve its role, layout,
+  ownership, and event-boundary invariants. Use when modifying
+  `services/core-control-plane/src/fdai/agents/**`, fixing
+  `test_framework_layout.py`, or adding an ActionType binding. The
+  machine-readable source of truth is `PANTHEON_SPECS`; forks cannot rename
+  agents or repoint role bindings.
 version: 1.0.0
 scope: repository
 ---

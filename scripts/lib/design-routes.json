@@ -1,6 +1,9 @@
 {
   "version": 1,
   "instruction_line_budget": 220,
+  "skill_line_budget": 500,
+  "skill_description_char_budget": 600,
+  "prompt_line_budget": 200,
   "routes": [
     {
       "id": "baseline",
@@ -8,8 +11,7 @@
         "**"
       ],
       "must_read": [
-        ".github/copilot-instructions.md",
-        "docs/roadmap/architecture/fdai-constitution.md"
+        ".github/copilot-instructions.md"
       ],
       "validate": [
         "scripts/verify.sh"
