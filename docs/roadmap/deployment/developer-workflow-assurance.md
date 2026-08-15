@@ -298,6 +298,7 @@ deadline, a no-progress deadline, a progress signal, and a resumable checkpoint.
 | 19 | Proof question that cannot prove | The released question was chosen by operation, so a governed refusal left a resumed cohort unable to prove a generation, and a complete cohort that failed only its release criteria still discarded its checkpoint | Release a question an earlier run answered, retire only on the asserted release outcome, and reset the page after a deadline breach. |
 | 20 | Detected but unrecoverable state | A checkpoint that mixed generations was persisted and then permanently refused, one file served every binding, and a failed page reset kept the run going | Discard an inconsistent checkpoint, key the file by the whole binding, and stop when the page cannot be reset. |
 | 21 | Gate that never ran | The enforced tests typecheck resolved its project from the repository root and aborted the rest of the operator gate, and a truncated run discarded a valid checkpoint | Resolve the project path, pin the resolvable invocation, and discard only what a completed run contradicted. |
+| 22 | Blocked cohort replayed forever | A complete cohort that passed every turn but missed its release criteria kept a checkpoint that republished the same block, and a page or checkpoint fault escaped without an artifact | Release the refusing answer-required turns, and turn a pacing or checkpoint fault into a governed stop reason. |
 
 ### Contract
 
@@ -335,7 +336,10 @@ deadline, a no-progress deadline, a progress signal, and a resumable checkpoint.
   proof question plus every question the earlier run left unverified.
 - Every republished answer must be confirmed by the live turns. A resumed answer whose ontology
   release or principal manifest digest no live answer reproduces fails the cohort instead of
-  publishing as a mixed-generation result set.
+  publishing as a mixed-generation result set. A governed refusal discloses no generation, so it is
+  neutral to this rule and is republished on its own terms.
+- A cohort that passed every turn but missed its release criteria releases the answer-required turns
+  that only refused, so a later run re-attempts them instead of replaying the same block.
 - A completed cohort retires its checkpoint after the artifact is published and before the
   assertions, so a failed publish cannot destroy a complete cohort and a later run cannot replay
   one; a run that performs no live turn is reported as `interrupted` and never carries release

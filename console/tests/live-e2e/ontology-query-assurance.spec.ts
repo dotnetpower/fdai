@@ -41,6 +41,7 @@ import {
   isRetainedTurnResult,
   liveAnswerProof,
   resumableWithLiveProof,
+  releasableForCoverage,
   retainedForLiveGeneration,
   assuranceTransportRetrySources,
   buildAssuranceRunProvenance,
@@ -351,7 +352,15 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
       budget.minimumRequestIntervalMs,
       Date.now() - lastRequestStartedAt,
     );
-    if (spacingMs > 0) await page.waitForTimeout(spacingMs);
+    if (spacingMs > 0) {
+      // A page fault during pacing must still reach the artifact, not escape the test body.
+      const paced = await page.waitForTimeout(spacingMs).then(() => true, () => false);
+      if (!paced) {
+        stopReason = "page_unavailable";
+        stoppedOn = { question_id: question.question_id, transport_attempts: [] };
+        break;
+      }
+    }
 
     const outcome = await resolveQuestion(page, question, runId, budget, runDeadlineAt);
     protectedRequestCount += outcome.requestCount;
@@ -423,10 +432,19 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
       });
     }
     if (checkpointFile !== null) {
-      await writeAssuranceCheckpoint(
+      const written = await writeAssuranceCheckpoint(
         checkpointFile,
         buildAssuranceCheckpoint(checkpointBinding, questionIds, retained),
-      );
+      ).then(() => true, () => false);
+      if (!written) {
+        // Continuing without a durable checkpoint would silently discard the resume guarantee.
+        stopReason = "checkpoint_write_failed";
+        stoppedOn = {
+          question_id: question.question_id,
+          transport_attempts: outcome.transportAttempts,
+        };
+        break;
+      }
     }
     const latest = retained.at(-1)!;
     process.stdout.write(
@@ -632,35 +650,38 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   });
 
   // Retire a complete cohort only after it published a passing result, so one flaky turn cannot
-  // discard every verified turn, and drop a checkpoint that mixes generations because it could
-  // never satisfy the pass criteria again.
-  if (
-    checkpointFile !== null &&
-    checkpointDiscardable({
-      retirable: checkpointRetirable({
-        passed,
-        releaseSatisfied: runScope !== "full_cohort" || productionReady,
-        stopReason,
-        retainedCount: retained.length,
-        cohortSize: questions.length,
-      }),
-      generationConsistent,
-      stopReason,
-    })
-  ) {
-    const survivors = generationConsistent
-      ? []
-      : retainedForLiveGeneration(retained, liveResults);
-    if (survivors.length > 0) {
-      // A release that rotated mid-run does not invalidate the turns taken under the newest
-      // generation, so those are kept and the next run resumes them.
+  // discard every verified turn, and never leave the checkpoint in a state that republishes the
+  // same blocking outcome forever.
+  const releaseSatisfied = runScope !== "full_cohort" || productionReady;
+  const retirable = checkpointRetirable({
+    passed,
+    releaseSatisfied,
+    stopReason,
+    retainedCount: retained.length,
+    cohortSize: questions.length,
+  });
+  if (checkpointFile !== null && checkpointDiscardable({ retirable, generationConsistent, stopReason })) {
+    // A release that rotated mid-run does not invalidate the turns taken under the newest
+    // generation, so those are kept and the next run resumes them. When the live turns disclosed
+    // no generation at all there is nothing to prune, so the survivors equal the retained set.
+    const survivors = generationConsistent ? [] : retainedForLiveGeneration(retained, liveResults);
+    if (survivors.length > 0 && survivors.length < retained.length) {
       await writeAssuranceCheckpoint(
         checkpointFile,
         buildAssuranceCheckpoint(checkpointBinding, questionIds, survivors),
       );
-    } else {
+    } else if (survivors.length === 0) {
       await rm(checkpointFile, { force: true });
     }
+  } else if (
+    checkpointFile !== null && passed && !releaseSatisfied && stopReason === null
+  ) {
+    // Every turn passed but an answer-required operation only refused, so releasing those turns is
+    // the only way a later run can satisfy the release criteria instead of replaying the block.
+    await writeAssuranceCheckpoint(
+      checkpointFile,
+      buildAssuranceCheckpoint(checkpointBinding, questionIds, releasableForCoverage(retained)),
+    );
   }
 
   expect(stopReason, `assurance run stopped early: ${stopReason}`).toBeNull();
