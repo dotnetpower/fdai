@@ -10,12 +10,17 @@ export const MINIMUM_RUN_BUDGET_MS = 300_000;
 export const MAXIMUM_RUN_BUDGET_MS = 5_400_000;
 export const TEST_TIMEOUT_SLACK_MS = 120_000;
 /**
- * The bounded run preamble: session restore, navigation, and the readiness assertions.
+ * The declared bounds of each run preamble step.
  *
- * The runner anchors the run deadline before the preamble, so the preamble is charged to the run
- * budget rather than to harness slack.
+ * Playwright disables navigation and action timeouts by default, so the runner passes these
+ * explicitly. The run deadline is anchored before the preamble, so the preamble is charged to the
+ * run budget rather than to harness slack.
  */
-export const PREAMBLE_BOUND_MS = 65_000;
+export const PREAMBLE_NAVIGATION_TIMEOUT_MS = 30_000;
+export const PREAMBLE_READY_TIMEOUT_MS = 15_000;
+export const PREAMBLE_ACCESS_TIMEOUT_MS = 5_000;
+export const PREAMBLE_BOUND_MS = PREAMBLE_NAVIGATION_TIMEOUT_MS +
+  2 * PREAMBLE_READY_TIMEOUT_MS + PREAMBLE_ACCESS_TIMEOUT_MS;
 export const MAX_TRANSPORT_ATTEMPTS = 2;
 
 const BUDGET_BOUNDS = {

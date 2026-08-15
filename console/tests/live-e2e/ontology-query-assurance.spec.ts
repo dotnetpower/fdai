@@ -7,6 +7,9 @@ import {
   classifyExpiredAttempt,
   DeadlineExceededError,
   MAX_TRANSPORT_ATTEMPTS,
+  PREAMBLE_ACCESS_TIMEOUT_MS,
+  PREAMBLE_NAVIGATION_TIMEOUT_MS,
+  PREAMBLE_READY_TIMEOUT_MS,
   resolveAssuranceBudget,
   resolveQuestionBound,
   transportRetryDelayMs,
@@ -227,7 +230,14 @@ async function resolveQuestion(
           runBudgetIsBinding,
         })
         : "turn_error";
-      transportAttempts.push({ attempt, outcome });
+      transportAttempts.push({
+        attempt,
+        outcome,
+        // A permanent page-side fault must stay distinguishable from a transient blip.
+        ...(outcome === "turn_error"
+          ? { source: error instanceof Error ? error.name : "unknown" }
+          : {}),
+      });
       // A transient evaluate failure is not terminal evidence, so it may use a remaining attempt
       // instead of being persisted as a permanent failure.
       if (outcome === "turn_error" && attempt < MAX_TRANSPORT_ATTEMPTS) continue;
@@ -297,13 +307,13 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     runScope,
     evidenceIdentityDigest: checkpointBinding.evidence_identity_digest,
   });
-  const resumed = resumableWithLiveProof(
-    checkpointFile === null ? [] : resumableResults(
-      await readAssuranceCheckpoint<RetainedTurnResult>(checkpointFile, isRetainedTurnResult),
-      { binding: checkpointBinding, questionIds },
-    ),
-    questions,
+  const restored = checkpointFile === null ? [] : resumableResults(
+    await readAssuranceCheckpoint<RetainedTurnResult>(checkpointFile, isRetainedTurnResult),
+    { binding: checkpointBinding, questionIds },
   );
+  // Only a verified turn is resumable. Restoring a failed turn would make the failure permanent
+  // for this revision, because a resumed question is never re-attempted.
+  const resumed = resumableWithLiveProof(restored.filter((result) => result.passed), questions);
   const retained: RetainedTurnResult[] = [...resumed];
   const outstanding = pendingQuestions(questions, retained);
 
@@ -311,10 +321,17 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   // it; otherwise the harness timeout could fire before the run stops itself.
   const runDeadlineAt = Date.now() + budget.runBudgetMs;
   await restoreBrowserEntraSessionStorage(page);
-  await page.goto("/architecture", { waitUntil: "domcontentloaded" });
-  await expect(page.locator(".shell")).toBeVisible({ timeout: 15_000 });
-  await expect(page.locator("main [aria-busy='true']")).toHaveCount(0, { timeout: 15_000 });
-  await expect(page.getByText("FDAI could not verify your access.")).toHaveCount(0);
+  // Playwright disables navigation and action timeouts by default, so each preamble step declares
+  // its own bound; otherwise a hung navigation would reach the opaque harness timeout.
+  await page.goto("/architecture", {
+    waitUntil: "domcontentloaded",
+    timeout: PREAMBLE_NAVIGATION_TIMEOUT_MS,
+  });
+  await expect(page.locator(".shell")).toBeVisible({ timeout: PREAMBLE_READY_TIMEOUT_MS });
+  await expect(page.locator("main [aria-busy='true']"))
+    .toHaveCount(0, { timeout: PREAMBLE_READY_TIMEOUT_MS });
+  await expect(page.getByText("FDAI could not verify your access."))
+    .toHaveCount(0, { timeout: PREAMBLE_ACCESS_TIMEOUT_MS });
 
   let protectedRequestCount = 0;
   let stopReason: string | null = null;

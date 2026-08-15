@@ -100,23 +100,20 @@ export function assuranceReceiptSource(input: {
 }
 
 /**
- * Names the questions a resumed run must always re-answer against the live stack.
+ * Names the question a resumed run must always re-answer against the live stack.
  *
- * The tail runs through the last answer-required question, because only an answered turn carries
- * the ontology release and principal manifest digests that prove which generation replied.
+ * Exactly one answer-required question is released, because only an answered turn carries the
+ * ontology release and principal manifest digests that prove which generation replied, and a
+ * larger release would let a resumed run repeat work without net progress.
  */
 export function liveProofQuestionIds(
   cohort: readonly { readonly question_id: string; readonly operation: AssuranceOperation }[],
 ): readonly string[] {
-  if (cohort.length === 0) return [];
-  let from = cohort.length - 1;
   for (let index = cohort.length - 1; index >= 0; index -= 1) {
-    if (ANSWER_REQUIRED_OPERATIONS.includes(cohort[index]!.operation)) {
-      from = index;
-      break;
-    }
+    const question = cohort[index]!;
+    if (ANSWER_REQUIRED_OPERATIONS.includes(question.operation)) return [question.question_id];
   }
-  return cohort.slice(from).map((question) => question.question_id);
+  return [];
 }
 
 /**
@@ -197,6 +194,19 @@ export function checkpointRetirable(input: {
     input.cohortSize > 0 && input.retainedCount === input.cohortSize;
 }
 
+const LOCALES: readonly AssuranceLocale[] = ["en", "ko"];
+
+/** The attempt outcomes the runner records, so a checkpoint cannot smuggle an unknown one. */
+const RETAINED_ATTEMPT_OUTCOMES: readonly string[] = [
+  "semantic_terminal",
+  "retryable_transport_failure",
+  "non_retryable_receipt_missing",
+  "per_attempt_deadline_exceeded",
+  "question_budget_exhausted",
+  "stalled_question",
+  "turn_error",
+];
+
 /** Rejects a checkpointed result that lost any field the pass criteria read. */
 export function isRetainedTurnResult(value: Record<string, unknown>): boolean {
   const optionalNumbers = ["checks_completed", "checks_total", "evidence_ref_count"] as const;
@@ -217,12 +227,16 @@ export function isRetainedTurnResult(value: Record<string, unknown>): boolean {
     typeof value.passed === "boolean" &&
     typeof value.unauthorized_execution_claim === "boolean" &&
     typeof value.attempt_count === "number" &&
-    typeof value.locale === "string" && typeof value.operation === "string" &&
+    LOCALES.includes(value.locale as AssuranceLocale) &&
+    OPERATIONS.includes(value.operation as AssuranceOperation) &&
     Array.isArray(value.transport_attempts) && value.transport_attempts.length > 0 &&
-    value.transport_attempts.every((attempt) =>
-      typeof attempt === "object" && attempt !== null &&
-      typeof (attempt as Record<string, unknown>).outcome === "string"
-    ) &&
+    value.transport_attempts.every((attempt) => {
+      if (typeof attempt !== "object" || attempt === null) return false;
+      const record = attempt as Record<string, unknown>;
+      return typeof record.attempt === "number" &&
+        RETAINED_ATTEMPT_OUTCOMES.includes(record.outcome as string) &&
+        (record.source === undefined || typeof record.source === "string");
+    }) &&
     optionalNumbers.every((key) => value[key] === undefined || typeof value[key] === "number") &&
     optionalStrings.every((key) => value[key] === undefined || typeof value[key] === "string") &&
     // The runner always records identifiers with a disposition, so a result missing them would
@@ -554,7 +568,16 @@ export function selectOntologyAssuranceQuestions(
   if (unknownIds.length > 0) {
     throw new Error(`FDAI_E2E_ASSURANCE_QUESTION_IDS contains unknown ids: ${unknownIds.join(", ")}`);
   }
-  return cohort.filter((question) => requestedIds.has(question.question_id));
+  const selected = cohort.filter((question) => requestedIds.has(question.question_id));
+  // Only an answered turn discloses the generation that replied, so a selection without one could
+  // never prove the live stack and would fail for a reason the operator cannot see.
+  if (!selected.some((question) => ANSWER_REQUIRED_OPERATIONS.includes(question.operation))) {
+    throw new Error(
+      "FDAI_E2E_ASSURANCE_QUESTION_IDS must include at least one answer-required operation: " +
+        ANSWER_REQUIRED_OPERATIONS.join(", "),
+    );
+  }
+  return selected;
 }
 
 export function judgeSemanticReceipt(raw: unknown): AssuranceJudgment {

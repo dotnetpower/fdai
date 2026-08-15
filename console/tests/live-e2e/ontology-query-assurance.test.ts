@@ -178,19 +178,21 @@ describe("liveProofQuestionIds", () => {
     { question_id: "q4", operation: "unsupported_domain" as const },
   ];
 
-  it("releases the tail through the last answer-required question", () => {
-    expect(liveProofQuestionIds(cohort)).toEqual(["q2", "q3", "q4"]);
+  it("releases exactly the last answer-required question", () => {
+    expect(liveProofQuestionIds(cohort)).toEqual(["q2"]);
   });
 
-  it("falls back to the last member when no question requires an answer", () => {
+  it("names nothing when no question can prove a generation", () => {
     expect(liveProofQuestionIds([
       { question_id: "q1", operation: "action_draft_boundary" as const },
       { question_id: "q2", operation: "unsupported_domain" as const },
-    ])).toEqual(["q2"]);
+    ])).toEqual([]);
+    expect(liveProofQuestionIds([])).toEqual([]);
   });
 
-  it("names nothing for an empty cohort", () => {
-    expect(liveProofQuestionIds([])).toEqual([]);
+  it("releases one question from the governed cohort, so a resume makes net progress", () => {
+    const full = generateOntologyAssuranceCohort(0x0fda1);
+    expect(liveProofQuestionIds(full)).toHaveLength(1);
   });
 });
 
@@ -202,22 +204,22 @@ describe("resumableWithLiveProof", () => {
   ];
 
   it("keeps resumed work that is not needed as live proof", () => {
-    expect(resumableWithLiveProof([{ question_id: "q1" }], cohort))
-      .toEqual([{ question_id: "q1" }]);
+    expect(resumableWithLiveProof([{ question_id: "q1" }, { question_id: "q3" }], cohort))
+      .toEqual([{ question_id: "q1" }, { question_id: "q3" }]);
   });
 
-  it("always releases the answer-bearing tail for live re-verification", () => {
+  it("always releases the proof question for live re-verification", () => {
     expect(resumableWithLiveProof(
       [{ question_id: "q1" }, { question_id: "q2" }, { question_id: "q3" }],
       cohort,
-    )).toEqual([{ question_id: "q1" }]);
+    )).toEqual([{ question_id: "q1" }, { question_id: "q3" }]);
   });
 
   it("selects by cohort identity rather than array position", () => {
     expect(resumableWithLiveProof(
       [{ question_id: "q3" }, { question_id: "q2" }, { question_id: "q1" }],
       cohort,
-    )).toEqual([{ question_id: "q1" }]);
+    )).toEqual([{ question_id: "q3" }, { question_id: "q1" }]);
   });
 });
 
@@ -347,6 +349,10 @@ describe("isRetainedTurnResult", () => {
       { ...retained, transport_attempts: [] },
       { ...retained, transport_attempts: [{ attempt: 1 }] },
       { ...retained, evidence_ref_count: "2" },
+      { ...retained, locale: "fr" },
+      { ...retained, operation: "unknown_operation" },
+      { ...retained, transport_attempts: [{ attempt: 1, outcome: "invented_outcome" }] },
+      { ...retained, transport_attempts: [{ outcome: "semantic_terminal" }] },
       { ...retained, ontology_release_digest: 3 },
       { ...retained, disposition: "answered" },
       { ...retained, disposition: "answered", projection_id: "p1" },
@@ -562,6 +568,7 @@ describe("ontology query assurance cohort", () => {
     ["en-aggregation-4,", "nonempty comma-separated ids"],
     ["en-aggregation-4,en-aggregation-4", "must not contain duplicate ids"],
     ["en-not_an_operation-1", "contains unknown ids"],
+    ["en-unsupported_domain-1", "at least one answer-required operation"],
   ])("rejects an invalid focused question selection: %s", (raw, message) => {
     expect(() => selectOntologyAssuranceQuestions(
       generateOntologyAssuranceCohort(0x0fda1),
