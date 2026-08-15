@@ -365,6 +365,37 @@ def test_destructive_git_wrappers_and_absolute_executable_are_denied(command: st
     assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "sh -c 'git reset --hard HEAD^'",
+        "bash -lc 'git clean -fd'",
+        "env EXAMPLE=1 zsh -c 'git restore -- example.py'",
+    ],
+)
+def test_shell_wrapped_destructive_git_is_denied(command: str) -> None:
+    module = _load_module()
+
+    result = module.enforce_destructive_git(
+        {"tool_name": "run_in_terminal", "tool_input": {"command": command}}
+    )
+
+    assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
+def test_shell_wrapped_bare_commit_is_denied() -> None:
+    module = _load_module()
+
+    result = module.enforce_commit_scope(
+        {
+            "tool_name": "run_in_terminal",
+            "tool_input": {"command": "bash -c 'git commit -m unsafe'"},
+        }
+    )
+
+    assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
 def test_dispatcher_records_policy_relevant_parallel_reads(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
