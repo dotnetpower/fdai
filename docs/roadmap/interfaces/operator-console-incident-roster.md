@@ -355,9 +355,7 @@ section 4). The panel reads the correlated audit rows and projects:
   relationship, and confidence. Malformed or absent chain data renders
   unavailable instead of being partially reconstructed in the browser.
 
-The reporting catalog includes `incident-rca-dossier`. Its required `correlation_id` variable scopes hypothesis, citation, causal-hop, response, and chronology widgets to one incident. Optional PDF delivery is owned by the independent Operator Service,
-arranges only the redacted server-owned report envelope, keeps unrecorded sections
-unavailable, performs no new RCA, and remains absent without the `pdf-report` extra.
+The reporting catalog includes `incident-rca-dossier`. Its required `correlation_id` variable scopes hypothesis, citation, causal-hop, response, and chronology widgets to one incident. Optional PDF delivery is owned by the independent Operator Service, arranges only the redacted server-owned report envelope, keeps unrecorded sections unavailable, performs no new RCA, and remains absent without the `pdf-report` extra.
 
 An RCA hypothesis answers "why", never "execute": execution eligibility stays
 with the risk gate + verifier. The route is Reader-gated, returns `405` for
@@ -377,7 +375,7 @@ approve / rollback button. The projection is a pure function
 | RCA contracts, projection, and read-only route | implemented | `services/core-control-plane/src/fdai/core/rca/`; `services/core-control-plane/tests/core/rca/`; `services/operator-service/src/fdai_operator_service/rca_projection.py`; `services/operator-service/tests/test_operator_service_composition.py`; `console/src/routes/rca.test.ts` | The route distinguishes unknown correlations, projects recorded hypotheses and response evidence, and exposes no action authority. |
 | RCA report catalog and datasource | implemented | `rule-catalog/reports/incident-rca-dossier.yaml`; `services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py`; reporting tests | The declarative dossier and bounded audit projection exist. |
 | RCA PDF format and download control | implemented | `fdai_operator_service/reporting/pdf_format.py`; Operator report routes; Console Reports control; focused PDF and route tests | The opt-in adapter renders only the existing redacted report envelope and remains absent without the package extra. |
-| Governed authenticated runtime evidence | in-progress | Console incident and RCA views; Operator read routes | Focused checks prove implementation, but no current governed Browser Entra roster-to-RCA receipt is retained by this owner document. |
+| Governed authenticated runtime evidence | validated | `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; Console Incident, RCA, and Reports views; Operator read routes | Authenticated Browser Entra binds eight audit records and milestones, two cited hypotheses, the report envelope, a 38809-byte PDF, and no-RCA unavailable behavior to one validated source and workspace digest without execution authority. |
 
 ### Implementation history
 
@@ -388,6 +386,7 @@ approve / rollback button. The projection is a pure function
 | 2026-08-14 | implemented | Added server-owned title provenance, trusted source and pinned-plan context, bounded audit milestones, and same-snapshot outcome cohorts with exact drill-down while preserving FDAI authority boundaries. | `current change`; `incident_projection.py`, `incidents.detail-sections.tsx`, and task-owned Operator, service-contract, Console, catalog, and focused test paths; Operator `31 passed`, Console `66 passed`, typecheck, strict mypy, Ruff, Pylance, and catalog parity passed; 15 critique rounds left only Low findings. | Retain governed runtime evidence separately. |
 | 2026-08-14 | implemented | Added optional PDF delivery for the existing Incident RCA dossier without creating another analysis or execution path. | `current change`; service-local PDF encoder, package extra, GET-only route, Console control, and pagination, escaping, source-digest, unavailable-section, no-analysis, and no-network regression checks. | Retain one exact-revision authenticated roster-to-RCA-to-report receipt. |
 | 2026-08-14 | implemented | Aligned the Console RCA decoder with the server-owned newest-first hypothesis projection found by authenticated Browser assurance. | `current change`; `api-operations.ts`, `api.test.ts`, and 13 focused decoder tests. | Rerun and retain the authenticated roster-to-RCA-to-report receipt. |
+| 2026-08-15 | validated | Retained the authenticated Incident roster-to-RCA-to-report/PDF receipt with unavailable source, plan, and no-RCA behavior preserved. | `current change`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; source `014974045e70e35c26e489fa238345cf70bc3ca3` has a central validation receipt. | No remaining work for the bounded Incident SRE hardening and RCA PDF delivery slice. |
 
 ### Remaining work
 
@@ -395,6 +394,6 @@ approve / rollback button. The projection is a pure function
 - [x] Project source-platform identity, description, status, timestamp, source link, pinned response-plan revision, historical-match preview, and cooldown/deduplication evidence without replacing canonical lifecycle state.
 - [x] Render ordered investigation milestones with exact evidence references, unavailable gaps, evaluation receipts, and inert learning candidates; prove transcript text cannot create evidence, close recovery, or promote learning.
 - [x] Publish agent-mitigated, assisted, human-mitigated, pending, and time-to-mitigate cohorts with exact source, window, denominator, terminal-state rules, independent outcome verification, and incident drill-down.
-- [ ] Retain one authenticated roster-to-RCA receipt that binds the incident, correlation, hypothesis, citations, response plan, audit rows, and unavailable behavior to one source revision.
+- [x] Retain one authenticated roster-to-RCA receipt that binds the incident, correlation, hypothesis, citations, response plan, audit rows, and unavailable behavior to one source revision.
 - [x] Implement and focused-test an optional PDF `FormatEncoder` and GET-only download path that render only the existing report envelope and remain absent when the extra is unavailable.
 - [x] Add PDF pagination, escaping, source-digest, unavailable-section, no-new-analysis, and no-network regression checks without documenting a fixed reference page count.

@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: a4dd3cdc2c900e473a2a225d88b4c6d9d9294089
-translation_revised: 2026-08-14
+translation_source_sha: 3ec32917e216073f16fea20e19ba5dd3aec31fdd
+translation_revised: 2026-08-15
 ---
 
 # Operator Console - 인시던트 명단 and Fix 이력
@@ -353,7 +353,7 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 | RCA 계약, 변환 결과 및 읽기 전용 경로 | implemented | `services/core-control-plane/src/fdai/core/rca/`; `services/core-control-plane/tests/core/rca/`; `services/operator-service/src/fdai_operator_service/rca_projection.py`; `services/operator-service/tests/test_operator_service_composition.py`; `console/src/routes/rca.test.ts` | 경로는 알 수 없는 상관관계를 구분하고 기록된 가설과 대응 근거를 변환하며 액션 권한을 노출하지 않습니다. |
 | RCA 보고 카탈로그 및 데이터 원본 | implemented | `rule-catalog/reports/incident-rca-dossier.yaml`; `services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py`; reporting 테스트 | 선언형 dossier와 범위가 제한된 감사 변환 결과가 있습니다. |
 | RCA PDF format 및 다운로드 컨트롤 | implemented | `fdai_operator_service/reporting/pdf_format.py`; Operator report 경로; Console Reports 컨트롤; focused PDF 및 경로 테스트 | Opt-in 어댑터는 기존 redacted report 묶음만 렌더링하고 package extra가 없으면 제공되지 않습니다. |
-| 관리되는 인증된 런타임 근거 | in-progress | Console incident 및 RCA 보기; Operator 읽기 경로 | Focused 검사는 구현을 입증하지만 이 owner 문서는 현재 관리되는 Browser Entra roster-to-RCA 증적을 보존하지 않습니다. |
+| 관리되는 인증된 런타임 근거 | validated | `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; Console Incident, RCA, Reports 보기; Operator 읽기 경로 | 인증된 Browser Entra가 실행 권한 없이 감사 레코드와 milestone 8개, 인용된 hypothesis 2개, report 묶음, 38809-byte PDF 및 no-RCA 사용 불가 동작을 하나의 검증된 source와 workspace 다이제스트에 연결합니다. |
 
 ### 구현 이력
 
@@ -364,6 +364,7 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 | 2026-08-14 | implemented | FDAI 권한 경계를 유지하면서 서버 소유 제목 출처, 신뢰된 원본 및 고정 계획 context, 범위가 제한된 감사 milestone, 정확한 drill-down이 있는 같은 스냅샷 결과 cohort를 추가했습니다. | `current change`; `incident_projection.py`, `incidents.detail-sections.tsx` 및 작업 소유 Operator, service-contract, Console, catalog, focused 테스트 경로입니다. Operator `31 passed`, Console `66 passed`, typecheck, strict mypy, Ruff, Pylance 및 catalog parity를 통과했으며 비평 15회 후 Low finding만 남았습니다. | 관리되는 런타임 근거를 별도로 보존해야 합니다. |
 | 2026-08-14 | implemented | 다른 분석 또는 실행 경로를 만들지 않고 기존 Incident RCA dossier에 선택적 PDF delivery를 추가했습니다. | `current change`; service-local PDF encoder, package extra, GET-only 경로, Console 컨트롤, 페이지 나누기, escape, source 다이제스트, 사용 불가 섹션, 분석 부재 및 no-network 회귀 검사입니다. | 하나의 exact-revision 인증된 roster-to-RCA-to-report 증적을 보존해야 합니다. |
 | 2026-08-14 | implemented | 인증된 Browser assurance에서 발견한 서버 소유 최신순 hypothesis projection에 Console RCA decoder를 맞췄습니다. | `current change`; `api-operations.ts`, `api.test.ts` 및 focused decoder 테스트 13개입니다. | 인증된 roster-to-RCA-to-report 증적을 다시 실행해 보존해야 합니다. |
+| 2026-08-15 | validated | 사용 불가 source, plan 및 no-RCA 동작을 보존한 인증된 Incident roster-to-RCA-to-report/PDF 증적을 보존했습니다. | `current change`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; source `014974045e70e35c26e489fa238345cf70bc3ca3`에 중앙 검증 receipt가 있습니다. | 범위가 제한된 Incident SRE hardening 및 RCA PDF delivery 구획에 남은 작업이 없습니다. |
 
 ### 남은 작업
 
@@ -371,6 +372,6 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 - [x] 정본 수명 주기 상태를 대체하지 않고 원본 플랫폼 identity, 설명, 상태, 시각, 원본 링크, 고정된 대응 계획 개정, 과거 일치 미리 보기, cooldown 및 중복 제거 근거를 투영합니다.
 - [x] 정확한 근거 참조, 사용 불가 공백, 평가 receipt, 비활성 학습 후보가 있는 순서가 지정된 조사 milestone을 렌더링하고 transcript 텍스트가 근거를 만들거나 복구를 종결하거나 학습을 승격할 수 없음을 입증합니다.
 - [x] 정확한 출처, 구간, 분모, 종결 상태 규칙, 독립적 결과 검증, Incident drill-down과 함께 에이전트 완화, 지원, 사람 완화, 대기, 완화 시간 cohort를 게시합니다.
-- [ ] Incident, 상관관계, 가설, 인용, 대응 계획, 감사 행 및 사용 불가 동작을 하나의 source 개정에 묶는 인증된 roster-to-RCA 증적 하나를 보존합니다.
+- [x] Incident, 상관관계, 가설, 인용, 대응 계획, 감사 행 및 사용 불가 동작을 하나의 source 개정에 묶는 인증된 roster-to-RCA 증적 하나를 보존합니다.
 - [x] 기존 보고 묶음만 렌더링하고 extra를 사용할 수 없을 때 등록되지 않는 선택적 PDF `FormatEncoder`와 GET-only 다운로드 경로를 구현하고 focused 테스트를 추가합니다.
 - [x] 고정 참조 페이지 수를 문서화하지 않고 PDF 페이지 나누기, escape, source 다이제스트, 사용 불가 섹션, 새 분석 부재 및 no-network 회귀 검사를 추가합니다.

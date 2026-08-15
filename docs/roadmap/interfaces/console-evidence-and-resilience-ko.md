@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 298ac672f391a8f1e91ada13f3559eb43ac450a5
-translation_revised: 2026-08-14
+translation_source_sha: c43ab10a17e74e839ce70bdad5a761f376736d9f
+translation_revised: 2026-08-15
 ---
 
 # 콘솔 근거 및 복원력
@@ -20,8 +20,8 @@ translation_revised: 2026-08-14
 | 의미 모델 및 관계 방향 | 구현됨 | `ontology-semantic-model.ts`, `ontology-semantic-map.tsx`, 카탈로그 토폴로지 renderer 및 inspector, focused Vitest 23개 및 Console 타입 검사 통과 | 검토된 네 가지 의미 영역, 다섯 가지 운영 보기, 화살표 및 분리된 들어오는 관계와 나가는 관계를 구현했습니다. 인증된 데스크톱 및 모바일 근거는 남아 있습니다. |
 | 에이전트 활동 하트비트 표현 | validated | `console/src/routes/agents.model.ts`, `console/src/routes/agents.model.test.ts`, `docs/baselines/agent-activity-heartbeat-assurance-2026-08-14.json`, focused Vitest 31개 통과 및 인증된 Browser Entra assurance | 두 번 새로고치는 동안 연속된 하트비트 시각 세 개가 증가했고 인증된 self 검사 세 번이 모두 성공했으며 런타임 초기화 행은 0개였습니다. |
 | Command Deck JSON 대비 | 구현됨 | `console/src/styles.css`, `console/src/deck/command-deck-workspace-visual.test.ts`, focused Vitest 10개 통과 및 인증된 브라우저 검사 | 구문 강조 JSON은 전역의 밝은 `pre` 스타일과 관계없이 고정된 어두운 코드 표면을 유지합니다. 브라우저 검사는 통제된 런타임 근거로 보존하지 않았습니다. |
-| 탭 간 SSE 및 인시던트 복원력 | 구현됨 | 탭 간 stream hook, `incidents.milestones.ts`, incident projection, `docs/baselines/console-cross-tab-sse-assurance-2026-08-14.json`, focused Console/Operator test 및 인증된 Browser Entra assurance | 정확히 하나의 leader가 세 탭의 세 채널을 소유했고 failover가 leader client를 바꿨으며 인증된 self 검사 세 번이 모두 성공했습니다. Notification delivery는 명시적으로 주장하지 않습니다. 관리되는 incident-detail 런타임 근거는 아직 남아 있습니다. |
-| 선택적 report PDF 컨트롤 | implemented | `console/src/routes/reports.tsx`; service-local Operator PDF 어댑터; focused Console 및 Operator 테스트 | Catalog와 runtime registry가 모두 `pdf`를 표시할 때만 컨트롤이 나타나고 variable이 없는 report에서도 동작하며 stale 또는 unmounted 다운로드를 browser effect로 만들지 않습니다. |
+| 탭 간 SSE 및 인시던트 복원력 | validated | 탭 간 stream hook, `incidents.milestones.ts`, incident projection, `docs/baselines/console-cross-tab-sse-assurance-2026-08-14.json`, `docs/baselines/incident-rca-report-assurance-2026-08-15.json`, focused Console/Operator 테스트 | 탭 간 leadership와 failover가 통과했고 인증된 Incident 상세가 notification delivery를 주장하지 않으면서 milestone 8개, 같은 스냅샷 분석 및 사용 불가 source와 plan context를 보존했습니다. |
+| 선택적 report PDF 컨트롤 | validated | `console/src/routes/reports.tsx`; service-local Operator PDF 어댑터; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; focused Console 및 Operator 테스트 | Catalog와 runtime registry가 함께 `pdf`를 표시했고 인증된 Browser Entra가 no-RCA 사용 불가 동작을 보존하면서 범위가 제한된 38809-byte PDF를 검증했습니다. |
 | 대화 검색 요청 복원력 | implemented | `console/src/routes/conversation-search.tsx`, `console/src/routes/conversation-search.test.tsx`, focused Console 테스트 (`22 passed`) 및 타입 검사 | 검색 generation은 오래된 결과 및 맥락 쓰기를 거부합니다. Generation 범위 in-flight key는 rerender 전 중복 맥락 요청을 억제하고 검색 간 결과를 섞지 않습니다. |
 
 ### 구현 이력
@@ -44,14 +44,15 @@ translation_revised: 2026-08-14
 | 2026-08-14 | implemented | 일치하지 않는 legacy 경로가 Overview로 fallback하지 않도록 Incident assurance runner를 canonical `/root-cause-analysis` 경로로 이동했습니다. | `current change`; `incident-rca-report-assurance.spec.ts`, Console typecheck 및 focused Playwright discovery입니다. | 이 runner revision을 중앙 검증한 뒤 다시 실행해 redacted 아티팩트를 보존해야 합니다. |
 | 2026-08-14 | implemented | 인증된 assurance에서 서버의 최신순 hypothesis 정렬을 거부하는 동작이 드러나 Console RCA decoder를 수정했습니다. | `current change`; `api-operations.ts`, `api.test.ts`, focused decoder 테스트 13개 및 Console typecheck입니다. | 수정 commit을 중앙 검증한 뒤 다시 실행해 redacted 아티팩트를 보존해야 합니다. |
 | 2026-08-14 | implemented | 오래되거나 중복된 대화 검색 맥락 응답이 현재 Console 상태를 대체하지 않도록 차단했습니다. | `current change`; focused 경로 및 decoder 테스트 22개, Console 타입 검사 및 catalog parity 검사가 통과했습니다. | 관리되는 Browser 근거는 이 로컬 요청 상태 검사가 아니라 더 넓은 Console 보증 캠페인에서 계속 다룹니다. |
+| 2026-08-15 | validated | JSON 응답 연결, canonical 탐색, 최신순 decoding 및 audit-backed report materialization을 hardening한 뒤 인증된 Incident-to-RCA-to-report/PDF 아티팩트 하나를 보존했습니다. | `current change`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; source `014974045e70e35c26e489fa238345cf70bc3ca3`는 중앙 검증됐습니다. | Incident 상세 또는 RCA PDF Browser 근거에 남은 작업이 없습니다. |
 
 ### 잔여 작업
 
 - [ ] 정확한 중앙 검증 receipt와 인증된 probe를 확보한 뒤 seeded 영/한 100-case cohort에서 통과한 통제 아티팩트 하나를 보존합니다.
 - [x] 에이전트 스트림 열림, 갱신된 하트비트 시각, 페이지를 두 번 새로고친 뒤 `Runtime agent initialized` 활동 행 0개를 보여 주는 통제된 Browser Entra 아티팩트를 보존합니다.
 - [x] 백그라운드 알림과 활성 탭 attention 스트림을 유지하면서 새 Dashboard 접근 검사가 완료되는 통제된 세 탭 Browser Entra 아티팩트를 보존합니다.
-- [ ] Milestone, 원본, 대응 계획 및 같은 스냅샷 결과 표현을 위한 관리되는 incident-detail Browser 근거를 보존합니다.
-- [ ] 사용할 수 없는 RCA 사실을 주장하지 않고 하나의 source revision과 workspace digest를 연결하는 인증된 roster-to-RCA-to-report/PDF 근거를 보존합니다.
+- [x] Milestone, 원본, 대응 계획 및 같은 스냅샷 결과 표현을 위한 관리되는 incident-detail Browser 근거를 보존합니다.
+- [x] 사용할 수 없는 RCA 사실을 주장하지 않고 하나의 source revision과 workspace digest를 연결하는 인증된 roster-to-RCA-to-report/PDF 근거를 보존합니다.
 - [ ] 의미 모델과 카탈로그 토폴로지가 일치하는 하나의 온톨로지 릴리스를 표시하고 보안 receipt가 없으면 컨텍스트가 사용 불가로 유지됨을 보여 주는 인증된 Browser 근거를 보존합니다.
 ## 탐색 컨텍스트
 
