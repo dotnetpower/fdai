@@ -303,6 +303,50 @@ def test_bare_agent_commit_is_denied_but_pathspec_commit_is_allowed() -> None:
     assert allowed == {"continue": True}
 
 
+@pytest.mark.parametrize("operation", ["checkout", "clean", "reset", "restore", "stash", "switch"])
+def test_destructive_git_requires_explicit_user_approval(operation: str) -> None:
+    module = _load_module()
+    payload = {
+        "tool_name": "run_in_terminal",
+        "tool_input": {"command": f"git {operation} -- example.py"},
+    }
+
+    denied = module.enforce_destructive_git(payload)
+    payload["tool_input"]["command"] = (
+        f"FDAI_USER_APPROVED_DESTRUCTIVE_GIT=1 git {operation} -- example.py"
+    )
+    allowed = module.enforce_destructive_git(payload)
+
+    assert denied["hookSpecificOutput"]["permissionDecision"] == "deny"
+    assert allowed == {"continue": True}
+
+
+def test_read_only_git_remains_allowed() -> None:
+    module = _load_module()
+
+    result = module.enforce_destructive_git(
+        {
+            "tool_name": "run_in_terminal",
+            "tool_input": {"command": "git status --short && git log -1 --oneline"},
+        }
+    )
+
+    assert result == {"continue": True}
+
+
+def test_destructive_git_after_global_worktree_option_is_denied() -> None:
+    module = _load_module()
+
+    result = module.enforce_destructive_git(
+        {
+            "tool_name": "run_in_terminal",
+            "tool_input": {"command": "git -C /tmp/example reset --hard HEAD"},
+        }
+    )
+
+    assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
 def test_dispatcher_records_policy_relevant_parallel_reads(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
