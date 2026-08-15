@@ -138,11 +138,12 @@ class InMemoryBehaviorKnowledgeIndex:
         return tuple(results)
 
     async def compare(self, query: str, *, k: int = 2) -> Sequence[BehaviorSearchResult]:
-        """Return the fresh contracts a comparison question needs.
+        """Return only the fresh contracts a comparison question needs.
 
-        A comparison never silently collapses to one contract: stale contracts
-        are withheld, so the caller can hold the answer for review instead of
-        confirming an unverified behavior.
+        Stale contracts are withheld rather than confirmed, so this method can
+        return fewer than `k` results. The caller MUST treat fewer than two
+        returned contracts as an incomplete comparison and abstain instead of
+        presenting a one-sided answer as a verified comparison.
         """
 
         if k < 2:
