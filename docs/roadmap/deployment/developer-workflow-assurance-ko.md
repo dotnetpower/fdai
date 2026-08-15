@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: afa8651478388342975f50543681255820ce6cd6
+translation_source_sha: 5397ff281e1cd64d14c9cfbc44ce76c1b7ae11f4
 translation_revised: 2026-08-15
 ---
 
@@ -168,7 +168,7 @@ throttle, permanent error 및 retry exhaustion 집중 테스트가 해당 동작
 | Hermetic 검사 및 로컬 서비스 | implemented | Workflow 환경 preflight와 checkout 소유 서비스 준비 상태, 집중 workflow 테스트 | 진단은 서비스를 시작하거나 다시 시작하지 않습니다. |
 | 브라우저 및 편집기 부하 | implemented | 기존 집중 Playwright 진입점, 10-slot lease pool 및 profile 부하 통제 | 최종 비평에서 Medium 잔존이 없음을 검증해야 합니다. |
 | 원격 사전 검사 | implemented | `live_preflight/transport.py`, 집중 테스트 6개 | 읽기 시도는 최대 3회이며 영구 오류는 즉시 실패합니다. |
-| 10회 보증 | implemented | 위에 기록한 13개 라운드 및 최종 독립 재검토 | Low를 초과하는 잔존 발견 사항이 없습니다. |
+| 10회 보증 | validated | 13개 라운드, 최종 독립 재검토 및 `d3f5257b9` 중앙 receipt | Low를 초과하는 잔존 발견 사항이 없습니다. |
 
 ### 구현 이력
 
@@ -177,12 +177,13 @@ throttle, permanent error 및 retry exhaustion 집중 테스트가 해당 동작
 | 2026-08-15 | in-progress | 개발 워크플로 보증 소유 문서를 도입하고 캠페인 범위를 제한했습니다. 이전 구현 출처는 재구성하지 않았습니다. | 현재 변경과 구현 범위 표에 나열된 기존 통제입니다. | 집중 라운드와 최종 잔존 위험 검토를 완료합니다. |
 | 2026-08-15 | in-progress | 독립 비평 후 CLI 계약, 제한된 근거 window, 실패 동작, 권한 분리 및 12회 순서를 정의해 설계를 수정했습니다. | 현재 변경, roadmap, 번역 및 punctuation 검사입니다. | 수락된 각 발견 사항을 구현하고 검증합니다. |
 | 2026-08-15 | implemented | 13개의 비평 및 hardening 라운드를 완료하고 재현 가능한 모든 Medium 이상 잔존 사항을 제거했습니다. | 현재 변경, 집중 Python 통제 테스트 163개, Playwright port-pool 테스트 6개, 최종 false-ready 테스트 48개, Ruff 및 최종 독립 검토입니다. | 통합 revision의 중앙 validation receipt를 기록합니다. |
+| 2026-08-15 | validated | 중앙 검증이 통합 구현 revision을 수락했습니다. | `validation_queue.py check-commit d3f5257b9`가 통과했습니다. | 이 제한된 캠페인에 남은 작업이 없습니다. |
 
 ### 남은 작업
 
 - [x] 집중 검사와 함께 13개의 독립 비평 라운드를 완료하고 수락 또는 기각된 발견 사항을 위에
   기록했습니다.
-- [ ] 통합된 캠페인 커밋의 중앙 validation receipt 하나를 기록합니다.
+- [x] 중앙 검증이 통합 구현 revision `d3f5257b9`를 수락했습니다.
 - [x] 최종 독립 검토에서 Low를 초과하는 잔존 발견 사항이 없었습니다.
 
 ## 관련 문서
