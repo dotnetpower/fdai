@@ -23,7 +23,10 @@ from fdai.core.background_task.models import (
     BackgroundTaskStatus,
     BackgroundTaskUsage,
 )
-from fdai.shared.providers.conversation_delivery import InMemoryConversationDeliveryStore
+from fdai.shared.providers.conversation_delivery import (
+    InMemoryConversationDeliveryStore,
+    OutboundDeliveryRecord,
+)
 
 NOW = datetime(2026, 8, 16, 10, 0, tzinfo=UTC)
 
@@ -200,3 +203,29 @@ async def test_unsupported_channel_kind_fails_closed() -> None:
 
     with pytest.raises(CompletionSinkError, match="unsupported origin channel kind"):
         await _sink(appender, store).publish(broken)
+
+
+async def test_delivery_failure_is_recoverable_without_duplicating_the_turn() -> None:
+    class _FailingOnceStore(InMemoryConversationDeliveryStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.attempts = 0
+
+        async def put(self, record: OutboundDeliveryRecord) -> OutboundDeliveryRecord:
+            self.attempts += 1
+            if self.attempts == 1:
+                raise RuntimeError("delivery store unavailable")
+            return await super().put(record)
+
+    appender = _Appender()
+    store = _FailingOnceStore()
+    sink = _sink(appender, store)
+    attempt = _attempt()
+
+    with pytest.raises(RuntimeError):
+        await sink.publish(attempt)
+    await sink.publish(attempt)
+
+    assert len(appender.turns) == 1
+    snapshot = await store.snapshot()
+    assert len(snapshot.deliveries) == 1
