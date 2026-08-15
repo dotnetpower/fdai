@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
@@ -12,11 +13,16 @@ SCRIPT = Path(__file__).resolve().parents[3] / "scripts" / "automation" / "devel
 UTC = timezone.utc  # noqa: UP017 - test remains compatible with system Python 3.10.
 
 
-def _run(root: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
+def _run(
+    root: Path,
+    *arguments: str,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(  # noqa: S603 - fixed repository script with test-owned arguments.
         [sys.executable, str(SCRIPT), *arguments],
         cwd=root,
         capture_output=True,
+        env={**os.environ, **(env or {})},
         text=True,
         check=False,
     )
@@ -211,3 +217,43 @@ def test_resume_uses_official_handover_json(tmp_path: Path) -> None:
     assert payload["status"] == "ok"
     assert payload["validated"] is False
     assert payload["next_action"] == "wait_for_integration_validation"
+
+
+def test_preflight_blocks_environment_contamination_without_echoing_secrets(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    assert _git(repo, "init", "--quiet", "--initial-branch=main").returncode == 0
+    assert _git(repo, "config", "user.email", "user@example.com").returncode == 0
+    assert _git(repo, "config", "user.name", "Example User").returncode == 0
+    (repo / "example.txt").write_text("value\n", encoding="utf-8")
+    assert _git(repo, "add", "example.txt").returncode == 0
+    assert _git(repo, "commit", "--quiet", "-m", "initial").returncode == 0
+    secret = "do-not-print"
+    database = f"postgresql+psycopg://user:{secret}@localhost:5432/runtime"
+
+    result = _run(
+        repo,
+        "preflight",
+        "--json",
+        env={
+            "FDAI_DATABASE_URL": database,
+            "FDAI_STATE_STORE_DSN": database,
+            "PYTHONPATH": str(tmp_path / "other-fdai-worktree" / "src"),
+            "VIRTUAL_ENV": str(tmp_path / "other-fdai-worktree" / ".venv"),
+        },
+    )
+
+    assert result.returncode == 1
+    assert secret not in result.stdout
+    environment = json.loads(result.stdout)["sections"]["environment"]
+    assert environment["status"] == "warning"
+    assert environment["database_identity_collision"] is True
+    assert environment["foreign_pythonpath_count"] == 1
+    assert environment["virtual_env_scope"] == "foreign"
+    assert environment["reason_codes"] == [
+        "foreign_pythonpath",
+        "foreign_virtual_env",
+        "runtime_database_collision",
+    ]
