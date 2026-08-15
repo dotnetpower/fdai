@@ -441,6 +441,9 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
       (attempt) => attempt.outcome === "per_attempt_deadline_exceeded",
     )
   ).length;
+  const stalledQuestionCount = retained.filter((result) =>
+    result.transport_attempts.some((attempt) => attempt.outcome === "stalled_question")
+  ).length;
   const liveQuestionCount = retained.length - resumed.length;
   const producedByRunIdCounts: Record<string, number> = {};
   for (const result of retained) increment(producedByRunIdCounts, result.produced_by_run_id);
@@ -478,8 +481,12 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
         result.checks_total !== undefined && result.checks_total > 0 &&
         result.checks_completed === result.checks_total,
     })));
+  // A run that answered nothing live is only publishable when it completed the cohort from a
+  // checkpoint bound to this exact source, workspace, target stack, and evidence identity.
+  const runMode = liveQuestionCount > 0 ? "live" : "resumed_replay";
+  const cohortIsAuthoritative = liveQuestionCount > 0 || resumed.length === questions.length;
   const passed = stopReason === null && retained.length === questions.length &&
-    liveQuestionCount > 0 &&
+    cohortIsAuthoritative &&
     attributedOutcomeCount === retained.length &&
     failures.length === 0 &&
     exhaustedTransportRetryCount === 0 &&
@@ -502,6 +509,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     evidence_type: "authenticated_bilingual_ontology_query_assurance",
     receipt_source: "live_assurance",
     run_scope: runScope,
+    run_mode: runMode,
     ...provenance,
     evidence_identity_digest: checkpointBinding.evidence_identity_digest,
     target_origin: checkpointBinding.target_origin,
@@ -520,9 +528,12 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
       // The configuration keys mirror the operator environment variables; these state what each
       // value actually bounds. Attempt outcomes use the accurate names.
       deadline_semantics: {
-        per_question_deadline_ms: "one attempt; breaches report per_attempt_deadline_exceeded",
+        per_question_deadline_ms:
+          "one attempt; a breach reports per_attempt_deadline_exceeded and ends the question",
         no_progress_deadline_ms:
-          "one whole question including retries; breaches report stalled_question",
+          "one whole question including retries; a breach reports stalled_question",
+        retry_policy:
+          "only a retryable transport source or a transient turn error uses a remaining attempt",
       },
       minimum_request_interval_ms: budget.minimumRequestIntervalMs,
       stop_reason: stopReason,
@@ -535,7 +546,8 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
       resumed_question_count: resumed.length,
       produced_by_run_id_counts: producedByRunIdCounts,
       live_question_count: liveQuestionCount,
-      deadline_exceeded_count: deadlineExceededCount,
+      per_attempt_deadline_exceeded_count: deadlineExceededCount,
+      stalled_question_count: stalledQuestionCount,
       passed_count: retained.length - failures.length,
       failed_count: failures.length,
       retried_question_count: retriedQuestionCount,
@@ -568,15 +580,18 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     contentType: "application/json",
   });
 
-  // Retire a complete cohort before the assertions so a later run cannot replay it, while a
-  // partial cohort keeps its checkpoint for resume.
-  if (checkpointFile !== null && stopReason === null && retained.length === questions.length) {
+  // Retire a complete cohort only once it has been published, so a later run cannot replay it
+  // while an unpublishable or partial cohort keeps its checkpoint for resume.
+  if (
+    checkpointFile !== null && stopReason === null && cohortIsAuthoritative &&
+    retained.length === questions.length
+  ) {
     await rm(checkpointFile, { force: true });
   }
 
   expect(stopReason, `assurance run stopped early: ${stopReason}`).toBeNull();
-  expect(liveQuestionCount, "a governed run MUST perform at least one live turn")
-    .toBeGreaterThan(0);
+  expect(cohortIsAuthoritative, "a governed run MUST answer live or complete a bound checkpoint")
+    .toBe(true);
   expect(retained).toHaveLength(questions.length);
   expect(failures, JSON.stringify(failures, null, 2)).toEqual([]);
   expect(duplicateRequestIds).toBe(0);

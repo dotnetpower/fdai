@@ -71,3 +71,15 @@ def test_container_opa_build_overrides_vulnerable_go_modules() -> None:
     assert "go build -mod=mod -o /go/bin/opa ." in dockerfile
     assert "awk '$2 == \"google.golang.org/grpc\" {print $3}'" in dockerfile
     assert "awk '$2 == \"golang.org/x/text\" {print $3}'" in dockerfile
+
+
+def test_console_test_types_run_in_the_enforced_operator_gate() -> None:
+    runner = (_ROOT / "scripts" / "quality" / "ci" / "run-operator-surfaces.sh").read_text(
+        encoding="utf-8"
+    )
+    package = (_ROOT / "console" / "package.json").read_text(encoding="utf-8")
+    tests_project = (_ROOT / "console" / "tsconfig.tests.json").read_text(encoding="utf-8")
+
+    assert "tsc --noEmit -p tsconfig.tests.json" in runner
+    assert "tsc --noEmit -p tsconfig.tests.json" in package
+    assert '"include": ["tests"]' in tests_project
