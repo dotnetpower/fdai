@@ -248,6 +248,7 @@ The remaining Low risks are explicit and bounded:
 | 2026-08-15 | in-progress | Started the measured bounded-wait campaign for issue #122 after session evidence showed 51 wait complaints across 36 sessions. | Issue #122 and the baselines in the bounded wait campaign table. | Implement the bounded budgets and complete at least 10 critique rounds. |
 | 2026-08-15 | implemented | Bound the assurance checkpoint to an evidence identity instead of the full run configuration, so a per-run session id or an adjusted pacing, deadline, or retry knob no longer discards completed turns, and attributed every retained result to its producing run. | Current change; console suite 1793 passed and TypeScript project check clean. | Complete the remaining hardening rounds for issue #122. |
 | 2026-08-15 | implemented | Added the target stack origin to the checkpoint binding, stopped persisting budget-derived non-results as permanent failures, constrained the run-budget override to the declared envelope, derived retry counts from retained evidence, validated retained result shape, and corrected six overclaiming ledger rows. | Current change; live-evidence Vitest passed 89 cases and TypeScript project check clean. | Complete the remaining hardening rounds for issue #122. |
+| 2026-08-15 | implemented | Separated the stalled-question bound from the run-budget bound behind a tested policy, forwarded the ignored result predicate on the checkpoint read path, disclosed the question that stopped a budget-limited run, and extended the Console typecheck gate to `console/tests`, which exposed and fixed a real type break this campaign had introduced in an untypechecked spec. | Current change; live-evidence Vitest passed 95 cases; `npm run typecheck` now covers `console/tests` and passed. | Complete the remaining hardening rounds for issue #122. |
 
 ### Remaining work
 
@@ -293,8 +294,9 @@ deadline, a no-progress deadline, a progress signal, and a resumable checkpoint.
 
 - The assurance run budget is derived from the cohort size, floored at 5 minutes and capped at
   90 minutes, and an operator may override it inside declared bounds.
-- Every turn is clamped to the remaining run budget, so budget exhaustion stops the run, writes a
-  checkpoint, and fails with an explicit stop reason instead of reaching an opaque harness timeout.
+- Every turn is clamped to the remaining run budget, so budget exhaustion stops the run, leaves the
+  last written checkpoint intact, and fails with an explicit stop reason instead of reaching an
+  opaque harness timeout.
 - The no-progress deadline bounds one whole question including its retries, and the per-question
   deadline bounds one attempt; a breach is recorded as a distinct failure reason.
 - A checkpoint resumes only when the source revision, workspace patch digest, target stack origin,
@@ -303,6 +305,9 @@ deadline, a no-progress deadline, a progress signal, and a resumable checkpoint.
 - A question that ends only because the run budget ran out is never persisted as a failure. The
   run stops with an explicit stop reason and leaves that question outstanding, so a resumed run
   retries it instead of inheriting a permanent failure the stack never caused.
+- A question that ends because it stalled is a real failure. It is recorded with its own reason,
+  the cohort continues, and it never reports itself as budget exhaustion. The artifact also
+  discloses which question and attempts ended a budget-stopped run.
 - The evidence identity covers the result schema, cohort seed, ordered question ids, and
   authentication mode. It excludes the per-run session id and the pacing, deadline, and retry
   knobs, because those change what a run costs rather than whether a completed answer is still

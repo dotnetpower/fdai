@@ -128,7 +128,9 @@ export function buildAssuranceCheckpoint<TResult extends AssuranceCheckpointResu
 }
 
 export async function readAssuranceCheckpoint<TResult extends AssuranceCheckpointResult>(
-  path: string,  isResult?: (value: Record<string, unknown>) => boolean,): Promise<AssuranceCheckpoint<TResult> | null> {
+  path: string,
+  isResult?: (value: Record<string, unknown>) => boolean,
+): Promise<AssuranceCheckpoint<TResult> | null> {
   let raw: string;
   try {
     raw = await readFile(path, "utf8");
@@ -136,7 +138,7 @@ export async function readAssuranceCheckpoint<TResult extends AssuranceCheckpoin
     return null;
   }
   try {
-    return parseAssuranceCheckpoint<TResult>(JSON.parse(raw));
+    return parseAssuranceCheckpoint<TResult>(JSON.parse(raw), isResult);
   } catch {
     return null;
   }

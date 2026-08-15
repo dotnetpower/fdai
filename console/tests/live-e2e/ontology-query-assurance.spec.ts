@@ -3,9 +3,11 @@ import { rm, writeFile } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 
 import {
+  attemptEndedByRunBudget,
   DeadlineExceededError,
   MAX_TRANSPORT_ATTEMPTS,
   resolveAssuranceBudget,
+  resolveQuestionBound,
   transportRetryDelayMs,
   pacingDelayMs,
   withDeadline,
@@ -66,6 +68,7 @@ interface RetainedTransportAttempt {
     | "non_retryable_receipt_missing"
     | "per_question_deadline_exceeded"
     | "question_budget_exhausted"
+    | "stalled_question"
     | "turn_error";
   readonly source?: string;
 }
@@ -149,7 +152,7 @@ function isRetainedTurnResult(value: Record<string, unknown>): boolean {
     typeof value.passed === "boolean" &&
     typeof value.unauthorized_execution_claim === "boolean" &&
     typeof value.attempt_count === "number" &&
-    Array.isArray(value.transport_attempts);
+    Array.isArray(value.transport_attempts) && value.transport_attempts.length > 0;
 }
 
 interface QuestionOutcome {
@@ -170,14 +173,18 @@ async function resolveQuestion(
   runDeadlineAt: number,
 ): Promise<QuestionOutcome> {
   const transportAttempts: RetainedTransportAttempt[] = [];
-  // The whole question, including retries, is bounded by the stalled-question guard and can never
-  // outlive the run budget.
-  const questionDeadlineAt = Math.min(runDeadlineAt, Date.now() + budget.noProgressDeadlineMs);
+  // Two independent bounds end a question. Only the run budget may stop the cohort; a stalled
+  // question is a real failure that must be recorded and must not abort the remaining questions.
+  const { questionDeadlineAt, runBudgetIsBinding } = resolveQuestionBound({
+    nowMs: Date.now(),
+    runDeadlineAt,
+    noProgressDeadlineMs: budget.noProgressDeadlineMs,
+  });
   let result: BrowserTurnResult | null = null;
   let requestCount = 0;
   let lastRequestStartedAt: number | null = null;
   for (let attempt = 1; attempt <= MAX_TRANSPORT_ATTEMPTS; attempt += 1) {
-    if (attempt > 1) {
+    if (attempt > 1 && lastRequestStartedAt !== null) {
       const retryDelayMs = transportRetryDelayMs({
         attempt: attempt - 1,
         baseMs: budget.transportRetryBaseMs,
@@ -191,17 +198,24 @@ async function resolveQuestion(
     }
     const remainingMs = questionDeadlineAt - Date.now();
     if (remainingMs <= 0) {
-      transportAttempts.push({ attempt, outcome: "question_budget_exhausted" });
+      transportAttempts.push({
+        attempt,
+        outcome: runBudgetIsBinding ? "question_budget_exhausted" : "stalled_question",
+      });
       return {
         result: null,
         transportAttempts,
         requestCount,
         lastRequestStartedAt,
-        budgetExhausted: true,
+        budgetExhausted: runBudgetIsBinding,
       };
     }
     const attemptDeadlineMs = Math.min(budget.perQuestionDeadlineMs, remainingMs);
-    const attemptBoundedByBudget = remainingMs < budget.perQuestionDeadlineMs;
+    const attemptBoundedByBudget = attemptEndedByRunBudget({
+      remainingMs,
+      perAttemptDeadlineMs: budget.perQuestionDeadlineMs,
+      runBudgetIsBinding,
+    });
     lastRequestStartedAt = Date.now();
     requestCount += 1;
     try {
@@ -292,6 +306,10 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
 
   let protectedRequestCount = 0;
   let stopReason: string | null = null;
+  let stoppedOn: {
+    readonly question_id: string;
+    readonly transport_attempts: readonly RetainedTransportAttempt[];
+  } | null = null;
   const runDeadlineAt = Date.now() + budget.runBudgetMs;
   let lastRequestStartedAt = Date.now() - budget.minimumRequestIntervalMs;
   for (const question of outstanding) {
@@ -310,8 +328,12 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     if (outcome.lastRequestStartedAt !== null) lastRequestStartedAt = outcome.lastRequestStartedAt;
     if (outcome.budgetExhausted) {
       // Leave the question outstanding so a resumed run retries it instead of inheriting a
-      // permanent failure that only the run budget caused.
+      // permanent failure that only the run budget caused, but keep the diagnosis auditable.
       stopReason = "run_budget_exhausted";
+      stoppedOn = {
+        question_id: question.question_id,
+        transport_attempts: outcome.transportAttempts,
+      };
       break;
     }
     {
@@ -442,7 +464,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     hasRequiredAnswerCoverage(retained.map((result) => ({
       operation: result.operation,
       locale: result.locale,
-      disposition: result.disposition,
+      ...(result.disposition === undefined ? {} : { disposition: result.disposition }),
       complete_verified_evidence:
         result.evidence_ref_count !== undefined && result.evidence_ref_count > 0 &&
         result.checks_total !== undefined && result.checks_total > 0 &&
@@ -487,8 +509,15 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
       run_budget_ms: budget.runBudgetMs,
       per_question_deadline_ms: budget.perQuestionDeadlineMs,
       no_progress_deadline_ms: budget.noProgressDeadlineMs,
+      // The configuration keys mirror the operator environment variables; these state what each
+      // value actually bounds.
+      deadline_semantics: {
+        per_question_deadline_ms: "one attempt",
+        no_progress_deadline_ms: "one whole question including retries",
+      },
       minimum_request_interval_ms: budget.minimumRequestIntervalMs,
       stop_reason: stopReason,
+      ...(stoppedOn ? { stopped_on: stoppedOn } : {}),
     },
     passed,
     production_ready: productionReady,

@@ -9,7 +9,7 @@
     "build": "tsc --noEmit && vite build && npm run check:entry",
     "check:entry": "node scripts/check-entry-bundle.mjs",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tests.json",
     "test": "vitest run --exclude \"tests/e2e/**/*.spec.ts\" --exclude \"tests/live-e2e/**/*.spec.ts\"",
     "test:e2e": "playwright test",
     "test:e2e:quick": "playwright test --project=desktop-chromium --workers=1",

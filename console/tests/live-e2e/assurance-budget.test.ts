@@ -9,8 +9,10 @@ import {
   MINIMUM_RUN_BUDGET_MS,
   RUN_BUDGET_PER_QUESTION_MS,
   TEST_TIMEOUT_SLACK_MS,
+  attemptEndedByRunBudget,
   pacingDelayMs,
   resolveAssuranceBudget,
+  resolveQuestionBound,
   transportRetryDelayMs,
   withDeadline,
 } from "./assurance-budget";
@@ -44,6 +46,62 @@ describe("transportRetryDelayMs", () => {
   it("rejects invalid attempts and bounds", () => {
     expect(() => transportRetryDelayMs({ attempt: 0, baseMs: 1, maxMs: 2 })).toThrow(/positive/);
     expect(() => transportRetryDelayMs({ attempt: 1, baseMs: 5, maxMs: 1 })).toThrow(/base <= max/);
+  });
+});
+
+describe("resolveQuestionBound", () => {
+  it("reports the stalled-question guard as binding while the run budget has room", () => {
+    const bound = resolveQuestionBound({
+      nowMs: 1_000,
+      runDeadlineAt: 1_000 + 1_680_000,
+      noProgressDeadlineMs: 300_000,
+    });
+
+    expect(bound.questionDeadlineAt).toBe(1_000 + 300_000);
+    expect(bound.runBudgetIsBinding).toBe(false);
+  });
+
+  it("reports the run budget as binding once it expires first", () => {
+    const bound = resolveQuestionBound({
+      nowMs: 1_000,
+      runDeadlineAt: 1_000 + 10_000,
+      noProgressDeadlineMs: 300_000,
+    });
+
+    expect(bound.questionDeadlineAt).toBe(1_000 + 10_000);
+    expect(bound.runBudgetIsBinding).toBe(true);
+  });
+
+  it("rejects unusable inputs instead of guessing a bound", () => {
+    expect(() =>
+      resolveQuestionBound({ nowMs: Number.NaN, runDeadlineAt: 1, noProgressDeadlineMs: 1 })
+    ).toThrow(/finite/);
+    expect(() =>
+      resolveQuestionBound({ nowMs: 0, runDeadlineAt: 1, noProgressDeadlineMs: 0 })
+    ).toThrow(/positive/);
+  });
+});
+
+describe("attemptEndedByRunBudget", () => {
+  it("never blames the run budget while the stalled-question guard is binding", () => {
+    expect(attemptEndedByRunBudget({
+      remainingMs: 128_000,
+      perAttemptDeadlineMs: 180_000,
+      runBudgetIsBinding: false,
+    })).toBe(false);
+  });
+
+  it("blames the run budget only when it truncated the attempt", () => {
+    expect(attemptEndedByRunBudget({
+      remainingMs: 128_000,
+      perAttemptDeadlineMs: 180_000,
+      runBudgetIsBinding: true,
+    })).toBe(true);
+    expect(attemptEndedByRunBudget({
+      remainingMs: 180_000,
+      perAttemptDeadlineMs: 180_000,
+      runBudgetIsBinding: true,
+    })).toBe(false);
   });
 });
 
@@ -93,8 +151,8 @@ describe("resolveAssuranceBudget", () => {
         100,
       );
       // A turn is clamped to the run deadline, so the only work that can outlive the budget is
-      // one granted wait bounded by the spacing and the retry cap.
-      const tailMs = Math.max(budget.minimumRequestIntervalMs, budget.transportRetryMaxMs);
+      // the pre-question spacing plus one granted intra-question wait.
+      const tailMs = 2 * budget.minimumRequestIntervalMs + budget.transportRetryMaxMs;
       expect(budget.testTimeoutMs - budget.runBudgetMs).toBeGreaterThan(tailMs);
       // The envelope must not silently absorb an unclamped per-question deadline again.
       expect(budget.testTimeoutMs - budget.runBudgetMs).toBeLessThan(budget.perQuestionDeadlineMs);

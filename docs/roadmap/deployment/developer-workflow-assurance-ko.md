@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 81c2f1cd8483b3f946dfa70ecda9a2874ed47440
+translation_source_sha: 9bc6d85aad9e10f1f1d69401ee33a3ac6d6c4db8
 translation_revised: 2026-08-15
 ---
 
@@ -254,6 +254,7 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 | 2026-08-15 | in-progress | 세션 근거에서 36개 세션에 걸쳐 대기 불만 51건이 확인된 뒤 이슈 #122의 측정된 bounded-wait 캠페인을 시작했습니다. | 이슈 #122 및 bounded wait 캠페인 표의 기준선입니다. | Bounded 예산을 구현하고 비평 라운드 10개 이상을 완료합니다. |
 | 2026-08-15 | implemented | Assurance checkpoint를 전체 run configuration이 아니라 evidence identity에 바인딩해, per-run session id나 조정된 pacing, deadline, retry 노브가 완료된 turn을 폐기하지 않도록 했고 모든 보존 결과를 생성 실행에 귀속했습니다. | 현재 변경, console suite 1793개 통과 및 TypeScript 프로젝트 검사 통과입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
 | 2026-08-15 | implemented | Checkpoint 바인딩에 대상 stack origin을 추가하고, 예산 소진으로 생긴 비결과를 영구 실패로 저장하지 않도록 했으며, 실행 예산 override를 선언된 봉투로 제한하고 재시도 집계를 보존 증거에서 유도했으며 보존 결과 형태를 검증하고 과장된 원장 행 6개를 정정했습니다. | 현재 변경, live-evidence Vitest 89개 통과 및 TypeScript 프로젝트 검사 통과입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
+| 2026-08-15 | implemented | 정체된 질문 경계와 실행 예산 경계를 테스트된 정책으로 분리하고, checkpoint 읽기 경로에서 무시되던 결과 술어를 전달했으며, 예산으로 중단된 실행을 끝낸 질문을 공개하고 Console typecheck 게이트를 `console/tests`로 확장했습니다. 이로 인해 이 캐페인이 typecheck 밖 spec에 만든 실제 타입 파손을 발견해 수정했습니다. | 현재 변경, live-evidence Vitest 95개 통과, `npm run typecheck`가 `console/tests`를 포함해 통과합니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
 
 ### 남은 작업
 
@@ -298,8 +299,9 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 
 - Assurance 실행 예산은 cohort 크기에서 유도하며 최소 5분, 최대 90분이고 operator는 선언된
   범위 안에서 재정의할 수 있습니다.
-- 모든 turn은 남은 실행 예산으로 제한되므로 예산 소진은 실행을 멈추고 checkpoint를 기록하며
-  불투명한 harness timeout에 도달하는 대신 명시적 정지 사유로 실패합니다.
+- 모든 turn은 남은 실행 예산으로 제한되므로 예산 소진은 실행을 멈추고 마지막으로 기록된
+  checkpoint를 그대로 두며 불투명한 harness timeout에 도달하는 대신 명시적 정지 사유로
+  실패합니다.
 - 무진행 deadline은 재시도를 포함한 질문 하나 전체를 제한하고 질문별 deadline은 시도 하나를
   제한하며, 위반은 구분된 실패 사유로 기록됩니다.
 - Checkpoint는 source revision, workspace patch digest, 대상 stack origin, evidence identity 및
@@ -308,6 +310,8 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 - 실행 예산 소진만으로 종료된 질문은 실패로 저장하지 않습니다. 실행은 명시적인 중단 사유로 멈추고
   해당 질문을 미완료로 남기므로, 재개된 실행은 stack이 유발하지 않은 영구 실패를 상속하지 않고
   다시 시도합니다.
+- 정체로 종료된 질문은 실제 실패입니다. 고유한 사유로 기록되고 cohort는 계속되며, 예산 소진으로
+  보고되지 않습니다. 아티팩트는 예산으로 중단된 실행을 끝낸 질문과 시도도 공개합니다.
 - Evidence identity는 결과 schema, cohort seed, 순서가 있는 question id, 인증 방식을 포함합니다.
   Per-run session id와 pacing, deadline, retry 노브는 제외합니다. 이 값들은 실행 비용을 바꿀 뿐
   완료된 답변이 여전히 유효한 증거인지는 바꾸지 않기 때문입니다. 모든 보존 결과는 이를 생성한

@@ -138,4 +138,13 @@ describe("checkpoint persistence", () => {
     expect(await readAssuranceCheckpoint(missing)).toBeNull();
     expect(await readAssuranceCheckpoint(torn)).toBeNull();
   });
+
+  it("applies the caller predicate on the file path, not only in the pure parser", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "fdai-assurance-"));
+    const path = join(directory, "checkpoint.json");
+    await writeAssuranceCheckpoint(path, checkpoint());
+
+    expect(await readAssuranceCheckpoint(path, () => true)).not.toBeNull();
+    expect(await readAssuranceCheckpoint(path, () => false)).toBeNull();
+  });
 });

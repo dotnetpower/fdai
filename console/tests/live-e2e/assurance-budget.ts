@@ -37,6 +37,48 @@ export interface TransportRetryDelayInput {
   readonly maxMs: number;
 }
 
+export interface QuestionBoundInput {
+  readonly nowMs: number;
+  readonly runDeadlineAt: number;
+  readonly noProgressDeadlineMs: number;
+}
+
+export interface QuestionBound {
+  readonly questionDeadlineAt: number;
+  /** True when the run budget, not the stalled-question guard, is the earlier bound. */
+  readonly runBudgetIsBinding: boolean;
+}
+
+/**
+ * Resolves the two independent bounds that can end one question.
+ *
+ * Only run-budget exhaustion may stop the cohort. A stalled question must stay a recorded
+ * failure, so the caller needs to know which bound won rather than only when it expired.
+ */
+export function resolveQuestionBound(input: QuestionBoundInput): QuestionBound {
+  const { nowMs, runDeadlineAt, noProgressDeadlineMs } = input;
+  if (!Number.isFinite(nowMs) || !Number.isFinite(runDeadlineAt)) {
+    throw new Error("question bound timestamps MUST be finite");
+  }
+  if (!Number.isFinite(noProgressDeadlineMs) || noProgressDeadlineMs <= 0) {
+    throw new Error("stalled-question deadline MUST be a positive finite number");
+  }
+  const stallDeadlineAt = nowMs + noProgressDeadlineMs;
+  return {
+    questionDeadlineAt: Math.min(runDeadlineAt, stallDeadlineAt),
+    runBudgetIsBinding: runDeadlineAt <= stallDeadlineAt,
+  };
+}
+
+/** Returns whether an expired attempt was ended by the run budget rather than by a stall. */
+export function attemptEndedByRunBudget(input: {
+  readonly remainingMs: number;
+  readonly perAttemptDeadlineMs: number;
+  readonly runBudgetIsBinding: boolean;
+}): boolean {
+  return input.runBudgetIsBinding && input.remainingMs < input.perAttemptDeadlineMs;
+}
+
 /** Returns the wait needed to honor a minimum spacing between request starts. */
 export function pacingDelayMs(minimumIntervalMs: number, elapsedSinceLastStartMs: number): number {
   if (!Number.isFinite(minimumIntervalMs) || minimumIntervalMs < 0) {
