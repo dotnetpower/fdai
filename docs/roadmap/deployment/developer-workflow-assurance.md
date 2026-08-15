@@ -266,6 +266,7 @@ The remaining Low risks are explicit and bounded:
 | 2026-08-16 | implemented | Closed the last waits round 27 could still reproduce: the validator's Git helper declares a 600-second bound so no validator step outside the staged watchdog is literally unbounded, the roadmap agent stops waiting forever after its own SIGKILL when a process is wedged in uninterruptible I/O, and auto-pull distinguishes a fetch timeout from a fetch that failed for another reason. Round 27 found no reproducible finding above Low. | Current change; 44 focused validation-queue tests passed, strict mypy on both changed modules, Ruff, and `bash -n` on the auto-pull script. | Obtain exact central validation and complete issue #122. |
 | 2026-08-16 | implemented | Declared a budget where only a runner default existed: the protected Terraform job is bounded to 180 minutes and the protected service deploy job to 120 minutes, and the health verifier bounds the recovery verification and readiness-path steps it ran after its own deadline. The round 28 acceptance review found no other reproducible finding above Low across the assurance runner, validation stages, auto-pull, health verification, Azure preflight, deploy workflows, roadmap agent budgets, and the Playwright port pool. | Current change; 24 focused deploy-workflow tests passed, `bash -n` on the health script, and both workflow documents parse as YAML. | Obtain exact central validation and complete issue #122. |
 | 2026-08-16 | implemented | Round 29 re-reviewed the round 28 budgets against the real worst case of each job and script and confirmed they sit above it rather than truncating a slow but healthy deploy, that the `timeout` wrappers preserve exit-code propagation under `set -euo pipefail`, and that both job budgets are valid YAML at job level. The campaign exit condition is met: no reproducible finding above Low remains. | Current change; the round 29 confirmation review and the focused suites recorded in the rows above. | Obtain exact central validation and complete issue #122. |
+| 2026-08-16 | validated | Central validation accepted the integrated bounded wait revision and the outgoing range was pushed to `origin/main`. | `validation_queue.py check-range origin/main..HEAD` passed for revision `85c5aadf4`, and the push reused that exact receipt and the structural evidence. | Complete issue #122 and synchronize the project board. |
 
 ### Remaining work
 
@@ -278,7 +279,8 @@ The remaining Low risks are explicit and bounded:
 - [ ] Complete issue #118 and synchronize the project board.
 - [x] Completed the bounded wait campaign critique rounds for issue #122; the round 28 acceptance
   review found no reproducible residual above Low.
-- [ ] Obtain exact central validation for the bounded wait revision and complete issue #122.
+- [x] Central validation accepted the bounded wait revision `85c5aadf4` and the range was pushed.
+- [ ] Complete issue #122 and synchronize the project board.
 
 ## Bounded wait campaign
 
