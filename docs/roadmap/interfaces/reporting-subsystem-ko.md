@@ -1,8 +1,8 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: a7005564b83e0ad315394d0c39cbbc282bed92e8
-translation_revised: 2026-08-14
+translation_source_sha: 3dac7716b952a7a82804e7dc2ce21e7a55f3314b
+translation_revised: 2026-08-15
 ---
 # 리포팅 서브시스템
 
@@ -579,9 +579,9 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
 |------|------|------|------|
 | Core 계약, 레지스트리, engine, widget 및 기본 format | implemented | `services/core-control-plane/src/fdai/core/reporting/`; `services/core-control-plane/tests/core/reporting/` | Focused 테스트는 카탈로그 로딩, 한도, 치환, widget별 격리, 데이터 원본 계약, widget, format 및 hardening safeguard를 다룹니다. |
 | 선언형 report 카탈로그 및 스키마 | implemented | `rule-catalog/reports/`; `rule-catalog/reports/schema/report.schema.json`; reporting 카탈로그 테스트 | 검토된 YAML report와 기능 메타데이터가 범위가 제한된 스키마를 통해 로드됩니다. |
-| Operator API 읽기 경로 및 Console Reports 보기 | implemented | `fdai_operator_service/reporting/incident_rca_projection.py`; `services/operator-service/tests/test_operator_operations_family.py`; `console/src/routes/reports.tsx`; focused reporting model 및 경로 테스트 | GET/HEAD-only inventory와 registry 및 correlation-scoped Incident RCA rendering은 변경 권한 없이 authoritative audit row를 읽습니다. |
+| Operator API 읽기 경로 및 Console Reports 보기 | validated | `fdai_operator_service/reporting/incident_rca_projection.py`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; focused Operator 및 Console 테스트 | 인증된 GET-only inventory, registry, audit-backed Incident RCA rendering 및 Console presentation이 변경 권한 없이 통과했습니다. |
 | 권위 있는 데이터 원본 연결 및 운영 최신성 | in-progress | Reporting 데이터 원본 어댑터 및 출처 묶음 | 어댑터는 있지만 각 배포가 권위 있는 프로바이더를 연결하고 최신성, 사용 불가, 시간 초과 및 부분 widget 근거를 보존해야 합니다. |
-| 선택적 PDF format 및 RCA dossier delivery | implemented | `fdai_operator_service/reporting/pdf_format.py`; Operator operations 경로; `console/src/routes/reports.tsx`; focused Operator 및 Console 테스트 | Service-local extra가 설치된 경우에만 PDF를 등록하고, 기존 redacted 묶음을 렌더링하며, 외부 fetch를 차단하고, 새 분석 없이 공백을 보존합니다. |
+| 선택적 PDF format 및 RCA dossier delivery | validated | `fdai_operator_service/reporting/pdf_format.py`; Operator operations 경로; `console/src/routes/reports.tsx`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; focused Operator 및 Console 테스트 | 인증된 Browser Entra가 catalog와 registry 일치, redacted 묶음 및 38809-byte PDF를 검증하면서 공백을 보존하고 새 분석을 추가하지 않았습니다. |
 
 ### 구현 이력
 
@@ -590,6 +590,7 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
 | 2026-08-14 | in-progress | 구현 ledger를 도입하고 선택적 PDF 구현 주장을 수정했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 reporting core, 카탈로그, Operator, Console 및 focused 검사입니다. | 권위 있는 데이터 원본 근거를 보존하고 PDF를 표시하기 전에 선택적 delivery를 구현해야 합니다. |
 | 2026-08-14 | implemented | 독립 Operator Service에 opt-in PDF delivery를 추가하고 catalog와 runtime registry가 일치할 때만 Console 다운로드 컨트롤을 노출했습니다. | `current change`; service-local encoder, operations 경로 negotiation, package extra, Console 컨트롤, focused PDF, 경로, composition 및 Console 테스트입니다. | 인증된 inventory, render, 사용 불가, 오류 격리 및 읽기 전용 runtime 증적을 보존해야 합니다. |
 | 2026-08-14 | implemented | Materialize되지 않은 generic operations row를 요구하는 대신 built-in Incident RCA dossier를 authoritative Operator audit reader에 연결했습니다. | `current change`; `incident_rca_projection.py`, composition binding, focused reader 테스트 3개 및 Operator family/composition 테스트 65개입니다. | 인증된 roster-to-RCA-to-report/PDF receipt를 보존해야 합니다. |
+| 2026-08-15 | validated | Built-in Incident dossier에 대한 인증된 inventory, registry, audit-backed render, Console, PDF 및 no-RCA 사용 불가 근거를 보존했습니다. | `current change`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; source `014974045e70e35c26e489fa238345cf70bc3ca3`에 중앙 receipt가 있습니다. | 더 넓은 프로덕션 데이터 원본 캠페인은 아래 열린 항목으로 유지합니다. |
 
 ### 남은 작업
 

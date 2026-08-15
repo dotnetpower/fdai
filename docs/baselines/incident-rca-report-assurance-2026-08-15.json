@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0.0",
+  "evidence_type": "authenticated_incident_rca_report_assurance",
+  "receipt_source": "live_browser_entra",
+  "source_revision": "014974045e70e35c26e489fa238345cf70bc3ca3",
+  "workspace_patch_digest": "sha256:9d329f67cefffd9ef01e4d168f67ea96c4261bfa7a699c4ae580fc4f553a4a94",
+  "configuration_digest": "sha256:1353efb316c094e677c39d12160e3a08f24fc7c80767bd33f4d2cdad7078693b",
+  "captured_at": "2026-08-15T02:07:33.700Z",
+  "authentication": "browser_entra",
+  "passed": true,
+  "target_ref": "sha256:ff721a1c58c9ecf056d9f95230a76c89127c2ef05a265753ce6c68ea1bef9ec9",
+  "incident": {
+    "envelope_digest": "sha256:7af888296d3bdb50454efc8fcb3b3d9c6bbf6560843efcf3dfeac6827686e8e4",
+    "audit_digest": "sha256:f74a640efa54e9258eb545892a9121471266477840423dc7dcbb98e4bf0dbda0",
+    "audit_record_count": 8,
+    "milestone_count": 8,
+    "source_context_recorded": false,
+    "source_context_visible": false,
+    "response_plan_recorded": false,
+    "unavailable_source_or_plan_preserved": true,
+    "title_source": "rule_id"
+  },
+  "rca": {
+    "envelope_digest": "sha256:d8e4629fcc125704a04dfd6a465bf7efc51302c08bee915d3bda38bcecb718d4",
+    "hypothesis_count": 2,
+    "citation_count": 2,
+    "response_plan_recorded": true
+  },
+  "report": {
+    "envelope_digest": "sha256:c621e756b2a2ee386661ec132ee306278775c897864365895932678824282814",
+    "pdf_body_digest": "sha256:c9553ef1ab29a6dc40863d365da1f9eeaa3c3aec45db6a833f0ef084679a2df3",
+    "pdf_bytes": 38809,
+    "pdf_content_type": "application/pdf",
+    "suggested_filename": "incident-rca-dossier.pdf"
+  },
+  "unavailable_behavior": {
+    "target_ref": "sha256:fdd0a4449589d95d121e4cc25c7ed5282b4c272e5abe9650c4fd6bc4fb7f6712",
+    "envelope_digest": "sha256:f942af89dd26e508e7cba7b27c275f7fe1fe202aeaac215e113f5fb8bb372861",
+    "hypothesis_count": 0,
+    "unavailable_state_visible": true
+  },
+  "execution_authority": false
+}
