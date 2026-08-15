@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-and-handover.md
 translation_source_sha: c807c0fad354c18972711def29175db96e9e665d
-translation_revised: 2026-08-16
+translation_revised: 2026-08-15
 title: 에이전트 스튜어드십과 인수인계
 ---
 # 에이전트 스튜어드십과 인수인계

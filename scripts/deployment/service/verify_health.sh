@@ -21,6 +21,7 @@ expected_image="$(jq -er '.target.image_ref' "$context_path")"
 fqdn="$(jq -r '.fqdn // ""' "$work_dir/service.json")"
 health_deadline=$((SECONDS + 900))
 activation_attempted=false
+health_converged=false
 while ((SECONDS < health_deadline)); do
   timeout 60s az containerapp show \
       --ids "$resource_id" \
@@ -69,10 +70,18 @@ while ((SECONDS < health_deadline)); do
       )
     ' \
       "$work_dir/revision.json" >/dev/null; then
+    health_converged=true
     break
   fi
+  # One bounded progress line per poll, so a stalled rollout is distinguishable from a slow one
+  # instead of leaving the deadline as the only signal.
+  echo "health poll: revision=$revision_name provisioning=$(jq -r '.properties.provisioningState // "unknown"' "$work_dir/revision.json") health=$(jq -r '.properties.healthState // "none"' "$work_dir/revision.json") running=$(jq -r '.properties.runningState // "unknown"' "$work_dir/revision.json") remaining=$((health_deadline - SECONDS))s" >&2
   sleep 5
 done
+if [[ "$health_converged" != true ]]; then
+  echo "container app did not reach the healthy contract within its 900s health deadline." >&2
+  exit 1
+fi
 python3 "$control_root/deployment_recovery.py" verify \
     --context "$context_path" \
     --service-output "$work_dir/service.json" \

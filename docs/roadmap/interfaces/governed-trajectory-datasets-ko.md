@@ -2,7 +2,7 @@
 title: 관리형 Trajectory 데이터셋
 translation_of: governed-trajectory-datasets.md
 translation_source_sha: 017ca2c6fc816a7a9ecd7cab97e68254033985a3
-translation_revised: 2026-08-16
+translation_revised: 2026-08-15
 ---
 
 # 관리형 Trajectory 데이터셋
