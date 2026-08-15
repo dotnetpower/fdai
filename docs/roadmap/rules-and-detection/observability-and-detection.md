@@ -568,8 +568,10 @@ What we adopt from the general AIOps model, and where we intentionally differ:
 ### Runtime delivery status
 
 The scheduler delivery path publishes canonical, idempotent Events to the configured Event Hubs
-ingest topic. The analyzer Terraform job still invokes `fdai.delivery.analyzer_tick_cli`, which is
-absent from the current source tree, so the analyzer path isn't a runnable delivery claim. These
+ingest topic. The analyzer Terraform job invokes `fdai.delivery.analyzer_tick_cli`, which reads the
+configured target list, runs the reference analyzers against the composed `MetricProvider`, and
+publishes one canonical Event per finding with a key derived from the resource, the signal, and the
+tick window. These
 jobs don't execute changes; findings and due tasks re-enter the shared trust router and safety
 check. Publish failure keeps a scheduled item retryable and returns a non-zero job result.
 
@@ -596,7 +598,7 @@ to the core runtime.
 | Anomaly and composite detection | implemented | `services/core-control-plane/src/fdai/core/detection/anomaly.py`; `seasonal.py`; `composite.py`; focused `tests/core/detection/test_*.py` | Cold start, flat baselines, quorum, duplicate collapse, and explainable scores fail closed. |
 | Forecasting and outcome closure | implemented | `services/core-control-plane/src/fdai/core/detection/forecast.py`; `forecast_outcome.py`; `forecast_closure.py`; focused forecast tests | Prediction, censoring, and closure contracts are implemented. Promotion still requires measured deployment evidence. |
 | Configuration drift | implemented | `services/core-control-plane/src/fdai/core/detection/configuration_drift.py`; `configuration_drift_service.py`; focused configuration-drift tests | Frozen baselines, deterministic comparison, review, and reporting remain evidence-only. |
-| Scheduled analyzer delivery | in-progress | `infra/modules/compute/container-apps/analyzer_tick_job.tf`; current change source audit | Provider routing exists, but the configured `fdai.delivery.analyzer_tick_cli` entry point is absent. |
+| Scheduled analyzer delivery | implemented | `services/core-control-plane/src/fdai/delivery/analyzer_tick.py`; `analyzer_tick_cli.py`; `infra/modules/compute/container-apps/analyzer_tick_job.tf`; `services/core-control-plane/tests/delivery/test_analyzer_tick.py` | The configured entry point exists and publishes one canonical, window-keyed Event per finding. A publish failure is reported and exits non-zero so the Job retries. Deployed-runtime evidence is still outstanding. |
 | Governed operational accuracy | in-progress | [Runtime delivery status](#runtime-delivery-status); [Open decisions](#open-decisions) | Runtime precision, recall, interval coverage, lead time, and false-positive evidence remain deployment work. |
 
 ### Implementation history
@@ -604,10 +606,12 @@ to the core runtime.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and corrected the analyzer delivery claim to match the current tree. | `current change`; current source and focused tests listed in the scope table. | Restore analyzer delivery and retain governed accuracy evidence. |
+| 2026-08-15 | implemented | Added the analyzer tick runner and the `fdai.delivery.analyzer_tick_cli` entry point the Terraform job configures, publishing one canonical window-keyed Event per finding with reported publish failures. | `current change`; `services/core-control-plane/src/fdai/delivery/analyzer_tick.py`; `pytest services/core-control-plane/tests/delivery/test_analyzer_tick.py` (10 passed). | Retain deployed accuracy evidence; target resolution is the configured list only. |
 
 ### Remaining work
 
-- [ ] Add the missing analyzer entry point or retarget the Terraform job to a tested service command, then prove canonical Event publication and retry behavior.
+- [x] The analyzer entry point the Terraform job configures exists, publishes canonical window-keyed Events, and reports publish failures with a non-zero result, proven by `services/core-control-plane/tests/delivery/test_analyzer_tick.py`.
+- [ ] Resolve analyzer targets from the durable inventory projection instead of the configured list alone, evidenced by a focused resolution test.
 - [ ] Record deployment evidence for detector precision, recall, missed breaches, interval coverage, forecast lead time, and abstention rates.
 - [ ] Resolve the signal-class methods, baseline history, and promotion thresholds in [Open decisions](#open-decisions) and encode them in governed configuration.
 

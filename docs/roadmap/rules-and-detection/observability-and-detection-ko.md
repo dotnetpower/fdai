@@ -1,8 +1,8 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 5b9250927bb35d6bd0e3e883e580131b61c6fc15
-translation_revised: 2026-08-14
+translation_source_sha: 0cc77f97c0d07160e545c39789f2784cc3cdcf38
+translation_revised: 2026-08-15
 ---
 
 # 관측성과 감지(Observability and Detection)
@@ -534,8 +534,9 @@ telemetry / metrics
 ### 런타임 전달 상태
 
 스케줄러 전달 경로는 정본 멱등 Event를 구성된 Event Hubs 유입 토픽에 게시합니다.
-분석기 Terraform 작업은 현재 소스 트리에 없는 `fdai.delivery.analyzer_tick_cli`를 계속
-호출하므로 분석기 경로는 실행 가능한 제공 상태가 아닙니다. 이 작업들은 변경을 실행하지
+분석기 Terraform 작업은 `fdai.delivery.analyzer_tick_cli`를 호출하며, 이 진입점은 구성된 대상
+목록을 읽고 조립된 `MetricProvider`로 참조 분석기를 실행한 뒤 리소스, 신호, tick 창에서 파생된
+키로 발견 건마다 정본 Event 하나를 게시합니다. 이 작업들은 변경을 실행하지
 않으며, 발견된 문제와 예정 작업은 공유 trust router 및 안전성 검토에 다시 진입합니다.
 게시 실패 시 예약 항목은 재시도 가능 상태로 유지되고 작업 결과는 0이 아닌 값입니다.
 
@@ -561,7 +562,7 @@ Core 런타임에는 job-start 권한을 부여하지 않습니다.
 | 이상 및 복합 감지 | implemented | `services/core-control-plane/src/fdai/core/detection/anomaly.py`; `seasonal.py`; `composite.py`; 집중 `tests/core/detection/test_*.py` | 콜드 스타트, 평탄 기준선, 정족수, 중복 축약, 설명 가능한 점수가 실패 시 차단됩니다. |
 | 예측 및 결과 종결 | implemented | `services/core-control-plane/src/fdai/core/detection/forecast.py`; `forecast_outcome.py`; `forecast_closure.py`; 집중 예측 테스트 | 예측, 검열, 종결 계약이 구현되어 있습니다. 승격에는 측정된 배포 근거가 계속 필요합니다. |
 | 구성 표류 | implemented | `services/core-control-plane/src/fdai/core/detection/configuration_drift.py`; `configuration_drift_service.py`; 집중 구성 표류 테스트 | 동결 기준선, 결정론적 비교, 검토, 보고는 근거 전용으로 유지됩니다. |
-| 예약된 분석기 전달 | in-progress | `infra/modules/compute/container-apps/analyzer_tick_job.tf`; 현재 변경의 소스 감사 | 프로바이더 라우팅은 있지만 구성된 `fdai.delivery.analyzer_tick_cli` 진입점이 없습니다. |
+| 예약된 분석기 전달 | implemented | `services/core-control-plane/src/fdai/delivery/analyzer_tick.py`; `analyzer_tick_cli.py`; `infra/modules/compute/container-apps/analyzer_tick_job.tf`; `services/core-control-plane/tests/delivery/test_analyzer_tick.py` | 구성된 진입점이 존재하며 발견 건마다 창 키를 가진 정본 Event 하나를 게시합니다. 게시 실패는 보고되고 0이 아닌 종료 코드로 작업이 재시도됩니다. 배포 런타임 근거는 아직 남아 있습니다. |
 | 관리되는 운영 정확도 | in-progress | [런타임 전달 상태](#런타임-전달-상태); [열린 결정](#열림-decisions) | 런타임 정밀도, 재현율, 구간 포괄률, 선행 시간, 오탐 근거는 배포 작업으로 남아 있습니다. |
 
 ### 구현 이력
@@ -569,10 +570,12 @@ Core 런타임에는 job-start 권한을 부여하지 않습니다.
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했으며, 현재 트리에 맞게 분석기 전달 주장을 바로잡았습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트. | 분석기 전달을 복원하고 관리되는 정확도 근거를 보존합니다. |
+| 2026-08-15 | implemented | Terraform 작업이 구성하는 `fdai.delivery.analyzer_tick_cli` 진입점과 분석기 tick 실행기를 추가해, 발견 건마다 창 키를 가진 정본 Event를 게시하고 게시 실패를 보고합니다. | `current change`; `services/core-control-plane/src/fdai/delivery/analyzer_tick.py`; `pytest services/core-control-plane/tests/delivery/test_analyzer_tick.py` (10 passed). | 배포 정확도 근거를 보존합니다. 대상 해석은 아직 구성된 목록만 사용합니다. |
 
 ### 남은 작업
 
-- [ ] 누락된 분석기 진입점을 추가하거나 Terraform 작업을 테스트된 서비스 명령으로 변경하고 정본 Event 게시 및 재시도 동작을 증명합니다.
+- [x] Terraform 작업이 구성하는 분석기 진입점이 존재하며 창 키를 가진 정본 Event를 게시하고 게시 실패를 0이 아닌 결과로 보고합니다. `services/core-control-plane/tests/delivery/test_analyzer_tick.py`가 이를 증명합니다.
+- [ ] 구성된 목록만이 아니라 영속 인벤토리 projection에서 분석기 대상을 해석하고 집중 해석 테스트로 증명합니다.
 - [ ] 감지기 정밀도, 재현율, 누락 위반, 구간 포괄률, 예측 선행 시간, 판단 보류 비율의 배포 근거를 기록합니다.
 - [ ] [열린 결정](#열림-decisions)의 신호 등급별 방법, 기준선 이력, 승격 임계값을 확정하고 관리되는 구성에 인코딩합니다.
 
