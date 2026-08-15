@@ -70,7 +70,12 @@ while true; do
       fi
     fi
   else
-    echo "[auto-pull] fetch did not complete within ${fetch_timeout}s - retrying next cycle."
+    fetch_status=$?
+    if [ "$fetch_status" -eq 124 ]; then
+      echo "[auto-pull] fetch did not complete within ${fetch_timeout}s - retrying next cycle."
+    else
+      echo "[auto-pull] fetch of $branch failed (exit $fetch_status) - retrying next cycle."
+    fi
   fi
   sleep "$interval"
 done
