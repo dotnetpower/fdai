@@ -5,6 +5,8 @@ import {
   assuranceCarriesLiveAuthority,
   assuranceEvidenceIdentity,
   assuranceRunMode,
+  evidenceGenerationConsistent,
+  resumableWithLiveProof,
   assuranceOperations,
   assuranceSessionId,
   assuranceTransportRetrySources,
@@ -108,25 +110,52 @@ describe("ontology assurance run identity", () => {
 });
 
 describe("ontology assurance run mode", () => {
-  const base = { cohortSize: 100, resumedCount: 0, liveCount: 0, stopReason: null };
-
   it("names a run that answered live", () => {
-    expect(assuranceRunMode({ ...base, liveCount: 1, resumedCount: 99 })).toBe("live");
+    expect(assuranceRunMode({ liveCount: 1, stopReason: null })).toBe("live");
   });
 
-  it("names a fully resumed cohort a replay", () => {
-    expect(assuranceRunMode({ ...base, resumedCount: 100 })).toBe("resumed_replay");
-  });
-
-  it("never calls an interrupted run a replay", () => {
-    expect(assuranceRunMode({ ...base, stopReason: "run_budget_exhausted" })).toBe("interrupted");
-    expect(assuranceRunMode({ ...base, resumedCount: 40 })).toBe("interrupted");
-  });
-
-  it("denies release authority to anything that verified nothing live", () => {
+  it("never grants live authority to a run that answered nothing against the stack", () => {
+    expect(assuranceRunMode({ liveCount: 0, stopReason: null })).toBe("interrupted");
+    expect(assuranceRunMode({ liveCount: 5, stopReason: "run_budget_exhausted" }))
+      .toBe("interrupted");
     expect(assuranceCarriesLiveAuthority("live")).toBe(true);
-    expect(assuranceCarriesLiveAuthority("resumed_replay")).toBe(false);
     expect(assuranceCarriesLiveAuthority("interrupted")).toBe(false);
+  });
+});
+
+describe("resumableWithLiveProof", () => {
+  it("keeps a partial checkpoint untouched", () => {
+    expect(resumableWithLiveProof([1, 2, 3], 10)).toEqual([1, 2, 3]);
+  });
+
+  it("always leaves one question for live re-verification", () => {
+    expect(resumableWithLiveProof([1, 2, 3], 3)).toEqual([1, 2]);
+    expect(resumableWithLiveProof([1], 1)).toEqual([]);
+  });
+
+  it("rejects a nonsensical cohort size instead of guessing", () => {
+    expect(resumableWithLiveProof([1, 2], 0)).toEqual([]);
+  });
+});
+
+describe("evidenceGenerationConsistent", () => {
+  it("accepts results that describe one governed generation", () => {
+    expect(evidenceGenerationConsistent([
+      { ontology_release_digest: "a", principal_manifest_digest: "p" },
+      { ontology_release_digest: "a" },
+      {},
+    ])).toBe(true);
+  });
+
+  it("rejects answers produced against different generations", () => {
+    expect(evidenceGenerationConsistent([
+      { ontology_release_digest: "a" },
+      { ontology_release_digest: "b" },
+    ])).toBe(false);
+    expect(evidenceGenerationConsistent([
+      { principal_manifest_digest: "p" },
+      { principal_manifest_digest: "q" },
+    ])).toBe(false);
   });
 });
 

@@ -63,30 +63,58 @@ export interface AssuranceRunProvenance {
   readonly workspace_patch_digest: string;
 }
 
-export type AssuranceRunMode = "live" | "resumed_replay" | "interrupted";
+export type AssuranceRunMode = "live" | "interrupted";
 
 /** Names how the published cohort was produced. */
 export function assuranceRunMode(input: {
-  readonly cohortSize: number;
-  readonly resumedCount: number;
   readonly liveCount: number;
   readonly stopReason: string | null;
 }): AssuranceRunMode {
-  if (input.stopReason !== null) return "interrupted";
-  if (input.liveCount > 0) return "live";
-  return input.resumedCount === input.cohortSize && input.cohortSize > 0
-    ? "resumed_replay"
-    : "interrupted";
+  return input.stopReason === null && input.liveCount > 0 ? "live" : "interrupted";
 }
 
 /**
  * Returns whether a run may carry live release authority.
  *
- * A replay republishes retained evidence so an interrupted cohort is not discarded, but it
- * verified nothing against the current stack, so it must never mint a production receipt.
+ * Only a run that answered against the current stack may mint a production receipt.
  */
 export function assuranceCarriesLiveAuthority(runMode: AssuranceRunMode): boolean {
   return runMode === "live";
+}
+
+/**
+ * Trims a fully covering checkpoint so at least one question is re-answered live.
+ *
+ * Resuming keeps earlier work instead of discarding it, but a cohort that answers nothing against
+ * the current stack proves nothing about it, so the last member is always re-verified.
+ */
+export function resumableWithLiveProof<TResult>(
+  resumed: readonly TResult[],
+  cohortSize: number,
+): readonly TResult[] {
+  if (cohortSize <= 0) return [];
+  return resumed.length >= cohortSize ? resumed.slice(0, cohortSize - 1) : resumed;
+}
+
+/**
+ * Returns whether every retained answer describes the same governed generation.
+ *
+ * A resumed answer produced against a different ontology release or principal manifest is not
+ * comparable evidence for the current stack, so the cohort must not publish it as one result set.
+ */
+export function evidenceGenerationConsistent(
+  results: readonly {
+    readonly ontology_release_digest?: string;
+    readonly principal_manifest_digest?: string;
+  }[],
+): boolean {
+  for (const key of ["ontology_release_digest", "principal_manifest_digest"] as const) {
+    const observed = new Set(
+      results.map((result) => result[key]).filter((value): value is string => value !== undefined),
+    );
+    if (observed.size > 1) return false;
+  }
+  return true;
 }
 
 /** The configuration fields that decide whether an earlier result is still comparable evidence. */

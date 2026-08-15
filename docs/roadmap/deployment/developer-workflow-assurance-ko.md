@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 6efeec1e7d3af9a233fc58a61ecb336aac305ba2
+translation_source_sha: 6029dafe7098ba27a855f07a5ba93a75e2c770a5
 translation_revised: 2026-08-15
 ---
 
@@ -297,6 +297,7 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 | 13 | 의존성 다운로드 | job마다 300초 재시도 window와 `--retry 5`입니다 | 120초 재시도 window, 90초 전송 상한 및 `--retry 3`으로 줄입니다. |
 | 14 | 원격 drift 감지 | Auto-pull이 최대 600초 뒤에 원격 drift를 관측했습니다 | Clean-tree 및 validation guard를 유지하면서 180초마다 확인합니다. |
 | 15 | 제외된 빠른 테스트 | `tests/live-e2e/**`가 해당 디렉터리의 모든 Vitest 파일을 일반 실행에서 제외했습니다 | Playwright spec만 제외해 빠른 계약이 일반 loop에서 실행되게 합니다. |
+| 16 | 재생된 assurance 권한 | Checkpoint로 완성된 cohort가 live stack에 질문을 하나도 답하지 않고 발행될 수 있었습니다 | 최소 한 질문을 live로 재검증하고 모든 보존 답변이 하나의 통제된 세대를 기술하도록 요구합니다. |
 
 ### 계약
 
@@ -322,12 +323,15 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
   실행을 기록하므로 재개된 cohort도 귀속 가능하며, 해당 귀속이 없는 결과는 통과할 수 없습니다.
 - 시도별 deadline 위반은 질문을 종료하며, 재시도 가능한 transport source 또는 일시적 turn 오류만 남은
   시도를 사용합니다.
-- Live 답변이 없는 실행도 동일한 source, workspace, 대상 stack, evidence identity에 바인딩된
-  checkpoint로 cohort를 완성했다면 발행할 수 있습니다. 아티팩트는 이를 `run_mode: resumed_replay`로
-  공개하며, checkpoint는 cohort가 발행된 뒤에만 회수됩니다.
+- Live 답변이 없는 실행은 권위 있는 결과로 발행되지 않습니다. Checkpoint가 이미 cohort 전체를 담고 있으면
+  마지막 질문을 현재 stack에서 다시 답하므로, 재개는 이전 작업을 유지하면서도 검증하지 않은 stack을
+  주장하지 않습니다.
+- 모든 보존 답변은 하나의 통제된 세대를 기술해야 합니다. 재개된 답변이 live 답변과 다른 ontology
+  release 또는 principal manifest digest를 가지면, cohort는 혼합 세대 결과를 발행하지 않고
+  실패합니다.
 - 완료된 cohort는 아티팩트 발행 후, 단언 전에 checkpoint를 회수합니다. 따라서 발행 실패가 완성된
   cohort를 파괴하지 않고 이후 실행도 재생할 수 없으며, live turn을 수행하지 않은 실행은
-  `resumed_replay`로 발행되고 release 권한을 갖지 않으므로 production-ready 아티팩트를 보고할 수
+  `interrupted`로 보고되고 release 권한을 갖지 않으므로 production-ready 아티팩트를 보고할 수
   없습니다.
 
 ## 관련 문서
