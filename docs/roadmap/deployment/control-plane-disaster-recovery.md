@@ -30,8 +30,8 @@ evidence required before a deployment can claim control-plane disaster recovery.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
-| 2026-08-15 | implemented | Constrained scheduled execution to one process through reviewable Terraform configuration and added a focused concurrency check over every scheduled Job. | `current change`; `tests/integration/infra/test_scheduled_job_concurrency.py`; `pytest tests/integration/infra/test_scheduled_job_concurrency.py` (24 passed). | Cross-process experiment reservation, the composed regional path, and the governed drill receipt remain open. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Separated tested recovery mechanics from regional deployment and operational evidence. | current change; focused recovery plan and coordinator tests listed in the scope table | Compose and exercise the regional provider path, then retain governed failover and failback evidence. |
+| 2026-08-15 | implemented | Constrained scheduled execution to one process through reviewable Terraform configuration and added a focused concurrency check over every scheduled Job. | `current change`; `tests/integration/infra/test_scheduled_job_concurrency.py`; `pytest tests/integration/infra/test_scheduled_job_concurrency.py` (24 passed). | Cross-process experiment reservation, the composed regional path, and the governed drill receipt remain open. |
 
 ### Remaining work
 

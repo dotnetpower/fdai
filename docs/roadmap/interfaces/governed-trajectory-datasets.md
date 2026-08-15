@@ -198,12 +198,12 @@ the existing Norns-to-Mimir quality gate.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
-| 2026-08-15 | implemented | Added focused exporter, scanner, quarantine, checksum, offline-validation, and judge-only replay checks over generated JSONL and manifest artifacts. | `current change`; `services/core-control-plane/tests/core/trajectory/test_export_and_validation.py`; `pytest services/core-control-plane/tests/core/trajectory/test_export_and_validation.py` (19 passed). | The packaged offline CLI command and governed runtime custody evidence remain open. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. | `current change`; current source and focused checks listed in the scope table. | Close the PostgreSQL, packaged CLI, and governed artifact-custody evidence below. |
 | 2026-08-14 | implemented | Added the missing PostgreSQL trajectory metadata adapter and proved retention semantics against a live database. | `current change`; `test_postgres_trajectory.py` passed three cases with zero skips against a disposable supported database. | Add focused export and packaged CLI checks, then retain governed artifact-custody evidence. |
 | 2026-08-14 | implemented | Hardened retention with a durable `deleting` claim and idempotent crash recovery before tombstone. | `current change`; focused core, PostgreSQL, and migration checks passed 186 cases. | Retain governed artifact-custody evidence over the same claim protocol. |
 | 2026-08-14 | implemented | Blocked schema downgrade while any external deletion claim is active instead of guessing an unsafe completed state. | `current change`; focused Core, PostgreSQL, and migration checks passed 187 cases. | Reconcile active claims before an intentional downgrade. |
 | 2026-08-14 | implemented | Executed the exact migration downgrade guard against an active PostgreSQL deletion claim and verified SQLSTATE `55000`. | `current change`; focused Core, PostgreSQL, and migration checks passed 188 cases. | Keep the guard in the migration-focused validation lane. |
+| 2026-08-15 | implemented | Added focused exporter, scanner, quarantine, checksum, offline-validation, and judge-only replay checks over generated JSONL and manifest artifacts. | `current change`; `services/core-control-plane/tests/core/trajectory/test_export_and_validation.py`; `pytest services/core-control-plane/tests/core/trajectory/test_export_and_validation.py` (19 passed). | The packaged offline CLI command and governed runtime custody evidence remain open. |
 
 ### Remaining work
 
