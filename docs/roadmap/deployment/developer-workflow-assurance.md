@@ -297,10 +297,14 @@ deadline, a no-progress deadline, a progress signal, and a resumable checkpoint.
   deadline bounds one attempt; a breach is recorded as a distinct failure reason.
 - A checkpoint resumes only when the source revision, configuration digest, workspace patch
   digest, and ordered cohort all match, and a corrupt or torn checkpoint restarts the cohort.
-- A completed cohort retires its checkpoint before the artifact is published, and a run that
-  performs no live turn can never report a passing or production-ready artifact.
+- A completed cohort retires its checkpoint after the artifact is published and before the
+  assertions, so a failed publish cannot destroy a complete cohort and a later run cannot replay
+  one; a run that performs no live turn can never report a passing or production-ready artifact.
 
+## Related docs
 
+| To learn about | Read |
+|----------------|------|
 | Local and deployed runtime parity | [Runtime parity](dev-and-deploy-parity.md) |
 | Repository validation commands | [Scripts reference](../../../scripts/README.md) |
 | Deployment safety | [Deployment preflight](deployment-preflight.md) |

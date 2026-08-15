@@ -118,6 +118,15 @@ flowchart TD
     THR -->|yes| ELIG[execution-eligible to risk gate]
 ```
 
+### 루브릭 게이트 (환각 필터)
+
+선택적인 다섯 번째 축이 후보의 추론을 고정된 기준(충실도, 근거-행동 정합성, 완전성,
+일관성)으로 채점하고 최저 점수를 `min()`으로 confidence에 반영합니다. **감산 전용**이므로
+루브릭은 자격을 낮출 수는 있어도 절대 높일 수 없습니다. Shadow 우선으로 도입하며(promotion
+게이트를 충족할 때까지 판정 후 기록만), 평가기 오류 시 HIL로 fail-closed 처리합니다. 판정자는
+제안자와 다른 publisher여야 합니다(모델이 자기 답을 채점할 수 없습니다). 전체 설계는
+[hallucination-rubric-gate.md](../decisioning/hallucination-rubric-gate-ko.md)를 참고하세요.
+
 ## 프롬프트 인젝션 방어
 
 이벤트 페이로드와 도구 출력은 **신뢰할 수 없는** 이며 직접 또는 간접 프롬프트 인젝션 운반 가능

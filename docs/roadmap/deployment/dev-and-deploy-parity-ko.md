@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 977a1a72901f0d6987c2cd9acc49635257c99817
+translation_source_sha: f99b7bd15011b69a3348ae375a55d93ddd030538
 translation_revised: 2026-08-15
 ---
 
@@ -71,6 +71,7 @@ translation_revised: 2026-08-15
 | 2026-08-15 | implemented | 로컬 서비스 실행기가 서비스가 실제로 소유하는 싱글턴을 확인하도록 해서, 런타임 lock 또는 포트가 이미 다른 인스턴스 소유일 때 실패가 예정된 자식 프로세스를 띄우지 않고 중단하도록 했습니다. | `current change`, `scripts/automation/run-local-service.sh`와 `tests/integration/scripts/test_run_local_service.py`, 실행기 테스트 11건 통과, 두 백엔드 작업 모두 provider 스택 추적 대신 `service already running`을 보고. | Console dev 서버는 자체 작업이 직접 실행하므로 포트 충돌은 아직 Vite 오류로 드러납니다. |
 | 2026-08-15 | implemented | 배포 준비 상태 polling의 job별, app별 시도 횟수 곱을 누적 migration deadline 하나와 누적 revision deadline 하나로 대체했습니다. | `current change`, `.github/workflows/deploy-dev.yml`, focused workflow 계약 테스트 통과. | 남은 준비 대기는 provider에 종속되며 선언된 deadline으로 보고됩니다. |
 | 2026-08-15 | implemented | Poll 주기 1회와 ARM start 왕복이 공유 deadline 안에 들어갈 때만 migration job을 시작하도록 했습니다. | `current change`, `.github/workflows/deploy-dev.yml`, focused workflow 계약 테스트 통과. | 여유값은 고정 45초 추정치이므로 그보다 느린 start는 job이 실행 중인데도 미완료로 보고될 수 있습니다. 해당 단계는 조용히 넘어가지 않고 명시적으로 실패합니다. |
+| 2026-08-15 | implemented | 앞 두 행의 근거를 정정합니다. Deadline과 여유값을 단언하는 focused 테스트는 없으므로 workflow는 YAML 파싱과 배포 계약 suite로 검증했고 제한은 단계 자체가 강제합니다. | `current change`, `deploy-dev.yml`이 유효한 YAML로 파싱되고 script 통합 suite 1151개 통과입니다. | 선언된 deadline 값에 대한 focused 단언은 남아 있습니다. |
 ### 잔여 작업
 
 - [ ] FDAI 전용 Remote WSL server data root 또는 WSL 배포판을 마련한 뒤 제외 대상 workspace를 변경하지 않고 재시작한 Pylance process command에 `--max-old-space-size=2048`이 포함됨을 기록합니다.

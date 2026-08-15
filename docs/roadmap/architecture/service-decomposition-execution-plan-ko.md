@@ -1,7 +1,7 @@
 ---
 translation_of: service-decomposition-execution-plan.md
-translation_source_sha: f971e56fdb5abba0de6d786e6388a876ee254bd3
-translation_revised: 2026-08-14
+translation_source_sha: 71f202b15adcffa8b6bd14eb5964839a9e37246c
+translation_revised: 2026-08-15
 ---
 # 서비스 분해 실행 계획
 
@@ -340,9 +340,7 @@ peer 상태 4개가 그대로였음을 증명할 수 있도록 직렬 실행합�
 | 2026-08-10 | IS-09 | Encoded 맥락 거절 | 라운드 60 | Customer-agnostic 근거 검토에서 percent-encoded Azure 경로와 간결한 GUID 값이 리터럴 식별자 검사를 우회할 수 있는 문제를 확인했습니다. 이제 검증은 근거 필드를 읽기 전에 범위가 제한된 URL 디코딩을 수행하고 exact 간결한 GUID 값을 거부합니다. |
 | 2026-08-10 | IS-09 | Exact 원격 매니페스트 스키마 | 라운드 61 | Manifest-shape 검토에서 원격 검증기가 정본 전이 키와 서비스 커버리지를 outer 검사기에 의존하는 문제를 확인했습니다. 이제 검증기는 exact 전이 스키마와 unique 정본 서비스 선언 5개를 독립적으로 요구합니다. |
 | 2026-08-10 | IS-09 | 완료 의존성 결합 | 라운드 62 | Work-package 검토에서 program-final 경로가 원격 완료는 검사하지만 IS-09 의존성 2개를 독립적으로 결합하지 않는 문제를 확인했습니다. 이제 IS-09 완료는 IS-07과 IS-08이 completed 상태를 유지해야 합니다. |
-
 | 2026-08-10 | IS-09 | Trusted GitHub 근거 연결 | 라운드 63 | Final-proof 비평에서 tracked JSON의 internally consistent 실행 id, 시각, 산출물 다이제스트 및 peer 상태가 여전히 self-asserted인 문제를 확인했습니다. 이제 dedicated 읽기 전용 작업 흐름이 모든 실행을 GitHub API와 대조하고 각 계획 메타데이터와 peer 증적 산출물을 download하여 검사하며 deployment-input 동등성과 이미지 증명을 다시 검사한 뒤 집계에 서명합니다. Program-final 완료는 해당 exact 서명자와 출처 개정 번호에 대한 portable 번들 검증을 요구합니다. |
-
 | 2026-08-10 | IS-09 | 복구 개정 번호 메타데이터 가드 | 라운드 64 | 검증된 Core 롤백이 Terraform 상태 외부에서 Azure의 computed 최신 개정 번호 이름과 개정 번호 접미사를 변경하여 런타임 및 권한 필드가 그대로인데도 다음 standard 계획이 차단됐습니다. 이제 가드는 computed 식별자 2개만 수락하며 컨테이너, 신원, 시크릿, platform 또는 권한 표류는 계속 부적격입니다. |
 | 2026-08-10 | IS-09 | Observable sidecar 계약 정규화 | 라운드 65 | 워커 적용 `31352359688`은 exact 검토된 이미지와 healthy 개정 번호를 배포했지만 post-apply 검증은 비어 있는 `args`, `env`, `volume_mounts` 및 `ephemeral_storage` 같은 Terraform 컨테이너 필드를 해당 기본값을 생략하고 CPU와 기억을 `resources` 아래에 중첩하는 Azure Resource Manager 개정 번호 형태와 비교했습니다. 이제 sealed sidecar 다이제스트는 ARM에서 관찰 가능한 exact 이름, CPU 및 기억 계약을 포함합니다. 변경할 수 없는 이미지와 탐색 다이제스트는 계속 분리되며 검토된 Terraform 계획은 관찰할 수 없는 필드를 계속 보호합니다. 알 수 없거나 비어 있지 않은 지원하지 않는 런타임 필드는 계속 실패 시 차단으로 처리합니다. |
 | 2026-08-10 | IS-09 | 도입 and compatibility-proof separation | 라운드 66 | 근거 검토에서 positional `initial` N 단계가 one-time `initial-cutover` 배포 모드를 사용하도록 잘못 요구하는 문제를 확인했습니다. One-time 상태 및 스키마 도입은 preparatory 서비스 전이이며 corrected 이미지 출처마다 반복할 수 없습니다. 이제 최종 원격 N -> N-1 -> N 호환성 증명은 서비스 5개가 모두 adopted 상태가 된 이후에만 시작하고 모든 단계에 standard protected 계획을 요구합니다. 이를 통해 repeated 도입을 방지하면서 fresh 개정 번호, 롤백 및 peer-isolation 근거를 유지합니다. |
