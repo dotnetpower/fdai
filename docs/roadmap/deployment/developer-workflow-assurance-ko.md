@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 56a4a6af5440c41a46cf3dc65868701002c81b35
+translation_source_sha: 13ab3e7f9be1da66f3159c2f4b072c06f1a0aed1
 translation_revised: 2026-08-15
 ---
 
@@ -181,8 +181,8 @@ throttle, permanent error 및 retry exhaustion 집중 테스트가 해당 동작
 
 ### Top 20 보증 결과
 
-확장 캠페인은 라운드 11부터 28까지 18개 라운드를 완료했습니다. 독립 검토에서 추가 hardening
-및 evidence 라운드 8개가 열렸기 때문입니다.
+확장 캠페인은 라운드 11부터 32까지 22개 라운드를 완료했습니다. 독립 검토에서 추가 hardening
+및 evidence 라운드 12개가 열렸기 때문입니다.
 
 | 라운드 | 결과 | 근거 |
 |-------:|------|------|
@@ -204,11 +204,15 @@ throttle, permanent error 및 retry exhaustion 집중 테스트가 해당 동작
 | 26 | 수락 | 명시적인 selector contract가 `developer-workflow.py` 변경이 `tests/integration/scripts`만 선택함을 증명합니다. |
 | 27 | 수락 | 실제 pre-tool dispatcher가 direct, absolute, `git -C`, `env` 및 shell-wrapped mutation과 commit을 deny policy로 전달합니다. |
 | 28 | 수락 | Validator scratch 준비는 reset 또는 clean 전에 symbolic-link path를 거부하며 sentinel 테스트가 target이 변경되지 않음을 증명합니다. |
+| 29 | 수락 | Empty commit pathspec, forged comment approval, Git alias 및 symbolic-link state root가 실제 hook과 validator path에서 fail-closed 처리됩니다. |
+| 30 | 수락 | Config-env alias와 mid-word hash token은 destructive operation 또는 commit-scope policy를 우회할 수 없습니다. |
+| 31 | 수락 | 값이 이전 shell export에서 왔더라도 해석되지 않은 config-env alias definition은 fail-closed 처리됩니다. |
+| 32 | 수락 | 반복된 모든 config-env option을 scan하며 separate 및 equals form을 destructive 및 commit alias에 고정했습니다. |
 
 Review-driven 라운드 전에 focused integration 테스트 231개가 통과했습니다. 최종 focused suite는
-통합 dispatcher 및 guard 테스트 19개, scratch ownership 테스트 39개, validation queue 테스트
+통합 dispatcher 및 parser fixture 40개, scratch ownership guard 3개, validation queue 테스트
 37개 및 validator와 selector 테스트 85개가 통과했습니다. 변경된 workflow source의 Ruff와
-strict mypy도 통과했습니다.
+strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하는 잔존 사항이 없었습니다.
 
 남은 Low 위험은 명시적이고 제한됩니다.
 
@@ -245,6 +249,7 @@ strict mypy도 통과했습니다.
 | 2026-08-15 | implemented | 순위 11부터 20까지 추가 비평 및 hardening 라운드 14개를 완료했습니다. | 현재 변경, 위 Top 20 보증 결과, focused tests, Ruff 및 strict mypy입니다. | Exact revision을 통합하고 중앙 검증을 받은 후 이슈 #118을 완료합니다. |
 | 2026-08-15 | implemented | Validator scratch 소유권과 focused automation test 선택을 고정하는 review evidence 라운드 2개를 추가했습니다. | 현재 변경, validator 및 selector suite 테스트 85개 통과입니다. | Exact revision을 통합하고 중앙 검증을 받은 후 이슈 #118을 완료합니다. |
 | 2026-08-15 | implemented | 실제 pre-tool dispatcher와 validator scratch symlink 경계의 integration-level 우회를 닫았습니다. | 현재 변경, dispatcher 및 guard 테스트 19개와 scratch ownership 테스트 2개 통과입니다. | Exact 중앙 검증을 받고 이슈 #118을 완료합니다. |
+| 2026-08-15 | implemented | Commit scope, approval comment, Git alias, config-env option form 및 symlink ancestor를 다루는 adversarial parser 라운드 4개를 닫았습니다. | 현재 변경, dispatcher 및 parser fixture 40개와 scratch ownership guard 3개 통과이며 독립 acceptance에서 Low를 초과하는 잔존 사항이 없었습니다. | Exact 중앙 검증을 받고 이슈 #118을 완료합니다. |
 
 ### 남은 작업
 
@@ -252,7 +257,7 @@ strict mypy도 통과했습니다.
   기록했습니다.
 - [x] 중앙 검증이 통합 구현 revision `d3f5257b9`를 수락했습니다.
 - [x] 최종 독립 검토에서 Low를 초과하는 잔존 발견 사항이 없었습니다.
-- [x] 위의 제한된 Low 잔존 사항만 남기고 추가 라운드 18개를 완료했습니다.
+- [x] 위의 제한된 Low 잔존 사항만 남기고 추가 라운드 22개를 완료했습니다.
 - [ ] Exact Top 20 revision을 통합하고 중앙 검증을 받은 후 이슈 #118을 완료합니다.
 
 ## 관련 문서

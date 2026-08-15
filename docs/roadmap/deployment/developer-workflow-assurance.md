@@ -175,7 +175,7 @@ independent review with no residual above Low.
 
 ### Top 20 assurance results
 
-The extension completed 18 rounds, numbered 11 through 28 because independent review opened eight
+The extension completed 22 rounds, numbered 11 through 32 because independent review opened 12
 additional hardening and evidence rounds.
 
 | Round | Result | Evidence |
@@ -198,11 +198,15 @@ additional hardening and evidence rounds.
 | 26 | accepted | An explicit selector contract proves `developer-workflow.py` changes select only `tests/integration/scripts`. |
 | 27 | accepted | The real pre-tool dispatcher routes direct, absolute, `git -C`, `env`, and shell-wrapped mutations and commits into the deny policy. |
 | 28 | accepted | Validator scratch preparation rejects a symbolic-link path before reset or clean, and a sentinel test proves the target remains unchanged. |
+| 29 | accepted | Empty commit pathspecs, forged comment approvals, Git aliases, and symbolic-link state roots fail closed through the real hook and validator paths. |
+| 30 | accepted | Config-env aliases and mid-word hash tokens cannot bypass destructive-operation or commit-scope policy. |
+| 31 | accepted | Unresolved config-env alias definitions fail closed even when their values came from an earlier shell export. |
+| 32 | accepted | Every repeated config-env option is scanned; separate and equals forms are pinned for destructive and commit aliases. |
 
 Focused integration passed 231 tests before the review-driven rounds. The final focused suites
-passed 19 integrated dispatcher and guard tests, 39 scratch ownership tests, 37 validation-queue
-tests, and 85 validator plus selector tests. Ruff and strict mypy passed on the changed workflow
-source.
+passed 40 integrated dispatcher and parser fixtures, 3 scratch ownership guards, 37
+validation-queue tests, and 85 validator plus selector tests. Ruff and strict mypy passed on the
+changed workflow source. The final independent review found no residual above Low.
 
 The remaining Low risks are explicit and bounded:
 
@@ -239,6 +243,7 @@ The remaining Low risks are explicit and bounded:
 | 2026-08-15 | implemented | Completed 14 additional critique and hardening rounds for ranks 11 through 20. | Current change; the Top 20 assurance results above, focused tests, Ruff, and strict mypy. | Integrate the exact revision, obtain central validation, and complete issue #118. |
 | 2026-08-15 | implemented | Added two review-evidence rounds that pin validator scratch ownership and focused automation test selection. | Current change; validator and selector suites passed 85 tests. | Integrate the exact revision, obtain central validation, and complete issue #118. |
 | 2026-08-15 | implemented | Closed integration-level bypasses in the real pre-tool dispatcher and validator scratch symlink boundary. | Current change; 19 dispatcher and guard tests plus 2 scratch ownership tests passed. | Obtain exact central validation and complete issue #118. |
+| 2026-08-15 | implemented | Closed four adversarial parser rounds covering commit scope, approval comments, Git aliases, config-env option forms, and symlink ancestors. | Current change; 40 dispatcher and parser fixtures plus 3 scratch ownership guards passed, and independent acceptance found no residual above Low. | Obtain exact central validation and complete issue #118. |
 
 ### Remaining work
 
@@ -246,7 +251,7 @@ The remaining Low risks are explicit and bounded:
   rejected findings above.
 - [x] Central validation accepted integrated implementation revision `d3f5257b9`.
 - [x] The final independent review found no residual finding above Low.
-- [x] Completed 18 additional rounds with only the bounded Low residuals listed above.
+- [x] Completed 22 additional rounds with only the bounded Low residuals listed above.
 - [ ] Integrate the exact Top 20 revision, obtain central validation, and complete issue #118.
 
 ## Related docs
