@@ -149,6 +149,34 @@ def _within_session_capacity(active_sessions: int, maximum: int) -> bool:
     return active_sessions <= maximum
 
 
+def _campaign_relation(*, ahead: int, behind: int) -> str:
+    if ahead > 0 and behind > 0:
+        return "diverged"
+    if ahead > 0:
+        return "ahead"
+    if behind > 0:
+        return "behind"
+    return "current"
+
+
+def _sync_campaign_base(repo_root: Path) -> str:
+    """Fast-forward an idle campaign branch or report why work must hold."""
+    ahead = int(_git("rev-list", "--count", "main..HEAD", cwd=repo_root))
+    behind = int(_git("rev-list", "--count", "HEAD..main", cwd=repo_root))
+    relation = _campaign_relation(ahead=ahead, behind=behind)
+    if relation != "behind":
+        return relation
+    result = subprocess.run(  # noqa: S603 - fixed git fast-forward operation
+        ["git", "merge", "--ff-only", "main"],
+        cwd=repo_root,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    return "current" if result.returncode == 0 else "sync-failed"
+
+
 def campaign_prompt(
     folder: str,
     candidates: Sequence[str],
@@ -331,6 +359,11 @@ def run_cycle(
         branch = _git("branch", "--show-current", cwd=repo_root)
         if not branch.startswith("roadmap-implementation/"):
             return "held: campaign branch is not isolated"
+        relation = _sync_campaign_base(repo_root)
+        if relation == "diverged":
+            return "held: campaign branch diverged from main"
+        if relation == "sync-failed":
+            return "held: campaign branch could not fast-forward to main"
         if _git("rev-list", "--count", "main..HEAD", cwd=repo_root) != "0" and not (
             _validation_receipt_exists(repo_root, "HEAD")
         ):
