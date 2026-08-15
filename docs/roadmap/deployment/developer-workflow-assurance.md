@@ -23,6 +23,7 @@ commands:
 | `status` | Aggregates Git, validation, handover, test-environment, hook-risk, local-service, browser-runner, and editor-pressure diagnostics. |
 | `resume` | Renders the latest relevant handover with current validation and worktree drift. |
 | `context-plan <path>...` | Prints deduplicated current design documents and focused checks for the target paths. |
+| `preflight` | Fails before a focused check when the Git index, hook state, Python path, virtual environment, or database identity is contaminated. |
 | `--json` | Emits one versioned object with explicit `ok`, `warning`, or `unavailable` states. |
 
 The command reads existing Git-common-dir state and process metadata. It does not add a second
@@ -119,18 +120,49 @@ The implementation sequence keeps one finding per round:
 | 11 | Existing-control adversarial review | Design-context, route, and port-pool focused suites |
 | 12 | Integrated residual-risk review | All campaign-focused checks and exact diff selection |
 
+## Assurance results
+
+The campaign completed 13 independent rounds. Each accepted finding landed in a focused commit,
+and rejected findings cite an existing control or direct test.
+
+| Round | Result | Focused evidence |
+|------:|--------|------------------|
+| 1 | accepted | Versioned read-only status schema; 2 workflow tests passed. |
+| 2 | accepted | Shared index overlap diagnosis; 3 workflow tests passed. |
+| 3 | accepted, then hardened again in round 13 | Pending age and receipt latency; 4 workflow tests passed. |
+| 4 | accepted | Deduplicated route documents and checks; 93 design-context and workflow tests passed. |
+| 5 | accepted, then hardened again in round 13 | Handover schema v2 and drift; 8 handover and workflow tests passed. |
+| 6 | accepted | Secret-free environment contamination preflight; 7 workflow tests passed. |
+| 7 | accepted | Hook recovery classification; 8 workflow tests passed. |
+| 8 | accepted, then hardened again in round 13 | Browser leases and six-service readiness; 10 workflow tests passed. |
+| 9 | accepted | Host and client pressure separation; 11 tests passed in 1.01 seconds after removing unnecessary client probes. |
+| 10 | accepted | Azure transient-only bounded retry; 6 preflight tests passed without Azure access. |
+| 11 | accepted | Existing controls: 163 Python tests and 6 Playwright port-pool tests passed. |
+| 12 | accepted | Collectors split to 248, 276, and 195 lines; 11 workflow tests passed. |
+| 13 | accepted | Window uncertainty, invalid receipts, malformed handover, and wrong-checkout core readiness fail closed; 48 tests passed. |
+
+The final independent re-review found no residual above Low. It accepted these bounded Low risks:
+
+- Only 20 overlap paths render, while `overlap_count` retains the exact total.
+- Linux PSI thresholds are conservative fixed diagnostics, not authority or autoscaling decisions.
+- A target symlink that resolves outside the repository is rejected with
+  `context_target_outside_repository`.
+
+The review also rejected one false finding that Azure retry was absent. Commit `583398431` and the
+focused throttle, permanent-error, and retry-exhaustion tests prove that implementation.
+
 ## Implementation status
 
 ### Implementation scope
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Shared writes and hooks | in-progress | Existing `scripts/agent/design_context.py` and pre-commit overlap guards | Campaign verification and diagnostics remain. |
-| Validation and handover | in-progress | Existing validation queue and `scripts/automation/session-handover.py` | Latency evidence and resumable state remain. |
-| Hermetic checks and local services | in-progress | Existing changed-test isolation and local service tasks | One bounded preflight surface remains. |
+| Shared writes and hooks | implemented | `developer_workflow_repository.py`; workflow tests for overlap and recovery classification | Enforcement remains in existing hooks. |
+| Validation and handover | implemented | Versioned queue records, bounded latency diagnostics, handover schema v2; 48 final focused tests passed | Window uncertainty and malformed state fail closed. |
+| Hermetic checks and local services | implemented | Workflow environment preflight and checkout-owned service readiness; focused workflow tests | The diagnostic never starts or restarts a service. |
 | Browser and editor pressure | implemented | Existing focused Playwright entry points, 10-slot lease pool, and profile pressure controls | Final critique must verify no Medium residual. |
-| Remote preflight | in-progress | Existing read-only Azure preflight with per-call timeout | Bounded transient retry remains. |
-| Ten-round assurance | in-progress | Issue #116 exit criteria and the critique sequence in this document | At least 10 independent rounds must pass. |
+| Remote preflight | implemented | `live_preflight/transport.py`; 6 focused tests | At most three read attempts; permanent errors fail immediately. |
+| Ten-round assurance | implemented | 13 rounds and final independent re-review recorded above | No residual finding exceeds Low. |
 
 ### Implementation history
 
@@ -138,13 +170,14 @@ The implementation sequence keeps one finding per round:
 |------|-------|--------|----------|-----------|
 | 2026-08-15 | in-progress | Adopted the developer workflow assurance owner and bounded the campaign; earlier implementation provenance was not reconstructed. | Current change and existing controls listed in the scope table. | Complete the focused rounds and final residual-risk review. |
 | 2026-08-15 | in-progress | Revised the design after independent critique by defining the CLI contract, bounded evidence windows, failure behavior, authority separation, and 12-round sequence. | Current change; roadmap, translation, and punctuation checks. | Implement and verify each accepted finding. |
+| 2026-08-15 | implemented | Completed 13 critique-and-hardening rounds and removed every reproducible Medium-or-higher residual. | Current change; 163 focused Python control tests, 6 Playwright port-pool tests, 48 final false-ready tests, Ruff, and the final independent review. | Record the centralized validation receipt for the integrated revision. |
 
 ### Remaining work
 
-- [ ] Complete at least 10 independent critique rounds with focused checks and record every accepted
-  or rejected finding.
+- [x] Completed 13 independent critique rounds with focused checks and recorded accepted and
+  rejected findings above.
 - [ ] Record one central validation receipt for the integrated campaign commit.
-- [ ] Close issue #116 only after the final review finds no residual finding above Low.
+- [x] The final independent review found no residual finding above Low.
 
 ## Related docs
 
