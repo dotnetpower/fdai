@@ -12,7 +12,7 @@ import shutil
 import subprocess
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 if __package__ in {None, ""}:
@@ -385,6 +385,88 @@ def status(paths: QueuePaths, *, show_all: bool = False) -> int:
     return 0
 
 
+def _checkout_head_commits(paths: QueuePaths) -> tuple[str, ...]:
+    output = git("worktree", "list", "--porcelain", cwd=paths.repo_root).stdout
+    return tuple(
+        line.removeprefix("HEAD ").strip()
+        for line in output.splitlines()
+        if line.startswith("HEAD ") and COMMIT_PATTERN.fullmatch(line.removeprefix("HEAD ").strip())
+    )
+
+
+def _pending_enqueued_at(path: Path) -> datetime | None:
+    try:
+        payload: object = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    value = payload.get("enqueued_at") if isinstance(payload, dict) else None
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo is not None else None
+
+
+def _commit_is_retained(paths: QueuePaths, commit: str, checkout_heads: tuple[str, ...]) -> bool:
+    if any(
+        git(
+            "merge-base",
+            "--is-ancestor",
+            commit,
+            head,
+            cwd=paths.repo_root,
+            check=False,
+        ).returncode
+        == 0
+        for head in checkout_heads
+    ):
+        return True
+    refs = git(
+        "for-each-ref",
+        "--contains",
+        commit,
+        "--format=%(refname)",
+        cwd=paths.repo_root,
+        check=False,
+    )
+    return refs.returncode == 0 and bool(refs.stdout.strip())
+
+
+def prune_stale(paths: QueuePaths, *, min_age_hours: int, apply: bool) -> int:
+    """Preview or retire old pending records unreachable from all checkouts and refs."""
+    initialize(paths)
+    cutoff = datetime.now(UTC) - timedelta(hours=min_age_hours)
+    checkout_heads = _checkout_head_commits(paths)
+    candidates: list[Path] = []
+    retained = 0
+    recent_or_invalid = 0
+    for path in sorted(paths.pending.glob("*.json")):
+        if not COMMIT_PATTERN.fullmatch(path.stem):
+            recent_or_invalid += 1
+            continue
+        enqueued_at = _pending_enqueued_at(path)
+        if enqueued_at is None or enqueued_at > cutoff:
+            recent_or_invalid += 1
+            continue
+        if (paths.receipts / path.name).is_file() or _commit_is_retained(
+            paths, path.stem, checkout_heads
+        ):
+            retained += 1
+            continue
+        candidates.append(path)
+    if apply:
+        for path in candidates:
+            path.unlink()
+    print(
+        "validation-queue: stale pending "
+        f"candidates={len(candidates)} retained={retained} "
+        f"recent_or_invalid={recent_or_invalid} apply={str(apply).lower()}"
+    )
+    return 0
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -407,6 +489,9 @@ def _parser() -> argparse.ArgumentParser:
     subparsers.add_parser("wake")
     status_parser = subparsers.add_parser("status")
     status_parser.add_argument("--all", action="store_true", dest="all_pending")
+    prune_parser = subparsers.add_parser("prune-stale")
+    prune_parser.add_argument("--min-age-hours", type=int, default=24)
+    prune_parser.add_argument("--apply", action="store_true")
     return parser
 
 
@@ -449,6 +534,15 @@ def main(argv: list[str] | None = None) -> int:
         return drain(paths)
     if arguments.command == "wake":
         return wake(paths)
+    if arguments.command == "prune-stale":
+        if arguments.min_age_hours <= 0:
+            print("validation-queue: --min-age-hours must be positive", file=sys.stderr)
+            return 2
+        return prune_stale(
+            paths,
+            min_age_hours=arguments.min_age_hours,
+            apply=arguments.apply,
+        )
     return status(paths, show_all=arguments.all_pending)
 
 
