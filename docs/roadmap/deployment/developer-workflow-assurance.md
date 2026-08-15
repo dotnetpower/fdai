@@ -246,6 +246,7 @@ The remaining Low risks are explicit and bounded:
 | 2026-08-15 | implemented | Closed four adversarial parser rounds covering commit scope, approval comments, Git aliases, config-env option forms, and symlink ancestors. | Current change; 40 dispatcher and parser fixtures plus 3 scratch ownership guards passed, and independent acceptance found no residual above Low. | Obtain exact central validation and complete issue #118. |
 | 2026-08-15 | validated | Central validation accepted the final Top 20 implementation and assurance ledger revision. | `validation_queue.py check-commit 4a18ce982` passed; the final focused join passed 221 tests. | Complete issue #118 and synchronize the project board. |
 | 2026-08-15 | in-progress | Started the measured bounded-wait campaign for issue #122 after session evidence showed 51 wait complaints across 36 sessions. | Issue #122 and the baselines in the bounded wait campaign table. | Implement the bounded budgets and complete at least 10 critique rounds. |
+| 2026-08-15 | implemented | Bound the assurance checkpoint to an evidence identity instead of the full run configuration, so a per-run session id or an adjusted pacing, deadline, or retry knob no longer discards completed turns, and attributed every retained result to its producing run. | Current change; console suite 1793 passed and TypeScript project check clean. | Complete the remaining hardening rounds for issue #122. |
 
 ### Remaining work
 
@@ -295,8 +296,13 @@ deadline, a no-progress deadline, a progress signal, and a resumable checkpoint.
   checkpoint, and fails with an explicit stop reason instead of reaching an opaque harness timeout.
 - The no-progress deadline bounds one whole question including its retries, and the per-question
   deadline bounds one attempt; a breach is recorded as a distinct failure reason.
-- A checkpoint resumes only when the source revision, configuration digest, workspace patch
-  digest, and ordered cohort all match, and a corrupt or torn checkpoint restarts the cohort.
+- A checkpoint resumes only when the source revision, workspace patch digest, evidence identity,
+  and ordered cohort all match, and a corrupt or torn checkpoint restarts the cohort.
+- The evidence identity covers the result schema, cohort seed, ordered question ids, and
+  authentication mode. It excludes the per-run session id and the pacing, deadline, and retry
+  knobs, because those change what a run costs rather than whether a completed answer is still
+  valid evidence. Every retained result records the run that produced it, so a resumed cohort
+  stays attributable and a result without that attribution cannot pass.
 - A completed cohort retires its checkpoint after the artifact is published and before the
   assertions, so a failed publish cannot destroy a complete cohort and a later run cannot replay
   one; a run that performs no live turn can never report a passing or production-ready artifact.

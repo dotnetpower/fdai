@@ -19,8 +19,10 @@ import {
   writeAssuranceCheckpoint,
 } from "./assurance-checkpoint";
 import { restoreBrowserEntraSessionStorage } from "./browser-entra-state";
+import { canonicalJsonDigest } from "./browser-evidence-provenance";
 import { isOntologyAssuranceProductionReady } from "./ontology-query-assurance-readiness";
 import {
+  assuranceEvidenceIdentity,
   assuranceOperations,
   assuranceTransportRetrySources,
   buildAssuranceRunProvenance,
@@ -70,6 +72,7 @@ interface RetainedTransportAttempt {
 
 interface RetainedTurnResult {
   readonly question_id: string;
+  readonly produced_by_run_id: string;
   readonly locale: AssuranceQuestion["locale"];
   readonly operation: AssuranceQuestion["operation"];
   readonly attempt_count: number;
@@ -243,9 +246,14 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     runConfiguration,
   );
   const checkpointFile = checkpointPath(runScope, questions.length);
+  const checkpointBinding = {
+    source_revision: provenance.source_revision,
+    evidence_identity_digest: canonicalJsonDigest(assuranceEvidenceIdentity(runConfiguration)),
+    workspace_patch_digest: provenance.workspace_patch_digest,
+  };
   const resumed = checkpointFile === null ? [] : resumableResults(
     await readAssuranceCheckpoint<RetainedTurnResult>(checkpointFile),
-    { binding: provenance, questionIds },
+    { binding: checkpointBinding, questionIds },
   );
   const retained: RetainedTurnResult[] = [...resumed];
   const outstanding = pendingQuestions(questions, retained);
@@ -283,6 +291,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
       const receipt = "receipt" in judgment ? judgment.receipt : undefined;
       retained.push({
         question_id: question.question_id,
+        produced_by_run_id: runId,
         locale: question.locale,
         operation: question.operation,
         attempt_count: transportAttempts.length,
@@ -318,7 +327,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     if (checkpointFile !== null) {
       await writeAssuranceCheckpoint(
         checkpointFile,
-        buildAssuranceCheckpoint(provenance, questionIds, retained),
+        buildAssuranceCheckpoint(checkpointBinding, questionIds, retained),
       );
     }
     const latest = retained.at(-1)!;
@@ -368,6 +377,12 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     )
   ).length;
   const liveQuestionCount = retained.length - resumed.length;
+  const producedByRunIdCounts: Record<string, number> = {};
+  for (const result of retained) increment(producedByRunIdCounts, result.produced_by_run_id);
+  const attributedOutcomeCount = retained.filter(
+    (result) => typeof result.produced_by_run_id === "string" &&
+      result.produced_by_run_id.length > 0,
+  ).length;
   const answeredResults = retained.filter((result) => result.disposition === "answered");
   const answeredEvidenceCount = answeredResults.filter((result) =>
     result.evidence_ref_count !== undefined && result.evidence_ref_count > 0 &&
@@ -400,6 +415,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     })));
   const passed = stopReason === null && retained.length === questions.length &&
     liveQuestionCount > 0 &&
+    attributedOutcomeCount === retained.length &&
     failures.length === 0 &&
     exhaustedTransportRetryCount === 0 &&
     duplicateRequestIds === 0 && duplicateProjectionIds === 0 &&
@@ -422,6 +438,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     receipt_source: "live_assurance",
     run_scope: runScope,
     ...provenance,
+    evidence_identity_digest: checkpointBinding.evidence_identity_digest,
     run_configuration: runConfiguration,
     started_at: startedAt,
     completed_at: new Date().toISOString(),
@@ -442,6 +459,7 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     summary: {
       question_count: retained.length,
       resumed_question_count: resumed.length,
+      produced_by_run_id_counts: producedByRunIdCounts,
       live_question_count: liveQuestionCount,
       deadline_exceeded_count: deadlineExceededCount,
       passed_count: retained.length - failures.length,

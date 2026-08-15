@@ -5,11 +5,11 @@ import { dirname } from "node:path";
 
 import { canonicalJsonDigest } from "./browser-evidence-provenance";
 
-export const ASSURANCE_CHECKPOINT_SCHEMA_VERSION = "1.0.0";
+export const ASSURANCE_CHECKPOINT_SCHEMA_VERSION = "2.0.0";
 
 export interface AssuranceCheckpointBinding {
   readonly source_revision: string;
-  readonly configuration_digest: string;
+  readonly evidence_identity_digest: string;
   readonly workspace_patch_digest: string;
 }
 
@@ -35,14 +35,14 @@ function isStringArray(value: unknown): value is readonly string[] {
 
 function parseBinding(value: unknown): AssuranceCheckpointBinding | null {
   if (!isPlainObject(value)) return null;
-  const { source_revision, configuration_digest, workspace_patch_digest } = value;
+  const { source_revision, evidence_identity_digest, workspace_patch_digest } = value;
   if (
-    typeof source_revision !== "string" || typeof configuration_digest !== "string" ||
+    typeof source_revision !== "string" || typeof evidence_identity_digest !== "string" ||
     typeof workspace_patch_digest !== "string"
   ) {
     return null;
   }
-  return { source_revision, configuration_digest, workspace_patch_digest };
+  return { source_revision, evidence_identity_digest, workspace_patch_digest };
 }
 
 /**
@@ -89,7 +89,7 @@ export function resumableResults<TResult extends AssuranceCheckpointResult>(
   const { binding, questionIds } = expected;
   if (
     checkpoint.binding.source_revision !== binding.source_revision ||
-    checkpoint.binding.configuration_digest !== binding.configuration_digest ||
+    checkpoint.binding.evidence_identity_digest !== binding.evidence_identity_digest ||
     checkpoint.binding.workspace_patch_digest !== binding.workspace_patch_digest
   ) {
     return [];

@@ -63,6 +63,32 @@ export interface AssuranceRunProvenance {
   readonly workspace_patch_digest: string;
 }
 
+/** The configuration fields that decide whether an earlier result is still comparable evidence. */
+export interface AssuranceEvidenceIdentity {
+  readonly schema_version: AssuranceRunConfiguration["schema_version"];
+  readonly seed: number;
+  readonly authentication: AssuranceRunConfiguration["authentication"];
+  readonly question_ids: readonly string[];
+}
+
+/**
+ * Projects the evidence identity of a run configuration.
+ *
+ * Per-run session identity and operational pacing, deadline, and retry knobs are excluded on
+ * purpose: they change what a run costs, not whether a completed answer remains valid evidence.
+ * Including them would make every resume impossible and discard already-verified turns.
+ */
+export function assuranceEvidenceIdentity(
+  configuration: AssuranceRunConfiguration,
+): AssuranceEvidenceIdentity {
+  return {
+    schema_version: configuration.schema_version,
+    seed: configuration.seed,
+    authentication: configuration.authentication,
+    question_ids: configuration.question_ids,
+  };
+}
+
 const RETRYABLE_TRANSPORT_SOURCES = new Set([
   "deterministic (offline)",
   "deterministic (stream interrupted)",
