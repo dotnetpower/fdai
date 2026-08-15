@@ -109,13 +109,14 @@ def _process_records(proc_root: Path = Path("/proc")) -> list[tuple[Path, list[s
     return records
 
 
-def _owns_core_runtime(repo_root: Path, records: list[tuple[Path, list[str]]]) -> bool:
+def _core_runtime_owners(records: list[tuple[Path, list[str]]]) -> set[Path]:
+    owners: set[Path] = set()
     for cwd, arguments in records:
-        if cwd != repo_root or "pytest" in arguments:
+        if "pytest" in arguments:
             continue
         if any(arguments[index : index + 2] == ["-m", "fdai"] for index in range(len(arguments))):
-            return True
-    return False
+            owners.add(cwd)
+    return owners
 
 
 def local_services_diagnostic(
@@ -131,11 +132,14 @@ def local_services_diagnostic(
     if not (repo_root / ".fdai").is_dir():
         return {"reason_code": "local_stack_not_prepared", "status": "unavailable"}
     services = [{"name": name, "ready": bool(probe(url))} for name, url in LOCAL_SERVICE_ENDPOINTS]
-    core_ready = _owns_core_runtime(repo_root, process_records or _process_records())
+    core_owners = _core_runtime_owners(process_records or _process_records())
+    core_ready = repo_root in core_owners
     services.insert(0, {"name": "core-runtime", "ready": core_ready})
     unavailable = [str(service["name"]) for service in services if not service["ready"]]
     return {
         "ready_count": len(services) - len(unavailable),
+        "core_runtime_other_checkout_count": len(core_owners - {repo_root}),
+        "core_runtime_owner_count": len(core_owners),
         "service_count": len(services),
         "services": services,
         "status": "warning" if unavailable else "ok",
