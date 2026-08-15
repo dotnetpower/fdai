@@ -103,9 +103,8 @@ roadmap-verification-retry: ## retry one failed roadmap audit without claiming q
 roadmap-verification-apply: ## apply one job in a clean campaign worktree and fast-forward it
 	@python3 scripts/automation/roadmap_verification_worker.py --apply --integrate
 
-roadmap-implementation-start: ## start explicit randomized repeat campaign (required: ISSUE=<number>)
-	@test -n "$(ISSUE)" || { echo "ISSUE=<number> is required" >&2; exit 2; }
-	@python3 scripts/automation/install_roadmap_implementation_campaign.py start --issue "$(ISSUE)"
+roadmap-implementation-start: ## start explicit randomized repeat campaign with automatic issue discovery
+	@python3 scripts/automation/install_roadmap_implementation_campaign.py start
 
 roadmap-implementation-status: ## show randomized repeat campaign timer state
 	@python3 scripts/automation/install_roadmap_implementation_campaign.py status

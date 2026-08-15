@@ -9,7 +9,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import project_board_support as project_board
 from install_roadmap_verification_timer import _prepare_campaign_worktree, _project_root, _quote
 
 UNIT = "fdai-roadmap-implementation-campaign"
@@ -23,7 +22,7 @@ def _campaign_path(project: Path, configured: str | None) -> Path:
     return project.parent / f"{project.name}-roadmap-implementation-campaign"
 
 
-def _unit_text(campaign: Path, *, issue: int) -> tuple[str, str]:
+def _unit_text(campaign: Path) -> tuple[str, str]:
     if not campaign.is_absolute() or any(character.isspace() for character in str(campaign)):
         raise ValueError("systemd WorkingDirectory must be an absolute path without whitespace")
     runner = campaign / "scripts/automation/roadmap_implementation_campaign.py"
@@ -33,7 +32,7 @@ Description=FDAI randomized roadmap implementation campaign
 [Service]
 Type=oneshot
 WorkingDirectory={campaign}
-ExecStart={_quote(Path(sys.executable))} {_quote(runner)} --issue {issue} --max-active-sessions 1
+ExecStart={_quote(Path(sys.executable))} {_quote(runner)} --max-active-sessions 2
 Nice=10
 IOSchedulingClass=idle
 CPUWeight=20
@@ -88,35 +87,14 @@ def _status() -> str:
     return ", ".join(states)
 
 
-def _validate_issue(issue: project_board.IssueRecord) -> None:
-    if issue.state.upper() != "OPEN":
-        raise RuntimeError(f"campaign issue #{issue.number} must be open")
-    if not project_board.has_exit_contract(issue.body):
-        raise RuntimeError(
-            f"campaign issue #{issue.number} needs an Exit criteria "
-            "or Acceptance criteria checklist"
-        )
-
-
-def _load_issue(issue_number: int) -> project_board.IssueRecord:
-    client = project_board.GitHubClient(timeout_seconds=30)
-    repository = project_board.repository_name(client, None)
-    return project_board.issue_record(client, repository, issue_number)
-
-
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=("start", "status", "stop", "remove", "preview"))
     parser.add_argument("--project")
-    parser.add_argument("--issue", type=int)
     parser.add_argument("--campaign-path")
     parser.add_argument("--campaign-branch", default=DEFAULT_BRANCH)
     arguments = parser.parse_args(argv)
 
-    if arguments.command in {"start", "preview"} and (
-        arguments.issue is None or arguments.issue <= 0
-    ):
-        parser.error("start and preview require --issue with a positive issue number")
     project = _project_root(arguments.project)
     campaign = _campaign_path(project, arguments.campaign_path)
 
@@ -135,20 +113,19 @@ def main(argv: list[str] | None = None) -> int:
         print(f"removed {UNIT} units; campaign worktree and state are preserved")
         return 0
 
-    service, timer = _unit_text(campaign, issue=int(arguments.issue))
+    service, timer = _unit_text(campaign)
     if arguments.command == "preview":
         print(service)
         print(timer)
         return 0
 
-    _validate_issue(_load_issue(int(arguments.issue)))
     _prepare_campaign_worktree(project, campaign, arguments.campaign_branch)
     _write_units(service, timer)
     subprocess.run(  # noqa: S603 - fixed systemctl executable and unit
         [SYSTEMCTL, "--user", "enable", "--now", f"{UNIT}.timer"],
         check=True,
     )
-    print(f"started {UNIT}.timer for issue #{arguments.issue}")
+    print(f"started {UNIT}.timer with automatic registered-issue discovery")
     return 0
 
 
