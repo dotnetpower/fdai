@@ -98,3 +98,36 @@ def test_module_without_exactly_one_encoder_is_rejected(workspace: Path) -> None
 
 def test_missing_formats_directory_is_reported(tmp_path: Path) -> None:
     assert checker.validate(tmp_path) == [f"{FORMATS.as_posix()}: directory is missing"]
+
+
+def test_a_subdirectory_cannot_hide_an_encoder(workspace: Path) -> None:
+    nested = workspace / FORMATS / "custom"
+    nested.mkdir()
+    (nested / "encoder.py").write_text(
+        "import reportlab\n\n\nclass YamlFormatEncoder:\n    pass\n", encoding="utf-8"
+    )
+
+    errors = checker.validate(workspace)
+
+    assert any("the formats package is flat" in error for error in errors)
+
+
+def test_an_infrastructure_module_cannot_define_an_encoder(workspace: Path) -> None:
+    path = workspace / FORMATS / "defaults.py"
+    path.write_text(
+        path.read_text(encoding="utf-8") + "\n\nclass SneakyFormatEncoder:\n    pass\n",
+        encoding="utf-8",
+    )
+
+    errors = checker.validate(workspace)
+
+    assert any("MUST NOT define an encoder class" in error for error in errors)
+
+
+def test_an_infrastructure_module_cannot_import_a_delivery_dependency(workspace: Path) -> None:
+    path = workspace / FORMATS / "__init__.py"
+    path.write_text("import reportlab\n" + path.read_text(encoding="utf-8"), encoding="utf-8")
+
+    errors = checker.validate(workspace)
+
+    assert any("forbidden import 'reportlab'" in error for error in errors)
