@@ -152,7 +152,8 @@ export async function writeAssuranceCheckpoint<TResult extends AssuranceCheckpoi
   checkpoint: AssuranceCheckpoint<TResult>,
 ): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
-  const temporaryPath = `${path}.partial`;
+  // The suffix carries the writing process, so two runs of the same binding cannot race on it.
+  const temporaryPath = `${path}.${process.pid}.partial`;
   try {
     await writeFile(temporaryPath, `${JSON.stringify(checkpoint, null, 2)}\n`, "utf8");
     await rename(temporaryPath, path);

@@ -81,7 +81,9 @@ def test_console_test_types_run_in_the_enforced_operator_gate() -> None:
     package = (_ROOT / "console" / "package.json").read_text(encoding="utf-8")
     tests_project = (_ROOT / "console" / "tsconfig.tests.json").read_text(encoding="utf-8")
 
-    assert "tsc --noEmit -p tsconfig.tests.json" in runner
+    assert "tsc --noEmit -p console/tsconfig.tests.json" in runner
+    # `npm exec` keeps the caller's directory, so a bare project path would abort the whole gate.
+    assert "-p tsconfig.tests.json" not in runner
     assert "tsc --noEmit -p tsconfig.tests.json" in package
     assert '"include": ["tests", "scripts"]' in tests_project
     # The gate must keep the application typecheck without paying for it twice.

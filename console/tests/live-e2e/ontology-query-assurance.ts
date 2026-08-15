@@ -224,15 +224,48 @@ export function checkpointRetirable(input: {
 /**
  * Returns whether the checkpoint file must be removed.
  *
- * A checkpoint that mixes generations can never satisfy the pass criteria again, so keeping it
- * would make the cohort permanently unpassable. Detection without recovery is a sink, so the run
- * discards the file and the next run restarts against one generation.
+ * A truncated run may simply have proved nothing yet, so only a run that completed can prove that
+ * its retained set actually mixes generations. Removing a checkpoint on an unproven run would
+ * destroy verified turns that a later run could still resume.
  */
 export function checkpointDiscardable(input: {
   readonly retirable: boolean;
   readonly generationConsistent: boolean;
+  readonly stopReason: string | null;
 }): boolean {
-  return input.retirable || !input.generationConsistent;
+  return input.retirable || (!input.generationConsistent && input.stopReason === null);
+}
+
+/**
+ * Keeps only the results that describe the generation the live turns observed.
+ *
+ * A release that rotates mid-run does not invalidate the turns taken under the newest generation,
+ * so those survive and the next run resumes them instead of restarting the whole cohort.
+ */
+export function retainedForLiveGeneration<
+  TResult extends {
+    readonly ontology_release_digest?: string;
+    readonly principal_manifest_digest?: string;
+  },
+>(
+  retained: readonly TResult[],
+  live: readonly TResult[],
+): readonly TResult[] {
+  const newest = (key: "ontology_release_digest" | "principal_manifest_digest"): string | null => {
+    for (let index = live.length - 1; index >= 0; index -= 1) {
+      const value = live[index]![key];
+      if (typeof value === "string" && value.length > 0) return value;
+    }
+    return null;
+  };
+  const ontology = newest("ontology_release_digest");
+  const principal = newest("principal_manifest_digest");
+  return retained.filter((result) =>
+    (result.ontology_release_digest === undefined || ontology === null ||
+      result.ontology_release_digest === ontology) &&
+    (result.principal_manifest_digest === undefined || principal === null ||
+      result.principal_manifest_digest === principal)
+  );
 }
 
 const LOCALES: readonly AssuranceLocale[] = ["en", "ko"];
@@ -693,6 +726,10 @@ export function judgeSemanticTurn(
     return { passed: false, failure_reason: "unsupported_or_failed_claim" };
   }
   if (receiptJudgment.receipt.disposition !== "answered") {
+    if (verification?.reason_code === "malformed_verification_artifact") {
+      // An incoherent artifact is a defect on a governed refusal too, not only on an answer.
+      return { passed: false, failure_reason: "malformed_verification_artifact" };
+    }
     return {
       passed: true,
       receipt: receiptJudgment.receipt,

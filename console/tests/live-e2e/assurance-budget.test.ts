@@ -259,7 +259,8 @@ describe("run preamble bound", () => {
 
   it("bounds every preamble step with a declared timeout", () => {
     expect(preamble).not.toHaveLength(0);
-    const awaited = preamble.match(/^\s*await [\s\S]*?;$/gm) ?? [];
+    const awaited = preamble.match(/^\s*(?:(?:const|let|var)\s+[^=]+=\s*)?await [\s\S]*?;$/gm) ??
+      [];
     const remote = awaited.filter(
       (statement) => !LOCAL_PREAMBLE_CALLS.some((name) => statement.includes(name)),
     );

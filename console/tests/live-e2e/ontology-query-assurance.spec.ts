@@ -41,6 +41,7 @@ import {
   isRetainedTurnResult,
   liveAnswerProof,
   resumableWithLiveProof,
+  retainedForLiveGeneration,
   assuranceTransportRetrySources,
   buildAssuranceRunProvenance,
   assuranceSessionId,
@@ -644,10 +645,22 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
         cohortSize: questions.length,
       }),
       generationConsistent,
+      stopReason,
     })
   ) {
-    await rm(checkpointFile, { force: true });
-    await rm(`${checkpointFile}.partial`, { force: true });
+    const survivors = generationConsistent
+      ? []
+      : retainedForLiveGeneration(retained, liveResults);
+    if (survivors.length > 0) {
+      // A release that rotated mid-run does not invalidate the turns taken under the newest
+      // generation, so those are kept and the next run resumes them.
+      await writeAssuranceCheckpoint(
+        checkpointFile,
+        buildAssuranceCheckpoint(checkpointBinding, questionIds, survivors),
+      );
+    } else {
+      await rm(checkpointFile, { force: true });
+    }
   }
 
   expect(stopReason, `assurance run stopped early: ${stopReason}`).toBeNull();

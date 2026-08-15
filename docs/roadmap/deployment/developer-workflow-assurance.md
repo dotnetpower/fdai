@@ -297,6 +297,7 @@ deadline, a no-progress deadline, a progress signal, and a resumable checkpoint.
 | 18 | Non-converging resume | A failed turn resumed as a permanent failure, the released tail could exceed one budget, and the run preamble had no declared timeout | Resume only verified turns, release exactly one proof question, and bound every preamble step. |
 | 19 | Proof question that cannot prove | The released question was chosen by operation, so a governed refusal left a resumed cohort unable to prove a generation, and a complete cohort that failed only its release criteria still discarded its checkpoint | Release a question an earlier run answered, retire only on the asserted release outcome, and reset the page after a deadline breach. |
 | 20 | Detected but unrecoverable state | A checkpoint that mixed generations was persisted and then permanently refused, one file served every binding, and a failed page reset kept the run going | Discard an inconsistent checkpoint, key the file by the whole binding, and stop when the page cannot be reset. |
+| 21 | Gate that never ran | The enforced tests typecheck resolved its project from the repository root and aborted the rest of the operator gate, and a truncated run discarded a valid checkpoint | Resolve the project path, pin the resolvable invocation, and discard only what a completed run contradicted. |
 
 ### Contract
 

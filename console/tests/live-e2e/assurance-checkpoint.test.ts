@@ -159,6 +159,6 @@ describe("checkpoint persistence", () => {
     await writeFile(join(directory, "placeholder"), "", "utf8");
 
     await expect(writeAssuranceCheckpoint(directory, checkpoint())).rejects.toThrow();
-    await expect(access(`${directory}.partial`)).rejects.toThrow();
+    await expect(access(`${directory}.${process.pid}.partial`)).rejects.toThrow();
   });
 });

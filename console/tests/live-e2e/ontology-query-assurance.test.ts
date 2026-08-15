@@ -15,6 +15,7 @@ import {
   liveAnswerProof,
   liveProofQuestionIds,
   resumableWithLiveProof,
+  retainedForLiveGeneration,
   assuranceOperations,
   assuranceSessionId,
   assuranceTransportRetrySources,
@@ -398,15 +399,76 @@ describe("isRetainedTurnResult", () => {
 
 describe("checkpointDiscardable", () => {
   it("removes a retired checkpoint", () => {
-    expect(checkpointDiscardable({ retirable: true, generationConsistent: true })).toBe(true);
+    expect(checkpointDiscardable({
+      retirable: true,
+      generationConsistent: true,
+      stopReason: null,
+    })).toBe(true);
   });
 
-  it("removes a checkpoint that mixes generations, because it can never pass again", () => {
-    expect(checkpointDiscardable({ retirable: false, generationConsistent: false })).toBe(true);
+  it("removes a completed checkpoint that mixes generations", () => {
+    expect(checkpointDiscardable({
+      retirable: false,
+      generationConsistent: false,
+      stopReason: null,
+    })).toBe(true);
+  });
+
+  it("keeps a truncated run's checkpoint, which may simply have proved nothing yet", () => {
+    expect(checkpointDiscardable({
+      retirable: false,
+      generationConsistent: false,
+      stopReason: "run_budget_exhausted",
+    })).toBe(false);
+    expect(checkpointDiscardable({
+      retirable: false,
+      generationConsistent: false,
+      stopReason: "context_reset_failed",
+    })).toBe(false);
   });
 
   it("keeps a resumable checkpoint", () => {
-    expect(checkpointDiscardable({ retirable: false, generationConsistent: true })).toBe(false);
+    expect(checkpointDiscardable({
+      retirable: false,
+      generationConsistent: true,
+      stopReason: null,
+    })).toBe(false);
+  });
+});
+
+describe("retainedForLiveGeneration", () => {
+  const live = [
+    { question_id: "q9", ontology_release_digest: "b", principal_manifest_digest: "q" },
+  ];
+
+  it("keeps results that match the newest live generation", () => {
+    const retained = [
+      { question_id: "q1", ontology_release_digest: "a" },
+      { question_id: "q2", ontology_release_digest: "b", principal_manifest_digest: "q" },
+      { question_id: "q3" },
+      ...live,
+    ];
+
+    expect(retainedForLiveGeneration(retained, live).map((result) => result.question_id))
+      .toEqual(["q2", "q3", "q9"]);
+  });
+
+  it("keeps everything when the live turns disclosed no generation", () => {
+    const retained: { question_id: string; ontology_release_digest?: string }[] = [
+      { question_id: "q1", ontology_release_digest: "a" },
+    ];
+
+    expect(retainedForLiveGeneration(retained, [{ question_id: "q9" }])).toEqual(retained);
+  });
+
+  it("drops results bound to a superseded principal manifest", () => {
+    const retained = [
+      { question_id: "q1", principal_manifest_digest: "p" },
+      { question_id: "q2", principal_manifest_digest: "q" },
+    ];
+
+    expect(retainedForLiveGeneration(retained, live).map((result) => result.question_id))
+      .toEqual(["q2"]);
   });
 });
 
@@ -715,6 +777,18 @@ describe("typed semantic receipt oracle", () => {
     });
 
     expect(judgeSemanticReceipt(held)).toEqual({ passed: true, receipt: held });
+  });
+
+  it("rejects a governed refusal that carried an incoherent verification artifact", () => {
+    expect(judgeSemanticTurn(
+      answeredReceipt({
+        disposition: "held",
+        semantic_route: undefined,
+        unavailable_reason: "semantic_planner_unavailable",
+        execution_receipt_digest: undefined,
+      }),
+      verifiedAnswer({ checks_completed: 5, checks_total: 2 }),
+    )).toEqual({ passed: false, failure_reason: "malformed_verification_artifact" });
   });
 
   it("requires complete verified evidence for answered turns", () => {
