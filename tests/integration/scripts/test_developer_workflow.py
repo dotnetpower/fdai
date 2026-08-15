@@ -526,3 +526,41 @@ def test_editor_pressure_separates_host_and_client_state(tmp_path: Path) -> None
     assert result["client_status"] == "ok"
     assert result["extension_host_count"] == 2
     assert result["browser_tool_payload"] == "upstream_bounded_by_cli_first_workflow"
+
+
+def test_warning_diagnostic_excludes_explicit_probes_from_actionable_count(
+    tmp_path: Path,
+) -> None:
+    module = _load_module()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    assert _git(repo, "init", "--quiet", "--initial-branch=main").returncode == 0
+    assert _git(repo, "config", "user.email", "user@example.com").returncode == 0
+    assert _git(repo, "config", "user.name", "Example User").returncode == 0
+    (repo / "example.txt").write_text("value\n", encoding="utf-8")
+    assert _git(repo, "add", "example.txt").returncode == 0
+    assert _git(repo, "commit", "--quiet", "-m", "initial").returncode == 0
+    warning_log = repo / ".fdai" / "logs" / "warnings.jsonl"
+    warning_log.parent.mkdir(parents=True)
+    rows = [
+        {"level": "WARNING", "logger": "probe", "message": "PROBE_stop_begin"},
+        {
+            "diagnostic_probe": True,
+            "level": "WARNING",
+            "logger": "probe",
+            "message": "custom_probe",
+        },
+        {"level": "WARNING", "logger": "runtime", "message": "actionable_failure"},
+    ]
+    warning_log.write_text(
+        "\n".join(json.dumps(row) for row in rows) + "\n",
+        encoding="utf-8",
+    )
+
+    result = module._warning_diagnostic(repo)
+
+    assert result["probe_count"] == 2
+    assert result["actionable_count"] == 1
+    assert result["malformed_count"] == 0
+    assert result["status"] == "warning"
+    assert result["top_actionable_fingerprints"][0]["count"] == 1
