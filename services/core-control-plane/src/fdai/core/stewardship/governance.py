@@ -28,6 +28,7 @@ from fdai.shared.providers.remediation_pr import (
 STEWARDSHIP_PATCH_PATH = "config/agent-stewardship.yaml"
 STEWARDSHIP_LABELS = ("shadow", "stewardship-handover")
 _MAX_YAML_BYTES = 256 * 1024
+_MAX_BODY_WARNINGS = 20
 
 
 class StewardshipGovernanceError(RuntimeError):
@@ -108,7 +109,10 @@ def _render(artifact: HandoverDraftArtifact, key: str) -> RemediationPr:
         "This draft changes no active ownership until a human merges it.",
     ]
     if draft.warnings:
-        lines.extend(("", "Warnings:", *(f"- {warning}" for warning in draft.warnings)))
+        shown = tuple(draft.warnings[:_MAX_BODY_WARNINGS])
+        lines.extend(("", "Warnings:", *(f"- {warning}" for warning in shown)))
+        if len(draft.warnings) > len(shown):
+            lines.append(f"- ... {len(draft.warnings) - len(shown)} more warning(s) truncated")
     return RemediationPr(
         action_id=_action_id(key),
         idempotency_key=key,

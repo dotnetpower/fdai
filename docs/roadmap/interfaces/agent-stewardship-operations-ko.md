@@ -1,6 +1,6 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: 83edcce86e400c984dbb63e47c888fa033ed6b34
+translation_source_sha: ebf4cdafb8f12b605358224a09bfa8548fdf0267
 translation_revised: 2026-08-16
 title: 에이전트 운영 책임 수명 주기
 ---
@@ -63,7 +63,7 @@ flowchart LR
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했으며, 시작, 초안 생성, 서명된 병합 수신, 미구현 운영 효과를 구분하도록 수명 주기 주장을 바로잡았습니다. | `current change`; 구현 범위 표에 나열된 소스와 집중 검사. | 거버넌스 PR 게시, 병합 후 효과, 예약 실행되는 신원 상태 검사를 완료한 뒤 런타임 근거를 보존합니다. |
-| 2026-08-16 | in-progress | 내용 기반 키, 검토 전용 렌더링, 닫힘 실패 초안 검증을 갖춘 인수인계 산출물에서 `RemediationPrPublisher`로 이어지는 멱등 경로를 조립했습니다. | `pytest services/core-control-plane/tests/core/stewardship/test_governance.py`가 모호한 전송 실패 이후 초안 PR 하나를 재사용하는 재시도를 포함해 집중 테스트 8개를 통과했습니다. | 운영 조립에 서비스를 연결하고 병합 후 소유권 효과와 예약 신원 상태 검사를 완료해야 합니다. |
+| 2026-08-16 | in-progress | 내용 기반 키, 검토 전용 렌더링, 닫힘 실패 초안 검증을 갖춘 인수인계 산출물에서 `RemediationPrPublisher`로 이어지는 멱등 경로를 조립했습니다. | `pytest services/core-control-plane/tests/core/stewardship/test_governance.py`가 모호한 전송 실패 이후 초안 PR 하나를 재사용하는 재시도와 PR 본문의 제한된 경고 렌더링을 포함해 집중 테스트 9개를 통과했습니다. | 운영 조립에 서비스를 연결하고 병합 후 소유권 효과와 예약 신원 상태 검사를 완료해야 합니다. |
 
 ### 남은 작업
 

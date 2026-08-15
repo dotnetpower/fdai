@@ -60,7 +60,7 @@ flowchart LR
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and corrected the lifecycle claim to distinguish startup, draft generation, signed merge intake, and unimplemented operational effects. | `current change`; source and focused checks listed in the scope table. | Wire governance PR publication, complete post-merge effects and scheduled identity health, then retain runtime evidence. |
-| 2026-08-16 | in-progress | Composed the idempotent handover-artifact-to-`RemediationPrPublisher` path with a content-addressed key, review-only rendering, and fail-closed draft validation. | `pytest services/core-control-plane/tests/core/stewardship/test_governance.py` passed 8 focused tests, including retry reuse of one draft PR after an ambiguous transport failure. | Bind the service in production composition, complete post-merge ownership effects, and add scheduled identity health. |
+| 2026-08-16 | in-progress | Composed the idempotent handover-artifact-to-`RemediationPrPublisher` path with a content-addressed key, review-only rendering, and fail-closed draft validation. | `pytest services/core-control-plane/tests/core/stewardship/test_governance.py` passed 9 focused tests, including retry reuse of one draft PR after an ambiguous transport failure and bounded warning rendering in the PR body. | Bind the service in production composition, complete post-merge ownership effects, and add scheduled identity health. |
 
 ### Remaining work
 

@@ -67,6 +67,7 @@ def _artifact(
     outcome: HandoverDraftOutcome = HandoverDraftOutcome.DRAFTED,
     mappings: tuple[HandoverMapping, ...] | None = None,
     yaml: str = YAML,
+    warnings: tuple[str, ...] = ("one unresolved reviewer",),
 ) -> HandoverDraftArtifact:
     return HandoverDraftArtifact(
         upload_id=UPLOAD_ID,
@@ -75,7 +76,7 @@ def _artifact(
         draft=StewardshipDraft(
             outcome=outcome,
             mappings=mappings if mappings is not None else (_mapping(),),
-            warnings=("one unresolved reviewer",),
+            warnings=warnings,
         ),
         yaml=yaml,
     )
@@ -182,3 +183,15 @@ async def test_metadata_carries_no_person_or_secret_value() -> None:
     }
     assert "oid-example" not in str(published.metadata)
     assert "Steward Example" not in published.body
+
+
+async def test_pr_body_truncates_an_unbounded_warning_list() -> None:
+    publisher = _Publisher()
+    artifact = _artifact(warnings=tuple(f"warning-{index}" for index in range(50)))
+
+    result = await StewardshipGovernanceService(publisher=publisher).publish(artifact)
+
+    assert result.published is True
+    body = publisher.published[0].body
+    assert body.count("- warning-") == 20
+    assert "30 more warning(s) truncated" in body
