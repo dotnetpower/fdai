@@ -7,9 +7,16 @@ import argparse
 import json
 import math
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.agent.design_context import required_context, required_validation  # noqa: E402
 
 SCHEMA_VERSION = 1
 UTC = timezone.utc  # noqa: UP017 - tracked hooks also support system Python 3.10.
@@ -210,6 +217,42 @@ def status_report(root: Path) -> dict[str, Any]:
     }
 
 
+def _relative_targets(root: Path, targets: list[str]) -> tuple[str, ...] | None:
+    resolved = _git_common_dir(root)
+    if resolved is None:
+        return None
+    repo_root, _common_dir = resolved
+    relative: set[str] = set()
+    for raw in targets:
+        candidate = Path(raw)
+        absolute = candidate if candidate.is_absolute() else repo_root / candidate
+        try:
+            relative.add(absolute.resolve().relative_to(repo_root).as_posix())
+        except ValueError:
+            return None
+    return tuple(sorted(relative))
+
+
+def context_plan_report(root: Path, targets: list[str]) -> dict[str, Any]:
+    """Resolve current context and focused checks without recording a design read."""
+    relative = _relative_targets(root, targets)
+    if relative is None:
+        return {
+            "read_only": True,
+            "reason_code": "context_target_outside_repository",
+            "schema_version": SCHEMA_VERSION,
+            "status": "unavailable",
+        }
+    return {
+        "focused_checks": list(required_validation(relative)),
+        "read_only": True,
+        "required_documents": list(required_context(relative)),
+        "schema_version": SCHEMA_VERSION,
+        "status": "ok",
+        "targets": list(relative),
+    }
+
+
 def _render_text(report: dict[str, Any]) -> str:
     git_state = report["sections"]["git"]
     if git_state["status"] != "ok":
@@ -226,21 +269,38 @@ def _render_text(report: dict[str, Any]) -> str:
     )
 
 
+def _render_context_plan(report: dict[str, Any]) -> str:
+    if report["status"] != "ok":
+        return f"developer-workflow: unavailable ({report['reason_code']})"
+    lines = ["developer-workflow: context plan"]
+    lines.extend(f"  read:  {path}" for path in report["required_documents"])
+    lines.extend(f"  check: {command}" for command in report["focused_checks"])
+    return "\n".join(lines)
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
     status_parser = subparsers.add_parser("status")
     status_parser.add_argument("--json", action="store_true", dest="as_json")
+    context_parser = subparsers.add_parser("context-plan")
+    context_parser.add_argument("targets", nargs="+")
+    context_parser.add_argument("--json", action="store_true", dest="as_json")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     arguments = _parser().parse_args(argv)
-    report = status_report(Path.cwd())
+    if arguments.command == "context-plan":
+        report = context_plan_report(Path.cwd(), arguments.targets)
+        renderer = _render_context_plan
+    else:
+        report = status_report(Path.cwd())
+        renderer = _render_text
     if arguments.as_json:
         print(json.dumps(report, sort_keys=True))
     else:
-        print(_render_text(report))
+        print(renderer(report))
     return 0
 
 

@@ -153,3 +153,29 @@ def test_status_reports_validation_age_and_recent_latency(tmp_path: Path) -> Non
     assert validation["receipt_sample_count"] == 1
     assert validation["latency_p95_seconds"] == 120
     assert validation["invalid_record_count"] == 0
+
+
+def test_context_plan_is_deduplicated_and_rejects_external_targets(tmp_path: Path) -> None:
+    result = _run(
+        SCRIPT.parents[2],
+        "context-plan",
+        "scripts/automation/session-handover.py",
+        "--json",
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "ok"
+    assert payload["targets"] == ["scripts/automation/session-handover.py"]
+    assert payload["required_documents"] == sorted(set(payload["required_documents"]))
+    assert ".github/copilot-instructions.md" in payload["required_documents"]
+    assert "scripts/verify.sh" in payload["focused_checks"]
+
+    external = _run(
+        SCRIPT.parents[2],
+        "context-plan",
+        str(tmp_path.parent / "outside.py"),
+        "--json",
+    )
+    assert external.returncode == 0, external.stderr
+    assert json.loads(external.stdout)["reason_code"] == "context_target_outside_repository"

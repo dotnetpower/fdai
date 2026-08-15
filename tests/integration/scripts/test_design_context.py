@@ -55,6 +55,21 @@ def test_required_context_composes_every_matching_route() -> None:
     assert "docs/roadmap/interfaces/operator-console.md" in required
 
 
+def test_required_validation_composes_and_deduplicates_matching_routes() -> None:
+    module = _load_module()
+
+    required = module.required_validation(
+        (
+            "services/operator-service/src/fdai_operator_service/composition.py",
+            "services/operator-service/src/fdai_operator_service/composition.py",
+        )
+    )
+
+    assert required == tuple(sorted(set(required)))
+    assert "scripts/verify.sh" in required
+    assert "uv run mypy" in required
+
+
 def test_final_operator_path_reuses_logical_design_routes() -> None:
     module = _load_module()
 
