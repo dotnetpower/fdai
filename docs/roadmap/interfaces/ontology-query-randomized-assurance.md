@@ -190,7 +190,7 @@ ledger.
 | 2026-08-11 randomized baseline | in-progress | [`ontology-query-randomized-assurance-2026-08-11.json`](../../baselines/ontology-query-randomized-assurance-2026-08-11.json) | The artifact retains historical scored measurements and the blocked release decision, but it is not a governed runtime receipt: it lacks source revision, configuration digest, authentication attestation, and exact request and response receipt references. |
 | Independent semantic-turn bridge | implemented | [`composition.py`](../../../services/operator-service/src/fdai_operator_service/composition.py), [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), and [`test_semantic_turn_bridge.py`](../../../services/operator-service/tests/test_semantic_turn_bridge.py) | Production composition can bind the durable event-bus bridge without importing Core implementation. |
 | Authoritative provider and receipt closure | in-progress | The open rounds and next-run exit criteria in this document. | Bridge construction alone does not prove every operation cohort reached its authoritative provider and returned exact release, plan, and evidence references. |
-| Current randomized release certification | in-progress | No newer retained 100-question artifact supersedes the 2026-08-11 baseline. | The release decision remains blocked until a regenerated run satisfies every exit criterion. |
+| Current randomized release certification | in-progress | [Issue #63](https://github.com/dotnetpower/fdai/issues/63); no newer retained 100-question artifact supersedes the 2026-08-11 baseline. | The 2026-08-15 strict run at source `e476fa21c5f00c276f651497ef352a3bbfd0e17f` stopped after six terminal results and two `turn_error` records. It produced no passing artifact, so the seeded 100-case gate did not start. |
 
 ### Implementation history
 
@@ -199,9 +199,12 @@ ledger.
 | 2026-08-11 | validated | Retained the first 100-question bilingual randomized baseline with 100% intent recognition, 20% answer success, and no mechanically verified answers. | The committed baseline artifact linked above. | Build the semantic path and rerun against the same procedure. |
 | 2026-08-13 | in-progress | Adopted the implementation ledger and corrected the root cause to measurement-time wording after semantic bridge composition landed; earlier implementation provenance was not reconstructed. | `current change`; current composition and focused bridge tests listed in the scope table. | Close authoritative providers and retain a passing regenerated baseline. |
 | 2026-08-13 | in-progress | Corrected the historical baseline state because retained scored measurements are not a governed runtime receipt. | `current change`; the baseline lacks source revision, configuration digest, authentication attestation, and exact request and response receipt references, and records all 100 cards as unverified with evidence 0/0. | Retain a governed rerun artifact that satisfies the next-run exit criteria. |
+| 2026-08-15 | in-progress | Ran the strict bilingual 14-cell gate once on isolated source `e476fa21c5f00c276f651497ef352a3bbfd0e17f`. An external termination interrupted the run after six terminal results and recorded two fail-closed `turn_error` results in its provenance-bound checkpoint. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63); the run retained its source, configuration, workspace, question-set, and partial-result binding. | Keep the strict gate open. Do not start the seeded 100-case gate until a strict run retains 14 evidence-complete answered cells. |
 
 ### Remaining work
 
+- [ ] Retain one passing strict bilingual 14-cell artifact with every required operation-locale
+  cell answered and backed by complete verified evidence before starting a 100-case run.
 - [ ] Retain a governed randomized-run artifact that binds the source revision, configuration
   digest, authenticated execution attestation, and exact request and response receipt references
   to every measured turn.
