@@ -225,7 +225,7 @@ provider API.
 | Runtime observations, findings, forecasts, and independent outcome evidence | Heimdall. |
 | Cost and capacity state facts | Njord and Freyr for their owned advisory objects. |
 | Chaos experiment state | Loki. |
-| Immutable operational context snapshots | Muninn. |
+| Immutable operational context snapshots | Forseti, which materializes one snapshot at its own decision cutoff through `OperationalContextMaterializer`. |
 | Decision cases and verdicts | Forseti. |
 | Cross-objective arbitration | Odin. |
 | Human approval records | Var. |

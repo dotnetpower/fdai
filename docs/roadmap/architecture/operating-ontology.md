@@ -445,13 +445,13 @@ The ontology makes the fixed pantheon more capable without adding a central coor
 | Njord | Cost observations, cost forecasts, and cost objective status. |
 | Freyr | Demand, capacity forecasts, and sizing options. |
 | Loki | Experiments and resilience evidence. |
-| Forseti | Decision cases and governed decisions. |
+| Forseti | Decision cases, governed decisions, and the `OperationalContextMaterializer` snapshot at its cutoff. |
 | Odin | Cross-objective arbitration decisions and score breakdowns. |
 | Var | Independent approval records. |
 | Thor | Action runs and attempts. |
 | Vidar | Rollback and recovery outcomes. |
 | Saga | Audit evidence and immutable correlation links. |
-| Muninn | Time-consistent context snapshots and case revisions. |
+| Muninn | Durable state snapshots and the immutable case-history context index. |
 | Norns | Patterns and inert candidates. |
 | Mimir | Reviewed ontology, rule, and action catalog lifecycle. |
 | Bragi | No decision write; localized explanation over cited projections only. |
@@ -461,7 +461,7 @@ agent directly, or shares mutable workflow state.
 
 ## Operational context and decisions
 
-Muninn materializes an immutable `OperationalContextSnapshot` for each decision cutoff. It is a
+Forseti materializes an immutable `OperationalContextSnapshot` for each decision cutoff. It is a
 projection contract, not a new authority. At minimum it includes:
 
 - target service, workload, resource, environment, and dependency neighborhood;
