@@ -63,6 +63,32 @@ export interface AssuranceRunProvenance {
   readonly workspace_patch_digest: string;
 }
 
+export type AssuranceRunMode = "live" | "resumed_replay" | "interrupted";
+
+/** Names how the published cohort was produced. */
+export function assuranceRunMode(input: {
+  readonly cohortSize: number;
+  readonly resumedCount: number;
+  readonly liveCount: number;
+  readonly stopReason: string | null;
+}): AssuranceRunMode {
+  if (input.stopReason !== null) return "interrupted";
+  if (input.liveCount > 0) return "live";
+  return input.resumedCount === input.cohortSize && input.cohortSize > 0
+    ? "resumed_replay"
+    : "interrupted";
+}
+
+/**
+ * Returns whether a run may carry live release authority.
+ *
+ * A replay republishes retained evidence so an interrupted cohort is not discarded, but it
+ * verified nothing against the current stack, so it must never mint a production receipt.
+ */
+export function assuranceCarriesLiveAuthority(runMode: AssuranceRunMode): boolean {
+  return runMode === "live";
+}
+
 /** The configuration fields that decide whether an earlier result is still comparable evidence. */
 export interface AssuranceEvidenceIdentity {
   readonly schema_version: AssuranceRunConfiguration["schema_version"];

@@ -1,5 +1,6 @@
 """Static contract keeping local type checks aligned with CI."""
 
+import json
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[3]
@@ -83,3 +84,6 @@ def test_console_test_types_run_in_the_enforced_operator_gate() -> None:
     assert "tsc --noEmit -p tsconfig.tests.json" in runner
     assert "tsc --noEmit -p tsconfig.tests.json" in package
     assert '"include": ["tests"]' in tests_project
+    # The gate must keep the application typecheck without paying for it twice.
+    assert "npm --prefix console run typecheck" not in runner
+    assert json.loads(package)["scripts"]["build"].startswith("tsc --noEmit")

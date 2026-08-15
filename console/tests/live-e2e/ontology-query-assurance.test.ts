@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { canonicalJsonDigest } from "./browser-evidence-provenance";
 import { isOntologyAssuranceProductionReady } from "./ontology-query-assurance-readiness";
 import {
+  assuranceCarriesLiveAuthority,
   assuranceEvidenceIdentity,
+  assuranceRunMode,
   assuranceOperations,
   assuranceSessionId,
   assuranceTransportRetrySources,
@@ -102,6 +104,29 @@ describe("ontology assurance run identity", () => {
   it("accepts a bounded ASCII governed run id", () => {
     expect(resolveAssuranceRunId("issue63.20260815_run-1"))
       .toBe("issue63.20260815_run-1");
+  });
+});
+
+describe("ontology assurance run mode", () => {
+  const base = { cohortSize: 100, resumedCount: 0, liveCount: 0, stopReason: null };
+
+  it("names a run that answered live", () => {
+    expect(assuranceRunMode({ ...base, liveCount: 1, resumedCount: 99 })).toBe("live");
+  });
+
+  it("names a fully resumed cohort a replay", () => {
+    expect(assuranceRunMode({ ...base, resumedCount: 100 })).toBe("resumed_replay");
+  });
+
+  it("never calls an interrupted run a replay", () => {
+    expect(assuranceRunMode({ ...base, stopReason: "run_budget_exhausted" })).toBe("interrupted");
+    expect(assuranceRunMode({ ...base, resumedCount: 40 })).toBe("interrupted");
+  });
+
+  it("denies release authority to anything that verified nothing live", () => {
+    expect(assuranceCarriesLiveAuthority("live")).toBe(true);
+    expect(assuranceCarriesLiveAuthority("resumed_replay")).toBe(false);
+    expect(assuranceCarriesLiveAuthority("interrupted")).toBe(false);
   });
 });
 

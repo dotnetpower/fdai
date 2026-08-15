@@ -251,6 +251,7 @@ The remaining Low risks are explicit and bounded:
 | 2026-08-15 | implemented | Separated the stalled-question bound from the run-budget bound behind a tested policy, forwarded the ignored result predicate on the checkpoint read path, disclosed the question that stopped a budget-limited run, and extended the Console typecheck gate to `console/tests`, which exposed and fixed a real type break this campaign had introduced in an untypechecked spec. | Current change; live-evidence Vitest passed 95 cases; `npm run typecheck` now covers `console/tests` and passed. | Complete the remaining hardening rounds for issue #122. |
 | 2026-08-15 | implemented | Corrected the preceding row: that change extended the Console typecheck script but not the enforced gate. This change runs `npm --prefix console run typecheck` inside `run-operator-surfaces.sh`, publishes the bound that actually truncated each expired attempt, renames that outcome to `per_attempt_deadline_exceeded`, and lets a transient turn error use its remaining attempt. | Current change; live-evidence Vitest passed 98 cases; full Console suite passed 1802 cases; `npm run typecheck` passed. | Complete the remaining hardening rounds for issue #122. |
 | 2026-08-15 | implemented | Removed the resume trap in which a cohort completed but interrupted before publish could never pass and lost its checkpoint: a fully resumed cohort now publishes as `run_mode: resumed_replay`, retirement requires publication, the enforced gate runs only the tests project to avoid a duplicate application typecheck, a parity test pins that gate line, and the artifact counts stalled questions separately. | Current change; live-evidence Vitest and typecheck-parity suites passed. | Complete the remaining hardening rounds for issue #122. |
+| 2026-08-15 | implemented | Closed the replay authority hole the preceding row opened: a run that verified nothing live now publishes as `receipt_source: resumed_replay`, can never be production-ready, and an interrupted run is no longer mislabelled a replay. Also validated every retained field the pass criteria read, scoped the transport retry counter, keyed the checkpoint on evidence identity, and bumped the artifact schema. | Current change; live-evidence Vitest passed 102 cases; `npm run typecheck` and typecheck-parity passed. | Complete the remaining hardening rounds for issue #122. |
 
 ### Remaining work
 
@@ -324,7 +325,8 @@ deadline, a no-progress deadline, a progress signal, and a resumable checkpoint.
   that as `run_mode: resumed_replay`, and a checkpoint is retired only once its cohort published.
 - A completed cohort retires its checkpoint after the artifact is published and before the
   assertions, so a failed publish cannot destroy a complete cohort and a later run cannot replay
-  one; a run that performs no live turn can never report a passing or production-ready artifact.
+  one; a run that performs no live turn publishes as `resumed_replay` and never carries release
+  authority, so it can never report a production-ready artifact.
 
 ## Related docs
 

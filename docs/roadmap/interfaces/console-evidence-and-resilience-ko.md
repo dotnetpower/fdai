@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 108f4af4c6b7c0caae5c1c531c54083c3b3e49ba
+translation_source_sha: a55f2021422684aed0e6e3acf23a551d95f47f39
 translation_revised: 2026-08-15
 ---
 
@@ -54,6 +54,7 @@ translation_revised: 2026-08-15
 | 2026-08-15 | implemented | 정체된 질문 경계와 실행 예산 경계를 분리해 정체가 실제 실패로 기록되고 예산 소진로 cohort를 중단하지 않도록 했으며, checkpoint 읽기 경로에 결과 술어를 전달하고 예산으로 중단된 실행을 끝낸 질문을 공개했으며 typecheck 게이트를 `console/tests`로 확장했습니다. | `current change`; focused Vitest live-evidence 95개 통과, `npm run typecheck`가 `console/tests`를 포함해 통과합니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
 | 2026-08-15 | implemented | 만료된 시도는 자신을 잘랎 경계를 공개하므로 `per_attempt_deadline_exceeded`, `stalled_question`, `question_budget_exhausted`가 구분되는 증거가 되었고, Console typecheck는 dispatch 전용 workflow가 아니라 강제되는 operator-surface 게이트 안에서 실행됩니다. | `current change`; focused Vitest live-evidence 98개 통과, 전체 Console suite 1802개 통과, `npm run typecheck` 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
 | 2026-08-15 | implemented | Cohort를 완주했지만 발행 전에 중단된 실행은 더 이상 증거를 잃지 않습니다. `run_mode: resumed_replay`로 다시 발행되고, checkpoint는 cohort가 발행된 뒤에만 회수되며, 아티팩트는 정체된 질문을 시도별 deadline 위반과 분리해 집계합니다. | `current change`; 전체 Console suite 1802개 통과, `npm run typecheck` 및 typecheck-parity 계약 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
+| 2026-08-15 | implemented | 재생된 cohort는 보존 증거를 다시 발행하지만 release 권한을 갖지 않습니다. `receipt_source: resumed_replay`로 보고되고 production-ready가 될 수 없으며, 중단된 실행은 재생이 아니라 `interrupted`로 표기되고, checkpoint 로드는 통과 기준이 읽는 모든 보존 필드를 검증합니다. | `current change`; focused Vitest live-evidence 102개 통과, `npm run typecheck` 및 typecheck-parity 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
 
 ### 잔여 작업
 
