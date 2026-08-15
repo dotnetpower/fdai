@@ -7,6 +7,7 @@ import math
 import os
 import subprocess
 from datetime import datetime, timezone
+from itertools import islice
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -16,6 +17,8 @@ MAX_PATHS = 20
 MAX_HISTORY_COMMITS = 64
 MAX_RECEIPTS = 50
 VALIDATION_WARN_SECONDS = 300
+MAX_QUEUE_RECORDS = 2_000
+MAX_QUEUE_RECORD_BYTES = 1_048_576
 
 
 def git(root: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
@@ -108,6 +111,25 @@ def _percentile_95(values: list[float]) -> float | None:
     return ordered[max(0, math.ceil(len(ordered) * 0.95) - 1)]
 
 
+def _bounded_record_paths(directory: Path) -> tuple[list[Path], bool]:
+    if not directory.is_dir():
+        return [], False
+    paths = list(islice(directory.glob("*.json"), MAX_QUEUE_RECORDS + 1))
+    return paths[:MAX_QUEUE_RECORDS], len(paths) > MAX_QUEUE_RECORDS
+
+
+def _load_queue_record(path: Path) -> dict[str, object] | None:
+    try:
+        if path.stat().st_size > MAX_QUEUE_RECORD_BYTES:
+            return None
+        payload: object = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict) or payload.get("schema_version", 1) != 1:
+        return None
+    return payload
+
+
 def validation_diagnostic(root: Path) -> dict[str, Any]:
     resolved = git_common_dir(root)
     if resolved is None:
@@ -124,33 +146,31 @@ def validation_diagnostic(root: Path) -> dict[str, Any]:
     pending_ages: list[float] = []
     reachable_pending = 0
     invalid_records = 0
-    for path in pending_dir.glob("*.json") if pending_dir.is_dir() else ():
+    pending_paths, pending_truncated = _bounded_record_paths(pending_dir)
+    receipts_paths, receipts_truncated = _bounded_record_paths(receipts_dir)
+    pending_outside_window = 0
+    for path in pending_paths:
         if path.stem not in history:
+            pending_outside_window += 1
             continue
         reachable_pending += 1
-        try:
-            payload: object = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+        payload = _load_queue_record(path)
+        if payload is None or payload.get("commit") != path.stem:
             invalid_records += 1
             continue
-        enqueued_at = parse_timestamp(
-            payload.get("enqueued_at") if isinstance(payload, dict) else None
-        )
+        enqueued_at = parse_timestamp(payload.get("enqueued_at"))
         if enqueued_at is None:
             invalid_records += 1
             continue
         pending_ages.append(max(0.0, (now - enqueued_at).total_seconds()))
     receipt_rows: list[tuple[datetime, str]] = []
-    for path in receipts_dir.glob("*.json") if receipts_dir.is_dir() else ():
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+    for path in receipts_paths:
+        payload = _load_queue_record(path)
+        if payload is None or payload.get("commit") != path.stem:
             invalid_records += 1
             continue
-        validated_at = parse_timestamp(
-            payload.get("validated_at") if isinstance(payload, dict) else None
-        )
-        commit = payload.get("commit") if isinstance(payload, dict) else None
+        validated_at = parse_timestamp(payload.get("validated_at"))
+        commit = payload.get("commit")
         if validated_at is None or not isinstance(commit, str):
             invalid_records += 1
             continue
@@ -170,10 +190,19 @@ def validation_diagnostic(root: Path) -> dict[str, Any]:
     warning = oldest_pending > VALIDATION_WARN_SECONDS or (
         latency_p95 is not None and latency_p95 > VALIDATION_WARN_SECONDS
     )
+    warning = bool(
+        warning
+        or invalid_records
+        or pending_outside_window
+        or pending_truncated
+        or receipts_truncated
+    )
     return {
         "invalid_record_count": invalid_records,
         "latency_p95_seconds": None if latency_p95 is None else round(latency_p95, 3),
         "oldest_pending_seconds": round(oldest_pending, 3),
+        "pending_outside_history_window_count": pending_outside_window,
+        "queue_records_truncated": pending_truncated or receipts_truncated,
         "reachable_pending_count": reachable_pending,
         "receipt_sample_count": len(latencies),
         "status": "warning" if warning else "ok",

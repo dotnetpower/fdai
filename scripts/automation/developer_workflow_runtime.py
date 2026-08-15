@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import tempfile
 from collections.abc import Callable
+from itertools import islice
 from pathlib import Path
 from typing import Any
 from urllib.request import Request, urlopen
@@ -28,6 +29,8 @@ PRESSURE_LIMITS = {
     "io_full_avg10": 5.0,
     "memory_some_avg10": 1.0,
 }
+MAX_PROCESSES = 4_096
+MAX_COMMAND_BYTES = 4_096
 
 
 def _process_is_alive(pid: int) -> bool:
@@ -85,11 +88,36 @@ def _http_ready(url: str) -> bool:
         return False
 
 
+def _process_records(proc_root: Path = Path("/proc")) -> list[tuple[Path, list[str]]]:
+    records: list[tuple[Path, list[str]]] = []
+    processes = (path for path in proc_root.iterdir() if path.name.isdigit())
+    for process in islice(processes, MAX_PROCESSES):
+        try:
+            command = (process / "cmdline").read_bytes()
+            if len(command) > MAX_COMMAND_BYTES:
+                continue
+            arguments = [part.decode(errors="replace") for part in command.split(b"\0") if part]
+            cwd = (process / "cwd").resolve(strict=True)
+        except OSError:
+            continue
+        records.append((cwd, arguments))
+    return records
+
+
+def _owns_core_runtime(repo_root: Path, records: list[tuple[Path, list[str]]]) -> bool:
+    for cwd, arguments in records:
+        if cwd != repo_root or "pytest" in arguments:
+            continue
+        if any(arguments[index : index + 2] == ["-m", "fdai"] for index in range(len(arguments))):
+            return True
+    return False
+
+
 def local_services_diagnostic(
     root: Path,
     *,
     probe: Callable[[str], bool] = _http_ready,
-    process_lines: list[str] | None = None,
+    process_records: list[tuple[Path, list[str]]] | None = None,
 ) -> dict[str, Any]:
     resolved = git_common_dir(root)
     if resolved is None:
@@ -98,15 +126,7 @@ def local_services_diagnostic(
     if not (repo_root / ".fdai").is_dir():
         return {"reason_code": "local_stack_not_prepared", "status": "unavailable"}
     services = [{"name": name, "ready": bool(probe(url))} for name, url in LOCAL_SERVICE_ENDPOINTS]
-    if process_lines is None:
-        process_result = subprocess.run(  # noqa: S603 - fixed process inventory command.
-            ["ps", "-eo", "args="],  # noqa: S607 - ps is the fixed local executable.
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        process_lines = process_result.stdout.splitlines() if process_result.returncode == 0 else []
-    core_ready = any(" -m fdai" in line and "pytest" not in line for line in process_lines)
+    core_ready = _owns_core_runtime(repo_root, process_records or _process_records())
     services.insert(0, {"name": "core-runtime", "ready": core_ready})
     unavailable = [str(service["name"]) for service in services if not service["ready"]]
     return {
