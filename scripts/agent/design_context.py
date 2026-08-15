@@ -491,6 +491,13 @@ def _git_operation(arguments: list[str]) -> str | None:
     return None
 
 
+def _git_executable_index(segment: list[str]) -> int | None:
+    for index, token in enumerate(segment):
+        if Path(token).name == "git":
+            return index
+    return None
+
+
 def enforce_destructive_git(payload: dict[str, Any]) -> dict[str, Any]:
     """Require an explicit user-approval marker for destructive Git operations."""
     if _tool_name(payload) not in TERMINAL_TOOL_NAMES:
@@ -510,9 +517,9 @@ def enforce_destructive_git(payload: dict[str, Any]) -> dict[str, Any]:
         else:
             segments[-1].append(token)
     for segment in segments:
-        if _DESTRUCTIVE_GIT_APPROVAL in segment or "git" not in segment:
+        git_index = _git_executable_index(segment)
+        if _DESTRUCTIVE_GIT_APPROVAL in segment or git_index is None:
             continue
-        git_index = segment.index("git")
         arguments = segment[git_index + 1 :]
         operation = _git_operation(arguments)
         if operation not in _DESTRUCTIVE_GIT_OPERATIONS:
