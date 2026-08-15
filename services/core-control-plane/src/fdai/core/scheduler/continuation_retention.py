@@ -170,7 +170,9 @@ class ScheduledContinuationRetentionWorker:
             raise ValueError("now MUST be timezone-aware")
         anchor = await self._store.get(anchor_id)
         if anchor is None:
-            # Already physically deleted, or never existed. Reveal neither.
+            # The anchor is deleted last, so an absent anchor means every earlier
+            # target already succeeded. Report the completed purge without revealing
+            # whether the anchor ever existed.
             return RetentionResult(
                 anchor_id=anchor_id,
                 outcome=RetentionOutcome.PURGED,
