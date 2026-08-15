@@ -32,11 +32,18 @@ def git(root: Path, *arguments: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def git_diagnostic(root: Path) -> dict[str, Any]:
-    top_level = git(root, "rev-parse", "--show-toplevel")
-    if top_level.returncode != 0:
+RepositoryLocation = tuple[Path, Path]
+
+
+def git_diagnostic(
+    root: Path,
+    *,
+    resolved: RepositoryLocation | None = None,
+) -> dict[str, Any]:
+    location = resolved or git_common_dir(root)
+    if location is None:
         return {"reason_code": "git_repository_unavailable", "status": "unavailable"}
-    repo_root = Path(top_level.stdout.strip()).resolve()
+    repo_root, _common_dir = location
     head = git(repo_root, "rev-parse", "--verify", "HEAD^{commit}")
     branch = git(repo_root, "branch", "--show-current")
     if head.returncode != 0 or branch.returncode != 0:
@@ -131,8 +138,12 @@ def _load_queue_record(path: Path) -> dict[str, object] | None:
     return payload
 
 
-def validation_diagnostic(root: Path) -> dict[str, Any]:
-    resolved = git_common_dir(root)
+def validation_diagnostic(
+    root: Path,
+    *,
+    resolved: RepositoryLocation | None = None,
+) -> dict[str, Any]:
+    resolved = resolved or git_common_dir(root)
     if resolved is None:
         return {"reason_code": "validation_repository_unavailable", "status": "unavailable"}
     repo_root, common_dir = resolved
@@ -233,8 +244,12 @@ def _database_identity(value: str) -> tuple[str, int | None, str] | None:
     return parsed.hostname.lower(), port, parsed.path.removeprefix("/")
 
 
-def environment_diagnostic(root: Path) -> dict[str, Any]:
-    resolved = git_common_dir(root)
+def environment_diagnostic(
+    root: Path,
+    *,
+    resolved: RepositoryLocation | None = None,
+) -> dict[str, Any]:
+    resolved = resolved or git_common_dir(root)
     if resolved is None:
         return {"reason_code": "environment_repository_unavailable", "status": "unavailable"}
     repo_root, _common_dir = resolved
@@ -279,8 +294,12 @@ def environment_diagnostic(root: Path) -> dict[str, Any]:
     }
 
 
-def hook_diagnostic(root: Path) -> dict[str, Any]:
-    resolved = git_common_dir(root)
+def hook_diagnostic(
+    root: Path,
+    *,
+    resolved: RepositoryLocation | None = None,
+) -> dict[str, Any]:
+    resolved = resolved or git_common_dir(root)
     if resolved is None:
         return {"reason_code": "hook_repository_unavailable", "status": "unavailable"}
     repo_root, _common_dir = resolved

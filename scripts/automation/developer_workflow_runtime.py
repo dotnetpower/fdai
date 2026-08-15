@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 from urllib.request import Request, urlopen
 
-from scripts.automation.developer_workflow_repository import git_common_dir
+from scripts.automation.developer_workflow_repository import RepositoryLocation, git_common_dir
 
 PLAYWRIGHT_POOL_SIZE = 10
 LOCAL_SERVICE_ENDPOINTS = (
@@ -126,8 +126,9 @@ def local_services_diagnostic(
     *,
     probe: Callable[[str], bool] = _http_ready,
     process_records: list[tuple[Path, list[str]]] | None = None,
+    resolved: RepositoryLocation | None = None,
 ) -> dict[str, Any]:
-    resolved = git_common_dir(root)
+    resolved = resolved or git_common_dir(root)
     if resolved is None:
         return {"reason_code": "service_repository_unavailable", "status": "unavailable"}
     repo_root, _common_dir = resolved
@@ -224,8 +225,12 @@ def editor_pressure_diagnostic(
     }
 
 
-def editor_pressure_for_root(root: Path) -> dict[str, Any]:
-    resolved = git_common_dir(root)
+def editor_pressure_for_root(
+    root: Path,
+    *,
+    resolved: RepositoryLocation | None = None,
+) -> dict[str, Any]:
+    resolved = resolved or git_common_dir(root)
     if resolved is None:
         return {"reason_code": "editor_repository_unavailable", "status": "unavailable"}
     repo_root, _common_dir = resolved
@@ -234,9 +239,13 @@ def editor_pressure_for_root(root: Path) -> dict[str, Any]:
     return editor_pressure_diagnostic()
 
 
-def warning_diagnostic(root: Path) -> dict[str, Any]:
+def warning_diagnostic(
+    root: Path,
+    *,
+    resolved: RepositoryLocation | None = None,
+) -> dict[str, Any]:
     """Separate explicit diagnostic probes from bounded actionable warning counts."""
-    resolved = git_common_dir(root)
+    resolved = resolved or git_common_dir(root)
     if resolved is None:
         return {"reason_code": "warning_repository_unavailable", "status": "unavailable"}
     repo_root, _common_dir = resolved
