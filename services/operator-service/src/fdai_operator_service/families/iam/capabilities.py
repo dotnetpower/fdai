@@ -16,6 +16,7 @@ class IamCapability(StrEnum):
     AUTHOR_DRAFT_PR = "author-draft-pr"
     APPROVE_RUNTIME_HIL = "approve-runtime-hil"
     TRIGGER_KILL_SWITCH = "trigger-kill-switch"
+    ACTIVATE_BREAK_GLASS = "activate-break-glass"
     MANAGE_RUNTIME_SETTINGS = "manage-runtime-settings"
     MANAGE_GROUP_MEMBERSHIP = "manage-group-membership"
 
@@ -43,7 +44,11 @@ ROLE_CAPABILITIES: Final[dict[OperatorRole, frozenset[IamCapability]]] = {
         }
     ),
     OperatorRole.BREAK_GLASS: frozenset(
-        {IamCapability.VIEW_CONSOLE, IamCapability.TRIGGER_KILL_SWITCH}
+        {
+            IamCapability.VIEW_CONSOLE,
+            IamCapability.TRIGGER_KILL_SWITCH,
+            IamCapability.ACTIVATE_BREAK_GLASS,
+        }
     ),
 }
 

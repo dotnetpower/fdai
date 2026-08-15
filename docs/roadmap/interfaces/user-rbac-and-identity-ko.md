@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 9495930950982fa09b953e2a50fa07d69cc2f083
-translation_revised: 2026-08-13
+translation_source_sha: 11ca2638bcb54501f2640a3c9c36f0a151661fa9
+translation_revised: 2026-08-15
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -33,16 +33,19 @@ Managed Identity, GitHub App, Teams bot)는 여전히 [security-and-identity-ko.
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 활동 관찰의 사람 및 workload identity 분리 | 구현됨 | `fdai_operator_service/activity_projection.py`, `test_activity_projection.py`, 이 문서의 인증된 관찰 계약 | 영속 현재 상태 활동은 hash된 correlation 참조만 전달하며 Reader bearer 게이트와 relay workload credential은 계속 분리되고 어떤 활동 행도 executor 권한을 얻지 않습니다. |
+| Break-Glass 활성화 요청 경계 | 구현됨 | `services/operator-service/src/fdai_operator_service/families/iam/break_glass.py`; `capabilities.py`; `services/operator-service/tests/test_operator_break_glass_activation.py` | `POST /system/break-glass/activation`은 BreakGlass 전용 `activate-break-glass` 기능과 비어 있지 않은 인시던트 id 및 사유, 한도 안의 미래 오프셋 인식 만료 시각을 요구합니다. 감사 전용 projection만 기록하며 HIL 승인이나 executor identity를 부여하지 않습니다. 영속 활성화 저장소, TTL 적용, 사인인 알림은 배포 작업으로 남습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 영속 현재 상태 활동이 전달하는 범위 제한 identity를 기록했습니다. | 현재 출처와 `test_activity_projection.py`, 통과한 focused 영속성 및 projection 테스트 | 별도로 설계된 운영 Break-Glass 활성화 경계를 추가합니다. |
+| 2026-08-15 | 구현됨 | BreakGlass 전용 기능, 인시던트 id, 사유, 한도 안의 미래 만료, 감사 전용 projection을 갖춘 `POST /system/break-glass/activation` 요청 경계를 추가했습니다. | `current change`; `services/operator-service/src/fdai_operator_service/families/iam/break_glass.py`; `pytest services/operator-service/tests` (308 passed, 1 skipped). | 배포에서 영속 활성화 저장소, TTL 적용, 사인인 알림을 연결합니다. |
 
 ### 남은 작업
 
-- [ ] Incident id와 미래 만료 시각을 요구하고 활성화 감사 근거를 기록하면서 런타임 HIL 승인 또는 executor identity를 부여하지 않는 운영 Break-Glass 활성화 endpoint를 추가합니다.
+- [x] 운영 Break-Glass 활성화 endpoint가 존재하며 인시던트 id, 사유, 한도 안의 미래 만료 시각을 요구하고 활성화 감사 근거를 기록하면서 런타임 HIL 승인이나 executor identity를 부여하지 않습니다. `services/operator-service/tests/test_operator_break_glass_activation.py`가 이를 증명합니다.
+- [ ] 배포에서 영속 활성화 저장소, TTL 적용, 사인인 알림을 연결하고 관리되는 활성화 영수증 하나를 보존합니다.
 
 ## 1. 상기하는 설계 원칙
 
@@ -84,9 +87,11 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
   제거하지만 별도의 자격 플래그를 유지합니다. 시간 제한 활성화는 긴급 역할을 추가하기 전에
   이 플래그를 확인합니다.
 - **현재 activation 경계.** `RoleResolver.activate_break_glass`는 인시던트 id와 future 만료를
-  검증하는 pure activation 기본 요소입니다. 운영 API에는 이를 호출하는 엔드포인트, persistent
-  activation 저장소, TTL 적용 조립이 아직 없습니다. 따라서 토큰의 BreakGlass 점유만으로
-  런타임 principal이 elevation되지 않으며, HIL 승인 충족 여부도 생기지 않습니다.
+  검증하는 pure activation 기본 요소입니다. `POST /system/break-glass/activation`이 그 앞의 요청
+  경계로, BreakGlass 전용 `activate-break-glass` 기능과 인시던트 id, 사유, 한도 안의 미래 만료를
+  요구하고 감사 전용 projection을 기록합니다. 호출 principal을 elevation하지 않으므로 토큰의
+  BreakGlass 점유만으로는 여전히 HIL 승인 자격이 생기지 않습니다. persistent activation 저장소와
+  TTL 적용 조립은 배포 작업으로 남습니다.
 - **PIM은 선택**. 상류는 요구하지 않음. Entra ID P2 있는 포크는 just-in-time 활성화를 위해
   `aw-approvers` / `aw-owners` 위에 PIM을 얹을 수 있지만, 기본 모델은 P1에서 작동.
 
@@ -502,9 +507,9 @@ Teams SSO OBO 승인에 대한 목표 계약은 다음과 같습니다:
 
 - Break-glass는 **전용 계정** (사람의 개인 계정 아님), 물리적 보관하의 하드웨어 FIDO2 키로
   저장.
-- 모든 사인인에 대한 break-glass 알림과 상승된 감사 기록은 배포 운영 계약입니다. 현재
-  운영 API에는 activation 엔드포인트, persistent activation 저장소 또는 알림 조립이
-  없습니다.
+- 모든 사인인에 대한 break-glass 알림과 상승된 감사 기록은 배포 운영 계약입니다. 운영 API는
+  활성화 요청을 기록하는 `POST /system/break-glass/activation`을 제공하며, persistent activation
+  저장소와 알림 조립은 배포 작업으로 남고 저장소가 구성되지 않으면 엔드포인트는 차단됩니다.
 - `BreakGlass` 권한은 `RoleResolver.activate_break_glass`로 별도 활성화되어야 합니다.
   활성화된 `BreakGlass`만으로 비상 정지와 비상 접근 권한 부여 기능을 가질 수 있으며
   `Owner`와 `BreakGlass`를 동시에 요구하지 않습니다.
