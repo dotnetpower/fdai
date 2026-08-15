@@ -445,6 +445,54 @@ def test_validation_warns_on_records_outside_window_and_invalid_receipts(
     assert validation["receipt_sample_count"] == 0
 
 
+def test_validation_latency_separates_current_and_historical_receipts(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    assert _git(repo, "init", "--quiet", "--initial-branch=main").returncode == 0
+    assert _git(repo, "config", "user.email", "user@example.com").returncode == 0
+    assert _git(repo, "config", "user.name", "Example User").returncode == 0
+    state = repo / ".git" / "fdai-validation-queue" / "receipts"
+    state.mkdir(parents=True)
+    commits: list[tuple[str, datetime]] = []
+    for index in range(2):
+        (repo / "example.txt").write_text(f"value-{index}\n", encoding="utf-8")
+        assert _git(repo, "add", "example.txt").returncode == 0
+        assert _git(repo, "commit", "--quiet", "-m", f"commit-{index}").returncode == 0
+        commit = _git(repo, "rev-parse", "HEAD").stdout.strip()
+        committed_at = datetime.fromisoformat(
+            _git(repo, "show", "-s", "--format=%cI", commit).stdout.strip()
+        )
+        commits.append((commit, committed_at))
+    current_commit, current_at = commits[1]
+    old_commit, old_at = commits[0]
+    now = datetime.now(UTC)
+    for commit, validated_at in (
+        (current_commit, current_at + timedelta(seconds=120)),
+        (old_commit, now - timedelta(hours=48)),
+    ):
+        (state / f"{commit}.json").write_text(
+            json.dumps(
+                {
+                    "commit": commit,
+                    "schema_version": 1,
+                    "validated_at": validated_at.isoformat(),
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+    result = _run(repo, "status", "--json")
+
+    assert result.returncode == 0, result.stderr
+    validation = json.loads(result.stdout)["sections"]["validation"]
+    assert validation["receipt_cohort_hours"] == 24
+    assert validation["receipt_sample_count"] == 1
+    assert validation["latency_p95_seconds"] == 120
+    assert validation["historical_receipt_sample_count"] == 1
+    assert validation["historical_latency_p95_seconds"] == 0
+
+
 def test_editor_pressure_separates_host_and_client_state(tmp_path: Path) -> None:
     module = _load_module()
     pressure = tmp_path / "pressure"

@@ -6,7 +6,7 @@ import json
 import math
 import os
 import subprocess
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from itertools import islice
 from pathlib import Path
 from typing import Any
@@ -17,6 +17,7 @@ MAX_PATHS = 20
 MAX_HISTORY_COMMITS = 64
 MAX_RECEIPTS = 50
 VALIDATION_WARN_SECONDS = 300
+VALIDATION_CURRENT_COHORT_HOURS = 24
 MAX_QUEUE_RECORDS = 2_000
 MAX_QUEUE_RECORD_BYTES = 1_048_576
 
@@ -175,7 +176,9 @@ def validation_diagnostic(root: Path) -> dict[str, Any]:
             invalid_records += 1
             continue
         receipt_rows.append((validated_at, commit))
-    latencies: list[float] = []
+    current_latencies: list[float] = []
+    historical_latencies: list[float] = []
+    cohort_start = now - timedelta(hours=VALIDATION_CURRENT_COHORT_HOURS)
     for validated_at, commit in sorted(receipt_rows, reverse=True)[:MAX_RECEIPTS]:
         committed = git(repo_root, "show", "-s", "--format=%cI", commit)
         committed_at = (
@@ -184,9 +187,14 @@ def validation_diagnostic(root: Path) -> dict[str, Any]:
         if committed_at is None:
             invalid_records += 1
             continue
-        latencies.append(max(0.0, (validated_at - committed_at).total_seconds()))
+        latency = max(0.0, (validated_at - committed_at).total_seconds())
+        if validated_at >= cohort_start:
+            current_latencies.append(latency)
+        else:
+            historical_latencies.append(latency)
     oldest_pending = max(pending_ages, default=0.0)
-    latency_p95 = _percentile_95(latencies)
+    latency_p95 = _percentile_95(current_latencies)
+    historical_latency_p95 = _percentile_95(historical_latencies)
     warning = oldest_pending > VALIDATION_WARN_SECONDS or (
         latency_p95 is not None and latency_p95 > VALIDATION_WARN_SECONDS
     )
@@ -199,12 +207,17 @@ def validation_diagnostic(root: Path) -> dict[str, Any]:
     )
     return {
         "invalid_record_count": invalid_records,
+        "historical_latency_p95_seconds": (
+            None if historical_latency_p95 is None else round(historical_latency_p95, 3)
+        ),
+        "historical_receipt_sample_count": len(historical_latencies),
         "latency_p95_seconds": None if latency_p95 is None else round(latency_p95, 3),
         "oldest_pending_seconds": round(oldest_pending, 3),
         "pending_outside_history_window_count": pending_outside_window,
         "queue_records_truncated": pending_truncated or receipts_truncated,
         "reachable_pending_count": reachable_pending,
-        "receipt_sample_count": len(latencies),
+        "receipt_cohort_hours": VALIDATION_CURRENT_COHORT_HOURS,
+        "receipt_sample_count": len(current_latencies),
         "status": "warning" if warning else "ok",
     }
 
