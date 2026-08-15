@@ -321,6 +321,13 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   const resumed = resumableWithLiveProof(restored.filter((result) => result.passed), questions);
   const retained: RetainedTurnResult[] = [...resumed];
   const outstanding = pendingQuestions(questions, retained);
+  // A resume that silently restored nothing is otherwise only visible in the final artifact, so
+  // the slowest path starts with the one line that distinguishes a resume from a fresh cohort.
+  process.stdout.write(
+    `assurance-resume checkpoint=${checkpointFile === null ? "disabled" : "enabled"} ` +
+      `stored=${restored.length} resumed=${resumed.length} outstanding=${outstanding.length}/` +
+      `${questions.length}\n`,
+  );
 
   // The budget is anchored before the preamble so browser restore and navigation are charged to
   // it; otherwise the harness timeout could fire before the run stops itself.
