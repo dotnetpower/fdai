@@ -173,6 +173,42 @@ Each round uses a focused falsifying check. A finding already covered by the cur
 is rejected with evidence instead of adding duplicate code. The exit condition is another
 independent review with no residual above Low.
 
+### Top 20 assurance results
+
+The extension completed 14 rounds, numbered 11 through 24 because independent review opened four
+additional hardening rounds.
+
+| Round | Result | Evidence |
+|------:|--------|----------|
+| 11 | accepted | Old unreferenced pending records are previewed by age and reachability before maintenance. |
+| 12 | accepted | Current 24-hour receipt latency and historical debt are reported separately. |
+| 13 | rejected | Existing `test_script_change_selects_moved_integration_script_tests` already proves automation changes select `tests/integration/scripts`; broad selection remains correct for Makefile and other global inputs. |
+| 14 | accepted | Explicit `PROBE_` and `diagnostic_probe` records remain in raw logs but are excluded from bounded actionable warning counts. |
+| 15 | accepted | Core runtime readiness reports exact checkout ownership and other-checkout owner counts without treating them as primary readiness. |
+| 16 | accepted, hardened in rounds 21 and 23 | Destructive Git requires an explicit approval marker. |
+| 17 | accepted | `delegation-preflight` rejects dirty snapshots, and the always-on agent contract forbids delegated validation of a dirty worktree. |
+| 18 | accepted | Project start requires exactly one canonical work type before assignment or board mutation. |
+| 19 | accepted | Five HTTP probes run concurrently under their fixed 0.5-second per-probe timeout while output order stays stable. |
+| 20 | accepted | One status invocation resolves repository and Git common-dir context once. |
+| 21 | accepted | Absolute-path, `env`, `command`, and `git -C` destructive commands are guarded. |
+| 22 | accepted | Reachability uses one batched all-ref plus checkout-head traversal, apply recomputes the set, and retirement moves records to quarantine instead of deleting them. |
+| 23 | accepted | Recursive shell parsing covers `sh -c`, `bash -lc`, `zsh -c`, and wrapped bare commits. |
+| 24 | accepted | A quarantined record automatically returns to pending when a checkout or ref reactivates its commit. |
+
+Focused integration passed 231 tests before the review-driven rounds. The final focused suites
+passed 15 guard tests and 37 validation-queue tests. Ruff and strict mypy passed on the changed
+workflow source.
+
+The remaining Low risks are explicit and bounded:
+
+- The warning summary scans at most 5 MiB and 5,000 rows, so an older actionable warning may remain
+  outside the current diagnostic window while the raw log stays unchanged.
+- Retired pending records remain under Git-common-dir quarantine until a later maintenance policy
+  removes them; automatic reactivation prevents validation starvation.
+- The terminal guard covers declarative shell command strings issued through agent tools. It does
+  not attempt to prove the behavior of arbitrary generated programs, which remain governed by the
+  user-request, code-review, and clean-snapshot contracts.
+
 ## Implementation status
 
 ### Implementation scope
@@ -195,6 +231,7 @@ independent review with no residual above Low.
 | 2026-08-15 | implemented | Completed 13 critique-and-hardening rounds and removed every reproducible Medium-or-higher residual. | Current change; 163 focused Python control tests, 6 Playwright port-pool tests, 48 final false-ready tests, Ruff, and the final independent review. | Record the centralized validation receipt for the integrated revision. |
 | 2026-08-15 | validated | Central validation accepted the integrated implementation revision. | `validation_queue.py check-commit d3f5257b9` passed. | No remaining work in this bounded campaign. |
 | 2026-08-15 | in-progress | Started the measured Top 20 residual campaign. | Issue #118 and the baselines in the residual campaign table. | Complete at least 10 additional critique rounds and central validation. |
+| 2026-08-15 | implemented | Completed 14 additional critique and hardening rounds for ranks 11 through 20. | Current change; the Top 20 assurance results above, focused tests, Ruff, and strict mypy. | Integrate the exact revision, obtain central validation, and complete issue #118. |
 
 ### Remaining work
 
@@ -202,8 +239,8 @@ independent review with no residual above Low.
   rejected findings above.
 - [x] Central validation accepted integrated implementation revision `d3f5257b9`.
 - [x] The final independent review found no residual finding above Low.
-- [ ] Complete issue #118 with at least 10 additional rounds, no residual above Low, and an exact
-  central validation receipt.
+- [x] Completed 14 additional rounds with only the bounded Low residuals listed above.
+- [ ] Integrate the exact Top 20 revision, obtain central validation, and complete issue #118.
 
 ## Related docs
 

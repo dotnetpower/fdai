@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 01f739fdb83e3270dc5bc1be726fdc75f6de1ce6
+translation_source_sha: a4065a41daa4b93732e38cdcdd895a21d3f514fd
 translation_revised: 2026-08-15
 ---
 
@@ -179,6 +179,42 @@ throttle, permanent error 및 retry exhaustion 집중 테스트가 해당 동작
 추가하지 않고 근거와 함께 기각합니다. 종료 조건은 Low를 초과하는 잔존 사항이 없는 또 한 번의
 독립 검토입니다.
 
+### Top 20 보증 결과
+
+확장 캠페인은 라운드 11부터 24까지 14개 라운드를 완료했습니다. 독립 검토에서 추가 hardening
+라운드 4개가 열렸기 때문입니다.
+
+| 라운드 | 결과 | 근거 |
+|-------:|------|------|
+| 11 | 수락 | 오래되고 참조되지 않는 pending record는 maintenance 전에 age와 reachability로 preview됩니다. |
+| 12 | 수락 | 현재 24시간 receipt 지연과 과거 debt를 별도로 보고합니다. |
+| 13 | 기각 | 기존 `test_script_change_selects_moved_integration_script_tests`가 automation 변경이 `tests/integration/scripts`를 선택함을 이미 증명합니다. Makefile 및 다른 global input의 broad 선택은 올바르게 유지됩니다. |
+| 14 | 수락 | 명시적 `PROBE_` 및 `diagnostic_probe` record는 raw log에 남지만 제한된 actionable warning 수에서는 제외됩니다. |
+| 15 | 수락 | Core runtime readiness는 정확한 checkout 소유권과 다른 checkout owner 수를 보고하며 primary readiness로 취급하지 않습니다. |
+| 16 | 수락 후 라운드 21과 23에서 추가 hardening | Destructive Git은 명시적 approval marker를 요구합니다. |
+| 17 | 수락 | `delegation-preflight`는 dirty snapshot을 거부하며 always-on agent contract는 dirty worktree의 delegated validation을 금지합니다. |
+| 18 | 수락 | Project start는 assignment 또는 board 변경 전에 정확히 하나의 canonical work type을 요구합니다. |
+| 19 | 수락 | HTTP probe 5개는 고정된 probe별 0.5초 timeout 안에서 병렬 실행되며 출력 순서는 안정적으로 유지됩니다. |
+| 20 | 수락 | Status 한 번이 repository 및 Git common-dir context를 한 번만 해석합니다. |
+| 21 | 수락 | 절대경로, `env`, `command` 및 `git -C` destructive 명령을 guard합니다. |
+| 22 | 수락 | Reachability는 모든 ref와 checkout head를 한 번의 batch traversal로 계산하고 apply 전에 재계산하며, record를 삭제하지 않고 quarantine으로 이동합니다. |
+| 23 | 수락 | 재귀 shell parsing이 `sh -c`, `bash -lc`, `zsh -c` 및 wrapped bare commit을 다룹니다. |
+| 24 | 수락 | Checkout 또는 ref가 commit을 다시 활성화하면 quarantine record가 pending으로 자동 복원됩니다. |
+
+Review-driven 라운드 전에 focused integration 테스트 231개가 통과했습니다. 최종 focused suite는
+guard 테스트 15개와 validation queue 테스트 37개가 통과했습니다. 변경된 workflow source의 Ruff와
+strict mypy도 통과했습니다.
+
+남은 Low 위험은 명시적이고 제한됩니다.
+
+- Warning 요약은 최대 5 MiB와 5,000행을 scan하므로 더 오래된 actionable warning은 현재 진단
+  window 밖에 남을 수 있지만 raw log는 변경되지 않습니다.
+- Retired pending record는 이후 maintenance policy가 제거할 때까지 Git common-dir quarantine에
+  남습니다. 자동 reactivation은 validation starvation을 방지합니다.
+- Terminal guard는 agent tool을 통해 실행되는 선언적 shell command string을 다룹니다. 임의로
+  생성된 program의 동작까지 증명하려고 하지 않으며, 해당 program은 user request, code review 및
+  clean-snapshot contract의 적용을 계속 받습니다.
+
 ## 구현 상태
 
 ### 구현 범위
@@ -201,6 +237,7 @@ throttle, permanent error 및 retry exhaustion 집중 테스트가 해당 동작
 | 2026-08-15 | implemented | 13개의 비평 및 hardening 라운드를 완료하고 재현 가능한 모든 Medium 이상 잔존 사항을 제거했습니다. | 현재 변경, 집중 Python 통제 테스트 163개, Playwright port-pool 테스트 6개, 최종 false-ready 테스트 48개, Ruff 및 최종 독립 검토입니다. | 통합 revision의 중앙 validation receipt를 기록합니다. |
 | 2026-08-15 | validated | 중앙 검증이 통합 구현 revision을 수락했습니다. | `validation_queue.py check-commit d3f5257b9`가 통과했습니다. | 이 제한된 캠페인에 남은 작업이 없습니다. |
 | 2026-08-15 | in-progress | 측정된 Top 20 잔존 캠페인을 시작했습니다. | 이슈 #118 및 잔존 캠페인 표의 기준선입니다. | 추가 비평 라운드 10개 이상과 중앙 검증을 완료합니다. |
+| 2026-08-15 | implemented | 순위 11부터 20까지 추가 비평 및 hardening 라운드 14개를 완료했습니다. | 현재 변경, 위 Top 20 보증 결과, focused tests, Ruff 및 strict mypy입니다. | Exact revision을 통합하고 중앙 검증을 받은 후 이슈 #118을 완료합니다. |
 
 ### 남은 작업
 
@@ -208,8 +245,8 @@ throttle, permanent error 및 retry exhaustion 집중 테스트가 해당 동작
   기록했습니다.
 - [x] 중앙 검증이 통합 구현 revision `d3f5257b9`를 수락했습니다.
 - [x] 최종 독립 검토에서 Low를 초과하는 잔존 발견 사항이 없었습니다.
-- [ ] 추가 라운드 10개 이상, Low를 초과하는 잔존 사항 0건 및 exact 중앙 validation receipt로
-  이슈 #118을 완료합니다.
+- [x] 위의 제한된 Low 잔존 사항만 남기고 추가 라운드 14개를 완료했습니다.
+- [ ] Exact Top 20 revision을 통합하고 중앙 검증을 받은 후 이슈 #118을 완료합니다.
 
 ## 관련 문서
 
