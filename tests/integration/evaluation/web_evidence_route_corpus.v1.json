@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "corpus_id": "web-evidence-route-corpus",
+  "corpus_version": "v1",
+  "description": "Frozen English and Korean acceptance corpus for operator console public web evidence routing and provider-call behavior. Prompts are synthetic and customer-agnostic.",
+  "cases": [
+    {
+      "id": "en-explicit-web",
+      "locale": "en",
+      "intent": "explicit_web",
+      "prompt": "Search the web for the current AKS node autoscaler upgrade guidance.",
+      "expected_route": "web",
+      "expects_provider_call": true,
+      "expected_normalized_query": "aks node autoscaler upgrade guidance",
+      "expected_alternative_discovery": false,
+      "expected_min_distinct_products": null,
+      "expected_denial_reason": null
+    },
+    {
+      "id": "en-colloquial-web",
+      "locale": "en",
+      "intent": "colloquial_web",
+      "prompt": "Can you look up what changed in the latest Kubernetes patch release?",
+      "expected_route": "web",
+      "expects_provider_call": true,
+      "expected_normalized_query": "latest kubernetes patch release changes",
+      "expected_alternative_discovery": false,
+      "expected_min_distinct_products": null,
+      "expected_denial_reason": null
+    },
+    {
+      "id": "en-alternative-discovery",
+      "locale": "en",
+      "intent": "alternative_discovery",
+      "prompt": "Find alternatives to a managed feature-flag service with audit logging and staged rollout.",
+      "expected_route": "web",
+      "expects_provider_call": true,
+      "expected_normalized_query": "feature flag service audit logging staged rollout",
+      "expected_alternative_discovery": true,
+      "expected_min_distinct_products": 3,
+      "expected_denial_reason": null
+    },
+    {
+      "id": "en-local-scope",
+      "locale": "en",
+      "intent": "local_scope",
+      "prompt": "List the stopped db instances in the platform subscription scope.",
+      "expected_route": "local",
+      "expects_provider_call": false,
+      "expected_normalized_query": null,
+      "expected_alternative_discovery": false,
+      "expected_min_distinct_products": null,
+      "expected_denial_reason": null
+    },
+    {
+      "id": "en-sensitive",
+      "locale": "en",
+      "intent": "sensitive",
+      "prompt": "Search the web for the owner of subscription 00000000-0000-0000-0000-000000000000.",
+      "expected_route": "none",
+      "expects_provider_call": false,
+      "expected_normalized_query": null,
+      "expected_alternative_discovery": false,
+      "expected_min_distinct_products": null,
+      "expected_denial_reason": "sensitive_input"
+    },
+    {
+      "id": "ko-explicit-web",
+      "locale": "ko",
+      "intent": "explicit_web",
+      "prompt": "AKS 노드 오토스케일러 업그레이드 지침을 웹에서 검색해줘.",
+      "expected_route": "web",
+      "expects_provider_call": true,
+      "expected_normalized_query": "aks node autoscaler upgrade guidance",
+      "expected_alternative_discovery": false,
+      "expected_min_distinct_products": null,
+      "expected_denial_reason": null
+    },
+    {
+      "id": "ko-colloquial-freshness",
+      "locale": "ko",
+      "intent": "freshness",
+      "prompt": "최신 Kubernetes 패치 릴리스에서 무엇이 바뀌었는지 찾아봐.",
+      "expected_route": "web",
+      "expects_provider_call": true,
+      "expected_normalized_query": "latest kubernetes patch release changes",
+      "expected_alternative_discovery": false,
+      "expected_min_distinct_products": null,
+      "expected_denial_reason": null
+    },
+    {
+      "id": "ko-local-scope",
+      "locale": "ko",
+      "intent": "local_scope",
+      "prompt": "AKS에 연결된 중지된 db 인스턴스를 보여줘.",
+      "expected_route": "local",
+      "expects_provider_call": false,
+      "expected_normalized_query": null,
+      "expected_alternative_discovery": false,
+      "expected_min_distinct_products": null,
+      "expected_denial_reason": null
+    },
+    {
+      "id": "ko-current-screen",
+      "locale": "ko",
+      "intent": "current_screen",
+      "prompt": "이 화면에 표시된 실패 건수는 몇 건이야?",
+      "expected_route": "local",
+      "expects_provider_call": false,
+      "expected_normalized_query": null,
+      "expected_alternative_discovery": false,
+      "expected_min_distinct_products": null,
+      "expected_denial_reason": null
+    },
+    {
+      "id": "ko-no-search",
+      "locale": "ko",
+      "intent": "no_search",
+      "prompt": "지금 진행 중인 승인 대기 제안을 요약해줘.",
+      "expected_route": "none",
+      "expects_provider_call": false,
+      "expected_normalized_query": null,
+      "expected_alternative_discovery": false,
+      "expected_min_distinct_products": null,
+      "expected_denial_reason": null
+    }
+  ]
+}
