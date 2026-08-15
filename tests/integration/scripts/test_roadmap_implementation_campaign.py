@@ -245,3 +245,88 @@ def test_refusal_memo_survives_a_corrupt_state_file(tmp_path: Path) -> None:
     assert module.refused_folders(tmp_path, 63, now=1_000.0) == frozenset()
     module.record_refusal(tmp_path, 63, "deployment", now=1_000.0)
     assert module.refused_folders(tmp_path, 63, now=1_000.0) == frozenset({"deployment"})
+
+
+def _git_binary() -> str:
+    import shutil
+
+    resolved = shutil.which("git")
+    assert resolved is not None, "git is required for these tests"
+    return resolved
+
+
+def _init_repo(path: Path) -> None:
+    import subprocess
+
+    def run(*args: str) -> None:
+        subprocess.run(  # noqa: S603 - fixed git commands on a temporary repo
+            [_git_binary(), *args],
+            cwd=path,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+    path.mkdir(parents=True, exist_ok=True)
+    run("init", "-q", "-b", "main")
+    run("config", "user.email", "t@example.com")
+    run("config", "user.name", "T")
+    (path / "seed.txt").write_text("seed\n", encoding="utf-8")
+    run("add", "seed.txt")
+    run("commit", "-qm", "seed")
+
+
+def test_sync_absorbs_main_when_the_branch_is_ahead_and_behind(tmp_path: Path) -> None:
+    import subprocess
+
+    module = _load()
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+
+    def run(*args: str) -> str:
+        return subprocess.run(  # noqa: S603 - fixed git commands on a temporary repo
+            [_git_binary(), *args], cwd=repo, check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    run("checkout", "-qb", "roadmap-implementation/campaign")
+    (repo / "campaign.txt").write_text("batch\n", encoding="utf-8")
+    run("add", "campaign.txt")
+    run("commit", "-qm", "campaign batch")
+    run("checkout", "-q", "main")
+    (repo / "other.txt").write_text("other\n", encoding="utf-8")
+    run("add", "other.txt")
+    run("commit", "-qm", "other work")
+    run("checkout", "-q", "roadmap-implementation/campaign")
+
+    # Ahead and behind at once used to hold every later run forever.
+    assert module._campaign_relation(ahead=1, behind=1) == "diverged"
+    assert module._sync_campaign_base(repo) == "current"
+    assert run("rev-list", "--count", "HEAD..main") == "0"
+    assert run("status", "--porcelain") == ""
+
+
+def test_sync_leaves_no_half_merged_worktree_on_conflict(tmp_path: Path) -> None:
+    import subprocess
+
+    module = _load()
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+
+    def run(*args: str) -> str:
+        return subprocess.run(  # noqa: S603 - fixed git commands on a temporary repo
+            [_git_binary(), *args], cwd=repo, check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    run("checkout", "-qb", "roadmap-implementation/campaign")
+    (repo / "shared.txt").write_text("campaign\n", encoding="utf-8")
+    run("add", "shared.txt")
+    run("commit", "-qm", "campaign edit")
+    run("checkout", "-q", "main")
+    (repo / "shared.txt").write_text("main\n", encoding="utf-8")
+    run("add", "shared.txt")
+    run("commit", "-qm", "main edit")
+    run("checkout", "-q", "roadmap-implementation/campaign")
+
+    assert module._sync_campaign_base(repo) == "sync-failed"
+    # A half-merged tree would make the next run refuse with "campaign worktree is dirty".
+    assert run("status", "--porcelain") == ""
