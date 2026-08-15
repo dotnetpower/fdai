@@ -74,6 +74,7 @@ def test_workspace_starts_complete_console_topology_automatically() -> None:
     automatic_start = tasks_by_label["console: start full stack automatically"]
     assert automatic_start["dependsOrder"] == "sequence"
     assert automatic_start["dependsOn"] == [
+        "console: require primary worktree for automatic start",
         "console: prepare full stack",
         "console: start local services",
     ]
@@ -82,6 +83,13 @@ def test_workspace_starts_complete_console_topology_automatically() -> None:
         "instanceLimit": 1,
         "instancePolicy": "silent",
     }
+
+    automatic_start_guard = tasks_by_label["console: require primary worktree for automatic start"]
+    assert automatic_start_guard["type"] == "shell"
+    assert "--git-dir" in automatic_start_guard["command"]
+    assert "--git-common-dir" in automatic_start_guard["command"]
+    assert "exit 75" in automatic_start_guard["command"]
+    assert automatic_start_guard["problemMatcher"] == []
 
     local_services = tasks_by_label["console: start local services"]
     assert local_services["dependsOrder"] == "parallel"
