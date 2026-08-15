@@ -121,3 +121,11 @@ def test_invalid_byte_bound_fails_startup(tmp_path: Path, raw: str) -> None:
                 REGISTRY_MAX_BYTES_VARIABLE: raw,
             }
         )
+
+
+def test_a_non_regular_registry_path_fails_startup(tmp_path: Path) -> None:
+    directory = tmp_path / "registry-dir"
+    directory.mkdir()
+
+    with pytest.raises(RuntimeError, match="regular file"):
+        load_execution_backend_registry_from_env(env={REGISTRY_PATH_VARIABLE: str(directory)})

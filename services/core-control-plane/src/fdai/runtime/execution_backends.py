@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import stat
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -21,8 +22,10 @@ def load_execution_backend_registry_from_env(
     """Return the validated registry when configured, or `None` when it is absent.
 
     An unset path leaves the runtime without execution backend profiles, which keeps
-    every governed backend unavailable. A configured but unreadable, oversized, or
-    invalid document fails startup instead of silently degrading to no profiles.
+    every governed backend unavailable. A configured but unreadable, non-regular,
+    oversized, or invalid document fails startup instead of silently degrading to no
+    profiles. The regular-file check also prevents startup from blocking on a
+    directory, device, or FIFO supplied through the environment.
     """
 
     values = env if env is not None else os.environ
@@ -32,9 +35,12 @@ def load_execution_backend_registry_from_env(
     max_bytes = _max_bytes(values)
     path = Path(raw_path)
     try:
-        size = path.stat().st_size
+        status = path.stat()
     except OSError as exc:
         raise RuntimeError(f"{REGISTRY_PATH_VARIABLE} is unreadable") from exc
+    if not stat.S_ISREG(status.st_mode):
+        raise RuntimeError(f"{REGISTRY_PATH_VARIABLE} MUST name a regular file")
+    size = status.st_size
     if size > max_bytes:
         raise RuntimeError(f"{REGISTRY_PATH_VARIABLE} exceeds the configured byte bound")
     return load_execution_backend_registry_file(path)
