@@ -62,3 +62,36 @@ def test_status_reports_non_repository_as_unavailable(tmp_path: Path) -> None:
         "reason_code": "git_repository_unavailable",
         "status": "unavailable",
     }
+    assert payload["sections"]["index"] == {
+        "reason_code": "git_index_unavailable",
+        "status": "unavailable",
+    }
+
+
+def test_status_reports_staged_and_unstaged_overlap(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    assert _git(repo, "init", "--quiet", "--initial-branch=main").returncode == 0
+    assert _git(repo, "config", "user.email", "user@example.com").returncode == 0
+    assert _git(repo, "config", "user.name", "Example User").returncode == 0
+    tracked = repo / "tracked.txt"
+    tracked.write_text("initial\n", encoding="utf-8")
+    assert _git(repo, "add", "tracked.txt").returncode == 0
+    assert _git(repo, "commit", "--quiet", "-m", "initial").returncode == 0
+    tracked.write_text("staged\n", encoding="utf-8")
+    assert _git(repo, "add", "tracked.txt").returncode == 0
+    tracked.write_text("unstaged\n", encoding="utf-8")
+    (repo / "untracked.txt").write_text("new\n", encoding="utf-8")
+
+    result = _run(repo, "status", "--json")
+
+    assert result.returncode == 0, result.stderr
+    index = json.loads(result.stdout)["sections"]["index"]
+    assert index == {
+        "overlap_count": 1,
+        "overlap_paths": ["tracked.txt"],
+        "staged_count": 1,
+        "status": "warning",
+        "unstaged_count": 1,
+        "untracked_count": 1,
+    }
