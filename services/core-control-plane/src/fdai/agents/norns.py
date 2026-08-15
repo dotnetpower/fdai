@@ -66,7 +66,14 @@ from fdai.core.learning import (
     RuleCandidateHint,
     review_input_from_mapping,
 )
-from fdai.core.operational_learning import OperatingPatternCompiler, PatternCase
+from fdai.core.operational_learning import (
+    OperatingPatternCompiler,
+    PatternCase,
+    ShadowDwellEvidence,
+    ShadowDwellEvidenceError,
+    ShadowDwellLedger,
+    ShadowDwellObservation,
+)
 from fdai.core.trajectory import ReviewedTrajectoryDataset
 from fdai.rule_catalog.schema.rule_semantic_feedback import SemanticFeedbackCandidateSink
 
@@ -103,6 +110,7 @@ class Norns(Agent):
         case_history_analyzer: CaseHistoryAnalyzer | None = None,
         operating_pattern_compiler: OperatingPatternCompiler | None = None,
         semantic_feedback_store: SemanticFeedbackCandidateSink | None = None,
+        shadow_dwell_ledger: ShadowDwellLedger | None = None,
         max_pending_candidates: int = _MAX_PENDING_CANDIDATES,
     ) -> None:  # Fail fast on misconfiguration: a non-positive threshold or a
         # rate outside [0, 1] would make the learner propose on thin or
@@ -154,6 +162,9 @@ class Norns(Agent):
         # without one fall back to per-event counting. Bounded (LRU): one
         # entry per action forever would leak on a long-lived learner.
         self._counted_correlations: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
+        # Shadow audits are at-least-once too, so one shadow observation is
+        # retained once; a replay must not inflate the dwell sample.
+        self._counted_shadow_outcomes: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         # Override learner state.
         self._override_retire_threshold = override_retire_threshold
         self._override_counter: Counter[str] = Counter()
@@ -186,6 +197,11 @@ class Norns(Agent):
         self._operating_pattern_compiler = operating_pattern_compiler or OperatingPatternCompiler()
         self._operating_pattern_ids: BoundedLruSet[str] = BoundedLruSet(_MAX_TRACKED)
         self._semantic_feedback = NornsSemanticFeedbackLearning(semantic_feedback_store)
+        # Shadow outcomes never feed the rollback-rate learner (a judged-and-logged
+        # 'success' says nothing about real safety), but they are the only evidence
+        # the discovery loop's shadow-dwell gate can ever have, so they are retained
+        # here instead of discarded.
+        self._shadow_dwell = shadow_dwell_ledger or ShadowDwellLedger()
 
     def observe_reviewed_trajectory_dataset(self, dataset: ReviewedTrajectoryDataset) -> bool:
         """Consume one reviewed aggregate without training or promoting anything.
@@ -433,6 +449,13 @@ class Norns(Agent):
                 **candidate,
                 "norns_consensus": consensus.summary(),
             }
+            # Transport-level evidence: the dwell record travels with the proposal
+            # so Mimir re-derives the gate decision from data on the wire instead
+            # of reaching into another agent's state. Absent evidence is simply
+            # absent - Mimir treats that as ineligible, never as no objection.
+            dwell = self._shadow_dwell.evidence_for(str(candidate.get("target_rule_id") or ""))
+            if dwell is not None:
+                payload["shadow_dwell"] = dwell.to_mapping()
             if not await self._publish_proposal("object.rule-candidate", payload):
                 # Bus-less (unit) or rate-limited: stop and leave the queued
                 # candidates for a later pass. No learning signal is dropped -
@@ -484,8 +507,10 @@ class Norns(Agent):
         target = str(payload.get("action_type") or payload.get("rule_id") or "")
         # Shadow outcomes are judged-and-logged, not real executions - a shadow
         # 'success' says nothing about the action's real safety, so it MUST NOT
-        # dilute the measured rollback rate. Learn from real executions only.
+        # dilute the measured rollback rate. Learn from real executions only,
+        # and keep the shadow observation as dwell evidence instead.
         if payload.get("shadow_mode"):
+            self._retain_shadow_dwell(target, payload)
             return
         result = str(payload.get("result", "")).lower()
         if not result:
@@ -531,6 +556,54 @@ class Norns(Agent):
                 "target_rule_id": target,
             }
         )
+
+    # ---- 2a. shadow-dwell evidence ------------------------------------
+
+    def _retain_shadow_dwell(self, target: str, payload: dict[str, Any]) -> None:
+        """Retain one judge-and-log-only observation as dwell evidence.
+
+        Anything the payload cannot prove is dropped rather than guessed. A
+        dropped observation only ever makes a candidate *less* eligible, so a
+        malformed or replayed shadow audit can neither manufacture dwell nor
+        veto an otherwise clean record.
+        """
+
+        if not target:
+            return
+        instant = _shadow_observed_at(payload)
+        if instant is None:
+            self.record_behavior("shadow_dwell_observation_untimed")
+            return
+        reviewed = payload.get("operator_reviewed", False)
+        agreed = payload.get("operator_agreed", False)
+        escape = payload.get("policy_escape", False)
+        if not all(isinstance(flag, bool) for flag in (reviewed, agreed, escape)):
+            self.record_behavior("shadow_dwell_observation_invalid")
+            return
+        correlation_id = str(payload.get("correlation_id", ""))
+        if correlation_id:
+            dwell_key = f"shadow:{correlation_id}:{target}"
+            if dwell_key in self._counted_shadow_outcomes:
+                return
+            self._counted_shadow_outcomes.add(dwell_key)
+        try:
+            observation = ShadowDwellObservation(
+                target=target,
+                observed_at=instant,
+                reviewed=reviewed,
+                agreed=agreed and reviewed,
+                policy_escape=escape,
+            )
+        except ShadowDwellEvidenceError:
+            self.record_behavior("shadow_dwell_observation_invalid")
+            return
+        self._shadow_dwell.record(observation)
+        self.record_behavior("shadow_dwell_observation_retained")
+
+    def shadow_dwell_evidence(self, target: str) -> ShadowDwellEvidence | None:
+        """Retained dwell evidence for ``target``, or ``None`` when unobserved."""
+
+        return self._shadow_dwell.evidence_for(target)
 
     # ---- 2b. approval-pattern learner ---------------------------------
 
@@ -772,6 +845,31 @@ class Norns(Agent):
                 f"{len(self.pending_candidates)} candidate(s) proposed."
             )
         return IntrospectionResult(answer=answer, facts=facts)
+
+
+_SHADOW_INSTANT_KEYS: tuple[str, ...] = (
+    "observed_at",
+    "occurred_at",
+    "recorded_at",
+    "timestamp",
+)
+
+
+def _shadow_observed_at(payload: dict[str, Any]) -> datetime | None:
+    """Return the observation instant, or ``None`` when the payload lacks one."""
+
+    for key in _SHADOW_INSTANT_KEYS:
+        value = payload.get(key)
+        if isinstance(value, datetime):
+            return value if value.tzinfo is not None else None
+        if isinstance(value, str) and len(value) <= 64:
+            try:
+                parsed = datetime.fromisoformat(value)
+            except ValueError:
+                continue
+            if parsed.tzinfo is not None:
+                return parsed
+    return None
 
 
 def _candidate_identity(candidate: dict[str, Any]) -> str:

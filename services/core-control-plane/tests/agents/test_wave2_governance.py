@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import cast
 from unittest.mock import AsyncMock
 
@@ -624,6 +624,20 @@ async def test_mimir_rejects_malformed_or_unbound_rule_generation_result() -> No
     assert len(tuple(store.audit_entries)) == 0
 
 
+def _proven_shadow_dwell(target: str) -> dict[str, object]:
+    """Dwell evidence that clears the default discovery-loop bars for ``target``."""
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    return {
+        "target": target,
+        "window_start": start.isoformat(),
+        "window_end": (start + timedelta(days=30)).isoformat(),
+        "sample_size": 200,
+        "reviewed_count": 200,
+        "agreed_count": 200,
+        "policy_escapes": 0,
+    }
+
+
 def test_mimir_accepts_and_drains_rule_candidates() -> None:
     mimir = Mimir()
     asyncio.run(
@@ -636,10 +650,12 @@ def test_mimir_accepts_and_drains_rule_candidates() -> None:
                 "proposed_by": "Norns",
                 "source_signal": "handoff_fingerprint",
                 "evidence": {"fingerprint": "abc", "occurrence_count": 3},
+                "shadow_dwell": _proven_shadow_dwell("storage.public.deny"),
             },
         )
     )
     assert len(mimir.pending_candidates()) == 1
+    assert len(mimir.promotion_ready_candidates()) == 1
     mimir.promote("storage.public.deny", source="handoff")
     status = mimir.status("storage.public.deny")
     assert status is not None
@@ -805,8 +821,12 @@ def test_end_to_end_handoff_flow_via_bus() -> None:
     )
     assert len(mimir.pending_candidates()) == 1
 
-    # Mimir promotes; Saga can now close the fingerprinted issue.
-    mimir.promote("auto-generated", source="handoff")
+    # A brand-new rule proposed from handoff fingerprints has never run in shadow,
+    # so the discovery loop stops here: promotion is refused and the catalog can
+    # only change through the reviewed pull request Saga closes the issue with.
+    assert mimir.promotion_ready_candidates() == ()
+    with pytest.raises(ValueError, match="shadow dwell evidence is insufficient"):
+        mimir.promote("auto-generated", source="handoff")
     asyncio.run(saga.close_issue(fingerprint=fp, closed_by_pr="https://example.invalid/pr/1"))
     assert saga.github.issues[fp].open is False
 
