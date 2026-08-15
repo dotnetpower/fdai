@@ -15,6 +15,7 @@ import {
   liveAnswerProof,
   liveProofQuestionIds,
   resumableWithLiveProof,
+  releasableForCoverage,
   retainedForLiveGeneration,
   assuranceOperations,
   assuranceSessionId,
@@ -472,6 +473,27 @@ describe("retainedForLiveGeneration", () => {
   });
 });
 
+describe("releasableForCoverage", () => {
+  it("releases an answer-required turn that only refused", () => {
+    const retained = [
+      { question_id: "q1", operation: "causal_analysis" as const, disposition: "held" },
+      { question_id: "q2", operation: "causal_analysis" as const, disposition: "answered" },
+      { question_id: "q3", operation: "action_draft_boundary" as const, disposition: "action_draft" },
+    ];
+
+    expect(releasableForCoverage(retained).map((result) => result.question_id))
+      .toEqual(["q2", "q3"]);
+  });
+
+  it("keeps a cohort that already answered every answer-required operation", () => {
+    const retained = [
+      { question_id: "q1", operation: "inventory_listing" as const, disposition: "answered" },
+    ];
+
+    expect(releasableForCoverage(retained)).toEqual(retained);
+  });
+});
+
 describe("assuranceCheckpointPath", () => {
   const base = {
     directory: "../.fdai/live-validation",
@@ -500,6 +522,8 @@ describe("assuranceCheckpointPath", () => {
     expect(assuranceCheckpointPath({ ...base, configured: "/tmp/checkpoint.json" }))
       .toBe("/tmp/checkpoint.json");
     expect(assuranceCheckpointPath({ ...base, configured: "  " })).toBeNull();
+    expect(assuranceCheckpointPath({ ...base, configured: " /tmp/checkpoint.json " }))
+      .toBe("/tmp/checkpoint.json");
   });
 });
 

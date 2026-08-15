@@ -394,6 +394,21 @@ export function assuranceCohortPassed(input: {
 }
 
 /**
+ * Keeps only the results a later run should still resume when the release criteria were not met.
+ *
+ * A cohort can pass every turn and still miss its release criteria when an answer-required
+ * operation only refused. Those turns are released so the next run re-attempts them; keeping them
+ * would republish the same blocking outcome forever.
+ */
+export function releasableForCoverage<
+  TResult extends { readonly operation: AssuranceOperation; readonly disposition?: string },
+>(retained: readonly TResult[]): readonly TResult[] {
+  return retained.filter((result) =>
+    !(ANSWER_REQUIRED_OPERATIONS.includes(result.operation) && result.disposition !== "answered")
+  );
+}
+
+/**
  * Names the checkpoint that belongs to one cohort against one binding.
  *
  * The key covers every field the binding validates, so a run against another revision, workspace,
@@ -406,7 +421,8 @@ export function assuranceCheckpointPath(input: {
   readonly bindingDigest: string;
 }): string | null {
   if (input.configured !== undefined) {
-    return input.configured.trim().length === 0 ? null : input.configured;
+    const configured = input.configured.trim();
+    return configured.length === 0 ? null : configured;
   }
   const key = input.bindingDigest.replace(/^sha256:/, "").slice(0, 16);
   return `${input.directory}/ontology-assurance-${input.runScope}-${key}.json`;

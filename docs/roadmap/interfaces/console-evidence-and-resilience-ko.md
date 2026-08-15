@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: bf5c6a4c24fbc262efaf53b38e571cba66573fd7
+translation_source_sha: 28aba709370deb9fd46673a2adfb276d21ca99c6
 translation_revised: 2026-08-16
 ---
 
@@ -15,7 +15,7 @@ translation_revised: 2026-08-16
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|-----------|
-| 통제된 온톨로지 보증 출처 이력 | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`, `console/tests/live-e2e/assurance-budget.ts`, `console/tests/live-e2e/assurance-checkpoint.ts`, focused Vitest 138개 통과 | 강화된 release gate는 두 locale의 모든 operation에 완전하게 검증된 답변을 요구합니다. 실행은 질문별 및 무진행 deadline을 갖춘 유도된 budget으로 제한되고 evidence identity에 바인딩된 checkpoint에서 재개하며, 소진된 budget은 ready 아티팩트를 보고하지 않습니다. |
+| 통제된 온톨로지 보증 출처 이력 | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`, `console/tests/live-e2e/assurance-budget.ts`, `console/tests/live-e2e/assurance-checkpoint.ts`, focused Vitest 141개 통과 | 강화된 release gate는 두 locale의 모든 operation에 완전하게 검증된 답변을 요구합니다. 실행은 질문별 및 무진행 deadline을 갖춘 유도된 budget으로 제한되고 evidence identity에 바인딩된 checkpoint에서 재개하며, 소진된 budget은 ready 아티팩트를 보고하지 않습니다. |
 | Exact-release 온톨로지 카탈로그 변환 결과 | 구현됨 | `ontology_console_projection.py`, `materialize-authoritative-catalogs.py`, focused materializer 동등성 테스트, Console 토폴로지 모델 테스트 및 타입 검사 | 하나의 생산자가 릴리스 신원 및 변경 권한 부재와 함께 선언 보기와 카탈로그 토폴로지를 제공합니다. 의미 모델 렌더링과 receipt 기반 컨텍스트 근거는 남아 있습니다. |
 | 의미 모델 및 관계 방향 | 구현됨 | `ontology-semantic-model.ts`, `ontology-semantic-map.tsx`, 카탈로그 토폴로지 renderer 및 inspector, focused Vitest 23개 및 Console 타입 검사 통과 | 검토된 네 가지 의미 영역, 다섯 가지 운영 보기, 화살표 및 분리된 들어오는 관계와 나가는 관계를 구현했습니다. 인증된 데스크톱 및 모바일 근거는 남아 있습니다. |
 | 에이전트 활동 하트비트 표현 | validated | `console/src/routes/agents.model.ts`, `console/src/routes/agents.model.test.ts`, `docs/baselines/agent-activity-heartbeat-assurance-2026-08-14.json`, focused Vitest 31개 통과 및 인증된 Browser Entra assurance | 두 번 새로고치는 동안 연속된 하트비트 시각 세 개가 증가했고 인증된 self 검사 세 번이 모두 성공했으며 런타임 초기화 행은 0개였습니다. |
@@ -61,6 +61,7 @@ translation_revised: 2026-08-16
 | 2026-08-15 | implemented | 남은 재개 함정을 닫았습니다. Live 증명 질문은 operation으로 고른 질문이 아니라 이전 실행이 generation digest와 함께 답변한 마지막 질문이며, 완주한 cohort는 실행기가 단언하는 결과를 만족할 때만 checkpoint를 회수하고, 버려진 turn이 재사용 페이지에 인증된 stream을 남기지 않으며, 누락된 receipt는 실제 transport 결과로 보고하고, 보존 결과 타입과 attempt outcome을 공유해 새 필드가 checkpoint 대신 빌드를 깨뜨립니다. | `current change`; focused Vitest live-evidence 129개 통과, 두 프로젝트 `npm run typecheck` 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
 | 2026-08-15 | implemented | 감지한 모든 결함을 회복 가능하게 만들었습니다. Ontology 세대가 섞인 checkpoint는 영구 거부 대신 폐기하고, checkpoint 파일 키를 binding 전체로 잡아 revision이나 대상 stack이 번갈아도 서로 덮어쓰지 않으며, 재설정할 수 없는 페이지는 그 위에서 얻은 turn을 발행하지 않고 실행을 중단하고, `console/scripts`를 타입 검사 게이트에 포함해 실제 타입 결함을 드러내 고쳤습니다. | `current change`; focused Vitest live-evidence 134개 통과, 콘솔 전체 1,838개 통과, 두 프로젝트 `npm run typecheck` 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
 | 2026-08-15 | implemented | 강제 게이트와 남은 재개 함정을 고쳤습니다. 테스트 타입 검사가 저장소 루트에서 프로젝트를 해석하므로 콘솔 빌드와 CLI 검사 전에 operator 게이트를 중단시키지 않고, 중단된 실행은 증명하지 못한 것이 모순은 아니므로 checkpoint를 유지하며, 실행 중 release 회전은 완주한 모든 turn을 삭제하는 대신 대체된 turn만 정리하고, 일관성 없는 verification 아티팩트는 통제된 거부에서도 실패하며, partial 파일은 기록 프로세스를 포함합니다. | `current change`; focused Vitest live-evidence 139개 통과, typecheck-parity 6개 통과, 두 프로젝트 `npm run typecheck` 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
+| 2026-08-15 | implemented | 마지막 재생 고정점을 제거했습니다. 모든 turn이 통과했지만 release 기준을 놓친 cohort는 거부만 한 answer-required turn을 풀어 이후 실행이 같은 차단을 다시 발행하는 대신 재시도하게 하고, pacing 및 checkpoint 기록 결함은 아티팩트 없이 빠져나가는 대신 통제된 중단 사유가 됩니다. 게이트 패리티 테스트는 호출 전체를 고정하고, operator가 설정한 checkpoint 경로는 공백을 제거합니다. | `current change`; focused Vitest live-evidence 141개 통과, typecheck-parity 6개 통과, 두 프로젝트 `npm run typecheck` 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
 
 ### 잔여 작업
 
