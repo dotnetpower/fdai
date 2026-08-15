@@ -1,0 +1,160 @@
+---
+translation_of: developer-workflow-assurance.md
+translation_source_sha: 25d158a53a7ec61c376a4af9c48d91a72797c653
+translation_revised: 2026-08-15
+---
+
+# 개발 워크플로 보증
+
+이 문서는 동시 FDAI 개발을 빠르고 재개 가능하며 fail-closed 상태로 유지하는 저장소 통제를
+정의합니다. 개발 워크플로 진단과 지연 근거를 소유하며, 제품 control plane이나 실행 권한은
+소유하지 않습니다.
+
+> 범위: 이 제한된 캠페인은 [이슈 #116](https://github.com/dotnetpower/fdai/issues/116)에서
+> 추적합니다. 워크플로 최적화는 설계 문맥, 집중 검사, 중앙 검증, 신원 확인 또는 배포 승인을
+> 우회하지 않습니다.
+
+## 설계 개요
+
+FDAI는 로컬 스크립트 전반에서 하나의 읽기 전용 개발 워크플로 진단 표면을 사용합니다. 이
+표면은 공유 쓰기, 검증, 문맥, 인계, 테스트 격리, hook, 브라우저 검사, 로컬 서비스, 편집기
+부하 및 원격 사전 검사의 실행 가능한 상태를 보고합니다. 각 소유 메커니즘은 기존 권한을
+유지하고 독립적으로 fail-closed 처리합니다.
+
+진입점은 `python3 scripts/automation/developer-workflow.py`입니다. 다음과 같은 제한된 명령을
+제공합니다.
+
+| 명령 | 결과 |
+|------|------|
+| `status` | Git, 검증, 인계, 테스트 환경, hook 위험, 로컬 서비스, 브라우저 runner 및 편집기 부하 진단을 집계합니다. |
+| `resume` | 최신 관련 인계를 현재 검증 및 worktree drift와 함께 렌더링합니다. |
+| `context-plan <path>...` | 대상 경로의 중복 제거된 현재 설계 문서와 집중 검사를 출력합니다. |
+| `--json` | 명시적인 `ok`, `warning` 또는 `unavailable` 상태가 있는 하나의 version object를 출력합니다. |
+
+이 명령은 기존 Git common dir 상태와 프로세스 메타데이터를 읽습니다. 두 번째 감사 로그를
+추가하거나, 커밋 후 세션 소유권을 추론하거나, 사용할 수 없는 진단을 성공 결과로 바꾸지
+않습니다.
+
+```mermaid
+flowchart LR
+    E[편집과 집중 검사] --> D[워크플로 진단]
+    D --> C[집중 커밋]
+    C --> V[중앙 검증]
+    V --> R[Receipt]
+    R --> X[원격 작업]
+    D --> H[제한된 인계]
+```
+
+## 측정 통제
+
+| 영역 | 필요한 통제 | 완료 측정값 |
+|------|-------------|-------------|
+| 공유 쓰기 | staged 및 unstaged 경로 중첩, 안전하지 않은 공유 index 명령 및 활성 경로 예약을 감지합니다. | 커밋 경계에 해결되지 않은 중첩 또는 안전하지 않은 commit 명령이 없습니다. |
+| 검증 | 가장 오래된 도달 가능 pending 시간, 현재 단계, 최근 실패, receipt 상태 및 최근 receipt 지연을 보고합니다. | 집중 검사가 통과할 때 최신 완료 로컬 receipt 50개에서 커밋부터 receipt까지 p95가 5분 이하입니다. |
+| 설계 문맥 | 캐시된 바이트를 새 세션이 설계를 읽었다는 증명으로 취급하지 않고 중복 제거된 route 계획을 해석합니다. | 작업마다 계획 1개이며 같은 세션에서 변경되지 않은 필수 문서를 반복해서 읽지 않습니다. |
+| 세션 연속성 | 제한되고 비밀이 없는 worktree, diff, 검증 및 다음 검사 메타데이터를 보존합니다. | 새 세션이 저장소 전체 재탐색 없이 하나의 인계 명령으로 재개합니다. |
+| 집중 테스트 | 테스트 시작 전에 Python import, 데이터베이스, 런타임 환경 및 checkout 오염을 감지합니다. | 오염된 검사는 작업 코드를 import하거나 데이터베이스 연결을 열기 전에 실패합니다. |
+| Hook | 변경형 hook 실행 전에 staged 및 unstaged 중첩을 감지하고 결정론적 복구 지침을 보존합니다. | Hook 실패가 작업 소유 변경을 조용히 버리지 않습니다. |
+| 브라우저 검사 | 집중 CLI Playwright 검사를 우선하고 공유 10-slot lease 계약을 보존합니다. | CLI 근거가 충분하면 브라우저 도구 사용을 제한된 최종 상호 작용 1회로 제한합니다. |
+| 로컬 서비스 | 제한된 timeout과 소유권 진단으로 모든 표준 로컬 서비스를 독립적으로 probe합니다. | Full-stack 준비 상태가 사용 불가능한 모든 서비스를 지목하며 SPA만으로 준비 상태를 추론하지 않습니다. |
+| 편집기 부하 | 호스트 부하, extension 부하 및 upstream 브라우저 payload 비용을 분리합니다. | 진단이 소유 프로세스를 식별하거나 제한을 upstream으로 분류합니다. |
+| 원격 사전 검사 | 고정된 시도 및 시간 예산 안에서 transient 읽기 실패만 retry합니다. | 영구 권한 및 policy 실패는 즉시 실패하며 retry는 Azure를 변경하지 않습니다. |
+
+모든 진단은 제한됩니다. Git 기록 scan은 최대 64개 commit, validation 지연은 최대 50개
+receipt, 변경 파일 출력은 최대 20개 경로, 프로세스 출력은 최대 20개 행, HTTP probe는
+커밋된 로컬 port inventory, Azure 읽기는 최대 3회 시도를 사용합니다.
+
+## 안전 경계
+
+- 진단 표면은 읽기 전용입니다. Stage, restore, reset, commit, kill, restart, deploy, approve
+  또는 promote하지 않습니다.
+- 설계 문맥 재사용은 세션 범위이며 content-addressed 방식입니다. 인계는 필수 문서를 지목할
+  수 있지만, 수신 세션은 고위험 편집 전에 현재 내용을 다시 읽습니다.
+- 검증 근거는 커밋 주소 기반으로 유지됩니다. Queue 지연 경고는 receipt를 만들거나 실패한
+  단계를 건너뛰지 않습니다.
+- 환경 검사는 자격 증명, token, 연결 문자열, tenant 값 또는 고객 리소스 이름을 출력하지 않고
+  정규화된 identity를 비교합니다.
+- Azure retry는 안전한 읽기와 transient 전송 또는 throttling 응답에만 적용됩니다. 승인된
+  host 검사는 모든 시도 전에 실행되며 retry 소진 시 하나의 `PreflightError`를 반환합니다.
+- Upstream VS Code 및 Copilot 동작은 저장소에서 다시 구현하지 않습니다. 저장소 통제는 제한된
+  진단과 저비용 검증 경로를 제공합니다.
+- 적용은 기존 edit hook, commit-scope hook, 집중 테스트 runner, validation queue 및 배포
+  preflight에 남습니다. 통합 명령은 상태를 보고하며 대체 권한 경로가 되지 않습니다.
+
+## 실패 동작
+
+| 실패 | 진단 동작 | 소유 적용 |
+|------|-----------|-----------|
+| Git common dir 상태가 없거나 손상됨 | 안정적인 reason code와 함께 `unavailable`을 보고합니다. | 기존 Git 및 hook 명령은 독립적으로 실패합니다. |
+| Validation receipt의 timestamp가 잘못됨 | 지연 계산에서 제외하고 잘못된 record 수를 보고합니다. | Receipt 검증은 변경되지 않습니다. |
+| Handover가 도달 불가능한 기록을 참조함 | Drift와, 가능한 경우 가장 가까운 도달 가능한 관련 handover를 보고합니다. | Branch 또는 worktree를 변경하지 않습니다. |
+| 로컬 서비스 probe timeout | 서비스와 port를 unavailable로 보고합니다. | 서비스 task는 독립적으로 제어됩니다. |
+| VS Code 프로세스 데이터를 사용할 수 없음 | 편집기 부하를 upstream-unavailable로 분류합니다. | 집중 CLI 검증은 계속 사용할 수 있습니다. |
+| Azure가 영구 오류를 반환함 | 첫 시도 후 중단합니다. | 읽기 전용 preflight는 fail-closed 처리합니다. |
+
+## 비평 프로토콜
+
+각 라운드는 반증 가능한 발견 사항 하나로 시작하고 집중 검사로 끝납니다. 기존 통제가 잔존
+위험을 이미 Low로 낮춘 경우 기각된 발견 사항으로 기록합니다. Production 변경은 독립적으로
+검증된 발견 사항으로 제한하고 최종 검토에서 전체 위협 목록을 다시 확인합니다.
+
+캠페인은 다음 심각도 정의를 사용합니다.
+
+| 심각도 | 의미 |
+|--------|------|
+| Critical | 작업을 잃거나 잘못 귀속하고, 필수 gate를 우회하거나 false validation을 만들 수 있습니다. |
+| High | 자율 진행을 반복해서 차단하거나 잘못된 checkout 또는 환경을 검증할 수 있습니다. |
+| Medium | 안전 결정을 약화하지 않지만 상당한 지연 또는 수동 복구를 유발합니다. |
+| Low | 결정론적 진단과 복구가 있는 제한된 불편입니다. |
+
+구현 순서는 라운드마다 하나의 발견 사항을 유지합니다.
+
+| 라운드 | 초점 | 계획 근거 |
+|-------:|------|-----------|
+| 1 | 통합 status schema 및 제한된 수집 | 집중 workflow CLI 테스트 |
+| 2 | 공유 index 및 staged/unstaged 중첩 진단 | 합성 dirty-index 테스트 |
+| 3 | Validation pending 시간 및 지연 계산 | 합성 queue 상태 테스트 |
+| 4 | 중복 제거된 설계 문맥 계획 | 기존 route fixture 및 CLI 테스트 |
+| 5 | 재개 가능한 handover schema 및 drift 감지 | Handover 호환성 테스트 |
+| 6 | Python, checkout 및 database 오염 preflight | 오염된 환경 테스트 |
+| 7 | Hook 복구 진단 | Staged/unstaged 중첩 fixture |
+| 8 | 브라우저 runner 및 로컬 서비스 준비 상태 요약 | 정적 lease 및 제한된 HTTP probe 테스트 |
+| 9 | 편집기 부하 분류 | Stub 프로세스 및 pressure record |
+| 10 | Azure transient retry 예산 | Stub HTTP 및 timeout 테스트 |
+| 11 | 기존 통제 적대적 검토 | 설계 문맥, route 및 port-pool 집중 suite |
+| 12 | 통합 잔존 위험 검토 | 모든 캠페인 집중 검사 및 정확한 diff selection |
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 공유 쓰기 및 hook | in-progress | 기존 `scripts/agent/design_context.py` 및 pre-commit 중첩 guard | 캠페인 검증과 진단이 남아 있습니다. |
+| 검증 및 인계 | in-progress | 기존 validation queue 및 `scripts/automation/session-handover.py` | 지연 근거와 재개 가능 상태가 남아 있습니다. |
+| Hermetic 검사 및 로컬 서비스 | in-progress | 기존 changed-test 격리 및 로컬 서비스 task | 하나의 제한된 preflight 표면이 남아 있습니다. |
+| 브라우저 및 편집기 부하 | implemented | 기존 집중 Playwright 진입점, 10-slot lease pool 및 profile 부하 통제 | 최종 비평에서 Medium 잔존이 없음을 검증해야 합니다. |
+| 원격 사전 검사 | in-progress | 호출별 timeout이 있는 기존 읽기 전용 Azure preflight | 제한된 transient retry가 남아 있습니다. |
+| 10회 보증 | in-progress | 이슈 #116 종료 기준 및 이 문서의 비평 순서 | 최소 10개의 독립 라운드가 통과해야 합니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-15 | in-progress | 개발 워크플로 보증 소유 문서를 도입하고 캠페인 범위를 제한했습니다. 이전 구현 출처는 재구성하지 않았습니다. | 현재 변경과 구현 범위 표에 나열된 기존 통제입니다. | 집중 라운드와 최종 잔존 위험 검토를 완료합니다. |
+| 2026-08-15 | in-progress | 독립 비평 후 CLI 계약, 제한된 근거 window, 실패 동작, 권한 분리 및 12회 순서를 정의해 설계를 수정했습니다. | 현재 변경, roadmap, 번역 및 punctuation 검사입니다. | 수락된 각 발견 사항을 구현하고 검증합니다. |
+
+### 남은 작업
+
+- [ ] 집중 검사와 함께 최소 10개의 독립 비평 라운드를 완료하고 수락 또는 기각된 모든 발견
+  사항을 기록합니다.
+- [ ] 통합된 캠페인 커밋의 중앙 validation receipt 하나를 기록합니다.
+- [ ] 최종 검토에서 Low를 초과하는 잔존 발견 사항이 없을 때만 이슈 #116을 닫습니다.
+
+## 관련 문서
+
+| 알아볼 내용 | 문서 |
+|-------------|------|
+| 로컬 및 배포 런타임 동등성 | [런타임 동등성](dev-and-deploy-parity-ko.md) |
+| 저장소 검증 명령 | [스크립트 참조](../../../scripts/README.md) |
+| 배포 안전성 | [배포 사전 검사](deployment-preflight-ko.md) |
