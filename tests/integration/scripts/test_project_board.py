@@ -109,6 +109,29 @@ def test_exit_contract_requires_heading_and_checkbox(board: ModuleType) -> None:
     assert not board.has_exit_contract("- [ ] Focused checks pass.\n")
 
 
+def test_start_requires_one_canonical_work_type(
+    board: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    issue = board.IssueRecord(
+        number=95,
+        state="OPEN",
+        labels=frozenset(),
+        url="https://example.com/issues/95",
+        body="## Exit criteria\n\n- [ ] Focused checks pass.\n",
+    )
+    monkeypatch.setattr(board, "issue_record", lambda *_args: issue)
+
+    with pytest.raises(board.IssueContractError, match="canonical work type"):
+        board.start(
+            object(),
+            repository="dotnetpower/fdai",
+            owner="dotnetpower",
+            project_number=7,
+            issue_number=95,
+        )
+
+
 def test_project_items_ignore_same_number_from_another_repository(board: ModuleType) -> None:
     class Client:
         @staticmethod
