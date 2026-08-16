@@ -7,6 +7,7 @@ import argparse
 import fcntl
 import hashlib
 import os
+import subprocess
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -42,7 +43,7 @@ def _workspace_storage_directory(repo_root: Path, storage_root: Path) -> Path | 
     if configured:
         return Path(configured).expanduser()
 
-    resolved = repo_root.resolve()
+    resolved = _canonical_workspace_root(repo_root)
     workspace_uris: list[str] = []
     distro = os.environ.get("WSL_DISTRO_NAME", "").strip().lower()
     if distro:
@@ -58,6 +59,27 @@ def _workspace_storage_directory(repo_root: Path, storage_root: Path) -> Path | 
         if candidate.is_dir():
             return candidate
     return None
+
+
+def _canonical_workspace_root(repo_root: Path) -> Path:
+    """Return the primary checkout that owns a linked worktree's Git common directory."""
+
+    resolved = repo_root.resolve()
+    try:
+        completed = subprocess.run(  # noqa: S603 - fixed read-only git command
+            ["git", "rev-parse", "--git-common-dir"],
+            cwd=resolved,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return resolved
+    common = Path(completed.stdout.strip())
+    if not common.is_absolute():
+        common = resolved / common
+    common = common.resolve()
+    return common.parent if common.name == ".git" else resolved
 
 
 def _recent_copilot_activity(repo_root: Path, idle_seconds: int) -> list[str]:

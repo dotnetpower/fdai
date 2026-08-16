@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import os
 import subprocess
@@ -7,6 +8,7 @@ import sys
 import time
 from pathlib import Path
 from types import ModuleType
+from urllib.parse import quote
 
 import pytest
 
@@ -80,6 +82,35 @@ def test_wsl_workspace_storage_is_derived_from_the_repository_uri(
         module._workspace_storage_directory(Path("/home/moonchoi/dev/fdai"), storage_root)
         == expected
     )
+
+
+def test_linked_worktree_uses_the_primary_repository_workspace(tmp_path: Path, monkeypatch) -> None:
+    module = _load("fdai_roadmap_watchdog_linked_workspace", "roadmap_verification_watchdog.py")
+    repo = tmp_path / "repo"
+    linked = tmp_path / "linked"
+    storage_root = tmp_path / "workspaceStorage"
+    repo.mkdir()
+    assert _git("git", repo, "init", "--quiet", "--initial-branch=main").returncode == 0
+    assert _git("git", repo, "config", "user.email", "user@example.com").returncode == 0
+    assert _git("git", repo, "config", "user.name", "Example User").returncode == 0
+    (repo / "tracked.txt").write_text("initial\n", encoding="utf-8")
+    assert _git("git", repo, "add", "tracked.txt").returncode == 0
+    assert _git("git", repo, "commit", "--quiet", "-m", "initial").returncode == 0
+    assert (
+        _git("git", repo, "worktree", "add", "--quiet", "-b", "linked", str(linked)).returncode == 0
+    )
+    monkeypatch.delenv("FDAI_VSCODE_WORKSPACE_STORAGE", raising=False)
+    monkeypatch.setenv("WSL_DISTRO_NAME", "Ubuntu-22.04")
+    authority = quote("wsl+ubuntu-22.04", safe="")
+    workspace_uri = f"vscode-remote://{authority}{repo.resolve().as_posix()}"
+    workspace_id = hashlib.md5(  # noqa: S324 - VS Code storage identity, not security
+        workspace_uri.encode("utf-8"),
+        usedforsecurity=False,
+    ).hexdigest()
+    expected = storage_root / workspace_id
+    expected.mkdir(parents=True)
+
+    assert module._workspace_storage_directory(linked, storage_root) == expected
 
 
 def test_active_session_count_uses_the_larger_observation() -> None:
