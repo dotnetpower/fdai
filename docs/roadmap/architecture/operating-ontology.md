@@ -487,6 +487,9 @@ projected `Resource` state fact. The rules are deterministic and value-blind:
   contested.
 - A disagreement on the observed type is an identity contradiction, not a value conflict. It fails
   closed with `InventoryProjectionConflictError` because link endpoint typing depends on it.
+- A conflict travels only on the state fact, and a state fact needs an observation time. A contested
+  resource whose observations report none also fails closed with `InventoryProjectionConflictError`,
+  because projecting it would publish a resource that reads as uncontested.
 - A contested identity cannot anchor a verified relationship. `verify_inventory_relationships`
   drops relationships whose endpoint or provider owner is contested.
 
