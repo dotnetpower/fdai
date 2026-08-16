@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 853484264957087489cd50166e856bb1c9c1c7a8
+translation_source_sha: 6047b38120fda9d030890e612bb5480057167d5c
 translation_revised: 2026-08-17
 ---
 # 대화 품질 보증
@@ -30,12 +30,12 @@ translation_revised: 2026-08-17
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 아래에 설명된 qualification, 블라인드 재실행 및 운영 승격 또는 롤백 근거를 보존해야 합니다. |
 | 2026-08-17 | in-progress | 결정론적 최저 실행 점수표 집계기와 단일 명령 재생성 경로를 추가해, 기록된 측정값이 모델 호출 없이 안정적이고 스키마 호환되는 산출물 하나로 축약되도록 했습니다. | `current change`; `scorecard_run.py`, `scorecard_cli.py`, `test_scorecard_run.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/conversation_assurance/test_scorecard_run.py` (`24 passed`); 작업 범위 Ruff와 strict mypy 통과. | 고정된 이중 언어 말뭉치를 측정하고 아래에 설명된 qualification, 블라인드 재실행 및 운영 승격 또는 롤백 근거를 보존해야 합니다. |
+| 2026-08-17 | in-progress | 문서화된 재생성 명령을 바로잡고 파일 처리를 강화했습니다. 이전에 기록한 명령은 워크스페이스 패키지 선택자를 빠뜨려 저장소 루트에서 `uv run python -m ...`이 `No module named 'fdai'`로 실패했습니다. 이제 명령이 `fdai-core-control-plane`을 선택하고, 하위 프로세스 검사가 이를 실행하며, 읽기 전에 입력 크기를 제한하고, 심볼릭 링크 입력 또는 출력 경로를 거부합니다. | `current change`; `scorecard_cli.py`, `test_scorecard_run.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/conversation_assurance` (`90 passed`); 작업 범위 Ruff와 strict mypy 통과. | 고정된 이중 언어 말뭉치를 측정하고 아래에 설명된 qualification, 블라인드 재실행 및 운영 승격 또는 롤백 근거를 보존해야 합니다. |
 
 ### 남은 작업
 
-- [x] 결정론적 집계기가 독립 실행들을 최저 실행 점수표 하나로 축약하며,
-	`uv run python -m fdai.core.conversation_assurance.scorecard_cli --input <measurements.json>
-	--output <scorecard.json>`가 같은 기록 측정값에서 바이트 단위로 동일한 스키마 호환 산출물을
+- [x] 결정론적 집계기가 독립 실행들을 최저 실행 점수표 하나로 축약하며, 아래 문서화된
+	`scorecard_cli` 모듈 명령이 같은 기록 측정값에서 바이트 단위로 동일한 스키마 호환 산출물을
 	재생성합니다.
 - [ ] 하나의 고정된 리비전에서 전체 50개 항목 이중 언어 qualification 점수표를 실행하고
 	모든 하드 검사와 의미 루브릭 임계값을 증명하는 항목별 결과를 보존합니다.
@@ -204,14 +204,15 @@ Qualification은 추론되지 않고 명시적 차단 사유와 함께 보류됩
 기록된 측정값에서 산출물을 재생성하는 문서화된 명령은 하나입니다.
 
 ```bash
-uv run python -m fdai.core.conversation_assurance.scorecard_cli \
+uv run --package fdai-core-control-plane python -m fdai.core.conversation_assurance.scorecard_cli \
   --input <measurements.json> --output <scorecard.json>
 ```
 
 이 명령은 순수 축약기입니다. 기록된 측정값을 읽고 설치된 계약을 적용해 정렬된 안정적 JSON을
 기록하므로 같은 입력은 항상 같은 산출물과 다이제스트를 만듭니다. 차단된 점수표도 실패 보고
-자체가 성공적인 재생성이므로 `0`으로 종료하며, 읽을 수 없거나 형식이 잘못되었거나 계약과
-불일치하는 입력은 산출물을 쓰지 않고 `2`로 종료합니다. 산출물에는 버전, 다이제스트, 개수,
+자체가 성공적인 재생성이므로 `0`으로 종료하며, 읽을 수 없거나 크기가 과도하거나 형식이
+잘못되었거나 계약과 불일치하는 입력은 산출물을 쓰지 않고 `2`로 종료하고, 심볼릭 링크 입력 또는
+출력 경로는 따라가지 않고 거부합니다. 산출물에는 버전, 다이제스트, 개수,
 점수만 담기며 답변 텍스트, 주체, 테넌트, 엔드포인트 또는 고객 값은 담기지 않습니다.
 
 ## 독립 모델 평가

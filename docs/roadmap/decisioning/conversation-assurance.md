@@ -28,13 +28,13 @@ model families, bounded debate, blind replay, automatic promotion, and automatic
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source and focused tests listed in the scope table. | Retain the qualification, blind-replay, and operational promotion or rollback evidence described below. |
 | 2026-08-17 | in-progress | Added the deterministic worst-run scorecard aggregator and the one-command regeneration path, so recorded measurements reduce to one stable schema-compatible artifact without a model call. | `current change`; `scorecard_run.py`, `scorecard_cli.py`, `test_scorecard_run.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/conversation_assurance/test_scorecard_run.py` (`24 passed`); task-scoped Ruff and strict mypy passed. | Measure the frozen bilingual corpus and retain the qualification, blind-replay, and operational promotion or rollback evidence described below. |
+| 2026-08-17 | in-progress | Corrected the documented regeneration command and hardened its file handling. The previously recorded command omitted the workspace package selector, so `uv run python -m ...` failed with `No module named 'fdai'` from the repository root. The command now selects `fdai-core-control-plane`, a subprocess check runs it, the input size is bounded before the read, and a symlinked input or output path is refused. | `current change`; `scorecard_cli.py`, `test_scorecard_run.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/conversation_assurance` (`90 passed`); task-scoped Ruff and strict mypy passed. | Measure the frozen bilingual corpus and retain the qualification, blind-replay, and operational promotion or rollback evidence described below. |
 
 ### Remaining work
 
-- [x] The deterministic aggregator reduces independent runs to one worst-run scorecard, and
-   `uv run python -m fdai.core.conversation_assurance.scorecard_cli --input <measurements.json>
-   --output <scorecard.json>` regenerates a byte-identical schema-compatible artifact from the
-   same recorded measurements.
+- [x] The deterministic aggregator reduces independent runs to one worst-run scorecard, and the
+   documented `scorecard_cli` module command below regenerates a byte-identical schema-compatible
+   artifact from the same recorded measurements.
 - [ ] Run the complete 50-item bilingual qualification scorecard on one pinned revision and retain
    per-item results that prove every hard-check and semantic-rubric threshold.
 - [ ] Retain a blind holdout replay showing a statistically supported improvement with zero hard
@@ -205,14 +205,15 @@ locale floors.
 Regenerate the artifact from recorded measurements with one documented command:
 
 ```bash
-uv run python -m fdai.core.conversation_assurance.scorecard_cli \
+uv run --package fdai-core-control-plane python -m fdai.core.conversation_assurance.scorecard_cli \
   --input <measurements.json> --output <scorecard.json>
 ```
 
 The command is a pure reducer: it reads recorded measurements, applies the installed contract, and
 writes stable sorted JSON, so the same input always produces the same artifact and digest. A
 blocked scorecard still exits `0` because reporting a failure is a successful regeneration;
-unreadable, malformed, or contract-inconsistent input exits `2` without writing an artifact. The
+unreadable, oversized, malformed, or contract-inconsistent input exits `2` without writing an
+artifact, and a symlinked input or output path is refused rather than followed. The
 artifact carries versions, digests, counts, and scores only - no answer text, principal, tenant,
 endpoint, or customer value.
 

@@ -5,7 +5,8 @@ scorecard artifact:
 
 .. code-block:: shell
 
-    uv run python -m fdai.core.conversation_assurance.scorecard_cli \\
+    uv run --package fdai-core-control-plane \\
+        python -m fdai.core.conversation_assurance.scorecard_cli \\
         --input <measurements.json> --output <scorecard.json>
 
 The CLI is a pure reducer. It reads recorded measurements, applies the
@@ -159,13 +160,18 @@ def build_scorecard_from_document(document: Any) -> QualityScorecard:
 def _read_document(path: Path) -> Any:
     if path.is_symlink():
         raise ScorecardInputError("measurement input MUST NOT be a symlink")
-    raw = path.read_bytes()
-    if len(raw) > _MAX_INPUT_BYTES:
+    if path.stat().st_size > _MAX_INPUT_BYTES:
         raise ScorecardInputError("measurement input exceeds the supported size")
     try:
-        return json.loads(raw.decode("utf-8"))
+        return json.loads(path.read_bytes().decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise ScorecardInputError(f"measurement input is not valid JSON: {error}") from error
+
+
+def _write_artifact(path: Path, rendered: str) -> None:
+    if path.is_symlink():
+        raise ScorecardInputError("scorecard output MUST NOT be a symlink")
+    path.write_text(rendered, encoding="utf-8")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -187,7 +193,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     if arguments.output is None:
         sys.stdout.write(rendered)
     else:
-        arguments.output.write_text(rendered, encoding="utf-8")
+        try:
+            _write_artifact(arguments.output, rendered)
+        except (ScorecardInputError, OSError) as error:
+            print(f"chatops-quality-scorecard: ERROR: {error}", file=sys.stderr)
+            return 2
     return 0
 
 

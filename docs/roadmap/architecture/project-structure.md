@@ -75,7 +75,7 @@ fdai/
 │   │   ├── browser_evidence/   # read-only origin/DNS policy, redaction, immutable artifacts, custody, and shadow comparison
 │   │   ├── operator_memory/    # HIL-approved operator memory injected as untrusted `<operator_note>` data; the second-approval step is bounded in time and replay-safe (entry id and recorded approver share one canonical form, so a redelivery refuses instead of duplicating and expiry is terminal)
 │   │   ├── learning/           # consent-gated off-path turn eligibility, consensus, dedup ledger, and inert proposal routing
-│   │   ├── conversation_assurance/ # deterministic-first completed-turn scoring, exact failure attribution, hold-first ontology adequacy review, mixed-family review, scoped disputes, subscription learning, chat-policy promotion/rollback, the versioned 50-item hard-cap quality scorecard, and its worst-run aggregator plus one-command regeneration CLI
+│   │   ├── conversation_assurance/ # deterministic-first completed-turn scoring, exact failure attribution, hold-first ontology adequacy review, mixed-family review, scoped disputes, subscription learning, chat-policy promotion/rollback, the versioned 50-item hard-cap quality scorecard, and its worst-run aggregator plus the `python -m ...scorecard_cli` regeneration entry point
 │   │   ├── trajectory/         # authorization-first observable trajectory projection, reviewed aggregate, offline validation, and provider-neutral retention claim coordination
 │   │   ├── case_history/       # canonical revisions, strict operational receipts, artifact-first intake, scoped retrieval, backfill, and retention
 │   │   ├── task_worker/        # isolated depth-one read-only workers: capability attenuation, lifecycle, durable state, and parent synthesis

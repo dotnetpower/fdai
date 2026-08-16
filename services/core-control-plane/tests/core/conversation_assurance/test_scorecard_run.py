@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from dataclasses import replace
 from pathlib import Path
 
@@ -324,3 +326,48 @@ def test_cli_rejects_malformed_input(tmp_path: Path) -> None:
 
 def test_cli_rejects_a_missing_input(tmp_path: Path) -> None:
     assert scorecard_main(["--input", str(tmp_path / "absent.json")]) == 2
+
+
+def test_cli_rejects_a_symlinked_input(tmp_path: Path) -> None:
+    real = tmp_path / "measurements.json"
+    real.write_text(json.dumps(_document()), encoding="utf-8")
+    link = tmp_path / "linked.json"
+    link.symlink_to(real)
+
+    assert scorecard_main(["--input", str(link)]) == 2
+
+
+def test_cli_rejects_a_symlinked_output(tmp_path: Path) -> None:
+    source = tmp_path / "measurements.json"
+    source.write_text(json.dumps(_document()), encoding="utf-8")
+    target = tmp_path / "target.json"
+    target.write_text("", encoding="utf-8")
+    link = tmp_path / "linked-scorecard.json"
+    link.symlink_to(target)
+
+    assert scorecard_main(["--input", str(source), "--output", str(link)]) == 2
+    assert target.read_text(encoding="utf-8") == ""
+
+
+def test_documented_module_command_regenerates_the_artifact(tmp_path: Path) -> None:
+    source = tmp_path / "measurements.json"
+    source.write_text(json.dumps(_document()), encoding="utf-8")
+    output = tmp_path / "scorecard.json"
+
+    completed = subprocess.run(  # noqa: S603 - fixed argv, interpreter from sys.executable
+        [
+            sys.executable,
+            "-m",
+            "fdai.core.conversation_assurance.scorecard_cli",
+            "--input",
+            str(source),
+            "--output",
+            str(output),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert json.loads(output.read_text(encoding="utf-8"))["qualified"] is True

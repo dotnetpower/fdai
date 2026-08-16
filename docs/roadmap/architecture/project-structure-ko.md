@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 05889fac841d3ff211bc4c3233ee955e0b3d828c
+translation_source_sha: 9e98fbbd63564880cd0d326881e1948bfdd8a65b
 translation_revised: 2026-08-17
 ---
 # 프로젝트 구조
@@ -75,7 +75,7 @@ fdai/
 │   │   ├── browser_evidence/   # 읽기 전용 origin/DNS policy, redaction, immutable artifact, custody, shadow comparison
 │   │   ├── operator_memory/    # HIL 승인된 오퍼레이터 메모리를 untrusted `<operator_note>` 데이터로 주입. 두 번째 승인 단계는 시간 범위가 제한되고 재실행에 안전 (항목 id와 기록된 승인자가 같은 정규 형태를 쓰므로 재전달은 중복 대신 거부되고 만료는 종결적)
 │   │   ├── learning/           # 동의 기반 off-path turn eligibility, consensus, dedup ledger, 비활성 proposal routing
-│   │   ├── conversation_assurance/ # deterministic-first 완료 turn 점수, exact failure attribution, hold-first ontology adequacy review, mixed-family 평가, 범위 제한 이의 제기, 구독별 학습, chat-policy 승격 및 롤백, versioned 50-item hard-cap quality scorecard, 최저 실행 집계기와 단일 명령 재생성 CLI
+│   │   ├── conversation_assurance/ # deterministic-first 완료 turn 점수, exact failure attribution, hold-first ontology adequacy review, mixed-family 평가, 범위 제한 이의 제기, 구독별 학습, chat-policy 승격 및 롤백, versioned 50-item hard-cap quality scorecard, 최저 실행 집계기와 `python -m ...scorecard_cli` 재생성 진입점
 │   │   ├── trajectory/         # authorization-first observable trajectory projection, version policy, reviewed aggregate, offline validation, provider-neutral 보존 claim 조정
 │   │   ├── case_history/       # canonical revision, strict operational receipt, artifact-first intake, scoped retrieval, backfill 및 retention
 │   │   ├── task_worker/        # 격리된 depth-one 읽기 전용 worker: capability 축소, lifecycle, 영구 state, parent synthesis
