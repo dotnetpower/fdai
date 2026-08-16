@@ -221,8 +221,9 @@ class _AnsweredRuntime:
         prior_turns: tuple[Turn, ...],
         principal: Principal,
         cancelled: Any = None,
+        bound_incident: Any = None,
     ) -> RuntimeSemanticTurnResult:
-        del prior_turns, cancelled
+        del prior_turns, cancelled, bound_incident
         assert utterance == "Show current operations evidence."
         assert principal.id == "operator-1"
         plan = SimpleNamespace(

@@ -8,7 +8,10 @@ from typing import Any
 import pytest
 from fdai.composition.semantic_query_model_targets import t1_model_targets, t2_model_targets
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
-from fdai.core.conversation.semantic_planning_models import SemanticPlanningDisposition
+from fdai.core.conversation.semantic_planning_models import (
+    BoundIncident,
+    SemanticPlanningDisposition,
+)
 from fdai.core.conversation.semantic_runtime import SemanticConversationRuntime
 from fdai.core.conversation.session import Principal, Role
 from fdai.core.ontology_platform import (
@@ -19,6 +22,10 @@ from fdai.core.ontology_platform import (
     OntologyQueryPlanExecutor,
     OntologyQueryPlanVerifier,
     build_query_manifest,
+)
+from fdai.core.ontology_platform.incident_queries import (
+    INCIDENT_EVIDENCE_MAX_RECORDS,
+    incident_evidence_function_type,
 )
 from fdai.rule_catalog.schema.llm_resolver import (
     CapabilityStatus,
@@ -334,6 +341,328 @@ def test_incident_function_cannot_satisfy_resource_frame() -> None:
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
     assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+
+
+def _incident_evidence_plan(*, incident_id: str, correlation_id: str) -> dict[str, object]:
+    plan = _function_plan("query.incident_evidence", output_kind="incident.evidence")
+    node = plan["nodes"][0]  # type: ignore[index]
+    node["arguments"]["arguments"] = {  # type: ignore[index]
+        "incident_id": incident_id,
+        "correlation_id": correlation_id,
+        "limit": 50,
+    }
+    return plan
+
+
+def _incident_service(plan: dict[str, object], manifest: Any) -> SemanticPlanningService:
+    return SemanticPlanningService(
+        model=_Model(frame=_frame(output_shape="incident_evidence"), plan=plan),
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+
+def _incident_arguments(outcome: Any) -> dict[str, Any]:
+    assert outcome.plan is not None
+    return dict(outcome.plan.nodes[0].arguments["arguments"])
+
+
+def test_anchored_conversation_never_retargets_a_read_of_another_incident() -> None:
+    """Retargeting would answer about one incident while the operator asked about another."""
+    manifest, _ = _fixture()
+    service = _incident_service(
+        _incident_evidence_plan(
+            incident_id="00000000-0000-0000-0000-000000000701",
+            correlation_id="another-incident",
+        ),
+        manifest,
+    )
+
+    outcome = service.plan(
+        utterance="Report what the evidence for incident 0701 establishes.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        bound_incident=BoundIncident(
+            incident_id="00000000-0000-0000-0000-000000000702",
+            correlation_id="bound-incident",
+        ),
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    arguments = _incident_arguments(outcome)
+    assert arguments["incident_id"] == "00000000-0000-0000-0000-000000000701"
+    assert arguments["correlation_id"] == "another-incident"
+
+
+def _anchored_fixture() -> Any:
+    """One manifest that actually offers the incident-evidence capability."""
+    resource = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Resource",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    function = incident_evidence_function_type()
+    release = build_ontology_release(object_types=(resource,), function_types=(function,))
+    return build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=DIGEST,
+        object_types=(resource,),
+        functions=(function,),
+    )
+
+
+def _anchored_service(manifest: Any, plan: dict[str, object] | None) -> tuple[Any, Any]:
+    model = _Model(frame=_frame(output_shape="incident_evidence"), plan=plan)
+    service = SemanticPlanningService(
+        model=model,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+    return service, model
+
+
+def test_anchored_incident_read_is_built_from_the_binding_without_a_plan_proposal() -> None:
+    manifest = _anchored_fixture()
+    service, model = _anchored_service(manifest, None)
+
+    outcome = service.plan(
+        utterance="Report what the evidence for this incident establishes.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        bound_incident=BoundIncident(
+            incident_id="00000000-0000-0000-0000-000000000702",
+            correlation_id="bound-incident",
+        ),
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert model.plan_calls == 0
+    assert outcome.plan is not None
+    node = outcome.plan.nodes[0]
+    assert node.arguments["function_name"] == "query.incident_evidence"
+    assert node.arguments["arguments"] == {
+        "incident_id": "00000000-0000-0000-0000-000000000702",
+        "correlation_id": "bound-incident",
+        "limit": INCIDENT_EVIDENCE_MAX_RECORDS,
+    }
+    assert outcome.execution_authority is False
+
+
+def test_bound_read_ignores_every_identity_the_frame_and_proposal_carry() -> None:
+    """Only the binding may name the incident, however many the turn puts in reach."""
+    manifest = _anchored_fixture()
+    model = _Model(
+        frame=_frame(
+            output_shape="incident_evidence",
+            subject_constraints=[
+                "00000000-0000-0000-0000-000000000703",
+                "frame-supplied-incident",
+            ],
+        ),
+        plan=_incident_evidence_plan(
+            incident_id="00000000-0000-0000-0000-000000000704",
+            correlation_id="proposal-supplied-incident",
+        ),
+    )
+    service = SemanticPlanningService(
+        model=model,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = service.plan(
+        utterance="Report what the evidence for this incident establishes.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        bound_incident=BoundIncident(
+            incident_id="00000000-0000-0000-0000-000000000702",
+            correlation_id="bound-incident",
+        ),
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert model.plan_calls == 0
+    assert _incident_arguments(outcome) == {
+        "incident_id": "00000000-0000-0000-0000-000000000702",
+        "correlation_id": "bound-incident",
+        "limit": INCIDENT_EVIDENCE_MAX_RECORDS,
+    }
+
+
+@pytest.mark.parametrize(
+    ("incident_id", "correlation_id"),
+    [
+        ("", "bound-incident"),
+        ("   ", "bound-incident"),
+        ("00000000-0000-0000-0000-000000000702", ""),
+        ("00000000-0000-0000-0000-000000000702", "   "),
+    ],
+)
+def test_bound_incident_refuses_an_identity_it_cannot_anchor(
+    incident_id: str, correlation_id: str
+) -> None:
+    """A blank identity would anchor the read to every incident at once."""
+    with pytest.raises(ValueError):
+        BoundIncident(incident_id=incident_id, correlation_id=correlation_id)
+
+
+def test_unanchored_incident_frame_still_asks_the_planner() -> None:
+    manifest = _anchored_fixture()
+    service, model = _anchored_service(
+        manifest,
+        _incident_evidence_plan(
+            incident_id="00000000-0000-0000-0000-000000000701",
+            correlation_id="another-incident",
+        ),
+    )
+
+    outcome = service.plan(
+        utterance="Report what the evidence for incident 0701 establishes.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert model.plan_calls == 1
+    assert _incident_arguments(outcome)["correlation_id"] == "another-incident"
+
+
+def test_anchored_turn_about_something_else_still_asks_the_planner() -> None:
+    manifest, definition = _fixture()
+    model = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=model,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = service.plan(
+        utterance="Which storage accounts allow public network access?",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        bound_incident=BoundIncident(
+            incident_id="00000000-0000-0000-0000-000000000702",
+            correlation_id="bound-incident",
+        ),
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert model.plan_calls == 1
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[0].kind.value == "object_set"
+
+
+def test_anchored_turn_never_asks_which_incident_it_is_already_anchored_to() -> None:
+    manifest = _anchored_fixture()
+    model = _Model(
+        frame=_frame(
+            output_shape="incident_evidence",
+            unresolved_terms=["this incident"],
+            clarification_requirements=["incident_reference"],
+            clarification="Which incident should I investigate?",
+        ),
+        plan=None,
+    )
+    service = SemanticPlanningService(
+        model=model,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = service.plan(
+        utterance="이 인시던트의 근거로 확인되는 사실을 보고해줘.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        bound_incident=BoundIncident(
+            incident_id="00000000-0000-0000-0000-000000000702",
+            correlation_id="bound-incident",
+        ),
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.clarification is None
+
+
+def test_anchored_turn_still_clarifies_a_requirement_the_binding_cannot_answer() -> None:
+    manifest = _anchored_fixture()
+    model = _Model(
+        frame=_frame(
+            output_shape="incident_evidence",
+            unresolved_terms=["this incident", "requests"],
+            clarification_requirements=["incident_reference", "measure"],
+            clarification="Do you mean HTTP requests or support requests?",
+        ),
+        plan=None,
+    )
+    service = SemanticPlanningService(
+        model=model,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = service.plan(
+        utterance="Report what this incident did to requests.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        bound_incident=BoundIncident(
+            incident_id="00000000-0000-0000-0000-000000000702",
+            correlation_id="bound-incident",
+        ),
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.clarification == "Do you mean HTTP requests or support requests?"
+
+
+def test_anchored_turn_keeps_an_incident_question_for_another_output_shape() -> None:
+    """Only a read of the anchored incident is answered by the binding."""
+    manifest = _anchored_fixture()
+    model = _Model(
+        frame=_frame(
+            output_shape="resource_list",
+            unresolved_terms=["this incident"],
+            clarification_requirements=["incident_reference"],
+            clarification="Which incident should I investigate?",
+        ),
+        plan=None,
+    )
+    service = SemanticPlanningService(
+        model=model,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = service.plan(
+        utterance="Which resources did this incident touch?",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        bound_incident=BoundIncident(
+            incident_id="00000000-0000-0000-0000-000000000702",
+            correlation_id="bound-incident",
+        ),
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.clarification == "Which incident should I investigate?"
 
 
 def test_aggregation_frame_requires_aggregate_plan() -> None:

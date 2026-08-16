@@ -16,7 +16,9 @@ def _load_module() -> ModuleType:
     return module
 
 
-def _ledger(*, state: str = "implemented", extra_history: str = "") -> str:
+def _ledger(
+    *, state: str = "implemented", extra_history: str = "", leading_history: str = ""
+) -> str:
     history_row = (
         "| 2026-08-14 | implemented | Added the loader. | "
         "current change; focused tests pass. | Validate runtime evidence. |"
@@ -35,7 +37,7 @@ def _ledger(*, state: str = "implemented", extra_history: str = "") -> str:
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
-{history_row}
+{leading_history}{history_row}
 {extra_history}
 ### Remaining work
 
@@ -72,6 +74,34 @@ def test_existing_history_rows_are_append_only() -> None:
     current = _ledger().replace("Added the loader.", "Reworded the old transition.")
 
     errors = module.ledger_violations(current, previous)
+
+    assert any("history is append-only" in error for error in errors)
+    # Naming the lost row is the difference between a five minute fix and an hour of bisecting.
+    assert any("2026-08-14" in error and "Added the loader." in error for error in errors)
+
+
+def test_a_merge_may_interleave_a_newer_row_ahead_of_a_recorded_row() -> None:
+    module = _load_module()
+    previous = _ledger()
+    merged = _ledger(
+        leading_history=(
+            "| 2026-08-15 | implemented | Landed on another branch. | `src/other.py` | None. |\n"
+        )
+    )
+
+    # Git orders two branches' appended rows however the merge resolves, so position cannot be
+    # the contract; requiring an ordered prefix made it unsatisfiable for concurrent branches.
+    assert module.ledger_violations(merged, previous) == []
+
+
+def test_removing_one_of_two_identical_rows_is_rejected() -> None:
+    module = _load_module()
+    duplicate = (
+        "| 2026-08-14 | implemented | Added the loader. | "
+        "current change; focused tests pass. | Validate runtime evidence. |\n"
+    )
+
+    errors = module.ledger_violations(_ledger(), _ledger(extra_history=duplicate))
 
     assert any("history is append-only" in error for error in errors)
 

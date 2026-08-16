@@ -66,6 +66,10 @@ History is append-only after adoption. Correct an inaccurate prior row with a
 new dated row that explains the correction. Do not silently rewrite or delete
 past implementation transitions.
 
+Append-only is a rule about row content, not row position. A merge decides how
+two branches' appended rows interleave, so the gate matches recorded rows by
+content and never requires them to stay an ordered prefix.
+
 When reliable prior history is unavailable, do not reconstruct it from memory.
 Add an adoption row that says earlier provenance was not reconstructed, then
 describe only the current state supported by repository evidence.

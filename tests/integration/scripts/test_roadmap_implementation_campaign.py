@@ -25,8 +25,12 @@ def _load() -> ModuleType:
 def test_choose_folder_requires_a_complete_batch() -> None:
     module = _load()
     grouped = {
-        "interfaces": [f"docs/roadmap/interfaces/doc-{index}.md" for index in range(10)],
-        "operations": [f"docs/roadmap/operations/doc-{index}.md" for index in range(9)],
+        "interfaces": [
+            f"docs/roadmap/interfaces/doc-{index}.md" for index in range(module.BATCH_SIZE)
+        ],
+        "operations": [
+            f"docs/roadmap/operations/doc-{index}.md" for index in range(module.BATCH_SIZE - 1)
+        ],
     }
 
     selected = module.choose_folder(grouped, chooser=lambda folders: folders[0])
@@ -63,7 +67,9 @@ def test_campaign_relation_fails_closed_on_divergence(
 
 def test_campaign_prompt_requires_exact_batch_and_hardening_floor() -> None:
     module = _load()
-    candidates = [f"docs/roadmap/interfaces/doc-{index}.md" for index in range(12)]
+    candidates = [
+        f"docs/roadmap/interfaces/doc-{index}.md" for index in range(module.BATCH_SIZE + 2)
+    ]
     issue = module.project_board.IssueRecord(
         number=123,
         state="OPEN",
@@ -74,8 +80,10 @@ def test_campaign_prompt_requires_exact_batch_and_hardening_floor() -> None:
 
     prompt = module.campaign_prompt("interfaces", candidates, issue=issue)
 
-    assert "exactly 10 canonical English documents" in prompt
-    assert "at least 10 explicit" in prompt
+    # The prompt must state the same numbers the validator enforces; a copied literal in either
+    # place drifts silently and the agent is judged against a contract it was never given.
+    assert f"exactly {module.BATCH_SIZE} canonical English documents" in prompt
+    assert f"at least {module.MIN_HARDENING_ROUNDS} explicit" in prompt
     assert "remaining verified severity is Low or none" in prompt
     assert "issue #123" in prompt
     assert "Complete the interface work" in prompt
@@ -133,7 +141,7 @@ def test_validate_completed_result_enforces_batch_rounds_and_severity(tmp_path: 
     evidence = tmp_path / "tests/test_example.py"
     evidence.parent.mkdir()
     evidence.write_text("def test_example(): pass\n", encoding="utf-8")
-    for index in range(10):
+    for index in range(module.BATCH_SIZE):
         relative = f"docs/roadmap/interfaces/doc-{index}.md"
         candidates.append(relative)
         path = tmp_path / relative
@@ -144,9 +152,9 @@ def test_validate_completed_result_enforces_batch_rounds_and_severity(tmp_path: 
         "issue": 123,
         "folder": "interfaces",
         "documents": candidates,
-        "hardening_rounds": 10,
+        "hardening_rounds": module.MIN_HARDENING_ROUNDS,
         "remaining_max_severity": "low",
-        "summary": "Implemented and hardened ten bounded items.",
+        "summary": "Implemented and hardened the bounded items.",
         "evidence_paths": ["tests/test_example.py"],
         "tests": ["pytest tests/test_example.py: passed"],
     }
@@ -160,9 +168,9 @@ def test_validate_completed_result_enforces_batch_rounds_and_severity(tmp_path: 
     )
 
     assert result["documents"] == candidates
-    with pytest.raises(RuntimeError, match="at least ten hardening rounds"):
+    with pytest.raises(RuntimeError, match="hardening rounds"):
         module.validate_result(
-            {**payload, "hardening_rounds": 9},
+            {**payload, "hardening_rounds": module.MIN_HARDENING_ROUNDS - 1},
             repo_root=tmp_path,
             issue_number=123,
             folder="interfaces",
@@ -409,3 +417,42 @@ def test_unreceipted_campaign_head_is_registered_before_holding(
     # Absorbing main first mints a new merge commit on every held run, so the head would
     # outrun validation for as long as any other session keeps committing.
     assert synced == []
+
+
+def test_landing_requires_a_receipt_and_an_idle_main_checkout(tmp_path: Path, monkeypatch) -> None:
+    module = _load()
+    calls: list[list[str]] = []
+    state = {"status": ""}
+
+    def fake_git(*args: str, **_kwargs: object) -> str:
+        return {
+            "rev-list": "3",
+            "status": state["status"],
+            "rev-parse": "campaignhead",
+        }[args[0]]
+
+    class _Result:
+        returncode = 0
+
+    monkeypatch.setattr(module, "_git", fake_git)
+    monkeypatch.setattr(module, "_main_checkout", lambda _root: tmp_path)
+    monkeypatch.setattr(module, "_register_committed_work", lambda *_a: None)
+    monkeypatch.setattr(
+        module.subprocess,
+        "run",
+        lambda arguments, **_k: calls.append(list(arguments)) or _Result(),
+    )
+
+    monkeypatch.setattr(module, "_validation_receipt_exists", lambda *_a, **_k: False)
+    assert module._land_validated_batch(tmp_path) is None
+    assert calls == []
+
+    monkeypatch.setattr(module, "_validation_receipt_exists", lambda *_a, **_k: True)
+    state["status"] = " M docs/roadmap/architecture/other.md"
+    assert module._land_validated_batch(tmp_path) is None
+    # A dirty main checkout holds another session's uncommitted work; landing must not touch it.
+    assert calls == []
+
+    state["status"] = ""
+    assert module._land_validated_batch(tmp_path) == "landed campaignhead on main"
+    assert calls[0][:4] == ["git", "merge", "--no-ff", "--no-edit"]

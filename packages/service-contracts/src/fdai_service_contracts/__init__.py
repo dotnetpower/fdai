@@ -238,6 +238,7 @@ from fdai_service_contracts.schema import (
     ValidationIssue,
 )
 from fdai_service_contracts.semantic_turn import (
+    MAX_SEMANTIC_EVIDENCE_REFS,
     RuleSearchCandidate,
     RuleSearchProjection,
     RuleSearchRank,
@@ -448,6 +449,7 @@ __all__ = [
     "SchemaNotFoundError",
     "SchemaRegistry",
     "SemanticBoundContext",
+    "MAX_SEMANTIC_EVIDENCE_REFS",
     "SemanticPriorTurn",
     "SemanticRoute",
     "SemanticTurnDisposition",

@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Protocol
 from uuid import UUID, uuid5
 
+from fdai.core.conversation.semantic_planning_models import BoundIncident
 from fdai.core.conversation.semantic_runtime import (
     SemanticTurnResult as RuntimeSemanticTurnResult,
 )
@@ -21,8 +23,13 @@ from fdai.core.ontology_platform import (
     TopologyDiff,
     TopologyGraphAt,
 )
+from fdai.core.ontology_platform.incident_queries import (
+    INCIDENT_EVIDENCE_FUNCTION_NAME,
+    INCIDENT_EVIDENCE_MAX_RECORDS,
+)
 from fdai.core.ontology_platform.query_values import QueryTable
 from fdai_service_contracts import (
+    MAX_SEMANTIC_EVIDENCE_REFS,
     OperatorRole,
     RuleSearchProjection,
     RuleSearchRequest,
@@ -46,6 +53,7 @@ from .semantic_relationship_projection import (
     render_ontology_relationship_answer,
 )
 
+_LOGGER = logging.getLogger(__name__)
 _PROJECTION_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
 _MAX_REQUEST_LIFETIME_SECONDS = 90.0
 _ROLE_ORDER = (
@@ -93,6 +101,7 @@ class SemanticTurnRuntime(Protocol):
         prior_turns: tuple[Turn, ...],
         principal: Principal,
         cancelled: asyncio.Event | None = None,
+        bound_incident: BoundIncident | None = None,
     ) -> RuntimeSemanticTurnResult: ...
 
 
@@ -394,6 +403,7 @@ class SemanticTurnProcessor:
                 prior_turns=_prior_turns(request, requested_at=requested_at),
                 principal=principal,
                 cancelled=runtime_cancelled,
+                bound_incident=_bound_incident(request),
             )
         )
         cancellation_task = asyncio.create_task(cancelled.wait()) if cancelled is not None else None
@@ -568,6 +578,30 @@ def _bound_context_turn(
     )
 
 
+def _bound_incident(request: SemanticTurnRequest) -> BoundIncident | None:
+    """Expose the conversation's incident identity to planning as trusted input."""
+    binding = request.bound_context
+    if (
+        binding is None
+        or binding.kind != "incident"
+        or binding.incident_id is None
+        or binding.correlation_id is None
+    ):
+        return None
+    return BoundIncident(
+        incident_id=_canonical_incident_id(binding.incident_id),
+        correlation_id=binding.correlation_id,
+    )
+
+
+def _canonical_incident_id(value: str) -> str:
+    """The evidence function echoes a canonical UUID, so compare against the same form."""
+    try:
+        return str(UUID(value))
+    except ValueError:
+        return value
+
+
 def _project_runtime_result(
     request: SemanticTurnRequest,
     result: RuntimeSemanticTurnResult,
@@ -588,27 +622,18 @@ def _project_runtime_result(
     planning = result.planning
     plan = planning.plan
     execution = result.execution
-    if (
-        plan is None
-        or execution is None
-        or result.intent_graph is None
-        or result.intent_graph_evidence is None
-        or planning.manifest_digest is None
-        or planning.manifest_digest != plan.semantic_catalog_digest
-        or execution.plan_digest != plan.plan_digest
-        or execution.status != "completed"
-        or not execution.receipts
-        or any(receipt.status is not TaskStatus.COMPLETED for receipt in execution.receipts)
-        or not _projected_answer_evidence_is_complete(result, execution)
-    ):
-        return _terminal_result(request, "held", "semantic_evidence_incomplete"), None
+    verified_plan_failure = _verified_plan_failure(result, plan, execution)
+    if verified_plan_failure is not None or plan is None or execution is None:
+        return _evidence_incomplete(request, verified_plan_failure or "plan_missing"), None
     evidence_refs = tuple(
         dict.fromkeys(
             evidence_ref for receipt in execution.receipts for evidence_ref in receipt.evidence_refs
         )
     )
-    if not evidence_refs or len(evidence_refs) > 12:
-        return _terminal_result(request, "held", "semantic_evidence_incomplete"), None
+    if not evidence_refs:
+        return _evidence_incomplete(request, "no_evidence_refs"), None
+    if len(evidence_refs) > MAX_SEMANTIC_EVIDENCE_REFS:
+        return _evidence_incomplete(request, "too_many_evidence_refs"), None
     execution_receipt_digest = content_digest(
         {
             "plan_digest": execution.plan_digest,
@@ -620,13 +645,13 @@ def _project_runtime_result(
     checks_total = len(execution.receipts)
     rule_search_found, rule_search, rule_search_node_id = _project_rule_search(result, execution)
     if rule_search_found and rule_search is None:
-        return _terminal_result(request, "held", "semantic_evidence_incomplete"), None
+        return _evidence_incomplete(request, "rule_search_projection_rejected"), None
     incident_found, incident_evidence, incident_node_id = _project_incident_evidence(
         result,
         execution,
     )
     if incident_found and incident_evidence is None:
-        return _terminal_result(request, "held", "semantic_evidence_incomplete"), None
+        return _evidence_incomplete(request, "incident_evidence_projection_rejected"), None
     unsatisfied_binding = _unsatisfied_incident_binding(request, incident_evidence)
     if unsatisfied_binding is not None:
         return _terminal_result(
@@ -640,7 +665,7 @@ def _project_runtime_result(
         execution,
     )
     if relationships_found and relationships is None:
-        return _terminal_result(request, "held", "semantic_evidence_incomplete"), None
+        return _evidence_incomplete(request, "relationship_projection_rejected"), None
     answer, technical_details = _render_query_answer(
         request,
         execution,
@@ -652,7 +677,7 @@ def _project_runtime_result(
         ontology_relationships_node_id=relationships_node_id,
     )
     if answer is None or technical_details is None:
-        return _terminal_result(request, "held", "semantic_evidence_incomplete"), None
+        return _evidence_incomplete(request, "answer_rendering_rejected"), None
     return ContractSemanticTurnResult(
         disposition=SemanticTurnDisposition.ANSWERED,
         reason_code="semantic_answer_verified",
@@ -696,7 +721,7 @@ def _unsatisfied_incident_binding(
     ):
         return None
     if (
-        incident_evidence.get("incident_id") != binding.incident_id
+        incident_evidence.get("incident_id") != _canonical_incident_id(binding.incident_id)
         or incident_evidence.get("correlation_id") != binding.correlation_id
     ):
         return "incident_evidence_mismatched_binding"
@@ -803,13 +828,19 @@ def _project_rule_search(
     return True, projection, node_id
 
 
+def _reject_incident_evidence(reason: str) -> tuple[bool, dict[str, object] | None, str | None]:
+    """Name why an incident read failed closed; the wire reason stays unchanged."""
+    _LOGGER.warning("incident_evidence_projection_rejected", extra={"failure_type": reason})
+    return True, None, None
+
+
 def _project_incident_evidence(
     result: RuntimeSemanticTurnResult,
     execution: QueryPlanExecution,
 ) -> tuple[bool, dict[str, object] | None, str | None]:
     plan = result.planning.plan
     if plan is None:
-        return True, None, None
+        return _reject_incident_evidence("plan_missing")
     incident_nodes: list[tuple[object, dict[str, Any]]] = []
     for node in getattr(plan, "nodes", ()):
         if getattr(node, "node_id", None) not in execution.output_node_ids:
@@ -818,14 +849,15 @@ def _project_incident_evidence(
             arguments = node.arguments
         except Exception:  # noqa: BLE001, S112 - malformed plan output fails closed
             continue
-        if isinstance(arguments, dict) and arguments.get("function_name") == (
-            "query.incident_evidence"
+        if (
+            isinstance(arguments, dict)
+            and arguments.get("function_name") == INCIDENT_EVIDENCE_FUNCTION_NAME
         ):
             incident_nodes.append((node, arguments))
     if not incident_nodes:
         return False, None, None
     if len(incident_nodes) != 1:
-        return True, None, None
+        return _reject_incident_evidence("multiple_incident_nodes")
     node, node_arguments = incident_nodes[0]
     node_id = getattr(node, "node_id", None)
     query_arguments = node_arguments.get("arguments")
@@ -845,7 +877,7 @@ def _project_incident_evidence(
         or receipts[0].capability != "query.function"
         or receipts[0].evidence_refs != node_result.evidence_refs
     ):
-        return True, None, None
+        return _reject_incident_evidence("node_receipt_mismatch")
     value = node_result.value
     incident_id = query_arguments.get("incident_id")
     correlation_id = query_arguments.get("correlation_id")
@@ -857,15 +889,15 @@ def _project_incident_evidence(
         or not correlation_id
         or not isinstance(limit, int)
         or isinstance(limit, bool)
-        or not 1 <= limit <= 500
-        or value.get("incident_id") != incident_id
+        or not 1 <= limit <= INCIDENT_EVIDENCE_MAX_RECORDS
+        or value.get("incident_id") != _canonical_incident_id(incident_id)
         or value.get("correlation_id") != correlation_id
         or value.get("authority") != "audit_projection"
         or value.get("cause_claim_supported") is not False
         or value.get("execution_authority") is not False
         or _contains_key(value, "cause")
     ):
-        return True, None, None
+        return _reject_incident_evidence("argument_or_authority_mismatch")
     profile = value.get("incident_profile")
     evidence = value.get("correlated_evidence")
     gaps = value.get("evidence_gaps")
@@ -882,17 +914,44 @@ def _project_incident_evidence(
         or any(not isinstance(item, str) for item in gaps)
         or any(not isinstance(item, str) for item in evidence_refs)
     ):
-        return True, None, None
+        return _reject_incident_evidence("evidence_shape_invalid")
+    # The profile's identity anchor comes from the sampled audit window, so a record
+    # naming the incident can fall outside it. An absent anchor is an evidence gap;
+    # only an anchor naming a different incident contradicts the request.
+    profile_incident_id = profile.get("incident_id") if profile is not None else None
     if profile is not None and (
-        profile.get("incident_id") != incident_id or profile.get("correlation_id") != correlation_id
+        (
+            profile_incident_id is not None
+            and profile_incident_id != _canonical_incident_id(incident_id)
+        )
+        or profile.get("correlation_id") != correlation_id
     ):
-        return True, None, None
+        return _reject_incident_evidence("profile_identity_mismatch")
     audit_refs = [item.get("audit_ref") for item in evidence]
     if any(not isinstance(item, str) for item in audit_refs) or audit_refs != evidence_refs:
-        return True, None, None
+        return _reject_incident_evidence("audit_ref_mismatch")
+    if not _evidence_is_oldest_first(evidence):
+        return _reject_incident_evidence("evidence_order_invalid")
     if truncated and "correlated_audit_truncated" not in gaps:
-        return True, None, None
+        return _reject_incident_evidence("truncation_gap_missing")
     return True, value, node_id
+
+
+def _evidence_is_oldest_first(evidence: list[Any]) -> bool:
+    """The answer names the latest records by slicing the tail, so the order is a claim."""
+    previous: datetime | None = None
+    for item in evidence:
+        recorded_at = item.get("recorded_at")
+        if not isinstance(recorded_at, str):
+            return False
+        try:
+            current = datetime.fromisoformat(recorded_at.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+        if current.tzinfo is None or (previous is not None and current < previous):
+            return False
+        previous = current
+    return True
 
 
 def _contains_key(value: object, key: str) -> bool:
@@ -901,6 +960,44 @@ def _contains_key(value: object, key: str) -> bool:
     if isinstance(value, list | tuple):
         return any(_contains_key(item, key) for item in value)
     return False
+
+
+def _verified_plan_failure(
+    result: RuntimeSemanticTurnResult,
+    plan: object | None,
+    execution: QueryPlanExecution | None,
+) -> str | None:
+    """Name the first unmet answer precondition so a hold is attributable."""
+    planning = result.planning
+    if plan is None:
+        return "plan_missing"
+    if execution is None:
+        return "execution_missing"
+    if result.intent_graph is None or result.intent_graph_evidence is None:
+        return "intent_graph_missing"
+    if planning.manifest_digest is None:
+        return "manifest_digest_missing"
+    if planning.manifest_digest != getattr(plan, "semantic_catalog_digest", None):
+        return "manifest_digest_mismatch"
+    if execution.plan_digest != getattr(plan, "plan_digest", None):
+        return "plan_digest_mismatch"
+    if execution.status != "completed":
+        return "execution_not_completed"
+    if not execution.receipts:
+        return "no_receipts"
+    if any(receipt.status is not TaskStatus.COMPLETED for receipt in execution.receipts):
+        return "receipt_not_completed"
+    if not _projected_answer_evidence_is_complete(result, execution):
+        return "intent_graph_evidence_mismatch"
+    return None
+
+
+def _evidence_incomplete(
+    request: SemanticTurnRequest,
+    failure_type: str,
+) -> ContractSemanticTurnResult:
+    _LOGGER.warning("semantic_turn_evidence_incomplete", extra={"failure_type": failure_type})
+    return _terminal_result(request, "held", "semantic_evidence_incomplete")
 
 
 def _projected_answer_evidence_is_complete(
@@ -1095,6 +1192,7 @@ def _incident_answer_output(
         "node_id": node_id,
         "incident_profile": incident_evidence["incident_profile"],
         "correlated_evidence": displayed,
+        "verified_records": len(raw_evidence),
         "evidence_gaps": incident_evidence["evidence_gaps"],
         "source_truncated": incident_evidence["truncated"],
         "display_truncated": len(displayed) < len(raw_evidence),
@@ -1141,7 +1239,11 @@ def _render_incident_answer(
     evidence = output.get("correlated_evidence")
     profile = output.get("incident_profile")
     gaps = output.get("evidence_gaps")
-    evidence_count = len(evidence) if isinstance(evidence, list) else 0
+    shown = len(evidence) if isinstance(evidence, list) else 0
+    verified = output.get("verified_records")
+    evidence_count = (
+        verified if isinstance(verified, int) and not isinstance(verified, bool) else shown
+    )
     status = profile.get("status") if isinstance(profile, Mapping) else None
     status_text = status if isinstance(status, str) and status else None
     gap_values = (
@@ -1157,10 +1259,16 @@ def _render_incident_answer(
             if evidence_count
             else "- 이 상관관계로 조회한 감사 기록이 없습니다.\n"
         )
+        if shown < evidence_count:
+            found += f"- 아래에는 가장 최근 {shown}건만 담겨 있습니다.\n"
         found += (
             f"- 인시던트 상태: `{status_text}`\n"
             if status_text is not None
-            else "- 인시던트 프로파일이 없어 상태를 보고할 수 없습니다.\n"
+            else (
+                "- 인시던트 프로파일이 없어 상태를 보고할 수 없습니다.\n"
+                if profile is None
+                else "- 조회한 감사 기록에 인시던트 상태가 없습니다.\n"
+            )
         )
         return (
             "## 검증된 인시던트 근거\n\n"
@@ -1178,10 +1286,16 @@ def _render_incident_answer(
         if evidence_count
         else "- No audit record was found for this correlation.\n"
     )
+    if shown < evidence_count:
+        found += f"- Only the most recent {shown} are carried below.\n"
     found += (
         f"- Incident status: `{status_text}`\n"
         if status_text is not None
-        else "- Status can't be reported because the incident profile is missing.\n"
+        else (
+            "- Status can't be reported because the incident profile is missing.\n"
+            if profile is None
+            else "- The audit records read for this incident record no status.\n"
+        )
     )
     return (
         "## Verified incident evidence\n\n"

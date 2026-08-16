@@ -155,6 +155,12 @@ def semantic_presentation_artifact(
     ):
         status = profile.get("status")
         status_text = status if isinstance(status, str) and status else "unknown"
+        verified = first.get("verified_records")
+        verified_records = (
+            verified
+            if isinstance(verified, int) and not isinstance(verified, bool)
+            else len(correlated)
+        )
         limitations = [
             (
                 "인과 분석이 구현되지 않아 근본 원인을 확인할 수 없습니다."
@@ -162,6 +168,12 @@ def semantic_presentation_artifact(
                 else "Root cause isn't available because causal analysis hasn't been implemented."
             )
         ]
+        if len(correlated) < verified_records:
+            limitations.append(
+                f"아래 목록에는 가장 최근 {len(correlated)}건만 담겨 있습니다."
+                if korean
+                else f"Only the most recent {len(correlated)} records are listed."
+            )
         gap_labels = (
             {
                 "impact_evidence_missing": "영향 근거가 누락되었습니다.",
@@ -200,7 +212,7 @@ def semantic_presentation_artifact(
                             "items": [
                                 {
                                     "label": "감사 기록" if korean else "Audit records",
-                                    "value": str(len(correlated)),
+                                    "value": str(verified_records),
                                     "tone": "neutral",
                                 },
                                 {

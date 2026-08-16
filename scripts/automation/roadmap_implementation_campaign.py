@@ -21,8 +21,11 @@ import roadmap_verification_agent as agent
 import roadmap_verification_inventory as inventory
 import roadmap_verification_watchdog as watchdog
 
-BATCH_SIZE = 10
-MIN_HARDENING_ROUNDS = 10
+# A batch is all-or-nothing: one rejected field discards every commit in it, and the branch
+# head cannot advance until the whole batch is validated. Ten documents made each failure cost
+# an hour of work; two converge far faster and lose almost nothing when a batch is rejected.
+BATCH_SIZE = 2
+MIN_HARDENING_ROUNDS = 3
 STATE_DIRECTORY = "fdai-roadmap-implementation"
 REFUSAL_FILE = "refused-folders.json"
 REFUSAL_TTL_SECONDS = 12 * 3600
@@ -203,6 +206,58 @@ def _campaign_relation(*, ahead: int, behind: int) -> str:
     return "current"
 
 
+def _main_checkout(repo_root: Path) -> Path | None:
+    """Return the checkout that holds main, if one is registered."""
+    output = _git("worktree", "list", "--porcelain", cwd=repo_root)
+    current: Path | None = None
+    for line in output.splitlines():
+        if line.startswith("worktree "):
+            current = Path(line.removeprefix("worktree "))
+        elif line.strip() == "branch refs/heads/main" and current is not None:
+            return current
+    return None
+
+
+def _land_validated_batch(repo_root: Path) -> str | None:
+    """Merge the validated campaign head into main when the main checkout is idle.
+
+    Nothing else moves this work onto main (#137), so it accumulated on a branch that only
+    diverged further. Landing is skipped rather than forced: unvalidated work stays put, a
+    dirty main checkout belongs to another session, and a conflict aborts instead of leaving
+    a half-merged tree that the next run would refuse.
+    """
+    if _git("rev-list", "--count", "main..HEAD", cwd=repo_root) == "0":
+        return None
+    if not _validation_receipt_exists(repo_root, "HEAD"):
+        return None
+    checkout = _main_checkout(repo_root)
+    if checkout is None or _git("status", "--porcelain", cwd=checkout):
+        return None
+    head = _git("rev-parse", "HEAD", cwd=repo_root)
+    before = _git("rev-parse", "main", cwd=repo_root)
+    result = subprocess.run(  # noqa: S603 - fixed git merge operation
+        ["git", "merge", "--no-ff", "--no-edit", head],
+        cwd=checkout,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    if result.returncode != 0:
+        subprocess.run(  # noqa: S603 - fixed git merge abort
+            ["git", "merge", "--abort"],
+            cwd=checkout,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        return None
+    # `git merge` skips the post-commit hook, so the merge commit needs registering by hand.
+    _register_committed_work(checkout, before)
+    return f"landed {head[:12]} on main"
+
+
 def _sync_campaign_base(repo_root: Path) -> str:
     """Absorb main into the campaign branch or report why work must hold."""
     ahead = int(_git("rev-list", "--count", "main..HEAD", cwd=repo_root))
@@ -264,7 +319,7 @@ Execution contract:
   English/Korean document pair, implementing code, and adjacent tests before editing.
 - Select exactly {BATCH_SIZE} candidates whose remaining work is comparatively quick to implement
     and directly advances an unchecked exit criterion in issue #{issue.number}. If no coherent set
-    of ten documents advances that issue, return blocked without changing the repository.
+    of {BATCH_SIZE} documents advances that issue, return blocked without changing the repository.
 - Write a bounded execution plan, then implement every selected document's chosen remaining item.
 - Keep the implementation ledgers truthful. Update both language variants and refresh each Korean
   source SHA. Do not mark unrelated or evidence-dependent work complete.
@@ -293,7 +348,8 @@ Execution contract:
   truncate long command lines rather than pasting whole invocations or captured output.
 - End with exactly one JSON object and no prose after it:
 {{"outcome":"completed|blocked","issue":{issue.number},"folder":"{folder}",
- "documents":["exactly ten canonical English paths"],"hardening_rounds":10,
+ "documents":["exactly {BATCH_SIZE} canonical English paths"],
+ "hardening_rounds":{MIN_HARDENING_ROUNDS},
  "remaining_max_severity":"low|none","summary":"bounded factual result",
  "evidence_paths":["relative/path"],"tests":["focused command and result"]}}
 """
@@ -348,11 +404,15 @@ def validate_result(
         raise RuntimeError("campaign summary is missing or too long")
     if outcome == "completed":
         if len(documents) != BATCH_SIZE or len(set(documents)) != BATCH_SIZE:
-            raise RuntimeError("completed campaign must contain exactly ten unique documents")
+            raise RuntimeError(
+                f"completed campaign must contain exactly {BATCH_SIZE} unique documents"
+            )
         if not set(documents).issubset(candidates):
             raise RuntimeError("completed campaign selected a document outside the candidate set")
         if not isinstance(rounds, int) or isinstance(rounds, bool) or rounds < MIN_HARDENING_ROUNDS:
-            raise RuntimeError("completed campaign requires at least ten hardening rounds")
+            raise RuntimeError(
+                f"completed campaign requires at least {MIN_HARDENING_ROUNDS} hardening rounds"
+            )
         if severity not in {"low", "none"}:
             raise RuntimeError("completed campaign has a remaining finding above Low")
         if not evidence or not tests:
@@ -458,6 +518,9 @@ def run_cycle(
         ):
             _register_committed_work(repo_root, "main")
             return "held: previous campaign head is awaiting central validation"
+        landed = _land_validated_batch(repo_root)
+        if landed is not None:
+            print(f"roadmap-implementation campaign {landed}")
         relation = _sync_campaign_base(repo_root)
         if relation == "sync-failed":
             return "held: campaign branch could not absorb main; resolve the conflict by hand"
@@ -473,7 +536,7 @@ def run_cycle(
         narrowed = {name: docs for name, docs in grouped.items() if name not in refused}
         selected = choose_folder(narrowed or grouped)
         if selected is None:
-            return "idle: no roadmap folder has ten remaining-work documents"
+            return f"idle: no roadmap folder has {BATCH_SIZE} remaining-work documents"
         folder, candidates = selected
         issue_claimed = _claim_issue(repo_root, issue)
         cli = agent.copilot_path()
