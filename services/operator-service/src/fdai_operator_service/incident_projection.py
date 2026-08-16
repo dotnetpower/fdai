@@ -12,6 +12,7 @@ from fdai_service_contracts import JsonObject, JsonValue
 from fdai_operator_service.projection_logic import audit_item
 
 INCIDENT_TITLE_LIMIT: Final = 160
+_TERMINAL_INCIDENT_STATES: Final = frozenset({"resolved", "closed"})
 PANTHEON_AGENTS: Final = frozenset(
     {
         "Odin",
@@ -165,6 +166,16 @@ def incident_outcome_metrics(
     )
 
 
+def _roster_status(state: str) -> str:
+    # The canonical machine is open -> triaging -> mitigated -> resolved -> closed,
+    # but the roster reads only three states. Anything still in flight stays
+    # in_progress so an unrecognized state never claims the incident is over.
+    normalized = state.casefold()
+    if normalized in _TERMINAL_INCIDENT_STATES:
+        return "resolved"
+    return "open" if normalized == "open" else "in_progress"
+
+
 def _incident_status(items: Sequence[JsonObject]) -> tuple[str, str]:
     for item in items:
         entry = _mapping(item.get("entry"))
@@ -177,7 +188,7 @@ def _incident_status(items: Sequence[JsonObject]) -> tuple[str, str]:
             else None
         )
         if state:
-            return ("resolved" if state in {"resolved", "closed"} else state, kind or "audit")
+            return (_roster_status(state), "incident_lifecycle")
     if _first_entry_string(items, "outcome") in {
         "resolved",
         "remediated",
