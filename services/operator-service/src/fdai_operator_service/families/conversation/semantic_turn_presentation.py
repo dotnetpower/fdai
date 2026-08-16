@@ -120,6 +120,170 @@ def _readable_gap(gap: str, *, korean: bool) -> str:
     return f"근거 공백: {readable}" if korean else f"Evidence gap: {readable}"
 
 
+_INCIDENT_PROFILE_FIELDS: tuple[tuple[str, str, str], ...] = (
+    ("title", "제목", "Title"),
+    ("severity", "심각도", "Severity"),
+    ("status", "상태", "Status"),
+    ("vertical", "버티컬", "Vertical"),
+    ("opened_at", "최초 기록", "First recorded"),
+    ("last_updated_at", "최종 기록", "Last recorded"),
+    ("actors", "관여 주체", "Actors"),
+)
+_INCIDENT_GAP_NEXT_STEPS: tuple[tuple[str, str, str], ...] = (
+    (
+        "incident_profile_missing",
+        "이 상관관계에 인시던트 레코드가 존재하는지 확인하세요.",
+        "Confirm an incident record exists for this correlation.",
+    ),
+    (
+        "impact_evidence_missing",
+        "영향받은 리소스의 영향 근거를 수집하세요.",
+        "Collect impact evidence for the affected resources.",
+    ),
+    (
+        "grounded_citations_missing",
+        "각 주장을 감사 기록에 연결하는 근거 인용을 수집하세요.",
+        "Collect grounded citations that link each claim to an audit record.",
+    ),
+    (
+        "correlated_audit_truncated",
+        "더 높은 레코드 한도로 이 조회를 다시 실행하세요.",
+        "Re-run this query with a higher record limit.",
+    ),
+)
+_INCIDENT_TIMELINE_ROWS = 10
+
+
+def _incident_cell(value: object) -> str | None:
+    """Render one incident cell without inventing a value for a missing field."""
+    if isinstance(value, str):
+        return value.strip() or None
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, int | float):
+        return str(value)
+    if isinstance(value, list | tuple):
+        parts = [item for item in (_incident_cell(entry) for entry in value) if item]
+        return ", ".join(parts) or None
+    return None
+
+
+def _incident_profile_items(profile: Mapping[str, object], *, korean: bool) -> list[JsonObject]:
+    """Show every populated profile field, and say so when the status is not one of them."""
+    items: list[JsonObject] = []
+    for key, korean_label, english_label in _INCIDENT_PROFILE_FIELDS:
+        rendered = _incident_cell(profile.get(key))
+        if rendered is None:
+            continue
+        items.append(
+            cast(
+                JsonObject,
+                {
+                    "label": korean_label if korean else english_label,
+                    "value": rendered,
+                    "tone": "attention" if key in ("severity", "status") else "neutral",
+                },
+            )
+        )
+    if _incident_cell(profile.get("status")) is None:
+        items.append(
+            cast(
+                JsonObject,
+                {
+                    "label": "인시던트 상태" if korean else "Incident status",
+                    "value": "미기록" if korean else "not recorded",
+                    "tone": "attention",
+                },
+            )
+        )
+    return items
+
+
+def _incident_timeline_block(
+    correlated: list[object],
+    *,
+    bounded_refs: list[str],
+    korean: bool,
+) -> JsonObject | None:
+    rows: list[JsonObject] = []
+    for entry in correlated[-_INCIDENT_TIMELINE_ROWS:]:
+        if not isinstance(entry, Mapping):
+            continue
+        recorded_at = _incident_cell(entry.get("recorded_at"))
+        audit_ref = _incident_cell(entry.get("audit_ref"))
+        if recorded_at is None or audit_ref is None:
+            continue
+        rows.append(
+            cast(
+                JsonObject,
+                {
+                    "recorded_at": recorded_at,
+                    "actor": _incident_cell(entry.get("actor")) or "-",
+                    "action_kind": _incident_cell(entry.get("action_kind")) or "-",
+                    "mode": _incident_cell(entry.get("mode")) or "-",
+                    "audit_ref": audit_ref,
+                },
+            )
+        )
+    if not rows:
+        return None
+    shown, carried = len(rows), len(correlated)
+    title = "기록된 활동" if korean else "Recorded activity"
+    if carried > shown:
+        title += f" (최근 {shown}/{carried}건)" if korean else f" (latest {shown} of {carried})"
+    return cast(
+        JsonObject,
+        {
+            "slot_id": "records",
+            "kind": "table",
+            "title": title,
+            "emphasis": "secondary",
+            "collapsed": False,
+            "evidence_refs": bounded_refs,
+            "data": {
+                "columns": [
+                    {"key": "recorded_at", "label": "기록 시각" if korean else "Recorded"},
+                    {"key": "actor", "label": "주체" if korean else "Actor"},
+                    {"key": "action_kind", "label": "활동" if korean else "Activity"},
+                    {"key": "mode", "label": "모드" if korean else "Mode"},
+                    {"key": "audit_ref", "label": "감사 참조" if korean else "Audit ref"},
+                ],
+                "rows": rows,
+                "status_key": None,
+            },
+        },
+    )
+
+
+def _incident_next_step_rows(gaps: list[object], *, korean: bool) -> list[JsonObject]:
+    """Name the steps the measured gaps call for, not one sentence for every answer."""
+    present = {gap for gap in gaps if isinstance(gap, str)}
+    authority = "읽기 전용" if korean else "Read-only"
+    rows = [
+        cast(
+            JsonObject,
+            {"action": korean_step if korean else english_step, "authority": authority},
+        )
+        for key, korean_step, english_step in _INCIDENT_GAP_NEXT_STEPS
+        if key in present
+    ]
+    if rows:
+        return rows
+    return [
+        cast(
+            JsonObject,
+            {
+                "action": (
+                    "상관된 감사 근거가 완전합니다. 기록된 활동을 검토하세요."
+                    if korean
+                    else "The correlated audit evidence is complete. Review the recorded activity."
+                ),
+                "authority": authority,
+            },
+        )
+    ]
+
+
 def semantic_presentation_artifact(
     *,
     semantic: Mapping[str, object],
@@ -153,13 +317,27 @@ def semantic_presentation_artifact(
         and isinstance(gaps, list)
         and isinstance(causal, Mapping)
     ):
-        status = profile.get("status")
-        status_text = status if isinstance(status, str) and status else "unknown"
         verified = first.get("verified_records")
         verified_records = (
             verified
             if isinstance(verified, int) and not isinstance(verified, bool)
             else len(correlated)
+        )
+        overview_items: list[JsonObject] = [
+            cast(
+                JsonObject,
+                {
+                    "label": "감사 기록" if korean else "Audit records",
+                    "value": str(verified_records),
+                    "tone": "neutral",
+                },
+            ),
+            *_incident_profile_items(profile, korean=korean),
+        ]
+        timeline_block = _incident_timeline_block(
+            correlated,
+            bounded_refs=bounded_refs,
+            korean=korean,
         )
         limitations = [
             (
@@ -208,21 +386,9 @@ def semantic_presentation_artifact(
                         "emphasis": "primary",
                         "collapsed": False,
                         "evidence_refs": bounded_refs,
-                        "data": {
-                            "items": [
-                                {
-                                    "label": "감사 기록" if korean else "Audit records",
-                                    "value": str(verified_records),
-                                    "tone": "neutral",
-                                },
-                                {
-                                    "label": "인시던트 상태" if korean else "Incident status",
-                                    "value": status_text,
-                                    "tone": "attention",
-                                },
-                            ]
-                        },
+                        "data": {"items": overview_items},
                     },
+                    *([timeline_block] if timeline_block is not None else []),
                     {
                         "slot_id": "limitations",
                         "kind": "callout",
@@ -244,16 +410,7 @@ def semantic_presentation_artifact(
                                 {"key": "action", "label": "조치" if korean else "Action"},
                                 {"key": "authority", "label": "권한" if korean else "Authority"},
                             ],
-                            "rows": [
-                                {
-                                    "action": (
-                                        "변경을 제안하기 전에 누락된 근거를 수집하세요."
-                                        if korean
-                                        else "Collect missing evidence before proposing a change."
-                                    ),
-                                    "authority": "읽기 전용" if korean else "Read-only",
-                                }
-                            ],
+                            "rows": _incident_next_step_rows(gaps, korean=korean),
                             "status_key": None,
                         },
                     },

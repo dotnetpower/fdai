@@ -1176,7 +1176,7 @@ async def test_answered_replay_emits_observed_lifecycle_before_readable_terminal
     next_step = cast(dict[str, object], blocks[2]["data"])
     assert next_step["rows"] == [
         {
-            "action": "Collect missing evidence before proposing a change.",
+            "action": "Collect impact evidence for the affected resources.",
             "authority": "Read-only",
         }
     ]
@@ -2023,3 +2023,121 @@ async def test_semantic_lifecycle_closes_kafka_when_bridge_close_fails(
         await lifecycle.aclose()
 
     assert events == ["bridge-close", "bus-close"]
+
+
+def _incident_projection(
+    evidence: list[dict[str, object]],
+    profile: dict[str, object],
+) -> dict[str, Any]:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    projection = _projection(envelope, disposition="answered", answered_evidence=True)
+    projection["payload"] = {
+        "technical_details": {
+            "schema_version": 1,
+            "kind": "semantic_query_outputs",
+            "outputs": [
+                {
+                    "incident_profile": profile,
+                    "correlated_evidence": evidence,
+                    "evidence_gaps": [],
+                    "causal_assessment": {"status": "not_available"},
+                }
+            ],
+        }
+    }
+    return projection
+
+
+def _audit_record(index: int) -> dict[str, object]:
+    return {
+        "audit_ref": f"audit:{index}",
+        "actor": "Heimdall",
+        "action_kind": "incident.transition",
+        "mode": "shadow",
+        "recorded_at": f"2026-08-14T09:{index:02d}:00Z",
+    }
+
+
+def test_incident_presentation_surfaces_the_recorded_activity_timeline() -> None:
+    projection = _incident_projection(
+        [_audit_record(index) for index in range(3)],
+        {"status": "triaging", "title": "Trace propagation gap", "severity": "sev2"},
+    )
+
+    done = semantic_turn_runtime_module._done_event_data(projection, locale="en")
+
+    artifact = cast(dict[str, object], done["presentation_artifact"])
+    blocks = cast(list[dict[str, object]], artifact["blocks"])
+    assert [block["slot_id"] for block in blocks] == [
+        "overview",
+        "records",
+        "limitations",
+        "findings",
+    ]
+    overview = cast(dict[str, object], blocks[0]["data"])
+    assert overview["items"] == [
+        {"label": "Audit records", "value": "3", "tone": "neutral"},
+        {"label": "Title", "value": "Trace propagation gap", "tone": "neutral"},
+        {"label": "Severity", "value": "sev2", "tone": "attention"},
+        {"label": "Status", "value": "triaging", "tone": "attention"},
+    ]
+    assert blocks[1]["title"] == "Recorded activity"
+    records = cast(dict[str, object], blocks[1]["data"])
+    assert records["status_key"] is None
+    assert cast(list[object], records["rows"])[0] == {
+        "recorded_at": "2026-08-14T09:00:00Z",
+        "actor": "Heimdall",
+        "action_kind": "incident.transition",
+        "mode": "shadow",
+        "audit_ref": "audit:0",
+    }
+    findings = cast(dict[str, object], blocks[3]["data"])
+    assert findings["rows"] == [
+        {
+            "action": "The correlated audit evidence is complete. Review the recorded activity.",
+            "authority": "Read-only",
+        }
+    ]
+
+
+def test_incident_timeline_declares_its_bound_instead_of_hiding_records() -> None:
+    projection = _incident_projection([_audit_record(index) for index in range(14)], {})
+
+    done = semantic_turn_runtime_module._done_event_data(projection, locale="en")
+
+    artifact = cast(dict[str, object], done["presentation_artifact"])
+    blocks = cast(list[dict[str, object]], artifact["blocks"])
+    records_block = next(block for block in blocks if block["slot_id"] == "records")
+    assert records_block["title"] == "Recorded activity (latest 10 of 14)"
+    rows = cast(list[dict[str, str]], cast(dict[str, object], records_block["data"])["rows"])
+    assert len(rows) == 10
+    assert rows[0]["audit_ref"] == "audit:4"
+    assert rows[-1]["audit_ref"] == "audit:13"
+
+
+def test_incident_presentation_omits_the_timeline_without_recorded_anchors() -> None:
+    projection = _incident_projection([{"audit_ref": "audit:1"}], {"status": "open"})
+
+    done = semantic_turn_runtime_module._done_event_data(projection, locale="en")
+
+    artifact = cast(dict[str, object], done["presentation_artifact"])
+    blocks = cast(list[dict[str, object]], artifact["blocks"])
+    assert [block["slot_id"] for block in blocks] == ["overview", "limitations", "findings"]
+
+
+def test_incident_overview_states_an_unrecorded_status_instead_of_omitting_it() -> None:
+    """A silently absent status reads as no trouble, so the gap is named."""
+    projection = _incident_projection([_audit_record(0)], {"severity": "sev2"})
+
+    done = semantic_turn_runtime_module._done_event_data(projection, locale="en")
+
+    artifact = cast(dict[str, object], done["presentation_artifact"])
+    blocks = cast(list[dict[str, object]], artifact["blocks"])
+    overview = cast(dict[str, object], blocks[0]["data"])
+    assert cast(list[object], overview["items"])[-1] == {
+        "label": "Incident status",
+        "value": "not recorded",
+        "tone": "attention",
+    }

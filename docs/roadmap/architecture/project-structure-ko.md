@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: e4f379eee21c26216b1615b1ac5953729042d7da
+translation_source_sha: 1e11a27e6219aa3c7350ebdbd5738396ac1afcd7
 translation_revised: 2026-08-16
 ---
 # 프로젝트 구조
@@ -53,6 +53,7 @@ translation_revised: 2026-08-16
 | 2026-08-16 | 구현됨 | Operator와 Console이 각각 소유하는 표현 경계를 가드로 고정하고, 변환 결과 충돌 카운터에 상한을 두었으며, 영속 release 오류에 객체 이름을 넣었습니다. Console은 해석할 수 없는 artifact를 조용히 버리므로 두 스위트 어느 쪽도 slot 드리프트를 볼 수 없었습니다. | `current change`, `test_presentation_console_contract.py`가 Console의 `SLOT_KINDS`, `MAX_BLOCKS`, `MAX_ITEMS`, `MAX_REFS`를 직접 읽어 두 언어의 모든 artifact를 검사, Operator 검사 318개와 persistence 검사 390개 통과, 알 수 없는 slot으로 바꾸면 가드가 실패함을 확인 | 이 행에 남은 작업은 없습니다. |
 | 2026-08-16 | 구현됨 | 인시던트 답변이 주장하는 기록 순서를 실제로 검사합니다. 답변은 projection의 뒷부분을 잘라 최신 기록이라고 말하는데 리더가 오래된 순으로 반환했는지 확인하는 곳이 없어, 순서가 바뀌면 그 주장이 조용히 거짓이 될 수 있었습니다. 기록 시각이 역행하는 근거는 이제 보류합니다. | `current change`, focused 처리기 검사 54개 통과, 라이브 인시던트 상관관계 2건이 해당 불변식 활성 상태에서 응답, 검사를 제거하면 새 사례가 실패 | 이 행에 남은 작업은 없습니다. |
 | 2026-08-16 | 구현됨 | 바인딩이 `incident_reference` 질문을 대신 해소하는 범위를 고정된 인시던트를 읽는 turn으로 좁혀, 다른 output shape의 제안 plan이 운영자가 보지 못한 질문 뒤에서 다른 인시던트를 읽을 수 없게 했습니다. | `current change`, focused 대화 검사 458개 통과, shape 조건을 제거하면 새 사례가 실패 | 이 행에 남은 작업은 없습니다. |
+| 2026-08-16 | 구현됨 | 읽기가 이미 담아 온 인시던트 근거를 실제로 보고합니다. 감사 행과 프로파일에 행위 주체, 제목, 심각도, 버티컬, 최초·최종 기록 시각이 있었는데도 답변은 상태와 건수만 말해, 누가 언제 조치했는지 알 수 없었습니다. 이제 projection이 각 기록의 행위 주체를 보존하고, 두 표면 모두 값이 있는 프로파일 필드를 모두 나열하며 자기 상한을 제목에 밝히는 기록 활동 표를 덧붙이고, 다음 안전 단계는 답변이 실제로 측정한 공백을 따릅니다. 값이 있는 필드만 나열하면 미기록 상태가 사라지므로 두 표면 모두 기록에 상태가 없다는 사실을 계속 밝히며, 건수는 표시한 수가 아니라 검증한 수를 유지합니다. 기록 시각이나 감사 참조가 없는 기록은 없는 기준점을 지어내지 않고 건너뜁니다. | `current change`, `incident_queries.py`, `semantic_turn_processor.py`, Operator 표현 계층, focused Core 검사 388개와 Operator 검사 322개 통과, 작업 범위 Ruff와 strict mypy 통과, 귀속 누락과 상태 조용한 생략을 각각 되돌리는 mutation 3건이 정확히 해당 가드 하나씩만 실패시킴 | 이 행에 남은 작업은 없습니다. |
 
 ### 남은 작업
 - [ ] 호환성 import deprecation 주기 뒤 연기된 Phase 2 물리 `git mv`를 완료하고 이 배치를 결과 service-owned 경로로 갱신합니다.
