@@ -284,6 +284,69 @@ def _init_repo(path: Path) -> None:
     run("commit", "-qm", "seed")
 
 
+def test_a_real_merge_lands_the_batch_beside_an_unstaged_edit(tmp_path: Path, monkeypatch) -> None:
+    import subprocess
+
+    module = _load()
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+
+    def run(*args: str, cwd: Path = repo) -> str:
+        return subprocess.run(  # noqa: S603 - fixed git commands on a temporary repo
+            [_git_binary(), *args], cwd=cwd, check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    branch = tmp_path / "campaign"
+    run("worktree", "add", "-q", "-b", "roadmap-implementation/campaign", str(branch))
+    (branch / "batch.txt").write_text("batch\n", encoding="utf-8")
+    run("add", "batch.txt", cwd=branch)
+    run("commit", "-qm", "campaign batch", cwd=branch)
+    landed_commit = run("rev-parse", "HEAD", cwd=branch)
+
+    # Somebody is editing an unrelated file in the checkout that holds main.
+    (repo / "seed.txt").write_text("edited by another session\n", encoding="utf-8")
+
+    monkeypatch.setattr(module, "_validation_receipt_exists", lambda _r, rev: rev == landed_commit)
+    monkeypatch.setattr(module, "_register_committed_work", lambda *_a: None)
+
+    assert module._land_validated_batch(branch) == f"landed {landed_commit[:12]} on main"
+    assert run("rev-list", "--count", "--merges", "main") == "1"
+    assert (repo / "batch.txt").read_text(encoding="utf-8") == "batch\n"
+    # The other session's edit survives the merge untouched.
+    assert (repo / "seed.txt").read_text(encoding="utf-8") == "edited by another session\n"
+
+
+def test_a_real_merge_refuses_while_the_index_is_dirty(tmp_path: Path, monkeypatch) -> None:
+    import subprocess
+
+    module = _load()
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+
+    def run(*args: str, cwd: Path = repo) -> str:
+        return subprocess.run(  # noqa: S603 - fixed git commands on a temporary repo
+            [_git_binary(), *args], cwd=cwd, check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    branch = tmp_path / "campaign"
+    run("worktree", "add", "-q", "-b", "roadmap-implementation/campaign", str(branch))
+    (branch / "batch.txt").write_text("batch\n", encoding="utf-8")
+    run("add", "batch.txt", cwd=branch)
+    run("commit", "-qm", "campaign batch", cwd=branch)
+    landed_commit = run("rev-parse", "HEAD", cwd=branch)
+
+    # Staged, and untouched by the merge. Git still declines the whole operation.
+    (repo / "seed.txt").write_text("staged by another session\n", encoding="utf-8")
+    run("add", "seed.txt")
+
+    monkeypatch.setattr(module, "_validation_receipt_exists", lambda _r, rev: rev == landed_commit)
+    monkeypatch.setattr(module, "_register_committed_work", lambda *_a: None)
+
+    assert module._land_validated_batch(branch) is None
+    assert run("rev-list", "--count", "--merges", "main") == "0"
+    assert not (repo / "batch.txt").exists()
+
+
 def test_sync_absorbs_main_when_the_branch_is_ahead_and_behind(tmp_path: Path, monkeypatch) -> None:
     import subprocess
 
@@ -440,14 +503,14 @@ def test_landing_requires_a_receipt_and_leaves_live_edits_alone(
 ) -> None:
     module = _load()
     calls: list[list[str]] = []
-    state = {"status": "", "incoming": "docs/roadmap/architecture/owned.md\n"}
+    state = {"status": "", "incoming": "docs/roadmap/architecture/owned.md\n", "staged": ""}
     # Newest first, exactly as `git rev-list main..HEAD` reports it.
     ahead = ["freshest", "validated", "older"]
     receipted: set[str] = set()
 
     def fake_git(*args: str, **_kwargs: object) -> str:
         if args[0] == "diff":
-            return state["incoming"]
+            return state["staged"] if "--cached" in args else state["incoming"]
         if args[0] == "rev-list":
             return str(len(ahead)) if "--count" in args else "\n".join(ahead)
         return {"status": state["status"], "rev-parse": "campaignhead"}[args[0]]
@@ -477,6 +540,13 @@ def test_landing_requires_a_receipt_and_leaves_live_edits_alone(
     assert calls == []
 
     state["status"] = " M docs/roadmap/architecture/elsewhere.md\n?? scratch.py"
+    state["staged"] = "docs/roadmap/deployment/unrelated.md\n"
+    assert module._land_validated_batch(tmp_path) is None
+    # `git merge` refuses outright when the index differs from HEAD, even for paths the
+    # merge would leave byte-identical. Attempting it anyway just fails and logs nothing.
+    assert calls == []
+
+    state["staged"] = ""
     assert module._land_validated_batch(tmp_path) == "landed validated on main"
     # Two refusals dressed as safety are gone. A dirty checkout is the normal state of the
     # primary worktree, so landing only needs the incoming paths to miss the live edits. And

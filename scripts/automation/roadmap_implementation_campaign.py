@@ -268,6 +268,10 @@ def _land_validated_batch(repo_root: Path) -> str | None:
     checkout = _main_checkout(repo_root)
     if checkout is None:
         return None
+    # `git merge` refuses whenever the index differs from HEAD, whatever the merge touches.
+    # Measured: it named four staged files that were byte-identical on both sides.
+    if _git("diff", "--name-only", "--cached", cwd=checkout):
+        return None
     incoming = set(_git("diff", "--name-only", f"main...{head}", cwd=repo_root).splitlines())
     if incoming & _dirty_paths(checkout):
         return None
@@ -281,14 +285,16 @@ def _land_validated_batch(repo_root: Path) -> str | None:
         timeout=180,
     )
     if result.returncode != 0:
-        subprocess.run(  # noqa: S603 - fixed git merge abort
-            ["git", "merge", "--abort"],
-            cwd=checkout,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
+        # A refusal leaves no MERGE_HEAD, and aborting then fails and hides the real reason.
+        if (checkout / ".git/MERGE_HEAD").exists():
+            subprocess.run(  # noqa: S603 - fixed git merge abort
+                ["git", "merge", "--abort"],
+                cwd=checkout,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
         return None
     # `git merge` skips the post-commit hook, so the merge commit needs registering by hand.
     _register_committed_work(checkout, before)
