@@ -264,6 +264,8 @@ def causal_action_mode(hypothesis: CausalHypothesisRecord) -> CausalActionMode:
 
     Refuting evidence, an unsafe or refuted closure, an unresolved status, or an evidence
     grade below `quasi_experimental` keeps the related action or experiment in `shadow`.
+    A `supported` status is trustworthy only because the runtime records supporting
+    references after refutation completes; missing refutation stays `candidate`.
     The result is derived from the immutable revision and never grants execution authority.
     """
 
