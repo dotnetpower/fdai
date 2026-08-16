@@ -451,6 +451,8 @@ def _unscorable_reason(
         )
     except (KeyError, ValueError):
         return "semantic_effect_coverage_unproven"
+    if evidence.censoring_refs:
+        return "observation_censored"
     if not evidence.complete:
         return "observation_incomplete"
     if evidence.synthetic:

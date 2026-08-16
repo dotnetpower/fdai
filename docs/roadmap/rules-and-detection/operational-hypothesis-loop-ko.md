@@ -1,7 +1,7 @@
 ---
 translation_of: operational-hypothesis-loop.md
-translation_source_sha: 1acd7b4a5f2bb09dd9fab32a26e040d518810856
-translation_revised: 2026-08-15
+translation_source_sha: 08c85e8341a37100df2b36cfd01c6f1293030fb5
+translation_revised: 2026-08-16
 ---
 # 운영 가설 루프
 
@@ -76,6 +76,9 @@ refutation query 또는 명시적 unavailable 결과도 포함됩니다. 누락�
 관측 구간은 실행 전에 고정합니다. 예상 시작, 종료, telemetry grace, 적용 가능한 recurrence window
 및 정확한 completeness policy를 포함합니다. 이후 액션, topology revision, policy 변경 또는 중요한
 외부 이벤트는 episode를 intervened 또는 censored로 표시하며, 예측 결과를 조용히 승계하지 않습니다.
+관측 envelope는 이러한 censoring 참조를 담고, censored episode는 어떤 효과 비교보다 먼저
+unscorable로 처리합니다. 결정론적인 unscorable 우선순위는 censored, incomplete, synthetic,
+conflicting, stale 순서입니다.
 
 Provider receipt와 독립 outcome은 분리합니다.
 
@@ -214,6 +217,7 @@ Worker는 public contract를 통해 이러한 capability를 evidence source 또�
 |------|------|------|------|
 | Lane A 그래프 근거 | implemented | `services/core-control-plane/src/fdai/delivery/azure/graph_dynamic_evidence.py`; `services/core-control-plane/tests/delivery/azure/test_graph_dynamic_evidence.py`; `services/core-control-plane/tests/composition/test_wire_azure_operational_evidence.py` | 범위가 제한된 병렬 근거 구성이 일부 전제 조건과 시간 초과에 실패 시 차단됩니다. |
 | Lane B 영향 조정 | implemented | `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation.py`; `reconciliation_events.py`; `reconciliation_producer.py`; `reconciliation_request_outbox.py`; `delivery/reconciliation_runtime.py`; `delivery/reconciliation_request.py`; `delivery/reconciliation_request_publication.py`; 집중 조정 및 ControlLoop 테스트 | 요청, 결과, 원장, 일반 실행 producer 및 제안 전용 outbox 경로가 실행 권한 없이 구현되어 있습니다. Legacy Action은 producer 대상이 아닙니다. |
+| 검열 및 충돌 에피소드 처리 | implemented | `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_contracts.py`(`EffectObservationEnvelope.censoring_refs`); `reconciliation.py`(`_unscorable_reason`); `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py` | 검열되거나 충돌하는 에피소드는 `HOLD_UNSCORABLE` 시도 근거로 보류되며, 종결 일치나 복구 요청이 되지 않습니다. |
 | Production reconciliation source | in-progress | `ReconciliationArtifactSource` 및 `ReconciliationObservationSource` protocol; runtime composition 테스트 | Runtime은 production exact-plan 및 independent-observation source를 받을 수 있지만 upstream production adapter 또는 통제된 live 증적은 아직 없습니다. |
 | Lane C 계보 및 역량 조회 | implemented | `services/core-control-plane/src/fdai/core/assurance_twin/`; `services/core-control-plane/tests/rule_catalog/test_operational_hypothesis_loop_competency.py` | 기존 온톨로지 객체가 병렬 집계 없이 고정된 여섯 조회 등급에 답합니다. 이 입증은 테스트가 공급한 레코드 기준입니다. 어떤 조립 루트도 `OperationalHypothesisLineageProjector`를 구성하지 않으므로 운영은 이 객체들을 하나도 생성하지 않습니다. |
 | Lane D 그래프 모델 승격 | implemented | `services/core-control-plane/src/fdai/delivery/graph_model_promotion.py`; `core/assurance_twin/model_promotion.py`; `tests/delivery/test_graph_model_promotion.py` | 정확한 아티팩트와 롤백 신원이 기존 승인 및 작업 경로에 도달하며, 근거는 스스로 승격할 수 없습니다. |
@@ -226,13 +230,15 @@ Worker는 public contract를 통해 이러한 capability를 evidence source 또�
 | 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 통합 lane 소스와 집중 테스트. | 보호된 live 훈련 및 재발 근거를 보존합니다. |
 | 2026-08-14 | implemented | 일반 실행을 기존 exact V2 plan과 lease로 보호되는 durable publication outbox를 통해 effect-reconciliation request 생성에 연결했으며 downstream failure가 executor outcome을 변경하지 않도록 했습니다. | `current change`; reconciliation producer, outbox, publication, ControlLoop, runtime 및 composition 경로; 집중 검증 163개를 통과했습니다. | Production exact-plan 및 independent-observation source를 연결한 뒤 통제된 live closure 근거를 보존합니다. |
 | 2026-08-15 | in-progress | Lane C 주장에 단서를 달았습니다. 고정된 여섯 조회 등급은 테스트가 공급한 레코드로 입증되며, 어떤 조립 루트도 계보 projector를 구성하지 않습니다. | `current change`, `test_operational_hypothesis_loop_competency.py`가 자체 `OntologyObjectRecord`와 `OntologyLinkRecord` 입력을 만들고 `bootstrap.py`와 `control_loop.py`는 계보 projector를 구성하지 않습니다. | 선언된 `DecisionCase`, `ActionOption`, `ExpectedEffect`, `ActionRun` 속성을 실제 생산자에서 공급한 뒤 projector를 연결해야 합니다. |
+| 2026-08-16 | implemented | Envelope 스키마 1.1.0에 `censoring_refs` 관측 필드를 추가하고 검열된 에피소드를 모든 효과 비교보다 먼저 채점 불가로 처리하여, 검열되거나 충돌하는 에피소드가 보류된 시도 근거로 남도록 했습니다. | `current change`; `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_contracts.py`; `reconciliation.py`; `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py`; 집중 실행 `pytest services/core-control-plane/tests/core/ontology_platform` 335개 통과. | 통제된 live 에피소드로 재발 관측 구간을 닫습니다. |
 
 ### 남은 작업
 
 - [ ] Production exact-plan artifact 및 independent-observation adapter를 연결한 뒤 publication
   failure와 restart 동안 held 또는 pending evidence를 보존하는 집중 통합 테스트를 통과합니다.
 - [ ] 보호된 live 훈련을 실행하고 정확한 사전 조건, dry-run, 프로바이더, 독립 결과, 롤백, 감사 증적을 보존합니다.
-- [ ] 재발 관측 구간을 닫고 검열되거나 충돌하는 에피소드가 계속 채점 불가로 남음을 증명합니다.
+- [ ] 통제된 live 에피소드로 재발 관측 구간을 닫고 그 결과 재발 근거를 보존합니다.
+- [x] 검열되거나 충돌하는 에피소드가 계속 채점 불가로 남습니다. 근거는 `services/core-control-plane/src/fdai/core/ontology_platform/`의 `EffectObservationEnvelope.censoring_refs`와 `_unscorable_reason`, 그리고 `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py`의 집중 사례입니다.
 - [ ] 더 풍부한 관찰자 신원 기록과 최종 시간 초과 분류를 추가한 뒤 집중 조정 및 승격 검사를 다시 실행합니다.
 
 ## 관련 문서

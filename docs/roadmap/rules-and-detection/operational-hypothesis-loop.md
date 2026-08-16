@@ -76,7 +76,10 @@ Missing refutation evidence is `unknown`, never support.
 The observation horizon is fixed before execution. It includes the expected start, end, telemetry
 grace, recurrence window when applicable, and the exact completeness policy. A later action,
 topology revision, policy change, or material external event marks the episode intervened or
-censored; it doesn't silently inherit the predicted result.
+censored; it doesn't silently inherit the predicted result. The observation envelope carries those
+censoring references, and a censored episode is unscorable before any effect comparison runs.
+The deterministic unscorable precedence is censored, incomplete, synthetic, conflicting, then
+stale.
 
 Provider receipts and independent outcomes stay separate:
 
@@ -216,6 +219,7 @@ contracts. They don't modify, wrap, rename, or duplicate their implementations.
 |------|-------|----------|-------|
 | Lane A graph evidence | implemented | `services/core-control-plane/src/fdai/delivery/azure/graph_dynamic_evidence.py`; `services/core-control-plane/tests/delivery/azure/test_graph_dynamic_evidence.py`; `services/core-control-plane/tests/composition/test_wire_azure_operational_evidence.py` | Bounded concurrent evidence construction fails closed on partial prerequisites and timeouts. |
 | Lane B effect reconciliation | implemented | `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation.py`; `reconciliation_events.py`; `reconciliation_producer.py`; `reconciliation_request_outbox.py`; `delivery/reconciliation_runtime.py`; `delivery/reconciliation_request.py`; `delivery/reconciliation_request_publication.py`; focused reconciliation and ControlLoop tests | Request, outcome, ledger, ordinary-execution producer, and proposal-only outbox paths are implemented without execution authority. Legacy Actions remain outside the producer. |
+| Censored and conflicting episode handling | implemented | `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_contracts.py` (`EffectObservationEnvelope.censoring_refs`); `reconciliation.py` (`_unscorable_reason`); `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py` | A censored or conflicting episode is held as `HOLD_UNSCORABLE` attempt evidence, never a terminal match and never a recovery request. |
 | Production reconciliation sources | in-progress | `ReconciliationArtifactSource` and `ReconciliationObservationSource` protocols; runtime composition tests | The runtime accepts production exact-plan and independent-observation sources, but no upstream production adapter or governed live receipt exists yet. |
 | Lane C lineage and competency queries | implemented | `services/core-control-plane/src/fdai/core/assurance_twin/`; `services/core-control-plane/tests/rule_catalog/test_operational_hypothesis_loop_competency.py` | Existing ontology objects answer all six frozen query classes without a parallel aggregate. The proof is over test-supplied records: no composition root constructs `OperationalHypothesisLineageProjector`, so production materializes none of these objects. |
 | Lane D graph-model promotion | implemented | `services/core-control-plane/src/fdai/delivery/graph_model_promotion.py`; `core/assurance_twin/model_promotion.py`; `tests/delivery/test_graph_model_promotion.py` | Exact artifact and rollback identity reach the existing approval and action path; evidence cannot self-promote. |
@@ -228,13 +232,15 @@ contracts. They don't modify, wrap, rename, or duplicate their implementations.
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; integrated lane source and focused tests listed in the scope table. | Retain protected live-drill and recurrence evidence. |
 | 2026-08-14 | implemented | Connected ordinary execution to effect-reconciliation request production through existing exact V2 plans and a durable lease-fenced publication outbox without changing executor outcomes on downstream failure. | `current change`; reconciliation producer, outbox, publication, ControlLoop, runtime, and composition paths; focused validation passed 163 tests. | Bind production exact-plan and independent-observation sources, then retain governed live closure evidence. |
 | 2026-08-15 | in-progress | Qualified the Lane C claim: the six frozen query classes are proven over test-supplied records, because no composition root constructs the lineage projector. | `current change`; `test_operational_hypothesis_loop_competency.py` builds its own `OntologyObjectRecord` and `OntologyLinkRecord` inputs; `bootstrap.py` and `control_loop.py` construct no lineage projector. | Supply the declared `DecisionCase`, `ActionOption`, `ExpectedEffect`, and `ActionRun` properties from real producers, then wire the projector. |
+| 2026-08-16 | implemented | Added the `censoring_refs` observation field at envelope schema 1.1.0 and made a censored episode unscorable ahead of every effect comparison, so censored and conflicting episodes stay held attempt evidence. | `current change`; `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_contracts.py`; `reconciliation.py`; `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py`; focused run `pytest services/core-control-plane/tests/core/ontology_platform` passed 335 tests. | Close the recurrence observation window with governed live episodes. |
 
 ### Remaining work
 
 - [ ] Bind production exact-plan artifact and independent-observation adapters, then pass a focused
   integration test that preserves held or pending evidence across publication failure and restart.
 - [ ] Run the protected live drill and retain exact precondition, dry-run, provider, independent-outcome, rollback, and audit receipts.
-- [ ] Close the recurrence observation window and prove that censored or conflicting episodes remain unscorable.
+- [ ] Close the recurrence observation window with governed live episodes and retain the resulting recurrence evidence.
+- [x] Censored and conflicting episodes remain unscorable, evidenced by `EffectObservationEnvelope.censoring_refs` and `_unscorable_reason` in `services/core-control-plane/src/fdai/core/ontology_platform/` and the focused cases in `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py`.
 - [ ] Add richer observer-identity records and the final timeout classification, then rerun the focused reconciliation and promotion checks.
 
 ## Related docs

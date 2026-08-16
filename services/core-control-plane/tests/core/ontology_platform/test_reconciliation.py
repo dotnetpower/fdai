@@ -190,6 +190,8 @@ def _request(
     evaluated_at: datetime = CREATED_AT + timedelta(minutes=2),
     observed_at: datetime = CREATED_AT + timedelta(minutes=1),
     correlation_id: str = "correlation-1",
+    conflicts: tuple[str, ...] = (),
+    censoring_refs: tuple[str, ...] = (),
 ):
     observed = OntologyObjectRecord(
         id=target.id,
@@ -214,6 +216,8 @@ def _request(
         fresh_until=CREATED_AT + timedelta(minutes=10),
         complete=True,
         synthetic=False,
+        conflicts=conflicts,
+        censoring_refs=censoring_refs,
         evidence_refs=("evidence:provider-readback:1",),
         records=(ObservedEffectRecord.from_record(observed),),
     )
@@ -817,3 +821,83 @@ async def test_coordinator_holds_plan_without_scorable_postconditions() -> None:
     assert outcome.receipt.status is ReconciliationStatus.UNSCORABLE
     assert outcome.recommendation.next_step is ReconciliationNextStep.HOLD_UNSCORABLE
     assert outcome.recommendation.reason_code == "semantic_effect_coverage_unproven"
+
+
+@pytest.mark.parametrize(
+    ("episode", "reason_code"),
+    (
+        ({"censoring_refs": ("change:later-scale:1",)}, "observation_censored"),
+        ({"conflicts": ("conflict:replicas-disagree",)}, "observation_conflicted"),
+    ),
+)
+async def test_censored_or_conflicting_episodes_remain_unscorable(
+    episode,
+    reason_code,
+) -> None:
+    release, target, plan, action_type = _fixture()
+    ledger = InMemoryReconciliationLedger()
+    coordinator = EffectReconciliationCoordinator(ledger=ledger)
+    request = _request(
+        release=release,
+        target=target,
+        plan=plan,
+        action_type=action_type,
+        **episode,
+    )
+
+    outcome = await _coordinate(coordinator, request, release=release)
+
+    assert outcome.receipt.status is ReconciliationStatus.UNSCORABLE
+    assert outcome.recommendation.next_step is ReconciliationNextStep.HOLD_UNSCORABLE
+    assert outcome.recommendation.reason_code == reason_code
+    assert outcome.recommendation.target_agent is None
+    assert not outcome.terminal
+    assert ledger.terminal_outcomes == ()
+
+
+async def test_censoring_takes_precedence_over_a_matching_observation() -> None:
+    release, target, plan, action_type = _fixture()
+    scorable = _request(release=release, target=target, plan=plan, action_type=action_type)
+    censored = _request(
+        release=release,
+        target=target,
+        plan=plan,
+        action_type=action_type,
+        censoring_refs=("change:later-scale:1", "policy:window-change:2"),
+    )
+
+    matched = await _coordinate(
+        EffectReconciliationCoordinator(ledger=InMemoryReconciliationLedger()),
+        scorable,
+        release=release,
+    )
+    held = await _coordinate(
+        EffectReconciliationCoordinator(ledger=InMemoryReconciliationLedger()),
+        censored,
+        release=release,
+    )
+
+    assert matched.receipt.status is ReconciliationStatus.MATCHED
+    assert held.receipt.status is ReconciliationStatus.UNSCORABLE
+    assert held.recommendation.reason_code == "observation_censored"
+    assert censored.evidence.observation_id != scorable.evidence.observation_id
+
+
+def test_censoring_refs_are_canonical_and_bound_to_observation_identity() -> None:
+    release, target, plan, action_type = _fixture()
+    request = _request(
+        release=release,
+        target=target,
+        plan=plan,
+        action_type=action_type,
+        censoring_refs=("policy:window-change:2", "change:later-scale:1"),
+    )
+
+    assert request.evidence.censoring_refs == (
+        "change:later-scale:1",
+        "policy:window-change:2",
+    )
+    payload = request.evidence.model_dump(mode="json")
+    payload["censoring_refs"] = ["policy:window-change:2", "change:later-scale:1"]
+    with pytest.raises(ValidationError, match="censoring refs MUST be sorted and unique"):
+        EffectObservationEnvelope.model_validate(payload)
