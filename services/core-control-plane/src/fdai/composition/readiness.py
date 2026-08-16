@@ -4,14 +4,18 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from fdai.core.deploy_preflight import PreflightAnalyzer
 from fdai.core.readiness import (
+    HandoffApproval,
     OwnershipTransfer,
     ReadinessReport,
+    RemediationProposal,
+    SelfApprovalError,
+    build_remediation_proposals,
     compose_readiness_report,
     evaluate_best_practices,
 )
@@ -28,6 +32,7 @@ from fdai.shared.providers.readiness import (
     ChecklistEvidenceProvider,
     PostureAssessmentProvider,
     ReadinessReportPublisher,
+    RemediationProposalPublisher,
 )
 from fdai.shared.providers.state_store import StateStore
 
@@ -68,6 +73,8 @@ class OperationalReadinessService:
     target_factory: Callable[[OwnershipTransfer], PreflightTarget] = _default_target
     best_practices: Sequence[BestPractice] = ()
     checklist_evidence: ChecklistEvidenceProvider | None = None
+    remediation_publisher: RemediationProposalPublisher | None = None
+    remediation_levers: Mapping[str, str] = field(default_factory=dict)
 
     async def review(self, signal: OwnershipTransfer) -> ReadinessReport:
         """Run one fail-closed review bound to ``signal``."""
@@ -155,6 +162,153 @@ class OperationalReadinessService:
             )
             raise
         return report
+
+    async def propose_remediations(
+        self,
+        *,
+        signal: OwnershipTransfer,
+        report: ReadinessReport,
+        approval: HandoffApproval,
+    ) -> tuple[RemediationProposal, ...]:
+        """Publish the grounded shadow remediations one review can cite.
+
+        The service proposes only. It never calls an executor, never mutates a
+        managed resource, and records the distinct approver identity in an
+        append-only audit entry before and after delivery. Self-approval, a
+        mismatched report, and a missing publisher all fail closed.
+        """
+        event_id, idempotency_key = _identity(signal)
+        timestamp = self.clock()
+        if (
+            report.scope != signal.scope
+            or report.submitter != signal.submitter
+            or report.target_environment != signal.target_environment
+        ):
+            await self._audit_remediation(
+                signal=signal,
+                event_id=event_id,
+                idempotency_key=f"{idempotency_key}:remediation-mismatch",
+                timestamp=timestamp,
+                decision="abstain",
+                outcome="report_signal_mismatch",
+                approver=approval.approver,
+                detail={},
+            )
+            raise ValueError("readiness report does not belong to this ownership transfer")
+
+        try:
+            proposals = build_remediation_proposals(
+                report=report,
+                approval=approval,
+                remediation_levers=self.remediation_levers,
+            )
+        except SelfApprovalError:
+            await self._audit_remediation(
+                signal=signal,
+                event_id=event_id,
+                idempotency_key=f"{idempotency_key}:remediation-self-approval",
+                timestamp=timestamp,
+                decision="deny",
+                outcome="self_approval_blocked",
+                approver=approval.approver,
+                detail={},
+            )
+            raise
+
+        if not proposals:
+            await self._audit_remediation(
+                signal=signal,
+                event_id=event_id,
+                idempotency_key=f"{idempotency_key}:remediation-abstain",
+                timestamp=timestamp,
+                decision="abstain",
+                outcome="no_remediation_lever",
+                approver=approval.approver,
+                detail={"proposal_count": 0},
+            )
+            return ()
+
+        if self.remediation_publisher is None:
+            await self._audit_remediation(
+                signal=signal,
+                event_id=event_id,
+                idempotency_key=f"{idempotency_key}:remediation-unconfigured",
+                timestamp=timestamp,
+                decision="abstain",
+                outcome="remediation_publisher_unconfigured",
+                approver=approval.approver,
+                detail={"proposal_count": len(proposals)},
+            )
+            raise RuntimeError("readiness remediation requires a bound proposal publisher")
+
+        action_types = sorted({proposal.action_type for proposal in proposals})
+        await self._audit_remediation(
+            signal=signal,
+            event_id=event_id,
+            idempotency_key=f"{idempotency_key}:remediation-proposed",
+            timestamp=timestamp,
+            decision="propose",
+            outcome="remediation_proposed",
+            approver=approval.approver,
+            detail={"proposal_count": len(proposals), "action_types": action_types},
+        )
+        for index, proposal in enumerate(proposals):
+            try:
+                await self.remediation_publisher.publish_remediation_proposal(proposal.to_dict())
+            except Exception as exc:
+                await self._audit_remediation(
+                    signal=signal,
+                    event_id=event_id,
+                    idempotency_key=f"{proposal.idempotency_key}:delivery-failed",
+                    timestamp=self.clock(),
+                    decision="abstain",
+                    outcome="remediation_delivery_failed",
+                    approver=approval.approver,
+                    detail={
+                        "error_type": type(exc).__name__,
+                        "delivered_count": index,
+                        "proposal_count": len(proposals),
+                    },
+                )
+                raise
+        await self._audit_remediation(
+            signal=signal,
+            event_id=event_id,
+            idempotency_key=f"{idempotency_key}:remediation-delivered",
+            timestamp=self.clock(),
+            decision="propose",
+            outcome="remediation_delivered",
+            approver=approval.approver,
+            detail={"proposal_count": len(proposals), "action_types": action_types},
+        )
+        return proposals
+
+    async def _audit_remediation(
+        self,
+        *,
+        signal: OwnershipTransfer,
+        event_id: str,
+        idempotency_key: str,
+        timestamp: str,
+        decision: str,
+        outcome: str,
+        approver: str,
+        detail: dict[str, object],
+    ) -> None:
+        entry = self._audit_entry(
+            signal=signal,
+            event_id=event_id,
+            idempotency_key=idempotency_key,
+            timestamp=timestamp,
+            decision=decision,
+            outcome=outcome,
+            detail=detail,
+        )
+        entry["kind"] = "operational_readiness.remediation"
+        # Proposals stay shadow even when the ORR gate itself runs in enforce.
+        entry["mode"] = Mode.SHADOW.value
+        entry["approver_identity"] = approver
+        await self.state_store.append_audit_entry(entry)
 
     def _audit_entry(
         self,

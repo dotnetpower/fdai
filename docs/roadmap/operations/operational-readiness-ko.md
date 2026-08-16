@@ -1,8 +1,8 @@
 ---
 title: 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 translation_of: operational-readiness.md
-translation_source_sha: 7424236aadc5e4e8235cf1cf0b70f8c09c73cada
-translation_revised: 2026-08-13
+translation_source_sha: 56ea8334d15529d498f113779dc7e6e72ae9004f
+translation_revised: 2026-08-16
 ---
 # 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 
@@ -159,6 +159,23 @@ RBAC 변경은 `resource_group` 영향 범위 와 `AsymmetricRollback` 을 지�
 auto-execute 되지 않습니다. ORR 은 제안하고, 사람이 승인하며, 실행기 가
 적용합니다. 콘솔과 ChatOps 는 읽기 전용 표면으로 유지됩니다.
 
+### 제안 계약
+
+제안 빌더는 결정론적이며 다음 불변 조건을 유지합니다:
+
+| 불변 조건 | 동작 |
+|-----------|------|
+| 근거가 있을 때만 | 발견 사항이 인용한 컨트롤 또는 규칙이 호출자가 제공한 lever 맵에서 교정 ActionType 으로 연결될 때만 제안이 생성됩니다. 연결되지 않은 발견 사항은 제안을 만들지 않으며, ORR 은 lever 를 지어내는 대신 abstain 합니다. |
+| shadow 전용 | ORR 게이트 자체가 `enforce` 로 실행되더라도 모든 제안은 `shadow` 를 싣습니다. 리뷰는 ActionType 을 자신의 승격 상태 위로 올릴 수 없습니다. |
+| 구별된 승인자 | 핸드오프 submitter 는 자신의 교정을 승인할 수 없습니다. 주체는 Unicode NFKC 정규화 후 비교하므로 submitter 의 인코딩 변형도 여전히 self-approval 시도입니다. 그러한 시도는 제안이 만들어지기 전에 거부되고 감사됩니다. |
+| 실행기 아이덴티티 없음 | 제안은 submitter 와 승인자를 책임 사실로만 기록합니다. 자격 증명, 토큰, 실행기 principal 을 싣지 않습니다. |
+| 결정론적 identity | 동일한 범위, 환경, 인용 근거, 리소스, ActionType 은 항상 동일한 멱등성 키를 파생하므로 재전달된 제안은 하위에서 no-op 입니다. |
+
+전달은 2단계로 감사됩니다: 서비스는 승인자 신원과 함께 제안 의도를 기록하고,
+`RemediationProposalPublisher` 연결부를 통해 각 제안을 발행한 뒤 전달을 기록합니다.
+발행기 실패는 전달된 개수와 함께 실패한 전달을 기록하고 오류를 전파합니다.
+조용한 성공을 보고하지 않으며 직접 호출로 대체하지도 않습니다.
+
 ## 환경 승격
 
 ORR 은 환경 승격(dev -> staging -> prod) 의 강제 지점입니다.
@@ -186,7 +203,8 @@ ORR 은 새로운 특권 표면을 도입하지 않고 최소한의 새 코드�
 | ORR 조정기 | 자세, preflight 및 checklist 결과를 `ReadinessReport`로 조합하고 환경 게이트와 `blocks_handoff` 적용 |
 | `composition/readiness.py` | 자세, preflight 및 선택적 checklist 근거를 동시에 실행하고 성공/실패를 감사한 뒤 serialized 보고 publish |
 | `composition/readiness_evidence.py` | ARB 산출물, 근거 만료 및 소유자 연결을 타입이 지정된 결과로 변환 결과 |
-| 전달 의도 | 포크가 `ReadinessReportPublisher`를 Checks API annotation / 콘솔 `ReadPanel`에 연결 |
+| `core/readiness/remediation` | 결정론적이고 근거가 있는 shadow 전용 교정 제안을 파생하고 self-approval 을 거부 |
+| 전달 의도 | 포크가 `ReadinessReportPublisher`를 Checks API annotation / 콘솔 `ReadPanel`에, `RemediationProposalPublisher`를 `risk-gate -> executor` 진입점에 연결 |
 
 조정기 는 다른 모든 코어 서브시스템처럼 `shared/` 계약과 프로바이더 만
 가져오기 합니다([project-structure.md](../architecture/project-structure-ko.md#module-boundaries)).
@@ -206,13 +224,16 @@ ORR 은 새로운 특권 표면을 도입하지 않고 최소한의 새 코드�
 | 추가 전용 감사와 보고서 전달을 포함하는 자세, preflight 및 체크리스트의 동시 오케스트레이션 | implemented | [`composition/readiness.py`](../../../services/core-control-plane/src/fdai/composition/readiness.py), [`test_readiness_service.py`](../../../services/core-control-plane/tests/composition/test_readiness_service.py), [`test_readiness_checklist_service.py`](../../../services/core-control-plane/tests/composition/test_readiness_checklist_service.py) | 서비스는 주입된 프로바이더를 사용합니다. 평가와 전달 실패를 감사한 뒤 오류를 전파합니다. |
 | Architecture Review Board (ARB) 산출물, 담당자, 최신성 및 만료 정보를 체크리스트 결과로 변환 | implemented | [`composition/readiness_evidence.py`](../../../services/core-control-plane/src/fdai/composition/readiness_evidence.py), [`test_readiness_evidence.py`](../../../services/core-control-plane/tests/composition/test_readiness_evidence.py) | 누락된 연결은 `unknown`으로 유지되고 만료된 근거는 `failed`가 됩니다. 어느 상태도 통과로 처리하지 않습니다. |
 | 자동 `ownership_transfer` 수집과 운영 자세, 체크리스트 및 보고서 발행기 연결 | not-started | [`shared/providers/readiness.py`](../../../services/core-control-plane/src/fdai/shared/providers/readiness.py)의 프로바이더 연결부와 위의 주입형 서비스 | 현재 런타임과 부트스트랩은 `OperationalReadinessService`를 생성하거나 등록하지 않습니다. 호출자는 자체 구성에서만 서비스를 실행할 수 있습니다. |
-| 교정 제안, 분리된 Var 승인 및 거버넌스가 적용된 작업 연결 | not-started | 현재 [`OwnershipTransfer`](../../../services/core-control-plane/src/fdai/core/readiness/signal.py)와 [`OperationalReadinessService`](../../../services/core-control-plane/src/fdai/composition/readiness.py) 계약 | 두 계약 모두 승인 결정이나 승인자 신원을 포함하지 않으며, 서비스는 교정 제안 또는 작업 이벤트를 발행하지 않습니다. |
+| 근거가 있는 shadow 교정 제안, 구별된 승인자 경계 및 2단계 전달 감사 | implemented | [`core/readiness/remediation.py`](../../../services/core-control-plane/src/fdai/core/readiness/remediation.py), [`composition/readiness.py`](../../../services/core-control-plane/src/fdai/composition/readiness.py), [`test_remediation.py`](../../../services/core-control-plane/tests/core/readiness/test_remediation.py), [`test_readiness_remediation_service.py`](../../../services/core-control-plane/tests/composition/test_readiness_remediation_service.py) | 제안은 shadow 로 유지되고, 연결된 lever 를 인용하거나 abstain 하며, 승인자 신원을 기록하고, self-approval 을 차단하며, 실행기에 도달하지 않습니다. |
+| risk gate 및 실행기 진입점에 대한 `RemediationProposalPublisher` 연결 | not-started | [`shared/providers/readiness.py`](../../../services/core-control-plane/src/fdai/shared/providers/readiness.py)의 프로바이더 연결부 | 어떤 composition root 도 이 연결부를 바인딩하지 않으므로 아직 제안이 실제 risk gate 에 도달하지 않습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 구현 원장을 도입했으며 이전 근거 이력은 재구성하지 않았습니다. 구현된 결정론적 기능 및 오케스트레이션 표면과 연결되지 않은 런타임 작업 흐름을 분리해 기록했습니다. | 현재 변경, 위에 인용한 core 및 composition 테스트 파일 5개의 `48 passed` 결과 | 이벤트, 프로바이더, 발행기, 승인 및 교정 경로를 연결한 뒤 거버넌스가 적용된 런타임 근거를 수집합니다. |
+| 2026-08-16 | in-progress | 결정론적 교정 제안 빌더, `RemediationProposalPublisher` 연결부, 그리고 승인자 신원을 기록하고 self-approval 을 차단하며 제안을 shadow 로 유지하고 전달을 2단계로 감사하는 `propose_remediations` 브리지를 추가했습니다. | 현재 변경, `uv run pytest -q --no-cov services/core-control-plane/tests/core/readiness/ services/core-control-plane/tests/composition/test_readiness_remediation_service.py services/core-control-plane/tests/composition/test_readiness_service.py services/core-control-plane/tests/composition/test_readiness_checklist_service.py` 의 `86 passed` 결과 | 제안 발행기를 risk gate 진입점에 연결하고, event ingest 에 `ownership_transfer` 를 등록하며, 거버넌스가 적용된 런타임 증적을 수집합니다. |
+| 2026-08-16 | in-progress | 교정 식별자와 구별된 승인자 검사를 강화했습니다. 멱등성 키 재료에 길이 접두사를 붙여 필드 안의 구분자가 서로 다른 발견 사항 두 개를 충돌시킬 수 없게 했고, 주체는 Unicode NFKC 정규화 후 비교합니다. | 현재 변경, `uv run pytest -q --no-cov services/core-control-plane/tests/core/readiness/ services/core-control-plane/tests/composition/test_readiness_remediation_service.py services/core-control-plane/tests/composition/test_readiness_service.py services/core-control-plane/tests/composition/test_readiness_checklist_service.py` 의 `88 passed` 결과 | 위 행과 동일합니다. |
 
 ### 남은 작업
 
@@ -220,8 +241,14 @@ ORR 은 새로운 특권 표면을 도입하지 않고 최소한의 새 코드�
   이벤트 기반 작업 흐름을 통해 검토를 호출하고, 재생해도 안전한 전달을 통합 테스트로 입증합니다.
 - [ ] 운영 자세, 체크리스트 근거 및 보고서 발행기 구현을 composition root에 연결한 뒤
   하나의 완전한 shadow 검토에 대한 거버넌스 적용 런타임 증적을 기록합니다.
-- [ ] 근거가 있는 교정 제안을 risk gate와 Var 승인 흐름을 통해 발행하고, 승인자 신원이
-  기록되며 자체 승인이 차단되고 검토 서비스가 관리 리소스 변경을 실행하지 않음을 테스트합니다.
+- [x] 근거가 있는 shadow 전용 교정 제안을 구별된 승인자 경계와 함께 발행하고, 승인자 신원이
+  기록되며 자체 승인이 차단되고 검토 서비스가 관리 리소스 변경을 실행하지 않음을 테스트로
+  입증했습니다
+  ([`test_remediation.py`](../../../services/core-control-plane/tests/core/readiness/test_remediation.py),
+  [`test_readiness_remediation_service.py`](../../../services/core-control-plane/tests/composition/test_readiness_remediation_service.py)).
+- [ ] composition root 에서 `RemediationProposalPublisher` 를 risk gate 진입점에 연결하고,
+  검토 서비스가 실행기 아이덴티티를 보유하지 않은 채 제안이 Var 승인 흐름에 도달하는
+  거버넌스 증적 하나를 기록합니다.
 - [ ] 고정 시나리오의 shadow 근거가 구성된 false-positive 임계값을 충족하고 권한 있는
   승격 레지스트리가 전환을 기록할 때까지 적용 모드를 비활성화 상태로 유지합니다.
 
@@ -231,16 +258,17 @@ ORR 은 새로운 특권 표면을 도입하지 않고 최소한의 새 코드�
   변경 으로의 유일한 경로는 `risk-gate -> executor` 에 진입하는 제안이며, 7개
   안전조건(stop-condition, 롤백, blast-radius 한도, 예행 실행, 리소스 잠금,
   멱등성, 감사 항목)이 거기서 강제됩니다.
-- **승인과 실행은 구별 유지**: 핸드오프는 submitter 가 요청하고 구별된
-  principal이 승인하고 절대 self-approve하지 않는 것이 목표 작업 흐름 계약입니다. 현재
-  `OwnershipTransfer`와 `OperationalReadinessService`는 승인 결정 또는 승인자 신원을
-  받지 않으므로 Var 승인은 아직 연결되지 않았습니다.
+- **승인과 실행은 구별 유지**: `HandoffApproval` 은 구별된 principal 의 결정을 싣고,
+  `OperationalReadinessService.propose_remediations` 는 제안을 만들기 전에 self-approval
+  시도를 거부하고 감사합니다. 제안 발행기는 아직 실제 risk gate 에 연결되지 않았으므로
+  종단 간 Var 승인 흐름은 미해결로 남아 있습니다.
 - **실패 시 차단**: stale twin (인벤토리 신선도가 `freshness_ttl` 초과) 은 stale
   상태로 certify 하기보다 핸드오프 certify 를 거부합니다; ungroundable 발견 사항 은
   abstain 하고; 검증되지 않은 리뷰는 shadow 로 유지됩니다.
 - **감사됨**: 현재 서비스는 ORR 판정, `blocks_handoff`, submitter, 대상 범위,
   환경 및 전달/평가 실패를 추가 전용 state-store 감사 항목으로 기록합니다.
-  Approver 신원과 Saga 에이전트 귀속은 향후 승인 작업 흐름 연결에서 추가해야 합니다.
+  교정 항목은 승인자 신원, shadow 모드, 제안 개수, 실패 시 전달된 개수를 추가로
+  기록합니다. Saga 에이전트 귀속은 향후 이벤트 기반 승인 작업 흐름 연결에서 추가해야 합니다.
 
 ## Next 단계
 
