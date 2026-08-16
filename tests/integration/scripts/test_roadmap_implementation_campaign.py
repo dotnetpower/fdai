@@ -284,7 +284,7 @@ def _init_repo(path: Path) -> None:
     run("commit", "-qm", "seed")
 
 
-def test_sync_absorbs_main_when_the_branch_is_ahead_and_behind(tmp_path: Path) -> None:
+def test_sync_absorbs_main_when_the_branch_is_ahead_and_behind(tmp_path: Path, monkeypatch) -> None:
     import subprocess
 
     module = _load()
@@ -306,11 +306,20 @@ def test_sync_absorbs_main_when_the_branch_is_ahead_and_behind(tmp_path: Path) -
     run("commit", "-qm", "other work")
     run("checkout", "-q", "roadmap-implementation/campaign")
 
+    registered: list[str] = []
+    monkeypatch.setattr(
+        module, "_register_committed_work", lambda _root, base: registered.append(base)
+    )
+
     # Ahead and behind at once used to hold every later run forever.
     assert module._campaign_relation(ahead=1, behind=1) == "diverged"
+    before = run("rev-parse", "HEAD")
     assert module._sync_campaign_base(repo) == "current"
     assert run("rev-list", "--count", "HEAD..main") == "0"
     assert run("status", "--porcelain") == ""
+    # `git merge` skips the post-commit hook, so the sync merge has to be enqueued by hand.
+    # Without this the branch tip is never validated and a validated batch can never land.
+    assert registered == [before]
 
 
 def test_sync_leaves_no_half_merged_worktree_on_conflict(tmp_path: Path) -> None:

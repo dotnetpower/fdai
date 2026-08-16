@@ -291,6 +291,7 @@ def _sync_campaign_base(repo_root: Path) -> str:
     merge_arguments = ["git", "merge", "--ff-only", "main"]
     if relation == "diverged":
         merge_arguments = ["git", "merge", "--no-edit", "main"]
+    before = _git("rev-parse", "HEAD", cwd=repo_root)
     result = subprocess.run(  # noqa: S603 - fixed git merge operation
         merge_arguments,
         cwd=repo_root,
@@ -300,6 +301,11 @@ def _sync_campaign_base(repo_root: Path) -> str:
         timeout=120,
     )
     if result.returncode == 0:
+        # `git merge` skips the post-commit hook, so a sync merge never reached the queue on
+        # its own. That left the branch tip permanently unvalidated: the batch below it had a
+        # receipt, the merge that absorbed main did not, and landing requires one on HEAD. The
+        # branch would take every commit main produced and never hand any of its own back.
+        _register_committed_work(repo_root, before)
         return "current"
     # Never leave a half-merged worktree behind; the next run requires a clean tree.
     subprocess.run(  # noqa: S603 - fixed git merge abort
