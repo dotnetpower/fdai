@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
 from fdai_operator_service.streaming.live_stream import LiveStreamEvent, LiveStreamHub, _live_chunks
 from fdai_operator_service.streaming.shutdown import (
     STREAM_SHUTDOWN_STATE,
@@ -81,6 +82,28 @@ async def test_next_or_shutdown_releases_an_idle_stream_on_shutdown() -> None:
 
     stop.set()
     assert await asyncio.wait_for(waiter, timeout=1.0) is None
+
+
+async def test_next_or_shutdown_closes_the_source_when_its_caller_is_cancelled() -> None:
+    started = asyncio.Event()
+    closed = asyncio.Event()
+
+    async def idle():
+        try:
+            started.set()
+            await asyncio.Event().wait()
+            yield "never"
+        finally:
+            closed.set()
+
+    waiter = asyncio.create_task(next_or_shutdown(idle(), asyncio.Event()))
+    await asyncio.wait_for(started.wait(), timeout=1.0)
+
+    waiter.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await waiter
+
+    assert closed.is_set()
 
 
 async def test_next_or_shutdown_without_a_published_event_still_iterates() -> None:

@@ -49,12 +49,18 @@ async def next_or_shutdown[Event](
             {next_task, stop_task},
             return_when=asyncio.FIRST_COMPLETED,
         )
-    finally:
-        stop_task.cancel()
-    if next_task not in done:
+    except BaseException:
         next_task.cancel()
-        await asyncio.gather(next_task, return_exceptions=True)
+        stop_task.cancel()
+        await asyncio.gather(next_task, stop_task, return_exceptions=True)
+        raise
+    if stop_task in done:
+        if not next_task.done():
+            next_task.cancel()
+        await asyncio.gather(next_task, stop_task, return_exceptions=True)
         return None
+    stop_task.cancel()
+    await asyncio.gather(stop_task, return_exceptions=True)
     try:
         return next_task.result()
     except StopAsyncIteration:

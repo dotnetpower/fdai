@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 83f13f80c2749d6e19f2653977090f407e7e64d4
-translation_revised: 2026-08-15
+translation_source_sha: 31b99ea6387720a655110c8f17731638a0f2b3c6
+translation_revised: 2026-08-16
 ---
 # 오퍼레이터 콘솔 점진적 대화
 
@@ -16,6 +16,7 @@ translation_revised: 2026-08-15
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | Web 점진적 스트림 집약 | 구현됨 | [`backend-stream.ts`](../../../console/src/deck/backend-stream.ts), [`backend-stream-fallback.test.ts`](../../../console/src/deck/backend-stream-fallback.test.ts), [`backend-stream-v1-contract.test.ts`](../../../console/src/deck/backend-stream-v1-contract.test.ts) | 집중 테스트는 순서가 있는 프레임, 재생 거부, 가지 수명 주기, 확정된 개정판, 부분 턴을 다룹니다. 이 행은 Teams 또는 Slack 런타임 검증을 주장하지 않습니다. |
+| Operator 대화 SSE 종료 | 구현됨 | [`shutdown.py`](../../../services/operator-service/src/fdai_operator_service/streaming/shutdown.py), [`factory.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/factory.py), [`test_stream_shutdown.py`](../../../services/operator-service/tests/test_stream_shutdown.py) | 애플리케이션 종료와 호출자 취소는 모두 진행 중인 source 읽기를 취소하고 기다린 뒤 스트림을 닫습니다. 유휴 source는 정상 종료를 막거나 분리된 읽기 task를 남길 수 없습니다. |
 | 채널 중립적 최종 집약 | 구현됨 | [`conversation_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_channel.py), [`test_rich_contract.py`](../../../services/core-control-plane/tests/delivery/channels/test_rich_contract.py) | 집중 계약 테스트 36개가 통과했습니다. Teams와 Slack은 영속 재생 전체에서 동일한 정본 답변, 제한, 근거 참조, `execution_authority=false`, 단조 증가하는 최종 확정 갱신을 보존합니다. 운영 A3 게시자나 통제된 채널 런타임 증적을 주장하지 않습니다. |
 | 드로어 표현 및 새 대화 정체성 | 진행 중 | [`use-command-deck-sessions.ts`](../../../console/src/deck/use-command-deck-sessions.ts), [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | Console은 저장된 드로어 표시 여부와 독립적으로 새 세션을 만들며, 라이브 테스트는 이제 새 대화에서 요청을 격리합니다. 인증된 런타임 증적 통과가 아직 필요합니다. |
 | 통제된 4단계 온톨로지 증적 | 진행 중 | [`console-routes.spec.ts`](../../../console/tests/live-e2e/console-routes.spec.ts) | 외부 Browser Entra 실행기는 정확한 Operator API 원본을 요구하고, 성공 경로에서 모호하지 않은 조회 가능 유형 요청을 사용하며, 요청 및 변환 결과에 결속된 증적을 펼치고, 산출물을 출처, 작업 영역 패치, 실행 구성 digest에 결속합니다. `answered`가 아닌 증적을 받으면 답변 전용 UI 단언 전에 중단합니다. `검증됨`을 뒷받침하는 새 보존 통과 산출물은 없습니다. |
@@ -47,6 +48,7 @@ translation_revised: 2026-08-15
 | 2026-08-15 | 구현됨 | 무작위 보증의 각 실행과 질문을 고유한 backend session identity에 결속해 새 실행이 이전 실행의 영속 projection을 소비하지 못하게 하고 checkpoint 재개에서는 같은 정체성을 유지했습니다. | `current change`, [`ontology-query-assurance.ts`](../../../console/tests/live-e2e/ontology-query-assurance.ts), [`ontology-query-assurance.spec.ts`](../../../console/tests/live-e2e/ontology-query-assurance.spec.ts), [`ontology-query-assurance.test.ts`](../../../console/tests/live-e2e/ontology-query-assurance.test.ts), 집중 보증 테스트 49개와 Console 타입 검사 통과, 정확한 실제 운영 Playwright 테스트 검색 완료 | 새 exact-source 14-cell 산출물을 보존한 뒤 seed가 지정된 이중 언어 100-case 집단을 실행하고 보존합니다. |
 | 2026-08-15 | 구현됨 | 자동 인시던트 프롬프트를 시스템이 답할 수 있는 범위에 맞추고 브리핑의 관사 일치 오류를 고쳤습니다. 프롬프트는 원인을 요구했지만 인시던트 답변은 인과 분석을 사용 불가로 고정하고 있어 모든 자동 조사가 답할 수 없는 질문을 던졌습니다. 이제 근거로 확인되는 사실, 빠진 근거, 다음 안전한 읽기 전용 조치를 묻습니다. 브리핑은 severity가 unknown일 때 `a unknown`으로 렌더링되었습니다. | `current change`, focused Console 인시던트 주의 및 카탈로그 검사 8개 통과, 카탈로그 parity 16쌍 검증, Console 타입 검사 통과 | 인증된 로컬 Console에서 재작성된 자동 프롬프트를 확인합니다. |
 | 2026-08-15 | 구현됨 | 앞선 보증 장부 문구가 구현 파일보다 먼저 `6bb17dffe9f2`에 반영되어 있던 근거 경계를 정정했습니다. 실행 범위 session identity 구현은 이 이력 정정과 함께 반영됩니다. | `current change`, 위에 인용된 온톨로지 보증 경로 3개, 집중 보증 테스트 49개와 Console 타입 검사 통과, 정확한 실제 운영 Playwright 테스트 검색 완료 | 새 exact-source 14-cell 산출물을 보존한 뒤 seed가 지정된 이중 언어 100-case 집단을 실행하고 보존합니다. |
+| 2026-08-16 | 구현됨 | Source가 유휴 상태일 때도 Operator 대화 SSE가 애플리케이션 종료를 관측하게 하고, 호출자 취소 시 source를 닫기 전에 내부 wait task 둘을 모두 취소하고 기다리도록 강화했습니다. 따라서 클라이언트 연결 해제 뒤 분리된 `anext` task가 `aclose`와 경합하지 않습니다. | `current change`, `shutdown.py`, `factory.py`, `test_stream_shutdown.py`, focused 스트림, 대화 family 및 표현 검사 25개 통과, Ruff 및 strict mypy 통과 | 대화 스트림 종료 정리에 남은 구현 작업은 없습니다. |
 
 ### 남은 작업
 
