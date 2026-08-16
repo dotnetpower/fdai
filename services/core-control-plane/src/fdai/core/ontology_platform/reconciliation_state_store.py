@@ -75,7 +75,7 @@ class StateStoreReconciliationLedger:
     """Durable reconciliation aggregate with atomic terminal outcome and outbox state."""
 
     _KEY_PREFIX = "ontology:reconciliation:"
-    _SCHEMA_VERSION = "1.1.0"
+    _SCHEMA_VERSION = "1.2.0"
     _MAX_CAS_ATTEMPTS = 64
     _MAX_ATTEMPTS_PER_RECONCILIATION = 8
     _MAX_AGGREGATE_BYTES = 16 * 1_048_576
