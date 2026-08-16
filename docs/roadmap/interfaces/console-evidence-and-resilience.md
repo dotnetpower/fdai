@@ -96,18 +96,17 @@ The shared top bar renders the icon-only FDAI mark in its original source colors
 
 Live follows the same shared title contract as `Operations / Live`. Its observation controls stay
 in the shared header actions area and wrap below the title on narrow viewports, so Freeze, source,
-window, and connection status remain visible.
-An open SSE response proves transport connectivity only. Live reports the source as ready only
-after an authoritative runtime or replay stage frame is observed. A keepalive-only connection
-renders `Awaiting source`, keeps operational metrics unavailable, and points the operator to Core
-Runtime and stage-topic readiness instead of presenting zero as measured health. Flow is the
-default view with a bounded 12-item work pool. Flow and Queue preserve the same title, target,
-scope, reason, tier, mode, owner, and stage facts; Queue adds only observed risk, impact, SLA, and
-control-state fields. Flow renders only populated work, packs six items per desktop row, and sorts
-by attention priority and then newest observation. Terminal outcomes remain available in History
-instead of occupying the Live work surface. Tier, autonomy, and mode badges use shared pointer and
-keyboard tooltips. A missing autonomy, risk, impact, or SLA remains `Not observed` and is never
-inferred in the browser.
+window, and connection status remain visible. An open SSE response proves transport connectivity
+only. Live reports the source as ready only after an authoritative runtime or replay stage frame
+is observed. A keepalive-only connection renders `Awaiting source`, keeps operational metrics
+unavailable, and points the operator to Core Runtime and stage-topic readiness instead of
+presenting zero as measured health. Flow is the default view with a bounded 12-item work pool.
+Flow and Queue preserve the same title, target, scope, reason, tier, mode, owner, and stage facts;
+Queue adds only observed risk, impact, SLA, and control-state fields. Flow renders only populated
+work, packs six items per desktop row, and sorts by attention priority and then newest
+observation. Terminal outcomes remain available in History instead of occupying the Live work
+surface. Tier, autonomy, and mode badges use shared pointer and keyboard tooltips. A missing
+autonomy, risk, impact, or SLA remains `Not observed` and is never inferred in the browser.
 
 The Agents workspace uses three compact views: `Fleet`, `Org`, and `Activity`. Fleet combines live
 runtime state with the fixed registry ownership and safety flags inside per-agent Details
@@ -751,15 +750,14 @@ steps are reciprocal, colors follow the console theme, and a keyboard-accessible
 relationship index is equivalent to the filtered canvas. Pointer targets are at least 44 px and
 include containment boundaries. The selected label is the final canvas overlay so no block glyph,
 relationship, or neighboring label can cover it. Truncated snapshots show an explicit
-partial-inventory notice.
-The canvas renders containment as subdued dashed center-to-center edges. Semantic relationships use
-directional node-to-node arrows above the connected block tops and do not connect resource-group
-regions as operational endpoints. Drag input coalesces to one draw per animation frame, keeps
-reflections continuous, and omits labels only while the pointer is moving; pointer release restores
-the labels.
-The local projection shows only registered relationship types whose selected endpoint ids and
-resource types agree. It drops malformed or over-limit vendor relationships, marks the snapshot
-truncated, and keeps the last complete resource graph rather than rendering an untrusted edge.
+partial-inventory notice. The canvas renders containment as subdued dashed center-to-center edges.
+Semantic relationships use directional node-to-node arrows above the connected block tops and do
+not connect resource-group regions as operational endpoints. Drag input coalesces to one draw per
+animation frame, keeps reflections continuous, and omits labels only while the pointer is moving;
+pointer release restores the labels. The local projection shows only registered relationship types
+whose selected endpoint ids and resource types agree. It drops malformed or over-limit vendor
+relationships, marks the snapshot truncated, and keeps the last complete resource graph rather
+than rendering an untrusted edge.
 
 A subscription-scoped cached snapshot renders immediately. Expired or change-invalidated snapshots
 are marked stale while a background refresh runs. The browser polls only until the Operator API

@@ -403,11 +403,10 @@ Dependency direction is strict and one-way; a violation is a review blocker.
 
 ## Repository Script Layout
 
-Repository automation is grouped by responsibility under `scripts/`; only the
-layout README, `verify.sh`, and the Python package marker stay as root files. Quality gates,
-integrity tooling, governance checks, catalog utilities, deployment helpers,
-and general automation each have their own directory. See
-[scripts/README.md](../../../scripts/README.md) for the ownership map and
+Repository automation is grouped by responsibility under `scripts/`; only the layout README,
+`verify.sh`, and the Python package marker stay as root files. Quality gates, integrity tooling,
+governance checks, catalog utilities, deployment helpers, and general automation each have their
+own directory. See [scripts/README.md](../../../scripts/README.md) for the ownership map and
 placement rules.
 
 ## Structural CI Gates
@@ -636,13 +635,12 @@ it can never erase an authoritative record or an audit entry.
 
 ## Control-Loop Wiring
 
-Every terminal path-including reject, HIL timeout, abstain, and deny-writes an audit entry.
-T2 output reaches the risk-gate only after clearing the quality-gate.
-Boundary hardening keeps that sequence fail-closed: ingest and routing normalize blank resource
-references before comparison, T1 rejects malformed reuse evidence, and a T2 proposal cannot bypass
-grounding authority when a provider fails. HIL approval ids and executor idempotency keys are
-claimed atomically, while per-resource locking serializes competing applies before any delivery
-adapter can mutate state.
+Every terminal path-including reject, HIL timeout, abstain, and deny-writes an audit entry. T2
+output reaches the risk-gate only after clearing the quality-gate. Boundary hardening keeps that
+sequence fail-closed: ingest and routing normalize blank resource references before comparison, T1
+rejects malformed reuse evidence, and a T2 proposal cannot bypass grounding authority when a
+provider fails. HIL approval ids and executor idempotency keys are claimed atomically, while
+per-resource locking serializes competing applies before any delivery adapter can mutate state.
 
 ```mermaid
 flowchart LR

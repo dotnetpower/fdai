@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 6a033fedaace86b4e4b1e5304cfcbd0aac31ec75
-translation_revised: 2026-08-15
+translation_source_sha: 8ba5761e963c41b11d18623aad2ccb60e83f4298
+translation_revised: 2026-08-16
 ---
 # 프로젝트 구조
 
@@ -492,12 +492,11 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 
 ### 기능 번들
 
-포크가 인프라 경계를 교체하는 대신 탐색 가능한 기능을 추가할 때는
-`CapabilityBundle`을 사용합니다. 번들은 운영자에게 표시할 `Capability` 메타데이터,
-하나의 타입이 지정된 `CapabilityBinding`, 선택적 검토된 `ToolArtifact` 메타데이터,
-reasoning-tool `ToolProvider` 구현을 함께 묶습니다. 연결은 이미 로드된 reasoning 도구,
-같은 번들이 제공하는 도구 또는 기존 `ActionType`, `Workflow`를 가리킵니다. 별도 실행
-경로를 정의하거나 산출물에서 프로바이더 코드를 부하하지 않습니다.
+포크가 인프라 경계를 교체하는 대신 탐색 가능한 기능을 추가할 때는 `CapabilityBundle`을 사용합니다.
+번들은 운영자에게 표시할 `Capability` 메타데이터, 하나의 타입이 지정된 `CapabilityBinding`, 선택적
+검토된 `ToolArtifact` 메타데이터, reasoning-tool `ToolProvider` 구현을 함께 묶습니다. 연결은 이미
+로드된 reasoning 도구, 같은 번들이 제공하는 도구 또는 기존 `ActionType`, `Workflow`를 가리킵니다.
+별도 실행 경로를 정의하거나 산출물에서 프로바이더 코드를 부하하지 않습니다.
 
 `fdai.composition.install_capability_bundle(...)`로 번들을 설치합니다. Installer는 로드된
 카탈로그에서 cross-reference를 만들고 검증된 등록을 `capability_runtime`에 포함하는 새
@@ -621,9 +620,8 @@ shared 런타임 스냅샷 publish 전에 exact 구성원 버전과 활성화된
 
 `StateStore`는 제거 원시 연산을 `delete_states_beyond(prefix, retain_newest)` 하나만 노출합니다.
 `read_states`와 같은 순서로 한계를 넘는 가장 오래된 행을 버려, 추가 전용 근거 투영의 증가를
-제한합니다. 최신순은 모든 백엔드에서 마지막으로 기록된 순서를 뜻하므로, 어떤 백엔드를
-연결하든 남는 행은 같습니다. 키를 지정할 수 없으므로 권위 있는 기록이나 감사 항목을 지울 수
-없습니다.
+제한합니다. 최신순은 모든 백엔드에서 마지막으로 기록된 순서를 뜻하므로, 어떤 백엔드를 연결하든
+남는 행은 같습니다. 키를 지정할 수 없으므로 권위 있는 기록이나 감사 항목을 지울 수 없습니다.
 
 ## 컨트롤 루프 배선
 
