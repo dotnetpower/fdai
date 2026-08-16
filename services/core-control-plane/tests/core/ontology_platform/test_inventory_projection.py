@@ -487,3 +487,32 @@ def test_link_endpoint_types_must_match_observed_resource_types() -> None:
 def test_generation_is_required() -> None:
     with pytest.raises(ValueError, match="generation"):
         build_inventory_ontology_projection(generation="  ", resources=(_resource("vm-1"),))
+
+
+def test_a_contested_resource_without_an_observation_time_fails_closed() -> None:
+    """The conflict travels on the state fact, which needs a time; silence would read as clean."""
+    records = (
+        ResourceRecord(
+            resource_id="vm-1", type="compute.vm", props={"status": "running", "sku": "A"}
+        ),
+        ResourceRecord(
+            resource_id="vm-1", type="compute.vm", props={"status": "running", "sku": "B"}
+        ),
+    )
+
+    with pytest.raises(InventoryProjectionConflictError, match="no observation time"):
+        build_inventory_ontology_projection(resources=records, links=(), generation="gen-1")
+
+
+def test_an_agreeing_resource_without_an_observation_time_still_projects() -> None:
+    records = (
+        ResourceRecord(resource_id="vm-1", type="compute.vm", props={"status": "running"}),
+        ResourceRecord(resource_id="vm-1", type="compute.vm", props={"status": "running"}),
+    )
+
+    projection = build_inventory_ontology_projection(
+        resources=records, links=(), generation="gen-1"
+    )
+
+    resource = next(item for item in projection.objects if item.id == "vm-1")
+    assert STATE_FACT_METADATA_PROPERTY not in resource.properties["properties"]

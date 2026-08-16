@@ -118,6 +118,35 @@ class ContributorFailure:
     kind: str
 
 
+SHADOW_RECORD_KEYS = frozenset(
+    {
+        "mode",
+        "status",
+        "primary_agent",
+        "consulted_agents",
+        "contributions",
+        "failures",
+        "elapsed_ms",
+        "unique_evidence_count",
+        "duplicate_evidence_count",
+        "conflicting_evidence_refs",
+        "covered_sections",
+        "estimated_added_tokens",
+        "budget",
+        "reason",
+    }
+)
+"""The complete shadow record surface.
+
+The record is observational only. It carries no approval, execution, promotion,
+or arbitration field, so a contradictory contributor can never turn a shadow
+observation into authority over the terminal answer.
+"""
+
+SHADOW_CONTRIBUTION_KEYS = frozenset({"agent", "evidence_refs", "confidence", "suggested_sections"})
+"""Per-contributor record surface, without prompt or free-form reasoning."""
+
+
 @dataclass(frozen=True, slots=True)
 class AnswerPlanningResult:
     status: PlanningStatus
@@ -368,6 +397,8 @@ __all__ = [
     "GroundedFact",
     "PlanningCandidate",
     "PlanningStatus",
+    "SHADOW_CONTRIBUTION_KEYS",
+    "SHADOW_RECORD_KEYS",
     "run_answer_planning_round",
     "should_run_shadow_round",
 ]

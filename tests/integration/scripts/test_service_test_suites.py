@@ -107,6 +107,9 @@ def test_service_suite_coverage_includes_distribution_build_inputs() -> None:
         "services/*/pyproject.toml",
         "services/*/src/**/*.py",
     ]
+    # Unpinned, this is the one list whose removal silently disables the only gate
+    # that notices an unowned service test file.
+    assert coverage["test_patterns"] == ["services/*/tests/**/*.py"]
 
 
 def test_service_test_make_targets_do_not_expand_freeform_pytest_args() -> None:
@@ -220,6 +223,9 @@ def _assert_pattern_coverage(
     patterns: list[str],
     claims: list[tuple[Path, str]],
 ) -> None:
+    # An empty pattern list makes this whole gate vacuous, so it can never be the
+    # reason the check passed.
+    assert patterns, "coverage patterns MUST NOT be empty"
     for pattern in patterns:
         matched = tuple(path for path in REPO_ROOT.glob(pattern) if path.is_file())
         assert matched, pattern

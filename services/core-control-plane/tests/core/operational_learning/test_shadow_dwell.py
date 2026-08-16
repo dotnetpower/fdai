@@ -74,6 +74,14 @@ def test_short_window_is_ineligible() -> None:
     assert any(gap.startswith("shadow_days=") for gap in decision.gaps)
 
 
+def test_a_narrow_window_gap_never_reports_the_threshold_itself() -> None:
+    """A rounded report reads as "14.00<14" and looks like a bug in the gate."""
+    evidence = _evidence(window_end=_START + timedelta(days=14) - timedelta(seconds=1))
+    decision = evaluate_shadow_dwell(evidence, _THRESHOLDS)
+    assert decision.eligible is False
+    assert "shadow_days=13.99<min_shadow_days=14" in decision.gaps
+
+
 def test_thin_sample_is_ineligible() -> None:
     evidence = _evidence(sample_size=99, reviewed_count=99, agreed_count=99)
     decision = evaluate_shadow_dwell(evidence, _THRESHOLDS)
@@ -252,7 +260,22 @@ def test_ledger_bounds_observations_per_target() -> None:
     assert ledger.observation_count("remediate.enable-tde") == 5
     evidence = ledger.evidence_for("remediate.enable-tde")
     assert evidence is not None
-    assert evidence.sample_size == 5
+    # Retention bounds the observation detail, never the counted evidence.
+    assert evidence.sample_size == 50
+
+
+def test_bounded_retention_never_forgets_a_policy_escape() -> None:
+    """Zero escapes is not a setting, so eviction must not re-admit an escaped target."""
+    ledger = ShadowDwellLedger(max_observations_per_target=5)
+    ledger.record(_observation(0, policy_escape=True))
+    for index in range(1, 50):
+        ledger.record(_observation(index))
+
+    evidence = ledger.evidence_for("remediate.enable-tde")
+
+    assert evidence is not None
+    assert evidence.policy_escapes == 1
+    assert evaluate_shadow_dwell(evidence, _THRESHOLDS).eligible is False
 
 
 def test_ledger_bounds_tracked_targets() -> None:

@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 4aae4994000ce78a7cb68c2fad754fcd42931b3d
+translation_source_sha: 782ce0dcc5fd46b727a87a25a24ecd36f7f83498
 translation_revised: 2026-08-16
 ---
 # FDAI 운영 온톨로지
@@ -487,6 +487,9 @@ owning 에이전트, 하나 이상의 생성 기준, 선택적인 중복 제거 
   의존하므로 `InventoryProjectionConflictError`로 fail-closed 처리합니다.
 - 경합 중인 신원은 verified 관계의 기준점이 될 수 없습니다. `verify_inventory_relationships`는
   종단이나 프로바이더 소유자가 경합 중인 관계를 버립니다.
+- 충돌은 상태 사실을 타고만 전달되고, 상태 사실에는 관측 시각이 필요합니다. 관측이 시각을
+  전혀 보고하지 않는 경합 중인 리소스도 `InventoryProjectionConflictError`로 실패 시 차단됩니다.
+  그대로 변환하면 경합이 없는 것처럼 읽히는 리소스를 발행하게 되기 때문입니다.
 
 두 번째 쌍은 읽기 경로에서 판정됩니다. 해석된 리소스 하나에 대한 실시간 프로바이더 읽기와
 인벤토리로 변환된 그래프 상태입니다. `ResourceStateShadowHook`은 이미 같은 대상에 대해 두 권위를

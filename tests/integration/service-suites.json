@@ -21,6 +21,7 @@
           "services/core-control-plane/tests/config",
           "services/core-control-plane/tests/conftest.py",
           "services/core-control-plane/tests/exemption",
+          "services/core-control-plane/tests/knowledge",
           "services/core-control-plane/tests/measurement",
           "services/core-control-plane/tests/providers",
           "services/core-control-plane/tests/quality_gate",
@@ -63,12 +64,14 @@
           "services/operator-service/tests/test_browser_evidence_projection.py",
           "services/operator-service/tests/test_local_narrator.py",
           "services/operator-service/tests/test_narrator_periodic_scheduler.py",
+          "services/operator-service/tests/test_narrator_preferences.py",
           "services/operator-service/tests/test_operator_user_context_projection.py",
           "services/operator-service/tests/test_pdf_report_encoder.py",
           "services/operator-service/tests/test_stream_shutdown.py"
         ],
         "contract": [
           "services/operator-service/tests/test_conversation_contracts.py",
+          "services/operator-service/tests/test_conversation_document_refs.py",
           "services/operator-service/tests/test_operator_break_glass_activation.py",
           "services/operator-service/tests/test_operator_conversation_family.py",
           "services/operator-service/tests/test_operator_iam_family.py",

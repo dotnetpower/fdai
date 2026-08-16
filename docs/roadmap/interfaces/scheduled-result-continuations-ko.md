@@ -1,7 +1,7 @@
 ---
 translation_of: scheduled-result-continuations.md
-translation_source_sha: d77094f1d1077b150adb9e558a3516417e1b7e72
-translation_revised: 2026-08-14
+translation_source_sha: 10fcbd960d338b0c39d02270b9835918d402b9f2
+translation_revised: 2026-08-16
 ---
 # 예약 결과 이어가기
 
@@ -166,9 +166,12 @@ event를 추가합니다. Event는 결과 본문을 복사하지 않고 anchor i
 만료는 즉시 해석을 사용할 수 없게 하며 CAS 상태 변경은 shipped 행동입니다. 동시
 만료 요청은 하나의 상태 변경으로 합쳐지고 CAS winner만 만료 감사 event를 추가합니다. CAS
 loser는 두 번째 상태 변경을 주장하지 않고 이미 expired인 anchor를 확인합니다. 출처 scheduled
-결과, anchor, projected 대화 항목을 legal-hold-aware 트랜잭션으로 함께 물리 삭제하는
-보존 워커는 아직 구현되지 않았습니다. 그 워커가 추가되기 전에는 만료를 physical
-deletion 또는 legal-hold 적용 완료로 표현하면 안 됩니다.
+legal-hold-aware 보존 워커는 보존 유예 기간이 지난 뒤 projected 대화 항목, 출처 scheduled
+결과, anchor를 이 고정된 순서로 물리 삭제합니다. 이 워커는 active anchor를 거부하고, hold
+registry를 읽을 수 없으면 닫힘 실패하며, hold가 걸린 anchor는 삭제하지 않고 건너뛰고, 앞선
+대상이 실패하면 재시도가 이어질 수 있도록 anchor를 그대로 둡니다. 재시도는 결과별 감사 기록
+하나로 합쳐지고 어떤 감사 기록도 결과 본문을 담지 않습니다. 저장된 결과, projected 턴,
+anchor 행에 운영 deleter가 연결되기 전에는 만료를 physical deletion 완료로 표현하면 안 됩니다.
 
 ## 검증
 
@@ -180,6 +183,8 @@ deletion 또는 legal-hold 적용 완료로 표현하면 안 됩니다.
 - Web 전달 재시도 collapse와 Slack/Teams thread-mode parity입니다.
 - Typed-fact 출처 이력과 instruction 권한이 없다는 명시적 계약입니다.
 - PostgreSQL 행 codec, compare-and-set 만료, 동시 winner-only 감사, 멱등적 수명 주기 감사 재시도, 이행 head, 환경 조건부 실제 운영 테스트입니다.
+- 보존 삭제 순서, 유예 기간 연기, active anchor 거부, legal hold 건너뛰기 및 해제, hold
+    registry 읽기 실패 시 닫힘 실패, 재개 가능한 부분 실패, 제한된 batch, 합쳐진 보존 감사입니다.
 - 구성 review evidence-run 멱등성, proposer self-review 차단, acceptance 전 작업 없음,
  strict weekly 구체화 및 중복 작업 suppression입니다.
 
@@ -194,7 +199,7 @@ deletion 또는 legal-hold 적용 완료로 표현하면 안 됩니다.
 | Configuration review campaign | implemented | `services/core-control-plane/src/fdai/core/detection/configuration_review.py`; focused configuration-review 테스트 | 범위가 제한된 세 실행 집약기, 감사 및 상태 전이, 재개, 청사진 제안 및 구체화 guard가 있으며 schedule 권한을 부여하지 않습니다. |
 | Operator 경로 및 Console 변환 결과 | in-progress | `services/operator-service/src/fdai_operator_service/families/conversation/manifest.py`; `console/src/routes/scheduled-continuations.tsx`; focused 경로 및 Console 테스트 | 읽기 및 명령 화면은 있지만 관리되는 인증된 종단 간 이어가기 증적은 보존되지 않았습니다. |
 | Slack 및 Teams 전달 동등성 | in-progress | [채널 동작](#채널-동작) | 계약과 어댑터가 설명돼 있으며 외부 채널 및 영속 원장 연결에는 배포 근거가 필요합니다. |
-| Legal-hold-aware 물리 보존 | not-started | [감사 및 보존](#감사-및-보존) | 만료는 있지만 legal hold 아래에서 결과, 앵커 및 변환된 턴을 제거하는 조정된 삭제 worker는 없습니다. |
+| Legal-hold-aware 물리 보존 | in-progress | `services/core-control-plane/src/fdai/core/scheduler/continuation_retention.py`; `services/core-control-plane/tests/core/scheduler/test_continuation_retention.py` | 조정된 worker가 유예 기간 이후 projected 턴, 출처 결과, anchor를 이 순서로 삭제하고, active anchor를 거부하며, legal hold나 읽을 수 없는 hold registry에서 닫힘 실패하고, 부분 실패를 재개 가능하게 유지하며, 재시도 감사를 합칩니다. PostgreSQL 및 대화 저장소에 대한 운영 deleter는 아직 연결되지 않았습니다. |
 
 ### 구현 이력
 
@@ -203,13 +208,15 @@ deletion 또는 legal-hold 적용 완료로 표현하면 안 됩니다.
 | 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 앵커, 영속성, campaign, 경로 및 Console 근거입니다. | 건너뛰는 사례가 없는 영속성, 인증된 전달, 외부 채널 및 물리 보존 근거를 완료해야 합니다. |
 | 2026-08-14 | implemented | 실제 앵커 테스트를 강화하고 재시작 및 동시 만료 동작을 증명한 뒤 PostgreSQL 영속성을 승격했습니다. | `current change`; `test_scheduled_continuation.py`가 이행된 지원되는 일회용 데이터베이스에서 두 건을 건너뛰기 없이 통과했습니다. | 인증된 전달, 외부 채널 및 물리 보존 근거를 완료해야 합니다. |
 | 2026-08-14 | implemented | 어댑터 경계에서 표준 psycopg DSN을 정규화하고 앵커 영속성을 skip 없이 실행했습니다. | `current change`; `test_scheduled_continuation.py`의 3개 사례와 focused Ruff 및 mypy 검사가 통과했습니다. | 인증된 전달, 외부 채널 및 물리 보존 근거를 보존해야 합니다. |
+| 2026-08-16 | in-progress | 삭제 순서, 유예 기간, legal hold, 부분 실패 및 감사 동작을 조정하는 legal-hold-aware 보존 worker를 추가했습니다. | `current change`; `pytest services/core-control-plane/tests/core/scheduler/`가 집중 보존 사례 13개를 포함해 74개 테스트를 통과했고 focused Ruff도 통과했습니다. | 운영 결과, projected 턴, anchor deleter를 연결하고 인증된 전달과 외부 채널 근거를 보존해야 합니다. |
 
 ### 남은 작업
 
 - [x] 지원되는 로컬 데이터베이스에서 PostgreSQL 앵커 사례를 건너뛰지 않고 실행하고 재시작, 동시 만료, winner-only 감사 및 멱등적 재시도 근거를 보존합니다.
 - [ ] 예약 결과에서 앵커 열기, 타입이 지정된 fact, 후속 답변, 만료 및 사용 불가 재생까지 이어지는 인증된 web 이어가기 증적 하나를 보존합니다.
 - [ ] 대상을 넓히지 않으면서 Slack 및 Teams 출처 스레드, dedicated 스레드, 성능 저하, 모호한 확인 응답 및 영속 재시도 증적을 보존합니다.
-- [ ] 만료를 물리 삭제로 표시하기 전에 출처 결과, 앵커, 변환된 턴, 감사, 재시도 및 부분 실패 동작을 조정하는 legal-hold-aware 보존 worker를 구현합니다.
+- [x] 만료를 물리 삭제로 표시하기 전에 출처 결과, 앵커, 변환된 턴, 감사, 재시도 및 부분 실패 동작을 조정하는 legal-hold-aware 보존 worker를 구현합니다.
+- [ ] 저장된 결과, projected 대화 턴, PostgreSQL anchor 행에 대한 운영 deleter를 연결하고, 만료를 물리 삭제 완료로 표현하기 전에 통제된 삭제 증적 하나를 보존합니다.
 
 ## 관련 문서
 

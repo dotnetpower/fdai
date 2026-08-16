@@ -1,8 +1,8 @@
 ---
 title: 인과 incident graph
 translation_of: causal-incident-graph.md
-translation_source_sha: 8ac4b8347121516273f737994165a0e46ae5a5ab
-translation_revised: 2026-08-14
+translation_source_sha: 77750cd224fe0c13b20844c72c0f61864d95edee
+translation_revised: 2026-08-16
 ---
 # 인과 인시던트 그래프
 
@@ -182,6 +182,20 @@ FDAI는 기존 `CausalEvidenceGrade` 값을 재사용합니다.
 Refuting 근거가 도착하면 근거 grade가 낮아질 수 있습니다. 낮은 grade는 새 가설
 개정 번호를 만들고 관련 액션 또는 chaos 시나리오를 shadow 모드로 demote할 수 있습니다.
 
+종결은 결정론적이고 단조로운 demotion 규칙을 적용합니다. 검증된 interventional 증적을 갖춘
+`confirmed` 종결만 grade를 올릴 수 있고, 나머지 종결은 grade를 유지하거나 낮춥니다.
+
+| 종결 | 결과 grade | 관련 액션 또는 실험 모드 |
+|------|-----------|--------------------------|
+| `confirmed` | `interventional` | `gated`: 기존 위험, 승인, 실행, 롤백 게이트에 들어갈 수 있습니다. |
+| `refuted` | `association` | `shadow` |
+| `unsafe` | `association` | `shadow` |
+| `inconclusive` | 유지하며 절대 올리지 않습니다 | `shadow` |
+
+이 모드는 권한으로 저장하지 않고 불변 개정 번호에서 도출합니다. Refuting 참조가 하나라도
+있거나 상태가 확정되지 않았거나 grade가 `quasi_experimental`보다 낮은 개정 번호는 `shadow`에
+남습니다. `gated`는 기존 안전 경로에 들어갈 자격을 뜻할 뿐 허가가 아닙니다.
+
 ## 복구 및 chaos를 통한 종결
 
 복구 또는 실험은 실행 전에 예상 관측을 선언합니다. Heimdall은 Thor가
@@ -252,6 +266,7 @@ Causal 경로는 불확실할 때 더 안전한 결과를 선택합니다.
 | Time-consistent 인시던트 그래프 | implemented | `services/core-control-plane/src/fdai/core/rca/incident_graph.py`; `tests/core/rca/test_incident_graph.py` | 탐색은 깊이, 개수, 시간, 크기로 제한되며 잘림을 보고합니다. |
 | 후보 생성 및 causal 채점 | implemented | `services/core-control-plane/src/fdai/core/rca/t0.py`; `t1.py`; `evidence.py`; `tests/core/rca/test_coordinator.py`; `test_evidence.py` | 결정론적 후보, 최약 연결 채점, 지지 및 반증 경로가 구현되어 있습니다. |
 | Shadow 런타임 및 독립 종결 | implemented | `services/core-control-plane/src/fdai/core/rca/runtime.py`; `tests/core/rca/test_runtime.py`; `test_temporal_causality.py` | 업스트림 경로는 shadow 및 근거 전용으로 유지되며 어떤 결과도 실행 권한을 부여하지 않습니다. |
+| 등급 demotion 및 shadow 유지 | implemented | `services/core-control-plane/src/fdai/core/rca/hypothesis.py`(`close_causal_hypothesis`, `causal_action_mode`); `runtime.py`(`CausalRuntimeResult.action_mode`); `tests/core/rca/test_hypothesis.py`; `test_runtime.py` | 안전하지 않거나 반증하는 종결은 등급을 `association`으로 낮추고, 검증된 `confirmed` 외에는 어떤 종결도 등급을 올릴 수 없으며, 확정되지 않았거나 다투는 개정 번호는 모두 `shadow`로 귀결됩니다. 런타임은 도출된 모드를 노출하지만, causal 경로가 아직 shadow 전용이므로 승격이나 실행 소비자는 연결되어 있지 않습니다. |
 | 배포 연결 및 운영 근거 | in-progress | [전달 구획](#전달-구획); 현재 변경의 소스 감사 | 프로바이더와 게시자 경계는 있지만, 검증 완료를 주장하기 전에 각 배포에서 이를 연결하고 관리되는 종결 증적을 보존해야 합니다. |
 
 ### 구현 이력
@@ -259,12 +274,14 @@ Causal 경로는 불확실할 때 더 안전한 결과를 선택합니다.
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트. | 운영 근거 경로를 연결하고 관리되는 개입 종결 근거를 보존합니다. |
+| 2026-08-16 | implemented | 안전하지 않은 종결이 근거 등급을 낮추도록 만들고, `confirmed`가 아닌 종결이 등급을 올리지 못하게 막았으며, 반증·안전하지 않음·미확정·다툼·낮은 등급 개정 번호를 `shadow`에 유지하는 결정론적 `causal_action_mode` 도출을 추가했습니다. | `current change`; `services/core-control-plane/src/fdai/core/rca/hypothesis.py`; `services/core-control-plane/tests/core/rca/test_hypothesis.py`; 집중 실행 `pytest services/core-control-plane/tests/core/rca` 215개 통과. | 배포 근거 경로를 연결하고 관리되는 개입 재현 기록 하나를 보존합니다. |
+| 2026-08-16 | implemented | 도출된 모드를 `CausalRuntimeResult.action_mode`로 노출해 shadow 판단을 런타임 경로에서 관찰할 수 있게 했고, 아직 어떤 승격·실행 소비자도 이 모드를 연결하지 않는다는 점을 구현 범위 행에 명시했습니다. | `current change`; `services/core-control-plane/src/fdai/core/rca/runtime.py`; `services/core-control-plane/tests/core/rca/test_runtime.py`; 집중 실행 `pytest services/core-control-plane/tests/core/rca` 216개 통과. | 배포 근거 경로를 연결하고 관리되는 개입 재현 기록 하나를 보존합니다. |
 
 ### 남은 작업
 
 - [ ] 범위가 제한된 시계열, Forseti 소유 변환 결과 게시자, 독립 결과, causal 증적 해석을 배포 통합 테스트에서 연결합니다.
 - [ ] 검증된 개입이 실행 권한을 부여하지 않으면서 가설을 확정하거나 반증하는 관리되는 재현 기록 하나를 보존합니다.
-- [ ] 안전하지 않거나 반증하는 근거가 가설 등급을 낮추고 관련 작업 또는 실험을 `shadow`로 유지함을 증명합니다.
+- [x] 안전하지 않거나 반증하는 근거가 가설 등급을 낮추고 관련 작업 또는 실험을 `shadow`로 유지합니다. 근거는 `services/core-control-plane/src/fdai/core/rca/hypothesis.py`의 `close_causal_hypothesis`와 `causal_action_mode`, 그리고 `services/core-control-plane/tests/core/rca/test_hypothesis.py`의 집중 사례입니다.
 
 ## 관련 문서
 

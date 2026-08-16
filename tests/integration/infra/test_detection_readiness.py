@@ -17,6 +17,18 @@ def test_analyzer_job_uses_inventory_identity_not_executor_identity() -> None:
     assert "identity = var.executor_identity_id" not in source
 
 
+def test_analyzer_job_binds_the_inventory_projection_env_the_cli_reads() -> None:
+    """The scheduled tick can only discover targets if the job binds this key."""
+    cli = (_ROOT / "services/core-control-plane/src/fdai/delivery/analyzer_tick_cli.py").read_text(
+        encoding="utf-8"
+    )
+    source = _JOB.read_text(encoding="utf-8")
+
+    assert 'INVENTORY_DSN_ENV = "FDAI_INVENTORY_DSN"' in cli
+    assert 'name        = "FDAI_INVENTORY_DSN"' in source
+    assert 'name  = "FDAI_ANALYZER_TARGETS"' in source
+
+
 def test_startup_probe_uses_dedicated_operational_topic_and_identity() -> None:
     source = _MAIN.read_text(encoding="utf-8")
 

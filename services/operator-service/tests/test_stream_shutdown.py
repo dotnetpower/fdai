@@ -4,8 +4,13 @@ from __future__ import annotations
 
 import asyncio
 
+import pytest
 from fdai_operator_service.streaming.live_stream import LiveStreamEvent, LiveStreamHub, _live_chunks
-from fdai_operator_service.streaming.shutdown import STREAM_SHUTDOWN_STATE, shutting_down
+from fdai_operator_service.streaming.shutdown import (
+    STREAM_SHUTDOWN_STATE,
+    next_or_shutdown,
+    shutting_down,
+)
 from starlette.requests import Request
 
 
@@ -48,3 +53,63 @@ async def test_live_chunks_stop_when_the_application_shuts_down() -> None:
 
     remaining = [chunk async for chunk in chunks]
     assert all(b"hello" not in chunk for chunk in remaining)
+
+
+async def test_next_or_shutdown_returns_the_next_event() -> None:
+    async def source():
+        yield "first"
+        yield "second"
+
+    stream = source()
+    stop = asyncio.Event()
+    assert await next_or_shutdown(stream, stop) == "first"
+    assert await next_or_shutdown(stream, stop) == "second"
+    assert await next_or_shutdown(stream, stop) is None
+
+
+async def test_next_or_shutdown_releases_an_idle_stream_on_shutdown() -> None:
+    """An idle conversation stream must not hold graceful shutdown open."""
+
+    async def idle():
+        await asyncio.Event().wait()
+        yield "never"
+
+    stream = idle()
+    stop = asyncio.Event()
+    waiter = asyncio.create_task(next_or_shutdown(stream, stop))
+    await asyncio.sleep(0)
+    assert not waiter.done()
+
+    stop.set()
+    assert await asyncio.wait_for(waiter, timeout=1.0) is None
+
+
+async def test_next_or_shutdown_closes_the_source_when_its_caller_is_cancelled() -> None:
+    started = asyncio.Event()
+    closed = asyncio.Event()
+
+    async def idle():
+        try:
+            started.set()
+            await asyncio.Event().wait()
+            yield "never"
+        finally:
+            closed.set()
+
+    waiter = asyncio.create_task(next_or_shutdown(idle(), asyncio.Event()))
+    await asyncio.wait_for(started.wait(), timeout=1.0)
+
+    waiter.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await waiter
+
+    assert closed.is_set()
+
+
+async def test_next_or_shutdown_without_a_published_event_still_iterates() -> None:
+    async def source():
+        yield "only"
+
+    stream = source()
+    assert await next_or_shutdown(stream, None) == "only"
+    assert await next_or_shutdown(stream, None) is None

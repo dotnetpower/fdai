@@ -30,6 +30,7 @@ _ATTEMPT_PATTERN = r"^reconciliation-attempt:[a-f0-9]{64}$"
 _OBSERVATION_PATTERN = r"^effect-observation:[a-f0-9]{64}$"
 _RECOMMENDATION_PATTERN = r"^reconciliation-next-step:[a-f0-9]{64}$"
 _MAX_CONFLICTS = 64
+_MAX_CENSORING_REFS = 64
 _MAX_EVIDENCE_REFS = 128
 _MAX_RECORDS = 1000
 _MAX_OBSERVATION_BYTES = 1_048_576
@@ -105,10 +106,12 @@ class EffectObservationEnvelope(ContractBase):
     """Versioned untrusted evidence envelope for one effect observation cutoff.
 
     Identity and authority fields are claims used for authenticated-context binding. They do not
-    grant observation authority by themselves.
+    grant observation authority by themselves. `censoring_refs` cites the later action, topology
+    revision, policy change, or external event that intervened in the observation horizon; a
+    censored episode is unscorable and never inherits the predicted result.
     """
 
-    schema_version: SemVer = "1.0.0"
+    schema_version: SemVer = "1.1.0"
     observation_id: Annotated[str, Field(pattern=_OBSERVATION_PATTERN)]
     correlation_id: Annotated[str, Field(min_length=1, max_length=512)]
     plan_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
@@ -129,6 +132,10 @@ class EffectObservationEnvelope(ContractBase):
         tuple[Annotated[str, Field(min_length=1, max_length=256)], ...],
         Field(max_length=_MAX_CONFLICTS),
     ] = ()
+    censoring_refs: Annotated[
+        tuple[Annotated[str, Field(min_length=1, max_length=256)], ...],
+        Field(max_length=_MAX_CENSORING_REFS),
+    ] = ()
     evidence_refs: Annotated[
         tuple[Annotated[str, Field(min_length=1, max_length=512)], ...],
         Field(min_length=1, max_length=_MAX_EVIDENCE_REFS),
@@ -148,6 +155,7 @@ class EffectObservationEnvelope(ContractBase):
         )
         normalized["source_authority"] = EffectEvidenceAuthority(normalized["source_authority"])
         normalized["conflicts"] = tuple(sorted(set(normalized.get("conflicts", ()))))
+        normalized["censoring_refs"] = tuple(sorted(set(normalized.get("censoring_refs", ()))))
         normalized["evidence_refs"] = tuple(sorted(set(normalized["evidence_refs"])))
         normalized["records"] = tuple(
             sorted(
@@ -184,6 +192,8 @@ class EffectObservationEnvelope(ContractBase):
             raise ValueError("effect observation freshness MUST cover its cutoff")
         if tuple(sorted(set(self.conflicts))) != self.conflicts:
             raise ValueError("effect observation conflicts MUST be sorted and unique")
+        if tuple(sorted(set(self.censoring_refs))) != self.censoring_refs:
+            raise ValueError("effect observation censoring refs MUST be sorted and unique")
         if tuple(sorted(set(self.evidence_refs))) != self.evidence_refs:
             raise ValueError("effect observation evidence refs MUST be sorted and unique")
         record_ids = tuple(item.object_id for item in self.records)
