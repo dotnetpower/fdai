@@ -430,14 +430,12 @@ CI pipeline plus the local pre-push hook. Corresponding docs in
 ### Adding a new gate
 
 1. Write `scripts/quality/architecture/check-<name>.sh` following the pattern in the existing
-   scripts (warn/fail thresholds via env vars, allowlist with a preceding
-   `#` justification comment, stale-entry rejection, GitHub Actions
-   annotations, `CHECK_QUIET=1` summary mode).
+   scripts (warn/fail thresholds via env vars, allowlist with a preceding `#` justification
+   comment, stale-entry rejection, GitHub Actions annotations, `CHECK_QUIET=1` summary mode).
 2. Ship the gate in **warn-only** so it does not break the current tree.
 3. Add a job to `.github/workflows/ci.yml` and a call in `.githooks/pre-push`.
 4. Add regression tests to `services/core-control-plane/tests/test_check_structural_gates.py` covering
-   warn / enforce / threshold overrides / allowlist / stale entries /
-   boundary conditions.
+   warn / enforce / threshold overrides / allowlist / stale entries / boundary conditions.
 5. Extend `services/core-control-plane/tests/test_structural_gates_drift.py` so the CI job and the
    pre-push wiring are drift-guarded.
 
@@ -467,12 +465,11 @@ clean (see the fork model in
 - **Composition root**: `core/` depends only on the CSP-neutral interfaces in `shared/`. A thin
   composition root (outside `core/`) binds concrete implementations at startup. `core/` never
   news-up a concrete adapter; it receives its dependencies. The upstream default binder is
-  [`fdai.composition.default_container`](../../../services/core-control-plane/src/fdai/composition/__init__.py); a fork's
-  entry point calls its own factory that wraps or replaces those bindings. Concrete adapter
-  classes (e.g. `PackageResourceSchemaRegistry`, `JsonSchemaContractValidator`) are
+  [`fdai.composition.default_container`](../../../services/core-control-plane/src/fdai/composition/__init__.py);
+  a fork's entry point calls its own factory that wraps or replaces those bindings. Concrete
+  adapter classes (e.g. `PackageResourceSchemaRegistry`, `JsonSchemaContractValidator`) are
   **not** re-exported from public sub-packages; they must be imported directly from their
-  submodule, and only by a composition root, so `core/` cannot depend on a concrete by
-  accident.
+  submodule, and only by a composition root, so `core/` cannot depend on a concrete by accident.
 - **Config-driven binding**: configuration selects each implementation. `composition/wire_distiller.py`
   atomically binds the review-only `Distiller` from three exact-version endpoints and one replay-identical
   prompt; zero council records preserve abstention and partial records fail startup without changing execution T2.
@@ -712,10 +709,9 @@ flowchart LR
   [llm-strategy.md § Ontology Storage Layout](llm-strategy.md#ontology-storage-layout).
 - Tests for `services/core-control-plane/src/fdai/core/tiers/t0_deterministic` (the
   deterministic-engine) and `services/core-control-plane/src/fdai/core/risk_gate` are the safety
-  core: they hold a >= 90% coverage gate
-  and include property-based tests asserting "high-risk never auto-executes", "shadow-mode
-  never mutates", and "re-applying an action is a no-op". Every action path also has a
-  shadow-mode test and a rollback test.
+  core: they hold a >= 90% coverage gate and include property-based tests asserting "high-risk
+  never auto-executes", "shadow-mode never mutates", and "re-applying an action is a no-op". Every
+  action path also has a shadow-mode test and a rollback test.
 - Rule and policy changes ship with a regression test; the
   `services/core-control-plane/src/fdai/rule_catalog/pipeline/` promotion gate blocks on a failing regression
   suite or any policy-violation escape.
