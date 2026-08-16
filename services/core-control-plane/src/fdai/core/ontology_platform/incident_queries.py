@@ -24,7 +24,8 @@ from .functions import ContextualOntologyFunction, FunctionInvocationContext
 
 INCIDENT_EVIDENCE_FUNCTION_NAME = "query.incident_evidence"
 INCIDENT_EVIDENCE_PURPOSE = "operations-review"
-_MAX_RECORDS = 500
+INCIDENT_EVIDENCE_MAX_RECORDS = 500
+_MAX_RECORDS = INCIDENT_EVIDENCE_MAX_RECORDS
 
 
 @runtime_checkable
@@ -223,6 +224,7 @@ def _audit_row(raw: Mapping[str, object], *, correlation_id: str) -> _AuditRow:
 
 __all__ = [
     "INCIDENT_EVIDENCE_FUNCTION_NAME",
+    "INCIDENT_EVIDENCE_MAX_RECORDS",
     "INCIDENT_EVIDENCE_PURPOSE",
     "IncidentEvidenceReader",
     "incident_evidence_function",

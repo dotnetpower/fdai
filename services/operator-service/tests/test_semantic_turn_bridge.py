@@ -55,6 +55,7 @@ from fdai_operator_service.postgres_family_store import (
 )
 from fdai_operator_service.postgres_semantic_turn_store import (
     PostgresSemanticTurnRepository,
+    SemanticTurnConflictError,
     rule_search_projection_key,
 )
 from fdai_service_contracts import (
@@ -222,7 +223,12 @@ class _MemorySemanticStore:
     ) -> StoredSemanticResult:
         request_id = cast(str, projection["request_id"])
         projection_id = cast(str, projection["projection_id"])
-        owner = next(turn for turn in self.turns.values() if turn.request_id == request_id)
+        owner = next(
+            (turn for turn in self.turns.values() if turn.request_id == request_id),
+            None,
+        )
+        if owner is None:
+            raise SemanticTurnConflictError("semantic result has no matching durable request")
         existing = self.results.get(projection_id)
         if existing is not None:
             return StoredSemanticResult(
@@ -1221,6 +1227,39 @@ def test_semantic_incident_presentation_localizes_korean_artifact() -> None:
     ]
 
 
+def test_semantic_incident_presentation_states_the_verified_total_and_truncation() -> None:
+    """Showing the listed slice as the verified count understates the evidence."""
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    projection = _projection(envelope, disposition="answered", answered_evidence=True)
+    projection["payload"] = {
+        "technical_details": {
+            "schema_version": 1,
+            "kind": "semantic_query_outputs",
+            "outputs": [
+                {
+                    "incident_profile": {"status": "triaging"},
+                    "correlated_evidence": [{"audit_ref": f"audit:{index}"} for index in range(20)],
+                    "verified_records": 31,
+                    "evidence_gaps": [],
+                    "causal_assessment": {"status": "not_available"},
+                }
+            ],
+        }
+    }
+
+    done = semantic_turn_runtime_module._done_event_data(projection, locale="en")
+
+    artifact = cast(dict[str, object], done["presentation_artifact"])
+    blocks = cast(list[dict[str, object]], artifact["blocks"])
+    overview = cast(dict[str, object], blocks[0]["data"])
+    items = cast(list[dict[str, object]], overview["items"])
+    assert items[0] == {"label": "Audit records", "value": "31", "tone": "neutral"}
+    limitations = cast(dict[str, object], blocks[1]["data"])
+    assert "Only the most recent 20 records are listed." in cast(list[str], limitations["lines"])
+
+
 def test_general_query_presentation_projects_verified_rows() -> None:
     envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
         _proposal()
@@ -1662,6 +1701,79 @@ async def test_result_consumer_quarantines_poison_projection_and_continues() -> 
         for topic, _key, payload in publisher.events
     )
     assert bridge.workers_ready() is True
+    await bridge.aclose()
+
+
+async def test_result_consumer_quarantines_an_unmatched_projection_and_keeps_draining() -> None:
+    """One projection with no durable request must not stall every later projection."""
+    store = _MemorySemanticStore()
+    orphan = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal(
+            body={
+                "prompt": "Show a turn with no durable request.",
+                "request_id": "00000000-0000-0000-0000-0000000009f1",
+            }
+        )
+    )
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    await store.append_semantic_turn(
+        principal_id="operator-1",
+        idempotency_key="turn-retry-1",
+        request_digest="digest",
+        envelope=envelope,
+    )
+    consumed = asyncio.Event()
+
+    class ResultSource:
+        """Redeliver an unacknowledged message the way at-least-once transport does."""
+
+        def __init__(self, messages: list[Mapping[str, object]]) -> None:
+            self.pending = messages
+
+        def subscribe(
+            self,
+            topic: str,
+            group_id: str,
+        ) -> AsyncIterator[Mapping[str, object]]:
+            del topic, group_id
+
+            async def events() -> AsyncIterator[Mapping[str, object]]:
+                while self.pending:
+                    yield self.pending[0]
+                    self.pending.pop(0)
+                consumed.set()
+                await asyncio.Event().wait()
+
+            return events()
+
+    class Publisher:
+        def __init__(self) -> None:
+            self.events: list[tuple[str, str, Mapping[str, object]]] = []
+
+        async def publish(
+            self,
+            topic: str,
+            key: str,
+            payload: Mapping[str, object],
+        ) -> object:
+            self.events.append((topic, key, payload))
+            return object()
+
+    publisher = Publisher()
+    bridge = SemanticTurnBridge(
+        store=store,
+        publisher=publisher,
+        result_source=ResultSource([_projection(orphan), _projection(envelope)]),
+        retry_seconds=0.01,
+    )
+
+    await bridge.start()
+    await asyncio.wait_for(consumed.wait(), timeout=5)
+
+    assert len(store.results) == 1
+    assert any(topic.endswith(".dlq") for topic, _key, _payload in publisher.events)
     await bridge.aclose()
 
 

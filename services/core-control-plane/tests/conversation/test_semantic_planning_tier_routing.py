@@ -23,7 +23,10 @@ from fdai.core.ontology_platform import (
     OntologyQueryPlanVerifier,
     build_query_manifest,
 )
-from fdai.core.ontology_platform.incident_queries import incident_evidence_function_type
+from fdai.core.ontology_platform.incident_queries import (
+    INCIDENT_EVIDENCE_MAX_RECORDS,
+    incident_evidence_function_type,
+)
 from fdai.rule_catalog.schema.llm_resolver import (
     CapabilityStatus,
     NarratorCandidate,
@@ -33,7 +36,6 @@ from fdai.rule_catalog.schema.llm_resolver import (
 from fdai.shared.contracts.models import CeilingRole, OntologyObjectType, PropertyDecl, PropertyType
 from fdai.shared.ontology.release import build_ontology_release
 from fdai_service_contracts.ontology_query import QueryNodeKind
-from fdai_service_contracts.semantic_turn import MAX_SEMANTIC_EVIDENCE_REFS
 
 NOW = datetime(2026, 8, 14, tzinfo=UTC)
 DIGEST = "sha256:" + ("a" * 64)
@@ -366,7 +368,8 @@ def _incident_arguments(outcome: Any) -> dict[str, Any]:
     return dict(outcome.plan.nodes[0].arguments["arguments"])
 
 
-def test_planned_incident_identity_is_replaced_by_the_trusted_binding() -> None:
+def test_anchored_conversation_never_retargets_a_read_of_another_incident() -> None:
+    """Retargeting would answer about one incident while the operator asked about another."""
     manifest, _ = _fixture()
     service = _incident_service(
         _incident_evidence_plan(
@@ -377,7 +380,7 @@ def test_planned_incident_identity_is_replaced_by_the_trusted_binding() -> None:
     )
 
     outcome = service.plan(
-        utterance="Report what the evidence for this incident establishes.",
+        utterance="Report what the evidence for incident 0701 establishes.",
         prior_turns=(),
         principal=Principal(id="operator", role=Role.READER),
         purpose="operations-review",
@@ -389,30 +392,8 @@ def test_planned_incident_identity_is_replaced_by_the_trusted_binding() -> None:
 
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     arguments = _incident_arguments(outcome)
-    assert arguments["incident_id"] == "00000000-0000-0000-0000-000000000702"
-    assert arguments["correlation_id"] == "bound-incident"
-    assert arguments["limit"] == MAX_SEMANTIC_EVIDENCE_REFS
-
-
-def test_unbound_conversation_keeps_the_planned_incident_identity() -> None:
-    manifest, _ = _fixture()
-    service = _incident_service(
-        _incident_evidence_plan(
-            incident_id="00000000-0000-0000-0000-000000000701",
-            correlation_id="another-incident",
-        ),
-        manifest,
-    )
-
-    outcome = service.plan(
-        utterance="Report what the evidence for incident 1111 establishes.",
-        prior_turns=(),
-        principal=Principal(id="operator", role=Role.READER),
-        purpose="operations-review",
-    )
-
-    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
-    assert _incident_arguments(outcome)["correlation_id"] == "another-incident"
+    assert arguments["incident_id"] == "00000000-0000-0000-0000-000000000701"
+    assert arguments["correlation_id"] == "another-incident"
 
 
 def _anchored_fixture() -> Any:
@@ -470,7 +451,7 @@ def test_anchored_incident_read_is_built_from_the_binding_without_a_plan_proposa
     assert node.arguments["arguments"] == {
         "incident_id": "00000000-0000-0000-0000-000000000702",
         "correlation_id": "bound-incident",
-        "limit": MAX_SEMANTIC_EVIDENCE_REFS,
+        "limit": INCIDENT_EVIDENCE_MAX_RECORDS,
     }
     assert outcome.execution_authority is False
 
