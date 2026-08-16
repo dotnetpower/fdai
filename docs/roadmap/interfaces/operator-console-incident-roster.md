@@ -153,7 +153,7 @@ per-user direct-message subscriptions. Assignment and external ticket linkage
 remain authenticated write-direction chat/tool operations and appear as audit
 history; the read-only roster surfaces the linked `ticket_id`.
 
-The roster accepts optional canonical `vertical` and `severity` filters, and the audit
+The roster accepts optional bounded `q`, canonical `vertical`, and `severity` filters, and the audit
 route applies `mode`, `tier`, `action`, `outcome`, `vertical`, and bounded
 `window=<n>d` filters on the server before cursor pagination. An analytical
 deep link therefore searches the complete filtered result set rather than
@@ -161,14 +161,13 @@ filtering only the first browser page. `severity` accepts `critical`, `high`, `m
 `unknown`; the projection buckets `sev1` through `sev4` onto those canonical values and never
 filters in the browser. The console exposes both as select controls with an explicit any-value
 option and a clear action, so a filter that arrived through a deep link can be removed without
-editing the URL. The cursor is bound to the incident status, vertical, and severity, so changing any
-of them invalidates a stale cursor.
-
-The roster has no free-text search. The displayed subject can come from `recorded_subject`, which
-the projection composes in the read model rather than storing in a column, so a server-side text
-filter would not match what an operator sees, and a browser-side filter would search only the
-current page. Search stays unavailable until a materialized subject makes a server-side filter
-truthful.
+editing the URL. Search splits a normalized query into literal whitespace tokens and requires every
+token to occur in the bounded recorded evidence that can form a displayed subject: correlation and
+event identifiers, title, summary, rule references, correlation keys, resource id or type, reason,
+stage, and their audit-envelope payload equivalents. It does not apply SQL wildcard semantics or
+search arbitrary payload fields. Search, status, vertical, and severity are part of the cursor
+identity and the same-snapshot outcome cohort, so changing any filter invalidates a stale cursor and
+cannot mix page or metric populations.
 
 Overview audit KPIs aggregate the newest 500 audit rows in both the in-memory
 and Postgres read models. `GET /kpi` returns that immutable sample as
@@ -413,6 +412,7 @@ approve / rollback button. The projection is a pure function
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Incident lifecycle, roster projection, and Console views | implemented | `services/core-control-plane/src/fdai/core/incident/`; `services/core-control-plane/tests/core/incident/`; `console/src/routes/incidents.tsx`; focused Console incident tests | Incident state, correlation, lifecycle, roster, attention, and bounded presentation have focused coverage. |
+| Server-backed roster discovery | implemented | `fdai_service_contracts.operator.IncidentQuery`; `fdai_operator_service.postgres_sql.INCIDENT_PAGE_SQL`; `console/src/api-operations-client.ts`; `console/src/routes/incidents.tsx`; focused Operator and Console tests | Search matches bounded recorded subject evidence before pagination, metrics use the same snapshot and filters, and cursors bind the normalized search with status, vertical, and severity. |
 | Operator-readable identity and phased investigation | implemented | `incident_projection.py`; `projection_logic.py`; `postgres.py`; `incidents.tsx`; `incidents.detail-sections.tsx`; `incidents.milestones.ts`; focused Operator tests (`31 passed`), Console tests (`66 passed`), typecheck, strict mypy, Ruff, Pylance, and catalog parity | Title provenance, trusted source context, plan preview, bounded evidence milestones, and independently verified outcome cohorts are implemented without execution authority. |
 | RCA contracts, projection, and read-only route | implemented | `services/core-control-plane/src/fdai/core/rca/`; `services/core-control-plane/tests/core/rca/`; `services/operator-service/src/fdai_operator_service/rca_projection.py`; `services/operator-service/tests/test_operator_service_composition.py`; `console/src/routes/rca.test.ts` | The route distinguishes unknown correlations, projects recorded hypotheses and response evidence, and exposes no action authority. |
 | RCA report catalog and datasource | implemented | `rule-catalog/reports/incident-rca-dossier.yaml`; `services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py`; reporting tests | The declarative dossier and bounded audit projection exist. |
@@ -434,6 +434,9 @@ approve / rollback button. The projection is a pure function
 | 2026-08-15 | in-progress | Excluded correlation groups whose every row is platform housekeeping, added a `matched_total` measurement disclosure, relabelled the observed range, and made an unmeasurable time to mitigate state its reason. | `current change`; `postgres_sql.py`, `postgres.py`, `incident_projection.py`, `api-operations.ts`, `types.ts`, `incidents.detail-sections.tsx`, both message catalogs, and their focused tests; Operator `286 passed, 1 skipped`, Console `53 passed`, typecheck, Ruff, Ruff format, and strict mypy passed; the updated page SQL run against the local corpus selected 1,557 of 1,562 groups and excluded exactly the 5 housekeeping groups. | Add roster search and filter controls, and record a title on the opening audit entry. |
 | 2026-08-15 | in-progress | Added a server-side `severity` filter bound to the cursor and exposed vertical and severity as clearable roster controls. | `current change`; `operator.py`, `routes.py`, `postgres_sql.py`, `postgres.py`, `api-operations-client.ts`, `incidents.tsx`, `incident-clarity.css`, both message catalogs, and focused tests; Operator and contracts `383 passed, 1 skipped`, Console `55 passed`; the filter run against the local corpus returned 380 low, 19 critical, and 1,004 unknown of 1,557 groups. | Record a title on the opening audit entry; free-text roster search stays unavailable until a materialized subject makes a server-side filter truthful. |
 | 2026-08-15 | implemented | Closed the incident subject and outcome-analytics slice after measuring that the remaining `identifier_fallback` share is 5 of 1,562 groups and that every recorded incident resolves to `correlation_subject`. | `current change`; final replay over the local corpus reports `recorded_subject` 1,001, `rule_id` 551, `correlation_subject` 5, and `identifier_fallback` 5; the 5 fallbacks are non-operational `read:sha256:*` reads already excluded from the roster. | Free-text roster search remains deliberately unavailable until a materialized subject exists. |
+| 2026-08-17 | implemented | Mapped recorded incident lifecycle state onto the three statuses the roster contract admits and named `incident_lifecycle` as its source, so a `triaging` or `mitigated` incident no longer makes the Console reject the whole page. | `current change`; `incident_projection.py`; five-state focused projection test; Operator `358 passed, 1 skipped`; reverting the mapping fails that test on every canonical state. | Confirm the repaired roster renders on the authenticated local Console. |
+| 2026-08-17 | validated | Confirmed on the authenticated local Console that Incidents loads again. The page renders the outcome cohorts over 500 of 1,573 matched incidents instead of the whole-page decoder rejection a `triaging` or `mitigated` state used to cause. | `current change`; authenticated Browser Entra session at `/incidents` against the local Operator API running commit `61e826092`; the recorded corpus contains `triaging` and `mitigated` lifecycle states that previously failed the page. | No remaining work for the roster lifecycle-state contract. |
+| 2026-08-17 | implemented | Added server-backed Incident roster search over the bounded recorded evidence that composes displayed subjects, with exact filter identity across pagination and same-snapshot analytics. | `current change`; shared query contract, Operator route and PostgreSQL projection, Console client and route, message catalogs, and focused Operator and Console tests. | No remaining implementation work for issue #120; authenticated browser assurance remains part of the broader Console campaign. |
 
 ### Remaining work
 
@@ -449,5 +452,6 @@ approve / rollback button. The projection is a pure function
 - [x] Confirmed that a separate recorded `title` on the opening audit entry is unnecessary. `open_audit_entry` already records `correlation_keys`, and every `incident.open` group in the local corpus resolves to `correlation_subject`, so adding a title field would duplicate an existing subject rather than close a gap.
 - [x] Derive investigation milestone and recommended-next-step text from recorded RCA and T1 fields instead of a generic template when those fields exist.
 - [x] Label the cohort observed range truthfully, disclose the bound and the excluded remainder, and render an unusable time-to-mitigate measurement as unavailable with a reason.
-- [x] Add server-backed severity and vertical filter controls, including clearing a set scope filter from the UI. Free-text roster search stays unavailable on purpose: the displayed subject is composed in the read model, so neither a server-side nor a browser-side text filter would be truthful until a materialized subject exists.
+- [x] Add server-backed roster search plus severity and vertical filter controls, including clearing a set filter from the UI. Search evaluates only the bounded recorded fields that can compose the displayed subject and runs before pagination with the same snapshot and cursor identity.
 - [x] Preserve acronyms through subject humanization and prevent a dynamic i18n key with no catalog entry from rendering a raw key string.
+- [x] Confirm the repaired Incident roster renders on the authenticated local Console.

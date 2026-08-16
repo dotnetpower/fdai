@@ -1,3 +1,4 @@
+import type { JSX } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import type {
@@ -45,11 +46,17 @@ interface IncidentData {
 }
 
 const PAGE_SIZE = 25;
+const SEARCH_MAX_LENGTH = 200;
 const FILTERS: readonly IncidentStatusFilter[] = ["active", "resolved", "all"];
 const INCIDENT_VERTICALS = ["resilience", "change_safety", "cost_governance", "unknown"] as const;
 type IncidentVertical = typeof INCIDENT_VERTICALS[number];
 const INCIDENT_SEVERITIES = ["critical", "high", "medium", "low", "unknown"] as const;
 type IncidentSeverity = typeof INCIDENT_SEVERITIES[number];
+
+export function normalizeIncidentSearch(value: string | null): string {
+  const normalized = value?.trim().replace(/\s+/g, " ") ?? "";
+  return normalized.length <= SEARCH_MAX_LENGTH ? normalized : "";
+}
 
 export function parseIncidentVertical(value: string | null): IncidentVertical | null {
   if (value === null) return null;
@@ -110,6 +117,9 @@ export function incidentPageMatchesSnapshot(
 export function IncidentsRoute({ client }: Props) {
   const initialRoute = currentRoute();
   const initialStatus = initialRoute.search.get("status");
+  const initialSearch = normalizeIncidentSearch(initialRoute.search.get("q"));
+  const [searchFilter, setSearchFilter] = useState(initialSearch);
+  const [searchDraft, setSearchDraft] = useState(initialSearch);
   const [verticalFilter, setVerticalFilter] = useState<IncidentVertical | null>(
     parseIncidentVertical(initialRoute.search.get("vertical")),
   );
@@ -134,7 +144,10 @@ export function IncidentsRoute({ client }: Props) {
     const sync = () => {
       const route = currentRoute();
       const status = route.search.get("status");
+      const search = normalizeIncidentSearch(route.search.get("q"));
       setFilter(status === "resolved" || status === "all" ? status : "active");
+      setSearchFilter(search);
+      setSearchDraft(search);
       setVerticalFilter(parseIncidentVertical(route.search.get("vertical")));
       setSeverityFilter(parseIncidentSeverity(route.search.get("severity")));
       setSelectedId(route.search.get("correlation"));
@@ -151,6 +164,7 @@ export function IncidentsRoute({ client }: Props) {
     navigate(routeHref("incidents", {
       params: {
         status: status === "active" ? null : status,
+        q: searchFilter || null,
         vertical: verticalFilter,
         severity: severityFilter,
         correlation,
@@ -161,10 +175,12 @@ export function IncidentsRoute({ client }: Props) {
   const openFilters = (
     vertical: IncidentVertical | null,
     severity: IncidentSeverity | null,
+    search = searchFilter,
   ): void => {
     navigate(routeHref("incidents", {
       params: {
         status: filter === "active" ? null : filter,
+        q: search || null,
         vertical,
         severity,
         correlation: null,
@@ -181,6 +197,7 @@ export function IncidentsRoute({ client }: Props) {
     const filters = {
       status: filter,
       limit: PAGE_SIZE,
+      ...(searchFilter ? { search: searchFilter } : {}),
       ...(verticalFilter ? { vertical: verticalFilter } : {}),
       ...(severityFilter ? { severity: severityFilter } : {}),
     } as const;
@@ -206,12 +223,12 @@ export function IncidentsRoute({ client }: Props) {
     return () => {
       if (rosterGeneration.current === generation) rosterGeneration.current += 1;
     };
-  }, [client, filter, verticalFilter, severityFilter]);
+  }, [client, filter, searchFilter, verticalFilter, severityFilter]);
 
   useEffect(() => {
     if (selectedId === null || state.status !== "ready") return;
     if (state.data.items.some((item) => item.correlation_id === selectedId)) return;
-    const lookupKey = `${filter}:${verticalFilter ?? "all"}:${severityFilter ?? "all"}:${selectedId}`;
+    const lookupKey = `${filter}:${searchFilter}:${verticalFilter ?? "all"}:${severityFilter ?? "all"}:${selectedId}`;
     if (exactLookup.current === lookupKey) return;
     exactLookup.current = lookupKey;
     const generation = rosterGeneration.current;
@@ -219,6 +236,7 @@ export function IncidentsRoute({ client }: Props) {
       status: filter,
       limit: 1,
       correlationId: selectedId,
+      ...(searchFilter ? { search: searchFilter } : {}),
       ...(verticalFilter ? { vertical: verticalFilter } : {}),
       ...(severityFilter ? { severity: severityFilter } : {}),
     }).then(
@@ -252,7 +270,7 @@ export function IncidentsRoute({ client }: Props) {
         setPageError(error instanceof Error ? error.message : String(error));
       },
     );
-  }, [client, filter, selectedId, state, verticalFilter]);
+  }, [client, filter, searchFilter, selectedId, severityFilter, state, verticalFilter]);
 
   useEffect(() => {
     const generation = historyGeneration.current + 1;
@@ -286,6 +304,7 @@ export function IncidentsRoute({ client }: Props) {
     if (state.status !== "ready" || loadingMore || state.data.nextCursor !== cursor) return;
     const generation = rosterGeneration.current;
     const requestedFilter = filter;
+    const requestedSearch = searchFilter;
     const requestedVertical = verticalFilter;
     const requestedSeverity = severityFilter;
     setLoadingMore(true);
@@ -295,12 +314,14 @@ export function IncidentsRoute({ client }: Props) {
         status: requestedFilter,
         limit: PAGE_SIZE,
         cursor,
+        ...(requestedSearch ? { search: requestedSearch } : {}),
         ...(requestedVertical ? { vertical: requestedVertical } : {}),
         ...(requestedSeverity ? { severity: requestedSeverity } : {}),
       });
       if (
         rosterGeneration.current !== generation
         || filter !== requestedFilter
+        || searchFilter !== requestedSearch
         || verticalFilter !== requestedVertical
         || severityFilter !== requestedSeverity
       ) return;
@@ -323,6 +344,7 @@ export function IncidentsRoute({ client }: Props) {
       if (
         rosterGeneration.current !== generation
         || filter !== requestedFilter
+        || searchFilter !== requestedSearch
         || verticalFilter !== requestedVertical
         || severityFilter !== requestedSeverity
       ) return;
@@ -331,6 +353,7 @@ export function IncidentsRoute({ client }: Props) {
       if (
         rosterGeneration.current === generation
         && filter === requestedFilter
+        && searchFilter === requestedSearch
         && verticalFilter === requestedVertical
         && severityFilter === requestedSeverity
       ) {
@@ -363,6 +386,25 @@ export function IncidentsRoute({ client }: Props) {
         ))}
       </div>
       <div class="incident-scope-filters">
+        <form
+          class="incident-search-filter"
+          onSubmit={(event: JSX.TargetedSubmitEvent<HTMLFormElement>) => {
+            event.preventDefault();
+            openFilters(verticalFilter, severityFilter, normalizeIncidentSearch(searchDraft));
+          }}
+        >
+          <label>
+            <span>{t("incidents.filter.searchLabel")}</span>
+            <input
+              type="search"
+              maxLength={SEARCH_MAX_LENGTH}
+              placeholder={t("incidents.filter.searchPlaceholder")}
+              value={searchDraft}
+              onInput={(event) => setSearchDraft(event.currentTarget.value)}
+            />
+          </label>
+          <button type="submit">{t("incidents.filter.search")}</button>
+        </form>
         <label>
           <span>{t("incidents.verticalLabel")}</span>
           <select
@@ -393,8 +435,8 @@ export function IncidentsRoute({ client }: Props) {
             ))}
           </select>
         </label>
-        {verticalFilter || severityFilter ? (
-          <button type="button" onClick={() => openFilters(null, null)}>
+        {searchFilter || verticalFilter || severityFilter ? (
+          <button type="button" onClick={() => openFilters(null, null, "")}>
             {t("incidents.filter.clearScope")}
           </button>
         ) : null}

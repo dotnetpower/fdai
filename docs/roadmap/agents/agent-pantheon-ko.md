@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 5403c3bd52f0be3a945e841ab2f74a14d1276342
-translation_revised: 2026-08-16
+translation_source_sha: a37a9a3ecd5119f3ba331be1991e5c9a1e1b643b
+translation_revised: 2026-08-17
 ---
 
 # 에이전트 판테온
@@ -38,6 +38,7 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 | 판단, 승인, 실행, 감사 및 복구 분리 | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_decision_case_e2e.py`](../../../services/core-control-plane/tests/agents/test_decision_case_e2e.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py) | Forseti는 선택적으로 exact proposal을 기존 Verdict에 해석하고 Thor는 독립 검증 후 이를 보존합니다. 합성 테스트는 역할 경계를 입증하지만 실제 운영 결과를 증명하지는 않습니다. |
 | 대화 및 인계 메커니즘 | implemented | [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py), [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py), [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | 범위가 제한된 읽기 전용 대화 경로는 선택적 T2 종합 전에 T1 답변 신호를 평가하며, shadow 작업 흐름 추적을 집중 검사에서 실행할 수 있습니다. |
 | KPI 근거 상태, 승격 검사 및 성능 저하 훈련 | implemented | [`test_wave8_kpi_degradation.py`](../../../services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py) | KPI 근거가 없거나 측정되지 않으면 승격을 차단하고, 주입된 장애로 선언된 성능 저하 동작을 실행합니다. |
+| 추적 연속성 근거 인계 | implemented | `huginn.py`; `heimdall.py`; `test_trace_continuity_chain.py` | Huginn은 허용 목록의 범위가 제한된 연속성 필드만 보존하고 Heimdall은 인식된 관측 사유를 anomaly와 인시던트 후보에 전달합니다. AgentSpec, topic, 판단, 승인, 실행 권한은 바뀌지 않습니다. |
 | 실제 운영 KPI 검증 및 enforce 승격 | not-started | [목표와 메트릭](../architecture/goals-and-metrics-ko.md) | 보존된 실제 shadow 코호트, 운영 KPI 증적 집합, 독립적인 승격 검토 또는 실제 판테온 enforce 승격 근거가 아직 없습니다. |
 
 ### 구현 이력
@@ -54,6 +55,7 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 | 2026-08-14 | implemented | Bragi의 표현 전용 숙의가 선택적 T2 종합을 호출하기 전에 결정론적 T1 답변 평가를 요구하도록 했습니다. | `current change`, 집중 숙의 테스트 36개는 충돌이 없거나 비교할 수 없는 claim에 T2를 호출하지 않고 구조적 충돌에만 범위가 제한된 호출을 유지함을 입증합니다. | AgentSpec, topic 또는 권한을 바꾸지 않고 통제된 운영자 경로 근거를 보존합니다. |
 | 2026-08-15 | implemented | Bridge 소비자가 자기 task 안에서 구독을 닫도록 해서 broker 정리가 인터프리터 종료 처리가 아니라 종료 절차 중에 실행되도록 했습니다. AgentSpec, topic, 소유권, LLM, 안전장치는 바뀌지 않았습니다. | `current change`, [`bus_bridge.py`](../../../services/core-control-plane/src/fdai/agents/_framework/bus_bridge.py)와 [`test_subscription_lifecycle.py`](../../../services/core-control-plane/tests/agents/test_subscription_lifecycle.py), 집중 agent/delivery/runtime/provider 검사 3127건 통과 | 실제 로컬 종료에서 남은 소비자 stop 타임아웃이 없는지 확인합니다. |
 | 2026-08-16 | implemented | Thor가 내구 ActionRun을 복원할 때도 dispatch 시점의 kinetic proposal 결속 검사를 다시 적용하도록 해서, 변조된 레코드가 다른 correlation의 정확한 인자를 복원하지 못하게 했습니다. AgentSpec, topic, 소유권, 권한은 바뀌지 않았습니다. | `current change`, [`thor.py`](../../../services/core-control-plane/src/fdai/agents/thor.py)와 [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py), 집중 kinetic/내구 재생/runtime/factory 검사 140건 통과 | 기존 kinetic 잔여 작업과 함께 복원 경로의 통제된 실사용 증거를 확보합니다. |
+| 2026-08-17 | implemented | Huginn 정규화에서 Heimdall의 반복 Event anomaly와 인시던트 후보까지 범위가 제한된 분산 추적 연속성 근거를 보존했습니다. 알 수 없는 사유 코드와 위조된 작업 필드는 버리고 sensing 경로에 판단 또는 작업 권한을 추가하지 않습니다. | `current change`; `test_trace_continuity_chain.py`; 집중 추적-인시던트 체인 통과. | 이슈 #142에서 통제된 실시간 추적 불연속, 인시던트, 승인, 복구 근거를 보존합니다. |
 
 ### 남은 작업
 - [ ] 하나의 고정된 리비전에서 에이전트별 및 시스템 KPI, 표본 수, 신뢰 구간, 보호 메트릭과 권위 있는 결과 증적을 측정한 실제 shadow 코호트를 보존합니다.
@@ -214,6 +216,12 @@ Heimdall은 인시던트를 직접 쓰거나 새
 Global/리소스 상한은 cross-resource 제거를 방지합니다.
 Routine 하트비트, healthy 탐색, within-threshold 관측은 발견 사항이나 인시던트를
 생성하지 않습니다.
+분산 추적 불연속 Event의 경우 Huginn은 범위가 제한된 감지기, 토폴로지, hop, 추적
+조각, 근거 참조, 구간 필드만 정규화된 속성으로 복사합니다. Heimdall은 등록된 연속성
+사유 코드만 수락하고 anomaly에 해당 근거를 보존하며, 일반 반복 사유로 대체하지 않고
+관측된 사유를 인시던트 후보에 사용합니다. 작업처럼 보이는 입력을 포함한 알 수 없는
+필드는 버립니다. 이 근거 인계는 ActionType을 선택하거나 판단, 승인, 실행 권한을
+부여하지 않습니다.
 명시적 `incident_correlation=correlate`, 상관관계와 근거, 활성 auto-open 및 충분한 심각도를
 갖춘 후보만 작업 흐름에 도달하며 나머지는 anomaly로 남습니다. 작업 흐름은 근거를 다시 확인한
 후 `IncidentRegistry`에 audited 기록을 씁니다. 훅 실패는 구간을 유지하고 accepted와 held는 별도로 기록합니다.

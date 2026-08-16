@@ -164,6 +164,15 @@
   font-weight: 700;
   text-transform: uppercase;
 }
+.incident-search-filter {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  flex: 1 1 320px;
+}
+.incident-search-filter label { flex: 1 1 240px; }
+.incident-search-filter input { width: 100%; min-height: 34px; }
+.incident-search-filter button { min-height: 34px; }
 .incident-related-views {
   display: grid;
   gap: 7px;

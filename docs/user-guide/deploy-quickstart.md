@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 45ce138c1a36e8400f9475614ecfd7653f1935c2 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 31f120a7ebad68fd14696586acc73326123e7fea }]
 ---
 
 # Deploy Quickstart
@@ -140,6 +140,11 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
      explicit targets with only the supported resources in the durable inventory
      projection and reports the configured discovery bound. Unsupported resource
      types stay omitted, and a fully resolved empty target set exits as a clean no-op.
+     When `FDAI_TRACE_TOPOLOGIES_JSON` is configured, the same Job and reader identity
+     query bounded workspace-based Application Insights evidence. A complete trace
+     reports no detected issue, while a missing or disconnected hop reports one in
+     observation mode.
+     An empty value disables only the continuity check.
    - **OHL scale-out evidence**: when enabled, start the manual proposal Job and confirm exactly
      one shadow proposal reaches the normal ingress with the configured campaign and initiator.
      Its identity has only image pull and primary Event Hubs send permissions, with no
