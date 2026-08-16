@@ -1,6 +1,6 @@
 ---
 translation_of: operational-hypothesis-loop.md
-translation_source_sha: fac3929e608f23ad0eba63ddae53217d415b313d
+translation_source_sha: 7f1403514eecb8b0a5f2f657a835ab498c37d852
 translation_revised: 2026-08-17
 ---
 # 운영 가설 루프
@@ -245,6 +245,7 @@ Worker는 public contract를 통해 이러한 capability를 evidence source 또�
 | 2026-08-16 | implemented | Envelope 스키마 1.1.0에 `censoring_refs` 관측 필드를 추가하고 검열된 에피소드를 모든 효과 비교보다 먼저 채점 불가로 처리하여, 검열되거나 충돌하는 에피소드가 보류된 시도 근거로 남도록 했습니다. | `current change`; `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_contracts.py`; `reconciliation.py`; `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py`; 집중 실행 `pytest services/core-control-plane/tests/core/ontology_platform` 335개 통과. | 통제된 live 에피소드로 재발 관측 구간을 닫습니다. |
 | 2026-08-16 | implemented | Censoring 판정을 마감 분류보다 앞으로 옮겨 늦게 평가된 검열 에피소드가 시간 초과 복구 요청으로 승격되지 않도록 했습니다. | `current change`; `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation.py`(`_episode_validity_reason`); `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py`; 집중 실행 `pytest services/core-control-plane/tests/core/ontology_platform` 338개 통과. | 통제된 live 에피소드로 재발 관측 구간을 닫습니다. |
 | 2026-08-17 | implemented | 모든 조정 결과에 바인딩되는 주체 값 없는 관찰자 신원 기록과 결정론적 시간 초과 분류를 추가했습니다. 결과 스키마를 `1.1.0`, durable 집합체 스키마를 `1.2.0` 으로 올려, 기록 이전에 저장된 집합체는 귀속 없이 재생되는 대신 실패로 닫힙니다. | `current change`; `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_identity.py`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/core/ontology_platform/test_reconciliation_identity.py services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py services/core-control-plane/tests/core/ontology_platform/test_reconciliation_hardening.py services/core-control-plane/tests/core/ontology_platform/test_state_store_reconciliation.py services/core-control-plane/tests/core/ontology_platform/test_reconciliation_binding.py` 68개 통과. | 프로덕션 관측 어댑터를 바인딩하고 보호된 live 훈련과 재발 근거를 보존합니다. |
+| 2026-08-17 | implemented | 바인딩된 귀속 필드 이름을 `observer_identity_record` 로 정해 결과 이벤트의 원본 관찰자 신원 문자열과 혼동되지 않게 했고, 기록되는 소스 권위 토큰을 제한했으며, 귀속 없이 기록된 지속 집계에 대한 실패 시 닫힘 회귀 테스트를 추가했습니다. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/core/ontology_platform/test_reconciliation_identity.py` 가 12개 테스트를 통과했습니다. | 프로덕션 관찰 어댑터를 연결하고 보호된 실제 드릴 및 재발 근거를 보존합니다. |
 
 ### 남은 작업
 
