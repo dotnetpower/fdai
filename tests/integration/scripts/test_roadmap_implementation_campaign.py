@@ -434,15 +434,16 @@ def test_landing_requires_a_receipt_and_leaves_live_edits_alone(
     module = _load()
     calls: list[list[str]] = []
     state = {"status": "", "incoming": "docs/roadmap/architecture/owned.md\n"}
+    # Newest first, exactly as `git rev-list main..HEAD` reports it.
+    ahead = ["freshest", "validated", "older"]
+    receipted: set[str] = set()
 
     def fake_git(*args: str, **_kwargs: object) -> str:
         if args[0] == "diff":
             return state["incoming"]
-        return {
-            "rev-list": "3",
-            "status": state["status"],
-            "rev-parse": "campaignhead",
-        }[args[0]]
+        if args[0] == "rev-list":
+            return str(len(ahead)) if "--count" in args else "\n".join(ahead)
+        return {"status": state["status"], "rev-parse": "campaignhead"}[args[0]]
 
     class _Result:
         returncode = 0
@@ -451,26 +452,30 @@ def test_landing_requires_a_receipt_and_leaves_live_edits_alone(
     monkeypatch.setattr(module, "_main_checkout", lambda _root: tmp_path)
     monkeypatch.setattr(module, "_register_committed_work", lambda *_a: None)
     monkeypatch.setattr(
+        module, "_validation_receipt_exists", lambda _root, revision: revision in receipted
+    )
+    monkeypatch.setattr(
         module.subprocess,
         "run",
         lambda arguments, **_k: calls.append(list(arguments)) or _Result(),
     )
 
-    monkeypatch.setattr(module, "_validation_receipt_exists", lambda *_a, **_k: False)
     assert module._land_validated_batch(tmp_path) is None
     assert calls == []
 
-    monkeypatch.setattr(module, "_validation_receipt_exists", lambda *_a, **_k: True)
+    receipted.add("validated")
     state["status"] = " M docs/roadmap/architecture/owned.md"
     assert module._land_validated_batch(tmp_path) is None
     # The merge would rewrite a file another session is editing; that work must not be touched.
     assert calls == []
 
     state["status"] = " M docs/roadmap/architecture/elsewhere.md\n?? scratch.py"
-    assert module._land_validated_batch(tmp_path) == "landed campaignhead on main"
-    # A dirty checkout is the normal state of the primary worktree. Landing only needs the
-    # incoming paths to miss the live edits, not the whole checkout to fall idle.
-    assert calls[0][:4] == ["git", "merge", "--no-ff", "--no-edit"]
+    assert module._land_validated_batch(tmp_path) == "landed validated on main"
+    # Two refusals dressed as safety are gone. A dirty checkout is the normal state of the
+    # primary worktree, so landing only needs the incoming paths to miss the live edits. And
+    # the branch tip is the freshest commit and the least likely to hold a receipt, so
+    # landing takes the newest ancestor that has one instead of racing its own production.
+    assert calls[0] == ["git", "merge", "--no-ff", "--no-edit", "validated"]
 
 
 def test_a_renamed_path_counts_as_a_live_edit_on_both_sides(tmp_path: Path, monkeypatch) -> None:
