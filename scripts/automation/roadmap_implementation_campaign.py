@@ -570,7 +570,7 @@ def run_cycle(
         return "held: another campaign is active"
     with lock:
         leases = watchdog._active_session_leases(repo_root, idle_seconds)
-        sessions = watchdog._recent_copilot_activity(idle_seconds)
+        sessions = watchdog._recent_copilot_activity(repo_root, idle_seconds)
         active = watchdog._active_session_count(leases, sessions)
         if not _within_session_capacity(active, max_active_sessions):
             return f"held: active-sessions={active}, limit={max_active_sessions}"
