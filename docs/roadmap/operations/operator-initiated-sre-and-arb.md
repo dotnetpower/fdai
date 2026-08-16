@@ -18,9 +18,10 @@ enforce operation in both local and deployed environments.
 > It never means that a Workflow or ARB approval can bypass those checks.
 >
 > **Current delivery boundary:** Incident correlation, operator-confirmed Incident lifecycle,
-> investigation primitives, ARB readiness/projection, and proposal-only workflow submission are
-> implemented. The integrated SRE command/progress flow and authority-bearing Workflow enforce
-> path remain open and are tracked below.
+> investigation primitives, the integrated SRE command/progress coordinator, ARB
+> readiness/projection, and proposal-only workflow submission are implemented. The
+> authority-bearing Workflow enforce path and its local/deployed runtime evidence remain open and
+> are tracked below.
 
 ## Design at a glance
 
@@ -54,7 +55,7 @@ flowchart LR
 |------|-------|----------|-------|
 | Incident trace identity and correlation opt-out | implemented | `fdai/shared/contracts/models/event.py`; `fdai/core/event_ingest/correlator.py`; routine producers in `fdai/core/scheduler/service.py` and `fdai/delivery/inventory_delta.py`; `tests/core/event_ingest/test_correlator.py` | `correlation_id` remains available when `incident_correlation=none` suppresses Incident creation. |
 | Operator-confirmed Incident lifecycle and investigation primitives | implemented | `fdai/core/incident/workflow.py`; `fdai/core/investigation/coordinator.py`; `tests/core/incident/test_incident_workflow.py`; `tests/core/investigation/test_coordinator.py` | The bounded primitives exist and pass focused checks. |
-| Integrated operator SRE command and progress contract | in-progress | The Incident lifecycle and investigation implementations above are separate; the documented single command path, idempotent ActionProposal dispatch, and Incident/Trace/Process/Approval links lack an end-to-end focused test. | Do not infer the integrated flow from the individual primitives. |
+| Integrated operator SRE command and progress contract | implemented | `fdai/core/incident/sre_request.py`; `fdai/shared/providers/operator_request.py`; `fdai/core/event_ingest/__init__.py`; `tests/core/incident/test_sre_request.py` | One confirmed request opens or reuses one Incident, publishes one idempotent typed proposal carrying the Incident ID, keeps one correlation across every stage, and returns the four progress links. The proposal dispatcher seam is not yet bound at the runtime composition root. |
 | ARB readiness, production gate, and declarative review projection | implemented | `fdai/core/architecture_review/readiness.py`; `fdai/core/architecture_review/projection.py`; `fdai/runtime/control_loop.py`; `rule-catalog/workflows/architecture-review.yaml`; `tests/core/architecture_review/` | The operator surfaces are `/workflow-apps/architecture-review` and `/processes/{process_id}`; there is no `/arb/status` endpoint. |
 | Operator workflow submission | implemented | `fdai_operator_service/families/workflow/routes.py`; `services/operator-service/tests/test_operator_workflow_family.py` | `POST /workflows/run` accepts idempotent, revision-bound shadow proposals and rejects `mode=enforce`. |
 | Authority-bearing Workflow enforce and local/deployed operational parity | in-progress | `fdai/core/workflow/workflow_step_executor.py` contains governed enforce action dispatch, while the Operator API remains proposal-only and shadow-first. | No governed runtime receipt proves the documented Owner-gated end-to-end enforce path or local/deployed parity. |
@@ -64,12 +65,18 @@ flowchart LR
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted the implementation ledger, corrected the ARB surface and Operator workflow authority boundary, and did not reconstruct earlier provenance. | Current change; focused Incident, investigation, ARB, event-correlation, and Operator workflow tests listed in the scope table. | Complete the integrated SRE command/progress path and record governed evidence for authority-bearing Workflow enforce and parity. |
+| 2026-08-16 | in-progress | Added the operator SRE request coordinator, the proposal dispatcher seam, and Incident-ID metadata at operator-request normalization, with an end-to-end test that drives one confirmed request through the control loop to a parked HIL approval. | Current change; `176 passed` from `uv run pytest -q --no-cov services/core-control-plane/tests/core/incident/ services/core-control-plane/tests/core/event_ingest/ services/core-control-plane/tests/core/test_control_loop_operator_request.py`. | Bind the dispatcher at the runtime composition root and record governed evidence for authority-bearing Workflow enforce and parity. |
+| 2026-08-16 | in-progress | Hardened the progress contract: link templates are validated before any Incident write, every interpolated reference is percent-encoded, a blank resource type is rejected instead of silently dropped, and the published proposal is immutable. | Current change; `182 passed` from `uv run pytest -q --no-cov services/core-control-plane/tests/core/incident/ services/core-control-plane/tests/core/event_ingest/ services/core-control-plane/tests/core/test_control_loop_operator_request.py`. | Unchanged from the row above. |
 
 ### Remaining work
 
-- [ ] Add an end-to-end focused test proving that one confirmed operator problem-response request
+- [x] Add an end-to-end focused test proving that one confirmed operator problem-response request
   opens or reuses one Incident, publishes one idempotent typed ActionProposal, preserves one
-  correlation across stages, and returns authoritative Incident, Trace, Process, and Approval links.
+  correlation across stages, and returns authoritative Incident, Trace, Process, and Approval links
+  (`tests/core/incident/test_sre_request.py`).
+- [ ] Bind `OperatorProposalDispatcher` at the runtime composition root so the console and ChatOps
+  command surfaces reach the coordinator instead of composing their own path, and cite the
+  binding test in this ledger.
 - [ ] Record a governed local and deployed runtime receipt proving that an approved,
   allowlisted Workflow can enter enforce through the authority-bearing control path while its
   ActionType remains independently gated; keep `POST /workflows/run` proposal-only.
@@ -108,7 +115,10 @@ problem-response request, not a read-only narrator question. The coordinator fol
   target, and investigation kind. A read-only discovery question never reaches this step. The
   response returns the Incident ID and correlation ID immediately.
 3. **Publish the proposal:** The command surface publishes an `operator_request` ActionProposal
-   with the Incident ID in typed metadata. It holds no executor identity.
+   with the Incident ID in typed metadata. Event ingest normalizes it into
+   `payload.incident.incident_id`; a malformed Incident ID fails the strict Event contract rather
+   than publishing an action that claims an Incident it cannot join. The proposal holds no
+   executor identity.
 4. **Judge and gate:** The control loop runs T0 first, enriches from authoritative inventory,
    evaluates promotion and risk, and returns shadow, auto, human-in-the-loop (HIL), or deny.
 5. **Execute or wait:** A promoted low-risk ActionType can execute in enforce mode. Higher-risk
@@ -125,12 +135,17 @@ can retry with the same idempotency key. A retry reuses both the Incident and pr
 
 The command response includes links to the authoritative projections:
 
-| Link | Purpose |
-|------|---------|
-| Incident | Current lifecycle state and member evidence. |
-| Trace | Stage events and terminal audit for the correlation. |
-| Process | Workflow journal when the request starts a multi-step Workflow. |
-| Approval | Pending approval when the risk decision is `hil`. |
+| Link | Purpose | Default target |
+|------|---------|----------------|
+| Incident | Current lifecycle state and member evidence. | `/incidents?status=all&correlation_id={correlation_id}` |
+| Trace | Stage events and terminal audit for the correlation. | `/audit/{correlation_id}/trace` |
+| Process | Workflow journal when the request starts a multi-step Workflow. | `/views/process/{process_id}` |
+| Approval | Pending approval when the risk decision is `hil`. | `/hil-queue?search={approval_id}` |
+
+Process and Approval links appear only when the dispatch actually produced one.
+A non-`hil` decision drops any stale approval reference rather than pointing an
+operator at an approval that does not exist. The targets are injectable so a
+fork can mount the same projections behind its own prefix.
 
 The UI may stream or poll these links, but browser state is never authoritative. A reconnect uses
 the correlation ID to rebuild the same ordered timeline from durable records.

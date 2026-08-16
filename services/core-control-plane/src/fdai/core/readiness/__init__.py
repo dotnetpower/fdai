@@ -31,6 +31,13 @@ from fdai.core.readiness.models import (
     StartupReadinessReport,
 )
 from fdai.core.readiness.reducer import reduce_startup_readiness
+from fdai.core.readiness.remediation import (
+    HandoffApproval,
+    RemediationProposal,
+    SelfApprovalError,
+    build_remediation_proposals,
+    remediation_idempotency_key,
+)
 from fdai.core.readiness.report import (
     HandoffVerdict,
     ReadinessFinding,
@@ -49,6 +56,7 @@ __all__ = [
     "DetectionReadinessObservation",
     "DetectionReadinessSnapshot",
     "EvidenceRequirement",
+    "HandoffApproval",
     "HandoffVerdict",
     "OwnershipTransfer",
     "ModelStartupEvidence",
@@ -57,13 +65,17 @@ __all__ = [
     "ReadinessFinding",
     "ReadinessReport",
     "ReadinessDecision",
+    "RemediationProposal",
+    "SelfApprovalError",
     "StartupPhase",
     "StartupProbeResult",
     "StartupProbeSpec",
     "StartupReadinessReport",
+    "build_remediation_proposals",
     "compose_readiness_report",
     "detection_readiness_state_key",
     "evaluate_best_practices",
     "reduce_detection_readiness",
     "reduce_startup_readiness",
+    "remediation_idempotency_key",
 ]
