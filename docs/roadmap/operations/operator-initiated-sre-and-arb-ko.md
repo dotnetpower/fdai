@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: 51eba39717f8bb7be6117a10b3255b2a702c5623
+translation_source_sha: 9059284e7cacb2ab994fa1332beb5e2d331a2e2f
 translation_revised: 2026-08-16
 ---
 
@@ -69,6 +69,7 @@ flowchart LR
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 구현 원장을 도입하고 ARB 표면과 Operator 작업 흐름 권한 경계를 바로잡았습니다. 이전 출처는 재구성하지 않았습니다. | 현재 변경, 범위 표에 나열된 인시던트, 조사, ARB, 이벤트 상관관계 및 Operator 작업 흐름 집중 검사 | 통합 SRE 명령/진행 상황 경로를 완료하고 권한을 수반하는 작업 흐름 강제 적용 및 동등성에 대한 거버넌스 증거를 기록합니다. |
 | 2026-08-16 | in-progress | 오퍼레이터 SRE 요청 조정기, 제안 전달자 연결부, operator-request 정규화 시점의 인시던트 ID 메타데이터를 추가하고, 확인된 요청 하나를 컨트롤 루프를 거쳐 대기 중인 HIL 승인까지 구동하는 end-to-end 검사를 추가했습니다. | 현재 변경, `uv run pytest -q --no-cov services/core-control-plane/tests/core/incident/ services/core-control-plane/tests/core/event_ingest/ services/core-control-plane/tests/core/test_control_loop_operator_request.py` 의 `176 passed` 결과 | 런타임 composition root에 전달자를 바인딩하고 권한을 수반하는 작업 흐름 강제 적용 및 동등성에 대한 거버넌스 증거를 기록합니다. |
+| 2026-08-16 | in-progress | 진행 상황 계약을 강화했습니다. 링크 템플릿은 인시던트 쓰기 전에 검증되고, 보간되는 모든 참조는 퍼센트 인코딩되며, 빈 리소스 종류는 조용히 버려지는 대신 거부되고, 게시된 제안은 변경 불가능합니다. | 현재 변경, `uv run pytest -q --no-cov services/core-control-plane/tests/core/incident/ services/core-control-plane/tests/core/event_ingest/ services/core-control-plane/tests/core/test_control_loop_operator_request.py` 의 `182 passed` 결과 | 위 행과 동일합니다. |
 
 ### 남은 작업
 

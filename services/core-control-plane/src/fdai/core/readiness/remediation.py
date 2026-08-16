@@ -29,6 +29,7 @@ Design invariants
 from __future__ import annotations
 
 import hashlib
+import unicodedata
 from collections.abc import Mapping
 from dataclasses import dataclass
 
@@ -43,7 +44,12 @@ class SelfApprovalError(ValueError):
 
 
 def _principal_key(value: str) -> str:
-    return value.strip().casefold()
+    """Compare principals without letting encoding variance defeat the check.
+
+    NFKC folding first means a visually identical but differently encoded
+    submitter cannot approve their own review.
+    """
+    return unicodedata.normalize("NFKC", value).strip().casefold()
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,7 +125,10 @@ def remediation_idempotency_key(
     action_type: str,
 ) -> str:
     """Derive the stable proposal identity for one finding and lever."""
-    material = "|".join((scope, target_environment, evidence, resource_ref, action_type))
+    # Length-prefix every component: a separator inside a field must not let two
+    # different findings derive one key and silently suppress a real proposal.
+    parts = (scope, target_environment, evidence, resource_ref, action_type)
+    material = "|".join(f"{len(part.encode('utf-8'))}:{part}" for part in parts)
     digest = hashlib.sha256(material.encode("utf-8")).hexdigest()
     return f"{_KEY_PREFIX}:{digest[:32]}"
 
