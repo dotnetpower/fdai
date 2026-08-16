@@ -302,9 +302,17 @@ def _resolve_incident_reference(
     utterance: str,
     context: tuple[str, ...],
 ) -> tuple[SemanticFrameProposal, SemanticProblemFrame]:
-    """The binding names the incident, so never ask the operator which one it is."""
+    """The binding names the incident, so never ask the operator which one it is.
+
+    Only a turn that will read the anchored incident is answered by the binding.
+    Clearing the question on any other shape would let a proposed plan read a
+    different incident behind a question the operator never got to answer.
+    """
     requirements = proposal.clarification_requirements
-    if requirements != (ClarificationRequirement.INCIDENT_REFERENCE,):
+    if (
+        requirements != (ClarificationRequirement.INCIDENT_REFERENCE,)
+        or frame.output_shape != SemanticOutputShape.INCIDENT_EVIDENCE
+    ):
         return proposal, frame
     resolved = proposal.model_copy(
         update={

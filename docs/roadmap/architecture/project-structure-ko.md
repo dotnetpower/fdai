@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 414935e015fd26f4931147be713c30ca75ae392a
+translation_source_sha: 18dcc69578ca5adb4843b60a8787d85ba6fe1713
 translation_revised: 2026-08-16
 ---
 # 프로젝트 구조
@@ -52,6 +52,7 @@ translation_revised: 2026-08-16
 | 2026-08-16 | 구현됨 | 비평 후 고정된 인시던트 읽기를 강화했습니다. 제안된 인시던트 읽기를 고정 신원으로 다시 쓰면 다른 인시던트에 대한 정당한 질문이 엉뚱한 인시던트 답변으로 바뀌므로 그 재작성을 제거하고 처리기의 정직한 보류를 남겼습니다. 읽기 범위는 관련 없는 turn 근거 참조 상한이 아니라 근거 역량 자체의 기록 상한을 씁니다. 답변과 Console 개요는 표시된 일부가 아니라 검증된 총계를 알리고 잘림을 명시합니다. 인시던트 신원은 정규 형식으로 비교하므로 16진수 대소문자 차이가 다른 인시던트로 읽히지 않습니다. | `current change`, `semantic_planning.py`, `incident_queries.py`, `semantic_turn_processor.py` 및 Operator 표현 계층, focused Core 검사 913개와 Operator 검사 310개 통과, 작업 범위 Ruff 및 strict mypy 통과, 두 가드 모두 mutation 검증 완료 | 통제된 인증 Console 근거를 보존합니다. |
 | 2026-08-16 | 구현됨 | Operator와 Console이 각각 소유하는 표현 경계를 가드로 고정하고, 변환 결과 충돌 카운터에 상한을 두었으며, 영속 release 오류에 객체 이름을 넣었습니다. Console은 해석할 수 없는 artifact를 조용히 버리므로 두 스위트 어느 쪽도 slot 드리프트를 볼 수 없었습니다. | `current change`, `test_presentation_console_contract.py`가 Console의 `SLOT_KINDS`, `MAX_BLOCKS`, `MAX_ITEMS`, `MAX_REFS`를 직접 읽어 두 언어의 모든 artifact를 검사, Operator 검사 318개와 persistence 검사 390개 통과, 알 수 없는 slot으로 바꾸면 가드가 실패함을 확인 | 이 행에 남은 작업은 없습니다. |
 | 2026-08-16 | 구현됨 | 인시던트 답변이 주장하는 기록 순서를 실제로 검사합니다. 답변은 projection의 뒷부분을 잘라 최신 기록이라고 말하는데 리더가 오래된 순으로 반환했는지 확인하는 곳이 없어, 순서가 바뀌면 그 주장이 조용히 거짓이 될 수 있었습니다. 기록 시각이 역행하는 근거는 이제 보류합니다. | `current change`, focused 처리기 검사 54개 통과, 라이브 인시던트 상관관계 2건이 해당 불변식 활성 상태에서 응답, 검사를 제거하면 새 사례가 실패 | 이 행에 남은 작업은 없습니다. |
+| 2026-08-16 | 구현됨 | 바인딩이 `incident_reference` 질문을 대신 해소하는 범위를 고정된 인시던트를 읽는 turn으로 좁혀, 다른 output shape의 제안 plan이 운영자가 보지 못한 질문 뒤에서 다른 인시던트를 읽을 수 없게 했습니다. | `current change`, focused 대화 검사 458개 통과, shape 조건을 제거하면 새 사례가 실패 | 이 행에 남은 작업은 없습니다. |
 
 ### 남은 작업
 - [ ] 호환성 import deprecation 주기 뒤 연기된 Phase 2 물리 `git mv`를 완료하고 이 배치를 결과 service-owned 경로로 갱신합니다.
