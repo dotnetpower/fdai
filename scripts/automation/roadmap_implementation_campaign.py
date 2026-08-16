@@ -395,10 +395,13 @@ Execution contract:
   each edit and commit only focused passing changes with task-owned pathspecs.
 - Central validation rejects the whole branch on gates the focused checks never run, and one
   rejected commit stops every later batch. Before each commit run
-  `python3 scripts/quality/localization/check-readable-hangul.py` and
-  `bash scripts/quality/repository/check-guids.sh`, and fix what they report. Write Korean and
-  Hangul character ranges as literal UTF-8, never as escaped code points, and never introduce a
-  concrete GUID.
+  `python3 scripts/quality/localization/check-readable-hangul.py`,
+  `bash scripts/quality/repository/check-guids.sh`, and
+  `python3 scripts/quality/architecture/check-design-doc-impact.py --cached`, and fix what they
+  report. Adding or moving a module under a routed surface requires updating an owning design
+  document in the same commit, so record the new module where that route says it belongs. Write
+  Korean and Hangul character ranges as literal UTF-8, never as escaped code points, and never
+  introduce a concrete GUID.
 - After all {BATCH_SIZE} implementations pass, perform at least {MIN_HARDENING_ROUNDS} explicit
   critique and hardening rounds over the complete batch. Fix every verified finding above Low,
   rerun its focused check, and continue beyond round {MIN_HARDENING_ROUNDS} until the highest
@@ -688,6 +691,18 @@ def run_cycle(
                     "pytest",
                     "tests/integration/scripts/test_service_test_suites.py",
                     "-q",
+                ],
+                repo_root=repo_root,
+                timeout=QUALITY_CHECK_TIMEOUT_SECONDS,
+            )
+            # A new module under a routed surface needs its owning design doc updated, and the
+            # diff-selected tests never run this gate. It only surfaces centrally, where it
+            # rejects the whole branch.
+            _run_check(
+                [
+                    "python3",
+                    "scripts/quality/architecture/check-design-doc-impact.py",
+                    f"{base}..HEAD",
                 ],
                 repo_root=repo_root,
                 timeout=QUALITY_CHECK_TIMEOUT_SECONDS,
