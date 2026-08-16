@@ -30,6 +30,18 @@ class SemanticPlanningDisposition(StrEnum):
     UNAVAILABLE = "unavailable"
 
 
+@dataclass(frozen=True, slots=True)
+class BoundIncident:
+    """Trusted incident identity carried by the conversation, never proposed by a model."""
+
+    incident_id: str
+    correlation_id: str
+
+    def __post_init__(self) -> None:
+        if not self.incident_id.strip() or not self.correlation_id.strip():
+            raise ValueError("bound incident identifiers MUST NOT be empty")
+
+
 class ClarificationRequirement(StrEnum):
     """Typed context category that a semantic frame still needs."""
 

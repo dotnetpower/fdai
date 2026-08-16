@@ -24,6 +24,7 @@ from fdai_service_contracts.ontology_query import (
     canonical_json,
     content_digest,
 )
+from fdai_service_contracts.semantic_turn import MAX_SEMANTIC_EVIDENCE_REFS
 from pydantic import ValidationError
 
 from fdai.core.ontology_platform import (
@@ -34,6 +35,7 @@ from fdai.core.ontology_platform import (
 from .intent_graph import build_intent_graph
 from .semantic_planning_cascade import ProposalRejectedError, SemanticPlanningCascade
 from .semantic_planning_models import (
+    BoundIncident,
     CompleteManifestSelector,
     QueryManifestProvider,
     QueryNodeProposal,
@@ -53,6 +55,7 @@ _MAX_DESCRIPTORS = 512
 _MAX_DESCRIPTOR_BYTES = 524_288
 _MAX_LOGGED_PLAN_NODES = 8
 _INCIDENT_REFERENCE_CLARIFICATION = "Which incident should I investigate?"
+_INCIDENT_EVIDENCE_FUNCTION = "query.incident_evidence"
 
 
 class SemanticPlanningService:
@@ -89,12 +92,13 @@ class SemanticPlanningService:
         prior_turns: Sequence[Turn],
         principal: Principal,
         purpose: str,
+        bound_incident: BoundIncident | None = None,
     ) -> SemanticPlanningOutcome:
         """Return a verified plan, one clarification, or a typed safe hold."""
 
         if not utterance.strip() or len(utterance) > 32_000:
             return _outcome(SemanticPlanningDisposition.UNSUPPORTED, "utterance_out_of_bounds")
-        if not prior_turns and "this incident" in utterance.casefold():
+        if bound_incident is None and not prior_turns and "this incident" in utterance.casefold():
             return _outcome(
                 SemanticPlanningDisposition.CLARIFICATION,
                 "semantic_clarification_required",
@@ -173,6 +177,11 @@ class SemanticPlanningService:
                     raise ValueError("semantic execution cutoff MUST be timezone-aware")
                 plan = _refresh_object_set_cutoffs(plan, execution_time=execution_time)
                 self._verifier.verify(plan, manifest=manifest)
+            if bound_incident is not None:
+                rebound = _rebind_incident_identity(plan, bound_incident=bound_incident)
+                if rebound is not plan:
+                    plan = rebound
+                    self._verifier.verify(plan, manifest=manifest)
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
             _LOGGER.info(
                 "semantic_planning_stage_completed",
@@ -342,6 +351,56 @@ def _refresh_object_set_cutoffs(
         else node
         for node in plan.nodes
     )
+    payload = {
+        **plan.model_dump(mode="json", exclude={"nodes", "plan_digest"}),
+        "nodes": [node.model_dump(mode="json") for node in nodes],
+    }
+    return OntologyQueryPlan.model_validate({**payload, "plan_digest": content_digest(payload)})
+
+
+def _rebind_incident_identity(
+    plan: OntologyQueryPlan,
+    *,
+    bound_incident: BoundIncident,
+) -> OntologyQueryPlan:
+    """Replace the proposed incident read with the conversation's trusted binding.
+
+    The planner only has the identifiers as prose in its context, so asking it to
+    retype them makes the read intermittently land on another incident. The window
+    is server-owned for the same reason: a model-chosen size can drop the records
+    that identify the incident, and it is sized to what one turn can carry as
+    evidence. The model still chooses the capability, and the verifier re-checks
+    the rewritten plan.
+    """
+    bound_arguments = {
+        "incident_id": bound_incident.incident_id,
+        "correlation_id": bound_incident.correlation_id,
+        "limit": MAX_SEMANTIC_EVIDENCE_REFS,
+    }
+    rebound = False
+    nodes: list[OntologyQueryNode] = []
+    for node in plan.nodes:
+        arguments = node.arguments
+        query_arguments = arguments.get("arguments") if isinstance(arguments, Mapping) else None
+        if (
+            arguments.get("function_name") != _INCIDENT_EVIDENCE_FUNCTION
+            or not isinstance(query_arguments, Mapping)
+            or all(query_arguments.get(key) == value for key, value in bound_arguments.items())
+        ):
+            nodes.append(node)
+            continue
+        nodes.append(
+            node.model_copy(
+                update={
+                    "arguments_json": canonical_json(
+                        {**arguments, "arguments": {**query_arguments, **bound_arguments}}
+                    )
+                }
+            )
+        )
+        rebound = True
+    if not rebound:
+        return plan
     payload = {
         **plan.model_dump(mode="json", exclude={"nodes", "plan_digest"}),
         "nodes": [node.model_dump(mode="json") for node in nodes],

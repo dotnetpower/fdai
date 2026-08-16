@@ -8,7 +8,10 @@ from typing import Any
 import pytest
 from fdai.composition.semantic_query_model_targets import t1_model_targets, t2_model_targets
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
-from fdai.core.conversation.semantic_planning_models import SemanticPlanningDisposition
+from fdai.core.conversation.semantic_planning_models import (
+    BoundIncident,
+    SemanticPlanningDisposition,
+)
 from fdai.core.conversation.semantic_runtime import SemanticConversationRuntime
 from fdai.core.conversation.session import Principal, Role
 from fdai.core.ontology_platform import (
@@ -29,6 +32,7 @@ from fdai.rule_catalog.schema.llm_resolver import (
 from fdai.shared.contracts.models import CeilingRole, OntologyObjectType, PropertyDecl, PropertyType
 from fdai.shared.ontology.release import build_ontology_release
 from fdai_service_contracts.ontology_query import QueryNodeKind
+from fdai_service_contracts.semantic_turn import MAX_SEMANTIC_EVIDENCE_REFS
 
 NOW = datetime(2026, 8, 14, tzinfo=UTC)
 DIGEST = "sha256:" + ("a" * 64)
@@ -334,6 +338,80 @@ def test_incident_function_cannot_satisfy_resource_frame() -> None:
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
     assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+
+
+def _incident_evidence_plan(*, incident_id: str, correlation_id: str) -> dict[str, object]:
+    plan = _function_plan("query.incident_evidence", output_kind="incident.evidence")
+    node = plan["nodes"][0]  # type: ignore[index]
+    node["arguments"]["arguments"] = {  # type: ignore[index]
+        "incident_id": incident_id,
+        "correlation_id": correlation_id,
+        "limit": 50,
+    }
+    return plan
+
+
+def _incident_service(plan: dict[str, object], manifest: Any) -> SemanticPlanningService:
+    return SemanticPlanningService(
+        model=_Model(frame=_frame(output_shape="incident_evidence"), plan=plan),
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+
+def _incident_arguments(outcome: Any) -> dict[str, Any]:
+    assert outcome.plan is not None
+    return dict(outcome.plan.nodes[0].arguments["arguments"])
+
+
+def test_planned_incident_identity_is_replaced_by_the_trusted_binding() -> None:
+    manifest, _ = _fixture()
+    service = _incident_service(
+        _incident_evidence_plan(
+            incident_id="00000000-0000-0000-0000-000000000701",
+            correlation_id="another-incident",
+        ),
+        manifest,
+    )
+
+    outcome = service.plan(
+        utterance="Report what the evidence for this incident establishes.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        bound_incident=BoundIncident(
+            incident_id="00000000-0000-0000-0000-000000000702",
+            correlation_id="bound-incident",
+        ),
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    arguments = _incident_arguments(outcome)
+    assert arguments["incident_id"] == "00000000-0000-0000-0000-000000000702"
+    assert arguments["correlation_id"] == "bound-incident"
+    assert arguments["limit"] == MAX_SEMANTIC_EVIDENCE_REFS
+
+
+def test_unbound_conversation_keeps_the_planned_incident_identity() -> None:
+    manifest, _ = _fixture()
+    service = _incident_service(
+        _incident_evidence_plan(
+            incident_id="00000000-0000-0000-0000-000000000701",
+            correlation_id="another-incident",
+        ),
+        manifest,
+    )
+
+    outcome = service.plan(
+        utterance="Report what the evidence for incident 1111 establishes.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert _incident_arguments(outcome)["correlation_id"] == "another-incident"
 
 
 def test_aggregation_frame_requires_aggregate_plan() -> None:
