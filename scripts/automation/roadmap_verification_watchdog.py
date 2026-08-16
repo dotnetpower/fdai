@@ -5,11 +5,13 @@ from __future__ import annotations
 
 import argparse
 import fcntl
+import hashlib
 import os
 import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import TextIO
+from urllib.parse import quote
 
 import roadmap_verification as queue
 import roadmap_verification_worker as worker
@@ -33,20 +35,45 @@ def _active_session_leases(repo_root: Path, idle_seconds: int) -> list[str]:
     return sorted(active)
 
 
-def _recent_copilot_activity(idle_seconds: int) -> list[str]:
+def _workspace_storage_directory(repo_root: Path, storage_root: Path) -> Path | None:
+    """Resolve the VS Code storage directory that belongs to ``repo_root``."""
+
     configured = os.environ.get("FDAI_VSCODE_WORKSPACE_STORAGE", "").strip()
-    storage = (
-        Path(configured).expanduser()
-        if configured
-        else Path.home() / ".vscode-server/data/User/workspaceStorage"
+    if configured:
+        return Path(configured).expanduser()
+
+    resolved = repo_root.resolve()
+    workspace_uris: list[str] = []
+    distro = os.environ.get("WSL_DISTRO_NAME", "").strip().lower()
+    if distro:
+        authority = quote(f"wsl+{distro}", safe="")
+        workspace_uris.append(f"vscode-remote://{authority}{resolved.as_posix()}")
+    workspace_uris.append(resolved.as_uri())
+    for workspace_uri in workspace_uris:
+        workspace_id = hashlib.md5(  # noqa: S324 - VS Code storage identity, not security
+            workspace_uri.encode("utf-8"),
+            usedforsecurity=False,
+        ).hexdigest()
+        candidate = storage_root / workspace_id
+        if candidate.is_dir():
+            return candidate
+    return None
+
+
+def _recent_copilot_activity(repo_root: Path, idle_seconds: int) -> list[str]:
+    storage = _workspace_storage_directory(
+        repo_root,
+        Path.home() / ".vscode-server/data/User/workspaceStorage",
     )
+    if storage is None:
+        return []
     if not storage.is_dir():
         return []
     cutoff = time.time() - idle_seconds
     active: set[str] = set()
     markers: tuple[tuple[str, Callable[[Path], str]], ...] = (
-        ("*/GitHub.copilot-chat/transcripts/*.jsonl", _transcript_session_id),
-        ("*/GitHub.copilot-chat/debug-logs/*/main.jsonl", _debug_session_id),
+        ("GitHub.copilot-chat/transcripts/*.jsonl", _transcript_session_id),
+        ("GitHub.copilot-chat/debug-logs/*/main.jsonl", _debug_session_id),
     )
     for pattern, session_id in markers:
         for path in storage.glob(pattern):
@@ -102,7 +129,7 @@ def run_cycle(
         return "held: another watchdog is active"
     with lock:
         leases = _active_session_leases(paths.repo_root, idle_seconds)
-        sessions = _recent_copilot_activity(idle_seconds)
+        sessions = _recent_copilot_activity(paths.repo_root, idle_seconds)
         active_sessions = _active_session_count(leases, sessions)
         if not force and active_sessions > max_active_sessions:
             reasons: list[str] = []
