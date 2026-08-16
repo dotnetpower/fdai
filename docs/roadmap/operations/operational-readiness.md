@@ -155,6 +155,24 @@ privilege; because RBAC changes carry a `resource_group` blast radius and
 proposes; a human approves; the executor applies. The console and ChatOps remain
 read-only surfaces.
 
+### Proposal contract
+
+The proposal builder is deterministic and holds these invariants:
+
+| Invariant | Behavior |
+|-----------|----------|
+| Grounded only | A proposal exists only when the finding's own cited control or rule maps to a remediation ActionType in the caller-supplied lever map. An unmapped finding produces no proposal; the ORR abstains rather than inventing a lever. |
+| Shadow only | Every proposal carries `shadow`, even when the ORR gate itself runs in `enforce`. The review cannot raise an ActionType above its own promotion state. |
+| Distinct approver | The handoff submitter cannot approve their own remediation. A self-approval attempt is denied and audited before any proposal is built. |
+| No executor identity | A proposal records the submitter and approver as accountability facts only. It carries no credential, token, or executor principal. |
+| Deterministic identity | The same scope, environment, cited evidence, resource, and ActionType always derive the same idempotency key, so a redelivered proposal is a downstream no-op. |
+
+Delivery is two-phase audited: the service records the proposal intent with the
+approver identity, publishes each proposal through the `RemediationProposalPublisher`
+seam, then records delivery. A publisher failure records the failed delivery with
+the delivered count and propagates; it never reports a silent success and never
+falls back to a direct call.
+
 ## Environment promotion
 
 The ORR is the enforcement point for environment promotion (dev -> staging ->
@@ -182,7 +200,8 @@ adds a thin coordinator plus one normalized signal.
 | ORR coordinator | compose posture, preflight, and checklist results, apply the environment gate, set `blocks_handoff` |
 | `composition/readiness.py` | run posture, preflight, and optional checklist evidence concurrently, audit success/failure, and publish the serialized report |
 | `composition/readiness_evidence.py` | project ARB artifacts, evidence expiry, and owner bindings into typed outcomes |
-| delivery intent | a fork binds `ReadinessReportPublisher` to a Checks API annotation / console `ReadPanel` |
+| `core/readiness/remediation` | derive deterministic, grounded, shadow-only remediation proposals and reject self-approval |
+| delivery intent | a fork binds `ReadinessReportPublisher` to a Checks API annotation / console `ReadPanel`, and `RemediationProposalPublisher` to the `risk-gate -> executor` ingress |
 
 The coordinator imports only `shared/` contracts and providers, like every other
 core subsystem ([project-structure.md](../architecture/project-structure.md#module-boundaries)).
@@ -202,13 +221,15 @@ yet compose those pieces into the running control plane, so the current evidence
 | Concurrent posture, preflight, and checklist orchestration with append-only audit and report delivery | implemented | [`composition/readiness.py`](../../../services/core-control-plane/src/fdai/composition/readiness.py), [`test_readiness_service.py`](../../../services/core-control-plane/tests/composition/test_readiness_service.py), and [`test_readiness_checklist_service.py`](../../../services/core-control-plane/tests/composition/test_readiness_checklist_service.py) | The service uses injected providers. Assessment and delivery failures are audited and propagated. |
 | Architecture Review Board (ARB) artifact, owner, freshness, and expiry projection into checklist outcomes | implemented | [`composition/readiness_evidence.py`](../../../services/core-control-plane/src/fdai/composition/readiness_evidence.py) and [`test_readiness_evidence.py`](../../../services/core-control-plane/tests/composition/test_readiness_evidence.py) | Missing bindings remain `unknown`, and expired evidence becomes `failed`; neither is treated as a pass. |
 | Automatic `ownership_transfer` ingest and production posture, checklist, and report-publisher bindings | not-started | Provider seams in [`shared/providers/readiness.py`](../../../services/core-control-plane/src/fdai/shared/providers/readiness.py) and the injected service above | The current runtime and bootstrap don't construct or register `OperationalReadinessService`; callers can only invoke it through their own composition. |
-| Remediation proposal, distinct Var approval, and governed action bridge | not-started | Current [`OwnershipTransfer`](../../../services/core-control-plane/src/fdai/core/readiness/signal.py) and [`OperationalReadinessService`](../../../services/core-control-plane/src/fdai/composition/readiness.py) contracts | Neither contract carries an approval decision or approver identity, and the service doesn't emit a remediation proposal or action event. |
+| Grounded shadow remediation proposal, distinct-approver boundary, and two-phase delivery audit | implemented | [`core/readiness/remediation.py`](../../../services/core-control-plane/src/fdai/core/readiness/remediation.py), [`composition/readiness.py`](../../../services/core-control-plane/src/fdai/composition/readiness.py), [`test_remediation.py`](../../../services/core-control-plane/tests/core/readiness/test_remediation.py), and [`test_readiness_remediation_service.py`](../../../services/core-control-plane/tests/composition/test_readiness_remediation_service.py) | Proposals stay shadow, cite a mapped lever or abstain, record approver identity, block self-approval, and never reach an executor. |
+| `RemediationProposalPublisher` binding to the risk-gate and executor ingress | not-started | Provider seam in [`shared/providers/readiness.py`](../../../services/core-control-plane/src/fdai/shared/providers/readiness.py) | No composition root binds the seam, so no proposal reaches a live risk gate yet. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted the implementation ledger; earlier provenance wasn't reconstructed. Recorded the implemented deterministic and orchestration surfaces separately from the unbound runtime workflow. | Current change; `48 passed` from the five focused core and composition test files cited above. | Bind the event, providers, publisher, approval, and remediation path, then collect governed runtime evidence. |
+| 2026-08-16 | in-progress | Added the deterministic remediation-proposal builder, the `RemediationProposalPublisher` seam, and the `propose_remediations` bridge that records approver identity, blocks self-approval, keeps proposals shadow, and two-phase audits delivery. | Current change; `86 passed` from `uv run pytest -q --no-cov services/core-control-plane/tests/core/readiness/ services/core-control-plane/tests/composition/test_readiness_remediation_service.py services/core-control-plane/tests/composition/test_readiness_service.py services/core-control-plane/tests/composition/test_readiness_checklist_service.py`. | Bind the proposal publisher to the risk-gate ingress, register `ownership_transfer` at event ingest, and collect a governed runtime receipt. |
 
 ### Remaining work
 
@@ -216,9 +237,14 @@ yet compose those pieces into the running control plane, so the current evidence
   accountable event-driven workflow, and add an integration test that proves replay-safe delivery.
 - [ ] Bind production posture, checklist evidence, and report-publisher implementations at the
   composition root, then record a governed runtime receipt for one complete shadow review.
-- [ ] Emit grounded remediation proposals through the risk gate and Var approval flow, and add
+- [x] Emit grounded, shadow-only remediation proposals with a distinct-approver boundary, and add
   tests proving approver identity is recorded, self-approval is blocked, and the review service
-  never executes a managed-resource change.
+  never executes a managed-resource change
+  ([`test_remediation.py`](../../../services/core-control-plane/tests/core/readiness/test_remediation.py),
+  [`test_readiness_remediation_service.py`](../../../services/core-control-plane/tests/composition/test_readiness_remediation_service.py)).
+- [ ] Bind `RemediationProposalPublisher` to the risk-gate ingress at the composition root and
+  record one governed receipt showing a proposal reaching the Var approval flow without the
+  review service holding an executor identity.
 - [ ] Keep enforcement disabled until frozen-scenario shadow evidence meets the configured
   false-positive threshold and the authoritative promotion registry records the transition.
 
@@ -228,16 +254,18 @@ yet compose those pieces into the running control plane, so the current evidence
   read-only; the only path to a mutation is a proposal that enters
   `risk-gate -> executor`, with the seven safeguards (stop-condition, rollback, blast-radius
   limit, dry-run, resource lock, idempotency, audit entry) enforced there.
-- **Approval and execution stay distinct**: The target workflow has a distinct principal approve a
-  submitter's handoff and prevents self-approval. Current `OwnershipTransfer` and
-  `OperationalReadinessService` don't receive an approval decision or approver identity, so Var
-  approval isn't wired yet.
+- **Approval and execution stay distinct**: `HandoffApproval` carries a distinct principal's
+  decision, and `OperationalReadinessService.propose_remediations` denies and audits a
+  self-approval attempt before building any proposal. The proposal publisher is not yet bound to
+  the live risk gate, so the end-to-end Var approval flow remains open.
 - **Fail closed**: a stale twin (inventory freshness beyond `freshness_ttl`)
   refuses to certify a handoff rather than certify on stale state; an
   ungroundable finding abstains; an unproven review stays shadow.
 - **Audited**: The current service records the ORR verdict, `blocks_handoff`, submitter, target
   scope, environment, and delivery/assessment failures in append-only state-store audit entries.
-  Approver identity and Saga agent attribution must be added with the future approval workflow.
+  Remediation entries additionally record the approver identity, the shadow mode, the proposal
+  count, and the delivered count on failure. Saga agent attribution must be added with the future
+  event-driven approval workflow.
 
 ## Next steps
 
