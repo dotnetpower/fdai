@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI 최소 Azure 인벤토리를 프로비저닝하는 방법. azd 턴키와 Terraform 직접 실행 두 경로 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 85dbb0d96271d56b7864ab4a5db16ec838ea674d
+translation_source_sha: ac44f23815da3470ab6af82ad894ca79d5d22cdb
 translation_revised: 2026-08-17
 ---
 
@@ -129,8 +129,9 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
    - **Analyzer tick**: `FDAI_INVENTORY_DSN`이 설정되면 Job이 명시적 대상과 영속 인벤토리
      projection에서 지원되는 리소스만 병합하고 구성된 발견 상한을 보고합니다. 지원하지 않는
      리소스 타입은 제외하며, 완전히 해석된 대상 집합이 비어 있으면 정상 no-op으로 종료합니다.
-     `FDAI_TRACE_TOPOLOGIES_JSON`을 설정하면 같은 Job과 읽기 신원이 범위가 제한된 작업 영역 기반
-     Application Insights 근거를 조회합니다. 완전한 추적은 발견된 문제를 보고하지 않고, 누락되거나
+    보호된 배포에서는 `TRACE_TOPOLOGIES_JSON` repository variable을 설정합니다. Workflow가 이를
+    Job의 `FDAI_TRACE_TOPOLOGIES_JSON`으로 전달합니다. 같은 Job과 읽기 신원이 범위가 제한된 작업 영역
+    기반 Application Insights 근거를 조회합니다. 완전한 추적은 발견된 문제를 보고하지 않고, 누락되거나
      분리된 hop은 관찰 모드로 하나를 보고합니다. 빈 값은 연속성 검사만 비활성화합니다.
    - **OHL scale-out 근거**: 활성화한 경우 수동 proposal Job을 시작하고, 설정된 캠페인과
      개시자가 포함된 shadow 제안 하나만 정상 수신 경로에 도달하는지 확인합니다. 이 자격
