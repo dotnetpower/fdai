@@ -202,6 +202,7 @@ def _incident_profile_items(profile: Mapping[str, object], *, korean: bool) -> l
 def _incident_timeline_block(
     correlated: list[object],
     *,
+    verified_records: int,
     bounded_refs: list[str],
     korean: bool,
 ) -> JsonObject | None:
@@ -227,10 +228,11 @@ def _incident_timeline_block(
         )
     if not rows:
         return None
-    shown, carried = len(rows), len(correlated)
+    # `correlated` is already capped upstream, so only the verified count states the whole.
+    shown, total = len(rows), max(verified_records, len(correlated))
     title = "기록된 활동" if korean else "Recorded activity"
-    if carried > shown:
-        title += f" (최근 {shown}/{carried}건)" if korean else f" (latest {shown} of {carried})"
+    if total > shown:
+        title += f" (최근 {shown}/{total}건)" if korean else f" (latest {shown} of {total})"
     return cast(
         JsonObject,
         {
@@ -336,6 +338,7 @@ def semantic_presentation_artifact(
         ]
         timeline_block = _incident_timeline_block(
             correlated,
+            verified_records=verified_records,
             bounded_refs=bounded_refs,
             korean=korean,
         )
