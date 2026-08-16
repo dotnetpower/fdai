@@ -397,7 +397,9 @@ def test_unreceipted_campaign_head_is_registered_before_holding(
     monkeypatch.setattr(module.watchdog, "_recent_copilot_activity", lambda *a, **k: [])
     monkeypatch.setattr(module.watchdog, "_active_session_count", lambda *a, **k: 0)
     synced: list[Path] = []
+    landed: list[Path] = []
     monkeypatch.setattr(module, "_sync_campaign_base", lambda root: synced.append(root))
+    monkeypatch.setattr(module, "_land_validated_batch", lambda root: landed.append(root))
     monkeypatch.setattr(module, "_validation_receipt_exists", lambda *_a, **_k: False)
 
     def fake_git(*args: str, **_kwargs: object) -> str:
@@ -426,6 +428,11 @@ def test_unreceipted_campaign_head_is_registered_before_holding(
     # Absorbing main first mints a new merge commit on every held run, so the head would
     # outrun validation for as long as any other session keeps committing.
     assert synced == []
+    # Landing must still run. It only merges commits that already hold a receipt, so an
+    # unvalidated tip says nothing about the validated work beneath it. Holding it back
+    # here deadlocked the lane: the hold returned early and finished work never reached
+    # main however long it waited.
+    assert landed == [repo]
 
 
 def test_landing_requires_a_receipt_and_leaves_live_edits_alone(

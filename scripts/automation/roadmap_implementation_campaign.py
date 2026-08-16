@@ -551,6 +551,14 @@ def run_cycle(
         branch = _git("branch", "--show-current", cwd=repo_root)
         if not branch.startswith("roadmap-implementation/"):
             return "held: campaign branch is not isolated"
+        # Hand finished work over before deciding whether to produce more. Landing only ever
+        # merges a commit that already holds a receipt, so it is safe while the tip is still
+        # being validated, and putting it after the hold below deadlocked the branch: the
+        # hold returned early, landing never ran, and the validated commits underneath the
+        # tip could never reach main no matter how long the lane waited.
+        landed = _land_validated_batch(repo_root)
+        if landed is not None:
+            print(f"roadmap-implementation campaign {landed}")
         # Settle the receipt before touching the branch. Absorbing main first mints a new
         # merge commit on every held run, and main moves whenever another session commits,
         # so the head would outrun validation forever instead of waiting once for it.
@@ -561,9 +569,6 @@ def run_cycle(
         ):
             _register_committed_work(repo_root, "main")
             return "held: previous campaign head is awaiting central validation"
-        landed = _land_validated_batch(repo_root)
-        if landed is not None:
-            print(f"roadmap-implementation campaign {landed}")
         relation = _sync_campaign_base(repo_root)
         if relation == "sync-failed":
             return "held: campaign branch could not absorb main; resolve the conflict by hand"
