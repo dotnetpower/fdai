@@ -515,7 +515,11 @@ def _build_outcome(
         target_agent = None
     elif receipt.status in {ReconciliationStatus.MISMATCHED, ReconciliationStatus.TIMED_OUT}:
         next_step = ReconciliationNextStep.REQUEST_VIDAR_RECOVERY
-        reason_code = f"effects_{receipt.status.value}"
+        reason_code = (
+            _timeout_reason_code(request)
+            if receipt.status is ReconciliationStatus.TIMED_OUT
+            else "effects_mismatched"
+        )
         target_agent = "vidar"
     else:
         next_step = ReconciliationNextStep.HOLD_UNSCORABLE
@@ -546,11 +550,33 @@ def _build_outcome(
         observation_context_digest=observation_context_digest,
         verification_receipt_digest=verification_receipt_digest,
         observation_context=observation_context,
+        observer_identity_record=observation_context.identity_record(),
         request=request,
         receipt=receipt,
         recommendation=recommendation,
         terminal=receipt.status is not ReconciliationStatus.UNSCORABLE,
     )
+
+
+def _timeout_reason_code(request: EffectReconciliationRequest) -> str:
+    """Classify why a timed-out episode closed, without changing its recovery routing.
+
+    The classification uses only already-validated envelope fields and follows the
+    documented evidence order (incomplete, synthetic, conflicting, stale). An episode whose
+    evidence is complete, authentic, and fresh timed out because the evaluation itself
+    crossed the deadline, which is a different operational defect from missing evidence.
+    """
+
+    evidence = request.evidence
+    if not evidence.complete:
+        return "timed_out_evidence_incomplete"
+    if evidence.synthetic:
+        return "timed_out_evidence_synthetic"
+    if evidence.conflicts:
+        return "timed_out_evidence_conflicted"
+    if evidence.fresh_until < request.evaluated_at:
+        return "timed_out_evidence_stale"
+    return "timed_out_evaluation_late"
 
 
 __all__ = [

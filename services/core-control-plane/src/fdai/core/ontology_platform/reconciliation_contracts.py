@@ -23,6 +23,7 @@ from fdai.shared.providers.ontology_instance import (
 )
 
 from .kinetics import MutationPlan, ReconciliationReceipt
+from .reconciliation_identity import ObserverIdentityRecord
 
 _DIGEST_PATTERN = r"^sha256:[a-f0-9]{64}$"
 _IDENTITY_PATTERN = r"^reconciliation:[a-f0-9]{64}$"
@@ -276,6 +277,28 @@ class AuthenticatedObservationContext(ContractBase):
 
         return reconciliation_content_digest(self.model_dump(mode="json"))
 
+    def identity_record(self) -> ObserverIdentityRecord:
+        """Project the attribution record retained with the reconciliation outcome.
+
+        The record carries correlation-safe identity handles and the derived role-separation
+        findings instead of raw principals, and grants no observation authority.
+        """
+
+        receipt = self.verification_receipt
+        return ObserverIdentityRecord.from_identities(
+            source_authority=self.source_authority.value,
+            observer_identity=self.observer_identity,
+            observer_credential_lineage=self.observer_credential_lineage,
+            executor_identity=self.executor_identity,
+            executor_credential_lineage=self.executor_credential_lineage,
+            source_identity=self.source_identity,
+            source_credential_lineage=self.source_credential_lineage,
+            verifier_identity=receipt.verifier_identity,
+            verifier_credential_lineage=receipt.verifier_credential_lineage,
+            signature_algorithm=receipt.signature_algorithm,
+            verified_at=receipt.verified_at,
+        )
+
 
 class EffectReconciliationRequest(ContractBase):
     """Replay-stable command input for one terminal reconciliation decision."""
@@ -426,7 +449,7 @@ class ReconciliationRecommendation(ContractBase):
 class ReconciliationOutcome(ContractBase):
     """Immutable coordinator output containing no execution or publication side effect."""
 
-    schema_version: SemVer = "1.0.0"
+    schema_version: SemVer = "1.1.0"
     reconciliation_id: Annotated[str, Field(pattern=_IDENTITY_PATTERN)]
     observation_attempt_id: Annotated[str, Field(pattern=_ATTEMPT_PATTERN)]
     correlation_id: Annotated[str, Field(min_length=1, max_length=512)]
@@ -435,6 +458,7 @@ class ReconciliationOutcome(ContractBase):
     observation_context_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
     verification_receipt_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
     observation_context: AuthenticatedObservationContext
+    observer_identity_record: ObserverIdentityRecord
     request: EffectReconciliationRequest
     receipt: ReconciliationReceipt
     recommendation: ReconciliationRecommendation
@@ -442,6 +466,8 @@ class ReconciliationOutcome(ContractBase):
 
     @model_validator(mode="after")
     def _output_is_bound(self) -> ReconciliationOutcome:
+        if self.observer_identity_record != self.observation_context.identity_record():
+            raise ValueError("reconciliation observer identity record does not match its context")
         if self.receipt_digest != reconciliation_content_digest(
             self.receipt.model_dump(mode="json")
         ):
@@ -562,6 +588,7 @@ __all__ = [
     "EffectReconciliationRequest",
     "ObservedEffectRecord",
     "ObservationVerificationReceipt",
+    "ObserverIdentityRecord",
     "ReconciliationNextStep",
     "ReconciliationOutcome",
     "ReconciliationRecommendation",
