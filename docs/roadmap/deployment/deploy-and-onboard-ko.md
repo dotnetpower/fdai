@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 45ce138c1a36e8400f9475614ecfd7653f1935c2
-translation_revised: 2026-08-16
+translation_source_sha: 31f120a7ebad68fd14696586acc73326123e7fea
+translation_revised: 2026-08-17
 ---
 
 # 배포와 온보딩(Deploy and Onboard)
@@ -39,6 +39,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 | OHL production evidence campaign | in-progress | `config/ohl-scale-out-evidence.json` 및 `docs/runbooks/ohl-scale-out-evidence-ko.md` | Runtime rollout, 통제된 실행, sample 100개 및 14일 recurrence window가 남아 있습니다. |
 | 로컬 파괴적 검증 격리 | implemented | `infra/local/docker-compose.yml`, 로컬 준비 스크립트 및 focused migration test | 런타임은 port `5432`의 로컬 PostgreSQL을 사용하고 파괴적 검증은 port `5433`의 별도 로컬 cluster와 volume을 사용합니다. Azure 배포 리소스는 추가하지 않습니다. |
 | 인벤토리 기반 analyzer Job 대상 | implemented | `analyzer_tick_cli.py`, `analyzer_targets.py`, `analyzer_tick_job.tf`, focused analyzer 및 infrastructure 테스트 | Job은 구성된 상한 안에서 명시적 대상과 영속 인벤토리 projection의 지원 리소스를 병합합니다. 인벤토리 DSN이 없으면 명시적 대상 전용 경로를 유지하며, 두 출처 모두 대상이 없으면 정상 no-op으로 종료합니다. |
+| Analyzer Job 추적 토폴로지 바인딩 | implemented | `trace_continuity.py`, `analyzer_tick_cli.py`, `analyzer_tick_job.tf`, `test_detection_readiness.py`, 집중 추적 검사 | 선택적 배포 제공 토폴로지 선언은 기존 Job, 읽기 신원, Log Analytics 작업 영역, Event Bus를 재사용합니다. 구성이 비어 있으면 현재 analyzer 전용 경로를 유지하고 Azure 리소스를 추가하지 않습니다. |
 
 ### 구현 이력
 
@@ -50,12 +51,14 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 | 2026-08-16 | implemented | 아무것도 보고하지 않던 배포 대기를 제한했습니다. Container App health 폴링은 반복마다 한 줄을 출력하고 만료된 900초 deadline을 수렴처럼 통과시키는 대신 명시적으로 실패하며, 재시도하는 모든 워크플로 다운로드가 누적 `--retry-max-time` window를 선언해 재시도 횟수 곱하기 요청당 상한이 유일한 경계가 되지 않습니다. | 현재 변경, 집중 배포 워크플로 및 게이트 parity 테스트 71개 통과, health 스크립트의 `bash -n`입니다. | 이 경계에 남은 작업은 없으며 아래 platform 적용 증적 항목은 그대로입니다. |
 | 2026-08-16 | implemented | 6시간 러너 기본값만 있던 보호 배포 job 두 개에 예산을 선언했습니다. 그동안 단일 self-hosted 배포 러너를 붙잡았기 때문입니다. Platform Terraform job은 180분, 서비스 배포 job은 120분으로 제한하고, health 검증기는 자체 deadline 뒤에 실행하던 복구 검증과 readiness 경로 단계를 제한합니다. | 현재 변경, 배포 워크플로 집중 테스트 24개 통과, health 스크립트의 `bash -n`, 두 워크플로 문서의 YAML 파싱입니다. | 이 예산에 남은 작업은 없으며 아래 platform 적용 증적 항목은 그대로입니다. |
 | 2026-08-16 | implemented | Analyzer Job을 영속 인벤토리 projection과 검토된 리소스 타입 5개 analyzer 매핑에 연결했습니다. Tick은 명시적 대상과 발견된 대상을 결정론적으로 병합하고, 구성된 발견 상한을 적용하며, 지원하지 않는 타입을 제외하고, projection 읽기 실패 시 coverage를 조용히 줄이지 않고 재시도합니다. | `current change`, `analyzer_tick_cli.py`, `analyzer_targets.py`, `analyzer_tick_job.tf`, focused analyzer 테스트 및 `test_detection_readiness.py` | 이 범위를 `validated`로 올리기 전에 protected 적용 및 scheduled-run 증적 하나를 보존합니다. |
+| 2026-08-17 | implemented | 서비스, 신원, 작업 영역 또는 scheduler 리소스를 추가하지 않고 기존 analyzer Job에 선택적 분산 추적 토폴로지 평가를 추가했습니다. | `current change`; 집중 동작 및 HIL 검사 55개 통과, Terraform format, validate 및 infrastructure 계약 검사 통과. | 이 범위를 `validated`로 올리기 전에 protected exact-revision 적용과 예약된 `preserve`, `regenerate`, `drop` 증적을 보존합니다. |
 
 ### 남은 작업
 
 - [ ] Exact protected 계획, source revision, target identity 및 post-apply 검증을 결합하는 리포지토리에 안전한 통제된 platform 적용 증적을 보존한 뒤 platform exact 적용 범위를 `validated`로 전환합니다.
 - [ ] OHL target과 exact-revision Core 및 Executor image의 protected 적용 증적을 기록하고 배포된 revision이 같은 source commit으로 해석되는지 검증합니다.
 - [ ] 통제된 `ops.scale-out` 훈련을 완료하고 독립 rollback, cleanup, graph outcome, sample 100개 및 14일 recurrence evidence를 보존합니다.
+- [ ] Analyzer Job 추적 토폴로지 바인딩의 리포지토리에 안전한 protected 적용 및 예약 실행 증적을 보존합니다. Exact revision, source 신원, 범위가 제한된 Log Analytics 읽기, 발견 사항 게시, 리소스를 추가하지 않는 계획 근거를 포함합니다.
 
 ## 전제조건(Prerequisites)
 
@@ -569,6 +572,7 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `FDAI_INVENTORY_MANAGEMENT_ENDPOINT` / `FDAI_INVENTORY_MANAGEMENT_AUDIENCE` | env | 배포 | 검증된 HTTPS ARM 루트 및 OIDC 대상 쌍. 승인된 sovereign-cloud 또는 검증된 Resource 관리 Private Link 경로에서는 둘 다 재정의합니다. |
 | `FDAI_INVENTORY_FRESHNESS_SECONDS` | env | 업스트림 | 활성 스냅샷이 stale 상태가 되고 그래프 기반 자율성을 사람 검토로 낮추기 전의 최대 age입니다. 기본값은 `86400`입니다. |
 | `FDAI_ANALYZER_TARGETS` / `FDAI_ANALYZER_WINDOW_SECONDS` / `FDAI_ANALYZER_MAX_DISCOVERED_TARGETS` | env | 배포 / 업스트림 | 명시적 analyzer 대상, metric window 및 인벤토리 발견 상한입니다. 명시적 대상과 지원되는 인벤토리 대상을 결정론적으로 병합합니다. 잘못된 값이나 읽을 수 없는 구성된 projection은 차단되고, 완전히 해석된 대상 집합이 비어 있을 때만 정상 no-op입니다. |
+| `FDAI_TRACE_TOPOLOGIES_JSON` | env | 배포 | 작업 영역 기반 Application Insights 연속성 검사용 선택적이고 범위가 제한된 `topology_ref`, `resource_ref`, 순서가 있는 `expected_hops` 선언입니다. 값이 비어 있으면 이 검사만 비활성화하고 metric analyzer는 유지합니다. |
 | `KAFKA_TOPIC_EVENTS` | env | 배포 | 주 이벤트 ingest 토픽 |
 | `KAFKA_TOPIC_DLQ_SUFFIX` | env | 배포 | dead-letter 접미사 (기본 `.dlq`) |
 | `FDAI_EXECUTOR_COMMAND_TOPIC` / `FDAI_EXECUTOR_RECEIPT_TOPIC` | env | 업스트림 / 배포 | Isolated 실행기 명령 및 versioned 최종 증적 토픽입니다. 기본값은 `object.executor-command`, `object.executor-receipt`이며 서로 달라야 합니다. |

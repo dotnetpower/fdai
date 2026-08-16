@@ -1,8 +1,8 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: f2a01358da95512c68123d71a8e4c8042fac21c8
-translation_revised: 2026-08-16
+translation_source_sha: b26c041d9b3ab574ac26e578b36479fcc6745deb
+translation_revised: 2026-08-17
 ---
 
 # 관측성과 감지(Observability and Detection)
@@ -254,6 +254,38 @@ cross-format 동등성이 성립하지 않습니다.
 모든 recipe를 억제합니다. 따라서 원격측정 장애를 워크로드 장애로 오인하지
 않습니다. Stale recipe는 stale 임계값의 두 배까지 범위가 제한된 조회 구간을
 확장합니다. 이 범위에도 last-seen 샘플이 없으면 값을 추론하지 않고 보류합니다.
+
+### 분산 추적 연속성
+
+예약된 분석기는 배포에서 구성한 분산 추적 토폴로지 하나를 인벤토리 Resource로
+취급하지 않고 평가할 수도 있습니다. 토폴로지 대상은 안정된 일반 참조와 순서가
+있는 기대 hop 이름 집합을 선언합니다. Azure 전달 어댑터는 범위가 제한된 작업
+영역 기반 Application Insights 행을 읽고 시나리오 신원, 추적 신원, hop 이름,
+관측 시각, 변경 불가능한 근거 참조만 정규화합니다. 배포 값과 조회 자격 증명은
+리포지토리 밖에 유지합니다.
+
+감지기는 완료된 각 시나리오 실행을 기대 토폴로지와 비교합니다.
+
+- **연속 상태**: 추적 신원 하나가 모든 기대 hop을 순서대로 포함합니다. 실행은
+  정상 관측 근거를 기록하고 발견 사항을 발행하지 않습니다.
+- **컨텍스트 재생성**: 모든 기대 hop이 관측되었지만 추적 신원 하나로 전체
+  토폴로지를 포괄하지 못합니다. 발견 사항은 분리된 추적 조각과 정확한 hop
+  경계를 기록합니다.
+- **컨텍스트 소실**: 전체 실행에서 하나 이상의 기대 hop이 없습니다. 발견 사항은
+  어떤 구성 요소가 컨텍스트를 제거했다고 추측하지 않고 누락된 hop을 기록합니다.
+- **알 수 없음**: 소스를 사용할 수 없거나, 결과가 잘렸거나, 보존 범위를
+  벗어났거나, 완료된 실행이 없습니다. 틱은 정상 결과나 발견 사항을 만들지 않고
+  보류하므로 원격측정 누락이 워크로드 장애의 증거가 되지 않습니다.
+
+각 불연속 감지기는 shadow 모드로 시작하고 토폴로지, 시나리오, 관측 구간마다
+안전하게 재시도할 수 있는(idempotent) Event 하나를 발행합니다. Event는 시나리오
+상관관계 키와 범위가 제한된 변경 불가능한 근거 참조를 포함하고
+`event-ingest`로 재진입합니다. 따라서 반복되는 high 심각도 발견 사항은 Heimdall의
+기존 임계값과 수명 주기 검사를 통해 중복 제거된 인시던트 하나를 열 수 있습니다.
+근본원인 분석은 인용된 원격측정이 해당 구분을 뒷받침할 때만 관측된 경계와 계측,
+수집기, 헤더 전파 후보 원인을 구분할 수 있습니다. 감지기 자체는 서비스를
+재시작하거나 게이트웨이 정책을 변경하지 않습니다. 제안된 복구 작업에는 일반
+안전성 검토, 필요한 사람 승인, 7개 안전조건, 독립적인 효과 검증이 계속 적용됩니다.
 
 ## 3. 예측 / 예보(Predictive / Forecasting)
 
@@ -574,6 +606,7 @@ Core 런타임에는 job-start 권한을 부여하지 않습니다.
 | 실시간 구성 관측 | not-started | `services/core-control-plane/src/fdai/delivery/configuration_drift.py`는 `JsonFileConfigurationObservationSource`만 제공하며 `delivery/azure/` 아래에는 어댑터가 없습니다 | `ConfigurationObservationSource` 이음매는 정의되어 있고 합성에서 바인딩되지만, `bind_configuration_drift`는 테스트에서만 호출되며 런타임 부트스트랩은 호출하지 않습니다. 어댑터가 생기기 전까지 표류는 실시간 Azure에 대한 현재 상태 질문에 답할 수 없습니다. |
 | 예약된 분석기 전달 | implemented | `services/core-control-plane/src/fdai/delivery/analyzer_tick.py`; `analyzer_tick_cli.py`; `infra/modules/compute/container-apps/analyzer_tick_job.tf`; `services/core-control-plane/tests/delivery/test_analyzer_tick.py` | 구성된 진입점이 존재하며 발견 건마다 창 키를 가진 정본 Event 하나를 게시합니다. 게시 실패는 보고되고 0이 아닌 종료 코드로 작업이 재시도됩니다. 배포 런타임 근거는 아직 남아 있습니다. |
 | 인벤토리 기반 대상 해석 | implemented | `services/core-control-plane/src/fdai/delivery/analyzer_targets.py`; `services/core-control-plane/src/fdai/core/investigation/analyzers.py`; `services/core-control-plane/tests/delivery/test_analyzer_targets.py`; `tests/integration/infra/test_detection_readiness.py` | 한 번의 tick이 구성된 대상과 영속 인벤토리 projection의 적격 `Resource`를 함께 분석합니다. 매핑되지 않은 유형, 사용할 수 없거나 stale한 관측 상태 사실, projection 읽기 실패는 모두 실패 시 차단됩니다. 배포 런타임 근거는 아직 남아 있습니다. |
+| 분산 추적 연속성 | implemented | `core/detection/trace_continuity.py`; `delivery/azure/trace_continuity.py`; `delivery/trace_continuity_tick.py`; 분석기 Job 바인딩; 집중 감지기, 소스, 틱, 인시던트, HIL, Terraform 검사(`55 passed`) | 결정론적 평가, 엄격하고 범위가 제한된 Azure 정규화, shadow Event 발행, 반복 발견의 인시던트 생성이 구현되어 있습니다. 실시간 Azure 감지, 승인, 복구 근거는 이슈 #142에 남아 있습니다. |
 | 관리되는 운영 정확도 | in-progress | [런타임 전달 상태](#런타임-전달-상태); [열린 결정](#열림-decisions) | 런타임 정밀도, 재현율, 구간 포괄률, 선행 시간, 오탐 근거는 배포 작업으로 남아 있습니다. |
 
 ### 구현 이력
@@ -586,6 +619,8 @@ Core 런타임에는 job-start 권한을 부여하지 않습니다.
 | 2026-08-16 | not-applicable | 오래된 참조 둘을 다시 가리켰습니다. RCA 투영은 `services/operator-service/src/fdai_operator_service/rca_projection.py`로 이동했고, 공유 범주 목록은 `compliance`를 빼머고 `Category`가 `config_drift`를 쓰는 자리에 하이픈을 사용했습니다. | `current change`; `find services -name "rca_projection*.py"`; `services/core-control-plane/src/fdai/shared/contracts/models/enums.py`의 `Category`는 다섯 개 멤버를 가집니다. | 없음. 둘 다 이제 정확합니다. |
 | 2026-08-16 | implemented | 분석기 tick 대상을 구성된 목록에 더해 영속 인벤토리 projection에서도 해석했습니다. 검토된 중립 리소스 유형 맵이 분석기 종류를 선택하고, 구성된 대상이 우선하며, 발견된 대상은 상한과 결정론적 순서를 가지고, 매핑되지 않은 유형, 사용할 수 없거나 stale한 관측 상태 사실, projection 읽기 실패는 관측 범위를 조용히 좁히는 대신 실패 시 차단됩니다. | `current change`; `services/core-control-plane/src/fdai/delivery/analyzer_targets.py`; `pytest services/core-control-plane/tests/delivery/test_analyzer_targets.py services/core-control-plane/tests/delivery/test_analyzer_tick.py` (24 passed); 변경 파일에 strict mypy와 Ruff 통과. | 인벤토리에서 발견된 리소스가 실제 tick에 포함된다는 배포 런타임 근거를 기록합니다. |
 | 2026-08-16 | implemented | 검토 후 인벤토리 기반 해석을 강화했습니다. 발견 상한이 영속 저장소 자체 조회 한도보다 한 행 아래에서 멈추므로 문서화된 최댓값이 projection 읽기 안에서 예외를 일으킬 수 없고, `FDAI_ANALYZER_MAX_DISCOVERED_TARGETS`는 환경 키 이름과 함께 파싱 시점에 거부되며, 증거 기준 시각에 시간대가 없는 상태 사실은 예외 대신 사용할 수 없음으로 건너뛰고, 실제로 대상이 보류된 경우에만 절단을 보고하며, 배포된 Job이 CLI가 읽는 `FDAI_INVENTORY_DSN` 키를 연결합니다. 결정론은 이제 절단되지 않은 projection에 대해서만 주장합니다. | `current change`; `services/core-control-plane/src/fdai/delivery/analyzer_targets.py`; `pytest services/core-control-plane/tests/delivery/test_analyzer_targets.py services/core-control-plane/tests/delivery/test_analyzer_tick.py services/core-control-plane/tests/delivery/test_analyzer_tick_routed.py` (30 passed); `pytest tests/integration/infra/test_detection_readiness.py` (3 passed). | 인벤토리에서 발견된 리소스가 실제 tick에 포함된다는 배포 런타임 근거를 기록합니다. |
+| 2026-08-17 | in-progress | 추적 토폴로지를 관리되는 Resource로 잘못 표현하는 인벤토리 리소스 매핑을 거부하고, 결정론적 분산 추적 연속성 설계를 확정했습니다. | `current change`; 이 문서; [이슈 #142](https://github.com/dotnetpower/fdai/issues/142). | 소스, 감지기, 공유 분석기 Job 바인딩, 관리되는 Event 경로를 구현하고 집중 테스트한 뒤 실시간 `preserve`, `regenerate`, `drop`, 승인, 복구 근거를 보존합니다. |
+| 2026-08-17 | implemented | 분산 추적 연속성 감지기, 엄격한 작업 영역 기반 Application Insights 소스, 공유 분석기 Job 실행기와 구성, 반복 발견의 인시던트 인계를 구현했습니다. KQL은 문서화된 `Id`, `OperationId`, `Properties`, `TimeGenerated` 열을 사용합니다. | `current change`; 집중 동작 및 HIL 검사 55개 통과, strict mypy와 작업 범위 Ruff 통과, `terraform -chdir=infra validate` 성공. | 정확히 검증된 리비전을 관측 실험실에 배포하고 실시간 `preserve`, `regenerate`, `drop`, 승인, 복구 근거를 보존한 뒤 이 범위를 `validated`로 올립니다. |
 
 ### 남은 작업
 
@@ -594,6 +629,7 @@ Core 런타임에는 job-start 권한을 부여하지 않습니다.
 - [ ] Azure용 실시간 `ConfigurationObservationSource`를 구현하고 런타임 부트스트랩에서 바인딩한 뒤, 집중 어댑터 테스트와 부트스트랩 바인딩 테스트로 증명합니다. 그전까지 `실시간 구성 관측` 범위 행은 `not-started`로 유지되며, 표류 답변은 공급된 문서만큼만 최신입니다.
 - [ ] 감지기 정밀도, 재현율, 누락 위반, 구간 포괄률, 예측 선행 시간, 판단 보류 비율의 배포 근거를 기록합니다.
 - [ ] 인벤토리에서 발견된 리소스가 배포 변경 없이 실제 분석기 tick에 포함된다는 배포 런타임 근거를 기록하고 그 tick 보고를 보존합니다.
+- [ ] [이슈 #142](https://github.com/dotnetpower/fdai/issues/142)를 완료합니다. 집중 검사와 실시간 Azure 근거를 통해 `preserve`가 정상으로 유지되고, `regenerate`와 `drop`이 근거가 있는 발견 사항을 만들며, 반복 발견이 인시던트 하나를 열고, 복구 경로가 검증된 종결 전에 사람 승인 또는 모든 안전조건을 갖춘 작업에 도달함을 증명합니다.
 - [ ] [열린 결정](#열림-decisions)의 신호 등급별 방법, 기준선 이력, 승격 임계값을 확정하고 관리되는 구성에 인코딩합니다.
 
 ## 열림 Decisions

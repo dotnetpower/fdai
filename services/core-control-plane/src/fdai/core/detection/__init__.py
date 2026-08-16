@@ -44,6 +44,14 @@ from fdai.core.detection.signals import (
     known_signals,
     signals_with_role,
 )
+from fdai.core.detection.trace_continuity import (
+    TraceContinuityDetector,
+    TraceContinuityReason,
+    TraceContinuityResult,
+    TraceContinuityState,
+    TraceSpanObservation,
+    TraceTopologyObservation,
+)
 
 __all__ = [
     "SIGNAL_BACKEND_HEALTH",
@@ -77,6 +85,12 @@ __all__ = [
     "SeasonalAnomalyDetector",
     "SignalRole",
     "SignalSpec",
+    "TraceContinuityDetector",
+    "TraceContinuityReason",
+    "TraceContinuityResult",
+    "TraceContinuityState",
+    "TraceSpanObservation",
+    "TraceTopologyObservation",
     "is_known_signal",
     "known_signals",
     "prediction_band",

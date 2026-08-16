@@ -29,6 +29,24 @@ def test_analyzer_job_binds_the_inventory_projection_env_the_cli_reads() -> None
     assert 'name  = "FDAI_ANALYZER_TARGETS"' in source
 
 
+def test_analyzer_job_binds_deployment_supplied_trace_topologies() -> None:
+    cli = (_ROOT / "services/core-control-plane/src/fdai/delivery/analyzer_tick_cli.py").read_text(
+        encoding="utf-8"
+    )
+    source = _JOB.read_text(encoding="utf-8")
+    root_variables = (_ROOT / "infra/variables.tf").read_text(encoding="utf-8")
+    module_variables = (_ROOT / "infra/modules/compute/container-apps/variables.tf").read_text(
+        encoding="utf-8"
+    )
+    main = _MAIN.read_text(encoding="utf-8")
+
+    assert 'TRACE_TOPOLOGIES_ENV = "FDAI_TRACE_TOPOLOGIES_JSON"' in cli
+    assert 'name  = "FDAI_TRACE_TOPOLOGIES_JSON"' in source
+    assert 'variable "trace_topologies_json"' in root_variables
+    assert 'variable "trace_topologies_json"' in module_variables
+    assert "trace_topologies_json         = var.trace_topologies_json" in main
+
+
 def test_startup_probe_uses_dedicated_operational_topic_and_identity() -> None:
     source = _MAIN.read_text(encoding="utf-8")
 
