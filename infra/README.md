@@ -151,7 +151,7 @@ minute by default in observation mode (`shadow`). It uses explicit targets when 
 otherwise reads the durable inventory projection. Set an explicit empty cron to disable it. The
 same tick publishes AKS detection-readiness observations through Huginn. When trace topologies are
 configured, it also evaluates bounded workspace-based Application Insights rows and publishes only
-shadow continuity findings. Full latency analysis:
+observation-mode continuity issues. Full latency analysis:
 [docs/roadmap/rules-and-detection/observability-and-detection.md](../docs/roadmap/rules-and-detection/observability-and-detection.md).
 
 | Variable | Type | Purpose |
