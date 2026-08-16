@@ -275,6 +275,28 @@ def test_document_reduction_matches_direct_aggregation() -> None:
             lambda document: document["provenance"].update({"contract_digest": "a" * 64}),
             "contract digest",
         ),
+        (
+            lambda document: document.update({"notes": "extra"}),
+            r"document carries unsupported field\(s\): notes",
+        ),
+        (
+            lambda document: document["provenance"].update({"judge_override": "approved"}),
+            r"provenance carries unsupported field\(s\): judge_override",
+        ),
+        (
+            lambda document: document["runs"][0].update({"english_turn": 250}),
+            r"runs\[0\] carries unsupported field\(s\): english_turn",
+        ),
+        (
+            lambda document: document["runs"][0]["items"][0].update({"trigered_caps": []}),
+            r"items\[0\] carries unsupported field\(s\): trigered_caps",
+        ),
+        (
+            lambda document: document["runs"][0]["items"][0]["components"].update(
+                {"grounding": 1.0}
+            ),
+            r"components carries unsupported field\(s\): grounding",
+        ),
     ],
 )
 def test_malformed_document_fails_closed(mutate: object, match: str) -> None:

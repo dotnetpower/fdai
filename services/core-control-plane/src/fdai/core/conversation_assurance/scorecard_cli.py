@@ -48,6 +48,21 @@ from fdai.core.conversation_assurance.scorecard_run import (
 _MAX_INPUT_BYTES = 8_000_000
 
 
+_DOCUMENT_FIELDS = frozenset({"provenance", "runs"})
+_PROVENANCE_FIELDS = frozenset(
+    {
+        "contract_digest",
+        "corpus_version",
+        "corpus_digest",
+        "model_deployment_id",
+        "evaluator_version",
+        "generated_by",
+    }
+)
+_RUN_FIELDS = frozenset({"run_id", "english_turns", "korean_turns", "items"})
+_ITEM_FIELDS = frozenset({"id", "components", "triggered_caps"})
+
+
 class ScorecardInputError(ValueError):
     """The recorded measurement document cannot be reduced as written."""
 
@@ -62,6 +77,12 @@ def _require_sequence(value: Any, field: str) -> Sequence[Any]:
     if not isinstance(value, list):
         raise ScorecardInputError(f"{field} MUST be an array")
     return value
+
+
+def _reject_unknown(container: Mapping[str, Any], allowed: frozenset[str], parent: str) -> None:
+    unknown = sorted(key for key in container if key not in allowed)
+    if unknown:
+        raise ScorecardInputError(f"{parent} carries unsupported field(s): {', '.join(unknown)}")
 
 
 def _require_str(container: Mapping[str, Any], field: str, parent: str) -> str:
@@ -80,6 +101,11 @@ def _require_int(container: Mapping[str, Any], field: str, parent: str) -> int:
 
 def _parse_components(value: Any, parent: str) -> tuple[tuple[QualityDimension, float], ...]:
     components = _require_mapping(value, f"{parent}.components")
+    _reject_unknown(
+        components,
+        frozenset(dimension.value for dimension in QualityDimension),
+        f"{parent}.components",
+    )
     parsed: list[tuple[QualityDimension, float]] = []
     for dimension in QualityDimension:
         raw = components.get(dimension.value)
@@ -103,6 +129,7 @@ def _parse_caps(value: Any, parent: str) -> tuple[QualityHardCap, ...]:
 
 def _parse_measurement(value: Any, parent: str) -> QualityItemMeasurement:
     entry = _require_mapping(value, parent)
+    _reject_unknown(entry, _ITEM_FIELDS, parent)
     return QualityItemMeasurement(
         item_id=_require_int(entry, "id", parent),
         components=_parse_components(entry.get("components"), parent),
@@ -113,6 +140,7 @@ def _parse_measurement(value: Any, parent: str) -> QualityItemMeasurement:
 def _parse_run(value: Any, index: int) -> QualityRunEvidence:
     parent = f"runs[{index}]"
     run = _require_mapping(value, parent)
+    _reject_unknown(run, _RUN_FIELDS, parent)
     measurements = tuple(
         _parse_measurement(entry, f"{parent}.items[{position}]")
         for position, entry in enumerate(_require_sequence(run.get("items"), f"{parent}.items"))
@@ -134,7 +162,9 @@ def build_scorecard_from_document(document: Any) -> QualityScorecard:
     """
 
     root = _require_mapping(document, "document")
+    _reject_unknown(root, _DOCUMENT_FIELDS, "document")
     provenance_source = _require_mapping(root.get("provenance"), "provenance")
+    _reject_unknown(provenance_source, _PROVENANCE_FIELDS, "provenance")
     provenance = ScorecardProvenance(
         contract_digest=_require_str(provenance_source, "contract_digest", "provenance"),
         corpus_version=_require_str(provenance_source, "corpus_version", "provenance"),

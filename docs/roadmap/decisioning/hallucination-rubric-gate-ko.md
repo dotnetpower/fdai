@@ -1,7 +1,7 @@
 ---
 title: Hallucination Rubric Gate
 translation_of: hallucination-rubric-gate.md
-translation_source_sha: 32d92b6a4475eaf8cbcf7b350ee8662fad9b9a44
+translation_source_sha: f8ace4a76d522bff8de2404edc965789f21155db
 translation_revised: 2026-08-17
 ---
 # Hallucination 평가 기준 게이트 (환각 루브릭 게이트)
@@ -33,8 +33,9 @@ translation_revised: 2026-08-17
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 이전 전달 이력을 재구성하지 않고 근거 범위 안에서 구현 원장을 도입했습니다. | `current change`; 범위 테이블에 나열된 현재 소스 및 집중 검사; 루브릭 관련 집중 검사 103건이 통과했습니다. | Self-consistency cascade를 연결하고, 종단 간 감사 영속성을 증명하며, 관리되는 shadow 및 승격 근거를 보존해야 합니다. |
 | 2026-08-14 | implemented | 옵인 구성 뒤에서 프로덕션 T2 경로가 self-consistency cascade를 호출하도록 하고, 신뢰할 수 없는 근거 설명 없이 종단 간 루브릭 출처 영속성을 증명했습니다. | `current change`; `tier.py`, `self_consistency.py`, `control_loop.py`, `models.py`; 집중 검사가 quality 게이트와 T2 172건, 컨트롤 루프 감사 3건, 런타임 바인딩 11건을 통과했고 작업 범위 Ruff와 strict mypy가 통과했습니다. | 포착률, 오탐률, 지연 시간, 토큰 비용, 우회 0건에 대한 관리되는 shadow 증적을 보존한 뒤 승격 전환을 결정합니다. |
-| 2026-08-17 | in-progress | shadow에서 enforce로 가는 전환의 결정론적 절반을 구현했습니다. `evaluate_rubric_promotion`은 고정 시나리오 집합에서 얻은 기준선 대 처리 측정 한 쌍을 승격, 유지 또는 강등으로 축약하며, 근거가 없거나 짝이 없거나 표본이 부족하면 승격을 거부합니다. 권고 적용은 여전히 별도로 검토되는 구성 변경이며, 어떤 코드도 `rubric_shadow`를 뒤집지 않습니다. | `current change`; `promotion.py`, `quality_gate/__init__.py`, `test_rubric_promotion.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/quality_gate` (`174 passed`); 작업 범위 Ruff와 strict mypy 통과. | 고정된 리비전에서 관리되는 기준선 및 처리 증적을 보존한 뒤, 권위 있는 레지스트리가 권고를 자동으로 적용할지 결정합니다. |
 | 2026-08-16 | implemented | 동작이 아니라 안전 관련 서술을 바로잡았습니다. 이 문서와 `gate.py` 모듈 docstring은 모두 토론 `PROCEED` 가 교차 검증 불일치를 해소하는 경로를 서술했습니다. 그런 경로는 없습니다: `cross_check_below_quorum` 은 `reasons` 에서 절대 제거되지 않으므로 결과는 무조건 `DISAGREE` 입니다. 어느 쪽 서술이든 명세로 읽으면 구현자가 `DISAGREE` 를 `ELIGIBLE` 로 뒤집어 mixed-model 안전장치를 약화시키도록 유도했을 것입니다. | `current change`; `gate.py` 의 결과 선택은 다른 어떤 분기보다 먼저 `if any(r.startswith("cross_check_below_quorum") ...)` 를 읽습니다. `test_debate_proceed_keeps_disagreement_for_human_review` 가 이미 `DISAGREE` 와 남아 있는 사유를 단언합니다. | 이 정정에 대해서는 없음. |
+| 2026-08-17 | in-progress | shadow에서 enforce로 가는 전환의 결정론적 절반을 구현했습니다. `evaluate_rubric_promotion`은 고정 시나리오 집합에서 얻은 기준선 대 처리 측정 한 쌍을 승격, 유지 또는 강등으로 축약하며, 근거가 없거나 짝이 없거나 표본이 부족하면 승격을 거부합니다. 권고 적용은 여전히 별도로 검토되는 구성 변경이며, 어떤 코드도 `rubric_shadow`를 뒤집지 않습니다. | `current change`; `promotion.py`, `quality_gate/__init__.py`, `test_rubric_promotion.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/quality_gate` (`174 passed`); 작업 범위 Ruff와 strict mypy 통과. | 고정된 리비전에서 관리되는 기준선 및 처리 증적을 보존한 뒤, 권위 있는 레지스트리가 권고를 자동으로 적용할지 결정합니다. |
+| 2026-08-17 | in-progress | 안전 관련 모듈 서술을 바로잡고 그 서술이 가리킨 사례를 검사로 덮었습니다. `promotion.py` docstring은 정책 위반 우회가 무조건 강등을 유발한다고 적었지만, 구현은 시나리오 집합이 측정되지 않았거나 표본이 부족하면 현재 상태를 유지합니다. 이 docstring을 명세로 읽으면 구현자가 신뢰할 수 없는 근거로 강등하도록 유도했을 것입니다. | `current change`; `promotion.py` docstring, `quality_gate/README.md`, `test_rubric_promotion.py`에 `test_escape_on_an_untrustworthy_set_holds_enforce`와 `test_escape_demotes_enforce_on_a_trustworthy_set` 추가; `uv run pytest -q --no-cov services/core-control-plane/tests/core/quality_gate/test_rubric_promotion.py` (`31 passed`). | 이 정정으로 바뀌는 남은 작업은 없습니다. |
 
 ### 남은 작업
 

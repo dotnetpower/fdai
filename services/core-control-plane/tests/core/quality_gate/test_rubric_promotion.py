@@ -120,6 +120,31 @@ def test_one_escape_blocks_an_otherwise_perfect_run() -> None:
     assert decision.reasons == (RubricPromotionReason.POLICY_VIOLATION_ESCAPE,)
 
 
+def test_escape_on_an_untrustworthy_set_holds_enforce() -> None:
+    decision = evaluate_rubric_promotion(
+        _measurement(baseline_measured=False, policy_violation_escapes=1),
+        thresholds=_THRESHOLDS,
+        shadow=False,
+    )
+
+    assert decision.outcome is RubricPromotionOutcome.HOLD
+    assert decision.reasons == (
+        RubricPromotionReason.BASELINE_ARM_MISSING,
+        RubricPromotionReason.POLICY_VIOLATION_ESCAPE,
+    )
+
+
+def test_escape_demotes_enforce_on_a_trustworthy_set() -> None:
+    decision = evaluate_rubric_promotion(
+        _measurement(policy_violation_escapes=1),
+        thresholds=_THRESHOLDS,
+        shadow=False,
+    )
+
+    assert decision.outcome is RubricPromotionOutcome.DEMOTE
+    assert decision.reasons == (RubricPromotionReason.POLICY_VIOLATION_ESCAPE,)
+
+
 @pytest.mark.parametrize(
     ("overrides", "reason"),
     [

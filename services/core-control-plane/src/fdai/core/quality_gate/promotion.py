@@ -18,8 +18,9 @@ Design invariants
 - **Fail closed.** A missing measurement, a scenario set below the labeled-case
   floor, or an unmeasured baseline arm holds the current posture. Absence of
   evidence never reads as evidence of safety.
-- **Escapes demote unconditionally.** A policy-violation escape in the
-  treatment arm demotes regardless of catch rate, latency, or cost.
+- **An escape can never promote.** A policy-violation escape in the treatment
+  arm blocks promotion regardless of catch rate, latency, or cost, and demotes
+  from enforce once the scenario set is trustworthy enough to be believed.
 - **Never a promotion from enforce.** From enforce mode the only outcomes are
   hold and demote, so the evaluator cannot raise autonomy twice.
 

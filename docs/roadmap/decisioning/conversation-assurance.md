@@ -29,6 +29,7 @@ model families, bounded debate, blind replay, automatic promotion, and automatic
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source and focused tests listed in the scope table. | Retain the qualification, blind-replay, and operational promotion or rollback evidence described below. |
 | 2026-08-17 | in-progress | Added the deterministic worst-run scorecard aggregator and the one-command regeneration path, so recorded measurements reduce to one stable schema-compatible artifact without a model call. | `current change`; `scorecard_run.py`, `scorecard_cli.py`, `test_scorecard_run.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/conversation_assurance/test_scorecard_run.py` (`24 passed`); task-scoped Ruff and strict mypy passed. | Measure the frozen bilingual corpus and retain the qualification, blind-replay, and operational promotion or rollback evidence described below. |
 | 2026-08-17 | in-progress | Corrected the documented regeneration command and hardened its file handling. The previously recorded command omitted the workspace package selector, so `uv run python -m ...` failed with `No module named 'fdai'` from the repository root. The command now selects `fdai-core-control-plane`, a subprocess check runs it, the input size is bounded before the read, and a symlinked input or output path is refused. | `current change`; `scorecard_cli.py`, `test_scorecard_run.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/conversation_assurance` (`90 passed`); task-scoped Ruff and strict mypy passed. | Measure the frozen bilingual corpus and retain the qualification, blind-replay, and operational promotion or rollback evidence described below. |
+| 2026-08-17 | in-progress | Made the recorded measurement document strict so an unrecognized field is rejected by name. A misspelled cap or component key previously parsed as an absent value, which could have removed a hard cap and inflated an item score. | `current change`; `scorecard_cli.py`, `test_scorecard_run.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/conversation_assurance` (`95 passed`); task-scoped Ruff and strict mypy passed. | Measure the frozen bilingual corpus and retain the qualification, blind-replay, and operational promotion or rollback evidence described below. |
 
 ### Remaining work
 
@@ -213,8 +214,10 @@ The command is a pure reducer: it reads recorded measurements, applies the insta
 writes stable sorted JSON, so the same input always produces the same artifact and digest. A
 blocked scorecard still exits `0` because reporting a failure is a successful regeneration;
 unreadable, oversized, malformed, or contract-inconsistent input exits `2` without writing an
-artifact, and a symlinked input or output path is refused rather than followed. The
-artifact carries versions, digests, counts, and scores only - no answer text, principal, tenant,
+artifact, and a symlinked input or output path is refused rather than followed. Every object in
+the input is strict: an unrecognized field such as a misspelled `triggered_caps` is rejected by
+name instead of silently dropped, so a typo can never quietly remove a hard cap and inflate a
+score. The artifact carries versions, digests, counts, and scores only - no answer text, principal, tenant,
 endpoint, or customer value.
 
 ## Independent model review
