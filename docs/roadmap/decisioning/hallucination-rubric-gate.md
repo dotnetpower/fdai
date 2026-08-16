@@ -23,7 +23,7 @@ its DI seams; it extends the T2 gate rules in
 | Runtime binding and control-loop audit projection | implemented | [`control_loop.py`](../../../services/core-control-plane/src/fdai/runtime/control_loop.py), [`_audit_helpers.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_audit_helpers.py), [`test_control_loop_rubric_audit.py`](../../../services/core-control-plane/tests/core/test_control_loop_rubric_audit.py) | An end-to-end consultation with a bound rubric evaluator persists bounded `rubric_*` provenance in the `control_loop.t2_evaluate` row while the judge's rationale stays excluded. |
 | Azure judge adapter and strict response parsing | implemented | [`rubric.py`](../../../services/core-control-plane/src/fdai/delivery/azure/llm/rubric.py), [`test_rubric.py`](../../../services/core-control-plane/tests/delivery/azure/llm/test_rubric.py) | Mocked transport checks cover configuration-owned thresholds, strict parsing, and malformed-response failure. They are not real-model evidence. |
 | Self-consistency cascade integration | implemented | [`self_consistency.py`](../../../services/core-control-plane/src/fdai/core/quality_gate/self_consistency.py), [`tier.py`](../../../services/core-control-plane/src/fdai/core/tiers/t2_reasoning/tier.py), [`test_tier.py`](../../../services/core-control-plane/tests/core/tiers/t2_reasoning/test_tier.py), [`test_self_consistency_binding.py`](../../../services/core-control-plane/tests/runtime/test_self_consistency_binding.py) | `SelfConsistencyCascade` is an optional T2 binding built from `llm.self_consistency_*` configuration. An unstable result reaches the quality decision and audit record but holds the tier outcome at escalate. |
-| Metric-driven promotion and operational validation | not-started | [Promotion metrics](#promotion-metrics), [Limits](#limits-what-this-does-not-do) | The repository has no automatic rubric promotion registry or governed shadow receipt proving catch rate, false-positive rate, latency, token cost, and zero policy escapes on a pinned revision. |
+| Metric-driven promotion and operational validation | in-progress | [`promotion.py`](../../../services/core-control-plane/src/fdai/core/quality_gate/promotion.py), [`test_rubric_promotion.py`](../../../services/core-control-plane/tests/core/quality_gate/test_rubric_promotion.py), [Promotion metrics](#promotion-metrics), [Limits](#limits-what-this-does-not-do) | The deterministic promotion-gate decision is implemented and covered, but nothing applies it: there is still no automatic rubric promotion registry, and no governed shadow receipt proves catch rate, false-positive rate, latency, token cost, and zero policy escapes on a pinned revision. |
 
 ### Implementation history
 
@@ -32,13 +32,15 @@ its DI seams; it extends the T2 gate rules in
 | 2026-08-13 | in-progress | Adopted an evidence-bounded implementation ledger without reconstructing earlier delivery history. | `current change`; current source and focused checks listed in the scope table; rubric-focused checks passed 103 cases. | Wire the self-consistency cascade, prove end-to-end audit persistence, and retain governed shadow and promotion evidence. |
 | 2026-08-14 | implemented | Invoked the self-consistency cascade from the production T2 path behind opt-in configuration, and proved end-to-end rubric provenance persistence without untrusted rationale. | `current change`; `tier.py`, `self_consistency.py`, `control_loop.py`, `models.py`; focused checks passed 172 quality-gate and T2 cases, 3 control-loop audit cases, and 11 runtime binding cases; task-scoped Ruff and strict mypy passed. | Retain governed shadow receipts for catch rate, false-positive rate, latency, token cost, and zero escapes, then decide the promotion transition. |
 | 2026-08-16 | implemented | Corrected a safety-relevant description, not behavior. This document and the `gate.py` module docstring both described a path where a debate `PROCEED` resolves a cross-check disagreement. No such path exists: `cross_check_below_quorum` is never removed from `reasons`, so the outcome is unconditionally `DISAGREE`. Reading either text as a specification would have invited an implementer to flip `DISAGREE` to `ELIGIBLE` and weaken the mixed-model safeguard. | `current change`; `gate.py` outcome selection reads `if any(r.startswith("cross_check_below_quorum") ...)` before any other branch; `test_debate_proceed_keeps_disagreement_for_human_review` already asserts `DISAGREE` and the retained reason. | None for this correction. |
+| 2026-08-17 | in-progress | Implemented the deterministic half of the shadow-to-enforce transition. `evaluate_rubric_promotion` reduces one paired baseline-versus-treatment measurement on a frozen scenario set to promote, hold, or demote, and refuses to promote on missing, unpaired, or undersized evidence. Applying the recommendation stays an explicit reviewed configuration change; no code flips `rubric_shadow`. | `current change`; `promotion.py`, `quality_gate/__init__.py`, `test_rubric_promotion.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/quality_gate` (`174 passed`); task-scoped Ruff and strict mypy passed. | Retain governed baseline and treatment receipts on a pinned revision, then decide whether an authoritative registry applies the recommendation automatically. |
 
 ### Remaining work
 
 - [x] The production T2 path invokes the cascade when `llm.self_consistency_samples` is positive; focused tests prove an unstable result reaches the quality decision and audit record while the tier outcome is held at escalate.
 - [x] An end-to-end control-loop test binds a rubric evaluator and proves bounded `rubric_*` provenance is persisted while untrusted rationale stays excluded.
 - [ ] Evaluate a pinned baseline and treatment on a frozen labeled scenario set, then retain governed receipts for hallucination-catch rate, false-positive rate, added latency, token cost, and zero policy-violation escapes.
-- [ ] Implement metric-driven shadow promotion and regression demotion, or record an approved decision that keeps this transition manual, before changing the default shadow posture.
+- [x] The promotion gate is a deterministic function, not a model judgment: `evaluate_rubric_promotion` reduces one paired measurement to promote, hold, or demote, and holds the current posture on missing, unpaired, or undersized evidence.
+- [ ] Bind the recommendation to an authoritative registry that applies it, or record an approved decision that keeps the mode flip manual, before changing the default shadow posture.
 
 ## Why a rubric leg
 
@@ -223,6 +225,28 @@ Promotion requires catch rate at or above the target, zero policy-violation
 escapes, and false-positive rate at or below the allowed ceiling. A regression
 demotes back to shadow.
 
+`evaluate_rubric_promotion` in `promotion.py` is that decision, expressed
+deterministically. It takes one `RubricPromotionMeasurement` - the frozen
+scenario-set version, labeled-case count, whether the baseline arm was actually
+measured, catch rate, false-positive rate, added latency, added token cost, and
+policy-violation escapes - plus the configuration-owned
+`RubricPromotionThresholds`, and returns `promote`, `hold`, or `demote` with
+every reason in declaration order. Thresholds are inclusive: a measurement
+exactly at the bar passes.
+
+The evaluator is deliberately conservative in three ways:
+
+- **Missing evidence holds.** No measurement, an unmeasured baseline arm, or a
+  scenario set below the labeled-case floor holds the current posture. Absence
+  of evidence never reads as evidence of safety, and a regression measured on
+  an untrustworthy scenario set cannot demote either.
+- **Enforce never promotes again.** From enforce mode the only outcomes are
+  hold and demote.
+- **Recommendation only.** Nothing in the module flips
+  `QualityGateConfig.rubric_shadow`. A judge model supplies the measured
+  signal; the deterministic function grades it, and a separately reviewed
+  configuration change applies the result.
+
 ## DI seams
 
 All in `services/core-control-plane/src/fdai/core/quality_gate/` (core stays LLM-SDK-free); the concrete
@@ -232,6 +256,7 @@ adapter is in `delivery/`.
 |------|-------|------|
 | `RubricEvaluator` | `rubric.py` | Protocol a fork implements with a real judge model |
 | `evaluate_rubric_output` | `rubric.py` | Pure reduction to a `RubricDecision` |
+| `evaluate_rubric_promotion` | `promotion.py` | Pure shadow/enforce recommendation from one paired measurement |
 | `SelfConsistencySampler` | `self_consistency.py` | Sample a proposer N times for stability |
 | `SelfConsistencyCascade` | `self_consistency.py` | Composition-owned cascade trigger bound into `T2Tier` |
 | `AzureOpenAIRubricEvaluator` | `delivery/azure/llm/rubric.py` | httpx judge client, config-injected thresholds |
@@ -280,7 +305,9 @@ cannot make an ungrounded action safe. Residual softness (some now mitigated):
 - **No automatic promotion registry.** Unlike ActionTypes (which have a
   `promotion_gate` evaluated by `ActionPromotionRegistry`), the rubric's
   shadow -> enforce transition is a manual `QualityGateConfig.rubric_shadow`
-  flip. Automatic, metric-driven promotion / demotion is future work.
+  flip. `evaluate_rubric_promotion` now decides deterministically *whether*
+  the gate is met, but no component applies that decision, so automatic
+  promotion and demotion remain future work.
 - **Real-model contract is prompt-enforced, not schema-enforced.** Tests use
   httpx mocks; `response_format=json_object` guarantees valid JSON, not the
   rubric schema. The adapter's strict parser + `RubricScore` validation catch a

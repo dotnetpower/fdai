@@ -75,6 +75,14 @@ from fdai.core.quality_gate.judge import (
     JudgeVerdict,
     evaluate_judge_output,
 )
+from fdai.core.quality_gate.promotion import (
+    RubricPromotionDecision,
+    RubricPromotionMeasurement,
+    RubricPromotionOutcome,
+    RubricPromotionReason,
+    RubricPromotionThresholds,
+    evaluate_rubric_promotion,
+)
 from fdai.core.quality_gate.rag_grounding import (
     HashedRuleEmbeddingIndex,
     RagGroundingSource,
@@ -138,6 +146,11 @@ __all__ = [
     "RubricDecision",
     "RubricEvaluator",
     "RubricOutput",
+    "RubricPromotionDecision",
+    "RubricPromotionMeasurement",
+    "RubricPromotionOutcome",
+    "RubricPromotionReason",
+    "RubricPromotionThresholds",
     "RubricScore",
     "RubricVerdict",
     "RuleBasedVerifier",
@@ -148,6 +161,7 @@ __all__ = [
     "SelfConsistencySampler",
     "VerifierPolicy",
     "compute_stability",
+    "evaluate_rubric_promotion",
     "decide_debate_route",
     "decide_escalation",
     "evaluate_critic_output",

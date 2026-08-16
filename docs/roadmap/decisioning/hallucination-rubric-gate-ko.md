@@ -1,8 +1,8 @@
 ---
 title: Hallucination Rubric Gate
 translation_of: hallucination-rubric-gate.md
-translation_source_sha: 1338a585c591f64024c14fda8912acbfa13fed4b
-translation_revised: 2026-08-16
+translation_source_sha: 32d92b6a4475eaf8cbcf7b350ee8662fad9b9a44
+translation_revised: 2026-08-17
 ---
 # Hallucination 평가 기준 게이트 (환각 루브릭 게이트)
 
@@ -25,7 +25,7 @@ translation_revised: 2026-08-16
 | 런타임 바인딩 및 컨트롤 루프 감사 변환 결과 | implemented | [`control_loop.py`](../../../services/core-control-plane/src/fdai/runtime/control_loop.py), [`_audit_helpers.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_audit_helpers.py), [`test_control_loop_rubric_audit.py`](../../../services/core-control-plane/tests/core/test_control_loop_rubric_audit.py) | 루브릭 평가기를 바인딩한 종단 간 상담은 `control_loop.t2_evaluate` 행에 범위가 제한된 `rubric_*` 출처를 영속화하며 판정자의 근거 설명은 제외합니다. |
 | Azure 판정자 어댑터 및 엄격한 응답 파싱 | implemented | [`rubric.py`](../../../services/core-control-plane/src/fdai/delivery/azure/llm/rubric.py), [`test_rubric.py`](../../../services/core-control-plane/tests/delivery/azure/llm/test_rubric.py) | 모의 전송 검사는 구성에서 소유하는 임계값, 엄격한 파싱 및 잘못된 응답 실패를 다룹니다. 실제 모델 근거는 아닙니다. |
 | Self-consistency cascade 통합 | implemented | [`self_consistency.py`](../../../services/core-control-plane/src/fdai/core/quality_gate/self_consistency.py), [`tier.py`](../../../services/core-control-plane/src/fdai/core/tiers/t2_reasoning/tier.py), [`test_tier.py`](../../../services/core-control-plane/tests/core/tiers/t2_reasoning/test_tier.py), [`test_self_consistency_binding.py`](../../../services/core-control-plane/tests/runtime/test_self_consistency_binding.py) | `SelfConsistencyCascade`는 `llm.self_consistency_*` 구성으로 만드는 선택적 T2 바인딩입니다. 불안정한 결과는 quality 판정과 감사 기록에 도달하지만 티어 결과는 escalate에 멈춥니다. |
-| 지표 기반 승격 및 운영 검증 | not-started | [승격 지표](#승격-지표), [한계](#한계-하지-못하는-것) | 저장소에는 자동 루브릭 승격 레지스트리나 고정된 리비전에서 포착률, 오탐률, 지연 시간, 토큰 비용 및 정책 위반 우회 0건을 증명하는 관리되는 shadow 증적이 없습니다. |
+| 지표 기반 승격 및 운영 검증 | in-progress | [`promotion.py`](../../../services/core-control-plane/src/fdai/core/quality_gate/promotion.py), [`test_rubric_promotion.py`](../../../services/core-control-plane/tests/core/quality_gate/test_rubric_promotion.py), [승격 지표](#승격-지표), [한계](#한계-하지-못하는-것) | 결정론적 승격 게이트 판정은 구현되고 검사로 덮여 있지만 이를 적용하는 구성 요소가 없습니다. 자동 루브릭 승격 레지스트리도, 고정된 리비전에서 포착률, 오탐률, 지연 시간, 토큰 비용 및 정책 위반 우회 0건을 증명하는 관리되는 shadow 증적도 아직 없습니다. |
 
 ### 구현 이력
 
@@ -33,6 +33,7 @@ translation_revised: 2026-08-16
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 이전 전달 이력을 재구성하지 않고 근거 범위 안에서 구현 원장을 도입했습니다. | `current change`; 범위 테이블에 나열된 현재 소스 및 집중 검사; 루브릭 관련 집중 검사 103건이 통과했습니다. | Self-consistency cascade를 연결하고, 종단 간 감사 영속성을 증명하며, 관리되는 shadow 및 승격 근거를 보존해야 합니다. |
 | 2026-08-14 | implemented | 옵인 구성 뒤에서 프로덕션 T2 경로가 self-consistency cascade를 호출하도록 하고, 신뢰할 수 없는 근거 설명 없이 종단 간 루브릭 출처 영속성을 증명했습니다. | `current change`; `tier.py`, `self_consistency.py`, `control_loop.py`, `models.py`; 집중 검사가 quality 게이트와 T2 172건, 컨트롤 루프 감사 3건, 런타임 바인딩 11건을 통과했고 작업 범위 Ruff와 strict mypy가 통과했습니다. | 포착률, 오탐률, 지연 시간, 토큰 비용, 우회 0건에 대한 관리되는 shadow 증적을 보존한 뒤 승격 전환을 결정합니다. |
+| 2026-08-17 | in-progress | shadow에서 enforce로 가는 전환의 결정론적 절반을 구현했습니다. `evaluate_rubric_promotion`은 고정 시나리오 집합에서 얻은 기준선 대 처리 측정 한 쌍을 승격, 유지 또는 강등으로 축약하며, 근거가 없거나 짝이 없거나 표본이 부족하면 승격을 거부합니다. 권고 적용은 여전히 별도로 검토되는 구성 변경이며, 어떤 코드도 `rubric_shadow`를 뒤집지 않습니다. | `current change`; `promotion.py`, `quality_gate/__init__.py`, `test_rubric_promotion.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/quality_gate` (`174 passed`); 작업 범위 Ruff와 strict mypy 통과. | 고정된 리비전에서 관리되는 기준선 및 처리 증적을 보존한 뒤, 권위 있는 레지스트리가 권고를 자동으로 적용할지 결정합니다. |
 | 2026-08-16 | implemented | 동작이 아니라 안전 관련 서술을 바로잡았습니다. 이 문서와 `gate.py` 모듈 docstring은 모두 토론 `PROCEED` 가 교차 검증 불일치를 해소하는 경로를 서술했습니다. 그런 경로는 없습니다: `cross_check_below_quorum` 은 `reasons` 에서 절대 제거되지 않으므로 결과는 무조건 `DISAGREE` 입니다. 어느 쪽 서술이든 명세로 읽으면 구현자가 `DISAGREE` 를 `ELIGIBLE` 로 뒤집어 mixed-model 안전장치를 약화시키도록 유도했을 것입니다. | `current change`; `gate.py` 의 결과 선택은 다른 어떤 분기보다 먼저 `if any(r.startswith("cross_check_below_quorum") ...)` 를 읽습니다. `test_debate_proceed_keeps_disagreement_for_human_review` 가 이미 `DISAGREE` 와 남아 있는 사유를 단언합니다. | 이 정정에 대해서는 없음. |
 
 ### 남은 작업
@@ -40,7 +41,8 @@ translation_revised: 2026-08-16
 - [x] 프로덕션 T2 경로는 `llm.self_consistency_samples`가 양수일 때 cascade를 호출하며, 불안정한 결과가 quality 판정과 감사 기록에 도달하되 티어 결과는 escalate에 멈춤을 집중 검사로 증명합니다.
 - [x] 루브릭 평가기를 바인딩하고 범위가 제한된 `rubric_*` 출처는 영속화하되 신뢰할 수 없는 근거 설명은 제외함을 증명하는 종단 간 컨트롤 루프 검사를 추가했습니다.
 - [ ] 고정된 레이블 시나리오 집합에서 고정된 기준선과 처리를 평가한 뒤 환각 포착률, 오탐률, 추가 지연 시간, 토큰 비용 및 정책 위반 우회 0건에 대한 관리되는 증적을 보존합니다.
-- [ ] 기본 shadow 상태를 변경하기 전에 지표 기반 shadow 승격 및 회귀 시 강등을 구현하거나, 이 전환을 수동으로 유지한다는 승인된 결정을 기록합니다.
+- [x] 승격 게이트는 모델 판단이 아니라 결정론적 함수입니다. `evaluate_rubric_promotion`은 측정 한 쌍을 승격, 유지, 강등으로 축약하며, 근거가 없거나 짝이 없거나 표본이 부족하면 현재 상태를 유지합니다.
+- [ ] 기본 shadow 상태를 변경하기 전에 권고를 적용하는 권위 있는 레지스트리에 연결하거나, 모드 전환을 수동으로 유지한다는 승인된 결정을 기록합니다.
 
 ## 왜 루브릭 leg인가
 
@@ -206,6 +208,23 @@ T2 candidate (+ reasoning_trace)
 승격은 catch 비율이 목표 이상, policy-violation escape 0, false-positive 비율이 허용
 상한 이하일 것을 요구한다. 회귀 시 shadow로 강등한다.
 
+`promotion.py` 의 `evaluate_rubric_promotion` 이 그 판정을 결정론적으로 표현한다.
+`RubricPromotionMeasurement` 하나 - 고정 시나리오 집합 버전, 라벨된 사례 수, 기준선 arm을
+실제로 측정했는지 여부, catch 비율, false-positive 비율, 추가 지연, 추가 토큰 비용,
+policy-violation escape - 와 구성이 소유하는 `RubricPromotionThresholds` 를 받아
+`promote`, `hold`, `demote` 를 선언 순서의 사유와 함께 돌려준다. 임계는 포함형이므로 기준에
+정확히 걸린 측정은 통과한다.
+
+이 평가기는 의도적으로 세 가지 면에서 보수적이다.
+
+- **근거가 없으면 유지한다.** 측정이 없거나, 기준선 arm을 측정하지 않았거나, 라벨된 사례
+  하한에 못 미치는 시나리오 집합은 현재 상태를 유지한다. 근거의 부재가 안전의 근거로 읽히지
+  않으며, 신뢰할 수 없는 시나리오 집합에서 측정된 회귀도 강등시키지 못한다.
+- **enforce에서 다시 승격하지 않는다.** enforce 모드에서 가능한 결과는 유지와 강등뿐이다.
+- **권고일 뿐이다.** 이 모듈의 어떤 코드도 `QualityGateConfig.rubric_shadow` 를 뒤집지
+  않는다. 판정자 모델은 측정 신호를 공급하고, 결정론적 함수가 그것을 채점하며, 별도로
+  검토되는 구성 변경이 결과를 적용한다.
+
 ## DI 경계
 
 전부 `services/core-control-plane/src/fdai/core/quality_gate/` (코어는 LLM-SDK-free 유지); 구체 어댑터는
@@ -215,6 +234,7 @@ T2 candidate (+ reasoning_trace)
 |------|------|------|
 | `RubricEvaluator` | `rubric.py` | 포크가 실제 판정자 모델로 구현하는 프로토콜 |
 | `evaluate_rubric_output` | `rubric.py` | `RubricDecision` 로의 순수 축약 |
+| `evaluate_rubric_promotion` | `promotion.py` | 측정 한 쌍에서 shadow/enforce 권고를 내는 순수 함수 |
 | `SelfConsistencySampler` | `self_consistency.py` | 제안자를 N회 샘플해 안정성 측정 |
 | `SelfConsistencyCascade` | `self_consistency.py` | `T2Tier` 에 바인딩되는 composition 소유 cascade 트리거 |
 | `AzureOpenAIRubricEvaluator` | `delivery/azure/llm/rubric.py` | httpx 판정자 클라이언트, 구성 주입 임계 |
@@ -258,7 +278,8 @@ HIL로 보낼 수 있지만, ungrounded 액션을 안전하게 만들 수는 없
   한다.
 - **자동 승격 레지스트리가 없다.** ActionType(=`promotion_gate` 를 `ActionPromotionRegistry`
   가 평가)과 달리, 루브릭의 shadow -> 강제 적용 전환은 수동 `QualityGateConfig.rubric_shadow`
-  플립이다. 지표 기반 자동 승격/강등은 향후 작업이다.
+  플립이다. 이제 `evaluate_rubric_promotion` 이 게이트 충족 *여부* 를 결정론적으로 판정하지만
+  그 판정을 적용하는 구성 요소가 없으므로, 자동 승격/강등은 여전히 향후 작업이다.
 - **실모델 계약은 스키마가 아니라 프롬프트로 강제된다.** 테스트는 httpx mock을 쓰고,
   `response_format=json_object` 는 유효 JSON을 보장하지 유효 루브릭 스키마를 보장하지
   않는다. 어댑터의 엄격 파서 + `RubricScore` 검증이 잘못된 실모델 응답을 잡아 실패 시 차단
