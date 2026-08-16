@@ -930,9 +930,28 @@ def _project_incident_evidence(
     audit_refs = [item.get("audit_ref") for item in evidence]
     if any(not isinstance(item, str) for item in audit_refs) or audit_refs != evidence_refs:
         return _reject_incident_evidence("audit_ref_mismatch")
+    if not _evidence_is_oldest_first(evidence):
+        return _reject_incident_evidence("evidence_order_invalid")
     if truncated and "correlated_audit_truncated" not in gaps:
         return _reject_incident_evidence("truncation_gap_missing")
     return True, value, node_id
+
+
+def _evidence_is_oldest_first(evidence: list[Any]) -> bool:
+    """The answer names the latest records by slicing the tail, so the order is a claim."""
+    previous: datetime | None = None
+    for item in evidence:
+        recorded_at = item.get("recorded_at")
+        if not isinstance(recorded_at, str):
+            return False
+        try:
+            current = datetime.fromisoformat(recorded_at.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+        if current.tzinfo is None or (previous is not None and current < previous):
+            return False
+        previous = current
+    return True
 
 
 def _contains_key(value: object, key: str) -> bool:

@@ -1234,6 +1234,19 @@ async def test_incident_answer_omits_the_truncation_line_when_nothing_is_hidden(
     assert "Only the most recent" not in answer
 
 
+async def test_incident_evidence_out_of_order_by_time_is_held() -> None:
+    """The answer names the latest records by slicing the tail, so order is a claim."""
+    result = _incident_evidence_runtime_result(records=3)
+    output = result.execution.results["incident-evidence"].value  # type: ignore[union-attr]
+    output["correlated_evidence"][0]["recorded_at"] = "2026-08-14T23:59:00Z"  # type: ignore[index]
+
+    encoded = await _processor(_Runtime(result)).process(_request())
+
+    semantic = _projection(encoded)["semantic_result"]
+    assert semantic["disposition"] == "held"
+    assert semantic["reason_code"] == "semantic_evidence_incomplete"
+
+
 async def test_incident_evidence_with_a_conflicting_profile_identity_is_held() -> None:
     encoded = await _processor(
         _Runtime(
