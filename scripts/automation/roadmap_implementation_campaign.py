@@ -25,7 +25,7 @@ import roadmap_verification_watchdog as watchdog
 # head cannot advance until the whole batch is validated. Ten documents made each failure cost
 # an hour of work; two converge far faster and lose almost nothing when a batch is rejected.
 BATCH_SIZE = 2
-MIN_HARDENING_ROUNDS = 3
+MIN_HARDENING_ROUNDS = 20
 STATE_DIRECTORY = "fdai-roadmap-implementation"
 REFUSAL_FILE = "refused-folders.json"
 REFUSAL_TTL_SECONDS = 12 * 3600
