@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 11ecc5f5e8ba70cac748b9c61f72fa2782b3dce9
+translation_source_sha: 25f5937439c72c911ecaf16a68f8c3c98de485ce
 translation_revised: 2026-08-16
 ---
 
@@ -187,6 +187,7 @@ translation_revised: 2026-08-16
 | 2026-08-16 | 구현됨 | 바인딩된 인시던트 읽기를 서버 소유로 만들었습니다. 계획 단계가 제안된 `query.incident_evidence` 노드의 식별자와 기록 조회 범위를 대화 바인딩 값으로 다시 쓰고 plan을 재검증하므로, 모델이 문장으로만 가진 UUID와 correlation 신원을 그대로 옮겨 적는 데 답변이 좌우되지 않습니다. 조회한 감사 구간 밖에 신원 기준 기록이 있는 프로파일은 모순이 아니라 근거 공백으로 처리하며, fail closed 보류마다 실패한 검사 이름을 런타임 로그에 남깁니다. | `current change`, focused 대화, 처리기 및 계약 검사 606개 통과, 작업 범위 Ruff 및 strict mypy 통과, 변경 전 동일 입력에서 연속 2회 보류되던 바인딩 인시던트 turn이 변경 후 두 언어에서 연속 4회 응답 | 복구된 인시던트 답변에 대한 통제된 요청-Console 및 이중 언어 무작위 근거를 보존합니다. |
 | 2026-08-16 | 구현됨 | 고정된 인시던트 읽기에서 모델을 완전히 제외했습니다. 이 turn이 인시던트 근거를 원한다는 판단은 여전히 타입이 있는 frame이 하고, 그 뒤 노드는 바인딩에서 구성되어 plan 제안을 요청하지 않으며 동일한 빌더와 검증기가 그대로 적용됩니다. 바인딩이 `incident_reference` 확인 요구를 해소해 고정된 turn이 이미 고정된 인시던트를 되묻지 않고, 영어 전용 `this incident` 부분 문자열 경로를 제거해 어떤 발화 부분 문자열도 경로를 결정하지 않습니다. | `current change`, focused 대화 검사 458개와 로컬 서비스 로그 실행기 검사 11개 통과, 작업 범위 Ruff 및 strict mypy 통과, 라이브 고정 turn 3회 연속 `plan_source="bound_incident"` 기록 및 응답 | 통제된 요청-Console 및 이중 언어 무작위 근거를 보존합니다. |
 | 2026-08-16 | 구현됨 | 고정된 읽기에 대한 비평 지적 4건을 해소했습니다. 재작성 경로를 제거했고, 읽기 범위는 근거 역량의 기록 상한을 따르며, 답변은 검증된 총계와 잘림을 명시하고, 영속 요청이 없는 변환 결과는 제한된 재시도 뒤 격리되어 이후 변환 결과를 막지 않습니다. | `current change`, focused Core 검사 913개와 Operator 검사 310개 통과, 재시작한 Operator가 막혀 있던 미매칭 변환 결과 20건을 배출하고 정상 상태로 복귀 | 통제된 요청-Console 및 이중 언어 무작위 근거를 보존합니다. |
+| 2026-08-16 | 구현됨 | 답변 표현 경계에 소유자 교차 가드를 추가하고 변환 결과 충돌 카운터에 상한을 두었습니다. | `current change`, 가드가 Console의 slot 허용 목록과 상한을 직접 읽어 두 언어의 모든 artifact를 검사, Operator 검사 318개 통과, 알 수 없는 slot으로 바꾸면 가드가 실패 | 통제된 요청-Console 및 이중 언어 무작위 근거를 보존합니다. |
 | 2026-08-16 | 구현됨 | Prompt 업그레이드에서 `object_types`, limit 및 `root_ids` 금지 제약이 빠진 뒤 의미 plan prompt v8에 exact `query.ontology_relationships` Function 묶음을 복원했습니다. 이제 스키마 관계 plan은 검증된 frame의 exact ObjectType 이름 한두 개만 사용하며 이를 런타임 객체 신원으로 다시 해석할 수 없습니다. | `current change`, `test_wire_ontology_relationships.py::test_semantic_prompts_select_exact_relationship_function` 통과 | 중앙 검증된 후속 commit에서 엄격한 이중 언어 관계 cell과 seed 기반 집단 근거를 보존합니다. |
 
 ### 남은 작업

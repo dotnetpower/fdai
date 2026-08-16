@@ -52,6 +52,7 @@ SEMANTIC_RESULT_TOPIC = "core.semantic-turn.projections"
 SEMANTIC_RESULT_GROUP = "operator-semantic-turn-v1"
 _IDENTITY_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
 _MAX_PROJECTION_CONFLICT_ATTEMPTS = 5
+_MAX_TRACKED_PROJECTION_CONFLICTS = 256
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -499,6 +500,10 @@ class SemanticTurnBridge:
                         # instead stalls every later projection behind one poison record.
                         attempts = conflicts.get(quarantine_key, 0) + 1
                         if attempts < _MAX_PROJECTION_CONFLICT_ATTEMPTS:
+                            # Losing a counter only costs extra retries, so keep the map
+                            # bounded rather than growing it per untrusted identity.
+                            if len(conflicts) >= _MAX_TRACKED_PROJECTION_CONFLICTS:
+                                conflicts.clear()
                             conflicts[quarantine_key] = attempts
                             raise
                         conflicts.pop(quarantine_key, None)
