@@ -429,6 +429,18 @@ def test_empty_commit_pathspec_is_denied() -> None:
     assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
 
 
+def test_commit_denial_names_the_command_that_finishes_a_merge() -> None:
+    """A pathspec commit is impossible mid-merge, so the denial must not dead-end there."""
+    result = _load_module().enforce_commit_scope(
+        {
+            "tool_name": "run_in_terminal",
+            "tool_input": {"command": "git commit -m 'resolved'"},
+        }
+    )
+
+    assert "git merge --continue" in result["hookSpecificOutput"]["permissionDecisionReason"]
+
+
 @pytest.mark.parametrize("operation", ["checkout", "clean", "reset", "restore", "stash", "switch"])
 def test_destructive_git_requires_explicit_user_approval(operation: str) -> None:
     module = _load_module()

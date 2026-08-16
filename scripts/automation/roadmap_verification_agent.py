@@ -8,6 +8,7 @@ import shutil
 import signal
 import subprocess
 from collections.abc import Mapping
+from contextlib import suppress
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any, Final
@@ -119,7 +120,10 @@ def _terminate(process: subprocess.Popen[str]) -> None:
             os.killpg(os.getpgid(process.pid), signal.SIGKILL)
         except OSError:
             pass
-        process.wait()
+        # A process wedged in uninterruptible I/O ignores SIGKILL, so teardown must not become
+        # the unbounded wait that the run budget was there to prevent.
+        with suppress(subprocess.TimeoutExpired):
+            process.wait(timeout=5)
 
 
 def copilot_command(cli: Path, prompt_text: str, worktree: Path, *, apply: bool) -> list[str]:

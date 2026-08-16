@@ -143,6 +143,9 @@ jobs:
   terraform:
     if: github.ref == 'refs/heads/main'
     runs-on: [self-hosted, fdai-deploy]
+    # Declared budget. Without it the only bound is the six-hour runner default, which cannot
+    # tell a stalled provider from a slow apply and holds the single deploy runner meanwhile.
+    timeout-minutes: 180
     environment: ${{ inputs.apply && inputs.environment || 'plan-only' }}
     defaults:
       run:

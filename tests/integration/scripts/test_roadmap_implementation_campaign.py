@@ -245,3 +245,167 @@ def test_refusal_memo_survives_a_corrupt_state_file(tmp_path: Path) -> None:
     assert module.refused_folders(tmp_path, 63, now=1_000.0) == frozenset()
     module.record_refusal(tmp_path, 63, "deployment", now=1_000.0)
     assert module.refused_folders(tmp_path, 63, now=1_000.0) == frozenset({"deployment"})
+
+
+def _git_binary() -> str:
+    import shutil
+
+    resolved = shutil.which("git")
+    assert resolved is not None, "git is required for these tests"
+    return resolved
+
+
+def _init_repo(path: Path) -> None:
+    import subprocess
+
+    def run(*args: str) -> None:
+        subprocess.run(  # noqa: S603 - fixed git commands on a temporary repo
+            [_git_binary(), *args],
+            cwd=path,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+    path.mkdir(parents=True, exist_ok=True)
+    run("init", "-q", "-b", "main")
+    run("config", "user.email", "t@example.com")
+    run("config", "user.name", "T")
+    (path / "seed.txt").write_text("seed\n", encoding="utf-8")
+    run("add", "seed.txt")
+    run("commit", "-qm", "seed")
+
+
+def test_sync_absorbs_main_when_the_branch_is_ahead_and_behind(tmp_path: Path) -> None:
+    import subprocess
+
+    module = _load()
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+
+    def run(*args: str) -> str:
+        return subprocess.run(  # noqa: S603 - fixed git commands on a temporary repo
+            [_git_binary(), *args], cwd=repo, check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    run("checkout", "-qb", "roadmap-implementation/campaign")
+    (repo / "campaign.txt").write_text("batch\n", encoding="utf-8")
+    run("add", "campaign.txt")
+    run("commit", "-qm", "campaign batch")
+    run("checkout", "-q", "main")
+    (repo / "other.txt").write_text("other\n", encoding="utf-8")
+    run("add", "other.txt")
+    run("commit", "-qm", "other work")
+    run("checkout", "-q", "roadmap-implementation/campaign")
+
+    # Ahead and behind at once used to hold every later run forever.
+    assert module._campaign_relation(ahead=1, behind=1) == "diverged"
+    assert module._sync_campaign_base(repo) == "current"
+    assert run("rev-list", "--count", "HEAD..main") == "0"
+    assert run("status", "--porcelain") == ""
+
+
+def test_sync_leaves_no_half_merged_worktree_on_conflict(tmp_path: Path) -> None:
+    import subprocess
+
+    module = _load()
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+
+    def run(*args: str) -> str:
+        return subprocess.run(  # noqa: S603 - fixed git commands on a temporary repo
+            [_git_binary(), *args], cwd=repo, check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    run("checkout", "-qb", "roadmap-implementation/campaign")
+    (repo / "shared.txt").write_text("campaign\n", encoding="utf-8")
+    run("add", "shared.txt")
+    run("commit", "-qm", "campaign edit")
+    run("checkout", "-q", "main")
+    (repo / "shared.txt").write_text("main\n", encoding="utf-8")
+    run("add", "shared.txt")
+    run("commit", "-qm", "main edit")
+    run("checkout", "-q", "roadmap-implementation/campaign")
+
+    assert module._sync_campaign_base(repo) == "sync-failed"
+    # A half-merged tree would make the next run refuse with "campaign worktree is dirty".
+    assert run("status", "--porcelain") == ""
+
+
+def test_failed_batch_still_registers_its_commits(tmp_path: Path, monkeypatch) -> None:
+    module = _load()
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+
+    calls: list[list[str]] = []
+
+    def fake_run(arguments, **kwargs):  # type: ignore[no-untyped-def]
+        calls.append(list(arguments))
+
+        class Result:
+            returncode = 0
+
+        return Result()
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    monkeypatch.setattr(module, "_git", lambda *a, **k: "newhead")
+
+    module._register_committed_work(repo, "oldbase")
+
+    assert ["ensure-range", "oldbase..HEAD"] == calls[0][-2:]
+    assert calls[1][-1] == "wake"
+
+
+def test_unchanged_head_registers_nothing(tmp_path: Path, monkeypatch) -> None:
+    module = _load()
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        module.subprocess, "run", lambda arguments, **k: calls.append(list(arguments))
+    )
+    monkeypatch.setattr(module, "_git", lambda *a, **k: "same")
+
+    module._register_committed_work(tmp_path, "same")
+
+    assert calls == []
+
+
+def test_unreceipted_campaign_head_is_registered_before_holding(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module = _load()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    monkeypatch.setattr(module.watchdog, "_active_session_leases", lambda *a, **k: [])
+    monkeypatch.setattr(module.watchdog, "_recent_copilot_activity", lambda *a, **k: [])
+    monkeypatch.setattr(module.watchdog, "_active_session_count", lambda *a, **k: 0)
+    synced: list[Path] = []
+    monkeypatch.setattr(module, "_sync_campaign_base", lambda root: synced.append(root))
+    monkeypatch.setattr(module, "_validation_receipt_exists", lambda *_a, **_k: False)
+
+    def fake_git(*args: str, **_kwargs: object) -> str:
+        return {
+            "status": "",
+            "branch": "roadmap-implementation/campaign",
+            "rev-list": "3",
+            "rev-parse": ".",
+        }[args[0]]
+
+    monkeypatch.setattr(module, "_git", fake_git)
+    registered: list[str] = []
+    monkeypatch.setattr(
+        module,
+        "_register_committed_work",
+        lambda _root, base: registered.append(base),
+    )
+
+    result = module.run_cycle(repo, idle_seconds=1, timeout=1)
+
+    assert result == "held: previous campaign head is awaiting central validation"
+    # `git merge` skips the post-commit hook, so a merge commit made while absorbing main
+    # is never enqueued. Waiting for a receipt the queue was never asked to produce holds
+    # every later run forever.
+    assert registered == ["main"]
+    # Absorbing main first mints a new merge commit on every held run, so the head would
+    # outrun validation for as long as any other session keeps committing.
+    assert synced == []

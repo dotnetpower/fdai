@@ -76,6 +76,7 @@ from .query_manifest import QueryManifest, build_query_manifest
 from .query_metric_handlers import (
     METRIC_ARGUMENT_SCHEMAS,
     EvidenceJoinNodeHandler,
+    MetricScopeSeriesNodeHandler,
     MetricSeriesNodeHandler,
 )
 from .query_source_handlers import FunctionNodeHandler, SecuredObjectSetNodeHandler
@@ -198,6 +199,7 @@ __all__ = [
     "MetricWindowComparison",
     "MetricWindowProvider",
     "MetricSeriesNodeHandler",
+    "MetricScopeSeriesNodeHandler",
     "OntologyFunction",
     "OntologyFunctionKind",
     "OntologyFunctionRegistry",

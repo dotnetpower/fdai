@@ -363,6 +363,60 @@ class _TemporalEvidenceModel(_Model):
         return {"nodes": nodes, "output_node_ids": ["causal-evidence"]}
 
 
+class _ScopedCausalEvidenceModel(_Model):
+    def propose_frame(self, **_kwargs: Any) -> dict[str, object]:
+        return {
+            "operation": "explain_change",
+            "subject_constraints": ["Resource"],
+            "measure_concepts": ["requests.count", "errors.count"],
+            "temporal_scope": {},
+            "output_shape": "causal_evidence",
+            "evidence_requirements": ["metric_evidence"],
+            "unresolved_terms": [],
+            "clarification": None,
+            "confidence": 0.9,
+        }
+
+    def propose_plan(self, **_kwargs: Any) -> dict[str, object]:
+        start = NOW - timedelta(minutes=5)
+        nodes: list[dict[str, object]] = [
+            {
+                "node_id": "scope",
+                "kind": "object_set",
+                "depends_on": [],
+                "arguments": {"definition": self._definition.model_dump(mode="json")},
+                "output_kind": "query.table",
+            }
+        ]
+        nodes.extend(
+            {
+                "node_id": node_id,
+                "kind": "metric_scope_series",
+                "depends_on": ["scope"],
+                "arguments": {
+                    "concept_id": concept_id,
+                    "start": start.isoformat(),
+                    "end": NOW.isoformat(),
+                },
+                "output_kind": "metric.window",
+            }
+            for node_id, concept_id in (
+                ("cause", "requests.count"),
+                ("effect", "errors.count"),
+            )
+        )
+        nodes.append(
+            {
+                "node_id": "causal-evidence",
+                "kind": "evidence_join",
+                "depends_on": ["cause", "effect"],
+                "arguments": {"feature_cutoff": NOW.isoformat()},
+                "output_kind": "causal.join",
+            }
+        )
+        return {"nodes": nodes, "output_node_ids": ["causal-evidence"]}
+
+
 class _EmptyTopologyReader:
     async def read(self, *, as_of: datetime, known_at: datetime) -> tuple[()]:
         assert as_of <= known_at
@@ -457,6 +511,46 @@ async def test_runtime_executes_temporal_metric_evidence_provider_set() -> None:
 
     result = await runtime.handle(
         utterance="Correlate topology and telemetry.",
+        prior_turns=(),
+        principal=Principal(id="reader", role=Role.READER),
+    )
+
+    assert result.disposition == "answered"
+    assert result.execution is not None
+    causal_evidence = result.execution.results["causal-evidence"].value
+    assert isinstance(causal_evidence, CausalEvidenceJoin)
+    assert causal_evidence.status.value == "unresolved"
+    assert "metric_window_incomplete" in causal_evidence.limitations
+    assert causal_evidence.execution_authority is False
+
+
+async def test_runtime_executes_bounded_visible_scope_causal_evidence() -> None:
+    object_type = _object_type()
+    store = InMemoryOntologyInstanceStore(object_types=(object_type,), link_types=())
+    for object_id in ("resource-b", "resource-a"):
+        await store.upsert_object(
+            OntologyObjectRecord(
+                id=object_id,
+                object_type="Resource",
+                properties={"id": object_id},
+            )
+        )
+    definition = _definition().model_copy(update={"predicates": ()})
+    runtime = build_semantic_query_runtime(
+        model=_ScopedCausalEvidenceModel(definition),
+        ontology_release=build_ontology_release(
+            object_types=(object_type,),
+            function_types=operational_function_types(()),
+        ),
+        ontology_catalog=_catalog(object_type),
+        ontology_store=store,
+        metric_registry=_metric_registry(),
+        metric_window_provider=_IncompleteMetricWindowProvider(),
+        now=lambda: NOW,
+    )
+
+    result = await runtime.handle(
+        utterance="What causal evidence exists for visible resources?",
         prior_turns=(),
         principal=Principal(id="reader", role=Role.READER),
     )

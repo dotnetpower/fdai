@@ -120,6 +120,7 @@ class AzureOpenAISemanticPlanningModel:
         *,
         frame: SemanticProblemFrame,
         descriptors: tuple[dict[str, Any], ...],
+        metric_concepts: tuple[str, ...],
         principal_role: str,
         purpose: str,
         evaluation_time: datetime,
@@ -129,6 +130,7 @@ class AzureOpenAISemanticPlanningModel:
         payload = {
             "frame": frame.model_dump(mode="json"),
             "descriptors": descriptors,
+            "metric_concepts": metric_concepts,
             "principal_role": principal_role,
             "purpose": purpose,
             "evaluation_time": evaluation_time.isoformat(),
@@ -326,9 +328,6 @@ def _validated_content(  # noqa: UP047 - pinned mypy does not parse PEP 695 func
 
 def _normalize_frame_tokens(payload: dict[str, Any]) -> dict[str, Any]:
     normalized = dict(payload)
-    output_shape = normalized.get("output_shape")
-    if isinstance(output_shape, str):
-        normalized["output_shape"] = _machine_token(output_shape)
     evidence_requirements = normalized.get("evidence_requirements")
     if isinstance(evidence_requirements, list):
         normalized["evidence_requirements"] = [

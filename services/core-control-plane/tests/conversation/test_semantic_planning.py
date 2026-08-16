@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import MappingProxyType
 from typing import Any
 
@@ -203,6 +203,30 @@ def test_object_set_cutoff_is_rebound_to_trusted_server_time() -> None:
     assert definition_json["as_of"] == NOW.isoformat()
 
 
+def test_object_set_cutoff_is_refreshed_after_model_planning() -> None:
+    manifest, definition = _fixture()
+    execution_time = NOW + timedelta(seconds=10)
+    clock_reads = iter((NOW, execution_time))
+    model = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=model,
+        manifests=_ManifestProvider(manifest),
+        verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.OBJECT_SET,)),
+        now=lambda: next(clock_reads),
+    )
+
+    outcome = service.plan(
+        utterance="Show current resources.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+
+    assert outcome.plan is not None
+    definition_json = outcome.plan.nodes[0].arguments["definition"]
+    assert definition_json["as_of"] == execution_time.isoformat()
+
+
 def test_unresolved_meaning_returns_one_clarification_without_plan() -> None:
     manifest, definition = _fixture()
     model = _Model(
@@ -281,6 +305,11 @@ def test_frame_proposal_rejects_noncanonical_evidence_requirement() -> None:
         SemanticFrameProposal.model_validate(
             _frame(evidence_requirements=["read only configuration evidence"])
         )
+
+
+def test_frame_proposal_rejects_free_form_output_shape() -> None:
+    with pytest.raises(ValidationError):
+        SemanticFrameProposal.model_validate(_frame(output_shape="whatever_the_model_wants"))
 
 
 def test_hidden_property_plan_is_rejected_before_execution() -> None:

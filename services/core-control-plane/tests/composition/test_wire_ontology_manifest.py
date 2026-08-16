@@ -49,6 +49,30 @@ class _ManifestModel:
         }
 
 
+class _ManifestAggregateModel(_ManifestModel):
+    def propose_frame(self, **_kwargs: Any) -> dict[str, object]:
+        return {
+            **super().propose_frame(),
+            "measure_concepts": ["count"],
+            "output_shape": "aggregation_table",
+        }
+
+    def propose_plan(self, **_kwargs: Any) -> dict[str, object]:
+        plan = super().propose_plan()
+        plan["nodes"] = [
+            *plan["nodes"],  # type: ignore[misc]
+            {
+                "node_id": "count",
+                "kind": "aggregate",
+                "depends_on": ["manifest"],
+                "arguments": {"operation": "count", "group_by": [], "limit": 10},
+                "output_kind": "query.table",
+            },
+        ]
+        plan["output_node_ids"] = ["count"]
+        return plan
+
+
 async def test_runtime_executes_principal_manifest_query() -> None:
     resource = OntologyObjectType(
         schema_version="1.0.0",
@@ -87,3 +111,43 @@ async def test_runtime_executes_principal_manifest_query() -> None:
     assert table.complete is True
     assert [row.values["name"] for row in table.rows] == ["Resource"]
     assert table.rows[0].values["execution_authority"] is False
+
+
+async def test_runtime_aggregates_principal_manifest_rows() -> None:
+    resource = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Resource",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    functions = operational_function_types(())
+    release = build_ontology_release(object_types=(resource,), function_types=functions)
+    runtime = build_semantic_query_runtime(
+        model=_ManifestAggregateModel(),
+        ontology_release=release,
+        ontology_catalog=OntologyCatalog(
+            object_types=(resource,),
+            interface_types=(),
+            interface_implementations=(),
+            link_types=(),
+            action_types=(),
+            property_semantics=empty_property_semantic_registry(),
+        ),
+        ontology_store=InMemoryOntologyInstanceStore(
+            object_types=(resource,),
+            link_types=(),
+        ),
+    )
+
+    result = await runtime.handle(
+        utterance="How many ontology object types are available?",
+        prior_turns=(),
+        principal=Principal(id="reader", role=Role.READER),
+    )
+
+    assert result.disposition == "answered"
+    assert result.execution is not None
+    table = result.execution.results["count"].value
+    assert isinstance(table, QueryTable)
+    assert table.rows[0].values == {"group": {}, "operation": "count", "value": 1}
