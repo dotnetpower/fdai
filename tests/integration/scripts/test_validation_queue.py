@@ -50,6 +50,18 @@ def test_validation_environment_uses_only_the_dedicated_validation_database(
     assert environment["FDAI_CHANGED_TEST_INTEGRATION"] == "1"
 
 
+def test_validation_environment_puts_the_queue_toolchain_on_path(git_repo: Path) -> None:
+    paths = queue_paths(git_repo)
+
+    environment = validation_environment(paths)
+
+    entries = environment["PATH"].split(os.pathsep)
+    # A validator woken from a systemd unit inherits a PATH without `uv`, and verify.sh then
+    # reports the missing tool as a gate failure that the bisector blames on a commit.
+    assert entries[-1] == str(paths.state_root / "venv" / "bin")
+    assert entries[0] != str(paths.state_root / "venv" / "bin")
+
+
 def test_validation_environment_loads_database_from_source_checkout(
     git_repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

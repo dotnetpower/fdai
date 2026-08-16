@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: cd6d99ca49695464a3ed8f433368890d5d2f21b6
+translation_source_sha: 95164db9944420d4e0b32da4f31d98e89330762e
 translation_revised: 2026-08-16
 ---
 # 코드 맵
@@ -35,6 +35,7 @@ translation_revised: 2026-08-16
 | 관측 충돌 판정 | 구현됨 | `core/ontology_platform/observation_adjudication.py`, `core/ontology_platform/inventory_projection.py`, `delivery/inventory_relationship_verifier.py`, 집중 온톨로지·인벤토리·런타임 테스트(`507 passed, 1 skipped`) | 한 세대 안에서 같은 리소스 신원을 반복 관측한 권위 있는 관측을 결정적으로 판정합니다. 내용이 같고 행 단위 관측 시각만 다르면 하나의 사실로 보고 가장 이른 시각을 유지하며, 불일치가 있으면 경합 중인 값을 제외한 채 명시적 `StateFactMetadata.conflicts` 항목으로 남깁니다. 서로 독립된 출처 사이의 교차 권위 판정은 [운영 온톨로지](operating-ontology-ko.md#충돌-판정-범위)에 열려 있습니다. |
 | 교차 출처 리소스 상태 판정 | 구현됨 | `core/read_investigation/resource_state_shadow_evidence.py`, `core/read_investigation/resource_state_shadow_service.py`, `composition/wire_read_investigation.py`, 집중 read-investigation·composition 테스트(`110 passed`) | 실시간 프로바이더 읽기와 인벤토리로 변환된 그래프 상태를 `deterministic_function` 권한을 가진 `derived` 사실 하나로 판정합니다. 상태나 신원 불일치는 shadow 증적 다이제스트에 보존되는 명시적 충돌이며, 관측 시각 차이는 충돌이 아닙니다. 이 판정은 처분을 낮추기만 하고 승인·변경·실행 권한을 부여하지 않습니다. |
 | Receipt 기반 운영 컨텍스트 표현 | 구현됨 | `core/operational_context/console_projection.py`, `tests/core/operational_context/test_console_projection.py`, focused 테스트 5개 통과 | 목적, 릴리스, 기준 시각, 실행 권한 및 그래프 범위가 일치해야 범위가 제한된 메타데이터를 변환합니다. Raw 속성은 제외하며 principal 범위 전송은 연결하지 않은 상태로 유지합니다. |
+| 운영 범위 `unknown_service` 커버리지 | 구현됨 | `core/operational_context/operating_scope.py`, `tests/core/operational_context/test_operating_scope.py`, focused 테스트 6개 통과 | 관측된 모든 Resource가 계속 보이고, 대응되지 않거나 충돌하는 리소스는 synthetic 서비스 대신 예약된 표시자를 유지하며, 변환 결과는 읽기 전용입니다. 아직 런타임 소비자에 연결하지 않았습니다. |
 | 런타임 바인딩 기반 플래너 가시성 | 구현됨 | `composition/wire_semantic_query.py`, `core/conversation/semantic_manifest.py`, `core/ontology_platform/query_manifest.py`, focused 조립 및 매니페스트 테스트 | 플래너 서술자는 조립된 런타임에 등록된 함수만 노출합니다. 읽을 수 있지만 바인딩되지 않은 선언은 타입이 지정된 구조 coverage에 남으며 어떤 권한도 얻지 않습니다. |
 | Exact-release principal 매니페스트 조회 | 구현됨 | `core/ontology_platform/manifest_queries.py`, `core/ontology_platform/query_source_handlers.py`, `composition/wire_semantic_query.py`, focused 매니페스트, 핸들러, 조립 및 prompt 테스트(`42 passed`) | `query.manifest`는 기존 함수 증적과 일반 `QueryTable` 경로를 통해 role 및 purpose로 필터링된 범위 제한 선언 행을 반환합니다. 바인딩되지 않은 선언은 완전성을 낮추며 모든 행은 `execution_authority=false`를 고정합니다. |
 | Exact-release 스키마 관계 조회 | 구현됨 | `core/ontology_platform/relationship_queries.py`, `composition/wire_semantic_query.py`, `fdai_core_service/semantic_relationship_projection.py`, 집중 조립 및 processor 테스트(`42 passed`) | `query.ontology_relationships`는 ObjectType과 LinkType 선언을 읽고 direction, cardinality, description을 보존하며 판단, 승인, 변경 또는 실행 권한을 포함하지 않습니다. 인증된 Browser 근거는 열린 작업입니다. |
@@ -96,10 +97,13 @@ translation_revised: 2026-08-16
 | 2026-08-16 | 구현됨 | 범위가 제한된 model planning이 끝난 뒤 current-state ObjectSet cutoff를 새로 고쳤습니다. Proposal evaluation time은 T1 및 T2 plan attempt 전체에서 고정된 상태를 유지하고, 그 뒤 Core가 ObjectSet node만 fresh trusted execution time으로 다시 바인딩하며 exact plan digest를 재계산하고 I/O 전에 다시 검증합니다. Topology 및 historical cutoff는 바꾸지 않습니다. | `current change`, gateway의 5초 current-state skew를 넘는 model 지연 회귀를 포함한 focused planner, tier-routing, composition 및 terminal processor 검사 93개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 중앙 검증된 descendant에서 clean 이중 언어 14-cell 및 seed 기반 100-case Browser 근거를 보존합니다. |
 | 2026-08-16 | 구현됨 | Special-purpose function alignment를 final output node로 좁혀 exact manifest가 최종 aggregation answer로 가장하지 않고 verified aggregate에 입력을 제공할 수 있게 했습니다. Frame prompt v7과 plan prompt v6는 모든 declaration count를 `aggregation_table`로 분류하고 `query.manifest -> aggregate`를 규정하며, declared type이 있는 visible resource는 비어 있지 않은 predicate를 가진 filtered-resource 경로로 유지합니다. | `current change`, production manifest count 실행을 포함한 focused planner, tier-routing, manifest composition 및 prompt 검사 39개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 중앙 검증된 descendant에서 clean 이중 언어 14-cell 및 seed 기반 100-case Browser 근거를 보존합니다. Generic causal 질문에는 여전히 범위가 제한된 visible-resource metric composition이 필요합니다. |
 | 2026-08-16 | 구현됨 | `behavior_index.py`와 web-evidence route corpus의 Hangul 매칭 범위를 escape 표기 대신 읽을 수 있는 `가-힣` 리터럴로 작성했습니다. 이 escape는 중앙 검증의 `readable-hangul` gate를 통과하지 못해 campaign branch lane을 24개 커밋 중 1개에서 막고 이후 모든 batch를 정지시켰습니다. | `current change`; `readable-hangul`이 14304개 파일에서 OK를 보고했고 변경된 두 모듈을 다루는 테스트 30건이 통과했습니다. | 이 변경에 남은 작업은 없습니다. |
+| 2026-08-16 | 구현됨 | 보안이 적용된 visible-resource `QueryTable` 하나를 canonical reviewed metric 읽기 하나로 연결하는 읽기 전용 `metric_scope_series`를 추가했습니다. 비어 있거나 불완전하거나 여러 resource를 포함한 scope는 명시적으로 incomplete를 유지하고, provider와 scope gap을 모두 보존하며, exact provider identity, unit 또는 window drift는 fail closed합니다. Planner에는 범위가 제한된 등록 metric concept ID만 전달하고 plan prompt v8은 resource identity 또는 scope-wide causal claim을 만들지 않는 `ObjectSet -> two metric_scope_series -> evidence_join`을 규정합니다. | `current change`, focused service-contract, verifier, metric-semantics, composition, planner-adapter 및 prompt 검사 86개 통과, Console assurance 검사 96개 통과, 작업 범위 Ruff, format, strict mypy 및 Console typecheck 통과 | 중앙 검증된 descendant에서 clean 이중 언어 14-cell 및 seed 기반 100-case Browser 근거를 보존합니다. |
+| 2026-08-16 | 구현됨 | 대응되지 않은 Resource를 `unknown_service`로 계속 표시하는 결정론적 읽기 전용 운영 범위 커버리지 변환 결과를 추가했습니다. | `current change`, `core/operational_context/operating_scope.py`, `tests/core/operational_context/test_operating_scope.py`, focused 운영 컨텍스트, 카탈로그 및 대화 검사 1461개와 작업 범위 Ruff 및 strict mypy 통과 | 변환 결과를 읽기 전용 소비자 하나에 연결하고 해당 소비자의 집중 검사 결과를 기록합니다. |
 
 ### 남은 작업
 
 - [ ] 통제된 IS-09 원격 검증 근거를 기록하고 해당 근거가 통과하면 service-owned 지도 상태를 갱신합니다.
+- [ ] `project_operating_scope`를 읽기 전용 소비자에 연결해 `unknown_service`가 운영자 화면에 도달하게 하고 해당 소비자의 집중 검사 결과를 기록합니다.
 - [x] Mimir를 Rule 세대 명령 및 결과의 유일한 담당 pantheon subscriber로 연결하고 영속 발행 및 안전하게 재시도할 수 있는 변환 결과를 집중 검사로 입증합니다.
 - [ ] 영속 활성화 결과 발행 및 안전하게 재시도할 수 있는 소비의 통제된 실제 런타임 증적을 기록합니다.
 - [ ] 첫 turn의 바인딩되지 않은 incident 참조가 호출자 요청 ID와 `execution_authority=false`를 보존하면서 `semantic_clarification_required`를 반환함을 입증하는 통제된 인증 브라우저 증적을 보존합니다.

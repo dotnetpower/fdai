@@ -46,6 +46,7 @@ Core only after the exact live evidence closes.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | validated | Adopted the implementation ledger without reconstructing pre-ledger design history and recorded the completed five-service evidence separately from deferred future candidates. | `current change`; machine manifests, service migration branches, shared contracts, and retained transition evidence cited in the scope table. | Re-evaluate only the deferred candidates whose observable forcing triggers and complete scorecard evidence become available. |
+| 2026-08-15 | validated | Renamed the object Norns owns from `PatternObservation` to `Pattern`, so the agent spec, the registered topic, the pantheon tables, and the Console agent contract name one record. | `current change`; `PANTHEON_SPECS`, `agents/_framework/topics.py`, `console/src/routes/agents.model.ts`; focused pantheon layout, doc-parity, and catalog suites passed. | Nothing produces the record yet; publication or retirement is tracked in the prediction-learning ledger. |
 
 ### Remaining work
 

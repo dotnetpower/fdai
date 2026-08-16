@@ -87,8 +87,7 @@ def test_documented_relationship_contract_is_backed_by_declarations() -> None:
         encoding="utf-8"
     )
     section = document.split("\n## Relationship contract\n", 1)[1].split("\n## ", 1)[0]
-    contract_table = section.split("\n### Deferred relationships\n", 1)[0]
-    documented = tuple(re.findall(r"^\| `([a-z_]+)` \|", contract_table, re.MULTILINE))
+    documented = tuple(re.findall(r"^\| `([a-z_]+)` \|", section, re.MULTILINE))
     union_sentence = re.search(
         r"conceptual union rows (.+?) therefore compile", " ".join(section.split())
     )
@@ -103,21 +102,54 @@ def test_documented_relationship_contract_is_backed_by_declarations() -> None:
     assert [name for name in documented if name not in declared and name not in conceptual] == []
 
 
-def test_deferred_relationships_are_absent_from_the_catalog() -> None:
-    """A deferred relationship MUST NOT be declared before its endpoint types."""
-    document = (REPO_ROOT / "docs/roadmap/architecture/operating-ontology.md").read_text(
+def _operating_ontology_document() -> str:
+    return (REPO_ROOT / "docs/roadmap/architecture/operating-ontology.md").read_text(
         encoding="utf-8"
     )
-    deferred_section = document.split("\n### Deferred relationships\n", 1)[1].split("\n## ", 1)[0]
+
+
+_UNDECLARED_MARKER = "Not declared in the shipped catalog."
+
+
+def _semantic_layer_object_rows(document: str) -> tuple[tuple[str, str], ...]:
+    layers = document.split("\n## Semantic layers\n", 1)[1].split("\n## ", 1)[0]
+    return tuple(re.findall(r"^\| `([A-Za-z]+)` \| (.+?) \|$", layers, re.MULTILINE))
+
+
+def test_deferred_relationships_are_absent_from_the_catalog() -> None:
+    """A deferred relationship MUST NOT be declared before its endpoint types."""
+    owner_document = (
+        REPO_ROOT / "docs/roadmap/rules-and-detection/operational-learning-ontology.md"
+    ).read_text(encoding="utf-8")
+    deferred_section = owner_document.split("\n### Deferred relationships\n", 1)[1].split(
+        "\n## ", 1
+    )[0]
     deferred = tuple(re.findall(r"^\| `([a-z_]+)` \|", deferred_section, re.MULTILINE))
     link_root = REPO_ROOT / "rule-catalog/vocabulary/link-types"
-    object_root = REPO_ROOT / "rule-catalog/vocabulary/object-types"
 
     assert set(deferred) == {"learned_as", "predicts_breach_of"}
     assert [name for name in deferred if (link_root / f"{name}.yaml").exists()] == []
-    assert [
-        name for name in ("Forecast", "Pattern") if (object_root / f"{name}.yaml").exists()
-    ] == []
+    # The relationship contract must keep naming both, or a reader of the contract alone
+    # cannot tell that their absence is deliberate.
+    contract = _operating_ontology_document().split("\n## Relationship contract\n", 1)[1]
+    assert all(f"`{name}`" in contract.split("\n## ", 1)[0] for name in deferred)
+
+
+def test_documented_object_types_are_declared_or_deferred() -> None:
+    """A semantic-layer row is declared in the catalog or marked undeclared.
+
+    An unmarked row with no declaration claims a shipped object type that no
+    query resolves; a marked row that is declared claims the opposite.
+    """
+    rows = _semantic_layer_object_rows(_operating_ontology_document())
+    declared = {
+        path.stem for path in (REPO_ROOT / "rule-catalog/vocabulary/object-types").glob("*.yaml")
+    }
+    marked = {name for name, purpose in rows if _UNDECLARED_MARKER in purpose}
+
+    assert rows, "the semantic-layer tables MUST list object types"
+    assert [name for name, _ in rows if name not in declared and name not in marked] == []
+    assert sorted(name for name in marked if name in declared) == []
 
 
 def test_shipped_resource_relationship_declarations_match_canonical_roles() -> None:

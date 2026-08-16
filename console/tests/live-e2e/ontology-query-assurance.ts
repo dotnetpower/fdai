@@ -45,6 +45,7 @@ export type AssurancePlanCapability =
   | "function:query.incident_evidence"
   | "function:query.manifest"
   | "function:query.ontology_relationships"
+  | "metric_scope_series"
   | "metric_series"
   | "object_set"
   | "object_set:filtered"

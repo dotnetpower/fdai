@@ -141,14 +141,21 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "do not require incident_id or correlation_id" in frame.body
     assert "cause_claim_supported=false" in frame.body
     assert "Do not claim a cause" in frame.body
-    assert plan.version == 6
+    assert plan.version == 8
     assert "Satisfy the frame's exact output_shape" in plan.body
     assert "aggregation_table requires aggregate" in plan.body
     assert "topology_graph requires topology_at" in plan.body
     assert "use query.manifest as a query.table dependency followed by aggregate" in plan.body
     assert "a matching selector without that predicate is invalid" in plan.body
+    assert "exactly two metric_scope_series nodes" in plan.body
+    assert "select exact cause and effect concept_id values" in plan.body
+    assert "Never invent a resource id or metric concept" in plan.body
     assert "only object_set, function, union" in plan.body
-    assert "topology_at, topology_diff, metric_series, or evidence_join" in plan.body
+    assert (
+        "topology_at, topology_diff, metric_series, metric_scope_series, or evidence_join"
+        in plan.body
+    )
+    assert "depends on exactly one object_set query.table node" in plan.body
     assert "evaluation_time is trusted server-bound context" in plan.body
     assert "object_set source followed by an aggregate node" in plan.body
     assert "Never use query.ontology_relationships for instance listing" in plan.body

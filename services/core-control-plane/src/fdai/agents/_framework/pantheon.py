@@ -528,7 +528,7 @@ _NORNS = AgentSpec(
     name="Norns",
     layer=Layer.GOVERNANCE,
     reports_to="Odin",
-    owns=("RuleCandidate", "PatternObservation"),
+    owns=("RuleCandidate", "Pattern"),
     conversation=conversation_charter(
         "Norns",
         "Explain recurring patterns and inert learning candidates.",
