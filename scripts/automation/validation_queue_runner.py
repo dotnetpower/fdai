@@ -64,6 +64,10 @@ class StageResult(TypedDict):
 STAGE_NO_PROGRESS_SECONDS = 1_800
 STAGE_BUDGET_SECONDS = 14_400
 STAGE_KILLED_STATUS = 124
+# A gate that could not run because its toolchain is absent says nothing about the snapshot.
+# It needs its own status, or the localizer blames a commit for a fault of the machine.
+STAGE_ENVIRONMENT_STATUS = 125
+ENVIRONMENT_MARKER = "validation-environment: "
 
 
 @dataclass
@@ -125,6 +129,7 @@ def _run_stage(
         start_new_session=True,
     )
     failed_gates: list[str] = []
+    environment_faults: list[str] = []
     in_summary = False
     if process.stdout is None:
         raise RuntimeError("validation stage stdout pipe was not created")
@@ -155,6 +160,8 @@ def _run_stage(
             progress.at = time.monotonic()
             print(line, end="")
             stripped = line.strip()
+            if stripped.startswith(ENVIRONMENT_MARKER):
+                environment_faults.append(stripped.removeprefix(ENVIRONMENT_MARKER))
             if stripped == "== summary ==":
                 in_summary = True
                 continue
@@ -173,7 +180,13 @@ def _run_stage(
         # blame the commit for a bound that the environment, not the change, exceeded.
         status = STAGE_KILLED_STATUS
         print(f"validation-queue: stage={name} killed: {expired[0]}", file=sys.stderr)
+    if status == STAGE_ENVIRONMENT_STATUS:
+        fault = environment_faults[0] if environment_faults else "toolchain unavailable"
+        print(f"validation-queue: stage={name} environment fault: {fault}", file=sys.stderr)
     print(f"validation-queue: stage={name} status={status} duration={duration:.3f}s")
+    detail = expired[0] if expired else (", ".join(failed_gates) or None)
+    if status == STAGE_ENVIRONMENT_STATUS:
+        detail = environment_faults[0] if environment_faults else "toolchain unavailable"
     return {
         "name": name,
         "status": status,
@@ -182,7 +195,7 @@ def _run_stage(
         "resumed_from": None,
         "resumed_failures": 0,
         "input_digest": None,
-        "detail": expired[0] if expired else (", ".join(failed_gates) or None),
+        "detail": detail,
     }
 
 
@@ -535,7 +548,12 @@ def _run_locked(paths: QueuePaths, mode: str, *, target: str | None = None) -> i
         selected=selected,
         history_commits=history_commits[: positions[head] + 1],
     )
-    if status == 0 or mode != "fast" or len(selected) == 1 or status == STAGE_KILLED_STATUS:
+    if (
+        status == 0
+        or mode != "fast"
+        or len(selected) == 1
+        or status in {STAGE_KILLED_STATUS, STAGE_ENVIRONMENT_STATUS}
+    ):
         return status
     return _localize_failure(
         paths,
