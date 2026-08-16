@@ -50,6 +50,27 @@ def test_help_distinguishes_focused_and_whole_suite_modes() -> None:
     assert "--all" in result.stdout
 
 
+def test_a_missing_toolchain_refuses_instead_of_failing_a_gate() -> None:
+    real_bash = shutil.which("bash", path=os.environ["PATH"])
+    assert real_bash is not None
+
+    result = subprocess.run(  # noqa: S603 - fixed script and test-controlled arguments
+        # An empty self-range keeps this about the toolchain: a shallow checkout has no `HEAD^`,
+        # and diff resolution runs before the tool check.
+        [real_bash, str(_VERIFY), "--fast", "--diff", "HEAD..HEAD"],
+        cwd=_ROOT,
+        env={"PATH": "/usr/bin:/bin", "HOME": os.environ["HOME"]},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    # 125 is reserved for an environment fault; the queue must not bisect it onto a commit.
+    assert result.returncode == 125, result.stdout
+    assert "validation-environment: required tool(s) not on PATH" in result.stderr
+    assert "== summary ==" not in result.stdout
+
+
 def test_diff_scoping_and_gate_cache_use_exact_head(tmp_path: Path) -> None:
     assert _git(tmp_path, "init", "--quiet").returncode == 0
     assert _git(tmp_path, "config", "user.email", "tests@example.com").returncode == 0
@@ -132,13 +153,21 @@ def test_diff_is_rejected_outside_fast_mode() -> None:
 
 
 def test_verification_entrypoints_prepend_current_checkout_source() -> None:
-    contract = (
-        'export PYTHONPATH="$repo_root/services/core-control-plane/src:'
-        '$repo_root/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}"'
-    )
+    for script in (_VERIFY, _PYTHON_TESTS):
+        line = next(
+            entry
+            for entry in script.read_text(encoding="utf-8").splitlines()
+            if entry.startswith('export PYTHONPATH="')
+        )
+        value = line.removeprefix('export PYTHONPATH="').removesuffix('"')
+        prefix, _, inherited = value.partition("${PYTHONPATH:+")
+        entries = [entry for entry in prefix.split(":") if entry]
 
-    assert contract in _VERIFY.read_text(encoding="utf-8")
-    assert contract in _PYTHON_TESTS.read_text(encoding="utf-8")
+        # Copying the exact string here made every legitimate added entry look like a
+        # regression; the contract is that checkout sources come first and inheritance is kept.
+        assert inherited == ":$PYTHONPATH}", script
+        assert entries, script
+        assert all(entry.startswith("$repo_root/") for entry in entries), script
 
 
 def test_safety_core_coverage_includes_dedicated_quality_gate_tests() -> None:
@@ -175,11 +204,11 @@ def test_python_test_runner_prefers_current_checkout_at_runtime(tmp_path: Path) 
     )
 
     assert result.returncode == 0, result.stderr
-    assert recorded.read_text(encoding="utf-8").strip().split(":")[:3] == [
-        str(_ROOT / "services" / "core-control-plane" / "src"),
-        str(_ROOT / "packages" / "service-contracts" / "src"),
-        inherited,
-    ]
+    entries = recorded.read_text(encoding="utf-8").strip().split(":")
+    assert entries[-1] == inherited
+    assert all(Path(entry).is_relative_to(_ROOT) for entry in entries[:-1])
+    assert str(_ROOT / "services" / "core-control-plane" / "src") in entries[:-1]
+    assert str(_ROOT / "packages" / "service-contracts" / "src") in entries[:-1]
 
 
 def test_python_test_runner_isolates_database_env_by_phase(tmp_path: Path) -> None:

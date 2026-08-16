@@ -10,6 +10,7 @@ from __future__ import annotations
 import copy
 import json
 import logging
+import re
 from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any
@@ -18,6 +19,7 @@ from fdai_service_contracts.ontology_query import (
     IntentGraph,
     OntologyQueryNode,
     OntologyQueryPlan,
+    QueryNodeKind,
     SemanticOperation,
     SemanticProblemFrame,
     canonical_json,
@@ -29,16 +31,23 @@ from fdai.core.ontology_platform import (
     OntologyQueryPlanVerifier,
     QueryManifest,
 )
+from fdai.core.ontology_platform.incident_queries import (
+    INCIDENT_EVIDENCE_FUNCTION_NAME,
+    INCIDENT_EVIDENCE_MAX_RECORDS,
+)
 
 from .intent_graph import build_intent_graph
 from .semantic_planning_cascade import ProposalRejectedError, SemanticPlanningCascade
 from .semantic_planning_models import (
+    BoundIncident,
+    ClarificationRequirement,
     CompleteManifestSelector,
     QueryManifestProvider,
     QueryNodeProposal,
     QueryPlanProposal,
     SemanticDescriptorSelector,
     SemanticFrameProposal,
+    SemanticOutputShape,
     SemanticPlanningDisposition,
     SemanticPlanningModel,
     SemanticPlanningOutcome,
@@ -51,7 +60,8 @@ _MAX_CONTEXT_CHARS = 12_000
 _MAX_DESCRIPTORS = 512
 _MAX_DESCRIPTOR_BYTES = 524_288
 _MAX_LOGGED_PLAN_NODES = 8
-_INCIDENT_REFERENCE_CLARIFICATION = "Which incident should I investigate?"
+_INCIDENT_EVIDENCE_FUNCTION = INCIDENT_EVIDENCE_FUNCTION_NAME
+_INCIDENT_EVIDENCE_NODE_ID = "bound_incident_evidence"
 
 
 class SemanticPlanningService:
@@ -65,10 +75,13 @@ class SemanticPlanningService:
         manifests: QueryManifestProvider,
         verifier: OntologyQueryPlanVerifier,
         descriptor_selector: SemanticDescriptorSelector | None = None,
+        metric_concepts: Sequence[str] = (),
         now: Callable[[], datetime] | None = None,
     ) -> None:
         self._manifests = manifests
+        self._verifier = verifier
         self._selector = descriptor_selector or CompleteManifestSelector()
+        self._metric_concepts = _validated_metric_concepts(metric_concepts)
         self._now = now or (lambda: datetime.now(UTC))
         self._cascade = SemanticPlanningCascade(
             model=model,
@@ -85,17 +98,12 @@ class SemanticPlanningService:
         prior_turns: Sequence[Turn],
         principal: Principal,
         purpose: str,
+        bound_incident: BoundIncident | None = None,
     ) -> SemanticPlanningOutcome:
         """Return a verified plan, one clarification, or a typed safe hold."""
 
         if not utterance.strip() or len(utterance) > 32_000:
             return _outcome(SemanticPlanningDisposition.UNSUPPORTED, "utterance_out_of_bounds")
-        if not prior_turns and "this incident" in utterance.casefold():
-            return _outcome(
-                SemanticPlanningDisposition.CLARIFICATION,
-                "semantic_clarification_required",
-                clarification=_INCIDENT_REFERENCE_CLARIFICATION,
-            )
         stage = "manifest"
         try:
             manifest = self._manifests.manifest_for(principal=principal, purpose=purpose)
@@ -127,6 +135,13 @@ class SemanticPlanningService:
             proposal, frame = frame_result
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": "frame_build"})
+            if bound_incident is not None:
+                proposal, frame = _resolve_incident_reference(
+                    proposal,
+                    frame,
+                    utterance=utterance,
+                    context=context,
+                )
             if frame.unresolved_terms:
                 clarification = proposal.clarification or _clarification(frame.unresolved_terms)
                 return _outcome(
@@ -147,14 +162,26 @@ class SemanticPlanningService:
             evaluation_time = self._now()
             if evaluation_time.tzinfo is None:
                 raise ValueError("semantic planning evaluation time MUST be timezone-aware")
-            plan = self._cascade.propose_plan(
+            plan = self._anchored_incident_plan(
+                bound_incident=bound_incident,
                 frame=frame,
                 descriptors=descriptors,
+                manifest=manifest,
                 principal=principal,
                 purpose=purpose,
-                manifest=manifest,
                 evaluation_time=evaluation_time,
             )
+            plan_source = "bound_incident" if plan is not None else "proposed"
+            if plan is None:
+                plan = self._cascade.propose_plan(
+                    frame=frame,
+                    descriptors=descriptors,
+                    metric_concepts=self._metric_concepts,
+                    principal=principal,
+                    purpose=purpose,
+                    manifest=manifest,
+                    evaluation_time=evaluation_time,
+                )
             if plan is None:
                 return _outcome(
                     SemanticPlanningDisposition.UNSUPPORTED,
@@ -162,10 +189,20 @@ class SemanticPlanningService:
                     manifest_digest=manifest.manifest_digest,
                     frame=frame,
                 )
+            if any(node.kind.value == "object_set" for node in plan.nodes):
+                execution_time = self._now()
+                if execution_time.tzinfo is None:
+                    raise ValueError("semantic execution cutoff MUST be timezone-aware")
+                plan = _refresh_object_set_cutoffs(plan, execution_time=execution_time)
+                self._verifier.verify(plan, manifest=manifest)
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
             _LOGGER.info(
                 "semantic_planning_stage_completed",
-                extra={"stage": "plan_verify", "plan_nodes": _plan_node_summary(plan)},
+                extra={
+                    "stage": "plan_verify",
+                    "plan_nodes": _plan_node_summary(plan),
+                    "plan_source": plan_source,
+                },
             )
             graph = build_intent_graph(
                 frame=frame,
@@ -201,6 +238,91 @@ class SemanticPlanningService:
             )
             return _outcome(SemanticPlanningDisposition.UNAVAILABLE, "semantic_planning_failed")
 
+    def _anchored_incident_plan(
+        self,
+        *,
+        bound_incident: BoundIncident | None,
+        frame: SemanticProblemFrame,
+        descriptors: tuple[dict[str, Any], ...],
+        manifest: QueryManifest,
+        principal: Principal,
+        purpose: str,
+        evaluation_time: datetime,
+    ) -> OntologyQueryPlan | None:
+        """Build the anchored incident read from the binding, never from a proposal.
+
+        The frame still decides that this turn wants incident evidence. Reading it
+        then needs only the two identities the conversation already holds, so no
+        model selects the capability or transcribes an identifier. The node runs
+        through the same builder and verifier as any proposed plan.
+        """
+        if bound_incident is None or frame.output_shape != SemanticOutputShape.INCIDENT_EVIDENCE:
+            return None
+        if not any(
+            item.get("kind") == "function" and item.get("name") == _INCIDENT_EVIDENCE_FUNCTION
+            for item in descriptors
+        ):
+            return None
+        proposal = QueryPlanProposal(
+            nodes=(
+                QueryNodeProposal(
+                    node_id=_INCIDENT_EVIDENCE_NODE_ID,
+                    kind=QueryNodeKind.FUNCTION,
+                    depends_on=(),
+                    arguments={
+                        "function_name": _INCIDENT_EVIDENCE_FUNCTION,
+                        "arguments": {
+                            "incident_id": bound_incident.incident_id,
+                            "correlation_id": bound_incident.correlation_id,
+                            "limit": INCIDENT_EVIDENCE_MAX_RECORDS,
+                        },
+                        "dependency_arguments": {},
+                    },
+                    output_kind="query.value",
+                ),
+            ),
+            output_node_ids=(_INCIDENT_EVIDENCE_NODE_ID,),
+        )
+        plan = _build_plan(
+            proposal,
+            frame=frame,
+            manifest=manifest,
+            principal=principal,
+            purpose=purpose,
+            evaluation_time=evaluation_time,
+        )
+        self._verifier.verify(plan, manifest=manifest)
+        return plan
+
+
+def _resolve_incident_reference(
+    proposal: SemanticFrameProposal,
+    frame: SemanticProblemFrame,
+    *,
+    utterance: str,
+    context: tuple[str, ...],
+) -> tuple[SemanticFrameProposal, SemanticProblemFrame]:
+    """The binding names the incident, so never ask the operator which one it is.
+
+    Only a turn that will read the anchored incident is answered by the binding.
+    Clearing the question on any other shape would let a proposed plan read a
+    different incident behind a question the operator never got to answer.
+    """
+    requirements = proposal.clarification_requirements
+    if (
+        requirements != (ClarificationRequirement.INCIDENT_REFERENCE,)
+        or frame.output_shape != SemanticOutputShape.INCIDENT_EVIDENCE
+    ):
+        return proposal, frame
+    resolved = proposal.model_copy(
+        update={
+            "unresolved_terms": (),
+            "clarification_requirements": (),
+            "clarification": None,
+        }
+    )
+    return resolved, _build_frame(resolved, utterance=utterance, context=context)
+
 
 def _plan_node_summary(plan: OntologyQueryPlan) -> str:
     """Name the capabilities a verified plan selected, for operator diagnosis."""
@@ -227,7 +349,7 @@ def _build_frame(
         "subject_constraints": proposal.subject_constraints,
         "measure_concepts": proposal.measure_concepts,
         "temporal_scope": proposal.temporal_scope,
-        "output_shape": proposal.output_shape,
+        "output_shape": proposal.output_shape.value,
         "evidence_requirements": proposal.evidence_requirements,
         "unresolved_terms": proposal.unresolved_terms,
         "input_digest": input_digest,
@@ -239,7 +361,7 @@ def _build_frame(
         subject_constraints=proposal.subject_constraints,
         measure_concepts=proposal.measure_concepts,
         temporal_scope_json=canonical_json(proposal.temporal_scope),
-        output_shape=proposal.output_shape,
+        output_shape=proposal.output_shape.value,
         evidence_requirements=proposal.evidence_requirements,
         unresolved_terms=proposal.unresolved_terms,
         input_digest=input_digest,
@@ -254,13 +376,17 @@ def _build_plan(
     manifest: QueryManifest,
     principal: Principal,
     purpose: str,
+    evaluation_time: datetime,
 ) -> OntologyQueryPlan:
+    current_as_of = evaluation_time.astimezone(UTC).isoformat()
     nodes = tuple(
         OntologyQueryNode(
             node_id=node.node_id,
             kind=node.kind,
             depends_on=node.depends_on,
-            arguments_json=canonical_json(node.arguments),
+            arguments_json=canonical_json(
+                _server_bound_node_arguments(node, current_as_of=current_as_of)
+            ),
             output_kind=node.output_kind,
         )
         for node in proposal.nodes
@@ -286,6 +412,52 @@ def _build_plan(
         output_node_ids=proposal.output_node_ids,
         plan_digest=content_digest(payload),
     )
+
+
+def _server_bound_node_arguments(
+    node: QueryNodeProposal,
+    *,
+    current_as_of: str,
+) -> dict[str, Any]:
+    arguments = copy.deepcopy(node.arguments)
+    if node.kind.value != "object_set":
+        return arguments
+    definition = arguments.get("definition")
+    if not isinstance(definition, dict):
+        raise ValueError("semantic ObjectSet node requires a definition object")
+    definition["as_of"] = current_as_of
+    return arguments
+
+
+def _refresh_object_set_cutoffs(
+    plan: OntologyQueryPlan,
+    *,
+    execution_time: datetime,
+) -> OntologyQueryPlan:
+    current_as_of = execution_time.astimezone(UTC).isoformat()
+    nodes = tuple(
+        node.model_copy(
+            update={
+                "arguments_json": canonical_json(
+                    {
+                        **node.arguments,
+                        "definition": {
+                            **node.arguments["definition"],
+                            "as_of": current_as_of,
+                        },
+                    }
+                )
+            }
+        )
+        if node.kind.value == "object_set"
+        else node
+        for node in plan.nodes
+    )
+    payload = {
+        **plan.model_dump(mode="json", exclude={"nodes", "plan_digest"}),
+        "nodes": [node.model_dump(mode="json") for node in nodes],
+    }
+    return OntologyQueryPlan.model_validate({**payload, "plan_digest": content_digest(payload)})
 
 
 def _validated_descriptors(
@@ -324,6 +496,17 @@ def _validated_descriptors(
     if len(encoded) > _MAX_DESCRIPTOR_BYTES:
         raise ValueError("semantic descriptor selection exceeds byte bound")
     return tuple(result)
+
+
+def _validated_metric_concepts(values: Sequence[str]) -> tuple[str, ...]:
+    concepts = tuple(values)
+    if len(concepts) > 64 or len(concepts) != len(set(concepts)):
+        raise ValueError("semantic metric concepts MUST be unique and bounded")
+    if concepts != tuple(sorted(concepts)) or any(
+        re.fullmatch(r"[a-z][a-z0-9_.-]{0,127}", value) is None for value in concepts
+    ):
+        raise ValueError("semantic metric concepts MUST be sorted machine identifiers")
+    return concepts
 
 
 def _bounded_context(prior_turns: Sequence[Turn]) -> tuple[str, ...]:

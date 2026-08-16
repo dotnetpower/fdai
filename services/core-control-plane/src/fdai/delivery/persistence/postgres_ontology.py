@@ -764,7 +764,9 @@ def _row_type_ref(
         return OntologyTypeRef(kind=kind, name=name, version=version, catalog_digest=digest)
     release = releases.get(digest)
     if release is None:
-        raise RuntimeError(f"persisted ontology release {digest!r} is unavailable")
+        raise RuntimeError(
+            f"persisted ontology release {digest!r} for {kind.value} {name!r} is unavailable"
+        )
     try:
         reference = release.type_ref(kind, name)
     except KeyError as exc:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
 from datetime import datetime
 
 from fdai_service_contracts.ontology_query import OntologyQueryNode, QueryNodeKind
@@ -16,6 +17,7 @@ from .metric_semantics import (
     join_causal_evidence,
 )
 from .query_execution import QueryNodeResult
+from .query_values import QueryTable
 from .topology_history import TopologyDiff
 
 METRIC_ARGUMENT_SCHEMAS: Mapping[QueryNodeKind, Mapping[str, object]] = {
@@ -26,6 +28,16 @@ METRIC_ARGUMENT_SCHEMAS: Mapping[QueryNodeKind, Mapping[str, object]] = {
         "properties": {
             "concept_id": {"type": "string", "minLength": 1, "maxLength": 128},
             "resource_id": {"type": "string", "minLength": 1, "maxLength": 256},
+            "start": {"type": "string", "format": "date-time"},
+            "end": {"type": "string", "format": "date-time"},
+        },
+    },
+    QueryNodeKind.METRIC_SCOPE_SERIES: {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["concept_id", "start", "end"],
+        "properties": {
+            "concept_id": {"type": "string", "minLength": 1, "maxLength": 128},
             "start": {"type": "string", "format": "date-time"},
             "end": {"type": "string", "format": "date-time"},
         },
@@ -96,6 +108,93 @@ class MetricSeriesNodeHandler:
             or result.end != end
         ):
             raise ValueError("metric provider result does not match the verified request")
+        return QueryNodeResult(value=result, evidence_refs=result.evidence_refs)
+
+
+class MetricScopeSeriesNodeHandler:
+    """Read one canonical resource while retaining visible-scope incompleteness."""
+
+    def __init__(
+        self,
+        *,
+        registry: MetricSemanticRegistry,
+        provider: MetricWindowProvider,
+    ) -> None:
+        self._registry = registry
+        self._provider = provider
+
+    async def __call__(
+        self,
+        node: OntologyQueryNode,
+        dependencies: Mapping[str, QueryNodeResult],
+    ) -> QueryNodeResult:
+        if node.kind is not QueryNodeKind.METRIC_SCOPE_SERIES:
+            raise ValueError("metric scope handler is bound to the wrong node kind")
+        if len(node.depends_on) != 1 or set(dependencies) != set(node.depends_on):
+            raise ValueError("metric_scope_series requires one table dependency")
+        if set(node.arguments) != {"concept_id", "start", "end"}:
+            raise ValueError("metric_scope_series arguments do not match the closed schema")
+        dependency = dependencies[node.depends_on[0]]
+        if not isinstance(dependency.value, QueryTable):
+            raise TypeError("metric_scope_series dependency MUST be a QueryTable")
+        if not dependency.evidence_refs:
+            raise ValueError("metric_scope_series dependency MUST cite scope evidence")
+        table = dependency.value
+        resource_ids = tuple(
+            sorted({_text(row.values.get("id"), "resource_id") for row in table.rows})
+        )
+        concept_id = _text(node.arguments["concept_id"], "concept_id")
+        start = _timestamp(node.arguments["start"], "start")
+        end = _timestamp(node.arguments["end"], "end")
+        definition = self._registry.resolve(concept_id)
+        if not resource_ids:
+            result = MetricWindow(
+                concept_id=concept_id,
+                resource_id="scope:none",
+                unit=definition.canonical_unit,
+                start=start,
+                end=end,
+                samples=(),
+                complete=False,
+                evidence_refs=dependency.evidence_refs,
+                missing_reason="no_visible_resource",
+            )
+            return QueryNodeResult(value=result, evidence_refs=result.evidence_refs)
+        resource_id = resource_ids[0]
+        result = await self._provider.read(
+            definition=definition,
+            resource_id=resource_id,
+            start=start,
+            end=end,
+        )
+        if (
+            result.concept_id != concept_id
+            or result.resource_id != resource_id
+            or result.unit != definition.canonical_unit
+            or result.start != start
+            or result.end != end
+        ):
+            raise ValueError("metric provider result does not match the verified scope request")
+        evidence_refs = tuple(dict.fromkeys((*result.evidence_refs, *dependency.evidence_refs)))
+        scope_reason = (
+            "object_scope_incomplete"
+            if not table.complete
+            else "object_scope_sampled"
+            if len(resource_ids) > 1
+            else None
+        )
+        if scope_reason is not None:
+            missing_reason = "+".join(
+                sorted({reason for reason in (result.missing_reason, scope_reason) if reason})
+            )
+            result = replace(
+                result,
+                complete=False,
+                missing_reason=missing_reason,
+                evidence_refs=evidence_refs,
+            )
+        elif result.evidence_refs != evidence_refs:
+            result = replace(result, evidence_refs=evidence_refs)
         return QueryNodeResult(value=result, evidence_refs=result.evidence_refs)
 
 
@@ -178,4 +277,9 @@ def _timestamp(value: object, name: str) -> datetime:
     return parsed
 
 
-__all__ = ["EvidenceJoinNodeHandler", "METRIC_ARGUMENT_SCHEMAS", "MetricSeriesNodeHandler"]
+__all__ = [
+    "EvidenceJoinNodeHandler",
+    "METRIC_ARGUMENT_SCHEMAS",
+    "MetricScopeSeriesNodeHandler",
+    "MetricSeriesNodeHandler",
+]

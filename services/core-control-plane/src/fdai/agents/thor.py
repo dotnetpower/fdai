@@ -131,6 +131,7 @@ class ActionRun:
             kinetic_proposal=_durable_kinetic_proposal(data.get("kinetic_proposal")),
         )
         run.history = [ActionRunState(s) for s in data.get("history", [])]
+        _require_bound_kinetic_proposal(run)
         return run
 
 
@@ -647,6 +648,28 @@ def _durable_kinetic_proposal(raw: object) -> dict[str, Any] | None:
     if raw is not None and proposal is None:
         raise ValueError("durable ActionRun kinetic proposal is invalid")
     return proposal.model_dump(mode="json") if proposal is not None else None
+
+
+def _require_bound_kinetic_proposal(run: ActionRun) -> None:
+    """Reject rehydrated exact-argument evidence that belongs to another run.
+
+    ``dispatch_verdict`` denies a verdict whose proposal is not bound to it.
+    Rehydration reads the same untrusted durable boundary, so it MUST apply the
+    same binding; otherwise a tampered row restores another correlation's exact
+    arguments into an in-flight run and republishes them to the executor.
+    """
+    if run.kinetic_proposal is None:
+        return
+    proposal = _kinetic_proposal(run.kinetic_proposal)
+    if proposal is None or not _kinetic_proposal_matches(
+        proposal,
+        correlation_id=run.correlation_id,
+        action_type=run.action_type,
+        resource_id=run.resource_id,
+        params=run.params,
+        decision_case=run.decision_case,
+    ):
+        raise ValueError("durable ActionRun kinetic proposal is not bound to its run")
 
 
 def _kinetic_proposal_matches(

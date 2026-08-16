@@ -180,16 +180,9 @@ class ResourceStateShadowHook:
             0,
             round((authoritative.finished_at - authoritative.started_at).total_seconds() * 1000),
         )
-        await self._publish_activity(
-            correlation_id=correlation_ref,
-            status=activity_status,
-            freshness=freshness,
-            evidence_count=len(authoritative.evidence_refs),
-            duration_ms=duration_ms,
-            reason_codes=reason_codes,
-        )
         shadow_outcome = "not_attempted"
         shadow_persistence = "not_attempted"
+        cross_source_conflicts: tuple[str, ...] = ()
         if (
             authoritative.outcome is ReadInvestigationOutcome.MATCHED
             and authoritative.resolution.resource is not None
@@ -209,6 +202,7 @@ class ResourceStateShadowHook:
                 )
                 shadow_outcome = attempt.receipt.outcome.value
                 shadow_persistence = attempt.persistence.value
+                cross_source_conflicts = attempt.receipt.cross_source_conflicts
             except Exception as exc:  # noqa: BLE001 - shadow never rewrites the answer
                 shadow_outcome = "error"
                 shadow_persistence = "failed"
@@ -219,11 +213,24 @@ class ResourceStateShadowHook:
                         "error_kind": type(exc).__name__,
                     },
                 )
+        if cross_source_conflicts:
+            activity_status = OperationalActivityStatus.DEGRADED
+            freshness = OperationalFreshness.UNKNOWN
+            reason_codes = tuple(sorted({*reason_codes, *cross_source_conflicts}))
+        await self._publish_activity(
+            correlation_id=correlation_ref,
+            status=activity_status,
+            freshness=freshness,
+            evidence_count=len(authoritative.evidence_refs),
+            duration_ms=duration_ms,
+            reason_codes=reason_codes,
+        )
         return _render_result(
             authoritative,
             question=question,
             shadow_outcome=shadow_outcome,
             shadow_persistence=shadow_persistence,
+            cross_source_conflicts=cross_source_conflicts,
         )
 
     async def _publish_activity(
@@ -423,6 +430,7 @@ def _render_result(
     question: str,
     shadow_outcome: str,
     shadow_persistence: str,
+    cross_source_conflicts: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     resource = result.resolution.resource
     states = tuple(
@@ -432,6 +440,8 @@ def _render_result(
         if record.state is not None
     )
     state = states[0] if len(states) == 1 else None
+    if cross_source_conflicts:
+        state = None
     name = (
         resource.name
         if resource is not None
@@ -441,6 +451,14 @@ def _render_result(
     if state is not None:
         answer = (
             f"{name}의 현재 상태는 {state}입니다." if korean else f"{name} is currently {state}."
+        )
+    elif cross_source_conflicts:
+        answer = (
+            f"{name}의 현재 상태를 단정할 수 없습니다. 독립된 두 권위가 서로 다르게 보고했습니다."
+            if korean
+            else (
+                f"The current state of {name} is contested: two independent authorities disagree."
+            )
         )
     else:
         answer = (
@@ -457,6 +475,7 @@ def _render_result(
             "evidence_refs": result.evidence_refs,
             "shadow_outcome": shadow_outcome,
             "shadow_persistence": shadow_persistence,
+            "cross_source_conflicts": list(cross_source_conflicts),
             "execution_authority": False,
         },
     }

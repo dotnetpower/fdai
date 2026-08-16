@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: d0e3f9f04782e2614bed266eb02581c001903777
-translation_revised: 2026-08-15
+translation_source_sha: 1e11a27e6219aa3c7350ebdbd5738396ac1afcd7
+translation_revised: 2026-08-16
 ---
 # 프로젝트 구조
 
@@ -47,6 +47,13 @@ translation_revised: 2026-08-15
 | 2026-08-14 | implemented | Receipt 저장 전에 영속 OperationalPlan identity와 모든 proposal lineage 필드를 다시 검증해 내부적으로 valid한 cross-record substitution을 차단하도록 delivery join을 강화했습니다. | `current change`, `delivery/kinetic_proposal.py`, 집중 kinetic 검사 119개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 운영 Forseti proposal source 조립, verified independent observer 및 통제된 실제 종결 근거는 Operational Planning에서 계속 소유합니다. |
 | 2026-08-15 | 구현됨 | Exact-release principal 매니페스트 조회 모듈 하나를 추가하고 기존 의미 Function registry와 일반 query-table renderer를 통해 연결했습니다. | `current change`, focused 매니페스트 및 의미 조립 검사 42개와 작업 범위 Ruff 및 strict mypy 통과 | Clean 이중 언어 답변 coverage와 seed 기반 전체 집단 Browser 근거를 보존합니다. |
 | 2026-08-15 | 구현됨 | 검증된 plan이 선택한 역량을 `plan_verify` 단계 기록에 남기고 `stage`, `plan_nodes`, `failure_type`을 로컬 평문 로그 컨텍스트 허용 목록을 통해 출력하도록 했습니다. 허용 목록 방식을 그대로 유지해 목록에 없는 필드는 여전히 평문 로그에 답지 않습니다. | `current change`, `semantic_planning.py` 및 `capture-local-service-log.py`, focused 계획기 검사 14개와 로컬 서비스 로그 실행기 검사 11개 통과 | 이 필드로 인시던트 바인딩에 결정론적 plan seed가 필요한지 판단합니다. |
+| 2026-08-16 | 구현됨 | 대화의 인시던트 바인딩을 신뢰 가능한 계획 입력으로 만들었습니다. 계획 단계가 제안된 `query.incident_evidence` 노드의 식별자와 기록 조회 범위를 바인딩 값으로 다시 쓰고 plan을 재검증하므로, 신원은 모델이 옮겨 적는 값이 아니라 서버 소유 값입니다. Turn의 근거 참조 상한을 이름 있는 계약 상수로 만들어 읽기 범위를 그 값에 맞추고, fail closed 보류마다 기존 `failure_type` 필드로 실패한 검사 이름을 남깁니다. | `current change`, `semantic_planning.py`, `semantic_runtime.py`, `semantic_turn_processor.py` 및 `semantic_turn.py`, focused 대화, 처리기 및 계약 검사 606개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 복구된 인시던트 답변에 대한 통제된 인증 Console 근거를 보존합니다. |
+| 2026-08-16 | 구현됨 | 고정된 인시던트 읽기를 plan 제안이 아니라 바인딩에서 직접 구성합니다. 이 turn이 인시던트 근거를 원한다는 판단은 여전히 타입이 있는 frame이 하고, 그 뒤 역량과 두 신원은 대화에서 오므로 모델이 고르거나 옮겨 적지 않으며, 노드는 동일한 plan 빌더와 검증기를 그대로 통과합니다. 바인딩은 `incident_reference` 확인 요구도 대신 해소하며, 영어 전용 `this incident` 부분 문자열 경로를 제거해 두 언어가 frame을 통해 같은 결론에 도달합니다. | `current change`, `semantic_planning.py` 및 `capture-local-service-log.py`, focused 대화 검사 458개 통과, 작업 범위 Ruff 및 strict mypy 통과, 라이브 고정 turn 3회 연속 `plan_source="bound_incident"` 기록 및 응답 | 고정된 인시던트 답변에 대한 통제된 인증 Console 근거를 보존합니다. |
+| 2026-08-16 | 구현됨 | 비평 후 고정된 인시던트 읽기를 강화했습니다. 제안된 인시던트 읽기를 고정 신원으로 다시 쓰면 다른 인시던트에 대한 정당한 질문이 엉뚱한 인시던트 답변으로 바뀌므로 그 재작성을 제거하고 처리기의 정직한 보류를 남겼습니다. 읽기 범위는 관련 없는 turn 근거 참조 상한이 아니라 근거 역량 자체의 기록 상한을 씁니다. 답변과 Console 개요는 표시된 일부가 아니라 검증된 총계를 알리고 잘림을 명시합니다. 인시던트 신원은 정규 형식으로 비교하므로 16진수 대소문자 차이가 다른 인시던트로 읽히지 않습니다. | `current change`, `semantic_planning.py`, `incident_queries.py`, `semantic_turn_processor.py` 및 Operator 표현 계층, focused Core 검사 913개와 Operator 검사 310개 통과, 작업 범위 Ruff 및 strict mypy 통과, 두 가드 모두 mutation 검증 완료 | 통제된 인증 Console 근거를 보존합니다. |
+| 2026-08-16 | 구현됨 | Operator와 Console이 각각 소유하는 표현 경계를 가드로 고정하고, 변환 결과 충돌 카운터에 상한을 두었으며, 영속 release 오류에 객체 이름을 넣었습니다. Console은 해석할 수 없는 artifact를 조용히 버리므로 두 스위트 어느 쪽도 slot 드리프트를 볼 수 없었습니다. | `current change`, `test_presentation_console_contract.py`가 Console의 `SLOT_KINDS`, `MAX_BLOCKS`, `MAX_ITEMS`, `MAX_REFS`를 직접 읽어 두 언어의 모든 artifact를 검사, Operator 검사 318개와 persistence 검사 390개 통과, 알 수 없는 slot으로 바꾸면 가드가 실패함을 확인 | 이 행에 남은 작업은 없습니다. |
+| 2026-08-16 | 구현됨 | 인시던트 답변이 주장하는 기록 순서를 실제로 검사합니다. 답변은 projection의 뒷부분을 잘라 최신 기록이라고 말하는데 리더가 오래된 순으로 반환했는지 확인하는 곳이 없어, 순서가 바뀌면 그 주장이 조용히 거짓이 될 수 있었습니다. 기록 시각이 역행하는 근거는 이제 보류합니다. | `current change`, focused 처리기 검사 54개 통과, 라이브 인시던트 상관관계 2건이 해당 불변식 활성 상태에서 응답, 검사를 제거하면 새 사례가 실패 | 이 행에 남은 작업은 없습니다. |
+| 2026-08-16 | 구현됨 | 바인딩이 `incident_reference` 질문을 대신 해소하는 범위를 고정된 인시던트를 읽는 turn으로 좁혀, 다른 output shape의 제안 plan이 운영자가 보지 못한 질문 뒤에서 다른 인시던트를 읽을 수 없게 했습니다. | `current change`, focused 대화 검사 458개 통과, shape 조건을 제거하면 새 사례가 실패 | 이 행에 남은 작업은 없습니다. |
+| 2026-08-16 | 구현됨 | 읽기가 이미 담아 온 인시던트 근거를 실제로 보고합니다. 감사 행과 프로파일에 행위 주체, 제목, 심각도, 버티컬, 최초·최종 기록 시각이 있었는데도 답변은 상태와 건수만 말해, 누가 언제 조치했는지 알 수 없었습니다. 이제 projection이 각 기록의 행위 주체를 보존하고, 두 표면 모두 값이 있는 프로파일 필드를 모두 나열하며 자기 상한을 제목에 밝히는 기록 활동 표를 덧붙이고, 다음 안전 단계는 답변이 실제로 측정한 공백을 따릅니다. 값이 있는 필드만 나열하면 미기록 상태가 사라지므로 두 표면 모두 기록에 상태가 없다는 사실을 계속 밝히며, 건수는 표시한 수가 아니라 검증한 수를 유지합니다. 기록 시각이나 감사 참조가 없는 기록은 없는 기준점을 지어내지 않고 건너뜁니다. | `current change`, `incident_queries.py`, `semantic_turn_processor.py`, Operator 표현 계층, focused Core 검사 388개와 Operator 검사 322개 통과, 작업 범위 Ruff와 strict mypy 통과, 귀속 누락과 상태 조용한 생략을 각각 되돌리는 mutation 3건이 정확히 해당 가드 하나씩만 실패시킴 | 이 행에 남은 작업은 없습니다. |
 
 ### 남은 작업
 - [ ] 호환성 import deprecation 주기 뒤 연기된 Phase 2 물리 `git mv`를 완료하고 이 배치를 결과 service-owned 경로로 갱신합니다.
@@ -73,7 +80,7 @@ fdai/
 │   │   ├── case_history/       # canonical revision, strict operational receipt, artifact-first intake, scoped retrieval, backfill 및 retention
 │   │   ├── task_worker/        # 격리된 depth-one 읽기 전용 worker: capability 축소, lifecycle, 영구 state, parent synthesis
 │   │   ├── background_task/    # 영구 detached read: lease/CAS, atomic completion outbox, bounded retry, process-loss, retention purge
-│   │   ├── read_investigation/ # Exact-resource VM/network planning, evidence, immutable provider-vs-graph shadow comparison, latency policy, owner-scoped direct/stream replay, honest cost usage, SSE heartbeat, stream-close cancellation. Cloud SDK와 execution authority 없음
+│   │   ├── read_investigation/ # Exact-resource VM/network planning, evidence, immutable provider-vs-graph shadow comparison과 그 결정적 교차 출처 충돌 판정, latency policy, owner-scoped direct/stream replay, honest cost usage, SSE heartbeat, stream-close cancellation. Cloud SDK와 execution authority 없음
 │   │   ├── briefing/           # report-feed evidence 기반 결정적 opening/scheduled briefing
 │   │   ├── scheduler/          # create/pause/resume/edit/run-now/cancel lifecycle, cron dispatch, run history, blueprint, 범위 제한 continuation
 │   │   ├── document_ingestion/ # upload lifecycle + split inspect/index worker; Forseti/Saga/Var/Muninn gate, durable stage lease/CAS claim, replay-only gated-state recovery
@@ -258,9 +265,8 @@ fdai/
 의존 방향은 엄격하게 단방향이며, 위반은 리뷰 블로커입니다.
 
 - **코어는 이식 가능**: 어떤 클라우드 SDK도 직접 가져오기 하지 **않습니다**. 클라우드 특이성은
-  `shared/providers/` 의 CSP-중립 인터페이스로만 진입하며, 구현은 `delivery/` 와 `infra/`
-  에 있고 조립 시점에 주입됩니다. 이렇게 두 번째 클라우드는 어댑터 추가일 뿐이며 `core/` 편집이
-  아닙니다.
+  `shared/providers/` 의 CSP-중립 인터페이스로만 진입하며, 구현은 `delivery/` 와 `infra/` 에 있고
+  조립 시점에 주입됩니다. 이렇게 두 번째 클라우드는 어댑터 추가일 뿐이며 `core/` 편집이 아닙니다.
 - **허용된 가져오기**: `shared/`는 `core/`를 가져오기하지 않습니다. `core/`는 `shared/`의
   계약, 프로바이더, 텔레메트리, 구성만 가져옵니다. `delivery/`는 어댑터 경계 뒤에서
   `core/`와 `shared/`를 조립할 수 있고 `composition/`이 모든 계층을 연결합니다. `core/`는
@@ -490,28 +496,24 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 
 ### 기능 번들
 
-포크가 인프라 경계를 교체하는 대신 탐색 가능한 기능을 추가할 때는
-`CapabilityBundle`을 사용합니다. 번들은 운영자에게 표시할 `Capability` 메타데이터,
-하나의 타입이 지정된 `CapabilityBinding`, 선택적 검토된 `ToolArtifact` 메타데이터,
-reasoning-tool `ToolProvider` 구현을 함께 묶습니다. 연결은 이미 로드된 reasoning 도구,
-같은 번들이 제공하는 도구 또는 기존 `ActionType`, `Workflow`를 가리킵니다. 별도 실행
-경로를 정의하거나 산출물에서 프로바이더 코드를 부하하지 않습니다.
+포크가 인프라 경계를 교체하는 대신 탐색 가능한 기능을 추가할 때는 `CapabilityBundle`을 사용합니다.
+번들은 운영자에게 표시할 `Capability` 메타데이터, 하나의 타입이 지정된 `CapabilityBinding`, 선택적
+검토된 `ToolArtifact` 메타데이터, reasoning-tool `ToolProvider` 구현을 함께 묶습니다. 연결은 이미
+로드된 reasoning 도구, 같은 번들이 제공하는 도구 또는 기존 `ActionType`, `Workflow`를 가리킵니다.
+별도 실행 경로를 정의하거나 산출물에서 프로바이더 코드를 부하하지 않습니다.
 
 `fdai.composition.install_capability_bundle(...)`로 번들을 설치합니다. Installer는 로드된
 카탈로그에서 cross-reference를 만들고 검증된 등록을 `capability_runtime`에 포함하는 새
 `Container`를 반환합니다. 대상이 없거나, 프로바이더가 누락 또는 중복되거나, 도구에 선언된
-프로바이더와 번들이 일치하지 않거나, 패키지 도구 또는 프로바이더가 참조되지 않거나, 패키지
-도구 id가 다른 출처를 shadow하면 시작이 차단됩니다. 검증이 실패해도 입력 컨테이너는
-변경되지 않습니다.
+프로바이더와 번들이 일치하지 않거나, 패키지 도구 또는 프로바이더가 참조되지 않거나, 패키지 도구
+id가 다른 출처를 shadow하면 시작이 차단됩니다. 검증이 실패해도 입력 컨테이너는 변경되지 않습니다.
 
-`wire_azure_container(...)`는 file-backed 도구 카탈로그와 설치된 런타임의 패키지 도구를
-결합한 다음 런타임 프로바이더와 명시적인 `AzureWireOverrides.tool_providers`를 결합합니다. 중복
-도구 또는 프로바이더 id는 암시적으로 덮어쓰지 않고 설정 오류로 처리합니다. `ActionType`과
-`Workflow` 연결은 참조일 뿐입니다. 변경 요청은 계속 trust 라우터, risk 게이트, 실행기,
-감사 경로로 다시 들어갑니다. 복사해서 사용할 수 있는
-읽기 전용 프로바이더와 번들은
-[Core 패키지 루트](../../../services/core-control-plane/src/fdai/)를
-참조하세요.
+`wire_azure_container(...)`는 file-backed 도구 카탈로그와 설치된 런타임의 패키지 도구를 결합한
+다음 런타임 프로바이더와 명시적인 `AzureWireOverrides.tool_providers`를 결합합니다. 중복 도구 또는
+프로바이더 id는 암시적으로 덮어쓰지 않고 설정 오류로 처리합니다. `ActionType`과 `Workflow` 연결은
+참조일 뿐입니다. 변경 요청은 계속 trust 라우터, risk 게이트, 실행기, 감사 경로로 다시 들어갑니다.
+복사해서 사용할 수 있는 읽기 전용 프로바이더와 번들은 [Core 패키지
+루트](../../../services/core-control-plane/src/fdai/)를 참조하세요.
 
 배포에서 해당 번들에 install, 활성화, 비활성화, uninstall 수명 주기가 필요하면
 `core/capability_catalog/extensions.py`의 `ExtensionManager`를 사용합니다. Install은 보관
@@ -619,9 +621,8 @@ shared 런타임 스냅샷 publish 전에 exact 구성원 버전과 활성화된
 
 `StateStore`는 제거 원시 연산을 `delete_states_beyond(prefix, retain_newest)` 하나만 노출합니다.
 `read_states`와 같은 순서로 한계를 넘는 가장 오래된 행을 버려, 추가 전용 근거 투영의 증가를
-제한합니다. 최신순은 모든 백엔드에서 마지막으로 기록된 순서를 뜻하므로, 어떤 백엔드를
-연결하든 남는 행은 같습니다. 키를 지정할 수 없으므로 권위 있는 기록이나 감사 항목을 지울 수
-없습니다.
+제한합니다. 최신순은 모든 백엔드에서 마지막으로 기록된 순서를 뜻하므로, 어떤 백엔드를 연결하든
+남는 행은 같습니다. 키를 지정할 수 없으므로 권위 있는 기록이나 감사 항목을 지울 수 없습니다.
 
 ## 컨트롤 루프 배선
 

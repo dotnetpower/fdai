@@ -22,13 +22,15 @@ authority.
 | Conversation gateway and typed progress replay | implemented | [`channel_gateway.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_gateway.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py), [`test_rich_contract.py`](../../../services/core-control-plane/tests/delivery/channels/test_rich_contract.py) | The gateway persists one complete response through its durable-delivery boundary and isolates duplicate turns and delivery failures. Typed activity and progress payloads round-trip in focused tests. No production channel runtime binds this path. |
 | PostgreSQL schema and production persistence | in-progress | [`20260720_0047_conversation_delivery.py`](../../../alembic/versions/20260720_0047_conversation_delivery.py) | The migration defines binding, delivery, attempt, acknowledgement, and breaker tables plus constraints and indexes. The current service tree has no PostgreSQL conversation-delivery or principal-binding store, database-backed focused test, or production binding. |
 | Adapter health policy | implemented | [`adapter_health.py`](../../../services/core-control-plane/src/fdai/core/conversation/adapter_health.py), [`test_adapter_health.py`](../../../services/core-control-plane/tests/conversation/test_adapter_health.py) | Bounded failure windows, fail-closed breaker modes, authorized pause and resume, and authorized A2 fallback behavior pass focused in-memory tests. The separately authenticated command app is not implemented. |
-| Scheduled delivery and read-only operations surfaces | in-progress | [`scheduled_continuation.py`](../../../services/core-control-plane/src/fdai/shared/providers/scheduled_continuation.py), [`continuation.py`](../../../services/core-control-plane/src/fdai/core/scheduler/continuation.py), [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py) | Scheduled anchors and delivery/snapshot contracts exist. `ScheduledContinuationDeliveryCoordinator`, `ConversationDeliveryPanel`, adapter command routes, and production startup composition are absent from the current tree. |
+| Scheduled delivery and adapter command surfaces | in-progress | [`scheduled_continuation.py`](../../../services/core-control-plane/src/fdai/shared/providers/scheduled_continuation.py), [`continuation.py`](../../../services/core-control-plane/src/fdai/core/scheduler/continuation.py), [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py) | Scheduled anchors and delivery/snapshot contracts exist. `ScheduledContinuationDeliveryCoordinator`, adapter command routes, and production startup composition are absent from the current tree. |
+| Read-only delivery operations panel | implemented | [`delivery_panel.py`](../../../services/core-control-plane/src/fdai/core/conversation/delivery_panel.py), [`test_delivery_panel.py`](../../../services/core-control-plane/tests/conversation/test_delivery_panel.py) | `ConversationDeliveryPanel` projects latency count/average/p95, state counts, duplicate risk, retries, abandonment, attempt and acknowledgement counts, breaker mode counts, and optional progressive counters. The payload declares `read_only=true` and `mutations_available=false`, exposes no identifier or answer text, and only the snapshot read capability is reachable. No console route or production store binds this projection yet. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted the implementation ledger and corrected production persistence, startup, command, scheduled-delivery, and operations-view claims to match the current service tree. | The 76 focused tests listed in the scope table passed. Repository search found no current production store, runtime composition, command route, scheduled delivery coordinator, or read panel. | Implement and bind the missing production surfaces, run database-backed checks, and capture governed runtime receipts. |
+| 2026-08-16 | in-progress | Implemented the GET-only `ConversationDeliveryPanel` aggregate projection with bounded latency percentiles, breaker and state counts, optional progressive counters, and no mutation or identifier surface. | `pytest services/core-control-plane/tests/conversation/test_delivery_panel.py` passed 11 focused tests, including read-only declaration, identifier-free payload, and mutation-path refusal. | Bind the panel to an authenticated console read route and a production delivery store, then capture governed runtime receipts. |
 
 ### Remaining work
 
@@ -40,7 +42,9 @@ authority.
     audit, and focused pause, resume, and status tests.
 - [ ] Implement `ScheduledContinuationDeliveryCoordinator` for Slack and Teams with stable anchor
     origins and persisted-result replay tests.
-- [ ] Implement the GET-only `ConversationDeliveryPanel` projection without mutation controls.
+- [x] Implement the GET-only `ConversationDeliveryPanel` projection without mutation controls.
+- [ ] Bind `ConversationDeliveryPanel` to an authenticated console read route and a production
+    delivery store, and share the bounded progressive-conversation collector with it.
 - [ ] Record governed runtime receipts for persistence across restart, process-loss reconciliation,
     external adapter acknowledgement, breaker control, scheduled delivery, and read-only metrics
     before promoting any row to `validated`.
@@ -190,7 +194,7 @@ continuations remain idempotent conversation turns.
 
 ## Read-only operations view
 
-The planned `ConversationDeliveryPanel` must be a GET-only `ReadPanel`. It must report:
+`ConversationDeliveryPanel` is a GET-only projection over one delivery snapshot. It reports:
 
 - Delivery latency count, average, and p95.
 - State counts, duplicate-risk count, retries, and abandonment.
@@ -199,8 +203,11 @@ The planned `ConversationDeliveryPanel` must be a GET-only `ReadPanel`. It must 
 - Optional aggregate progressive-conversation counts and first-progress, first-confirmed, and branch
     latency when composition shares the bounded collector with Web or channel publishers.
 
-Its payload must set `read_only=true` and `mutations_available=false`. The panel is not implemented,
-and the console must expose no pause, resume, retry, duplicate-risk override, or resend control.
+Its payload sets `read_only=true` and `mutations_available=false` and stays aggregate-only, so it
+carries no answer text and no principal, scope, conversation, delivery, attempt, or provider
+identifier. The panel reaches only the snapshot read capability, and the console must expose no
+pause, resume, retry, duplicate-risk override, or resend control. No console route or production
+store binds the projection yet.
 
 ## Verification
 

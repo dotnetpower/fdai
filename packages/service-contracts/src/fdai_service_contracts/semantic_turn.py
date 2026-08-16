@@ -23,6 +23,8 @@ BoundedId = Annotated[str, Field(min_length=1, max_length=256)]
 SEMANTIC_REQUEST_TOPIC = "operator.semantic-turn.requests"
 SEMANTIC_PROJECTION_TOPIC = "core.semantic-turn.projections"
 SEMANTIC_PHYSICAL_TOPIC = "aw.pantheon.objects"
+MAX_SEMANTIC_EVIDENCE_REFS = 12
+"""Turn-level evidence references a projected semantic result may carry."""
 LOGICAL_TOPIC_FIELD = "_fdai_logical_topic"
 _RULE_COMPONENT_PATTERN = r"^[a-z][a-z0-9_.-]{0,79}$"
 _MAX_RULE_CANDIDATES = 50
@@ -129,7 +131,9 @@ class SemanticTurnResult(QueryContract):
     execution_receipt_digest: Digest | None = None
     intent_graph: dict[str, Any] | None = None
     intent_graph_evidence: dict[str, Any] | None = None
-    evidence_refs: Annotated[tuple[BoundedId, ...], Field(max_length=12)] = ()
+    evidence_refs: Annotated[
+        tuple[BoundedId, ...], Field(max_length=MAX_SEMANTIC_EVIDENCE_REFS)
+    ] = ()
     checks_completed: Annotated[int, Field(ge=0, le=64)] = 0
     checks_total: Annotated[int, Field(ge=0, le=64)] = 0
     answer: Annotated[str, Field(min_length=1, max_length=64_000)] | None = None

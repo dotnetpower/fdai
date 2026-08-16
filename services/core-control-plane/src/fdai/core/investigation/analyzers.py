@@ -16,8 +16,9 @@ own analyzers. Nothing here executes a change.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import datetime
+from types import MappingProxyType
 
 from fdai.core.investigation.analyzer import (
     Aggregation,
@@ -189,6 +190,21 @@ def api_management_analyzer(
     )
 
 
+#: Reviewed map from the neutral ``rule-catalog/vocabulary/resource-types.yaml``
+#: id an inventory projection records on ``Resource.type`` to the analyzer kind
+#: that observes it. Only these five reference analyzers ship, so an inventory
+#: resource type absent from this map has no analyzer and is never guessed at.
+ANALYZER_KIND_BY_RESOURCE_TYPE: Mapping[str, str] = MappingProxyType(
+    {
+        "api-gateway": KIND_API_MANAGEMENT,
+        "kubernetes-cluster": KIND_AKS,
+        "llm-endpoint": KIND_AZURE_OPENAI,
+        "mysql-server": KIND_MYSQL,
+        "network.application-gateway": KIND_APP_GATEWAY,
+    }
+)
+
+
 def default_analyzers(
     provider: MetricProvider, *, wall_clock: _Clock = None
 ) -> tuple[ResourceAnalyzer, ...]:
@@ -203,6 +219,7 @@ def default_analyzers(
 
 
 __all__ = [
+    "ANALYZER_KIND_BY_RESOURCE_TYPE",
     "KIND_AKS",
     "KIND_API_MANAGEMENT",
     "KIND_APP_GATEWAY",

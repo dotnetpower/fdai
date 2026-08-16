@@ -89,7 +89,7 @@ MAY publish that object type's topic.
 | **Saga** | Auditor - append-only chain + handoff-to-GitHub-issue | governance | AuditEntry, Issue | `object.audit-entry`, `object.issue` | all terminal states, including `object.forecast-outcome`, `object.retrieval-validation`, `object.state-snapshot`, and Mimir's catalog-review `object.rule`; `object.handoff-escalation` | no | **yes** |
 | **Mimir** | Rule Steward - promote/revoke rules through the quality gate | governance | Rule, Policy, RuleGenerationBuildRequest, RuleGenerationBuildResult | `object.rule`, `object.policy`, `object.rule-generation-build-request`, `object.rule-generation-build-result` | `object.rule-candidate`, `object.issue`, `object.rule-generation-build-request`, `object.retrieval-validation` | no | no |
 | **Muninn** | Memory - state snapshots + case-history/context index (RAG) | governance | StateSnapshot, ContextIndex | `object.state-snapshot`, `object.context-index` | `object.turn`, `object.audit-entry`, `object.drift` (detection readiness), `object.forecast-outcome`, `object.retrieval-validation`, `object.event` (retention tick), `object.change` | no | no |
-| **Norns** | Learner - proposes inert RuleCandidates (never mutates catalog) | governance | RuleCandidate, PatternObservation | `object.rule-candidate` | `object.audit-entry`, `object.issue`, `object.approval`, `object.context-index`, consent-filtered `object.post-turn-review` | off-path batch only | no |
+| **Norns** | Learner - proposes inert RuleCandidates (never mutates catalog) | governance | RuleCandidate, Pattern | `object.rule-candidate` | `object.audit-entry`, `object.issue`, `object.approval`, `object.context-index`, consent-filtered `object.post-turn-review` | off-path batch only | no |
 | **Njord** | Cost specialist - advisory to Forseti | domain | CostAnomaly, Budget | `object.cost-anomaly` | `object.event` (bounded cost samples) | no | no |
 | **Freyr** | Capacity specialist - advisory to Forseti | domain | CapacityForecast, SizingRecommendation | `object.capacity-forecast` | `object.event` (bounded utilization samples) | no | no |
 | **Loki** | Chaos specialist - proposes experiments (always HIL) | domain | ChaosExperiment, ResilienceScore | `object.chaos-experiment` | `object.event` (bounded schedule triggers) | no | no |
@@ -97,6 +97,15 @@ MAY publish that object type's topic.
 > `object.override` is **not** a registered topic and no agent owns `Override`.
 > Do not publish or subscribe it. Override events flow through the exemption /
 > rule-catalog machinery, not a pantheon topic.
+
+> **"Owns" here means the event bus, not the ontology graph.** `AgentSpec.owns`
+> derives `publishes`, and every derived topic MUST already exist in
+> `OWNED_OBJECT_TOPICS`. A graph-only ObjectType such as `DecisionCase` or
+> `ObservedOutcome` therefore MUST NOT be added to `owns`; its semantic-write
+> owner is `lifecycle.owner` in `rule-catalog/vocabulary/object-types/`. The two
+> registries are independent, and an apparent gap in one is not evidence of a
+> missing owner in the other. See
+> [Operating ontology - Agent ownership](../../docs/roadmap/architecture/operating-ontology.md#agent-ownership).
 
 ## 3. Structural invariants that a code change MUST preserve
 

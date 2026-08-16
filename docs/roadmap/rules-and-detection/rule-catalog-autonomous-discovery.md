@@ -109,6 +109,32 @@ no model call):
   a suspected poisoning flood (Norns already dedups legitimate proposals, so a repeat burst is
   anomalous).
 
+## Shadow Dwell Evidence (upstream implementation)
+
+`fdai.core.operational_learning.shadow_dwell` is the deterministic half of quality-gate
+step 6. It retains judge-and-log-only observations per candidate target, turns them into
+a self-verifying `ShadowDwellEvidence` record (window, sample size, reviewed and agreed
+counts, policy-violation escapes), and answers whether that record clears the configured
+`ShadowDwellThresholds`. It promotes nothing and touches no catalog.
+
+Three properties make it a gate rather than a formality:
+
+- **Absent evidence is not consent.** A candidate with no dwell record is ineligible; it
+  cannot pass by omission.
+- **Evidence verifies itself.** The record travels on the wire from Norns to Mimir, so
+  contradictory counts, an inverted window, or a naive timestamp are rejected outright
+  instead of trusted. A record naming a different target cannot vouch for this candidate.
+- **The escape allowance is not configurable.** The design says zero escapes, and a
+  tunable escape budget is exactly the knob that gets turned under delivery pressure.
+
+Norns retains a shadow audit outcome as a dwell observation instead of discarding it,
+while still keeping shadow results out of the real rollback-rate learner, and attaches
+the resulting evidence to the candidate it publishes. Mimir re-derives the verdict from
+that wire evidence: `Mimir.promotion_ready_candidates()` omits any candidate that has not
+proven its dwell, and `Mimir.promote()` refuses a rule whose pending discovery-loop
+candidate is under threshold. Eligibility is still not promotion - the catalog changes
+only through a merged catalog-as-code pull request.
+
 ## Implementation status
 
 ### Implementation scope
@@ -119,18 +145,22 @@ no model call):
 | Norns consensus | implemented | `services/core-control-plane/src/fdai/agents/_framework/norns_consensus.py`; `services/core-control-plane/tests/agents/test_norns_consensus.py` | All three deterministic perspectives must agree before Norns publishes an inert candidate. |
 | Candidate review and catalog compilation | implemented | `services/core-control-plane/src/fdai/core/operational_learning/catalog.py`; `review.py`; `services/core-control-plane/tests/agents/test_mimir_catalog_review.py` | Review packages and bounded publication state are implemented; activation still requires the ordinary catalog-as-code path. |
 | Override and operational-signal intake | in-progress | `services/core-control-plane/src/fdai/agents/norns.py`; focused Norns learning tests | Several deterministic signals can produce candidates, but the override-specific governance artifact is not implemented. |
-| Long-horizon discovery cycle and shadow dwell | not-started | [Loop](#loop); [Safety and trust](#safety-and-trust) | No production scheduler retains complete observe-to-integrate cycle metrics or per-candidate shadow-dwell evidence. |
+| Per-candidate shadow-dwell evidence and threshold gate | implemented | `services/core-control-plane/src/fdai/core/operational_learning/shadow_dwell.py`; `services/core-control-plane/tests/core/operational_learning/test_shadow_dwell.py`; `services/core-control-plane/tests/agents/test_discovery_shadow_dwell.py` | Norns retains shadow observations and Mimir refuses promotion without sufficient, self-consistent, target-matched evidence. No producer stamps operator review outcomes on audit entries yet, so live evidence stays review-empty and therefore ineligible. |
+| Long-horizon discovery cycle | not-started | [Loop](#loop); [Safety and trust](#safety-and-trust) | No production scheduler runs or retains a complete observe-to-integrate cycle. |
 | Mixed-model cross-check | not-started | [Loop](#loop) | The required independent model-family cross-check is design-only for this discovery loop. |
+| Loop throughput metrics | not-started | [Safety and trust](#safety-and-trust) | Candidates per cycle, gate pass rate, override-trigger rate, and retirement rate are not measured. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source and focused tests listed in the scope table. | Complete the scheduled loop, shadow evidence, override intake, and mixed-model gate. |
+| 2026-08-15 | in-progress | Implemented per-candidate shadow-dwell retention and the fail-closed threshold gate, and split the former combined scheduler/dwell row. | `current change`; `services/core-control-plane/src/fdai/core/operational_learning/shadow_dwell.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/operational_learning services/core-control-plane/tests/agents` passed (1214 tests). | Scheduler, mixed-model cross-check, loop metrics, and an audit-entry producer for operator review outcomes. |
 
 ### Remaining work
 
 - [ ] Implement a bounded scheduler that persists one complete observe, hypothesize, verify, and integrate cycle with replayable identities.
-- [ ] Retain per-candidate shadow duration, sample size, accuracy, and zero-escape evidence and enforce the configured thresholds.
+- [x] Retain per-candidate shadow duration, sample size, accuracy, and zero-escape evidence and enforce the configured thresholds, proven by `services/core-control-plane/tests/agents/test_discovery_shadow_dwell.py`.
+- [ ] Stamp operator review outcome and policy-escape flags on shadow `object.audit-entry` payloads so retained dwell evidence can reach a non-zero reviewed count; until then every live candidate stays ineligible for lack of reviewed samples.
 - [ ] Bind override events and the independent model-family cross-check, then prove disagreement holds for human review.
 - [ ] Publish governed cycle throughput, gate pass, override-trigger, and retirement metrics.

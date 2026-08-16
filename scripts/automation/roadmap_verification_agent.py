@@ -8,12 +8,17 @@ import shutil
 import signal
 import subprocess
 from collections.abc import Mapping
+from contextlib import suppress
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any, Final
 
 MAX_OUTPUT_BYTES: Final = 200_000
 MAX_SUMMARY_CHARS: Final = 2_000
+DEFAULT_MODEL: Final = "claude-opus-5"
+CLI_MISSING_MARKER: Final = "Cannot find GitHub Copilot CLI"
+READ_TOOLS: Final = ("view", "grep", "glob", "bash", "read_bash", "stop_bash", "list_bash")
+WRITE_TOOLS: Final = ("create", "edit")
 UTC = timezone.utc  # noqa: UP017 - repository automation supports system Python 3.10.
 RESULTS: Final = frozenset(
     {"reviewed", "verified", "gap_found", "designed", "not_applicable", "blocked"}
@@ -34,13 +39,23 @@ DENIED_TOOLS: Final = (
 )
 
 
+def _npm_installed_clis() -> list[Path]:
+    """Return npm-installed CLIs, newest first, so discovery never needs VS Code."""
+    roots = sorted(Path.home().glob(".nvm/versions/node/*/bin/copilot"), reverse=True)
+    return [*roots, Path.home() / ".local/bin/copilot", Path("/usr/local/bin/copilot")]
+
+
 def copilot_path() -> Path | None:
     configured = os.environ.get("FDAI_COPILOT_CLI", "").strip()
+    which = shutil.which("copilot")
     candidates = [
         Path(configured).expanduser() if configured else None,
+        # An npm install carries its own node runtime and outranks the VS Code launcher,
+        # which resolves the real CLI through PATH and is rewritten on every VS Code update.
+        *_npm_installed_clis(),
+        Path(which) if which else None,
         Path.home()
         / ".vscode-server/data/User/globalStorage/github.copilot-chat/copilotCli/copilot",
-        Path(shutil.which("copilot") or "") if shutil.which("copilot") else None,
     ]
     return next(
         (candidate for candidate in candidates if candidate and candidate.is_file()),
@@ -48,7 +63,14 @@ def copilot_path() -> Path | None:
     )
 
 
-def worker_environment(repo_root: Path, worktree: Path) -> dict[str, str]:
+def copilot_model() -> str:
+    """Return the worker model, because the CLI default 'auto' is not reproducible."""
+    return os.environ.get("FDAI_COPILOT_MODEL", "").strip() or DEFAULT_MODEL
+
+
+def worker_environment(
+    repo_root: Path, worktree: Path, *, cli: Path | None = None
+) -> dict[str, str]:
     allowed = {
         "HOME",
         "USER",
@@ -70,6 +92,12 @@ def worker_environment(repo_root: Path, worktree: Path) -> dict[str, str]:
     }
     environment = {key: value for key, value in os.environ.items() if key in allowed}
     environment["PYTHONPATH"] = str(worktree / "src")
+    if cli is not None:
+        # The CLI is a `#!/usr/bin/env node` entry point and is usually a symlink into the
+        # package. Its own bin directory holds the matching node; the link target does not.
+        environment["PATH"] = os.pathsep.join(
+            (str(cli.parent), environment.get("PATH", os.defpath))
+        )
     primary_venv = repo_root / ".venv"
     if primary_venv.is_dir():
         environment["UV_PROJECT_ENVIRONMENT"] = str(primary_venv)
@@ -92,15 +120,24 @@ def _terminate(process: subprocess.Popen[str]) -> None:
             os.killpg(os.getpgid(process.pid), signal.SIGKILL)
         except OSError:
             pass
-        process.wait()
+        # A process wedged in uninterruptible I/O ignores SIGKILL, so teardown must not become
+        # the unbounded wait that the run budget was there to prevent.
+        with suppress(subprocess.TimeoutExpired):
+            process.wait(timeout=5)
 
 
 def copilot_command(cli: Path, prompt_text: str, worktree: Path, *, apply: bool) -> list[str]:
-    tools = "read,glob,grep,shell,write" if apply else "read,glob,grep,shell"
+    # `--available-tools` takes real tool names, while `--deny-tool` takes permission rules in a
+    # different namespace where shell commands are `shell(...)`. Verified against CLI 1.0.80:
+    # `--available-tools=shell,read,write` grants nothing, and `--deny-tool=bash(curl)` blocks
+    # nothing while `--deny-tool=shell(curl)` blocks.
+    tools = ",".join((*READ_TOOLS, *(WRITE_TOOLS if apply else ())))
     command = [
         str(cli),
         "-p",
         prompt_text,
+        "--model",
+        copilot_model(),
         "--output-format",
         "text",
         "--add-dir",
@@ -133,7 +170,7 @@ def run_copilot(
     process = subprocess.Popen(  # noqa: S603 - fixed Copilot CLI and bounded options
         copilot_command(cli, prompt_text, worktree, apply=apply),
         cwd=worktree,
-        env=worker_environment(repo_root, worktree),
+        env=worker_environment(repo_root, worktree, cli=cli),
         stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -148,6 +185,14 @@ def run_copilot(
     output = ((stdout or "") + "\n" + (stderr or "")).strip()
     if process.returncode != 0:
         raise RuntimeError(f"Copilot roadmap worker exited with code {process.returncode}")
+    if CLI_MISSING_MARKER in output:
+        # The launcher reports this on stdout and still exits 0, which otherwise surfaces
+        # much later and much less clearly as "returned no JSON object".
+        raise RuntimeError(
+            f"Copilot CLI at {cli} could not locate a runnable CLI. "
+            "Install it with `npm install -g @github/copilot`, or set FDAI_COPILOT_CLI "
+            "to a CLI whose directory also provides its node runtime."
+        )
     if len(output.encode("utf-8")) > MAX_OUTPUT_BYTES:
         raise RuntimeError("Copilot roadmap worker output exceeded the byte cap")
     return output

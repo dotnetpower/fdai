@@ -12,6 +12,7 @@ from pydantic import Field, model_validator
 from fdai.core.ontology_platform.functions import ontology_function_digest
 from fdai.core.read_investigation.models import ReadInvestigationResult
 from fdai.shared.contracts.models import ContractBase
+from fdai.shared.providers.state_evidence import StateFactMetadata
 
 _DIGEST_PATTERN = r"^sha256:[a-f0-9]{64}$"
 _MAX_REF = 256
@@ -90,9 +91,12 @@ _ERROR_REASONS = frozenset(
 class ShadowComparisonReceipt(ContractBase):
     """Immutable comparison evidence with no approval or execution authority."""
 
-    schema_version: Literal["1.1.0"] = "1.1.0"
+    schema_version: Literal["1.2.0"] = "1.2.0"
     outcome: ShadowComparisonOutcome
     reasons: tuple[ShadowComparisonReason, ...] = ()
+    cross_source_conflicts: tuple[
+        Annotated[str, Field(min_length=1, max_length=_MAX_REF)], ...
+    ] = ()
     correlation_ref: Annotated[str, Field(min_length=1, max_length=_MAX_REF)]
     principal_ref: Annotated[str, Field(min_length=1, max_length=_MAX_REF)]
     plan_id: Literal["read.resource-state.v1"] = "read.resource-state.v1"
@@ -129,9 +133,14 @@ class ShadowComparisonReceipt(ContractBase):
                 raise ValueError("matching shadow comparison MUST NOT carry reasons")
         elif not self.reasons or any(reason not in allowed for reason in self.reasons):
             raise ValueError("shadow comparison reasons do not match outcome")
+        if tuple(sorted(set(self.cross_source_conflicts))) != self.cross_source_conflicts:
+            raise ValueError("shadow cross-source conflicts MUST be unique and sorted")
+        if self.cross_source_conflicts and self.outcome is not ShadowComparisonOutcome.DIVERGENCE:
+            raise ValueError("a cross-source conflict MUST accompany a divergence outcome")
         if self.receipt_digest != shadow_receipt_digest(
             outcome=self.outcome,
             reasons=self.reasons,
+            cross_source_conflicts=self.cross_source_conflicts,
             correlation_ref=self.correlation_ref,
             principal_ref=self.principal_ref,
             release_digest=self.release_digest,
@@ -156,6 +165,7 @@ class ShadowComparisonAttempt:
     persistence: ShadowReceiptPersistence
     attempt_latency_ms: float | None = None
     sink_error_kind: ShadowSinkErrorKind | None = None
+    cross_source_state_fact: StateFactMetadata | None = None
 
     def __post_init__(self) -> None:
         if (self.persistence is ShadowReceiptPersistence.FAILED) != (
@@ -166,6 +176,9 @@ class ShadowComparisonAttempt:
             self.attempt_latency_ms < 0 or not math.isfinite(self.attempt_latency_ms)
         ):
             raise ValueError("shadow comparison attempt latency MUST be finite and non-negative")
+        fact = self.cross_source_state_fact
+        if fact is not None and fact.conflicts != self.receipt.cross_source_conflicts:
+            raise ValueError("adjudicated conflicts MUST match the retained receipt")
 
 
 def select_shadow_outcome(
@@ -196,12 +209,14 @@ def build_shadow_receipt(
     invocation_digest: str,
     existing_evidence_digest: str,
     semantic_evidence_digest: str,
+    cross_source_conflicts: tuple[str, ...] = (),
 ) -> ShadowComparisonReceipt:
     """Build a validated receipt from stable comparison lineage and evidence."""
 
     digest = shadow_receipt_digest(
         outcome=outcome,
         reasons=reasons,
+        cross_source_conflicts=cross_source_conflicts,
         correlation_ref=correlation_ref,
         principal_ref=principal_ref,
         release_digest=release_digest,
@@ -216,6 +231,7 @@ def build_shadow_receipt(
     return ShadowComparisonReceipt(
         outcome=outcome,
         reasons=reasons,
+        cross_source_conflicts=cross_source_conflicts,
         correlation_ref=correlation_ref,
         principal_ref=principal_ref,
         release_digest=release_digest,
@@ -244,14 +260,16 @@ def shadow_receipt_digest(
     invocation_digest: str,
     existing_evidence_digest: str,
     semantic_evidence_digest: str,
+    cross_source_conflicts: tuple[str, ...] = (),
 ) -> str:
     """Return the stable identity that intentionally excludes attempt latency."""
 
     return ontology_function_digest(
         {
-            "schema_version": "1.1.0",
+            "schema_version": "1.2.0",
             "outcome": outcome.value,
             "reasons": [reason.value for reason in reasons],
+            "cross_source_conflicts": list(cross_source_conflicts),
             "correlation_ref": correlation_ref,
             "principal_ref": principal_ref,
             "plan_id": "read.resource-state.v1",

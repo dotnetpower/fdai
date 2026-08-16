@@ -3,7 +3,9 @@ set -euo pipefail
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$repo_root"
-export PYTHONPATH="$repo_root/services/core-control-plane/src:$repo_root/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}"
+# The service tests are a regular `tests` package; without its root on the path the
+# repository's own `tests/` namespace wins and `tests.core.*` helpers stop resolving.
+export PYTHONPATH="$repo_root/services/core-control-plane:$repo_root/services/core-control-plane/src:$repo_root/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}"
 
 coverage_args=(
   --cov

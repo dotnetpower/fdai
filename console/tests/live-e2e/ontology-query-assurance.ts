@@ -39,8 +39,21 @@ export interface AssuranceTurnJudgment extends AssuranceJudgment {
   readonly verification?: AnswerVerification;
 }
 
+export type AssurancePlanCapability =
+  | "aggregate"
+  | "evidence_join"
+  | "function:query.incident_evidence"
+  | "function:query.manifest"
+  | "function:query.ontology_relationships"
+  | "metric_scope_series"
+  | "metric_series"
+  | "object_set"
+  | "object_set:filtered"
+  | "topology_at"
+  | "topology_diff";
+
 export interface AssuranceRunConfiguration {
-  readonly schema_version: "1.3.0";
+  readonly schema_version: "1.4.0";
   readonly run_id: string;
   readonly seed: number;
   readonly minimum_request_interval_ms: number;
@@ -61,6 +74,456 @@ export interface AssuranceRunProvenance {
   readonly source_revision: string;
   readonly configuration_digest: string;
   readonly workspace_patch_digest: string;
+}
+
+export type AssuranceRunMode = "live" | "interrupted";
+
+/**
+ * Names how the published cohort was produced.
+ *
+ * `liveProven` is not a turn count: a turn that never produced a governed answer proves nothing
+ * about the current stack, so only a verified live answer names the run live.
+ */
+export function assuranceRunMode(input: {
+  readonly liveProven: boolean;
+  readonly stopReason: string | null;
+}): AssuranceRunMode {
+  return input.stopReason === null && input.liveProven ? "live" : "interrupted";
+}
+
+/**
+ * Returns whether a run may carry live release authority.
+ *
+ * Only a run that answered against the current stack may mint a production receipt.
+ */
+export function assuranceCarriesLiveAuthority(runMode: AssuranceRunMode): boolean {
+  return runMode === "live";
+}
+
+/** Names the receipt a run may claim, so an interrupted live run is never called a replay. */
+export function assuranceReceiptSource(input: {
+  readonly runMode: AssuranceRunMode;
+  readonly liveQuestionCount: number;
+  readonly resumedCount: number;
+}): "live_assurance" | "resumed_replay" | "interrupted_partial" {
+  if (assuranceCarriesLiveAuthority(input.runMode)) return "live_assurance";
+  return input.liveQuestionCount === 0 && input.resumedCount > 0
+    ? "resumed_replay"
+    : "interrupted_partial";
+}
+
+/**
+ * Names the question a resumed run must always re-answer against the live stack.
+ *
+ * The checkpoint decides, not the operation taxonomy: an answer-required operation may legitimately
+ * end in a governed refusal, so releasing it could leave the run unable to prove a generation. The
+ * released question is the last one an earlier run actually answered with a generation digest, and
+ * only a cohort with no such evidence falls back to the last answer-required question.
+ */
+export function liveProofQuestionIds(
+  cohort: readonly { readonly question_id: string; readonly operation: AssuranceOperation }[],
+  proven: readonly {
+    readonly question_id: string;
+    readonly disposition?: string;
+    readonly ontology_release_digest?: string;
+  }[] = [],
+): readonly string[] {
+  const answered = new Set(
+    proven
+      .filter((result) =>
+        result.disposition === "answered" &&
+        typeof result.ontology_release_digest === "string" &&
+        result.ontology_release_digest.length > 0
+      )
+      .map((result) => result.question_id),
+  );
+  for (let index = cohort.length - 1; index >= 0; index -= 1) {
+    const question = cohort[index]!;
+    if (answered.has(question.question_id)) return [question.question_id];
+  }
+  for (let index = cohort.length - 1; index >= 0; index -= 1) {
+    const question = cohort[index]!;
+    if (ANSWER_REQUIRED_OPERATIONS.includes(question.operation)) return [question.question_id];
+  }
+  return [];
+}
+
+/**
+ * Trims a checkpoint so the live-proof question is always re-answered.
+ *
+ * Resuming keeps earlier work instead of discarding it, but a cohort that answers nothing against
+ * the current stack proves nothing about it. Selection is by cohort identity, not array position,
+ * so a checkpoint stored out of order cannot release the wrong question.
+ */
+export function resumableWithLiveProof<
+  TResult extends {
+    readonly question_id: string;
+    readonly disposition?: string;
+    readonly ontology_release_digest?: string;
+  },
+>(
+  resumed: readonly TResult[],
+  cohort: readonly { readonly question_id: string; readonly operation: AssuranceOperation }[],
+): readonly TResult[] {
+  const proof = new Set(liveProofQuestionIds(cohort, resumed));
+  return resumed.filter((result) => !proof.has(result.question_id));
+}
+
+interface AssuranceGenerationDigests {
+  readonly ontology_release_digest?: string;
+  readonly principal_manifest_digest?: string;
+}
+
+/**
+ * Returns whether the resumed and live answers describe the same governed generation.
+ *
+ * Resumed evidence that no live answer confirms is not comparable evidence for the current stack,
+ * so a cohort whose live turns disclose no generation may not republish generation-bearing
+ * answers from an earlier stack.
+ */
+export function evidenceGenerationConsistent(input: {
+  readonly resumed: readonly AssuranceGenerationDigests[];
+  readonly live: readonly AssuranceGenerationDigests[];
+}): boolean {
+  const observed = (
+    results: readonly AssuranceGenerationDigests[],
+    key: keyof AssuranceGenerationDigests,
+  ): ReadonlySet<string> =>
+    new Set(
+      results.map((result) => result[key]).filter((value): value is string => value !== undefined),
+    );
+  for (const key of ["ontology_release_digest", "principal_manifest_digest"] as const) {
+    const resumedDigests = observed(input.resumed, key);
+    const liveDigests = observed(input.live, key);
+    if (resumedDigests.size > 1 || liveDigests.size > 1) return false;
+    if (resumedDigests.size === 1 && liveDigests.size === 0) return false;
+    for (const digest of resumedDigests) if (!liveDigests.has(digest)) return false;
+  }
+  return true;
+}
+
+/** Returns whether any live turn produced a governed answer bound to an ontology release. */
+export function liveAnswerProof(
+  live: readonly {
+    readonly disposition?: string;
+    readonly ontology_release_digest?: string;
+  }[],
+): boolean {
+  return live.some((result) =>
+    result.disposition === "answered" &&
+    typeof result.ontology_release_digest === "string" &&
+    result.ontology_release_digest.length > 0
+  );
+}
+
+/**
+ * Returns whether a checkpoint may be retired.
+ *
+ * Retirement requires the outcome the runner actually asserts, not only the pass conjunction, so a
+ * complete cohort that fails its release criteria keeps its checkpoint instead of restarting from
+ * nothing on the next run.
+ */
+export function checkpointRetirable(input: {
+  readonly passed: boolean;
+  readonly releaseSatisfied: boolean;
+  readonly stopReason: string | null;
+  readonly retainedCount: number;
+  readonly cohortSize: number;
+}): boolean {
+  return input.passed && input.releaseSatisfied && input.stopReason === null &&
+    input.cohortSize > 0 && input.retainedCount === input.cohortSize;
+}
+
+/**
+ * Returns whether the checkpoint file must be removed.
+ *
+ * A truncated run may simply have proved nothing yet, so only a run that completed can prove that
+ * its retained set actually mixes generations. Removing a checkpoint on an unproven run would
+ * destroy verified turns that a later run could still resume.
+ */
+export function checkpointDiscardable(input: {
+  readonly retirable: boolean;
+  readonly generationConsistent: boolean;
+  readonly stopReason: string | null;
+}): boolean {
+  return input.retirable || (!input.generationConsistent && input.stopReason === null);
+}
+
+/**
+ * Keeps only the results that describe the generation the live turns observed.
+ *
+ * A release that rotates mid-run does not invalidate the turns taken under the newest generation,
+ * so those survive and the next run resumes them instead of restarting the whole cohort.
+ */
+export function retainedForLiveGeneration<
+  TResult extends {
+    readonly ontology_release_digest?: string;
+    readonly principal_manifest_digest?: string;
+  },
+>(
+  retained: readonly TResult[],
+  live: readonly TResult[],
+): readonly TResult[] {
+  const newest = (key: "ontology_release_digest" | "principal_manifest_digest"): string | null => {
+    for (let index = live.length - 1; index >= 0; index -= 1) {
+      const value = live[index]![key];
+      if (typeof value === "string" && value.length > 0) return value;
+    }
+    return null;
+  };
+  const ontology = newest("ontology_release_digest");
+  const principal = newest("principal_manifest_digest");
+  return retained.filter((result) =>
+    (result.ontology_release_digest === undefined || ontology === null ||
+      result.ontology_release_digest === ontology) &&
+    (result.principal_manifest_digest === undefined || principal === null ||
+      result.principal_manifest_digest === principal)
+  );
+}
+
+const LOCALES: readonly AssuranceLocale[] = ["en", "ko"];
+
+/** The transport outcomes the runner records for one attempt. */
+export type RetainedTransportAttemptOutcome =
+  | "semantic_terminal"
+  | "retryable_transport_failure"
+  | "non_retryable_receipt_missing"
+  | "per_attempt_deadline_exceeded"
+  | "question_budget_exhausted"
+  | "stalled_question"
+  | "turn_error";
+
+export interface RetainedTransportAttempt {
+  readonly attempt: number;
+  readonly outcome: RetainedTransportAttemptOutcome;
+  readonly source?: string;
+}
+
+/** One retained turn, as both the artifact and the checkpoint carry it. */
+export interface RetainedTurnResult {
+  readonly question_id: string;
+  readonly produced_by_run_id: string;
+  readonly locale: AssuranceLocale;
+  readonly operation: AssuranceOperation;
+  readonly attempt_count: number;
+  readonly transport_attempts: readonly RetainedTransportAttempt[];
+  readonly passed: boolean;
+  readonly unauthorized_execution_claim: boolean;
+  readonly failure_reason?: string;
+  readonly projection_id?: string;
+  readonly request_id?: string;
+  readonly disposition?: string;
+  readonly reason_code?: string;
+  readonly semantic_route?: string;
+  readonly unavailable_reason?: string;
+  readonly ontology_release_digest?: string;
+  readonly principal_manifest_digest?: string;
+  readonly plan_digest?: string;
+  readonly execution_receipt_digest?: string;
+  readonly checks_completed?: number;
+  readonly checks_total?: number;
+  readonly evidence_ref_count?: number;
+  readonly plan_capabilities: readonly AssurancePlanCapability[];
+  readonly plan_capability_match: boolean;
+}
+
+/** Adding an outcome without listing it here breaks the build instead of the checkpoint. */
+const RETAINED_ATTEMPT_OUTCOME_MEMBERS: Record<RetainedTransportAttemptOutcome, true> = {
+  semantic_terminal: true,
+  retryable_transport_failure: true,
+  non_retryable_receipt_missing: true,
+  per_attempt_deadline_exceeded: true,
+  question_budget_exhausted: true,
+  stalled_question: true,
+  turn_error: true,
+};
+
+const RETAINED_ATTEMPT_OUTCOMES: readonly string[] = Object.keys(
+  RETAINED_ATTEMPT_OUTCOME_MEMBERS,
+);
+
+/** Rejects a checkpointed result that lost any field the pass criteria read. */
+export function isRetainedTurnResult(value: Record<string, unknown>): boolean {
+  const optionalNumbers = ["checks_completed", "checks_total", "evidence_ref_count"] as const;
+  const optionalStrings = [
+    "disposition",
+    "reason_code",
+    "failure_reason",
+    "projection_id",
+    "request_id",
+    "semantic_route",
+    "unavailable_reason",
+    "ontology_release_digest",
+    "principal_manifest_digest",
+    "plan_digest",
+    "execution_receipt_digest",
+  ] as const;
+  const planCapabilities = Array.isArray(value.plan_capabilities)
+    ? value.plan_capabilities as AssurancePlanCapability[]
+    : [];
+  const expectedPlanCapabilityMatch = value.disposition !== "answered" ||
+    assuranceOperationMatchesPlan(
+      value.operation as AssuranceOperation,
+      planCapabilities,
+    );
+  return typeof value.produced_by_run_id === "string" && value.produced_by_run_id.length > 0 &&
+    typeof value.passed === "boolean" &&
+    typeof value.unauthorized_execution_claim === "boolean" &&
+    typeof value.plan_capability_match === "boolean" &&
+    Array.isArray(value.plan_capabilities) && value.plan_capabilities.every((capability) =>
+      typeof capability === "string" && PLAN_CAPABILITIES.includes(capability as AssurancePlanCapability)
+    ) && new Set(value.plan_capabilities).size === value.plan_capabilities.length &&
+    value.plan_capability_match === expectedPlanCapabilityMatch &&
+    typeof value.attempt_count === "number" &&
+    LOCALES.includes(value.locale as AssuranceLocale) &&
+    OPERATIONS.includes(value.operation as AssuranceOperation) &&
+    Array.isArray(value.transport_attempts) && value.transport_attempts.length > 0 &&
+    value.transport_attempts.every((attempt) => {
+      if (typeof attempt !== "object" || attempt === null) return false;
+      const record = attempt as Record<string, unknown>;
+      return typeof record.attempt === "number" &&
+        RETAINED_ATTEMPT_OUTCOMES.includes(record.outcome as string) &&
+        (record.source === undefined || typeof record.source === "string");
+    }) &&
+    optionalNumbers.every((key) => value[key] === undefined || typeof value[key] === "number") &&
+    optionalStrings.every((key) => value[key] === undefined || typeof value[key] === "string") &&
+    // The runner always records identifiers with a disposition, so a result missing them would
+    // pass the uniqueness criteria vacuously.
+    (value.disposition === undefined ||
+      (typeof value.projection_id === "string" && typeof value.request_id === "string"));
+}
+
+const PLAN_CAPABILITIES: readonly AssurancePlanCapability[] = [
+  "aggregate",
+  "evidence_join",
+  "function:query.incident_evidence",
+  "function:query.manifest",
+  "function:query.ontology_relationships",
+  "metric_series",
+  "object_set",
+  "object_set:filtered",
+  "topology_at",
+  "topology_diff",
+];
+
+const ANSWER_CAPABILITIES: Readonly<
+  Record<Extract<AssuranceOperation,
+    | "inventory_listing"
+    | "relationship_traversal"
+    | "property_filter"
+    | "aggregation"
+    | "temporal_comparison"
+    | "causal_analysis"
+    | "evidence_validation">, readonly AssurancePlanCapability[]>
+> = {
+  inventory_listing: ["function:query.manifest"],
+  relationship_traversal: ["topology_at"],
+  property_filter: ["object_set:filtered"],
+  aggregation: ["aggregate"],
+  temporal_comparison: ["topology_diff", "metric_series", "evidence_join"],
+  causal_analysis: ["evidence_join"],
+  evidence_validation: ["object_set"],
+};
+
+/** Checks the generated question taxonomy against Core's projected exact-plan capabilities. */
+export function assuranceOperationMatchesPlan(
+  operation: AssuranceOperation,
+  capabilities: readonly AssurancePlanCapability[],
+): boolean {
+  if (!ANSWER_REQUIRED_OPERATIONS.includes(operation)) return true;
+  const required = ANSWER_CAPABILITIES[
+    operation as keyof typeof ANSWER_CAPABILITIES
+  ];
+  return required.some((capability) => capabilities.includes(capability));
+}
+
+/** Decides whether a completed cohort satisfies every governed pass criterion. */
+export function assuranceCohortPassed(input: {
+  readonly stopReason: string | null;
+  readonly retainedCount: number;
+  readonly cohortSize: number;
+  readonly liveAuthority: boolean;
+  readonly generationConsistent: boolean;
+  readonly failureCount: number;
+  readonly exhaustedTransportRetryCount: number;
+  readonly duplicateRequestIdCount: number;
+  readonly duplicateProjectionIdCount: number;
+  readonly unsupportedOperationalClaimCount: number;
+  readonly unauthorizedExecutionCount: number;
+  readonly answeredCount: number;
+  readonly answeredWithCompleteEvidenceCount: number;
+  readonly authoritativeOutcomeCount: number;
+}): boolean {
+  return input.stopReason === null &&
+    input.cohortSize > 0 && input.retainedCount === input.cohortSize &&
+    input.liveAuthority && input.generationConsistent &&
+    input.failureCount === 0 &&
+    input.exhaustedTransportRetryCount === 0 &&
+    input.duplicateRequestIdCount === 0 && input.duplicateProjectionIdCount === 0 &&
+    input.unsupportedOperationalClaimCount === 0 && input.unauthorizedExecutionCount === 0 &&
+    input.answeredWithCompleteEvidenceCount === input.answeredCount &&
+    input.authoritativeOutcomeCount === input.retainedCount;
+}
+
+/**
+ * Keeps only the results a later run should still resume when the release criteria were not met.
+ *
+ * A cohort can pass every turn and still miss its release criteria when an answer-required
+ * operation only refused. Those turns are released so the next run re-attempts them; keeping them
+ * would republish the same blocking outcome forever.
+ */
+export function releasableForCoverage<
+  TResult extends { readonly operation: AssuranceOperation; readonly disposition?: string },
+>(retained: readonly TResult[]): readonly TResult[] {
+  return retained.filter((result) =>
+    !(ANSWER_REQUIRED_OPERATIONS.includes(result.operation) && result.disposition !== "answered")
+  );
+}
+
+/**
+ * Names the checkpoint that belongs to one cohort against one binding.
+ *
+ * The key covers every field the binding validates, so a run against another revision, workspace,
+ * or target stack keeps its own file instead of overwriting evidence it may not resume.
+ */
+export function assuranceCheckpointPath(input: {
+  readonly configured: string | undefined;
+  readonly directory: string;
+  readonly runScope: string;
+  readonly bindingDigest: string;
+}): string | null {
+  if (input.configured !== undefined) {
+    const configured = input.configured.trim();
+    return configured.length === 0 ? null : configured;
+  }
+  const key = input.bindingDigest.replace(/^sha256:/, "").slice(0, 16);
+  return `${input.directory}/ontology-assurance-${input.runScope}-${key}.json`;
+}
+
+/** The configuration fields that decide whether an earlier result is still comparable evidence. */
+export interface AssuranceEvidenceIdentity {
+  readonly schema_version: AssuranceRunConfiguration["schema_version"];
+  readonly seed: number;
+  readonly authentication: AssuranceRunConfiguration["authentication"];
+  readonly question_ids: readonly string[];
+}
+
+/**
+ * Projects the evidence identity of a run configuration.
+ *
+ * Per-run session identity and operational pacing, deadline, and retry knobs are excluded on
+ * purpose: they change what a run costs, not whether a completed answer remains valid evidence.
+ * Including them would make every resume impossible and discard already-verified turns.
+ */
+export function assuranceEvidenceIdentity(
+  configuration: AssuranceRunConfiguration,
+): AssuranceEvidenceIdentity {
+  return {
+    schema_version: configuration.schema_version,
+    seed: configuration.seed,
+    authentication: configuration.authentication,
+    question_ids: configuration.question_ids,
+  };
 }
 
 const RETRYABLE_TRANSPORT_SOURCES = new Set([
@@ -318,7 +781,16 @@ export function selectOntologyAssuranceQuestions(
   if (unknownIds.length > 0) {
     throw new Error(`FDAI_E2E_ASSURANCE_QUESTION_IDS contains unknown ids: ${unknownIds.join(", ")}`);
   }
-  return cohort.filter((question) => requestedIds.has(question.question_id));
+  const selected = cohort.filter((question) => requestedIds.has(question.question_id));
+  // Only an answered turn discloses the generation that replied, so a selection without one could
+  // never prove the live stack and would fail for a reason the operator cannot see.
+  if (!selected.some((question) => ANSWER_REQUIRED_OPERATIONS.includes(question.operation))) {
+    throw new Error(
+      "FDAI_E2E_ASSURANCE_QUESTION_IDS must include at least one answer-required operation: " +
+        ANSWER_REQUIRED_OPERATIONS.join(", "),
+    );
+  }
+  return selected;
 }
 
 export function judgeSemanticReceipt(raw: unknown): AssuranceJudgment {
@@ -342,6 +814,10 @@ export function judgeSemanticTurn(
     return { passed: false, failure_reason: "unsupported_or_failed_claim" };
   }
   if (receiptJudgment.receipt.disposition !== "answered") {
+    if (verification?.reason_code === "malformed_verification_artifact") {
+      // An incoherent artifact is a defect on a governed refusal too, not only on an answer.
+      return { passed: false, failure_reason: "malformed_verification_artifact" };
+    }
     return {
       passed: true,
       receipt: receiptJudgment.receipt,

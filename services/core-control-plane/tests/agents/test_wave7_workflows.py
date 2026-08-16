@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
+import pytest
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents._framework.workflows import WORKFLOWS, workflow
@@ -228,7 +229,10 @@ def test_workflow_handoff_capability_promotes_and_closes_issue() -> None:
             },
         )
     )
-    mimir.promote("auto.route.capacity", source="handoff")
+    # Promotion is refused until the candidate proves its shadow dwell; the
+    # workflow closes through the reviewed catalog pull request instead.
+    with pytest.raises(ValueError, match="shadow dwell evidence is insufficient"):
+        mimir.promote("auto.route.capacity", source="handoff")
     asyncio.run(saga.close_issue(fingerprint=fp, closed_by_pr="https://example.invalid/pr/9"))
     assert saga.github.issues[fp].open is False
 

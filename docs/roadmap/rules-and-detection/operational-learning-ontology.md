@@ -141,6 +141,58 @@ No separate benchmark rule format or learned-action executor is introduced. If a
 cannot express a required query with these links, it must first add a failing ontology query test.
 Only then may a focused `ObjectType` or `LinkType` extension be proposed.
 
+### Pattern is one layer, not two
+
+`PANTHEON_SPECS` once assigned Norns a `PatternObservation` while the catalog named the same record
+`Pattern`. The two names described one inert compiled cohort record, not a raw observation and a
+reviewed generalization, because no code performs the review that a second layer would require. The
+spec, the topic, and every table now use `Pattern`.
+
+- [`OperatingPatternCompiler.compile()`](../../../services/core-control-plane/src/fdai/core/operational_learning/patterns.py)
+  applies mechanical predicates only: one shared failure fingerprint, resource type, and action
+  type, at least one reusable and one negative sealed case, no repeated immutable case reference,
+  and bounded evidence. Nothing reviews or generalizes its `OperatingPatternCandidate` output.
+- Review happens later, at Mimir, on a `Rule`. Calling a pattern record reviewed asserts a step
+  that no code performs.
+- The record is never published as its own object. `Norns._observe_operational_case_cohort`
+  flattens it through `to_rule_candidate_mapping()` onto `object.rule-candidate`, so the compiled
+  cohort reaches Mimir only inside a `RuleCandidate`.
+- `object.pattern` is a registered topic with no publisher and no subscriber, so `Pattern` remains
+  an owned object type that nothing produces. Unifying the name did not close that gap.
+
+This is why `learned_as` (`ObservedOutcome -> Pattern`) has no producible endpoint pair. A cohort
+cites sealed cases as `case-history:<case_id>:<revision>:<manifest_digest>` and never receives an
+`ObservedOutcome` identity, so the edge could only be fabricated. If it is ever declared it stays a
+reviewed learning projection and MUST NOT create a path from a learned record to an active catalog
+entry or threshold; promotion remains the authority of the independently reviewed registry.
+
+### Why Forecast and Pattern are declared
+
+Both types were banded on the console before the catalog declared them, so the availability filter
+dropped them without a signal. Both are declared now because each already has a fixed-pantheon
+owner and a producing mechanism: Heimdall produces `Forecast` in
+[`forecast.py`](../../../services/core-control-plane/src/fdai/core/detection/forecast.py), and Norns
+produces `Pattern` in `OperatingPatternCompiler`. Deleting them from the bands would have hidden
+implemented behavior instead of correcting an overclaim. Neither declaration adds a link type,
+projection, instance path, or authority, and `predicts_breach_of` and `learned_as` stay undeclared
+because neither endpoint pair is producible.
+
+### Deferred relationships
+
+Two relationships that earlier revisions of the
+[relationship contract](../architecture/operating-ontology.md#relationship-contract) listed as
+contract rows are deferred, not declared. Both endpoint ObjectTypes now exist, so the remaining
+blocker is that neither pair is producible.
+
+| Relationship | Intended endpoints | Blocking reason |
+|--------------|--------------------|-----------------|
+| `predicts_breach_of` | Forecast -> Objective | `ForecastFinding` predicts a metric threshold breach and carries no objective identity, so no producer can supply the target endpoint. `Objective` is also a conceptual union that would need explicit physical endpoint names. |
+| `learned_as` | ObservedOutcome -> Pattern | A cohort cites sealed cases as `case-history:<case_id>:<revision>:<manifest_digest>` and never receives an `ObservedOutcome` identity, so the source endpoint is not producible. It would return as a reviewed learning projection only, never as a promotion path. |
+
+A LinkType MUST NOT be declared before both endpoint ObjectTypes exist, because catalog loading
+cross-references `from_type` and `to_type` and fails closed. Declarable is not usable, so each row
+returns only with a producer for both endpoints and a competency question it answers.
+
 ## Agent ownership
 
 | Agent | Responsibility |

@@ -299,15 +299,18 @@ test("authenticated Korean incident answer retains progressive presentation thro
   );
 
   const runConfiguration: AssuranceRunConfiguration = {
-    schema_version: "1.1.0",
+    schema_version: "1.4.0",
+    run_id: "semantic-answer-presentation",
     seed: 0x0fda1,
-    batch_size: 1,
-    request_interval_ms: 0,
-    timeout_ms: TEST_TIMEOUT_MS,
+    minimum_request_interval_ms: 0,
+    per_question_deadline_ms: TEST_TIMEOUT_MS,
+    no_progress_deadline_ms: TEST_TIMEOUT_MS,
+    run_budget_ms: TEST_TIMEOUT_MS,
     authentication: "browser_entra",
     transport_retry_policy: {
       max_attempts: 1,
-      retry_delay_ms: 0,
+      base_retry_delay_ms: 0,
+      max_retry_delay_ms: 0,
       retryable_sources: [],
     },
     question_ids: ["ko-incident-semantic-presentation-regeneration"],

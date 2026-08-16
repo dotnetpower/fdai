@@ -237,17 +237,18 @@ def _authoritative_decision(result: ControlLoopResult) -> str:
     return "abstain"
 
 
-def _log_pantheon_exit(task: asyncio.Task[None]) -> None:
+def _log_pantheon_exit(task: asyncio.Task[None], *, stop: asyncio.Event | None = None) -> None:
     """Done-callback for the isolated pantheon task.
 
     A pantheon crash or early exit is surfaced here without touching the
     P1 wait set, so the shadow overlay can never take the primary control
-    plane down with it.
+    plane down with it. The readiness supervisor returns normally once
+    ``stop`` is set, so a signalled shutdown is a clean exit, not an early one.
     """
     if task.cancelled():
         return
     exc = task.exception()
     if exc is not None:
         _LOGGER.error("pantheon_runtime_failed", exc_info=exc)
-    else:
+    elif stop is None or not stop.is_set():
         _LOGGER.warning("pantheon_runtime_exited_early")

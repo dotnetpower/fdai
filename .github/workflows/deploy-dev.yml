@@ -143,6 +143,9 @@ jobs:
   terraform:
     if: github.ref == 'refs/heads/main'
     runs-on: [self-hosted, fdai-deploy]
+    # Declared budget. Without it the only bound is the six-hour runner default, which cannot
+    # tell a stalled provider from a slow apply and holds the single deploy runner meanwhile.
+    timeout-minutes: 180
     environment: ${{ inputs.apply && inputs.environment || 'plan-only' }}
     defaults:
       run:
@@ -525,7 +528,7 @@ jobs:
           set -euo pipefail
           archive="gh_${GH_VERSION}_linux_amd64.tar.gz"
           curl --fail --location --silent --show-error --retry 3 --retry-delay 2 \
-            --retry-all-errors --connect-timeout 5 --max-time 120 \
+            --retry-all-errors --retry-max-time 180 --connect-timeout 5 --max-time 120 \
             "https://github.com/cli/cli/releases/download/v${GH_VERSION}/${archive}" \
             --output "$RUNNER_TEMP/$archive"
           printf '%s  %s\n' "$GH_LINUX_AMD64_SHA256" "$RUNNER_TEMP/$archive" \
@@ -556,14 +559,14 @@ jobs:
           source_repository="${GITHUB_REPOSITORY,,}"
           registry_token="$(
             curl --fail --silent --show-error --retry 3 --retry-delay 2 \
-              --retry-all-errors --connect-timeout 5 --max-time 30 \
+              --retry-all-errors --retry-max-time 60 --connect-timeout 5 --max-time 30 \
               --user "$GITHUB_ACTOR:$GHCR_TOKEN" \
               "https://ghcr.io/token?scope=repository:${source_repository}:pull" \
               | python3 -c 'import json, sys; print(json.load(sys.stdin)["token"])'
           )"
           source_digest="$(
             curl --fail --silent --show-error --head --retry 3 --retry-delay 2 \
-              --retry-all-errors --connect-timeout 5 --max-time 30 \
+              --retry-all-errors --retry-max-time 60 --connect-timeout 5 --max-time 30 \
               -H "Authorization: Bearer $registry_token" \
               -H 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json' \
               "https://ghcr.io/v2/${source_repository}/manifests/sha-${revision}" \
@@ -1691,7 +1694,7 @@ jobs:
           done
           for target in "${targets[@]}"; do
             payload="$(curl --fail --silent --show-error --retry 12 --retry-delay 5 \
-              --retry-all-errors --connect-timeout 5 --max-time 10 "$target")"
+              --retry-all-errors --retry-max-time 60 --connect-timeout 5 --max-time 10 "$target")"
             printf '%s' "$payload" | python3 -c \
               'import json, sys; value=json.load(sys.stdin); assert value == {"status": "ok"}'
           done

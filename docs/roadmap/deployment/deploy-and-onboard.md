@@ -34,6 +34,7 @@ All identifiers are synthetic per
 | OHL scale-out evidence target and proposal Job | implemented | current change in `infra/` and `services/core-control-plane/src/fdai/delivery/`; focused Terraform and publisher tests report 8 and 13 passed | Both are disabled by default and still need a protected apply. |
 | OHL production evidence campaign | in-progress | `config/ohl-scale-out-evidence.json` and `docs/runbooks/ohl-scale-out-evidence.md` | Runtime rollout, governed execution, 100 samples, and the 14-day recurrence window remain open. |
 | Local destructive-validation isolation | implemented | `infra/local/docker-compose.yml`, local preparation scripts, and focused migration tests | Runtime uses local PostgreSQL on port `5432`; destructive validation uses a separate local cluster and volume on port `5433`. This does not add an Azure deployment resource. |
+| Inventory-backed analyzer Job targets | implemented | `analyzer_tick_cli.py`; `analyzer_targets.py`; `analyzer_tick_job.tf`; focused analyzer and infrastructure tests | The Job merges explicit targets with supported resources from the durable inventory projection under a configured ceiling. Without an inventory DSN it keeps the explicit-only path; with neither source it exits as a clean no-op. |
 
 ### Implementation history
 
@@ -42,6 +43,9 @@ All identifiers are synthetic per
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and added protected provisioning plus a proposal-only Job for the bounded OHL evidence target. | current change; focused Terraform tests report 8 passed and publisher/workflow tests report 13 passed. | Apply the exact plans, deploy attested runtime images, and complete the live evidence campaign. |
 | 2026-08-13 | implemented | Isolated local destructive migration validation from the active local runtime PostgreSQL cluster. | Current change; Compose configuration passed, focused queue and local-environment tests passed (68 tests), and isolated migration upgrade/downgrade checks passed (2 tests). | No remaining implementation work for local validation database isolation. |
 | 2026-08-13 | implemented | Corrected the protected platform plan and exact-apply state from `validated` to `implemented`; workflow source proves the mechanism, but the repository does not retain a governed platform apply receipt. | current change; `.github/workflows/deploy-dev.yml`; roadmap, translation, and documentation checks. | Retain a repository-safe governed platform apply receipt before restoring `validated`. |
+| 2026-08-16 | implemented | Bounded the deployment waits that reported nothing: the Container App health poll emits one line per iteration and fails explicitly on its 900-second deadline instead of falling through as converged, and every retrying workflow download declares a cumulative `--retry-max-time` window so a retry count times a per-request cap is no longer the only bound. | Current change; focused deployment workflow and gate-parity tests report 71 passed, and `bash -n` on the health script. | No remaining work for these bounds; the platform apply receipt items below are unchanged. |
+| 2026-08-16 | implemented | Declared a budget for both protected deploy jobs, which had only the six-hour runner default and held the single self-hosted deploy runner meanwhile: the platform Terraform job is bounded to 180 minutes and the service deploy job to 120 minutes, and the health verifier bounds the recovery verification and readiness-path steps it ran after its own deadline. | Current change; 24 focused deploy-workflow tests passed, `bash -n` on the health script, and both workflow documents parse as YAML. | No remaining work for these budgets; the platform apply receipt items below are unchanged. |
+| 2026-08-16 | implemented | Bound the analyzer Job to the durable inventory projection and a reviewed five-type analyzer map. The tick deterministically merges explicit and discovered targets, enforces a configured discovery ceiling, omits unsupported types, and retries on a projection read failure instead of silently reducing coverage. | `current change`; `analyzer_tick_cli.py`, `analyzer_targets.py`, `analyzer_tick_job.tf`, focused analyzer tests, and `test_detection_readiness.py`. | Retain one protected apply and scheduled-run receipt before raising this scope to `validated`. |
 
 ### Remaining work
 
@@ -202,9 +206,15 @@ inventory Job instead forwards bounded Activity Log recovery deltas to the prima
 each reconciliation, using its topic-scoped Data Sender role and durable idempotency cursor.
 An empty cron disables its job. Existing scheduler or analyzer jobs are safely adopted before a
 plan, and later image or configuration changes converge through the same plan and apply path.
-The analyzer job defaults to a one-minute shadow schedule. When explicit analyzer targets are
-empty, it reads supported targets from durable inventory and publishes AKS detection-readiness
-observations through Huginn. Set the analyzer cron to an explicit empty string to disable the job.
+The analyzer job defaults to a one-minute shadow schedule and runs
+`fdai.delivery.analyzer_tick_cli`, which publishes one canonical Event per finding keyed by
+resource, signal, and tick window. It merges `FDAI_ANALYZER_TARGETS` with supported resources from
+the durable inventory projection when `FDAI_INVENTORY_DSN` is configured, deduplicates the merged
+set, and applies `FDAI_ANALYZER_MAX_DISCOVERED_TARGETS` before provider I/O. An unsupported resource
+type is omitted rather than guessed. An unreadable projection fails the tick so the Job retries
+instead of silently reducing coverage. Without an inventory DSN, the explicit-only path remains
+available; when both sources resolve no target, the tick is a clean no-op that exits `0`. Set the
+analyzer cron to an explicit empty string to disable the job.
 
 #### Inventory discovery with restricted egress
 
@@ -558,7 +568,7 @@ secret, promotion, and test-only keys remain outside the editable surface.
 | `FDAI_INVENTORY_SOURCES` | env | upstream | Ordered fallback list: `arg,arm` by default; `declarative` is accepted only with a fixture path and SHA-256. |
 | `FDAI_INVENTORY_MANAGEMENT_ENDPOINT` / `FDAI_INVENTORY_MANAGEMENT_AUDIENCE` | env | deployment | Validated HTTPS ARM root and OIDC audience pair. Override both for an approved sovereign-cloud or validated Resource Management Private Link path. |
 | `FDAI_INVENTORY_FRESHNESS_SECONDS` | env | upstream | Maximum active snapshot age before the projection becomes stale and graph-dependent autonomy degrades to human review. Default `86400`. |
-| `FDAI_ANALYZER_TARGETS` / `FDAI_ANALYZER_WINDOW_SECONDS` / `FDAI_ANALYZER_BUDGET_SECONDS` | env | deployment / upstream | Optional explicit analyzer targets and bounds. When targets are empty, the analyzer Job discovers supported resource kinds from the active inventory through `FDAI_INVENTORY_DSN`. |
+| `FDAI_ANALYZER_TARGETS` / `FDAI_ANALYZER_WINDOW_SECONDS` / `FDAI_ANALYZER_MAX_DISCOVERED_TARGETS` | env | deployment / upstream | Explicit analyzer targets, metric window, and the bounded inventory-discovery ceiling. Explicit and supported inventory targets merge deterministically. A malformed value or unreadable configured projection fails closed; only a fully resolved empty set is a clean no-op. |
 | `KAFKA_TOPIC_EVENTS` | env | deployment | primary event ingest topic |
 | `KAFKA_TOPIC_DLQ_SUFFIX` | env | deployment | dead-letter suffix (default `.dlq`) |
 | `FDAI_EXECUTOR_COMMAND_TOPIC` / `FDAI_EXECUTOR_RECEIPT_TOPIC` | env | upstream / deployment | Isolated Executor command and versioned terminal receipt topics. Defaults are `object.executor-command` and `object.executor-receipt`; they must remain distinct. |
@@ -595,7 +605,7 @@ secret, promotion, and test-only keys remain outside the editable surface.
 | `FDAI_CHAOS_CONTEXT_JSON` / `FDAI_CHAOS_ENFORCE` | env | deployment | Runtime context for promoted chaos injectors. Enforce stays disabled unless the explicit flag is `1`, the scenario is promoted, and both injector and probe are registered. |
 | `FDAI_JIRA_BASE_URL` / `FDAI_JIRA_ACCOUNT_EMAIL` / `FDAI_JIRA_API_TOKEN_SECRET` / `FDAI_JIRA_TOOL_MAP_JSON` | env + KV ref | deployment | Configures the production `JiraToolExecutor`. `TOOL_MAP_JSON` maps `tool.open-incident-ticket` to a Jira project key. The token value is resolved from `FDAI_SECRET_<API_TOKEN_SECRET>` (KV-backed); never place the token in the mapping. Requires `FDAI_STATE_STORE_DSN` for the durable Jira ledger and distributed resource lock. |
 | `FDAI_JIRA_ENFORCE` | env | deployment | Default unset/`0` keeps Jira shadow-only. `1` permits enforce requests only after the ActionType promotion gate and risk/HIL decision also permit enforce. Shadow receipts are never linked as real incident tickets. |
-| `FDAI_PROFILE_ID` | env | deployment | selects one profile from `rule-catalog/profiles/` (see [rule-catalog-profiles.md](../rules-and-detection/rule-catalog-profiles.md)). **Composition-root wiring pending** as of 2026-07. |
+| `FDAI_PROFILE_ID` | env | deployment | selects one profile from `rule-catalog/profiles/` (see [rule-catalog-profiles.md](../rules-and-detection/rule-catalog-profiles.md)). Bound at startup; blank or absent keeps the whole catalog. |
 | `FDAI_NARRATOR_PROVIDER` / `FDAI_NARRATOR_BASE_URL` / `FDAI_NARRATOR_MODEL` / `FDAI_NARRATOR_API_VERSION` / `FDAI_NARRATOR_API_KEY` | env + KV ref | deployment | Operator-console narrator translator config (see [operator-console.md](../interfaces/operator-console.md)); `API_KEY` MUST go through KV. Empty provider = deterministic fallback. |
 | `FDAI_CHATOPS_APPROVE_CALLBACK_URL` / `FDAI_CHATOPS_REJECT_CALLBACK_URL` / `FDAI_CHATOPS_WEBHOOK_SECRET` / `FDAI_CHATOPS_TIMEOUT_SECONDS` | env + KV ref | deployment | Chatops HIL callback endpoints and the shared webhook secret; the secret MUST go through KV. Setting the secret enables the production callback route and durable Postgres decision registry. |
 | `FDAI_KAFKA_BOOTSTRAP_SERVERS` / `FDAI_HIL_DECISION_TOPIC` | env | deployment / upstream | Event Hubs Kafka endpoint used by the Operator API to publish durable HIL decision receipts; topic defaults to `aw.hil.decisions`. Core consumes the same topic and owns resume/execution. |

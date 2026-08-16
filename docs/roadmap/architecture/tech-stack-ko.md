@@ -1,8 +1,8 @@
 ---
 title: 기술 스택
 translation_of: tech-stack.md
-translation_source_sha: 1aaeacb20844f6b58160eb71e4576a2c09b5a146
-translation_revised: 2026-08-14
+translation_source_sha: 544e97467904fdc1bae88a880557c2a8ef466023
+translation_revised: 2026-08-15
 ---
 
 # 기술 스택
@@ -27,7 +27,7 @@ translation_revised: 2026-08-14
 |------|------|------|------|
 | Python 서비스 분포와 5개 서비스 런타임 | validated | `services/`; `packages/service-contracts/`; `config/independent-service-live-evidence-manifest.json`; `config/independent-service-remote-evidence.attestation.jsonl` | 5개 서비스 분포, 이미지, 상태 경계 및 보호된 N/N-1/N 전이에 원격 근거가 보존돼 있습니다. |
 | Terraform Azure 플랫폼, Event Hubs Kafka, PostgreSQL 및 pgvector | implemented | `infra/`; `alembic/`; `service-migrations/branches/`; 집중 인프라 및 migration 테스트 | 스택과 보호된 배포 mechanics가 있습니다. 일반 플랫폼 소유자는 검증을 주장하기 전에 통제된 적용 증적을 보존해야 합니다. |
-| OPA/Rego 정책과 카탈로그 실행 | implemented | `policies/`; `rule-catalog/`; `scripts/catalog/sync-rule-semantics.py`; 집중 정책 및 카탈로그 테스트 | 출하된 Rego, 정규화된 카탈로그 메타데이터, OPA 컴파일, 의미 표류 검사 및 결정론적 평가를 실행할 수 있습니다. |
+| OPA/Rego 정책과 카탈로그 실행 | implemented | `policies/`; `rule-catalog/`; `scripts/catalog/sync-rule-semantics.py`; `scripts/verify.sh`와 `.github/workflows/ci.yml`의 `rule-semantics` 게이트; `tests/integration/scripts/test_sync_rule_semantics.py`; 집중 정책 및 카탈로그 테스트 | 출하된 Rego, 정규화된 카탈로그 메타데이터, OPA 컴파일 및 결정론적 평가를 실행할 수 있습니다. 룰과 정책 사이의 의미 표류도 강제됩니다. 범위가 제한된 게이트는 룰이 정책과 어긋나면 변경을 실패시키고, OPA를 쓸 수 없으면 건너뛰지 않고 실패합니다. |
 | OpenTelemetry와 Azure 관측 어댑터 | in-progress | `shared/telemetry/`; `delivery/azure/metric_logs.py`; `delivery/azure/log_query.py`; `delivery/azure/telemetry_query.py`; 관측 캠페인 테스트 | 계측과 범위가 제한된 Azure 어댑터를 구현했습니다. 5개 서비스 전체의 보존된 종단 운영 텔레메트리 캠페인은 아직 필요합니다. |
 | 비-Azure 관리형 대안 | deferred | [OD-3](#od-3-멀티클라우드-이벤트-버스-phase-4---tbd); [구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must) | 대안은 설계 선택지이며 구현되거나 동등성을 검증한 대상이 아닙니다. |
 
@@ -36,6 +36,7 @@ translation_revised: 2026-08-14
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 스택을 현재의 5개 서비스, Rego, 텔레메트리 및 Azure 전용 구현에 맞췄습니다. | `current change`; 위에 인용한 서비스 근거, 인프라, 정책, 텔레메트리 및 집중 테스트 경로입니다. | 플랫폼 적용 및 텔레메트리 캠페인 근거를 보존하고 비-Azure 대상을 보류합니다. |
+| 2026-08-15 | implemented | 룰과 정책 사이의 의미 표류 검사를 필요할 때만 실행하는 명령에서 `verify.sh`와 CI가 강제하는 게이트로 승격했고, 실행 가능성을 강제와 동일시하던 근거 문구를 바로잡았습니다. | `current change`; `scripts/verify.sh`; `.github/workflows/ci.yml`; `tests/integration/scripts/test_sync_rule_semantics.py`; 출하된 카탈로그에서 `uv run python scripts/catalog/sync-rule-semantics.py --check`가 0으로 종료했고 집중 동기화 도구 테스트가 통과했습니다. | 플랫폼 적용 및 텔레메트리 캠페인 근거는 계속 남아 있습니다. |
 
 ### 남은 작업
 

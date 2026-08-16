@@ -320,14 +320,14 @@ def _client(**overrides: object) -> TestClient:
     return TestClient(Starlette(routes=make_iam_family_routes(_bindings(**overrides))))
 
 
-def test_family_owns_exact_27_route_manifest_without_fdai_implementation_imports() -> None:
+def test_family_owns_exact_28_route_manifest_without_fdai_implementation_imports() -> None:
     routes = make_iam_family_routes(_bindings())
     snapshot = tuple(
         (next(iter((route.methods or set()) - {"HEAD"})), route.path, route.name)
         for route in routes
     )
     assert snapshot == tuple((item.method, item.path, item.name) for item in IAM_FAMILY_MANIFEST)
-    assert len(snapshot) == 27
+    assert len(snapshot) == 28
 
     for path in FAMILY_SOURCE.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))

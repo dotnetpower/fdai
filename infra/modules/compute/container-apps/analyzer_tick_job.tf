@@ -4,10 +4,14 @@
 //
 // The job launches `python -m fdai.delivery.analyzer_tick_cli` once per
 // fire. The CLI reads FDAI_ANALYZER_TARGETS (a JSON list of
-// {resource_id, kind} pairs), builds the container, instantiates the
+// {resource_id, kind} pairs), adds every eligible resource the durable
+// inventory projection already observed when FDAI_INVENTORY_DSN is bound,
+// builds the container, instantiates the
 // default_analyzers wired to whichever MetricProvider was bound at
 // composition time (AML KQL, Prom, or the routed Prom-primary +
-// AML-fallback composite), and logs any findings.
+// AML-fallback composite), and publishes one canonical Event per finding
+// to the analyzer ingest topic. A publish failure exits non-zero so the
+// Job retries the tick.
 //
 // Latency envelope: the tick cadence is bounded below by the metric
 // backend's ingestion floor - Log Analytics has a 2-5 min lag, AKS
@@ -16,9 +20,9 @@
 // serve, and it recovers on the next fire when a tick fails.
 //
 // Enabled by default in shadow mode. An explicit empty
-// `analyzer_tick_cron_expression` provisions no job. FDAI_ANALYZER_TARGETS
-// is optional because the CLI falls back to the durable inventory projection;
-// it exits 0 only when neither source contains a supported target.
+// `analyzer_tick_cron_expression` provisions no job. A tick with neither
+// an explicit target nor a supported inventory-backed resource is a clean
+// no-op that exits 0.
 
 resource "azurerm_container_app_job" "analyzer_tick" {
   count = var.analyzer_tick_cron_expression == "" ? 0 : 1

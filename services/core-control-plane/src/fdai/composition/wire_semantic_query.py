@@ -26,6 +26,7 @@ from fdai.core.ontology_platform import (
     EvidenceJoinNodeHandler,
     FunctionInvocationContext,
     FunctionNodeHandler,
+    MetricScopeSeriesNodeHandler,
     MetricSemanticRegistry,
     MetricSeriesNodeHandler,
     MetricWindowProvider,
@@ -293,6 +294,10 @@ def build_semantic_query_runtime(
                     registry=metric_registry,
                     provider=metric_window_provider,
                 ),
+                QueryNodeKind.METRIC_SCOPE_SERIES: MetricScopeSeriesNodeHandler(
+                    registry=metric_registry,
+                    provider=metric_window_provider,
+                ),
                 QueryNodeKind.EVIDENCE_JOIN: EvidenceJoinNodeHandler(),
             }
         )
@@ -301,6 +306,9 @@ def build_semantic_query_runtime(
     planner = SemanticPlanningService(
         model=model,
         escalation_model=escalation_model,
+        # The planner stamps ObjectSet as_of and the gateway validates it against the same
+        # cutoff within a 5s skew, so both MUST read one clock.
+        now=evaluation_cutoff,
         manifests=CatalogQueryManifestProvider(
             release=ontology_release,
             object_types=ontology_catalog.object_types,
@@ -313,8 +321,14 @@ def build_semantic_query_runtime(
         verifier=OntologyQueryPlanVerifier(
             available_kinds=available_kinds,
             extension_argument_schemas=extension_schemas,
+            reviewed_metric_concepts=(
+                tuple(sorted(metric_registry.definitions)) if metric_registry is not None else ()
+            ),
         ),
         descriptor_selector=CompleteManifestSelector(),
+        metric_concepts=(
+            tuple(sorted(metric_registry.definitions)) if metric_registry is not None else ()
+        ),
     )
 
     def executor_for(principal: Principal) -> OntologyQueryPlanExecutor:

@@ -41,6 +41,7 @@ def build_intent_graph(
         QueryNodeKind.TOPOLOGY_AT,
         QueryNodeKind.TOPOLOGY_DIFF,
         QueryNodeKind.METRIC_SERIES,
+        QueryNodeKind.METRIC_SCOPE_SERIES,
         QueryNodeKind.EVIDENCE_JOIN,
     }
     for node in plan.nodes:
