@@ -206,11 +206,17 @@ def _count_approval(
     *,
     request: GovernanceReviewRequest,
     requirement: ChangeClassRequirement,
+    head_committed_at: datetime | None,
     authorship: frozenset[str],
     counted: dict[str, GovernancePrincipal],
     issues: list[ReviewAuthorityIssue],
 ) -> None:
-    """Validate one approval and add it to ``counted`` only when fully authorized."""
+    """Validate one approval and add it to ``counted`` only when fully authorized.
+
+    ``head_committed_at`` is ``None`` when the head commit time is not absolute. The
+    freshness comparison is then unverifiable, so the approval never counts instead of
+    being compared against an ambiguous local time.
+    """
 
     if approval.dismissed:
         return
@@ -254,7 +260,20 @@ def _count_approval(
             )
         )
         return
-    if approval.approved_at < request.head_committed_at:
+    if head_committed_at is None:
+        issues.append(
+            ReviewAuthorityIssue(
+                code="approval_freshness_unverifiable",
+                message=(
+                    "governance approval freshness cannot be verified against an "
+                    "ambiguous head commit time"
+                ),
+                blocking=False,
+                subject_oid=approver_oid,
+            )
+        )
+        return
+    if approval.approved_at < head_committed_at:
         issues.append(
             ReviewAuthorityIssue(
                 code="approval_precedes_head",
@@ -313,6 +332,7 @@ def validate_governance_review(
 
     requirement = _REQUIREMENTS[request.change_class]
     issues: list[ReviewAuthorityIssue] = []
+    head_committed_at: datetime | None = request.head_committed_at
     if not _is_revision(request.head_revision):
         issues.append(
             ReviewAuthorityIssue(
@@ -322,6 +342,7 @@ def validate_governance_review(
             )
         )
     if request.head_committed_at.tzinfo is None or request.head_committed_at.utcoffset() is None:
+        head_committed_at = None
         issues.append(
             ReviewAuthorityIssue(
                 code="head_time_not_absolute",
@@ -345,6 +366,7 @@ def validate_governance_review(
             approval,
             request=request,
             requirement=requirement,
+            head_committed_at=head_committed_at,
             authorship=authorship,
             counted=counted,
             issues=issues,
