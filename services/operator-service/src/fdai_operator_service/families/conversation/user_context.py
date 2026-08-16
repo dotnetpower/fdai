@@ -32,7 +32,15 @@ class UserContextProjectionStore(Protocol):
         before_last_active: datetime | None,
         before_conversation_id: str | None,
         limit: int,
-    ) -> list[dict[str, Any]]: ...
+    ) -> list[dict[str, Any]]:
+        """Return one bounded page inside ``principal_id``, newest first.
+
+        Rows MUST be ordered by descending ``(last_active, conversation_id)`` and,
+        when a cursor is supplied, MUST be strictly before it on that same pair.
+        The emitted ``next_cursor`` is the last row of the page, so an implementation
+        that orders differently makes the caller repeat or skip conversations.
+        """
+        ...
 
     async def read_user_context_records(
         self,
@@ -104,10 +112,12 @@ async def _page(
     summaries = [_conversation(row) for row in visible]
     cursor: JsonValue = None
     if has_more and summaries:
-        newest = summaries[-1]
+        # The page is newest first, so its last row is the oldest one shown and the
+        # exclusive upper bound the next page pages back from.
+        oldest = summaries[-1]
         cursor = {
-            "last_active": newest["last_active"],
-            "conversation_id": newest["conversation_id"],
+            "last_active": oldest["last_active"],
+            "conversation_id": oldest["conversation_id"],
         }
     return {
         "conversations": cast(list[JsonValue], summaries),
