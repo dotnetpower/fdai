@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: a7c737d3cec5ba50cfecfb5c7953609e46320607
+translation_source_sha: 45ce138c1a36e8400f9475614ecfd7653f1935c2
 translation_revised: 2026-08-16
 ---
 
@@ -38,6 +38,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 | OHL scale-out evidence target 및 proposal Job | implemented | `infra/` 및 `services/core-control-plane/src/fdai/delivery/`의 current change, 집중 Terraform 및 publisher test 결과 8 passed와 13 passed | 둘 다 기본적으로 비활성화되며 protected 적용이 남아 있습니다. |
 | OHL production evidence campaign | in-progress | `config/ohl-scale-out-evidence.json` 및 `docs/runbooks/ohl-scale-out-evidence-ko.md` | Runtime rollout, 통제된 실행, sample 100개 및 14일 recurrence window가 남아 있습니다. |
 | 로컬 파괴적 검증 격리 | implemented | `infra/local/docker-compose.yml`, 로컬 준비 스크립트 및 focused migration test | 런타임은 port `5432`의 로컬 PostgreSQL을 사용하고 파괴적 검증은 port `5433`의 별도 로컬 cluster와 volume을 사용합니다. Azure 배포 리소스는 추가하지 않습니다. |
+| 인벤토리 기반 analyzer Job 대상 | implemented | `analyzer_tick_cli.py`, `analyzer_targets.py`, `analyzer_tick_job.tf`, focused analyzer 및 infrastructure 테스트 | Job은 구성된 상한 안에서 명시적 대상과 영속 인벤토리 projection의 지원 리소스를 병합합니다. 인벤토리 DSN이 없으면 명시적 대상 전용 경로를 유지하며, 두 출처 모두 대상이 없으면 정상 no-op으로 종료합니다. |
 
 ### 구현 이력
 
@@ -48,6 +49,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 | 2026-08-13 | implemented | Protected platform 계획 및 exact 적용 상태를 `validated`에서 `implemented`로 정정했습니다. Workflow source는 메커니즘을 입증하지만 리포지토리는 통제된 platform 적용 증적을 보존하지 않습니다. | current change, `.github/workflows/deploy-dev.yml`, roadmap, 번역 및 문서 검사 | `validated`로 복원하기 전에 리포지토리에 안전한 통제된 platform 적용 증적을 보존합니다. |
 | 2026-08-16 | implemented | 아무것도 보고하지 않던 배포 대기를 제한했습니다. Container App health 폴링은 반복마다 한 줄을 출력하고 만료된 900초 deadline을 수렴처럼 통과시키는 대신 명시적으로 실패하며, 재시도하는 모든 워크플로 다운로드가 누적 `--retry-max-time` window를 선언해 재시도 횟수 곱하기 요청당 상한이 유일한 경계가 되지 않습니다. | 현재 변경, 집중 배포 워크플로 및 게이트 parity 테스트 71개 통과, health 스크립트의 `bash -n`입니다. | 이 경계에 남은 작업은 없으며 아래 platform 적용 증적 항목은 그대로입니다. |
 | 2026-08-16 | implemented | 6시간 러너 기본값만 있던 보호 배포 job 두 개에 예산을 선언했습니다. 그동안 단일 self-hosted 배포 러너를 붙잡았기 때문입니다. Platform Terraform job은 180분, 서비스 배포 job은 120분으로 제한하고, health 검증기는 자체 deadline 뒤에 실행하던 복구 검증과 readiness 경로 단계를 제한합니다. | 현재 변경, 배포 워크플로 집중 테스트 24개 통과, health 스크립트의 `bash -n`, 두 워크플로 문서의 YAML 파싱입니다. | 이 예산에 남은 작업은 없으며 아래 platform 적용 증적 항목은 그대로입니다. |
+| 2026-08-16 | implemented | Analyzer Job을 영속 인벤토리 projection과 검토된 리소스 타입 5개 analyzer 매핑에 연결했습니다. Tick은 명시적 대상과 발견된 대상을 결정론적으로 병합하고, 구성된 발견 상한을 적용하며, 지원하지 않는 타입을 제외하고, projection 읽기 실패 시 coverage를 조용히 줄이지 않고 재시도합니다. | `current change`, `analyzer_tick_cli.py`, `analyzer_targets.py`, `analyzer_tick_job.tf`, focused analyzer 테스트 및 `test_detection_readiness.py` | 이 범위를 `validated`로 올리기 전에 protected 적용 및 scheduled-run 증적 하나를 보존합니다. |
 
 ### 남은 작업
 
@@ -209,10 +211,13 @@ Public-network 프로파일에서 운영자가 realtime-inventory Event Grid 구
 빈 cron은 해당 작업을 비활성화합니다. 기존 스케줄러 또는 analyzer 작업은 계획 전에 안전하게
 가져오고 이후 이미지와 구성 변경은 같은 계획 및 적용 경로로 수렴합니다.
 Analyzer 작업은 기본 1분 shadow 예약으로 `fdai.delivery.analyzer_tick_cli`를 실행하며, 발견 건마다
-리소스, 신호, tick 창에서 파생된 키를 가진 정본 Event 하나를 게시합니다. `FDAI_ANALYZER_TARGETS`가
-비어 있으면 tick은 `0`으로 종료하는 무해한 no-op이며, 영속 인벤토리에서 대상을 탐색하는 기능은 아직
-구현되지 않았습니다. 게시 실패는 0이 아닌 종료 코드를 남겨 작업이 재시도됩니다.
-Analyzer cron을 명시적으로 빈 문자열로 설정하면 작업이 비활성화됩니다.
+리소스, 신호, tick 창에서 파생된 키를 가진 정본 Event 하나를 게시합니다. `FDAI_INVENTORY_DSN`이
+설정되면 `FDAI_ANALYZER_TARGETS`와 영속 인벤토리 projection의 지원 리소스를 병합하고, 병합된 집합의
+중복을 제거한 뒤 프로바이더 I/O 전에 `FDAI_ANALYZER_MAX_DISCOVERED_TARGETS`를 적용합니다. 지원하지
+않는 리소스 타입은 추측하지 않고 제외합니다. Projection을 읽을 수 없으면 coverage를 조용히 줄이지
+않고 tick을 실패시켜 Job이 재시도됩니다. 인벤토리 DSN이 없으면 명시적 대상 전용 경로를 유지하고,
+두 출처 모두 대상이 없으면 tick은 `0`으로 종료하는 정상 no-op입니다. Analyzer cron을 명시적으로
+빈 문자열로 설정하면 작업이 비활성화됩니다.
 
 #### 제한된 egress 환경의 인벤토리 디스커버리
 
@@ -563,7 +568,7 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `FDAI_INVENTORY_SOURCES` | env | 업스트림 | Ordered 대체 경로 목록. 기본값은 `arg,arm`입니다. `declarative`는 고정본 경로와 SHA-256이 모두 있을 때만 허용합니다. |
 | `FDAI_INVENTORY_MANAGEMENT_ENDPOINT` / `FDAI_INVENTORY_MANAGEMENT_AUDIENCE` | env | 배포 | 검증된 HTTPS ARM 루트 및 OIDC 대상 쌍. 승인된 sovereign-cloud 또는 검증된 Resource 관리 Private Link 경로에서는 둘 다 재정의합니다. |
 | `FDAI_INVENTORY_FRESHNESS_SECONDS` | env | 업스트림 | 활성 스냅샷이 stale 상태가 되고 그래프 기반 자율성을 사람 검토로 낮추기 전의 최대 age입니다. 기본값은 `86400`입니다. |
-| `FDAI_ANALYZER_TARGETS` / `FDAI_ANALYZER_WINDOW_SECONDS` / `FDAI_ANALYZER_BUDGET_SECONDS` | env | 배포 / 업스트림 | 명시적 analyzer 대상 및 한계. 대상 목록이 비어 있으면 tick은 무해한 no-op이며, 형식이 잘못된 값은 차단됩니다. |
+| `FDAI_ANALYZER_TARGETS` / `FDAI_ANALYZER_WINDOW_SECONDS` / `FDAI_ANALYZER_MAX_DISCOVERED_TARGETS` | env | 배포 / 업스트림 | 명시적 analyzer 대상, metric window 및 인벤토리 발견 상한입니다. 명시적 대상과 지원되는 인벤토리 대상을 결정론적으로 병합합니다. 잘못된 값이나 읽을 수 없는 구성된 projection은 차단되고, 완전히 해석된 대상 집합이 비어 있을 때만 정상 no-op입니다. |
 | `KAFKA_TOPIC_EVENTS` | env | 배포 | 주 이벤트 ingest 토픽 |
 | `KAFKA_TOPIC_DLQ_SUFFIX` | env | 배포 | dead-letter 접미사 (기본 `.dlq`) |
 | `FDAI_EXECUTOR_COMMAND_TOPIC` / `FDAI_EXECUTOR_RECEIPT_TOPIC` | env | 업스트림 / 배포 | Isolated 실행기 명령 및 versioned 최종 증적 토픽입니다. 기본값은 `object.executor-command`, `object.executor-receipt`이며 서로 달라야 합니다. |

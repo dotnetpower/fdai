@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI 최소 Azure 인벤토리를 프로비저닝하는 방법. azd 턴키와 Terraform 직접 실행 두 경로 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: b7b5eeec2a9132fd8cb4bc84ca24d5238d63c7d9
+translation_source_sha: be3b4fd985a47c2b1a54159b250767aaeb61e4f5
 translation_revised: 2026-08-16
 ---
 
@@ -126,6 +126,9 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
      주기와 일치합니다.
    - **예측 학습**: 옵트인 작업이 원시 틱만 발행하고, 코어에 검토된
      `FDAI_FORECAST_TARGETS_JSON` 문서가 있습니다.
+   - **Analyzer tick**: `FDAI_INVENTORY_DSN`이 설정되면 Job이 명시적 대상과 영속 인벤토리
+     projection에서 지원되는 리소스만 병합하고 구성된 발견 상한을 보고합니다. 지원하지 않는
+     리소스 타입은 제외하며, 완전히 해석된 대상 집합이 비어 있으면 정상 no-op으로 종료합니다.
    - **OHL scale-out 근거**: 활성화한 경우 수동 proposal Job을 시작하고, 설정된 캠페인과
      개시자가 포함된 shadow 제안 하나만 정상 수신 경로에 도달하는지 확인합니다. 이 자격
      증명에는 이미지 pull과 기본 Event Hubs send 권한만 있고 provider-effect 권한은 없습니다.

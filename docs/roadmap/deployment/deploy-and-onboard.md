@@ -34,6 +34,7 @@ All identifiers are synthetic per
 | OHL scale-out evidence target and proposal Job | implemented | current change in `infra/` and `services/core-control-plane/src/fdai/delivery/`; focused Terraform and publisher tests report 8 and 13 passed | Both are disabled by default and still need a protected apply. |
 | OHL production evidence campaign | in-progress | `config/ohl-scale-out-evidence.json` and `docs/runbooks/ohl-scale-out-evidence.md` | Runtime rollout, governed execution, 100 samples, and the 14-day recurrence window remain open. |
 | Local destructive-validation isolation | implemented | `infra/local/docker-compose.yml`, local preparation scripts, and focused migration tests | Runtime uses local PostgreSQL on port `5432`; destructive validation uses a separate local cluster and volume on port `5433`. This does not add an Azure deployment resource. |
+| Inventory-backed analyzer Job targets | implemented | `analyzer_tick_cli.py`; `analyzer_targets.py`; `analyzer_tick_job.tf`; focused analyzer and infrastructure tests | The Job merges explicit targets with supported resources from the durable inventory projection under a configured ceiling. Without an inventory DSN it keeps the explicit-only path; with neither source it exits as a clean no-op. |
 
 ### Implementation history
 
@@ -44,6 +45,7 @@ All identifiers are synthetic per
 | 2026-08-13 | implemented | Corrected the protected platform plan and exact-apply state from `validated` to `implemented`; workflow source proves the mechanism, but the repository does not retain a governed platform apply receipt. | current change; `.github/workflows/deploy-dev.yml`; roadmap, translation, and documentation checks. | Retain a repository-safe governed platform apply receipt before restoring `validated`. |
 | 2026-08-16 | implemented | Bounded the deployment waits that reported nothing: the Container App health poll emits one line per iteration and fails explicitly on its 900-second deadline instead of falling through as converged, and every retrying workflow download declares a cumulative `--retry-max-time` window so a retry count times a per-request cap is no longer the only bound. | Current change; focused deployment workflow and gate-parity tests report 71 passed, and `bash -n` on the health script. | No remaining work for these bounds; the platform apply receipt items below are unchanged. |
 | 2026-08-16 | implemented | Declared a budget for both protected deploy jobs, which had only the six-hour runner default and held the single self-hosted deploy runner meanwhile: the platform Terraform job is bounded to 180 minutes and the service deploy job to 120 minutes, and the health verifier bounds the recovery verification and readiness-path steps it ran after its own deadline. | Current change; 24 focused deploy-workflow tests passed, `bash -n` on the health script, and both workflow documents parse as YAML. | No remaining work for these budgets; the platform apply receipt items below are unchanged. |
+| 2026-08-16 | implemented | Bound the analyzer Job to the durable inventory projection and a reviewed five-type analyzer map. The tick deterministically merges explicit and discovered targets, enforces a configured discovery ceiling, omits unsupported types, and retries on a projection read failure instead of silently reducing coverage. | `current change`; `analyzer_tick_cli.py`, `analyzer_targets.py`, `analyzer_tick_job.tf`, focused analyzer tests, and `test_detection_readiness.py`. | Retain one protected apply and scheduled-run receipt before raising this scope to `validated`. |
 
 ### Remaining work
 
@@ -206,10 +208,13 @@ An empty cron disables its job. Existing scheduler or analyzer jobs are safely a
 plan, and later image or configuration changes converge through the same plan and apply path.
 The analyzer job defaults to a one-minute shadow schedule and runs
 `fdai.delivery.analyzer_tick_cli`, which publishes one canonical Event per finding keyed by
-resource, signal, and tick window. An empty `FDAI_ANALYZER_TARGETS` makes the tick a clean no-op
-that exits `0`; target discovery from durable inventory is not implemented yet. A publish failure
-exits non-zero so the Job retries. Set the analyzer cron to an explicit empty string to disable the
-job.
+resource, signal, and tick window. It merges `FDAI_ANALYZER_TARGETS` with supported resources from
+the durable inventory projection when `FDAI_INVENTORY_DSN` is configured, deduplicates the merged
+set, and applies `FDAI_ANALYZER_MAX_DISCOVERED_TARGETS` before provider I/O. An unsupported resource
+type is omitted rather than guessed. An unreadable projection fails the tick so the Job retries
+instead of silently reducing coverage. Without an inventory DSN, the explicit-only path remains
+available; when both sources resolve no target, the tick is a clean no-op that exits `0`. Set the
+analyzer cron to an explicit empty string to disable the job.
 
 #### Inventory discovery with restricted egress
 
@@ -563,7 +568,7 @@ secret, promotion, and test-only keys remain outside the editable surface.
 | `FDAI_INVENTORY_SOURCES` | env | upstream | Ordered fallback list: `arg,arm` by default; `declarative` is accepted only with a fixture path and SHA-256. |
 | `FDAI_INVENTORY_MANAGEMENT_ENDPOINT` / `FDAI_INVENTORY_MANAGEMENT_AUDIENCE` | env | deployment | Validated HTTPS ARM root and OIDC audience pair. Override both for an approved sovereign-cloud or validated Resource Management Private Link path. |
 | `FDAI_INVENTORY_FRESHNESS_SECONDS` | env | upstream | Maximum active snapshot age before the projection becomes stale and graph-dependent autonomy degrades to human review. Default `86400`. |
-| `FDAI_ANALYZER_TARGETS` / `FDAI_ANALYZER_WINDOW_SECONDS` / `FDAI_ANALYZER_BUDGET_SECONDS` | env | deployment / upstream | Explicit analyzer targets and bounds. An empty target list makes the tick a clean no-op; a malformed value fails closed. |
+| `FDAI_ANALYZER_TARGETS` / `FDAI_ANALYZER_WINDOW_SECONDS` / `FDAI_ANALYZER_MAX_DISCOVERED_TARGETS` | env | deployment / upstream | Explicit analyzer targets, metric window, and the bounded inventory-discovery ceiling. Explicit and supported inventory targets merge deterministically. A malformed value or unreadable configured projection fails closed; only a fully resolved empty set is a clean no-op. |
 | `KAFKA_TOPIC_EVENTS` | env | deployment | primary event ingest topic |
 | `KAFKA_TOPIC_DLQ_SUFFIX` | env | deployment | dead-letter suffix (default `.dlq`) |
 | `FDAI_EXECUTOR_COMMAND_TOPIC` / `FDAI_EXECUTOR_RECEIPT_TOPIC` | env | upstream / deployment | Isolated Executor command and versioned terminal receipt topics. Defaults are `object.executor-command` and `object.executor-receipt`; they must remain distinct. |
