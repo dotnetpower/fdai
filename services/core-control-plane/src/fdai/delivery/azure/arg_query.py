@@ -104,7 +104,14 @@ from fdai.delivery.azure.arg_relationships import (
     RelationshipProjectionResult,
     project_provider_relationships,
 )
-from fdai.delivery.azure.arg_transport import ArgThrottleGate, fetch_arg_pages
+from fdai.delivery.azure.arg_transport import (
+    DEFAULT_ARG_REQUEST_BURST,
+    DEFAULT_ARG_REQUESTS_PER_SECOND,
+    DEFAULT_ARG_THROTTLE_MAX_DEFER_SECONDS,
+    ArgRateLimiter,
+    ArgThrottleGate,
+    fetch_arg_pages,
+)
 from fdai.delivery.azure.inventory import ResourceQueryFn, ResourceQueryResult
 from fdai.delivery.inventory_schedule import (
     VM_SHUTDOWN_SCHEDULE_TYPE,
@@ -194,6 +201,25 @@ class AzureArgQueryFactoryConfig:
     relationship_mapping_root: Path = _DEFAULT_RELATIONSHIP_MAPPING_ROOT
     """Reviewed provider relationship mapping catalog loaded at adapter startup."""
 
+    requests_per_second: float = DEFAULT_ARG_REQUESTS_PER_SECOND
+    """Sustained ARG request budget shared by every shard of one adapter.
+
+    ARG bills a per-user quota, so a sharded scan that bursts spends the whole
+    allowance immediately and then waits out a provider reset window far longer
+    than the burst saved. Pacing at the sustained budget keeps a continuous
+    background scan inside quota instead of oscillating between burst and throttle.
+    """
+
+    requests_burst: int = DEFAULT_ARG_REQUEST_BURST
+    """How many requests may be spent ahead of the sustained budget.
+
+    Mirrors the provider's quota window, so a short scan still finishes at full
+    speed while a long one converges on the sustained rate.
+    """
+
+    throttle_max_defer_seconds: float = DEFAULT_ARG_THROTTLE_MAX_DEFER_SECONDS
+    """Cap on one reactive quota deferral, so a long reset header cannot stall a scan."""
+
 
 class AzureArgQueryFactory:
     """Build a :type:`ResourceQueryFn` bound to a WorkloadIdentity + HTTP client."""
@@ -226,7 +252,13 @@ class AzureArgQueryFactory:
         self._resource_types: Final[ResourceTypeRegistry] = resource_types
         self._http: Final[httpx.AsyncClient] = http_client
         self._config: Final[AzureArgQueryFactoryConfig] = config
-        self._throttle_gate = ArgThrottleGate()
+        self._throttle_gate = ArgThrottleGate(
+            max_defer_seconds=config.throttle_max_defer_seconds,
+        )
+        self._rate_limiter = ArgRateLimiter(
+            requests_per_second=config.requests_per_second,
+            burst=config.requests_burst,
+        )
         # Pre-compute the ARM-type → neutral-id reverse map once. Every
         # `attached_to` extraction hits this map per referenced id; a
         # fresh iteration per row would be O(vocabulary_size * rows).
@@ -333,6 +365,7 @@ class AzureArgQueryFactory:
             map_row=lambda row: self._map_row(row, resource_type=resource_type),
             project_links=self._project_links,
             throttle_gate=self._throttle_gate,
+            rate_limiter=self._rate_limiter,
         )
 
     def _project_links(

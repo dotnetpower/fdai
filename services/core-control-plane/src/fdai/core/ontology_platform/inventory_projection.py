@@ -59,6 +59,10 @@ TOPOLOGY_LINK_TYPES: tuple[str, ...] = (
 _RESOURCE_OBJECT_TYPE = "Resource"
 _MAX_RESOURCES = 50_000
 _MAX_LINKS = 200_000
+#: Declared shelf life of one observed state fact. It MUST match the cadence the
+#: inventory job actually guarantees: a shorter claim marks every fact stale for
+#: most of the interval, and a longer one asserts a freshness nobody refreshes.
+DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS = 21_600
 
 _DROP_OBSERVATION_INCOMPLETE = "observation_incomplete"
 _DROP_UNREGISTERED_LINK_TYPE = "unregistered_link_type"
@@ -103,6 +107,7 @@ def build_inventory_ontology_projection(
     observation_complete: bool = True,
     relationship_drops: Sequence[RelationshipDrop] = (),
     resource_type_mappings: Mapping[str, str] | None = None,
+    freshness_ceiling_seconds: int = DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS,
 ) -> InventoryOntologyProjection:
     """Restate one inventory observation as a typed resource subgraph.
 
@@ -126,8 +131,14 @@ def build_inventory_ontology_projection(
         raise ValueError("inventory projection resource count exceeds its bound")
     if len(links) > _MAX_LINKS:
         raise ValueError("inventory projection link count exceeds its bound")
+    if freshness_ceiling_seconds < 1:
+        raise ValueError("inventory projection freshness ceiling MUST be >= 1 second")
 
-    objects = _build_objects(resources, generation=generation)
+    objects = _build_objects(
+        resources,
+        generation=generation,
+        freshness_ceiling_seconds=freshness_ceiling_seconds,
+    )
     observed_types = {
         resource_id: str(record.properties["type"]) for resource_id, record in objects.items()
     }
@@ -207,6 +218,7 @@ def _build_objects(
     resources: Sequence[ResourceRecord],
     *,
     generation: str,
+    freshness_ceiling_seconds: int,
 ) -> dict[str, OntologyObjectRecord]:
     """Return adjudicated ``Resource`` objects keyed by observed resource id.
 
@@ -242,6 +254,7 @@ def _build_objects(
             verdict,
             resource_id=resource_id,
             generation=generation,
+            freshness_ceiling_seconds=freshness_ceiling_seconds,
         )
     return objects
 
@@ -251,6 +264,7 @@ def _resource_object(
     *,
     resource_id: str,
     generation: str,
+    freshness_ceiling_seconds: int,
 ) -> OntologyObjectRecord:
     """Map one adjudicated resource onto the declared ``Resource`` property shape."""
     properties: dict[str, Any] = {"id": resource_id, "type": verdict.type}
@@ -260,6 +274,7 @@ def _resource_object(
         generation=generation,
         observed_at=verdict.observed_at,
         conflicts=verdict.conflicts,
+        freshness_ceiling_seconds=freshness_ceiling_seconds,
     )
     for lifted in ("name", "parent_id"):
         value = verdict.agreed_properties.get(lifted)
@@ -279,6 +294,7 @@ def _add_observed_state(
     generation: str,
     observed_at: datetime | None,
     conflicts: tuple[str, ...],
+    freshness_ceiling_seconds: int,
 ) -> None:
     """Add the observed state fact, carrying any adjudicated conflict explicitly.
 
@@ -300,7 +316,7 @@ def _add_observed_state(
         effective_at=observed_at,
         recorded_at=observed_at,
         evidence_cutoff=observed_at,
-        freshness_ceiling_seconds=300,
+        freshness_ceiling_seconds=freshness_ceiling_seconds,
         completeness=0.0 if conflicts else 1.0,
         synthetic=False,
         conflicts=conflicts,

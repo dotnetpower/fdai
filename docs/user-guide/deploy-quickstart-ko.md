@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: FDAI 최소 Azure 인벤토리를 프로비저닝하는 방법. azd 턴키와 Terraform 직접 실행 두 경로 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: b7b5eeec2a9132fd8cb4bc84ca24d5238d63c7d9
+translation_source_sha: dd0edab1cba19552ec3113c06c10adaafee8f254
 translation_revised: 2026-08-16
 ---
 
@@ -101,9 +101,9 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
      `aw.inventory.raw`에 도달합니다.
    - 기본 샤드가 Standard 엔터티 10개 제한 안에 있고, Huginn이 테스트 리소스 변경을
      투영합니다.
-   - 인벤토리 작업이 10분마다 깨어나고, PostgreSQL이 정상 전체 스캔을 6시간으로 유지하며,
-     실패하거나 중단된 시도가 다음 틱에 재시도됩니다. 이때 코어에는 job-start 역할을
-     주지 않습니다.
+   - 인벤토리 작업이 매분 깨어나고, PostgreSQL이 정상 전체 스캔을 6시간으로 유지하며,
+     관측된 리소스 변경은 앞당겨 조정되고, 실패하거나 중단되거나 마감을 넘긴 시도가 다음
+     틱에 재시도됩니다. 이때 코어에는 job-start 역할을 주지 않습니다.
    - 프라이빗 네트워킹을 켰다면 PostgreSQL과 두 Event Hubs 샤드가 런타임 서브넷이나 피어링된
      러너에서 프라이빗 주소로 확인되고, TLS 점검을 통과하며, Event Hubs 공개 접근이 꺼져
      있습니다.

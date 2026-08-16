@@ -2609,3 +2609,165 @@ async def test_full_row_emits_contains_attached_to_and_depends_on_together() -> 
     assert attached.to_type == "network.subnet"
     (contained,) = [e for e in links if e.link_type == "contains"]
     assert contained.from_type == "resource-group"
+
+
+@pytest.mark.asyncio
+async def test_rate_limiter_paces_requests_at_the_configured_budget(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Every acquisition is spaced, not only the ones that follow a throttle."""
+
+    now = 0.0
+    delays: list[float] = []
+
+    monkeypatch.setattr(arg_transport, "_monotonic", lambda: now)
+
+    async def _record_delay(delay: float) -> None:
+        nonlocal now
+        delays.append(delay)
+        now += delay
+
+    monkeypatch.setattr(arg_transport, "_sleep", _record_delay)
+
+    limiter = arg_transport.ArgRateLimiter(requests_per_second=2.0, burst=1)
+    for _ in range(4):
+        await limiter.acquire()
+
+    assert delays == [0.5, 0.5, 0.5]
+
+
+@pytest.mark.asyncio
+async def test_rate_limiter_burst_allows_the_documented_head_start(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = 0.0
+    delays: list[float] = []
+
+    monkeypatch.setattr(arg_transport, "_monotonic", lambda: now)
+
+    async def _record_delay(delay: float) -> None:
+        nonlocal now
+        delays.append(delay)
+        now += delay
+
+    monkeypatch.setattr(arg_transport, "_sleep", _record_delay)
+
+    limiter = arg_transport.ArgRateLimiter(requests_per_second=2.0, burst=3)
+    for _ in range(3):
+        await limiter.acquire()
+    assert delays == []
+
+    await limiter.acquire()
+    assert delays == [0.5]
+
+
+@pytest.mark.asyncio
+async def test_rate_limiter_is_shared_across_concurrent_shards(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Concurrent shards spend one budget instead of one budget each."""
+
+    now = 0.0
+    delays: list[float] = []
+
+    monkeypatch.setattr(arg_transport, "_monotonic", lambda: now)
+
+    async def _record_delay(delay: float) -> None:
+        nonlocal now
+        delays.append(delay)
+        now += delay
+
+    monkeypatch.setattr(arg_transport, "_sleep", _record_delay)
+
+    limiter = arg_transport.ArgRateLimiter(requests_per_second=4.0, burst=1)
+    await asyncio.gather(*(limiter.acquire() for _ in range(4)))
+
+    assert delays == [0.25, 0.25, 0.25]
+
+
+@pytest.mark.parametrize("requests_per_second", [0.0, -1.0, float("inf"), float("nan")])
+def test_rate_limiter_rejects_a_non_positive_budget(requests_per_second: float) -> None:
+    with pytest.raises(ValueError, match="requests_per_second"):
+        arg_transport.ArgRateLimiter(requests_per_second=requests_per_second)
+
+
+def test_rate_limiter_rejects_a_zero_burst() -> None:
+    with pytest.raises(ValueError, match="burst"):
+        arg_transport.ArgRateLimiter(burst=0)
+
+
+@pytest.mark.asyncio
+async def test_throttle_gate_caps_a_long_quota_reset_window(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A multi-hour reset header must not park a scan past every useful deadline."""
+
+    now = 0.0
+    delays: list[float] = []
+
+    monkeypatch.setattr(arg_transport, "_monotonic", lambda: now)
+
+    async def _record_delay(delay: float) -> None:
+        nonlocal now
+        delays.append(delay)
+        now += delay
+
+    monkeypatch.setattr(arg_transport, "_sleep", _record_delay)
+
+    gate = arg_transport.ArgThrottleGate(max_defer_seconds=30.0)
+    await gate.observe(
+        httpx.Headers(
+            {
+                "x-ms-user-quota-remaining": "0",
+                "x-ms-user-quota-resets-after": "02:00:00",
+            }
+        )
+    )
+    await gate.wait()
+
+    assert delays == [30.0]
+
+
+@pytest.mark.parametrize("max_defer_seconds", [0.0, -1.0, float("inf")])
+def test_throttle_gate_rejects_an_invalid_defer_cap(max_defer_seconds: float) -> None:
+    with pytest.raises(ValueError, match="max_defer_seconds"):
+        arg_transport.ArgThrottleGate(max_defer_seconds=max_defer_seconds)
+
+
+@pytest.mark.asyncio
+async def test_query_factory_paces_pagination_with_the_configured_budget(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The factory applies its budget to page follow-ups, not just to shard starts."""
+
+    now = 0.0
+    delays: list[float] = []
+    calls = 0
+
+    monkeypatch.setattr(arg_transport, "_monotonic", lambda: now)
+
+    async def _record_delay(delay: float) -> None:
+        nonlocal now
+        delays.append(delay)
+        now += delay
+
+    monkeypatch.setattr(arg_transport, "_sleep", _record_delay)
+
+    def _handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            return httpx.Response(200, json={"data": [], "$skipToken": "next"})
+        return httpx.Response(200, json={"data": []})
+
+    async with _make_client(httpx.MockTransport(_handler)) as client:
+        factory = AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(requests_per_second=2.0, requests_burst=1),
+        )
+        await factory.build_query_fn()("object-storage")
+
+    assert calls == 2
+    assert delays == [0.5]

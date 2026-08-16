@@ -246,6 +246,24 @@ variable "inventory_reconciliation_interval_seconds" {
   default     = 21600
 }
 
+variable "inventory_change_min_interval_seconds" {
+  description = "Floor between two change-triggered reconciliations."
+  type        = number
+  default     = 120
+}
+
+variable "inventory_attempt_deadline_seconds" {
+  description = "Wall-clock ceiling for one inventory source attempt."
+  type        = number
+  default     = 900
+}
+
+variable "inventory_arg_requests_per_second" {
+  description = "Sustained Azure Resource Graph request budget for one scan."
+  type        = number
+  default     = 3
+}
+
 variable "extra_identity_ids" {
   description = <<-EOT
     Additional user-assigned MI resource ids to attach alongside the

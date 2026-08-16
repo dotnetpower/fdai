@@ -22,14 +22,70 @@ _DEFAULT_INITIAL_RETRY_DELAY_SECONDS = 0.5
 _DEFAULT_MAX_RETRY_DELAY_SECONDS = 30.0
 _DEFAULT_MAX_RESPONSE_BYTES = 10_000_000
 _DEFAULT_MAX_TOTAL_RESPONSE_BYTES = 64_000_000
+#: Azure Resource Graph bills a per-user quota of 15 requests per 5 seconds.
+#: Pace at the sustained rate and allow the documented burst so a sharded scan
+#: spends its allowance evenly instead of tripping the provider throttle.
+DEFAULT_ARG_REQUESTS_PER_SECOND = 3.0
+DEFAULT_ARG_REQUEST_BURST = 15
+DEFAULT_ARG_THROTTLE_MAX_DEFER_SECONDS = 60.0
+
+
+class ArgRateLimiter:
+    """Pace ARG requests at a sustained budget shared by every concurrent shard.
+
+    The gate is proactive: a caller acquires a slot before each HTTP attempt, so
+    a sharded full scan stays inside the provider quota rather than bursting
+    into a throttle and then paying a reactive backoff far longer than the time
+    the burst saved. Slots are handed out in acquisition order.
+    """
+
+    def __init__(
+        self,
+        *,
+        requests_per_second: float = DEFAULT_ARG_REQUESTS_PER_SECOND,
+        burst: int = DEFAULT_ARG_REQUEST_BURST,
+    ) -> None:
+        if not isfinite(requests_per_second) or requests_per_second <= 0:
+            raise ValueError("ARG requests_per_second MUST be a positive finite value")
+        if burst < 1:
+            raise ValueError("ARG rate limiter burst MUST be >= 1")
+        self._interval = 1.0 / requests_per_second
+        self._burst = burst
+        self._lock = asyncio.Lock()
+        self._next_slot: float | None = None
+
+    async def acquire(self) -> None:
+        """Block until this caller owns the next request slot in the budget."""
+
+        async with self._lock:
+            now = _monotonic()
+            earliest = now - self._interval * (self._burst - 1)
+            slot = earliest if self._next_slot is None else max(self._next_slot, earliest)
+            self._next_slot = slot + self._interval
+            delay = slot - now
+        if delay > 0:
+            await _sleep(delay)
 
 
 class ArgThrottleGate:
-    """Share ARG quota backoff across concurrent queries in one adapter."""
+    """Share ARG quota backoff across concurrent queries in one adapter.
 
-    def __init__(self) -> None:
+    Deferrals are capped by ``max_defer_seconds``. A provider quota-reset header
+    may advertise a multi-hour window; honoring it verbatim parks every shard
+    past any useful deadline and silently stalls inventory refresh, so the gate
+    caps the wait and lets the caller's attempt deadline decide.
+    """
+
+    def __init__(
+        self,
+        *,
+        max_defer_seconds: float = DEFAULT_ARG_THROTTLE_MAX_DEFER_SECONDS,
+    ) -> None:
+        if not isfinite(max_defer_seconds) or max_defer_seconds <= 0:
+            raise ValueError("ARG throttle max_defer_seconds MUST be a positive finite value")
         self._lock = asyncio.Lock()
         self._not_before = 0.0
+        self._max_defer_seconds = max_defer_seconds
 
     async def wait(self) -> None:
         while True:
@@ -43,8 +99,9 @@ class ArgThrottleGate:
     async def defer(self, delay_seconds: float) -> None:
         if delay_seconds <= 0:
             return
+        bounded = min(delay_seconds, self._max_defer_seconds)
         async with self._lock:
-            self._not_before = max(self._not_before, _monotonic() + delay_seconds)
+            self._not_before = max(self._not_before, _monotonic() + bounded)
 
     async def observe(self, headers: httpx.Headers) -> None:
         quota_delay = _quota_reset_seconds(headers)
@@ -77,6 +134,7 @@ async def fetch_arg_pages(
     map_row: Callable[[Mapping[str, Any]], ResourceRecord | None],
     project_links: Callable[[Mapping[str, Any], ResourceRecord], RelationshipProjectionResult],
     throttle_gate: ArgThrottleGate | None = None,
+    rate_limiter: ArgRateLimiter | None = None,
     max_attempts: int = _DEFAULT_MAX_ATTEMPTS,
     initial_retry_delay_seconds: float = _DEFAULT_INITIAL_RETRY_DELAY_SECONDS,
     max_retry_delay_seconds: float = _DEFAULT_MAX_RETRY_DELAY_SECONDS,
@@ -96,6 +154,7 @@ async def fetch_arg_pages(
         timeout_seconds=timeout_seconds,
         error_type=error_type,
         throttle_gate=throttle_gate,
+        rate_limiter=rate_limiter,
         max_attempts=max_attempts,
         initial_retry_delay_seconds=initial_retry_delay_seconds,
         max_retry_delay_seconds=max_retry_delay_seconds,
@@ -132,6 +191,7 @@ async def fetch_arg_row_pages(
     timeout_seconds: float,
     error_type: type[RuntimeError],
     throttle_gate: ArgThrottleGate | None = None,
+    rate_limiter: ArgRateLimiter | None = None,
     max_records: int | None = None,
     max_attempts: int = _DEFAULT_MAX_ATTEMPTS,
     initial_retry_delay_seconds: float = _DEFAULT_INITIAL_RETRY_DELAY_SECONDS,
@@ -162,6 +222,7 @@ async def fetch_arg_row_pages(
     seen_skip_tokens: set[str] = set()
     total_response_bytes = 0
     gate = throttle_gate or ArgThrottleGate()
+    limiter = rate_limiter or ArgRateLimiter()
     static_headers = dict(request_headers) if request_headers is not None else None
 
     for page in range(max_pages):
@@ -185,6 +246,7 @@ async def fetch_arg_row_pages(
             page=page,
             error_type=error_type,
             throttle_gate=gate,
+            rate_limiter=limiter,
             max_attempts=max_attempts,
             initial_retry_delay_seconds=initial_retry_delay_seconds,
             max_retry_delay_seconds=max_retry_delay_seconds,
@@ -267,6 +329,7 @@ async def _post_with_retry(
     page: int,
     error_type: type[RuntimeError],
     throttle_gate: ArgThrottleGate,
+    rate_limiter: ArgRateLimiter,
     max_attempts: int,
     initial_retry_delay_seconds: float,
     max_retry_delay_seconds: float,
@@ -274,6 +337,7 @@ async def _post_with_retry(
     last_error: httpx.HTTPError | None = None
     for attempt in range(max_attempts):
         await throttle_gate.wait()
+        await rate_limiter.acquire()
         if headers is None:
             try:
                 token = await identity.get_token(audience)

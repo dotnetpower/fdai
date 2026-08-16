@@ -1,8 +1,8 @@
 ---
 title: Near-real-time detection paths
 translation_of: near-real-time-detection-paths.md
-translation_source_sha: 711578ffdcd6b846e3f66564f6f85e43e97dda6e
-translation_revised: 2026-08-14
+translation_source_sha: 30a514d1d1cd1b9d282f6688bed1e1bde3c9f1f6
+translation_revised: 2026-08-16
 ---
 
 # 근실시간 감지 경로
@@ -163,9 +163,11 @@ Muninn은 `generated_at`이 엄격히 더 새로운 경우에만 대상의 최�
 재전달된 표류가 영속 준비도를 과거로 되돌릴 수 없습니다.
 인벤토리 기반 대상은 그래프 최신성과 커버리지 근거를 발견 dimension에 전달합니다.
 Stale 스냅샷 또는 degraded 커버리지는 passed가 아니라 사용 불가가 됩니다. Heimdall은
-표류를 publish하지만 복구를 실행하지 않습니다. 인벤토리 작업은 10분마다 wake하고 다른
-후보가 collecting 중이거나 마지막 성공이 6시간 이내이면 건너뜀하며, newer 시도가
-실패 또는 포기되면 다음 틱에 재시도합니다. 정상 상태의 full ARG/ARM 검사 cadence는 6시간입니다.
+표류를 publish하지만 복구를 실행하지 않습니다. 인벤토리 작업은 매분 wake하고 다른
+후보가 collecting 중이거나 마지막 성공이 6시간 이내이면서 조정되지 않은 변경이 없으면
+건너뛰며, newer 시도가 실패 또는 포기되면 다음 틱에 재시도합니다. 관측된 변경은 하한을 넘으면
+앞당겨 조정되므로 변경 지연은 간격이 아니라 틱으로 제한됩니다. 아무것도 바뀌지 않은 정상
+상태의 full ARG/ARM 검사 cadence는 6시간입니다.
 
 ## 조합 규칙
 

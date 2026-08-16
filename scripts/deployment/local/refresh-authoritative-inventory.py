@@ -39,7 +39,10 @@ from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
     load_provider_relationship_mapping_catalog,
 )
-from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
+from fdai.rule_catalog.schema.resource_type import (
+    load_resource_type_registry_from_mapping,
+    resource_type_mapping_digests,
+)
 from fdai.runtime.inventory_ontology import (
     InventoryOntologyProjectionResult,
     InventoryOntologyProjector,
@@ -103,6 +106,7 @@ async def refresh() -> InventoryOntologyProjectionResult:
         store=ontology_store,
         status_store=state_store,
         ontology_release_digest=ontology.build_release().digest,
+        resource_type_mappings=resource_type_mapping_digests(resource_types),
     )
     snapshot_store = PostgresInventorySnapshotStore(
         config=PostgresInventorySnapshotStoreConfig(dsn=dsn)

@@ -1,5 +1,7 @@
-// Periodic Azure inventory reconciliation. The short cron checks durable state;
-// the CLI scans only when the prior success is due or a newer attempt failed.
+// Continuous Azure inventory collection. Each tick drains the provider change
+// stream, then scans only when the prior success is due, a newer attempt failed,
+// or an observed change is still unreconciled above its floor. A not-due tick
+// exits after one query, so the cron sets change-detection latency, not scan cost.
 // The job uses a dedicated read-only identity, never the executor MI.
 resource "azurerm_container_app_job" "inventory" {
   count = var.inventory_cron_expression == "" ? 0 : 1
@@ -72,6 +74,18 @@ resource "azurerm_container_app_job" "inventory" {
       env {
         name  = "FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS"
         value = tostring(var.inventory_reconciliation_interval_seconds)
+      }
+      env {
+        name  = "FDAI_INVENTORY_CHANGE_MIN_INTERVAL_SECONDS"
+        value = tostring(var.inventory_change_min_interval_seconds)
+      }
+      env {
+        name  = "FDAI_INVENTORY_ATTEMPT_DEADLINE_SECONDS"
+        value = tostring(var.inventory_attempt_deadline_seconds)
+      }
+      env {
+        name  = "FDAI_INVENTORY_ARG_REQUESTS_PER_SECOND"
+        value = tostring(var.inventory_arg_requests_per_second)
       }
       env {
         name  = "FDAI_INVENTORY_RECOVERY_DELTA"

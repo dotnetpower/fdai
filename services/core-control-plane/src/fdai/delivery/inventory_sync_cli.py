@@ -19,6 +19,7 @@ from fdai_service_contracts import OperationalActivityStatus, OperationalFreshne
 
 from fdai.delivery.azure.activity_log import AzureActivityLogFactory, AzureActivityLogFactoryConfig
 from fdai.delivery.azure.arg_query import AzureArgQueryFactory, AzureArgQueryFactoryConfig
+from fdai.delivery.azure.arg_transport import DEFAULT_ARG_REQUESTS_PER_SECOND
 from fdai.delivery.azure.arm_inventory import (
     AzureArmInventoryFactory,
     AzureArmInventoryFactoryConfig,
@@ -29,6 +30,7 @@ from fdai.delivery.azure.inventory import AzureInventoryConfig, AzureResourceGra
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.delivery.inventory_delta import forward_inventory_delta
 from fdai.delivery.inventory_sync import (
+    DEFAULT_ATTEMPT_DEADLINE_SECONDS,
     InventoryPromotionObserver,
     InventorySyncCoordinator,
     PromotedInventoryObservation,
@@ -90,7 +92,8 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 _LOGGER = logging.getLogger(__name__)
-_LOOP_SECONDS = 600
+_DEFAULT_LOOP_SECONDS = 60
+_DEFAULT_CHANGE_MIN_INTERVAL_SECONDS = 120
 _MANAGEMENT_AUDIENCE_BY_ORIGIN = {
     "https://management.azure.com": "https://management.azure.com/.default",
     "https://management.chinacloudapi.cn": "https://management.chinacloudapi.cn/.default",
@@ -111,7 +114,11 @@ class InventoryJobConfig:
     management_audience: str
     freshness_budget_seconds: int
     reconciliation_interval_seconds: int
-    recovery_delta_enabled: bool = False
+    loop_seconds: int = _DEFAULT_LOOP_SECONDS
+    change_min_interval_seconds: int = _DEFAULT_CHANGE_MIN_INTERVAL_SECONDS
+    attempt_deadline_seconds: int = int(DEFAULT_ATTEMPT_DEADLINE_SECONDS)
+    arg_requests_per_second: float = DEFAULT_ARG_REQUESTS_PER_SECOND
+    recovery_delta_enabled: bool = True
     declarative_path: Path | None = None
     declarative_sha256: str | None = None
 
@@ -147,7 +154,23 @@ class InventoryJobConfig:
         recovery_delta_enabled = _bool_env(
             source,
             "FDAI_INVENTORY_RECOVERY_DELTA",
-            False,
+            True,
+        )
+        loop_seconds = _integer_env(source, "FDAI_INVENTORY_LOOP_SECONDS", _DEFAULT_LOOP_SECONDS)
+        change_min_interval = _integer_env(
+            source,
+            "FDAI_INVENTORY_CHANGE_MIN_INTERVAL_SECONDS",
+            _DEFAULT_CHANGE_MIN_INTERVAL_SECONDS,
+        )
+        attempt_deadline = _integer_env(
+            source,
+            "FDAI_INVENTORY_ATTEMPT_DEADLINE_SECONDS",
+            int(DEFAULT_ATTEMPT_DEADLINE_SECONDS),
+        )
+        arg_requests_per_second = _float_env(
+            source,
+            "FDAI_INVENTORY_ARG_REQUESTS_PER_SECOND",
+            DEFAULT_ARG_REQUESTS_PER_SECOND,
         )
 
         if not dsn:
@@ -161,6 +184,17 @@ class InventoryJobConfig:
             raise ValueError("FDAI_INVENTORY_FRESHNESS_SECONDS MUST be >= 1")
         if reconciliation_interval < 60:
             raise ValueError("FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS MUST be >= 60")
+        if not 5 <= loop_seconds <= 3_600:
+            raise ValueError("FDAI_INVENTORY_LOOP_SECONDS MUST be in [5, 3600]")
+        if not 1 <= change_min_interval <= reconciliation_interval:
+            raise ValueError(
+                "FDAI_INVENTORY_CHANGE_MIN_INTERVAL_SECONDS MUST be in "
+                "[1, FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS]"
+            )
+        if attempt_deadline < 60:
+            raise ValueError("FDAI_INVENTORY_ATTEMPT_DEADLINE_SECONDS MUST be >= 60")
+        if not 0 < arg_requests_per_second <= 100:
+            raise ValueError("FDAI_INVENTORY_ARG_REQUESTS_PER_SECOND MUST be in (0, 100]")
         if "declarative" in source_order and (not declarative_value or declarative_sha256 is None):
             raise ValueError(
                 "declarative fallback requires FDAI_INVENTORY_DECLARATIVE_PATH and SHA256"
@@ -174,6 +208,10 @@ class InventoryJobConfig:
             management_audience=management_audience,
             freshness_budget_seconds=freshness,
             reconciliation_interval_seconds=reconciliation_interval,
+            loop_seconds=loop_seconds,
+            change_min_interval_seconds=change_min_interval,
+            attempt_deadline_seconds=attempt_deadline,
+            arg_requests_per_second=arg_requests_per_second,
             recovery_delta_enabled=recovery_delta_enabled,
             declarative_path=Path(declarative_value) if declarative_value else None,
             declarative_sha256=declarative_sha256,
@@ -259,6 +297,7 @@ def _build_sources(
                     subscription_scopes=config.scopes,
                     arg_endpoint=config.management_endpoint,
                     audience=config.management_audience,
+                    requests_per_second=config.arg_requests_per_second,
                 ),
             ).build_query_fn()
             inventory = AzureResourceGraphInventory(
@@ -349,6 +388,7 @@ def _build_ontology_observer(
             status_store=PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn)),
             ontology_release_digest=ontology_release_digest,
             resource_type_mappings=resource_type_mapping_digests(vocabulary),
+            freshness_ceiling_seconds=config.reconciliation_interval_seconds,
         )
         topology_publisher = InventoryTopologyHistoryPublisher(
             writer=PostgresTopologyHistoryStore(
@@ -442,6 +482,7 @@ async def run(config: InventoryJobConfig) -> InventoryJobResult:
                     evidence_counts=evidence_counts,
                 ),
                 relationship_mapping_catalog=_load_relationship_mapping_catalog(),
+                attempt_deadline_seconds=float(config.attempt_deadline_seconds),
             ).run(
                 _build_sources(
                     config=config,
@@ -623,6 +664,13 @@ def _integer_env(source: Mapping[str, str], key: str, default: int) -> int:
         raise ValueError(f"{key} MUST be an integer") from exc
 
 
+def _float_env(source: Mapping[str, str], key: str, default: float) -> float:
+    try:
+        return float(source.get(key, str(default)))
+    except ValueError as exc:
+        raise ValueError(f"{key} MUST be a decimal number") from exc
+
+
 def _verify_sha256(path: Path, expected: str) -> None:
     """Verify one declarative fallback without exposing its content."""
     if len(expected) != 64 or any(char not in "0123456789abcdefABCDEF" for char in expected):
@@ -657,25 +705,49 @@ async def _run_due_once() -> None:
         dsn=config.dsn,
         freshness_budget_seconds=config.freshness_budget_seconds,
     )
-    due = await PostgresInventoryReconciliationGate(config=snapshot_config)(
-        config.reconciliation_interval_seconds
-    )
+    # Drain the change stream before the due check so a change observed on this
+    # tick can make the completeness scan due on the same tick, not the next one.
+    published = await _drain_change_stream(config)
+    due = await PostgresInventoryReconciliationGate(
+        config=snapshot_config,
+        change_min_interval_seconds=config.change_min_interval_seconds,
+    )(config.reconciliation_interval_seconds)
     if not due:
         _LOGGER.info(
             "inventory_reconciliation_not_due",
-            extra={"interval_seconds": config.reconciliation_interval_seconds},
+            extra={
+                "interval_seconds": config.reconciliation_interval_seconds,
+                "change_records_published": published,
+            },
         )
-        if config.recovery_delta_enabled:
-            published = await run_recovery_delta(config)
-            print(f"inventory reconciliation not due; recovery delta published {published}")
-        else:
-            print("inventory reconciliation not due")
+        print(f"inventory reconciliation not due; change records published {published}")
         return
     result = await run(config)
     if result.active:
         print(f"inventory snapshot promoted from {result.source}")
     else:
         print(f"inventory snapshot from {result.source} superseded by a newer attempt")
+
+
+async def _drain_change_stream(config: InventoryJobConfig) -> int:
+    """Publish observed provider changes without letting them stop the loop.
+
+    The change stream is a read-only accelerator: it lowers refresh latency and
+    records the demand a later full scan reconciles. An unavailable or
+    unauthorized source degrades this tick to the periodic interval instead of
+    failing the job, and it never advances a cursor it did not read.
+    """
+
+    if not config.recovery_delta_enabled:
+        return 0
+    try:
+        return await run_recovery_delta(config)
+    except Exception as exc:  # noqa: BLE001 - read-only accelerator degrades, never fails closed
+        _LOGGER.warning(
+            "inventory_change_stream_unavailable",
+            extra={"reason": type(exc).__name__},
+        )
+        return 0
 
 
 async def _main(argv: list[str]) -> None:
@@ -686,7 +758,7 @@ async def _main(argv: list[str]) -> None:
         await _run_due_once()
         if not loop:
             return
-        await asyncio.sleep(_LOOP_SECONDS)
+        await asyncio.sleep(InventoryJobConfig.from_env().loop_seconds)
 
 
 def main() -> None:

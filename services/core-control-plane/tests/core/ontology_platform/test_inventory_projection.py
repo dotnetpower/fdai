@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from fdai.core.ontology_platform.inventory_projection import (
+    DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS,
     InventoryProjectionConflictError,
     build_inventory_ontology_projection,
 )
@@ -487,3 +488,53 @@ def test_link_endpoint_types_must_match_observed_resource_types() -> None:
 def test_generation_is_required() -> None:
     with pytest.raises(ValueError, match="generation"):
         build_inventory_ontology_projection(generation="  ", resources=(_resource("vm-1"),))
+
+
+def test_observed_state_declares_the_refresh_cadence_it_is_given() -> None:
+    """A state fact must not advertise a shelf life shorter than its refresh."""
+
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="vm-1",
+                type="compute.vm",
+                props={"status": "running"},
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+        ),
+        freshness_ceiling_seconds=21_600,
+    )
+
+    (resource,) = projection.objects
+    state_fact = resource.properties["properties"][STATE_FACT_METADATA_PROPERTY]
+    assert state_fact["freshness_ceiling_seconds"] == 21_600
+
+
+def test_observed_state_defaults_to_the_declared_reconciliation_cadence() -> None:
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="vm-1",
+                type="compute.vm",
+                props={"status": "running"},
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+        ),
+    )
+
+    (resource,) = projection.objects
+    state_fact = resource.properties["properties"][STATE_FACT_METADATA_PROPERTY]
+    assert (
+        state_fact["freshness_ceiling_seconds"] == DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS
+    )
+
+
+def test_projection_rejects_a_non_positive_freshness_ceiling() -> None:
+    with pytest.raises(ValueError, match="freshness ceiling"):
+        build_inventory_ontology_projection(
+            generation="snapshot-1",
+            resources=(),
+            freshness_ceiling_seconds=0,
+        )

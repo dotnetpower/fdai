@@ -1,8 +1,8 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: 365a0b43900e794607f2da5ef7ed73af9ea4c090
-translation_revised: 2026-08-14
+translation_source_sha: 93561cb1bf2e422b3689a44a70c9ee91151952b5
+translation_revised: 2026-08-16
 ---
 
 # 권한 인식 관측 캠페인
@@ -82,7 +82,7 @@ flowchart LR
 
 | 도메인 | 기본 수집 | 책임 에이전트 | 프로바이더 예시 |
 |--------|-----------|---------------|-----------------|
-| `inventory` | 10분마다 기동하고 6시간 게이트가 실행 조건을 만족하면 완전 조정 | Huginn | Azure Resource Graph와 ARM 대체 경로 |
+| `inventory` | 매분 기동하고 6시간 게이트가 실행 조건을 만족하거나 관측된 변경이 하한을 넘어 조정되지 않았으면 완전 조정 | Huginn | Azure Resource Graph와 ARM 대체 경로 |
 | `activity-log` | 지속 push와 커서 기반 복구 pull | Huginn | Event Grid, Event Hubs, Azure Activity Log REST |
 | `resource-health` | 가능한 경우 이벤트 기반, 그리고 범위가 제한된 주기 검사 | Heimdall | Resource Health, ARG `HealthResources` |
 | `service-health` | 가능한 경우 이벤트 기반, 그리고 범위가 제한된 주기 검사 | Heimdall | Service Health 활성 이벤트 |

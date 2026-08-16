@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock
 import httpx
 import pytest
 import yaml
+from fdai.delivery import inventory_sync_cli
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
@@ -365,3 +366,94 @@ async def test_recovery_delta_forwards_every_scope(monkeypatch: pytest.MonkeyPat
     assert published == 5
     assert [call.kwargs["scope"] for call in forward.await_args_list] == list(config.scopes)
     assert locked_scopes == [f"inventory-recovery-delta:{scope}" for scope in config.scopes]
+
+
+_MINIMAL_ENV = {
+    "FDAI_INVENTORY_DSN": "postgresql://example",
+    "AZURE_SUBSCRIPTION_ID": "sub-1",
+}
+
+
+def test_job_config_defaults_to_a_continuous_change_driven_loop() -> None:
+    """Collection starts immediately and keeps polling, instead of waking twice a day."""
+
+    config = InventoryJobConfig.from_env(dict(_MINIMAL_ENV))
+
+    assert config.loop_seconds == 60
+    assert config.change_min_interval_seconds == 120
+    assert config.attempt_deadline_seconds == 900
+    assert config.arg_requests_per_second == 3.0
+    assert config.recovery_delta_enabled is True
+
+
+def test_job_config_reads_the_continuous_scan_overrides() -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            **_MINIMAL_ENV,
+            "FDAI_INVENTORY_LOOP_SECONDS": "15",
+            "FDAI_INVENTORY_CHANGE_MIN_INTERVAL_SECONDS": "300",
+            "FDAI_INVENTORY_ATTEMPT_DEADLINE_SECONDS": "600",
+            "FDAI_INVENTORY_ARG_REQUESTS_PER_SECOND": "1.5",
+            "FDAI_INVENTORY_RECOVERY_DELTA": "0",
+        }
+    )
+
+    assert config.loop_seconds == 15
+    assert config.change_min_interval_seconds == 300
+    assert config.attempt_deadline_seconds == 600
+    assert config.arg_requests_per_second == 1.5
+    assert config.recovery_delta_enabled is False
+
+
+@pytest.mark.parametrize(
+    ("key", "value", "match"),
+    [
+        ("FDAI_INVENTORY_LOOP_SECONDS", "4", "LOOP_SECONDS"),
+        ("FDAI_INVENTORY_LOOP_SECONDS", "3601", "LOOP_SECONDS"),
+        ("FDAI_INVENTORY_CHANGE_MIN_INTERVAL_SECONDS", "0", "CHANGE_MIN_INTERVAL"),
+        ("FDAI_INVENTORY_CHANGE_MIN_INTERVAL_SECONDS", "21601", "CHANGE_MIN_INTERVAL"),
+        ("FDAI_INVENTORY_ATTEMPT_DEADLINE_SECONDS", "59", "ATTEMPT_DEADLINE"),
+        ("FDAI_INVENTORY_ARG_REQUESTS_PER_SECOND", "0", "ARG_REQUESTS_PER_SECOND"),
+        ("FDAI_INVENTORY_ARG_REQUESTS_PER_SECOND", "101", "ARG_REQUESTS_PER_SECOND"),
+        ("FDAI_INVENTORY_ARG_REQUESTS_PER_SECOND", "fast", "ARG_REQUESTS_PER_SECOND"),
+    ],
+)
+def test_job_config_rejects_an_out_of_range_continuous_setting(
+    key: str,
+    value: str,
+    match: str,
+) -> None:
+    with pytest.raises(ValueError, match=match):
+        InventoryJobConfig.from_env({**_MINIMAL_ENV, key: value})
+
+
+async def test_change_stream_failure_degrades_the_tick_without_failing_the_job(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The read-only accelerator must never take the completeness loop down."""
+
+    config = InventoryJobConfig.from_env(dict(_MINIMAL_ENV))
+
+    async def _unavailable(_config: InventoryJobConfig) -> int:
+        raise RuntimeError("activity log forbidden")
+
+    monkeypatch.setattr(inventory_sync_cli, "run_recovery_delta", _unavailable)
+
+    assert await inventory_sync_cli._drain_change_stream(config) == 0
+
+
+async def test_change_stream_is_skipped_when_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = InventoryJobConfig.from_env({**_MINIMAL_ENV, "FDAI_INVENTORY_RECOVERY_DELTA": "false"})
+    called = False
+
+    async def _record(_config: InventoryJobConfig) -> int:
+        nonlocal called
+        called = True
+        return 3
+
+    monkeypatch.setattr(inventory_sync_cli, "run_recovery_delta", _record)
+
+    assert await inventory_sync_cli._drain_change_stream(config) == 0
+    assert called is False

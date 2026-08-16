@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -247,3 +248,66 @@ async def test_failure_classification_drives_fallback(
         ]
     )
     assert result.failures[0].code is code
+
+
+class _StallingInventory:
+    """Yield one batch and then never reach the final fence."""
+
+    def __init__(self, stalled: asyncio.Event) -> None:
+        self._stalled = stalled
+
+    async def full_snapshot(self, since: str | None = None):
+        del since
+        yield InventoryBatch(
+            resources=(ResourceRecord(resource_id="r-1", type="compute.vm", props={}),)
+        )
+        self._stalled.set()
+        await asyncio.Event().wait()
+
+    async def delta(self, cursor: str):
+        del cursor
+        yield InventoryBatch(final=True)
+
+
+async def test_a_stalled_source_fails_its_own_attempt_at_the_deadline() -> None:
+    """An unbounded stall must not hold the only writer of the observed subgraph."""
+
+    store = _Store()
+    stalled = asyncio.Event()
+    coordinator = InventorySyncCoordinator(
+        store=store,
+        attempt_deadline_seconds=0.05,
+    )
+
+    with pytest.raises(InventorySourcesExhaustedError):
+        await coordinator.run((_source("arg", _StallingInventory(stalled)),))
+
+    assert stalled.is_set()
+    assert store.promoted == []
+    assert [failure.code for _, failure in store.failed] == [InventoryFailureCode.PARTIAL]
+    assert store.failed[0][1].message == "inventory source attempt exceeded its deadline"
+
+
+async def test_a_deadline_on_one_source_still_allows_the_next_source() -> None:
+    store = _Store()
+    stalled = asyncio.Event()
+    coordinator = InventorySyncCoordinator(
+        store=store,
+        attempt_deadline_seconds=0.05,
+    )
+
+    result = await coordinator.run(
+        (
+            _source("arg", _StallingInventory(stalled)),
+            _source("arm", _Inventory([InventoryBatch(final=True)])),
+        )
+    )
+
+    assert result.source == "arm"
+    assert store.promoted == ["attempt-2"]
+    assert [failure.code for _, failure in store.failed] == [InventoryFailureCode.PARTIAL]
+
+
+def test_coordinator_rejects_a_non_positive_attempt_deadline() -> None:
+    with pytest.raises(ValueError, match="attempt_deadline_seconds"):
+        InventorySyncCoordinator(store=_Store(), attempt_deadline_seconds=0)

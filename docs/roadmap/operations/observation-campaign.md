@@ -79,7 +79,7 @@ from coverage reporting.
 
 | Domain | Default collection | Accountable agent | Provider examples |
 |--------|--------------------|-------------------|-------------------|
-| `inventory` | Wake every 10 minutes; complete reconciliation when the six-hour gate is due | Huginn | Azure Resource Graph with ARM fallback |
+| `inventory` | Wake every minute; complete reconciliation when the six-hour gate is due or an observed change is unreconciled above its floor | Huginn | Azure Resource Graph with ARM fallback |
 | `activity-log` | Continuous push plus cursor-based recovery pull | Huginn | Event Grid, Event Hubs, Azure Activity Log REST |
 | `resource-health` | Event-driven when available plus bounded periodic sweep | Heimdall | Resource Health, ARG `HealthResources` |
 | `service-health` | Event-driven when available plus bounded periodic sweep | Heimdall | Service Health active events |

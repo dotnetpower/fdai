@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: a7c737d3cec5ba50cfecfb5c7953609e46320607
+translation_source_sha: ed0228f2a6cda8d4cec9366517791c3cd3d798e4
 translation_revised: 2026-08-16
 ---
 
@@ -587,7 +587,11 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `FDAI_LOCAL_AZURE_CONFIG_DIR` | env | dev-only | 선택적 격리 Azure CLI 프로파일입니다. 미설정 시 어댑터가 상속된 `AZURE_CONFIG_DIR`를 제거하고 기본 프로파일을 사용합니다. |
 | `FDAI_POLICIES_ROOT` | env | 배포 | T0 와 검증기 가 소비하는 OPA / Rego 번들 루트의 절대 경로. 미설정 시 in-repo `policies/` 를 기본값. |
 | `FDAI_MI_CLIENT_ID` | env | 업스트림 | 현재 프로세스의 user-assigned MI 클라이언트 id. Core에는 실행기 id를 주입하고 인벤토리 작업에는 별도 읽기 전용 발견 id를 주입합니다. |
-| `FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS` | env | 업스트림 | 인벤토리 작업의 정상 full-scan 간격입니다. 기본 작업 cron은 10분마다 wake하지만 PostgreSQL 시도 상태가 간격 due 전 검사를 건너뜀하고 newer 실패한/abandoned 시도는 다음 틱에 재시도합니다. |
+| `FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS` | env | 업스트림 | 인벤토리 작업의 정상 full-scan 간격이며, 프로젝션이 관측 상태 사실마다 선언하는 freshness 상한이기도 합니다. 작업 cron은 매분 깨어나지만 PostgreSQL 시도 상태가 이 간격이 지나기 전의 검사를 건너뛰고, 더 최근에 실패했거나 버려진 시도는 다음 틱에 재시도합니다. 기본값은 `21600`입니다. |
+| `FDAI_INVENTORY_CHANGE_MIN_INTERVAL_SECONDS` | env | 업스트림 | 변경으로 촉발되는 두 조정 사이의 하한입니다. 관측된 프로바이더 변경은 활성 스냅샷이 이 나이를 넘긴 뒤에 full scan을 due로 만들므로, 그래프가 변경을 추적하면서도 변경 폭주가 스캔 폭주로 번지지 않습니다. 기본값은 `120`입니다. |
+| `FDAI_INVENTORY_ATTEMPT_DEADLINE_SECONDS` | env | 업스트림 | 인벤토리 소스 시도 하나의 실제 시간 상한입니다. 멈춘 프로바이더는 관측 서브그래프의 단일 기록자를 붙잡아 이후 모든 스캔을 막는 대신 자기 시도를 `partial`로 실패시킵니다. 기본값은 `900`입니다. |
+| `FDAI_INVENTORY_ARG_REQUESTS_PER_SECOND` | env | 업스트림 | 한 스캔의 모든 샤드가 공유하는 Azure Resource Graph 지속 요청 예산입니다. ARG는 사용자별 할당량을 부과하므로, 예산에 맞춰 속도를 조절하면 배경 스캔이 프로바이더 스로틀에 걸려 훨씬 긴 초기화 창을 기다리는 대신 할당량 안에서 계속 돕니다. 기본값은 `3`입니다. |
+| `FDAI_INVENTORY_LOOP_SECONDS` | env | dev-only | 로컬 개발에서 CLI를 `--loop`으로 실행할 때 각 틱 사이의 대기 시간입니다. 배포된 작업은 대신 cron을 사용합니다. 기본값은 `60`입니다. |
 | `FDAI_EMAIL_ENDPOINT` / `FDAI_EMAIL_SENDER_ADDRESS` / `FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON` / `FDAI_NOTIFICATION_MI_CLIENT_ID` | env | 업스트림 / 배포 | ACS 이메일 A2/A4 채널을 활성화합니다. Terraform이 엔드포인트와 Azure-managed 발신자를 파생하고 전용 알림 MI를 연결한 뒤 클라이언트 id를 주입합니다. 배포 구성은 `NOTIFICATION_EMAIL_RECIPIENTS_JSON`으로 수신자를 공급하며 앱에는 접근 키나 연결 문자열이 들어가지 않습니다. 부분 설정은 시작을 차단합니다. |
 | `FDAI_CONSOLE_BASE_URL` | env | 배포 | 인시던트 이메일의 읽기 전용 근거 링크를 만드는 공개 HTTPS 출처입니다. Console을 활성화하면 Terraform이 Static Web App hostname에서 파생합니다. 값이 없으면 이메일 전달은 계속되며 렌더러는 인시던트 CTA를 생략합니다. |
 | `FDAI_MEASUREMENT_MODE` | env | 업스트림 | `infra/modules/measurement-runners/`의 Container Apps 작업 항목 지점을 선택합니다. `baseline`은 고정된 시나리오 회귀 측정을 실행하고 `growth`는 검토된 결과를 pattern-growth intake로 전달합니다. 액션 권한은 승격 및 risk 게이트가 독립적으로 관리합니다. |

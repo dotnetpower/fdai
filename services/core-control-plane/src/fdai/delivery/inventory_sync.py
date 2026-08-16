@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import socket
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
@@ -41,6 +42,12 @@ _LOG = logging.getLogger(__name__)
 _MAX_OBSERVED_RESOURCES = 50_000
 _MAX_OBSERVED_LINKS = 200_000
 
+#: Wall-clock ceiling for one source attempt. A provider that stops making
+#: progress must fail its own attempt instead of holding the only writer of the
+#: observed subgraph: an attempt left staging suppresses every later scan until
+#: it is reaped, so an unbounded stall becomes an unbounded refresh blackout.
+DEFAULT_ATTEMPT_DEADLINE_SECONDS = 900.0
+
 
 @dataclass(frozen=True, slots=True)
 class PromotedInventoryObservation:
@@ -77,10 +84,14 @@ class InventorySyncCoordinator:
         store: InventorySnapshotStore,
         promotion_observer: InventoryPromotionObserver | None = None,
         relationship_mapping_catalog: ProviderRelationshipMappingCatalog | None = None,
+        attempt_deadline_seconds: float = DEFAULT_ATTEMPT_DEADLINE_SECONDS,
     ) -> None:
+        if attempt_deadline_seconds <= 0:
+            raise ValueError("inventory attempt_deadline_seconds MUST be > 0")
         self._store = store
         self._observer = promotion_observer
         self._relationship_mapping_catalog = relationship_mapping_catalog
+        self._attempt_deadline_seconds = attempt_deadline_seconds
 
     async def run(self, sources: Sequence[InventorySource]) -> InventorySyncResult:
         if not sources:
@@ -93,11 +104,12 @@ class InventorySyncCoordinator:
                 relationship_mapping_catalog=self._relationship_mapping_catalog,
             )
             try:
-                completed = await self._stage_stream(
-                    attempt_id,
-                    cast(Inventory, source.inventory).full_snapshot(),
-                    observed,
-                )
+                async with asyncio.timeout(self._attempt_deadline_seconds):
+                    completed = await self._stage_stream(
+                        attempt_id,
+                        cast(Inventory, source.inventory).full_snapshot(),
+                        observed,
+                    )
                 manifest = InventoryCoverageManifest(
                     source=source.manifest.source,
                     scopes=source.manifest.scopes,
@@ -240,6 +252,11 @@ def classify_inventory_failure(exc: Exception) -> InventoryAttemptFailure:
     if isinstance(exc, InventoryStreamError):
         code = InventoryFailureCode.PARTIAL
         message = str(exc)
+    elif isinstance(exc, TimeoutError):
+        # The attempt deadline cut the stream before its final fence, which is
+        # the same absence of a completeness guarantee as a missing fence.
+        code = InventoryFailureCode.PARTIAL
+        message = "inventory source attempt exceeded its deadline"
     elif isinstance(exc, (httpx.ConnectTimeout, httpx.ConnectError)):
         cause = exc.__cause__
         code = (
@@ -263,6 +280,7 @@ def classify_inventory_failure(exc: Exception) -> InventoryAttemptFailure:
 
 
 __all__ = [
+    "DEFAULT_ATTEMPT_DEADLINE_SECONDS",
     "InventoryStreamError",
     "InventorySyncCoordinator",
     "classify_inventory_failure",

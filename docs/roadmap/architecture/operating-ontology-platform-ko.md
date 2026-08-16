@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: efafc5740b1cbdf50298ce5962f810468daa2c64
-translation_revised: 2026-08-15
+translation_source_sha: 3dbca6bf5ae7f677f4d7a5a521230f6052097936
+translation_revised: 2026-08-16
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -132,6 +132,7 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 | 2026-08-15 | implemented | 인시던트에 묶인 turn이 해당 인시던트의 감사 근거를 읽지 않았을 때 fail closed 하도록 했습니다. 로컬 `plan_nodes` 근거에서 인시던트 바인딩 turn이 `query.manifest`를 계획한 사례가 확인되었고, 그 답변은 일반 응답이지만 해당 인시던트에 대한 답변처럼 읽혔습니다. 이제 `incident_evidence_not_planned` 또는 `incident_evidence_mismatched_binding`으로 보류합니다. | `current change`, 바인딩됐으나 계획되지 않은 보류, 교차 인시던트 보류, 바인딩 없는 응답 대조군을 포함한 focused 처리기 검사 46개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 바인딩된 인시던트 goal을 결정론적으로 시드해 계획기가 선택하거나 식별자를 복사하지 않아도 되게 합니다. |
 | 2026-08-15 | implemented | 앞 행의 보류를 교차 인시던트 사례로만 좁혔습니다. Console은 인시던트 대화의 모든 turn에 바인딩을 실어 보내며 여기에는 인시던트와 무관한 질문도 포함되므로, `incident_evidence_not_planned`가 정당한 무관 질문까지 보류했습니다. 바인딩된 인시던트가 아닌 다른 인시던트의 근거를 읽는 경우는 계속 보류합니다. | `current change`, 바인딩된 turn이 인시던트 근거 없이도 응답하고 교차 인시던트 읽기는 보류함을 단언하는 focused 처리기 검사 46개 통과, 작업 범위 Ruff 및 strict mypy 통과 | "바인딩된 인시던트를 항상 읽는다"는 보장은 결정론적 goal 시드가 있어야 성립하며, 그 뒤에야 인시던트 읽기 부재를 결함으로 취급할 수 있습니다. |
 | 2026-08-15 | implemented | 인시던트 답변이 빈 상관관계를 성공적인 읽기처럼 보고하지 않게 하고, 원문 gap 키가 운영자 문장에 노출되지 않게 했습니다. 상관 기록이 없으면 없다고 말하고, 프로파일이 없으면 상태를 `unknown`으로 보고하는 대신 없다고 밝히며, 매핑되지 않은 gap 키는 사람이 읽을 수 있게 바꿉니다. Markdown이 밑줄을 강조로 해석하기 때문입니다. | `current change`, 빈 상관관계 답변을 포함한 focused 처리기 검사 47개와 Operator bridge 검사 48개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 함수가 이미 반환하는 상관 근거 타임라인을 렌더링합니다. |
+| 2026-08-16 | implemented | 관측 리소스 서브그래프가 6시간 배치가 아니라 프로바이더 변경을 따라가도록 했습니다. Azure Resource Graph 요청은 공유 지속 예산에 맞춰 속도를 조절하고, 할당량 지연은 상한이 생겼으며, 소스 시도 하나는 실제 시간 마감으로 제한됩니다. 조정 게이트는 지금까지 소비자가 없던 변경 표시를 읽어 관측된 변경이 하한을 넘으면 조정합니다. promote된 스냅샷은 여전히 단일 기록자이며, 선언된 관측 상태 freshness 상한은 작업이 보장하는 주기와 같아졌습니다. | `current change`; 집중 인벤토리·게이트·프로젝션·인프라 검사는 285개 통과와 환경 의존 21개 건너뜀을 보고하고, strict mypy는 소스 7개에서 문제를 보고하지 않았으며, 새 게이트 SQL은 마이그레이션한 임시 PostgreSQL 데이터베이스에서 시드된 7개 상태에 대해 설계대로 판정했습니다. | 로컬 스택을 재시작하고 실제 프로바이더 변경이 한 틱 안에 조정된다는 인증된 근거를 보존해야 합니다. 배포 환경에서 분 단위 주기를 실행한 적은 아직 없습니다. |
 
 ### 남은 작업
 

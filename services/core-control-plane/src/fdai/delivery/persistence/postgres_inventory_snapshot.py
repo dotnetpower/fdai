@@ -19,7 +19,10 @@ from fdai.delivery.inventory_schedule import (
     project_vm_shutdown_schedule,
 )
 from fdai.delivery.persistence.postgres_inventory_graph import load_rooted_inventory_graph
-from fdai.shared.providers.inventory import InventoryBatch
+from fdai.shared.providers.inventory import (
+    INVENTORY_RELATIONSHIP_RECONCILIATION_PREFIX,
+    InventoryBatch,
+)
 from fdai.shared.providers.inventory_snapshot import (
     InventoryAttemptFailure,
     InventoryCoverageManifest,
@@ -28,6 +31,10 @@ from fdai.shared.providers.inventory_snapshot import (
 
 _PROMOTION_LOCK: Final[int] = 732_410_991
 _MAX_GRAPH_ROWS: Final[int] = 5000
+#: Floor between two change-triggered scans, so a burst of provider changes
+#: cannot convert into a burst of full scans against the request budget.
+_DEFAULT_CHANGE_MIN_INTERVAL_SECONDS: Final[int] = 120
+_MAX_CHANGE_MARKERS: Final[int] = 512
 _ALL_RESOURCES_QUERY = (
     "WITH effective_resources AS ("
     "SELECT r.resource_id, r.resource_type, r.props, r.provider_ref, r.last_seen "
@@ -585,10 +592,24 @@ class PostgresInventoryAgeProvider:
 
 
 class PostgresInventoryReconciliationGate:
-    """Decide whether a scheduled Inventory Job should run a full scan."""
+    """Decide whether a scheduled Inventory Job should run a full scan.
 
-    def __init__(self, *, config: PostgresInventorySnapshotStoreConfig) -> None:
+    Two independent demands make a scan due: the periodic completeness
+    interval, and an observed provider change the change stream could not
+    resolve on its own. The change demand is floored by
+    ``change_min_interval_seconds`` so a change storm cannot become a scan storm.
+    """
+
+    def __init__(
+        self,
+        *,
+        config: PostgresInventorySnapshotStoreConfig,
+        change_min_interval_seconds: int = _DEFAULT_CHANGE_MIN_INTERVAL_SECONDS,
+    ) -> None:
+        if change_min_interval_seconds < 1:
+            raise ValueError("inventory change_min_interval_seconds MUST be >= 1")
         self._config = config
+        self._change_min_interval_seconds = change_min_interval_seconds
 
     async def __call__(self, interval_seconds: int) -> bool:
         if interval_seconds < 60:
@@ -607,7 +628,8 @@ class PostgresInventoryReconciliationGate:
                 "JOIN inventory_snapshot s ON s.id=a.snapshot_id "
                 "WHERE a.singleton=TRUE AND s.status='active') "
                 "SELECT (SELECT EXTRACT(EPOCH FROM (NOW() - completed_at)) FROM active) "
-                "AS age_seconds, EXISTS (SELECT 1 FROM inventory_snapshot "
+                "AS age_seconds, (SELECT completed_at FROM active) AS active_completed_at, "
+                "EXISTS (SELECT 1 FROM inventory_snapshot "
                 "WHERE status='collecting' AND started_at >= NOW() - INTERVAL '30 minutes') "
                 "AS in_progress, EXISTS (SELECT 1 FROM inventory_snapshot "
                 "WHERE status='failed' AND started_at > COALESCE("
@@ -619,8 +641,13 @@ class PostgresInventoryReconciliationGate:
                 "'-infinity'::timestamptz)) AS abandoned_attempt"
             )
             row = await cursor.fetchone()
-        if row is None:
-            raise RuntimeError("inventory reconciliation gate returned no state")
+            if row is None:
+                raise RuntimeError("inventory reconciliation gate returned no state")
+            marker_cursor = await connection.execute(
+                "SELECT value FROM state_kv WHERE key LIKE %s ORDER BY key LIMIT %s",
+                (f"{INVENTORY_RELATIONSHIP_RECONCILIATION_PREFIX}%", _MAX_CHANGE_MARKERS),
+            )
+            markers = await marker_cursor.fetchall()
         age = row["age_seconds"]
         return inventory_reconciliation_due(
             age_seconds=float(age) if age is not None else None,
@@ -628,7 +655,48 @@ class PostgresInventoryReconciliationGate:
             newer_failure=bool(row["newer_failure"]),
             abandoned_attempt=bool(row["abandoned_attempt"]),
             interval_seconds=interval_seconds,
+            change_demand=has_unreconciled_change(
+                tuple(marker["value"] for marker in markers),
+                active_completed_at=row["active_completed_at"],
+            ),
+            change_min_interval_seconds=self._change_min_interval_seconds,
         )
+
+
+def has_unreconciled_change(
+    markers: Sequence[Any],
+    *,
+    active_completed_at: datetime | None,
+) -> bool:
+    """Report whether any observed change is newer than the active snapshot.
+
+    A malformed marker counts as an unresolved change. Reading a broken change
+    record as "nothing happened" would let the observed graph drift silently,
+    and an extra reconciliation is the cheaper failure.
+    """
+
+    for marker in markers:
+        observed_at = _change_marker_observed_at(marker)
+        if observed_at is None:
+            return True
+        if active_completed_at is None or observed_at > active_completed_at:
+            return True
+    return False
+
+
+def _change_marker_observed_at(value: Any) -> datetime | None:
+    if not isinstance(value, Mapping):
+        return None
+    raw = value.get("observed_at")
+    if not isinstance(raw, str) or not raw:
+        return None
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return None
+    return parsed.astimezone(UTC)
 
 
 def inventory_reconciliation_due(
@@ -638,13 +706,19 @@ def inventory_reconciliation_due(
     newer_failure: bool,
     abandoned_attempt: bool,
     interval_seconds: int,
+    change_demand: bool = False,
+    change_min_interval_seconds: int = _DEFAULT_CHANGE_MIN_INTERVAL_SECONDS,
 ) -> bool:
     """Reduce durable attempt state to one deterministic run/skip decision."""
     if interval_seconds < 60:
         raise ValueError("inventory reconciliation interval MUST be >= 60 seconds")
+    if change_min_interval_seconds < 1:
+        raise ValueError("inventory change_min_interval_seconds MUST be >= 1")
     if in_progress:
         return False
     if newer_failure or abandoned_attempt or age_seconds is None:
+        return True
+    if change_demand and age_seconds >= change_min_interval_seconds:
         return True
     return age_seconds >= interval_seconds
 
