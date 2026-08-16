@@ -577,6 +577,20 @@ def _validation_receipt_exists(repo_root: Path, revision: str) -> bool:
     return (common.resolve() / "fdai-validation-queue/receipts" / f"{commit}.json").is_file()
 
 
+def _validation_rejected(repo_root: Path, revision: str) -> bool:
+    """Report whether the queue already judged this commit and rejected it."""
+    common = Path(_git("rev-parse", "--git-common-dir", cwd=repo_root))
+    common = common if common.is_absolute() else repo_root / common
+    commit = _git("rev-parse", revision, cwd=repo_root)
+    record = common.resolve() / "fdai-validation-queue/runs" / f"{commit}.json"
+    if not record.is_file():
+        return False
+    try:
+        return int(json.loads(record.read_text(encoding="utf-8")).get("status", 0)) != 0
+    except (OSError, ValueError):
+        return False
+
+
 def run_cycle(
     repo_root: Path,
     *,
@@ -618,6 +632,13 @@ def run_cycle(
         if _git("rev-list", "--count", "main..HEAD", cwd=repo_root) != "0" and not (
             _validation_receipt_exists(repo_root, "HEAD")
         ):
+            # Waiting only helps while the verdict is still outstanding. Once the queue has
+            # rejected this snapshot the answer cannot change, and the fix usually lands on
+            # main, which the hold below would never let the branch absorb. That combination
+            # held the lane indefinitely on a gate main had already fixed.
+            if _validation_rejected(repo_root, "HEAD"):
+                relation = _sync_campaign_base(repo_root)
+                return f"held: previous campaign head was rejected; absorbed main ({relation})"
             _register_committed_work(repo_root, "main")
             return "held: previous campaign head is awaiting central validation"
         relation = _sync_campaign_base(repo_root)
