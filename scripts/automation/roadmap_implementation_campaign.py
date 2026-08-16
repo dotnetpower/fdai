@@ -231,6 +231,16 @@ def _dirty_paths(checkout: Path) -> set[str]:
     return paths
 
 
+def _merge_in_progress(checkout: Path) -> bool:
+    """Return whether the checkout already holds an unconcluded merge.
+
+    A linked worktree keeps ``MERGE_HEAD`` under the common directory, so the path
+    has to come from git rather than be assembled as ``<checkout>/.git/MERGE_HEAD``.
+    """
+    raw = Path(_git("rev-parse", "--git-path", "MERGE_HEAD", cwd=checkout))
+    return (raw if raw.is_absolute() else checkout / raw).exists()
+
+
 def _newest_validated_commit(repo_root: Path) -> str | None:
     """Return the newest commit ahead of main that already holds a validation receipt."""
     for commit in _git("rev-list", "main..HEAD", cwd=repo_root).splitlines():
@@ -270,6 +280,10 @@ def _land_validated_batch(repo_root: Path) -> str | None:
     checkout = _main_checkout(repo_root)
     if checkout is None:
         return None
+    # Somebody else's unconcluded merge lives in the same checkout. Merging on top of it
+    # fails, and aborting afterwards would discard their conflict resolution, so refuse now.
+    if _merge_in_progress(checkout):
+        return f"cannot land {head[:12]}: the main checkout has an unconcluded merge"
     # `git merge` refuses whenever the index differs from HEAD, whatever the merge touches.
     # Measured: it named four staged files that were byte-identical on both sides.
     staged = _git("diff", "--name-only", "--cached", cwd=checkout).splitlines()
@@ -290,7 +304,7 @@ def _land_validated_batch(repo_root: Path) -> str | None:
     )
     if result.returncode != 0:
         # A refusal leaves no MERGE_HEAD, and aborting then fails and hides the real reason.
-        if (checkout / ".git/MERGE_HEAD").exists():
+        if _merge_in_progress(checkout):
             subprocess.run(  # noqa: S603 - fixed git merge abort
                 ["git", "merge", "--abort"],
                 cwd=checkout,
