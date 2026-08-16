@@ -35,6 +35,7 @@ export interface IncidentQuery {
   readonly status?: IncidentStatusFilter;
   readonly limit?: number;
   readonly cursor?: string;
+  readonly search?: string;
   readonly vertical?: string;
   readonly severity?: string;
   readonly correlationId?: string;
@@ -75,6 +76,7 @@ export class OperationsApiClient {
     if (options.status !== undefined) params.set("status", options.status);
     if (options.limit !== undefined) params.set("limit", String(options.limit));
     if (options.cursor !== undefined) params.set("cursor", options.cursor);
+    if (options.search !== undefined) params.set("q", options.search);
     if (options.vertical !== undefined) params.set("vertical", options.vertical);
     if (options.severity !== undefined) params.set("severity", options.severity);
     if (options.correlationId !== undefined) params.set("correlation_id", options.correlationId);

@@ -91,6 +91,14 @@ _SEVERITY_RANK = {
     severity: rank for rank, severity in enumerate(("critical", "high", "medium", "low", "info"))
 }
 _DETECTION_READINESS_EVENT = "detection.readiness.observed"
+_TRACE_CONTINUITY_EVENT = "trace-continuity.discontinuity"
+_TRACE_CONTINUITY_REASONS = frozenset(
+    {
+        "trace_context_regenerated",
+        "trace_context_dropped",
+        "trace_hop_order_invalid",
+    }
+)
 
 
 def _evict_oldest(mapping: dict[Any, Any], cap: int, *, keep: Any = None) -> None:
@@ -103,6 +111,22 @@ def _evict_oldest(mapping: dict[Any, Any], cap: int, *, keep: Any = None) -> Non
                 break
         else:  # only `keep` remains - nothing more to drop
             break
+
+
+def _trace_continuity_evidence(event: Mapping[str, Any]) -> dict[str, Any]:
+    """Return only Huginn-bounded continuity evidence for the matching Event."""
+    if event.get("event_type") != _TRACE_CONTINUITY_EVENT:
+        return {}
+    attributes = event.get("attributes")
+    if not isinstance(attributes, Mapping):
+        return {}
+    evidence = attributes.get("trace_continuity")
+    if not isinstance(evidence, Mapping):
+        return {}
+    reason = evidence.get("reason_code")
+    if not isinstance(reason, str) or reason not in _TRACE_CONTINUITY_REASONS:
+        return {}
+    return dict(evidence)
 
 
 class Heimdall(HeimdallForecastMixin, Agent):
@@ -542,6 +566,9 @@ class Heimdall(HeimdallForecastMixin, Agent):
             operational_evidence = await self._collect_operational_evidence(event)
             if operational_evidence:
                 anomaly["operational_evidence"] = operational_evidence
+            trace_continuity = _trace_continuity_evidence(event)
+            if trace_continuity:
+                anomaly["trace_continuity"] = trace_continuity
             if self.bus is not None:
                 await self.bus.publish("Heimdall", "object.anomaly", anomaly)
             if self._incident_candidate_hook is None:
@@ -560,9 +587,13 @@ class Heimdall(HeimdallForecastMixin, Agent):
                 self._drop_episode(episode_key)
                 return
             evidence_keys = tuple(dict.fromkeys(evidence_key for _, _, evidence_key in window_tail))
+            reason_code = "repeated_event_threshold"
+            trace_reason = trace_continuity.get("reason_code")
+            if isinstance(trace_reason, str) and trace_reason in _TRACE_CONTINUITY_REASONS:
+                reason_code = trace_reason
             candidate = {
                 **anomaly,
-                "reason_code": "repeated_event_threshold",
+                "reason_code": reason_code,
                 "evidence_key": evidence_keys[-1],
                 "evidence_keys": evidence_keys,
             }

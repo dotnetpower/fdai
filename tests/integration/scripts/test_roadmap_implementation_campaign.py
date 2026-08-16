@@ -88,6 +88,10 @@ def test_campaign_prompt_requires_exact_batch_and_hardening_floor() -> None:
     assert "issue #123" in prompt
     assert "Complete the interface work" in prompt
     assert "Never run repository-wide validation" in prompt
+    # The batch is told to run exactly the gates the post-batch checks enforce. Naming a subset
+    # here is how a batch came to believe it had passed a gate nobody ran.
+    for gate in module.BATCH_OWNED_GATES:
+        assert f"`{' '.join(gate)}`" in prompt
 
 
 def test_choose_issue_requires_registered_executable_unfinished_work() -> None:
@@ -584,6 +588,45 @@ def test_unreceipted_campaign_head_is_registered_before_holding(
     # here deadlocked the lane: the hold returned early and finished work never reached
     # main however long it waited.
     assert landed == [repo]
+
+
+def test_a_rejected_head_absorbs_main_instead_of_waiting(tmp_path: Path, monkeypatch) -> None:
+    module = _load()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    monkeypatch.setattr(module.watchdog, "_active_session_leases", lambda *a, **k: [])
+    monkeypatch.setattr(module.watchdog, "_recent_copilot_activity", lambda *a, **k: [])
+    monkeypatch.setattr(module.watchdog, "_active_session_count", lambda *a, **k: 0)
+    monkeypatch.setattr(module, "_land_validated_batch", lambda _root: None)
+    monkeypatch.setattr(module, "_validation_receipt_exists", lambda *_a, **_k: False)
+    monkeypatch.setattr(module, "_validation_rejected", lambda *_a, **_k: True)
+    monkeypatch.setattr(
+        module,
+        "_git",
+        lambda *a, **_k: {
+            "status": "",
+            "branch": "roadmap-implementation/campaign",
+            "rev-list": "3",
+            "rev-parse": ".",
+        }[a[0]],
+    )
+    registered: list[str] = []
+    monkeypatch.setattr(
+        module, "_register_committed_work", lambda _r, base: registered.append(base)
+    )
+    synced: list[Path] = []
+    monkeypatch.setattr(
+        module, "_sync_campaign_base", lambda root: synced.append(root) or "current"
+    )
+
+    result = module.run_cycle(repo, idle_seconds=1, timeout=1)
+
+    # A rejected verdict never becomes an accepted one by waiting, and the fix normally lands
+    # on main. Holding without absorbing it stalled the lane on a gate main had already fixed.
+    assert result == "held: previous campaign head was rejected; absorbed main (current)"
+    assert synced == [repo]
+    assert registered == []
 
 
 def test_landing_requires_a_receipt_and_leaves_live_edits_alone(

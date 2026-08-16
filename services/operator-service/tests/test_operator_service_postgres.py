@@ -11,6 +11,8 @@ from fdai_operator_service.incident_projection import incident_outcome_metrics, 
 from fdai_operator_service.postgres import (
     PostgresOperatorReadModel,
     PostgresOperatorReadModelConfig,
+    _decode_incident_cursor,
+    _encode_incident_cursor,
     _group_incident_rows,
     _psycopg_dsn,
 )
@@ -593,6 +595,42 @@ def test_incident_title_precedence_and_provenance(
     assert summary["title_source"] == expected_source
 
 
+@pytest.mark.parametrize(
+    ("recorded_state", "expected_status"),
+    [
+        ("open", "open"),
+        ("triaging", "in_progress"),
+        ("mitigated", "in_progress"),
+        ("resolved", "resolved"),
+        ("closed", "resolved"),
+    ],
+)
+def test_incident_lifecycle_state_maps_onto_the_roster_contract(
+    recorded_state: str,
+    expected_status: str,
+) -> None:
+    row = _audit_row(
+        1,
+        entry={
+            "incident_id": "INC-1",
+            "kind": "incident.transition",
+            "to_state": recorded_state,
+        },
+    )
+    row.update(
+        {
+            "normalized_correlation_id": "corr-1",
+            "group_last_seq": 1,
+            "group_history_count": 1,
+        }
+    )
+
+    summary = incident_summary([row])
+
+    assert summary["status"] == expected_status
+    assert summary["status_source"] == "incident_lifecycle"
+
+
 def test_incident_title_bound_and_partial_response_plan() -> None:
     row = _audit_row(
         1,
@@ -758,6 +796,38 @@ async def test_empty_incident_page_pins_metrics_to_current_snapshot() -> None:
     assert page.metrics["snapshot_seq"] == 42
     incident_calls = [call for call in model.calls if call[0] == INCIDENT_PAGE_SQL]
     assert incident_calls[1][1]["snapshot_seq"] == 42
+
+
+@pytest.mark.asyncio
+async def test_incident_search_uses_one_page_and_metrics_filter() -> None:
+    model = StubPostgresReadModel()
+
+    await model.list_incidents(IncidentQuery(status="active", limit=25, search="compute vm"))
+
+    incident_calls = [call for call in model.calls if call[0] == INCIDENT_PAGE_SQL]
+    assert [call[1]["search"] for call in incident_calls] == ["compute vm", "compute vm"]
+    assert "REGEXP_SPLIT_TO_TABLE" in INCIDENT_PAGE_SQL
+    assert "STRPOS(search_document" in INCIDENT_PAGE_SQL
+
+
+def test_incident_cursor_is_bound_to_normalized_search() -> None:
+    cursor = _encode_incident_cursor(42, 21, "active", "compute vm", None, None)
+
+    assert _decode_incident_cursor(
+        cursor,
+        status="active",
+        search="compute vm",
+        vertical=None,
+        severity=None,
+    ) == (42, 21)
+    with pytest.raises(ValueError, match="invalid incident cursor"):
+        _decode_incident_cursor(
+            cursor,
+            status="active",
+            search="storage account",
+            vertical=None,
+            severity=None,
+        )
 
 
 def test_incident_source_link_and_agent_attribution_require_trusted_records() -> None:

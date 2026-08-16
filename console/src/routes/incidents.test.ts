@@ -7,6 +7,7 @@ import {
   incidentRosterIdentifier,
   incidentVerticalDisplayLabel,
   mergeIncidentItems,
+  normalizeIncidentSearch,
   parseIncidentSeverity,
   parseIncidentVertical,
   resolveIncidentSelection,
@@ -33,6 +34,12 @@ describe("incident deep-link selection", () => {
 });
 
 describe("incident route filters", () => {
+  it("normalizes a bounded server search without accepting an oversized deep link", () => {
+    expect(normalizeIncidentSearch("  Compute   VM  ")).toBe("Compute VM");
+    expect(normalizeIncidentSearch("x".repeat(201))).toBe("");
+    expect(normalizeIncidentSearch(null)).toBe("");
+  });
+
   it("normalizes the four server-supported vertical values", () => {
     expect(parseIncidentVertical("change-safety")).toBe("change_safety");
     expect(parseIncidentVertical("COST_GOVERNANCE")).toBe("cost_governance");

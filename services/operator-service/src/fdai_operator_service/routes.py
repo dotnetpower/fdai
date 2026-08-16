@@ -471,6 +471,9 @@ def _incident_query(request: Request) -> IncidentQuery:
     status = request.query_params.get("status", "active")
     if status not in {"active", "resolved", "all"}:
         raise _BadQueryError("status MUST be one of: active, resolved, all")
+    raw_search = _bounded_query(request, "q", maximum=200)
+    search = " ".join(raw_search.casefold().split()) if raw_search else None
+    search = search or None
     vertical = (request.query_params.get("vertical") or "").replace("-", "_") or None
     if vertical not in {None, "resilience", "change_safety", "cost_governance", "unknown"}:
         raise _BadQueryError(
@@ -482,6 +485,7 @@ def _incident_query(request: Request) -> IncidentQuery:
     return IncidentQuery(
         status=cast(Literal["active", "resolved", "all"], status),
         limit=_parse_limit(request),
+        search=search,
         cursor=_bounded_query(request, "cursor", maximum=1024),
         vertical=vertical,
         severity=severity,

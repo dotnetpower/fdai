@@ -149,13 +149,16 @@ The reference threshold analyzers ([services/core-control-plane/src/fdai/core/in
 never fire on their own - a periodic tick has to invoke them. The Container Apps Job runs every
 minute by default in observation mode (`shadow`). It uses explicit targets when supplied and
 otherwise reads the durable inventory projection. Set an explicit empty cron to disable it. The
-same tick publishes AKS detection-readiness observations through Huginn. Full latency analysis:
+same tick publishes AKS detection-readiness observations through Huginn. When trace topologies are
+configured, it also evaluates bounded workspace-based Application Insights rows and publishes only
+observation-mode continuity issues. Full latency analysis:
 [docs/roadmap/rules-and-detection/observability-and-detection.md](../docs/roadmap/rules-and-detection/observability-and-detection.md).
 
 | Variable | Type | Purpose |
 |----------|------|---------|
 | `analyzer_tick_cron_expression` | string | Cron for the tick job. Default: `"* * * * *"`. An explicit empty string disables it. |
 | `analyzer_targets_json` | string | Optional JSON array of `{"resource_id", "kind"}` pairs. `kind` MUST be one of `aks_cluster` / `mysql_flexible_server` / `azure_openai` / `application_gateway` / `api_management`. Empty uses durable inventory and exits quietly only when both sources have no supported targets. |
+| `trace_topologies_json` | string | Optional JSON array of `{"topology_ref", "resource_ref", "expected_hops"}` declarations. Empty disables trace-continuity checks without changing the metric analyzers. |
 | `analyzer_window_seconds` | string | Look-back window per analyzer per tick. Empty -> CLI default (300 s). |
 | `analyzer_budget_seconds` | string | Coordinator time budget; over this the outcome is `BUDGET_EXCEEDED`. Empty -> CLI default (60 s). |
 | `prometheus_endpoint` | string | Base URL of a Prometheus-compatible query API (AKS Managed Prometheus data-collection endpoint, self-hosted Prom, Thanos, Cortex, Mimir). When set alongside a Log Analytics workspace, `wire_azure_container` builds a **RoutedMetricProvider**: Prom serves its declared metrics (AKS-scoped: `node_cpu_percent`, ...) and AML fills the rest of the 14-metric analyzer catalog. Prom-only or AML-only cases keep the single-backend binding. |

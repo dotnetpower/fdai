@@ -214,6 +214,7 @@ class PostgresOperatorReadModel:
                 "snapshot_seq": snapshot_seq,
                 "before_seq": None,
                 "status": "all",
+                "search": query.search,
                 "vertical": query.vertical,
                 "severity": query.severity,
                 "correlation_id": None,
@@ -281,6 +282,7 @@ class PostgresOperatorReadModel:
         cursor = _decode_incident_cursor(
             query.cursor,
             status=query.status,
+            search=query.search,
             vertical=query.vertical,
             severity=query.severity,
         )
@@ -290,6 +292,7 @@ class PostgresOperatorReadModel:
                 "snapshot_seq": cursor[0] if cursor else None,
                 "before_seq": cursor[1] if cursor else None,
                 "status": query.status,
+                "search": query.search,
                 "vertical": query.vertical,
                 "severity": query.severity,
                 "correlation_id": query.correlation_id,
@@ -310,6 +313,7 @@ class PostgresOperatorReadModel:
                 snapshot_seq,
                 int(visible[-1][-1]["group_last_seq"]),
                 query.status,
+                query.search,
                 query.vertical,
                 query.severity,
             )
@@ -363,6 +367,7 @@ def _encode_incident_cursor(
     snapshot_seq: int,
     before_seq: int,
     status: str,
+    search: str | None,
     vertical: str | None,
     severity: str | None,
 ) -> str:
@@ -372,6 +377,7 @@ def _encode_incident_cursor(
             "snapshot_seq": snapshot_seq,
             "before_seq": before_seq,
             "status": status,
+            "search": search,
             "vertical": vertical,
             "severity": severity,
         },
@@ -385,6 +391,7 @@ def _decode_incident_cursor(
     value: str | None,
     *,
     status: str,
+    search: str | None,
     vertical: str | None,
     severity: str | None,
 ) -> tuple[int, int] | None:
@@ -398,6 +405,7 @@ def _decode_incident_cursor(
         if (
             payload.get("v") != 1
             or payload.get("status") != status
+            or payload.get("search") != search
             or payload.get("vertical") != vertical
             or payload.get("severity") != severity
             or not isinstance(snapshot_seq, int)

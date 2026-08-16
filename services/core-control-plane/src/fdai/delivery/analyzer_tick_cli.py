@@ -19,6 +19,7 @@ import json
 import logging
 import os
 import sys
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -42,10 +43,22 @@ from fdai.delivery.analyzer_tick import (
 from fdai.delivery.azure.demo_queries import default_metric_queries
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
+from fdai.delivery.azure.log_query import (
+    AzureLogAnalyticsQueryConfig,
+    AzureLogAnalyticsQueryProvider,
+)
+from fdai.delivery.azure.trace_continuity import (
+    AzureTraceContinuitySource,
+    TraceTopologyTarget,
+)
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.delivery.persistence import (
     PostgresOntologyInstanceStore,
     PostgresOntologyInstanceStoreConfig,
+)
+from fdai.delivery.trace_continuity_tick import (
+    TraceContinuityTickReport,
+    TraceContinuityTickRunner,
 )
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
@@ -59,6 +72,28 @@ WINDOW_ENV = "FDAI_ANALYZER_WINDOW_SECONDS"
 TOPIC_ENV = "FDAI_ANALYZER_TOPIC"
 MAX_DISCOVERED_ENV = "FDAI_ANALYZER_MAX_DISCOVERED_TARGETS"
 INVENTORY_DSN_ENV = "FDAI_INVENTORY_DSN"
+TRACE_TOPOLOGIES_ENV = "FDAI_TRACE_TOPOLOGIES_JSON"
+_TRACE_TOPOLOGY_KEYS = frozenset({"topology_ref", "resource_ref", "expected_hops"})
+_MAX_TRACE_TOPOLOGIES = 32
+
+
+@dataclass(frozen=True, slots=True)
+class AnalyzerJobReport:
+    """Preserve the analyzer report and add one bounded continuity report."""
+
+    analyzer: AnalyzerTickReport
+    trace_continuity: TraceContinuityTickReport
+
+    @property
+    def failed(self) -> bool:
+        """Return true when either publisher needs a Job retry."""
+        return self.analyzer.failed or self.trace_continuity.failed
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            **self.analyzer.to_dict(),
+            "trace_continuity": self.trace_continuity.to_dict(),
+        }
 
 
 def parse_targets(raw: str) -> tuple[AnalyzerTarget, ...]:
@@ -92,6 +127,49 @@ def parse_targets(raw: str) -> tuple[AnalyzerTarget, ...]:
         if identity in seen:
             continue
         seen.add(identity)
+        targets.append(target)
+    return tuple(targets)
+
+
+def parse_trace_topologies(raw: str) -> tuple[TraceTopologyTarget, ...]:
+    """Parse strict deployment-supplied trace topology declarations."""
+    text = raw.strip()
+    if not text:
+        return ()
+    try:
+        loaded = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{TRACE_TOPOLOGIES_ENV} MUST be a JSON array: {exc}") from exc
+    if not isinstance(loaded, list) or len(loaded) > _MAX_TRACE_TOPOLOGIES:
+        raise ValueError(
+            f"{TRACE_TOPOLOGIES_ENV} MUST be an array with at most {_MAX_TRACE_TOPOLOGIES} items"
+        )
+    targets: list[TraceTopologyTarget] = []
+    seen: set[str] = set()
+    for index, item in enumerate(loaded):
+        if not isinstance(item, dict) or set(item) != _TRACE_TOPOLOGY_KEYS:
+            raise ValueError(
+                f"{TRACE_TOPOLOGIES_ENV}[{index}] MUST contain exactly "
+                "topology_ref, resource_ref, and expected_hops"
+            )
+        topology_ref = item["topology_ref"]
+        resource_ref = item["resource_ref"]
+        expected_hops = item["expected_hops"]
+        if (
+            not isinstance(topology_ref, str)
+            or not isinstance(resource_ref, str)
+            or not isinstance(expected_hops, list)
+            or any(not isinstance(hop, str) for hop in expected_hops)
+        ):
+            raise ValueError(f"{TRACE_TOPOLOGIES_ENV}[{index}] has invalid field types")
+        target = TraceTopologyTarget(
+            topology_ref=topology_ref,
+            resource_ref=resource_ref,
+            expected_hops=tuple(expected_hops),
+        )
+        if target.topology_ref in seen:
+            raise ValueError(f"{TRACE_TOPOLOGIES_ENV} topology_ref values MUST be unique")
+        seen.add(target.topology_ref)
         targets.append(target)
     return tuple(targets)
 
@@ -156,9 +234,10 @@ def build_inventory_projection() -> PostgresOntologyInstanceStore | None:
     )
 
 
-async def run_once() -> AnalyzerTickReport:
+async def run_once() -> AnalyzerJobReport:
     """Compose the tick from the environment and run one analyzer pass."""
     configured = parse_targets(os.environ.get(TARGETS_ENV, ""))
+    trace_topologies = parse_trace_topologies(os.environ.get(TRACE_TOPOLOGIES_ENV, ""))
     window_seconds = parse_window_seconds(os.environ.get(WINDOW_ENV, ""))
     max_discovered = parse_max_discovered(os.environ.get(MAX_DISCOVERED_ENV, ""))
 
@@ -170,9 +249,12 @@ async def run_once() -> AnalyzerTickReport:
     )
     _LOGGER.info("analyzer_tick_targets_resolved", extra=resolution.to_dict())
     targets = resolution.targets
-    if not targets:
+    if not targets and not trace_topologies:
         _LOGGER.info("analyzer_tick_no_targets")
-        return AnalyzerTickReport(targets=0, findings=0, published=0)
+        return AnalyzerJobReport(
+            analyzer=AnalyzerTickReport(targets=0, findings=0, published=0),
+            trace_continuity=_empty_trace_report(),
+        )
 
     bootstrap_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "").strip()
     if not bootstrap_servers:
@@ -199,17 +281,56 @@ async def run_once() -> AnalyzerTickReport:
             config=EventHubsKafkaBusConfig(bootstrap_servers=bootstrap_servers),
         )
         try:
-            runner = AnalyzerTickRunner(
-                coordinator=InvestigationCoordinator(
-                    analyzers=default_analyzers(container.metric_provider)
-                ),
-                event_bus=bus,
-                window_seconds=window_seconds,
-                topic=topic,
+            if targets:
+                analyzer_report = await AnalyzerTickRunner(
+                    coordinator=InvestigationCoordinator(
+                        analyzers=default_analyzers(container.metric_provider)
+                    ),
+                    event_bus=bus,
+                    window_seconds=window_seconds,
+                    topic=topic,
+                ).run_once(targets)
+            else:
+                analyzer_report = AnalyzerTickReport(targets=0, findings=0, published=0)
+
+            if trace_topologies:
+                workspace_id = _optional("FDAI_MONITOR_WORKSPACE_ID")
+                if workspace_id is None:
+                    raise RuntimeError(
+                        "FDAI_MONITOR_WORKSPACE_ID is required when "
+                        f"{TRACE_TOPOLOGIES_ENV} is configured"
+                    )
+                trace_report = await TraceContinuityTickRunner(
+                    source=AzureTraceContinuitySource(
+                        AzureLogAnalyticsQueryProvider(
+                            config=AzureLogAnalyticsQueryConfig(workspace_id=workspace_id),
+                            identity=identity,
+                            http_client=http_client,
+                        )
+                    ),
+                    event_bus=bus,
+                    window_seconds=window_seconds,
+                    topic=topic,
+                ).run_once(trace_topologies)
+            else:
+                trace_report = _empty_trace_report()
+            return AnalyzerJobReport(
+                analyzer=analyzer_report,
+                trace_continuity=trace_report,
             )
-            return await runner.run_once(targets)
         finally:
             await bus.close()
+
+
+def _empty_trace_report() -> TraceContinuityTickReport:
+    return TraceContinuityTickReport(
+        targets=0,
+        scenarios=0,
+        continuous=0,
+        unknown=0,
+        findings=0,
+        published=0,
+    )
 
 
 def _build_identity(http_client: httpx.AsyncClient) -> WorkloadIdentity:

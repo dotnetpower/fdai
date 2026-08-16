@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 2f01c1efd1d4bdcebaad73c9fcea5ce456560f7f
+translation_source_sha: a4760072b8d93d76fffe7940f64c438227e7383a
 translation_revised: 2026-08-17
 ---
 
@@ -75,6 +75,7 @@ translation_revised: 2026-08-17
 | 2026-08-15 | implemented | Poll 주기 1회와 ARM start 왕복이 공유 deadline 안에 들어갈 때만 migration job을 시작하도록 했습니다. | `current change`, `.github/workflows/deploy-dev.yml`, focused workflow 계약 테스트 통과. | 여유값은 고정 45초 추정치이므로 그보다 느린 start는 job이 실행 중인데도 미완료로 보고될 수 있습니다. 해당 단계는 조용히 넘어가지 않고 명시적으로 실패합니다. |
 | 2026-08-15 | implemented | 위 deadline 및 여유값 행의 근거를 정정합니다. 해당 값을 단언하는 focused 테스트는 없으므로 workflow는 YAML 파싱과 배포 계약 suite로 검증했고 제한은 단계 자체가 강제합니다. | `current change`, `deploy-dev.yml`이 유효한 YAML로 파싱되고 script 통합 suite 1151개 통과입니다. | 선언된 deadline 값에 대한 focused 단언은 남아 있습니다. |
 | 2026-08-17 | implemented | Roadmap 자동화 session 용량을 리포지토리 범위로 제한했습니다. 기본 WSL workspace-storage id는 정본 remote URI에서 도출하고, 다른 VS Code remote는 정확한 storage 경로를 지정할 수 있으며, 다른 리포지토리의 최근 활동은 FDAI를 보류하지 않습니다. | `current change`, `roadmap_verification_watchdog.py`, focused watchdog 테스트, `scripts/README.md`의 운영 계약 | Campaign session 범위에 남은 작업은 없습니다. |
+| 2026-08-17 | implemented | 배포 README의 추적 연속성 문장을 필수 표시 용어로 다시 썼습니다. 운영자용 문장에 그대로 쓰인 `finding`이 중앙 검증의 `display-terminology`를 통과하지 못해 main이 거부되었고 모든 lane과 모든 착륙이 멈췄습니다. | `current change`, `infra/README.md`와 user-guide 쌍, `display-terminology`가 문서 524개에서 OK를 보고하고 번역 185/185 검증 통과 | 이 변경에 남은 작업은 없습니다. |
 ### 잔여 작업
 
 - [ ] FDAI 전용 Remote WSL server data root 또는 WSL 배포판을 마련한 뒤 제외 대상 workspace를 변경하지 않고 재시작한 Pylance process command에 `--max-old-space-size=2048`이 포함됨을 기록합니다.

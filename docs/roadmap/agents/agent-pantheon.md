@@ -37,6 +37,7 @@ Consumers of this document:
 | Judgment, approval, execution, audit, and recovery separation | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_decision_case_e2e.py`](../../../services/core-control-plane/tests/agents/test_decision_case_e2e.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py) | Forseti optionally resolves an exact proposal into its existing Verdict and Thor preserves it after independent validation. Synthetic tests prove the role boundary but not a live production outcome. |
 | Conversational and handoff mechanics | implemented | [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py), [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py), [`test_wave7_workflows.py`](../../../services/core-control-plane/tests/agents/test_wave7_workflows.py) | The bounded read-only conversation path evaluates T1 answer signals before optional T2 synthesis, and shadow workflow traces are executable in focused tests. |
 | KPI evidence states, promotion checks, and degradation drills | implemented | [`test_wave8_kpi_degradation.py`](../../../services/core-control-plane/tests/agents/test_wave8_kpi_degradation.py) | Missing or unmeasured KPI evidence fails promotion closed, and injected failures exercise declared degradation behavior. |
+| Trace-continuity evidence handoff | implemented | `huginn.py`; `heimdall.py`; `test_trace_continuity_chain.py` | Huginn preserves only allowlisted bounded continuity fields, and Heimdall carries a recognized observed reason into the anomaly and Incident candidate. AgentSpec, topics, judgment, approval, and execution authority are unchanged. |
 | Live operational KPI validation and enforce promotion | not-started | [Goals and Metrics](../architecture/goals-and-metrics.md) | No retained live-shadow cohort, operational KPI receipt set, independent promotion review, or actual pantheon enforce promotion is evidenced here. |
 
 ### Implementation history
@@ -53,6 +54,7 @@ Consumers of this document:
 | 2026-08-14 | implemented | Required deterministic T1 answer evaluation before Bragi's presentation-only deliberation can invoke optional T2 synthesis. | `current change`; 36 focused deliberation tests prove T2 is not called for conflict-free or uncomparable claims and remains bounded for a structured conflict. | Retain governed operator-path evidence without changing AgentSpec, topics, or authority. |
 | 2026-08-15 | implemented | Made each bridge consumer close its subscription inside its own task so broker teardown runs during shutdown instead of interpreter finalization. No AgentSpec, topic, ownership, LLM, or safeguard change. | `current change`; [`bus_bridge.py`](../../../services/core-control-plane/src/fdai/agents/_framework/bus_bridge.py) and [`test_subscription_lifecycle.py`](../../../services/core-control-plane/tests/agents/test_subscription_lifecycle.py); focused agent, delivery, runtime, and provider checks passed 3127 cases. | Confirm the residual consumer stop timeout is absent from a live local shutdown. |
 | 2026-08-16 | implemented | Made Thor apply the dispatch-time kinetic proposal binding again when it rehydrates a durable ActionRun, so a tampered row cannot restore another correlation's exact arguments. No AgentSpec, topic, ownership, or authority change. | `current change`; [`thor.py`](../../../services/core-control-plane/src/fdai/agents/thor.py) and [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py); focused kinetic, durable-replay, runtime, and factory checks passed 140 cases. | Retain governed live evidence for the rehydration path alongside the existing kinetic remaining work. |
+| 2026-08-17 | implemented | Preserved bounded distributed-trace continuity evidence from Huginn normalization through Heimdall's repeated-event anomaly and Incident candidate. Unknown reason codes and forged action fields are dropped, and the sensing path gains no judgment or action authority. | `current change`; `test_trace_continuity_chain.py`; focused trace-to-Incident chain passed. | Retain governed live trace-discontinuity, Incident, approval, and recovery evidence in issue #142. |
 
 ### Remaining work
 - [ ] Retain a live-shadow cohort with measured per-agent and system KPIs, sample counts,
@@ -217,6 +219,12 @@ One correlation episode repeated inside the rate window forms one anomaly at its
 Global/per-resource caps prevent cross-resource eviction. A routine heartbeat,
 healthy probe, or within-threshold observation creates neither a finding nor an
 Incident.
+For a distributed-trace discontinuity Event, Huginn copies only the bounded detector, topology,
+hop, trace-fragment, evidence-reference, and window fields into normalized attributes. Heimdall
+accepts only the registered continuity reason codes, retains that evidence on the anomaly, and
+uses the observed reason on the Incident candidate instead of replacing it with a generic repeat
+reason. Unrecognized fields, including action-like input, are dropped. This evidence handoff does
+not select an ActionType or grant judgment, approval, or execution authority.
 Heimdall does not write the Incident or publish a new object type. Only candidates with explicit
 `incident_correlation=correlate`, correlation and evidence, enabled auto-open, and sufficient
 severity reach the workflow; all others remain anomalies. The workflow rechecks evidence before

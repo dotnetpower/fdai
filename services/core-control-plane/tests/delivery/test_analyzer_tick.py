@@ -25,6 +25,7 @@ from fdai.delivery.analyzer_tick_cli import (
     build_inventory_projection,
     parse_max_discovered,
     parse_targets,
+    parse_trace_topologies,
     parse_window_seconds,
 )
 from fdai.shared.contracts.models import Mode, Severity
@@ -232,6 +233,31 @@ def test_blank_targets_are_empty_and_malformed_targets_fail_closed() -> None:
     for raw in ('{"resource_id": "a"}', "[1]", '[{"resource_id": "a"}]', "not-json"):
         with pytest.raises(ValueError):
             parse_targets(raw)
+
+
+def test_trace_topologies_parse_strict_declarations() -> None:
+    parsed = parse_trace_topologies(
+        '[{"topology_ref":"agent-request","resource_ref":"trace-topology/agent-request",'
+        '"expected_hops":["application","agent","model-endpoint"]}]'
+    )
+
+    assert parsed[0].topology_ref == "agent-request"
+    assert parsed[0].expected_hops == ("application", "agent", "model-endpoint")
+
+
+def test_trace_topologies_reject_ambiguous_or_malformed_config() -> None:
+    assert parse_trace_topologies(" ") == ()
+    invalid = (
+        "not-json",
+        "{}",
+        '[{"topology_ref":"one"}]',
+        '[{"topology_ref":"one","resource_ref":"r","expected_hops":["a","b"],"extra":1}]',
+        '[{"topology_ref":"one","resource_ref":"r","expected_hops":["a","b"]},'
+        '{"topology_ref":"one","resource_ref":"r2","expected_hops":["a","b"]}]',
+    )
+    for raw in invalid:
+        with pytest.raises(ValueError):
+            parse_trace_topologies(raw)
 
 
 def test_window_parsing_fails_closed() -> None:
