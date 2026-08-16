@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
 from fdai.core.detection.series import MetricSample
+from fdai.core.ontology_platform import QueryRow, QueryTable
 from fdai.core.ontology_platform.metric_semantics import (
     CausalEvidenceJoin,
     CausalJoinStatus,
@@ -19,6 +21,7 @@ from fdai.core.ontology_platform.metric_semantics import (
 from fdai.core.ontology_platform.query_execution import QueryNodeResult
 from fdai.core.ontology_platform.query_metric_handlers import (
     EvidenceJoinNodeHandler,
+    MetricScopeSeriesNodeHandler,
     MetricSeriesNodeHandler,
 )
 from fdai.core.ontology_platform.topology_history import TopologyDiff
@@ -40,6 +43,36 @@ class _Provider:
             complete=True,
             evidence_refs=("metric:provider",),
         )
+
+
+def _scope_node() -> OntologyQueryNode:
+    return OntologyQueryNode(
+        node_id="metric",
+        kind=QueryNodeKind.METRIC_SCOPE_SERIES,
+        depends_on=("scope",),
+        arguments_json=canonical_json(
+            {
+                "concept_id": "request.volume",
+                "start": START.isoformat(),
+                "end": (START + timedelta(minutes=2)).isoformat(),
+            }
+        ),
+        output_kind="metric.window",
+    )
+
+
+def _scope_handler(provider: object | None = None) -> MetricScopeSeriesNodeHandler:
+    definition = MetricSemanticDefinition(
+        concept_id="request.volume",
+        provider_metric="http.server.request.count",
+        canonical_unit="count",
+        aggregation=MetricAggregation.SUM,
+        description="Completed requests.",
+    )
+    return MetricScopeSeriesNodeHandler(
+        registry=MetricSemanticRegistry.build((definition,)),
+        provider=provider or _Provider(),  # type: ignore[arg-type]
+    )
 
 
 def _window(
@@ -219,3 +252,119 @@ async def test_metric_and_evidence_join_query_handlers_use_exact_typed_dependenc
     assert isinstance(join.value, CausalEvidenceJoin)
     assert join.value.status is CausalJoinStatus.UNRESOLVED
     assert "topology_change_unavailable" in join.value.limitations
+
+
+async def test_metric_scope_series_reads_one_canonical_resource_and_marks_sampling() -> None:
+    handler = _scope_handler()
+    scope = QueryTable(
+        rows=(
+            QueryRow.from_values("service-b", {"id": "service-b"}),
+            QueryRow.from_values("service-a", {"id": "service-a"}),
+        ),
+        complete=True,
+    )
+
+    result = await handler(
+        _scope_node(),
+        {"scope": QueryNodeResult(value=scope, evidence_refs=("objectset:receipt",))},
+    )
+
+    assert isinstance(result.value, MetricWindow)
+    assert result.value.resource_id == "service-a"
+    assert result.value.complete is False
+    assert result.value.missing_reason == "object_scope_sampled"
+    assert result.value.evidence_refs == ("metric:provider", "objectset:receipt")
+
+
+async def test_metric_scope_series_retains_empty_and_incomplete_scope_evidence() -> None:
+    handler = _scope_handler()
+    empty = await handler(
+        _scope_node(),
+        {
+            "scope": QueryNodeResult(
+                value=QueryTable(rows=(), complete=True),
+                evidence_refs=("objectset:empty",),
+            )
+        },
+    )
+    incomplete = await handler(
+        _scope_node(),
+        {
+            "scope": QueryNodeResult(
+                value=QueryTable(
+                    rows=(QueryRow.from_values("service-a", {"id": "service-a"}),),
+                    complete=False,
+                    truncation_reason="source_truncated",
+                ),
+                evidence_refs=("objectset:partial",),
+            )
+        },
+    )
+
+    assert isinstance(empty.value, MetricWindow)
+    assert empty.value.resource_id == "scope:none"
+    assert empty.value.missing_reason == "no_visible_resource"
+    assert empty.evidence_refs == ("objectset:empty",)
+    assert isinstance(incomplete.value, MetricWindow)
+    assert incomplete.value.complete is False
+    assert incomplete.value.missing_reason == "object_scope_incomplete"
+    assert incomplete.value.evidence_refs == ("metric:provider", "objectset:partial")
+
+
+async def test_metric_scope_series_rejects_unproven_scope_and_provider_identity_drift() -> None:
+    handler = _scope_handler()
+    table = QueryTable(
+        rows=(QueryRow.from_values("service-a", {"id": "service-a"}),),
+        complete=True,
+    )
+    with pytest.raises(ValueError, match="MUST cite scope evidence"):
+        await handler(_scope_node(), {"scope": QueryNodeResult(value=table)})
+    with pytest.raises(TypeError, match="MUST be a QueryTable"):
+        await handler(
+            _scope_node(),
+            {"scope": QueryNodeResult(value="service-a", evidence_refs=("scope:bad",))},
+        )
+
+    class _DriftProvider(_Provider):
+        async def read(self, *, definition, resource_id, start, end):  # type: ignore[no-untyped-def]
+            result = await super().read(
+                definition=definition,
+                resource_id=resource_id,
+                start=start,
+                end=end,
+            )
+            return replace(result, resource_id="service-b")
+
+    with pytest.raises(ValueError, match="does not match the verified scope request"):
+        await _scope_handler(_DriftProvider())(
+            _scope_node(),
+            {"scope": QueryNodeResult(value=table, evidence_refs=("objectset:receipt",))},
+        )
+
+
+async def test_metric_scope_series_preserves_provider_and_sampling_gaps() -> None:
+    class _GapProvider(_Provider):
+        async def read(self, *, definition, resource_id, start, end):  # type: ignore[no-untyped-def]
+            result = await super().read(
+                definition=definition,
+                resource_id=resource_id,
+                start=start,
+                end=end,
+            )
+            return replace(result, complete=False, missing_reason="provider_gap")
+
+    scope = QueryTable(
+        rows=(
+            QueryRow.from_values("service-a", {"id": "service-a"}),
+            QueryRow.from_values("service-b", {"id": "service-b"}),
+        ),
+        complete=True,
+    )
+    result = await _scope_handler(_GapProvider())(
+        _scope_node(),
+        {"scope": QueryNodeResult(value=scope, evidence_refs=("objectset:receipt",))},
+    )
+
+    assert isinstance(result.value, MetricWindow)
+    assert result.value.complete is False
+    assert result.value.missing_reason == "object_scope_sampled+provider_gap"

@@ -39,8 +39,21 @@ export interface AssuranceTurnJudgment extends AssuranceJudgment {
   readonly verification?: AnswerVerification;
 }
 
+export type AssurancePlanCapability =
+  | "aggregate"
+  | "evidence_join"
+  | "function:query.incident_evidence"
+  | "function:query.manifest"
+  | "function:query.ontology_relationships"
+  | "metric_scope_series"
+  | "metric_series"
+  | "object_set"
+  | "object_set:filtered"
+  | "topology_at"
+  | "topology_diff";
+
 export interface AssuranceRunConfiguration {
-  readonly schema_version: "1.3.0";
+  readonly schema_version: "1.4.0";
   readonly run_id: string;
   readonly seed: number;
   readonly minimum_request_interval_ms: number;
@@ -310,6 +323,8 @@ export interface RetainedTurnResult {
   readonly checks_completed?: number;
   readonly checks_total?: number;
   readonly evidence_ref_count?: number;
+  readonly plan_capabilities: readonly AssurancePlanCapability[];
+  readonly plan_capability_match: boolean;
 }
 
 /** Adding an outcome without listing it here breaks the build instead of the checkpoint. */
@@ -343,9 +358,22 @@ export function isRetainedTurnResult(value: Record<string, unknown>): boolean {
     "plan_digest",
     "execution_receipt_digest",
   ] as const;
+  const planCapabilities = Array.isArray(value.plan_capabilities)
+    ? value.plan_capabilities as AssurancePlanCapability[]
+    : [];
+  const expectedPlanCapabilityMatch = value.disposition !== "answered" ||
+    assuranceOperationMatchesPlan(
+      value.operation as AssuranceOperation,
+      planCapabilities,
+    );
   return typeof value.produced_by_run_id === "string" && value.produced_by_run_id.length > 0 &&
     typeof value.passed === "boolean" &&
     typeof value.unauthorized_execution_claim === "boolean" &&
+    typeof value.plan_capability_match === "boolean" &&
+    Array.isArray(value.plan_capabilities) && value.plan_capabilities.every((capability) =>
+      typeof capability === "string" && PLAN_CAPABILITIES.includes(capability as AssurancePlanCapability)
+    ) && new Set(value.plan_capabilities).size === value.plan_capabilities.length &&
+    value.plan_capability_match === expectedPlanCapabilityMatch &&
     typeof value.attempt_count === "number" &&
     LOCALES.includes(value.locale as AssuranceLocale) &&
     OPERATIONS.includes(value.operation as AssuranceOperation) &&
@@ -363,6 +391,50 @@ export function isRetainedTurnResult(value: Record<string, unknown>): boolean {
     // pass the uniqueness criteria vacuously.
     (value.disposition === undefined ||
       (typeof value.projection_id === "string" && typeof value.request_id === "string"));
+}
+
+const PLAN_CAPABILITIES: readonly AssurancePlanCapability[] = [
+  "aggregate",
+  "evidence_join",
+  "function:query.incident_evidence",
+  "function:query.manifest",
+  "function:query.ontology_relationships",
+  "metric_series",
+  "object_set",
+  "object_set:filtered",
+  "topology_at",
+  "topology_diff",
+];
+
+const ANSWER_CAPABILITIES: Readonly<
+  Record<Extract<AssuranceOperation,
+    | "inventory_listing"
+    | "relationship_traversal"
+    | "property_filter"
+    | "aggregation"
+    | "temporal_comparison"
+    | "causal_analysis"
+    | "evidence_validation">, readonly AssurancePlanCapability[]>
+> = {
+  inventory_listing: ["function:query.manifest"],
+  relationship_traversal: ["topology_at"],
+  property_filter: ["object_set:filtered"],
+  aggregation: ["aggregate"],
+  temporal_comparison: ["topology_diff", "metric_series", "evidence_join"],
+  causal_analysis: ["evidence_join"],
+  evidence_validation: ["object_set"],
+};
+
+/** Checks the generated question taxonomy against Core's projected exact-plan capabilities. */
+export function assuranceOperationMatchesPlan(
+  operation: AssuranceOperation,
+  capabilities: readonly AssurancePlanCapability[],
+): boolean {
+  if (!ANSWER_REQUIRED_OPERATIONS.includes(operation)) return true;
+  const required = ANSWER_CAPABILITIES[
+    operation as keyof typeof ANSWER_CAPABILITIES
+  ];
+  return required.some((capability) => capabilities.includes(capability));
 }
 
 /** Decides whether a completed cohort satisfies every governed pass criterion. */

@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 import copy
+import json
 import logging
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, Protocol
 
-from fdai_service_contracts.ontology_query import OntologyQueryPlan, SemanticProblemFrame
+from fdai_service_contracts.ontology_query import (
+    OntologyQueryPlan,
+    QueryNodeKind,
+    SemanticProblemFrame,
+)
 from pydantic import ValidationError
 
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier, QueryManifest
@@ -24,6 +30,26 @@ _LOGGER = logging.getLogger(__name__)
 _SERVER_BOUND_REQUIREMENTS = frozenset(
     {ClarificationRequirement.PRINCIPAL_SCOPE, ClarificationRequirement.PURPOSE}
 )
+_SPECIALIZED_FUNCTION_OUTPUT_SHAPES = {
+    "query.incident_evidence": "incident_evidence",
+    "query.manifest": "ontology_manifest",
+    "query.ontology_relationships": "ontology_relationships",
+}
+_REQUIRED_NODE_KINDS_BY_OUTPUT_SHAPE = {
+    "aggregation_table": frozenset({QueryNodeKind.AGGREGATE}),
+    "causal_evidence": frozenset({QueryNodeKind.EVIDENCE_JOIN}),
+    "evidence_validation": frozenset({QueryNodeKind.OBJECT_SET}),
+    "property_filtered_resources": frozenset({QueryNodeKind.OBJECT_SET}),
+    "temporal_comparison": frozenset(
+        {
+            QueryNodeKind.EVIDENCE_JOIN,
+            QueryNodeKind.METRIC_SCOPE_SERIES,
+            QueryNodeKind.METRIC_SERIES,
+            QueryNodeKind.TOPOLOGY_DIFF,
+        }
+    ),
+    "topology_graph": frozenset({QueryNodeKind.TOPOLOGY_AT}),
+}
 
 
 class FrameBuilder(Protocol):
@@ -118,6 +144,7 @@ class SemanticPlanningCascade:
         *,
         frame: SemanticProblemFrame,
         descriptors: tuple[dict[str, Any], ...],
+        metric_concepts: tuple[str, ...],
         principal: Principal,
         purpose: str,
         manifest: QueryManifest,
@@ -127,6 +154,7 @@ class SemanticPlanningCascade:
             raw = model.propose_plan(
                 frame=frame,
                 descriptors=copy.deepcopy(descriptors),
+                metric_concepts=metric_concepts,
                 principal_role=principal.role.value,
                 purpose=purpose,
                 evaluation_time=evaluation_time,
@@ -156,6 +184,7 @@ class SemanticPlanningCascade:
                 raise ProposalRejectedError("plan_build", type(exc).__name__) from exc
             try:
                 self._verifier.verify(plan, manifest=manifest)
+                _verify_frame_plan_alignment(frame, plan)
             except ValueError as exc:
                 if self._should_escalate(tier=tier, stage="plan", reason="invalid"):
                     continue
@@ -181,6 +210,57 @@ class SemanticPlanningCascade:
 def _validate_frame_proposal(proposal: SemanticFrameProposal) -> None:
     if _SERVER_BOUND_REQUIREMENTS.intersection(proposal.clarification_requirements):
         raise ValueError("semantic clarification requests server-bound context")
+
+
+def _verify_frame_plan_alignment(
+    frame: SemanticProblemFrame,
+    plan: OntologyQueryPlan,
+) -> None:
+    selected_node_kinds = {node.kind for node in plan.nodes}
+    required_node_kinds = _REQUIRED_NODE_KINDS_BY_OUTPUT_SHAPE.get(frame.output_shape)
+    if required_node_kinds is not None and required_node_kinds.isdisjoint(selected_node_kinds):
+        raise ValueError("semantic plan does not satisfy frame capability")
+    if frame.output_shape == "property_filtered_resources" and not any(
+        _object_set_has_predicates(node.arguments_json)
+        for node in plan.nodes
+        if node.kind is QueryNodeKind.OBJECT_SET
+    ):
+        raise ValueError("semantic property-filter plan requires a predicate")
+
+    output_node_ids = set(plan.output_node_ids)
+    selected_output_functions: set[str] = set()
+    for node in plan.nodes:
+        if node.kind is not QueryNodeKind.FUNCTION or node.node_id not in output_node_ids:
+            continue
+        arguments = json.loads(node.arguments_json)
+        function_name = arguments.get("function_name") if isinstance(arguments, Mapping) else None
+        if isinstance(function_name, str):
+            selected_output_functions.add(function_name)
+
+    expected_function = next(
+        (
+            function_name
+            for function_name, output_shape in _SPECIALIZED_FUNCTION_OUTPUT_SHAPES.items()
+            if output_shape == frame.output_shape
+        ),
+        None,
+    )
+    if expected_function is not None and expected_function not in selected_output_functions:
+        raise ValueError("semantic plan does not satisfy specialized frame output")
+    if any(
+        output_shape != frame.output_shape
+        for function_name, output_shape in _SPECIALIZED_FUNCTION_OUTPUT_SHAPES.items()
+        if function_name in selected_output_functions
+    ):
+        raise ValueError("semantic plan selects a function outside the frame output")
+
+
+def _object_set_has_predicates(arguments_json: str) -> bool:
+    arguments = json.loads(arguments_json)
+    if not isinstance(arguments, Mapping):
+        return False
+    definition = arguments.get("definition")
+    return isinstance(definition, Mapping) and bool(definition.get("predicates"))
 
 
 __all__ = ["ProposalRejectedError", "SemanticPlanningCascade"]
