@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 3174bd7b545239ee02af31ecf8d13651ba1cabe8
+translation_source_sha: 3f40c78c61132a45a3ceede349e0e42de875e9d6
 translation_revised: 2026-08-16
 ---
 
@@ -185,6 +185,7 @@ translation_revised: 2026-08-16
 | 2026-08-15 | 구현됨 | Plan 검증 전에 모델이 제안한 모든 ObjectSet 기준 시각을 단일 trusted evaluation time으로 다시 바인딩해, secured gateway 허용 구간을 벗어난 모델 timestamp 때문에 current-state 실행이 거부되지 않게 했습니다. | `current change`, stale 모델 기준 시각 회귀를 포함한 focused 의미 계획 테스트 15개 통과 | Exact-source Core stack을 재시작하고 clean 14-cell 및 seed 기반 100-case Browser 근거를 보존합니다. |
 | 2026-08-16 | 구현됨 | 시작 시 영속 `Incident` 객체를 읽기 전에 durable 온톨로지 release 이력을 먼저 적재하도록 했습니다. 이전에는 인시던트 projection이 catalog 동기화보다 먼저 실행돼, 이전 catalog digest에 고정된 객체가 모두 fail closed 되고 catalog가 한 번이라도 바뀌면 런타임이 시작되지 못했습니다. | `current change`, bootstrap 순서 가드를 포함한 focused catalog-ontology 검사 6개 통과, 작업 범위 Ruff 및 strict mypy 통과, 로컬 스택 시작 후 바인딩된 인시던트 turn 응답 확인 | 이 행에 남은 작업은 없습니다. |
 | 2026-08-16 | 구현됨 | 바인딩된 인시던트 읽기를 서버 소유로 만들었습니다. 계획 단계가 제안된 `query.incident_evidence` 노드의 식별자와 기록 조회 범위를 대화 바인딩 값으로 다시 쓰고 plan을 재검증하므로, 모델이 문장으로만 가진 UUID와 correlation 신원을 그대로 옮겨 적는 데 답변이 좌우되지 않습니다. 조회한 감사 구간 밖에 신원 기준 기록이 있는 프로파일은 모순이 아니라 근거 공백으로 처리하며, fail closed 보류마다 실패한 검사 이름을 런타임 로그에 남깁니다. | `current change`, focused 대화, 처리기 및 계약 검사 606개 통과, 작업 범위 Ruff 및 strict mypy 통과, 변경 전 동일 입력에서 연속 2회 보류되던 바인딩 인시던트 turn이 변경 후 두 언어에서 연속 4회 응답 | 복구된 인시던트 답변에 대한 통제된 요청-Console 및 이중 언어 무작위 근거를 보존합니다. |
+| 2026-08-16 | 구현됨 | 고정된 인시던트 읽기에서 모델을 완전히 제외했습니다. 이 turn이 인시던트 근거를 원한다는 판단은 여전히 타입이 있는 frame이 하고, 그 뒤 노드는 바인딩에서 구성되어 plan 제안을 요청하지 않으며 동일한 빌더와 검증기가 그대로 적용됩니다. 바인딩이 `incident_reference` 확인 요구를 해소해 고정된 turn이 이미 고정된 인시던트를 되묻지 않고, 영어 전용 `this incident` 부분 문자열 경로를 제거해 어떤 발화 부분 문자열도 경로를 결정하지 않습니다. | `current change`, focused 대화 검사 458개와 로컬 서비스 로그 실행기 검사 11개 통과, 작업 범위 Ruff 및 strict mypy 통과, 라이브 고정 turn 3회 연속 `plan_source="bound_incident"` 기록 및 응답 | 통제된 요청-Console 및 이중 언어 무작위 근거를 보존합니다. |
 | 2026-08-16 | 구현됨 | Prompt 업그레이드에서 `object_types`, limit 및 `root_ids` 금지 제약이 빠진 뒤 의미 plan prompt v8에 exact `query.ontology_relationships` Function 묶음을 복원했습니다. 이제 스키마 관계 plan은 검증된 frame의 exact ObjectType 이름 한두 개만 사용하며 이를 런타임 객체 신원으로 다시 해석할 수 없습니다. | `current change`, `test_wire_ontology_relationships.py::test_semantic_prompts_select_exact_relationship_function` 통과 | 중앙 검증된 후속 commit에서 엄격한 이중 언어 관계 cell과 seed 기반 집단 근거를 보존합니다. |
 
 ### 남은 작업

@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: d2bf3abd60ae920f5694ec3204e0480dfd2aaa39
+translation_source_sha: 6a033fedaace86b4e4b1e5304cfcbd0aac31ec75
 translation_revised: 2026-08-15
 ---
 # 프로젝트 구조
@@ -48,6 +48,7 @@ translation_revised: 2026-08-15
 | 2026-08-15 | 구현됨 | Exact-release principal 매니페스트 조회 모듈 하나를 추가하고 기존 의미 Function registry와 일반 query-table renderer를 통해 연결했습니다. | `current change`, focused 매니페스트 및 의미 조립 검사 42개와 작업 범위 Ruff 및 strict mypy 통과 | Clean 이중 언어 답변 coverage와 seed 기반 전체 집단 Browser 근거를 보존합니다. |
 | 2026-08-15 | 구현됨 | 검증된 plan이 선택한 역량을 `plan_verify` 단계 기록에 남기고 `stage`, `plan_nodes`, `failure_type`을 로컬 평문 로그 컨텍스트 허용 목록을 통해 출력하도록 했습니다. 허용 목록 방식을 그대로 유지해 목록에 없는 필드는 여전히 평문 로그에 답지 않습니다. | `current change`, `semantic_planning.py` 및 `capture-local-service-log.py`, focused 계획기 검사 14개와 로컬 서비스 로그 실행기 검사 11개 통과 | 이 필드로 인시던트 바인딩에 결정론적 plan seed가 필요한지 판단합니다. |
 | 2026-08-16 | 구현됨 | 대화의 인시던트 바인딩을 신뢰 가능한 계획 입력으로 만들었습니다. 계획 단계가 제안된 `query.incident_evidence` 노드의 식별자와 기록 조회 범위를 바인딩 값으로 다시 쓰고 plan을 재검증하므로, 신원은 모델이 옮겨 적는 값이 아니라 서버 소유 값입니다. Turn의 근거 참조 상한을 이름 있는 계약 상수로 만들어 읽기 범위를 그 값에 맞추고, fail closed 보류마다 기존 `failure_type` 필드로 실패한 검사 이름을 남깁니다. | `current change`, `semantic_planning.py`, `semantic_runtime.py`, `semantic_turn_processor.py` 및 `semantic_turn.py`, focused 대화, 처리기 및 계약 검사 606개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 복구된 인시던트 답변에 대한 통제된 인증 Console 근거를 보존합니다. |
+| 2026-08-16 | 구현됨 | 고정된 인시던트 읽기를 plan 제안이 아니라 바인딩에서 직접 구성합니다. 이 turn이 인시던트 근거를 원한다는 판단은 여전히 타입이 있는 frame이 하고, 그 뒤 역량과 두 신원은 대화에서 오므로 모델이 고르거나 옮겨 적지 않으며, 노드는 동일한 plan 빌더와 검증기를 그대로 통과합니다. 바인딩은 `incident_reference` 확인 요구도 대신 해소하며, 영어 전용 `this incident` 부분 문자열 경로를 제거해 두 언어가 frame을 통해 같은 결론에 도달합니다. | `current change`, `semantic_planning.py` 및 `capture-local-service-log.py`, focused 대화 검사 458개 통과, 작업 범위 Ruff 및 strict mypy 통과, 라이브 고정 turn 3회 연속 `plan_source="bound_incident"` 기록 및 응답 | 고정된 인시던트 답변에 대한 통제된 인증 Console 근거를 보존합니다. |
 
 ### 남은 작업
 - [ ] 호환성 import deprecation 주기 뒤 연기된 Phase 2 물리 `git mv`를 완료하고 이 배치를 결과 service-owned 경로로 갱신합니다.
