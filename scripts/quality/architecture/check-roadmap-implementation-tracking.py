@@ -6,6 +6,7 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
+from collections import Counter
 from pathlib import Path, PurePosixPath
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -191,6 +192,35 @@ def _history_rows(content: str) -> list[tuple[str, ...]]:
     return rows if error is None else []
 
 
+def _lost_history_rows(
+    previous_rows: list[tuple[str, ...]], current_rows: list[tuple[str, ...]]
+) -> list[str]:
+    """Report recorded history rows that the current document no longer carries.
+
+    Rows are matched by content, not position. A merge is free to interleave two
+    branches' rows, so requiring the recorded rows to stay an ordered prefix made the
+    contract unsatisfiable whenever two branches both appended, and two lanes with
+    different bases could demand different rows at the same index.
+    """
+    unmatched = Counter(current_rows)
+    errors: list[str] = []
+    reported: set[tuple[str, ...]] = set()
+    for row in previous_rows:
+        if unmatched[row] > 0:
+            unmatched[row] -= 1
+            continue
+        if row in reported:
+            continue
+        reported.add(row)
+        change = row[2] if len(row) > 2 else ""
+        summary = change if len(change) <= 60 else f"{change[:57]}..."
+        errors.append(
+            "implementation history is append-only; the "
+            f"{row[0]} row was removed or edited: {summary}"
+        )
+    return errors
+
+
 def ledger_violations(content: str, previous: str | None = None) -> list[str]:
     """Return deterministic ledger contract violations for one owner doc."""
     errors: list[str] = []
@@ -233,9 +263,7 @@ def ledger_violations(content: str, previous: str | None = None) -> list[str]:
         errors.append("remaining work task-list items must not use TBD")
 
     if previous is not None:
-        previous_rows = _history_rows(previous)
-        if previous_rows and history_rows[: len(previous_rows)] != previous_rows:
-            errors.append("implementation history is append-only; preserve all existing rows")
+        errors.extend(_lost_history_rows(_history_rows(previous), history_rows))
     return errors
 
 
