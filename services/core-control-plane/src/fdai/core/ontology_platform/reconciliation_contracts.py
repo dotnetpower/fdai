@@ -458,7 +458,7 @@ class ReconciliationOutcome(ContractBase):
     observation_context_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
     verification_receipt_digest: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
     observation_context: AuthenticatedObservationContext
-    observer_identity: ObserverIdentityRecord
+    observer_identity_record: ObserverIdentityRecord
     request: EffectReconciliationRequest
     receipt: ReconciliationReceipt
     recommendation: ReconciliationRecommendation
@@ -466,7 +466,7 @@ class ReconciliationOutcome(ContractBase):
 
     @model_validator(mode="after")
     def _output_is_bound(self) -> ReconciliationOutcome:
-        if self.observer_identity != self.observation_context.identity_record():
+        if self.observer_identity_record != self.observation_context.identity_record():
             raise ValueError("reconciliation observer identity record does not match its context")
         if self.receipt_digest != reconciliation_content_digest(
             self.receipt.model_dump(mode="json")

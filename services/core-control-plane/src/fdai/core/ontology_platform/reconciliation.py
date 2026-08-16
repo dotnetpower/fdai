@@ -550,7 +550,7 @@ def _build_outcome(
         observation_context_digest=observation_context_digest,
         verification_receipt_digest=verification_receipt_digest,
         observation_context=observation_context,
-        observer_identity=observation_context.identity_record(),
+        observer_identity_record=observation_context.identity_record(),
         request=request,
         receipt=receipt,
         recommendation=recommendation,

@@ -297,8 +297,19 @@ def test_invalid_head_revision_blocks_the_change() -> None:
     assert "head_revision_invalid" in _codes(decision)
 
 
-def test_every_change_class_declares_a_bounded_requirement() -> None:
-    for change_class in GovernanceChangeClass:
+def test_every_change_class_declares_its_bounded_requirement() -> None:
+    expected = {
+        GovernanceChangeClass.RULE_AUTHORING: (1, False, False),
+        GovernanceChangeClass.ASSIGNMENT: (1, False, False),
+        GovernanceChangeClass.ENFORCE_PROMOTION: (2, True, False),
+        GovernanceChangeClass.EXEMPTION: (2, True, False),
+        GovernanceChangeClass.OVERRIDE: (2, True, False),
+        GovernanceChangeClass.RISK_CLASSIFICATION_LOOSENING: (2, True, True),
+    }
+
+    assert set(expected) == set(GovernanceChangeClass)
+    for change_class, (quorum, phishing_resistant, owner_review) in expected.items():
         requirement = requirement_for(change_class)
-        assert requirement.quorum in {1, 2}
-        assert requirement.phishing_resistant == (requirement.quorum == 2)
+        assert requirement.quorum == quorum
+        assert requirement.phishing_resistant is phishing_resistant
+        assert requirement.owner_review is owner_review

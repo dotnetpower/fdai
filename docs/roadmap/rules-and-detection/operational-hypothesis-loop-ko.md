@@ -1,6 +1,6 @@
 ---
 translation_of: operational-hypothesis-loop.md
-translation_source_sha: e6274ab28dac74524c1c4661f1e799db700dcdcc
+translation_source_sha: fac3929e608f23ad0eba63ddae53217d415b313d
 translation_revised: 2026-08-17
 ---
 # 운영 가설 루프
@@ -232,7 +232,7 @@ Worker는 public contract를 통해 이러한 capability를 evidence source 또�
 | Production reconciliation source | in-progress | `ReconciliationArtifactSource` 및 `ReconciliationObservationSource` protocol; runtime composition 테스트 | Runtime은 production exact-plan 및 independent-observation source를 받을 수 있지만 upstream production adapter 또는 통제된 live 증적은 아직 없습니다. |
 | Lane C 계보 및 역량 조회 | implemented | `services/core-control-plane/src/fdai/core/assurance_twin/`; `services/core-control-plane/tests/rule_catalog/test_operational_hypothesis_loop_competency.py` | 기존 온톨로지 객체가 병렬 집계 없이 고정된 여섯 조회 등급에 답합니다. 이 입증은 테스트가 공급한 레코드 기준입니다. 어떤 조립 루트도 `OperationalHypothesisLineageProjector`를 구성하지 않으므로 운영은 이 객체들을 하나도 생성하지 않습니다. |
 | Lane D 그래프 모델 승격 | implemented | `services/core-control-plane/src/fdai/delivery/graph_model_promotion.py`; `core/assurance_twin/model_promotion.py`; `tests/delivery/test_graph_model_promotion.py` | 정확한 아티팩트와 롤백 신원이 기존 승인 및 작업 경로에 도달하며, 근거는 스스로 승격할 수 없습니다. |
-| 관찰자 귀속 및 시간 초과 분류 | implemented | `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_identity.py`; `reconciliation_contracts.py`(`ReconciliationOutcome.observer_identity`); `reconciliation.py`(`_timeout_reason_code`); `services/core-control-plane/tests/core/ontology_platform/test_reconciliation_identity.py` | 모든 결과가 주체 값을 담지 않는 관찰자·실행자·소스·검증자 기록과 파생된 독립성 판정을 바인딩하고, 시간이 초과된 각 에피소드는 복구 라우팅을 유지한 채 결정론적 분류를 담습니다. |
+| 관찰자 귀속 및 시간 초과 분류 | implemented | `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_identity.py`; `reconciliation_contracts.py`(`ReconciliationOutcome.observer_identity_record`); `reconciliation.py`(`_timeout_reason_code`); `services/core-control-plane/tests/core/ontology_platform/test_reconciliation_identity.py` | 모든 결과가 주체 값을 담지 않는 관찰자·실행자·소스·검증자 기록과 파생된 독립성 판정을 바인딩하고, 시간이 초과된 각 에피소드는 복구 라우팅을 유지한 채 결정론적 분류를 담습니다. |
 | 보호된 live 근거 | in-progress | [하드닝 상태](#설계-요약); 현재 변경의 소스 감사 | 코드 하드닝은 완료됐지만 보호된 live 훈련과 재발 구간은 release 근거로 남아 있습니다. |
 
 ### 구현 이력
