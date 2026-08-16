@@ -88,11 +88,14 @@ def test_container_opa_build_overrides_vulnerable_go_modules() -> None:
     assert "ARG OPA_VERSION=v1.18.2" in dockerfile
     assert "ARG OPA_GRPC_VERSION=v1.82.1" in dockerfile
     assert "ARG OPA_X_TEXT_VERSION=v0.39.0" in dockerfile
+    assert "ARG OPA_ORAS_VERSION=v2.6.2" in dockerfile
     assert 'go mod edit -require="google.golang.org/grpc@${OPA_GRPC_VERSION}"' in dockerfile
     assert 'go mod edit -require="golang.org/x/text@${OPA_X_TEXT_VERSION}"' in dockerfile
+    assert 'go mod edit -require="oras.land/oras-go/v2@${OPA_ORAS_VERSION}"' in dockerfile
     assert "go build -mod=mod -o /go/bin/opa ." in dockerfile
     assert "awk '$2 == \"google.golang.org/grpc\" {print $3}'" in dockerfile
     assert "awk '$2 == \"golang.org/x/text\" {print $3}'" in dockerfile
+    assert "awk '$2 == \"oras.land/oras-go/v2\" {print $3}'" in dockerfile
 
 
 def test_console_test_types_run_in_the_enforced_operator_gate() -> None:

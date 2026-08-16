@@ -7,15 +7,18 @@ FROM ${BASE_IMAGE_REGISTRY}/library/golang@sha256:640a234f4bea3e399c056b7b8f9c66
 ARG OPA_VERSION=v1.18.2
 ARG OPA_GRPC_VERSION=v1.82.1
 ARG OPA_X_TEXT_VERSION=v0.39.0
+ARG OPA_ORAS_VERSION=v2.6.2
 RUN /usr/local/go/bin/go mod download "github.com/open-policy-agent/opa@${OPA_VERSION}" \
     && opa_dir="$(/usr/local/go/bin/go env GOPATH)/pkg/mod/github.com/open-policy-agent/opa@${OPA_VERSION}" \
     && chmod -R u+w "${opa_dir}" \
     && cd "${opa_dir}" \
     && /usr/local/go/bin/go mod edit -require="google.golang.org/grpc@${OPA_GRPC_VERSION}" \
     && /usr/local/go/bin/go mod edit -require="golang.org/x/text@${OPA_X_TEXT_VERSION}" \
+    && /usr/local/go/bin/go mod edit -require="oras.land/oras-go/v2@${OPA_ORAS_VERSION}" \
     && CGO_ENABLED=0 /usr/local/go/bin/go build -mod=mod -o /go/bin/opa . \
     && test "$(/usr/local/go/bin/go version -m /go/bin/opa | awk '$2 == "google.golang.org/grpc" {print $3}')" = "${OPA_GRPC_VERSION}" \
     && test "$(/usr/local/go/bin/go version -m /go/bin/opa | awk '$2 == "golang.org/x/text" {print $3}')" = "${OPA_X_TEXT_VERSION}" \
+    && test "$(/usr/local/go/bin/go version -m /go/bin/opa | awk '$2 == "oras.land/oras-go/v2" {print $3}')" = "${OPA_ORAS_VERSION}" \
     && /go/bin/opa version
 
 FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:9fdbf2e3e82628351513560b121e2ee6ce31cac212be9e070c5a5e2769fb5e76 AS builder
