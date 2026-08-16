@@ -36,6 +36,19 @@ _MAX_FIELD_CHARS = 512
 #: partition-key concern, one level down). Shallow by design - the common
 #: bloat vectors are too many keys and oversized string values.
 _MAX_ATTR_KEYS = 64
+_TRACE_CONTINUITY_EVENT = "trace-continuity.discontinuity"
+_TRACE_CONTINUITY_FIELDS = (
+    "detector_id",
+    "reason_code",
+    "topology_ref",
+    "expected_hops",
+    "observed_hops",
+    "missing_hops",
+    "trace_ids",
+    "disconnected_boundaries",
+    "evidence_refs",
+    "window_bucket",
+)
 
 DiscoveryProjector = Callable[[Mapping[str, Any]], Awaitable[object]]
 """Injected durable inventory projector; cloud and database I/O stay outside Huginn."""
@@ -278,6 +291,14 @@ class Huginn(Agent):
                 value = detection_readiness.get(field)
                 if value is not None:
                     payload["attributes"][field] = _bound(value)
+        if event_type == _TRACE_CONTINUITY_EVENT and canonical_payload.get("kind") == (
+            "trace_continuity"
+        ):
+            payload["attributes"]["trace_continuity"] = {
+                field: _bound_json(canonical_payload[field], depth=1)
+                for field in _TRACE_CONTINUITY_FIELDS
+                if field in canonical_payload
+            }
         # Operator-proposal fields (`initiator_principal`, `action_type`,
         # `params`) are honored ONLY for an explicit operator request
         # (``event_type == "operator_request"``). This is the trust gate: a

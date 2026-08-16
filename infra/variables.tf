@@ -511,6 +511,12 @@ variable "analyzer_targets_json" {
   default     = ""
 }
 
+variable "trace_topologies_json" {
+  description = "Optional JSON array of {topology_ref, resource_ref, expected_hops} declarations evaluated by the analyzer Job. Empty disables distributed-trace continuity checks."
+  type        = string
+  default     = ""
+}
+
 variable "analyzer_window_seconds" {
   description = "Optional window (seconds) each analyzer looks back on this tick. Empty -> CLI default (300 s)."
   type        = string

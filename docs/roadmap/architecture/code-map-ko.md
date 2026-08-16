@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 26f0a81213507b6ad1b190a0908e547f85fe2809
+translation_source_sha: 2f04c9466a8dab98f7296219dd8a8273e1ecfacd
 translation_revised: 2026-08-17
 ---
 # 코드 맵
@@ -37,6 +37,7 @@ translation_revised: 2026-08-17
 | Receipt 기반 운영 컨텍스트 표현 | 구현됨 | `core/operational_context/console_projection.py`, `tests/core/operational_context/test_console_projection.py`, focused 테스트 5개 통과 | 목적, 릴리스, 기준 시각, 실행 권한 및 그래프 범위가 일치해야 범위가 제한된 메타데이터를 변환합니다. Raw 속성은 제외하며 principal 범위 전송은 연결하지 않은 상태로 유지합니다. |
 | 운영 범위 `unknown_service` 커버리지 | 구현됨 | `core/operational_context/operating_scope.py`, `tests/core/operational_context/test_operating_scope.py`, focused 테스트 6개 통과 | 관측된 모든 Resource가 계속 보이고, 대응되지 않거나 충돌하는 리소스는 synthetic 서비스 대신 예약된 표시자를 유지하며, 변환 결과는 읽기 전용입니다. 아직 런타임 소비자에 연결하지 않았습니다. |
 | 인벤토리 기반 analyzer 대상 해석 | 구현됨 | `core/investigation/analyzers.py`, `delivery/analyzer_targets.py`, `test_analyzer_targets.py`, `test_analyzer_tick_routed.py`, focused analyzer 테스트 | 검토된 매핑은 지원되는 카탈로그 리소스 타입 5개만 참조 analyzer에 연결합니다. 명시적 대상과 인벤토리 기반 대상을 하나의 구성된 상한 안에서 결정론적으로 병합하며, 지원하지 않는 타입은 추측하지 않고 제외합니다. 영속 projection을 읽을 수 없으면 coverage를 조용히 좁히지 않고 tick을 실패시킵니다. |
+| 분산 추적 연속성 감지 | 구현됨 | `core/detection/trace_continuity.py`, `delivery/azure/trace_continuity.py`, `delivery/trace_continuity_tick.py`, `test_trace_continuity.py`, `test_trace_continuity_chain.py`, 집중 추적 검사 | Core는 순수 기대 hop 비교를 소유하고 Azure delivery는 엄격하고 범위가 제한된 Application Insights 정규화를 소유하며 기존 analyzer Job은 shadow 발견 사항을 게시합니다. Huginn과 Heimdall은 허용 목록의 근거를 보존하고 agent 역할이나 작업 권한을 바꾸지 않은 채 반복 발견 인시던트를 엽니다. |
 | 런타임 바인딩 기반 플래너 가시성 | 구현됨 | `composition/wire_semantic_query.py`, `core/conversation/semantic_manifest.py`, `core/ontology_platform/query_manifest.py`, focused 조립 및 매니페스트 테스트 | 플래너 서술자는 조립된 런타임에 등록된 함수만 노출합니다. 읽을 수 있지만 바인딩되지 않은 선언은 타입이 지정된 구조 coverage에 남으며 어떤 권한도 얻지 않습니다. |
 | Exact-release principal 매니페스트 조회 | 구현됨 | `core/ontology_platform/manifest_queries.py`, `core/ontology_platform/query_source_handlers.py`, `composition/wire_semantic_query.py`, focused 매니페스트, 핸들러, 조립 및 prompt 테스트(`42 passed`) | `query.manifest`는 기존 함수 증적과 일반 `QueryTable` 경로를 통해 role 및 purpose로 필터링된 범위 제한 선언 행을 반환합니다. 바인딩되지 않은 선언은 완전성을 낮추며 모든 행은 `execution_authority=false`를 고정합니다. |
 | Exact-release 스키마 관계 조회 | 구현됨 | `core/ontology_platform/relationship_queries.py`, `composition/wire_semantic_query.py`, `fdai_core_service/semantic_relationship_projection.py`, 집중 조립 및 processor 테스트(`42 passed`) | `query.ontology_relationships`는 ObjectType과 LinkType 선언을 읽고 direction, cardinality, description을 보존하며 판단, 승인, 변경 또는 실행 권한을 포함하지 않습니다. 인증된 Browser 근거는 열린 작업입니다. |
@@ -105,6 +106,7 @@ translation_revised: 2026-08-17
 | 2026-08-16 | 구현됨 | 대응되지 않은 Resource를 `unknown_service`로 계속 표시하는 결정론적 읽기 전용 운영 범위 커버리지 변환 결과를 추가했습니다. | `current change`, `core/operational_context/operating_scope.py`, `tests/core/operational_context/test_operating_scope.py`, focused 운영 컨텍스트, 카탈로그 및 대화 검사 1461개와 작업 범위 Ruff 및 strict mypy 통과 | 변환 결과를 읽기 전용 소비자 하나에 연결하고 해당 소비자의 집중 검사 결과를 기록합니다. |
 | 2026-08-16 | 구현됨 | 검토된 리소스 타입 매핑을 통해 영속 인벤토리 projection에서 analyzer 대상을 해석하고, 하나의 결정론적 상한 안에서 명시적 배포 대상과 병합했습니다. 지원하지 않는 타입은 선택하지 않고 중복 ID는 합치며 projection 읽기 실패는 coverage 손실을 숨기지 않고 tick을 중지합니다. | `current change`, `analyzers.py`, `analyzer_targets.py`, `test_analyzer_targets.py`, `test_analyzer_tick_routed.py`, focused analyzer 검사 통과 | 대상 해석 구현에 남은 작업은 없습니다. 통제된 배포 근거는 배포 소유 문서에서 계속 추적합니다. |
 | 2026-08-17 | 구현됨 | 운영 준비성 조치 브리지와 운영자 SRE 명령 경로를 Core 지도에 기록했습니다. 두 기능 모두 소유 설계 문서 없이 라우팅된 표면 아래에 새 모듈로 추가되어, 해당 batch의 focused 검사는 모두 통과했는데도 `design-doc-impact` gate가 중앙에서 브랜치를 거부했습니다. | `current change`, `core/readiness/remediation.py`, `core/incident/sre_request.py`, `shared/providers/operator_request.py`, `composition/readiness.py`, 해당 focused 테스트 43건 통과 | 이 기록에 남은 작업은 없습니다. 이제 campaign이 자기 batch에 대해 `design-doc-impact`를 직접 실행하므로 누락이 발생한 지점에서 드러납니다. |
+| 2026-08-17 | 구현됨 | 추적 토폴로지를 인벤토리 Resource로 표현하거나 런타임 서비스를 추가하지 않고 분산 추적 연속성 감지의 물리 소유권 지도를 추가했습니다. | `current change`; 감지기, Azure 소스, 공유 틱 실행기, agent 근거 인계 및 집중 추적 검사가 55개 사례 범위에서 통과했습니다. | 런타임 검증을 주장하기 전에 통제된 실시간 감지, 인시던트, 승인, 복구 근거를 보존합니다. |
 
 ### 남은 작업
 

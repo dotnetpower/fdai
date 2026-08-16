@@ -1836,6 +1836,7 @@ module "compute" {
   # docs/roadmap/rules-and-detection/observability-and-detection.md.
   analyzer_tick_cron_expression = var.analyzer_tick_cron_expression
   analyzer_targets_json         = var.analyzer_targets_json
+  trace_topologies_json         = var.trace_topologies_json
   analyzer_window_seconds       = var.analyzer_window_seconds
   analyzer_budget_seconds       = var.analyzer_budget_seconds
   forecast_tick_cron_expression = var.forecast_tick_cron_expression
