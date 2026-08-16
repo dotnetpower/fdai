@@ -456,6 +456,66 @@ def test_anchored_incident_read_is_built_from_the_binding_without_a_plan_proposa
     assert outcome.execution_authority is False
 
 
+def test_bound_read_ignores_every_identity_the_frame_and_proposal_carry() -> None:
+    """Only the binding may name the incident, however many the turn puts in reach."""
+    manifest = _anchored_fixture()
+    model = _Model(
+        frame=_frame(
+            output_shape="incident_evidence",
+            subject_constraints=[
+                "00000000-0000-0000-0000-000000000703",
+                "frame-supplied-incident",
+            ],
+        ),
+        plan=_incident_evidence_plan(
+            incident_id="00000000-0000-0000-0000-000000000704",
+            correlation_id="proposal-supplied-incident",
+        ),
+    )
+    service = SemanticPlanningService(
+        model=model,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = service.plan(
+        utterance="Report what the evidence for this incident establishes.",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        bound_incident=BoundIncident(
+            incident_id="00000000-0000-0000-0000-000000000702",
+            correlation_id="bound-incident",
+        ),
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert model.plan_calls == 0
+    assert _incident_arguments(outcome) == {
+        "incident_id": "00000000-0000-0000-0000-000000000702",
+        "correlation_id": "bound-incident",
+        "limit": INCIDENT_EVIDENCE_MAX_RECORDS,
+    }
+
+
+@pytest.mark.parametrize(
+    ("incident_id", "correlation_id"),
+    [
+        ("", "bound-incident"),
+        ("   ", "bound-incident"),
+        ("00000000-0000-0000-0000-000000000702", ""),
+        ("00000000-0000-0000-0000-000000000702", "   "),
+    ],
+)
+def test_bound_incident_refuses_an_identity_it_cannot_anchor(
+    incident_id: str, correlation_id: str
+) -> None:
+    """A blank identity would anchor the read to every incident at once."""
+    with pytest.raises(ValueError):
+        BoundIncident(incident_id=incident_id, correlation_id=correlation_id)
+
+
 def test_unanchored_incident_frame_still_asks_the_planner() -> None:
     manifest = _anchored_fixture()
     service, model = _anchored_service(
