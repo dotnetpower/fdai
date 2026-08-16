@@ -21,6 +21,7 @@ from fdai.core.incident import (
     OperatorSreRequest,
     OperatorSreRequestCoordinator,
     OperatorSreRequestError,
+    ProgressLinkTemplates,
     sre_correlation_id,
     sre_correlation_keys,
     sre_idempotency_key,
@@ -347,3 +348,56 @@ def test_correlation_identity_is_deterministic_and_order_independent() -> None:
     )
 
     assert sre_correlation_id(keys) == sre_correlation_id(tuple(reversed(keys)))
+
+
+async def test_progress_links_percent_encode_every_interpolated_reference() -> None:
+    workflow, _ = _workflow()
+    dispatcher = _RecordingDispatcher(
+        decision="hil",
+        approval_ref="approval 7&role=owner",
+        process_ref="process/9?x=1",
+    )
+    coordinator = OperatorSreRequestCoordinator(workflow=workflow, dispatcher=dispatcher)
+
+    result = await coordinator.submit(_request())
+
+    assert result.links.approval == "/hil-queue?search=approval%207%26role%3Downer"
+    assert result.links.process == "/views/process/process%2F9%3Fx%3D1"
+
+
+@pytest.mark.parametrize(
+    "templates",
+    [
+        {"incident": "/incidents?tenant={tenant}"},
+        {"trace": "   "},
+        {"process": "/views/process/{"},
+    ],
+)
+def test_unusable_link_template_is_rejected_before_any_write(
+    templates: dict[str, str],
+) -> None:
+    with pytest.raises(OperatorSreRequestError):
+        ProgressLinkTemplates(**templates)
+
+
+async def test_published_proposal_cannot_be_edited_after_dispatch() -> None:
+    workflow, _ = _workflow()
+    dispatcher = _RecordingDispatcher(decision="shadow")
+    coordinator = OperatorSreRequestCoordinator(workflow=workflow, dispatcher=dispatcher)
+
+    result = await coordinator.submit(_request())
+
+    with pytest.raises(TypeError):
+        result.proposal["action_type"] = "remediate.right-size-role"  # type: ignore[index]
+
+
+def test_blank_resource_type_is_rejected_instead_of_silently_dropped() -> None:
+    with pytest.raises(OperatorSreRequestError, match="resource_type"):
+        OperatorSreRequest(
+            principal=_Principal(id="operator-1", role="contributor"),
+            session_id="session-1",
+            action_type=ACTION_TYPE,
+            resource_id=RESOURCE_REF,
+            resource_type="  ",
+            investigation_kind="latency-regression",
+        )

@@ -1,7 +1,7 @@
 ---
 title: 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 translation_of: operational-readiness.md
-translation_source_sha: 6060335ca730da064407b743caf7aee47d4f052e
+translation_source_sha: 56ea8334d15529d498f113779dc7e6e72ae9004f
 translation_revised: 2026-08-16
 ---
 # 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
@@ -167,7 +167,7 @@ auto-execute 되지 않습니다. ORR 은 제안하고, 사람이 승인하며, 
 |-----------|------|
 | 근거가 있을 때만 | 발견 사항이 인용한 컨트롤 또는 규칙이 호출자가 제공한 lever 맵에서 교정 ActionType 으로 연결될 때만 제안이 생성됩니다. 연결되지 않은 발견 사항은 제안을 만들지 않으며, ORR 은 lever 를 지어내는 대신 abstain 합니다. |
 | shadow 전용 | ORR 게이트 자체가 `enforce` 로 실행되더라도 모든 제안은 `shadow` 를 싣습니다. 리뷰는 ActionType 을 자신의 승격 상태 위로 올릴 수 없습니다. |
-| 구별된 승인자 | 핸드오프 submitter 는 자신의 교정을 승인할 수 없습니다. self-approval 시도는 제안이 만들어지기 전에 거부되고 감사됩니다. |
+| 구별된 승인자 | 핸드오프 submitter 는 자신의 교정을 승인할 수 없습니다. 주체는 Unicode NFKC 정규화 후 비교하므로 submitter 의 인코딩 변형도 여전히 self-approval 시도입니다. 그러한 시도는 제안이 만들어지기 전에 거부되고 감사됩니다. |
 | 실행기 아이덴티티 없음 | 제안은 submitter 와 승인자를 책임 사실로만 기록합니다. 자격 증명, 토큰, 실행기 principal 을 싣지 않습니다. |
 | 결정론적 identity | 동일한 범위, 환경, 인용 근거, 리소스, ActionType 은 항상 동일한 멱등성 키를 파생하므로 재전달된 제안은 하위에서 no-op 입니다. |
 
@@ -233,6 +233,7 @@ ORR 은 새로운 특권 표면을 도입하지 않고 최소한의 새 코드�
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 구현 원장을 도입했으며 이전 근거 이력은 재구성하지 않았습니다. 구현된 결정론적 기능 및 오케스트레이션 표면과 연결되지 않은 런타임 작업 흐름을 분리해 기록했습니다. | 현재 변경, 위에 인용한 core 및 composition 테스트 파일 5개의 `48 passed` 결과 | 이벤트, 프로바이더, 발행기, 승인 및 교정 경로를 연결한 뒤 거버넌스가 적용된 런타임 근거를 수집합니다. |
 | 2026-08-16 | in-progress | 결정론적 교정 제안 빌더, `RemediationProposalPublisher` 연결부, 그리고 승인자 신원을 기록하고 self-approval 을 차단하며 제안을 shadow 로 유지하고 전달을 2단계로 감사하는 `propose_remediations` 브리지를 추가했습니다. | 현재 변경, `uv run pytest -q --no-cov services/core-control-plane/tests/core/readiness/ services/core-control-plane/tests/composition/test_readiness_remediation_service.py services/core-control-plane/tests/composition/test_readiness_service.py services/core-control-plane/tests/composition/test_readiness_checklist_service.py` 의 `86 passed` 결과 | 제안 발행기를 risk gate 진입점에 연결하고, event ingest 에 `ownership_transfer` 를 등록하며, 거버넌스가 적용된 런타임 증적을 수집합니다. |
+| 2026-08-16 | in-progress | 교정 식별자와 구별된 승인자 검사를 강화했습니다. 멱등성 키 재료에 길이 접두사를 붙여 필드 안의 구분자가 서로 다른 발견 사항 두 개를 충돌시킬 수 없게 했고, 주체는 Unicode NFKC 정규화 후 비교합니다. | 현재 변경, `uv run pytest -q --no-cov services/core-control-plane/tests/core/readiness/ services/core-control-plane/tests/composition/test_readiness_remediation_service.py services/core-control-plane/tests/composition/test_readiness_service.py services/core-control-plane/tests/composition/test_readiness_checklist_service.py` 의 `88 passed` 결과 | 위 행과 동일합니다. |
 
 ### 남은 작업
 

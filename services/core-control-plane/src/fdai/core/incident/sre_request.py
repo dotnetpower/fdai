@@ -29,7 +29,9 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
+from types import MappingProxyType
 from typing import Any
+from urllib.parse import quote
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from fdai.shared.contracts.models import Incident, IncidentSeverity
@@ -74,6 +76,8 @@ class OperatorSreRequest:
         _require(self.action_type, "action_type")
         _require(self.resource_id, "resource_id")
         _require(self.investigation_kind, "investigation_kind")
+        if self.resource_type is not None:
+            _require(self.resource_type, "resource_type")
         if not str(getattr(self.principal, "id", "")).strip():
             raise OperatorSreRequestError("operator SRE request principal id MUST be non-empty")
 
@@ -90,6 +94,28 @@ class ProgressLinkTemplates:
     trace: str = "/audit/{correlation_id}/trace"
     process: str = "/views/process/{process_id}"
     approval: str = "/hil-queue?search={approval_id}"
+
+    def __post_init__(self) -> None:
+        """Reject an unusable template before any Incident write happens.
+
+        A fork template with an unknown placeholder would otherwise raise only
+        after the Incident was committed, leaving an operator with an open
+        Incident and no progress links.
+        """
+        for name, template, probe in (
+            ("incident", self.incident, {"correlation_id": "probe"}),
+            ("trace", self.trace, {"correlation_id": "probe"}),
+            ("process", self.process, {"process_id": "probe"}),
+            ("approval", self.approval, {"approval_id": "probe"}),
+        ):
+            if not template.strip():
+                raise OperatorSreRequestError(f"progress link template {name} MUST be non-empty")
+            try:
+                template.format(**probe)
+            except (KeyError, IndexError, ValueError) as exc:
+                raise OperatorSreRequestError(
+                    f"progress link template {name} MUST use only its declared placeholder"
+                ) from exc
 
 
 @dataclass(frozen=True, slots=True)
@@ -222,7 +248,7 @@ class OperatorSreRequestCoordinator:
         incident_id: UUID,
         correlation_id: str,
         idempotency_key: str,
-    ) -> dict[str, Any]:
+    ) -> Mapping[str, Any]:
         proposal: dict[str, Any] = {
             "event_type": "operator_request",
             "operator_initiated": True,
@@ -234,9 +260,11 @@ class OperatorSreRequestCoordinator:
             "incident_id": str(incident_id),
             "params": dict(request.params),
         }
-        if request.resource_type is not None and request.resource_type.strip():
-            proposal["resource_type"] = request.resource_type.strip()
-        return proposal
+        if request.resource_type is not None:
+            proposal["resource_type"] = _require(request.resource_type, "resource_type")
+        # Freeze the published proposal: a caller must not be able to edit the
+        # action after its idempotency key and correlation were derived.
+        return MappingProxyType(proposal)
 
     def _build_links(
         self,
@@ -249,16 +277,19 @@ class OperatorSreRequestCoordinator:
         # An approval link is meaningful only when the gate actually parked.
         if dispatch is not None and dispatch.decision.strip().lower() != _HIL_DECISION:
             approval_ref = None
+        # Percent-encode every interpolated reference: an identifier must not be
+        # able to inject a path segment, a query parameter, or a fragment.
+        correlation = quote(correlation_id, safe="")
         return ProgressLinks(
-            incident=self._templates.incident.format(correlation_id=correlation_id),
-            trace=self._templates.trace.format(correlation_id=correlation_id),
+            incident=self._templates.incident.format(correlation_id=correlation),
+            trace=self._templates.trace.format(correlation_id=correlation),
             process=(
-                self._templates.process.format(process_id=process_ref)
+                self._templates.process.format(process_id=quote(process_ref.strip(), safe=""))
                 if process_ref is not None and process_ref.strip()
                 else None
             ),
             approval=(
-                self._templates.approval.format(approval_id=approval_ref)
+                self._templates.approval.format(approval_id=quote(approval_ref.strip(), safe=""))
                 if approval_ref is not None and approval_ref.strip()
                 else None
             ),

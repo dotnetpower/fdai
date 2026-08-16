@@ -163,7 +163,7 @@ The proposal builder is deterministic and holds these invariants:
 |-----------|----------|
 | Grounded only | A proposal exists only when the finding's own cited control or rule maps to a remediation ActionType in the caller-supplied lever map. An unmapped finding produces no proposal; the ORR abstains rather than inventing a lever. |
 | Shadow only | Every proposal carries `shadow`, even when the ORR gate itself runs in `enforce`. The review cannot raise an ActionType above its own promotion state. |
-| Distinct approver | The handoff submitter cannot approve their own remediation. A self-approval attempt is denied and audited before any proposal is built. |
+| Distinct approver | The handoff submitter cannot approve their own remediation. Principals are compared after Unicode NFKC folding, so an encoding variant of the submitter is still a self-approval attempt. Any such attempt is denied and audited before any proposal is built. |
 | No executor identity | A proposal records the submitter and approver as accountability facts only. It carries no credential, token, or executor principal. |
 | Deterministic identity | The same scope, environment, cited evidence, resource, and ActionType always derive the same idempotency key, so a redelivered proposal is a downstream no-op. |
 
@@ -230,6 +230,7 @@ yet compose those pieces into the running control plane, so the current evidence
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted the implementation ledger; earlier provenance wasn't reconstructed. Recorded the implemented deterministic and orchestration surfaces separately from the unbound runtime workflow. | Current change; `48 passed` from the five focused core and composition test files cited above. | Bind the event, providers, publisher, approval, and remediation path, then collect governed runtime evidence. |
 | 2026-08-16 | in-progress | Added the deterministic remediation-proposal builder, the `RemediationProposalPublisher` seam, and the `propose_remediations` bridge that records approver identity, blocks self-approval, keeps proposals shadow, and two-phase audits delivery. | Current change; `86 passed` from `uv run pytest -q --no-cov services/core-control-plane/tests/core/readiness/ services/core-control-plane/tests/composition/test_readiness_remediation_service.py services/core-control-plane/tests/composition/test_readiness_service.py services/core-control-plane/tests/composition/test_readiness_checklist_service.py`. | Bind the proposal publisher to the risk-gate ingress, register `ownership_transfer` at event ingest, and collect a governed runtime receipt. |
+| 2026-08-16 | in-progress | Hardened the remediation identity and the distinct-approver check: idempotency-key material is length-prefixed so a separator inside a field cannot collide two findings, and principals are compared after Unicode NFKC folding. | Current change; `88 passed` from `uv run pytest -q --no-cov services/core-control-plane/tests/core/readiness/ services/core-control-plane/tests/composition/test_readiness_remediation_service.py services/core-control-plane/tests/composition/test_readiness_service.py services/core-control-plane/tests/composition/test_readiness_checklist_service.py`. | Unchanged from the row above. |
 
 ### Remaining work
 

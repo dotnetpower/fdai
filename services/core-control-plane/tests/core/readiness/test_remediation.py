@@ -199,3 +199,32 @@ def test_blank_approver_is_rejected(approver: str) -> None:
 def test_blank_decision_timestamp_is_rejected() -> None:
     with pytest.raises(ValueError, match="decided_at MUST be non-empty"):
         HandoffApproval(approver="approver@example.com", decided_at=" ")
+
+
+def test_separator_inside_a_field_cannot_collide_two_identities() -> None:
+    shifted = remediation_idempotency_key(
+        scope="platform|prod",
+        target_environment="staging",
+        evidence="rule:orr.identity",
+        resource_ref="resource:a",
+        action_type="remediate.right-size-role",
+    )
+    other = remediation_idempotency_key(
+        scope="platform",
+        target_environment="prod|staging",
+        evidence="rule:orr.identity",
+        resource_ref="resource:a",
+        action_type="remediate.right-size-role",
+    )
+    assert shifted != other
+
+
+def test_encoding_variant_of_the_submitter_cannot_self_approve() -> None:
+    report = _report(_finding(), submitter="ｓubmitter@example.com")
+
+    with pytest.raises(SelfApprovalError):
+        build_remediation_proposals(
+            report=report,
+            approval=_approval(approver="Submitter@example.com"),
+            remediation_levers=_LEVERS,
+        )
