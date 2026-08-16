@@ -2028,6 +2028,8 @@ async def test_semantic_lifecycle_closes_kafka_when_bridge_close_fails(
 def _incident_projection(
     evidence: list[dict[str, object]],
     profile: dict[str, object],
+    *,
+    verified_records: int | None = None,
 ) -> dict[str, Any]:
     envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
         _proposal()
@@ -2041,6 +2043,9 @@ def _incident_projection(
                 {
                     "incident_profile": profile,
                     "correlated_evidence": evidence,
+                    "verified_records": (
+                        len(evidence) if verified_records is None else verified_records
+                    ),
                     "evidence_gaps": [],
                     "causal_assessment": {"status": "not_available"},
                 }
@@ -2115,6 +2120,24 @@ def test_incident_timeline_declares_its_bound_instead_of_hiding_records() -> Non
     assert len(rows) == 10
     assert rows[0]["audit_ref"] == "audit:4"
     assert rows[-1]["audit_ref"] == "audit:13"
+
+
+def test_incident_timeline_counts_every_verified_record_not_the_carried_slice() -> None:
+    """The carried evidence is capped upstream, so it cannot state the whole."""
+    projection = _incident_projection(
+        [_audit_record(index) for index in range(20)],
+        {},
+        verified_records=34,
+    )
+
+    done = semantic_turn_runtime_module._done_event_data(projection, locale="en")
+
+    artifact = cast(dict[str, object], done["presentation_artifact"])
+    blocks = cast(list[dict[str, object]], artifact["blocks"])
+    overview = cast(dict[str, object], blocks[0]["data"])
+    records_block = next(block for block in blocks if block["slot_id"] == "records")
+    assert cast(list[dict[str, str]], overview["items"])[0]["value"] == "34"
+    assert records_block["title"] == "Recorded activity (latest 10 of 34)"
 
 
 def test_incident_presentation_omits_the_timeline_without_recorded_anchors() -> None:
