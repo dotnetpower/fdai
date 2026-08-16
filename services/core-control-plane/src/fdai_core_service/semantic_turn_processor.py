@@ -23,6 +23,10 @@ from fdai.core.ontology_platform import (
     TopologyDiff,
     TopologyGraphAt,
 )
+from fdai.core.ontology_platform.incident_queries import (
+    INCIDENT_EVIDENCE_FUNCTION_NAME,
+    INCIDENT_EVIDENCE_MAX_RECORDS,
+)
 from fdai.core.ontology_platform.query_values import QueryTable
 from fdai_service_contracts import (
     MAX_SEMANTIC_EVIDENCE_REFS,
@@ -585,9 +589,17 @@ def _bound_incident(request: SemanticTurnRequest) -> BoundIncident | None:
     ):
         return None
     return BoundIncident(
-        incident_id=binding.incident_id,
+        incident_id=_canonical_incident_id(binding.incident_id),
         correlation_id=binding.correlation_id,
     )
+
+
+def _canonical_incident_id(value: str) -> str:
+    """The evidence function echoes a canonical UUID, so compare against the same form."""
+    try:
+        return str(UUID(value))
+    except ValueError:
+        return value
 
 
 def _project_runtime_result(
@@ -709,7 +721,7 @@ def _unsatisfied_incident_binding(
     ):
         return None
     if (
-        incident_evidence.get("incident_id") != binding.incident_id
+        incident_evidence.get("incident_id") != _canonical_incident_id(binding.incident_id)
         or incident_evidence.get("correlation_id") != binding.correlation_id
     ):
         return "incident_evidence_mismatched_binding"
@@ -837,8 +849,9 @@ def _project_incident_evidence(
             arguments = node.arguments
         except Exception:  # noqa: BLE001, S112 - malformed plan output fails closed
             continue
-        if isinstance(arguments, dict) and arguments.get("function_name") == (
-            "query.incident_evidence"
+        if (
+            isinstance(arguments, dict)
+            and arguments.get("function_name") == INCIDENT_EVIDENCE_FUNCTION_NAME
         ):
             incident_nodes.append((node, arguments))
     if not incident_nodes:
@@ -876,8 +889,8 @@ def _project_incident_evidence(
         or not correlation_id
         or not isinstance(limit, int)
         or isinstance(limit, bool)
-        or not 1 <= limit <= 500
-        or value.get("incident_id") != incident_id
+        or not 1 <= limit <= INCIDENT_EVIDENCE_MAX_RECORDS
+        or value.get("incident_id") != _canonical_incident_id(incident_id)
         or value.get("correlation_id") != correlation_id
         or value.get("authority") != "audit_projection"
         or value.get("cause_claim_supported") is not False
@@ -907,7 +920,10 @@ def _project_incident_evidence(
     # only an anchor naming a different incident contradicts the request.
     profile_incident_id = profile.get("incident_id") if profile is not None else None
     if profile is not None and (
-        (profile_incident_id is not None and profile_incident_id != incident_id)
+        (
+            profile_incident_id is not None
+            and profile_incident_id != _canonical_incident_id(incident_id)
+        )
         or profile.get("correlation_id") != correlation_id
     ):
         return _reject_incident_evidence("profile_identity_mismatch")
@@ -1157,6 +1173,7 @@ def _incident_answer_output(
         "node_id": node_id,
         "incident_profile": incident_evidence["incident_profile"],
         "correlated_evidence": displayed,
+        "verified_records": len(raw_evidence),
         "evidence_gaps": incident_evidence["evidence_gaps"],
         "source_truncated": incident_evidence["truncated"],
         "display_truncated": len(displayed) < len(raw_evidence),
@@ -1203,7 +1220,11 @@ def _render_incident_answer(
     evidence = output.get("correlated_evidence")
     profile = output.get("incident_profile")
     gaps = output.get("evidence_gaps")
-    evidence_count = len(evidence) if isinstance(evidence, list) else 0
+    shown = len(evidence) if isinstance(evidence, list) else 0
+    verified = output.get("verified_records")
+    evidence_count = (
+        verified if isinstance(verified, int) and not isinstance(verified, bool) else shown
+    )
     status = profile.get("status") if isinstance(profile, Mapping) else None
     status_text = status if isinstance(status, str) and status else None
     gap_values = (
@@ -1219,6 +1240,8 @@ def _render_incident_answer(
             if evidence_count
             else "- 이 상관관계로 조회한 감사 기록이 없습니다.\n"
         )
+        if shown < evidence_count:
+            found += f"- 아래에는 가장 최근 {shown}건만 담겨 있습니다.\n"
         found += (
             f"- 인시던트 상태: `{status_text}`\n"
             if status_text is not None
@@ -1244,6 +1267,8 @@ def _render_incident_answer(
         if evidence_count
         else "- No audit record was found for this correlation.\n"
     )
+    if shown < evidence_count:
+        found += f"- Only the most recent {shown} are carried below.\n"
     found += (
         f"- Incident status: `{status_text}`\n"
         if status_text is not None

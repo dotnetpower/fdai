@@ -25,12 +25,15 @@ from fdai_service_contracts.ontology_query import (
     canonical_json,
     content_digest,
 )
-from fdai_service_contracts.semantic_turn import MAX_SEMANTIC_EVIDENCE_REFS
 from pydantic import ValidationError
 
 from fdai.core.ontology_platform import (
     OntologyQueryPlanVerifier,
     QueryManifest,
+)
+from fdai.core.ontology_platform.incident_queries import (
+    INCIDENT_EVIDENCE_FUNCTION_NAME,
+    INCIDENT_EVIDENCE_MAX_RECORDS,
 )
 
 from .intent_graph import build_intent_graph
@@ -57,7 +60,7 @@ _MAX_CONTEXT_CHARS = 12_000
 _MAX_DESCRIPTORS = 512
 _MAX_DESCRIPTOR_BYTES = 524_288
 _MAX_LOGGED_PLAN_NODES = 8
-_INCIDENT_EVIDENCE_FUNCTION = "query.incident_evidence"
+_INCIDENT_EVIDENCE_FUNCTION = INCIDENT_EVIDENCE_FUNCTION_NAME
 _INCIDENT_EVIDENCE_NODE_ID = "bound_incident_evidence"
 
 
@@ -192,11 +195,6 @@ class SemanticPlanningService:
                     raise ValueError("semantic execution cutoff MUST be timezone-aware")
                 plan = _refresh_object_set_cutoffs(plan, execution_time=execution_time)
                 self._verifier.verify(plan, manifest=manifest)
-            if bound_incident is not None:
-                rebound = _rebind_incident_identity(plan, bound_incident=bound_incident)
-                if rebound is not plan:
-                    plan = rebound
-                    self._verifier.verify(plan, manifest=manifest)
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
             _LOGGER.info(
                 "semantic_planning_stage_completed",
@@ -276,7 +274,7 @@ class SemanticPlanningService:
                         "arguments": {
                             "incident_id": bound_incident.incident_id,
                             "correlation_id": bound_incident.correlation_id,
-                            "limit": MAX_SEMANTIC_EVIDENCE_REFS,
+                            "limit": INCIDENT_EVIDENCE_MAX_RECORDS,
                         },
                         "dependency_arguments": {},
                     },
@@ -447,56 +445,6 @@ def _refresh_object_set_cutoffs(
         else node
         for node in plan.nodes
     )
-    payload = {
-        **plan.model_dump(mode="json", exclude={"nodes", "plan_digest"}),
-        "nodes": [node.model_dump(mode="json") for node in nodes],
-    }
-    return OntologyQueryPlan.model_validate({**payload, "plan_digest": content_digest(payload)})
-
-
-def _rebind_incident_identity(
-    plan: OntologyQueryPlan,
-    *,
-    bound_incident: BoundIncident,
-) -> OntologyQueryPlan:
-    """Replace the proposed incident read with the conversation's trusted binding.
-
-    The planner only has the identifiers as prose in its context, so asking it to
-    retype them makes the read intermittently land on another incident. The window
-    is server-owned for the same reason: a model-chosen size can drop the records
-    that identify the incident, and it is sized to what one turn can carry as
-    evidence. The model still chooses the capability, and the verifier re-checks
-    the rewritten plan.
-    """
-    bound_arguments = {
-        "incident_id": bound_incident.incident_id,
-        "correlation_id": bound_incident.correlation_id,
-        "limit": MAX_SEMANTIC_EVIDENCE_REFS,
-    }
-    rebound = False
-    nodes: list[OntologyQueryNode] = []
-    for node in plan.nodes:
-        arguments = node.arguments
-        query_arguments = arguments.get("arguments") if isinstance(arguments, Mapping) else None
-        if (
-            arguments.get("function_name") != _INCIDENT_EVIDENCE_FUNCTION
-            or not isinstance(query_arguments, Mapping)
-            or all(query_arguments.get(key) == value for key, value in bound_arguments.items())
-        ):
-            nodes.append(node)
-            continue
-        nodes.append(
-            node.model_copy(
-                update={
-                    "arguments_json": canonical_json(
-                        {**arguments, "arguments": {**query_arguments, **bound_arguments}}
-                    )
-                }
-            )
-        )
-        rebound = True
-    if not rebound:
-        return plan
     payload = {
         **plan.model_dump(mode="json", exclude={"nodes", "plan_digest"}),
         "nodes": [node.model_dump(mode="json") for node in nodes],
