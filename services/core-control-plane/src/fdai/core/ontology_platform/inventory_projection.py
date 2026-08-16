@@ -117,8 +117,9 @@ def build_inventory_ontology_projection(
     Raises:
         ValueError: ``generation`` is blank or the observation exceeds its bounds.
         InventoryProjectionConflictError: one ``resource_id`` was observed with a
-            contradictory type, or a link endpoint type contradicts the observed
-            resources.
+            contradictory type, a contested ``resource_id`` reports no observation
+            time to carry its conflict on, or a link endpoint type contradicts the
+            observed resources.
     """
     if not generation.strip():
         raise ValueError("inventory projection generation MUST be non-empty")
@@ -253,6 +254,14 @@ def _resource_object(
     generation: str,
 ) -> OntologyObjectRecord:
     """Map one adjudicated resource onto the declared ``Resource`` property shape."""
+    if verdict.contested and verdict.observed_at is None:
+        # The conflict can only travel on the state fact, and the state fact needs an
+        # observation time. Projecting the object anyway would publish a contested
+        # resource that reads as clean, so no consumer would demote on it.
+        raise InventoryProjectionConflictError(
+            f"inventory resource {resource_id!r} is contested but reports no observation "
+            "time, so the conflict cannot be projected"
+        )
     properties: dict[str, Any] = {"id": resource_id, "type": verdict.type}
     provider_properties = dict(verdict.agreed_properties)
     _add_observed_state(

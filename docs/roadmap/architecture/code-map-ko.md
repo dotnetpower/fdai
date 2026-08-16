@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 030e0750879c47a7e0d896289367451cf5b94192
+translation_source_sha: 43996620968eb7d1ad1b0b0d6e3fdaa17161dc8f
 translation_revised: 2026-08-16
 ---
 # 코드 맵
@@ -88,6 +88,7 @@ translation_revised: 2026-08-16
 | 2026-08-15 | 구현됨 | 공유 이벤트 버스 `subscription` 컨텍스트 매니저를 추가하고 모든 Core 소비자를 그 경로로 옮겨서, 취소된 소비자가 인터프리터 종료 처리가 아니라 자기 task 안에서 broker 구독을 닫도록 했습니다. | `current change`, `shared/providers/event_bus.py`, 모든 Core 소비자 및 `tests/agents/test_subscription_lifecycle.py`, 집중 agent, delivery, runtime 및 provider 검사 3127건 통과, Ruff, format 및 strict mypy 통과 | 실제 로컬 종료에서 `event_bus_consumer_stop_timed_out`이 더는 나타나지 않는지 확인합니다. |
 | 2026-08-16 | 구현됨 | 구독 정리를 최선의 노력으로 바꿔서, broker 탈퇴가 실패해도 진행 중인 취소를 대체해 취소된 소비자를 비정상 종료로 보고하지 않도록 했습니다. | `current change`, `shared/providers/event_bus.py`, `delivery/azure/event_bus.py` 및 `tests/agents/test_subscription_lifecycle.py`, 집중 구독, event bus, multiplex, runtime 및 readiness 검사 119건 통과 | 실제 로컬 종료에서 어느 supervisor도 소비자 비정상 종료를 보고하지 않는지 확인합니다. |
 | 2026-08-16 | 구현됨 | shadow dwell 장부에서 한도가 있는 관측 상세 보존과 집계된 근거를 분리해서, 오래된 관측을 비우더라도 정책 위반 이탈을 잊거나 표본 수를 적게 보고하지 않도록 했습니다. 또한 실제로 짧은 관찰 구간이 미달한 임계값을 그대로 출력하지 않습니다. | `current change`, `core/operational_learning/shadow_dwell.py` 및 `tests/core/operational_learning/test_shadow_dwell.py`, 집중 shadow dwell, 발견 및 wave 거버넌스 검사 147건 통과 | dwell 게이트의 운영 검증을 주장하기 전에 통제된 실사용 발견 루프 증거를 확보합니다. |
+| 2026-08-16 | 구현됨 | 관측 시각을 전혀 보고하지 않는 경합 중인 인벤토리 리소스를 실패 시 차단하도록 했습니다. 충돌은 관측 시각이 필요한 상태 사실을 타고만 전달되는데, 그렇지 않으면 변환 결과가 이를 경합이 없는 것처럼 발행했기 때문입니다. | `current change`, `core/ontology_platform/inventory_projection.py` 및 `tests/core/ontology_platform/test_inventory_projection.py`, 집중 변환, 판정 및 관계 검증기 검사 46건 통과 | 운영 온톨로지가 이미 기록한 대로 독립적인 두 프로바이더와 telemetry 대비 변환 상태를 판정합니다. |
 | 2026-08-15 | 구현됨 | 스키마 인벤토리 질문을 위한 exact-release `query.manifest`를 추가하고 검증된 함수 table envelope를 기존 일반 조회 renderer로 변환했습니다. | `current change`, focused 매니페스트, 핸들러, 조립, 관계, 의미 조립 및 prompt 검사 42개와 작업 범위 Ruff 및 strict mypy 통과 | 준비 상태를 완화하지 않고 clean 이중 언어 14-cell 답변 coverage 산출물을 보존한 뒤 seed 기반 100-case 집단을 실행합니다. |
 | 2026-08-15 | 구현됨 | 직접 ObjectSet 의존성에 없는 집계 필드 경로를 조회 실행 전에 거부했습니다. | `current change`, focused 검증기 및 T1/T2 tier 라우팅 검사 16개와 작업 범위 Ruff 및 strict mypy 통과 | 보류된 한국어 집계 cell을 다시 실행한 뒤 clean 14-cell 및 seed 기반 100-case Browser 근거를 보존합니다. |
 | 2026-08-15 | 구현됨 | Exact 집계 필드 스키마를 Project, Order 및 집합 연산 의존성까지 전파하고 점 표기 projection 필드를 downstream 집계에서 보존했습니다. | `current change`, focused 검증기, 핸들러 및 tier 라우팅 검사 24개와 작업 범위 Ruff 및 strict mypy 통과 | Clean 14-cell 및 seed 기반 100-case Browser gate 전에 보류된 한국어 집계 cell을 다시 실행합니다. |
