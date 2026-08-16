@@ -446,6 +446,36 @@ async def test_rule_generation_outbox_exit_without_shutdown_is_warned(
     assert "rule_generation_outbox_exited_early" in caplog.messages
 
 
+@pytest.mark.parametrize(
+    ("shutdown_signalled", "warned"),
+    ((True, False), (False, True)),
+)
+async def test_pantheon_exit_warns_only_without_a_shutdown_signal(
+    caplog: pytest.LogCaptureFixture,
+    *,
+    shutdown_signalled: bool,
+    warned: bool,
+) -> None:
+    """The readiness supervisor returns cleanly on stop; that is not an early exit."""
+    from fdai.runtime.consumers import _log_pantheon_exit
+
+    stop = asyncio.Event()
+    if shutdown_signalled:
+        stop.set()
+
+    async def _exit() -> None:
+        return None
+
+    caplog.set_level("WARNING", logger="fdai.startup")
+    task = asyncio.create_task(_exit())
+    task.add_done_callback(partial(_log_pantheon_exit, stop=stop))
+
+    await task
+    await asyncio.sleep(0)
+
+    assert ("pantheon_runtime_exited_early" in caplog.messages) is warned
+
+
 async def test_semantic_turn_bootstrap_exposes_exact_missing_runtime_reason() -> None:
     binding = _build_semantic_turn_binding(
         state_store=InMemoryStateStore(),
