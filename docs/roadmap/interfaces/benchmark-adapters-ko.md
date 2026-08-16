@@ -1,7 +1,7 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 62995eee976d4fcf36d0c7ab197d9d3982ff2ed0
+translation_source_sha: d6a7ac1d523293381b30fb450a9c765af57b51ae
 translation_revised: 2026-08-14
 ---
 
@@ -437,7 +437,10 @@ abstract `azure-openai:<account>` 참조를 저장합니다. 런타임 조립은
 플러그인 이미지는 digest-pinned SREGym 에이전트 base 위에 FDAI 분포, 룰 및 정책 카탈로그,
 SREGym 플러그인을 포함합니다. 고정된 FDAI/SREGym workspace 패키지와 진단 원장을 설치하고,
 검토된 OPA binary를 포함하며 UID 65532로 실행합니다. 루트 Docker 빌드 맥락은 로컬 런타임
-상태, resolved 모델 파일, 로그, temporary 산출물 및 시크릿을 제외합니다.
+상태, resolved 모델 파일, 로그, temporary 산출물 및 시크릿을 제외합니다. 검토된 OPA binary는
+digest-pinned Go toolchain에서 소스로 컴파일하며, 그 toolchain의 표준 라이브러리 결함이
+advisory 피드에 보고되면 핀을 올립니다. 따라서 스캔된 이미지가 알려진 취약점을 가진
+toolchain을 실어 나르지 않습니다.
 
 ## CyberGym driver
 

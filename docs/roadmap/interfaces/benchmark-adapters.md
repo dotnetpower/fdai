@@ -436,7 +436,9 @@ The plugin image contains the FDAI distribution, rule and policy catalogs, and S
 of a digest-pinned SREGym agent base. It installs the frozen FDAI and SREGym workspace packages,
 copies the frozen diagnostic ledger, includes the reviewed OPA binary, and runs as UID 65532. The
 root Docker build context excludes local runtime state, resolved model files, logs, temporary
-artifacts, and secrets.
+artifacts, and secrets. The reviewed OPA binary is compiled from source on a digest-pinned Go
+toolchain, and that pin advances whenever the advisory feed flags a standard-library defect in it,
+so no scanned image ships a toolchain with a known vulnerability.
 
 ## CyberGym driver
 
