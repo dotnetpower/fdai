@@ -169,8 +169,10 @@ fi
 
 if command -v uv >/dev/null 2>&1; then
     run_gate_scoped "mypy (strict)" '(^|/).*\.py$|^pyproject\.toml$|^uv\.lock$' uv run mypy
+elif command -v mypy >/dev/null 2>&1; then
+    run_gate_scoped "mypy (strict)" '(^|/).*\.py$|^pyproject\.toml$|^uv\.lock$' mypy
 else
-    echo "verify.sh: 'uv' not found; install uv before verification" >&2
+    echo "verify.sh: neither 'uv' nor 'mypy' found on PATH; install uv before verification" >&2
     NAMES+=("mypy (strict)")
     RESULTS+=("FAIL")
     overall=1
