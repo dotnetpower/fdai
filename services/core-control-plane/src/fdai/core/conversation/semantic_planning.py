@@ -19,6 +19,7 @@ from fdai_service_contracts.ontology_query import (
     IntentGraph,
     OntologyQueryNode,
     OntologyQueryPlan,
+    QueryNodeKind,
     SemanticOperation,
     SemanticProblemFrame,
     canonical_json,
@@ -36,12 +37,14 @@ from .intent_graph import build_intent_graph
 from .semantic_planning_cascade import ProposalRejectedError, SemanticPlanningCascade
 from .semantic_planning_models import (
     BoundIncident,
+    ClarificationRequirement,
     CompleteManifestSelector,
     QueryManifestProvider,
     QueryNodeProposal,
     QueryPlanProposal,
     SemanticDescriptorSelector,
     SemanticFrameProposal,
+    SemanticOutputShape,
     SemanticPlanningDisposition,
     SemanticPlanningModel,
     SemanticPlanningOutcome,
@@ -54,8 +57,8 @@ _MAX_CONTEXT_CHARS = 12_000
 _MAX_DESCRIPTORS = 512
 _MAX_DESCRIPTOR_BYTES = 524_288
 _MAX_LOGGED_PLAN_NODES = 8
-_INCIDENT_REFERENCE_CLARIFICATION = "Which incident should I investigate?"
 _INCIDENT_EVIDENCE_FUNCTION = "query.incident_evidence"
+_INCIDENT_EVIDENCE_NODE_ID = "bound_incident_evidence"
 
 
 class SemanticPlanningService:
@@ -98,12 +101,6 @@ class SemanticPlanningService:
 
         if not utterance.strip() or len(utterance) > 32_000:
             return _outcome(SemanticPlanningDisposition.UNSUPPORTED, "utterance_out_of_bounds")
-        if bound_incident is None and not prior_turns and "this incident" in utterance.casefold():
-            return _outcome(
-                SemanticPlanningDisposition.CLARIFICATION,
-                "semantic_clarification_required",
-                clarification=_INCIDENT_REFERENCE_CLARIFICATION,
-            )
         stage = "manifest"
         try:
             manifest = self._manifests.manifest_for(principal=principal, purpose=purpose)
@@ -135,6 +132,13 @@ class SemanticPlanningService:
             proposal, frame = frame_result
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": "frame_build"})
+            if bound_incident is not None:
+                proposal, frame = _resolve_incident_reference(
+                    proposal,
+                    frame,
+                    utterance=utterance,
+                    context=context,
+                )
             if frame.unresolved_terms:
                 clarification = proposal.clarification or _clarification(frame.unresolved_terms)
                 return _outcome(
@@ -155,15 +159,26 @@ class SemanticPlanningService:
             evaluation_time = self._now()
             if evaluation_time.tzinfo is None:
                 raise ValueError("semantic planning evaluation time MUST be timezone-aware")
-            plan = self._cascade.propose_plan(
+            plan = self._anchored_incident_plan(
+                bound_incident=bound_incident,
                 frame=frame,
                 descriptors=descriptors,
-                metric_concepts=self._metric_concepts,
+                manifest=manifest,
                 principal=principal,
                 purpose=purpose,
-                manifest=manifest,
                 evaluation_time=evaluation_time,
             )
+            plan_source = "bound_incident" if plan is not None else "proposed"
+            if plan is None:
+                plan = self._cascade.propose_plan(
+                    frame=frame,
+                    descriptors=descriptors,
+                    metric_concepts=self._metric_concepts,
+                    principal=principal,
+                    purpose=purpose,
+                    manifest=manifest,
+                    evaluation_time=evaluation_time,
+                )
             if plan is None:
                 return _outcome(
                     SemanticPlanningDisposition.UNSUPPORTED,
@@ -185,7 +200,11 @@ class SemanticPlanningService:
             _LOGGER.info("semantic_planning_stage_completed", extra={"stage": stage})
             _LOGGER.info(
                 "semantic_planning_stage_completed",
-                extra={"stage": "plan_verify", "plan_nodes": _plan_node_summary(plan)},
+                extra={
+                    "stage": "plan_verify",
+                    "plan_nodes": _plan_node_summary(plan),
+                    "plan_source": plan_source,
+                },
             )
             graph = build_intent_graph(
                 frame=frame,
@@ -220,6 +239,83 @@ class SemanticPlanningService:
                 extra={"principal_role": principal.role.value, "purpose": purpose},
             )
             return _outcome(SemanticPlanningDisposition.UNAVAILABLE, "semantic_planning_failed")
+
+    def _anchored_incident_plan(
+        self,
+        *,
+        bound_incident: BoundIncident | None,
+        frame: SemanticProblemFrame,
+        descriptors: tuple[dict[str, Any], ...],
+        manifest: QueryManifest,
+        principal: Principal,
+        purpose: str,
+        evaluation_time: datetime,
+    ) -> OntologyQueryPlan | None:
+        """Build the anchored incident read from the binding, never from a proposal.
+
+        The frame still decides that this turn wants incident evidence. Reading it
+        then needs only the two identities the conversation already holds, so no
+        model selects the capability or transcribes an identifier. The node runs
+        through the same builder and verifier as any proposed plan.
+        """
+        if bound_incident is None or frame.output_shape != SemanticOutputShape.INCIDENT_EVIDENCE:
+            return None
+        if not any(
+            item.get("kind") == "function" and item.get("name") == _INCIDENT_EVIDENCE_FUNCTION
+            for item in descriptors
+        ):
+            return None
+        proposal = QueryPlanProposal(
+            nodes=(
+                QueryNodeProposal(
+                    node_id=_INCIDENT_EVIDENCE_NODE_ID,
+                    kind=QueryNodeKind.FUNCTION,
+                    depends_on=(),
+                    arguments={
+                        "function_name": _INCIDENT_EVIDENCE_FUNCTION,
+                        "arguments": {
+                            "incident_id": bound_incident.incident_id,
+                            "correlation_id": bound_incident.correlation_id,
+                            "limit": MAX_SEMANTIC_EVIDENCE_REFS,
+                        },
+                        "dependency_arguments": {},
+                    },
+                    output_kind="query.value",
+                ),
+            ),
+            output_node_ids=(_INCIDENT_EVIDENCE_NODE_ID,),
+        )
+        plan = _build_plan(
+            proposal,
+            frame=frame,
+            manifest=manifest,
+            principal=principal,
+            purpose=purpose,
+            evaluation_time=evaluation_time,
+        )
+        self._verifier.verify(plan, manifest=manifest)
+        return plan
+
+
+def _resolve_incident_reference(
+    proposal: SemanticFrameProposal,
+    frame: SemanticProblemFrame,
+    *,
+    utterance: str,
+    context: tuple[str, ...],
+) -> tuple[SemanticFrameProposal, SemanticProblemFrame]:
+    """The binding names the incident, so never ask the operator which one it is."""
+    requirements = proposal.clarification_requirements
+    if requirements != (ClarificationRequirement.INCIDENT_REFERENCE,):
+        return proposal, frame
+    resolved = proposal.model_copy(
+        update={
+            "unresolved_terms": (),
+            "clarification_requirements": (),
+            "clarification": None,
+        }
+    )
+    return resolved, _build_frame(resolved, utterance=utterance, context=context)
 
 
 def _plan_node_summary(plan: OntologyQueryPlan) -> str:
