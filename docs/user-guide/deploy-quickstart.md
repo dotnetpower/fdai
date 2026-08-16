@@ -142,7 +142,8 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
      types stay omitted, and a fully resolved empty target set exits as a clean no-op.
      When `FDAI_TRACE_TOPOLOGIES_JSON` is configured, the same Job and reader identity
      query bounded workspace-based Application Insights evidence. A complete trace
-     emits no finding, while a missing or disconnected hop emits a shadow finding.
+     reports no detected issue, while a missing or disconnected hop reports one in
+     observation mode.
      An empty value disables only the continuity check.
    - **OHL scale-out evidence**: when enabled, start the manual proposal Job and confirm exactly
      one shadow proposal reaches the normal ingress with the configured campaign and initiator.
