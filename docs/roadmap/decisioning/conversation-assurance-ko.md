@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 13de2346edf241c0d84872cd6b24b731e3f090ff
+translation_source_sha: b178165b8138ba72650d15a365f27ac050ff3e63
 translation_revised: 2026-08-17
 ---
 # 대화 품질 보증
@@ -32,6 +32,7 @@ translation_revised: 2026-08-17
 | 2026-08-17 | in-progress | 결정론적 최저 실행 점수표 집계기와 단일 명령 재생성 경로를 추가해, 기록된 측정값이 모델 호출 없이 안정적이고 스키마 호환되는 산출물 하나로 축약되도록 했습니다. | `current change`; `scorecard_run.py`, `scorecard_cli.py`, `test_scorecard_run.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/conversation_assurance/test_scorecard_run.py` (`24 passed`); 작업 범위 Ruff와 strict mypy 통과. | 고정된 이중 언어 말뭉치를 측정하고 아래에 설명된 qualification, 블라인드 재실행 및 운영 승격 또는 롤백 근거를 보존해야 합니다. |
 | 2026-08-17 | in-progress | 문서화된 재생성 명령을 바로잡고 파일 처리를 강화했습니다. 이전에 기록한 명령은 워크스페이스 패키지 선택자를 빠뜨려 저장소 루트에서 `uv run python -m ...`이 `No module named 'fdai'`로 실패했습니다. 이제 명령이 `fdai-core-control-plane`을 선택하고, 하위 프로세스 검사가 이를 실행하며, 읽기 전에 입력 크기를 제한하고, 심볼릭 링크 입력 또는 출력 경로를 거부합니다. | `current change`; `scorecard_cli.py`, `test_scorecard_run.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/conversation_assurance` (`90 passed`); 작업 범위 Ruff와 strict mypy 통과. | 고정된 이중 언어 말뭉치를 측정하고 아래에 설명된 qualification, 블라인드 재실행 및 운영 승격 또는 롤백 근거를 보존해야 합니다. |
 | 2026-08-17 | in-progress | 기록된 측정 문서를 엄격하게 만들어 인식되지 않는 필드를 이름으로 거부합니다. 이전에는 잘못 적은 캡 또는 구성 요소 키가 값 없음으로 해석되어 하드 캡을 제거하고 항목 점수를 부풀릴 수 있었습니다. | `current change`; `scorecard_cli.py`, `test_scorecard_run.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/conversation_assurance` (`95 passed`); 작업 범위 Ruff와 strict mypy 통과. | 고정된 이중 언어 말뭉치를 측정하고 아래에 설명된 qualification, 블라인드 재실행 및 운영 승격 또는 롤백 근거를 보존해야 합니다. |
+| 2026-08-17 | in-progress | 문서화된 실행 상한과 산출물의 닫힌 형태를 테스트로 덮었습니다. 이전에는 32개 실행 상한을 반증하는 검사가 없었고, 답변 텍스트나 주체 또는 테넌트 값을 담을 수 있는 산출물 필드가 추가되어도 잡히지 않았습니다. | `current change`; `test_scorecard_run.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/conversation_assurance` (`96 passed`). | 고정된 이중 언어 말뭉치를 측정하고 아래에 설명된 qualification, 블라인드 재실행 및 운영 승격 또는 롤백 근거를 보존해야 합니다. |
 
 ### 남은 작업
 

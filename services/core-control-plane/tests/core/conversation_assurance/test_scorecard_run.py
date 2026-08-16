@@ -203,6 +203,13 @@ def test_out_of_order_run_measurements_are_rejected() -> None:
         )
 
 
+def test_more_runs_than_the_supported_bound_are_rejected() -> None:
+    runs = tuple(_run(f"run-{index}") for index in range(33))
+
+    with pytest.raises(ValueError, match="at most 32 runs"):
+        build_quality_scorecard(runs, contract=_CONTRACT, provenance=_provenance())
+
+
 def test_negative_turn_counts_are_rejected() -> None:
     with pytest.raises(ValueError, match="negative"):
         _run("run-1", english=-1)
@@ -323,6 +330,27 @@ def test_cli_regenerates_a_stable_artifact(tmp_path: Path) -> None:
     assert artifact["qualified"] is True
     assert len(artifact["items"]) == 50
     assert artifact["provenance"]["corpus_version"] == "chatops-corpus-v1"
+    assert set(artifact) == {
+        "blockers",
+        "contract_version",
+        "items",
+        "minimum_english_turns",
+        "minimum_korean_turns",
+        "provenance",
+        "qualified",
+        "run_ids",
+        "schema_version",
+    }
+    assert set(artifact["items"][0]) == {
+        "applied_caps",
+        "id",
+        "minimum_score",
+        "name",
+        "passed",
+        "workstream",
+        "worst_run_id",
+        "worst_score",
+    }
 
 
 def test_cli_reports_blocked_qualification_without_failing(tmp_path: Path) -> None:
