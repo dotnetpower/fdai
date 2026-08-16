@@ -1,7 +1,7 @@
 ---
 title: 인과 incident graph
 translation_of: causal-incident-graph.md
-translation_source_sha: 2940aa197947e3dedf863188c27cb397267858bc
+translation_source_sha: 77750cd224fe0c13b20844c72c0f61864d95edee
 translation_revised: 2026-08-16
 ---
 # 인과 인시던트 그래프
@@ -266,7 +266,7 @@ Causal 경로는 불확실할 때 더 안전한 결과를 선택합니다.
 | Time-consistent 인시던트 그래프 | implemented | `services/core-control-plane/src/fdai/core/rca/incident_graph.py`; `tests/core/rca/test_incident_graph.py` | 탐색은 깊이, 개수, 시간, 크기로 제한되며 잘림을 보고합니다. |
 | 후보 생성 및 causal 채점 | implemented | `services/core-control-plane/src/fdai/core/rca/t0.py`; `t1.py`; `evidence.py`; `tests/core/rca/test_coordinator.py`; `test_evidence.py` | 결정론적 후보, 최약 연결 채점, 지지 및 반증 경로가 구현되어 있습니다. |
 | Shadow 런타임 및 독립 종결 | implemented | `services/core-control-plane/src/fdai/core/rca/runtime.py`; `tests/core/rca/test_runtime.py`; `test_temporal_causality.py` | 업스트림 경로는 shadow 및 근거 전용으로 유지되며 어떤 결과도 실행 권한을 부여하지 않습니다. |
-| 등급 demotion 및 shadow 유지 | implemented | `services/core-control-plane/src/fdai/core/rca/hypothesis.py`(`close_causal_hypothesis`, `causal_action_mode`); `tests/core/rca/test_hypothesis.py` | 안전하지 않거나 반증하는 종결은 등급을 `association`으로 낮추고, 검증된 `confirmed` 외에는 어떤 종결도 등급을 올릴 수 없으며, 확정되지 않았거나 다투는 개정 번호는 모두 `shadow`로 귀결됩니다. |
+| 등급 demotion 및 shadow 유지 | implemented | `services/core-control-plane/src/fdai/core/rca/hypothesis.py`(`close_causal_hypothesis`, `causal_action_mode`); `runtime.py`(`CausalRuntimeResult.action_mode`); `tests/core/rca/test_hypothesis.py`; `test_runtime.py` | 안전하지 않거나 반증하는 종결은 등급을 `association`으로 낮추고, 검증된 `confirmed` 외에는 어떤 종결도 등급을 올릴 수 없으며, 확정되지 않았거나 다투는 개정 번호는 모두 `shadow`로 귀결됩니다. 런타임은 도출된 모드를 노출하지만, causal 경로가 아직 shadow 전용이므로 승격이나 실행 소비자는 연결되어 있지 않습니다. |
 | 배포 연결 및 운영 근거 | in-progress | [전달 구획](#전달-구획); 현재 변경의 소스 감사 | 프로바이더와 게시자 경계는 있지만, 검증 완료를 주장하기 전에 각 배포에서 이를 연결하고 관리되는 종결 증적을 보존해야 합니다. |
 
 ### 구현 이력
@@ -275,6 +275,7 @@ Causal 경로는 불확실할 때 더 안전한 결과를 선택합니다.
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트. | 운영 근거 경로를 연결하고 관리되는 개입 종결 근거를 보존합니다. |
 | 2026-08-16 | implemented | 안전하지 않은 종결이 근거 등급을 낮추도록 만들고, `confirmed`가 아닌 종결이 등급을 올리지 못하게 막았으며, 반증·안전하지 않음·미확정·다툼·낮은 등급 개정 번호를 `shadow`에 유지하는 결정론적 `causal_action_mode` 도출을 추가했습니다. | `current change`; `services/core-control-plane/src/fdai/core/rca/hypothesis.py`; `services/core-control-plane/tests/core/rca/test_hypothesis.py`; 집중 실행 `pytest services/core-control-plane/tests/core/rca` 215개 통과. | 배포 근거 경로를 연결하고 관리되는 개입 재현 기록 하나를 보존합니다. |
+| 2026-08-16 | implemented | 도출된 모드를 `CausalRuntimeResult.action_mode`로 노출해 shadow 판단을 런타임 경로에서 관찰할 수 있게 했고, 아직 어떤 승격·실행 소비자도 이 모드를 연결하지 않는다는 점을 구현 범위 행에 명시했습니다. | `current change`; `services/core-control-plane/src/fdai/core/rca/runtime.py`; `services/core-control-plane/tests/core/rca/test_runtime.py`; 집중 실행 `pytest services/core-control-plane/tests/core/rca` 216개 통과. | 배포 근거 경로를 연결하고 관리되는 개입 재현 기록 하나를 보존합니다. |
 
 ### 남은 작업
 

@@ -13,10 +13,12 @@ from fdai.shared.contracts.models import Event
 from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 
 from .hypothesis import (
+    CausalActionMode,
     CausalClosure,
     CausalEvidenceAssessment,
     CausalHypothesisRecord,
     build_causal_hypothesis,
+    causal_action_mode,
     close_causal_hypothesis,
 )
 from .temporal_causality import (
@@ -162,6 +164,14 @@ class CausalRuntimeResult:
     outcome: CausalRuntimeOutcome
     claim: TemporalCausalClaim | None = None
     hypothesis: CausalHypothesisRecord | None = None
+
+    @property
+    def action_mode(self) -> CausalActionMode:
+        """Return the highest mode this result supports; absent evidence stays in shadow."""
+
+        if self.hypothesis is None:
+            return CausalActionMode.SHADOW
+        return causal_action_mode(self.hypothesis)
 
 
 @dataclass(frozen=True, slots=True)
