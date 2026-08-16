@@ -6,6 +6,7 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parents[3]
 _JOB = _ROOT / "infra/modules/compute/container-apps/analyzer_tick_job.tf"
 _MAIN = _ROOT / "infra/main.tf"
+_DEPLOY_WORKFLOW = _ROOT / ".github/workflows/deploy-dev.yml"
 
 
 def test_analyzer_job_uses_inventory_identity_not_executor_identity() -> None:
@@ -39,12 +40,14 @@ def test_analyzer_job_binds_deployment_supplied_trace_topologies() -> None:
         encoding="utf-8"
     )
     main = _MAIN.read_text(encoding="utf-8")
+    workflow = _DEPLOY_WORKFLOW.read_text(encoding="utf-8")
 
     assert 'TRACE_TOPOLOGIES_ENV = "FDAI_TRACE_TOPOLOGIES_JSON"' in cli
     assert 'name  = "FDAI_TRACE_TOPOLOGIES_JSON"' in source
     assert 'variable "trace_topologies_json"' in root_variables
     assert 'variable "trace_topologies_json"' in module_variables
     assert "trace_topologies_json         = var.trace_topologies_json" in main
+    assert "TF_VAR_trace_topologies_json: ${{ vars.TRACE_TOPOLOGIES_JSON }}" in workflow
 
 
 def test_startup_probe_uses_dedicated_operational_topic_and_identity() -> None:
