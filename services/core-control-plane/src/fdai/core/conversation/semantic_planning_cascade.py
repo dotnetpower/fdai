@@ -41,7 +41,12 @@ _REQUIRED_NODE_KINDS_BY_OUTPUT_SHAPE = {
     "evidence_validation": frozenset({QueryNodeKind.OBJECT_SET}),
     "property_filtered_resources": frozenset({QueryNodeKind.OBJECT_SET}),
     "temporal_comparison": frozenset(
-        {QueryNodeKind.EVIDENCE_JOIN, QueryNodeKind.METRIC_SERIES, QueryNodeKind.TOPOLOGY_DIFF}
+        {
+            QueryNodeKind.EVIDENCE_JOIN,
+            QueryNodeKind.METRIC_SCOPE_SERIES,
+            QueryNodeKind.METRIC_SERIES,
+            QueryNodeKind.TOPOLOGY_DIFF,
+        }
     ),
     "topology_graph": frozenset({QueryNodeKind.TOPOLOGY_AT}),
 }
@@ -139,6 +144,7 @@ class SemanticPlanningCascade:
         *,
         frame: SemanticProblemFrame,
         descriptors: tuple[dict[str, Any], ...],
+        metric_concepts: tuple[str, ...],
         principal: Principal,
         purpose: str,
         manifest: QueryManifest,
@@ -148,6 +154,7 @@ class SemanticPlanningCascade:
             raw = model.propose_plan(
                 frame=frame,
                 descriptors=copy.deepcopy(descriptors),
+                metric_concepts=metric_concepts,
                 principal_role=principal.role.value,
                 purpose=purpose,
                 evaluation_time=evaluation_time,

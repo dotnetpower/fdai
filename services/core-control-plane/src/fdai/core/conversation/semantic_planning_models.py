@@ -148,6 +148,7 @@ class SemanticPlanningModel(Protocol):
         *,
         frame: SemanticProblemFrame,
         descriptors: tuple[dict[str, Any], ...],
+        metric_concepts: tuple[str, ...],
         principal_role: str,
         purpose: str,
         evaluation_time: datetime,

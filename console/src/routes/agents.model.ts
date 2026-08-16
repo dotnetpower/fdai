@@ -730,7 +730,7 @@ export const AGENT_CONTRACT: Readonly<Record<string, AgentContract>> = {
   Saga: { owns: ["AuditEntry", "Issue"], hardDependency: true },
   Mimir: { owns: ["Rule", "Policy"] },
   Muninn: { owns: ["StateSnapshot", "ContextIndex"] },
-  Norns: { owns: ["RuleCandidate", "PatternObservation"], offPathLlm: true },
+  Norns: { owns: ["RuleCandidate", "Pattern"], offPathLlm: true },
   Njord: { owns: ["CostAnomaly", "Budget"] },
   Freyr: { owns: ["CapacityForecast", "SizingRecommendation"] },
   Loki: { owns: ["ChaosExperiment", "ResilienceScore"] },

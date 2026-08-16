@@ -110,6 +110,10 @@ def test_problem_frame_and_plan_are_replay_stable_and_no_authority() -> None:
     assert OntologyQueryPlan.model_validate_json(plan.model_dump_json()) == plan
 
 
+def test_scoped_metric_node_kind_round_trips_as_an_additive_contract() -> None:
+    assert QueryNodeKind("metric_scope_series") is QueryNodeKind.METRIC_SCOPE_SERIES
+
+
 def test_frame_rejects_noncanonical_json_and_digest_mismatch() -> None:
     frame = _frame()
     values = frame.model_dump()

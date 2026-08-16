@@ -27,9 +27,16 @@ from .models import (
     OperationalContextSnapshot,
     SourceFreshness,
 )
+from .operating_scope import (
+    UNMAPPED_SERVICE_REF,
+    OperatingScopeCoverage,
+    ResourceScopeCoverage,
+    project_operating_scope,
+)
 from .projector import OperatingModelProjectionResult, OperatingModelProjector
 
 __all__ = [
+    "UNMAPPED_SERVICE_REF",
     "CatalogEvidenceItem",
     "CitationBinding",
     "CitationManifestEntry",
@@ -48,11 +55,14 @@ __all__ = [
     "OperationalEvidenceBundle",
     "OperatingModelProjectionResult",
     "OperatingModelProjector",
+    "OperatingScopeCoverage",
+    "ResourceScopeCoverage",
     "SourceFreshness",
     "StateEvidenceItem",
     "VerifiedEvidenceSourceReceipt",
     "bind_citation",
     "bind_evidence_item_source",
     "build_operational_evidence_bundle",
+    "project_operating_scope",
     "render_untrusted_document_evidence",
 ]

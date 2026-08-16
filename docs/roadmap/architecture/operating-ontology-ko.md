@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: e22c6319410dd15264ec75ac344400ee5a955dcc
-translation_revised: 2026-08-15
+translation_source_sha: 3543735ba63d3c1e80811d43a02c959afa872689
+translation_revised: 2026-08-16
 ---
 # FDAI 운영 온톨로지
 
@@ -96,7 +96,11 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
 | O1 의미 체계와 카탈로그 무결성 | implemented | [`test_ontology_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_catalog.py), [`test_ontology_provenance.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_provenance.py) | 통합 카탈로그가 운영 의미 체계, 출처 이력, 참조 및 cardinality를 검증합니다. |
 | O2 범위 제한 맥락과 현재 상태 변환 결과 | in-progress | [`ontology_instance.py`](../../../services/core-control-plane/src/fdai/shared/providers/ontology_instance.py), [`console_projection.py`](../../../services/core-control-plane/src/fdai/core/operational_context/console_projection.py), focused 인스턴스 및 컨텍스트 변환 결과 테스트 | 타입이 지정된 현재 상태 객체와 링크가 있습니다. 이제 보안 receipt의 목적, 릴리스, 기준 시각 및 그래프 범위가 모두 일치할 때만 범위가 제한되고 권한이 없는 컨텍스트 메타데이터를 만들 수 있습니다. Principal 범위 전송과 인증된 런타임 근거는 남아 있습니다. |
 | O3-O5 결정, 결과 및 통제된 learning 루프 | in-progress | [제공 계획](#제공-계획), [`test_ontology_alignment.py`](../../../services/core-control-plane/tests/agents/test_ontology_alignment.py) | 핵심 구획은 있지만 모든 운영 경로에서 효과 종결과 통제된 learning이 완료되지는 않았습니다. |
+| 결정과 학습 writer | not-started | [`hypothesis_lineage.py`](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py), [`test_hypothesis_lineage.py`](../../../services/core-control-plane/tests/core/operational_planning/test_hypothesis_lineage.py) | 네 구간은 카탈로그 기준으로 유효하고 traverse됩니다. 집중 테스트가 제공되는 ObjectType과 LinkType 선언을 통해 계보 하나를 적재하고 `DecisionCase`에서 `ObservedOutcome`까지 traverse합니다. 빠진 것은 생산자입니다. `OperationalHypothesisLineageProjector`가 유일한 writer이고 어느 조립 루트도 이를 구성하지 않으며, 런타임 모델이 선언된 속성을 담고 있지 않습니다. `DecisionCase`는 `context_snapshot_id`만 유지하므로 `target_ref`와 `evidence_cutoff`는 `OperationalContextSnapshot`에는 있지만 케이스에는 없고, `uncertainty`, `ActionOption.arguments`, `preconditions`, `option_kind`, `ExpectedEffect.direction`, `predictor_version`, `ActionRun.action_type_version`, `started_at`, `receipt_ref`는 projector가 읽을 모델에 없습니다. 각각은 기계적 매핑이 아니라 생산자를 지정하는 결정이 필요하며, projector를 먼저 연결하면 운영 근거를 날조하게 됩니다. 이는 타입별 누락이 아니라 구조적입니다. 카탈로그 stewardship과 와이어 single-writer 권한은 별개 레지스트리이며, 제공되는 ObjectType 다수가 같은 이름의 와이어 객체를 소유하지 않는 `lifecycle.owner`를 지정하며, 이를 `test_catalog_stewardship_is_separate_from_wire_single_writer`가 고정합니다. Norns 역시 `Pattern`을 소유하고 `object.pattern`도 등록되어 있지만 어느 곳도 발행하거나 구독하지 않습니다. |
 | Wave 2 근거, 변경, Property 및 토폴로지 기반 | in-progress | [구현 상태 설명](#fdai-운영-온톨로지), [운영 온톨로지 플랫폼](operating-ontology-platform-ko.md) | 검토된 기반은 있지만 근거 번들이 런타임에 조립되지 않았고 계획 변경은 그래프 최신성 게이트를 자동 통과할 수 없으며 더 넓은 플랫폼 제공 작업도 남아 있습니다. |
+| Console 의미 band 선언 완전성 | implemented | [`Forecast.yaml`](../../../rule-catalog/vocabulary/object-types/Forecast.yaml), [`Pattern.yaml`](../../../rule-catalog/vocabulary/object-types/Pattern.yaml), [`test_ontology_console_projection.py`](../../../services/core-control-plane/tests/delivery/test_ontology_console_projection.py) | Console band가 지정하는 모든 객체 타입을 제공 릴리스가 선언하므로 band 구성원이 조용히 제외되지 않습니다. 두 선언은 의미 선언일 뿐이며 인스턴스 경로를 추가하지 않습니다. |
+| 운영 범위 `unknown_service` 커버리지 | implemented | [`operating_scope.py`](../../../services/core-control-plane/src/fdai/core/operational_context/operating_scope.py), [`test_operating_scope.py`](../../../services/core-control-plane/tests/core/operational_context/test_operating_scope.py) | 결정론적 읽기 전용 변환 결과가 대응되지 않은 리소스를 계속 표시하고 예약된 표시자를 서비스 id로 사용하는 입력을 차단합니다. 아직 런타임 또는 Console 소비자에 연결되지 않았습니다. |
+| 운영 의도 런타임 인스턴스 | in-progress | 의도 6종의 카탈로그 선언, [`ontology_console_projection.py`](../../../services/core-control-plane/src/fdai/delivery/ontology_console_projection.py) | `ServiceObjective`, `RecoveryObjective`, `CostObjective`, `ArchitectureConstraint`, `Ownership`, `ChangeWindow`는 선언되고 band에 포함되며 `OperatingModelProjector`가 배포 제공 인스턴스를 보존할 수 있습니다. 이를 도출하는 변환 결과와 end-to-end로 고정하는 집중 테스트는 없습니다. |
 
 ### 구현 이력
 
@@ -108,6 +112,7 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
 | 2026-08-15 | implemented | 에이전트 소유권 절을 바로잡아 두 개의 독립된 소유권 레지스트리를 명시하고, 산문으로 된 소유권 서술을 정확한 `lifecycle.owner` 타입 목록으로 교체했으며, 근거 없던 "권한 등급, 최신성 정책, 보존, allowed 용도" 서술을 스키마가 실제로 선언하는 필드로 바꿨습니다. | `current change`, `test_object_type_catalog.py::test_documented_semantic_write_owners_match_the_catalog` | `lifecycle` 블록이 없는 ObjectType별로 선언된 소유자가 필요한지 판단합니다. 빈칸을 유추하려는 목적으로 추가하지 않습니다. |
 | 2026-08-15 | implemented | 같은 리소스 신원을 반복 관측한 권위 있는 관측에 대한 결정적 판정을 추가해 `StateFactMetadata.conflicts`가 테스트 픽스처가 아니라 프로덕션 생산자를 갖게 했습니다. 무해한 반복 관측이 더 이상 세대 전체를 실패시키지 않습니다. | `current change`, `test_observation_adjudication.py` focused 테스트 15개와 `test_inventory_projection.py` 충돌 강등 테스트 통과, 온톨로지·인벤토리·런타임 focused 테스트 354개 통과 | 서로 독립된 권위끼리 판정해야 하며, 인벤토리 변환 결과와 실시간 디스커버리가 다음 쌍입니다. |
 | 2026-08-15 | implemented | 서로 독립된 첫 쌍을 판정했습니다. 실시간 프로바이더 읽기와 인벤토리로 변환된 그래프 상태입니다. 상태나 신원이 어긋나면 `derived` 교차 출처 충돌이 되어 영수증 다이제스트에 보존되고 hook이 상태 단정을 보류하며 활동을 강등합니다. 관측 시각 차이만 있는 경우는 명시적으로 충돌이 아닙니다. | `current change`, `test_resource_state_shadow.py` 판정 테스트 6개와 일치 대조군이 있는 `test_wire_read_investigation.py::test_cross_source_state_conflict_lowers_the_answer_and_activity` | 서로 독립된 두 프로바이더끼리, 그리고 변환된 상태와 텔레메트리를 판정해야 합니다. |
+| 2026-08-15 | implemented | Compiler와 발행 경로를 근거로 `Pattern`과 `PatternObservation`을 하나의 층위로 판정하고, 제공되는 `Forecast`와 `Pattern` 선언을 채택했으며, 소유 학습 객체 이름을 `Pattern`으로 통일해 스펙, 토픽, 모든 표가 한 이름을 쓰게 했습니다. `unknown_service` 범위 커버리지 표시자를 추가하고, 결정과 학습 계보 projector에 운영 호출자가 없음을 기록했습니다. 보류된 관계 두 개는 이제 실제 차단 사유를 기록합니다. 어느 엔드포인트 쌍도 생산할 수 없다는 점입니다. | `current change`, `rule-catalog/vocabulary/object-types/{Forecast,Pattern}.yaml`, `operating_scope.py`, `test_ontology_catalog.py` 문서 일관성 테스트, `test_shipped_catalog_accepts_and_traverses_one_lineage` 및 `test_shipped_catalog_rejects_a_lineage_missing_a_required_property`. 이전 fake-store 테스트가 잡지 못하던 `resulted_in` 방향 역전이 이제 실패합니다. 집중 카탈로그, 맥락, 변환 결과, 정합성, 인스턴스, explorer, release 집중 테스트가 통과했습니다. | 누락된 `DecisionCase`, `ActionOption`, `ExpectedEffect`, `ActionRun` 속성을 실제 생산자에서 공급한 뒤 조립 루트에서 `OperationalHypothesisLineageProjector`를 구성하고, 보류된 관계를 복원하기 전에 생산자를 마련하며, Norns가 살아 있는 소비자와 함께 `Pattern`을 발행하거나 해당 토픽을 폐기하고, 범위 커버리지를 소비자 하나에 연결하며 운영 의도 인스턴스를 고정해야 합니다. |
 
 ### 남은 작업
 
@@ -121,8 +126,13 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
   principal, 목적, 릴리스, stale 및 truncated 사례가 사용 불가로 유지됨을 입증합니다.
 - [ ] 토폴로지, 시간, reconciliation 및 graph-wide Dynamic 제공이 집중 종료 조건에 도달할
   때 운영 온톨로지와 플랫폼 원장을 동기화합니다.
-- [ ] `Forecast`와 `Pattern` ObjectType을 제공할지는 이를 필요로 하는 competency 질문을 근거로
-  결정하고, 그때에만 `predicts_breach_of`와 `learned_as`를 선언된 LinkType으로 복원합니다.
+- [ ] `project_operating_scope`를 읽기 전용 소비자 하나에 연결해 `unknown_service`가 운영자
+  화면에 도달하게 하고 해당 소비자의 집중 검사 통과 결과를 남깁니다.
+- [ ] `predicts_breach_of`와 `learned_as`를 복원하기 전에 `Forecast`와 `Pattern` 엔드포인트 쌍을
+  만들어 낼 생산자를 마련해야 합니다. 두 ObjectType은 이제 출하되므로, 막고 있는 것은 카탈로그가
+  선언을 거부한다는 사실이 아니라 어느 런타임 경로도 두 엔드포인트를 쓰지 않는다는 사실입니다.
+- [ ] 운영 의도 6종을 배포가 제공하는 출처에서 변환하고, 의도 타입이 인스턴스를 만들지
+  못하면 실패하는 집중 테스트로 고정합니다.
 - [ ] `lifecycle` 블록이 없는 출하 ObjectType을 검토해, 타입별로 에이전트 단일 작성자가 필요한지
   아니면 catalog-as-code, 변환 결과, 이벤트 버스 레지스트리 중 무엇이 올바른 권한인지
   기록합니다 ([#130](https://github.com/dotnetpower/fdai/issues/130)).
@@ -284,7 +294,8 @@ FDAI는 domain-agnostic하지 않습니다. 안정적인 도메인 모델을 가
 
 초기 SRE 배포에서는 `BusinessCapability`를 선택적으로 사용할 수 있습니다.
 `BusinessService`, `Workload`, 리소스 대응은 최소 operational spine을 구성합니다. 대응되지
-않은 리소스는 `unknown_service`로 계속 표시하며 synthetic 서비스에 자동 할당하지 않습니다.
+않은 리소스는 `unknown_service`로 계속 표시하며 synthetic 서비스에 자동 할당하지 않습니다. 이
+표시자는 [`project_operating_scope`](../../../services/core-control-plane/src/fdai/core/operational_context/operating_scope.py)가 구현하며 어떤 권한도 부여하지 않습니다.
 
 ### 운영 의도
 
@@ -316,8 +327,7 @@ bag에만 정보를 두는 대신 명시적인 시간 및 prediction 개념을 �
 
 ### 결정과 학습
 
-다음 객체는 모델 산문을 권한으로 취급하지 않고 전체 intervention 추적을 조회할 수 있게
-합니다.
+다음 객체는 모델 산문을 권한으로 취급하지 않고 전체 intervention 추적을 조회할 수 있게 합니다.
 
 | ObjectType | 목적 |
 |------------|------|
@@ -326,7 +336,7 @@ bag에만 정보를 두는 대신 명시적인 시간 및 prediction 개념을 �
 | `ExpectedEffect` | Predicted 메트릭 범위, 관측 구간, uncertainty, predictor 버전입니다. |
 | `ActionRun` | 기존 실행 신원과 최종 증적입니다. |
 | `ObservedOutcome` | 관측된 효과, 롤백, SLO 복구, recurrence, 채점 상태입니다. |
-| `Pattern` | Balanced 사례 집단이 뒷받침하는 검토된 범용 방식입니다. |
+| `Pattern` | Balanced sealed-case 집단에서 compile된 inert 범용 방식이며, 별도 관측을 검토해 일반화한 것이 아니라 [하나의 층위](../rules-and-detection/operational-learning-ontology-ko.md#pattern은-두-층위가-아니라-하나입니다)입니다. `Pattern`과 `Forecast`를 모두 선언한 이유는 각각 고정 판테온 소유자와 생산 방식을 이미 갖추었기 때문입니다. [두 타입을 선언한 이유](../rules-and-detection/operational-learning-ontology-ko.md#forecast와-pattern을-선언한-이유)를 참고하세요. |
 
 `DecisionCase`는 RiskGate 결정 또는 감사 기록을 대체하지 않습니다. Forseti, Odin, Var,
 Saga, 재생 소비자가 같은 사실을 참조하게 하는 변경할 수 없는 의미 입력입니다.
@@ -378,20 +388,10 @@ Cardinality, causal direction, temporal 정렬, allowed 엔드포인트 combinat
 `rule-catalog/vocabulary/link-types/` 아래에 선언된 LinkType입니다. 엔드포인트 검증은
 결정론적하게 유지됩니다.
 
-### 보류된 관계
-
-이전 개정판이 계약 행으로 표기했던 관계 두 개는 선언된 것이 아니라 보류된 상태입니다.
-
-| 관계 | 의도한 엔드포인트 | 보류 사유 |
-|------|-----------------|----------|
-| `predicts_breach_of` | Forecast -> 목표 | `Forecast` ObjectType이 카탈로그에 선언되어 있지 않습니다. |
-| `learned_as` | ObservedOutcome -> Pattern | `Pattern` ObjectType이 카탈로그에 선언되어 있지 않습니다. |
-
-카탈로그 로딩은 `from_type`과 `to_type`을 ObjectType 레지스트리에 교차 참조하고 fail-closed로
-동작하므로, 엔드포인트 ObjectType 두 개가 모두 존재하기 전에 LinkType을 선언해서는 안 됩니다.
-선언이 뒷받침하지 않는 상태에서 이 행들을 계약으로 표기하면 어떤 조회도 traverse할 수 없는
-관계를 검증된 것처럼 주장하게 됩니다. 각 관계는 엔드포인트 ObjectType과 그 관계가 답해야 하는
-competency 질문이 함께 준비될 때만 계약 표로 돌아옵니다.
+`predicts_breach_of`와 `learned_as`는 의도적으로 빠져 있습니다. 두 엔드포인트 ObjectType은 이제 모두
+제공되지만 어느 쌍도 생산할 수 없으므로,
+[보류된 관계](../rules-and-detection/operational-learning-ontology-ko.md#보류된-관계)에 각 차단 사유와
+복원 조건을 기록합니다.
 
 ## 신원과 시간
 
@@ -538,14 +538,14 @@ ObjectType 선언이 없는 버스 계약이고, `DecisionCase`는 버스 토픽
 | Thor | `ActionRun` |
 | Forseti | `ActionOption`, `CausalHypothesis`, `DecisionCase`, `ExpectedEffect`, `ImpactEnvelope` |
 | Huginn | `Change`, `Observation` |
-| Heimdall | `Incident`, `ObservedOutcome` |
+| Heimdall | `Forecast`, `Incident`, `ObservedOutcome` |
 | Vidar | `RecoveryPlan` |
 | Var | 선언 없음 |
 | Bragi | 선언 없음 |
 | Saga | `Issue` |
 | Mimir | `ArchitectureConstraint`, `ChangeWindow` |
 | Muninn | `BusinessCapability`, `BusinessService`, `Environment`, `Ownership`, `RecoveryObjective`, `ServiceObjective`, `Workload` |
-| Norns | 선언 없음 |
+| Norns | `Pattern` |
 | Njord | `CostObjective` |
 | Freyr | 선언 없음 |
 | Loki | `Experiment` |

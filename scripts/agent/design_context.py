@@ -451,7 +451,9 @@ def enforce_commit_scope(payload: dict[str, Any]) -> dict[str, Any]:
         reason = (
             "Agent commits in the shared FDAI worktree must use an explicit pathspec: "
             "git commit ... -- <owned paths>. A bare commit can include another session's "
-            "staged files."
+            "staged files. Git refuses a partial commit while a merge, cherry-pick, revert, "
+            "or rebase is in progress, so finish that operation with its own continue command "
+            "(git merge --continue) after auditing the whole staged tree."
         )
         return {
             "systemMessage": reason,

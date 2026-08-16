@@ -1,8 +1,8 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: a74d01ca1b71151a35d1387b4f7fbb48dd1d1dd9
-translation_revised: 2026-08-14
+translation_source_sha: 3687f60c3f58ef29fc45614362cee9051417d8e5
+translation_revised: 2026-08-16
 ---
 # 운영 학습 온톨로지
 
@@ -144,6 +144,58 @@ Norns는 집단을 기존 `RuleCandidate` 객체로 컴파일합니다. 후보 �
 별도 벤치마크 룰 형식이나 learned-action 실행기를 도입하지 않습니다. 구현이 이 링크로
 필요한 조회를 표현할 수 없다면 먼저 실패하는 온톨로지 조회 테스트를 추가해야 합니다.
 그때에만 범위가 명확한 `ObjectType` 또는 `LinkType` 확장을 제안할 수 있습니다.
+
+### Pattern은 두 층위가 아니라 하나입니다
+
+`PANTHEON_SPECS`는 한때 Norns에 `PatternObservation`을 할당했고 카탈로그는 같은 기록을 `Pattern`이라
+불렀습니다. 두 이름은 하나의 inert compiled cohort 기록을 가리켰을 뿐, 원시 관측과 검토된
+일반화라는 서로 다른 층위가 아닙니다. 두 번째 층위가 필요로 할 검토를 수행하는 코드가 없기 때문입니다.
+스펙, 토픽, 모든 표는 이제 `Pattern`을 사용합니다.
+
+- [`OperatingPatternCompiler.compile()`](../../../services/core-control-plane/src/fdai/core/operational_learning/patterns.py)은
+  기계적 조건만 적용합니다. 실패 fingerprint, 리소스 타입, 액션 타입이 하나로 같고, reusable과
+  negative sealed 사례가 각각 최소 하나씩 있으며, 변경할 수 없는 사례 참조가 중복되지 않고, 근거
+  범위가 제한되어야 합니다. 그 `OperatingPatternCandidate` 출력을 검토하거나 일반화하는 것은 없습니다.
+- 검토는 이후 Mimir에서 `Rule`을 대상으로 일어납니다. Pattern 기록을 검토되었다고 부르는 것은 어느
+  코드도 수행하지 않는 단계를 주장하는 것입니다.
+- 이 기록은 자체 객체로 발행되지 않습니다. `Norns._observe_operational_case_cohort`가
+  `to_rule_candidate_mapping()`으로 평탄화해 `object.rule-candidate`로 보내므로, compiled cohort는
+  `RuleCandidate` 안에 담겨서만 Mimir에 도달합니다.
+- `object.pattern`은 발행자도 구독자도 없는 등록된 토픽이므로 `Pattern`은 여전히 어느 것도
+  생산하지 않는 소유 ObjectType입니다. 이름 통일이 그 공백을 메우지는 않았습니다.
+
+그래서 `learned_as`(`ObservedOutcome -> Pattern`)에는 생산 가능한 엔드포인트 쌍이 없습니다. Cohort는
+sealed 사례를 `case-history:<case_id>:<revision>:<manifest_digest>`로 인용할 뿐 `ObservedOutcome`
+신원을 받지 않으므로 이 링크는 날조로만 만들 수 있습니다. 언젠가 선언되더라도 검토된 학습 투영으로
+남으며, 학습 기록에서 활성 카탈로그 항목이나 임계값으로 가는 경로를 만들어서는 안 됩니다. 승격은
+독립적으로 검토되는 registry의 권한으로 남습니다.
+
+### Forecast와 Pattern을 선언한 이유
+
+두 타입은 카탈로그가 선언하기 전부터 콘솔 band에 있었기 때문에, 가용성 필터가 아무 신호 없이 둘을
+제외했습니다. 지금 둘을 선언하는 이유는 각각 고정 판테온 소유자와 생산 방식을 이미 갖추었기
+때문입니다. Heimdall은
+[`forecast.py`](../../../services/core-control-plane/src/fdai/core/detection/forecast.py)에서
+`Forecast`를 생산하고, Norns는 `OperatingPatternCompiler`에서 `Pattern`을 생산합니다. Band에서 두
+이름을 지웠다면 과잉 주장을 바로잡는 대신 구현된 동작을 가렸을 것입니다. 두 선언은 링크 타입,
+투영, 인스턴스 경로, 권한을 추가하지 않으며, 생산 가능한 엔드포인트 쌍이 없으므로
+`predicts_breach_of`와 `learned_as`는 미선언으로 남습니다.
+
+### 보류된 관계
+
+이전 개정판이 [관계 계약](../architecture/operating-ontology-ko.md#관계-계약)의 계약 행으로 표기했던
+관계 두 개는 선언된 것이 아니라 보류 상태입니다. 두 엔드포인트 ObjectType은 이제 모두 존재하므로,
+남은 차단 사유는 어느 쌍도 생산할 수 없다는 점입니다.
+
+| 관계 | 의도한 엔드포인트 | 차단 사유 |
+|------|-------------------|-----------|
+| `predicts_breach_of` | Forecast -> 목표 | `ForecastFinding`은 메트릭 임계값 위반을 예측할 뿐 목표 신원을 담지 않으므로, 어떤 생산자도 대상 엔드포인트를 공급할 수 없습니다. `목표`도 명시적인 물리 엔드포인트 이름이 필요한 개념적 합집합입니다. |
+| `learned_as` | ObservedOutcome -> Pattern | Cohort는 sealed 사례를 `case-history:<case_id>:<revision>:<manifest_digest>`로 인용할 뿐 `ObservedOutcome` 신원을 받지 않으므로, 출발 엔드포인트를 생산할 수 없습니다. 복원되더라도 검토된 학습 투영으로만 남고 승격 경로가 되지는 않습니다. |
+
+두 엔드포인트 ObjectType이 모두 존재하기 전에는 LinkType을 선언해서는 안 됩니다. 카탈로그 적재가
+`from_type`과 `to_type`을 교차 참조하며 fail-closed로 동작하기 때문입니다. 선언할 수 있다고 해서 쓸
+수 있는 것은 아니므로, 각 행은 두 엔드포인트의 생산자와 그 관계가 답하는 competency 질문이 갖춰졌을
+때만 계약 표로 돌아옵니다.
 
 ## 에이전트 소유권
 

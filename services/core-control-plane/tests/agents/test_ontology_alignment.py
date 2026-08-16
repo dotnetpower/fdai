@@ -72,6 +72,29 @@ def test_lifecycle_owner_contract_matches_pantheon() -> None:
     assert {owner.value for owner in LifecycleOwner} == set(PANTHEON_NAMES)
 
 
+def test_catalog_stewardship_is_separate_from_wire_single_writer() -> None:
+    """A catalog `lifecycle.owner` need not own a same-named wire object.
+
+    Pinning the separation stops a later change from "closing" a missing
+    producer by inventing a wire object for what is only semantic stewardship.
+    """
+    owns = {spec.name: set(spec.owns) for spec in PANTHEON_SPECS}
+    stewarded: dict[str, str] = {}
+    for path in sorted((REPO_ROOT / "rule-catalog" / "vocabulary" / "object-types").glob("*.yaml")):
+        declaration = yaml.safe_load(path.read_text(encoding="utf-8"))
+        owner = (declaration.get("lifecycle") or {}).get("owner")
+        if owner is not None:
+            stewarded[str(declaration["name"])] = str(owner)
+
+    assert stewarded, "the catalog MUST declare lifecycle owners"
+    assert set(stewarded.values()) <= set(PANTHEON_NAMES)
+    steward_only = {name for name, owner in stewarded.items() if name not in owns.get(owner, set())}
+    assert steward_only, "stewardship without a same-named wire object is the documented norm"
+    assert "ObservedOutcome" in steward_only
+    assert stewarded["Pattern"] == "Norns"
+    assert "Pattern" in owns["Norns"], "the unified learning record stays a Norns wire object"
+
+
 def test_every_agent_has_at_least_one_owned_type_or_is_governance_planner() -> None:
     # Odin owns ArbitrationDecision. Domain / pipeline agents own at
     # least one topic. Wave 1 asserts none is empty; if we later admit

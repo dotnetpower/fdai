@@ -93,7 +93,11 @@ cloud-operations concepts, while each deployment supplies its observed instances
 | O1 semantic spine and catalog integrity | implemented | [`test_ontology_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_catalog.py), [`test_ontology_provenance.py`](../../../services/core-control-plane/tests/rule_catalog/test_ontology_provenance.py) | The integrated catalog validates the operating semantic spine, provenance, references, and cardinality. |
 | O2 bounded context and current-state projection | in-progress | [`ontology_instance.py`](../../../services/core-control-plane/src/fdai/shared/providers/ontology_instance.py), [`console_projection.py`](../../../services/core-control-plane/src/fdai/core/operational_context/console_projection.py), focused instance and Context projection tests | Typed current-state objects and links exist. A secured receipt can now produce bounded no-authority Context metadata only when purpose, release, cutoff, and graph coverage match. Principal-scoped transport and authenticated runtime evidence remain open. |
 | O3-O5 decision, outcome, and governed-learning loops | in-progress | [Delivery plan](#delivery-plan), [`test_ontology_alignment.py`](../../../services/core-control-plane/tests/agents/test_ontology_alignment.py) | Core slices exist, but effect closure and governed learning are not complete across every production path. |
+| Decision-and-learning writers | not-started | [`hypothesis_lineage.py`](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py); [`test_hypothesis_lineage.py`](../../../services/core-control-plane/tests/core/operational_planning/test_hypothesis_lineage.py) | The four segments are catalog-valid and traversable: a focused test now appends one lineage through the shipped ObjectType and LinkType declarations and traverses `DecisionCase` to `ObservedOutcome`. What is missing is a producer. `OperationalHypothesisLineageProjector` is their only writer, no composition root constructs it, and the runtime models do not carry the declared properties: `DecisionCase` retains only `context_snapshot_id`, so `target_ref` and `evidence_cutoff` live on `OperationalContextSnapshot` but not on the case, while `uncertainty`, `ActionOption.arguments`, `preconditions`, `option_kind`, `ExpectedEffect.direction`, `predictor_version`, `ActionRun.action_type_version`, `started_at`, and `receipt_ref` are absent from the models the projector would read. Each needs a named producer decision rather than a mechanical mapping, and wiring the projector first would fabricate operational evidence. This is structural rather than a per-type oversight: catalog stewardship and wire single-writer authority are separate registries, and many shipped ObjectTypes name a `lifecycle.owner` that owns no same-named wire object, which `test_catalog_stewardship_is_separate_from_wire_single_writer` pins. Norns likewise owns `Pattern` and `object.pattern` is registered, yet nothing publishes or subscribes it. |
 | Wave 2 evidence, change, Property, and topology foundations | in-progress | [Implementation status narrative](#fdai-operating-ontology), [Operating Ontology Platform](operating-ontology-platform.md) | Reviewed foundations exist; the evidence bundle is not composed into runtime, planned changes cannot auto-clear graph freshness, and broader platform delivery remains open. |
+| Console semantic-band declaration completeness | implemented | [`Forecast.yaml`](../../../rule-catalog/vocabulary/object-types/Forecast.yaml), [`Pattern.yaml`](../../../rule-catalog/vocabulary/object-types/Pattern.yaml), [`test_ontology_console_projection.py`](../../../services/core-control-plane/tests/delivery/test_ontology_console_projection.py) | Every object type named by a Console band is declared by the shipped release, so no band member is dropped silently. Both declarations are semantics only and add no instance path. |
+| Operating-scope `unknown_service` coverage | implemented | [`operating_scope.py`](../../../services/core-control-plane/src/fdai/core/operational_context/operating_scope.py), [`test_operating_scope.py`](../../../services/core-control-plane/tests/core/operational_context/test_operating_scope.py) | The deterministic read-only projection keeps unmapped resources visible and rejects the reserved marker as a service id. No runtime or Console consumer is bound to it yet. |
+| Operating-intent runtime instances | in-progress | Catalog declarations for the six intent types, [`ontology_console_projection.py`](../../../services/core-control-plane/src/fdai/delivery/ontology_console_projection.py) | `ServiceObjective`, `RecoveryObjective`, `CostObjective`, `ArchitectureConstraint`, `Ownership`, and `ChangeWindow` are declared and banded, and `OperatingModelProjector` can persist deployment-supplied instances. No projection derives them and no focused test pins intent instances end to end. |
 
 ### Implementation history
 
@@ -105,6 +109,7 @@ cloud-operations concepts, while each deployment supplies its observed instances
 | 2026-08-15 | implemented | Corrected the agent-ownership section to name the two independent ownership registries, replaced the prose ownership claims with the exact `lifecycle.owner` type list, and replaced the unsupported "authority class, freshness policy, retention, allowed purposes" claim with the fields the schema actually declares. | `current change`; `test_object_type_catalog.py::test_documented_semantic_write_owners_match_the_catalog`. | Decide per ObjectType whether an absent `lifecycle` block should gain a declared owner; do not add one to fill the field. |
 | 2026-08-15 | implemented | Added deterministic adjudication of repeated authoritative observations of one resource identity, so `StateFactMetadata.conflicts` has a production producer instead of only test fixtures. Benign repetition no longer fails the whole generation. | `current change`; `test_observation_adjudication.py` 15 focused cases and `test_inventory_projection.py` conflict-demotion cases passed; 354 focused ontology, inventory, and runtime cases passed. | Adjudicate genuinely independent authorities against each other; inventory projection versus live discovery is the next pair. |
 | 2026-08-15 | implemented | Adjudicated the first genuinely independent pair: the live provider read against the inventory-projected graph state. A state or identity disagreement becomes a `derived` cross-source conflict that is retained in the receipt digest and makes the hook abstain from asserting a state and degrade its activity; an observation-time difference alone is explicitly not a conflict. | `current change`; `test_resource_state_shadow.py` 6 added adjudication cases and `test_wire_read_investigation.py::test_cross_source_state_conflict_lowers_the_answer_and_activity` with a non-vacuous agreeing control. | Adjudicate two independent providers, and projected state against telemetry. |
+| 2026-08-15 | implemented | Judged `Pattern` and `PatternObservation` to be one layer from the compiler and publish path, adopted the shipped `Forecast` and `Pattern` declarations, unified the owned learning object on `Pattern` across spec, topic, and tables, added the `unknown_service` scope-coverage marker, and recorded that the decision-and-learning lineage projector has no production caller. Both deferred relationships now record their real blocker: neither endpoint pair is producible. | `current change`; `rule-catalog/vocabulary/object-types/{Forecast,Pattern}.yaml`, `operating_scope.py`, `test_ontology_catalog.py` document-consistency cases, `test_shipped_catalog_accepts_and_traverses_one_lineage`, and `test_shipped_catalog_rejects_a_lineage_missing_a_required_property`; a reversed `resulted_in` direction now fails, which the previous fake-store test could not detect; the focused catalog, context, projection, alignment, instance, explorer, and release suites passed. | Supply the missing `DecisionCase`, `ActionOption`, `ExpectedEffect`, and `ActionRun` properties from real producers, then construct `OperationalHypothesisLineageProjector` from a composition root; supply a producer for either deferred relationship before restoring it; publish `Pattern` from Norns with a live consumer or retire its topic; bind scope coverage to one consumer and pin operating-intent instances. |
 
 ### Remaining work
 
@@ -118,8 +123,13 @@ cloud-operations concepts, while each deployment supplies its observed instances
   prove wrong-principal, wrong-purpose, wrong-release, stale, and truncated cases remain unavailable.
 - [ ] Keep the operating ontology and platform ledgers synchronized as topology, temporal,
   reconciliation, and graph-wide Dynamic delivery reaches its focused exit conditions.
-- [ ] Decide whether the `Forecast` and `Pattern` ObjectTypes ship, driven by a competency question
-  that needs them; only then restore `predicts_breach_of` and `learned_as` as declared LinkTypes.
+- [ ] Bind `project_operating_scope` to one read-only consumer so `unknown_service` reaches an
+  operator surface, with a passing focused check for that consumer.
+- [ ] Supply a producer for the `Forecast` and `Pattern` endpoint pairs before restoring
+  `predicts_breach_of` and `learned_as`. Both ObjectTypes now ship, so the blocker is that no
+  runtime path writes either endpoint, not that the catalog would reject the declaration.
+- [ ] Project the six operating-intent types from a deployment-supplied source and pin them with a
+  focused test that fails when an intent type produces no instance.
 - [ ] Review the shipped ObjectTypes that carry no `lifecycle` block and record, per type, whether an
   agent single-writer is required or whether catalog-as-code, a projection, or the event-bus
   registry is the correct authority ([#130](https://github.com/dotnetpower/fdai/issues/130)).
@@ -282,7 +292,8 @@ These objects answer what is operated and why it matters.
 
 `BusinessCapability` is optional for an initial SRE deployment. `BusinessService`, `Workload`, and
 their resource mappings form the minimum operational spine. An unmapped resource remains visible
-as `unknown_service`; it is never silently assigned to a synthetic service.
+as `unknown_service`; it is never silently assigned to a synthetic service. The marker is
+implemented by [`project_operating_scope`](../../../services/core-control-plane/src/fdai/core/operational_context/operating_scope.py), which grants no authority.
 
 ### Operating intent
 
@@ -324,7 +335,7 @@ authority.
 | `ExpectedEffect` | Predicted metric range, observation window, uncertainty, and predictor version. |
 | `ActionRun` | The existing execution identity and terminal receipt. |
 | `ObservedOutcome` | Observed effect, rollback, SLO recovery, recurrence, and scoring status. |
-| `Pattern` | A reviewed generic mechanism supported by a balanced case cohort. |
+| `Pattern` | An inert generic mechanism compiled from a balanced sealed-case cohort, and [one layer](../rules-and-detection/operational-learning-ontology.md#pattern-is-one-layer-not-two) rather than a reviewed generalization of a separate observation. `Pattern` and `Forecast` are both declared because each already has a fixed-pantheon owner and a producing mechanism; see [why both ship](../rules-and-detection/operational-learning-ontology.md#why-forecast-and-pattern-are-declared). |
 
 `DecisionCase` does not replace the RiskGate decision or the audit record. It is the immutable
 semantic input that lets Forseti, Odin, Var, Saga, and replay consumers refer to the same facts.
@@ -368,27 +379,16 @@ LinkType declaration. A relation that cannot support a required competency quest
 added for visualization alone.
 
 The current LinkType schema has one source and one target type per declaration. The conceptual
-union rows `depends_on`, `governed_by`, `owned_by`, `observes`, `affects`, and `protects` therefore
-compile to explicit physical names such as `workload_runs_on`, `workload_depends_on`,
+union rows `depends_on`, `governed_by`, `owned_by`, `observes`, `affects`, and `protects`
+therefore compile to explicit physical names such as `workload_runs_on`, `workload_depends_on`,
 `service_has_service_objective`, `service_has_recovery_objective`, `service_has_cost_objective`,
 `service_has_architecture_constraint`, `service_owned_by`, `workload_owned_by`, and
 `objective_owned_by`. Every other row in the table is a declared LinkType under
 `rule-catalog/vocabulary/link-types/`. This keeps endpoint validation deterministic.
 
-### Deferred relationships
-
-Two relationships that earlier revisions listed as contract rows are deferred, not declared.
-
-| Relationship | Intended endpoints | Blocking reason |
-|--------------|--------------------|-----------------|
-| `predicts_breach_of` | Forecast -> Objective | The `Forecast` ObjectType is not declared in the catalog. |
-| `learned_as` | ObservedOutcome -> Pattern | The `Pattern` ObjectType is not declared in the catalog. |
-
-A LinkType MUST NOT be declared before both endpoint ObjectTypes exist, because catalog loading
-cross-references `from_type` and `to_type` against the ObjectType registry and fails closed. Listing
-these rows as contract while no declaration backs them claimed a validated relationship that no
-query could traverse. Each returns to the contract table only together with its endpoint ObjectType
-and a competency question that the relationship is required to answer.
+`predicts_breach_of` and `learned_as` are deliberately absent. Both endpoint ObjectTypes now ship,
+but neither pair is producible, so the learning ontology records each blocker and the condition for
+its return in [deferred relationships](../rules-and-detection/operational-learning-ontology.md#deferred-relationships).
 
 ## Identity and time
 
@@ -545,14 +545,14 @@ name so it can be checked rather than interpreted.
 | Thor | `ActionRun` |
 | Forseti | `ActionOption`, `CausalHypothesis`, `DecisionCase`, `ExpectedEffect`, `ImpactEnvelope` |
 | Huginn | `Change`, `Observation` |
-| Heimdall | `Incident`, `ObservedOutcome` |
+| Heimdall | `Forecast`, `Incident`, `ObservedOutcome` |
 | Vidar | `RecoveryPlan` |
 | Var | none declared |
 | Bragi | none declared |
 | Saga | `Issue` |
 | Mimir | `ArchitectureConstraint`, `ChangeWindow` |
 | Muninn | `BusinessCapability`, `BusinessService`, `Environment`, `Ownership`, `RecoveryObjective`, `ServiceObjective`, `Workload` |
-| Norns | none declared |
+| Norns | `Pattern` |
 | Njord | `CostObjective` |
 | Freyr | none declared |
 | Loki | `Experiment` |

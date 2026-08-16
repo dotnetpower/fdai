@@ -1,0 +1,29 @@
+schema_version: "1.0.0"
+name: Pattern
+version: "1.0.0"
+key: id
+description: Inert generic mechanism compiled from a balanced sealed-case cohort; it grants no promotion or execution authority.
+properties:
+  id: {type: string, required: true}
+  failure_fingerprint: {type: string, required: true}
+  resource_type: {type: string, required: true}
+  action_type: {type: string, required: true}
+  sample_size: {type: integer, required: true}
+  reusable_count: {type: integer, required: true}
+  negative_count: {type: integer, required: true}
+  evidence_digest: {type: string, required: true}
+  compiled_at: {type: datetime, required: true}
+lifecycle:
+  owner: Norns
+  creation:
+    - code: balanced_case_cohort
+      when: Sealed cases share one failure fingerprint, resource type, and action type and carry both reusable and negative outcomes.
+      result: Create an inert pattern record that cites every immutable case reference.
+      source_refs: [docs/roadmap/rules-and-detection/prediction-learning-and-case-history.md]
+  authority_refs: [docs/roadmap/rules-and-detection/prediction-learning-and-case-history.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:Pattern@1.0.0
+  content_hash: sha256:f2a1f411729f81bbf86cad825dd364f65a084c5258c474b39491b03bda3ca1e0
+  license: MIT
+  retrieved_at: "2026-08-15T00:00:00Z"
