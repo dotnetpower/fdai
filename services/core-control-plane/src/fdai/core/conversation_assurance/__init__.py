@@ -77,6 +77,15 @@ from fdai.core.conversation_assurance.runtime_policy import (
     ConversationPolicyRuntime,
     policy_is_assigned,
 )
+from fdai.core.conversation_assurance.scorecard_run import (
+    SCORECARD_SCHEMA_VERSION,
+    QualityRunEvidence,
+    QualityScorecard,
+    ScorecardBlocker,
+    ScorecardItemResult,
+    ScorecardProvenance,
+    build_quality_scorecard,
+)
 from fdai.core.conversation_assurance.service import ConversationAssuranceCoordinator
 
 __all__ = [
@@ -132,7 +141,14 @@ __all__ = [
     "QualityItemMeasurement",
     "QualityItemScore",
     "QualityRubricItem",
+    "QualityRunEvidence",
+    "QualityScorecard",
+    "SCORECARD_SCHEMA_VERSION",
+    "ScorecardBlocker",
+    "ScorecardItemResult",
+    "ScorecardProvenance",
     "assess_deterministically",
+    "build_quality_scorecard",
     "attribute_answer_failure",
     "assurance_principal_scope",
     "cluster_failures",

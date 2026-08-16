@@ -19,7 +19,7 @@ model families, bounded debate, blind replay, automatic promotion, and automatic
 |------|-------|----------|-------|
 | Assessment contract and independent reduction | implemented | [`test_assessment.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_assessment.py), [`test_attribution.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_attribution.py) | Deterministic checks, independent evaluator reduction, attribution, and hold behavior have focused coverage. |
 | Cost-aware runtime policy and lifecycle | implemented | [`test_runtime_policy.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_runtime_policy.py), [`test_lifecycle.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_lifecycle.py) | The cascade, candidate lifecycle, fail-closed promotion checks, and rollback mechanics exist in code; this does not prove an operational promotion. |
-| Qualification scorecard and campaign ledger | in-progress | [`test_quality_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_scorecard.py), [`conversation-assurance-ledger.py`](../../../scripts/quality/conversation-assurance-ledger.py) | The scorecard and bounded result format are implemented, but the complete bilingual qualification cohort has not been retained as governed evidence. |
+| Qualification scorecard and campaign ledger | in-progress | [`test_quality_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_scorecard.py), [`test_scorecard_run.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_scorecard_run.py), [`conversation-assurance-ledger.py`](../../../scripts/quality/conversation-assurance-ledger.py) | The contract, the deterministic item scorer, the worst-run aggregator, and the one-command regeneration path are implemented, but the complete bilingual qualification cohort has not been retained as governed evidence. |
 | Operator disputes and ontology adequacy review | implemented | [`test_learning.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_learning.py), [`test_state_store_ontology_adequacy.py`](../../../services/core-control-plane/tests/delivery/persistence/test_state_store_ontology_adequacy.py) | Disputes and reproduced adequacy gaps create bounded review evidence without changing execution authority. |
 
 ### Implementation history
@@ -27,9 +27,14 @@ model families, bounded debate, blind replay, automatic promotion, and automatic
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source and focused tests listed in the scope table. | Retain the qualification, blind-replay, and operational promotion or rollback evidence described below. |
+| 2026-08-17 | in-progress | Added the deterministic worst-run scorecard aggregator and the one-command regeneration path, so recorded measurements reduce to one stable schema-compatible artifact without a model call. | `current change`; `scorecard_run.py`, `scorecard_cli.py`, `test_scorecard_run.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/conversation_assurance/test_scorecard_run.py` (`24 passed`); task-scoped Ruff and strict mypy passed. | Measure the frozen bilingual corpus and retain the qualification, blind-replay, and operational promotion or rollback evidence described below. |
 
 ### Remaining work
 
+- [x] The deterministic aggregator reduces independent runs to one worst-run scorecard, and
+   `uv run python -m fdai.core.conversation_assurance.scorecard_cli --input <measurements.json>
+   --output <scorecard.json>` regenerates a byte-identical schema-compatible artifact from the
+   same recorded measurements.
 - [ ] Run the complete 50-item bilingual qualification scorecard on one pinned revision and retain
    per-item results that prove every hard-check and semantic-rubric threshold.
 - [ ] Retain a blind holdout replay showing a statistically supported improvement with zero hard
@@ -178,6 +183,38 @@ The contract and scorer contain no measured results, corpus labels, deployment i
 promotion state. They do not establish a baseline or qualification by themselves. A separate
 version-pinned corpus runner and scorecard artifact must supply those records without changing the
 contract or holdout labels in the same promotion change.
+
+### Scorecard regeneration
+
+`scorecard_run.py` reduces independent runs over the frozen corpus to one artifact. Each run
+declares its identifier, English and Korean turn counts, and one measurement per contract item.
+Each item reports the **worst** final score across every supplied run, so a single favourable run
+cannot qualify an item.
+
+A `ScorecardProvenance` record pins the contract digest, corpus version and digest, model
+deployment id, evaluator version, and generator. A contract digest that no longer matches the
+installed contract is a hard error, so one change cannot edit a threshold and promote a failing
+implementation at the same time. A repeated run id, a run that does not measure every item, and a
+run set outside the supported bound are hard errors as well.
+
+Qualification is withheld with an explicit blocker rather than inferred. `insufficient_runs`,
+`corpus_turn_floor_unmet`, `locale_turn_floor_unmet`, and `item_below_minimum` are reported
+independently, and one locale can never compensate for the other because each run must clear both
+locale floors.
+
+Regenerate the artifact from recorded measurements with one documented command:
+
+```bash
+uv run python -m fdai.core.conversation_assurance.scorecard_cli \
+  --input <measurements.json> --output <scorecard.json>
+```
+
+The command is a pure reducer: it reads recorded measurements, applies the installed contract, and
+writes stable sorted JSON, so the same input always produces the same artifact and digest. A
+blocked scorecard still exits `0` because reporting a failure is a successful regeneration;
+unreadable, malformed, or contract-inconsistent input exits `2` without writing an artifact. The
+artifact carries versions, digests, counts, and scores only - no answer text, principal, tenant,
+endpoint, or customer value.
 
 ## Independent model review
 

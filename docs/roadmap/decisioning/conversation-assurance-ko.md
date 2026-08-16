@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 8d155f8484f65c427c9a21ff94c78ccecf9d5c7f
-translation_revised: 2026-08-14
+translation_source_sha: 853484264957087489cd50166e856bb1c9c1c7a8
+translation_revised: 2026-08-17
 ---
 # 대화 품질 보증
 
@@ -21,7 +21,7 @@ translation_revised: 2026-08-14
 |------|------|------|------|
 | 평가 계약 및 독립 축약 | implemented | [`test_assessment.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_assessment.py), [`test_attribution.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_attribution.py) | 결정론적 검사, 독립 평가자 축약, 귀속 및 판단 보류 동작에 집중 테스트가 있습니다. |
 | 비용 인식 런타임 정책 및 수명 주기 | implemented | [`test_runtime_policy.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_runtime_policy.py), [`test_lifecycle.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_lifecycle.py) | 단계적 평가, 후보 수명 주기, 실패 시 차단되는 승격 검사 및 롤백 동작이 구현되어 있습니다. 이는 운영 승격을 증명하지 않습니다. |
-| Qualification 점수표 및 캠페인 원장 | in-progress | [`test_quality_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_scorecard.py), [`conversation-assurance-ledger.py`](../../../scripts/quality/conversation-assurance-ledger.py) | 점수표와 범위가 제한된 결과 형식은 구현되어 있지만 전체 이중 언어 qualification 집합은 통제된 근거로 보존되지 않았습니다. |
+| Qualification 점수표 및 캠페인 원장 | in-progress | [`test_quality_scorecard.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_quality_scorecard.py), [`test_scorecard_run.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_scorecard_run.py), [`conversation-assurance-ledger.py`](../../../scripts/quality/conversation-assurance-ledger.py) | 계약, 결정론적 항목 scorer, 최저 실행 집계기 및 단일 명령 재생성 경로는 구현되어 있지만 전체 이중 언어 qualification 집합은 통제된 근거로 보존되지 않았습니다. |
 | 운영자 이의 제기 및 온톨로지 적정성 검토 | implemented | [`test_learning.py`](../../../services/core-control-plane/tests/core/conversation_assurance/test_learning.py), [`test_state_store_ontology_adequacy.py`](../../../services/core-control-plane/tests/delivery/persistence/test_state_store_ontology_adequacy.py) | 이의 제기와 재현된 적정성 공백은 실행 권한을 변경하지 않고 범위가 제한된 검토 근거를 만듭니다. |
 
 ### 구현 이력
@@ -29,9 +29,14 @@ translation_revised: 2026-08-14
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스와 집중 테스트입니다. | 아래에 설명된 qualification, 블라인드 재실행 및 운영 승격 또는 롤백 근거를 보존해야 합니다. |
+| 2026-08-17 | in-progress | 결정론적 최저 실행 점수표 집계기와 단일 명령 재생성 경로를 추가해, 기록된 측정값이 모델 호출 없이 안정적이고 스키마 호환되는 산출물 하나로 축약되도록 했습니다. | `current change`; `scorecard_run.py`, `scorecard_cli.py`, `test_scorecard_run.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/conversation_assurance/test_scorecard_run.py` (`24 passed`); 작업 범위 Ruff와 strict mypy 통과. | 고정된 이중 언어 말뭉치를 측정하고 아래에 설명된 qualification, 블라인드 재실행 및 운영 승격 또는 롤백 근거를 보존해야 합니다. |
 
 ### 남은 작업
 
+- [x] 결정론적 집계기가 독립 실행들을 최저 실행 점수표 하나로 축약하며,
+	`uv run python -m fdai.core.conversation_assurance.scorecard_cli --input <measurements.json>
+	--output <scorecard.json>`가 같은 기록 측정값에서 바이트 단위로 동일한 스키마 호환 산출물을
+	재생성합니다.
 - [ ] 하나의 고정된 리비전에서 전체 50개 항목 이중 언어 qualification 점수표를 실행하고
 	모든 하드 검사와 의미 루브릭 임계값을 증명하는 항목별 결과를 보존합니다.
 - [ ] 승격된 정책을 보고하기 전에 통계적으로 뒷받침되는 개선, 하드 안전성 이탈 0건 및 로케일
@@ -179,6 +184,35 @@ observability and 재생 `0.10`의 고정된 정규화된 가중치를 적용합
 포함되지 않습니다. 이 산출물만으로 기준선 또는 qualification을 입증할 수 없습니다. 별도의
 version-pinned 말뭉치 실행기와 점수표 산출물이 같은 승격 변경에서 계약 또는 holdout
 라벨을 변경하지 않고 해당 기록을 제공해야 합니다.
+
+### 점수표 재생성
+
+`scorecard_run.py`는 고정된 말뭉치에 대한 독립 실행들을 산출물 하나로 축약합니다. 각 실행은
+식별자, English 및 Korean 턴 수, 계약 항목별 측정값 하나를 선언합니다. 각 항목은 공급된 모든
+실행 중 **가장 낮은** 최종 점수를 보고하므로 유리한 실행 하나가 항목을 통과시킬 수 없습니다.
+
+`ScorecardProvenance` 레코드는 계약 다이제스트, 말뭉치 버전과 다이제스트, 모델 배포 식별자,
+평가자 버전, 생성기를 고정합니다. 설치된 계약과 일치하지 않는 계약 다이제스트는 하드 오류이므로,
+하나의 변경이 임계값을 수정하면서 동시에 실패한 구현을 승격할 수 없습니다. 중복된 실행 식별자,
+모든 항목을 측정하지 않은 실행, 지원 한도를 넘는 실행 집합도 하드 오류입니다.
+
+Qualification은 추론되지 않고 명시적 차단 사유와 함께 보류됩니다. `insufficient_runs`,
+`corpus_turn_floor_unmet`, `locale_turn_floor_unmet`, `item_below_minimum`은 각각 독립적으로
+보고되며, 각 실행이 두 로케일 하한을 모두 충족해야 하므로 한 로케일이 다른 로케일을 대신할 수
+없습니다.
+
+기록된 측정값에서 산출물을 재생성하는 문서화된 명령은 하나입니다.
+
+```bash
+uv run python -m fdai.core.conversation_assurance.scorecard_cli \
+  --input <measurements.json> --output <scorecard.json>
+```
+
+이 명령은 순수 축약기입니다. 기록된 측정값을 읽고 설치된 계약을 적용해 정렬된 안정적 JSON을
+기록하므로 같은 입력은 항상 같은 산출물과 다이제스트를 만듭니다. 차단된 점수표도 실패 보고
+자체가 성공적인 재생성이므로 `0`으로 종료하며, 읽을 수 없거나 형식이 잘못되었거나 계약과
+불일치하는 입력은 산출물을 쓰지 않고 `2`로 종료합니다. 산출물에는 버전, 다이제스트, 개수,
+점수만 담기며 답변 텍스트, 주체, 테넌트, 엔드포인트 또는 고객 값은 담기지 않습니다.
 
 ## 독립 모델 평가
 
