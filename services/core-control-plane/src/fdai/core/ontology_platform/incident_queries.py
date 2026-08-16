@@ -177,6 +177,7 @@ def incident_evidence_function(
             {
                 "audit_ref": f"audit:{row.seq}",
                 "event_id": row.event_id,
+                "actor": row.actor,
                 "action_kind": row.action_kind,
                 "mode": row.mode,
                 "recorded_at": row.recorded_at,
