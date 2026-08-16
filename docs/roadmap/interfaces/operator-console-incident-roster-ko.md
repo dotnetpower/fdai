@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: 6c5a9c80a4b774bc3784d73337b7c4de52e143f2
+translation_source_sha: 724c8369ffa9e7dec5df11e43a85d9314cabb0d4
 translation_revised: 2026-08-17
 ---
 
@@ -147,19 +147,19 @@ Console은 per-user direct-message 구독을 만들지 않습니다. 배정과 �
 티켓 연결은 인증된 write-direction 채팅/도구 연산으로 유지되고 감사
 이력에 표시됩니다. 읽기 전용 명단은 연결된 `ticket_id`를 표시합니다.
 
-목록은 선택적 정본 `vertical` 및 `severity` 필터를 허용하며 감사 경로는 `mode`,
+목록은 선택적이고 범위가 제한된 `q`, 정본 `vertical` 및 `severity` 필터를 허용하며 감사 경로는 `mode`,
 `tier`, `action`, `outcome`, `vertical`, 범위가 제한된 `window=<n>d` 필터를 커서
 페이지 나누기 전에 서버에서 적용합니다. 따라서 분석 deep 링크는 브라우저 첫 페이지만
 필터하지 않고 전체 filtered 결과 집합을 검색합니다. `severity`는 `critical`, `high`,
 `medium`, `low`, `unknown`을 허용하며, 변환 결과가 `sev1`~`sev4`를 이 정본 값으로 묶고
 브라우저에서는 절대 필터하지 않습니다. 콘솔은 두 필터를 전체 선택 항목과 해제 동작이 있는
 select 컨트롤로 제공하므로 deep 링크로 들어온 필터를 URL을 편집하지 않고 제거할 수 있습니다.
-커서는 인시던트 상태, 버티컬, 심각도에 연결되므로 그중 하나만 바꿔도 stale 커서가 무효화됩니다.
-
-목록에는 자유 텍스트 검색이 없습니다. 표시되는 대상은 `recorded_subject`에서 올 수 있는데 이는
-변환 결과가 읽기 모델에서 구성하며 컬럼으로 저장하지 않으므로, 서버측 텍스트 필터는 운영자가
-보는 값과 일치하지 않고 브라우저측 필터는 현재 페이지만 검색하게 됩니다. 구체화된 대상 컬럼이
-서버측 필터를 사실에 맞게 만들기 전까지 검색은 사용 불가로 둡니다.
+검색은 정규화된 질의를 공백 기준 literal token으로 나누고, 표시 대상이 될 수 있는 범위가 제한된
+기록 근거에서 모든 token이 나타나야 일치시킵니다. 대상 필드는 상관관계 및 이벤트 식별자, 제목,
+요약, 룰 참조, 상관관계 키, 리소스 ID 또는 타입, 사유, 단계 및 감사 봉투 payload의 해당 필드입니다.
+SQL wildcard 의미를 적용하거나 임의 payload 필드를 검색하지 않습니다. 검색, 상태, 버티컬, 심각도는
+커서 identity와 같은 snapshot 결과 cohort에 포함되므로 필터 하나만 바꿔도 stale 커서가 무효화되고
+페이지와 측정 모집단을 섞지 않습니다.
 
 개요 감사 KPI는 in-memory와 Postgres 읽기 모델 모두에서 가장 최근 감사 행
 500개를 집계합니다. `GET /kpi`는 이 변경할 수 없는 샘플을 inclusive `from_seq`와
@@ -385,6 +385,7 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | Incident 수명 주기, roster 변환 결과 및 Console 보기 | implemented | `services/core-control-plane/src/fdai/core/incident/`; `services/core-control-plane/tests/core/incident/`; `console/src/routes/incidents.tsx`; focused Console incident 테스트 | Incident 상태, 상관관계, 수명 주기, roster, attention 및 범위가 제한된 presentation에 focused 검사가 있습니다. |
+| 서버 기반 roster 검색 | implemented | `fdai_service_contracts.operator.IncidentQuery`; `fdai_operator_service.postgres_sql.INCIDENT_PAGE_SQL`; `console/src/api-operations-client.ts`; `console/src/routes/incidents.tsx`; focused Operator 및 Console 테스트 | 페이지 나누기 전에 범위가 제한된 기록 대상 근거를 검색하고, 측정은 같은 snapshot과 필터를 사용하며, 커서는 정규화된 검색어를 상태, 버티컬, 심각도와 함께 묶습니다. |
 | 운영자가 읽을 수 있는 identity 및 단계별 조사 | implemented | `incident_projection.py`; `projection_logic.py`; `postgres.py`; `incidents.tsx`; `incidents.detail-sections.tsx`; `incidents.milestones.ts`; focused Operator 테스트(`31 passed`), Console 테스트(`66 passed`), typecheck, strict mypy, Ruff, Pylance 및 catalog parity | 제목 출처, 신뢰된 원본 context, 계획 미리 보기, 범위가 제한된 근거 milestone, 독립적으로 검증된 결과 cohort를 실행 권한 없이 구현했습니다. |
 | RCA 계약, 변환 결과 및 읽기 전용 경로 | implemented | `services/core-control-plane/src/fdai/core/rca/`; `services/core-control-plane/tests/core/rca/`; `services/operator-service/src/fdai_operator_service/rca_projection.py`; `services/operator-service/tests/test_operator_service_composition.py`; `console/src/routes/rca.test.ts` | 경로는 알 수 없는 상관관계를 구분하고 기록된 가설과 대응 근거를 변환하며 액션 권한을 노출하지 않습니다. |
 | RCA 보고 카탈로그 및 데이터 원본 | implemented | `rule-catalog/reports/incident-rca-dossier.yaml`; `services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py`; reporting 테스트 | 선언형 dossier와 범위가 제한된 감사 변환 결과가 있습니다. |
@@ -408,6 +409,7 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 | 2026-08-15 | implemented | 남은 `identifier_fallback`이 그룹 1,562개 중 5개이고 기록된 인시던트가 모두 `correlation_subject`로 해석됨을 측정한 뒤 인시던트 대상 및 결과 분석 구획을 마무리했습니다. | `current change`; 로컬 corpus 최종 재생 결과는 `recorded_subject` 1,001개, `rule_id` 551개, `correlation_subject` 5개, `identifier_fallback` 5개입니다. fallback 5개는 이미 목록에서 제외된 운영 무관 `read:sha256:*` 읽기입니다. | 자유 텍스트 목록 검색은 구체화된 대상이 생길 때까지 의도적으로 사용 불가로 남습니다. |
 | 2026-08-17 | implemented | 기록된 Incident 수명주기 상태를 roster 계약이 허용하는 세 가지 상태로 매핑하고 그 출처를 `incident_lifecycle`로 표기해, `triaging`이나 `mitigated` Incident 때문에 Console이 페이지 전체를 거부하지 않도록 했습니다. | `current change`; `incident_projection.py`; 5개 상태 focused projection 테스트; Operator `358 passed, 1 skipped`; 매핑을 되돌리면 모든 정본 상태에서 해당 테스트가 실패합니다. | 인증된 로컬 Console에서 복구된 roster 렌더링을 확인합니다. |
 | 2026-08-17 | validated | 인증된 로컬 Console에서 Incidents가 다시 로드되는 것을 확인했습니다. `triaging`이나 `mitigated` 상태가 유발하던 페이지 전체 거부 대신, 매칭된 1,573건 중 500건에 대한 결과 코호트가 렌더링됩니다. | `current change`; 커밋 `61e826092`를 실행하는 로컬 Operator API를 대상으로 한 `/incidents`의 인증된 Browser Entra 세션; 기록된 코퍼스에는 이전에 페이지를 실패시키던 `triaging`과 `mitigated` 수명주기 상태가 포함되어 있습니다. | roster 수명주기 상태 계약에 남은 작업은 없습니다. |
+| 2026-08-17 | implemented | 표시 대상을 구성하는 범위가 제한된 기록 근거에 서버 기반 Incident roster 검색을 추가하고 페이지 나누기와 같은 snapshot 분석에 정확한 필터 identity를 유지했습니다. | `current change`; 공유 query 계약, Operator 경로와 PostgreSQL 변환 결과, Console client와 경로, 메시지 catalog, focused Operator 및 Console 테스트입니다. | 이슈 #120의 구현 작업은 남지 않았으며 인증된 browser assurance는 더 넓은 Console campaign에서 계속 다룹니다. |
 
 ### 남은 작업
 
@@ -417,7 +419,7 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 - [x] 인시던트를 여는 감사 항목에 별도 `title`을 기록할 필요가 없음을 확인했습니다. `open_audit_entry`가 이미 `correlation_keys`를 기록하며 로컬 corpus의 모든 `incident.open` 그룹이 `correlation_subject`로 해석되므로, title 필드 추가는 공백을 메우는 것이 아니라 기존 대상을 중복하게 됩니다.
 - [x] 해당 필드가 있을 때는 일반 템플릿 대신 기록된 RCA 및 T1 필드에서 milestone과 권장 다음 단계 문구를 도출합니다.
 - [x] cohort 관측 구간을 사실대로 표기하고 상한과 제외된 나머지를 공개하며, 사용할 수 없는 time-to-mitigate 측정을 사유와 함께 사용 불가로 렌더링합니다.
-- [x] 서버 기반 심각도/vertical 필터 컨트롤을 추가하고, 설정된 범위 필터를 UI에서 해제할 수 있게 합니다. 자유 텍스트 목록 검색은 의도적으로 사용 불가로 둡니다. 표시되는 대상이 읽기 모델에서 구성되므로 구체화된 대상이 생기기 전에는 서버측도 브라우저측도 사실에 맞지 않습니다.
+- [x] 서버 기반 roster 검색과 심각도/vertical 필터 컨트롤을 추가하고 설정된 필터를 UI에서 해제할 수 있게 합니다. 검색은 표시 대상을 구성할 수 있는 범위가 제한된 기록 필드만 페이지 나누기 전에 같은 snapshot과 cursor identity로 평가합니다.
 - [x] 대상 정규화에서 약어를 보존하고, 카탈로그 항목이 없는 동적 i18n 키가 원본 키 문자열로 렌더링되지 않게 합니다.
 - [x] 정본 수명 주기 상태를 대체하지 않고 원본 플랫폼 identity, 설명, 상태, 시각, 원본 링크, 고정된 대응 계획 개정, 과거 일치 미리 보기, cooldown 및 중복 제거 근거를 투영합니다.
 - [x] 정확한 근거 참조, 사용 불가 공백, 평가 receipt, 비활성 학습 후보가 있는 순서가 지정된 조사 milestone을 렌더링하고 transcript 텍스트가 근거를 만들거나 복구를 종결하거나 학습을 승격할 수 없음을 입증합니다.
