@@ -284,7 +284,7 @@ def _init_repo(path: Path) -> None:
     run("commit", "-qm", "seed")
 
 
-def test_sync_absorbs_main_when_the_branch_is_ahead_and_behind(tmp_path: Path) -> None:
+def test_sync_absorbs_main_when_the_branch_is_ahead_and_behind(tmp_path: Path, monkeypatch) -> None:
     import subprocess
 
     module = _load()
@@ -306,11 +306,20 @@ def test_sync_absorbs_main_when_the_branch_is_ahead_and_behind(tmp_path: Path) -
     run("commit", "-qm", "other work")
     run("checkout", "-q", "roadmap-implementation/campaign")
 
+    registered: list[str] = []
+    monkeypatch.setattr(
+        module, "_register_committed_work", lambda _root, base: registered.append(base)
+    )
+
     # Ahead and behind at once used to hold every later run forever.
     assert module._campaign_relation(ahead=1, behind=1) == "diverged"
+    before = run("rev-parse", "HEAD")
     assert module._sync_campaign_base(repo) == "current"
     assert run("rev-list", "--count", "HEAD..main") == "0"
     assert run("status", "--porcelain") == ""
+    # `git merge` skips the post-commit hook, so the sync merge has to be enqueued by hand.
+    # Without this the branch tip is never validated and a validated batch can never land.
+    assert registered == [before]
 
 
 def test_sync_leaves_no_half_merged_worktree_on_conflict(tmp_path: Path) -> None:
@@ -388,7 +397,9 @@ def test_unreceipted_campaign_head_is_registered_before_holding(
     monkeypatch.setattr(module.watchdog, "_recent_copilot_activity", lambda *a, **k: [])
     monkeypatch.setattr(module.watchdog, "_active_session_count", lambda *a, **k: 0)
     synced: list[Path] = []
+    landed: list[Path] = []
     monkeypatch.setattr(module, "_sync_campaign_base", lambda root: synced.append(root))
+    monkeypatch.setattr(module, "_land_validated_batch", lambda root: landed.append(root))
     monkeypatch.setattr(module, "_validation_receipt_exists", lambda *_a, **_k: False)
 
     def fake_git(*args: str, **_kwargs: object) -> str:
@@ -417,6 +428,11 @@ def test_unreceipted_campaign_head_is_registered_before_holding(
     # Absorbing main first mints a new merge commit on every held run, so the head would
     # outrun validation for as long as any other session keeps committing.
     assert synced == []
+    # Landing must still run. It only merges commits that already hold a receipt, so an
+    # unvalidated tip says nothing about the validated work beneath it. Holding it back
+    # here deadlocked the lane: the hold returned early and finished work never reached
+    # main however long it waited.
+    assert landed == [repo]
 
 
 def test_landing_requires_a_receipt_and_leaves_live_edits_alone(
@@ -425,15 +441,16 @@ def test_landing_requires_a_receipt_and_leaves_live_edits_alone(
     module = _load()
     calls: list[list[str]] = []
     state = {"status": "", "incoming": "docs/roadmap/architecture/owned.md\n"}
+    # Newest first, exactly as `git rev-list main..HEAD` reports it.
+    ahead = ["freshest", "validated", "older"]
+    receipted: set[str] = set()
 
     def fake_git(*args: str, **_kwargs: object) -> str:
         if args[0] == "diff":
             return state["incoming"]
-        return {
-            "rev-list": "3",
-            "status": state["status"],
-            "rev-parse": "campaignhead",
-        }[args[0]]
+        if args[0] == "rev-list":
+            return str(len(ahead)) if "--count" in args else "\n".join(ahead)
+        return {"status": state["status"], "rev-parse": "campaignhead"}[args[0]]
 
     class _Result:
         returncode = 0
@@ -442,26 +459,30 @@ def test_landing_requires_a_receipt_and_leaves_live_edits_alone(
     monkeypatch.setattr(module, "_main_checkout", lambda _root: tmp_path)
     monkeypatch.setattr(module, "_register_committed_work", lambda *_a: None)
     monkeypatch.setattr(
+        module, "_validation_receipt_exists", lambda _root, revision: revision in receipted
+    )
+    monkeypatch.setattr(
         module.subprocess,
         "run",
         lambda arguments, **_k: calls.append(list(arguments)) or _Result(),
     )
 
-    monkeypatch.setattr(module, "_validation_receipt_exists", lambda *_a, **_k: False)
     assert module._land_validated_batch(tmp_path) is None
     assert calls == []
 
-    monkeypatch.setattr(module, "_validation_receipt_exists", lambda *_a, **_k: True)
+    receipted.add("validated")
     state["status"] = " M docs/roadmap/architecture/owned.md"
     assert module._land_validated_batch(tmp_path) is None
     # The merge would rewrite a file another session is editing; that work must not be touched.
     assert calls == []
 
     state["status"] = " M docs/roadmap/architecture/elsewhere.md\n?? scratch.py"
-    assert module._land_validated_batch(tmp_path) == "landed campaignhead on main"
-    # A dirty checkout is the normal state of the primary worktree. Landing only needs the
-    # incoming paths to miss the live edits, not the whole checkout to fall idle.
-    assert calls[0][:4] == ["git", "merge", "--no-ff", "--no-edit"]
+    assert module._land_validated_batch(tmp_path) == "landed validated on main"
+    # Two refusals dressed as safety are gone. A dirty checkout is the normal state of the
+    # primary worktree, so landing only needs the incoming paths to miss the live edits. And
+    # the branch tip is the freshest commit and the least likely to hold a receipt, so
+    # landing takes the newest ancestor that has one instead of racing its own production.
+    assert calls[0] == ["git", "merge", "--no-ff", "--no-edit", "validated"]
 
 
 def test_a_renamed_path_counts_as_a_live_edit_on_both_sides(tmp_path: Path, monkeypatch) -> None:
