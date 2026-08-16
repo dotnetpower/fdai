@@ -284,6 +284,69 @@ def _init_repo(path: Path) -> None:
     run("commit", "-qm", "seed")
 
 
+def test_a_real_merge_lands_the_batch_beside_an_unstaged_edit(tmp_path: Path, monkeypatch) -> None:
+    import subprocess
+
+    module = _load()
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+
+    def run(*args: str, cwd: Path = repo) -> str:
+        return subprocess.run(  # noqa: S603 - fixed git commands on a temporary repo
+            [_git_binary(), *args], cwd=cwd, check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    branch = tmp_path / "campaign"
+    run("worktree", "add", "-q", "-b", "roadmap-implementation/campaign", str(branch))
+    (branch / "batch.txt").write_text("batch\n", encoding="utf-8")
+    run("add", "batch.txt", cwd=branch)
+    run("commit", "-qm", "campaign batch", cwd=branch)
+    landed_commit = run("rev-parse", "HEAD", cwd=branch)
+
+    # Somebody is editing an unrelated file in the checkout that holds main.
+    (repo / "seed.txt").write_text("edited by another session\n", encoding="utf-8")
+
+    monkeypatch.setattr(module, "_validation_receipt_exists", lambda _r, rev: rev == landed_commit)
+    monkeypatch.setattr(module, "_register_committed_work", lambda *_a: None)
+
+    assert module._land_validated_batch(branch) == f"landed {landed_commit[:12]} on main"
+    assert run("rev-list", "--count", "--merges", "main") == "1"
+    assert (repo / "batch.txt").read_text(encoding="utf-8") == "batch\n"
+    # The other session's edit survives the merge untouched.
+    assert (repo / "seed.txt").read_text(encoding="utf-8") == "edited by another session\n"
+
+
+def test_a_real_merge_refuses_while_the_index_is_dirty(tmp_path: Path, monkeypatch) -> None:
+    import subprocess
+
+    module = _load()
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+
+    def run(*args: str, cwd: Path = repo) -> str:
+        return subprocess.run(  # noqa: S603 - fixed git commands on a temporary repo
+            [_git_binary(), *args], cwd=cwd, check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    branch = tmp_path / "campaign"
+    run("worktree", "add", "-q", "-b", "roadmap-implementation/campaign", str(branch))
+    (branch / "batch.txt").write_text("batch\n", encoding="utf-8")
+    run("add", "batch.txt", cwd=branch)
+    run("commit", "-qm", "campaign batch", cwd=branch)
+    landed_commit = run("rev-parse", "HEAD", cwd=branch)
+
+    # Staged, and untouched by the merge. Git still declines the whole operation.
+    (repo / "seed.txt").write_text("staged by another session\n", encoding="utf-8")
+    run("add", "seed.txt")
+
+    monkeypatch.setattr(module, "_validation_receipt_exists", lambda _r, rev: rev == landed_commit)
+    monkeypatch.setattr(module, "_register_committed_work", lambda *_a: None)
+
+    assert module._land_validated_batch(branch) is None
+    assert run("rev-list", "--count", "--merges", "main") == "0"
+    assert not (repo / "batch.txt").exists()
+
+
 def test_sync_absorbs_main_when_the_branch_is_ahead_and_behind(tmp_path: Path, monkeypatch) -> None:
     import subprocess
 
