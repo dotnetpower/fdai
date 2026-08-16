@@ -322,3 +322,27 @@ async def test_naive_now_and_out_of_range_bounds_fail_closed() -> None:
         await _resolve(None, now=NOW.replace(tzinfo=None))
     with pytest.raises(ValueError, match="max_discovered"):
         await _resolve(None, max_discovered=0)
+
+
+@pytest.mark.asyncio
+async def test_the_bound_stays_inside_the_durable_store_query_limit() -> None:
+    store = StubStore()
+
+    await _resolve(store, max_discovered=999)
+
+    assert store.limits == [1000]
+    with pytest.raises(ValueError, match="max_discovered"):
+        await _resolve(store, max_discovered=1000)
+
+
+@pytest.mark.asyncio
+async def test_a_naive_evidence_cutoff_is_an_unusable_state_fact() -> None:
+    naive = dict(_state_fact())
+    for field in ("effective_at", "recorded_at", "evidence_cutoff"):
+        naive[field] = "2026-08-16T12:00:00"
+    store = StubStore([_resource("res-naive", "api-gateway", state_fact=naive)])
+
+    resolution = await _resolve(store)
+
+    assert resolution.targets == ()
+    assert resolution.skipped_reasons == (SKIP_UNUSABLE_STATE_FACT,)
