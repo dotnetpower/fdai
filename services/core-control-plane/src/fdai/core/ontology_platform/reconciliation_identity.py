@@ -30,7 +30,9 @@ def observer_identity_handle(value: str) -> str:
 
     The handle is a digest of the case-folded, whitespace-trimmed value, so the same
     principal produces the same handle across episodes while the record itself carries no
-    directory name, credential, or endpoint.
+    directory name, credential, or endpoint. The handle is pseudonymous linkage evidence,
+    not a confidentiality control: a caller that already knows a candidate identity can
+    confirm it, so a handle MUST NOT be treated as a secret.
     """
 
     encoded = json.dumps(
@@ -47,7 +49,7 @@ class ObserverIdentityRecord(ContractBase):
     """Replay-stable attribution record for one authenticated effect observation."""
 
     schema_version: SemVer = "1.0.0"
-    source_authority: Annotated[str, Field(min_length=1, max_length=64)]
+    source_authority: Annotated[str, Field(pattern=r"^[a-z][a-z_]{0,31}$")]
     observer_handle: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
     executor_handle: Annotated[str, Field(pattern=_DIGEST_PATTERN)]
     source_handle: Annotated[str, Field(pattern=_DIGEST_PATTERN)]

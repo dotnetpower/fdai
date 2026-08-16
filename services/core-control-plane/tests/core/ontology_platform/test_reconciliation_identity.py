@@ -10,13 +10,16 @@ from fdai.core.ontology_platform.kinetics import ReconciliationStatus
 from fdai.core.ontology_platform.reconciliation import (
     EffectReconciliationCoordinator,
     InMemoryReconciliationLedger,
+    ReconciliationLedgerCorruptionError,
     ReconciliationNextStep,
     ReconciliationOutcome,
+    StateStoreReconciliationLedger,
 )
 from fdai.core.ontology_platform.reconciliation_identity import (
     ObserverIdentityRecord,
     observer_identity_handle,
 )
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from pydantic import ValidationError
 from tests.core.ontology_platform.test_reconciliation import (
     CREATED_AT,
@@ -38,7 +41,7 @@ async def test_outcome_retains_a_bound_independent_observer_identity_record() ->
 
     outcome = await _coordinate(_coordinator(), request, release=release)
 
-    record = outcome.observer_identity
+    record = outcome.observer_identity_record
     assert record == _authenticated_context(request).identity_record()
     assert record.identities_independent is True
     assert record.credentials_independent is True
@@ -56,7 +59,7 @@ async def test_observer_identity_record_carries_no_raw_principal_value() -> None
 
     outcome = await _coordinate(_coordinator(), request, release=release)
 
-    encoded = json.dumps(outcome.observer_identity.model_dump(mode="json"))
+    encoded = json.dumps(outcome.observer_identity_record.model_dump(mode="json"))
     for principal in (
         "heimdall-observer",
         "thor-executor",
@@ -85,7 +88,7 @@ async def test_dependent_identities_are_recorded_as_not_independent() -> None:
         active_release=release,
     )
 
-    record = outcome.observer_identity
+    record = outcome.observer_identity_record
     assert record.identities_independent is False
     assert record.credentials_independent is False
     assert record.distinct_identities == 2
@@ -113,7 +116,7 @@ async def test_outcome_rejects_an_observer_identity_record_from_another_context(
 
     with pytest.raises(ValidationError, match="observer identity record does not match"):
         payload = outcome.model_dump(mode="json")
-        payload["observer_identity"] = other.model_dump(mode="json")
+        payload["observer_identity_record"] = other.model_dump(mode="json")
         ReconciliationOutcome.model_validate(payload)
 
 
@@ -176,3 +179,29 @@ async def test_mismatched_episode_keeps_its_own_reason_code() -> None:
 
     assert outcome.receipt.status is ReconciliationStatus.MISMATCHED
     assert outcome.recommendation.reason_code == "effects_mismatched"
+
+
+async def test_durable_aggregate_written_without_attribution_fails_closed() -> None:
+    release, target, plan, action_type = _fixture()
+    request = _request(release=release, target=target, plan=plan, action_type=action_type)
+    store = InMemoryStateStore()
+    ledger = StateStoreReconciliationLedger(store=store)
+    outcome = await _coordinate(
+        EffectReconciliationCoordinator(ledger=ledger),
+        request,
+        release=release,
+    )
+    key = f"ontology:reconciliation:{request.reconciliation_id}"
+    record = await store.read_state(key)
+    assert record is not None
+    legacy = dict(record)
+    legacy["schema_version"] = "1.1.0"
+    legacy["terminal_outcome"] = {
+        field: value
+        for field, value in outcome.model_dump(mode="json").items()
+        if field != "observer_identity_record"
+    }
+    await store.write_state(key, legacy)
+
+    with pytest.raises(ReconciliationLedgerCorruptionError):
+        await StateStoreReconciliationLedger(store=store).commit_terminal(outcome)
