@@ -593,6 +593,42 @@ def test_incident_title_precedence_and_provenance(
     assert summary["title_source"] == expected_source
 
 
+@pytest.mark.parametrize(
+    ("recorded_state", "expected_status"),
+    [
+        ("open", "open"),
+        ("triaging", "in_progress"),
+        ("mitigated", "in_progress"),
+        ("resolved", "resolved"),
+        ("closed", "resolved"),
+    ],
+)
+def test_incident_lifecycle_state_maps_onto_the_roster_contract(
+    recorded_state: str,
+    expected_status: str,
+) -> None:
+    row = _audit_row(
+        1,
+        entry={
+            "incident_id": "INC-1",
+            "kind": "incident.transition",
+            "to_state": recorded_state,
+        },
+    )
+    row.update(
+        {
+            "normalized_correlation_id": "corr-1",
+            "group_last_seq": 1,
+            "group_history_count": 1,
+        }
+    )
+
+    summary = incident_summary([row])
+
+    assert summary["status"] == expected_status
+    assert summary["status_source"] == "incident_lifecycle"
+
+
 def test_incident_title_bound_and_partial_response_plan() -> None:
     row = _audit_row(
         1,
