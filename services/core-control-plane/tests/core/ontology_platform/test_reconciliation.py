@@ -901,3 +901,23 @@ def test_censoring_refs_are_canonical_and_bound_to_observation_identity() -> Non
     payload["censoring_refs"] = ["policy:window-change:2", "change:later-scale:1"]
     with pytest.raises(ValidationError, match="censoring refs MUST be sorted and unique"):
         EffectObservationEnvelope.model_validate(payload)
+
+    uncensored = _request(release=release, target=target, plan=plan, action_type=action_type)
+    assert request.evidence.content_digest() != uncensored.evidence.content_digest()
+
+
+def test_stripping_censoring_refs_breaks_the_observation_identity() -> None:
+    release, target, plan, action_type = _fixture()
+    request = _request(
+        release=release,
+        target=target,
+        plan=plan,
+        action_type=action_type,
+        censoring_refs=("change:later-scale:1",),
+    )
+
+    stripped = request.evidence.model_dump(mode="json")
+    stripped["censoring_refs"] = []
+
+    with pytest.raises(ValidationError, match="does not match its content"):
+        EffectObservationEnvelope.model_validate(stripped)
