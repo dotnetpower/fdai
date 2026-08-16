@@ -139,12 +139,20 @@ def test_core_wheel_contains_only_the_declared_fdai_payload(core_wheel: Path) ->
     assert roots == EXPECTED_FDAI_ROOTS
     assert runtime_modules == EXPECTED_RUNTIME_MODULES
     assert not (runtime_modules & PROHIBITED_RUNTIME_MODULES)
-    assert all(not member.startswith(PROHIBITED_WHEEL_PREFIXES) for member in members)
-    assert all(
-        Path(member).suffix in {".html", ".json", ".md", ".py", ".typed"}
+    # Name the offending members. `assert all(...)` reports only the generator, so a
+    # drifted wheel used to fail without saying which file drifted.
+    prohibited = sorted(
+        member for member in members if member.startswith(PROHIBITED_WHEEL_PREFIXES)
+    )
+    unexpected_suffixes = sorted(
+        member
         for member in members
         if member.startswith("fdai/")
+        and Path(member).suffix not in {".html", ".json", ".md", ".py", ".typed"}
     )
+
+    assert prohibited == []
+    assert unexpected_suffixes == []
     assert "fdai/runtime/isolated_executor_client.py" in members
     assert "fdai_core_service/main.py" in members
 
