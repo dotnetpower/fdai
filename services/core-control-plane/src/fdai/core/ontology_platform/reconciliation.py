@@ -282,7 +282,7 @@ class EffectReconciliationCoordinator:
         _validate_plan_integrity(validated.plan)
         _validate_exact_bindings(validated, release)
         _validate_authenticated_binding(validated, authenticated)
-        unscorable_reason = _independent_observation_reason(authenticated)
+        unscorable_reason = _episode_validity_reason(validated, authenticated)
         if unscorable_reason is not None:
             receipt = ReconciliationReceipt(
                 plan_digest=validated.plan.digest,
@@ -408,6 +408,24 @@ def _validate_authenticated_binding(
         raise ValueError("authenticated observation identities do not match the envelope")
 
 
+def _episode_validity_reason(
+    request: EffectReconciliationRequest,
+    context: AuthenticatedObservationContext,
+) -> str | None:
+    """Return why an episode cannot be scored at all, before any deadline classification.
+
+    A censored episode is decided here so a late evaluation cannot turn intervened evidence
+    into a timed-out recovery request.
+    """
+
+    independent = _independent_observation_reason(context)
+    if independent is not None:
+        return independent
+    if request.evidence.censoring_refs:
+        return "observation_censored"
+    return None
+
+
 def _independent_observation_reason(
     context: AuthenticatedObservationContext,
 ) -> str | None:
@@ -451,8 +469,6 @@ def _unscorable_reason(
         )
     except (KeyError, ValueError):
         return "semantic_effect_coverage_unproven"
-    if evidence.censoring_refs:
-        return "observation_censored"
     if not evidence.complete:
         return "observation_incomplete"
     if evidence.synthetic:
