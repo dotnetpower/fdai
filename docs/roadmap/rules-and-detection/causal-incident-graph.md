@@ -175,6 +175,21 @@ FDAI reuses the existing `CausalEvidenceGrade` values:
 An evidence grade can decrease when refuting evidence arrives. A lower grade creates a new
 hypothesis revision and can demote the related action or chaos scenario to shadow mode.
 
+Closure applies a deterministic, monotonic demotion rule. Only a `confirmed` closure backed by a
+verified interventional receipt may raise a grade; every other closure keeps or lowers it.
+
+| Closure | Resulting grade | Related action or experiment mode |
+|---------|-----------------|-----------------------------------|
+| `confirmed` | `interventional` | `gated`: eligible to enter the ordinary risk, approval, execution, and rollback gates. |
+| `refuted` | `association` | `shadow` |
+| `unsafe` | `association` | `shadow` |
+| `inconclusive` | Unchanged, never raised | `shadow` |
+
+The mode is derived from the immutable revision instead of being stored as authority. A revision
+with any refuting reference, an unresolved status, or a grade below `quasi_experimental` stays in
+`shadow`. `gated` is an eligibility statement for the existing safety path, never a permission
+grant.
+
 ## Closure through recovery and chaos
 
 A recovery or experiment declares expected observations before execution. Heimdall independently
@@ -243,6 +258,7 @@ Implementation can proceed in independently testable slices:
 | Time-consistent incident graph | implemented | `services/core-control-plane/src/fdai/core/rca/incident_graph.py`; `tests/core/rca/test_incident_graph.py` | Traversal is bounded by depth, count, time, and size and reports truncation. |
 | Candidate generation and causal scoring | implemented | `services/core-control-plane/src/fdai/core/rca/t0.py`; `t1.py`; `evidence.py`; `tests/core/rca/test_coordinator.py`; `test_evidence.py` | Deterministic candidates, weakest-link scoring, support, and refutation paths are implemented. |
 | Shadow runtime and independent closure | implemented | `services/core-control-plane/src/fdai/core/rca/runtime.py`; `tests/core/rca/test_runtime.py`; `test_temporal_causality.py` | The upstream path remains shadow and evidence-only; no result grants execution authority. |
+| Grade demotion and shadow retention | implemented | `services/core-control-plane/src/fdai/core/rca/hypothesis.py` (`close_causal_hypothesis`, `causal_action_mode`); `tests/core/rca/test_hypothesis.py` | Unsafe and refuting closure lowers the grade to `association`, no closure except verified `confirmed` may raise a grade, and every unresolved or contested revision resolves to `shadow`. |
 | Deployment binding and operational evidence | in-progress | [Delivery slices](#delivery-slices); current change source audit | Provider and publisher seams exist, but each deployment must bind them and retain governed closure receipts before validation can be claimed. |
 
 ### Implementation history
@@ -250,12 +266,13 @@ Implementation can proceed in independently testable slices:
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source and focused tests listed in the scope table. | Bind the production evidence path and retain governed interventional closure evidence. |
+| 2026-08-16 | implemented | Made unsafe closure demote the evidence grade, blocked any non-confirmed closure from raising a grade, and added the deterministic `causal_action_mode` derivation that keeps refuted, unsafe, inconclusive, contested, and weakly graded revisions in `shadow`. | `current change`; `services/core-control-plane/src/fdai/core/rca/hypothesis.py`; `services/core-control-plane/tests/core/rca/test_hypothesis.py`; focused run `pytest services/core-control-plane/tests/core/rca` passed 215 tests. | Bind the deployment evidence path and retain one governed interventional replay. |
 
 ### Remaining work
 
 - [ ] Bind bounded temporal series, the Forseti-owned projection publisher, independent outcomes, and causal receipt resolution in a deployment integration test.
 - [ ] Retain one governed replay that proves a verified intervention closes or refutes a hypothesis without granting action authority.
-- [ ] Demonstrate that unsafe or refuting evidence lowers the hypothesis grade and keeps the related action or experiment in `shadow`.
+- [x] Unsafe or refuting evidence lowers the hypothesis grade and keeps the related action or experiment in `shadow`, evidenced by `close_causal_hypothesis` and `causal_action_mode` in `services/core-control-plane/src/fdai/core/rca/hypothesis.py` and the focused cases in `services/core-control-plane/tests/core/rca/test_hypothesis.py`.
 
 ## Related docs
 
