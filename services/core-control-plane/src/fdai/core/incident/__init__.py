@@ -75,6 +75,17 @@ from .registry import (
     incident_id_for,
 )
 from .sla import IncidentSlaMonitor, IncidentSlaPolicy, evaluate_incident_sla
+from .sre_request import (
+    OperatorSreRequest,
+    OperatorSreRequestCoordinator,
+    OperatorSreRequestError,
+    OperatorSreRequestResult,
+    ProgressLinks,
+    ProgressLinkTemplates,
+    sre_correlation_id,
+    sre_correlation_keys,
+    sre_idempotency_key,
+)
 from .state_machine import (
     LEGAL_TRANSITIONS,
     IncidentStateMachine,
@@ -129,6 +140,12 @@ __all__ = [
     "NullIncidentLifecycleNotifier",
     "NotificationClaimStatus",
     "NotificationDeliveryClaim",
+    "OperatorSreRequest",
+    "OperatorSreRequestCoordinator",
+    "OperatorSreRequestError",
+    "OperatorSreRequestResult",
+    "ProgressLinkTemplates",
+    "ProgressLinks",
     "ProposalTakeResult",
     "RemediationStep",
     "StormCoordinator",
@@ -146,6 +163,9 @@ __all__ = [
     "notice_from_lifecycle_entry",
     "prepare_incident_chat",
     "project_incident_metrics",
+    "sre_correlation_id",
+    "sre_correlation_keys",
+    "sre_idempotency_key",
 ]
 
 

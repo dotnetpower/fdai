@@ -30,7 +30,7 @@ from collections import OrderedDict
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any, Final
-from uuid import NAMESPACE_URL, uuid5
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 from fdai.core.event_ingest.correlator import CorrelationResult, EventCorrelator
 from fdai.shared.contracts.models import Event
@@ -133,6 +133,9 @@ def _normalize_operator_proposal(raw: Mapping[str, Any]) -> dict[str, Any]:
         idempotency_key=idempotency_key,
     ):
         return value
+    incident_id = value.get("incident_id")
+    if incident_id is not None and not _valid_incident_id(incident_id):
+        return value
     at = datetime.now(tz=UTC)
     event_id = uuid5(NAMESPACE_URL, f"fdai.operator-request://{idempotency_key}")
     resource_id = value.get("resource_id")
@@ -161,6 +164,7 @@ def _normalize_operator_proposal(raw: Mapping[str, Any]) -> dict[str, Any]:
                 if isinstance(value.get("scheduled_task"), Mapping)
                 else {}
             ),
+            **({"incident": {"incident_id": incident_id}} if incident_id is not None else {}),
             "resource": {
                 "resource_id": resource_ref,
                 "resource_type": value.get("resource_type"),
@@ -171,6 +175,21 @@ def _normalize_operator_proposal(raw: Mapping[str, Any]) -> dict[str, Any]:
         "ingested_at": at.isoformat(),
         "mode": "shadow",
     }
+
+
+def _valid_incident_id(value: object) -> bool:
+    """Accept only a canonical UUID string as the operator-request Incident id.
+
+    A malformed value is not silently dropped: the whole proposal falls back to
+    the strict Event contract, which rejects it, rather than publishing an
+    action that claims an Incident it cannot join.
+    """
+    if not isinstance(value, str) or not value.strip():
+        return False
+    try:
+        return str(UUID(value)) == value
+    except ValueError:
+        return False
 
 
 def _valid_workflow_action(value: object, *, idempotency_key: str) -> bool:
