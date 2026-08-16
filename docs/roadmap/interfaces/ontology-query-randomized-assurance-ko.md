@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-randomized-assurance.md
-translation_source_sha: 14f93fcc876d0b8314abd7b2ebba1eb17367ddc5
-translation_revised: 2026-08-15
+translation_source_sha: 7ddb7ca7a0e1e74c6cb6b11b3647a5b3ca07b77c
+translation_revised: 2026-08-16
 ---
 # 온톨로지 쿼리 무작위 보증
 
@@ -192,7 +192,7 @@ Core
 | 2026-08-11 무작위 기준선 | in-progress | [`ontology-query-randomized-assurance-2026-08-11.json`](../../baselines/ontology-query-randomized-assurance-2026-08-11.json) | 아티팩트는 역사적인 채점 측정값과 차단된 릴리스 결정을 보존하지만 통제된 런타임 증적은 아닙니다. 소스 리비전, 구성 다이제스트, 인증 증명, 정확한 요청 및 응답 증적 참조가 없습니다. |
 | 독립 semantic-turn bridge | implemented | [`composition.py`](../../../services/operator-service/src/fdai_operator_service/composition.py), [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`test_semantic_turn_bridge.py`](../../../services/operator-service/tests/test_semantic_turn_bridge.py) | 운영 composition은 Core 구현을 가져오지 않고 durable event-bus bridge를 바인딩할 수 있습니다. |
 | Authoritative 프로바이더 및 증적 종료 | in-progress | 이 문서의 진행 중 라운드와 다음 실행 종료 조건 | Bridge 구성만으로는 모든 작업 집합이 authoritative 프로바이더에 도달하고 exact release, 계획, 근거 참조를 반환했음을 입증하지 않습니다. |
-| 현재 무작위 릴리스 인증 | in-progress | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 2026-08-11 기준선을 대체하는 새로운 보존된 100개 질문 아티팩트가 없습니다. | 소스 `e476fa21c5f00c276f651497ef352a3bbfd0e17f`의 2026-08-15 엄격한 14-cell 실행은 최종 결과 6개와 `turn_error` 레코드 2개 이후 중단되었습니다. 통과 아티팩트를 생성하지 않았으므로 seed 기반 100-case 검사는 시작하지 않았습니다. |
+| 현재 무작위 릴리스 인증 | in-progress | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 2026-08-11 기준선을 대체하는 새로운 보존된 100개 질문 아티팩트가 없습니다. | 소스 `91f0e888e5c1d2ce96cb4b1a3e2d5a68e1116e9c`의 최신 엄격한 실행은 재개 cell 없이 live cell 14개를 모두 보존했지만 3개만 통과했습니다. 외부 `SIGTERM`이 네 번째 요청 중 Core와 Operator를 중지한 뒤 cell 11개가 전송 시도를 두 번 모두 소진했습니다. seed 기반 100-case 검사는 시작하지 않았습니다. |
 
 ### 구현 이력
 
@@ -202,6 +202,7 @@ Core
 | 2026-08-13 | in-progress | 구현 원장을 도입하고 semantic bridge composition이 구현된 뒤 근본 원인을 측정 당시 표현으로 수정했습니다. 이전 구현 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 composition 및 focused bridge 테스트 | Authoritative 프로바이더를 종료하고 통과한 재생성 기준선을 보존해야 합니다. |
 | 2026-08-13 | in-progress | 보존된 채점 측정값은 통제된 런타임 증적이 아니므로 역사적 기준선 상태를 정정했습니다. | `current change`; 기준선에는 소스 리비전, 구성 다이제스트, 인증 증명, 정확한 요청 및 응답 증적 참조가 없으며 카드 100개가 모두 검증되지 않은 상태와 근거 0/0으로 기록되어 있습니다. | 다음 실행 종료 조건을 충족하는 통제된 재실행 아티팩트를 보존해야 합니다. |
 | 2026-08-15 | in-progress | 격리된 소스 `e476fa21c5f00c276f651497ef352a3bbfd0e17f`에서 엄격한 영문 및 한국어 14-cell 검사를 한 번 실행했습니다. 외부 종료로 최종 결과 6개 이후 실행이 중단되었고, 출처 이력에 바인딩된 검사점에 fail-closed `turn_error` 결과 2개를 기록했습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행은 소스, 구성, 작업 공간, 질문 집합 및 부분 결과 바인딩을 보존했습니다. | 엄격한 검사를 열린 상태로 유지합니다. 엄격한 실행에서 근거가 완전한 답변 cell 14개를 보존할 때까지 seed 기반 100-case 검사를 시작하지 않습니다. |
+| 2026-08-16 | in-progress | 중앙 검증을 통과한 격리 소스 `91f0e888e5c1d2ce96cb4b1a3e2d5a68e1116e9c`에서 seed `0x0fda1`, 15초 간격, 180초 시도 기한 및 30분 실행 예산으로 엄격한 영문 및 한국어 14-cell 검사를 수행했습니다. 아티팩트는 재개 cell 없이 live cell 14개를 보존했습니다. 3개가 통과했고, 11개는 전송 시도를 두 번 모두 소진해 실패했으며, 답변 cell 1개가 완전한 근거를 포함했습니다. 지원되지 않는 운영 주장, 권한 없는 실행 및 계획 기능 불일치는 모두 0건이었습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 아티팩트 스키마 `1.3.0`, 실행 구성 `1.4.0`, 구성 다이제스트 `sha256:a95b52e599f4b975dc8a565d7c0f036b249a3c47484396dc8f087d56b27cc4bd` 및 변경 없는 작업 공간 패치 다이제스트 `sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`를 보존했습니다. Core는 `2026-08-16T03:27:30Z`에 외부 `SIGTERM`을 기록했고 요청 및 변환 결과 토픽의 최대 오프셋은 각각 레코드 4개와 3개에서 멈췄습니다. | 엄격한 검사를 차단 상태로 유지합니다. 근거가 완전한 필수 답변 cell 14개를 보존하지 못했으므로 seed 기반 100-case 검사는 올바르게 시작하지 않았습니다. 소스에 바인딩된 다음 보증 시도 전에 격리 child 감독을 강화해야 합니다. |
 
 ### 남은 작업
 
