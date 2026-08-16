@@ -333,6 +333,15 @@ require a **quorum of two approvers** from `aw-approvers`.
 | Exemption approver | `aw-approvers` (quorum-2) | approve time-boxed exemptions | grant a permanent exemption, or approve their own request |
 | Override approver | `aw-approvers` (quorum-2) | approve resource-group-scoped overrides (may be permanent) | approve an override outside the resource-group-equivalent scope, or approve their own request |
 
+The deterministic decision core for that table is
+`fdai.rule_catalog.schema.governance_review_authority`. It reads the shared role/capability
+matrix, counts only approvals that name a non-blank operator object id, review the exact
+pull-request head revision, follow that revision in time, carry the capability the change class
+requires, and satisfy the phishing-resistant requirement of a high-risk class. Repeated approvals
+from one operator count once, and an approval from the author, a recorded co-author, or the
+committer blocks the change even when other approvals already reach the quorum. The decision is
+review-only and grants no execution authority.
+
 None of these governance roles hold the **executor's** identity; authoring/approving a rule never
 grants the ability to run an action. Enforce promotions, exemptions, and overrides are the
 highest-privilege governance acts and require MFA / phishing-resistant, action-bound approval
@@ -465,20 +474,22 @@ provenance:
 | Exemptions and expiry | in-progress | `services/core-control-plane/src/fdai/rule_catalog/schema/exemption.py`; `exemption_cli.py`; `scripts/governance/exemption-expire.py`; focused exemption tests | Strict artifacts and a standalone expiry command exist. Catalog loading, scheduled execution, maximum duration, and notifications remain open. |
 | Override artifact and resolution | not-started | [Overrides](#overrides); current change source audit | No override-specific schema, directory loader, precedence resolver, or runtime consumer exists. |
 | T0 assignment consumption | not-started | [Implementation status summary](#rule-governance); current change source audit | T0 composition doesn't load resolved assignments or apply their effect and enforcement decisions. |
-| Governance pull-request identity checks | not-started | [Administrator control flow](#administrator-control-flow-gitops-not-buttons) | OID, role, quorum, and self-approval checks for governance PR transitions remain design work. |
+| Governance pull-request identity checks | in-progress | `services/core-control-plane/src/fdai/rule_catalog/schema/governance_review_authority.py`; `services/core-control-plane/tests/rule_catalog/schema/test_governance_review_authority.py`; [Administrator control flow](#administrator-control-flow-gitops-not-buttons) | The pure operator-identity, required-role, quorum, and no-self-approval decision exists and fails closed. Binding it to real pull-request review metadata in the CI gate remains open. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | `current change`; current source, CI wiring, and focused tests listed in the scope table. | Wire T0 consumption, complete exemption operations, and implement governed overrides and PR identity checks. |
+| 2026-08-17 | in-progress | Added the pure governance pull-request review-authority decision: operator object identity, the capability each change class requires, distinct-approver quorum, phishing-resistant high-risk approvals, revision-bound freshness, and author/co-author/committer self-approval prevention. | `current change`; `services/core-control-plane/src/fdai/rule_catalog/schema/governance_review_authority.py`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/rule_catalog/schema/test_governance_review_authority.py` passed 16 tests. | Bind the decision to real pull-request review metadata in the governance CI gate and retain one blocked-then-cleared evidence record. |
 
 ### Remaining work
 
 - [ ] Load one immutable governance catalog at startup and prove T0 applies resolved effect, enforcement, scope, exclusions, and precedence without bypassing the safety check.
 - [ ] Integrate exemptions into the governance catalog, enforce a configured maximum duration, schedule expiry, and deliver ahead-of-expiry notifications with audit evidence.
 - [ ] Implement the bounded override schema, loader, precedence resolver, and runtime consumption with resource-group-or-narrower scope checks.
-- [ ] Add pull-request transition checks for operator identity, required role, quorum, and self-approval prevention.
+- [x] The deterministic pull-request review-authority decision enforces operator identity, the required capability per change class, a distinct-approver quorum, phishing-resistant high-risk approvals, revision-bound approval freshness, and author/co-author/committer self-approval prevention, proven by `services/core-control-plane/tests/rule_catalog/schema/test_governance_review_authority.py`.
+- [ ] Bind that decision to real pull-request review metadata in the governance CI gate and retain one evidence record showing a self-approval or sub-quorum change blocked and the corrected change cleared.
 
 ## Open Decisions
 
