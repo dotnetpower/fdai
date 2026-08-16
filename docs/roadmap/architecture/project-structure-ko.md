@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 18dcc69578ca5adb4843b60a8787d85ba6fe1713
+translation_source_sha: e4f379eee21c26216b1615b1ac5953729042d7da
 translation_revised: 2026-08-16
 ---
 # 프로젝트 구조
@@ -264,9 +264,8 @@ fdai/
 의존 방향은 엄격하게 단방향이며, 위반은 리뷰 블로커입니다.
 
 - **코어는 이식 가능**: 어떤 클라우드 SDK도 직접 가져오기 하지 **않습니다**. 클라우드 특이성은
-  `shared/providers/` 의 CSP-중립 인터페이스로만 진입하며, 구현은 `delivery/` 와 `infra/`
-  에 있고 조립 시점에 주입됩니다. 이렇게 두 번째 클라우드는 어댑터 추가일 뿐이며 `core/` 편집이
-  아닙니다.
+  `shared/providers/` 의 CSP-중립 인터페이스로만 진입하며, 구현은 `delivery/` 와 `infra/` 에 있고
+  조립 시점에 주입됩니다. 이렇게 두 번째 클라우드는 어댑터 추가일 뿐이며 `core/` 편집이 아닙니다.
 - **허용된 가져오기**: `shared/`는 `core/`를 가져오기하지 않습니다. `core/`는 `shared/`의
   계약, 프로바이더, 텔레메트리, 구성만 가져옵니다. `delivery/`는 어댑터 경계 뒤에서
   `core/`와 `shared/`를 조립할 수 있고 `composition/`이 모든 계층을 연결합니다. `core/`는
@@ -505,18 +504,15 @@ README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이�
 `fdai.composition.install_capability_bundle(...)`로 번들을 설치합니다. Installer는 로드된
 카탈로그에서 cross-reference를 만들고 검증된 등록을 `capability_runtime`에 포함하는 새
 `Container`를 반환합니다. 대상이 없거나, 프로바이더가 누락 또는 중복되거나, 도구에 선언된
-프로바이더와 번들이 일치하지 않거나, 패키지 도구 또는 프로바이더가 참조되지 않거나, 패키지
-도구 id가 다른 출처를 shadow하면 시작이 차단됩니다. 검증이 실패해도 입력 컨테이너는
-변경되지 않습니다.
+프로바이더와 번들이 일치하지 않거나, 패키지 도구 또는 프로바이더가 참조되지 않거나, 패키지 도구
+id가 다른 출처를 shadow하면 시작이 차단됩니다. 검증이 실패해도 입력 컨테이너는 변경되지 않습니다.
 
-`wire_azure_container(...)`는 file-backed 도구 카탈로그와 설치된 런타임의 패키지 도구를
-결합한 다음 런타임 프로바이더와 명시적인 `AzureWireOverrides.tool_providers`를 결합합니다. 중복
-도구 또는 프로바이더 id는 암시적으로 덮어쓰지 않고 설정 오류로 처리합니다. `ActionType`과
-`Workflow` 연결은 참조일 뿐입니다. 변경 요청은 계속 trust 라우터, risk 게이트, 실행기,
-감사 경로로 다시 들어갑니다. 복사해서 사용할 수 있는
-읽기 전용 프로바이더와 번들은
-[Core 패키지 루트](../../../services/core-control-plane/src/fdai/)를
-참조하세요.
+`wire_azure_container(...)`는 file-backed 도구 카탈로그와 설치된 런타임의 패키지 도구를 결합한
+다음 런타임 프로바이더와 명시적인 `AzureWireOverrides.tool_providers`를 결합합니다. 중복 도구 또는
+프로바이더 id는 암시적으로 덮어쓰지 않고 설정 오류로 처리합니다. `ActionType`과 `Workflow` 연결은
+참조일 뿐입니다. 변경 요청은 계속 trust 라우터, risk 게이트, 실행기, 감사 경로로 다시 들어갑니다.
+복사해서 사용할 수 있는 읽기 전용 프로바이더와 번들은 [Core 패키지
+루트](../../../services/core-control-plane/src/fdai/)를 참조하세요.
 
 배포에서 해당 번들에 install, 활성화, 비활성화, uninstall 수명 주기가 필요하면
 `core/capability_catalog/extensions.py`의 `ExtensionManager`를 사용합니다. Install은 보관
