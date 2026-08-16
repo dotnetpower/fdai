@@ -53,7 +53,7 @@ def test_opa_downloads_are_bounded_and_checksum_verified() -> None:
     ci = (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
 
     downloads = ci.count("openpolicyagent.org/downloads/v0.68.0/opa_linux_amd64_static")
-    assert downloads == 3
+    assert downloads == 4
     assert ci.count("--retry 3 --retry-delay 2 --retry-all-errors") == downloads
     assert ci.count("--retry-max-time 120 --connect-timeout 10 --max-time 90") == downloads
     assert ci.count("dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa") == downloads
