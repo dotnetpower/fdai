@@ -72,6 +72,7 @@ class IncidentQuery:
 
     status: Literal["active", "resolved", "all"]
     limit: int
+    search: str | None = None
     cursor: str | None = None
     vertical: str | None = None
     severity: str | None = None

@@ -614,6 +614,27 @@ def test_incident_and_rca_queries_preserve_stable_error_envelopes() -> None:
     assert bad_replay.status_code == 400
 
 
+def test_incident_query_normalizes_and_bounds_server_search() -> None:
+    class CapturingReadModel(EmptyReadModel):
+        query: IncidentQuery | None = None
+
+        async def list_incidents(self, query: IncidentQuery) -> IncidentPageProjection:
+            self.query = query
+            return IncidentPageProjection(items=(), next_cursor=None, metrics={})
+
+    read_model = CapturingReadModel()
+    client = _client(read_model=read_model)
+    headers = {"Authorization": "Bearer reader"}
+
+    response = client.get("/incidents", params={"q": "  Compute   VM  "}, headers=headers)
+    oversized = client.get("/incidents", params={"q": "x" * 201}, headers=headers)
+
+    assert response.status_code == 200
+    assert read_model.query is not None
+    assert read_model.query.search == "compute vm"
+    assert oversized.status_code == 400
+
+
 def test_route_parity_manifest_owns_the_frozen_minimal_surface() -> None:
     assert {route.path for route in ROUTE_PARITY} == {route[1] for route in EXPECTED_ROUTES}
     assert PARITY_COMPLETE

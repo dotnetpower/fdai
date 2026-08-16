@@ -299,6 +299,20 @@ ranked AS (
 incident_groups AS (
     SELECT normalized_correlation_id,
            MAX(seq) AS last_seq,
+       LOWER(STRING_AGG(CONCAT_WS(
+         ' ', normalized_correlation_id, event_id, action_kind,
+         entry->>'title', entry->>'summary', entry->>'rule_id',
+         (entry->'citing_rules')::text,
+         (entry->'correlation_keys')::text,
+         entry->>'resource_id', entry->>'resource_type',
+         entry->>'reason', entry->>'stage',
+         entry#>>'{payload,title}', entry#>>'{payload,summary}',
+         entry#>>'{payload,rule_id}',
+         (entry#>'{payload,citing_rules}')::text,
+         (entry#>'{payload,correlation_keys}')::text,
+         entry#>>'{payload,resource_id}', entry#>>'{payload,resource_type}',
+         entry#>>'{payload,reason}', entry#>>'{payload,stage}'
+       ), ' ')) AS search_document,
            COALESCE(
                (ARRAY_AGG(lifecycle_state ORDER BY seq DESC)
                     FILTER (WHERE lifecycle_state IS NOT NULL))[1],
@@ -335,6 +349,12 @@ selected AS (
      WHERE (%(before_seq)s::bigint IS NULL OR last_seq < %(before_seq)s::bigint)
        AND (%(correlation_id)s::text IS NULL
             OR normalized_correlation_id = %(correlation_id)s::text)
+       AND (%(search)s::text IS NULL OR NOT EXISTS (
+           SELECT 1
+               FROM REGEXP_SPLIT_TO_TABLE(%(search)s::text, '[[:space:]]+')
+                 AS search_token(token)
+            WHERE STRPOS(search_document, LOWER(search_token.token)) = 0
+       ))
        AND (%(vertical)s::text IS NULL OR projected_vertical = %(vertical)s::text)
        AND (%(severity)s::text IS NULL OR projected_severity = %(severity)s::text)
        AND (%(status)s = 'all'
