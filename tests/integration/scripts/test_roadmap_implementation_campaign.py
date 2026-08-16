@@ -342,7 +342,9 @@ def test_a_real_merge_refuses_while_the_index_is_dirty(tmp_path: Path, monkeypat
     monkeypatch.setattr(module, "_validation_receipt_exists", lambda _r, rev: rev == landed_commit)
     monkeypatch.setattr(module, "_register_committed_work", lambda *_a: None)
 
-    assert module._land_validated_batch(branch) is None
+    assert module._land_validated_batch(branch) == (
+        f"cannot land {landed_commit[:12]}: staged in the main checkout: seed.txt"
+    )
     assert run("rev-list", "--count", "--merges", "main") == "0"
     assert not (repo / "batch.txt").exists()
 
@@ -535,15 +537,21 @@ def test_landing_requires_a_receipt_and_leaves_live_edits_alone(
 
     receipted.add("validated")
     state["status"] = " M docs/roadmap/architecture/owned.md"
-    assert module._land_validated_batch(tmp_path) is None
+    blocked = module._land_validated_batch(tmp_path)
     # The merge would rewrite a file another session is editing; that work must not be touched.
+    assert blocked == "cannot land validated: edited in the main checkout: " + (
+        "docs/roadmap/architecture/owned.md"
+    )
     assert calls == []
 
     state["status"] = " M docs/roadmap/architecture/elsewhere.md\n?? scratch.py"
     state["staged"] = "docs/roadmap/deployment/unrelated.md\n"
-    assert module._land_validated_batch(tmp_path) is None
+    blocked = module._land_validated_batch(tmp_path)
     # `git merge` refuses outright when the index differs from HEAD, even for paths the
     # merge would leave byte-identical. Attempting it anyway just fails and logs nothing.
+    assert blocked == "cannot land validated: staged in the main checkout: " + (
+        "docs/roadmap/deployment/unrelated.md"
+    )
     assert calls == []
 
     state["staged"] = ""
