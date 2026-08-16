@@ -258,7 +258,9 @@ def _land_validated_batch(repo_root: Path) -> str | None:
     dirty paths are disjoint, git rewrites only files nobody holds.
 
     Landing is still skipped rather than forced: unvalidated work stays put, and a conflict
-    aborts instead of leaving a half-merged tree that the next run would refuse.
+    aborts instead of leaving a half-merged tree that the next run would refuse. A skip that
+    has work ready says why, because the blocking conditions are all outside this branch and
+    a silent skip is indistinguishable from having nothing to hand over.
     """
     if _git("rev-list", "--count", "main..HEAD", cwd=repo_root) == "0":
         return None
@@ -270,11 +272,13 @@ def _land_validated_batch(repo_root: Path) -> str | None:
         return None
     # `git merge` refuses whenever the index differs from HEAD, whatever the merge touches.
     # Measured: it named four staged files that were byte-identical on both sides.
-    if _git("diff", "--name-only", "--cached", cwd=checkout):
-        return None
+    staged = _git("diff", "--name-only", "--cached", cwd=checkout).splitlines()
+    if staged:
+        return f"cannot land {head[:12]}: staged in the main checkout: {' '.join(sorted(staged))}"
     incoming = set(_git("diff", "--name-only", f"main...{head}", cwd=repo_root).splitlines())
-    if incoming & _dirty_paths(checkout):
-        return None
+    held = sorted(incoming & _dirty_paths(checkout))
+    if held:
+        return f"cannot land {head[:12]}: edited in the main checkout: {' '.join(held)}"
     before = _git("rev-parse", "main", cwd=repo_root)
     result = subprocess.run(  # noqa: S603 - fixed git merge operation
         ["git", "merge", "--no-ff", "--no-edit", head],
@@ -295,7 +299,8 @@ def _land_validated_batch(repo_root: Path) -> str | None:
                 text=True,
                 timeout=60,
             )
-        return None
+        reason = (result.stderr or result.stdout).strip().splitlines()
+        return f"cannot land {head[:12]}: {reason[0] if reason else 'merge failed'}"
     # `git merge` skips the post-commit hook, so the merge commit needs registering by hand.
     _register_committed_work(checkout, before)
     return f"landed {head[:12]} on main"
