@@ -46,6 +46,9 @@ from fdai_core_service.semantic_turn_processor import (
     SemanticTurnProcessor,
     SemanticTurnRejectedError,
     _typed_extension_answer_output,
+    incident_next_step_actions,
+    incident_profile_facts,
+    incident_timeline_rows,
 )
 from fdai_service_contracts import RuleSearchReceipt, rule_search_query_digest
 from fdai_service_contracts.ontology_query import (
@@ -1092,7 +1095,10 @@ async def test_incident_evidence_answer_never_claims_cause_and_drafts_only() -> 
     assert "Root cause isn't available" in answer
     assert "impact evidence" in answer
     assert "grounded citations" in answer
-    assert "Collect the missing evidence before proposing a change." in answer
+    assert (
+        "Before proposing a change, collect impact evidence for the affected resources, "
+        "and collect grounded citations that link each claim to an audit record." in answer
+    )
     assert "```json" not in answer
     payload = projection["payload"]
     technical_details = payload["technical_details"]
@@ -1688,3 +1694,88 @@ def test_runtime_binding_is_optional_explicit_and_rejects_partial_transport() ->
     assert binding is not None
     assert binding.available is False
     assert binding.unavailable_reason == "semantic_runtime_unavailable"
+
+
+def test_incident_profile_facts_surface_every_populated_field() -> None:
+    facts = incident_profile_facts(
+        {
+            "title": "Trace propagation gap",
+            "severity": "sev2",
+            "status": "triaging",
+            "vertical": "resilience",
+            "opened_at": "2026-08-14T09:00:00Z",
+            "last_updated_at": "2026-08-14T09:05:00Z",
+            "actors": ["Heimdall", "operator@example.com"],
+            "correlation_id": "incident-correlation-301",
+        },
+        korean=False,
+    )
+
+    assert facts == (
+        ("Title", "Trace propagation gap"),
+        ("Severity", "sev2"),
+        ("Status", "triaging"),
+        ("Vertical", "resilience"),
+        ("First recorded", "2026-08-14T09:00:00Z"),
+        ("Last recorded", "2026-08-14T09:05:00Z"),
+        ("Actors", "Heimdall, operator@example.com"),
+    )
+
+
+def test_incident_profile_facts_omit_absent_fields_without_inventing_values() -> None:
+    assert incident_profile_facts({"status": "open", "severity": None}, korean=False) == (
+        ("Status", "open"),
+    )
+    assert incident_profile_facts({"title": "   "}, korean=False) == ()
+    assert incident_profile_facts(None, korean=False) == ()
+
+
+def test_incident_timeline_keeps_the_most_recent_bounded_records() -> None:
+    evidence = [
+        {
+            "audit_ref": f"audit:{index}",
+            "actor": "Heimdall",
+            "action_kind": "incident.transition",
+            "mode": "shadow",
+            "recorded_at": f"2026-08-14T09:{index:02d}:00Z",
+        }
+        for index in range(14)
+    ]
+
+    rows = incident_timeline_rows(evidence)
+
+    assert len(rows) == 10
+    assert rows[0]["audit_ref"] == "audit:4"
+    assert rows[-1]["audit_ref"] == "audit:13"
+    assert rows[-1]["actor"] == "Heimdall"
+
+
+def test_incident_timeline_skips_records_without_an_audit_anchor() -> None:
+    """An invented anchor would make an unattributable record look cited."""
+    rows = incident_timeline_rows(
+        [
+            {"actor": "Heimdall", "recorded_at": "2026-08-14T09:00:00Z"},
+            {"audit_ref": "audit:2", "recorded_at": "2026-08-14T09:05:00Z"},
+        ]
+    )
+
+    assert len(rows) == 1
+    assert rows[0]["audit_ref"] == "audit:2"
+    assert rows[0]["actor"] == "-"
+
+
+def test_incident_next_step_actions_follow_the_measured_gaps() -> None:
+    assert incident_next_step_actions(["impact_evidence_missing"], korean=False) == (
+        "collect impact evidence for the affected resources",
+    )
+    assert incident_next_step_actions(
+        ["correlated_audit_truncated", "incident_profile_missing"],
+        korean=False,
+    ) == (
+        "confirm an incident record exists for this correlation",
+        "re-run this query with a higher record limit",
+    )
+    assert incident_next_step_actions((), korean=False) == ()
+    assert incident_next_step_actions(["impact_evidence_missing"], korean=True) == (
+        "영향받은 리소스의 영향 근거를 수집하세요",
+    )

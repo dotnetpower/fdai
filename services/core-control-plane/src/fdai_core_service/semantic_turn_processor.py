@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Protocol
@@ -1232,6 +1232,177 @@ def _humanized_gap(gap: str, *, korean: bool) -> str:
     return readable or gap
 
 
+_INCIDENT_GAP_NEXT_STEPS: tuple[tuple[str, str, str], ...] = (
+    (
+        "incident_profile_missing",
+        "이 상관관계에 인시던트 레코드가 존재하는지 확인하세요",
+        "confirm an incident record exists for this correlation",
+    ),
+    (
+        "impact_evidence_missing",
+        "영향받은 리소스의 영향 근거를 수집하세요",
+        "collect impact evidence for the affected resources",
+    ),
+    (
+        "grounded_citations_missing",
+        "각 주장을 감사 기록에 연결하는 근거 인용을 수집하세요",
+        "collect grounded citations that link each claim to an audit record",
+    ),
+    (
+        "correlated_audit_truncated",
+        "더 높은 레코드 한도로 이 조회를 다시 실행하세요",
+        "re-run this query with a higher record limit",
+    ),
+)
+
+
+def incident_next_step_actions(
+    gaps: Sequence[str],
+    *,
+    korean: bool,
+) -> tuple[str, ...]:
+    """Derive concrete read-only steps from the gaps this answer actually found."""
+    present = set(gaps)
+    return tuple(
+        korean_step if korean else english_step
+        for key, korean_step, english_step in _INCIDENT_GAP_NEXT_STEPS
+        if key in present
+    )
+
+
+def _incident_next_step_text(gaps: Sequence[str], *, korean: bool) -> str:
+    actions = incident_next_step_actions(gaps, korean=korean)
+    if not actions:
+        return (
+            "상관된 감사 근거가 완전합니다. 변경을 제안하기 전에 기록된 활동을 검토하세요."
+            if korean
+            else (
+                "The correlated audit evidence is complete. "
+                "Review the recorded activity before proposing a change."
+            )
+        )
+    if korean:
+        return "변경을 제안하기 전에 " + ", ".join(actions) + "."
+    joined = actions[0] if len(actions) == 1 else ", ".join(actions[:-1]) + f", and {actions[-1]}"
+    return f"Before proposing a change, {joined}."
+
+
+_INCIDENT_PROFILE_FIELDS: tuple[tuple[str, str, str], ...] = (
+    ("title", "제목", "Title"),
+    ("severity", "심각도", "Severity"),
+    ("status", "상태", "Status"),
+    ("vertical", "버티컬", "Vertical"),
+    ("opened_at", "최초 기록", "First recorded"),
+    ("last_updated_at", "최종 기록", "Last recorded"),
+    ("actors", "관여 주체", "Actors"),
+)
+_INCIDENT_TIMELINE_ROWS = 10
+
+
+def _incident_scalar(value: object) -> str | None:
+    """Render one profile cell without inventing a value for a missing field."""
+    if isinstance(value, str):
+        stripped = value.strip()
+        return stripped or None
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, int | float):
+        return str(value)
+    if isinstance(value, list | tuple):
+        parts = [item for item in (_incident_scalar(entry) for entry in value) if item]
+        return ", ".join(parts) or None
+    return None
+
+
+def incident_profile_facts(
+    profile: object,
+    *,
+    korean: bool,
+) -> tuple[tuple[str, str], ...]:
+    """Surface every populated profile field the audit projection already carries."""
+    if not isinstance(profile, Mapping):
+        return ()
+    facts: list[tuple[str, str]] = []
+    for key, korean_label, english_label in _INCIDENT_PROFILE_FIELDS:
+        rendered = _incident_scalar(profile.get(key))
+        if rendered is not None:
+            facts.append((korean_label if korean else english_label, rendered))
+    return tuple(facts)
+
+
+def incident_timeline_rows(evidence: object) -> tuple[Mapping[str, str], ...]:
+    """Return the most recent bounded audit records in ascending recorded order."""
+    if not isinstance(evidence, list):
+        return ()
+    rows: list[Mapping[str, str]] = []
+    for entry in evidence[-_INCIDENT_TIMELINE_ROWS:]:
+        if not isinstance(entry, Mapping):
+            continue
+        recorded_at = _incident_scalar(entry.get("recorded_at"))
+        audit_ref = _incident_scalar(entry.get("audit_ref"))
+        if recorded_at is None or audit_ref is None:
+            continue
+        rows.append(
+            {
+                "recorded_at": recorded_at,
+                "actor": _incident_scalar(entry.get("actor")) or "-",
+                "action_kind": _incident_scalar(entry.get("action_kind")) or "-",
+                "mode": _incident_scalar(entry.get("mode")) or "-",
+                "audit_ref": audit_ref,
+            }
+        )
+    return tuple(rows)
+
+
+def _incident_timeline_markdown(
+    rows: tuple[Mapping[str, str], ...],
+    *,
+    korean: bool,
+) -> str:
+    if not rows:
+        return ""
+    header = (
+        "| 기록 시각 | 주체 | 활동 | 모드 | 감사 참조 |"
+        if korean
+        else "| Recorded | Actor | Activity | Mode | Audit ref |"
+    )
+    lines = [header, "| --- | --- | --- | --- | --- |"]
+    lines.extend(
+        f"| {row['recorded_at']} | {row['actor']} | {row['action_kind']} "
+        f"| {row['mode']} | `{row['audit_ref']}` |"
+        for row in rows
+    )
+    return "\n".join(lines)
+
+
+def _incident_profile_lines(
+    facts: tuple[tuple[str, str], ...],
+    profile: object,
+    *,
+    korean: bool,
+) -> str:
+    """An absent profile, an unrecorded status, and a reported status are three answers.
+
+    Populated fields are listed, but silence about status would read as absence of
+    trouble, so an unrecorded status is still stated even when other fields render.
+    """
+    lines = "".join(f"- {label}: {value}\n" for label, value in facts)
+    if profile is None:
+        return lines + (
+            "- 인시던트 프로파일이 없어 상태를 보고할 수 없습니다.\n"
+            if korean
+            else "- Status can't be reported because the incident profile is missing.\n"
+        )
+    status = profile.get("status") if isinstance(profile, Mapping) else None
+    if _incident_scalar(status) is None:
+        return lines + (
+            "- 조회한 감사 기록에 인시던트 상태가 없습니다.\n"
+            if korean
+            else "- The audit records read for this incident record no status.\n"
+        )
+    return lines
+
+
 def _render_incident_answer(
     request: SemanticTurnRequest,
     output: Mapping[str, object],
@@ -1244,12 +1415,13 @@ def _render_incident_answer(
     evidence_count = (
         verified if isinstance(verified, int) and not isinstance(verified, bool) else shown
     )
-    status = profile.get("status") if isinstance(profile, Mapping) else None
-    status_text = status if isinstance(status, str) and status else None
     gap_values = (
         tuple(item for item in gaps if isinstance(item, str)) if isinstance(gaps, list) else ()
     )
     korean = request.locale.casefold().startswith("ko")
+    facts = incident_profile_facts(profile, korean=korean)
+    timeline = _incident_timeline_markdown(incident_timeline_rows(evidence), korean=korean)
+    timeline_truncated = shown > _INCIDENT_TIMELINE_ROWS
     missing = ", ".join(_humanized_gap(gap, korean=korean) for gap in gap_values) or (
         "없음" if korean else "none"
     )
@@ -1261,23 +1433,28 @@ def _render_incident_answer(
         )
         if shown < evidence_count:
             found += f"- 아래에는 가장 최근 {shown}건만 담겨 있습니다.\n"
-        found += (
-            f"- 인시던트 상태: `{status_text}`\n"
-            if status_text is not None
-            else (
-                "- 인시던트 프로파일이 없어 상태를 보고할 수 없습니다.\n"
-                if profile is None
-                else "- 조회한 감사 기록에 인시던트 상태가 없습니다.\n"
+        found += _incident_profile_lines(facts, profile, korean=True)
+        timeline_section = (
+            "## 기록된 활동\n\n"
+            + timeline
+            + (
+                f"\n\n표에는 가장 최근 {_INCIDENT_TIMELINE_ROWS}건만 담았습니다. "
+                f"담긴 {shown}건 전체는 기술 상세에 있습니다.\n\n"
+                if timeline_truncated
+                else "\n\n"
             )
+            if timeline
+            else ""
         )
         return (
             "## 검증된 인시던트 근거\n\n"
             f"{found}\n"
+            f"{timeline_section}"
             "## 제한 사항\n\n"
             "- 인과 분석이 구현되지 않아 근본 원인을 확인할 수 없습니다.\n"
             f"- 누락된 근거: {missing}\n\n"
             "## 다음 안전 단계\n\n"
-            "변경을 제안하기 전에 누락된 근거를 수집하세요. "
+            f"{_incident_next_step_text(gap_values, korean=True)} "
             "이 결과는 읽기 전용이며 실행 권한을 부여하지 않습니다."
         )
     evidence_label = "record was" if evidence_count == 1 else "records were"
@@ -1288,23 +1465,28 @@ def _render_incident_answer(
     )
     if shown < evidence_count:
         found += f"- Only the most recent {shown} are carried below.\n"
-    found += (
-        f"- Incident status: `{status_text}`\n"
-        if status_text is not None
-        else (
-            "- Status can't be reported because the incident profile is missing.\n"
-            if profile is None
-            else "- The audit records read for this incident record no status.\n"
+    found += _incident_profile_lines(facts, profile, korean=False)
+    timeline_section = (
+        "## Recorded activity\n\n"
+        + timeline
+        + (
+            f"\n\nThe table lists only the most recent {_INCIDENT_TIMELINE_ROWS} records. "
+            f"All {shown} carried records are in technical details.\n\n"
+            if timeline_truncated
+            else "\n\n"
         )
+        if timeline
+        else ""
     )
     return (
         "## Verified incident evidence\n\n"
         f"{found}\n"
+        f"{timeline_section}"
         "## Limitations\n\n"
         "- Root cause isn't available because causal analysis hasn't been implemented.\n"
         f"- Missing evidence: {missing}\n\n"
         "## Next safe step\n\n"
-        "Collect the missing evidence before proposing a change. "
+        f"{_incident_next_step_text(gap_values, korean=False)} "
         "This result is read-only and grants no execution authority."
     )
 
