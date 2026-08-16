@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 6a012b310f9bb9437ef1f90d13ff9fd05739ac46
+translation_source_sha: 7efa1fb365c37f3c00cd92ec6ca771587865ade4
 translation_revised: 2026-08-16
 ---
 
@@ -193,6 +193,7 @@ translation_revised: 2026-08-16
 | 2026-08-16 | 구현됨 | 바인딩이 `incident_reference` 질문을 대신 해소하는 범위를 좁혔습니다. 고정된 인시던트를 읽는 turn에서만 바인딩이 답하고 다른 output shape에서는 질문이 유지되므로, 운영자가 보지 못한 질문 뒤에서 제안된 plan이 다른 인시던트를 읽을 수 없습니다. | `current change`, focused 대화 검사 458개 통과, shape 조건을 제거하면 새 사례가 실패, 라이브 고정 turn 4회가 두 언어에서 `plan_source="bound_incident"`로 응답 | 통제된 요청-Console 및 이중 언어 무작위 근거를 보존합니다. |
 
 | 2026-08-16 | 구현됨 | 읽기가 이미 담아 온 인시던트 근거를 실제로 보고합니다. `query.incident_evidence`가 각 기록의 행위 주체를 버려 세어 놓은 기록을 누구에게도 귀속할 수 없었고, 프로파일에 제목·심각도·버티컬·최초·최종 기록 시각이 있는데도 두 표면 모두 상태만 보고했습니다. 이제 projection이 행위 주체를 보존하고, 두 표면 모두 값이 있는 프로파일 필드를 모두 나열하며 제목에 자기 상한을 밝힌 기록 활동 표를 덧붙이고, 다음 안전 단계는 측정한 공백을 따릅니다. 값이 있는 필드만 나열해 미기록 상태가 사라지지 않도록 상태 미기록 사실을 계속 밝히고, 보고하는 건수는 검증한 총계를 유지합니다. | `current change`, `incident_queries.py`, `semantic_turn_processor.py`, Operator 표현 계층, focused Core 검사 388개와 Operator 검사 322개 통과, 작업 범위 Ruff와 strict mypy 통과, mutation 3건이 각각 정확히 가드 하나씩만 실패시킴 | 통제된 요청-Console 및 이중 언어 무작위 근거를 보존합니다. |
+| 2026-08-16 | 구현됨 | 한국어 다음 안전 단계가 한국어 문장으로 읽히게 했습니다. 측정한 공백이 여러 개일 때 경어 명령문을 쉼표로 이어 붙여 한국어 문장이 아니었으므로, 여러 단계는 도입 문구로 시작해 각각 독립된 문장이 됩니다. | `current change`, focused 처리기 검사 60개 통과, 새 사례가 단일 단계와 복수 단계 형태를 모두 고정 | 이 행에 남은 작업은 없습니다. |
 
 ### 남은 작업
 

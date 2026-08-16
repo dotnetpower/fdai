@@ -45,6 +45,7 @@ from fdai_core_service.semantic_turn_consumer import (
 from fdai_core_service.semantic_turn_processor import (
     SemanticTurnProcessor,
     SemanticTurnRejectedError,
+    _incident_next_step_text,
     _typed_extension_answer_output,
     incident_next_step_actions,
     incident_profile_facts,
@@ -1778,4 +1779,23 @@ def test_incident_next_step_actions_follow_the_measured_gaps() -> None:
     assert incident_next_step_actions((), korean=False) == ()
     assert incident_next_step_actions(["impact_evidence_missing"], korean=True) == (
         "영향받은 리소스의 영향 근거를 수집하세요",
+    )
+
+
+def test_korean_next_step_reads_as_korean_when_several_steps_apply() -> None:
+    """Chaining polite imperatives with a comma is not a Korean sentence."""
+    text = _incident_next_step_text(
+        ["impact_evidence_missing", "grounded_citations_missing"],
+        korean=True,
+    )
+
+    assert text == (
+        "변경을 제안하기 전에 다음을 수행하세요. "
+        "영향받은 리소스의 영향 근거를 수집하세요. "
+        "각 주장을 감사 기록에 연결하는 근거 인용을 수집하세요."
+    )
+    assert "수집하세요," not in text
+    assert (
+        _incident_next_step_text(["impact_evidence_missing"], korean=True)
+        == "변경을 제안하기 전에 영향받은 리소스의 영향 근거를 수집하세요."
     )
