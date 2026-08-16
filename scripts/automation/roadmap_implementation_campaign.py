@@ -218,20 +218,40 @@ def _main_checkout(repo_root: Path) -> Path | None:
     return None
 
 
+def _dirty_paths(checkout: Path) -> set[str]:
+    """Return every path the checkout has uncommitted, including untracked ones."""
+    paths: set[str] = set()
+    for line in _git("status", "--porcelain", cwd=checkout).splitlines():
+        entry = line[3:].strip()
+        # A rename reads `old -> new`; both sides are in flight and both must count.
+        for part in entry.split(" -> "):
+            candidate = part.strip().strip('"')
+            if candidate:
+                paths.add(candidate)
+    return paths
+
+
 def _land_validated_batch(repo_root: Path) -> str | None:
-    """Merge the validated campaign head into main when the main checkout is idle.
+    """Merge the validated campaign head into main when the merge disturbs no live edit.
 
     Nothing else moves this work onto main (#137), so it accumulated on a branch that only
-    diverged further. Landing is skipped rather than forced: unvalidated work stays put, a
-    dirty main checkout belongs to another session, and a conflict aborts instead of leaving
-    a half-merged tree that the next run would refuse.
+    diverged further. Requiring a spotless main checkout looked safe but never fired: the
+    primary checkout is where people and other sessions work, so it is almost always dirty
+    and the batch would wait forever. What actually matters is narrower and checkable: the
+    merge must not touch a file somebody is editing. When the incoming paths and the dirty
+    paths are disjoint, git rewrites only files nobody holds and the other session's work is
+    untouched. Landing is still skipped rather than forced: unvalidated work stays put, and
+    a conflict aborts instead of leaving a half-merged tree that the next run would refuse.
     """
     if _git("rev-list", "--count", "main..HEAD", cwd=repo_root) == "0":
         return None
     if not _validation_receipt_exists(repo_root, "HEAD"):
         return None
     checkout = _main_checkout(repo_root)
-    if checkout is None or _git("status", "--porcelain", cwd=checkout):
+    if checkout is None:
+        return None
+    incoming = set(_git("diff", "--name-only", "main...HEAD", cwd=repo_root).splitlines())
+    if incoming & _dirty_paths(checkout):
         return None
     head = _git("rev-parse", "HEAD", cwd=repo_root)
     before = _git("rev-parse", "main", cwd=repo_root)
