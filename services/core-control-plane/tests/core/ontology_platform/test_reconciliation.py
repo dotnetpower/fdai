@@ -921,3 +921,41 @@ def test_stripping_censoring_refs_breaks_the_observation_identity() -> None:
 
     with pytest.raises(ValidationError, match="does not match its content"):
         EffectObservationEnvelope.model_validate(stripped)
+
+
+async def test_late_censored_episode_is_held_instead_of_requesting_recovery() -> None:
+    release, target, plan, action_type = _fixture()
+    coordinator = EffectReconciliationCoordinator(ledger=InMemoryReconciliationLedger())
+    late = _request(
+        release=release,
+        target=target,
+        plan=plan,
+        action_type=action_type,
+        evaluated_at=DEADLINE + timedelta(minutes=1),
+        censoring_refs=("change:later-scale:1",),
+    )
+
+    outcome = await _coordinate(coordinator, late, release=release)
+
+    assert outcome.receipt.status is ReconciliationStatus.UNSCORABLE
+    assert outcome.recommendation.next_step is ReconciliationNextStep.HOLD_UNSCORABLE
+    assert outcome.recommendation.reason_code == "observation_censored"
+    assert outcome.recommendation.target_agent is None
+
+
+async def test_late_uncensored_episode_still_times_out_into_recovery() -> None:
+    release, target, plan, action_type = _fixture()
+    coordinator = EffectReconciliationCoordinator(ledger=InMemoryReconciliationLedger())
+    late = _request(
+        release=release,
+        target=target,
+        plan=plan,
+        action_type=action_type,
+        evaluated_at=DEADLINE + timedelta(minutes=1),
+    )
+
+    outcome = await _coordinate(coordinator, late, release=release)
+
+    assert outcome.receipt.status is ReconciliationStatus.TIMED_OUT
+    assert outcome.recommendation.next_step is ReconciliationNextStep.REQUEST_VIDAR_RECOVERY
+    assert outcome.recommendation.target_agent == "vidar"

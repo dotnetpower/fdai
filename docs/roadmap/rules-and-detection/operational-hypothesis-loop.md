@@ -77,9 +77,11 @@ The observation horizon is fixed before execution. It includes the expected star
 grace, recurrence window when applicable, and the exact completeness policy. A later action,
 topology revision, policy change, or material external event marks the episode intervened or
 censored; it doesn't silently inherit the predicted result. The observation envelope carries those
-censoring references, and a censored episode is unscorable before any effect comparison runs.
-The deterministic unscorable precedence is censored, incomplete, synthetic, conflicting, then
-stale.
+censoring references, and a censored episode is unscorable before the deadline classification and
+before any effect comparison, so a late evaluation cannot turn intervened evidence into a
+timed-out recovery request. The deterministic order is independent-observation validity, then
+censoring, then semantic effect coverage, then incomplete, synthetic, conflicting, and stale
+evidence.
 
 Provider receipts and independent outcomes stay separate:
 
@@ -233,6 +235,7 @@ contracts. They don't modify, wrap, rename, or duplicate their implementations.
 | 2026-08-14 | implemented | Connected ordinary execution to effect-reconciliation request production through existing exact V2 plans and a durable lease-fenced publication outbox without changing executor outcomes on downstream failure. | `current change`; reconciliation producer, outbox, publication, ControlLoop, runtime, and composition paths; focused validation passed 163 tests. | Bind production exact-plan and independent-observation sources, then retain governed live closure evidence. |
 | 2026-08-15 | in-progress | Qualified the Lane C claim: the six frozen query classes are proven over test-supplied records, because no composition root constructs the lineage projector. | `current change`; `test_operational_hypothesis_loop_competency.py` builds its own `OntologyObjectRecord` and `OntologyLinkRecord` inputs; `bootstrap.py` and `control_loop.py` construct no lineage projector. | Supply the declared `DecisionCase`, `ActionOption`, `ExpectedEffect`, and `ActionRun` properties from real producers, then wire the projector. |
 | 2026-08-16 | implemented | Added the `censoring_refs` observation field at envelope schema 1.1.0 and made a censored episode unscorable ahead of every effect comparison, so censored and conflicting episodes stay held attempt evidence. | `current change`; `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_contracts.py`; `reconciliation.py`; `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py`; focused run `pytest services/core-control-plane/tests/core/ontology_platform` passed 335 tests. | Close the recurrence observation window with governed live episodes. |
+| 2026-08-16 | implemented | Moved the censoring decision ahead of the deadline classification so a late-evaluated censored episode is held instead of escalating into a timed-out recovery request. | `current change`; `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation.py` (`_episode_validity_reason`); `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py`; focused run `pytest services/core-control-plane/tests/core/ontology_platform` passed 338 tests. | Close the recurrence observation window with governed live episodes. |
 
 ### Remaining work
 
