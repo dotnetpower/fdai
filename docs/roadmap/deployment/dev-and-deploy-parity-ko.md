@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: ebc9575019d9c18cc705a466937b64d64d92e81a
-translation_revised: 2026-08-15
+translation_source_sha: 2f01c1efd1d4bdcebaad73c9fcea5ce456560f7f
+translation_revised: 2026-08-17
 ---
 
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -37,6 +37,7 @@ translation_revised: 2026-08-15
 | 인증된 로컬 Live 이벤트 경로 | validated | 2026-08-13 통제된 Browser Entra 실행이 `aw.change.events`, Core, `aw.pipeline.stages`, Operator SSE 및 기존 인증 Live DOM을 통과 | 이 실행은 권위 있는 온톨로지를 보존하고 이벤트와 허용된 네 단계를 모두 렌더링했습니다. 배포된 개정 번호, 브라우저 Notifications API 또는 브라우저 종료 상태의 push 전달은 검증하지 않았습니다. |
 | 로컬 및 배포 composition 동등성 | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, `fdai_operator_service/composition.py`, 서비스 통합 테스트 및 focused Operator 검사(`51 passed`) | Composition root는 근거 권한을 바꾸지 않고 자격 증명과 어댑터를 선택합니다. 로컬 및 배포 Operator composition은 같은 Reader 범위 `GET /browser-evidence` 경로와 권위 있는 데이터 출처 ID를 등록하며 PostgreSQL이 없으면 합성 데이터 대신 사용 불가를 반환합니다. |
 | Primary worktree 자동 시작 격리 | implemented | `.vscode/tasks.json`과 `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 자동 시작 계약 통과 | 폴더 열기 자동 시작은 primary checkout에서만 실행되므로 연결된 worktree가 표준 포트를 두고 경합하지 않습니다. 명시적 준비 및 서비스 시작 작업은 연결된 worktree에서도 계속 사용할 수 있습니다. |
+| 리포지토리 범위 roadmap campaign 용량 | implemented | `roadmap_verification_watchdog.py`, `test_roadmap_verification_watchdog.py`, `scripts/README.md`의 무작위 campaign 운영 계약 | FDAI session lease와 최근 Copilot 활동을 모두 이 리포지토리 범위에서만 계산합니다. 다른 workspace는 FDAI 작업을 보류할 수 없으며, 900초 활동 창과 campaign 세션 2개 상한은 FDAI 동시 편집을 계속 보호합니다. |
 | 의미 계획 tier 동등성 | implemented | `composition/semantic_query_model_targets.py`, `composition/wire_semantic_query.py`, 해석된 모델 산출물, 집중 tier 라우팅 및 조립 테스트 | 로컬 및 배포 Core는 같은 기능 산출물을 로드하고 해석된 narrator 또는 `t1.judge` pool을 T1으로 연결하며 T2는 선택 사항으로 유지합니다. T1 제안을 사용할 수 없거나 결정론적 검증을 통과하지 못한 경우에만 해당 단계를 T2로 다시 시도할 수 있습니다. |
 | 권한 인식 관측 캠페인 동등성 | implemented | `config/observation-sources.yaml`, `fdai.delivery.observation_campaign*`, `.vscode/tasks.json`, `infra/modules/compute/container-apps/observation_campaign_job.tf`, 집중 Core, Operator, Console, workspace 및 인프라 검사 | 로컬과 배포 프로필은 같은 출처 카탈로그, 실행 조건 상태, 실행기, 정규화 활동 계약 및 1분 기동을 사용합니다. 검증 전에는 런타임 산출물이 더 필요합니다. |
 | 로컬 검증 데이터베이스 격리 | implemented | `infra/local/docker-compose.yml`, `scripts/automation/validation_queue_context.py`, 로컬 준비 스크립트 및 focused 검증과 migration 통합 테스트 | 런타임 상태는 로컬 PostgreSQL port `5432`에 유지하고 파괴적인 migration 검증은 port `5433`의 별도 로컬 PostgreSQL cluster를 사용합니다. |
@@ -73,6 +74,7 @@ translation_revised: 2026-08-15
 | 2026-08-15 | implemented | 공유 deadline에 관측할 예산이 남지 않으면 migration job 시작을 거부하도록 해서, 시작된 job이 관측되지 않은 채 방치되지 않게 했습니다. | `current change`, `.github/workflows/deploy-dev.yml`, focused workflow 계약 테스트 통과. | Migration 관측 범위에 남은 작업이 없습니다. |
 | 2026-08-15 | implemented | Poll 주기 1회와 ARM start 왕복이 공유 deadline 안에 들어갈 때만 migration job을 시작하도록 했습니다. | `current change`, `.github/workflows/deploy-dev.yml`, focused workflow 계약 테스트 통과. | 여유값은 고정 45초 추정치이므로 그보다 느린 start는 job이 실행 중인데도 미완료로 보고될 수 있습니다. 해당 단계는 조용히 넘어가지 않고 명시적으로 실패합니다. |
 | 2026-08-15 | implemented | 위 deadline 및 여유값 행의 근거를 정정합니다. 해당 값을 단언하는 focused 테스트는 없으므로 workflow는 YAML 파싱과 배포 계약 suite로 검증했고 제한은 단계 자체가 강제합니다. | `current change`, `deploy-dev.yml`이 유효한 YAML로 파싱되고 script 통합 suite 1151개 통과입니다. | 선언된 deadline 값에 대한 focused 단언은 남아 있습니다. |
+| 2026-08-17 | implemented | Roadmap 자동화 session 용량을 리포지토리 범위로 제한했습니다. 기본 WSL workspace-storage id는 정본 remote URI에서 도출하고, 다른 VS Code remote는 정확한 storage 경로를 지정할 수 있으며, 다른 리포지토리의 최근 활동은 FDAI를 보류하지 않습니다. | `current change`, `roadmap_verification_watchdog.py`, focused watchdog 테스트, `scripts/README.md`의 운영 계약 | Campaign session 범위에 남은 작업은 없습니다. |
 ### 잔여 작업
 
 - [ ] FDAI 전용 Remote WSL server data root 또는 WSL 배포판을 마련한 뒤 제외 대상 workspace를 변경하지 않고 재시작한 Pylance process command에 `--max-old-space-size=2048`이 포함됨을 기록합니다.

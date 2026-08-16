@@ -302,7 +302,7 @@ python3 scripts/automation/install_roadmap_verification_timer.py remove
 
 The randomized implementation campaign is a separate, explicit apply-only workflow. It scans
 immediate `docs/roadmap/<folder>/` groups for canonical English documents that still contain an
-unchecked task. A cycle randomly chooses only among folders with at least 10 eligible documents,
+unchecked task. A cycle randomly chooses only among folders with at least two eligible documents,
 then gives Copilot the complete candidate list for that folder. On every tick, the runner also
 discovers the current repository's registered GitHub Project issues. It selects only open `Ready`
 or `In progress` items with an unchecked Exit criteria or Acceptance criteria task and without a
@@ -310,17 +310,20 @@ or `In progress` items with an unchecked Exit criteria or Acceptance criteria ta
 and issue number. The selected issue body is included in the bounded worker contract, and all 10
 documents must directly advance one of its unchecked criteria.
 
-One accepted batch must commit updates for exactly 10 English/Korean document pairs, focused
-implementation and test evidence, at least 10 critique and hardening rounds, and no verified
+One accepted batch must commit updates for exactly two English/Korean document pairs, focused
+implementation and test evidence, at least 20 critique and hardening rounds, and no verified
 finding above Low. The orchestration layer independently runs the diff-selected tests and
 translation check. It then registers every batch commit with the central validation queue. A new
 batch waits until the previous campaign HEAD has a central validation receipt.
 
-The timer allows at most two active interactive sessions. It treats fresh session leases and recent
-Copilot logs as overlapping observations, so one editor session is not counted twice. Three or
-more active sessions hold the cycle. Each tick runs at most one batch, and the persistent timer
-repeats until it is stopped. Starting still requires an explicit command, but the issue number is
-resolved from the project at runtime:
+The timer allows at most two active interactive FDAI sessions inside a 900-second activity window.
+It treats repository session leases and recent Copilot logs from this VS Code workspace as
+overlapping observations, so one editor session is not counted twice and activity in another
+repository cannot hold FDAI. The default local and WSL workspace-storage ids are derived from this
+repository path. Set `FDAI_VSCODE_WORKSPACE_STORAGE` to the exact workspace-storage directory for an
+unrecognized VS Code remote. Three or more active FDAI sessions hold the cycle. Each tick runs at
+most one batch, and the persistent timer repeats until it is stopped. Starting still requires an
+explicit command, but the issue number is resolved from the project at runtime:
 
 ```bash
 make roadmap-implementation-start
