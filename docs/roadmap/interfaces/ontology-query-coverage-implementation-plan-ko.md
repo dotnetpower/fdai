@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 86db99466a4010149ac978938628860885c04359
+translation_source_sha: bcf756e51a0ad658b1c65e322340424a8e10c341
 translation_revised: 2026-08-15
 ---
 
@@ -183,6 +183,7 @@ translation_revised: 2026-08-15
 | 2026-08-15 | 구현됨 | 직접 ObjectSet 집계 필드를 실행 전에 exact 행 스키마와 대조해 유효하지 않은 T1 plan만 T2로 plan 단계를 다시 시도하도록 했습니다. | `current change`, focused 검증기 및 tier 라우팅 검사 16개와 작업 범위 Ruff 및 strict mypy 통과 | Clean 14-cell 및 seed 기반 100-case 근거를 보존하기 전에 보류된 한국어 집계 cell을 다시 실행합니다. |
 | 2026-08-15 | 구현됨 | 집계 필드 스키마를 table-transform 의존성 전체에 전파하고 점 표기 projection 필드를 결정론적 downstream 집계에서 보존했습니다. | `current change`, focused 검증기, 핸들러 및 tier 라우팅 검사 24개와 작업 범위 Ruff 및 strict mypy 통과 | Clean 14-cell 및 seed 기반 100-case 근거를 보존하기 전에 보류된 한국어 집계 cell을 다시 실행합니다. |
 | 2026-08-15 | 구현됨 | Plan 검증 전에 모델이 제안한 모든 ObjectSet 기준 시각을 단일 trusted evaluation time으로 다시 바인딩해, secured gateway 허용 구간을 벗어난 모델 timestamp 때문에 current-state 실행이 거부되지 않게 했습니다. | `current change`, stale 모델 기준 시각 회귀를 포함한 focused 의미 계획 테스트 15개 통과 | Exact-source Core stack을 재시작하고 clean 14-cell 및 seed 기반 100-case Browser 근거를 보존합니다. |
+| 2026-08-16 | 구현됨 | 시작 시 영속 `Incident` 객체를 읽기 전에 durable 온톨로지 release 이력을 먼저 적재하도록 했습니다. 이전에는 인시던트 projection이 catalog 동기화보다 먼저 실행돼, 이전 catalog digest에 고정된 객체가 모두 fail closed 되고 catalog가 한 번이라도 바뀌면 런타임이 시작되지 못했습니다. | `current change`, bootstrap 순서 가드를 포함한 focused catalog-ontology 검사 6개 통과, 작업 범위 Ruff 및 strict mypy 통과, 로컬 스택 시작 후 바인딩된 인시던트 turn 응답 확인 | 이 행에 남은 작업은 없습니다. |
 
 ### 남은 작업
 
