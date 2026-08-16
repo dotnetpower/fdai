@@ -28,6 +28,26 @@ class CausalClosure(StrEnum):
     UNSAFE = "unsafe"
 
 
+class CausalActionMode(StrEnum):
+    """Highest mode a causal revision may support for its related action or experiment.
+
+    `SHADOW` keeps the related action or chaos scenario evidence-only. `GATED` means the
+    revision may enter the ordinary risk, approval, execution, and rollback gates as
+    evidence; it never grants execution authority by itself.
+    """
+
+    SHADOW = "shadow"
+    GATED = "gated"
+
+
+_EVIDENCE_RANK: dict[CausalEvidenceGrade, int] = {
+    CausalEvidenceGrade.ASSOCIATION: 0,
+    CausalEvidenceGrade.PREDICTIVE_PRECEDENCE: 1,
+    CausalEvidenceGrade.QUASI_EXPERIMENTAL: 2,
+    CausalEvidenceGrade.INTERVENTIONAL: 3,
+}
+
+
 @dataclass(frozen=True, slots=True)
 class CausalEvidenceAssessment:
     temporal_precedence: float
@@ -215,10 +235,14 @@ def close_causal_hypothesis(
         grade = hypothesis.evidence_grade
     elif closure is CausalClosure.UNSAFE:
         status = CausalHypothesisStatus.CLOSED
-        grade = hypothesis.evidence_grade
+        grade = CausalEvidenceGrade.ASSOCIATION
     else:
         status = CausalHypothesisStatus.CLOSED
         grade = CausalEvidenceGrade.INTERVENTIONAL
+    if closure is not CausalClosure.CONFIRMED and (
+        _EVIDENCE_RANK[grade] > _EVIDENCE_RANK[hypothesis.evidence_grade]
+    ):
+        grade = hypothesis.evidence_grade
     revision_id = _identity(
         prior=hypothesis.hypothesis_id,
         closure=closure.value,
@@ -233,6 +257,35 @@ def close_causal_hypothesis(
         created_at=created_at,
         closure=closure,
     )
+
+
+def causal_action_mode(hypothesis: CausalHypothesisRecord) -> CausalActionMode:
+    """Return the highest action mode this causal revision may support.
+
+    Refuting evidence, an unsafe or refuted closure, an unresolved status, or an evidence
+    grade below `quasi_experimental` keeps the related action or experiment in `shadow`.
+    The result is derived from the immutable revision and never grants execution authority.
+    """
+
+    if hypothesis.refuting_refs:
+        return CausalActionMode.SHADOW
+    if hypothesis.closure in {
+        CausalClosure.REFUTED,
+        CausalClosure.UNSAFE,
+        CausalClosure.INCONCLUSIVE,
+    }:
+        return CausalActionMode.SHADOW
+    if hypothesis.status not in {
+        CausalHypothesisStatus.SUPPORTED,
+        CausalHypothesisStatus.CLOSED,
+    }:
+        return CausalActionMode.SHADOW
+    if (
+        _EVIDENCE_RANK[hypothesis.evidence_grade]
+        < _EVIDENCE_RANK[CausalEvidenceGrade.QUASI_EXPERIMENTAL]
+    ):
+        return CausalActionMode.SHADOW
+    return CausalActionMode.GATED
 
 
 def _identity(**values: object) -> str:
@@ -252,6 +305,8 @@ def _is_sha256(value: str) -> bool:
 
 __all__ = [
     "build_causal_hypothesis",
+    "causal_action_mode",
+    "CausalActionMode",
     "CausalClosure",
     "CausalEvidenceAssessment",
     "CausalHypothesisRecord",
