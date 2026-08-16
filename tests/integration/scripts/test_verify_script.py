@@ -55,7 +55,9 @@ def test_a_missing_toolchain_refuses_instead_of_failing_a_gate() -> None:
     assert real_bash is not None
 
     result = subprocess.run(  # noqa: S603 - fixed script and test-controlled arguments
-        [real_bash, str(_VERIFY), "--fast", "--diff", "HEAD^..HEAD"],
+        # An empty self-range keeps this about the toolchain: a shallow checkout has no `HEAD^`,
+        # and diff resolution runs before the tool check.
+        [real_bash, str(_VERIFY), "--fast", "--diff", "HEAD..HEAD"],
         cwd=_ROOT,
         env={"PATH": "/usr/bin:/bin", "HOME": os.environ["HOME"]},
         capture_output=True,
