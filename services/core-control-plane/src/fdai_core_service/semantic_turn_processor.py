@@ -1282,7 +1282,10 @@ def _incident_next_step_text(gaps: Sequence[str], *, korean: bool) -> str:
             )
         )
     if korean:
-        return "변경을 제안하기 전에 " + ", ".join(actions) + "."
+        if len(actions) == 1:
+            return f"변경을 제안하기 전에 {actions[0]}."
+        joined = " ".join(f"{action}." for action in actions)
+        return f"변경을 제안하기 전에 다음을 수행하세요. {joined}"
     joined = actions[0] if len(actions) == 1 else ", ".join(actions[:-1]) + f", and {actions[-1]}"
     return f"Before proposing a change, {joined}."
 
