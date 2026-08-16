@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 57be5fc5eaa6fe517eb192d15d6fbf86a6e7b218
+translation_source_sha: 4aae4994000ce78a7cb68c2fad754fcd42931b3d
 translation_revised: 2026-08-16
 ---
 # FDAI 운영 온톨로지
@@ -426,9 +426,8 @@ valid하고 검증을 주장하지 않습니다. 해당 메타데이터가 없�
 링크를 명시적으로 요구할 때만 권한을 낮춥니다.
 
 재생은 인스턴스 그래프의 임의 과거 상태가 아니라 pin된 카탈로그 release와 보존된 결정 맥락을
-해석합니다. 맥락 신원 재계산은 동등성을 증명하며, 원본 내용을 복원하려면 그 맥락이
-보존되어 있어야 합니다. Current-state 조회는 최신성 검사를 통과한 최신 valid 개정 번호를
-사용합니다.
+해석합니다. 맥락 신원 재계산은 동등성을 증명하며, 원본 내용을 복원하려면 그 맥락이 보존되어 있어야
+합니다. Current-state 조회는 최신성 검사를 통과한 최신 valid 개정 번호를 사용합니다.
 
 ## 사실의 권위 원천
 

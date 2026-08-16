@@ -17,7 +17,11 @@ from fdai.core.ontology_platform import OntologyQueryPlanExecutor, QueryPlanExec
 
 from .intent_graph import build_intent_graph_evidence
 from .semantic_planning import SemanticPlanningService
-from .semantic_planning_models import SemanticPlanningDisposition, SemanticPlanningOutcome
+from .semantic_planning_models import (
+    BoundIncident,
+    SemanticPlanningDisposition,
+    SemanticPlanningOutcome,
+)
 from .session import Principal, Turn
 
 
@@ -79,6 +83,7 @@ class SemanticConversationRuntime:
         prior_turns: tuple[Turn, ...],
         principal: Principal,
         cancelled: asyncio.Event | None = None,
+        bound_incident: BoundIncident | None = None,
     ) -> SemanticTurnResult:
         """Terminate every accepted turn without invoking a compatibility parser."""
 
@@ -88,6 +93,7 @@ class SemanticConversationRuntime:
             prior_turns=prior_turns,
             principal=principal,
             purpose=self._purpose,
+            bound_incident=bound_incident,
         )
         if planning.disposition is SemanticPlanningDisposition.CLARIFICATION:
             return _terminal("clarification", planning.reason, planning)

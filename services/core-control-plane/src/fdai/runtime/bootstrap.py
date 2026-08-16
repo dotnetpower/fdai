@@ -146,7 +146,7 @@ from fdai.runtime.case_history import (
     CaseHistoryRuntime,
     build_case_history_runtime,
 )
-from fdai.runtime.catalog_ontology import project_catalog_ontology
+from fdai.runtime.catalog_ontology import project_catalog_ontology, sync_ontology_catalog
 from fdai.runtime.configuration import (
     _attach_runtime_github_change_feed,
     _attach_runtime_knowledge_source,
@@ -563,6 +563,7 @@ async def _run() -> int:
                 mutation_dependency_readiness=core_mutation_readiness,
             )
             if control_loop.ontology_instance_store is not None:
+                await sync_ontology_catalog(control_loop.ontology_instance_store)
                 await incident_registry.bind_projection(
                     IncidentOntologyProjector(store=control_loop.ontology_instance_store),
                     entries=incident_entries,

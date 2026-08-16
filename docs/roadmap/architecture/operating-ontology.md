@@ -473,10 +473,9 @@ separately before relying on either.
 
 The first is intra-source: two authoritative observations of the same neutral resource identity
 inside one promoted inventory generation. `adjudicate_observations` in
-`core/ontology_platform/observation_adjudication.py` compares the
-reported content of every observation of that identity, and
-`build_inventory_ontology_projection` carries the verdict on the projected `Resource` state fact.
-The rules are deterministic and value-blind:
+`core/ontology_platform/observation_adjudication.py` compares the reported content of every
+observation of that identity, and `build_inventory_ontology_projection` carries the verdict on the
+projected `Resource` state fact. The rules are deterministic and value-blind:
 
 - Observations that agree on content but differ only in the per-row observation clock read are one
   fact reported twice, not a conflict. The earliest observation time is kept, so repetition never

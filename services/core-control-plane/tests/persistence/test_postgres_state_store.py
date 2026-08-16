@@ -113,6 +113,36 @@ async def test_incident_evidence_read_is_correlation_scoped_and_bounded() -> Non
 
 
 @pytest.mark.asyncio
+async def test_incident_evidence_keeps_the_newest_records_in_ascending_order() -> None:
+    """The answer calls the bounded set the latest N, and reads it oldest-first."""
+    url = _requires_live_db()
+    _upgrade_head()
+    dsn = _plain_dsn(url)
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
+    correlation_id = f"incident-order-{uuid.uuid4().hex}"
+    for index in range(4):
+        await store.append_audit_entry(
+            {
+                "event_id": str(uuid.uuid4()),
+                "correlation_id": correlation_id,
+                "actor": f"actor-{index}",
+                "action_kind": "incident.evidence",
+                "mode": "shadow",
+                "recorded_at": datetime(2026, 8, 14, 9, index, tzinfo=UTC).isoformat(),
+            }
+        )
+
+    rows, truncated = await store.list_incident_evidence(
+        correlation_id=correlation_id,
+        limit=2,
+    )
+
+    assert truncated is True
+    assert [row["actor"] for row in rows] == ["actor-2", "actor-3"]
+    assert [row["seq"] for row in rows] == sorted(row["seq"] for row in rows)
+
+
+@pytest.mark.asyncio
 async def test_state_kv_round_trip() -> None:
     url = _requires_live_db()
     _upgrade_head()

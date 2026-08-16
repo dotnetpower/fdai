@@ -16,6 +16,7 @@ import yaml
 from scripts.automation import validation_queue
 from scripts.automation.validation_queue_context import validation_environment
 from scripts.automation.validation_queue_runner import (
+    STAGE_ENVIRONMENT_STATUS,
     STAGE_KILLED_STATUS,
     _prepare_validation_worktree,
     _run_stage,
@@ -60,6 +61,21 @@ def test_validation_environment_puts_the_queue_toolchain_on_path(git_repo: Path)
     # reports the missing tool as a gate failure that the bisector blames on a commit.
     assert entries[-1] == str(paths.state_root / "venv" / "bin")
     assert entries[0] != str(paths.state_root / "venv" / "bin")
+
+
+def test_a_missing_toolchain_is_an_environment_fault_not_a_failing_gate(tmp_path: Path) -> None:
+    stage = tmp_path / "stage.sh"
+    stage.write_text(
+        "#!/bin/sh\necho 'validation-environment: required tool(s) not on PATH: uv'\nexit 125\n",
+        encoding="utf-8",
+    )
+    stage.chmod(0o755)
+
+    result = _run_stage("fast-gates", ["sh", str(stage)], cwd=tmp_path, env=dict(os.environ))
+
+    assert result["status"] == STAGE_ENVIRONMENT_STATUS
+    # Recorded as a gate failure this would be bisected onto a commit that is not at fault.
+    assert result["detail"] == "required tool(s) not on PATH: uv"
 
 
 def test_validation_environment_loads_database_from_source_checkout(

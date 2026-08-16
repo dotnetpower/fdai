@@ -251,15 +251,27 @@ def test_unresolved_meaning_returns_one_clarification_without_plan() -> None:
     assert model.plan_calls == 0
 
 
-def test_unbound_incident_reference_clarifies_without_model_work() -> None:
+@pytest.mark.parametrize(
+    "utterance",
+    [
+        "Investigate this incident and report the cause, gaps, and next safe step.",
+        "이 인시던트의 근거로 확인되는 사실과 다음 안전한 조치를 보고해줘.",
+    ],
+)
+def test_unbound_incident_reference_clarifies_through_the_typed_frame(utterance: str) -> None:
+    """Both locales reach one disposition; no utterance substring decides a route."""
     manifest, definition = _fixture()
-    model = _Model(frame=_frame(), plan=_plan(definition))
+    model = _Model(
+        frame=_frame(
+            unresolved_terms=["this incident"],
+            clarification_requirements=["incident_reference"],
+            clarification="Which incident should I investigate?",
+        ),
+        plan=_plan(definition),
+    )
 
     outcome = _service(model, manifest).plan(
-        utterance=(
-            "Investigate this incident using the available evidence and report the cause, "
-            "gaps, and next safe step."
-        ),
+        utterance=utterance,
         prior_turns=(),
         principal=Principal(id="operator", role=Role.READER),
         purpose="operations-review",
@@ -270,7 +282,6 @@ def test_unbound_incident_reference_clarifies_without_model_work() -> None:
     assert outcome.clarification == "Which incident should I investigate?"
     assert outcome.plan is None
     assert outcome.execution_authority is False
-    assert model.frame_calls == 0
     assert model.plan_calls == 0
 
 
