@@ -2,7 +2,7 @@
 
 Reads `FDAI_ANALYZER_TARGETS` (a JSON list of ``{resource_id, kind}`` objects),
 adds every eligible resource the durable inventory projection already observed
-when `FDAI_DATABASE_URL` is bound, binds the reference analyzers to whichever
+when `FDAI_INVENTORY_DSN` is bound, binds the reference analyzers to whichever
 `MetricProvider` composition wired, and publishes one canonical Event per
 finding to the analyzer ingest topic.
 
@@ -29,6 +29,7 @@ from fdai.composition import attach_metric_provider, default_container_from_env
 from fdai.core.investigation import InvestigationCoordinator, default_analyzers
 from fdai.delivery.analyzer_targets import (
     DEFAULT_MAX_DISCOVERED,
+    MAX_DISCOVERED_CEILING,
     resolve_analyzer_targets,
 )
 from fdai.delivery.analyzer_tick import (
@@ -57,7 +58,7 @@ TARGETS_ENV = "FDAI_ANALYZER_TARGETS"
 WINDOW_ENV = "FDAI_ANALYZER_WINDOW_SECONDS"
 TOPIC_ENV = "FDAI_ANALYZER_TOPIC"
 MAX_DISCOVERED_ENV = "FDAI_ANALYZER_MAX_DISCOVERED_TARGETS"
-DATABASE_ENV = "FDAI_DATABASE_URL"
+INVENTORY_DSN_ENV = "FDAI_INVENTORY_DSN"
 
 
 def parse_targets(raw: str) -> tuple[AnalyzerTarget, ...]:
@@ -110,7 +111,12 @@ def parse_window_seconds(raw: str) -> int:
 
 
 def parse_max_discovered(raw: str) -> int:
-    """Parse the optional inventory-backed target bound; malformed fails closed."""
+    """Parse the optional inventory-backed target bound; malformed fails closed.
+
+    The upper bound matches the resolver ceiling so a misconfigured deployment
+    fails at parse time with the environment key named, not later inside the
+    projection read.
+    """
     text = raw.strip()
     if not text:
         return DEFAULT_MAX_DISCOVERED
@@ -118,19 +124,21 @@ def parse_max_discovered(raw: str) -> int:
         bound = int(text)
     except ValueError as exc:
         raise ValueError(f"{MAX_DISCOVERED_ENV} MUST be a positive integer") from exc
-    if bound <= 0:
-        raise ValueError(f"{MAX_DISCOVERED_ENV} MUST be a positive integer")
+    if not 1 <= bound <= MAX_DISCOVERED_CEILING:
+        raise ValueError(
+            f"{MAX_DISCOVERED_ENV} MUST be an integer in [1, {MAX_DISCOVERED_CEILING}]"
+        )
     return bound
 
 
 def build_inventory_projection() -> PostgresOntologyInstanceStore | None:
-    """Bind the durable inventory projection when a database is configured.
+    """Bind the durable inventory projection when its database is configured.
 
-    Returns ``None`` when no database is bound, which keeps the tick a
-    configured-target-only pass instead of failing a deployment that never
-    provisioned the projection.
+    Returns ``None`` when the deployment supplies no inventory DSN, which keeps
+    the tick a configured-target-only pass instead of failing a deployment that
+    never provisioned the projection.
     """
-    dsn = os.environ.get(DATABASE_ENV, "").strip()
+    dsn = os.environ.get(INVENTORY_DSN_ENV, "").strip()
     if not dsn:
         return None
     catalog_root = _REPO_ROOT / "rule-catalog"

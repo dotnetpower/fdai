@@ -42,7 +42,9 @@ from fdai.shared.providers.state_evidence import (
 
 RESOURCE_OBJECT_TYPE = "Resource"
 DEFAULT_MAX_DISCOVERED = 200
-_MAX_DISCOVERED_CEILING = 1_000
+#: One below the durable store's own 1,000-row query bound, because resolution
+#: asks for one extra row to detect truncation.
+MAX_DISCOVERED_CEILING = 999
 
 SKIP_UNMAPPED_RESOURCE_TYPE = "unmapped_resource_type"
 SKIP_MALFORMED_RESOURCE = "malformed_resource"
@@ -60,8 +62,12 @@ class AnalyzerTargetResolution:
 
     ``inventory_consulted`` is ``False`` when no durable projection was bound,
     so a reader never mistakes "no store" for "the store observed nothing".
-    ``truncated`` reports that the projection held more eligible resources than
-    ``max_discovered`` allowed; the retained selection stays deterministic.
+    ``truncated`` reports that more resources were available than this tick
+    accepted, either because the projection page itself was truncated or
+    because more eligible resources were returned than ``max_discovered``
+    allowed. Ordering inside one returned page is deterministic; which page a
+    truncated projection returns is the store's decision, so a truncated tick
+    is not guaranteed to select the same subset as the previous one.
     """
 
     targets: tuple[AnalyzerTarget, ...]
@@ -93,7 +99,7 @@ async def resolve_analyzer_targets(
 
     Configured targets are preserved in their declared order and always win a
     duplicate; discovered targets follow in ascending ``resource_ref`` order so
-    two ticks over one projection resolve the same list.
+    two ticks over one untruncated projection resolve the same list.
 
     Args:
         configured: Operator-pinned targets, already parsed and deduplicated.
@@ -108,8 +114,8 @@ async def resolve_analyzer_targets(
     """
     if now.tzinfo is None:
         raise ValueError("resolve_analyzer_targets requires a timezone-aware now")
-    if not 1 <= max_discovered <= _MAX_DISCOVERED_CEILING:
-        raise ValueError(f"max_discovered MUST be in [1, {_MAX_DISCOVERED_CEILING}]")
+    if not 1 <= max_discovered <= MAX_DISCOVERED_CEILING:
+        raise ValueError(f"max_discovered MUST be in [1, {MAX_DISCOVERED_CEILING}]")
 
     ordered: list[AnalyzerTarget] = []
     seen: set[str] = set()
@@ -151,10 +157,11 @@ async def resolve_analyzer_targets(
             eligible.append(candidate)
 
     eligible.sort(key=lambda item: (item.resource_ref, item.resource_kind))
-    truncated = snapshot.truncated or len(eligible) > max_discovered
     discovered = 0
+    withheld = False
     for target in eligible:
         if discovered >= max_discovered:
+            withheld = True
             break
         if target.resource_ref in seen:
             continue
@@ -168,7 +175,7 @@ async def resolve_analyzer_targets(
         discovered=discovered,
         inventory_consulted=True,
         skipped_reasons=tuple(sorted(skipped)),
-        truncated=truncated,
+        truncated=snapshot.truncated or withheld,
     )
 
 
@@ -208,7 +215,8 @@ def _state_fact_supports_selection(
 
     An absent state fact is eligible: the projection observed identity and type
     without asserting state. A present state fact MUST be an unconflicted,
-    complete, non-synthetic provider observation inside its freshness ceiling.
+    complete, non-synthetic provider observation with a timezone-aware evidence
+    cutoff inside its freshness ceiling.
     """
     provider_properties = record.properties.get("properties")
     if not isinstance(provider_properties, Mapping):
@@ -233,6 +241,9 @@ def _state_fact_supports_selection(
     ):
         skipped.add(SKIP_UNUSABLE_STATE_FACT)
         return False
+    if metadata.evidence_cutoff.tzinfo is None:
+        skipped.add(SKIP_UNUSABLE_STATE_FACT)
+        return False
     age_seconds = (now - metadata.evidence_cutoff).total_seconds()
     if age_seconds > metadata.freshness_ceiling_seconds:
         skipped.add(SKIP_STALE_STATE_FACT)
@@ -242,6 +253,7 @@ def _state_fact_supports_selection(
 
 __all__ = [
     "DEFAULT_MAX_DISCOVERED",
+    "MAX_DISCOVERED_CEILING",
     "RESOURCE_OBJECT_TYPE",
     "SKIP_MALFORMED_RESOURCE",
     "SKIP_STALE_STATE_FACT",
