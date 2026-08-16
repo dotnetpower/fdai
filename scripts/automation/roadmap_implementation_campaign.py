@@ -34,6 +34,25 @@ DEFAULT_AGENT_TIMEOUT_SECONDS = 3_600
 CHANGED_TEST_TIMEOUT_SECONDS = 900
 QUALITY_CHECK_TIMEOUT_SECONDS = 120
 
+# Repository-wide gates that no diff-selected check ever runs. A violation therefore reaches
+# central validation, where it rejects the whole snapshot and is discovered hours later by the
+# lane it blocks rather than by the batch that caused it. Five separate incidents in one day
+# came from this single shape, each fixed by adding one more gate here, so the list is now
+# declared in one place: adding a gate is one line, and the reason lives with it. Measured
+# together at under five seconds against batches that run for fifteen minutes or more.
+BATCH_OWNED_GATES: tuple[tuple[str, ...], ...] = (
+    ("python3", "scripts/quality/localization/check-readable-hangul.py"),
+    ("bash", "scripts/quality/repository/check-guids.sh"),
+    ("bash", "scripts/quality/repository/check-punctuation.sh"),
+    ("python3", "scripts/quality/documentation/check-display-terminology.py"),
+    ("python3", "scripts/quality/architecture/check-document-size.py"),
+    ("python3", "scripts/quality/localization/check-translation-quality.py"),
+    ("python3", "scripts/quality/localization/check-derived-sources.py"),
+    ("python3", "scripts/quality/architecture/check-design-routes.py"),
+    ("python3", "scripts/quality/architecture/check-constitution.py"),
+    ("python3", "-m", "pytest", "tests/integration/scripts/test_service_test_suites.py", "-q"),
+)
+
 
 def _git(*arguments: str, cwd: Path) -> str:
     return subprocess.check_output(["git", *arguments], cwd=cwd, text=True).strip()
@@ -369,6 +388,9 @@ def campaign_prompt(
 ) -> str:
     """Build the bounded implementation and hardening contract for one batch."""
     candidate_lines = "\n".join(f"- {document}" for document in candidates)
+    # The prompt and the post-batch checks must name the same gates; listing them twice is how
+    # the batch came to believe it had passed a gate nobody ran.
+    gate_lines = "\n".join(f"  - `{' '.join(gate)}`" for gate in BATCH_OWNED_GATES)
     header = (
         f"Implement one FDAI roadmap residual-work campaign for registered issue #{issue.number}."
     )
@@ -394,14 +416,15 @@ Execution contract:
 - Add or update focused tests for every behavior change. Run the narrowest executable checks after
   each edit and commit only focused passing changes with task-owned pathspecs.
 - Central validation rejects the whole branch on gates the focused checks never run, and one
-  rejected commit stops every later batch. Before each commit run
-  `python3 scripts/quality/localization/check-readable-hangul.py`,
-  `bash scripts/quality/repository/check-guids.sh`, and
+  rejected commit stops every later batch. Before each commit run every command below plus
   `python3 scripts/quality/architecture/check-design-doc-impact.py --cached`, and fix what they
-  report. Adding or moving a module under a routed surface requires updating an owning design
-  document in the same commit, so record the new module where that route says it belongs. Write
-  Korean and Hangul character ranges as literal UTF-8, never as escaped code points, and never
-  introduce a concrete GUID.
+  report:
+{gate_lines}
+  Adding or moving a module under a routed surface requires updating an owning design
+  document in the same commit, so record the new module where that route says it belongs. Use
+  the display terms the terminology gate requires in operator-facing prose. Write Korean and
+  Hangul character ranges as literal UTF-8, never as escaped code points, and never introduce
+  a concrete GUID.
 - After all {BATCH_SIZE} implementations pass, perform at least {MIN_HARDENING_ROUNDS} explicit
   critique and hardening rounds over the complete batch. Fix every verified finding above Low,
   rerun its focused check, and continue beyond round {MIN_HARDENING_ROUNDS} until the highest
@@ -668,36 +691,9 @@ def run_cycle(
                 repo_root=repo_root,
                 timeout=QUALITY_CHECK_TIMEOUT_SECONDS,
             )
-            # Central validation runs these over the whole snapshot, and a single violation
-            # blocks every later batch on the branch. Failing here keeps the cause attached to
-            # the batch that caused it instead of surfacing hours later as a stalled lane.
-            _run_check(
-                ["python3", "scripts/quality/localization/check-readable-hangul.py"],
-                repo_root=repo_root,
-                timeout=QUALITY_CHECK_TIMEOUT_SECONDS,
-            )
-            _run_check(
-                ["bash", "scripts/quality/repository/check-guids.sh"],
-                repo_root=repo_root,
-                timeout=QUALITY_CHECK_TIMEOUT_SECONDS,
-            )
-            # A new service test file needs an owner in the suite manifest, and the
-            # diff-selected tests never pick this check because the manifest test itself
-            # did not change. It only surfaces centrally, where it blocks the whole lane.
-            _run_check(
-                [
-                    "python3",
-                    "-m",
-                    "pytest",
-                    "tests/integration/scripts/test_service_test_suites.py",
-                    "-q",
-                ],
-                repo_root=repo_root,
-                timeout=QUALITY_CHECK_TIMEOUT_SECONDS,
-            )
-            # A new module under a routed surface needs its owning design doc updated, and the
-            # diff-selected tests never run this gate. It only surfaces centrally, where it
-            # rejects the whole branch.
+            for gate in BATCH_OWNED_GATES:
+                _run_check(list(gate), repo_root=repo_root, timeout=QUALITY_CHECK_TIMEOUT_SECONDS)
+            # This one needs the batch's own range, so it cannot join the list above.
             _run_check(
                 [
                     "python3",

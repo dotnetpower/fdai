@@ -88,6 +88,10 @@ def test_campaign_prompt_requires_exact_batch_and_hardening_floor() -> None:
     assert "issue #123" in prompt
     assert "Complete the interface work" in prompt
     assert "Never run repository-wide validation" in prompt
+    # The batch is told to run exactly the gates the post-batch checks enforce. Naming a subset
+    # here is how a batch came to believe it had passed a gate nobody ran.
+    for gate in module.BATCH_OWNED_GATES:
+        assert f"`{' '.join(gate)}`" in prompt
 
 
 def test_choose_issue_requires_registered_executable_unfinished_work() -> None:
