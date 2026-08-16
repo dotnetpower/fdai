@@ -145,14 +145,32 @@ def test_service_suite_coverage_patterns_have_exactly_one_owner() -> None:
 
 
 def test_service_suite_coverage_rejects_unclassified_new_test(tmp_path: Path) -> None:
+    """An existing test file with no owner must fail the load.
+
+    The manifest is narrowed in a temporary copy rather than writing a file into the
+    shared checkout, which other tests read concurrently.
+    """
     namespace = _runner_namespace()
-    orphan = REPO_ROOT / "services" / "isolated-executor" / "tests" / "test_unowned_service.py"
-    orphan.write_text("def test_orphan(): pass\n", encoding="utf-8")
-    try:
-        with pytest.raises(ValueError, match="requires one owner"):
-            namespace["_load_services"]()
-    finally:
-        orphan.unlink(missing_ok=True)
+    manifest = _load(SUITE_PATH)
+    services = manifest["services"]
+    assert isinstance(services, list)
+    dropped = False
+    for service in services:
+        assert isinstance(service, dict)
+        if service["id"] != "isolated-executor":
+            continue
+        for group, paths in service["test_groups"].items():
+            if group != "unit" or not paths:
+                continue
+            service["test_groups"][group] = paths[1:]
+            dropped = True
+    assert dropped, "the fixture needs one owned unit path to disown"
+    orphaned = tmp_path / "service-suites.json"
+    orphaned.write_text(json.dumps(manifest), encoding="utf-8")
+    namespace["_load_services"].__globals__["MANIFEST_PATH"] = orphaned
+
+    with pytest.raises(ValueError, match="requires one owner"):
+        namespace["_load_services"]()
 
 
 def test_service_suite_manifest_rejects_canonical_service_order_drift(
