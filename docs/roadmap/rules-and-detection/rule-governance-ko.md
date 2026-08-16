@@ -1,8 +1,8 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: 7df9621dbdafdf4c7e04861d655dd56d604da825
-translation_revised: 2026-08-14
+translation_source_sha: 1078372c7d6acfc0ad9ffdecb7c528a14f4aa130
+translation_revised: 2026-08-17
 ---
 
 # 규칙 거버넌스(Rule 거버넌스)
@@ -327,6 +327,13 @@ CI로 강제, 고위험 승인(`audit → deny / remediate`, exemption, 재정�
 | Exemption 승인자 | `aw-approvers` (quorum-2) | Time-boxed exemption 승인 | 영구 exemption 부여, 자신의 요청 승인 |
 | 재정의 승인자 | `aw-approvers` (quorum-2) | Resource-group-스코프 재정의 승인 (permanent 가능) | resource-group-equivalent 밖 재정의 승인, 자신의 요청 승인 |
 
+해당 표의 결정론적 결정 코어는 `fdai.rule_catalog.schema.governance_review_authority` 입니다.
+공유 롤/역량 행렬을 읽고, 비어 있지 않은 운영자 객체 id를 기록하고, 정확한 pull request head
+리비전을 검토했으며, 그 리비전 이후 시각에 기록되었고, 변경 클래스가 요구하는 역량을 보유하며,
+고위험 클래스의 phishing-resistant 요건을 충족하는 승인만 계수합니다. 한 운영자의 반복 승인은
+한 번만 계수되고, 작성자·공동 작성자·커미터의 승인은 다른 승인이 이미 정족수를 채웠더라도 변경을
+차단합니다. 이 결정은 검토 전용이며 실행 권한을 부여하지 않습니다.
+
 이들 거버넌스 롤 중 어느 것도 **실행기의** 아이덴티티를 보유하지 않음; 규칙 작성/승인은
 액션 실행 능력을 절대 부여하지 않음. 강제 적용 승격, exemption, 재정의는 가장 높은 특권
 거버넌스 행위이며 `aw-approvers` 와 `aw-owners` 에 대한 Conditional 접근을 통해 강제되는
@@ -459,20 +466,22 @@ provenance:
 | Exemption 및 만료 | in-progress | `services/core-control-plane/src/fdai/rule_catalog/schema/exemption.py`; `exemption_cli.py`; `scripts/governance/exemption-expire.py`; 집중 exemption 테스트 | 엄격한 아티팩트와 독립 실행 만료 명령이 있습니다. 카탈로그 로딩, 예약 실행, 최대 기간, 알림은 남아 있습니다. |
 | 재정의 아티팩트 및 해석 | not-started | [재정의](#재정의); 현재 변경의 소스 감사 | 재정의 전용 스키마, 디렉터리 로더, 우선순위 해석기, 런타임 소비자가 없습니다. |
 | T0 배정 소비 | not-started | [구현 상태 요약](#규칙-거버넌스rule-governance); 현재 변경의 소스 감사 | T0 조립은 해석된 배정을 로드하거나 효과 및 적용 결정을 사용하지 않습니다. |
-| 거버넌스 pull request 신원 검사 | not-started | [관리자 컨트롤 흐름](#관리자-컨트롤-흐름-gitops-버튼-아님) | 거버넌스 PR 전이의 OID, 역할, 정족수, 자기 승인 검사는 설계 작업으로 남아 있습니다. |
+| 거버넌스 pull request 신원 검사 | in-progress | `services/core-control-plane/src/fdai/rule_catalog/schema/governance_review_authority.py`; `services/core-control-plane/tests/rule_catalog/schema/test_governance_review_authority.py`; [관리자 컨트롤 흐름](#관리자-컨트롤-흐름-gitops-버튼-아님) | 운영자 신원, 필수 역할, 정족수, 자기 승인 방지에 대한 순수 결정이 존재하며 실패 시 닫힙니다. 이를 CI 게이트에서 실제 pull request 리뷰 메타데이터에 연결하는 작업은 남아 있습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스, CI 연결, 집중 테스트. | T0 소비를 연결하고 exemption 운영을 완성하며 관리되는 재정의와 PR 신원 검사를 구현합니다. |
+| 2026-08-17 | in-progress | 순수 거버넌스 pull request 검토 권한 결정을 추가했습니다: 운영자 객체 신원, 변경 클래스별 필수 역량, 서로 다른 승인자 정족수, 고위험 phishing-resistant 승인, 리비전에 바인딩된 신선도, 작성자·공동 작성자·커미터 자기 승인 방지. | `current change`; `services/core-control-plane/src/fdai/rule_catalog/schema/governance_review_authority.py`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/rule_catalog/schema/test_governance_review_authority.py` 가 16개 테스트를 통과했습니다. | 이 결정을 거버넌스 CI 게이트의 실제 pull request 리뷰 메타데이터에 연결하고 차단 후 해소된 근거 기록 하나를 보존합니다. |
 
 ### 남은 작업
 
 - [ ] 시작 시 하나의 불변 거버넌스 카탈로그를 로드하고 T0가 안전성 검토를 우회하지 않으면서 해석된 효과, 적용, 범위, 제외, 우선순위를 적용함을 증명합니다.
 - [ ] Exemption을 거버넌스 카탈로그에 통합하고 구성된 최대 기간을 적용하며 만료 일정을 실행하고 감사 근거와 함께 만료 전 알림을 전달합니다.
 - [ ] 리소스 그룹 이하 범위 검사와 함께 범위가 제한된 재정의 스키마, 로더, 우선순위 해석기, 런타임 소비를 구현합니다.
-- [ ] 운영자 신원, 필수 역할, 정족수, 자기 승인 방지를 위한 pull request 전이 검사를 추가합니다.
+- [x] 결정론적 pull request 검토 권한 결정이 운영자 신원, 변경 클래스별 필수 역량, 서로 다른 승인자 정족수, 고위험 phishing-resistant 승인, 리비전에 바인딩된 승인 신선도, 작성자·공동 작성자·커미터 자기 승인 방지를 적용하며, `services/core-control-plane/tests/rule_catalog/schema/test_governance_review_authority.py` 로 증명됩니다.
+- [ ] 이 결정을 거버넌스 CI 게이트의 실제 pull request 리뷰 메타데이터에 연결하고, 자기 승인 또는 정족수 미달 변경이 차단되고 수정된 변경이 통과한 근거 기록 하나를 보존합니다.
 
 ## 열림 Decisions
 
