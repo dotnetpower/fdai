@@ -29,6 +29,7 @@ def test_inventory_job_carries_the_continuous_scan_budgets() -> None:
 
     for name in (
         "inventory_change_min_interval_seconds",
+        "inventory_progress_deadline_seconds",
         "inventory_attempt_deadline_seconds",
         "inventory_arg_requests_per_second",
     ):
@@ -37,10 +38,21 @@ def test_inventory_job_carries_the_continuous_scan_budgets() -> None:
 
     for key in (
         "FDAI_INVENTORY_CHANGE_MIN_INTERVAL_SECONDS",
+        "FDAI_INVENTORY_PROGRESS_DEADLINE_SECONDS",
         "FDAI_INVENTORY_ATTEMPT_DEADLINE_SECONDS",
         "FDAI_INVENTORY_ARG_REQUESTS_PER_SECOND",
     ):
         assert f'name  = "{key}"' in job
+
+
+def test_the_replica_outlives_the_attempt_it_hosts() -> None:
+    """A replica killed before its deadline leaves the attempt staging."""
+
+    job = (
+        _ROOT / "infra" / "modules" / "compute" / "container-apps" / "inventory_job.tf"
+    ).read_text(encoding="utf-8")
+
+    assert "replica_timeout_in_seconds = var.inventory_attempt_deadline_seconds + 300" in job
 
 
 def test_inventory_recovery_delta_is_private_network_only() -> None:

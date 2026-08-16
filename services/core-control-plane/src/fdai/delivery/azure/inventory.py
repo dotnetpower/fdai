@@ -19,6 +19,11 @@ wired against a real interface:
 - **Atomic-promote fence**: the stream **always** ends with an
   :class:`InventoryBatch` whose ``final=True``. A caller MUST discard a
   stream that ends without it; the stub enforces this on every path.
+- **Progress heartbeat**: a non-final batch MAY be empty. ``full_snapshot``
+  emits one empty batch as each shard lands so a consumer can tell a slow
+  scan from a stalled one under a no-progress deadline. A heartbeat asserts
+  nothing about the graph, so a consumer MUST treat it as no evidence rather
+  than as an observed absence.
 - **Idempotent upsert (interface)**: batches are keyed on
   ``resource_id`` for resources and ``(from_id, link_type, to_id)`` for
   links. Adapters MUST NOT emit duplicates within one snapshot - this
@@ -242,6 +247,9 @@ class AzureResourceGraphInventory:
             completed: list[InventoryBatch] = []
             for coro in asyncio.as_completed(tasks):
                 completed.append(await coro)
+                # Empty non-final heartbeat. It claims nothing, and it lets a
+                # consumer tell a slow scan apart from a stalled one.
+                yield InventoryBatch()
         except BaseException:
             # Fail-closed: cancel outstanding shards so a partial snapshot
             # never quietly lands. The caller retains the previous graph

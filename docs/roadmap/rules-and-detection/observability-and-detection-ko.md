@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 9cd78dafe20530ef08945c27c96ac3062eb8901e
+translation_source_sha: 7f6d5092a13e15a9427de1ff2e1e578c3d818095
 translation_revised: 2026-08-16
 ---
 
@@ -553,8 +553,9 @@ Azure 리소스 생성, 갱신, 삭제 신호는 정본 Event Hubs 유입을 통
 인벤토리 기반 준비 상태 탐색은 발견 성공을 단정하지 않고 해당 최신성 상태를
 보존하며 Heimdall은 관찰기로 유지됩니다. 인벤토리 작업은 매분 영속 시도 상태를
 확인하고 due이거나 관측된 변경이 하한을 넘어 아직 조정되지 않았을 때만 정상 6시간 검사를
-실행합니다. 시도 하나는 실제 시간 마감으로 제한되어 멈춘 프로바이더가 이후 모든 검사를 막지
-못하며, newer 실패한/abandoned 시도는 다음 틱에 재시도합니다.
+실행합니다. 시도 하나는 무진행 마감과 절대 상한으로 제한되어 멈춘 프로바이더가 이후 모든 검사를
+막지 못하면서도 느린 소스는 끝까지 갈 수 있으며, 실패한 시도는 정상 간격에서 상한에 도달하는
+지수 백오프를 거쳐 재시도합니다.
 Core 런타임에는 job-start 권한을 부여하지 않습니다.
 
 ## 구현 상태

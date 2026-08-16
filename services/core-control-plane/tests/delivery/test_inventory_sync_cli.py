@@ -15,6 +15,7 @@ import yaml
 from fdai.delivery import inventory_sync_cli
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
+from fdai.delivery.inventory_job_config import verify_declarative_sha256
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.delivery.inventory_sync_cli import (
     InventoryJobConfig,
@@ -23,7 +24,6 @@ from fdai.delivery.inventory_sync_cli import (
     _forward_recovery_deltas,
     _load_relationship_mapping_catalog,
     _resolve_resource_types,
-    _verify_sha256,
     _workload_identity,
 )
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
@@ -216,9 +216,9 @@ def test_declarative_sha_verification(tmp_path) -> None:
     fixture.write_text("resources: []\nlinks: []\n", encoding="utf-8")
     digest = hashlib.sha256(fixture.read_bytes()).hexdigest()
 
-    _verify_sha256(fixture, digest)
+    verify_declarative_sha256(fixture, digest)
     with pytest.raises(ValueError, match="does not match"):
-        _verify_sha256(fixture, "0" * 64)
+        verify_declarative_sha256(fixture, "0" * 64)
 
 
 def test_resource_type_resolution_rejects_unknown_type() -> None:
@@ -381,7 +381,8 @@ def test_job_config_defaults_to_a_continuous_change_driven_loop() -> None:
 
     assert config.loop_seconds == 60
     assert config.change_min_interval_seconds == 120
-    assert config.attempt_deadline_seconds == 900
+    assert config.progress_deadline_seconds == 900
+    assert config.attempt_deadline_seconds == 1500
     assert config.arg_requests_per_second == 3.0
     assert config.recovery_delta_enabled is True
 
@@ -392,6 +393,7 @@ def test_job_config_reads_the_continuous_scan_overrides() -> None:
             **_MINIMAL_ENV,
             "FDAI_INVENTORY_LOOP_SECONDS": "15",
             "FDAI_INVENTORY_CHANGE_MIN_INTERVAL_SECONDS": "300",
+            "FDAI_INVENTORY_PROGRESS_DEADLINE_SECONDS": "300",
             "FDAI_INVENTORY_ATTEMPT_DEADLINE_SECONDS": "600",
             "FDAI_INVENTORY_ARG_REQUESTS_PER_SECOND": "1.5",
             "FDAI_INVENTORY_RECOVERY_DELTA": "0",
@@ -400,6 +402,7 @@ def test_job_config_reads_the_continuous_scan_overrides() -> None:
 
     assert config.loop_seconds == 15
     assert config.change_min_interval_seconds == 300
+    assert config.progress_deadline_seconds == 300
     assert config.attempt_deadline_seconds == 600
     assert config.arg_requests_per_second == 1.5
     assert config.recovery_delta_enabled is False
@@ -412,7 +415,9 @@ def test_job_config_reads_the_continuous_scan_overrides() -> None:
         ("FDAI_INVENTORY_LOOP_SECONDS", "3601", "LOOP_SECONDS"),
         ("FDAI_INVENTORY_CHANGE_MIN_INTERVAL_SECONDS", "0", "CHANGE_MIN_INTERVAL"),
         ("FDAI_INVENTORY_CHANGE_MIN_INTERVAL_SECONDS", "21601", "CHANGE_MIN_INTERVAL"),
-        ("FDAI_INVENTORY_ATTEMPT_DEADLINE_SECONDS", "59", "ATTEMPT_DEADLINE"),
+        ("FDAI_INVENTORY_PROGRESS_DEADLINE_SECONDS", "59", "PROGRESS_DEADLINE"),
+        ("FDAI_INVENTORY_ATTEMPT_DEADLINE_SECONDS", "899", "ATTEMPT_DEADLINE"),
+        ("FDAI_INVENTORY_ATTEMPT_DEADLINE_SECONDS", "1741", "ATTEMPT_DEADLINE"),
         ("FDAI_INVENTORY_ARG_REQUESTS_PER_SECOND", "0", "ARG_REQUESTS_PER_SECOND"),
         ("FDAI_INVENTORY_ARG_REQUESTS_PER_SECOND", "101", "ARG_REQUESTS_PER_SECOND"),
         ("FDAI_INVENTORY_ARG_REQUESTS_PER_SECOND", "fast", "ARG_REQUESTS_PER_SECOND"),
@@ -439,7 +444,8 @@ async def test_change_stream_failure_degrades_the_tick_without_failing_the_job(
 
     monkeypatch.setattr(inventory_sync_cli, "run_recovery_delta", _unavailable)
 
-    assert await inventory_sync_cli._drain_change_stream(config) == 0
+    # None, not 0: a broken stream must not read as a quiet subscription.
+    assert await inventory_sync_cli._drain_change_stream(config) is None
 
 
 async def test_change_stream_is_skipped_when_disabled(

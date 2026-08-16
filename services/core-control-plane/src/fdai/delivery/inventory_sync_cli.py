@@ -3,15 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import logging
 import os
 import sys
-from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from urllib.parse import urlparse
 
 import httpx
 import yaml
@@ -19,7 +16,6 @@ from fdai_service_contracts import OperationalActivityStatus, OperationalFreshne
 
 from fdai.delivery.azure.activity_log import AzureActivityLogFactory, AzureActivityLogFactoryConfig
 from fdai.delivery.azure.arg_query import AzureArgQueryFactory, AzureArgQueryFactoryConfig
-from fdai.delivery.azure.arg_transport import DEFAULT_ARG_REQUESTS_PER_SECOND
 from fdai.delivery.azure.arm_inventory import (
     AzureArmInventoryFactory,
     AzureArmInventoryFactoryConfig,
@@ -29,8 +25,12 @@ from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusCo
 from fdai.delivery.azure.inventory import AzureInventoryConfig, AzureResourceGraphInventory
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.delivery.inventory_delta import forward_inventory_delta
+from fdai.delivery.inventory_job_config import (
+    InventoryJobConfig,
+    read_bool_env,
+    verify_declarative_sha256,
+)
 from fdai.delivery.inventory_sync import (
-    DEFAULT_ATTEMPT_DEADLINE_SECONDS,
     InventoryPromotionObserver,
     InventorySyncCoordinator,
     PromotedInventoryObservation,
@@ -47,8 +47,10 @@ from fdai.delivery.persistence import (
     PostgresStateStore,
     PostgresStateStoreConfig,
 )
-from fdai.delivery.persistence.postgres_inventory_snapshot import (
+from fdai.delivery.persistence.postgres_inventory_reconciliation import (
     PostgresInventoryReconciliationGate,
+)
+from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventorySnapshotStore,
     PostgresInventorySnapshotStoreConfig,
 )
@@ -92,130 +94,6 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 _LOGGER = logging.getLogger(__name__)
-_DEFAULT_LOOP_SECONDS = 60
-_DEFAULT_CHANGE_MIN_INTERVAL_SECONDS = 120
-_MANAGEMENT_AUDIENCE_BY_ORIGIN = {
-    "https://management.azure.com": "https://management.azure.com/.default",
-    "https://management.chinacloudapi.cn": "https://management.chinacloudapi.cn/.default",
-    "https://management.microsoftazure.de": "https://management.microsoftazure.de/.default",
-    "https://management.usgovcloudapi.net": "https://management.usgovcloudapi.net/.default",
-}
-
-
-@dataclass(frozen=True, slots=True)
-class InventoryJobConfig:
-    """Validate the environment contract for one inventory reconciliation job."""
-
-    dsn: str
-    scopes: tuple[str, ...]
-    source_order: tuple[str, ...]
-    resource_types: tuple[str, ...]
-    management_endpoint: str
-    management_audience: str
-    freshness_budget_seconds: int
-    reconciliation_interval_seconds: int
-    loop_seconds: int = _DEFAULT_LOOP_SECONDS
-    change_min_interval_seconds: int = _DEFAULT_CHANGE_MIN_INTERVAL_SECONDS
-    attempt_deadline_seconds: int = int(DEFAULT_ATTEMPT_DEADLINE_SECONDS)
-    arg_requests_per_second: float = DEFAULT_ARG_REQUESTS_PER_SECOND
-    recovery_delta_enabled: bool = True
-    declarative_path: Path | None = None
-    declarative_sha256: str | None = None
-
-    @classmethod
-    def from_env(
-        cls,
-        env: Mapping[str, str] | None = None,
-        *,
-        runtime_values: Mapping[str, object] | None = None,
-    ) -> InventoryJobConfig:
-        """Parse bounded job settings and reject incomplete source configuration."""
-        source = env if env is not None else os.environ
-        dsn = source.get("FDAI_INVENTORY_DSN", "").strip()
-        default_scope = source.get("AZURE_SUBSCRIPTION_ID", "").strip()
-        scopes = _csv(source.get("FDAI_INVENTORY_SCOPES", default_scope))
-        source_order = _csv(source.get("FDAI_INVENTORY_SOURCES", "arg,arm"))
-        resource_types = _csv(source.get("FDAI_INVENTORY_RESOURCE_TYPES", ""))
-        management_endpoint = source.get(
-            "FDAI_INVENTORY_MANAGEMENT_ENDPOINT", "https://management.azure.com"
-        ).strip()
-        management_audience = source.get(
-            "FDAI_INVENTORY_MANAGEMENT_AUDIENCE",
-            "https://management.azure.com/.default",
-        ).strip()
-        freshness = _freshness_seconds(source=source, runtime_values=runtime_values)
-        reconciliation_interval = _integer_env(
-            source,
-            "FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS",
-            21_600,
-        )
-        declarative_value = source.get("FDAI_INVENTORY_DECLARATIVE_PATH", "").strip()
-        declarative_sha256 = source.get("FDAI_INVENTORY_DECLARATIVE_SHA256", "").strip() or None
-        recovery_delta_enabled = _bool_env(
-            source,
-            "FDAI_INVENTORY_RECOVERY_DELTA",
-            True,
-        )
-        loop_seconds = _integer_env(source, "FDAI_INVENTORY_LOOP_SECONDS", _DEFAULT_LOOP_SECONDS)
-        change_min_interval = _integer_env(
-            source,
-            "FDAI_INVENTORY_CHANGE_MIN_INTERVAL_SECONDS",
-            _DEFAULT_CHANGE_MIN_INTERVAL_SECONDS,
-        )
-        attempt_deadline = _integer_env(
-            source,
-            "FDAI_INVENTORY_ATTEMPT_DEADLINE_SECONDS",
-            int(DEFAULT_ATTEMPT_DEADLINE_SECONDS),
-        )
-        arg_requests_per_second = _float_env(
-            source,
-            "FDAI_INVENTORY_ARG_REQUESTS_PER_SECOND",
-            DEFAULT_ARG_REQUESTS_PER_SECOND,
-        )
-
-        if not dsn:
-            raise ValueError("FDAI_INVENTORY_DSN MUST NOT be empty")
-        if not scopes:
-            raise ValueError("FDAI_INVENTORY_SCOPES MUST NOT be empty")
-        if not source_order or set(source_order) - {"arg", "arm", "declarative"}:
-            raise ValueError("FDAI_INVENTORY_SOURCES supports arg, arm, declarative")
-        _validate_management_origin(management_endpoint, management_audience)
-        if freshness < 1:
-            raise ValueError("FDAI_INVENTORY_FRESHNESS_SECONDS MUST be >= 1")
-        if reconciliation_interval < 60:
-            raise ValueError("FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS MUST be >= 60")
-        if not 5 <= loop_seconds <= 3_600:
-            raise ValueError("FDAI_INVENTORY_LOOP_SECONDS MUST be in [5, 3600]")
-        if not 1 <= change_min_interval <= reconciliation_interval:
-            raise ValueError(
-                "FDAI_INVENTORY_CHANGE_MIN_INTERVAL_SECONDS MUST be in "
-                "[1, FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS]"
-            )
-        if attempt_deadline < 60:
-            raise ValueError("FDAI_INVENTORY_ATTEMPT_DEADLINE_SECONDS MUST be >= 60")
-        if not 0 < arg_requests_per_second <= 100:
-            raise ValueError("FDAI_INVENTORY_ARG_REQUESTS_PER_SECOND MUST be in (0, 100]")
-        if "declarative" in source_order and (not declarative_value or declarative_sha256 is None):
-            raise ValueError(
-                "declarative fallback requires FDAI_INVENTORY_DECLARATIVE_PATH and SHA256"
-            )
-        return cls(
-            dsn=dsn,
-            scopes=scopes,
-            source_order=source_order,
-            resource_types=resource_types,
-            management_endpoint=management_endpoint,
-            management_audience=management_audience,
-            freshness_budget_seconds=freshness,
-            reconciliation_interval_seconds=reconciliation_interval,
-            loop_seconds=loop_seconds,
-            change_min_interval_seconds=change_min_interval,
-            attempt_deadline_seconds=attempt_deadline,
-            arg_requests_per_second=arg_requests_per_second,
-            recovery_delta_enabled=recovery_delta_enabled,
-            declarative_path=Path(declarative_value) if declarative_value else None,
-            declarative_sha256=declarative_sha256,
-        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -238,24 +116,6 @@ def _load_relationship_mapping_catalog() -> ProviderRelationshipMappingCatalog:
     return load_provider_relationship_mapping_catalog(
         _REPO_ROOT / "rule-catalog" / "vocabulary" / "provider-relationship-mappings"
     )
-
-
-def _validate_management_origin(endpoint: str, audience: str) -> None:
-    parsed = urlparse(endpoint)
-    normalized = endpoint.rstrip("/")
-    if (
-        parsed.scheme != "https"
-        or parsed.username is not None
-        or parsed.password is not None
-        or parsed.path not in {"", "/"}
-        or parsed.params
-        or parsed.query
-        or parsed.fragment
-        or normalized not in _MANAGEMENT_AUDIENCE_BY_ORIGIN
-    ):
-        raise ValueError("FDAI_INVENTORY_MANAGEMENT_ENDPOINT MUST be an approved HTTPS ARM origin")
-    if audience != _MANAGEMENT_AUDIENCE_BY_ORIGIN[normalized]:
-        raise ValueError("FDAI_INVENTORY_MANAGEMENT_AUDIENCE MUST match the ARM origin")
 
 
 def _resolve_resource_types(
@@ -329,7 +189,7 @@ def _build_sources(
         else:
             if config.declarative_path is None or config.declarative_sha256 is None:
                 raise ValueError("declarative fallback is missing its signed fixture")
-            _verify_sha256(config.declarative_path, config.declarative_sha256)
+            verify_declarative_sha256(config.declarative_path, config.declarative_sha256)
             inventory = DeclarativeInventory(
                 DeclarativeInventoryConfig(
                     fixture_path=config.declarative_path,
@@ -370,7 +230,7 @@ def _build_ontology_observer(
     projector: InventoryOntologyProjector | None = None
     ontology_store: PostgresOntologyInstanceStore | None = None
     topology_publisher: InventoryTopologyHistoryPublisher | None = None
-    if _bool_env(os.environ, "FDAI_INVENTORY_ONTOLOGY_PROJECTION", True):
+    if read_bool_env(os.environ, "FDAI_INVENTORY_ONTOLOGY_PROJECTION", True):
         catalog_root = _REPO_ROOT / "rule-catalog"
         catalog = load_ontology_catalog(
             catalog_root,
@@ -482,6 +342,7 @@ async def run(config: InventoryJobConfig) -> InventoryJobResult:
                     evidence_counts=evidence_counts,
                 ),
                 relationship_mapping_catalog=_load_relationship_mapping_catalog(),
+                progress_deadline_seconds=float(config.progress_deadline_seconds),
                 attempt_deadline_seconds=float(config.attempt_deadline_seconds),
             ).run(
                 _build_sources(
@@ -644,59 +505,14 @@ def _recovery_delta_lock(config: InventoryJobConfig) -> ResourceLock:
     )
 
 
-def _freshness_seconds(
-    *,
-    source: Mapping[str, str],
-    runtime_values: Mapping[str, object] | None,
-) -> int:
-    if runtime_values is None:
-        return _integer_env(source, "FDAI_INVENTORY_FRESHNESS_SECONDS", 86_400)
-    value = runtime_values.get("inventory.freshness_seconds")
-    if not isinstance(value, int) or isinstance(value, bool):
-        raise ValueError("effective inventory freshness setting MUST be an integer")
-    return value
+async def _run_due_once() -> InventoryJobConfig:
+    """Run one tick and return the settings it resolved.
 
+    The caller reuses the returned settings instead of reparsing them, so one
+    tick observes one consistent configuration and a later environment edit
+    cannot terminate a running loop between ticks.
+    """
 
-def _integer_env(source: Mapping[str, str], key: str, default: int) -> int:
-    try:
-        return int(source.get(key, str(default)))
-    except ValueError as exc:
-        raise ValueError(f"{key} MUST be an integer") from exc
-
-
-def _float_env(source: Mapping[str, str], key: str, default: float) -> float:
-    try:
-        return float(source.get(key, str(default)))
-    except ValueError as exc:
-        raise ValueError(f"{key} MUST be a decimal number") from exc
-
-
-def _verify_sha256(path: Path, expected: str) -> None:
-    """Verify one declarative fallback without exposing its content."""
-    if len(expected) != 64 or any(char not in "0123456789abcdefABCDEF" for char in expected):
-        raise ValueError("declarative SHA256 MUST be 64 hexadecimal characters")
-    actual = hashlib.sha256(path.read_bytes()).hexdigest()
-    if actual.lower() != expected.lower():
-        raise ValueError("declarative inventory SHA256 does not match")
-
-
-def _csv(value: str) -> tuple[str, ...]:
-    return tuple(dict.fromkeys(part.strip() for part in value.split(",") if part.strip()))
-
-
-def _bool_env(source: Mapping[str, str], key: str, default: bool) -> bool:
-    raw = source.get(key)
-    if raw is None:
-        return default
-    normalized = raw.strip().lower()
-    if normalized in {"1", "true"}:
-        return True
-    if normalized in {"0", "false"}:
-        return False
-    raise ValueError(f"{key} MUST be one of 1, 0, true, false")
-
-
-async def _run_due_once() -> None:
     from fdai.delivery.runtime_settings import runtime_settings_service_from_env
 
     runtime_values = await runtime_settings_service_from_env(os.environ).effective_values()
@@ -717,25 +533,38 @@ async def _run_due_once() -> None:
             "inventory_reconciliation_not_due",
             extra={
                 "interval_seconds": config.reconciliation_interval_seconds,
-                "change_records_published": published,
+                "change_records_published": published if published is not None else 0,
+                "change_stream_available": published is not None,
             },
         )
-        print(f"inventory reconciliation not due; change records published {published}")
-        return
+        print(
+            "inventory reconciliation not due; "
+            + (
+                f"change records published {published}"
+                if published is not None
+                else "change stream unavailable"
+            )
+        )
+        return config
     result = await run(config)
     if result.active:
         print(f"inventory snapshot promoted from {result.source}")
     else:
         print(f"inventory snapshot from {result.source} superseded by a newer attempt")
+    return config
 
 
-async def _drain_change_stream(config: InventoryJobConfig) -> int:
+async def _drain_change_stream(config: InventoryJobConfig) -> int | None:
     """Publish observed provider changes without letting them stop the loop.
 
     The change stream is a read-only accelerator: it lowers refresh latency and
     records the demand a later full scan reconciles. An unavailable or
     unauthorized source degrades this tick to the periodic interval instead of
     failing the job, and it never advances a cursor it did not read.
+
+    Returns the number of published change records, or ``None`` when the stream
+    was unavailable. The two are reported separately so a permanently broken
+    change stream cannot read as a quiet subscription.
     """
 
     if not config.recovery_delta_enabled:
@@ -747,7 +576,7 @@ async def _drain_change_stream(config: InventoryJobConfig) -> int:
             "inventory_change_stream_unavailable",
             extra={"reason": type(exc).__name__},
         )
-        return 0
+        return None
 
 
 async def _main(argv: list[str]) -> None:
@@ -755,10 +584,10 @@ async def _main(argv: list[str]) -> None:
     if argv and not loop:
         raise ValueError("inventory reconciliation accepts only --loop")
     while True:
-        await _run_due_once()
+        config = await _run_due_once()
         if not loop:
             return
-        await asyncio.sleep(InventoryJobConfig.from_env().loop_seconds)
+        await asyncio.sleep(config.loop_seconds)
 
 
 def main() -> None:

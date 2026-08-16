@@ -276,7 +276,8 @@ async def test_a_stalled_source_fails_its_own_attempt_at_the_deadline() -> None:
     stalled = asyncio.Event()
     coordinator = InventorySyncCoordinator(
         store=store,
-        attempt_deadline_seconds=0.05,
+        progress_deadline_seconds=0.05,
+        attempt_deadline_seconds=5.0,
     )
 
     with pytest.raises(InventorySourcesExhaustedError):
@@ -285,7 +286,7 @@ async def test_a_stalled_source_fails_its_own_attempt_at_the_deadline() -> None:
     assert stalled.is_set()
     assert store.promoted == []
     assert [failure.code for _, failure in store.failed] == [InventoryFailureCode.PARTIAL]
-    assert store.failed[0][1].message == "inventory source attempt exceeded its deadline"
+    assert store.failed[0][1].message == "inventory source exceeded its no-progress deadline"
 
 
 async def test_a_deadline_on_one_source_still_allows_the_next_source() -> None:
@@ -293,7 +294,8 @@ async def test_a_deadline_on_one_source_still_allows_the_next_source() -> None:
     stalled = asyncio.Event()
     coordinator = InventorySyncCoordinator(
         store=store,
-        attempt_deadline_seconds=0.05,
+        progress_deadline_seconds=0.05,
+        attempt_deadline_seconds=5.0,
     )
 
     result = await coordinator.run(
@@ -308,6 +310,110 @@ async def test_a_deadline_on_one_source_still_allows_the_next_source() -> None:
     assert [failure.code for _, failure in store.failed] == [InventoryFailureCode.PARTIAL]
 
 
-def test_coordinator_rejects_a_non_positive_attempt_deadline() -> None:
+def test_coordinator_rejects_a_non_positive_progress_deadline() -> None:
+    with pytest.raises(ValueError, match="progress_deadline_seconds"):
+        InventorySyncCoordinator(store=_Store(), progress_deadline_seconds=0)
+
+
+def test_coordinator_rejects_a_ceiling_below_the_progress_deadline() -> None:
     with pytest.raises(ValueError, match="attempt_deadline_seconds"):
-        InventorySyncCoordinator(store=_Store(), attempt_deadline_seconds=0)
+        InventorySyncCoordinator(
+            store=_Store(),
+            progress_deadline_seconds=100,
+            attempt_deadline_seconds=99,
+        )
+
+
+class _SlowButProgressingInventory:
+    """Produce heartbeats slower than nothing, but faster than the deadline."""
+
+    def __init__(self, *, beats: int, gap_seconds: float) -> None:
+        self._beats = beats
+        self._gap = gap_seconds
+
+    async def full_snapshot(self, since: str | None = None):
+        del since
+        for _ in range(self._beats):
+            await asyncio.sleep(self._gap)
+            yield InventoryBatch()
+        yield InventoryBatch(final=True)
+
+    async def delta(self, cursor: str):
+        del cursor
+        yield InventoryBatch(final=True)
+
+
+async def test_a_slow_source_that_keeps_progressing_is_not_killed() -> None:
+    """Each batch re-arms the deadline, so slow is not treated as stalled."""
+
+    store = _Store()
+    coordinator = InventorySyncCoordinator(
+        store=store,
+        progress_deadline_seconds=0.2,
+        attempt_deadline_seconds=5.0,
+    )
+
+    result = await coordinator.run(
+        (_source("arg", _SlowButProgressingInventory(beats=6, gap_seconds=0.05)),)
+    )
+
+    assert result.source == "arg"
+    assert store.promoted == ["attempt-1"]
+    assert store.failed == []
+
+
+async def test_the_absolute_ceiling_still_bounds_a_source_that_keeps_re_arming() -> None:
+    """A drip feed must not extend one attempt without limit."""
+
+    store = _Store()
+    coordinator = InventorySyncCoordinator(
+        store=store,
+        progress_deadline_seconds=0.2,
+        attempt_deadline_seconds=0.25,
+    )
+
+    with pytest.raises(InventorySourcesExhaustedError):
+        await coordinator.run(
+            (_source("arg", _SlowButProgressingInventory(beats=100, gap_seconds=0.05)),)
+        )
+
+    assert store.promoted == []
+    assert [failure.code for _, failure in store.failed] == [InventoryFailureCode.PARTIAL]
+    # The two bounds are reported apart; they need different operator responses.
+    assert store.failed[0][1].message == "inventory source exceeded its absolute ceiling"
+
+
+class _CancellationAwareInventory:
+    """Record whether the coordinator closed the stream after a deadline."""
+
+    def __init__(self) -> None:
+        self.closed = False
+
+    async def full_snapshot(self, since: str | None = None):
+        del since
+        try:
+            yield InventoryBatch()
+            await asyncio.Event().wait()
+        except BaseException:
+            self.closed = True
+            raise
+
+    async def delta(self, cursor: str):
+        del cursor
+        yield InventoryBatch(final=True)
+
+
+async def test_a_timed_out_attempt_closes_its_source_stream() -> None:
+    """An unclosed generator keeps spending provider quota after its attempt died."""
+
+    inventory = _CancellationAwareInventory()
+    coordinator = InventorySyncCoordinator(
+        store=_Store(),
+        progress_deadline_seconds=0.05,
+        attempt_deadline_seconds=5.0,
+    )
+
+    with pytest.raises(InventorySourcesExhaustedError):
+        await coordinator.run((_source("arg", inventory),))
+
+    assert inventory.closed is True

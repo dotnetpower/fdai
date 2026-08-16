@@ -405,9 +405,12 @@ use the same view-classification rules so local and deployed consoles keep the s
   overlay entries already covered by that generation. A delta stream is never treated as a
   proof of completeness. The job drains the change stream and checks durable attempt state
   every minute, but scans only when the six-hour interval is due, a newer attempt failed or was
-  abandoned, or an observed change is still unreconciled above its floor. One attempt is bounded
-  by a wall-clock deadline, so a stalled provider fails itself instead of suppressing every later
-  scan. ARG requests are paced at a sustained budget shared by all shards. Local refresh and
+  abandoned, or an observed change is still unreconciled above its floor. A change counts as
+  unreconciled when it was recorded after the active snapshot started, because a scan only observes
+  state from the moment it began. One attempt is bounded by a no-progress deadline and an absolute
+  ceiling, so a stalled provider fails itself while a slow one finishes, and a failed attempt backs
+  off exponentially up to the routine interval. ARG requests are paced at a sustained budget shared
+  by all shards. Local refresh and
   the deployed job share durable attempt transitions, active-pointer verification, and bounded
   activity publication. Recovery deltas serialize each scope before reading or advancing its
   cursor. The job retains the read-only inventory identity, and Heimdall neither queries the

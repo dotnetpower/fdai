@@ -11,8 +11,10 @@ resource "azurerm_container_app_job" "inventory" {
   resource_group_name          = var.resource_group_name
   location                     = var.location
   workload_profile_name        = "Consumption"
-  replica_timeout_in_seconds   = 1800
-  replica_retry_limit          = 2
+  # Give the attempt room to fail itself and record why; a replica killed first
+  # leaves the attempt staging and suppresses later scans until it is reaped.
+  replica_timeout_in_seconds = var.inventory_attempt_deadline_seconds + 300
+  replica_retry_limit        = 2
 
   identity {
     type         = "UserAssigned"
@@ -78,6 +80,10 @@ resource "azurerm_container_app_job" "inventory" {
       env {
         name  = "FDAI_INVENTORY_CHANGE_MIN_INTERVAL_SECONDS"
         value = tostring(var.inventory_change_min_interval_seconds)
+      }
+      env {
+        name  = "FDAI_INVENTORY_PROGRESS_DEADLINE_SECONDS"
+        value = tostring(var.inventory_progress_deadline_seconds)
       }
       env {
         name  = "FDAI_INVENTORY_ATTEMPT_DEADLINE_SECONDS"

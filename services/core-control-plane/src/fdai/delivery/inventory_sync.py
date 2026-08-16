@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import socket
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
@@ -42,11 +43,18 @@ _LOG = logging.getLogger(__name__)
 _MAX_OBSERVED_RESOURCES = 50_000
 _MAX_OBSERVED_LINKS = 200_000
 
-#: Wall-clock ceiling for one source attempt. A provider that stops making
-#: progress must fail its own attempt instead of holding the only writer of the
-#: observed subgraph: an attempt left staging suppresses every later scan until
-#: it is reaped, so an unbounded stall becomes an unbounded refresh blackout.
-DEFAULT_ATTEMPT_DEADLINE_SECONDS = 900.0
+#: Longest a source may go without producing anything. A provider that stops
+#: making progress must fail its own attempt instead of holding the only writer
+#: of the observed subgraph: an attempt left staging suppresses every later scan
+#: until it is reaped, so an unbounded stall becomes an unbounded blackout.
+DEFAULT_PROGRESS_DEADLINE_SECONDS = 900.0
+#: Absolute ceiling for one attempt. The progress deadline alone cannot bound a
+#: source that keeps producing just often enough to re-arm it. The value stays
+#: below the reconciliation gate's 30-minute abandonment window so an attempt
+#: always fails itself before the gate is entitled to start a second one.
+DEFAULT_ATTEMPT_DEADLINE_SECONDS = 1500.0
+#: Longest ceiling that still resolves before the abandonment window.
+MAX_ATTEMPT_DEADLINE_SECONDS = 1740.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,13 +92,24 @@ class InventorySyncCoordinator:
         store: InventorySnapshotStore,
         promotion_observer: InventoryPromotionObserver | None = None,
         relationship_mapping_catalog: ProviderRelationshipMappingCatalog | None = None,
+        progress_deadline_seconds: float = DEFAULT_PROGRESS_DEADLINE_SECONDS,
         attempt_deadline_seconds: float = DEFAULT_ATTEMPT_DEADLINE_SECONDS,
     ) -> None:
-        if attempt_deadline_seconds <= 0:
-            raise ValueError("inventory attempt_deadline_seconds MUST be > 0")
+        if progress_deadline_seconds <= 0:
+            raise ValueError("inventory progress_deadline_seconds MUST be > 0")
+        if attempt_deadline_seconds < progress_deadline_seconds:
+            raise ValueError(
+                "inventory attempt_deadline_seconds MUST be >= progress_deadline_seconds"
+            )
+        if attempt_deadline_seconds > MAX_ATTEMPT_DEADLINE_SECONDS:
+            raise ValueError(
+                "inventory attempt_deadline_seconds MUST resolve before the "
+                "abandonment window that lets a second attempt start"
+            )
         self._store = store
         self._observer = promotion_observer
         self._relationship_mapping_catalog = relationship_mapping_catalog
+        self._progress_deadline_seconds = progress_deadline_seconds
         self._attempt_deadline_seconds = attempt_deadline_seconds
 
     async def run(self, sources: Sequence[InventorySource]) -> InventorySyncResult:
@@ -104,12 +123,11 @@ class InventorySyncCoordinator:
                 relationship_mapping_catalog=self._relationship_mapping_catalog,
             )
             try:
-                async with asyncio.timeout(self._attempt_deadline_seconds):
-                    completed = await self._stage_stream(
-                        attempt_id,
-                        cast(Inventory, source.inventory).full_snapshot(),
-                        observed,
-                    )
+                completed = await self._stage_stream(
+                    attempt_id,
+                    cast(Inventory, source.inventory).full_snapshot(),
+                    observed,
+                )
                 manifest = InventoryCoverageManifest(
                     source=source.manifest.source,
                     scopes=source.manifest.scopes,
@@ -160,22 +178,52 @@ class InventorySyncCoordinator:
         stream: AsyncIterator[InventoryBatch],
         observed: _ObservationAccumulator,
     ) -> datetime:
+        """Stage one source stream under a no-progress deadline and a hard ceiling.
+
+        Every received batch re-arms the no-progress deadline, so a slow source
+        that keeps producing is allowed to finish while a silent one fails its
+        own attempt. The ceiling still bounds a source that produces just often
+        enough to keep re-arming it.
+        """
         saw_final = False
-        async for batch in stream:
-            if saw_final:
-                raise InventoryStreamError("inventory stream emitted data after final fence")
-            if batch.final:
-                saw_final = True
-            if batch.resources or batch.links:
-                observed.add(batch)
-                await self._store.stage(
-                    attempt_id,
-                    InventoryBatch(
-                        resources=batch.resources,
-                        links=batch.links,
-                        cursor=batch.cursor,
-                    ),
-                )
+        loop = asyncio.get_running_loop()
+        ceiling_at = loop.time() + self._attempt_deadline_seconds
+
+        def _next_deadline() -> float:
+            return min(ceiling_at, loop.time() + self._progress_deadline_seconds)
+
+        try:
+            # Close the source stream on every exit path. A deadline cancels this
+            # task, and an unclosed generator would leave its provider requests
+            # running and spending quota while the next tick starts.
+            async with (
+                contextlib.aclosing(stream) as closing_stream,
+                asyncio.timeout(self._attempt_deadline_seconds) as deadline,
+            ):
+                deadline.reschedule(_next_deadline())
+                async for batch in closing_stream:
+                    deadline.reschedule(_next_deadline())
+                    if saw_final:
+                        raise InventoryStreamError(
+                            "inventory stream emitted data after final fence"
+                        )
+                    if batch.final:
+                        saw_final = True
+                    if batch.resources or batch.links:
+                        observed.add(batch)
+                        await self._store.stage(
+                            attempt_id,
+                            InventoryBatch(
+                                resources=batch.resources,
+                                links=batch.links,
+                                cursor=batch.cursor,
+                            ),
+                        )
+        except TimeoutError as exc:
+            # Name which bound fired: a stalled source and a source that is
+            # merely too slow need different operator responses.
+            reason = "absolute ceiling" if loop.time() >= ceiling_at else "no-progress deadline"
+            raise InventoryStreamError(f"inventory source exceeded its {reason}") from exc
         if not saw_final:
             raise InventoryStreamError("inventory stream ended before final fence")
         return datetime.now(tz=UTC)
@@ -281,6 +329,8 @@ def classify_inventory_failure(exc: Exception) -> InventoryAttemptFailure:
 
 __all__ = [
     "DEFAULT_ATTEMPT_DEADLINE_SECONDS",
+    "DEFAULT_PROGRESS_DEADLINE_SECONDS",
+    "MAX_ATTEMPT_DEADLINE_SECONDS",
     "InventoryStreamError",
     "InventorySyncCoordinator",
     "classify_inventory_failure",

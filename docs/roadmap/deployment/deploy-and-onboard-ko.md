@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: ed0228f2a6cda8d4cec9366517791c3cd3d798e4
+translation_source_sha: 84cf54ac14bf61613175b4094c71e5b058b00cf5
 translation_revised: 2026-08-16
 ---
 
@@ -589,7 +589,8 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `FDAI_MI_CLIENT_ID` | env | 업스트림 | 현재 프로세스의 user-assigned MI 클라이언트 id. Core에는 실행기 id를 주입하고 인벤토리 작업에는 별도 읽기 전용 발견 id를 주입합니다. |
 | `FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS` | env | 업스트림 | 인벤토리 작업의 정상 full-scan 간격이며, 프로젝션이 관측 상태 사실마다 선언하는 freshness 상한이기도 합니다. 작업 cron은 매분 깨어나지만 PostgreSQL 시도 상태가 이 간격이 지나기 전의 검사를 건너뛰고, 더 최근에 실패했거나 버려진 시도는 다음 틱에 재시도합니다. 기본값은 `21600`입니다. |
 | `FDAI_INVENTORY_CHANGE_MIN_INTERVAL_SECONDS` | env | 업스트림 | 변경으로 촉발되는 두 조정 사이의 하한입니다. 관측된 프로바이더 변경은 활성 스냅샷이 이 나이를 넘긴 뒤에 full scan을 due로 만들므로, 그래프가 변경을 추적하면서도 변경 폭주가 스캔 폭주로 번지지 않습니다. 기본값은 `120`입니다. |
-| `FDAI_INVENTORY_ATTEMPT_DEADLINE_SECONDS` | env | 업스트림 | 인벤토리 소스 시도 하나의 실제 시간 상한입니다. 멈춘 프로바이더는 관측 서브그래프의 단일 기록자를 붙잡아 이후 모든 스캔을 막는 대신 자기 시도를 `partial`로 실패시킵니다. 기본값은 `900`입니다. |
+| `FDAI_INVENTORY_PROGRESS_DEADLINE_SECONDS` | env | 업스트림 | 인벤토리 소스가 아무것도 내놓지 않고 버틸 수 있는 최대 시간입니다. 배치를 받을 때마다 다시 설정되므로, 멈춘 프로바이더는 자기 시도를 `partial`로 실패시키고 계속 진행하는 느린 소스는 끝까지 갈 수 있습니다. 기본값은 `900`입니다. |
+| `FDAI_INVENTORY_ATTEMPT_DEADLINE_SECONDS` | env | 업스트림 | 시도 하나의 절대 상한이며, 진행 마감을 계속 갱신할 만큼만 결과를 내는 소스를 제한합니다. 진행 마감 이상이고 `1740` 이하여야 하며, 그래야 30분 포기 창이 두 번째 시도를 허용하기 전에 시도가 항상 끝납니다. 기본값은 `1500`입니다. |
 | `FDAI_INVENTORY_ARG_REQUESTS_PER_SECOND` | env | 업스트림 | 한 스캔의 모든 샤드가 공유하는 Azure Resource Graph 지속 요청 예산입니다. ARG는 사용자별 할당량을 부과하므로, 예산에 맞춰 속도를 조절하면 배경 스캔이 프로바이더 스로틀에 걸려 훨씬 긴 초기화 창을 기다리는 대신 할당량 안에서 계속 돕니다. 기본값은 `3`입니다. |
 | `FDAI_INVENTORY_LOOP_SECONDS` | env | dev-only | 로컬 개발에서 CLI를 `--loop`으로 실행할 때 각 틱 사이의 대기 시간입니다. 배포된 작업은 대신 cron을 사용합니다. 기본값은 `60`입니다. |
 | `FDAI_EMAIL_ENDPOINT` / `FDAI_EMAIL_SENDER_ADDRESS` / `FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON` / `FDAI_NOTIFICATION_MI_CLIENT_ID` | env | 업스트림 / 배포 | ACS 이메일 A2/A4 채널을 활성화합니다. Terraform이 엔드포인트와 Azure-managed 발신자를 파생하고 전용 알림 MI를 연결한 뒤 클라이언트 id를 주입합니다. 배포 구성은 `NOTIFICATION_EMAIL_RECIPIENTS_JSON`으로 수신자를 공급하며 앱에는 접근 키나 연결 문자열이 들어가지 않습니다. 부분 설정은 시작을 차단합니다. |

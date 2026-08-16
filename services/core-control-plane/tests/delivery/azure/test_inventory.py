@@ -82,7 +82,8 @@ async def test_full_snapshot_ends_with_final_true() -> None:
     async def _q(rt: str) -> tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
         return (_rr(f"{rt}/1"),), ()
 
-    adapter = _adapter(_q)
+    types = ("compute.vm", "object-storage")
+    adapter = _adapter(_q, types=types)
     seen: list[InventoryBatch] = []
     async for batch in adapter.full_snapshot():
         seen.append(batch)
@@ -91,10 +92,14 @@ async def test_full_snapshot_ends_with_final_true() -> None:
     assert seen[-1].final is True
     assert seen[-1].resources == ()
     assert seen[-1].links == ()
-    # Every prior batch had payload; the fence never carries data.
+    # The fence never carries data, and only the fence is final.
     for batch in seen[:-1]:
         assert batch.final is False
-        assert batch.resources or batch.links
+    # One empty heartbeat per shard, then the combined payload.
+    payload = [batch for batch in seen[:-1] if batch.resources or batch.links]
+    heartbeats = [batch for batch in seen[:-1] if not (batch.resources or batch.links)]
+    assert len(payload) == 1
+    assert len(heartbeats) == len(types)
 
 
 @pytest.mark.asyncio

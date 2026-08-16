@@ -590,8 +590,9 @@ lookup routes graph-dependent actions to human review. Inventory-backed readines
 that freshness state instead of asserting discovery success. Heimdall remains an observer. The
 Inventory job checks durable attempt state every minute, runs the normal six-hour scan only
 when due or when an observed change is still unreconciled above its floor, bounds one attempt with
-a wall-clock deadline so a stalled provider cannot suppress every later scan, and retries a newer
-failed or abandoned attempt on the next tick without granting job-start authority to the core runtime.
+a no-progress deadline and an absolute ceiling so a stalled provider cannot suppress every later scan
+while a slow one still finishes, and retries a failed attempt under an exponential backoff that caps
+at the routine interval, all without granting job-start authority to the core runtime.
 
 ## Implementation status
 

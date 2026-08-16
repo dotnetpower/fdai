@@ -252,10 +252,16 @@ variable "inventory_change_min_interval_seconds" {
   default     = 120
 }
 
-variable "inventory_attempt_deadline_seconds" {
-  description = "Wall-clock ceiling for one inventory source attempt."
+variable "inventory_progress_deadline_seconds" {
+  description = "Longest an inventory source may go without producing anything."
   type        = number
   default     = 900
+}
+
+variable "inventory_attempt_deadline_seconds" {
+  description = "Absolute ceiling for one inventory source attempt."
+  type        = number
+  default     = 1500
 }
 
 variable "inventory_arg_requests_per_second" {

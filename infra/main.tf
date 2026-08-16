@@ -1821,6 +1821,7 @@ module "compute" {
   inventory_freshness_seconds               = var.inventory_freshness_seconds
   inventory_reconciliation_interval_seconds = var.inventory_reconciliation_interval_seconds
   inventory_change_min_interval_seconds     = var.inventory_change_min_interval_seconds
+  inventory_progress_deadline_seconds       = var.inventory_progress_deadline_seconds
   inventory_attempt_deadline_seconds        = var.inventory_attempt_deadline_seconds
   inventory_arg_requests_per_second         = var.inventory_arg_requests_per_second
 

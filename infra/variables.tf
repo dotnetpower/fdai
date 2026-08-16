@@ -516,14 +516,25 @@ variable "inventory_change_min_interval_seconds" {
   }
 }
 
-variable "inventory_attempt_deadline_seconds" {
-  description = "Wall-clock ceiling for one inventory source attempt. A stalled provider fails its own attempt instead of suppressing every later scan."
+variable "inventory_progress_deadline_seconds" {
+  description = "Longest an inventory source may go without producing anything. A stalled provider fails its own attempt instead of suppressing every later scan, while a slow one that keeps producing is allowed to finish."
   type        = number
   default     = 900
 
   validation {
-    condition     = var.inventory_attempt_deadline_seconds >= 60 && var.inventory_attempt_deadline_seconds <= 1800
-    error_message = "inventory_attempt_deadline_seconds must be in [60, 1800]."
+    condition     = var.inventory_progress_deadline_seconds >= 60 && var.inventory_progress_deadline_seconds <= 1740
+    error_message = "inventory_progress_deadline_seconds must be in [60, 1740]."
+  }
+}
+
+variable "inventory_attempt_deadline_seconds" {
+  description = "Absolute ceiling for one inventory source attempt. Stays below the 30-minute abandonment window so an attempt always resolves before the gate is entitled to start a second one."
+  type        = number
+  default     = 1500
+
+  validation {
+    condition     = var.inventory_attempt_deadline_seconds >= var.inventory_progress_deadline_seconds && var.inventory_attempt_deadline_seconds <= 1740
+    error_message = "inventory_attempt_deadline_seconds must be in [inventory_progress_deadline_seconds, 1740]."
   }
 }
 
