@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 71839b8740b72f6e8445cda3e8c089a20e5a013b
+translation_source_sha: a10df8bd9ff8275a4b237855be0514bb5e6a2c9b
 translation_revised: 2026-08-16
 ---
 
@@ -592,12 +592,11 @@ Command Deck의 web research 턴은 작업 진행 중 실제 상태를 나타내
 결정론적 응답기를 식별하고 사용할 수 없는 백엔드 또는 content-policy 블록 같은 기록된 대체 경로
 사유를 유지하므로 모델 장애가 공개되지 않은 모델 응답처럼 보이지 않습니다.
 
-브라우저는 기록된 모델 식별자와 선택적 지연 시간 또는 토큰 메트릭이 범위가 제한된 source-descriptor
-계약과 일치할 때만 LLM 공개를 표시합니다. 빈, oversized, control-character,
-duplicate-metric 및 free-form 메트릭 값은 LLM 에스컬레이션 점유를 만들지 않습니다. Raw 출처
-배지는 너비가 제한되므로 malformed 메타데이터가 회신 헤더를 밀어내지 않습니다. 브라우저가 토큰
-사용량을 표시하려면 토큰 합계와 프롬프트 및 완료 컴포넌트가 각각 finite nonnegative 값여야
-합니다.
+브라우저는 기록된 모델 식별자와 선택적 지연 시간 또는 토큰 메트릭이 범위가 제한된
+source-descriptor 계약과 일치할 때만 LLM 공개를 표시합니다. 빈, oversized, control-character,
+duplicate-metric 및 free-form 메트릭 값은 LLM 에스컬레이션 점유를 만들지 않습니다. Raw 출처 배지는
+너비가 제한되므로 malformed 메타데이터가 회신 헤더를 밀어내지 않습니다. 브라우저가 토큰 사용량을
+표시하려면 토큰 합계와 프롬프트 및 완료 컴포넌트가 각각 finite nonnegative 값여야 합니다.
 
 검증 메타데이터는 검사 counter가 nonnegative integer이고 completed 검사가 합계 검사보다
 크지 않을 때만 허용됩니다. Atomic 점유 구간은 순서가 맞는 nonnegative integer이고 매니페스트 스키마
@@ -611,12 +610,11 @@ duplicate-metric 및 free-form 메트릭 값은 LLM 에스컬레이션 점유를
 제한됩니다. 실제 운영 회신과 세션 재생은 동일한 파서를 사용하므로 reload 후 HTTP 경계가
 거부할 메타데이터를 복원하거나 다르게 해석하지 않습니다.
 
-세션 재생은 4 MiB JSON 묶음 안에 최신 턴을 최대 40개 유지합니다. Turn 하나에는 텍스트
-256 KiB, 범위가 제한된 인용 512개, 범위가 제한된 후속 조치 8개 및 범위가 제한된 활동 기록 64개까지 포함할 수
-있습니다. 직렬화가 묶음을 초과하면 브라우저는 가장 오래된 턴부터 제거합니다. Oversized
-또는 내부 정합성이 없는 선택적 collection은 렌더러로 복원하지 않습니다. Answer-plan 섹션 및
-재정의 라벨은 64자와 128자, 코드 검증 상세는 4 KiB, 이정표 에이전트 신원은 64자로
-제한합니다.
+세션 재생은 4 MiB JSON 묶음 안에 최신 턴을 최대 40개 유지합니다. Turn 하나에는 텍스트 256 KiB,
+범위가 제한된 인용 512개, 범위가 제한된 후속 조치 8개 및 범위가 제한된 활동 기록 64개까지 포함할
+수 있습니다. 직렬화가 묶음을 초과하면 브라우저는 가장 오래된 턴부터 제거합니다. Oversized 또는
+내부 정합성이 없는 선택적 collection은 렌더러로 복원하지 않습니다. Answer-plan 섹션 및 재정의
+라벨은 64자와 128자, 코드 검증 상세는 4 KiB, 이정표 에이전트 신원은 64자로 제한합니다.
 
 Web 작성기는 선택, 폐기 및 clipboard paste raster를 동일한 범위가 제한된 첨부 tray와 검증 경로로 전달합니다. 단계 전에 브라우저는 upscaling 없이 longest 간선을 2048 px 안에 맞추고 이미지당 4 MiB 아래로 re-encode합니다. Clipboard 텍스트와 HTML은 textarea의 native paste 동작을 유지하며 첨부가 되지 않습니다.
 Turn이 검증된 inline 이미지 첨부를 carry하면 스트리밍 경로는 서술기가 작성하기 전에 읽기 전용 `vision_analyzing`을, 답변 전에 `vision_grounded`를 발행하며, 각 프레임은 이미지 출처 미리 보기(이름, media 타입, 크기)를 포함하되 base64 페이로드는 절대 포함하지 않습니다.
