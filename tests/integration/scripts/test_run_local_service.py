@@ -364,6 +364,40 @@ def test_runner_refuses_a_runtime_lock_owned_by_another_checkout(tmp_path: Path)
     assert not log_file.exists() or "child-ran" not in log_file.read_text(encoding="utf-8")
 
 
+def test_runner_reports_an_unusable_runtime_lock_as_itself(tmp_path: Path) -> None:
+    """flock uses 66, not 1, when it cannot open the lock file; that is not contention."""
+    log_file = tmp_path / "logs" / "core-runtime.log"
+    runtime_lock = tmp_path / "core-runtime.lock"
+    runtime_lock.touch()
+    runtime_lock.chmod(0o000)
+
+    try:
+        result = subprocess.run(  # noqa: S603 - fixed test command
+            [
+                _BASH,
+                str(_RUNNER),
+                "core-runtime",
+                str(log_file),
+                "--",
+                "env",
+                f"FDAI_RUNTIME_LOCK_FILE={runtime_lock}",
+                sys.executable,
+                "-c",
+                "print('child-ran')",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    finally:
+        runtime_lock.chmod(0o600)
+
+    assert result.returncode == 75
+    assert f"runtime-lock-unusable={runtime_lock}" in result.stderr
+    assert f"runtime-lock={runtime_lock}" not in result.stderr
+    assert not log_file.exists() or "child-ran" not in log_file.read_text(encoding="utf-8")
+
+
 def test_runner_refuses_a_port_owned_by_another_process(tmp_path: Path) -> None:
     log_file = tmp_path / "logs" / "operator-api.log"
 
