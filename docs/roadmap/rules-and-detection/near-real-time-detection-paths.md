@@ -143,9 +143,9 @@ is a runnable baseline; governed live latency evidence remains open. The `Metric
 composition routes among
 ([Prom > Metrics API > Logs](../architecture/csp-neutrality.md)).
 
-`analyzer_tick_cron_expression` defaults to one minute. An empty target list uses the durable
-inventory projection, so a newly discovered supported resource joins the next tick without a
-deployment edit. An explicit empty cron disables the job; the CLI exits quietly when neither
+`analyzer_tick_cron_expression` defaults to one minute. When the deployment binds the projection
+database, an empty target list falls back to the durable inventory projection, so a newly
+discovered supported resource joins the next tick without a deployment edit. An explicit empty cron disables the job; the CLI exits quietly when neither
 explicit targets nor durable inventory contains a supported resource. An unreadable projection is
 not an empty one: the tick fails so the Job retries instead of narrowing its coverage silently.
 

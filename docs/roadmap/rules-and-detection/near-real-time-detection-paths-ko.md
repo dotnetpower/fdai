@@ -1,7 +1,7 @@
 ---
 title: Near-real-time detection paths
 translation_of: near-real-time-detection-paths.md
-translation_source_sha: b58b166a4e7fefe752cde40d73c9465c4966bebf
+translation_source_sha: 8d4abb754ceb876d90e5f303f16bca1ef3d9bb78
 translation_revised: 2026-08-16
 ---
 
@@ -139,8 +139,9 @@ cron으로 `python -m fdai.delivery.analyzer_tick_cli`를 실행합니다. 이 �
 기준선입니다. 관리되는 실제 지연 근거는 아직 남아 있습니다. `MetricProvider` 조립은
 ([Prom > Metrics API > Logs](../architecture/csp-neutrality-ko.md)) 사이를 계속 라우팅합니다.
 
-`analyzer_tick_cron_expression`은 기본 1분입니다. 대상 목록이 비어 있으면 영속 인벤토리
-변환 결과를 사용하므로 새로 발견된 지원 리소스가 배포 변경 없이 다음 틱에 포함됩니다.
+`analyzer_tick_cron_expression`은 기본 1분입니다. 배포가 변환 결과 데이터베이스를 연결한
+경우 대상 목록이 비어 있으면 영속 인벤토리 변환 결과로 대체하므로 새로 발견된 지원
+리소스가 배포 변경 없이 다음 틱에 포함됩니다.
 Cron을 명시적으로 빈 값으로 설정하면 작업이 비활성화됩니다. 명시적 대상과 영속 인벤토리
 모두에 지원 리소스가 없으면 CLI가 조용히 종료됩니다. 읽을 수 없는 변환 결과는 빈 결과가
 아닙니다. 이 경우 틱이 실패해 작업이 재시도하며, 관측 범위를 조용히 좁히지 않습니다.
