@@ -440,14 +440,14 @@ def test_landing_requires_a_receipt_and_leaves_live_edits_alone(
 ) -> None:
     module = _load()
     calls: list[list[str]] = []
-    state = {"status": "", "incoming": "docs/roadmap/architecture/owned.md\n"}
+    state = {"status": "", "incoming": "docs/roadmap/architecture/owned.md\n", "staged": ""}
     # Newest first, exactly as `git rev-list main..HEAD` reports it.
     ahead = ["freshest", "validated", "older"]
     receipted: set[str] = set()
 
     def fake_git(*args: str, **_kwargs: object) -> str:
         if args[0] == "diff":
-            return state["incoming"]
+            return state["staged"] if "--cached" in args else state["incoming"]
         if args[0] == "rev-list":
             return str(len(ahead)) if "--count" in args else "\n".join(ahead)
         return {"status": state["status"], "rev-parse": "campaignhead"}[args[0]]
@@ -477,6 +477,13 @@ def test_landing_requires_a_receipt_and_leaves_live_edits_alone(
     assert calls == []
 
     state["status"] = " M docs/roadmap/architecture/elsewhere.md\n?? scratch.py"
+    state["staged"] = "docs/roadmap/deployment/unrelated.md\n"
+    assert module._land_validated_batch(tmp_path) is None
+    # `git merge` refuses outright when the index differs from HEAD, even for paths the
+    # merge would leave byte-identical. Attempting it anyway just fails and logs nothing.
+    assert calls == []
+
+    state["staged"] = ""
     assert module._land_validated_batch(tmp_path) == "landed validated on main"
     # Two refusals dressed as safety are gone. A dirty checkout is the normal state of the
     # primary worktree, so landing only needs the incoming paths to miss the live edits. And
