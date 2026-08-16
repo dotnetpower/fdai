@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: a5f46996974e9a19ce2b9c4e0a2215a990e8c993
+translation_source_sha: fe347c6fa49c8c7ecee50ada520f32473906f4ce
 translation_revised: 2026-08-17
 ---
 # 코드 맵
@@ -108,6 +108,7 @@ translation_revised: 2026-08-17
 | 2026-08-17 | 구현됨 | 운영 준비성 조치 브리지와 운영자 SRE 명령 경로를 Core 지도에 기록했습니다. 두 기능 모두 소유 설계 문서 없이 라우팅된 표면 아래에 새 모듈로 추가되어, 해당 batch의 focused 검사는 모두 통과했는데도 `design-doc-impact` gate가 중앙에서 브랜치를 거부했습니다. | `current change`, `core/readiness/remediation.py`, `core/incident/sre_request.py`, `shared/providers/operator_request.py`, `composition/readiness.py`, 해당 focused 테스트 43건 통과 | 이 기록에 남은 작업은 없습니다. 이제 campaign이 자기 batch에 대해 `design-doc-impact`를 직접 실행하므로 누락이 발생한 지점에서 드러납니다. |
 | 2026-08-17 | 구현됨 | 추적 토폴로지를 인벤토리 Resource로 표현하거나 런타임 서비스를 추가하지 않고 분산 추적 연속성 감지의 물리 소유권 지도를 추가했습니다. | `current change`; 감지기, Azure 소스, 공유 틱 실행기, agent 근거 인계 및 집중 추적 검사가 55개 사례 범위에서 통과했습니다. | 런타임 검증을 주장하기 전에 통제된 실시간 감지, 인시던트, 승인, 복구 근거를 보존합니다. |
 | 2026-08-17 | 구현됨 | 구현이 없는 shared Operator query에 범위가 제한된 Incident 검색 identity를 추가하고 정규화, 근거 일치, 페이지 나누기 및 측정은 Operator Service projection에 유지했습니다. | `current change`, `fdai_service_contracts/operator.py`, Operator 경로와 PostgreSQL projection, focused 검사에서 Operator 80건 및 Console 49건 통과 | Shared Incident 검색 계약에 남은 구현 작업은 없습니다. |
+| 2026-08-17 | 구현됨 | 효과 조정 귀속을 위한 principal 없는 관찰자 identity 기록을 등록했습니다. 인증된 관찰 맥락을 내용 주소로 투영하여 안정적인 identity 핸들과 도출된 독립성 결과를 담으며, 효과를 종결하거나 가설을 승격하거나 실행할 권한은 갖지 않습니다. | `current change`, `core/ontology_platform/reconciliation_identity.py`, `reconciliation.py`, `reconciliation_contracts.py`, `reconciliation_state_store.py`, focused 조정 검사 40건 통과 | 이 기록에 남은 작업은 없습니다. 채점 가능 여부는 계속 coordinator가 자체 규칙으로 결정합니다. |
 
 ### 남은 작업
 
