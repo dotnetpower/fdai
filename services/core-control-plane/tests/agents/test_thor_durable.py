@@ -39,14 +39,16 @@ class _FakeActionRunStore:
 def test_action_run_dict_round_trip() -> None:
     proposal = _proposal()
     run = ActionRun(
-        correlation_id="c",
-        action_type="ops.restart-service",
-        resource_id="r",
+        correlation_id=proposal.correlation_id,
+        action_type=proposal.plan.action_type_ref.name,
+        resource_id=proposal.target_resource_ref,
         state=ActionRunState.EXECUTING,
         verdict="auto",
         idempotency_key="action-1",
+        params=proposal.arguments(),
         shadow_mode=True,
         outcome="x",
+        decision_case=_decision_case(),
         workflow_action={
             "process_id": "process-1",
             "step_id": "restart",
@@ -148,6 +150,34 @@ def test_durable_action_run_rejects_corrupt_kinetic_proposal() -> None:
 
     with pytest.raises(ValueError, match="durable ActionRun kinetic proposal"):
         ActionRun.from_dict(raw)
+
+
+def test_durable_action_run_rejects_unbound_kinetic_proposal() -> None:
+    """A contract-valid proposal from another run MUST NOT rehydrate into this one."""
+    proposal = _proposal()
+    run = ActionRun(
+        correlation_id=proposal.correlation_id,
+        action_type=proposal.plan.action_type_ref.name,
+        resource_id=proposal.target_resource_ref,
+        state=ActionRunState.HIL_PENDING,
+        verdict="hil",
+        params=proposal.arguments(),
+        decision_case=_decision_case(),
+        kinetic_proposal=proposal.model_dump(mode="json"),
+    )
+    assert ActionRun.from_dict(run.to_dict()).kinetic_proposal == run.kinetic_proposal
+
+    for field, value in (
+        ("correlation_id", "correlation-substituted"),
+        ("action_type", "ops.restart-service"),
+        ("resource_id", "workload-substituted"),
+        ("params", {"replica_count": 99}),
+        ("decision_case", None),
+    ):
+        raw = run.to_dict()
+        raw[field] = value
+        with pytest.raises(ValueError, match="not bound to its run"):
+            ActionRun.from_dict(raw)
 
 
 @pytest.mark.parametrize(
