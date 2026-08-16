@@ -36,6 +36,10 @@ class PostgresInventoryReconciliationGate:
     interval, and an observed provider change the change stream could not
     resolve on its own. The change demand is floored by
     ``change_min_interval_seconds`` so a change storm cannot become a scan storm.
+
+    A failure streak is aged from when each attempt failed, not from when it
+    started, so a long attempt that dies at its deadline still serves its full
+    backoff instead of being retried immediately.
     """
 
     def __init__(
@@ -65,7 +69,8 @@ class PostgresInventoryReconciliationGate:
                 "WITH active AS (SELECT s.started_at, s.completed_at FROM inventory_active a "
                 "JOIN inventory_snapshot s ON s.id=a.snapshot_id "
                 "WHERE a.singleton=TRUE AND s.status='active'), "
-                "newer_failures AS (SELECT started_at FROM inventory_snapshot "
+                "newer_failures AS (SELECT COALESCE(completed_at, started_at) AS failed_at "
+                "FROM inventory_snapshot "
                 "WHERE status='failed' AND started_at > COALESCE("
                 "(SELECT completed_at FROM active), '-infinity'::timestamptz)) "
                 "SELECT (SELECT EXTRACT(EPOCH FROM (NOW() - completed_at)) FROM active) "
@@ -73,7 +78,7 @@ class PostgresInventoryReconciliationGate:
                 "EXISTS (SELECT 1 FROM inventory_snapshot "
                 "WHERE status='collecting' AND started_at >= NOW() - INTERVAL '30 minutes') "
                 "AS in_progress, (SELECT count(*) FROM newer_failures) AS failure_streak, "
-                "(SELECT EXTRACT(EPOCH FROM (NOW() - max(started_at))) FROM newer_failures) "
+                "(SELECT EXTRACT(EPOCH FROM (NOW() - max(failed_at))) FROM newer_failures) "
                 "AS failure_age_seconds, EXISTS (SELECT 1 FROM inventory_snapshot "
                 "WHERE status='collecting' AND "
                 "started_at < NOW() - INTERVAL '30 minutes' AND "

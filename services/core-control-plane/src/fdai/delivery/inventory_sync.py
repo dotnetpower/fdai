@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
 import socket
-from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
+from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import cast
@@ -193,15 +192,9 @@ class InventorySyncCoordinator:
             return min(ceiling_at, loop.time() + self._progress_deadline_seconds)
 
         try:
-            # Close the source stream on every exit path. A deadline cancels this
-            # task, and an unclosed generator would leave its provider requests
-            # running and spending quota while the next tick starts.
-            async with (
-                contextlib.aclosing(stream) as closing_stream,
-                asyncio.timeout(self._attempt_deadline_seconds) as deadline,
-            ):
+            async with asyncio.timeout(self._attempt_deadline_seconds) as deadline:
                 deadline.reschedule(_next_deadline())
-                async for batch in closing_stream:
+                async for batch in stream:
                     deadline.reschedule(_next_deadline())
                     if saw_final:
                         raise InventoryStreamError(
@@ -224,6 +217,13 @@ class InventorySyncCoordinator:
             # merely too slow need different operator responses.
             reason = "absolute ceiling" if loop.time() >= ceiling_at else "no-progress deadline"
             raise InventoryStreamError(f"inventory source exceeded its {reason}") from exc
+        finally:
+            # A deadline cancels this task mid-iteration. An unclosed generator
+            # would leave its provider requests running and spending quota after
+            # the attempt that owned them has already failed. The Inventory
+            # contract allows a plain iterator, which has nothing to close.
+            if isinstance(stream, AsyncGenerator):
+                await stream.aclose()
         if not saw_final:
             raise InventoryStreamError("inventory stream ended before final fence")
         return datetime.now(tz=UTC)
