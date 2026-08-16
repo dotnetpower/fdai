@@ -334,7 +334,8 @@
         "docs/roadmap/architecture/project-structure.md"
       ],
       "validate": [
-        "uv run pytest -q --no-cov services/core-control-plane/tests/rule_catalog/test_ontology_catalog.py services/core-control-plane/tests/rule_catalog/test_ontology_provenance.py services/core-control-plane/tests/providers/test_ontology_instance.py services/core-control-plane/tests/core/test_ontology_explorer.py services/core-control-plane/tests/agents/test_ontology_alignment.py"
+        "uv run pytest -q --no-cov services/core-control-plane/tests/rule_catalog/test_ontology_catalog.py services/core-control-plane/tests/rule_catalog/test_ontology_provenance.py services/core-control-plane/tests/providers/test_ontology_instance.py services/core-control-plane/tests/core/test_ontology_explorer.py services/core-control-plane/tests/agents/test_ontology_alignment.py",
+        "uv run python scripts/quality/architecture/check-property-semantic-coverage.py"
       ]
     },
     {
@@ -1562,7 +1563,8 @@
         "docs/roadmap/rules-and-detection/rule-governance.md"
       ],
       "validate": [
-        "uv run python scripts/quality/architecture/check-independent-services.py"
+        "uv run python scripts/quality/architecture/check-independent-services.py",
+        "uv run python scripts/quality/architecture/check-property-semantic-coverage.py"
       ]
     },
     {
