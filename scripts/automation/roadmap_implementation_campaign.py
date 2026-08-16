@@ -231,29 +231,46 @@ def _dirty_paths(checkout: Path) -> set[str]:
     return paths
 
 
+def _newest_validated_commit(repo_root: Path) -> str | None:
+    """Return the newest commit ahead of main that already holds a validation receipt."""
+    for commit in _git("rev-list", "main..HEAD", cwd=repo_root).splitlines():
+        if _validation_receipt_exists(repo_root, commit):
+            return commit
+    return None
+
+
 def _land_validated_batch(repo_root: Path) -> str | None:
-    """Merge the validated campaign head into main when the merge disturbs no live edit.
+    """Merge the newest validated commit into main when the merge disturbs no live edit.
 
     Nothing else moves this work onto main (#137), so it accumulated on a branch that only
-    diverged further. Requiring a spotless main checkout looked safe but never fired: the
-    primary checkout is where people and other sessions work, so it is almost always dirty
-    and the batch would wait forever. What actually matters is narrower and checkable: the
-    merge must not touch a file somebody is editing. When the incoming paths and the dirty
-    paths are disjoint, git rewrites only files nobody holds and the other session's work is
-    untouched. Landing is still skipped rather than forced: unvalidated work stays put, and
-    a conflict aborts instead of leaving a half-merged tree that the next run would refuse.
+    diverged further. Two conditions looked like safety and behaved like a permanent refusal.
+
+    Gating on HEAD never fired, because the campaign commits a batch and asks in the same
+    cycle: HEAD is by construction the freshest commit and the least likely to be validated.
+    Measured proof: the tip earned a receipt at 15:19, and by the time landing was consulted
+    the branch had moved on and reported no receipt again. Landing now takes the newest
+    ancestor that does hold one, so progress no longer depends on winning a race against the
+    campaign's own production rate.
+
+    Requiring a spotless main checkout never fired either, because the primary checkout is
+    where people and other sessions work. What actually matters is narrower and checkable:
+    the merge must not touch a file somebody is editing. When the incoming paths and the
+    dirty paths are disjoint, git rewrites only files nobody holds.
+
+    Landing is still skipped rather than forced: unvalidated work stays put, and a conflict
+    aborts instead of leaving a half-merged tree that the next run would refuse.
     """
     if _git("rev-list", "--count", "main..HEAD", cwd=repo_root) == "0":
         return None
-    if not _validation_receipt_exists(repo_root, "HEAD"):
+    head = _newest_validated_commit(repo_root)
+    if head is None:
         return None
     checkout = _main_checkout(repo_root)
     if checkout is None:
         return None
-    incoming = set(_git("diff", "--name-only", "main...HEAD", cwd=repo_root).splitlines())
+    incoming = set(_git("diff", "--name-only", f"main...{head}", cwd=repo_root).splitlines())
     if incoming & _dirty_paths(checkout):
         return None
-    head = _git("rev-parse", "HEAD", cwd=repo_root)
     before = _git("rev-parse", "main", cwd=repo_root)
     result = subprocess.run(  # noqa: S603 - fixed git merge operation
         ["git", "merge", "--no-ff", "--no-edit", head],
