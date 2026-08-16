@@ -26,7 +26,7 @@ runtime without adding a second planning, causal, simulation, or promotion syste
 > accepted findings add an execution-time VM Scale Set re-observation, ETag-bound `If-Match`,
 > explicit 412 conflict handling, exact reason validation, a cumulative polling deadline, and VMSS
 > long-running-operation replay tests. Final review found no reproducible Medium-or-higher defect.
-> Remaining Low work covers richer observer-identity records and timeout classification; the
+> Remaining Low work on observer-identity records and timeout classification is closed; the
 > protected live drill and recurrence window remain explicit release evidence rather than a code
 > defect or a completed claim.
 
@@ -82,6 +82,16 @@ before any effect comparison, so a late evaluation cannot turn intervened eviden
 timed-out recovery request. The deterministic order is independent-observation validity, then
 censoring, then semantic effect coverage, then incomplete, synthetic, conflicting, and stale
 evidence.
+
+Every closed episode retains one observer-identity record. It projects the authenticated
+observer, executor, evidence source, and verifier into correlation-safe handles with the derived
+role-separation findings, so a replay can prove independence and complete attribution without
+re-reading raw principals. The record is evidence only and grants no observation authority.
+
+A timed-out episode still routes to recovery, and its reason code names why the episode closed
+late: incomplete, synthetic, conflicting, or stale evidence, or an otherwise complete and fresh
+observation whose evaluation crossed the deadline. The classification uses only validated
+envelope fields and never converts a timeout into a scored result.
 
 Provider receipts and independent outcomes stay separate:
 
@@ -225,7 +235,8 @@ contracts. They don't modify, wrap, rename, or duplicate their implementations.
 | Production reconciliation sources | in-progress | `ReconciliationArtifactSource` and `ReconciliationObservationSource` protocols; runtime composition tests | The runtime accepts production exact-plan and independent-observation sources, but no upstream production adapter or governed live receipt exists yet. |
 | Lane C lineage and competency queries | implemented | `services/core-control-plane/src/fdai/core/assurance_twin/`; `services/core-control-plane/tests/rule_catalog/test_operational_hypothesis_loop_competency.py` | Existing ontology objects answer all six frozen query classes without a parallel aggregate. The proof is over test-supplied records: no composition root constructs `OperationalHypothesisLineageProjector`, so production materializes none of these objects. |
 | Lane D graph-model promotion | implemented | `services/core-control-plane/src/fdai/delivery/graph_model_promotion.py`; `core/assurance_twin/model_promotion.py`; `tests/delivery/test_graph_model_promotion.py` | Exact artifact and rollback identity reach the existing approval and action path; evidence cannot self-promote. |
-| Protected live evidence | in-progress | [Hardening status](#design-at-a-glance); current change source audit | Code hardening is complete, but the protected live drill, recurrence window, and richer observer identity remain release evidence. |
+| Observer attribution and timeout classification | implemented | `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_identity.py`; `reconciliation_contracts.py` (`ReconciliationOutcome.observer_identity_record`); `reconciliation.py` (`_timeout_reason_code`); `services/core-control-plane/tests/core/ontology_platform/test_reconciliation_identity.py` | Every outcome binds a principal-free observer, executor, source, and verifier record with derived independence findings, and each timed-out episode carries a deterministic classification while keeping its recovery routing. |
+| Protected live evidence | in-progress | [Hardening status](#design-at-a-glance); current change source audit | Code hardening is complete, but the protected live drill and recurrence window remain release evidence. |
 
 ### Implementation history
 
@@ -236,6 +247,8 @@ contracts. They don't modify, wrap, rename, or duplicate their implementations.
 | 2026-08-15 | in-progress | Qualified the Lane C claim: the six frozen query classes are proven over test-supplied records, because no composition root constructs the lineage projector. | `current change`; `test_operational_hypothesis_loop_competency.py` builds its own `OntologyObjectRecord` and `OntologyLinkRecord` inputs; `bootstrap.py` and `control_loop.py` construct no lineage projector. | Supply the declared `DecisionCase`, `ActionOption`, `ExpectedEffect`, and `ActionRun` properties from real producers, then wire the projector. |
 | 2026-08-16 | implemented | Added the `censoring_refs` observation field at envelope schema 1.1.0 and made a censored episode unscorable ahead of every effect comparison, so censored and conflicting episodes stay held attempt evidence. | `current change`; `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_contracts.py`; `reconciliation.py`; `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py`; focused run `pytest services/core-control-plane/tests/core/ontology_platform` passed 335 tests. | Close the recurrence observation window with governed live episodes. |
 | 2026-08-16 | implemented | Moved the censoring decision ahead of the deadline classification so a late-evaluated censored episode is held instead of escalating into a timed-out recovery request. | `current change`; `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation.py` (`_episode_validity_reason`); `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py`; focused run `pytest services/core-control-plane/tests/core/ontology_platform` passed 338 tests. | Close the recurrence observation window with governed live episodes. |
+| 2026-08-17 | implemented | Added the principal-free observer-identity record bound to every reconciliation outcome and the deterministic timeout classification. Outcome schema advanced to `1.1.0` and the durable aggregate schema to `1.2.0`, so an aggregate written before the record fails closed instead of replaying without attribution. | `current change`; `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_identity.py`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/core/ontology_platform/test_reconciliation_identity.py services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py services/core-control-plane/tests/core/ontology_platform/test_reconciliation_hardening.py services/core-control-plane/tests/core/ontology_platform/test_state_store_reconciliation.py services/core-control-plane/tests/core/ontology_platform/test_reconciliation_binding.py` passed 68 tests. | Bind production observation adapters and retain the protected live drill and recurrence evidence. |
+| 2026-08-17 | implemented | Named the bound attribution field `observer_identity_record` so it cannot be confused with the raw observer identity string on the result event, constrained the recorded source authority token, and added a fail-closed regression for a durable aggregate written without attribution. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/core/ontology_platform/test_reconciliation_identity.py` passed 12 tests. | Bind production observation adapters and retain the protected live drill and recurrence evidence. |
 
 ### Remaining work
 
@@ -244,7 +257,7 @@ contracts. They don't modify, wrap, rename, or duplicate their implementations.
 - [ ] Run the protected live drill and retain exact precondition, dry-run, provider, independent-outcome, rollback, and audit receipts.
 - [ ] Close the recurrence observation window with governed live episodes and retain the resulting recurrence evidence.
 - [x] Censored and conflicting episodes remain unscorable, evidenced by `EffectObservationEnvelope.censoring_refs` and `_unscorable_reason` in `services/core-control-plane/src/fdai/core/ontology_platform/` and the focused cases in `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py`.
-- [ ] Add richer observer-identity records and the final timeout classification, then rerun the focused reconciliation and promotion checks.
+- [x] Every reconciliation outcome binds a principal-free observer, executor, source, and verifier identity record with derived independence findings, and each timed-out episode carries a deterministic classification, evidenced by `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_identity.py` and `services/core-control-plane/tests/core/ontology_platform/test_reconciliation_identity.py`.
 
 ## Related docs
 

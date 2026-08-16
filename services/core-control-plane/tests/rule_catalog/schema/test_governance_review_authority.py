@@ -50,12 +50,13 @@ def _request(
     co_author_oids: frozenset[str] = frozenset(),
     committer_oids: frozenset[str] = frozenset(),
     head_revision: str = _HEAD,
+    head_committed_at: datetime = _COMMITTED_AT,
 ) -> GovernanceReviewRequest:
     return GovernanceReviewRequest(
         change_class=change_class,
         author=author,
         head_revision=head_revision,
-        head_committed_at=_COMMITTED_AT,
+        head_committed_at=head_committed_at,
         approvals=approvals,
         co_author_oids=co_author_oids,
         committer_oids=committer_oids,
@@ -297,8 +298,33 @@ def test_invalid_head_revision_blocks_the_change() -> None:
     assert "head_revision_invalid" in _codes(decision)
 
 
-def test_every_change_class_declares_a_bounded_requirement() -> None:
-    for change_class in GovernanceChangeClass:
+def test_naive_head_commit_time_fails_closed_without_comparing_times() -> None:
+    decision = validate_governance_review(
+        _request(
+            GovernanceChangeClass.RULE_AUTHORING,
+            _approval(_APPROVER_ONE),
+            head_committed_at=_COMMITTED_AT.replace(tzinfo=None),  # noqa: DTZ901
+        )
+    )
+
+    assert decision.allowed is False
+    assert decision.counted_approver_oids == ()
+    assert {"head_time_not_absolute", "approval_freshness_unverifiable"} <= _codes(decision)
+
+
+def test_every_change_class_declares_its_bounded_requirement() -> None:
+    expected = {
+        GovernanceChangeClass.RULE_AUTHORING: (1, False, False),
+        GovernanceChangeClass.ASSIGNMENT: (1, False, False),
+        GovernanceChangeClass.ENFORCE_PROMOTION: (2, True, False),
+        GovernanceChangeClass.EXEMPTION: (2, True, False),
+        GovernanceChangeClass.OVERRIDE: (2, True, False),
+        GovernanceChangeClass.RISK_CLASSIFICATION_LOOSENING: (2, True, True),
+    }
+
+    assert set(expected) == set(GovernanceChangeClass)
+    for change_class, (quorum, phishing_resistant, owner_review) in expected.items():
         requirement = requirement_for(change_class)
-        assert requirement.quorum in {1, 2}
-        assert requirement.phishing_resistant == (requirement.quorum == 2)
+        assert requirement.quorum == quorum
+        assert requirement.phishing_resistant is phishing_resistant
+        assert requirement.owner_review is owner_review
