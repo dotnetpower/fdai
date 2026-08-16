@@ -419,12 +419,16 @@ def test_unreceipted_campaign_head_is_registered_before_holding(
     assert synced == []
 
 
-def test_landing_requires_a_receipt_and_an_idle_main_checkout(tmp_path: Path, monkeypatch) -> None:
+def test_landing_requires_a_receipt_and_leaves_live_edits_alone(
+    tmp_path: Path, monkeypatch
+) -> None:
     module = _load()
     calls: list[list[str]] = []
-    state = {"status": ""}
+    state = {"status": "", "incoming": "docs/roadmap/architecture/owned.md\n"}
 
     def fake_git(*args: str, **_kwargs: object) -> str:
+        if args[0] == "diff":
+            return state["incoming"]
         return {
             "rev-list": "3",
             "status": state["status"],
@@ -448,11 +452,27 @@ def test_landing_requires_a_receipt_and_an_idle_main_checkout(tmp_path: Path, mo
     assert calls == []
 
     monkeypatch.setattr(module, "_validation_receipt_exists", lambda *_a, **_k: True)
-    state["status"] = " M docs/roadmap/architecture/other.md"
+    state["status"] = " M docs/roadmap/architecture/owned.md"
     assert module._land_validated_batch(tmp_path) is None
-    # A dirty main checkout holds another session's uncommitted work; landing must not touch it.
+    # The merge would rewrite a file another session is editing; that work must not be touched.
     assert calls == []
 
-    state["status"] = ""
+    state["status"] = " M docs/roadmap/architecture/elsewhere.md\n?? scratch.py"
     assert module._land_validated_batch(tmp_path) == "landed campaignhead on main"
+    # A dirty checkout is the normal state of the primary worktree. Landing only needs the
+    # incoming paths to miss the live edits, not the whole checkout to fall idle.
     assert calls[0][:4] == ["git", "merge", "--no-ff", "--no-edit"]
+
+
+def test_a_renamed_path_counts_as_a_live_edit_on_both_sides(tmp_path: Path, monkeypatch) -> None:
+    module = _load()
+    (tmp_path / "renamed.txt").write_text("", encoding="utf-8")
+
+    monkeypatch.setattr(
+        module,
+        "_git",
+        lambda *args, **_k: 'R  "old name.txt" -> renamed.txt' if args[0] == "status" else "",
+    )
+    # Porcelain reports a rename as one line naming two paths; a merge that rewrites either
+    # side disturbs the same in-flight change, so both have to be treated as held.
+    assert module._dirty_paths(tmp_path) == {"old name.txt", "renamed.txt"}
