@@ -8,14 +8,15 @@ corpus reduce to one replayable qualification artifact.
 Design invariants
 -----------------
 - **Worst run decides.** Each item's reported score is the minimum final score
-  across every supplied run, so a single favourable run can never qualify an
+  across every supplied run, so a single favorable run can never qualify an
   item.
 - **Pinned thresholds.** The run set declares the contract digest it was
   measured against. A digest that no longer matches the installed contract is a
   hard error, so a change cannot edit thresholds and promote a failing
   implementation in one step.
-- **Frozen corpus identity.** Every run MUST cite the same corpus version and
-  digest. A mixed corpus is a hard error rather than a blended average.
+- **Frozen corpus identity.** One corpus version and digest are pinned for the
+  whole run set. A run cannot declare its own corpus, so measurements taken on
+  different corpora cannot be blended into one artifact.
 - **Fail closed.** Too few runs, an unmet turn floor, an unmet locale floor, or
   a failing item leaves the scorecard unqualified with an explicit reason. No
   reason is ever inferred from an absent measurement.

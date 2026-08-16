@@ -189,7 +189,7 @@ contract or holdout labels in the same promotion change.
 
 `scorecard_run.py` reduces independent runs over the frozen corpus to one artifact. Each run
 declares its identifier, English and Korean turn counts, and one measurement per contract item.
-Each item reports the **worst** final score across every supplied run, so a single favourable run
+Each item reports the **worst** final score across every supplied run, so a single favorable run
 cannot qualify an item.
 
 A `ScorecardProvenance` record pins the contract digest, corpus version and digest, model
@@ -217,8 +217,8 @@ unreadable, oversized, malformed, or contract-inconsistent input exits `2` witho
 artifact, and a symlinked input or output path is refused rather than followed. Every object in
 the input is strict: an unrecognized field such as a misspelled `triggered_caps` is rejected by
 name instead of silently dropped, so a typo can never quietly remove a hard cap and inflate a
-score. The artifact carries versions, digests, counts, and scores only - no answer text, principal, tenant,
-endpoint, or customer value.
+score. The artifact carries versions, digests, counts, and scores only - no answer text,
+principal, tenant, endpoint, or customer value.
 
 ## Independent model review
 

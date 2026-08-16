@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 94e507ef8997fadc2a55b7af2968cbf73398074a
+translation_source_sha: 13de2346edf241c0d84872cd6b24b731e3f090ff
 translation_revised: 2026-08-17
 ---
 # 대화 품질 보증

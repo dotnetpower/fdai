@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: fe347c6fa49c8c7ecee50ada520f32473906f4ce
+translation_source_sha: 61af846c30b0ff2278e560ca0a1135434132224f
 translation_revised: 2026-08-17
 ---
 # 코드 맵
@@ -96,6 +96,7 @@ translation_revised: 2026-08-17
 | 2026-08-15 | 구현됨 | 결정론적 plan 검증 전에 모델이 제안한 모든 ObjectSet 기준 시각을 Core의 단일 trusted evaluation time으로 다시 바인딩했습니다. | `current change`, stale 모델 기준 시각 회귀를 포함한 focused 의미 계획 테스트 15개 통과 | Exact-source Core stack을 재시작하고 clean 14-cell 및 seed 기반 100-case Browser 근거를 보존합니다. |
 | 2026-08-16 | 구현됨 | Server-bound cutoff가 하나의 `as_of` 불변식을 두 번의 clock 읽기에 걸쳐 나눴기 때문에 의미 플래너와 ObjectSet 조회 gateway를 주입된 단일 clock에 연결했습니다. | `current change`, `wire_semantic_query.py`, #134에 보고된 조립 테스트 6개와 focused 조립 및 플래너 suite 32개 통과, 작업 범위 Ruff 통과 | 이 결함에 남은 작업은 없습니다. 위의 기존 ObjectSet cutoff 근거 항목은 계속 유효합니다. |
 | 2026-08-16 | 해당 없음 | Debate의 `PROCEED`가 결과를 `DISAGREE`에서 `ELIGIBLE`로 뒤집는다고 기술한 `quality_gate/gate.py` 모듈 docstring을 바로잡았습니다. `cross_check_below_quorum`이 있으면 outcome 선택은 항상 `DISAGREE`를 반환하고 어떤 경로도 이를 제거하지 않으므로 동작은 바뀌지 않고 설명만 수정했습니다. | `current change`, `gate.py` docstring만 변경, `pytest services/core-control-plane/tests/core/quality_gate/` 145개 통과, 작업 범위 Ruff 검사 및 format 통과 | 남은 작업은 없습니다. `test_debate_proceed_keeps_disagreement_for_human_review`가 상시 guard입니다. |
+| 2026-08-17 | 해당 없음 | `conversation_assurance/scorecard_run.py` 모듈 docstring을 바로잡았습니다. 이 docstring은 모든 실행이 같은 말뭉치 버전과 다이제스트를 명시해야 하며 혼합 말뭉치는 하드 오류라고 적었습니다. 실행에는 말뭉치 필드가 없고 `ScorecardProvenance`가 실행 집합 전체에 하나의 말뭉치 정체성을 고정하므로 그런 검사는 존재하지 않습니다. 동작은 그대로이고 서술만 바뀌었습니다. | `current change`, `scorecard_run.py` docstring만 변경, `pytest services/core-control-plane/tests/core/conversation_assurance` 95건 통과, 작업 범위 Ruff 검사와 형식 및 strict mypy 통과 | 없음. 출처 다이제스트 검사와 집중 테스트가 계속 보호합니다. |
 | 2026-08-16 | 구현됨 | 조립 경계 enforcement를 복원했습니다. `test_no_external_caller_reaches_into_wire_files`가 추출 이전의 `src/**` 경로를 glob하여 파일을 하나도 찾지 못한 채 통과했습니다. 경로를 바로잡자 `runtime/control_loop.py`가 이미 facade에서 `Container`를 가져오면서 private `composition._helpers`에서 `LlmBindings`를 가져오는 실제 위반 하나가 드러났고, 이제 두 import 모두 facade를 사용합니다. | `current change`, `tests/integration/test_composition_package_split.py` 32개 통과, `services/core-control-plane/tests/runtime/` 179개 통과, guard가 수정 전 파일에서 `_helpers` import를 보고하고 수정 후 파일에서는 보고하지 않아 반증 가능함, 작업 범위 Ruff 검사 및 format 통과 | 이 guard에 남은 작업은 없습니다. 런타임 호출자가 없는 조립 seam은 해당 소유 문서에서 계속 추적합니다. |
 | 2026-08-16 | 구현됨 | 각 special-purpose 의미 함수를 실행 전에 해당 frame의 정확한 output 계약에 연결했습니다. 다른 output에 선택된 manifest, 스키마 관계 또는 incident-evidence 함수는 이제 invalid proposal이며, T1 불일치는 T2로 plan stage만 다시 시도할 수 있습니다. | `current change`, 불일치 escalation 및 일치하는 T1 control을 포함한 focused tier-routing 검사 12개 통과 | 중앙 검증된 descendant에서 clean 이중 언어 14-cell 및 seed 기반 100-case Browser 근거를 보존합니다. |
 | 2026-08-16 | 구현됨 | 자유 형식 의미 output shape를 타입이 지정된 capability family 10개로 교체하고, 각 운영 frame이 I/O 전에 최소 verified DAG capability를 선택하도록 요구했습니다. Frame prompt v6와 plan prompt v5는 같은 mapping을 가지며, special-purpose 함수 불일치와 누락된 aggregate, topology, filter, temporal, causal 또는 evidence node는 범위가 제한된 plan-stage 재시도만 유발합니다. | `current change`, focused shape-routing 및 prompt 검사 21개, tier-routing 검사 14개, 작업 범위 Ruff 및 strict mypy 통과 | 중앙 검증된 descendant에서 clean 이중 언어 14-cell 및 seed 기반 100-case Browser 근거를 보존합니다. |
