@@ -436,7 +436,12 @@ async def _stop_consumer(
     topic: str,
     group_id: str,
 ) -> None:
-    """Cancel fetch I/O and bound the broker-dependent group leave."""
+    """Cancel fetch I/O and bound the broker-dependent group leave.
+
+    Teardown runs inside the consumer's own task, usually while a cancellation is
+    unwinding it. Raising here would replace that cancellation with a crash, so a
+    broker failure is recorded against its topic and consumer group instead.
+    """
     fetcher = getattr(consumer, "_fetcher", None)
     close_fetcher = getattr(fetcher, "close", None)
     if callable(close_fetcher):
@@ -457,6 +462,12 @@ async def _stop_consumer(
         close_client = getattr(client, "close", None)
         if callable(close_client):
             await close_client()
+    except Exception:  # noqa: BLE001 - a failed leave must not become a consumer crash
+        _LOGGER.warning(
+            "event_bus_consumer_stop_failed",
+            extra={"topic": topic, "consumer_group": group_id},
+            exc_info=True,
+        )
 
 
 def _token_refresh_delay(

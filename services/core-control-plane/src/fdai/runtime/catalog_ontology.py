@@ -59,6 +59,17 @@ def load_diagnostic_catalog_projection(repo_root: Path) -> CatalogOntologyProjec
     return build_diagnostic_catalog_projection(ledger.mechanisms, benchmark_id="sregym")
 
 
+async def sync_ontology_catalog(store: object) -> None:
+    """Load the durable release history before any persisted instance is read.
+
+    A persisted object pins the release digest it was written under. Reading one
+    before this call fails closed on every release the process did not compute
+    itself, so the first catalog change would make the runtime unstartable.
+    """
+    if isinstance(store, _OntologyCatalogSynchronizer):
+        await store.sync_catalog()
+
+
 async def project_catalog_ontology(
     control_loop: ControlLoop,
 ) -> CatalogOntologyProjectionResult | None:
@@ -67,8 +78,7 @@ async def project_catalog_ontology(
     store = control_loop.ontology_instance_store
     if store is None or shutil.which("opa") is None:
         return None
-    if isinstance(store, _OntologyCatalogSynchronizer):
-        await store.sync_catalog()
+    await sync_ontology_catalog(store)
     catalog_root = _resolve_catalog_root()
     repo_root = catalog_root.parent
     resource_types = load_resource_type_registry_from_mapping(

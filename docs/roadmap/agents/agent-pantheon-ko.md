@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: a957678de92986b307810efc892d2d1422828d3e
-translation_revised: 2026-08-15
+translation_source_sha: 5403c3bd52f0be3a945e841ab2f74a14d1276342
+translation_revised: 2026-08-16
 ---
 
 # 에이전트 판테온
@@ -53,6 +53,7 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 | 2026-08-14 | implemented | AgentSpec, topic, 판단, 승인 또는 실행 소유권을 바꾸지 않고 모든 Thor 소유 실행기 전에 Core pre-dispatch kinetic receipt consumer를 연결했습니다. | `current change`, `core/operational_planning/kinetic_safety.py`, `delivery/kinetic_safety.py`, `runtime/control_loop.py` 및 집중 kinetic/HIL/Thor 조립 검사 115개 통과 | 운영 조립에서 Forseti source를 연결하고 독립 observer를 추가한 뒤 통제된 실제 근거를 보존합니다. |
 | 2026-08-14 | implemented | Bragi의 표현 전용 숙의가 선택적 T2 종합을 호출하기 전에 결정론적 T1 답변 평가를 요구하도록 했습니다. | `current change`, 집중 숙의 테스트 36개는 충돌이 없거나 비교할 수 없는 claim에 T2를 호출하지 않고 구조적 충돌에만 범위가 제한된 호출을 유지함을 입증합니다. | AgentSpec, topic 또는 권한을 바꾸지 않고 통제된 운영자 경로 근거를 보존합니다. |
 | 2026-08-15 | implemented | Bridge 소비자가 자기 task 안에서 구독을 닫도록 해서 broker 정리가 인터프리터 종료 처리가 아니라 종료 절차 중에 실행되도록 했습니다. AgentSpec, topic, 소유권, LLM, 안전장치는 바뀌지 않았습니다. | `current change`, [`bus_bridge.py`](../../../services/core-control-plane/src/fdai/agents/_framework/bus_bridge.py)와 [`test_subscription_lifecycle.py`](../../../services/core-control-plane/tests/agents/test_subscription_lifecycle.py), 집중 agent/delivery/runtime/provider 검사 3127건 통과 | 실제 로컬 종료에서 남은 소비자 stop 타임아웃이 없는지 확인합니다. |
+| 2026-08-16 | implemented | Thor가 내구 ActionRun을 복원할 때도 dispatch 시점의 kinetic proposal 결속 검사를 다시 적용하도록 해서, 변조된 레코드가 다른 correlation의 정확한 인자를 복원하지 못하게 했습니다. AgentSpec, topic, 소유권, 권한은 바뀌지 않았습니다. | `current change`, [`thor.py`](../../../services/core-control-plane/src/fdai/agents/thor.py)와 [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py), 집중 kinetic/내구 재생/runtime/factory 검사 140건 통과 | 기존 kinetic 잔여 작업과 함께 복원 경로의 통제된 실사용 증거를 확보합니다. |
 
 ### 남은 작업
 - [ ] 하나의 고정된 리비전에서 에이전트별 및 시스템 KPI, 표본 수, 신뢰 구간, 보호 메트릭과 권위 있는 결과 증적을 측정한 실제 shadow 코호트를 보존합니다.
@@ -167,6 +168,8 @@ margin, 계획 수립 증적 및 temporal 정책은
 
 Norns는 inert `RuleCandidate` 제안의 sole 쓰기 담당으로 유지됩니다. Three-perspective 합의, balanced 집단 한도, pending 큐, Mimir 검토 및 카탈로그 activation 경계는
 [Operational Learning 온톨로지](../rules-and-detection/operational-learning-ontology-ko.md#norns-consensus-및-catalog-boundary)가 소유합니다. 비공개 `norns_deployment_learning.py` 보조 로직은 범위가 제한된 scenario-gap 및 preflight-blocker 집계 상태만 보유합니다. 모든 후보 생성과 publish는 계속 Norns가 합의 및 rate-limit 경계를 통해 수행합니다. Caller-supplied recurring preflight 수동 차단 요인은 scope-deduplicate된 inert `preflight-toggle-gap` 후보가 되며 토글을 만들거나 배포 권한을 변경하지 않습니다. 재현된 Rule 수집 실패는 Huginn-owned 이벤트로 들어옵니다. Heimdall은 exact 실패를 독립적으로 validate하고 `object.retrieval-validation`을 publish하며, Saga는 해당 근거를 감사하고 Muninn은 `object.context-index`로 materialize합니다. Norns는 raw 텍스트, 검증되지 않은 실패, 수집 외 원인 및 exact Rule 버전이 없는 대상을 strict하게 거부합니다. 남은 challenger를 영속하게 기록한 뒤 동일한 합의 및 `object.rule-candidate` 경로를 사용합니다. 영속 싱크가 없으면 이벤트를 폐기하지 않고 backpressure합니다.
+
+Shadow dwell은 루프의 마지막 비활성 장벽입니다. Norns는 shadow 모드 감사 결과를 대상별 dwell 관측으로 보존하며(shadow 결과는 여전히 실제 rollback 비율 학습기에 섞이지 않습니다) 산출된 자기 검증 근거를 게시하는 후보에 첨부합니다. Mimir는 그 이벤트 근거에서 판정을 다시 유도하고, 근거가 없거나 일관되지 않거나 대상이 다르거나 임계 미달인 후보의 승격을 거부합니다. 정책 위반 탈출 0건 기준은 설정 항목이 아닙니다. 이는 두 에이전트 어느 쪽에도 권한을 부여하지 않으며, 카탈로그는 여전히 머지된 catalog-as-code PR로만 바뀐니다. [자율 규칙 발견](../rules-and-detection/rule-catalog-autonomous-discovery-ko.md#shadow-dwell-근거상류-구현)을 참고하세요.
 ## 4. 에이전트 카탈로그
 > **머신 판독용 원본 (single 정본)**: `PANTHEON_SPECS`
 > ([`services/core-control-plane/src/fdai/agents/_framework/pantheon.py`](../../../services/core-control-plane/src/fdai/agents/_framework/pantheon.py)).
@@ -193,7 +196,7 @@ operations / 인터페이스), `3` = 거버넌스 staff.
 | Saga | Auditor | 3 | AuditEntry, Issue | append_audit (누락 추적 정규화), escalate_to_github_issue | no |
 | Mimir | Rule 담당자 | 3 | Rule, Policy, RuleGenerationBuildRequest, RuleGenerationBuildResult | promote_rule, revoke_rule, build_rule_generation | no |
 | Muninn | Memory | 3 | StateSnapshot, ContextIndex | index_state, snapshot_state, seal_case_history | no |
-| Norns | Learner | 3 | RuleCandidate, PatternObservation | propose_rule_candidate, analyze_case_history, close_issue | yes (off-path 배치 만) |
+| Norns | Learner | 3 | RuleCandidate, Pattern | propose_rule_candidate, analyze_case_history, close_issue | yes (off-path 배치 만) |
 | Njord | 비용 | 1 | CostAnomaly, Budget | propose_cost_action | no |
 | Freyr | 용량 | 1 | CapacityForecast, SizingRecommendation | propose_capacity_action | no |
 | Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedule_experiment | no |
@@ -362,7 +365,7 @@ properties:
   name: string                     # "Odin", "Thor", ...
   layer: enum                      # domain | pipeline | governance
   reports_to: Agent?               # 조직도 edge
-  owns: [ObjectType]               # write 권한 (single-writer)
+  owns: [ObjectType]               # 버스 single-writer; publishes가 여기서 파생
   executes: [ActionType]           # action-ontology.md 참조
   initiates: [ActionType]          # propose 가능 (§7.1)
   subscribes: [Topic]              # typed-port 구독
@@ -375,9 +378,15 @@ properties:
     proposals_per_hour: int
 ```
 
-더 넓은 온톨로지의 모든 `object_type` 선언은 정확히 하나의 `Agent` 를
-가리키는 `owner_agent` 필드를 얻는다. 생산자 principal 은 스키마 레지스트리
-가 검증한다: 소유자 만 publish 가능하다.
+더 넓은 온톨로지의 `object_type` 선언은 선택적인 `lifecycle` 블록을 가질 수 있고,
+그 `owner`가 정확히 하나의 `Agent`를 가리킵니다. 이 필드가 온톨로지 의미 쓰기
+레지스트리이며, 그래프에서 누가 해당 타입의 인스턴스를 생성하고 종료할 수 있는지를
+말합니다. 이는 4절의 이벤트 버스 레지스트리와 별개입니다. 4절의 `owns`는 누가
+`object.<type>`을 publish할 수 있는지를 말합니다. 어떤 타입은 한쪽에만, 양쪽 모두에,
+또는 어느 쪽에도 없을 수 있으며, `lifecycle` 블록이 없는 타입은 두 번째 쓰기 권한을
+추가하지 않을 뿐입니다. 현재 에이전트별 목록과 읽는 규칙은
+[운영 온톨로지 - 에이전트 소유권](../architecture/operating-ontology-ko.md#에이전트-소유권)을
+참조하세요.
 
 ## 6. 통신 계약
 

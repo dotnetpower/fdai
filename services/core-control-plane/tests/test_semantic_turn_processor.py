@@ -11,6 +11,7 @@ from types import MappingProxyType, SimpleNamespace
 from typing import Any, cast
 
 import pytest
+from fdai.core.conversation.semantic_planning_models import BoundIncident
 from fdai.core.conversation.semantic_runtime import (
     SemanticTurnResult as RuntimeSemanticTurnResult,
 )
@@ -44,7 +45,11 @@ from fdai_core_service.semantic_turn_consumer import (
 from fdai_core_service.semantic_turn_processor import (
     SemanticTurnProcessor,
     SemanticTurnRejectedError,
+    _incident_next_step_text,
     _typed_extension_answer_output,
+    incident_next_step_actions,
+    incident_profile_facts,
+    incident_timeline_rows,
 )
 from fdai_service_contracts import RuleSearchReceipt, rule_search_query_digest
 from fdai_service_contracts.ontology_query import (
@@ -156,6 +161,7 @@ class _Runtime:
         self.calls = 0
         self.principals: list[Principal] = []
         self.prior_turns: tuple[Turn, ...] = ()
+        self.bound_incidents: list[BoundIncident | None] = []
 
     async def handle(
         self,
@@ -164,11 +170,13 @@ class _Runtime:
         prior_turns: tuple[Turn, ...],
         principal: Principal,
         cancelled: asyncio.Event | None = None,
+        bound_incident: BoundIncident | None = None,
     ) -> RuntimeSemanticTurnResult:
         assert utterance == "Show current operations evidence."
         self.calls += 1
         self.principals.append(principal)
         self.prior_turns = prior_turns
+        self.bound_incidents.append(bound_incident)
         if self.failure is not None:
             raise self.failure
         if self.wait_for_cancel:
@@ -191,10 +199,12 @@ class _ContendedRuntime(_Runtime):
         prior_turns: tuple[Turn, ...],
         principal: Principal,
         cancelled: asyncio.Event | None = None,
+        bound_incident: BoundIncident | None = None,
     ) -> RuntimeSemanticTurnResult:
         self.calls += 1
         self.principals.append(principal)
         self.prior_turns = prior_turns
+        self.bound_incidents.append(bound_incident)
         self.entered.set()
         await self.release.wait()
         return self.result
@@ -487,21 +497,24 @@ def _incident_evidence_runtime_result(
     inject_cause: bool = False,
     empty_evidence: bool = False,
     output_correlation_id: str = "incident-correlation-301",
+    profile_incident_id: str | None = "00000000-0000-0000-0000-000000000301",
+    profile_status: str | None = "triaging",
+    records: int = 1,
+    incident_id: str = "00000000-0000-0000-0000-000000000301",
 ) -> RuntimeSemanticTurnResult:
     result = _runtime_result("answered")
     assert result.execution is not None
-    incident_id = "00000000-0000-0000-0000-000000000301"
     correlation_id = "incident-correlation-301"
     output = {
         "incident_id": incident_id,
         "correlation_id": output_correlation_id,
         "incident_profile": {
             "correlation_id": correlation_id,
-            "incident_id": incident_id,
+            "incident_id": profile_incident_id,
             "ticket_id": None,
             "title": None,
             "severity": "sev2",
-            "status": "triaging",
+            "status": profile_status,
             "vertical": None,
             "opened_at": "2026-08-14T09:00:00Z",
             "last_updated_at": "2026-08-14T09:05:00Z",
@@ -512,15 +525,16 @@ def _incident_evidence_runtime_result(
         },
         "correlated_evidence": [
             {
-                "audit_ref": "audit:1",
+                "audit_ref": f"audit:{index}",
                 "event_id": "00000000-0000-0000-0000-000000000401",
                 "action_kind": "incident.open",
                 "mode": "shadow",
                 "recorded_at": "2026-08-14T09:00:00Z",
             }
+            for index in range(1, records + 1)
         ],
         "evidence_gaps": ["impact_evidence_missing", "grounded_citations_missing"],
-        "evidence_refs": ["audit:1"],
+        "evidence_refs": [f"audit:{index}" for index in range(1, records + 1)],
         "truncated": False,
         "authority": "audit_projection",
         "cause_claim_supported": False,
@@ -1082,7 +1096,10 @@ async def test_incident_evidence_answer_never_claims_cause_and_drafts_only() -> 
     assert "Root cause isn't available" in answer
     assert "impact evidence" in answer
     assert "grounded citations" in answer
-    assert "Collect the missing evidence before proposing a change." in answer
+    assert (
+        "Before proposing a change, collect impact evidence for the affected resources, "
+        "and collect grounded citations that link each claim to an audit record." in answer
+    )
     assert "```json" not in answer
     payload = projection["payload"]
     technical_details = payload["technical_details"]
@@ -1149,6 +1166,100 @@ async def test_incident_evidence_with_mismatched_correlation_is_held() -> None:
     encoded = await _processor(
         _Runtime(
             _incident_evidence_runtime_result(output_correlation_id="incident-correlation-other")
+        )
+    ).process(_request())
+
+    semantic = _projection(encoded)["semantic_result"]
+    assert semantic["disposition"] == "held"
+    assert semantic["reason_code"] == "semantic_evidence_incomplete"
+
+
+async def test_incident_evidence_answers_when_the_window_omits_the_identity_anchor() -> None:
+    encoded = await _processor(
+        _Runtime(_incident_evidence_runtime_result(profile_incident_id=None))
+    ).process(_request())
+
+    semantic = _projection(encoded)["semantic_result"]
+    assert semantic["disposition"] == "answered"
+
+
+async def test_incident_answer_separates_an_unrecorded_status_from_a_missing_profile() -> None:
+    result = _incident_evidence_runtime_result(profile_status=None)
+    encoded = await _processor(_Runtime(result)).process(_request())
+
+    answer = _projection(encoded)["semantic_result"]["answer"]
+    assert "The audit records read for this incident record no status." in answer
+    assert "the incident profile is missing" not in answer
+
+
+async def test_incident_bound_turn_accepts_a_case_different_identical_identity() -> None:
+    """A hexadecimal case difference denotes the same incident, not a different one."""
+    canonical = "00000000-0000-0000-0000-0000000003ab"
+    encoded = await _processor(
+        _Runtime(
+            _incident_evidence_runtime_result(
+                incident_id=canonical,
+                profile_incident_id=canonical,
+            )
+        )
+    ).process(
+        _request(
+            bound_context={
+                "kind": "incident",
+                "incident_id": canonical.upper(),
+                "correlation_id": "incident-correlation-301",
+            }
+        )
+    )
+
+    assert _projection(encoded)["semantic_result"]["disposition"] == "answered"
+
+
+async def test_incident_answer_reports_the_verified_total_not_the_displayed_slice() -> None:
+    """Reporting the displayed slice as the verified count understates the evidence."""
+    encoded = await _processor(_Runtime(_incident_evidence_runtime_result(records=31))).process(
+        _request()
+    )
+
+    projection = _projection(encoded)
+    answer = projection["semantic_result"]["answer"]
+    assert "31 correlated audit records were verified." in answer
+    assert "Only the most recent 20 are carried below." in answer
+    output = projection["payload"]["technical_details"]["outputs"][0]
+    assert output["verified_records"] == 31
+    assert len(output["correlated_evidence"]) == 20
+    assert output["display_truncated"] is True
+
+
+async def test_incident_answer_omits_the_truncation_line_when_nothing_is_hidden() -> None:
+    encoded = await _processor(_Runtime(_incident_evidence_runtime_result(records=3))).process(
+        _request()
+    )
+
+    answer = _projection(encoded)["semantic_result"]["answer"]
+    assert "3 correlated audit records were verified." in answer
+    assert "Only the most recent" not in answer
+
+
+async def test_incident_evidence_out_of_order_by_time_is_held() -> None:
+    """The answer names the latest records by slicing the tail, so order is a claim."""
+    result = _incident_evidence_runtime_result(records=3)
+    output = result.execution.results["incident-evidence"].value  # type: ignore[union-attr]
+    output["correlated_evidence"][0]["recorded_at"] = "2026-08-14T23:59:00Z"  # type: ignore[index]
+
+    encoded = await _processor(_Runtime(result)).process(_request())
+
+    semantic = _projection(encoded)["semantic_result"]
+    assert semantic["disposition"] == "held"
+    assert semantic["reason_code"] == "semantic_evidence_incomplete"
+
+
+async def test_incident_evidence_with_a_conflicting_profile_identity_is_held() -> None:
+    encoded = await _processor(
+        _Runtime(
+            _incident_evidence_runtime_result(
+                profile_incident_id="00000000-0000-0000-0000-000000000999"
+            )
         )
     ).process(_request())
 
@@ -1584,3 +1695,107 @@ def test_runtime_binding_is_optional_explicit_and_rejects_partial_transport() ->
     assert binding is not None
     assert binding.available is False
     assert binding.unavailable_reason == "semantic_runtime_unavailable"
+
+
+def test_incident_profile_facts_surface_every_populated_field() -> None:
+    facts = incident_profile_facts(
+        {
+            "title": "Trace propagation gap",
+            "severity": "sev2",
+            "status": "triaging",
+            "vertical": "resilience",
+            "opened_at": "2026-08-14T09:00:00Z",
+            "last_updated_at": "2026-08-14T09:05:00Z",
+            "actors": ["Heimdall", "operator@example.com"],
+            "correlation_id": "incident-correlation-301",
+        },
+        korean=False,
+    )
+
+    assert facts == (
+        ("Title", "Trace propagation gap"),
+        ("Severity", "sev2"),
+        ("Status", "triaging"),
+        ("Vertical", "resilience"),
+        ("First recorded", "2026-08-14T09:00:00Z"),
+        ("Last recorded", "2026-08-14T09:05:00Z"),
+        ("Actors", "Heimdall, operator@example.com"),
+    )
+
+
+def test_incident_profile_facts_omit_absent_fields_without_inventing_values() -> None:
+    assert incident_profile_facts({"status": "open", "severity": None}, korean=False) == (
+        ("Status", "open"),
+    )
+    assert incident_profile_facts({"title": "   "}, korean=False) == ()
+    assert incident_profile_facts(None, korean=False) == ()
+
+
+def test_incident_timeline_keeps_the_most_recent_bounded_records() -> None:
+    evidence = [
+        {
+            "audit_ref": f"audit:{index}",
+            "actor": "Heimdall",
+            "action_kind": "incident.transition",
+            "mode": "shadow",
+            "recorded_at": f"2026-08-14T09:{index:02d}:00Z",
+        }
+        for index in range(14)
+    ]
+
+    rows = incident_timeline_rows(evidence)
+
+    assert len(rows) == 10
+    assert rows[0]["audit_ref"] == "audit:4"
+    assert rows[-1]["audit_ref"] == "audit:13"
+    assert rows[-1]["actor"] == "Heimdall"
+
+
+def test_incident_timeline_skips_records_without_an_audit_anchor() -> None:
+    """An invented anchor would make an unattributable record look cited."""
+    rows = incident_timeline_rows(
+        [
+            {"actor": "Heimdall", "recorded_at": "2026-08-14T09:00:00Z"},
+            {"audit_ref": "audit:2", "recorded_at": "2026-08-14T09:05:00Z"},
+        ]
+    )
+
+    assert len(rows) == 1
+    assert rows[0]["audit_ref"] == "audit:2"
+    assert rows[0]["actor"] == "-"
+
+
+def test_incident_next_step_actions_follow_the_measured_gaps() -> None:
+    assert incident_next_step_actions(["impact_evidence_missing"], korean=False) == (
+        "collect impact evidence for the affected resources",
+    )
+    assert incident_next_step_actions(
+        ["correlated_audit_truncated", "incident_profile_missing"],
+        korean=False,
+    ) == (
+        "confirm an incident record exists for this correlation",
+        "re-run this query with a higher record limit",
+    )
+    assert incident_next_step_actions((), korean=False) == ()
+    assert incident_next_step_actions(["impact_evidence_missing"], korean=True) == (
+        "영향받은 리소스의 영향 근거를 수집하세요",
+    )
+
+
+def test_korean_next_step_reads_as_korean_when_several_steps_apply() -> None:
+    """Chaining polite imperatives with a comma is not a Korean sentence."""
+    text = _incident_next_step_text(
+        ["impact_evidence_missing", "grounded_citations_missing"],
+        korean=True,
+    )
+
+    assert text == (
+        "변경을 제안하기 전에 다음을 수행하세요. "
+        "영향받은 리소스의 영향 근거를 수집하세요. "
+        "각 주장을 감사 기록에 연결하는 근거 인용을 수집하세요."
+    )
+    assert "수집하세요," not in text
+    assert (
+        _incident_next_step_text(["impact_evidence_missing"], korean=True)
+        == "변경을 제안하기 전에 영향받은 리소스의 영향 근거를 수집하세요."
+    )

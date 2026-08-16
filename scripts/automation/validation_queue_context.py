@@ -84,6 +84,15 @@ def validation_environment(paths: QueuePaths) -> dict[str, str]:
     environment.setdefault("RUFF_CACHE_DIR", str(cache_root / "ruff"))
     environment["UV_PROJECT_ENVIRONMENT"] = str(paths.state_root / "venv")
     environment["UV_PYTHON"] = _VALIDATION_PYTHON
+    # A validator woken from a systemd unit inherits the user manager's PATH, which carries no
+    # `uv`, and verify.sh reports a missing tool as a gate failure the bisector then blames on a
+    # commit. Append the environment the queue builds for itself so its gates can always find
+    # their pinned tools; appending keeps the system interpreter ahead of the venv one.
+    environment["PATH"] = os.pathsep.join(
+        part
+        for part in (environment.get("PATH", ""), str(paths.state_root / "venv" / "bin"))
+        if part
+    )
     environment["FDAI_VALIDATION_ACTIVE"] = "1"
     validation_database_url = environment.get("FDAI_VALIDATION_DATABASE_URL", "").strip()
     if not validation_database_url:

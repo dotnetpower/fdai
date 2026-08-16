@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -16,7 +16,8 @@ import {
 
 const BINDING: AssuranceCheckpointBinding = {
   source_revision: "0".repeat(40),
-  configuration_digest: `sha256:${"a".repeat(64)}`,
+  target_origin: "https://console.example.test",
+  evidence_identity_digest: `sha256:${"a".repeat(64)}`,
   workspace_patch_digest: `sha256:${"b".repeat(64)}`,
 };
 const QUESTION_IDS = ["en-aggregation-1", "ko-aggregation-1", "en-inventory-1"];
@@ -55,6 +56,16 @@ describe("parseAssuranceCheckpoint", () => {
     expect(parseAssuranceCheckpoint({ ...checkpoint(), question_ids: [] })).toBeNull();
     expect(parseAssuranceCheckpoint({ ...checkpoint(), results: "all" })).toBeNull();
   });
+
+  it("rejects results the caller does not recognize as complete evidence", () => {
+    const complete = (value: Record<string, unknown>) => typeof value.passed === "boolean";
+
+    expect(parseAssuranceCheckpoint(checkpoint(), complete)).not.toBeNull();
+    expect(parseAssuranceCheckpoint(
+      buildAssuranceCheckpoint(BINDING, QUESTION_IDS, [{ question_id: "en-aggregation-1" }]),
+      complete,
+    )).toBeNull();
+  });
 });
 
 describe("resumableResults", () => {
@@ -65,7 +76,14 @@ describe("resumableResults", () => {
 
   it("discards a checkpoint from a different source revision or workspace", () => {
     const expected = { binding: BINDING, questionIds: QUESTION_IDS };
-    for (const field of ["source_revision", "configuration_digest", "workspace_patch_digest"] as const) {
+    for (
+      const field of [
+        "source_revision",
+        "target_origin",
+        "evidence_identity_digest",
+        "workspace_patch_digest",
+      ] as const
+    ) {
       const drifted = buildAssuranceCheckpoint(
         { ...BINDING, [field]: `${BINDING[field]}-changed` },
         QUESTION_IDS,
@@ -119,5 +137,28 @@ describe("checkpoint persistence", () => {
 
     expect(await readAssuranceCheckpoint(missing)).toBeNull();
     expect(await readAssuranceCheckpoint(torn)).toBeNull();
+  });
+
+  it("applies the caller predicate on the file path, not only in the pure parser", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "fdai-assurance-"));
+    const path = join(directory, "checkpoint.json");
+    await writeAssuranceCheckpoint(path, checkpoint());
+
+    expect(await readAssuranceCheckpoint(path, () => true)).not.toBeNull();
+    expect(await readAssuranceCheckpoint(path, () => false)).toBeNull();
+  });
+  it("surfaces a read fault instead of silently restarting a cohort", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "fdai-assurance-"));
+
+    await expect(readAssuranceCheckpoint(directory)).rejects.toThrow();
+  });
+
+  it("leaves no partial file behind when the atomic write fails", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "fdai-assurance-"));
+    // A directory at the destination makes the rename fail after the partial write succeeded.
+    await writeFile(join(directory, "placeholder"), "", "utf8");
+
+    await expect(writeAssuranceCheckpoint(directory, checkpoint())).rejects.toThrow();
+    await expect(access(`${directory}.${process.pid}.partial`)).rejects.toThrow();
   });
 });

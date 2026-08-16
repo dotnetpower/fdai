@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import cast
 
 import pytest
@@ -9,13 +10,22 @@ from fdai.core.operational_planning.hypothesis_lineage import (
     OperationalHypothesisLineage,
     OperationalHypothesisLineageProjector,
 )
+from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
+from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.ontology_instance import (
     OntologyInstanceStore,
+    OntologyInstanceValidationError,
     OntologyLinkRecord,
     OntologyObjectRecord,
 )
+from fdai.shared.providers.testing import InMemoryOntologyInstanceStore
 
+REPO_ROOT = Path(__file__).resolve().parents[5]
 _NOW = datetime(2026, 8, 12, tzinfo=UTC)
+_LINEAGE_OBJECT_TYPES = frozenset(
+    {"DecisionCase", "ActionOption", "ExpectedEffect", "ActionRun", "ObservedOutcome"}
+)
+_LINEAGE_LINK_TYPES = frozenset({"considers", "expects", "executed_as", "resulted_in"})
 _ProjectionCall = tuple[tuple[OntologyObjectRecord, ...], tuple[OntologyLinkRecord, ...]]
 
 
@@ -162,3 +172,61 @@ def test_rejects_missing_no_action_baseline() -> None:
             action_run=lineage.action_run,
             observed_outcome=lineage.observed_outcome,
         )
+
+
+def _shipped_lineage_store() -> InMemoryOntologyInstanceStore:
+    catalog = load_ontology_catalog(
+        REPO_ROOT / "rule-catalog",
+        schema_registry=PackageResourceSchemaRegistry(),
+        probes_root=REPO_ROOT / "rule-catalog" / "probes",
+    )
+    object_types = tuple(
+        item for item in catalog.object_types if item.name in _LINEAGE_OBJECT_TYPES
+    )
+    link_types = tuple(item for item in catalog.link_types if item.name in _LINEAGE_LINK_TYPES)
+    assert {item.name for item in object_types} == _LINEAGE_OBJECT_TYPES
+    assert {item.name for item in link_types} == _LINEAGE_LINK_TYPES
+    return InMemoryOntologyInstanceStore(object_types=object_types, link_types=link_types)
+
+
+async def test_shipped_catalog_accepts_and_traverses_one_lineage() -> None:
+    """The four declared segments validate and traverse against the shipped catalog.
+
+    The projector's other tests use a fake store, so nothing proved that a
+    lineage satisfies its declared ObjectType schemas and link endpoints.
+    """
+    store = _shipped_lineage_store()
+    lineage = _lineage()
+
+    async with asyncio.timeout(10.0):
+        await OperationalHypothesisLineageProjector(store=store).project(lineage)
+        snapshot = await store.traverse(
+            root_ids=(lineage.decision_case.id,),
+            link_types=tuple(sorted(_LINEAGE_LINK_TYPES)),
+            max_depth=3,
+        )
+
+    assert {item.id for item in snapshot.objects} == {item.id for item in lineage.objects}
+    assert {(item.link_type, item.from_id, item.to_id) for item in snapshot.links} == {
+        (item.link_type, item.from_id, item.to_id) for item in lineage.links
+    }
+
+
+async def test_shipped_catalog_rejects_a_lineage_missing_a_required_property() -> None:
+    """A fabricated record without its declared properties MUST NOT reach the graph."""
+    store = _shipped_lineage_store()
+    lineage = _lineage()
+    incomplete = OntologyObjectRecord(
+        lineage.observed_outcome.id,
+        lineage.observed_outcome.object_type,
+        {
+            key: value
+            for key, value in lineage.observed_outcome.properties.items()
+            if key != "observed_at"
+        },
+    )
+
+    async with asyncio.timeout(10.0):
+        with pytest.raises(OntologyInstanceValidationError):
+            await store.replace_subgraph(objects=(incomplete,), links=())
+        assert await store.get_object(incomplete.id) is None

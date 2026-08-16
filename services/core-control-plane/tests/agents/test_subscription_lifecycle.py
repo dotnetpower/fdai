@@ -88,3 +88,64 @@ async def test_pantheon_bridge_closes_subscription_on_stop() -> None:
 
     assert bus.opened >= 1
     assert bus.closed == bus.opened
+
+
+class _FailingTeardownBus(InMemoryEventBus):
+    """In-memory bus whose subscription teardown fails like a wedged broker."""
+
+    def subscribe(self, topic: str, group_id: str) -> AsyncIterator[EventEnvelope]:
+        async def _failing() -> AsyncIterator[EventEnvelope]:
+            try:
+                while True:
+                    yield EventEnvelope(topic=topic, key="k", payload={}, offset=0)
+            finally:
+                raise RuntimeError("broker teardown failed")
+
+        return _failing()
+
+
+async def test_teardown_failure_keeps_a_cancelled_consumer_cancelled(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Supervisors branch on Task.cancelled(); a failed broker leave must not flip it."""
+    bus = _FailingTeardownBus()
+    caplog.set_level("WARNING", logger="fdai.shared.providers.event_bus")
+    working = asyncio.Event()
+
+    async def consume() -> None:
+        async with subscription(bus, "fdai.events", "group") as stream:
+            async for _envelope in stream:
+                working.set()
+                await asyncio.Event().wait()
+
+    task = asyncio.create_task(consume())
+    await working.wait()
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+
+    assert task.cancelled()
+    assert "event_bus_subscription_close_failed" in caplog.messages
+
+
+async def test_teardown_failure_does_not_mask_the_consumer_error(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The consumer's own failure is the diagnosis; teardown is only recorded."""
+    bus = _FailingTeardownBus()
+    caplog.set_level("WARNING", logger="fdai.shared.providers.event_bus")
+
+    with pytest.raises(ValueError, match="handler exploded"):
+        async with subscription(bus, "fdai.events", "group") as stream:
+            async for _envelope in stream:
+                raise ValueError("handler exploded")
+
+    assert "event_bus_subscription_close_failed" in caplog.messages
+
+
+async def test_teardown_failure_after_a_clean_exit_still_surfaces() -> None:
+    """Nothing is in flight, so the caller must still learn the teardown failed."""
+    bus = _FailingTeardownBus()
+
+    with pytest.raises(RuntimeError, match="broker teardown failed"):
+        async with subscription(bus, "fdai.events", "group") as stream:
+            await anext(stream)

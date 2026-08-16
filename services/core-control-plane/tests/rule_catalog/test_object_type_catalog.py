@@ -14,6 +14,7 @@ import inspect
 from pathlib import Path
 
 import pytest
+from fdai.agents import PANTHEON_NAMES
 from fdai.agents.saga import compute_fingerprint
 from fdai.rule_catalog.schema.object_type import (
     ObjectTypeCatalogError,
@@ -116,11 +117,13 @@ def test_shipped_object_types_load() -> None:
         "Environment",
         "ExpectedEffect",
         "Experiment",
+        "Forecast",
         "ImpactEnvelope",
         "Incident",
         "Observation",
         "ObservedOutcome",
         "Ownership",
+        "Pattern",
         "RecoveryObjective",
         "RecoveryPlan",
         "ServiceObjective",
@@ -266,3 +269,55 @@ def test_top_level_must_be_a_mapping(tmp_path: Path) -> None:
         load_object_type_catalog(tmp_path, schema_registry=_registry())
     joined = " ".join(i.message for i in info.value.issues).lower()
     assert "top-level must be a mapping" in joined
+
+
+_OWNERSHIP_DOCS = (
+    (
+        REPO_ROOT / "docs" / "roadmap" / "architecture" / "operating-ontology.md",
+        "| Agent | ObjectTypes owned through `lifecycle.owner` |",
+    ),
+    (
+        REPO_ROOT / "docs" / "roadmap" / "architecture" / "operating-ontology-ko.md",
+        "| 에이전트 | `lifecycle.owner` 로 소유하는 ObjectType |",
+    ),
+)
+
+
+def _documented_owners(doc_path: Path, header: str) -> dict[str, tuple[str, ...]]:
+    """Parse the semantic-write ownership table out of an ontology doc."""
+    lines = doc_path.read_text(encoding="utf-8").splitlines()
+    try:
+        start = lines.index(header)
+    except ValueError:  # pragma: no cover - assertion below reports it
+        return {}
+    owners: dict[str, tuple[str, ...]] = {}
+    for line in lines[start + 2 :]:
+        if not line.startswith("|"):
+            break
+        agent, declared = (cell.strip() for cell in line.strip().strip("|").split("|"))
+        types = tuple(
+            sorted(item.strip().strip("`") for item in declared.split(",") if "`" in item)
+        )
+        owners[agent] = types
+    return owners
+
+
+def test_documented_semantic_write_owners_match_the_catalog() -> None:
+    """The ontology docs' ownership table MUST equal shipped `lifecycle.owner`.
+
+    `AgentSpec.owns` is the event-bus registry and cannot carry a graph-only
+    ObjectType, so this table is the only checkable statement of who may write
+    an ObjectType into the graph.
+    """
+    catalog = load_object_type_catalog(CATALOG_ROOT, schema_registry=_registry())
+    expected: dict[str, tuple[str, ...]] = {name: () for name in PANTHEON_NAMES}
+    for object_type in catalog:
+        if object_type.lifecycle is None:
+            continue
+        owner = object_type.lifecycle.owner.value
+        expected[owner] = tuple(sorted((*expected[owner], object_type.name)))
+
+    for doc_path, header in _OWNERSHIP_DOCS:
+        documented = _documented_owners(doc_path, header)
+        assert documented, f"{doc_path.relative_to(REPO_ROOT)} has no ownership table"
+        assert documented == expected, doc_path.relative_to(REPO_ROOT)

@@ -191,3 +191,32 @@ def test_symmetric_peering_has_independent_direction_receipts() -> None:
         if link.observation_metadata is not None
     }
     assert len(receipts) == 2
+
+
+def test_repeated_identical_resource_observation_does_not_break_verification() -> None:
+    result = _verify(
+        resources=(
+            _resource("nic-1", "network.interface"),
+            _resource("vm-1", "compute.vm"),
+            replace(_resource("vm-1", "compute.vm"), last_seen="2026-08-12T11:59:30Z"),
+        ),
+    )
+
+    assert result.dropped == ()
+    assert len(result.links) == 1
+    metadata = result.links[0].observation_metadata
+    assert metadata is not None
+    assert metadata.state_fact.effective_at == datetime(2026, 8, 12, 11, 59, tzinfo=UTC)
+
+
+def test_contested_endpoint_observation_is_never_certified_as_verified() -> None:
+    result = _verify(
+        resources=(
+            _resource("nic-1", "network.interface"),
+            _resource("vm-1", "compute.vm"),
+            replace(_resource("vm-1", "compute.vm"), props={"status": "deallocated"}),
+        ),
+    )
+
+    assert result.links == ()
+    assert [item.reason for item in result.dropped] == [RelationshipDropReason.UNVERIFIED_METADATA]

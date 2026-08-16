@@ -80,9 +80,13 @@ file digest alone does not establish cross-format equivalence.
   multiple scopes. It allows one active version per scope. Active and replay-pinned sources are
   selected by server composition, never by conversational input, and the registry exposes no
   mutation API.
-- `delivery/azure/configuration_drift.py` applies the resource-group filter inside the Azure
-  Resource Graph query. It removes full provider resource ids before producing evidence and emits
-  deterministic resource-group `contains` links from the configured scope to neutral resource keys.
+- The shipped observation source is `delivery/configuration_drift.py`, whose
+  `JsonFileConfigurationObservationSource` reads one bounded scope-pinned JSON document for
+  development and evidence replay. A live Azure Resource Graph observation adapter is not
+  implemented, so a current-state drift answer is only as current as the supplied document. The
+  resource-group `contains` link and provider-id redaction helpers described here exist in
+  `delivery/azure/arg_projection.py` and today serve the inventory and discovery adapters, not the
+  drift path.
 - Knowledge retrieval explains and cites the reviewed document. It does not decide the drift. If
   Knowledge is unavailable, the deterministic report remains valid and the citation status stays
   blocked rather than being reported as supported. Each citation identity includes the exact
@@ -165,7 +169,7 @@ performance, reliability, security, and cost.
   in shadow and emits no finding) rather than firing on a thin baseline; the cold-start
   suppression is counted as a metric, not hidden.
 - **Categories**: findings normalize to the canonical `category` enum
-  (`security | reliability | cost | config-drift`) shared with the rule catalog - performance
+  (`security | reliability | cost | config_drift | compliance`) shared with the rule catalog - performance
   signals (latency/error-rate/saturation) and replication lag map to `reliability`, unusual
   access patterns to `security`, spend run-rate to `cost`. Severity derives from deviation
   magnitude.
@@ -491,7 +495,7 @@ Make RCA a first-class output of the tiers instead of an implicit side effect.
 - **Read-only console surface**: the shadow `rca.hypothesis` audit entries
   are projected into a first-class **History > RCA** operator-console panel
   (`GET /rca?correlation=<id>`, pure projection in
-  `delivery/operator_api/routes/rca_projection.py`). Given an incident
+  `services/operator-service/src/fdai_operator_service/rca_projection.py`). Given an incident
   `correlation_id` it renders the tiered hypotheses, their citations, the
   structured T1 causal chain when recorded,
   grounding state (an abstained hypothesis shows as "insufficient grounding
@@ -568,8 +572,16 @@ What we adopt from the general AIOps model, and where we intentionally differ:
 ### Runtime delivery status
 
 The scheduler delivery path publishes canonical, idempotent Events to the configured Event Hubs
-ingest topic. The analyzer Terraform job still invokes `fdai.delivery.analyzer_tick_cli`, which is
-absent from the current source tree, so the analyzer path isn't a runnable delivery claim. These
+ingest topic. The analyzer Terraform job invokes `fdai.delivery.analyzer_tick_cli`, which resolves
+its targets from the configured list plus the durable inventory projection, runs the reference
+analyzers against the composed `MetricProvider`, and
+publishes one canonical Event per finding with a key derived from the resource, the signal, and the
+tick window. Inventory-backed resolution is read-only and fail-closed: a resource type without a
+reviewed analyzer mapping is skipped, an observed state fact that is stale, conflicting, partial, or
+synthetic is skipped with a stable reason, and an unreadable projection raises instead of degrading
+to the configured list alone, so the Job retries rather than silently narrowing coverage. A resource
+projected without a state fact carries identity and type only, which is what target selection needs,
+so it stays eligible. Discovered targets are bounded and deterministically ordered. These
 jobs don't execute changes; findings and due tasks re-enter the shared trust router and safety
 check. Publish failure keeps a scheduled item retryable and returns a non-zero job result.
 
@@ -596,7 +608,9 @@ to the core runtime.
 | Anomaly and composite detection | implemented | `services/core-control-plane/src/fdai/core/detection/anomaly.py`; `seasonal.py`; `composite.py`; focused `tests/core/detection/test_*.py` | Cold start, flat baselines, quorum, duplicate collapse, and explainable scores fail closed. |
 | Forecasting and outcome closure | implemented | `services/core-control-plane/src/fdai/core/detection/forecast.py`; `forecast_outcome.py`; `forecast_closure.py`; focused forecast tests | Prediction, censoring, and closure contracts are implemented. Promotion still requires measured deployment evidence. |
 | Configuration drift | implemented | `services/core-control-plane/src/fdai/core/detection/configuration_drift.py`; `configuration_drift_service.py`; focused configuration-drift tests | Frozen baselines, deterministic comparison, review, and reporting remain evidence-only. |
-| Scheduled analyzer delivery | in-progress | `infra/modules/compute/container-apps/analyzer_tick_job.tf`; current change source audit | Provider routing exists, but the configured `fdai.delivery.analyzer_tick_cli` entry point is absent. |
+| Live configuration observation | not-started | `services/core-control-plane/src/fdai/delivery/configuration_drift.py` ships only `JsonFileConfigurationObservationSource`; no adapter exists under `delivery/azure/` | The `ConfigurationObservationSource` seam is defined and bound in composition, but `bind_configuration_drift` is called only from tests, never from runtime bootstrap. Drift cannot answer a current-state question about live Azure until an adapter exists. |
+| Scheduled analyzer delivery | implemented | `services/core-control-plane/src/fdai/delivery/analyzer_tick.py`; `analyzer_tick_cli.py`; `infra/modules/compute/container-apps/analyzer_tick_job.tf`; `services/core-control-plane/tests/delivery/test_analyzer_tick.py` | The configured entry point exists and publishes one canonical, window-keyed Event per finding. A publish failure is reported and exits non-zero so the Job retries. Deployed-runtime evidence is still outstanding. |
+| Inventory-backed target resolution | implemented | `services/core-control-plane/src/fdai/delivery/analyzer_targets.py`; `services/core-control-plane/src/fdai/core/investigation/analyzers.py`; `services/core-control-plane/tests/delivery/test_analyzer_targets.py`; `tests/integration/infra/test_detection_readiness.py` | One tick analyzes the configured targets plus every eligible `Resource` in the durable inventory projection. Unmapped types, unusable or stale observed state facts, and a failed projection read all fail closed. Deployed-runtime evidence is still outstanding. |
 | Governed operational accuracy | in-progress | [Runtime delivery status](#runtime-delivery-status); [Open decisions](#open-decisions) | Runtime precision, recall, interval coverage, lead time, and false-positive evidence remain deployment work. |
 
 ### Implementation history
@@ -604,11 +618,19 @@ to the core runtime.
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and corrected the analyzer delivery claim to match the current tree. | `current change`; current source and focused tests listed in the scope table. | Restore analyzer delivery and retain governed accuracy evidence. |
+| 2026-08-15 | implemented | Added the analyzer tick runner and the `fdai.delivery.analyzer_tick_cli` entry point the Terraform job configures, publishing one canonical window-keyed Event per finding with reported publish failures. | `current change`; `services/core-control-plane/src/fdai/delivery/analyzer_tick.py`; `pytest services/core-control-plane/tests/delivery/test_analyzer_tick.py` (10 passed). | Retain deployed accuracy evidence; target resolution is the configured list only. |
+| 2026-08-16 | not-started | Corrected three claims this document made about code that does not exist as described. The frozen-baseline bullet named `delivery/azure/configuration_drift.py` and an Azure Resource Graph query; no such module exists and the only shipped observation source is file-backed. Live configuration observation is now a separate `not-started` scope row rather than being implied by the `implemented` drift row. | `current change`; `find services -name "configuration_drift*.py"` returns only `core/detection/*` and `delivery/configuration_drift.py`, whose module docstring reads "File-backed baseline sources"; `grep -rn bind_configuration_drift` shows runtime bootstrap never calls it. | Build the Azure observation adapter, or record a decision that drift stays evidence-replay-only. |
+| 2026-08-16 | not-applicable | Repointed two stale references: the RCA projection moved to `services/operator-service/src/fdai_operator_service/rca_projection.py`, and the shared category list omitted `compliance` and used a hyphen where `Category` uses `config_drift`. | `current change`; `find services -name "rca_projection*.py"`; `services/core-control-plane/src/fdai/shared/contracts/models/enums.py` `Category` has five members. | None; both are now exact. |
+| 2026-08-16 | implemented | Resolved analyzer-tick targets from the durable inventory projection in addition to the configured list. A reviewed neutral resource-type map selects the analyzer kind, configured targets keep priority, discovered targets are bounded and deterministically ordered, and unmapped types, unusable or stale observed state facts, and a failed projection read fail closed instead of narrowing coverage silently. | `current change`; `services/core-control-plane/src/fdai/delivery/analyzer_targets.py`; `pytest services/core-control-plane/tests/delivery/test_analyzer_targets.py services/core-control-plane/tests/delivery/test_analyzer_tick.py` (24 passed); strict mypy and Ruff passed the changed files. | Record deployed-runtime evidence that an inventory-discovered resource joins a live tick. |
+| 2026-08-16 | implemented | Hardened inventory-backed resolution after review. The discovered bound now stops one row below the durable store's own query limit so the documented maximum cannot raise inside the projection read, `FDAI_ANALYZER_MAX_DISCOVERED_TARGETS` is rejected at parse time with the environment key named, a state fact whose evidence cutoff is not timezone-aware is skipped as unusable instead of raising, truncation is reported only when a target was actually withheld, and the deployed job binds the `FDAI_INVENTORY_DSN` key the CLI reads. Determinism is now claimed only for an untruncated projection. | `current change`; `services/core-control-plane/src/fdai/delivery/analyzer_targets.py`; `pytest services/core-control-plane/tests/delivery/test_analyzer_targets.py services/core-control-plane/tests/delivery/test_analyzer_tick.py services/core-control-plane/tests/delivery/test_analyzer_tick_routed.py` (30 passed); `pytest tests/integration/infra/test_detection_readiness.py` (3 passed). | Record deployed-runtime evidence that an inventory-discovered resource joins a live tick. |
 
 ### Remaining work
 
-- [ ] Add the missing analyzer entry point or retarget the Terraform job to a tested service command, then prove canonical Event publication and retry behavior.
+- [x] The analyzer entry point the Terraform job configures exists, publishes canonical window-keyed Events, and reports publish failures with a non-zero result, proven by `services/core-control-plane/tests/delivery/test_analyzer_tick.py`.
+- [x] Analyzer targets resolve from the configured list plus the durable inventory projection through a reviewed neutral resource-type map, and unmapped types, unusable or stale observed state facts, and a failed projection read fail closed, proven by `services/core-control-plane/tests/delivery/test_analyzer_targets.py`.
+- [ ] Implement a live `ConfigurationObservationSource` for Azure and bind it from runtime bootstrap, evidenced by a focused adapter test and a bootstrap binding test; until then the `Live configuration observation` scope row stays `not-started` and a drift answer is only as current as the supplied document.
 - [ ] Record deployment evidence for detector precision, recall, missed breaches, interval coverage, forecast lead time, and abstention rates.
+- [ ] Record deployed-runtime evidence that an inventory-discovered resource joins a live analyzer tick without a deployment edit, and retain the resulting tick report.
 - [ ] Resolve the signal-class methods, baseline history, and promotion thresholds in [Open decisions](#open-decisions) and encode them in governed configuration.
 
 ## Open Decisions

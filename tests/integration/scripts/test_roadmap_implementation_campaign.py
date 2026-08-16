@@ -25,8 +25,12 @@ def _load() -> ModuleType:
 def test_choose_folder_requires_a_complete_batch() -> None:
     module = _load()
     grouped = {
-        "interfaces": [f"docs/roadmap/interfaces/doc-{index}.md" for index in range(10)],
-        "operations": [f"docs/roadmap/operations/doc-{index}.md" for index in range(9)],
+        "interfaces": [
+            f"docs/roadmap/interfaces/doc-{index}.md" for index in range(module.BATCH_SIZE)
+        ],
+        "operations": [
+            f"docs/roadmap/operations/doc-{index}.md" for index in range(module.BATCH_SIZE - 1)
+        ],
     }
 
     selected = module.choose_folder(grouped, chooser=lambda folders: folders[0])
@@ -63,7 +67,9 @@ def test_campaign_relation_fails_closed_on_divergence(
 
 def test_campaign_prompt_requires_exact_batch_and_hardening_floor() -> None:
     module = _load()
-    candidates = [f"docs/roadmap/interfaces/doc-{index}.md" for index in range(12)]
+    candidates = [
+        f"docs/roadmap/interfaces/doc-{index}.md" for index in range(module.BATCH_SIZE + 2)
+    ]
     issue = module.project_board.IssueRecord(
         number=123,
         state="OPEN",
@@ -74,8 +80,10 @@ def test_campaign_prompt_requires_exact_batch_and_hardening_floor() -> None:
 
     prompt = module.campaign_prompt("interfaces", candidates, issue=issue)
 
-    assert "exactly 10 canonical English documents" in prompt
-    assert "at least 10 explicit" in prompt
+    # The prompt must state the same numbers the validator enforces; a copied literal in either
+    # place drifts silently and the agent is judged against a contract it was never given.
+    assert f"exactly {module.BATCH_SIZE} canonical English documents" in prompt
+    assert f"at least {module.MIN_HARDENING_ROUNDS} explicit" in prompt
     assert "remaining verified severity is Low or none" in prompt
     assert "issue #123" in prompt
     assert "Complete the interface work" in prompt
@@ -133,7 +141,7 @@ def test_validate_completed_result_enforces_batch_rounds_and_severity(tmp_path: 
     evidence = tmp_path / "tests/test_example.py"
     evidence.parent.mkdir()
     evidence.write_text("def test_example(): pass\n", encoding="utf-8")
-    for index in range(10):
+    for index in range(module.BATCH_SIZE):
         relative = f"docs/roadmap/interfaces/doc-{index}.md"
         candidates.append(relative)
         path = tmp_path / relative
@@ -144,9 +152,9 @@ def test_validate_completed_result_enforces_batch_rounds_and_severity(tmp_path: 
         "issue": 123,
         "folder": "interfaces",
         "documents": candidates,
-        "hardening_rounds": 10,
+        "hardening_rounds": module.MIN_HARDENING_ROUNDS,
         "remaining_max_severity": "low",
-        "summary": "Implemented and hardened ten bounded items.",
+        "summary": "Implemented and hardened the bounded items.",
         "evidence_paths": ["tests/test_example.py"],
         "tests": ["pytest tests/test_example.py: passed"],
     }
@@ -160,9 +168,9 @@ def test_validate_completed_result_enforces_batch_rounds_and_severity(tmp_path: 
     )
 
     assert result["documents"] == candidates
-    with pytest.raises(RuntimeError, match="at least ten hardening rounds"):
+    with pytest.raises(RuntimeError, match="hardening rounds"):
         module.validate_result(
-            {**payload, "hardening_rounds": 9},
+            {**payload, "hardening_rounds": module.MIN_HARDENING_ROUNDS - 1},
             repo_root=tmp_path,
             issue_number=123,
             folder="interfaces",
@@ -217,3 +225,439 @@ def test_installer_discovers_issues_and_repeats_persistently(tmp_path: Path) -> 
     assert "OnUnitInactiveSec=5min" in timer
     assert "Persistent=true" in timer
     assert "TimeoutStartSec=2h" in service
+
+
+def test_refusal_memo_expires_and_fails_open(tmp_path: Path) -> None:
+    module = _load()
+
+    module.record_refusal(tmp_path, 63, "deployment", now=1_000.0)
+    module.record_refusal(tmp_path, 63, "architecture", now=1_000.0)
+
+    assert module.refused_folders(tmp_path, 63, now=1_000.0) == frozenset(
+        {"deployment", "architecture"}
+    )
+    # Another issue must not inherit this issue's refusals.
+    assert module.refused_folders(tmp_path, 64, now=1_000.0) == frozenset()
+    # A refusal is a hint with an expiry, not a permanent exclusion.
+    assert (
+        module.refused_folders(tmp_path, 63, now=1_000.0 + module.REFUSAL_TTL_SECONDS + 1)
+        == frozenset()
+    )
+
+
+def test_refusal_memo_survives_a_corrupt_state_file(tmp_path: Path) -> None:
+    module = _load()
+
+    (tmp_path / module.REFUSAL_FILE).write_text("not json", encoding="utf-8")
+
+    assert module.refused_folders(tmp_path, 63, now=1_000.0) == frozenset()
+    module.record_refusal(tmp_path, 63, "deployment", now=1_000.0)
+    assert module.refused_folders(tmp_path, 63, now=1_000.0) == frozenset({"deployment"})
+
+
+def _git_binary() -> str:
+    import shutil
+
+    resolved = shutil.which("git")
+    assert resolved is not None, "git is required for these tests"
+    return resolved
+
+
+def _init_repo(path: Path) -> None:
+    import subprocess
+
+    def run(*args: str) -> None:
+        subprocess.run(  # noqa: S603 - fixed git commands on a temporary repo
+            [_git_binary(), *args],
+            cwd=path,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+    path.mkdir(parents=True, exist_ok=True)
+    run("init", "-q", "-b", "main")
+    run("config", "user.email", "t@example.com")
+    run("config", "user.name", "T")
+    (path / "seed.txt").write_text("seed\n", encoding="utf-8")
+    run("add", "seed.txt")
+    run("commit", "-qm", "seed")
+
+
+def test_a_real_merge_lands_the_batch_beside_an_unstaged_edit(tmp_path: Path, monkeypatch) -> None:
+    import subprocess
+
+    module = _load()
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+
+    def run(*args: str, cwd: Path = repo) -> str:
+        return subprocess.run(  # noqa: S603 - fixed git commands on a temporary repo
+            [_git_binary(), *args], cwd=cwd, check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    branch = tmp_path / "campaign"
+    run("worktree", "add", "-q", "-b", "roadmap-implementation/campaign", str(branch))
+    (branch / "batch.txt").write_text("batch\n", encoding="utf-8")
+    run("add", "batch.txt", cwd=branch)
+    run("commit", "-qm", "campaign batch", cwd=branch)
+    landed_commit = run("rev-parse", "HEAD", cwd=branch)
+
+    # Somebody is editing an unrelated file in the checkout that holds main.
+    (repo / "seed.txt").write_text("edited by another session\n", encoding="utf-8")
+
+    monkeypatch.setattr(module, "_validation_receipt_exists", lambda _r, rev: rev == landed_commit)
+    monkeypatch.setattr(module, "_register_committed_work", lambda *_a: None)
+
+    assert module._land_validated_batch(branch) == f"landed {landed_commit[:12]} on main"
+    assert run("rev-list", "--count", "--merges", "main") == "1"
+    assert (repo / "batch.txt").read_text(encoding="utf-8") == "batch\n"
+    # The other session's edit survives the merge untouched.
+    assert (repo / "seed.txt").read_text(encoding="utf-8") == "edited by another session\n"
+
+
+def test_a_real_merge_refuses_while_the_index_is_dirty(tmp_path: Path, monkeypatch) -> None:
+    import subprocess
+
+    module = _load()
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+
+    def run(*args: str, cwd: Path = repo) -> str:
+        return subprocess.run(  # noqa: S603 - fixed git commands on a temporary repo
+            [_git_binary(), *args], cwd=cwd, check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    branch = tmp_path / "campaign"
+    run("worktree", "add", "-q", "-b", "roadmap-implementation/campaign", str(branch))
+    (branch / "batch.txt").write_text("batch\n", encoding="utf-8")
+    run("add", "batch.txt", cwd=branch)
+    run("commit", "-qm", "campaign batch", cwd=branch)
+    landed_commit = run("rev-parse", "HEAD", cwd=branch)
+
+    # Staged, and untouched by the merge. Git still declines the whole operation.
+    (repo / "seed.txt").write_text("staged by another session\n", encoding="utf-8")
+    run("add", "seed.txt")
+
+    monkeypatch.setattr(module, "_validation_receipt_exists", lambda _r, rev: rev == landed_commit)
+    monkeypatch.setattr(module, "_register_committed_work", lambda *_a: None)
+
+    assert module._land_validated_batch(branch) == (
+        f"cannot land {landed_commit[:12]}: staged in the main checkout: seed.txt"
+    )
+    assert run("rev-list", "--count", "--merges", "main") == "0"
+    assert not (repo / "batch.txt").exists()
+
+
+def test_landing_leaves_no_half_merged_main_checkout_in_a_linked_worktree(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """A conflicting land must abort even when main lives in a linked worktree."""
+    import subprocess
+
+    module = _load()
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+
+    def run(*args: str, cwd: Path = repo) -> str:
+        return subprocess.run(  # noqa: S603 - fixed git commands on a temporary repo
+            [_git_binary(), *args], cwd=cwd, check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    # Park main in a linked worktree, exactly what `_main_checkout` is written to find.
+    run("checkout", "-q", "-b", "parking")
+    main_checkout = tmp_path / "main"
+    run("worktree", "add", "-q", str(main_checkout), "main")
+    branch = tmp_path / "campaign"
+    run("worktree", "add", "-q", "-b", "roadmap-implementation/campaign", str(branch), "main")
+
+    (branch / "shared.txt").write_text("campaign side\n", encoding="utf-8")
+    run("add", "shared.txt", cwd=branch)
+    run("commit", "-qm", "campaign batch", cwd=branch)
+    landed_commit = run("rev-parse", "HEAD", cwd=branch)
+
+    # main gains a conflicting version of the same file, committed so the index stays clean.
+    (main_checkout / "shared.txt").write_text("main side\n", encoding="utf-8")
+    run("add", "shared.txt", cwd=main_checkout)
+    run("commit", "-qm", "main side", cwd=main_checkout)
+
+    monkeypatch.setattr(module, "_validation_receipt_exists", lambda _r, rev: rev == landed_commit)
+    monkeypatch.setattr(module, "_register_committed_work", lambda *_a: None)
+
+    outcome = module._land_validated_batch(branch)
+
+    assert outcome is not None and outcome.startswith(f"cannot land {landed_commit[:12]}")
+    assert not module._merge_in_progress(main_checkout)
+    assert run("status", "--porcelain", cwd=main_checkout) == ""
+    assert (main_checkout / "shared.txt").read_text(encoding="utf-8") == "main side\n"
+
+
+def test_landing_refuses_to_disturb_another_sessions_merge(tmp_path: Path, monkeypatch) -> None:
+    """An unconcluded merge in the main checkout is left exactly as its owner left it."""
+    import subprocess
+
+    module = _load()
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+
+    def run(*args: str, cwd: Path = repo, check: bool = True) -> str:
+        return subprocess.run(  # noqa: S603 - fixed git commands on a temporary repo
+            [_git_binary(), *args], cwd=cwd, check=check, capture_output=True, text=True
+        ).stdout.strip()
+
+    branch = tmp_path / "campaign"
+    run("worktree", "add", "-q", "-b", "roadmap-implementation/campaign", str(branch), "main")
+    (branch / "batch.txt").write_text("batch\n", encoding="utf-8")
+    run("add", "batch.txt", cwd=branch)
+    run("commit", "-qm", "campaign batch", cwd=branch)
+    landed_commit = run("rev-parse", "HEAD", cwd=branch)
+
+    # Another session paused a merge whose tree matches main, so the index stays clean and
+    # no other guard notices it.
+    run("checkout", "-q", "-b", "sibling")
+    (repo / "extra.txt").write_text("extra\n", encoding="utf-8")
+    run("add", "extra.txt")
+    run("commit", "-qm", "sibling adds")
+    (repo / "extra.txt").unlink()
+    run("add", "-A")
+    run("commit", "-qm", "sibling reverts")
+    run("checkout", "-q", "main")
+    run("merge", "--no-commit", "--no-ff", "sibling", check=False)
+    assert module._merge_in_progress(repo)
+    assert run("diff", "--name-only", "--cached") == ""
+
+    monkeypatch.setattr(module, "_validation_receipt_exists", lambda _r, rev: rev == landed_commit)
+    monkeypatch.setattr(module, "_register_committed_work", lambda *_a: None)
+
+    assert module._land_validated_batch(branch) == (
+        f"cannot land {landed_commit[:12]}: the main checkout has an unconcluded merge"
+    )
+    assert module._merge_in_progress(repo)
+
+
+def test_sync_absorbs_main_when_the_branch_is_ahead_and_behind(tmp_path: Path, monkeypatch) -> None:
+    import subprocess
+
+    module = _load()
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+
+    def run(*args: str) -> str:
+        return subprocess.run(  # noqa: S603 - fixed git commands on a temporary repo
+            [_git_binary(), *args], cwd=repo, check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    run("checkout", "-qb", "roadmap-implementation/campaign")
+    (repo / "campaign.txt").write_text("batch\n", encoding="utf-8")
+    run("add", "campaign.txt")
+    run("commit", "-qm", "campaign batch")
+    run("checkout", "-q", "main")
+    (repo / "other.txt").write_text("other\n", encoding="utf-8")
+    run("add", "other.txt")
+    run("commit", "-qm", "other work")
+    run("checkout", "-q", "roadmap-implementation/campaign")
+
+    registered: list[str] = []
+    monkeypatch.setattr(
+        module, "_register_committed_work", lambda _root, base: registered.append(base)
+    )
+
+    # Ahead and behind at once used to hold every later run forever.
+    assert module._campaign_relation(ahead=1, behind=1) == "diverged"
+    before = run("rev-parse", "HEAD")
+    assert module._sync_campaign_base(repo) == "current"
+    assert run("rev-list", "--count", "HEAD..main") == "0"
+    assert run("status", "--porcelain") == ""
+    # `git merge` skips the post-commit hook, so the sync merge has to be enqueued by hand.
+    # Without this the branch tip is never validated and a validated batch can never land.
+    assert registered == [before]
+
+
+def test_sync_leaves_no_half_merged_worktree_on_conflict(tmp_path: Path) -> None:
+    import subprocess
+
+    module = _load()
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+
+    def run(*args: str) -> str:
+        return subprocess.run(  # noqa: S603 - fixed git commands on a temporary repo
+            [_git_binary(), *args], cwd=repo, check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    run("checkout", "-qb", "roadmap-implementation/campaign")
+    (repo / "shared.txt").write_text("campaign\n", encoding="utf-8")
+    run("add", "shared.txt")
+    run("commit", "-qm", "campaign edit")
+    run("checkout", "-q", "main")
+    (repo / "shared.txt").write_text("main\n", encoding="utf-8")
+    run("add", "shared.txt")
+    run("commit", "-qm", "main edit")
+    run("checkout", "-q", "roadmap-implementation/campaign")
+
+    assert module._sync_campaign_base(repo) == "sync-failed"
+    # A half-merged tree would make the next run refuse with "campaign worktree is dirty".
+    assert run("status", "--porcelain") == ""
+
+
+def test_failed_batch_still_registers_its_commits(tmp_path: Path, monkeypatch) -> None:
+    module = _load()
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+
+    calls: list[list[str]] = []
+
+    def fake_run(arguments, **kwargs):  # type: ignore[no-untyped-def]
+        calls.append(list(arguments))
+
+        class Result:
+            returncode = 0
+
+        return Result()
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    monkeypatch.setattr(module, "_git", lambda *a, **k: "newhead")
+
+    module._register_committed_work(repo, "oldbase")
+
+    assert ["ensure-range", "oldbase..HEAD"] == calls[0][-2:]
+    assert calls[1][-1] == "wake"
+
+
+def test_unchanged_head_registers_nothing(tmp_path: Path, monkeypatch) -> None:
+    module = _load()
+    calls: list[list[str]] = []
+    monkeypatch.setattr(
+        module.subprocess, "run", lambda arguments, **k: calls.append(list(arguments))
+    )
+    monkeypatch.setattr(module, "_git", lambda *a, **k: "same")
+
+    module._register_committed_work(tmp_path, "same")
+
+    assert calls == []
+
+
+def test_unreceipted_campaign_head_is_registered_before_holding(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module = _load()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    monkeypatch.setattr(module.watchdog, "_active_session_leases", lambda *a, **k: [])
+    monkeypatch.setattr(module.watchdog, "_recent_copilot_activity", lambda *a, **k: [])
+    monkeypatch.setattr(module.watchdog, "_active_session_count", lambda *a, **k: 0)
+    synced: list[Path] = []
+    landed: list[Path] = []
+    monkeypatch.setattr(module, "_sync_campaign_base", lambda root: synced.append(root))
+    monkeypatch.setattr(module, "_land_validated_batch", lambda root: landed.append(root))
+    monkeypatch.setattr(module, "_validation_receipt_exists", lambda *_a, **_k: False)
+
+    def fake_git(*args: str, **_kwargs: object) -> str:
+        return {
+            "status": "",
+            "branch": "roadmap-implementation/campaign",
+            "rev-list": "3",
+            "rev-parse": ".",
+        }[args[0]]
+
+    monkeypatch.setattr(module, "_git", fake_git)
+    registered: list[str] = []
+    monkeypatch.setattr(
+        module,
+        "_register_committed_work",
+        lambda _root, base: registered.append(base),
+    )
+
+    result = module.run_cycle(repo, idle_seconds=1, timeout=1)
+
+    assert result == "held: previous campaign head is awaiting central validation"
+    # `git merge` skips the post-commit hook, so a merge commit made while absorbing main
+    # is never enqueued. Waiting for a receipt the queue was never asked to produce holds
+    # every later run forever.
+    assert registered == ["main"]
+    # Absorbing main first mints a new merge commit on every held run, so the head would
+    # outrun validation for as long as any other session keeps committing.
+    assert synced == []
+    # Landing must still run. It only merges commits that already hold a receipt, so an
+    # unvalidated tip says nothing about the validated work beneath it. Holding it back
+    # here deadlocked the lane: the hold returned early and finished work never reached
+    # main however long it waited.
+    assert landed == [repo]
+
+
+def test_landing_requires_a_receipt_and_leaves_live_edits_alone(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module = _load()
+    calls: list[list[str]] = []
+    state = {"status": "", "incoming": "docs/roadmap/architecture/owned.md\n", "staged": ""}
+    # Newest first, exactly as `git rev-list main..HEAD` reports it.
+    ahead = ["freshest", "validated", "older"]
+    receipted: set[str] = set()
+
+    def fake_git(*args: str, **_kwargs: object) -> str:
+        if args[0] == "diff":
+            return state["staged"] if "--cached" in args else state["incoming"]
+        if args[0] == "rev-list":
+            return str(len(ahead)) if "--count" in args else "\n".join(ahead)
+        return {"status": state["status"], "rev-parse": "campaignhead"}[args[0]]
+
+    class _Result:
+        returncode = 0
+
+    monkeypatch.setattr(module, "_git", fake_git)
+    monkeypatch.setattr(module, "_main_checkout", lambda _root: tmp_path)
+    monkeypatch.setattr(module, "_register_committed_work", lambda *_a: None)
+    monkeypatch.setattr(
+        module, "_validation_receipt_exists", lambda _root, revision: revision in receipted
+    )
+    monkeypatch.setattr(
+        module.subprocess,
+        "run",
+        lambda arguments, **_k: calls.append(list(arguments)) or _Result(),
+    )
+
+    assert module._land_validated_batch(tmp_path) is None
+    assert calls == []
+
+    receipted.add("validated")
+    state["status"] = " M docs/roadmap/architecture/owned.md"
+    blocked = module._land_validated_batch(tmp_path)
+    # The merge would rewrite a file another session is editing; that work must not be touched.
+    assert blocked == "cannot land validated: edited in the main checkout: " + (
+        "docs/roadmap/architecture/owned.md"
+    )
+    assert calls == []
+
+    state["status"] = " M docs/roadmap/architecture/elsewhere.md\n?? scratch.py"
+    state["staged"] = "docs/roadmap/deployment/unrelated.md\n"
+    blocked = module._land_validated_batch(tmp_path)
+    # `git merge` refuses outright when the index differs from HEAD, even for paths the
+    # merge would leave byte-identical. Attempting it anyway just fails and logs nothing.
+    assert blocked == "cannot land validated: staged in the main checkout: " + (
+        "docs/roadmap/deployment/unrelated.md"
+    )
+    assert calls == []
+
+    state["staged"] = ""
+    assert module._land_validated_batch(tmp_path) == "landed validated on main"
+    # Two refusals dressed as safety are gone. A dirty checkout is the normal state of the
+    # primary worktree, so landing only needs the incoming paths to miss the live edits. And
+    # the branch tip is the freshest commit and the least likely to hold a receipt, so
+    # landing takes the newest ancestor that has one instead of racing its own production.
+    assert calls[0] == ["git", "merge", "--no-ff", "--no-edit", "validated"]
+
+
+def test_a_renamed_path_counts_as_a_live_edit_on_both_sides(tmp_path: Path, monkeypatch) -> None:
+    module = _load()
+    (tmp_path / "renamed.txt").write_text("", encoding="utf-8")
+
+    monkeypatch.setattr(
+        module,
+        "_git",
+        lambda *args, **_k: 'R  "old name.txt" -> renamed.txt' if args[0] == "status" else "",
+    )
+    # Porcelain reports a rename as one line naming two paths; a merge that rewrites either
+    # side disturbs the same in-flight change, so both have to be treated as held.
+    assert module._dirty_paths(tmp_path) == {"old name.txt", "renamed.txt"}

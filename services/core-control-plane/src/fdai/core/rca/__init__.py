@@ -33,11 +33,13 @@ from fdai.core.rca.deployment_member_source import DeploymentHistoryMemberSource
 from fdai.core.rca.evidence import TelemetryEvidenceGatherer
 from fdai.core.rca.grounding import enforce_grounding
 from fdai.core.rca.hypothesis import (
+    CausalActionMode,
     CausalClosure,
     CausalEvidenceAssessment,
     CausalHypothesisRecord,
     CausalHypothesisStatus,
     build_causal_hypothesis,
+    causal_action_mode,
     close_causal_hypothesis,
 )
 from fdai.core.rca.incident_graph import (
@@ -70,6 +72,7 @@ from fdai.core.rca.temporal_causality import (
 )
 
 __all__ = [
+    "CausalActionMode",
     "CausalChain",
     "CausalChainAnalyzer",
     "CausalChainConfig",
@@ -115,6 +118,7 @@ __all__ = [
     "TemporalSeries",
     "chain_to_hypothesis",
     "build_causal_hypothesis",
+    "causal_action_mode",
     "close_causal_hypothesis",
     "enforce_grounding",
     "parse_rca_response",

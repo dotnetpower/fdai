@@ -9,13 +9,25 @@ export const RUN_BUDGET_PER_QUESTION_MS = 120_000;
 export const MINIMUM_RUN_BUDGET_MS = 300_000;
 export const MAXIMUM_RUN_BUDGET_MS = 5_400_000;
 export const TEST_TIMEOUT_SLACK_MS = 120_000;
+/**
+ * The declared bounds of each run preamble step.
+ *
+ * Playwright disables navigation and action timeouts by default, so the runner passes these
+ * explicitly. The run deadline is anchored before the preamble, so the preamble is charged to the
+ * run budget rather than to harness slack.
+ */
+export const PREAMBLE_NAVIGATION_TIMEOUT_MS = 30_000;
+export const PREAMBLE_READY_TIMEOUT_MS = 15_000;
+export const PREAMBLE_ACCESS_TIMEOUT_MS = 5_000;
+export const PREAMBLE_BOUND_MS = PREAMBLE_NAVIGATION_TIMEOUT_MS +
+  2 * PREAMBLE_READY_TIMEOUT_MS + PREAMBLE_ACCESS_TIMEOUT_MS;
 export const MAX_TRANSPORT_ATTEMPTS = 2;
 
 const BUDGET_BOUNDS = {
   FDAI_E2E_ASSURANCE_MIN_REQUEST_INTERVAL_MS: [0, 60_000],
   FDAI_E2E_ASSURANCE_PER_QUESTION_DEADLINE_MS: [10_000, 600_000],
   FDAI_E2E_ASSURANCE_NO_PROGRESS_DEADLINE_MS: [30_000, 1_800_000],
-  FDAI_E2E_ASSURANCE_RUN_BUDGET_MS: [60_000, 14_400_000],
+  FDAI_E2E_ASSURANCE_RUN_BUDGET_MS: [MINIMUM_RUN_BUDGET_MS, MAXIMUM_RUN_BUDGET_MS],
 } as const satisfies Record<string, readonly [number, number]>;
 
 type BudgetVariable = keyof typeof BUDGET_BOUNDS;
@@ -35,8 +47,71 @@ export interface TransportRetryDelayInput {
   readonly attempt: number;
   readonly baseMs: number;
   readonly maxMs: number;
-  /** Server-declared hint. Values above `maxMs` are clamped by the run budget contract. */
-  readonly retryAfterSeconds?: number;
+}
+
+export interface QuestionBoundInput {
+  readonly nowMs: number;
+  readonly runDeadlineAt: number;
+  readonly noProgressDeadlineMs: number;
+}
+
+export interface QuestionBound {
+  readonly questionDeadlineAt: number;
+  /** True when the run budget, not the stalled-question guard, is the earlier bound. */
+  readonly runBudgetIsBinding: boolean;
+}
+
+/**
+ * Resolves the two independent bounds that can end one question.
+ *
+ * Only run-budget exhaustion may stop the cohort. A stalled question must stay a recorded
+ * failure, so the caller needs to know which bound won rather than only when it expired.
+ */
+export function resolveQuestionBound(input: QuestionBoundInput): QuestionBound {
+  const { nowMs, runDeadlineAt, noProgressDeadlineMs } = input;
+  if (!Number.isFinite(nowMs) || !Number.isFinite(runDeadlineAt)) {
+    throw new Error("question bound timestamps MUST be finite");
+  }
+  if (!Number.isFinite(noProgressDeadlineMs) || noProgressDeadlineMs <= 0) {
+    throw new Error("stalled-question deadline MUST be a positive finite number");
+  }
+  const stallDeadlineAt = nowMs + noProgressDeadlineMs;
+  return {
+    questionDeadlineAt: Math.min(runDeadlineAt, stallDeadlineAt),
+    runBudgetIsBinding: runDeadlineAt <= stallDeadlineAt,
+  };
+}
+
+/** Returns whether an expired attempt was ended by the run budget rather than by a stall. */
+export function attemptEndedByRunBudget(input: {
+  readonly remainingMs: number;
+  readonly perAttemptDeadlineMs: number;
+  readonly runBudgetIsBinding: boolean;
+}): boolean {
+  return input.runBudgetIsBinding && input.remainingMs < input.perAttemptDeadlineMs;
+}
+
+export type ExpiredAttemptOutcome =
+  | "per_attempt_deadline_exceeded"
+  | "question_budget_exhausted"
+  | "stalled_question";
+
+/**
+ * Names the bound that actually truncated an expired attempt.
+ *
+ * An attempt is clamped to whichever of the attempt deadline and the remaining whole-question
+ * window is smaller, so the published reason must follow the bound that fired rather than
+ * always blaming the attempt deadline.
+ */
+export function classifyExpiredAttempt(input: {
+  readonly attemptDeadlineMs: number;
+  readonly perAttemptDeadlineMs: number;
+  readonly runBudgetIsBinding: boolean;
+}): ExpiredAttemptOutcome {
+  if (input.attemptDeadlineMs >= input.perAttemptDeadlineMs) {
+    return "per_attempt_deadline_exceeded";
+  }
+  return input.runBudgetIsBinding ? "question_budget_exhausted" : "stalled_question";
 }
 
 /** Returns the wait needed to honor a minimum spacing between request starts. */
@@ -52,19 +127,14 @@ export function pacingDelayMs(minimumIntervalMs: number, elapsedSinceLastStartMs
 
 /** Returns a bounded transport retry delay derived from the observed failure. */
 export function transportRetryDelayMs(input: TransportRetryDelayInput): number {
-  const { attempt, baseMs, maxMs, retryAfterSeconds } = input;
+  const { attempt, baseMs, maxMs } = input;
   if (!Number.isInteger(attempt) || attempt < 1) {
     throw new Error("transport retry attempt MUST be a positive integer");
   }
   if (!Number.isFinite(baseMs) || baseMs < 0 || !Number.isFinite(maxMs) || maxMs < baseMs) {
     throw new Error("transport retry bounds MUST satisfy 0 <= base <= max");
   }
-  const exponential = baseMs * 2 ** Math.min(attempt - 1, 16);
-  const hintMs = retryAfterSeconds !== undefined &&
-      Number.isFinite(retryAfterSeconds) && retryAfterSeconds >= 0
-    ? retryAfterSeconds * 1_000
-    : 0;
-  return Math.min(Math.ceil(Math.max(exponential, hintMs)), maxMs);
+  return Math.min(Math.ceil(baseMs * 2 ** Math.min(attempt - 1, 16)), maxMs);
 }
 
 function boundedOverride(
@@ -89,7 +159,7 @@ function boundedOverride(
  * Derives the bounded run budget for one invocation.
  *
  * The envelope is deliberately not the primary stall protection: the per-question and
- * no-progress deadlines fail a stalled run in minutes, and an exhausted budget stops
+ * stalled-question deadlines fail a stalled question in minutes, and an exhausted budget stops
  * gracefully with a resumable checkpoint instead of hanging until the harness times out.
  */
 export function resolveAssuranceBudget(
@@ -134,7 +204,7 @@ export function resolveAssuranceBudget(
     transportRetryBaseMs: DEFAULT_TRANSPORT_RETRY_BASE_MS,
     transportRetryMaxMs: DEFAULT_TRANSPORT_RETRY_MAX_MS,
     // The loop clamps every turn to the run deadline, so the only work that can outlive the
-    // budget is one already-granted spacing wait.
+    // budget is the pre-question spacing plus one already-granted intra-question wait.
     testTimeoutMs: runBudgetMs + minimumRequestIntervalMs + TEST_TIMEOUT_SLACK_MS,
   };
 }

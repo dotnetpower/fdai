@@ -1,14 +1,16 @@
-FROM docker.io/library/golang@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2 AS opa-builder
+FROM docker.io/library/golang@sha256:640a234f4bea3e399c056b7b8f9c667c4939befae8db2f14e9785e16eccd4205 AS opa-builder
 
 ARG OPA_VERSION=v1.18.2
 ARG OPA_GRPC_VERSION=v1.82.1
 ARG OPA_X_TEXT_VERSION=v0.39.0
+ARG OPA_ORAS_VERSION=v2.6.2
 RUN /usr/local/go/bin/go mod download "github.com/open-policy-agent/opa@${OPA_VERSION}" \
 	&& opa_dir="$(/usr/local/go/bin/go env GOPATH)/pkg/mod/github.com/open-policy-agent/opa@${OPA_VERSION}" \
 	&& chmod -R u+w "${opa_dir}" \
 	&& cd "${opa_dir}" \
 	&& /usr/local/go/bin/go mod edit -require="google.golang.org/grpc@${OPA_GRPC_VERSION}" \
 	&& /usr/local/go/bin/go mod edit -require="golang.org/x/text@${OPA_X_TEXT_VERSION}" \
+	&& /usr/local/go/bin/go mod edit -require="oras.land/oras-go/v2@${OPA_ORAS_VERSION}" \
 	&& CGO_ENABLED=0 /usr/local/go/bin/go build -mod=mod -o /go/bin/opa .
 
 FROM sregym-agent-base@sha256:e59f24847cbafdd86f33ded2ca4e9f79fbda3e8737810cf6816af99a255bb441

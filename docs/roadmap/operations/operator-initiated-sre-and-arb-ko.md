@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: d261dd557c1d9502d04ca2f1bc83b742d3cdb6e0
-translation_revised: 2026-08-13
+translation_source_sha: 9059284e7cacb2ab994fa1332beb5e2d331a2e2f
+translation_revised: 2026-08-16
 ---
 
 # 오퍼레이터 시작 SRE 및 아키텍처 리뷰
@@ -21,9 +21,9 @@ translation_revised: 2026-08-13
 > 의미합니다. 작업 흐름 또는 ARB 승인이 이러한 검사를 우회할 수 있다는 의미가 아닙니다.
 >
 > **현재 제공 경계:** 인시던트 상관관계, 오퍼레이터가 확인한 인시던트 수명 주기,
-> 조사 기본 기능, ARB 준비 상태/변환 결과, 제안 전용 작업 흐름 제출은 구현되었습니다.
-> 통합 SRE 명령/진행 상황 흐름과 권한을 수반하는 작업 흐름 강제 적용 경로는 아직
-> 열려 있으며 아래에서 추적합니다.
+> 조사 기본 기능, 통합 SRE 명령/진행 상황 조정기, ARB 준비 상태/변환 결과, 제안 전용
+> 작업 흐름 제출은 구현되었습니다. 권한을 수반하는 작업 흐름 강제 적용 경로와 그
+> 로컬/배포 런타임 증거는 아직 열려 있으며 아래에서 추적합니다.
 
 ## 설계 요약
 
@@ -58,7 +58,7 @@ flowchart LR
 |------|------|------|------|
 | 인시던트 추적 신원 및 상관관계 제외 | implemented | `fdai/shared/contracts/models/event.py`, `fdai/core/event_ingest/correlator.py`, `fdai/core/scheduler/service.py`와 `fdai/delivery/inventory_delta.py`의 정기 생산자, `tests/core/event_ingest/test_correlator.py` | `incident_correlation=none`이 인시던트 생성을 억제해도 `correlation_id`는 유지됩니다. |
 | 오퍼레이터 확인 인시던트 수명 주기 및 조사 기본 기능 | implemented | `fdai/core/incident/workflow.py`, `fdai/core/investigation/coordinator.py`, `tests/core/incident/test_incident_workflow.py`, `tests/core/investigation/test_coordinator.py` | 범위가 제한된 기본 기능이 존재하고 집중 검사를 통과합니다. |
-| 통합 오퍼레이터 SRE 명령 및 진행 상황 계약 | in-progress | 위 인시던트 수명 주기와 조사 구현은 분리되어 있습니다. 문서에 정의된 단일 명령 경로, 멱등적 ActionProposal 전달, Incident/Trace/Process/Approval 링크에는 end-to-end 집중 검사가 없습니다. | 개별 기본 기능에서 통합 흐름을 추론하지 않습니다. |
+| 통합 오퍼레이터 SRE 명령 및 진행 상황 계약 | implemented | `fdai/core/incident/sre_request.py`, `fdai/shared/providers/operator_request.py`, `fdai/core/event_ingest/__init__.py`, `tests/core/incident/test_sre_request.py` | 확인된 요청 하나가 인시던트 하나를 열거나 재사용하고, 인시던트 ID를 실은 멱등적 typed 제안 하나를 게시하며, 모든 단계에서 상관관계 하나를 유지하고, 진행 상황 링크 네 개를 반환합니다. 제안 전달자 연결부는 아직 런타임 composition root에 바인딩되지 않았습니다. |
 | ARB 준비 상태, 운영 게이트 및 선언적 검토 변환 결과 | implemented | `fdai/core/architecture_review/readiness.py`, `fdai/core/architecture_review/projection.py`, `fdai/runtime/control_loop.py`, `rule-catalog/workflows/architecture-review.yaml`, `tests/core/architecture_review/` | 오퍼레이터 표면은 `/workflow-apps/architecture-review`와 `/processes/{process_id}`입니다. `/arb/status` 엔드포인트는 없습니다. |
 | 오퍼레이터 작업 흐름 제출 | implemented | `fdai_operator_service/families/workflow/routes.py`, `services/operator-service/tests/test_operator_workflow_family.py` | `POST /workflows/run`은 멱등성 및 revision이 적용된 shadow 제안을 받고 `mode=enforce`를 거부합니다. |
 | 권한을 수반하는 작업 흐름 강제 적용 및 로컬/배포 운영 동등성 | in-progress | `fdai/core/workflow/workflow_step_executor.py`에는 거버넌스가 적용되는 강제 적용 액션 전달이 있지만 Operator API는 제안 전용 및 shadow 우선으로 유지됩니다. | 문서에 정의된 Owner 권한 end-to-end 강제 적용 경로나 로컬/배포 동등성을 입증하는 거버넌스 런타임 증거가 없습니다. |
@@ -68,12 +68,18 @@ flowchart LR
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 구현 원장을 도입하고 ARB 표면과 Operator 작업 흐름 권한 경계를 바로잡았습니다. 이전 출처는 재구성하지 않았습니다. | 현재 변경, 범위 표에 나열된 인시던트, 조사, ARB, 이벤트 상관관계 및 Operator 작업 흐름 집중 검사 | 통합 SRE 명령/진행 상황 경로를 완료하고 권한을 수반하는 작업 흐름 강제 적용 및 동등성에 대한 거버넌스 증거를 기록합니다. |
+| 2026-08-16 | in-progress | 오퍼레이터 SRE 요청 조정기, 제안 전달자 연결부, operator-request 정규화 시점의 인시던트 ID 메타데이터를 추가하고, 확인된 요청 하나를 컨트롤 루프를 거쳐 대기 중인 HIL 승인까지 구동하는 end-to-end 검사를 추가했습니다. | 현재 변경, `uv run pytest -q --no-cov services/core-control-plane/tests/core/incident/ services/core-control-plane/tests/core/event_ingest/ services/core-control-plane/tests/core/test_control_loop_operator_request.py` 의 `176 passed` 결과 | 런타임 composition root에 전달자를 바인딩하고 권한을 수반하는 작업 흐름 강제 적용 및 동등성에 대한 거버넌스 증거를 기록합니다. |
+| 2026-08-16 | in-progress | 진행 상황 계약을 강화했습니다. 링크 템플릿은 인시던트 쓰기 전에 검증되고, 보간되는 모든 참조는 퍼센트 인코딩되며, 빈 리소스 종류는 조용히 버려지는 대신 거부되고, 게시된 제안은 변경 불가능합니다. | 현재 변경, `uv run pytest -q --no-cov services/core-control-plane/tests/core/incident/ services/core-control-plane/tests/core/event_ingest/ services/core-control-plane/tests/core/test_control_loop_operator_request.py` 의 `182 passed` 결과 | 위 행과 동일합니다. |
 
 ### 남은 작업
 
-- [ ] 확인된 오퍼레이터 문제 대응 요청 하나가 인시던트 하나를 열거나 재사용하고,
+- [x] 확인된 오퍼레이터 문제 대응 요청 하나가 인시던트 하나를 열거나 재사용하고,
   멱등적인 typed ActionProposal 하나를 게시하며, 단계 전체에서 상관관계 하나를 유지하고,
-  권위 있는 Incident, Trace, Process, Approval 링크를 반환함을 end-to-end 집중 검사로 입증합니다.
+  권위 있는 Incident, Trace, Process, Approval 링크를 반환함을 end-to-end 집중 검사로
+  입증했습니다 (`tests/core/incident/test_sre_request.py`).
+- [ ] 콘솔과 ChatOps 명령 표면이 자체 경로를 구성하지 않고 조정기에 도달하도록 런타임
+  composition root에서 `OperatorProposalDispatcher` 를 바인딩하고, 그 바인딩 검사를 이
+  원장에 인용합니다.
 - [ ] 승인되고 허용 목록에 포함된 작업 흐름이 권한을 수반하는 제어 경로를 통해 강제 적용에
   진입하면서 ActionType은 독립적으로 계속 게이트됨을 입증하는 거버넌스 적용 로컬 및 배포
   런타임 증거를 기록합니다. `POST /workflows/run`은 제안 전용으로 유지합니다.
@@ -113,8 +119,10 @@ flowchart LR
   만들거나 재사용합니다. 읽기 전용 발견 질문은 이 단계로 진입하지 않습니다. 응답은 즉시
   인시던트 ID와 상관관계 ID를 반환합니다.
 3. **제안 게시:** Command 표면은 타입이 지정된 메타데이터에 인시던트 ID가 포함된
-   `operator_request` ActionProposal을 게시합니다. 이 표면은 실행기 신원을 가지지
-   않습니다.
+   `operator_request` ActionProposal을 게시합니다. event ingest 는 이를
+   `payload.incident.incident_id` 로 정규화하며, 형식이 잘못된 인시던트 ID 는 결합할 수 없는
+   인시던트를 주장하는 액션을 게시하는 대신 엄격한 Event 계약에서 실패합니다. 이 표면은
+   실행기 신원을 가지지 않습니다.
 4. **판단 및 게이트:** 컨트롤 루프는 T0를 먼저 실행하고 권위 있는 인벤토리로 보강한 후
    승격과 risk를 평가하여 shadow, auto, human-in-the-loop(HIL), 거부 중 하나를
    반환합니다.
@@ -132,12 +140,17 @@ flowchart LR
 
 Command 응답에는 권위 있는 변환 결과로 연결되는 링크가 포함됩니다.
 
-| 링크 | 목적 |
-|------|------|
-| 인시던트 | 현재 수명 주기 상태 및 구성원 근거입니다. |
-| 추적 | 상관관계의 단계 이벤트 및 최종 감사입니다. |
-| 프로세스 | 요청이 다단계 작업 흐름을 시작할 때의 작업 흐름 저널입니다. |
-| Approval | Risk 결정이 `hil`일 때의 pending 승인입니다. |
+| 링크 | 목적 | 기본 대상 |
+|------|------|-----------|
+| 인시던트 | 현재 수명 주기 상태 및 구성원 근거입니다. | `/incidents?status=all&correlation_id={correlation_id}` |
+| 추적 | 상관관계의 단계 이벤트 및 최종 감사입니다. | `/audit/{correlation_id}/trace` |
+| 프로세스 | 요청이 다단계 작업 흐름을 시작할 때의 작업 흐름 저널입니다. | `/views/process/{process_id}` |
+| Approval | Risk 결정이 `hil`일 때의 pending 승인입니다. | `/hil-queue?search={approval_id}` |
+
+프로세스와 Approval 링크는 전달이 실제로 그것을 만들어냈을 때만 나타납니다.
+`hil` 이 아닌 결정은 존재하지 않는 승인으로 오퍼레이터를 안내하는 대신 오래된 승인
+참조를 버립니다. 대상 경로는 주입 가능하므로 포크가 동일한 변환 결과를 자체 접두사
+뒤에 마운트할 수 있습니다.
 
 UI는 이 링크를 스트림 또는 poll할 수 있지만 브라우저 상태는 권위를 갖지 않습니다.
 재연결 시 상관관계 ID를 사용하여 영속 기록에서 같은 순서의 타임라인을 다시

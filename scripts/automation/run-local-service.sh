@@ -114,6 +114,7 @@ active_owner() {
   local previous=""
   local runtime_lock=""
   local port=""
+  local flock_status
   for argument in "$@"; do
     case "$argument" in
       FDAI_RUNTIME_LOCK_FILE=*) runtime_lock="${argument#FDAI_RUNTIME_LOCK_FILE=}" ;;
@@ -125,14 +126,32 @@ active_owner() {
     previous="$argument"
   done
 
-  if [[ -n "$runtime_lock" && -f "$runtime_lock" ]] \
-    && ! flock -n "$runtime_lock" true 2>/dev/null; then
-    printf 'runtime-lock=%s' "$runtime_lock"
-    return 0
+  if [[ -n "$runtime_lock" && -f "$runtime_lock" ]]; then
+    # flock exits 1 only for contention and uses other codes (66 for a lock file
+    # it cannot open) for real errors. Treating every failure as contention hid
+    # an unusable lock file behind a permanent, unactionable "already running".
+    flock -n -E 75 "$runtime_lock" true
+    flock_status=$?
+    if (( flock_status == 75 )); then
+      printf 'runtime-lock=%s' "$runtime_lock"
+      return 0
+    fi
+    if (( flock_status != 0 )); then
+      printf 'runtime-lock-unusable=%s exit=%s' "$runtime_lock" "$flock_status"
+      return 0
+    fi
   fi
-  if [[ "$port" =~ ^[1-9][0-9]*$ ]] && (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; then
-    printf 'port=127.0.0.1:%s' "$port"
-    return 0
+  if [[ "$port" =~ ^[1-9][0-9]*$ ]]; then
+    # A server bound with --host localhost listens on IPv6 loopback on a dual-stack
+    # host, and probing only 127.0.0.1 called that port free right up to the child's
+    # own bind failure. Probe both loopback families and name the one that answers.
+    local loopback
+    for loopback in 127.0.0.1 ::1; do
+      if (exec 3<>"/dev/tcp/$loopback/$port") 2>/dev/null; then
+        printf 'port=%s:%s' "$loopback" "$port"
+        return 0
+      fi
+    done
   fi
   return 1
 }

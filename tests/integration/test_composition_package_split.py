@@ -163,15 +163,22 @@ _WIRE_IMPORT = re.compile(r"(?:from|import)\s+fdai\.composition\.(?:wire_[a-z]+|
 
 
 def test_no_external_caller_reaches_into_wire_files() -> None:
+    source_roots = sorted(_REPO_ROOT.glob("services/*/src"))
+    assert source_roots, "no service source root found; this guard would pass vacuously"
     offenders: list[tuple[str, str]] = []
-    for path in _REPO_ROOT.glob("src/**/*.py"):
-        rel_str = str(path.relative_to(_REPO_ROOT)).replace("\\", "/")
-        if rel_str.startswith("services/core-control-plane/src/fdai/composition/"):
-            continue
-        body = path.read_text(encoding="utf-8")
-        for line in body.splitlines():
-            if _WIRE_IMPORT.search(line):
-                offenders.append((rel_str, line.strip()))
+    scanned = 0
+    for source_root in source_roots:
+        for path in source_root.glob("**/*.py"):
+            rel_str = str(path.relative_to(_REPO_ROOT)).replace("\\", "/")
+            if rel_str.startswith("services/core-control-plane/src/fdai/composition/"):
+                continue
+            scanned += 1
+            body = path.read_text(encoding="utf-8")
+            for line in body.splitlines():
+                if _WIRE_IMPORT.search(line):
+                    offenders.append((rel_str, line.strip()))
+    # A layout move already silenced this guard once; prove it still reads real files.
+    assert scanned > 100, f"only {scanned} source files scanned, so the glob no longer resolves"
     assert not offenders, (
         "External src/ code imports composition wire files directly - "
         "they are internal. Import from 'fdai.composition' facade:\n  "

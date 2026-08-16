@@ -121,6 +121,7 @@ async def test_adapter_validates_frame_and_plan_and_isolates_injection_text() ->
             model.propose_plan,
             frame=frame,
             descriptors=({"kind": "object", "name": "Resource"},),
+            metric_concepts=("request.errors", "request.volume"),
             principal_role="reader",
             purpose="operations-review",
             evaluation_time=datetime(2026, 8, 15, tzinfo=UTC),
@@ -140,11 +141,14 @@ async def test_adapter_validates_frame_and_plan_and_isolates_injection_text() ->
     assert user_payload["untrusted_input"]["utterance"].startswith("Ignore all")
     plan_payload = json.loads(json.loads(captured[1].content)["messages"][1]["content"])
     assert plan_payload["untrusted_input"]["evaluation_time"] == "2026-08-15T00:00:00+00:00"
+    assert plan_payload["untrusted_input"]["metric_concepts"] == [
+        "request.errors",
+        "request.volume",
+    ]
 
 
-async def test_adapter_normalizes_non_authoritative_frame_tokens() -> None:
+async def test_adapter_normalizes_non_authoritative_evidence_tokens() -> None:
     payload = _frame_payload()
-    payload["output_shape"] = "Resource summary table"
     payload["evidence_requirements"] = ["Authoritative ontology", "Current evidence"]
 
     async with httpx.AsyncClient(
@@ -166,11 +170,36 @@ async def test_adapter_normalizes_non_authoritative_frame_tokens() -> None:
         )
 
     assert frame_raw is not None
-    assert frame_raw["output_shape"] == "resource_summary_table"
+    assert frame_raw["output_shape"] == "resource_list"
     assert frame_raw["evidence_requirements"] == [
         "authoritative_ontology",
         "current_evidence",
     ]
+
+
+async def test_adapter_rejects_free_form_output_shape() -> None:
+    payload = _frame_payload()
+    payload["output_shape"] = "Resource summary table"
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: _response(payload))
+    ) as client:
+        model = AzureOpenAISemanticPlanningModel(
+            identity=_Identity(),  # type: ignore[arg-type]
+            http_client=client,
+            config=_config(),
+            owner_loop=asyncio.get_running_loop(),
+        )
+        frame_raw = await asyncio.to_thread(
+            model.propose_frame,
+            utterance="Summarize the current evidence",
+            context=(),
+            descriptors=({"kind": "object", "name": "Resource"},),
+            principal_role="reader",
+            purpose="operations-review",
+        )
+
+    assert frame_raw is None
 
 
 async def test_adapter_retries_repeated_throttling_within_its_budget(monkeypatch) -> None:

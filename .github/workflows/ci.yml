@@ -341,6 +341,41 @@ jobs:
       - name: check-stewardship.sh
         run: bash scripts/governance/check-stewardship.sh
 
+  rule-semantics:
+    name: rule <-> Rego semantic drift guard
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+
+      - name: Install frozen runtime workspace
+        run: uv sync --frozen --package fdai-core-control-plane --no-dev
+
+      - name: Install OPA (Rego runner)
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
+            --retry-max-time 120 --connect-timeout 10 --max-time 90 -o /tmp/opa \
+            "https://openpolicyagent.org/downloads/v0.68.0/opa_linux_amd64_static"
+          echo "dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa  /tmp/opa" \
+            | sha256sum -c -
+          chmod +x /tmp/opa
+          sudo mv /tmp/opa /usr/local/bin/opa
+          opa version
+
+      - name: sync-rule-semantics.py --check
+        env:
+          PYTHONPATH: services/core-control-plane/src:packages/service-contracts/src
+        run: uv run python scripts/catalog/sync-rule-semantics.py --check
+
   chaos-scenarios:
     name: chaos-scenarios catalog + symptom-index guard
     runs-on: ubuntu-24.04
@@ -371,6 +406,8 @@ jobs:
 
       - name: check-core-imports.sh
         run: bash scripts/quality/architecture/check-core-imports.sh
+      - name: check-report-format-boundary.py
+        run: python3 scripts/quality/architecture/check-report-format-boundary.py
 
   agents-imports:
     name: agents/ module-boundary guard (no cloud SDK, no HTTP client, no delivery/)
@@ -695,6 +732,17 @@ jobs:
 
       - name: Run alembic upgrade head
         run: uv run alembic upgrade head
+
+      - name: Install OPA (Rego runner)
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 --retry-delay 2 --retry-all-errors \
+            --retry-max-time 120 --connect-timeout 10 --max-time 90 -o /tmp/opa \
+            "https://openpolicyagent.org/downloads/v0.68.0/opa_linux_amd64_static"
+          echo "dfd5081fc6f930dfeaf2a225e31e616fc227dc0c7b43019b73d6f8fb8a1de1aa  /tmp/opa" \
+            | sha256sum -c -
+          chmod +x /tmp/opa
+          sudo mv /tmp/opa /usr/local/bin/opa
 
       - name: Run integration test suite
         env:

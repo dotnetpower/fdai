@@ -52,6 +52,7 @@ Consumers of this document:
 | 2026-08-14 | implemented | Bound the Core pre-dispatch kinetic receipt consumer before every Thor-owned executor without changing AgentSpec, topics, judgment, approval, or execution ownership. | `current change`; `core/operational_planning/kinetic_safety.py`, `delivery/kinetic_safety.py`, `runtime/control_loop.py`, and focused kinetic, HIL, and Thor composition checks passed 115 cases. | Bind the Forseti source in production composition, add the independent observer, and retain governed live evidence. |
 | 2026-08-14 | implemented | Required deterministic T1 answer evaluation before Bragi's presentation-only deliberation can invoke optional T2 synthesis. | `current change`; 36 focused deliberation tests prove T2 is not called for conflict-free or uncomparable claims and remains bounded for a structured conflict. | Retain governed operator-path evidence without changing AgentSpec, topics, or authority. |
 | 2026-08-15 | implemented | Made each bridge consumer close its subscription inside its own task so broker teardown runs during shutdown instead of interpreter finalization. No AgentSpec, topic, ownership, LLM, or safeguard change. | `current change`; [`bus_bridge.py`](../../../services/core-control-plane/src/fdai/agents/_framework/bus_bridge.py) and [`test_subscription_lifecycle.py`](../../../services/core-control-plane/tests/agents/test_subscription_lifecycle.py); focused agent, delivery, runtime, and provider checks passed 3127 cases. | Confirm the residual consumer stop timeout is absent from a live local shutdown. |
+| 2026-08-16 | implemented | Made Thor apply the dispatch-time kinetic proposal binding again when it rehydrates a durable ActionRun, so a tampered row cannot restore another correlation's exact arguments. No AgentSpec, topic, ownership, or authority change. | `current change`; [`thor.py`](../../../services/core-control-plane/src/fdai/agents/thor.py) and [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py); focused kinetic, durable-replay, runtime, and factory checks passed 140 cases. | Retain governed live evidence for the rehydration path alongside the existing kinetic remaining work. |
 
 ### Remaining work
 - [ ] Retain a live-shadow cohort with measured per-agent and system KPIs, sample counts,
@@ -170,6 +171,8 @@ scoring, human-approval margins, planning receipts, and temporal policy are owne
 Norns remains the sole writer of inert `RuleCandidate` proposals. Its three-perspective consensus, balanced cohort limits, pending queue, Mimir review, and catalog activation boundary are owned by
 [Operational Learning Ontology](../rules-and-detection/operational-learning-ontology.md#norns-consensus-and-catalog-boundary). The private `norns_deployment_learning.py` helper holds only bounded scenario-gap and preflight-blocker aggregation state; Norns still creates and publishes every candidate through its consensus and rate-limit boundary. Caller-supplied recurring preflight manual blockers become scope-deduplicated inert `preflight-toggle-gap` candidates and never create a toggle or change deployment authority. Reproduced Rule-retrieval failures enter as Huginn-owned events. Heimdall independently validates the exact failure and publishes `object.retrieval-validation`; Saga audits that evidence and Muninn materializes it as `object.context-index`. Norns strictly rejects raw text, unverified failures, non-retrieval causes, and targets without an exact Rule version; it durably records the remaining challenger before using the same consensus and `object.rule-candidate` path. A missing durable sink backpressures the event instead of dropping it.
 
+Shadow dwell is the loop's last inert bar. Norns retains shadow-mode audit outcomes as per-target dwell observations - shadow results still never dilute its real rollback-rate learner - and attaches the resulting self-verifying evidence to the candidate it publishes. Mimir re-derives the verdict from that wire evidence and refuses promotion for a candidate with missing, inconsistent, target-mismatched, or under-threshold dwell; the zero policy-escape allowance is not configurable. This grants no authority to either agent: the catalog still changes only through a merged catalog-as-code pull request. See [Autonomous Rule Discovery](../rules-and-detection/rule-catalog-autonomous-discovery.md#shadow-dwell-evidence-upstream-implementation).
+
 ## 4. Agent catalog
 
 > **Machine-readable source of truth**: `PANTHEON_SPECS` in
@@ -197,7 +200,7 @@ operations / interface), `3` = governance staff.
 | Saga | Auditor | 3 | AuditEntry, Issue | append_audit (normalize missing trace), escalate_to_github_issue | no |
 | Mimir | Rule Steward | 3 | Rule, Policy, RuleGenerationBuildRequest, RuleGenerationBuildResult | promote_rule, revoke_rule, build_rule_generation | no |
 | Muninn | Memory | 3 | StateSnapshot, ContextIndex | index_state, snapshot_state, seal_case_history | no |
-| Norns | Learner | 3 | RuleCandidate, PatternObservation | propose_rule_candidate, analyze_case_history, close_issue | yes (off-path batch only) |
+| Norns | Learner | 3 | RuleCandidate, Pattern | propose_rule_candidate, analyze_case_history, close_issue | yes (off-path batch only) |
 | Njord | Cost | 1 | CostAnomaly, Budget | propose_cost_action | no |
 | Freyr | Capacity | 1 | CapacityForecast, SizingRecommendation | propose_capacity_action | no |
 | Loki | Chaos | 1 | ChaosExperiment, ResilienceScore | schedule_experiment | no |
@@ -366,7 +369,7 @@ properties:
   name: string                     # "Odin", "Thor", ...
   layer: enum                      # domain | pipeline | governance
   reports_to: Agent?               # org chart edge
-  owns: [ObjectType]               # write-authority (single-writer)
+  owns: [ObjectType]               # bus single-writer; publishes derives from it
   executes: [ActionType]           # references action-ontology.md
   initiates: [ActionType]          # can propose (see §7.1)
   subscribes: [Topic]              # typed-port subscriptions
@@ -379,9 +382,15 @@ properties:
     proposals_per_hour: int
 ```
 
-Every `object_type` declaration in the wider ontology gains an
-`owner_agent` field pointing back at exactly one `Agent`. The producer
-principal is checked by the schema registry: only the owner may publish.
+Every `object_type` declaration in the wider ontology MAY carry an
+optional `lifecycle` block whose `owner` names exactly one `Agent`. That
+field is the ontology semantic-write registry: it says who may create and
+close instances of the type in the graph. It is separate from the
+event-bus registry in section 4, where `owns` says who may publish
+`object.<type>`. A type may be in one, both, or neither; a type with no
+`lifecycle` block simply adds no second write authority. See
+[Operating ontology - Agent ownership](../architecture/operating-ontology.md#agent-ownership)
+for the current per-agent list and the rules for reading it.
 
 ## 6. Communication contract
 

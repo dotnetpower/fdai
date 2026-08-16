@@ -14,6 +14,7 @@
 #   - check-catalog-parity.sh (L2 en/ko message catalogs)
 #   - check-stewardship.sh (handover map: 15 agents, maintainer floor, no role fields)
 #   - check-chaos-scenarios.sh (chaos-scenarios catalog + compiled symptom index)
+#   - sync-rule-semantics.py --check (rule <-> Rego semantic drift; needs OPA)
 #   - check-arb-readiness.py (ARB artifact, blocker, owner, evidence contract)
 #   - clean-checkout / Docker build-context contracts
 #   - mypy (strict static types)
@@ -154,25 +155,31 @@ run_gate_scoped() {
 
 # ---- fast gates (always) ----------------------------------------------------
 
+# A missing tool is an environment fault, not a verdict on the code. Refuse up front with a
+# dedicated status so the queue never bisects a degraded machine onto a commit.
+missing_tools=""
+if ! command -v uv >/dev/null 2>&1; then
+    command -v ruff >/dev/null 2>&1 || missing_tools="ruff"
+    command -v mypy >/dev/null 2>&1 || missing_tools="${missing_tools:+$missing_tools, }mypy"
+fi
+if [[ -n "$missing_tools" ]]; then
+    echo "validation-environment: required tool(s) not on PATH: $missing_tools" >&2
+    echo "verify.sh: install uv or activate the venv; refusing to report gate results" >&2
+    exit 125
+fi
+
 if command -v uv >/dev/null 2>&1; then
     run_gate_scoped "ruff format (services packages tests extensions)" '(^|/).*\.py$|^pyproject\.toml$|^uv\.lock$' uv run ruff format --check services packages tests extensions/code-assurance
     run_gate_scoped "ruff lint (services packages tests extensions)" '(^|/).*\.py$|^pyproject\.toml$|^uv\.lock$' uv run ruff check services packages tests extensions/code-assurance
-elif command -v ruff >/dev/null 2>&1; then
-    run_gate "ruff format (services packages tests extensions)" ruff format --check services packages tests extensions/code-assurance
-    run_gate "ruff lint (services packages tests extensions)" ruff check services packages tests extensions/code-assurance
 else
-    echo "verify.sh: 'ruff' not found on PATH; skipping (activate the venv first)" >&2
-    NAMES+=("ruff format (src tests extensions)" "ruff lint (src tests extensions)")
-    RESULTS+=("SKIP" "SKIP")
+    run_gate_scoped "ruff format (services packages tests extensions)" '(^|/).*\.py$|^pyproject\.toml$|^uv\.lock$' ruff format --check services packages tests extensions/code-assurance
+    run_gate_scoped "ruff lint (services packages tests extensions)" '(^|/).*\.py$|^pyproject\.toml$|^uv\.lock$' ruff check services packages tests extensions/code-assurance
 fi
 
 if command -v uv >/dev/null 2>&1; then
     run_gate_scoped "mypy (strict)" '(^|/).*\.py$|^pyproject\.toml$|^uv\.lock$' uv run mypy
 else
-    echo "verify.sh: 'uv' not found; install uv before verification" >&2
-    NAMES+=("mypy (strict)")
-    RESULTS+=("FAIL")
-    overall=1
+    run_gate_scoped "mypy (strict)" '(^|/).*\.py$|^pyproject\.toml$|^uv\.lock$' mypy
 fi
 
 run_gate_scoped "ci-contracts" '^(\.github/workflows/|Dockerfile$|\.dockerignore$|resolved-models.*\.json$|scripts/quality/ci/|services/core-control-plane/tests/persistence/|services/core-control-plane/src/fdai/)' python3 scripts/quality/ci/check-ci-contracts.py
@@ -200,6 +207,12 @@ run_gate_scoped "document-size" '^(docs/roadmap/|scripts/quality/architecture/ch
 run_gate_scoped "display-terminology" '^(README|docs/|rule-catalog/|console/|cli/|scripts/quality/documentation/check-display-terminology\.py$)' python3 scripts/quality/documentation/check-display-terminology.py
 run_gate_scoped "action-runbooks" '^(docs/runbooks/|rule-catalog/action-types/|scripts/quality/documentation/check-action-runbooks\.py$)' uv run python scripts/quality/documentation/check-action-runbooks.py
 run_gate_scoped "reference-only-sources" '^(rule-catalog/sources/|services/core-control-plane/src/fdai/rule_catalog/pipeline/collect/collector\.py$|scripts/quality/repository/check-reference-only-sources\.py$)' uv run python scripts/quality/repository/check-reference-only-sources.py
+run_gate_scoped "report-format-boundary" '^(services/core-control-plane/src/fdai/core/reporting/formats/|scripts/quality/architecture/check-report-format-boundary\.py$)' python3 scripts/quality/architecture/check-report-format-boundary.py
+# Rule-to-policy semantic drift: OPA parses every authored Rego and the catalog
+# entry MUST agree on rule_id, severity, category, and the evaluated properties.
+# Requires the pinned OPA binary; an unavailable OPA fails the gate rather than
+# skipping it.
+run_gate_scoped "rule-semantics" '^(rule-catalog/catalog/|policies/|services/core-control-plane/src/fdai/rule_catalog/schema/rego_semantics\.py$|scripts/catalog/sync-rule-semantics\.py$)' uv run python scripts/catalog/sync-rule-semantics.py --check
 
 run_gate "punctuation"  bash scripts/quality/repository/check-punctuation.sh
 run_gate "readable-hangul" python3 scripts/quality/localization/check-readable-hangul.py

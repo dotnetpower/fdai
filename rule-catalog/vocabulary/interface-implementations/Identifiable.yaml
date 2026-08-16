@@ -43,6 +43,7 @@ object_types:
   - ExpectedEffect
   - Experiment
   - Finding
+  - Forecast
   - HandoffEscalation
   - ImpactEnvelope
   - Incident
@@ -50,6 +51,7 @@ object_types:
   - Observation
   - ObservedOutcome
   - Ownership
+  - Pattern
   - PolicyArtifact
   - PostTurnReview
   - Principal

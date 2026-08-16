@@ -18,6 +18,7 @@ _PLAIN_CONTEXT_FIELDS = (
     "auth_mechanism",
     "stage",
     "plan_nodes",
+    "plan_source",
     "failure_type",
 )
 

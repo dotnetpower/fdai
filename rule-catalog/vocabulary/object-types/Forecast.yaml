@@ -1,0 +1,37 @@
+schema_version: "1.0.0"
+name: Forecast
+version: "1.0.0"
+key: id
+description: Versioned breach projection with immutable detector identity, feature cutoff, horizon, and uncertainty interval.
+properties:
+  id: {type: string, required: true}
+  detector_id: {type: string, required: true}
+  detector_version: {type: string, required: true}
+  target_ref: {type: string, required: true}
+  breach_predicate: {type: string, required: true}
+  feature_cutoff: {type: datetime, required: true}
+  horizon_seconds: {type: integer, required: true}
+  projected_value: {type: number, required: true}
+  interval_lower: {type: number, required: true}
+  interval_upper: {type: number, required: true}
+  confidence: {type: number, required: true}
+  issued_at: {type: datetime, required: true}
+lifecycle:
+  owner: Heimdall
+  creation:
+    - code: bounded_breach_projection
+      when: A deterministic detector projects a threshold breach inside its configured horizon.
+      result: Create an immutable versioned projection with its feature cutoff and uncertainty interval.
+      source_refs: [docs/roadmap/rules-and-detection/observability-and-detection.md]
+  closure:
+    - code: horizon_outcome_closure
+      when: The horizon and telemetry grace elapse and outcome closure records a terminal label.
+      result: Close the projection while retaining every prediction revision.
+      source_refs: [docs/roadmap/rules-and-detection/observability-and-detection.md]
+  authority_refs: [docs/roadmap/rules-and-detection/observability-and-detection.md]
+provenance:
+  source_url: https://github.com/dotnetpower/fdai
+  resolved_ref: object-type:Forecast@1.0.0
+  content_hash: sha256:fa9acbcc33d8de311e0ffeb71cff698cc7041d5e61e2a6e69e08c1d66f5617a4
+  license: MIT
+  retrieved_at: "2026-08-15T00:00:00Z"

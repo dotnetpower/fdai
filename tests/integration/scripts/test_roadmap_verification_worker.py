@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -32,8 +33,10 @@ def test_report_command_has_no_write_tool_and_denies_side_effects(tmp_path: Path
     agent = sys.modules["roadmap_verification_agent"]
     command = agent.copilot_command(tmp_path / "copilot", "prompt", tmp_path, apply=False)
 
-    assert "--available-tools=read,glob,grep,shell" in command
-    assert "--available-tools=read,glob,grep,shell,write" not in command
+    tools = next(a for a in command if a.startswith("--available-tools=")).split("=", 1)[1]
+    assert "create" not in tools.split(",")
+    assert "edit" not in tools.split(",")
+    assert "view" in tools.split(",")
     assert "--deny-tool=shell(git push)" in command
     assert "--deny-tool=shell(git commit)" in command
     assert "--deny-tool=shell(terraform)" in command
@@ -45,10 +48,61 @@ def test_apply_command_allows_worktree_writes_but_still_denies_push(tmp_path: Pa
     agent = sys.modules["roadmap_verification_agent"]
     command = agent.copilot_command(tmp_path / "copilot", "prompt", tmp_path, apply=True)
 
-    assert "--available-tools=read,glob,grep,shell,write" in command
+    tools = next(a for a in command if a.startswith("--available-tools=")).split("=", 1)[1]
+    assert {"create", "edit"}.issubset(set(tools.split(",")))
     assert "--allow-all-paths" not in command
     assert "--allow-all-urls" not in command
     assert "--deny-tool=shell(git push)" in command
+
+
+def test_available_tools_use_real_cli_tool_names(tmp_path: Path) -> None:
+    _load_module()
+    agent = sys.modules["roadmap_verification_agent"]
+
+    # CLI 1.0.80 tool names. `shell`, `read`, and `write` are permission-rule words, not tools;
+    # passing them to --available-tools silently yields a read-only agent that can never commit.
+    real_tools = {
+        "bash",
+        "read_bash",
+        "stop_bash",
+        "list_bash",
+        "view",
+        "create",
+        "edit",
+        "web_fetch",
+        "skill",
+        "sql",
+        "session_store_sql",
+        "read_agent",
+        "list_agents",
+        "write_agent",
+        "grep",
+        "glob",
+        "task",
+    }
+    for apply in (False, True):
+        command = agent.copilot_command(tmp_path / "copilot", "prompt", tmp_path, apply=apply)
+        declared = next(a for a in command if a.startswith("--available-tools=")).split("=", 1)[1]
+        assert set(declared.split(",")).issubset(real_tools), declared
+
+    # Permission rules stay in the other namespace, which is the form the CLI actually enforces.
+    assert all(rule.startswith(("shell(", "url")) for rule in agent.DENIED_TOOLS)
+
+
+def test_command_pins_an_explicit_model_and_honours_the_override(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _load_module()
+    agent = sys.modules["roadmap_verification_agent"]
+
+    monkeypatch.delenv("FDAI_COPILOT_MODEL", raising=False)
+    command = agent.copilot_command(tmp_path / "copilot", "prompt", tmp_path, apply=False)
+    assert command[command.index("--model") + 1] == agent.DEFAULT_MODEL
+    assert agent.DEFAULT_MODEL != "auto"
+
+    monkeypatch.setenv("FDAI_COPILOT_MODEL", "gpt-5.4")
+    overridden = agent.copilot_command(tmp_path / "copilot", "prompt", tmp_path, apply=False)
+    assert overridden[overridden.index("--model") + 1] == "gpt-5.4"
 
 
 def test_result_validation_rejects_evidence_outside_worktree(tmp_path: Path) -> None:
@@ -129,6 +183,49 @@ def test_worker_git_environment_disables_hooks_only_for_ephemeral_process(
 
     assert environment["GIT_CONFIG_KEY_0"] == "core.hooksPath"
     assert environment["GIT_CONFIG_VALUE_0"] == "/dev/null"
+
+
+def test_worker_path_carries_the_cli_runtime(tmp_path: Path) -> None:
+    _load_module()
+    agent = sys.modules["roadmap_verification_agent"]
+
+    cli_dir = tmp_path / "nodebin"
+    cli_dir.mkdir()
+    package = tmp_path / "package"
+    package.mkdir()
+    loader = package / "npm-loader.js"
+    loader.write_text("#!/usr/bin/env node\n", encoding="utf-8")
+    # The real npm CLI is a symlink from the bin directory into the package, and only the
+    # bin directory holds the matching node, so the link target's parent is the wrong answer.
+    cli = cli_dir / "copilot"
+    cli.symlink_to(loader)
+
+    environment = agent.worker_environment(tmp_path, tmp_path, cli=cli)
+
+    assert environment["PATH"].split(os.pathsep)[0] == str(cli_dir)
+    assert str(package) not in environment["PATH"].split(os.pathsep)
+
+
+def test_unresolvable_cli_fails_loudly_instead_of_returning_no_json(tmp_path: Path) -> None:
+    _load_module()
+    agent = sys.modules["roadmap_verification_agent"]
+
+    launcher = tmp_path / "copilot"
+    launcher.write_text(
+        f'#!/bin/sh\necho "{agent.CLI_MISSING_MARKER} (https://example.invalid)"\nexit 0\n',
+        encoding="utf-8",
+    )
+    launcher.chmod(0o755)
+
+    with pytest.raises(RuntimeError, match="could not locate a runnable CLI"):
+        agent.run_copilot(
+            launcher,
+            "prompt",
+            tmp_path,
+            apply=False,
+            timeout=60,
+            repo_root=tmp_path,
+        )
 
 
 def test_retry_failed_claims_only_failed_jobs() -> None:

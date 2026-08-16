@@ -47,6 +47,13 @@ with service-owned managed implementations without changing the shared wire cont
 | 2026-08-14 | implemented | Verified the delivery-owned downgrade guard against a live active deletion claim instead of relying on migration text inspection. | `current change`; focused Core, PostgreSQL, and migration checks passed 188 cases. | Keep migration behavior covered by the focused PostgreSQL lane. |
 | 2026-08-15 | implemented | Added one focused exact-release principal manifest query module and bound it through the existing semantic Function registry and generic query-table renderer. | `current change`; focused manifest and semantic composition checks passed 42 cases; task-scoped Ruff and strict mypy passed. | Retain the clean bilingual answer-coverage and seeded full-cohort Browser evidence. |
 | 2026-08-15 | implemented | Recorded which capabilities a verified plan selected on the `plan_verify` stage record and rendered `stage`, `plan_nodes`, and `failure_type` through the local plain-log context allowlist. The allowlist stays an allowlist so an unlisted field still cannot reach the plain log. | `current change`; `semantic_planning.py` and `capture-local-service-log.py`; focused planner checks passed 14 cases and the local service log runner passed 11 cases. | Use the field to decide whether incident binding needs a deterministic plan seed. |
+| 2026-08-16 | implemented | Made the conversation's incident binding trusted planning input. Planning rewrites the identifiers and record window of a proposed `query.incident_evidence` node from the binding and re-verifies the plan, so identity is server-owned rather than retyped by the model. The turn evidence-reference bound is now a named contract constant that sizes the read window, and each fail-closed hold names its failing check through the existing `failure_type` field. | `current change`; `semantic_planning.py`, `semantic_runtime.py`, `semantic_turn_processor.py`, and `semantic_turn.py`; focused conversation, processor, and contract checks passed 606 cases; task-scoped Ruff and strict mypy passed. | Retain the governed authenticated Console evidence for the restored incident answer. |
+| 2026-08-16 | implemented | Built the anchored incident read from the binding instead of a plan proposal. The typed frame still decides that a turn wants incident evidence; the capability and its two identities then come from the conversation, so no model selects or transcribes them, and the node still passes the same plan builder and verifier. The binding also answers an `incident_reference` clarification, and the English-only `this incident` substring route is gone so both locales reach one disposition through the frame. | `current change`; `semantic_planning.py` and `capture-local-service-log.py`; focused conversation checks passed 458 cases; task-scoped Ruff and strict mypy passed; three consecutive live anchored turns logged `plan_source="bound_incident"` and answered. | Retain the governed authenticated Console evidence for the anchored incident answer. |
+| 2026-08-16 | implemented | Hardened the anchored incident read after critique. Rewriting a proposed incident read to the anchored identity retargeted a legitimate question about another incident, so the rewrite is removed and the processor's honest hold stands. The read window is now the evidence capability's own record bound rather than the unrelated turn evidence-reference bound. The answer and the Console overview state the verified total and name the truncation instead of reporting the displayed slice. Incident identity is compared on its canonical form, so a hexadecimal case difference no longer reads as a different incident. | `current change`; `semantic_planning.py`, `incident_queries.py`, `semantic_turn_processor.py`, and the Operator presentation; focused Core checks passed 913 cases and Operator checks passed 310 cases; task-scoped Ruff and strict mypy passed; mutation checks confirmed both new guards fail without the fix. | Retain the governed authenticated Console evidence. |
+| 2026-08-16 | implemented | Guarded the presentation boundary the Operator and the Console own separately, bounded the projection conflict counter, and named the object in the persisted release error. Neither suite could previously see slot drift, because the Console silently discards an artifact it cannot parse. | `current change`; `test_presentation_console_contract.py` reads the Console's own `SLOT_KINDS`, `MAX_BLOCKS`, `MAX_ITEMS`, and `MAX_REFS` and checks every emitted artifact in both locales; Operator checks passed 318 cases and persistence checks passed 390 cases; a mutation to an unknown slot fails the guard. | None for this row. |
+| 2026-08-16 | implemented | Checked the record order the incident answer claims. The answer names the latest records by slicing the tail of the projection, and nothing verified that the reader returned them oldest first, so a reordered read would have made the claim silently false. Evidence whose recorded times decrease is now held. | `current change`; focused processor checks passed 54 cases; two live incident correlations answered with the invariant active; removing the check fails the new case. | None for this row. |
+| 2026-08-16 | implemented | Narrowed the binding's answer to an `incident_reference` question to a turn that will read the anchored incident, so a proposed plan for another output shape cannot read a different incident behind a question the operator never saw. | `current change`; focused conversation checks passed 458 cases; removing the shape condition fails the new case. | None for this row. |
+| 2026-08-16 | implemented | Reported the incident evidence the read already carried. The audit row and the profile carried the actor, the title, the severity, the vertical, and the first and last recorded time, but the answer reported a status and a count, so no reader could tell who acted or when. The projection now keeps each record's actor, both surfaces list every populated profile field and a bounded recorded-activity table that names its own bound, and the next safe step follows the gaps the answer measured. Listing populated fields alone would have let an unrecorded status disappear, so both surfaces still state that the records carry no status, and the count stays the number verified rather than the number displayed. A record without a recorded time or an audit reference is skipped instead of shown with an invented anchor. | `current change`; `incident_queries.py`, `semantic_turn_processor.py`, and the Operator presentation; focused Core checks passed 388 cases and Operator checks passed 322 cases; task-scoped Ruff and strict mypy passed; three mutations covering dropped attribution and a silently omitted status each failed exactly one guard. | None for this row. |
 
 ### Remaining work
 - [ ] Complete the deferred Phase 2 physical `git mv` after the compatibility import deprecation cycle, then update this layout to the resulting service-owned paths.
@@ -73,7 +80,7 @@ fdai/
 │   │   ├── case_history/       # canonical revisions, strict operational receipts, artifact-first intake, scoped retrieval, backfill, and retention
 │   │   ├── task_worker/        # isolated depth-one read-only workers: capability attenuation, lifecycle, durable state, and parent synthesis
 │   │   ├── background_task/    # durable detached reads: lease/CAS, atomic completion outbox, bounded retry, process-loss, and retention purge
-│   │   ├── read_investigation/ # exact-resource VM/network planning, evidence, immutable provider-vs-graph shadow comparison, latency policy, owner-scoped direct/stream replay, honest cost usage, SSE heartbeats, and stream-close cancellation; no cloud SDK or execution authority
+│   │   ├── read_investigation/ # exact-resource VM/network planning, evidence, immutable provider-vs-graph shadow comparison and its deterministic cross-source conflict adjudication, latency policy, owner-scoped direct/stream replay, honest cost usage, SSE heartbeats, and stream-close cancellation; no cloud SDK or execution authority
 │   │   ├── briefing/           # deterministic opening/scheduled briefings over report-feed evidence
 │   │   ├── scheduler/          # create/pause/resume/edit/run-now/cancel lifecycle, cron dispatch, run history, blueprints, and scoped continuations
 │   │   ├── document_ingestion/ # upload lifecycle + split inspect/index worker; Forseti/Saga/Var/Muninn gates, durable stage lease/CAS claims, and replay-only gated-state recovery
@@ -401,11 +408,10 @@ Dependency direction is strict and one-way; a violation is a review blocker.
 
 ## Repository Script Layout
 
-Repository automation is grouped by responsibility under `scripts/`; only the
-layout README, `verify.sh`, and the Python package marker stay as root files. Quality gates,
-integrity tooling, governance checks, catalog utilities, deployment helpers,
-and general automation each have their own directory. See
-[scripts/README.md](../../../scripts/README.md) for the ownership map and
+Repository automation is grouped by responsibility under `scripts/`; only the layout README,
+`verify.sh`, and the Python package marker stay as root files. Quality gates, integrity tooling,
+governance checks, catalog utilities, deployment helpers, and general automation each have their
+own directory. See [scripts/README.md](../../../scripts/README.md) for the ownership map and
 placement rules.
 
 ## Structural CI Gates
@@ -425,14 +431,12 @@ CI pipeline plus the local pre-push hook. Corresponding docs in
 ### Adding a new gate
 
 1. Write `scripts/quality/architecture/check-<name>.sh` following the pattern in the existing
-   scripts (warn/fail thresholds via env vars, allowlist with a preceding
-   `#` justification comment, stale-entry rejection, GitHub Actions
-   annotations, `CHECK_QUIET=1` summary mode).
+   scripts (warn/fail thresholds via env vars, allowlist with a preceding `#` justification
+   comment, stale-entry rejection, GitHub Actions annotations, `CHECK_QUIET=1` summary mode).
 2. Ship the gate in **warn-only** so it does not break the current tree.
 3. Add a job to `.github/workflows/ci.yml` and a call in `.githooks/pre-push`.
 4. Add regression tests to `services/core-control-plane/tests/test_check_structural_gates.py` covering
-   warn / enforce / threshold overrides / allowlist / stale entries /
-   boundary conditions.
+   warn / enforce / threshold overrides / allowlist / stale entries / boundary conditions.
 5. Extend `services/core-control-plane/tests/test_structural_gates_drift.py` so the CI job and the
    pre-push wiring are drift-guarded.
 
@@ -462,12 +466,11 @@ clean (see the fork model in
 - **Composition root**: `core/` depends only on the CSP-neutral interfaces in `shared/`. A thin
   composition root (outside `core/`) binds concrete implementations at startup. `core/` never
   news-up a concrete adapter; it receives its dependencies. The upstream default binder is
-  [`fdai.composition.default_container`](../../../services/core-control-plane/src/fdai/composition/__init__.py); a fork's
-  entry point calls its own factory that wraps or replaces those bindings. Concrete adapter
-  classes (e.g. `PackageResourceSchemaRegistry`, `JsonSchemaContractValidator`) are
+  [`fdai.composition.default_container`](../../../services/core-control-plane/src/fdai/composition/__init__.py);
+  a fork's entry point calls its own factory that wraps or replaces those bindings. Concrete
+  adapter classes (e.g. `PackageResourceSchemaRegistry`, `JsonSchemaContractValidator`) are
   **not** re-exported from public sub-packages; they must be imported directly from their
-  submodule, and only by a composition root, so `core/` cannot depend on a concrete by
-  accident.
+  submodule, and only by a composition root, so `core/` cannot depend on a concrete by accident.
 - **Config-driven binding**: configuration selects each implementation. `composition/wire_distiller.py`
   atomically binds the review-only `Distiller` from three exact-version endpoints and one replay-identical
   prompt; zero council records preserve abstention and partial records fail startup without changing execution T2.
@@ -634,13 +637,12 @@ it can never erase an authoritative record or an audit entry.
 
 ## Control-Loop Wiring
 
-Every terminal path-including reject, HIL timeout, abstain, and deny-writes an audit entry.
-T2 output reaches the risk-gate only after clearing the quality-gate.
-Boundary hardening keeps that sequence fail-closed: ingest and routing normalize blank resource
-references before comparison, T1 rejects malformed reuse evidence, and a T2 proposal cannot bypass
-grounding authority when a provider fails. HIL approval ids and executor idempotency keys are
-claimed atomically, while per-resource locking serializes competing applies before any delivery
-adapter can mutate state.
+Every terminal path-including reject, HIL timeout, abstain, and deny-writes an audit entry. T2
+output reaches the risk-gate only after clearing the quality-gate. Boundary hardening keeps that
+sequence fail-closed: ingest and routing normalize blank resource references before comparison, T1
+rejects malformed reuse evidence, and a T2 proposal cannot bypass grounding authority when a
+provider fails. HIL approval ids and executor idempotency keys are claimed atomically, while
+per-resource locking serializes competing applies before any delivery adapter can mutate state.
 
 ```mermaid
 flowchart LR
@@ -708,10 +710,9 @@ flowchart LR
   [llm-strategy.md § Ontology Storage Layout](llm-strategy.md#ontology-storage-layout).
 - Tests for `services/core-control-plane/src/fdai/core/tiers/t0_deterministic` (the
   deterministic-engine) and `services/core-control-plane/src/fdai/core/risk_gate` are the safety
-  core: they hold a >= 90% coverage gate
-  and include property-based tests asserting "high-risk never auto-executes", "shadow-mode
-  never mutates", and "re-applying an action is a no-op". Every action path also has a
-  shadow-mode test and a rollback test.
+  core: they hold a >= 90% coverage gate and include property-based tests asserting "high-risk
+  never auto-executes", "shadow-mode never mutates", and "re-applying an action is a no-op". Every
+  action path also has a shadow-mode test and a rollback test.
 - Rule and policy changes ship with a regression test; the
   `services/core-control-plane/src/fdai/rule_catalog/pipeline/` promotion gate blocks on a failing regression
   suite or any policy-violation escape.

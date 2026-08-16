@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 3bf90f3cc7b7d56660d50dacfaee256c72f00429
-translation_revised: 2026-08-15
+translation_source_sha: 5f2661192b62fd4b40221a378bf5423beab0c31f
+translation_revised: 2026-08-16
 ---
 
 # 개발 워크플로 보증
@@ -252,6 +252,27 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 | 2026-08-15 | implemented | Commit scope, approval comment, Git alias, config-env option form 및 symlink ancestor를 다루는 adversarial parser 라운드 4개를 닫았습니다. | 현재 변경, dispatcher 및 parser fixture 40개와 scratch ownership guard 3개 통과이며 독립 acceptance에서 Low를 초과하는 잔존 사항이 없었습니다. | Exact 중앙 검증을 받고 이슈 #118을 완료합니다. |
 | 2026-08-15 | validated | 중앙 검증이 최종 Top 20 구현과 assurance ledger revision을 수락했습니다. | `validation_queue.py check-commit 4a18ce982` 통과, 최종 focused join 테스트 221개 통과입니다. | 이슈 #118을 완료하고 project board를 동기화합니다. |
 | 2026-08-15 | in-progress | 세션 근거에서 36개 세션에 걸쳐 대기 불만 51건이 확인된 뒤 이슈 #122의 측정된 bounded-wait 캠페인을 시작했습니다. | 이슈 #122 및 bounded wait 캠페인 표의 기준선입니다. | Bounded 예산을 구현하고 비평 라운드 10개 이상을 완료합니다. |
+| 2026-08-15 | implemented | Assurance checkpoint를 전체 run configuration이 아니라 evidence identity에 바인딩해, per-run session id나 조정된 pacing, deadline, retry 노브가 완료된 turn을 폐기하지 않도록 했고 모든 보존 결과를 생성 실행에 귀속했습니다. | 현재 변경, console suite 1793개 통과 및 TypeScript 프로젝트 검사 통과입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
+| 2026-08-15 | implemented | Checkpoint 바인딩에 대상 stack origin을 추가하고, 예산 소진으로 생긴 비결과를 영구 실패로 저장하지 않도록 했으며, 실행 예산 override를 선언된 봉투로 제한하고 재시도 집계를 보존 증거에서 유도했으며 보존 결과 형태를 검증하고 과장된 원장 행 6개를 정정했습니다. | 현재 변경, live-evidence Vitest 89개 통과 및 TypeScript 프로젝트 검사 통과입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
+| 2026-08-15 | implemented | 정체된 질문 경계와 실행 예산 경계를 테스트된 정책으로 분리하고, checkpoint 읽기 경로에서 무시되던 결과 술어를 전달했으며, 예산으로 중단된 실행을 끝낸 질문을 공개하고 typecheck 게이트를 `console/tests`로 확장했습니다. 이로 인해 이 캐페인이 typecheck 밖 spec에 만든 실제 타입 파손을 발견해 수정했습니다. | 현재 변경, live-evidence Vitest 95개 통과, `npm run typecheck`가 `console/tests`를 포함해 통과합니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
+| 2026-08-15 | implemented | 앞 행을 정정합니다. 해당 변경은 Console typecheck script만 확장했고 강제되는 게이트는 확장하지 못했습니다. 이번 변경은 `run-operator-surfaces.sh`에서 `npm --prefix console run typecheck`를 실행하고, 만료된 시도가 실제로 잘린 경계를 공개하며, 해당 outcome을 `per_attempt_deadline_exceeded`로 이름을 바꾸고 일시적 turn 오류가 남은 시도를 사용하도록 합니다. | 현재 변경, live-evidence Vitest 98개 통과, 전체 Console suite 1802개 통과, `npm run typecheck` 통과입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
+| 2026-08-15 | implemented | Cohort를 완주했지만 발행 전에 중단된 실행이 영원히 통과하지 못하고 checkpoint까지 잃던 재개 함정을 제거했습니다. 완전히 재개된 cohort는 `run_mode: resumed_replay`로 발행되고, 회수는 발행을 전제하며, 강제 게이트는 중복 애플리케이션 typecheck를 피해 tests project만 실행하고, 해당 게이트 행을 parity 테스트로 고정했으며 아티팩트는 정체된 질문을 별도로 집계합니다. | 현재 변경, live-evidence Vitest 및 typecheck-parity suite 통과입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
+| 2026-08-15 | implemented | 앞 행이 열어 둔 재생 권한 구멍을 닫았습니다. Live 검증이 없는 실행은 `receipt_source: resumed_replay`로 발행되며 production-ready가 될 수 없고, 중단된 실행을 재생으로 잘못 표기하지 않습니다. 통과 기준이 읽는 모든 보존 필드를 검증하고, transport 재시도 집계 범위를 좁혔으며, checkpoint를 evidence identity로 키잉하고 아티팩트 schema를 올렸습니다. | 현재 변경, live-evidence Vitest 102개 통과, `npm run typecheck` 및 typecheck-parity 통과입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
+| 2026-08-15 | implemented | 재개된 cohort가 자신이 보고하는 stack을 실제로 증명하도록 했습니다. Checkpoint만으로 완주한 실행은 마지막 질문을 live stack에 다시 물으며, 보존된 모든 답변은 동일한 ontology release와 principal manifest 세대를 서술해야 하므로 오래된 답변이 live turn 하나에 편승할 수 없습니다. | 커밋 `344c445b8`, bounded wait 캠페인 표의 16위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
+| 2026-08-15 | implemented | 그 live 증명을 반증 가능하게 만들었습니다. 재개 시 답변이 필요한 마지막 질문까지 tail을 풀고, live 권한은 ontology release에 바인딩된 답변 turn을 요구하며, 재발행된 세대는 live 답변으로 확인되어야 하고, 완주했으나 실패한 cohort는 checkpoint를 유지하며, 실행 예산이 자신의 preamble까지 포함하고, checkpoint 신뢰·통과·회수·경로 정책을 게이트되지 않은 spec에서 테스트되는 순수 함수로 옮겼습니다. | 커밋 `d9adeccb2`, bounded wait 캠페인 표의 17위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
+| 2026-08-15 | implemented | 재개된 cohort가 수렴하도록 했습니다. 검증된 turn만 재개하고, 답변이 필요한 질문 정확히 하나만 live 증명으로 풀며, preamble의 각 단계가 자체 경계를 갖고, 세대를 증명할 수 없는 선택은 거부하며, 보존된 locale·operation·attempt outcome을 통제된 값으로 검증합니다. | 커밋 `11635c075`, bounded wait 캠페인 표의 18위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
+| 2026-08-16 | implemented | 실제로 증명할 수 있는 증명 질문을 풀도록 했습니다. 푸는 질문은 이전 실행이 세대 digest와 함께 답한 마지막 질문이며, 완주한 cohort는 러너가 단언하는 outcome이 충족될 때만 checkpoint를 회수하고, 포기한 turn이 재사용 페이지에 인증 스트림을 남기지 않으며, 누락된 receipt를 원래의 transport outcome으로 보고하고, 보존 결과 타입을 러너와 공유합니다. | 커밋 `d9eed948d`, bounded wait 캠페인 표의 19위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
+| 2026-08-16 | implemented | 탐지된 모든 결함을 복구 가능하게 만들었습니다. 세대가 섞인 checkpoint는 영원히 거부되는 대신 폐기되고, checkpoint 파일을 바인딩 전체로 키잉해 번갈아 쓰는 revision이나 target stack이 각자의 재개 상태를 유지하며, 실행 컨텍스트를 재설정할 수 없는 페이지는 실행을 중단시키고, `console/scripts`를 typecheck project에 넣자 실제 타입 결함이 드러나 수정했습니다. | 커밋 `6c2f0848b`, bounded wait 캠페인 표의 20위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
+| 2026-08-16 | implemented | 실행되지 않던 게이트를 복구했습니다. `npm exec`가 호출자 디렉터리를 유지해 operator 게이트가 저장소 루트에서 `tsconfig.tests.json`을 요구하다 TS5058로 실패했고 `set -e` 아래에서 console build와 CLI 검사 두 개까지 함께 무너뜨렸습니다. 이제 게이트가 project를 저장소 루트 기준으로 지정하고 parity 테스트가 그 형태를 고정하며, 잘린 실행은 유효한 checkpoint를 유지하고, 실행 중 release 교체가 무효화한 turn만 정리하며, 앞뒤가 맞지 않는 통제된 거부는 실패하고, 부분 checkpoint 파일은 프로세스별 이름을 갖습니다. | 커밋 `1782464e4`, bounded wait 캠페인 표의 21위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
+| 2026-08-16 | implemented | 막힌 cohort가 자신을 재생하지 못하게 했습니다. 거부만 한 답변 필수 turn을 풀어 이후 실행이 다시 시도하게 하고, pacing 결함이나 checkpoint 쓰기 실패는 아티팩트 없이 빠져나가는 대신 통제된 중단 사유가 되며, parity 테스트가 호출 전체를 고정하고, 운영자가 지정한 checkpoint 경로를 다듬습니다. | 커밋 `ddf1e47f5`, bounded wait 캠페인 표의 22위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
+| 2026-08-16 | implemented | Pacing만이 아니라 질문 전체를 보호하도록 했습니다. Pacing과 질문 내 재시도 대기, turn이 하나의 중단 경로를 공유하므로 재시도 대기 중 페이지 결함이나 허용된 0 pacing 재정의 상황에서도 아티팩트가 남고, 예산으로 잘린 시도는 쓸 수 없는 reload를 소비하지 않으며, 예산 중단은 중단된 질문의 이름을 남깁니다. | 커밋 `62f68be0e`, bounded wait 캠페인 표의 23위 항목입니다. | 이슈 #122의 남은 hardening 라운드를 완료합니다. |
+| 2026-08-16 | implemented | 24라운드가 assurance 러너 밖에서 찾아낸 대기를 제한했습니다. Container App health 폴링은 반복마다 진행 줄을 출력하고 자체 900초 deadline에서 실패하며, auto-pull은 `git fetch`와 `git pull --rebase`를 interval 아래로 제한하고 완료되지 못한 fetch를 보고하며, 재시도하는 모든 워크플로 다운로드가 누적 재시도 window를 선언하고, 재개된 cohort는 loop 전에 복원·잔여 개수를 출력합니다. | 현재 변경, 배포 워크플로·validation queue·게이트 parity 집중 테스트 71개 통과, 두 스크립트의 `bash -n`, `npm --prefix console run typecheck`, live-evidence Vitest 143개 통과입니다. | 24라운드의 findings 3건을 근거와 함께 기각했고 이슈 #122의 비평 라운드를 계속합니다. |
+| 2026-08-16 | implemented | Deadline이 전혀 없던 검증 단계 자체를 제한했습니다. 30분간 출력이 없거나 4시간 예산을 넘긴 단계는 프로세스 그룹 단위로 종료되고, 어떤 경계가 작동했는지와 함께 상태 124로 보고되며, 실패 지역화에서 제외되어 환경 정체가 커밋을 탓하지 않습니다. 또한 개발자에게 중간까지 진행된 rebase를 남길 수 있었던 24라운드의 `git pull --rebase` 처리를 정정해, 뒤처진 브랜치는 이미 fetch한 ref 위로 로컬 `merge --ff-only`로 전진하고, readiness 프로브는 재시도 window와 요청당 상한을 선언합니다. | 현재 변경, validation queue·배포 워크플로·게이트 parity 집중 테스트 73개 통과(정체된 단계와 예산 초과 단계를 종료하는 신규 watchdog 테스트 2개 포함), strict mypy, Ruff, 두 스크립트의 `bash -n`입니다. | 비평 라운드를 계속하고 이슈 #122의 exact 중앙 검증을 확보합니다. |
+| 2026-08-16 | implemented | 26라운드가 25라운드 변경에서 찾아낸 공유 상태와 지연 종료 위험을 제거했습니다. Auto-pull은 브랜치별 remote-tracking ref로 fetch해 그 ref를 기준으로 비교하고 전진하므로 같은 Git common directory의 동시 fetch가 비교 대상을 바꾸거나 무관한 ref로 브랜치를 전진시킬 수 없고, 단계 watchdog은 단계가 이미 종료했으면 종료 신호를 보내지 않으며 실제로 그 종료로 죽은 경우에만 만료를 인정합니다. | 현재 변경, validation queue 집중 테스트 44개 통과, strict mypy, Ruff, auto-pull 스크립트의 `bash -n`입니다. | 비평 라운드를 계속하고 이슈 #122의 exact 중앙 검증을 확보합니다. |
+| 2026-08-16 | implemented | 27라운드가 여전히 재현할 수 있던 마지막 대기를 닫았습니다. 검증기의 Git 헬퍼가 600초 경계를 선언해 단계 watchdog 밖의 어떤 검증기 단계도 문자 그대로 무한 대기하지 않고, roadmap 에이전트는 프로세스가 중단 불가 I/O에 걸린 경우 자신이 보낸 SIGKILL 뒤에 영원히 기다리지 않으며, auto-pull은 fetch timeout과 다른 이유의 fetch 실패를 구분합니다. 27라운드에서 Low를 넘는 재현 가능한 finding은 없었습니다. | 현재 변경, validation queue 집중 테스트 44개 통과, 변경된 두 모듈의 strict mypy, Ruff, auto-pull 스크립트의 `bash -n`입니다. | Exact 중앙 검증을 확보하고 이슈 #122를 완료합니다. |
+| 2026-08-16 | implemented | 러너 기본값만 있던 자리에 예산을 선언했습니다. 보호된 Terraform job은 180분, 보호된 서비스 배포 job은 120분으로 제한하고, health 검증기는 자체 deadline 뒤에 실행하던 복구 검증과 readiness 경로 단계를 제한합니다. 28라운드 수용 검토는 assurance 러너, 검증 단계, auto-pull, health 검증, Azure preflight, 배포 워크플로, roadmap 에이전트 예산, Playwright 포트 풀 전반에서 Low를 넘는 재현 가능한 finding을 더 찾지 못했습니다. | 현재 변경, 배포 워크플로 집중 테스트 24개 통과, health 스크립트의 `bash -n`, 두 워크플로 문서의 YAML 파싱입니다. | Exact 중앙 검증을 확보하고 이슈 #122를 완료합니다. |
+| 2026-08-16 | implemented | 29라운드는 28라운드가 선언한 예산을 각 job과 스크립트의 실제 최악 소요와 대조해, 느리지만 정상인 배포를 자르지 않고 그 위에 있음을 확인했고, `timeout` 래퍼가 `set -euo pipefail` 아래에서 종료 코드 전달을 보존하며 두 job 예산이 job 수준에서 유효한 YAML임을 확인했습니다. 캠페인 종료 조건을 충족합니다. Low를 넘는 재현 가능한 finding은 남아 있지 않습니다. | 현재 변경, 29라운드 확인 검토와 위 행들에 기록된 집중 테스트입니다. | Exact 중앙 검증을 확보하고 이슈 #122를 완료합니다. |
+| 2026-08-16 | validated | 중앙 검증이 통합된 bounded wait revision을 수락했고 나가는 범위를 `origin/main`에 푸시했습니다. | Revision `85c5aadf4`에 대해 `validation_queue.py check-range origin/main..HEAD`가 통과했고, 푸시가 해당 exact 증적과 구조 증적을 재사용했습니다. | 이슈 #122를 완료하고 프로젝트 보드를 동기화합니다. |
 
 ### 남은 작업
 
@@ -262,7 +283,9 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 - [x] 위의 제한된 Low 잔존 사항만 남기고 추가 라운드 22개를 완료했습니다.
 - [x] Top 20 revision `4a18ce982`를 통합하고 exact 중앙 validation receipt를 받았습니다.
 - [ ] 이슈 #118을 완료하고 project board를 동기화합니다.
-- [ ] 비평 라운드 10개 이상, Low를 초과하는 잔존 사항이 없는 최종 검토 및 exact 중앙 검증으로 이슈 #122의 bounded wait 캠페인을 완료합니다.
+- [x] 이슈 #122의 bounded wait 캠페인 비평 라운드를 완료했으며, 28라운드 수용 검토에서 Low를 초과하는 재현 가능한 잔존 사항은 없었습니다.
+- [x] 중앙 검증이 bounded wait revision `85c5aadf4`를 수락했고 해당 범위를 푸시했습니다.
+- [ ] 이슈 #122를 완료하고 프로젝트 보드를 동기화합니다.
 
 ## Bounded wait 캠페인
 
@@ -277,34 +300,74 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 | 순위 | 제한 대상 | 측정된 기준선 | 조치 |
 |-----:|-----------|---------------|------|
 | 1 | Assurance 요청 pacing | 고정 15초 sleep 99회가 정상 full cohort에 24분 45초를 추가했습니다 | 요청 시작 사이 최소 간격을 목표로 하고 turn 소요 시간을 흡수합니다. |
-| 2 | Transport 재시도 지연 | 재시도 가능한 실패마다 고정 60초 sleep 1회입니다 | 제한된 지수 지연을 계산하고 clamp된 서버 hint를 존중합니다. |
-| 3 | Assurance 정체 감지 | turn별 또는 무진행 deadline 없이 4시간 봉투 하나입니다 | 정체된 turn은 3분, 정체된 실행은 5분에 실패시킵니다. |
-| 4 | Assurance 재개 | 외부 종료가 완료된 모든 질문을 폐기했습니다 | Provenance에 바인딩된 checkpoint를 저장하고 남은 질문을 재개합니다. |
+| 2 | Transport 재시도 지연 | 재시도 가능한 실패마다 고정 60초 sleep 1회입니다 | 선언된 최대값으로 clamp된 제한된 지수 지연을 계산합니다. |
+| 3 | Assurance 정체 감지 | turn별 또는 질문별 deadline 없이 4시간 봉투 하나입니다 | 정체된 turn은 3분, 정체된 질문은 5분에 실패시킵니다. |
+| 4 | Assurance 재개 | 외부 종료가 완료된 모든 질문을 폐기했습니다 | Source, workspace, 대상 stack 및 evidence identity에 바인딩된 checkpoint를 저장하고 남은 질문을 재개합니다. |
 | 5 | Assurance 진행 근거 | 장시간 실행이 종료 전까지 완료 신호를 내지 않았습니다 | 완료된 질문마다 제한된 진행 줄 하나를 출력합니다. |
 | 6 | 반복된 live 검증 | 작은 수정마다 재시작, canary 및 전체 gate를 반복했습니다 | 에이전트 계약에서 batch 검증과 release 경계 cohort 실행을 요구합니다. |
 | 7 | Roadmap 에이전트 봉투 | 4시간 예산 하나가 1초짜리 번역 검사에도 적용됐습니다 | 에이전트, 변경 테스트 및 품질 검사에 별도 예산을 부여합니다. |
-| 8 | Roadmap 서비스 봉투 | `TimeoutStartSec=5h`와 `2h`가 실제 단계 합계를 초과했습니다 | 두 unit 모두 선언된 단계 예산보다 1시간 위로 제한합니다. |
+| 8 | Roadmap 서비스 봉투 | `TimeoutStartSec=5h`와 `2h`가 실제 단계 합계를 초과했습니다 | 각 unit을 선언된 단계 예산 바로 위로 제한합니다. |
 | 9 | 배포 migration polling | 각 job이 자체 30회 시도 곱을 가졌습니다 | 누적 900초 migration deadline 하나를 선언합니다. |
 | 10 | 배포 revision polling | 각 app이 자체 24회 시도 곱을 가졌습니다 | 누적 300초 revision deadline 하나를 선언합니다. |
 | 11 | Azure preflight 예산 | 32 페이지 곱하기 3회 시도가 per-attempt timeout을 곱했습니다 | 각 요청도 제한하는 전체 preflight deadline을 추가합니다. |
 | 12 | 브라우저 서버 기동 | 각 Playwright 서버가 120초를 대기했습니다 | 대기를 절반으로 줄여 잘못 설정된 서버가 더 빨리 드러나게 합니다. |
-| 13 | 의존성 다운로드 | job마다 300초 재시도 window와 `--retry 5`입니다 | 90초 window와 `--retry 3`으로 줄입니다. |
+| 13 | 의존성 다운로드 | job마다 300초 재시도 window와 `--retry 5`입니다 | 120초 재시도 window, 90초 전송 상한 및 `--retry 3`으로 줄입니다. |
 | 14 | 원격 drift 감지 | Auto-pull이 최대 600초 뒤에 원격 drift를 관측했습니다 | Clean-tree 및 validation guard를 유지하면서 180초마다 확인합니다. |
-| 15 | 제외된 빠른 테스트 | `tests/live-e2e/**`가 Vitest 파일 4개를 모든 일반 실행에서 제외했습니다 | Playwright spec만 제외해 빠른 계약이 일반 loop에서 실행되게 합니다. |
+| 15 | 제외된 빠른 테스트 | `tests/live-e2e/**`가 해당 디렉터리의 모든 Vitest 파일을 일반 실행에서 제외했습니다 | Playwright spec만 제외해 빠른 계약이 일반 loop에서 실행되게 합니다. |
+| 16 | 재생된 assurance 권한 | Checkpoint로 완성된 cohort가 live stack에 질문을 하나도 답하지 않고 발행될 수 있었습니다 | 최소 한 질문을 live로 재검증하고 모든 보존 답변이 하나의 통제된 세대를 기술하도록 요구합니다. |
+| 17 | 반증 불가능한 live 증명 | 풀려난 질문이 generation digest를 전혀 담지 않는 질문일 수 있었고, 완주했지만 실패한 cohort가 checkpoint를 버렸습니다 | 마지막 answer-required 질문까지 꼬리를 풀고, 재개 세대를 live 답변로 확인하며, 통과 발행 뒤에만 checkpoint를 회수합니다. |
+| 18 | 수렴하지 않는 재개 | 실패한 turn이 영구 실패로 재개되고, 풀린 꼬리가 예산 하나를 넘을 수 있었으며, 실행 preamble에 선언된 timeout이 없었습니다 | 검증된 turn만 재개하고, 증명 질문을 정확히 하나만 풀며, 모든 preamble 단계를 제한합니다. |
+| 19 | 증명할 수 없는 증명 질문 | 풀린 질문을 operation으로 골라 통제된 거부가 나오면 재개 cohort가 세대를 증명할 수 없었고, release 기준만 실패한 완주 cohort가 여전히 checkpoint를 버렸습니다 | 이전 실행이 답변한 질문을 풀고, 단언된 release 결과에만 회수하며, deadline 초과 뒤 페이지를 재설정합니다. |
+| 20 | 감지했지만 회복 불가능한 상태 | 세대가 섞인 checkpoint를 저장한 뒤 영구히 거부했고, 파일 하나가 모든 binding을 대표했으며, 페이지 재설정 실패에도 실행이 계속됐습니다 | 불일치 checkpoint를 폐기하고, 파일 키를 binding 전체로 잡으며, 페이지를 재설정할 수 없으면 중단합니다. |
+| 21 | 실행되지 않은 게이트 | 강제된 테스트 타입 검사가 프로젝트 경로를 저장소 루트에서 해석해 실패하며 나머지 operator 게이트를 중단시켰고, 중단된 실행이 유효한 checkpoint를 폐기했습니다 | 프로젝트 경로를 해석하고, 해석되는 호출 형태를 고정하며, 완주한 실행이 모순을 관측한 경우에만 폐기합니다. |
+| 22 | 영원히 재생되는 차단된 cohort | 모든 turn이 통과했지만 release 기준을 놓친 완주 cohort가 같은 차단을 다시 발행하는 checkpoint를 유지했고, 페이지나 checkpoint 결함이 아티팩트 없이 빠져나갔습니다 | 거부한 answer-required turn을 풀고, pacing 및 checkpoint 결함을 통제된 중단 사유로 바꿉니다. |
+| 23 | 부분적으로만 보호된 질문 | 질문 사이 pacing 대기만 보호되어 재시도 대기 중이나 pacing 비활성 시 페이지 결함이 아티팩트 없이 빠져나갔고, 예산 중단이 컨텍스트 재설정 실패로 보고될 수 있었습니다 | 질문 전체를 보호하고, 예산이 무의미하게 만든 재설정을 건너뛰며, 실행을 끝낸 질문을 기록합니다. |
+| 24 | 조용한 배포·개발 대기 | 900초 Container App health 폴링이 아무것도 출력하지 않고 만료된 deadline을 수렴처럼 통과시켰고, auto-pull이 180초 loop 안에서 timeout 없이 `git fetch`와 `git pull --rebase`를 실행했으며, 재시도하는 워크플로 다운로드 7건이 재시도 횟수만 선언하고 누적 window는 선언하지 않았고, 재개된 assurance cohort가 복원한 turn 수를 최종 아티팩트에서만 공개했습니다 | Health 폴링마다 진행 줄 하나를 출력하고 health deadline에서 실패시키며, auto-pull의 모든 원격 호출을 interval 아래로 제한하고, 재시도하는 모든 다운로드에 `--retry-max-time`을 선언하며, cohort loop 앞에 재개 줄 하나를 출력합니다. |
+| 25 | 경계 없는 검증 단계 | 검증 단계가 `Popen`과 `wait()`로 아무 deadline 없이 실행되어 게이트 하나가 멈추면 큐와 그 뒤의 모든 푸시가 무기한 막혔고, 24라운드가 `git pull --rebase`에 씌운 `timeout`은 개발자 트리에 중간까지 진행된 rebase를 남길 수 있었으며, readiness 프로브는 60초 봉투 안에서 요청당 상한 없이 재시도했습니다 | 30분간 출력이 없거나 4시간 예산을 넘긴 단계를 종료하고, 그 종료를 커밋 탓으로 돌리지 않도록 별도 상태로 보고하며, 뒤처진 브랜치는 로컬 fast-forward로 전진시키고, readiness 재시도 window를 선언합니다. |
+| 26 | 공유 ref와 지연된 watchdog | Auto-pull이 Git common directory의 모든 프로세스가 덮어쓰는 기본 fetch head를 기준으로 비교하고 전진해 동시 fetch가 브랜치를 무관한 ref로 전진시킬 수 있었고, 25라운드 watchdog은 단계가 이미 정상 종료한 뒤에도 종료됨으로 표시할 수 있었습니다 | 브랜치별 remote-tracking ref로 fetch해 그 ref를 기준으로 비교·전진하고, 단계가 종료했으면 종료 신호를 건너뛰며, 실제로 그 종료로 죽은 경우에만 만료를 인정합니다. |
+| 27 | 마지막 남은 검증기 대기 | 검증기가 로컬 Git plumbing을 timeout 없는 `subprocess.run`으로 실행했고, roadmap 에이전트가 자신이 보낸 SIGKILL 뒤에 경계 없이 대기했으며, 어떤 이유로든 실패한 fetch를 timeout으로 보고했습니다 | Git 헬퍼와 종료 후 대기에 경계를 두고, 루프가 실제로 관측한 fetch 실패를 그대로 이름 붙입니다. |
+| 28 | 러너 기본값만 있는 배포 job | 보호된 Terraform과 서비스 배포 job이 예산을 선언하지 않아 6시간 러너 기본값이 유일한 경계였고 그동안 단일 배포 러너를 붙잡았으며, health 검증기는 자체 deadline 뒤에 경계 없는 로컬 Python 단계 두 개를 실행했습니다 | 두 배포 job에 job 예산을 선언하고 검증기와 readiness 경로 단계를 제한합니다. |
 
 ### 계약
 
 - Assurance 실행 예산은 cohort 크기에서 유도하며 최소 5분, 최대 90분이고 operator는 선언된
   범위 안에서 재정의할 수 있습니다.
-- 모든 turn은 남은 실행 예산으로 제한되므로 예산 소진은 실행을 멈추고 checkpoint를 기록하며
-  불투명한 harness timeout에 도달하는 대신 명시적 정지 사유로 실패합니다.
-- 무진행 deadline은 재시도를 포함한 질문 하나 전체를 제한하고 질문별 deadline은 시도 하나를
-  제한하며, 위반은 구분된 실패 사유로 기록됩니다.
-- Checkpoint는 source revision, configuration digest, workspace patch digest 및 순서가 있는
-  cohort가 모두 일치할 때만 재개하며, 손상되거나 잘린 checkpoint는 cohort를 다시 시작합니다.
+- 모든 turn은 남은 실행 예산으로 제한되므로 예산 소진은 실행을 멈추고 마지막으로 기록된
+  checkpoint를 그대로 두며 불투명한 harness timeout에 도달하는 대신 명시적 정지 사유로
+  실패합니다.
+- 정체된 질문 deadline은 재시도를 포함한 질문 하나 전체를 제한하고 시도별 deadline은 시도 하나를
+  제한합니다. 각 시도는 실제로 자신을 끝낸 경계를 보고하므로 `per_attempt_deadline_exceeded`,
+  `stalled_question`, `question_budget_exhausted`가 아티팩트에서 구분됩니다.
+- Checkpoint는 source revision, workspace patch digest, 대상 stack origin, evidence identity 및
+  순서가 있는 cohort가 모두 일치할 때만 재개하며, 손상되거나 잘렸거나 불완전한 checkpoint는 cohort를
+  다시 시작합니다.
+- 실행 예산 소진만으로 종료된 질문은 실패로 저장하지 않습니다. 실행은 명시적인 중단 사유로 멈추고
+  해당 질문을 미완료로 남기므로, 재개된 실행은 stack이 유발하지 않은 영구 실패를 상속하지 않고
+  다시 시도합니다.
+- 정체로 종료된 질문은 실제 실패입니다. 고유한 사유로 기록되고 cohort는 계속되며, 예산 소진으로
+  보고되지 않습니다. 아티팩트는 예산으로 중단된 실행을 끝낸 질문과 시도도 공개합니다.
+- Evidence identity는 결과 schema, cohort seed, 순서가 있는 question id, 인증 방식을 포함합니다.
+  Per-run session id와 pacing, deadline, retry 노브는 제외합니다. 이 값들은 실행 비용을 바꿀 뿐
+  완료된 답변이 여전히 유효한 증거인지는 바꾸지 않기 때문입니다. 모든 보존 결과는 이를 생성한
+  실행을 기록하므로 재개된 cohort도 귀속 가능하며, 해당 귀속이 없는 결과는 통과할 수 없습니다.
+- 시도별 deadline 위반은 질문을 종료하며, 재시도 가능한 transport source 또는 일시적 turn 오류만 남은
+  시도를 사용합니다.
+- Live 답변이 없는 실행은 권위 있는 결과로 발행되지 않습니다. 재개된 실행은 이전 실행이 generation digest와
+  함께 답변한 질문 하나를 풀어, 보고하는 stack의 ontology release와 principal manifest를 증명할 수 있는
+  질문을 다시 답합니다. 그런 저장 답변이 없는 cohort는 대신 마지막 answer-required 질문을 풉니다.
+- 검증된 turn만 재개합니다. 실패한 turn은 상속하지 않고 다시 시도하므로, 한 번의 불안정한 turn이 고정된
+  revision에서 cohort를 영구히 통과 불가능하게 만들지 않으며, 재개 비용은 증명 질문과 이전 실행이
+  검증하지 못한 질문들입니다.
+- 다시 발행되는 모든 답변은 live turn이 확인해야 합니다. Live 답변이 재현하지 못한 ontology release
+  또는 principal manifest digest를 가진 재개 답변은 혼합 세대 결과로 발행되지 않고 cohort를
+  실패시킵니다. 통제된 거부는 세대를 공개하지 않으므로 이 규칙에 중립이며 자체 기준으로 다시
+  발행됩니다.
+- 모든 turn이 통과했지만 release 기준을 만족하지 못한 cohort는 거부만 한 answer-required turn을
+  풀어, 이후 실행이 같은 차단을 재생하는 대신 다시 시도하게 합니다.
 - 완료된 cohort는 아티팩트 발행 후, 단언 전에 checkpoint를 회수합니다. 따라서 발행 실패가 완성된
-  cohort를 파괴하지 않고 이후 실행도 재생할 수 없으며, live turn을 수행하지 않은 실행은 통과 또는
-  production-ready 아티팩트를 보고할 수 없습니다.
+  cohort를 파괴하지 않고 이후 실행도 재생할 수 없으며, live turn을 수행하지 않은 실행은
+  `interrupted`로 보고되고 release 권한을 갖지 않으므로 production-ready 아티팩트를 보고할 수
+  없습니다.
 
 ## 관련 문서
 

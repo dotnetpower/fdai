@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 5c5d522c554718364d4697b04ed7773b7fd5a775 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 45ce138c1a36e8400f9475614ecfd7653f1935c2 }]
 ---
 
 # Deploy Quickstart
@@ -136,6 +136,10 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
      cadence.
    - **Forecast learning**: its opt-in Job publishes raw ticks only, and the core
      has the reviewed `FDAI_FORECAST_TARGETS_JSON` document.
+   - **Analyzer tick**: when `FDAI_INVENTORY_DSN` is configured, the Job merges
+     explicit targets with only the supported resources in the durable inventory
+     projection and reports the configured discovery bound. Unsupported resource
+     types stay omitted, and a fully resolved empty target set exits as a clean no-op.
    - **OHL scale-out evidence**: when enabled, start the manual proposal Job and confirm exactly
      one shadow proposal reaches the normal ingress with the configured campaign and initiator.
      Its identity has only image pull and primary Event Hubs send permissions, with no

@@ -1,15 +1,16 @@
 /** Resumable checkpoint for bounded live assurance runs. */
 
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 import { canonicalJsonDigest } from "./browser-evidence-provenance";
 
-export const ASSURANCE_CHECKPOINT_SCHEMA_VERSION = "1.0.0";
+export const ASSURANCE_CHECKPOINT_SCHEMA_VERSION = "3.0.0";
 
 export interface AssuranceCheckpointBinding {
   readonly source_revision: string;
-  readonly configuration_digest: string;
+  readonly target_origin: string;
+  readonly evidence_identity_digest: string;
   readonly workspace_patch_digest: string;
 }
 
@@ -35,14 +36,15 @@ function isStringArray(value: unknown): value is readonly string[] {
 
 function parseBinding(value: unknown): AssuranceCheckpointBinding | null {
   if (!isPlainObject(value)) return null;
-  const { source_revision, configuration_digest, workspace_patch_digest } = value;
+  const { source_revision, target_origin, evidence_identity_digest, workspace_patch_digest } =
+    value;
   if (
-    typeof source_revision !== "string" || typeof configuration_digest !== "string" ||
-    typeof workspace_patch_digest !== "string"
+    typeof source_revision !== "string" || typeof target_origin !== "string" ||
+    typeof evidence_identity_digest !== "string" || typeof workspace_patch_digest !== "string"
   ) {
     return null;
   }
-  return { source_revision, configuration_digest, workspace_patch_digest };
+  return { source_revision, target_origin, evidence_identity_digest, workspace_patch_digest };
 }
 
 /**
@@ -53,6 +55,7 @@ function parseBinding(value: unknown): AssuranceCheckpointBinding | null {
  */
 export function parseAssuranceCheckpoint<TResult extends AssuranceCheckpointResult>(
   raw: unknown,
+  isResult: (value: Record<string, unknown>) => boolean = () => true,
 ): AssuranceCheckpoint<TResult> | null {
   if (!isPlainObject(raw)) return null;
   if (raw.schema_version !== ASSURANCE_CHECKPOINT_SCHEMA_VERSION) return null;
@@ -67,6 +70,7 @@ export function parseAssuranceCheckpoint<TResult extends AssuranceCheckpointResu
   for (const result of raw.results) {
     if (!isPlainObject(result) || typeof result.question_id !== "string") return null;
     if (!questionIds.has(result.question_id) || seen.has(result.question_id)) return null;
+    if (!isResult(result)) return null;
     seen.add(result.question_id);
   }
   const results = raw.results as readonly TResult[];
@@ -89,7 +93,8 @@ export function resumableResults<TResult extends AssuranceCheckpointResult>(
   const { binding, questionIds } = expected;
   if (
     checkpoint.binding.source_revision !== binding.source_revision ||
-    checkpoint.binding.configuration_digest !== binding.configuration_digest ||
+    checkpoint.binding.target_origin !== binding.target_origin ||
+    checkpoint.binding.evidence_identity_digest !== binding.evidence_identity_digest ||
     checkpoint.binding.workspace_patch_digest !== binding.workspace_patch_digest
   ) {
     return [];
@@ -124,15 +129,18 @@ export function buildAssuranceCheckpoint<TResult extends AssuranceCheckpointResu
 
 export async function readAssuranceCheckpoint<TResult extends AssuranceCheckpointResult>(
   path: string,
+  isResult?: (value: Record<string, unknown>) => boolean,
 ): Promise<AssuranceCheckpoint<TResult> | null> {
   let raw: string;
   try {
     raw = await readFile(path, "utf8");
-  } catch {
-    return null;
+  } catch (error) {
+    // A missing checkpoint is a fresh cohort; any other read fault must not silently restart one.
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw error;
   }
   try {
-    return parseAssuranceCheckpoint<TResult>(JSON.parse(raw));
+    return parseAssuranceCheckpoint<TResult>(JSON.parse(raw), isResult);
   } catch {
     return null;
   }
@@ -144,7 +152,14 @@ export async function writeAssuranceCheckpoint<TResult extends AssuranceCheckpoi
   checkpoint: AssuranceCheckpoint<TResult>,
 ): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
-  const temporaryPath = `${path}.partial`;
-  await writeFile(temporaryPath, `${JSON.stringify(checkpoint, null, 2)}\n`, "utf8");
-  await rename(temporaryPath, path);
+  // The suffix carries the writing process, so two runs of the same binding cannot race on it.
+  const temporaryPath = `${path}.${process.pid}.partial`;
+  try {
+    await writeFile(temporaryPath, `${JSON.stringify(checkpoint, null, 2)}\n`, "utf8");
+    await rename(temporaryPath, path);
+  } catch (error) {
+    // A failed write must not leave an orphaned partial file behind the resume path.
+    await rm(temporaryPath, { force: true });
+    throw error;
+  }
 }

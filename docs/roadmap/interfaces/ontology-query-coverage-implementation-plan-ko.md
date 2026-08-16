@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 3a507ca6385cff64397da7ae7bbeb4b35d183603
-translation_revised: 2026-08-15
+translation_source_sha: 7efa1fb365c37f3c00cd92ec6ca771587865ade4
+translation_revised: 2026-08-16
 ---
 
 # 온톨로지 조회 커버리지 구현 계획
@@ -127,8 +127,8 @@ translation_revised: 2026-08-15
 > 있으며 hand-authored 고정본을 서비스 간 또는 실제 운영 증명으로 취급하지 않습니다. Catalog
 > 구조가 변경되면 모든 answered fixture는 새로 계산한 release 및 principal-manifest digest를
 > 고정해야 게이트를 통과하며 stale 결정론적 receipt는 compatibility로 수락하지 않습니다.
-> 현재 `resource_classified_as` 카탈로그 개정은 같은 release 변경에서 해당 결정론적 고정본
-> 다이제스트를 갱신했습니다.
+> `resource_classified_as` 카탈로그 개정과 `Forecast`/`Pattern` 카탈로그 개정은 각각 같은 release
+> 변경에서 해당 결정론적 고정본 다이제스트를 갱신했습니다.
 > 첫 인식 상태 완결성 구현 구획은 이제 변경할 수 없는 유한 `QuestionUniverseReceipt`, 형식이
 > 지정된 `EpistemicStatus`, 증명을 포함하는 `EpistemicQuestionRecord`, 0건 임계값을 적용하는
 > `EpistemicCoverageReceipt`를 제공합니다. 기존 커버리지 게이트는 외부 증적 출처가
@@ -182,6 +182,17 @@ translation_revised: 2026-08-15
 | 2026-08-15 | 구현됨 | `query.manifest`를 통한 exact-release 스키마 인벤토리 조회, 닫힌 함수 table 변환, 인벤토리, 속성 filter, topology, aggregation 및 causal 질문의 명시적 frame/plan grammar를 추가했습니다. | `current change`, focused 매니페스트, 핸들러, 조립, 관계, 의미 조립 및 prompt 검사 42개와 작업 범위 Ruff 및 strict mypy 통과 | Clean 통과 14-cell 산출물을 보존한 뒤 seed 기반 100-case 집단을 실행하고 답변 근거가 하나라도 누락되면 준비 상태를 계속 차단합니다. |
 | 2026-08-15 | 구현됨 | 직접 ObjectSet 집계 필드를 실행 전에 exact 행 스키마와 대조해 유효하지 않은 T1 plan만 T2로 plan 단계를 다시 시도하도록 했습니다. | `current change`, focused 검증기 및 tier 라우팅 검사 16개와 작업 범위 Ruff 및 strict mypy 통과 | Clean 14-cell 및 seed 기반 100-case 근거를 보존하기 전에 보류된 한국어 집계 cell을 다시 실행합니다. |
 | 2026-08-15 | 구현됨 | 집계 필드 스키마를 table-transform 의존성 전체에 전파하고 점 표기 projection 필드를 결정론적 downstream 집계에서 보존했습니다. | `current change`, focused 검증기, 핸들러 및 tier 라우팅 검사 24개와 작업 범위 Ruff 및 strict mypy 통과 | Clean 14-cell 및 seed 기반 100-case 근거를 보존하기 전에 보류된 한국어 집계 cell을 다시 실행합니다. |
+| 2026-08-15 | 구현됨 | Plan 검증 전에 모델이 제안한 모든 ObjectSet 기준 시각을 단일 trusted evaluation time으로 다시 바인딩해, secured gateway 허용 구간을 벗어난 모델 timestamp 때문에 current-state 실행이 거부되지 않게 했습니다. | `current change`, stale 모델 기준 시각 회귀를 포함한 focused 의미 계획 테스트 15개 통과 | Exact-source Core stack을 재시작하고 clean 14-cell 및 seed 기반 100-case Browser 근거를 보존합니다. |
+| 2026-08-16 | 구현됨 | 시작 시 영속 `Incident` 객체를 읽기 전에 durable 온톨로지 release 이력을 먼저 적재하도록 했습니다. 이전에는 인시던트 projection이 catalog 동기화보다 먼저 실행돼, 이전 catalog digest에 고정된 객체가 모두 fail closed 되고 catalog가 한 번이라도 바뀌면 런타임이 시작되지 못했습니다. | `current change`, bootstrap 순서 가드를 포함한 focused catalog-ontology 검사 6개 통과, 작업 범위 Ruff 및 strict mypy 통과, 로컬 스택 시작 후 바인딩된 인시던트 turn 응답 확인 | 이 행에 남은 작업은 없습니다. |
+| 2026-08-16 | 구현됨 | 바인딩된 인시던트 읽기를 서버 소유로 만들었습니다. 계획 단계가 제안된 `query.incident_evidence` 노드의 식별자와 기록 조회 범위를 대화 바인딩 값으로 다시 쓰고 plan을 재검증하므로, 모델이 문장으로만 가진 UUID와 correlation 신원을 그대로 옮겨 적는 데 답변이 좌우되지 않습니다. 조회한 감사 구간 밖에 신원 기준 기록이 있는 프로파일은 모순이 아니라 근거 공백으로 처리하며, fail closed 보류마다 실패한 검사 이름을 런타임 로그에 남깁니다. | `current change`, focused 대화, 처리기 및 계약 검사 606개 통과, 작업 범위 Ruff 및 strict mypy 통과, 변경 전 동일 입력에서 연속 2회 보류되던 바인딩 인시던트 turn이 변경 후 두 언어에서 연속 4회 응답 | 복구된 인시던트 답변에 대한 통제된 요청-Console 및 이중 언어 무작위 근거를 보존합니다. |
+| 2026-08-16 | 구현됨 | Prompt 업그레이드에서 `object_types`, limit 및 `root_ids` 금지 제약이 빠진 뒤 의미 plan prompt v8에 exact `query.ontology_relationships` Function 묶음을 복원했습니다. 이제 스키마 관계 plan은 검증된 frame의 exact ObjectType 이름 한두 개만 사용하며 이를 런타임 객체 신원으로 다시 해석할 수 없습니다. | `current change`, `test_wire_ontology_relationships.py::test_semantic_prompts_select_exact_relationship_function` 통과 | 중앙 검증된 후속 commit에서 엄격한 이중 언어 관계 cell과 seed 기반 집단 근거를 보존합니다. |
+| 2026-08-16 | 구현됨 | 고정된 인시던트 읽기에서 모델을 완전히 제외했습니다. 이 turn이 인시던트 근거를 원한다는 판단은 여전히 타입이 있는 frame이 하고, 그 뒤 노드는 바인딩에서 구성되어 plan 제안을 요청하지 않으며 동일한 빌더와 검증기가 그대로 적용됩니다. 바인딩이 `incident_reference` 확인 요구를 해소해 고정된 turn이 이미 고정된 인시던트를 되묻지 않고, 영어 전용 `this incident` 부분 문자열 경로를 제거해 어떤 발화 부분 문자열도 경로를 결정하지 않습니다. | `current change`, focused 대화 검사 458개와 로컬 서비스 로그 실행기 검사 11개 통과, 작업 범위 Ruff 및 strict mypy 통과, 라이브 고정 turn 3회 연속 `plan_source="bound_incident"` 기록 및 응답 | 통제된 요청-Console 및 이중 언어 무작위 근거를 보존합니다. |
+| 2026-08-16 | 구현됨 | 고정된 읽기에 대한 비평 지적 4건을 해소했습니다. 재작성 경로를 제거했고, 읽기 범위는 근거 역량의 기록 상한을 따르며, 답변은 검증된 총계와 잘림을 명시하고, 영속 요청이 없는 변환 결과는 제한된 재시도 뒤 격리되어 이후 변환 결과를 막지 않습니다. | `current change`, focused Core 검사 913개와 Operator 검사 310개 통과, 재시작한 Operator가 막혀 있던 미매칭 변환 결과 20건을 배출하고 정상 상태로 복귀 | 통제된 요청-Console 및 이중 언어 무작위 근거를 보존합니다. |
+| 2026-08-16 | 구현됨 | 답변 표현 경계에 소유자 교차 가드를 추가하고 변환 결과 충돌 카운터에 상한을 두었습니다. | `current change`, 가드가 Console의 slot 허용 목록과 상한을 직접 읽어 두 언어의 모든 artifact를 검사, Operator 검사 318개 통과, 알 수 없는 slot으로 바꾸면 가드가 실패 | 통제된 요청-Console 및 이중 언어 무작위 근거를 보존합니다. |
+| 2026-08-16 | 구현됨 | 기록 시각이 역행하는 인시던트 근거를 보류합니다. 답변은 뒷부분을 잘라 최신 기록이라고 말하는데 리더의 순서를 검증하는 곳이 없었습니다. | `current change`, focused 처리기 검사 54개 통과, 라이브 인시던트 상관관계 2건이 해당 불변식 활성 상태에서 응답 | 통제된 요청-Console 및 이중 언어 무작위 근거를 보존합니다. |
+| 2026-08-16 | 구현됨 | 바인딩이 `incident_reference` 질문을 대신 해소하는 범위를 좁혔습니다. 고정된 인시던트를 읽는 turn에서만 바인딩이 답하고 다른 output shape에서는 질문이 유지되므로, 운영자가 보지 못한 질문 뒤에서 제안된 plan이 다른 인시던트를 읽을 수 없습니다. | `current change`, focused 대화 검사 458개 통과, shape 조건을 제거하면 새 사례가 실패, 라이브 고정 turn 4회가 두 언어에서 `plan_source="bound_incident"`로 응답 | 통제된 요청-Console 및 이중 언어 무작위 근거를 보존합니다. |
+| 2026-08-16 | 구현됨 | 읽기가 이미 담아 온 인시던트 근거를 실제로 보고합니다. `query.incident_evidence`가 각 기록의 행위 주체를 버려 세어 놓은 기록을 누구에게도 귀속할 수 없었고, 프로파일에 제목·심각도·버티컬·최초·최종 기록 시각이 있는데도 두 표면 모두 상태만 보고했습니다. 이제 projection이 행위 주체를 보존하고, 두 표면 모두 값이 있는 프로파일 필드를 모두 나열하며 제목에 자기 상한을 밝힌 기록 활동 표를 덧붙이고, 다음 안전 단계는 측정한 공백을 따릅니다. 값이 있는 필드만 나열해 미기록 상태가 사라지지 않도록 상태 미기록 사실을 계속 밝히고, 보고하는 건수는 검증한 총계를 유지합니다. | `current change`, `incident_queries.py`, `semantic_turn_processor.py`, Operator 표현 계층, focused Core 검사 388개와 Operator 검사 322개 통과, 작업 범위 Ruff와 strict mypy 통과, mutation 3건이 각각 정확히 가드 하나씩만 실패시킴 | 통제된 요청-Console 및 이중 언어 무작위 근거를 보존합니다. |
+| 2026-08-16 | 구현됨 | 한국어 다음 안전 단계가 한국어 문장으로 읽히게 했습니다. 측정한 공백이 여러 개일 때 경어 명령문을 쉼표로 이어 붙여 한국어 문장이 아니었으므로, 여러 단계는 도입 문구로 시작해 각각 독립된 문장이 됩니다. | `current change`, focused 처리기 검사 60개 통과, 새 사례가 단일 단계와 복수 단계 형태를 모두 고정 | 이 행에 남은 작업은 없습니다. |
 
 ### 남은 작업
 

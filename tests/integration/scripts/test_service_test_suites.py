@@ -107,6 +107,9 @@ def test_service_suite_coverage_includes_distribution_build_inputs() -> None:
         "services/*/pyproject.toml",
         "services/*/src/**/*.py",
     ]
+    # Unpinned, this is the one list whose removal silently disables the only gate
+    # that notices an unowned service test file.
+    assert coverage["test_patterns"] == ["services/*/tests/**/*.py"]
 
 
 def test_service_test_make_targets_do_not_expand_freeform_pytest_args() -> None:
@@ -145,14 +148,32 @@ def test_service_suite_coverage_patterns_have_exactly_one_owner() -> None:
 
 
 def test_service_suite_coverage_rejects_unclassified_new_test(tmp_path: Path) -> None:
+    """An existing test file with no owner must fail the load.
+
+    The manifest is narrowed in a temporary copy rather than writing a file into the
+    shared checkout, which other tests read concurrently.
+    """
     namespace = _runner_namespace()
-    orphan = REPO_ROOT / "services" / "isolated-executor" / "tests" / "test_unowned_service.py"
-    orphan.write_text("def test_orphan(): pass\n", encoding="utf-8")
-    try:
-        with pytest.raises(ValueError, match="requires one owner"):
-            namespace["_load_services"]()
-    finally:
-        orphan.unlink(missing_ok=True)
+    manifest = _load(SUITE_PATH)
+    services = manifest["services"]
+    assert isinstance(services, list)
+    dropped = False
+    for service in services:
+        assert isinstance(service, dict)
+        if service["id"] != "isolated-executor":
+            continue
+        for group, paths in service["test_groups"].items():
+            if group != "unit" or not paths:
+                continue
+            service["test_groups"][group] = paths[1:]
+            dropped = True
+    assert dropped, "the fixture needs one owned unit path to disown"
+    orphaned = tmp_path / "service-suites.json"
+    orphaned.write_text(json.dumps(manifest), encoding="utf-8")
+    namespace["_load_services"].__globals__["MANIFEST_PATH"] = orphaned
+
+    with pytest.raises(ValueError, match="requires one owner"):
+        namespace["_load_services"]()
 
 
 def test_service_suite_manifest_rejects_canonical_service_order_drift(
@@ -202,6 +223,9 @@ def _assert_pattern_coverage(
     patterns: list[str],
     claims: list[tuple[Path, str]],
 ) -> None:
+    # An empty pattern list makes this whole gate vacuous, so it can never be the
+    # reason the check passed.
+    assert patterns, "coverage patterns MUST NOT be empty"
     for pattern in patterns:
         matched = tuple(path for path in REPO_ROOT.glob(pattern) if path.is_file())
         assert matched, pattern

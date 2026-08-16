@@ -37,6 +37,7 @@ from fdai_operator_service.postgres_family_store import (
     StoredSemanticResult,
     StoredSemanticTurn,
 )
+from fdai_operator_service.postgres_semantic_turn_store import SemanticTurnConflictError
 from fdai_service_contracts import (
     ContractValidationError,
     RuleSearchProjection,
@@ -50,6 +51,8 @@ SEMANTIC_REQUEST_TOPIC = "operator.semantic-turn.requests"
 SEMANTIC_RESULT_TOPIC = "core.semantic-turn.projections"
 SEMANTIC_RESULT_GROUP = "operator-semantic-turn-v1"
 _IDENTITY_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
+_MAX_PROJECTION_CONFLICT_ATTEMPTS = 5
+_MAX_TRACKED_PROJECTION_CONFLICTS = 256
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -479,28 +482,54 @@ class SemanticTurnBridge:
     async def _run_consumer(self) -> None:
         if self._result_source is None or self._publisher is None:
             return
+        conflicts: dict[str, int] = {}
         while True:
             try:
                 async for payload in self._result_source.subscribe(
                     self._result_topic,
                     self._result_group,
                 ):
+                    quarantine_key = _projection_quarantine_key(payload)
                     try:
                         await self._consumer.consume(payload)
                     except (ContractValidationError, ValidationError, ValueError):
-                        quarantine_key = _projection_quarantine_key(payload)
-                        await self._publisher.publish(
-                            f"{self._result_topic}.dlq",
-                            quarantine_key,
-                            {
-                                "original_topic": self._result_topic,
-                                "projection_ref": quarantine_key,
-                                "reason": "semantic_turn_projection_rejected",
-                            },
+                        await self._quarantine(quarantine_key)
+                    except SemanticTurnConflictError:
+                        # A projection can arrive before its durable request commits, so
+                        # retry that race a bounded number of times. Retrying forever
+                        # instead stalls every later projection behind one poison record.
+                        attempts = conflicts.get(quarantine_key, 0) + 1
+                        if attempts < _MAX_PROJECTION_CONFLICT_ATTEMPTS:
+                            # Losing a counter only costs extra retries, so keep the map
+                            # bounded rather than growing it per untrusted identity.
+                            if len(conflicts) >= _MAX_TRACKED_PROJECTION_CONFLICTS:
+                                conflicts.clear()
+                            conflicts[quarantine_key] = attempts
+                            raise
+                        conflicts.pop(quarantine_key, None)
+                        _LOGGER.warning(
+                            "semantic_projection_unmatched_quarantined",
+                            extra={"failure_type": "durable_request_absent"},
                         )
+                        await self._quarantine(quarantine_key)
+                    else:
+                        conflicts.pop(quarantine_key, None)
             except Exception:  # noqa: BLE001 - preserve offset and resubscribe after backoff
                 _LOGGER.warning("semantic_projection_consumer_retrying", exc_info=True)
             await asyncio.sleep(self._retry_seconds)
+
+    async def _quarantine(self, quarantine_key: str) -> None:
+        if self._publisher is None:  # pragma: no cover - bound with the result source
+            raise RuntimeError("semantic publisher is unavailable")
+        await self._publisher.publish(
+            f"{self._result_topic}.dlq",
+            quarantine_key,
+            {
+                "original_topic": self._result_topic,
+                "projection_ref": quarantine_key,
+                "reason": "semantic_turn_projection_rejected",
+            },
+        )
 
 
 @dataclass(frozen=True, slots=True)

@@ -32,6 +32,11 @@ from fdai.core.operational_learning import (
     CatalogReviewPackage,
     CatalogReviewPublicationReceipt,
     CatalogReviewPublisher,
+    ShadowDwellDecision,
+    ShadowDwellEvidence,
+    ShadowDwellEvidenceError,
+    ShadowDwellThresholds,
+    evaluate_shadow_dwell,
 )
 from fdai.core.rule_semantic_generation import (
     RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
@@ -83,6 +88,7 @@ class Mimir(Agent):
         *,
         catalog_candidate_compiler: CatalogCandidateCompiler | None = None,
         catalog_review_publisher: CatalogReviewPublisher | None = None,
+        shadow_dwell_thresholds: ShadowDwellThresholds | None = None,
         max_pending_candidates: int = _MAX_PENDING_CANDIDATES,
         max_review_packages: int = _MAX_CATALOG_REVIEW_PACKAGES,
         clock: Callable[[], datetime] | None = None,
@@ -94,6 +100,7 @@ class Mimir(Agent):
         self._pending_candidates: deque[dict[str, Any]] = deque()
         self._quarantined_candidates: deque[dict[str, Any]] = deque(maxlen=_MAX_QUARANTINE)
         self._guard = CandidateGuard()
+        self._shadow_dwell_thresholds = shadow_dwell_thresholds or ShadowDwellThresholds()
         self._catalog_candidate_compiler = catalog_candidate_compiler
         self._catalog_review_publisher = catalog_review_publisher
         self._max_pending_candidates = max_pending_candidates
@@ -567,6 +574,46 @@ class Mimir(Agent):
     ) -> tuple[CatalogReviewPublicationReceipt, ...]:
         return tuple(item[2] for _, item in self._published_reviews.items())
 
+    def shadow_dwell_decision(self, candidate: dict[str, Any]) -> ShadowDwellDecision:
+        """Re-derive the dwell verdict for one candidate from its own wire evidence.
+
+        Mimir never reads another agent's memory to fill a gap: whatever the
+        candidate failed to carry is missing evidence, and missing evidence is a
+        gap, not a pass.
+        """
+
+        raw = candidate.get("shadow_dwell")
+        if raw is None:
+            return evaluate_shadow_dwell(None, self._shadow_dwell_thresholds)
+        try:
+            evidence = ShadowDwellEvidence.from_mapping(raw)
+        except ShadowDwellEvidenceError as exc:
+            return ShadowDwellDecision(
+                eligible=False,
+                gaps=(f"shadow_dwell_evidence_invalid:{exc.code}",),
+            )
+        target = str(candidate.get("target_rule_id") or "")
+        if evidence.target != target:
+            # Otherwise a candidate could borrow a well-behaved rule's record.
+            return ShadowDwellDecision(eligible=False, gaps=("shadow_dwell_target_mismatch",))
+        return evaluate_shadow_dwell(evidence, self._shadow_dwell_thresholds)
+
+    def promotion_ready_candidates(self) -> tuple[dict[str, Any], ...]:
+        """Pending candidates whose shadow dwell evidence clears every bar.
+
+        This is the discovery loop's promotion-eligibility surface. Membership is
+        earned by evidence; a candidate is absent until it proves the dwell, which
+        is why it is computed here rather than stamped onto the candidate on
+        intake. Eligibility is still not promotion - the catalog changes only
+        through a merged catalog-as-code pull request.
+        """
+
+        return tuple(
+            candidate
+            for candidate in self._pending_candidates
+            if self.shadow_dwell_decision(candidate).eligible
+        )
+
     def promote(
         self,
         rule_id: str,
@@ -593,6 +640,12 @@ class Mimir(Agent):
                 "operational candidates require a reviewed catalog PR; "
                 "direct runtime promotion is not supported"
             )
+        blocking_gaps = self._dwell_gaps_for(rule_id)
+        if blocking_gaps:
+            raise ValueError(
+                f"rule {rule_id} has a pending discovery-loop candidate whose shadow "
+                f"dwell evidence is insufficient: {', '.join(blocking_gaps)}"
+            )
         promo = RulePromotion(
             rule_id=rule_id, state="enforce", source=source, updated_at=updated_at
         )
@@ -605,6 +658,17 @@ class Mimir(Agent):
             ),
         )
         return promo
+
+    def _dwell_gaps_for(self, rule_id: str) -> tuple[str, ...]:
+        """Unmet dwell bars across every pending candidate that targets ``rule_id``."""
+
+        gaps: list[str] = []
+        for candidate in self._pending_candidates:
+            if str(candidate.get("target_rule_id") or "") != rule_id:
+                continue
+            decision = self.shadow_dwell_decision(candidate)
+            gaps.extend(gap for gap in decision.gaps if gap not in gaps)
+        return tuple(gaps)
 
     def revoke(self, rule_id: str, *, updated_at: str | None = None) -> RulePromotion:
         promo = RulePromotion(
@@ -626,6 +690,7 @@ class Mimir(Agent):
             "tracked_rules": capped_list(sorted(self._promotions)),
             "tracked_rules_count": len(self._promotions),
             "pending_candidates": len(self._pending_candidates),
+            "promotion_ready_candidates": len(self.promotion_ready_candidates()),
             "quarantined_candidates": len(self._quarantined_candidates),
             "catalog_review_packages": len(self._catalog_review_packages),
             "catalog_review_publication_receipts": len(self._published_reviews),

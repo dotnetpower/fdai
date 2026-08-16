@@ -40,6 +40,7 @@ _TRANSPORT_FIELDS = frozenset(
         "envelope_schema_version",
         "schema_version",
         "norns_consensus",
+        "shadow_dwell",
     }
 )
 _EVIDENCE_FIELDS = frozenset(

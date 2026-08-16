@@ -1,7 +1,7 @@
 ---
 translation_of: durable-conversation-delivery.md
-translation_source_sha: 734ad9b1fc4749a3c44e2ace58a47fc34330ac1a
-translation_revised: 2026-08-13
+translation_source_sha: 65aa00169ce2fc36fbf1992ff703b68c6d43f639
+translation_revised: 2026-08-16
 ---
 # 영구 대화 전송
 
@@ -23,13 +23,15 @@ translation_revised: 2026-08-13
 | 대화 게이트웨이 및 타입이 지정된 진행 상황 재생 | 구현됨 | [`channel_gateway.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_gateway.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py), [`test_rich_contract.py`](../../../services/core-control-plane/tests/delivery/channels/test_rich_contract.py) | 게이트웨이는 영구 전달 경계를 통해 완전한 응답 하나를 저장하고 중복 턴과 전달 실패를 격리합니다. 타입이 지정된 활동 및 진행 상황 페이로드가 집중 테스트에서 왕복 변환됩니다. 운영 채널 런타임은 이 경로를 연결하지 않습니다. |
 | PostgreSQL 스키마 및 운영 영속성 | 진행 중 | [`20260720_0047_conversation_delivery.py`](../../../alembic/versions/20260720_0047_conversation_delivery.py) | 마이그레이션은 연결, 전달, 시도, 확인 응답 및 차단기 테이블과 제약 조건 및 인덱스를 정의합니다. 현재 서비스 트리에는 PostgreSQL 대화 전달 또는 principal 연결 저장소, 데이터베이스 기반 집중 테스트 또는 운영 연결이 없습니다. |
 | 어댑터 상태 정책 | 구현됨 | [`adapter_health.py`](../../../services/core-control-plane/src/fdai/core/conversation/adapter_health.py), [`test_adapter_health.py`](../../../services/core-control-plane/tests/conversation/test_adapter_health.py) | 제한된 실패 구간, 실패 시 닫히는 차단기 모드, 권한이 확인된 일시 중지 및 재개, 권한이 확인된 A2 대체 경로 동작이 메모리 내 집중 테스트를 통과합니다. 별도로 인증된 명령 앱은 구현되지 않았습니다. |
-| 예약 전달 및 읽기 전용 운영 화면 | 진행 중 | [`scheduled_continuation.py`](../../../services/core-control-plane/src/fdai/shared/providers/scheduled_continuation.py), [`continuation.py`](../../../services/core-control-plane/src/fdai/core/scheduler/continuation.py), [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py) | 예약 앵커와 전달 및 스냅샷 계약은 있습니다. `ScheduledContinuationDeliveryCoordinator`, `ConversationDeliveryPanel`, 어댑터 명령 경로 및 운영 시작 조립은 현재 트리에 없습니다. |
+| 예약 전달 및 어댑터 명령 표면 | 진행 중 | [`scheduled_continuation.py`](../../../services/core-control-plane/src/fdai/shared/providers/scheduled_continuation.py), [`continuation.py`](../../../services/core-control-plane/src/fdai/core/scheduler/continuation.py), [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py) | 예약 앵커와 전달 및 스냅샷 계약은 있습니다. `ScheduledContinuationDeliveryCoordinator`, 어댑터 명령 경로 및 운영 시작 조립은 현재 트리에 없습니다. |
+| 읽기 전용 전달 운영 패널 | 구현됨 | [`delivery_panel.py`](../../../services/core-control-plane/src/fdai/core/conversation/delivery_panel.py), [`test_delivery_panel.py`](../../../services/core-control-plane/tests/conversation/test_delivery_panel.py) | `ConversationDeliveryPanel`은 지연 시간 개수/평균/p95, 상태 개수, 중복 위험, 재시도, 포기, 시도 및 확인 응답 개수, 차단기 상태 개수, 선택적 progressive 계수기를 투영합니다. 페이로드는 `read_only=true` 및 `mutations_available=false`를 선언하고 식별자나 답변 본문을 노출하지 않으며 스냅샷 읽기 능력만 도달합니다. 아직 Console 경로나 운영 저장소가 이 투영을 연결하지 않았습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | 진행 중 | 구현 장부를 도입하고 운영 영속성, 시작, 명령, 예약 전달 및 운영 화면 주장을 현재 서비스 트리에 맞게 수정했습니다. | 구현 범위 표에 나열한 집중 테스트 76개가 통과했습니다. 저장소 검색에서 현재 운영 저장소, 런타임 조립, 명령 경로, 예약 전달 조정기 또는 읽기 패널을 찾지 못했습니다. | 누락된 운영 표면을 구현하고 연결하며 데이터베이스 기반 검사를 실행하고 통제된 런타임 증적을 확보해야 합니다. |
+| 2026-08-16 | 진행 중 | 범위가 제한된 지연 시간 백분위수, 차단기 및 상태 개수, 선택적 progressive 계수기를 갖추고 변경 제어나 식별자 표면이 없는 GET 전용 `ConversationDeliveryPanel` 집계 투영을 구현했습니다. | `pytest services/core-control-plane/tests/conversation/test_delivery_panel.py`가 읽기 전용 선언, 식별자 없는 페이로드, 변경 경로 거부를 포함한 집중 테스트 11개를 통과했습니다. | 패널을 인증된 Console 읽기 경로와 운영 전달 저장소에 연결한 뒤 통제된 런타임 증적을 확보해야 합니다. |
 
 ### 남은 작업
 
@@ -41,7 +43,9 @@ translation_revised: 2026-08-13
      `/commands/adapters/*` 애플리케이션을 추가합니다.
 - [ ] 안정적인 앵커 출처와 저장된 결과 재생 테스트를 갖춘 Slack 및 Teams용
      `ScheduledContinuationDeliveryCoordinator`를 구현합니다.
-- [ ] 변경 제어가 없는 GET 전용 `ConversationDeliveryPanel` 투영을 구현합니다.
+- [x] 변경 제어가 없는 GET 전용 `ConversationDeliveryPanel` 투영을 구현합니다.
+- [ ] `ConversationDeliveryPanel`을 인증된 Console 읽기 경로와 운영 전달 저장소에 연결하고
+     범위가 제한된 progressive-conversation 수집기를 함께 공유합니다.
 - [ ] 어떤 행이든 `검증됨`으로 승격하기 전에 재시작 간 영속성, 프로세스 손실 조정,
      외부 어댑터 확인 응답, 차단기 제어, 예약 전달 및 읽기 전용 메트릭에 대한 통제된
      런타임 증적을 기록합니다.
@@ -189,7 +193,7 @@ Slack 및 Teams 결과를 제출해야 합니다. 이미 저장된 결과 요약
 
 ## 읽기 전용 operations 화면
 
-계획된 `ConversationDeliveryPanel`은 GET 전용 `ReadPanel`이어야 하며 다음을 보고해야 합니다.
+`ConversationDeliveryPanel`은 전달 스냅샷 하나에 대한 GET 전용 투영이며 다음을 보고합니다.
 
 - 전달 지연 시간 개수, average 및 p95입니다.
 - 상태 개수, duplicate-risk 개수, 재시도 및 abandonment입니다.
@@ -198,9 +202,10 @@ Slack 및 Teams 결과를 제출해야 합니다. 이미 저장된 결과 요약
 - 조립이 범위가 제한된 수집기를 Web 또는 채널 발행기와 공유할 때 선택적 집계
  progressive-conversation 개수와 first-progress, first-confirmed, 가지 지연 시간입니다.
 
-해당 페이로드는 `read_only=true` 및 `mutations_available=false`를 설정해야 합니다. 패널은
-구현되지 않았으며 Console은 일시 중지, 재개, 재시도, 중복 위험 재정의 또는 재전송 제어를
-노출해서는 안 됩니다.
+해당 페이로드는 `read_only=true` 및 `mutations_available=false`를 설정하고 집계만 담으므로
+답변 본문과 주체, 범위, 대화, 전달, 시도, 공급자 식별자를 포함하지 않습니다. 패널은 스냅샷
+읽기 능력에만 도달하며 Console은 일시 중지, 재개, 재시도, 중복 위험 재정의 또는 재전송 제어를
+노출해서는 안 됩니다. 아직 Console 경로나 운영 저장소가 이 투영을 연결하지 않았습니다.
 
 ## 검증
 

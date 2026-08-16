@@ -83,17 +83,22 @@ _FRAMEWORK_IMPORT = re.compile(
 
 def _iter_external_python_files() -> list[Path]:
     files: list[Path] = []
-    # src/ except services/core-control-plane/src/fdai/agents/
-    for path in _REPO_ROOT.glob("src/**/*.py"):
-        if _AGENTS_DIR in path.parents or path.parent == _AGENTS_DIR:
-            continue
-        files.append(path)
+    # every service source root except services/core-control-plane/src/fdai/agents/
+    source_roots = sorted(_REPO_ROOT.glob("services/*/src"))
+    assert source_roots, "no service source root resolved; this guard would pass vacuously"
+    for source_root in source_roots:
+        for path in source_root.glob("**/*.py"):
+            if _AGENTS_DIR in path.parents or path.parent == _AGENTS_DIR:
+                continue
+            files.append(path)
     # The agent tests legitimately introspect the split for these drift guards.
     for path in _REPO_ROOT.glob("services/core-control-plane/tests/**/*.py"):
         rel = str(path.relative_to(_REPO_ROOT)).replace("\\", "/")
         if rel.startswith("services/core-control-plane/tests/agents/"):
             continue
         files.append(path)
+    # A layout move already silenced the source half of this scan once.
+    assert len(files) > 100, f"only {len(files)} files collected, so a glob no longer resolves"
     return files
 
 

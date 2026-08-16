@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 2e2717ccc5439489b968fd29b308537637fa9aed
-translation_revised: 2026-08-15
+translation_source_sha: a10df8bd9ff8275a4b237855be0514bb5e6a2c9b
+translation_revised: 2026-08-16
 ---
 
 # 콘솔 근거 및 복원력
@@ -15,7 +15,7 @@ translation_revised: 2026-08-15
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|-----------|
-| 통제된 온톨로지 보증 출처 이력 | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`, `console/tests/live-e2e/assurance-budget.ts`, `console/tests/live-e2e/assurance-checkpoint.ts`, focused Vitest 79개 통과 | 강화된 release gate는 두 locale의 모든 operation에 완전하게 검증된 답변을 요구합니다. 실행은 질문별 및 무진행 deadline을 갖춘 유도된 budget으로 제한되고 provenance에 바인딩된 checkpoint에서 재개하며, 소진된 budget은 ready 아티팩트를 보고하지 않습니다. |
+| 통제된 온톨로지 보증 출처 이력 | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`, `console/tests/live-e2e/assurance-budget.ts`, `console/tests/live-e2e/assurance-checkpoint.ts`, focused Vitest 143개 통과 | 강화된 release gate는 두 locale의 모든 operation에 완전하게 검증된 답변을 요구합니다. 실행은 질문별 및 무진행 deadline을 갖춘 유도된 budget으로 제한되고 evidence identity에 바인딩된 checkpoint에서 재개하며, 소진된 budget은 ready 아티팩트를 보고하지 않습니다. |
 | Exact-release 온톨로지 카탈로그 변환 결과 | 구현됨 | `ontology_console_projection.py`, `materialize-authoritative-catalogs.py`, focused materializer 동등성 테스트, Console 토폴로지 모델 테스트 및 타입 검사 | 하나의 생산자가 릴리스 신원 및 변경 권한 부재와 함께 선언 보기와 카탈로그 토폴로지를 제공합니다. 의미 모델 렌더링과 receipt 기반 컨텍스트 근거는 남아 있습니다. |
 | 의미 모델 및 관계 방향 | 구현됨 | `ontology-semantic-model.ts`, `ontology-semantic-map.tsx`, 카탈로그 토폴로지 renderer 및 inspector, focused Vitest 23개 및 Console 타입 검사 통과 | 검토된 네 가지 의미 영역, 다섯 가지 운영 보기, 화살표 및 분리된 들어오는 관계와 나가는 관계를 구현했습니다. 인증된 데스크톱 및 모바일 근거는 남아 있습니다. |
 | 에이전트 활동 하트비트 표현 | validated | `console/src/routes/agents.model.ts`, `console/src/routes/agents.model.test.ts`, `docs/baselines/agent-activity-heartbeat-assurance-2026-08-14.json`, focused Vitest 31개 통과 및 인증된 Browser Entra assurance | 두 번 새로고치는 동안 연속된 하트비트 시각 세 개가 증가했고 인증된 self 검사 세 번이 모두 성공했으며 런타임 초기화 행은 0개였습니다. |
@@ -49,6 +49,23 @@ translation_revised: 2026-08-15
 | 2026-08-15 | implemented | 통제된 온톨로지 assurance 실행기를 유도된 run budget, 질문별 및 무진행 deadline, 적응형 요청 간격, 제한된 transport 재시도, 질문별 진행 출력 및 provenance에 바인딩된 재개 가능 checkpoint로 제한했습니다. | `current change`; focused Vitest live-evidence 79개 및 전체 Console suite 1782개 통과, Console 타입 검사 통과입니다. | Release 경계에서 bounded cohort를 실행하고 그 아티팩트를 보존합니다. |
 | 2026-08-15 | implemented | 모든 assurance turn을 남은 실행 예산으로 제한하고, 아티팩트 발행 전에 checkpoint를 회수하며, 통과에 live turn 최소 1회를 요구하고, turn 오류와 deadline 위반을 구분하며, 기본 checkpoint 경로를 cohort별로 분리했습니다. | `current change`; focused Vitest live-evidence 80개 통과, Console 타입 검사 통과, 1차 독립 검토의 Medium 2건 해소입니다. | Release 경계에서 bounded cohort를 실행하고 그 아티팩트를 보존합니다. |
 | 2026-08-15 | implemented | 앞 행을 정정합니다. Checkpoint 회수는 아티팩트 발행 후 단언 전에 실행되므로 발행 실패가 완성된 cohort를 파괴하지 않으면서도 이후 실행이 재생할 수 없습니다. | `current change`; focused Vitest live-evidence 86개 통과입니다. | Checkpoint 회수 순서에 남은 작업이 없습니다. |
+| 2026-08-15 | implemented | Assurance checkpoint를 전체 run configuration이 아니라 결과 schema, seed, 순서가 있는 cohort, 인증을 담는 evidence identity에 바인딩해 per-run session id나 조정된 pacing, deadline, retry 노브가 완료된 turn을 폐기하지 않도록 했습니다. 모든 보존 결과는 생성 실행을 기록하며 귀속되지 않은 결과는 통과할 수 없습니다. | `current change`; focused Vitest live-evidence 80개 통과 및 전체 Console suite 1793개 통과, Console typecheck 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
+| 2026-08-15 | implemented | Checkpoint 바인딩에 대상 stack origin을 추가해 중단된 cohort가 다른 배포에서 재개되지 않도록 했고, 예산 소진으로 생긴 비결과를 영구 실패로 저장하지 않으며, 재시도 수를 보존 증거에서 유도하고 보존 결과 형태를 로드 시 검증합니다. | `current change`; focused Vitest live-evidence 89개 통과, Console typecheck 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
+| 2026-08-15 | implemented | 정체된 질문 경계와 실행 예산 경계를 분리해 정체가 실제 실패로 기록되고 예산 소진로 cohort를 중단하지 않도록 했으며, checkpoint 읽기 경로에 결과 술어를 전달하고 예산으로 중단된 실행을 끝낸 질문을 공개했으며 typecheck 게이트를 `console/tests`로 확장했습니다. | `current change`; focused Vitest live-evidence 95개 통과, `npm run typecheck`가 `console/tests`를 포함해 통과합니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
+| 2026-08-15 | implemented | 만료된 시도는 자신을 잘랎 경계를 공개하므로 `per_attempt_deadline_exceeded`, `stalled_question`, `question_budget_exhausted`가 구분되는 증거가 되었고, Console typecheck는 dispatch 전용 workflow가 아니라 강제되는 operator-surface 게이트 안에서 실행됩니다. | `current change`; focused Vitest live-evidence 98개 통과, 전체 Console suite 1802개 통과, `npm run typecheck` 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
+| 2026-08-15 | implemented | Cohort를 완주했지만 발행 전에 중단된 실행은 더 이상 증거를 잃지 않습니다. `run_mode: resumed_replay`로 다시 발행되고, checkpoint는 cohort가 발행된 뒤에만 회수되며, 아티팩트는 정체된 질문을 시도별 deadline 위반과 분리해 집계합니다. | `current change`; 전체 Console suite 1802개 통과, `npm run typecheck` 및 typecheck-parity 계약 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
+| 2026-08-15 | implemented | 재생된 cohort는 보존 증거를 다시 발행하지만 release 권한을 갖지 않습니다. `receipt_source: resumed_replay`로 보고되고 production-ready가 될 수 없으며, 중단된 실행은 재생이 아니라 `interrupted`로 표기되고, checkpoint 로드는 통과 기준이 읽는 모든 보존 필드를 검증합니다. | `current change`; focused Vitest live-evidence 102개 통과, `npm run typecheck` 및 typecheck-parity 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
+| 2026-08-15 | implemented | 재생 발행을 live 재검증으로 대체했습니다. Cohort 전체를 담은 checkpoint는 마지막 질문을 live stack으로 되돌려주므로 재개된 실행은 항상 현재 stack을 증명하고, checkpoint를 삭제한 뒤 실패하는 막힌 상태가 되지 않으며, 모든 보존 답변이 동일한 ontology release 및 principal manifest 세대를 보고해야 하므로 오래된 답변을 세탁할 수 없습니다. | `current change`; focused Vitest live-evidence 105개 통과, 두 프로젝트 `npm run typecheck` 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
+| 2026-08-15 | implemented | Live 증명을 반증 가능하게 만들었습니다. 재개된 실행은 마지막 answer-required 질문까지 cohort 꼬리를 풀고, 다시 발행되는 답변은 live 답변이 확인한 ontology release 및 principal manifest를 재현해야 하며, 완주했지만 실패한 cohort는 checkpoint를 유지하고, 중단된 live 실행은 재생이 아니라 `interrupted_partial`로 보고하며, checkpoint 신뢰·통과·회수·경로 정책을 테스트된 순수 함수로 옮겼습니다. | `current change`; focused Vitest live-evidence 123개 통과, 두 프로젝트 `npm run typecheck` 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
+| 2026-08-15 | implemented | 재개 실행이 수렴하도록 했습니다. 검증된 turn만 재개하므로 불안정한 turn은 영구 상속되지 않고 다시 시도되며, answer-required 증명 질문을 정확히 하나만 풀어 재개 비용이 turn 하나이고, Playwright가 navigation 및 action timeout을 기본으로 비활성화하므로 모든 preamble 단계가 자체 timeout을 선언하며, 세대를 증명할 수 없는 선택은 거부하고, 보존된 locale·operation·attempt outcome을 통제된 값으로 검증합니다. | `current change`; focused Vitest live-evidence 126개 통과, 두 프로젝트 `npm run typecheck` 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
+| 2026-08-15 | implemented | 남은 재개 함정을 닫았습니다. Live 증명 질문은 operation으로 고른 질문이 아니라 이전 실행이 generation digest와 함께 답변한 마지막 질문이며, 완주한 cohort는 실행기가 단언하는 결과를 만족할 때만 checkpoint를 회수하고, 버려진 turn이 재사용 페이지에 인증된 stream을 남기지 않으며, 누락된 receipt는 실제 transport 결과로 보고하고, 보존 결과 타입과 attempt outcome을 공유해 새 필드가 checkpoint 대신 빌드를 깨뜨립니다. | `current change`; focused Vitest live-evidence 129개 통과, 두 프로젝트 `npm run typecheck` 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
+| 2026-08-15 | implemented | 감지한 모든 결함을 회복 가능하게 만들었습니다. Ontology 세대가 섞인 checkpoint는 영구 거부 대신 폐기하고, checkpoint 파일 키를 binding 전체로 잡아 revision이나 대상 stack이 번갈아도 서로 덮어쓰지 않으며, 재설정할 수 없는 페이지는 그 위에서 얻은 turn을 발행하지 않고 실행을 중단하고, `console/scripts`를 타입 검사 게이트에 포함해 실제 타입 결함을 드러내 고쳤습니다. | `current change`; focused Vitest live-evidence 134개 통과, 콘솔 전체 1,838개 통과, 두 프로젝트 `npm run typecheck` 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
+| 2026-08-15 | implemented | 강제 게이트와 남은 재개 함정을 고쳤습니다. 테스트 타입 검사가 저장소 루트에서 프로젝트를 해석하므로 콘솔 빌드와 CLI 검사 전에 operator 게이트를 중단시키지 않고, 중단된 실행은 증명하지 못한 것이 모순은 아니므로 checkpoint를 유지하며, 실행 중 release 회전은 완주한 모든 turn을 삭제하는 대신 대체된 turn만 정리하고, 일관성 없는 verification 아티팩트는 통제된 거부에서도 실패하며, partial 파일은 기록 프로세스를 포함합니다. | `current change`; focused Vitest live-evidence 139개 통과, typecheck-parity 6개 통과, 두 프로젝트 `npm run typecheck` 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
+| 2026-08-15 | implemented | 마지막 재생 고정점을 제거했습니다. 모든 turn이 통과했지만 release 기준을 놓친 cohort는 거부만 한 answer-required turn을 풀어 이후 실행이 같은 차단을 다시 발행하는 대신 재시도하게 하고, pacing 및 checkpoint 기록 결함은 아티팩트 없이 빠져나가는 대신 통제된 중단 사유가 됩니다. 게이트 패리티 테스트는 호출 전체를 고정하고, operator가 설정한 checkpoint 경로는 공백을 제거합니다. | `current change`; focused Vitest live-evidence 141개 통과, typecheck-parity 6개 통과, 두 프로젝트 `npm run typecheck` 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
+| 2026-08-15 | implemented | 통제된 중단 경로를 질문 전체로 확장했습니다. 질문 내 재시도 대기 중이거나 허용된 재정의로 pacing이 비활성일 때의 페이지 결함은 테스트 본문을 빠져나가는 대신 `page_unavailable`로 실행을 멈추고, 예산으로 잘린 시도는 쓸 수 없는 reload를 소비하거나 컨텍스트 재설정 실패를 원인으로 보고하지 않으며, 루프 상단의 예산 중단도 해당 질문을 기록합니다. | `current change`; focused Vitest live-evidence 143개 통과, 두 프로젝트 `npm run typecheck` 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
+| 2026-08-16 | implemented | Cohort 루프 앞에서 재개 판정을 공개합니다. Binding 검사에 실패한 checkpoint는 아무것도 조용히 복원하지 않아 운영자가 최종 아티팩트로만 알 수 있었는데, 이제 실행이 저장·재개·잔여 개수를 담은 `assurance-resume` 줄을 한 줄 출력합니다. | `current change`; focused Vitest live-evidence 143개 통과, 두 프로젝트 `npm run typecheck` 통과입니다. | Release 경계에서 bounded cohort를 실행하고 결과 아티팩트를 보관합니다. |
+| 2026-08-16 | implemented | 인증된 ontology cohort에 독립 operation-to-plan capability oracle을 추가했습니다. Runner는 이제 Core가 투영한 exact-plan capability를 보존하고 생성된 operation이 다른 capability를 요구한 경우 evidence-complete answer도 거부하므로, manifest query는 aggregation을 충족할 수 없고 filter가 없는 ObjectSet은 property filter를 충족할 수 없습니다. Run configuration `1.4.0`은 oracle 이전 checkpoint의 resume을 막고 artifact `1.3.0`은 mismatch 수를 보고합니다. | `current change`; focused assurance Vitest 96개 통과, Console 및 test typecheck 통과, Playwright exact live test discovery 통과입니다. | 중앙 검증된 descendant에서 strict 이중 언어 gate와 seed 기반 100-case cohort를 실행하고 capability mismatch가 0인 artifact만 보존합니다. |
+| 2026-08-16 | implemented | 보존된 exact-plan 근거에 `metric_scope_series`를 추가해 generic causal plan의 범위가 제한된 visible-resource metric 읽기가 아티팩트에서 계속 관찰되도록 했습니다. Operation oracle은 여전히 최종 `evidence_join`을 요구하므로 additive capability 단독으로 causal analysis를 충족하거나 zero-mismatch gate를 약화할 수 없습니다. | `current change`; focused assurance Vitest 96개 통과, Console 및 test typecheck 통과입니다. | 중앙 검증된 descendant에서 strict 이중 언어 gate와 seed 기반 100-case cohort를 실행합니다. |
 
 ### 잔여 작업
 
@@ -575,12 +592,11 @@ Command Deck의 web research 턴은 작업 진행 중 실제 상태를 나타내
 결정론적 응답기를 식별하고 사용할 수 없는 백엔드 또는 content-policy 블록 같은 기록된 대체 경로
 사유를 유지하므로 모델 장애가 공개되지 않은 모델 응답처럼 보이지 않습니다.
 
-브라우저는 기록된 모델 식별자와 선택적 지연 시간 또는 토큰 메트릭이 범위가 제한된 source-descriptor
-계약과 일치할 때만 LLM 공개를 표시합니다. 빈, oversized, control-character,
-duplicate-metric 및 free-form 메트릭 값은 LLM 에스컬레이션 점유를 만들지 않습니다. Raw 출처
-배지는 너비가 제한되므로 malformed 메타데이터가 회신 헤더를 밀어내지 않습니다. 브라우저가 토큰
-사용량을 표시하려면 토큰 합계와 프롬프트 및 완료 컴포넌트가 각각 finite nonnegative 값여야
-합니다.
+브라우저는 기록된 모델 식별자와 선택적 지연 시간 또는 토큰 메트릭이 범위가 제한된
+source-descriptor 계약과 일치할 때만 LLM 공개를 표시합니다. 빈, oversized, control-character,
+duplicate-metric 및 free-form 메트릭 값은 LLM 에스컬레이션 점유를 만들지 않습니다. Raw 출처 배지는
+너비가 제한되므로 malformed 메타데이터가 회신 헤더를 밀어내지 않습니다. 브라우저가 토큰 사용량을
+표시하려면 토큰 합계와 프롬프트 및 완료 컴포넌트가 각각 finite nonnegative 값여야 합니다.
 
 검증 메타데이터는 검사 counter가 nonnegative integer이고 completed 검사가 합계 검사보다
 크지 않을 때만 허용됩니다. Atomic 점유 구간은 순서가 맞는 nonnegative integer이고 매니페스트 스키마
@@ -594,12 +610,11 @@ duplicate-metric 및 free-form 메트릭 값은 LLM 에스컬레이션 점유를
 제한됩니다. 실제 운영 회신과 세션 재생은 동일한 파서를 사용하므로 reload 후 HTTP 경계가
 거부할 메타데이터를 복원하거나 다르게 해석하지 않습니다.
 
-세션 재생은 4 MiB JSON 묶음 안에 최신 턴을 최대 40개 유지합니다. Turn 하나에는 텍스트
-256 KiB, 범위가 제한된 인용 512개, 범위가 제한된 후속 조치 8개 및 범위가 제한된 활동 기록 64개까지 포함할 수
-있습니다. 직렬화가 묶음을 초과하면 브라우저는 가장 오래된 턴부터 제거합니다. Oversized
-또는 내부 정합성이 없는 선택적 collection은 렌더러로 복원하지 않습니다. Answer-plan 섹션 및
-재정의 라벨은 64자와 128자, 코드 검증 상세는 4 KiB, 이정표 에이전트 신원은 64자로
-제한합니다.
+세션 재생은 4 MiB JSON 묶음 안에 최신 턴을 최대 40개 유지합니다. Turn 하나에는 텍스트 256 KiB,
+범위가 제한된 인용 512개, 범위가 제한된 후속 조치 8개 및 범위가 제한된 활동 기록 64개까지 포함할
+수 있습니다. 직렬화가 묶음을 초과하면 브라우저는 가장 오래된 턴부터 제거합니다. Oversized 또는
+내부 정합성이 없는 선택적 collection은 렌더러로 복원하지 않습니다. Answer-plan 섹션 및 재정의
+라벨은 64자와 128자, 코드 검증 상세는 4 KiB, 이정표 에이전트 신원은 64자로 제한합니다.
 
 Web 작성기는 선택, 폐기 및 clipboard paste raster를 동일한 범위가 제한된 첨부 tray와 검증 경로로 전달합니다. 단계 전에 브라우저는 upscaling 없이 longest 간선을 2048 px 안에 맞추고 이미지당 4 MiB 아래로 re-encode합니다. Clipboard 텍스트와 HTML은 textarea의 native paste 동작을 유지하며 첨부가 되지 않습니다.
 Turn이 검증된 inline 이미지 첨부를 carry하면 스트리밍 경로는 서술기가 작성하기 전에 읽기 전용 `vision_analyzing`을, 답변 전에 `vision_grounded`를 발행하며, 각 프레임은 이미지 출처 미리 보기(이름, media 타입, 크기)를 포함하되 base64 페이로드는 절대 포함하지 않습니다.
