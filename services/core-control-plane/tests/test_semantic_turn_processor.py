@@ -11,6 +11,7 @@ from types import MappingProxyType, SimpleNamespace
 from typing import Any, cast
 
 import pytest
+from fdai.core.conversation.semantic_planning_models import BoundIncident
 from fdai.core.conversation.semantic_runtime import (
     SemanticTurnResult as RuntimeSemanticTurnResult,
 )
@@ -156,6 +157,7 @@ class _Runtime:
         self.calls = 0
         self.principals: list[Principal] = []
         self.prior_turns: tuple[Turn, ...] = ()
+        self.bound_incidents: list[BoundIncident | None] = []
 
     async def handle(
         self,
@@ -164,11 +166,13 @@ class _Runtime:
         prior_turns: tuple[Turn, ...],
         principal: Principal,
         cancelled: asyncio.Event | None = None,
+        bound_incident: BoundIncident | None = None,
     ) -> RuntimeSemanticTurnResult:
         assert utterance == "Show current operations evidence."
         self.calls += 1
         self.principals.append(principal)
         self.prior_turns = prior_turns
+        self.bound_incidents.append(bound_incident)
         if self.failure is not None:
             raise self.failure
         if self.wait_for_cancel:
@@ -191,10 +195,12 @@ class _ContendedRuntime(_Runtime):
         prior_turns: tuple[Turn, ...],
         principal: Principal,
         cancelled: asyncio.Event | None = None,
+        bound_incident: BoundIncident | None = None,
     ) -> RuntimeSemanticTurnResult:
         self.calls += 1
         self.principals.append(principal)
         self.prior_turns = prior_turns
+        self.bound_incidents.append(bound_incident)
         self.entered.set()
         await self.release.wait()
         return self.result
@@ -487,6 +493,8 @@ def _incident_evidence_runtime_result(
     inject_cause: bool = False,
     empty_evidence: bool = False,
     output_correlation_id: str = "incident-correlation-301",
+    profile_incident_id: str | None = "00000000-0000-0000-0000-000000000301",
+    profile_status: str | None = "triaging",
 ) -> RuntimeSemanticTurnResult:
     result = _runtime_result("answered")
     assert result.execution is not None
@@ -497,11 +505,11 @@ def _incident_evidence_runtime_result(
         "correlation_id": output_correlation_id,
         "incident_profile": {
             "correlation_id": correlation_id,
-            "incident_id": incident_id,
+            "incident_id": profile_incident_id,
             "ticket_id": None,
             "title": None,
             "severity": "sev2",
-            "status": "triaging",
+            "status": profile_status,
             "vertical": None,
             "opened_at": "2026-08-14T09:00:00Z",
             "last_updated_at": "2026-08-14T09:05:00Z",
@@ -1149,6 +1157,38 @@ async def test_incident_evidence_with_mismatched_correlation_is_held() -> None:
     encoded = await _processor(
         _Runtime(
             _incident_evidence_runtime_result(output_correlation_id="incident-correlation-other")
+        )
+    ).process(_request())
+
+    semantic = _projection(encoded)["semantic_result"]
+    assert semantic["disposition"] == "held"
+    assert semantic["reason_code"] == "semantic_evidence_incomplete"
+
+
+async def test_incident_evidence_answers_when_the_window_omits_the_identity_anchor() -> None:
+    encoded = await _processor(
+        _Runtime(_incident_evidence_runtime_result(profile_incident_id=None))
+    ).process(_request())
+
+    semantic = _projection(encoded)["semantic_result"]
+    assert semantic["disposition"] == "answered"
+
+
+async def test_incident_answer_separates_an_unrecorded_status_from_a_missing_profile() -> None:
+    result = _incident_evidence_runtime_result(profile_status=None)
+    encoded = await _processor(_Runtime(result)).process(_request())
+
+    answer = _projection(encoded)["semantic_result"]["answer"]
+    assert "The audit records read for this incident record no status." in answer
+    assert "the incident profile is missing" not in answer
+
+
+async def test_incident_evidence_with_a_conflicting_profile_identity_is_held() -> None:
+    encoded = await _processor(
+        _Runtime(
+            _incident_evidence_runtime_result(
+                profile_incident_id="00000000-0000-0000-0000-000000000999"
+            )
         )
     ).process(_request())
 
