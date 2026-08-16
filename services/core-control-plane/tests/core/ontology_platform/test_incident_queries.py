@@ -112,6 +112,7 @@ async def test_incident_evidence_returns_profile_and_gaps_without_cause_claim() 
         {
             "audit_ref": "audit:1",
             "event_id": "00000000-0000-0000-0000-000000000201",
+            "actor": "Heimdall",
             "action_kind": "incident.open",
             "mode": "shadow",
             "recorded_at": "2026-08-14T09:00:00Z",
@@ -119,6 +120,7 @@ async def test_incident_evidence_returns_profile_and_gaps_without_cause_claim() 
         {
             "audit_ref": "audit:2",
             "event_id": "00000000-0000-0000-0000-000000000202",
+            "actor": "operator@example.com",
             "action_kind": "incident.transition",
             "mode": "shadow",
             "recorded_at": "2026-08-14T09:05:00Z",
