@@ -571,6 +571,40 @@ def test_anchored_turn_still_clarifies_a_requirement_the_binding_cannot_answer()
     assert outcome.clarification == "Do you mean HTTP requests or support requests?"
 
 
+def test_anchored_turn_keeps_an_incident_question_for_another_output_shape() -> None:
+    """Only a read of the anchored incident is answered by the binding."""
+    manifest = _anchored_fixture()
+    model = _Model(
+        frame=_frame(
+            output_shape="resource_list",
+            unresolved_terms=["this incident"],
+            clarification_requirements=["incident_reference"],
+            clarification="Which incident should I investigate?",
+        ),
+        plan=None,
+    )
+    service = SemanticPlanningService(
+        model=model,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = service.plan(
+        utterance="Which resources did this incident touch?",
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        bound_incident=BoundIncident(
+            incident_id="00000000-0000-0000-0000-000000000702",
+            correlation_id="bound-incident",
+        ),
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert outcome.clarification == "Which incident should I investigate?"
+
+
 def test_aggregation_frame_requires_aggregate_plan() -> None:
     manifest, definition = _fixture()
     t1 = _Model(frame=_frame(output_shape="aggregation_table"), plan=_plan(definition))
