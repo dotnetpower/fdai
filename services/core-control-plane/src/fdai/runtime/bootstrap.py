@@ -1236,7 +1236,7 @@ async def _run() -> int:
                     ),
                     name="pantheon-runtime",
                 )
-                pantheon_task.add_done_callback(_log_pantheon_exit)
+                pantheon_task.add_done_callback(partial(_log_pantheon_exit, stop=stop))
             if agent_introspection_server is not None:
                 agent_introspection_task = asyncio.create_task(
                     startup_readiness_runtime.run_when_ready(

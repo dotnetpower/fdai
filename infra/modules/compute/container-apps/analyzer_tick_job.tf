@@ -4,7 +4,9 @@
 //
 // The job launches `python -m fdai.delivery.analyzer_tick_cli` once per
 // fire. The CLI reads FDAI_ANALYZER_TARGETS (a JSON list of
-// {resource_id, kind} pairs), builds the container, instantiates the
+// {resource_id, kind} pairs), adds every eligible resource the durable
+// inventory projection already observed when FDAI_INVENTORY_DSN is bound,
+// builds the container, instantiates the
 // default_analyzers wired to whichever MetricProvider was bound at
 // composition time (AML KQL, Prom, or the routed Prom-primary +
 // AML-fallback composite), and publishes one canonical Event per finding
@@ -18,8 +20,9 @@
 // serve, and it recovers on the next fire when a tick fails.
 //
 // Enabled by default in shadow mode. An explicit empty
-// `analyzer_tick_cron_expression` provisions no job. An empty
-// FDAI_ANALYZER_TARGETS makes the tick a clean no-op that exits 0.
+// `analyzer_tick_cron_expression` provisions no job. A tick with neither
+// an explicit target nor a supported inventory-backed resource is a clean
+// no-op that exits 0.
 
 resource "azurerm_container_app_job" "analyzer_tick" {
   count = var.analyzer_tick_cron_expression == "" ? 0 : 1

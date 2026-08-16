@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 77352942b2d21ae7f70733611209d59110a71bc9
-translation_revised: 2026-08-15
+translation_source_sha: 5403c3bd52f0be3a945e841ab2f74a14d1276342
+translation_revised: 2026-08-16
 ---
 
 # 에이전트 판테온
@@ -53,6 +53,7 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 | 2026-08-14 | implemented | AgentSpec, topic, 판단, 승인 또는 실행 소유권을 바꾸지 않고 모든 Thor 소유 실행기 전에 Core pre-dispatch kinetic receipt consumer를 연결했습니다. | `current change`, `core/operational_planning/kinetic_safety.py`, `delivery/kinetic_safety.py`, `runtime/control_loop.py` 및 집중 kinetic/HIL/Thor 조립 검사 115개 통과 | 운영 조립에서 Forseti source를 연결하고 독립 observer를 추가한 뒤 통제된 실제 근거를 보존합니다. |
 | 2026-08-14 | implemented | Bragi의 표현 전용 숙의가 선택적 T2 종합을 호출하기 전에 결정론적 T1 답변 평가를 요구하도록 했습니다. | `current change`, 집중 숙의 테스트 36개는 충돌이 없거나 비교할 수 없는 claim에 T2를 호출하지 않고 구조적 충돌에만 범위가 제한된 호출을 유지함을 입증합니다. | AgentSpec, topic 또는 권한을 바꾸지 않고 통제된 운영자 경로 근거를 보존합니다. |
 | 2026-08-15 | implemented | Bridge 소비자가 자기 task 안에서 구독을 닫도록 해서 broker 정리가 인터프리터 종료 처리가 아니라 종료 절차 중에 실행되도록 했습니다. AgentSpec, topic, 소유권, LLM, 안전장치는 바뀌지 않았습니다. | `current change`, [`bus_bridge.py`](../../../services/core-control-plane/src/fdai/agents/_framework/bus_bridge.py)와 [`test_subscription_lifecycle.py`](../../../services/core-control-plane/tests/agents/test_subscription_lifecycle.py), 집중 agent/delivery/runtime/provider 검사 3127건 통과 | 실제 로컬 종료에서 남은 소비자 stop 타임아웃이 없는지 확인합니다. |
+| 2026-08-16 | implemented | Thor가 내구 ActionRun을 복원할 때도 dispatch 시점의 kinetic proposal 결속 검사를 다시 적용하도록 해서, 변조된 레코드가 다른 correlation의 정확한 인자를 복원하지 못하게 했습니다. AgentSpec, topic, 소유권, 권한은 바뀌지 않았습니다. | `current change`, [`thor.py`](../../../services/core-control-plane/src/fdai/agents/thor.py)와 [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py), 집중 kinetic/내구 재생/runtime/factory 검사 140건 통과 | 기존 kinetic 잔여 작업과 함께 복원 경로의 통제된 실사용 증거를 확보합니다. |
 
 ### 남은 작업
 - [ ] 하나의 고정된 리비전에서 에이전트별 및 시스템 KPI, 표본 수, 신뢰 구간, 보호 메트릭과 권위 있는 결과 증적을 측정한 실제 shadow 코호트를 보존합니다.

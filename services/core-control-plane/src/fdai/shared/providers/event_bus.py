@@ -17,10 +17,14 @@ Concrete implementations:
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any, Protocol, runtime_checkable
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,15 +110,47 @@ async def subscription(
     its ``finally`` would run that teardown during interpreter finalization -
     after asyncio has already cancelled the client's internal tasks. Every
     consumer MUST drive its subscription through this helper.
+
+    Teardown normally runs while an exception is in flight, and on shutdown that
+    exception is ``CancelledError``. A failing broker teardown MUST NOT replace
+    it: a supervisor that branches on ``Task.cancelled()`` would then report a
+    cancelled consumer as a crashed one. The failure is logged against its topic
+    and consumer group instead. Teardown after a clean exit still propagates.
     """
 
     stream = bus.subscribe(topic, group_id)
     try:
         yield stream
-    finally:
+    except BaseException:
+        await _close_quietly(stream, topic=topic, group_id=group_id)
+        raise
+    else:
         aclose = getattr(stream, "aclose", None)
         if aclose is not None:
             await aclose()
+
+
+async def _close_quietly(
+    stream: AsyncIterator[EventEnvelope],
+    *,
+    topic: str,
+    group_id: str,
+) -> None:
+    """Close a subscription without letting its failure mask the live exception."""
+
+    aclose = getattr(stream, "aclose", None)
+    if aclose is None:
+        return
+    try:
+        await aclose()
+    except asyncio.CancelledError:
+        raise
+    except Exception:  # noqa: BLE001 - the in-flight exception owns the outcome
+        _LOGGER.warning(
+            "event_bus_subscription_close_failed",
+            extra={"topic": topic, "consumer_group": group_id},
+            exc_info=True,
+        )
 
 
 __all__ = ["EventBus", "EventEnvelope", "PublishReceipt", "subscription"]

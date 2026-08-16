@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 공개 웹 근거
 translation_of: operator-console-web-evidence.md
-translation_source_sha: a28df4b4163cd4ad7e7a483f959b80825a75d302
-translation_revised: 2026-08-14
+translation_source_sha: 3a60e31bc31a4cba81cc87fbe5771506d1e5af42
+translation_revised: 2026-08-16
 ---
 
 # 오퍼레이터 콘솔 공개 웹 근거
@@ -82,9 +82,10 @@ translation_revised: 2026-08-14
   측정합니다. 대안 탐색은 목표, 대상, 기능, 후보 수와 다양성, 자기 제외, 직접적인 페이지
   여부, 개념성 콘텐츠 제외에 대한 관찰 가능한 관련성 검사 10개를 더합니다.
 
-현재 문서나 테스트 트리에는 전용 고정 corpus 산출물 경로나 focused 명령이 없습니다. 해당 사례가
-검토 가능한 버전이 지정된 고정본 및 focused 모음으로 구체화될 때까지 rubric은 acceptance 계약으로
-남아 있습니다.
+고정 corpus는 `tests/integration/evaluation/web_evidence_route_corpus.v1.json` 으로 구체화됐고
+`scripts/evaluation/web_evidence_route_corpus.py` 가 이를 검증합니다. 해당 사례를 프로덕션
+classifier, resolver, 프로바이더 경계로 재생하는 Operator 모음은 아직 남아 있으므로, 실제
+acceptance 판단은 여전히 rubric이 소유합니다.
 
 ## 구현 상태
 
@@ -93,9 +94,9 @@ translation_revised: 2026-08-14
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | Core 웹 검색 정책, 프로바이더 경계 및 sanitizer | implemented | `services/core-control-plane/src/fdai/core/web_search/`; `services/core-control-plane/tests/core/web_search/` | Focused 테스트는 허용 목록, 민감한 입력 차단, 범위가 제한된 근거, 정제 및 실행 권한 부재를 다룹니다. |
-| Operator classifier, resolver 및 Azure 어댑터 경로 | in-progress | `services/operator-service/src/fdai_operator_service/application/conversation/capabilities/web_search/`; `services/operator-service/src/fdai_operator_service/adapters/conversation/web_search/` | 프로덕션 경로는 있지만 이 owner 문서는 전체 eligibility, 대안 탐색 및 프로바이더 호출 계약을 위한 범위가 제한된 focused 모음을 인용하지 않습니다. |
+| Operator classifier, resolver 및 Azure 어댑터 경로 | not-started | 현재 추적 트리 감사; `grep -rn web_search services/operator-service/src` 는 IAM 설정 family만 일치시킵니다 | 이 행이 이전에 인용한 classifier, resolver, Azure 검색 어댑터 모듈은 현재 서비스 트리에 없습니다. Operator IAM 설정 family의 배포 수준 활성화 설정만 남아 있습니다. |
 | 로컬 근거 우선순위 및 현재 화면 fast path | implemented | Operator conversation application 및 Console answerer; focused conversation 및 Console 테스트 | 결정론적 화면 및 로컬 tool 우선순위가 있으며 추측 기반 공개 웹 fallback이 권위 있는 로컬 근거를 대체하지 못하게 합니다. |
-| 고정된 영어 및 한국어 regression corpus | not-started | [Regression rubric](#공개-웹-근거) | 10개 사례 acceptance 형태는 문서화됐지만 전용 버전이 지정된 corpus 산출물이나 focused 명령을 찾지 못했습니다. |
+| 고정된 영어 및 한국어 regression corpus | implemented | `tests/integration/evaluation/web_evidence_route_corpus.v1.json`; `scripts/evaluation/web_evidence_route_corpus.py`; `tests/integration/scripts/test_web_evidence_route_corpus.py` | 버전이 지정된 10개 사례 corpus가 route, 프로바이더 호출, 정규화된 query, 민감 정보, 현재 화면, 대안 탐색 예상 결과를 영어와 한국어 균형으로 선언합니다. 로더는 route와 모순되는 프로바이더 호출, 차단, 화면, 탐색 예상 결과를 거부합니다. 이는 acceptance 계약일 뿐이며 라우팅을 수행하거나 프로바이더를 호출하지 않습니다. |
 | Held-out 다국어 및 실제 프로바이더 근거 | not-started | [Regression rubric](#공개-웹-근거) | 관리되는 영어, 스페인어, 프랑스어 및 일본어 held-out 증적이나 대안 탐색 관련성 산출물이 보존되지 않았습니다. |
 
 ### 구현 이력
@@ -103,10 +104,12 @@ translation_revised: 2026-08-14
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 구현 ledger를 도입하고 고정 regression corpus가 아직 구체화되지 않았음을 명확히 했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 Core 및 Operator 웹 검색 경로와 focused 검사입니다. | Corpus를 구체화하고 focused orchestration coverage를 완료하며 관리되는 실제 근거를 보존해야 합니다. |
+| 2026-08-16 | implemented | 버전이 지정된 이중 언어 10개 사례 route 및 프로바이더 호출 corpus를 구체화하고, route, 프로바이더 호출, 민감 정보, 화면, 대안 탐색 예상 결과가 모순되면 거부하는 엄격한 로더를 추가했습니다. | `current change`; `tests/integration/evaluation/web_evidence_route_corpus.v1.json`; `pytest tests/integration/scripts/test_web_evidence_route_corpus.py` (16 passed). | Corpus를 프로덕션 classifier와 프로바이더 경계로 재생하고 관리되는 held-out 및 실제 증적을 보존해야 합니다. |
+| 2026-08-16 | not-started | Operator classifier 행을 바로잡았습니다. 인용한 `application/conversation/capabilities/web_search/` 와 `adapters/conversation/web_search/` 경로가 현재 서비스 트리에 없으므로 `in-progress` 는 실행 가능한 표면을 과장했습니다. | `current change`; `grep -rn web_search services/operator-service/src` 는 `families/iam/` 만 일치시킵니다. | 현재 토폴로지에서 Operator classifier, resolver, 프로바이더 어댑터를 다시 구현하거나 연결해야 합니다. |
 
 ### 남은 작업
 
-- [ ] 명시적인 local, web, none, sensitive, current-screen 및 대안 탐색 예상 결과가 있는 버전이 지정된 영어 및 한국어 10개 route 및 프로바이더 호출 corpus를 구체화합니다.
-- [ ] Eligibility 순서, 정확한 로컬 우선순위, classifier 한도, 정규화된 query, 프로바이더 호출 차단, 후보 다양성 및 부분 비교 rendering을 입증하는 focused Operator 모음을 추가합니다.
+- [x] 버전이 지정된 영어 및 한국어 10개 route 및 프로바이더 호출 corpus가 `tests/integration/evaluation/web_evidence_route_corpus.v1.json` 에 있으며 명시적인 local, web, none, sensitive, current-screen 및 대안 탐색 예상 결과를 담고 있습니다. `python scripts/evaluation/web_evidence_route_corpus.py` 가 내용 없는 coverage 요약을 출력하고 `tests/integration/scripts/test_web_evidence_route_corpus.py` 가 계약을 증명합니다(`16 passed`).
+- [ ] 이 corpus에 대해 eligibility 순서, 정확한 로컬 우선순위, classifier 한도, 정규화된 query, 프로바이더 호출 차단, 후보 다양성 및 부분 비교 rendering을 입증하는 focused Operator 모음을 추가합니다.
 - [ ] 정확한 모델, 정책, 허용 목록, source 및 개정 출처가 있는 관리되는 held-out 다국어 증적과 대안 탐색 관련성 산출물을 보존합니다.
 - [ ] 런타임 validation을 주장하기 전에 로컬 및 배포 실패, 장애 조치, 사용 불가, 정제, 인용 및 권한 부재 증적을 보존합니다.

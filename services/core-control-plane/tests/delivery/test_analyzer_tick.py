@@ -19,7 +19,14 @@ from fdai.delivery.analyzer_tick import (
     AnalyzerTickRunner,
     analyzer_idempotency_key,
 )
-from fdai.delivery.analyzer_tick_cli import parse_targets, parse_window_seconds
+from fdai.delivery.analyzer_tick_cli import (
+    DEFAULT_MAX_DISCOVERED,
+    INVENTORY_DSN_ENV,
+    build_inventory_projection,
+    parse_max_discovered,
+    parse_targets,
+    parse_window_seconds,
+)
 from fdai.shared.contracts.models import Mode, Severity
 
 NOW = datetime(2026, 8, 15, 12, 0, tzinfo=UTC)
@@ -233,3 +240,19 @@ def test_window_parsing_fails_closed() -> None:
     for raw in ("0", "-1", "abc"):
         with pytest.raises(ValueError):
             parse_window_seconds(raw)
+
+
+def test_max_discovered_parsing_fails_closed() -> None:
+    assert parse_max_discovered("") == DEFAULT_MAX_DISCOVERED
+    assert parse_max_discovered(" 25 ") == 25
+    for raw in ("0", "-1", "abc", "1000"):
+        with pytest.raises(ValueError):
+            parse_max_discovered(raw)
+
+
+def test_the_projection_stays_unbound_without_a_database(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv(INVENTORY_DSN_ENV, raising=False)
+
+    assert build_inventory_projection() is None

@@ -1,11 +1,15 @@
 """One-shot analyzer tick for a Container Apps scheduled Job.
 
 Reads `FDAI_ANALYZER_TARGETS` (a JSON list of ``{resource_id, kind}`` objects),
-binds the reference analyzers to whichever `MetricProvider` composition wired,
-and publishes one canonical Event per finding to the analyzer ingest topic.
+adds every eligible resource the durable inventory projection already observed
+when `FDAI_INVENTORY_DSN` is bound, binds the reference analyzers to whichever
+`MetricProvider` composition wired, and publishes one canonical Event per
+finding to the analyzer ingest topic.
 
-Exit codes: `0` on a clean pass, including a pass with no configured target;
-`1` when any finding failed to publish, so the Job retries the tick.
+Exit codes: `0` on a clean pass, including a pass with no resolved target;
+`1` when any finding failed to publish, so the Job retries the tick. An
+unreadable inventory projection raises instead of degrading to the configured
+list alone, so the Job retries rather than silently narrowing its coverage.
 """
 
 from __future__ import annotations
@@ -15,12 +19,19 @@ import json
 import logging
 import os
 import sys
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import httpx
 
 from fdai.composition import attach_metric_provider, default_container_from_env
 from fdai.core.investigation import InvestigationCoordinator, default_analyzers
+from fdai.delivery.analyzer_targets import (
+    DEFAULT_MAX_DISCOVERED,
+    MAX_DISCOVERED_CEILING,
+    resolve_analyzer_targets,
+)
 from fdai.delivery.analyzer_tick import (
     ANALYZER_EVENT_TOPIC,
     DEFAULT_WINDOW_SECONDS,
@@ -32,13 +43,22 @@ from fdai.delivery.azure.demo_queries import default_metric_queries
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
+from fdai.delivery.persistence import (
+    PostgresOntologyInstanceStore,
+    PostgresOntologyInstanceStoreConfig,
+)
+from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
+from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.analyzer_tick")
+_REPO_ROOT = Path(__file__).resolve().parents[5]
 
 TARGETS_ENV = "FDAI_ANALYZER_TARGETS"
 WINDOW_ENV = "FDAI_ANALYZER_WINDOW_SECONDS"
 TOPIC_ENV = "FDAI_ANALYZER_TOPIC"
+MAX_DISCOVERED_ENV = "FDAI_ANALYZER_MAX_DISCOVERED_TARGETS"
+INVENTORY_DSN_ENV = "FDAI_INVENTORY_DSN"
 
 
 def parse_targets(raw: str) -> tuple[AnalyzerTarget, ...]:
@@ -90,10 +110,66 @@ def parse_window_seconds(raw: str) -> int:
     return window
 
 
+def parse_max_discovered(raw: str) -> int:
+    """Parse the optional inventory-backed target bound; malformed fails closed.
+
+    The upper bound matches the resolver ceiling so a misconfigured deployment
+    fails at parse time with the environment key named, not later inside the
+    projection read.
+    """
+    text = raw.strip()
+    if not text:
+        return DEFAULT_MAX_DISCOVERED
+    try:
+        bound = int(text)
+    except ValueError as exc:
+        raise ValueError(f"{MAX_DISCOVERED_ENV} MUST be a positive integer") from exc
+    if not 1 <= bound <= MAX_DISCOVERED_CEILING:
+        raise ValueError(
+            f"{MAX_DISCOVERED_ENV} MUST be an integer in [1, {MAX_DISCOVERED_CEILING}]"
+        )
+    return bound
+
+
+def build_inventory_projection() -> PostgresOntologyInstanceStore | None:
+    """Bind the durable inventory projection when its database is configured.
+
+    Returns ``None`` when the deployment supplies no inventory DSN, which keeps
+    the tick a configured-target-only pass instead of failing a deployment that
+    never provisioned the projection.
+    """
+    dsn = os.environ.get(INVENTORY_DSN_ENV, "").strip()
+    if not dsn:
+        return None
+    catalog_root = _REPO_ROOT / "rule-catalog"
+    catalog = load_ontology_catalog(
+        catalog_root,
+        schema_registry=PackageResourceSchemaRegistry(),
+        probes_root=catalog_root / "probes",
+    )
+    return PostgresOntologyInstanceStore(
+        config=PostgresOntologyInstanceStoreConfig(
+            dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1)
+        ),
+        object_types=catalog.object_types,
+        link_types=catalog.link_types,
+    )
+
+
 async def run_once() -> AnalyzerTickReport:
     """Compose the tick from the environment and run one analyzer pass."""
-    targets = parse_targets(os.environ.get(TARGETS_ENV, ""))
+    configured = parse_targets(os.environ.get(TARGETS_ENV, ""))
     window_seconds = parse_window_seconds(os.environ.get(WINDOW_ENV, ""))
+    max_discovered = parse_max_discovered(os.environ.get(MAX_DISCOVERED_ENV, ""))
+
+    resolution = await resolve_analyzer_targets(
+        configured=configured,
+        store=build_inventory_projection(),
+        now=datetime.now(tz=UTC),
+        max_discovered=max_discovered,
+    )
+    _LOGGER.info("analyzer_tick_targets_resolved", extra=resolution.to_dict())
+    targets = resolution.targets
     if not targets:
         _LOGGER.info("analyzer_tick_no_targets")
         return AnalyzerTickReport(targets=0, findings=0, published=0)

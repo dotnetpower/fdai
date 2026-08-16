@@ -349,6 +349,92 @@ def test_a_real_merge_refuses_while_the_index_is_dirty(tmp_path: Path, monkeypat
     assert not (repo / "batch.txt").exists()
 
 
+def test_landing_leaves_no_half_merged_main_checkout_in_a_linked_worktree(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """A conflicting land must abort even when main lives in a linked worktree."""
+    import subprocess
+
+    module = _load()
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+
+    def run(*args: str, cwd: Path = repo) -> str:
+        return subprocess.run(  # noqa: S603 - fixed git commands on a temporary repo
+            [_git_binary(), *args], cwd=cwd, check=True, capture_output=True, text=True
+        ).stdout.strip()
+
+    # Park main in a linked worktree, exactly what `_main_checkout` is written to find.
+    run("checkout", "-q", "-b", "parking")
+    main_checkout = tmp_path / "main"
+    run("worktree", "add", "-q", str(main_checkout), "main")
+    branch = tmp_path / "campaign"
+    run("worktree", "add", "-q", "-b", "roadmap-implementation/campaign", str(branch), "main")
+
+    (branch / "shared.txt").write_text("campaign side\n", encoding="utf-8")
+    run("add", "shared.txt", cwd=branch)
+    run("commit", "-qm", "campaign batch", cwd=branch)
+    landed_commit = run("rev-parse", "HEAD", cwd=branch)
+
+    # main gains a conflicting version of the same file, committed so the index stays clean.
+    (main_checkout / "shared.txt").write_text("main side\n", encoding="utf-8")
+    run("add", "shared.txt", cwd=main_checkout)
+    run("commit", "-qm", "main side", cwd=main_checkout)
+
+    monkeypatch.setattr(module, "_validation_receipt_exists", lambda _r, rev: rev == landed_commit)
+    monkeypatch.setattr(module, "_register_committed_work", lambda *_a: None)
+
+    outcome = module._land_validated_batch(branch)
+
+    assert outcome is not None and outcome.startswith(f"cannot land {landed_commit[:12]}")
+    assert not module._merge_in_progress(main_checkout)
+    assert run("status", "--porcelain", cwd=main_checkout) == ""
+    assert (main_checkout / "shared.txt").read_text(encoding="utf-8") == "main side\n"
+
+
+def test_landing_refuses_to_disturb_another_sessions_merge(tmp_path: Path, monkeypatch) -> None:
+    """An unconcluded merge in the main checkout is left exactly as its owner left it."""
+    import subprocess
+
+    module = _load()
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+
+    def run(*args: str, cwd: Path = repo, check: bool = True) -> str:
+        return subprocess.run(  # noqa: S603 - fixed git commands on a temporary repo
+            [_git_binary(), *args], cwd=cwd, check=check, capture_output=True, text=True
+        ).stdout.strip()
+
+    branch = tmp_path / "campaign"
+    run("worktree", "add", "-q", "-b", "roadmap-implementation/campaign", str(branch), "main")
+    (branch / "batch.txt").write_text("batch\n", encoding="utf-8")
+    run("add", "batch.txt", cwd=branch)
+    run("commit", "-qm", "campaign batch", cwd=branch)
+    landed_commit = run("rev-parse", "HEAD", cwd=branch)
+
+    # Another session paused a merge whose tree matches main, so the index stays clean and
+    # no other guard notices it.
+    run("checkout", "-q", "-b", "sibling")
+    (repo / "extra.txt").write_text("extra\n", encoding="utf-8")
+    run("add", "extra.txt")
+    run("commit", "-qm", "sibling adds")
+    (repo / "extra.txt").unlink()
+    run("add", "-A")
+    run("commit", "-qm", "sibling reverts")
+    run("checkout", "-q", "main")
+    run("merge", "--no-commit", "--no-ff", "sibling", check=False)
+    assert module._merge_in_progress(repo)
+    assert run("diff", "--name-only", "--cached") == ""
+
+    monkeypatch.setattr(module, "_validation_receipt_exists", lambda _r, rev: rev == landed_commit)
+    monkeypatch.setattr(module, "_register_committed_work", lambda *_a: None)
+
+    assert module._land_validated_batch(branch) == (
+        f"cannot land {landed_commit[:12]}: the main checkout has an unconcluded merge"
+    )
+    assert module._merge_in_progress(repo)
+
+
 def test_sync_absorbs_main_when_the_branch_is_ahead_and_behind(tmp_path: Path, monkeypatch) -> None:
     import subprocess
 

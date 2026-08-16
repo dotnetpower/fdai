@@ -10,6 +10,8 @@ import sys
 import time
 from pathlib import Path
 
+import pytest
+
 _BASH = "/usr/bin/bash"
 _RUNNER = Path(__file__).parents[3] / "scripts" / "automation" / "run-local-service.sh"
 _TIMESTAMP_PREFIX = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}[+-]\d{2}:\d{2} ")
@@ -364,6 +366,40 @@ def test_runner_refuses_a_runtime_lock_owned_by_another_checkout(tmp_path: Path)
     assert not log_file.exists() or "child-ran" not in log_file.read_text(encoding="utf-8")
 
 
+def test_runner_reports_an_unusable_runtime_lock_as_itself(tmp_path: Path) -> None:
+    """flock uses 66, not 1, when it cannot open the lock file; that is not contention."""
+    log_file = tmp_path / "logs" / "core-runtime.log"
+    runtime_lock = tmp_path / "core-runtime.lock"
+    runtime_lock.touch()
+    runtime_lock.chmod(0o000)
+
+    try:
+        result = subprocess.run(  # noqa: S603 - fixed test command
+            [
+                _BASH,
+                str(_RUNNER),
+                "core-runtime",
+                str(log_file),
+                "--",
+                "env",
+                f"FDAI_RUNTIME_LOCK_FILE={runtime_lock}",
+                sys.executable,
+                "-c",
+                "print('child-ran')",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    finally:
+        runtime_lock.chmod(0o600)
+
+    assert result.returncode == 75
+    assert f"runtime-lock-unusable={runtime_lock}" in result.stderr
+    assert f"runtime-lock={runtime_lock}" not in result.stderr
+    assert not log_file.exists() or "child-ran" not in log_file.read_text(encoding="utf-8")
+
+
 def test_runner_refuses_a_port_owned_by_another_process(tmp_path: Path) -> None:
     log_file = tmp_path / "logs" / "operator-api.log"
 
@@ -392,4 +428,45 @@ def test_runner_refuses_a_port_owned_by_another_process(tmp_path: Path) -> None:
 
     assert result.returncode == 75
     assert f"port=127.0.0.1:{port}" in result.stderr
+    assert not log_file.exists() or "child-ran" not in log_file.read_text(encoding="utf-8")
+
+
+def test_runner_refuses_a_port_owned_on_ipv6_loopback(tmp_path: Path) -> None:
+    """--host localhost binds IPv6 loopback on a dual-stack host; that still owns the port."""
+    log_file = tmp_path / "logs" / "operator-api.log"
+
+    if not socket.has_ipv6:
+        pytest.skip("host has no IPv6 support")
+    listener = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+    try:
+        listener.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+        try:
+            listener.bind(("::1", 0))
+        except OSError:
+            pytest.skip("host has no IPv6 loopback")
+        listener.listen(1)
+        port = listener.getsockname()[1]
+
+        result = subprocess.run(  # noqa: S603 - fixed test command
+            [
+                _BASH,
+                str(_RUNNER),
+                "operator-api",
+                str(log_file),
+                "--",
+                sys.executable,
+                "-c",
+                "print('child-ran')",
+                "--port",
+                str(port),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    finally:
+        listener.close()
+
+    assert result.returncode == 75
+    assert f"port=::1:{port}" in result.stderr
     assert not log_file.exists() or "child-ran" not in log_file.read_text(encoding="utf-8")

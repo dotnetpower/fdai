@@ -225,7 +225,10 @@ def evaluate_shadow_dwell(
     gaps: list[str] = []
     shadow_days = evidence.shadow_days
     if shadow_days < thresholds.min_shadow_days:
-        gaps.append(f"shadow_days={shadow_days:.2f}<min_shadow_days={thresholds.min_shadow_days}")
+        # Rounding the reported value can print the threshold itself, so a real gap
+        # reads as "14.00<14" and looks like a bug in the gate. Truncate instead.
+        observed = math.floor(shadow_days * 100) / 100
+        gaps.append(f"shadow_days={observed:.2f}<min_shadow_days={thresholds.min_shadow_days}")
     if evidence.sample_size < thresholds.min_samples:
         gaps.append(f"sample_size={evidence.sample_size}<min_samples={thresholds.min_samples}")
     if evidence.reviewed_count == 0:
@@ -239,13 +242,31 @@ def evaluate_shadow_dwell(
     return ShadowDwellDecision(eligible=not gaps, gaps=tuple(gaps))
 
 
+@dataclass(slots=True)
+class _RetainedTarget:
+    """Bounded observation detail plus counters that eviction cannot erase."""
+
+    observations: deque[ShadowDwellObservation]
+    first_observed: datetime
+    last_observed: datetime
+    sample_size: int = 0
+    reviewed_count: int = 0
+    agreed_count: int = 0
+    policy_escapes: int = 0
+
+
 class ShadowDwellLedger:
     """Bounded per-target retention of shadow observations.
 
-    Retention is bounded on both axes because the observation stream is driven by
-    external traffic: an unbounded ledger inside a long-lived learner is a
-    memory-exhaustion vector. Evidence therefore describes the retained window,
-    which is the window the process can still prove.
+    Retained observation *detail* is bounded on both axes because the observation
+    stream is driven by external traffic: an unbounded ledger inside a long-lived
+    learner is a memory-exhaustion vector. The counted evidence is kept separately
+    and is not bounded by that eviction, because dropping the oldest observations
+    would silently turn the non-negotiable zero-escape bar into "zero escapes in
+    the retained window" and re-admit a candidate that already escaped.
+
+    Evicting a whole target is safe by contrast: an unknown target has no evidence
+    at all, and absent evidence is already ineligible.
     """
 
     def __init__(
@@ -258,45 +279,58 @@ class ShadowDwellLedger:
             raise ValueError("shadow dwell ledger capacities MUST be positive")
         self._max_targets = max_targets
         self._max_observations_per_target = max_observations_per_target
-        self._observations: OrderedDict[str, deque[ShadowDwellObservation]] = OrderedDict()
+        self._targets: OrderedDict[str, _RetainedTarget] = OrderedDict()
 
     def record(self, observation: ShadowDwellObservation) -> None:
         """Retain one observation, evicting the least recently used target if needed."""
 
         if not isinstance(observation, ShadowDwellObservation):
             raise TypeError("shadow dwell ledger accepts ShadowDwellObservation only")
-        retained = self._observations.get(observation.target)
-        if retained is None:
-            retained = deque(maxlen=self._max_observations_per_target)
-            self._observations[observation.target] = retained
-        retained.append(observation)
-        self._observations.move_to_end(observation.target)
-        while len(self._observations) > self._max_targets:
-            self._observations.popitem(last=False)
+        entry = self._targets.get(observation.target)
+        if entry is None:
+            entry = _RetainedTarget(
+                observations=deque(maxlen=self._max_observations_per_target),
+                first_observed=observation.observed_at,
+                last_observed=observation.observed_at,
+            )
+            self._targets[observation.target] = entry
+        entry.observations.append(observation)
+        entry.first_observed = min(entry.first_observed, observation.observed_at)
+        entry.last_observed = max(entry.last_observed, observation.observed_at)
+        if entry.sample_size < _MAX_SAMPLE_SIZE:
+            entry.sample_size += 1
+            entry.reviewed_count += int(observation.reviewed)
+            entry.agreed_count += int(observation.reviewed and observation.agreed)
+        entry.policy_escapes += int(observation.policy_escape)
+        self._targets.move_to_end(observation.target)
+        while len(self._targets) > self._max_targets:
+            self._targets.popitem(last=False)
 
     def evidence_for(self, target: str) -> ShadowDwellEvidence | None:
-        """Return retained evidence for ``target``, or ``None`` when unobserved."""
+        """Return counted evidence for ``target``, or ``None`` when unobserved."""
 
-        retained = self._observations.get(target)
-        if not retained:
+        entry = self._targets.get(target)
+        if entry is None or not entry.sample_size:
             return None
-        instants = [item.observed_at for item in retained]
         return ShadowDwellEvidence(
             target=target,
-            window_start=min(instants),
-            window_end=max(instants),
-            sample_size=len(retained),
-            reviewed_count=sum(1 for item in retained if item.reviewed),
-            agreed_count=sum(1 for item in retained if item.reviewed and item.agreed),
-            policy_escapes=sum(1 for item in retained if item.policy_escape),
+            window_start=entry.first_observed,
+            window_end=entry.last_observed,
+            sample_size=entry.sample_size,
+            reviewed_count=entry.reviewed_count,
+            agreed_count=entry.agreed_count,
+            # Saturating the sample count must not silently zero a real escape.
+            policy_escapes=min(entry.policy_escapes, entry.sample_size),
         )
 
     def targets(self) -> tuple[str, ...]:
-        return tuple(self._observations)
+        return tuple(self._targets)
 
     def observation_count(self, target: str) -> int:
-        retained = self._observations.get(target)
-        return len(retained) if retained else 0
+        """Return retained observation detail, which eviction does bound."""
+
+        entry = self._targets.get(target)
+        return len(entry.observations) if entry is not None else 0
 
 
 def _validate_target(target: object) -> None:

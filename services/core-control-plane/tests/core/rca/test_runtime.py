@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 from fdai.core.detection.series import MetricSample
-from fdai.core.rca.hypothesis import CausalClosure
+from fdai.core.rca.hypothesis import CausalActionMode, CausalClosure, causal_action_mode
 from fdai.core.rca.runtime import (
     CausalClosureObservation,
     CausalRuntimeCoordinator,
@@ -280,3 +280,34 @@ async def test_unverified_intervention_receipt_is_inconclusive() -> None:
     )
 
     assert closed.closure is CausalClosure.INCONCLUSIVE
+
+
+async def test_runtime_results_expose_shadow_mode_for_analysis_and_unsafe_closure() -> None:
+    projector = _Projector()
+    coordinator = _coordinator(_Provider(_evidence()), projector)
+
+    missing = await _coordinator(_Provider(None), _Projector()).analyze(
+        event=_event(),
+        incident_id="incident-1",
+    )
+    analyzed = await coordinator.analyze(event=_event(), incident_id="incident-1")
+    assert analyzed.hypothesis is not None
+    unsafe = await coordinator.close(
+        CausalClosureObservation(
+            hypothesis=analyzed.hypothesis,
+            finding_id="finding:latency",
+            outcome_ref="outcome:unsafe",
+            observed_at=datetime(2026, 8, 2, 1, tzinfo=UTC),
+            expected_direction_matched=True,
+            telemetry_complete=True,
+            within_window=True,
+            affected_scope_safe=False,
+            intervention_approved=True,
+            independent_observer=True,
+        )
+    )
+
+    assert missing.action_mode is CausalActionMode.SHADOW
+    assert analyzed.action_mode is CausalActionMode.SHADOW
+    assert unsafe.closure is CausalClosure.UNSAFE
+    assert causal_action_mode(unsafe) is CausalActionMode.SHADOW
