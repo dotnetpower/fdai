@@ -605,6 +605,20 @@ def run_cycle(
                 repo_root=repo_root,
                 timeout=QUALITY_CHECK_TIMEOUT_SECONDS,
             )
+            # A new service test file needs an owner in the suite manifest, and the
+            # diff-selected tests never pick this check because the manifest test itself
+            # did not change. It only surfaces centrally, where it blocks the whole lane.
+            _run_check(
+                [
+                    "python3",
+                    "-m",
+                    "pytest",
+                    "tests/integration/scripts/test_service_test_suites.py",
+                    "-q",
+                ],
+                repo_root=repo_root,
+                timeout=QUALITY_CHECK_TIMEOUT_SECONDS,
+            )
             _run_check(
                 [
                     "python3",
