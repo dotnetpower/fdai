@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: e01c37de1069cb7572ea9dd624d74aa92967dc21
+translation_source_sha: 34aef8a5f1c6a2555db29408a5851d658501c36e
 translation_revised: 2026-08-17
 ---
 # FDAI 온톨로지 안전 인프라
@@ -133,6 +133,7 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 | 2026-08-15 | implemented | 앞 행의 보류를 교차 인시던트 사례로만 좁혔습니다. Console은 인시던트 대화의 모든 turn에 바인딩을 실어 보내며 여기에는 인시던트와 무관한 질문도 포함되므로, `incident_evidence_not_planned`가 정당한 무관 질문까지 보류했습니다. 바인딩된 인시던트가 아닌 다른 인시던트의 근거를 읽는 경우는 계속 보류합니다. | `current change`, 바인딩된 turn이 인시던트 근거 없이도 응답하고 교차 인시던트 읽기는 보류함을 단언하는 focused 처리기 검사 46개 통과, 작업 범위 Ruff 및 strict mypy 통과 | "바인딩된 인시던트를 항상 읽는다"는 보장은 결정론적 goal 시드가 있어야 성립하며, 그 뒤에야 인시던트 읽기 부재를 결함으로 취급할 수 있습니다. |
 | 2026-08-15 | implemented | 인시던트 답변이 빈 상관관계를 성공적인 읽기처럼 보고하지 않게 하고, 원문 gap 키가 운영자 문장에 노출되지 않게 했습니다. 상관 기록이 없으면 없다고 말하고, 프로파일이 없으면 상태를 `unknown`으로 보고하는 대신 없다고 밝히며, 매핑되지 않은 gap 키는 사람이 읽을 수 있게 바꿉니다. Markdown이 밑줄을 강조로 해석하기 때문입니다. | `current change`, 빈 상관관계 답변을 포함한 focused 처리기 검사 47개와 Operator bridge 검사 48개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 함수가 이미 반환하는 상관 근거 타임라인을 렌더링합니다. |
 | 2026-08-17 | implemented | 인시던트 타임라인이 전달된 일부가 아니라 전체 기록 수를 밝히도록 했습니다. `correlated_evidence`는 상위에서 20건으로 잘리고 `verified_records`가 실제 총계를 가지므로, 34건짜리 인시던트가 개요에는 `감사 기록 34`를, 같은 카드의 타임라인에는 `최근 10/20건`을 표시해 바로 앞 블록에서 세었던 근거를 스스로 야불려 보고했습니다. 이제 타임라인 제목은 검증된 총계를 기준으로 합니다. | `current change`, Operator 검사 353개 통과 1개 건너뜀, Core 인시던트 및 처리기 검사 400개 통과 1개 건너뜀, 기준을 되돌리자 기대값 `latest 10 of 34` 대신 `latest 10 of 20`이 재현된 뒤 소스 복원함, 작업 범위 Ruff 및 strict mypy 통과 | 인증된 로컬 콘솔에서 렌더링된 타임라인을 확인합니다. |
+| 2026-08-17 | validated | 인증된 로컬 Console에서 인시던트 답변이 프로필, 행위자와 감사 참조를 포함한 기록된 활동 표, 명시된 한계, 읽기 전용 다음 단계를 렌더링하여 단순 검증 출력 개수를 대체함을 확인했습니다. 관측된 인시던트가 6건을 보유하고 블록이 6건을 모두 표시했기 때문에 타임라인 제목에는 절단 접미사가 없었고, 따라서 이번 라이브 세션은 절단되지 않은 경로만 검증했습니다. | `current change`; 커밋 `61e826092`의 로컬 Core와 Operator를 대상으로 한 `/incidents`의 인증된 Browser Entra 세션; 카드는 `Audit records 6`, 활동 6행, 한계 3건, 읽기 전용 단계 2건을 보고했습니다. | 로컬 인시던트가 20건을 넘으면 절단된 타임라인을 관측합니다. 그때까지 절단된 제목은 mutation 검증된 focused 테스트로 보증됩니다. |
 
 ### 남은 작업
 

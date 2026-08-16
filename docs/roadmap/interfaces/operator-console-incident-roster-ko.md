@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: 1de4d44c0a32c25dff2e5752cfd4323418c5f6e0
+translation_source_sha: 6c5a9c80a4b774bc3784d73337b7c4de52e143f2
 translation_revised: 2026-08-17
 ---
 
@@ -407,6 +407,7 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 | 2026-08-15 | in-progress | 커서에 연결된 서버측 `severity` 필터를 추가하고 버티컬과 심각도를 해제 가능한 목록 컨트롤로 노출했습니다. | `current change`; `operator.py`, `routes.py`, `postgres_sql.py`, `postgres.py`, `api-operations-client.ts`, `incidents.tsx`, `incident-clarity.css`, 메시지 카탈로그 2개 및 focused 테스트입니다. Operator와 contracts `383 passed, 1 skipped`, Console `55 passed`입니다. 로컬 corpus에 필터를 실행한 결과 그룹 1,557개 중 low 380개, critical 19개, unknown 1,004개를 반환했습니다. | 인시던트를 여는 감사 항목에 제목을 기록해야 합니다. 자유 텍스트 목록 검색은 구체화된 대상이 서버측 필터를 사실에 맞게 만들기 전까지 사용 불가로 둘니다. |
 | 2026-08-15 | implemented | 남은 `identifier_fallback`이 그룹 1,562개 중 5개이고 기록된 인시던트가 모두 `correlation_subject`로 해석됨을 측정한 뒤 인시던트 대상 및 결과 분석 구획을 마무리했습니다. | `current change`; 로컬 corpus 최종 재생 결과는 `recorded_subject` 1,001개, `rule_id` 551개, `correlation_subject` 5개, `identifier_fallback` 5개입니다. fallback 5개는 이미 목록에서 제외된 운영 무관 `read:sha256:*` 읽기입니다. | 자유 텍스트 목록 검색은 구체화된 대상이 생길 때까지 의도적으로 사용 불가로 남습니다. |
 | 2026-08-17 | implemented | 기록된 Incident 수명주기 상태를 roster 계약이 허용하는 세 가지 상태로 매핑하고 그 출처를 `incident_lifecycle`로 표기해, `triaging`이나 `mitigated` Incident 때문에 Console이 페이지 전체를 거부하지 않도록 했습니다. | `current change`; `incident_projection.py`; 5개 상태 focused projection 테스트; Operator `358 passed, 1 skipped`; 매핑을 되돌리면 모든 정본 상태에서 해당 테스트가 실패합니다. | 인증된 로컬 Console에서 복구된 roster 렌더링을 확인합니다. |
+| 2026-08-17 | validated | 인증된 로컬 Console에서 Incidents가 다시 로드되는 것을 확인했습니다. `triaging`이나 `mitigated` 상태가 유발하던 페이지 전체 거부 대신, 매칭된 1,573건 중 500건에 대한 결과 코호트가 렌더링됩니다. | `current change`; 커밋 `61e826092`를 실행하는 로컬 Operator API를 대상으로 한 `/incidents`의 인증된 Browser Entra 세션; 기록된 코퍼스에는 이전에 페이지를 실패시키던 `triaging`과 `mitigated` 수명주기 상태가 포함되어 있습니다. | roster 수명주기 상태 계약에 남은 작업은 없습니다. |
 
 ### 남은 작업
 
@@ -424,4 +425,4 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 - [x] Incident, 상관관계, 가설, 인용, 대응 계획, 감사 행 및 사용 불가 동작을 하나의 source 개정에 묶는 인증된 roster-to-RCA 증적 하나를 보존합니다.
 - [x] 기존 보고 묶음만 렌더링하고 extra를 사용할 수 없을 때 등록되지 않는 선택적 PDF `FormatEncoder`와 GET-only 다운로드 경로를 구현하고 focused 테스트를 추가합니다.
 - [x] 고정 참조 페이지 수를 문서화하지 않고 PDF 페이지 나누기, escape, source 다이제스트, 사용 불가 섹션, 새 분석 부재 및 no-network 회귀 검사를 추가합니다.
-- [ ] 인증된 로컬 Console에서 복구된 Incident roster 렌더링을 확인합니다.
+- [x] 인증된 로컬 Console에서 복구된 Incident roster 렌더링을 확인합니다.
