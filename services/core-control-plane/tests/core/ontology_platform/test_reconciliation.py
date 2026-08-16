@@ -192,6 +192,9 @@ def _request(
     correlation_id: str = "correlation-1",
     conflicts: tuple[str, ...] = (),
     censoring_refs: tuple[str, ...] = (),
+    complete: bool = True,
+    synthetic: bool = False,
+    fresh_until: datetime = CREATED_AT + timedelta(minutes=10),
 ):
     observed = OntologyObjectRecord(
         id=target.id,
@@ -213,9 +216,9 @@ def _request(
         observed_at=recorded_at,
         observation_cutoff=recorded_at,
         recorded_at=recorded_at,
-        fresh_until=CREATED_AT + timedelta(minutes=10),
-        complete=True,
-        synthetic=False,
+        fresh_until=fresh_until,
+        complete=complete,
+        synthetic=synthetic,
         conflicts=conflicts,
         censoring_refs=censoring_refs,
         evidence_refs=("evidence:provider-readback:1",),

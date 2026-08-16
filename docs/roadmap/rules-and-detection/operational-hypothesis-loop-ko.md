@@ -1,7 +1,7 @@
 ---
 translation_of: operational-hypothesis-loop.md
-translation_source_sha: 227915a0b669cbb6950efc56a705b8c75e3ae6d6
-translation_revised: 2026-08-16
+translation_source_sha: e6274ab28dac74524c1c4661f1e799db700dcdcc
+translation_revised: 2026-08-17
 ---
 # 운영 가설 루프
 
@@ -27,7 +27,7 @@ runtime을 기록합니다.
 > 일치 및 독립 outcome 경계를 검토했습니다. 수용된 finding에 따라 실행 시점 VM Scale Set 재관측,
 > ETag 기반 `If-Match`, 명시적 412 conflict 처리, 정확한 reason 검증, 누적 polling deadline 및 VMSS
 > 장기 실행 작업 replay test를 추가했습니다. 최종 검토에서 재현 가능한 Medium 이상 defect는
-> 없었습니다. 남은 Low 작업은 더 풍부한 observer identity record와 timeout 분류이며, 보호된 live
+> 없었습니다. observer identity record와 timeout 분류에 대한 남은 Low 작업은 종료되었으며, 보호된 live
 > drill과 recurrence window는 코드 defect나 완료 claim이 아니라 명시적 release evidence로 남습니다.
 
 ## 설계 요약
@@ -80,6 +80,16 @@ refutation query 또는 명시적 unavailable 결과도 포함됩니다. 누락�
 먼저 unscorable로 처리합니다. 그래서 늦은 평가가 개입된 근거를 시간 초과 복구 요청으로 바꿀 수
 없습니다. 결정론적 순서는 독립 관측 유효성, censoring, 의미 효과 커버리지, incomplete, synthetic,
 conflicting, stale입니다.
+
+종결된 모든 에피소드는 관찰자 신원 기록 하나를 보존합니다. 이 기록은 인증된 관찰자, 실행자, 근거
+소스, 검증자를 상관관계 안전 핸들과 파생된 역할 분리 판정으로 투영하므로, 원본 주체를 다시 읽지
+않고도 재생에서 독립성과 완전한 귀속을 증명할 수 있습니다. 이 기록은 근거일 뿐이며 관측 권한을
+부여하지 않습니다.
+
+시간이 초과된 에피소드는 여전히 복구로 라우팅되며, 그 reason code는 왜 늦게 종결되었는지를
+지목합니다: incomplete, synthetic, conflicting, stale 근거이거나, 그 밖에 완전하고 신선한 관측인데
+평가가 마감을 넘긴 경우입니다. 이 분류는 검증된 envelope 필드만 사용하며 시간 초과를 채점된 결과로
+바꾸지 않습니다.
 
 Provider receipt와 독립 outcome은 분리합니다.
 
@@ -222,7 +232,8 @@ Worker는 public contract를 통해 이러한 capability를 evidence source 또�
 | Production reconciliation source | in-progress | `ReconciliationArtifactSource` 및 `ReconciliationObservationSource` protocol; runtime composition 테스트 | Runtime은 production exact-plan 및 independent-observation source를 받을 수 있지만 upstream production adapter 또는 통제된 live 증적은 아직 없습니다. |
 | Lane C 계보 및 역량 조회 | implemented | `services/core-control-plane/src/fdai/core/assurance_twin/`; `services/core-control-plane/tests/rule_catalog/test_operational_hypothesis_loop_competency.py` | 기존 온톨로지 객체가 병렬 집계 없이 고정된 여섯 조회 등급에 답합니다. 이 입증은 테스트가 공급한 레코드 기준입니다. 어떤 조립 루트도 `OperationalHypothesisLineageProjector`를 구성하지 않으므로 운영은 이 객체들을 하나도 생성하지 않습니다. |
 | Lane D 그래프 모델 승격 | implemented | `services/core-control-plane/src/fdai/delivery/graph_model_promotion.py`; `core/assurance_twin/model_promotion.py`; `tests/delivery/test_graph_model_promotion.py` | 정확한 아티팩트와 롤백 신원이 기존 승인 및 작업 경로에 도달하며, 근거는 스스로 승격할 수 없습니다. |
-| 보호된 live 근거 | in-progress | [하드닝 상태](#설계-요약); 현재 변경의 소스 감사 | 코드 하드닝은 완료됐지만 보호된 live 훈련, 재발 구간, 더 풍부한 관찰자 신원은 release 근거로 남아 있습니다. |
+| 관찰자 귀속 및 시간 초과 분류 | implemented | `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_identity.py`; `reconciliation_contracts.py`(`ReconciliationOutcome.observer_identity`); `reconciliation.py`(`_timeout_reason_code`); `services/core-control-plane/tests/core/ontology_platform/test_reconciliation_identity.py` | 모든 결과가 주체 값을 담지 않는 관찰자·실행자·소스·검증자 기록과 파생된 독립성 판정을 바인딩하고, 시간이 초과된 각 에피소드는 복구 라우팅을 유지한 채 결정론적 분류를 담습니다. |
+| 보호된 live 근거 | in-progress | [하드닝 상태](#설계-요약); 현재 변경의 소스 감사 | 코드 하드닝은 완료됐지만 보호된 live 훈련과 재발 구간은 release 근거로 남아 있습니다. |
 
 ### 구현 이력
 
@@ -233,6 +244,7 @@ Worker는 public contract를 통해 이러한 capability를 evidence source 또�
 | 2026-08-15 | in-progress | Lane C 주장에 단서를 달았습니다. 고정된 여섯 조회 등급은 테스트가 공급한 레코드로 입증되며, 어떤 조립 루트도 계보 projector를 구성하지 않습니다. | `current change`, `test_operational_hypothesis_loop_competency.py`가 자체 `OntologyObjectRecord`와 `OntologyLinkRecord` 입력을 만들고 `bootstrap.py`와 `control_loop.py`는 계보 projector를 구성하지 않습니다. | 선언된 `DecisionCase`, `ActionOption`, `ExpectedEffect`, `ActionRun` 속성을 실제 생산자에서 공급한 뒤 projector를 연결해야 합니다. |
 | 2026-08-16 | implemented | Envelope 스키마 1.1.0에 `censoring_refs` 관측 필드를 추가하고 검열된 에피소드를 모든 효과 비교보다 먼저 채점 불가로 처리하여, 검열되거나 충돌하는 에피소드가 보류된 시도 근거로 남도록 했습니다. | `current change`; `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_contracts.py`; `reconciliation.py`; `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py`; 집중 실행 `pytest services/core-control-plane/tests/core/ontology_platform` 335개 통과. | 통제된 live 에피소드로 재발 관측 구간을 닫습니다. |
 | 2026-08-16 | implemented | Censoring 판정을 마감 분류보다 앞으로 옮겨 늦게 평가된 검열 에피소드가 시간 초과 복구 요청으로 승격되지 않도록 했습니다. | `current change`; `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation.py`(`_episode_validity_reason`); `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py`; 집중 실행 `pytest services/core-control-plane/tests/core/ontology_platform` 338개 통과. | 통제된 live 에피소드로 재발 관측 구간을 닫습니다. |
+| 2026-08-17 | implemented | 모든 조정 결과에 바인딩되는 주체 값 없는 관찰자 신원 기록과 결정론적 시간 초과 분류를 추가했습니다. 결과 스키마를 `1.1.0`, durable 집합체 스키마를 `1.2.0` 으로 올려, 기록 이전에 저장된 집합체는 귀속 없이 재생되는 대신 실패로 닫힙니다. | `current change`; `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_identity.py`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/core/ontology_platform/test_reconciliation_identity.py services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py services/core-control-plane/tests/core/ontology_platform/test_reconciliation_hardening.py services/core-control-plane/tests/core/ontology_platform/test_state_store_reconciliation.py services/core-control-plane/tests/core/ontology_platform/test_reconciliation_binding.py` 68개 통과. | 프로덕션 관측 어댑터를 바인딩하고 보호된 live 훈련과 재발 근거를 보존합니다. |
 
 ### 남은 작업
 
@@ -241,7 +253,7 @@ Worker는 public contract를 통해 이러한 capability를 evidence source 또�
 - [ ] 보호된 live 훈련을 실행하고 정확한 사전 조건, dry-run, 프로바이더, 독립 결과, 롤백, 감사 증적을 보존합니다.
 - [ ] 통제된 live 에피소드로 재발 관측 구간을 닫고 그 결과 재발 근거를 보존합니다.
 - [x] 검열되거나 충돌하는 에피소드가 계속 채점 불가로 남습니다. 근거는 `services/core-control-plane/src/fdai/core/ontology_platform/`의 `EffectObservationEnvelope.censoring_refs`와 `_unscorable_reason`, 그리고 `services/core-control-plane/tests/core/ontology_platform/test_reconciliation.py`의 집중 사례입니다.
-- [ ] 더 풍부한 관찰자 신원 기록과 최종 시간 초과 분류를 추가한 뒤 집중 조정 및 승격 검사를 다시 실행합니다.
+- [x] 모든 조정 결과가 주체 값을 담지 않는 관찰자·실행자·소스·검증자 신원 기록과 파생된 독립성 판정을 바인딩하고, 시간이 초과된 모든 에피소드가 결정론적 분류를 담습니다. 근거는 `services/core-control-plane/src/fdai/core/ontology_platform/reconciliation_identity.py` 와 `services/core-control-plane/tests/core/ontology_platform/test_reconciliation_identity.py` 입니다.
 
 ## 관련 문서
 
