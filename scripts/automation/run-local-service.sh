@@ -141,9 +141,17 @@ active_owner() {
       return 0
     fi
   fi
-  if [[ "$port" =~ ^[1-9][0-9]*$ ]] && (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; then
-    printf 'port=127.0.0.1:%s' "$port"
-    return 0
+  if [[ "$port" =~ ^[1-9][0-9]*$ ]]; then
+    # A server bound with --host localhost listens on IPv6 loopback on a dual-stack
+    # host, and probing only 127.0.0.1 called that port free right up to the child's
+    # own bind failure. Probe both loopback families and name the one that answers.
+    local loopback
+    for loopback in 127.0.0.1 ::1; do
+      if (exec 3<>"/dev/tcp/$loopback/$port") 2>/dev/null; then
+        printf 'port=%s:%s' "$loopback" "$port"
+        return 0
+      fi
+    done
   fi
   return 1
 }
