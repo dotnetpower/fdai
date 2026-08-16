@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 31f120a7ebad68fd14696586acc73326123e7fea
+translation_source_sha: 59af9533defff5fed092b9d09488cb06f827a1a0
 translation_revised: 2026-08-17
 ---
 
@@ -572,7 +572,7 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `FDAI_INVENTORY_MANAGEMENT_ENDPOINT` / `FDAI_INVENTORY_MANAGEMENT_AUDIENCE` | env | 배포 | 검증된 HTTPS ARM 루트 및 OIDC 대상 쌍. 승인된 sovereign-cloud 또는 검증된 Resource 관리 Private Link 경로에서는 둘 다 재정의합니다. |
 | `FDAI_INVENTORY_FRESHNESS_SECONDS` | env | 업스트림 | 활성 스냅샷이 stale 상태가 되고 그래프 기반 자율성을 사람 검토로 낮추기 전의 최대 age입니다. 기본값은 `86400`입니다. |
 | `FDAI_ANALYZER_TARGETS` / `FDAI_ANALYZER_WINDOW_SECONDS` / `FDAI_ANALYZER_MAX_DISCOVERED_TARGETS` | env | 배포 / 업스트림 | 명시적 analyzer 대상, metric window 및 인벤토리 발견 상한입니다. 명시적 대상과 지원되는 인벤토리 대상을 결정론적으로 병합합니다. 잘못된 값이나 읽을 수 없는 구성된 projection은 차단되고, 완전히 해석된 대상 집합이 비어 있을 때만 정상 no-op입니다. |
-| `FDAI_TRACE_TOPOLOGIES_JSON` | env | 배포 | 작업 영역 기반 Application Insights 연속성 검사용 선택적이고 범위가 제한된 `topology_ref`, `resource_ref`, 순서가 있는 `expected_hops` 선언입니다. 값이 비어 있으면 이 검사만 비활성화하고 metric analyzer는 유지합니다. |
+| `FDAI_TRACE_TOPOLOGIES_JSON` | env | 배포 | 작업 영역 기반 Application Insights 연속성 검사용 선택적이고 범위가 제한된 `topology_ref`, `resource_ref`, 순서가 있는 `expected_hops` 선언입니다. 보호된 배포 workflow는 `TRACE_TOPOLOGIES_JSON` repository variable을 Terraform으로 전달합니다. 값이 비어 있으면 이 검사만 비활성화하고 metric analyzer는 유지합니다. |
 | `KAFKA_TOPIC_EVENTS` | env | 배포 | 주 이벤트 ingest 토픽 |
 | `KAFKA_TOPIC_DLQ_SUFFIX` | env | 배포 | dead-letter 접미사 (기본 `.dlq`) |
 | `FDAI_EXECUTOR_COMMAND_TOPIC` / `FDAI_EXECUTOR_RECEIPT_TOPIC` | env | 업스트림 / 배포 | Isolated 실행기 명령 및 versioned 최종 증적 토픽입니다. 기본값은 `object.executor-command`, `object.executor-receipt`이며 서로 달라야 합니다. |
