@@ -90,7 +90,6 @@ locals {
   canary_topic                   = "aw.control.canary"
   inventory_raw_topic            = "aw.inventory.raw"
   startup_probe_topic            = "runtime.startup.probe"
-  readiness_transition_topic     = "runtime.readiness.transitions"
   executor_command_topic         = "object.executor-command"
   executor_receipt_topic         = "object.executor-receipt"
   semantic_turn_request_topic    = "operator.semantic-turn.requests"
@@ -854,12 +853,6 @@ resource "azurerm_role_assignment" "runtime_startup_probe_eventhubs_owner" {
   principal_id         = module.identity.principal_id
 }
 
-resource "azurerm_role_assignment" "runtime_readiness_transition_eventhubs_owner" {
-  scope                = module.event_bus_auxiliary.auxiliary_topic_ids[local.readiness_transition_topic]
-  role_definition_name = "Azure Event Hubs Data Owner"
-  principal_id         = module.identity.principal_id
-}
-
 # -----------------------------------------------------------------------
 # Per-vertical Managed Identities - phase-3 § Unified Control Loop.
 # Each vertical (Change / Resilience / FinOps) executes under its own MI
@@ -1436,15 +1429,13 @@ module "event_bus" {
 # governed ingress topics, their DLQs, and the two shared control topics on the
 # primary namespace. Canary, startup probes, and raw inventory traffic use this
 # isolated namespace so synthetic and parser-specific consumers stay separate.
-# The readiness transition topic joins the startup probe here because the
-# runtime publishes both through the same auxiliary operational bus.
 module "event_bus_auxiliary" {
   source                        = "./modules/event-bus/event-hubs-kafka"
   name                          = "evhns-${var.workload}${local.full_suffix}-ops"
   location                      = var.region
   resource_group_name           = module.resource_group.name
   topics                        = [local.canary_topic, local.startup_probe_topic, local.executor_command_topic]
-  auxiliary_topics              = [local.inventory_raw_topic, local.executor_receipt_topic, local.readiness_transition_topic]
+  auxiliary_topics              = [local.inventory_raw_topic, local.executor_receipt_topic]
   public_network_access_enabled = !var.enable_private_networking
   tags                          = merge(local.tags, { "fdai:component" = "operational-signals" })
 }
