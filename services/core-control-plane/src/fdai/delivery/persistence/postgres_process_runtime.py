@@ -339,7 +339,7 @@ class PostgresProcessRuntimeStore:
             "(event_id, process_id, kind, idempotency_key, recorded_at, correlation_id, "
             "causation_id, step_id, attempt, payload) "
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb) "
-            "ON CONFLICT (idempotency_key) DO NOTHING RETURNING event_id",
+            "ON CONFLICT DO NOTHING RETURNING event_id",
             (
                 event.event_id,
                 event.process_id,
