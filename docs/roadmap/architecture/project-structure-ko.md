@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 07921d8e1cd13f877db96266e02d1da14238fc3f
+translation_source_sha: c8a3b382160a19bc8cf17d77b8b6b03a21899b28
 translation_revised: 2026-08-17
 ---
 # 프로젝트 구조
@@ -22,7 +22,7 @@ translation_revised: 2026-08-17
 |------|------|------|------|
 | 현재 상태 활동 identity | 구현됨 | `read_investigation_latency.py`, `activity_projection.py`, focused 영속성 및 projection 테스트 (`6 passed`) | Latency 프로파일은 hash된 correlation 참조만 유지하고 감사 항목은 correlation-free로 남으며, 영속 활동과 실제 운영 활동은 실행 권한을 포함하지 않고 하나의 identity를 공유합니다. |
 | Rule 세대 reconciliation 경계 | implemented | `shared/providers/catalog_search.py`; `delivery/catalog_search/`; `runtime/rule_generation_documents.py`; 집중 adapter, Pantheon, 활성화 및 bootstrap 검사 | 프로바이더 계약은 정확한 준비 상태 증적 연결을 소유하고 delivery는 원자적 어댑터를 소유하며 runtime은 정책 또는 실행 권한을 인프라 코드로 옮기지 않고 엄격한 카탈로그 스냅샷과 replay가 동일한 요청을 구성합니다. |
-| 인시던트 온톨로지 projection 및 근거 조회 | 구현됨 | `core/incident/ontology_projection.py`, `core/ontology_platform/incident_queries.py`, focused 인시던트 및 의미 조립 검사 | 시작 시 추가 전용 인시던트 감사를 replay해 `Incident` 객체를 만듭니다. Exact-release `query.incident_evidence` 함수는 correlation-scoped 감사 기록을 읽고 액션 권한 없이 프로파일, 활동, 기록된 grounded 근본 원인, 영향 근거, 인용 및 명시적 공백을 노출합니다. |
+| 인시던트 온톨로지 projection 및 근거 조회 | 구현됨 | `core/incident/ontology_projection.py`, `core/ontology_platform/incident_queries.py`, focused 인시던트 및 의미 조립 검사 | 시작 시 추가 전용 인시던트 감사를 replay해 `Incident` 객체를 만듭니다. Exact-release `query.incident_evidence` 함수는 correlation-scoped 감사 기록을 읽고 액션 권한 없이 프로파일, 활동, 기록된 grounded 근본 원인 또는 허용 목록의 결정론적 최종 실패, 영향 근거, 인용 및 명시적 공백을 노출합니다. |
 | Principal 매니페스트 조회 경계 | 구현됨 | `core/ontology_platform/manifest_queries.py`, `composition/wire_semantic_query.py`, focused 매니페스트 및 의미 조립 검사(`42 passed`) | Exact-release `query.manifest` 함수는 기존 조회 증적을 통해 role 및 purpose로 읽을 수 있는 범위 제한 선언 요약을 노출합니다. Provider, 변경, 승인 또는 실행 경로를 포함하지 않습니다. |
 | 권한 인식 관측 경계 | implemented | `fdai_service_contracts/operational_activity.py`, `delivery/observation_campaign.py`, `delivery/observation_source_catalog.py`, 집중 계약, 수명 주기 및 projection 검사 | 공유 계약은 권한이 없는 요약을 전달하고 delivery는 프로바이더 읽기, 원자적 캠페인 상태 및 로컬 또는 배포 어댑터 선택을 소유합니다. 출처별 경로는 의미 있는 근거 소유권을 유지합니다. |
 | 리소스 검색 계약 경계 | implemented | `fdai_service_contracts/discovery.py`, `fdai_service_contracts/discovery_evidence.py`, `core/discovery/router.py`, 집중 검색 검사 (`44 passed`) | 공유 SDK는 불변이고 권한이 없는 wire 레코드를 소유하고 Core는 프로바이더 중립적인 정확히 동등한 라우팅과 병합을 소유하며 Azure delivery는 버전이 고정된 프로파일, 렌더링, 실행 증적 및 커버리지 조정을 소유합니다. |
@@ -55,6 +55,7 @@ translation_revised: 2026-08-17
 | 2026-08-16 | 구현됨 | 바인딩이 `incident_reference` 질문을 대신 해소하는 범위를 고정된 인시던트를 읽는 turn으로 좁혀, 다른 output shape의 제안 plan이 운영자가 보지 못한 질문 뒤에서 다른 인시던트를 읽을 수 없게 했습니다. | `current change`, focused 대화 검사 458개 통과, shape 조건을 제거하면 새 사례가 실패 | 이 행에 남은 작업은 없습니다. |
 | 2026-08-16 | 구현됨 | 읽기가 이미 담아 온 인시던트 근거를 실제로 보고합니다. 감사 행과 프로파일에 행위 주체, 제목, 심각도, 버티컬, 최초·최종 기록 시각이 있었는데도 답변은 상태와 건수만 말해, 누가 언제 조치했는지 알 수 없었습니다. 이제 projection이 각 기록의 행위 주체를 보존하고, 두 표면 모두 값이 있는 프로파일 필드를 모두 나열하며 자기 상한을 제목에 밝히는 기록 활동 표를 덧붙이고, 다음 안전 단계는 답변이 실제로 측정한 공백을 따릅니다. 값이 있는 필드만 나열하면 미기록 상태가 사라지므로 두 표면 모두 기록에 상태가 없다는 사실을 계속 밝히며, 건수는 표시한 수가 아니라 검증한 수를 유지합니다. 기록 시각이나 감사 참조가 없는 기록은 없는 기준점을 지어내지 않고 건너뜁니다. | `current change`, `incident_queries.py`, `semantic_turn_processor.py`, Operator 표현 계층, focused Core 검사 388개와 Operator 검사 322개 통과, 작업 범위 Ruff와 strict mypy 통과, 귀속 누락과 상태 조용한 생략을 각각 되돌리는 mutation 3건이 정확히 해당 가드 하나씩만 실패시킴 | 이 행에 남은 작업은 없습니다. |
 | 2026-08-17 | implemented | 기존 인시던트 근거 함수, 의미 답변, Operator 산출물 및 엄격한 Console 슬롯 디코더를 통해 기록된 grounded RCA를 전달했습니다. T0는 기존 발견 사항에서 측정값을 지어내지 않고 발견 사항 심각도 영향 행 하나를 기록합니다. 기록된 grounded 가설에 일치하는 인용이 있을 때만 원인을 지원하며, 영향 및 인용 행은 범위가 제한된 읽기 전용 근거로 유지하고, 근거가 없으면 이를 명시합니다. | `current change`; focused Core, Operator 및 Console 검사 138개 통과, Ruff, strict mypy 및 Console typecheck 통과 | 로컬 스택을 재시작한 뒤 인증된 Browser 근거를 보존합니다. |
+| 2026-08-17 | implemented | 읽기 전용 인시던트 근거 함수를 정확한 알림 최종 실패 허용 목록으로 확장했습니다. 파생한 원인, 영향 행 및 인용은 기존 감사 행 하나의 변환 결과로 유지하며 알림을 다시 보내거나 감사 이력을 변경하지 않습니다. | `current change`; focused Core 및 Operator 검사 133개 통과, Ruff 및 strict mypy 통과 | Core를 재시작하고 인증된 Console에서 현재 route-unresolved 인시던트를 검증합니다. |
 
 ### 남은 작업
 - [ ] 호환성 import deprecation 주기 뒤 연기된 Phase 2 물리 `git mv`를 완료하고 이 배치를 결과 service-owned 경로로 갱신합니다.
