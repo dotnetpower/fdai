@@ -122,7 +122,7 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     frame = prompts.get_base("semantic.query.frame")
     plan = prompts.get_base("semantic.query.plan")
 
-    assert frame.version == 7
+    assert frame.version == 8
     assert "output_shape to exactly one capability family" in frame.body
     assert "aggregation_table for a count or grouping" in frame.body
     assert "topology_graph for current instance connectivity or containment" in frame.body
@@ -132,6 +132,11 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "never use principal_scope or purpose as a clarification_requirement" in frame.body
     assert "empty unresolved_terms and clarification_requirements" in frame.body
     assert "complete principal-scoped set" in frame.body
+    assert (
+        "evidence_validation request over the principal-scoped visible set is complete"
+        in frame.body
+    )
+    assert "do not ask for a claim identity or narrower subject" in frame.body
     assert "schema inventory question" in frame.body
     assert "complete from the supplied principal-scoped manifest" in frame.body
     assert (
@@ -145,12 +150,13 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "do not require incident_id or correlation_id" in frame.body
     assert "cause_claim_supported=false" in frame.body
     assert "Do not claim a cause" in frame.body
-    assert plan.version == 9
+    assert plan.version == 10
     assert "Satisfy the frame's exact output_shape" in plan.body
     assert "aggregation_table requires aggregate" in plan.body
     assert "topology_graph requires topology_at" in plan.body
     assert "use query.manifest as a query.table dependency followed by aggregate" in plan.body
     assert "A matching selector without that predicate is invalid" in plan.body
+    assert "Core builds evidence_validation from the verified principal scope" in plan.body
     assert "exactly two metric_scope_series nodes" in plan.body
     assert "select exact cause and effect concept_id values" in plan.body
     assert "Never invent a resource id or metric concept" in plan.body

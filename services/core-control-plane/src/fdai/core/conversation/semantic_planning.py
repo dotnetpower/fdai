@@ -173,6 +173,17 @@ class SemanticPlanningService:
             )
             plan_source = "bound_incident" if plan is not None else "proposed"
             if plan is None:
+                plan = self._principal_scope_evidence_plan(
+                    frame=frame,
+                    descriptors=descriptors,
+                    manifest=manifest,
+                    principal=principal,
+                    purpose=purpose,
+                    evaluation_time=evaluation_time,
+                )
+                if plan is not None:
+                    plan_source = "principal_scope_evidence"
+            if plan is None:
                 plan = self._cascade.propose_plan(
                     frame=frame,
                     descriptors=descriptors,
@@ -282,6 +293,51 @@ class SemanticPlanningService:
                 ),
             ),
             output_node_ids=(_INCIDENT_EVIDENCE_NODE_ID,),
+        )
+        plan = _build_plan(
+            proposal,
+            frame=frame,
+            manifest=manifest,
+            principal=principal,
+            purpose=purpose,
+            evaluation_time=evaluation_time,
+        )
+        self._verifier.verify(plan, manifest=manifest)
+        return plan
+
+    def _principal_scope_evidence_plan(
+        self,
+        *,
+        frame: SemanticProblemFrame,
+        descriptors: tuple[dict[str, Any], ...],
+        manifest: QueryManifest,
+        principal: Principal,
+        purpose: str,
+        evaluation_time: datetime,
+    ) -> OntologyQueryPlan | None:
+        if frame.output_shape != SemanticOutputShape.EVIDENCE_VALIDATION:
+            return None
+        if not any(
+            item.get("kind") == "object" and item.get("name") == "Resource" for item in descriptors
+        ):
+            return None
+        proposal = QueryPlanProposal(
+            nodes=(
+                QueryNodeProposal(
+                    node_id="evidence-scope",
+                    kind=QueryNodeKind.OBJECT_SET,
+                    arguments={
+                        "definition": {
+                            "selector": {"kind": "object_type", "name": "Resource"},
+                            "as_of": evaluation_time.astimezone(UTC).isoformat(),
+                            "purpose": purpose,
+                            "limit": 1000,
+                        }
+                    },
+                    output_kind="query.table",
+                ),
+            ),
+            output_node_ids=("evidence-scope",),
         )
         plan = _build_plan(
             proposal,
