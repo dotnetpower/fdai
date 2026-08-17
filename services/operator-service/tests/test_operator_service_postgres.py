@@ -124,6 +124,7 @@ def _grant_state(
     status: str = "pending",
     expires_at: datetime = _GRANT_EXPIRY,
     updated_at: datetime = _NOW,
+    requested_at: datetime = _NOW,
 ) -> StoredStateRecord:
     return StoredStateRecord(
         key=f"execution-authorization:grant-request:{request_id}",
@@ -133,7 +134,7 @@ def _grant_state(
             "capability_id": "ops.scale-out",
             "scope_ref": "scope://subscription/resource-group",
             "grant_mode": "exact",
-            "requested_at": _NOW.isoformat(),
+            "requested_at": requested_at.isoformat(),
             "expires_at": expires_at.isoformat(),
             "quorum": 2,
             "status": status,
@@ -143,6 +144,39 @@ def _grant_state(
         },
         updated_at=updated_at,
     )
+
+
+@pytest.mark.asyncio
+async def test_access_grant_snapshot_shows_the_longest_waiting_request_first() -> None:
+    store = AccessGrantStatePostgresFamilyStore(
+        (
+            _grant_state(
+                "newest",
+                requester_ref="alice",
+                approver_roles=["Approver"],
+                requested_at=datetime(2026, 8, 8, tzinfo=UTC),
+                updated_at=datetime(2026, 8, 8, tzinfo=UTC),
+            ),
+            _grant_state(
+                "oldest",
+                requester_ref="alice",
+                approver_roles=["Approver"],
+                requested_at=datetime(2026, 8, 1, tzinfo=UTC),
+                updated_at=datetime(2026, 8, 2, tzinfo=UTC),
+            ),
+        )
+    )
+
+    snapshot = await PostgresIamAdapters(store).snapshot(
+        AccessGrantSnapshotQuery(
+            reviewer_ref="bob",
+            reviewer_roles=frozenset({"approver"}),
+            after_sequence=None,
+            limit=1,
+        )
+    )
+
+    assert [item.request_id for item in snapshot.requests] == ["oldest"]
 
 
 @pytest.mark.asyncio

@@ -81,6 +81,8 @@ class PostgresIamAdapters:
             for record in records
             if reviewer_roles and _reviewable(record.value, reviewer, reviewer_roles, generated_at)
         ]
+        # Oldest request first, so a busy queue cannot starve the longest-waiting approval.
+        visible.sort(key=lambda item: (item.requested_at, item.request_id))
         return AccessGrantSnapshot(
             sequence=sequence,
             generated_at=generated_at,
