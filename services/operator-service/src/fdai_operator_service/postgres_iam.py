@@ -45,6 +45,7 @@ from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStoreUnavailable,
     PostgresProposalConflict,
     StoredProposal,
+    StoredStatePage,
     StoredStateRecord,
 )
 
@@ -62,7 +63,10 @@ class PostgresIamAdapters:
 
     async def snapshot(self, query: AccessGrantSnapshotQuery) -> AccessGrantSnapshot:
         """Read the reviewer-scoped access-grant snapshot for SSE replay."""
-        records = await self._state_page(_ACCESS_GRANT_PREFIX, _ACCESS_GRANT_SCAN_LIMIT)
+        page = await self._state_page(_ACCESS_GRANT_PREFIX, _ACCESS_GRANT_SCAN_LIMIT)
+        if page.truncated:
+            raise IamUnavailableError("access-grant review coverage cannot be proven complete")
+        records = page.records
         generated_at = datetime.now(tz=UTC)
         sequence = _snapshot_sequence(records)
         if query.after_sequence is not None and sequence < query.after_sequence:
@@ -404,7 +408,7 @@ class PostgresIamAdapters:
         except PostgresFamilyStoreUnavailable as exc:
             raise IamUnavailableError("authoritative IAM state is unavailable") from exc
 
-    async def _state_page(self, prefix: str, limit: int) -> tuple[StoredStateRecord, ...]:
+    async def _state_page(self, prefix: str, limit: int) -> StoredStatePage:
         try:
             return await self.store.read_state_page(prefix=prefix, limit=limit)
         except PostgresFamilyStoreUnavailable as exc:

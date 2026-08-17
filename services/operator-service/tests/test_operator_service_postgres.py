@@ -21,6 +21,7 @@ from fdai_operator_service.postgres import (
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     PostgresFamilyStoreConfig,
+    StoredStatePage,
     StoredStateRecord,
 )
 from fdai_operator_service.postgres_iam import PostgresIamAdapters
@@ -94,7 +95,12 @@ class ProjectionPostgresFamilyStore(PostgresFamilyStore):
 class AccessGrantStatePostgresFamilyStore(PostgresFamilyStore):
     """Return authoritative grant-request records without opening PostgreSQL."""
 
-    def __init__(self, records: tuple[StoredStateRecord, ...]) -> None:
+    def __init__(
+        self,
+        records: tuple[StoredStateRecord, ...],
+        *,
+        truncated: bool = False,
+    ) -> None:
         super().__init__(
             PostgresFamilyStoreConfig(
                 dsn="postgresql://example.invalid/db",
@@ -102,11 +108,12 @@ class AccessGrantStatePostgresFamilyStore(PostgresFamilyStore):
             )
         )
         self.records = records
+        self.truncated = truncated
         self.prefixes: list[str] = []
 
-    async def read_state_page(self, *, prefix: str, limit: int) -> tuple[StoredStateRecord, ...]:
+    async def read_state_page(self, *, prefix: str, limit: int) -> StoredStatePage:
         self.prefixes.append(prefix)
-        return self.records[:limit]
+        return StoredStatePage(records=self.records[:limit], truncated=self.truncated)
 
 
 def _grant_state(
@@ -218,6 +225,23 @@ async def test_access_grant_snapshot_rejects_a_backwards_replay_cursor() -> None
                 reviewer_ref="bob",
                 reviewer_roles=frozenset({"approver"}),
                 after_sequence=int(_NOW.timestamp() * 1_000_000) + 1,
+            )
+        )
+
+
+@pytest.mark.asyncio
+async def test_access_grant_snapshot_fails_closed_when_the_scan_is_truncated() -> None:
+    store = AccessGrantStatePostgresFamilyStore(
+        (_grant_state("reviewable", requester_ref="alice", approver_roles=["Approver"]),),
+        truncated=True,
+    )
+
+    with pytest.raises(IamUnavailableError):
+        await PostgresIamAdapters(store).snapshot(
+            AccessGrantSnapshotQuery(
+                reviewer_ref="bob",
+                reviewer_roles=frozenset({"approver"}),
+                after_sequence=None,
             )
         )
 
