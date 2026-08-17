@@ -71,9 +71,9 @@ class PostgresIamAdapters:
             raise IamUnavailableError("access-grant review coverage cannot be proven complete")
         records = page.records
         generated_at = datetime.now(tz=UTC)
-        sequence = _snapshot_sequence(records)
-        if query.after_sequence is not None and sequence < query.after_sequence:
-            raise IamUnavailableError("access-grant projection replay moved backwards")
+        # A decided request leaves the pending view, so the cursor is carried forward
+        # rather than allowed to regress with the page it no longer contains.
+        sequence = max(_snapshot_sequence(records), query.after_sequence or 0)
         reviewer = query.reviewer_ref.casefold()
         reviewer_roles = {role.casefold() for role in query.reviewer_roles}
         visible = [

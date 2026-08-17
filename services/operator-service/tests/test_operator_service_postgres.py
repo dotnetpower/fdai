@@ -258,19 +258,19 @@ async def test_access_grant_snapshot_is_empty_rather_than_unavailable_without_re
 
 
 @pytest.mark.asyncio
-async def test_access_grant_snapshot_rejects_a_backwards_replay_cursor() -> None:
-    store = AccessGrantStatePostgresFamilyStore(
-        (_grant_state("reviewable", requester_ref="alice", approver_roles=["Approver"]),)
+async def test_access_grant_snapshot_cursor_does_not_regress_when_the_queue_empties() -> None:
+    cursor = int(_NOW.timestamp() * 1_000_000)
+
+    snapshot = await PostgresIamAdapters(AccessGrantStatePostgresFamilyStore(())).snapshot(
+        AccessGrantSnapshotQuery(
+            reviewer_ref="bob",
+            reviewer_roles=frozenset({"approver"}),
+            after_sequence=cursor,
+        )
     )
 
-    with pytest.raises(IamUnavailableError):
-        await PostgresIamAdapters(store).snapshot(
-            AccessGrantSnapshotQuery(
-                reviewer_ref="bob",
-                reviewer_roles=frozenset({"approver"}),
-                after_sequence=int(_NOW.timestamp() * 1_000_000) + 1,
-            )
-        )
+    assert snapshot.sequence == cursor
+    assert snapshot.requests == ()
 
 
 @pytest.mark.asyncio
