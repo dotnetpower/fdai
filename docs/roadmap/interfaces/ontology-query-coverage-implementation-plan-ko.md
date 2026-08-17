@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 5fe94417c22712edc9326a4f3481ef02ea50e78b
+translation_source_sha: dac02ce1ad5ffdca83972e4cf1594c407ec96a91
 translation_revised: 2026-08-17
 ---
 
@@ -205,6 +205,8 @@ translation_revised: 2026-08-17
 | 2026-08-17 | implemented | 기본 semantic outbox claim 경로와 실행 범위 보증 행 사이의 겹침을 닫았습니다. 이전 namespace는 key prefix를 변경했지만 기본 `prefix%` claim은 중첩된 namespaced key도 계속 선택했습니다. 이제 영속 요청이 명시적인 namespace token을 보존하고, claim, 인증된 읽기 및 변환 결과 소유권이 exact namespace 동등성을 요구하며 기존 기본 행은 빈 token으로 해석됩니다. | `current change`, 기본 claim과 namespaced claim, append, 읽기 및 변환 결과 회귀를 포함한 focused Operator bridge 검사 64개와 작업 범위 Ruff 및 strict mypy 통과. 이전 엄격한 아티팩트 두 개는 전용 요청 토픽을 각각 12/14 및 9/14만 전진시켰고, 범위가 제한된 high-watermark 읽기에서 빠진 5개 request/projection 쌍이 표준 physical stream에 있음을 확인했습니다. | Seed 기반 질문 집합을 시작하기 전에 exact 실행 범위 transport coverage가 있는 새로운 엄격한 아티팩트를 보존합니다. |
 | 2026-08-17 | implemented | Runner의 exact transport 관측을 hashed topic identity와 단계별 건수로 각 원본 아티팩트에 연결하고, 리포지토리에 안전한 변환기에도 같은 근거를 요구했습니다. 따라서 답변 필드를 만족하지만 exact 실행 범위 request/projection coverage가 없는 아티팩트는 나중에 runner 밖에서 승격될 수 없습니다. | `current change`, focused runner 및 baseline-projector 검사 13개와 작업 범위 Ruff 및 strict mypy 통과 | Exact 14/14 transport 근거가 포함된 새로운 엄격한 아티팩트를 보존합니다. |
 | 2026-08-17 | implemented | 감독 대상 보증 실행마다 Vite 의존성 캐시 소유권을 할당했습니다. 이전 exact-source 시도는 모든 서비스 준비 상태 검사를 통과했지만 첫 측정 turn 전에 Browser 사전 단계가 오래된 공유 MSAL optimizer URL을 가져왔습니다. 이제 runner는 자기 실행 루트 아래 캐시를 지정하고 일반 Console 시작은 표준 기본값을 유지합니다. | `current change`, 실패한 시도는 질문을 하나도 실행하지 않았고 아티팩트도 생성하지 않음, focused Console 캐시 검사 2개, supervisor 검사 9개, Console typecheck, Ruff 및 strict mypy 통과 | 중앙 검증된 캐시 격리 소스에서 새로운 엄격한 아티팩트를 보존합니다. |
+| 2026-08-17 | in-progress | 캐시가 격리된 엄격한 실행은 live Browser turn 14개를 모두 완료했지만 전용 요청 및 변환 결과 토픽을 각각 6만큼만 전진시켰습니다. Exact transport gate가 아티팩트를 거부하고 seed 기반 질문 집합을 닫힌 상태로 유지했습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 중앙 검증된 소스 `40fbd0c41eda506e6976e3090fab3bd9502b98f0`, 실행 `issue63-40fbd0c41e-20260817T084406Z`, live 14개, resumed 0개, transport 6/6 | Turn 8개가 소유하지 않은 물리 stream을 통과했으므로 의미 disposition을 release 근거로 사용하지 않습니다. |
+| 2026-08-17 | implemented | 실행 범위 outbox key를 기본 key prefix의 자식에서 형제 prefix로 변경했습니다. 운영 기본 key를 바꾸거나 exact namespace 동등성을 약화하지 않으면서 이전의 넓은 prefix claim을 계속 실행하는 오래된 기본 프로세스에 대해서도 소유권을 닫습니다. | `current change`, focused bridge 검사 62개, Ruff 및 strict mypy 통과 | Seed 기반 질문 집합을 시작하기 전에 요청 및 변환 결과 transport가 exact 14/14인 새로운 엄격한 아티팩트를 보존합니다. |
 
 ### 남은 작업
 

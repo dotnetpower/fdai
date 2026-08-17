@@ -662,7 +662,7 @@ async def test_semantic_outbox_namespace_isolates_claim_prefix() -> None:
     assert await repository.claim(worker_id="replica-a", lease_seconds=30) is None
     statement, parameters = captured[0]
     normalized_statement = " ".join(statement.split())
-    assert parameters["prefix"] == "operator-semantic-outbox:issue63.run-1:%"
+    assert parameters["prefix"] == "operator-semantic-namespaced-outbox:issue63.run-1:%"
     assert parameters["outbox_namespace"] == "issue63.run-1"
     assert "COALESCE(value ->> 'outbox_namespace', '') = %(outbox_namespace)s" in (
         normalized_statement
@@ -733,8 +733,41 @@ async def test_semantic_outbox_namespace_isolates_appended_key() -> None:
         envelope=envelope,
     )
 
-    assert captured_key.startswith("operator-semantic-outbox:issue63.run-1:")
+    assert captured_key.startswith("operator-semantic-namespaced-outbox:issue63.run-1:")
+    assert not captured_key.startswith("operator-semantic-outbox:")
     assert captured_value["outbox_namespace"] == "issue63.run-1"
+
+
+async def test_semantic_outbox_namespaces_isolate_same_idempotency_key() -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    captured_keys: list[str] = []
+
+    async def insert_if_absent(
+        *,
+        key: str,
+        value: Mapping[str, object],
+    ) -> tuple[bool, dict[str, object]]:
+        captured_keys.append(key)
+        return True, dict(value)
+
+    for namespace in ("issue63.run-1", "issue63.run-2"):
+        repository = PostgresSemanticTurnRepository(
+            fetch_all=cast(Any, object()),
+            insert_if_absent=insert_if_absent,
+            outbox_namespace=namespace,
+        )
+        await repository.append(
+            principal_id="operator-1",
+            idempotency_key="turn-retry-1",
+            request_digest="expected",
+            envelope=envelope,
+        )
+
+    assert len(set(captured_keys)) == 2
+    assert all(key.startswith("operator-semantic-namespaced-outbox:") for key in captured_keys)
+    assert all(not key.startswith("operator-semantic-outbox:") for key in captured_keys)
 
 
 async def test_semantic_outbox_namespace_isolates_authenticated_read() -> None:

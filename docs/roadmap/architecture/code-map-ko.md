@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 4a1a6fcf7ca08407c821e487f0e2e5eca868eed2
+translation_source_sha: 1ea5edbcdf9de5085f3e42b4435432efbdecca4b
 translation_revised: 2026-08-17
 ---
 # 코드 맵
@@ -121,6 +121,7 @@ translation_revised: 2026-08-17
 | 2026-08-17 | 구현됨 | shadow Workflow 조립, 승인 대기 projection 연결, 승인 부하 정책 읽기, stewardship에서 HIL 에스컬레이션으로의 매핑을 전용 runtime support로 옮겼습니다. `control_loop.py`는 기존 private helper 별칭과 권한 있는 조립 순서를 유지합니다. | `current change`; `control_loop_support.py`, `control_loop.py`; 집중 Workflow 및 Thor port 조립 검사 8건, Ruff, 형식 검사, strict mypy가 통과했습니다. | 이 구조 분리에 남은 작업은 없습니다. |
 | 2026-08-17 | 구현됨 | runtime bootstrap을 Pantheon 초기화와 작업 감독 전용 모듈로 분리하면서 작업 시작 전 startup readiness, 권한 상한, 작업 격리, callback, 종료 순서, 기존 `main()` 진입점을 유지했습니다. | `current change`; `bootstrap_pantheon.py`, `bootstrap_tasks.py`, `bootstrap.py`; 집중 bootstrap 및 카탈로그 순서 검사 66건, Ruff, 형식 검사, strict mypy, 강제 LOC 게이트가 통과했습니다. | 이 구조 분리에 남은 작업은 없습니다. |
 | 2026-08-17 | implemented | 감독 대상 온톨로지 보증 Console마다 실행 소유 Vite 의존성 캐시를 할당했습니다. 일반 Console의 캐시 동작은 바꾸지 않으면서 동시에 실행되는 Console optimizer가 측정 대상 Browser import를 무효화하지 못하게 합니다. | `current change`, `console/vite.config.ts`, `run_ontology_assurance.py`, 통과한 focused Console 및 supervisor 검사 11개, Console typecheck, Ruff 및 strict mypy 통과 | 담당 온톨로지 보증 원장에 통제된 엄격한 아티팩트와 seed 기반 아티팩트를 보존합니다. |
+| 2026-08-17 | implemented | 선택적인 namespaced Operator semantic outbox key를 형제 물리 prefix로 옮겼습니다. 운영 기본 key는 그대로 유지하고 exact namespace 검사도 유지하며, 이전의 넓은 기본 claim을 사용하는 오래된 프로세스는 실행 소유 행과 일치할 수 없습니다. | `current change`, `postgres_semantic_turn_store.py`, 통과한 focused bridge 검사 62개, Ruff 및 strict mypy 통과 | 담당 온톨로지 보증 원장에 통제된 엄격한 근거와 seed 기반 근거를 보존합니다. |
 
 ### 남은 작업
 
