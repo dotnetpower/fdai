@@ -48,6 +48,7 @@ def test_analyzer_job_binds_deployment_supplied_trace_topologies() -> None:
     assert 'variable "trace_topologies_json"' in module_variables
     assert "trace_topologies_json         = var.trace_topologies_json" in main
     assert "TF_VAR_trace_topologies_json: ${{ vars.TRACE_TOPOLOGIES_JSON }}" in workflow
+    assert "-target=module.compute.azurerm_container_app_job.analyzer_tick[0]" in workflow
 
 
 def test_startup_probe_uses_dedicated_operational_topic_and_identity() -> None:
