@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
@@ -53,6 +54,8 @@ _HIL_PARK_PREFIX = "hil_park:"
 _HIL_DECISION_PREFIX = "operator-hil-decision:"
 _ACCESS_GRANT_PREFIX = "execution-authorization:grant-request:"
 _ACCESS_GRANT_SCAN_LIMIT = 1_000
+_CANONICAL_GRANT_ID = re.compile(r"^[A-Za-z0-9._:-]{1,256}$")
+_SCOPE_REF = re.compile(r"^scope://[\x20-\x7E]{1,504}$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -495,18 +498,34 @@ def _datetime(value: object, name: str) -> datetime:
 def _access_grant(value: object) -> AccessGrantRecord:
     if not isinstance(value, Mapping):
         raise IamUnavailableError("access-grant projection item is malformed")
+    quorum = _integer(value, "quorum")
+    if quorum < 1:
+        raise IamUnavailableError("access-grant projection quorum is malformed")
     return AccessGrantRecord(
-        request_id=str(value.get("request_id") or ""),
-        correlation_id=str(value.get("original_action_id") or ""),
-        capability_id=str(value.get("capability_id") or ""),
-        scope_ref=str(value.get("scope_ref") or ""),
-        grant_mode=str(value.get("grant_mode") or ""),
+        request_id=_grant_identifier(value.get("request_id"), "request_id"),
+        correlation_id=_grant_identifier(value.get("original_action_id"), "original_action_id"),
+        capability_id=_grant_identifier(value.get("capability_id"), "capability_id"),
+        scope_ref=_grant_scope(value.get("scope_ref")),
+        grant_mode=_grant_identifier(value.get("grant_mode"), "grant_mode"),
         requested_at=_datetime(value.get("requested_at"), "requested_at"),
         expires_at=_datetime(value.get("expires_at"), "expires_at"),
-        quorum=_integer(value, "quorum"),
+        quorum=quorum,
         status=str(value.get("status") or ""),
         revision=_integer(value, "revision"),
     )
+
+
+def _grant_identifier(value: object, name: str) -> str:
+    """Bound one projected identifier to the exact range the browser contract accepts."""
+    if not isinstance(value, str) or not _CANONICAL_GRANT_ID.match(value):
+        raise IamUnavailableError(f"authoritative IAM projection {name} is malformed")
+    return value
+
+
+def _grant_scope(value: object) -> str:
+    if not isinstance(value, str) or not _SCOPE_REF.match(value):
+        raise IamUnavailableError("authoritative IAM projection scope_ref is malformed")
+    return value
 
 
 def _snapshot_sequence(records: Sequence[StoredStateRecord]) -> int:
