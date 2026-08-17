@@ -13,6 +13,7 @@ from fdai.core.report_feed.models import (
 )
 from fdai.core.reporting.composition import default_reporting_engine
 from fdai.core.reporting.datasources import SecurityAssessmentDataSource
+from fdai.core.reporting.engine import ReportEngine
 from fdai.core.reporting.models import QuerySpec, RenderedWidget
 from fdai.shared.contracts.models import Severity
 
@@ -277,11 +278,17 @@ def test_cache_ttl_must_be_positive() -> None:
 
 
 async def test_security_assessment_report_renders_every_widget() -> None:
-    engine, _ = default_reporting_engine(
+    configured_engine, _ = default_reporting_engine(
         reports_root=__import__("pathlib").Path(__file__).resolve().parents[5]
         / "rule-catalog"
         / "reports",
         report_feed=_feed(),
+    )
+    engine = ReportEngine(
+        catalog=configured_engine.catalog(),
+        sources=configured_engine.datasource_registry(),
+        widgets=configured_engine.widget_registry(),
+        clock=lambda: _NOW,
     )
     rendered = await engine.render("security-assessment", variables={"scope": "subscription"})
     widgets = tuple(_walk(rendered.widgets))
