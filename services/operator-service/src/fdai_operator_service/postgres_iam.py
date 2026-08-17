@@ -66,7 +66,7 @@ class PostgresIamAdapters:
 
     async def snapshot(self, query: AccessGrantSnapshotQuery) -> AccessGrantSnapshot:
         """Read the reviewer-scoped access-grant snapshot for SSE replay."""
-        page = await self._state_page(_ACCESS_GRANT_PREFIX, _ACCESS_GRANT_SCAN_LIMIT)
+        page = await self._pending_grant_page()
         if page.truncated:
             raise IamUnavailableError("access-grant review coverage cannot be proven complete")
         records = page.records
@@ -413,9 +413,14 @@ class PostgresIamAdapters:
         except PostgresFamilyStoreUnavailable as exc:
             raise IamUnavailableError("authoritative IAM state is unavailable") from exc
 
-    async def _state_page(self, prefix: str, limit: int) -> StoredStatePage:
+    async def _pending_grant_page(self) -> StoredStatePage:
         try:
-            return await self.store.read_state_page(prefix=prefix, limit=limit)
+            return await self.store.read_state_page(
+                prefix=_ACCESS_GRANT_PREFIX,
+                limit=_ACCESS_GRANT_SCAN_LIMIT,
+                match_field="status",
+                match_value="pending",
+            )
         except PostgresFamilyStoreUnavailable as exc:
             raise IamUnavailableError("authoritative IAM state is unavailable") from exc
 
