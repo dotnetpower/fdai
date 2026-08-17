@@ -523,6 +523,12 @@ variable "analyzer_window_seconds" {
   default     = ""
 }
 
+variable "trace_window_seconds" {
+  description = "Optional trace-continuity detection window (seconds). One window yields at most one finding, so this MUST be several times shorter than the correlation window. Empty -> analyzer window."
+  type        = string
+  default     = "60"
+}
+
 variable "analyzer_budget_seconds" {
   description = "Optional budget (seconds) the coordinator applies to the whole tick before it marks BUDGET_EXCEEDED. Empty -> CLI default (60 s)."
   type        = string
