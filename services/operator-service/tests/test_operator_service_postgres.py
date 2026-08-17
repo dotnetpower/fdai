@@ -7,7 +7,10 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
-from fdai_operator_service.families.iam.contracts import AccessGrantSnapshotQuery
+from fdai_operator_service.families.iam.contracts import (
+    AccessGrantDecisionCommand,
+    AccessGrantSnapshotQuery,
+)
 from fdai_operator_service.families.iam.errors import IamUnavailableError
 from fdai_operator_service.incident_projection import incident_outcome_metrics, incident_summary
 from fdai_operator_service.postgres import (
@@ -21,6 +24,7 @@ from fdai_operator_service.postgres import (
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     PostgresFamilyStoreConfig,
+    StoredProposal,
     StoredStatePage,
     StoredStateRecord,
 )
@@ -271,6 +275,65 @@ async def test_access_grant_snapshot_cursor_does_not_regress_when_the_queue_empt
 
     assert snapshot.sequence == cursor
     assert snapshot.requests == ()
+
+
+class RecordingProposalPostgresFamilyStore(PostgresFamilyStore):
+    """Capture appended proposal idempotency keys without opening PostgreSQL."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            PostgresFamilyStoreConfig(
+                dsn="postgresql://example.invalid/db",
+                role="fdai_operator",
+            )
+        )
+        self.keys: list[str] = []
+
+    async def append_proposal(
+        self,
+        *,
+        family: str,
+        operation: str,
+        principal_id: str | None,
+        idempotency_key: str,
+        payload: Mapping[str, object],
+    ) -> StoredProposal:
+        del family, operation, principal_id, payload
+        self.keys.append(idempotency_key)
+        return StoredProposal(
+            proposal_id="operator-test",
+            accepted_at=_NOW.isoformat(),
+            duplicate=False,
+            record={},
+        )
+
+
+def _decision(reviewer_ref: str, *, expected_revision: int = 1) -> AccessGrantDecisionCommand:
+    return AccessGrantDecisionCommand(
+        request_id="grant-1",
+        reviewer_ref=reviewer_ref,
+        reviewer_roles=frozenset({"approver"}),
+        decision="approve",
+        reason="approved for the measured window",
+        expected_revision=expected_revision,
+        decided_at=_NOW,
+    )
+
+
+@pytest.mark.asyncio
+async def test_distinct_reviewers_append_distinct_grant_decision_proposals() -> None:
+    store = RecordingProposalPostgresFamilyStore()
+    adapters = PostgresIamAdapters(store)
+
+    await adapters.decide(_decision("reviewer-a"))
+    await adapters.decide(_decision("reviewer-b"))
+    await adapters.decide(_decision("reviewer-a"))
+    await adapters.decide(_decision("reviewer-a", expected_revision=2))
+
+    assert store.keys[0] != store.keys[1]
+    assert store.keys[0] == store.keys[2]
+    assert store.keys[3] not in store.keys[:3]
+    assert all(key.startswith("grant-1:") for key in store.keys)
 
 
 @pytest.mark.asyncio

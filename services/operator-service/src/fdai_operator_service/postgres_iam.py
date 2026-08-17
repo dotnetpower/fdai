@@ -91,7 +91,7 @@ class PostgresIamAdapters:
 
     async def decide(self, command: AccessGrantDecisionCommand) -> AccessGrantDecisionResult:
         """Persist a revision-fenced access decision without applying permission."""
-        await self._proposal("access-grants.decide", command, command.request_id)
+        await self._proposal("access-grants.decide", command, _decision_key(command))
         return AccessGrantDecisionResult(
             request_id=command.request_id,
             status="pending",
@@ -533,6 +533,12 @@ def _grant_scope(value: object) -> str:
     if not isinstance(value, str) or not _SCOPE_REF.match(value):
         raise IamUnavailableError("authoritative IAM projection scope_ref is malformed")
     return value
+
+
+def _decision_key(command: AccessGrantDecisionCommand) -> str:
+    """Fence one reviewer's decision on one revision so a quorum can still accumulate."""
+    reviewer = hashlib.sha256(command.reviewer_ref.encode()).hexdigest()[:32]
+    return f"{command.request_id}:{command.expected_revision}:{reviewer}"
 
 
 def _snapshot_sequence(records: Sequence[StoredStateRecord]) -> int:
