@@ -122,7 +122,7 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     frame = prompts.get_base("semantic.query.frame")
     plan = prompts.get_base("semantic.query.plan")
 
-    assert frame.version == 11
+    assert frame.version == 12
     assert "output_shape to exactly one capability family" in frame.body
     assert "aggregation_table for a count or grouping" in frame.body
     assert "topology_graph for current instance connectivity or containment" in frame.body
@@ -154,7 +154,12 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
         "Any requested cardinality, total, count, or grouping MUST use aggregation_table"
         in frame.body
     )
-    assert "evidence is sufficient, complete, missing, or independently verified" in frame.body
+    assert (
+        "which objects satisfy an evidence property MUST use property_filtered_resources"
+        in frame.body
+    )
+    assert "whether evidence for a set is sufficient or complete" in frame.body
+    assert "does not select members by an evidence property" in frame.body
     assert "instead of clarification" in frame.body
     assert "Do not select that function for instance listing" in frame.body
     assert "query.incident_evidence" in frame.body
