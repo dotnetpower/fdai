@@ -125,6 +125,10 @@ requested WSL path. A Blob or anchor download has the same user-visible failure 
 - MUST NOT import `node:fs` from `run_playwright_code`; the browser tool sandbox does not expose a
   dynamic-import callback. Start `scripts/automation/capture_browser_entra_state.py` in a terminal,
   wait for its `receiver-ready` marker, and leave it running for one request.
+- When the shared Console and isolated Playwright target use different loopback origins, pass the
+  shared page as `--origin` and the Playwright target as `--storage-origin`. The receiver validates
+  the POST against the shared origin while writing the bootstrap local storage for the target
+  origin.
 - In one browser evaluation, POST an object containing `location.origin` and
   `Object.entries(sessionStorage)` to the receiver as `text/plain;charset=UTF-8`. Keep this a CORS
   simple request: adding JSON content type or custom headers introduces an `OPTIONS` preflight that
