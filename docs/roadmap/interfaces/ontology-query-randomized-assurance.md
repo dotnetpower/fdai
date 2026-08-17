@@ -223,6 +223,33 @@ ledger.
 - [ ] Regenerate the bilingual 100-question procedure through the authenticated production composition and retain its machine-readable results.
 - [ ] Change the release decision only after the regenerated artifact satisfies every next-run exit criterion with zero unsupported operational claims and zero unauthorized executions.
 
+## Completion hardening critique
+
+The current completion slice received 12 independent read-only critique rounds against the exact
+Issue #63 runner, semantic planning, Operator outbox, artifact gate, and bilingual owner-document
+paths. Findings were accepted only when the owning path reproduced them.
+
+| Round | Lens | Severity | Evidence and disposition |
+|-------|------|----------|--------------------------|
+| 1 | Provenance and source binding | None | Exact source validation, detached worktree binding, and atomic source-bearing status remain intact. |
+| 2 | Child lifecycle | None | Required child exit and owned process-group cleanup remain bounded and fail closed. |
+| 3 | Outbox isolation | Medium, fixed | Default prefix claims overlapped nested namespaced rows. Exact durable namespace equality now governs append, claim, authenticated read, and projection ownership. |
+| 4 | Checkpoint and status atomicity | None | Same-directory temporary writes, `fsync`, replacement, mode `0600`, and fresh checkpoint guards remain intact. |
+| 5 | Immutable gate | Medium, fixed | Topic advancement previously required only a positive delta. Gates now require exact 14/14 and 100/100 request/projection counts and self-contained artifact evidence. |
+| 6 | Provider completeness | Low | Missing authoritative provider evidence remains a typed incomplete or unavailable result. This is an explicit open capability, not a hidden success. |
+| 7 | Plan verification | Medium, fixed | Causal transitive dependency normalization and server-owned evidence-validation plans still pass the exact release, manifest, role, purpose, schema, digest, and handler checks. |
+| 8 | Secret exposure | None | Status and projected baseline evidence retain no topic names, raw provider payloads, model responses, credentials, or environment values. |
+| 9 | Concurrency | None | `FOR UPDATE SKIP LOCKED`, claim identities, exact namespace equality, and process-group ownership prevent cross-run claims and duplicate work. |
+| 10 | Replay and cleanup | None | Principal/request replay ordering, fresh checkpoint rejection, atomic artifacts, and supervisor cleanup remain deterministic. |
+| 11 | Documentation and Issue truthfulness | None | The ledgers retain failed strict outcomes, blocked release status, and seeded non-execution without promoting partial evidence. |
+| 12 | Remote integration | Low | Local raw artifacts remain a governed operator evidence boundary rather than a broker-signed attestation. Hash and count binding prevents accidental partial promotion; external signature authority remains outside this local campaign. |
+
+The first broad critique pass was rejected because it inspected the separate
+`core/conversation_assurance` subsystem. Two exact-scope passes followed. After the three accepted
+Medium findings were fixed one at a time with focused validation and separate commits, the final
+12-round pass found no reproducible Medium-or-higher issue. Residual findings are the two Low items
+above.
+
 ## Related documents
 
 | To learn about | Read |
