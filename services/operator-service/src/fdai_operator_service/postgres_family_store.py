@@ -266,21 +266,37 @@ class PostgresFamilyStore:
             )
         return _json_object(rows[0].get("value"), label=key)
 
-    async def read_state_page(self, *, prefix: str, limit: int) -> StoredStatePage:
+    async def read_state_page(
+        self,
+        *,
+        prefix: str,
+        limit: int,
+        match_field: str | None = None,
+        match_value: str | None = None,
+    ) -> StoredStatePage:
         """Read a bounded newest-first page and report whether more records were left behind."""
         if not prefix.strip():
             raise ValueError("state prefix MUST be a bounded non-empty string")
         if not 1 <= limit <= 1_000:
             raise ValueError("state page limit MUST be between 1 and 1000")
+        if (match_field is None) != (match_value is None):
+            raise ValueError("state page match field and value MUST be supplied together")
+        if match_field is not None and not match_field.replace("_", "").isalnum():
+            raise ValueError("state field MUST be an ASCII identifier")
+        match_clause = "" if match_field is None else "   AND value ->> %(field)s = %(match)s\n"
         rows = await self._fetch_all(
-            """
-            SELECT key, value, updated_at
-              FROM state_kv
-             WHERE key LIKE %(prefix)s ESCAPE '\\'
-             ORDER BY updated_at DESC, key DESC
-             LIMIT %(probe)s
-            """,
-            {"prefix": f"{_escape_like(prefix)}%", "probe": limit + 1},
+            "SELECT key, value, updated_at\n"
+            "  FROM state_kv\n"
+            " WHERE key LIKE %(prefix)s ESCAPE '\\'\n"
+            f"{match_clause}"
+            " ORDER BY updated_at DESC, key DESC\n"
+            " LIMIT %(probe)s",
+            {
+                "prefix": f"{_escape_like(prefix)}%",
+                "probe": limit + 1,
+                "field": match_field,
+                "match": match_value,
+            },
         )
         return StoredStatePage(
             records=tuple(
@@ -1101,8 +1117,15 @@ class UnavailablePostgresFamilyStore(PostgresFamilyStore):
         del family, operation
         raise PostgresFamilyStoreUnavailable("authoritative projection is unavailable")
 
-    async def read_state_page(self, *, prefix: str, limit: int) -> StoredStatePage:
-        del prefix, limit
+    async def read_state_page(
+        self,
+        *,
+        prefix: str,
+        limit: int,
+        match_field: str | None = None,
+        match_value: str | None = None,
+    ) -> StoredStatePage:
+        del prefix, limit, match_field, match_value
         raise PostgresFamilyStoreUnavailable("authoritative PostgreSQL state is unavailable")
 
     async def read_rule_search_projection(
