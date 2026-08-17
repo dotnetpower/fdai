@@ -18,6 +18,7 @@ from scripts.automation.run_ontology_assurance import (
     OntologyAssuranceRunner,
     full_artifact_accepted,
     strict_artifact_accepted,
+    transport_delta_accepted,
 )
 
 SOURCE_REVISION = "a" * 40
@@ -225,6 +226,33 @@ def test_seeded_gate_requires_fresh_complete_production_evidence() -> None:
     bound = json.loads(json.dumps(passing))
     bound["summary"]["bound_request_count"] = 1
     assert not full_artifact_accepted(bound, SOURCE_REVISION)
+
+
+@pytest.mark.parametrize("expected_count", (14, 100))
+def test_transport_gate_requires_exact_request_and_projection_counts(
+    expected_count: int,
+) -> None:
+    assert transport_delta_accepted(
+        request_before=3,
+        request_after=3 + expected_count,
+        projection_before=5,
+        projection_after=5 + expected_count,
+        expected_count=expected_count,
+    )
+    assert not transport_delta_accepted(
+        request_before=3,
+        request_after=2 + expected_count,
+        projection_before=5,
+        projection_after=5 + expected_count,
+        expected_count=expected_count,
+    )
+    assert not transport_delta_accepted(
+        request_before=3,
+        request_after=3 + expected_count,
+        projection_before=5,
+        projection_after=4 + expected_count,
+        expected_count=expected_count,
+    )
 
 
 def test_child_environment_is_not_retained_in_status(tmp_path: Path) -> None:

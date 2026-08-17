@@ -80,6 +80,7 @@ class PostgresSemanticTurnRepository:
         self._fetch_all = fetch_all
         self._insert_if_absent = insert_if_absent
         self._outbox_prefix = _outbox_prefix(outbox_namespace)
+        self._outbox_namespace = outbox_namespace or ""
 
     async def append(
         self,
@@ -113,6 +114,7 @@ class PostgresSemanticTurnRepository:
             "principal_id": principal_id,
             "idempotency_key": idempotency_key,
             "request_digest": request_digest,
+            "outbox_namespace": self._outbox_namespace,
             "state": "pending",
             "attempt": 0,
             "accepted_at": requested_at,
@@ -143,6 +145,7 @@ class PostgresSemanticTurnRepository:
         claim_id = str(uuid4())
         parameters: dict[str, object] = {
             "prefix": f"{self._outbox_prefix}%",
+            "outbox_namespace": self._outbox_namespace,
             "claim_id": claim_id,
             "worker_id": worker_id,
             "lease_seconds": lease_seconds,
@@ -155,6 +158,8 @@ class PostgresSemanticTurnRepository:
                   FROM state_kv
                  WHERE key LIKE %(prefix)s
                    AND value ->> 'kind' = 'operator.semantic_turn'
+                                     AND COALESCE(value ->> 'outbox_namespace', '')
+                                             = %(outbox_namespace)s
                    AND (
                         value ->> 'state' = 'pending'
                         OR (
@@ -225,12 +230,14 @@ class PostgresSemanticTurnRepository:
             SELECT key, value
               FROM state_kv
              WHERE key LIKE %(prefix)s
+                             AND COALESCE(value ->> 'outbox_namespace', '') = %(outbox_namespace)s
                AND value ->> 'principal_id' = %(principal_id)s
                AND value ->> 'proposal_id' = %(proposal_id)s
              LIMIT 1
             """,
             {
                 "prefix": f"{self._outbox_prefix}%",
+                "outbox_namespace": self._outbox_namespace,
                 "principal_id": principal_id,
                 "proposal_id": proposal_id,
             },
@@ -411,6 +418,8 @@ class PostgresSemanticTurnRepository:
                 SELECT key, value ->> 'principal_id' AS principal_id
                   FROM state_kv
                  WHERE key LIKE %(outbox_prefix)s
+                                     AND COALESCE(value ->> 'outbox_namespace', '')
+                                             = %(outbox_namespace)s
                    AND value ->> 'request_id' = %(request_id)s
                    AND value #>> '{envelope,semantic_turn,session_id}' = %(session_id)s
                    AND value #>> '{envelope,semantic_turn,turn_id}' = %(turn_id)s
@@ -517,6 +526,7 @@ class PostgresSemanticTurnRepository:
             """,
             {
                 "outbox_prefix": f"{self._outbox_prefix}%",
+                "outbox_namespace": self._outbox_namespace,
                 "request_id": request_id,
                 "session_id": session_id,
                 "turn_id": turn_id,

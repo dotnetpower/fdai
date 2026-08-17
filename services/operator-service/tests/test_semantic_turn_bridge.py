@@ -644,13 +644,13 @@ async def test_claim_test_clock_controls_eligibility_and_lease() -> None:
 
 
 async def test_semantic_outbox_namespace_isolates_claim_prefix() -> None:
-    captured: list[Mapping[str, object]] = []
+    captured: list[tuple[str, Mapping[str, object]]] = []
 
     async def fetch_all(
-        _statement: str,
+        statement: str,
         parameters: Mapping[str, object],
     ) -> list[dict[str, object]]:
-        captured.append(parameters)
+        captured.append((statement, parameters))
         return []
 
     repository = PostgresSemanticTurnRepository(
@@ -660,7 +660,38 @@ async def test_semantic_outbox_namespace_isolates_claim_prefix() -> None:
     )
 
     assert await repository.claim(worker_id="replica-a", lease_seconds=30) is None
-    assert captured[0]["prefix"] == "operator-semantic-outbox:issue63.run-1:%"
+    statement, parameters = captured[0]
+    normalized_statement = " ".join(statement.split())
+    assert parameters["prefix"] == "operator-semantic-outbox:issue63.run-1:%"
+    assert parameters["outbox_namespace"] == "issue63.run-1"
+    assert "COALESCE(value ->> 'outbox_namespace', '') = %(outbox_namespace)s" in (
+        normalized_statement
+    )
+
+
+async def test_default_semantic_outbox_claim_excludes_namespaced_rows() -> None:
+    captured: list[tuple[str, Mapping[str, object]]] = []
+
+    async def fetch_all(
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        captured.append((statement, parameters))
+        return []
+
+    repository = PostgresSemanticTurnRepository(
+        fetch_all=fetch_all,
+        insert_if_absent=cast(Any, object()),
+    )
+
+    assert await repository.claim(worker_id="replica-a", lease_seconds=30) is None
+    statement, parameters = captured[0]
+    normalized_statement = " ".join(statement.split())
+    assert parameters["prefix"] == "operator-semantic-outbox:%"
+    assert parameters["outbox_namespace"] == ""
+    assert "COALESCE(value ->> 'outbox_namespace', '') = %(outbox_namespace)s" in (
+        normalized_statement
+    )
 
 
 def test_semantic_outbox_namespace_rejects_invalid_identifiers() -> None:
@@ -677,14 +708,16 @@ async def test_semantic_outbox_namespace_isolates_appended_key() -> None:
         _proposal()
     )
     captured_key = ""
+    captured_value: Mapping[str, object] = {}
 
     async def insert_if_absent(
         *,
         key: str,
         value: Mapping[str, object],
     ) -> tuple[bool, dict[str, object]]:
-        nonlocal captured_key
+        nonlocal captured_key, captured_value
         captured_key = key
+        captured_value = value
         return True, dict(value)
 
     repository = PostgresSemanticTurnRepository(
@@ -701,6 +734,31 @@ async def test_semantic_outbox_namespace_isolates_appended_key() -> None:
     )
 
     assert captured_key.startswith("operator-semantic-outbox:issue63.run-1:")
+    assert captured_value["outbox_namespace"] == "issue63.run-1"
+
+
+async def test_semantic_outbox_namespace_isolates_authenticated_read() -> None:
+    captured: list[tuple[str, Mapping[str, object]]] = []
+
+    async def fetch_all(
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        captured.append((statement, parameters))
+        return []
+
+    repository = PostgresSemanticTurnRepository(
+        fetch_all=fetch_all,
+        insert_if_absent=cast(Any, object()),
+        outbox_namespace="issue63.run-1",
+    )
+
+    assert (
+        await repository.read(principal_id="operator-1", proposal_id="semantic-request-1") is None
+    )
+    statement, parameters = captured[0]
+    assert parameters["outbox_namespace"] == "issue63.run-1"
+    assert "COALESCE(value ->> 'outbox_namespace', '') = %(outbox_namespace)s" in statement
 
 
 async def test_semantic_turn_replay_is_ordered_and_principal_request_scoped(
@@ -828,6 +886,7 @@ async def test_result_collision_binds_request_principal_and_digest() -> None:
     repository = PostgresSemanticTurnRepository(
         fetch_all=fetch_all,
         insert_if_absent=cast(Any, object()),
+        outbox_namespace="issue63.run-1",
     )
     first = _projection(
         SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
@@ -843,6 +902,10 @@ async def test_result_collision_binds_request_principal_and_digest() -> None:
     _, second_parameters = captured[1]
     normalized_statement = " ".join(first_statement.split())
     assert first_parameters["result_key"] != second_parameters["result_key"]
+    assert first_parameters["outbox_namespace"] == "issue63.run-1"
+    assert "COALESCE(value ->> 'outbox_namespace', '') = %(outbox_namespace)s" in (
+        normalized_statement
+    )
     assert "existing.value ->> 'request_id' = %(request_id)s" in normalized_statement
     assert "existing.value ->> 'principal_id' = owned_request.principal_id" in normalized_statement
     assert "existing.value ->> 'projection_digest' = %(projection_digest)s" in normalized_statement
