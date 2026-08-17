@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 7830eca3a9e9a7f0711b64b9e0c8a20ab3aa01fc
+translation_source_sha: c168f4fa82cf4c500617cd39503c45a5dfd69946
 translation_revised: 2026-08-17
 ---
 # 코드 맵
@@ -123,6 +123,7 @@ translation_revised: 2026-08-17
 | 2026-08-17 | implemented | 감독 대상 온톨로지 보증 Console마다 실행 소유 Vite 의존성 캐시를 할당했습니다. 일반 Console의 캐시 동작은 바꾸지 않으면서 동시에 실행되는 Console optimizer가 측정 대상 Browser import를 무효화하지 못하게 합니다. | `current change`, `console/vite.config.ts`, `run_ontology_assurance.py`, 통과한 focused Console 및 supervisor 검사 11개, Console typecheck, Ruff 및 strict mypy 통과 | 담당 온톨로지 보증 원장에 통제된 엄격한 아티팩트와 seed 기반 아티팩트를 보존합니다. |
 | 2026-08-17 | implemented | 선택적인 namespaced Operator semantic outbox key를 형제 물리 prefix로 옮겼습니다. 운영 기본 key는 그대로 유지하고 exact namespace 검사도 유지하며, 이전의 넓은 기본 claim을 사용하는 오래된 프로세스는 실행 소유 행과 일치할 수 없습니다. | `current change`, `postgres_semantic_turn_store.py`, 통과한 focused bridge 검사 62개, Ruff 및 strict mypy 통과 | 담당 온톨로지 보증 원장에 통제된 엄격한 근거와 seed 기반 근거를 보존합니다. |
 | 2026-08-17 | implemented | 근거 계열 분류와 temporal cutoff 검증을 각각 담당하는 Core 경계에 유지했습니다. 의미 cascade는 plan 선택 전에 `evidence_validation`이 아닌 `validate` frame을 거부하고, ontology query verifier는 프로바이더 실행 전에 knowledge cutoff보다 늦은 `topology_at` event cutoff를 거부합니다. | `current change`, focused 의미 계획 및 query verifier 검사 41개 통과, 작업 범위 Ruff 및 strict mypy 통과 | Runner가 seed 기반 집단을 시작하기 전에 strict 14/14 답변 및 완전 근거를 보존합니다. |
+| 2026-08-17 | implemented | 질문 route를 추가하지 않고 evidence completeness를 위한 Bragi frame 경계를 강화했습니다. Prompt v10은 타입이 지정된 `validate` 및 `evidence_validation` 쌍을 요구하며, Core는 계속 principal 범위 ObjectSet을 구성하고 I/O 전에 검증합니다. | `current change`, focused prompt 레지스트리 회귀 통과 | Seeded를 시작하기 전에 strict 14/14 답변 및 완전 근거를 보존합니다. |
 
 ### 남은 작업
 

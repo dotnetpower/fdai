@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-randomized-assurance.md
-translation_source_sha: 293869a62ed65f114c92866872f42139ca8eb6ce
+translation_source_sha: 97f4b937478b28cf8c074dc0d9c4641137b726e5
 translation_revised: 2026-08-17
 ---
 # 온톨로지 쿼리 무작위 보증
@@ -217,6 +217,7 @@ Core
 | 2026-08-17 | implemented | 선택적인 실행 범위 semantic outbox key를 형제 물리 prefix로 옮겼습니다. 운영 기본 prefix는 byte-compatible하게 유지되고 이미 실행 중인 수정 전 기본 claimant도 넓은 legacy prefix로 namespaced key와 일치할 수 없습니다. Exact namespace 동등성은 추가 소유권 검사로 유지합니다. | `current change`, stale prefix 회귀를 포함한 focused Operator bridge 검사 62개, 작업 범위 Ruff 및 strict mypy 통과 | 중앙 검증을 확보하고 정확히 검증된 소스에서 새로운 엄격한 질문 집합을 한 번 실행합니다. |
 | 2026-08-17 | in-progress | Exact transport를 적용한 첫 strict-to-seeded 실행을 완료했습니다. Strict는 14/14로 통과했고 seeded는 89/100으로 끝나 답변된 plan-capability 불일치 11건을 드러냈습니다. 이 중 5건은 질문 분류 불일치였고 6건은 관계, 인과, 시간 및 근거 속성 질문의 frame 기능군 오류였습니다. Frame prompt v9은 이 기능군을 구분하고, typed oracle은 나머지 불일치 검사를 약화하지 않으면서 prompt별로 유효한 기능군을 기록합니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 소스 `8796d21af627b2bdc9e054c94752a67f6cd2499c`, `test_prompt_registry_consistency.py` 5개와 `ontology-query-assurance.test.ts` 99개 통과 | 중앙 검증을 확보한 뒤 strict를 한 번 실행합니다. Strict가 변경 불가능한 gate를 통과할 때만 seeded를 한 번 실행합니다. |
 | 2026-08-17 | in-progress | Deterministic evidence-frame 및 topology-cutoff guard를 추가한 뒤 중앙 검증된 source `507bddd55cdc142f70faeafe3c90d9a3b6b157c7`에서 repository supervisor를 한 번 실행했습니다. Core가 외부 `SIGTERM`을 받기 전에 엄격한 검사점은 근거가 완전한 answered cell 3개와 pending cell 11개를 보존했습니다. Core는 상태 0으로 종료했고 supervisor는 `required_child_exited`로 fail closed했습니다. 영어 temporal-comparison, 영어 evidence-validation 및 한국어 temporal-comparison cell은 실행되지 않았으므로 이 실행은 해당 수정에 대한 판정을 제공하지 않습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-507bddd55c-20260817T115108Z`, exact 중앙 receipt의 dependency sync, fast gate, structural gate 및 changed test 통과 | 엄격한 gate를 차단 상태로 유지합니다. 같은 중단 실행을 반복하거나 seeded를 수동으로 시작하지 않으며, supervisor가 seed 기반 집단을 시작하기 전에 향후 14/14 answered 및 완전 근거 strict 아티팩트를 보존합니다. |
+| 2026-08-17 | in-progress | 중앙 검증된 source `1f9542932a469fc16fbaa5cbb0c0bcb788ede071`에서 strict를 한 번 실행했습니다. Live cell 14개가 resumed cell 없이 모두 완료됐고 13개는 근거가 완전한 답변이었으며 두 temporal cell도 답변했습니다. `en-evidence_validation-2`만 범위가 제한된 planning 뒤 unsupported로 끝났습니다. Exact transport 및 safety gate는 통과했지만 변경 불가능 answer gate가 seeded를 차단했습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-1f9542932a-20260817T123947Z`, strict 프로세스 상태 0 및 supervisor의 소유 child 정리 완료 | Prompt v10을 중앙 검증하고 새로운 strict 아티팩트가 근거가 완전한 답변 14/14를 보존할 때까지 seeded를 차단합니다. |
 
 ### 남은 작업
 
