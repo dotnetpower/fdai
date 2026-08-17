@@ -19,6 +19,7 @@ import json
 import logging
 import os
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -33,7 +34,6 @@ from fdai.delivery.analyzer_targets import (
     resolve_analyzer_targets,
 )
 from fdai.delivery.analyzer_tick import (
-    ANALYZER_EVENT_TOPIC,
     DEFAULT_WINDOW_SECONDS,
     AnalyzerTarget,
     AnalyzerTickReport,
@@ -70,6 +70,7 @@ _REPO_ROOT = repo_asset_root()
 TARGETS_ENV = "FDAI_ANALYZER_TARGETS"
 WINDOW_ENV = "FDAI_ANALYZER_WINDOW_SECONDS"
 TOPIC_ENV = "FDAI_ANALYZER_TOPIC"
+INGRESS_TOPIC_ENV = "KAFKA_TOPIC_EVENTS"
 MAX_DISCOVERED_ENV = "FDAI_ANALYZER_MAX_DISCOVERED_TARGETS"
 INVENTORY_DSN_ENV = "FDAI_INVENTORY_DSN"
 TRACE_TOPOLOGIES_ENV = "FDAI_TRACE_TOPOLOGIES_JSON"
@@ -94,6 +95,21 @@ class AnalyzerJobReport:
             **self.analyzer.to_dict(),
             "trace_continuity": self.trace_continuity.to_dict(),
         }
+
+
+def resolve_finding_topic(environ: Mapping[str, str]) -> str:
+    """Resolve the topic that actually carries findings into the control loop.
+
+    Findings enter through Huginn's raw ingress, which normalizes them into
+    ``object.event`` for the judging agents. Publishing anywhere else reaches no
+    consumer, so an unset ingress topic is a configuration error rather than a
+    value worth defaulting.
+    """
+
+    topic = environ.get(TOPIC_ENV, "").strip() or environ.get(INGRESS_TOPIC_ENV, "").strip()
+    if not topic:
+        raise RuntimeError(f"{TOPIC_ENV} or {INGRESS_TOPIC_ENV} is required")
+    return topic
 
 
 def parse_targets(raw: str) -> tuple[AnalyzerTarget, ...]:
@@ -259,7 +275,7 @@ async def run_once() -> AnalyzerJobReport:
     bootstrap_servers = os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "").strip()
     if not bootstrap_servers:
         raise RuntimeError("KAFKA_BOOTSTRAP_SERVERS is required")
-    topic = os.environ.get(TOPIC_ENV, "").strip() or ANALYZER_EVENT_TOPIC
+    topic = resolve_finding_topic(os.environ)
 
     async with httpx.AsyncClient(
         timeout=httpx.Timeout(connect=5.0, read=30.0, write=30.0, pool=5.0)
