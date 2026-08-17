@@ -14,6 +14,7 @@ from fdai_operator_service.families.iam.contracts import (
 from fdai_operator_service.families.iam.errors import (
     IamConflictError,
     IamNotFoundError,
+    IamPermissionError,
     IamUnavailableError,
 )
 from fdai_operator_service.incident_projection import incident_outcome_metrics, incident_summary
@@ -323,6 +324,9 @@ def _grant_record(**overrides: object) -> dict[str, object]:
         "quorum": 2,
         "revision": 3,
         "approved_by": ["reviewer-a"],
+        "requester_ref": "requester-1",
+        "approver_roles": ["Approver"],
+        "expires_at": _GRANT_EXPIRY.isoformat(),
     }
     record.update(overrides)
     return record
@@ -381,6 +385,38 @@ async def test_grant_decision_is_refused_once_the_request_left_pending() -> None
     store = RecordingProposalPostgresFamilyStore(_grant_record(status="approved"))
 
     with pytest.raises(IamConflictError):
+        await PostgresIamAdapters(store).decide(_decision("reviewer-b"))
+
+    assert store.keys == []
+
+
+@pytest.mark.asyncio
+async def test_grant_decision_refuses_a_self_approval_before_queuing_it() -> None:
+    store = RecordingProposalPostgresFamilyStore()
+
+    with pytest.raises(IamPermissionError):
+        await PostgresIamAdapters(store).decide(_decision("Requester-1"))
+
+    assert store.keys == []
+
+
+@pytest.mark.asyncio
+async def test_grant_decision_refuses_a_reviewer_without_an_approver_role() -> None:
+    store = RecordingProposalPostgresFamilyStore(_grant_record(approver_roles=["Owner"]))
+
+    with pytest.raises(IamPermissionError):
+        await PostgresIamAdapters(store).decide(_decision("reviewer-b"))
+
+    assert store.keys == []
+
+
+@pytest.mark.asyncio
+async def test_grant_decision_refuses_an_expired_request() -> None:
+    store = RecordingProposalPostgresFamilyStore(
+        _grant_record(expires_at=datetime(2026, 8, 7, tzinfo=UTC).isoformat())
+    )
+
+    with pytest.raises(IamPermissionError):
         await PostgresIamAdapters(store).decide(_decision("reviewer-b"))
 
     assert store.keys == []
