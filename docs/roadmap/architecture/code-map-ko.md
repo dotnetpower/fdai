@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: bc847d390c87af46a168d22052a2753e50bb39ec
+translation_source_sha: c987ee4906e5cad9f816a1ac49f750f0a03ca8b8
 translation_revised: 2026-08-17
 ---
 # 코드 맵
@@ -115,6 +115,7 @@ translation_revised: 2026-08-17
 | 2026-08-17 | 구현됨 | Norns의 결정론적 학습 전이를 private agent framework 아래로 옮기고 상태, 후보 생성, 합의, 발행은 `norns.py`에 유지했습니다. | `current change`; `norns_learning.py`, `norns.py`; 집중 학습 검사 97건과 framework layout 검사 11건이 통과했습니다. | 이 구조 분리에 남은 작업은 없습니다. |
 | 2026-08-17 | 구현됨 | Forseti의 결정론적 판단 구현을 private agent framework 아래로 옮기고 agent 상태, typed ingress, 중재, kinetic proposal 해석, 소유 발행은 `forseti.py`에 유지했습니다. | `current change`; `forseti_judgment.py`, `forseti.py`; 집중 판단 검사 93건과 framework layout 검사 11건이 통과했습니다. | 이 구조 분리에 남은 작업은 없습니다. |
 | 2026-08-17 | 구현됨 | shadow Workflow 조립, 승인 대기 projection 연결, 승인 부하 정책 읽기, stewardship에서 HIL 에스컬레이션으로의 매핑을 전용 runtime support로 옮겼습니다. `control_loop.py`는 기존 private helper 별칭과 권한 있는 조립 순서를 유지합니다. | `current change`; `control_loop_support.py`, `control_loop.py`; 집중 Workflow 및 Thor port 조립 검사 8건, Ruff, 형식 검사, strict mypy가 통과했습니다. | 이 구조 분리에 남은 작업은 없습니다. |
+| 2026-08-17 | 구현됨 | runtime bootstrap을 Pantheon 초기화와 작업 감독 전용 모듈로 분리하면서 작업 시작 전 startup readiness, 권한 상한, 작업 격리, callback, 종료 순서, 기존 `main()` 진입점을 유지했습니다. | `current change`; `bootstrap_pantheon.py`, `bootstrap_tasks.py`, `bootstrap.py`; 집중 bootstrap 및 카탈로그 순서 검사 66건, Ruff, 형식 검사, strict mypy, 강제 LOC 게이트가 통과했습니다. | 이 구조 분리에 남은 작업은 없습니다. |
 
 ### 남은 작업
 
