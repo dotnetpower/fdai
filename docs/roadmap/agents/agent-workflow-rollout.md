@@ -23,6 +23,7 @@ remains independently reviewable and starts in shadow mode before any enforcemen
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | implemented | Adopted the implementation ledger and separated focused shadow-path implementation from operational rollout validation. Earlier implementation provenance was not reconstructed. | current change; focused workflow tests | Capture runtime exit-gate evidence and record independent promotion outcomes. |
 | 2026-08-14 | implemented | Extracted Forseti's pure decision mapping, conflict, impact, and freshness helpers into the private framework without changing its judge role, topics, workflow modes, or promotion state. | `current change`; focused layout and Forseti judge checks passed 104 cases, and strict mypy and agent import gates passed. | Runtime exit-gate evidence and independent promotion outcomes remain unchanged. |
+| 2026-08-17 | implemented | Extracted Heimdall's pure bounded-map, trace-evidence, and severity normalization helpers into the private framework. Its observer role, owned and subscribed topics, deterministic hot path, and incident handoff remain unchanged. | `current change`; `heimdall_helpers.py`, `heimdall.py`; 21 focused observer cases, 11 framework-layout cases, Ruff, format, and strict mypy passed. | Runtime exit-gate evidence and independent promotion outcomes remain unchanged. |
 
 ### Remaining work
 
