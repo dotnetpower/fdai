@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: a2909c64724a0bd4a625982fa1dcd769662daecd
+translation_source_sha: 284070b523d72d6bb974ff1593ab84e4d1a1ee61
 translation_revised: 2026-08-18
 ---
 # 코드 맵
@@ -130,6 +130,7 @@ translation_revised: 2026-08-18
 | 2026-08-18 | implemented | Deterministic plan 검증이 언어에서 다시 구성할 수 없는 schema-valid frame 계열 2개에 prompt-level 최종 audit를 추가했습니다. Frame v11은 count 또는 grouping 요청을 `aggregation_table`에 유지하고 evidence sufficiency 요청을 `validate` 및 `evidence_validation`에 유지합니다. Core는 계속 identity를 다시 만들고 I/O 전에 모든 결과 plan을 검증합니다. | `current change`, focused prompt 레지스트리 계약 통과 | Seeded를 시작하기 전에 strict 14/14 근거를 보존합니다. |
 | 2026-08-18 | implemented | Principal-scope denial을 terminal로 유지하면서 causal plan 생성을 강화했습니다. Plan prompt v12는 principal-visible `Resource` ObjectSet이 두 metric-scope read와 evidence join 전에 predicate, traversal 및 root id를 생략하도록 요구합니다. Core는 계속 I/O 전에 닫힌 DAG를 검증합니다. | `current change`, focused prompt 레지스트리 및 no-T2 scope-denial 회귀 통과 | Seeded를 시작하기 전에 strict 14/14 근거를 보존합니다. |
 | 2026-08-18 | implemented | Frame 경계에서 evidence selection과 evidence judgment를 분리했습니다. Frame prompt v12는 membership 질문을 filtered ObjectSet으로 보내고 completeness 및 gap 결정에만 server-owned evidence validation을 사용합니다. 기존 frame 및 plan verifier는 계속 authoritative합니다. | `current change`, focused prompt 레지스트리 계약 통과 | 중앙 검증된 source에서 strict 및 seeded 근거를 보존합니다. |
+| 2026-08-18 | implemented | Frame prompt v13에서 evidence-contract subject와 ontology-object predicate를 분리했습니다. Claim 및 evidence-reference coverage는 server-owned validation에 유지하고 evidence-valued property에 따른 object membership은 filtered ObjectSet 경로에 유지합니다. Utterance literal 또는 runtime authority는 추가하지 않았습니다. | `current change`, focused prompt 레지스트리 계약 통과 | 중앙 검증된 source에서 strict 및 seeded 근거를 보존합니다. |
 
 ### 남은 작업
 

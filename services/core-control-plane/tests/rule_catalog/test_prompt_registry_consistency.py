@@ -122,7 +122,7 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     frame = prompts.get_base("semantic.query.frame")
     plan = prompts.get_base("semantic.query.plan")
 
-    assert frame.version == 12
+    assert frame.version == 13
     assert "output_shape to exactly one capability family" in frame.body
     assert "aggregation_table for a count or grouping" in frame.body
     assert "topology_graph for current instance connectivity or containment" in frame.body
@@ -160,6 +160,9 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     )
     assert "whether evidence for a set is sufficient or complete" in frame.body
     assert "does not select members by an evidence property" in frame.body
+    assert "Evidence claims, evidence references, verification coverage" in frame.body
+    assert "which claims carry evidence references MUST use validate" in frame.body
+    assert "selects runtime ontology objects by one readable evidence-valued property" in frame.body
     assert "instead of clarification" in frame.body
     assert "Do not select that function for instance listing" in frame.body
     assert "query.incident_evidence" in frame.body
