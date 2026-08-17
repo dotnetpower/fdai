@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 55983baf797facb9acb6da380a1cb7734890008f
+translation_source_sha: 9cfc58f29e0a11045f59c482ad092db66a25ac16
 translation_revised: 2026-08-17
 ---
 # FDAI 온톨로지 안전 인프라
@@ -135,6 +135,7 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 | 2026-08-17 | implemented | 인시던트 타임라인이 전달된 일부가 아니라 전체 기록 수를 밝히도록 했습니다. `correlated_evidence`는 상위에서 20건으로 잘리고 `verified_records`가 실제 총계를 가지므로, 34건짜리 인시던트가 개요에는 `감사 기록 34`를, 같은 카드의 타임라인에는 `최근 10/20건`을 표시해 바로 앞 블록에서 세었던 근거를 스스로 야불려 보고했습니다. 이제 타임라인 제목은 검증된 총계를 기준으로 합니다. | `current change`, Operator 검사 353개 통과 1개 건너뜀, Core 인시던트 및 처리기 검사 400개 통과 1개 건너뜀, 기준을 되돌리자 기대값 `latest 10 of 34` 대신 `latest 10 of 20`이 재현된 뒤 소스 복원함, 작업 범위 Ruff 및 strict mypy 통과 | 인증된 로컬 콘솔에서 렌더링된 타임라인을 확인합니다. |
 | 2026-08-17 | validated | 인증된 로컬 Console에서 인시던트 답변이 프로필, 행위자와 감사 참조를 포함한 기록된 활동 표, 명시된 한계, 읽기 전용 다음 단계를 렌더링하여 단순 검증 출력 개수를 대체함을 확인했습니다. 관측된 인시던트가 6건을 보유하고 블록이 6건을 모두 표시했기 때문에 타임라인 제목에는 절단 접미사가 없었고, 따라서 이번 라이브 세션은 절단되지 않은 경로만 검증했습니다. | `current change`; 커밋 `61e826092`의 로컬 Core와 Operator를 대상으로 한 `/incidents`의 인증된 Browser Entra 세션; 카드는 `Audit records 6`, 활동 6행, 한계 3건, 읽기 전용 단계 2건을 보고했습니다. | 로컬 인시던트가 20건을 넘으면 절단된 타임라인을 관측합니다. 그때까지 절단된 제목은 mutation 검증된 focused 테스트로 보증됩니다. |
 | 2026-08-17 | implemented | 인증된 인시던트 표현 게이트가 기록된 활동 타임라인을 인식하도록 했습니다. 이 게이트는 타임라인이 생기기 전에 제공되던 블록 3개를 그대로 고정하고 있어서, 제품이 더 이상 만들지 않는 표현을 단언했고 타임라인을 제거해야만 통과했을 것입니다. 이제 동일한 종료 응답이 담고 있는 상관 근거에서 기대 블록을 도출합니다. | `current change`; `console/tests/live-e2e/semantic-answer-presentation.spec.ts`; 오늘 관측한 라이브 Console 답변은 `overview`, `records`, `limitations`, `findings`를 렌더링합니다. Console typecheck가 통과했습니다. | 인증된 외부 스택에서 게이트를 실행해 수정된 기대치를 새 증적으로 전환합니다. |
+| 2026-08-17 | implemented | 한국어 인시던트 표현을 단위 수준에서 고정했습니다. 영어는 이미 네 블록 순서를 고정하고 있었지만 한국어 순서와 제목은 외부 스택 없이 건너뛰는 인증된 게이트에만 의존해서, 한국어에서만 발생하는 회귀가 관측되지 않은 채 배포될 수 있었습니다. | `current change`; `test_incident_presentation_keeps_the_same_blocks_in_korean`; Operator `362 passed, 1 skipped`; 지역화된 타임라인 제목을 교체하면 한국어 테스트만 실패합니다. | 이중 언어 인시던트 표현 커버리지에 남은 작업은 없습니다. |
 
 ### 남은 작업
 
