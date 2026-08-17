@@ -1,8 +1,8 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 58f9e1dc62cb84c08ca82a81e990d3836ae1496e
-translation_revised: 2026-08-15
+translation_source_sha: c1f549c795d99293d704d8a28defd212057f14bb
+translation_revised: 2026-08-17
 ---
 # 배포 리소스 규약
 
@@ -34,7 +34,6 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | 2026-08-13 | implemented | 증적이 있는 service root 5개는 `validated`로 유지하고 이전 방식 platform 및 ops-bootstrap root는 `implemented`로 분류해 광범위한 state-root 주장을 정정했습니다. | current change, `config/independent-service-live-evidence-manifest.json`, `config/independent-service-remote-evidence.json`, roadmap, 번역 및 문서 검사 | `validated`로 전환하기 전에 platform 및 bootstrap root의 통제된 적용 증적을 보존합니다. |
 | 2026-08-13 | implemented | Schema migration Job이 성공한 뒤에만 실행되는 결정론적 Operator catalog Job을 추가했습니다. | 현재 변경의 `infra/main.tf`, `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml`, Terraform validate 통과 및 집중 배포 테스트 22개 통과. | 보호된 적용 및 Job 실행 증적을 수집합니다. |
 | 2026-08-15 | implemented | 예약된 브라우저 근거 보존을 위해 결정론적이고 길이가 안전한 `browser-gc` Job 컴포넌트를 추가했습니다. | `current change`; focused Terraform 계약 검사 `4 passed`; `terraform validate`. | Protected 적용 및 Job 실행 증적을 수집합니다. |
-
 | 2026-08-17 | implemented | 보조 readiness transition entity와 그 role assignment의 은퇴를 선언했습니다. PR #153이 startup readiness transition을 다중화된 primary bus로 되돌리면서 이 entity에는 발행자가 남지 않았습니다. | `current change`, `deploy-dev.yml`이 유효한 YAML로 파싱되고 등록된 키가 보호된 plan이 보고한 Terraform 주소와 정확히 일치합니다. | 은퇴가 적용된 뒤 두 항목을 제거합니다. |
 | 2026-08-17 | implemented | trace 연속성 탐지 창을 analyzer 창과 분리했습니다. 불연속은 탐지 창으로 식별되므로 두 창의 길이가 같으면 ingress가 분당 반복을 중복 제거하는 동안 상관이 굶습니다. | `current change`, `analyzer_tick_cli.py`와 analyzer job 모듈, focused resolver 테스트 6개 통과, `terraform fmt`와 `terraform validate` 통과 | 반복된 trace finding에서 발생한 배포 anomaly를 기록합니다. |
 | 2026-08-17 | implemented | 새 trace 창 인자를 기존 정렬 폭 안에 유지했습니다. infra 계약 테스트가 서식이 적용된 인자 문자열을 그대로 단언하므로, 더 긴 변수명은 블록의 모든 정렬 인자를 밀어 무관한 단언을 깨뜨렸습니다. | `current change`, infra 계약 스위트 71개 통과 1개 건너뜀 | 해당 단언이 서식 문자열에 결합되어야 하는지 검토합니다. |
