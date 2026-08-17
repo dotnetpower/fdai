@@ -21,7 +21,6 @@ import os
 import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 import httpx
@@ -56,6 +55,7 @@ from fdai.delivery.persistence import (
     PostgresOntologyInstanceStore,
     PostgresOntologyInstanceStoreConfig,
 )
+from fdai.delivery.repo_assets import repo_asset_root
 from fdai.delivery.trace_continuity_tick import (
     TraceContinuityTickReport,
     TraceContinuityTickRunner,
@@ -65,7 +65,7 @@ from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.analyzer_tick")
-_REPO_ROOT = Path(__file__).resolve().parents[5]
+_REPO_ROOT = repo_asset_root()
 
 TARGETS_ENV = "FDAI_ANALYZER_TARGETS"
 WINDOW_ENV = "FDAI_ANALYZER_WINDOW_SECONDS"
