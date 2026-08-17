@@ -235,6 +235,22 @@ def full_artifact_accepted(payload: Mapping[str, Any], source_revision: str) -> 
     )
 
 
+def transport_delta_accepted(
+    *,
+    request_before: int,
+    request_after: int,
+    projection_before: int,
+    projection_after: int,
+    expected_count: int,
+) -> bool:
+    """Require one exact request and projection record per measured live turn."""
+    return (
+        expected_count > 0
+        and request_after - request_before == expected_count
+        and projection_after - projection_before == expected_count
+    )
+
+
 class OntologyAssuranceRunner:
     """Own one isolated stack and its strict-then-seeded assurance sequence."""
 
@@ -316,8 +332,14 @@ class OntologyAssuranceRunner:
             projection_after = await asyncio.to_thread(
                 self._topic_high_watermark, self.projection_topic
             )
-            if request_after <= request_before or projection_after <= projection_before:
-                raise AssuranceRunError("strict semantic topics did not both advance")
+            if not transport_delta_accepted(
+                request_before=request_before,
+                request_after=request_after,
+                projection_before=projection_before,
+                projection_after=projection_after,
+                expected_count=14,
+            ):
+                raise AssuranceRunError("strict semantic topic counts do not match 14 live turns")
 
             full_exit = await self._run_playwright_phase(
                 label="seeded_100",
@@ -332,6 +354,20 @@ class OntologyAssuranceRunner:
             full_payload = _read_artifact(full_artifact)
             if not full_artifact_accepted(full_payload, self.source_revision):
                 raise AssuranceRunError("seeded 100-case artifact failed the immutable gate")
+            full_request_after = await asyncio.to_thread(
+                self._topic_high_watermark, self.request_topic
+            )
+            full_projection_after = await asyncio.to_thread(
+                self._topic_high_watermark, self.projection_topic
+            )
+            if not transport_delta_accepted(
+                request_before=request_after,
+                request_after=full_request_after,
+                projection_before=projection_after,
+                projection_after=full_projection_after,
+                expected_count=100,
+            ):
+                raise AssuranceRunError("seeded semantic topic counts do not match 100 live turns")
             self.status.update(
                 state="complete",
                 phase="complete",
