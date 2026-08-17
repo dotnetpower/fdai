@@ -104,15 +104,11 @@ Two Terraform layers plus a runner VM.
 
 ## Standard Deploy Flow
 
-1. **Validated revision gate**: finish implementation and focused tests, commit the slice, then
-  require a centralized receipt for the exact deploy revision:
-  ```bash
-  python3 scripts/automation/validation_queue.py check-commit HEAD
-  ```
-  Do not start or troubleshoot the deploy workflow while this command fails. Push the validated
-  commit and confirm the workflow branch resolves to that revision. If container inputs changed,
-  build and smoke-test the image from a clean checkout or isolated worktree at that commit before
-  dispatching Azure deployment.
+1. **Validated revision gate**: finish implementation and focused tests, commit and push the slice,
+  then confirm the required CI checks passed for the exact deploy revision. Local validation-queue
+  receipts are optional diagnostics and do not authorize deployment. Confirm the workflow branch
+  resolves to the tested revision. If container inputs changed, build and smoke-test the image from
+  a clean checkout or isolated worktree at that commit before dispatching Azure deployment.
 2. **Preflight (from the laptop)**: run `scripts/deployment/local/dev-status.sh` and
   set explicit `AZURE_SUBSCRIPTION_ID` and `AZURE_TENANT_ID`, then confirm the
   exact `az account show` subscription. Every mutating bootstrap helper calls
@@ -171,8 +167,8 @@ Two Terraform layers plus a runner VM.
 ## Guardrails (do NOT deploy)
 
 - Do not deploy, provision, build an image, or start sustained GitHub Actions troubleshooting until
-  the exact revision has passed focused checks, is committed, and has a centralized validation
-  receipt. Read-only tenant/context preflight does not waive this gate.
+  the exact revision has passed focused checks, is committed and pushed, and its required CI checks
+  are green. Read-only tenant/context preflight does not waive this gate.
 - **FDAI dev deploy on the maintainer's private tenant requires
   explicit maintainer approval per session.** The `moonchoi` cost
   policy has been lifted, but the "no `terraform apply` before P1

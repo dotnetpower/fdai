@@ -55,7 +55,7 @@ The [`Makefile`](Makefile) is the single entry point for local CI parity:
 
 | Command | What it runs |
 |--------|--------------|
-| `make check` | `lint` + `gates` + `test` + `operator` - reproduces the CI merge gate. Run this before pushing. |
+| `make check` | `lint` + `gates` + `test` + `operator` - reproduces the CI merge gate for an explicit integration or release boundary. |
 | `make lint`  | `ruff format --check` + `ruff check` + `mypy --strict`. |
 | `make format`| `ruff format` + `ruff check --fix`. Mutates files - review the diff. |
 | `make gates` | Repository hygiene, localization, and architecture boundary checks. |
@@ -63,8 +63,9 @@ The [`Makefile`](Makefile) is the single entry point for local CI parity:
 | `make operator` | Console and CLI tests, type checks, builds, and the console entry-bundle budget. |
 
 The full CI pipeline lives in
-[.github/workflows/ci.yml](.github/workflows/ci.yml); `make check` is
-the fastest way to reproduce it without pushing.
+[.github/workflows/ci.yml](.github/workflows/ci.yml). During ordinary development, run the
+narrowest focused check for the changed behavior. CI is the authoritative integration check for
+each pushed SHA; use `make check` when you explicitly need full local parity.
 
 ### Prepare a release version
 
@@ -141,7 +142,7 @@ Planning happens in GitHub issues; the
 [FDAI delivery board](https://github.com/users/dotnetpower/projects/7) is the single view over
 them. The issue body, labels, comments, and open or closed state are authoritative. The board is a
 best-effort execution projection and never a prerequisite for local investigation, implementation,
-focused validation, commit, push, or centralized validation. Every repository issue is added to
+focused validation, commit, push, or CI. Every repository issue is added to
 the board automatically, so an issue that is not on the board is synchronization drift to repair,
 not a reason to stop delivery.
 
@@ -216,8 +217,7 @@ python3 scripts/automation/project-board.py sync --apply
 `Priority`. `sync` previews drift. `sync --apply` derives lifecycle-owned status from the issue and
 copies canonical type and priority labels into Project fields. GitHub and Project failures emit a
 warning and return success by default so local work continues. Use `--strict` only for a dedicated
-board-health check. Never call the helper from pre-commit, pre-push, centralized validation, or a
-test gate.
+board-health check. Never call the helper from pre-commit, pre-push, CI, or a test gate.
 
 If GitHub is unavailable, continue local investigation, implementation, focused validation, and
 task-owned commits. Record the deferred synchronization in the completion report and retry it when

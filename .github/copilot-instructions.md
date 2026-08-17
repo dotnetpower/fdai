@@ -71,23 +71,22 @@ the Constitution always prevails.
    the owning session until they are committed.
    Follow the diff-scoped and parallel-worktree rules in
    [coding-conventions.instructions.md](instructions/coding-conventions.instructions.md).
-7. Every commit is automatically registered in the Git-common-dir validation queue and wakes a
-   low-priority background validator. The dedicated `Integration Validator` session is the manual
-   status and fallback-drain surface; it runs `make validation-run` once only when pending work is
-   not already active. Use `make validation-all` only at an explicit merge or release boundary.
-   Normal pushes check receipts without waiting and are blocked until every outgoing commit has a
-   centralized validation receipt. When a session must wait for a receipt or another filesystem
-   completion artifact, it MUST use an event-driven watcher such as `inotifywait` instead of timed
-   polling or repeated status checks. Start the watcher before rechecking whether the artifact
-   already exists to avoid a check-to-watch race; if event watching is unavailable, use one bounded
-   fallback check and report the pending state rather than polling.
+7. Commits do not enqueue repository-wide validation, and normal pushes do not require local
+   validation receipts. Worker sessions own focused checks for their changes; pre-push validates
+   the exact committed snapshot with bounded structural gates, and CI is the authoritative
+   integration validator for each pushed SHA. The `Integration Validator` and
+   `make validation-run` remain opt-in diagnostics for an explicitly enqueued revision.
+   Use `make validation-all` only at an explicit merge or release boundary. When a session must
+   wait for a CI result or another filesystem completion artifact, it MUST use an event-driven
+   watcher instead of timed polling or repeated status checks.
 8. Commit each focused-check-passing user-requested change before reporting completion unless the user says
    not to commit. Stage only task-owned files and hunks; never commit failed or incomplete work.
 9. Treat slow network-dependent work as a post-validation phase. Do not watch or rerun GitHub
    Actions, deploy or provision Azure, or build or push container images while implementation or
-   focused tests are incomplete. Commit the finished slice and obtain its centralized validation
-   receipt first. Lightweight read-only identity and context checks may run earlier; they must not
-   become long polling or remote troubleshooting.
+   focused tests are incomplete. Commit the finished slice first. Deployment and release work must
+   target a pushed SHA whose required CI checks and workflow-specific protected preflight pass;
+   local queue receipts are not an authority boundary. Lightweight read-only identity and context
+   checks may run earlier; they must not become long polling or remote troubleshooting.
 10. Prevent interactive sensitive-input prompts before starting a command. Prefer an existing
    authenticated session, workload identity, credential-store reference, documented
    non-interactive mode, or provider-hosted browser/device authorization flow, and use a
@@ -117,7 +116,7 @@ the Constitution always prevails.
    first task-owned commit or external state change.
 - Use `python3 scripts/automation/project-board.py start <issue-number>` when GitHub is available.
    Project updates are best-effort and MUST NOT block local implementation, focused validation,
-   commits, pushes, or centralized validation. Report deferred synchronization and retry later.
+   commits, pushes, or CI. Report deferred synchronization and retry later.
 - Issue content, labels, evidence comments, and open or closed state are authoritative. Project
    fields are a derived execution view. Assignment records accountability; only `In progress`
    records active work.

@@ -69,33 +69,6 @@ if [ -z "$range" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 2. Central validation receipt guard. Every outgoing commit is registered in
-#    the Git-common-dir queue, shared by all linked worktrees. The dedicated
-#    integration session validates a stable batch once; worker sessions cannot
-#    push the batch until every outgoing commit has a receipt.
-# ---------------------------------------------------------------------------
-validation_queue="scripts/automation/validation_queue.py"
-if [ ! -f "$validation_queue" ]; then
-  echo "pre-push: BLOCKED - required validation queue is missing: $validation_queue"
-  exit 1
-fi
-if ! python3 "$validation_queue" ensure-range "$range" >/dev/null; then
-  echo "pre-push: BLOCKED - failed to register the outgoing validation range."
-  exit 1
-fi
-if ! python3 "$validation_queue" check-range "$range"; then
-  echo "pre-push: BLOCKED - centralized integration validation is pending."
-  exit 1
-fi
-structural_evidence=0
-if python3 "$validation_queue" check-structural-gates HEAD; then
-  structural_evidence=1
-fi
-if [[ $structural_evidence -eq 1 ]]; then
-  echo "pre-push: OK (exact centralized validation and structural evidence reused)"
-  exit 0
-fi
-
 # Files changed in the commits being pushed (skip deletions).
 mapfile -t changed < <(git diff --name-only --diff-filter=d "$range" 2>/dev/null || true)
 if [ "${#changed[@]}" -eq 0 ]; then
@@ -123,7 +96,7 @@ cd "$validation_root" || exit 1
 echo "pre-push: validating committed HEAD in an isolated worktree..."
 
 # ---------------------------------------------------------------------------
-# 3. Merge-conflict marker guard.
+# 2. Merge-conflict marker guard.
 # Only the two brace-marker forms are unambiguous - the middle '=======' also
 # matches RST/Markdown header underlines (e.g. 'Purpose\n=======\n') and
 # would cause a false positive on any doc using that style.
@@ -141,7 +114,7 @@ if [ -n "$markers" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 4. Fast ruff lint on changed Python files under src/ and tests/.
+# 3. Fast ruff lint on changed Python files under src/ and tests/.
 # ---------------------------------------------------------------------------
 py=()
 for f in "${changed[@]}"; do
@@ -169,7 +142,7 @@ if [ "${#py[@]}" -gt 0 ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 5. Framework-surface guard. Upstream: advisory warning (exit 0, never
+# 4. Framework-surface guard. Upstream: advisory warning (exit 0, never
 #    blocks a push). Fork (FDAI_FORK=1 / .fdai-fork / git config fdai.fork):
 #    hard block on any edit under src/fdai/core, composition.py, the provider
 #    Protocols, contracts, agents, rule-catalog/schema, or .github/instructions.
@@ -182,7 +155,7 @@ if [ -x scripts/integrity/check-protected-paths.sh ] || [ -f scripts/integrity/c
 fi
 
 # ---------------------------------------------------------------------------
-# 5b. Framework-surface integrity (offline signed manifest). Verifies the
+# 4b. Framework-surface integrity (offline signed manifest). Verifies the
 #     signature + content of every framework-surface file against the
 #     upstream-signed security/integrity/manifest.json. Fork: a content
 #     mismatch (edited/added/deleted surface file) is a HARD BLOCK. Upstream:
@@ -197,7 +170,7 @@ if [ -f scripts/integrity/check-integrity.sh ] && [ -f security/integrity/manife
 fi
 
 # ---------------------------------------------------------------------------
-# 5c. Design-document impact. Routes behavior-bearing paths through the
+# 4c. Design-document impact. Routes behavior-bearing paths through the
 #     machine-readable design registry and requires an owning design doc in
 #     the same pushed range.
 # ---------------------------------------------------------------------------
@@ -215,10 +188,9 @@ if [ -f scripts/quality/architecture/check-document-size.py ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 6. Structural gates. Exact evidence exits before the isolated worktree is
-#    created. Missing or stale evidence reaches this fallback runner.
+# 5. Structural gates. Validate the exact committed snapshot before push.
 # ---------------------------------------------------------------------------
-echo "pre-push: structural receipt missing or stale; running fallback gates..."
+echo "pre-push: running structural gates..."
 if ! bash scripts/automation/run-pre-push-structural-gates.sh; then
   echo "pre-push: BLOCKED - structural gates failed."
   exit 1

@@ -92,19 +92,20 @@ cap with `FDAI_PYTEST_MAX_WORKERS`.
 
 ## Verification
 
-Parallel worker sessions run focused tests only. Every successful commit is
-automatically added to a queue under the shared Git common directory, so linked
-worktrees feed the same validator without writing runtime state into the repository.
+Parallel worker sessions run focused tests only. Commits are not automatically added to the
+shared validation queue, and normal pushes do not require local queue receipts. CI is the
+authoritative integration validator for each pushed SHA.
 
 The pre-tool guard also reserves each edited repository path for the current agent session. A
 second session is blocked only while that reservation is at most 30 minutes old and the target is
 still dirty. The same session refreshes its reservation on each edit, and a clean target can be
 claimed immediately. Reservations live under the Git directory and never enter a commit.
 
-Open one VS Code chat with the `Integration Validator` custom agent. Inspect and
-process the accumulated batch from that session:
+For an explicit manual queue diagnostic, enqueue the exact revision and use the optional
+`Integration Validator` custom agent:
 
 ```bash
+python3 scripts/automation/validation_queue.py enqueue HEAD
 make validation-status
 make validation-run
 ```
@@ -115,32 +116,25 @@ Python caches and the installed Console and CLI dependency trees from any
 available linked worktree. Dependency synchronization is skipped when the
 locked dependency files and selected Python interpreter have the same digest.
 
-Post-commit wakeups update one latest-HEAD request and reuse one stable background drain worker.
-The worker validates another batch only when a newer request arrived during the successful run;
-failed runs stop for repair instead of retrying continuously. Background validation is limited to
-180% CPU and at most two deterministic changed-test shards. A manual Integration Validator run
-keeps the adaptive one-to-four-shard range based on CPU load and available memory. Set
-`FDAI_PYTEST_MAX_WORKERS` to lower that foreground cap. Each shard records status, duration, and a
-command-bound pass marker under the shared queue state. An identical retry skips completed shards
-while rerunning failed ones. Fast gates use the commit diff to skip checks with unrelated declared
-inputs. Repository-wide text checks and the design-impact check still run on every batch, and
-running `verify.sh --fast` without `--diff` preserves the complete fast-gate suite.
+An explicit `wake` request updates one latest-HEAD request and reuses one stable background drain
+worker. Failed runs stop for repair instead of retrying continuously. Background validation is
+limited to 180% CPU and at most two deterministic changed-test shards. A manual Integration
+Validator run keeps the adaptive one-to-four-shard range based on CPU load and available memory.
+Set `FDAI_PYTEST_MAX_WORKERS` to lower that foreground cap. Each shard records status, duration,
+and a command-bound pass marker under the shared queue state. An identical retry skips completed
+shards while rerunning failed ones.
 
 Each stage records its duration and cache status in the run record and commit
 receipts under `.git/fdai-validation-queue/`. If a late gate fails, a retry at
 the same base, `HEAD`, mode, integration settings, database identity, and local
 resolved-model digest reuses successful changed tests and individual gates.
 Changing any of those inputs invalidates the matching cache. A failed gate
-leaves the commits pending. A successful run writes per-commit receipts, and
-the pre-push hook blocks outgoing commits without those receipts.
+leaves the commits pending. A successful optional run writes per-commit diagnostic receipts. The
+pre-push hook does not read or require them.
 
-Central validation also runs the complete pre-push structural gate set and
-binds its input digest to each receipt. Pre-push reuses that evidence only for
-the exact current `HEAD` when the shared runner, every structural gate,
-`pyproject.toml`, and `uv.lock` still match. Missing or stale evidence falls
-back to the same shared gate runner in an isolated committed worktree. Exact
-evidence skips isolated-worktree creation and the duplicate committed-snapshot
-checks entirely.
+The optional queue also runs the complete pre-push structural gate set and binds its input digest
+to each receipt. Normal pre-push validation always runs the structural gates against an isolated
+exact committed snapshot, independent of optional queue state.
 The hook uses the remote ref that Git already negotiated for the push to check
 fast-forward ancestry and the outgoing range. It doesn't issue a duplicate
 network fetch before validation.
@@ -156,16 +150,15 @@ stage. Integration-enabled runs also restart the complete stage because their
 two pytest phases don't yet provide a complete partial-run proof. Receipts
 record the source `HEAD` and number of resumed failures.
 
-Check whether one exact revision is ready for slow external follow-up work:
+Inspect whether one exact revision has an optional diagnostic receipt:
 
 ```bash
 python3 scripts/automation/validation_queue.py check-commit HEAD
 ```
 
-GitHub Actions investigation or reruns, Azure plan/apply/deploy operations, remote evaluation, and
-container image build/push work begin only after this check passes. Short read-only context checks
-such as `az account show` may run earlier. A later code edit creates a new revision and requires a
-new receipt before another external run.
+This command is diagnostic only. It does not authorize push, CI, deployment, or release work.
+External work follows focused checks and a focused commit; deployment and release target a pushed
+SHA whose required CI and protected workflow preflight pass.
 
 Preview completed worktrees that are eligible for conservative cleanup:
 
@@ -211,10 +204,10 @@ make validation-all
 
 Worker sessions may still use `bash scripts/verify.sh --full <path>` for one
 focused pytest target. Direct fast/all verification and unscoped test-tool runs
-are denied by the workspace `PreToolUse` hook so parallel sessions cannot duplicate
-the centralized load. The pre-push hook runs Python structural gates with the
+are denied by the workspace `PreToolUse` hook so parallel sessions do not duplicate
+repository-wide load. The pre-push hook runs Python structural gates with the
 project interpreter selected by `uv`, so those gates parse the same supported
-language version as centralized validation.
+language version as CI.
 
 The same hook records route-selected design documents once per agent session and checks their
 content hashes only for high-risk edits. Treat documentation synchronization as a batch boundary:
