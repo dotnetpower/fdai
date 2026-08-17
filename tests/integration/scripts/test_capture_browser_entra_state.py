@@ -40,6 +40,21 @@ def test_build_storage_state_uses_session_bootstrap_contract() -> None:
     assert json.loads(bootstrap["value"]) == [["account", "signed-in"]]
 
 
+def test_build_storage_state_can_target_an_isolated_console_origin() -> None:
+    module = _load_module()
+
+    state = module.build_storage_state(
+        {
+            "origin": module.DEFAULT_ORIGIN,
+            "sessionStorage": [["account", "signed-in"]],
+        },
+        module.DEFAULT_ORIGIN,
+        "http://localhost:5275",
+    )
+
+    assert state["origins"][0]["origin"] == "http://localhost:5275"
+
+
 @pytest.mark.parametrize(
     "payload",
     [
