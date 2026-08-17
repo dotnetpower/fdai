@@ -910,6 +910,12 @@ jobs:
           permitted_retirements = {
             "module.state_store.azurerm_postgresql_flexible_server_firewall_rule."
             "allow_azure_services[0]": (),
+            # Readiness transitions moved back onto the multiplexed primary bus in #153,
+            # so the auxiliary entity added for them no longer has a publisher.
+            "module.event_bus_auxiliary.azurerm_eventhub.auxiliary"
+            "[\"runtime.readiness.transitions\"]": (),
+            "azurerm_role_assignment.executor_eventhubs_data_owner"
+            "[\"runtime.readiness.transitions\"]": (),
             "azurerm_role_assignment.ingestion_eventhubs_receiver[0]": (
               "azurerm_role_assignment.ingestion_worker_pantheon_receiver[0]",
             ),
