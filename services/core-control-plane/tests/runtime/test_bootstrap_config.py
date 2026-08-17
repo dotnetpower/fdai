@@ -65,6 +65,7 @@ from fdai.runtime.bootstrap_lifecycle import run_main as _run_main
 from fdai.runtime.bootstrap_lifecycle import (
     semantic_turn_readiness_registration as _semantic_turn_readiness_registration,
 )
+from fdai.runtime.readiness import RuntimeReadinessState
 from fdai.shared.config.runtime_flags import pantheon_start_enabled
 from fdai.shared.providers.local.event_bus import LocalEventBus
 from fdai.shared.providers.metric import MetricPoint, MetricQuery, NoopMetricProvider
@@ -509,6 +510,34 @@ async def test_semantic_turn_bootstrap_exposes_exact_missing_runtime_reason() ->
     assert report.decision is ReadinessDecision.DEGRADED
     assert report.authority_ceilings["semantic-query"] is AuthorityCeiling.DISABLED
     assert result.failure_class == "semantic_ontology_store_unavailable"
+
+
+async def test_semantic_turn_readiness_result_outlives_the_probe_deadline() -> None:
+    binding = _build_semantic_turn_binding(
+        state_store=InMemoryStateStore(),
+        config={
+            "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "operator.request",
+            "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "operator.projection",
+        },
+        unavailable_reason="semantic_ontology_store_unavailable",
+    )
+
+    assert binding is not None
+    specs, probes = _semantic_turn_readiness_registration(binding)
+    now = datetime.now(UTC)
+    deadline = now + timedelta(seconds=5)
+    result = await probes[0].run(
+        StartupProbeRequest(
+            deadline=deadline,
+            cost_limit_usd=0,
+            model_sample_count=2,
+            synthetic_scope=False,
+        )
+    )
+    state = RuntimeReadinessState()
+    state.update(reduce_startup_readiness(specs, (result,), generated_at=now))
+
+    assert state.is_ready(now=deadline + timedelta(seconds=1))
 
 
 async def test_semantic_turn_bootstrap_reports_bound_runtime_available() -> None:

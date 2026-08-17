@@ -154,6 +154,7 @@ def build_startup_readiness_runtime(
     *,
     state_store: StateStore,
     event_bus: EventBus,
+    transition_event_bus: EventBus,
     event_validator: EventValidator,
     identity: WorkloadIdentity,
     embedding_model: EmbeddingModel,
@@ -236,11 +237,14 @@ def build_startup_readiness_runtime(
     model_specs, model_probes = _cross_check_startup_probes(cross_check_models)
     specs = (*standard_specs, *model_specs, *registered_specs)
     probes = (*standard_probes, *model_probes, *registered_probes)
+    # The round-trip probe uses the operational bus (a real ops-namespace topic),
+    # but readiness transitions are a multiplexed logical topic, so the coordinator
+    # publishes them on transition_event_bus to reach the physical object topic.
     coordinator = StartupReadinessCoordinator(
         specs=specs,
         probes=probes,
         state_store=state_store,
-        event_bus=event_bus,
+        event_bus=transition_event_bus,
         event_validator=event_validator,
         deployment_ceilings=deployment_ceilings,
         budget=StartupProbeBudget(

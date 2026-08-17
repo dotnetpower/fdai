@@ -16,9 +16,19 @@ from fdai.core.readiness import (
 )
 from fdai.delivery.startup_probe import StaticStartupProbe
 from fdai.runtime.readiness import RuntimeReadinessState, build_startup_readiness_runtime
+from fdai.shared.providers.event_bus import PublishReceipt
 from fdai.shared.providers.local.event_bus import LocalEventBus
 from fdai.shared.providers.local.identity import LocalWorkloadIdentity
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+
+class _RecordingBus:
+    def __init__(self) -> None:
+        self.published: list[tuple[str, str, dict[str, Any]]] = []
+
+    async def publish(self, topic: str, key: str, payload: dict[str, Any]) -> PublishReceipt:
+        self.published.append((topic, key, payload))
+        return PublishReceipt(topic=topic, partition=0, offset=0)
 
 
 class _Validator:
@@ -64,6 +74,7 @@ async def test_standard_runtime_inventory_reaches_ready_and_persists_report() ->
     runtime = build_startup_readiness_runtime(
         state_store=store,
         event_bus=LocalEventBus(),
+        transition_event_bus=LocalEventBus(),
         event_validator=validator,  # type: ignore[arg-type]
         identity=LocalWorkloadIdentity(),
         embedding_model=_Embedding(),
@@ -86,11 +97,32 @@ async def test_standard_runtime_inventory_reaches_ready_and_persists_report() ->
     )
 
 
+async def test_readiness_transitions_publish_on_the_transition_bus_not_the_probe_bus() -> None:
+    transition_bus = _RecordingBus()
+    runtime = build_startup_readiness_runtime(
+        state_store=InMemoryStateStore(),
+        event_bus=LocalEventBus(),
+        transition_event_bus=transition_bus,  # type: ignore[arg-type]
+        event_validator=_Validator(),  # type: ignore[arg-type]
+        identity=LocalWorkloadIdentity(),
+        embedding_model=_Embedding(),
+        policy_compile_probe=_policy_probe(),
+        environment={"FDAI_STARTUP_KAFKA_SETTLE_SECONDS": "0"},
+    )
+
+    await runtime.evaluate()
+
+    assert [topic for topic, _key, _payload in transition_bus.published] == [
+        "runtime.readiness.transitions"
+    ]
+
+
 async def test_runtime_probes_every_candidate_inside_cross_check_pool() -> None:
     candidates = (_CrossCheck(), _CrossCheck())
     runtime = build_startup_readiness_runtime(
         state_store=InMemoryStateStore(),
         event_bus=LocalEventBus(),
+        transition_event_bus=LocalEventBus(),
         event_validator=_Validator(),  # type: ignore[arg-type]
         identity=LocalWorkloadIdentity(),
         embedding_model=_Embedding(),
@@ -165,6 +197,7 @@ async def test_guarded_operation_is_not_created_before_readiness() -> None:
     runtime = build_startup_readiness_runtime(
         state_store=store,
         event_bus=LocalEventBus(),
+        transition_event_bus=LocalEventBus(),
         event_validator=_Validator(),  # type: ignore[arg-type]
         identity=LocalWorkloadIdentity(),
         embedding_model=_Embedding(),
@@ -195,6 +228,7 @@ async def test_guarded_operation_is_cancelled_on_blocker_and_restarts() -> None:
     runtime = build_startup_readiness_runtime(
         state_store=store,
         event_bus=LocalEventBus(),
+        transition_event_bus=LocalEventBus(),
         event_validator=_Validator(),  # type: ignore[arg-type]
         identity=LocalWorkloadIdentity(),
         embedding_model=_Embedding(),
@@ -261,6 +295,7 @@ async def test_guarded_operation_is_drained_when_the_supervisor_is_cancelled() -
     runtime = build_startup_readiness_runtime(
         state_store=InMemoryStateStore(),
         event_bus=LocalEventBus(),
+        transition_event_bus=LocalEventBus(),
         event_validator=_Validator(),  # type: ignore[arg-type]
         identity=LocalWorkloadIdentity(),
         embedding_model=_Embedding(),
