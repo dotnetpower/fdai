@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 59af9533defff5fed092b9d09488cb06f827a1a0 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: f98086e856da27546a2551598cd0988186af9241 }]
 ---
 
 # Deploy Quickstart
@@ -25,8 +25,9 @@ first, so you can review the plan before you run the separate apply step.
   if the active identity or the selected `azd` environment does not match that
   exact pair.
 - An attested FDAI runtime image from `container-supply-chain.yml`. An Executor
-  plan verifies the GHCR attestation for `runtime_image_revision` and binds the
-  identical digest already present in ACR. Use `promote_runtime_image=true` only
+  plan verifies the `ghcr.io/<owner>/<repo>/fdai-core-control-plane` attestation
+  for `runtime_image_revision` and binds the identical digest in the ACR `fdai`
+  repository. Use `promote_runtime_image=true` only
   to import that verified digest before planning; exact apply never promotes or
   rebuilds an image.
 - Network access from the deployment host to every private endpoint. In a
