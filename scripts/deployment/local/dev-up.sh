@@ -21,6 +21,7 @@ fi
 
 echo "dev-up: bringing up postgres + redpanda + clamav..."
 docker compose up -d --wait
+"${repo_root}/scripts/deployment/local/ensure-semantic-topic-partitions.sh"
 
 echo
 echo "dev-up: OK"

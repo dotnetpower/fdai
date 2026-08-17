@@ -33,6 +33,10 @@ SEMANTIC_OUTBOX_NAMESPACE_ENV = "FDAI_SEMANTIC_TURN_OUTBOX_NAMESPACE"
 SEMANTIC_CONSUMER_GROUP_ENV = "FDAI_SEMANTIC_TURN_CONSUMER_GROUP_ID"
 SEMANTIC_KAFKA_CLIENT_ID_ENV = "FDAI_SEMANTIC_TURN_KAFKA_CLIENT_ID"
 MANAGED_IDENTITY_CLIENT_ID_ENV = "FDAI_COMMAND_MI_CLIENT_ID"
+AZURE_READER_CLIENT_ID_ENV = "FDAI_AZURE_READER_CLIENT_ID"
+AZURE_READER_SUBSCRIPTION_ID_ENV = "FDAI_AZURE_READER_SUBSCRIPTION_ID"
+AZURE_READER_RESOURCE_GROUPS_ENV = "FDAI_AZURE_READER_RESOURCE_GROUPS"
+INVENTORY_QUERY_LANGUAGE_PATH_ENV = "FDAI_INVENTORY_QUERY_LANGUAGE_PATH"
 DEFAULT_HOST = "0.0.0.0"  # noqa: S104 - Container ingress terminates external HTTPS.
 DEFAULT_PORT = 8000
 DEFAULT_DATABASE_STATEMENT_TIMEOUT_MS = 20_000
@@ -90,6 +94,10 @@ class OperatorEnvironment:
     semantic_consumer_group_id: str
     semantic_kafka_client_id: str
     managed_identity_client_id: str | None
+    azure_reader_client_id: str | None
+    azure_reader_subscription_id: str | None
+    azure_reader_resource_groups: tuple[str, ...]
+    inventory_query_language_path: str | None
 
     @classmethod
     def parse(cls, environ: Mapping[str, str]) -> OperatorEnvironment:
@@ -209,6 +217,40 @@ class OperatorEnvironment:
             values.get(SEMANTIC_KAFKA_CLIENT_ID_ENV, "").strip() or DEFAULT_SEMANTIC_KAFKA_CLIENT_ID
         )
         managed_identity_client_id = values.get(MANAGED_IDENTITY_CLIENT_ID_ENV, "").strip() or None
+        execution_venue = values.get("FDAI_EXECUTION_VENUE", "deployed").strip()
+        if execution_venue not in {"local", "deployed"}:
+            raise OperatorServiceConfigurationError(
+                "FDAI_EXECUTION_VENUE MUST be local or deployed"
+            )
+        azure_reader_client_id = values.get(AZURE_READER_CLIENT_ID_ENV, "").strip() or None
+        azure_reader_subscription_id = (
+            values.get(AZURE_READER_SUBSCRIPTION_ID_ENV, "").strip() or None
+        )
+        azure_reader_resource_groups = tuple(
+            item.strip()
+            for item in values.get(AZURE_READER_RESOURCE_GROUPS_ENV, "").split(",")
+            if item.strip()
+        )
+        reader_configured = any(
+            (
+                azure_reader_subscription_id is not None,
+                bool(azure_reader_resource_groups),
+                azure_reader_client_id is not None,
+            )
+        )
+        reader_complete = (
+            azure_reader_subscription_id is not None
+            and bool(azure_reader_resource_groups)
+            and (azure_reader_client_id is not None or execution_venue == "local")
+        )
+        if reader_configured and not reader_complete:
+            raise OperatorServiceConfigurationError(
+                "Azure Reader subscription, resource groups, and deployed client id MUST be "
+                "configured together"
+            )
+        inventory_query_language_path = (
+            values.get(INVENTORY_QUERY_LANGUAGE_PATH_ENV, "").strip() or None
+        )
 
         return cls(
             values=MappingProxyType(values),
@@ -236,6 +278,10 @@ class OperatorEnvironment:
             semantic_consumer_group_id=semantic_consumer_group_id,
             semantic_kafka_client_id=semantic_kafka_client_id,
             managed_identity_client_id=managed_identity_client_id,
+            azure_reader_client_id=azure_reader_client_id,
+            azure_reader_subscription_id=azure_reader_subscription_id,
+            azure_reader_resource_groups=azure_reader_resource_groups,
+            inventory_query_language_path=inventory_query_language_path,
         )
 
 
@@ -282,6 +328,9 @@ def _boolean(environ: Mapping[str, str], key: str, *, default: bool) -> bool:
 
 __all__ = [
     "AUDIENCE_ENV",
+    "AZURE_READER_CLIENT_ID_ENV",
+    "AZURE_READER_RESOURCE_GROUPS_ENV",
+    "AZURE_READER_SUBSCRIPTION_ID_ENV",
     "CORS_ORIGINS_ENV",
     "DATABASE_CONNECT_TIMEOUT_ENV",
     "DATABASE_ROLE_ENV",
@@ -294,6 +343,7 @@ __all__ = [
     "GROUP_ENV",
     "HOST_ENV",
     "ISSUER_ENV",
+    "INVENTORY_QUERY_LANGUAGE_PATH_ENV",
     "KAFKA_BOOTSTRAP_SERVERS_ENV",
     "LIVE_STAGE_CONSUMER_GROUP_ENV",
     "STAGE_TOPIC_ENV",

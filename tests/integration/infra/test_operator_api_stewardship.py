@@ -78,3 +78,27 @@ def test_operator_api_command_identity_can_publish_owned_objects() -> None:
     )
     assert "module.event_bus.topic_ids[local.semantic_turn_request_topic]" not in root
     assert "module.event_bus.topic_ids[local.semantic_turn_projection_topic]" not in root
+
+
+def test_operator_api_subscription_identity_read_is_least_privilege() -> None:
+    root = (_ROOT / "infra" / "main.tf").read_text(encoding="utf-8")
+
+    role = re.search(
+        r'resource "azurerm_role_definition" "operator_subscription_identity_reader" \{'
+        r"(?P<body>.*?)\n\}",
+        root,
+        flags=re.DOTALL,
+    )
+    assert role is not None
+    body = role.group("body")
+    assert 'actions     = ["Microsoft.Resources/subscriptions/read"]' in body
+    assert '"*/read"' not in body
+    assert '"Microsoft.Resources/*"' not in body
+    assert (
+        'scope       = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"'
+        in body
+    )
+    assert (
+        "role_definition_id = azurerm_role_definition."
+        "operator_subscription_identity_reader[0].role_definition_resource_id"
+    ) in root

@@ -70,6 +70,17 @@ def t2_model_targets(
     return _unique_targets(targets)
 
 
+def conversation_t2_model_targets(
+    resolved: ResolvedModels,
+    *,
+    endpoint: str | None,
+    endpoint_resolver: Callable[[str], str] | None,
+) -> tuple[ModelRequestTarget, ...]:
+    """Keep conversational T2 disabled until a governed novelty gate is implemented."""
+    del resolved, endpoint, endpoint_resolver
+    return ()
+
+
 def _unique_targets(targets: list[ModelRequestTarget]) -> tuple[ModelRequestTarget, ...]:
     unique: dict[tuple[str, str, str | None], ModelRequestTarget] = {}
     for target in targets:
@@ -122,4 +133,4 @@ def _target_for_capability(
     )
 
 
-__all__ = ["t1_model_targets", "t2_model_targets"]
+__all__ = ["conversation_t2_model_targets", "t1_model_targets", "t2_model_targets"]

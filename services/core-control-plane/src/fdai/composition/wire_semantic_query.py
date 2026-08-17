@@ -90,7 +90,7 @@ from fdai.shared.providers.ontology_instance import OntologyInstanceStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 from ._helpers import Container, _load_resolved_models
-from .semantic_query_model_targets import t1_model_targets, t2_model_targets
+from .semantic_query_model_targets import conversation_t2_model_targets, t1_model_targets
 
 _FRAME_CAPABILITY = "semantic.query.frame"
 _PLAN_CAPABILITY = "semantic.query.plan"
@@ -404,7 +404,7 @@ def compose_azure_semantic_query_runtime(
         )
         if not t1_candidates:
             return _unavailable("semantic_t1_model_candidates_unavailable")
-        t2_candidates = t2_model_targets(
+        t2_candidates = conversation_t2_model_targets(
             resolved,
             endpoint=endpoint,
             endpoint_resolver=endpoint_resolver,

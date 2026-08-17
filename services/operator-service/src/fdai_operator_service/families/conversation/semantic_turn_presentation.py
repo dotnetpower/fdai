@@ -9,7 +9,6 @@ from typing import cast
 from fdai_operator_service.families.conversation.contracts import JsonObject
 
 _SEMANTIC_ROUTE_BY_DISPOSITION = {
-    "answered": "verified_query_plan",
     "clarification": "semantic_clarification",
     "unsupported": "semantic_unsupported",
     "action_draft": "semantic_action_draft",
@@ -934,6 +933,11 @@ def _semantic_receipt(
     if disposition == "held":
         if semantic_route is not None or unavailable_reason not in _SEMANTIC_UNAVAILABLE_REASONS:
             raise ValueError("stored held semantic projection has invalid typed unavailability")
+    elif disposition == "answered":
+        if semantic_route not in {"verified_query_plan", "deterministic_read"}:
+            raise ValueError("stored answered semantic projection route is invalid")
+        if unavailable_reason is not None:
+            raise ValueError("stored answered semantic projection cannot be unavailable")
     elif semantic_route != expected_route or unavailable_reason is not None:
         raise ValueError("stored semantic projection route does not match disposition")
     digest_fields = (
@@ -949,8 +953,20 @@ def _semantic_receipt(
             if not isinstance(value, str) or not value:
                 raise ValueError(f"stored semantic {field} is malformed")
             digests[field] = value
-    if disposition == "answered" and len(digests) != len(digest_fields):
-        raise ValueError("stored answered semantic projection is missing exact evidence digests")
+    deterministic_receipt = semantic.get("deterministic_receipt_digest")
+    if deterministic_receipt is not None and (
+        not isinstance(deterministic_receipt, str) or not deterministic_receipt
+    ):
+        raise ValueError("stored deterministic receipt digest is malformed")
+    if disposition == "answered":
+        if semantic_route == "verified_query_plan" and (
+            len(digests) != len(digest_fields) or deterministic_receipt is not None
+        ):
+            raise ValueError("stored ontology answer is missing exact evidence digests")
+        if semantic_route == "deterministic_read" and (digests or deterministic_receipt is None):
+            raise ValueError("stored deterministic answer has inconsistent evidence digests")
+    elif deterministic_receipt is not None:
+        raise ValueError("stored non-answer cannot carry a deterministic receipt")
     if semantic.get("execution_authority") is not False:
         raise ValueError("stored semantic projection MUST deny execution authority")
     return {
@@ -962,6 +978,11 @@ def _semantic_receipt(
         **({"semantic_route": semantic_route} if semantic_route is not None else {}),
         **({"unavailable_reason": unavailable_reason} if unavailable_reason is not None else {}),
         **digests,
+        **(
+            {"deterministic_receipt_digest": deterministic_receipt}
+            if deterministic_receipt is not None
+            else {}
+        ),
         "execution_authority": False,
     }
 

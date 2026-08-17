@@ -17,8 +17,14 @@ if [[ ! -f "$console_env" ]]; then
   exit 1
 fi
 
+unset FDAI_KAFKA_BOOTSTRAP_SERVERS
+unset FDAI_SEMANTIC_TURN_REQUEST_TOPIC
+unset FDAI_SEMANTIC_TURN_PROJECTION_TOPIC
+unset FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC
+
 set -a
-# shellcheck disable=SC1090 - both files are private workspace-generated environments.
+# Both files are private workspace-generated environments.
+# shellcheck disable=SC1090
 source "$runtime_env"
 # shellcheck disable=SC1090
 source "$console_env"
@@ -77,6 +83,7 @@ grep -vE '^(FDAI_DATABASE_URL|FDAI_DATABASE_ROLE|FDAI_ENTRA_TENANT_ID|FDAI_API_A
   printf 'FDAI_RBAC_BREAK_GLASS_GROUP_ID=local-app-role-break-glass\n'
   printf 'FDAI_OPERATOR_SERVICE_HOST=127.0.0.1\n'
   printf 'FDAI_OPERATOR_SERVICE_PORT=8010\n'
+  printf 'FDAI_INVENTORY_QUERY_LANGUAGE_PATH=%s\n' "$repo_root/rule-catalog/vocabulary/inventory-query-language.yaml"
   if [[ -n "$semantic_request_topic" && -n "$semantic_projection_topic" ]]; then
     printf 'FDAI_KAFKA_BOOTSTRAP_SERVERS=%s\n' "$semantic_bootstrap"
     printf 'FDAI_SEMANTIC_TURN_REQUEST_TOPIC=%s\n' "$semantic_request_topic"

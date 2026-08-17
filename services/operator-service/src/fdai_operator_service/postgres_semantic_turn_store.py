@@ -88,6 +88,7 @@ class PostgresSemanticTurnRepository:
         idempotency_key: str,
         request_digest: str,
         envelope: Mapping[str, object],
+        publish_required: bool = True,
     ) -> StoredSemanticTurn:
         """Persist one v1.2 semantic request without publishing it in the transaction."""
         _bounded_component("principal_id", principal_id)
@@ -113,7 +114,7 @@ class PostgresSemanticTurnRepository:
             "principal_id": principal_id,
             "idempotency_key": idempotency_key,
             "request_digest": request_digest,
-            "state": "pending",
+            "state": "pending" if publish_required else "local",
             "attempt": 0,
             "accepted_at": requested_at,
             "envelope": dict(envelope),

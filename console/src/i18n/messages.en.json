@@ -2560,6 +2560,7 @@
       "principalManifestDigest": "Principal manifest digest",
       "planDigest": "Plan digest",
       "executionReceiptDigest": "Execution receipt digest",
+      "deterministicReceiptDigest": "Deterministic read receipt digest",
       "executionAuthority": "Execution authority",
       "duration": "Duration",
       "manifest": "Evidence manifest ({count})",

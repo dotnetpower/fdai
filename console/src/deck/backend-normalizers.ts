@@ -44,6 +44,7 @@ const SEMANTIC_DISPOSITIONS = new Set<SemanticProjectionReceipt["disposition"]>(
 ]);
 const SEMANTIC_ROUTES = new Set<NonNullable<SemanticProjectionReceipt["semantic_route"]>>([
   "verified_query_plan",
+  "deterministic_read",
   "semantic_clarification",
   "semantic_unsupported",
   "semantic_action_draft",
@@ -55,7 +56,6 @@ const SEMANTIC_UNAVAILABLE_REASONS = new Set<NonNullable<SemanticProjectionRecei
   "semantic_planner_unavailable",
 ]);
 const SEMANTIC_ROUTE_BY_DISPOSITION: Partial<Record<SemanticProjectionReceipt["disposition"], NonNullable<SemanticProjectionReceipt["semantic_route"]>>> = {
-  answered: "verified_query_plan",
   clarification: "semantic_clarification",
   unsupported: "semantic_unsupported",
   action_draft: "semantic_action_draft",
@@ -93,6 +93,11 @@ export function parseSemanticProjectionReceipt(
         unavailableReason as NonNullable<SemanticProjectionReceipt["unavailable_reason"]>,
       )
     ) return undefined;
+  } else if (disposition === "answered") {
+    if (
+      semanticRoute !== "verified_query_plan" && semanticRoute !== "deterministic_read"
+    ) return undefined;
+    if (unavailableReason !== undefined) return undefined;
   } else if (
     typeof semanticRoute !== "string" ||
     !SEMANTIC_ROUTES.has(
@@ -115,9 +120,21 @@ export function parseSemanticProjectionReceipt(
       digests[key] = value;
     }
   }
-  if (disposition === "answered" && Object.keys(digests).length !== digestKeys.length) {
-    return undefined;
-  }
+  const deterministicReceipt = record.deterministic_receipt_digest;
+  if (
+    deterministicReceipt !== undefined &&
+    (typeof deterministicReceipt !== "string" || !DIGEST_PATTERN.test(deterministicReceipt))
+  ) return undefined;
+  if (disposition === "answered") {
+    if (
+      semanticRoute === "verified_query_plan" &&
+      (Object.keys(digests).length !== digestKeys.length || deterministicReceipt !== undefined)
+    ) return undefined;
+    if (
+      semanticRoute === "deterministic_read" &&
+      (Object.keys(digests).length !== 0 || deterministicReceipt === undefined)
+    ) return undefined;
+  } else if (deterministicReceipt !== undefined) return undefined;
   return {
     schema_version: "1.0.0",
     projection_id: record.projection_id,
@@ -131,6 +148,9 @@ export function parseSemanticProjectionReceipt(
       unavailable_reason: unavailableReason as NonNullable<SemanticProjectionReceipt["unavailable_reason"]>,
     } : {}),
     ...digests,
+    ...(deterministicReceipt !== undefined ? {
+      deterministic_receipt_digest: deterministicReceipt,
+    } : {}),
     execution_authority: false,
   };
 }

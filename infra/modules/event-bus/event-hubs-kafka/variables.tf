@@ -25,9 +25,14 @@ variable "auxiliary_topics" {
 }
 
 variable "partition_count" {
-  description = "Partition count per topic. Day-zero default 2."
+  description = "Partition count per topic. At least 2 preserves partition-level consumer concurrency."
   type        = number
   default     = 2
+
+  validation {
+    condition     = var.partition_count >= 2
+    error_message = "partition_count must be at least 2."
+  }
 }
 
 variable "sku" {

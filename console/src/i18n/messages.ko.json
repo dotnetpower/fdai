@@ -2560,6 +2560,7 @@
       "principalManifestDigest": "주체 매니페스트 다이제스트",
       "planDigest": "계획 다이제스트",
       "executionReceiptDigest": "실행 영수증 다이제스트",
+      "deterministicReceiptDigest": "결정적 읽기 영수증 다이제스트",
       "executionAuthority": "실행 권한",
       "duration": "소요 시간",
       "manifest": "근거 매니페스트 ({count})",

@@ -598,6 +598,27 @@ resource "azurerm_role_assignment" "operator_api_reader" {
   principal_id         = module.operator_api_identity[0].principal_id
 }
 
+resource "azurerm_role_definition" "operator_subscription_identity_reader" {
+  count       = var.enable_operator_api ? 1 : 0
+  name        = "FDAI ${var.workload}${local.full_suffix} subscription identity reader"
+  scope       = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+  description = "Read only the configured Azure subscription display metadata for Operator conversations."
+
+  permissions {
+    actions     = ["Microsoft.Resources/subscriptions/read"]
+    not_actions = []
+  }
+
+  assignable_scopes = ["/subscriptions/${data.azurerm_client_config.current.subscription_id}"]
+}
+
+resource "azurerm_role_assignment" "operator_subscription_identity_reader" {
+  count              = var.enable_operator_api ? 1 : 0
+  scope              = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+  role_definition_id = azurerm_role_definition.operator_subscription_identity_reader[0].role_definition_resource_id
+  principal_id       = module.operator_api_identity[0].principal_id
+}
+
 resource "azurerm_role_assignment" "ingestion_acr_pull" {
   count                = var.enable_document_ingestion ? 1 : 0
   scope                = module.container_registry.id
@@ -2279,6 +2300,7 @@ module "operator_api" {
     azurerm_role_assignment.command_api_eventhubs_receiver,
     azurerm_role_assignment.command_api_eventhubs_sender,
     azurerm_role_assignment.operator_api_reader,
+    azurerm_role_assignment.operator_subscription_identity_reader,
     module.llm_azure_openai,
   ]
 }

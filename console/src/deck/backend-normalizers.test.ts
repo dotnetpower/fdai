@@ -47,6 +47,24 @@ describe("parseSemanticProjectionReceipt", () => {
     expect(parseSemanticProjectionReceipt(semanticReceipt())).toEqual(semanticReceipt());
   });
 
+  it("keeps one deterministic read receipt without ontology plan identity", () => {
+    const deterministic = semanticReceipt({
+      reason_code: "subscription_scope_verified",
+      semantic_route: "deterministic_read",
+      ontology_release_digest: undefined,
+      principal_manifest_digest: undefined,
+      plan_digest: undefined,
+      execution_receipt_digest: undefined,
+      deterministic_receipt_digest: DIGEST,
+    });
+
+    expect(parseSemanticProjectionReceipt(deterministic)).toEqual(deterministic);
+    expect(parseSemanticProjectionReceipt({
+      ...deterministic,
+      plan_digest: DIGEST,
+    })).toBeUndefined();
+  });
+
   it.each([
     { projection_id: "not-a-uuid" },
     { request_id: "request-1" },

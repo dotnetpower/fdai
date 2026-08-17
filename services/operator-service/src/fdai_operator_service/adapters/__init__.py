@@ -9,6 +9,7 @@ from fdai_operator_service.adapters.semantic_kafka import (
     OperatorSemanticKafkaBus,
     OperatorSemanticKafkaConfig,
 )
+from fdai_operator_service.adapters.subscription_scope import AzureSubscriptionScopeProvider
 
 __all__ = [
     "LiveStageKafkaConfig",
@@ -16,4 +17,5 @@ __all__ = [
     "LocalAzureNarratorAdapters",
     "OperatorSemanticKafkaBus",
     "OperatorSemanticKafkaConfig",
+    "AzureSubscriptionScopeProvider",
 ]

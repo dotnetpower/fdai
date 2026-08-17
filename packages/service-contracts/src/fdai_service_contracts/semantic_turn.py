@@ -49,6 +49,7 @@ class SemanticTurnDisposition(StrEnum):
 
 SemanticRoute = Literal[
     "verified_query_plan",
+    "deterministic_read",
     "semantic_clarification",
     "semantic_unsupported",
     "semantic_action_draft",
@@ -61,7 +62,6 @@ SemanticUnavailableReason = Literal[
 ]
 
 _SEMANTIC_ROUTE_BY_DISPOSITION: dict[SemanticTurnDisposition, SemanticRoute] = {
-    SemanticTurnDisposition.ANSWERED: "verified_query_plan",
     SemanticTurnDisposition.CLARIFICATION: "semantic_clarification",
     SemanticTurnDisposition.UNSUPPORTED: "semantic_unsupported",
     SemanticTurnDisposition.ACTION_DRAFT: "semantic_action_draft",
@@ -129,6 +129,7 @@ class SemanticTurnResult(QueryContract):
     principal_manifest_digest: Digest | None = None
     plan_digest: Digest | None = None
     execution_receipt_digest: Digest | None = None
+    deterministic_receipt_digest: Digest | None = None
     intent_graph: dict[str, Any] | None = None
     intent_graph_evidence: dict[str, Any] | None = None
     evidence_refs: Annotated[
@@ -148,26 +149,44 @@ class SemanticTurnResult(QueryContract):
         expected_route = _SEMANTIC_ROUTE_BY_DISPOSITION.get(self.disposition)
         if expected_route is not None and self.semantic_route != expected_route:
             raise ValueError("semantic result route MUST match disposition")
+        if self.disposition is SemanticTurnDisposition.ANSWERED and self.semantic_route not in {
+            "verified_query_plan",
+            "deterministic_read",
+        }:
+            raise ValueError("answered semantic result route MUST be verified")
         if self.disposition is SemanticTurnDisposition.HELD and self.unavailable_reason is None:
             raise ValueError("held semantic result MUST carry a typed unavailable reason")
         if self.checks_completed > self.checks_total:
             raise ValueError("semantic checks_completed MUST NOT exceed checks_total")
         if len(self.evidence_refs) != len(set(self.evidence_refs)):
             raise ValueError("semantic evidence_refs MUST be unique")
-        exact = (
+        ontology_exact = (
             self.ontology_release_digest,
             self.principal_manifest_digest,
             self.plan_digest,
             self.execution_receipt_digest,
         )
-        if self.disposition is SemanticTurnDisposition.ANSWERED and (
-            any(item is None for item in exact)
-            or not self.evidence_refs
-            or self.checks_total == 0
-            or self.checks_completed != self.checks_total
-            or self.answer is None
-        ):
-            raise ValueError("answered semantic results MUST carry complete verified evidence")
+        if self.disposition is SemanticTurnDisposition.ANSWERED:
+            complete_answer = (
+                bool(self.evidence_refs)
+                and self.checks_total > 0
+                and self.checks_completed == self.checks_total
+                and self.answer is not None
+            )
+            ontology_answer = (
+                self.semantic_route == "verified_query_plan"
+                and all(item is not None for item in ontology_exact)
+                and self.deterministic_receipt_digest is None
+            )
+            deterministic_answer = (
+                self.semantic_route == "deterministic_read"
+                and all(item is None for item in ontology_exact)
+                and self.deterministic_receipt_digest is not None
+            )
+            if not complete_answer or not (ontology_answer or deterministic_answer):
+                raise ValueError("answered semantic results MUST carry complete verified evidence")
+        elif self.deterministic_receipt_digest is not None:
+            raise ValueError("only answered deterministic reads may carry a deterministic receipt")
         return self
 
 

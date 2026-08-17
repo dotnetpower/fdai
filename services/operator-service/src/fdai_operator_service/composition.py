@@ -5,20 +5,29 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
 
+import httpx
 from azure.identity.aio import ManagedIdentityCredential
 from fdai_service_contracts import OperatorReadModel, OperatorTokenVerifier, ReadDataSource
 
 from fdai_operator_service.adapters import (
+    AzureSubscriptionScopeProvider,
     LiveStageKafkaConfig,
     LiveStageKafkaRelay,
     LocalAzureNarratorAdapters,
     OperatorSemanticKafkaBus,
     OperatorSemanticKafkaConfig,
 )
+from fdai_operator_service.adapters.azure_cli_token import azure_cli_token
 from fdai_operator_service.adapters.narrator_periodic_scheduler import (
     PeriodicNarratorRefreshScheduler,
+)
+from fdai_operator_service.adapters.subscription_scope import (
+    ARM_AUDIENCE,
+    ARM_RESOURCE,
+    load_subscription_scope_intent_catalog,
 )
 from fdai_operator_service.auth import EntraJwtVerifier, OperatorAuthenticator
 from fdai_operator_service.contracts import ApplicationLifecycle, ReadinessProbe
@@ -31,6 +40,9 @@ from fdai_operator_service.families.conversation.semantic_turn_runtime import (
     SemanticTurnConversationAdapters,
     SemanticTurnEventPublisher,
     SemanticTurnResultSource,
+)
+from fdai_operator_service.families.conversation.subscription_scope import (
+    SubscriptionScopeResponder,
 )
 from fdai_operator_service.families.iam import HilCallbackConfig, IamFamilyBindings
 from fdai_operator_service.families.operations.contracts import ProjectionReader
@@ -109,6 +121,7 @@ class ProductionOperatorComposition:
         live_stage_relay: LiveStageKafkaRelay | None = None
         publisher = self.semantic_event_publisher
         result_source = self.semantic_result_source
+        subscription_scope_runtime = _build_subscription_scope_runtime(environment)
         if publisher is None and result_source is None and environment.kafka_bootstrap_servers:
             if family_store is None:
                 raise RuntimeError("semantic transport requires the authoritative PostgreSQL store")
@@ -125,6 +138,11 @@ class ProductionOperatorComposition:
             request_topic=environment.semantic_request_topic or SEMANTIC_REQUEST_TOPIC,
             result_topic=environment.semantic_projection_topic or SEMANTIC_RESULT_TOPIC,
             result_group=environment.semantic_consumer_group_id,
+            deterministic_responder=(
+                subscription_scope_runtime.responder
+                if subscription_scope_runtime is not None
+                else None
+            ),
         )
         authenticator = OperatorAuthenticator(
             verifier=self.verifier_factory(environment),
@@ -160,6 +178,7 @@ class ProductionOperatorComposition:
                 semantic_bus,
                 live_stage_relay,
                 narrator_scheduler,
+                subscription_scope_runtime,
             ),
         )
 
@@ -317,10 +336,11 @@ def _semantic_bridge(
     request_topic: str,
     result_topic: str,
     result_group: str,
+    deterministic_responder: SubscriptionScopeResponder | None,
 ) -> SemanticTurnBridge | None:
-    if publisher is None and result_source is None:
+    if publisher is None and result_source is None and deterministic_responder is None:
         return None
-    if publisher is None or result_source is None:
+    if (publisher is None) != (result_source is None):
         raise RuntimeError("semantic publisher and result source MUST be configured together")
     if store is None:
         raise RuntimeError("semantic transport requires the authoritative PostgreSQL store")
@@ -331,6 +351,65 @@ def _semantic_bridge(
         request_topic=request_topic,
         result_topic=result_topic,
         result_group=result_group,
+        deterministic_responder=deterministic_responder,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class _SubscriptionScopeRuntime:
+    responder: SubscriptionScopeResponder
+    http_client: httpx.AsyncClient
+    credential: ManagedIdentityCredential | None
+
+    async def start(self) -> None:
+        """Keep provider I/O lazy so startup does not expand the configured scope."""
+
+    async def aclose(self) -> None:
+        """Close the Reader credential and HTTP pool owned by this binding."""
+        await self.http_client.aclose()
+        if self.credential is not None:
+            await self.credential.close()
+
+
+def _build_subscription_scope_runtime(
+    environment: OperatorEnvironment,
+) -> _SubscriptionScopeRuntime | None:
+    subscription_id = environment.azure_reader_subscription_id
+    if subscription_id is None:
+        return None
+    execution_venue = environment.values.get("FDAI_EXECUTION_VENUE", "deployed").strip()
+    credential: ManagedIdentityCredential | None = None
+    if execution_venue == "local":
+
+        async def token_provider(audience: str) -> str:
+            if audience != ARM_AUDIENCE:
+                raise ValueError("subscription scope token audience is invalid")
+            return await azure_cli_token(ARM_RESOURCE)
+    else:
+        managed_credential = ManagedIdentityCredential(client_id=environment.azure_reader_client_id)
+        credential = managed_credential
+
+        async def token_provider(audience: str) -> str:
+            token = await managed_credential.get_token(audience)
+            if not isinstance(token.token, str):
+                raise RuntimeError("managed identity returned a non-string token")
+            return token.token
+
+    catalog_path = Path(
+        environment.inventory_query_language_path
+        or Path.cwd() / "rule-catalog" / "vocabulary" / "inventory-query-language.yaml"
+    )
+    catalog = load_subscription_scope_intent_catalog(catalog_path)
+    http_client = httpx.AsyncClient()
+    provider = AzureSubscriptionScopeProvider(
+        subscription_id=subscription_id,
+        token_provider=token_provider,
+        http_client=http_client,
+    )
+    return _SubscriptionScopeRuntime(
+        responder=SubscriptionScopeResponder(catalog=catalog, provider=provider),
+        http_client=http_client,
+        credential=credential,
     )
 
 
@@ -426,10 +505,17 @@ def _application_lifecycle(
     bus: OperatorSemanticKafkaBus | None,
     live_stage_relay: LiveStageKafkaRelay | None,
     narrator_scheduler: PeriodicNarratorRefreshScheduler | None,
+    subscription_scope_runtime: _SubscriptionScopeRuntime | None,
 ) -> ApplicationLifecycle | None:
     services = tuple(
         service
-        for service in (bus, bridge, live_stage_relay, narrator_scheduler)
+        for service in (
+            subscription_scope_runtime,
+            bus,
+            bridge,
+            live_stage_relay,
+            narrator_scheduler,
+        )
         if service is not None
     )
     if not services:

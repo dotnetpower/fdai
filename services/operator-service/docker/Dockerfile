@@ -25,6 +25,7 @@ COPY services/document-processing-worker/pyproject.toml ./services/document-proc
 COPY services/isolated-executor/pyproject.toml ./services/isolated-executor/pyproject.toml
 COPY packages/service-contracts/ ./packages/service-contracts/
 COPY services/operator-service/ ./services/operator-service/
+COPY rule-catalog/vocabulary/inventory-query-language.yaml ./rule-catalog/vocabulary/inventory-query-language.yaml
 RUN uv build --wheel --package fdai-service-contracts --out-dir /wheels \
     && uv build --wheel --package fdai-operator-service --out-dir /wheels \
     && uv sync --frozen --package fdai-operator-service --no-dev --no-editable \
@@ -48,6 +49,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 COPY --from=builder --chown=65532:65532 /app/.venv /app/.venv
+COPY --from=builder --chown=65532:65532 /build/rule-catalog /app/rule-catalog
 USER 65532
 RUN test -x /app/.venv/bin/fdai-operator-service
 EXPOSE 8000

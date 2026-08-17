@@ -6,7 +6,11 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
-from fdai.composition.semantic_query_model_targets import t1_model_targets, t2_model_targets
+from fdai.composition.semantic_query_model_targets import (
+    conversation_t2_model_targets,
+    t1_model_targets,
+    t2_model_targets,
+)
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
 from fdai.core.conversation.semantic_planning_models import (
     BoundIncident,
@@ -808,6 +812,12 @@ def test_composition_separates_t1_and_t2_candidates() -> None:
 
     t1 = t1_model_targets(resolved, endpoint="https://models.example.com", endpoint_resolver=None)
     t2 = t2_model_targets(resolved, endpoint="https://models.example.com", endpoint_resolver=None)
+    conversation_t2 = conversation_t2_model_targets(
+        resolved,
+        endpoint="https://models.example.com",
+        endpoint_resolver=None,
+    )
 
     assert [target.deployment for target in t1] == ["narrator-gpt-5-4-mini"]
     assert [target.deployment for target in t2] == ["t2.reasoner.primary"]
+    assert conversation_t2 == ()

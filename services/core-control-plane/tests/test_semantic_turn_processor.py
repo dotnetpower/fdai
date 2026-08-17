@@ -33,11 +33,12 @@ from fdai.rule_catalog.schema.rule_semantic_generation import (
     SemanticAvailability,
 )
 from fdai.rule_catalog.schema.rule_semantic_retrieval import RuleCorpus
-from fdai.shared.providers.event_bus import PublishReceipt
+from fdai.shared.providers.event_bus import EventEnvelope, PublishReceipt
 from fdai.shared.providers.ontology_instance import OntologyGraphSnapshot
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai_core_service.semantic_turn_consumer import (
+    SemanticTurnConsumerBinding,
     StateStoreSemanticTurnResultStore,
     consume_semantic_turns,
     semantic_turn_binding_from_config,
@@ -1734,6 +1735,89 @@ async def test_consumer_publishes_projection_and_dlqs_publish_failure() -> None:
     assert dlq[-1].payload["reason"] == "semantic_turn_publish_failed"
 
 
+async def test_binding_avoids_head_of_line_blocking_during_synthetic_429_backoff() -> None:
+    class PartitionedBus(InMemoryEventBus):
+        def __init__(self) -> None:
+            super().__init__()
+            self.worker_index = 0
+            self.projected: list[str] = []
+
+        def subscribe(self, topic: str, group_id: str):  # type: ignore[no-untyped-def]
+            if topic != "operator.request":
+                return super().subscribe(topic, group_id)
+            partition = self.worker_index
+            self.worker_index += 1
+
+            async def records():  # type: ignore[no-untyped-def]
+                payload = {
+                    "partition": partition,
+                    "status_code": 429 if partition == 0 else 200,
+                }
+                yield EventEnvelope(
+                    topic=topic,
+                    key=f"session-{partition}",
+                    payload=payload,
+                    offset=0,
+                )
+
+            return records()
+
+        async def publish(
+            self,
+            topic: str,
+            key: str,
+            payload: Mapping[str, Any],
+        ) -> PublishReceipt:
+            if topic == "operator.projection":
+                self.projected.append(key)
+            return await super().publish(topic, key, payload)
+
+    class Processor:
+        def __init__(self) -> None:
+            self.release_429_backoff = asyncio.Event()
+            self.fast_done = asyncio.Event()
+
+        async def process(
+            self,
+            payload: Mapping[str, Any],
+            *,
+            cancelled: asyncio.Event,
+        ) -> bytes:
+            del cancelled
+            partition = payload["partition"]
+            if payload["status_code"] == 429:
+                await self.release_429_backoff.wait()
+            else:
+                self.fast_done.set()
+            return json.dumps(
+                {
+                    "idempotency_key": f"request-{partition}",
+                    "partition": partition,
+                    "semantic_result": {"session_id": f"session-{partition}"},
+                }
+            ).encode()
+
+    bus = PartitionedBus()
+    processor = Processor()
+    binding = SemanticTurnConsumerBinding(
+        request_topic="operator.request",
+        projection_topic="operator.projection",
+        group_id="core-semantic",
+        processor=processor,  # type: ignore[arg-type]
+        available=True,
+        unavailable_reason=None,
+        worker_count=2,
+    )
+
+    task = asyncio.create_task(binding.run(bus=bus, stop=asyncio.Event()))
+    await asyncio.wait_for(processor.fast_done.wait(), timeout=1)
+
+    assert bus.projected == ["session-1"]
+    processor.release_429_backoff.set()
+    await asyncio.wait_for(task, timeout=1)
+    assert set(bus.projected) == {"session-0", "session-1"}
+
+
 def test_runtime_binding_is_optional_explicit_and_rejects_partial_transport() -> None:
     state_store = InMemoryStateStore()
 
@@ -1760,8 +1844,21 @@ def test_runtime_binding_is_optional_explicit_and_rejects_partial_transport() ->
         },
     )
     assert binding is not None
+    assert binding.worker_count == 2
     assert binding.available is False
     assert binding.unavailable_reason == "semantic_runtime_unavailable"
+
+    configured_workers = semantic_turn_binding_from_config(
+        state_store=state_store,
+        runtime=None,
+        config={
+            "FDAI_SEMANTIC_TURN_REQUEST_TOPIC": "operator.request",
+            "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC": "operator.projection",
+            "FDAI_SEMANTIC_TURN_CONSUMER_WORKERS": "4",
+        },
+    )
+    assert configured_workers is not None
+    assert configured_workers.worker_count == 4
 
 
 def test_incident_profile_facts_surface_every_populated_field() -> None:

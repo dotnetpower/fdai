@@ -66,6 +66,7 @@ class SemanticTurnStore(Protocol):
         idempotency_key: str,
         request_digest: str,
         envelope: Mapping[str, object],
+        publish_required: bool = True,
     ) -> StoredSemanticTurn: ...
 
     async def claim_semantic_turn(
@@ -121,6 +122,14 @@ class SemanticTurnResultSource(Protocol):
         topic: str,
         group_id: str,
     ) -> AsyncIterator[Mapping[str, object]]: ...
+
+
+class SemanticTurnDeterministicResponder(Protocol):
+    """Project one request locally without Core transport or model inference."""
+
+    def supports(self, request: SemanticTurnRequest) -> bool: ...
+
+    async def respond(self, envelope: Mapping[str, object]) -> Mapping[str, object]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -321,9 +330,13 @@ class SemanticTurnOutboxDrainer:
         if claim is None:
             return False
         try:
+            semantic = claim.envelope.get("semantic_turn")
+            if not isinstance(semantic, Mapping):
+                raise ValueError("stored semantic request is missing")
+            request = SemanticTurnRequest.model_validate(semantic)
             await self.publisher.publish(
                 self.request_topic,
-                claim.request_id,
+                request.session_id,
                 claim.envelope,
             )
         except Exception:  # noqa: BLE001 - durable row remains retryable
@@ -350,6 +363,7 @@ class SemanticTurnBridge:
         store: SemanticTurnStore,
         publisher: SemanticTurnEventPublisher | None = None,
         result_source: SemanticTurnResultSource | None = None,
+        deterministic_responder: SemanticTurnDeterministicResponder | None = None,
         builder: SemanticTurnEnvelopeBuilder | None = None,
         worker_id: str = "operator-semantic-turn",
         request_topic: str = SEMANTIC_REQUEST_TOPIC,
@@ -366,6 +380,7 @@ class SemanticTurnBridge:
         self._store = store
         self._publisher = publisher
         self._result_source = result_source
+        self._deterministic_responder = deterministic_responder
         self._builder = builder or SemanticTurnEnvelopeBuilder()
         self._consumer = SemanticTurnProjectionConsumer(store)
         self._drainer = (
@@ -378,18 +393,35 @@ class SemanticTurnBridge:
         self._result_group = result_group
         self._retry_seconds = retry_seconds
         self._tasks: tuple[asyncio.Task[None], ...] = ()
+        self._deterministic_tasks: dict[str, asyncio.Task[None]] = {}
 
     async def append(self, proposal: ConversationProposal) -> OutboxReceipt:
         """Accept one authorized stream proposal and persist a typed held fallback if unbound."""
         envelope = self._builder.build(proposal)
+        semantic = envelope.get("semantic_turn")
+        if not isinstance(semantic, Mapping):
+            raise ValueError("semantic request payload is missing")
+        request = SemanticTurnRequest.model_validate(semantic)
+        responder = self._deterministic_responder
+        deterministic = responder is not None and responder.supports(request)
         stored = await self._store.append_semantic_turn(
             principal_id=proposal.scope.subject_id,
             idempotency_key=proposal.idempotency_key,
             request_digest=_proposal_digest(proposal),
             envelope=envelope,
+            publish_required=not deterministic,
         )
         dispatch_status = "pending"
-        if self._publisher is None:
+        if deterministic:
+            if responder is None:
+                raise RuntimeError("deterministic responder binding changed during request")
+            await self._complete_deterministic(
+                stored=stored,
+                principal_id=proposal.scope.subject_id,
+                responder=responder,
+            )
+            dispatch_status = "completed"
+        elif self._publisher is None:
             await self._consumer.consume(_held_projection(stored.envelope))
             dispatch_status = "held"
         return OutboxReceipt(
@@ -407,6 +439,61 @@ class SemanticTurnBridge:
                 },
             ),
         )
+
+    async def _complete_deterministic(
+        self,
+        *,
+        stored: StoredSemanticTurn,
+        principal_id: str,
+        responder: SemanticTurnDeterministicResponder,
+    ) -> None:
+        task = self._deterministic_tasks.get(stored.request_id)
+        if task is None:
+            task = asyncio.create_task(
+                self._produce_deterministic(
+                    stored=stored,
+                    principal_id=principal_id,
+                    responder=responder,
+                ),
+                name=f"operator-deterministic-{stored.request_id}",
+            )
+            self._deterministic_tasks[stored.request_id] = task
+        try:
+            await asyncio.shield(task)
+        finally:
+            if task.done():
+                self._remove_deterministic_task(stored.request_id, task)
+
+    async def _produce_deterministic(
+        self,
+        *,
+        stored: StoredSemanticTurn,
+        principal_id: str,
+        responder: SemanticTurnDeterministicResponder,
+    ) -> None:
+        try:
+            existing = await self._store.replay_semantic_turn(
+                principal_id=principal_id,
+                request_id=stored.request_id,
+                after_sequence=None,
+            )
+            if existing:
+                return
+            projection = await responder.respond(stored.envelope)
+            _validate_deterministic_projection(projection)
+            await self._store.project_semantic_turn_result(projection=projection)
+        finally:
+            current = asyncio.current_task()
+            if current is not None:
+                self._remove_deterministic_task(stored.request_id, current)
+
+    def _remove_deterministic_task(
+        self,
+        request_id: str,
+        task: asyncio.Task[None],
+    ) -> None:
+        if self._deterministic_tasks.get(request_id) is task:
+            self._deterministic_tasks.pop(request_id, None)
 
     async def open(self, request: ConversationStreamRequest) -> ConversationEventStream:
         """Replay only the authenticated principal's ordered events for one accepted request."""
@@ -463,10 +550,13 @@ class SemanticTurnBridge:
     async def aclose(self) -> None:
         """Cancel and join injected transport workers during application shutdown."""
         tasks, self._tasks = self._tasks, ()
-        for task in tasks:
+        deterministic = tuple(self._deterministic_tasks.values())
+        self._deterministic_tasks.clear()
+        all_tasks = (*tasks, *deterministic)
+        for task in all_tasks:
             task.cancel()
-        if tasks:
-            await asyncio.gather(*tasks, return_exceptions=True)
+        if all_tasks:
+            await asyncio.gather(*all_tasks, return_exceptions=True)
 
     async def _run_drainer(self) -> None:
         if self._drainer is None:
@@ -603,6 +693,17 @@ def _held_projection(envelope: Mapping[str, object]) -> dict[str, object]:
         "payload": {"reason_code": "semantic_transport_unavailable"},
         "semantic_result": result_payload,
     }
+
+
+def _validate_deterministic_projection(projection: Mapping[str, object]) -> None:
+    if projection.get("schema_version") != "operator-deterministic-1.0.0":
+        raise ValueError("deterministic projection schema version is invalid")
+    semantic = projection.get("semantic_result")
+    if not isinstance(semantic, Mapping):
+        raise ValueError("deterministic projection semantic result is missing")
+    result = SemanticTurnResult.model_validate(semantic)
+    if projection.get("status") != result.disposition.value:
+        raise ValueError("deterministic projection status MUST match result disposition")
 
 
 def _proposal_digest(proposal: ConversationProposal) -> str:

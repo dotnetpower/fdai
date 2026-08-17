@@ -35,6 +35,15 @@ def test_event_hubs_module_rejects_entity_budget_overflow_before_apply() -> None
     assert "including generated DLQs" in module
 
 
+def test_event_hubs_module_preserves_partition_level_consumer_concurrency() -> None:
+    variables = (_ROOT / "infra/modules/event-bus/event-hubs-kafka/variables.tf").read_text(
+        encoding="utf-8"
+    )
+
+    assert "var.partition_count >= 2" in variables
+    assert "partition_count must be at least 2" in variables
+
+
 def test_core_and_operator_service_roots_export_exact_semantic_env_vars() -> None:
     modules = (
         _ROOT / "infra/services/core-control-plane/modules/core-control-plane/main.tf",

@@ -11,6 +11,10 @@ from uuid import UUID, uuid5
 
 import fdai_operator_service.composition as composition_module
 import pytest
+from fdai_operator_service.adapters.subscription_scope import (
+    SubscriptionScopeEvidence,
+    load_subscription_scope_intent_catalog,
+)
 from fdai_operator_service.composition import ProductionOperatorComposition
 from fdai_operator_service.environment import (
     AUDIENCE_ENV,
@@ -44,6 +48,9 @@ from fdai_operator_service.families.conversation.semantic_turn_runtime import (
     SemanticTurnOutboxDrainer,
     SemanticTurnProjectionConsumer,
     _held_projection,
+)
+from fdai_operator_service.families.conversation.subscription_scope import (
+    SubscriptionScopeResponder,
 )
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
@@ -150,6 +157,7 @@ class _MemorySemanticStore:
         idempotency_key: str,
         request_digest: str,
         envelope: Mapping[str, object],
+        publish_required: bool = True,
     ) -> StoredSemanticTurn:
         del request_digest
         request_id = cast(str, envelope["request_id"])
@@ -181,7 +189,7 @@ class _MemorySemanticStore:
             envelope=stored.envelope,
             attempt=1,
         )
-        self.claim_available = True
+        self.claim_available = publish_required
         return stored
 
     async def claim_semantic_turn(
@@ -278,6 +286,7 @@ class _MemorySemanticStore:
 class _FailOncePublisher:
     def __init__(self) -> None:
         self.calls = 0
+        self.keys: list[str] = []
 
     async def publish(
         self,
@@ -285,8 +294,9 @@ class _FailOncePublisher:
         key: str,
         payload: Mapping[str, object],
     ) -> object:
-        del topic, key, payload
+        del topic, payload
         self.calls += 1
+        self.keys.append(key)
         if self.calls == 1:
             raise RuntimeError("transport unavailable")
         return object()
@@ -776,6 +786,189 @@ async def test_missing_transport_projects_typed_held_result() -> None:
     assert verification["status"] == "unverified"
 
 
+async def test_subscription_scope_read_completes_locally_without_semantic_publish() -> None:
+    class Provider:
+        calls = 0
+
+        async def read(self) -> SubscriptionScopeEvidence:
+            self.calls += 1
+            return SubscriptionScopeEvidence(
+                display_name="Example subscription",
+                state="Enabled",
+                masked_subscription_id="0000...0001",
+                observed_at=datetime(2026, 8, 11, tzinfo=UTC),
+                evidence_ref="azure-subscription:sha256-example",
+                receipt_digest=f"sha256:{'a' * 64}",
+            )
+
+    class ResultSource:
+        def subscribe(
+            self,
+            _topic: str,
+            _group_id: str,
+        ) -> AsyncIterator[Mapping[str, object]]:
+            async def empty() -> AsyncIterator[Mapping[str, object]]:
+                if False:
+                    yield {}
+
+            return empty()
+
+    store = _MemorySemanticStore()
+    publisher = _FailOncePublisher()
+    provider = Provider()
+    catalog_path = (
+        Path(__file__).parents[3] / "rule-catalog" / "vocabulary" / "inventory-query-language.yaml"
+    )
+    bridge = SemanticTurnBridge(
+        store=store,
+        publisher=publisher,
+        result_source=ResultSource(),
+        deterministic_responder=SubscriptionScopeResponder(
+            catalog=load_subscription_scope_intent_catalog(catalog_path),
+            provider=provider,
+        ),
+        builder=SemanticTurnEnvelopeBuilder(clock=lambda: datetime.now(UTC)),
+    )
+
+    receipt = await bridge.append(
+        _proposal(body={"prompt": "현재 구독 정보 알려줘", "locale": "ko"})
+    )
+    stream = await bridge.open(
+        ConversationStreamRequest(
+            operation="chat.stream",
+            scope=PrincipalScope("operator-1", frozenset({"Reader"})),
+            proposal_id=receipt.proposal_id,
+        )
+    )
+    events = [event async for event in stream]
+
+    assert receipt.response.body is not None
+    assert cast(dict[str, object], receipt.response.body)["dispatch_status"] == "completed"
+    assert provider.calls == 1
+    assert publisher.calls == 0
+    assert store.claim_available is False
+    assert events[-1].event == "done"
+    semantic_result = cast(dict[str, object], events[-1].data["semantic_result"])
+    verification = cast(dict[str, object], events[-1].data["verification"])
+    assert semantic_result["semantic_route"] == "deterministic_read"
+    assert verification["status"] == "verified"
+
+
+async def test_concurrent_subscription_scope_retry_executes_responder_once() -> None:
+    class Provider:
+        calls = 0
+
+        async def read(self) -> SubscriptionScopeEvidence:
+            self.calls += 1
+            await asyncio.sleep(0)
+            return SubscriptionScopeEvidence(
+                display_name="Example subscription",
+                state="Enabled",
+                masked_subscription_id="0000...0001",
+                observed_at=datetime(2026, 8, 11, tzinfo=UTC),
+                evidence_ref="azure-subscription:sha256-example",
+                receipt_digest=f"sha256:{'a' * 64}",
+            )
+
+    class ResultSource:
+        def subscribe(
+            self,
+            _topic: str,
+            _group_id: str,
+        ) -> AsyncIterator[Mapping[str, object]]:
+            async def empty() -> AsyncIterator[Mapping[str, object]]:
+                if False:
+                    yield {}
+
+            return empty()
+
+    catalog_path = (
+        Path(__file__).parents[3] / "rule-catalog" / "vocabulary" / "inventory-query-language.yaml"
+    )
+    provider = Provider()
+    store = _MemorySemanticStore()
+    bridge = SemanticTurnBridge(
+        store=store,
+        publisher=_FailOncePublisher(),
+        result_source=ResultSource(),
+        deterministic_responder=SubscriptionScopeResponder(
+            catalog=load_subscription_scope_intent_catalog(catalog_path),
+            provider=provider,
+        ),
+        builder=SemanticTurnEnvelopeBuilder(clock=lambda: datetime.now(UTC)),
+    )
+    proposal = _proposal(body={"prompt": "현재 구독 정보 알려줘", "locale": "ko"})
+
+    first, second, third = await asyncio.gather(
+        bridge.append(proposal),
+        bridge.append(proposal),
+        bridge.append(proposal),
+    )
+
+    assert first.proposal_id == second.proposal_id == third.proposal_id
+    assert provider.calls == 1
+    assert len(store.results) == 1
+    assert bridge._deterministic_tasks == {}  # noqa: SLF001 - bounded task cleanup contract
+
+
+async def test_cancelled_subscription_scope_caller_does_not_leak_shared_task() -> None:
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    class Provider:
+        async def read(self) -> SubscriptionScopeEvidence:
+            started.set()
+            await release.wait()
+            return SubscriptionScopeEvidence(
+                display_name="Example subscription",
+                state="Enabled",
+                masked_subscription_id="0000...0001",
+                observed_at=datetime(2026, 8, 11, tzinfo=UTC),
+                evidence_ref="azure-subscription:sha256-example",
+                receipt_digest=f"sha256:{'a' * 64}",
+            )
+
+    class ResultSource:
+        def subscribe(
+            self,
+            _topic: str,
+            _group_id: str,
+        ) -> AsyncIterator[Mapping[str, object]]:
+            async def empty() -> AsyncIterator[Mapping[str, object]]:
+                if False:
+                    yield {}
+
+            return empty()
+
+    catalog_path = (
+        Path(__file__).parents[3] / "rule-catalog" / "vocabulary" / "inventory-query-language.yaml"
+    )
+    bridge = SemanticTurnBridge(
+        store=_MemorySemanticStore(),
+        publisher=_FailOncePublisher(),
+        result_source=ResultSource(),
+        deterministic_responder=SubscriptionScopeResponder(
+            catalog=load_subscription_scope_intent_catalog(catalog_path),
+            provider=Provider(),
+        ),
+        builder=SemanticTurnEnvelopeBuilder(clock=lambda: datetime.now(UTC)),
+    )
+    caller = asyncio.create_task(
+        bridge.append(_proposal(body={"prompt": "현재 구독 정보 알려줘", "locale": "ko"}))
+    )
+    await started.wait()
+    caller.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await caller
+
+    shared_task = next(iter(bridge._deterministic_tasks.values()))  # noqa: SLF001
+    release.set()
+    await asyncio.wait_for(asyncio.shield(shared_task), timeout=1)
+
+    assert bridge._deterministic_tasks == {}  # noqa: SLF001 - cancellation cleanup contract
+    await bridge.aclose()
+
+
 def test_held_projection_identity_binds_request_and_terminal_result_digest() -> None:
     envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
         _proposal()
@@ -998,6 +1191,8 @@ async def test_outbox_publish_failure_releases_claim_for_retry() -> None:
     assert store.releases == 1
     assert await drainer.run_once() is True
     assert publisher.calls == 2
+    semantic = cast(dict[str, object], envelope["semantic_turn"])
+    assert publisher.keys == [semantic["session_id"], semantic["session_id"]]
     assert store.published == 1
 
 

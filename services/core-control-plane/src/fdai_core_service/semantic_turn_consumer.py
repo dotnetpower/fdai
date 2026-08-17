@@ -24,6 +24,8 @@ from .semantic_turn_processor import (
 _STATE_PREFIX = "semantic-turn-result:"
 _CLAIM_PREFIX = "semantic-turn-claim:"
 _DEFAULT_CLAIM_LEASE_SECONDS = 120.0
+_DEFAULT_CONSUMER_WORKERS = 2
+_MAX_CONSUMER_WORKERS = 8
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,18 +38,24 @@ class SemanticTurnConsumerBinding:
     processor: SemanticTurnProcessor
     available: bool
     unavailable_reason: str | None
+    worker_count: int = _DEFAULT_CONSUMER_WORKERS
 
     async def run(self, *, bus: EventBus, stop: asyncio.Event) -> None:
         """Consume semantic turns until the shared runtime stop event is set."""
 
-        await consume_semantic_turns(
-            bus=bus,
-            request_topic=self.request_topic,
-            projection_topic=self.projection_topic,
-            group_id=self.group_id,
-            processor=self.processor,
-            stop=stop,
-        )
+        async with asyncio.TaskGroup() as workers:
+            for worker_index in range(self.worker_count):
+                workers.create_task(
+                    consume_semantic_turns(
+                        bus=bus,
+                        request_topic=self.request_topic,
+                        projection_topic=self.projection_topic,
+                        group_id=self.group_id,
+                        processor=self.processor,
+                        stop=stop,
+                    ),
+                    name=f"semantic-turn-consumer-{worker_index + 1}",
+                )
 
 
 class StateStoreSemanticTurnResultStore:
@@ -201,6 +209,7 @@ def semantic_turn_binding_from_config(
     ).strip()
     if not group_id:
         raise RuntimeError("FDAI_SEMANTIC_TURN_CONSUMER_GROUP_ID MUST be non-empty")
+    worker_count = _bounded_worker_count(config.get("FDAI_SEMANTIC_TURN_CONSUMER_WORKERS", ""))
     return SemanticTurnConsumerBinding(
         request_topic=request_topic,
         projection_topic=projection_topic,
@@ -214,6 +223,7 @@ def semantic_turn_binding_from_config(
         unavailable_reason=(
             None if runtime is not None else unavailable_reason or "semantic_runtime_unavailable"
         ),
+        worker_count=worker_count,
     )
 
 
@@ -260,7 +270,7 @@ async def consume_semantic_turns(
             if not await _publish_projection(
                 bus=bus,
                 topic=projection_topic,
-                key=str(projection["idempotency_key"]),
+                key=_projection_partition_key(projection),
                 projection=projection,
                 stop=stop,
                 attempts=publish_attempts,
@@ -302,6 +312,28 @@ def _projection_mapping(encoded: bytes) -> Mapping[str, Any]:
     if not isinstance(loaded, dict):
         raise ValueError("semantic projection MUST be an object")
     return loaded
+
+
+def _projection_partition_key(projection: Mapping[str, Any]) -> str:
+    semantic = projection.get("semantic_result")
+    if not isinstance(semantic, Mapping):
+        raise ValueError("semantic projection result is missing")
+    session_id = semantic.get("session_id")
+    if not isinstance(session_id, str) or not session_id:
+        raise ValueError("semantic projection session id is missing")
+    return session_id
+
+
+def _bounded_worker_count(raw: str) -> int:
+    if not raw.strip():
+        return _DEFAULT_CONSUMER_WORKERS
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise RuntimeError("semantic consumer workers MUST be an integer") from exc
+    if not 1 <= value <= _MAX_CONSUMER_WORKERS:
+        raise RuntimeError(f"semantic consumer workers MUST be in [1, {_MAX_CONSUMER_WORKERS}]")
+    return value
 
 
 def _state_key(idempotency_key: str) -> str:

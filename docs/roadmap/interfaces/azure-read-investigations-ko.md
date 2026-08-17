@@ -1,8 +1,8 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 36f899a197698a471c11c347f44075837e0455c8
-translation_revised: 2026-08-15
+translation_source_sha: 7035bab0790f0f32ae1c7e4956c73f6c5a95e9ed
+translation_revised: 2026-08-17
 ---
 
 # Azure 읽기 조사
@@ -71,7 +71,7 @@ Operator 질문은 `object.event`로 publish하지 않습니다. 해당 토픽�
 | 플래너 의도 커버리지 | 구현됨 | 하나의 변경할 수 없는 런타임 의도 spec이 계획 ID, 기본값 및 interactive 도구, 조회 구간을 소유합니다. Enum 공백은 가져오기 및 exhaustive 테스트에서 실패하고 카탈로그 plan-ID 표류는 시작에서 차단됩니다. | - |
 | Resource-state 온톨로지 shadow 비교 | 구현됨 | 영속 인벤토리 조립은 authoritative 상태 읽기를 제공하고 exact 런타임 release는 `inventory.select_resources`를 제공하며 Heimdall 읽기 훅은 온톨로지 조회를 shadow로 실행합니다. 비교기는 요청, 프로파일, 계획, 호출, 결과 계보를 다시 검증하고 하나의 trusted 기준 시점과 300초 최신성 상한을 적용하며 principal-scoped 변경할 수 없는 증적을 `StateStore`에 추가합니다. 요청자 및 대화 참조는 안정적인 불투명 hash이므로 영속 shadow 증적은 원시 신원 값 없이 소유 범위를 유지합니다. 한 번의 호출 안에서는 영속 및 실시간 활동이 불투명한 hash correlation을 공유합니다. Principal, 대화 및 질문이 같아도 반복 호출에는 서로 다른 correlation을 부여하고 논리적 요청 멱등성 키는 안정적으로 유지합니다. 프로파일은 질문, 리소스 identity 또는 호출 token을 저장하지 않고 latency 감사에 correlation을 추가하지 않습니다. Shadow 실패는 authoritative 답변을 변경하거나 재시도하지 않습니다. 교차 출처 충돌은 처분을 낮추기만 합니다. 실시간 읽기와 변환된 그래프 사이의 상태 또는 신원 불일치는 하나의 `derived` 충돌로 판정되어 증적 다이제스트에 보존되고, hook은 경합 중인 상태를 보류하며 활동을 degraded/최신성 unknown으로 보고합니다. 관측 시각 차이만 있는 경우는 충돌이 아닙니다. | 실제 cross-service 동등성 증적은 release 근거로 남아 있습니다. |
 | 대화형 리소스 연속성 | 구현됨 | Command Deck은 서버가 선택한 인벤토리 리소스 하나를 최종 턴 사이에 유지합니다. Resource Health 이력은 리소스 그룹, 시각 및 상태로 구성된 완전한 anomalous-event 기준점 하나도 유지할 수 있습니다. 생략된 이력 및 장애 직전 후속 질문은 의미 및 공개 웹 계획 수립을 우회하고, Heimdall이 범위가 제한된 맥락을 다시 검증한 뒤 일치하는 읽기 근거를 직접 반환합니다. | - |
-| 구독 범위 신원 | 구현됨 | 현재 구독 신원 질문은 서버에 구성된된 구독 이름과 상태를 Azure Resource Manager에서 읽고, masked 구독 ID만 렌더링하며, 서술기 모델을 호출하지 않습니다. | - |
+| 구독 범위 신원 | 구현됨 | `fdai_operator_service.adapters.subscription_scope`, `fdai_operator_service.families.conversation.subscription_scope`, 집중 공급자 및 브리지 검사 | 현재 구독 신원 질문은 의미 전송보다 먼저 인벤토리 언어 카탈로그에서 일치 여부를 확인하고, 서버에 구성된 구독 이름과 상태를 Azure Resource Manager에서 읽으며, 마스킹된 구독 ID와 검증된 결정적 증적 하나만 영속화합니다. 공급자 실패는 사용할 수 없음으로 반환하며 서술기나 T2 모델을 호출하지 않습니다. |
 | 구독 상태 일괄 점검 | 구현됨 | 명시적인 구독 점검, 일반적인 service-outage 질문 및 일반적인 degraded 또는 사용 불가 resource-state 질문이 구성된 읽기 담당 범위를 사용합니다. 인벤토리 언어 카탈로그가 가용성 의미에 대해 Resource Health 권한을 선택합니다. 프로바이더는 구성된 resource-group 허용 목록을 기본으로 사용합니다. 명시적인 서버가 소유한 구독 모드는 interactive 로컬 상태 범위를 구독 인벤토리와 맞춥니다. Platform-impact 읽기는 활성 서비스 Health 이벤트와 impacted 리소스를 조회하고 장애를 maintenance 및 참고용과 분리한 다음 Resource Health 원인과 correlate합니다. 다른 diagnosis 읽기는 최대 16개 supported 리소스의 대표 메트릭을 동시성 4 이하로 확인할 수 있습니다. | - |
 | Azure 근거 어댑터 | 구현됨 | REST는 상태, Activity Log, Resource Health, 게스트 로그, 구성된 NSG 룰 및 VNet 피어링 속성을 지원합니다. Interactive 로컬은 실행기 신원을 받지 않고 등록된 개발 operations 게이트웨이를 통해 NSG 및 피어링 읽기를 전달할 수 있습니다. 타입이 지정된 CLI 대체 경로는 등록된 계획으로 리소스, VM 상태, Activity Log를 지원합니다. | - |
 | 선택적 Azure MCP 읽기 | 구현됨 | 공식 MCP Python SDK가 고정된 Azure MCP 서버를 stdio로 시작하고 트래픽 전에 이름 공간 허용 목록을 탐색합니다. VM 상태, Activity Log, Resource Health에 사용하며 사용 불가 상태이거나 circuit 차단기에서 차단되면 타입이 지정된 REST로 즉시 대체 경로합니다. | - |
@@ -91,6 +91,7 @@ Operator 질문은 `object.event`로 publish하지 않습니다. 해당 토픽�
 | 2026-08-13 | 구현됨 | 논리적 요청 멱등성은 안정적으로 유지하면서 각 current-state 읽기 호출에 서로 다른 불투명 활동 correlation을 부여하고, 한 호출의 실시간 및 영속 수명 주기에서는 하나의 correlation을 유지했습니다. | 현재 변경의 `wire_read_investigation.py` 및 `test_wire_read_investigation.py`; 집중 composition 스위트의 테스트 5개가 통과했습니다. | 실제 cross-service 동등성 증적을 기록하고 아래의 실제 운영 Azure 시나리오 공백을 해소합니다. |
 | 2026-08-13 | 구현됨 | 원시 요청자 및 대화 참조를 안정적인 불투명 hash로 대체하여 영속 shadow 증적에서 원시 신원을 노출하지 않고 principal 범위를 유지했습니다. | 현재 변경의 `wire_read_investigation.py` 및 `test_wire_read_investigation.py`; 영속 증적 privacy 및 identity 분리를 포함한 집중 composition 스위트의 테스트 5개가 통과했습니다. | 실제 cross-service 동등성 증적을 기록하고 아래의 실제 운영 Azure 시나리오 공백을 해소합니다. |
 | 2026-08-15 | 구현됨 | 실시간 프로바이더 읽기와 인벤토리로 변환된 그래프 상태를 하나의 `derived` 교차 출처 사실로 판정하고, 그 충돌을 증적 다이제스트에 보존했으며, 충돌이 있으면 단정된 상태를 보류하고 종료 활동을 강등하도록 했습니다. | `current change`, `test_resource_state_shadow.py` 판정 테스트와 일치 대조군이 있는 `test_wire_read_investigation.py::test_cross_source_state_conflict_lowers_the_answer_and_activity` | 실제 cross-service 동등성 증적을 기록하고 아래의 실제 운영 Azure 시나리오 공백을 해소합니다. |
+| 2026-08-17 | 구현됨 | 서비스 분리에서 이전 경로와 공급자가 제거된 뒤 구독 범위 신원을 Operator 소유의 결정적 읽기로 다시 도입했습니다. 이 경로는 카탈로그 용어, 서버 소유 범위, 마스킹된 신원, 콘텐츠 주소 기반 증적을 사용하며 모델 대체 경로가 없습니다. | `current change`, 집중 구독 공급자, 응답기, 영속 브리지, 최소 권한 Terraform 및 Console 증적 검사 | 인증된 로컬 및 배포 근거를 보존합니다. 이 수정을 촉발한 관찰된 실패는 Azure 인증이나 구독 접근 거부 때문이 아니었습니다. |
 
 ### 남은 작업
 

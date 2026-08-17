@@ -1,7 +1,7 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: b62002cfdbb61b6902771cd63b88b575d4279cbd
-translation_revised: 2026-08-15
+translation_source_sha: 8c55abc0addc81870c641caebb5db890d739f5bc
+translation_revised: 2026-08-17
 ---
 # 서비스 승격과 데이터 소유권
 
@@ -147,7 +147,7 @@ Logical 기록 또는 수명 주기 전이 하나에는 쓰기 담당 하나만 
 | 문서 deletion 요청 `1.0.0` | `fdai-service-contracts` packaged JSON 스키마 | 문서 인제스트 API | 문서 처리 워커 | `document_id` | 가산 필드, 지원하지 않는 버전은 실패 시 차단 | Transactional API 발신함, exact 업로드/버전 개정 번호 fence, 워커 stage-claim dedupe, 잘못된 기록은 형제 DLQ |
 | 문서 수명 주기 활동 | [문서 서비스 계약](../../../packages/service-contracts/src/fdai_service_contracts/document.py) | Owned 전이의 인제스트 API 또는 워커 | 감사/진행 상황 소비자와 Huginn 유입 브리지 | `document_id` | 내용이 없는 가산 이벤트 묶음 | 고정된 액션/버전 멱등성, 조정이 저장된 사실 재발행, 이벤트 1일/DLQ 7일 |
 | Operator 명령/제안 이벤트 | [Event](../../../services/core-control-plane/src/fdai/shared/contracts/event/schema.json)와 [액션](../../../services/core-control-plane/src/fdai/shared/contracts/action/schema.json) 계약 | Operator API 명령 신원 | Huginn/Forseti 타입이 지정된 파이프라인 | 정규화된 `resource_id` | 레지스트리 semver와 가산 호환성 | At-least-once, 카탈로그 멱등성 키, normal 이벤트/DLQ 보존 1일/7일 |
-| Operator 의미 턴 `1.2.0` | `fdai-service-contracts` 의미 요청 및 변환 결과 codec | Operator API 영속 발신함 / Core 의미 런타임 | Core 의미 소비자 / Operator 변환 결과 소비자 | `request_id` | N은 `1.0.0`, `1.1.0`, `1.2.0`을 수락하며 `1.2.0` 페이로드를 downgrade하지 않음 | At-least-once, 멱등적 생산자, 변환 결과 영속성 이후 수동 커밋, malformed JSON은 형제 DLQ, 영속 요청/변환 결과 dedupe |
+| Operator 의미 턴 `1.2.0` | `fdai-service-contracts` 의미 요청 및 변환 결과 codec | Operator API 영속 발신함 / Core 의미 런타임 | Core 의미 소비자 / Operator 변환 결과 소비자 | `session_id` | N은 `1.0.0`, `1.1.0`, `1.2.0`을 수락하며 `1.2.0` 페이로드를 downgrade하지 않음 | At-least-once, 멱등적 생산자, 같은 세션 파티션 순서, 변환 결과 영속성 이후 수동 커밋, malformed JSON은 형제 DLQ, 영속 요청/변환 결과 dedupe |
 | 에이전트 introspection 요청/회신 | [Agent-introspection 전송 계층](../../../services/core-control-plane/src/fdai/delivery/agent_introspection_bus.py) | Bragi/Operator API 브리지 | Addressed 에이전트와 범위가 제한된 회신 소비자 | 상관관계 id | 프로세스 분리 전 versioned 요청/회신 묶음 | 범위가 제한된 시간 초과/재시도, 권한 없음, content-redacted 실패, 브로커 보존 1일 |
 | 실행기 명령 `1.0.0` 및 증적 `1.0.0` / `1.1.0` | [실행기 전송 계층](../../../services/core-control-plane/src/fdai/shared/contracts/models/executor_transport.py) | Core Thor 실행 포트 | Isolated 실행기와 Core 증적 클라이언트 | exact 대상 리소스 참조 | `1.0.0` 증적은 효과가 없고 가산 `1.1.0`은 전달을 보고하지만 독립적인 검증을 주장할 수 없음 | At-least-once, poison DLQ, 고정된 Core 소비자 그룹, 프로바이더와 실행기 멱등성, normal/DLQ 보존 1일/7일 |
 

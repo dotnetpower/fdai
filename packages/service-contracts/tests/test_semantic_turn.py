@@ -135,6 +135,30 @@ def test_semantic_result_accepts_typed_unavailability() -> None:
     assert result.unavailable_reason == "semantic_planner_unavailable"
 
 
+def test_semantic_result_accepts_verified_deterministic_read() -> None:
+    result = SemanticTurnResult.model_validate(
+        {
+            "disposition": "answered",
+            "reason_code": "subscription_scope_verified",
+            "semantic_route": "deterministic_read",
+            "session_id": "session-1",
+            "turn_id": "turn-1",
+            "turn_sequence": 1,
+            "deterministic_receipt_digest": f"sha256:{'a' * 64}",
+            "evidence_refs": ["azure-subscription:sha256:example"],
+            "checks_completed": 1,
+            "checks_total": 1,
+            "answer": "The configured Azure subscription is available.",
+            "execution_authority": False,
+        }
+    )
+
+    assert result.semantic_route == "deterministic_read"
+    assert result.deterministic_receipt_digest == f"sha256:{'a' * 64}"
+    assert result.ontology_release_digest is None
+    assert result.plan_digest is None
+
+
 @pytest.mark.parametrize(
     "mutation",
     (

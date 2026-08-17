@@ -342,6 +342,8 @@ function SemanticReceiptFacts({
       <dd data-testid="semantic-plan-digest"><code>{receipt.plan_digest ?? t("deck.trajectory.none")}</code></dd>
       <dt>{t("deck.trajectory.executionReceiptDigest")}</dt>
       <dd data-testid="semantic-execution-receipt-digest"><code>{receipt.execution_receipt_digest ?? t("deck.trajectory.none")}</code></dd>
+      <dt>{t("deck.trajectory.deterministicReceiptDigest")}</dt>
+      <dd data-testid="semantic-deterministic-receipt-digest"><code>{receipt.deterministic_receipt_digest ?? t("deck.trajectory.none")}</code></dd>
       <dt>{t("deck.trajectory.executionAuthority")}</dt>
       <dd data-testid="semantic-execution-authority"><code>false</code></dd>
     </dl>

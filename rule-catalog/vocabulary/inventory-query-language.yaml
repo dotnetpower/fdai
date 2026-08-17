@@ -1,5 +1,5 @@
 schema_version: "1.1.0"
-version: "1.1.30"
+version: "1.1.31"
 default_scope: subscription
 default_activity_lookback_seconds: 604800
 current_requires_fresh: true
@@ -10,7 +10,7 @@ signals:
   read:
     terms: [how many, count, list, show, which, what, where, find, status, summary, exist, are any, 몇 개, 개수, 목록, 보여줘, 보여, 어떤, 어디, 찾아, 찾아줘, 상태, 있어, 알려줘]
   state_inspection:
-    terms: [status, health state, current state, 상태, 상태 확인, 현재 상태, 정상인가]
+    terms: [status, health, health check, health state, current state, 상태, 상태 확인, 현재 상태, 헬스, 건강, 정상인가]
   bounded_read:
     terms: [show, where, 보여줘, 어디, 어느 위치]
   mutation:
@@ -36,6 +36,8 @@ signals:
   unfiltered:
     terms: [what resources exist, what azure assets exist, resource inventory, inventory list, azure resources, azure inventory, managed resources, resources in managed scope, current managed resources, Azure 리소스 뭐 있어, Azure 인벤토리 목록, 관리 범위 리소스, 관리 범위의 리소스, 관리 범위에서, 현재 관리 범위 리소스, 현재 관리 범위에서]
 query_kinds:
+  subscription_scope_identity:
+    terms: [current Azure subscription information, current Azure subscription, current subscription information, current subscription details, current subscription, active Azure subscription, active subscription, 현재 Azure 구독 정보, 현재 Azure 구독, 현재 구독 정보, 현재 구독, 사용 중인 Azure 구독, 사용 중인 구독, 구독 정보]
   scheduled_shutdown:
     terms: [VMs shutting down tonight, virtual machines scheduled to shut down tonight, VMs turning off tonight, 오늘 저녁에 꺼지는 VM, 오늘 저녁 종료 예정 VM, 오늘 밤 자동 종료 VM, 자동 종료 예정 가상 머신]
   list:
