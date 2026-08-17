@@ -157,6 +157,8 @@ def _passing_artifact(question_count: int) -> dict[str, object]:
         "exhausted_transport_retry_count": 0,
         "unsupported_operational_claim_count": 0,
         "unauthorized_execution_count": 0,
+        "ambient_request_count": 0,
+        "bound_request_count": 0,
         "plan_capability_mismatch_count": 0,
     }
     if question_count == 14:
@@ -202,6 +204,10 @@ def test_strict_gate_rejects_resumed_or_incomplete_evidence() -> None:
     incomplete["summary"]["answered_with_complete_evidence_count"] = 13
     assert not strict_artifact_accepted(incomplete, SOURCE_REVISION)
 
+    ambient = json.loads(json.dumps(passing))
+    ambient["summary"]["ambient_request_count"] = 1
+    assert not strict_artifact_accepted(ambient, SOURCE_REVISION)
+
 
 def test_seeded_gate_requires_fresh_complete_production_evidence() -> None:
     passing = _passing_artifact(100)
@@ -215,6 +221,10 @@ def test_seeded_gate_requires_fresh_complete_production_evidence() -> None:
     unsafe = json.loads(json.dumps(passing))
     unsafe["summary"]["unauthorized_execution_count"] = 1
     assert not full_artifact_accepted(unsafe, SOURCE_REVISION)
+
+    bound = json.loads(json.dumps(passing))
+    bound["summary"]["bound_request_count"] = 1
+    assert not full_artifact_accepted(bound, SOURCE_REVISION)
 
 
 def test_child_environment_is_not_retained_in_status(tmp_path: Path) -> None:
