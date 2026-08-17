@@ -5,8 +5,9 @@ resumable, and fail-closed. It owns developer workflow diagnostics and latency e
 product control plane or its execution authority.
 
 > Scope: issue [#116](https://github.com/dotnetpower/fdai/issues/116) tracks this bounded campaign.
-> A workflow optimization never bypasses design context, focused checks, centralized validation,
-> identity verification, or deployment approval.
+> A workflow optimization never bypasses design context, focused checks, SHA-addressed CI,
+> identity verification, or deployment approval. A local validation queue is an opt-in diagnostic,
+> not a commit, push, or deployment authority.
 
 ## Design at a glance
 
@@ -34,9 +35,9 @@ successful result.
 flowchart LR
     E[Edit and focused check] --> D[Workflow diagnostics]
     D --> C[Focused commit]
-    C --> V[Central validation]
-    V --> R[Receipt]
-    R --> X[Remote work]
+    C --> P[Structural pre-push]
+    P --> V[SHA-addressed CI]
+    V --> X[Remote work]
     D --> H[Bounded handover]
 ```
 
@@ -45,7 +46,7 @@ flowchart LR
 | Area | Required control | Completion measure |
 |------|------------------|--------------------|
 | Shared writes | Detect overlapping staged and unstaged paths, unsafe shared-index commands, and active path reservations. | No unresolved overlap or unsafe commit command at the commit boundary. |
-| Validation | Report oldest reachable pending age, current stage, latest failure, receipt state, and recent receipt latency. | Commit-to-receipt p95 is at most 5 minutes across the newest 50 complete local receipts when focused checks pass. |
+| Validation | Report focused-check state, pushed-SHA CI state, and optional queue diagnostics without making local receipts authoritative. | Ordinary commits and pushes never wait for the optional queue; required CI remains attributable to the exact pushed SHA. |
 | Design context | Resolve a deduplicated route plan without treating cached bytes as proof that a new session read the design. | One plan per task and no repeated read of an unchanged required document in the same session. |
 | Session continuity | Persist bounded, secret-free worktree, diff, validation, and next-check metadata. | A new session resumes from one handover command without repository-wide discovery. |
 | Focused tests | Detect Python import, database, runtime environment, and checkout contamination before a test starts. | A contaminated check fails before importing task code or opening a database connection. |
@@ -65,8 +66,8 @@ HTTP probes use the committed local port inventory, and Azure reads use at most 
   deploy, approve, or promote.
 - Design-context reuse is session-scoped and content-addressed. A handover can name required
   documents, but a receiving session still reads current content before a high-risk edit.
-- Validation evidence remains commit-addressed. Queue latency warnings never mint receipts or skip
-  failed stages.
+- Optional queue evidence remains commit-addressed. Queue latency warnings never mint receipts,
+  authorize a push, or skip failed stages.
 - Environment checks compare normalized identities without printing credentials, tokens,
   connection strings, tenant values, or customer resource names.
 - Azure retry applies only to safe reads and transient transport or throttling responses. The
@@ -74,15 +75,15 @@ HTTP probes use the committed local port inventory, and Azure reads use at most 
 - Upstream VS Code and Copilot behavior is not reimplemented in the repository. Repository controls
   provide bounded diagnostics and lower-cost validation paths.
 - Enforcement remains with the existing edit hook, commit-scope hook, focused test runner,
-  validation queue, and deployment preflight. The unified command reports their state and never
-  becomes an alternate authority path.
+  structural pre-push gates, SHA-addressed CI, and deployment preflight. The optional validation
+  queue and unified command report state and never become alternate authority paths.
 
 ## Failure behavior
 
 | Failure | Diagnostic behavior | Owning enforcement |
 |---------|---------------------|--------------------|
 | Git-common-dir state is missing or malformed | Report `unavailable` with a stable reason code. | Existing Git and hook commands fail independently. |
-| A validation receipt has invalid timestamps | Exclude it from latency calculation and report the invalid record count. | Receipt verification remains unchanged. |
+| An optional validation receipt has invalid timestamps | Exclude it from latency calculation and report the invalid record count. | Optional receipt verification remains unchanged. |
 | A handover references unreachable history | Report drift and the nearest relevant reachable handover when available. | No branch or worktree is changed. |
 | A local service probe times out | Report the service and port as unavailable. | The service task remains independently controlled. |
 | VS Code process data is unavailable | Classify editor pressure as upstream-unavailable. | Focused CLI validation remains available. |
@@ -230,6 +231,7 @@ The remaining Low risks are explicit and bounded:
 | Browser and editor pressure | implemented | Existing focused Playwright entry points, 10-slot lease pool, and profile pressure controls | Final critique must verify no Medium residual. |
 | Remote preflight | implemented | `live_preflight/transport.py`; 6 focused tests | At most three read attempts; permanent errors fail immediately. |
 | Ten-round assurance | validated | 13 rounds, final independent re-review, and central receipt for `d3f5257b9` | No residual finding exceeds Low. |
+| Developer validation authority | implemented | `.githooks/post-commit`; `.githooks/pre-push`; `scripts/agent/design_context.py`; focused hook and dispatcher tests | Commits and pushes no longer depend on local queue receipts; CI owns pushed-SHA integration. |
 
 ### Implementation history
 
@@ -267,6 +269,7 @@ The remaining Low risks are explicit and bounded:
 | 2026-08-16 | implemented | Declared a budget where only a runner default existed: the protected Terraform job is bounded to 180 minutes and the protected service deploy job to 120 minutes, and the health verifier bounds the recovery verification and readiness-path steps it ran after its own deadline. The round 28 acceptance review found no other reproducible finding above Low across the assurance runner, validation stages, auto-pull, health verification, Azure preflight, deploy workflows, roadmap agent budgets, and the Playwright port pool. | Current change; 24 focused deploy-workflow tests passed, `bash -n` on the health script, and both workflow documents parse as YAML. | Obtain exact central validation and complete issue #122. |
 | 2026-08-16 | implemented | Round 29 re-reviewed the round 28 budgets against the real worst case of each job and script and confirmed they sit above it rather than truncating a slow but healthy deploy, that the `timeout` wrappers preserve exit-code propagation under `set -euo pipefail`, and that both job budgets are valid YAML at job level. The campaign exit condition is met: no reproducible finding above Low remains. | Current change; the round 29 confirmation review and the focused suites recorded in the rows above. | Obtain exact central validation and complete issue #122. |
 | 2026-08-16 | validated | Central validation accepted the integrated bounded wait revision and the outgoing range was pushed to `origin/main`. | `validation_queue.py check-range origin/main..HEAD` passed for revision `85c5aadf4`, and the push reused that exact receipt and the structural evidence. | Complete issue #122 and synchronize the project board. |
+| 2026-08-17 | implemented | Removed centralized validation from the mandatory developer path while preserving focused checks, path reservations, commit scoping, structural pre-push gates, and SHA-addressed CI. | `current change`; issue #148; focused hook, dispatcher, and constitution tests. | Observe CI and push latency after adoption; keep the queue available only for explicit diagnostics. |
 
 ### Remaining work
 
@@ -280,6 +283,8 @@ The remaining Low risks are explicit and bounded:
 - [x] Completed the bounded wait campaign critique rounds for issue #122; the round 28 acceptance
   review found no reproducible residual above Low.
 - [x] Central validation accepted the bounded wait revision `85c5aadf4` and the range was pushed.
+- [x] Removed automatic queue enrollment and per-commit receipt requirements from ordinary commit,
+  push, and agent-tool paths in issue #148.
 - [ ] Complete issue #122 and synchronize the project board.
 
 ## Bounded wait campaign

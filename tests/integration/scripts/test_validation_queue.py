@@ -1178,45 +1178,22 @@ def test_all_mode_skips_changed_test_pass(git_repo: Path, tmp_path: Path) -> Non
     ]
 
 
-def test_post_commit_hook_enqueues_and_wakes_background_validation(
-    git_repo: Path, tmp_path: Path
-) -> None:
+def test_post_commit_hook_does_not_start_central_validation(git_repo: Path) -> None:
     hooks = git_repo / ".githooks"
     hooks.mkdir()
     shutil.copy2(POST_COMMIT_HOOK, hooks / "post-commit")
     (hooks / "post-commit").chmod(0o755)
     assert _run(git_repo, "git", "config", "core.hooksPath", ".githooks").returncode == 0
 
-    log_path = tmp_path / "background-wake.log"
     (git_repo / "source.txt").write_text("changed\n", encoding="utf-8")
     assert _run(git_repo, "git", "add", "source.txt").returncode == 0
-    committed = _run(
-        git_repo,
-        "git",
-        "commit",
-        "--quiet",
-        "-m",
-        "change",
-        env={"FDAI_VALIDATION_TEST_LOG": str(log_path)},
-    )
+    committed = _run(git_repo, "git", "commit", "--quiet", "-m", "change")
     assert committed.returncode == 0, committed.stderr
     commit = _run(git_repo, "git", "rev-parse", "HEAD").stdout.strip()
     common_dir = Path(_run(git_repo, "git", "rev-parse", "--git-common-dir").stdout.strip())
 
-    assert (
-        git_repo / common_dir / "fdai-validation-queue" / "pending" / f"{commit}.json"
-    ).is_file()
-    wake = log_path.read_text(encoding="utf-8")
-    assert "systemd:--user --quiet --collect" in wake
-    assert "--property=Nice=15" in wake
-    assert "--property=CPUWeight=10" in wake
-    assert "--property=CPUQuota=180%" in wake
-    assert "--property=IOWeight=10" in wake
-    assert "--property=MemoryHigh=8G" in wake
-    assert f"--working-directory={git_repo}" in wake
-    assert "--unit=fdai-validation-" in wake
-    assert "drain" in wake
-    assert "run --wait" not in wake
+    pending = git_repo / common_dir / "fdai-validation-queue" / "pending" / f"{commit}.json"
+    assert not pending.exists()
 
 
 def test_wait_mode_blocks_until_the_active_validator_releases_lock(
@@ -1254,22 +1231,23 @@ def test_wait_mode_blocks_until_the_active_validator_releases_lock(
     assert "verify:--fast --diff" in log_path.read_text(encoding="utf-8")
 
 
-def test_pre_push_requires_central_validation_receipts() -> None:
+def test_pre_push_uses_local_structural_gates_without_central_receipts() -> None:
     hook = PRE_PUSH_HOOK.read_text(encoding="utf-8")
     structural_runner = (
         REPO_ROOT / "scripts" / "automation" / "run-pre-push-structural-gates.sh"
     ).read_text(encoding="utf-8")
 
-    ensure_offset = hook.index('ensure-range "$range"')
-    check_offset = hook.index('check-range "$range"')
-    evidence_offset = hook.index("exact centralized validation and structural evidence reused")
     worktree_offset = hook.index("git worktree add")
+    structural_offset = hook.index("run-pre-push-structural-gates.sh")
 
-    assert ensure_offset < check_offset < evidence_offset < worktree_offset
+    assert "ensure-range" not in hook
+    assert "check-range" not in hook
+    assert "check-structural-gates" not in hook
+    assert "centralized integration validation" not in hook
     assert "git fetch" not in hook
     assert "while IFS=' ' read -r candidate_local_ref" in hook
     assert 'git merge-base --is-ancestor "$remote_sha" "$local_sha"' in hook
-    assert "if [[ $structural_evidence -eq 1 ]]" in hook
+    assert worktree_offset < structural_offset
     assert 'gate_command=(uv run python "$gate_path")' in structural_runner
     assert 'gate_command=(python3 "$gate_path")' not in structural_runner
 
@@ -1316,7 +1294,7 @@ def test_auto_pull_bounds_every_remote_call_below_its_interval() -> None:
     )
 
 
-def test_validator_agent_is_read_execute_only_and_uses_make_facade() -> None:
+def test_validator_agent_is_optional_read_execute_only_and_uses_make_facade() -> None:
     _prefix, frontmatter, body = VALIDATOR_AGENT.read_text(encoding="utf-8").split("---", 2)
     config = yaml.safe_load(frontmatter)
     makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
@@ -1325,13 +1303,15 @@ def test_validator_agent_is_read_execute_only_and_uses_make_facade() -> None:
     assert config["tools"] == ["read", "execute"]
     assert config["agents"] == []
     assert config["user-invocable"] is True
-    assert "Post-commit normally wakes a low-priority background validator" in body
+    assert "Normal commits and pushes do not depend on this agent" in body
+    assert "explicit queue-diagnostic request" in body
     assert "one newest-first snapshot" in body
     assert "bisects the pending list" in body
     assert "longest passing prefix" in body
     assert "first failing pending commit" in body
-    assert "Intermediate stage success is progress metadata" in body
-    assert "not a push receipt" in body
+    assert "Intermediate stage success is" in body
+    assert "progress metadata, not push authority" in body
+    assert "not push authority" in body
     assert "shared wake request" in body
     assert "process worktree never selects the validation branch" in body
     assert "make validation-status" in body

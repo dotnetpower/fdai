@@ -882,7 +882,7 @@ def test_recorded_current_reads_allow_edit(monkeypatch: pytest.MonkeyPatch, tmp_
         "bash scripts/quality/ci/run-operator-surfaces.sh",
     ],
 )
-def test_pre_tool_use_routes_heavy_terminal_validation_to_queue(command: str) -> None:
+def test_pre_tool_use_routes_heavy_terminal_validation_to_release_boundary(command: str) -> None:
     module = _load_module()
     payload = {
         "session_id": "worker-session",
@@ -893,10 +893,11 @@ def test_pre_tool_use_routes_heavy_terminal_validation_to_queue(command: str) ->
     result = module.pre_tool_use(payload)
 
     assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
-    assert "make validation-run" in result["systemMessage"]
+    assert "narrowest focused check" in result["systemMessage"]
+    assert "make validation-all" in result["systemMessage"]
 
 
-def test_pre_tool_use_allows_central_validation_runner() -> None:
+def test_pre_tool_use_allows_optional_validation_runner() -> None:
     module = _load_module()
     payload = {
         "session_id": "integration-session",
@@ -987,57 +988,9 @@ def test_pre_tool_use_denies_only_unscoped_test_tool() -> None:
     "command",
     [
         "gh run watch 123",
-        "gh run view 123 --log-failed",
-        "gh run rerun 123",
         "gh workflow run deploy-dev.yml",
-        "gh pr checks 123 --watch",
         "terraform plan",
-        "azd provision --preview",
         "docker build -t example/fdai .",
-        "docker compose up --build",
-        "az acr build -r example -t fdai:dev .",
-        "az group create -n example -l koreacentral",
-        "bash scripts/deployment/azure/azd-up.sh",
-    ],
-)
-def test_pre_tool_use_defers_slow_external_work_on_an_unready_line(
-    monkeypatch: pytest.MonkeyPatch, command: str
-) -> None:
-    module = _load_module()
-    monkeypatch.setattr(
-        module.external_operation_guard,
-        "_line_is_ready_for_external_work",
-        lambda repo_root: False,
-    )
-    payload = {"tool_name": "run_in_terminal", "tool_input": {"command": command}}
-
-    result = module.pre_tool_use(payload)
-
-    assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
-    assert "check-external-readiness HEAD" in result["systemMessage"]
-    assert "do not have to wait for other sessions" in result["systemMessage"]
-
-
-def test_pre_tool_use_allows_slow_external_work_on_a_ready_line(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    module = _load_module()
-    monkeypatch.setattr(
-        module.external_operation_guard,
-        "_line_is_ready_for_external_work",
-        lambda repo_root: True,
-    )
-    payload = {
-        "tool_name": "run_in_terminal",
-        "tool_input": {"command": "gh run view 123 --log"},
-    }
-
-    assert module.pre_tool_use(payload) == {"continue": True}
-
-
-@pytest.mark.parametrize(
-    "command",
-    [
         "az account show",
         "docker version",
         "gh issue view 123",
@@ -1048,15 +1001,8 @@ def test_pre_tool_use_allows_slow_external_work_on_a_ready_line(
         "git fetch origin main",
     ],
 )
-def test_pre_tool_use_allows_lightweight_external_preflight(
-    monkeypatch: pytest.MonkeyPatch, command: str
-) -> None:
+def test_pre_tool_use_allows_external_commands(command: str) -> None:
     module = _load_module()
-    monkeypatch.setattr(
-        module.external_operation_guard,
-        "_line_is_ready_for_external_work",
-        lambda repo_root: False,
-    )
     payload = {"tool_name": "run_in_terminal", "tool_input": {"command": command}}
 
     assert module.pre_tool_use(payload) == {"continue": True}

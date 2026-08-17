@@ -171,15 +171,19 @@ The design docs are the single source of truth; code and docs MUST stay in sync.
 
 ## Testing
 
-- **External work ordering:** GitHub Actions troubleshooting, Azure mutation/deployment, remote evaluation, and image build/push/pull MUST wait for focused checks, commit, and a successful
-  `validation_queue.py check-external-readiness HEAD`. That gate passes with newer commits in flight and fails only when the line was never validated or its last centralized validation failed;
-  never wait for another session's commit. Read-only preflight MAY run earlier; edits restart the loop.
+- **External work ordering:** GitHub Actions troubleshooting, Azure mutation/deployment, remote
+  evaluation, and image build/push/pull MUST wait for focused checks and a focused commit. Release
+  and deployment work MUST target a pushed SHA whose required CI checks and protected workflow
+  preflight pass. A local validation-queue receipt is optional diagnostic evidence and MUST NOT
+  block another session's work. Read-only preflight MAY run earlier; edits restart the loop.
 - **Edit loop**: run the smallest executable test that can falsify the current change. Do not run a
   package, subsystem, or repository suite when one test file or node id is sufficient.
 - **Parallel sessions**: prefer separate worktrees; never run bare `make test-changed` over another session's dirty or untracked paths.
-- **Completed batch**: run focused checks, then use bare `make test-changed` only for an isolated batch.
-  In a shared dirty tree, commit owned paths and run `make test-changed DIFF=<commit>^..<commit>`;
-  fix failures before reporting. Use `DIFF=<base>...HEAD` for integration and run `bash scripts/verify.sh --fast` once per stable batch; the selector may fall back broadly.
+- **Completed batch**: run focused checks, then use bare `make test-changed` only for an isolated
+  batch. In a shared dirty tree, commit owned paths and run
+  `make test-changed DIFF=<commit>^..<commit>`; fix failures before reporting. Use
+  `DIFF=<base>...HEAD` only at an explicit integration boundary; CI owns repository-wide
+  integration for pushed SHAs.
 - **Focused pytest facade**: use `bash scripts/verify.sh --full <path>` when the completed slice
   needs pytest through the common gate runner. A path is mandatory; pathless `--full` is rejected.
 - **Whole-repository suite**: `bash scripts/verify.sh --all` is reserved for an explicit user

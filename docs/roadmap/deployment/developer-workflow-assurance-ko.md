@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 5f2661192b62fd4b40221a378bf5423beab0c31f
-translation_revised: 2026-08-16
+translation_source_sha: 498af6b8dc745bae2fa32cd5f2dfa04e21a57137
+translation_revised: 2026-08-17
 ---
 
 # 개발 워크플로 보증
@@ -11,8 +11,8 @@ translation_revised: 2026-08-16
 소유하지 않습니다.
 
 > 범위: 이 제한된 캠페인은 [이슈 #116](https://github.com/dotnetpower/fdai/issues/116)에서
-> 추적합니다. 워크플로 최적화는 설계 문맥, 집중 검사, 중앙 검증, 신원 확인 또는 배포 승인을
-> 우회하지 않습니다.
+> 추적합니다. 워크플로 최적화는 설계 문맥, 집중 검사, SHA 기반 CI, 신원 확인 또는 배포 승인을
+> 우회하지 않습니다. 로컬 validation queue는 opt-in 진단이며 commit, push 또는 배포 권한이 아닙니다.
 
 ## 설계 개요
 
@@ -40,9 +40,9 @@ FDAI는 로컬 스크립트 전반에서 하나의 읽기 전용 개발 워크�
 flowchart LR
     E[편집과 집중 검사] --> D[워크플로 진단]
     D --> C[집중 커밋]
-    C --> V[중앙 검증]
-    V --> R[Receipt]
-    R --> X[원격 작업]
+    C --> P[구조 pre-push]
+    P --> V[SHA 기반 CI]
+    V --> X[원격 작업]
     D --> H[제한된 인계]
 ```
 
@@ -51,7 +51,7 @@ flowchart LR
 | 영역 | 필요한 통제 | 완료 측정값 |
 |------|-------------|-------------|
 | 공유 쓰기 | staged 및 unstaged 경로 중첩, 안전하지 않은 공유 index 명령 및 활성 경로 예약을 감지합니다. | 커밋 경계에 해결되지 않은 중첩 또는 안전하지 않은 commit 명령이 없습니다. |
-| 검증 | 가장 오래된 도달 가능 pending 시간, 현재 단계, 최근 실패, receipt 상태 및 최근 receipt 지연을 보고합니다. | 집중 검사가 통과할 때 최신 완료 로컬 receipt 50개에서 커밋부터 receipt까지 p95가 5분 이하입니다. |
+| 검증 | 로컬 receipt를 권위로 만들지 않고 집중 검사 상태, push된 SHA의 CI 상태 및 optional queue 진단을 보고합니다. | 일반 commit과 push는 optional queue를 기다리지 않으며, 필요한 CI는 정확한 push SHA에 귀속됩니다. |
 | 설계 문맥 | 캐시된 바이트를 새 세션이 설계를 읽었다는 증명으로 취급하지 않고 중복 제거된 route 계획을 해석합니다. | 작업마다 계획 1개이며 같은 세션에서 변경되지 않은 필수 문서를 반복해서 읽지 않습니다. |
 | 세션 연속성 | 제한되고 비밀이 없는 worktree, diff, 검증 및 다음 검사 메타데이터를 보존합니다. | 새 세션이 저장소 전체 재탐색 없이 하나의 인계 명령으로 재개합니다. |
 | 집중 테스트 | 테스트 시작 전에 Python import, 데이터베이스, 런타임 환경 및 checkout 오염을 감지합니다. | 오염된 검사는 작업 코드를 import하거나 데이터베이스 연결을 열기 전에 실패합니다. |
@@ -71,23 +71,24 @@ receipt, 변경 파일 출력은 최대 20개 경로, 프로세스 출력은 최
   또는 promote하지 않습니다.
 - 설계 문맥 재사용은 세션 범위이며 content-addressed 방식입니다. 인계는 필수 문서를 지목할
   수 있지만, 수신 세션은 고위험 편집 전에 현재 내용을 다시 읽습니다.
-- 검증 근거는 커밋 주소 기반으로 유지됩니다. Queue 지연 경고는 receipt를 만들거나 실패한
-  단계를 건너뛰지 않습니다.
+- Optional queue 근거는 commit 주소 기반으로 유지됩니다. Queue 지연 경고는 receipt를 만들거나
+  push를 승인하거나 실패한 단계를 건너뛰지 않습니다.
 - 환경 검사는 자격 증명, token, 연결 문자열, tenant 값 또는 고객 리소스 이름을 출력하지 않고
   정규화된 identity를 비교합니다.
 - Azure retry는 안전한 읽기와 transient 전송 또는 throttling 응답에만 적용됩니다. 승인된
   host 검사는 모든 시도 전에 실행되며 retry 소진 시 하나의 `PreflightError`를 반환합니다.
 - Upstream VS Code 및 Copilot 동작은 저장소에서 다시 구현하지 않습니다. 저장소 통제는 제한된
   진단과 저비용 검증 경로를 제공합니다.
-- 적용은 기존 edit hook, commit-scope hook, 집중 테스트 runner, validation queue 및 배포
-  preflight에 남습니다. 통합 명령은 상태를 보고하며 대체 권한 경로가 되지 않습니다.
+- 적용은 기존 edit hook, commit-scope hook, 집중 테스트 runner, 구조 pre-push gate, SHA 기반 CI
+  및 배포 preflight에 남습니다. Optional validation queue와 통합 명령은 상태를 보고하며 대체 권한
+  경로가 되지 않습니다.
 
 ## 실패 동작
 
 | 실패 | 진단 동작 | 소유 적용 |
 |------|-----------|-----------|
 | Git common dir 상태가 없거나 손상됨 | 안정적인 reason code와 함께 `unavailable`을 보고합니다. | 기존 Git 및 hook 명령은 독립적으로 실패합니다. |
-| Validation receipt의 timestamp가 잘못됨 | 지연 계산에서 제외하고 잘못된 record 수를 보고합니다. | Receipt 검증은 변경되지 않습니다. |
+| Optional validation receipt의 timestamp가 잘못됨 | 지연 계산에서 제외하고 잘못된 record 수를 보고합니다. | Optional receipt 검증은 변경되지 않습니다. |
 | Handover가 도달 불가능한 기록을 참조함 | Drift와, 가능한 경우 가장 가까운 도달 가능한 관련 handover를 보고합니다. | Branch 또는 worktree를 변경하지 않습니다. |
 | 로컬 서비스 probe timeout | 서비스와 port를 unavailable로 보고합니다. | 서비스 task는 독립적으로 제어됩니다. |
 | VS Code 프로세스 데이터를 사용할 수 없음 | 편집기 부하를 upstream-unavailable로 분류합니다. | 집중 CLI 검증은 계속 사용할 수 있습니다. |
@@ -236,6 +237,7 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 | 브라우저 및 편집기 부하 | implemented | 기존 집중 Playwright 진입점, 10-slot lease pool 및 profile 부하 통제 | 최종 비평에서 Medium 잔존이 없음을 검증해야 합니다. |
 | 원격 사전 검사 | implemented | `live_preflight/transport.py`, 집중 테스트 6개 | 읽기 시도는 최대 3회이며 영구 오류는 즉시 실패합니다. |
 | 10회 보증 | validated | 13개 라운드, 최종 독립 재검토 및 `d3f5257b9` 중앙 receipt | Low를 초과하는 잔존 발견 사항이 없습니다. |
+| 개발자 검증 권한 | implemented | `.githooks/post-commit`, `.githooks/pre-push`, `scripts/agent/design_context.py`, focused hook 및 dispatcher 테스트 | Commit과 push는 더 이상 로컬 queue receipt에 의존하지 않으며 CI가 push된 SHA의 integration을 소유합니다. |
 
 ### 구현 이력
 
@@ -273,6 +275,7 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 | 2026-08-16 | implemented | 러너 기본값만 있던 자리에 예산을 선언했습니다. 보호된 Terraform job은 180분, 보호된 서비스 배포 job은 120분으로 제한하고, health 검증기는 자체 deadline 뒤에 실행하던 복구 검증과 readiness 경로 단계를 제한합니다. 28라운드 수용 검토는 assurance 러너, 검증 단계, auto-pull, health 검증, Azure preflight, 배포 워크플로, roadmap 에이전트 예산, Playwright 포트 풀 전반에서 Low를 넘는 재현 가능한 finding을 더 찾지 못했습니다. | 현재 변경, 배포 워크플로 집중 테스트 24개 통과, health 스크립트의 `bash -n`, 두 워크플로 문서의 YAML 파싱입니다. | Exact 중앙 검증을 확보하고 이슈 #122를 완료합니다. |
 | 2026-08-16 | implemented | 29라운드는 28라운드가 선언한 예산을 각 job과 스크립트의 실제 최악 소요와 대조해, 느리지만 정상인 배포를 자르지 않고 그 위에 있음을 확인했고, `timeout` 래퍼가 `set -euo pipefail` 아래에서 종료 코드 전달을 보존하며 두 job 예산이 job 수준에서 유효한 YAML임을 확인했습니다. 캠페인 종료 조건을 충족합니다. Low를 넘는 재현 가능한 finding은 남아 있지 않습니다. | 현재 변경, 29라운드 확인 검토와 위 행들에 기록된 집중 테스트입니다. | Exact 중앙 검증을 확보하고 이슈 #122를 완료합니다. |
 | 2026-08-16 | validated | 중앙 검증이 통합된 bounded wait revision을 수락했고 나가는 범위를 `origin/main`에 푸시했습니다. | Revision `85c5aadf4`에 대해 `validation_queue.py check-range origin/main..HEAD`가 통과했고, 푸시가 해당 exact 증적과 구조 증적을 재사용했습니다. | 이슈 #122를 완료하고 프로젝트 보드를 동기화합니다. |
+| 2026-08-17 | implemented | 집중 검사, 경로 예약, commit 범위, 구조 pre-push gate 및 SHA 기반 CI를 유지하면서 중앙 검증을 필수 개발 경로에서 제거했습니다. | `current change`, 이슈 #148, focused hook, dispatcher 및 constitution 테스트입니다. | 도입 후 CI 및 push 지연을 관찰하고 queue는 명시적 진단에만 사용합니다. |
 
 ### 남은 작업
 
@@ -285,6 +288,8 @@ strict mypy도 통과했습니다. 최종 독립 검토에서 Low를 초과하�
 - [ ] 이슈 #118을 완료하고 project board를 동기화합니다.
 - [x] 이슈 #122의 bounded wait 캠페인 비평 라운드를 완료했으며, 28라운드 수용 검토에서 Low를 초과하는 재현 가능한 잔존 사항은 없었습니다.
 - [x] 중앙 검증이 bounded wait revision `85c5aadf4`를 수락했고 해당 범위를 푸시했습니다.
+- [x] 이슈 #148에서 일반 commit, push 및 agent-tool 경로의 자동 queue 등록과 commit별 receipt
+  요구를 제거했습니다.
 - [ ] 이슈 #122를 완료하고 프로젝트 보드를 동기화합니다.
 
 ## Bounded wait 캠페인

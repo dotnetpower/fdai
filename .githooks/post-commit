@@ -1,21 +1,9 @@
 #!/usr/bin/env -S LC_ALL=C LANG=C bash
-# Post-commit hook - register every new commit with the shared validation queue.
+# Post-commit hook - record a bounded handover without starting validation.
 set -uo pipefail
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$repo_root" || exit 0
-
-queue_script="scripts/automation/validation_queue.py"
-if [ ! -f "$queue_script" ]; then
-  exit 0
-fi
-
-if ! python3 "$queue_script" enqueue HEAD >/dev/null; then
-  echo "post-commit: warning - failed to enqueue HEAD for integration validation" >&2
-fi
-if ! python3 "$queue_script" wake >/dev/null; then
-  echo "post-commit: warning - failed to start background integration validation" >&2
-fi
 
 handover_script="scripts/automation/session-handover.py"
 if [ -f "$handover_script" ] && ! python3 "$handover_script" record HEAD; then

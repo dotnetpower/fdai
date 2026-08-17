@@ -16,8 +16,6 @@ import time
 from pathlib import Path
 from typing import Any, cast
 
-from scripts.agent import external_operation_guard
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MANIFEST_PATH = REPO_ROOT / "scripts/lib/design-routes.json"
 FRAMEWORK_SURFACE_PATH = REPO_ROOT / "scripts/lib/framework-surface.txt"
@@ -28,7 +26,6 @@ HIGH_RISK_EXACT_PATHS = frozenset(
     {
         ".github/hooks/design-context.json",
         "scripts/agent/design_context.py",
-        "scripts/agent/external_operation_guard.py",
         "scripts/agent/pre_tool_dispatch.py",
         "scripts/lib/design-routes.json",
         "scripts/lib/framework-surface.txt",
@@ -658,10 +655,9 @@ def enforce_validation_route(payload: dict[str, Any]) -> dict[str, Any]:
     if not is_broad_test_tool and not is_direct_heavy_command:
         return {"continue": True}
     reason = (
-        "Heavy FDAI validation is centralized to prevent duplicate CPU, memory, and disk load. "
-        "Run focused tests in this worker session. The dedicated integration session must run "
-        "'make validation-run' for the shared queue, or 'make validation-all' at a merge or "
-        "release boundary."
+        "Repository-wide FDAI validation is reserved for merge and release boundaries. Run the "
+        "narrowest focused check that can falsify this worker's change, and use "
+        "'make validation-all' only for an explicit merge or release validation."
     )
     return {
         "systemMessage": reason,
@@ -693,11 +689,7 @@ def pre_tool_use(payload: dict[str, Any]) -> dict[str, Any]:
     validation_result = enforce_validation_route(payload)
     if validation_result.get("hookSpecificOutput", {}).get("permissionDecision") == "deny":
         return validation_result
-    return external_operation_guard.enforce_external_operation_order(
-        tool_name=tool_name,
-        tool_input=_tool_input(payload),
-        repo_root=REPO_ROOT,
-    )
+    return {"continue": True}
 
 
 def main(argv: list[str]) -> int:
