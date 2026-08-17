@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 670aea4e687d1f1b2dc06bb1171090a62c9cec34
+translation_source_sha: e9073fb0c212d199b7e4a42fb9f9e12b0513c1c1
 translation_revised: 2026-08-17
 ---
 # 코드 맵
@@ -111,6 +111,7 @@ translation_revised: 2026-08-17
 | 2026-08-17 | 구현됨 | 효과 조정 귀속을 위한 principal 없는 관찰자 identity 기록을 등록했습니다. 인증된 관찰 맥락을 내용 주소로 투영하여 안정적인 identity 핸들과 도출된 독립성 결과를 담으며, 효과를 종결하거나 가설을 승격하거나 실행할 권한은 갖지 않습니다. | `current change`, `core/ontology_platform/reconciliation_identity.py`, `reconciliation.py`, `reconciliation_contracts.py`, `reconciliation_state_store.py`, focused 조정 검사 40건 통과 | 이 기록에 남은 작업은 없습니다. 채점 가능 여부는 계속 coordinator가 자체 규칙으로 결정합니다. |
 | 2026-08-17 | 구현됨 | T1/T2 대체 경로 조정기에서 스칼라 및 그래프 동적 시뮬레이션 근거 기록을 분리해 인접한 전용 mixin으로 옮겼습니다. 기존 메서드 이름, 감사 기록, 안전하게 보류하는 동작은 그대로 유지합니다. | `current change`; `_dynamic_simulation.py`, `_fallback.py`, `test_control_loop_t1_wire.py`; 집중 검사 16건, Ruff, 형식 검사, strict mypy가 통과했습니다. | 이 구조 분리에 남은 작업은 없습니다. |
 | 2026-08-17 | 구현됨 | HIL 재개 실행기 경로 선택, compare-and-set 종료 상태 저장, 요청 무결성, 정본 감사 기록 생성을 인접한 전용 모듈로 분리했습니다. 승인 정책, 공개 결과, 자기 승인 거부, 멱등성, 안전하게 중단하는 실행 경로는 동일한 조정기 흐름에 유지됩니다. | `current change`; `hil_resume/{audit,dispatch,integrity}.py`, `coordinator.py`, 집중 HIL 검사; 45건, Ruff, 형식 검사, strict mypy가 통과했습니다. | 이 구조 분리에 남은 작업은 없습니다. |
+| 2026-08-17 | 구현됨 | Heimdall의 순수한 제한 크기 map, trace 근거, 심각도 정규화 helper를 private agent framework 아래로 옮겼습니다. 읽기 조사 소유권, Event 처리, 인시던트 상관 분석, 관찰자 권한은 `heimdall.py`에 그대로 유지합니다. | `current change`; `heimdall_helpers.py`, `heimdall.py`; 집중 관찰자 검사 21건과 framework layout 검사 11건이 통과했습니다. | 이 구조 분리에 남은 작업은 없습니다. |
 
 ### 남은 작업
 
