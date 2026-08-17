@@ -32,6 +32,7 @@ second execution authority.
 | Command Deck live assurance timeout budget | implemented | `console/tests/live-e2e/console-routes.spec.ts`; focused Playwright test discovery (`2 tests`) | Per-test budgets exceed the existing server-answer assertion budgets, so the global default cannot preempt the intended live checks. This does not weaken answer, grounding, or verification assertions. |
 | Architecture relationship and dense-map rendering | implemented | `console/src/components/architecture-map.model.ts`; `console/src/components/architecture-map-renderer.ts`; architecture inspector, relation-index, and map tests; focused Vitest (`54 passed`) and live `/architecture` Playwright (`1 passed`) checks | The view recognizes authoritative `peered_with` relationships. Dense maps retain reflections through a bounded 48-node pass that prioritizes selected and highlighted resources, preventing the route fallback from blocking the operator view. No governed runtime or operational receipt is retained, so the evidence supports `implemented`, not `validated`. |
 | Authenticated semantic receipt evidence harness | validated | `console/tests/live-e2e/browser-entra-state.ts`; `console/tests/live-e2e/console-routes.spec.ts`; `console/tests/live-e2e/ontology-query-assurance*.ts`; `.fdai/live-validation/ontology-query-assurance-cohort-c16eb06755c44fc155773f1a5a85a0c23eb930a8/` | The harness restores an existing Browser Entra MSAL session into `sessionStorage` before first navigation, consumes the bootstrap once, judges the semantic receipt before opening success-only details, and serializes the seeded cohort with a 15-second request interval. It retries an allowlisted receipt-less transport interruption once after 60 seconds and retains every attempt in the governed artifact. `FDAI_E2E_ASSURANCE_QUESTION_IDS` selects exact generated question ids for a bounded diagnostic probe; a subset may pass but can never set `production_ready`. Receipt-bearing, malformed semantic, and non-transport outcomes remain fail-closed and are never retried. Principal and App Role validation remain with the Operator API. The retained full cohort passed all 100 authenticated questions with complete locale and operation coverage, no retry exhaustion, and `production_ready=true`. |
+| Incident roster filter presentation | implemented | Issue #149; `console/src/routes/incident-clarity.css`; authenticated standard-port desktop and 390 px Browser checks; `npm --prefix console run build` | Owning vertical and Severity use the compact Calm Slate form treatment, align with the search controls, retain keyboard focus visibility, and wrap without overlap on narrow screens. |
 
 ### Implementation history
 
@@ -46,6 +47,7 @@ second execution authority.
 | 2026-08-13 | implemented | Preserved transport source metadata and added one bounded retry for allowlisted receipt-less interruptions without changing the fail-closed semantic receipt oracle. The governed artifact records the retry policy, each attempt, actual protected request count, and exhausted retry count. | `current change`; `console/tests/live-e2e/ontology-query-assurance*.ts`; focused ontology assurance Vitest passed 31 tests and Playwright discovered both configured live projects without executing external requests. | Obtain the exact centralized validation receipt, then retain one passing authenticated bilingual 100-question artifact with no exhausted transport retries. |
 | 2026-08-13 | implemented | Added deterministic exact-id selection for bounded authenticated diagnostic probes while keeping full-cohort coverage mandatory for `production_ready`. Unknown, duplicate, and empty question ids fail before a live request. | `current change`; `console/tests/live-e2e/ontology-query-assurance*.ts`; focused ontology assurance Vitest passed 37 tests and Playwright discovered the configured live test without executing external requests. | Obtain the exact centralized validation receipt, rerun the six receipt-less cases as a non-readiness probe, then retain a new full 100-question artifact. |
 | 2026-08-13 | validated | Retained a new authenticated bilingual full-cohort artifact after the six previously receipt-less questions passed a bounded diagnostic probe. | Governed schema `1.1.0` artifact under `.fdai/live-validation/ontology-query-assurance-cohort-c16eb06755c44fc155773f1a5a85a0c23eb930a8/`, at exact centrally validated source revision `c16eb06755c44fc155773f1a5a85a0c23eb930a8` and clean workspace patch digest `sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`; Playwright passed in 1.3 hours; 100 protected requests produced 100 authoritative outcomes with 50 questions per locale and 10 per operation, zero failures, retries, exhausted retries, duplicate request or projection ids, unsupported operational claims, or unauthorized execution claims. | Keep future readiness claims bound to a new exact validated revision and governed full-cohort artifact when the exercised behavior changes. |
+| 2026-08-17 | implemented | Replaced browser-default Incident vertical and severity selects with the compact Console form treatment. | Issue #149; `current change`; `console/src/routes/incident-clarity.css`; authenticated desktop computed-style and screenshot checks, a 390 px no-overlap check, and `npm --prefix console run build` passed. | No remaining work for the Incident filter presentation. |
 
 ### Remaining work
 
@@ -54,6 +56,7 @@ second execution authority.
 - [ ] Record keyboard, conflict, retry, compensation, and rollback drill evidence defined by the Phase 3 exit criteria.
 - [ ] Freeze reviewed baseline windows and pass the shadow measurement comparison defined by the Phase 4 exit criteria.
 - [x] Retain one passing authenticated bilingual 100-question ontology assurance artifact that records all transport attempts and reports zero exhausted transport retries.
+- [x] Keep the Incident vertical and severity filters aligned with the compact Console form treatment on desktop and narrow screens.
 
 ## Design at a glance
 
@@ -154,7 +157,9 @@ remediation instruction. The roster and its outcome cohorts exclude a correlatio
 row is platform housekeeping, and the cohort panel states the measured share of the matched
 population instead of presenting its 500-incident bound as a complete measurement. Search,
 vertical, and severity are clearable roster controls that filter bounded recorded subject evidence
-on the server before the page limit and use the same snapshot for outcome analytics. See
+on the server before the page limit and use the same snapshot for outcome analytics. The two
+select controls use the compact Calm Slate form treatment, preserve visible keyboard focus, and
+wrap without overlap on narrow screens. See
 [operator-console-incident-roster.md](operator-console-incident-roster.md) for the projection
 contract.
 

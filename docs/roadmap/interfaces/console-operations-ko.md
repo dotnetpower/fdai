@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: a2cc6737e44f7cb90bdf47ed8257388489f66c79
+translation_source_sha: c491c933e700031cdc51ca87395709a45cf832e1
 translation_revised: 2026-08-17
 ---
 
@@ -34,6 +34,7 @@ translation_revised: 2026-08-17
 | Command Deck 라이브 보증 timeout budget | implemented | `console/tests/live-e2e/console-routes.spec.ts`; 범위를 한정한 Playwright 테스트 검색(`2 tests`) | 테스트별 budget이 기존 서버 응답 assertion budget보다 길어서 전역 기본값이 의도한 라이브 검사를 먼저 중단할 수 없습니다. 답변, grounding 또는 검증 assertion은 완화하지 않습니다. |
 | 아키텍처 관계 및 밀집 지도 렌더링 | implemented | `console/src/components/architecture-map.model.ts`; `console/src/components/architecture-map-renderer.ts`; 아키텍처 검사기, 관계 인덱스 및 지도 테스트; 범위를 한정한 Vitest 검사(`54 passed`)와 라이브 `/architecture` Playwright 검사(`1 passed`) | 화면은 권위 있는 `peered_with` 관계를 인식합니다. 밀집 지도는 선택되거나 강조된 리소스를 우선하는 최대 48개 노드의 제한된 처리로 반사를 유지하며 경로의 대기 화면이 운영자 보기를 차단하지 않도록 합니다. 통제된 runtime 또는 운영 증적이 보존되지 않았으므로 근거는 `validated`가 아니라 `implemented`를 뒷받침합니다. |
 | 인증된 의미 증적 근거 실행기 | validated | `console/tests/live-e2e/browser-entra-state.ts`; `console/tests/live-e2e/console-routes.spec.ts`; `console/tests/live-e2e/ontology-query-assurance*.ts`; `.fdai/live-validation/ontology-query-assurance-cohort-c16eb06755c44fc155773f1a5a85a0c23eb930a8/` | 실행기는 첫 탐색 전에 기존 Browser Entra MSAL 세션을 `sessionStorage`에 복원하고 bootstrap을 한 번만 소비하며 성공 전용 세부 정보를 열기 전에 의미 증적을 판정하고 seed 기반 집단을 요청 간 15초 간격으로 직렬 실행합니다. 허용 목록에 있는 증적 없는 전송 중단은 60초 뒤 한 번만 재시도하고 모든 시도를 통제 아티팩트에 보존합니다. `FDAI_E2E_ASSURANCE_QUESTION_IDS`는 범위가 제한된 진단 probe를 위해 생성된 정확한 질문 id를 선택하며 subset은 통과하더라도 `production_ready`를 설정할 수 없습니다. 증적이 있거나 의미 결과가 잘못되었거나 전송 문제가 아닌 결과는 안전하게 실패 처리하며 재시도하지 않습니다. Principal과 App Role 검증은 Operator API에 맡깁니다. 보존한 전체 집단은 완전한 locale 및 operation coverage, 소진된 재시도 없이 인증된 질문 100개를 모두 통과했고 `production_ready=true`를 기록했습니다. |
+| 인시던트 목록 필터 표시 | implemented | 이슈 #149; `console/src/routes/incident-clarity.css`; 인증된 표준 포트 데스크톱 및 390 px 브라우저 검사; `npm --prefix console run build` | 담당 버티컬과 심각도는 간결한 Calm Slate 폼 스타일을 사용하고 검색 컨트롤과 정렬되며 키보드 초점 표시를 유지하고 좁은 화면에서 겹치지 않게 줄 바꿈됩니다. |
 
 ### 구현 이력
 
@@ -48,6 +49,7 @@ translation_revised: 2026-08-17
 | 2026-08-13 | implemented | 전송 출처 메타데이터를 보존하고 허용 목록에 있는 증적 없는 중단에 한 번의 제한된 재시도를 추가했으며 안전하게 실패하는 의미 증적 판정기는 변경하지 않았습니다. 통제 아티팩트는 재시도 정책, 각 시도, 실제 보호 요청 수 및 소진된 재시도 수를 기록합니다. | `current change`; `console/tests/live-e2e/ontology-query-assurance*.ts`; 범위를 한정한 온톨로지 보증 Vitest에서 31개 테스트가 통과했고 Playwright가 외부 요청을 실행하지 않은 채 설정된 두 라이브 프로젝트를 검색했습니다. | 정확한 중앙 검증 증적을 얻은 뒤 소진된 전송 재시도가 없는 인증된 이중 언어 100개 질문 아티팩트 하나를 보존합니다. |
 | 2026-08-13 | implemented | 범위가 제한된 인증 진단 probe를 위해 결정적인 exact-id 선택을 추가했으며 `production_ready`에는 전체 집단 coverage가 계속 필수입니다. 알 수 없거나 중복되거나 비어 있는 질문 id는 라이브 요청 전에 실패합니다. | `current change`; `console/tests/live-e2e/ontology-query-assurance*.ts`; 범위를 한정한 온톨로지 보증 Vitest에서 37개 테스트가 통과했고 Playwright가 외부 요청을 실행하지 않은 채 설정된 라이브 테스트를 검색했습니다. | 정확한 중앙 검증 증적을 얻고 증적이 없었던 6건을 준비 상태 근거가 아닌 probe로 다시 실행한 뒤 새로운 전체 100개 질문 아티팩트를 보존합니다. |
 | 2026-08-13 | validated | 이전에 증적이 없었던 질문 6개가 범위가 제한된 진단 probe를 통과한 뒤 인증된 새로운 이중 언어 전체 집단 아티팩트를 보존했습니다. | `.fdai/live-validation/ontology-query-assurance-cohort-c16eb06755c44fc155773f1a5a85a0c23eb930a8/` 아래의 통제된 schema `1.1.0` 아티팩트는 정확히 중앙 검증된 source revision `c16eb06755c44fc155773f1a5a85a0c23eb930a8` 및 clean workspace patch digest `sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`에 연결됩니다. Playwright가 1.3시간에 통과했습니다. 보호 요청 100건은 locale별 질문 50개와 operation별 질문 10개의 100개 authoritative outcome을 만들었으며 실패, 재시도, 소진된 재시도, 중복 request 또는 projection id, 지원되지 않은 운영 claim 및 권한 없는 실행 claim은 모두 0건이었습니다. | 실행되는 동작이 변경되면 이후 준비 상태 주장을 새 exact validated revision과 통제된 전체 집단 아티팩트에 연결합니다. |
+| 2026-08-17 | implemented | 브라우저 기본값으로 렌더링되던 인시던트 버티컬과 심각도 선택 컨트롤을 간결한 Console 폼 스타일로 교체했습니다. | 이슈 #149; `current change`; `console/src/routes/incident-clarity.css`; 인증된 데스크톱 계산 스타일 및 화면 캡처 검사, 390 px 겹침 방지 검사, `npm --prefix console run build`가 통과했습니다. | 인시던트 필터 표시에 남은 작업은 없습니다. |
 
 ### 남은 작업
 
@@ -56,6 +58,7 @@ translation_revised: 2026-08-17
 - [ ] 단계 3 완료 조건에서 정의한 키보드, 충돌, 재시도, 보상 및 롤백 훈련 근거를 기록합니다.
 - [ ] 검토된 기준선 구간을 고정하고 단계 4 완료 조건에서 정의한 shadow 측정 비교를 통과합니다.
 - [x] 모든 전송 시도를 기록하고 소진된 전송 재시도가 0이라고 보고하는 인증된 이중 언어 100개 질문 온톨로지 보증 아티팩트 하나를 보존합니다.
+- [x] 데스크톱과 좁은 화면에서 인시던트 버티컬 및 심각도 필터를 간결한 Console 폼 스타일에 맞춥니다.
 
 ## 설계 요약
 
@@ -152,7 +155,8 @@ Incidents 목록은 서버가 소유한 `title_source`를 그대로 렌더링하
 목록과 결과 cohort는 모든 행이 플랫폼 유지 관리인 상관관계 그룹을 제외하며, cohort 패널은
 500건 상한을 완전한 측정처럼 제시하지 않고 일치한 모집단 중 측정한 비율을 밝힙니다. 검색,
 버티컬, 심각도는 해제 가능한 목록 컨트롤이며, 페이지 제한 전에 범위가 제한된 기록 대상 근거를
-서버에서 필터하고 결과 분석에 같은 snapshot을 사용합니다.
+서버에서 필터하고 결과 분석에 같은 snapshot을 사용합니다. 두 선택 컨트롤은 간결한 Calm Slate
+폼 스타일을 사용하고 키보드 초점을 명확하게 표시하며 좁은 화면에서 겹치지 않게 줄 바꿈됩니다.
 변환 계약은 [operator-console-incident-roster.md](operator-console-incident-roster.md)를 참고하세요.
 
 ### Operations 작업 화면
