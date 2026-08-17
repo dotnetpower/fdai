@@ -317,6 +317,24 @@ def _guard_initial_cutover(
     for name, sidecar in after_sidecars.items():
         expected_containers[name].clear()
         expected_containers[name].update(copy.deepcopy(sidecar))
+    expected_templates = expected.get("template")
+    after_templates = after.get("template")
+    if (
+        isinstance(expected_templates, list)
+        and len(expected_templates) == 1
+        and isinstance(expected_templates[0], dict)
+        and isinstance(after_templates, list)
+        and len(after_templates) == 1
+        and isinstance(after_templates[0], dict)
+    ):
+        after_suffix = after_templates[0].get("revision_suffix")
+        if (
+            not isinstance(after_suffix, str)
+            or re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?", after_suffix) is None
+        ):
+            violations.append(f"planned revision suffix is invalid at {address}")
+        else:
+            expected_templates[0]["revision_suffix"] = after_suffix
     if expected != after:
         violations.append(
             f"initial cutover changes fields outside its rollback boundary at {address}"
