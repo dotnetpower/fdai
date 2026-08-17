@@ -12,7 +12,6 @@ Redpanda, filesystem document storage, and ClamAV. Deployed composition replaces
 with service-owned managed implementations without changing the shared wire contracts.
 
 ## Implementation status
-
 ### Implementation scope
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|

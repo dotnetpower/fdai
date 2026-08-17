@@ -1,10 +1,9 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 141657fd8208addd17e13fe89acb9628c1e84bfd
-translation_revised: 2026-08-17
+translation_source_sha: 46745a41d0d82db0c1d3364029a17888da9897fc
+translation_revised: 2026-08-18
 ---
-
 # 프로세스 자동화(프로세스 자동화)
 
 프로세스 자동화는 다단계 비즈니스 프로세스를 1급, 온톨로지 연결, 거버넌스된

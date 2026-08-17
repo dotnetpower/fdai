@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 00ff5417898cbf4088de132e8df1b209e89be872
-translation_revised: 2026-08-17
+translation_source_sha: a079a862333a3e15576894235c5f52d9788d4b68
+translation_revised: 2026-08-18
 ---
 # 프로젝트 구조
 
@@ -16,7 +16,6 @@ translation_revised: 2026-08-17
 해당 adapter를 service-owned managed 구현으로 교체합니다.
 
 ## 구현 상태
-
 ### 구현 범위
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|

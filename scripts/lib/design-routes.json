@@ -1374,12 +1374,14 @@
       ],
       "must_read": [
         ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/deployment/console-read-boundary.md",
         "docs/roadmap/deployment/dev-and-deploy-parity.md",
         "docs/roadmap/interfaces/narrator-routing-and-latency.md",
         "docs/roadmap/interfaces/user-rbac-and-identity.md",
         "docs/roadmap/operations/operator-initiated-sre-and-arb.md"
       ],
       "docs_update": [
+        "docs/roadmap/deployment/console-read-boundary.md",
         "docs/roadmap/deployment/dev-and-deploy-parity.md",
         "docs/roadmap/interfaces/narrator-routing-and-latency.md",
         "docs/roadmap/interfaces/user-rbac-and-identity.md"
