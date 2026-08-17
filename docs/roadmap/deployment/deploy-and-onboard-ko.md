@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: f98086e856da27546a2551598cd0988186af9241
+translation_source_sha: b54496c0c44bfcadfad90046dd97c45520711843
 translation_revised: 2026-08-17
 ---
 
@@ -53,6 +53,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 | 2026-08-16 | implemented | Analyzer Job을 영속 인벤토리 projection과 검토된 리소스 타입 5개 analyzer 매핑에 연결했습니다. Tick은 명시적 대상과 발견된 대상을 결정론적으로 병합하고, 구성된 발견 상한을 적용하며, 지원하지 않는 타입을 제외하고, projection 읽기 실패 시 coverage를 조용히 줄이지 않고 재시도합니다. | `current change`, `analyzer_tick_cli.py`, `analyzer_targets.py`, `analyzer_tick_job.tf`, focused analyzer 테스트 및 `test_detection_readiness.py` | 이 범위를 `validated`로 올리기 전에 protected 적용 및 scheduled-run 증적 하나를 보존합니다. |
 | 2026-08-17 | implemented | 서비스, 신원, 작업 영역 또는 scheduler 리소스를 추가하지 않고 기존 analyzer Job에 선택적 분산 추적 토폴로지 평가를 추가했습니다. | `current change`; 집중 동작 및 HIL 검사 55개 통과, Terraform format, validate 및 infrastructure 계약 검사 통과. | 이 범위를 `validated`로 올리기 전에 protected exact-revision 적용과 예약된 `preserve`, `regenerate`, `drop` 증적을 보존합니다. |
 | 2026-08-17 | implemented | Container supply chain이 게시하는 서비스별 Core 저장소를 읽도록 protected runtime image promotion을 수정하고 이전 방식의 단일 GHCR 경로 사용을 제거했습니다. | `current change`, `.github/workflows/deploy-dev.yml`, `test_legacy_platform_imports_the_service_specific_core_image` 통과. | 서비스별 Core 다이제스트를 검증하고 연결하는 protected 계획과 exact 적용을 완료합니다. |
+| 2026-08-17 | implemented | 개발 게이트웨이 대상 계획에 analyzer Job을 포함해 추적 토폴로지 구성과 예약된 탐지기가 기존 게이트웨이 배포 화면과 함께 수렴하도록 했습니다. | `current change`, `.github/workflows/deploy-dev.yml`, `test_detection_readiness.py` 4개 및 `test_service_deploy_workflow.py` 25개 통과. | 이 범위를 `validated`로 올리기 전에 protected 적용과 예약된 `preserve`, `regenerate`, `drop` 증적을 보존합니다. |
 
 ### 남은 작업
 

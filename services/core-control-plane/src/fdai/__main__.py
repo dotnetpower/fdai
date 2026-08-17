@@ -21,9 +21,11 @@ from fdai.runtime.consumers import (
 from fdai.runtime.control_loop import (
     _build_control_loop,
     _build_irp_event_handler,
-    _build_workflow_coordinator,
-    _pending_index_writer,
 )
+from fdai.runtime.control_loop_support import (
+    build_workflow_coordinator as _build_workflow_coordinator,
+)
+from fdai.runtime.control_loop_support import pending_index_writer as _pending_index_writer
 from fdai.runtime.delivery import (
     _build_direct_api_executor,
     _build_hil_channel,

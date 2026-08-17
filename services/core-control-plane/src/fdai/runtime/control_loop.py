@@ -7,7 +7,6 @@ import os
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import replace
 from datetime import datetime
-from pathlib import Path
 from typing import Any, cast
 
 import httpx
@@ -16,10 +15,6 @@ import yaml
 from fdai.composition import (
     Container,
     LlmBindings,
-)
-from fdai.core.architecture_review import (
-    ArchitectureReviewProductionGateEvaluator,
-    ArchitectureReviewProjector,
 )
 from fdai.core.assurance_twin import (
     DynamicRuntimeCoordinator,
@@ -42,15 +37,11 @@ from fdai.core.executor.renderer import TemplateRenderer
 from fdai.core.executor.tool_call import ToolReceiptObserver
 from fdai.core.hil_resume import (
     ApprovalLoadController,
-    ApprovalLoadPolicy,
     ApprovalReminderDispatcher,
-    EscalationDuty,
     EscalationPolicy,
-    EscalationRung,
     HilResumeCoordinator,
     HumanNonResponseSupervisor,
 )
-from fdai.core.notifications.matrix import load_matrix_from_yaml
 from fdai.core.ontology_platform import EffectReconciliationRequestSink, compile_interfaces
 from fdai.core.ontology_platform.operational_functions import operational_function_types
 from fdai.core.quality_gate import (
@@ -62,7 +53,6 @@ from fdai.core.quality_gate import (
     SelfConsistencySampler,
 )
 from fdai.core.quality_gate.self_consistency import SelfConsistencyCascade
-from fdai.core.rbac.resolver import GroupMapping
 from fdai.core.rca import (
     CausalRuntimeCoordinator,
     KnowledgeEvidenceGatherer,
@@ -78,12 +68,6 @@ from fdai.core.risk_gate import (
     RiskGateConfig,
 )
 from fdai.core.risk_gate.risk_table import load_risk_table
-from fdai.core.stewardship import (
-    Duty,
-    EscalationTier,
-    build_escalation_plan,
-    load_stewardship_from_yaml,
-)
 from fdai.core.tiers.t0_deterministic import T0Engine
 from fdai.core.tiers.t0_deterministic.index import RuleIndex
 from fdai.core.tiers.t0_deterministic.opa_evaluator import (
@@ -94,23 +78,13 @@ from fdai.core.tiers.t1_lightweight import CurrentReuseVerifier, T1Config, T1Tie
 from fdai.core.tiers.t2_reasoning import T2Tier
 from fdai.core.trust_router import TrustRouter
 from fdai.core.workflow import (
-    ChangeWindowWorkflowGuardEvaluator,
-    ProcessOntologyProjector,
-    ProjectingProcessRuntimeStore,
     StateStoreAutomationHoldLedger,
     StateStoreWorkflowOutcomeLedger,
-    WorkflowApprovalPlanner,
-    WorkflowOrchestrator,
-    WorkflowTriggerCoordinator,
-    WorkflowTriggerIndex,
 )
 from fdai.delivery.kinetic_proposal import StateStoreKineticActionProposalStore
 from fdai.delivery.kinetic_safety import ExistingProposalKineticSafetyWriter
 from fdai.delivery.persistence.state_store_preconditions import (
     StateStoreOpenActionEvidenceProvider,
-)
-from fdai.delivery.persistence.workflow_approval import (
-    StateStoreWorkflowApprovalProvider,
 )
 from fdai.delivery.reconciliation_artifacts import StateStoreExecutedActionArtifactStore
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
@@ -125,6 +99,16 @@ from fdai.rule_catalog.schema.rule import load_rule_catalog
 from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_mapping
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
 from fdai.runtime.configuration import _resolve_catalog_root, _resolve_policies_root
+from fdai.runtime.control_loop_support import (
+    build_workflow_coordinator as _build_workflow_coordinator,
+)
+from fdai.runtime.control_loop_support import (
+    load_approval_load_policy as _load_approval_load_policy,
+)
+from fdai.runtime.control_loop_support import (
+    load_hil_escalation_rungs as _load_hil_escalation_rungs,
+)
+from fdai.runtime.control_loop_support import pending_index_writer as _pending_index_writer
 from fdai.runtime.delivery import (
     _build_direct_api_executor,
     _build_hil_channel,
@@ -150,7 +134,6 @@ from fdai.shared.contracts.models import Mode, ResponseOutcome, Rule
 from fdai.shared.ontology.release import build_ontology_release
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.stage_publisher import StagePublisher
-from fdai.shared.providers.testing.process_runtime import InMemoryProcessRuntimeStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 from fdai.shared.resilience import StateStoreKillSwitch
 
@@ -197,147 +180,10 @@ def _legacy_executor_bindings(
     )
 
 
-async def _pending_index_writer(store: Any, approval_id: str) -> None:
-    """Bridge the core HIL coordinator to the durable pending projection."""
-    from fdai.delivery.persistence.state_store_hil_registry import add_pending_approval
-
-    await add_pending_approval(store, approval_id)
-
-
-def _build_workflow_coordinator(
-    *,
-    catalog_root: Path,
-    workflows: tuple[Any, ...],
-    action_types_by_name: dict[str, Any],
-    audit_store: Any,
-    process_store: Any | None = None,
-    ontology_store: Any | None = None,
-    outcome_verifier: StateStoreWorkflowOutcomeLedger | None = None,
-) -> WorkflowTriggerCoordinator | None:
-    """Assemble the shadow workflow coordinator, enabled by default and fail-safe.
-
-    Disabled only when ``FDAI_WORKFLOW_SHADOW`` is explicitly false or the catalog
-    ships no Workflow. Any load error (missing / malformed rbac-groups or
-    notifications matrix) logs and returns ``None`` so workflow wiring never
-    fails boot or perturbs the control loop.
-    """
-    if not workflows:
-        return None
-    if os.environ.get("FDAI_WORKFLOW_SHADOW", "").strip().casefold() in {
-        "0",
-        "false",
-        "no",
-        "off",
-    }:
-        return None
-    config_dir = catalog_root.parent / "config"
-    rbac_file = config_dir / "rbac-groups.yaml"
-    matrix_file = config_dir / "notifications-matrix.yaml"
-    try:
-        with rbac_file.open("r", encoding="utf-8") as fh:
-            group_mapping = GroupMapping.from_config(yaml.safe_load(fh))
-        matrix = load_matrix_from_yaml(matrix_file)
-    except (OSError, ValueError) as exc:
-        _LOGGER.warning("workflow_coordinator_disabled", extra={"error": type(exc).__name__})
-        return None
-    planner = WorkflowApprovalPlanner(
-        action_types=action_types_by_name,
-        group_mapping=group_mapping,
-        matrix=matrix,
-    )
-    runtime_store = process_store or InMemoryProcessRuntimeStore()
-    if ontology_store is not None:
-        domain_projectors: dict[str, Any] = {}
-        review_manifest = catalog_root.parent / "config" / "architecture-review.yaml"
-        if review_manifest.is_file():
-            with review_manifest.open("r", encoding="utf-8") as handle:
-                raw_manifest = yaml.safe_load(handle)
-            if not isinstance(raw_manifest, dict):
-                raise ValueError("config/architecture-review.yaml MUST contain a mapping")
-            domain_projectors["architecture-review"] = ArchitectureReviewProjector(
-                ontology_store,
-                raw_manifest,
-            )
-        runtime_store = ProjectingProcessRuntimeStore(
-            runtime=runtime_store,
-            projector=ProcessOntologyProjector(
-                ontology_store,
-                domain_projectors=domain_projectors,
-            ),
-        )
-    architecture_guard = ArchitectureReviewProductionGateEvaluator(
-        manifest_path=catalog_root.parent / "config" / "architecture-review.yaml",
-        repo_root=catalog_root.parent,
-    )
-    guard_evaluator = (
-        ChangeWindowWorkflowGuardEvaluator(
-            change_windows=OntologyChangeWindowEvidenceProvider(ontology_store),
-            fallback=architecture_guard,
-        )
-        if ontology_store is not None
-        else architecture_guard
-    )
-    orchestrator = WorkflowOrchestrator(
-        planner=planner,
-        action_types=action_types_by_name,
-        audit_store=audit_store,
-        process_store=runtime_store,
-        guard_evaluator=guard_evaluator,
-        approval_provider=StateStoreWorkflowApprovalProvider(audit_store),
-        outcome_verifier=outcome_verifier,
-    )
-    _LOGGER.info("workflow_coordinator_enabled", extra={"workflows": len(workflows)})
-    return WorkflowTriggerCoordinator(
-        index=WorkflowTriggerIndex.build(workflows),
-        orchestrator=orchestrator,
-    )
-
-
 def _load_resource_types() -> ResourceTypeRegistry:
     vocabulary_file = _resolve_catalog_root() / "vocabulary" / "resource-types.yaml"
     with vocabulary_file.open("r", encoding="utf-8") as handle:
         return load_resource_type_registry_from_mapping(yaml.safe_load(handle))
-
-
-def _load_approval_load_policy(catalog_root: Path) -> ApprovalLoadPolicy | None:
-    configured = os.environ.get("FDAI_APPROVAL_LOAD_POLICY", "").strip()
-    path = Path(configured) if configured else catalog_root.parent / "config" / "approval-load.yaml"
-    if not path.is_file():
-        if configured:
-            raise ValueError("FDAI_APPROVAL_LOAD_POLICY does not reference a file")
-        return None
-    with path.open("r", encoding="utf-8") as handle:
-        decoded = yaml.safe_load(handle)
-    if not isinstance(decoded, Mapping):
-        raise ValueError("approval load policy MUST be a YAML object")
-    return ApprovalLoadPolicy.from_mapping(decoded)
-
-
-def _load_hil_escalation_rungs(catalog_root: Path) -> tuple[EscalationRung, ...]:
-    stewardship = load_stewardship_from_yaml(
-        catalog_root.parent / "config" / "agent-stewardship.yaml",
-        environ=os.environ,
-    )
-    plan = build_escalation_plan(stewardship, "Var")
-    duty_map = {
-        Duty.PRIMARY: EscalationDuty.PRIMARY,
-        Duty.BACKUP: EscalationDuty.BACKUP,
-        Duty.ESCALATION: EscalationDuty.ESCALATION,
-    }
-    rungs: list[EscalationRung] = []
-    for recipient in plan.recipients:
-        if recipient.tier is EscalationTier.INFORMED:
-            continue
-        if recipient.tier is EscalationTier.MAINTAINER:
-            duty = EscalationDuty.MAINTAINER
-            minimum_role = "Owner"
-        elif recipient.duty is not None:
-            duty = duty_map[recipient.duty]
-            minimum_role = "Approver"
-        else:
-            continue
-        rungs.append(EscalationRung(recipient.id, duty, minimum_role))
-    return tuple(rungs)
 
 
 def _build_control_loop(
