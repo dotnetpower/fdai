@@ -136,6 +136,11 @@ _INCIDENT_GAP_NEXT_STEPS: tuple[tuple[str, str, str], ...] = (
         "Confirm an incident record exists for this correlation.",
     ),
     (
+        "root_cause_missing",
+        "근거 인용이 포함된 RCA 가설이 기록되었는지 확인하세요.",
+        "Confirm that an RCA hypothesis with grounded citations has been recorded.",
+    ),
+    (
         "impact_evidence_missing",
         "영향받은 리소스의 영향 근거를 수집하세요.",
         "Collect impact evidence for the affected resources.",
@@ -257,6 +262,159 @@ def _incident_timeline_block(
     )
 
 
+def _incident_root_cause_block(
+    root_cause: object,
+    *,
+    bounded_refs: list[str],
+    korean: bool,
+) -> JsonObject | None:
+    if not isinstance(root_cause, Mapping):
+        return None
+    fields = (
+        ("cause", "원인", "Cause"),
+        ("tier", "티어", "Tier"),
+        ("confidence", "신뢰도", "Confidence"),
+        ("reason", "근거", "Reason"),
+        ("recorded_at", "기록 시각", "Recorded"),
+    )
+    items = [
+        cast(
+            JsonObject,
+            {
+                "label": korean_label if korean else english_label,
+                "value": rendered,
+                "tone": "neutral",
+            },
+        )
+        for key, korean_label, english_label in fields
+        if (rendered := _incident_cell(root_cause.get(key))) is not None
+    ]
+    if not items:
+        return None
+    return cast(
+        JsonObject,
+        {
+            "slot_id": "root_cause",
+            "kind": "summary",
+            "title": "근본 원인" if korean else "Root cause",
+            "emphasis": "primary",
+            "collapsed": False,
+            "evidence_refs": bounded_refs,
+            "data": {"items": items},
+        },
+    )
+
+
+def _incident_impact_block(
+    impacts: object,
+    *,
+    bounded_refs: list[str],
+    korean: bool,
+) -> JsonObject | None:
+    if not isinstance(impacts, list) or not impacts:
+        return None
+    rows: list[JsonObject] = []
+    for impact in impacts[:_MAX_TABLE_ROWS]:
+        if not isinstance(impact, Mapping):
+            continue
+        unit = _incident_cell(impact.get("unit"))
+        rows.append(
+            cast(
+                JsonObject,
+                {
+                    "metric": _incident_cell(impact.get("metric")) or "-",
+                    "baseline": _incident_measure(impact.get("baseline"), unit),
+                    "observed": _incident_measure(impact.get("observed"), unit),
+                    "threshold": _incident_measure(impact.get("threshold"), unit),
+                    "impact": _incident_cell(impact.get("impact")) or "-",
+                    "evidence_ref": _incident_cell(impact.get("evidence_ref")) or "-",
+                },
+            )
+        )
+    if not rows:
+        return None
+    return cast(
+        JsonObject,
+        {
+            "slot_id": "impact",
+            "kind": "table",
+            "title": "영향 근거" if korean else "Impact evidence",
+            "emphasis": "secondary",
+            "collapsed": False,
+            "evidence_refs": bounded_refs,
+            "data": {
+                "columns": [
+                    {"key": "metric", "label": "메트릭" if korean else "Metric"},
+                    {"key": "baseline", "label": "기준" if korean else "Baseline"},
+                    {"key": "observed", "label": "관측" if korean else "Observed"},
+                    {"key": "threshold", "label": "임계값" if korean else "Threshold"},
+                    {"key": "impact", "label": "영향" if korean else "Impact"},
+                    {"key": "evidence_ref", "label": "근거" if korean else "Evidence"},
+                ],
+                "rows": rows,
+                "status_key": None,
+            },
+        },
+    )
+
+
+def _incident_measure(value: object, unit: str | None) -> str:
+    rendered = _incident_cell(value)
+    if rendered is None:
+        return "-"
+    return f"{rendered} {unit}" if unit else rendered
+
+
+def _incident_citations_block(
+    citations: object,
+    *,
+    bounded_refs: list[str],
+    korean: bool,
+) -> JsonObject | None:
+    if not isinstance(citations, list) or not citations:
+        return None
+    rows: list[JsonObject] = []
+    for citation in citations[:_MAX_TABLE_ROWS]:
+        if not isinstance(citation, Mapping):
+            continue
+        rows.append(
+            cast(
+                JsonObject,
+                {
+                    "tier": _incident_cell(citation.get("tier")) or "-",
+                    "kind": _incident_cell(citation.get("kind")) or "-",
+                    "ref": _incident_cell(citation.get("ref")) or "-",
+                    "summary": _incident_cell(citation.get("summary")) or "-",
+                    "recorded_at": _incident_cell(citation.get("recorded_at")) or "-",
+                },
+            )
+        )
+    if not rows:
+        return None
+    return cast(
+        JsonObject,
+        {
+            "slot_id": "citations",
+            "kind": "table",
+            "title": "근거 인용" if korean else "Grounded citations",
+            "emphasis": "supporting",
+            "collapsed": False,
+            "evidence_refs": bounded_refs,
+            "data": {
+                "columns": [
+                    {"key": "tier", "label": "티어" if korean else "Tier"},
+                    {"key": "kind", "label": "종류" if korean else "Kind"},
+                    {"key": "ref", "label": "참조" if korean else "Reference"},
+                    {"key": "summary", "label": "요약" if korean else "Summary"},
+                    {"key": "recorded_at", "label": "기록 시각" if korean else "Recorded"},
+                ],
+                "rows": rows,
+                "status_key": None,
+            },
+        },
+    )
+
+
 def _incident_next_step_rows(gaps: list[object], *, korean: bool) -> list[JsonObject]:
     """Name the steps the measured gaps call for, not one sentence for every answer."""
     present = {gap for gap in gaps if isinstance(gap, str)}
@@ -312,12 +470,20 @@ def semantic_presentation_artifact(
     correlated = first.get("correlated_evidence")
     gaps = first.get("evidence_gaps")
     causal = first.get("causal_assessment")
+    root_cause = first.get("root_cause")
+    impacts = first.get("impact_evidence")
+    citations = first.get("grounded_citations")
     korean = locale.casefold().startswith("ko")
+    current_contract = (
+        (root_cause is None or isinstance(root_cause, Mapping))
+        and isinstance(impacts, list)
+        and isinstance(citations, list)
+    )
     if (
         isinstance(profile, Mapping)
         and isinstance(correlated, list)
         and isinstance(gaps, list)
-        and isinstance(causal, Mapping)
+        and (current_contract or isinstance(causal, Mapping))
     ):
         verified = first.get("verified_records")
         verified_records = (
@@ -342,13 +508,28 @@ def semantic_presentation_artifact(
             bounded_refs=bounded_refs,
             korean=korean,
         )
-        limitations = [
-            (
+        root_cause_block = _incident_root_cause_block(
+            root_cause,
+            bounded_refs=bounded_refs,
+            korean=korean,
+        )
+        impact_block = _incident_impact_block(
+            impacts,
+            bounded_refs=bounded_refs,
+            korean=korean,
+        )
+        citations_block = _incident_citations_block(
+            citations,
+            bounded_refs=bounded_refs,
+            korean=korean,
+        )
+        limitations = []
+        if not current_contract:
+            limitations.append(
                 "인과 분석이 구현되지 않아 근본 원인을 확인할 수 없습니다."
                 if korean
                 else "Root cause isn't available because causal analysis hasn't been implemented."
             )
-        ]
         if len(correlated) < verified_records:
             limitations.append(
                 f"아래 목록에는 가장 최근 {len(correlated)}건만 담겨 있습니다."
@@ -357,6 +538,7 @@ def semantic_presentation_artifact(
             )
         gap_labels = (
             {
+                "root_cause_missing": "근거에 기반한 근본 원인 가설이 기록되지 않았습니다.",
                 "impact_evidence_missing": "영향 근거가 누락되었습니다.",
                 "grounded_citations_missing": "근거 인용이 누락되었습니다.",
                 "incident_profile_missing": "인시던트 프로파일이 누락되었습니다.",
@@ -364,6 +546,7 @@ def semantic_presentation_artifact(
             }
             if korean
             else {
+                "root_cause_missing": "No grounded root-cause hypothesis is recorded.",
                 "impact_evidence_missing": "Impact evidence is missing.",
                 "grounded_citations_missing": "Grounded citations are missing.",
                 "incident_profile_missing": "The incident profile is missing.",
@@ -375,6 +558,10 @@ def semantic_presentation_artifact(
             for gap in gaps
             if isinstance(gap, str)
         )
+        if not limitations:
+            limitations.append(
+                "기록된 근거 공백이 없습니다." if korean else "No recorded evidence gaps."
+            )
         return cast(
             JsonObject,
             {
@@ -392,6 +579,9 @@ def semantic_presentation_artifact(
                         "data": {"items": overview_items},
                     },
                     *([timeline_block] if timeline_block is not None else []),
+                    *([root_cause_block] if root_cause_block is not None else []),
+                    *([impact_block] if impact_block is not None else []),
+                    *([citations_block] if citations_block is not None else []),
                     {
                         "slot_id": "limitations",
                         "kind": "callout",
@@ -399,7 +589,10 @@ def semantic_presentation_artifact(
                         "emphasis": "supporting",
                         "collapsed": False,
                         "evidence_refs": bounded_refs,
-                        "data": {"tone": "warning", "lines": list(dict.fromkeys(limitations))},
+                        "data": {
+                            "tone": "neutral" if not gaps and current_contract else "warning",
+                            "lines": list(dict.fromkeys(limitations)),
+                        },
                     },
                     {
                         "slot_id": "findings",

@@ -26,6 +26,32 @@ from fdai.shared.providers.state_store import StateStore
 _LOGGER = logging.getLogger("fdai.core.control_loop.orchestrator")
 
 
+def _finding_impact_evidence(
+    finding: Any,
+    *,
+    rule: Rule,
+    resource_type: str,
+) -> list[dict[str, object]]:
+    """Project only the severity and scope already recorded by a T0 finding."""
+    severity = getattr(finding, "severity", rule.severity)
+    severity_value = getattr(severity, "value", str(severity))
+    finding_id = getattr(finding, "finding_id", None)
+    evidence_ref = (
+        f"finding:{finding_id}" if isinstance(finding_id, str) and finding_id else f"rule:{rule.id}"
+    )
+    return [
+        {
+            "metric": "finding_severity",
+            "baseline": None,
+            "observed": severity_value,
+            "threshold": None,
+            "unit": "severity",
+            "impact": f"{severity_value} finding recorded for resource type {resource_type}.",
+            "evidence_ref": evidence_ref,
+        }
+    ]
+
+
 class ControlLoopRcaMixin:
     """Correlate incidents and append shadow-only RCA evidence."""
 
@@ -84,6 +110,11 @@ class ControlLoopRcaMixin:
                         [{"kind": c.kind.value, "ref": c.ref} for c in hypothesis.citations]
                         if hypothesis
                         else []
+                    ),
+                    "rca_impact": _finding_impact_evidence(
+                        finding,
+                        rule=rule,
+                        resource_type=resource_type or "unknown",
                     ),
                     "rca_remediation_ref": hypothesis.remediation_ref if hypothesis else None,
                     "recorded_at": datetime.now(tz=UTC).isoformat(),

@@ -893,13 +893,19 @@ def _project_incident_evidence(
         or value.get("incident_id") != _canonical_incident_id(incident_id)
         or value.get("correlation_id") != correlation_id
         or value.get("authority") != "audit_projection"
-        or value.get("cause_claim_supported") is not False
+        or not isinstance(value.get("cause_claim_supported"), bool)
         or value.get("execution_authority") is not False
-        or _contains_key(value, "cause")
+        or _contains_key(
+            {key: item for key, item in value.items() if key != "root_cause"},
+            "cause",
+        )
     ):
         return _reject_incident_evidence("argument_or_authority_mismatch")
     profile = value.get("incident_profile")
     evidence = value.get("correlated_evidence")
+    root_cause = value.get("root_cause")
+    impacts = value.get("impact_evidence")
+    citations = value.get("grounded_citations")
     gaps = value.get("evidence_gaps")
     evidence_refs = value.get("evidence_refs")
     truncated = value.get("truncated")
@@ -907,10 +913,17 @@ def _project_incident_evidence(
         (profile is not None and not isinstance(profile, dict))
         or not isinstance(evidence, list)
         or len(evidence) > limit
+        or (root_cause is not None and not isinstance(root_cause, dict))
+        or not isinstance(impacts, list)
+        or len(impacts) > limit
+        or not isinstance(citations, list)
+        or len(citations) > limit
         or not isinstance(gaps, list)
         or not isinstance(evidence_refs, list)
         or not isinstance(truncated, bool)
         or any(not isinstance(item, dict) for item in evidence)
+        or any(not isinstance(item, dict) for item in impacts)
+        or any(not isinstance(item, dict) for item in citations)
         or any(not isinstance(item, str) for item in gaps)
         or any(not isinstance(item, str) for item in evidence_refs)
     ):
@@ -934,7 +947,42 @@ def _project_incident_evidence(
         return _reject_incident_evidence("evidence_order_invalid")
     if truncated and "correlated_audit_truncated" not in gaps:
         return _reject_incident_evidence("truncation_gap_missing")
+    supported = value["cause_claim_supported"]
+    root_cause_valid = _recorded_root_cause_is_grounded(root_cause, citations)
+    expected_gaps = {
+        "root_cause_missing": root_cause is None,
+        "impact_evidence_missing": not impacts,
+        "grounded_citations_missing": not citations,
+    }
+    if (
+        supported is not root_cause_valid
+        or (root_cause is None) != ("root_cause_missing" in gaps)
+        or any((key in gaps) is not missing for key, missing in expected_gaps.items())
+    ):
+        return _reject_incident_evidence("rca_evidence_inconsistent")
     return True, value, node_id
+
+
+def _recorded_root_cause_is_grounded(
+    root_cause: object,
+    citations: object,
+) -> bool:
+    if not isinstance(root_cause, Mapping) or not isinstance(citations, list) or not citations:
+        return False
+    cause = root_cause.get("cause")
+    return (
+        root_cause.get("outcome") == "grounded"
+        and isinstance(cause, str)
+        and bool(cause.strip())
+        and all(
+            isinstance(citation, Mapping)
+            and isinstance(citation.get("kind"), str)
+            and bool(citation["kind"])
+            and isinstance(citation.get("ref"), str)
+            and bool(citation["ref"])
+            for citation in citations
+        )
+    )
 
 
 def _evidence_is_oldest_first(evidence: list[Any]) -> bool:
@@ -1193,13 +1241,12 @@ def _incident_answer_output(
         "incident_profile": incident_evidence["incident_profile"],
         "correlated_evidence": displayed,
         "verified_records": len(raw_evidence),
+        "root_cause": incident_evidence["root_cause"],
+        "impact_evidence": incident_evidence["impact_evidence"],
+        "grounded_citations": incident_evidence["grounded_citations"],
         "evidence_gaps": incident_evidence["evidence_gaps"],
         "source_truncated": incident_evidence["truncated"],
         "display_truncated": len(displayed) < len(raw_evidence),
-        "causal_assessment": {
-            "status": "not_available",
-            "reason": "causal_analysis_not_implemented",
-        },
         "next_safe_step": {
             "operation": "collect_evidence",
             "authority": "read_only",
@@ -1212,6 +1259,7 @@ def _humanized_gap(gap: str, *, korean: bool) -> str:
     """Never surface a raw gap key: Markdown reads its underscores as emphasis."""
     labels = (
         {
+            "root_cause_missing": "근거에 기반한 근본 원인 가설",
             "impact_evidence_missing": "영향 근거",
             "grounded_citations_missing": "근거 인용",
             "incident_profile_missing": "인시던트 프로파일",
@@ -1219,6 +1267,7 @@ def _humanized_gap(gap: str, *, korean: bool) -> str:
         }
         if korean
         else {
+            "root_cause_missing": "a grounded root-cause hypothesis",
             "impact_evidence_missing": "impact evidence",
             "grounded_citations_missing": "grounded citations",
             "incident_profile_missing": "the incident profile",
@@ -1237,6 +1286,11 @@ _INCIDENT_GAP_NEXT_STEPS: tuple[tuple[str, str, str], ...] = (
         "incident_profile_missing",
         "이 상관관계에 인시던트 레코드가 존재하는지 확인하세요",
         "confirm an incident record exists for this correlation",
+    ),
+    (
+        "root_cause_missing",
+        "근거 인용이 포함된 RCA 가설이 기록되었는지 확인하세요",
+        "confirm that an RCA hypothesis with grounded citations has been recorded",
     ),
     (
         "impact_evidence_missing",
@@ -1378,6 +1432,83 @@ def _incident_timeline_markdown(
     return "\n".join(lines)
 
 
+def _incident_rca_markdown(
+    root_cause: object,
+    impacts: object,
+    citations: object,
+    *,
+    korean: bool,
+) -> str:
+    sections: list[str] = []
+    if isinstance(root_cause, Mapping):
+        cause = _incident_scalar(root_cause.get("cause"))
+        if cause is not None:
+            tier = _incident_scalar(root_cause.get("tier")) or "-"
+            confidence = _incident_scalar(root_cause.get("confidence")) or "-"
+            lines = [
+                f"- {'원인' if korean else 'Cause'}: {cause}",
+                f"- {'티어' if korean else 'Tier'}: {tier}",
+                f"- {'신뢰도' if korean else 'Confidence'}: {confidence}",
+            ]
+            reason = _incident_scalar(root_cause.get("reason"))
+            recorded_at = _incident_scalar(root_cause.get("recorded_at"))
+            if reason is not None:
+                lines.append(f"- {'근거' if korean else 'Reason'}: {reason}")
+            if recorded_at is not None:
+                lines.append(f"- {'기록 시각' if korean else 'Recorded'}: {recorded_at}")
+            sections.append(f"## {'근본 원인' if korean else 'Root cause'}\n\n" + "\n".join(lines))
+    impact_rows = impacts if isinstance(impacts, list) else []
+    if impact_rows:
+        header = (
+            "| 메트릭 | 기준 | 관측 | 임계값 | 단위 | 영향 | 근거 |"
+            if korean
+            else "| Metric | Baseline | Observed | Threshold | Unit | Impact | Evidence |"
+        )
+        lines = [header, "| --- | --- | --- | --- | --- | --- | --- |"]
+        for row in impact_rows[:20]:
+            if not isinstance(row, Mapping):
+                continue
+            values = [
+                _incident_markdown_cell(row.get(key))
+                for key in (
+                    "metric",
+                    "baseline",
+                    "observed",
+                    "threshold",
+                    "unit",
+                    "impact",
+                    "evidence_ref",
+                )
+            ]
+            lines.append("| " + " | ".join(values) + " |")
+        sections.append(f"## {'영향 근거' if korean else 'Impact evidence'}\n\n" + "\n".join(lines))
+    citation_rows = citations if isinstance(citations, list) else []
+    if citation_rows:
+        header = (
+            "| 티어 | 종류 | 참조 | 요약 | 기록 시각 |"
+            if korean
+            else "| Tier | Kind | Reference | Summary | Recorded |"
+        )
+        lines = [header, "| --- | --- | --- | --- | --- |"]
+        for row in citation_rows[:20]:
+            if not isinstance(row, Mapping):
+                continue
+            values = [
+                _incident_markdown_cell(row.get(key))
+                for key in ("tier", "kind", "ref", "summary", "recorded_at")
+            ]
+            lines.append("| " + " | ".join(values) + " |")
+        sections.append(
+            f"## {'근거 인용' if korean else 'Grounded citations'}\n\n" + "\n".join(lines)
+        )
+    return "\n\n".join(sections)
+
+
+def _incident_markdown_cell(value: object) -> str:
+    rendered = _incident_scalar(value) or "-"
+    return rendered.replace("|", "\\|").replace("\n", " ")
+
+
 def _incident_profile_lines(
     facts: tuple[tuple[str, str], ...],
     profile: object,
@@ -1412,6 +1543,9 @@ def _render_incident_answer(
 ) -> str:
     evidence = output.get("correlated_evidence")
     profile = output.get("incident_profile")
+    root_cause = output.get("root_cause")
+    impacts = output.get("impact_evidence")
+    citations = output.get("grounded_citations")
     gaps = output.get("evidence_gaps")
     shown = len(evidence) if isinstance(evidence, list) else 0
     verified = output.get("verified_records")
@@ -1424,6 +1558,12 @@ def _render_incident_answer(
     korean = request.locale.casefold().startswith("ko")
     facts = incident_profile_facts(profile, korean=korean)
     timeline = _incident_timeline_markdown(incident_timeline_rows(evidence), korean=korean)
+    rca_sections = _incident_rca_markdown(
+        root_cause,
+        impacts,
+        citations,
+        korean=korean,
+    )
     timeline_truncated = shown > _INCIDENT_TIMELINE_ROWS
     missing = ", ".join(_humanized_gap(gap, korean=korean) for gap in gap_values) or (
         "없음" if korean else "none"
@@ -1453,8 +1593,8 @@ def _render_incident_answer(
             "## 검증된 인시던트 근거\n\n"
             f"{found}\n"
             f"{timeline_section}"
+            f"{rca_sections + chr(10) + chr(10) if rca_sections else ''}"
             "## 제한 사항\n\n"
-            "- 인과 분석이 구현되지 않아 근본 원인을 확인할 수 없습니다.\n"
             f"- 누락된 근거: {missing}\n\n"
             "## 다음 안전 단계\n\n"
             f"{_incident_next_step_text(gap_values, korean=True)} "
@@ -1485,8 +1625,8 @@ def _render_incident_answer(
         "## Verified incident evidence\n\n"
         f"{found}\n"
         f"{timeline_section}"
+        f"{rca_sections + chr(10) + chr(10) if rca_sections else ''}"
         "## Limitations\n\n"
-        "- Root cause isn't available because causal analysis hasn't been implemented.\n"
         f"- Missing evidence: {missing}\n\n"
         "## Next safe step\n\n"
         f"{_incident_next_step_text(gap_values, korean=False)} "

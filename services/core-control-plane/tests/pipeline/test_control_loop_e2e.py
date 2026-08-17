@@ -1149,6 +1149,17 @@ async def test_rca_hypothesis_appended_for_finding(
     assert entry["rca_tier"] == "t0"
     assert entry["rca_remediation_ref"] == rule.remediates
     assert entry["rca_citations"][0]["ref"] == rule.id
+    assert entry["rca_impact"] == [
+        {
+            "metric": "finding_severity",
+            "baseline": None,
+            "observed": rule.severity.value,
+            "threshold": None,
+            "unit": "severity",
+            "impact": (f"{rule.severity.value} finding recorded for resource type object-storage."),
+            "evidence_ref": f"rule:{rule.id}",
+        }
+    ]
     assert rule.id in entry["rca_cause"]
 
 

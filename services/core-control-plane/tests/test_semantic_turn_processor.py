@@ -495,6 +495,7 @@ def _rule_search_runtime_result(*, execution_authority: bool = False) -> Runtime
 def _incident_evidence_runtime_result(
     *,
     inject_cause: bool = False,
+    recorded_rca: bool = False,
     empty_evidence: bool = False,
     output_correlation_id: str = "incident-correlation-301",
     profile_incident_id: str | None = "00000000-0000-0000-0000-000000000301",
@@ -533,19 +534,63 @@ def _incident_evidence_runtime_result(
             }
             for index in range(1, records + 1)
         ],
-        "evidence_gaps": ["impact_evidence_missing", "grounded_citations_missing"],
+        "root_cause": None,
+        "impact_evidence": [],
+        "grounded_citations": [],
+        "evidence_gaps": [
+            "root_cause_missing",
+            "impact_evidence_missing",
+            "grounded_citations_missing",
+        ],
         "evidence_refs": [f"audit:{index}" for index in range(1, records + 1)],
         "truncated": False,
         "authority": "audit_projection",
         "cause_claim_supported": False,
         "execution_authority": False,
     }
+    if recorded_rca:
+        output["root_cause"] = {
+            "tier": "t0",
+            "outcome": "grounded",
+            "cause": "A required owner tag was absent.",
+            "confidence": 0.95,
+            "reason": "Matched the deterministic owner-tag rule.",
+            "recorded_at": "2026-08-14T09:06:00Z",
+            "causal_hops": [],
+        }
+        output["impact_evidence"] = [
+            {
+                "metric": "noncompliant_resources",
+                "baseline": 0,
+                "observed": 1,
+                "threshold": 0,
+                "unit": "resources",
+                "impact": "One resource is outside the required baseline.",
+                "evidence_ref": "audit:1",
+            }
+        ]
+        output["grounded_citations"] = [
+            {
+                "tier": "t0",
+                "kind": "rule",
+                "ref": "object-storage.owner-tag.required",
+                "summary": None,
+                "recorded_at": "2026-08-14T09:06:00Z",
+            }
+        ]
+        output["evidence_gaps"] = []
+        output["cause_claim_supported"] = True
     if inject_cause:
         output["cause"] = "unsupported causal claim"
     if empty_evidence:
         output["incident_profile"] = None
         output["correlated_evidence"] = []
-        output["evidence_gaps"] = ["incident_profile_missing"]
+        output["evidence_gaps"] = [
+            "incident_profile_missing",
+            "root_cause_missing",
+            "impact_evidence_missing",
+            "grounded_citations_missing",
+        ]
         output["evidence_refs"] = []
     node = SimpleNamespace(
         node_id="incident-evidence",
@@ -1076,7 +1121,7 @@ async def test_answered_projection_requires_complete_exact_evidence() -> None:
     assert semantic["execution_authority"] is False
 
 
-async def test_incident_evidence_answer_never_claims_cause_and_drafts_only() -> None:
+async def test_incident_evidence_answer_reports_missing_recorded_rca() -> None:
     encoded = await _processor(_Runtime(_incident_evidence_runtime_result())).process(
         _request(
             bound_context={
@@ -1093,11 +1138,13 @@ async def test_incident_evidence_answer_never_claims_cause_and_drafts_only() -> 
     answer = semantic["answer"]
     assert answer.startswith("## Verified incident evidence")
     assert "1 correlated audit record was verified." in answer
-    assert "Root cause isn't available" in answer
+    assert "causal analysis hasn't been implemented" not in answer
+    assert "a grounded root-cause hypothesis" in answer
     assert "impact evidence" in answer
     assert "grounded citations" in answer
     assert (
-        "Before proposing a change, collect impact evidence for the affected resources, "
+        "Before proposing a change, confirm that an RCA hypothesis with grounded citations "
+        "has been recorded, collect impact evidence for the affected resources, "
         "and collect grounded citations that link each claim to an audit record." in answer
     )
     assert "```json" not in answer
@@ -1110,19 +1157,39 @@ async def test_incident_evidence_answer_never_claims_cause_and_drafts_only() -> 
     assert incident["incident_profile"]["status"] == "triaging"
     assert incident["correlated_evidence"][0]["audit_ref"] == "audit:1"
     assert incident["evidence_gaps"] == [
+        "root_cause_missing",
         "impact_evidence_missing",
         "grounded_citations_missing",
     ]
-    assert incident["causal_assessment"] == {
-        "status": "not_available",
-        "reason": "causal_analysis_not_implemented",
-    }
+    assert incident["root_cause"] is None
+    assert incident["impact_evidence"] == []
+    assert incident["grounded_citations"] == []
     assert incident["next_safe_step"] == {
         "operation": "collect_evidence",
         "authority": "read_only",
         "execution_authority": False,
     }
     assert '"cause":' not in answer
+
+
+async def test_incident_evidence_answer_renders_recorded_rca_impact_and_citations() -> None:
+    encoded = await _processor(
+        _Runtime(_incident_evidence_runtime_result(recorded_rca=True))
+    ).process(_request())
+
+    projection = _projection(encoded)
+    answer = projection["semantic_result"]["answer"]
+    assert "## Root cause" in answer
+    assert "A required owner tag was absent." in answer
+    assert "## Impact evidence" in answer
+    assert "noncompliant_resources" in answer
+    assert "## Grounded citations" in answer
+    assert "object-storage.owner-tag.required" in answer
+    assert "Missing evidence: none" in answer
+    incident = projection["payload"]["technical_details"]["outputs"][0]
+    assert incident["root_cause"]["outcome"] == "grounded"
+    assert incident["impact_evidence"][0]["evidence_ref"] == "audit:1"
+    assert incident["grounded_citations"][0]["kind"] == "rule"
 
 
 async def test_incident_evidence_answer_is_localized_without_changing_machine_output() -> None:
@@ -1141,8 +1208,8 @@ async def test_incident_evidence_answer_is_localized_without_changing_machine_ou
     answer = projection["semantic_result"]["answer"]
     assert answer.startswith("## 검증된 인시던트 근거")
     assert "감사 기록 1건을 검증했습니다." in answer
-    assert "근본 원인을 확인할 수 없습니다." in answer
-    assert "영향 근거, 근거 인용" in answer
+    assert "인과 분석이 구현되지 않아" not in answer
+    assert "근거에 기반한 근본 원인 가설, 영향 근거, 근거 인용" in answer
     assert "```json" not in answer
     assert (
         projection["payload"]["technical_details"]["outputs"][0]["correlated_evidence"][0][
