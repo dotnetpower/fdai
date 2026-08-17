@@ -102,10 +102,9 @@ def test_operator_api_boundary_gate_is_in_executed_pre_push_loop() -> None:
     assert 'if ! CHECK_QUIET=1 "${gate_command[@]}" > "$output" 2>&1; then' in execution_block
 
 
-def test_pre_push_reuses_or_falls_back_to_structural_gate_evidence() -> None:
+def test_pre_push_runs_the_structural_gate_helper() -> None:
     body = _PRE_PUSH.read_text()
 
-    assert "check-structural-gates HEAD" in body
     assert "bash scripts/automation/run-pre-push-structural-gates.sh" in body
 
 
@@ -115,5 +114,5 @@ def test_pre_push_validates_an_isolated_committed_snapshot() -> None:
     assert 'git worktree add --quiet --detach "$validation_root" HEAD' in body
     assert 'git worktree remove --force "$validation_root"' in body
     assert body.index("git worktree add --quiet --detach") < body.index(
-        "# 3. Merge-conflict marker guard."
+        "# 2. Merge-conflict marker guard."
     )
