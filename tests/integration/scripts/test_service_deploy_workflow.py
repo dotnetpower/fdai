@@ -225,6 +225,16 @@ def test_workflow_binds_image_attestation_to_source_and_signer() -> None:
     assert _WORKFLOW.count('--resolved-models-digest "$RESOLVED_MODELS_DIGEST"') == 2
 
 
+def test_legacy_platform_imports_the_service_specific_core_image() -> None:
+    assert 'source_repository="${GITHUB_REPOSITORY,,}/fdai-core-control-plane"' in (
+        _LEGACY_WORKFLOW
+    )
+    assert 'source_repository="${GITHUB_REPOSITORY,,}"' not in _LEGACY_WORKFLOW
+    assert '"https://ghcr.io/v2/${source_repository}/manifests/sha-${revision}"' in (
+        _LEGACY_WORKFLOW
+    )
+
+
 def test_workflow_validates_source_run_and_actual_plan_controls_checkout() -> None:
     assert 'gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PLAN_RUN_ID"' in _WORKFLOW
     for field in (".id", ".run_attempt", ".conclusion", ".event", ".head_sha", ".path"):
