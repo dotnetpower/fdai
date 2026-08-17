@@ -1,6 +1,6 @@
 ---
 translation_of: execution-authorization-ontology.md
-translation_source_sha: 69f934288a94cb8aadb9b6a961513b1c5b667ac7
+translation_source_sha: 839768c8928c4c5924bb80b76b35f1cd08db8040
 translation_revised: 2026-08-17
 ---
 # 실행 권한 부여 온톨로지
@@ -37,7 +37,8 @@ translation_revised: 2026-08-17
 | 보수적 해석과 effective-access 평가 | implemented | [`test_resolver.py`](../../../services/core-control-plane/tests/core/execution_authorization/test_resolver.py), [`test_evaluator.py`](../../../services/core-control-plane/tests/core/execution_authorization/test_evaluator.py) | Prohibit가 우선하고 제약이 교차 적용되며 누락되거나 충돌하는 근거는 권한을 부여하지 않습니다. |
 | Exact 권한 부여 lifecycle과 역할 분리 | implemented | [`test_grant_request.py`](../../../services/core-control-plane/tests/core/execution_authorization/test_grant_request.py) | 승인, 적용, 검증, 만료, 취소, idempotency 및 서로 다른 행위자를 집중 검사로 확인합니다. |
 | 컨트롤 루프와 직접 실행기 통합 | implemented | [`test_unified_control_loop.py`](../../../services/core-control-plane/tests/pipeline/test_unified_control_loop.py), [`test_direct_api_executor.py`](../../../services/core-control-plane/tests/core/executor/test_direct_api_executor.py) | 권한 부여는 일반 위험 및 dispatch 권한보다 먼저 독립적인 fail-closed 결정으로 유지됩니다. |
-| 역할로 거르는 보류 권한 부여 브라우저 변환 결과 | implemented | [`postgres_iam.py`](../../../services/operator-service/src/fdai_operator_service/postgres_iam.py), [`test_operator_service_postgres.py`](../../../services/operator-service/tests/test_operator_service_postgres.py), focused Operator suite 374건 통과 및 인증된 로컬 세션에서 `GET /access-grants/stream`이 200 반환 | Operator는 권위 있는 `execution-authorization:grant-request:` 레코드를 읽고 인증된 검토자 기준으로 걸러낸 뒤 변환합니다. 요청자는 자신의 요청을 볼 수 없으며, 브라우저 레코드는 요청자, 실행 신원, 프로바이더 대응, 결정 및 apply-plan digest를 계속 생략합니다. |
+| 역할로 거르는 보류 권한 부여 브라우저 변환 결과 | implemented | [`postgres_iam.py`](../../../services/operator-service/src/fdai_operator_service/postgres_iam.py), [`test_operator_service_postgres.py`](../../../services/operator-service/tests/test_operator_service_postgres.py), focused Operator suite 394건 통과 및 1건 건너뜀, 인증된 로컬 세션에서 `GET /access-grants/stream`이 200 반환 | Operator는 권위 있는 `execution-authorization:grant-request:` 레코드를 읽고 인증된 검토자 기준으로 걸러낸 뒤 변환합니다. 요청자는 자신의 요청을 볼 수 없으며, 브라우저 레코드는 요청자, 실행 신원, 프로바이더 대응, 결정 및 apply-plan digest를 계속 생략합니다. |
+| 브라우저 검토 권한과 영수증 정확성 | implemented | [`postgres_iam.py`](../../../services/operator-service/src/fdai_operator_service/postgres_iam.py), [`test_operator_service_postgres.py`](../../../services/operator-service/tests/test_operator_service_postgres.py), focused Operator suite 394건 통과 및 1건 건너뜀 | 결정 경로는 알 수 없는 요청, 보류가 아닌 요청, 만료된 요청, 자기 승인 및 잘못된 역할을 대기열에 넣기 전에 거부하고, 각 결정을 요청, 개정 번호 및 검토자 단위로 울타리 치며, 권위 있는 요청에 기록된 정족수, 승인 수 및 개정 번호를 보고합니다. |
 | 배포 정책, 신원 및 프로바이더 바인딩 | not-applicable | [확장 및 배포 경계](#확장-및-배포-경계) | 실제 정책 bundle, 신원, 범위, 관측 및 프로바이더 대응은 업스트림 구현이 아니라 배포가 소유하는 입력입니다. |
 
 ### 구현 이력
@@ -47,6 +48,7 @@ translation_revised: 2026-08-17
 | 2026-08-13 | implemented | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | 구현 범위 표의 현재 소스 경계와 집중 검사입니다. | 이 문서의 범위가 제한된 업스트림 구현에는 남은 작업이 없습니다. |
 | 2026-08-16 | implemented | 문서가 밝히지 않았던, 제공되는 강제 기본값을 기록했습니다. 컨트롤 루프 통합은 실재하지만 `execution_authorization_evaluator` 의 기본값은 `None`, `execution_authorization_required` 의 기본값은 `False` 이고 이를 설정하는 것은 `bind_execution_authorization` 뿐이므로, 기본 배포는 이 게이트가 작동하지 않는 상태로 동작합니다. 구현 범위 행은 바뀌지 않습니다. 배포 소유 연결은 이미 이 문서의 범위 밖으로 선언되어 있고, 누락된 것은 기본값 자체였기 때문입니다. | `current change`; 두 필드를 정의하는 `composition/_helpers.py`; `execution_authorization_evaluator=` 및 `execution_authorization_required=`를 각각 검색하면 `wire_execution_authorization.py`와 `control_loop.py`의 두 읽기만 일치합니다. | 배포 경로에서 이 경계를 연결하거나, 연결을 배포 소유로 유지한다는 결정을 기록합니다. |
 | 2026-08-17 | implemented | 역할로 거르는 보류 권한 부여 브라우저 변환 결과가 구현되었다는 2026-07-31 진술을 바로잡았습니다. Operator는 이 리포지토리의 어떤 코드도 쓴 적 없는 `operator-projection:iam:access-grants.snapshot` 키를 읽었고, 그 결과 `GET /access-grants/stream`은 모든 장소에서 재연결할 때마다 HTTP 503으로 fail-closed 되었습니다. 또한 어댑터가 `reviewer_ref`와 `reviewer_roles`를 무시했기 때문에, 그 키를 작성된 대로 만들었다면 모든 검토자에게 자신의 요청까지 노출되어 자기 승인 금지 경계가 깨졌을 것입니다. 이제 Operator는 범위가 제한된 접두사 스캔으로 권위 있는 권한 부여 요청 레코드를 읽고 보류, 만료, 요청자 및 승인자 역할 필터를 자신의 경계에서 적용합니다. | `current change`, `postgres_family_store.py`, `postgres_iam.py`, `test_operator_service_postgres.py`, focused Operator suite 374건 통과 및 1건 건너뜀, 변경된 소스에 대해 Ruff와 strict mypy 통과, 인증된 로컬 세션이 `GET /access-grants/stream`의 200 응답과 재연결 루프 없음을 관측 | 배포 환경에 실제 권한 부여 요청이 생기면 같은 스트림을 배포된 개정 번호로 관측해 기록합니다. |
+| 2026-08-17 | implemented | 비평 캠페인을 통해 브라우저 검토 경로를 하드닝했습니다. 결함 6건을 고쳤습니다. 절단된 스캔이 오래된 보류 요청을 조용히 누락시켰고, 손상된 숫자 필드가 fail-closed 503이 아니라 HTTP 500으로 새었으며, 범위를 벗어난 필드 하나가 브라우저로 하여금 스냅샷 전체를 운영자 신호 없이 버리게 했고, 최신순 절단이 가장 오래 기다린 승인을 굶주리게 만들 수 있었고, 결정 영수증이 정족수를 상수 1로 보고해 2명이 필요한 요청에도 콘솔이 `0 / 1`을 표시했으며, 결정 경로가 request id만 아는 누구에게나 자기 승인과 잘못된 역할의 결정을 받았습니다. 영속 경로에서도 2건을 고쳤습니다. 결정 idempotency 키가 request id만 썼기 때문에 두 번째 승인자가 첫 번째와 충돌해 정족수 1을 넘는 요청을 만족시킬 수 없었고, 역할 집합이 hash seed에 따라 달라지는 파이썬 repr로 outbox에 들어가 울타리 다이제스트가 프로세스마다 달랐습니다. | `current change`, `postgres_family_store.py`, `postgres_iam.py`, `test_operator_service_postgres.py`, focused Operator suite 394건 통과 및 1건 건너뜀, Ruff와 strict mypy 통과, 범위가 제한된 스캔과 그 필터 형태 및 절단 신호를 로컬 PostgreSQL에 대해 실행, payload 결정성을 해시 시드 4개로 측정해 이전 3가지 순서에서 이후 단일 안정 다이제스트로 확인 | 결정 적용은 여전히 Core가 소유하므로, 정족수가 차오르는 과정을 배포 환경에서 관측하는 일은 남아 있습니다. |
 
 ### 남은 작업
 
@@ -328,9 +330,15 @@ evaluation은 `status=active`, validity 간격 및 fresh effective-access 관측
 Operator API는 App 역할과 요청의 승인자 역할이 교차하는 인증된 브라우저 principal에게 민감정보가 제거된
 pending 변환 결과를 스트림할 수 있습니다. 변환 결과에는 요청, 상관관계, 기능, 범위,
 모드, 시각, 정족수, 상태 및 개정 번호가 포함됩니다. 요청자, 실행기 신원, 프로바이더
-대응, 결정 및 apply-plan 다이제스트는 제외됩니다. 적격 principal은 필수 사유를 입력하고 정확한
-변환 결과 개정 번호에 대한 승인 또는 거부를 기록할 수 있습니다. 응답은 권한이 적용되지 않았고
-새로운 탐색이 여전히 필요하다고 알립니다. 브라우저는 권한 부여를 적용, verify 또는 철회할 수 없습니다.
+대응, 결정 및 apply-plan 다이제스트는 제외됩니다. 스트림은 대기열을 요청 시각순으로 정렬하므로
+유입이 꾸준해도 가장 오래 기다린 승인이 밀려나지 않으며, 모든 보류 요청을 관측했음을 증명할 수
+없으면 부분 페이지를 보이는 대신 판단을 보류합니다. 적격 principal은 필수 사유를 입력하고 정확한
+변환 결과 개정 번호에 대한 승인 또는 거부를 기록할 수 있습니다. 적격성은 가시성을 결정하는 것과
+동일한 술어로 결정 경로에서 평가하므로, 요청자는 자신의 요청을 결정할 수 없고 해당 요청의 승인자
+역할이 없는 principal은 결정을 대기열에 넣을 수조차 없습니다. 각 결정은 요청, 개정 번호 및 검토자단위로 울타리를 치므로 재시도는 idempotent하면서도 서로 다른 두 번째 승인자는 정족수를
+채우는 데 계속 기여합니다. 응답은 권위 있는 요청에 기록된 정족수와 승인 수를 보고하고, 권한이
+적용되지 않았으며 새로운 탐색이 여전히 필요하다고 알립니다. 브라우저는 권한 부여를 적용, verify 또는
+철회할 수 없습니다.
 
 ## 런타임 실패 분류
 
