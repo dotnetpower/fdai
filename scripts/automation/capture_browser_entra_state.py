@@ -19,7 +19,11 @@ class CaptureContractError(ValueError):
     """Indicate that a browser capture payload violates the local state contract."""
 
 
-def build_storage_state(payload: object, expected_origin: str) -> dict[str, object]:
+def build_storage_state(
+    payload: object,
+    expected_origin: str,
+    storage_origin: str | None = None,
+) -> dict[str, object]:
     """Validate a browser payload and return the Playwright bootstrap state."""
     if not isinstance(payload, dict):
         raise CaptureContractError("capture payload must be an object")
@@ -44,7 +48,7 @@ def build_storage_state(payload: object, expected_origin: str) -> dict[str, obje
         "cookies": [],
         "origins": [
             {
-                "origin": origin,
+                "origin": storage_origin or origin,
                 "localStorage": [
                     {
                         "name": BOOTSTRAP_KEY,
@@ -80,10 +84,17 @@ def write_storage_state(destination: Path, state: dict[str, object]) -> None:
 class CaptureServer(HTTPServer):
     """Receive one Browser Entra session capture on loopback."""
 
-    def __init__(self, address: tuple[str, int], expected_origin: str, destination: Path) -> None:
+    def __init__(
+        self,
+        address: tuple[str, int],
+        expected_origin: str,
+        destination: Path,
+        storage_origin: str | None = None,
+    ) -> None:
         super().__init__(address, CaptureRequestHandler)
         self.expected_origin = expected_origin
         self.destination = destination
+        self.storage_origin = storage_origin
         self.capture_succeeded = False
 
 
@@ -106,7 +117,11 @@ class CaptureRequestHandler(BaseHTTPRequestHandler):
 
         try:
             payload = json.loads(self.rfile.read(content_length))
-            state = build_storage_state(payload, server.expected_origin)
+            state = build_storage_state(
+                payload,
+                server.expected_origin,
+                server.storage_origin,
+            )
             write_storage_state(server.destination, state)
         except (CaptureContractError, json.JSONDecodeError, UnicodeDecodeError):
             self._respond(400)
@@ -141,6 +156,7 @@ def main() -> int:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--origin", default=DEFAULT_ORIGIN)
+    parser.add_argument("--storage-origin")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--timeout", type=float, default=60.0)
     args = parser.parse_args()
@@ -150,7 +166,12 @@ def main() -> int:
     except CaptureContractError as error:
         parser.error(str(error))
 
-    server = CaptureServer((args.host, args.port), args.origin, destination)
+    server = CaptureServer(
+        (args.host, args.port),
+        args.origin,
+        destination,
+        args.storage_origin,
+    )
     server.timeout = args.timeout
     host, port = server.server_address
     print(f"receiver-ready url=http://{host}:{port} destination={destination}", flush=True)
