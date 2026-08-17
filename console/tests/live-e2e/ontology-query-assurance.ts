@@ -365,6 +365,7 @@ export function isRetainedTurnResult(value: Record<string, unknown>): boolean {
     assuranceOperationMatchesPlan(
       value.operation as AssuranceOperation,
       planCapabilities,
+      value.question_id as string,
     );
   return typeof value.produced_by_run_id === "string" && value.produced_by_run_id.length > 0 &&
     typeof value.passed === "boolean" &&
@@ -425,15 +426,29 @@ const ANSWER_CAPABILITIES: Readonly<
   evidence_validation: ["object_set"],
 };
 
+const QUESTION_CAPABILITY_OVERRIDES: Readonly<Record<string, readonly AssurancePlanCapability[]>> = {
+  "en-inventory_listing-3": ["object_set", "object_set:filtered"],
+  "ko-inventory_listing-3": ["object_set", "object_set:filtered"],
+  "en-property_filter-3": ["function:query.manifest"],
+  "ko-property_filter-3": ["function:query.manifest"],
+  "en-evidence_validation-3": ["topology_at"],
+  "ko-evidence_validation-3": ["topology_at"],
+  "en-evidence_validation-4": ["metric_series"],
+  "ko-evidence_validation-4": ["metric_series"],
+  "en-evidence_validation-5": ["topology_at"],
+  "ko-evidence_validation-5": ["topology_at"],
+};
+
 /** Checks the generated question taxonomy against Core's projected exact-plan capabilities. */
 export function assuranceOperationMatchesPlan(
   operation: AssuranceOperation,
   capabilities: readonly AssurancePlanCapability[],
+  questionId?: string,
 ): boolean {
   if (!ANSWER_REQUIRED_OPERATIONS.includes(operation)) return true;
-  const required = ANSWER_CAPABILITIES[
-    operation as keyof typeof ANSWER_CAPABILITIES
-  ];
+  const required = questionId !== undefined && QUESTION_CAPABILITY_OVERRIDES[questionId] !== undefined
+    ? QUESTION_CAPABILITY_OVERRIDES[questionId]
+    : ANSWER_CAPABILITIES[operation as keyof typeof ANSWER_CAPABILITIES];
   return required.some((capability) => capabilities.includes(capability));
 }
 

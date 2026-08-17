@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: b1df6fca79e8c75cfc52e3995ba4f2bde054c542
+translation_source_sha: dc952c0f15f798543ea630a15facbcd95d17d283
 translation_revised: 2026-08-17
 ---
 
@@ -63,6 +63,8 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 2026-08-17 | implemented | 기록된 grounded RCA, 범위가 제한된 T0 영향 근거 및 일치하는 인용을 인시던트에 바인딩된 의미 답변과 엄격한 Console 산출물 디코더 전체에서 보존했습니다. 이전의 "causal analysis hasn't been implemented" 제한은 레거시 재생에만 유지되며 현재 결과를 더는 설명하지 않습니다. | `current change`; focused Core, Operator 및 Console 검사 138개 통과, Ruff, strict mypy 및 Console typecheck 통과 | 새로 기록된 RCA의 세 근거 섹션을 모두 보여 주는 통제된 Browser 산출물을 보존합니다. |
 | 2026-08-17 | implemented | 활성 인시던트에 기록된 `route_unresolved` 알림 실패를 결정론적 T0 원인, 경로 결과 영향 행 및 정확한 감사 인용으로 변환했습니다. 읽기 경로는 감사 또는 알림 상태를 변경하지 않으며 성공하거나 알 수 없는 결과를 원인으로 거부합니다. | `current change`; focused Core 및 Operator 검사 133개 통과, Ruff 및 strict mypy 통과 | Core를 재시작하고 인증된 Browser에서 세 근거 블록을 검증합니다. |
 | 2026-08-17 | implemented | 검증된 산출물이나 기계 기록을 바꾸지 않고 구조화된 인시던트 근거의 가독성을 강화했습니다. 로컬 시각과 시간대, 보존된 원시 타임스탬프, 관찰 구간, 읽기 쉬운 주체와 토큰, 반응형 네이티브 표, 범위가 명확한 준비 상태 문구, 콘텐츠를 가리지 않는 최신 메시지 탐색, 32/44 px 컨트롤을 적용했습니다. | `current change`; `presentation-value.test.ts`와 `command-deck-workspace-visual.test.ts`의 집중 검사 19개 및 Console 타입 검사가 통과했습니다. 인증된 브라우저 비평 5회는 최종 데스크톱/모바일 검사 12개를 모두 통과했고 출처 목록 가로 스크롤만 Low로 남았습니다. | 아래에서 이미 추적하는 더 넓은 통제된 인시던트 표현 산출물을 보존합니다. 이 가독성 범위에는 Medium 이상의 구현 문제가 남아 있지 않습니다. |
+
+| 2026-08-17 | implemented | 고정된 각 질문 신원이 하나의 넓은 작업 수준 기능을 상속하지 않고 유효한 typed 기능군을 선언하도록 live ontology assurance oracle을 구체화했습니다. Oracle은 exact 질문에 필요한 관계, 인과, 시간, 필터 또는 근거 기능이 빠진 답변 plan을 계속 거부합니다. | `current change`, `ontology-query-assurance.test.ts` 99개와 Console typecheck 통과 | 다른 전체 seed 기반 집단을 실행하기 전에 통과한 strict 아티팩트를 보존합니다. |
 
 ### 남은 작업
 

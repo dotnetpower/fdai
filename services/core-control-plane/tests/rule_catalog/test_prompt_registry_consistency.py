@@ -122,7 +122,7 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     frame = prompts.get_base("semantic.query.frame")
     plan = prompts.get_base("semantic.query.plan")
 
-    assert frame.version == 8
+    assert frame.version == 9
     assert "output_shape to exactly one capability family" in frame.body
     assert "aggregation_table for a count or grouping" in frame.body
     assert "topology_graph for current instance connectivity or containment" in frame.body
@@ -142,6 +142,10 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert (
         "current visible connectivity or containment is a complete topology subject" in frame.body
     )
+    assert "depend on, route to, connect to, contain, or attach" in frame.body
+    assert "whether one observed change preceded an observed regression" in frame.body
+    assert "objects or links added, removed, or changed between retained generations" in frame.body
+    assert "including independently verified evidence" in frame.body
     assert "instead of clarification" in frame.body
     assert "Do not select that function for instance listing" in frame.body
     assert "query.incident_evidence" in frame.body
