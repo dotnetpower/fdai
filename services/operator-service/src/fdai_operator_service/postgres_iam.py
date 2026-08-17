@@ -503,9 +503,9 @@ def _access_grant(value: object) -> AccessGrantRecord:
         grant_mode=str(value.get("grant_mode") or ""),
         requested_at=_datetime(value.get("requested_at"), "requested_at"),
         expires_at=_datetime(value.get("expires_at"), "expires_at"),
-        quorum=int(value.get("quorum", 0)),
+        quorum=_integer(value, "quorum"),
         status=str(value.get("status") or ""),
-        revision=int(value.get("revision", 0)),
+        revision=_integer(value, "revision"),
     )
 
 
