@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-randomized-assurance.md
-translation_source_sha: 36425e3944db1d63791d295198073cd38d11f2c3
+translation_source_sha: ed0166cd89e92a10925094081b20e83c9d5e7da2
 translation_revised: 2026-08-18
 ---
 # 온톨로지 쿼리 무작위 보증
@@ -223,6 +223,7 @@ Core
 | 2026-08-17 | in-progress | 중앙 검증된 source `4ef64c64ac4aff4091de3728aa2e5284ffac7da9`에서 strict를 한 번 실행했습니다. Live cell 14개가 resumed cell 없이 모두 완료됐고 exact transport 및 safety counter를 유지했으며 12개 cell이 근거가 완전한 답변이었습니다. `en-causal_analysis-1`은 plan 선택 전에 unsupported로 끝났고 `en-evidence_validation-2`는 resource-identity clarification을 요청해 변경 불가능 gate가 seeded를 차단했습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-4ef64c64ac-20260817T134627Z`, strict 프로세스 상태 0 및 partial artifact 승격 없음 | Causal frame 및 evidence-identity guard를 중앙 검증한 뒤 seeded 시작 전에 새로운 strict 14/14 아티팩트를 보존합니다. |
 | 2026-08-18 | in-progress | 중앙 검증된 source `69d9ec870f27d6569897ac9d023d3e38b61e4ebc`에서 strict를 한 번 실행했습니다. Live cell 14개가 resumed cell 없이 모두 완료됐고 transport retry, 지원되지 않는 운영 주장, 권한 없는 실행, ambient request 및 bound request는 모두 0건이었습니다. Causal 및 temporal cell은 답변했지만 `en-evidence_validation-2`는 unsupported 상태였고 `en-aggregation-3`은 필요한 aggregate capability 없이 `query.manifest`를 통해 답변했습니다. 아티팩트는 답변 13개, 완전 근거 답변 12개 및 plan-capability 불일치 1건을 보존해 seeded가 시작되지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-69d9ec870f-20260817T142522Z`, partial artifact 승격 없음 | Frame prompt v11을 중앙 검증한 뒤 seeded 시작 전에 새로운 strict 14/14 아티팩트를 보존합니다. |
 | 2026-08-18 | in-progress | 중앙 검증된 source `57fb6dd9c747e8dbc39ecf671a0d96dd02a095d6`에서 strict를 한 번 실행했습니다. Live cell 14개가 plan-capability 불일치, transport retry, 지원되지 않는 운영 주장, 권한 없는 실행, ambient request 또는 bound request 없이 typed oracle을 통과했습니다. 13개 cell은 근거가 완전한 답변이었고 `ko-causal_analysis-1`만 T1 candidate가 principal-scope restriction을 추가한 뒤 unsupported로 끝났습니다. Seeded는 시작되지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-57fb6dd9c7-20260817T224706Z`, partial artifact 승격 없음 | Causal plan prompt v12를 중앙 검증한 뒤 seeded 시작 전에 새로운 strict 14/14 아티팩트를 보존합니다. |
+| 2026-08-18 | in-progress | 중앙 검증된 source `8f77424e21fde7eb82ef0103d90d7d09d6507a8d`에서 repository strict-to-seeded 절차를 한 번 실행했습니다. Strict는 live, answered 및 complete-evidence cell 14/14와 exact transport 14/14를 보존하고 safety 또는 capability mismatch가 0건이어서 runner가 seeded를 자동 시작했습니다. Seeded는 retry 또는 safety violation 없이 live turn 100개를 완료하고 typed judgment 99개를 통과했습니다. `en-property_filter-4`만 필요한 filtered capability 대신 unfiltered evidence-validation ObjectSet으로 답변했습니다. Frozen universe는 의도적으로 action draft 9개, clarification 10개 및 unsupported-domain terminal 5개를 유지하므로 실패한 이 아티팩트에서 answer-required turn 76개가 답변됐고 75개가 완전 근거를 포함했습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-8f77424e21-20260817T230217Z`, failed artifact 또는 baseline 승격 없음 | Frame prompt v12를 중앙 검증한 뒤 strict를 다시 실행하고 strict가 다시 통과한 경우에만 seeded를 허용합니다. |
 
 ### 남은 작업
 
