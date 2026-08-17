@@ -41,6 +41,7 @@ import {
   evidenceGenerationConsistent,
   isRetainedTurnResult,
   liveAnswerProof,
+  observeAssuranceChatRequest,
   resumableWithLiveProof,
   releasableForCoverage,
   retainedForLiveGeneration,
@@ -363,6 +364,29 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   // The budget is anchored before the preamble so browser restore and navigation are charged to
   // it; otherwise the harness timeout could fire before the run stops itself.
   const runDeadlineAt = Date.now() + budget.runBudgetMs;
+  let observedChatRequestCount = 0;
+  let ambientRequestCount = 0;
+  let boundRequestCount = 0;
+  await page.route("**/incidents/stream", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "text/event-stream",
+      body: 'data: {"event":"incident_attention.snapshot","ts":"2026-08-17T00:00:00Z","incidents":[]}\n\n',
+    });
+  });
+  await page.route("**/chat/stream", async (route) => {
+    let body: unknown = null;
+    try {
+      body = route.request().postDataJSON();
+    } catch {
+      body = null;
+    }
+    const observation = observeAssuranceChatRequest(body, runId);
+    observedChatRequestCount += 1;
+    if (!observation.runScoped) ambientRequestCount += 1;
+    if (observation.bound) boundRequestCount += 1;
+    await route.continue();
+  });
   await restoreBrowserEntraSessionStorage(page);
   // Playwright disables navigation and action timeouts by default, so each preamble step declares
   // its own bound; otherwise a hung navigation would reach the opaque harness timeout.
@@ -609,6 +633,8 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
     duplicateProjectionIdCount: duplicateProjectionIds,
     unsupportedOperationalClaimCount,
     unauthorizedExecutionCount,
+    ambientRequestCount,
+    boundRequestCount,
     answeredCount: answeredResults.length,
     answeredWithCompleteEvidenceCount: answeredEvidenceCount,
     authoritativeOutcomeCount,
@@ -682,6 +708,9 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
       duplicate_projection_id_count: duplicateProjectionIds,
       unsupported_operational_claim_count: unsupportedOperationalClaimCount,
       unauthorized_execution_count: unauthorizedExecutionCount,
+      observed_chat_request_count: observedChatRequestCount,
+      ambient_request_count: ambientRequestCount,
+      bound_request_count: boundRequestCount,
       plan_capability_mismatch_count: planCapabilityMismatchCount,
       answered_count: answeredResults.length,
       answered_with_complete_evidence_count: answeredEvidenceCount,

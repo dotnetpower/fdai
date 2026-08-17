@@ -450,6 +450,8 @@ export function assuranceCohortPassed(input: {
   readonly duplicateProjectionIdCount: number;
   readonly unsupportedOperationalClaimCount: number;
   readonly unauthorizedExecutionCount: number;
+  readonly ambientRequestCount: number;
+  readonly boundRequestCount: number;
   readonly answeredCount: number;
   readonly answeredWithCompleteEvidenceCount: number;
   readonly authoritativeOutcomeCount: number;
@@ -461,6 +463,7 @@ export function assuranceCohortPassed(input: {
     input.exhaustedTransportRetryCount === 0 &&
     input.duplicateRequestIdCount === 0 && input.duplicateProjectionIdCount === 0 &&
     input.unsupportedOperationalClaimCount === 0 && input.unauthorizedExecutionCount === 0 &&
+    input.ambientRequestCount === 0 && input.boundRequestCount === 0 &&
     input.answeredWithCompleteEvidenceCount === input.answeredCount &&
     input.authoritativeOutcomeCount === input.retainedCount;
 }
@@ -551,6 +554,21 @@ export function resolveAssuranceRunId(raw: string | undefined): string {
 
 export function assuranceSessionId(runId: string, questionId: string): string {
   return `ontology-assurance:${runId}:${questionId}`;
+}
+
+export function observeAssuranceChatRequest(body: unknown, runId: string): {
+  readonly runScoped: boolean;
+  readonly bound: boolean;
+} {
+  const record = typeof body === "object" && body !== null && !Array.isArray(body)
+    ? body as Record<string, unknown>
+    : null;
+  const sessionId = record?.["session_id"];
+  return {
+    runScoped: typeof sessionId === "string" &&
+      sessionId.startsWith(`ontology-assurance:${runId}:`),
+    bound: record !== null && Object.hasOwn(record, "conversation_context"),
+  };
 }
 
 const OPERATIONS: readonly AssuranceOperation[] = [
