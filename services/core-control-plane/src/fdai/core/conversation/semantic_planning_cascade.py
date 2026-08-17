@@ -214,6 +214,9 @@ def _validate_frame_proposal(proposal: SemanticFrameProposal) -> None:
     is_evidence_validation = proposal.output_shape == "evidence_validation"
     if (proposal.operation is SemanticOperation.VALIDATE) != is_evidence_validation:
         raise ValueError("semantic validate operation requires evidence_validation output")
+    is_causal_evidence = proposal.output_shape == "causal_evidence"
+    if (proposal.operation is SemanticOperation.EXPLAIN_CHANGE) != is_causal_evidence:
+        raise ValueError("semantic explain_change operation requires causal_evidence output")
 
 
 def _verify_frame_plan_alignment(
