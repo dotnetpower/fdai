@@ -2,12 +2,23 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from fdai.core.ontology_platform.metric_semantics import (
+    CausalJoinStatus,
+    join_causal_evidence,
+)
+from fdai.core.rca.temporal_causality import TemporalCausalityConfig
 from fdai.delivery.metric_window import ProviderMetricWindowReader
 from fdai.runtime.metric_semantic_catalog import load_metric_semantic_registry
-from fdai.shared.providers.metric import MetricPoint, StaticMetricProvider
+from fdai.shared.providers.metric import (
+    MetricPoint,
+    MetricProviderError,
+    MetricQuery,
+    StaticMetricProvider,
+)
 
 ROOT = Path(__file__).resolve().parents[4]
 NOW = datetime(2026, 8, 10, tzinfo=UTC)
@@ -58,3 +69,43 @@ async def test_metric_provider_binding_preserves_zero_and_marks_empty_as_gap() -
     assert observed.samples[0].value == 0.0
     assert missing.complete is False
     assert missing.missing_reason == "provider_gap"
+
+
+async def test_metric_provider_failure_becomes_explicit_unavailable_window() -> None:
+    class UnavailableMetricProvider:
+        async def query(self, query: MetricQuery) -> AsyncIterator[MetricPoint]:
+            del query
+            raise MetricProviderError("provider unavailable")
+            yield MetricPoint(  # pragma: no cover - retain the async iterator contract
+                metric_name="unreachable",
+                at=NOW,
+                value=0.0,
+            )
+
+    registry = load_metric_semantic_registry(ROOT / "rule-catalog/vocabulary/metric-semantics.yaml")
+    definition = registry.resolve("request.volume")
+
+    result = await ProviderMetricWindowReader(provider=UnavailableMetricProvider()).read(
+        definition=definition,
+        resource_id="service-a",
+        start=NOW,
+        end=NOW + timedelta(minutes=5),
+    )
+
+    assert result.complete is False
+    assert result.samples == ()
+    assert result.missing_reason == "provider_unavailable"
+    assert result.evidence_refs[0].startswith("metric-provider-unavailable:request.volume:")
+
+    causal = join_causal_evidence(
+        cause=result,
+        effect=result,
+        topology_change=None,
+        feature_cutoff=NOW + timedelta(minutes=5),
+        config=TemporalCausalityConfig(lag_seconds=(0,), min_samples=4),
+        competing_explanations=("provider_outage",),
+    )
+
+    assert causal.status is CausalJoinStatus.UNRESOLVED
+    assert "metric_window_incomplete" in causal.limitations
+    assert causal.execution_authority is False
