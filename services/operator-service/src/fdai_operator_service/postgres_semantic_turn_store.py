@@ -14,6 +14,7 @@ from uuid import uuid4
 from fdai_service_contracts import RuleSearchProjection, SemanticTurnRequest
 
 _OUTBOX_PREFIX: Final = "operator-semantic-outbox:"
+_NAMESPACED_OUTBOX_PREFIX: Final = "operator-semantic-namespaced-outbox:"
 _RESULT_PREFIX: Final = "operator-semantic-result:"
 _RULE_SEARCH_PROJECTION_PREFIX: Final = "operator-projection:workflow:rule.search:"
 _NAMESPACE_PATTERN: Final = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
@@ -570,7 +571,7 @@ def _outbox_prefix(namespace: str | None) -> str:
         return _OUTBOX_PREFIX
     if _NAMESPACE_PATTERN.fullmatch(namespace) is None:
         raise ValueError("semantic outbox namespace MUST be a bounded lowercase identifier")
-    return f"{_OUTBOX_PREFIX}{namespace}:"
+    return f"{_NAMESPACED_OUTBOX_PREFIX}{namespace}:"
 
 
 def _outbox_key(idempotency_key: str, *, prefix: str = _OUTBOX_PREFIX) -> str:

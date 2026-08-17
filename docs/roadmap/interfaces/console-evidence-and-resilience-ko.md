@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: be020e9df0128011aeb4f21c48f2d22554be0c29
+translation_source_sha: f8f91f40966f4bf5ad5470d83da85ae7587865e6
 translation_revised: 2026-08-17
 ---
 
@@ -69,6 +69,7 @@ translation_revised: 2026-08-17
 | 2026-08-16 | implemented | 보존된 exact-plan 근거에 `metric_scope_series`를 추가해 generic causal plan의 범위가 제한된 visible-resource metric 읽기가 아티팩트에서 계속 관찰되도록 했습니다. Operation oracle은 여전히 최종 `evidence_join`을 요구하므로 additive capability 단독으로 causal analysis를 충족하거나 zero-mismatch gate를 약화할 수 없습니다. | `current change`; focused assurance Vitest 96개 통과, Console 및 test typecheck 통과입니다. | 중앙 검증된 descendant에서 strict 이중 언어 gate와 seed 기반 100-case cohort를 실행합니다. |
 | 2026-08-17 | implemented | Console의 페이지 로드 인시던트 자동 조사에서 ontology assurance를 격리했습니다. Harness는 빈 incident-attention stream을 제공하고 모든 chat POST를 관찰하며 ambient 및 incident-bound 요청 수를 기록하고, 두 수가 모두 0이 아니면 집단 gate와 변경 불가능한 아티팩트 gate를 모두 실패시킵니다. | `current change`, focused assurance Vitest 124개 통과, strict/full supervisor 검사 7개 통과, Console typecheck 통과, Playwright exact live test discovery 통과 | Seed 기반 집단을 시작하기 전에 ambient 및 bound 요청이 0인 새로운 엄격한 아티팩트를 보존합니다. |
 | 2026-08-17 | implemented | Exact-source 엄격한 시도가 서비스 준비 상태에 도달했지만 Browser 사전 단계에서 오래된 공유 MSAL optimizer URL 때문에 실패한 뒤 감독 대상 보증 Console마다 Vite 의존성 캐시를 격리했습니다. 이 시도는 측정 질문을 하나도 실행하지 않았고 아티팩트도 생성하지 않았으며 seed 기반 질문 집합도 시작하지 않았습니다. | `current change`, focused 캐시 검사 2개, supervisor 검사 9개, Console typecheck, Ruff 및 strict mypy 통과 | 중앙 검증을 확보하고 캐시가 격리된 소스에서 새로운 엄격한 아티팩트를 보존합니다. |
+| 2026-08-17 | in-progress | 캐시가 격리된 엄격한 Browser 질문 집합은 live turn 14개를 완료했지만 exact topic 근거에는 요청 레코드 6개와 변환 결과 레코드 6개만 보존됐습니다. Supervisor가 아티팩트를 거부했고 seed 기반 질문 집합은 시작하지 않았습니다. | 중앙 검증된 소스 `40fbd0c41eda506e6976e3090fab3bd9502b98f0`의 실행 `issue63-40fbd0c41e-20260817T084406Z`, Playwright 통과, 변경 불가능한 transport 소유권 실패 | 형제 outbox prefix가 중앙 검증된 뒤에만 새로운 엄격한 Browser 아티팩트를 보존합니다. |
 
 ### 잔여 작업
 
