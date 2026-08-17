@@ -417,6 +417,17 @@ class _ScopedCausalEvidenceModel(_Model):
         return {"nodes": nodes, "output_node_ids": ["causal-evidence"]}
 
 
+class _RedundantScopeCausalEvidenceModel(_ScopedCausalEvidenceModel):
+    def propose_plan(self, **kwargs: Any) -> dict[str, object]:
+        plan = super().propose_plan(**kwargs)
+        nodes = plan["nodes"]
+        assert isinstance(nodes, list)
+        causal_node = nodes[-1]
+        assert isinstance(causal_node, dict)
+        causal_node["depends_on"] = ["scope", "cause", "effect"]
+        return plan
+
+
 class _EmptyTopologyReader:
     async def read(self, *, as_of: datetime, known_at: datetime) -> tuple[()]:
         assert as_of <= known_at
@@ -562,6 +573,41 @@ async def test_runtime_executes_bounded_visible_scope_causal_evidence() -> None:
     assert causal_evidence.status.value == "unresolved"
     assert "metric_window_incomplete" in causal_evidence.limitations
     assert causal_evidence.execution_authority is False
+
+
+async def test_runtime_canonicalizes_redundant_transitive_causal_dependency() -> None:
+    object_type = _object_type()
+    store = InMemoryOntologyInstanceStore(object_types=(object_type,), link_types=())
+    await store.upsert_object(
+        OntologyObjectRecord(
+            id="resource-a",
+            object_type="Resource",
+            properties={"id": "resource-a"},
+        )
+    )
+    definition = _definition().model_copy(update={"predicates": ()})
+    runtime = build_semantic_query_runtime(
+        model=_RedundantScopeCausalEvidenceModel(definition),
+        ontology_release=build_ontology_release(
+            object_types=(object_type,),
+            function_types=operational_function_types(()),
+        ),
+        ontology_catalog=_catalog(object_type),
+        ontology_store=store,
+        metric_registry=_metric_registry(),
+        metric_window_provider=_IncompleteMetricWindowProvider(),
+        now=lambda: NOW,
+    )
+
+    result = await runtime.handle(
+        utterance="What causal evidence exists for visible resources?",
+        prior_turns=(),
+        principal=Principal(id="reader", role=Role.READER),
+    )
+
+    assert result.disposition == "answered"
+    assert result.execution is not None
+    assert tuple(result.execution.results) == ("scope", "cause", "effect", "causal-evidence")
 
 
 class _RuleSearchModel(_Model):
