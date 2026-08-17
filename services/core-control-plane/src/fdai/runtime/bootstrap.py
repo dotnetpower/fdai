@@ -652,6 +652,7 @@ async def _run() -> int:
             startup_readiness_runtime = build_startup_readiness_runtime(
                 state_store=incident_audit_store,
                 event_bus=operational_bus,
+                transition_event_bus=bus,
                 event_validator=container.event_validator,
                 identity=identity,
                 embedding_model=container.require_llm_bindings().embedding_model,
