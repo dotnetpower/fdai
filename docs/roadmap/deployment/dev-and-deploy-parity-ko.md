@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 1f735e158b4d736cbf94427a7c0faac8cbc93585
+translation_source_sha: 2941f53994bb1ea8475bc9e7d9ee50612d0d4551
 translation_revised: 2026-08-17
 ---
 
@@ -51,6 +51,7 @@ translation_revised: 2026-08-17
 
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-08-17 | implemented | 이 리포 어디에도 없는 심볼인 `OperatorApiConfig.<field>`를 안내하던 운영자 대상 문구를 담당 체계·워크플로 작성·승격 게이트·규칙 카탈로그·온톨로지·팬테온 패널에서 제거했습니다. | 현재 변경; 집중 콘솔 검사 9개 파일 71개 테스트 통과, Console typecheck 통과, 영향받는 5개 카탈로그 쌍 모두 키 패리티 유지, 6개 패널 인증 통과에서 제거된 심볼 참조가 없었습니다. | 해당 route 배선은 별도 작업이며, 패널은 이제 관측 가능한 상태만 진술합니다. |
 | 2026-08-17 | validated | 남은 미제공 읽기 화면(`/capabilities`, `/skills`, `/forecast-learning`, `/operator-memory`)을 선언하고, 대화 보증 패널이 날것 전송 코드를 표시하지 않도록 했습니다. | 현재 변경; Operator composition 집중 테스트 `50 passed`, Console typecheck 통과, 보증 카탈로그 키 패리티 확인; Agents·Governance·Evidence·Settings 하위 메뉴 인증 통과에서 `404`와 날것 `HTTP nnn`이 모두 없었습니다. | 이 화면 집합에 남은 작업은 없습니다. projection이 연결되지 않은 등록된 route는 계속 서버 소유 사유와 함께 `503`을 반환합니다. |
 | 2026-08-17 | validated | 제공하지 않는 `/onboarding`, `/configuration-baselines`, `/conversation-delivery` 화면을 각각 자신의 소스로 선언해 패널이 자기 자신에 대한 사유를 표시하도록 했습니다. | 현재 변경; Operator composition 집중 테스트 `50 passed`; Operations 13개 화면 인증 통과에서 오류 알림·`404`·날것 전송 코드 노출이 모두 없었습니다. | 소실된 onboarding·baseline·delivery 기능을 서비스 경계 안에서 재구축할지 결정합니다. 이전 구현은 Core provider를 직접 import했습니다. |
 | 2026-08-17 | validated | 이 배포판이 제공하지 않는 `/finops`와 `/kpi/autonomy` 측정 화면을 읽기 데이터 소스 레지스트리에 선언하고, 선택적 Overview projection이 레지스트리의 `503` 신호를 허용하도록 했습니다. | 현재 변경; Operator composition 집중 테스트 `49 passed`와 Console dashboard-loading 테스트 `3 passed`를 모두 변이 검증했고, Overview 6개 화면 인증 통과에서 오류 알림이 없었으며 모든 `404`가 사라졌습니다. | 이 배포판에 reader만 있고 writer가 없는 `promotion-gate.list` projection을 구현하거나 폐기합니다. |

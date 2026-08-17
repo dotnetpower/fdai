@@ -122,8 +122,8 @@ export function PantheonRoute({ client }: Props) {
             setState({
               status: "unavailable",
               message:
-                "The pantheon endpoints are not wired on this deployment. " +
-                "Set OperatorApiConfig.expose_pantheon=True in the composition root to enable them.",
+                "The pantheon endpoints are not wired on this deployment, so no agent " +
+                "role or binding is claimed here.",
             });
           } else {
             setState({ status: "error", message });
