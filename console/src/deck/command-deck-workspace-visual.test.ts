@@ -7,6 +7,10 @@ const sidebarStyles = readFileSync(
   fileURLToPath(new URL("./conversation-sidebar.css", import.meta.url)),
   "utf8",
 );
+const structuredStyles = readFileSync(
+  fileURLToPath(new URL("./structured-reply.css", import.meta.url)),
+  "utf8",
+);
 const source = readFileSync(
   fileURLToPath(new URL("./command-deck-view.tsx", import.meta.url)),
   "utf8",
@@ -81,6 +85,17 @@ describe("Command Deck workspace hierarchy", () => {
     expect(source).toContain('class="deck-digest-header"');
   });
 
+  test("keeps the latest-message action in the toolbar instead of over transcript content", () => {
+    const toolbar = source.slice(
+      source.indexOf('class="deck-transcript-tools"'),
+      source.indexOf('class="deck-transcript"'),
+    );
+    expect(toolbar).toContain('class="deck-jump"');
+    expect(styles).toContain(".deck-jump {");
+    expect(styles).toContain("margin-left: auto;");
+    expect(styles).not.toMatch(/\.deck-jump\s*\{[^}]*position:\s*sticky/s);
+  });
+
   test("keeps readable metadata at 12px and keyboard focus visible", () => {
     expect(styles).toContain(".deck-turn-time,\n.deck-code-lang,");
     expect(styles).toContain("font-size: 12px;\n}");
@@ -88,6 +103,10 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).toContain("outline: 2px solid var(--accent);");
     expect(styles).toContain(".deck-conversation-select:focus-visible {");
     expect(styles).toContain(".deck-input:focus-visible {");
+    expect(styles).toMatch(/\.deck-source-readiness \{[^}]*font-size: 12px;/s);
+    expect(presenters).toContain('class="deck-turn-time muted"');
+    expect(presenters).toContain("dateTime={turn.recordedAt}");
+    expect(presenters).toContain("presentationTimestamp(");
   });
 
   test("keeps syntax-highlighted code on its dark slab", () => {
@@ -98,5 +117,22 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).toContain("container-name: deck-transcript;");
     expect(styles).toContain("@container deck-transcript (max-width: 620px)");
     expect(styles).toContain("grid-template-columns: 58px minmax(0, 1fr) auto 9px;");
+  });
+
+  test("keeps reply sources readable and reflows structured evidence on mobile", () => {
+    expect(styles).toContain(".deck-turn-head > .tooltip-anchor {");
+    expect(styles).toContain("max-width: min(75%, 420px);");
+    expect(styles).toContain(".deck-turn-head > .tooltip-anchor .deck-turn-source { max-width: 100%; }");
+    expect(structuredStyles).toContain("@media (max-width: 700px)");
+    expect(structuredStyles).toMatch(/@media \(max-width: 700px\)[\s\S]*\.deck-presentation-table,[\s\S]*display: block;/);
+  });
+
+  test("keeps deck controls operable at desktop and touch sizes", () => {
+    expect(styles).toMatch(/\.deck-search button \{[^}]*width: 32px;[^}]*height: 32px;/s);
+    expect(styles).toMatch(/\.deck-gr-icon \{[^}]*width: 32px;[^}]*height: 32px;/s);
+    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-search button \{ width: 44px; height: 44px; \}/);
+    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-gr-icon \{ width: 44px; height: 44px; \}/);
+    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-layout-button \{ width: 44px; height: 44px; \}/);
+    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-input-row button \{ min-width: 44px; min-height: 44px; \}/);
   });
 });

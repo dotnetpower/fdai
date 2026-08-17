@@ -81,12 +81,16 @@ export function Shell({ activePanelId, auth, client, children, onExitLocalSessio
           />
           {auth.localAzureCli && auth.account ? (
             <>
-              <span>{auth.account.username}</span>
+              <span class="principal-identity" title={auth.account.username}>
+                {auth.account.username}
+              </span>
               <span class="badge">Azure CLI</span>
             </>
           ) : auth.devMode && auth.account ? (
             <>
-              <span>{auth.account.username}</span>
+              <span class="principal-identity" title={auth.account.username}>
+                {auth.account.username}
+              </span>
               <span class="badge">Local Entra</span>
               <button type="button" onClick={() => { void auth.signOut(); }}>
                 {t("login.signOut")}
@@ -103,7 +107,9 @@ export function Shell({ activePanelId, auth, client, children, onExitLocalSessio
             </>
           ) : auth.account ? (
             <>
-              <span>{auth.account.username}</span>
+              <span class="principal-identity" title={auth.account.username}>
+                {auth.account.username}
+              </span>
               <button
                 type="button"
                 onClick={() => {

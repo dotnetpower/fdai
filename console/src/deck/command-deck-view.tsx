@@ -21,6 +21,7 @@ import { ComposerAttachments } from "./composer-attachments.view";
 import { ContextFreshnessIndicator } from "./context-freshness";
 import { resumedConversationAt } from "./conversation-resume";
 import { clampDockWidth, type DeckLayoutMode } from "./command-deck-session";
+import { presentationTimestamp } from "./presentation-value";
 import { investigationFlowPosition } from "./investigation-turn-state";
 import type { DeckSlashCommand } from "./command-deck-slash";
 import type { ConversationSummary } from "./conversation-sessions";
@@ -313,6 +314,16 @@ export function CommandDeckView({
                 >
                   {t("deck.digest.title")} <span>{recordCount}</span>
                 </button>
+                {!stuck && turns.length > 0 ? (
+                  <button
+                    type="button"
+                    class="deck-jump"
+                    onClick={onJumpToLatest}
+                    aria-label={t("deck.jumpLatestMessage")}
+                  >
+                    <span aria-hidden="true">↓</span> {t("deck.jumpLatest")}
+                  </button>
+                ) : null}
               </div>
               <section
                 class="deck-transcript"
@@ -328,7 +339,7 @@ export function CommandDeckView({
               {resumedAt ? (
                 <div class="deck-resume-banner" role="status">
                   <span>{t("deck.resumedConversation", {
-                    time: new Date(resumedAt).toLocaleString(),
+                    time: resumedConversationTime(resumedAt),
                   })}</span>
                   <button type="button" onClick={onNewConversation}>{t("deck.newConversation")}</button>
                 </div>
@@ -379,16 +390,6 @@ export function CommandDeckView({
                   health={health}
                   progress={retrievalProgress}
                 />
-              ) : null}
-              {!stuck && turns.length > 0 ? (
-                <button
-                  type="button"
-                  class="deck-jump"
-                  onClick={onJumpToLatest}
-                  aria-label={t("deck.jumpLatest")}
-                >
-                  {t("deck.jumpLatest")} ↓
-                </button>
               ) : null}
               </div>
               </section>
@@ -467,4 +468,9 @@ export function CommandDeckView({
       ) : null}
     </>
   );
+}
+
+function resumedConversationTime(value: string): string {
+  const timestamp = presentationTimestamp(value);
+  return timestamp ? `${timestamp.date} ${timestamp.time}` : value;
 }
