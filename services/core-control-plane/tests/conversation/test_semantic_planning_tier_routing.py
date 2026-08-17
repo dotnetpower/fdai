@@ -214,6 +214,31 @@ def test_valid_t1_plan_never_invokes_t2() -> None:
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
+def test_evidence_validation_plan_is_built_from_the_principal_scope() -> None:
+    manifest, definition = _fixture()
+    t1 = _Model(
+        frame=_frame(
+            operation="validate",
+            output_shape="evidence_validation",
+            evidence_requirements=["evidence_completeness"],
+        ),
+        plan={"nodes": [], "output_node_ids": []},
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+
+    outcome = _run(_service(t1, t2, manifest))
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    assert tuple(node.kind for node in outcome.plan.nodes) == (QueryNodeKind.OBJECT_SET,)
+    assert outcome.plan.nodes[0].arguments["definition"]["selector"] == {
+        "kind": "object_type",
+        "name": "Resource",
+    }
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
 def test_t1_clarification_never_invokes_t2() -> None:
     manifest, definition = _fixture()
     t1 = _Model(

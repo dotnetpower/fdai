@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: cd52552f0e69cfb5195f61892ddeff8aed258afe
+translation_source_sha: b8983cc0847a99bbf1fdcec173eb58081c3866b6
 translation_revised: 2026-08-17
 ---
 
@@ -201,6 +201,7 @@ translation_revised: 2026-08-17
 | 2026-08-17 | implemented | 의미 plan prompt v8을 v9으로 교체하고 검증기의 exact 선언 집계 및 속성 predicate envelope을 고정했습니다. 선언 개수는 `query.manifest` 의존성 하나와 범위가 제한된 aggregate 출력 하나를 사용하며, 존재, 동등 및 membership 필터는 허용된 operand 필드만 사용합니다. | `current change`, v9만 포함한 격리된 tracked 카탈로그에서 focused prompt 계약 검사 2개 통과, 작업 범위 Ruff 및 strict mypy 통과 | Seed 기반 집단을 시작하기 전에 새로운 엄격한 아티팩트를 보존합니다. |
 | 2026-08-17 | implemented | 읽기 전용 metric window 어댑터의 명시적인 `MetricProviderError`를 범위가 제한된 사용할 수 없는 불완전한 구간으로 변환했습니다. 부분 sample은 폐기하고 요청한 concept과 구간은 인용하며, causal join은 `execution_authority=false`인 `UNRESOLVED` 상태를 유지합니다. 프로바이더 신원 drift와 잘못된 데이터는 계속 fail closed 됩니다. | `current change`, focused metric 및 causal semantics 검사 12개 통과, 작업 범위 Ruff 및 strict mypy 통과 | Exact-source 스택에서 새로운 엄격한 causal cell을 보존합니다. |
 | 2026-08-17 | implemented | 두 metric window 의존성이 이미 요구하는 상위 scope를 중복으로 지정한 causal evidence join을 정규화했습니다. 계획 단계는 exact plan digest를 다시 만들기 전에 해당 전이 edge만 제거하며 principal 매니페스트, metric concept, 검증기 및 실행 handler는 변경하지 않습니다. | `current change`, focused 의미 구성 회귀 검사가 이전 `semantic_plan_invalid` 결과를 재현하고 이제 검증된 4-node 읽기 전용 DAG로 통과합니다. | 중앙 검증 증적을 확보하고 새로운 영어 causal cell을 보존한 뒤 엄격한 질문 집합을 다시 실행합니다. |
+| 2026-08-17 | implemented | 타입이 지정된 frame을 수락한 뒤 검증된 principal 범위 `Resource` 서술자에서 evidence-validation plan을 구성했습니다. Frame prompt v8은 더 좁은 모델 선택 subject를 요구하지 않고 principal-scope 근거 검사를 완전하게 유지하며, plan prompt v10은 Core가 단일 secured ObjectSet plan을 소유한다고 기록합니다. Exact release, 매니페스트, 역할, 목적, ObjectSet 스키마, plan digest 및 실행 handler 검사는 변경하지 않습니다. | `current change`, focused tier 라우팅 및 prompt 레지스트리 회귀 검사가 통과하며 T1과 T2 어느 쪽도 evidence plan을 제안하지 않음을 입증합니다. | 중앙 검증을 확보한 뒤 새로운 이중 언어 evidence-validation cell을 보존하고 엄격한 질문 집합을 다시 실행합니다. |
 
 ### 남은 작업
 
