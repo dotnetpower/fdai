@@ -45,6 +45,25 @@ describe("loadDashboardOverview", () => {
     expect(client.autonomy).toHaveBeenCalledOnce();
   });
 
+  it("keeps the KPI backbone when the source registry refuses an unserved route", async () => {
+    // The registry reports an unavailable source as 503 before any request is
+    // sent, so every optional overview projection must tolerate that status.
+    const publishBackbone = vi.fn();
+    const client = {
+      dashboardMetrics: vi.fn(async () => KPI),
+      finops: vi.fn(async () => { throw new OperatorApiError(503, "not served here"); }),
+      panel: vi.fn(async () => { throw new OperatorApiError(503, "not served here"); }),
+      autonomy: vi.fn(async () => { throw new OperatorApiError(503, "not served here"); }),
+    };
+
+    await expect(loadDashboardOverview(client, publishBackbone)).resolves.toEqual({
+      kpi: KPI,
+      finops: null,
+      gates: null,
+      autonomy: null,
+    });
+  });
+
   it("keeps the KPI backbone when the optional promotion projection is unavailable", async () => {
     const publishBackbone = vi.fn();
     const client = {

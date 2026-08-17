@@ -454,6 +454,32 @@ def test_database_url_binds_service_owned_postgres_projection() -> None:
     assert runtime.lifecycle is None
 
 
+def test_unserved_measurement_routes_declare_an_explicit_unavailable_source() -> None:
+    """Routes this distribution never serves must be declared, not left undeclared.
+
+    An undeclared route makes the console skip its source check and issue a blind
+    request that can only 404, so the panel loses the server-sourced reason.
+    """
+    composition = ProductionOperatorComposition(verifier_factory=lambda environment: _verify)
+    runtime = composition.build_runtime(
+        {
+            **BASE_ENV,
+            DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
+            DATABASE_ROLE_ENV: "fdai_operator",
+        }
+    )
+
+    declared = {route for source in runtime.data_sources for route in source.routes}
+    assert {"/finops", "/kpi/autonomy"} <= declared
+
+    source = next(item for item in runtime.data_sources if item.key == "overview-measurement")
+    assert source.availability == "unavailable"
+    assert source.configured is False
+    assert source.authoritative is False
+    assert source.reachable is not True
+    assert source.reason
+
+
 def test_local_narrator_binds_periodic_scheduler_lifecycle(tmp_path: Path) -> None:
     model_path = tmp_path / "models.json"
     model_path.write_text(

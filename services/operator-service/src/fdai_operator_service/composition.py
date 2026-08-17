@@ -486,6 +486,20 @@ def _build_data_sources(*, configured: bool) -> tuple[ReadDataSource, ...]:
             reason=reason,
         ),
         ReadDataSource(
+            key="overview-measurement",
+            source="not-implemented",
+            routes=("/finops", "/kpi/autonomy"),
+            availability="unavailable",
+            configured=False,
+            reachable=None,
+            authoritative=False,
+            durable=None,
+            reason=(
+                "Cost-action and autonomy measurement surfaces are not served by this "
+                "distribution, so no measured outcome is claimed for them."
+            ),
+        ),
+        ReadDataSource(
             key="notification-template",
             source="operator-service",
             routes=("/notification-templates/incident-opened",),
