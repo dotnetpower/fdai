@@ -542,6 +542,62 @@ def _build_data_sources(*, configured: bool) -> tuple[ReadDataSource, ...]:
             ),
         ),
         ReadDataSource(
+            key="capability-contract",
+            source="not-implemented",
+            routes=("/capabilities",),
+            availability="unavailable",
+            configured=False,
+            reachable=None,
+            authoritative=False,
+            durable=None,
+            reason=(
+                "Declared capability contracts are not served by this distribution, so "
+                "no side-effect class, role, or default mode is claimed."
+            ),
+        ),
+        ReadDataSource(
+            key="runtime-skill",
+            source="not-implemented",
+            routes=("/skills",),
+            availability="unavailable",
+            configured=False,
+            reachable=None,
+            authoritative=False,
+            durable=None,
+            reason=(
+                "Runtime skill metadata is not served by this distribution, so no "
+                "installed skill, dependency, or load diagnostic is claimed."
+            ),
+        ),
+        ReadDataSource(
+            key="forecast-learning",
+            source="not-implemented",
+            routes=("/forecast-learning",),
+            availability="unavailable",
+            configured=False,
+            reachable=None,
+            authoritative=False,
+            durable=None,
+            reason=(
+                "Forecast learning evidence is not served by this distribution, so no "
+                "prediction closure or pipeline health is claimed."
+            ),
+        ),
+        ReadDataSource(
+            key="operator-memory",
+            source="not-implemented",
+            routes=("/operator-memory",),
+            availability="unavailable",
+            configured=False,
+            reachable=None,
+            authoritative=False,
+            durable=None,
+            reason=(
+                "No durable operator-memory provider is registered for this "
+                "distribution, so no stored memory is claimed."
+            ),
+        ),
+        ReadDataSource(
             key="notification-template",
             source="operator-service",
             routes=("/notification-templates/incident-opened",),

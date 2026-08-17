@@ -48,6 +48,7 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-17 | validated | Declared the remaining unserved read surfaces (`/capabilities`, `/skills`, `/forecast-learning`, `/operator-memory`) and stopped the conversation assurance panel from rendering a raw transport code. | Current change; focused Operator composition tests `50 passed`, Console typecheck clean, assurance catalog key parity checked; an authenticated pass over the Agents, Governance, Evidence, and Settings submenus left no `404` and no raw `HTTP nnn` in any rendered body. | None for this surface set. Registered routes whose projection is unwired still answer `503` with a server-owned reason. |
 | 2026-08-17 | validated | Declared the unserved `/onboarding`, `/configuration-baselines`, and `/conversation-delivery` surfaces, each owning its own source so a panel renders a reason about itself. | Current change; focused Operator composition tests `50 passed`; an authenticated pass over all 13 Operations screens produced no error alert, no `404`, and no raw transport code in the rendered body. | Decide whether the lost onboarding, baseline, and delivery capabilities are rebuilt behind the service boundary; they previously imported Core providers directly. |
 | 2026-08-17 | validated | Declared the unserved `/finops` and `/kpi/autonomy` measurement surfaces in the read data-source registry, and tolerated the registry's `503` signal in the optional Overview projections. | Current change; focused Operator composition tests `49 passed` and Console dashboard-loading tests `3 passed`, both mutation-verified; an authenticated pass over the six Overview screens produced no error alert and removed every `404`. | Materialize or retire the `promotion-gate.list` projection, which has a reader but no writer in this distribution. |
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance, and moved machine-scoped Pylance launch controls to the FDAI profile. | Current change in `.vscode/fdai.code-profile`, `.vscode/settings.json`, `scripts/automation/configure-vscode-profile.py`, and focused profile/workspace tests: 9 passed. | Record the FDAI Pylance process argument and centralized validation receipt. |
@@ -341,7 +342,8 @@ request, so an undeclared route makes it skip that check and issue a request tha
 the panel then loses the server-sourced reason for the empty surface. A surface without a producer
 is therefore declared unavailable with a reason instead of being omitted or answered with a
 synthesized value, and the console treats that declared unavailability as an optional projection
-rather than a page failure.
+rather than a page failure. A panel never renders a raw transport status as its operator-facing
+message; an unavailable surface shows either the declared reason or its own catalog copy.
 
 The canonical local Operator API uses `FDAI_OPERATOR_API_LOCAL_ENTRA=1` and shares route-owned runtime helpers with deployment. The browser obtains the API token
 and the API verifies its JWT and App Roles exactly as deployment does. The server's Azure CLI token

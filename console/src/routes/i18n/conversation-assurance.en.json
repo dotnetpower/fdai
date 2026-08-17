@@ -1,4 +1,5 @@
 {
+  "unavailable": "Conversation assurance evidence is not connected on this deployment.",
   "title": "Conversation assurance",
   "subtitle": "Evidence-based answer review, independent model agreement, cost, and operator disputes",
   "resource": "conversation assurance evidence",

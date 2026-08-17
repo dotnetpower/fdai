@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 0fa3e3a19410e71d56281a55fb5822ea00ece203
+translation_source_sha: 1f735e158b4d736cbf94427a7c0faac8cbc93585
 translation_revised: 2026-08-17
 ---
 
@@ -51,6 +51,7 @@ translation_revised: 2026-08-17
 
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-08-17 | validated | 남은 미제공 읽기 화면(`/capabilities`, `/skills`, `/forecast-learning`, `/operator-memory`)을 선언하고, 대화 보증 패널이 날것 전송 코드를 표시하지 않도록 했습니다. | 현재 변경; Operator composition 집중 테스트 `50 passed`, Console typecheck 통과, 보증 카탈로그 키 패리티 확인; Agents·Governance·Evidence·Settings 하위 메뉴 인증 통과에서 `404`와 날것 `HTTP nnn`이 모두 없었습니다. | 이 화면 집합에 남은 작업은 없습니다. projection이 연결되지 않은 등록된 route는 계속 서버 소유 사유와 함께 `503`을 반환합니다. |
 | 2026-08-17 | validated | 제공하지 않는 `/onboarding`, `/configuration-baselines`, `/conversation-delivery` 화면을 각각 자신의 소스로 선언해 패널이 자기 자신에 대한 사유를 표시하도록 했습니다. | 현재 변경; Operator composition 집중 테스트 `50 passed`; Operations 13개 화면 인증 통과에서 오류 알림·`404`·날것 전송 코드 노출이 모두 없었습니다. | 소실된 onboarding·baseline·delivery 기능을 서비스 경계 안에서 재구축할지 결정합니다. 이전 구현은 Core provider를 직접 import했습니다. |
 | 2026-08-17 | validated | 이 배포판이 제공하지 않는 `/finops`와 `/kpi/autonomy` 측정 화면을 읽기 데이터 소스 레지스트리에 선언하고, 선택적 Overview projection이 레지스트리의 `503` 신호를 허용하도록 했습니다. | 현재 변경; Operator composition 집중 테스트 `49 passed`와 Console dashboard-loading 테스트 `3 passed`를 모두 변이 검증했고, Overview 6개 화면 인증 통과에서 오류 알림이 없었으며 모든 `404`가 사라졌습니다. | 이 배포판에 reader만 있고 writer가 없는 `promotion-gate.list` projection을 구현하거나 폐기합니다. |
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 machine 범위 Pylance launch 제어를 FDAI 프로파일로 이동했습니다. | 현재 변경의 `.vscode/fdai.code-profile`, `.vscode/settings.json`, `scripts/automation/configure-vscode-profile.py` 및 focused 프로파일/workspace 테스트 9개 통과. | FDAI Pylance process argument와 중앙 검증 receipt를 기록합니다. |
@@ -338,7 +339,8 @@ route를 선언합니다. 콘솔은 요청을 보내기 전에 route를 선언�
 route는 이 확인을 건너뛰고 실패만 가능한 요청을 보내게 되며 패널은 빈 화면에 대한 서버 제공
 사유를 잃습니다. 따라서 생산자가 없는 화면은 생략하거나 합성 값으로 답하지 않고 사유와 함께
 unavailable로 선언하며, 콘솔은 이렇게 선언된 unavailable을 페이지 실패가 아니라 선택적
-projection으로 처리합니다.
+projection으로 처리합니다. 패널은 운영자에게 보이는 메시지로 날것 전송 상태를 절대 표시하지
+않으며, unavailable 화면은 선언된 사유 또는 자체 카탈로그 문구를 보여줍니다.
 
 정본 로컬 Operator API는 `FDAI_OPERATOR_API_LOCAL_ENTRA=1`을 사용하고 배포와 route-owned 런타임 보조 로직을 공유합니다. 브라우저가 API 토큰을
 얻고 API는 배포와 동일하게 JWT 및 App 역할을 검증합니다. 서버의 Azure CLI 토큰은
