@@ -59,11 +59,26 @@ maintainer's local VS Code state.
   ClamAV, upgrade all five service migration branches, and generate role-scoped private service
   environments. Do not replace the standard browser Entra profile with a test, fixture,
   ingestion-gateway, or CLI-principal profile.
+- If the standard local stack is already healthy and its configuration inputs have not changed,
+  reuse its processes, generated `.fdai/local-*.env` files, logs, and database records. Do not
+  restart the stack, rerun full preparation, or regenerate state merely to begin an investigation.
+  Run only the affected preparation task when a migration, binding, or environment input changed.
 - The local launcher sets `FDAI_EXECUTION_VENUE=local`; every stateful service uses the loopback
   Docker PostgreSQL DSN under its service-owned role. The Azure launcher sets
   `FDAI_EXECUTION_VENUE=deployed`; every deployed service uses its Azure Database for PostgreSQL
   DSN. Never copy a local DSN into Azure configuration or an Azure PostgreSQL DSN into the local
   interactive profile.
+- For a local bug, query, or state investigation, inspect the generated local service environment
+  and loopback PostgreSQL first. Confirm the local service is using its expected role, the local
+  migrations are current, and the relevant local row is absent before considering remote evidence.
+  Azure PostgreSQL migration or synchronization belongs to the protected deployment workflow;
+  direct Azure database access is reserved for an explicitly requested live validation and never
+  substitutes for checking the local reproduction.
+- Treat VPN connectivity as observed state. Check the existing
+  `dev-access: configure VPN on folder open` task result first. If the exact private target still
+  needs diagnosis, run `tools/dev-access/scripts/doctor.sh <host[:port]>` with its configured
+  non-secret endpoint. Do not report the VPN as disconnected merely because a target is private or
+  a request failed; separate VPN route, DNS, TCP endpoint, authorization, and application errors.
 - Start the local isolated Executor only from its committed local environment. It is a durable
   shadow consumer with no managed-resource identity, and `FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER`
   remains `0`. A local cutover request is a startup failure, not a reason to inject Azure or user
