@@ -1,7 +1,6 @@
 ---
 title: Process Automation
 ---
-
 # Process Automation
 
 Process automation turns a multi-step business process into a first-class,

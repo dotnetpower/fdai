@@ -33,7 +33,6 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 | Agent refresh latest-state hydration | validated | Focused stream tests: 9 passed; authenticated `/agents` reloads reached `Watching 2 / Idle 13 / Unobserved 0` in 224 ms, 232 ms, and 228 ms | The Agent hub seeds one latest validated `agent.state` event per agent into each new subscriber. Generic Live remains future-only, and neither hub provides durable history replay. |
 | Authenticated local Live event path | validated | Controlled 2026-08-13 Browser Entra run through `aw.change.events`, Core, `aw.pipeline.stages`, Operator SSE, and the existing authenticated Live DOM | The run preserved the authoritative ontology and rendered the event plus all four accepted stages. It did not validate a deployed revision, the browser Notifications API, or closed-browser push delivery. |
 | Local control-loop change-event ingress | validated | `.vscode/tasks.json`, `infra/modules/compute/container-apps/inventory_job.tf`, `tests/integration/infra/test_inventory_repair_wiring.py`; one local run published 5 authoritative `inventory.resource_changed` events and the authenticated Live surface reported `Runtime observed` with `5 routed events` | The local inventory reconciliation task binds `FDAI_INVENTORY_RECOVERY_DELTA=1` exactly as the VNet-integrated deployed job does, so the Activity Log delta reaches `aw.change.events` in both venues. The deployed job still disables the delta when no infrastructure subnet exists. |
-| Read data-source declaration completeness | validated | `fdai_operator_service/composition.py`, `console/src/routes/dashboard.loading.ts`, their focused tests (`49 passed`, `3 passed`), and an authenticated run of all six Overview screens with no error alert and no request that can only `404` | Every read route the console consults is declared in `/system/data-sources`, including routes this distribution does not serve. An undeclared route makes the console skip its source check and issue a blind request, so the panel loses the server-sourced reason. Unserved measurement surfaces are declared unavailable rather than answered with a synthesized value. |
 | Local and deployed composition parity | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, `fdai_operator_service/composition.py`, service integration tests, and focused Operator checks (`51 passed`) | Composition roots select credentials and adapters without changing evidence authority. Local and deployed Operator composition register the same Reader-scoped `GET /browser-evidence` route and authoritative data-source identity; missing PostgreSQL remains unavailable rather than synthetic. |
 | Primary-worktree automatic startup isolation | implemented | `.vscode/tasks.json` and `tests/integration/scripts/test_vscode_workspace_performance.py`; focused automatic-start contract passed | Folder-open startup runs only from the primary checkout so linked worktrees cannot race for the standard ports. Explicit preparation and service-start tasks remain available in linked worktrees. |
 | Repository-scoped roadmap campaign capacity | implemented | `roadmap_verification_watchdog.py`, `test_roadmap_verification_watchdog.py`, and the randomized campaign operator contract in `scripts/README.md` | FDAI session leases and recent Copilot activity are both counted only for this repository. Linked worktrees resolve the primary checkout before deriving the VS Code workspace id. Another workspace cannot hold FDAI work, while the 900-second activity window and two-session campaign ceiling still protect concurrent FDAI editing. |
@@ -86,12 +85,6 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 | 2026-08-17 | validated | Bound the local venue to the same authoritative control-loop ingress as deployment. The Activity Log recovery delta was enabled for the deployed inventory job but left at its `False` default locally, so `aw.change.events` received nothing and the authenticated Live surface reported `Source unavailable` while every transport component was healthy. | `current change`; `.vscode/tasks.json` and `tests/integration/infra/test_inventory_repair_wiring.py`; focused infrastructure and constitution checks passed 14 cases; one local run published 5 authoritative `inventory.resource_changed` events that produced `ingest`, `route`, `verify`, and `audit` frames with `source: runtime-observed`, and the Live surface changed to `Runtime observed`. | Enumerate every remaining venue-selected capability flag in one contract instead of guarding each binding separately. |
 ### Remaining work
 
-- [ ] Decide whether the onboarding probe, configuration baseline, and conversation delivery
-  capabilities are rebuilt behind the service boundary. The pre-split routes imported Core
-  providers directly, which the independent-service boundary no longer permits.
-- [ ] Materialize or retire the `operator-projection:workflow:promotion-gate.list` projection. The
-  workflow family reads it and `/kpi/promotion-gates` answers `503`, but no component in this
-  distribution writes it.
 - [ ] Establish an FDAI-only Remote WSL server data root or WSL distribution, then record a restarted Pylance process command containing `--max-old-space-size=2048` without changing the excluded workspace.
 - [ ] Record passing evidence for all 50 registered Console routes, then complete at least 10 assurance rounds and 10 critique/hardening rounds with no unresolved finding above Low severity.
 - [ ] Record a deployed-revision event that reaches an authenticated Live DOM through a replica-specific `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID`; track browser Notifications API and closed-browser push delivery separately if those capabilities enter scope.
@@ -339,50 +332,9 @@ receive no prompt or network change.
 
 ### Console data in local development
 
-The read data-source registry declares every route the console consults, including routes this
-distribution does not serve. The console resolves a route to its declared source before it sends a
-request, so an undeclared route makes it skip that check and issue a request that can only fail;
-the panel then loses the server-sourced reason for the empty surface. A surface without a producer
-is therefore declared unavailable with a reason instead of being omitted or answered with a
-synthesized value, and the console treats that declared unavailability as an optional projection
-rather than a page failure. A panel never renders a raw transport status as its operator-facing
-message; an unavailable surface shows either the declared reason or its own catalog copy.
-
-The canonical local Operator API uses `FDAI_OPERATOR_API_LOCAL_ENTRA=1` and shares route-owned runtime helpers with deployment. The browser obtains the API token
-and the API verifies its JWT and App Roles exactly as deployment does. The server's Azure CLI token
-is confined to Azure adapters such as Resource Graph, Microsoft Graph, model discovery, and Event
-Hubs. `FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1` with `VITE_LOCAL_AZURE_CLI_AUTH=1` is an explicit
-CLI-principal debug alternative with a fixed role ceiling.
-
-Local Kubernetes workload evidence is opt-in and server-owned. Set
-`FDAI_LOCAL_KUBECONFIG`, `FDAI_LOCAL_KUBERNETES_CONTEXT`, and
-`FDAI_LOCAL_KUBERNETES_CLUSTER_NAME` together to bind one fixed read-only `kubectl` query. The
-cluster name must match the Azure inventory result before Deployment or Pod evidence can complete
-an AKS answer. With all three values absent, workload coverage remains explicitly unavailable; a
-partial binding fails startup instead of using the implicit current context.
-
-Local and deployed inventory projections use the same two query modes. `scope=<view-id>` selects
-a deterministic named architecture view. The mutually exclusive rooted mode uses
-`root=<resource-id>`, `depth=1..8`, and `limit=1..1000` to return one bidirectional neighborhood;
-an unknown root returns `404`, and a cap sets `truncated=true`. The local Azure CLI provider applies
-the same bounds to its authoritative cached snapshot that the deployed PostgreSQL provider applies
-inside the active snapshot plus real-time overlay. Neither profile widens a rooted request to the
-complete inventory. The deployed provider reads that effective graph in one repeatable-read,
-read-only transaction, and both profiles expand same-depth frontier resources round-robin in a
-deterministic order. Named-view requests keep the original three-argument provider call contract;
-only rooted requests require the extended keywords. Relationship-filter count and text length are
-bounded before provider dispatch. The read route rejects malformed resources, unknown or dangling
-relationships, duplicate resource ids, invalid truncation metadata, and oversized provider output.
-Both profiles preserve observed operational state, including nested AKS `powerState.code`, instead
-of replacing it with provisioning state. Local cache envelope v13 records a strict redacted receipt
-for the Azure CLI/ARG commands that produced the snapshot. Older envelopes refresh before they can
-expose provider execution detail. A Command Deck inventory turn applies IQL to that snapshot; it
-doesn't claim that the provider commands ran again for the question.
-Rooted output uses the requested resource cap and matching edge cap; named views keep the existing
-5,000-resource and 40,000-link response ceilings.
-Both profiles expose the same truncation reason vocabulary: resource, adjacent-edge,
-internal-edge, or source cap. The read route rejects unknown reasons and a reason attached to a
-non-truncated payload.
+The data-source declaration, local authentication, workload evidence, and inventory query
+contracts are owned by [Console Read Boundary](console-read-boundary.md). This parity document
+retains the remaining local/deployed runtime bindings below.
 
 Runtime policies use the same StateStore record in deployment and when local PostgreSQL is
 configured. Without durable local state, the source manifest reports the settings store as
