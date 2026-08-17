@@ -71,6 +71,9 @@ from fdai.shared.providers.state_store import StateStore
 _LOGGER = logging.getLogger("fdai.startup")
 _SEMANTIC_TURN_READINESS_PROBE_ID = "semantic-turn.runtime"
 _CATALOG_SEMANTIC_READINESS_PROBE_ID = "catalog-semantic.runtime"
+# Readiness stays open only while every probe result is fresh, so a binding
+# result must outlive the evaluation deadline it was produced under.
+_RUNTIME_BINDING_RESULT_TTL = timedelta(minutes=5)
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,7 +105,7 @@ class CatalogSemanticReadinessProbe:
 
     async def run(self, request: StartupProbeRequest) -> StartupProbeResult:
         observed_at = datetime.now(UTC)
-        expires_at = max(request.deadline, observed_at + timedelta(seconds=1))
+        expires_at = observed_at + _RUNTIME_BINDING_RESULT_TTL
         return StartupProbeResult(
             probe_id=self.probe_id,
             status=ProbeStatus.PASSED if self._binding.available else ProbeStatus.FAILED,
@@ -228,7 +231,7 @@ class SemanticTurnReadinessProbe:
 
     async def run(self, request: StartupProbeRequest) -> StartupProbeResult:
         observed_at = datetime.now(UTC)
-        expires_at = max(request.deadline, observed_at + timedelta(seconds=1))
+        expires_at = observed_at + _RUNTIME_BINDING_RESULT_TTL
         return StartupProbeResult(
             probe_id=self.probe_id,
             status=ProbeStatus.PASSED if self._binding.available else ProbeStatus.FAILED,
