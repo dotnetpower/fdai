@@ -33,6 +33,7 @@ from fdai_operator_service.environment import (
     PORT_ENV,
     SEMANTIC_CONSUMER_GROUP_ENV,
     SEMANTIC_KAFKA_CLIENT_ID_ENV,
+    SEMANTIC_OUTBOX_NAMESPACE_ENV,
     SEMANTIC_PHYSICAL_TOPIC_ENV,
     SEMANTIC_PROJECTION_TOPIC_ENV,
     SEMANTIC_REQUEST_TOPIC_ENV,
@@ -536,6 +537,9 @@ def test_semantic_kafka_environment_preserves_optional_transport_ids() -> None:
             SEMANTIC_PHYSICAL_TOPIC_ENV: "aw.pantheon.objects",
             SEMANTIC_CONSUMER_GROUP_ENV: "operator-group",
             SEMANTIC_KAFKA_CLIENT_ID_ENV: "operator-client",
+            SEMANTIC_OUTBOX_NAMESPACE_ENV: "issue63.run-1",
+            DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
+            DATABASE_ROLE_ENV: "fdai_operator",
             MANAGED_IDENTITY_CLIENT_ID_ENV: "command-identity",
         }
     )
@@ -543,7 +547,21 @@ def test_semantic_kafka_environment_preserves_optional_transport_ids() -> None:
     assert environment.semantic_consumer_group_id == "operator-group"
     assert environment.semantic_kafka_client_id == "operator-client"
     assert environment.semantic_physical_topic == "aw.pantheon.objects"
+    assert environment.semantic_outbox_namespace == "issue63.run-1"
     assert environment.managed_identity_client_id == "command-identity"
+
+
+@pytest.mark.parametrize("namespace", ["Issue63", "issue 63", "-issue63", "x" * 65])
+def test_semantic_outbox_namespace_rejects_invalid_identifiers(namespace: str) -> None:
+    with pytest.raises(OperatorServiceConfigurationError, match="bounded lowercase"):
+        OperatorEnvironment.parse(
+            {
+                **BASE_ENV,
+                DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
+                DATABASE_ROLE_ENV: "fdai_operator",
+                SEMANTIC_OUTBOX_NAMESPACE_ENV: namespace,
+            }
+        )
 
 
 def test_live_stage_consumer_group_preserves_default_and_override() -> None:

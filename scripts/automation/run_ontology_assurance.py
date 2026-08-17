@@ -479,6 +479,7 @@ export FDAI_SEMANTIC_TURN_CONSUMER_GROUP_ID="$3-semantic-operator"
 export FDAI_SEMANTIC_TURN_REQUEST_TOPIC="$4"
 export FDAI_SEMANTIC_TURN_PROJECTION_TOPIC="$5"
 export FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC=
+export FDAI_SEMANTIC_TURN_OUTBOX_NAMESPACE="${3,,}"
 python_path="$1/services/operator-service/src:$1/packages/service-contracts/src"
 exec env -u AZURE_CONFIG_DIR \
     PYTHONPATH="$python_path${PYTHONPATH:+:$PYTHONPATH}" \
@@ -794,7 +795,8 @@ def _main(argv: Sequence[str]) -> int:
         descriptor = os.open(runner_log, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
         command = [
             sys.executable,
-            str(Path(__file__).resolve()),
+            "-m",
+            "scripts.automation.run_ontology_assurance",
             "--repo",
             str(repo),
             "--source-revision",

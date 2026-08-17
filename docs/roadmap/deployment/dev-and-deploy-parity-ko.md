@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 78d2dd3b9ca1584d3a15a033fc6abda15251bd2d
+translation_source_sha: a2fb0bd89c05a322f5d0cbcf2086979122ea51d9
 translation_revised: 2026-08-17
 ---
 
@@ -77,6 +77,7 @@ translation_revised: 2026-08-17
 | 2026-08-17 | implemented | Roadmap 자동화 session 용량을 리포지토리 범위로 제한했습니다. 기본 WSL workspace-storage id는 정본 remote URI에서 도출하고, 다른 VS Code remote는 정확한 storage 경로를 지정할 수 있으며, 다른 리포지토리의 최근 활동은 FDAI를 보류하지 않습니다. | `current change`, `roadmap_verification_watchdog.py`, focused watchdog 테스트, `scripts/README.md`의 운영 계약 | Campaign session 범위에 남은 작업은 없습니다. |
 | 2026-08-17 | implemented | Linked worktree session 계산을 바로잡았습니다. 기존 리포지토리 범위 구현은 campaign worktree 경로를 hash해 VS Code storage를 찾지 못했으므로 linked campaign이 FDAI session을 0개로 셀 수 있었습니다. 이제 workspace URI를 hash하기 전에 Git common directory에서 primary checkout을 도출합니다. | `current change`, `roadmap_verification_watchdog.py`, `test_roadmap_verification_watchdog.py`의 실제 linked-worktree 회귀, focused watchdog suite 9건 통과 | Linked-worktree workspace identity에 남은 작업은 없습니다. |
 | 2026-08-17 | implemented | 배포 README의 추적 연속성 문장을 필수 표시 용어로 다시 썼습니다. 운영자용 문장에 그대로 쓰인 `finding`이 중앙 검증의 `display-terminology`를 통과하지 못해 main이 거부되었고 모든 lane과 모든 착륙이 멈췄습니다. | `current change`, `infra/README.md`와 user-guide 쌍, `display-terminology`가 문서 524개에서 OK를 보고하고 번역 185/185 검증 통과 | 이 변경에 남은 작업은 없습니다. |
+| 2026-08-17 | implemented | 표준 로컬 또는 배포 네임스페이스를 바꾸지 않고 대체 로컬 Operator 프로세스의 영속 semantic outbox claim을 격리했습니다. 테스트 전용 Operator는 `FDAI_SEMANTIC_TURN_OUTBOX_NAMESPACE`를 실행 id에 연결할 수 있으며 운영 기본값은 복제본에 안전한 하나의 공유 queue를 계속 사용합니다. | `current change`, focused 환경, composition, 저장소 lease 및 runner 검사 114개 통과, strict mypy 통과 | 네임스페이스가 적용된 보증 runner에서 exact-source Browser 근거를 보존합니다. |
 ### 잔여 작업
 
 - [ ] FDAI 전용 Remote WSL server data root 또는 WSL 배포판을 마련한 뒤 제외 대상 workspace를 변경하지 않고 재시작한 Pylance process command에 `--max-old-space-size=2048`이 포함됨을 기록합니다.

@@ -643,6 +643,66 @@ async def test_claim_test_clock_controls_eligibility_and_lease() -> None:
     assert parameters["lease_seconds"] == 30
 
 
+async def test_semantic_outbox_namespace_isolates_claim_prefix() -> None:
+    captured: list[Mapping[str, object]] = []
+
+    async def fetch_all(
+        _statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        captured.append(parameters)
+        return []
+
+    repository = PostgresSemanticTurnRepository(
+        fetch_all=fetch_all,
+        insert_if_absent=cast(Any, object()),
+        outbox_namespace="issue63.run-1",
+    )
+
+    assert await repository.claim(worker_id="replica-a", lease_seconds=30) is None
+    assert captured[0]["prefix"] == "operator-semantic-outbox:issue63.run-1:%"
+
+
+def test_semantic_outbox_namespace_rejects_invalid_identifiers() -> None:
+    with pytest.raises(ValueError, match="semantic outbox namespace"):
+        PostgresSemanticTurnRepository(
+            fetch_all=cast(Any, object()),
+            insert_if_absent=cast(Any, object()),
+            outbox_namespace="Issue 63",
+        )
+
+
+async def test_semantic_outbox_namespace_isolates_appended_key() -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    captured_key = ""
+
+    async def insert_if_absent(
+        *,
+        key: str,
+        value: Mapping[str, object],
+    ) -> tuple[bool, dict[str, object]]:
+        nonlocal captured_key
+        captured_key = key
+        return True, dict(value)
+
+    repository = PostgresSemanticTurnRepository(
+        fetch_all=cast(Any, object()),
+        insert_if_absent=insert_if_absent,
+        outbox_namespace="issue63.run-1",
+    )
+
+    await repository.append(
+        principal_id="operator-1",
+        idempotency_key="turn-retry-1",
+        request_digest="expected",
+        envelope=envelope,
+    )
+
+    assert captured_key.startswith("operator-semantic-outbox:issue63.run-1:")
+
+
 async def test_semantic_turn_replay_is_ordered_and_principal_request_scoped(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
