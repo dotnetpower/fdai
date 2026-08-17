@@ -109,6 +109,24 @@ the Constitution always prevails.
    verification round instead of repeating a full live gate after each small change, and run
    full-cohort or release-scale checks only at an explicit release or evidence boundary.
 
+## Local Development Efficiency (MUST)
+
+- Ordinary local development, debugging, reproduction, and focused validation MUST use the
+   loopback Docker PostgreSQL stores and service-owned local DSNs first. Inspect the active local
+   environment, migrations, and local records before considering an Azure PostgreSQL operation;
+   never use the remote database to explain state that is reproduced locally.
+- Azure PostgreSQL reads, writes, migrations, or data synchronization are deployment work. Perform
+   them only through the protected deployment workflow, or during an explicitly requested live
+   Azure validation after focused local checks are complete. Never source an Azure PostgreSQL DSN
+   into an interactive local process or copy database contents between venues ad hoc.
+- VPN and private-endpoint state MUST be measured, not assumed. Before reporting a VPN disconnect
+   or private endpoint as unreachable, inspect the folder-open dev-access task result or run the
+   committed dev-access readiness check for the exact target. Distinguish VPN, DNS, route, endpoint,
+   authorization, and application failures in the result; one is not evidence of another.
+- Reuse a healthy running local stack, its generated `.fdai/local-*.env` files, and existing local
+   artifacts. Prefer the smallest local query or focused check that can answer the question, and
+   defer network-dependent GitHub or Azure work until local implementation and validation require it.
+
 ## Issue Lifecycle (MUST)
 
 - Every new issue includes explicit, observable **Exit criteria** as a checkbox list.
