@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: da068cdc956a49e66c9d4fad669e2d29e336f66e
-translation_revised: 2026-08-17
+translation_source_sha: 584fdbd7fa7e1c278bc839b10d20a0bd59ceed4d
+translation_revised: 2026-08-18
 ---
 # 코드 맵
 
@@ -127,6 +127,7 @@ translation_revised: 2026-08-17
 | 2026-08-17 | implemented | Bragi의 temporal plan 문법을 기존의 검증된 topology query algebra에 고정했습니다. Prompt v11은 `topology_at` source 두 개와 순서가 지정된 `topology_diff` output 하나를 요구하며, deterministic verifier가 cutoff 순서, 의존성 타입 및 프로바이더 적격성을 계속 소유합니다. | `current change`, focused prompt 레지스트리 회귀 통과 | Seeded를 시작하기 전에 strict 14/14 근거를 보존합니다. |
 | 2026-08-17 | implemented | 타입이 지정된 evidence-validation frame이 complete principal scope를 대상으로 할 때만 Core가 subject clarification을 해소합니다. Resolver는 readable manifest의 `Resource`를 제공하고 concrete 또는 mixed clarification은 server-owned ObjectSet 경로 전에 그대로 둡니다. | `current change`, focused tier 라우팅 회귀 통과 | Seeded를 시작하기 전에 strict 14/14 근거를 보존합니다. |
 | 2026-08-17 | implemented | 남은 frame 결정 2개를 semantic cascade 경계에 유지했습니다. Broad evidence frame은 readable principal scope에서 `subject` 또는 `resource_identity`를 해소할 수 있으며, `explain_change`와 `causal_evidence`는 plan을 제안하기 전에 서로 일치해야 합니다. Concrete identity와 causal measure 역할은 정렬된 concept에서 추론하지 않고 모델이 제안한 뒤 deterministic 검증을 받습니다. | `current change`, focused evidence 및 causal frame 회귀 통과 | Seeded를 시작하기 전에 strict 14/14 근거를 보존합니다. |
+| 2026-08-18 | implemented | Deterministic plan 검증이 언어에서 다시 구성할 수 없는 schema-valid frame 계열 2개에 prompt-level 최종 audit를 추가했습니다. Frame v11은 count 또는 grouping 요청을 `aggregation_table`에 유지하고 evidence sufficiency 요청을 `validate` 및 `evidence_validation`에 유지합니다. Core는 계속 identity를 다시 만들고 I/O 전에 모든 결과 plan을 검증합니다. | `current change`, focused prompt 레지스트리 계약 통과 | Seeded를 시작하기 전에 strict 14/14 근거를 보존합니다. |
 
 ### 남은 작업
 

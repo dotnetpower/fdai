@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 09bb00c4023368d8b0a30ff34b6dbe5f6413521c
-translation_revised: 2026-08-17
+translation_source_sha: 17b5cf427e4c4f748a1c7ff81be4cdc6bb7ad0bf
+translation_revised: 2026-08-18
 ---
 
 # 온톨로지 조회 커버리지 구현 계획
@@ -213,6 +213,7 @@ translation_revised: 2026-08-17
 | 2026-08-17 | implemented | 다음 strict 실행에서 유일한 unsupported cell이 temporal comparison으로 이동한 뒤 semantic plan prompt를 v11로 올렸습니다. Prompt는 trusted cutoff가 있는 dependency-free `topology_at` source 두 개와 baseline-then-current `topology_diff` output 하나로 구성된 일반 three-node topology-diff DAG를 고정합니다. 질문 route나 프로바이더 데이터는 추가하지 않습니다. | `current change`, focused prompt 레지스트리 회귀 통과 | 중앙 검증을 확보한 뒤 seeded 시작 전에 strict 14/14 근거를 보존합니다. |
 | 2026-08-17 | implemented | 타입이 지정된 `validate` 및 `evidence_validation` frame에 남은 principal-scope subject clarification만 해소했습니다. Core는 기존 readable `Resource` descriptor를 bind하고 동일한 secured ObjectSet을 구성합니다. Concrete subject 또는 다른 clarification category는 계속 unresolved 상태입니다. | `current change`, focused positive 및 negative tier 라우팅 회귀 통과 | 중앙 검증을 확보한 뒤 seeded 시작 전에 strict 14/14 근거를 보존합니다. |
 | 2026-08-17 | implemented | Evidence frame에 concrete subject가 없을 때 server-owned evidence resolver를 타입이 지정된 `resource_identity` clarification까지 확장하고, `explain_change`를 `causal_evidence` output 계열과 양방향으로 연결했습니다. Concrete evidence subject는 계속 unresolved 상태이며 잘못 분류된 causal frame은 plan 선택 전에 종료되지 않고 범위가 제한된 T1-first cascade를 통해 다시 시도합니다. | `current change`, focused evidence 및 causal tier 라우팅 회귀 통과 | 중앙 검증을 확보한 뒤 seeded 시작 전에 strict 14/14 근거를 보존합니다. |
+| 2026-08-18 | implemented | Semantic frame prompt를 v11로 versioning하고 최종 answer-shape audit를 추가했습니다. Cardinality와 grouping은 schema declaration을 대상으로 해도 `aggregation_table`을 유지하며, evidence sufficiency와 coverage는 요청이 resource, property, identity 또는 relationship을 명시해도 타입이 지정된 `validate` 및 `evidence_validation` 쌍을 유지합니다. 질문 literal, keyword router, provider fact 또는 권한은 추가하지 않았습니다. | `current change`, focused prompt 레지스트리 계약 통과 | 중앙 검증을 확보한 뒤 seeded 시작 전에 strict 14/14 근거를 보존합니다. |
 
 ### 남은 작업
 
