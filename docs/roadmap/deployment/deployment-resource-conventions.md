@@ -32,6 +32,7 @@ deployment-specific values outside the upstream distribution.
 | 2026-08-13 | implemented | Added a deterministic Operator catalog Job that runs only after the schema migration Job succeeds. | Current change in `infra/main.tf`, `infra/modules/operator-api/container-app/`, and `.github/workflows/deploy-dev.yml`; Terraform validate passed and focused deployment tests report 22 passed. | Capture the protected apply and Job execution receipt. |
 | 2026-08-15 | implemented | Added the deterministic length-safe `browser-gc` Job component for scheduled browser-evidence retention. | `current change`; focused Terraform contract checks `4 passed`; `terraform validate`. | Capture the protected apply and Job execution receipts. |
 
+| 2026-08-17 | implemented | Declared the retirement of the auxiliary readiness transition entity and its role assignment. PR #153 returned startup readiness transitions to the multiplexed primary bus, leaving the entity without a publisher. | `current change`; `deploy-dev.yml` parses as valid YAML and the registered keys resolve to the exact Terraform addresses the protected plan reported. | Remove both entries once the retirement has been applied. |
 ### Remaining work
 
 - [ ] Retain repository-safe governed apply receipts for the legacy platform and ops-bootstrap
