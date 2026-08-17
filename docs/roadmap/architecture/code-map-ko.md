@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c168f4fa82cf4c500617cd39503c45a5dfd69946
+translation_source_sha: e802768fcf90e279926c3cd988ba8a6c56ac9b4b
 translation_revised: 2026-08-17
 ---
 # 코드 맵
@@ -124,6 +124,7 @@ translation_revised: 2026-08-17
 | 2026-08-17 | implemented | 선택적인 namespaced Operator semantic outbox key를 형제 물리 prefix로 옮겼습니다. 운영 기본 key는 그대로 유지하고 exact namespace 검사도 유지하며, 이전의 넓은 기본 claim을 사용하는 오래된 프로세스는 실행 소유 행과 일치할 수 없습니다. | `current change`, `postgres_semantic_turn_store.py`, 통과한 focused bridge 검사 62개, Ruff 및 strict mypy 통과 | 담당 온톨로지 보증 원장에 통제된 엄격한 근거와 seed 기반 근거를 보존합니다. |
 | 2026-08-17 | implemented | 근거 계열 분류와 temporal cutoff 검증을 각각 담당하는 Core 경계에 유지했습니다. 의미 cascade는 plan 선택 전에 `evidence_validation`이 아닌 `validate` frame을 거부하고, ontology query verifier는 프로바이더 실행 전에 knowledge cutoff보다 늦은 `topology_at` event cutoff를 거부합니다. | `current change`, focused 의미 계획 및 query verifier 검사 41개 통과, 작업 범위 Ruff 및 strict mypy 통과 | Runner가 seed 기반 집단을 시작하기 전에 strict 14/14 답변 및 완전 근거를 보존합니다. |
 | 2026-08-17 | implemented | 질문 route를 추가하지 않고 evidence completeness를 위한 Bragi frame 경계를 강화했습니다. Prompt v10은 타입이 지정된 `validate` 및 `evidence_validation` 쌍을 요구하며, Core는 계속 principal 범위 ObjectSet을 구성하고 I/O 전에 검증합니다. | `current change`, focused prompt 레지스트리 회귀 통과 | Seeded를 시작하기 전에 strict 14/14 답변 및 완전 근거를 보존합니다. |
+| 2026-08-17 | implemented | Bragi의 temporal plan 문법을 기존의 검증된 topology query algebra에 고정했습니다. Prompt v11은 `topology_at` source 두 개와 순서가 지정된 `topology_diff` output 하나를 요구하며, deterministic verifier가 cutoff 순서, 의존성 타입 및 프로바이더 적격성을 계속 소유합니다. | `current change`, focused prompt 레지스트리 회귀 통과 | Seeded를 시작하기 전에 strict 14/14 근거를 보존합니다. |
 
 ### 남은 작업
 
