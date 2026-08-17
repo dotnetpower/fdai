@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-randomized-assurance.md
-translation_source_sha: e478bf31747fa2b94e85a234d3c8d253a266d03a
+translation_source_sha: 50f6b2aa62cc8dc6d5f033a277de059d3718c156
 translation_revised: 2026-08-17
 ---
 # 온톨로지 쿼리 무작위 보증
@@ -215,7 +215,6 @@ Core
 | 2026-08-17 | implemented | 중앙 검증된 소스 `276c8178671468c2f6366a2b9072e45e6dc6fd34`의 새로운 엄격한 시도가 Browser 사전 단계에서 실패한 뒤, 감독 대상 Console마다 Vite 의존성 캐시를 격리했습니다. 동시에 실행된 Vite optimizer가 공유 MSAL 의존성 URL을 무효화했으므로 측정 질문은 실행되지 않았고 아티팩트도 생성되지 않았으며 seed 기반 질문 집합도 시작하지 않았습니다. 일반 Console 시작은 표준 캐시 위치를 유지하고, 보증 runner만 실행 루트 안의 캐시를 지정합니다. | `current change`, focused Console 캐시 검사 2개, supervisor 검사 9개, Console typecheck, 작업 범위 Ruff 및 strict mypy 통과 | 중앙 검증을 확보하고 정확히 검증된 소스에서 새로운 엄격한 질문 집합을 한 번 실행합니다. |
 | 2026-08-17 | in-progress | 중앙 검증된 소스 `40fbd0c41eda506e6976e3090fab3bd9502b98f0`에서 새로운 엄격한 질문 집합을 한 번 실행했습니다. Playwright는 live cell 14개와 resumed cell 0개를 완료했지만 전용 요청 및 변환 결과 토픽은 각각 레코드 6개만 보존했습니다. Runner는 승격 전에 exact transport 소유권 조건으로 아티팩트를 거부했고 seed 기반 질문 집합은 시작하지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-40fbd0c41e-20260817T084406Z`, 승격할 수 없는 아티팩트가 근거가 완전한 답변 10개, unsupported disposition 3개, held disposition 1개 및 결속된 transport 건수 6/6을 보고함 | 엄격한 gate를 차단 상태로 유지합니다. 수정 전부터 실행 중인 기본 claimant는 물리 prefix가 기본 prefix 아래 중첩됐기 때문에 namespaced key와 계속 일치할 수 있었습니다. |
 | 2026-08-17 | implemented | 선택적인 실행 범위 semantic outbox key를 형제 물리 prefix로 옮겼습니다. 운영 기본 prefix는 byte-compatible하게 유지되고 이미 실행 중인 수정 전 기본 claimant도 넓은 legacy prefix로 namespaced key와 일치할 수 없습니다. Exact namespace 동등성은 추가 소유권 검사로 유지합니다. | `current change`, stale prefix 회귀를 포함한 focused Operator bridge 검사 62개, 작업 범위 Ruff 및 strict mypy 통과 | 중앙 검증을 확보하고 정확히 검증된 소스에서 새로운 엄격한 질문 집합을 한 번 실행합니다. |
-
 | 2026-08-17 | in-progress | Exact transport를 적용한 첫 strict-to-seeded 실행을 완료했습니다. Strict는 14/14로 통과했고 seeded는 89/100으로 끝나 답변된 plan-capability 불일치 11건을 드러냈습니다. 이 중 5건은 질문 분류 불일치였고 6건은 관계, 인과, 시간 및 근거 속성 질문의 frame 기능군 오류였습니다. Frame prompt v9은 이 기능군을 구분하고, typed oracle은 나머지 불일치 검사를 약화하지 않으면서 prompt별로 유효한 기능군을 기록합니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 소스 `8796d21af627b2bdc9e054c94752a67f6cd2499c`, `test_prompt_registry_consistency.py` 5개와 `ontology-query-assurance.test.ts` 99개 통과 | 중앙 검증을 확보한 뒤 strict를 한 번 실행합니다. Strict가 변경 불가능한 gate를 통과할 때만 seeded를 한 번 실행합니다. |
 
 ### 남은 작업
