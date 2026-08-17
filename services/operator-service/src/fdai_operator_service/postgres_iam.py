@@ -481,10 +481,19 @@ def _command_payload(command: object) -> dict[str, object]:
 
 
 def _json_mapping(value: object) -> dict[str, object]:
-    normalized = json.loads(json.dumps(value, default=str))
+    normalized = json.loads(json.dumps(value, default=_json_default))
     if not isinstance(normalized, dict):
         raise ValueError("IAM adapter payload MUST serialize to a JSON object")
     return cast(dict[str, object], normalized)
+
+
+def _json_default(value: object) -> object:
+    """Encode command values deterministically so a durable digest is process-stable."""
+    if isinstance(value, set | frozenset):
+        return sorted(str(item) for item in value)
+    if isinstance(value, datetime):
+        return value.astimezone(UTC).isoformat()
+    return str(value)
 
 
 def _mapping_items(payload: Mapping[str, object]) -> tuple[JsonMapping, ...]:
