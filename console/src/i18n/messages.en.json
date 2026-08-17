@@ -2122,6 +2122,12 @@
       "showRemaining": "Show {count} more rows",
       "showPreview": "Show first {count} rows"
     },
+    "presentation": {
+      "observedSpan": "Observed span",
+      "recordedValue": "Recorded value: {value}",
+      "recordedDateUnavailable": "The exact recorded date is unavailable for this restored turn.",
+      "moreActors": "{count} more actor(s)"
+    },
     "attach": {
       "button": "Attach a file",
       "tray": "Attached files",
@@ -2153,7 +2159,7 @@
     },
     "backend": {
       "probing": "probing",
-      "connected": "Connected",
+      "connected": "Chat connected",
       "ready": "LLM ready",
       "deterministic": "deterministic"
     },
@@ -2175,7 +2181,10 @@
         "available": "Available",
         "unavailable": "Unavailable",
         "unknown": "Unknown"
-      }
+      },
+      "allAvailable": "All available",
+      "unavailableCount": "{count} unavailable",
+      "unknownCount": "{count} unknown"
     },
     "digest": {
       "label": "What the deck sees",

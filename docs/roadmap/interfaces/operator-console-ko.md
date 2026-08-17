@@ -1,17 +1,15 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: f89d141eaf692648e662a1e575a64bfb3a00e64a
+translation_source_sha: b1df6fca79e8c75cfc52e3995ba4f2bde054c542
 translation_revised: 2026-08-17
 ---
 
 # FDAI Console 대화
 
-사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗을 통해 FDAI에 **역으로 말할 수 있는** 방식입니다. 별도 제품이 아닌 FDAI Console의
-**대화형 표면**로서 계층 아키텍처, 도구 카탈로그, LLM tier, 세션 지속성, 도구별 RBAC, 안전 invariant, 롤아웃 상태를 정의합니다.
+사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗을 통해 FDAI에 **역으로 말할 수 있는** 방식입니다. 별도 제품이 아닌 FDAI Console의 **대화형 표면**로서 계층 아키텍처, 도구 카탈로그, LLM tier, 세션 지속성, 도구별 RBAC, 안전 invariant, 롤아웃 상태를 정의합니다.
 
-Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](channels-and-notifications-ko.md)에 있고,
-운영 화면과 요청은 [console-operations-ko.md](console-operations-ko.md)에 정의되며 SPA는
+Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](channels-and-notifications-ko.md)에 있고, 운영 화면과 요청은 [console-operations-ko.md](console-operations-ko.md)에 정의되며 SPA는
 [project-structure.md § 콘솔/](../architecture/project-structure-ko.md#console-static-web-app)에 있습니다. 근거 출처 이력, 스트림 복구, localization 및 아키텍처 지도 복원력은 [console-evidence-and-resilience-ko.md](console-evidence-and-resilience-ko.md)가 소유합니다. Login 초기화는 역할이 할당된 principal의 접근을 검증된 App 역할에서 도출하고 선택적 access-request 변환 결과를 요구하지 않으며, 역할이 없을 때 해당 변환 결과가 사용 불가이면 접근을 계속 차단합니다. 로컬 개발의 독립 서비스 어댑터는 모델 서술에만 Azure CLI를 사용할 수 있고 provider-read 또는 실행 권한은 없습니다. 온톨로지는 하나의 exact-release 레지스트리 변환 결과에서 검토된 의미 모델과 카탈로그 토폴로지를 제공합니다. 런타임 인스턴스는 보안 receipt를 기반으로 하는 별도의 목적 범위 컨텍스트 스냅샷에만 표시됩니다.
 Settings > Integrations에서는 합성 자리 표시자로 운영 incident-open 이메일 렌더러를 미리 볼 수 있습니다. 이 GET-only 미리 보기는 이메일을 보내거나 승인 또는 실행 권한을 부여하지 않습니다.
 선택적 Console 변환 결과에서는 타입이 지정된 `404`, `501`, source-gate `503` 응답을 사용 불가 상태로 표시합니다. 인증 실패, 예기치 않은 전송 또는 `500` 응답, 디코더 실패는 확인할 수 있는 오류로 유지합니다.
@@ -45,6 +43,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 채널 중립적 최종 응답 동등성 | 구현됨 | [오퍼레이터 콘솔 점진적 대화](operator-console-progressive-conversations-ko.md), `test_rich_contract.py`, 집중 채널 계약 테스트 (`36 passed`) | Teams와 Slack은 영속 재생 전체에서 하나의 정본 최종 답변, 제한, 근거 참조, 실행 권한 없음, 최종 확정 갱신을 보존합니다. 운영 A3 게시자와 통제된 런타임 증적은 열린 상태로 유지합니다. |
 | 읽기 전용 Conversation Search interaction | implemented | `conversation-search.tsx`, `conversation-search.model.ts`, `conversation-search.test.ts`, focused route 테스트(`5 passed`) 및 Console typecheck | Bounded filter, 안전한 text highlight, exact context toggle, empty 및 unavailable 상태, fail-closed decoder 오류는 승인 또는 실행 권한을 추가하지 않습니다. |
 | 인시던트 대화 RCA 표현 | implemented | `incident_queries.py`, `semantic_turn_processor.py`, `semantic_turn_presentation.py`, `presentation-artifact.ts`, focused Core, Operator 및 Console 검사(`138 passed`) | 기록된 원인은 일치하는 인용이 포함된 grounded 가설 또는 정확한 감사 행에 근거한 허용 목록의 결정론적 최종 실패를 요구합니다. T0는 범위가 제한된 영향 근거를 기록하고 두 언어 모두 실행 권한 없이 근본 원인, 영향 및 인용을 렌더링합니다. 누락된 근거는 명시적으로 유지합니다. |
+| 구조화된 인시던트 근거 가독성 | implemented | `structured-reply.tsx`, `presentation-value.ts`, `structured-reply.css`, 집중 Console 검사(`19 passed`) 및 타입 검사 | Console은 의미가 있는 마크업에 정확한 RFC 3339 값을 보존하면서 운영자 로컬 시각과 시간대, 관찰 구간, 읽기 쉬운 주체와 기계 토큰 레이블, 반응형 근거 행, 범위가 명확한 채팅 연결 상태, 모바일 44 px 컨트롤을 표시합니다. 브라우저 비평 5회 뒤에는 범위가 제한된 모바일 출처 목록의 가로 스크롤만 Low로 남았으며 통제된 브라우저 산출물은 보존하지 않았습니다. |
 
 ### 구현 이력
 
@@ -63,12 +62,14 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 2026-08-14 | implemented | Console을 read-only projection surface로 유지하면서 focused Conversation Search route interaction을 추가했습니다. | `current change`; route model 및 focused 테스트 `5 passed`, Console typecheck. | Conversation Search owner 아래에서 governed cross-surface 검색 근거를 보존합니다. |
 | 2026-08-17 | implemented | 기록된 grounded RCA, 범위가 제한된 T0 영향 근거 및 일치하는 인용을 인시던트에 바인딩된 의미 답변과 엄격한 Console 산출물 디코더 전체에서 보존했습니다. 이전의 "causal analysis hasn't been implemented" 제한은 레거시 재생에만 유지되며 현재 결과를 더는 설명하지 않습니다. | `current change`; focused Core, Operator 및 Console 검사 138개 통과, Ruff, strict mypy 및 Console typecheck 통과 | 새로 기록된 RCA의 세 근거 섹션을 모두 보여 주는 통제된 Browser 산출물을 보존합니다. |
 | 2026-08-17 | implemented | 활성 인시던트에 기록된 `route_unresolved` 알림 실패를 결정론적 T0 원인, 경로 결과 영향 행 및 정확한 감사 인용으로 변환했습니다. 읽기 경로는 감사 또는 알림 상태를 변경하지 않으며 성공하거나 알 수 없는 결과를 원인으로 거부합니다. | `current change`; focused Core 및 Operator 검사 133개 통과, Ruff 및 strict mypy 통과 | Core를 재시작하고 인증된 Browser에서 세 근거 블록을 검증합니다. |
+| 2026-08-17 | implemented | 검증된 산출물이나 기계 기록을 바꾸지 않고 구조화된 인시던트 근거의 가독성을 강화했습니다. 로컬 시각과 시간대, 보존된 원시 타임스탬프, 관찰 구간, 읽기 쉬운 주체와 토큰, 반응형 네이티브 표, 범위가 명확한 준비 상태 문구, 콘텐츠를 가리지 않는 최신 메시지 탐색, 32/44 px 컨트롤을 적용했습니다. | `current change`; `presentation-value.test.ts`와 `command-deck-workspace-visual.test.ts`의 집중 검사 19개 및 Console 타입 검사가 통과했습니다. 인증된 브라우저 비평 5회는 최종 데스크톱/모바일 검사 12개를 모두 통과했고 출처 목록 가로 스크롤만 Low로 남았습니다. | 아래에서 이미 추적하는 더 넓은 통제된 인시던트 표현 산출물을 보존합니다. 이 가독성 범위에는 Medium 이상의 구현 문제가 남아 있지 않습니다. |
 
 ### 남은 작업
 
 - [ ] Snapshot-first `GET /agents/activity` hydration과 더 새로운 실제 운영 프레임이 Console 행을 중복 생성하지 않고 같은 현재 상태 activity id로 수렴함을 보여 주는 통제된 cross-service 증적을 기록합니다.
 - [ ] 감사 기반이 아닌 운영 상관관계에 추적 링크가 없고 감사 근거가 없는 수동 조회가 중립적인 사용 불가 상태로 표시됨을 보여 주는 통제된 Browser Entra 산출물을 보존합니다.
 - [ ] 새로 기록된 RCA 인시던트에서 근본 원인, 영향 근거 및 근거 인용을 보여 주는 통제된 Browser Entra 산출물을 보존합니다. 영향 행이 없는 과거 인시던트는 명시적으로 불완전한 상태를 유지해야 합니다.
+- [x] 정확한 기계 값을 보존하면서 데스크톱과 모바일 폭에서 구조화된 인시던트 근거를 읽기 쉽게 유지합니다. 집중 검사, 타입 검사, 브라우저 비평 5회가 통과했으며 Medium 이상의 잔여 문제가 없습니다.
 
 ## 1. Framing - 무엇인가 (그리고 무엇이 아닌가)
 

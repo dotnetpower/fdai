@@ -1,7 +1,8 @@
 import { useEffect, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
-import { t } from "../i18n";
+import { getLocale, t } from "../i18n";
 import { panelPath } from "../router";
+import { presentationTimestamp } from "./presentation-value";
 import {
   deckSourceReadiness,
   latestSourceObservation,
@@ -83,13 +84,29 @@ export function SourceReadinessStrip({ client }: { readonly client: OperatorApiC
           </a>
         ))}
       </span>
+      <span class="deck-source-readiness-summary">{readinessSummary(state.sources)}</span>
       <span class="deck-source-readiness-time">
         {state.observedAt
-          ? t("deck.sourceReadiness.observed", {
-              time: new Date(state.observedAt).toLocaleString(),
-            })
+          ? observedLabel(state.observedAt)
           : t("deck.sourceReadiness.observationUnknown")}
       </span>
     </nav>
   );
+}
+
+function readinessSummary(sources: readonly DeckSourceReadiness[]): string {
+  const unavailable = sources.filter((source) => source.availability === "unavailable").length;
+  const unknown = sources.filter((source) => source.availability === "unknown").length;
+  const parts = [
+    unavailable > 0 ? t("deck.sourceReadiness.unavailableCount", { count: unavailable }) : "",
+    unknown > 0 ? t("deck.sourceReadiness.unknownCount", { count: unknown }) : "",
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : t("deck.sourceReadiness.allAvailable");
+}
+
+function observedLabel(value: string): string {
+  const timestamp = presentationTimestamp(value, getLocale() === "ko" ? "ko-KR" : "en-US");
+  return timestamp
+    ? t("deck.sourceReadiness.observed", { time: `${timestamp.date} ${timestamp.time}` })
+    : t("deck.sourceReadiness.observationUnknown");
 }

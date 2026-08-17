@@ -2122,6 +2122,12 @@
       "showRemaining": "나머지 {count}행 보기",
       "showPreview": "처음 {count}행만 보기"
     },
+    "presentation": {
+      "observedSpan": "관찰 구간",
+      "recordedValue": "기록된 값: {value}",
+      "recordedDateUnavailable": "복원된 이 턴의 정확한 기록 날짜를 사용할 수 없습니다.",
+      "moreActors": "추가 주체 {count}개"
+    },
     "attach": {
       "button": "파일 첨부",
       "tray": "첨부한 파일",
@@ -2153,7 +2159,7 @@
     },
     "backend": {
       "probing": "확인 중",
-      "connected": "연결됨",
+      "connected": "채팅 연결됨",
       "ready": "LLM 준비됨",
       "deterministic": "결정론적"
     },
@@ -2175,7 +2181,10 @@
         "available": "사용 가능",
         "unavailable": "사용 불가",
         "unknown": "알 수 없음"
-      }
+      },
+      "allAvailable": "모두 사용 가능",
+      "unavailableCount": "사용 불가 {count}개",
+      "unknownCount": "알 수 없음 {count}개"
     },
     "digest": {
       "label": "명령 덱이 보는 내용",

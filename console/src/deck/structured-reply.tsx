@@ -3,6 +3,15 @@ import type {
   PresentationBlock,
   PresentationChartItem,
 } from "./backend-types";
+import { getLocale, t } from "../i18n";
+import {
+  presentationActivity,
+  presentationActor,
+  presentationActors,
+  presentationDuration,
+  presentationSeverity,
+  presentationTimestamp,
+} from "./presentation-value";
 import "./structured-reply.css";
 
 export function StructuredReply({ artifact }: { readonly artifact: PresentationArtifact }) {
@@ -41,14 +50,30 @@ function PresentationBlockView({ block }: { readonly block: PresentationBlock })
 
 function PresentationBlockBody({ block }: { readonly block: PresentationBlock }) {
   if (block.kind === "summary") {
+    const timestamps = block.data.items
+      .map((item) => item.value)
+      .filter((value) => presentationTimestamp(value) !== null);
+    const observedSpan = timestamps.length >= 2
+      ? presentationDuration(timestamps[0]!, timestamps[timestamps.length - 1]!)
+      : null;
     return (
       <dl class="deck-presentation-summary">
         {block.data.items.map((item) => (
-          <div key={item.label} data-tone={item.tone}>
+          <div
+            key={item.label}
+            data-tone={item.tone}
+            data-value-kind={presentationValueKind(item.label, item.value)}
+          >
             <dt>{item.label}</dt>
-            <dd>{item.value}</dd>
+            <dd><PresentationValue value={item.value} label={item.label} /></dd>
           </div>
         ))}
+        {observedSpan ? (
+          <div class="deck-presentation-derived" data-value-kind="duration">
+            <dt>{t("deck.presentation.observedSpan")}</dt>
+            <dd>{observedSpan}</dd>
+          </div>
+        ) : null}
       </dl>
     );
   }
@@ -102,23 +127,31 @@ function PresentationTable({
     <table class="deck-presentation-table">
       <thead>
         <tr>{block.data.columns.map((column) => (
-          <th key={column.key} scope="col">{column.label}</th>
+          <th key={column.key} scope="col" data-column={column.key}>{column.label}</th>
         ))}</tr>
       </thead>
       <tbody>
         {block.data.rows.map((row, rowIndex) => (
           <tr key={rowIndex}>
             {block.data.columns.map((column) => (
-              <td key={column.key}>
+              <td key={column.key} data-column={column.key}>
                 <span class="deck-presentation-cell-label" aria-hidden="true">
                   {column.label}
                 </span>
                 {block.data.statusKey !== null && column.key === block.data.statusKey ? (
                   <span class="deck-presentation-status" data-tone={statusTone(row[column.key])}>
-                    {row[column.key] ?? ""}
+                    <PresentationValue
+                      value={row[column.key] ?? ""}
+                      columnKey={column.key}
+                      label={column.label}
+                    />
                   </span>
                 ) : (
-                  <span>{row[column.key] ?? ""}</span>
+                  <PresentationValue
+                    value={row[column.key] ?? ""}
+                    columnKey={column.key}
+                    label={column.label}
+                  />
                 )}
               </td>
             ))}
@@ -127,6 +160,89 @@ function PresentationTable({
       </tbody>
     </table>
   );
+}
+
+function PresentationValue({
+  value,
+  columnKey = "",
+  label = "",
+}: {
+  readonly value: string;
+  readonly columnKey?: string;
+  readonly label?: string;
+}) {
+  const timestamp = presentationTimestamp(
+    value,
+    getLocale() === "ko" ? "ko-KR" : "en-US",
+  );
+  if (timestamp) {
+    return (
+      <time
+        class="deck-presentation-timestamp"
+        dateTime={timestamp.dateTime}
+        title={t("deck.presentation.recordedValue", { value })}
+      >
+        <span>{timestamp.date}</span>
+        <span>{timestamp.time}</span>
+      </time>
+    );
+  }
+  if (isActorField(columnKey, label)) {
+    const actors = presentationActors(value);
+    return (
+      <span class="deck-presentation-actors" title={value}>
+        {actors.visible.map((actor) => (
+          <span key={actor} title={actor}>{presentationActor(actor)}</span>
+        ))}
+        {actors.hiddenCount > 0 ? (
+          <span class="deck-presentation-more">
+            +{actors.hiddenCount}
+            <span class="sr-only"> {t("deck.presentation.moreActors", {
+              count: actors.hiddenCount,
+            })}</span>
+          </span>
+        ) : null}
+      </span>
+    );
+  }
+  if (isSeverityField(columnKey, label)) {
+    return <span title={value}>{presentationSeverity(value)}</span>;
+  }
+  if (isCanonicalTokenField(columnKey, label)) {
+    return (
+      <span class="deck-presentation-token" title={value}>
+        {presentationActivity(value)}
+      </span>
+    );
+  }
+  if (isReferenceField(columnKey, label)) {
+    return <code class="deck-presentation-ref">{value}</code>;
+  }
+  return <span>{value}</span>;
+}
+
+function presentationValueKind(label: string, value: string): string {
+  if (presentationTimestamp(value)) return "timestamp";
+  if (isActorField("", label)) return "actors";
+  if (isCanonicalTokenField("", label)) return "token";
+  return "text";
+}
+
+function isActorField(key: string, label: string): boolean {
+  return /actor/i.test(key) || /actor|주체|행위자/i.test(label);
+}
+
+function isCanonicalTokenField(key: string, label: string): boolean {
+  return /^(activity|mode|status|kind|tier)$/i.test(key) ||
+    /^(activity|mode|status|kind|tier|활동|모드|상태|종류|티어)$/i.test(label);
+}
+
+function isSeverityField(key: string, label: string): boolean {
+  return /^severity$/i.test(key) || /^(severity|심각도)$/i.test(label);
+}
+
+function isReferenceField(key: string, label: string): boolean {
+  return /(?:ref|reference)$/i.test(key) || /reference|참조/i.test(label);
 }
 
 function PresentationBars({

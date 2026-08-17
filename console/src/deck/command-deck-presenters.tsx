@@ -1,5 +1,5 @@
 import { Tooltip } from "../components/tooltip";
-import { t } from "../i18n";
+import { getLocale, t } from "../i18n";
 import { useEffect, useState } from "preact/hooks";
 import {
   type AnswerVerification,
@@ -46,6 +46,7 @@ import { GroundedReply } from "./grounded-reply";
 import { InvestigationTimeline } from "./investigation-timeline";
 import { introSuggestions } from "./intro-suggestions";
 import type { TurnAttachment } from "./turn-attachments";
+import { presentationTimestamp, presentationTimeZoneLabel } from "./presentation-value";
 
 export interface Turn {
   readonly id: string;
@@ -688,10 +689,32 @@ export function TurnBubble({
       ) : null}
       {!isInvestigationFlow ? (
         <div class="deck-turn-foot">
-          <span class="deck-turn-time muted">{turn.at}</span>
+          <TurnRecordedTime turn={turn} />
         </div>
       ) : null}
     </article>
+  );
+}
+
+function TurnRecordedTime({ turn }: { readonly turn: Turn }) {
+  const timestamp = turn.recordedAt
+    ? presentationTimestamp(turn.recordedAt, getLocale() === "ko" ? "ko-KR" : "en-US")
+    : null;
+  if (timestamp && turn.recordedAt) {
+    return (
+      <time
+        class="deck-turn-time muted"
+        dateTime={turn.recordedAt}
+        title={t("deck.presentation.recordedValue", { value: turn.recordedAt })}
+      >
+        {timestamp.time}
+      </time>
+    );
+  }
+  return (
+    <span class="deck-turn-time muted" title={t("deck.presentation.recordedDateUnavailable")}>
+      {turn.at} {presentationTimeZoneLabel()}
+    </span>
   );
 }
 
