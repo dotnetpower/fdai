@@ -47,7 +47,6 @@ from collections import Counter, deque
 from datetime import datetime
 from typing import Any
 
-from fdai.agents._framework.action_semantics import outcome_result
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.introspection import (
@@ -57,6 +56,16 @@ from fdai.agents._framework.introspection import (
 )
 from fdai.agents._framework.norns_consensus import NornsConsensus
 from fdai.agents._framework.norns_deployment_learning import NornsDeploymentLearning
+from fdai.agents._framework.norns_learning import observe_approval as _learn_approval
+from fdai.agents._framework.norns_learning import observe_fingerprint as _learn_fingerprint
+from fdai.agents._framework.norns_learning import observe_outcome as _learn_outcome
+from fdai.agents._framework.norns_learning import observe_override as _learn_override
+from fdai.agents._framework.norns_learning import (
+    retain_shadow_dwell as _learn_shadow_dwell,
+)
+from fdai.agents._framework.norns_learning import (
+    shadow_dwell_evidence as _learning_shadow_dwell_evidence,
+)
 from fdai.agents._framework.norns_semantic_feedback import NornsSemanticFeedbackLearning
 from fdai.agents._framework.pantheon import _NORNS
 from fdai.core.case_history import CaseHistoryAnalyzer
@@ -70,16 +79,10 @@ from fdai.core.operational_learning import (
     OperatingPatternCompiler,
     PatternCase,
     ShadowDwellEvidence,
-    ShadowDwellEvidenceError,
     ShadowDwellLedger,
-    ShadowDwellObservation,
 )
 from fdai.core.trajectory import ReviewedTrajectoryDataset
 from fdai.rule_catalog.schema.rule_semantic_feedback import SemanticFeedbackCandidateSink
-
-# Adverse outcomes that count against an action's success record.
-_ADVERSE_RESULTS: frozenset[str] = frozenset({"rollback", "failure", "reverted"})
-_SUCCESS_RESULTS: frozenset[str] = frozenset({"success", "applied", "ok"})
 
 # LRU cap on the per-event / per-fingerprint maps a long-lived learner keeps,
 # so they cannot grow without bound over the process lifetime.
@@ -475,24 +478,7 @@ class Norns(Agent):
     # ---- 1. fingerprint aggregator ------------------------------------
 
     def _observe_fingerprint(self, payload: dict[str, Any]) -> None:
-        fp = str(payload.get("fingerprint", ""))
-        if not fp:
-            return
-        count = (self._fingerprint_counter.get(fp) or 0) + 1
-        self._fingerprint_counter.set(fp, count)
-        if count >= self._promotion_threshold and fp not in self._proposed:
-            self._proposed.add(fp)
-            self._append_candidate(
-                {
-                    "source_signal": "handoff_fingerprint",
-                    "evidence": {
-                        "fingerprint": fp,
-                        "occurrence_count": count,
-                    },
-                    "proposed_by": "Norns",
-                    "proposal_kind": "new",
-                }
-            )
+        _learn_fingerprint(self, payload)
 
     # ---- 2. outcome-threshold learner ---------------------------------
 
@@ -504,58 +490,7 @@ class Norns(Agent):
         escalates to HIL more often - the safe direction. The proposal is
         inert until the quality gate promotes it.
         """
-        target = str(payload.get("action_type") or payload.get("rule_id") or "")
-        # Shadow outcomes are judged-and-logged, not real executions - a shadow
-        # 'success' says nothing about the action's real safety, so it MUST NOT
-        # dilute the measured rollback rate. Learn from real executions only,
-        # and keep the shadow observation as dwell evidence instead.
-        if payload.get("shadow_mode"):
-            self._retain_shadow_dwell(target, payload)
-            return
-        result = str(payload.get("result", "")).lower()
-        if not result:
-            # An audit-entry that reports the raw ActionRun ``state`` (Thor's
-            # vocabulary) instead of a normalized ``result`` still learns.
-            result = outcome_result(str(payload.get("state", ""))) or ""
-        if not target:
-            return
-        if result in _ADVERSE_RESULTS:
-            bucket = "rollback"
-        elif result in _SUCCESS_RESULTS:
-            bucket = "success"
-        else:
-            return
-        # Dedup one action's outcome across its multiple terminal audits.
-        correlation_id = str(payload.get("correlation_id", ""))
-        if correlation_id:
-            outcome_key = f"{correlation_id}:{target}"
-            if outcome_key in self._counted_correlations:
-                return
-            self._counted_correlations.add(outcome_key)
-        counts = self._outcomes.setdefault(target, {"success": 0, "rollback": 0})
-        counts[bucket] += 1
-        total = counts["success"] + counts["rollback"]
-        if total < self._min_outcome_samples or target in self._outcome_proposed:
-            return
-        rollback_rate = counts["rollback"] / total
-        if rollback_rate <= self._rollback_alarm_rate:
-            return
-        self._outcome_proposed.add(target)
-        self._append_candidate(
-            {
-                "source_signal": "audit_outcome",
-                "evidence": {
-                    "target": target,
-                    "sample_size": total,
-                    "rollback_rate": round(rollback_rate, 4),
-                    "alarm_rate": self._rollback_alarm_rate,
-                },
-                "proposed_by": "Norns",
-                "proposal_kind": "threshold_adjustment",
-                "suggested_change": "raise_confidence_threshold",
-                "target_rule_id": target,
-            }
-        )
+        _learn_outcome(self, payload)
 
     # ---- 2a. shadow-dwell evidence ------------------------------------
 
@@ -568,42 +503,12 @@ class Norns(Agent):
         veto an otherwise clean record.
         """
 
-        if not target:
-            return
-        instant = _shadow_observed_at(payload)
-        if instant is None:
-            self.record_behavior("shadow_dwell_observation_untimed")
-            return
-        reviewed = payload.get("operator_reviewed", False)
-        agreed = payload.get("operator_agreed", False)
-        escape = payload.get("policy_escape", False)
-        if not all(isinstance(flag, bool) for flag in (reviewed, agreed, escape)):
-            self.record_behavior("shadow_dwell_observation_invalid")
-            return
-        correlation_id = str(payload.get("correlation_id", ""))
-        if correlation_id:
-            dwell_key = f"shadow:{correlation_id}:{target}"
-            if dwell_key in self._counted_shadow_outcomes:
-                return
-            self._counted_shadow_outcomes.add(dwell_key)
-        try:
-            observation = ShadowDwellObservation(
-                target=target,
-                observed_at=instant,
-                reviewed=reviewed,
-                agreed=agreed and reviewed,
-                policy_escape=escape,
-            )
-        except ShadowDwellEvidenceError:
-            self.record_behavior("shadow_dwell_observation_invalid")
-            return
-        self._shadow_dwell.record(observation)
-        self.record_behavior("shadow_dwell_observation_retained")
+        _learn_shadow_dwell(self, target, payload)
 
     def shadow_dwell_evidence(self, target: str) -> ShadowDwellEvidence | None:
         """Retained dwell evidence for ``target``, or ``None`` when unobserved."""
 
-        return self._shadow_dwell.evidence_for(target)
+        return _learning_shadow_dwell_evidence(self, target)
 
     # ---- 2b. approval-pattern learner ---------------------------------
 
@@ -613,36 +518,7 @@ class Norns(Agent):
         Recurring rejections propose an inert revision. Approvals contribute
         evidence only and never trigger automatic promotion.
         """
-        action_type = str(payload.get("action_type") or "")
-        state = str(payload.get("state", "")).strip().lower()
-        if not action_type or state not in ("approved", "rejected"):
-            return
-        # Dedup one decision across a possible re-delivery (at-least-once).
-        correlation_id = str(payload.get("correlation_id", ""))
-        if correlation_id:
-            if correlation_id in self._counted_approvals:
-                return
-            self._counted_approvals.add(correlation_id)
-        counts = self._approval_counts.setdefault(action_type, {"approved": 0, "rejected": 0})
-        counts[state] += 1
-        if state != "rejected" or action_type in self._approval_proposed:
-            return
-        if counts["rejected"] < self._rejection_revise_threshold:
-            return
-        self._approval_proposed.add(action_type)
-        self._append_candidate(
-            {
-                "source_signal": "recurring_hil_rejection",
-                "evidence": {
-                    "action_type": action_type,
-                    "rejection_count": counts["rejected"],
-                    "sample_size": counts["approved"] + counts["rejected"],
-                },
-                "proposed_by": "Norns",
-                "proposal_kind": "revision",
-                "target_rule_id": action_type,
-            }
-        )
+        _learn_approval(self, payload)
 
     # ---- 3. override learner ------------------------------------------
 
@@ -653,33 +529,7 @@ class Norns(Agent):
         is not a Pantheon topic. Disabled rules propose retirement; other
         recurring overrides propose revision.
         """
-        self._ensure_pending_capacity()
-        rule_id = str(payload.get("rule_id") or payload.get("target_rule_id") or "")
-        event = str(payload.get("event", "create")).lower()
-        if not rule_id or event not in ("create", "modify"):
-            return
-        self._override_counter[rule_id] += 1
-        if (
-            self._override_counter[rule_id] < self._override_retire_threshold
-            or rule_id in self._override_proposed
-        ):
-            return
-        self._override_proposed.add(rule_id)
-        mode = str(payload.get("mode", ""))
-        kind = "retirement" if mode == "disabled" else "revision"
-        self._append_candidate(
-            {
-                "source_signal": "recurring_override",
-                "evidence": {
-                    "rule_id": rule_id,
-                    "override_count": self._override_counter[rule_id],
-                    "latest_mode": mode,
-                },
-                "proposed_by": "Norns",
-                "proposal_kind": kind,
-                "target_rule_id": rule_id,
-            }
-        )
+        _learn_override(self, payload)
 
     # ---- 4. scenario-coverage learner (optional) ---------------------
 
@@ -845,31 +695,6 @@ class Norns(Agent):
                 f"{len(self.pending_candidates)} candidate(s) proposed."
             )
         return IntrospectionResult(answer=answer, facts=facts)
-
-
-_SHADOW_INSTANT_KEYS: tuple[str, ...] = (
-    "observed_at",
-    "occurred_at",
-    "recorded_at",
-    "timestamp",
-)
-
-
-def _shadow_observed_at(payload: dict[str, Any]) -> datetime | None:
-    """Return the observation instant, or ``None`` when the payload lacks one."""
-
-    for key in _SHADOW_INSTANT_KEYS:
-        value = payload.get(key)
-        if isinstance(value, datetime):
-            return value if value.tzinfo is not None else None
-        if isinstance(value, str) and len(value) <= 64:
-            try:
-                parsed = datetime.fromisoformat(value)
-            except ValueError:
-                continue
-            if parsed.tzinfo is not None:
-                return parsed
-    return None
 
 
 def _candidate_identity(candidate: dict[str, Any]) -> str:
