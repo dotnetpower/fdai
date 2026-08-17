@@ -29,6 +29,15 @@ describe("incident investigation milestones", () => {
     expect(milestones[0]?.status).toBe("initial");
   });
 
+  it("separates a conclusive compliant evaluation from an abstention", () => {
+    const milestones = incidentMilestones([
+      item(1, "control_loop.compliant", { reason: "no_rule_denied" }),
+      item(2, "control_loop.abstain", { reason: "no_rule_matches_resource_and_signal_type" }),
+    ]);
+
+    expect(milestones.map((milestone) => milestone.status)).toEqual(["success", "issue"]);
+  });
+
   it("projects exact evidence, gaps, evaluation receipts, and inert learning candidates", () => {
     const [milestone] = incidentMilestones([item(2, "investigation.verified", {
       outcome: "verified",

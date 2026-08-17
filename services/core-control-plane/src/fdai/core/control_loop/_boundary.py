@@ -126,6 +126,7 @@ class ControlLoopBoundaryMixin:
         decision: RoutingDecision,
         reason: str,
         stage: str,
+        action_kind: str = "control_loop.abstain",
     ) -> None:
         await write_abstain_audit(
             self._audit_store,
@@ -133,6 +134,7 @@ class ControlLoopBoundaryMixin:
             decision=decision,
             reason=reason,
             stage=stage,
+            action_kind=action_kind,
         )
 
     async def record_unhandled_failure(

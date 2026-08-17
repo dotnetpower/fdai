@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Final, Protocol, runtime_checkable
 
 from fdai.core.tiers.t0_deterministic.index import RuleIndex
 from fdai.core.tiers.t0_deterministic.models import (
@@ -39,6 +39,9 @@ from fdai.core.tiers.t0_deterministic.models import (
     Verdict,
 )
 from fdai.shared.contracts.models import Mode, Rule, Severity
+
+#: Every candidate rule evaluated conclusively and none denied: the resource is compliant.
+NO_RULE_DENIED: Final = "no_rule_denied"
 
 
 @runtime_checkable
@@ -208,10 +211,11 @@ def _abstain_reason(
         return "evaluator_abstained_on_all_candidates"
     if abstained:
         return "evaluator_abstained_on_some_candidates"
-    return "no_rule_denied"
+    return NO_RULE_DENIED
 
 
 __all__ = [
+    "NO_RULE_DENIED",
     "AbstainEvaluator",
     "PolicyEvaluator",
     "PolicyResult",

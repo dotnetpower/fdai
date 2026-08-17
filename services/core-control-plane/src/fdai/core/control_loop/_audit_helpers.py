@@ -49,6 +49,7 @@ async def write_abstain_audit(
     decision: RoutingDecision,
     reason: str,
     stage: str,
+    action_kind: str = "control_loop.abstain",
 ) -> None:
     await audit_store.append_audit_entry(
         {
@@ -57,7 +58,7 @@ async def write_abstain_audit(
             "idempotency_key": event.idempotency_key,
             "actor": "fdai.core.control_loop",
             "producer_principal": "Heimdall" if stage == "trust_router" else "Forseti",
-            "action_kind": "control_loop.abstain",
+            "action_kind": action_kind,
             "mode": Mode.SHADOW.value,
             "stage": stage,
             "reason": reason,
