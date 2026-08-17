@@ -92,6 +92,7 @@ def project_repository_safe_baseline(
         "authentication": payload["authentication"],
         "authentication_attestation": payload["authentication_attestation"],
         "run_configuration": payload["run_configuration"],
+        "transport_evidence": payload["transport_evidence"],
         "passed": payload["passed"],
         "production_ready": payload["production_ready"],
         "summary": payload["summary"],
