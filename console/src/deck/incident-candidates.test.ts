@@ -32,7 +32,7 @@ describe("incident candidate selection", () => {
       },
       onlyWhenIdle: true,
       newConversation: true,
-      prompt: "이 인시던트의 원인을 조사해줘.",
+      prompt: "이 인시던트의 근거로 확인되는 사실, 빠진 근거, 다음 안전한 읽기 전용 조치를 보고해줘.",
       submitPrompt: true,
     });
   });
