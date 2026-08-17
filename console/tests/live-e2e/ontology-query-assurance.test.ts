@@ -471,6 +471,34 @@ describe("assuranceOperationMatchesPlan", () => {
       .toBe(false);
   });
 
+  it("accepts only the prompt-specific capability family for mixed operations", () => {
+    expect(assuranceOperationMatchesPlan(
+      "inventory_listing",
+      ["object_set", "object_set:filtered"],
+      "en-inventory_listing-3",
+    )).toBe(true);
+    expect(assuranceOperationMatchesPlan(
+      "inventory_listing",
+      ["object_set"],
+      "en-inventory_listing-1",
+    )).toBe(false);
+    expect(assuranceOperationMatchesPlan(
+      "property_filter",
+      ["function:query.manifest"],
+      "ko-property_filter-3",
+    )).toBe(true);
+    expect(assuranceOperationMatchesPlan(
+      "evidence_validation",
+      ["topology_at"],
+      "ko-evidence_validation-3",
+    )).toBe(true);
+    expect(assuranceOperationMatchesPlan(
+      "evidence_validation",
+      ["topology_at"],
+      "ko-evidence_validation-1",
+    )).toBe(false);
+  });
+
   it("does not impose answer capabilities on governed refusal operations", () => {
     expect(assuranceOperationMatchesPlan("action_draft_boundary", [])).toBe(true);
     expect(assuranceOperationMatchesPlan("ambiguous_clarification", [])).toBe(true);

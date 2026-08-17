@@ -464,7 +464,11 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
       const receipt = "receipt" in judgment ? judgment.receipt : undefined;
       const planCapabilities = outcome.result?.plan_capabilities ?? [];
       const planCapabilityMatch = receipt?.disposition !== "answered" ||
-        assuranceOperationMatchesPlan(question.operation, planCapabilities);
+        assuranceOperationMatchesPlan(
+          question.operation,
+          planCapabilities,
+          question.question_id,
+        );
       retained.push({
         question_id: question.question_id,
         produced_by_run_id: runId,
