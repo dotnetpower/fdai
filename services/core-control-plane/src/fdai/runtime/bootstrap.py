@@ -6,9 +6,7 @@ import asyncio
 import logging
 import os
 from datetime import UTC, datetime
-from functools import partial
-from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import httpx
 from fdai_service_contracts.semantic_turn import (
@@ -20,44 +18,21 @@ from fdai.agents import (
     OWNED_OBJECT_TOPICS,
     PantheonRuntime,
     ShadowDivergenceLedger,
-    StateStoreActionRunStore,
 )
-from fdai.agents.vidar import RollbackExecutor
 from fdai.composition import (
     LlmBindings,
     compose_azure_semantic_query_runtime,
     compose_resource_state_shadow_hook,
     default_container_from_env,
 )
-from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.chaos.symptom_index import build_from_promoted
 from fdai.core.control_loop import ControlLoop
-from fdai.core.impact_analysis import ChangeAssessmentService, ImpactAnalyzer
-from fdai.core.learning import PostTurnProposalModel, RuleHintSubmitter
-from fdai.core.operational_context import OperationalContextMaterializer
-from fdai.core.operational_planning import (
-    AssuranceTwinPlanningSimulator,
-    ConstitutionalPlanningConstraintEvaluator,
-    ProcessPlanningRecorder,
-    SpecialistPlanningCoordinator,
-    operational_planning_capability_status,
-)
-from fdai.core.readiness import (
-    AuthorityCeiling,
-)
 from fdai.core.readiness.coordinator import _TRANSITION_TOPIC
 from fdai.delivery.agent_activity import (
     DEFAULT_STAGE_TOPIC,
     AgentRuntimeStatePublisher,
-    EventBusPantheonActivityObserver,
-    runtime_agent_state_snapshot,
 )
 from fdai.delivery.agent_introspection_bus import AGENT_INTROSPECTION_TOPICS
-from fdai.delivery.persistence import (
-    PostgresCaseHistoryMetadataStore,
-    PostgresCaseHistoryMetadataStoreConfig,
-    StateStoreSemanticFeedbackCandidateStore,
-)
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
 from fdai.runtime.bootstrap_bindings import (
     RECONCILIATION_TOPICS,
@@ -140,11 +115,18 @@ from fdai.runtime.bootstrap_lifecycle import (
 from fdai.runtime.bootstrap_lifecycle import (
     supervise_runtime_tasks as _supervise_runtime_tasks,
 )
+from fdai.runtime.bootstrap_pantheon import PantheonInitialization, initialize_pantheon
 from fdai.runtime.bootstrap_shutdown import close_runtime_resources as _close_runtime_resources
+from fdai.runtime.bootstrap_tasks import (
+    RuntimeTaskConfiguration,
+    RuntimeTaskHooks,
+    run_runtime_tasks,
+)
+from fdai.runtime.bootstrap_tasks import (
+    schedule_semantic_turn_consumer as _schedule_semantic_turn_consumer,
+)
 from fdai.runtime.case_history import (
     CaseHistoryRetentionTickPublisher,
-    CaseHistoryRuntime,
-    build_case_history_runtime,
 )
 from fdai.runtime.catalog_ontology import project_catalog_ontology, sync_ontology_catalog
 from fdai.runtime.configuration import (
@@ -173,17 +155,8 @@ from fdai.runtime.control_loop import (
 )
 from fdai.runtime.delivery import _build_incident_notifier
 from fdai.runtime.dynamic_evidence import bind_dynamic_evidence_from_env
-from fdai.runtime.forecast_learning import (
-    ForecastLearningRuntime,
-    build_forecast_learning_runtime,
-)
 from fdai.runtime.health import RuntimeHealthServer
 from fdai.runtime.operating_model import project_operating_model_from_env
-from fdai.runtime.post_turn_review import (
-    build_azure_post_turn_models,
-    build_post_turn_review_runtime,
-    post_turn_review_dsn,
-)
 from fdai.runtime.providers import (
     _build_audit_store,
     _build_inventory_delta_projector,
@@ -199,7 +172,6 @@ from fdai.runtime.rule_generation_documents import (
     RuleGenerationReconciliation,
     build_rule_generation_reconciliation,
 )
-from fdai.runtime.t2_route_registry import T2RouteRegistry, bind_t2_route_selector
 from fdai.shared.config.models import LlmMode
 from fdai.shared.config.runtime_flags import pantheon_start_enabled
 from fdai.shared.providers.event_bus import EventBus
@@ -218,24 +190,6 @@ _VERTICAL_IDENTITY_ENV = {
     "identity/resilience": "FDAI_RESILIENCE_MI_CLIENT_ID",
     "identity/finops": "FDAI_FINOPS_MI_CLIENT_ID",
 }
-
-
-def _schedule_semantic_turn_consumer(
-    *,
-    binding: Any,
-    readiness: StartupReadinessRuntime,
-    bus: EventBus,
-    stop: asyncio.Event,
-) -> asyncio.Task[None] | None:
-    if binding is None:
-        return None
-    return asyncio.create_task(
-        readiness.run_when_ready(
-            stop,
-            lambda: binding.run(bus=bus, stop=stop),
-        ),
-        name="semantic-turn-consumer",
-    )
 
 
 def _build_vertical_execution_identities(
@@ -266,9 +220,7 @@ async def _run() -> int:
     pantheon_heartbeat: float | None = None
     divergence_ledger: ShadowDivergenceLedger | None = None
     health_server: RuntimeHealthServer | None = None
-    case_history_runtime: CaseHistoryRuntime | None = None
     case_history_retention_publisher: CaseHistoryRetentionTickPublisher | None = None
-    forecast_learning_runtime: ForecastLearningRuntime | None = None
     startup_readiness_runtime: StartupReadinessRuntime | None = None
     t2_recovery_maintenance: Any = None
     assignment_reconciliation_worker: Any = None
@@ -349,10 +301,6 @@ async def _run() -> int:
                     dlq_suffix=container.config.kafka.topic_dlq_suffix,
                     security_protocol="PLAINTEXT" if local_transport else "SASL_SSL",
                 ),
-            )
-            from fdai.delivery.agent_introspection_bus import (
-                EventBusAgentIntrospectionServer,
-                agent_introspection_server_group_id,
             )
             from fdai.delivery.event_bus_multiplex import MultiplexedEventBus
 
@@ -735,367 +683,40 @@ async def _run() -> int:
                 },
             )
 
-            # Pantheon: the 15 named agents consume the same
-            # ingress topic under distinct consumer groups (fan-out) and
-            # react immediately. Enabled by default; FDAI_START_PANTHEON=0
-            # is the explicit maintenance escape hatch. Thor stays shadow
-            # by default - the agents use in-memory audit / issue / admin
-            # adapters and Thor's executor stays in shadow, so running it
-            # beside the P1 loop adds no autonomous mutation. See
-            # docs/roadmap/agents/agent-pantheon-implementation.md.
-            start_pantheon = pantheon_start_enabled(os.environ)
-            if start_pantheon:
-                pantheon_enforce = os.environ.get("FDAI_PANTHEON_ENFORCE", "").lower() in (
-                    "1",
-                    "true",
-                )
-                if (
-                    startup_report.authority_ceilings.get("autonomous-action")
-                    is not AuthorityCeiling.DEPLOYMENT
-                ):
-                    pantheon_enforce = False
-                disabled_raw = os.environ.get("FDAI_PANTHEON_DISABLED_AGENTS", "").strip()
-                disabled_agents = (
-                    frozenset(n.strip() for n in disabled_raw.split(",") if n.strip())
-                    if disabled_raw
-                    else None
-                )
-                # Shared ledger: the pantheon observer records its shadow
-                # verdict, the P1 consumer records the authoritative
-                # decision; joined by correlation id to measure shadow
-                # agreement (the promotion baseline).
-                divergence_ledger = ShadowDivergenceLedger()
-                t2_proposer = container.require_llm_bindings().require_t2_proposer()
-                t2_route_registry = T2RouteRegistry(store=incident_audit_store)
-                t2_route_selector_bound = bind_t2_route_selector(
-                    proposer=t2_proposer,
-                    registry=t2_route_registry,
-                )
-                post_turn_models: tuple[PostTurnProposalModel, ...] = ()
-                if container.config.llm.mode == LlmMode.AZURE:
-                    if http_client is None or identity is None:
-                        raise RuntimeError(
-                            "Azure post-turn review requires HTTP and workload identity bindings"
-                        )
-                    resolved_models_path = container.config.llm.resolved_models_path
-                    if resolved_models_path is None:
-                        raise RuntimeError(
-                            "Azure post-turn review requires resolved model configuration"
-                        )
-                    post_turn_models = build_azure_post_turn_models(
-                        repo_root=Path(__file__).resolve().parents[5],
-                        resolved_models_path=resolved_models_path,
-                        endpoint=os.environ["FDAI_LLM_ENDPOINT"],
-                        identity=identity,
-                        http_client=http_client,
-                    )
-                post_turn_review = build_post_turn_review_runtime(
-                    state_store=incident_audit_store,
-                    operator_memory=_build_operator_memory_store(),
-                    models=post_turn_models,
-                    dsn=post_turn_review_dsn(),
-                )
-                case_history_container_url = (
-                    os.environ.get("FDAI_CASE_HISTORY_CONTAINER_URL", "").strip() or None
-                )
-                case_history_identity = None
-                if case_history_container_url is not None:
-                    if http_client is None:
-                        raise RuntimeError("case history storage requires an HTTP client")
-                    case_history_identity = _build_runtime_workload_identity(
-                        http_client,
-                        client_id_env="FDAI_CASE_HISTORY_MI_CLIENT_ID",
-                        require_client_id=True,
-                    )
-                case_history_runtime = build_case_history_runtime(
-                    container_url=case_history_container_url,
-                    state_store=incident_audit_store,
-                    identity=case_history_identity,
+            pantheon = await initialize_pantheon(
+                PantheonInitialization(
+                    container=container,
                     http_client=http_client,
-                    dsn=os.environ.get("FDAI_STATE_STORE_DSN"),
-                    relational_read_authority=(
-                        os.environ.get("FDAI_CASE_HISTORY_RELATIONAL_READ", "").strip() == "1"
-                    ),
-                    models=post_turn_models,
-                )
-                if (
-                    case_history_runtime is not None
-                    and os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
-                ):
-                    relational_metadata = PostgresCaseHistoryMetadataStore(
-                        config=PostgresCaseHistoryMetadataStoreConfig(
-                            dsn=os.environ["FDAI_STATE_STORE_DSN"]
-                        )
-                    )
-                    await relational_metadata.verify_schema()
-                    if os.environ.get("FDAI_CASE_HISTORY_RELATIONAL_READ", "").strip() == "1":
-                        await relational_metadata.verify_read_cutover()
-                forecast_learning_runtime = build_forecast_learning_runtime(
-                    dsn=os.environ.get("FDAI_STATE_STORE_DSN"),
-                    targets_json=os.environ.get("FDAI_FORECAST_TARGETS_JSON"),
-                    metric_provider=container.metric_provider,
-                )
-                if forecast_learning_runtime is not None:
-                    await forecast_learning_runtime.store.verify_schema()
-                if case_history_runtime is not None:
-                    case_history_retention_publisher = CaseHistoryRetentionTickPublisher(
-                        bus=bus,
-                        topic=container.config.kafka.topic_events,
-                        interval_seconds=_runtime_positive_integer(
-                            runtime_values,
-                            "case_history.retention_tick_seconds",
-                        ),
-                        runtime_settings=runtime_settings,
-                    )
-                case_retention_days = _runtime_positive_integer(
-                    runtime_values,
-                    "case_history.retention_days",
-                )
-                case_deletion_days = _runtime_positive_integer(
-                    runtime_values,
-                    "case_history.deletion_days",
-                )
-                operational_context_materializer = (
-                    OperationalContextMaterializer(store=control_loop.ontology_instance_store)
-                    if control_loop.ontology_instance_store is not None
-                    else None
-                )
-                ontology_release = control_loop.ontology_release
-                process_store = control_loop.process_runtime_store
-                effect_model_reader = container.effect_model_reader
-                causal_evidence_verifier = container.effect_model_causal_evidence_verifier
-                operational_planner = None
-                planning_status = operational_planning_capability_status(
-                    ontology_release_available=ontology_release is not None,
-                    operational_context_available=operational_context_materializer is not None,
-                    process_store_available=process_store is not None,
-                    effect_model_reader_available=effect_model_reader is not None,
-                    causal_verifier_available=causal_evidence_verifier is not None,
-                )
-                _LOGGER.info(
-                    "operational_planning_capability",
-                    extra={"capability": planning_status.to_mapping()},
-                )
-                if planning_status.can_plan:
-                    if operational_context_materializer is None:
-                        raise RuntimeError("planning status requires operational context")
-                    if ontology_release is None:
-                        raise RuntimeError("planning status requires an ontology release")
-                    if process_store is None:
-                        raise RuntimeError("planning status requires a Process store")
-                    if effect_model_reader is None:
-                        raise RuntimeError("planning status requires an effect model reader")
-                    if causal_evidence_verifier is None:
-                        raise RuntimeError("planning status requires a causal evidence verifier")
-                    operational_planner = SpecialistPlanningCoordinator(
-                        logic_release_digest=ontology_release.digest,
-                        constraint_evaluator=ConstitutionalPlanningConstraintEvaluator(),
-                        simulator=AssuranceTwinPlanningSimulator(
-                            model_reader=effect_model_reader,
-                            causal_evidence_verifier=causal_evidence_verifier,
-                            clock=lambda: datetime.now(tz=UTC),
-                        ),
-                        recorder=ProcessPlanningRecorder(store=process_store),
-                    )
-                thor_mutation_bound = pantheon_enforce and t2_route_selector_bound
-                rollback_executors: dict[str, RollbackExecutor] | None = (
-                    {"state_forward_only": t2_route_registry.rollback}
-                    if thor_mutation_bound
-                    else None
-                )
-                thor_safety_readiness = _build_mutation_dependency_readiness(
-                    saga=runtime_saga,
-                    rollback_executors=rollback_executors,
-                )
-                thor_safety_readiness.require_for_mode(enforce=thor_mutation_bound)
-                _LOGGER.info(
-                    "thor_safety_dependency_readiness",
-                    extra={
-                        "mutation_ready": thor_safety_readiness.mutation_ready,
-                        "saga_audit_durable": thor_safety_readiness.saga_audit_durable,
-                        "vidar_recovery_contracts": sorted(
-                            thor_safety_readiness.vidar_recovery_contracts
-                        ),
-                    },
-                )
-                pantheon_runtime = PantheonRuntime.build(
-                    provider=bus,
-                    raw_event_topic=container.config.kafka.topic_events,
-                    consumer_group_prefix=os.environ.get(
-                        "FDAI_PANTHEON_CONSUMER_GROUP_PREFIX",
-                        "fdai-pantheon",
-                    ).strip(),
-                    enforce=pantheon_enforce,
-                    thor_executor=(t2_route_registry.execute if thor_mutation_bound else None),
-                    thor_state_store=(
-                        StateStoreActionRunStore(incident_audit_store)
-                        if thor_mutation_bound
-                        else None
-                    ),
-                    rollback_executors=rollback_executors,
-                    saga=runtime_saga,
-                    muninn_state_store=incident_audit_store,
-                    rule_generation_workers=(
-                        rule_generation_reconciliation.workers
-                        if rule_generation_reconciliation is not None
-                        else None
-                    ),
-                    rule_generation_activation_binder=(rule_generation_binding.activation_binder),
-                    rule_generation_state_store=incident_audit_store,
-                    semantic_feedback_store=StateStoreSemanticFeedbackCandidateStore(
-                        incident_audit_store
-                    ),
-                    disabled_agents=disabled_agents,
-                    divergence=divergence_ledger,
-                    incident_candidate_hook=_open_incident_candidate,
-                    heimdall_rate_threshold=_runtime_positive_integer(
-                        runtime_values,
-                        "incident.repeat_threshold",
-                    ),
-                    heimdall_rate_window=_runtime_positive_integer(
-                        runtime_values,
-                        "incident.repeat_window_seconds",
-                    ),
+                    identity=identity,
+                    bus=bus,
+                    incident_audit_store=incident_audit_store,
+                    startup_report=startup_report,
+                    runtime_saga=runtime_saga,
+                    runtime_values=runtime_values,
+                    runtime_settings=runtime_settings,
+                    control_loop=control_loop,
+                    rule_generation_reconciliation=rule_generation_reconciliation,
+                    rule_generation_binding=rule_generation_binding,
+                    open_incident_candidate=_open_incident_candidate,
                     read_investigation_hook=read_investigation_hook,
-                    discovery_projector=_build_inventory_delta_projector(),
-                    scenario_coverage_aggregator=ScenarioCoverageAggregator(
-                        index=runtime_symptom_index
-                    ),
-                    post_turn_review=post_turn_review.coordinator,
-                    case_history_materializer=(
-                        case_history_runtime.materializer
-                        if case_history_runtime is not None
-                        else None
-                    ),
-                    case_history_analyzer=(
-                        case_history_runtime.analyzer if case_history_runtime is not None else None
-                    ),
-                    operational_context_materializer=operational_context_materializer,
-                    operational_planner=operational_planner,
-                    change_assessor=(
-                        ChangeAssessmentService(
-                            analyzer=ImpactAnalyzer(store=control_loop.ontology_instance_store)
-                        )
-                        if control_loop.ontology_instance_store is not None
-                        else None
-                    ),
-                    case_history_retention=(
-                        case_history_runtime.retention if case_history_runtime is not None else None
-                    ),
-                    case_retention_days=case_retention_days,
-                    case_deletion_days=case_deletion_days,
-                    forecast_evaluator=(
-                        forecast_learning_runtime.evaluator
-                        if forecast_learning_runtime is not None
-                        else None
-                    ),
-                    forecast_closer=(
-                        forecast_learning_runtime.closer
-                        if forecast_learning_runtime is not None
-                        else None
-                    ),
-                    forecast_store=(
-                        forecast_learning_runtime.store
-                        if forecast_learning_runtime is not None
-                        else None
-                    ),
-                    handler_observer=EventBusPantheonActivityObserver(
-                        event_bus=bus,
-                        topic=stage_topic,
-                    ),
-                    action_types=control_loop.action_types,
-                    conversation_embedding_model=(
-                        container.llm_bindings.embedding_model
-                        if container.llm_bindings is not None
-                        else None
-                    ),
-                    conversation_t2_synthesizer=(
-                        container.llm_bindings.conversation_t2_synthesizer
-                        if container.llm_bindings is not None
-                        else None
-                    ),
-                    conversation_metering=(
-                        container.llm_bindings.conversation_metering
-                        if container.llm_bindings is not None
-                        else None
-                    ),
-                    conversation_pricing=(
-                        container.llm_bindings.conversation_pricing
-                        if container.llm_bindings is not None
-                        else None
-                    ),
-                    conversation_t2_model_key=(
-                        container.llm_bindings.conversation_t2_model_key
-                        if container.llm_bindings is not None
-                        else ""
-                    ),
-                    semantic_router_config=_semantic_router_config_from_env(),
+                    runtime_symptom_index=runtime_symptom_index,
+                    stage_topic=stage_topic,
+                    environment=os.environ,
+                    build_runtime_workload_identity=_build_runtime_workload_identity,
+                    build_operator_memory_store=_build_operator_memory_store,
+                    build_inventory_delta_projector=_build_inventory_delta_projector,
+                    runtime_positive_integer=_runtime_positive_integer,
+                    build_mutation_dependency_readiness=_build_mutation_dependency_readiness,
+                    semantic_router_config_from_env=_semantic_router_config_from_env,
                 )
-                from fdai.runtime.t2_recovery import (
-                    T2RecoveryMaintenance,
-                    bind_t2_recovery_observer,
-                )
-
-                recovery_observer = bind_t2_recovery_observer(
-                    proposer=t2_proposer,
-                    store=incident_audit_store,
-                    ingress=pantheon_runtime.ingest_raw_event,
-                )
-                if recovery_observer is not None:
-                    legacy_reader = None
-                    state_store_dsn = os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
-                    if state_store_dsn:
-                        from fdai.delivery.persistence.postgres import PostgresStateStoreConfig
-                        from fdai.delivery.persistence.postgres_t2_recovery import (
-                            PostgresT2RecoveryLegacyReader,
-                        )
-
-                        legacy_reader = PostgresT2RecoveryLegacyReader(
-                            config=PostgresStateStoreConfig(dsn=state_store_dsn)
-                        )
-                    t2_recovery_maintenance = T2RecoveryMaintenance(
-                        observer=recovery_observer,
-                        legacy_reader=legacy_reader,
-                    )
-                agent_introspection_server = EventBusAgentIntrospectionServer(
-                    event_bus=bus,
-                    runtime=pantheon_runtime,
-                    group_id=agent_introspection_server_group_id(
-                        local_process=os.environ.get("FDAI_RUNTIME_LOCAL_AZURE_CLI", "").strip()
-                        == "1"
-                    ),
-                )
-                runtime_state_publisher = AgentRuntimeStatePublisher(
-                    event_bus=bus,
-                    snapshot_factory=lambda: runtime_agent_state_snapshot(
-                        pantheon_runtime.health()
-                    ),
-                    topic=stage_topic,
-                )
-                norns = pantheon_runtime.agents.get("Norns")
-                if norns is not None:
-                    post_turn_review.bind_rule_hints(cast(RuleHintSubmitter, norns))
-                hb_raw = os.environ.get("FDAI_PANTHEON_HEARTBEAT_SECONDS", "").strip()
-                if hb_raw:
-                    try:
-                        pantheon_heartbeat = float(hb_raw)
-                    except ValueError as hb_exc:
-                        raise RuntimeError(
-                            f"FDAI_PANTHEON_HEARTBEAT_SECONDS={hb_raw!r} is not a float"
-                        ) from hb_exc
-                    if pantheon_heartbeat <= 0:
-                        raise RuntimeError(
-                            f"FDAI_PANTHEON_HEARTBEAT_SECONDS MUST be > 0; got {pantheon_heartbeat}"
-                        )
-                _LOGGER.info(
-                    "pantheon_ready",
-                    extra={
-                        "agents": len(pantheon_runtime.agents),
-                        "subscriptions": pantheon_runtime.subscription_count,
-                        "enforce": pantheon_enforce,
-                        "heartbeat_s": pantheon_heartbeat,
-                    },
-                )
+            )
+            pantheon_runtime = pantheon.runtime
+            agent_introspection_server = pantheon.agent_introspection_server
+            runtime_state_publisher = pantheon.runtime_state_publisher
+            pantheon_heartbeat = pantheon.heartbeat
+            divergence_ledger = pantheon.divergence_ledger
+            case_history_retention_publisher = pantheon.case_history_retention_publisher
+            t2_recovery_maintenance = pantheon.t2_recovery_maintenance
         elif pantheon_start_enabled(os.environ):
             # Pantheon needs the same Kafka bus the consumer builds; without
             # FDAI_START_CONSUMER there is no bus to bind to. Warn rather
@@ -1109,249 +730,49 @@ async def _run() -> int:
         stop = _install_shutdown_signals()
 
         if bus is not None and control_loop is not None and startup_readiness_runtime is not None:
-            readiness_refresh_task = asyncio.create_task(
-                startup_readiness_runtime.refresh_until_stopped(stop),
-                name="startup-readiness-refresh",
-            )
-            consumer_task = asyncio.create_task(
-                startup_readiness_runtime.run_when_ready(
-                    stop,
-                    lambda: _consume(
-                        bus=bus,
-                        topic=container.config.kafka.topic_events,
-                        group_id=os.environ.get(
-                            "FDAI_CORE_CONSUMER_GROUP_ID",
-                            "fdai-core",
-                        ).strip(),
-                        control_loop=control_loop,
-                        stop=stop,
-                        divergence=divergence_ledger,
-                        irp_handler=_build_irp_event_handler(
-                            container=container,
-                            bus=bus,
-                            runtime_settings=runtime_settings,
-                        ),
-                    ),
-                )
-            )
-            resource_change_task: asyncio.Task[None] | None = None
-            inventory_raw_topic = os.environ.get("FDAI_INVENTORY_RAW_TOPIC", "").strip()
-            if inventory_raw_topic:
-                resource_change_task = asyncio.create_task(
-                    startup_readiness_runtime.run_when_ready(
-                        stop,
-                        lambda: _consume_resource_changes(
-                            bus=operational_bus,
-                            raw_topic=inventory_raw_topic,
-                            canonical_topic=container.config.kafka.topic_events,
-                            resource_types=_load_resource_types(),
-                            stop=stop,
-                        ),
-                    ),
-                    name="huginn-resource-discovery",
-                )
-            canary_task: asyncio.Task[None] | None = None
-            canary_topic = os.environ.get("FDAI_CANARY_TOPIC", "").strip()
-            if canary_topic:
-                canary_task = asyncio.create_task(
-                    startup_readiness_runtime.run_when_ready(
-                        stop,
-                        lambda: _consume_canaries(
-                            bus=operational_bus,
-                            topic=canary_topic,
-                            control_loop=control_loop,
-                            stop=stop,
-                        ),
-                    ),
-                    name="canary-consumer",
-                )
-            hil_decision_task: asyncio.Task[None] | None = None
-            hil_reminder_task: asyncio.Task[None] | None = None
-            hil_escalation_task: asyncio.Task[None] | None = None
-            semantic_turn_task = _schedule_semantic_turn_consumer(
-                binding=semantic_turn_binding,
-                readiness=startup_readiness_runtime,
-                bus=bus,
-                stop=stop,
-            )
-            if control_loop._hil_resume_coordinator is not None:
-                from fdai.delivery.chatops.hil_decision import DEFAULT_HIL_DECISION_TOPIC
-
-                hil_coordinator = control_loop._hil_resume_coordinator
-                hil_decision_task = asyncio.create_task(
-                    startup_readiness_runtime.run_when_ready(
-                        stop,
-                        lambda: _consume_hil_decisions(
-                            bus=bus,
-                            topic=os.environ.get(
-                                "FDAI_HIL_DECISION_TOPIC",
-                                DEFAULT_HIL_DECISION_TOPIC,
-                            ),
-                            coordinator=hil_coordinator,
-                            stop=stop,
-                        ),
-                    ),
-                    name="hil-decision-consumer",
-                )
-                reminder_dispatcher = hil_coordinator.reminder_dispatcher
-                if reminder_dispatcher is not None:
-                    hil_reminder_task = asyncio.create_task(
-                        startup_readiness_runtime.run_when_ready(
-                            stop,
-                            lambda: reminder_dispatcher.run(stop),
-                        ),
-                        name="hil-approval-reminders",
-                    )
-                escalation_supervisor = hil_coordinator.escalation_supervisor
-                if escalation_supervisor is not None:
-                    hil_escalation_task = asyncio.create_task(
-                        startup_readiness_runtime.run_when_ready(
-                            stop,
-                            lambda: escalation_supervisor.run(stop),
-                        ),
-                        name="hil-escalation-supervisor",
-                    )
-            wait_task = asyncio.create_task(stop.wait())
-
-            # Blast-radius isolation: the pantheon runs OUTSIDE the P1 wait
-            # set. A pantheon crash is logged via a done-callback but MUST
-            # NOT bring down the P1 control plane; P1 shutdown cancels it
-            # in turn. The pantheon is a shadow overlay, never a dependency
-            # of the primary pipeline.
-            pantheon_task: asyncio.Task[None] | None = None
-            agent_introspection_task: asyncio.Task[None] | None = None
-            runtime_state_task: asyncio.Task[None] | None = None
-            t2_recovery_task: asyncio.Task[None] | None = None
-            assignment_reconciliation_task: asyncio.Task[None] | None = None
-            effect_reconciliation_task: asyncio.Task[None] | None = None
-            effect_reconciliation_request_task: asyncio.Task[None] | None = None
-            rule_generation_outbox_task: asyncio.Task[None] | None = None
-            rule_generation_reconciliation_task: asyncio.Task[None] | None = None
-            case_history_retention_task: asyncio.Task[None] | None = None
-            if pantheon_runtime is not None:
-                pantheon_task = asyncio.create_task(
-                    startup_readiness_runtime.run_when_ready(
-                        stop,
-                        lambda: pantheon_runtime.run(heartbeat_interval=pantheon_heartbeat),
-                    ),
-                    name="pantheon-runtime",
-                )
-                pantheon_task.add_done_callback(partial(_log_pantheon_exit, stop=stop))
-            if agent_introspection_server is not None:
-                agent_introspection_task = asyncio.create_task(
-                    startup_readiness_runtime.run_when_ready(
-                        stop,
-                        agent_introspection_server.run,
-                    ),
-                    name="agent-introspection-server",
-                )
-            if runtime_state_publisher is not None:
-                runtime_state_task = asyncio.create_task(
-                    startup_readiness_runtime.run_when_ready(
-                        stop,
-                        runtime_state_publisher.run,
-                    ),
-                    name="pantheon-runtime-state",
-                )
-            if t2_recovery_maintenance is not None:
-                t2_recovery_task = asyncio.create_task(
-                    startup_readiness_runtime.run_when_ready(
-                        stop,
-                        lambda: t2_recovery_maintenance.run(stop),
-                    ),
-                    name="t2-recovery-maintenance",
-                )
-            if assignment_reconciliation_worker is not None:
-                assignment_reconciliation_task = asyncio.create_task(
-                    startup_readiness_runtime.run_when_ready(
-                        stop,
-                        lambda: assignment_reconciliation_worker.run(stop),
-                    ),
-                    name="human-assignment-reconciliation",
-                )
-            if effect_reconciliation_worker is not None:
-                effect_reconciliation_task = asyncio.create_task(
-                    startup_readiness_runtime.run_when_ready(
-                        stop,
-                        lambda: _run_effect_reconciliation(
-                            worker=effect_reconciliation_worker,
-                            stop=stop,
-                        ),
-                    ),
-                    name="effect-reconciliation",
-                )
-            if effect_reconciliation_request_binding is not None:
-                effect_reconciliation_request_task = asyncio.create_task(
-                    startup_readiness_runtime.run_when_ready(
-                        stop,
-                        lambda: _run_effect_reconciliation_request_outbox(
-                            publisher=effect_reconciliation_request_binding.outbox_publisher,
-                            stop=stop,
-                        ),
-                    ),
-                    name="effect-reconciliation-request-outbox",
-                )
-            if rule_generation_binding is not None:
-                rule_generation_outbox_task = asyncio.create_task(
-                    _run_rule_generation_outbox_publisher(
-                        publisher=rule_generation_binding.outbox_publisher,
-                        stop=stop,
-                    ),
-                    name="rule-generation-outbox",
-                )
-                rule_generation_outbox_task.add_done_callback(
-                    partial(_log_rule_generation_outbox_exit, stop=stop)
-                )
-            if (
-                pantheon_runtime is not None
-                and {"Mimir", "Heimdall"}.issubset(pantheon_runtime.agents)
-                and rule_generation_reconciliation is not None
-                and rule_generation_reconciliation.request is not None
-            ):
-                reconciliation_request = rule_generation_reconciliation.request
-                rule_generation_reconciliation_task = asyncio.create_task(
-                    startup_readiness_runtime.run_when_ready(
-                        stop,
-                        lambda: _publish_rule_generation_reconciliation(
-                            runtime=pantheon_runtime,
-                            request=reconciliation_request,
-                            stop=stop,
-                        ),
-                    ),
-                    name="rule-generation-reconciliation",
-                )
-            if case_history_retention_publisher is not None:
-                case_history_retention_task = asyncio.create_task(
-                    startup_readiness_runtime.run_when_ready(
-                        stop,
-                        lambda: case_history_retention_publisher.run(stop=stop),
-                    ),
-                    name="case-history-retention-ticks",
-                )
-
-            await _supervise_runtime_tasks(
-                required=(
-                    consumer_task,
-                    readiness_refresh_task,
-                    wait_task,
-                    resource_change_task,
-                    canary_task,
-                    hil_decision_task,
-                    hil_reminder_task,
-                    hil_escalation_task,
-                    case_history_retention_task,
-                    semantic_turn_task,
-                    effect_reconciliation_request_task,
+            await run_runtime_tasks(
+                RuntimeTaskConfiguration(
+                    container=container,
+                    bus=bus,
+                    operational_bus=operational_bus,
+                    control_loop=control_loop,
+                    readiness=startup_readiness_runtime,
+                    stop=stop,
+                    runtime_settings=runtime_settings,
+                    semantic_turn_binding=semantic_turn_binding,
+                    divergence_ledger=divergence_ledger,
+                    pantheon_runtime=pantheon_runtime,
+                    pantheon_heartbeat=pantheon_heartbeat,
+                    agent_introspection_server=agent_introspection_server,
+                    runtime_state_publisher=runtime_state_publisher,
+                    t2_recovery_maintenance=t2_recovery_maintenance,
+                    assignment_reconciliation_worker=assignment_reconciliation_worker,
+                    effect_reconciliation_worker=effect_reconciliation_worker,
+                    effect_reconciliation_request_binding=effect_reconciliation_request_binding,
+                    rule_generation_binding=rule_generation_binding,
+                    rule_generation_reconciliation=rule_generation_reconciliation,
+                    case_history_retention_publisher=case_history_retention_publisher,
+                    environment=os.environ,
                 ),
-                background=(
-                    pantheon_task,
-                    agent_introspection_task,
-                    runtime_state_task,
-                    t2_recovery_task,
-                    assignment_reconciliation_task,
-                    effect_reconciliation_task,
-                    rule_generation_outbox_task,
-                    rule_generation_reconciliation_task,
+                RuntimeTaskHooks(
+                    consume=_consume,
+                    consume_resource_changes=_consume_resource_changes,
+                    consume_canaries=_consume_canaries,
+                    consume_hil_decisions=_consume_hil_decisions,
+                    build_irp_event_handler=_build_irp_event_handler,
+                    load_resource_types=_load_resource_types,
+                    schedule_semantic_turn_consumer=_schedule_semantic_turn_consumer,
+                    log_pantheon_exit=_log_pantheon_exit,
+                    run_effect_reconciliation=_run_effect_reconciliation,
+                    run_effect_reconciliation_request_outbox=(
+                        _run_effect_reconciliation_request_outbox
+                    ),
+                    run_rule_generation_outbox_publisher=(_run_rule_generation_outbox_publisher),
+                    log_rule_generation_outbox_exit=_log_rule_generation_outbox_exit,
+                    publish_rule_generation_reconciliation=(
+                        _publish_rule_generation_reconciliation
+                    ),
+                    supervise_runtime_tasks=_supervise_runtime_tasks,
                 ),
             )
         else:

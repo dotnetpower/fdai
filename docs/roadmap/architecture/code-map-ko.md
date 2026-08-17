@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: fe347c6fa49c8c7ecee50ada520f32473906f4ce
+translation_source_sha: c987ee4906e5cad9f816a1ac49f750f0a03ca8b8
 translation_revised: 2026-08-17
 ---
 # 코드 맵
@@ -109,6 +109,13 @@ translation_revised: 2026-08-17
 | 2026-08-17 | 구현됨 | 추적 토폴로지를 인벤토리 Resource로 표현하거나 런타임 서비스를 추가하지 않고 분산 추적 연속성 감지의 물리 소유권 지도를 추가했습니다. | `current change`; 감지기, Azure 소스, 공유 틱 실행기, agent 근거 인계 및 집중 추적 검사가 55개 사례 범위에서 통과했습니다. | 런타임 검증을 주장하기 전에 통제된 실시간 감지, 인시던트, 승인, 복구 근거를 보존합니다. |
 | 2026-08-17 | 구현됨 | 구현이 없는 shared Operator query에 범위가 제한된 Incident 검색 identity를 추가하고 정규화, 근거 일치, 페이지 나누기 및 측정은 Operator Service projection에 유지했습니다. | `current change`, `fdai_service_contracts/operator.py`, Operator 경로와 PostgreSQL projection, focused 검사에서 Operator 80건 및 Console 49건 통과 | Shared Incident 검색 계약에 남은 구현 작업은 없습니다. |
 | 2026-08-17 | 구현됨 | 효과 조정 귀속을 위한 principal 없는 관찰자 identity 기록을 등록했습니다. 인증된 관찰 맥락을 내용 주소로 투영하여 안정적인 identity 핸들과 도출된 독립성 결과를 담으며, 효과를 종결하거나 가설을 승격하거나 실행할 권한은 갖지 않습니다. | `current change`, `core/ontology_platform/reconciliation_identity.py`, `reconciliation.py`, `reconciliation_contracts.py`, `reconciliation_state_store.py`, focused 조정 검사 40건 통과 | 이 기록에 남은 작업은 없습니다. 채점 가능 여부는 계속 coordinator가 자체 규칙으로 결정합니다. |
+| 2026-08-17 | 구현됨 | T1/T2 대체 경로 조정기에서 스칼라 및 그래프 동적 시뮬레이션 근거 기록을 분리해 인접한 전용 mixin으로 옮겼습니다. 기존 메서드 이름, 감사 기록, 안전하게 보류하는 동작은 그대로 유지합니다. | `current change`; `_dynamic_simulation.py`, `_fallback.py`, `test_control_loop_t1_wire.py`; 집중 검사 16건, Ruff, 형식 검사, strict mypy가 통과했습니다. | 이 구조 분리에 남은 작업은 없습니다. |
+| 2026-08-17 | 구현됨 | HIL 재개 실행기 경로 선택, compare-and-set 종료 상태 저장, 요청 무결성, 정본 감사 기록 생성을 인접한 전용 모듈로 분리했습니다. 승인 정책, 공개 결과, 자기 승인 거부, 멱등성, 안전하게 중단하는 실행 경로는 동일한 조정기 흐름에 유지됩니다. | `current change`; `hil_resume/{audit,dispatch,integrity}.py`, `coordinator.py`, 집중 HIL 검사; 45건, Ruff, 형식 검사, strict mypy가 통과했습니다. | 이 구조 분리에 남은 작업은 없습니다. |
+| 2026-08-17 | 구현됨 | Heimdall의 순수한 제한 크기 map, trace 근거, 심각도 정규화 helper를 private agent framework 아래로 옮겼습니다. 읽기 조사 소유권, Event 처리, 인시던트 상관 분석, 관찰자 권한은 `heimdall.py`에 그대로 유지합니다. | `current change`; `heimdall_helpers.py`, `heimdall.py`; 집중 관찰자 검사 21건과 framework layout 검사 11건이 통과했습니다. | 이 구조 분리에 남은 작업은 없습니다. |
+| 2026-08-17 | 구현됨 | Norns의 결정론적 학습 전이를 private agent framework 아래로 옮기고 상태, 후보 생성, 합의, 발행은 `norns.py`에 유지했습니다. | `current change`; `norns_learning.py`, `norns.py`; 집중 학습 검사 97건과 framework layout 검사 11건이 통과했습니다. | 이 구조 분리에 남은 작업은 없습니다. |
+| 2026-08-17 | 구현됨 | Forseti의 결정론적 판단 구현을 private agent framework 아래로 옮기고 agent 상태, typed ingress, 중재, kinetic proposal 해석, 소유 발행은 `forseti.py`에 유지했습니다. | `current change`; `forseti_judgment.py`, `forseti.py`; 집중 판단 검사 93건과 framework layout 검사 11건이 통과했습니다. | 이 구조 분리에 남은 작업은 없습니다. |
+| 2026-08-17 | 구현됨 | shadow Workflow 조립, 승인 대기 projection 연결, 승인 부하 정책 읽기, stewardship에서 HIL 에스컬레이션으로의 매핑을 전용 runtime support로 옮겼습니다. `control_loop.py`는 기존 private helper 별칭과 권한 있는 조립 순서를 유지합니다. | `current change`; `control_loop_support.py`, `control_loop.py`; 집중 Workflow 및 Thor port 조립 검사 8건, Ruff, 형식 검사, strict mypy가 통과했습니다. | 이 구조 분리에 남은 작업은 없습니다. |
+| 2026-08-17 | 구현됨 | runtime bootstrap을 Pantheon 초기화와 작업 감독 전용 모듈로 분리하면서 작업 시작 전 startup readiness, 권한 상한, 작업 격리, callback, 종료 순서, 기존 `main()` 진입점을 유지했습니다. | `current change`; `bootstrap_pantheon.py`, `bootstrap_tasks.py`, `bootstrap.py`; 집중 bootstrap 및 카탈로그 순서 검사 66건, Ruff, 형식 검사, strict mypy, 강제 LOC 게이트가 통과했습니다. | 이 구조 분리에 남은 작업은 없습니다. |
 
 ### 남은 작업
 
