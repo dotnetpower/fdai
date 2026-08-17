@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 31b99ea6387720a655110c8f17731638a0f2b3c6
-translation_revised: 2026-08-16
+translation_source_sha: 0be20ba145cbdb10d67e16a33fb3ce2d1b6090f9
+translation_revised: 2026-08-17
 ---
 # 오퍼레이터 콘솔 점진적 대화
 
@@ -49,6 +49,7 @@ translation_revised: 2026-08-16
 | 2026-08-15 | 구현됨 | 자동 인시던트 프롬프트를 시스템이 답할 수 있는 범위에 맞추고 브리핑의 관사 일치 오류를 고쳤습니다. 프롬프트는 원인을 요구했지만 인시던트 답변은 인과 분석을 사용 불가로 고정하고 있어 모든 자동 조사가 답할 수 없는 질문을 던졌습니다. 이제 근거로 확인되는 사실, 빠진 근거, 다음 안전한 읽기 전용 조치를 묻습니다. 브리핑은 severity가 unknown일 때 `a unknown`으로 렌더링되었습니다. | `current change`, focused Console 인시던트 주의 및 카탈로그 검사 8개 통과, 카탈로그 parity 16쌍 검증, Console 타입 검사 통과 | 인증된 로컬 Console에서 재작성된 자동 프롬프트를 확인합니다. |
 | 2026-08-15 | 구현됨 | 앞선 보증 장부 문구가 구현 파일보다 먼저 `6bb17dffe9f2`에 반영되어 있던 근거 경계를 정정했습니다. 실행 범위 session identity 구현은 이 이력 정정과 함께 반영됩니다. | `current change`, 위에 인용된 온톨로지 보증 경로 3개, 집중 보증 테스트 49개와 Console 타입 검사 통과, 정확한 실제 운영 Playwright 테스트 검색 완료 | 새 exact-source 14-cell 산출물을 보존한 뒤 seed가 지정된 이중 언어 100-case 집단을 실행하고 보존합니다. |
 | 2026-08-16 | 구현됨 | Source가 유휴 상태일 때도 Operator 대화 SSE가 애플리케이션 종료를 관측하게 하고, 호출자 취소 시 source를 닫기 전에 내부 wait task 둘을 모두 취소하고 기다리도록 강화했습니다. 따라서 클라이언트 연결 해제 뒤 분리된 `anext` task가 `aclose`와 경합하지 않습니다. | `current change`, `shutdown.py`, `factory.py`, `test_stream_shutdown.py`, focused 스트림, 대화 family 및 표현 검사 25개 통과, Ruff 및 strict mypy 통과 | 대화 스트림 종료 정리에 남은 구현 작업은 없습니다. |
+| 2026-08-17 | implemented | 인시던트 후보 선택기가 답변이 충족할 수 없는 프롬프트를 제출하던 동작을 중단했습니다. 후보를 선택하면 주의 배지와 동일한 인시던트 고정 대화가 열리는데도 근본 원인을 요구했고, 그 답변은 항상 인과 분석이 구현되지 않았다고 보고합니다. 이제 두 진입점 모두 근거로 확인되는 사실, 누락된 근거, 다음 안전한 읽기 전용 조치를 요청합니다. | `current change`; `messages.{en,ko}.json`; focused 테스트가 두 프롬프트 키를 두 로케일에서 고정합니다. Console i18n과 grounded-reply 검사 17건과 typecheck가 통과했고, 원인 표현을 되돌리면 해당 테스트가 실패합니다. | 인시던트 프롬프트 계약에 남은 작업은 없습니다. |
 
 ### 남은 작업
 

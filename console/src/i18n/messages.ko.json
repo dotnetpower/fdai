@@ -2051,7 +2051,7 @@
     "incidentCandidates": {
       "title": "조사할 인시던트 선택",
       "hint": "조사를 계속할 인시던트를 선택하세요.",
-      "prompt": "이 인시던트의 원인을 조사해줘."
+      "prompt": "이 인시던트의 근거로 확인되는 사실, 빠진 근거, 다음 안전한 읽기 전용 조치를 보고해줘."
     },
     "answerPlan": {
       "intent": {"definition": "정의", "why": "이유", "procedure": "절차", "comparison": "비교", "diagnosis": "진단", "status": "상태", "list": "목록", "summary": "요약", "proposal": "제안", "open_question": "열린 질문", "greeting": "인사"},
