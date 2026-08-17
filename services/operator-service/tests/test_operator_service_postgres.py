@@ -11,7 +11,11 @@ from fdai_operator_service.families.iam.contracts import (
     AccessGrantDecisionCommand,
     AccessGrantSnapshotQuery,
 )
-from fdai_operator_service.families.iam.errors import IamUnavailableError
+from fdai_operator_service.families.iam.errors import (
+    IamConflictError,
+    IamNotFoundError,
+    IamUnavailableError,
+)
 from fdai_operator_service.incident_projection import incident_outcome_metrics, incident_summary
 from fdai_operator_service.postgres import (
     PostgresOperatorReadModel,
@@ -280,14 +284,19 @@ async def test_access_grant_snapshot_cursor_does_not_regress_when_the_queue_empt
 class RecordingProposalPostgresFamilyStore(PostgresFamilyStore):
     """Capture appended proposal idempotency keys without opening PostgreSQL."""
 
-    def __init__(self) -> None:
+    def __init__(self, record: dict[str, object] | None = None) -> None:
         super().__init__(
             PostgresFamilyStoreConfig(
                 dsn="postgresql://example.invalid/db",
                 role="fdai_operator",
             )
         )
+        self.record = record if record is not None else _grant_record()
         self.keys: list[str] = []
+
+    async def read_state(self, key: str) -> dict[str, object] | None:
+        del key
+        return self.record
 
     async def append_proposal(
         self,
@@ -306,6 +315,17 @@ class RecordingProposalPostgresFamilyStore(PostgresFamilyStore):
             duplicate=False,
             record={},
         )
+
+
+def _grant_record(**overrides: object) -> dict[str, object]:
+    record: dict[str, object] = {
+        "status": "pending",
+        "quorum": 2,
+        "revision": 3,
+        "approved_by": ["reviewer-a"],
+    }
+    record.update(overrides)
+    return record
 
 
 def _decision(reviewer_ref: str, *, expected_revision: int = 1) -> AccessGrantDecisionCommand:
@@ -334,6 +354,36 @@ async def test_distinct_reviewers_append_distinct_grant_decision_proposals() -> 
     assert store.keys[0] == store.keys[2]
     assert store.keys[3] not in store.keys[:3]
     assert all(key.startswith("grant-1:") for key in store.keys)
+
+
+@pytest.mark.asyncio
+async def test_grant_decision_receipt_reports_the_authoritative_approval_policy() -> None:
+    store = RecordingProposalPostgresFamilyStore()
+
+    receipt = await PostgresIamAdapters(store).decide(_decision("reviewer-b"))
+
+    assert (receipt.quorum, receipt.approved_count, receipt.revision) == (2, 1, 3)
+
+
+@pytest.mark.asyncio
+async def test_grant_decision_is_refused_for_an_unknown_request() -> None:
+    store = RecordingProposalPostgresFamilyStore(record=None)
+    store.record = None
+
+    with pytest.raises(IamNotFoundError):
+        await PostgresIamAdapters(store).decide(_decision("reviewer-b"))
+
+    assert store.keys == []
+
+
+@pytest.mark.asyncio
+async def test_grant_decision_is_refused_once_the_request_left_pending() -> None:
+    store = RecordingProposalPostgresFamilyStore(_grant_record(status="approved"))
+
+    with pytest.raises(IamConflictError):
+        await PostgresIamAdapters(store).decide(_decision("reviewer-b"))
+
+    assert store.keys == []
 
 
 @pytest.mark.asyncio
