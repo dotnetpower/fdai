@@ -79,6 +79,9 @@ The layers communicate through the event bus and git, not direct in-process call
   MUST render unavailable or an explicitly sourced empty state. It MUST NOT substitute demo
   data, catalog-shaped resource templates, generated narratives, or an in-memory fallback and
   present them as observed state.
+- An unavailable or empty local surface is correct only while its authoritative source is genuinely
+  absent. It MUST NOT stand in for a producer, ingress, job, or capability flag that the local
+  profile simply never bound. Diagnose which authoritative binding is missing and bind it.
 - Repository catalogs and schemas remain valid local sources for catalog/reference screens;
   they are configuration-as-code, not runtime evidence. Runtime claims MUST carry their actual
   source and MUST NOT be inferred from catalog declarations.
@@ -94,6 +97,14 @@ The layers communicate through the event bus and git, not direct in-process call
 
 ## Local Runtime Parity Contract (MUST)
 
+- **Execution venue does not change control-plane behavior**
+  ([Constitution, Article 1](../../docs/roadmap/architecture/fdai-constitution.md)). Every venue
+  binds the same authoritative sources, ingress path, contracts, control-loop stages, and surfaces;
+  only credentials, endpoints, scale, and provider scope may differ. A capability flag, scheduled
+  job, or forwarding path that deployment enables MUST be enabled for interactive local too, and a
+  divergence MUST be justified by a venue-specific provider constraint recorded in
+  [dev-and-deploy-parity.md](../../docs/roadmap/deployment/dev-and-deploy-parity.md), never by
+  convenience or by an unimplemented local binding.
 - Execution venue, deployment environment, evidence profile, promotion state, human identity,
   executor identity, and upstream/fork distribution are independent axes. The canonical decision
   is [ADR-0002](../../docs/roadmap/architecture/decisions/0002-independent-runtime-axes.md).
