@@ -1,7 +1,7 @@
 ---
 title: Agent Workflow Shadow Rollout
 translation_of: agent-workflow-rollout.md
-translation_source_sha: f90537368c53eaf4818855e7432049fdf4af6b54
+translation_source_sha: de7dc277cb25c0e9592c935a9897b12aae910c9f
 translation_revised: 2026-08-17
 ---
 # 에이전트 작업 흐름 shadow 롤아웃
@@ -28,6 +28,7 @@ translation_revised: 2026-08-17
 | 2026-08-14 | implemented | Forseti의 순수 결정 mapping, conflict, impact 및 freshness helper를 private framework로 추출하고 판단 역할, topic, workflow mode 및 승격 상태는 변경하지 않았습니다. | `current change`, 집중 layout 및 Forseti 판단 검사 104개 통과, strict mypy 및 agent import gate 통과 | 런타임 종료 게이트 근거와 독립 승격 결과는 변경 없이 남아 있습니다. |
 | 2026-08-17 | implemented | Heimdall의 순수한 제한 크기 map, trace 근거, 심각도 정규화 helper를 private framework로 분리했습니다. 관찰자 역할, 소유 및 구독 topic, 결정론적 hot path, 인시던트 인계는 그대로 유지합니다. | `current change`; `heimdall_helpers.py`, `heimdall.py`; 집중 관찰자 검사 21건, framework layout 검사 11건, Ruff, 형식 검사, strict mypy가 통과했습니다. | 런타임 종료 게이트 근거와 독립 승격 결과는 변경 없이 남아 있습니다. |
 | 2026-08-17 | implemented | Norns의 결정론적 fingerprint, 결과, shadow-dwell, 승인, override 상태 전이를 private framework 함수로 분리했습니다. 모든 학습 상태, 후보 생성, 합의, 속도 제한, `object.rule-candidate` 단독 발행은 Norns에 남으며 카탈로그 또는 실행 권한을 추가하지 않았습니다. | `current change`; `norns_learning.py`, `norns.py`; 집중 학습 검사 97건, framework layout 검사 11건, Ruff, 형식 검사, strict mypy가 통과했습니다. | 런타임 종료 게이트 근거와 독립 승격 결과는 변경 없이 남아 있습니다. |
+| 2026-08-17 | implemented | Forseti의 결정론적 문서, 규칙, RBAC, 준비 상태, 컨텍스트 상한, 보안 판단 구현을 private framework mixin으로 분리했습니다. Forseti 인스턴스는 계속 Verdict와 SecurityEvent의 단독 발행자이며 정족수, 자기 승인 방지 계보, T2 판단 보류 정책, topic 소유권은 그대로 유지합니다. | `current change`; `forseti_judgment.py`, `forseti.py`; 집중 판단 검사 93건, framework layout 검사 11건, Ruff, 형식 검사, strict mypy가 통과했습니다. | 런타임 종료 게이트 근거와 독립 승격 결과는 변경 없이 남아 있습니다. |
 
 ### 남은 작업
 
