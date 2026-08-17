@@ -33,7 +33,7 @@ from fdai_operator_service.postgres_family_store import (
     StoredStatePage,
     StoredStateRecord,
 )
-from fdai_operator_service.postgres_iam import PostgresIamAdapters
+from fdai_operator_service.postgres_iam import PostgresIamAdapters, _command_payload
 from fdai_operator_service.postgres_sql import (
     AGENT_INVENTORY_ACTIVITY_SQL,
     AGENT_OBSERVATION_ACTIVITY_SQL,
@@ -420,6 +420,23 @@ async def test_grant_decision_refuses_an_expired_request() -> None:
         await PostgresIamAdapters(store).decide(_decision("reviewer-b"))
 
     assert store.keys == []
+
+
+def test_iam_command_payload_is_deterministic_and_machine_readable() -> None:
+    command = AccessGrantDecisionCommand(
+        request_id="grant-1",
+        reviewer_ref="reviewer-b",
+        reviewer_roles=frozenset({"owner", "approver", "auditor"}),
+        decision="approve",
+        reason="approved for the measured window",
+        expected_revision=3,
+        decided_at=_NOW,
+    )
+
+    payload = _command_payload(command)
+
+    assert payload["reviewer_roles"] == ["approver", "auditor", "owner"]
+    assert payload["decided_at"] == _NOW.isoformat()
 
 
 @pytest.mark.asyncio
