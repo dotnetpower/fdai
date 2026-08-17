@@ -58,6 +58,7 @@ from fdai.delivery.persistence.postgres_topology_history import (
     PostgresTopologyHistoryStore,
     PostgresTopologyHistoryStoreConfig,
 )
+from fdai.delivery.repo_assets import repo_asset_root
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
     ProviderRelationshipMappingCatalog,
@@ -88,7 +89,7 @@ from fdai.shared.providers.inventory_snapshot import (
 from fdai.shared.providers.resource_lock import ResourceLock
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
-_REPO_ROOT = Path(__file__).resolve().parents[5]
+_REPO_ROOT = repo_asset_root()
 _LOGGER = logging.getLogger(__name__)
 _LOOP_SECONDS = 600
 _MANAGEMENT_AUDIENCE_BY_ORIGIN = {

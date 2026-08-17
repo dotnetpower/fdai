@@ -43,10 +43,11 @@ from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventoryGraphProvider,
     PostgresInventorySnapshotStoreConfig,
 )
+from fdai.delivery.repo_assets import repo_asset_root
 from fdai.shared.config.loader import load_config_from_env
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
-_REPO_ROOT = Path(__file__).resolve().parents[5]
+_REPO_ROOT = repo_asset_root()
 _LOOP_SECONDS = 60
 
 
