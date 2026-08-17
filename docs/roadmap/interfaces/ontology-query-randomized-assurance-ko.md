@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-randomized-assurance.md
-translation_source_sha: 384ad44340f16a68e360f6aab3ae980627ed8ced
+translation_source_sha: ae66fad57260f220d32971d3a4ad257fc58ae6cd
 translation_revised: 2026-08-17
 ---
 # 온톨로지 쿼리 무작위 보증
@@ -212,7 +212,6 @@ Core
 | 2026-08-17 | in-progress | 중앙 검증된 source `39e34635ee915dc9301433967a3d8238d294b0f6`에서 엄격한 이중 언어 gate를 한 번 실행했습니다. 아티팩트는 live cell 14개와 resumed cell 0개를 보존했고 모든 query 판정이 통과했으며 transport 재시도, 지원되지 않는 운영 주장, 권한 없는 실행 및 plan-capability 불일치는 모두 0건이었습니다. 두 causal cell 모두 근거가 완전한 답변을 반환해 영어 causal planning 결함을 닫았지만, evidence-validation cell 두 개는 하나의 unsupported 결과와 하나의 clarification으로 끝났습니다. Seed 기반 질문 집합은 시작하지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-39e34635ee-20260817T062156Z-strict_14`, 14개 중 12개 cell이 근거가 완전한 답변이었고 엄격한 변경 불가능 gate는 실패했습니다. | 엄격한 gate를 차단 상태로 유지하고 evidence-validation 및 transport 소유권 수정이 중앙 검증된 뒤에만 다시 실행합니다. |
 | 2026-08-17 | implemented | 범위가 제한된 high-watermark 읽기에서 이전 엄격한 실행의 전용 요청 및 변환 결과 토픽이 14개 cell 중 9개에서만 전진했고, 빠진 request/projection 쌍 5개가 표준 physical stream에 나타난 뒤 transport 출처 이력을 강화했습니다. 기본 claim 경로의 넓은 prefix가 중첩된 namespaced key와 일치했습니다. 이제 durable exact namespace 동등성이 append, claim, 인증된 읽기 및 변환 결과 소유권을 통제하고, runner는 요청 및 변환 결과 delta가 exact 14/14 및 100/100이어야 통과합니다. | `current change`, focused Operator bridge 및 runner 검사 71개 통과, 작업 범위 Ruff 및 strict mypy 통과. 원시 provider 또는 model content는 보존하지 않았습니다. | 중앙 검증을 확보하고 seed 기반 질문 집합을 시작하기 전에 전용 토픽이 각각 정확히 14만큼 전진한 새로운 엄격한 아티팩트를 하나 보존합니다. |
 | 2026-08-17 | implemented | Transport 출처 이력을 runner 제어 흐름에만 두지 않고 통제된 아티팩트 자체에 포함했습니다. 각 단계 뒤 runner는 SHA-256 요청 및 변환 결과 topic identity와 exact 관측 건수를 원본 아티팩트에 원자적으로 연결합니다. Strict 및 full gate는 단계별 14/14 또는 100/100 근거를 요구하고, 리포지토리에 안전한 변환기는 해당 digest와 건수만 보존합니다. Topic 이름과 broker record는 로컬에 유지합니다. | `current change`, focused runner 및 safe-projector 검사 13개와 작업 범위 Ruff 및 strict mypy 통과 | Seed 기반 질문 집합을 시작하기 전에 transport 근거가 결속된 새로운 엄격한 아티팩트를 보존합니다. |
-
 | 2026-08-17 | implemented | 중앙 검증된 소스 `276c8178671468c2f6366a2b9072e45e6dc6fd34`의 새로운 엄격한 시도가 Browser 사전 단계에서 실패한 뒤, 감독 대상 Console마다 Vite 의존성 캐시를 격리했습니다. 동시에 실행된 Vite optimizer가 공유 MSAL 의존성 URL을 무효화했으므로 측정 질문은 실행되지 않았고 아티팩트도 생성되지 않았으며 seed 기반 질문 집합도 시작하지 않았습니다. 일반 Console 시작은 표준 캐시 위치를 유지하고, 보증 runner만 실행 루트 안의 캐시를 지정합니다. | `current change`, focused Console 캐시 검사 2개, supervisor 검사 9개, Console typecheck, 작업 범위 Ruff 및 strict mypy 통과 | 중앙 검증을 확보하고 정확히 검증된 소스에서 새로운 엄격한 질문 집합을 한 번 실행합니다. |
 
 ### 남은 작업

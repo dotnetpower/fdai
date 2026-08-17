@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 5888976edfb8fa408a036fe02f9d216f044ee198
+translation_source_sha: 5fe94417c22712edc9326a4f3481ef02ea50e78b
 translation_revised: 2026-08-17
 ---
 
@@ -204,7 +204,6 @@ translation_revised: 2026-08-17
 | 2026-08-17 | implemented | 타입이 지정된 frame을 수락한 뒤 검증된 principal 범위 `Resource` 서술자에서 evidence-validation plan을 구성했습니다. Frame prompt v8은 더 좁은 모델 선택 subject를 요구하지 않고 principal-scope 근거 검사를 완전하게 유지하며, plan prompt v10은 Core가 단일 secured ObjectSet plan을 소유한다고 기록합니다. Exact release, 매니페스트, 역할, 목적, ObjectSet 스키마, plan digest 및 실행 handler 검사는 변경하지 않습니다. | `current change`, focused tier 라우팅 및 prompt 레지스트리 회귀 검사가 통과하며 T1과 T2 어느 쪽도 evidence plan을 제안하지 않음을 입증합니다. | 중앙 검증을 확보한 뒤 새로운 이중 언어 evidence-validation cell을 보존하고 엄격한 질문 집합을 다시 실행합니다. |
 | 2026-08-17 | implemented | 기본 semantic outbox claim 경로와 실행 범위 보증 행 사이의 겹침을 닫았습니다. 이전 namespace는 key prefix를 변경했지만 기본 `prefix%` claim은 중첩된 namespaced key도 계속 선택했습니다. 이제 영속 요청이 명시적인 namespace token을 보존하고, claim, 인증된 읽기 및 변환 결과 소유권이 exact namespace 동등성을 요구하며 기존 기본 행은 빈 token으로 해석됩니다. | `current change`, 기본 claim과 namespaced claim, append, 읽기 및 변환 결과 회귀를 포함한 focused Operator bridge 검사 64개와 작업 범위 Ruff 및 strict mypy 통과. 이전 엄격한 아티팩트 두 개는 전용 요청 토픽을 각각 12/14 및 9/14만 전진시켰고, 범위가 제한된 high-watermark 읽기에서 빠진 5개 request/projection 쌍이 표준 physical stream에 있음을 확인했습니다. | Seed 기반 질문 집합을 시작하기 전에 exact 실행 범위 transport coverage가 있는 새로운 엄격한 아티팩트를 보존합니다. |
 | 2026-08-17 | implemented | Runner의 exact transport 관측을 hashed topic identity와 단계별 건수로 각 원본 아티팩트에 연결하고, 리포지토리에 안전한 변환기에도 같은 근거를 요구했습니다. 따라서 답변 필드를 만족하지만 exact 실행 범위 request/projection coverage가 없는 아티팩트는 나중에 runner 밖에서 승격될 수 없습니다. | `current change`, focused runner 및 baseline-projector 검사 13개와 작업 범위 Ruff 및 strict mypy 통과 | Exact 14/14 transport 근거가 포함된 새로운 엄격한 아티팩트를 보존합니다. |
-
 | 2026-08-17 | implemented | 감독 대상 보증 실행마다 Vite 의존성 캐시 소유권을 할당했습니다. 이전 exact-source 시도는 모든 서비스 준비 상태 검사를 통과했지만 첫 측정 turn 전에 Browser 사전 단계가 오래된 공유 MSAL optimizer URL을 가져왔습니다. 이제 runner는 자기 실행 루트 아래 캐시를 지정하고 일반 Console 시작은 표준 기본값을 유지합니다. | `current change`, 실패한 시도는 질문을 하나도 실행하지 않았고 아티팩트도 생성하지 않음, focused Console 캐시 검사 2개, supervisor 검사 9개, Console typecheck, Ruff 및 strict mypy 통과 | 중앙 검증된 캐시 격리 소스에서 새로운 엄격한 아티팩트를 보존합니다. |
 
 ### 남은 작업
