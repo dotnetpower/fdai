@@ -10,7 +10,12 @@ from fdai.core.ontology_platform.metric_semantics import (
     MetricSemanticDefinition,
     MetricWindow,
 )
-from fdai.shared.providers.metric import MetricPoint, MetricProvider, MetricQuery
+from fdai.shared.providers.metric import (
+    MetricPoint,
+    MetricProvider,
+    MetricProviderError,
+    MetricQuery,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,15 +61,31 @@ class ProviderMetricWindowReader:
         )
         points: list[MetricPoint] = []
         truncated = False
-        async for point in self._provider.query(query):
-            if point.metric_name != definition.provider_metric:
-                raise ValueError("metric provider returned another metric")
-            if point.labels.get("resource_id") != resource_id:
-                raise ValueError("metric provider returned another resource")
-            if len(points) >= self._coverage.maximum_samples:
-                truncated = True
-                break
-            points.append(point)
+        try:
+            async for point in self._provider.query(query):
+                if point.metric_name != definition.provider_metric:
+                    raise ValueError("metric provider returned another metric")
+                if point.labels.get("resource_id") != resource_id:
+                    raise ValueError("metric provider returned another resource")
+                if len(points) >= self._coverage.maximum_samples:
+                    truncated = True
+                    break
+                points.append(point)
+        except MetricProviderError:
+            return MetricWindow(
+                concept_id=definition.concept_id,
+                resource_id=resource_id,
+                unit=definition.canonical_unit,
+                start=start,
+                end=end,
+                samples=(),
+                complete=False,
+                missing_reason="provider_unavailable",
+                evidence_refs=(
+                    f"metric-provider-unavailable:{definition.concept_id}:"
+                    f"{start.isoformat()}:{end.isoformat()}",
+                ),
+            )
         points.sort(key=lambda item: item.at)
         if len({item.at for item in points}) != len(points):
             raise ValueError("metric provider returned duplicate timestamps")
