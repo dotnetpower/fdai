@@ -91,13 +91,22 @@ class PostgresIamAdapters:
 
     async def decide(self, command: AccessGrantDecisionCommand) -> AccessGrantDecisionResult:
         """Persist a revision-fenced access decision without applying permission."""
+        record = await self._state(f"{_ACCESS_GRANT_PREFIX}{command.request_id}")
+        if record is None:
+            raise IamNotFoundError("access grant request does not exist")
+        if str(record.get("status") or "") != "pending":
+            raise IamConflictError("access grant request is not pending")
+        quorum = _integer(record, "quorum")
+        approved_by = record.get("approved_by", [])
+        if quorum < 1 or not isinstance(approved_by, list) or len(approved_by) > quorum:
+            raise IamUnavailableError("access-grant approval policy is malformed")
         await self._proposal("access-grants.decide", command, _decision_key(command))
         return AccessGrantDecisionResult(
             request_id=command.request_id,
             status="pending",
-            revision=command.expected_revision,
-            approved_count=0,
-            quorum=1,
+            revision=_integer(record, "revision"),
+            approved_count=len(approved_by),
+            quorum=quorum,
             reviewed_at=command.decided_at,
         )
 
