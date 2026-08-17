@@ -246,6 +246,28 @@ async def test_access_grant_snapshot_fails_closed_when_the_scan_is_truncated() -
         )
 
 
+@pytest.mark.parametrize("field", ["quorum", "revision"])
+@pytest.mark.asyncio
+async def test_access_grant_snapshot_reports_a_malformed_counter_as_unavailable(
+    field: str,
+) -> None:
+    record = _grant_state("reviewable", requester_ref="alice", approver_roles=["Approver"])
+    broken = StoredStateRecord(
+        key=record.key,
+        value={**record.value, field: "not-a-number"},
+        updated_at=record.updated_at,
+    )
+
+    with pytest.raises(IamUnavailableError):
+        await PostgresIamAdapters(AccessGrantStatePostgresFamilyStore((broken,))).snapshot(
+            AccessGrantSnapshotQuery(
+                reviewer_ref="bob",
+                reviewer_roles=frozenset({"approver"}),
+                after_sequence=None,
+            )
+        )
+
+
 def test_sqlalchemy_psycopg_dsn_is_normalized_for_direct_driver_use() -> None:
     assert _psycopg_dsn("postgresql+psycopg://user@example.invalid/db") == (
         "postgresql://user@example.invalid/db"
