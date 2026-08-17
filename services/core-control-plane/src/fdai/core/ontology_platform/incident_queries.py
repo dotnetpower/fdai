@@ -26,6 +26,18 @@ INCIDENT_EVIDENCE_FUNCTION_NAME = "query.incident_evidence"
 INCIDENT_EVIDENCE_PURPOSE = "operations-review"
 INCIDENT_EVIDENCE_MAX_RECORDS = 500
 _MAX_RECORDS = INCIDENT_EVIDENCE_MAX_RECORDS
+_NOTIFICATION_FAILURE_CAUSES = {
+    "route_unresolved": (
+        "Notification delivery failed because the configured route has no resolvable channels."
+    ),
+    "trust_mismatch": (
+        "Notification delivery failed because no configured channel accepts the required trust "
+        "tier."
+    ),
+    "escalated_to_hil": (
+        "Notification delivery failed after all configured channels were exhausted."
+    ),
+}
 
 
 @runtime_checkable
@@ -60,7 +72,7 @@ def incident_evidence_function_type() -> OntologyFunctionType:
     """Return the exact read-only Incident evidence declaration."""
     return OntologyFunctionType(
         name=INCIDENT_EVIDENCE_FUNCTION_NAME,
-        version="1.1.0",
+        version="1.2.0",
         kind=OntologyFunctionKind.QUERY,
         artifact_digest=_source_artifact_digest(),
         publisher="fdai",
@@ -181,6 +193,14 @@ def incident_evidence_function(
             citations,
             causal_hops,
         )
+        if root_cause is None:
+            derived_root_cause, derived_impacts, derived_citations = (
+                _deterministic_terminal_failure(rows)
+            )
+            if derived_root_cause is not None:
+                root_cause = derived_root_cause
+                impacts = derived_impacts
+                grounded_citations = derived_citations
         gaps: list[str] = []
         if profile is None:
             gaps.append("incident_profile_missing")
@@ -254,6 +274,59 @@ def _grounded_root_cause(
             matching,
         )
     return None, []
+
+
+def _deterministic_terminal_failure(
+    rows: Sequence[_AuditRow],
+) -> tuple[dict[str, Any] | None, list[dict[str, Any]], list[dict[str, Any]]]:
+    """Project only closed notification failures whose exact audit row proves the cause."""
+    for row in reversed(rows):
+        if row.action_kind != "notification.route":
+            continue
+        outcome = row.entry.get("outcome")
+        if not isinstance(outcome, str) or outcome not in _NOTIFICATION_FAILURE_CAUSES:
+            continue
+        audit_ref = f"audit:{row.seq}"
+        summary = f"Recorded notification route outcome: {outcome}."
+        root_cause = {
+            "tier": "t0",
+            "outcome": "grounded",
+            "cause": _NOTIFICATION_FAILURE_CAUSES[outcome],
+            "confidence": 1.0,
+            "reason": summary,
+            "remediation_ref": None,
+            "mode": row.mode,
+            "recorded_at": row.recorded_at,
+            "causal_hops": [],
+            "next_safe_step": "configure_notification_route",
+        }
+        impacts = [
+            {
+                "metric": "notification_delivery_outcome",
+                "baseline": "delivered",
+                "observed": outcome,
+                "threshold": "delivered",
+                "unit": "route_outcome",
+                "impact": (
+                    "Operational notification delivery did not complete and was escalated for "
+                    "human attention."
+                ),
+                "evidence_ref": audit_ref,
+            }
+        ]
+        citations = [
+            {
+                "tier": "t0",
+                "kind": "event",
+                "ref": audit_ref,
+                "summary": summary,
+                "source_at": row.recorded_at,
+                "freshness": "recorded",
+                "recorded_at": row.recorded_at,
+            }
+        ]
+        return root_cause, impacts, citations
+    return None, [], []
 
 
 def _audit_row(raw: Mapping[str, object], *, correlation_id: str) -> _AuditRow:

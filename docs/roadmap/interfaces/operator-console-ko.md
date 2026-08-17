@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 5301e64e463df9e6ba65feabc54084c81a106cf8
+translation_source_sha: f89d141eaf692648e662a1e575a64bfb3a00e64a
 translation_revised: 2026-08-17
 ---
 
@@ -44,7 +44,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 인벤토리 프로바이더 실행 경계 | implemented | `discovery_receipts.py`, `inventory-execution-display.ts`, 집중 Azure delivery 테스트 (`18 passed`), 파서 테스트 (`11 passed`) 및 Console typecheck | 새 서버 증적은 등록된 계획에서 자리 표시자 전용 명령을 파생합니다. Console은 shell 제어, redirect, 환경 할당, 실행 가능한 shell 단어, 실제 GUID, raw ARM id, 자격 증명, 연속 토큰 및 프로바이더 오류를 독립적으로 거부합니다. |
 | 채널 중립적 최종 응답 동등성 | 구현됨 | [오퍼레이터 콘솔 점진적 대화](operator-console-progressive-conversations-ko.md), `test_rich_contract.py`, 집중 채널 계약 테스트 (`36 passed`) | Teams와 Slack은 영속 재생 전체에서 하나의 정본 최종 답변, 제한, 근거 참조, 실행 권한 없음, 최종 확정 갱신을 보존합니다. 운영 A3 게시자와 통제된 런타임 증적은 열린 상태로 유지합니다. |
 | 읽기 전용 Conversation Search interaction | implemented | `conversation-search.tsx`, `conversation-search.model.ts`, `conversation-search.test.ts`, focused route 테스트(`5 passed`) 및 Console typecheck | Bounded filter, 안전한 text highlight, exact context toggle, empty 및 unavailable 상태, fail-closed decoder 오류는 승인 또는 실행 권한을 추가하지 않습니다. |
-| 인시던트 대화 RCA 표현 | implemented | `incident_queries.py`, `semantic_turn_processor.py`, `semantic_turn_presentation.py`, `presentation-artifact.ts`, focused Core, Operator 및 Console 검사(`138 passed`) | 기록된 원인은 일치하는 인용이 포함된 grounded 가설을 요구합니다. T0는 범위가 제한된 발견 사항 심각도 영향 근거를 기록하고 두 언어 모두 실행 권한 없이 근본 원인, 영향 및 인용을 렌더링합니다. 누락된 근거는 명시적으로 유지합니다. |
+| 인시던트 대화 RCA 표현 | implemented | `incident_queries.py`, `semantic_turn_processor.py`, `semantic_turn_presentation.py`, `presentation-artifact.ts`, focused Core, Operator 및 Console 검사(`138 passed`) | 기록된 원인은 일치하는 인용이 포함된 grounded 가설 또는 정확한 감사 행에 근거한 허용 목록의 결정론적 최종 실패를 요구합니다. T0는 범위가 제한된 영향 근거를 기록하고 두 언어 모두 실행 권한 없이 근본 원인, 영향 및 인용을 렌더링합니다. 누락된 근거는 명시적으로 유지합니다. |
 
 ### 구현 이력
 
@@ -62,6 +62,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 2026-08-14 | implemented | 저장된 좌표를 바꾸거나 지속적인 simulation을 남기지 않으면서 exact-release 카탈로그 토폴로지에 범위가 제한된 결정적 spring-settle 효과를 추가했습니다. | `current change`; 집중 토폴로지 테스트 12개와 Console 타입 검사가 통과했고, 인증된 표준 포트 브라우저에서 overflow 없이 비어 있지 않은 canvas를 렌더링했습니다. | wire-contract owner가 추적하는 별도의 인증된 컨텍스트 스냅샷 근거를 보존해야 합니다. |
 | 2026-08-14 | implemented | Console을 read-only projection surface로 유지하면서 focused Conversation Search route interaction을 추가했습니다. | `current change`; route model 및 focused 테스트 `5 passed`, Console typecheck. | Conversation Search owner 아래에서 governed cross-surface 검색 근거를 보존합니다. |
 | 2026-08-17 | implemented | 기록된 grounded RCA, 범위가 제한된 T0 영향 근거 및 일치하는 인용을 인시던트에 바인딩된 의미 답변과 엄격한 Console 산출물 디코더 전체에서 보존했습니다. 이전의 "causal analysis hasn't been implemented" 제한은 레거시 재생에만 유지되며 현재 결과를 더는 설명하지 않습니다. | `current change`; focused Core, Operator 및 Console 검사 138개 통과, Ruff, strict mypy 및 Console typecheck 통과 | 새로 기록된 RCA의 세 근거 섹션을 모두 보여 주는 통제된 Browser 산출물을 보존합니다. |
+| 2026-08-17 | implemented | 활성 인시던트에 기록된 `route_unresolved` 알림 실패를 결정론적 T0 원인, 경로 결과 영향 행 및 정확한 감사 인용으로 변환했습니다. 읽기 경로는 감사 또는 알림 상태를 변경하지 않으며 성공하거나 알 수 없는 결과를 원인으로 거부합니다. | `current change`; focused Core 및 Operator 검사 133개 통과, Ruff 및 strict mypy 통과 | Core를 재시작하고 인증된 Browser에서 세 근거 블록을 검증합니다. |
 
 ### 남은 작업
 

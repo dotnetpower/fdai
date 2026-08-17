@@ -415,7 +415,12 @@ def _incident_citations_block(
     )
 
 
-def _incident_next_step_rows(gaps: list[object], *, korean: bool) -> list[JsonObject]:
+def _incident_next_step_rows(
+    gaps: list[object],
+    *,
+    korean: bool,
+    root_cause: object,
+) -> list[JsonObject]:
     """Name the steps the measured gaps call for, not one sentence for every answer."""
     present = {gap for gap in gaps if isinstance(gap, str)}
     authority = "읽기 전용" if korean else "Read-only"
@@ -429,6 +434,27 @@ def _incident_next_step_rows(gaps: list[object], *, korean: bool) -> list[JsonOb
     ]
     if rows:
         return rows
+    if (
+        isinstance(root_cause, Mapping)
+        and root_cause.get("next_safe_step") == "configure_notification_route"
+    ):
+        return [
+            cast(
+                JsonObject,
+                {
+                    "action": (
+                        "notification registry에 운영 알림 채널을 하나 이상 구성한 뒤 전달을 "
+                        "다시 시도하세요."
+                        if korean
+                        else (
+                            "Configure at least one operational-alert channel in the notification "
+                            "registry, then retry delivery."
+                        )
+                    ),
+                    "authority": authority,
+                },
+            )
+        ]
     return [
         cast(
             JsonObject,
@@ -606,7 +632,11 @@ def semantic_presentation_artifact(
                                 {"key": "action", "label": "조치" if korean else "Action"},
                                 {"key": "authority", "label": "권한" if korean else "Authority"},
                             ],
-                            "rows": _incident_next_step_rows(gaps, korean=korean),
+                            "rows": _incident_next_step_rows(
+                                gaps,
+                                korean=korean,
+                                root_cause=root_cause,
+                            ),
                             "status_key": None,
                         },
                     },

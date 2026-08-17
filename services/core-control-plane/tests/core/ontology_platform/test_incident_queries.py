@@ -114,6 +114,33 @@ class _UngroundedIncidentEvidenceReader:
         return (*rows[:-1], hypothesis), truncated
 
 
+class _NotificationRouteIncidentEvidenceReader:
+    def __init__(self, outcome: str) -> None:
+        self._outcome = outcome
+
+    async def list_incident_evidence(
+        self,
+        *,
+        correlation_id: str,
+        limit: int,
+    ) -> tuple[tuple[dict[str, object], ...], bool]:
+        rows, truncated = await _IncidentEvidenceReader().list_incident_evidence(
+            correlation_id=correlation_id,
+            limit=limit,
+        )
+        route = {
+            **rows[-1],
+            "actor": "fdai.core.notifications.router",
+            "action_kind": "notification.route",
+            "entry": {
+                "incident_id": INCIDENT_ID,
+                "outcome": self._outcome,
+                "route_category": "operational_alert",
+            },
+        }
+        return (*rows[:-1], route), truncated
+
+
 async def test_incident_evidence_returns_recorded_grounded_rca() -> None:
     declaration = incident_evidence_function_type()
     release = build_ontology_release(function_types=(declaration,))
@@ -250,6 +277,115 @@ async def test_incident_evidence_does_not_promote_an_uncited_cause() -> None:
     assert result["grounded_citations"] == []
     assert result["cause_claim_supported"] is False
     assert result["evidence_gaps"] == ["root_cause_missing", "grounded_citations_missing"]
+
+
+async def test_incident_evidence_projects_a_recorded_notification_terminal_failure() -> None:
+    declaration = incident_evidence_function_type()
+    release = build_ontology_release(function_types=(declaration,))
+    registry = OntologyFunctionRegistry(release=release)
+    registry.register_contextual(
+        declaration,
+        incident_evidence_function(
+            release,
+            reader=_NotificationRouteIncidentEvidenceReader("route_unresolved"),
+        ),
+    )
+
+    result, _ = await registry.invoke_with_receipt(
+        INCIDENT_EVIDENCE_FUNCTION_NAME,
+        {
+            "incident_id": INCIDENT_ID,
+            "correlation_id": CORRELATION_ID,
+            "limit": 20,
+        },
+        context=FunctionInvocationContext(
+            caller_agent="Bragi",
+            caller_role=CeilingRole.READER,
+            purposes=(INCIDENT_EVIDENCE_PURPOSE,),
+        ),
+    )
+
+    assert isinstance(result, dict)
+    assert result["root_cause"] == {
+        "tier": "t0",
+        "outcome": "grounded",
+        "cause": (
+            "Notification delivery failed because the configured route has no resolvable channels."
+        ),
+        "confidence": 1.0,
+        "reason": "Recorded notification route outcome: route_unresolved.",
+        "remediation_ref": None,
+        "mode": "shadow",
+        "recorded_at": "2026-08-14T09:06:00Z",
+        "causal_hops": [],
+        "next_safe_step": "configure_notification_route",
+    }
+    assert result["impact_evidence"] == [
+        {
+            "metric": "notification_delivery_outcome",
+            "baseline": "delivered",
+            "observed": "route_unresolved",
+            "threshold": "delivered",
+            "unit": "route_outcome",
+            "impact": (
+                "Operational notification delivery did not complete and was escalated for "
+                "human attention."
+            ),
+            "evidence_ref": "audit:3",
+        }
+    ]
+    assert result["grounded_citations"] == [
+        {
+            "tier": "t0",
+            "kind": "event",
+            "ref": "audit:3",
+            "summary": "Recorded notification route outcome: route_unresolved.",
+            "source_at": "2026-08-14T09:06:00Z",
+            "freshness": "recorded",
+            "recorded_at": "2026-08-14T09:06:00Z",
+        }
+    ]
+    assert result["evidence_gaps"] == []
+    assert result["cause_claim_supported"] is True
+    assert result["execution_authority"] is False
+
+
+async def test_incident_evidence_does_not_promote_successful_notification_delivery() -> None:
+    declaration = incident_evidence_function_type()
+    release = build_ontology_release(function_types=(declaration,))
+    registry = OntologyFunctionRegistry(release=release)
+    registry.register_contextual(
+        declaration,
+        incident_evidence_function(
+            release,
+            reader=_NotificationRouteIncidentEvidenceReader("delivered"),
+        ),
+    )
+
+    result, _ = await registry.invoke_with_receipt(
+        INCIDENT_EVIDENCE_FUNCTION_NAME,
+        {
+            "incident_id": INCIDENT_ID,
+            "correlation_id": CORRELATION_ID,
+            "limit": 20,
+        },
+        context=FunctionInvocationContext(
+            caller_agent="Bragi",
+            caller_role=CeilingRole.READER,
+            purposes=(INCIDENT_EVIDENCE_PURPOSE,),
+        ),
+    )
+
+    assert isinstance(result, dict)
+    assert result["root_cause"] is None
+    assert result["impact_evidence"] == []
+    assert result["grounded_citations"] == []
+    assert result["evidence_gaps"] == [
+        "root_cause_missing",
+        "impact_evidence_missing",
+        "grounded_citations_missing",
+    ]
+    assert result["cause_claim_supported"] is False
 
 
 async def test_in_memory_reader_scopes_rows_and_reports_truncation() -> None:

@@ -1866,3 +1866,16 @@ def test_korean_next_step_reads_as_korean_when_several_steps_apply() -> None:
         _incident_next_step_text(["impact_evidence_missing"], korean=True)
         == "변경을 제안하기 전에 영향받은 리소스의 영향 근거를 수집하세요."
     )
+
+
+def test_incident_next_step_names_notification_route_configuration() -> None:
+    root_cause = {"next_safe_step": "configure_notification_route"}
+
+    assert _incident_next_step_text((), korean=False, root_cause=root_cause) == (
+        "Before retrying delivery, configure at least one operational-alert channel in the "
+        "notification registry."
+    )
+    assert _incident_next_step_text((), korean=True, root_cause=root_cause) == (
+        "알림 전달을 다시 시도하기 전에 notification registry에 운영 알림 채널을 하나 이상 "
+        "구성하세요."
+    )

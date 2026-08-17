@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 1a5420c24e86a166f23237f478f85d7317253502
+translation_source_sha: 1a886ec0a6ebfa5492d2226c31254242a8dbdf90
 translation_revised: 2026-08-17
 ---
 
@@ -154,7 +154,7 @@ translation_revised: 2026-08-17
 | T1 명확화 평가 | 구현됨 | `semantic_planning_models.py`, `semantic_planning_cascade.py`, focused tier-routing 및 prompt 검사 | Frame 제안은 누락된 사용자 맥락을 범위가 제한된 `clarification_requirements`로 분류합니다. 정당한 T1 명확화는 T2 없이 종료되고, Core가 이미 바인딩한 principal 범위 또는 용도를 요청하는 제안은 결정론적으로 유효하지 않으며 frame 단계만 T2로 한 번 재시도할 수 있습니다. |
 | 타입 기반 extension 답변 projection | 구현됨 | `semantic_turn_processor.py`, focused Core processor 테스트 | 검증된 `TopologyGraphAt`, `TopologyDiff`, `MetricWindow`, `CausalEvidenceJoin` 출력은 exact digest, 완전성, 개수, 제한 사항 및 `execution_authority=false`가 있는 범위 제한 요약으로 렌더링됩니다. Raw provider payload는 계속 제외하고 evidence reference는 기존 receipt 경로로 전달합니다. |
 | Principal 범위 스키마 인벤토리 | 구현됨 | `core/ontology_platform/manifest_queries.py`, `composition/wire_semantic_query.py`, focused 매니페스트, 핸들러, 조립 및 prompt 검사(`42 passed`) | `query.manifest`는 exact role 및 purpose 필터가 적용된 매니페스트에서 선언 인벤토리 질문에 범위 제한 일반 table과 호출 증적 하나로 답합니다. 임의 관계 또는 인스턴스 조회로 대체하지 않습니다. |
-| 인시던트 의미 근거 | 구현됨 | `core/incident/ontology_projection.py`, `core/ontology_platform/incident_queries.py`, focused Core, Operator 및 Console 검사(`138 passed`) | Canonical 인시던트 상태를 ObjectSet으로 조회할 수 있고 T0는 측정값을 지어내지 않고 범위가 제한된 발견 사항 심각도 영향 행 하나를 기록하며, `query.incident_evidence`는 서로 다른 canonical 인시던트 신원과 감사 상관관계 신원을 보존하면서 감사 기반 프로파일, 상관 기록, 인용으로 근거를 확인한 기록된 근본 원인, 영향 근거, 인용 및 명시적 공백을 반환합니다. 경로는 읽기 전용이며 실행 권한을 부여하지 않습니다. 인증된 Console 근거는 아직 남아 있습니다. |
+| 인시던트 의미 근거 | 구현됨 | `core/incident/ontology_projection.py`, `core/ontology_platform/incident_queries.py`, focused Core, Operator 및 Console 검사 | Canonical 인시던트 상태를 ObjectSet으로 조회할 수 있고 T0는 범위가 제한된 영향 근거를 기록하며, `query.incident_evidence`는 서로 다른 canonical 인시던트 신원과 감사 상관관계 신원을 보존하면서 감사 기반 프로파일, 상관 기록, 인용으로 근거를 확인한 기록된 근본 원인 또는 허용 목록의 결정론적 최종 실패, 영향 근거, 인용 및 명시적 공백을 반환합니다. 경로는 읽기 전용이며 실행 권한을 부여하지 않습니다. 인증된 Console 근거는 아직 남아 있습니다. |
 
 ### 구현 이력
 
@@ -195,6 +195,8 @@ translation_revised: 2026-08-17
 | 2026-08-16 | 구현됨 | 한국어 다음 안전 단계가 한국어 문장으로 읽히게 했습니다. 측정한 공백이 여러 개일 때 경어 명령문을 쉼표로 이어 붙여 한국어 문장이 아니었으므로, 여러 단계는 도입 문구로 시작해 각각 독립된 문장이 됩니다. | `current change`, focused 처리기 검사 60개 통과, 새 사례가 단일 단계와 복수 단계 형태를 모두 고정 | 이 행에 남은 작업은 없습니다. |
 | 2026-08-17 | implemented | 인시던트 의미 경로를 통해 기록된 grounded RCA, 영향 근거 및 인용을 노출했습니다. T0는 기존 발견 사항 심각도와 리소스 타입 범위를 영향 근거로 기록하고 알 수 없는 측정값은 비워 둡니다. Core 변환 결과는 일치하는 인용이 포함된 grounded 가설이 있어야 원인을 지원하며, Operator와 Console은 액션 권한을 추가하지 않고 두 언어로 세 근거 섹션을 렌더링합니다. | `current change`; focused Core, Operator 및 Console 검사 138개 통과, Ruff, strict mypy 및 Console typecheck 통과 | 기록된 RCA 인시던트와 명시적 근거 공백이 있는 인시던트에 대해 인증된 Browser 근거를 보존합니다. |
 | 2026-08-17 | implemented | Append, lease claim, 요청 조회 및 변환 결과 소유권을 하나의 Operator 실행에 묶는 선택적 영속 semantic outbox 네임스페이스를 추가했습니다. 기본 네임스페이스는 운영과 byte-compatible하게 유지합니다. 격리된 보증 Operator는 실행 id를 사용하므로 동시에 실행 중인 표준 Operator가 측정 요청을 다른 Core 세대를 통해 게시할 수 없습니다. | `current change`, focused Operator bridge, composition 및 supervisor 검사 114개 통과, 작업 범위 Ruff 및 strict mypy 통과 | Seed 기반 집단을 시작하기 전에 중앙 검증된 네임스페이스 runner에서 새로운 엄격한 아티팩트를 보존합니다. |
+
+| 2026-08-17 | implemented | 허용 목록의 알림 최종 실패를 정확한 감사 행에서 변환해 활성 인시던트의 세 근거 공백을 닫았습니다. `route_unresolved`, `trust_mismatch`, `escalated_to_hil`은 범위가 제한된 T0 원인, 영향 및 인용 레코드를 만들며 성공하거나 알 수 없는 결과는 만들지 않습니다. | `current change`; focused 인시던트, 의미 처리기 및 Operator 표현 검사 133개 통과, Ruff 및 strict mypy 통과 | Exact-source 로컬 스택을 재시작하고 인증된 positive 경로 근거를 보존합니다. |
 
 ### 남은 작업
 

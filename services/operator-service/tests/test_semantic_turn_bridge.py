@@ -2200,6 +2200,39 @@ def test_incident_presentation_surfaces_the_recorded_activity_timeline() -> None
     ]
 
 
+def test_incident_presentation_names_notification_route_configuration() -> None:
+    projection = _incident_projection(
+        [_audit_record(0)],
+        {"status": "mitigated", "severity": "sev2"},
+    )
+    output = projection["payload"]["technical_details"]["outputs"][0]
+    output["root_cause"] = {
+        "cause": "The configured route has no resolvable channels.",
+        "next_safe_step": "configure_notification_route",
+    }
+    output["impact_evidence"] = []
+    output["grounded_citations"] = []
+    output.pop("causal_assessment")
+
+    done = semantic_turn_runtime_module._done_event_data(projection, locale="en")
+
+    artifact = cast(dict[str, object], done["presentation_artifact"])
+    blocks = cast(list[dict[str, object]], artifact["blocks"])
+    findings = cast(
+        dict[str, object],
+        next(block["data"] for block in blocks if block["slot_id"] == "findings"),
+    )
+    assert findings["rows"] == [
+        {
+            "action": (
+                "Configure at least one operational-alert channel in the notification registry, "
+                "then retry delivery."
+            ),
+            "authority": "Read-only",
+        }
+    ]
+
+
 def test_incident_presentation_keeps_the_same_blocks_in_korean() -> None:
     """Only the live gate pinned the Korean order, and it skips without an external stack."""
     projection = _incident_projection(

@@ -1324,9 +1324,27 @@ def incident_next_step_actions(
     )
 
 
-def _incident_next_step_text(gaps: Sequence[str], *, korean: bool) -> str:
+def _incident_next_step_text(
+    gaps: Sequence[str],
+    *,
+    korean: bool,
+    root_cause: object = None,
+) -> str:
     actions = incident_next_step_actions(gaps, korean=korean)
     if not actions:
+        if (
+            isinstance(root_cause, Mapping)
+            and root_cause.get("next_safe_step") == "configure_notification_route"
+        ):
+            return (
+                "알림 전달을 다시 시도하기 전에 notification registry에 운영 알림 채널을 "
+                "하나 이상 구성하세요."
+                if korean
+                else (
+                    "Before retrying delivery, configure at least one operational-alert channel "
+                    "in the notification registry."
+                )
+            )
         return (
             "상관된 감사 근거가 완전합니다. 변경을 제안하기 전에 기록된 활동을 검토하세요."
             if korean
@@ -1597,7 +1615,7 @@ def _render_incident_answer(
             "## 제한 사항\n\n"
             f"- 누락된 근거: {missing}\n\n"
             "## 다음 안전 단계\n\n"
-            f"{_incident_next_step_text(gap_values, korean=True)} "
+            f"{_incident_next_step_text(gap_values, korean=True, root_cause=root_cause)} "
             "이 결과는 읽기 전용이며 실행 권한을 부여하지 않습니다."
         )
     evidence_label = "record was" if evidence_count == 1 else "records were"
@@ -1629,7 +1647,7 @@ def _render_incident_answer(
         "## Limitations\n\n"
         f"- Missing evidence: {missing}\n\n"
         "## Next safe step\n\n"
-        f"{_incident_next_step_text(gap_values, korean=False)} "
+        f"{_incident_next_step_text(gap_values, korean=False, root_cause=root_cause)} "
         "This result is read-only and grants no execution authority."
     )
 
