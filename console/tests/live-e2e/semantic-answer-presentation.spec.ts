@@ -96,6 +96,7 @@ function incidentContract(terminal: CapturedTerminal) {
   const outputs = array(technicalRecord.outputs, "technical output outputs");
   const incident = object(outputs[0], "technical incident output");
   const profile = object(incident.incident_profile, "incident profile");
+  const correlated = array(incident.correlated_evidence, "correlated evidence");
   const nextStep = object(incident.next_safe_step, "next safe step");
   const blocks = array(presentation.blocks, "presentation blocks").map((value, index) =>
     object(value, `presentation blocks[${index}]`)
@@ -115,6 +116,7 @@ function incidentContract(terminal: CapturedTerminal) {
     verification,
     context,
     profile,
+    correlated,
     nextStep,
     technical,
     blocks,
@@ -245,16 +247,18 @@ test("authenticated Korean incident answer retains progressive presentation thro
   ]);
   expect(firstContract.answer).toContain("검증된 인시던트 근거");
   expect(firstContract.answer).not.toContain("```json");
-  expect(firstContract.blocks.map((block) => block.slot_id)).toEqual([
-    "overview",
-    "limitations",
-    "findings",
-  ]);
-  expect(firstContract.blocks.map((block) => block.title)).toEqual([
-    "검증된 인시던트 근거",
-    "제한 사항",
-    "다음 안전 단계",
-  ]);
+  // The recorded-activity timeline ships whenever the read returned rows, so the
+  // expectation is derived from that evidence instead of a fixed block count.
+  const expectedSlots = firstContract.correlated.length > 0
+    ? ["overview", "records", "limitations", "findings"]
+    : ["overview", "limitations", "findings"];
+  const expectedTitles = firstContract.correlated.length > 0
+    ? ["검증된 인시던트 근거", "기록된 활동", "제한 사항", "다음 안전 단계"]
+    : ["검증된 인시던트 근거", "제한 사항", "다음 안전 단계"];
+  expect(firstContract.blocks.map((block) => block.slot_id)).toEqual(expectedSlots);
+  expect(
+    firstContract.blocks.map((block) => text(block.title, "block title").split(" (")[0]),
+  ).toEqual(expectedTitles);
   expect(firstContract.nextStep).toEqual({
     operation: "collect_evidence",
     authority: "read_only",
