@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: c9d8ea85cbc6619445573ce25712fb0fae55f013
+translation_source_sha: 21450ff08bd3833b12a6c4ad10e8c458d8732dd8
 translation_revised: 2026-08-17
 ---
 
@@ -211,6 +211,7 @@ translation_revised: 2026-08-17
 | 2026-08-17 | implemented | `validate` frame을 `evidence_validation` 출력 계열에 묶고 topology cutoff 순서 검증을 deterministic plan 검증 단계로 이동했습니다. 잘못 분류된 근거 요청은 frame만 다시 시도한 뒤 Core가 principal 범위 ObjectSet을 구성하며, event cutoff가 knowledge cutoff보다 늦은 topology snapshot은 프로바이더 실행 전에 거부됩니다. 비어 있거나 불완전한 보존 history는 계속 타입이 지정된 불완전 근거를 반환하며 합성되지 않습니다. | `current change`, focused 의미 계획 및 query verifier 검사 41개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 중앙 검증을 확보한 뒤 runner가 seed 기반 집단을 시작하기 전에 strict 14/14 답변 및 완전 근거 아티팩트 하나를 보존합니다. |
 | 2026-08-17 | implemented | Exact-source strict 근거에서 evidence-completeness 요청 하나가 server-owned evidence plan 대신 범위가 제한된 plan 제안으로 진행된 뒤 semantic frame prompt를 v10으로 올렸습니다. Prompt는 complete-scope 및 evidence-gap 검증에 operation `validate`와 output shape `evidence_validation`을 함께 요구하며 기존 deterministic 양방향 frame guard가 계속 authoritative 경계입니다. | `current change`, focused prompt 레지스트리 회귀 통과 | 중앙 검증을 확보한 뒤 runner가 seeded를 시작하기 전에 strict 14/14 답변 및 완전 근거 아티팩트를 보존합니다. |
 | 2026-08-17 | implemented | 다음 strict 실행에서 유일한 unsupported cell이 temporal comparison으로 이동한 뒤 semantic plan prompt를 v11로 올렸습니다. Prompt는 trusted cutoff가 있는 dependency-free `topology_at` source 두 개와 baseline-then-current `topology_diff` output 하나로 구성된 일반 three-node topology-diff DAG를 고정합니다. 질문 route나 프로바이더 데이터는 추가하지 않습니다. | `current change`, focused prompt 레지스트리 회귀 통과 | 중앙 검증을 확보한 뒤 seeded 시작 전에 strict 14/14 근거를 보존합니다. |
+| 2026-08-17 | implemented | 타입이 지정된 `validate` 및 `evidence_validation` frame에 남은 principal-scope subject clarification만 해소했습니다. Core는 기존 readable `Resource` descriptor를 bind하고 동일한 secured ObjectSet을 구성합니다. Concrete subject 또는 다른 clarification category는 계속 unresolved 상태입니다. | `current change`, focused positive 및 negative tier 라우팅 회귀 통과 | 중앙 검증을 확보한 뒤 seeded 시작 전에 strict 14/14 근거를 보존합니다. |
 
 ### 남은 작업
 
