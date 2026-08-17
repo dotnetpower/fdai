@@ -122,7 +122,7 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     frame = prompts.get_base("semantic.query.frame")
     plan = prompts.get_base("semantic.query.plan")
 
-    assert frame.version == 10
+    assert frame.version == 11
     assert "output_shape to exactly one capability family" in frame.body
     assert "aggregation_table for a count or grouping" in frame.body
     assert "topology_graph for current instance connectivity or containment" in frame.body
@@ -149,6 +149,12 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert (
         "MUST use operation validate together with output_shape evidence_validation" in frame.body
     )
+    assert "audit the requested answer rather than the subject nouns" in frame.body
+    assert (
+        "Any requested cardinality, total, count, or grouping MUST use aggregation_table"
+        in frame.body
+    )
+    assert "evidence is sufficient, complete, missing, or independently verified" in frame.body
     assert "instead of clarification" in frame.body
     assert "Do not select that function for instance listing" in frame.body
     assert "query.incident_evidence" in frame.body

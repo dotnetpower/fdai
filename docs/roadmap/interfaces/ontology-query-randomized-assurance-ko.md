@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-randomized-assurance.md
-translation_source_sha: 064eede726ea883bec4fbd6bf4846f577de326e0
-translation_revised: 2026-08-17
+translation_source_sha: 40ebabe5fff62b633e68212bae5a17c3b0c3a32e
+translation_revised: 2026-08-18
 ---
 # 온톨로지 쿼리 무작위 보증
 
@@ -221,6 +221,7 @@ Core
 | 2026-08-17 | in-progress | 중앙 검증된 source `723ed3f280ac0c94a8f23ce6d2d7d37057dbeb28`에서 strict를 한 번 실행했습니다. Live cell 14개가 resumed cell 없이 모두 완료됐고 evidence validation은 두 언어에서 답변했으며 13개 cell이 근거가 완전한 답변이었습니다. `en-temporal_comparison-1`만 범위가 제한된 두 plan tier가 deterministic 검증에 실패한 뒤 unsupported로 끝났습니다. Seeded는 계속 차단됐습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-723ed3f280-20260817T130507Z`, exact transport 및 safety gate를 유지한 strict 프로세스 상태 0 | Prompt v11을 중앙 검증한 뒤 seeded 시작 전에 새로운 strict 14/14 아티팩트를 보존합니다. |
 | 2026-08-17 | in-progress | 중앙 검증된 source `8d7a489fba0fffba05b0a5f64f791ebefe9c8035`에서 strict를 한 번 실행했습니다. Live cell 14개가 resumed cell 없이 모두 완료됐고 두 temporal cell이 답변했으며 13개 cell이 근거가 완전한 답변이었습니다. `en-evidence_validation-2`만 subject clarification을 요청했습니다. Seeded는 변경 불가능 answer gate로 계속 차단됐습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-8d7a489fba-20260817T132141Z`, exact transport, safety 및 capability-match counter 유지 | Principal-scope clarification resolver를 중앙 검증한 뒤 seeded 시작 전에 새로운 strict 14/14 아티팩트를 보존합니다. |
 | 2026-08-17 | in-progress | 중앙 검증된 source `4ef64c64ac4aff4091de3728aa2e5284ffac7da9`에서 strict를 한 번 실행했습니다. Live cell 14개가 resumed cell 없이 모두 완료됐고 exact transport 및 safety counter를 유지했으며 12개 cell이 근거가 완전한 답변이었습니다. `en-causal_analysis-1`은 plan 선택 전에 unsupported로 끝났고 `en-evidence_validation-2`는 resource-identity clarification을 요청해 변경 불가능 gate가 seeded를 차단했습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-4ef64c64ac-20260817T134627Z`, strict 프로세스 상태 0 및 partial artifact 승격 없음 | Causal frame 및 evidence-identity guard를 중앙 검증한 뒤 seeded 시작 전에 새로운 strict 14/14 아티팩트를 보존합니다. |
+| 2026-08-18 | in-progress | 중앙 검증된 source `69d9ec870f27d6569897ac9d023d3e38b61e4ebc`에서 strict를 한 번 실행했습니다. Live cell 14개가 resumed cell 없이 모두 완료됐고 transport retry, 지원되지 않는 운영 주장, 권한 없는 실행, ambient request 및 bound request는 모두 0건이었습니다. Causal 및 temporal cell은 답변했지만 `en-evidence_validation-2`는 unsupported 상태였고 `en-aggregation-3`은 필요한 aggregate capability 없이 `query.manifest`를 통해 답변했습니다. 아티팩트는 답변 13개, 완전 근거 답변 12개 및 plan-capability 불일치 1건을 보존해 seeded가 시작되지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-69d9ec870f-20260817T142522Z`, partial artifact 승격 없음 | Frame prompt v11을 중앙 검증한 뒤 seeded 시작 전에 새로운 strict 14/14 아티팩트를 보존합니다. |
 
 ### 남은 작업
 
