@@ -154,6 +154,15 @@ class StoredReplayEvent:
     data: Mapping[str, object]
 
 
+@dataclass(frozen=True, slots=True)
+class StoredStateRecord:
+    """One authoritative state record with the write time that orders its replay."""
+
+    key: str
+    value: Mapping[str, object]
+    updated_at: datetime
+
+
 class PostgresFamilyStore:
     """Read projections and atomically append proposal-only outbox records."""
 
@@ -248,6 +257,31 @@ class PostgresFamilyStore:
                 f"authoritative {family} projection is unavailable for {operation}"
             )
         return _json_object(rows[0].get("value"), label=key)
+
+    async def read_state_page(self, *, prefix: str, limit: int) -> tuple[StoredStateRecord, ...]:
+        """Read a bounded newest-first page of authoritative records under one key prefix."""
+        if not prefix.strip():
+            raise ValueError("state prefix MUST be a bounded non-empty string")
+        if not 1 <= limit <= 1_000:
+            raise ValueError("state page limit MUST be between 1 and 1000")
+        rows = await self._fetch_all(
+            """
+            SELECT key, value, updated_at
+              FROM state_kv
+             WHERE key LIKE %(prefix)s ESCAPE '\\'
+             ORDER BY updated_at DESC, key DESC
+             LIMIT %(limit)s
+            """,
+            {"prefix": f"{_escape_like(prefix)}%", "limit": limit},
+        )
+        return tuple(
+            StoredStateRecord(
+                key=str(row.get("key") or ""),
+                value=_json_object(row.get("value"), label=prefix),
+                updated_at=_stored_timestamp(row.get("updated_at"), label=prefix),
+            )
+            for row in rows
+        )
 
     async def search_conversation_turns(
         self,
@@ -1056,6 +1090,10 @@ class UnavailablePostgresFamilyStore(PostgresFamilyStore):
         del family, operation
         raise PostgresFamilyStoreUnavailable("authoritative projection is unavailable")
 
+    async def read_state_page(self, *, prefix: str, limit: int) -> tuple[StoredStateRecord, ...]:
+        del prefix, limit
+        raise PostgresFamilyStoreUnavailable("authoritative PostgreSQL state is unavailable")
+
     async def read_rule_search_projection(
         self,
         *,
@@ -1171,6 +1209,12 @@ def _projection_key(family: str, operation: str) -> str:
     return f"{_PROJECTION_PREFIX}{family}:{operation}"
 
 
+def _stored_timestamp(value: object, *, label: str) -> datetime:
+    if isinstance(value, datetime):
+        return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+    raise PostgresFamilyStoreUnavailable(f"{label} record has no write timestamp")
+
+
 def _proposal_key(family: str, idempotency_key: str) -> str:
     _bounded_component("family", family)
     if not idempotency_key.strip() or len(idempotency_key) > 256:
@@ -1228,5 +1272,6 @@ __all__ = [
     "StoredReplayEvent",
     "StoredSemanticResult",
     "StoredSemanticTurn",
+    "StoredStateRecord",
     "UnavailablePostgresFamilyStore",
 ]

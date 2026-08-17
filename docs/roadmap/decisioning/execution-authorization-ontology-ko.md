@@ -1,7 +1,7 @@
 ---
 translation_of: execution-authorization-ontology.md
-translation_source_sha: b898ee1b20ada5cf367d45c1dd5e88f499d790a9
-translation_revised: 2026-08-16
+translation_source_sha: 69f934288a94cb8aadb9b6a961513b1c5b667ac7
+translation_revised: 2026-08-17
 ---
 # 실행 권한 부여 온톨로지
 
@@ -37,6 +37,7 @@ translation_revised: 2026-08-16
 | 보수적 해석과 effective-access 평가 | implemented | [`test_resolver.py`](../../../services/core-control-plane/tests/core/execution_authorization/test_resolver.py), [`test_evaluator.py`](../../../services/core-control-plane/tests/core/execution_authorization/test_evaluator.py) | Prohibit가 우선하고 제약이 교차 적용되며 누락되거나 충돌하는 근거는 권한을 부여하지 않습니다. |
 | Exact 권한 부여 lifecycle과 역할 분리 | implemented | [`test_grant_request.py`](../../../services/core-control-plane/tests/core/execution_authorization/test_grant_request.py) | 승인, 적용, 검증, 만료, 취소, idempotency 및 서로 다른 행위자를 집중 검사로 확인합니다. |
 | 컨트롤 루프와 직접 실행기 통합 | implemented | [`test_unified_control_loop.py`](../../../services/core-control-plane/tests/pipeline/test_unified_control_loop.py), [`test_direct_api_executor.py`](../../../services/core-control-plane/tests/core/executor/test_direct_api_executor.py) | 권한 부여는 일반 위험 및 dispatch 권한보다 먼저 독립적인 fail-closed 결정으로 유지됩니다. |
+| 역할로 거르는 보류 권한 부여 브라우저 변환 결과 | implemented | [`postgres_iam.py`](../../../services/operator-service/src/fdai_operator_service/postgres_iam.py), [`test_operator_service_postgres.py`](../../../services/operator-service/tests/test_operator_service_postgres.py), focused Operator suite 374건 통과 및 인증된 로컬 세션에서 `GET /access-grants/stream`이 200 반환 | Operator는 권위 있는 `execution-authorization:grant-request:` 레코드를 읽고 인증된 검토자 기준으로 걸러낸 뒤 변환합니다. 요청자는 자신의 요청을 볼 수 없으며, 브라우저 레코드는 요청자, 실행 신원, 프로바이더 대응, 결정 및 apply-plan digest를 계속 생략합니다. |
 | 배포 정책, 신원 및 프로바이더 바인딩 | not-applicable | [확장 및 배포 경계](#확장-및-배포-경계) | 실제 정책 bundle, 신원, 범위, 관측 및 프로바이더 대응은 업스트림 구현이 아니라 배포가 소유하는 입력입니다. |
 
 ### 구현 이력
@@ -45,12 +46,16 @@ translation_revised: 2026-08-16
 |------|------|------|------|-----------|
 | 2026-08-13 | implemented | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | 구현 범위 표의 현재 소스 경계와 집중 검사입니다. | 이 문서의 범위가 제한된 업스트림 구현에는 남은 작업이 없습니다. |
 | 2026-08-16 | implemented | 문서가 밝히지 않았던, 제공되는 강제 기본값을 기록했습니다. 컨트롤 루프 통합은 실재하지만 `execution_authorization_evaluator` 의 기본값은 `None`, `execution_authorization_required` 의 기본값은 `False` 이고 이를 설정하는 것은 `bind_execution_authorization` 뿐이므로, 기본 배포는 이 게이트가 작동하지 않는 상태로 동작합니다. 구현 범위 행은 바뀌지 않습니다. 배포 소유 연결은 이미 이 문서의 범위 밖으로 선언되어 있고, 누락된 것은 기본값 자체였기 때문입니다. | `current change`; 두 필드를 정의하는 `composition/_helpers.py`; `execution_authorization_evaluator=` 및 `execution_authorization_required=`를 각각 검색하면 `wire_execution_authorization.py`와 `control_loop.py`의 두 읽기만 일치합니다. | 배포 경로에서 이 경계를 연결하거나, 연결을 배포 소유로 유지한다는 결정을 기록합니다. |
+| 2026-08-17 | implemented | 역할로 거르는 보류 권한 부여 브라우저 변환 결과가 구현되었다는 2026-07-31 진술을 바로잡았습니다. Operator는 이 리포지토리의 어떤 코드도 쓴 적 없는 `operator-projection:iam:access-grants.snapshot` 키를 읽었고, 그 결과 `GET /access-grants/stream`은 모든 장소에서 재연결할 때마다 HTTP 503으로 fail-closed 되었습니다. 또한 어댑터가 `reviewer_ref`와 `reviewer_roles`를 무시했기 때문에, 그 키를 작성된 대로 만들었다면 모든 검토자에게 자신의 요청까지 노출되어 자기 승인 금지 경계가 깨졌을 것입니다. 이제 Operator는 범위가 제한된 접두사 스캔으로 권위 있는 권한 부여 요청 레코드를 읽고 보류, 만료, 요청자 및 승인자 역할 필터를 자신의 경계에서 적용합니다. | `current change`, `postgres_family_store.py`, `postgres_iam.py`, `test_operator_service_postgres.py`, focused Operator suite 374건 통과 및 1건 건너뜀, 변경된 소스에 대해 Ruff와 strict mypy 통과, 인증된 로컬 세션이 `GET /access-grants/stream`의 200 응답과 재연결 루프 없음을 관측 | 배포 환경에 실제 권한 부여 요청이 생기면 같은 스트림을 배포된 개정 번호로 관측해 기록합니다. |
 
 ### 남은 작업
 
 - [x] 업스트림 실행 권한 부여 범위는 위에 나열된 strict-loader, resolver, evaluator,
   권한 부여 lifecycle, 컨트롤 루프 및 직접 실행기 집중 검사로 구현되고 유지됩니다. 배포가
   소유하는 바인딩은 이 문서의 구현 범위 밖에 있습니다.
+- [ ] 배포 환경에서 `GET /access-grants/stream`이 검토자 범위로 거른 보류 권한 부여를
+  반환하는 것을 관측해, 브라우저 검토 경로가 로컬 근거만이 아니라 배포된 개정 번호 근거를
+  갖도록 합니다 ([#152](https://github.com/dotnetpower/fdai/issues/152)).
 
 ## 설계 개요
 
