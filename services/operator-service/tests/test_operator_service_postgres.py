@@ -7,6 +7,8 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
+from fdai_operator_service.families.iam.contracts import AccessGrantSnapshotQuery
+from fdai_operator_service.families.iam.errors import IamUnavailableError
 from fdai_operator_service.incident_projection import incident_outcome_metrics, incident_summary
 from fdai_operator_service.postgres import (
     PostgresOperatorReadModel,
@@ -19,6 +21,7 @@ from fdai_operator_service.postgres import (
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     PostgresFamilyStoreConfig,
+    StoredStateRecord,
 )
 from fdai_operator_service.postgres_iam import PostgresIamAdapters
 from fdai_operator_service.postgres_sql import (
@@ -46,6 +49,7 @@ from fdai_service_contracts import (
 )
 
 _NOW = datetime(2026, 8, 8, tzinfo=UTC)
+_GRANT_EXPIRY = datetime(2099, 1, 1, tzinfo=UTC)
 
 
 class ReadinessPostgresFamilyStore(PostgresFamilyStore):
@@ -85,6 +89,137 @@ class ProjectionPostgresFamilyStore(PostgresFamilyStore):
     async def read_projection(self, *, family: str, operation: str) -> dict[str, object]:
         assert (family, operation) == ("iam", "model-settings")
         return self.payload
+
+
+class AccessGrantStatePostgresFamilyStore(PostgresFamilyStore):
+    """Return authoritative grant-request records without opening PostgreSQL."""
+
+    def __init__(self, records: tuple[StoredStateRecord, ...]) -> None:
+        super().__init__(
+            PostgresFamilyStoreConfig(
+                dsn="postgresql://example.invalid/db",
+                role="fdai_operator",
+            )
+        )
+        self.records = records
+        self.prefixes: list[str] = []
+
+    async def read_state_page(self, *, prefix: str, limit: int) -> tuple[StoredStateRecord, ...]:
+        self.prefixes.append(prefix)
+        return self.records[:limit]
+
+
+def _grant_state(
+    request_id: str,
+    *,
+    requester_ref: str,
+    approver_roles: list[str],
+    status: str = "pending",
+    expires_at: datetime = _GRANT_EXPIRY,
+    updated_at: datetime = _NOW,
+) -> StoredStateRecord:
+    return StoredStateRecord(
+        key=f"execution-authorization:grant-request:{request_id}",
+        value={
+            "request_id": request_id,
+            "original_action_id": f"action-{request_id}",
+            "capability_id": "ops.scale-out",
+            "scope_ref": "scope://subscription/resource-group",
+            "grant_mode": "exact",
+            "requested_at": _NOW.isoformat(),
+            "expires_at": expires_at.isoformat(),
+            "quorum": 2,
+            "status": status,
+            "revision": 1,
+            "requester_ref": requester_ref,
+            "approver_roles": approver_roles,
+        },
+        updated_at=updated_at,
+    )
+
+
+@pytest.mark.asyncio
+async def test_access_grant_snapshot_hides_requests_the_reviewer_may_not_review() -> None:
+    store = AccessGrantStatePostgresFamilyStore(
+        (
+            _grant_state("reviewable", requester_ref="alice", approver_roles=["Approver"]),
+            _grant_state("self-owned", requester_ref="Bob", approver_roles=["Approver"]),
+            _grant_state("other-role", requester_ref="alice", approver_roles=["Owner"]),
+            _grant_state(
+                "already-decided",
+                requester_ref="alice",
+                approver_roles=["Approver"],
+                status="approved",
+            ),
+            _grant_state(
+                "expired",
+                requester_ref="alice",
+                approver_roles=["Approver"],
+                expires_at=datetime(2026, 8, 7, tzinfo=UTC),
+            ),
+        )
+    )
+
+    snapshot = await PostgresIamAdapters(store).snapshot(
+        AccessGrantSnapshotQuery(
+            reviewer_ref="bob",
+            reviewer_roles=frozenset({"approver"}),
+            after_sequence=None,
+        )
+    )
+
+    assert store.prefixes == ["execution-authorization:grant-request:"]
+    assert [item.request_id for item in snapshot.requests] == ["reviewable"]
+    assert snapshot.requests[0].correlation_id == "action-reviewable"
+    assert "requester_ref" not in snapshot.requests[0].to_dict()
+    assert "approver_roles" not in snapshot.requests[0].to_dict()
+
+
+@pytest.mark.asyncio
+async def test_access_grant_snapshot_without_reviewer_roles_shows_nothing() -> None:
+    store = AccessGrantStatePostgresFamilyStore(
+        (_grant_state("reviewable", requester_ref="alice", approver_roles=["Approver"]),)
+    )
+
+    snapshot = await PostgresIamAdapters(store).snapshot(
+        AccessGrantSnapshotQuery(
+            reviewer_ref="bob",
+            reviewer_roles=frozenset(),
+            after_sequence=None,
+        )
+    )
+
+    assert snapshot.requests == ()
+
+
+@pytest.mark.asyncio
+async def test_access_grant_snapshot_is_empty_rather_than_unavailable_without_records() -> None:
+    snapshot = await PostgresIamAdapters(AccessGrantStatePostgresFamilyStore(())).snapshot(
+        AccessGrantSnapshotQuery(
+            reviewer_ref="bob",
+            reviewer_roles=frozenset({"approver"}),
+            after_sequence=None,
+        )
+    )
+
+    assert snapshot.sequence == 0
+    assert snapshot.requests == ()
+
+
+@pytest.mark.asyncio
+async def test_access_grant_snapshot_rejects_a_backwards_replay_cursor() -> None:
+    store = AccessGrantStatePostgresFamilyStore(
+        (_grant_state("reviewable", requester_ref="alice", approver_roles=["Approver"]),)
+    )
+
+    with pytest.raises(IamUnavailableError):
+        await PostgresIamAdapters(store).snapshot(
+            AccessGrantSnapshotQuery(
+                reviewer_ref="bob",
+                reviewer_roles=frozenset({"approver"}),
+                after_sequence=int(_NOW.timestamp() * 1_000_000) + 1,
+            )
+        )
 
 
 def test_sqlalchemy_psycopg_dsn_is_normalized_for_direct_driver_use() -> None:

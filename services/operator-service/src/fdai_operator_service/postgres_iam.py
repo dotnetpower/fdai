@@ -45,10 +45,13 @@ from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStoreUnavailable,
     PostgresProposalConflict,
     StoredProposal,
+    StoredStateRecord,
 )
 
 _HIL_PARK_PREFIX = "hil_park:"
 _HIL_DECISION_PREFIX = "operator-hil-decision:"
+_ACCESS_GRANT_PREFIX = "execution-authorization:grant-request:"
+_ACCESS_GRANT_SCAN_LIMIT = 1_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,19 +61,23 @@ class PostgresIamAdapters:
     store: PostgresFamilyStore
 
     async def snapshot(self, query: AccessGrantSnapshotQuery) -> AccessGrantSnapshot:
-        """Read the authoritative access-grant snapshot for SSE replay."""
-        payload = await self._projection("access-grants.snapshot")
-        sequence = _integer(payload, "sequence")
+        """Read the reviewer-scoped access-grant snapshot for SSE replay."""
+        records = await self._state_page(_ACCESS_GRANT_PREFIX, _ACCESS_GRANT_SCAN_LIMIT)
+        generated_at = datetime.now(tz=UTC)
+        sequence = _snapshot_sequence(records)
         if query.after_sequence is not None and sequence < query.after_sequence:
             raise IamUnavailableError("access-grant projection replay moved backwards")
-        generated_at = _datetime(payload.get("generated_at"), "generated_at")
-        raw_requests = payload.get("requests", [])
-        if not isinstance(raw_requests, list):
-            raise IamUnavailableError("access-grant projection requests are malformed")
+        reviewer = query.reviewer_ref.casefold()
+        reviewer_roles = {role.casefold() for role in query.reviewer_roles}
+        visible = [
+            _access_grant(record.value)
+            for record in records
+            if reviewer_roles and _reviewable(record.value, reviewer, reviewer_roles, generated_at)
+        ]
         return AccessGrantSnapshot(
             sequence=sequence,
             generated_at=generated_at,
-            requests=tuple(_access_grant(item) for item in raw_requests[: query.limit]),
+            requests=tuple(visible[: query.limit]),
         )
 
     async def decide(self, command: AccessGrantDecisionCommand) -> AccessGrantDecisionResult:
@@ -397,6 +404,12 @@ class PostgresIamAdapters:
         except PostgresFamilyStoreUnavailable as exc:
             raise IamUnavailableError("authoritative IAM state is unavailable") from exc
 
+    async def _state_page(self, prefix: str, limit: int) -> tuple[StoredStateRecord, ...]:
+        try:
+            return await self.store.read_state_page(prefix=prefix, limit=limit)
+        except PostgresFamilyStoreUnavailable as exc:
+            raise IamUnavailableError("authoritative IAM state is unavailable") from exc
+
 
 def _submit_operation(command: object) -> str:
     if isinstance(command, AccessRequestCommand):
@@ -480,7 +493,7 @@ def _access_grant(value: object) -> AccessGrantRecord:
         raise IamUnavailableError("access-grant projection item is malformed")
     return AccessGrantRecord(
         request_id=str(value.get("request_id") or ""),
-        correlation_id=str(value.get("correlation_id") or ""),
+        correlation_id=str(value.get("original_action_id") or ""),
         capability_id=str(value.get("capability_id") or ""),
         scope_ref=str(value.get("scope_ref") or ""),
         grant_mode=str(value.get("grant_mode") or ""),
@@ -490,6 +503,30 @@ def _access_grant(value: object) -> AccessGrantRecord:
         status=str(value.get("status") or ""),
         revision=int(value.get("revision", 0)),
     )
+
+
+def _snapshot_sequence(records: Sequence[StoredStateRecord]) -> int:
+    """Derive a non-decreasing replay cursor from the newest authoritative write time."""
+    return max((int(record.updated_at.timestamp() * 1_000_000) for record in records), default=0)
+
+
+def _reviewable(
+    value: Mapping[str, object],
+    reviewer: str,
+    reviewer_roles: set[str],
+    now: datetime,
+) -> bool:
+    """Report whether one authoritative grant request is reviewable by this principal."""
+    if str(value.get("status") or "") != "pending":
+        return False
+    if _datetime(value.get("expires_at"), "expires_at") <= now:
+        return False
+    if str(value.get("requester_ref") or "").casefold() == reviewer:
+        return False
+    approver_roles = value.get("approver_roles")
+    if not isinstance(approver_roles, list):
+        raise IamUnavailableError("access-grant approver roles are malformed")
+    return bool(reviewer_roles.intersection(str(role).casefold() for role in approver_roles))
 
 
 def _directory_identity(value: Mapping[str, Any]) -> DirectoryIdentity:
