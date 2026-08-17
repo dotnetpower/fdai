@@ -111,3 +111,43 @@ def test_mock_and_authoritative_catalog_topologies_are_identical() -> None:
     authoritative = materializer.catalog_snapshots(REPO_ROOT)[materializer.ONTOLOGY_GRAPH_KEY]
 
     assert generator.build() == authoritative["catalog_topology"]
+
+
+def test_stewardship_snapshot_satisfies_the_console_contract() -> None:
+    """The console rejects the panel unless these exact invariants hold."""
+    module = _module()
+
+    snapshot = module.catalog_snapshots(REPO_ROOT)[module.STEWARDSHIP_KEY]
+    steward_map = snapshot["map"]
+    coverage = snapshot["coverage"]
+
+    assert steward_map["version"] >= 1
+    assert steward_map["hop_timeout_seconds"] >= 1
+    assert steward_map["over_assigned_max"] >= 1
+    assert steward_map["maintainer_count"] == len(steward_map["maintainers"]) >= 1
+    assert len(steward_map["agents"]) == 15
+    assert len({agent["name"] for agent in steward_map["agents"]}) == 15
+
+    for agent in steward_map["agents"]:
+        subjects = [(steward["kind"], steward["id"]) for steward in agent["stewards"]]
+        assert len(set(subjects)) == len(subjects)
+        accountable = {
+            (steward["kind"], steward["id"])
+            for steward in agent["stewards"]
+            if steward["responsibility"] == "accountable"
+        }
+        assert agent["bus_factor"] == len(accountable)
+        for steward in agent["stewards"]:
+            assert steward["responsibility"] in {"accountable", "informed"}
+            assert steward["duty"] in {None, "primary", "backup", "escalation"}
+
+    assert coverage["total_agents"] == 15
+    assert coverage["is_clean"] == all(
+        finding["severity"] != "warn" for finding in coverage["findings"]
+    )
+    for finding in coverage["findings"]:
+        assert finding["severity"] in {"warn", "info"}
+
+    # An explicit null here fails the console's finite-number decode.
+    assert "finding_count" not in snapshot["identity_health"]
+    assert snapshot["identity_health"]["status"] == "not_configured"
