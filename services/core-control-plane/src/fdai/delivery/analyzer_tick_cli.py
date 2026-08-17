@@ -69,6 +69,7 @@ _REPO_ROOT = repo_asset_root()
 
 TARGETS_ENV = "FDAI_ANALYZER_TARGETS"
 WINDOW_ENV = "FDAI_ANALYZER_WINDOW_SECONDS"
+TRACE_WINDOW_ENV = "FDAI_TRACE_CONTINUITY_WINDOW_SECONDS"
 TOPIC_ENV = "FDAI_ANALYZER_TOPIC"
 INGRESS_TOPIC_ENV = "KAFKA_TOPIC_EVENTS"
 MAX_DISCOVERED_ENV = "FDAI_ANALYZER_MAX_DISCOVERED_TARGETS"
@@ -204,6 +205,26 @@ def parse_window_seconds(raw: str) -> int:
     return window
 
 
+def resolve_trace_window_seconds(environ: Mapping[str, str], analyzer_window: int) -> int:
+    """Resolve the trace-continuity detection window, defaulting to the analyzer window.
+
+    A discontinuity is keyed by its detection window, so one window yields at
+    most one distinct finding. Correlating repeats therefore requires a
+    detection window several times shorter than the correlation window.
+    """
+
+    text = environ.get(TRACE_WINDOW_ENV, "").strip()
+    if not text:
+        return analyzer_window
+    try:
+        window = int(text)
+    except ValueError as exc:
+        raise ValueError(f"{TRACE_WINDOW_ENV} MUST be a positive integer") from exc
+    if window <= 0:
+        raise ValueError(f"{TRACE_WINDOW_ENV} MUST be a positive integer")
+    return window
+
+
 def parse_max_discovered(raw: str) -> int:
     """Parse the optional inventory-backed target bound; malformed fails closed.
 
@@ -255,6 +276,7 @@ async def run_once() -> AnalyzerJobReport:
     configured = parse_targets(os.environ.get(TARGETS_ENV, ""))
     trace_topologies = parse_trace_topologies(os.environ.get(TRACE_TOPOLOGIES_ENV, ""))
     window_seconds = parse_window_seconds(os.environ.get(WINDOW_ENV, ""))
+    trace_window_seconds = resolve_trace_window_seconds(os.environ, window_seconds)
     max_discovered = parse_max_discovered(os.environ.get(MAX_DISCOVERED_ENV, ""))
 
     resolution = await resolve_analyzer_targets(
@@ -325,7 +347,7 @@ async def run_once() -> AnalyzerJobReport:
                         )
                     ),
                     event_bus=bus,
-                    window_seconds=window_seconds,
+                    window_seconds=trace_window_seconds,
                     topic=topic,
                 ).run_once(trace_topologies)
             else:

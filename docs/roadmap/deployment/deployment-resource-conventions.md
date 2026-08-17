@@ -33,6 +33,7 @@ deployment-specific values outside the upstream distribution.
 | 2026-08-15 | implemented | Added the deterministic length-safe `browser-gc` Job component for scheduled browser-evidence retention. | `current change`; focused Terraform contract checks `4 passed`; `terraform validate`. | Capture the protected apply and Job execution receipts. |
 
 | 2026-08-17 | implemented | Declared the retirement of the auxiliary readiness transition entity and its role assignment. PR #153 returned startup readiness transitions to the multiplexed primary bus, leaving the entity without a publisher. | `current change`; `deploy-dev.yml` parses as valid YAML and the registered keys resolve to the exact Terraform addresses the protected plan reported. | Remove both entries once the retirement has been applied. |
+| 2026-08-17 | implemented | Separated the trace-continuity detection window from the analyzer window. A discontinuity is keyed by its detection window, so equal windows let correlation starve while the ingress deduplicates the per-minute repeats. | `current change`; `analyzer_tick_cli.py`, the analyzer job module, and focused resolver tests: 6 passed. `terraform fmt` and `terraform validate` pass. | Record a deployed anomaly raised from repeated trace findings. |
 ### Remaining work
 
 - [ ] Retain repository-safe governed apply receipts for the legacy platform and ops-bootstrap
