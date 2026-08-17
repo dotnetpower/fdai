@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-randomized-assurance.md
-translation_source_sha: 50f6b2aa62cc8dc6d5f033a277de059d3718c156
+translation_source_sha: 293869a62ed65f114c92866872f42139ca8eb6ce
 translation_revised: 2026-08-17
 ---
 # 온톨로지 쿼리 무작위 보증
@@ -216,6 +216,7 @@ Core
 | 2026-08-17 | in-progress | 중앙 검증된 소스 `40fbd0c41eda506e6976e3090fab3bd9502b98f0`에서 새로운 엄격한 질문 집합을 한 번 실행했습니다. Playwright는 live cell 14개와 resumed cell 0개를 완료했지만 전용 요청 및 변환 결과 토픽은 각각 레코드 6개만 보존했습니다. Runner는 승격 전에 exact transport 소유권 조건으로 아티팩트를 거부했고 seed 기반 질문 집합은 시작하지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-40fbd0c41e-20260817T084406Z`, 승격할 수 없는 아티팩트가 근거가 완전한 답변 10개, unsupported disposition 3개, held disposition 1개 및 결속된 transport 건수 6/6을 보고함 | 엄격한 gate를 차단 상태로 유지합니다. 수정 전부터 실행 중인 기본 claimant는 물리 prefix가 기본 prefix 아래 중첩됐기 때문에 namespaced key와 계속 일치할 수 있었습니다. |
 | 2026-08-17 | implemented | 선택적인 실행 범위 semantic outbox key를 형제 물리 prefix로 옮겼습니다. 운영 기본 prefix는 byte-compatible하게 유지되고 이미 실행 중인 수정 전 기본 claimant도 넓은 legacy prefix로 namespaced key와 일치할 수 없습니다. Exact namespace 동등성은 추가 소유권 검사로 유지합니다. | `current change`, stale prefix 회귀를 포함한 focused Operator bridge 검사 62개, 작업 범위 Ruff 및 strict mypy 통과 | 중앙 검증을 확보하고 정확히 검증된 소스에서 새로운 엄격한 질문 집합을 한 번 실행합니다. |
 | 2026-08-17 | in-progress | Exact transport를 적용한 첫 strict-to-seeded 실행을 완료했습니다. Strict는 14/14로 통과했고 seeded는 89/100으로 끝나 답변된 plan-capability 불일치 11건을 드러냈습니다. 이 중 5건은 질문 분류 불일치였고 6건은 관계, 인과, 시간 및 근거 속성 질문의 frame 기능군 오류였습니다. Frame prompt v9은 이 기능군을 구분하고, typed oracle은 나머지 불일치 검사를 약화하지 않으면서 prompt별로 유효한 기능군을 기록합니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 소스 `8796d21af627b2bdc9e054c94752a67f6cd2499c`, `test_prompt_registry_consistency.py` 5개와 `ontology-query-assurance.test.ts` 99개 통과 | 중앙 검증을 확보한 뒤 strict를 한 번 실행합니다. Strict가 변경 불가능한 gate를 통과할 때만 seeded를 한 번 실행합니다. |
+| 2026-08-17 | in-progress | Deterministic evidence-frame 및 topology-cutoff guard를 추가한 뒤 중앙 검증된 source `507bddd55cdc142f70faeafe3c90d9a3b6b157c7`에서 repository supervisor를 한 번 실행했습니다. Core가 외부 `SIGTERM`을 받기 전에 엄격한 검사점은 근거가 완전한 answered cell 3개와 pending cell 11개를 보존했습니다. Core는 상태 0으로 종료했고 supervisor는 `required_child_exited`로 fail closed했습니다. 영어 temporal-comparison, 영어 evidence-validation 및 한국어 temporal-comparison cell은 실행되지 않았으므로 이 실행은 해당 수정에 대한 판정을 제공하지 않습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-507bddd55c-20260817T115108Z`, exact 중앙 receipt의 dependency sync, fast gate, structural gate 및 changed test 통과 | 엄격한 gate를 차단 상태로 유지합니다. 같은 중단 실행을 반복하거나 seeded를 수동으로 시작하지 않으며, supervisor가 seed 기반 집단을 시작하기 전에 향후 14/14 answered 및 완전 근거 strict 아티팩트를 보존합니다. |
 
 ### 남은 작업
 
