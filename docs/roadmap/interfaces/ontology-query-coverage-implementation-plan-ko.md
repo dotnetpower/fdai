@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: cb9ba9c7ab28d7a5a966dc0d559e55e91e570725
+translation_source_sha: ef1c70c86bfbf6ff5575ab93080948c9e49616c6
 translation_revised: 2026-08-18
 ---
 
@@ -216,6 +216,7 @@ translation_revised: 2026-08-18
 | 2026-08-18 | implemented | Semantic frame prompt를 v11로 versioning하고 최종 answer-shape audit를 추가했습니다. Cardinality와 grouping은 schema declaration을 대상으로 해도 `aggregation_table`을 유지하며, evidence sufficiency와 coverage는 요청이 resource, property, identity 또는 relationship을 명시해도 타입이 지정된 `validate` 및 `evidence_validation` 쌍을 유지합니다. 질문 literal, keyword router, provider fact 또는 권한은 추가하지 않았습니다. | `current change`, focused prompt 레지스트리 계약 통과 | 중앙 검증을 확보한 뒤 seeded 시작 전에 strict 14/14 근거를 보존합니다. |
 | 2026-08-18 | implemented | Semantic plan prompt를 v12로 versioning하고 generic causal scope envelope을 닫았습니다. Principal 범위 causal plan은 predicate, traversal 또는 root id가 없는 unfiltered `Resource` ObjectSet을 사용합니다. 모델이 선택한 scope restriction은 계속 terminal denial이며 더 넓은 access로 재시도할 수 없습니다. | `current change`, focused prompt 레지스트리 계약 및 기존 no-T2 scope-denial 회귀 통과 | 중앙 검증을 확보한 뒤 seeded 시작 전에 strict 14/14 근거를 보존합니다. |
 | 2026-08-18 | implemented | Semantic frame prompt를 v12로 versioning하고 evidence-property membership과 evidence sufficiency를 분리했습니다. 일치하는 객체를 나열하거나 식별하는 요청은 비어 있지 않은 predicate가 있는 `property_filtered_resources`를 요구하며, completeness 및 gap 판단은 `validate` 및 `evidence_validation` 쌍을 유지합니다. | `current change`, focused prompt 레지스트리 계약 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
+| 2026-08-18 | implemented | Semantic frame prompt를 v13으로 versioning하고 evidence-contract subject와 runtime object property를 분리했습니다. Claim, evidence reference, verification coverage 및 gap은 `validate`와 `evidence_validation`을 사용하며, readable evidence-valued property로 선택한 runtime ontology object만 `property_filtered_resources`를 사용합니다. | `current change`, focused prompt 레지스트리 계약 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
 
 ### 남은 작업
 
