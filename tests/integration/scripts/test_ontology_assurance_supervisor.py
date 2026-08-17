@@ -189,6 +189,14 @@ def _passing_artifact(question_count: int) -> dict[str, object]:
         "run_mode": "live",
         "receipt_source": "live_assurance",
         "run_configuration": {"schema_version": "1.4.0"},
+        "transport_evidence": {
+            "schema_version": "1.0.0",
+            "phase": "strict_14" if question_count == 14 else "seeded_100",
+            "request_topic_digest": "sha256:" + "b" * 64,
+            "projection_topic_digest": "sha256:" + "c" * 64,
+            "request_count": question_count,
+            "projection_count": question_count,
+        },
         "summary": summary,
     }
 
@@ -208,6 +216,10 @@ def test_strict_gate_rejects_resumed_or_incomplete_evidence() -> None:
     ambient = json.loads(json.dumps(passing))
     ambient["summary"]["ambient_request_count"] = 1
     assert not strict_artifact_accepted(ambient, SOURCE_REVISION)
+
+    missing_transport = json.loads(json.dumps(passing))
+    del missing_transport["transport_evidence"]
+    assert not strict_artifact_accepted(missing_transport, SOURCE_REVISION)
 
 
 def test_seeded_gate_requires_fresh_complete_production_evidence() -> None:

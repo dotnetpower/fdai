@@ -33,6 +33,7 @@ from scripts.automation.ontology_assurance_supervisor import (
 )
 
 SOURCE_REVISION_PATTERN: Final = re.compile(r"^[0-9a-f]{40}$")
+DIGEST_PATTERN: Final = re.compile(r"^sha256:[0-9a-f]{64}$")
 RUN_ID_PATTERN: Final = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 STRICT_QUESTION_IDS: Final = (
     "en-inventory_listing-1",
@@ -161,6 +162,66 @@ def _read_artifact(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _digest_text(value: str) -> str:
+    return f"sha256:{hashlib.sha256(value.encode()).hexdigest()}"
+
+
+def _bind_transport_evidence(
+    path: Path,
+    *,
+    phase: str,
+    request_topic: str,
+    projection_topic: str,
+    request_count: int,
+    projection_count: int,
+) -> None:
+    payload = _read_artifact(path)
+    payload["transport_evidence"] = {
+        "schema_version": "1.0.0",
+        "phase": phase,
+        "request_topic_digest": _digest_text(request_topic),
+        "projection_topic_digest": _digest_text(projection_topic),
+        "request_count": request_count,
+        "projection_count": projection_count,
+    }
+    temporary = path.with_name(f".{path.name}.tmp.{os.getpid()}")
+    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False, indent=2, sort_keys=True)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        os.chmod(path, 0o600)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _transport_evidence_accepted(
+    payload: Mapping[str, Any],
+    *,
+    phase: str,
+    expected_count: int,
+) -> bool:
+    evidence = payload.get("transport_evidence")
+    if not isinstance(evidence, Mapping):
+        return False
+    request_digest = evidence.get("request_topic_digest")
+    projection_digest = evidence.get("projection_topic_digest")
+    return (
+        evidence.get("schema_version") == "1.0.0"
+        and evidence.get("phase") == phase
+        and evidence.get("request_count") == expected_count
+        and evidence.get("projection_count") == expected_count
+        and isinstance(request_digest, str)
+        and DIGEST_PATTERN.fullmatch(request_digest) is not None
+        and isinstance(projection_digest, str)
+        and DIGEST_PATTERN.fullmatch(projection_digest) is not None
+        and request_digest != projection_digest
+    )
+
+
 def strict_artifact_accepted(payload: Mapping[str, Any], source_revision: str) -> bool:
     """Return whether the fresh 14-cell artifact clears the immutable strict gate."""
     summary = payload.get("summary")
@@ -168,6 +229,7 @@ def strict_artifact_accepted(payload: Mapping[str, Any], source_revision: str) -
     return (
         isinstance(summary, Mapping)
         and isinstance(configuration, Mapping)
+        and _transport_evidence_accepted(payload, phase="strict_14", expected_count=14)
         and all(
             (
                 payload.get("schema_version") == "1.3.0",
@@ -205,6 +267,7 @@ def full_artifact_accepted(payload: Mapping[str, Any], source_revision: str) -> 
     return (
         isinstance(summary, Mapping)
         and isinstance(configuration, Mapping)
+        and _transport_evidence_accepted(payload, phase="seeded_100", expected_count=100)
         and all(
             (
                 payload.get("schema_version") == "1.3.0",
@@ -325,12 +388,20 @@ class OntologyAssuranceRunner:
             if strict_exit.returncode != 0:
                 raise AssuranceRunError(f"strict 14-cell phase exited {strict_exit.returncode}")
             strict_artifact = _find_artifact(self.strict_output)
-            strict_payload = _read_artifact(strict_artifact)
-            if not strict_artifact_accepted(strict_payload, self.source_revision):
-                raise AssuranceRunError("strict 14-cell artifact failed the immutable gate")
             request_after = await asyncio.to_thread(self._topic_high_watermark, self.request_topic)
             projection_after = await asyncio.to_thread(
                 self._topic_high_watermark, self.projection_topic
+            )
+            request_count = request_after - request_before
+            projection_count = projection_after - projection_before
+            await asyncio.to_thread(
+                _bind_transport_evidence,
+                strict_artifact,
+                phase="strict_14",
+                request_topic=self.request_topic,
+                projection_topic=self.projection_topic,
+                request_count=request_count,
+                projection_count=projection_count,
             )
             if not transport_delta_accepted(
                 request_before=request_before,
@@ -340,6 +411,9 @@ class OntologyAssuranceRunner:
                 expected_count=14,
             ):
                 raise AssuranceRunError("strict semantic topic counts do not match 14 live turns")
+            strict_payload = _read_artifact(strict_artifact)
+            if not strict_artifact_accepted(strict_payload, self.source_revision):
+                raise AssuranceRunError("strict 14-cell artifact failed the immutable gate")
 
             full_exit = await self._run_playwright_phase(
                 label="seeded_100",
@@ -351,14 +425,22 @@ class OntologyAssuranceRunner:
             if full_exit.returncode != 0:
                 raise AssuranceRunError(f"seeded 100-case phase exited {full_exit.returncode}")
             full_artifact = _find_artifact(self.full_output)
-            full_payload = _read_artifact(full_artifact)
-            if not full_artifact_accepted(full_payload, self.source_revision):
-                raise AssuranceRunError("seeded 100-case artifact failed the immutable gate")
             full_request_after = await asyncio.to_thread(
                 self._topic_high_watermark, self.request_topic
             )
             full_projection_after = await asyncio.to_thread(
                 self._topic_high_watermark, self.projection_topic
+            )
+            full_request_count = full_request_after - request_after
+            full_projection_count = full_projection_after - projection_after
+            await asyncio.to_thread(
+                _bind_transport_evidence,
+                full_artifact,
+                phase="seeded_100",
+                request_topic=self.request_topic,
+                projection_topic=self.projection_topic,
+                request_count=full_request_count,
+                projection_count=full_projection_count,
             )
             if not transport_delta_accepted(
                 request_before=request_after,
@@ -368,6 +450,9 @@ class OntologyAssuranceRunner:
                 expected_count=100,
             ):
                 raise AssuranceRunError("seeded semantic topic counts do not match 100 live turns")
+            full_payload = _read_artifact(full_artifact)
+            if not full_artifact_accepted(full_payload, self.source_revision):
+                raise AssuranceRunError("seeded 100-case artifact failed the immutable gate")
             self.status.update(
                 state="complete",
                 phase="complete",

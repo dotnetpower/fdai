@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 3a1b02787eb3209a2f28dfbfbafb1c74db6e8abb
+translation_source_sha: 9cfd4670bbeaade8d9a886492337da52ed36b6a8
 translation_revised: 2026-08-17
 ---
 # 코드 맵
@@ -106,6 +106,7 @@ translation_revised: 2026-08-17
 | 2026-08-17 | 구현됨 | Core가 exact plan digest를 만들기 전에 후보 causal join의 중복 전이 scope edge를 정규화했습니다. 정규화한 plan도 읽기 전에 principal 범위 매니페스트, 검토된 metric concept, 닫힌 인자 스키마 및 실행 handler 검사를 그대로 통과합니다. | `current change`, focused 의미 구성 회귀 검사는 정규화가 없으면 `semantic_plan_invalid`로 실패하고 검증된 4-node 읽기 전용 DAG에서는 통과합니다. | Seed 기반 질문 집합을 시작하기 전에 중앙 검증된 source에서 새로운 엄격한 이중 언어 아티팩트를 보존합니다. |
 | 2026-08-17 | 구현됨 | Principal-scope evidence-validation plan 구성을 타입이 지정된 frame 뒤의 Core로 옮겼습니다. 읽기는 secured `Resource` ObjectSet 하나를 사용하고 exact release, 매니페스트, 역할, 목적, 스키마, digest 및 handler 검사를 그대로 통과하며 모델이 선택한 scope나 실행 권한을 추가하지 않습니다. Frame prompt v8과 plan prompt v10은 capability-family 계약을 일치시킵니다. | `current change`, focused tier 라우팅 및 prompt 레지스트리 회귀 검사가 T1 또는 T2 plan 호출 0건으로 통과합니다. | 중앙 검증된 source에서 새로운 이중 언어 엄격한 근거를 보존합니다. |
 | 2026-08-17 | 구현됨 | Semantic outbox 소유권을 명시적인 영속 namespace token에 연결했습니다. Prefix는 index selector로 유지하고 append, claim, 인증된 읽기 및 변환 결과 join은 exact namespace 동등성을 사용하므로 표준 Operator가 보증 소유 요청을 표준 physical stream으로 게시할 수 없습니다. 기존 기본 행은 빈 token을 통해 계속 읽을 수 있습니다. | `current change`, focused Operator bridge 검사 64개와 작업 범위 Ruff 및 strict mypy 통과 | 엄격한 보증 아티팩트에서 exact 실행 범위 transport 근거를 보존합니다. |
+| 2026-08-17 | 구현됨 | 원본 및 리포지토리에 안전한 보증 아티팩트에 자체 포함 transport 근거를 추가했습니다. Source-bound runner는 hashed topic identity와 exact 단계 건수만 원자적으로 저장하고, 변경 불가능 gate는 누락되거나 잘못되거나 불완전한 근거를 거부합니다. | `current change`, focused runner 및 projector 검사 13개와 작업 범위 Ruff 및 strict mypy 통과 | 14/14 근거가 있는 새로운 exact-source 엄격한 아티팩트를 보존합니다. |
 | 2026-08-16 | 구현됨 | 대응되지 않은 Resource를 `unknown_service`로 계속 표시하는 결정론적 읽기 전용 운영 범위 커버리지 변환 결과를 추가했습니다. | `current change`, `core/operational_context/operating_scope.py`, `tests/core/operational_context/test_operating_scope.py`, focused 운영 컨텍스트, 카탈로그 및 대화 검사 1461개와 작업 범위 Ruff 및 strict mypy 통과 | 변환 결과를 읽기 전용 소비자 하나에 연결하고 해당 소비자의 집중 검사 결과를 기록합니다. |
 | 2026-08-16 | 구현됨 | 검토된 리소스 타입 매핑을 통해 영속 인벤토리 projection에서 analyzer 대상을 해석하고, 하나의 결정론적 상한 안에서 명시적 배포 대상과 병합했습니다. 지원하지 않는 타입은 선택하지 않고 중복 ID는 합치며 projection 읽기 실패는 coverage 손실을 숨기지 않고 tick을 중지합니다. | `current change`, `analyzers.py`, `analyzer_targets.py`, `test_analyzer_targets.py`, `test_analyzer_tick_routed.py`, focused analyzer 검사 통과 | 대상 해석 구현에 남은 작업은 없습니다. 통제된 배포 근거는 배포 소유 문서에서 계속 추적합니다. |
 | 2026-08-17 | 구현됨 | 운영 준비성 조치 브리지와 운영자 SRE 명령 경로를 Core 지도에 기록했습니다. 두 기능 모두 소유 설계 문서 없이 라우팅된 표면 아래에 새 모듈로 추가되어, 해당 batch의 focused 검사는 모두 통과했는데도 `design-doc-impact` gate가 중앙에서 브랜치를 거부했습니다. | `current change`, `core/readiness/remediation.py`, `core/incident/sre_request.py`, `shared/providers/operator_request.py`, `composition/readiness.py`, 해당 focused 테스트 43건 통과 | 이 기록에 남은 작업은 없습니다. 이제 campaign이 자기 batch에 대해 `design-doc-impact`를 직접 실행하므로 누락이 발생한 지점에서 드러납니다. |

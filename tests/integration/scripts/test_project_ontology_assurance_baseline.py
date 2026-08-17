@@ -57,6 +57,14 @@ def _passing_artifact() -> dict[str, Any]:
             "live_protected_request_count": 100,
         },
         "run_configuration": {"schema_version": "1.4.0"},
+        "transport_evidence": {
+            "schema_version": "1.0.0",
+            "phase": "seeded_100",
+            "request_topic_digest": "sha256:" + "c" * 64,
+            "projection_topic_digest": "sha256:" + "d" * 64,
+            "request_count": 100,
+            "projection_count": 100,
+        },
         "passed": True,
         "production_ready": True,
         "summary": {
@@ -91,6 +99,7 @@ def test_repository_safe_projection_hashes_runtime_identities() -> None:
     assert len(projected["results"]) == 100
     assert projected["results"][0]["request_id_digest"].startswith("sha256:")
     assert projected["results"][0]["projection_id_digest"].startswith("sha256:")
+    assert projected["transport_evidence"] == source["transport_evidence"]
     assert "request-1" not in encoded
     assert "projection-1" not in encoded
 
@@ -98,6 +107,14 @@ def test_repository_safe_projection_hashes_runtime_identities() -> None:
 def test_repository_safe_projection_rejects_failed_source() -> None:
     source = _passing_artifact()
     source["production_ready"] = False
+
+    with pytest.raises(BaselineProjectionError, match="full assurance gate"):
+        project_repository_safe_baseline(source, source_artifact_digest=DIGEST)
+
+
+def test_repository_safe_projection_rejects_missing_transport_evidence() -> None:
+    source = _passing_artifact()
+    del source["transport_evidence"]
 
     with pytest.raises(BaselineProjectionError, match="full assurance gate"):
         project_repository_safe_baseline(source, source_artifact_digest=DIGEST)
