@@ -498,6 +498,10 @@ def test_unserved_operations_routes_declare_an_explicit_unavailable_source() -> 
         "onboarding-probe": "/onboarding",
         "configuration-baseline": "/configuration-baselines",
         "conversation-delivery": "/conversation-delivery",
+        "capability-contract": "/capabilities",
+        "runtime-skill": "/skills",
+        "forecast-learning": "/forecast-learning",
+        "operator-memory": "/operator-memory",
     }
     for key, route in expected.items():
         source = next(item for item in runtime.data_sources if item.key == key)
