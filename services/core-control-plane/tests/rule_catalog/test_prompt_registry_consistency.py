@@ -163,7 +163,7 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "do not require incident_id or correlation_id" in frame.body
     assert "cause_claim_supported=false" in frame.body
     assert "Do not claim a cause" in frame.body
-    assert plan.version == 11
+    assert plan.version == 12
     assert "Satisfy the frame's exact output_shape" in plan.body
     assert "aggregation_table requires aggregate" in plan.body
     assert "topology_graph requires topology_at" in plan.body
@@ -174,6 +174,8 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "baseline-then-current order" in plan.body
     assert "topology.diff, and is the only output node" in plan.body
     assert "exactly two metric_scope_series nodes" in plan.body
+    assert "MUST NOT contain predicates, traversal, or root_ids" in plan.body
+    assert "a principal-scope denial, not a causal plan" in plan.body
     assert "select exact cause and effect concept_id values" in plan.body
     assert "Never invent a resource id or metric concept" in plan.body
     assert "only object_set, function, union" in plan.body
