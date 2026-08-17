@@ -59,9 +59,14 @@ REQUIRED_PHRASES: Mapping[str, tuple[str, ...]] = {
         "Hard constraints precede weighted arbitration",
     ),
     "docs/roadmap/README.md": ("architecture/fdai-constitution.md",),
+    ".github/instructions/app-shape.instructions.md": (
+        "docs/roadmap/architecture/fdai-constitution.md",
+        "Execution venue does not change control-plane behavior",
+    ),
     "docs/roadmap/architecture/fdai-constitution.md": (
         "config/constitution-traceability.json",
         "block any claim of complete constitutional runtime conformance",
+        "Execution venue does not change control-plane behavior",
         "resource-group-equivalent or narrower",
         "A3-E never authorizes Chaos fault injection",
         "Every active, candidate, or calculated threshold",
