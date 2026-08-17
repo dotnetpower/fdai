@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-randomized-assurance.md
-translation_source_sha: f1a3338ad30f7a9719c24632208f7428cf985c09
+translation_source_sha: 06a58492b6a9d84fc0ad798db28fa7e72c9774fd
 translation_revised: 2026-08-17
 ---
 # 온톨로지 쿼리 무작위 보증
@@ -222,6 +222,32 @@ Core
 - [ ] 각 작업 집합을 authoritative 프로바이더에 대해 실행하고 exact 온톨로지 release, principal manifest, 검증된 계획, 근거 참조 또는 타입이 지정된 unavailable 처리 결과로 입증합니다.
 - [ ] 인증된 운영 composition을 통해 bilingual 100개 질문 절차를 재생성하고 기계 판독 결과를 보존합니다.
 - [ ] 재생성한 아티팩트가 지원되지 않는 운영 주장 0건과 권한 없는 실행 0건을 유지하며 다음 실행 종료 조건을 모두 충족한 뒤에만 릴리스 결정을 변경합니다.
+
+## 완료 하드닝 비평
+
+현재 완료 범위는 exact Issue #63 runner, 의미 계획, Operator outbox, artifact gate 및 이중
+언어 소유 문서 경로를 대상으로 독립적인 읽기 전용 비평 12라운드를 수행했습니다. 소유 경로에서
+재현된 finding만 수락했습니다.
+
+| 라운드 | 관점 | 심각도 | 근거 및 처리 결과 |
+|--------|------|--------|-------------------|
+| 1 | 출처 이력 및 source 결속 | 없음 | Exact source 검증, 분리된 worktree 결속 및 source를 포함한 원자적 status를 유지합니다. |
+| 2 | Child lifecycle | 없음 | 필수 child 종료와 소유 process-group 정리는 범위가 제한되고 fail closed 됩니다. |
+| 3 | Outbox 격리 | Medium, 수정됨 | 기본 prefix claim이 중첩된 namespaced 행과 겹쳤습니다. 이제 exact durable namespace 동등성이 append, claim, 인증된 읽기 및 변환 결과 소유권을 통제합니다. |
+| 4 | Checkpoint 및 status 원자성 | 없음 | 동일 디렉터리 임시 쓰기, `fsync`, 교체, mode `0600` 및 fresh checkpoint guard를 유지합니다. |
+| 5 | 변경 불가능 gate | Medium, 수정됨 | 이전 topic 전진 조건은 양수 delta만 요구했습니다. 이제 gate는 exact 14/14 및 100/100 request/projection 건수와 자체 포함 artifact 근거를 요구합니다. |
+| 6 | Provider 완전성 | Low | 권위 있는 provider 근거가 없으면 타입이 지정된 incomplete 또는 unavailable 결과를 유지합니다. 이는 숨겨진 성공이 아니라 명시적인 열린 기능입니다. |
+| 7 | Plan 검증 | Medium, 수정됨 | Causal 전이 의존성 정규화와 서버 소유 evidence-validation plan은 exact release, 매니페스트, 역할, 목적, 스키마, digest 및 handler 검사를 그대로 통과합니다. |
+| 8 | 비밀 노출 | 없음 | Status 및 변환된 기준선 근거는 topic 이름, 원시 provider payload, model response, credential 또는 환경 값을 보존하지 않습니다. |
+| 9 | 동시성 | 없음 | `FOR UPDATE SKIP LOCKED`, claim identity, exact namespace 동등성 및 process-group 소유권이 실행 간 claim과 중복 작업을 막습니다. |
+| 10 | Replay 및 cleanup | 없음 | Principal/request replay 순서, fresh checkpoint 거부, 원자적 artifact 및 supervisor cleanup은 결정론적입니다. |
+| 11 | 문서 및 Issue 진실성 | 없음 | 원장은 실패한 엄격한 결과, 차단된 release 상태 및 seed 기반 실행 미수행을 유지하고 부분 근거를 승격하지 않습니다. |
+| 12 | Remote 통합 | Low | 로컬 원본 아티팩트는 broker 서명 attestation이 아니라 통제된 운영자 근거 경계입니다. Hash 및 count 결속은 불완전한 부분 승격을 막고 외부 서명 권한은 이 로컬 campaign 범위 밖에 유지합니다. |
+
+첫 번째 광범위 비평 pass는 별도 `core/conversation_assurance` 하위 시스템을 검사했으므로
+거부했습니다. 이후 exact-scope pass를 두 번 수행했습니다. 수락한 Medium finding 3개를 각각
+focused validation과 별도 commit으로 수정한 뒤 마지막 12라운드 pass에서 재현 가능한 Medium 이상
+finding은 0개였습니다. Residual finding은 위의 Low 2개입니다.
 
 ## 관련 문서
 
