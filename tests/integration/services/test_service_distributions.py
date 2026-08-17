@@ -66,6 +66,7 @@ EXPECTED_DEPENDENCIES = {
         "psycopg",
         "pydantic",
         "pyjwt",
+        "pyyaml",
         "starlette",
         "uvicorn",
     },
@@ -129,6 +130,7 @@ IMPORT_DISTRIBUTIONS = {
     "starlette": "starlette",
     "uvicorn": "uvicorn",
     "weasyprint": "weasyprint",
+    "yaml": "pyyaml",
 }
 
 

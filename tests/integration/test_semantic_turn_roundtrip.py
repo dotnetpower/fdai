@@ -57,6 +57,7 @@ class _OperatorStore:
         idempotency_key: str,
         request_digest: str,
         envelope: Mapping[str, object],
+        publish_required: bool = True,
     ) -> StoredSemanticTurn:
         del request_digest
         request_id = cast(str, envelope["request_id"])
@@ -68,7 +69,7 @@ class _OperatorStore:
             envelope=dict(envelope),
             duplicate=False,
         )
-        self.claim_available = True
+        self.claim_available = publish_required
         return self.turn
 
     async def claim_semantic_turn(
@@ -192,7 +193,8 @@ class _Publisher:
         key: str,
         payload: Mapping[str, object],
     ) -> object:
-        assert key == payload["request_id"]
+        semantic_turn = cast(Mapping[str, object], payload["semantic_turn"])
+        assert key == semantic_turn["session_id"]
         self.topic = topic
         self.payload = payload
         return object()
