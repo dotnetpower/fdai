@@ -1,6 +1,0 @@
-# Existing decomposition debt tracked by issue #14; growth above each exact cap is blocked.
-1010 services/core-control-plane/src/fdai/agents/forseti.py
-# HIL resume coordination awaits the approval-lifecycle decomposition tracked by issue #14.
-937 services/core-control-plane/src/fdai/core/hil_resume/coordinator.py
-# Runtime bootstrap wiring awaits the composition-family decomposition tracked by issue #14.
-1026 services/core-control-plane/src/fdai/runtime/bootstrap.py

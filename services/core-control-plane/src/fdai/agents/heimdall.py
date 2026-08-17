@@ -22,6 +22,14 @@ from fdai.agents._framework.action_semantics import ActionSemanticsCatalog, is_i
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus import PantheonBus
 from fdai.agents._framework.heimdall_forecast import HeimdallForecastMixin
+from fdai.agents._framework.heimdall_helpers import (
+    TRACE_CONTINUITY_REASONS as _TRACE_CONTINUITY_REASONS,
+)
+from fdai.agents._framework.heimdall_helpers import event_severity as _event_severity
+from fdai.agents._framework.heimdall_helpers import evict_oldest as _evict_oldest
+from fdai.agents._framework.heimdall_helpers import (
+    trace_continuity_evidence as _trace_continuity_evidence,
+)
 from fdai.agents._framework.heimdall_retrieval_validation import (
     retrieval_validation_from_event,
 )
@@ -79,54 +87,10 @@ _ALERT_WINDOW_SECONDS = 3600.0
 _MAX_TRACKED_KEYS = 10_000
 _MAX_EPISODES_PER_RESOURCE = 100
 _INCIDENT_CORRELATION_DISABLED = frozenset({"none", "disabled"})
-_SEVERITY_ALIASES = {
-    "sev1": "critical",
-    "sev2": "high",
-    "sev3": "medium",
-    "sev4": "low",
-    "sev5": "info",
-}
-_SEVERITIES = frozenset({"critical", "high", "medium", "low", "info"})
 _SEVERITY_RANK = {
     severity: rank for rank, severity in enumerate(("critical", "high", "medium", "low", "info"))
 }
 _DETECTION_READINESS_EVENT = "detection.readiness.observed"
-_TRACE_CONTINUITY_EVENT = "trace-continuity.discontinuity"
-_TRACE_CONTINUITY_REASONS = frozenset(
-    {
-        "trace_context_regenerated",
-        "trace_context_dropped",
-        "trace_hop_order_invalid",
-    }
-)
-
-
-def _evict_oldest(mapping: dict[Any, Any], cap: int, *, keep: Any = None) -> None:
-    """Bound ``mapping`` to ``cap`` entries, dropping oldest-first (insertion
-    order), never evicting ``keep`` (the entry just written)."""
-    while len(mapping) > cap:
-        for key in mapping:
-            if key != keep:
-                del mapping[key]
-                break
-        else:  # only `keep` remains - nothing more to drop
-            break
-
-
-def _trace_continuity_evidence(event: Mapping[str, Any]) -> dict[str, Any]:
-    """Return only Huginn-bounded continuity evidence for the matching Event."""
-    if event.get("event_type") != _TRACE_CONTINUITY_EVENT:
-        return {}
-    attributes = event.get("attributes")
-    if not isinstance(attributes, Mapping):
-        return {}
-    evidence = attributes.get("trace_continuity")
-    if not isinstance(evidence, Mapping):
-        return {}
-    reason = evidence.get("reason_code")
-    if not isinstance(reason, str) or reason not in _TRACE_CONTINUITY_REASONS:
-        return {}
-    return dict(evidence)
 
 
 class Heimdall(HeimdallForecastMixin, Agent):
@@ -810,15 +774,6 @@ class Heimdall(HeimdallForecastMixin, Agent):
             f"{len(self._security_recent)} security event(s) in window."
         )
         return IntrospectionResult(answer=answer, facts=facts)
-
-
-def _event_severity(event: dict[str, Any]) -> str:
-    attributes = event.get("attributes")
-    attribute_severity = attributes.get("severity") if isinstance(attributes, dict) else None
-    raw = str(event.get("severity") or event.get("severity_hint") or attribute_severity or "")
-    normalized = raw.strip().casefold()
-    aliased = _SEVERITY_ALIASES.get(normalized, normalized)
-    return aliased if aliased in _SEVERITIES else "medium"
 
 
 __all__ = [

@@ -43,20 +43,17 @@ and the core executor - never a concrete ChatOps / state adapter.
 
 from __future__ import annotations
 
-import hashlib
-import json
 import logging
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
-from typing import Any, cast
+from typing import cast
 from uuid import uuid4
 
 from fdai.core.executor import (
     DirectApiExecutionPort,
     ExecutionResult,
-    ExecutorOutcome,
     MutationDependencyReadiness,
     ShadowExecutor,
     ThorExecutionPort,
@@ -77,14 +74,26 @@ from fdai.core.hil_resume.approval_records import (
 from fdai.core.hil_resume.approval_records import (
     park_key as _park_key,
 )
+from fdai.core.hil_resume.audit import HilAuditMixin
 from fdai.core.hil_resume.delegation import (
     DelegationMode,
     DelegationRefusal,
     evaluate_hil_delegation,
 )
+from fdai.core.hil_resume.dispatch import HilDispatchMixin
 from fdai.core.hil_resume.escalation_supervisor import (
     EscalationRung,
     HumanNonResponseSupervisor,
+)
+from fdai.core.hil_resume.integrity import (
+    action_payload_hash as _action_payload_hash,
+)
+from fdai.core.hil_resume.integrity import (
+    approval_request_fingerprint as _approval_request_fingerprint,
+)
+from fdai.core.hil_resume.integrity import is_execution_success as _is_success
+from fdai.core.hil_resume.integrity import (
+    parked_action_integrity_matches as _parked_action_integrity_matches,
 )
 from fdai.core.hil_resume.load_control import (
     ApprovalDispatchMode,
@@ -96,8 +105,6 @@ from fdai.core.oncall import OnCallResolution, OnCallResolver
 from fdai.core.operational_planning import PreDispatchKineticSafetyWriter
 from fdai.shared.contracts.models import (
     Action,
-    ExecutionPath,
-    Mode,
     OntologyActionType,
     Rule,
 )
@@ -192,7 +199,7 @@ class ResolveResult:
     """The operator the park was surfaced to, when recorded."""
 
 
-class HilResumeCoordinator:
+class HilResumeCoordinator(HilAuditMixin, HilDispatchMixin):
     """Parks HIL-routed actions and resumes them on an approval decision."""
 
     def __init__(
@@ -728,109 +735,6 @@ class HilResumeCoordinator:
     # helpers
     # ------------------------------------------------------------------
 
-    async def _dispatch(
-        self,
-        *,
-        action: Action,
-        rule: Rule,
-        correlation_id: str,
-    ) -> ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult:
-        writer = self._pre_dispatch_kinetic_safety_writer
-        if writer is not None:
-            try:
-                await writer.persist(action=action, correlation_id=correlation_id)
-            except Exception:  # noqa: BLE001 - kinetic ambiguity blocks every executor
-                _LOGGER.warning(
-                    "hil_pre_dispatch_kinetic_safety_failed",
-                    extra={
-                        "action_type": action.action_type,
-                        "idempotency_key": action.idempotency_key,
-                    },
-                    exc_info=True,
-                )
-                return ExecutionResult(
-                    action_id=str(action.action_id),
-                    outcome=ExecutorOutcome.REJECTED_INVARIANT,
-                    mode=action.mode,
-                    reason="pre-dispatch kinetic safety evidence is invalid",
-                )
-        if self._action_types_by_name:
-            action_type = self._action_types_by_name.get(action.action_type)
-            if action_type is not None:
-                if (
-                    self._direct_api_executor is not None
-                    and action_type.execution_path is ExecutionPath.DIRECT_API
-                ):
-                    return await self._direct_api_executor.execute(action=action)
-                if (
-                    self._tool_executor is not None
-                    and action_type.execution_path is ExecutionPath.TOOL_CALL
-                ):
-                    return await self._tool_executor.execute(action=action)
-        return await self._executor.execute(action=action, rule=rule)
-
-    async def _mark_resolved(
-        self,
-        parked: Mapping[str, Any],
-        *,
-        decision: HilDecision,
-        approver_oid: str,
-        action_kind: str,
-        detail: Mapping[str, Any],
-    ) -> bool:
-        immutable = (
-            parked.get("request_fingerprint"),
-            parked.get("action_hash"),
-            parked.get("action"),
-        )
-        candidate = parked
-        approval_id = str(parked["approval_id"])
-        for _attempt in range(3):
-            revision = candidate.get("revision", 0)
-            if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
-                raise ValueError("parked approval revision MUST be a non-negative integer")
-            resolved_at = datetime.now(tz=UTC)
-            updated = dict(candidate)
-            updated["status"] = _STATUS_RESOLVED
-            updated["decision"] = decision.value
-            updated["approver_oid"] = approver_oid
-            updated["resolved_at"] = resolved_at.isoformat()
-            updated["revision"] = revision + 1
-            escalation = updated.get("escalation")
-            if isinstance(escalation, Mapping):
-                updated["escalation"] = {
-                    **dict(escalation),
-                    "status": "decided",
-                    "terminal_decision": decision.value,
-                }
-            correlation_id = str(candidate.get("correlation_id") or approval_id)
-            idem = str(candidate.get("idempotency_key") or approval_id)
-            applied = await self._state_store.compare_and_set_state_with_audit(
-                _park_key(approval_id),
-                updated,
-                expected_revision=revision,
-                audit_entry=self._audit_entry(
-                    action_kind=action_kind,
-                    idempotency_key=f"{idem}:{action_kind}:{revision}",
-                    approval_id=approval_id,
-                    correlation_id=correlation_id,
-                    detail=detail,
-                ),
-            )
-            if applied:
-                return True
-            latest = await self._state_store.read_state(_park_key(approval_id))
-            if latest is None or latest.get("status") != _STATUS_PENDING:
-                return False
-            if (
-                latest.get("request_fingerprint"),
-                latest.get("action_hash"),
-                latest.get("action"),
-            ) != immutable:
-                return False
-            candidate = latest
-        return False
-
     async def _race_result(
         self,
         approval_id: str,
@@ -852,109 +756,6 @@ class HilResumeCoordinator:
                 reason=f"already resolved as {prior}",
             )
         return ResolveResult(outcome=ResolveOutcome.ALREADY_RESOLVED, approval_id=approval_id)
-
-    async def _audit(
-        self,
-        *,
-        action_kind: str,
-        idempotency_key: str,
-        approval_id: str,
-        correlation_id: str,
-        detail: Mapping[str, Any],
-    ) -> None:
-        await self._state_store.append_audit_entry(
-            self._audit_entry(
-                action_kind=action_kind,
-                idempotency_key=idempotency_key,
-                approval_id=approval_id,
-                correlation_id=correlation_id,
-                detail=detail,
-            )
-        )
-
-    def _audit_entry(
-        self,
-        *,
-        action_kind: str,
-        idempotency_key: str,
-        approval_id: str,
-        correlation_id: str,
-        detail: Mapping[str, Any],
-    ) -> dict[str, Any]:
-        return {
-            "actor": self._actor,
-            "action_kind": action_kind,
-            "mode": Mode.SHADOW.value,
-            "idempotency_key": idempotency_key,
-            "approval_id": approval_id,
-            "correlation_id": correlation_id,
-            "recorded_at": datetime.now(tz=UTC).isoformat(),
-            **dict(detail),
-        }
-
-
-def _approval_request_fingerprint(
-    *,
-    action: Action,
-    rule: Rule,
-    submitter_oid: str,
-    correlation_id: str,
-    reasons: Sequence[str],
-    blast_radius_summary: str,
-    ttl_seconds: int,
-    assignee_oid: str | None,
-) -> str:
-    payload = {
-        "action": action.model_dump(mode="json"),
-        "rule": {"id": rule.id, "version": rule.version},
-        "submitter_oid": submitter_oid,
-        "correlation_id": correlation_id,
-        "reasons": list(reasons),
-        "blast_radius_summary": blast_radius_summary,
-        "ttl_seconds": ttl_seconds,
-        "assignee_oid": assignee_oid,
-    }
-    canonical = json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-
-
-def _action_payload_hash(action: Mapping[str, Any]) -> str:
-    canonical = json.dumps(action, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-
-
-def _parked_action_integrity_matches(parked: Mapping[str, Any]) -> bool:
-    expected = parked.get("action_hash")
-    escalation = parked.get("escalation")
-    if expected is None and isinstance(escalation, Mapping):
-        expected = escalation.get("action_hash")
-    if expected is None:
-        return True
-    action = parked.get("action")
-    return (
-        isinstance(expected, str)
-        and isinstance(action, Mapping)
-        and expected == _action_payload_hash(action)
-    )
-
-
-def _is_success(
-    result: ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult,
-) -> bool:
-    """Success check aligned with the control loop's ``_is_execution_success``."""
-    from fdai.core.executor import ExecutorOutcome
-    from fdai.core.executor.direct_api import DirectApiExecutionOutcome
-    from fdai.core.executor.tool_call import ToolCallExecutionOutcome
-
-    outcome = getattr(result, "outcome", None)
-    return outcome in (
-        ExecutorOutcome.PUBLISHED,
-        ExecutorOutcome.ALREADY_EXISTED,
-        DirectApiExecutionOutcome.DISPATCHED,
-        DirectApiExecutionOutcome.ALREADY_APPLIED,
-        ToolCallExecutionOutcome.DISPATCHED,
-        ToolCallExecutionOutcome.ALREADY_APPLIED,
-    )
 
 
 __all__ = [
