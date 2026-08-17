@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: b54496c0c44bfcadfad90046dd97c45520711843
+translation_source_sha: 0ff6de8671eaa8f9de683f76767e0249c19ebced
 translation_revised: 2026-08-17
 ---
 
@@ -374,7 +374,7 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
 | 1 | **Container Apps 환경** | Consumption | 공유 서버리스 컴퓨트 호스트 | 코어 앱과 예약 작업이 하나의 환경을 공유하며 [런타임 계약](../architecture/csp-neutrality-ko.md#2-런타임-계약--oci-이미지--knative-호환-매니페스트)을 구현합니다. |
 | 2 | **Container Apps** (현재 Core와 목표 실행기) | 현재 Core 앱은 `minReplicas: 1`, 목표는 내부 앱 1개 추가 | 전이 기준선은 Core에서 실행을 구성하고 완료된 5개 서비스 토폴로지는 실행기를 격리합니다. | 모든 graduation 게이트 통과 후에만 실행기가 효과 권한을 받습니다. [Compute 형태](#compute-shape-current-core와-5개-service-목표)를 참조하세요. |
 | 3 | **Container Apps 작업** | Consumption | 스케줄 프로브와 out-of-band 변경 감지 | Azure Functions 대체; 환경 공유 |
-| 4 | **Event Hubs 이름 공간 샤드** | Standard 2개 (각 1 TU, auto-inflate off) | Kafka-와이어 이벤트 버스 (`:9093` 엔드포인트) | 기본은 통제된 유입, DLQ, HIL 및 단계를 소유합니다. Operational은 canary + DLQ, 전용 synthetic 시작 round-trip, raw 인벤토리, 실행기 명령 + DLQ 및 실행기 증적 개체를 소유합니다. Core는 배포 구성을 통해 operational 초기화 엔드포인트와 시작 토픽을 받습니다. |
+| 4 | **Event Hubs 이름 공간 샤드** | Standard 2개 (각 1 TU, auto-inflate off) | Kafka-와이어 이벤트 버스 (`:9093` 엔드포인트) | 기본은 통제된 유입, DLQ, HIL 및 단계를 소유합니다. Operational은 canary + DLQ, 전용 synthetic 시작 round-trip, 준비 상태 전이 개체, raw 인벤토리, 실행기 명령 + DLQ 및 실행기 증적 개체를 소유합니다. Core는 배포 구성을 통해 operational 초기화 엔드포인트와 시작 토픽을 받습니다. operational 버스는 기본 객체 토픽으로 다중화되지 않으므로, 이 버스가 발행하는 모든 논리 런타임 토픽은 여기에 자체 개체가 있어야 합니다. |
 | 5 | **Event Grid 인벤토리 system 토픽 + 구독 + Diagnostic Settings** | global 구독 이벤트 전달 / Log Analytics | Resource 쓰기/삭제를 `aw.inventory.raw`로 보내고 플랫폼 진단을 workspace로 보냄 | Terraform은 Azure 정본 lowercase 타입으로 tracked 토픽 하나를 adopt하고 send-only 인벤토리 UAMI를 할당하며 dedicated system-topic 구독 API를 사용합니다. 발견이 모호하면 계획을 차단합니다. |
 | 6 | **PostgreSQL Flexible Server** | Dev: Burstable **B1ms**, HA 비활성, 7일 백업; prod: zone-redundant HA, 35일 geo 백업 | 감사 + KPI + 패턴 라이브러리 + **pgvector** T1 임베딩, 단일 저장 | Terraform은 `vector`와 `pg_trgm`을 허용 목록하고 운영은 `ZoneRedundant` HA를 요구하며, 로컬 Compose는 별도 bind-mounted initializer 없이 같은 Alembic-owned `vector` 확장을 사용합니다. |
 | 7 | **Key Vault** | Standard | **Container Apps native 시크릿 + Key Vault 참조**로 소비되는 시크릿 백엔드 - [시크릿 계약](../architecture/csp-neutrality-ko.md#3-시크릿-계약--환경변수--k8s-secret) 구현 | Premium (HSM) 불필요; 앱은 시크릿 SDK 호출 안 함 |
