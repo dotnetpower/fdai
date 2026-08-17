@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 9988f600705eefda87d291eb247c15af1130bded
+translation_source_sha: 974586582f348087f3184a37b0a8ffb3add45313
 translation_revised: 2026-08-17
 ---
 
@@ -44,7 +44,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 읽기 전용 Conversation Search interaction | implemented | `conversation-search.tsx`, `conversation-search.model.ts`, `conversation-search.test.ts`, focused route 테스트(`5 passed`) 및 Console typecheck | Bounded filter, 안전한 text highlight, exact context toggle, empty 및 unavailable 상태, fail-closed decoder 오류는 승인 또는 실행 권한을 추가하지 않습니다. |
 | 인시던트 대화 RCA 표현 | implemented | `incident_queries.py`, `semantic_turn_processor.py`, `semantic_turn_presentation.py`, `presentation-artifact.ts`, focused Core, Operator 및 Console 검사(`138 passed`) | 기록된 원인은 일치하는 인용이 포함된 grounded 가설 또는 정확한 감사 행에 근거한 허용 목록의 결정론적 최종 실패를 요구합니다. T0는 범위가 제한된 영향 근거를 기록하고 두 언어 모두 실행 권한 없이 근본 원인, 영향 및 인용을 렌더링합니다. 누락된 근거는 명시적으로 유지합니다. |
 | 구조화된 인시던트 근거 가독성 | implemented | `structured-reply.tsx`, `presentation-value.ts`, `structured-reply.css`, 집중 Console 검사(`19 passed`) 및 타입 검사 | Console은 의미가 있는 마크업에 정확한 RFC 3339 값을 보존하면서 운영자 로컬 시각과 시간대, 관찰 구간, 읽기 쉬운 주체와 기계 토큰 레이블, 반응형 근거 행, 범위가 명확한 채팅 연결 상태, 모바일 44 px 컨트롤을 표시합니다. 브라우저 비평 5회 뒤에는 범위가 제한된 모바일 출처 목록의 가로 스크롤만 Low로 남았으며 통제된 브라우저 산출물은 보존하지 않았습니다. |
-| 결정적 구독 신원과 의미 처리 격리 | implemented | `adapters/subscription_scope.py`, `families/conversation/subscription_scope.py`, `semantic_turn_runtime.py`, `semantic_turn_consumer.py`, 집중 Operator, Core, 계약 및 Console 검사 | 카탈로그와 일치하는 구독 신원 읽기는 서버가 소유한 Azure Reader 범위를 사용하고 의미 모델 전송을 호출하지 않은 채 검증된 결정적 증적 하나를 영속화합니다. 운영 조립에서 대화 T2는 비활성화됩니다. 의미 요청은 `session_id`를 Kafka 키로 사용하고 같은 그룹의 Core 소비자 두 개가 브로커 파티션을 사용하므로 느린 세션 하나가 다른 세션을 차단하지 않습니다. 로컬 시작은 물리적 토픽을 최소 두 개의 파티션으로 조정하고 배포 인프라는 더 낮은 파티션 수를 거부합니다. 인증된 브라우저 근거는 아직 필요합니다. |
+| 결정적 구독 신원과 의미 처리 격리 | validated | `adapters/subscription_scope.py`, `families/conversation/subscription_scope.py`, `semantic_turn_runtime.py`, `semantic_turn_consumer.py`, 집중 Operator, Core, 계약 및 Console 검사, 인증된 표준 포트 Browser 근거 | 카탈로그와 일치하는 구독 신원 읽기는 서버가 소유한 Azure Reader 범위를 사용하고 의미 모델 전송을 호출하지 않은 채 검증된 결정적 증적 하나를 영속화합니다. 운영 조립에서 대화 T2는 비활성화됩니다. 의미 요청은 `session_id`를 Kafka 키로 사용하고 같은 그룹의 Core 소비자 두 개가 브로커 파티션을 사용하므로 느린 세션 하나가 다른 세션을 차단하지 않습니다. 로컬 시작은 물리적 토픽을 최소 두 개의 파티션으로 조정하고 배포 인프라는 더 낮은 파티션 수를 거부합니다. 영어와 한국어 로컬 턴은 ARM 이름, 상태, 마스킹된 ID, 관측 시각, 모델 추적 꺼짐, 근거 및 검증 `1/1`을 표시했습니다. |
 
 ### 구현 이력
 
@@ -64,7 +64,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 2026-08-17 | implemented | 기록된 grounded RCA, 범위가 제한된 T0 영향 근거 및 일치하는 인용을 인시던트에 바인딩된 의미 답변과 엄격한 Console 산출물 디코더 전체에서 보존했습니다. 이전의 "causal analysis hasn't been implemented" 제한은 레거시 재생에만 유지되며 현재 결과를 더는 설명하지 않습니다. | `current change`; focused Core, Operator 및 Console 검사 138개 통과, Ruff, strict mypy 및 Console typecheck 통과 | 새로 기록된 RCA의 세 근거 섹션을 모두 보여 주는 통제된 Browser 산출물을 보존합니다. |
 | 2026-08-17 | implemented | 활성 인시던트에 기록된 `route_unresolved` 알림 실패를 결정론적 T0 원인, 경로 결과 영향 행 및 정확한 감사 인용으로 변환했습니다. 읽기 경로는 감사 또는 알림 상태를 변경하지 않으며 성공하거나 알 수 없는 결과를 원인으로 거부합니다. | `current change`; focused Core 및 Operator 검사 133개 통과, Ruff 및 strict mypy 통과 | Core를 재시작하고 인증된 Browser에서 세 근거 블록을 검증합니다. |
 | 2026-08-17 | implemented | 검증된 산출물이나 기계 기록을 바꾸지 않고 구조화된 인시던트 근거의 가독성을 강화했습니다. 로컬 시각과 시간대, 보존된 원시 타임스탬프, 관찰 구간, 읽기 쉬운 주체와 토큰, 반응형 네이티브 표, 범위가 명확한 준비 상태 문구, 콘텐츠를 가리지 않는 최신 메시지 탐색, 32/44 px 컨트롤을 적용했습니다. | `current change`; `presentation-value.test.ts`와 `command-deck-workspace-visual.test.ts`의 집중 검사 19개 및 Console 타입 검사가 통과했습니다. 인증된 브라우저 비평 5회는 최종 데스크톱/모바일 검사 12개를 모두 통과했고 출처 목록 가로 스크롤만 Low로 남았습니다. | 아래에서 이미 추적하는 더 넓은 통제된 인시던트 표현 산출물을 보존합니다. 이 가독성 범위에는 Medium 이상의 구현 문제가 남아 있지 않습니다. |
-| 2026-08-17 | implemented | 독립 Operator Service에서 삭제됐던 현재 구독 결정적 읽기를 복원하고 자동 대화 T2 연결을 비활성화했으며 전역 의미 턴 직렬화를 세션 키 기반 파티션 작업자로 교체했습니다. | `current change`, 집중 공급자, 브리지, 계약, Core 작업자, 로컬 파티션, Terraform 및 Console 파서 검사. 보고된 턴은 Azure 인증이나 구독 RBAC 결함 때문에 실패한 것이 아닙니다. | 런타임 검증을 보고하기 전에 인증된 이중 언어 브라우저 증적과 인위적인 제한 응답 세션 격리 증적을 보존합니다. |
+| 2026-08-17 | validated | 독립 Operator Service에서 삭제됐던 현재 구독 결정적 읽기를 복원하고 자동 대화 T2 연결을 비활성화했으며 전역 의미 턴 직렬화를 세션 키 기반 파티션 작업자로 교체했습니다. | `current change`, 집중 공급자, 브리지, 계약, Core 작업자, 로컬 파티션, Terraform 및 Console 검사. 인증된 영어와 한국어 Browser 턴은 모델 추적 꺼짐과 근거 및 검증 `1/1`을 표시했습니다. 다른 세션의 의미 응답이 계속 대기 중인 동안 결정적 턴은 879 ms에 완료됐습니다. 결정적 턴 동안 Kafka 상위 워터마크는 증가하지 않았습니다. 보고된 실패의 원인은 Azure 인증 또는 구독 RBAC 결함이 아니었습니다. | 배포 개정 근거는 Azure 읽기 조사 owner 아래에서 별도로 보존합니다. |
 
 ### 남은 작업
 

@@ -107,10 +107,23 @@ function uniqueEvidenceStatuses(
   const standaloneActivities = trajectory.activities.filter(
     (activity) => activity.branchId === undefined || !branchIds.has(activity.branchId),
   );
-  return [
+  const observed = [
     ...trajectory.branches.map((branch) => branch.status),
     ...standaloneActivities.map((activity) => activity.status),
   ];
+  if (observed.length > 0) return observed;
+
+  const verification = trajectory.answer.verification;
+  if (
+    trajectory.answer.semanticReceipt?.semantic_route !== "deterministic_read" ||
+    !verification ||
+    verification.evidence_refs.length === 0 ||
+    verification.checks_total === 0
+  ) return observed;
+  return Array.from(
+    { length: verification.checks_total },
+    (_, index) => index < verification.checks_completed ? "completed" : "unavailable",
+  );
 }
 
 function aggregateEvidenceState(

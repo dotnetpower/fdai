@@ -142,6 +142,35 @@ describe("buildTrajectoryPresentation", () => {
     expect(result.evidenceReferenceCount).toBe(1);
   });
 
+  it("counts a verified deterministic receipt without inventing model work", () => {
+    const result = buildTrajectoryPresentation(trajectory({
+      semanticReceipt: {
+        schema_version: "1.0.0",
+        projection_id: "00000000-0000-0000-0000-000000000000",
+        request_id: "00000000-0000-0000-0000-000000000000",
+        disposition: "answered",
+        reason_code: "subscription_scope_verified",
+        semantic_route: "deterministic_read",
+        deterministic_receipt_digest: `sha256:${"a".repeat(64)}`,
+        execution_authority: false,
+      },
+      verification: {
+        status: "verified",
+        authority: "ontology-query",
+        checks_completed: 1,
+        checks_total: 1,
+        evidence_refs: ["azure-subscription:evidence"],
+        reason_code: "subscription_scope_verified",
+      },
+    }));
+
+    expect(result.phaseStates.evidence).toBe("completed");
+    expect(result.evidenceAttemptCount).toBe(1);
+    expect(result.evidenceCompletedCount).toBe(1);
+    expect(result.evidenceReferenceCount).toBe(1);
+    expect(result.modelCallCount).toBe(0);
+  });
+
   it("reports a model-call lower bound when detailed tracing is disabled", () => {
     const result = buildTrajectoryPresentation(trajectory({
       source: "llm:narrator-mini · 500ms",
