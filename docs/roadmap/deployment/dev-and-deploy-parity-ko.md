@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 5ea6938f1077631752ae53410d3bf68365bdbc1b
+translation_source_sha: bc5015508921d2c2bd69ef2f3ee8f419948629b7
 translation_revised: 2026-08-17
 ---
 
@@ -36,6 +36,7 @@ translation_revised: 2026-08-17
 | Agent 새로 고침 최신 상태 초기화 | validated | focused 스트림 테스트 9개 통과, 인증된 `/agents` 새로 고침이 각각 224ms, 232ms, 228ms 안에 `Watching 2 / Idle 13 / Unobserved 0` 도달 | Agent hub는 agent별로 검증된 최신 `agent.state` 이벤트 하나를 새 구독자에게 초기값으로 제공합니다. 일반 Live는 이후 이벤트만 전달하며 어느 hub도 영속 이력 재생을 제공하지 않습니다. |
 | 인증된 로컬 Live 이벤트 경로 | validated | 2026-08-13 통제된 Browser Entra 실행이 `aw.change.events`, Core, `aw.pipeline.stages`, Operator SSE 및 기존 인증 Live DOM을 통과 | 이 실행은 권위 있는 온톨로지를 보존하고 이벤트와 허용된 네 단계를 모두 렌더링했습니다. 배포된 개정 번호, 브라우저 Notifications API 또는 브라우저 종료 상태의 push 전달은 검증하지 않았습니다. |
 | 로컬 컨트롤 루프 변경 이벤트 유입 | validated | `.vscode/tasks.json`, `infra/modules/compute/container-apps/inventory_job.tf`, `tests/integration/infra/test_inventory_repair_wiring.py`, 로컬 실행 1회가 권위 있는 `inventory.resource_changed` 이벤트 5건을 발행했고 인증된 Live 화면이 `Runtime observed`와 `5 routed events`를 보고 | 로컬 inventory reconciliation 태스크가 VNet 통합 배포 job과 똑같이 `FDAI_INVENTORY_RECOVERY_DELTA=1`을 바인딩하므로 Activity Log delta가 두 장소 모두에서 `aw.change.events`에 도달합니다. 배포 job은 infrastructure subnet이 없으면 여전히 delta를 비활성화합니다. |
+| 읽기 데이터 소스 선언 완전성 | validated | `fdai_operator_service/composition.py`, `console/src/routes/dashboard.loading.ts`, 각 집중 테스트(`49 passed`, `3 passed`), 그리고 Overview 6개 화면 인증 실행에서 오류 알림 0건과 실패만 가능한 요청 0건 | 콘솔이 조회하는 모든 읽기 route는 이 배포판이 제공하지 않는 route까지 포함해 `/system/data-sources`에 선언됩니다. 선언되지 않은 route는 콘솔이 소스 확인을 건너뛰고 맹목적으로 요청하게 만들어, 패널이 서버가 제공한 사유를 잃습니다. 생산자가 없는 측정 화면은 값을 합성하지 않고 unavailable로 선언합니다. |
 | 로컬 및 배포 composition 동등성 | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, `fdai_operator_service/composition.py`, 서비스 통합 테스트 및 focused Operator 검사(`51 passed`) | Composition root는 근거 권한을 바꾸지 않고 자격 증명과 어댑터를 선택합니다. 로컬 및 배포 Operator composition은 같은 Reader 범위 `GET /browser-evidence` 경로와 권위 있는 데이터 출처 ID를 등록하며 PostgreSQL이 없으면 합성 데이터 대신 사용 불가를 반환합니다. |
 | Primary worktree 자동 시작 격리 | implemented | `.vscode/tasks.json`과 `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 자동 시작 계약 통과 | 폴더 열기 자동 시작은 primary checkout에서만 실행되므로 연결된 worktree가 표준 포트를 두고 경합하지 않습니다. 명시적 준비 및 서비스 시작 작업은 연결된 worktree에서도 계속 사용할 수 있습니다. |
 | 리포지토리 범위 roadmap campaign 용량 | implemented | `roadmap_verification_watchdog.py`, `test_roadmap_verification_watchdog.py`, `scripts/README.md`의 무작위 campaign 운영 계약 | FDAI session lease와 최근 Copilot 활동을 모두 이 리포지토리 범위에서만 계산합니다. Linked worktree는 VS Code workspace ID를 도출하기 전에 primary checkout을 해석합니다. 다른 workspace는 FDAI 작업을 보류할 수 없으며, 900초 활동 창과 campaign 세션 2개 상한은 FDAI 동시 편집을 계속 보호합니다. |
@@ -50,6 +51,7 @@ translation_revised: 2026-08-17
 
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-08-17 | validated | 이 배포판이 제공하지 않는 `/finops`와 `/kpi/autonomy` 측정 화면을 읽기 데이터 소스 레지스트리에 선언하고, 선택적 Overview projection이 레지스트리의 `503` 신호를 허용하도록 했습니다. | 현재 변경; Operator composition 집중 테스트 `49 passed`와 Console dashboard-loading 테스트 `3 passed`를 모두 변이 검증했고, Overview 6개 화면 인증 통과에서 오류 알림이 없었으며 모든 `404`가 사라졌습니다. | 이 배포판에 reader만 있고 writer가 없는 `promotion-gate.list` projection을 구현하거나 폐기합니다. |
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 machine 범위 Pylance launch 제어를 FDAI 프로파일로 이동했습니다. | 현재 변경의 `.vscode/fdai.code-profile`, `.vscode/settings.json`, `scripts/automation/configure-vscode-profile.py` 및 focused 프로파일/workspace 테스트 9개 통과. | FDAI Pylance process argument와 중앙 검증 receipt를 기록합니다. |
 | 2026-08-13 | deferred | 실효성 없는 Pylance machine 설정을 제거하고 중복 프로파일 JSON 키를 거부했으며 재도입 방지 contract를 추가했습니다. | Clean Remote WSL process command에 구성한 heap argument가 없었으며 focused 프로파일 및 workspace 테스트 11개가 통과했습니다. | 별도 root의 VS Code Server 또는 WSL 배포판을 사용한 뒤 재시작한 process command에서 heap argument를 증명합니다. |
 | 2026-08-13 | implemented | 파괴적인 검증을 위한 전용 로컬 PostgreSQL cluster를 추가하고 detached 검증 queue가 생성된 전용 DSN만 읽도록 했습니다. | 현재 변경, Compose config 통과, focused queue 및 local-env 테스트 68개 통과, 격리된 migration upgrade/downgrade 검사 2개 통과. | 로컬 검증 데이터베이스 격리에 남은 구현 작업은 없습니다. |
@@ -82,6 +84,9 @@ translation_revised: 2026-08-17
 | 2026-08-17 | validated | 로컬 장소를 배포와 동일한 권위 있는 컨트롤 루프 유입 경로에 바인딩했습니다. Activity Log recovery delta가 배포 inventory job에서는 켜져 있었지만 로컬에서는 `False` 기본값으로 남아 있어서 `aw.change.events`에 아무것도 들어오지 않았고, 모든 전송 구성 요소가 정상인데도 인증된 Live 화면이 `Source unavailable`을 표시했습니다. | `current change`, `.vscode/tasks.json`와 `tests/integration/infra/test_inventory_repair_wiring.py`, focused 인프라 및 헌법 검사 14건 통과, 로컬 실행 1회가 권위 있는 `inventory.resource_changed` 이벤트 5건을 발행해 `source: runtime-observed`인 `ingest`, `route`, `verify`, `audit` 프레임을 만들었고 Live 화면이 `Runtime observed`로 바뀜 | 남은 장소 선택 기능 플래그를 개별 바인딩 대신 하나의 계약으로 열거합니다. |
 ### 잔여 작업
 
+- [ ] `operator-projection:workflow:promotion-gate.list` projection을 구현하거나 폐기합니다. workflow
+  family가 이를 읽어 `/kpi/promotion-gates`가 `503`을 반환하지만, 이 배포판의 어떤 구성 요소도
+  이 projection을 기록하지 않습니다.
 - [ ] FDAI 전용 Remote WSL server data root 또는 WSL 배포판을 마련한 뒤 제외 대상 workspace를 변경하지 않고 재시작한 Pylance process command에 `--max-old-space-size=2048`이 포함됨을 기록합니다.
 - [ ] 등록된 Console 경로 50개 전체의 통과 근거를 기록한 뒤 최소 10회 보증 라운드와 10회 비평/하드닝 라운드를 완료하여 해결되지 않은 finding의 심각도가 모두 Low 이하임을 입증합니다.
 - [ ] 복제본별 `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID`를 통해 인증된 Live DOM에 도달하는 배포 개정 이벤트를 기록합니다. 브라우저 Notifications API 및 브라우저 종료 상태의 push 전달이 범위에 들어오면 별도로 추적합니다.
@@ -323,6 +328,13 @@ MFA를 계속 완료합니다. 로컬 dev-access 상태가 없는 workstation에
 발생하지 않습니다.
 
 ### 로컬 개발의 Console 데이터
+
+읽기 데이터 소스 레지스트리는 이 배포판이 제공하지 않는 route까지 포함해 콘솔이 조회하는 모든
+route를 선언합니다. 콘솔은 요청을 보내기 전에 route를 선언된 소스로 해석하므로, 선언되지 않은
+route는 이 확인을 건너뛰고 실패만 가능한 요청을 보내게 되며 패널은 빈 화면에 대한 서버 제공
+사유를 잃습니다. 따라서 생산자가 없는 화면은 생략하거나 합성 값으로 답하지 않고 사유와 함께
+unavailable로 선언하며, 콘솔은 이렇게 선언된 unavailable을 페이지 실패가 아니라 선택적
+projection으로 처리합니다.
 
 정본 로컬 Operator API는 `FDAI_OPERATOR_API_LOCAL_ENTRA=1`을 사용하고 배포와 route-owned 런타임 보조 로직을 공유합니다. 브라우저가 API 토큰을
 얻고 API는 배포와 동일하게 JWT 및 App 역할을 검증합니다. 서버의 Azure CLI 토큰은
