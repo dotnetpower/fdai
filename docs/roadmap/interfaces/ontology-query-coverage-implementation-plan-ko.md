@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 0da49d3066dbea8261e4a0a9a73f44f4c45b1d49
+translation_source_sha: 59c0b08f9dbe444b3102e0c432a416963da42d06
 translation_revised: 2026-08-17
 ---
 
@@ -208,6 +208,7 @@ translation_revised: 2026-08-17
 | 2026-08-17 | in-progress | 캐시가 격리된 엄격한 실행은 live Browser turn 14개를 모두 완료했지만 전용 요청 및 변환 결과 토픽을 각각 6만큼만 전진시켰습니다. Exact transport gate가 아티팩트를 거부하고 seed 기반 질문 집합을 닫힌 상태로 유지했습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 중앙 검증된 소스 `40fbd0c41eda506e6976e3090fab3bd9502b98f0`, 실행 `issue63-40fbd0c41e-20260817T084406Z`, live 14개, resumed 0개, transport 6/6 | Turn 8개가 소유하지 않은 물리 stream을 통과했으므로 의미 disposition을 release 근거로 사용하지 않습니다. |
 | 2026-08-17 | implemented | 실행 범위 outbox key를 기본 key prefix의 자식에서 형제 prefix로 변경했습니다. 운영 기본 key를 바꾸거나 exact namespace 동등성을 약화하지 않으면서 이전의 넓은 prefix claim을 계속 실행하는 오래된 기본 프로세스에 대해서도 소유권을 닫습니다. | `current change`, focused bridge 검사 62개, Ruff 및 strict mypy 통과 | Seed 기반 질문 집합을 시작하기 전에 요청 및 변환 결과 transport가 exact 14/14인 새로운 엄격한 아티팩트를 보존합니다. |
 | 2026-08-17 | implemented | Exact transport를 적용한 첫 전체 집단에서 답변된 기능 불일치 11건이 드러난 뒤 seed 기반 질문 분류를 넓은 작업 범주와 분리하고 의미 frame prompt v9을 적용했습니다. Prompt별로 유효한 plan은 계속 허용하면서 관계 탐색, 인과 근거, 보존 세대 비교 및 근거 속성 선택은 서로 다른 기능 요구 사항을 유지합니다. | `current change`, focused prompt 레지스트리 검사 5개와 assurance oracle 검사 99개 통과 | 중앙 검증을 확보하고 seed 기반 실행을 다시 시작하기 전에 strict 집단을 한 번 실행합니다. |
+| 2026-08-17 | implemented | `validate` frame을 `evidence_validation` 출력 계열에 묶고 topology cutoff 순서 검증을 deterministic plan 검증 단계로 이동했습니다. 잘못 분류된 근거 요청은 frame만 다시 시도한 뒤 Core가 principal 범위 ObjectSet을 구성하며, event cutoff가 knowledge cutoff보다 늦은 topology snapshot은 프로바이더 실행 전에 거부됩니다. 비어 있거나 불완전한 보존 history는 계속 타입이 지정된 불완전 근거를 반환하며 합성되지 않습니다. | `current change`, focused 의미 계획 및 query verifier 검사 41개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 중앙 검증을 확보한 뒤 runner가 seed 기반 집단을 시작하기 전에 strict 14/14 답변 및 완전 근거 아티팩트 하나를 보존합니다. |
 
 ### 남은 작업
 

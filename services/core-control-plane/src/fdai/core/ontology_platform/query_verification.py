@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from typing import Any
 
 from fdai_service_contracts.ontology_query import (
@@ -30,6 +31,18 @@ _SET_KINDS = {
     QueryNodeKind.SUBTRACTION,
 }
 _METRIC_KINDS = {QueryNodeKind.METRIC_SERIES, QueryNodeKind.METRIC_SCOPE_SERIES}
+
+
+def _timestamp(value: object, name: str) -> datetime:
+    if not isinstance(value, str):
+        raise ValueError(f"{name} MUST be an RFC 3339 string")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(f"{name} MUST be an RFC 3339 string") from exc
+    if parsed.tzinfo is None:
+        raise ValueError(f"{name} MUST be timezone-aware")
+    return parsed
 
 
 class OntologyQueryPlanVerifier:
@@ -170,7 +183,11 @@ class OntologyQueryPlanVerifier:
         if node.kind is QueryNodeKind.FUNCTION:
             self._verify_function(node, arguments=arguments, descriptors=descriptors)
             return
-        self._verify_temporal_dependencies(node, nodes_by_id=nodes_by_id)
+        self._verify_temporal_dependencies(
+            node,
+            arguments=arguments,
+            nodes_by_id=nodes_by_id,
+        )
         schema = self._extension_schemas.get(node.kind)
         if schema is None:
             raise ValueError(f"query node kind {node.kind.value!r} has no verifier schema")
@@ -187,11 +204,16 @@ class OntologyQueryPlanVerifier:
     def _verify_temporal_dependencies(
         node: OntologyQueryNode,
         *,
+        arguments: Mapping[str, Any],
         nodes_by_id: Mapping[str, OntologyQueryNode],
     ) -> None:
         if node.kind is QueryNodeKind.TOPOLOGY_AT:
             if node.depends_on or node.output_kind != "topology.graph":
                 raise ValueError("topology_at MUST be a topology.graph source")
+            as_of = _timestamp(arguments.get("as_of"), "topology_at.as_of")
+            known_at = _timestamp(arguments.get("known_at"), "topology_at.known_at")
+            if as_of > known_at:
+                raise ValueError("topology_at as_of MUST NOT exceed known_at")
         elif node.kind is QueryNodeKind.TOPOLOGY_DIFF:
             if len(node.depends_on) != 2 or node.output_kind != "topology.diff":
                 raise ValueError("topology_diff MUST join two topology.graph nodes")

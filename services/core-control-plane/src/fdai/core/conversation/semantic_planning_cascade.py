@@ -12,6 +12,7 @@ from typing import Any, Protocol
 from fdai_service_contracts.ontology_query import (
     OntologyQueryPlan,
     QueryNodeKind,
+    SemanticOperation,
     SemanticProblemFrame,
 )
 from pydantic import ValidationError
@@ -210,6 +211,9 @@ class SemanticPlanningCascade:
 def _validate_frame_proposal(proposal: SemanticFrameProposal) -> None:
     if _SERVER_BOUND_REQUIREMENTS.intersection(proposal.clarification_requirements):
         raise ValueError("semantic clarification requests server-bound context")
+    is_evidence_validation = proposal.output_shape == "evidence_validation"
+    if (proposal.operation is SemanticOperation.VALIDATE) != is_evidence_validation:
+        raise ValueError("semantic validate operation requires evidence_validation output")
 
 
 def _verify_frame_plan_alignment(

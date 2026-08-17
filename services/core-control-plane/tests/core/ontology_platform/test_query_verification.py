@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fdai.core.ontology_platform import (
@@ -289,6 +289,35 @@ def test_verifier_rejects_unavailable_kind_and_stale_manifest() -> None:
     stale = plan.model_copy(update={"semantic_catalog_digest": DIGEST})
     with pytest.raises(ValueError, match="stale query manifest"):
         verifier.verify(stale, manifest=manifest)
+
+
+def test_verifier_rejects_topology_cutoff_after_knowledge_cutoff() -> None:
+    release, manifest = _manifest()
+    node = OntologyQueryNode(
+        node_id="future-topology",
+        kind=QueryNodeKind.TOPOLOGY_AT,
+        arguments_json=canonical_json(
+            {
+                "as_of": (NOW + timedelta(minutes=1)).isoformat(),
+                "known_at": NOW.isoformat(),
+            }
+        ),
+        output_kind="topology.graph",
+    )
+    plan = _plan(
+        (node,),
+        release_digest=release.digest,
+        manifest_digest=manifest.manifest_digest,
+    )
+    verifier = OntologyQueryPlanVerifier(
+        available_kinds=(QueryNodeKind.TOPOLOGY_AT,),
+        extension_argument_schemas={
+            QueryNodeKind.TOPOLOGY_AT: TOPOLOGY_ARGUMENT_SCHEMAS[QueryNodeKind.TOPOLOGY_AT]
+        },
+    )
+
+    with pytest.raises(ValueError, match="as_of MUST NOT exceed known_at"):
+        verifier.verify(plan, manifest=manifest)
 
 
 def test_extension_kind_requires_and_applies_registered_schema() -> None:
