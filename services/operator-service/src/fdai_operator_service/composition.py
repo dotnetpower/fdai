@@ -304,6 +304,7 @@ def _postgres_family_store(environment: OperatorEnvironment) -> PostgresFamilySt
             role=environment.database_role,
             statement_timeout_ms=environment.database_statement_timeout_ms,
             connect_timeout_s=environment.database_connect_timeout_s,
+            semantic_outbox_namespace=environment.semantic_outbox_namespace,
         )
     )
 

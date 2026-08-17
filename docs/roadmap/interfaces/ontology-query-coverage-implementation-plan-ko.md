@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 9eb5cf881f8cbf83433a8881bc550c884c3b440a
+translation_source_sha: 1a5420c24e86a166f23237f478f85d7317253502
 translation_revised: 2026-08-17
 ---
 
@@ -194,6 +194,7 @@ translation_revised: 2026-08-17
 | 2026-08-16 | 구현됨 | 읽기가 이미 담아 온 인시던트 근거를 실제로 보고합니다. `query.incident_evidence`가 각 기록의 행위 주체를 버려 세어 놓은 기록을 누구에게도 귀속할 수 없었고, 프로파일에 제목·심각도·버티컬·최초·최종 기록 시각이 있는데도 두 표면 모두 상태만 보고했습니다. 이제 projection이 행위 주체를 보존하고, 두 표면 모두 값이 있는 프로파일 필드를 모두 나열하며 제목에 자기 상한을 밝힌 기록 활동 표를 덧붙이고, 다음 안전 단계는 측정한 공백을 따릅니다. 값이 있는 필드만 나열해 미기록 상태가 사라지지 않도록 상태 미기록 사실을 계속 밝히고, 보고하는 건수는 검증한 총계를 유지합니다. | `current change`, `incident_queries.py`, `semantic_turn_processor.py`, Operator 표현 계층, focused Core 검사 388개와 Operator 검사 322개 통과, 작업 범위 Ruff와 strict mypy 통과, mutation 3건이 각각 정확히 가드 하나씩만 실패시킴 | 통제된 요청-Console 및 이중 언어 무작위 근거를 보존합니다. |
 | 2026-08-16 | 구현됨 | 한국어 다음 안전 단계가 한국어 문장으로 읽히게 했습니다. 측정한 공백이 여러 개일 때 경어 명령문을 쉼표로 이어 붙여 한국어 문장이 아니었으므로, 여러 단계는 도입 문구로 시작해 각각 독립된 문장이 됩니다. | `current change`, focused 처리기 검사 60개 통과, 새 사례가 단일 단계와 복수 단계 형태를 모두 고정 | 이 행에 남은 작업은 없습니다. |
 | 2026-08-17 | implemented | 인시던트 의미 경로를 통해 기록된 grounded RCA, 영향 근거 및 인용을 노출했습니다. T0는 기존 발견 사항 심각도와 리소스 타입 범위를 영향 근거로 기록하고 알 수 없는 측정값은 비워 둡니다. Core 변환 결과는 일치하는 인용이 포함된 grounded 가설이 있어야 원인을 지원하며, Operator와 Console은 액션 권한을 추가하지 않고 두 언어로 세 근거 섹션을 렌더링합니다. | `current change`; focused Core, Operator 및 Console 검사 138개 통과, Ruff, strict mypy 및 Console typecheck 통과 | 기록된 RCA 인시던트와 명시적 근거 공백이 있는 인시던트에 대해 인증된 Browser 근거를 보존합니다. |
+| 2026-08-17 | implemented | Append, lease claim, 요청 조회 및 변환 결과 소유권을 하나의 Operator 실행에 묶는 선택적 영속 semantic outbox 네임스페이스를 추가했습니다. 기본 네임스페이스는 운영과 byte-compatible하게 유지합니다. 격리된 보증 Operator는 실행 id를 사용하므로 동시에 실행 중인 표준 Operator가 측정 요청을 다른 Core 세대를 통해 게시할 수 없습니다. | `current change`, focused Operator bridge, composition 및 supervisor 검사 114개 통과, 작업 범위 Ruff 및 strict mypy 통과 | Seed 기반 집단을 시작하기 전에 중앙 검증된 네임스페이스 runner에서 새로운 엄격한 아티팩트를 보존합니다. |
 
 ### 남은 작업
 

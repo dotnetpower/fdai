@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
@@ -28,6 +29,7 @@ LIVE_STAGE_CONSUMER_GROUP_ENV = "FDAI_LIVE_STAGE_CONSUMER_GROUP_ID"
 SEMANTIC_REQUEST_TOPIC_ENV = "FDAI_SEMANTIC_TURN_REQUEST_TOPIC"
 SEMANTIC_PROJECTION_TOPIC_ENV = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC"
 SEMANTIC_PHYSICAL_TOPIC_ENV = "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC"
+SEMANTIC_OUTBOX_NAMESPACE_ENV = "FDAI_SEMANTIC_TURN_OUTBOX_NAMESPACE"
 SEMANTIC_CONSUMER_GROUP_ENV = "FDAI_SEMANTIC_TURN_CONSUMER_GROUP_ID"
 SEMANTIC_KAFKA_CLIENT_ID_ENV = "FDAI_SEMANTIC_TURN_KAFKA_CLIENT_ID"
 MANAGED_IDENTITY_CLIENT_ID_ENV = "FDAI_COMMAND_MI_CLIENT_ID"
@@ -42,6 +44,7 @@ DEFAULT_LIVE_STAGE_CONSUMER_GROUP = "fdai-operator-live-stage-v1"
 DEFAULT_NARRATOR_PROBE_INTERVAL_SECONDS = 300
 MIN_NARRATOR_PROBE_INTERVAL_SECONDS = 30
 MAX_NARRATOR_PROBE_INTERVAL_SECONDS = 3_600
+_SEMANTIC_OUTBOX_NAMESPACE_PATTERN = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 
 GROUP_ENV: Mapping[OperatorRole, str] = MappingProxyType(
     {
@@ -83,6 +86,7 @@ class OperatorEnvironment:
     semantic_request_topic: str | None
     semantic_projection_topic: str | None
     semantic_physical_topic: str | None
+    semantic_outbox_namespace: str | None
     semantic_consumer_group_id: str
     semantic_kafka_client_id: str
     managed_identity_client_id: str | None
@@ -166,6 +170,18 @@ class OperatorEnvironment:
         semantic_request_topic = values.get(SEMANTIC_REQUEST_TOPIC_ENV, "").strip() or None
         semantic_projection_topic = values.get(SEMANTIC_PROJECTION_TOPIC_ENV, "").strip() or None
         semantic_physical_topic = values.get(SEMANTIC_PHYSICAL_TOPIC_ENV, "").strip() or None
+        semantic_outbox_namespace = values.get(SEMANTIC_OUTBOX_NAMESPACE_ENV, "").strip() or None
+        if (
+            semantic_outbox_namespace is not None
+            and _SEMANTIC_OUTBOX_NAMESPACE_PATTERN.fullmatch(semantic_outbox_namespace) is None
+        ):
+            raise OperatorServiceConfigurationError(
+                f"{SEMANTIC_OUTBOX_NAMESPACE_ENV} MUST be a bounded lowercase identifier"
+            )
+        if semantic_outbox_namespace is not None and database_url is None:
+            raise OperatorServiceConfigurationError(
+                f"{SEMANTIC_OUTBOX_NAMESPACE_ENV} requires {DATABASE_URL_ENV}"
+            )
         semantic_transport = (
             kafka_bootstrap_servers,
             semantic_request_topic,
@@ -216,6 +232,7 @@ class OperatorEnvironment:
             semantic_request_topic=semantic_request_topic,
             semantic_projection_topic=semantic_projection_topic,
             semantic_physical_topic=semantic_physical_topic,
+            semantic_outbox_namespace=semantic_outbox_namespace,
             semantic_consumer_group_id=semantic_consumer_group_id,
             semantic_kafka_client_id=semantic_kafka_client_id,
             managed_identity_client_id=managed_identity_client_id,
@@ -291,6 +308,7 @@ __all__ = [
     "SEMANTIC_KAFKA_CLIENT_ID_ENV",
     "SEMANTIC_PROJECTION_TOPIC_ENV",
     "SEMANTIC_PHYSICAL_TOPIC_ENV",
+    "SEMANTIC_OUTBOX_NAMESPACE_ENV",
     "SEMANTIC_REQUEST_TOPIC_ENV",
     "TENANT_ENV",
     "OperatorEnvironment",

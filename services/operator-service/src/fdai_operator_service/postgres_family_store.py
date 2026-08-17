@@ -112,6 +112,7 @@ class PostgresFamilyStoreConfig:
     role: str = EXPECTED_DATABASE_ROLE
     statement_timeout_ms: int = 20_000
     connect_timeout_s: int = 10
+    semantic_outbox_namespace: str | None = None
 
     def __post_init__(self) -> None:
         if not self.dsn.strip():
@@ -161,6 +162,7 @@ class PostgresFamilyStore:
         self._semantic_turn_store = PostgresSemanticTurnRepository(
             fetch_all=self._fetch_all,
             insert_if_absent=self._insert_if_absent,
+            outbox_namespace=config.semantic_outbox_namespace,
         )
 
     async def probe_readiness(self) -> bool:

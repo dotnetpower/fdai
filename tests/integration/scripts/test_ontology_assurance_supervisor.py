@@ -15,11 +15,28 @@ from scripts.automation.ontology_assurance_supervisor import (
     RequiredChildExitedError,
 )
 from scripts.automation.run_ontology_assurance import (
+    OntologyAssuranceRunner,
     full_artifact_accepted,
     strict_artifact_accepted,
 )
 
 SOURCE_REVISION = "a" * 40
+
+
+def test_operator_child_uses_run_scoped_outbox_namespace(tmp_path: Path) -> None:
+    runner = OntologyAssuranceRunner(
+        repo=tmp_path,
+        source_revision=SOURCE_REVISION,
+        run_id="issue63-run-1",
+        status_path=tmp_path / "status.json",
+        model_path=tmp_path / "models.json",
+        storage_state=tmp_path / "storage.json",
+        prep_only=True,
+    )
+
+    operator = next(spec for spec in runner._service_specs() if spec.label == "operator")
+    assert 'FDAI_SEMANTIC_TURN_OUTBOX_NAMESPACE="${3,,}"' in operator.command[2]
+    assert operator.command[6] == "issue63-run-1"
 
 
 def _spec(

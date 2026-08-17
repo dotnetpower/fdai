@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -15,6 +16,7 @@ from fdai_service_contracts import RuleSearchProjection, SemanticTurnRequest
 _OUTBOX_PREFIX: Final = "operator-semantic-outbox:"
 _RESULT_PREFIX: Final = "operator-semantic-result:"
 _RULE_SEARCH_PROJECTION_PREFIX: Final = "operator-projection:workflow:rule.search:"
+_NAMESPACE_PATTERN: Final = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 
 FetchAll = Callable[[str, Mapping[str, object]], Awaitable[list[dict[str, Any]]]]
 InsertIfAbsent = Callable[..., Awaitable[tuple[bool, dict[str, object]]]]
@@ -68,9 +70,16 @@ class StoredSemanticResult:
 class PostgresSemanticTurnRepository:
     """Persist semantic outbox and result records through injected transaction primitives."""
 
-    def __init__(self, *, fetch_all: FetchAll, insert_if_absent: InsertIfAbsent) -> None:
+    def __init__(
+        self,
+        *,
+        fetch_all: FetchAll,
+        insert_if_absent: InsertIfAbsent,
+        outbox_namespace: str | None = None,
+    ) -> None:
         self._fetch_all = fetch_all
         self._insert_if_absent = insert_if_absent
+        self._outbox_prefix = _outbox_prefix(outbox_namespace)
 
     async def append(
         self,
@@ -96,7 +105,7 @@ class PostgresSemanticTurnRepository:
             raise ValueError("semantic envelope structure is malformed") from None
         if request.principal.subject_id != principal_id:
             raise ValueError("semantic envelope principal MUST match the durable owner")
-        key = _outbox_key(idempotency_key)
+        key = _outbox_key(idempotency_key, prefix=self._outbox_prefix)
         record: dict[str, object] = {
             "kind": "operator.semantic_turn",
             "proposal_id": f"semantic-{request_id}",
@@ -133,7 +142,7 @@ class PostgresSemanticTurnRepository:
             raise ValueError("lease_seconds MUST be in [1, 300]")
         claim_id = str(uuid4())
         parameters: dict[str, object] = {
-            "prefix": f"{_OUTBOX_PREFIX}%",
+            "prefix": f"{self._outbox_prefix}%",
             "claim_id": claim_id,
             "worker_id": worker_id,
             "lease_seconds": lease_seconds,
@@ -221,7 +230,7 @@ class PostgresSemanticTurnRepository:
              LIMIT 1
             """,
             {
-                "prefix": f"{_OUTBOX_PREFIX}%",
+                "prefix": f"{self._outbox_prefix}%",
                 "principal_id": principal_id,
                 "proposal_id": proposal_id,
             },
@@ -507,7 +516,7 @@ class PostgresSemanticTurnRepository:
               FROM accepted
             """,
             {
-                "outbox_prefix": f"{_OUTBOX_PREFIX}%",
+                "outbox_prefix": f"{self._outbox_prefix}%",
                 "request_id": request_id,
                 "session_id": session_id,
                 "turn_id": turn_id,
@@ -546,10 +555,18 @@ def rule_search_projection_key(principal_id: str, query_digest: str) -> str:
     return f"{_RULE_SEARCH_PROJECTION_PREFIX}{digest}"
 
 
-def _outbox_key(idempotency_key: str) -> str:
+def _outbox_prefix(namespace: str | None) -> str:
+    if namespace is None:
+        return _OUTBOX_PREFIX
+    if _NAMESPACE_PATTERN.fullmatch(namespace) is None:
+        raise ValueError("semantic outbox namespace MUST be a bounded lowercase identifier")
+    return f"{_OUTBOX_PREFIX}{namespace}:"
+
+
+def _outbox_key(idempotency_key: str, *, prefix: str = _OUTBOX_PREFIX) -> str:
     if not idempotency_key.strip() or len(idempotency_key) > 256:
         raise ValueError("idempotency_key MUST be a bounded non-empty string")
-    return f"{_OUTBOX_PREFIX}{hashlib.sha256(idempotency_key.encode()).hexdigest()}"
+    return f"{prefix}{hashlib.sha256(idempotency_key.encode()).hexdigest()}"
 
 
 def _result_key(request_id: str, projection_id: str) -> str:
