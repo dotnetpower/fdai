@@ -389,7 +389,7 @@ def _build_plan(
             ),
             output_kind=node.output_kind,
         )
-        for node in proposal.nodes
+        for node in _canonical_plan_nodes(proposal)
     )
     payload = {
         "schema_version": "1.0.0",
@@ -412,6 +412,31 @@ def _build_plan(
         output_node_ids=proposal.output_node_ids,
         plan_digest=content_digest(payload),
     )
+
+
+def _canonical_plan_nodes(proposal: QueryPlanProposal) -> tuple[QueryNodeProposal, ...]:
+    ancestors: dict[str, frozenset[str]] = {}
+    result: list[QueryNodeProposal] = []
+    for node in proposal.nodes:
+        dependencies = node.depends_on
+        if node.kind is QueryNodeKind.EVIDENCE_JOIN:
+            transitive = frozenset(
+                ancestor
+                for dependency in dependencies
+                for ancestor in ancestors.get(dependency, ())
+            )
+            dependencies = tuple(
+                dependency for dependency in dependencies if dependency not in transitive
+            )
+        result.append(node.model_copy(update={"depends_on": dependencies}))
+        ancestors[node.node_id] = frozenset(
+            {
+                ancestor
+                for dependency in dependencies
+                for ancestor in (dependency, *ancestors.get(dependency, ()))
+            }
+        )
+    return tuple(result)
 
 
 def _server_bound_node_arguments(
