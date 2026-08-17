@@ -939,6 +939,7 @@ def test_plan_guard_allows_bounded_initial_runtime_cutover(guard: ModuleType) ->
     before_container["image"] = "registry.example.com/operator@sha256:" + "b" * 64
     before_container["command"] = ["legacy-operator"]
     before_container["env"].append({"name": "LEGACY_OPTIONAL", "value": "enabled"})
+    after["template"][0]["revision_suffix"] = "p20260817033542"
     before["tags"] = {}
     after["tags"] = {
         "fdai:component": "operator-service",
@@ -958,6 +959,32 @@ def test_plan_guard_allows_bounded_initial_runtime_cutover(guard: ModuleType) ->
             service="operator-service",
             environment="dev",
             image_ref="image",
+        )
+
+
+def test_initial_cutover_rejects_invalid_revision_suffix(guard: ModuleType) -> None:
+    address = "module.operator_service.module.container_app.azurerm_container_app.service"
+    plan = _plan(address, ["update"])
+    change = plan["resource_changes"][0]["change"]  # type: ignore[index]
+    before = change["before"]
+    after = change["after"]
+    before_container = before["template"][0]["container"][0]
+    before_container["image"] = "registry.example.com/operator@sha256:" + "b" * 64
+    before_container["command"] = ["legacy-operator"]
+    before["tags"] = {}
+    after["tags"] = {
+        "fdai:component": "operator-service",
+        "fdai:rollback-strategy": "previous-revision",
+    }
+    after["template"][0]["revision_suffix"] = "INVALID_SUFFIX"
+
+    with pytest.raises(guard.PlanGuardError, match="revision suffix is invalid"):
+        guard.validate_plan(
+            plan,
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+            initial_cutover=True,
         )
 
 
