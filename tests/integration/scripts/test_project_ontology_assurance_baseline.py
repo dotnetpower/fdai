@@ -72,6 +72,8 @@ def _passing_artifact() -> dict[str, Any]:
             "required_answer_coverage_complete": True,
             "unsupported_operational_claim_count": 0,
             "unauthorized_execution_count": 0,
+            "ambient_request_count": 0,
+            "bound_request_count": 0,
             "plan_capability_mismatch_count": 0,
             "exhausted_transport_retry_count": 0,
         },
