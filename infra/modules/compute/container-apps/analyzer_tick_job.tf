@@ -129,10 +129,10 @@ resource "azurerm_container_app_job" "analyzer_tick" {
       }
 
       dynamic "env" {
-        for_each = var.trace_continuity_window_seconds == "" ? toset([]) : toset(["1"])
+        for_each = var.trace_window_seconds == "" ? toset([]) : toset(["1"])
         content {
           name  = "FDAI_TRACE_CONTINUITY_WINDOW_SECONDS"
-          value = var.trace_continuity_window_seconds
+          value = var.trace_window_seconds
         }
       }
 

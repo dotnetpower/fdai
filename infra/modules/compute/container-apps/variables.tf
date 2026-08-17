@@ -660,7 +660,7 @@ variable "analyzer_window_seconds" {
   default     = ""
 }
 
-variable "trace_continuity_window_seconds" {
+variable "trace_window_seconds" {
   description = "Optional trace-continuity detection window (seconds). One window yields at most one finding, so this MUST be several times shorter than the correlation window. Empty -> analyzer window."
   type        = string
   default     = ""
