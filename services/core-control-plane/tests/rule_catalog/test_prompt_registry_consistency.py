@@ -155,7 +155,7 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "do not require incident_id or correlation_id" in frame.body
     assert "cause_claim_supported=false" in frame.body
     assert "Do not claim a cause" in frame.body
-    assert plan.version == 10
+    assert plan.version == 11
     assert "Satisfy the frame's exact output_shape" in plan.body
     assert "aggregation_table requires aggregate" in plan.body
     assert "topology_graph requires topology_at" in plan.body
@@ -169,6 +169,14 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
         "an existence predicate over a required property selects the whole type and never "
         "stands in for a requested value" in plan.body
     )
+    assert "A readable property that supplies values accepts only those exact values" in plan.body
+    assert "Resolve a requested family, category, class, or group word" in plan.body
+    assert "select its listed values with an in predicate" in plan.body
+    assert "accepts a contains fragment only when some supplied value already contains it" in (
+        plan.body
+    )
+    assert "never to a value-supplying property" in plan.body
+    assert "never pass a family word through as a value" in plan.body
     assert "exactly two metric_scope_series nodes" in plan.body
     assert "select exact cause and effect concept_id values" in plan.body
     assert "Never invent a resource id or metric concept" in plan.body

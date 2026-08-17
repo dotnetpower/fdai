@@ -15,6 +15,7 @@ from fdai.core.ontology_platform import (
     OntologyQueryPlanVerifier,
     build_query_manifest,
 )
+from fdai.core.ontology_platform.property_values import PropertyValueDomain
 from fdai.shared.contracts.models import (
     CeilingRole,
     OntologyObjectType,
@@ -621,3 +622,116 @@ def test_verifier_rejects_metric_concept_absent_from_reviewed_registry() -> None
             ),
             manifest=manifest,
         )
+
+
+def _valued_manifest() -> tuple[object, object]:
+    resource = _resource()
+    release = build_ontology_release(object_types=(resource,))
+    manifest = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=DIGEST,
+        object_types=(resource,),
+        property_values=(
+            PropertyValueDomain(
+                object_type="Resource",
+                property_name="id",
+                values=("mysql-server", "postgresql-server"),
+            ),
+        ),
+    )
+    return release, manifest
+
+
+def _object_set_plan(
+    predicate: ObjectPredicate,
+    *,
+    release_digest: str,
+    manifest_digest: str,
+) -> OntologyQueryPlan:
+    definition = ObjectSetDefinition(
+        selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
+        predicates=(predicate,),
+        as_of=NOW,
+        purpose="operations-review",
+        limit=10,
+    )
+    node = OntologyQueryNode(
+        node_id="resources",
+        kind=QueryNodeKind.OBJECT_SET,
+        arguments_json=canonical_json({"definition": definition.model_dump(mode="json")}),
+        output_kind="query.table",
+    )
+    return _plan((node,), release_digest=release_digest, manifest_digest=manifest_digest)
+
+
+@pytest.mark.parametrize(
+    "predicate",
+    [
+        ObjectPredicate(property="id", equals="postgresql-server"),
+        ObjectPredicate(property="id", operator="in", values=["mysql-server"]),
+        ObjectPredicate(property="id", operator="exists"),
+        ObjectPredicate(property="id", operator="contains", equals="sql"),
+    ],
+)
+def test_verifier_accepts_declared_and_non_exact_predicate_operands(
+    predicate: ObjectPredicate,
+) -> None:
+    release, manifest = _valued_manifest()
+    verifier = OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.OBJECT_SET,))
+    plan = _object_set_plan(
+        predicate,
+        release_digest=release.digest,
+        manifest_digest=manifest.manifest_digest,
+    )
+
+    assert verifier.verify(plan, manifest=manifest) is plan
+
+
+@pytest.mark.parametrize(
+    "predicate",
+    [
+        ObjectPredicate(property="id", equals="database"),
+        ObjectPredicate(property="id", operator="in", values=["postgresql-server", "database"]),
+        ObjectPredicate(property="id", operator="not_equals", equals="데이터베이스"),
+    ],
+)
+def test_verifier_rejects_an_operand_outside_the_declared_value_domain(
+    predicate: ObjectPredicate,
+) -> None:
+    release, manifest = _valued_manifest()
+    verifier = OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.OBJECT_SET,))
+    plan = _object_set_plan(
+        predicate,
+        release_digest=release.digest,
+        manifest_digest=manifest.manifest_digest,
+    )
+
+    with pytest.raises(ValueError, match="absent from the declared value domain"):
+        verifier.verify(plan, manifest=manifest)
+
+
+def test_verifier_leaves_a_property_without_a_declared_domain_unconstrained() -> None:
+    release, manifest = _manifest()
+    verifier = OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.OBJECT_SET,))
+    plan = _object_set_plan(
+        ObjectPredicate(property="id", equals="anything-at-all"),
+        release_digest=release.digest,
+        manifest_digest=manifest.manifest_digest,
+    )
+
+    assert verifier.verify(plan, manifest=manifest) is plan
+
+
+def test_verifier_rejects_a_fragment_no_declared_value_can_contain() -> None:
+    release, manifest = _valued_manifest()
+    verifier = OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.OBJECT_SET,))
+    plan = _object_set_plan(
+        ObjectPredicate(property="id", operator="contains", equals="fdai"),
+        release_digest=release.digest,
+        manifest_digest=manifest.manifest_digest,
+    )
+
+    with pytest.raises(ValueError, match="matches no value in the declared domain"):
+        verifier.verify(plan, manifest=manifest)

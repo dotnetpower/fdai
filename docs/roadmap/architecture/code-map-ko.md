@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 7830eca3a9e9a7f0711b64b9e0c8a20ab3aa01fc
+translation_source_sha: 2024e89ce1df2012ff4d7450f4a4de64196c9ff1
 translation_revised: 2026-08-17
 ---
 # 코드 맵
@@ -123,6 +123,7 @@ translation_revised: 2026-08-17
 | 2026-08-17 | implemented | 감독 대상 온톨로지 보증 Console마다 실행 소유 Vite 의존성 캐시를 할당했습니다. 일반 Console의 캐시 동작은 바꾸지 않으면서 동시에 실행되는 Console optimizer가 측정 대상 Browser import를 무효화하지 못하게 합니다. | `current change`, `console/vite.config.ts`, `run_ontology_assurance.py`, 통과한 focused Console 및 supervisor 검사 11개, Console typecheck, Ruff 및 strict mypy 통과 | 담당 온톨로지 보증 원장에 통제된 엄격한 아티팩트와 seed 기반 아티팩트를 보존합니다. |
 | 2026-08-17 | implemented | 선택적인 namespaced Operator semantic outbox key를 형제 물리 prefix로 옮겼습니다. 운영 기본 key는 그대로 유지하고 exact namespace 검사도 유지하며, 이전의 넓은 기본 claim을 사용하는 오래된 프로세스는 실행 소유 행과 일치할 수 없습니다. | `current change`, `postgres_semantic_turn_store.py`, 통과한 focused bridge 검사 62개, Ruff 및 strict mypy 통과 | 담당 온톨로지 보증 원장에 통제된 엄격한 근거와 seed 기반 근거를 보존합니다. |
 | 2026-08-17 | implemented | 근거 계열 분류와 temporal cutoff 검증을 각각 담당하는 Core 경계에 유지했습니다. 의미 cascade는 plan 선택 전에 `evidence_validation`이 아닌 `validate` frame을 거부하고, ontology query verifier는 프로바이더 실행 전에 knowledge cutoff보다 늦은 `topology_at` event cutoff를 거부합니다. | `current change`, focused 의미 계획 및 query verifier 검사 41개 통과, 작업 범위 Ruff 및 strict mypy 통과 | Runner가 seed 기반 집단을 시작하기 전에 strict 14/14 답변 및 완전 근거를 보존합니다. |
+| 2026-08-17 | 구현됨 | 카탈로그 리소스 타입 어휘를 읽기 가능한 `Resource.type` 속성에 연결해 플래너가 선언된 값과 이중 언어 그룹을 읽도록 했고, 선언 영역이 담을 수 없는 피연산자나 조각은 plan 검증기가 거부하도록 했습니다. Console intent 변환 결과는 membership 술어에 필요한 6단계 중첩을 이제 허용합니다. | `current change`; `core/ontology_platform/property_values.py`, `query_manifest.py`, `query_verification.py`, `composition/semantic_query_value_domains.py`, `packages/service-contracts/.../ontology_query.py`, `console/src/deck/intent-graph.ts`; 집중 온톨로지, composition, 대화, 카탈로그, 계약 검사 2317건과 Console intent-graph 모음이 통과했습니다. | 선언된 값을 가진 속성은 `Resource.type` 하나뿐이며 다른 열거형 속성은 아직 값을 확정하지 못합니다. |
 
 ### 남은 작업
 
