@@ -500,6 +500,48 @@ def _build_data_sources(*, configured: bool) -> tuple[ReadDataSource, ...]:
             ),
         ),
         ReadDataSource(
+            key="onboarding-probe",
+            source="not-implemented",
+            routes=("/onboarding",),
+            availability="unavailable",
+            configured=False,
+            reachable=None,
+            authoritative=False,
+            durable=None,
+            reason=(
+                "The Azure onboarding probe is not served by this distribution, so no "
+                "observed tenant resource or role assignment is claimed."
+            ),
+        ),
+        ReadDataSource(
+            key="configuration-baseline",
+            source="not-implemented",
+            routes=("/configuration-baselines",),
+            availability="unavailable",
+            configured=False,
+            reachable=None,
+            authoritative=False,
+            durable=None,
+            reason=(
+                "Configuration baseline evidence is not served by this distribution, so "
+                "no baseline integrity or drift state is claimed."
+            ),
+        ),
+        ReadDataSource(
+            key="conversation-delivery",
+            source="not-implemented",
+            routes=("/conversation-delivery",),
+            availability="unavailable",
+            configured=False,
+            reachable=None,
+            authoritative=False,
+            durable=None,
+            reason=(
+                "Conversation delivery evidence is not served by this distribution, so "
+                "no latency, retry, or adapter health measurement is claimed."
+            ),
+        ),
+        ReadDataSource(
             key="notification-template",
             source="operator-service",
             routes=("/notification-templates/incident-opened",),

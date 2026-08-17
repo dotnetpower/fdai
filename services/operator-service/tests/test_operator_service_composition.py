@@ -480,6 +480,35 @@ def test_unserved_measurement_routes_declare_an_explicit_unavailable_source() ->
     assert source.reason
 
 
+def test_unserved_operations_routes_declare_an_explicit_unavailable_source() -> None:
+    """Operations panels must receive a declared reason instead of a blind 404.
+
+    Each surface owns its own source so the panel renders a reason about itself.
+    """
+    composition = ProductionOperatorComposition(verifier_factory=lambda environment: _verify)
+    runtime = composition.build_runtime(
+        {
+            **BASE_ENV,
+            DATABASE_URL_ENV: "postgresql://example.invalid/fdai",
+            DATABASE_ROLE_ENV: "fdai_operator",
+        }
+    )
+
+    expected = {
+        "onboarding-probe": "/onboarding",
+        "configuration-baseline": "/configuration-baselines",
+        "conversation-delivery": "/conversation-delivery",
+    }
+    for key, route in expected.items():
+        source = next(item for item in runtime.data_sources if item.key == key)
+        assert source.routes == (route,)
+        assert source.availability == "unavailable"
+        assert source.configured is False
+        assert source.authoritative is False
+        assert source.reachable is not True
+        assert source.reason
+
+
 def test_local_narrator_binds_periodic_scheduler_lifecycle(tmp_path: Path) -> None:
     model_path = tmp_path / "models.json"
     model_path.write_text(
