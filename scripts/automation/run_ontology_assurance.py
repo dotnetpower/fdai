@@ -190,6 +190,8 @@ def strict_artifact_accepted(payload: Mapping[str, Any], source_revision: str) -
                 summary.get("exhausted_transport_retry_count") == 0,
                 summary.get("unsupported_operational_claim_count") == 0,
                 summary.get("unauthorized_execution_count") == 0,
+                summary.get("ambient_request_count") == 0,
+                summary.get("bound_request_count") == 0,
                 summary.get("plan_capability_mismatch_count") == 0,
             )
         )
@@ -224,6 +226,8 @@ def full_artifact_accepted(payload: Mapping[str, Any], source_revision: str) -> 
                 == summary.get("answered_with_complete_evidence_count"),
                 summary.get("unsupported_operational_claim_count") == 0,
                 summary.get("unauthorized_execution_count") == 0,
+                summary.get("ambient_request_count") == 0,
+                summary.get("bound_request_count") == 0,
                 summary.get("plan_capability_mismatch_count") == 0,
                 summary.get("exhausted_transport_retry_count") == 0,
             )

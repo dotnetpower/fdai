@@ -17,6 +17,7 @@ import {
   isRetainedTurnResult,
   liveAnswerProof,
   liveProofQuestionIds,
+  observeAssuranceChatRequest,
   resumableWithLiveProof,
   releasableForCoverage,
   retainedForLiveGeneration,
@@ -104,9 +105,33 @@ function runConfiguration(): AssuranceRunConfiguration {
 }
 
 describe("ontology assurance run identity", () => {
+  const specSource = readFileSync(
+    new URL("./ontology-query-assurance.spec.ts", import.meta.url),
+    "utf8",
+  );
+
   it("creates a stable question-scoped backend session identity", () => {
     expect(assuranceSessionId("issue63-run-1", "ko-aggregation-1"))
       .toBe("ontology-assurance:issue63-run-1:ko-aggregation-1");
+  });
+
+  it("classifies only unbound run-scoped assurance requests as isolated", () => {
+    expect(observeAssuranceChatRequest({
+      session_id: "ontology-assurance:issue63-run-1:ko-aggregation-1",
+    }, "issue63-run-1")).toEqual({ runScoped: true, bound: false });
+    expect(observeAssuranceChatRequest({
+      session_id: "screen:ambient",
+      conversation_context: { kind: "incident" },
+    }, "issue63-run-1")).toEqual({ runScoped: false, bound: true });
+    expect(observeAssuranceChatRequest(null, "issue63-run-1"))
+      .toEqual({ runScoped: false, bound: false });
+  });
+
+  it("isolates and records every measured browser chat request", () => {
+    expect(specSource).toContain('page.route("**/incidents/stream"');
+    expect(specSource).toContain('page.route("**/chat/stream"');
+    expect(specSource).toContain("ambient_request_count: ambientRequestCount");
+    expect(specSource).toContain("bound_request_count: boundRequestCount");
   });
 
   it.each([undefined, "", "contains spaces", "a".repeat(65)])(
@@ -323,6 +348,8 @@ describe("assuranceCohortPassed", () => {
     duplicateProjectionIdCount: 0,
     unsupportedOperationalClaimCount: 0,
     unauthorizedExecutionCount: 0,
+    ambientRequestCount: 0,
+    boundRequestCount: 0,
     answeredCount: 70,
     answeredWithCompleteEvidenceCount: 70,
     authoritativeOutcomeCount: 100,
@@ -345,6 +372,8 @@ describe("assuranceCohortPassed", () => {
       { duplicateProjectionIdCount: 1 },
       { unsupportedOperationalClaimCount: 1 },
       { unauthorizedExecutionCount: 1 },
+      { ambientRequestCount: 1 },
+      { boundRequestCount: 1 },
       { answeredWithCompleteEvidenceCount: 69 },
       { authoritativeOutcomeCount: 99 },
     ];

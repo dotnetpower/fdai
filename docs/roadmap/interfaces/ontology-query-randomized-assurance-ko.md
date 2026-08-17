@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-randomized-assurance.md
-translation_source_sha: 7f311d9d4d30b35aa5a345d92b785a60941aadd5
+translation_source_sha: 0cc20ddf95e0c6391b07444942768810c40239aa
 translation_revised: 2026-08-17
 ---
 # 온톨로지 쿼리 무작위 보증
@@ -18,11 +18,9 @@ translation_revised: 2026-08-17
 > 포함됩니다. 측정 환경의 리소스 식별자, 원시 화면 스냅샷, 토큰, 엔드포인트 또는 전체
 > 모델 응답은 포함하지 않습니다.
 
-## 설계 개요
 
 이 실행은 도구를 비활성화한 모델로 균형 잡힌 질문 집합을 생성하고 수정한 다음, 실제
 Console Command Deck을 통해 모든 질문을 제출하고 최종 assistant 카드를 기다렸습니다.
-별도의 도구 비활성화 판정자가 요청한 작업의 이해 여부와 최종 처리 결과 및 근거의
 충분성을 서로 독립적으로 평가했습니다.
 
 ```mermaid
@@ -33,9 +31,7 @@ flowchart LR
     T --> J[독립적인 근거 인식 judge]
     J --> R[의도 및 답변 성공률]
     R --> D[릴리스 결정 및 조치 원장]
-```
-
-## 방법
+  ```
 
 - **질문 집합:** 고유 질문 100개이며 영어 50개와 한국어 50개입니다.
 - **생성:** 도구 비활성화 모델이 질문 집합을 생성했습니다. 두 번째 모델 통과에서 잘못된
@@ -192,8 +188,9 @@ Core
 | 2026-08-11 무작위 기준선 | in-progress | [`ontology-query-randomized-assurance-2026-08-11.json`](../../baselines/ontology-query-randomized-assurance-2026-08-11.json) | 아티팩트는 역사적인 채점 측정값과 차단된 릴리스 결정을 보존하지만 통제된 런타임 증적은 아닙니다. 소스 리비전, 구성 다이제스트, 인증 증명, 정확한 요청 및 응답 증적 참조가 없습니다. |
 | 독립 semantic-turn bridge | implemented | [`composition.py`](../../../services/operator-service/src/fdai_operator_service/composition.py), [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`test_semantic_turn_bridge.py`](../../../services/operator-service/tests/test_semantic_turn_bridge.py) | 운영 composition은 Core 구현을 가져오지 않고 durable event-bus bridge를 바인딩할 수 있습니다. |
 | Authoritative 프로바이더 및 증적 종료 | in-progress | 이 문서의 진행 중 라운드와 다음 실행 종료 조건 | Bridge 구성만으로는 모든 작업 집합이 authoritative 프로바이더에 도달하고 exact release, 계획, 근거 참조를 반환했음을 입증하지 않습니다. |
-| 격리 보증 child 감독 | implemented | [`run_ontology_assurance.py`](../../../scripts/automation/run_ontology_assurance.py), [`ontology_assurance_supervisor.py`](../../../scripts/automation/ontology_assurance_supervisor.py), [`test_ontology_assurance_supervisor.py`](../../../tests/integration/scripts/test_ontology_assurance_supervisor.py) | 소스에 바인딩된 runner가 전용 Core, Operator, Console 및 Playwright 프로세스 그룹을 소유합니다. 필수 child가 종료되면 측정 단계를 즉시 중지하고 소스 리비전, PID, 프로세스 그룹, 종료 코드 또는 신호 및 종료 사유를 원자적으로 보존합니다. 이는 runner 메커니즘을 입증하지만 엄격한 질문 집합 통과를 입증하지는 않습니다. |
-| 현재 무작위 릴리스 인증 | in-progress | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 2026-08-11 기준선을 대체하는 새로운 보존된 100개 질문 아티팩트가 없습니다. | 소스 `91f0e888e5c1d2ce96cb4b1a3e2d5a68e1116e9c`의 최신 엄격한 실행은 재개 cell 없이 live cell 14개를 모두 보존했지만 3개만 통과했습니다. 외부 `SIGTERM`이 네 번째 요청 중 Core와 Operator를 중지한 뒤 cell 11개가 전송 시도를 두 번 모두 소진했습니다. seed 기반 100-case 검사는 시작하지 않았습니다. |
+| 격리 보증 child 감독 | implemented | [`run_ontology_assurance.py`](../../../scripts/automation/run_ontology_assurance.py), [`ontology_assurance_supervisor.py`](../../../scripts/automation/ontology_assurance_supervisor.py), [`test_ontology_assurance_supervisor.py`](../../../tests/integration/scripts/test_ontology_assurance_supervisor.py) | 소스에 바인딩된 runner가 전용 Core, Operator, Console 및 Playwright 프로세스 그룹과 실행 범위의 영속 semantic outbox 네임스페이스를 소유합니다. 필수 child가 종료되면 측정 단계를 즉시 중지하고 소스 리비전, PID, 프로세스 그룹, 종료 코드 또는 신호 및 종료 사유를 원자적으로 보존합니다. 이는 runner 메커니즘과 요청 격리를 입증하지만 엄격한 질문 집합 통과를 입증하지는 않습니다. |
+| 리포지토리에 안전한 통제 기준선 변환 | implemented | [`project_ontology_assurance_baseline.py`](../../../scripts/automation/project_ontology_assurance_baseline.py)와 [`test_project_ontology_assurance_baseline.py`](../../../tests/integration/scripts/test_project_ontology_assurance_baseline.py) | 변환기는 현재 변경 불가능한 전체 gate를 통과한 아티팩트만 허용합니다. 원본 아티팩트 digest를 결속하고 정확한 요청 및 변환 결과 신원을 hash해 보존 기준선에 환경 UUID 또는 원시 프로바이더 payload가 들어가지 않게 합니다. 아직 통과한 전체 아티팩트를 변환하지는 않았습니다. |
+| 현재 무작위 릴리스 인증 | in-progress | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 2026-08-11 기준선을 대체하는 새로운 보존된 100개 질문 아티팩트가 없습니다. | 소스 `946a0c8291129e3ea2423ce42c7b49e096eeb239`의 최신 엄격한 실행은 실행 범위의 outbox 네임스페이스 하나에서 live cell 14개와 재개 cell 0개를 보존했습니다. 쿼리 판정 14개가 모두 통과했고 재시도는 0건이었지만 답변이 필요한 cell 중 6개만 근거가 완전한 답변을 반환했습니다. 6개는 제한된 T1 및 T2 계획 검증이 실패한 뒤 타입이 지정된 미지원 결과를 반환했고, 인과 cell 2개는 구성된 authoritative 메트릭 프로바이더에 검토된 개념의 완전한 근거가 없어 보류했습니다. seed 기반 100-case 검사는 시작하지 않았습니다. |
 
 ### 구현 이력
 
@@ -205,6 +202,10 @@ Core
 | 2026-08-15 | in-progress | 격리된 소스 `e476fa21c5f00c276f651497ef352a3bbfd0e17f`에서 엄격한 영문 및 한국어 14-cell 검사를 한 번 실행했습니다. 외부 종료로 최종 결과 6개 이후 실행이 중단되었고, 출처 이력에 바인딩된 검사점에 fail-closed `turn_error` 결과 2개를 기록했습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행은 소스, 구성, 작업 공간, 질문 집합 및 부분 결과 바인딩을 보존했습니다. | 엄격한 검사를 열린 상태로 유지합니다. 엄격한 실행에서 근거가 완전한 답변 cell 14개를 보존할 때까지 seed 기반 100-case 검사를 시작하지 않습니다. |
 | 2026-08-16 | in-progress | 중앙 검증을 통과한 격리 소스 `91f0e888e5c1d2ce96cb4b1a3e2d5a68e1116e9c`에서 seed `0x0fda1`, 15초 간격, 180초 시도 기한 및 30분 실행 예산으로 엄격한 영문 및 한국어 14-cell 검사를 수행했습니다. 아티팩트는 재개 cell 없이 live cell 14개를 보존했습니다. 3개가 통과했고, 11개는 전송 시도를 두 번 모두 소진해 실패했으며, 답변 cell 1개가 완전한 근거를 포함했습니다. 지원되지 않는 운영 주장, 권한 없는 실행 및 계획 기능 불일치는 모두 0건이었습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 아티팩트 스키마 `1.3.0`, 실행 구성 `1.4.0`, 구성 다이제스트 `sha256:a95b52e599f4b975dc8a565d7c0f036b249a3c47484396dc8f087d56b27cc4bd` 및 변경 없는 작업 공간 패치 다이제스트 `sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`를 보존했습니다. Core는 `2026-08-16T03:27:30Z`에 외부 `SIGTERM`을 기록했고 요청 및 변환 결과 토픽의 최대 오프셋은 각각 레코드 4개와 3개에서 멈췄습니다. | 엄격한 검사를 차단 상태로 유지합니다. 근거가 완전한 필수 답변 cell 14개를 보존하지 못했으므로 seed 기반 100-case 검사는 올바르게 시작하지 않았습니다. 소스에 바인딩된 다음 보증 시도 전에 격리 child 감독을 강화해야 합니다. |
 | 2026-08-17 | implemented | 필수 child 프로세스 그룹을 감독하고 Core, Operator 또는 Console이 종료되면 측정 단계를 즉시 fail-closed 처리하는 추적 가능한 detached-capable 보증 runner를 추가했습니다. 원자적인 mode-`0600` 상태 레코드에 child 및 runner 출처 이력을 보존하고, 상속받은 환경 값이 프로세스 인자와 상태에 기록되지 않도록 하며, 새로운 엄격한 검사점을 요구하고, 변경 불가능한 엄격한 아티팩트 검사를 통과하기 전에는 seed 기반 질문 집합을 시작할 수 없게 합니다. | `current change`, focused supervisor 검사 6개, 작업 범위 Ruff 및 두 runner 모듈의 strict mypy가 통과했습니다. | 중앙 검증 증적을 확보한 다음 정확히 그 소스 리비전에서 새로운 엄격한 14-cell 실행을 한 번 수행합니다. 엄격한 아티팩트가 기존 조건을 모두 통과한 경우에만 seed `0x0fda1` 기반 100-case 실행을 한 번 시작합니다. |
+| 2026-08-17 | implemented | 전용 Kafka 토픽과 consumer group만으로는 PostgreSQL claim을 격리하지 못한다는 사실을 두 번의 새로운 엄격한 실행에서 확인한 뒤 각 보증 실행의 영속 semantic outbox를 격리했습니다. 동시에 실행 중인 표준 Operator가 실행 소유 요청을 claim하고 다른 Core 세대를 통해 게시할 수 있어 한 아티팩트에 두 개의 정확한 온톨로지 release가 섞였습니다. 선택적 네임스페이스는 운영 기본 키를 바꾸지 않고 runner의 append, claim, read 및 변환 결과 소유권을 함께 격리합니다. | `current change`, focused Operator 환경, 저장소 lease 및 runner 검사 11개가 통과했습니다. 실패한 아티팩트는 재시도 없이 live cell 14개를 보존했고 혼합 세대 및 답변 coverage gate에서 seed 기반 집단을 차단했습니다. | 중앙 검증 증적을 확보하고 네임스페이스가 적용된 정확한 소스에서 새로운 엄격한 검사를 다시 실행합니다. 변경 불가능한 엄격한 조건을 모두 통과한 뒤에만 seed 기반 집단을 시작합니다. |
+| 2026-08-17 | implemented | 통과한 전체 live 아티팩트 하나를 위한 결정론적이며 리포지토리에 안전한 변환을 추가했습니다. 변환은 현재 변경 불가능한 gate를 다시 확인하고 원본 아티팩트 digest와 통제된 구성, 인증, 요약 및 결과 근거를 보존하며 원시 요청 및 변환 결과 신원을 정확한 SHA-256 참조로 바꿉니다. | `current change`, focused exporter API 및 CLI 검사 3개 통과 | 네임스페이스가 적용된 seed 기반 집단이 `production_ready=true`를 보고한 뒤에만 변환하고 로컬 원본 아티팩트와 committed safe 기준선을 함께 보존합니다. |
+| 2026-08-17 | in-progress | 실행 범위의 영속 outbox 네임스페이스와 새로운 검사점을 사용해 중앙 검증을 통과한 소스 `946a0c8291129e3ea2423ce42c7b49e096eeb239`에서 새로운 엄격한 영문 및 한국어 14-cell 검사를 한 번 수행했습니다. 아티팩트는 live cell 14개와 재개 cell 0개를 보존했습니다. 쿼리 판정 14개가 모두 통과했고, 6개는 근거가 완전한 답변, 6개는 타입이 지정된 미지원 결과, 2개는 타입이 지정된 근거 보류였습니다. 세대 일관성이 통과했고 전송 재시도, 소진된 재시도, 지원되지 않는 운영 주장, 권한 없는 실행, 계획 기능 불일치 및 중복 요청 또는 변환 결과 신원은 모두 0건이었습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-946a0c8291-20260817T040821Z-strict_14`, 구성 다이제스트 `sha256:d9a3729e5fff1a23378210c7f26b831c6901ac17d670a2276a3c4641b5cea1ee` 및 변경 없는 작업 공간 패치 다이제스트 `sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`를 보존했습니다. Core, Operator 및 Console은 측정 단계 내내 실행됐고 supervisor는 정리 전에 PID, 프로세스 그룹 및 종료 상태를 보존했습니다. | 엄격한 검사를 차단 상태로 유지합니다. 제한된 T1 및 T2 시도 후 계획 6개가 계속 유효하지 않았고, 두 인과 계획은 구성된 authoritative 메트릭 경로에 `network.change` 및 `storage.write.success`의 완전한 샘플이 없어 올바르게 보류했습니다. seed 기반 100-case 검사는 올바르게 시작하지 않았습니다. |
+| 2026-08-17 | implemented | 엄격한 실행이 질문 범위의 14개 turn 전에 별도의 페이지 로드 인시던트 자동 조사를 한 건 노출한 뒤 측정 대상 Browser 요청 stream을 격리했습니다. Harness는 이제 빈 incident-attention stream을 제공하고 모든 chat POST를 관찰하며 ambient 및 incident-bound 요청 수를 기록합니다. TypeScript 집단 gate와 변경 불가능한 strict/full 아티팩트 gate는 두 수가 모두 0이어야 통과합니다. | `current change`, focused assurance Vitest 98개 통과, strict/full 아티팩트 gate pytest 2개 통과, Console typecheck 통과 | 중앙 receipt를 확보하고 seed 기반 집단을 시작하기 전에 ambient 및 bound 요청이 0인 새로운 엄격한 아티팩트를 보존합니다. |
 
 ### 남은 작업
 
