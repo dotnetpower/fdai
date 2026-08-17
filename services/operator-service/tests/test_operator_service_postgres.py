@@ -110,9 +110,18 @@ class AccessGrantStatePostgresFamilyStore(PostgresFamilyStore):
         self.records = records
         self.truncated = truncated
         self.prefixes: list[str] = []
+        self.matches: list[tuple[str | None, str | None]] = []
 
-    async def read_state_page(self, *, prefix: str, limit: int) -> StoredStatePage:
+    async def read_state_page(
+        self,
+        *,
+        prefix: str,
+        limit: int,
+        match_field: str | None = None,
+        match_value: str | None = None,
+    ) -> StoredStatePage:
         self.prefixes.append(prefix)
+        self.matches.append((match_field, match_value))
         return StoredStatePage(records=self.records[:limit], truncated=self.truncated)
 
 
@@ -210,6 +219,7 @@ async def test_access_grant_snapshot_hides_requests_the_reviewer_may_not_review(
     )
 
     assert store.prefixes == ["execution-authorization:grant-request:"]
+    assert store.matches == [("status", "pending")]
     assert [item.request_id for item in snapshot.requests] == ["reviewable"]
     assert snapshot.requests[0].correlation_id == "action-reviewable"
     assert "requester_ref" not in snapshot.requests[0].to_dict()
