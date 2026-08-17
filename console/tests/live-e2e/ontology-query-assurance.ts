@@ -431,12 +431,6 @@ const QUESTION_CAPABILITY_OVERRIDES: Readonly<Record<string, readonly AssuranceP
   "ko-inventory_listing-3": ["object_set", "object_set:filtered"],
   "en-property_filter-3": ["function:query.manifest"],
   "ko-property_filter-3": ["function:query.manifest"],
-  "en-evidence_validation-3": ["topology_at"],
-  "ko-evidence_validation-3": ["topology_at"],
-  "en-evidence_validation-4": ["metric_series"],
-  "ko-evidence_validation-4": ["metric_series"],
-  "en-evidence_validation-5": ["topology_at"],
-  "ko-evidence_validation-5": ["topology_at"],
 };
 
 /** Checks the generated question taxonomy against Core's projected exact-plan capabilities. */

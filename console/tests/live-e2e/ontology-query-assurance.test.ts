@@ -489,13 +489,13 @@ describe("assuranceOperationMatchesPlan", () => {
     )).toBe(true);
     expect(assuranceOperationMatchesPlan(
       "evidence_validation",
-      ["topology_at"],
+      ["object_set"],
       "ko-evidence_validation-3",
     )).toBe(true);
     expect(assuranceOperationMatchesPlan(
       "evidence_validation",
       ["topology_at"],
-      "ko-evidence_validation-1",
+      "ko-evidence_validation-3",
     )).toBe(false);
   });
 
