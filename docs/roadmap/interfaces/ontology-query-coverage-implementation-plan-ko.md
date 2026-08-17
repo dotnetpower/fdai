@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 9eb5cf881f8cbf83433a8881bc550c884c3b440a
+translation_source_sha: ef6a48d0842df915d9d2e9d4f83000110e2e4ec6
 translation_revised: 2026-08-17
 ---
 
@@ -106,7 +106,9 @@ translation_revised: 2026-08-17
 > competing explanation을 보존하는 topology-aware temporal support/refutation이 포함됩니다. 운영
 > 메트릭 프로바이더 연결과 검토된 카탈로그 데이터에는 이제 검토된 alias-free 카탈로그와 구체적인
 > `MetricProvider` 구간 어댑터가 포함됩니다. 이 어댑터는 관찰된 zero를 보존하고 빈 프로바이더
-> 결과를 불완전한으로 보고합니다. 런타임 semantic-turn 조립은 현재 ObjectSet과 pure
+> 결과를 불완전한 결과로 보고하며, 명시적인 프로바이더 실패를 사용할 수 없는 불완전한 구간으로
+> 변환합니다. 어느 한 메트릭 구간이라도 불완전하면 causal join은 미해결 상태를 유지하고 실행 권한을
+> 부여하지 않습니다. 런타임 semantic-turn 조립은 현재 ObjectSet과 pure
 > 집합/순서/project/집계 핸들러만 노출합니다. Metric-series 및 evidence-join 핸들러는
 > 권위 있는 프로바이더가 명시적으로 연결될 때까지 사용 불가 상태로 남습니다.
 > OQ-05에는 이제 accepted ordinary-language 턴을 답변, 명확화, 보류, 지원하지 않는, 액션 초안
@@ -194,6 +196,10 @@ translation_revised: 2026-08-17
 | 2026-08-16 | 구현됨 | 읽기가 이미 담아 온 인시던트 근거를 실제로 보고합니다. `query.incident_evidence`가 각 기록의 행위 주체를 버려 세어 놓은 기록을 누구에게도 귀속할 수 없었고, 프로파일에 제목·심각도·버티컬·최초·최종 기록 시각이 있는데도 두 표면 모두 상태만 보고했습니다. 이제 projection이 행위 주체를 보존하고, 두 표면 모두 값이 있는 프로파일 필드를 모두 나열하며 제목에 자기 상한을 밝힌 기록 활동 표를 덧붙이고, 다음 안전 단계는 측정한 공백을 따릅니다. 값이 있는 필드만 나열해 미기록 상태가 사라지지 않도록 상태 미기록 사실을 계속 밝히고, 보고하는 건수는 검증한 총계를 유지합니다. | `current change`, `incident_queries.py`, `semantic_turn_processor.py`, Operator 표현 계층, focused Core 검사 388개와 Operator 검사 322개 통과, 작업 범위 Ruff와 strict mypy 통과, mutation 3건이 각각 정확히 가드 하나씩만 실패시킴 | 통제된 요청-Console 및 이중 언어 무작위 근거를 보존합니다. |
 | 2026-08-16 | 구현됨 | 한국어 다음 안전 단계가 한국어 문장으로 읽히게 했습니다. 측정한 공백이 여러 개일 때 경어 명령문을 쉼표로 이어 붙여 한국어 문장이 아니었으므로, 여러 단계는 도입 문구로 시작해 각각 독립된 문장이 됩니다. | `current change`, focused 처리기 검사 60개 통과, 새 사례가 단일 단계와 복수 단계 형태를 모두 고정 | 이 행에 남은 작업은 없습니다. |
 | 2026-08-17 | implemented | 인시던트 의미 경로를 통해 기록된 grounded RCA, 영향 근거 및 인용을 노출했습니다. T0는 기존 발견 사항 심각도와 리소스 타입 범위를 영향 근거로 기록하고 알 수 없는 측정값은 비워 둡니다. Core 변환 결과는 일치하는 인용이 포함된 grounded 가설이 있어야 원인을 지원하며, Operator와 Console은 액션 권한을 추가하지 않고 두 언어로 세 근거 섹션을 렌더링합니다. | `current change`; focused Core, Operator 및 Console 검사 138개 통과, Ruff, strict mypy 및 Console typecheck 통과 | 기록된 RCA 인시던트와 명시적 근거 공백이 있는 인시던트에 대해 인증된 Browser 근거를 보존합니다. |
+| 2026-08-17 | implemented | Append, lease claim, 요청 조회 및 변환 결과 소유권을 하나의 Operator 실행에 묶는 선택적 영속 semantic outbox 네임스페이스를 추가했습니다. 기본 네임스페이스는 운영과 byte-compatible하게 유지합니다. 격리된 보증 Operator는 실행 id를 사용하므로 동시에 실행 중인 표준 Operator가 측정 요청을 다른 Core 세대를 통해 게시할 수 없습니다. | `current change`, focused Operator bridge, composition 및 supervisor 검사 114개 통과, 작업 범위 Ruff 및 strict mypy 통과 | Seed 기반 집단을 시작하기 전에 중앙 검증된 네임스페이스 runner에서 새로운 엄격한 아티팩트를 보존합니다. |
+| 2026-08-17 | implemented | 허용 목록의 알림 최종 실패를 정확한 감사 행에서 변환해 활성 인시던트의 세 근거 공백을 닫았습니다. `route_unresolved`, `trust_mismatch`, `escalated_to_hil`은 범위가 제한된 T0 원인, 영향 및 인용 레코드를 만들며 성공하거나 알 수 없는 결과는 만들지 않습니다. | `current change`; focused 인시던트, 의미 처리기 및 Operator 표현 검사 133개 통과, Ruff 및 strict mypy 통과 | Exact-source 로컬 스택을 재시작하고 인증된 positive 경로 근거를 보존합니다. |
+| 2026-08-17 | implemented | 의미 plan prompt v8을 v9으로 교체하고 검증기의 exact 선언 집계 및 속성 predicate envelope을 고정했습니다. 선언 개수는 `query.manifest` 의존성 하나와 범위가 제한된 aggregate 출력 하나를 사용하며, 존재, 동등 및 membership 필터는 허용된 operand 필드만 사용합니다. | `current change`, v9만 포함한 격리된 tracked 카탈로그에서 focused prompt 계약 검사 2개 통과, 작업 범위 Ruff 및 strict mypy 통과 | Seed 기반 집단을 시작하기 전에 새로운 엄격한 아티팩트를 보존합니다. |
+| 2026-08-17 | implemented | 읽기 전용 metric window 어댑터의 명시적인 `MetricProviderError`를 범위가 제한된 사용할 수 없는 불완전한 구간으로 변환했습니다. 부분 sample은 폐기하고 요청한 concept과 구간은 인용하며, causal join은 `execution_authority=false`인 `UNRESOLVED` 상태를 유지합니다. 프로바이더 신원 drift와 잘못된 데이터는 계속 fail closed 됩니다. | `current change`, focused metric 및 causal semantics 검사 12개 통과, 작업 범위 Ruff 및 strict mypy 통과 | Exact-source 스택에서 새로운 엄격한 causal cell을 보존합니다. |
 
 ### 남은 작업
 
