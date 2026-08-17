@@ -163,6 +163,14 @@ class StoredStateRecord:
     updated_at: datetime
 
 
+@dataclass(frozen=True, slots=True)
+class StoredStatePage:
+    """One bounded page of state records plus whether the scan proved complete coverage."""
+
+    records: tuple[StoredStateRecord, ...]
+    truncated: bool
+
+
 class PostgresFamilyStore:
     """Read projections and atomically append proposal-only outbox records."""
 
@@ -258,8 +266,8 @@ class PostgresFamilyStore:
             )
         return _json_object(rows[0].get("value"), label=key)
 
-    async def read_state_page(self, *, prefix: str, limit: int) -> tuple[StoredStateRecord, ...]:
-        """Read a bounded newest-first page of authoritative records under one key prefix."""
+    async def read_state_page(self, *, prefix: str, limit: int) -> StoredStatePage:
+        """Read a bounded newest-first page and report whether more records were left behind."""
         if not prefix.strip():
             raise ValueError("state prefix MUST be a bounded non-empty string")
         if not 1 <= limit <= 1_000:
@@ -270,17 +278,20 @@ class PostgresFamilyStore:
               FROM state_kv
              WHERE key LIKE %(prefix)s ESCAPE '\\'
              ORDER BY updated_at DESC, key DESC
-             LIMIT %(limit)s
+             LIMIT %(probe)s
             """,
-            {"prefix": f"{_escape_like(prefix)}%", "limit": limit},
+            {"prefix": f"{_escape_like(prefix)}%", "probe": limit + 1},
         )
-        return tuple(
-            StoredStateRecord(
-                key=str(row.get("key") or ""),
-                value=_json_object(row.get("value"), label=prefix),
-                updated_at=_stored_timestamp(row.get("updated_at"), label=prefix),
-            )
-            for row in rows
+        return StoredStatePage(
+            records=tuple(
+                StoredStateRecord(
+                    key=str(row.get("key") or ""),
+                    value=_json_object(row.get("value"), label=prefix),
+                    updated_at=_stored_timestamp(row.get("updated_at"), label=prefix),
+                )
+                for row in rows[:limit]
+            ),
+            truncated=len(rows) > limit,
         )
 
     async def search_conversation_turns(
@@ -1090,7 +1101,7 @@ class UnavailablePostgresFamilyStore(PostgresFamilyStore):
         del family, operation
         raise PostgresFamilyStoreUnavailable("authoritative projection is unavailable")
 
-    async def read_state_page(self, *, prefix: str, limit: int) -> tuple[StoredStateRecord, ...]:
+    async def read_state_page(self, *, prefix: str, limit: int) -> StoredStatePage:
         del prefix, limit
         raise PostgresFamilyStoreUnavailable("authoritative PostgreSQL state is unavailable")
 
@@ -1272,6 +1283,7 @@ __all__ = [
     "StoredReplayEvent",
     "StoredSemanticResult",
     "StoredSemanticTurn",
+    "StoredStatePage",
     "StoredStateRecord",
     "UnavailablePostgresFamilyStore",
 ]
