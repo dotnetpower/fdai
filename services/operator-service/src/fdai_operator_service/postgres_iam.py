@@ -39,6 +39,7 @@ from fdai_operator_service.families.iam.contracts import (
 from fdai_operator_service.families.iam.errors import (
     IamConflictError,
     IamNotFoundError,
+    IamPermissionError,
     IamUnavailableError,
 )
 from fdai_operator_service.postgres_family_store import (
@@ -96,6 +97,14 @@ class PostgresIamAdapters:
             raise IamNotFoundError("access grant request does not exist")
         if str(record.get("status") or "") != "pending":
             raise IamConflictError("access grant request is not pending")
+        # Deciding is bound to the same predicate as seeing, so the two cannot drift apart.
+        if not _reviewable(
+            record,
+            command.reviewer_ref.casefold(),
+            {role.casefold() for role in command.reviewer_roles},
+            command.decided_at,
+        ):
+            raise IamPermissionError("reviewer is not eligible to decide this access grant")
         quorum = _integer(record, "quorum")
         approved_by = record.get("approved_by", [])
         if quorum < 1 or not isinstance(approved_by, list) or len(approved_by) > quorum:
