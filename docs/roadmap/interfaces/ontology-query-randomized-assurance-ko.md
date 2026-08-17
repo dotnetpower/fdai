@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-randomized-assurance.md
-translation_source_sha: 0cc20ddf95e0c6391b07444942768810c40239aa
+translation_source_sha: 47d9ac73eebe206ac345e2515288e6145f52ec06
 translation_revised: 2026-08-17
 ---
 # 온톨로지 쿼리 무작위 보증
@@ -209,6 +209,7 @@ Core
 | 2026-08-17 | implemented | 통과한 전체 live 아티팩트 하나를 위한 결정론적이며 리포지토리에 안전한 변환을 추가했습니다. 변환은 현재 변경 불가능한 gate를 다시 확인하고 원본 아티팩트 digest와 통제된 구성, 인증, 요약 및 결과 근거를 보존하며 원시 요청 및 변환 결과 신원을 정확한 SHA-256 참조로 바꿉니다. | `current change`, focused exporter API 및 CLI 검사 3개 통과 | 네임스페이스가 적용된 seed 기반 집단이 `production_ready=true`를 보고한 뒤에만 변환하고 로컬 원본 아티팩트와 committed safe 기준선을 함께 보존합니다. |
 | 2026-08-17 | in-progress | 실행 범위의 영속 outbox 네임스페이스와 새로운 검사점을 사용해 중앙 검증을 통과한 소스 `946a0c8291129e3ea2423ce42c7b49e096eeb239`에서 새로운 엄격한 영문 및 한국어 14-cell 검사를 한 번 수행했습니다. 아티팩트는 live cell 14개와 재개 cell 0개를 보존했습니다. 쿼리 판정 14개가 모두 통과했고, 6개는 근거가 완전한 답변, 6개는 타입이 지정된 미지원 결과, 2개는 타입이 지정된 근거 보류였습니다. 세대 일관성이 통과했고 전송 재시도, 소진된 재시도, 지원되지 않는 운영 주장, 권한 없는 실행, 계획 기능 불일치 및 중복 요청 또는 변환 결과 신원은 모두 0건이었습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-946a0c8291-20260817T040821Z-strict_14`, 구성 다이제스트 `sha256:d9a3729e5fff1a23378210c7f26b831c6901ac17d670a2276a3c4641b5cea1ee` 및 변경 없는 작업 공간 패치 다이제스트 `sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`를 보존했습니다. Core, Operator 및 Console은 측정 단계 내내 실행됐고 supervisor는 정리 전에 PID, 프로세스 그룹 및 종료 상태를 보존했습니다. | 엄격한 검사를 차단 상태로 유지합니다. 제한된 T1 및 T2 시도 후 계획 6개가 계속 유효하지 않았고, 두 인과 계획은 구성된 authoritative 메트릭 경로에 `network.change` 및 `storage.write.success`의 완전한 샘플이 없어 올바르게 보류했습니다. seed 기반 100-case 검사는 올바르게 시작하지 않았습니다. |
 | 2026-08-17 | implemented | 엄격한 실행이 질문 범위의 14개 turn 전에 별도의 페이지 로드 인시던트 자동 조사를 한 건 노출한 뒤 측정 대상 Browser 요청 stream을 격리했습니다. Harness는 이제 빈 incident-attention stream을 제공하고 모든 chat POST를 관찰하며 ambient 및 incident-bound 요청 수를 기록합니다. TypeScript 집단 gate와 변경 불가능한 strict/full 아티팩트 gate는 두 수가 모두 0이어야 통과합니다. | `current change`, focused assurance Vitest 98개 통과, strict/full 아티팩트 gate pytest 2개 통과, Console typecheck 통과 | 중앙 receipt를 확보하고 seed 기반 집단을 시작하기 전에 ambient 및 bound 요청이 0인 새로운 엄격한 아티팩트를 보존합니다. |
+| 2026-08-17 | in-progress | 중앙 검증된 소스 `e1e6293f0db3fa3fdd0b950eff69695331d50060`에서 변경 불가능한 엄격한 gate를 두 번 실행했습니다. 두 실행 모두 한 세대에서 live 판정 14개와 재개 판정 0개를 보존했고 재시도, ambient 또는 incident-bound 요청, 지원되지 않는 주장 및 권한 없는 실행은 모두 0건이었습니다. 첫 실행은 근거가 완전한 답변 11개, 두 번째 실행은 10개를 보존했으며 `ko-property_filter-5`만 반복해서 미지원 상태였습니다. 프로바이더 및 query-node 실패는 계속 0건이므로 남은 결함은 transport 또는 프로바이더 실패가 아니라 plan 필드 변동이었습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-e1e6293f0-20260817T055659Z` 및 `issue63-e1e6293f0-r2-20260817T061558Z`, exact source의 중앙 receipt 통과 | 엄격한 gate를 차단 상태로 유지하고 seed 기반 집단을 중지합니다. Frame v8과 plan v10을 중앙 검증한 뒤 변경하지 않은 엄격한 집단을 다시 실행합니다. |
 
 ### 남은 작업
 

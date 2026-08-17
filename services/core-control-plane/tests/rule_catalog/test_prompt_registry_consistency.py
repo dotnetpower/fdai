@@ -109,6 +109,8 @@ def test_semantic_plan_prompt_pins_the_object_set_verifier_envelope() -> None:
     assert '"operator":"exists"' in body
     assert '"operator":"equals","equals"' in body
     assert '"operator":"in","values"' in body
+    assert 'predicate exactly {"property":"type","operator":"exists"}' in body
+    assert "never resource_type, object_type, properties.type" in body
     assert "without an exact root id uses one topology_at node" in body
     assert "do not use object_set, project, or query.ontology_relationships" in body
     assert "uses exactly one object_set node with one or more definition.predicates" in body
@@ -122,12 +124,16 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     frame = prompts.get_base("semantic.query.frame")
     plan = prompts.get_base("semantic.query.plan")
 
-    assert frame.version == 7
+    assert frame.version == 8
     assert "output_shape to exactly one capability family" in frame.body
     assert "aggregation_table for a count or grouping" in frame.body
     assert "topology_graph for current instance connectivity or containment" in frame.body
     assert "including a count of queryable relationship or declaration types" in frame.body
     assert "declared resource type is property_filtered_resources" in frame.body
+    assert 'measure_concepts ["type"]' in frame.body
+    assert 'subject_constraints ["LinkType"]' in frame.body
+    assert 'output_shape causal_evidence and subject_constraints ["Resource"]' in frame.body
+    assert 'output_shape evidence_validation and subject_constraints ["Resource"]' in frame.body
     assert "principal_role and purpose are trusted server-bound context" in frame.body
     assert "never use principal_scope or purpose as a clarification_requirement" in frame.body
     assert "empty unresolved_terms and clarification_requirements" in frame.body
@@ -145,7 +151,7 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "do not require incident_id or correlation_id" in frame.body
     assert "cause_claim_supported=false" in frame.body
     assert "Do not claim a cause" in frame.body
-    assert plan.version == 9
+    assert plan.version == 10
     assert "Satisfy the frame's exact output_shape" in plan.body
     assert "aggregation_table requires aggregate" in plan.body
     assert "topology_graph requires topology_at" in plan.body

@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: ef6a48d0842df915d9d2e9d4f83000110e2e4ec6
+translation_source_sha: 18cff8c1769489ceba609d8f1eee7dd6ff178791
 translation_revised: 2026-08-17
 ---
 
@@ -200,6 +200,7 @@ translation_revised: 2026-08-17
 | 2026-08-17 | implemented | 허용 목록의 알림 최종 실패를 정확한 감사 행에서 변환해 활성 인시던트의 세 근거 공백을 닫았습니다. `route_unresolved`, `trust_mismatch`, `escalated_to_hil`은 범위가 제한된 T0 원인, 영향 및 인용 레코드를 만들며 성공하거나 알 수 없는 결과는 만들지 않습니다. | `current change`; focused 인시던트, 의미 처리기 및 Operator 표현 검사 133개 통과, Ruff 및 strict mypy 통과 | Exact-source 로컬 스택을 재시작하고 인증된 positive 경로 근거를 보존합니다. |
 | 2026-08-17 | implemented | 의미 plan prompt v8을 v9으로 교체하고 검증기의 exact 선언 집계 및 속성 predicate envelope을 고정했습니다. 선언 개수는 `query.manifest` 의존성 하나와 범위가 제한된 aggregate 출력 하나를 사용하며, 존재, 동등 및 membership 필터는 허용된 operand 필드만 사용합니다. | `current change`, v9만 포함한 격리된 tracked 카탈로그에서 focused prompt 계약 검사 2개 통과, 작업 범위 Ruff 및 strict mypy 통과 | Seed 기반 집단을 시작하기 전에 새로운 엄격한 아티팩트를 보존합니다. |
 | 2026-08-17 | implemented | 읽기 전용 metric window 어댑터의 명시적인 `MetricProviderError`를 범위가 제한된 사용할 수 없는 불완전한 구간으로 변환했습니다. 부분 sample은 폐기하고 요청한 concept과 구간은 인용하며, causal join은 `execution_authority=false`인 `UNRESOLVED` 상태를 유지합니다. 프로바이더 신원 drift와 잘못된 데이터는 계속 fail closed 됩니다. | `current change`, focused metric 및 causal semantics 검사 12개 통과, 작업 범위 Ruff 및 strict mypy 통과 | Exact-source 스택에서 새로운 엄격한 causal cell을 보존합니다. |
+| 2026-08-17 | implemented | 의미 frame v8과 plan v10에 엄격한 작업의 exact 필드를 고정했습니다. 관계 선언 개수는 `LinkType`을 사용하고, 선언된 리소스 유형 필터는 exact `exists` 조건식이 있는 `Resource.type`을 사용하며, generic causal 및 근거 검증 질문은 각각의 `Resource` 기능 집합을 유지합니다. 문구 또는 질문 id 경로는 추가하지 않았습니다. | `current change`, focused prompt registry 및 엄격한 계약 검사 7개 통과, 작업 범위 Ruff 통과 | Prompt 세대를 중앙 검증하고 seed 기반 집단을 시작하기 전에 새로운 엄격한 아티팩트를 보존합니다. |
 
 ### 남은 작업
 
