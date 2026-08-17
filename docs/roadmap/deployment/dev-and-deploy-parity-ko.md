@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: bc5015508921d2c2bd69ef2f3ee8f419948629b7
+translation_source_sha: 0fa3e3a19410e71d56281a55fb5822ea00ece203
 translation_revised: 2026-08-17
 ---
 
@@ -51,6 +51,7 @@ translation_revised: 2026-08-17
 
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-08-17 | validated | 제공하지 않는 `/onboarding`, `/configuration-baselines`, `/conversation-delivery` 화면을 각각 자신의 소스로 선언해 패널이 자기 자신에 대한 사유를 표시하도록 했습니다. | 현재 변경; Operator composition 집중 테스트 `50 passed`; Operations 13개 화면 인증 통과에서 오류 알림·`404`·날것 전송 코드 노출이 모두 없었습니다. | 소실된 onboarding·baseline·delivery 기능을 서비스 경계 안에서 재구축할지 결정합니다. 이전 구현은 Core provider를 직접 import했습니다. |
 | 2026-08-17 | validated | 이 배포판이 제공하지 않는 `/finops`와 `/kpi/autonomy` 측정 화면을 읽기 데이터 소스 레지스트리에 선언하고, 선택적 Overview projection이 레지스트리의 `503` 신호를 허용하도록 했습니다. | 현재 변경; Operator composition 집중 테스트 `49 passed`와 Console dashboard-loading 테스트 `3 passed`를 모두 변이 검증했고, Overview 6개 화면 인증 통과에서 오류 알림이 없었으며 모든 `404`가 사라졌습니다. | 이 배포판에 reader만 있고 writer가 없는 `promotion-gate.list` projection을 구현하거나 폐기합니다. |
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 machine 범위 Pylance launch 제어를 FDAI 프로파일로 이동했습니다. | 현재 변경의 `.vscode/fdai.code-profile`, `.vscode/settings.json`, `scripts/automation/configure-vscode-profile.py` 및 focused 프로파일/workspace 테스트 9개 통과. | FDAI Pylance process argument와 중앙 검증 receipt를 기록합니다. |
 | 2026-08-13 | deferred | 실효성 없는 Pylance machine 설정을 제거하고 중복 프로파일 JSON 키를 거부했으며 재도입 방지 contract를 추가했습니다. | Clean Remote WSL process command에 구성한 heap argument가 없었으며 focused 프로파일 및 workspace 테스트 11개가 통과했습니다. | 별도 root의 VS Code Server 또는 WSL 배포판을 사용한 뒤 재시작한 process command에서 heap argument를 증명합니다. |
@@ -84,6 +85,9 @@ translation_revised: 2026-08-17
 | 2026-08-17 | validated | 로컬 장소를 배포와 동일한 권위 있는 컨트롤 루프 유입 경로에 바인딩했습니다. Activity Log recovery delta가 배포 inventory job에서는 켜져 있었지만 로컬에서는 `False` 기본값으로 남아 있어서 `aw.change.events`에 아무것도 들어오지 않았고, 모든 전송 구성 요소가 정상인데도 인증된 Live 화면이 `Source unavailable`을 표시했습니다. | `current change`, `.vscode/tasks.json`와 `tests/integration/infra/test_inventory_repair_wiring.py`, focused 인프라 및 헌법 검사 14건 통과, 로컬 실행 1회가 권위 있는 `inventory.resource_changed` 이벤트 5건을 발행해 `source: runtime-observed`인 `ingest`, `route`, `verify`, `audit` 프레임을 만들었고 Live 화면이 `Runtime observed`로 바뀜 | 남은 장소 선택 기능 플래그를 개별 바인딩 대신 하나의 계약으로 열거합니다. |
 ### 잔여 작업
 
+- [ ] onboarding 프로브, configuration baseline, conversation delivery 기능을 서비스 경계 안에서
+  재구축할지 결정합니다. 분리 이전 route는 Core provider를 직접 import했으며, 독립 서비스 경계가
+  이를 더 이상 허용하지 않습니다.
 - [ ] `operator-projection:workflow:promotion-gate.list` projection을 구현하거나 폐기합니다. workflow
   family가 이를 읽어 `/kpi/promotion-gates`가 `503`을 반환하지만, 이 배포판의 어떤 구성 요소도
   이 projection을 기록하지 않습니다.
