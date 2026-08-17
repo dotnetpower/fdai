@@ -142,6 +142,12 @@ class SemanticPlanningService:
                     utterance=utterance,
                     context=context,
                 )
+            proposal, frame = _resolve_principal_scope_evidence_subject(
+                proposal,
+                frame,
+                utterance=utterance,
+                context=context,
+            )
             if frame.unresolved_terms:
                 clarification = proposal.clarification or _clarification(frame.unresolved_terms)
                 return _outcome(
@@ -372,6 +378,32 @@ def _resolve_incident_reference(
         return proposal, frame
     resolved = proposal.model_copy(
         update={
+            "unresolved_terms": (),
+            "clarification_requirements": (),
+            "clarification": None,
+        }
+    )
+    return resolved, _build_frame(resolved, utterance=utterance, context=context)
+
+
+def _resolve_principal_scope_evidence_subject(
+    proposal: SemanticFrameProposal,
+    frame: SemanticProblemFrame,
+    *,
+    utterance: str,
+    context: tuple[str, ...],
+) -> tuple[SemanticFrameProposal, SemanticProblemFrame]:
+    """Use the server-owned Resource scope for an otherwise complete evidence frame."""
+    if (
+        frame.operation is not SemanticOperation.VALIDATE
+        or frame.output_shape != SemanticOutputShape.EVIDENCE_VALIDATION
+        or proposal.clarification_requirements != (ClarificationRequirement.SUBJECT,)
+        or proposal.subject_constraints not in {(), ("Resource",)}
+    ):
+        return proposal, frame
+    resolved = proposal.model_copy(
+        update={
+            "subject_constraints": ("Resource",),
             "unresolved_terms": (),
             "clarification_requirements": (),
             "clarification": None,

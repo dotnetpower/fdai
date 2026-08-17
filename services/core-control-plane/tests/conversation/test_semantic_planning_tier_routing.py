@@ -239,6 +239,55 @@ def test_evidence_validation_plan_is_built_from_the_principal_scope() -> None:
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
+def test_evidence_validation_subject_clarification_uses_principal_scope() -> None:
+    manifest, definition = _fixture()
+    t1 = _Model(
+        frame=_frame(
+            operation="validate",
+            subject_constraints=[],
+            output_shape="evidence_validation",
+            evidence_requirements=["evidence_completeness"],
+            unresolved_terms=["visible resources"],
+            clarification_requirements=["subject"],
+            clarification="Which resources should I validate?",
+        ),
+        plan=_plan(definition),
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+
+    outcome = _run(_service(t1, t2, manifest))
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == ("Resource",)
+    assert outcome.plan is not None
+    assert tuple(node.kind for node in outcome.plan.nodes) == (QueryNodeKind.OBJECT_SET,)
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_evidence_validation_keeps_concrete_subject_clarification() -> None:
+    manifest, definition = _fixture()
+    t1 = _Model(
+        frame=_frame(
+            operation="validate",
+            subject_constraints=["resource-a"],
+            output_shape="evidence_validation",
+            unresolved_terms=["resource-a"],
+            clarification_requirements=["subject"],
+            clarification="Which resource-a identity should I validate?",
+        ),
+        plan=_plan(definition),
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+
+    outcome = _run(_service(t1, t2, manifest))
+
+    assert outcome.disposition is SemanticPlanningDisposition.CLARIFICATION
+    assert t1.plan_calls == 0
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
 def test_misclassified_evidence_validation_retries_only_frame_with_t2() -> None:
     manifest, definition = _fixture()
     t1 = _Model(
