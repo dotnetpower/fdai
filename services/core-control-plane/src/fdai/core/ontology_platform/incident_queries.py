@@ -60,7 +60,7 @@ def incident_evidence_function_type() -> OntologyFunctionType:
     """Return the exact read-only Incident evidence declaration."""
     return OntologyFunctionType(
         name=INCIDENT_EVIDENCE_FUNCTION_NAME,
-        version="1.0.0",
+        version="1.1.0",
         kind=OntologyFunctionKind.QUERY,
         artifact_digest=_source_artifact_digest(),
         publisher="fdai",
@@ -88,6 +88,9 @@ def incident_evidence_function_type() -> OntologyFunctionType:
                 "correlation_id",
                 "incident_profile",
                 "correlated_evidence",
+                "root_cause",
+                "impact_evidence",
+                "grounded_citations",
                 "evidence_gaps",
                 "evidence_refs",
                 "truncated",
@@ -100,6 +103,9 @@ def incident_evidence_function_type() -> OntologyFunctionType:
                 "correlation_id": {"type": "string"},
                 "incident_profile": {"type": ["object", "null"]},
                 "correlated_evidence": {"type": "array", "maxItems": _MAX_RECORDS},
+                "root_cause": {"type": ["object", "null"]},
+                "impact_evidence": {"type": "array", "maxItems": _MAX_RECORDS},
+                "grounded_citations": {"type": "array", "maxItems": _MAX_RECORDS},
                 "evidence_gaps": {
                     "type": "array",
                     "maxItems": 8,
@@ -112,7 +118,7 @@ def incident_evidence_function_type() -> OntologyFunctionType:
                 },
                 "truncated": {"type": "boolean"},
                 "authority": {"const": "audit_projection"},
-                "cause_claim_supported": {"const": False},
+                "cause_claim_supported": {"type": "boolean"},
                 "execution_authority": {"const": False},
             },
         },
@@ -157,19 +163,32 @@ def incident_evidence_function(
             raise RuntimeError("incident evidence reader exceeded the requested limit")
         rows = tuple(_audit_row(item, correlation_id=correlation_id) for item in raw_rows)
         profile_projection = project_rca_report("rca_incident_profile", rows)
+        hypothesis_projection = project_rca_report("rca_hypotheses", rows)
         impact_projection = project_rca_report("rca_impact", rows)
         citation_projection = project_rca_report("rca_citations", rows)
+        causal_hop_projection = project_rca_report("rca_causal_hops", rows)
         profile = (
             dict(profile_projection.rows[0])
             if profile_projection is not None and profile_projection.rows
             else None
         )
+        hypotheses = _projection_rows(hypothesis_projection)
+        impacts = _projection_rows(impact_projection)
+        citations = _projection_rows(citation_projection)
+        causal_hops = _projection_rows(causal_hop_projection)
+        root_cause, grounded_citations = _grounded_root_cause(
+            hypotheses,
+            citations,
+            causal_hops,
+        )
         gaps: list[str] = []
         if profile is None:
             gaps.append("incident_profile_missing")
-        if impact_projection is None or not impact_projection.rows:
+        if root_cause is None:
+            gaps.append("root_cause_missing")
+        if not impacts:
             gaps.append("impact_evidence_missing")
-        if citation_projection is None or not citation_projection.rows:
+        if not grounded_citations:
             gaps.append("grounded_citations_missing")
         if truncated:
             gaps.append("correlated_audit_truncated")
@@ -189,15 +208,52 @@ def incident_evidence_function(
             "correlation_id": correlation_id,
             "incident_profile": profile,
             "correlated_evidence": evidence,
+            "root_cause": root_cause,
+            "impact_evidence": impacts,
+            "grounded_citations": grounded_citations,
             "evidence_gaps": gaps,
             "evidence_refs": [item["audit_ref"] for item in evidence],
             "truncated": truncated,
             "authority": "audit_projection",
-            "cause_claim_supported": False,
+            "cause_claim_supported": root_cause is not None,
             "execution_authority": False,
         }
 
     return evaluate
+
+
+def _projection_rows(projection: object) -> list[dict[str, Any]]:
+    rows = getattr(projection, "rows", ())
+    return [dict(row) for row in rows if isinstance(row, Mapping)]
+
+
+def _grounded_root_cause(
+    hypotheses: Sequence[Mapping[str, Any]],
+    citations: Sequence[Mapping[str, Any]],
+    causal_hops: Sequence[Mapping[str, Any]],
+) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
+    """Select the newest recorded cause whose own citations prove grounding."""
+    for hypothesis in reversed(hypotheses):
+        cause = hypothesis.get("cause")
+        if hypothesis.get("outcome") != "grounded" or not isinstance(cause, str) or not cause:
+            continue
+        tier = hypothesis.get("tier")
+        recorded_at = hypothesis.get("recorded_at")
+        matching = [
+            dict(citation)
+            for citation in citations
+            if citation.get("tier") == tier and citation.get("recorded_at") == recorded_at
+        ]
+        if not matching:
+            continue
+        return (
+            {
+                **dict(hypothesis),
+                "causal_hops": [dict(hop) for hop in causal_hops],
+            },
+            matching,
+        )
+    return None, []
 
 
 def _audit_row(raw: Mapping[str, object], *, correlation_id: str) -> _AuditRow:

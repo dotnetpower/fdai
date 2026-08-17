@@ -59,6 +59,55 @@ describe("presentation artifact boundary", () => {
     expect(parsed?.blocks[1]?.kind).toBe("coverage");
   });
 
+  it("accepts recorded root cause, impact, and citation blocks", () => {
+    const raw = artifact();
+    raw.blocks = [
+      {
+        slot_id: "root_cause",
+        kind: "summary",
+        title: "Root cause",
+        emphasis: "primary",
+        collapsed: false,
+        evidence_refs: [ref],
+        data: { items: [{ label: "Cause", value: "Owner tag missing", tone: "neutral" }] },
+      },
+      {
+        slot_id: "impact",
+        kind: "table",
+        title: "Impact evidence",
+        emphasis: "secondary",
+        collapsed: false,
+        evidence_refs: [ref],
+        data: {
+          columns: [{ key: "metric", label: "Metric" }],
+          rows: [{ metric: "noncompliant_resources" }],
+          status_key: null,
+        },
+      },
+      {
+        slot_id: "citations",
+        kind: "table",
+        title: "Grounded citations",
+        emphasis: "supporting",
+        collapsed: false,
+        evidence_refs: [ref],
+        data: {
+          columns: [{ key: "ref", label: "Reference" }],
+          rows: [{ ref: "object-storage.owner-tag.required" }],
+          status_key: null,
+        },
+      },
+    ];
+
+    const parsed = parsePresentationArtifact(raw, verification);
+
+    expect(parsed?.blocks.map((block) => [block.slotId, block.kind])).toEqual([
+      ["root_cause", "summary"],
+      ["impact", "table"],
+      ["citations", "table"],
+    ]);
+  });
+
   it("rejects refs outside terminal verification", () => {
     const raw = artifact();
     raw.evidence_refs = ["subscription-health:other@2026-08-05T00:00:00Z"];
