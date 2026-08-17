@@ -50,7 +50,7 @@ function milestoneStatus(item: AuditItem): IncidentMilestoneStatus {
   if (tokens.some((value) => /(^|[._-])(failed|failure|deny|denied|abstain|abstained|error)($|[._-])/.test(value))) {
     return "issue";
   }
-  if (tokens.some((value) => /(^|[._-])(success|succeeded|verified|applied|mitigated)($|[._-])/.test(value))) {
+  if (tokens.some((value) => /(^|[._-])(success|succeeded|verified|applied|mitigated|compliant)($|[._-])/.test(value))) {
     return "success";
   }
   return "progress";

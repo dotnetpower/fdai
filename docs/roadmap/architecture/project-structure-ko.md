@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: c8a3b382160a19bc8cf17d77b8b6b03a21899b28
+translation_source_sha: 00ff5417898cbf4088de132e8df1b209e89be872
 translation_revised: 2026-08-17
 ---
 # 프로젝트 구조
@@ -31,6 +31,7 @@ translation_revised: 2026-08-17
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-17 | 구현됨 | `control_loop/_process.py`에 결론이 난 compliant 결과를 도입해, finding이 0인 T0 판정이 더 이상 판단 보류와 구분되지 않는 상태를 해소했습니다. `NO_RULE_DENIED`는 이제 RCA나 `_fallback.py` 티어 승격 없이 `ControlLoopOutcome.COMPLIANT`를 반환합니다. | 현재 소스와 `test_control_loop_e2e.py`(47개 통과), `t0_deterministic` 스위트(총 109개), 둘 다 변이 검증; 변경 전 실측으로 abstain 1641건 중 795건이 `no_rule_denied`였습니다. | 이 결합지점에 남은 작업은 없습니다. 추가 전용 감사 로그는 과거 `control_loop.abstain` 행을 유지합니다. |
 | 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 범위가 제한된 현재 상태 활동 identity 변경을 기록했습니다. | 현재 출처와 `test_read_investigation_latency.py`, `test_activity_projection.py`, 통과한 focused 테스트 | 아래에 설명된 연기된 Phase 2 물리 패키지 이동을 완료합니다. |
 | 2026-08-13 | implemented | Mimir와 Heimdall 소유권을 유지하면서 프로바이더 계약, 원자적 어댑터 및 시작 구성 전체에 운영 Rule 세대 reconciliation 경계를 추가했습니다. | `current change`; `catalog_search.py`, `rule_generation_documents.py` 및 집중 worker, PostgreSQL, 런타임, 활성화 검사 | 통제된 실제 세대 증적을 보존하며 연기된 Phase 2 패키지 이동은 별도로 유지합니다. |
 | 2026-08-13 | implemented | 책임 소유자인 Mimir 또는 Heimdall이 maintenance-disabled이면 시작 시 Rule 세대 reconciliation을 억제하도록 변경했습니다. | `current change`; `bootstrap.py` 및 집중 disabled-agent 유입 검사 | 두 소유자가 활성화된 상태에서 통제된 실제 세대 증적을 보존합니다. |

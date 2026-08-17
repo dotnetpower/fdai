@@ -20,6 +20,7 @@ class ControlLoopOutcome(StrEnum):
     DEDUPED = "deduped"
     ABSTAINED_ROUTING = "abstained_routing"
     ABSTAINED_T0 = "abstained_t0"
+    COMPLIANT = "compliant"
     EXECUTED = "executed"
     ABSTAINED_ACTION_BUILD = "abstained_action_build"
     GOVERNANCE_OBSERVED = "governance_observed"
