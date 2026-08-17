@@ -22,6 +22,9 @@ const EMPHASES = new Set<PresentationEmphasis>(["primary", "secondary", "support
 const TONES = new Set<PresentationTone>(["neutral", "positive", "attention", "warning"]);
 const SLOT_KINDS: Readonly<Record<string, ReadonlySet<PresentationBlock["kind"]>>> = {
   overview: new Set(["summary"]),
+  root_cause: new Set(["summary"]),
+  impact: new Set(["table"]),
+  citations: new Set(["table"]),
   limitations: new Set(["callout"]),
   findings: new Set(["table", "list"]),
   coverage: new Set(["coverage", "table"]),

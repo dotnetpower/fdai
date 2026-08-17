@@ -1200,11 +1200,35 @@ def test_semantic_incident_presentation_localizes_korean_artifact() -> None:
                 {
                     "incident_profile": {"status": "triaging"},
                     "correlated_evidence": [{"audit_ref": "audit:1"}],
-                    "evidence_gaps": [
-                        "impact_evidence_missing",
-                        "grounded_citations_missing",
+                    "root_cause": {
+                        "tier": "t0",
+                        "outcome": "grounded",
+                        "cause": "필수 소유자 태그가 없습니다.",
+                        "confidence": 0.95,
+                        "reason": "결정론적 소유자 태그 규칙과 일치했습니다.",
+                        "recorded_at": "2026-08-14T09:06:00Z",
+                    },
+                    "impact_evidence": [
+                        {
+                            "metric": "noncompliant_resources",
+                            "baseline": 0,
+                            "observed": 1,
+                            "threshold": 0,
+                            "unit": "resources",
+                            "impact": "리소스 한 개가 필수 기준을 벗어났습니다.",
+                            "evidence_ref": "audit:1",
+                        }
                     ],
-                    "causal_assessment": {"status": "not_available"},
+                    "grounded_citations": [
+                        {
+                            "tier": "t0",
+                            "kind": "rule",
+                            "ref": "object-storage.owner-tag.required",
+                            "summary": None,
+                            "recorded_at": "2026-08-14T09:06:00Z",
+                        }
+                    ],
+                    "evidence_gaps": [],
                 }
             ],
         }
@@ -1216,15 +1240,24 @@ def test_semantic_incident_presentation_localizes_korean_artifact() -> None:
     blocks = cast(list[dict[str, object]], artifact["blocks"])
     assert [block["title"] for block in blocks] == [
         "검증된 인시던트 근거",
+        "근본 원인",
+        "영향 근거",
+        "근거 인용",
         "제한 사항",
         "다음 안전 단계",
     ]
-    limitations = cast(dict[str, object], blocks[1]["data"])
-    assert limitations["lines"] == [
-        "인과 분석이 구현되지 않아 근본 원인을 확인할 수 없습니다.",
-        "영향 근거가 누락되었습니다.",
-        "근거 인용이 누락되었습니다.",
-    ]
+    root_cause = cast(dict[str, object], blocks[1]["data"])
+    assert root_cause["items"][0] == {
+        "label": "원인",
+        "value": "필수 소유자 태그가 없습니다.",
+        "tone": "neutral",
+    }
+    impact = cast(dict[str, object], blocks[2]["data"])
+    assert impact["rows"][0]["observed"] == "1 resources"
+    citations = cast(dict[str, object], blocks[3]["data"])
+    assert citations["rows"][0]["ref"] == "object-storage.owner-tag.required"
+    limitations = cast(dict[str, object], blocks[4]["data"])
+    assert limitations == {"tone": "neutral", "lines": ["기록된 근거 공백이 없습니다."]}
 
 
 def test_semantic_incident_presentation_states_the_verified_total_and_truncation() -> None:
