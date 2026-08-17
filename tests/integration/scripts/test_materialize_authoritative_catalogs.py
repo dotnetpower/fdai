@@ -151,3 +151,46 @@ def test_stewardship_snapshot_satisfies_the_console_contract() -> None:
     # An explicit null here fails the console's finite-number decode.
     assert "finding_count" not in snapshot["identity_health"]
     assert snapshot["identity_health"]["status"] == "not_configured"
+
+
+def test_action_type_palette_matches_the_builder_contract() -> None:
+    module = _module()
+
+    palette = module.catalog_snapshots(REPO_ROOT)[module.ACTION_TYPE_LIST_KEY]
+    entries = palette["action_types"]
+
+    assert palette["count"] == len(entries) > 0
+    assert [entry["name"] for entry in entries] == sorted(entry["name"] for entry in entries)
+    for entry in entries:
+        assert entry["name"] and entry["operation"] and entry["rollback_contract"]
+        assert isinstance(entry["irreversible"], bool)
+        assert entry["default_mode"] and entry["env_scope"]
+        assert set(entry["hil_tiers"]) <= {"T0", "T1", "T2"}
+
+
+def test_workflow_catalog_carries_reviewed_steps_and_source() -> None:
+    module = _module()
+
+    catalog = module.catalog_snapshots(REPO_ROOT)[module.WORKFLOW_CATALOG_KEY]
+    workflows = catalog["workflows"]
+    palette_names = {
+        entry["name"]
+        for entry in module.catalog_snapshots(REPO_ROOT)[module.ACTION_TYPE_LIST_KEY][
+            "action_types"
+        ]
+    }
+
+    assert catalog["count"] == len(workflows) > 0
+    for workflow in workflows:
+        assert workflow["step_count"] == len(workflow["steps"])
+        assert workflow["yaml"].strip(), f"{workflow['name']} MUST carry its reviewed source"
+        assert workflow["trigger"]["kind"]
+        gate = workflow["promotion_gate"]
+        assert gate["min_samples"] >= 0 and gate["min_shadow_days"] >= 0
+        for step in workflow["steps"]:
+            assert step["id"]
+            # A structured step declares branches instead of an ActionType.
+            if "action_type_ref" in step:
+                assert step["action_type_ref"] in palette_names
+            else:
+                assert step.get("branches") or step.get("kind")
