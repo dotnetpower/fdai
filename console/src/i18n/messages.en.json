@@ -2051,7 +2051,7 @@
     "incidentCandidates": {
       "title": "Choose an incident",
       "hint": "Select an incident to continue the investigation.",
-      "prompt": "Investigate the root cause of this incident."
+      "prompt": "Report what the evidence for this incident establishes, which evidence is missing, and the next safe read-only step."
     },
     "answerPlan": {
       "intent": {"definition": "Definition", "why": "Why", "procedure": "Procedure", "comparison": "Comparison", "diagnosis": "Diagnosis", "status": "Status", "list": "List", "summary": "Summary", "proposal": "Proposal", "open_question": "Open question", "greeting": "Greeting"},

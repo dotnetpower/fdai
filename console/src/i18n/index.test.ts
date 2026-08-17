@@ -49,3 +49,17 @@ describe("mandatory English catalog fallback", () => {
     }
   });
 });
+
+describe("incident prompts stay answerable", () => {
+  // Both keys open the same incident-bound conversation, and that answer always
+  // reports causal analysis as unimplemented. A prompt asking for a cause would
+  // guarantee a reply that never answers it.
+  const promptKeys = ["incidentAttention.investigationPrompt", "deck.incidentCandidates.prompt"];
+
+  test.each(promptKeys)("%s asks for evidence, not a cause, in both locales", (key) => {
+    expect(tForLocale("en", key)).toMatch(/evidence/i);
+    expect(tForLocale("en", key)).not.toMatch(/cause/i);
+    expect(tForLocale("ko", key)).toContain("근거");
+    expect(tForLocale("ko", key)).not.toContain("원인");
+  });
+});
