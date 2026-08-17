@@ -4,6 +4,10 @@ import { defineConfig, loadEnv } from "vite";
 import preact from "@preact/preset-vite";
 import { cssHotUpdateGuard } from "./src/vite-css-hmr-guard";
 
+export function resolveViteCacheDir(env: Readonly<Record<string, string>>): string {
+  return env.VITE_CACHE_DIR || "node_modules/.vite";
+}
+
 // Console SPA build config.
 //
 // - `outDir: "dist"` produces static artifacts under `console/dist/`
@@ -19,6 +23,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   return {
     base: env.VITE_CONSOLE_BASE_PATH ?? "/",
+    cacheDir: resolveViteCacheDir(env),
     plugins: [cssHotUpdateGuard(), preact()],
     build: {
       outDir: "dist",

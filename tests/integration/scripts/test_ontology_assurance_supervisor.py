@@ -39,6 +39,12 @@ def test_operator_child_uses_run_scoped_outbox_namespace(tmp_path: Path) -> None
     assert 'FDAI_SEMANTIC_TURN_OUTBOX_NAMESPACE="${3,,}"' in operator.command[2]
     assert operator.command[6] == "issue63-run-1"
 
+    console = next(spec for spec in runner._service_specs() if spec.label == "console")
+    assert 'export VITE_CACHE_DIR="$2"' in console.command[2]
+    assert console.command[5] == str(
+        tmp_path / ".fdai/live-validation/runs/issue63-run-1/vite-cache"
+    )
+
 
 def _spec(
     tmp_path: Path,

@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 4924f6e8450eb6e23d9958185eba8de41c3af2ee
+translation_source_sha: be020e9df0128011aeb4f21c48f2d22554be0c29
 translation_revised: 2026-08-17
 ---
 
@@ -23,6 +23,7 @@ translation_revised: 2026-08-17
 | 탭 간 SSE 및 인시던트 복원력 | validated | 탭 간 stream hook, `incidents.milestones.ts`, incident projection, `docs/baselines/console-cross-tab-sse-assurance-2026-08-14.json`, `docs/baselines/incident-rca-report-assurance-2026-08-15.json`, focused Console/Operator 테스트 | 탭 간 leadership와 failover가 통과했고 인증된 Incident 상세가 notification delivery를 주장하지 않으면서 milestone 8개, 같은 스냅샷 분석 및 사용 불가 source와 plan context를 보존했습니다. |
 | 선택적 report PDF 컨트롤 | validated | `console/src/routes/reports.tsx`; service-local Operator PDF 어댑터; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; focused Console 및 Operator 테스트 | Catalog와 runtime registry가 함께 `pdf`를 표시했고 인증된 Browser Entra가 no-RCA 사용 불가 동작을 보존하면서 범위가 제한된 38809-byte PDF를 검증했습니다. |
 | 대화 검색 요청 복원력 | implemented | `console/src/routes/conversation-search.tsx`, `console/src/routes/conversation-search.test.tsx`, focused Console 테스트 (`22 passed`) 및 타입 검사 | 검색 generation은 오래된 결과 및 맥락 쓰기를 거부합니다. Generation 범위 in-flight key는 rerender 전 중복 맥락 요청을 억제하고 검색 간 결과를 섞지 않습니다. |
+| 감독 대상 보증 의존성 캐시 | implemented | `console/vite.config.ts`, `scripts/automation/run_ontology_assurance.py`, focused Console 및 supervisor 검사 11개와 타입 검사 통과 | 일반 Console 시작은 Vite의 표준 의존성 캐시를 유지합니다. 감독 대상 온톨로지 보증 Console마다 실행 루트 안의 캐시를 지정해 동시에 실행되는 optimizer가 측정 대상 Browser import를 무효화하지 못하게 합니다. |
 
 ### 구현 이력
 
@@ -67,6 +68,7 @@ translation_revised: 2026-08-17
 | 2026-08-16 | implemented | 인증된 ontology cohort에 독립 operation-to-plan capability oracle을 추가했습니다. Runner는 이제 Core가 투영한 exact-plan capability를 보존하고 생성된 operation이 다른 capability를 요구한 경우 evidence-complete answer도 거부하므로, manifest query는 aggregation을 충족할 수 없고 filter가 없는 ObjectSet은 property filter를 충족할 수 없습니다. Run configuration `1.4.0`은 oracle 이전 checkpoint의 resume을 막고 artifact `1.3.0`은 mismatch 수를 보고합니다. | `current change`; focused assurance Vitest 96개 통과, Console 및 test typecheck 통과, Playwright exact live test discovery 통과입니다. | 중앙 검증된 descendant에서 strict 이중 언어 gate와 seed 기반 100-case cohort를 실행하고 capability mismatch가 0인 artifact만 보존합니다. |
 | 2026-08-16 | implemented | 보존된 exact-plan 근거에 `metric_scope_series`를 추가해 generic causal plan의 범위가 제한된 visible-resource metric 읽기가 아티팩트에서 계속 관찰되도록 했습니다. Operation oracle은 여전히 최종 `evidence_join`을 요구하므로 additive capability 단독으로 causal analysis를 충족하거나 zero-mismatch gate를 약화할 수 없습니다. | `current change`; focused assurance Vitest 96개 통과, Console 및 test typecheck 통과입니다. | 중앙 검증된 descendant에서 strict 이중 언어 gate와 seed 기반 100-case cohort를 실행합니다. |
 | 2026-08-17 | implemented | Console의 페이지 로드 인시던트 자동 조사에서 ontology assurance를 격리했습니다. Harness는 빈 incident-attention stream을 제공하고 모든 chat POST를 관찰하며 ambient 및 incident-bound 요청 수를 기록하고, 두 수가 모두 0이 아니면 집단 gate와 변경 불가능한 아티팩트 gate를 모두 실패시킵니다. | `current change`, focused assurance Vitest 124개 통과, strict/full supervisor 검사 7개 통과, Console typecheck 통과, Playwright exact live test discovery 통과 | Seed 기반 집단을 시작하기 전에 ambient 및 bound 요청이 0인 새로운 엄격한 아티팩트를 보존합니다. |
+| 2026-08-17 | implemented | Exact-source 엄격한 시도가 서비스 준비 상태에 도달했지만 Browser 사전 단계에서 오래된 공유 MSAL optimizer URL 때문에 실패한 뒤 감독 대상 보증 Console마다 Vite 의존성 캐시를 격리했습니다. 이 시도는 측정 질문을 하나도 실행하지 않았고 아티팩트도 생성하지 않았으며 seed 기반 질문 집합도 시작하지 않았습니다. | `current change`, focused 캐시 검사 2개, supervisor 검사 9개, Console typecheck, Ruff 및 strict mypy 통과 | 중앙 검증을 확보하고 캐시가 격리된 소스에서 새로운 엄격한 아티팩트를 보존합니다. |
 
 ### 잔여 작업
 
