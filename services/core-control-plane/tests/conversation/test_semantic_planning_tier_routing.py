@@ -266,6 +266,31 @@ def test_evidence_validation_subject_clarification_uses_principal_scope() -> Non
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
+def test_evidence_validation_resource_identity_uses_principal_scope() -> None:
+    manifest, definition = _fixture()
+    t1 = _Model(
+        frame=_frame(
+            operation="validate",
+            subject_constraints=[],
+            output_shape="evidence_validation",
+            evidence_requirements=["evidence_completeness"],
+            unresolved_terms=["visible resource identity"],
+            clarification_requirements=["resource_identity"],
+            clarification="Which visible resource identity should I validate?",
+        ),
+        plan=_plan(definition),
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+
+    outcome = _run(_service(t1, t2, manifest))
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.subject_constraints == ("Resource",)
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
 def test_evidence_validation_keeps_concrete_subject_clarification() -> None:
     manifest, definition = _fixture()
     t1 = _Model(
@@ -310,6 +335,43 @@ def test_misclassified_evidence_validation_retries_only_frame_with_t2() -> None:
     assert tuple(node.kind for node in outcome.plan.nodes) == (QueryNodeKind.OBJECT_SET,)
     assert (t1.frame_calls, t1.plan_calls) == (1, 0)
     assert (t2.frame_calls, t2.plan_calls) == (1, 0)
+
+
+def test_misclassified_causal_frame_retries_frame_with_t2() -> None:
+    manifest, definition = _fixture()
+    causal_plan = {
+        "nodes": [
+            {
+                "node_id": "causal-evidence",
+                "kind": "evidence_join",
+                "depends_on": [],
+                "arguments": {"feature_cutoff": NOW.isoformat()},
+                "output_kind": "causal.join",
+            }
+        ],
+        "output_node_ids": ["causal-evidence"],
+    }
+    t1 = _Model(
+        frame=_frame(operation="select", output_shape="causal_evidence"),
+        plan=_plan(definition),
+    )
+    t2 = _Model(
+        frame=_frame(operation="explain_change", output_shape="causal_evidence"),
+        plan=causal_plan,
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (1, 1)
 
 
 def test_t1_clarification_never_invokes_t2() -> None:

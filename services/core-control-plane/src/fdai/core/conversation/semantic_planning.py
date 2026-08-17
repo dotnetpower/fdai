@@ -397,7 +397,11 @@ def _resolve_principal_scope_evidence_subject(
     if (
         frame.operation is not SemanticOperation.VALIDATE
         or frame.output_shape != SemanticOutputShape.EVIDENCE_VALIDATION
-        or proposal.clarification_requirements != (ClarificationRequirement.SUBJECT,)
+        or proposal.clarification_requirements
+        not in {
+            (ClarificationRequirement.SUBJECT,),
+            (ClarificationRequirement.RESOURCE_IDENTITY,),
+        }
         or proposal.subject_constraints not in {(), ("Resource",)}
     ):
         return proposal, frame
