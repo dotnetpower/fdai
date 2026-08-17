@@ -558,7 +558,7 @@ jobs:
             exit 1
           fi
 
-          source_repository="${GITHUB_REPOSITORY,,}"
+          source_repository="${GITHUB_REPOSITORY,,}/fdai-core-control-plane"
           registry_token="$(
             curl --fail --silent --show-error --retry 3 --retry-delay 2 \
               --retry-all-errors --retry-max-time 60 --connect-timeout 5 --max-time 30 \

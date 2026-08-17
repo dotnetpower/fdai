@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 59af9533defff5fed092b9d09488cb06f827a1a0
+translation_source_sha: f98086e856da27546a2551598cd0988186af9241
 translation_revised: 2026-08-17
 ---
 
@@ -52,6 +52,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 | 2026-08-16 | implemented | 6시간 러너 기본값만 있던 보호 배포 job 두 개에 예산을 선언했습니다. 그동안 단일 self-hosted 배포 러너를 붙잡았기 때문입니다. Platform Terraform job은 180분, 서비스 배포 job은 120분으로 제한하고, health 검증기는 자체 deadline 뒤에 실행하던 복구 검증과 readiness 경로 단계를 제한합니다. | 현재 변경, 배포 워크플로 집중 테스트 24개 통과, health 스크립트의 `bash -n`, 두 워크플로 문서의 YAML 파싱입니다. | 이 예산에 남은 작업은 없으며 아래 platform 적용 증적 항목은 그대로입니다. |
 | 2026-08-16 | implemented | Analyzer Job을 영속 인벤토리 projection과 검토된 리소스 타입 5개 analyzer 매핑에 연결했습니다. Tick은 명시적 대상과 발견된 대상을 결정론적으로 병합하고, 구성된 발견 상한을 적용하며, 지원하지 않는 타입을 제외하고, projection 읽기 실패 시 coverage를 조용히 줄이지 않고 재시도합니다. | `current change`, `analyzer_tick_cli.py`, `analyzer_targets.py`, `analyzer_tick_job.tf`, focused analyzer 테스트 및 `test_detection_readiness.py` | 이 범위를 `validated`로 올리기 전에 protected 적용 및 scheduled-run 증적 하나를 보존합니다. |
 | 2026-08-17 | implemented | 서비스, 신원, 작업 영역 또는 scheduler 리소스를 추가하지 않고 기존 analyzer Job에 선택적 분산 추적 토폴로지 평가를 추가했습니다. | `current change`; 집중 동작 및 HIL 검사 55개 통과, Terraform format, validate 및 infrastructure 계약 검사 통과. | 이 범위를 `validated`로 올리기 전에 protected exact-revision 적용과 예약된 `preserve`, `regenerate`, `drop` 증적을 보존합니다. |
+| 2026-08-17 | implemented | Container supply chain이 게시하는 서비스별 Core 저장소를 읽도록 protected runtime image promotion을 수정하고 이전 방식의 단일 GHCR 경로 사용을 제거했습니다. | `current change`, `.github/workflows/deploy-dev.yml`, `test_legacy_platform_imports_the_service_specific_core_image` 통과. | 서비스별 Core 다이제스트를 검증하고 연결하는 protected 계획과 exact 적용을 완료합니다. |
 
 ### 남은 작업
 
@@ -482,7 +483,7 @@ networking과 digest-pinned FDAI 및 ClamAV 이미지를 요구합니다.
 - **복제본 하한**: 기본값은 복제본 하나입니다. 검증된 Kafka scaler 없이 0으로 설정하면 Event Hubs 데이터로 깨어나지 않으므로 Terraform은 scale-to-zero를 주장하지 않습니다.
 - **분리 기준**: 목표는 Core, Operator, 인제스트 API, 처리 워커, Isolated 실행기이며 권한 전환은 [서비스 승격과 데이터 소유권](../architecture/service-graduation-and-ownership-ko.md)의 모든 게이트를 따릅니다.
 - **신원 분리**: Operator API 읽기/명령과 인제스트 API/워커/이행 principal을 분리합니다. 워커는 `aw.pantheon.objects`에서 Saga/Muninn 객체만 수신하고 `aw.pipeline.stages`로 단계 사실을 전송합니다. `ingestion_cohost_worker=true`는 두 범위를 API 신원으로 돌립니다.
-- **실행기 배포와 전환**: `enable_isolated_executor=true`는 내부 앱과 ACR pull, 명령 수신, 증적/DLQ 전송, state-secret 읽기만 가진 전용 UAMI를 프로비저닝합니다. 기본값은 `false`이며 private-runner 작업 흐름은 기본 plan-only를 유지하고 checksum-pinned GitHub CLI를 설치하며 embedded plan-metadata 코드를 syntax-check하고 증명을 검증한 뒤 동일한 ACR 다이제스트를 연결하고 최신 개정 번호를 상태 검사에 포함합니다. `promote_runtime_image=true`는 재구축 없이 검증된 다이제스트를 가져오기하지만 exact 적용은 승격을 거부하고 protected 계획만 사용하며 convergence에도 같은 런타임 다이제스트를 복원합니다. `enable_isolated_executor_authority_cutover=true`는 개발 operations 게이트웨이도 요구하며 Core의 게이트웨이 및 버티컬 효과 접근을 제거하고 isolated 신원을 승인하며 Core에는 전송 계층/읽기 접근만 유지합니다. `verify_executor_effect=true`는 non-interactive 실행기에서 명시적 pseudo-terminal을 통해 reversible NSG 룰 탐색을 실행하고 원격 exit 상태를 보존합니다. 중복 전달은 변경할 수 없는 액션 및 명령 신원을 유지하도록 하나의 issued-at 시각을 공유하고 정리는 새 범위가 제한된 기한을 받습니다. Azure Resource Manager에서 효과를 확인하고 중복 쓰기를 차단하며 오프셋과 최종 증적을 기록한 뒤 정리합니다. 900초가 지나면 실패합니다.
+- **실행기 배포와 전환**: `enable_isolated_executor=true`는 내부 앱과 ACR pull, 명령 수신, 증적/DLQ 전송, state-secret 읽기만 가진 전용 UAMI를 프로비저닝합니다. 기본값은 `false`이며 private-runner 작업 흐름은 기본 plan-only를 유지하고 checksum-pinned GitHub CLI를 설치하며 embedded plan-metadata 코드를 syntax-check하고 `ghcr.io/<owner>/<repo>/fdai-core-control-plane`의 Core 산출물 증명을 검증한 뒤 동일한 ACR 다이제스트를 연결하고 최신 개정 번호를 상태 검사에 포함합니다. `promote_runtime_image=true`는 재구축 없이 검증된 다이제스트를 ACR `fdai` 저장소로 가져오기하지만 exact 적용은 승격을 거부하고 protected 계획만 사용하며 convergence에도 같은 런타임 다이제스트를 복원합니다. `enable_isolated_executor_authority_cutover=true`는 개발 operations 게이트웨이도 요구하며 Core의 게이트웨이 및 버티컬 효과 접근을 제거하고 isolated 신원을 승인하며 Core에는 전송 계층/읽기 접근만 유지합니다. `verify_executor_effect=true`는 non-interactive 실행기에서 명시적 pseudo-terminal을 통해 reversible NSG 룰 탐색을 실행하고 원격 exit 상태를 보존합니다. 중복 전달은 변경할 수 없는 액션 및 명령 신원을 유지하도록 하나의 issued-at 시각을 공유하고 정리는 새 범위가 제한된 기한을 받습니다. Azure Resource Manager에서 효과를 확인하고 중복 쓰기를 차단하며 오프셋과 최종 증적을 기록한 뒤 정리합니다. 900초가 지나면 실패합니다.
 - **OHL evidence target**: `enable_ohl_scale_out_evidence_target=true`는 `dev`에만 전용 Uniform
   VM Scale Set 하나와 manual proposal Job 하나를 추가합니다. 비공개 networking, development
   operations gateway, exact `OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION`, retry-stable
