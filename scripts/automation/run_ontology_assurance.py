@@ -624,6 +624,7 @@ exec env -u AZURE_CONFIG_DIR \
             """
 set -euo pipefail
 cd "$1/console"
+export VITE_CACHE_DIR="$2"
 export VITE_DEV_MODE=0
 export VITE_LOCAL_AZURE_CLI_AUTH=0
 export VITE_OPERATOR_API_BASE_URL=http://127.0.0.1:8014
@@ -632,6 +633,7 @@ exec node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 5275 --strictPor
 """,
             "_",
             str(self.worktree),
+            str(self.run_root / "vite-cache"),
         )
         return (
             ProcessSpec(
