@@ -2107,6 +2107,31 @@ def test_incident_presentation_surfaces_the_recorded_activity_timeline() -> None
     ]
 
 
+def test_incident_presentation_keeps_the_same_blocks_in_korean() -> None:
+    """Only the live gate pinned the Korean order, and it skips without an external stack."""
+    projection = _incident_projection(
+        [_audit_record(index) for index in range(14)],
+        {"status": "triaging", "title": "Trace propagation gap", "severity": "sev2"},
+    )
+
+    done = semantic_turn_runtime_module._done_event_data(projection, locale="ko")
+
+    artifact = cast(dict[str, object], done["presentation_artifact"])
+    blocks = cast(list[dict[str, object]], artifact["blocks"])
+    assert [block["slot_id"] for block in blocks] == [
+        "overview",
+        "records",
+        "limitations",
+        "findings",
+    ]
+    assert [block["title"] for block in blocks] == [
+        "검증된 인시던트 근거",
+        "기록된 활동 (최근 10/14건)",
+        "제한 사항",
+        "다음 안전 단계",
+    ]
+
+
 def test_incident_timeline_declares_its_bound_instead_of_hiding_records() -> None:
     projection = _incident_projection([_audit_record(index) for index in range(14)], {})
 
