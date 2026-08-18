@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 455d0493cc6f4946de3df39366c32fee1091198c
+translation_source_sha: ae4854a4dce5570cd63316be289f9382e252558c
 translation_revised: 2026-08-18
 ---
 
@@ -227,6 +227,7 @@ translation_revised: 2026-08-18
 | 2026-08-18 | implemented | Semantic frame prompt를 v18로 versioning하고 최종 relationship-scope audit를 추가했습니다. Specialized schema relationship family에는 정확한 ObjectType declaration 한두 개가 필요하며 현재 visible 또는 readable inventory의 connectivity와 containment는 operational topology traversal을 유지합니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
 | 2026-08-18 | implemented | Semantic frame prompt를 v19로 versioning하고 generic visible-resource causal request가 cause concept 하나와 effect concept 하나를 명시하면 완전하도록 했습니다. Frame은 resource identity, incident binding, 더 좁은 subject 또는 provider metric identifier를 operator에게 묻지 않고 causal evidence를 반환해야 하며 grounding은 이후 verifier concern으로 유지합니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
 | 2026-08-18 | implemented | Semantic frame prompt를 v20으로 versioning하고 요청된 runtime relation verb가 ontology noun보다 우선하도록 했습니다. 다른 object에 depend, route, connect, attach 또는 contain되는 visible resource는 target을 ontology object라고 부르더라도 topology traversal을 유지하며 declaration manifest는 runtime membership에 답하지 않습니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
+| 2026-08-18 | validated | 중앙 검증된 source `a38922762ed805794b11bb9c6aaef43916f6f6c4`에서 통제된 strict-to-seeded ontology assurance를 완료했습니다. Strict는 14/14, seeded는 exact transport, evidence-complete answer 85개, 통제된 action draft 9개, clarification 6개, capability mismatch 0건, unsupported operational claim 0건 및 unauthorized execution 0건을 유지하며 100/100을 통과했습니다. | 실행 `issue63-a38922762e-20260818T034940Z`, repository-safe 기준선 [`ontology-query-randomized-assurance-2026-08-18.json`](../../baselines/ontology-query-randomized-assurance-2026-08-18.json) | 원시 local artifact를 보존하고 최신 integration source에서 baseline commit을 검증합니다. |
 
 ### 남은 작업
 

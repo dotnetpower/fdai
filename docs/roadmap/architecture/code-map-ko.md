@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: b12204d256b64a70f208243c1a4a05fa75c92627
+translation_source_sha: 5523671bb9e062c3a9949f66f6ab34b49964d97e
 translation_revised: 2026-08-18
 ---
 # 코드 맵
@@ -141,6 +141,7 @@ translation_revised: 2026-08-18
 | 2026-08-18 | implemented | Frame prompt v18에 최종 relationship-scope audit를 추가했습니다. Schema relationship lookup은 정확한 ObjectType declaration으로 제한되며 principal-scoped current inventory traversal은 operational topology를 유지합니다. Runtime authority와 deterministic verifier 동작은 변경하지 않았습니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증된 source에서 strict 및 seeded 근거를 보존합니다. |
 | 2026-08-18 | implemented | Frame prompt v19에 generic causal completeness audit를 추가했습니다. Visible principal-scoped resource에 대해 명시된 cause와 effect를 identity 또는 provider concept를 위한 operator clarification으로 바꿀 수 없으며 deterministic grounding은 downstream의 authority-neutral 단계로 유지합니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증된 source에서 strict 및 seeded 근거를 보존합니다. |
 | 2026-08-18 | implemented | Frame prompt v20에 relation-verb precedence audit를 추가했습니다. Runtime traversal verb는 wording이 ontology object 또는 relationship type을 명시한다는 이유로 declaration inventory로 축소될 수 없습니다. Runtime authority와 deterministic verifier 동작은 변경하지 않았습니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증된 source에서 strict 및 seeded 근거를 보존합니다. |
+| 2026-08-18 | validated | 중앙 검증된 source `a38922762ed805794b11bb9c6aaef43916f6f6c4`에서 첫 full governed ontology-query certification을 보존했습니다. 독립적으로 감독된 runtime은 exact event-bus transport, exact semantic-plan capability, 모든 answered turn의 complete evidence 및 authority와 safety counter 0건을 유지하며 strict 14/14와 seeded 100/100을 통과했습니다. | 실행 `issue63-a38922762e-20260818T034940Z`, repository-safe 기준선 [`ontology-query-randomized-assurance-2026-08-18.json`](../../baselines/ontology-query-randomized-assurance-2026-08-18.json) | 원시 local artifact를 보존하고 최신 integration source에서 baseline commit을 검증합니다. |
 
 ### 남은 작업
 
