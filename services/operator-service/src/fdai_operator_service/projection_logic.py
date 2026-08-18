@@ -106,8 +106,9 @@ def dashboard_kpi(rows: Sequence[Mapping[str, Any]], *, hil_pending: int) -> Jso
         action_kind = str(row.get("action_kind") or "unknown")
         by_action_kind[action_kind] = by_action_kind.get(action_kind, 0) + 1
         entry = _mapping(row.get("entry"))
-        outcome = str(entry.get("outcome") or "unknown")
-        by_outcome[outcome] = by_outcome.get(outcome, 0) + 1
+        outcome = _nonempty(entry.get("outcome"))
+        if outcome:
+            by_outcome[outcome] = by_outcome.get(outcome, 0) + 1
         tier = _nonempty(entry.get("tier"))
         if tier:
             by_tier[tier.lower()] = by_tier.get(tier.lower(), 0) + 1
