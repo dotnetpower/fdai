@@ -535,6 +535,7 @@
       "description": "Add final owners or notification contacts. Submission creates a draft governance PR; current ownership stays unchanged until merge.",
       "ownerReview": "Owner review required",
       "permissionRequired": "Contributor, Approver, or Owner access is required to submit an ownership proposal.",
+      "permissionResolving": "Checking your ownership-proposal access...",
       "agent": "Agent",
       "identity": "Person or group",
       "identityPlaceholder": "Display name or email",

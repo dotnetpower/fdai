@@ -4,9 +4,19 @@ import { PANTHEON } from "./agents.model";
 import {
   buildHandoverDocument,
   canProposeHandover,
+  resolveHandoverAuthority,
   safeProposalUrl,
   type HandoverAssignmentInput,
 } from "./handover-editor";
+import type { IamOverview } from "./settings-iam.model";
+
+function overview(capabilities: readonly string[]): IamOverview {
+  return {
+    principal: { oid: "oid-1", roles: [], capabilities: [...capabilities] },
+    roles: [],
+    assignmentBoundary: "identity-provider-group",
+  };
+}
 
 function auth(roles: readonly string[], options: { devMode?: boolean; account?: boolean } = {}): AuthContext {
   const hasAccount = options.account ?? true;
@@ -59,6 +69,20 @@ describe("Handover registration proposal", () => {
     expect(canProposeHandover(auth(["Owner"]))).toBe(true);
     expect(canProposeHandover(auth(["Reader"]))).toBe(false);
     expect(canProposeHandover(auth([], { devMode: true, account: false }))).toBe(true);
+  });
+
+  test("resolves authority from the server IAM projection, not the SPA id token", () => {
+    // FDAI App Roles live on the API application, so a fully authorized browser
+    // session normally has no id-token roles claim.
+    const claimless = auth([]);
+    expect(resolveHandoverAuthority(claimless, null, false)).toBe("resolving");
+    expect(resolveHandoverAuthority(claimless, overview(["view-console", "author-draft-pr"]), false))
+      .toBe("granted");
+    expect(resolveHandoverAuthority(claimless, overview(["view-console"]), false)).toBe("denied");
+    expect(resolveHandoverAuthority(claimless, null, true)).toBe("denied");
+    expect(resolveHandoverAuthority(auth(["Contributor"]), null, false)).toBe("granted");
+    expect(resolveHandoverAuthority(auth([], { devMode: true, account: false }), null, false))
+      .toBe("granted");
   });
 
   test("renders only absolute HTTPS proposal links without credentials", () => {

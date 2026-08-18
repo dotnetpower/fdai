@@ -11,6 +11,7 @@ import {
 import { t } from "../i18n";
 import { PANTHEON } from "./agents.model";
 import { waitForTerminal } from "./document-ingestion";
+import type { IamOverview } from "./settings-iam.model";
 
 export type HandoverSubjectKind = "user" | "group";
 export type HandoverResponsibility = "accountable" | "informed";
@@ -32,15 +33,43 @@ interface Props {
 }
 
 const PROPOSER_ROLES = new Set(["Contributor", "Approver", "Owner"]);
+/** Server-side capability that gates ownership-proposal authorship. */
+const PROPOSER_CAPABILITY = "author-draft-pr";
 const MAX_ASSIGNMENTS = 60;
 const DEFAULT_AGENT = PANTHEON[0]!;
 
+export type HandoverAuthority = "resolving" | "granted" | "denied";
+
+/**
+ * Token-claim fallback only. FDAI App Roles are defined on the API application,
+ * so the console SPA id token normally carries no `roles` claim; this check
+ * MUST NOT be the sole authority source.
+ */
 export function canProposeHandover(auth: AuthContext): boolean {
   if (auth.devMode && auth.account === null) return true;
   const roles = auth.account?.idTokenClaims?.roles;
   return Array.isArray(roles) && roles.some(
     (role) => typeof role === "string" && PROPOSER_ROLES.has(role),
   );
+}
+
+/**
+ * Resolve proposal authority from the Operator API IAM projection, which is the
+ * only place that observes the API-audience access token roles. Falls back to
+ * the id-token claim and fails closed once the projection is known to be
+ * unavailable.
+ */
+export function resolveHandoverAuthority(
+  auth: AuthContext,
+  overview: IamOverview | null,
+  overviewFailed: boolean,
+): HandoverAuthority {
+  if (auth.devMode && auth.account === null) return "granted";
+  if (overview !== null) {
+    return overview.principal.capabilities.includes(PROPOSER_CAPABILITY) ? "granted" : "denied";
+  }
+  if (canProposeHandover(auth)) return "granted";
+  return overviewFailed ? "denied" : "resolving";
 }
 
 export function buildHandoverDocument(
@@ -92,6 +121,24 @@ export function HandoverProposalEditor({ client, auth }: Props) {
   const [attempted, setAttempted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<HandoverDraftResult | null>(null);
+  const [iamOverview, setIamOverview] = useState<IamOverview | null>(null);
+  const [iamOverviewFailed, setIamOverviewFailed] = useState(false);
+
+  useEffect(() => {
+    if (auth.devMode && auth.account === null) return;
+    let cancelled = false;
+    void client.iamOverview().then(
+      (overview) => {
+        if (!cancelled) setIamOverview(overview);
+      },
+      () => {
+        if (!cancelled) setIamOverviewFailed(true);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [client, auth]);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,12 +162,15 @@ export function HandoverProposalEditor({ client, auth }: Props) {
     };
   }, [api]);
 
-  if (!canProposeHandover(auth)) {
+  const authority = resolveHandoverAuthority(auth, iamOverview, iamOverviewFailed);
+  if (authority !== "granted") {
     return (
       <section class="handover-editor handover-editor--locked" aria-labelledby="handover-editor-title">
         <div>
           <h3 id="handover-editor-title">{t("handover.editor.title")}</h3>
-          <p>{t("handover.editor.permissionRequired")}</p>
+          <p>{t(authority === "resolving"
+            ? "handover.editor.permissionResolving"
+            : "handover.editor.permissionRequired")}</p>
         </div>
       </section>
     );
