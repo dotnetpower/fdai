@@ -19,6 +19,12 @@ cloud-operations concepts, while each deployment supplies its observed instances
 > of record and not an execution surface. Events, approved configuration, telemetry sources, the
 > append-only audit ledger, and catalog-as-code remain authoritative for their own facts.
 >
+> A projection refresh always follows an authoritative re-observation. It is never a write-back of
+> an intended or dispatched effect: an executor result is an `execution` lane fact carrying
+> `execution_ledger` authority, and the lane matrix in `shared/providers/state_evidence.py` rejects
+> it in the `observed`, `derived`, and `desired` lanes. "FDAI changed it, so the graph says it
+> changed" is therefore not an expressible path.
+>
 > **Safety boundary:** Ontology context can only preserve or lower autonomy. Missing, stale,
 > conflicting, or unproven context remains explicitly unknown and triggers bounded evidence
 > recovery, a smaller safe plan, no-op, or review. It never supplies permission to execute.

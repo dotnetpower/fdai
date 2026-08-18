@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 35a481ddf01e238cde771b14a744e69b662076a8
+translation_source_sha: bd9c845f2d35645cf66187043ee5e428eb02911b
 translation_revised: 2026-08-18
 ---
 # FDAI 운영 온톨로지
@@ -20,6 +20,12 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
 > **권한 경계:** 온톨로지 그래프는 공유 의미 읽기 모델이며 변경 가능한 system of 기록 또는
 > 실행 표면이 아닙니다. Event, 승인된 구성, 텔레메트리 출처, 추가 전용 감사
 > 원장, catalog-as-code는 각자 소유한 사실의 권한으로 유지됩니다.
+>
+> 변환 결과 갱신은 언제나 권위 있는 재관측을 뒤따릅니다. 의도했거나 발송한 효과를 되쓰는
+> write-back이 아닙니다. 실행기 결과는 `execution_ledger` 권한을 지닌 `execution` lane 사실이며,
+> `shared/providers/state_evidence.py`의 lane 행렬이 이를 `observed`, `derived`, `desired`
+> lane에서 거부합니다. 따라서 "FDAI가 바꿨으니 그래프가 바뀌었다고 말한다"는 경로는 표현
+> 자체가 불가능합니다.
 >
 > **안전 경계:** 온톨로지 맥락은 자율성을 유지하거나 낮출 수만 있습니다. 누락되거나
 > 오래되거나 충돌하거나 입증되지 않은 맥락은 알 수 없음으로 남고 범위가 제한된 근거 복구,
