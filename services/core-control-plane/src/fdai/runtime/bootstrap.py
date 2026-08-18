@@ -65,7 +65,9 @@ from fdai.runtime.bootstrap_bindings import (
     semantic_query_providers as _semantic_query_providers,
 )
 from fdai.runtime.bootstrap_lifecycle import (
+    DiscoveryActivationRuntime,
     bind_health_readiness,
+    build_discovery_activation_runtime,
     install_shutdown_signals,
     open_health_port,
 )
@@ -153,10 +155,6 @@ from fdai.runtime.control_loop import (
     _load_resource_types,
 )
 from fdai.runtime.delivery import _build_incident_notifier
-from fdai.runtime.discovery_activation import (
-    DiscoveryActivationRuntime,
-    build_discovery_activation_runtime,
-)
 from fdai.runtime.dynamic_evidence import bind_dynamic_evidence_from_env
 from fdai.runtime.health import RuntimeHealthServer
 from fdai.runtime.operating_model import project_operating_model_from_env

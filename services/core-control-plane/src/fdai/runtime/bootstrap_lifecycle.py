@@ -58,6 +58,12 @@ from fdai.rule_catalog.schema.catalog_search import (
 from fdai.rule_catalog.schema.rule_semantic_generation_events import (
     RuleGenerationBuildRequestEvent,
 )
+from fdai.runtime.discovery_activation import (
+    DiscoveryActivationRuntime as DiscoveryActivationRuntime,
+)
+from fdai.runtime.discovery_activation import (
+    build_discovery_activation_runtime as build_discovery_activation_runtime,
+)
 from fdai.runtime.health import RuntimeHealthServer
 from fdai.runtime.readiness import StartupReadinessRuntime
 from fdai.shared.contracts.models import OntologyRelease, Rule
