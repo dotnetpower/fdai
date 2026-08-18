@@ -213,6 +213,7 @@ class SemanticPlanningService:
                     "stage": "plan_verify",
                     "plan_nodes": _plan_node_summary(plan),
                     "plan_source": plan_source,
+                    "output_shape": frame.output_shape,
                 },
             )
             graph = build_intent_graph(
