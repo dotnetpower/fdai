@@ -1140,7 +1140,7 @@ def test_incident_title_bound_and_partial_response_plan() -> None:
     }
 
 
-def test_incident_projection_rejects_null_string_correlation_sentinels() -> None:
+def test_incident_projection_reader_rejects_null_string_correlation_sentinels() -> None:
     valid = {"normalized_correlation_id": " corr-1 "}
 
     grouped = _group_incident_rows(
@@ -1154,22 +1154,21 @@ def test_incident_projection_rejects_null_string_correlation_sentinels() -> None
     )
 
     assert grouped == [[valid]]
-    assert "LOWER(BTRIM(normalized_correlation_id)) NOT IN ('none', 'null')" in (INCIDENT_PAGE_SQL)
 
 
 def test_incident_page_excludes_platform_housekeeping_groups() -> None:
     """A group of only platform activity is not an incident and not a cohort denominator."""
-    assert "HAVING BOOL_OR(NOT platform_activity)" in INCIDENT_PAGE_SQL
-    for prefix in (
-        "'background-task'",
-        "'iam'",
-        "'startup_readiness'",
-        "'semantic_turn'",
-        "'observation-campaign'",
-        "'read-investigation'",
-    ):
-        assert prefix in INCIDENT_PAGE_SQL
-    assert "SPLIT_PART(LOWER(COALESCE(audit.action_kind, '')), '.', 1) IN (" in INCIDENT_PAGE_SQL
+    assert "projection.has_incident_activity" in INCIDENT_PAGE_SQL
+
+
+def test_incident_page_limits_temporal_projection_before_expanding_history() -> None:
+    """Roster cost follows the requested page instead of total audit history."""
+    projection = INCIDENT_PAGE_SQL.index("FROM operator_incident_projection")
+    page_limit = INCIDENT_PAGE_SQL.index("LIMIT %(fetch)s", projection)
+    history_expansion = INCIDENT_PAGE_SQL.index("JSONB_ARRAY_ELEMENTS", page_limit)
+
+    assert projection < page_limit < history_expansion
+    assert "FROM audit_log AS audit" not in INCIDENT_PAGE_SQL
 
 
 def test_incident_outcome_metrics_require_independent_verification() -> None:
@@ -1285,7 +1284,7 @@ async def test_incident_search_uses_one_page_and_metrics_filter() -> None:
     incident_calls = [call for call in model.calls if call[0] == INCIDENT_PAGE_SQL]
     assert [call[1]["search"] for call in incident_calls] == ["compute vm", "compute vm"]
     assert "REGEXP_SPLIT_TO_TABLE" in INCIDENT_PAGE_SQL
-    assert "STRPOS(search_document" in INCIDENT_PAGE_SQL
+    assert "STRPOS(projection.search_document" in INCIDENT_PAGE_SQL
 
 
 def test_incident_cursor_is_bound_to_normalized_search() -> None:

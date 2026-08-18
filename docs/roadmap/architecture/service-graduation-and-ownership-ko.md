@@ -1,7 +1,7 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: b62002cfdbb61b6902771cd63b88b575d4279cbd
-translation_revised: 2026-08-15
+translation_source_sha: 8f2e04b5f58f7d3de667c61d58a9336317918aa1
+translation_revised: 2026-08-19
 ---
 # 서비스 승격과 데이터 소유권
 
@@ -42,14 +42,14 @@ translation_revised: 2026-08-15
 | 버전이 지정된 프로세스 간 계약과 격리된 신원 | validated | `packages/service-contracts/`; `infra/services/`; IS-03, IS-05, IS-07 및 IS-09 근거 | 서비스 분포는 다른 서비스 구현을 가져오지 않고 공유 계약 SDK를 소비하며 Isolated 실행기만 효과 권한을 보유할 수 있습니다. |
 | 보류 및 거절된 향후 후보 | deferred | [후보 결정](#후보-결정) | Operator 애플리케이션, 읽기, SSE 분리, 대화 런타임 및 background 읽기 작업은 측정된 강제 트리거와 완전한 게이트 근거가 생길 때까지 보류됩니다. Ad hoc 제어 루프 서비스 분리는 계속 거절됩니다. |
 | 경계 docstring 강제 적용 | implemented | `scripts/quality/architecture/check-boundary-docstrings.py`; SD-09 근거 | 검토된 모든 분해 범위에서 구조적 docstring 계약을 강제 적용합니다. 의미 정확성은 계속 집중 아키텍처 테스트에 의존합니다. |
-
+| Temporal 인시던트 roster projection | implemented | `core_incident_projection_20260819`, `operator_incident_projection_read_20260819`, 집중 migration 및 Operator 검사 | Alembic이 소유하는 trigger가 추가 전용 감사 transaction 안에서 temporal version을 파생합니다. Core와 Executor 역할에는 projection 직접 쓰기 권한을 주지 않고 Operator 역할에는 SELECT만 부여합니다. |
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | validated | 원장 도입 이전의 설계 이력을 재구성하지 않고 완료된 5개 서비스 근거와 보류된 향후 후보를 분리해 기록했습니다. | `current change`; 구현 범위 표에 인용한 머신 매니페스트, 서비스 migration 가지, 공유 계약 및 보존된 전이 근거입니다. | 관찰 가능한 강제 트리거와 완전한 점수표 근거가 생긴 보류 후보만 다시 평가합니다. |
 | 2026-08-15 | validated | Norns가 소유하는 객체 이름을 `PatternObservation`에서 `Pattern`으로 변경해 에이전트 스펙, 등록된 토픽, 판테온 표, Console 에이전트 계약이 하나의 기록을 가리키게 했습니다. | `current change`, `PANTHEON_SPECS`, `agents/_framework/topics.py`, `console/src/routes/agents.model.ts`, 집중 판테온 레이아웃, 문서 파리티, 카탈로그 테스트 통과 | 아직 어느 것도 이 기록을 생산하지 않으며, 발행 또는 폐기는 prediction-learning 원장에서 추적합니다. |
-
+| 2026-08-19 | implemented | Operator writer 또는 새 서비스를 만들지 않고 재구성 가능한 temporal 인시던트 roster projection을 추가했습니다. Database trigger는 Saga 감사 append transaction 안에서 이전 correlation version을 닫고 다음 as-of version을 삽입하며, Operator branch는 Core schema prerequisite가 존재한 뒤 읽기 권한만 부여합니다. | `current change`, [이슈 #169](https://github.com/dotnetpower/fdai/issues/169), local PostgreSQL migration, trigger, temporal cursor, platform 제외, role grant 검사 통과, 집중 Operator 및 service-migration suite 117개 통과 | 보호된 migration과 service rollout 뒤 deployed latency 근거를 보존합니다. |
 ### 남은 작업
 
 - [x] 승인된 5개 서비스 토폴로지에 남은 작업이 없습니다. 승격, 쓰기 담당 소유권, 신원 격리, 롤백 및 원격 전이 근거는 분해 프로그램에 보존돼 있습니다.
@@ -115,6 +115,7 @@ Logical 기록 또는 수명 주기 전이 하나에는 쓰기 담당 하나만 
 |-----------------|--------------------|--------------------------|-----------------|
 | `audit_log` | 추가 전용 감사 저장소를 통한 Saga | Operator API 감사 변환 결과, Norns 검토된 intake, 검증 작업 | Alembic 이행 작업 |
 | Operator API 읽기 변환 결과 | 영속 쓰기 없음. Pure 변환 결과 코드는 request-local 값만 소유 | 이름이 지정된 권위 있는 저장소를 사용하는 인증된 경로 | 해당 없음 |
+| `operator_incident_projection` | 각 Saga/Executor 감사 insert에서 파생 transition을 만드는 Core 소유 database trigger. Runtime 역할에는 직접 쓰기 권한이 없음 | 인증된 Operator 인시던트 roster 및 attention projection | Core service migration, Operator service 읽기 grant |
 | Operator API SSE 스트리밍 | 영속 쓰기 없음. Connection-local 커서/backpressure 상태만 소유 | Authorized 단계/활동 스트림과 영속 재생 변환 결과 | 해당 없음 |
 | `conversation_record`, `conversation_turn`, `conversation_policy` ([이행 0019](../../../alembic/versions/20260716_0019_user_context_automation.py)) | Owning principal의 user-context/대화 애플리케이션 서비스 | Operator API 대화/이력 변환 결과 | Alembic 이행 작업 |
 | `conversation_image` | principal 범위로 한정된 Operator API 이미지 저장소 | 인증된 owning-principal 이력 경로 | Alembic 이행 작업 |
@@ -137,7 +138,6 @@ Logical 기록 또는 수명 주기 전이 하나에는 쓰기 담당 하나만 
 
 새 후보는 구현 전에 데이터 행을 추가합니다. 쓰기 담당이 겹치는 행, 소유자가 "shared 서비스"인
 행, 이름이 없는 이행 경로는 승격을 차단합니다.
-
 ## 프로세스 간 계약 매트릭스
 
 | 계약 | 스키마 소유자 | 생산자 | 소비자 | 파티션 키 | 호환성 | 재시도, DLQ, 멱등성, 보존 |

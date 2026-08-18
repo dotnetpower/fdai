@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Incident Roster and Fix History
 translation_of: operator-console-incident-roster.md
-translation_source_sha: 724c8369ffa9e7dec5df11e43a85d9314cabb0d4
-translation_revised: 2026-08-17
+translation_source_sha: 356211060fcd31d5bf567b986b6ad92e83865c48
+translation_revised: 2026-08-19
 ---
 
 # Operator Console - 인시던트 명단 and Fix 이력
@@ -386,12 +386,12 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 |------|------|------|------|
 | Incident 수명 주기, roster 변환 결과 및 Console 보기 | implemented | `services/core-control-plane/src/fdai/core/incident/`; `services/core-control-plane/tests/core/incident/`; `console/src/routes/incidents.tsx`; focused Console incident 테스트 | Incident 상태, 상관관계, 수명 주기, roster, attention 및 범위가 제한된 presentation에 focused 검사가 있습니다. |
 | 서버 기반 roster 검색 | implemented | `fdai_service_contracts.operator.IncidentQuery`; `fdai_operator_service.postgres_sql.INCIDENT_PAGE_SQL`; `console/src/api-operations-client.ts`; `console/src/routes/incidents.tsx`; focused Operator 및 Console 테스트 | 페이지 나누기 전에 범위가 제한된 기록 대상 근거를 검색하고, 측정은 같은 snapshot과 필터를 사용하며, 커서는 정규화된 검색어를 상태, 버티컬, 심각도와 함께 묶습니다. |
+| Projection-first PostgreSQL roster 읽기 | implemented | `operator_incident_projection`, `INCIDENT_PAGE_SQL`, Core 및 Operator service migration, 집중 Operator 및 migration 검사 | 감사 trigger가 최근 행 최대 100개를 포함하는 temporal correlation version을 유지합니다. 읽기는 정확한 as-of version을 고르고 필터와 `LIMIT`을 적용한 뒤 선택한 history만 펼치므로 조회 비용이 전체 감사 이력을 group하지 않습니다. |
 | 운영자가 읽을 수 있는 identity 및 단계별 조사 | implemented | `incident_projection.py`; `projection_logic.py`; `postgres.py`; `incidents.tsx`; `incidents.detail-sections.tsx`; `incidents.milestones.ts`; focused Operator 테스트(`31 passed`), Console 테스트(`66 passed`), typecheck, strict mypy, Ruff, Pylance 및 catalog parity | 제목 출처, 신뢰된 원본 context, 계획 미리 보기, 범위가 제한된 근거 milestone, 독립적으로 검증된 결과 cohort를 실행 권한 없이 구현했습니다. |
 | RCA 계약, 변환 결과 및 읽기 전용 경로 | implemented | `services/core-control-plane/src/fdai/core/rca/`; `services/core-control-plane/tests/core/rca/`; `services/operator-service/src/fdai_operator_service/rca_projection.py`; `services/operator-service/tests/test_operator_service_composition.py`; `console/src/routes/rca.test.ts` | 경로는 알 수 없는 상관관계를 구분하고 기록된 가설과 대응 근거를 변환하며 액션 권한을 노출하지 않습니다. |
 | RCA 보고 카탈로그 및 데이터 원본 | implemented | `rule-catalog/reports/incident-rca-dossier.yaml`; `services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py`; reporting 테스트 | 선언형 dossier와 범위가 제한된 감사 변환 결과가 있습니다. |
 | RCA PDF format 및 다운로드 컨트롤 | implemented | `fdai_operator_service/reporting/pdf_format.py`; Operator report 경로; Console Reports 컨트롤; focused PDF 및 경로 테스트 | Opt-in 어댑터는 기존 redacted report 묶음만 렌더링하고 package extra가 없으면 제공되지 않습니다. |
 | 관리되는 인증된 런타임 근거 | validated | `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; Console Incident, RCA, Reports 보기; Operator 읽기 경로 | 인증된 Browser Entra가 실행 권한 없이 감사 레코드와 milestone 8개, 인용된 hypothesis 2개, report 묶음, 38809-byte PDF 및 no-RCA 사용 불가 동작을 하나의 검증된 source와 workspace 다이제스트에 연결합니다. |
-
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
@@ -410,7 +410,7 @@ RCA 가설은 "왜"를 답할 뿐 "실행"하지 않습니다: 실행 자격은 
 | 2026-08-17 | implemented | 기록된 Incident 수명주기 상태를 roster 계약이 허용하는 세 가지 상태로 매핑하고 그 출처를 `incident_lifecycle`로 표기해, `triaging`이나 `mitigated` Incident 때문에 Console이 페이지 전체를 거부하지 않도록 했습니다. | `current change`; `incident_projection.py`; 5개 상태 focused projection 테스트; Operator `358 passed, 1 skipped`; 매핑을 되돌리면 모든 정본 상태에서 해당 테스트가 실패합니다. | 인증된 로컬 Console에서 복구된 roster 렌더링을 확인합니다. |
 | 2026-08-17 | validated | 인증된 로컬 Console에서 Incidents가 다시 로드되는 것을 확인했습니다. `triaging`이나 `mitigated` 상태가 유발하던 페이지 전체 거부 대신, 매칭된 1,573건 중 500건에 대한 결과 코호트가 렌더링됩니다. | `current change`; 커밋 `61e826092`를 실행하는 로컬 Operator API를 대상으로 한 `/incidents`의 인증된 Browser Entra 세션; 기록된 코퍼스에는 이전에 페이지를 실패시키던 `triaging`과 `mitigated` 수명주기 상태가 포함되어 있습니다. | roster 수명주기 상태 계약에 남은 작업은 없습니다. |
 | 2026-08-17 | implemented | 표시 대상을 구성하는 범위가 제한된 기록 근거에 서버 기반 Incident roster 검색을 추가하고 페이지 나누기와 같은 snapshot 분석에 정확한 필터 identity를 유지했습니다. | `current change`; 공유 query 계약, Operator 경로와 PostgreSQL 변환 결과, Console client와 경로, 메시지 catalog, focused Operator 및 Console 테스트입니다. | 이슈 #120의 구현 작업은 남지 않았으며 인증된 browser assurance는 더 넓은 Console campaign에서 계속 다룹니다. |
-
+| 2026-08-19 | implemented | 전체 이력을 group하던 Incident 조회를 audit-triggered temporal projection으로 교체했습니다. Page 조회는 audit snapshot을 고정하고 correlation별 version 하나를 선택해 상태, 검색, 버티컬, 심각도 필터와 요청 page bound를 적용한 다음 선택한 version의 범위가 제한된 history만 펼칩니다. | `current change`, [이슈 #169](https://github.com/dotnetpower/fdai/issues/169), local PostgreSQL proof에서 concurrent `resolved` update 뒤에도 두 번째 page는 snapshot 당시 `open`을 유지하고 current page는 `resolved`를 보고함, Operator PostgreSQL 및 service-migration suite 117개 통과 | 보호된 workflow로 두 service migration을 적용하고 deployed `GET /incidents` latency 검사를 보존합니다. |
 ### 남은 작업
 
 - [x] 기록된 제목, 요약, 룰, signal, 정리된 resource 대상을 우선하고 식별자 fallback을 사용 불가로 표시하는 범위가 제한된 `title_source` 계약과 focused projection, decoder, render 테스트를 추가합니다.

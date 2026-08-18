@@ -40,14 +40,14 @@ Core only after the exact live evidence closes.
 | Versioned cross-process contracts and isolated identities | validated | `packages/service-contracts/`; `infra/services/`; IS-03, IS-05, IS-07, and IS-09 evidence | Service distributions consume the shared contract SDK without importing another service implementation, and only the isolated Executor can hold effect authority. |
 | Deferred and rejected future candidates | deferred | [Candidate decisions](#candidate-decisions) | Operator application/read/SSE splits, conversation runtime, and background read tasks remain deferred until their measured forcing triggers and complete gate evidence exist. Ad hoc control-loop service splits remain rejected. |
 | Boundary docstring enforcement | implemented | `scripts/quality/architecture/check-boundary-docstrings.py`; SD-09 evidence | All reviewed decomposition scopes enforce the structural docstring contract. Semantic correctness still depends on focused architecture tests. |
-
+| Temporal Incident roster projection | implemented | `core_incident_projection_20260819`; `operator_incident_projection_read_20260819`; focused migration and Operator checks | An Alembic-owned trigger derives temporal versions inside the append-only audit transaction. Core and Executor roles receive no direct projection write grant, while the Operator role receives SELECT only. |
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | validated | Adopted the implementation ledger without reconstructing pre-ledger design history and recorded the completed five-service evidence separately from deferred future candidates. | `current change`; machine manifests, service migration branches, shared contracts, and retained transition evidence cited in the scope table. | Re-evaluate only the deferred candidates whose observable forcing triggers and complete scorecard evidence become available. |
 | 2026-08-15 | validated | Renamed the object Norns owns from `PatternObservation` to `Pattern`, so the agent spec, the registered topic, the pantheon tables, and the Console agent contract name one record. | `current change`; `PANTHEON_SPECS`, `agents/_framework/topics.py`, `console/src/routes/agents.model.ts`; focused pantheon layout, doc-parity, and catalog suites passed. | Nothing produces the record yet; publication or retirement is tracked in the prediction-learning ledger. |
-
+| 2026-08-19 | implemented | Added a rebuildable temporal Incident roster projection without creating an Operator writer or another service. The database trigger runs in the Saga audit append transaction, closes the prior correlation version, and inserts the next as-of version; the Operator branch only grants read access after the Core schema prerequisite exists. | `current change`; [Issue #169](https://github.com/dotnetpower/fdai/issues/169); local PostgreSQL migration, trigger, temporal-cursor, platform-exclusion, and role-grant checks passed; focused Operator and service-migration suites passed 117 cases. | Retain deployed latency evidence after the protected migration and service rollout. |
 ### Remaining work
 
 - [x] No work remains for the approved five-service topology; its graduation, writer ownership, identity isolation, rollback, and remote transition evidence is retained in the decomposition program.
@@ -113,6 +113,7 @@ enforce the split. A reader never becomes a writer by deployment proximity.
 |---------------|--------------------|------------------------------|-----------------|
 | `audit_log` | Saga through the append-only audit store | Operator API audit projections, Norns reviewed intake, verification jobs | Alembic migration job |
 | Operator API read projections | No durable write; pure projection code owns request-local values only | Authenticated routes over each named authoritative store | Not applicable |
+| `operator_incident_projection` | Core-owned database trigger as a derived transition of each Saga/Executor audit insert; no runtime role has direct write access | Authenticated Operator Incident roster and attention projections | Core service migration; Operator service read grant |
 | Operator API SSE streaming | No durable write; connection-local cursor/backpressure state only | Authorized stage/activity streams and durable replay projections | Not applicable |
 | `conversation_record`, `conversation_turn`, `conversation_policy` ([migration 0019](../../../alembic/versions/20260716_0019_user_context_automation.py)) | User-context/conversation application service for the owning principal | Operator API conversation/history projections | Alembic migration job |
 | `conversation_image` | Principal-scoped Operator API image repository | Authenticated owning-principal history route | Alembic migration job |
@@ -135,7 +136,6 @@ enforce the split. A reader never becomes a writer by deployment proximity.
 
 A new candidate must add its data rows before implementation. A row with two overlapping writers,
 "shared service" as owner, or an unnamed migration path blocks graduation.
-
 ## Cross-process contract matrix
 
 | Contract | Schema owner | Producer | Consumers | Partition key | Compatibility | Retry, DLQ, idempotency, retention |

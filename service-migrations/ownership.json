@@ -7,6 +7,16 @@
   },
   "migration_dependencies": [
     {
+      "consumer_service": "operator-service",
+      "consumer_revision": "operator_incident_projection_read_20260819",
+      "provider_service": "core-control-plane",
+      "provider_revision": "core_incident_projection_20260819",
+      "schema_prerequisites": [
+        "operator_incident_projection"
+      ],
+      "provider_rollback": "blocked-until-operator-read-grant-rollback"
+    },
+    {
       "consumer_service": "isolated-executor",
       "consumer_revision": "executor_runtime_role_20260808",
       "provider_service": "core-control-plane",
@@ -61,6 +71,7 @@
       "ontology_object_type",
       "ontology_release",
       "ontology_resource",
+      "operator_incident_projection",
       "process_event",
       "process_projection_outbox",
       "process_runtime",
@@ -271,6 +282,12 @@
     ]
   },
   "transition_ownership": [
+    {
+      "id": "operator-incident-projection-audit-trigger",
+      "table": "operator_incident_projection",
+      "scope": "transitions:audit-insert-derived-version",
+      "writer": "core-control-plane"
+    },
     {
       "id": "audit-log-saga-chain",
       "table": "audit_log",

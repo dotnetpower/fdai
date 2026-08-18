@@ -223,171 +223,54 @@ WITH snapshot AS (
     SELECT COALESCE(%(snapshot_seq)s::bigint, MAX(seq), 0) AS snapshot_seq
       FROM audit_log
 ),
-event_anchor AS (
-    SELECT event_id, MIN(correlation_id) AS correlation_id
-      FROM audit_log
-     WHERE seq <= (SELECT snapshot_seq FROM snapshot)
-       AND NULLIF(BTRIM(correlation_id), '') IS NOT NULL
-     GROUP BY event_id
-    HAVING COUNT(DISTINCT correlation_id) = 1
-),
-incident_anchor AS (
-    SELECT entry->>'incident_id' AS incident_id,
-           MIN(correlation_id) AS correlation_id
-      FROM audit_log
-     WHERE seq <= (SELECT snapshot_seq FROM snapshot)
-       AND entry->>'kind' = 'incident.open'
-       AND NULLIF(entry->>'incident_id', '') IS NOT NULL
-       AND NULLIF(BTRIM(correlation_id), '') IS NOT NULL
-     GROUP BY entry->>'incident_id'
-    HAVING COUNT(DISTINCT correlation_id) = 1
-),
-normalized AS (
-    SELECT audit.*,
-           COALESCE(
-               NULLIF(BTRIM(audit.correlation_id), ''),
-               NULLIF(BTRIM(audit.entry->>'correlation_id'), ''),
-               incident_anchor.correlation_id,
-               event_anchor.correlation_id
-           ) AS normalized_correlation_id,
-           CASE
-               WHEN audit.entry->>'kind' = 'incident.transition'
-               THEN audit.entry->>'to_state'
-               WHEN audit.entry->>'kind' = 'incident.open'
-               THEN audit.entry->>'state'
-               ELSE NULL
-           END AS lifecycle_state,
-           CASE LOWER(REPLACE(COALESCE(
-               audit.entry->>'vertical', audit.entry->>'category', ''
-           ), '-', '_'))
-               WHEN 'resilience' THEN 'resilience'
-               WHEN 'dr' THEN 'resilience'
-               WHEN 'reliability' THEN 'resilience'
-               WHEN 'chaos' THEN 'resilience'
-               WHEN 'change' THEN 'change_safety'
-               WHEN 'change_safety' THEN 'change_safety'
-               WHEN 'config_drift' THEN 'change_safety'
-               WHEN 'security' THEN 'change_safety'
-               WHEN 'cost' THEN 'cost_governance'
-               WHEN 'cost_governance' THEN 'cost_governance'
-               WHEN 'finops' THEN 'cost_governance'
-               ELSE NULL
-           END AS vertical_bucket,
-           CASE LOWER(BTRIM(COALESCE(audit.entry->>'severity', '')))
-               WHEN 'critical' THEN 'critical'
-               WHEN 'sev1' THEN 'critical'
-               WHEN 'high' THEN 'high'
-               WHEN 'sev2' THEN 'high'
-               WHEN 'medium' THEN 'medium'
-               WHEN 'sev3' THEN 'medium'
-               WHEN 'low' THEN 'low'
-               WHEN 'sev4' THEN 'low'
-               ELSE NULL
-           END AS severity_bucket,
-           SPLIT_PART(LOWER(COALESCE(audit.action_kind, '')), '.', 1) IN (
-               'background-task',
-               'iam',
-               'startup_readiness',
-               'semantic_turn',
-               'observation-campaign',
-               'read-investigation'
-           ) AS platform_activity
-      FROM audit_log AS audit
-      LEFT JOIN event_anchor ON event_anchor.event_id = audit.event_id
-      LEFT JOIN incident_anchor
-        ON incident_anchor.incident_id = audit.entry->>'incident_id'
-     WHERE audit.seq <= (SELECT snapshot_seq FROM snapshot)
-),
-ranked AS (
-    SELECT normalized.*,
-           ROW_NUMBER() OVER (
-               PARTITION BY normalized_correlation_id ORDER BY seq DESC
-           ) AS recent_rank,
-           COUNT(*) OVER (
-               PARTITION BY normalized_correlation_id
-           ) AS group_history_count
-      FROM normalized
-     WHERE normalized_correlation_id IS NOT NULL
-         AND LOWER(BTRIM(normalized_correlation_id)) NOT IN ('none', 'null')
-),
-incident_groups AS (
-    SELECT normalized_correlation_id,
-           MAX(seq) AS last_seq,
-       LOWER(STRING_AGG(CONCAT_WS(
-         ' ', normalized_correlation_id, event_id, action_kind,
-         entry->>'title', entry->>'summary', entry->>'rule_id',
-         (entry->'citing_rules')::text,
-         (entry->'correlation_keys')::text,
-         entry->>'resource_id', entry->>'resource_type',
-         entry->>'reason', entry->>'stage',
-         entry#>>'{payload,title}', entry#>>'{payload,summary}',
-         entry#>>'{payload,rule_id}',
-         (entry#>'{payload,citing_rules}')::text,
-         (entry#>'{payload,correlation_keys}')::text,
-         entry#>>'{payload,resource_id}', entry#>>'{payload,resource_type}',
-         entry#>>'{payload,reason}', entry#>>'{payload,stage}'
-       ), ' ')) AS search_document,
-           COALESCE(
-               (ARRAY_AGG(lifecycle_state ORDER BY seq DESC)
-                    FILTER (WHERE lifecycle_state IS NOT NULL))[1],
-               CASE
-                   WHEN BOOL_OR(LOWER(COALESCE(entry->>'outcome', '')) IN (
-                       'resolved', 'remediated', 'mitigated',
-                       'rollback_succeeded', 'rollback_completed'
-                   )) THEN 'resolved'
-                   WHEN COUNT(*) > 1 OR BOOL_OR(
-                       LOWER(COALESCE(entry->>'decision', '')) = 'hil'
-                   ) THEN 'in_progress'
-                   ELSE 'open'
-               END
-           ) AS projected_state,
-           COALESCE(
-               (ARRAY_AGG(vertical_bucket ORDER BY seq DESC)
-                    FILTER (WHERE vertical_bucket IS NOT NULL))[1],
-               'unknown'
-           ) AS projected_vertical,
-           COALESCE(
-               (ARRAY_AGG(severity_bucket ORDER BY seq DESC)
-                    FILTER (WHERE severity_bucket IS NOT NULL))[1],
-               'unknown'
-           ) AS projected_severity
-      FROM ranked
-     GROUP BY normalized_correlation_id
-    HAVING BOOL_OR(NOT platform_activity)
-),
 selected AS (
-    SELECT normalized_correlation_id,
-           last_seq,
+  SELECT projection.*,
            COUNT(*) OVER () AS matched_groups
-      FROM incident_groups
-     WHERE (%(before_seq)s::bigint IS NULL OR last_seq < %(before_seq)s::bigint)
+    FROM operator_incident_projection AS projection
+   WHERE projection.valid_from_seq <= (SELECT snapshot_seq FROM snapshot)
+     AND (projection.valid_to_seq IS NULL
+      OR projection.valid_to_seq > (SELECT snapshot_seq FROM snapshot))
+     AND projection.has_incident_activity
+     AND (%(before_seq)s::bigint IS NULL
+      OR projection.last_seq < %(before_seq)s::bigint)
        AND (%(correlation_id)s::text IS NULL
-            OR normalized_correlation_id = %(correlation_id)s::text)
+      OR projection.correlation_id = %(correlation_id)s::text)
        AND (%(search)s::text IS NULL OR NOT EXISTS (
            SELECT 1
                FROM REGEXP_SPLIT_TO_TABLE(%(search)s::text, '[[:space:]]+')
                  AS search_token(token)
-            WHERE STRPOS(search_document, LOWER(search_token.token)) = 0
+      WHERE STRPOS(projection.search_document, LOWER(search_token.token)) = 0
        ))
-       AND (%(vertical)s::text IS NULL OR projected_vertical = %(vertical)s::text)
-       AND (%(severity)s::text IS NULL OR projected_severity = %(severity)s::text)
+     AND (%(vertical)s::text IS NULL
+      OR projection.projected_vertical = %(vertical)s::text)
+     AND (%(severity)s::text IS NULL
+      OR projection.projected_severity = %(severity)s::text)
        AND (%(status)s = 'all'
-            OR (%(status)s = 'resolved' AND projected_state IN ('resolved', 'closed'))
-            OR (%(status)s = 'active' AND projected_state NOT IN ('resolved', 'closed')))
-     ORDER BY last_seq DESC
+      OR (%(status)s = 'resolved'
+        AND projection.projected_state IN ('resolved', 'closed'))
+      OR (%(status)s = 'active'
+        AND projection.projected_state NOT IN ('resolved', 'closed')))
+   ORDER BY projection.last_seq DESC
      LIMIT %(fetch)s
 )
-SELECT ranked.seq, ranked.event_id, ranked.correlation_id, ranked.actor,
-       ranked.action_kind, ranked.mode, ranked.entry, ranked.previous_hash,
-       ranked.entry_hash, ranked.created_at, ranked.normalized_correlation_id,
-       selected.last_seq AS group_last_seq, ranked.group_history_count,
+SELECT (history_row->>'seq')::bigint AS seq,
+     history_row->>'event_id' AS event_id,
+     history_row->>'correlation_id' AS correlation_id,
+     history_row->>'actor' AS actor,
+     history_row->>'action_kind' AS action_kind,
+     history_row->>'mode' AS mode,
+     history_row->'entry' AS entry,
+     history_row->>'previous_hash' AS previous_hash,
+     history_row->>'entry_hash' AS entry_hash,
+     (history_row->>'created_at')::timestamptz AS created_at,
+     selected.correlation_id AS normalized_correlation_id,
+     selected.last_seq AS group_last_seq,
+     selected.group_history_count,
        selected.matched_groups,
        (SELECT snapshot_seq FROM snapshot) AS snapshot_seq
   FROM selected
-  JOIN ranked
-    ON ranked.normalized_correlation_id = selected.normalized_correlation_id
- WHERE ranked.recent_rank <= %(history_limit)s
- ORDER BY selected.last_seq DESC, ranked.seq ASC
+ CROSS JOIN LATERAL JSONB_ARRAY_ELEMENTS(selected.history) AS expanded(history_row)
+ ORDER BY selected.last_seq DESC, (history_row->>'seq')::bigint ASC
 """
 
 INCIDENT_SNAPSHOT_SQL: Final = "SELECT COALESCE(MAX(seq), 0) AS snapshot_seq FROM audit_log"

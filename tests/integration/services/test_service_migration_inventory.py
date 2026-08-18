@@ -65,6 +65,7 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "document_worker_effect",
         "document_worker_outbox",
         "executor_receipt_outbox",
+        "operator_incident_projection",
         "topology_link_revision",
         "topology_object_revision",
         "topology_revision_batch",
@@ -992,6 +993,12 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         / "branches/core-control-plane/versions/20260813_core_ontology_release_access.py"
     )
     release_access_migration = inventory_module.load_revision_metadata(release_access_path)
+    incident_projection_path = (
+        MIGRATION_ROOT / "branches/core-control-plane/versions/20260819_core_incident_projection.py"
+    )
+    incident_projection_migration = inventory_module.load_revision_metadata(
+        incident_projection_path
+    )
 
     expected_tables = {
         table for table, owner in ownership.table_migrators.items() if owner == "core-control-plane"
@@ -1000,6 +1007,7 @@ def test_core_runtime_role_and_forward_grants_cover_only_core_owned_tables() -> 
         set(role_migration.owned_tables)
         | set(topology_migration.owned_tables)
         | set(release_access_migration.owned_tables)
+        | set(incident_projection_migration.owned_tables)
     )
     assert granted_tables == expected_tables
     source = role_path.read_text(encoding="utf-8")
