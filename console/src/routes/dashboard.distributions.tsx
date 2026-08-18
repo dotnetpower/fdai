@@ -3,6 +3,7 @@ import { t } from "../i18n";
 import { routeHref } from "../router";
 import {
   auditSampleParams,
+  controlGapSummary,
   controlOutcomeGroup,
   dashboardEvidenceGaps,
   distributionRows,
@@ -82,11 +83,7 @@ export function RequiredAttention({
   const measuredGuards = autonomy !== null && !autonomy.synthetic;
   const failedGuards = measuredGuards ? autonomy.guards.filter((guard) => !guard.ok) : [];
   const evidenceGaps = dashboardEvidenceGaps(autonomy);
-  const controlGapCount =
-    failedGuards.length +
-    (kpi.shadow_share < 0.95 ? 1 : 0) +
-    (gates !== null && gates.blocked_count > 0 ? 1 : 0) +
-    (policyEscapes !== null && policyEscapes > 0 ? 1 : 0);
+  const controlGaps = controlGapSummary(kpi, policyEscapes, gates, autonomy);
   return (
     <section class="overview-attention-cards" aria-label={t("overview.attention.groupLabel")}>
       <AttentionCard
@@ -105,8 +102,10 @@ export function RequiredAttention({
         href={routeHref("control-assurance")}
         kicker={t("overview.attention.controlKicker")}
         heading={t("overview.attention.controlTitle")}
-        state={controlGapCount > 0 ? "attention" : controlGapCount === 0 && measuredGuards ? "clear" : "unknown"}
-        value={t("overview.attention.gapCount", { count: controlGapCount })}
+        state={controlGaps.state}
+        value={controlGaps.measured
+          ? t("overview.attention.gapCount", { count: controlGaps.count })
+          : t("overview.evidence.unavailable")}
         facts={[
           [t("overview.assurance.shadow"), formatShare(kpi.shadow_share)],
           [t("overview.assurance.promotion"), gates
