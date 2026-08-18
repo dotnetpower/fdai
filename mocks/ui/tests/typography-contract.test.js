@@ -7,6 +7,8 @@ const uiRoot = join(__dirname, "..");
 const navigation = readFileSync(join(uiRoot, "assets", "calm-slate.js"), "utf8");
 const landing = readFileSync(join(uiRoot, "index.html"), "utf8");
 const masterLanding = readFileSync(join(uiRoot, "..", "..", "index.html"), "utf8");
+const components = readFileSync(join(uiRoot, "components.html"), "utf8");
+const stylesheet = readFileSync(join(uiRoot, "assets", "calm-slate.css"), "utf8");
 const typography = readFileSync(join(uiRoot, "typography.html"), "utf8");
 
 test("typography has direct, kit, and master navigation entries", () => {
@@ -44,4 +46,30 @@ test("typography page renders every shared semantic role", () => {
   assert.match(typography, /동일한 위계는 영어와 한국어에서 모두 읽기 쉬워야 합니다/);
   assert.match(typography, /database\.enable-point-in-time-recovery\.for-example-workload/);
   assert.doesNotMatch(typography, /style="[^"]*font-size/);
+});
+
+test("component gallery exposes a quiet category index", () => {
+  assert.match(components, /<body class="cs-components-page">/);
+  assert.equal((components.match(/class="cs-gallery-index"/g) || []).length, 1);
+  ["display", "controls", "navigation", "feedback", "data-views", "advanced", "typography"]
+    .forEach((id) => assert.match(components, new RegExp(`id="${id}"`)));
+  Object.entries({
+    display: "KPI cards",
+    controls: "Buttons &amp; forms",
+    navigation: "Navigation &amp; filters",
+    feedback: "Feedback &amp; overlays",
+    "data-views": "Charts &amp; structured summaries",
+    advanced: "Select menus &amp; combobox",
+    typography: "Typography &amp; content hierarchy",
+  }).forEach(([id, heading]) => {
+    const start = components.indexOf(`id="${id}"`);
+    const end = components.indexOf("</section>", start);
+    assert.ok(start >= 0 && components.slice(start, end).includes(`<h2>${heading}</h2>`));
+  });
+  assert.match(components, /<span class="cs-badge-num">01<\/span>/);
+  assert.match(components, /<span class="cs-badge-num">23<\/span>/);
+  assert.match(stylesheet, /\.cs-components-page \.cs-badge-num \{[^}]*background: transparent/);
+  assert.match(stylesheet, /\.cs-gallery-index \{[^}]*position: sticky/);
+  assert.match(stylesheet, /\.cs-gallery-index a\[aria-current="location"\]/);
+  assert.match(components, /function syncActiveCategory\(\)/);
 });

@@ -67,6 +67,26 @@ code { font-family: var(--cs-font-mono); font-size: .88em; background: var(--cs-
   .cs-type-specimen-row { grid-template-columns: minmax(0, 1fr); gap: 8px; }
 }
 
+/* ----- Component gallery ----- */
+.cs-components-page .cs-page { width: min(100%, 1120px); margin: 0 auto; padding: 40px 32px 80px; }
+.cs-components-page .cs-page-header { max-width: 76ch; margin-bottom: 24px; }
+.cs-gallery-index { position: sticky; top: 0; z-index: 30; display: flex; gap: 3px; overflow-x: auto; margin: 0 -8px; padding: 9px 8px; border-top: 1px solid var(--cs-hairline); border-bottom: 1px solid var(--cs-hairline); background: color-mix(in srgb, var(--cs-bg) 94%, transparent); backdrop-filter: blur(8px); scrollbar-width: none; }
+.cs-gallery-index::-webkit-scrollbar { display: none; }
+.cs-gallery-index a { flex: 0 0 auto; padding: 6px 9px; border-radius: var(--cs-radius-sm); color: var(--cs-text-soft); font-size: var(--cs-type-label-size); font-weight: 600; white-space: nowrap; }
+.cs-gallery-index a:hover { background: var(--cs-shade); color: var(--cs-text); text-decoration: none; }
+.cs-gallery-index a[aria-current="location"] { background: var(--cs-shade); color: var(--cs-text); }
+.cs-gallery-index a:focus-visible { outline: 2px solid var(--cs-steel); outline-offset: -2px; }
+.cs-components-page .cs-section { margin: 48px 0; scroll-margin-top: 58px; }
+.cs-components-page .cs-section-head { gap: 16px; margin-bottom: 18px; }
+.cs-components-page .cs-badge-num { width: 24px; height: 24px; margin-top: 0; border-radius: 0; background: transparent; color: var(--cs-text-soft); font-family: var(--cs-font-mono); font-size: 10px; font-weight: 600; }
+.cs-components-page .cs-section-title .cs-desc { max-width: 68ch; font-size: var(--cs-type-compact-size); line-height: var(--cs-type-compact-line-height); }
+@media (max-width: 780px) {
+  .cs-components-page .cs-page { padding: 32px 24px 72px; }
+  .cs-components-page .cs-section { margin: 44px 0; }
+  .cs-gallery-index { margin-right: -24px; margin-left: -24px; padding-right: 24px; padding-left: 24px; }
+  .cs-gallery-index a { display: inline-flex; min-height: 44px; align-items: center; }
+}
+
 /* ----- Layout ----- */
 .cs-container { width: 100%; max-width: none; margin: 0; padding: 0 24px; }
 .cs-page { padding: 40px 24px 72px; }
