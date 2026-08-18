@@ -125,7 +125,7 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     frame = prompts.get_base("semantic.query.frame")
     plan = prompts.get_base("semantic.query.plan")
 
-    assert frame.version == 16
+    assert frame.version == 17
     assert "output_shape to exactly one capability family" in frame.body
     assert "aggregation_table for a count or grouping" in frame.body
     assert "topology_graph for current instance connectivity or containment" in frame.body
@@ -176,6 +176,9 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
         in frame.body
     )
     assert "remains explain_change with causal_evidence" in frame.body
+    assert "temporal ordering is evidence inside that answer" in frame.body
+    assert "ontology objects in the current inventory generation" in frame.body
+    assert "principal-scoped ontology declaration inventory" in frame.body
     assert "instead of clarification" in frame.body
     assert "Do not select that function for instance listing" in frame.body
     assert "query.incident_evidence" in frame.body
