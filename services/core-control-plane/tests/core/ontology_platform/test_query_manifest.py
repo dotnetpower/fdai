@@ -6,6 +6,10 @@ from pathlib import Path
 
 import pytest
 from fdai.core.ontology_platform import build_query_manifest
+from fdai.core.ontology_platform.property_values import (
+    PropertyValueDomain,
+    PropertyValueGroup,
+)
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.shared.contracts.models import (
     CeilingRole,
@@ -350,3 +354,80 @@ def test_shipped_catalog_has_complete_structural_manifest() -> None:
     link_descriptors = [item for item in manifest.descriptors if item["kind"] == "link"]
     assert len(link_descriptors) == len(catalog.link_types)
     assert all(set(item["query_sides"]) == {"from", "to"} for item in link_descriptors)
+
+
+def _database_domain() -> PropertyValueDomain:
+    return PropertyValueDomain(
+        object_type="Resource",
+        property_name="id",
+        values=("mysql-server", "postgresql-server"),
+        groups=(
+            PropertyValueGroup(
+                id="database",
+                values=("mysql-server", "postgresql-server"),
+                terms=("database", "db", "데이터베이스"),
+            ),
+        ),
+    )
+
+
+def test_declared_property_values_reach_only_their_bound_property() -> None:
+    resource = _resource()
+    release = build_ontology_release(object_types=(resource,))
+    domain = _database_domain()
+
+    manifest = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=SCOPE_DIGEST,
+        object_types=(resource,),
+        property_values=(domain,),
+    )
+
+    descriptor = next(item for item in manifest.descriptors if item["kind"] == "object")
+    assert descriptor["properties"]["id"]["values"] == ["mysql-server", "postgresql-server"]
+    assert descriptor["properties"]["id"]["value_groups"] == [
+        {
+            "id": "database",
+            "terms": ["database", "db", "데이터베이스"],
+            "values": ["mysql-server", "postgresql-server"],
+        }
+    ]
+
+    bare = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=SCOPE_DIGEST,
+        object_types=(resource,),
+    )
+    bare_descriptor = next(item for item in bare.descriptors if item["kind"] == "object")
+    assert "values" not in bare_descriptor["properties"]["id"]
+    assert bare.manifest_digest != manifest.manifest_digest
+
+
+def test_property_value_domains_reject_a_duplicate_property_binding() -> None:
+    resource = _resource()
+    release = build_ontology_release(object_types=(resource,))
+    domain = _database_domain()
+
+    with pytest.raises(ValueError, match="bind each property once"):
+        build_query_manifest(
+            release=release,
+            principal_role=CeilingRole.READER,
+            purposes=("operations-review",),
+            principal_scope_digest=SCOPE_DIGEST,
+            object_types=(resource,),
+            property_values=(domain, domain),
+        )
+
+
+def test_property_value_group_values_must_belong_to_the_domain() -> None:
+    with pytest.raises(ValueError, match="MUST belong to the domain"):
+        PropertyValueDomain(
+            object_type="Resource",
+            property_name="id",
+            values=("mysql-server",),
+            groups=(PropertyValueGroup(id="database", values=("nosql-database",)),),
+        )

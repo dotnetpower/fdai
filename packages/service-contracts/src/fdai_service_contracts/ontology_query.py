@@ -438,7 +438,9 @@ def project_intent_graph_evidence(evidence: IntentGraphEvidence) -> dict[str, An
 
 def _validate_console_json(value: Any, *, depth: int, counter: list[int]) -> None:
     counter[0] += 1
-    if counter[0] > 128 or depth > 4:
+    # An object_set membership predicate nests six levels: arguments, definition,
+    # predicates, one predicate, values, one value.
+    if counter[0] > 128 or depth > 6:
         raise ValueError("Console intent arguments exceed structural bounds")
     if value is None or isinstance(value, bool | int | float):
         return

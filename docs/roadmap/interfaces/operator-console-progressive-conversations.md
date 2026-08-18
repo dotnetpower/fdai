@@ -170,6 +170,11 @@ expose credentials, tenant identifiers, customer resource identifiers, or raw un
 content. Durable replay stores the canonical terminal answer and revision state without rerunning a
 completed read or duplicating a provider message.
 
+Intent-graph goal arguments stay bounded at 128 nodes and six nesting levels on both sides of the
+contract. Six levels is the depth an object-set membership predicate needs: arguments, definition,
+predicates, one predicate, its values array, and one value. A shallower bound silently held every
+answer whose plan filtered by membership.
+
 ## Metrics
 
 Progress metrics retain aggregate counts and latency only: time to first progress and confirmed
