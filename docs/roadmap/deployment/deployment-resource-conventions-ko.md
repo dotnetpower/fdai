@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 03988539dad7ab0d2c58acdeded301d0b4ebb868
+translation_source_sha: 7db1814eaa71bf07a0b3f956b3f88142fcb67d8e
 translation_revised: 2026-08-19
 ---
 # 배포 리소스 규약
@@ -25,6 +25,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | 이전 방식 platform 및 ops-bootstrap Terraform state root | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, `.github/workflows/deploy-dev.yml` 및 집중 Terraform과 workflow 검사 | 안정적인 backend key와 배포 메커니즘은 제공되지만, 이 두 root의 통제된 적용 증적은 리포지토리에 보존되어 있지 않습니다. |
 | OHL scale-out evidence target 명명 및 tag | implemented | `infra/main.tf`의 current change, `terraform -chdir=infra test -filter=tests/dev_operations_gateway.tftest.hcl` 결과 8 passed | 실제 프로비저닝 및 recurrence evidence는 열려 있습니다. |
 | Operator schema 및 catalog Job 명명 | implemented | `infra/main.tf`, `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml` 및 집중 배포 workflow 테스트 | 결정론적 이름과 digest-pinned image를 연결했으며 순서가 지정된 Job의 보호된 적용 증적은 열려 있습니다. |
+| 예약된 규칙 수집기 Job | implemented | `infra/main.tf`; `infra/modules/compute/container-apps/rule_watcher_job.tf`; `tests/integration/infra/test_rule_watcher_job.py`; 집중 인프라 검사(`26 passed`) 및 `terraform validate` | 구성 가능한 cron이 실행 권한이 없는 인벤토리 신원과 네이티브 StateStore 비밀 참조를 사용해 검증된 수집기 wrapper를 호출합니다. 실행기 신원을 받거나 카탈로그 항목을 승격할 수 없습니다. 보호된 적용 및 실행 증적은 열려 있습니다. |
 | 브라우저 근거 정리 Job 명명 | implemented | `infra/main.tf`; `tests/integration/infra/test_browser_evidence_cleanup_job.py`; focused 검사(`4 passed`) 및 `terraform validate` | `caj-<workload>[-env][-region]-browser-gc`는 허용된 모든 환경에서 Azure 32자 한계를 지킵니다. Protected 적용 근거는 남아 있습니다. |
 | Event Bus 소비자 지연 경고 | implemented | `event_bus.py`; `infra/modules/observability/monitoring/`; 집중 소비자 및 인프라 검사(`5 passed`); strict mypy 및 `terraform validate` | 범위가 제한된 각 commit이 정제된 파티션 진행률과 지연을 내보냅니다. 선택적 모니터링은 ingress 지연이 설정된 한계를 넘으면 경고하며, 보호된 적용 증적은 열려 있습니다. |
 | 보호된 모델 해석 산출물 | implemented | `.github/workflows/deploy-dev.yml`; `model_lifecycle_reconciler.py`; 집중 수명 주기, 계획 검증기, Terraform 및 CI 보안 검사 | 보호된 계획은 전체 및 배포 전용 매니페스트와 SHA-256 다이제스트를 봉인합니다. Exact apply가 그 byte를 복원하며 런타임은 같은 인라인 JSON과 다이제스트를 받습니다. |
@@ -43,6 +44,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | 2026-08-17 | implemented | trace 연속성 탐지 창을 analyzer 창과 분리했습니다. 불연속은 탐지 창으로 식별되므로 두 창의 길이가 같으면 ingress가 분당 반복을 중복 제거하는 동안 상관이 굶습니다. | `current change`, `analyzer_tick_cli.py`와 analyzer job 모듈, focused resolver 테스트 6개 통과, `terraform fmt`와 `terraform validate` 통과 | 반복된 trace finding에서 발생한 배포 anomaly를 기록합니다. |
 | 2026-08-17 | implemented | 새 trace 창 인자를 기존 정렬 폭 안에 유지했습니다. infra 계약 테스트가 서식이 적용된 인자 문자열을 그대로 단언하므로, 더 긴 변수명은 블록의 모든 정렬 인자를 밀어 무관한 단언을 깨뜨렸습니다. | `current change`, infra 계약 스위트 71개 통과 1개 건너뜀 | 해당 단언이 서식 문자열에 결합되어야 하는지 검토합니다. |
 | 2026-08-17 | not-applicable | Trace 창 README 설명에서 계약 용어 `finding` 대신 승인된 표시 용어인 `탐지된 문제`를 사용하도록 정정했습니다. Terraform 변수, analyzer 동작, machine record 및 배포 계약은 변경되지 않았습니다. | `current change`, focused 표시 용어 검사 통과 | 이 문구 정정에 남은 작업은 없습니다. |
+| 2026-08-19 | implemented | 고정된 규칙 감시자 일정을 검증된 배포 변수로 교체하고 Job이 검증된 수집기 근거 wrapper를 사용하도록 했습니다. Job은 권한 있는 실행기 신원을 상속하지 않고 기존 인벤토리 신원으로 이미지를 가져오고 StateStore 비밀을 해석합니다. | `current change`; 집중 규칙 수집기 및 예약 Job 계약 26개 통과; `terraform fmt -check` 및 `terraform validate` 통과. | 정확한 cron, image digest, 신원 및 검증된 성공 기록을 포함하는 보호된 적용 및 예약 실행 증적을 하나 보존합니다. |
 | 2026-08-19 | implemented | 범위가 제한된 각 commit 뒤에 정제된 Event Bus 소비자 파티션 진행률을 내보내고 ingress 지연을 위한 Log Analytics 예약 쿼리 경고를 추가했습니다. 토큰 만료에 따른 재생성은 계속 부분 batch를 commit하며 process 재시작이 아니라 자격 증명 갱신 경계입니다. | `current change`; 집중 소비자 및 인프라 검사 5개 통과; Ruff, strict mypy, `terraform fmt -check`, `terraform validate` 통과. | 경고를 `validated`로 분류하기 전에 모니터링 계획을 적용하고 실제 경고 발생 및 복구 증적을 보존합니다. |
 | 2026-08-19 | implemented | 외부에서 공급하던 모델 기능 JSON을 보호된 실제 해석으로 교체하고, 정확한 모델 산출물을 계획 메타데이터와 비공개 blob에 봉인했으며, 적용 및 런타임 구성을 위해 복원했습니다. | `current change`; 집중 해석기, 수명 주기, 계획 검증기, Operator 서술기, Terraform 및 권한 workflow 검사 통과. | 보호된 계획/적용 증적 1개와 제안 전용 조정기 실행 1개를 보존합니다. |
 ### 남은 작업
@@ -55,6 +57,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 - [ ] `caj-<workload>-migrate`가 성공한 뒤 검토된 Core image digest를 사용하는
   `caj-<workload>-catalog`가 시작됨을 보여 주는 보호된 적용 및 실행 증적을 기록합니다.
 - [ ] 결정론적 `caj-<workload>[-env][-region]-browser-gc` Job의 protected 적용 및 실행 증적을 기록합니다.
+- [ ] 정확한 cron, image digest, 실행 권한이 없는 신원 및 검증된 출처 성공 기록을 포함하는 규칙 수집기 Job의 보호된 적용 및 예약 실행 증적을 기록합니다.
 - [ ] Event Bus 소비자 지연 경고가 정제된 `event_bus_consumer_progress` 행을 읽고 설정된
   한계를 넘으면 발생하며 지연이 복구된 뒤 해제됨을 보여 주는 보호된 적용 증적을 기록합니다.
 - [ ] 전체 및 배포 전용 매니페스트 다이제스트가 정확한 런타임 JSON과 일치함을 보여 주는

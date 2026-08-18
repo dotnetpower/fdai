@@ -18,6 +18,7 @@ from fdai.runtime.bootstrap_bindings import (
     RuleGenerationRuntimeBinding,
 )
 from fdai.runtime.case_history import CaseHistoryRetentionTickPublisher
+from fdai.runtime.discovery_activation import DiscoveryActivationRuntime
 from fdai.runtime.readiness import StartupReadinessRuntime
 from fdai.runtime.rule_generation_documents import RuleGenerationReconciliation
 from fdai.shared.providers.event_bus import EventBus
@@ -34,6 +35,7 @@ class RuntimeTaskConfiguration:
     readiness: StartupReadinessRuntime
     stop: asyncio.Event
     runtime_settings: RuntimeSettingsService
+    discovery_activation: DiscoveryActivationRuntime | None
     semantic_turn_binding: Any
     divergence_ledger: ShadowDivergenceLedger | None
     pantheon_runtime: PantheonRuntime | None
@@ -210,6 +212,7 @@ async def run_runtime_tasks(
     rule_generation_outbox_task: asyncio.Task[None] | None = None
     rule_generation_reconciliation_task: asyncio.Task[None] | None = None
     case_history_retention_task: asyncio.Task[None] | None = None
+    discovery_activation_task: asyncio.Task[None] | None = None
     pantheon_runtime = config.pantheon_runtime
     if pantheon_runtime is not None:
         pantheon_task = asyncio.create_task(
@@ -313,6 +316,11 @@ async def run_runtime_tasks(
             ),
             name="case-history-retention-ticks",
         )
+    if config.discovery_activation is not None:
+        discovery_activation_task = asyncio.create_task(
+            config.discovery_activation.refresh_until_stopped(config.stop),
+            name="discovery-activation-refresh",
+        )
 
     await hooks.supervise_runtime_tasks(
         required=(
@@ -327,6 +335,7 @@ async def run_runtime_tasks(
             case_history_retention_task,
             semantic_turn_task,
             effect_reconciliation_request_task,
+            discovery_activation_task,
         ),
         background=(
             pantheon_task,

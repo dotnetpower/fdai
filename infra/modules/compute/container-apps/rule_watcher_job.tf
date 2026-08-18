@@ -1,17 +1,16 @@
-// Rule-catalog source watcher - Container Apps Job that runs the watcher CLI
-// on a daily cron. The watcher itself filters by manifest cadence, so the
-// same job picks up weekly / monthly sources on their due day - no per-cadence
-// job proliferation. See:
+// Rule-catalog source watcher - Container Apps Job that runs the verified
+// collector wrapper on a configured cron. The watcher itself filters by
+// manifest cadence, so one job covers every source without per-cadence jobs.
 //
 //   src/fdai/rule_catalog/pipeline/watcher_cli.py
 //   docs/roadmap/phases/phase-2-quality-and-t1.md § Continuous Rule Update Pipeline
 //
-// The job never auto-promotes: it produces snapshots + verify reports under
-// rule-catalog/sources/<id>/<revision>/. Promotion into the T0 catalog stays a
-// reviewed catalog-as-code PR.
+// The job never auto-promotes: it produces snapshots + verify reports and
+// records validated success evidence in the existing state store. Promotion
+// into the T0 catalog stays a reviewed catalog-as-code PR.
 //
-// The job reuses the same Container Apps environment + user-assigned MI as the
-// core app so no new seams are introduced.
+// The job reuses the non-effect inventory identity, which already has ACR pull
+// and access to the StateStore secret. It never receives the executor identity.
 
 resource "azurerm_container_app_job" "rule_watcher" {
   name                         = var.rule_watcher_job_name
@@ -27,20 +26,27 @@ resource "azurerm_container_app_job" "rule_watcher" {
 
   identity {
     type         = "UserAssigned"
-    identity_ids = [var.executor_identity_id]
+    identity_ids = [var.inventory_identity_id]
   }
 
   dynamic "registry" {
     for_each = var.acr_login_server == "" ? toset([]) : toset(["1"])
     content {
       server   = var.acr_login_server
-      identity = var.executor_identity_id
+      identity = var.inventory_identity_id
+    }
+  }
+
+  dynamic "secret" {
+    for_each = nonsensitive(var.state_store_dsn_secret_id) == "" ? toset([]) : toset(["1"])
+    content {
+      name                = "rule-collector-store-dsn"
+      identity            = var.inventory_identity_id
+      key_vault_secret_id = var.state_store_dsn_secret_id
     }
   }
 
   schedule_trigger_config {
-    // 03:00 UTC daily - off-peak for all supported regions. The CLI itself
-    // filters by cadence, so weekly / monthly sources also fire from here.
     cron_expression          = var.rule_watcher_cron_expression
     replica_completion_count = 1
     parallelism              = 1
@@ -52,13 +58,15 @@ resource "azurerm_container_app_job" "rule_watcher" {
       image   = var.image
       cpu     = 0.25
       memory  = "0.5Gi"
-      command = ["python", "-m", "fdai.rule_catalog.pipeline.watcher_cli"]
-      // Only --verify is passed by default. Snapshots land under
-      // /workspace/rule-catalog/sources which is baked into the image alongside
-      // the source manifests. The container writes to an ephemeral path - the
-      // actual PR-worthy diff is produced by a follow-up job that reads the
-      // audit trail; that seam is deferred and lives outside this module.
-      args = ["--verify"]
+      command = ["python", "-m", "fdai.delivery.rule_collector_job_cli"]
+
+      dynamic "env" {
+        for_each = nonsensitive(var.state_store_dsn_secret_id) == "" ? toset([]) : toset(["1"])
+        content {
+          name        = "FDAI_STATE_STORE_DSN"
+          secret_name = "rule-collector-store-dsn"
+        }
+      }
     }
   }
 

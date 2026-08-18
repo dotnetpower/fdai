@@ -148,6 +148,17 @@ variable "canary_cron_expression" {
   default     = "*/5 * * * *"
 }
 
+variable "rule_watcher_cron_expression" {
+  description = "Rule collector cadence in UTC cron format. Per-source manifests apply their own due intervals."
+  type        = string
+  default     = "0 3 * * *"
+
+  validation {
+    condition     = trimspace(var.rule_watcher_cron_expression) != ""
+    error_message = "rule_watcher_cron_expression must not be empty."
+  }
+}
+
 variable "log_retention_days" {
   description = "Log Analytics retention in days. UI-configurable post-deploy; 30 is the day-zero default."
   type        = number

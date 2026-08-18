@@ -10,7 +10,10 @@ from __future__ import annotations
 
 from fdai.rule_catalog.pipeline.collect.collector import (
     CollectorPipeline,
+    CollectorSuccessReceipt,
     SnapshotReport,
+    read_success_receipt,
+    record_success_receipt,
 )
 from fdai.rule_catalog.pipeline.collect.fetch import (
     Fetcher,
@@ -22,6 +25,7 @@ from fdai.rule_catalog.pipeline.collect.fetch import (
 )
 
 __all__ = [
+    "CollectorSuccessReceipt",
     "CollectorPipeline",
     "FetchError",
     "Fetcher",
@@ -30,4 +34,6 @@ __all__ = [
     "LocalDirectoryFetcher",
     "SnapshotReport",
     "build_fetcher",
+    "read_success_receipt",
+    "record_success_receipt",
 ]

@@ -1,18 +1,16 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: a60a0c4da2deb3e7912b2e3c524d3dd211fb2c72
-translation_revised: 2026-08-18
+translation_source_sha: 44c16aa27c1dae2e43b27182ed13d99890cf3fee
+translation_revised: 2026-08-19
 ---
 # 프로젝트 구조
 
 이 시스템은 하나의 웹 앱이 아니라 **headless 컨트롤 플레인 + 얇은 콘솔 + ChatOps**입니다. [App 형태](../../../.github/instructions/app-shape.instructions.md)를 참조하세요.
-아래 배치는 물리적인 service-owned 트리를 기록하며, 완료 근거와 폐기 기준은
-[서비스 분해 실행 계획](service-decomposition-execution-plan-ko.md#최종-리포지토리-레이아웃)에서 정의합니다.
+아래 배치는 물리적인 service-owned 트리를 기록하며, 완료 근거와 폐기 기준은 [서비스 분해 실행 계획](service-decomposition-execution-plan-ko.md#최종-리포지토리-레이아웃)에서 정의합니다.
 고정된 에이전트 15개가 타입이 지정된 이벤트로 컨트롤 루프를 소유합니다. 프로세스 분리는
 [서비스 승격과 데이터 소유권](service-graduation-and-ownership-ko.md), 모듈 이름은 [아키텍처](../../../.github/instructions/architecture.instructions.md)를 따릅니다.
-로컬 5개 서비스 프로필은 loopback PostgreSQL, Redpanda, filesystem 문서 저장소 및 ClamAV를
-사용하면서 각 패키지를 독립적으로 유지합니다. 배포 조립은 shared wire 계약을 바꾸지 않고
+로컬 5개 서비스 프로필은 loopback PostgreSQL, Redpanda, filesystem 문서 저장소 및 ClamAV를 사용하면서 각 패키지를 독립적으로 유지합니다. 배포 조립은 shared wire 계약을 바꾸지 않고
 해당 adapter를 service-owned managed 구현으로 교체합니다.
 
 ## 구현 상태
@@ -25,11 +23,13 @@ translation_revised: 2026-08-18
 | Principal 매니페스트 조회 경계 | 구현됨 | `core/ontology_platform/manifest_queries.py`, `composition/wire_semantic_query.py`, focused 매니페스트 및 의미 조립 검사(`42 passed`) | Exact-release `query.manifest` 함수는 기존 조회 증적을 통해 role 및 purpose로 읽을 수 있는 범위 제한 선언 요약을 노출합니다. Provider, 변경, 승인 또는 실행 경로를 포함하지 않습니다. |
 | 권한 인식 관측 경계 | implemented | `fdai_service_contracts/operational_activity.py`, `delivery/observation_campaign.py`, `delivery/observation_source_catalog.py`, 집중 계약, 수명 주기 및 projection 검사 | 공유 계약은 권한이 없는 요약을 전달하고 delivery는 프로바이더 읽기, 원자적 캠페인 상태 및 로컬 또는 배포 어댑터 선택을 소유합니다. 출처별 경로는 의미 있는 근거 소유권을 유지합니다. |
 | 리소스 검색 계약 경계 | implemented | `fdai_service_contracts/discovery.py`, `fdai_service_contracts/discovery_evidence.py`, `core/discovery/router.py`, 집중 검색 검사 (`44 passed`) | 공유 SDK는 불변이고 권한이 없는 wire 레코드를 소유하고 Core는 프로바이더 중립적인 정확히 동등한 라우팅과 병합을 소유하며 Azure delivery는 버전이 고정된 프로파일, 렌더링, 실행 증적 및 커버리지 조정을 소유합니다. |
+| 통제된 규칙 발견 시작 경계 | implemented | `core/readiness/discovery_activation.py`, `runtime/discovery_activation.py`, `runtime/bootstrap*.py`, `agents/norns.py`, 집중 활성화 및 연결 검사 | Core는 최신 선행 조건 근거를 집약하고, 런타임은 기본적으로 닫힌 결정을 Norns의 비활성 후보 게시 경계에만 주입하며, 감독되는 새로 고침이 실패하면 카탈로그 또는 승격 권한을 바꾸지 않고 로컬 게이트를 닫습니다. |
 | Pre-dispatch kinetic safety 경계 | implemented | `core/operational_planning/kinetic_safety.py`, `delivery/kinetic_safety.py`, `delivery/kinetic_proposal.py`, `runtime/control_loop.py`, 집중 dispatch, HIL, artifact, proposal 및 runtime 검사(`119 passed`) | Core는 프로바이더 중립 ordering seam을 선언합니다. Delivery는 영속 OperationalPlan 및 proposal lineage를 다시 검증하고 correlation index에 있는 기존 exact V2 proposal과 기존 typed Action을 결합하며 runtime은 모든 Thor 실행기 전에 ControlLoop와 HIL resume이 하나의 writer를 공유하도록 합니다. Proposal이 없으면 legacy 동작을 유지하고 invalid evidence는 권한을 높이지 않은 채 dispatch를 차단합니다. |
 
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | implemented | 수집기 성공 변환 결과, 시작 준비 상태 근거, 통제된 런타임 정책 및 현재 판테온 shadow 수를 하나의 실패 시 차단 규칙 발견 활성화 경계로 구성했습니다. Norns는 비활성 후보를 보존하고 주입된 상한이 열릴 때만 게시하며, Mimir와 catalog-as-code는 바뀌지 않습니다. | `current change`; 집중 활성화, 런타임, Norns, 시작 연결, 수집기 및 인프라 검사. | 운영 검증을 주장하기 전에 통제된 수집기 및 활성화 전이 증적을 보존합니다. |
 | 2026-08-17 | 구현됨 | `control_loop/_process.py`에 결론이 난 compliant 결과를 도입해, finding이 0인 T0 판정이 더 이상 판단 보류와 구분되지 않는 상태를 해소했습니다. `NO_RULE_DENIED`는 이제 RCA나 `_fallback.py` 티어 승격 없이 `ControlLoopOutcome.COMPLIANT`를 반환합니다. | 현재 소스와 `test_control_loop_e2e.py`(47개 통과), `t0_deterministic` 스위트(총 109개), 둘 다 변이 검증; 변경 전 실측으로 abstain 1641건 중 795건이 `no_rule_denied`였습니다. | 이 결합지점에 남은 작업은 없습니다. 추가 전용 감사 로그는 과거 `control_loop.abstain` 행을 유지합니다. |
 | 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 범위가 제한된 현재 상태 활동 identity 변경을 기록했습니다. | 현재 출처와 `test_read_investigation_latency.py`, `test_activity_projection.py`, 통과한 focused 테스트 | 아래에 설명된 연기된 Phase 2 물리 패키지 이동을 완료합니다. |
 | 2026-08-13 | implemented | Mimir와 Heimdall 소유권을 유지하면서 프로바이더 계약, 원자적 어댑터 및 시작 구성 전체에 운영 Rule 세대 reconciliation 경계를 추가했습니다. | `current change`; `catalog_search.py`, `rule_generation_documents.py` 및 집중 worker, PostgreSQL, 런타임, 활성화 검사 | 통제된 실제 세대 증적을 보존하며 연기된 Phase 2 패키지 이동은 별도로 유지합니다. |
@@ -117,7 +117,7 @@ fdai/
 │   │   ├── measurement/        # 지속 측정 및 confidence/guard gate를 포함한 immutable revision/scenario operational-promotion receipt
 │   │   ├── mscp_profile/       # 실행 authority 없는 순수 mscp-operational-v1 provenance, effect verification, cycle guard, runtime-integrity policy 및 never-raising authority ceiling
 │   │   ├── deploy_preflight/   # 배포 전 feasibility 프로브 → grounded readiness 리포트
-│   │   ├── readiness/          # 운영 handoff + startup 및 monitored-target readiness contract, fail-closed reducer, evidence expiry 및 authority ceiling
+│   │   ├── readiness/          # 운영 handoff + startup, monitored-target 및 rule-discovery activation 계약, fail-closed reducer, evidence expiry 및 authority ceiling
 │   │   ├── assurance_twin/     # 읽기 전용 온톨로지 트윈: text-to-query, scalar/graph active-challenger model, 필수 invariant, durable trajectory episode, 결정론적 simulation, off-path outcome closure (실행 또는 promotion 안 함)
 │   │   ├── ontology_platform/   # exact release, release-aware direction-shadow 비교, semantic interface, bounded object set, secured purpose/ACL query receipt, 인시던트 감사 근거, shared exact-number property semantics, cluster-scoped network/Pod telemetry verification, immutable diagnostic ledger/result projection, mutation plan, typed function, authenticated reconciliation과 proposal-only terminal outbox, proposal-only SDK generation
 │   │   ├── conversation/       # Bragi-owned model-free screen T0, schema-constrained whole-turn semantic frame/query-plan shadowing, principal-manifest verification, intent-graph evidence projection, compatibility intent/tool 조정, grounded narration, per-turn isolation, durable delivery 및 busy-input arbitration

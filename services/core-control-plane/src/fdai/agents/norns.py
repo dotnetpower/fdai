@@ -44,6 +44,7 @@ import asyncio
 import hashlib
 import json
 from collections import Counter, deque
+from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
@@ -145,6 +146,7 @@ class Norns(Agent):
         self._promotion_threshold = promotion_threshold
         self.pending_candidates: list[dict[str, Any]] = []
         self._max_pending_candidates = max_pending_candidates
+        self._candidate_publication_gate: Callable[[], bool] | None = None
         self._learning_lock = asyncio.Lock()
         # Cursor into ``pending_candidates`` marking how many have already been
         # published onto ``object.rule-candidate``. Publishing is idempotent:
@@ -406,6 +408,12 @@ class Norns(Agent):
         async with self._learning_lock:
             return await self._flush_candidates_unlocked()
 
+    def bind_candidate_publication_gate(self, gate: Callable[[], bool]) -> None:
+        """Bind the runtime policy ceiling for inert candidate publication once."""
+        if self._candidate_publication_gate is not None:
+            raise RuntimeError("Norns candidate publication gate is already bound")
+        self._candidate_publication_gate = gate
+
     async def _flush_candidates_unlocked(self) -> int:
         """Publish newly-accumulated inert RuleCandidates onto the bus.
 
@@ -428,6 +436,9 @@ class Norns(Agent):
         queued, so a burst is throttled, never dropped. Returns the number of
         candidates published on this call.
         """
+        if self._candidate_publication_gate is not None and not self._candidate_publication_gate():
+            self.record_behavior("rule_candidate_publication_disabled")
+            return 0
         published = 0
         while self._flush_cursor < len(self.pending_candidates):
             candidate = self.pending_candidates[self._flush_cursor]

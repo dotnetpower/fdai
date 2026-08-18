@@ -474,6 +474,8 @@ def test_collector_writes_snapshot_and_provenance(tmp_path: Path) -> None:
     assert provenance["source_id"] == "smoke-src"
     assert provenance["content_sha256"] == report.content_sha256
     assert provenance["parser"] == "rule-yaml"
+    assert provenance["redistribution"] == report.redistribution
+    assert not (report.snapshot_dir / "COLLECTION_SUCCESS.json").exists()
 
 
 def test_collector_dry_run_does_not_write(tmp_path: Path) -> None:
@@ -784,6 +786,15 @@ def test_cli_verify_flag_reports_verified_count_on_shipped_seed(
     assert verify["parsed"] >= 50
     assert verify["verified"] >= 50
     assert verify["issues"] == []
+    success = payload["success_receipt"]
+    assert success["schema_validated"] is True
+    assert success["provenance_validated"] is True
+    assert success["resolved_revision"] == payload["resolved_revision"]
+    assert success["content_sha256"] == payload["content_sha256"]
+    assert success["license"] == payload["license"]
+    assert success["redistribution"] == payload["redistribution"]
+    assert success["verified_rules"] == verify["verified"]
+    assert (Path(payload["snapshot_dir"]) / "COLLECTION_SUCCESS.json").is_file()
 
 
 def test_cli_verify_flag_skipped_on_dry_run(

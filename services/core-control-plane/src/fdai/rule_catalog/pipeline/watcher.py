@@ -2,9 +2,9 @@
 
 Pure scheduling logic. Given a :class:`SourceManifest` and the current
 time, decide whether the source is due for re-collection by comparing
-the previous ``SNAPSHOT.json.collected_at`` against the manifest cadence.
+the previous validated success receipt against the manifest cadence.
 
-Reading ``SNAPSHOT.json`` is the only I/O this module performs - it
+Reading ``COLLECTION_SUCCESS.json`` is the only I/O this module performs - it
 never fetches, writes, or mutates state. The CLI wrapper
 (:mod:`fdai.rule_catalog.pipeline.watcher_cli`) composes the
 watcher with the existing collector CLI so a Container Apps Job cron
@@ -23,12 +23,14 @@ catalog-as-code PR.
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from fdai.rule_catalog.pipeline.collect import read_success_receipt
 from fdai.rule_catalog.schema.source_manifest import Cadence, SourceManifest
+
+_SUCCESS_RECEIPT = "COLLECTION_SUCCESS.json"
 
 # Cadence → interval mapping. ``on-demand`` deliberately maps to ``None``
 # - the caller never fires an on-demand source from the watcher; it
@@ -95,10 +97,10 @@ class SourceWatcher:
             raise WatcherError(f"unknown cadence: {cadence!r}") from exc
 
     def _last_collected_at(self, source_id: str) -> datetime | None:
-        """Newest ``collected_at`` across every snapshot for ``source_id``.
+        """Newest validated success across every snapshot for ``source_id``.
 
-        Missing directory, missing ``SNAPSHOT.json``, or malformed
-        provenance all return ``None`` for that revision - the watcher
+        Missing directory, missing success receipt, or malformed receipt
+        all return ``None`` for that revision - the watcher
         never crashes on a partial snapshot tree.
         """
         source_dir = self.snapshot_root / source_id
@@ -108,22 +110,14 @@ class SourceWatcher:
         for revision_dir in source_dir.iterdir():
             if not revision_dir.is_dir():
                 continue
-            snap = revision_dir / "SNAPSHOT.json"
-            if not snap.is_file():
+            receipt_path = revision_dir / _SUCCESS_RECEIPT
+            if not receipt_path.is_file():
                 continue
             try:
-                data = json.loads(snap.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                continue
-            ts = data.get("collected_at") if isinstance(data, dict) else None
-            if not isinstance(ts, str):
-                continue
-            try:
-                parsed = datetime.fromisoformat(ts)
+                receipt = read_success_receipt(receipt_path)
             except ValueError:
                 continue
-            if parsed.tzinfo is None:
-                parsed = parsed.replace(tzinfo=UTC)
+            parsed = receipt.verified_at.astimezone(UTC)
             if latest is None or parsed > latest:
                 latest = parsed
         return latest

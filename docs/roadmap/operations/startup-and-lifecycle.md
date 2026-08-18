@@ -18,10 +18,10 @@ Azure focus: non-Azure providers are TBD (see
 Timeline suggestions below are directional, not hard rules; **the gates are hard**.
 
 > **Implementation status**: The current reference Terraform deploys one `core` container with
-> `min_replicas = 1` and no KEDA scaling rule. Protected deployment now runs the model resolver
-> and a proposal-only weekly lifecycle reconciler. Automatic collector/discovery startup and
-> end-to-end HIL bootstrap are not wired as complete runtime workflows. This document distinguishes the
-> current bootstrap contract from the target lifecycle.
+> `min_replicas = 1` and no KEDA scaling rule. Protected deployment runs the model resolver and a
+> proposal-only weekly lifecycle reconciler. The collector job has a configurable deployment
+> schedule, and discovery activation is a fail-closed runtime decision. End-to-end Human approval
+> bootstrap remains incomplete.
 
 ## Implementation status
 
@@ -31,7 +31,8 @@ Timeline suggestions below are directional, not hard rules; **the gates are hard
 |------|-------|----------|-------|
 | Startup readiness orchestration | implemented | [`runtime/readiness.py`](../../../services/core-control-plane/src/fdai/runtime/readiness.py), [`core/readiness/coordinator.py`](../../../services/core-control-plane/src/fdai/core/readiness/coordinator.py), and focused readiness tests | The runtime evaluates ordered phases, persists sanitized reports, and gates processing on the resulting decision. |
 | T2 cross-check startup proof reuse | implemented | [`delivery/startup_model_probe.py`](../../../services/core-control-plane/src/fdai/delivery/startup_model_probe.py) and [`tests/delivery/test_startup_probe.py`](../../../services/core-control-plane/tests/delivery/test_startup_probe.py) | The first successful process-local proof uses the configured samples. Refreshes reuse it without another T2 request, while failures remain retryable. |
-| Bootstrap and lifecycle automation | in-progress | [`llm_resolver_cli.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py), `.github/workflows/deploy-dev.yml`, `.github/workflows/model-lifecycle-reconcile.yml`, and focused lifecycle tests | Protected model resolution and proposal-only reconciliation are implemented. Automatic collector/discovery startup and end-to-end Human approval bootstrap remain incomplete. |
+| Collector scheduling and governed discovery activation | implemented | [`rule_watcher_job.tf`](../../../infra/modules/compute/container-apps/rule_watcher_job.tf), [`rule_collector_job_cli.py`](../../../services/core-control-plane/src/fdai/delivery/rule_collector_job_cli.py), [`core/readiness/discovery_activation.py`](../../../services/core-control-plane/src/fdai/core/readiness/discovery_activation.py), [`runtime/discovery_activation.py`](../../../services/core-control-plane/src/fdai/runtime/discovery_activation.py), and focused collector, activation, Norns, runtime, and infrastructure tests | The configurable Job uses the non-effect inventory identity and records only validated provenance receipts. Runtime composition closes Norns publication until policy and every current prerequisite pass. |
+| Bootstrap and lifecycle automation | in-progress | [`llm_resolver_cli.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py), `.github/workflows/deploy-dev.yml`, `.github/workflows/model-lifecycle-reconcile.yml`, and focused lifecycle tests | Protected model resolution and proposal-only reconciliation are implemented. Collector scheduling and governed discovery activation are implemented in the current change; end-to-end Human approval bootstrap remains incomplete. |
 
 ### Implementation history
 
@@ -39,11 +40,12 @@ Timeline suggestions below are directional, not hard rules; **the gates are hard
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | implemented | Reused each successful T2 cross-check startup proof for later process-local readiness refreshes instead of resampling every five minutes. Failed and concurrent attempts remain retry-safe. | Current change in `startup_model_probe.py` and `test_startup_probe.py`; focused startup probe tests: `18 passed`. | Capture governed deployed-runtime metering evidence and complete the broader lifecycle workflows below. |
 | 2026-08-19 | implemented | Ran deterministic live model resolution before protected Terraform planning, sealed its exact manifests and digests through apply, and added a weekly provider-failure-abstaining draft-PR reconciler. | `current change`; focused lifecycle, protected-plan verifier, Operator narrator, Terraform, and CI security contracts. | Retain a governed reconciler run and complete the independent collector and Human approval workflows. |
+| 2026-08-19 | implemented | Scheduled the verified collector through a configurable Container Apps Job and bound a default-off discovery activation reducer to Norns' inert candidate publication boundary. Missing, stale, failed, duplicate, or unavailable evidence closes the gate with sanitized reason codes; policy disablement never changes the catalog. | `current change`; focused readiness activation, collector Job/CLI, runtime settings, collection/watcher, Norns, bootstrap, and infrastructure checks. | Retain governed collector and activation-transition receipts; complete the independent Human approval workflow. |
 
 ### Remaining work
 
-- [ ] Complete automatic collector and discovery startup plus end-to-end Human approval bootstrap,
-   with focused workflow tests cited in this ledger; retain a governed model reconciler run separately.
+- [ ] Complete end-to-end Human approval bootstrap with focused workflow tests cited in this
+   ledger; retain governed collector and model reconciler runs separately.
 - [ ] Record governed deployed-runtime metering that shows one successful T2 startup sample set per
    candidate and no additional T2 calls from later five-minute readiness refreshes in that process.
 
@@ -227,7 +229,12 @@ the catalog is populated from two sources - in order:
 
 Upstream currently ships `rule-catalog/catalog/`, generic profiles, source manifests, and
 `tools/seed_p1_manifest.yaml`. A fork can use them without customer-specific values or add its own
-overlay or seed. The deployment must bind the collector schedule separately.
+overlay or seed. The root Terraform variable `rule_watcher_cron_expression` binds the deployment
+schedule without embedding source, tenant, endpoint, subscription, or customer values. The job
+runs the watcher with verification and records a durable success receipt only after parser/schema
+validation and exact provenance validation pass. The receipt includes the resolved revision,
+content hash, license, redistribution mode, verified rule count, and verification time. A fetched
+snapshot without that receipt is not a successful collection and remains due for retry.
 
 Rules that apply to the day-zero catalog:
 
@@ -351,23 +358,34 @@ Steps (fork responsibility):
 ## Autonomous Discovery Loop Kickoff
 
 The [autonomous rule discovery loop](../rules-and-detection/rule-catalog-collection.md#autonomous-rule-discovery) is
-**disabled on day zero**. It MUST NOT run before all of the following:
+**disabled on day zero**. `discovery.enabled` is an audited runtime policy setting whose default is
+`false`; `discovery.shadow_decision_threshold` is the configured minimum decision count. Enabling
+the preference does not activate the loop by itself. The pure activation reducer keeps it disabled
+until all of the following current evidence is present:
 
-> Upstream does not currently provide a startup coordinator that evaluates all of these conditions
-> and enables the loop automatically. The conditions below are the target activation-gate contract.
-
-1. The audit log has accumulated at least **`N` shadow decisions**, giving the observe stage a
-   real baseline. `N` is configurable; **TBD** - recommended in the low thousands.
+1. The running Pantheon has observed at least **`N` shadow decisions**, giving the observe stage a
+   real baseline. `N` is configurable; **TBD** - recommended in the low thousands. A process
+   restart resets this conservative counter and therefore closes the gate until the threshold is
+   observed again.
 2. At least one collector has run to success (proves the wire-up + provenance).
 3. The mixed-model cross-check target and the deterministic verifier are healthy.
 4. Post-deploy smoke tests are green
    ([operating-and-verification.md](operating-and-verification.md#post-deploy-smoke-test-contract)).
 
-Once enabled, the loop runs on a configured cadence. A candidate rule from the loop is inert
-until it passes the full quality gate - the loop cannot mutate the catalog directly.
+The reducer records one byte-stable report containing the decision, configured threshold, evidence
+times, and sanitized reason codes. Missing, expired, or failed evidence produces a specific reason
+code and cannot partially activate the loop. The runtime keeps the latest report locally, while the
+coordinator persists and audits semantic transitions only when the decision, reason set, or
+configured threshold changes. Replay and restart therefore do not duplicate activation records.
 
-Disabling the loop is a **policy toggle**, not a code change; recurring override signals still
-accumulate on the audit log for the next enable.
+The runtime injects this decision only at Norns' `RuleCandidate` publication boundary. Norns may
+continue accumulating bounded off-path patterns while disabled, but it cannot publish a candidate
+to Mimir until the gate is enabled. A candidate remains inert after publication until the existing
+quality, approval, regression, and shadow-first promotion gates accept it. Neither activation nor
+policy disablement edits, promotes, or removes any catalog entry.
+
+Disabling the loop is a **policy toggle**, not a code change. The next evaluation closes the
+publication gate, while recurring override signals continue to accumulate for a later enable.
 
 ## Lifecycle States
 

@@ -62,6 +62,27 @@ async def test_norns_publishes_one_unanimous_consensus_result() -> None:
     }
 
 
+async def test_norns_publication_gate_preserves_candidate_until_enabled() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    norns = Norns(promotion_threshold=1)
+    enabled = False
+    norns.bind_candidate_publication_gate(lambda: enabled)
+    with pytest.raises(RuntimeError, match="already bound"):
+        norns.bind_candidate_publication_gate(lambda: True)
+    norns.bind_bus(bus)
+
+    await norns.on_typed_message("object.issue", {"fingerprint": "fp-governed"})
+
+    assert bus.messages_on("object.rule-candidate") == []
+    assert len(norns.pending_candidates) == 1
+    assert norns.behavior_snapshot()["rule_candidate_publication_disabled"] == 1
+
+    enabled = True
+    assert await norns.flush_candidates() == 1
+    assert len(bus.messages_on("object.rule-candidate")) == 1
+    assert norns.pending_candidates == []
+
+
 async def test_norns_holds_candidate_when_one_perspective_disagrees() -> None:
     bus = InMemoryBus(registry=load_pantheon())
     norns = Norns()

@@ -153,6 +153,10 @@ from fdai.runtime.control_loop import (
     _load_resource_types,
 )
 from fdai.runtime.delivery import _build_incident_notifier
+from fdai.runtime.discovery_activation import (
+    DiscoveryActivationRuntime,
+    build_discovery_activation_runtime,
+)
 from fdai.runtime.dynamic_evidence import bind_dynamic_evidence_from_env
 from fdai.runtime.health import RuntimeHealthServer
 from fdai.runtime.operating_model import project_operating_model_from_env
@@ -226,6 +230,7 @@ async def _run() -> int:
     health_server: RuntimeHealthServer | None = None
     case_history_retention_publisher: CaseHistoryRetentionTickPublisher | None = None
     startup_readiness_runtime: StartupReadinessRuntime | None = None
+    discovery_activation_runtime: DiscoveryActivationRuntime | None = None
     t2_recovery_maintenance: Any = None
     assignment_reconciliation_worker: Any = None
     effect_reconciliation_worker: Any = None
@@ -685,6 +690,11 @@ async def _run() -> int:
                     "stale_count": len(startup_report.stale_probe_ids),
                 },
             )
+            discovery_activation_runtime = build_discovery_activation_runtime(
+                state_store=incident_audit_store,
+                runtime_settings=runtime_settings,
+                startup_readiness=startup_readiness_runtime.state,
+            )
 
             pantheon = await initialize_pantheon(
                 PantheonInitialization(
@@ -697,6 +707,7 @@ async def _run() -> int:
                     runtime_saga=runtime_saga,
                     runtime_values=runtime_values,
                     runtime_settings=runtime_settings,
+                    discovery_activation=discovery_activation_runtime,
                     control_loop=control_loop,
                     rule_generation_reconciliation=rule_generation_reconciliation,
                     rule_generation_binding=rule_generation_binding,
@@ -720,6 +731,7 @@ async def _run() -> int:
             divergence_ledger = pantheon.divergence_ledger
             case_history_retention_publisher = pantheon.case_history_retention_publisher
             t2_recovery_maintenance = pantheon.t2_recovery_maintenance
+            discovery_activation_runtime = pantheon.discovery_activation
         elif pantheon_start_enabled(os.environ):
             # Pantheon needs the same Kafka bus the consumer builds; without
             # FDAI_START_CONSUMER there is no bus to bind to. Warn rather
@@ -742,6 +754,7 @@ async def _run() -> int:
                     readiness=startup_readiness_runtime,
                     stop=stop,
                     runtime_settings=runtime_settings,
+                    discovery_activation=discovery_activation_runtime,
                     semantic_turn_binding=semantic_turn_binding,
                     divergence_ledger=divergence_ledger,
                     pantheon_runtime=pantheon_runtime,

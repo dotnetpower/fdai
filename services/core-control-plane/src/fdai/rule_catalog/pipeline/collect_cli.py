@@ -31,7 +31,7 @@ from pathlib import Path
 
 import yaml
 
-from fdai.rule_catalog.pipeline.collect import CollectorPipeline
+from fdai.rule_catalog.pipeline.collect import CollectorPipeline, record_success_receipt
 from fdai.rule_catalog.pipeline.collect.fetch import FetchError
 from fdai.rule_catalog.pipeline.parse import (
     ParseError,
@@ -134,6 +134,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "file_count": report.file_count,
         "parser": report.parser,
         "license": report.license,
+        "redistribution": report.redistribution,
         "snapshot_dir": str(report.snapshot_dir),
         "mismatch": report.mismatch,
         "dry_run": args.dry_run,
@@ -153,6 +154,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         summary["verify"] = verify_summary
         if verify_code != 0:
             exit_code = verify_code
+        elif not args.dry_run:
+            try:
+                verified_rules = verify_summary.get("verified")
+                if not isinstance(verified_rules, int):
+                    raise ValueError("collector verification did not return a rule count")
+                receipt = record_success_receipt(
+                    report,
+                    verified_rules=verified_rules,
+                )
+            except ValueError as exc:
+                print(f"error: {exc}", file=sys.stderr)
+                summary["success_receipt_error"] = type(exc).__name__
+                exit_code = 2
+            else:
+                summary["success_receipt"] = receipt.to_mapping()
 
     print(json.dumps(summary, indent=2, sort_keys=True))
     return exit_code

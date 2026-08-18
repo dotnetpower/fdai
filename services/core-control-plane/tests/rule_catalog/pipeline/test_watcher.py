@@ -80,11 +80,25 @@ def _build_manifest(cadence: Cadence, *, source_id: str = "watch-src") -> Source
 def _seed_snapshot(
     snapshot_root: Path, source_id: str, *, revision: str, collected_at: datetime
 ) -> None:
-    """Write a minimal SNAPSHOT.json under ``snapshot_root/<id>/<rev>/``."""
+    """Write a validated success receipt under ``snapshot_root/<id>/<rev>/``."""
     snap_dir = snapshot_root / source_id / revision
     snap_dir.mkdir(parents=True, exist_ok=True)
-    (snap_dir / "SNAPSHOT.json").write_text(
-        json.dumps({"collected_at": collected_at.isoformat()}) + "\n",
+    (snap_dir / "COLLECTION_SUCCESS.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0.0",
+                "source_id": source_id,
+                "resolved_revision": revision,
+                "content_sha256": "0" * 64,
+                "license": "Apache-2.0",
+                "redistribution": "embeddable",
+                "verified_rules": 1,
+                "verified_at": collected_at.isoformat(),
+                "schema_validated": True,
+                "provenance_validated": True,
+            }
+        )
+        + "\n",
         encoding="utf-8",
     )
 
@@ -169,7 +183,7 @@ def test_is_due_ignores_malformed_snapshot(tmp_path: Path) -> None:
     manifest = _build_manifest(Cadence.DAILY)
     bad_dir = tmp_path / manifest.id / "broken"
     bad_dir.mkdir(parents=True)
-    (bad_dir / "SNAPSHOT.json").write_text("{not valid json", encoding="utf-8")
+    (bad_dir / "COLLECTION_SUCCESS.json").write_text("{not valid json", encoding="utf-8")
     # No good snapshot found → treated as never-collected → due.
     assert watcher.is_due(manifest, now=_NOW) is True
 
@@ -179,8 +193,8 @@ def test_is_due_ignores_missing_or_wrong_type_collected_at(tmp_path: Path) -> No
     manifest = _build_manifest(Cadence.DAILY)
     src_dir = tmp_path / manifest.id / "rev"
     src_dir.mkdir(parents=True)
-    (src_dir / "SNAPSHOT.json").write_text(
-        json.dumps({"collected_at": 12345}),  # wrong type - int, not string
+    (src_dir / "COLLECTION_SUCCESS.json").write_text(
+        json.dumps({"verified_at": 12345}),
         encoding="utf-8",
     )
     assert watcher.is_due(manifest, now=_NOW) is True
@@ -191,8 +205,8 @@ def test_is_due_ignores_unparseable_timestamp(tmp_path: Path) -> None:
     manifest = _build_manifest(Cadence.DAILY)
     src_dir = tmp_path / manifest.id / "rev"
     src_dir.mkdir(parents=True)
-    (src_dir / "SNAPSHOT.json").write_text(
-        json.dumps({"collected_at": "not-a-date"}),
+    (src_dir / "COLLECTION_SUCCESS.json").write_text(
+        json.dumps({"verified_at": "not-a-date"}),
         encoding="utf-8",
     )
     assert watcher.is_due(manifest, now=_NOW) is True
@@ -205,23 +219,20 @@ def test_is_due_skips_non_directory_entries(tmp_path: Path) -> None:
     src_dir.mkdir(parents=True)
     # A stray file at the revision level must not break iteration.
     (src_dir / "README.md").write_text("not a revision", encoding="utf-8")
-    # A revision dir with no SNAPSHOT.json is also skipped.
+    # A revision dir with no success receipt is also skipped.
     (src_dir / "half-written").mkdir()
     assert watcher.is_due(manifest, now=_NOW) is True
 
 
 def test_is_due_normalizes_naive_collected_at(tmp_path: Path) -> None:
-    """Legacy naive timestamps are treated as UTC, not rejected."""
+    """Naive success timestamps are rejected, so the source remains due."""
     watcher = SourceWatcher(snapshot_root=tmp_path)
     manifest = _build_manifest(Cadence.DAILY)
     src_dir = tmp_path / manifest.id / "rev"
     src_dir.mkdir(parents=True)
     naive = (_NOW - timedelta(hours=2)).replace(tzinfo=None)
-    (src_dir / "SNAPSHOT.json").write_text(
-        json.dumps({"collected_at": naive.isoformat()}),
-        encoding="utf-8",
-    )
-    assert watcher.is_due(manifest, now=_NOW) is False
+    _seed_snapshot(tmp_path, manifest.id, revision="rev", collected_at=naive)
+    assert watcher.is_due(manifest, now=_NOW) is True
 
 
 def test_is_due_handles_non_utc_collected_at(tmp_path: Path) -> None:
@@ -231,10 +242,7 @@ def test_is_due_handles_non_utc_collected_at(tmp_path: Path) -> None:
     src_dir.mkdir(parents=True)
     kst = timezone(timedelta(hours=9))
     ts = (_NOW - timedelta(hours=2)).astimezone(kst)
-    (src_dir / "SNAPSHOT.json").write_text(
-        json.dumps({"collected_at": ts.isoformat()}),
-        encoding="utf-8",
-    )
+    _seed_snapshot(tmp_path, manifest.id, revision="rev", collected_at=ts)
     # 2h ago regardless of timezone label → not due for daily.
     assert watcher.is_due(manifest, now=_NOW) is False
 

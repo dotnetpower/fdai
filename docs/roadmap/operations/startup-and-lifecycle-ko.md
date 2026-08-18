@@ -1,7 +1,7 @@
 ---
 title: 시작과 라이프사이클(Startup and Lifecycle)
 translation_of: startup-and-lifecycle.md
-translation_source_sha: f723c1eaf9a434ec2a9f124adcb4165fa6b7af58
+translation_source_sha: d5fb72b2b63f0da36673f0b81e8a801c6eb6f138
 translation_revised: 2026-08-19
 ---
 
@@ -21,10 +21,9 @@ Azure 초점: 비-Azure 프로바이더는 TBD
 아래 타임라인 제안은 방향성이지 하드 규칙 아님; **게이트는 하드**.
 
 > **구현 상태**: 현재 참조 Terraform은 KEDA 규모 룰 없이 `min_replicas = 1`인 단일
-> `core` 컨테이너를 배포합니다. 보호된 배포는 이제 모델 해석기와 제안 전용 주간 수명 주기
-> 조정기를 실행합니다. 자동 수집기/발견 시작과 종단 간 사람 승인 초기화는
-> 완전한 런타임 작업 흐름으로 연결되지 않았습니다. 이 문서는 현재 초기화 계약과 목표
-> 수명 주기를 함께 표시합니다.
+> `core` 컨테이너를 배포합니다. 보호된 배포는 모델 해석기와 제안 전용 주간 수명 주기
+> 조정기를 실행합니다. 수집기 작업은 구성 가능한 배포 일정을 사용하고, 발견 활성화는
+> 실패 시 차단되는 런타임 결정입니다. 종단 간 사람 승인 초기화는 아직 완료되지 않았습니다.
 
 ## 구현 상태
 
@@ -34,7 +33,8 @@ Azure 초점: 비-Azure 프로바이더는 TBD
 |------|------|------|------|
 | 시작 준비 상태 조정 | `implemented` | [`runtime/readiness.py`](../../../services/core-control-plane/src/fdai/runtime/readiness.py), [`core/readiness/coordinator.py`](../../../services/core-control-plane/src/fdai/core/readiness/coordinator.py) 및 준비 상태 집중 테스트 | 런타임은 순서가 지정된 단계를 평가하고 정제된 보고서를 저장하며, 결과 결정에 따라 처리를 게이팅합니다. |
 | T2 교차 검사 시작 증명 재사용 | `implemented` | [`delivery/startup_model_probe.py`](../../../services/core-control-plane/src/fdai/delivery/startup_model_probe.py) 및 [`tests/delivery/test_startup_probe.py`](../../../services/core-control-plane/tests/delivery/test_startup_probe.py) | 프로세스에서 처음 성공한 증명은 구성된 샘플을 사용합니다. 이후 새로 고침은 추가 T2 요청 없이 이를 재사용하며 실패는 계속 재시도할 수 있습니다. |
-| 부트스트랩 및 수명 주기 자동화 | `in-progress` | [`llm_resolver_cli.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py), `.github/workflows/deploy-dev.yml`, `.github/workflows/model-lifecycle-reconcile.yml` 및 집중 수명 주기 테스트 | 보호된 모델 해석과 제안 전용 조정은 구현됐습니다. 자동 수집기/발견 시작과 종단 간 사람 승인 초기화는 아직 완료되지 않았습니다. |
+| 수집기 일정 및 통제된 발견 활성화 | `implemented` | [`rule_watcher_job.tf`](../../../infra/modules/compute/container-apps/rule_watcher_job.tf), [`rule_collector_job_cli.py`](../../../services/core-control-plane/src/fdai/delivery/rule_collector_job_cli.py), [`core/readiness/discovery_activation.py`](../../../services/core-control-plane/src/fdai/core/readiness/discovery_activation.py), [`runtime/discovery_activation.py`](../../../services/core-control-plane/src/fdai/runtime/discovery_activation.py) 및 집중 수집기/활성화/Norns/런타임/인프라 검사 | 구성 가능한 작업은 실행 권한이 없는 인벤토리 신원을 사용하고, 검증된 출처 증적만 기록합니다. 런타임 조립은 정책과 최신 선행 조건이 모두 통과할 때까지 Norns 게시를 차단합니다. |
+| 부트스트랩 및 수명 주기 자동화 | `in-progress` | [`llm_resolver_cli.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py), `.github/workflows/deploy-dev.yml`, `.github/workflows/model-lifecycle-reconcile.yml` 및 집중 수명 주기 테스트 | 보호된 모델 해석과 제안 전용 조정은 구현됐습니다. 수집기 일정과 통제된 발견 활성화는 현재 변경에서 구현되며, 종단 간 사람 승인 초기화는 아직 완료되지 않았습니다. |
 
 ### 구현 이력
 
@@ -42,11 +42,12 @@ Azure 초점: 비-Azure 프로바이더는 TBD
 |------|------|------|------|-----------|
 | 2026-08-13 | `implemented` | 성공한 각 T2 교차 검사 시작 증명을 프로세스의 후속 준비 상태 새로 고침에서 재사용하여 5분마다 다시 샘플링하지 않도록 했습니다. 실패 및 동시 시도는 안전하게 재시도됩니다. | 현재 변경의 `startup_model_probe.py` 및 `test_startup_probe.py`, 시작 탐색 집중 테스트: `18 passed` | 관리되는 배포 런타임 계측 근거를 수집하고 아래의 더 넓은 수명 주기 작업 흐름을 완료합니다. |
 | 2026-08-19 | `implemented` | 보호된 Terraform 계획 전에 결정론적 실제 모델 해석을 실행하고, 정확한 매니페스트와 다이제스트를 적용까지 봉인했으며, 공급자 실패 시 판단을 보류하는 주간 초안 PR 조정기를 추가했습니다. | `current change`; 집중 수명 주기, 보호된 계획 검증기, Operator 서술기, Terraform 및 CI 보안 계약. | 통제된 조정기 실행을 보존하고 독립적인 수집기 및 사람 승인 workflow를 완료합니다. |
+| 2026-08-19 | `implemented` | 검증된 수집기를 구성 가능한 Container Apps Job으로 예약하고, 기본적으로 닫힌 발견 활성화 집약기를 Norns의 비활성 후보 게시 경계에 연결했습니다. 근거가 누락되거나 오래되거나 실패하거나 중복되거나 사용할 수 없으면 정제된 사유 코드와 함께 게이트를 닫으며, 정책 비활성화는 카탈로그를 바꾸지 않습니다. | `current change`; 집중 준비 상태 활성화, 수집기 Job/CLI, 런타임 설정, 수집/감시, Norns, 시작 연결 및 인프라 검사. | 통제된 수집기 및 활성화 전이 증적을 보존하고 독립적인 사람 승인 작업 흐름을 완료합니다. |
 
 ### 남은 작업
 
-- [ ] 자동 수집기 및 발견 시작과 종단 간 사람 승인 초기화를 완료하고 이 원장에 집중
-   workflow 테스트를 인용하며, 통제된 모델 조정기 실행은 별도로 보존합니다.
+- [ ] 종단 간 사람 승인 초기화를 완료하고 이 원장에 집중 workflow 테스트를 인용하며,
+   통제된 수집기와 모델 조정기 실행은 별도로 보존합니다.
 - [ ] 후보별로 성공한 T2 시작 샘플 세트가 한 번만 실행되고, 해당 프로세스의 이후 5분 준비
    상태 새로 고침에서는 T2 호출이 추가되지 않음을 보여 주는 관리되는 배포 런타임 계측을 기록합니다.
 
@@ -224,9 +225,13 @@ stopped/deallocated 상태로 되돌렸습니다.
    [rule-catalog-collection-ko.md](../rules-and-detection/rule-catalog-collection-ko.md) 에 따라 설정된 주기로 수집.
 
 현재 업스트림은 `rule-catalog/catalog/`, 범용 profiles, 출처 매니페스트 및
-`tools/seed_p1_manifest.yaml`을 함께 제공합니다. 포크는 이를 customer-specific 값 없이 그대로
-사용하거나 fork-owned 오버레이/시드를 추가할 수 있습니다. Collector 예약은 배포가 별도로
-연결해야 합니다.
+`tools/seed_p1_manifest.yaml`을 함께 제공합니다. 포크는 이를 고객별 값 없이 그대로 사용하거나
+포크 소유 오버레이/시드를 추가할 수 있습니다. 루트 Terraform 변수
+`rule_watcher_cron_expression`은 출처, 테넌트, 엔드포인트, 구독 또는 고객 값을 포함하지 않고
+배포 일정을 연결합니다. 작업은 검증과 함께 감시기를 실행하고 파서/스키마 검증 및 정확한 출처
+검증을 통과한 뒤에만 영속 성공 증적을 기록합니다. 증적에는 확인된 개정 번호, 내용 해시,
+라이선스, 재배포 방식, 검증된 규칙 수 및 검증 시각이 포함됩니다. 이 증적이 없는 가져온
+스냅샷은 성공한 수집이 아니며 다시 시도할 대상으로 남습니다.
 
 첫날 카탈로그에 적용되는 규칙:
 
@@ -345,24 +350,35 @@ materialize하고 런타임/Operator API는 구성된 파일 시스템 경로를
 
 ## 자율 발견 루프 시동
 
-[자율 규칙 발견 루프](../rules-and-detection/rule-catalog-collection-ko.md#autonomous-rule-discovery) 는
-**첫날에 비활성**. 다음 모두 이전에 실행되어선 안 됨:
+[자율 규칙 발견 루프](../rules-and-detection/rule-catalog-collection-ko.md#autonomous-rule-discovery)는
+**첫날에 비활성화됩니다**. `discovery.enabled`는 기본값이 `false`인 감사 가능한 런타임 정책
+설정이고, `discovery.shadow_decision_threshold`는 구성된 최소 결정 수입니다. 이 선호 설정을
+활성화하는 것만으로 루프가 활성화되지는 않습니다. 순수 활성화 집약기는 다음의 최신 근거가 모두
+존재할 때까지 루프를 비활성 상태로 유지합니다.
 
-> 현재 업스트림에는 이 모든 조건을 평가해 루프를 자동 활성화하는 시작 조정기가
-> 없습니다. 아래 조건은 향후 activation 게이트 계약입니다.
-
-1. 감사 로그가 최소 **`N` shadow 결정** 을 축적하여 observe 스테이지에 실제 베이스라인 제공.
-   `N` 은 설정 가능; **TBD** - 낮은 수천대 권장.
+1. 실행 중인 판테온이 최소 **`N` shadow 결정**을 관측하여 관찰 단계에 실제 기준선을
+   제공합니다. `N`은 설정할 수 있으며, 권장값은 아직 결정되지 않았지만 수천 단위가
+   적절합니다. 프로세스를 다시 시작하면 이 보수적인 카운터가 초기화되므로 임계값을 다시
+   관측할 때까지 게이트가 닫힙니다.
 2. 최소 하나의 컬렉터가 성공 실행(배선 + 출처 이력 증명).
 3. Mixed-model 교차 검사 대상과 결정론적 검증기가 건강.
 4. Post-deploy smoke 테스트가 green
    ([operating-and-verification-ko.md](operating-and-verification-ko.md#post-deploy-smoke-테스트-계약)).
 
-활성화되면 루프는 설정된 주기로 실행. 루프의 후보 규칙은 전체 quality 게이트를 통과할 때까지
-inert - 루프는 카탈로그를 직접 변형할 수 없음.
+집약기는 결정, 구성된 임계값, 근거 시각 및 정제된 사유 코드를 포함하는 바이트 안정 보고서 하나를
+기록합니다. 누락되거나 만료되거나 실패한 근거는 구체적인 사유 코드를 만들며 루프를 일부만
+활성화할 수 없습니다. 런타임은 최신 보고서를 로컬에 유지하고, 조정기는 결정, 사유 집합 또는
+구성된 임계값이 바뀌는 의미 있는 전이만 저장하고 감사합니다. 따라서 재생과 재시작에서 활성화
+기록이 중복되지 않습니다.
 
-루프 비활성화는 **정책 토글** ,  코드 변경 아님; 반복되는 재정의 신호는 다음 활성화를 위해
-감사 로그에 계속 축적됨.
+런타임은 이 결정을 Norns의 `RuleCandidate` 게시 경계에만 주입합니다. Norns는 비활성 상태에서도
+범위가 제한된 오프패스 패턴을 계속 축적할 수 있지만, 게이트가 활성화되기 전에는 후보를 Mimir에
+게시할 수 없습니다. 게시 후에도 후보는 기존 품질, 승인, 회귀 및 shadow 우선 승격 게이트가
+수락할 때까지 비활성 상태입니다. 활성화와 정책 비활성화 모두 카탈로그 항목을 편집하거나
+승격하거나 제거하지 않습니다.
+
+루프 비활성화는 코드 변경이 아니라 **정책 토글**입니다. 다음 평가가 게시 게이트를 닫고,
+반복되는 재정의 신호는 이후 활성화를 위해 계속 축적됩니다.
 
 ## 라이프사이클 상태
 

@@ -12,6 +12,7 @@ from typing import Any, cast
 import httpx
 
 from fdai.agents import (
+    Norns,
     PantheonRuntime,
     Saga,
     SemanticRouterConfig,
@@ -50,6 +51,7 @@ from fdai.runtime.case_history import (
     CaseHistoryRetentionTickPublisher,
     build_case_history_runtime,
 )
+from fdai.runtime.discovery_activation import DiscoveryActivationRuntime
 from fdai.runtime.forecast_learning import build_forecast_learning_runtime
 from fdai.runtime.post_turn_review import (
     build_azure_post_turn_models,
@@ -80,6 +82,7 @@ class PantheonInitialization:
     runtime_saga: Saga
     runtime_values: dict[str, object]
     runtime_settings: RuntimeSettingsService
+    discovery_activation: DiscoveryActivationRuntime
     control_loop: ControlLoop
     rule_generation_reconciliation: RuleGenerationReconciliation | None
     rule_generation_binding: RuleGenerationRuntimeBinding
@@ -107,6 +110,7 @@ class PantheonInitializationResult:
     divergence_ledger: ShadowDivergenceLedger | None = None
     case_history_retention_publisher: CaseHistoryRetentionTickPublisher | None = None
     t2_recovery_maintenance: Any = None
+    discovery_activation: DiscoveryActivationRuntime | None = None
 
 
 async def initialize_pantheon(
@@ -420,8 +424,23 @@ async def initialize_pantheon(
         topic=config.stage_topic,
     )
     norns = pantheon_runtime.agents.get("Norns")
+    discovery_activation = None
     if norns is not None:
+        norns_agent = cast(Norns, norns)
         post_turn_review.bind_rule_hints(cast(RuleHintSubmitter, norns))
+        norns_agent.bind_candidate_publication_gate(config.discovery_activation.is_enabled)
+        config.discovery_activation.bind_shadow_decision_count(
+            lambda: sum(pantheon_runtime.shadow_decisions.values())
+        )
+        discovery_report = await config.discovery_activation.evaluate()
+        discovery_activation = config.discovery_activation
+        _LOGGER.info(
+            "discovery_activation_evaluated",
+            extra={
+                "decision": discovery_report.decision.value,
+                "reason_codes": [reason.value for reason in discovery_report.reason_codes],
+            },
+        )
     pantheon_heartbeat = _pantheon_heartbeat(config.environment)
     _LOGGER.info(
         "pantheon_ready",
@@ -440,6 +459,7 @@ async def initialize_pantheon(
         divergence_ledger=divergence_ledger,
         case_history_retention_publisher=case_history_retention_publisher,
         t2_recovery_maintenance=t2_recovery_maintenance,
+        discovery_activation=discovery_activation,
     )
 
 

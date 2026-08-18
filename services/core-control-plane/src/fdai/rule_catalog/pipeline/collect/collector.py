@@ -19,7 +19,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Final
+from typing import Any, Final, Literal, cast
 
 from fdai.rule_catalog.pipeline.collect.fetch import (
     Fetcher,
@@ -34,6 +34,15 @@ from fdai.rule_catalog.schema.source_manifest import (
 )
 
 _SNAPSHOT_MANIFEST: Final[str] = "SNAPSHOT.json"
+_SUCCESS_RECEIPT: Final[str] = "COLLECTION_SUCCESS.json"
+RedistributionValue = Literal["embeddable", "reference-only"]
+
+
+def _redistribution_value(value: object) -> RedistributionValue:
+    raw = str(value)
+    if raw not in {item.value for item in Redistribution}:
+        raise ValueError("collector success redistribution MUST be declared")
+    return cast(RedistributionValue, raw)
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,7 +61,74 @@ class SnapshotReport:
     file_count: int
     parser: str
     license: str
+    redistribution: str
     mismatch: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class CollectorSuccessReceipt:
+    """Validated, replayable evidence that one source collection succeeded."""
+
+    source_id: str
+    resolved_revision: str
+    content_sha256: str
+    license: str
+    redistribution: RedistributionValue
+    verified_rules: int
+    verified_at: datetime
+
+    def __post_init__(self) -> None:
+        if not self.source_id or not self.resolved_revision or not self.license:
+            raise ValueError("collector success provenance fields MUST NOT be empty")
+        if len(self.content_sha256) != 64 or any(
+            character not in "0123456789abcdef" for character in self.content_sha256
+        ):
+            raise ValueError("collector success content_sha256 MUST be lowercase SHA-256")
+        if self.redistribution not in {item.value for item in Redistribution}:
+            raise ValueError("collector success redistribution MUST be declared")
+        if self.verified_rules < 1:
+            raise ValueError("collector success requires at least one verified rule")
+        if self.verified_at.tzinfo is None or self.verified_at.utcoffset() is None:
+            raise ValueError("collector success verified_at MUST be timezone-aware")
+
+    def to_mapping(self) -> dict[str, object]:
+        """Return the stable receipt shape persisted beside the snapshot."""
+        return {
+            "schema_version": "1.0.0",
+            "source_id": self.source_id,
+            "resolved_revision": self.resolved_revision,
+            "content_sha256": self.content_sha256,
+            "license": self.license,
+            "redistribution": self.redistribution,
+            "verified_rules": self.verified_rules,
+            "verified_at": self.verified_at.isoformat(),
+            "schema_validated": True,
+            "provenance_validated": True,
+        }
+
+    @classmethod
+    def from_mapping(cls, value: dict[str, Any]) -> CollectorSuccessReceipt:
+        """Validate a persisted success receipt without trusting its producer."""
+        if value.get("schema_version") != "1.0.0":
+            raise ValueError("collector success schema_version MUST be 1.0.0")
+        if value.get("schema_validated") is not True:
+            raise ValueError("collector success MUST prove schema validation")
+        if value.get("provenance_validated") is not True:
+            raise ValueError("collector success MUST prove provenance validation")
+        try:
+            verified_at = datetime.fromisoformat(str(value["verified_at"]))
+            verified_rules = int(value["verified_rules"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError("collector success receipt is malformed") from exc
+        return cls(
+            source_id=str(value.get("source_id") or ""),
+            resolved_revision=str(value.get("resolved_revision") or ""),
+            content_sha256=str(value.get("content_sha256") or ""),
+            license=str(value.get("license") or ""),
+            redistribution=_redistribution_value(value.get("redistribution") or ""),
+            verified_rules=verified_rules,
+            verified_at=verified_at,
+        )
 
 
 class CollectorPipeline:
@@ -128,6 +204,7 @@ class CollectorPipeline:
                     file_count=file_count,
                     parser=manifest.parser,
                     license=manifest.license,
+                    redistribution=manifest.redistribution.value,
                     mismatch=mismatch,
                 )
 
@@ -147,6 +224,7 @@ class CollectorPipeline:
                 file_count=file_count,
                 parser=manifest.parser,
                 license=manifest.license,
+                redistribution=manifest.redistribution.value,
                 mismatch=None,
             )
 
@@ -236,8 +314,66 @@ def _count_files(root: Path) -> int:
     return sum(1 for _ in _iter_files(root))
 
 
+def record_success_receipt(
+    report: SnapshotReport,
+    *,
+    verified_rules: int,
+    verified_at: datetime | None = None,
+) -> CollectorSuccessReceipt:
+    """Atomically record success after schema and exact provenance validation."""
+    if report.mismatch is not None:
+        raise ValueError("collector hash mismatch cannot produce a success receipt")
+    snapshot_path = report.snapshot_dir / _SNAPSHOT_MANIFEST
+    try:
+        raw = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError("collector snapshot provenance is unavailable") from exc
+    if not isinstance(raw, dict):
+        raise ValueError("collector snapshot provenance MUST be an object")
+    expected = {
+        "source_id": report.source_id,
+        "resolved_revision": report.resolved_revision,
+        "content_sha256": report.content_sha256,
+        "license": report.license,
+        "redistribution": report.redistribution,
+    }
+    if any(raw.get(key) != value for key, value in expected.items()):
+        raise ValueError("collector snapshot provenance does not match the verified report")
+    receipt = CollectorSuccessReceipt(
+        source_id=report.source_id,
+        resolved_revision=report.resolved_revision,
+        content_sha256=report.content_sha256,
+        license=report.license,
+        redistribution=_redistribution_value(report.redistribution),
+        verified_rules=verified_rules,
+        verified_at=verified_at or datetime.now(tz=UTC),
+    )
+    target = report.snapshot_dir / _SUCCESS_RECEIPT
+    temporary = target.with_suffix(".tmp")
+    temporary.write_text(
+        json.dumps(receipt.to_mapping(), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    temporary.replace(target)
+    return receipt
+
+
+def read_success_receipt(path: Path) -> CollectorSuccessReceipt:
+    """Load and validate one persisted collection success receipt."""
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError("collector success receipt is unavailable") from exc
+    if not isinstance(raw, dict):
+        raise ValueError("collector success receipt MUST be an object")
+    return CollectorSuccessReceipt.from_mapping(raw)
+
+
 __all__ = [
+    "CollectorSuccessReceipt",
     "CollectorPipeline",
     "FetchError",
     "SnapshotReport",
+    "read_success_receipt",
+    "record_success_receipt",
 ]

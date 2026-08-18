@@ -186,6 +186,45 @@ async def test_incident_auto_open_settings_accept_audited_override() -> None:
     assert effective["incident.repeat_window_seconds"] == 600
 
 
+async def test_discovery_is_disabled_by_default_and_uses_configured_threshold() -> None:
+    service = RuntimeSettingsService(store=InMemoryStateStore(), env={})
+
+    effective = await service.effective_values()
+
+    assert effective["discovery.enabled"] is False
+    assert effective["discovery.shadow_decision_threshold"] == 1_000
+    assert effective["discovery.collector_freshness_seconds"] == 691_200
+
+
+async def test_discovery_policy_can_be_audited_without_restart() -> None:
+    store = InMemoryStateStore()
+    service = RuntimeSettingsService(store=store, env={})
+
+    await service.update(
+        actor_id="owner-1",
+        changes={
+            "discovery.enabled": True,
+            "discovery.shadow_decision_threshold": 2_000,
+            "discovery.collector_freshness_seconds": 604_800,
+        },
+        expected_revision=0,
+    )
+
+    projection = await service.projection(can_manage=True)
+    assert _setting(projection, "discovery.enabled")["effective_value"] is True
+    assert _setting(projection, "discovery.enabled")["restart_required"] is False
+    assert _setting(projection, "discovery.shadow_decision_threshold")["effective_value"] == 2_000
+    assert len(tuple(store.audit_entries)) == 1
+
+    await service.update(
+        actor_id="owner-2",
+        changes={"discovery.enabled": False},
+        expected_revision=1,
+    )
+    assert (await service.effective_values())["discovery.enabled"] is False
+    assert len(tuple(store.audit_entries)) == 2
+
+
 @pytest.mark.parametrize(
     ("env", "message"),
     [

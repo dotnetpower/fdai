@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 0eb588fa4d900e30530cb4f940413e96a0e8bd1b
-translation_revised: 2026-08-18
+translation_source_sha: 4f019e8100f465f8e23bf13f445fff9ef6503c5d
+translation_revised: 2026-08-19
 ---
 
 # 에이전트 판테온
@@ -11,8 +11,7 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 
 > **범위:** 판테온은 고객-무관이다. 아래에 언급된 모든 에이전트 이름, 객체 타입, 액션 은 범용 이다. 고객별 바인딩은 포크 에서 관리 ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 >
-> **구현 초점:** Azure 가 유일한 구현 타깃이다; 판테온은 [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md)
-> 에 이미 선언된 Kafka wire (Event Hubs `:9093`) 를 사용한다
+> **구현 초점:** Azure 가 유일한 구현 타깃이다; 판테온은 [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md) 에 이미 선언된 Kafka wire (Event Hubs `:9093`) 를 사용한다
 > ([구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must)).
 
 이 문서의 소비자:
@@ -32,7 +31,7 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 고정 레지스트리, 역할 및 패키지 경계 | implemented | [`pantheon.py`](../../../services/core-control-plane/src/fdai/agents/_framework/pantheon.py), [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py) | 고정된 15개 이름, 카탈로그 계층, 소유권 및 공개 패키지 경계를 기계적으로 검사합니다. |
-| 타입이 지정된 pub/sub 소유권 및 동시 실행 런타임 | implemented | [`topics.py`](../../../services/core-control-plane/src/fdai/agents/_framework/topics.py), [`runtime.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime.py), [`runtime_subscriptions.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime_subscriptions.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py), [`test_pantheon_concurrency_proof.py`](../../../services/core-control-plane/tests/agents/test_pantheon_concurrency_proof.py) | 집중 검사는 토픽 소유권, 파티셔닝, 15개 소비자 신원 및 작업을 가로채지 않는 팬아웃을 다룹니다. |
+| 타입이 지정된 pub/sub 소유권 및 동시 실행 런타임 | implemented | [`topics.py`](../../../services/core-control-plane/src/fdai/agents/_framework/topics.py), [`runtime.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime.py), [`runtime_subscriptions.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime_subscriptions.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py), [`test_pantheon_concurrency_proof.py`](../../../services/core-control-plane/tests/agents/test_pantheon_concurrency_proof.py) | 집중 검사는 토픽 소유권, 파티셔닝, 15개 소비자 신원 및 작업을 가로채지 않는 팬아웃을 다룹니다. 런타임 조립은 Norns의 기본적으로 닫힌 후보 게시 상한도 주입합니다. |
 | Mimir Rule 세대 책임 | implemented | [`mimir.py`](../../../services/core-control-plane/src/fdai/agents/mimir.py), [`runtime.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime.py), [`runtime_subscriptions.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime_subscriptions.py), [`test_wave2_governance.py`](../../../services/core-control-plane/tests/agents/test_wave2_governance.py), [`test_runtime.py`](../../../services/core-control-plane/tests/agents/test_runtime.py) | Mimir만 활성화 명령과 최종 결과를 수신합니다. Exact 활성화를 주입된 binder에 위임하고 인덱스, 정책, 승인, 변경 또는 실행 권한 없이 변환 전용 증적을 저장합니다. |
 | Rule 세대 빌드, 검증 및 활성화 체인 | implemented | `mimir.py`; `heimdall.py`; `runtime.py`; `runtime/rule_generation_documents.py`; 집중 worker, 런타임, 활성화 및 bootstrap 검사 | 운영 시작 시 엄격하게 검증한 승격 표면 문서를 고정하고 replay가 동일한 reconciliation 요청을 영속화한 뒤 Mimir와 Heimdall을 통해 전달합니다. Mimir는 정책 또는 실행 권한을 얻지 않고 활성화 명령을 발행하기 전에 정확한 독립 증적을 연결합니다. 통제된 실제 근거는 남아 있습니다. |
 | 판단, 승인, 실행, 감사 및 복구 분리 | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_decision_case_e2e.py`](../../../services/core-control-plane/tests/agents/test_decision_case_e2e.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py) | Forseti는 선택적으로 exact proposal을 기존 Verdict에 해석하고 Thor는 독립 검증 후 이를 보존합니다. 합성 테스트는 역할 경계를 입증하지만 실제 운영 결과를 증명하지는 않습니다. |
@@ -45,6 +44,7 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 이전 제공 이력을 재구성하지 않고 근거 범위를 명시한 구현 원장을 도입했습니다. | 현재 변경 | 검증 완료 또는 enforce 사용을 주장하기 전에 실제 운영 근거를 수집하고 독립적으로 검토된 승격을 완료합니다. |
+| 2026-08-19 | implemented | AgentSpec, 토픽, 소유권, LLM 정책 또는 권한을 바꾸지 않고 Norns의 비활성 후보 게시를 기본적으로 닫힌 발견 활성화 결정에 연결했습니다. 닫힌 게이트는 이후 평가를 위해 범위가 제한된 대기 큐를 보존합니다. | `current change`; 집중 발견 활성화, Norns, 시작 연결, 수집기 및 인프라 검사. | 운영 검증을 주장하기 전에 통제된 수집기 및 활성화 전이 증적을 보존합니다. |
 | 2026-08-13 | implemented | Mimir의 권한을 넓히지 않고 검증된 Rule 세대 명령 유입과 최종 결과 책임을 Mimir에 연결했습니다. | `current change`, 집중 Mimir, 런타임, bootstrap, 활성화 및 발행 검사 32개 통과 | 운영 검증을 주장하기 전에 통제된 실제 활성화 결과 증적을 보존합니다. |
 | 2026-08-13 | implemented | 토픽, 소유권 또는 권한을 변경하지 않고 런타임 모듈의 프레임워크 레이아웃 경계를 복구하도록 비공개 Rule 세대 구독 연결을 추출했습니다. | [`runtime_subscriptions.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime_subscriptions.py), 프레임워크 레이아웃, 런타임 및 판테온 동등성 검사 통과 | 구현 범위에서 요구하는 동일한 통제된 실제 근거를 보존합니다. |
 | 2026-08-13 | in-progress | 활성화 전 빌드 체인을 Mimir에 할당하고 독립 세대 검증을 Heimdall에 할당했으며 두 agent 모두에 활성화 또는 실행 권한을 부여하지 않았습니다. | `current change`; 집중 소유권, handler, 동등성 및 런타임 연결 검사 221개와 exact chain 및 위조/미연결 검사가 통과했습니다. | 운영 카탈로그 reconciliation trigger와 Mimir 소유의 활성화 명령 발행을 추가합니다. |
@@ -169,7 +169,7 @@ margin, 계획 수립 증적 및 temporal 정책은
 ### 3.2 발견 루프 학습기 (Norns)
 
 Norns는 inert `RuleCandidate` 제안의 sole 쓰기 담당으로 유지됩니다. Three-perspective 합의, balanced 집단 한도, pending 큐, Mimir 검토 및 카탈로그 activation 경계는
-[Operational Learning 온톨로지](../rules-and-detection/operational-learning-ontology-ko.md#norns-consensus-및-catalog-boundary)가 소유합니다. 비공개 `norns_deployment_learning.py` 보조 로직은 범위가 제한된 scenario-gap 및 preflight-blocker 집계 상태만 보유합니다. 모든 후보 생성과 publish는 계속 Norns가 합의 및 rate-limit 경계를 통해 수행합니다. Caller-supplied recurring preflight 수동 차단 요인은 scope-deduplicate된 inert `preflight-toggle-gap` 후보가 되며 토글을 만들거나 배포 권한을 변경하지 않습니다. 재현된 Rule 수집 실패는 Huginn-owned 이벤트로 들어옵니다. Heimdall은 exact 실패를 독립적으로 validate하고 `object.retrieval-validation`을 publish하며, Saga는 해당 근거를 감사하고 Muninn은 `object.context-index`로 materialize합니다. Norns는 raw 텍스트, 검증되지 않은 실패, 수집 외 원인 및 exact Rule 버전이 없는 대상을 strict하게 거부합니다. 남은 challenger를 영속하게 기록한 뒤 동일한 합의 및 `object.rule-candidate` 경로를 사용합니다. 영속 싱크가 없으면 이벤트를 폐기하지 않고 backpressure합니다.
+[Operational Learning 온톨로지](../rules-and-detection/operational-learning-ontology-ko.md#norns-consensus-및-catalog-boundary)가 소유합니다. 비공개 `norns_deployment_learning.py` 보조 로직은 범위가 제한된 scenario-gap 및 preflight-blocker 집계 상태만 보유합니다. 모든 후보 생성과 publish는 계속 Norns가 합의 및 rate-limit 경계를 통해 수행합니다. Caller-supplied recurring preflight 수동 차단 요인은 scope-deduplicate된 inert `preflight-toggle-gap` 후보가 되며 토글을 만들거나 배포 권한을 변경하지 않습니다. 재현된 Rule 수집 실패는 Huginn-owned 이벤트로 들어옵니다. Heimdall은 exact 실패를 독립적으로 validate하고 `object.retrieval-validation`을 publish하며, Saga는 해당 근거를 감사하고 Muninn은 `object.context-index`로 materialize합니다. Norns는 raw 텍스트, 검증되지 않은 실패, 수집 외 원인 및 exact Rule 버전이 없는 대상을 strict하게 거부합니다. 남은 challenger를 영속하게 기록한 뒤 동일한 합의 및 `object.rule-candidate` 경로를 사용합니다. 영속 싱크가 없으면 이벤트를 폐기하지 않고 backpressure합니다. 운영 런타임은 이 최종 게시 경계에 기본적으로 닫힌 상한도 주입합니다. 닫힌 게이트는 범위가 제한된 대기 큐와 합의 근거를 보존하고, 열린 게이트도 카탈로그, 승격, 승인 또는 실행 권한을 부여하지 않으며 Mimir와 검토된 catalog-as-code pull request를 다음 경계로 유지합니다.
 
 Shadow dwell은 루프의 마지막 비활성 장벽입니다. Norns는 shadow 모드 감사 결과를 대상별 dwell 관측으로 보존하며(shadow 결과는 여전히 실제 rollback 비율 학습기에 섞이지 않습니다) 산출된 자기 검증 근거를 게시하는 후보에 첨부합니다. Mimir는 그 이벤트 근거에서 판정을 다시 유도하고, 근거가 없거나 일관되지 않거나 대상이 다르거나 임계 미달인 후보의 승격을 거부합니다. 정책 위반 탈출 0건 기준은 설정 항목이 아닙니다. 이는 두 에이전트 어느 쪽에도 권한을 부여하지 않으며, 카탈로그는 여전히 머지된 catalog-as-code PR로만 바뀐니다. [자율 규칙 발견](../rules-and-detection/rule-catalog-autonomous-discovery-ko.md#shadow-dwell-근거상류-구현)을 참고하세요.
 ## 4. 에이전트 카탈로그
