@@ -1,24 +1,40 @@
 ---
 translation_of: ontology-query-randomized-assurance.md
-translation_source_sha: 9b0f8b43349e4154114de3e4b23fcf6372469d05
+translation_source_sha: f1a944783da9375e136d6f15776651f5a7dc9640
 translation_revised: 2026-08-18
 ---
 # 온톨로지 쿼리 무작위 보증
 
-이 기준선은 인증된 FDAI Console이 독립적으로 생성된 영어 및 한국어 온톨로지 질문
-100개를 처리하는 방식을 측정합니다. 의도 인식과 답변 성공을 구분하고, 구문 규칙,
-질문별 별칭 또는 고정 답변 템플릿을 추가하지 않고 수행한 30회 비평 및 조치 라운드를
-기록합니다.
+이 문서는 영어 및 한국어 온톨로지 질문 100개에 대한 2026-08-11 역사적 채점 기준선과
+2026-08-18 통제된 live 인증을 보존합니다. 현재 인증은 구문 규칙, 질문별 별칭 또는 고정
+답변 템플릿을 추가하지 않고 검증된 의미 런타임을 측정합니다.
 
-> **릴리스 결정:** 차단됨. 측정한 Console 경로는 요청한 작업을 이해했지만 검증된 의미
-> 쿼리 런타임을 호출하지 않았습니다. 새 실행에 정확한 의미 계획, 실행 영수증 및 근거
-> 참조가 포함될 때까지 프로덕션 완료 주장은 차단됩니다.
+> **릴리스 결정:** 검증됨. 중앙 검증된 source
+> `a38922762ed805794b11bb9c6aaef43916f6f6c4`가 strict 14/14와 seeded 100/100 변경 불가능
+> gate를 exact transport, 모든 answered turn의 완전한 근거, capability mismatch 0건,
+> unsupported operational claim 0건 및 unauthorized execution 0건으로 통과했습니다.
 >
-> **근거 경계:** 커밋한 아티팩트에는 일반적인 질문, 점수 및 삭제 처리된 측정값만
-> 포함됩니다. 측정 환경의 리소스 식별자, 원시 화면 스냅샷, 토큰, 엔드포인트 또는 전체
-> 모델 응답은 포함하지 않습니다.
+> **근거 경계:** 현재 커밋한 아티팩트는 통과한 live artifact를 repository-safe하게
+> 변환한 결과입니다. 통제된 digest, typed result, evidence count 및 hash된 request와
+> projection identity를 보존하지만 환경 UUID, 원시 provider payload, token, endpoint,
+> screenshot 또는 전체 model response는 포함하지 않습니다.
 
-## 설계 개요
+## 현재 통제 결과
+
+| 측정 항목 | 결과 |
+|-----------|------|
+| 엄격한 이중 언어 gate | 완전한 근거가 있는 답변 14/14 |
+| Seeded typed judgment | 100/100 통과 |
+| 근거가 완전한 답변 | Answered turn 85/85 |
+| 통제된 non-answer disposition | Action draft 9개, clarification 6개 |
+| Exact request 및 projection transport | 각각 100/100 |
+| Plan-capability mismatch | 0 |
+| Unsupported operational claim | 0 |
+| Unauthorized execution | 0 |
+| Ambient 또는 incident-bound request | 0 |
+| Production ready | `true` |
+
+## 역사적 설계 개요
 
 이 실행은 도구를 비활성화한 모델로 균형 잡힌 질문 집합을 생성하고 수정한 다음, 실제
 Console Command Deck을 통해 모든 질문을 제출하고 최종 assistant 카드를 기다렸습니다.
@@ -34,7 +50,7 @@ flowchart LR
     R --> D[릴리스 결정 및 조치 원장]
 ```
 
-## 방법
+## 역사적 방법
 
 - **질문 집합:** 고유 질문 100개이며 영어 50개와 한국어 50개입니다.
 - **생성:** 도구 비활성화 모델이 질문 집합을 생성했습니다. 두 번째 모델 통과에서 잘못된
@@ -54,7 +70,7 @@ flowchart LR
 - **안전:** 제품에 답변 텍스트, 구문 별칭, 정규식 경로 또는 예상 응답 문장을 추가하지
   않았습니다.
 
-## 결과
+## 역사적 2026-08-11 결과
 
 | 측정 항목 | 결과 |
 |-----------|------|
@@ -177,7 +193,12 @@ Core
 
 ## 근거 아티팩트
 
-기계 판독 기준선은
+현재 통제된 기준선은
+[`ontology-query-randomized-assurance-2026-08-18.json`](../../baselines/ontology-query-randomized-assurance-2026-08-18.json)입니다.
+통과한 source revision, 구성, 인증 증명, exact transport count와 topic digest, typed result
+100개 및 hash된 request와 projection identity를 결속합니다.
+
+역사적 채점 기준선은
 [`ontology-query-randomized-assurance-2026-08-11.json`](../../baselines/ontology-query-randomized-assurance-2026-08-11.json)입니다.
 일반 질문 100개, 의도한 작업, 예상 및 관찰 처리 결과, 질문별 의도와 답변 점수, 지연
 시간, 실패 범주, 집계 성공률 및 30회 라운드 원장을 포함합니다.
@@ -188,12 +209,13 @@ Core
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 2026-08-18 통제 무작위 기준선 | validated | [`ontology-query-randomized-assurance-2026-08-18.json`](../../baselines/ontology-query-randomized-assurance-2026-08-18.json) | 중앙 검증된 source `a38922762ed805794b11bb9c6aaef43916f6f6c4`의 통과한 full live artifact를 repository-safe하게 변환했습니다. Strict는 14/14, seeded는 exact transport와 safety counter 0건을 유지하며 100/100을 통과했습니다. |
 | 2026-08-11 무작위 기준선 | in-progress | [`ontology-query-randomized-assurance-2026-08-11.json`](../../baselines/ontology-query-randomized-assurance-2026-08-11.json) | 아티팩트는 역사적인 채점 측정값과 차단된 릴리스 결정을 보존하지만 통제된 런타임 증적은 아닙니다. 소스 리비전, 구성 다이제스트, 인증 증명, 정확한 요청 및 응답 증적 참조가 없습니다. |
 | 독립 semantic-turn bridge | implemented | [`composition.py`](../../../services/operator-service/src/fdai_operator_service/composition.py), [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`test_semantic_turn_bridge.py`](../../../services/operator-service/tests/test_semantic_turn_bridge.py) | 운영 composition은 Core 구현을 가져오지 않고 durable event-bus bridge를 바인딩할 수 있습니다. |
-| Authoritative 프로바이더 및 증적 종료 | in-progress | 이 문서의 진행 중 라운드와 다음 실행 종료 조건 | Bridge 구성만으로는 모든 작업 집합이 authoritative 프로바이더에 도달하고 exact release, 계획, 근거 참조를 반환했음을 입증하지 않습니다. |
+| Authoritative 프로바이더 및 증적 종료 | validated | 2026-08-18 통제 기준선과 exact full-gate 요약 | 모든 typed judgment가 통과했습니다. Answered turn은 exact release, principal manifest, verified plan, execution receipt 및 evidence reference를 보존하고 통제된 non-answer disposition은 명시적으로 유지합니다. |
 | 격리 보증 child 감독 | implemented | [`run_ontology_assurance.py`](../../../scripts/automation/run_ontology_assurance.py), [`ontology_assurance_supervisor.py`](../../../scripts/automation/ontology_assurance_supervisor.py), [`test_ontology_assurance_supervisor.py`](../../../tests/integration/scripts/test_ontology_assurance_supervisor.py) | 소스에 바인딩된 runner가 전용 Core, Operator, Console 및 Playwright 프로세스 그룹과 실행 범위의 영속 semantic outbox 네임스페이스를 소유합니다. 필수 child가 종료되면 측정 단계를 즉시 중지하고 소스 리비전, PID, 프로세스 그룹, 종료 코드 또는 신호 및 종료 사유를 원자적으로 보존합니다. 이는 runner 메커니즘과 요청 격리를 입증하지만 엄격한 질문 집합 통과를 입증하지는 않습니다. |
-| 리포지토리에 안전한 통제 기준선 변환 | implemented | [`project_ontology_assurance_baseline.py`](../../../scripts/automation/project_ontology_assurance_baseline.py)와 [`test_project_ontology_assurance_baseline.py`](../../../tests/integration/scripts/test_project_ontology_assurance_baseline.py) | 변환기는 현재 변경 불가능한 전체 gate를 통과한 아티팩트만 허용합니다. 원본 아티팩트 digest를 결속하고 정확한 요청 및 변환 결과 신원을 hash해 보존 기준선에 환경 UUID 또는 원시 프로바이더 payload가 들어가지 않게 합니다. 아직 통과한 전체 아티팩트를 변환하지는 않았습니다. |
-| 현재 무작위 릴리스 인증 | in-progress | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 2026-08-11 기준선을 대체하는 새로운 보존된 100개 질문 아티팩트가 없습니다. | 소스 `946a0c8291129e3ea2423ce42c7b49e096eeb239`의 최신 엄격한 실행은 실행 범위의 outbox 네임스페이스 하나에서 live cell 14개와 재개 cell 0개를 보존했습니다. 쿼리 판정 14개가 모두 통과했고 재시도는 0건이었지만 답변이 필요한 cell 중 6개만 근거가 완전한 답변을 반환했습니다. 6개는 제한된 T1 및 T2 계획 검증이 실패한 뒤 타입이 지정된 미지원 결과를 반환했고, 인과 cell 2개는 구성된 authoritative 메트릭 프로바이더에 검토된 개념의 완전한 근거가 없어 보류했습니다. seed 기반 100-case 검사는 시작하지 않았습니다. |
+| 리포지토리에 안전한 통제 기준선 변환 | validated | [`project_ontology_assurance_baseline.py`](../../../scripts/automation/project_ontology_assurance_baseline.py), [`test_project_ontology_assurance_baseline.py`](../../../tests/integration/scripts/test_project_ontology_assurance_baseline.py) 및 2026-08-18 기준선 | 변환기가 전체 변경 불가능 gate를 다시 검사하고 원본 artifact digest를 결속하며 exact request 및 projection identity를 hash했습니다. 보존 기준선에는 환경 UUID 또는 원시 provider payload가 없습니다. |
+| 현재 무작위 릴리스 인증 | validated | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-a38922762e-20260818T034940Z`, 2026-08-18 통제 기준선 | Strict는 근거가 완전한 답변 14/14를 보존했습니다. Seeded는 live 100개, resumed 0개 및 passing typed judgment 100개와 함께 근거가 완전한 답변 85개, 통제된 action draft 9개, clarification 6개, exact request 및 projection transport 100/100 및 safety counter 0건을 보존했습니다. |
 
 ### 구현 이력
 
@@ -235,16 +257,17 @@ Core
 | 2026-08-18 | in-progress | 중앙 검증된 source `80962e748948684248cd04683e527db0fedaa985`의 frame-v17 실행 두 개는 저장된 Browser Entra token request timeout으로 Console access에 실패해 질문 0개와 semantic artifact 없음으로 끝났습니다. 인증 값을 노출하지 않고 loopback capture 계약을 통해 owner-only storage state를 갱신했습니다. 인증된 strict 재실행은 14개 cell을 모두 완료했지만 `ko-relationship_traversal-4`가 current inventory containment에 schema relationship을 선택해 capability judgment 한 개가 실패했습니다. Seeded는 시작하지 않았고 artifact는 승격하지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 인증된 실행 `issue63-80962e7489-20260818T025610Z` | Frame prompt v18을 중앙 검증한 뒤 strict를 다시 실행하고 strict가 통과한 경우에만 seeded를 허용합니다. |
 | 2026-08-18 | in-progress | 중앙 검증된 frame-v18 source `ffced363b1deb3fdd5bda7a535ac205bf543a751`에서 strict를 한 번 실행했습니다. 14개 cell 모두 exact transport와 capability mismatch 0건을 유지한 safe typed judgment였지만 `en-causal_analysis-1`은 완전한 visible-resource causal scope를 사용하지 않고 clarification을 요청했습니다. Immutable answered 14/14 gate가 실패해 seeded는 시작하지 않았고 artifact는 승격하지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-ffced363b1-20260818T030548Z` | Frame prompt v19를 중앙 검증한 뒤 strict를 다시 실행하고 strict가 통과한 경우에만 seeded를 허용합니다. |
 | 2026-08-18 | in-progress | 중앙 검증된 frame-v19 source `49e0e54635a30bf05f7d1a119df3d6e7216a8277`에서 repository strict-to-seeded 절차를 한 번 실행했습니다. Strict는 exact transport와 safety 또는 capability mismatch 0건을 유지하며 complete-evidence answer 14/14를 보존했습니다. Seeded는 safety 또는 unauthorized execution failure 없이 live turn 100개를 완료하고 typed judgment 99개를 통과했습니다. `ko-relationship_traversal-5`만 다른 ontology object로 routing되는 runtime resource에 declaration manifest를 선택했습니다. Failed artifact 또는 baseline은 승격하지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-49e0e54635-20260818T031435Z` | Frame prompt v20을 중앙 검증한 뒤 strict를 다시 실행하고 strict가 통과한 경우에만 seeded를 허용합니다. |
+| 2026-08-18 | validated | 중앙 검증된 frame-v20 source `a38922762ed805794b11bb9c6aaef43916f6f6c4`에서 통제된 strict-to-seeded 절차를 완료했습니다. Strict는 complete evidence와 exact transport를 유지하며 14/14를 통과했습니다. Seeded는 evidence-complete answer 85개, action draft 9개, clarification 6개, exact request 및 projection transport 100/100, capability mismatch 0건, unsupported operational claim 0건, unauthorized execution 0건 및 `production_ready=true`를 유지하며 live typed judgment 100개를 모두 통과했습니다. 통과한 raw artifact를 repository-safe 2026-08-18 기준선으로 변환했습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-a38922762e-20260818T034940Z`, 위에 연결된 committed 통제 기준선 | 무작위 보증 릴리스 blocker가 남아 있지 않습니다. 원시 local artifact를 보존하고 최신 integration source에서 baseline commit을 검증합니다. |
 
 ### 남은 작업
 
-- [ ] 필수 작업 및 언어 조합의 모든 cell이 완전하게 검증된 근거가 있는 답변을 포함하는
+- [x] 필수 작업 및 언어 조합의 모든 cell이 완전하게 검증된 근거가 있는 답변을 포함하는
   통과한 엄격한 영문 및 한국어 14-cell 아티팩트 하나를 보존한 뒤 100-case 실행을 시작합니다.
-- [ ] 소스 리비전, 구성 다이제스트, 인증된 실행 증명, 정확한 요청 및 응답 증적 참조를
+- [x] 소스 리비전, 구성 다이제스트, 인증된 실행 증명, 정확한 요청 및 응답 증적 참조를
   측정한 모든 턴에 연결하는 통제된 무작위 실행 아티팩트를 보존합니다.
-- [ ] 각 작업 집합을 authoritative 프로바이더에 대해 실행하고 exact 온톨로지 release, principal manifest, 검증된 계획, 근거 참조 또는 타입이 지정된 unavailable 처리 결과로 입증합니다.
-- [ ] 인증된 운영 composition을 통해 bilingual 100개 질문 절차를 재생성하고 기계 판독 결과를 보존합니다.
-- [ ] 재생성한 아티팩트가 지원되지 않는 운영 주장 0건과 권한 없는 실행 0건을 유지하며 다음 실행 종료 조건을 모두 충족한 뒤에만 릴리스 결정을 변경합니다.
+- [x] 각 작업 집합을 authoritative 프로바이더에 대해 실행하고 exact 온톨로지 release, principal manifest, 검증된 계획, 근거 참조 또는 타입이 지정된 unavailable 처리 결과로 입증합니다.
+- [x] 인증된 운영 composition을 통해 bilingual 100개 질문 절차를 재생성하고 기계 판독 결과를 보존합니다.
+- [x] 재생성한 아티팩트가 지원되지 않는 운영 주장 0건과 권한 없는 실행 0건을 유지하며 다음 실행 종료 조건을 모두 충족한 뒤에만 릴리스 결정을 변경합니다.
 
 ## 완료 하드닝 비평
 
