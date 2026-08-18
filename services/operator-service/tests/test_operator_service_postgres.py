@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
 
+import psycopg
 import pytest
 from fdai_operator_service.families.iam.contracts import (
     AccessGrantDecisionCommand,
@@ -1381,10 +1382,13 @@ async def test_failed_projection_query_records_its_cause_before_reporting_unavai
     )
 
     with caplog.at_level(logging.WARNING, logger="fdai_operator_service.postgres"):
-        with pytest.raises(ProjectionUnavailableError):
+        with pytest.raises(ProjectionUnavailableError) as raised:
             await model._fetch_all(INCIDENT_PAGE_SQL, {"search": "operator utterance"})
 
     record = next(r for r in caplog.records if r.message == "operator_projection_query_failed")
     assert record.statement == "INCIDENT_PAGE_SQL"  # type: ignore[attr-defined]
-    assert record.error_class == "ConnectionTimeout"  # type: ignore[attr-defined]
+    # The recorded class names the real cause; which psycopg error a refused
+    # connection raises differs between environments.
+    assert record.error_class == type(raised.value.__cause__).__name__  # type: ignore[attr-defined]
+    assert isinstance(raised.value.__cause__, psycopg.Error)
     assert "operator utterance" not in caplog.text
