@@ -1515,7 +1515,9 @@ def test_general_query_presentation_projects_verified_rows() -> None:
     blocks = cast(list[dict[str, object]], artifact["blocks"])
     assert [block["slot_id"] for block in blocks] == ["overview", "records", "limitations"]
     overview = cast(dict[str, object], blocks[0]["data"])
-    assert overview["items"] == [{"label": "resources", "value": "2 of 7 rows", "tone": "neutral"}]
+    assert overview["items"] == [
+        {"label": "Verified rows", "value": "2 of 7 rows", "tone": "neutral"}
+    ]
     records = cast(dict[str, object], blocks[1]["data"])
     assert records["columns"] == [
         {"key": "c0", "label": "resource.name"},
@@ -1677,7 +1679,9 @@ def test_general_query_presentation_without_rows_stays_a_summary() -> None:
     blocks = cast(list[dict[str, object]], artifact["blocks"])
     assert [block["slot_id"] for block in blocks] == ["overview"]
     overview = cast(dict[str, object], blocks[0]["data"])
-    assert overview["items"] == [{"label": "graph", "value": "topology.graph", "tone": "neutral"}]
+    assert overview["items"] == [
+        {"label": "Verified projection", "value": "topology.graph", "tone": "neutral"}
+    ]
 
 
 def test_legacy_semantic_result_without_answer_replays_as_unverified_limitation() -> None:

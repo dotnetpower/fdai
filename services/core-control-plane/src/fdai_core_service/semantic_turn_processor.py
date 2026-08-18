@@ -1657,34 +1657,39 @@ def _render_general_query_answer(
     request: SemanticTurnRequest,
     outputs: list[dict[str, object]],
 ) -> str:
+    """Report what was verified without naming the plan that produced it.
+
+    A plan node id and the words that describe the query engine are internal
+    vocabulary. The operator asked a question, so the answer states what the
+    result contains and leaves the machinery in technical details.
+    """
     korean = request.locale.casefold().startswith("ko")
-    lines = ["## 검증된 온톨로지 쿼리" if korean else "## Verified ontology query", ""]
+    lines = ["## 검증된 결과" if korean else "## Verified result", ""]
     for output in outputs:
-        node_id = output.get("node_id")
         rule_search = output.get("rule_search")
         if isinstance(rule_search, Mapping):
             candidates = rule_search.get("candidates")
             count = len(candidates) if isinstance(candidates, list) else 0
             lines.append(
-                f"- `{node_id}`: 규칙 후보 {count}건을 검증했습니다."
+                f"- 규칙 후보 {count}건을 검증했습니다."
                 if korean
-                else f"- `{node_id}`: verified {count} rule candidates."
+                else f"- Verified {count} rule candidates."
             )
             continue
         result_kind = output.get("result_kind")
         if isinstance(result_kind, str):
             lines.append(
-                f"- `{node_id}`: `{result_kind}` 결과를 검증했습니다."
+                f"- `{result_kind}` 결과를 검증했습니다."
                 if korean
-                else f"- `{node_id}`: verified a `{result_kind}` result."
+                else f"- Verified a `{result_kind}` result."
             )
             continue
         returned = output.get("returned_rows")
         total = output.get("total_rows")
         lines.append(
-            f"- `{node_id}`: 전체 {total}개 행 중 {returned}개를 검증했습니다."
+            f"- 전체 {total}개 행 중 {returned}개를 검증했습니다."
             if korean
-            else f"- `{node_id}`: verified {returned} of {total} rows."
+            else f"- Verified {returned} of {total} rows."
         )
     lines.extend(
         [
@@ -1818,20 +1823,20 @@ def _answer_json(outputs: list[dict[str, object]]) -> str:
 
 def _terminal_answer(locale: str, disposition: str, reason_code: str) -> str:
     messages = {
-        "answered": "The ontology query completed.",
-        "held": "The ontology query was held because verified evidence is unavailable.",
-        "clarification": "The ontology query needs clarification before it can run.",
-        "unsupported": "The requested ontology query is unsupported.",
+        "answered": "The verified result is ready.",
+        "held": "The request was held because verified evidence is unavailable.",
+        "clarification": "The request needs clarification before it can run.",
+        "unsupported": "The request is not supported by a verified capability.",
         "action_draft": "The request produced a review-only action draft.",
-        "cancelled": "The ontology query was cancelled.",
+        "cancelled": "The request was cancelled.",
     }
     korean = {
-        "answered": "온톨로지 쿼리가 완료되었습니다.",
-        "held": "검증된 근거를 사용할 수 없어 온톨로지 쿼리를 보류했습니다.",
-        "clarification": "온톨로지 쿼리를 실행하려면 추가 확인이 필요합니다.",
-        "unsupported": "요청한 온톨로지 쿼리는 지원되지 않습니다.",
+        "answered": "검증된 결과를 준비했습니다.",
+        "held": "검증된 근거를 사용할 수 없어 요청을 보류했습니다.",
+        "clarification": "요청을 수행하려면 추가 확인이 필요합니다.",
+        "unsupported": "검증된 기능으로 답할 수 없는 요청입니다.",
         "action_draft": "요청을 검토 전용 작업 초안으로 만들었습니다.",
-        "cancelled": "온톨로지 쿼리가 취소되었습니다.",
+        "cancelled": "요청이 취소되었습니다.",
     }
     selected = korean if locale.casefold().startswith("ko") else messages
     return f"{selected.get(disposition, selected['held'])} ({reason_code})"
