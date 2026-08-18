@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 973c8d418ba6b22c40128c66b191db0a568d971c
+translation_source_sha: 22942c4f969bcbf1ec61835a08c4a0033b4688e3
 translation_revised: 2026-08-19
 ---
 
@@ -88,6 +88,8 @@ translation_revised: 2026-08-19
   소비자 조립이 없으면 in-memory 대체품을 만들지 않고 명시적으로 건너뜁니다.
 - 별도 검토된 승격이 enforce를 활성화하기 전까지 Thor는 `enforce=False`를 유지합니다. Enforce
   조립에는 영속 Saga 감사 바인딩과 진행 중 ActionRun의 영속 저장소가 필요합니다.
+- Vertical 간 중재에서는 헌법의 hard constraint가 부적격 선택지를 먼저 제거한 다음 Odin이
+  남은 soft objective의 순위를 결정합니다.
 
 ### 구성 및 관측 경계
 

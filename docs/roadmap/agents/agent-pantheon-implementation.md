@@ -87,6 +87,8 @@ review, and no workflow reaches enforcement during this wave.
   consumer composition causes an explicit skip rather than an in-memory substitute.
 - Thor remains `enforce=False` unless a separately reviewed promotion enables enforcement. Enforce
   composition requires a durable Saga audit binding and durable in-flight ActionRun storage.
+- During cross-vertical arbitration, constitutional hard constraints remove ineligible options
+  before Odin ranks the remaining soft objectives.
 
 ### Configurable and observable seams
 
