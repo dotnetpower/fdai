@@ -10,6 +10,11 @@ and no check would fail.
 This gate fails when the environment variable is read, or a venue literal is compared,
 anywhere under the core-control-plane source tree except the contract module itself.
 
+Its detection is textual and therefore deliberately narrow: it catches the two shapes that
+actually existed before the contract (an environment read and an equality comparison). A
+sufficiently indirect reintroduction can evade it, which is why the contract also exposes
+the only supported entry points rather than relying on this gate alone.
+
 Exit codes: 0 clean, 1 on any violation.
 """
 

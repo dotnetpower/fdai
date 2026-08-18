@@ -28,8 +28,7 @@
     "guard": {
       "should_execute": true,
       "should_rollback": false,
-      "should_trigger_policy_violation": false,
-      "expected_mttr_s_max": 60
+      "should_trigger_policy_violation": false
     }
   }
 }

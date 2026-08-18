@@ -83,6 +83,13 @@ def load_promotion_gate_bounds(registry: SchemaRegistry | None = None) -> Mappin
     for field_name, raw in declared.items():
         if not isinstance(raw, Mapping):
             continue
+        semantic_id = f"{PROMOTION_GATE_PREFIX}.{field_name}"
+        if "exclusiveMinimum" in raw or "exclusiveMaximum" in raw:
+            # Silently skipping an exclusive bound would report the field as unbounded, which
+            # is the failure mode this module exists to prevent.
+            raise ValueError(
+                f"{semantic_id} declares an exclusive bound, which this loader does not model"
+            )
         minimum = _decimal(raw.get("minimum"))
         maximum = _decimal(raw.get("maximum"))
         if minimum is None and maximum is None:
@@ -90,7 +97,6 @@ def load_promotion_gate_bounds(registry: SchemaRegistry | None = None) -> Mappin
         declared_type = raw.get("type")
         if declared_type not in tuple(BoundValueType):
             continue
-        semantic_id = f"{PROMOTION_GATE_PREFIX}.{field_name}"
         bounds[semantic_id] = HardBound(
             semantic_id=semantic_id,
             value_type=BoundValueType(declared_type),

@@ -46,6 +46,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 from collections.abc import Mapping
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
@@ -62,7 +63,6 @@ from fdai.core.executor.renderer import (
 from fdai.core.executor.safeguards import (
     SafeguardRefusal,
     evaluate_pre_dispatch,
-    execution_fingerprint,
     idempotency_lock_key,
     missing_safety_invariant,
     plan_digest_for_mapping,
@@ -548,12 +548,38 @@ def _missing_safety_invariant(action: Action) -> str | None:
 
 
 def _execution_fingerprint(*, action: Action, rule: Rule) -> str:
-    """Return the PR-path execution fingerprint, including the citing rule identity."""
+    """Return the durable idempotency fingerprint for one action and rule.
 
-    return _sha256_text(
-        execution_fingerprint(action=action, execution_path=ExecutionPath.PR_NATIVE)
-        + f"|{rule.id}@{rule.version}"
-    )
+    This value is persisted in the audit context and compared on redelivery, so its exact
+    formula is a compatibility surface: changing it turns a legitimate retry against a
+    pre-existing record into an audited idempotency conflict. It therefore stays independent
+    of the shared safeguard helpers.
+    """
+
+    payload = {
+        "action_id": str(action.action_id),
+        "event_id": str(action.event_id),
+        "action_type": action.action_type,
+        "target_resource_ref": action.target_resource_ref,
+        "operation": action.operation.value,
+        "params": dict(action.params),
+        "stop_condition": action.stop_condition,
+        "rollback": {
+            "kind": action.rollback_ref.kind.value,
+            "reference": action.rollback_ref.reference,
+        },
+        "blast_radius": {
+            "scope": action.blast_radius.scope.value,
+            "count": action.blast_radius.count,
+            "rate_per_minute": action.blast_radius.rate_per_minute,
+        },
+        "mode": action.mode.value,
+        "executor_identity_ref": action.executor_identity_ref,
+        "citing_rules": sorted(action.citing_rules),
+        "rule": {"id": rule.id, "version": rule.version},
+    }
+    canonical = json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def _pr_plan_digest(*, rule: Rule, patch: str) -> str:

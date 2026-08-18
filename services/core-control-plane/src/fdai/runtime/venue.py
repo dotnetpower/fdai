@@ -81,8 +81,13 @@ VENUE_CAPABILITIES: Mapping[VenueCapability, Mapping[ExecutionVenue, str]] = Map
 )
 
 
-class ExecutionVenueError(RuntimeError):
-    """Raised when the configured venue is absent or not a declared value."""
+class ExecutionVenueError(RuntimeError, ValueError):
+    """Raised when the configured venue is absent or not a declared value.
+
+    It inherits both bases because the call sites this contract replaced raised
+    ``RuntimeError`` in one place and ``ValueError`` in another; a caller that caught either
+    keeps working.
+    """
 
 
 def resolve_execution_venue(env: Mapping[str, str] | None = None) -> ExecutionVenue:

@@ -12,9 +12,9 @@ from uuid import UUID
 
 import pytest
 from fdai.core.executor.safeguards import (
-    AUDIT_INTENT,
     BLAST_RADIUS,
     DRY_RUN_RECEIPT,
+    EVIDENCE_CITATION,
     IDEMPOTENCY_KEY,
     REQUIRED_SAFEGUARDS,
     ROLLBACK,
@@ -102,7 +102,7 @@ def test_a_complete_action_receives_a_receipt_on_every_path(path: ExecutionPath)
         ({"stop_condition": "   "}, PLAN_DIGEST, STOP_CONDITION),
         ({"rollback_ref": _BAD_ROLLBACK}, PLAN_DIGEST, ROLLBACK),
         ({"blast_radius": None}, PLAN_DIGEST, BLAST_RADIUS),
-        ({"citing_rules": []}, PLAN_DIGEST, AUDIT_INTENT),
+        ({"citing_rules": []}, PLAN_DIGEST, EVIDENCE_CITATION),
         ({"idempotency_key": "  "}, PLAN_DIGEST, IDEMPOTENCY_KEY),
         ({"target_resource_ref": ""}, PLAN_DIGEST, TARGET_LOCK),
         ({}, "   ", DRY_RUN_RECEIPT),

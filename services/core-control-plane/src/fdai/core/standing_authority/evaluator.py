@@ -31,7 +31,9 @@ from fdai.core.standing_authority.record import (
 
 #: How long a responder confirmation stays current. Beyond this the delegation suspends
 #: until the responders confirm again, because an unconfirmed rotation means no human has
-#: accepted the page this delegation depends on.
+#: accepted the page this delegation depends on. This is a hard safety bound, not a governed
+#: threshold: FDAI-CONST-004 keeps hard bounds non-adaptive, so it is deliberately not
+#: configurable and is not registered in the adaptive-threshold table.
 RESPONDER_CONFIRMATION_MAX_AGE = timedelta(days=30)
 
 

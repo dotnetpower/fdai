@@ -383,7 +383,12 @@ def test_the_evaluator_is_not_wired_into_any_decision_path() -> None:
     guarded = ("risk_gate", "executor", "hil_resume", "control_loop")
     offenders: list[str] = []
     for subsystem in guarded:
-        for path in sorted((SOURCE_ROOT / "core" / subsystem).rglob("*.py")):
+        subsystem_root = SOURCE_ROOT / "core" / subsystem
+        # Non-vacuity: a renamed subsystem would make rglob silently scan nothing.
+        assert subsystem_root.is_dir(), f"guarded subsystem {subsystem!r} no longer exists"
+        modules = sorted(subsystem_root.rglob("*.py"))
+        assert modules, f"guarded subsystem {subsystem!r} has no modules to scan"
+        for path in modules:
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
             for node in ast.walk(tree):
                 if isinstance(node, ast.ImportFrom) and (node.module or "").startswith(

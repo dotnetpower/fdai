@@ -122,6 +122,26 @@ def test_an_unregistered_semantic_id_is_an_error_not_a_pass() -> None:
         check_within_bounds("promotion_gate.not_declared", 1, BOUNDS)
 
 
+def test_an_exclusive_bound_fails_closed_instead_of_reading_as_unbounded() -> None:
+    class _ExclusiveRegistry:
+        def get(self, name: str, version: str | None = None) -> dict[str, Any]:  # noqa: ARG002
+            return {
+                "properties": {
+                    "promotion_gate": {
+                        "properties": {
+                            "min_samples": {"type": "integer", "exclusiveMinimum": 0},
+                        }
+                    }
+                }
+            }
+
+        def names(self) -> list[str]:  # pragma: no cover - unused by the loader
+            return ["ontology/action-type"]
+
+    with pytest.raises(ValueError, match="exclusive bound"):
+        load_promotion_gate_bounds(_ExclusiveRegistry())
+
+
 def test_bounds_are_loaded_from_the_shipped_contract() -> None:
     assert BOUNDS["promotion_gate.min_accuracy"].source_ref.startswith(
         f"{ACTION_TYPE_SCHEMA[0]}@{ACTION_TYPE_SCHEMA[1]}"

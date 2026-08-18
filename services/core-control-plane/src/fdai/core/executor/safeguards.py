@@ -42,6 +42,11 @@ TARGET_LOCK = "target_lock"
 IDEMPOTENCY_KEY = "idempotency_key"
 AUDIT_INTENT = "audit_intent"
 
+#: Not one of the seven. An action with no citing rule has no evidence to audit, so it is
+#: refused before dispatch, but attributing that refusal to a safeguard would misreport
+#: which constitutional guarantee failed.
+EVIDENCE_CITATION = "evidence_citation"
+
 #: The seven safeguard ids, in constitutional order.
 SEVEN_SAFEGUARDS: tuple[str, ...] = (
     STOP_CONDITION,
@@ -223,7 +228,7 @@ def _invariant_safeguard(reason: str) -> str:
         return ROLLBACK
     if "blast_radius" in reason:
         return BLAST_RADIUS
-    return AUDIT_INTENT
+    return EVIDENCE_CITATION
 
 
 def _sha256(payload: Mapping[str, object]) -> str:
@@ -235,6 +240,7 @@ __all__ = [
     "AUDIT_INTENT",
     "BLAST_RADIUS",
     "DRY_RUN_RECEIPT",
+    "EVIDENCE_CITATION",
     "IDEMPOTENCY_KEY",
     "REQUIRED_SAFEGUARDS",
     "ROLLBACK",
