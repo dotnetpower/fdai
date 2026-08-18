@@ -386,8 +386,11 @@ def test_successful_plan_logs_only_stage_progress(caplog) -> None:
         for record in caplog.records
         if record.message == "semantic_planning_stage_completed" and record.stage == "plan_verify"
     )
-    assert verify.plan_nodes == "object_set"
+    assert verify.plan_nodes == "object_set[Resource;id equals]"
     assert "Show matching resources" not in caplog.text
+    # A predicate operand can carry a tenant identifier, so the shape names the
+    # filtered property and its operator and never the value it compares.
+    assert "resource-a" not in caplog.text
 
 
 def test_plan_node_summary_names_selected_functions() -> None:

@@ -47,6 +47,20 @@ def resource_type_value_domains(
         for group in registry.query_groups
         if set(group.members) <= declared
     )
+    # One single-value group per type that declares its own request terms. A
+    # category group answers "storage resources" but nothing maps the words an
+    # operator actually types for one subtype, so a planner that may not invent
+    # an operand falls back to an existence predicate and selects everything.
+    group_ids = {group.id for group in groups}
+    groups.extend(
+        PropertyValueGroup(
+            id=entry.id,
+            values=(entry.id,),
+            terms=tuple(sorted(set(entry.query_terms))),
+        )
+        for entry in sorted(registry.types, key=lambda item: item.id)
+        if entry.query_terms and entry.id not in group_ids
+    )
     return (
         PropertyValueDomain(
             object_type=_RESOURCE_OBJECT_TYPE,

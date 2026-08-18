@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 8ca6684c5aaa5178e36e8b1de12b5d898441c0b4
+translation_source_sha: 2b0a993e15bf5cb43d29fbcf1a56475abddc4ec6
 translation_revised: 2026-08-18
 ---
 
@@ -229,6 +229,7 @@ translation_revised: 2026-08-18
 | 2026-08-18 | implemented | Semantic frame prompt를 v20으로 versioning하고 요청된 runtime relation verb가 ontology noun보다 우선하도록 했습니다. 다른 object에 depend, route, connect, attach 또는 contain되는 visible resource는 target을 ontology object라고 부르더라도 topology traversal을 유지하며 declaration manifest는 runtime membership에 답하지 않습니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
 | 2026-08-18 | validated | 중앙 검증된 source `a38922762ed805794b11bb9c6aaef43916f6f6c4`에서 통제된 strict-to-seeded ontology assurance를 완료했습니다. Strict는 14/14, seeded는 exact transport, evidence-complete answer 85개, 통제된 action draft 9개, clarification 6개, capability mismatch 0건, unsupported operational claim 0건 및 unauthorized execution 0건을 유지하며 100/100을 통과했습니다. | 실행 `issue63-a38922762e-20260818T034940Z`, repository-safe 기준선 [`ontology-query-randomized-assurance-2026-08-18.json`](../../baselines/ontology-query-randomized-assurance-2026-08-18.json) | 원시 local artifact를 보존하고 최신 integration source에서 baseline commit을 검증합니다. |
 | 2026-08-18 | implemented | 검증된 행 표를 사람이 읽을 수 있게 유지했습니다. 표가 온톨로지 필드를 모두 투영하는 바람에 열린 형태의 속성 묶음이 한 셀에 수백 자 분량의 직렬화된 JSON으로 표시되었고, 기술 세부 궤적이 이미 담고 있는 기계 출력을 답변이 반복했습니다. 이제 표는 스칼라 필드만 투영하고 중첩 묶음에서 지정된 스칼라 leaf를 끌어올리며, 정확한 원본 행은 그대로 유지됩니다. | `current change`, [Issue #180](https://github.com/dotnetpower/fdai/issues/180), focused Operator 검사 392개 통과(중첩 묶음 회귀 1건 신규), 작업 범위 Ruff 및 strict mypy 통과, 인증된 실제 turn이 JSON 덩어리 대신 id, object type, name, type 열로 표시 | 읽기 쉬운 답변 표에 대한 통제된 request-to-Console 및 이중 언어 무작위 근거를 보존합니다. |
+| 2026-08-18 | implemented | 각 리소스 하위 타입이 선언한 질의 용어를 `Resource.type` 값 도메인에 연결했습니다. 도메인이 범주 그룹과 명시적 질의 그룹만 투영해 하나의 하위 타입을 지목한 질문이 연결할 선언 값을 갖지 못했고, 피연산자를 지어낼 수 없는 플래너가 존재 술어로 후퇴해 ObjectType 전체를 선택했습니다. 이제 plan shape 로그가 선택된 ObjectType과 필터 대상 속성 및 연산자를 기록하며 술어 피연산자는 기록하지 않습니다. | `current change`, [Issue #183](https://github.com/dotnetpower/fdai/issues/183), focused composition, conversation, ontology-platform, rule-catalog 검사 2222개 통과, 작업 범위 Ruff 및 strict mypy 통과, 실제 turn이 504행을 반환하던 `object_set[Resource;type exists]`에서 42개 리소스 그룹을 반환하는 `object_set[Resource;type equals]`로 전환 | 좁혀진 속성 필터에 대한 통제된 request-to-Console 및 이중 언어 무작위 근거를 보존합니다. |
 
 ### 남은 작업
 
