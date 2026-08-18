@@ -77,8 +77,10 @@ variable "health" {
     port           = 8080
     liveness_path  = "/live"
     readiness_path = "/ready"
-    # Bounded startup probe: the runtime evaluates startup readiness before it opens this port.
-    startup_path = "/live"
+    # The runtime opens this port only after startup readiness runs its four phases,
+    # each bounded by phase_timeout_seconds, so the startup budget must exceed 4 x 75s.
+    startup_path          = "/live"
+    startup_failure_count = 90
   }
 }
 
