@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: dce787d4683c321ad9caa44fe48dcae17fda4911
+translation_source_sha: 42b12585c1f9587505f738b92194c3b27625f294
 translation_revised: 2026-08-18
 ---
 
@@ -219,6 +219,8 @@ translation_revised: 2026-08-18
 | 2026-08-18 | implemented | Semantic frame prompt를 v13으로 versioning하고 evidence-contract subject와 runtime object property를 분리했습니다. Claim, evidence reference, verification coverage 및 gap은 `validate`와 `evidence_validation`을 사용하며, readable evidence-valued property로 선택한 runtime ontology object만 `property_filtered_resources`를 사용합니다. | `current change`, focused prompt 레지스트리 계약 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
 | 2026-08-18 | implemented | Semantic plan prompt를 v13으로 versioning하고 ObjectSet predicate를 선택된 descriptor의 readable `properties` map에 있는 direct key로 고정했습니다. Predicate input은 projected row path나 natural-language alias를 사용할 수 없으며 downstream `properties.<name>` path는 presentation에만 사용합니다. | `current change`, focused ObjectSet prompt 계약 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
 | 2026-08-18 | implemented | Semantic frame prompt를 v14로 versioning하고 membership을 정의하는 axis를 보존했습니다. 보존 세대 사이에 추가, 제거 또는 변경된 객체는 list 답변이어도 `temporal_comparison`을 유지하며 현재 evidence state로 선택한 객체는 `property_filtered_resources`를 유지합니다. | `current change`, focused frame prompt 계약 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
+| 2026-08-18 | implemented | Randomized assurance에서 드러난 두 typed boundary를 위해 deterministic frame invariant와 prompt v15를 추가했습니다. `ontology_manifest`는 canonical declaration-kind subject만 허용하고 `select` resource listing은 비어 있지 않은 measure concept를 조용히 버릴 수 없습니다. 유효하지 않은 T1 frame은 planning 전에 bounded T2 frame cascade로 retry합니다. | `current change`, 전체 semantic planning tier-routing 및 prompt-registry 테스트 통과, Ruff와 strict mypy 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
+| 2026-08-18 | implemented | 중앙 changed-tests가 제안된 deterministic invariant 두 개를 모두 반증했습니다. 정상적인 Pod telemetry path query는 `Resource` subject 및 비어 있지 않은 measure concept와 함께 resource-list output을 사용합니다. Runtime invariant를 제거하고 declaration inventory, runtime membership 및 명시적 grouping 사이의 일반 answer-shape 구분을 위한 prompt v15만 유지했습니다. | 중앙 검증에 실패한 source `90c592bfcc673e4764e4480be7ffa54c5b66b0b8`, 두 Pod telemetry composition 회귀 테스트와 인접 prompt suite가 현재 로컬 통과 | 수정된 prompt-only v15 slice를 중앙 검증한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
 
 ### 남은 작업
 
