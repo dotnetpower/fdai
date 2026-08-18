@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
@@ -48,8 +49,10 @@ from fdai_operator_service.postgres_sql import (
     LLM_USAGE_CONVERSATIONS_SQL,
     LLM_USAGE_RECORDS_SQL,
     LLM_USAGE_SUMMARIES_SQL,
+    statement_identity,
 )
 from fdai_operator_service.projection_logic import hil_item
+from fdai_operator_service.projections import ProjectionUnavailableError
 from fdai_operator_service.routes import _sse_frame
 from fdai_service_contracts import (
     AgentActivityQuery,
@@ -1358,3 +1361,30 @@ async def test_trace_and_rca_preserve_frozen_envelopes() -> None:
     assert rca is not None
     assert rca.to_dict()["hypotheses"][0]["tier"] == "t0"
     assert rca.to_dict()["response"]["verdict"] == "auto"
+
+
+def test_statement_identity_names_a_registered_statement_without_its_text() -> None:
+    assert statement_identity(AUDIT_PAGE_SQL) == "AUDIT_PAGE_SQL"
+    assert statement_identity(INCIDENT_PAGE_SQL) == "INCIDENT_PAGE_SQL"
+    assert statement_identity("SELECT 1") == "unregistered_statement"
+
+
+@pytest.mark.asyncio
+async def test_failed_projection_query_records_its_cause_before_reporting_unavailable(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    model = PostgresOperatorReadModel(
+        PostgresOperatorReadModelConfig(
+            dsn="postgresql://operator@127.0.0.1:1/db",
+            connect_timeout_s=1,
+        )
+    )
+
+    with caplog.at_level(logging.WARNING, logger="fdai_operator_service.postgres"):
+        with pytest.raises(ProjectionUnavailableError):
+            await model._fetch_all(INCIDENT_PAGE_SQL, {"search": "operator utterance"})
+
+    record = next(r for r in caplog.records if r.message == "operator_projection_query_failed")
+    assert record.statement == "INCIDENT_PAGE_SQL"  # type: ignore[attr-defined]
+    assert record.error_class == "ConnectionTimeout"  # type: ignore[attr-defined]
+    assert "operator utterance" not in caplog.text
