@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 7a01d35a4bd247179e98a67ee66096c89126acfd
+translation_source_sha: 67502eb80c316e925fdefc73d71c9566ccee64ab
 translation_revised: 2026-08-18
 ---
 
@@ -41,6 +41,7 @@ translation_revised: 2026-08-18
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-18 | implemented | 완료된 준수 판정을 차단된 문제로 읽던 동작을 중단했습니다. T0는 모든 후보 규칙이 실행되고 어느 것도 거부하지 않았을 때만 `no_rule_denied`를 기록하지만, `control_loop.compliant` 행위 종류가 생기기 전에 기록된 항목은 그 사유를 abstain 종류 아래에 담고 있습니다. 감사 로그는 해시 체인으로 연결되어 재작성할 수 없으므로, 이제 인시던트 이정표와 차단 사유 판독기가 기록된 사유로 분류합니다. | `current change`, `incidents.milestones.test.ts`와 `incidents.overview.test.ts`의 집중 검사 14개 통과(신규 2개 포함), Console 전체 스위트 222개 파일 `1872 passed`, Console typecheck 통과. 측정된 범위: 로컬 감사 저장소에 해당 기록이 819개 있으며 모두 2026-08-18T04:05Z 이전에 기록되었고, 그 이후 준수 판정은 모두 `control_loop.compliant`를 씁니다. | 이 판독 수정에 남은 작업은 없습니다. 실제로 규칙이 없는 리소스 유형의 rule-catalog 커버리지는 #166에서 계속 열려 있습니다. |
 | 2026-08-18 | implemented | 에이전트 감독의 지식 인수인계 권한을 Console SPA id token의 `roles` 클레임 대신 서버가 소유한 `/iam` 기능 변환 결과에서 판별하도록 바꿨습니다. API 범위 App Role 모델에서는 해당 클레임이 채워지지 않습니다. 이 판별은 id token 클레임을 대체 수단으로 유지하고, 변환 결과를 불러오는 동안 확인 중 상태를 표시하며, 사용할 수 없으면 차단 상태로 유지합니다. | `current change`, `handover-editor.test.ts`와 `handover.test.ts`의 집중 검사 20개 통과, `index.test.ts` 카탈로그 일치 검사 6개 통과, Console typecheck 통과 | 권한이 있는 운영자가 담당자 등록 양식에 도달하는 통제된 Browser Entra 산출물을 보존합니다. |
 | 2026-08-18 | validated | 등록된 Console route 전체를 로컬 Operator API 기준으로 점검하고, 커밋 `bb56775e8` 이후 남아 있던 deck transcript padding 단언을 정정했습니다. | 현재 변경; 콘솔 `src/deck/investigation-timeline.test.ts` 11개 통과; 등록된 route 44개 인증 통과에서 `404`, 페이지 예외, 처리되지 않은 전송 코드가 없었고 `/agent-activity`, `/llm-cost`, `/architecture`, `/rules`가 측정된 내용을 렌더했습니다. | 런타임에 생성되는 근거 화면은 여전히 선언된 unavailable 사유를 렌더하며, `promotion-gate.list`에는 여전히 reader만 있고 writer가 없습니다. |
 | 2026-08-17 | implemented | 결론이 난 결정론적 통과를 판단 보류와 분리했습니다. 모든 후보 규칙이 평가되고 아무것도 거부하지 않으면 T0가 `control_loop.compliant`를 기록하고, 컨트롤 루프는 해당 이벤트에 RCA나 상위 티어 승격을 수행하지 않으며, incident 화면은 이를 차단 문제가 아닌 성공 마일스톤으로 표시합니다. | 현재 변경; `test_control_loop_e2e.py` 47개와 `t0_deterministic` 스위트 통과(총 109개), 둘 다 변이 검증; `incidents.milestones.test.ts` 5개 통과; 변경 전 실측으로 abstain 1641건 중 795건이 `no_rule_denied`였고 incident correlation 441건에 걸쳐 있었습니다. | 감사 로그는 추가 전용이므로 과거 행은 이전 `control_loop.abstain` 종류를 유지합니다. 보존 기간이 지나기 전까지는 혼재가 정상입니다. |
