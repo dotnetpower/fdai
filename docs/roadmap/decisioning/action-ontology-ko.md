@@ -1,8 +1,8 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 4a5c528d02d7d3bc3597f26d8aa2b1feaefd2759
-translation_revised: 2026-08-18
+translation_source_sha: 89328c4e83bb6d26161374401aaa9c989c6fbe9e
+translation_revised: 2026-08-19
 ---
 
 # 액션 온톨로지
@@ -794,6 +794,7 @@ verbatim 기록되므로 과거 감사 항목 를 절대 break 하지 않음.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-18 | implemented | `direct_api`와 `tool_call`의 종단 audit 항목에 dry-run 영수증을 전달해서, 종료 기록만으로도 intent 행과 결합하지 않고 safeguard 4를 입증할 수 있게 했습니다. 영수증은 PR 경로와 똑같이 `ExecutionResult.audit_context`로 전달되며, dry run이 존재하기 전에 거부된 액션에서는 값이 없는 상태로 남습니다. | `current change`, `tests/core/executor`가 경로별 신규 2단계 영수증 테스트 3건을 포함해 focused 259건 통과, 작업 범위 Ruff·format·mypy 통과 | 어떤 경로든 shadow를 벗어나기 전에 통제된 enforce 모드 승격 근거를 보존해야 합니다. |
 | 2026-08-13 | in-progress | 구현 원장을 도입하고 구현된 스키마, 상한, 컴파일러 동작을 완료되지 않은 probe 및 소비자 종료와 구분했습니다. 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 소스 및 focused 검사 | Live probe를 연결하고 남은 거버넌스 writer를 완료하며 운영자 요청 런타임 근거를 보존해야 합니다. |
 | 2026-08-14 | implemented | Legacy Action schema를 바꾸거나 raw Action argument를 저장하지 않고 실행 후 reconciliation이 pre-dispatch exact V2 plan만 resolve하도록 별도의 영속 kinetic safety receipt를 추가했습니다. | `current change`, `delivery/reconciliation_artifacts.py`, 집중 adversarial 테스트 15개 통과, strict mypy 및 작업 범위 Ruff 통과 | Producer를 operational로 만들기 전에 실제 pre-dispatch writer와 verified independent observation source를 연결합니다. |
 | 2026-08-14 | implemented | 모든 Core Thor 실행기 전에 exact kinetic safety receipt writer를 연결했습니다. 기존 correlation-indexed proposal만 해석하고 missing-proposal legacy 동작을 유지하며 provider dispatch 전에 invalid evidence를 차단합니다. | `current change`, `core/operational_planning/kinetic_safety.py`, `delivery/kinetic_safety.py`, `delivery/kinetic_proposal.py`, `runtime/control_loop.py` 및 집중 kinetic 검사 115개 통과 | Verified independent observation source를 연결하고 통제된 end-to-end 종결 근거를 보존합니다. |

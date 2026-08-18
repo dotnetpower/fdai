@@ -284,12 +284,14 @@ class ToolCallShadowExecutor:
                     action=action,
                     outcome=ToolCallExecutionOutcome.REJECTED_MODE,
                     reason=f"adapter refused promotion: {exc}",
+                    dry_run_receipt=safeguards.dry_run_receipt,
                 )
             except ToolPreconditionError as exc:
                 return await self._finish(
                     action=action,
                     outcome=ToolCallExecutionOutcome.ABSTAINED_PRECONDITION,
                     reason=str(exc),
+                    dry_run_receipt=safeguards.dry_run_receipt,
                 )
             except ToolError as exc:
                 return await self._finish(
@@ -298,6 +300,7 @@ class ToolCallShadowExecutor:
                     reason=f"adapter error [{exc.kind}]: {exc}",
                     rollback_succeeded=False,
                     remember=False,
+                    dry_run_receipt=safeguards.dry_run_receipt,
                 )
             except asyncio.CancelledError:
                 await self._finish(
@@ -306,6 +309,7 @@ class ToolCallShadowExecutor:
                     reason="tool-call execution cancelled",
                     rollback_succeeded=False,
                     remember=False,
+                    dry_run_receipt=safeguards.dry_run_receipt,
                 )
                 raise
             except Exception as exc:  # noqa: BLE001 - executor boundary
@@ -320,6 +324,7 @@ class ToolCallShadowExecutor:
                     reason=f"uncontrolled adapter error: {exc!r}",
                     rollback_succeeded=False,
                     remember=False,
+                    dry_run_receipt=safeguards.dry_run_receipt,
                 )
 
             if self._receipt_observer is not None and receipt.outcome in {
@@ -337,8 +342,13 @@ class ToolCallShadowExecutor:
                         receipt_ref=receipt.receipt_ref,
                         rollback_succeeded=False,
                         remember=False,
+                        dry_run_receipt=safeguards.dry_run_receipt,
                     )
-            return await self._finish_from_receipt(action=action, receipt=receipt)
+            return await self._finish_from_receipt(
+                action=action,
+                receipt=receipt,
+                dry_run_receipt=safeguards.dry_run_receipt,
+            )
 
     # ------------------------------------------------------------------
     # helpers
@@ -348,7 +358,7 @@ class ToolCallShadowExecutor:
         return blast_radius_refusal(action, self._config)
 
     async def _finish_from_receipt(
-        self, *, action: Action, receipt: ToolCallReceipt
+        self, *, action: Action, receipt: ToolCallReceipt, dry_run_receipt: str
     ) -> ToolCallExecutionResult:
         """Map an adapter :class:`ToolCallReceipt` -> executor outcome + audit."""
 
@@ -367,6 +377,7 @@ class ToolCallShadowExecutor:
             receipt_ref=receipt.receipt_ref,
             rollback_succeeded=receipt.rollback_succeeded,
             remember=receipt.outcome is not ToolCallOutcome.FAILED,
+            dry_run_receipt=dry_run_receipt,
         )
 
     async def _finish(
@@ -378,6 +389,7 @@ class ToolCallShadowExecutor:
         receipt_ref: str | None = None,
         rollback_succeeded: bool | None = None,
         remember: bool = True,
+        dry_run_receipt: str | None = None,
     ) -> ToolCallExecutionResult:
         result = ToolCallExecutionResult(
             action_id=str(action.action_id),
@@ -392,6 +404,7 @@ class ToolCallShadowExecutor:
                 "operation": action.operation.value,
                 "executor_identity_ref": action.executor_identity_ref,
                 "blast_radius_scope": action.blast_radius.scope.value,
+                "dry_run_receipt": dry_run_receipt,
             },
         )
         # Cache non-degenerate outcomes so a retry does not re-hit the
@@ -434,6 +447,7 @@ class ToolCallShadowExecutor:
             "receipt_ref": result.receipt_ref,
             "rollback_succeeded": result.rollback_succeeded,
             "reason": result.reason,
+            "dry_run_receipt": result.audit_context.get("dry_run_receipt"),
             "tool_ref": action.target_resource_ref,
             "operation": action.operation.value,
             "executor_identity_ref": action.executor_identity_ref,

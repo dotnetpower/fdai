@@ -340,36 +340,42 @@ class DirectApiShadowExecutor:
                     action=action,
                     outcome=DirectApiExecutionOutcome.REJECTED_MODE,
                     reason=f"adapter refused promotion: {exc}",
+                    dry_run_receipt=safeguards.dry_run_receipt,
                 )
             except DirectApiPreconditionError as exc:
                 return await self._finish(
                     action=action,
                     outcome=DirectApiExecutionOutcome.ABSTAINED_PRECONDITION,
                     reason=str(exc),
+                    dry_run_receipt=safeguards.dry_run_receipt,
                 )
             except DirectApiAuthenticationError as exc:
                 return await self._finish(
                     action=action,
                     outcome=DirectApiExecutionOutcome.AUTHENTICATION_FAILED,
                     reason=str(exc),
+                    dry_run_receipt=safeguards.dry_run_receipt,
                 )
             except DirectApiPermissionDeniedError as exc:
                 return await self._finish(
                     action=action,
                     outcome=DirectApiExecutionOutcome.PERMISSION_DENIED,
                     reason=str(exc),
+                    dry_run_receipt=safeguards.dry_run_receipt,
                 )
             except DirectApiPolicyDeniedError as exc:
                 return await self._finish(
                     action=action,
                     outcome=DirectApiExecutionOutcome.POLICY_DENIED,
                     reason=str(exc),
+                    dry_run_receipt=safeguards.dry_run_receipt,
                 )
             except DirectApiNetworkDeniedError as exc:
                 return await self._finish(
                     action=action,
                     outcome=DirectApiExecutionOutcome.NETWORK_DENIED,
                     reason=str(exc),
+                    dry_run_receipt=safeguards.dry_run_receipt,
                 )
             except DirectApiError as exc:
                 return await self._finish(
@@ -377,6 +383,7 @@ class DirectApiShadowExecutor:
                     outcome=DirectApiExecutionOutcome.FAILED,
                     reason=f"adapter error [{exc.kind}]: {exc}",
                     rollback_succeeded=False,
+                    dry_run_receipt=safeguards.dry_run_receipt,
                 )
             except Exception as exc:  # noqa: BLE001 - executor boundary
                 # Uncontrolled adapter failure: fail closed. Log via
@@ -389,9 +396,14 @@ class DirectApiShadowExecutor:
                     outcome=DirectApiExecutionOutcome.FAILED,
                     reason=f"uncontrolled adapter error: {exc!r}",
                     rollback_succeeded=False,
+                    dry_run_receipt=safeguards.dry_run_receipt,
                 )
 
-            return await self._finish_from_receipt(action=action, receipt=receipt)
+            return await self._finish_from_receipt(
+                action=action,
+                receipt=receipt,
+                dry_run_receipt=safeguards.dry_run_receipt,
+            )
 
     # ------------------------------------------------------------------
     # helpers
@@ -418,7 +430,7 @@ class DirectApiShadowExecutor:
         return blast_radius_refusal(action, self._config)
 
     async def _finish_from_receipt(
-        self, *, action: Action, receipt: DirectApiReceipt
+        self, *, action: Action, receipt: DirectApiReceipt, dry_run_receipt: str
     ) -> DirectApiExecutionResult:
         """Map an adapter :class:`DirectApiReceipt` -> executor outcome + audit."""
 
@@ -438,6 +450,7 @@ class DirectApiShadowExecutor:
             reason=receipt.detail,
             receipt_ref=receipt.receipt_ref,
             rollback_succeeded=receipt.rollback_succeeded,
+            dry_run_receipt=dry_run_receipt,
         )
 
     async def _finish(
@@ -449,6 +462,7 @@ class DirectApiShadowExecutor:
         receipt_ref: str | None = None,
         rollback_succeeded: bool | None = None,
         remember: bool = True,
+        dry_run_receipt: str | None = None,
     ) -> DirectApiExecutionResult:
         result = DirectApiExecutionResult(
             action_id=str(action.action_id),
@@ -464,6 +478,7 @@ class DirectApiShadowExecutor:
                 "operation": action.operation.value,
                 "blast_radius_scope": action.blast_radius.scope.value,
                 "idempotency_fingerprint": _direct_api_fingerprint(action),
+                "dry_run_receipt": dry_run_receipt,
             },
         )
         # Cache non-degenerate outcomes so a retry does not re-hit the
@@ -512,6 +527,7 @@ class DirectApiShadowExecutor:
             "receipt_ref": result.receipt_ref,
             "rollback_succeeded": result.rollback_succeeded,
             "reason": result.reason,
+            "dry_run_receipt": result.audit_context.get("dry_run_receipt"),
             "resource_ref": action.target_resource_ref,
             "operation": action.operation.value,
             "rollback_kind": action.rollback_ref.kind.value,

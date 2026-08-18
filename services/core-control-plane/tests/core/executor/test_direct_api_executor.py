@@ -531,3 +531,44 @@ class TestOrdering:
         assert results[0] is results[1]
         # Adapter saw one request (dedupe short-circuited the second).
         assert len(adapter.records) == 1
+
+
+class TestTwoPhaseDryRunReceipt:
+    """A terminal entry that omits the receipt cannot prove the dry run on its own.
+
+    FDAI-CONST-007 safeguard 4 is provable from the audit trail only when the terminal
+    record carries the same content-addressed receipt the intent record committed to.
+    """
+
+    @pytest.mark.asyncio
+    async def test_terminal_entry_repeats_the_intent_receipt_on_dispatch(self) -> None:
+        exec_, _, audit = _executor()
+
+        await exec_.execute(action=_action())
+
+        intent = _intents(audit)[0]
+        terminal = _terminal(audit)
+        assert intent["dry_run_receipt"].startswith("sha256:")
+        assert terminal["dry_run_receipt"] == intent["dry_run_receipt"]
+
+    @pytest.mark.asyncio
+    async def test_terminal_entry_repeats_the_receipt_when_the_adapter_fails(self) -> None:
+        exec_, adapter, audit = _executor()
+        adapter.next_error(DirectApiPreconditionError("resource is locked"))
+
+        result = await exec_.execute(action=_action())
+
+        assert result.outcome is DirectApiExecutionOutcome.ABSTAINED_PRECONDITION
+        assert _terminal(audit)["dry_run_receipt"] == _intents(audit)[0]["dry_run_receipt"]
+
+    @pytest.mark.asyncio
+    async def test_a_refusal_before_the_dry_run_records_no_receipt(self) -> None:
+        """Absence is the honest value: no dry run was performed for this action."""
+
+        exec_, _, audit = _executor(max_affected_resources=0)
+
+        result = await exec_.execute(action=_action())
+
+        assert result.outcome is DirectApiExecutionOutcome.ABSTAINED_BLAST_RADIUS
+        assert _intents(audit) == []
+        assert _terminal(audit)["dry_run_receipt"] is None
