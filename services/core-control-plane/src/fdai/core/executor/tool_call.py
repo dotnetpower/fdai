@@ -33,17 +33,24 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable, Mapping
+from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 
 from fdai.core.executor.blast_radius import blast_radius_refusal
-from fdai.core.executor.executor import (
-    ExecutorConfig,
-    _missing_safety_invariant,
+from fdai.core.executor.executor import ExecutorConfig
+from fdai.core.executor.safeguards import (
+    SafeguardRefusal,
+    evaluate_pre_dispatch,
+    idempotency_lock_key,
+    missing_safety_invariant,
+    plan_digest_for_mapping,
+    resource_lock_key,
 )
 from fdai.shared.contracts.models import Action, Mode
+from fdai.shared.contracts.models.enums import ExecutionPath
 from fdai.shared.providers.idempotency import IdempotencyStore
 from fdai.shared.providers.resource_lock import ResourceLock
 from fdai.shared.providers.state_store import StateStore
@@ -208,7 +215,7 @@ class ToolCallShadowExecutor:
                 ),
             )
 
-        invariant_reason = _missing_safety_invariant(action)
+        invariant_reason = missing_safety_invariant(action)
         if invariant_reason is not None:
             return await self._finish(
                 action=action,
@@ -223,7 +230,13 @@ class ToolCallShadowExecutor:
         if cached is not None:
             return cached
 
-        async with self._resource_lock.acquire(action.target_resource_ref):
+        async with AsyncExitStack() as locks:
+            await locks.enter_async_context(
+                self._resource_lock.acquire(idempotency_lock_key(action.idempotency_key))
+            )
+            await locks.enter_async_context(
+                self._resource_lock.acquire(resource_lock_key(action.target_resource_ref))
+            )
             cached = self._dedupe.get(action.idempotency_key)
             if cached is not None:
                 return cached
@@ -246,6 +259,24 @@ class ToolCallShadowExecutor:
                 )
 
             request = _build_tool_call_request(action)
+            safeguards = evaluate_pre_dispatch(
+                action,
+                execution_path=ExecutionPath.TOOL_CALL,
+                plan_digest=_tool_call_plan_digest(request),
+                plan_kind="tool_call_request",
+            )
+            if isinstance(safeguards, SafeguardRefusal):
+                return await self._finish(
+                    action=action,
+                    outcome=ToolCallExecutionOutcome.REJECTED_INVARIANT,
+                    reason=safeguards.reason,
+                )
+            # The intent lands before the adapter can observe a request on every mode, so
+            # a shadow invocation is as replayable as an enforced one.
+            await self._write_audit_intent(
+                action=action,
+                dry_run_receipt=safeguards.dry_run_receipt,
+            )
             try:
                 receipt = await self._executor.execute(request)
             except ToolPromotionError as exc:
@@ -395,6 +426,7 @@ class ToolCallShadowExecutor:
             "idempotency_key": action.idempotency_key,
             "actor": "fdai.core.executor.tool_call",
             "action_kind": f"executor.tool_call.{result.outcome.value}",
+            "audit_phase": "terminal",
             "mode": action.mode.value,
             "execution_path": "tool_call",
             "citing_rule_ids": list(action.citing_rules),
@@ -419,6 +451,61 @@ class ToolCallShadowExecutor:
             "recorded_at": datetime.now(tz=UTC).isoformat(),
         }
         await self._audit_store.append_audit_entry(entry)
+
+    async def _write_audit_intent(self, *, action: Action, dry_run_receipt: str) -> None:
+        """Persist invocation intent before the adapter can observe a request."""
+
+        await self._audit_store.append_audit_entry(
+            {
+                "event_id": str(action.event_id),
+                "action_id": str(action.action_id),
+                "idempotency_key": action.idempotency_key,
+                "actor": "fdai.core.executor.tool_call",
+                "action_kind": action.action_type,
+                "audit_phase": "intent",
+                "mode": action.mode.value,
+                "execution_path": "tool_call",
+                "citing_rule_ids": list(action.citing_rules),
+                "outcome": "intent_persisted",
+                "dry_run_receipt": dry_run_receipt,
+                "dry_run_passed": True,
+                "tool_ref": action.target_resource_ref,
+                "operation": action.operation.value,
+                "executor_identity_ref": action.executor_identity_ref,
+                "rollback_kind": action.rollback_ref.kind.value,
+                "rollback_reference": action.rollback_ref.reference,
+                "stop_condition": action.stop_condition,
+                "stop_conditions": [
+                    condition.model_dump(mode="json") for condition in action.stop_conditions
+                ],
+                "blast_radius": {
+                    "scope": action.blast_radius.scope.value,
+                    "count": action.blast_radius.count,
+                    "rate_per_minute": action.blast_radius.rate_per_minute,
+                },
+                "recorded_at": datetime.now(tz=UTC).isoformat(),
+            }
+        )
+
+
+def _tool_call_plan_digest(request: ToolCallRequest) -> str:
+    """Return the what-if digest for one assembled tool request.
+
+    The digest covers the exact request the adapter would receive, so a receipt cannot
+    survive a change to the tool, arguments, or mode.
+    """
+
+    return plan_digest_for_mapping(
+        {
+            "action_type_name": request.action_type_name,
+            "arguments": dict(request.arguments),
+            "idempotency_key": request.idempotency_key,
+            "labels": sorted(request.labels),
+            "mode": request.mode.value,
+            "rule_ids": sorted(request.rule_ids),
+            "tool_ref": request.tool_ref,
+        }
+    )
 
 
 def _build_tool_call_request(action: Action) -> ToolCallRequest:

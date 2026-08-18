@@ -58,7 +58,11 @@ async def test_same_key_with_different_action_is_audited_conflict(
 
     assert conflict.outcome is DirectApiExecutionOutcome.REJECTED_IDEMPOTENCY_CONFLICT
     assert len(adapter.records) == 1
-    assert [row["entry"]["outcome"] for row in audit.audit_entries] == [
+    assert [
+        row["entry"]["outcome"]
+        for row in audit.audit_entries
+        if row["entry"].get("audit_phase") != "intent"
+    ] == [
         "dispatched",
         "rejected_idempotency_conflict",
     ]

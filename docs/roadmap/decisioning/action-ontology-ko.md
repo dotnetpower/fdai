@@ -1,8 +1,8 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: a08251d9ac81682874a70dbaca2be0308f1f604a
-translation_revised: 2026-08-14
+translation_source_sha: 4a5c528d02d7d3bc3597f26d8aa2b1feaefd2759
+translation_revised: 2026-08-18
 ---
 
 # 액션 온톨로지
@@ -799,6 +799,7 @@ verbatim 기록되므로 과거 감사 항목 를 절대 break 하지 않음.
 | 2026-08-14 | implemented | 모든 Core Thor 실행기 전에 exact kinetic safety receipt writer를 연결했습니다. 기존 correlation-indexed proposal만 해석하고 missing-proposal legacy 동작을 유지하며 provider dispatch 전에 invalid evidence를 차단합니다. | `current change`, `core/operational_planning/kinetic_safety.py`, `delivery/kinetic_safety.py`, `delivery/kinetic_proposal.py`, `runtime/control_loop.py` 및 집중 kinetic 검사 115개 통과 | Verified independent observation source를 연결하고 통제된 end-to-end 종결 근거를 보존합니다. |
 | 2026-08-14 | implemented | 내부적으로 valid한 proposal이 OperationalPlan, Process, selected option, correlation, target, selected ActionType 또는 plan lineage를 바꾸지 못하도록 dispatch-time cross-record 검증을 추가했습니다. | `current change`, `delivery/kinetic_proposal.py`, adversarial substitution 테스트 및 집중 kinetic 검사 119개 통과 | Verified independent observation source를 연결하고 통제된 end-to-end 종결 근거를 보존합니다. |
 | 2026-08-14 | in-progress | `live_probe_ref`를 통합 권한 파이프라인의 순수 Axis-E 입력으로 통합하고 해석 사유를 resolved ceiling에 기록했습니다. | `current change`, [`live_probe.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/live_probe.py), [`authority.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/authority.py), [`ceiling.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/ceiling.py), [`test_live_probe.py`](../../../services/core-control-plane/tests/core/risk_gate/test_live_probe.py); 집중 risk-gate 및 control-loop 권한 검사 252개 통과 | 운영 probe 어댑터와 실패 연속 횟수 출처를 연결한 뒤 실제 관측값을 담은 통제된 런타임 증적을 보존합니다. |
+| 2026-08-18 | implemented | `core/executor/safeguards.py`를 단일 사전 디스패치 안전장치 계약으로 추가했습니다. 이 모듈이 invariant 검사, 실행 지문, dry-run 영수증, 잠금 키 두 개를 소유하며 `REQUIRED_SAFEGUARDS`가 제공되는 모든 `ExecutionPath`에 대해 7개 전부를 선언합니다. `direct_api`와 `tool_call`은 이제 조립된 요청에서 dry-run 영수증을 계산하고, enforce에서만 또는 아예 쓰지 않던 것을 모든 모드에서 사전 효과 audit intent로 남깁니다. `tool_call`은 리소스 잠금에 더해 idempotency 잠금도 보유합니다. `tool_call` 종단 항목에 `audit_phase`를 추가해 재생 시 intent와 종결을 구분할 수 있습니다. | `current change`, 신규 `test_safeguard_contract.py`를 포함해 `tests/core/executor` focused 테스트 251건 통과, `tests/core` 4961건 통과, risk-gate·HIL-resume·agent·runtime·delivery 수트 3174건 통과, 작업 범위 Ruff·format·strict mypy 통과 | `direct_api`와 `tool_call`의 종단 audit 항목까지 dry-run 영수증을 전달하고, 어떤 경로든 shadow를 벗어나기 전에 통제된 enforce 승격 증적을 보존해야 합니다. |
 
 ### 남은 작업
 

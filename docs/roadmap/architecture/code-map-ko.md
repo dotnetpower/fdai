@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c908e6989e15fbe866a8ff1ffb35c521ba308a66
+translation_source_sha: 161b91e7ad7bcbe170558aed22bcb87de05b5a17
 translation_revised: 2026-08-18
 ---
 # 코드 맵
@@ -153,6 +153,7 @@ translation_revised: 2026-08-18
 | 2026-08-18 | 철회됨 | 프로바이더가 보고한 상태와 위치를 선언된 `Resource` 모양으로 끌어올리는 작업을 구현했다가 철회했습니다. 이 변경이 이동시키는 온톨로지 릴리스 다이제스트가 승격된 의미 surface의 검증 영수증 대상을 무효화하기 때문입니다. 답변 경로는 이미 해당 필드를 읽고 정렬하므로 선언이 들어오면 추가 변경이 필요 없습니다. | 철회된 리비전의 전체 수트에서 `validation receipt subject mismatch`로 5건이 실패했고, 부모 커밋에서는 동일 수트 1490건이 통과했습니다. | 선언 변경은 surface 재검증 실행을 포함하는 설계 패스로 남겨둡니다. |
 | 2026-08-18 | 구현됨 | `shared/providers/state_evidence.py`의 상태 사실 레인·권한 분리를 전수 검증 가능하게 만들었습니다. 모든 레인·권한 쌍을 단언하고, `execution_ledger` 사실은 `observed`, `derived`, `desired` 레인에서 거부되며, 행이 없는 레인은 잠재적 `KeyError` 대신 문서화된 거부로 fail closed 합니다. | `current change`, `tests/providers/test_state_evidence.py` focused 테스트 39건 통과, 작업 범위 Ruff와 format 통과 | 모든 변환 쓰기 지점에서 같은 분리를 강제해 향후 작성자가 `StateFactMetadata` 생성 없이 상태 사실을 저장하지 못하게 해야 합니다. |
 | 2026-08-18 | 구현됨 | `shared/ontology/threshold_bounds.py`를 추가해 적응형 임계값이 하드 범위를 직접 명시하지 않고 제공되는 `ontology/action-type` 계약에서 읽도록 했습니다. `ShadowDwellThresholds`는 하한과 정확도 상한을 그 선언에서 도출하며, focused sweep 하나가 등록된 모든 임계값이 범위 안에 머물고 pydantic 모델과 JSON 계약이 어긋나지 않음을 증명합니다. | `current change`, `tests/core/operational_learning` focused 테스트 88건 통과, risk-gate·measurement·assurance-twin·rule-catalog 수트 1716건 통과, 작업 범위 Ruff·format·strict mypy 통과 | 범위가 없는 `GraphModelPromotionPolicy` 비율 임계값 2개의 선언을 추가하고 등록부를 promotion gate 밖으로 확장해야 합니다. |
+| 2026-08-18 | 구현됨 | `core/executor/safeguards.py`를 모든 실행 경로가 공유하는 단일 사전 디스패치 안전장치 계약으로 추가했습니다. invariant 검사, 실행 지문, dry-run 영수증, 잠금 키 두 개를 이 모듈이 소유하며, `direct_api`와 `tool_call`은 dry-run 영수증과 무조건 사전 효과 audit intent를 얻었고 `tool_call`은 idempotency 잠금을 얻었습니다. | `current change`, `tests/core/executor` focused 테스트 251건 통과, `tests/core` 4961건 통과, risk-gate·HIL-resume·agent·runtime·delivery 수트 3174건 통과, 작업 범위 Ruff·format·strict mypy 통과 | `direct_api`와 `tool_call`의 종단 audit 항목까지 dry-run 영수증을 전달해야 합니다. |
 
 ### 남은 작업
 

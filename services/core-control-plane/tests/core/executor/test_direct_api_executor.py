@@ -133,6 +133,22 @@ def _unwrap(record: Any) -> dict[str, Any]:
     return dict(record)
 
 
+def _entries(audit: Any) -> list[dict[str, Any]]:
+    return [_unwrap(record) for record in audit.audit_entries]
+
+
+def _terminal(audit: Any) -> dict[str, Any]:
+    """Return the last terminal audit entry, skipping the pre-effect intent rows."""
+
+    terminal = [entry for entry in _entries(audit) if entry.get("audit_phase") != "intent"]
+    assert terminal, "no terminal audit entry was written"
+    return terminal[-1]
+
+
+def _intents(audit: Any) -> list[dict[str, Any]]:
+    return [entry for entry in _entries(audit) if entry.get("audit_phase") == "intent"]
+
+
 # ---------------------------------------------------------------------------
 # Happy path
 # ---------------------------------------------------------------------------
@@ -148,8 +164,12 @@ class TestHappyPath:
         assert result.mode is Mode.SHADOW
         assert result.receipt_ref
         entries = list(audit.audit_entries)
-        assert len(entries) == 1
-        entry = _unwrap(entries[0])
+        assert len(entries) == 2
+        intent = _intents(audit)[0]
+        assert intent["execution_path"] == "direct_api"
+        assert intent["dry_run_receipt"].startswith("sha256:")
+        assert intent["dry_run_passed"] is True
+        entry = _terminal(audit)
         assert entry["action_kind"] == "executor.direct_api.dispatched"
         assert entry["execution_path"] == "direct_api"
         assert entry["outcome"] == "dispatched"
@@ -203,7 +223,7 @@ class TestHappyPath:
         )
 
         assert adapter.records[0].stop_conditions == conditions
-        entry = _unwrap(list(audit.audit_entries)[0])
+        entry = _terminal(audit)
         assert entry["stop_conditions"] == [
             condition.model_dump(mode="json") for condition in conditions
         ]
@@ -265,8 +285,9 @@ class TestIdempotency:
         assert r2 is r1
         # Adapter saw exactly ONE request.
         assert len(adapter.records) == 1
-        # Audit saw exactly ONE entry (dedupe short-circuited before audit).
-        assert len(list(audit.audit_entries)) == 1
+        # Audit saw one intent and one terminal entry; dedupe short-circuited the retry.
+        assert len(list(audit.audit_entries)) == 2
+        assert len(_intents(audit)) == 1
 
     @pytest.mark.asyncio
     async def test_different_keys_dispatch_independently(self) -> None:
@@ -274,7 +295,7 @@ class TestIdempotency:
         await exec_.execute(action=_action(idempotency_key="a"))
         await exec_.execute(action=_action(idempotency_key="b", target="vm2"))
         assert len(adapter.records) == 2
-        assert len(list(audit.audit_entries)) == 2
+        assert len(list(audit.audit_entries)) == 4
 
     @pytest.mark.asyncio
     async def test_adapter_already_applied_reported_as_outcome(self) -> None:
@@ -285,7 +306,7 @@ class TestIdempotency:
         adapter.force_outcome(DirectApiOutcome.ALREADY_APPLIED, detail="prior receipt reused")
         result = await exec_.execute(action=_action(idempotency_key="k"))
         assert result.outcome is DirectApiExecutionOutcome.ALREADY_APPLIED
-        entry = _unwrap(list(audit.audit_entries)[0])
+        entry = _terminal(audit)
         assert entry["action_kind"] == "executor.direct_api.already_applied"
 
 
@@ -403,7 +424,7 @@ class TestAdapterOutcomes:
         result = await exec_.execute(action=_action())
         assert result.outcome is DirectApiExecutionOutcome.STOPPED
         assert result.rollback_succeeded is True
-        entry = _unwrap(list(audit.audit_entries)[0])
+        entry = _terminal(audit)
         assert entry["rollback_succeeded"] is True
 
     @pytest.mark.asyncio
@@ -417,7 +438,7 @@ class TestAdapterOutcomes:
         result = await exec_.execute(action=_action())
         assert result.outcome is DirectApiExecutionOutcome.FAILED
         assert result.rollback_succeeded is False
-        entry = _unwrap(list(audit.audit_entries)[0])
+        entry = _terminal(audit)
         assert entry["rollback_succeeded"] is False
 
     @pytest.mark.asyncio
@@ -474,7 +495,7 @@ class TestAdapterOutcomes:
         adapter.next_error(error_class("bounded authorization failure"))
         result = await exec_.execute(action=_action())
         assert result.outcome is expected
-        entry = _unwrap(list(audit.audit_entries)[0])
+        entry = _terminal(audit)
         assert entry["outcome"] == expected.value
 
 

@@ -69,7 +69,7 @@
       "schemas": ["services/core-control-plane/src/fdai/shared/contracts/action/schema.json", "services/core-control-plane/src/fdai/shared/contracts/ontology/action-type.json"],
       "tests": ["services/core-control-plane/tests/core/executor/test_executor.py", "services/core-control-plane/tests/core/executor/test_lock.py"],
       "runtime_evidence": ["services/core-control-plane/src/fdai/core/audit", "services/core-control-plane/src/fdai/shared/providers/state_store.py"],
-      "gap": "The PR-native shadow executor now emits a dry-run receipt and pre-effect/terminal audit lifecycle; equivalent guarantees are not yet represented by one shared contract across every execution path."
+      "gap": "One shared pre-dispatch contract (core/executor/safeguards.py) now owns the invariant check, execution fingerprint, dry-run receipt, and lock keys for every execution path, and every path writes a pre-effect audit intent. The dry-run receipt is not yet carried into the terminal audit entry on direct_api and tool_call, and enforce-mode promotion evidence does not exist for any path."
     },
     {
       "id": "FDAI-CONST-008",

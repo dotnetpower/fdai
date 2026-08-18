@@ -114,6 +114,22 @@ def _unwrap(record: Any) -> dict[str, Any]:
     return dict(record)
 
 
+def _entries(audit: Any) -> list[dict[str, Any]]:
+    return [_unwrap(record) for record in audit.audit_entries]
+
+
+def _terminal(audit: Any) -> dict[str, Any]:
+    """Return the last terminal audit entry, skipping the pre-effect intent rows."""
+
+    terminal = [entry for entry in _entries(audit) if entry.get("audit_phase") != "intent"]
+    assert terminal, "no terminal audit entry was written"
+    return terminal[-1]
+
+
+def _intents(audit: Any) -> list[dict[str, Any]]:
+    return [entry for entry in _entries(audit) if entry.get("audit_phase") == "intent"]
+
+
 # ---------------------------------------------------------------------------
 # Happy path
 # ---------------------------------------------------------------------------
@@ -129,8 +145,12 @@ class TestHappyPath:
         assert result.mode is Mode.SHADOW
         assert result.receipt_ref
         entries = list(audit.audit_entries)
-        assert len(entries) == 1
-        entry = _unwrap(entries[0])
+        assert len(entries) == 2
+        intent = _intents(audit)[0]
+        assert intent["execution_path"] == "tool_call"
+        assert intent["dry_run_receipt"].startswith("sha256:")
+        assert intent["dry_run_passed"] is True
+        entry = _terminal(audit)
         assert entry["action_kind"] == "executor.tool_call.dispatched"
         assert entry["execution_path"] == "tool_call"
         assert entry["outcome"] == "dispatched"
@@ -143,7 +163,7 @@ class TestHappyPath:
 
         await executor.execute(action=action)
 
-        entry = _unwrap(list(audit.audit_entries)[0])
+        entry = _terminal(audit)
         assert entry["executor_identity_ref"] == "identity/finops"
         assert entry["tool_ref"] == "document:reports/resilience/2026-07"
 
@@ -187,7 +207,7 @@ class TestHappyPath:
         )
 
         assert adapter.records[0].stop_conditions == conditions
-        entry = _unwrap(list(audit.audit_entries)[0])
+        entry = _terminal(audit)
         assert entry["stop_conditions"] == [
             condition.model_dump(mode="json") for condition in conditions
         ]
@@ -255,7 +275,7 @@ class TestHappyPath:
         assert result.mode is Mode.ENFORCE
         assert adapter.records[0].mode is Mode.ENFORCE
         assert adapter.records[0].labels == ("enforce",)
-        assert _unwrap(list(audit.audit_entries)[0])["mode"] == "enforce"
+        assert _terminal(audit)["mode"] == "enforce"
 
 
 # ---------------------------------------------------------------------------
@@ -271,7 +291,7 @@ class TestIdempotency:
         r2 = await exec_.execute(action=_action(idempotency_key="dup"))
         assert r2 is r1
         assert len(adapter.records) == 1
-        assert len(list(audit.audit_entries)) == 1
+        assert len(list(audit.audit_entries)) == 2
 
     @pytest.mark.asyncio
     async def test_different_keys_dispatch_independently(self) -> None:
@@ -279,7 +299,7 @@ class TestIdempotency:
         await exec_.execute(action=_action(idempotency_key="a"))
         await exec_.execute(action=_action(idempotency_key="b", target="document:reports/b"))
         assert len(adapter.records) == 2
-        assert len(list(audit.audit_entries)) == 2
+        assert len(list(audit.audit_entries)) == 4
 
     @pytest.mark.asyncio
     async def test_durable_record_failure_does_not_populate_memory_cache(self) -> None:
@@ -378,7 +398,7 @@ class TestAdapterFailures:
         with pytest.raises(asyncio.CancelledError):
             await executor.execute(action=_action())
 
-        entry = _unwrap(list(audit.audit_entries)[0])
+        entry = _terminal(audit)
         assert entry["action_kind"] == "executor.tool_call.failed"
         assert entry["reason"] == "tool-call execution cancelled"
 
@@ -388,7 +408,7 @@ class TestAdapterFailures:
         adapter.next_error(ToolPreconditionError("document target locked"))
         result = await exec_.execute(action=_action())
         assert result.outcome is ToolCallExecutionOutcome.ABSTAINED_PRECONDITION
-        entry = _unwrap(list(audit.audit_entries)[0])
+        entry = _terminal(audit)
         assert entry["action_kind"] == "executor.tool_call.abstained_precondition"
 
     @pytest.mark.asyncio
@@ -400,7 +420,7 @@ class TestAdapterFailures:
         result = await exec_.execute(action=_action())
         assert result.outcome is ToolCallExecutionOutcome.STOPPED
         assert result.rollback_succeeded is True
-        entry = _unwrap(list(audit.audit_entries)[0])
+        entry = _terminal(audit)
         assert entry["action_kind"] == "executor.tool_call.stopped"
         assert entry["rollback_succeeded"] is True
 
@@ -410,7 +430,7 @@ class TestAdapterFailures:
         adapter.force_outcome(ToolCallOutcome.FAILED, rollback_succeeded=False)
         result = await exec_.execute(action=_action())
         assert result.outcome is ToolCallExecutionOutcome.FAILED
-        entry = _unwrap(list(audit.audit_entries)[0])
+        entry = _terminal(audit)
         assert entry["action_kind"] == "executor.tool_call.failed"
 
     @pytest.mark.asyncio
@@ -420,7 +440,7 @@ class TestAdapterFailures:
         result = await exec_.execute(action=_action())
         assert result.outcome is ToolCallExecutionOutcome.FAILED
         assert result.rollback_succeeded is False
-        entry = _unwrap(list(audit.audit_entries)[0])
+        entry = _terminal(audit)
         assert entry["action_kind"] == "executor.tool_call.failed"
         assert entry["rollback_succeeded"] is False
 
@@ -436,7 +456,7 @@ class TestAdapterFailures:
         assert first.outcome is ToolCallExecutionOutcome.FAILED
         assert retried.outcome is ToolCallExecutionOutcome.DISPATCHED
         assert len(adapter.records) == 1
-        assert len(list(audit.audit_entries)) == 2
+        assert len(list(audit.audit_entries)) == 4
 
     @pytest.mark.asyncio
     async def test_failed_receipt_is_audited_but_retries_adapter(self) -> None:
@@ -451,7 +471,7 @@ class TestAdapterFailures:
         assert first.outcome is ToolCallExecutionOutcome.FAILED
         assert retried.outcome is ToolCallExecutionOutcome.DISPATCHED
         assert len(adapter.records) == 2
-        assert len(list(audit.audit_entries)) == 2
+        assert len(list(audit.audit_entries)) == 4
 
     @pytest.mark.asyncio
     async def test_uncontrolled_adapter_error_fails_closed(self) -> None:
@@ -460,5 +480,5 @@ class TestAdapterFailures:
         result = await exec_.execute(action=_action())
         assert result.outcome is ToolCallExecutionOutcome.FAILED
         assert result.rollback_succeeded is False
-        entry = _unwrap(list(audit.audit_entries)[0])
+        entry = _terminal(audit)
         assert entry["action_kind"] == "executor.tool_call.failed"

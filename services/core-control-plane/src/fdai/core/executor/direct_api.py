@@ -39,13 +39,17 @@ from enum import StrEnum
 from typing import Any
 
 from fdai.core.executor.blast_radius import blast_radius_refusal
-from fdai.core.executor.executor import (
-    ExecutorConfig,
-    _idempotency_lock_key,
-    _missing_safety_invariant,
-    _resource_lock_key,
+from fdai.core.executor.executor import ExecutorConfig
+from fdai.core.executor.safeguards import (
+    SafeguardRefusal,
+    evaluate_pre_dispatch,
+    idempotency_lock_key,
+    missing_safety_invariant,
+    plan_digest_for_mapping,
+    resource_lock_key,
 )
 from fdai.shared.contracts.models import Action, Mode
+from fdai.shared.contracts.models.enums import ExecutionPath
 from fdai.shared.providers.direct_api import (
     DirectApiAuthenticationError,
     DirectApiError,
@@ -186,6 +190,27 @@ def _dedupe_key(action: Action) -> str:
     return f"{action.idempotency_key}::{action.mode.value}"
 
 
+def _direct_api_plan_digest(request: DirectApiRequest) -> str:
+    """Return the what-if digest for one assembled provider request.
+
+    The digest covers the exact request the adapter would receive, so a receipt cannot
+    survive a change to the operation, target, or arguments.
+    """
+
+    return plan_digest_for_mapping(
+        {
+            "action_type_name": request.action_type_name,
+            "arguments": dict(request.arguments),
+            "idempotency_key": request.idempotency_key,
+            "labels": sorted(request.labels),
+            "metadata": dict(request.metadata),
+            "mode": request.mode.value,
+            "resource_ref": request.resource_ref,
+            "rule_ids": sorted(request.rule_ids),
+        }
+    )
+
+
 class DirectApiShadowExecutor:
     """The dispatch surface for the ``direct_api`` execution path (P1)."""
 
@@ -234,7 +259,7 @@ class DirectApiShadowExecutor:
                 ),
             )
 
-        invariant_reason = _missing_safety_invariant(action)
+        invariant_reason = missing_safety_invariant(action)
         if invariant_reason is not None:
             return await self._finish(
                 action=action,
@@ -253,13 +278,13 @@ class DirectApiShadowExecutor:
 
         async with AsyncExitStack() as locks:
             await locks.enter_async_context(
-                self._resource_lock.acquire(_idempotency_lock_key(action.idempotency_key))
+                self._resource_lock.acquire(idempotency_lock_key(action.idempotency_key))
             )
             cached = self._dedupe.get(cache_key)
             if cached is not None:
                 return await self._deduplicated_or_conflict(action=action, cached=cached)
             await locks.enter_async_context(
-                self._resource_lock.acquire(_resource_lock_key(action.target_resource_ref))
+                self._resource_lock.acquire(resource_lock_key(action.target_resource_ref))
             )
 
             # Durable L2 guard - a mutation recorded under this key
@@ -290,8 +315,24 @@ class DirectApiShadowExecutor:
                 )
 
             request = _build_direct_api_request(action)
-            if action.mode is Mode.ENFORCE:
-                await self._write_audit_intent(action=action)
+            safeguards = evaluate_pre_dispatch(
+                action,
+                execution_path=ExecutionPath.DIRECT_API,
+                plan_digest=_direct_api_plan_digest(request),
+                plan_kind="direct_api_request",
+            )
+            if isinstance(safeguards, SafeguardRefusal):
+                return await self._finish(
+                    action=action,
+                    outcome=DirectApiExecutionOutcome.REJECTED_INVARIANT,
+                    reason=safeguards.reason,
+                )
+            # The intent lands before the provider can observe a request on every mode,
+            # so a shadow dispatch is as replayable as an enforced one.
+            await self._write_audit_intent(
+                action=action,
+                dry_run_receipt=safeguards.dry_run_receipt,
+            )
             try:
                 receipt = await self._executor.execute(request)
             except DirectApiPromotionError as exc:
@@ -488,8 +529,8 @@ class DirectApiShadowExecutor:
         }
         await self._audit_store.append_audit_entry(entry)
 
-    async def _write_audit_intent(self, *, action: Action) -> None:
-        """Persist enforce intent before the provider can observe a request."""
+    async def _write_audit_intent(self, *, action: Action, dry_run_receipt: str) -> None:
+        """Persist dispatch intent before the provider can observe a request."""
 
         await self._audit_store.append_audit_entry(
             {
@@ -503,6 +544,8 @@ class DirectApiShadowExecutor:
                 "execution_path": "direct_api",
                 "citing_rule_ids": list(action.citing_rules),
                 "outcome": "intent_persisted",
+                "dry_run_receipt": dry_run_receipt,
+                "dry_run_passed": True,
                 "resource_ref": action.target_resource_ref,
                 "operation": action.operation.value,
                 "executor_identity_ref": action.executor_identity_ref,

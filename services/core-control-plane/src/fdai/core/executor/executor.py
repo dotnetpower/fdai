@@ -46,7 +46,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import json
 from collections.abc import Mapping
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
@@ -60,7 +59,18 @@ from fdai.core.executor.renderer import (
     RenderRequest,
     TemplateRenderer,
 )
+from fdai.core.executor.safeguards import (
+    SafeguardRefusal,
+    evaluate_pre_dispatch,
+    execution_fingerprint,
+    idempotency_lock_key,
+    missing_safety_invariant,
+    plan_digest_for_mapping,
+    plan_digest_for_text,
+    resource_lock_key,
+)
 from fdai.shared.contracts.models import Action, Mode, Rule
+from fdai.shared.contracts.models.enums import ExecutionPath
 from fdai.shared.providers.idempotency import IdempotencyStore
 from fdai.shared.providers.remediation_pr import (
     RemediationPr,
@@ -304,7 +314,20 @@ class ShadowExecutor:
                     reason=str(exc),
                 )
 
-            dry_run_receipt = _dry_run_receipt(action=action, rule=rule, patch=patch)
+            safeguards = evaluate_pre_dispatch(
+                action,
+                execution_path=ExecutionPath.PR_NATIVE,
+                plan_digest=_pr_plan_digest(rule=rule, patch=patch),
+                plan_kind="remediation_patch",
+            )
+            if isinstance(safeguards, SafeguardRefusal):
+                return await self._finish(
+                    action=action,
+                    rule=rule,
+                    outcome=ExecutorOutcome.REJECTED_INVARIANT,
+                    reason=safeguards.reason,
+                )
+            dry_run_receipt = safeguards.dry_run_receipt
             await self._write_audit_intent(
                 action=action,
                 rule=rule,
@@ -519,68 +542,46 @@ class ShadowExecutor:
 
 
 def _missing_safety_invariant(action: Action) -> str | None:
-    """Return a human message for the first missing safety invariant, or ``None``.
+    """Deprecated alias retained for callers that import the private name."""
 
-    The pydantic model already requires the fields; this guard is
-    defense-in-depth against a caller that produced an ``Action`` via
-    :func:`dataclasses.replace` or a partial dict.
-    """
-    if not action.stop_condition.strip():
-        return "action.stop_condition MUST NOT be empty (safety invariant 1)"
-    if not action.rollback_ref.kind:
-        return "action.rollback_ref.kind MUST be set (safety invariant 2)"
-    if action.blast_radius is None:
-        # unreachable via pydantic, but keeps the intent legible.
-        return "action.blast_radius MUST be set (safety invariant 3)"
-    if not action.citing_rules:
-        return "action.citing_rules MUST include at least one rule id"
-    return None
+    return missing_safety_invariant(action)
 
 
 def _execution_fingerprint(*, action: Action, rule: Rule) -> str:
-    payload = {
-        "action_id": str(action.action_id),
-        "event_id": str(action.event_id),
-        "action_type": action.action_type,
-        "target_resource_ref": action.target_resource_ref,
-        "operation": action.operation.value,
-        "params": dict(action.params),
-        "stop_condition": action.stop_condition,
-        "rollback": {
-            "kind": action.rollback_ref.kind.value,
-            "reference": action.rollback_ref.reference,
-        },
-        "blast_radius": {
-            "scope": action.blast_radius.scope.value,
-            "count": action.blast_radius.count,
-            "rate_per_minute": action.blast_radius.rate_per_minute,
-        },
-        "mode": action.mode.value,
-        "executor_identity_ref": action.executor_identity_ref,
-        "citing_rules": sorted(action.citing_rules),
-        "rule": {"id": rule.id, "version": rule.version},
-    }
-    canonical = json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    """Return the PR-path execution fingerprint, including the citing rule identity."""
+
+    return _sha256_text(
+        execution_fingerprint(action=action, execution_path=ExecutionPath.PR_NATIVE)
+        + f"|{rule.id}@{rule.version}"
+    )
 
 
-def _dry_run_receipt(*, action: Action, rule: Rule, patch: str) -> str:
-    payload = {
-        "execution_fingerprint": _execution_fingerprint(action=action, rule=rule),
-        "patch_sha256": hashlib.sha256(patch.encode("utf-8")).hexdigest(),
-        "template_ref": rule.remediation.template_ref,
-    }
-    canonical = json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True)
-    return f"sha256:{hashlib.sha256(canonical.encode('utf-8')).hexdigest()}"
+def _pr_plan_digest(*, rule: Rule, patch: str) -> str:
+    """Return the dry-run artifact digest for the PR paths.
+
+    The digest covers the rendered patch, the template it came from, and the citing rule
+    revision, so two rules that happen to render an identical patch cannot share a receipt.
+    """
+
+    return plan_digest_for_mapping(
+        {
+            "patch_sha256": plan_digest_for_text(patch),
+            "rule": {"id": rule.id, "version": rule.version},
+            "template_ref": rule.remediation.template_ref,
+        }
+    )
+
+
+def _sha256_text(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
 def _idempotency_lock_key(key: str) -> str:
-    digest = hashlib.sha256(key.encode("utf-8")).hexdigest()
-    return f"fdai:idempotency:{digest}"
+    return idempotency_lock_key(key)
 
 
 def _resource_lock_key(resource_ref: str) -> str:
-    return f"fdai:resource:{resource_ref}"
+    return resource_lock_key(resource_ref)
 
 
 def _build_remediation_pr(
