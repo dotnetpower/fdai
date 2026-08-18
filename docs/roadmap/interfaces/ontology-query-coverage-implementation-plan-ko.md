@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 7db5aff0f2837be3330a0afa45cf80dab798d6b5
+translation_source_sha: 455d0493cc6f4946de3df39366c32fee1091198c
 translation_revised: 2026-08-18
 ---
 
@@ -226,6 +226,7 @@ translation_revised: 2026-08-18
 | 2026-08-18 | implemented | Semantic frame prompt를 v17로 versioning하고 모호한 surface 두 개를 위한 최종 family audit를 추가했습니다. 변경이 관측된 regression보다 먼저 발생했는지 묻는 질문은 causal evidence를 유지하며 현재 inventory generation의 ontology object는 principal-scoped declaration manifest를 선택합니다. Retained-generation object delta는 temporal comparison을 유지합니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
 | 2026-08-18 | implemented | Semantic frame prompt를 v18로 versioning하고 최종 relationship-scope audit를 추가했습니다. Specialized schema relationship family에는 정확한 ObjectType declaration 한두 개가 필요하며 현재 visible 또는 readable inventory의 connectivity와 containment는 operational topology traversal을 유지합니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
 | 2026-08-18 | implemented | Semantic frame prompt를 v19로 versioning하고 generic visible-resource causal request가 cause concept 하나와 effect concept 하나를 명시하면 완전하도록 했습니다. Frame은 resource identity, incident binding, 더 좁은 subject 또는 provider metric identifier를 operator에게 묻지 않고 causal evidence를 반환해야 하며 grounding은 이후 verifier concern으로 유지합니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
+| 2026-08-18 | implemented | Semantic frame prompt를 v20으로 versioning하고 요청된 runtime relation verb가 ontology noun보다 우선하도록 했습니다. 다른 object에 depend, route, connect, attach 또는 contain되는 visible resource는 target을 ontology object라고 부르더라도 topology traversal을 유지하며 declaration manifest는 runtime membership에 답하지 않습니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
 
 ### 남은 작업
 
