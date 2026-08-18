@@ -6,7 +6,11 @@ import asyncio
 import socket
 from types import SimpleNamespace
 
-from fdai.runtime.bootstrap_lifecycle import start_health_server
+from fdai.runtime.bootstrap_lifecycle import (
+    bind_health_readiness,
+    open_health_port,
+    start_health_server,
+)
 from fdai.runtime.health import RuntimeHealthServer
 
 
@@ -42,6 +46,46 @@ async def test_bootstrap_starts_health_server_from_environment(monkeypatch) -> N
         await server.close()
 
     assert response.startswith(b"HTTP/1.1 200 OK")
+
+
+async def test_health_port_answers_liveness_before_readiness_is_bound(monkeypatch) -> None:
+    port = _available_port()
+    monkeypatch.setenv("FDAI_HEALTH_PORT", str(port))
+
+    server = await open_health_port()
+    assert server is not None
+    try:
+        live = await _request(port, "/live")
+        ready = await _request(port, "/ready")
+    finally:
+        await server.close()
+
+    assert live.startswith(b"HTTP/1.1 200 OK")
+    assert ready.startswith(b"HTTP/1.1 503")
+
+
+async def test_binding_readiness_publishes_the_runtime_state(monkeypatch) -> None:
+    port = _available_port()
+    monkeypatch.setenv("FDAI_HEALTH_PORT", str(port))
+    ready_now = False
+    readiness = SimpleNamespace(state=SimpleNamespace(is_ready=lambda: ready_now))
+
+    server = await open_health_port()
+    assert server is not None
+    try:
+        bind_health_readiness(
+            server,
+            control_loop=object(),  # type: ignore[arg-type]
+            startup_readiness=readiness,  # type: ignore[arg-type]
+        )
+        blocked = await _request(port, "/ready")
+        ready_now = True
+        allowed = await _request(port, "/ready")
+    finally:
+        await server.close()
+
+    assert blocked.startswith(b"HTTP/1.1 503")
+    assert allowed.startswith(b"HTTP/1.1 200 OK")
 
 
 async def test_health_server_serves_live_and_ready_after_start() -> None:
