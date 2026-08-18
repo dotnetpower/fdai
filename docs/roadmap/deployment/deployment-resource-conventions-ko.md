@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 59149191cb2e6904203656c0cc8aed578f87a70a
+translation_source_sha: aa3fb4bee79714295791761947ff996e7531d2c4
 translation_revised: 2026-08-17
 ---
 # 배포 리소스 규약
@@ -19,6 +19,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 2026-08-18 | implemented | core startup probe를 변수 기본값이 아니라 모듈 호출부에서 고정했습니다. 배포는 보호된 tfvars로 완전한 `health` 객체를 전달하므로 `health = var.health`가 `startup_path`와 더 큰 `startup_failure_count`를 담은 기본값을 버렸고, 배포된 리비전에는 Liveness와 Readiness probe만 있고 `startup_failure_count = 30`이었습니다. 이제 호출부가 startup 필드를 호출자 값 위에 병합합니다. | `current change`; 서비스 root에서 `terraform fmt`와 `terraform validate` 통과; 독립 서비스 및 drift 계약 `34 passed`; 서비스 Terraform root 스위트 통과. 측정된 원인: apply 실행 `32107930967`이 만든 리비전에 `az containerapp revision show` 결과 Startup probe가 없었습니다. | 새 리비전이 `Healthy`에 도달하는지 확인한 뒤 어느 startup phase가 마감을 소진하는지 규명합니다. #181에서 추적합니다. |
 | 2026-08-18 | implemented | core startup probe 예산을 런타임의 실제 부팅 한계에 맞췄습니다. startup readiness는 4개 phase를 실행하고 각 phase가 `phase_timeout_seconds`(75초)로 따로 제한되므로, 모든 phase가 마감을 소진하는 부팅은 health 포트가 열리기까지 약 300초가 필요합니다. 기본값 30회 시도에 5초 간격은 150초만 제공해 첫 startup probe로는 느린 부팅을 덮지 못했습니다. | `current change`; 서비스 root에서 `terraform fmt`와 `terraform validate` 통과; 독립 서비스 및 drift 계약 `34 passed`; 서비스 Terraform root 스위트 통과. 측정된 원인: 실패한 replica의 전체 로그가 `notification_route_unavailable`로 끝나는 애플리케이션 3줄뿐이었고 `startup_readiness_evaluated`가 없어, 플랫폼이 종료할 때 부팅이 여전히 phase 평가 안에 있었습니다. | 새 리비전이 `Healthy`에 도달하는지 확인한 뒤 어느 phase가 마감을 소진하는지 규명합니다. #181에서 추적합니다. |
 | CAF 명명 및 `fdai:` 소유권 tag | implemented | `infra/main.tf`, `infra/bootstrap/main.tf` 및 집중 Terraform test | Terraform이 이름과 tag를 계산하고 런타임 코드는 출력을 사용합니다. |
 | 독립 service Terraform state root | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Service root 5개 모두에 통제된 계획, 적용, 상태, peer 격리 및 rollback 근거가 있습니다. |
