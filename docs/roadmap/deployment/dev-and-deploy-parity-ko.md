@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: ce98b81550b6bfacfb609987bcd8a928bbc48e05
+translation_source_sha: 3f95fe492ebd4afcddaff19637b83e3559a39f18
 translation_revised: 2026-08-18
 ---
 
@@ -50,7 +50,6 @@ translation_revised: 2026-08-18
 
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
-| 2026-08-18 | validated | 등록된 Console route 전체를 로컬 Operator API 기준으로 점검하고, 커밋 `bb56775e8` 이후 남아 있던 deck transcript padding 단언을 정정했습니다. | 현재 변경; 콘솔 `src/deck/investigation-timeline.test.ts` 11개 통과; 등록된 route 44개 인증 통과에서 `404`, 페이지 예외, 처리되지 않은 전송 코드가 없었고 `/agent-activity`, `/llm-cost`, `/architecture`, `/rules`가 측정된 내용을 렌더했습니다. | 런타임에 생성되는 근거 화면은 여전히 선언된 unavailable 사유를 렌더하며, `promotion-gate.list`에는 여전히 reader만 있고 writer가 없습니다. |
 | 2026-08-17 | validated | 검토된 ActionType 팔레트와 워크플로 카탈로그를 `operator-projection:workflow:workflow.action-type-list`와 `workflow.catalog`로 구체화해, Workflow builder가 unavailable 대신 선언된 구성 요소를 렌더합니다. | 현재 변경; `test_materialize_authoritative_catalogs.py` 5개 통과; 인증된 `/workflow-builder` 로드가 ActionType 48개와 워크플로 12개를 트리거·스텝 수·모드와 함께 렌더했습니다. | 검토된 선언이 아니라 런타임 근거에 기반한 화면은 여전히 `503`을 반환합니다. |
 | 2026-08-17 | validated | 검토된 `config/agent-stewardship.yaml`을 기존 Core coverage 보고서를 통해 `operator-projection:operations:stewardship.coverage`로 구체화해, Agent oversight가 unavailable 대신 측정된 소유 현황을 렌더합니다. | 현재 변경; `test_materialize_authoritative_catalogs.py` 3개 통과(콘솔 계약 불변조건 테스트 포함); 인증된 `/agent-oversight` 로드가 `AGENTS 15`, `MAINTAINERS 2`, `AUTONOMOUS 1`과 Core 계산 finding 표를 unavailable 블록 없이 표시했습니다. | 리포 선언이 아닌 런타임에 생성되는 근거 화면은 여전히 `503`을 반환합니다. |
 | 2026-08-17 | implemented | 이 리포 어디에도 없는 심볼인 `OperatorApiConfig.<field>`를 안내하던 운영자 대상 문구를 담당 체계·워크플로 작성·승격 게이트·규칙 카탈로그·온톨로지·팬테온 패널에서 제거했습니다. | 현재 변경; 집중 콘솔 검사 9개 파일 71개 테스트 통과, Console typecheck 통과, 영향받는 5개 카탈로그 쌍 모두 키 패리티 유지, 6개 패널 인증 통과에서 제거된 심볼 참조가 없었습니다. | 해당 route 배선은 별도 작업이며, 패널은 이제 관측 가능한 상태만 진술합니다. |
