@@ -270,7 +270,7 @@ def _resource_object(
         observed_at=verdict.observed_at,
         conflicts=verdict.conflicts,
     )
-    for lifted in ("name", "parent_id"):
+    for lifted in ("name", "parent_id", "status", "location"):
         value = verdict.agreed_properties.get(lifted)
         if isinstance(value, str) and value.strip():
             properties[lifted] = value
