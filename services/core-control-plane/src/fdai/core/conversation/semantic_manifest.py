@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.core.ontology_platform import QueryManifest, build_query_manifest
+from fdai.core.ontology_platform.property_values import PropertyValueDomain
 from fdai.shared.contracts.models import (
     CeilingRole,
     OntologyActionType,
@@ -40,6 +41,7 @@ class CatalogQueryManifestProvider:
         action_types: Sequence[OntologyActionType] = (),
         functions: Sequence[OntologyFunctionType] = (),
         bound_function_names: Sequence[str] | None = None,
+        property_values: Sequence[PropertyValueDomain] = (),
     ) -> None:
         self._release = release
         self._object_types = tuple(object_types)
@@ -47,6 +49,7 @@ class CatalogQueryManifestProvider:
         self._interfaces = tuple(interfaces)
         self._action_types = tuple(action_types)
         self._functions = tuple(functions)
+        self._property_values = tuple(property_values)
         self._bound_function_names = (
             None if bound_function_names is None else tuple(bound_function_names)
         )
@@ -76,6 +79,7 @@ class CatalogQueryManifestProvider:
             action_types=self._action_types,
             functions=self._functions,
             bound_function_names=self._bound_function_names,
+            property_values=self._property_values,
         )
 
 

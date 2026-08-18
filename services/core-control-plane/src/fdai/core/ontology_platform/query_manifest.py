@@ -25,6 +25,8 @@ from fdai.shared.contracts.models import (
     OntologyRelease,
 )
 
+from .property_values import PropertyValueDomain, property_value_index
+
 _MAX_MANIFEST_BYTES = 8_388_608
 
 
@@ -53,6 +55,7 @@ def build_query_manifest(
     action_types: Sequence[OntologyActionType] = (),
     functions: Sequence[OntologyFunctionType] = (),
     bound_function_names: Sequence[str] | None = None,
+    property_values: Sequence[PropertyValueDomain] = (),
 ) -> QueryManifest:
     """Project every readable declaration or one typed unavailable record.
 
@@ -61,6 +64,7 @@ def build_query_manifest(
     manifest.
     """
 
+    value_domains = property_value_index(property_values)
     normalized_purposes = tuple(sorted(set(purposes)))
     declarations = {(item.kind, item.name): item for item in release.declarations}
     supplied: dict[tuple[OntologyDeclarationKind, str], object] = {}
@@ -114,6 +118,7 @@ def build_query_manifest(
             declaration_ref.declaration_digest,
             role=principal_role,
             purposes=normalized_purposes,
+            value_domains=value_domains,
         )
         if reason is None:
             descriptors.append(descriptor)
@@ -187,7 +192,9 @@ def _descriptor(
     *,
     role: CeilingRole,
     purposes: tuple[str, ...],
+    value_domains: dict[tuple[str, str], PropertyValueDomain] | None = None,
 ) -> tuple[dict[str, Any], str | None]:
+    domains = value_domains or {}
     if isinstance(declaration, OntologyObjectType):
         return (
             {
@@ -197,12 +204,10 @@ def _descriptor(
                 "declaration_digest": declaration_digest,
                 "key": declaration.key,
                 "properties": {
-                    name: {
-                        "type": prop.type.value,
-                        "required": prop.required,
-                        "access_scope": prop.access_scope.value,
-                        "purpose_binding": sorted(prop.purpose_binding),
-                    }
+                    name: _property_descriptor(
+                        prop,
+                        domain=domains.get((declaration.name, name)),
+                    )
                     for name, prop in sorted(declaration.properties.items())
                     if _property_readable(prop.access_scope, prop.purpose_binding, role, purposes)
                 },
@@ -307,6 +312,18 @@ def _property_readable(
     if CEILING_ROLE_RANK[role] < CEILING_ROLE_RANK[access_scope]:
         return False
     return not purpose_binding or bool(set(purpose_binding).intersection(purposes))
+
+
+def _property_descriptor(prop: Any, *, domain: PropertyValueDomain | None) -> dict[str, Any]:
+    descriptor: dict[str, Any] = {
+        "type": prop.type.value,
+        "required": prop.required,
+        "access_scope": prop.access_scope.value,
+        "purpose_binding": sorted(prop.purpose_binding),
+    }
+    if domain is not None:
+        descriptor.update(domain.projection())
+    return descriptor
 
 
 def _manifest_digest(value: object) -> str:
