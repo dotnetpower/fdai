@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: b50f1906259644b683ece65b989b27ec04f30261
+translation_source_sha: 177319a18c794e993fe24971aac6ca36ba7e593b
 translation_revised: 2026-08-18
 ---
 
@@ -44,6 +44,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 읽기 전용 Conversation Search interaction | implemented | `conversation-search.tsx`, `conversation-search.model.ts`, `conversation-search.test.ts`, focused route 테스트(`5 passed`) 및 Console typecheck | Bounded filter, 안전한 text highlight, exact context toggle, empty 및 unavailable 상태, fail-closed decoder 오류는 승인 또는 실행 권한을 추가하지 않습니다. |
 | 인시던트 대화 RCA 표현 | implemented | `incident_queries.py`, `semantic_turn_processor.py`, `semantic_turn_presentation.py`, `presentation-artifact.ts`, focused Core, Operator 및 Console 검사(`138 passed`) | 기록된 원인은 일치하는 인용이 포함된 grounded 가설 또는 정확한 감사 행에 근거한 허용 목록의 결정론적 최종 실패를 요구합니다. T0는 범위가 제한된 영향 근거를 기록하고 두 언어 모두 실행 권한 없이 근본 원인, 영향 및 인용을 렌더링합니다. 누락된 근거는 명시적으로 유지합니다. |
 | 구조화된 인시던트 근거 가독성 | implemented | `structured-reply.tsx`, `presentation-value.ts`, `structured-reply.css`, 집중 Console 검사(`19 passed`) 및 타입 검사 | Console은 의미가 있는 마크업에 정확한 RFC 3339 값을 보존하면서 운영자 로컬 시각과 시간대, 관찰 구간, 읽기 쉬운 주체와 기계 토큰 레이블, 반응형 근거 행, 범위가 명확한 채팅 연결 상태, 모바일 44 px 컨트롤을 표시합니다. 브라우저 비평 5회 뒤에는 범위가 제한된 모바일 출처 목록의 가로 스크롤만 Low로 남았으며 통제된 브라우저 산출물은 보존하지 않았습니다. |
+| Command Deck workspace 시각적 계층 | implemented | `console/src/styles.css`, `structured-reply.css`, `command-deck-workspace-visual.test.ts`, 집중 Console 검사(`29 passed`) 및 타입 검사 | Workspace 답변과 구조화된 근거는 하나의 760 px 읽기 폭을 공유하고 긴 값은 셀 안에서 줄바꿈하며 긴 표 머리글은 데스크톱에서 계속 보입니다. 기존의 레이블 행 재배치는 좁은 폭에서 계속 작동합니다. 인증된 10개 질문 브라우저 canary에서 993 px와 390 px 모두 body, transcript 또는 답변의 가로 overflow가 없었습니다. 통제된 브라우저 산출물은 보존하지 않았습니다. |
 
 ### 구현 이력
 
@@ -65,6 +66,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 2026-08-17 | implemented | 검증된 산출물이나 기계 기록을 바꾸지 않고 구조화된 인시던트 근거의 가독성을 강화했습니다. 로컬 시각과 시간대, 보존된 원시 타임스탬프, 관찰 구간, 읽기 쉬운 주체와 토큰, 반응형 네이티브 표, 범위가 명확한 준비 상태 문구, 콘텐츠를 가리지 않는 최신 메시지 탐색, 32/44 px 컨트롤을 적용했습니다. | `current change`; `presentation-value.test.ts`와 `command-deck-workspace-visual.test.ts`의 집중 검사 19개 및 Console 타입 검사가 통과했습니다. 인증된 브라우저 비평 5회는 최종 데스크톱/모바일 검사 12개를 모두 통과했고 출처 목록 가로 스크롤만 Low로 남았습니다. | 아래에서 이미 추적하는 더 넓은 통제된 인시던트 표현 산출물을 보존합니다. 이 가독성 범위에는 Medium 이상의 구현 문제가 남아 있지 않습니다. |
 | 2026-08-17 | implemented | 고정된 각 질문 신원이 하나의 넓은 작업 수준 기능을 상속하지 않고 유효한 typed 기능군을 선언하도록 live ontology assurance oracle을 구체화했습니다. Oracle은 exact 질문에 필요한 관계, 인과, 시간, 필터 또는 근거 기능이 빠진 답변 plan을 계속 거부합니다. | `current change`, `ontology-query-assurance.test.ts` 99개와 Console typecheck 통과 | 다른 전체 seed 기반 집단을 실행하기 전에 통과한 strict 아티팩트를 보존합니다. |
 | 2026-08-17 | implemented | 근거 검증 질문이 Core의 server-owned secured ObjectSet plan을 계속 요구하도록 prompt별 oracle을 바로잡았습니다. Topology 또는 metric 기능은 다른 답변 형태에 근거를 제공할 수 있지만 evidence-validation 계약을 대체하지 않습니다. | `current change`, `ontology-query-assurance.test.ts` 99개와 Console typecheck 통과 | 다른 전체 seed 기반 집단을 실행하기 전에 통과한 strict 아티팩트를 보존합니다. |
+| 2026-08-18 | implemented | 검증, 근거 또는 관찰된 작업을 숨기지 않으면서 운영 Command Deck을 검토된 mock의 차분한 transcript 계층에 맞췄습니다. 하나의 읽기 폭이 답변과 구조화된 표를 소유하고 불투명한 값은 제자리에서 줄바꿈하며 긴 데스크톱 표는 머리글을 유지하고 작성기는 더 가벼운 명령 비중을 사용합니다. | `current change`; `command-deck-workspace-visual.test.ts`, `investigation-timeline.test.ts`, `conversation-trajectory-visual.test.ts`의 집중 검사 29개와 Console 타입 검사가 통과했습니다. 격리된 인증 질문 10개는 prose, 목록, unavailable 또는 clarification 상태, 1행 표, 20행 영어와 한국어 표를 포함했고 데스크톱과 390 px 폭에서 가로 overflow가 없었습니다. | 브라우저 관찰은 통제된 산출물로 보존하지 않았습니다. 기존의 범위가 제한된 모바일 출처 strip 스크롤은 Low 잔여로 유지하고 더 넓은 통제된 대화 근거는 별도로 보존합니다. |
 
 ### 남은 작업
 
@@ -72,6 +74,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 - [ ] 감사 기반이 아닌 운영 상관관계에 추적 링크가 없고 감사 근거가 없는 수동 조회가 중립적인 사용 불가 상태로 표시됨을 보여 주는 통제된 Browser Entra 산출물을 보존합니다.
 - [ ] 새로 기록된 RCA 인시던트에서 근본 원인, 영향 근거 및 근거 인용을 보여 주는 통제된 Browser Entra 산출물을 보존합니다. 영향 행이 없는 과거 인시던트는 명시적으로 불완전한 상태를 유지해야 합니다.
 - [x] 정확한 기계 값을 보존하면서 데스크톱과 모바일 폭에서 구조화된 인시던트 근거를 읽기 쉽게 유지합니다. 집중 검사, 타입 검사, 브라우저 비평 5회가 통과했으며 Medium 이상의 잔여 문제가 없습니다.
+- [x] Command Deck 답변, 구조화된 근거 및 작성기를 하나의 범위가 제한된 읽기 계층에 유지합니다. 집중 검사, 타입 검사 및 10개 질문 데스크톱/모바일 브라우저 canary가 가로 overflow 없이 통과했습니다.
 
 ## 1. Framing - 무엇인가 (그리고 무엇이 아닌가)
 
@@ -163,7 +166,7 @@ flowchart TD
   유지됩니다. 해당 에이전트가 판단을 보류하고 턴을 다시 인계한 경우에만 Bragi가 응답 소유자가
   됩니다.
   에이전트 카드의 Ask는 간결한 projected-state 줄 목록으로 시작합니다. 더 긴 고정 맥락은 백엔드 이력용으로 화면에 표시하지 않으며 visible 보고는 범위가 제한된 2단어 burst로 스트림합니다.
-  Web 조사는 수신한 가지 프레임만 경과 시간, 타입이 지정된 배지 및 staggered 상태 행으로 animate합니다. 최종 조사는 최종 답변 옆에 세션 헤더와 관찰된 단계를 계속 표시하며 민감정보가 제거된 명령 출력과 시각만 공개에 접어 둡니다. 관찰된 실행 단계와 연결된 출처 가지는 별도 행으로 반복하지 않고 해당 단계에 한 번만 표시합니다. Full workspace는 desktop 대화 기록에 최소 760 px을 확보하고 mobile 뷰포트에서는 horizontal 초과분 없이 전체 폭을 사용합니다. Phase 표시, 15 px 대화 규모, 하나의 dark 명령/코드 표면으로 운영 hierarchy를 실행 mock과 맞춥니다. 브라우저는 작업을 재생하거나 진행 상황을 invent하지 않습니다.
+  Web 조사는 수신한 가지 프레임만 경과 시간, 타입이 지정된 배지 및 staggered 상태 행으로 animate합니다. 최종 조사는 최종 답변 옆에 세션 헤더와 관찰된 단계를 계속 표시하며 민감정보가 제거된 명령 출력과 시각만 공개에 접어 둡니다. 관찰된 실행 단계와 연결된 출처 가지는 별도 행으로 반복하지 않고 해당 단계에 한 번만 표시합니다. Full workspace는 desktop 답변과 구조화된 근거에 하나의 760 px 읽기 폭을 사용하고 행을 스크롤하는 동안 긴 표 머리글을 계속 표시하며 mobile 뷰포트에서는 레이블 행 재배치와 함께 가로 overflow 없이 전체 폭을 사용합니다. Phase 표시, 15 px 대화 규모, 하나의 dark 명령/코드 표면으로 운영 hierarchy를 실행 mock과 맞춥니다. 브라우저는 작업을 재생하거나 진행 상황을 invent하지 않습니다.
   관찰된 활동은 필수 `input_kind` 계약으로 실제 프로세스 명령과 정본 서버 조회를
   구분합니다. 인벤토리, subscription-health 및 read-investigation 활동은 `query`를 사용합니다.
   검증기가 승인한 타입이 지정된 조회, 권한, 스냅샷 출처 이력 및 범위가 제한된 결과 변환 결과를 렌더링하며

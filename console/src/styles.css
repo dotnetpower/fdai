@@ -7443,6 +7443,12 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   flex-direction: column;
   gap: 12px;
 }
+.deck-overlay-mode-workspace {
+  --deck-reading-width: 760px;
+}
+.deck-overlay-mode-workspace .deck-transcript-inner {
+  padding-inline: clamp(24px, 6vw, 60px);
+}
 .deck-resume-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: min(100%, 780px); box-sizing: border-box; padding: 6px 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--bg); color: var(--fg-muted); font-size: 12px; }
 .deck-resume-banner button { min-height: 32px; padding: 3px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-elevated); color: var(--fg); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }
 .deck-jump {
@@ -7713,6 +7719,11 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   align-self: flex-start;
   width: min(100%, 780px);
   box-sizing: border-box;
+}
+.deck-overlay-mode-workspace .deck-turn-deck,
+.deck-overlay-mode-workspace .deck-turn-activity,
+.deck-overlay-mode-workspace .deck-progress-note {
+  width: min(100%, var(--deck-reading-width));
 }
 .deck-turn-deck.is-streaming {
   animation: deck-answer-enter 0.24s cubic-bezier(0.22, 0.61, 0.36, 1) both;
@@ -9356,6 +9367,12 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   border: 1px solid color-mix(in oklab, var(--accent) 20%, transparent);
 }
 
+.deck-table-block,
+.deck-table-wrap,
+.deck-table {
+  min-width: 0;
+  max-width: 100%;
+}
 .deck-table-block { display: grid; gap: 6px; }
 .deck-table-wrap { max-height: none; overflow: visible; }
 .deck-table {
@@ -9387,6 +9404,12 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-table tbody tr:last-child td { border-bottom: 0; }
 .deck-table tbody tr:hover td { background: color-mix(in oklab, var(--accent) 6%, transparent); }
 .deck-table-cell-label { display: none; }
+.deck-table-cell-value {
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
 .deck-table-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--fg-muted); font-size: 12px; }
 .deck-table-meta button { min-height: 32px; padding: 5px 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); font: inherit; font-size: 12px; cursor: pointer; }
 .deck-table-meta button:hover { border-color: var(--accent); color: var(--accent-strong); }
@@ -9732,11 +9755,12 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   gap: 10px;
 }
 .deck-overlay-mode-workspace .deck-composer-inner {
+  width: min(100%, calc(var(--deck-reading-width) + 120px));
   box-sizing: border-box;
-  padding-inline: 13px;
+  padding-inline: 10px;
 }
 .deck-overlay-mode-workspace .deck-btn-primary,
-.deck-overlay-mode-workspace .deck-btn-stop { min-width: 93px; }
+.deck-overlay-mode-workspace .deck-btn-stop { min-width: 78px; }
 .deck-overlay-mode-floating .deck-transcript-tools,
 .deck-overlay-mode-dock .deck-transcript-tools {
   position: relative;

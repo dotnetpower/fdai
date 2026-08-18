@@ -90,7 +90,8 @@
 
 .deck-presentation-table {
   width: 100%;
-  table-layout: auto;
+  max-width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   border: 1px solid var(--border);
   font-size: 13px;
@@ -102,10 +103,14 @@
   border-bottom: 1px solid var(--border);
   text-align: left;
   vertical-align: top;
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .deck-presentation-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   background: color-mix(in oklab, var(--accent) 8%, var(--bg-elevated));
   color: var(--fg-muted);
   font-size: 12px;
@@ -167,7 +172,8 @@
 .deck-presentation-ref {
   color: var(--fg);
   font-size: 12px;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .deck-presentation-status {
@@ -307,6 +313,7 @@
 }
 
 @media (max-width: 700px) {
+  .deck-presentation-table th { position: static; }
   .deck-presentation-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .deck-presentation-table,
   .deck-presentation-table tbody,

@@ -127,6 +127,31 @@ describe("Command Deck workspace hierarchy", () => {
     expect(structuredStyles).toMatch(/@media \(max-width: 700px\)[\s\S]*\.deck-presentation-table,[\s\S]*display: block;/);
   });
 
+  test("aligns answers, structured evidence, and the composer to one calm reading measure", () => {
+    expect(styles).toContain("--deck-reading-width: 760px;");
+    expect(styles).toMatch(
+      /\.deck-overlay-mode-workspace \.deck-transcript-inner \{[^}]*padding-inline: clamp\(24px, 6vw, 60px\);/s,
+    );
+    expect(styles).toMatch(
+      /\.deck-overlay-mode-workspace \.deck-turn-deck,[\s\S]*?width: min\(100%, var\(--deck-reading-width\)\);/,
+    );
+    expect(styles).toMatch(
+      /\.deck-overlay-mode-workspace \.deck-composer-inner \{[^}]*width: min\(100%, calc\(var\(--deck-reading-width\) \+ 120px\)\);/s,
+    );
+    expect(styles).toContain(".deck-table-block,");
+    expect(styles).toContain(".deck-table-cell-value {");
+    expect(styles).toContain("overflow-wrap: anywhere;");
+    expect(structuredStyles).toMatch(
+      /\.deck-presentation-table \{[^}]*width: 100%;[^}]*max-width: 100%;/s,
+    );
+    expect(structuredStyles).toMatch(
+      /\.deck-presentation-table th \{[^}]*position: sticky;[^}]*top: 0;[^}]*z-index: 1;/s,
+    );
+    expect(structuredStyles).toMatch(
+      /@media \(max-width: 700px\)[\s\S]*\.deck-presentation-table th \{ position: static; \}/,
+    );
+  });
+
   test("keeps deck controls operable at desktop and touch sizes", () => {
     expect(styles).toMatch(/\.deck-search button \{[^}]*width: 32px;[^}]*height: 32px;/s);
     expect(styles).toMatch(/\.deck-gr-icon \{[^}]*width: 32px;[^}]*height: 32px;/s);
