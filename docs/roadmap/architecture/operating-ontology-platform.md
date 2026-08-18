@@ -176,6 +176,13 @@ catalog-as-code remains authoritative, and the instance graph remains a read mod
 ontology store is unavailable in an optional local profile, projection remains unavailable rather
 than substituting synthetic state. Deployed profiles continue to require OPA for T0 evaluation.
 
+The independently scheduled inventory process checks each mapped ResourceType target against the
+current instance graph before it builds classification links. A target absent during rolling
+catalog startup becomes the stable non-blocking drop `unseeded_resource_type`; the authoritative
+Resource objects and other verified links in the complete generation still replace the owned
+subgraph. A present endpoint with the wrong type and every other instance validation error continue
+to fail the generation.
+
 The shared property-semantics registry gives every canonical property one content-addressed
 identity for meaning, unit, value kind, and bounds. Catalog projection validates each reference
 against that registry and preserves finite numeric values without float coercion, so services and

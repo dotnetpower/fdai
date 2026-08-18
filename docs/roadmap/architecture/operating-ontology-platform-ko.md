@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 4b74da965427bc515d1458b36db38d65ef233864
-translation_revised: 2026-08-18
+translation_source_sha: 6632afa2ed065ed763d97bedcfb723e32ff327a0
+translation_revised: 2026-08-19
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -179,6 +179,12 @@ objective, Rule, 정책 구현 및 필수 근거 signature를 검증합니다. �
 catalog-as-code가 계속 권위 원천이고 인스턴스 그래프는 읽기 모델로 유지됩니다. 선택적 로컬
 프로파일에서 OPA 또는 온톨로지 저장소를 사용할 수 없으면 synthetic 상태로 대체하지 않고 변환 결과를
 사용 불가로 유지합니다. 배포 프로파일은 T0 평가를 위해 계속 OPA를 요구합니다.
+
+독립적으로 예약되는 인벤토리 프로세스는 분류 링크를 만들기 전에 매핑된 각 ResourceType 대상을
+현재 인스턴스 그래프에서 확인합니다. 카탈로그를 순차적으로 시작하는 동안 대상이 없으면 안정적인
+비차단 드롭 `unseeded_resource_type`이 되며, 완전한 세대의 권위 있는 Resource 객체와 다른 검증된
+링크는 소유 subgraph를 계속 교체합니다. 엔드포인트가 있지만 타입이 잘못됐거나 다른 인스턴스 검증
+오류가 있으면 계속 해당 세대를 실패 처리합니다.
 
 Shared property-semantics 레지스트리는 정본 속성마다 meaning, 단위, 값 종류, 한계에 대한
 내용 기반 주소를 가진 신원 하나를 제공합니다. 카탈로그 변환 결과는 모든 참조를 레지스트리에 대해

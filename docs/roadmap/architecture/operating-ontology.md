@@ -76,6 +76,10 @@ cloud-operations concepts, while each deployment supplies its observed instances
 > relationship from each observed Resource to one reviewed ResourceType. Classification pins the
 > complete inventory generation and a replay-stable digest of the ResourceType registry entry.
 > An unmapped type makes classification coverage incomplete and activates no replacement graph.
+> A reviewed mapping whose ResourceType instance is not yet seeded records
+> `unseeded_resource_type`, omits only that classification edge, and still writes the rest of a
+> complete inventory generation. Other relationship and endpoint validation failures remain
+> blocking.
 > The production inventory job injects the already loaded registry digest map, so promoted complete
 > generations persist this relationship in live projections.
 > Repeated authoritative observations of one resource identity inside a generation are now

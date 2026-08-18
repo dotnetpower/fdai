@@ -19,7 +19,7 @@ compared observations only; it is never evidence of independent corroboration.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping, Sequence, Set
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -69,6 +69,8 @@ _DROP_UNVERIFIED_METADATA = "unverified_metadata"
 _DROP_DUPLICATE_EDGE = "duplicate_edge"
 _DROP_CONFLICTING_DUPLICATE = "conflicting_duplicate"
 _DROP_UNMAPPED_RESOURCE_TYPE = "unmapped_resource_type"
+_DROP_UNSEEDED_RESOURCE_TYPE = "unseeded_resource_type"
+_NON_BLOCKING_DROPS = frozenset({_DROP_UNSEEDED_RESOURCE_TYPE})
 
 
 class InventoryProjectionConflictError(RuntimeError):
@@ -83,9 +85,10 @@ class InventoryOntologyProjection:
     A pinned graph revision resolves that identity, so the caller supplies it and
     it is never derived from the projected content.
 
-    ``complete`` is ``False`` whenever the observation was partial or any link was
-    dropped. A consumer MUST NOT read an absence claim from an incomplete
-    projection.
+    ``complete`` is ``False`` whenever the observation was partial or an observed
+    relationship was dropped. A missing catalog-owned classification target is a
+    recorded non-blocking drop: it omits only derived classification enrichment and
+    keeps the authoritative inventory generation writable.
     """
 
     generation: str
@@ -103,6 +106,7 @@ def build_inventory_ontology_projection(
     observation_complete: bool = True,
     relationship_drops: Sequence[RelationshipDrop] = (),
     resource_type_mappings: Mapping[str, str] | None = None,
+    seeded_resource_types: Set[str] | None = None,
 ) -> InventoryOntologyProjection:
     """Restate one inventory observation as a typed resource subgraph.
 
@@ -145,6 +149,7 @@ def build_inventory_ontology_projection(
                 generation=generation,
                 objects=objects,
                 resource_type_mappings=resource_type_mappings,
+                seeded_resource_types=seeded_resource_types,
                 dropped=dropped,
             )
             projected_links = tuple(
@@ -161,7 +166,7 @@ def build_inventory_ontology_projection(
         generation=generation,
         objects=tuple(objects[key] for key in sorted(objects)),
         links=projected_links,
-        complete=observation_complete and not dropped,
+        complete=observation_complete and not (dropped - _NON_BLOCKING_DROPS),
         dropped_reasons=tuple(sorted(dropped)),
     )
 
@@ -171,6 +176,7 @@ def _build_classification_links(
     generation: str,
     objects: Mapping[str, OntologyObjectRecord],
     resource_type_mappings: Mapping[str, str],
+    seeded_resource_types: Set[str] | None,
     dropped: set[str],
 ) -> tuple[OntologyLinkRecord, ...]:
     """Classify every observed Resource through one reviewed type mapping."""
@@ -188,6 +194,9 @@ def _build_classification_links(
             continue
         if not mapping_digest.startswith("sha256:") or len(mapping_digest) != 71:
             raise ValueError("resource type mapping digest MUST be a canonical SHA-256 value")
+        if seeded_resource_types is not None and resource_type not in seeded_resource_types:
+            dropped.add(_DROP_UNSEEDED_RESOURCE_TYPE)
+            continue
         links.append(
             OntologyLinkRecord(
                 link_type="resource_classified_as",

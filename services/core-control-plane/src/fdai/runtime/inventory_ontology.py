@@ -102,6 +102,7 @@ class InventoryOntologyProjector:
             observation_complete=observation.complete,
             relationship_drops=observation.relationship_drops,
             resource_type_mappings=self._resource_type_mappings,
+            seeded_resource_types=await self._seeded_resource_types(observation),
         )
         if not projection.complete:
             await self._write_status(
@@ -148,6 +149,26 @@ class InventoryOntologyProjector:
             complete=projection.complete,
             dropped_reasons=projection.dropped_reasons,
         )
+
+    async def _seeded_resource_types(
+        self,
+        observation: PromotedInventoryObservation,
+    ) -> frozenset[str] | None:
+        """Return mapped ResourceType targets that exist in the current instance graph."""
+        if self._resource_type_mappings is None:
+            return None
+        observed_types = sorted(
+            {
+                record.type.strip()
+                for record in observation.resources
+                if record.type.strip() in self._resource_type_mappings
+            }
+        )
+        seeded: set[str] = set()
+        for resource_type in observed_types:
+            if await self._store.get_object(resource_type) is not None:
+                seeded.add(resource_type)
+        return frozenset(seeded)
 
     async def _pin_owned_revisions(
         self,

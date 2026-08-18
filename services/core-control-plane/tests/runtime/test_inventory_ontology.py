@@ -192,6 +192,42 @@ async def test_projector_persists_resource_type_classification() -> None:
     assert [(item.from_id, item.to_id) for item in graph.links] == [("vm-1", "compute.vm")]
 
 
+async def test_projector_drops_unseeded_resource_type_without_blocking_generation() -> None:
+    store = _store()
+    status = InMemoryStateStore()
+    projector = _projector(
+        store,
+        status,
+        resource_type_mappings={"compute.vm": "sha256:" + ("a" * 64)},
+    )
+
+    result = await projector.apply(
+        _observation(generation="snapshot-seed-drift", resource_ids=("vm-1",))
+    )
+
+    assert result.complete is True
+    assert result.link_count == 0
+    assert result.dropped_reasons == ("unseeded_resource_type",)
+    assert await store.get_object("vm-1") is not None
+    status_record = await status.read_state(INVENTORY_ONTOLOGY_STATUS_KEY)
+    assert status_record is not None
+    assert status_record["status"] == "available"
+    assert status_record["dropped_reasons"] == ["unseeded_resource_type"]
+
+
+async def test_projector_rejects_malformed_mapping_for_unseeded_resource_type() -> None:
+    projector = _projector(
+        _store(),
+        InMemoryStateStore(),
+        resource_type_mappings={"compute.vm": "not-a-digest"},
+    )
+
+    with pytest.raises(ValueError, match="canonical SHA-256"):
+        await projector.apply(
+            _observation(generation="snapshot-invalid-mapping", resource_ids=("vm-1",))
+        )
+
+
 async def test_one_resource_can_retain_multiple_observed_attachments() -> None:
     store = _store()
     status = InMemoryStateStore()
