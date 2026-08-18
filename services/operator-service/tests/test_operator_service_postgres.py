@@ -842,8 +842,24 @@ async def test_kpi_uses_bounded_sample_and_authoritative_hil_count() -> None:
     assert payload["event_count"] == 1
     assert payload["hil_pending"] == 1
     assert payload["by_tier"] == {"t0": 1}
+    assert payload["by_outcome"] == {"hil": 1}
     kpi_call = next(call for call in model.calls if call[0] == KPI_SAMPLE_SQL)
     assert kpi_call[1]["limit"] == 500
+
+
+@pytest.mark.asyncio
+async def test_kpi_abstains_instead_of_inventing_an_outcome_for_rows_without_one() -> None:
+    model = StubPostgresReadModel()
+    model.audit_rows = [
+        _audit_row(1, action_kind="observation-campaign.source-transition", entry={}),
+        _audit_row(2, action_kind="control_loop.compliant", entry={"rule_id": "r-1"}),
+        _audit_row(3, action_kind="executor.direct_api.dispatched", entry={"outcome": "applied"}),
+    ]
+
+    payload = (await model.dashboard_metrics()).to_dict()
+
+    assert payload["event_count"] == 3
+    assert payload["by_outcome"] == {"applied": 1}
 
 
 @pytest.mark.asyncio
