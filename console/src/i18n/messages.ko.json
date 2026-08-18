@@ -535,6 +535,7 @@
       "description": "최종 책임자 또는 알림 대상을 추가합니다. 제출하면 거버넌스 초안 PR이 생성되며, 병합 전까지 현재 담당 체계는 바뀌지 않습니다.",
       "ownerReview": "Owner 검토 필요",
       "permissionRequired": "담당 체계 변경을 제안하려면 Contributor, Approver 또는 Owner 권한이 필요합니다.",
+      "permissionResolving": "담당 체계 변경 제안 권한을 확인하는 중입니다...",
       "agent": "에이전트",
       "identity": "사람 또는 그룹",
       "identityPlaceholder": "표시 이름 또는 메일",
