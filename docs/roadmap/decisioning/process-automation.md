@@ -1,7 +1,6 @@
 ---
 title: Process Automation
 ---
-
 # Process Automation
 
 Process automation turns a multi-step business process into a first-class,
@@ -36,6 +35,7 @@ workflow ship as catalog-as-code and run in shadow mode.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-17 | implemented | Removed operator-facing guidance that told the operator to enable the workflow authoring routes through a configuration symbol that does not exist in this repository. | `current change`; `workflow-builder.chat.ts`, `workflow/validate.ts`, `workflow.{en,ko}.json`; focused console checks passed 71 tests across 9 files and catalog key parity held. | None for this message set. Wiring the workflow authoring routes themselves remains separate work. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and exposed the remaining constitutional compensation gap. | `current change`; current source, focused tests, and traceability listed in the scope table. | Close the compensation-hold and promotion exits below. |
 | 2026-08-14 | implemented | Verified durable automation holds across compensation failure, ledger restart, duplicate delivery, forward-dispatch denial, and matching recovery release; recorded FDAI-CONST-009 as implemented. | `current change`; `test_automation_hold.py`, `test_orchestrator.py`, `test_control_loop_authority.py`, and `test_gate.py`; focused checks passed 10 tests. | Retain the independent workflow promotion evidence and the unrelated trigger and branching work below. |
 | 2026-08-14 | implemented | Made `on_failure` branching failure-only so a declared fallback no longer executes as an ordinary forward step on the success path. | `current change`; [`runner.py`](../../../services/core-control-plane/src/fdai/core/runbook/runner.py), [`test_runbook_runner.py`](../../../services/core-control-plane/tests/core/runbook/test_runbook_runner.py); focused runbook and workflow checks passed 114 cases. | Promote a `SignalType` vocabulary that covers request and command triggers before adding the load-time cross-check, and retain the independent workflow promotion evidence. |

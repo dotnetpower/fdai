@@ -57,7 +57,7 @@ describe("workflow-builder chat engine", () => {
   it("warns and offers nothing when the palette is empty", () => {
     const turn = startChat([]);
     expect(turn.options).toHaveLength(0);
-    expect(turn.text).toContain("workflow_authoring");
+    expect(turn.text).toContain("not wired");
   });
 
   it("reads a full sentence and requires explicit plan confirmation", () => {

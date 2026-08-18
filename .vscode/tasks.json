@@ -324,7 +324,7 @@
     {
       "label": "console: Inventory Reconciliation (Local)",
       "type": "shell",
-      "command": "set -a && source .fdai/local-runtime.env && set +a && FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain bash scripts/automation/run-local-service.sh inventory-reconciliation \"$PWD/.fdai/logs/inventory-reconciliation.log\" -- env -u AZURE_CONFIG_DIR FDAI_EXECUTION_VENUE=local FDAI_INVENTORY_DSN=\"$FDAI_STATE_STORE_DSN\" FDAI_INVENTORY_SCOPES=\"$AZURE_SUBSCRIPTION_ID\" PYTHONPATH=\"$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/python -m fdai.delivery.inventory_sync_cli --loop",
+      "command": "set -a && source .fdai/local-runtime.env && set +a && FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain bash scripts/automation/run-local-service.sh inventory-reconciliation \"$PWD/.fdai/logs/inventory-reconciliation.log\" -- env -u AZURE_CONFIG_DIR FDAI_EXECUTION_VENUE=local FDAI_INVENTORY_DSN=\"$FDAI_STATE_STORE_DSN\" FDAI_INVENTORY_SCOPES=\"$AZURE_SUBSCRIPTION_ID\" FDAI_INVENTORY_RECOVERY_DELTA=1 PYTHONPATH=\"$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/python -m fdai.delivery.inventory_sync_cli --loop",
       "isBackground": true,
       "problemMatcher": {
         "owner": "console-inventory-reconciliation",

@@ -169,7 +169,8 @@ function boundedJsonObject(value: unknown): value is Readonly<Record<string, unk
   let nodes = 0;
   function visit(candidate: unknown, depth: number): boolean {
     nodes += 1;
-    if (nodes > 128 || depth > 4) return false;
+    // Mirrors the server bound: an object_set membership predicate nests six levels.
+    if (nodes > 128 || depth > 6) return false;
     if (candidate === null || typeof candidate === "boolean" ||
         (typeof candidate === "number" && Number.isFinite(candidate))) return true;
     if (typeof candidate === "string") return candidate.length <= 1024;

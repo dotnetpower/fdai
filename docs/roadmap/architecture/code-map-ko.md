@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 5523671bb9e062c3a9949f66f6ab34b49964d97e
+translation_source_sha: 6164850ae895420f8f1d3421e5d7d38409eb0737
 translation_revised: 2026-08-18
 ---
 # 코드 맵
@@ -61,6 +61,7 @@ translation_revised: 2026-08-18
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-18 | 구현됨 | 검증된 frame의 `output_shape`를 `plan_verify` 단계 기록에 남기고 로컬 평문 로그 허용 목록에 추가했습니다. 한 turn이 어떤 역량 계열로 frame을 구성했는지 진단할 수 없어 잘못된 출처로 답한 경우와 잘못된 frame으로 답한 경우를 구분할 수 없었습니다. 자유 텍스트 frame 필드는 운영자 발화 내용을 담을 수 있으므로 로그에서 제외합니다. | `current change`; focused 계획기 검사 `29 passed`와 로컬 서비스 로그 실행기 검사 `13 passed`; 작업 범위 Ruff 통과. 감사 로그 행 수를 묻는 실제 로컬 turn이 `output_shape="aggregation_table"`과 `plan_nodes="function:query.manifest,aggregate"`를 기록해, frame은 옳았고 plan이 선언 인벤토리를 집계 입력으로 선택했음을 입증했습니다. | 질문이 선언을 묻지 않을 때 `aggregation_table` plan이 `query.manifest`를 집계 입력으로 쓸 수 있는지 결정합니다. 이슈 #174에서 추적합니다. |
 | 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 exact-generation Rule 검색을 기록했습니다. | 현재 변경의 `catalog_queries.py`, `operational_functions.py`, `test_catalog_queries.py`, 통과한 focused 테스트 및 diff-scoped 검증 | 아래 IS-09 원격 검증 항목을 완료합니다. |
 | 2026-08-13 | 구현됨 | 플래너 함수 가시성을 실제 런타임 등록에 연결하고 바인딩되지 않은 읽기 가능 선언을 타입이 지정된 구조 coverage에 유지했습니다. | 현재 변경의 `wire_semantic_query.py`, `semantic_manifest.py`, `query_manifest.py` 및 해당 focused 테스트 | 영속 production 의미 인덱스는 이 변경 범위 밖에 있으며 아래 IS-09 원격 검증 항목을 완료합니다. |
 | 2026-08-13 | 구현됨 | 호출 상관관계를 논리적 요청 멱등성과 분리하고 영속 요청자 및 대화 ID를 불투명 참조로 바꿨습니다. | `current change`, `wire_read_investigation.py`, `test_wire_read_investigation.py`, 통과한 focused 테스트 5개 | 아래 IS-09 원격 검증 항목을 완료합니다. |
@@ -142,6 +143,7 @@ translation_revised: 2026-08-18
 | 2026-08-18 | implemented | Frame prompt v19에 generic causal completeness audit를 추가했습니다. Visible principal-scoped resource에 대해 명시된 cause와 effect를 identity 또는 provider concept를 위한 operator clarification으로 바꿀 수 없으며 deterministic grounding은 downstream의 authority-neutral 단계로 유지합니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증된 source에서 strict 및 seeded 근거를 보존합니다. |
 | 2026-08-18 | implemented | Frame prompt v20에 relation-verb precedence audit를 추가했습니다. Runtime traversal verb는 wording이 ontology object 또는 relationship type을 명시한다는 이유로 declaration inventory로 축소될 수 없습니다. Runtime authority와 deterministic verifier 동작은 변경하지 않았습니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증된 source에서 strict 및 seeded 근거를 보존합니다. |
 | 2026-08-18 | validated | 중앙 검증된 source `a38922762ed805794b11bb9c6aaef43916f6f6c4`에서 첫 full governed ontology-query certification을 보존했습니다. 독립적으로 감독된 runtime은 exact event-bus transport, exact semantic-plan capability, 모든 answered turn의 complete evidence 및 authority와 safety counter 0건을 유지하며 strict 14/14와 seeded 100/100을 통과했습니다. | 실행 `issue63-a38922762e-20260818T034940Z`, repository-safe 기준선 [`ontology-query-randomized-assurance-2026-08-18.json`](../../baselines/ontology-query-randomized-assurance-2026-08-18.json) | 원시 local artifact를 보존하고 최신 integration source에서 baseline commit을 검증합니다. |
+| 2026-08-17 | 구현됨 | 카탈로그 리소스 타입 어휘를 읽기 가능한 `Resource.type` 속성에 연결해 플래너가 선언된 값과 이중 언어 그룹을 읽도록 했고, 선언 영역이 담을 수 없는 피연산자나 조각은 plan 검증기가 거부하도록 했습니다. Console intent 변환 결과는 membership 술어에 필요한 6단계 중첩을 이제 허용합니다. | `current change`; `core/ontology_platform/property_values.py`, `query_manifest.py`, `query_verification.py`, `composition/semantic_query_value_domains.py`, `packages/service-contracts/.../ontology_query.py`, `console/src/deck/intent-graph.ts`; 집중 온톨로지, composition, 대화, 카탈로그, 계약 검사 2317건과 Console intent-graph 모음이 통과했습니다. | 선언된 값을 가진 속성은 `Resource.type` 하나뿐이며 다른 열거형 속성은 아직 값을 확정하지 못합니다. |
 
 ### 남은 작업
 

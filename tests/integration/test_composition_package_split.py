@@ -62,6 +62,9 @@ _EXPECTED_FILES = frozenset(
         # Resolves the separate T1 and T2 planning request targets so the
         # semantic wire keeps one binding responsibility.
         "semantic_query_model_targets.py",
+        # Projects the catalog resource-type vocabulary as a planner value
+        # domain so the semantic wire keeps one binding responsibility.
+        "semantic_query_value_domains.py",
         # Composes authoritative inventory state with ontology-native shadow parity.
         "wire_read_investigation.py",
     }

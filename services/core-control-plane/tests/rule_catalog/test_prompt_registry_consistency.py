@@ -109,6 +109,7 @@ def test_semantic_plan_prompt_pins_the_object_set_verifier_envelope() -> None:
     assert '"operator":"exists"' in body
     assert '"operator":"equals","equals"' in body
     assert '"operator":"in","values"' in body
+    assert '"operator":"contains","equals"' in body
     assert "one direct key from the selected descriptor's properties map" in body
     assert "never a projected row path such as properties.type" in body
     assert "never a natural-language alias such as resource_type or ResourceType" in body
@@ -205,6 +206,21 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "For temporal_comparison, create exactly two topology_at source nodes" in plan.body
     assert "baseline-then-current order" in plan.body
     assert "topology.diff, and is the only output node" in plan.body
+    assert "preserve every requested readable property and every requested value" in plan.body
+    assert "for a requested name, identifier, or label fragment" in plan.body
+    assert "Select exists only when the request states no value for that property" in plan.body
+    assert (
+        "an existence predicate over a required property selects the whole type and never "
+        "stands in for a requested value" in plan.body
+    )
+    assert "A readable property that supplies values accepts only those exact values" in plan.body
+    assert "Resolve a requested family, category, class, or group word" in plan.body
+    assert "select its listed values with an in predicate" in plan.body
+    assert "accepts a contains fragment only when some supplied value already contains it" in (
+        plan.body
+    )
+    assert "never to a value-supplying property" in plan.body
+    assert "never pass a family word through as a value" in plan.body
     assert "exactly two metric_scope_series nodes" in plan.body
     assert "MUST NOT contain predicates, traversal, or root_ids" in plan.body
     assert "a principal-scope denial, not a causal plan" in plan.body

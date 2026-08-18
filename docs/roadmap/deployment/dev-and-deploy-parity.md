@@ -32,6 +32,7 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 | Live observation consumer isolation | implemented | `services/operator-service/src/fdai_operator_service/environment.py`, `services/operator-service/src/fdai_operator_service/composition.py`, `console/tests/live-e2e/operator_service.py`, and focused regressions; 41 tests passed | `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID` binds each independently running Operator process or replica to a distinct group. The E2E launcher always replaces inherited values with a UUID-scoped group. |
 | Agent refresh latest-state hydration | validated | Focused stream tests: 9 passed; authenticated `/agents` reloads reached `Watching 2 / Idle 13 / Unobserved 0` in 224 ms, 232 ms, and 228 ms | The Agent hub seeds one latest validated `agent.state` event per agent into each new subscriber. Generic Live remains future-only, and neither hub provides durable history replay. |
 | Authenticated local Live event path | validated | Controlled 2026-08-13 Browser Entra run through `aw.change.events`, Core, `aw.pipeline.stages`, Operator SSE, and the existing authenticated Live DOM | The run preserved the authoritative ontology and rendered the event plus all four accepted stages. It did not validate a deployed revision, the browser Notifications API, or closed-browser push delivery. |
+| Local control-loop change-event ingress | validated | `.vscode/tasks.json`, `infra/modules/compute/container-apps/inventory_job.tf`, `tests/integration/infra/test_inventory_repair_wiring.py`; one local run published 5 authoritative `inventory.resource_changed` events and the authenticated Live surface reported `Runtime observed` with `5 routed events` | The local inventory reconciliation task binds `FDAI_INVENTORY_RECOVERY_DELTA=1` exactly as the VNet-integrated deployed job does, so the Activity Log delta reaches `aw.change.events` in both venues. The deployed job still disables the delta when no infrastructure subnet exists. |
 | Local and deployed composition parity | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, `fdai_operator_service/composition.py`, service integration tests, and focused Operator checks (`51 passed`) | Composition roots select credentials and adapters without changing evidence authority. Local and deployed Operator composition register the same Reader-scoped `GET /browser-evidence` route and authoritative data-source identity; missing PostgreSQL remains unavailable rather than synthetic. |
 | Primary-worktree automatic startup isolation | implemented | `.vscode/tasks.json` and `tests/integration/scripts/test_vscode_workspace_performance.py`; focused automatic-start contract passed | Folder-open startup runs only from the primary checkout so linked worktrees cannot race for the standard ports. Explicit preparation and service-start tasks remain available in linked worktrees. |
 | Repository-scoped roadmap campaign capacity | implemented | `roadmap_verification_watchdog.py`, `test_roadmap_verification_watchdog.py`, and the randomized campaign operator contract in `scripts/README.md` | FDAI session leases and recent Copilot activity are both counted only for this repository. Linked worktrees resolve the primary checkout before deriving the VS Code workspace id. Another workspace cannot hold FDAI work, while the 900-second activity window and two-session campaign ceiling still protect concurrent FDAI editing. |
@@ -46,6 +47,12 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-17 | validated | Materialized the reviewed ActionType palette and workflow catalog into `operator-projection:workflow:workflow.action-type-list` and `workflow.catalog`, so Workflow builder renders declared building blocks instead of an unavailable state. | Current change; `test_materialize_authoritative_catalogs.py` 5 passed; an authenticated `/workflow-builder` load rendered 48 ActionTypes and 12 workflows with their triggers, step counts, and modes. | Surfaces backed by runtime evidence rather than a reviewed declaration still answer `503`. |
+| 2026-08-17 | validated | Materialized `operator-projection:operations:stewardship.coverage` from the reviewed `config/agent-stewardship.yaml` through the existing Core coverage report, so Agent oversight renders measured ownership instead of an unavailable state. | Current change; `test_materialize_authoritative_catalogs.py` 3 passed including a console-contract invariant test; an authenticated `/agent-oversight` load reported `AGENTS 15`, `MAINTAINERS 2`, `AUTONOMOUS 1`, and the Core-computed finding table with no unavailable block. | Surfaces whose evidence is produced at runtime rather than declared in the repository still answer `503`. |
+| 2026-08-17 | implemented | Removed operator-facing remediation copy that named `OperatorApiConfig.<field>`, a symbol that exists nowhere in this repository, across the stewardship, workflow authoring, promotion gate, rule catalog, ontology, and pantheon panels. | Current change; focused console checks passed 71 tests across 9 files, Console typecheck clean, catalog key parity held for all five affected pairs, and an authenticated pass over the six panels rendered no reference to the removed symbol. | Wiring those routes remains separate work; the panels now state only the observable condition. |
+| 2026-08-17 | validated | Declared the remaining unserved read surfaces (`/capabilities`, `/skills`, `/forecast-learning`, `/operator-memory`) and stopped the conversation assurance panel from rendering a raw transport code. | Current change; focused Operator composition tests `50 passed`, Console typecheck clean, assurance catalog key parity checked; an authenticated pass over the Agents, Governance, Evidence, and Settings submenus left no `404` and no raw `HTTP nnn` in any rendered body. | None for this surface set. Registered routes whose projection is unwired still answer `503` with a server-owned reason. |
+| 2026-08-17 | validated | Declared the unserved `/onboarding`, `/configuration-baselines`, and `/conversation-delivery` surfaces, each owning its own source so a panel renders a reason about itself. | Current change; focused Operator composition tests `50 passed`; an authenticated pass over all 13 Operations screens produced no error alert, no `404`, and no raw transport code in the rendered body. | Decide whether the lost onboarding, baseline, and delivery capabilities are rebuilt behind the service boundary; they previously imported Core providers directly. |
+| 2026-08-17 | validated | Declared the unserved `/finops` and `/kpi/autonomy` measurement surfaces in the read data-source registry, and tolerated the registry's `503` signal in the optional Overview projections. | Current change; focused Operator composition tests `49 passed` and Console dashboard-loading tests `3 passed`, both mutation-verified; an authenticated pass over the six Overview screens produced no error alert and removed every `404`. | Materialize or retire the `promotion-gate.list` projection, which has a reader but no writer in this distribution. |
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance, and moved machine-scoped Pylance launch controls to the FDAI profile. | Current change in `.vscode/fdai.code-profile`, `.vscode/settings.json`, `scripts/automation/configure-vscode-profile.py`, and focused profile/workspace tests: 9 passed. | Record the FDAI Pylance process argument and centralized validation receipt. |
 | 2026-08-13 | deferred | Removed the ineffective Pylance machine settings, rejected duplicate profile JSON keys, and added a contract that prevents their return. | A clean Remote WSL process command lacked the configured heap argument; focused profile and workspace tests: 11 passed. | Use a separately rooted VS Code Server or WSL distribution, then prove the heap argument from the restarted process command. |
 | 2026-08-13 | implemented | Added a dedicated local PostgreSQL cluster for destructive validation and taught the detached validation queue to load only its generated DSN. | Current change; Compose config passed, focused queue and local-env tests passed (68 tests), and the isolated migration upgrade/downgrade checks passed (2 tests). | No remaining implementation work for local validation database isolation. |
@@ -75,6 +82,7 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 | 2026-08-17 | implemented | Corrected linked-worktree session counting. The original repository-scoped implementation hashed the campaign worktree path and found no VS Code storage, so a linked campaign could count zero FDAI sessions. It now derives the primary checkout from Git's common directory before hashing the workspace URI. | `current change`; `roadmap_verification_watchdog.py` and a real linked-worktree regression in `test_roadmap_verification_watchdog.py`; the focused watchdog suite passed 9 cases. | No remaining work for linked-worktree workspace identity. |
 | 2026-08-17 | implemented | Restated the deployment README's trace-continuity sentence in the required display terms. A bare `finding` in operator-facing prose failed `display-terminology` inside central validation, which rejected main and stopped every lane and every landing. | `current change`; `infra/README.md` and the user-guide pair; `display-terminology` reports OK across 524 documents and translations verify 185/185. | None for this change. |
 | 2026-08-17 | implemented | Isolated durable semantic outbox claims for alternate local Operator processes without changing the standard local or deployed namespace. A test-only Operator can bind `FDAI_SEMANTIC_TURN_OUTBOX_NAMESPACE` to its run id, while production defaults continue to share one replica-safe queue. | `current change`; focused environment, composition, repository lease, and runner checks passed 114 cases; strict mypy passed. | Retain exact-source Browser evidence from the namespaced assurance runner. |
+| 2026-08-17 | validated | Bound the local venue to the same authoritative control-loop ingress as deployment. The Activity Log recovery delta was enabled for the deployed inventory job but left at its `False` default locally, so `aw.change.events` received nothing and the authenticated Live surface reported `Source unavailable` while every transport component was healthy. | `current change`; `.vscode/tasks.json` and `tests/integration/infra/test_inventory_repair_wiring.py`; focused infrastructure and constitution checks passed 14 cases; one local run published 5 authoritative `inventory.resource_changed` events that produced `ingest`, `route`, `verify`, and `audit` frames with `source: runtime-observed`, and the Live surface changed to `Runtime observed`. | Enumerate every remaining venue-selected capability flag in one contract instead of guarding each binding separately. |
 ### Remaining work
 
 - [ ] Establish an FDAI-only Remote WSL server data root or WSL distribution, then record a restarted Pylance process command containing `--max-old-space-size=2048` without changing the excluded workspace.
@@ -85,6 +93,9 @@ change state ownership, or allow fixtures. Adding a real Azure client is a fork-
 - [ ] Retain a governed local and deployed observation campaign pair with the same catalog digest,
   including authorized, unavailable, partial, skipped, and completed source outcomes plus
   snapshot-first/live Agent Activity deduplication.
+- [ ] Enumerate every venue-selected capability flag in one contract so a local profile cannot
+  silently omit a binding that deployment enables; today each binding is guarded separately
+  ([#152](https://github.com/dotnetpower/fdai/issues/152)).
 
 ## Audit - What Works Local, What Needs Azure
 
@@ -321,41 +332,9 @@ receive no prompt or network change.
 
 ### Console data in local development
 
-The canonical local Operator API uses `FDAI_OPERATOR_API_LOCAL_ENTRA=1` and shares route-owned runtime helpers with deployment. The browser obtains the API token
-and the API verifies its JWT and App Roles exactly as deployment does. The server's Azure CLI token
-is confined to Azure adapters such as Resource Graph, Microsoft Graph, model discovery, and Event
-Hubs. `FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1` with `VITE_LOCAL_AZURE_CLI_AUTH=1` is an explicit
-CLI-principal debug alternative with a fixed role ceiling.
-
-Local Kubernetes workload evidence is opt-in and server-owned. Set
-`FDAI_LOCAL_KUBECONFIG`, `FDAI_LOCAL_KUBERNETES_CONTEXT`, and
-`FDAI_LOCAL_KUBERNETES_CLUSTER_NAME` together to bind one fixed read-only `kubectl` query. The
-cluster name must match the Azure inventory result before Deployment or Pod evidence can complete
-an AKS answer. With all three values absent, workload coverage remains explicitly unavailable; a
-partial binding fails startup instead of using the implicit current context.
-
-Local and deployed inventory projections use the same two query modes. `scope=<view-id>` selects
-a deterministic named architecture view. The mutually exclusive rooted mode uses
-`root=<resource-id>`, `depth=1..8`, and `limit=1..1000` to return one bidirectional neighborhood;
-an unknown root returns `404`, and a cap sets `truncated=true`. The local Azure CLI provider applies
-the same bounds to its authoritative cached snapshot that the deployed PostgreSQL provider applies
-inside the active snapshot plus real-time overlay. Neither profile widens a rooted request to the
-complete inventory. The deployed provider reads that effective graph in one repeatable-read,
-read-only transaction, and both profiles expand same-depth frontier resources round-robin in a
-deterministic order. Named-view requests keep the original three-argument provider call contract;
-only rooted requests require the extended keywords. Relationship-filter count and text length are
-bounded before provider dispatch. The read route rejects malformed resources, unknown or dangling
-relationships, duplicate resource ids, invalid truncation metadata, and oversized provider output.
-Both profiles preserve observed operational state, including nested AKS `powerState.code`, instead
-of replacing it with provisioning state. Local cache envelope v13 records a strict redacted receipt
-for the Azure CLI/ARG commands that produced the snapshot. Older envelopes refresh before they can
-expose provider execution detail. A Command Deck inventory turn applies IQL to that snapshot; it
-doesn't claim that the provider commands ran again for the question.
-Rooted output uses the requested resource cap and matching edge cap; named views keep the existing
-5,000-resource and 40,000-link response ceilings.
-Both profiles expose the same truncation reason vocabulary: resource, adjacent-edge,
-internal-edge, or source cap. The read route rejects unknown reasons and a reason attached to a
-non-truncated payload.
+The data-source declaration, local authentication, workload evidence, and inventory query
+contracts are owned by [Console Read Boundary](console-read-boundary.md). This parity document
+retains the remaining local/deployed runtime bindings below.
 
 Runtime policies use the same StateStore record in deployment and when local PostgreSQL is
 configured. Without durable local state, the source manifest reports the settings store as

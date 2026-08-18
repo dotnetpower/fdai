@@ -438,6 +438,7 @@ class SemanticTurnProcessor:
             await asyncio.gather(runtime_task, return_exceptions=True)
             raise
         except Exception:  # noqa: BLE001 - runtime/provider detail must not cross the wire
+            _LOGGER.exception("semantic_turn_runtime_failed")
             return _terminal_result(request, "held", "semantic_runtime_failed"), None
         finally:
             if cancellation_task is not None and not cancellation_task.done():

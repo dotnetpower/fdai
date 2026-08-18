@@ -507,6 +507,9 @@ class EventBusBridge:
         observer = self.handler_observer
         if observer is None:
             return
+        # The observer projects Pantheon agents only; framework principals have no lane.
+        if agent not in self.registry.names():
+            return
         try:
             await observer.observe(
                 agent=agent,
