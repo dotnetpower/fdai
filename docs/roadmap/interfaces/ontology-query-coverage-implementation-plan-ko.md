@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 41840b16ee0ebd339a3211445ca633954a37ffef
+translation_source_sha: 79100e3c016d7c250f492d29da5bb86509d7f0b6
 translation_revised: 2026-08-18
 ---
 
@@ -222,6 +222,7 @@ translation_revised: 2026-08-18
 | 2026-08-18 | implemented | Randomized assurance에서 드러난 두 typed boundary를 위해 deterministic frame invariant와 prompt v15를 추가했습니다. `ontology_manifest`는 canonical declaration-kind subject만 허용하고 `select` resource listing은 비어 있지 않은 measure concept를 조용히 버릴 수 없습니다. 유효하지 않은 T1 frame은 planning 전에 bounded T2 frame cascade로 retry합니다. | `current change`, 전체 semantic planning tier-routing 및 prompt-registry 테스트 통과, Ruff와 strict mypy 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
 | 2026-08-18 | implemented | 중앙 changed-tests가 제안된 deterministic invariant 두 개를 모두 반증했습니다. 정상적인 Pod telemetry path query는 `Resource` subject 및 비어 있지 않은 measure concept와 함께 resource-list output을 사용합니다. Runtime invariant를 제거하고 declaration inventory, runtime membership 및 명시적 grouping 사이의 일반 answer-shape 구분을 위한 prompt v15만 유지했습니다. | 중앙 검증에 실패한 source `90c592bfcc673e4764e4480be7ffa54c5b66b0b8`, 두 Pod telemetry composition 회귀 테스트와 인접 prompt suite가 현재 로컬 통과 | 수정된 prompt-only v15 slice를 중앙 검증한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
 | 2026-08-18 | implemented | Semantic frame prompt를 v16으로 versioning하고 일반적인 incident 명사와 authoritative incident reference를 분리했습니다. `incident_evidence`에는 하나의 정확한 trusted binding 또는 request의 정확한 identity 두 개가 필요하며 명시된 원인을 일반적으로 지지하거나 반박하는 질문은 `explain_change`와 `causal_evidence`를 유지합니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
+| 2026-08-18 | implemented | Semantic plan prompt를 v14로 versioning하고 generic causal evidence를 위한 최종 closed-shape audit를 추가했습니다. Unfiltered visible Resource scope 하나, supplied cause 및 effect concept를 사용하는 scoped metric window 두 개, evidence-join output 하나로 구성합니다. Specialized incident function, filtered scope, root 및 standalone ObjectSet output은 이 family에서 제외합니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
 
 ### 남은 작업
 
