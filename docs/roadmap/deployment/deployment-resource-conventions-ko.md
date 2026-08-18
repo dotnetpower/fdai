@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: aa3fb4bee79714295791761947ff996e7531d2c4
+translation_source_sha: 0c443110708eb45898308727e1664b6184ddaf84
 translation_revised: 2026-08-17
 ---
 # 배포 리소스 규약
@@ -19,8 +19,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 2026-08-18 | implemented | core startup probe를 변수 기본값이 아니라 모듈 호출부에서 고정했습니다. 배포는 보호된 tfvars로 완전한 `health` 객체를 전달하므로 `health = var.health`가 `startup_path`와 더 큰 `startup_failure_count`를 담은 기본값을 버렸고, 배포된 리비전에는 Liveness와 Readiness probe만 있고 `startup_failure_count = 30`이었습니다. 이제 호출부가 startup 필드를 호출자 값 위에 병합합니다. | `current change`; 서비스 root에서 `terraform fmt`와 `terraform validate` 통과; 독립 서비스 및 drift 계약 `34 passed`; 서비스 Terraform root 스위트 통과. 측정된 원인: apply 실행 `32107930967`이 만든 리비전에 `az containerapp revision show` 결과 Startup probe가 없었습니다. | 새 리비전이 `Healthy`에 도달하는지 확인한 뒤 어느 startup phase가 마감을 소진하는지 규명합니다. #181에서 추적합니다. |
-| 2026-08-18 | implemented | core startup probe 예산을 런타임의 실제 부팅 한계에 맞췄습니다. startup readiness는 4개 phase를 실행하고 각 phase가 `phase_timeout_seconds`(75초)로 따로 제한되므로, 모든 phase가 마감을 소진하는 부팅은 health 포트가 열리기까지 약 300초가 필요합니다. 기본값 30회 시도에 5초 간격은 150초만 제공해 첫 startup probe로는 느린 부팅을 덮지 못했습니다. | `current change`; 서비스 root에서 `terraform fmt`와 `terraform validate` 통과; 독립 서비스 및 drift 계약 `34 passed`; 서비스 Terraform root 스위트 통과. 측정된 원인: 실패한 replica의 전체 로그가 `notification_route_unavailable`로 끝나는 애플리케이션 3줄뿐이었고 `startup_readiness_evaluated`가 없어, 플랫폼이 종료할 때 부팅이 여전히 phase 평가 안에 있었습니다. | 새 리비전이 `Healthy`에 도달하는지 확인한 뒤 어느 phase가 마감을 소진하는지 규명합니다. #181에서 추적합니다. |
+| Core control plane startup probe | superseded | `current change`; 서비스 root에서 `terraform fmt`와 `terraform validate` 통과 | Health 포트를 늦게 여는 부팅을 덮으려고 startup probe 예산을 세 번 조정했습니다. 이제 런타임이 startup readiness보다 먼저 포트를 열어 liveness가 즉시 응답하므로 이 probe는 필요 없습니다. 보호된 갱신 계약도 image와 revision suffix 변경만 rollback을 증명하므로 이 probe를 거부했습니다. |
 | CAF 명명 및 `fdai:` 소유권 tag | implemented | `infra/main.tf`, `infra/bootstrap/main.tf` 및 집중 Terraform test | Terraform이 이름과 tag를 계산하고 런타임 코드는 출력을 사용합니다. |
 | 독립 service Terraform state root | validated | `config/independent-service-live-evidence-manifest.json` 및 `config/independent-service-remote-evidence.json` | Service root 5개 모두에 통제된 계획, 적용, 상태, peer 격리 및 rollback 근거가 있습니다. |
 | 이전 방식 platform 및 ops-bootstrap Terraform state root | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, `.github/workflows/deploy-dev.yml` 및 집중 Terraform과 workflow 검사 | 안정적인 backend key와 배포 메커니즘은 제공되지만, 이 두 root의 통제된 적용 증적은 리포지토리에 보존되어 있지 않습니다. |
@@ -33,6 +32,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-18 | implemented | core control plane에 범위가 제한된 startup probe를 부여했습니다. 런타임이 health 포트를 열기 전에 startup readiness를 평가하므로 약 91초인 liveness 예산이 정상 기동 중에 소진되었고, 이전 리비전은 healthy한 상태로 남은 채 새 리비전마다 `CrashLoopBackOff`에 빠졌습니다. Startup probe는 포트가 응답할 때까지 liveness와 readiness를 유예합니다. | `current change`; 서비스 root에서 `terraform fmt`, `terraform init -backend=false`, `terraform validate` 통과; 독립 서비스 계약 검사 `27 passed`, 서비스 Terraform root 스위트 통과, drift 계약 `7 passed`, CI 계약 `36 passed`. 측정된 원인: 실패한 replica가 `startup_ok`를 남긴 뒤 `notification_route_unavailable`에서 멈추고 `health_server_ready`가 없었으며, 시스템 이벤트는 readiness probe 반복 실패를 보고했고, 로컬 기동은 `startup_ok`에서 `startup_readiness_evaluated`까지 27초가 걸렸습니다. | 배포 환경에서 새 리비전이 `Healthy`에 도달하는지 확인합니다. 이슈 #181에서 추적합니다. |
+| 2026-08-18 | implemented | Core startup probe 결합을 제거했습니다. PR #194가 런타임이 startup readiness보다 먼저 health 포트를 열게 만들어 liveness가 즉시 응답하므로 느린 부팅을 덮을 probe가 필요 없습니다. Probe를 유지하면 core 배포도 계속 막혔습니다. 보호된 갱신 계약은 image와 revision suffix 변경만 rollback을 증명하므로 probe 블록을 추가하는 계획은 거부되었습니다. | `current change`; 서비스 root에서 `terraform fmt`와 `terraform validate` 통과. 측정된 원인: 계획 실행 `32113084153`이 image 변경과 함께 `+ startup_probe`를 보여 주었고 `guard_plan.py`가 `protected update changes fields rollback cannot prove`를 보고했습니다. | 다음 보호된 계획이 image와 revision suffix만 담는지, 새 리비전이 `Healthy`에 도달하는지 확인합니다. #181에서 추적합니다. |
 | 2026-08-13 | implemented | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 선택적 OHL VM Scale Set 규약을 추가했습니다. | current change, 집중 Terraform test 결과 8 passed | Exact protected 적용 및 실제 OHL 근거를 수집합니다. |
 | 2026-08-13 | implemented | 증적이 있는 service root 5개는 `validated`로 유지하고 이전 방식 platform 및 ops-bootstrap root는 `implemented`로 분류해 광범위한 state-root 주장을 정정했습니다. | current change, `config/independent-service-live-evidence-manifest.json`, `config/independent-service-remote-evidence.json`, roadmap, 번역 및 문서 검사 | `validated`로 전환하기 전에 platform 및 bootstrap root의 통제된 적용 증적을 보존합니다. |
 | 2026-08-13 | implemented | Schema migration Job이 성공한 뒤에만 실행되는 결정론적 Operator catalog Job을 추가했습니다. | 현재 변경의 `infra/main.tf`, `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml`, Terraform validate 통과 및 집중 배포 테스트 22개 통과. | 보호된 적용 및 Job 실행 증적을 수집합니다. |
