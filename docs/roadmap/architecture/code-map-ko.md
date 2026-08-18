@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: c834ce2139313b09b6ec79122067819da6519eae
+translation_source_sha: 5279128776b2d337bccbe38e8b551b0ebad4d363
 translation_revised: 2026-08-18
 ---
 # 코드 맵
@@ -137,6 +137,7 @@ translation_revised: 2026-08-18
 | 2026-08-18 | implemented | 중앙 changed-tests가 제안된 typed-subject 및 measure-concept invariant가 기존 Pod telemetry path에 너무 광범위함을 증명했습니다. Runtime check 두 개를 제거하고 deterministic authority boundary를 변경하지 않으면서 declaration inventory, 현재 runtime membership 및 명시적 grouping을 구분하는 candidate prompt v15 지침만 유지했습니다. | 중앙 검증에 실패한 source `90c592bfcc673e4764e4480be7ffa54c5b66b0b8`, focused Pod telemetry composition 및 prompt 테스트가 현재 통과 | 중앙 검증된 수정 source에서 strict 및 seeded 근거를 보존합니다. |
 | 2026-08-18 | implemented | Candidate frame prompt v16을 다듬어 incident라는 lexical mention만으로 specialized incident function을 선택할 수 없게 했습니다. 정확한 trusted incident binding만 `incident_evidence`를 선택하며 일반적인 causal support와 refutation은 causal evidence 계약을 유지합니다. Runtime authority와 deterministic verifier 동작은 변경하지 않았습니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증된 source에서 strict 및 seeded 근거를 보존합니다. |
 | 2026-08-18 | implemented | Plan prompt v14에 최종 causal DAG self-audit를 추가했습니다. Generic causal evidence는 principal-scoped Resource set 하나, scoped metric window 두 개 및 evidence join 하나로 닫혀야 하며 incident function을 선택하거나 server-visible scope를 좁히지 않습니다. Deterministic verifier와 execution authority는 변경하지 않았습니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증된 source에서 strict 및 seeded 근거를 보존합니다. |
+| 2026-08-18 | implemented | Frame prompt v17에 최종 candidate-family audit를 추가했습니다. 명시된 causal claim을 검증하는 chronology는 output을 temporal comparison으로 낮출 수 없으며 current-generation ontology declaration inventory는 runtime ObjectSet으로 축소될 수 없습니다. Runtime authority와 deterministic verifier 동작은 변경하지 않았습니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증된 source에서 strict 및 seeded 근거를 보존합니다. |
 
 ### 남은 작업
 

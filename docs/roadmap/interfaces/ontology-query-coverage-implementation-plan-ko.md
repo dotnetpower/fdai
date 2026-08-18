@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 79100e3c016d7c250f492d29da5bb86509d7f0b6
+translation_source_sha: 6e5ea93cef7f671bb08482fdbf0bddb7158ef9b9
 translation_revised: 2026-08-18
 ---
 
@@ -223,6 +223,7 @@ translation_revised: 2026-08-18
 | 2026-08-18 | implemented | 중앙 changed-tests가 제안된 deterministic invariant 두 개를 모두 반증했습니다. 정상적인 Pod telemetry path query는 `Resource` subject 및 비어 있지 않은 measure concept와 함께 resource-list output을 사용합니다. Runtime invariant를 제거하고 declaration inventory, runtime membership 및 명시적 grouping 사이의 일반 answer-shape 구분을 위한 prompt v15만 유지했습니다. | 중앙 검증에 실패한 source `90c592bfcc673e4764e4480be7ffa54c5b66b0b8`, 두 Pod telemetry composition 회귀 테스트와 인접 prompt suite가 현재 로컬 통과 | 수정된 prompt-only v15 slice를 중앙 검증한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
 | 2026-08-18 | implemented | Semantic frame prompt를 v16으로 versioning하고 일반적인 incident 명사와 authoritative incident reference를 분리했습니다. `incident_evidence`에는 하나의 정확한 trusted binding 또는 request의 정확한 identity 두 개가 필요하며 명시된 원인을 일반적으로 지지하거나 반박하는 질문은 `explain_change`와 `causal_evidence`를 유지합니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
 | 2026-08-18 | implemented | Semantic plan prompt를 v14로 versioning하고 generic causal evidence를 위한 최종 closed-shape audit를 추가했습니다. Unfiltered visible Resource scope 하나, supplied cause 및 effect concept를 사용하는 scoped metric window 두 개, evidence-join output 하나로 구성합니다. Specialized incident function, filtered scope, root 및 standalone ObjectSet output은 이 family에서 제외합니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
+| 2026-08-18 | implemented | Semantic frame prompt를 v17로 versioning하고 모호한 surface 두 개를 위한 최종 family audit를 추가했습니다. 변경이 관측된 regression보다 먼저 발생했는지 묻는 질문은 causal evidence를 유지하며 현재 inventory generation의 ontology object는 principal-scoped declaration manifest를 선택합니다. Retained-generation object delta는 temporal comparison을 유지합니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
 
 ### 남은 작업
 
