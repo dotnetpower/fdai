@@ -1,6 +1,6 @@
 schema_version: 1.0.0
 surface_id: surface.assurance.kubernetes-node-pool.multi-zone.ko
-manifest_digest: sha256:e6703605107a59805eeb8bdb504bcb02b2a6f5b531de2644f18d90438e55398c
+manifest_digest: sha256:657e98829a6c151626f38aa40270a6979497463a843613db74f7700f30325192
 locale: ko
 origin: authored
 intent_ids:
