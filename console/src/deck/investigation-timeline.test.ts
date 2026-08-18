@@ -180,7 +180,21 @@ describe("upsertEvidenceBranch", () => {
     expect(styles).toContain("repeating-linear-gradient(to right");
     expect(retrieval).toContain('class="deck-turn-head deck-rt-agent-head"');
     expect(retrieval).toContain('class="deck-turn-source"');
-    expect(retrieval).toContain('<details class="deck-rt-sources">');
+    expect(retrieval).toContain('class="deck-rt-stage-copy"');
+    expect(retrieval).toContain('<details open class="deck-rt-sources">');
+    expect(retrieval).toContain("sources.slice(Math.max(0, shown - VISIBLE), shown)");
+    expect(retrieval).not.toContain("translateY(${-rolled * CARD_PITCH_PX}px)");
+    expect(styles).toMatch(
+      /\.deck-rt-stage\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*18px minmax\(0, 1fr\) auto 24px;/s,
+    );
+    expect(styles).toContain(".deck-rt-stage-copy {");
+    expect(styles).toMatch(
+      /\.deck-rt-txt\s*\{[^}]*flex-direction:\s*column;[^}]*align-items:\s*flex-start;/s,
+    );
+    expect(styles).toMatch(/\.deck-rt-source\s*\{[^}]*height:\s*56px;/s);
+    expect(styles).toMatch(
+      /@media \(max-width: 640px\)[\s\S]*\.deck-rt-stage\s*\{[^}]*grid-template-columns:\s*18px minmax\(0, 1fr\) auto;/s,
+    );
     expect(view).toContain("showPreparingAnswer");
     expect(view).toContain("inFlight && !finalAnswerPresent");
     expect(view).toContain("index === activeOperatorIndex");

@@ -28,9 +28,6 @@ import type {
 } from "./backend";
 import type { ViewSnapshot } from "./context";
 
-/** Fixed card pitch: card height + gap. Keep in sync with styles.css
- *  (.deck-rt-source height + .deck-rt-strip gap). */
-const CARD_PITCH_PX = 40;
 /** How many source cards stay in the slot window at once. */
 const VISIBLE = 3;
 /** Cadence of the source cascade. */
@@ -70,7 +67,11 @@ function buildStages(
   if (snapshot) {
     stages.push({
       label: t("deck.retrieval.readScreen"),
-      detail: snapshot.routeLabel,
+      detail: t("deck.retrieval.screenDetail", {
+        route: snapshot.routeLabel,
+        headline: snapshot.headline,
+        count: snapshot.facts.length,
+      }),
       side: "read",
       done: true,
     });
@@ -89,7 +90,13 @@ function buildStages(
     label: progress?.label ?? t("deck.retrieval.consultBackend"),
     detail:
       progress && progress.completed !== null && progress.total !== null
-        ? t("deck.retrieval.checks", { completed: progress.completed, total: progress.total })
+        ? t("deck.retrieval.progressDetail", {
+            checks: t("deck.retrieval.checks", {
+              completed: progress.completed,
+              total: progress.total,
+            }),
+            count: progress.sources?.length ?? 0,
+          })
         : health
           ? health.mode
           : t("deck.retrieval.connecting"),
@@ -146,8 +153,7 @@ export function RetrievalTrace({
   }, [routeId, sourceCount, sourceSignature]);
 
   const stages = buildStages(snapshot, health, progress);
-  const rolled = Math.max(0, shown - VISIBLE);
-  const visibleSources = sources.slice(0, shown);
+  const visibleSources = sources.slice(Math.max(0, shown - VISIBLE), shown);
   const iconUrl = `url("${typeof import.meta.env.BASE_URL === "string" ? import.meta.env.BASE_URL : "/"}agent-icons/bragi.svg")`;
 
   return (
@@ -181,14 +187,21 @@ export function RetrievalTrace({
         </header>
 
         <ol class="deck-rt-stages">
-        {stages.map((s, i) => (
-          <li key={`${s.label}-${i}`} class={`deck-rt-stage ${s.done ? "is-done" : "is-active"}`}>
+        {stages.map((stage, index) => (
+          <li
+            key={`${stage.label}-${index}`}
+            class={`deck-rt-stage ${stage.done ? "is-done" : "is-active"}`}
+          >
             <span class="deck-rt-ico" aria-hidden="true" />
-            <span class="deck-rt-slabel">{s.label}</span>
-            <span class="deck-rt-detail muted">{s.detail}</span>
-            <span class={`deck-rt-side deck-rt-side-${s.side}`}>{s.side}</span>
-            {s.done ? <span class="deck-rt-check" aria-hidden="true">{"\u2713"}</span> : null}
-            {!s.done ? (
+            <span class="deck-rt-stage-copy">
+              <span class="deck-rt-slabel">{stage.label}</span>
+              <span class="deck-rt-detail muted">{stage.detail}</span>
+            </span>
+            <span class={`deck-rt-side deck-rt-side-${stage.side}`}>
+              {t(`deck.retrieval.side.${stage.side}`)}
+            </span>
+            {stage.done ? <span class="deck-rt-check" aria-hidden="true">{"\u2713"}</span> : null}
+            {!stage.done ? (
               <span class="deck-rt-activity" aria-hidden="true">
                 <span />
                 <span />
@@ -200,7 +213,7 @@ export function RetrievalTrace({
         </ol>
 
         {sourceCount > 0 ? (
-          <details class="deck-rt-sources">
+          <details open class="deck-rt-sources">
           <summary class="deck-rt-sources-label muted">
             <span>{t("deck.retrieval.readingSources")}</span>
             <span>{Math.min(shown, sourceCount)}/{sourceCount}</span>
@@ -208,10 +221,9 @@ export function RetrievalTrace({
           <div class="deck-rt-slot">
             <ul
               class="deck-rt-strip"
-              style={{ transform: `translateY(${-rolled * CARD_PITCH_PX}px)` }}
             >
-              {visibleSources.map((source, i) => (
-                <li key={`${source.kind}-${source.label}-${i}`} class="deck-rt-source">
+              {visibleSources.map((source, index) => (
+                <li key={`${source.kind}-${source.label}-${index}`} class="deck-rt-source">
                   <span class={`deck-rt-badge is-${source.kind}`}>{source.kind}</span>
                   <span class="deck-rt-txt">
                     <span class="deck-rt-k">{source.label}</span>

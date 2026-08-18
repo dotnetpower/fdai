@@ -2349,16 +2349,22 @@
     },
     "retrieval": {
       "readScreen": "현재 화면 읽기",
+      "screenDetail": "{route} - {headline} - 화면 사실 {count}개",
       "routeChosen": "라우팅 - {deployment} 선택",
       "route": "라우팅",
       "consultBackend": "백엔드 확인",
       "checks": "검사 {completed}/{total}건",
+      "progressDetail": "{checks} - 출처 상세 {count}건",
       "connecting": "연결 중",
       "preparingAnswer": "답변 준비 중",
       "status": "답변 준비 중. {detail}.",
       "readingCurrentSources": "현재 화면의 출처 읽는 중",
       "groundingReadOnly": "읽기 전용 출처로 근거 확인 중",
-      "readingSources": "출처 읽는 중"
+      "readingSources": "출처 읽는 중",
+      "side": {
+        "read": "조회",
+        "route": "라우팅"
+      }
     },
     "announcement": {
       "retrieving": "답변을 가져오는 중입니다...",

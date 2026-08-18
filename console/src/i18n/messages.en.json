@@ -2349,16 +2349,22 @@
     },
     "retrieval": {
       "readScreen": "Read this screen",
+      "screenDetail": "{route} - {headline} - {count} visible facts",
       "routeChosen": "Route - chose {deployment}",
       "route": "Route",
       "consultBackend": "Consult backend",
       "checks": "{completed}/{total} checks",
+      "progressDetail": "{checks} - {count} source details",
       "connecting": "connecting",
       "preparingAnswer": "Preparing answer",
       "status": "Preparing answer. {detail}.",
       "readingCurrentSources": "Reading current screen sources",
       "groundingReadOnly": "grounding on read-only sources",
-      "readingSources": "Reading sources"
+      "readingSources": "Reading sources",
+      "side": {
+        "read": "read",
+        "route": "route"
+      }
     },
     "announcement": {
       "retrieving": "Retrieving answer...",
