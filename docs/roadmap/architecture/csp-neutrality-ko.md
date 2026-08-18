@@ -1,7 +1,7 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 050305276a1ce80543f7c8c5ef33ac59eafba0dc
+translation_source_sha: c52239f6c48a09b8fe0f2e6810875df57055b7af
 translation_revised: 2026-08-19
 ---
 
@@ -33,6 +33,7 @@ translation_revised: 2026-08-19
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | validated | 수정된 SQL 포함 관계 세대를 승격하고 활성 인벤토리 스냅샷과 온톨로지 읽기 모델의 parity를 확인했습니다. 관측된 모든 SQL 데이터베이스는 두 저장소 모두에서 논리 서버 `parent_id` 하나와 `contains(sql-server, sql-database)` 간선 하나를 가집니다. 온톨로지 observer failure는 발생하지 않았습니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). one-shot 작업은 `inventory snapshot promoted from arg`를 보고했습니다. loopback PostgreSQL은 스냅샷 SQL 데이터베이스 2개, parent id가 있는 데이터베이스 2개, 스냅샷 SQL 간선 2개, 온톨로지 SQL 데이터베이스 2개 및 온톨로지 SQL 간선 2개를 보고합니다. | SQL 논리 상위 포함 관계에 남은 작업은 없습니다. |
 | 2026-08-19 | implemented | 실제 운영 변환에서 wildcard 리소스 그룹 상위와 exact 논리 서버 상위를 모두 유지하면 `contains` one-to-many cardinality를 위반한다는 사실이 드러나 SQL 포함 관계를 바로잡았습니다. 같은 contained 하위에 대해서 exact 출처 타입 `contains` mapping이 이제 wildcard mapping을 shadow합니다. 서로 다른 하위 계층은 독립적으로 유지되므로 리소스 그룹-VNet과 VNet-subnet 포함 관계는 모두 남습니다. `Resource.parent_id`도 간선과 같은 검토된 exact mapping을 사용합니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). 승격된 스냅샷은 성공했지만 온톨로지 변환 결과가 `contains violates one_to_many cardinality`로 실패했습니다. SQL 및 VNet 대조와 focused ARG, mapping audit 및 검증기 suite 117개가 통과했고 strict mypy도 통과했습니다. | 수정 사항을 커밋하고 전체 재조정을 다시 실행한 뒤 스냅샷과 온톨로지 SQL 포함 관계가 일치하는지 확인합니다. |
 | 2026-08-19 | implemented | `Microsoft.Sql/servers/databases`를 위한 검토된 Azure 프로바이더 상위 mapping을 추가했습니다. 어댑터는 구조가 유효한 immediate nested ARM 상위만 해석하고, 기존 리소스 그룹 포함 관계 후보를 보존하면서 `contains(sql-server, sql-database)`를 발행합니다. 상위가 없거나 완전 세대에서 엔드포인트가 누락되면 검증된 간선을 만들지 않습니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). focused ARG, exact mapping direction audit 및 완전 세대 검증기 검사 116개가 통과했습니다. 작업 범위 Ruff와 strict mypy, 온톨로지 및 Property coverage gate도 통과했습니다. | 전체 재조정 한 번을 실행하고 승격된 스냅샷 및 온톨로지 변환 결과에서 SQL 서버-데이터베이스 간선을 확인합니다. |
 | 2026-08-19 | validated | 활성 로컬 스냅샷에서 프로바이더 범위 coverage를 포함한 전체 ARG 재조정 한 번을 승격했습니다. 스냅샷은 구체화된 Resource 행 516개와 프로바이더 native 객체 533개를 분리해 저장합니다. 객체 476개는 검토된 vocabulary에 매핑되고 프로바이더 타입 15종의 객체 57개는 명시적으로 미매핑 상태를 유지합니다. 매핑된 프로바이더 객체와 스냅샷 Resource 사이의 행 40개 차이는 이전에 측정한 중첩 리소스 구체화와 구독 anchor이며 숨겨진 프로바이더 coverage가 아닙니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). committed callback은 객체 533/476/57개와 타입 68/15종을 반환했습니다. one-shot 작업은 `inventory snapshot promoted from arg`를 보고했고, loopback PostgreSQL 활성 행은 `source=arg`, `status=active`, `resource_count=516` 및 타입과 count 행 15개를 포함한 같은 coverage count를 보고합니다. | 프로바이더 범위 coverage 기록에 남은 작업은 없습니다. SQL 서버-데이터베이스 포함 관계가 다음 인벤토리 gap으로 남습니다. |
