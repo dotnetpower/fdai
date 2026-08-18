@@ -112,6 +112,11 @@ endpoint orientation, source schema digest, and evidence method. It remains a ca
 complete inventory generation observes both endpoint identities. Missing endpoints, an ambiguous
 orientation, or incomplete coverage produces no link and lowers completeness.
 
+The reviewed `id.providerParent` path is narrower than generic ARM hierarchy inference. It applies
+only to declared nested provider types with an explicit mapping. The current mapping covers Azure
+SQL databases and orients the immediate logical server as `contains(sql-server, sql-database)`;
+top-level resources and malformed provider paths produce no provider-parent candidate.
+
 Reviewed reference formats now distinguish provider ids, resolved names, and Kubernetes label
 selectors. The Kubernetes candidate projector maps one Service to matching Pods and the same-name
 Endpoints only within the same cluster and namespace. It consumes a bounded `ResourceRecord`

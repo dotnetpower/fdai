@@ -32,6 +32,7 @@ import httpx
 import pytest
 import yaml
 from fdai.delivery.azure import arg_transport
+from fdai.delivery.azure.arg_projection import to_neutral_id
 from fdai.delivery.azure.arg_query import (
     ArgQueryError,
     AzureArgQueryFactory,
@@ -161,6 +162,55 @@ async def test_inventory_promotes_nested_service_state_to_status() -> None:
         resources, _ = await factory.build_query_fn()("postgresql-server")
 
     assert resources[0].props["status"] == "Stopped"
+
+
+@pytest.mark.asyncio
+async def test_sql_database_projects_logical_server_containment() -> None:
+    server_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.Sql/servers/sql-example"
+    )
+    database_id = f"{server_id}/databases/app-db"
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    _arm_row(
+                        arm_id=database_id,
+                        arm_type="Microsoft.Sql/servers/databases",
+                    )
+                ]
+            },
+        )
+
+    async with _make_client(httpx.MockTransport(handler)) as client:
+        result = await AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        ).build_query_fn()("sql-database")
+
+    assert len(result.resources) == 1
+    by_mapping = {
+        link.mapping_evidence.mapping_id: link
+        for link in result.links
+        if link.mapping_evidence is not None
+    }
+    assert "azure.resource-group-contains-resource" in by_mapping
+    link = by_mapping["azure.sql-server-contains-database"]
+    assert (link.from_id, link.from_type) == (
+        to_neutral_id(server_id),
+        "sql-server",
+    )
+    assert (link.link_type, link.to_id, link.to_type) == (
+        "contains",
+        to_neutral_id(database_id),
+        "sql-database",
+    )
+    assert link.mapping_evidence is not None
 
 
 @pytest.mark.asyncio

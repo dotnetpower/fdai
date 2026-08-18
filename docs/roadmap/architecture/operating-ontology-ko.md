@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 1dcd54979da0fedd2dafba8f1f3b4e3aff25966d
+translation_source_sha: 5e53f87507a721fecc156a9633ef22c1f96d057e
 translation_revised: 2026-08-19
 ---
 # FDAI 운영 온톨로지
@@ -74,6 +74,9 @@ translation_revised: 2026-08-19
 > 계속 차단합니다. 이 관계가 실제 변환
 > 결과에 나타나도록 운영 인벤토리 작업이 이미 로드한 레지스트리 다이제스트 맵을 주입하며,
 > 승격된 완전 세대는 실제 변환 결과에 이 관계를 저장합니다.
+> Azure SQL 데이터베이스는 immediate ARM 프로바이더 상위로 인코딩된 논리 SQL 서버에서 오는
+> 검토된 `contains` 후보도 가집니다. 기존 리소스 그룹 포함 관계는 유지되며, 완전 세대 검증이
+> 논리 상위 간선을 활성화하기 전에 서버와 데이터베이스를 모두 관측해야 합니다.
 > 한 세대 안에서 같은 리소스 신원을 반복 관측한 경우 이제 변환 전체를 실패시키는 대신
 > 결정적으로 판정합니다. 일치하면 하나의 객체로 합치고 가장 이른 관측 시각을 유지하며,
 > 불일치하면 경합 중인 값을 제외한 채 명시적 상태 사실 충돌로 남겨 기존 소비자를 모두

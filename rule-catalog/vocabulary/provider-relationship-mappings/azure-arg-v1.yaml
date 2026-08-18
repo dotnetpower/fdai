@@ -19,6 +19,19 @@ mappings:
       require_source_endpoint: true
       require_target_endpoint: true
 
+  - mapping_id: azure.sql-server-contains-database
+    provider: azure
+    source_identity: azure-resource-graph
+    source_provider_types: [Microsoft.Sql/servers/databases]
+    source_property_path: id.providerParent
+    target_provider_types: [Microsoft.Sql/servers]
+    link_type: contains
+    endpoint_orientation: referenced_to_owner
+    source_schema: *arg_schema
+    evidence_method: deterministic-cross-check
+    freshness: *freshness
+    completeness: *completeness
+
   - mapping_id: azure.vnet-contains-subnet
     provider: azure
     source_identity: azure-resource-graph
@@ -248,4 +261,4 @@ review:
   reviewer_identity: fdai-provider-relationship-review
   reviewed_at: 2026-08-12T00:00:00Z
   immutable_receipt_ref: catalog-receipt:provider-relationships:azure-arg-v1
-  content_hash: sha256:350029c1452116119066ddae9f3104269a29546e0d184e84cf7e1a13014b743d
+  content_hash: sha256:088b18421a090a0e88d96e8ae1bfaf59754c70dbcb1be423fab04053aaad3192

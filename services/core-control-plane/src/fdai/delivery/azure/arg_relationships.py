@@ -339,6 +339,10 @@ def _path_matches(row: Mapping[str, Any], path: str) -> tuple[_PathMatch, ...]:
         raw_id = row.get("id")
         parent = _resource_group_parent(raw_id) if isinstance(raw_id, str) else None
         return (_PathMatch(parent, ()),) if parent is not None else ()
+    if path == "id.providerParent":
+        raw_id = row.get("id")
+        parent = _provider_parent(raw_id) if isinstance(raw_id, str) else None
+        return (_PathMatch(parent, ()),) if parent is not None else ()
     matches = [_PathMatch(row, ())]
     for segment in path.split("."):
         collection = segment.endswith("[]")
@@ -368,6 +372,18 @@ def _resource_group_parent(arm_id: str) -> str | None:
         return None
     next_slash = arm_id.find("/", marker_index + len(marker))
     return None if next_slash == -1 else arm_id[:next_slash]
+
+
+def _provider_parent(arm_id: str) -> str | None:
+    """Return the immediate parent for a structurally valid nested provider id."""
+    marker = "/providers/"
+    marker_index = arm_id.casefold().find(marker)
+    if marker_index == -1:
+        return None
+    provider_path = arm_id[marker_index + len(marker) :].split("/")
+    if len(provider_path) < 5 or len(provider_path) % 2 == 0:
+        return None
+    return arm_id.rsplit("/", maxsplit=2)[0]
 
 
 __all__ = [

@@ -140,6 +140,11 @@ def test_shipped_relationship_mappings_match_canonical_endpoint_roles() -> None:
             EndpointOrientation.REFERENCED_TO_OWNER,
             ProviderReferenceFormat.ARM_ID,
         ),
+        "azure.sql-server-contains-database": (
+            "contains",
+            EndpointOrientation.REFERENCED_TO_OWNER,
+            ProviderReferenceFormat.ARM_ID,
+        ),
         "azure.route-table-routes-to-resource": (
             "routes_to",
             EndpointOrientation.OWNER_TO_REFERENCED,

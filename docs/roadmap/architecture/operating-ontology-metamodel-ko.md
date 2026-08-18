@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: c0920e4cd274e943855f0c79de4eb9cb1644dc64
-translation_revised: 2026-08-15
+translation_source_sha: 3808d39649a0fd24e6f287012df2289cea66994e
+translation_revised: 2026-08-19
 ---
 # FDAI 운영 온톨로지 메타모델
 
@@ -114,6 +114,11 @@ LinkType은 구조적으로 directed 관계입니다. `from_type -> to_type`은 
 스키마 다이제스트 및 근거 메서드를 기록합니다. 완전한 인벤토리 세대에서 두 엔드포인트
 신원을 모두 관측하기 전까지는 후보 상태로 유지합니다. 엔드포인트 누락, orientation 모호함
 또는 불완전한 커버리지가 있으면 링크를 만들지 않고 완전성을 낮춥니다.
+
+검토된 `id.providerParent` 경로는 일반 ARM 계층 추론보다 범위가 좁습니다. 명시적 mapping을
+가진 선언된 중첩 프로바이더 타입에만 적용합니다. 현재 mapping은 Azure SQL 데이터베이스를
+대상으로 하며 immediate 논리 서버를 `contains(sql-server, sql-database)` direction으로 둡니다.
+최상위 리소스와 잘못된 프로바이더 경로는 프로바이더 상위 후보를 만들지 않습니다.
 
 검토된 참조 형식은 이제 프로바이더 id, 해석된 이름, Kubernetes 레이블 선택기를 구분합니다.
 Kubernetes 후보 변환기는 같은 클러스터와 네임스페이스 안에서 Service를 일치하는 Pod 및

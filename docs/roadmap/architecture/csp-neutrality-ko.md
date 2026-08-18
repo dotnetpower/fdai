@@ -1,7 +1,7 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 55f382729d7776237ca4fda900807be043251dbb
+translation_source_sha: 51aba283e89a4144eb7cba04b9eb3e20eab6eeff
 translation_revised: 2026-08-19
 ---
 
@@ -33,6 +33,7 @@ translation_revised: 2026-08-19
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | implemented | `Microsoft.Sql/servers/databases`를 위한 검토된 Azure 프로바이더 상위 mapping을 추가했습니다. 어댑터는 구조가 유효한 immediate nested ARM 상위만 해석하고, 기존 리소스 그룹 포함 관계 후보를 보존하면서 `contains(sql-server, sql-database)`를 발행합니다. 상위가 없거나 완전 세대에서 엔드포인트가 누락되면 검증된 간선을 만들지 않습니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). focused ARG, exact mapping direction audit 및 완전 세대 검증기 검사 116개가 통과했습니다. 작업 범위 Ruff와 strict mypy, 온톨로지 및 Property coverage gate도 통과했습니다. | 전체 재조정 한 번을 실행하고 승격된 스냅샷 및 온톨로지 변환 결과에서 SQL 서버-데이터베이스 간선을 확인합니다. |
 | 2026-08-19 | validated | 활성 로컬 스냅샷에서 프로바이더 범위 coverage를 포함한 전체 ARG 재조정 한 번을 승격했습니다. 스냅샷은 구체화된 Resource 행 516개와 프로바이더 native 객체 533개를 분리해 저장합니다. 객체 476개는 검토된 vocabulary에 매핑되고 프로바이더 타입 15종의 객체 57개는 명시적으로 미매핑 상태를 유지합니다. 매핑된 프로바이더 객체와 스냅샷 Resource 사이의 행 40개 차이는 이전에 측정한 중첩 리소스 구체화와 구독 anchor이며 숨겨진 프로바이더 coverage가 아닙니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). committed callback은 객체 533/476/57개와 타입 68/15종을 반환했습니다. one-shot 작업은 `inventory snapshot promoted from arg`를 보고했고, loopback PostgreSQL 활성 행은 `source=arg`, `status=active`, `resource_count=516` 및 타입과 count 행 15개를 포함한 같은 coverage count를 보고합니다. | 프로바이더 범위 coverage 기록에 남은 작업은 없습니다. SQL 서버-데이터베이스 포함 관계가 다음 인벤토리 gap으로 남습니다. |
 | 2026-08-19 | implemented | 첫 committed 실제 운영 probe가 HTTP 400을 반환한 뒤 프로바이더 범위 Kusto pipeline을 고쳤습니다. ARG는 `Resources | summarize ... | union (...)`을 허용하고, 초기 producer가 사용한 prefix 형식 `union (Resources ...), (...)`은 거부합니다. parser는 이제 명시적인 `resource_count` 집계 열을 고정합니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). one-shot 작업은 이전 스냅샷을 유지하고 두 출처를 모두 사용할 수 없다고 보고했으며, 격리된 callback이 `ArgQueryError` HTTP 400을 재현했습니다. 수정된 읽기 전용 Azure CLI 조회는 범위가 제한된 타입 및 count 행을 반환했고 focused ARG 및 조립 검사 99개가 통과했습니다. | 수정 사항을 커밋하고 전체 재조정을 다시 실행한 뒤 승격된 리소스 57개 coverage 근거를 주장합니다. |
 | 2026-08-19 | implemented | Azure Resource Graph 타입 집계를 전체 스냅샷 fence에 연결했습니다. raw `Resources`와 리소스 그룹 `ResourceContainers`를 세고, 정규화된 프로바이더 타입을 검토된 전체 ARM vocabulary와 비교하며, 선언되지 않은 모든 타입과 count를 지원되는 Resource로 구체화하지 않은 채 기록합니다. 구독 anchor와 파생된 중첩 subnet은 이 프로바이더 범위 측정에서 제외합니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). focused ARG, Azure 인벤토리, 조립 및 인벤토리 작업 검사 136개와 작업 범위 Ruff 및 strict mypy가 통과했습니다. | 전체 재조정 한 번을 실행하고 승격된 메타데이터가 보존된 리소스 57개, 타입 15종 측정을 재현하는지 확인한 뒤 런타임 근거로 사용합니다. |
