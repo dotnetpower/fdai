@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: ce3bb06b1bffc6aa456e629462339331835a53bb
-translation_revised: 2026-08-18
+translation_source_sha: 4aae800b9e2eac51ec610e86d2e08f07533efab9
+translation_revised: 2026-08-19
 ---
 
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -38,6 +38,7 @@ translation_revised: 2026-08-18
 | 로컬 컨트롤 루프 변경 이벤트 유입 | validated | `.vscode/tasks.json`, `infra/modules/compute/container-apps/inventory_job.tf`, `tests/integration/infra/test_inventory_repair_wiring.py`, 로컬 실행 1회가 권위 있는 `inventory.resource_changed` 이벤트 5건을 발행했고 인증된 Live 화면이 `Runtime observed`와 `5 routed events`를 보고 | 로컬 inventory reconciliation 태스크가 VNet 통합 배포 job과 똑같이 `FDAI_INVENTORY_RECOVERY_DELTA=1`을 바인딩하므로 Activity Log delta가 두 장소 모두에서 `aw.change.events`에 도달합니다. 배포 job은 infrastructure subnet이 없으면 여전히 delta를 비활성화합니다. |
 | 로컬 및 배포 composition 동등성 | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, `fdai_operator_service/composition.py`, 서비스 통합 테스트 및 focused Operator 검사(`51 passed`) | Composition root는 근거 권한을 바꾸지 않고 자격 증명과 어댑터를 선택합니다. 로컬 및 배포 Operator composition은 같은 Reader 범위 `GET /browser-evidence` 경로와 권위 있는 데이터 출처 ID를 등록하며 PostgreSQL이 없으면 합성 데이터 대신 사용 불가를 반환합니다. |
 | Primary worktree 자동 시작 격리 | implemented | `.vscode/tasks.json`과 `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 자동 시작 계약 통과 | 폴더 열기 자동 시작은 primary checkout에서만 실행되므로 연결된 worktree가 표준 포트를 두고 경합하지 않습니다. 명시적 준비 및 서비스 시작 작업은 연결된 worktree에서도 계속 사용할 수 있습니다. |
+| 폴더 열기 dev-access 경로 안정화 | implemented | `tools/dev-access/scripts/vscode-startup.sh`, `tests/integration/infra/test_dev_access.py`, 집중 dev-access 테스트 | 태스크는 Azure VPN Client를 최대 한 번 열고 범위가 제한된 7초 유예 시간 동안 mirrored WSL 경로를 8번 확인합니다. Direct 경로가 나타나면 DNS를 적용하고 실제 연결 끊김에는 exit `20`을 유지합니다. 로컬 상태가 없는 workstation과 direct-VNet 머신은 계속 조용히 종료합니다. |
 | 리포지토리 범위 roadmap campaign 용량 | implemented | `roadmap_verification_watchdog.py`, `test_roadmap_verification_watchdog.py`, `scripts/README.md`의 무작위 campaign 운영 계약 | FDAI session lease와 최근 Copilot 활동을 모두 이 리포지토리 범위에서만 계산합니다. Linked worktree는 VS Code workspace ID를 도출하기 전에 primary checkout을 해석합니다. 다른 workspace는 FDAI 작업을 보류할 수 없으며, 900초 활동 창과 campaign 세션 2개 상한은 FDAI 동시 편집을 계속 보호합니다. |
 | 의미 계획 tier 동등성 | implemented | `composition/semantic_query_model_targets.py`, `composition/wire_semantic_query.py`, 해석된 모델 산출물, 집중 tier 라우팅 및 조립 테스트 | 로컬 및 배포 Core는 같은 기능 산출물을 로드하고 해석된 narrator 또는 `t1.judge` pool을 T1으로 연결하며 T2는 선택 사항으로 유지합니다. T1 제안을 사용할 수 없거나 결정론적 검증을 통과하지 못한 경우에만 해당 단계를 T2로 다시 시도할 수 있습니다. |
 | 권한 인식 관측 캠페인 동등성 | implemented | `config/observation-sources.yaml`, `fdai.delivery.observation_campaign*`, `.vscode/tasks.json`, `infra/modules/compute/container-apps/observation_campaign_job.tf`, 집중 Core, Operator, Console, workspace 및 인프라 검사 | 로컬과 배포 프로필은 같은 출처 카탈로그, 실행 조건 상태, 실행기, 정규화 활동 계약 및 1분 기동을 사용합니다. 검증 전에는 런타임 산출물이 더 필요합니다. |
@@ -50,6 +51,7 @@ translation_revised: 2026-08-18
 
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | implemented | WSL 재시작 뒤 transient 경로가 VPN 연결 끊김 경고로 나타난 문제를 막기 위해 폴더 열기 dev-access 태스크에 범위가 제한된 유예 시간을 추가했습니다. Azure VPN Client는 한 번만 열고 direct 경로가 나타나면 즉시 재시도를 끝내 WSL DNS를 적용하며, 8번 확인 뒤에도 indirect인 경로는 기존 actionable 오류를 계속 보고합니다. | `current change`, 즉시 준비됨, 세 번째 probe에서 회복, 영구 연결 끊김을 다루는 실제 startup harness가 client 1회 실행, 재시도 8회, 대기 7회, DNS 미적용 및 exit `20`을 검증합니다. | Transient 폴더 열기 경로 전파에 남은 구현 작업은 없습니다. Private endpoint 진단은 계속 명시적 `doctor.sh` 대상을 사용합니다. |
 | 2026-08-17 | validated | 검토된 ActionType 팔레트와 워크플로 카탈로그를 `operator-projection:workflow:workflow.action-type-list`와 `workflow.catalog`로 구체화해, Workflow builder가 unavailable 대신 선언된 구성 요소를 렌더합니다. | 현재 변경; `test_materialize_authoritative_catalogs.py` 5개 통과; 인증된 `/workflow-builder` 로드가 ActionType 48개와 워크플로 12개를 트리거·스텝 수·모드와 함께 렌더했습니다. | 검토된 선언이 아니라 런타임 근거에 기반한 화면은 여전히 `503`을 반환합니다. |
 | 2026-08-17 | validated | 검토된 `config/agent-stewardship.yaml`을 기존 Core coverage 보고서를 통해 `operator-projection:operations:stewardship.coverage`로 구체화해, Agent oversight가 unavailable 대신 측정된 소유 현황을 렌더합니다. | 현재 변경; `test_materialize_authoritative_catalogs.py` 3개 통과(콘솔 계약 불변조건 테스트 포함); 인증된 `/agent-oversight` 로드가 `AGENTS 15`, `MAINTAINERS 2`, `AUTONOMOUS 1`과 Core 계산 finding 표를 unavailable 블록 없이 표시했습니다. | 리포 선언이 아닌 런타임에 생성되는 근거 화면은 여전히 `503`을 반환합니다. |
 | 2026-08-17 | implemented | 이 리포 어디에도 없는 심볼인 `OperatorApiConfig.<field>`를 안내하던 운영자 대상 문구를 담당 체계·워크플로 작성·승격 게이트·규칙 카탈로그·온톨로지·팬테온 패널에서 제거했습니다. | 현재 변경; 집중 콘솔 검사 9개 파일 71개 테스트 통과, Console typecheck 통과, 영향받는 5개 카탈로그 쌍 모두 키 패리티 유지, 6개 패널 인증 통과에서 제거된 심볼 참조가 없었습니다. | 해당 route 배선은 별도 작업이며, 패널은 이제 관측 가능한 상태만 진술합니다. |
@@ -327,9 +329,10 @@ HashiCorp Terraform만 언어 서버로 유지하며 워크스테이션별 정�
 선택적 `dev-access: configure VPN on folder open` 작업은 workstation에 격리된 P2S 개발 접근
 stack의 로컬 상태가 있을 때만 활성화됩니다. VPN이 연결되어 있으면 FDAI 런타임 리소스를
 변경하지 않고 transient WSL 해석기 연결을 복구합니다. VPN 연결이 끊겨 있으면 Azure VPN
-클라이언트를 열고 실패한 시작 작업의 Problems 패널 오류를 보고하며, 개발자가 Entra sign-in 및
-MFA를 계속 완료합니다. 로컬 dev-access 상태가 없는 workstation에는 프롬프트나 네트워크 변경이
-발생하지 않습니다.
+Client를 한 번 열고 범위가 제한된 7초 유예 시간 동안 mirrored WSL 경로를 8번 확인합니다. Direct
+경로가 나타나면 DNS를 적용하고 성공하며, 계속 indirect이면 Problems 패널 오류를 보고합니다.
+개발자는 Entra sign-in 및 MFA를 계속 완료합니다. 로컬 dev-access 상태가 없는 workstation에는
+프롬프트나 네트워크 변경이 발생하지 않습니다.
 
 ### 로컬 개발의 Console 데이터
 
