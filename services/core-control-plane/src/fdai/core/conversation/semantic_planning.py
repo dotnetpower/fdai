@@ -60,6 +60,7 @@ _MAX_CONTEXT_CHARS = 12_000
 _MAX_DESCRIPTORS = 512
 _MAX_DESCRIPTOR_BYTES = 524_288
 _MAX_LOGGED_PLAN_NODES = 8
+_MAX_LOGGED_PLAN_PREDICATES = 6
 _INCIDENT_EVIDENCE_FUNCTION = INCIDENT_EVIDENCE_FUNCTION_NAME
 _INCIDENT_EVIDENCE_NODE_ID = "bound_incident_evidence"
 
@@ -387,10 +388,41 @@ def _plan_node_summary(plan: OntologyQueryPlan) -> str:
     for node in plan.nodes[:_MAX_LOGGED_PLAN_NODES]:
         arguments = json.loads(node.arguments_json)
         name = arguments.get("function_name") if isinstance(arguments, Mapping) else None
-        parts.append(f"{node.kind}:{name}" if isinstance(name, str) and name else str(node.kind))
+        rendered = f"{node.kind}:{name}" if isinstance(name, str) and name else str(node.kind)
+        shape = _object_set_shape(arguments)
+        parts.append(f"{rendered}{shape}" if shape else rendered)
     if len(plan.nodes) > _MAX_LOGGED_PLAN_NODES:
         parts.append(f"+{len(plan.nodes) - _MAX_LOGGED_PLAN_NODES}")
     return ",".join(parts)
+
+
+def _object_set_shape(arguments: object) -> str:
+    """Render an ObjectSet's selector and predicate shape without its operands.
+
+    A plan that answers nothing and a plan that answers everything log the same
+    node kind, so the selected type and the properties being filtered are the
+    only way to tell them apart. Operand values stay out of the log because a
+    predicate can carry a tenant-specific identifier.
+    """
+    if not isinstance(arguments, Mapping):
+        return ""
+    definition = arguments.get("definition")
+    if not isinstance(definition, Mapping):
+        return ""
+    selector = definition.get("selector")
+    name = selector.get("name") if isinstance(selector, Mapping) else None
+    predicates = definition.get("predicates")
+    rendered: list[str] = []
+    if isinstance(predicates, list):
+        for predicate in predicates[:_MAX_LOGGED_PLAN_PREDICATES]:
+            if not isinstance(predicate, Mapping):
+                continue
+            field = predicate.get("property")
+            operator = predicate.get("operator")
+            if isinstance(field, str) and field and isinstance(operator, str) and operator:
+                rendered.append(f"{field} {operator}")
+    selected = name if isinstance(name, str) and name else "?"
+    return f"[{selected}" + (f";{','.join(rendered)}]" if rendered else ";no-predicate]")
 
 
 def _build_frame(

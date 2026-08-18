@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: a70ae5dbf5aa888f039c0e259f3d69c3b34bc2a8
+translation_source_sha: d38fc61f3debf37f6fa64c1bf011b483387d7300
 translation_revised: 2026-08-18
 ---
 
@@ -210,6 +210,7 @@ translation_revised: 2026-08-18
 | 2026-08-17 | implemented | Exact transport를 적용한 첫 전체 집단에서 답변된 기능 불일치 11건이 드러난 뒤 seed 기반 질문 분류를 넓은 작업 범주와 분리하고 의미 frame prompt v9을 적용했습니다. Prompt별로 유효한 plan은 계속 허용하면서 관계 탐색, 인과 근거, 보존 세대 비교 및 근거 속성 선택은 서로 다른 기능 요구 사항을 유지합니다. | `current change`, focused prompt 레지스트리 검사 5개와 assurance oracle 검사 99개 통과 | 중앙 검증을 확보하고 seed 기반 실행을 다시 시작하기 전에 strict 집단을 한 번 실행합니다. |
 | 2026-08-17 | implemented | `validate` frame을 `evidence_validation` 출력 계열에 묶고 topology cutoff 순서 검증을 deterministic plan 검증 단계로 이동했습니다. 잘못 분류된 근거 요청은 frame만 다시 시도한 뒤 Core가 principal 범위 ObjectSet을 구성하며, event cutoff가 knowledge cutoff보다 늦은 topology snapshot은 프로바이더 실행 전에 거부됩니다. 비어 있거나 불완전한 보존 history는 계속 타입이 지정된 불완전 근거를 반환하며 합성되지 않습니다. | `current change`, focused 의미 계획 및 query verifier 검사 41개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 중앙 검증을 확보한 뒤 runner가 seed 기반 집단을 시작하기 전에 strict 14/14 답변 및 완전 근거 아티팩트 하나를 보존합니다. |
 | 2026-08-18 | implemented | 검증된 행 표를 사람이 읽을 수 있게 유지했습니다. 표가 온톨로지 필드를 모두 투영하는 바람에 열린 형태의 속성 묶음이 한 셀에 수백 자 분량의 직렬화된 JSON으로 표시되었고, 기술 세부 궤적이 이미 담고 있는 기계 출력을 답변이 반복했습니다. 이제 표는 스칼라 필드만 투영하고 중첩 묶음에서 지정된 스칼라 leaf를 끌어올리며, 정확한 원본 행은 그대로 유지됩니다. | `current change`, [Issue #180](https://github.com/dotnetpower/fdai/issues/180), focused Operator 검사 392개 통과(중첩 묶음 회귀 1건 신규), 작업 범위 Ruff 및 strict mypy 통과, 인증된 실제 turn이 JSON 덩어리 대신 id, object type, name, type 열로 표시 | 읽기 쉬운 답변 표에 대한 통제된 request-to-Console 및 이중 언어 무작위 근거를 보존합니다. |
+| 2026-08-18 | implemented | 각 리소스 하위 타입이 선언한 질의 용어를 `Resource.type` 값 도메인에 연결했습니다. 도메인이 범주 그룹과 명시적 질의 그룹만 투영해 하나의 하위 타입을 지목한 질문이 연결할 선언 값을 갖지 못했고, 피연산자를 지어낼 수 없는 플래너가 존재 술어로 후퇴해 ObjectType 전체를 선택했습니다. 이제 plan shape 로그가 선택된 ObjectType과 필터 대상 속성 및 연산자를 기록하며 술어 피연산자는 기록하지 않습니다. | `current change`, [Issue #183](https://github.com/dotnetpower/fdai/issues/183), focused composition, conversation, ontology-platform, rule-catalog 검사 2222개 통과, 작업 범위 Ruff 및 strict mypy 통과, 실제 turn이 504행을 반환하던 `object_set[Resource;type exists]`에서 42개 리소스 그룹을 반환하는 `object_set[Resource;type equals]`로 전환 | 좁혀진 속성 필터에 대한 통제된 request-to-Console 및 이중 언어 무작위 근거를 보존합니다. |
 
 ### 남은 작업
 

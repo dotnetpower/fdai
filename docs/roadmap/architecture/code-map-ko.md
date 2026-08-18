@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 18077042156888a77aac7c9e6530f31f4b30a11a
-translation_revised: 2026-08-17
+translation_source_sha: 6c98864f8f6496fed25fa218d19fb4a34d8cf25a
+translation_revised: 2026-08-18
 ---
 # 코드 맵
 
@@ -125,6 +125,7 @@ translation_revised: 2026-08-17
 | 2026-08-17 | implemented | 선택적인 namespaced Operator semantic outbox key를 형제 물리 prefix로 옮겼습니다. 운영 기본 key는 그대로 유지하고 exact namespace 검사도 유지하며, 이전의 넓은 기본 claim을 사용하는 오래된 프로세스는 실행 소유 행과 일치할 수 없습니다. | `current change`, `postgres_semantic_turn_store.py`, 통과한 focused bridge 검사 62개, Ruff 및 strict mypy 통과 | 담당 온톨로지 보증 원장에 통제된 엄격한 근거와 seed 기반 근거를 보존합니다. |
 | 2026-08-17 | implemented | 근거 계열 분류와 temporal cutoff 검증을 각각 담당하는 Core 경계에 유지했습니다. 의미 cascade는 plan 선택 전에 `evidence_validation`이 아닌 `validate` frame을 거부하고, ontology query verifier는 프로바이더 실행 전에 knowledge cutoff보다 늦은 `topology_at` event cutoff를 거부합니다. | `current change`, focused 의미 계획 및 query verifier 검사 41개 통과, 작업 범위 Ruff 및 strict mypy 통과 | Runner가 seed 기반 집단을 시작하기 전에 strict 14/14 답변 및 완전 근거를 보존합니다. |
 | 2026-08-17 | 구현됨 | 카탈로그 리소스 타입 어휘를 읽기 가능한 `Resource.type` 속성에 연결해 플래너가 선언된 값과 이중 언어 그룹을 읽도록 했고, 선언 영역이 담을 수 없는 피연산자나 조각은 plan 검증기가 거부하도록 했습니다. Console intent 변환 결과는 membership 술어에 필요한 6단계 중첩을 이제 허용합니다. | `current change`; `core/ontology_platform/property_values.py`, `query_manifest.py`, `query_verification.py`, `composition/semantic_query_value_domains.py`, `packages/service-contracts/.../ontology_query.py`, `console/src/deck/intent-graph.ts`; 집중 온톨로지, composition, 대화, 카탈로그, 계약 검사 2317건과 Console intent-graph 모음이 통과했습니다. | 선언된 값을 가진 속성은 `Resource.type` 하나뿐이며 다른 열거형 속성은 아직 값을 확정하지 못합니다. |
+| 2026-08-18 | 구현됨 | 각 리소스 하위 타입이 선언한 질의 용어를 `Resource.type` 영역의 단일 값 그룹으로 투영하고, plan shape 로그가 선택된 ObjectType과 필터 대상 속성 및 연산자를 기록하도록 했습니다. 범주 그룹만으로는 하위 타입 단어가 선언 값에 연결되지 않아 플래너가 ObjectType 전체를 선택하는 존재 술어로 후퇴했고, 로그만으로는 그 계획과 좁은 계획을 구분할 수 없었습니다. | `current change`; [Issue #183](https://github.com/dotnetpower/fdai/issues/183); `composition/semantic_query_value_domains.py`, `core/conversation/semantic_planning.py`; 집중 composition, 대화, ontology-platform, rule-catalog 검사 2222건이 통과했고 Ruff와 strict mypy가 통과했습니다. | 술어 피연산자는 로그에 남지 않으므로 좁히기 결함은 shape만으로 진단합니다. |
 
 ### 남은 작업
 
