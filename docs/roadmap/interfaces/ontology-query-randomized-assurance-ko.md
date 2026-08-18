@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-randomized-assurance.md
-translation_source_sha: a0c63dd280f9879c40e64be2befc8886df4ce15f
+translation_source_sha: 1d9a8a5e834bc37e6a46b4e307a1b2478a43edd1
 translation_revised: 2026-08-18
 ---
 # 온톨로지 쿼리 무작위 보증
@@ -226,6 +226,7 @@ Core
 | 2026-08-18 | in-progress | 중앙 검증된 source `8f77424e21fde7eb82ef0103d90d7d09d6507a8d`에서 repository strict-to-seeded 절차를 한 번 실행했습니다. Strict는 live, answered 및 complete-evidence cell 14/14와 exact transport 14/14를 보존하고 safety 또는 capability mismatch가 0건이어서 runner가 seeded를 자동 시작했습니다. Seeded는 retry 또는 safety violation 없이 live turn 100개를 완료하고 typed judgment 99개를 통과했습니다. `en-property_filter-4`만 필요한 filtered capability 대신 unfiltered evidence-validation ObjectSet으로 답변했습니다. Frozen universe는 의도적으로 action draft 9개, clarification 10개 및 unsupported-domain terminal 5개를 유지하므로 실패한 이 아티팩트에서 answer-required turn 76개가 답변됐고 75개가 완전 근거를 포함했습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-8f77424e21-20260817T230217Z`, failed artifact 또는 baseline 승격 없음 | Frame prompt v12를 중앙 검증한 뒤 strict를 다시 실행하고 strict가 다시 통과한 경우에만 seeded를 허용합니다. |
 | 2026-08-18 | in-progress | 중앙 검증된 source `a6bb8f1781283c4cbe62533f3eb5e991d8d203bf`에서 strict를 한 번 실행했습니다. 13개 cell은 capability mismatch 또는 safety violation 없이 근거가 완전한 답변이었습니다. `en-evidence_validation-2`만 evidence-claim subject가 runtime property-filter scope denial로 넘어가 plan 근거를 보존하기 전에 unsupported로 끝났습니다. Seeded는 시작되지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-a6bb8f1781-20260817T234111Z`, partial artifact 승격 없음 | Frame prompt v13을 중앙 검증한 뒤 seeded 시작 전에 strict 14/14를 보존합니다. |
 | 2026-08-18 | in-progress | 중앙 검증된 source `016fe089b5a12935162cca1dc6b61d56417ed63b`에서 strict를 한 번 실행했습니다. 13개 cell은 capability mismatch 또는 safety violation 없이 근거가 완전한 답변이었습니다. `en-property_filter-5`만 ObjectSet predicate가 descriptor property key에서 읽을 수 없는 alias 또는 projected path로 넘어간 뒤 unsupported로 끝났습니다. Seeded는 시작되지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-016fe089b5-20260817T235737Z`, partial artifact 승격 없음 | Plan prompt v13을 중앙 검증한 뒤 seeded 시작 전에 strict 14/14를 보존합니다. |
+| 2026-08-18 | in-progress | 중앙 검증된 source `6ce74140e04c85adb677ff83d3954c7138ccd36e`에서 repository strict-to-seeded 절차를 한 번 실행했습니다. Strict는 exact transport와 safety 또는 capability mismatch 0건을 유지하며 complete-evidence answer 14/14를 다시 보존했습니다. Seeded는 retry 또는 safety violation 없이 live turn 100개를 완료하고 typed judgment 98개를 통과했습니다. `ko-temporal_comparison-3`은 retained-generation delta를 current filtered ObjectSet으로 축소했고 `en-property_filter-4`는 current evidence-state membership을 unfiltered evidence validation으로 확대했습니다. Frozen safety operation은 예상한 non-answer terminal을 유지했으며 failed artifact 또는 baseline은 승격하지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-6ce74140e0-20260818T000831Z` | Frame prompt v14를 중앙 검증한 뒤 strict를 다시 실행하고 strict가 통과한 경우에만 seeded를 허용합니다. |
 
 ### 남은 작업
 

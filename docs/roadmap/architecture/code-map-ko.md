@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 0f321ba3df7becc8252677c65cf09b93e9989cd2
+translation_source_sha: 3d6392d8009f7ae84e002f3f1cf0e7a17b054717
 translation_revised: 2026-08-18
 ---
 # 코드 맵
@@ -132,6 +132,7 @@ translation_revised: 2026-08-18
 | 2026-08-18 | implemented | Frame 경계에서 evidence selection과 evidence judgment를 분리했습니다. Frame prompt v12는 membership 질문을 filtered ObjectSet으로 보내고 completeness 및 gap 결정에만 server-owned evidence validation을 사용합니다. 기존 frame 및 plan verifier는 계속 authoritative합니다. | `current change`, focused prompt 레지스트리 계약 통과 | 중앙 검증된 source에서 strict 및 seeded 근거를 보존합니다. |
 | 2026-08-18 | implemented | Frame prompt v13에서 evidence-contract subject와 ontology-object predicate를 분리했습니다. Claim 및 evidence-reference coverage는 server-owned validation에 유지하고 evidence-valued property에 따른 object membership은 filtered ObjectSet 경로에 유지합니다. Utterance literal 또는 runtime authority는 추가하지 않았습니다. | `current change`, focused prompt 레지스트리 계약 통과 | 중앙 검증된 source에서 strict 및 seeded 근거를 보존합니다. |
 | 2026-08-18 | implemented | Plan prompt v13에서 모델이 제안한 ObjectSet predicate를 verifier의 direct descriptor-key 계약에 연결했습니다. Manifest, ACL 검사 또는 query authority를 변경하지 않고 definition-time property key와 projected table path 사이의 모호성을 제거합니다. | `current change`, focused ObjectSet prompt 계약 통과 | 중앙 검증된 source에서 strict 및 seeded 근거를 보존합니다. |
+| 2026-08-18 | implemented | Frame prompt v14에서 temporal 및 current-state membership axis를 보존했습니다. Retained-generation delta는 current object filter로 축소될 수 없고 current evidence-state filter는 evidence-sufficiency judgment로 확대될 수 없습니다. Deterministic plan 검증은 변경하지 않았습니다. | `current change`, focused frame prompt 계약 통과 | 중앙 검증된 source에서 strict 및 seeded 근거를 보존합니다. |
 
 ### 남은 작업
 
