@@ -1,8 +1,8 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: ab9860c1d78472e29e6dfdf4e39fcd7f5e54dec0
-translation_revised: 2026-08-17
+translation_source_sha: 7a01d35a4bd247179e98a67ee66096c89126acfd
+translation_revised: 2026-08-18
 ---
 
 # 콘솔 운영
@@ -35,11 +35,13 @@ translation_revised: 2026-08-17
 | 아키텍처 관계 및 밀집 지도 렌더링 | implemented | `console/src/components/architecture-map.model.ts`; `console/src/components/architecture-map-renderer.ts`; 아키텍처 검사기, 관계 인덱스 및 지도 테스트; 범위를 한정한 Vitest 검사(`54 passed`)와 라이브 `/architecture` Playwright 검사(`1 passed`) | 화면은 권위 있는 `peered_with` 관계를 인식합니다. 밀집 지도는 선택되거나 강조된 리소스를 우선하는 최대 48개 노드의 제한된 처리로 반사를 유지하며 경로의 대기 화면이 운영자 보기를 차단하지 않도록 합니다. 통제된 runtime 또는 운영 증적이 보존되지 않았으므로 근거는 `validated`가 아니라 `implemented`를 뒷받침합니다. |
 | 인증된 의미 증적 근거 실행기 | validated | `console/tests/live-e2e/browser-entra-state.ts`; `console/tests/live-e2e/console-routes.spec.ts`; `console/tests/live-e2e/ontology-query-assurance*.ts`; `.fdai/live-validation/ontology-query-assurance-cohort-c16eb06755c44fc155773f1a5a85a0c23eb930a8/` | 실행기는 첫 탐색 전에 기존 Browser Entra MSAL 세션을 `sessionStorage`에 복원하고 bootstrap을 한 번만 소비하며 성공 전용 세부 정보를 열기 전에 의미 증적을 판정하고 seed 기반 집단을 요청 간 15초 간격으로 직렬 실행합니다. 허용 목록에 있는 증적 없는 전송 중단은 60초 뒤 한 번만 재시도하고 모든 시도를 통제 아티팩트에 보존합니다. `FDAI_E2E_ASSURANCE_QUESTION_IDS`는 범위가 제한된 진단 probe를 위해 생성된 정확한 질문 id를 선택하며 subset은 통과하더라도 `production_ready`를 설정할 수 없습니다. 증적이 있거나 의미 결과가 잘못되었거나 전송 문제가 아닌 결과는 안전하게 실패 처리하며 재시도하지 않습니다. Principal과 App Role 검증은 Operator API에 맡깁니다. 보존한 전체 집단은 완전한 locale 및 operation coverage, 소진된 재시도 없이 인증된 질문 100개를 모두 통과했고 `production_ready=true`를 기록했습니다. |
 | 인시던트 목록 필터 표시 | implemented | 이슈 #149; `console/src/routes/incident-clarity.css`; 인증된 표준 포트 데스크톱 및 390 px 브라우저 검사; `npm --prefix console run build` | 담당 버티컬과 심각도는 간결한 Calm Slate 폼 스타일을 사용하고 검색 컨트롤과 정렬되며 키보드 초점 표시를 유지하고 좁은 화면에서 겹치지 않게 줄 바꿈됩니다. |
+| Console 사용자 권한 판별 | implemented | `handover-editor.tsx`, `handover-editor.test.ts`, 집중 Console 테스트(`26 passed`) 및 타입 검사 | FDAI App Role은 API 애플리케이션에 정의되므로 Console SPA id token에는 `roles` 클레임이 없습니다. 권한이 필요한 화면 요소는 서버가 소유한 `/iam` 기능 변환 결과에서 권한을 판별하고, id token 클레임은 대체 수단으로만 사용하며, 확인 중 상태를 별도로 표시하고, 변환 결과를 사용할 수 없으면 차단 상태로 유지합니다. 실제 통제 지점은 여전히 서버뿐입니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-18 | implemented | 에이전트 감독의 지식 인수인계 권한을 Console SPA id token의 `roles` 클레임 대신 서버가 소유한 `/iam` 기능 변환 결과에서 판별하도록 바꿨습니다. API 범위 App Role 모델에서는 해당 클레임이 채워지지 않습니다. 이 판별은 id token 클레임을 대체 수단으로 유지하고, 변환 결과를 불러오는 동안 확인 중 상태를 표시하며, 사용할 수 없으면 차단 상태로 유지합니다. | `current change`, `handover-editor.test.ts`와 `handover.test.ts`의 집중 검사 20개 통과, `index.test.ts` 카탈로그 일치 검사 6개 통과, Console typecheck 통과 | 권한이 있는 운영자가 담당자 등록 양식에 도달하는 통제된 Browser Entra 산출물을 보존합니다. |
 | 2026-08-18 | validated | 등록된 Console route 전체를 로컬 Operator API 기준으로 점검하고, 커밋 `bb56775e8` 이후 남아 있던 deck transcript padding 단언을 정정했습니다. | 현재 변경; 콘솔 `src/deck/investigation-timeline.test.ts` 11개 통과; 등록된 route 44개 인증 통과에서 `404`, 페이지 예외, 처리되지 않은 전송 코드가 없었고 `/agent-activity`, `/llm-cost`, `/architecture`, `/rules`가 측정된 내용을 렌더했습니다. | 런타임에 생성되는 근거 화면은 여전히 선언된 unavailable 사유를 렌더하며, `promotion-gate.list`에는 여전히 reader만 있고 writer가 없습니다. |
 | 2026-08-17 | implemented | 결론이 난 결정론적 통과를 판단 보류와 분리했습니다. 모든 후보 규칙이 평가되고 아무것도 거부하지 않으면 T0가 `control_loop.compliant`를 기록하고, 컨트롤 루프는 해당 이벤트에 RCA나 상위 티어 승격을 수행하지 않으며, incident 화면은 이를 차단 문제가 아닌 성공 마일스톤으로 표시합니다. | 현재 변경; `test_control_loop_e2e.py` 47개와 `t0_deterministic` 스위트 통과(총 109개), 둘 다 변이 검증; `incidents.milestones.test.ts` 5개 통과; 변경 전 실측으로 abstain 1641건 중 795건이 `no_rule_denied`였고 incident correlation 441건에 걸쳐 있었습니다. | 감사 로그는 추가 전용이므로 과거 행은 이전 `control_loop.abstain` 종류를 유지합니다. 보존 기간이 지나기 전까지는 혼재가 정상입니다. |
 | 2026-08-13 | implemented | 이전 구현 이력을 재구성하지 않고 구현 원장을 채택했으며 Approvals 경로를 타입이 지정된 출처 사용 불가 경계에 맞췄습니다. | `current change`; 구현 범위 표의 작업 소유 소스와 테스트; `vitest run src/routes/hil-queue.test.ts`에서 5개 테스트가 통과했고 범위를 한정한 라이브 `/approvals` Playwright 검사가 통과했습니다. | 아래의 변환 결과, 요청, 상호 작용 및 측정 완료 근거를 기록합니다. |
@@ -55,6 +57,7 @@ translation_revised: 2026-08-17
 
 ### 남은 작업
 
+- [ ] 권한이 부여된 Contributor, Approver 또는 Owner가 지식 인수인계 담당자 등록 양식에 도달하고 Reader에게는 잠금 화면이 계속 표시됨을 보여 주는 통제된 Browser Entra 산출물을 보존합니다.
 - [ ] 단계 1 완료 조건에서 정의한 결정론적 재구축, 다이제스트 변경 및 캐시 손실 훈련 근거를 기록합니다.
 - [ ] 제공되는 모든 요청 경로에서 단계 2 완료 조건의 실패 주입 및 권한 경계 매트릭스를 통과합니다.
 - [ ] 단계 3 완료 조건에서 정의한 키보드, 충돌, 재시도, 보상 및 롤백 훈련 근거를 기록합니다.

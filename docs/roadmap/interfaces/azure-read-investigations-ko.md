@@ -1,7 +1,7 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: e5f40ea22a0330d6c78487c68633e47002d416dd
+translation_source_sha: 36f899a197698a471c11c347f44075837e0455c8
 translation_revised: 2026-08-18
 ---
 
@@ -91,7 +91,6 @@ Operator 질문은 `object.event`로 publish하지 않습니다. 해당 토픽�
 | 2026-08-13 | 구현됨 | 논리적 요청 멱등성은 안정적으로 유지하면서 각 current-state 읽기 호출에 서로 다른 불투명 활동 correlation을 부여하고, 한 호출의 실시간 및 영속 수명 주기에서는 하나의 correlation을 유지했습니다. | 현재 변경의 `wire_read_investigation.py` 및 `test_wire_read_investigation.py`; 집중 composition 스위트의 테스트 5개가 통과했습니다. | 실제 cross-service 동등성 증적을 기록하고 아래의 실제 운영 Azure 시나리오 공백을 해소합니다. |
 | 2026-08-13 | 구현됨 | 원시 요청자 및 대화 참조를 안정적인 불투명 hash로 대체하여 영속 shadow 증적에서 원시 신원을 노출하지 않고 principal 범위를 유지했습니다. | 현재 변경의 `wire_read_investigation.py` 및 `test_wire_read_investigation.py`; 영속 증적 privacy 및 identity 분리를 포함한 집중 composition 스위트의 테스트 5개가 통과했습니다. | 실제 cross-service 동등성 증적을 기록하고 아래의 실제 운영 Azure 시나리오 공백을 해소합니다. |
 | 2026-08-15 | 구현됨 | 실시간 프로바이더 읽기와 인벤토리로 변환된 그래프 상태를 하나의 `derived` 교차 출처 사실로 판정하고, 그 충돌을 증적 다이제스트에 보존했으며, 충돌이 있으면 단정된 상태를 보류하고 종료 활동을 강등하도록 했습니다. | `current change`, `test_resource_state_shadow.py` 판정 테스트와 일치 대조군이 있는 `test_wire_read_investigation.py::test_cross_source_state_conflict_lowers_the_answer_and_activity` | 실제 cross-service 동등성 증적을 기록하고 아래의 실제 운영 Azure 시나리오 공백을 해소합니다. |
-| 2026-08-18 | 구현됨 | 고정된 네 개의 명사 쌍 없이 표현된 한국어 상태 요청을 인식하도록 했습니다. `상태` 앞의 리소스 종류 명사 또는 `상태` 뒤의 요청 동사를 현재 상태 읽기로 분류하며, 피어링·상태·이력·귀속 경로의 우선순위는 그대로 유지됩니다. | `current change`, `core/read_investigation/routing.py`, `tests/core/read_investigation/test_routing.py`, focused 읽기 조사 및 에이전트 검사 1269건 통과, 작업 범위 Ruff 및 format 통과 | 결정론적 경로는 여전히 에이전트 선택에만 관여하며 Console 의미 턴은 이를 참조하지 않습니다. |
 
 ### 남은 작업
 
