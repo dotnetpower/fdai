@@ -434,7 +434,7 @@ def test_the_evaluator_is_not_wired_into_any_decision_path() -> None:
     assert not offenders, f"standing authority is wired into a decision path: {offenders}"
 
 
-#: Reason codes produced outside the two case tables, each asserted by its own test above.
+#: Reason codes produced outside the two case tables.
 _STANDALONE_REASON_CODES = frozenset(
     {
         "eligible",
@@ -443,9 +443,9 @@ _STANDALONE_REASON_CODES = frozenset(
         "outside_validity_interval",
         "run_would_outlive_authorization",
         "action_type_outside_envelope",
-        # Unreachable through `from_mapping`, which rejects an enforce mode and a wider scope
-        # before the evaluator sees them. Both are defense in depth against direct
-        # construction and have their parse-time tests above.
+        # These two are unreachable through `from_mapping`, which rejects an enforce mode and
+        # a wider scope at parse time. The tests above prove the parse refusal, not the reason
+        # code, so both remain defense in depth against direct construction.
         "mode_not_shadow",
         "scope_too_wide",
     }
@@ -484,9 +484,10 @@ def test_every_reason_code_the_evaluator_can_return_has_a_case() -> None:
     """The eleven-condition claim in this module's docstring is enforced, not remembered."""
 
     declared = _declared_reason_codes()
-    # Non-vacuity: an extraction that finds nothing would make the subset check trivially true.
+    # Non-vacuity: an extraction that finds nothing, or that reaches only one helper, would
+    # make the subset check below trivially true.
     assert len(declared) >= 20, f"the reason-code scan looks vacuous: {sorted(declared)}"
-    assert "quorum_not_met" in declared
+    assert {"quorum_not_met", "policy_digest_mismatch", "action_not_reversible"} <= declared
 
     covered = (
         {code for _, code in _AUTHORIZATION_CASES}

@@ -21,10 +21,14 @@ from fdai.shared.ontology.threshold_bounds import (
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _MAX_INVARIANT_EVIDENCE = 64
 
-# The ratio range is read from the shipped ActionType contract, so a widened ontology bound
-# propagates instead of being shadowed by a copied literal.
+#: The ratio range is read from the shipped ActionType contract, so a widened ontology bound
+#: propagates instead of being shadowed by a copied literal. The owner name is fixed rather
+#: than taken from ``type(self)`` so a subclass cannot miss its registry row.
 _PROMOTION_GATE_BOUNDS = load_promotion_gate_bounds()
-_RATIO_THRESHOLDS = ("min_fidelity", "max_recurrence_rate")
+_RATIO_THRESHOLD_BOUNDS = {
+    field_name: ADAPTIVE_THRESHOLD_BINDINGS[f"GraphModelPromotionPolicy.{field_name}"]
+    for field_name in ("min_fidelity", "max_recurrence_rate")
+}
 _EVIDENCE_RANK = {
     CausalEvidenceGrade.ASSOCIATION: 0,
     CausalEvidenceGrade.PREDICTIVE_PRECEDENCE: 1,
@@ -90,8 +94,7 @@ class GraphModelPromotionPolicy:
     def __post_init__(self) -> None:
         if self.min_samples < 1 or self.max_policy_escapes < 0:
             raise ValueError("graph model promotion count thresholds MUST be valid")
-        for field_name in _RATIO_THRESHOLDS:
-            semantic_id = ADAPTIVE_THRESHOLD_BINDINGS[f"{type(self).__name__}.{field_name}"]
+        for field_name, semantic_id in _RATIO_THRESHOLD_BOUNDS.items():
             violation = check_within_bounds(
                 semantic_id, getattr(self, field_name), _PROMOTION_GATE_BOUNDS
             )

@@ -274,11 +274,11 @@ async def test_v2026_07_scenario_replays_through_control_loop(
     # ------------------------------------------------------------------
     # P1-replayable path - enriched event runs against the real loop.
     # ------------------------------------------------------------------
-    loop, publisher, audit = _make_loop(
+    loop, publisher, audit, _ = _make_loop(
         shipped_catalog,
         wire_risk_gate=bool(overlay.get("wire_risk_gate", False)),
         wire_t2=bool(overlay.get("wire_t2", False)),
-    )[:3]
+    )
     enriched_event = _merge_enrichment(scenario["event"], overlay)
 
     result: ControlLoopResult = await loop.process(enriched_event)
@@ -371,7 +371,8 @@ async def test_sre_partial_publish_failure_closes_the_audit_and_recovers_on_retr
     publisher dies mid-dispatch, so the effect outcome is genuinely unknown. What must hold is
     that the run never claims success, closes its terminal audit entry before the error
     escapes, caches nothing, and that a retry over the same executor publishes exactly one
-    shadow PR.
+    shadow PR. The retry is what proves the unknown closure was not cached: had it been, the
+    dedupe hit would return the unknown result and publish nothing.
     """
 
     scenario_id = "sre.cluster-diagnostics-missing.001"

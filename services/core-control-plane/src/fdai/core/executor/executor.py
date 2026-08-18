@@ -241,7 +241,9 @@ class ShadowExecutor:
 
         ``execution_path`` distinguishes the two paths that share this executor. Both
         publish a PR; only the merge policy differs, so the safeguard receipt would
-        otherwise record ``pr_native`` for a ``pr_manual`` action.
+        otherwise record ``pr_native`` for a ``pr_manual`` action. Passing a path this
+        executor does not serve is a composition error, not a business-logic failure, so it
+        raises rather than producing an audited result under the wrong label.
         """
         if execution_path not in _PR_EXECUTION_PATHS:
             raise ValueError(

@@ -28,10 +28,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 
-#: Every source tree that composes an FDAI process, with the one module allowed to resolve
-#: the venue inside it. A service absent from this mapping is unscanned, so a new service
+#: Every source tree that composes an FDAI process, mapped to the one module allowed to
+#: resolve the venue inside it, or ``None`` when the tree has no exempt module and must read
+#: the shared contract. A service absent from this mapping is unscanned, so a new service
 #: must be added here when it is created.
-SCANNED_TREES: dict[Path, Path] = {
+SCANNED_TREES: dict[Path, Path | None] = {
     ROOT / "packages/service-contracts/src/fdai_service_contracts": (
         ROOT / "packages/service-contracts/src/fdai_service_contracts/venue.py"
     ),

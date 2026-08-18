@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: d263423f0a07e030f4c0f80493b8e02bd387ade3
+translation_source_sha: 3bf6d2eaaaab2b625c6828b3b24408a6647828ca
 translation_revised: 2026-08-19
 ---
 # 코드 맵
@@ -62,6 +62,7 @@ translation_revised: 2026-08-19
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | implemented | 안전 핵심의 검토 지적 2건을 해소했습니다. `core/assurance_twin/model_promotion.py`가 범위 등록부를 `type(self).__name__`로 조회해서 서브클래스가 안전 검사 안에서 `KeyError`를 낼 수 있었으므로, 이제 고정된 소유자 이름으로 semantic id 2개를 import 시점에 한 번만 해석합니다. `core/executor/executor.py`는 docstring이 부정하던 예외를 발생시킬 수 있게 되었으므로, docstring이 이를 명시하고 구성 오류와 비즈니스 로직 실패를 구분합니다. | `current change`, `tests/core/standing_authority`·`tests/core/assurance_twin`·`tests/core/operational_learning`·`tests/core/executor`·`tests/scenarios`와 venue 게이트 통합 테스트가 focused 520건 통과, 작업 범위 Ruff·format·mypy 통과, venue 게이트가 소스 트리 6개에서 OK 보고 | 이 두 지적에 남은 작업은 없습니다. |
 | 2026-08-19 | implemented | `core/executor/executor.py`에 자신을 선택한 실행 경로를 전달하도록 했습니다. `pr_manual`과 `pr_native`가 `ShadowExecutor`를 공유하므로 수동 병합 영수증과 두 audit 단계 모두 `pr_native`를 기록했습니다. 이제 `execute()`가 경로를 받고 제공하지 않는 경로는 거부하며, `core/control_loop/_execution.py`가 ActionType이 선택한 경로를 넘깁니다. `core/executor/port.py`도 새 키워드를 담습니다. | `current change`, `tests/core`·`tests/pipeline`·`tests/scenarios`·`tests/providers`·`tests/runtime`·`tests/delivery`가 focused 7294건 통과(스킵 4건), 작업 범위 Ruff·format·mypy와 core import 게이트 통과 | 출하되는 ActionType 중 `pr_manual`을 선택하는 것이 없어 업스트림 동작은 그대로이며, 이를 선택하는 fork는 이제 정확한 라벨을 받습니다. |
 | 2026-08-19 | implemented | 마지막 적응 임계값 2개를 선언에 바인딩했습니다. `shared/contracts/ontology/action-type.json`이 `min_fidelity`와 `max_recurrence_rate`를 선택적 `promotion_gate` 비율 범위로 선언하고, `shared/contracts/models/ontology.py`가 이를 선택 필드로 가지며, `shared/ontology/threshold_bounds.py`가 등록하고, `core/assurance_twin/model_promotion.py`가 다시 적은 리터럴 대신 선언에서 허용 범위를 도출합니다. `UNBOUND_ADAPTIVE_THRESHOLDS`는 비었습니다. | `current change`, `tests/core/operational_learning/test_threshold_bounds.py`·`tests/core/assurance_twin`·`tests/contracts`·`tests/rule_catalog`·`tests/core/measurement`가 focused 1640건 통과, 작업 범위 Ruff·format·mypy 통과, `check-core-imports`와 `check-property-semantic-coverage` 통과 | promotion gate 밖의 탐지·라우팅 임계값은 아직 리터럴이며 등록되지 않았습니다. |
 | 2026-08-18 | implemented | `core/executor/direct_api.py`와 `core/executor/tool_call.py`가 dry-run 영수증을 사전 효과 intent 항목에서 종단 audit 항목까지 전달하도록 해서, 종료 기록만으로도 safeguard 4를 입증합니다. 이제 두 경로 모두 PR 경로와 같은 형태입니다. 영수증은 `ExecutionResult.audit_context`에 실려 가고, dry run이 존재하기 전에 거부된 액션에서는 값이 없습니다. | `current change`, `tests/core/executor`가 경로별 신규 2단계 영수증 테스트 3건을 포함해 focused 259건 통과, 작업 범위 Ruff·format·mypy 통과 | 어떤 경로에도 enforce 모드 승격 근거는 아직 없습니다. |
