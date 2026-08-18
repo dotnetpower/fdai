@@ -16,6 +16,11 @@ export interface IncidentMilestone {
 const MAX_MILESTONES = 8;
 const MAX_REFERENCES = 5;
 
+/** T0 records this reason when every candidate rule ran and none denied, which is a
+ * completed compliant decision. Records written before `control_loop.compliant`
+ * existed carry it under an abstain action kind and cannot be rewritten. */
+export const COMPLIANT_EVALUATION_REASON = "no_rule_denied";
+
 export function incidentMilestones(items: readonly AuditItem[]): readonly IncidentMilestone[] {
   const bounded = items.length <= MAX_MILESTONES
     ? items
@@ -38,6 +43,7 @@ export function incidentMilestones(items: readonly AuditItem[]): readonly Incide
 
 function milestoneStatus(item: AuditItem): IncidentMilestoneStatus {
   if (item.action_kind === "incident.open") return "initial";
+  if (exactString(item.entry["reason"]) === COMPLIANT_EVALUATION_REASON) return "success";
   const tokens = [
     item.action_kind,
     exactString(item.entry["status"]),

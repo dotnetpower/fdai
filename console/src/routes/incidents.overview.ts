@@ -1,4 +1,5 @@
 import type { AuditItem, IncidentSummary } from "../types";
+import { COMPLIANT_EVALUATION_REASON } from "./incidents.milestones";
 
 export type IncidentOperationalPhase =
   | "resolved"
@@ -109,6 +110,7 @@ function blockingReason(history: readonly AuditItem[]): string | null {
 }
 
 function isBlocking(item: AuditItem): boolean {
+  if (stringEntry(item, "reason") === COMPLIANT_EVALUATION_REASON) return false;
   if (BLOCKING_VERDICTS.has(stringEntry(item, "decision"))) return true;
   if (BLOCKING_VERDICTS.has(stringEntry(item, "outcome"))) return true;
   return item.action_kind
