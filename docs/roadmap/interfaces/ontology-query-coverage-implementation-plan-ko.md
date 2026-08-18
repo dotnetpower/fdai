@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: ef1c70c86bfbf6ff5575ab93080948c9e49616c6
+translation_source_sha: 8da8b6ea41f1480ce3f06a4adc83507cf16ba479
 translation_revised: 2026-08-18
 ---
 
@@ -217,6 +217,7 @@ translation_revised: 2026-08-18
 | 2026-08-18 | implemented | Semantic plan prompt를 v12로 versioning하고 generic causal scope envelope을 닫았습니다. Principal 범위 causal plan은 predicate, traversal 또는 root id가 없는 unfiltered `Resource` ObjectSet을 사용합니다. 모델이 선택한 scope restriction은 계속 terminal denial이며 더 넓은 access로 재시도할 수 없습니다. | `current change`, focused prompt 레지스트리 계약 및 기존 no-T2 scope-denial 회귀 통과 | 중앙 검증을 확보한 뒤 seeded 시작 전에 strict 14/14 근거를 보존합니다. |
 | 2026-08-18 | implemented | Semantic frame prompt를 v12로 versioning하고 evidence-property membership과 evidence sufficiency를 분리했습니다. 일치하는 객체를 나열하거나 식별하는 요청은 비어 있지 않은 predicate가 있는 `property_filtered_resources`를 요구하며, completeness 및 gap 판단은 `validate` 및 `evidence_validation` 쌍을 유지합니다. | `current change`, focused prompt 레지스트리 계약 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
 | 2026-08-18 | implemented | Semantic frame prompt를 v13으로 versioning하고 evidence-contract subject와 runtime object property를 분리했습니다. Claim, evidence reference, verification coverage 및 gap은 `validate`와 `evidence_validation`을 사용하며, readable evidence-valued property로 선택한 runtime ontology object만 `property_filtered_resources`를 사용합니다. | `current change`, focused prompt 레지스트리 계약 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
+| 2026-08-18 | implemented | Semantic plan prompt를 v13으로 versioning하고 ObjectSet predicate를 선택된 descriptor의 readable `properties` map에 있는 direct key로 고정했습니다. Predicate input은 projected row path나 natural-language alias를 사용할 수 없으며 downstream `properties.<name>` path는 presentation에만 사용합니다. | `current change`, focused ObjectSet prompt 계약 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
 
 ### 남은 작업
 
