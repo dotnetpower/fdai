@@ -1,7 +1,7 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 312e8b75e472ca50e74395b810b68a28ca3d3a3d
+translation_source_sha: a49f6bc39ad5037c6435cee2fcc436a75866caf5
 translation_revised: 2026-08-19
 ---
 
@@ -33,6 +33,7 @@ translation_revised: 2026-08-19
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | implemented | 첫 committed 실제 운영 probe가 HTTP 400을 반환한 뒤 프로바이더 범위 Kusto pipeline을 고쳤습니다. ARG는 `Resources | summarize ... | union (...)`을 허용하고, 초기 producer가 사용한 prefix 형식 `union (Resources ...), (...)`은 거부합니다. parser는 이제 명시적인 `resource_count` 집계 열을 고정합니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). one-shot 작업은 이전 스냅샷을 유지하고 두 출처를 모두 사용할 수 없다고 보고했으며, 격리된 callback이 `ArgQueryError` HTTP 400을 재현했습니다. 수정된 읽기 전용 Azure CLI 조회는 범위가 제한된 타입 및 count 행을 반환했고 focused ARG 및 조립 검사 99개가 통과했습니다. | 수정 사항을 커밋하고 전체 재조정을 다시 실행한 뒤 승격된 리소스 57개 coverage 근거를 주장합니다. |
 | 2026-08-19 | implemented | Azure Resource Graph 타입 집계를 전체 스냅샷 fence에 연결했습니다. raw `Resources`와 리소스 그룹 `ResourceContainers`를 세고, 정규화된 프로바이더 타입을 검토된 전체 ARM vocabulary와 비교하며, 선언되지 않은 모든 타입과 count를 지원되는 Resource로 구체화하지 않은 채 기록합니다. 구독 anchor와 파생된 중첩 subnet은 이 프로바이더 범위 측정에서 제외합니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). focused ARG, Azure 인벤토리, 조립 및 인벤토리 작업 검사 136개와 작업 범위 Ruff 및 strict mypy가 통과했습니다. | 전체 재조정 한 번을 실행하고 승격된 메타데이터가 보존된 리소스 57개, 타입 15종 측정을 재현하는지 확인한 뒤 런타임 근거로 사용합니다. |
 | 2026-08-19 | implemented | 범위가 제한된 프로바이더 native 범위 coverage를 CSP-중립 `InventoryBatch` 최종 fence에 추가하고 승격할 때만 변경 불가능한 스냅샷 메타데이터로 변환했습니다. 생성 전에 count 합계를 대조하고, 최종이 아닌 배치는 근거를 운반할 수 없으며, 정적 출처 메타데이터는 완료된 수집을 가장할 수 없습니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). focused 프로바이더 계약 및 인벤토리 동기화 테스트 31개와 작업 범위 Ruff 및 strict mypy가 통과했습니다. | Azure 전체 범위 타입 집계 producer를 연결하고 승격된 스냅샷에 측정된 미매핑 count를 보존합니다. |
 | 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 Azure 계약 구현을 운영 근거 및 보류된 비-Azure 어댑터와 분리해 기록했습니다. | `current change`; 구현 범위 표의 프로바이더, 전달, 인프라 및 배포 근거입니다. | 하나의 통제된 8개 계약 캠페인을 보존하고 명시적으로 범위가 정해질 때까지 비-Azure 작업을 보류합니다. |

@@ -367,12 +367,13 @@ class AzureArgQueryFactory:
     def _build_scope_coverage_query() -> str:
         """Count raw resources and resource groups by normalized provider type."""
         return (
-            "union "
-            "(Resources | summarize count=count() by provider_type=tolower(type)), "
-            "(ResourceContainers "
+            "Resources "
+            "| summarize resource_count=count() by provider_type=tolower(type) "
+            "| union (ResourceContainers "
             "| where type =~ 'microsoft.resources/subscriptions/resourcegroups' "
-            f"| summarize count=count() by provider_type='{_RESOURCE_GROUP_PROVIDER_TYPE}') "
-            "| summarize count=sum(count) by provider_type "
+            "| summarize resource_count=count() "
+            f"by provider_type='{_RESOURCE_GROUP_PROVIDER_TYPE}') "
+            "| summarize resource_count=sum(resource_count) by provider_type "
             "| order by provider_type asc"
         )
 
@@ -384,7 +385,7 @@ class AzureArgQueryFactory:
         counts: dict[str, ProviderTypeCount] = {}
         for row in rows:
             provider_type = row.get("provider_type")
-            count = row.get("count")
+            count = row.get("resource_count")
             if not isinstance(provider_type, str) or not provider_type.strip():
                 raise ArgQueryError("provider scope coverage row has no provider_type")
             normalized_type = provider_type.strip().lower()

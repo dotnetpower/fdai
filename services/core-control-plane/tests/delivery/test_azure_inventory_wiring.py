@@ -66,16 +66,19 @@ def test_default_container_uses_empty_inventory() -> None:
 async def test_bind_azure_inventory_makes_full_snapshot_live() -> None:
     def _handler(request: httpx.Request) -> httpx.Response:
         query = json.loads(request.content)["query"]
-        if query.startswith("union "):
+        if query.startswith("Resources | summarize resource_count=count()"):
             return httpx.Response(
                 200,
                 json={
                     "data": [
                         {
                             "provider_type": "microsoft.storage/storageaccounts",
-                            "count": 1,
+                            "resource_count": 1,
                         },
-                        {"provider_type": "microsoft.example/watchers", "count": 2},
+                        {
+                            "provider_type": "microsoft.example/watchers",
+                            "resource_count": 2,
+                        },
                     ]
                 },
             )

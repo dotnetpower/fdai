@@ -174,9 +174,18 @@ async def test_scope_coverage_counts_unmapped_provider_types_without_materializi
             200,
             json={
                 "data": [
-                    {"provider_type": "microsoft.compute/virtualmachines", "count": 2},
-                    {"provider_type": "microsoft.resources/resourcegroups", "count": 1},
-                    {"provider_type": "microsoft.example/watchers", "count": 3},
+                    {
+                        "provider_type": "microsoft.compute/virtualmachines",
+                        "resource_count": 2,
+                    },
+                    {
+                        "provider_type": "microsoft.resources/resourcegroups",
+                        "resource_count": 1,
+                    },
+                    {
+                        "provider_type": "microsoft.example/watchers",
+                        "resource_count": 3,
+                    },
                 ]
             },
         )
@@ -189,8 +198,8 @@ async def test_scope_coverage_counts_unmapped_provider_types_without_materializi
             config=_config(),
         ).build_scope_coverage_fn()()
 
-    assert "Resources | summarize" in observed_query
-    assert "ResourceContainers" in observed_query
+    assert observed_query.startswith("Resources | summarize resource_count=count()")
+    assert "| union (ResourceContainers" in observed_query
     assert "microsoft.resources/subscriptions/resourcegroups" in observed_query
     assert coverage.provider_object_count == 6
     assert coverage.mapped_provider_object_count == 3
