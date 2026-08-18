@@ -1818,6 +1818,95 @@ async def test_semantic_replay_cursor_resumes_after_observed_phase() -> None:
     ]
 
 
+async def test_evidence_step_carries_the_verified_query_and_its_row_counts() -> None:
+    store = _MemorySemanticStore()
+    bridge = SemanticTurnBridge(
+        store=store,
+        publisher=cast(Any, object()),
+        result_source=cast(Any, object()),
+        builder=SemanticTurnEnvelopeBuilder(clock=lambda: datetime.now(UTC)),
+    )
+    receipt = await bridge.append(_proposal())
+    stored_turn = store.turns[receipt.proposal_id]
+    projection = _projection(stored_turn.envelope, disposition="answered", answered_evidence=True)
+    arguments = {
+        "definition": {
+            "limit": 20,
+            "predicates": [{"equals": "resource-group", "operator": "equals", "property": "type"}],
+            "selector": {"kind": "object_type", "name": "Resource"},
+        }
+    }
+    cast(dict[str, object], projection["semantic_result"])["intent_graph"] = {
+        "goals": [{"goal_id": "goal-1", "intent": "object_set", "arguments": arguments}]
+    }
+    projection["payload"] = {
+        "technical_details": {
+            "outputs": [{"node_id": "resources", "returned_rows": 20, "total_rows": 42}]
+        }
+    }
+    await SemanticTurnProjectionConsumer(store).consume(projection)
+
+    stream = await bridge.open(
+        ConversationStreamRequest(
+            operation="chat.stream",
+            scope=PrincipalScope("operator-1", frozenset({"Reader"})),
+            proposal_id=receipt.proposal_id,
+        )
+    )
+    events = [event async for event in stream]
+
+    steps = [event for event in events if event.event == "activity"]
+    executions = {
+        cast(str, event.data["activity_id"]): event.data.get("execution") for event in steps
+    }
+    evidence = cast(dict[str, object], executions["semantic:evidence"])
+    assert evidence["tool"] == "Ontology query"
+    assert evidence["input_kind"] == "query"
+    assert evidence["redacted"] is True
+    assert evidence["command"] == (
+        '{"definition":{"limit":20,'
+        '"predicates":[{"equals":"resource-group","operator":"equals","property":"type"}],'
+        '"selector":{"kind":"object_type","name":"Resource"}}}'
+    )
+    assert evidence["output"] == ('[{"node_id":"resources","returned_rows":20,"total_rows":42}]')
+    # A step that executed nothing MUST NOT report a command.
+    assert executions["semantic:verification"] is None
+    assert executions["semantic:presentation"] is None
+    assert executions["semantic:accepted"] is None
+
+
+async def test_evidence_step_omits_a_command_when_the_plan_has_several_goals() -> None:
+    store = _MemorySemanticStore()
+    bridge = SemanticTurnBridge(
+        store=store,
+        publisher=cast(Any, object()),
+        result_source=cast(Any, object()),
+        builder=SemanticTurnEnvelopeBuilder(clock=lambda: datetime.now(UTC)),
+    )
+    receipt = await bridge.append(_proposal())
+    stored_turn = store.turns[receipt.proposal_id]
+    projection = _projection(stored_turn.envelope, disposition="answered", answered_evidence=True)
+    cast(dict[str, object], projection["semantic_result"])["intent_graph"] = {
+        "goals": [
+            {"goal_id": "goal-1", "intent": "object_set", "arguments": {"a": 1}},
+            {"goal_id": "goal-2", "intent": "aggregate", "arguments": {"b": 2}},
+        ]
+    }
+    await SemanticTurnProjectionConsumer(store).consume(projection)
+
+    stream = await bridge.open(
+        ConversationStreamRequest(
+            operation="chat.stream",
+            scope=PrincipalScope("operator-1", frozenset({"Reader"})),
+            proposal_id=receipt.proposal_id,
+        )
+    )
+    events = [event async for event in stream]
+
+    steps = [event for event in events if event.event == "activity"]
+    assert all(event.data.get("execution") is None for event in steps)
+
+
 async def test_semantic_terminal_cursor_closes_without_fabricated_hold() -> None:
     store = _MemorySemanticStore()
     bridge = SemanticTurnBridge(
