@@ -167,6 +167,17 @@ async def test_failed_candidate_retains_last_active_snapshot() -> None:
     graph = await provider(None, 4, ("contains",))
     assert graph["source"] == "arg"
     assert [resource["id"] for resource in graph["resources"]] == ["rg-test"]
+    assert graph["resources"][0]["service_ref"] == "unknown_service"
+    assert graph["operating_scope"] == {
+        "source_revision": first,
+        "input_complete": True,
+        "complete": False,
+        "resource_count": 1,
+        "mapped_resource_count": 0,
+        "unmapped_resource_count": 1,
+    }
+    assert "operating_scope_unmapped" in graph["coverage_gaps"]
+    assert graph["degraded"] is True
     context = await context_provider("rg-test")
     assert context is not None
     assert context["resource_type"] == "resource-group"

@@ -13,6 +13,7 @@ import psycopg
 from psycopg import IsolationLevel
 from psycopg.rows import dict_row
 
+from fdai.core.operational_context import project_operating_scope
 from fdai.core.views.architecture_graph import project_architecture_graph
 from fdai.delivery.inventory_schedule import (
     VM_SHUTDOWN_SCHEDULE_TYPE,
@@ -25,9 +26,12 @@ from fdai.shared.providers.inventory_snapshot import (
     InventoryCoverageManifest,
     InventoryObservationKind,
 )
+from fdai.shared.providers.ontology_instance import OntologyLinkRecord, OntologyObjectRecord
+from fdai.shared.providers.operating_model import OperatingModelSnapshot
 
 _PROMOTION_LOCK: Final[int] = 732_410_991
 _MAX_GRAPH_ROWS: Final[int] = 5000
+_MAX_OPERATING_SCOPE_LINKS: Final[int] = 200_000
 _ALL_RESOURCES_QUERY = (
     "WITH effective_resources AS ("
     "SELECT r.resource_id, r.resource_type, r.props, r.provider_ref, r.last_seen "
@@ -441,6 +445,11 @@ class PostgresInventoryGraphProvider:
                         (snapshot["id"], ids, ids, list(classification_link_types)),
                     )
                     links = await links_cursor.fetchall()
+                (
+                    operating_objects,
+                    operating_links,
+                    operating_scope_complete,
+                ) = await _load_operating_scope(connection, tuple(ids))
         completed = snapshot["completed_at"]
         now = datetime.now(tz=UTC)
         age = max(0, int((now - completed).total_seconds()))
@@ -465,7 +474,6 @@ class PostgresInventoryGraphProvider:
         pending_changes = int(overlay["pending_changes"] or 0) if overlay is not None else 0
         if pending_changes > 0:
             freshness = "unknown"
-        degraded = freshness != "fresh" or bool(coverage_gaps)
         graph_links = [
             {"source": row["from_id"], "target": row["to_id"], "type": row["link_type"]}
             for row in links
@@ -487,6 +495,18 @@ class PostgresInventoryGraphProvider:
                 "links": graph_links,
                 "views": [],
             }
+        projection_resources, operating_scope = _annotate_operating_scope(
+            projection["resources"],
+            source_revision=str(snapshot["id"]),
+            objects=operating_objects,
+            links=operating_links,
+            input_complete=operating_scope_complete,
+        )
+        if not operating_scope_complete:
+            coverage_gaps.append("operating_scope_truncated")
+        elif operating_scope["unmapped_resource_count"]:
+            coverage_gaps.append("operating_scope_unmapped")
+        degraded = freshness != "fresh" or bool(coverage_gaps)
         return {
             "snapshot_id": snapshot["id"],
             "snapshot_at": completed.isoformat(),
@@ -505,9 +525,10 @@ class PostgresInventoryGraphProvider:
                 "latest_at": overlay_latest.isoformat() if overlay_latest is not None else None,
             },
             "active_view": projection["active_view"],
-            "resources": projection["resources"],
+            "resources": projection_resources,
             "links": [link for link in projection["links"] if link["type"] in link_types],
             "views": projection["views"],
+            "operating_scope": operating_scope,
             "truncated": truncated,
             "truncation_reasons": truncation_reasons,
             "cursor": (
@@ -728,6 +749,111 @@ def _resource_payload(row: Mapping[str, Any], *, include_props: bool = False) ->
                 }
             )
     return payload
+
+
+async def _load_operating_scope(
+    connection: psycopg.AsyncConnection[Any],
+    resource_ids: tuple[str, ...],
+) -> tuple[tuple[OntologyObjectRecord, ...], tuple[OntologyLinkRecord, ...], bool]:
+    """Load only service paths that terminate at the bounded response resources."""
+    if not resource_ids:
+        return (), (), True
+    workload_cursor = await connection.execute(
+        "SELECT link_type, from_id, to_id FROM ontology_link "
+        "WHERE link_type='workload_runs_on' AND to_id=ANY(%s::text[]) "
+        "ORDER BY from_id, to_id LIMIT %s",
+        (list(resource_ids), _MAX_OPERATING_SCOPE_LINKS + 1),
+    )
+    workload_rows = await workload_cursor.fetchall()
+    if len(workload_rows) > _MAX_OPERATING_SCOPE_LINKS:
+        return (), (), False
+    workload_ids = tuple(sorted({str(row["from_id"]) for row in workload_rows}))
+    service_rows: Sequence[Mapping[str, Any]] = ()
+    if workload_ids:
+        remaining = _MAX_OPERATING_SCOPE_LINKS - len(workload_rows)
+        service_cursor = await connection.execute(
+            "SELECT link_type, from_id, to_id FROM ontology_link "
+            "WHERE link_type='implemented_by' AND to_id=ANY(%s::text[]) "
+            "ORDER BY from_id, to_id LIMIT %s",
+            (list(workload_ids), remaining + 1),
+        )
+        service_rows = await service_cursor.fetchall()
+        if len(service_rows) > remaining:
+            return (), (), False
+    endpoint_ids = tuple(sorted(set(workload_ids) | {str(row["from_id"]) for row in service_rows}))
+    objects: tuple[OntologyObjectRecord, ...] = ()
+    if endpoint_ids:
+        object_cursor = await connection.execute(
+            "SELECT id, object_type, revision FROM ontology_resource "
+            "WHERE id=ANY(%s::text[]) "
+            "AND object_type=ANY(%s::text[]) ORDER BY id",
+            (list(endpoint_ids), ["BusinessService", "Workload"]),
+        )
+        objects = tuple(
+            OntologyObjectRecord(
+                id=str(row["id"]),
+                object_type=str(row["object_type"]),
+                properties={},
+                revision=int(row["revision"]),
+            )
+            for row in await object_cursor.fetchall()
+        )
+    unique_links = {
+        (str(row["link_type"]), str(row["from_id"]), str(row["to_id"]))
+        for row in (*workload_rows, *service_rows)
+    }
+    return (
+        objects,
+        tuple(OntologyLinkRecord(*values) for values in sorted(unique_links)),
+        True,
+    )
+
+
+def _annotate_operating_scope(
+    resources: Sequence[Mapping[str, Any]],
+    *,
+    source_revision: str,
+    objects: Sequence[OntologyObjectRecord] = (),
+    links: Sequence[OntologyLinkRecord] = (),
+    input_complete: bool = True,
+) -> tuple[list[dict[str, Any]], dict[str, object]]:
+    """Attach reviewed service coverage to every bounded inventory Resource."""
+    resource_objects = tuple(
+        OntologyObjectRecord(
+            id=str(resource["id"]),
+            object_type="Resource",
+            properties={},
+        )
+        for resource in resources
+    )
+    resource_ids = {item.id for item in resource_objects}
+    coverage = project_operating_scope(
+        OperatingModelSnapshot(
+            source_revision=source_revision,
+            objects=(
+                *resource_objects,
+                *(item for item in objects if item.id not in resource_ids),
+            ),
+            links=tuple(links),
+        )
+    )
+    by_resource = {item.resource_id: item for item in coverage.resources}
+    annotated = [
+        {
+            **dict(resource),
+            "service_ref": by_resource[str(resource["id"])].service_ref,
+        }
+        for resource in resources
+    ]
+    unmapped_count = len(coverage.unmapped_resource_ids)
+    return annotated, {
+        "source_revision": coverage.source_revision,
+        "input_complete": input_complete,
+        "complete": input_complete and unmapped_count == 0,
+        "resource_count": len(coverage.resources),
+        "mapped_resource_count": len(coverage.resources) - unmapped_count,
+        "unmapped_resource_count": unmapped_count,
+    }
 
 
 def _source_priority(metadata: object) -> int:

@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 70258481ddcaf11c17a5bada4b7db01827aa9705
+translation_source_sha: 6977e9383ed0057860d17e8d7596ba35338af07c
 translation_revised: 2026-08-19
 ---
 # FDAI 운영 온톨로지
@@ -96,7 +96,7 @@ translation_revised: 2026-08-19
 | 결정과 학습 writer | not-started | [`hypothesis_lineage.py`](../../../services/core-control-plane/src/fdai/core/operational_planning/hypothesis_lineage.py), [`test_hypothesis_lineage.py`](../../../services/core-control-plane/tests/core/operational_planning/test_hypothesis_lineage.py) | 네 구간은 카탈로그 기준으로 유효하고 traverse됩니다. 집중 테스트가 제공되는 ObjectType과 LinkType 선언을 통해 계보 하나를 적재하고 `DecisionCase`에서 `ObservedOutcome`까지 traverse합니다. 빠진 것은 생산자입니다. `OperationalHypothesisLineageProjector`가 유일한 writer이고 어느 조립 루트도 이를 구성하지 않으며, 런타임 모델이 선언된 속성을 담고 있지 않습니다. `DecisionCase`는 `context_snapshot_id`만 유지하므로 `target_ref`와 `evidence_cutoff`는 `OperationalContextSnapshot`에는 있지만 케이스에는 없고, `uncertainty`, `ActionOption.arguments`, `preconditions`, `option_kind`, `ExpectedEffect.direction`, `predictor_version`, `ActionRun.action_type_version`, `started_at`, `receipt_ref`는 projector가 읽을 모델에 없습니다. 각각은 기계적 매핑이 아니라 생산자를 지정하는 결정이 필요하며, projector를 먼저 연결하면 운영 근거를 날조하게 됩니다. 이는 타입별 누락이 아니라 구조적입니다. 카탈로그 stewardship과 와이어 single-writer 권한은 별개 레지스트리이며, 제공되는 ObjectType 다수가 같은 이름의 와이어 객체를 소유하지 않는 `lifecycle.owner`를 지정하며, 이를 `test_catalog_stewardship_is_separate_from_wire_single_writer`가 고정합니다. Norns 역시 `Pattern`을 소유하고 `object.pattern`도 등록되어 있지만 어느 곳도 발행하거나 구독하지 않습니다. |
 | Wave 2 근거, 변경, Property 및 토폴로지 기반 | in-progress | [구현 상태 설명](#fdai-운영-온톨로지), [운영 온톨로지 플랫폼](operating-ontology-platform-ko.md), [`check-property-semantic-coverage.py`](../../../scripts/quality/architecture/check-property-semantic-coverage.py) | 검토된 기반은 있지만 근거 번들이 런타임에 조립되지 않았고 계획 변경은 그래프 최신성 게이트를 자동 통과할 수 없으며 검토된 Property 커버리지는 측정되지만 일부이고 더 넓은 플랫폼 제공 작업도 남아 있습니다. |
 | Console 의미 band 선언 완전성 | implemented | [`Forecast.yaml`](../../../rule-catalog/vocabulary/object-types/Forecast.yaml), [`Pattern.yaml`](../../../rule-catalog/vocabulary/object-types/Pattern.yaml), [`test_ontology_console_projection.py`](../../../services/core-control-plane/tests/delivery/test_ontology_console_projection.py) | Console band가 지정하는 모든 객체 타입을 제공 릴리스가 선언하므로 band 구성원이 조용히 제외되지 않습니다. 두 선언은 의미 선언일 뿐이며 인스턴스 경로를 추가하지 않습니다. |
-| 운영 범위 `unknown_service` 커버리지 | implemented | [`operating_scope.py`](../../../services/core-control-plane/src/fdai/core/operational_context/operating_scope.py), [`test_operating_scope.py`](../../../services/core-control-plane/tests/core/operational_context/test_operating_scope.py) | 결정론적 읽기 전용 변환 결과가 대응되지 않은 리소스를 계속 표시하고 예약된 표시자를 서비스 id로 사용하는 입력을 차단합니다. 아직 런타임 또는 Console 소비자에 연결되지 않았습니다. |
+| 운영 범위 `unknown_service` 커버리지 | validated | [`operating_scope.py`](../../../services/core-control-plane/src/fdai/core/operational_context/operating_scope.py), [`postgres_inventory_snapshot.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_inventory_snapshot.py), focused consumer 검사 4개 통과 | 인증된 인벤토리 그래프 변환 결과가 범위가 제한된 응답의 모든 Resource에 검토된 서비스 하나 또는 `unknown_service`를 표시하고, 집계 완전성을 반환하며, 대응되지 않거나 잘린 범위는 성능 저하로 표시합니다. |
 | 프로바이더 native 미분류 신원 | implemented | [`inventory.py`](../../../services/core-control-plane/src/fdai/shared/providers/inventory.py), [`arg_query.py`](../../../services/core-control-plane/src/fdai/delivery/azure/arg_query.py), focused 검사 259개 통과 | 검토된 예약 ResourceType이 타입별 의미를 지어내지 않고 지원되지 않는 프로바이더 신원을 계속 표시합니다. 실제 변환 근거는 아직 남아 있습니다. |
 | 운영 의도 런타임 인스턴스 | in-progress | 의도 6종의 카탈로그 선언, [`ontology_console_projection.py`](../../../services/core-control-plane/src/fdai/delivery/ontology_console_projection.py) | `ServiceObjective`, `RecoveryObjective`, `CostObjective`, `ArchitectureConstraint`, `Ownership`, `ChangeWindow`는 선언되고 band에 포함되며 `OperatingModelProjector`가 배포 제공 인스턴스를 보존할 수 있습니다. 이를 도출하는 변환 결과와 end-to-end로 고정하는 집중 테스트는 없습니다. |
 
@@ -104,6 +104,7 @@ translation_revised: 2026-08-19
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | validated | `project_operating_scope`를 PostgreSQL 기반 인증 인벤토리 그래프 응답에 연결했습니다. 범위가 제한된 역방향 링크 조회 두 개가 응답 Resource에서 끝나는 서비스 경로만 해석합니다. 모든 Resource는 `service_ref`를 포함하고, 불완전한 입력 또는 대응되지 않은 범위는 정상적인 부재 주장이 아니라 명시적 coverage gap이 됩니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Focused consumer 검사 4개와 strict mypy가 통과했습니다. 읽기 전용 loopback 측정에서 응답 Resource 213/213개가 표시됐고 `input_complete=true`, `complete=false`, `operating_scope_unmapped`를 반환했습니다. | 검토된 BusinessService와 Workload mapping을 제공해 측정된 `unknown_service` 집합을 줄입니다. Consumer 연결 작업은 남지 않았습니다. |
 | 2026-08-19 | implemented | 검토된 `unclassified-resource` ResourceType과 exact 프로바이더 신원 조정을 추가했습니다. 선언되지 않은 native 타입은 더 이상 완전한 세대에서 사라지지 않지만 query terms, 타입별 Rule 또는 작업 eligibility를 얻지 않습니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). 인벤토리, 온톨로지, 카탈로그 및 의미 값 도메인 focused 검사가 259개 묶음 안에서 통과했고 Ruff와 strict mypy도 통과했습니다. | 새 세대를 승격한 뒤 운영 범위 coverage를 읽기 전용 운영자 consumer 하나에 연결합니다. |
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | 구현 범위 표의 현재 소스, 테스트 및 제공 계획입니다. | 아래의 관찰 가능한 종료 조건을 완료해야 합니다. |
 | 2026-08-14 | implemented | 일치하지 않는 보안 receipt를 거부하고 raw 객체 속성을 제외하는 범위 제한 컨텍스트 표현 projector를 추가했습니다. | `current change`, `test_console_projection.py` focused 테스트 5개 통과 | Principal 범위 근거 응답을 통해서만 projector를 연결하고 인증된 Console 근거를 보존해야 합니다. |
@@ -128,8 +129,8 @@ translation_revised: 2026-08-19
   principal, 목적, 릴리스, stale 및 truncated 사례가 사용 불가로 유지됨을 입증합니다.
 - [ ] 토폴로지, 시간, reconciliation 및 graph-wide Dynamic 제공이 집중 종료 조건에 도달할
   때 운영 온톨로지와 플랫폼 원장을 동기화합니다.
-- [ ] `project_operating_scope`를 읽기 전용 소비자 하나에 연결해 `unknown_service`가 운영자
-  화면에 도달하게 하고 해당 소비자의 집중 검사 통과 결과를 남깁니다.
+- [x] `project_operating_scope`를 인증된 읽기 전용 인벤토리 그래프 응답에 연결해
+  `unknown_service`가 운영자 화면에 도달하게 했으며 focused consumer 검사 4개가 통과했습니다.
 - [ ] `predicts_breach_of`와 `learned_as`를 복원하기 전에 `Forecast`와 `Pattern` 엔드포인트 쌍을
   만들어 낼 생산자를 마련해야 합니다. 두 ObjectType은 이제 출하되므로, 막고 있는 것은 카탈로그가
   선언을 거부한다는 사실이 아니라 어느 런타임 경로도 두 엔드포인트를 쓰지 않는다는 사실입니다.

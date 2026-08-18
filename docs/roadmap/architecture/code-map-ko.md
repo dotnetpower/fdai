@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 36703fc2de5dd5b803ba262d9bf34a1b100cf1a5
+translation_source_sha: 5cef19ddc2a346eccaadb368fdc05a3ed065ff8e
 translation_revised: 2026-08-19
 ---
 # 코드 맵
@@ -35,7 +35,7 @@ translation_revised: 2026-08-19
 | 관측 충돌 판정 | 구현됨 | `core/ontology_platform/observation_adjudication.py`, `core/ontology_platform/inventory_projection.py`, `delivery/inventory_relationship_verifier.py`, 집중 온톨로지·인벤토리·런타임 테스트(`507 passed, 1 skipped`) | 한 세대 안에서 같은 리소스 신원을 반복 관측한 권위 있는 관측을 결정적으로 판정합니다. 내용이 같고 행 단위 관측 시각만 다르면 하나의 사실로 보고 가장 이른 시각을 유지하며, 불일치가 있으면 경합 중인 값을 제외한 채 명시적 `StateFactMetadata.conflicts` 항목으로 남깁니다. 서로 독립된 출처 사이의 교차 권위 판정은 [운영 온톨로지](operating-ontology-ko.md#충돌-판정-범위)에 열려 있습니다. |
 | 교차 출처 리소스 상태 판정 | 구현됨 | `core/read_investigation/resource_state_shadow_evidence.py`, `core/read_investigation/resource_state_shadow_service.py`, `composition/wire_read_investigation.py`, 집중 read-investigation·composition 테스트(`110 passed`) | 실시간 프로바이더 읽기와 인벤토리로 변환된 그래프 상태를 `deterministic_function` 권한을 가진 `derived` 사실 하나로 판정합니다. 상태나 신원 불일치는 shadow 증적 다이제스트에 보존되는 명시적 충돌이며, 관측 시각 차이는 충돌이 아닙니다. 이 판정은 처분을 낮추기만 하고 승인·변경·실행 권한을 부여하지 않습니다. |
 | Receipt 기반 운영 컨텍스트 표현 | 구현됨 | `core/operational_context/console_projection.py`, `tests/core/operational_context/test_console_projection.py`, focused 테스트 5개 통과 | 목적, 릴리스, 기준 시각, 실행 권한 및 그래프 범위가 일치해야 범위가 제한된 메타데이터를 변환합니다. Raw 속성은 제외하며 principal 범위 전송은 연결하지 않은 상태로 유지합니다. |
-| 운영 범위 `unknown_service` 커버리지 | 구현됨 | `core/operational_context/operating_scope.py`, `tests/core/operational_context/test_operating_scope.py`, focused 테스트 6개 통과 | 관측된 모든 Resource가 계속 보이고, 대응되지 않거나 충돌하는 리소스는 synthetic 서비스 대신 예약된 표시자를 유지하며, 변환 결과는 읽기 전용입니다. 아직 런타임 소비자에 연결하지 않았습니다. |
+| 운영 범위 `unknown_service` 커버리지 | validated | `core/operational_context/operating_scope.py`, `delivery/persistence/postgres_inventory_snapshot.py`, focused producer 및 consumer 테스트 | 범위가 제한된 인증 인벤토리 응답의 모든 Resource가 검토된 서비스 하나 또는 예약 표시자와 함께 계속 보이고, 대응되지 않거나 잘린 범위는 응답을 강등합니다. |
 | 프로바이더 native 신원 완전성 | implemented | `shared/providers/inventory.py`, `delivery/azure/arg_query.py`, `delivery/azure/inventory.py`, focused 인벤토리 및 온톨로지 검사 259개 통과 | 검토된 mapping 밖의 프로바이더 타입은 exact 최종 fence 조정 뒤에만 `unclassified-resource` 신원으로 보존됩니다. 실제 승격 근거는 아직 남아 있습니다. |
 | 인벤토리 기반 analyzer 대상 해석 | 구현됨 | `core/investigation/analyzers.py`, `delivery/analyzer_targets.py`, `test_analyzer_targets.py`, `test_analyzer_tick_routed.py`, focused analyzer 테스트 | 검토된 매핑은 지원되는 카탈로그 리소스 타입 5개만 참조 analyzer에 연결합니다. 명시적 대상과 인벤토리 기반 대상을 하나의 구성된 상한 안에서 결정론적으로 병합하며, 지원하지 않는 타입은 추측하지 않고 제외합니다. 영속 projection을 읽을 수 없으면 coverage를 조용히 좁히지 않고 tick을 실패시킵니다. |
 | 분산 추적 연속성 감지 | 구현됨 | `core/detection/trace_continuity.py`, `delivery/azure/trace_continuity.py`, `delivery/trace_continuity_tick.py`, `test_trace_continuity.py`, `test_trace_continuity_chain.py`, 집중 추적 검사 | Core는 순수 기대 hop 비교를 소유하고 Azure delivery는 엄격하고 범위가 제한된 Application Insights 정규화를 소유하며 기존 analyzer Job은 shadow 발견 사항을 게시합니다. Huginn과 Heimdall은 허용 목록의 근거를 보존하고 agent 역할이나 작업 권한을 바꾸지 않은 채 반복 발견 인시던트를 엽니다. |
@@ -63,6 +63,7 @@ translation_revised: 2026-08-19
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | validated | 결정론적 운영 범위 변환 결과를 인증된 PostgreSQL 인벤토리 그래프 응답에 연결했습니다. Reader는 `workload_runs_on`과 `implemented_by`만 범위가 제한된 역방향으로 조회하고 모든 응답 Resource를 표시하며, 속성을 노출하거나 변경 권한을 부여하지 않고 집계 완전성을 보고합니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Focused consumer 검사 4개와 strict mypy가 통과했습니다. 읽기 전용 loopback 근거는 응답 Resource 213/213개가 표시됐고 명시적 unmapped coverage gap을 보고합니다. | 배포가 검토한 서비스 mapping을 제공합니다. 읽기 전용 consumer 연결 작업은 남지 않았습니다. |
 | 2026-08-19 | implemented | 중립 vocabulary 밖의 모든 프로바이더 native 신원을 의미 지원을 자동 선언하지 않고 검토된 `unclassified-resource` 타입으로 보존했습니다. Azure 전체 스냅샷은 payload나 최종 fence를 내보내기 전에 native 타입별 count를 대조하며, coverage 1.1 증적은 count 전용 근거와 identity-complete 구체화를 구분합니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). 프로바이더, 동기화, Azure, 조립, 온톨로지, 카탈로그 및 값 도메인 focused 검사 259개가 통과했고 Ruff와 strict mypy도 통과했습니다. | 런타임 검증을 주장하기 전에 새로운 활성 스냅샷을 승격하고 측정합니다. |
 | 2026-08-19 | implemented | Azure 스캔이 건너뛰고 있던 리소스 타입 7개를 선언했습니다. `delivery/azure/arg_query.py`는 선언된 `azure_arm_type`마다 Resource Graph 쿼리를 하나씩 발행하므로, 선언되지 않은 타입은 조회 자체가 일어나지 않고 스냅샷은 해당 리소스를 미매핑이 아니라 아예 없는 것으로 보고합니다. 7개 중 2개는 범위를 넓힌 것이 아니라 포함 관계의 구멍을 메웠습니다. `sql-database`는 상위인 `Microsoft.Sql/servers` 없이 선언돼 있었고, `data-collection-rule`도 짝이 되는 엔드포인트 없이 선언돼 있었습니다. | `current change`. `tests/rule_catalog`, `tests/delivery/azure`, `tests/providers`에서 집중 케이스 2395개 통과. `check-ontology-query-coverage`, `check-property-semantic-coverage`, `check-independent-services` 통과. 실제 구독 범위 측정 결과 Resource Graph는 객체 533개를 보고한 반면 스냅샷은 리소스 504개였고, 누락된 69개는 모두 선언되지 않은 ARM 타입 22종에 속했습니다. 전체 재조정을 강제 실행하자 승격된 스냅샷이 516으로 이동해 7개 타입이 보유한 리소스 12개와 일치했으며, 투영은 `status=available`에 드롭 없음이었습니다. | 플랫폼이 자동 생성했거나 버티컬 밖에 있어 의도적으로 선언하지 않은 타입 15종의 리소스 57개는 미매핑으로 남습니다. 스냅샷 coverage 기록과 누락된 SQL 서버-데이터베이스 포함 관계 링크가 남아 있습니다. ResourceType 시드 드리프트 실패는 다음 행에서 해소합니다. |
 | 2026-08-19 | implemented | 검토된 ResourceType 매핑이 카탈로그 소유 인스턴스 시드보다 먼저 인벤토리 프로세스에 도달하는 경우를 세대 전체의 엔드포인트 실패에서 안정적인 드롭 `unseeded_resource_type`으로 낮췄습니다. 변환기는 해당 파생 분류 간선만 생략하고 완전한 세대의 나머지를 기록하며, 관련 없는 엔드포인트 또는 인스턴스 검증은 계속 실패 시 닫힌 상태로 유지합니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). focused 런타임 회귀는 변경 전 `ontology link endpoints do not exist`를 재현하고, 변경 후 사용 가능한 변환 결과, 영속된 Resource 하나, 분류 링크 없음 및 정확한 드롭 사유와 함께 통과합니다. 두 focused 변환 테스트 파일은 32개 케이스를 통과했고 작업 범위 Ruff와 strict mypy도 통과했습니다. | 측정된 리소스 57개의 프로바이더 coverage를 스냅샷 메타데이터에 기록한 다음 결정론적인 SQL 서버-데이터베이스 포함 관계를 추가합니다. |
@@ -183,7 +184,7 @@ translation_revised: 2026-08-19
 ### 남은 작업
 
 - [ ] 통제된 IS-09 원격 검증 근거를 기록하고 해당 근거가 통과하면 service-owned 지도 상태를 갱신합니다.
-- [ ] `project_operating_scope`를 읽기 전용 소비자에 연결해 `unknown_service`가 운영자 화면에 도달하게 하고 해당 소비자의 집중 검사 결과를 기록합니다.
+- [x] `project_operating_scope`를 인증된 읽기 전용 인벤토리 그래프 응답에 연결했으며 focused consumer 검사 4개가 통과했습니다.
 - [x] Mimir를 Rule 세대 명령 및 결과의 유일한 담당 pantheon subscriber로 연결하고 영속 발행 및 안전하게 재시도할 수 있는 변환 결과를 집중 검사로 입증합니다.
 - [ ] 영속 활성화 결과 발행 및 안전하게 재시도할 수 있는 소비의 통제된 실제 런타임 증적을 기록합니다.
 - [ ] 첫 turn의 바인딩되지 않은 incident 참조가 호출자 요청 ID와 `execution_authority=false`를 보존하면서 `semantic_clarification_required`를 반환함을 입증하는 통제된 인증 브라우저 증적을 보존합니다.

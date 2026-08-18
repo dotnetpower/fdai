@@ -1,7 +1,7 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 928067e52d57ffe9d9ccee7a106172e432cb9fba
+translation_source_sha: cc3324b016b5c9b0aa29a9b97788d7f169f75c2c
 translation_revised: 2026-08-19
 ---
 
@@ -33,6 +33,7 @@ translation_revised: 2026-08-19
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | validated | 운영 범위 coverage를 인증된 읽기 전용 인벤토리 그래프 경로에 연결했습니다. 범위가 제한된 응답의 각 Resource는 `service_ref`를 포함합니다. 검토된 mapping이 없거나 충돌하면 `unknown_service`가 되며, 입력이 잘리거나 대응되지 않은 결과가 하나라도 있으면 명시적 gap과 함께 응답을 강등합니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Focused consumer 검사 4개와 strict mypy가 통과했습니다. 읽기 전용 loopback 응답은 Resource 213/213개를 표시하고 `operating_scope_unmapped`를 유지했습니다. | 배포가 검토한 서비스 mapping을 제공합니다. 경로와 완전성 증적은 구현됐습니다. |
 | 2026-08-19 | implemented | 검토된 중립 vocabulary 밖의 프로바이더 타입에 대해 신원 수준 종결을 추가했습니다. Azure 어댑터는 별도의 범위 제한 ARG 조회로 해당 행을 읽고, 검토된 단일 `unclassified-resource` 타입으로 구체화하며, 프로바이더 타입별 신원 count가 최종 fence의 coverage 집계와 정확히 일치할 때만 세대를 수락합니다. 예약 타입에는 프로바이더 mapping이나 query terms가 없으며 타입별 Rule 또는 Action 지원을 부여하지 않습니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). 프로바이더, 동기화, ARG, Azure 인벤토리, 조립, CLI, 온톨로지, 카탈로그 및 값 도메인 focused 검사 259개가 통과했고 작업 범위 Ruff와 strict mypy도 통과했습니다. | 새로운 전체 재조정을 승격하고 identity-complete coverage, 스냅샷-온톨로지 parity 및 실시간 overlay 정리를 확인한 뒤 이 행을 `validated`로 변경합니다. |
 | 2026-08-19 | validated | 하드닝 Round 3에서 count, fence, 취소, ARG, 정규화, fallback, seed 복구, precedence, catalog 소유권, 상위 parsing, 그래프 parity 및 근거 lens 12개를 다시 확인했습니다. 검증된 Medium 이상 결함은 남지 않았습니다. 관측 11건은 Low guard 확인 또는 선택적 진단이며 precedence 우려 한 건은 exact mapping 경로와 보존된 실제 운영 parity를 추적한 뒤 기각했습니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). Round 3은 Round 1 exact-parent guard와 Round 2 count-shape guard 뒤의 현재 HEAD를 검토했습니다. focused suite, 보존된 533/57/15 coverage, 2/2 SQL 스냅샷-온톨로지 parity 및 서명된 framework snapshot이 근거 경계로 남습니다. | 이슈 #216 하드닝에 남은 작업은 없습니다. |
 | 2026-08-19 | implemented | 하드닝 Round 2에서 계약, fence, 조회, fallback, mapping, 상위, 검증기, digest 및 근거 우려 14건을 검토했습니다. 제안된 지적과 별개로 실제 Medium 결함 한 건을 채택했습니다. Python boolean이 정수 count로 통과했고 양수 객체/0 타입이라는 불가능한 매니페스트도 유효했습니다. 이제 coverage count는 exact 정수여야 하고 0 객체와 0 타입이 서로 일치해야 하며 관측된 타입 count는 객체 count보다 클 수 없습니다. 반복된 unseeded 세대, ARG filter, shard/fence, 겹치는 glob, 잘못된 상위, 상위 근거 및 digest 우려는 focused 테스트, exact-string mapping grammar, 범위가 제한된 요청 timeout, 완전 세대 검증, 보존된 실제 운영 533/57/15 및 SQL parity 근거와 대조해 기각했습니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). guard 전에는 negative case 6개가 실패했고 guard 뒤에는 `ProviderTypeCount` boolean 거부를 포함한 7개 case가 통과합니다. | 10개 이상의 lens로 Round 3을 실행해 Low 또는 기각된 관측만 남는지 확인합니다. |
@@ -299,7 +300,10 @@ CSP 접촉면을 지배하는 여덟 개의 계약 (다섯 wire-level 기반 +
 사용합니다. 이 경로는 `OperatorApiConfig.inventory_graph_provider`가 주입된 경우에만
 활성화됩니다. CSP-중립 `Resource` 레코드와 `contains` / `attached_to` / `depends_on`
 링크, 스냅샷 신선도, 잘림 메타데이터를 반환합니다. 이 경로는 Azure Resource Graph를
-직접 호출하지 않으며 실행자 ID를 전달받지 않습니다.
+직접 호출하지 않으며 실행자 ID를 전달받지 않습니다. 반환되는 각 Resource는 검토된
+operating-scope `service_ref`도 포함합니다. `workload_runs_on`과 `implemented_by`만 범위가
+제한된 역방향으로 조회하고 mapping이 없거나 충돌하면 `unknown_service`를 반환하며, 해당
+coverage가 대응되지 않거나 잘리면 응답을 강등합니다.
 
 리소스 중심 요청은 `root=<resource-id>`, `depth=1..8`, `limit=1..1000`을 지정합니다.
 프로바이더는 활성 스냅샷과 순서가 보장된 실시간 오버레이에서 허용된 들어오는 및
