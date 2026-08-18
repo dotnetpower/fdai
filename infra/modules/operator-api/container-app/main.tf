@@ -247,6 +247,13 @@ resource "azurerm_container_app" "operator_api" {
           value = env.value
         }
       }
+      dynamic "env" {
+        for_each = var.resolved_models_sha256 == "" ? [] : [var.resolved_models_sha256]
+        content {
+          name  = "LLM_RESOLVED_MODELS_SHA256"
+          value = env.value
+        }
+      }
       env {
         name  = "FDAI_NARRATOR_PROBE_INTERVAL_SECONDS"
         value = tostring(var.narrator_probe_interval_seconds)

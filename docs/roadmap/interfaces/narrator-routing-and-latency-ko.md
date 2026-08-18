@@ -1,8 +1,8 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: b2747850f8bd2a839fedb689162cbf8af95d9dec
-translation_revised: 2026-08-16
+translation_source_sha: a16dcede884688824657f66f06096184c47bad53
+translation_revised: 2026-08-19
 ---
 # 서술기 라우팅과 지연 시간
 
@@ -126,7 +126,8 @@ Settings > Models는 Owner에게 배포 전체의 웹 검색 활성화와 정확
   지원합니다. Key Vault를 직접 읽는 방식은 조정기 작업과 함께 다음으로 미룹니다.
 - **로컬 모델 고정본**: Ollama나 LM Studio 고정본은 현재 포함하지 않습니다. 나중에 추가하더라도
   명시적인 모델 연결일 뿐, 대화형 로컬 프로파일을 다시 정의하지 않습니다.
-- **조정기 경고**: 현재는 Teams를 가정하며 조정기를 구현할 때 확정합니다.
+- **조정기 전달**: 주간 workflow는 정제된 근거를 보존하고 검토가 필요할 때 멱등적 초안 PR을
+  엽니다. Teams 경고를 보내지 않으며 활성화 권한이 없습니다.
 
 ## 구현 상태
 
@@ -134,7 +135,7 @@ Settings > Models는 Owner에게 배포 전체의 웹 검색 활성화와 정확
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 로컬 정렬 narrator 후보 fallback | implemented | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; `services/operator-service/tests/test_local_narrator.py` | Service 내부 어댑터는 해석된 산출물을 읽고 수명이 짧은 토큰을 얻어 정렬된 후보를 시도하며 Core를 가져오거나 실행 권한을 받지 않고 정제된 상태를 노출합니다. |
+| 로컬 정렬 narrator 후보 fallback | implemented | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; `services/operator-service/tests/test_local_narrator.py`; 집중 배포 수명 주기 테스트 | Service 내부 어댑터는 파일 또는 계획에 봉인된 인라인 JSON을 읽고 선택적 배포 SHA를 검증하며, 수명이 짧은 토큰을 얻어 정렬된 후보를 시도하고 Core를 가져오거나 실행 권한을 받지 않은 채 정제된 상태를 노출합니다. |
 | 해석된 narrator 후보 수집 | implemented | `services/core-control-plane/tests/rule_catalog/schema/test_narrator_collection.py`; 모델 해석기 및 레지스트리 | Focused 검사는 검토된 모델 해석 입력에서 `narrator_candidates` 수집을 다룹니다. |
 | 이동 text p50/TTFT, 범위가 제한된 refresh 및 장애 조치 | implemented | `services/operator-service/src/fdai_operator_service/adapters/local_narrator.py`; `narrator_latency.py`; `narrator_payloads.py`; focused Operator 테스트 | 독립 service는 샘플 8개짜리 latency 및 TTFT 창을 유지하고 비어 있지 않은 첫 SSE token을 측정하며 범위가 제한된 probe를 coalescing하고 text 후보를 정렬하며 unanimous 429/503 상태를 보존하고 malformed 또는 oversized 출력을 fail closed로 처리합니다. |
 | 주기적 narrator refresh owner | implemented | `services/operator-service/src/fdai_operator_service/adapters/narrator_periodic_scheduler.py`; `environment.py`; `composition.py`; focused scheduler 및 composition 테스트 | Operator lifecycle은 정확히 하나의 즉시 및 주기적 loop를 소유하고 30-3600초 간격을 검증하며 다음 주기까지 provider 실패를 격리하고 종료 중 in-flight probe를 취소합니다. 로컬 Azure narrator가 있을 때만 binding됩니다. |
@@ -153,6 +154,7 @@ Settings > Models는 Owner에게 배포 전체의 웹 검색 활성화와 정확
 | 2026-08-14 | implemented | 범위가 제한되고 coalescing된 text 및 vision probe, 측정된 장애 조치, 엄격한 SSE 및 출력 제한, 범위가 제한된 Azure CLI credential 획득을 갖춘 service-local 이동 text latency 및 TTFT 라우팅을 추가했습니다. | `current change`; narrator adapter 모듈; focused local narrator 및 credential 테스트 `21 passed`; 통합 Operator 및 Core narrator 검사가 통과했습니다. | 주기적 refresh와 서버 소유 image resolver를 binding한 뒤 관리되는 local 및 deployed timing 근거를 보존합니다. |
 | 2026-08-14 | implemented | 검증된 interval 구성, 실패 격리, duplicate-start 억제 및 종료 cleanup을 갖춘 하나의 즉시 및 주기적 narrator refresh loop를 Operator lifecycle에 binding했습니다. | `current change`; scheduler, environment, composition, local narrator cleanup 및 focused 테스트 `66 passed`. | 서버 소유 image resolver를 binding하고 관리되는 local 및 deployed timing 근거를 보존합니다. |
 | 2026-08-16 | in-progress | 개정 번호 기반 principal별 narrator 선호 설정 저장소와 정제된 Settings 변환 결과를 추가했습니다. `Auto` 와 허용된 배포만 허용하고, 오래된 개정 번호는 충돌하며, principal은 격리되고, 제거된 배포는 저장된 선택을 유지한 채 `Auto` 로 저하됩니다. T2 연결은 개인화되지 않습니다. | `current change`; `services/operator-service/src/fdai_operator_service/adapters/narrator_preferences.py`; `pytest services/operator-service/tests/test_narrator_preferences.py` (14 passed). | 영속 저장과 인증된 Settings 경로를 binding한 뒤 관리되는 timing 증적을 보존합니다. |
+| 2026-08-19 | implemented | 보호된 해석기의 정확한 인라인 JSON과 SHA를 Operator 시작에 연결하고 제안 전용 주간 조정기를 추가했습니다. 다이제스트가 다르면 서술기 구성을 차단하며, 공급자 실패는 정제된 판단 보류를 만들고 PR을 열지 않습니다. | `current change`; 집중 서술기, 수명 주기, 계획 검증기, Terraform 및 권한 workflow 테스트. | 통제된 로컬/배포 timing 및 조정기 실행 근거를 보존하며 직접 Key Vault 읽기는 계속 연기합니다. |
 
 ### 남은 작업
 
@@ -162,7 +164,7 @@ Settings > Models는 Owner에게 배포 전체의 웹 검색 활성화와 정확
 - [x] 개정 번호 기반 principal별 `Auto` 또는 허용된 narrator 선호 설정 저장소와 정제된 Settings 변환 결과가 `services/operator-service/src/fdai_operator_service/adapters/narrator_preferences.py` 에 있으며 `pytest services/operator-service/tests/test_narrator_preferences.py` (`14 passed`) 가 이를 증명합니다. 변환 결과는 `personalizes_t2_bindings: false` 를 선언하고 endpoint나 credential 자료를 담지 않습니다. 영속 저장과 인증된 Settings 경로는 남아 있습니다.
 - [ ] Narrator 선호 설정 저장소를 principal별 영속 저장과 인증된 Settings 경로에 binding하고, 그 경로를 통해 개정 번호 충돌과 principal 범위를 증명합니다.
 - [ ] Narrator 및 웹 검색 후보 선택, 첫 토큰 시간, 실패, 복구 및 정제된 상태에 대한 관리되는 로컬 및 배포 증적을 보존합니다.
-- [ ] 검토된 service-owned 어댑터 경계를 통해서만 연기된 직접 Key Vault 모델 해석 결과 loader와 조정기 알림 경로를 구현합니다.
+- [ ] 검토된 service-owned 어댑터를 통해 직접 Key Vault 모델 해석 결과 loader를 구현하고 제안 전용 조정기 실행을 한 번 보존합니다.
 
 ## 관련 문서
 

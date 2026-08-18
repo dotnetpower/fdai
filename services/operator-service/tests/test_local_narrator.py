@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -160,6 +161,46 @@ def _pool_artifact(path: Path, *, vision: bool = False) -> Path:
         ]
     path.write_text(json.dumps(payload), encoding="utf-8")
     return path
+
+
+def test_local_narrator_accepts_only_digest_bound_inline_manifest() -> None:
+    payload = json.dumps(
+        {
+            "narrator": {
+                "endpoint": "https://example.openai.azure.com",
+                "deployment": "narrator-gpt-5-mini",
+                "api_version": "2024-08-01-preview",
+            }
+        },
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    fallback = FallbackAdapters()
+
+    adapter = LocalAzureNarratorAdapters.from_environment(
+        {
+            "LLM_RESOLVED_MODELS_PATH": payload,
+            "LLM_RESOLVED_MODELS_SHA256": digest,
+        },
+        fallback_projections=fallback,
+        fallback_streams=fallback,
+        token_provider=lambda _audience: _token(),
+        http_client=RecordingHttpClient(),
+    )
+    assert adapter.targets[0].deployment == "narrator-gpt-5-mini"
+
+    with pytest.raises(ValueError, match="digest"):
+        LocalAzureNarratorAdapters.from_environment(
+            {
+                "LLM_RESOLVED_MODELS_PATH": payload,
+                "LLM_RESOLVED_MODELS_SHA256": "0" * 64,
+            },
+            fallback_projections=fallback,
+            fallback_streams=fallback,
+            token_provider=lambda _audience: _token(),
+            http_client=RecordingHttpClient(),
+        )
 
 
 async def test_local_narrator_calls_provider_and_emits_canonical_turn(tmp_path: Path) -> None:

@@ -1,8 +1,8 @@
 ---
 title: 시작과 라이프사이클(Startup and Lifecycle)
 translation_of: startup-and-lifecycle.md
-translation_source_sha: d063264266cf68e275cbfeb3ef47ff9150b4ad98
-translation_revised: 2026-08-13
+translation_source_sha: f723c1eaf9a434ec2a9f124adcb4165fa6b7af58
+translation_revised: 2026-08-19
 ---
 
 # 시작과 라이프사이클(시작 and 수명 주기)
@@ -21,8 +21,8 @@ Azure 초점: 비-Azure 프로바이더는 TBD
 아래 타임라인 제안은 방향성이지 하드 규칙 아님; **게이트는 하드**.
 
 > **구현 상태**: 현재 참조 Terraform은 KEDA 규모 룰 없이 `min_replicas = 1`인 단일
-> `core` 컨테이너를 배포합니다. 범용 룰 카탈로그와 모델 해석기 CLI는 존재하지만 아래
-> 자동 수집기/발견 시작, 종단 간 HIL 초기화 및 모델 수명 주기 조정은
+> `core` 컨테이너를 배포합니다. 보호된 배포는 이제 모델 해석기와 제안 전용 주간 수명 주기
+> 조정기를 실행합니다. 자동 수집기/발견 시작과 종단 간 사람 승인 초기화는
 > 완전한 런타임 작업 흐름으로 연결되지 않았습니다. 이 문서는 현재 초기화 계약과 목표
 > 수명 주기를 함께 표시합니다.
 
@@ -34,18 +34,19 @@ Azure 초점: 비-Azure 프로바이더는 TBD
 |------|------|------|------|
 | 시작 준비 상태 조정 | `implemented` | [`runtime/readiness.py`](../../../services/core-control-plane/src/fdai/runtime/readiness.py), [`core/readiness/coordinator.py`](../../../services/core-control-plane/src/fdai/core/readiness/coordinator.py) 및 준비 상태 집중 테스트 | 런타임은 순서가 지정된 단계를 평가하고 정제된 보고서를 저장하며, 결과 결정에 따라 처리를 게이팅합니다. |
 | T2 교차 검사 시작 증명 재사용 | `implemented` | [`delivery/startup_model_probe.py`](../../../services/core-control-plane/src/fdai/delivery/startup_model_probe.py) 및 [`tests/delivery/test_startup_probe.py`](../../../services/core-control-plane/tests/delivery/test_startup_probe.py) | 프로세스에서 처음 성공한 증명은 구성된 샘플을 사용합니다. 이후 새로 고침은 추가 T2 요청 없이 이를 재사용하며 실패는 계속 재시도할 수 있습니다. |
-| 부트스트랩 및 수명 주기 자동화 | `in-progress` | [`rule-catalog/catalog/`](../../../rule-catalog/catalog/), [`llm_resolver_cli.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py), [Teams](../../../services/core-control-plane/src/fdai/delivery/notifications/teams.py) 및 [Slack](../../../services/core-control-plane/src/fdai/delivery/notifications/slack.py) 어댑터 | 자동 수집기 및 발견 시작, 종단 간 사람 승인 초기화, 모델 수명 주기 조정은 아직 완료되지 않았습니다. |
+| 부트스트랩 및 수명 주기 자동화 | `in-progress` | [`llm_resolver_cli.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py), `.github/workflows/deploy-dev.yml`, `.github/workflows/model-lifecycle-reconcile.yml` 및 집중 수명 주기 테스트 | 보호된 모델 해석과 제안 전용 조정은 구현됐습니다. 자동 수집기/발견 시작과 종단 간 사람 승인 초기화는 아직 완료되지 않았습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | `implemented` | 성공한 각 T2 교차 검사 시작 증명을 프로세스의 후속 준비 상태 새로 고침에서 재사용하여 5분마다 다시 샘플링하지 않도록 했습니다. 실패 및 동시 시도는 안전하게 재시도됩니다. | 현재 변경의 `startup_model_probe.py` 및 `test_startup_probe.py`, 시작 탐색 집중 테스트: `18 passed` | 관리되는 배포 런타임 계측 근거를 수집하고 아래의 더 넓은 수명 주기 작업 흐름을 완료합니다. |
+| 2026-08-19 | `implemented` | 보호된 Terraform 계획 전에 결정론적 실제 모델 해석을 실행하고, 정확한 매니페스트와 다이제스트를 적용까지 봉인했으며, 공급자 실패 시 판단을 보류하는 주간 초안 PR 조정기를 추가했습니다. | `current change`; 집중 수명 주기, 보호된 계획 검증기, Operator 서술기, Terraform 및 CI 보안 계약. | 통제된 조정기 실행을 보존하고 독립적인 수집기 및 사람 승인 workflow를 완료합니다. |
 
 ### 남은 작업
 
-- [ ] 자동 수집기 및 발견 시작, 종단 간 사람 승인 초기화, 모델 수명 주기 조정을 완료하고
-   이 원장에 집중 작업 흐름 테스트를 인용합니다.
+- [ ] 자동 수집기 및 발견 시작과 종단 간 사람 승인 초기화를 완료하고 이 원장에 집중
+   workflow 테스트를 인용하며, 통제된 모델 조정기 실행은 별도로 보존합니다.
 - [ ] 후보별로 성공한 T2 시작 샘플 세트가 한 번만 실행되고, 해당 프로세스의 이후 5분 준비
    상태 새로 고침에서는 T2 호출이 추가되지 않음을 보여 주는 관리되는 배포 런타임 계측을 기록합니다.
 

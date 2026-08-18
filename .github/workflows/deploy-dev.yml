@@ -14,7 +14,7 @@ name: deploy-dev
 #       OPS_RESOURCE_GROUP_NAME, OPS_VNET_ID, OPS_VNET_NAME, STATE_STORAGE_ACCOUNT,
 #       DEPLOY_PREFLIGHT_INPUT_JSON (non-secret complete live-probe profile),
 #       ENTRA_CONSOLE_SPA_CLIENT_ID (required when deploy_console=true),
-#       RESOLVED_CAPABILITIES_JSON, OPERATOR_API_AUDIENCE, RBAC_*_GROUP_ID,
+#       MODEL_RESOLVER_DEPLOYER_OBJECT_ID, OPERATOR_API_AUDIENCE, RBAC_*_GROUP_ID,
 #       OPERATOR_API_WEB_SEARCH_ENABLED, OPERATOR_API_WEB_SEARCH_ALLOWED_DOMAINS_JSON,
 #       INGESTION_CORS_ALLOW_ORIGINS, CLAMAV_IMAGE,
 #       SCHEDULER_TICK_CRON_EXPRESSION, ANALYZER_TICK_CRON_EXPRESSION,
@@ -178,7 +178,7 @@ jobs:
       TF_VAR_dev_operations_gateway_private_probes_json: "${{ vars.DEV_OPERATIONS_GATEWAY_PRIVATE_PROBES_JSON || '{}' }}"
       TF_VAR_enable_document_ingestion: ${{ inputs.deploy_document_ingestion }}
       TF_VAR_enable_llm: ${{ inputs.deploy_document_ingestion || vars.ENABLE_LLM == 'true' || vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
-      TF_VAR_resolved_capabilities: "${{ vars.RESOLVED_CAPABILITIES_JSON }}"
+      MODEL_RESOLVER_DEPLOYER_OBJECT_ID: ${{ vars.MODEL_RESOLVER_DEPLOYER_OBJECT_ID }}
       TF_VAR_core_image: ${{ vars.CORE_IMAGE || vars.OPERATOR_API_IMAGE }}
       # Operator API image + Entra/RBAC ids (tenant-specific; via repo Variables,
       # never committed). Empty when deploy_operator_api is false.
@@ -496,6 +496,70 @@ jobs:
           bash scripts/deployment/azure/verify-azure-context.sh \
             "$ARM_SUBSCRIPTION_ID" "$TF_VAR_tenant_id"
 
+      - name: Resolve and seal model capabilities
+        if: ${{ !inputs.apply && env.TF_VAR_enable_llm == 'true' }}
+        working-directory: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$MODEL_RESOLVER_DEPLOYER_OBJECT_ID" =~ ^[0-9a-fA-F-]{36}$ ]]; then
+            echo "MODEL_RESOLVER_DEPLOYER_OBJECT_ID must name the deployment principal." >&2
+            exit 1
+          fi
+          python3 -m pip install --quiet 'pyyaml==6.0.3'
+          resolved="$RUNNER_TEMP/resolved-models.json"
+          manifest="$RUNNER_TEMP/deployment-models.json"
+          PYTHONPATH="$GITHUB_WORKSPACE/services/core-control-plane/src:$GITHUB_WORKSPACE/packages/service-contracts/src" \
+            python3 -m fdai.rule_catalog.schema.llm_resolver_cli \
+              --registry rule-catalog/llm-registry.yaml \
+              --region "$TF_VAR_region" \
+              --subscription-id "$ARM_SUBSCRIPTION_ID" \
+              --deployer-object-id "$MODEL_RESOLVER_DEPLOYER_OBJECT_ID" \
+              --use-azure-cli \
+              --assess-fail-on critical \
+              --out "$resolved"
+          python3 - "$resolved" "$manifest" <<'PY'
+          import json
+          import sys
+
+          source, destination = sys.argv[1:]
+          with open(source, encoding="utf-8") as stream:
+              payload = json.load(stream)
+          capabilities = payload.get("capabilities")
+          if not isinstance(capabilities, list) or not capabilities:
+              raise SystemExit("resolved model capabilities are empty")
+          narrow = {
+              "capabilities": [
+                  {
+                      "capability": item.get("name"),
+                      "deployment": item.get("name"),
+                      "family": item.get("family"),
+                      "version": item.get("version"),
+                      "publisher": item.get("publisher"),
+                  }
+                  for item in capabilities
+              ]
+          }
+          with open(destination, "w", encoding="utf-8") as stream:
+              json.dump(narrow, stream, separators=(",", ":"), sort_keys=True)
+              stream.write("\n")
+          print(json.dumps(capabilities, separators=(",", ":"), sort_keys=True))
+          PY
+          capabilities_json="$(python3 -c 'import json,sys; print(json.dumps(json.load(open(sys.argv[1], encoding="utf-8"))["capabilities"], separators=(",", ":"), sort_keys=True))' "$resolved")"
+          resolved_json="$(python3 -c 'import json,sys; print(json.dumps(json.load(open(sys.argv[1], encoding="utf-8")), separators=(",", ":"), sort_keys=True))' "$resolved")"
+          resolved_digest="$(sha256sum "$resolved" | cut -d' ' -f1)"
+          deployment_digest="$(sha256sum "$manifest" | cut -d' ' -f1)"
+          printf '%s\n' "$resolved_digest" > "$RUNNER_TEMP/resolved-models.sha256"
+          printf '%s\n' "$deployment_digest" > "$RUNNER_TEMP/deployment-models.sha256"
+          {
+            echo "TF_VAR_resolved_capabilities=$capabilities_json"
+            echo "TF_VAR_resolved_models_json=$resolved_json"
+            echo "TF_VAR_resolved_models_sha256=$resolved_digest"
+            echo "FDAI_RESOLVED_MODELS_PATH=$resolved"
+            echo "FDAI_RESOLVED_MODELS_SHA256=$resolved_digest"
+            echo "FDAI_DEPLOYMENT_MODELS_PATH=$manifest"
+            echo "FDAI_DEPLOYMENT_MODELS_SHA256=$deployment_digest"
+          } >> "$GITHUB_ENV"
+
       - name: Ensure protected storage containers
         # Created data-plane from the runner (inside the VNet, over the blob
         # private endpoint) since the account is private + key-auth is
@@ -756,6 +820,7 @@ jobs:
           python3 - <<'PY'
           import json
           import os
+          from pathlib import Path
           from urllib.parse import urlsplit
 
           with open("runner-egress-hosts.json", encoding="utf-8") as stream:
@@ -1152,6 +1217,24 @@ jobs:
                   "source_revision": runtime_image_revision,
                   "digest": runtime_image_digest,
               }
+            resolved_models_path = os.environ.get("FDAI_RESOLVED_MODELS_PATH", "")
+            deployment_models_path = os.environ.get("FDAI_DEPLOYMENT_MODELS_PATH", "")
+            if bool(resolved_models_path) != bool(deployment_models_path):
+              raise SystemExit("protected plan model-resolution evidence is incomplete")
+            if resolved_models_path:
+              resolved_digest = os.environ.get("FDAI_RESOLVED_MODELS_SHA256", "")
+              deployment_digest = os.environ.get("FDAI_DEPLOYMENT_MODELS_SHA256", "")
+              if not all(
+                len(value) == 64 and all(char in "0123456789abcdef" for char in value)
+                for value in (resolved_digest, deployment_digest)
+              ):
+                raise SystemExit("protected plan model-resolution evidence is incomplete")
+              if not Path(resolved_models_path).is_file() or not Path(deployment_models_path).is_file():
+                raise SystemExit("protected plan model-resolution evidence is incomplete")
+              metadata["model_resolution"] = {
+                "resolved_models_digest": resolved_digest,
+                "deployment_models_digest": deployment_digest,
+              }
           with open("plan-metadata.json", "w", encoding="utf-8") as stream:
               json.dump(metadata, stream, sort_keys=True, separators=(",", ":"))
               stream.write("\n")
@@ -1187,6 +1270,32 @@ jobs:
             --name "${blob_prefix}/azure-preflight-evidence.json" \
             --file azure-preflight-evidence.json --auth-mode login --overwrite false \
             --only-show-errors --content-type application/json --output none
+          if [[ -n "${FDAI_RESOLVED_MODELS_PATH:-}" ]]; then
+            az storage blob upload \
+              --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
+              --container-name deployment-plans \
+              --name "${blob_prefix}/resolved-models.json" \
+              --file "$FDAI_RESOLVED_MODELS_PATH" --auth-mode login --overwrite false \
+              --only-show-errors --content-type application/json --output none
+            az storage blob upload \
+              --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
+              --container-name deployment-plans \
+              --name "${blob_prefix}/deployment-models.json" \
+              --file "$FDAI_DEPLOYMENT_MODELS_PATH" --auth-mode login --overwrite false \
+              --only-show-errors --content-type application/json --output none
+            az storage blob upload \
+              --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
+              --container-name deployment-plans \
+              --name "${blob_prefix}/resolved-models.sha256" \
+              --file "$RUNNER_TEMP/resolved-models.sha256" --auth-mode login --overwrite false \
+              --only-show-errors --content-type text/plain --output none
+            az storage blob upload \
+              --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
+              --container-name deployment-plans \
+              --name "${blob_prefix}/deployment-models.sha256" \
+              --file "$RUNNER_TEMP/deployment-models.sha256" --auth-mode login --overwrite false \
+              --only-show-errors --content-type text/plain --output none
+          fi
           {
             echo "Plan id: \`$plan_id\`"
             echo "Plan digest: \`$plan_digest\`"
@@ -1241,6 +1350,37 @@ jobs:
             --name "${blob_prefix}/azure-preflight-evidence.json" \
             --file plan-azure-preflight-evidence.json \
             --auth-mode login --overwrite --only-show-errors --output none
+          read -r resolved_models_digest deployment_models_digest < <(
+            python3 -c 'import json; evidence=json.load(open("plan-metadata.json", encoding="utf-8")).get("model_resolution"); print("- -" if evidence is None else f"{evidence.get('"'"'resolved_models_digest'"'"', '"'"''"'"')} {evidence.get('"'"'deployment_models_digest'"'"', '"'"''"'"')}")'
+          )
+          if [[ "$resolved_models_digest" != "-" ]]; then
+            if [[ ! "$resolved_models_digest" =~ ^[0-9a-f]{64}$ \
+              || ! "$deployment_models_digest" =~ ^[0-9a-f]{64}$ ]]; then
+              echo "protected plan model-resolution evidence is incomplete" >&2
+              exit 1
+            fi
+            for artifact in resolved-models.json deployment-models.json resolved-models.sha256 deployment-models.sha256; do
+              az storage blob download \
+                --account-name "${{ vars.STATE_STORAGE_ACCOUNT }}" \
+                --container-name deployment-plans \
+                --name "${blob_prefix}/${artifact}" --file "$artifact" \
+                --auth-mode login --overwrite --only-show-errors --output none
+            done
+            echo "$resolved_models_digest  resolved-models.json" | sha256sum --check
+            echo "$deployment_models_digest  deployment-models.json" | sha256sum --check
+            [[ "$(cat resolved-models.sha256)" == "$resolved_models_digest" ]]
+            [[ "$(cat deployment-models.sha256)" == "$deployment_models_digest" ]]
+            capabilities_json="$(python3 -c 'import json; print(json.dumps(json.load(open("resolved-models.json", encoding="utf-8"))["capabilities"], separators=(",", ":"), sort_keys=True))')"
+            resolved_json="$(python3 -c 'import json; print(json.dumps(json.load(open("resolved-models.json", encoding="utf-8")), separators=(",", ":"), sort_keys=True))')"
+            {
+              echo "TF_VAR_resolved_capabilities=$capabilities_json"
+              echo "TF_VAR_resolved_models_json=$resolved_json"
+              echo "TF_VAR_resolved_models_sha256=$resolved_models_digest"
+              echo "FDAI_RESOLVED_MODELS_PATH=$PWD/resolved-models.json"
+              echo "FDAI_RESOLVED_MODELS_SHA256=$resolved_models_digest"
+              echo "FDAI_DEPLOYMENT_MODELS_PATH=$PWD/deployment-models.json"
+            } >> "$GITHUB_ENV"
+          fi
           python3 ../scripts/deployment/azure/verify-deployment-plan.py \
             --plan dev.plan --source-artifact fdai-dev-operations-gateway.zip \
             --metadata plan-metadata.json \

@@ -1,8 +1,8 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: 15157b514d1706c7fb9d538d3b77d95d82b1ddca
-translation_revised: 2026-08-14
+translation_source_sha: eb4f2ac258241f0f9d7c19f83d0fd35834cfe7b2
+translation_revised: 2026-08-19
 ---
 
 # LLM 전략(LLM Strategy)
@@ -17,7 +17,6 @@ translation_revised: 2026-08-14
 > 아래 모델 이름은 **채택 시점에 확인** 할 권장. 가용성, 가격, 미리 보기 상태는 변경됨; 구체
 > 모델은 시나리오 세트에서 측정된 비용/quality로 선택, 가정 아님. 이 문서로 특정 모델이 고정되지
 > 않음.
-
 ## 구현 상태
 ### 구현 범위
 | 영역 | 상태 | 근거 | 참고 |
@@ -26,14 +25,15 @@ translation_revised: 2026-08-14
 | T2 교차 검사, 검증기, 근거 확인, 신뢰도 및 rubric | implemented | `core/quality_gate/`; `delivery/azure/llm/rubric.py`; 집중 quality 게이트 및 Azure 어댑터 테스트 | 필수 4개 경로와 선택적 감산 rubric이 있습니다. 근거가 없거나 잘못되면 거부, 판단 보류 또는 사람 검토로 결과를 낮춥니다. |
 | 에스컬레이션 정책과 같은 발행기 primary 지연 시간 라우팅 | implemented | `core/quality_gate/escalation_ladder.py`; `delivery/azure/llm/latency_routed_cross_check.py`; `composition/wire_llm.py`; 집중 라우팅 테스트 | 에스컬레이션 단계는 권한을 갖지 않으며 primary 대체 경로는 secondary 발행기로 넘어갈 수 없습니다. |
 | 운영 모델 근거와 강제 적용 승격 | in-progress | `core/measurement/model_tracking.py`; [목표와 메트릭](goals-and-metrics-ko.md#구현-상태) | 측정과 승격 계약이 있지만 모든 활성 T1/T2 기능의 보존된 실제 운영 집단은 이 문서에서 입증되지 않습니다. |
-| 주간 모델 조정기와 검토된 교체 흐름 | not-started | [조정기 작업](#조정기-작업) | 설계는 초안 PR과 shadow 재현을 요구합니다. 이 소유 문서는 완전한 scheduled 조정기 구현과 통제된 실행 증적을 인용하지 않습니다. |
+| 주간 모델 조정기와 검토된 교체 흐름 | implemented | `.github/workflows/model-lifecycle-reconcile.yml`; `scripts/deployment/azure/model_lifecycle_reconciler.py`; 집중 수명 주기 및 보호된 workflow 테스트 | 예약 실행 경로는 정제된 근거를 만들고, 공급자 실패 시 판단을 보류하며, 활성화 권한이 없는 멱등적 초안 제안만 엽니다. 통제된 실행 증적과 검토된 교체는 열려 있습니다. |
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 quality 게이트 상태를 현재 resolver, rubric, 에스컬레이션 및 지연 시간 라우팅 코드에 맞췄습니다. | `current change`; 위의 레지스트리, quality 게이트, Azure 어댑터, 조립 및 측정 경로입니다. | 운영 모델 근거를 보존하고 통제된 조정기 흐름을 구현합니다. |
+| 2026-08-19 | implemented | 실제 모델 해석을 보호된 계획에 연결하고, 정확한 전체 및 배포 매니페스트를 계획 메타데이터에 봉인했으며, 적용 시 같은 JSON과 SHA를 복원하고, 제안 전용 주간 수명 주기 조정기를 추가했습니다. | `current change`; 집중 모델 수명 주기, 계획 검증기, Operator 서술기, Terraform 및 권한 workflow 검사. | 통제된 조정기 실행을 한 번 보존하고, 레지스트리나 배포를 바꾸기 전에 모든 교체 초안을 별도로 검토합니다. |
 ### 남은 작업
 - [ ] 활성화된 모든 T1/T2 기능에 대해 모델 신원, 비용, 지연 시간, 불일치, 근거 확인, 검증기, rubric, 결과 및 가드 근거가 포함된 고정된 실제 운영 shadow 집단을 보존합니다.
-- [ ] 사용 중단과 측정된 표류가 범위가 제한된 이슈 또는 초안 PR만 만들도록 scheduled 조정기를 구현하고, 병합되지 않은 만료가 해당 기능을 사람 검토로 낮춤을 입증합니다.
+- [ ] 사용 중단 또는 모델 계열 표류가 정제된 초안 PR만 만드는 통제된 예약 실행 증적을 보존하고, 병합되지 않은 만료가 해당 기능을 사람 검토로 낮춤을 검증합니다.
 - [ ] 선택적 rubric, 에스컬레이션 호출 또는 primary pool 행동은 고정된 재현과 독립 검토 후 권위 있는 레지스트리를 통해서만 승격하며 누락된 바인딩은 실패 시 차단을 유지합니다.
 
 ## 모델 티어

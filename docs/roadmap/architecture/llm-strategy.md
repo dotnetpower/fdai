@@ -13,7 +13,6 @@ the threat model in [security-and-identity.md](security-and-identity.md).
 > Model names below are recommendations to **confirm at adoption time**. Availability,
 > pricing, and preview status change; pick the concrete model by measured cost/quality on the
 > scenario set, never by assumption. No specific model is fixed by this document.
-
 ## Implementation status
 ### Implementation scope
 | Area | State | Evidence | Notes |
@@ -22,14 +21,15 @@ the threat model in [security-and-identity.md](security-and-identity.md).
 | T2 cross-check, verifier, grounding, confidence, and rubric | implemented | `core/quality_gate/`; `delivery/azure/llm/rubric.py`; focused quality-gate and Azure adapter tests | The four required legs and optional subtractive rubric exist. Missing or invalid evidence lowers the result to denial, abstention, or human review. |
 | Escalation policy and same-publisher primary latency routing | implemented | `core/quality_gate/escalation_ladder.py`; `delivery/azure/llm/latency_routed_cross_check.py`; `composition/wire_llm.py`; focused routing tests | The ladder remains never-authoritative, and primary failover cannot cross into the secondary publisher. |
 | Operational model evidence and enforce promotion | in-progress | `core/measurement/model_tracking.py`; [Goals and Metrics](goals-and-metrics.md#implementation-status) | Measurement and promotion contracts exist, but one retained live cohort for every active T1/T2 capability is not evidenced here. |
-| Weekly model reconciler and reviewed replacement flow | not-started | [Reconciler Job](#reconciler-job) | The design requires draft PRs and shadow replay. No complete scheduled reconciler implementation and governed run receipt is cited by this owner document. |
+| Weekly model reconciler and reviewed replacement flow | implemented | `.github/workflows/model-lifecycle-reconcile.yml`; `scripts/deployment/azure/model_lifecycle_reconciler.py`; focused lifecycle and protected-workflow tests | The scheduled path emits sanitized evidence, abstains on provider failure, and opens an idempotent draft proposal with no activation authority. A governed run receipt and reviewed replacement remain open. |
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and aligned the quality-gate status with current resolver, rubric, escalation, and latency-routing code. | `current change`; registry, quality-gate, Azure adapter, composition, and measurement paths listed above. | Retain operational model evidence and implement the governed reconciler flow. |
+| 2026-08-19 | implemented | Bound live model resolution to protected planning, sealed the exact full and deployment manifests into plan metadata, restored the same JSON and SHA for apply, and added a proposal-only weekly lifecycle reconciler. | `current change`; focused model lifecycle, plan verifier, Operator narrator, Terraform, and privileged-workflow checks. | Retain one governed reconciler run and separately review any draft replacement before registry or deployment change. |
 ### Remaining work
 - [ ] Retain a pinned live-shadow cohort for every enabled T1/T2 capability with model identity, cost, latency, disagreement, grounding, verifier, rubric, outcome, and guard evidence.
-- [ ] Implement the scheduled reconciler so deprecation and measured drift create only bounded issues or draft PRs, then prove an unmerged expiry lowers the affected capability to human review.
+- [ ] Retain a governed scheduled-run receipt proving deprecation or family drift creates only a sanitized draft PR, and verify an unmerged expiry lowers the affected capability to human review.
 - [ ] Promote optional rubric, escalation invocation, or primary-pool behavior only through the authoritative registry after frozen replay and independent review; keep missing bindings fail-closed.
 
 ## Model Tiers

@@ -2071,9 +2071,10 @@ module "measurement_runners" {
     QUALITY_GATE_CONFIDENCE_THRESHOLD = tostring(var.quality_gate_confidence_threshold)
     QUALITY_GATE_QUORUM               = tostring(var.quality_gate_quorum)
     }, var.enable_llm ? {
-    LLM_MODE                 = "azure"
-    LLM_RESOLVED_MODELS_PATH = "/app/resolved-models.json"
-    FDAI_LLM_ENDPOINT        = module.llm_azure_openai[0].endpoint
+    LLM_MODE                   = "azure"
+    LLM_RESOLVED_MODELS_PATH   = var.resolved_models_json
+    LLM_RESOLVED_MODELS_SHA256 = var.resolved_models_sha256
+    FDAI_LLM_ENDPOINT          = module.llm_azure_openai[0].endpoint
   } : {})
   tags = local.tags
 }
@@ -2218,7 +2219,8 @@ module "operator_api" {
   monitor_workspace_customer_id     = module.log_analytics.workspace_customer_id
   command_api_identity_id           = module.command_api_identity[0].resource_id
   command_api_identity_client_id    = module.command_api_identity[0].client_id
-  resolved_models_path              = var.operator_api_resolved_models_path
+  resolved_models_path              = var.resolved_models_json
+  resolved_models_sha256            = var.resolved_models_sha256
   narrator_probe_interval_seconds   = var.operator_api_narrator_probe_interval_seconds
   web_search_enabled                = var.operator_api_web_search_enabled
   web_search_allowed_domains        = var.operator_api_web_search_allowed_domains

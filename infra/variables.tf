@@ -782,6 +782,29 @@ variable "operator_api_resolved_models_path" {
   default     = ""
 }
 
+variable "resolved_models_json" {
+  description = "Exact resolver JSON sealed into the protected plan and supplied to Core and Operator runtime composition."
+  type        = string
+  sensitive   = true
+  default     = ""
+
+  validation {
+    condition     = var.resolved_models_json == "" || can(jsondecode(var.resolved_models_json))
+    error_message = "resolved_models_json must be empty or valid JSON."
+  }
+}
+
+variable "resolved_models_sha256" {
+  description = "SHA-256 digest of resolved_models_json sealed into the protected plan."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.resolved_models_sha256 == "" || can(regex("^[0-9a-f]{64}$", var.resolved_models_sha256))
+    error_message = "resolved_models_sha256 must be empty or a lowercase SHA-256 digest."
+  }
+}
+
 variable "operator_api_narrator_probe_interval_seconds" {
   description = "Periodic narrator model latency-probe interval in seconds."
   type        = number

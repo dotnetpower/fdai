@@ -40,6 +40,7 @@ def _write_artifacts(
     *,
     expires_at: datetime,
     runtime_image: dict[str, str] | None = None,
+    model_resolution: dict[str, str] | None = None,
 ) -> tuple[Path, Path, Path, Path, Path, str]:
     plan = root / "terraform.plan"
     plan.write_bytes(b"deterministic-plan")
@@ -69,6 +70,8 @@ def _write_artifacts(
     }
     if runtime_image is not None:
         metadata_payload["runtime_image"] = runtime_image
+    if model_resolution is not None:
+        metadata_payload["model_resolution"] = model_resolution
     metadata.write_text(json.dumps(metadata_payload), encoding="utf-8")
     return plan, source_artifact, metadata, preflight, azure_preflight, digest
 
@@ -132,6 +135,65 @@ def test_matching_runtime_image_evidence_passes(
         azure_preflight,
         digest,
     )
+
+
+def test_matching_model_resolution_evidence_passes(
+    verify_module: ModuleType,
+    tmp_path: Path,
+) -> None:
+    plan, source_artifact, metadata, preflight, azure_preflight, digest = _write_artifacts(
+        tmp_path,
+        expires_at=_NOW + timedelta(minutes=30),
+        model_resolution={
+            "resolved_models_digest": "a" * 64,
+            "deployment_models_digest": "b" * 64,
+        },
+    )
+
+    _verify(
+        verify_module,
+        plan,
+        source_artifact,
+        metadata,
+        preflight,
+        azure_preflight,
+        digest,
+    )
+
+
+@pytest.mark.parametrize(
+    "model_resolution",
+    [
+        {"resolved_models_digest": "bad", "deployment_models_digest": "b" * 64},
+        {"resolved_models_digest": "a" * 64, "deployment_models_digest": "bad"},
+        {
+            "resolved_models_digest": "a" * 64,
+            "deployment_models_digest": "b" * 64,
+            "extra": "x",
+        },
+    ],
+)
+def test_invalid_model_resolution_evidence_fails(
+    verify_module: ModuleType,
+    tmp_path: Path,
+    model_resolution: dict[str, str],
+) -> None:
+    plan, source_artifact, metadata, preflight, azure_preflight, digest = _write_artifacts(
+        tmp_path,
+        expires_at=_NOW + timedelta(minutes=30),
+        model_resolution=model_resolution,
+    )
+
+    with pytest.raises(verify_module.PlanVerificationError, match="model resolution"):
+        _verify(
+            verify_module,
+            plan,
+            source_artifact,
+            metadata,
+            preflight,
+            azure_preflight,
+            digest,
+        )
 
 
 @pytest.mark.parametrize(

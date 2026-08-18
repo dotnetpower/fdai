@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import hmac
 import json
 from collections.abc import Awaitable, Callable, Mapping
 from contextlib import AbstractAsyncContextManager
@@ -97,15 +99,25 @@ class LocalAzureNarratorAdapters:
         path_value = values.get("LLM_RESOLVED_MODELS_PATH", "").strip()
         if not path_value:
             raise ValueError("LLM_RESOLVED_MODELS_PATH MUST be configured for local narration")
-        path = Path(path_value)
-        if not path.is_absolute() or not path.is_file():
-            raise ValueError("LLM_RESOLVED_MODELS_PATH MUST name an existing absolute file")
-        try:
-            encoded = path.read_bytes()
-        except OSError as exc:
-            raise ValueError("resolved narrator artifact is unavailable or invalid") from exc
+        if path_value.startswith("{"):
+            encoded = path_value.encode("utf-8")
+        else:
+            path = Path(path_value)
+            if not path.is_absolute() or not path.is_file():
+                raise ValueError("LLM_RESOLVED_MODELS_PATH MUST name JSON or an absolute file")
+            try:
+                encoded = path.read_bytes()
+            except OSError as exc:
+                raise ValueError("resolved narrator artifact is unavailable or invalid") from exc
         if len(encoded) > _MAX_ARTIFACT_BYTES:
             raise ValueError("resolved narrator artifact exceeds the size limit")
+        expected_digest = values.get("LLM_RESOLVED_MODELS_SHA256", "").strip()
+        if expected_digest:
+            observed_digest = hashlib.sha256(encoded).hexdigest()
+            if len(expected_digest) != 64 or not hmac.compare_digest(
+                observed_digest, expected_digest
+            ):
+                raise ValueError("resolved narrator artifact digest does not match deploy")
         try:
             payload = json.loads(encoded.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:

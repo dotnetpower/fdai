@@ -24,6 +24,7 @@ deployment-specific values outside the upstream distribution.
 | Operator schema and catalog Job naming | implemented | `infra/main.tf`, `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml`, and focused deployment workflow tests | Deterministic names and digest-pinned images are wired; a protected apply receipt for the ordered Jobs remains open. |
 | Browser-evidence cleanup Job naming | implemented | `infra/main.tf`; `tests/integration/infra/test_browser_evidence_cleanup_job.py`; focused checks (`4 passed`) and `terraform validate` | `caj-<workload>[-env][-region]-browser-gc` stays within the 32-character Azure limit for every allowed environment. Protected apply evidence remains open. |
 | Event Bus consumer lag alert | implemented | `event_bus.py`; `infra/modules/observability/monitoring/`; focused consumer and infrastructure checks (`5 passed`); strict mypy and `terraform validate` | Each bounded commit exports sanitized partition progress and lag. Opt-in monitoring alerts when ingress lag exceeds the configured bound; protected apply evidence remains open. |
+| Protected model resolution artifacts | implemented | `.github/workflows/deploy-dev.yml`; `model_lifecycle_reconciler.py`; focused lifecycle, plan verifier, Terraform, and CI security checks | Protected plans seal full and deployment-only manifests plus SHA-256 digests. Exact apply restores those bytes; runtime receives the same inline JSON and digest. |
 
 ### Implementation history
 
@@ -40,6 +41,7 @@ deployment-specific values outside the upstream distribution.
 | 2026-08-17 | implemented | Kept the new trace window argument inside the existing alignment. The infra contract tests assert exact formatted argument text, so a longer variable name shifted every aligned argument in the block and failed unrelated assertions. | `current change`; infra contract suite: 71 passed, 1 skipped. | Consider whether those assertions should match formatted text at all. |
 | 2026-08-17 | not-applicable | Corrected the trace-window README description to use the approved display term `detected issue` instead of the contract term `finding`. The Terraform variable, analyzer behavior, machine records, and deployment contract are unchanged. | `current change`; focused display-terminology check passes. | None for this wording correction. |
 | 2026-08-19 | implemented | Exported sanitized per-partition Event Bus consumer progress after each bounded commit and added a Log Analytics scheduled-query alert for ingress lag. Token-expiry recycling still flushes a partial batch and remains a credential-refresh boundary, not a process restart. | `current change`; focused consumer and infrastructure checks passed 5 cases; Ruff, strict mypy, `terraform fmt -check`, and `terraform validate` passed. | Apply the monitoring plan and retain a live firing and recovery receipt before classifying the alert as validated. |
+| 2026-08-19 | implemented | Replaced externally supplied model capability JSON with protected live resolution, sealed exact model artifacts into plan metadata and private blobs, and restored them for apply and runtime composition. | `current change`; focused resolver, lifecycle, plan verifier, Operator narrator, Terraform, and privileged-workflow checks passed. | Retain one protected plan/apply receipt and one proposal-only reconciler run. |
 ### Remaining work
 
 - [ ] Retain repository-safe governed apply receipts for the legacy platform and ops-bootstrap
@@ -52,6 +54,8 @@ deployment-specific values outside the upstream distribution.
 - [ ] Record a protected apply and execution receipt for the deterministic `caj-<workload>[-env][-region]-browser-gc` Job.
 - [ ] Record a protected apply receipt showing the Event Bus consumer lag alert reads sanitized
   `event_bus_consumer_progress` rows, fires above the configured bound, and resolves after lag recovers.
+- [ ] Retain a protected model-resolution plan/apply receipt proving the full and deployment-only
+  manifest digests match the exact runtime JSON, plus one sanitized proposal-only reconciler run.
 
 ## Resource Naming Convention
 

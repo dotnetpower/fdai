@@ -37,6 +37,7 @@ _BASE_METADATA_FIELDS = frozenset(
     }
 )
 _RUNTIME_IMAGE_FIELDS = frozenset({"source_revision", "digest"})
+_MODEL_RESOLUTION_FIELDS = frozenset({"resolved_models_digest", "deployment_models_digest"})
 
 
 class PlanVerificationError(RuntimeError):
@@ -72,10 +73,12 @@ def verify_plan(
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise PlanVerificationError("plan metadata is invalid JSON") from exc
-    if not isinstance(metadata, dict) or set(metadata) not in {
-        _BASE_METADATA_FIELDS,
-        _BASE_METADATA_FIELDS | {"runtime_image"},
-    }:
+    if not isinstance(metadata, dict):
+        raise PlanVerificationError("plan metadata has an unexpected schema")
+    optional_fields = set(metadata) - _BASE_METADATA_FIELDS
+    if not _BASE_METADATA_FIELDS.issubset(metadata) or not optional_fields.issubset(
+        {"runtime_image", "model_resolution"}
+    ):
         raise PlanVerificationError("plan metadata has an unexpected schema")
     if metadata.get("schema_version") != "fdai.deployment-plan.v1":
         raise PlanVerificationError("plan metadata schema version is unsupported")
@@ -116,6 +119,16 @@ def verify_plan(
             raise PlanVerificationError("plan metadata runtime image revision is invalid")
         if not isinstance(image_digest, str) or _OCI_DIGEST.fullmatch(image_digest) is None:
             raise PlanVerificationError("plan metadata runtime image digest is invalid")
+    model_resolution = metadata.get("model_resolution")
+    if model_resolution is not None:
+        if (
+            not isinstance(model_resolution, dict)
+            or set(model_resolution) != _MODEL_RESOLUTION_FIELDS
+        ):
+            raise PlanVerificationError("plan metadata model resolution has an unexpected schema")
+        for digest in model_resolution.values():
+            if not isinstance(digest, str) or _DIGEST.fullmatch(digest) is None:
+                raise PlanVerificationError("plan metadata model resolution digest is invalid")
     if metadata.get("status") != "ready":
         raise PlanVerificationError("plan metadata status is not ready")
     expires_at = _timestamp(metadata.get("expires_at"))

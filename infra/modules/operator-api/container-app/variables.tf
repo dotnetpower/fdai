@@ -93,6 +93,12 @@ variable "resolved_models_path" {
   default     = ""
 }
 
+variable "resolved_models_sha256" {
+  description = "Expected SHA-256 digest for the resolved model JSON."
+  type        = string
+  default     = ""
+}
+
 variable "narrator_probe_interval_seconds" {
   description = "Periodic narrator model latency-probe interval in seconds."
   type        = number

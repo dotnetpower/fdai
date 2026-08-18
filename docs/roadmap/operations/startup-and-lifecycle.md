@@ -18,9 +18,9 @@ Azure focus: non-Azure providers are TBD (see
 Timeline suggestions below are directional, not hard rules; **the gates are hard**.
 
 > **Implementation status**: The current reference Terraform deploys one `core` container with
-> `min_replicas = 1` and no KEDA scaling rule. The generic rule catalog and model-resolver CLI
-> exist, but automatic collector/discovery startup, end-to-end HIL bootstrap, and model lifecycle
-> reconciliation are not wired as complete runtime workflows. This document distinguishes the
+> `min_replicas = 1` and no KEDA scaling rule. Protected deployment now runs the model resolver
+> and a proposal-only weekly lifecycle reconciler. Automatic collector/discovery startup and
+> end-to-end HIL bootstrap are not wired as complete runtime workflows. This document distinguishes the
 > current bootstrap contract from the target lifecycle.
 
 ## Implementation status
@@ -31,18 +31,19 @@ Timeline suggestions below are directional, not hard rules; **the gates are hard
 |------|-------|----------|-------|
 | Startup readiness orchestration | implemented | [`runtime/readiness.py`](../../../services/core-control-plane/src/fdai/runtime/readiness.py), [`core/readiness/coordinator.py`](../../../services/core-control-plane/src/fdai/core/readiness/coordinator.py), and focused readiness tests | The runtime evaluates ordered phases, persists sanitized reports, and gates processing on the resulting decision. |
 | T2 cross-check startup proof reuse | implemented | [`delivery/startup_model_probe.py`](../../../services/core-control-plane/src/fdai/delivery/startup_model_probe.py) and [`tests/delivery/test_startup_probe.py`](../../../services/core-control-plane/tests/delivery/test_startup_probe.py) | The first successful process-local proof uses the configured samples. Refreshes reuse it without another T2 request, while failures remain retryable. |
-| Bootstrap and lifecycle automation | in-progress | [`rule-catalog/catalog/`](../../../rule-catalog/catalog/), [`llm_resolver_cli.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py), and the [Teams](../../../services/core-control-plane/src/fdai/delivery/notifications/teams.py) and [Slack](../../../services/core-control-plane/src/fdai/delivery/notifications/slack.py) adapters | Automatic collector and discovery startup, end-to-end Human approval bootstrap, and model lifecycle reconciliation remain incomplete. |
+| Bootstrap and lifecycle automation | in-progress | [`llm_resolver_cli.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/llm_resolver_cli.py), `.github/workflows/deploy-dev.yml`, `.github/workflows/model-lifecycle-reconcile.yml`, and focused lifecycle tests | Protected model resolution and proposal-only reconciliation are implemented. Automatic collector/discovery startup and end-to-end Human approval bootstrap remain incomplete. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | implemented | Reused each successful T2 cross-check startup proof for later process-local readiness refreshes instead of resampling every five minutes. Failed and concurrent attempts remain retry-safe. | Current change in `startup_model_probe.py` and `test_startup_probe.py`; focused startup probe tests: `18 passed`. | Capture governed deployed-runtime metering evidence and complete the broader lifecycle workflows below. |
+| 2026-08-19 | implemented | Ran deterministic live model resolution before protected Terraform planning, sealed its exact manifests and digests through apply, and added a weekly provider-failure-abstaining draft-PR reconciler. | `current change`; focused lifecycle, protected-plan verifier, Operator narrator, Terraform, and CI security contracts. | Retain a governed reconciler run and complete the independent collector and Human approval workflows. |
 
 ### Remaining work
 
-- [ ] Complete automatic collector and discovery startup, end-to-end Human approval bootstrap,
-   and model lifecycle reconciliation, with focused workflow tests cited in this ledger.
+- [ ] Complete automatic collector and discovery startup plus end-to-end Human approval bootstrap,
+   with focused workflow tests cited in this ledger; retain a governed model reconciler run separately.
 - [ ] Record governed deployed-runtime metering that shows one successful T2 startup sample set per
    candidate and no additional T2 calls from later five-minute readiness refreshes in that process.
 
