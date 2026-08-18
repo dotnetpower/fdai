@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 67502eb80c316e925fdefc73d71c9566ccee64ab
+translation_source_sha: 482413693f00b1fa497a380a845bc3cd55265069
 translation_revised: 2026-08-18
 ---
 
@@ -41,6 +41,7 @@ translation_revised: 2026-08-18
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-18 | implemented | 통제 공백 출처 중 하나라도 사용할 수 없을 때 공백 개수를 보고하던 동작을 중단했습니다. Overview의 통제 보증 카드는 네 가지 출처를 더하면서 없는 출처마다 `0`을 더했기 때문에, `승격 준비 상태: 근거 없음`과 `정책 이탈: 근거 없음` 옆에 `공백 0건`을 표시했습니다. 집계된 공백은 참인 하한이므로 계속 보고하며, 0은 모든 출처가 측정된 경우에만 주장합니다. | `current change`, `dashboard.model.test.ts` 15개 통과(신규 4개 포함)이며 measured 플래그를 되돌려 변이 검증했습니다. Console 전체 스위트 222개 파일 `1878 passed`, Console typecheck 통과. 로컬 콘솔 실측: 네 출처 중 세 개가 근거 없음인 상태에서 카드가 `Incomplete / 0 gaps`를 표시했습니다. | 승격 게이트와 정책 이탈 출처를 측정 가능하게 배선하는 일은 별도 작업으로 남습니다. |
 | 2026-08-18 | implemented | 완료된 준수 판정을 차단된 문제로 읽던 동작을 중단했습니다. T0는 모든 후보 규칙이 실행되고 어느 것도 거부하지 않았을 때만 `no_rule_denied`를 기록하지만, `control_loop.compliant` 행위 종류가 생기기 전에 기록된 항목은 그 사유를 abstain 종류 아래에 담고 있습니다. 감사 로그는 해시 체인으로 연결되어 재작성할 수 없으므로, 이제 인시던트 이정표와 차단 사유 판독기가 기록된 사유로 분류합니다. | `current change`, `incidents.milestones.test.ts`와 `incidents.overview.test.ts`의 집중 검사 14개 통과(신규 2개 포함), Console 전체 스위트 222개 파일 `1872 passed`, Console typecheck 통과. 측정된 범위: 로컬 감사 저장소에 해당 기록이 819개 있으며 모두 2026-08-18T04:05Z 이전에 기록되었고, 그 이후 준수 판정은 모두 `control_loop.compliant`를 씁니다. | 이 판독 수정에 남은 작업은 없습니다. 실제로 규칙이 없는 리소스 유형의 rule-catalog 커버리지는 #166에서 계속 열려 있습니다. |
 | 2026-08-18 | implemented | 에이전트 감독의 지식 인수인계 권한을 Console SPA id token의 `roles` 클레임 대신 서버가 소유한 `/iam` 기능 변환 결과에서 판별하도록 바꿨습니다. API 범위 App Role 모델에서는 해당 클레임이 채워지지 않습니다. 이 판별은 id token 클레임을 대체 수단으로 유지하고, 변환 결과를 불러오는 동안 확인 중 상태를 표시하며, 사용할 수 없으면 차단 상태로 유지합니다. | `current change`, `handover-editor.test.ts`와 `handover.test.ts`의 집중 검사 20개 통과, `index.test.ts` 카탈로그 일치 검사 6개 통과, Console typecheck 통과 | 권한이 있는 운영자가 담당자 등록 양식에 도달하는 통제된 Browser Entra 산출물을 보존합니다. |
 | 2026-08-18 | validated | 등록된 Console route 전체를 로컬 Operator API 기준으로 점검하고, 커밋 `bb56775e8` 이후 남아 있던 deck transcript padding 단언을 정정했습니다. | 현재 변경; 콘솔 `src/deck/investigation-timeline.test.ts` 11개 통과; 등록된 route 44개 인증 통과에서 `404`, 페이지 예외, 처리되지 않은 전송 코드가 없었고 `/agent-activity`, `/llm-cost`, `/architecture`, `/rules`가 측정된 내용을 렌더했습니다. | 런타임에 생성되는 근거 화면은 여전히 선언된 unavailable 사유를 렌더하며, `promotion-gate.list`에는 여전히 reader만 있고 writer가 없습니다. |
