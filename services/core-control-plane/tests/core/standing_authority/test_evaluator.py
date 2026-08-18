@@ -136,163 +136,166 @@ def test_a_naive_clock_is_a_missing_time_authority() -> None:
     assert decision.reason_code == "clock_not_trusted"
 
 
-@pytest.mark.parametrize(
-    ("overrides", "reason_code"),
-    [
-        ({"status": "revoked"}, "authorization_not_active"),
-        ({"status": "expired"}, "authorization_not_active"),
-        ({"status": "superseded"}, "authorization_not_active"),
-        ({"valid_from": "2026-07-06T00:00:00Z"}, "outside_validity_interval"),
-        ({"service_ref": "service:example-other"}, "service_mismatch"),
-        ({"scope": {"level": "resource_group", "value": "rg:example-other"}}, "scope_mismatch"),
-        (
-            {
-                "approvals": [
-                    {
-                        "principal": "example-service-owner",
-                        "role": "service_owner",
-                        "approved_at": "2026-07-01T08:00:00Z",
-                    },
-                    {
-                        "principal": "example-service-owner",
-                        "role": "owner",
-                        "approved_at": "2026-07-01T09:00:00Z",
-                    },
-                ]
-            },
-            "quorum_not_met",
-        ),
-        (
-            {
-                "approvals": [
-                    {
-                        "principal": "example-approver-a",
-                        "role": "approver",
-                        "approved_at": "2026-07-01T08:00:00Z",
-                    },
-                    {
-                        "principal": "example-owner",
-                        "role": "owner",
-                        "approved_at": "2026-07-01T09:00:00Z",
-                    },
-                ]
-            },
-            "service_owner_approval_missing",
-        ),
-        (
-            {
-                "approvals": [
-                    {
-                        "principal": "example-service-owner",
-                        "role": "service_owner",
-                        "approved_at": "2026-07-01T08:00:00Z",
-                    },
-                    {
-                        "principal": "example-approver-b",
-                        "role": "approver",
-                        "approved_at": "2026-07-01T09:00:00Z",
-                    },
-                ]
-            },
-            "owner_authority_approval_missing",
-        ),
-        (
-            {
-                "approvals": [
-                    {
-                        "principal": "example-requester",
-                        "role": "service_owner",
-                        "approved_at": "2026-07-01T08:00:00Z",
-                    },
-                    {
-                        "principal": "example-owner",
-                        "role": "owner",
-                        "approved_at": "2026-07-01T09:00:00Z",
-                    },
-                ]
-            },
-            "self_approval",
-        ),
-        (
-            {
-                "pins": {
-                    "policy_digest": "sha256:other",
-                    "target_revision": "rev-target-1",
-                    "action_type_versions": ["ops.scale-out@1.0.0"],
-                    "evidence_revisions": ["evidence-1"],
-                }
-            },
-            "policy_digest_mismatch",
-        ),
-        (
-            {
-                "pins": {
-                    "policy_digest": "sha256:policy",
-                    "target_revision": "rev-target-2",
-                    "action_type_versions": ["ops.scale-out@1.0.0"],
-                    "evidence_revisions": ["evidence-1"],
-                }
-            },
-            "target_revision_mismatch",
-        ),
-        (
-            {
-                "pins": {
-                    "policy_digest": "sha256:policy",
-                    "target_revision": "rev-target-1",
-                    "action_type_versions": ["ops.scale-out@2.0.0"],
-                    "evidence_revisions": ["evidence-1"],
-                }
-            },
-            "action_type_version_not_pinned",
-        ),
-        (
-            {
-                "pins": {
-                    "policy_digest": "sha256:policy",
-                    "target_revision": "rev-target-1",
-                    "action_type_versions": ["ops.scale-out@1.0.0"],
-                    "evidence_revisions": ["evidence-2"],
-                }
-            },
-            "evidence_revision_mismatch",
-        ),
-        (
-            {
-                "responders": {
-                    "primary": "example-primary",
-                    "backup": "example-backup",
-                    "confirmed_at": "2026-05-01T08:00:00Z",
-                }
-            },
-            "responder_confirmation_stale",
-        ),
-        (
-            {
-                "responders": {
-                    "primary": "example-primary",
-                    "backup": "example-backup",
-                    "confirmed_at": "2026-07-20T08:00:00Z",
-                }
-            },
-            "responder_confirmation_in_the_future",
-        ),
-        (
-            {"evidence": {"history_reviewed": False, "precedent_ref": "case:example-precedent"}},
-            "history_not_reviewed",
-        ),
-        (
-            {
-                "evidence": {
-                    "history_reviewed": True,
-                    "precedent_ref": None,
-                    "scenario_evidence_ref": None,
-                }
-            },
-            "no_precedent_or_scenario_evidence",
-        ),
-    ],
-)
+#: Every authorization-side condition, paired with the exact reason code it must produce.
+#: `test_every_reason_code_the_evaluator_can_return_has_a_case` reads this table, so a new
+#: condition in the evaluator cannot ship without a case here.
+_AUTHORIZATION_CASES: list[tuple[dict[str, Any], str]] = [
+    ({"status": "revoked"}, "authorization_not_active"),
+    ({"status": "expired"}, "authorization_not_active"),
+    ({"status": "superseded"}, "authorization_not_active"),
+    ({"valid_from": "2026-07-06T00:00:00Z"}, "outside_validity_interval"),
+    ({"service_ref": "service:example-other"}, "service_mismatch"),
+    ({"scope": {"level": "resource_group", "value": "rg:example-other"}}, "scope_mismatch"),
+    (
+        {
+            "approvals": [
+                {
+                    "principal": "example-service-owner",
+                    "role": "service_owner",
+                    "approved_at": "2026-07-01T08:00:00Z",
+                },
+                {
+                    "principal": "example-service-owner",
+                    "role": "owner",
+                    "approved_at": "2026-07-01T09:00:00Z",
+                },
+            ]
+        },
+        "quorum_not_met",
+    ),
+    (
+        {
+            "approvals": [
+                {
+                    "principal": "example-approver-a",
+                    "role": "approver",
+                    "approved_at": "2026-07-01T08:00:00Z",
+                },
+                {
+                    "principal": "example-owner",
+                    "role": "owner",
+                    "approved_at": "2026-07-01T09:00:00Z",
+                },
+            ]
+        },
+        "service_owner_approval_missing",
+    ),
+    (
+        {
+            "approvals": [
+                {
+                    "principal": "example-service-owner",
+                    "role": "service_owner",
+                    "approved_at": "2026-07-01T08:00:00Z",
+                },
+                {
+                    "principal": "example-approver-b",
+                    "role": "approver",
+                    "approved_at": "2026-07-01T09:00:00Z",
+                },
+            ]
+        },
+        "owner_authority_approval_missing",
+    ),
+    (
+        {
+            "approvals": [
+                {
+                    "principal": "example-requester",
+                    "role": "service_owner",
+                    "approved_at": "2026-07-01T08:00:00Z",
+                },
+                {
+                    "principal": "example-owner",
+                    "role": "owner",
+                    "approved_at": "2026-07-01T09:00:00Z",
+                },
+            ]
+        },
+        "self_approval",
+    ),
+    (
+        {
+            "pins": {
+                "policy_digest": "sha256:other",
+                "target_revision": "rev-target-1",
+                "action_type_versions": ["ops.scale-out@1.0.0"],
+                "evidence_revisions": ["evidence-1"],
+            }
+        },
+        "policy_digest_mismatch",
+    ),
+    (
+        {
+            "pins": {
+                "policy_digest": "sha256:policy",
+                "target_revision": "rev-target-2",
+                "action_type_versions": ["ops.scale-out@1.0.0"],
+                "evidence_revisions": ["evidence-1"],
+            }
+        },
+        "target_revision_mismatch",
+    ),
+    (
+        {
+            "pins": {
+                "policy_digest": "sha256:policy",
+                "target_revision": "rev-target-1",
+                "action_type_versions": ["ops.scale-out@2.0.0"],
+                "evidence_revisions": ["evidence-1"],
+            }
+        },
+        "action_type_version_not_pinned",
+    ),
+    (
+        {
+            "pins": {
+                "policy_digest": "sha256:policy",
+                "target_revision": "rev-target-1",
+                "action_type_versions": ["ops.scale-out@1.0.0"],
+                "evidence_revisions": ["evidence-2"],
+            }
+        },
+        "evidence_revision_mismatch",
+    ),
+    (
+        {
+            "responders": {
+                "primary": "example-primary",
+                "backup": "example-backup",
+                "confirmed_at": "2026-05-01T08:00:00Z",
+            }
+        },
+        "responder_confirmation_stale",
+    ),
+    (
+        {
+            "responders": {
+                "primary": "example-primary",
+                "backup": "example-backup",
+                "confirmed_at": "2026-07-20T08:00:00Z",
+            }
+        },
+        "responder_confirmation_in_the_future",
+    ),
+    (
+        {"evidence": {"history_reviewed": False, "precedent_ref": "case:example-precedent"}},
+        "history_not_reviewed",
+    ),
+    (
+        {
+            "evidence": {
+                "history_reviewed": True,
+                "precedent_ref": None,
+                "scenario_evidence_ref": None,
+            }
+        },
+        "no_precedent_or_scenario_evidence",
+    ),
+]
+
+
+@pytest.mark.parametrize(("overrides", "reason_code"), _AUTHORIZATION_CASES)
 def test_each_authorization_condition_has_a_failing_case(
     overrides: dict[str, Any],
     reason_code: str,
@@ -303,22 +306,23 @@ def test_each_authorization_condition_has_a_failing_case(
     assert decision.reason_code == reason_code
 
 
-@pytest.mark.parametrize(
-    ("overrides", "reason_code"),
-    [
-        ({"autonomy_class": AutonomyClass.A4}, "a4_never_delegable"),
-        ({"autonomy_class": AutonomyClass.A3_H}, "autonomy_class_not_a3e"),
-        ({"autonomy_class": AutonomyClass.A1}, "autonomy_class_not_a3e"),
-        ({"action_type": "ops.delete-resource"}, "action_type_version_not_pinned"),
-        ({"incident_class": "data_loss"}, "incident_class_outside_envelope"),
-        ({"blast_radius": 4}, "blast_radius_exceeds_envelope"),
-        ({"max_duration_seconds": 900}, "duration_exceeds_envelope"),
-        ({"reversible": False}, "action_not_reversible"),
-        ({"rollback_contract": None}, "rollback_contract_mismatch"),
-        ({"rollback_contract": "state_forward_only"}, "rollback_contract_mismatch"),
-        ({"executor_principal": "example-owner"}, "self_approval"),
-    ],
-)
+#: Every request-side condition, paired with the exact reason code it must produce.
+_REQUEST_CASES: list[tuple[dict[str, Any], str]] = [
+    ({"autonomy_class": AutonomyClass.A4}, "a4_never_delegable"),
+    ({"autonomy_class": AutonomyClass.A3_H}, "autonomy_class_not_a3e"),
+    ({"autonomy_class": AutonomyClass.A1}, "autonomy_class_not_a3e"),
+    ({"action_type": "ops.delete-resource"}, "action_type_version_not_pinned"),
+    ({"incident_class": "data_loss"}, "incident_class_outside_envelope"),
+    ({"blast_radius": 4}, "blast_radius_exceeds_envelope"),
+    ({"max_duration_seconds": 900}, "duration_exceeds_envelope"),
+    ({"reversible": False}, "action_not_reversible"),
+    ({"rollback_contract": None}, "rollback_contract_mismatch"),
+    ({"rollback_contract": "state_forward_only"}, "rollback_contract_mismatch"),
+    ({"executor_principal": "example-owner"}, "self_approval"),
+]
+
+
+@pytest.mark.parametrize(("overrides", "reason_code"), _REQUEST_CASES)
 def test_each_request_condition_has_a_failing_case(
     overrides: dict[str, Any],
     reason_code: str,
@@ -372,6 +376,31 @@ def test_a_wider_than_resource_group_scope_cannot_be_parsed() -> None:
         )
 
 
+def test_an_action_type_outside_the_envelope_is_ineligible() -> None:
+    """Needs both sides overridden: the pin check runs first and would mask the envelope.
+
+    Pinning a version for an action type the envelope never allowed is the shape that makes
+    this condition reachable, and it is exactly the mistake a delegation edit can make.
+    """
+
+    authorization = _authorization(
+        pins={
+            "policy_digest": "sha256:policy",
+            "target_revision": "rev-target-1",
+            "action_type_versions": ["ops.scale-out@1.0.0", "ops.delete-resource@1.0.0"],
+            "evidence_revisions": ["evidence-1"],
+        }
+    )
+    decision = evaluate_standing_authorization(
+        authorization,
+        _request(action_type="ops.delete-resource"),
+        now=NOW,
+    )
+
+    assert decision.eligibility is Eligibility.INELIGIBLE
+    assert decision.reason_code == "action_type_outside_envelope"
+
+
 def test_the_evaluator_is_not_wired_into_any_decision_path() -> None:
     """The absence of wiring is a deliberate contract, so it is pinned, not remembered.
 
@@ -403,3 +432,69 @@ def test_the_evaluator_is_not_wired_into_any_decision_path() -> None:
                     )
 
     assert not offenders, f"standing authority is wired into a decision path: {offenders}"
+
+
+#: Reason codes produced outside the two case tables, each asserted by its own test above.
+_STANDALONE_REASON_CODES = frozenset(
+    {
+        "eligible",
+        "authorization_absent",
+        "clock_not_trusted",
+        "outside_validity_interval",
+        "run_would_outlive_authorization",
+        "action_type_outside_envelope",
+        # Unreachable through `from_mapping`, which rejects an enforce mode and a wider scope
+        # before the evaluator sees them. Both are defense in depth against direct
+        # construction and have their parse-time tests above.
+        "mode_not_shadow",
+        "scope_too_wide",
+    }
+)
+
+
+def _declared_reason_codes() -> set[str]:
+    """Return every reason code the evaluator source can return.
+
+    Reading the source rather than a hand-kept list is the point: a new condition added to
+    the evaluator without a case below fails this test instead of shipping unmeasured.
+    """
+
+    tree = ast.parse(
+        (SOURCE_ROOT / "core" / "standing_authority" / "evaluator.py").read_text(encoding="utf-8")
+    )
+    codes: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Return) and isinstance(node.value, ast.Constant):
+            if isinstance(node.value.value, str):
+                codes.add(node.value.value)
+        if isinstance(node, ast.Call):
+            called = node.func
+            if isinstance(called, ast.Name) and called.id == "_deny" and len(node.args) >= 2:
+                argument = node.args[1]
+                if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
+                    codes.add(argument.value)
+            for keyword in node.keywords:
+                if keyword.arg == "reason_code" and isinstance(keyword.value, ast.Constant):
+                    if isinstance(keyword.value.value, str):
+                        codes.add(keyword.value.value)
+    return codes
+
+
+def test_every_reason_code_the_evaluator_can_return_has_a_case() -> None:
+    """The eleven-condition claim in this module's docstring is enforced, not remembered."""
+
+    declared = _declared_reason_codes()
+    # Non-vacuity: an extraction that finds nothing would make the subset check trivially true.
+    assert len(declared) >= 20, f"the reason-code scan looks vacuous: {sorted(declared)}"
+    assert "quorum_not_met" in declared
+
+    covered = (
+        {code for _, code in _AUTHORIZATION_CASES}
+        | {code for _, code in _REQUEST_CASES}
+        | _STANDALONE_REASON_CODES
+    )
+
+    assert not declared - covered, f"reason codes with no case: {sorted(declared - covered)}"
+    assert not covered - declared, (
+        f"cases for reason codes the evaluator cannot return: {sorted(covered - declared)}"
+    )

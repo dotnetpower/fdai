@@ -1,8 +1,8 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: 2b5e1e87152968b1ab44c5e66c7c07764b828298
-translation_revised: 2026-08-18
+translation_source_sha: 6497856b893124675a7e749d11bf81d00f6cefd6
+translation_revised: 2026-08-19
 ---
 
 # 에스컬레이션과 상시 권한(감독형 OODA 루프)
@@ -39,6 +39,7 @@ translation_revised: 2026-08-18
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | in-progress | "모든 헌법 조건에 실패 케이스가 있다"는 주장을 손으로 관리하는 대신 스스로 강제되도록 만들었습니다. 이제 테스트가 AST 스캔으로 평가기 소스가 반환할 수 있는 모든 reason code를 읽고, 케이스가 없는 코드가 있으면 실패합니다. 바로 하나를 찾았습니다. `action_type_outside_envelope`는 pin 검사가 먼저 실행되기 때문에 기존 표에서는 도달할 수 없었고, envelope가 허용하지 않지만 pin은 허용하는 action type에 대한 테스트가 없었습니다. 이제 그 케이스가 있습니다. 이는 승격 검토가 필요로 하는 첫 산출물이며, 합성 위임에 대한 오프라인 결정 코호트일 뿐 런타임 shadow 근거가 아닙니다. | `current change`, `tests/core/standing_authority`가 focused 40건 통과, 완전성 테스트는 자체 검증됨 - 누락 케이스를 추가하기 전에 `reason codes with no case: ['action_type_outside_envelope']`로 실패했습니다. 작업 범위 Ruff·format 통과 | envelope 이탈 0건인 통제된 런타임 shadow 코호트, 독립 승격 검토, 런타임 취소 저장소가 모두 없으므로 어떤 결정 경로도 평가기를 참조할 수 없습니다. |
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 기존의 포괄적인 상태 요약을 바로잡았습니다. | `current change`; 구현 범위 표의 현재 소스, 집중 테스트 및 헌법 추적성입니다. | 카탈로그 기반 긴급도와 상시 권한 평가를 제공한 뒤 통제된 shadow 근거를 보존해야 합니다. |
 | 2026-08-14 | in-progress | 검토된 에스컬레이션 사다리와 긴급도 정책 카탈로그 인스턴스를 fail-closed 로더, 결정론적 first-match 선택, 순수 스케줄 함수와 함께 배포했습니다. | `current change`; [`escalation_ladder.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/escalation_ladder.py), [`test_escalation_ladder_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_escalation_ladder_catalog.py); 집중 카탈로그 검사 37건과 rule-catalog 전체 스위트 1251건이 통과했고 strict mypy가 통과했습니다. | Supervisor를 카탈로그에 연결하고 통제된 shadow 집합에서 측정된 긴급도 압축 근거를 보존해야 합니다. |
 | 2026-08-18 | in-progress | A3-E를 사용 가능하게 만들지 않은 채 실행 가능하게 만들었습니다. `authority/standing-authorization.json`이 카탈로그 스키마이고, `record.py`는 문서를 파싱·정규화하며 기본값을 채우는 대신 잘못된 입력을 거부합니다. `evaluator.py`는 모든 헌법 조건이 성립할 때만 적격을 반환하고 항상 첫 번째 실패 조건을 명시합니다. 레코드 부재, 파싱 실패, 시간대 없는 시계는 허용이 아니라 부적격입니다. 스키마는 `mode: shadow`와 resource 또는 resource group 범위만 허용하므로 enforce나 더 넓은 파급 범위는 표현할 수 없습니다. 어느 경로도 평가기를 소비하지 않으며, risk-gate·executor·HIL-resume·control-loop 트리를 파싱해 import가 있으면 실패하는 테스트가 있습니다. | `current change`, 긍정 경로 1건과 조건별 음성 사례를 정확한 reason code로 단언하는 `tests/core/standing_authority` focused 테스트 38건 통과, 작업 범위 Ruff·format·strict mypy 통과, core import 경계 게이트 통과 | envelope 이탈이 0인 통제된 shadow 집합을 보존한 뒤 독립적 승격 검토를 거쳐야 어느 결정 경로도 평가기를 참조할 수 있습니다. 철회 전파와 갱신의 신규 리비전화는 스키마에는 있지만 런타임 저장소가 없습니다. |

@@ -79,7 +79,7 @@
       "schemas": ["services/core-control-plane/src/fdai/shared/contracts/authority/standing-authorization.json"],
       "tests": ["services/core-control-plane/tests/core/hil_resume", "services/core-control-plane/tests/core/standing_authority"],
       "runtime_evidence": ["services/core-control-plane/src/fdai/core/hil_resume"],
-      "gap": "The A3-E catalog schema, typed record, and deterministic evaluator now exist, and every constitutional condition has a failing case with an exact reason code. The evaluator is unwired by design, mode admits only shadow, and no promotion path, shadow cohort evidence, or runtime revocation store exists."
+      "gap": "The A3-E catalog schema, typed record, and deterministic evaluator now exist, and every reason code the evaluator can return is now proven to have a failing case by an AST scan of its own source rather than a hand-kept list. The evaluator is unwired by design and mode admits only shadow. No promotion path, runtime shadow cohort, or runtime revocation store exists; the offline decision cohort is not runtime shadow evidence."
     },
     {
       "id": "FDAI-CONST-009",
