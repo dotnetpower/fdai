@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pytest
 from fdai.core.readiness import (
@@ -18,6 +20,25 @@ from fdai.core.readiness import (
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _NOW = datetime(2026, 8, 19, 12, 0, tzinfo=UTC)
+
+
+class _DurableCasStateStore(InMemoryStateStore):
+    async def compare_and_set_state_with_audit(
+        self,
+        key: str,
+        value: Mapping[str, Any],
+        *,
+        expected_revision: int,
+        audit_entry: Mapping[str, Any],
+    ) -> bool:
+        if await self.read_state(key) is None:
+            return False
+        return await super().compare_and_set_state_with_audit(
+            key,
+            value,
+            expected_revision=expected_revision,
+            audit_entry=audit_entry,
+        )
 
 
 def _timed(
@@ -202,7 +223,7 @@ def test_policy_disable_short_circuits_without_mutating_evidence() -> None:
 
 
 async def test_coordinator_is_restart_idempotent_and_audits_policy_disable() -> None:
-    store = InMemoryStateStore()
+    store = _DurableCasStateStore()
     first = DiscoveryActivationCoordinator(state_store=store)
     second = DiscoveryActivationCoordinator(state_store=store)
 

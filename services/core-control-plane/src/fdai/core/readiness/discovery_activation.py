@@ -295,12 +295,19 @@ class DiscoveryActivationCoordinator:
             "reason_codes": [reason.value for reason in report.reason_codes],
             "shadow_decision_threshold": report.shadow_decision_threshold,
         }
-        applied = await self._state_store.compare_and_set_state_with_audit(
-            DISCOVERY_ACTIVATION_STATE_KEY,
-            state,
-            expected_revision=previous_revision,
-            audit_entry=audit,
-        )
+        if previous is None:
+            applied = await self._state_store.write_state_with_audit_if_absent(
+                DISCOVERY_ACTIVATION_STATE_KEY,
+                state,
+                audit,
+            )
+        else:
+            applied = await self._state_store.compare_and_set_state_with_audit(
+                DISCOVERY_ACTIVATION_STATE_KEY,
+                state,
+                expected_revision=previous_revision,
+                audit_entry=audit,
+            )
         if not applied:
             raise RuntimeError("discovery activation state changed concurrently")
         return report

@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 34bd6d685e9ecf7e148e6476b0d42f9cd4a7fcc8
+translation_source_sha: bac52b603c65ecdb644347efbeabde3f85a557f9
 translation_revised: 2026-08-19
 ---
 # 프로젝트 구조
@@ -30,6 +30,7 @@ translation_revised: 2026-08-19
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-19 | implemented | 프로바이더 중립 Inventory seam을 exact 0-or-all 신원 완전성 증적으로 확장하고 Azure의 미분류 행 조회는 delivery에 유지했습니다. `wire_inventory.py`는 집계와 신원 읽기를 하나의 semaphore와 원자적 최종 fence 아래에서 연결하고 Core는 canonical Resource 레코드만 받으며 composition facade는 적용되는 400 LOC 상한 아래에 남습니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Focused 검사 259개, Ruff, strict mypy 및 composition 계약 pin이 통과했습니다. | 검증을 주장하기 전에 새로운 실제 재조정 증적 하나를 보존합니다. |
+| 2026-08-19 | implemented | 통제된 규칙 발견의 최초 활성화 전이를 수정했습니다. 상태가 없으면 이제 감사 기록을 포함한 원자적 생성을 사용하고, 이후 전이는 revision 비교 후 설정을 유지하며, 동시 생성에 실패하면 후보 게시를 허용하지 않고 계속 차단합니다. | `current change`; `core/readiness/discovery_activation.py`, `tests/core/readiness/test_discovery_activation.py`; 영속 저장소의 상태 부재 동작을 재현하는 회귀 검사를 포함해 집중 활성화 검사 20개가 통과했습니다. | 운영 검증을 주장하기 전에 Core를 재시작하고 통제된 활성화 전이를 보존합니다. |
 | 2026-08-19 | implemented | 수집기 성공 변환 결과, 시작 준비 상태 근거, 통제된 런타임 정책 및 현재 판테온 shadow 수를 하나의 실패 시 차단 규칙 발견 활성화 경계로 구성했습니다. Norns는 비활성 후보를 보존하고 주입된 상한이 열릴 때만 게시하며, Mimir와 catalog-as-code는 바뀌지 않습니다. | `current change`; 집중 활성화, 런타임, Norns, 시작 연결, 수집기 및 인프라 검사. | 운영 검증을 주장하기 전에 통제된 수집기 및 활성화 전이 증적을 보존합니다. |
 | 2026-08-17 | 구현됨 | `control_loop/_process.py`에 결론이 난 compliant 결과를 도입해, finding이 0인 T0 판정이 더 이상 판단 보류와 구분되지 않는 상태를 해소했습니다. `NO_RULE_DENIED`는 이제 RCA나 `_fallback.py` 티어 승격 없이 `ControlLoopOutcome.COMPLIANT`를 반환합니다. | 현재 소스와 `test_control_loop_e2e.py`(47개 통과), `t0_deterministic` 스위트(총 109개), 둘 다 변이 검증; 변경 전 실측으로 abstain 1641건 중 795건이 `no_rule_denied`였습니다. | 이 결합지점에 남은 작업은 없습니다. 추가 전용 감사 로그는 과거 `control_loop.abstain` 행을 유지합니다. |
 | 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 범위가 제한된 현재 상태 활동 identity 변경을 기록했습니다. | 현재 출처와 `test_read_investigation_latency.py`, `test_activity_projection.py`, 통과한 focused 테스트 | 아래에 설명된 연기된 Phase 2 물리 패키지 이동을 완료합니다. |
