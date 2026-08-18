@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: a9810a45a1220cc09ca4640c5c5740c0623fe9b2
+translation_source_sha: 7eb36c08021ed623642648999481a4faae41936c
 translation_revised: 2026-08-18
 ---
 # 코드 맵
@@ -130,7 +130,7 @@ translation_revised: 2026-08-18
 | 2026-08-18 | 구현됨 | 발화에 명시된 값 필터를 plan 검증 전에 결정적으로 확정합니다. 발화가 선언된 값 그룹 하나의 질의 용어만 담고 있으면 해당 속성의 존재 술어를 그 그룹의 선언 값에 대한 `equals` 또는 `in`으로 다시 씁니다. 용어를 플래너에 노출하는 것만으로는 구속력이 없어 명시된 부분집합 질문이 여전히 ObjectType 전체로 답해졌습니다. | `current change`; [Issue #190](https://github.com/dotnetpower/fdai/issues/190); `core/conversation/semantic_planning.py`; 집중 대화, composition, ontology-platform 검사 934건이 통과했고 Ruff와 strict mypy가 통과했습니다. | 확정은 좁히기만 수행하며, 한 속성에 두 그룹을 함께 언급한 발화는 플래너 판단으로 남습니다. |
 | 2026-08-18 | 구현됨 | 의미 frame을 그것을 만든 질문과 대조해 검증했습니다. 런타임 리소스 인스턴스를 지명하는 스키마 수준 frame은 plan 선택 전에 거부되고 T2로 재시도되며, 재시도가 소진되면 지명된 리소스 질문에 선언 행으로 답하지 않고 지원되지 않음으로 보고합니다. 선언된 어휘에 속하는 하이픈 token은 스키마 질문을 그대로 답변 가능하도록 유지합니다. | `current change`, `core/conversation/semantic_planning_cascade.py`, `tests/conversation/test_semantic_planning_tier_routing.py`, focused tier-routing 검사 32건과 focused 대화, composition, 온톨로지 검사 931건 통과, 작업 범위 Ruff, format 및 strict mypy 통과 | `Resource` 선언은 여전히 상태 속성을 노출하지 않으므로 지명된 리소스 상태 질문은 선언된 필드가 아니라 개방형 속성 bag을 통해 상태에 도달합니다. |
 | 2026-08-18 | 구현됨 | 결정론적 한국어 현재 상태 인식 범위를 넓혀 `상태` 앞의 리소스 종류 명사 또는 `상태` 뒤의 요청 동사가 읽기 조사로 라우팅되도록 했습니다. 피어링, 상태, 이력, 귀속 경로는 기존 우선순위를 그대로 유지합니다. | `current change`, `core/read_investigation/routing.py`, `tests/core/read_investigation/test_routing.py`, focused 읽기 조사 및 에이전트 검사 1269건 통과, 작업 범위 Ruff 및 format 통과 | 결정론적 경로는 에이전트 선택에만 관여하며 Console 의미 턴은 여전히 모든 질문을 모델 cascade로 계획합니다. |
-| 2026-08-18 | 구현됨 | 프로바이더가 보고한 상태와 위치를 선언된 `Resource` 모양으로 끌어올려 의미 질의 경로가 이를 필터링하고 렌더링할 수 있게 했으며, 변경된 온톨로지 릴리스가 이동시킨 승격 의미 surface 다이제스트 1건을 재계산했습니다. | `current change`, `Resource.yaml`, `core/ontology_platform/inventory_projection.py`, `rule-catalog/surfaces/kubernetes-node-pool.multi-zone.ko.yaml`, 카탈로그가 `Resource@1.1.0`으로 로드되고 작업 범위 Ruff 및 format 통과. 수트 실행은 일괄 검증 실행에 위임합니다. | 기존에 프로젠션된 행은 다음 인벤토리 조정 이후에만 끌어올린 필드를 갖습니다. |
+| 2026-08-18 | 철회됨 | 프로바이더가 보고한 상태와 위치를 선언된 `Resource` 모양으로 끌어올리는 작업을 구현했다가 철회했습니다. 이 변경이 이동시키는 온톨로지 릴리스 다이제스트가 승격된 의미 surface의 검증 영수증 대상을 무효화하기 때문입니다. 답변 경로는 이미 해당 필드를 읽고 정렬하므로 선언이 들어오면 추가 변경이 필요 없습니다. | 철회된 리비전의 전체 수트에서 `validation receipt subject mismatch`로 5건이 실패했고, 부모 커밋에서는 동일 수트 1490건이 통과했습니다. | 선언 변경은 surface 재검증 실행을 포함하는 설계 패스로 남겨둡니다. |
 
 ### 남은 작업
 
