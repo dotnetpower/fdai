@@ -45,6 +45,7 @@ def test_shipped_vocabulary_exposes_a_bilingual_database_group() -> None:
         "postgresql-server",
         "redis-enterprise",
         "sql-database",
+        "sql-server",
     }
     assert "database" in database.terms
     assert "db" in database.terms
