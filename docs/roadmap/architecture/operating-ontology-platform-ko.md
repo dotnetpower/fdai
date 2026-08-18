@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: ada322ab591c723bd8255c7a51eac3df8a451ef0
-translation_revised: 2026-08-17
+translation_source_sha: b8483f9392a3195ab8c324ef3c18cb61a4b7b3aa
+translation_revised: 2026-08-18
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -140,6 +140,7 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 | 2026-08-17 | implemented | 닫힌 알림 최종 실패 `route_unresolved`, `trust_mismatch`, `escalated_to_hil`의 결정론적 RCA 변환을 추가했습니다. 변환 결과는 정확한 `notification.route` 감사 행을 인용하고 감사 이력을 추가하거나 다시 쓰지 않은 채 경로 결과 영향 행 하나를 파생합니다. 성공한 전달과 알 수 없는 결과는 원인이 되지 않습니다. | `current change`; focused 인시던트, 의미 처리기 및 Operator 표현 검사 133개 통과, Ruff 및 strict mypy 통과 | Core를 재시작하고 기존 route-unresolved 인시던트의 인증된 Browser 근거를 보존합니다. |
 | 2026-08-17 | implemented | 이전 PostgreSQL 행이 이미 고정한 정확한 과거 객체/링크 release를 backfill했습니다. 이행은 내용이 검증된 이전 레지스트리 매니페스트와 과거 선언 참조 2개만 사용해 release를 도출하고, 삽입 전에 재구성된 다이제스트를 검증합니다. 누락되거나 변조되었거나 관련 없는 release는 현재 release로 재해석하지 않고 계속 시작을 차단합니다. | `current change`; [`20260817_0085_historical_ontology_release.py`](../../../alembic/versions/20260817_0085_historical_ontology_release.py), `service-migrations/**`; focused 레지스트리, 이행 체인, 서비스 인벤토리 테스트 각각 2개, 179개, 46개 통과; 작업 범위 Ruff 및 format 검사 통과 | 이행을 적용하고 Core를 재시작한 뒤, K0 상태를 `validated`로 변경하기 전에 인증된 정상 시작 근거를 보존합니다. |
 | 2026-08-17 | implemented | Bitemporal `topology_at` cutoff 순서 불변식을 deterministic query plan 검증으로 이동했습니다. Event cutoff가 knowledge cutoff보다 늦은 후보는 범위가 제한된 plan 단계만 다시 시도할 수 있으며 PostgreSQL history reader나 실행 handler에 도달하지 못합니다. 유효하지만 비어 있거나 불완전한 보존 history는 계속 `complete=false`로 구체화됩니다. | `current change`, focused query verifier 및 의미 tier 라우팅 검사 41개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 보증 상태를 변경하기 전에 완전한 authoritative 근거가 있는 엄격한 이중 언어 temporal-comparison 답변을 보존합니다. |
+| 2026-08-18 | 구현됨 | 운영자에게 노출되는 답변에서 질의 엔진 어휘를 제거했습니다. 제목, disposition 요약, 보류된 transport 대체 메시지는 온톨로지 질의를 지칭하는 대신 결과가 무엇인지를 알리며, 개요는 각 출력을 plan node id가 아니라 담고 있는 내용으로 표시하고, 선언 다이제스트와 권한 플래그는 행에 다른 필드가 없는 경우를 제외하고 기술 상세에만 남습니다. | `current change`, `semantic_turn_processor.py`, `semantic_turn_presentation.py`, `semantic_turn_runtime.py`, `test_semantic_turn_bridge.py`, `test_semantic_turn_roundtrip.py`, operator-service 394건과 processor 62건 통과, 작업 범위 Ruff, format 및 strict mypy 통과 | 근거 영수증과 정확한 행은 내부 식별자를 그대로 유지하며 감사자는 그곳에서 확인합니다. |
 
 ### 남은 작업
 

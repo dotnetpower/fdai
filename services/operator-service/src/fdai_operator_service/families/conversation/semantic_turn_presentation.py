@@ -30,6 +30,17 @@ _LIFTED_ROW_FIELDS = ("name", "type", "status", "location")
 # Categorical fields worth charting once a result is complete, most specific
 # first. A single-value field yields no chart; the table already says it.
 _DISTRIBUTION_FIELDS = ("type", "status", "location", "object_type")
+# Provenance an operator never reads in an answer table. The exact untouched row
+# keeps these and still travels in technical details.
+_INTERNAL_ROW_FIELDS = frozenset(
+    {
+        "catalog_digest",
+        "declaration_digest",
+        "execution_authority",
+        "revision",
+        "type_version",
+    }
+)
 _CONTROL_CHARACTERS = {chr(code) for code in range(32)} | {chr(127)}
 
 
@@ -682,7 +693,7 @@ def _general_query_blocks(
             {
                 "slot_id": "overview",
                 "kind": "summary",
-                "title": "검증된 온톨로지 쿼리" if korean else "Verified ontology query",
+                "title": "검증된 결과" if korean else "Verified result",
                 "emphasis": "primary",
                 "collapsed": False,
                 "evidence_refs": bounded_refs,
@@ -813,18 +824,37 @@ def _row_limitation_block(
 
 
 def _overview_items(outputs: list[object], *, korean: bool) -> list[JsonObject]:
+    """Summarize each verified output without exposing its plan node id."""
     items: list[JsonObject] = []
-    labels: set[str] = set()
+    seen: set[str] = set()
     for output in outputs:
         if len(items) >= _MAX_SUMMARY_ITEMS or not isinstance(output, Mapping):
             break
         node_id = output.get("node_id")
         value = _output_summary_value(output, korean=korean)
-        if not isinstance(node_id, str) or not node_id or node_id in labels or value is None:
+        if not isinstance(node_id, str) or not node_id or node_id in seen or value is None:
             continue
-        labels.add(node_id)
-        items.append(cast(JsonObject, {"label": node_id, "value": value, "tone": "neutral"}))
+        seen.add(node_id)
+        items.append(
+            cast(
+                JsonObject,
+                {
+                    "label": _output_summary_label(output, korean=korean),
+                    "value": value,
+                    "tone": "neutral",
+                },
+            )
+        )
     return items
+
+
+def _output_summary_label(output: Mapping[str, object], *, korean: bool) -> str:
+    """Name what the output holds, never the node that produced it."""
+    if isinstance(output.get("rule_search"), Mapping):
+        return "규칙 검색" if korean else "Rule search"
+    if isinstance(output.get("result_kind"), str):
+        return "검증된 프로젝션" if korean else "Verified projection"
+    return "검증된 행" if korean else "Verified rows"
 
 
 def _output_summary_value(output: Mapping[str, object], *, korean: bool) -> str | None:
@@ -893,13 +923,17 @@ def _records_block(
 
 
 def _ordered_columns(fields: list[str]) -> list[str]:
-    """Lead with the fields an operator reads, keeping the rest in row order.
+    """Lead with the fields an operator reads and drop internal provenance.
 
     An opaque identifier is the widest column and the least useful one to read
-    first, so a named field takes the leading position when the row has one.
+    first, so a named field takes the leading position when the row has one. A
+    digest or authority flag is machine provenance rather than an answer, so it
+    is withheld here unless the row carries nothing else.
     """
-    leading = [field for field in _LIFTED_ROW_FIELDS if field in fields]
-    return leading + [field for field in fields if field not in leading]
+    readable = [field for field in fields if field not in _INTERNAL_ROW_FIELDS]
+    selected = readable or fields
+    leading = [field for field in _LIFTED_ROW_FIELDS if field in selected]
+    return leading + [field for field in selected if field not in leading]
 
 
 def _readable_row(values: Mapping[str, object]) -> dict[str, object]:

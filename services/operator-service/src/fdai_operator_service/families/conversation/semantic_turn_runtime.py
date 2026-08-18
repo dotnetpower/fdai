@@ -659,10 +659,10 @@ def _held_projection(envelope: Mapping[str, object]) -> dict[str, object]:
         turn_id=_mapping_text(semantic, "turn_id"),
         turn_sequence=_mapping_int(semantic, "turn_sequence"),
         answer=(
-            "검증된 semantic transport를 사용할 수 없어 온톨로지 쿼리를 보류했습니다. "
+            "검증된 semantic transport를 사용할 수 없어 요청을 보류했습니다. "
             "(semantic_transport_unavailable)"
             if _mapping_text(semantic, "locale").casefold().startswith("ko")
-            else "The ontology query was held because verified semantic transport is unavailable. "
+            else "The request was held because verified semantic transport is unavailable. "
             "(semantic_transport_unavailable)"
         ),
     )
