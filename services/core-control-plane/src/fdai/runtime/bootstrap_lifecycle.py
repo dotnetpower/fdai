@@ -526,30 +526,51 @@ def log_rule_generation_outbox_exit(
         _LOGGER.warning("rule_generation_outbox_exited_early")
 
 
+async def open_health_port() -> RuntimeHealthServer | None:
+    """Answer liveness before startup readiness runs so a slow boot is not killed."""
+    raw_port = os.environ.get("FDAI_HEALTH_PORT", "").strip()
+    if not raw_port:
+        return None
+    try:
+        port = int(raw_port)
+    except ValueError as exc:
+        raise RuntimeError("FDAI_HEALTH_PORT MUST be an integer") from exc
+    server = RuntimeHealthServer(port=port, readiness=lambda: False)
+    await server.start()
+    _LOGGER.info("health_port_open", extra={"port": port})
+    return server
+
+
+def bind_health_readiness(
+    server: RuntimeHealthServer | None,
+    *,
+    control_loop: ControlLoop | None,
+    startup_readiness: StartupReadinessRuntime | None,
+) -> None:
+    """Publish real readiness once the runtime can answer for it."""
+    if server is None:
+        return
+    if control_loop is None:
+        raise RuntimeError(
+            "FDAI_HEALTH_PORT requires a ready control loop; set FDAI_START_CONSUMER=1"
+        )
+    if startup_readiness is None:
+        raise RuntimeError("FDAI_HEALTH_PORT requires startup readiness composition")
+    server.readiness = startup_readiness.state.is_ready
+    _LOGGER.info("health_server_ready", extra={"port": server.port})
+
+
 async def start_health_server(
     *,
     control_loop: ControlLoop | None,
     startup_readiness: StartupReadinessRuntime | None,
 ) -> RuntimeHealthServer | None:
-    raw_port = os.environ.get("FDAI_HEALTH_PORT", "").strip()
-    if not raw_port:
-        return None
-    if control_loop is None:
-        raise RuntimeError(
-            "FDAI_HEALTH_PORT requires a ready control loop; set FDAI_START_CONSUMER=1"
-        )
-    try:
-        port = int(raw_port)
-    except ValueError as exc:
-        raise RuntimeError("FDAI_HEALTH_PORT MUST be an integer") from exc
-    if startup_readiness is None:
-        raise RuntimeError("FDAI_HEALTH_PORT requires startup readiness composition")
-    server = RuntimeHealthServer(
-        port=port,
-        readiness=startup_readiness.state.is_ready,
+    server = await open_health_port()
+    bind_health_readiness(
+        server,
+        control_loop=control_loop,
+        startup_readiness=startup_readiness,
     )
-    await server.start()
-    _LOGGER.info("health_server_ready", extra={"port": port})
     return server
 
 
