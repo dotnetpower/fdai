@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: acbb2b6bf9d30bbad1e29f9e530949665716670a
-translation_revised: 2026-08-18
+translation_source_sha: 720d968315dcf64b7a8ab7acaa8aa5c5dadd3abe
+translation_revised: 2026-08-19
 ---
 # FDAI 로드맵
 
@@ -162,8 +162,8 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 
 | # | 문서 | 다루는 내용 |
 |---|------|-------------|
-| 25 | [implementation-plan-ko.md](fork-and-sequencing/implementation-plan-ko.md) | 2026-07-06 트랜치 문서 전반에 걸친 순서 확정. 여섯 개의 표준 세트 설계 결정(R1 축 파생, R2 ConsoleTool = ActionType 프로젝션, R3 통합 LlmBinding, R4 공유 변환 결과 프리미티브, R6 operator_memory = 감사 로그 화면, R7 pr_manual = 플래그)과 웨이브 플랜 (F -> D1 -> W1 -> W2 -> M1, Twin과 Preflight 병렬 트랙 포함) |
-| 26 | [agent-pantheon-implementation-ko.md](agents/agent-pantheon-implementation-ko.md) | 판테온 롤아웃 웨이브 계획 (W0 docs -> W1 scaffolding -> W2 거버넌스 -> W3 파이프라인 -> W4 인터페이스 -> W5 specialists -> W6 인계 / security -> W7 workflows -> W8 KPI + 승격 + 성능 저하 훈련); 모든 웨이브는 측정 가능한 exit 게이트 를 가지며 판테온 불변식 (single-writer 토픽, 판정자 != 실행기, Saga / Vidar 필수 의존성) 를 유지 |
+| 25 | [implementation-plan-ko.md](fork-and-sequencing/implementation-plan-ko.md) | 채택되지 않은 2026-07-06 standard-set 식별자와 테스트되는 M1.2 starter probe 집합의 과거 호환성 기록. 현재 authority는 각 하위 시스템 owner가 유지합니다. |
+| 26 | [agent-pantheon-implementation-ko.md](agents/agent-pantheon-implementation-ko.md) | 간결한 W0-W8 조정 요약, 구현 원장 및 `PantheonRuntime` 조립 계약. 역할과 작업 흐름 롤아웃 상세는 각 focused owner가 유지합니다. |
 | 27 | [productization-and-extensibility-ko.md](fork-and-sequencing/productization-and-extensibility-ko.md) | Install 및 진단, bidirectional 채널, trusted 확장 및 MCP, 모델 및 스케줄러 복원력, security 감사, 타입이 지정된 API와 FDAI 앱 형태 밖에 의도적으로 유지하는 기능의 prioritized P0/P1/P2 상태 매트릭스 |
 | 28 | [capability-licensing-ko.md](fork-and-sequencing/capability-licensing-ko.md) | 이미지로 전달되는 분포를 위한 서명된 기능 권한: 이미지 안의 공개 키, 배포 설정의 서명된 토큰, available 축 전용 권한, 안전 저하, 정직한 tamper-evidence 한계 |
 

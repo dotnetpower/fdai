@@ -1,8 +1,8 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: 14a3e993c7ada844739309413069447743b9746f
-translation_revised: 2026-08-11
+translation_source_sha: aeddb4d0db3aa797c483ca4919ccedccfa1f07c2
+translation_revised: 2026-08-19
 ---
 
 # 다운스트림 포크 가이드
@@ -55,6 +55,27 @@ customization 프로파일을 패키지하며 배포, 테넌트, 환경, 운영 
 포크가 추가한 모든 ActionType과 상태 변경 작업 흐름 단계는 헌법의 7개 안전조건을 모두
 상속합니다. 프로바이더 연결, 카탈로그 항목, 환경 또는 포크 표시는 권한을 승격하거나
 안전조건을 면제하거나 새 조합을 바로 강제 적용 모드로 바꾸지 않습니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| Framework-surface 및 무결성 보호 | implemented | [`framework-surface.txt`](../../../scripts/lib/framework-surface.txt), [`check-protected-paths.sh`](../../../scripts/integrity/check-protected-paths.sh), [`check-integrity.sh`](../../../scripts/integrity/check-integrity.sh) | 기계가 읽는 잠금 집합이 포크 가드와 오프라인 무결성 검사를 구동합니다. |
+| 지원되는 경계 recipe와 예제 vertical | implemented | [포크 경계 Recipe](downstream-fork-seam-recipes-ko.md), [예제 Vertical](downstream-fork-example-vertical-ko.md), [`test_change_summary_example.py`](../../../services/core-control-plane/tests/verticals/test_change_summary_example.py) | 가이드는 기존 경계와 테스트되는 범용 예제를 통해 구체적인 다운스트림 작업을 라우팅합니다. |
+| 배포별 어댑터와 승격 근거 | not-applicable | [고객 무관 범위](../../../.github/instructions/generic-scope.instructions.md) | 이 내용은 업스트림 절차 가이드가 아니라 각 다운스트림 배포와 distribution이 소유합니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-19 | implemented | 이전 provenance를 재구성하지 않고 구현 원장을 도입했으며 기계가 읽는 framework surface, 현재 seam cookbook 및 과거 standard-set 호환성 경계에 맞게 가이드를 조정했습니다. | `current change`; 구현 범위 표에 나열한 소스와 focused 검사입니다. | 이 가이드가 소유하는 구현 작업은 없습니다. 다운스트림 distribution이 자체 어댑터와 근거를 제공합니다. |
+
+### 남은 작업
+
+- [x] 이 절차 가이드에 남은 구현은 없습니다. 기계가 읽는 framework surface, focused
+  무결성 검사, seam cookbook 및 테스트되는 예제가 실행 가능한 근거를 제공합니다.
 
 ## 1. 포크 모델 한눈에
 
@@ -134,59 +155,17 @@ repository-integrity 검사만 활성화하며 런타임 코드는 이 값을 �
 
 ## 3. 유일한 강한 규칙
 
-**`services/core-control-plane/src/fdai/core/` 아래 파일을 절대 편집하지 마세요.** 지원되는 customization 경로는
-경계를 사용합니다. `core/`를 편집하고
-싶어질 때, 둘 중 하나가 일어나고 있는 것입니다:
+[`framework-surface.txt`](../../../scripts/lib/framework-surface.txt)에 나열된 경로는 편집하지
+마세요. Core, composition, 공유 계약과 프로바이더, 에이전트, 스키마 및 저장소 지침의
+definition은 업스트림이 소유합니다. 포크는 자체 패키지에서 경계를 통해 구현, 카탈로그 항목 및
+overlay를 추가합니다.
 
-1. 구성이나 가짜에 속하는 값을 주입하려 함. 이미 존재하는
-   경계를 찾으세요.
-2. 업스트림 설계에 진짜 공백을 발견함. 업스트림 issue를 열거나 fork-
-   로컬 래퍼로 `core/`를 patch하지 않고 감싸는 변경을 배포하세요.
-   그 후 래퍼를 scrub해서 업스트림에 기여.
+[포크 커스터마이제이션 skill](../../../.github/skills/fork-customization/SKILL.md)을 결정 절차로
+사용하세요. 경계가 없으면 업스트림 이슈를 열거나 포크 로컬 wrapper를 조립합니다. Definition을
+patch하지 마세요. `check-protected-paths.sh`는 포크 모드에서 이 경계를 강제하고 서명된 무결성
+manifest는 오프라인 framework-surface drift를 탐지합니다.
 
-이 규칙은 세 불변식으로 강제됩니다:
-
-- 업스트림의 `scripts/quality/architecture/check-core-imports.sh`가 `delivery/*` 또는
-  클라우드 SDK에서 가져오기하는 `core/` 파일을 거부.
-- 업스트림의 `scripts/integrity/check-protected-paths.sh`가 변경된 파일을
-  검사해 framework 표면 - `services/core-control-plane/src/fdai/core/`,
-  `services/core-control-plane/src/fdai/composition/`, `services/core-control-plane/src/fdai/shared/providers/`,
-  `services/core-control-plane/src/fdai/shared/contracts/`, `services/core-control-plane/src/fdai/agents/`,
-  `rule-catalog/schema/`, `.github/instructions/` - 편집을 경고
-  (업스트림)하거나 **하드 차단(포크)** 합니다. 포크는 `FDAI_FORK=1`
-  (로컬 셸), **커밋된** `.fdai-fork` 표시 파일(트리에 따라가므로
-  CI의 신뢰 신호 - env var는 그렇지 않음), 또는
-  `git config fdai.fork true`로 차단 모드를 켭니다; 가드는 pre-push
-  훅과 `protected-paths` CI 작업으로 실행되며, 후자는 PR Files 탭에
-  파일별 `::warning::` annotation도 남깁니다.
-- 조립 루트
-  ([`services/core-control-plane/src/fdai/composition/`](../../../services/core-control-plane/src/fdai/composition))가
-  `shared/providers/`의 프로토콜에 구체적 구현이 바인딩되는 유일한
-  곳. 포크는 자체 조립 루트를 씀; 이 파일을 편집하지 않음.
-  `.github/CODEOWNERS`가 리뷰 시점의 대응물입니다: framework 표면
-  경로는 owners 팀으로 라우팅됩니다.
-- **서명된 무결성 매니페스토**로 framework 표면 변조를 OFFLINE에서
-  탐지합니다. 업스트림이
-  [`security/integrity/manifest.json`](../../../security/integrity/manifest.json)
-  (모든 framework-surface 파일의 SHA-256 맵)을 Ed25519 키로 서명하며,
-  공개키는 트리에 동봉됩니다
-  ([`upstream-signing-key.pub`](../../../security/integrity/upstream-signing-key.pub)).
-  [`scripts/integrity/check-integrity.sh`](../../../scripts/integrity/check-integrity.sh)가
-  표면을 다시 해싱하고 서명을 검증하는데 **네트워크도, OCSP도,
-  인증서 체인도 필요 없습니다** - air-gapped 친화적입니다. 두 가지를
-  독립적으로 보고합니다: **서명(서명)** 실패(위조되거나 손상된
-  매니페스토 - 항상 오류입니다. 포크는 업스트림 개인키 없이는 유효한
-  매니페스토를 만들 수 없기 때문입니다)와 **콘텐츠(내용)**
-  불일치(편집/추가/삭제된 표면 파일 - 포크 모드에서는 하드 실패,
-  업스트림에서는 권고). 표면 목록의 단일 소스는
-  [`scripts/lib/framework-surface.txt`](../../../scripts/lib/framework-surface.txt)이며,
-  가드와 매니페스토가 어긋나지 않도록 `check-protected-paths.sh`와
-  공유합니다. 이것은 변조 **증거(근거)**이지 변조 **불가(증명)**가
-  아닙니다: 포크 소유자는 여전히 자기 런타임을 통제하며 검증기 자체를
-  지울 수 있으므로, 신뢰의 강제는 궁극적으로 포크가 편집할 수 있는
-  파일이 아니라 업스트림이 통제하는 게이트의 몫입니다.
-
-체크아웃을 언제든 오프라인으로 검증하려면:
+체크아웃을 언제든 오프라인으로 검증하세요:
 
 ```bash
 scripts/integrity/check-integrity.sh        # 서명 + 콘텐츠, 완전 오프라인
@@ -229,6 +208,10 @@ Per-seam 조리서는 별도 파일에 위치:
 [downstream-fork-seam-recipes-ko.md](downstream-fork-seam-recipes-ko.md).
 Recipe는 연결 순서로 정렬 (ObjectType이 이를 참조하는 Rule 전에,
 ActionType이 이를 이름 지정하는 Rule 전에 landing):
+
+[2026-07-06 standard-set 기록](implementation-plan-ko.md)은 과거 식별자와 테스트되는 M1.2
+probe 집합만 보존합니다. 현재 포크 도입 순서가 아니므로 이 가이드와 각 recipe가 연결하는
+focused owner 문서를 사용하세요.
 
 | Recipe | 주제 |
 |--------|------|

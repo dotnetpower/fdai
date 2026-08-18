@@ -235,7 +235,7 @@ is not enough on its own.
   [approving a change](guides/approve-change.md) and
   [reading the audit log](guides/read-audit-log.md).
 - **Plan adoption**: Use the
-  [implementation plan](../roadmap/fork-and-sequencing/implementation-plan.md)
+  [roadmap phase summary](../roadmap/README.md#phase-summary)
   to sequence scope, ownership, shadow evidence, and promotion.
 
 ## Next steps

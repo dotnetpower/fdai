@@ -50,6 +50,27 @@ Every fork-added ActionType and state-changing workflow step inherits all seven 
 safeguards. A provider binding, catalog entry, environment, or fork marker never promotes
 authority, waives a safeguard, or turns a new composition directly into enforce mode.
 
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Framework-surface and integrity protection | implemented | [`framework-surface.txt`](../../../scripts/lib/framework-surface.txt), [`check-protected-paths.sh`](../../../scripts/integrity/check-protected-paths.sh), [`check-integrity.sh`](../../../scripts/integrity/check-integrity.sh) | The machine-readable locked set drives the fork guard and offline integrity check. |
+| Supported seam recipes and example vertical | implemented | [Fork Seam Recipes](downstream-fork-seam-recipes.md), [Example Vertical](downstream-fork-example-vertical.md), [`test_change_summary_example.py`](../../../services/core-control-plane/tests/verticals/test_change_summary_example.py) | The guide routes concrete downstream work through existing seams and a tested generic example. |
+| Deployment-specific adapters and promotion evidence | not-applicable | [Customer-Agnostic Scope](../../../.github/instructions/generic-scope.instructions.md) | These belong to each downstream distribution and deployment, not this upstream procedural guide. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-19 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and aligned the guide with the machine-readable framework surface, current seam cookbook, and historical standard-set compatibility boundary. | `current change`; the sources and focused checks listed in the scope table. | No implementation work is owned by this guide; downstream distributions supply their own adapters and evidence. |
+
+### Remaining work
+
+- [x] No implementation remains in this procedural guide. The machine-readable framework surface,
+  focused integrity checks, seam cookbook, and tested example provide its executable evidence.
+
 ## 1. Fork model at a glance
 
 - **Upstream** = this repository. Ships the generic control plane
@@ -131,62 +152,18 @@ Do these before your first `git commit` on the fork.
 
 ## 3. The one hard rule
 
-**Never edit files under `services/core-control-plane/src/fdai/core/`.** Supported customization paths use seams. If you find yourself wanting to
-edit `core/`, one of two things is happening:
+Never edit a path listed in
+[`framework-surface.txt`](../../../scripts/lib/framework-surface.txt). Definitions under core,
+composition, shared contracts and providers, agents, schemas, and repository instructions are
+upstream-owned. A fork adds implementations, catalog entries, and overlays through the seams in
+its own package.
 
-1. You are trying to inject a value that belongs in configuration
-   or a fake. Find the seam that already exists.
-2. You have found a genuine gap in the upstream design. Open an
-   upstream issue OR ship your change as a fork-local wrapper that
-   composes around `core/` without patching it. Then contribute
-   the wrapper upstream, scrubbed.
+Use the [Fork Customization skill](../../../.github/skills/fork-customization/SKILL.md) as the
+decision procedure. If no seam exists, open an upstream issue or compose a fork-local wrapper. Do
+not patch the definition. `check-protected-paths.sh` enforces this boundary in fork mode, while the
+signed integrity manifest detects offline framework-surface drift.
 
-The rule is enforced by three invariants:
-
-- Upstream's `scripts/quality/architecture/check-core-imports.sh` refuses any `core/`
-  file that imports from `delivery/*` or from a cloud SDK.
-- Upstream's `scripts/integrity/check-protected-paths.sh` inspects the
-  changed files and warns (upstream) or **hard-blocks (fork)** any
-  edit to the framework surface - `services/core-control-plane/src/fdai/core/`,
-  `services/core-control-plane/src/fdai/composition/`, `services/core-control-plane/src/fdai/shared/providers/`,
-  `services/core-control-plane/src/fdai/shared/contracts/`, `services/core-control-plane/src/fdai/agents/`,
-  `rule-catalog/schema/`, and `.github/instructions/`. A fork opts
-  into block mode with `FDAI_FORK=1` (local shells), a **committed**
-  `.fdai-fork` marker file (the reliable signal for CI, because it
-  travels in the tree - an env var does not), or
-  `git config fdai.fork true`; the guard runs in the pre-push
-  hook and as the `protected-paths` CI job (which also posts a
-  `::warning::` annotation per file on the PR Files tab).
-- The composition root
-  ([`services/core-control-plane/src/fdai/composition/`](../../../services/core-control-plane/src/fdai/composition))
-  is the only place where concrete implementations bind to
-  Protocols in `shared/providers/`. A fork writes its own
-  composition root; it does not edit this file. `.github/CODEOWNERS`
-  is the review-time counterpart: framework-surface paths route to
-  the owners team.
-- A **signed integrity manifest** makes framework-surface tampering
-  detectable OFFLINE. Upstream signs
-  [`security/integrity/manifest.json`](../../../security/integrity/manifest.json)
-  (a SHA-256 map of every framework-surface file) with an Ed25519
-  key; the public key ships in the tree
-  ([`upstream-signing-key.pub`](../../../security/integrity/upstream-signing-key.pub)).
-  [`scripts/integrity/check-integrity.sh`](../../../scripts/integrity/check-integrity.sh)
-  re-hashes the surface and verifies the signature with **no network,
-  no OCSP, no cert chain** - air-gapped friendly. It reports two
-  things independently: a **signature** failure (a forged or corrupt
-  manifest - always an error, because a fork cannot mint a valid
-  manifest without upstream's private key) and a **content** mismatch
-  (an edited, added, or deleted surface file - a hard fail in fork
-  mode, advisory upstream). The single source of truth for the
-  surface list is
-  [`scripts/lib/framework-surface.txt`](../../../scripts/lib/framework-surface.txt),
-  shared with `check-protected-paths.sh` so the guard and the manifest
-  cannot drift. This is tamper-**evidence**, not tamper-**proof**: a
-  fork owner still controls their own runtime and could delete the
-  verifier, so enforcement of trust ultimately belongs to an
-  upstream-controlled gate, not to a file a fork can edit.
-
-To verify a checkout offline at any time:
+Verify a checkout offline at any time:
 
 ```bash
 scripts/integrity/check-integrity.sh        # signature + content, fully offline
@@ -230,6 +207,10 @@ assumes Python 3.12+ and the upstream package importable as
 `fdai`. The recipes are organised in bind-order (you typically
 land ObjectType before the Rule that references it, ActionType
 before the Rule that names it, and so on):
+
+The [2026-07-06 standard-set record](implementation-plan.md) preserves historical identifiers and
+the tested M1.2 probe set only. It is not a current fork-adoption sequence; use this guide and the
+focused owner documents linked by each recipe.
 
 | Recipe | Topic |
 |--------|-------|

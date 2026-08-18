@@ -1,799 +1,108 @@
 ---
-title: Implementation Plan Record (2026-07-06 Standard Set)
+title: Implementation Compatibility Record (2026-07-06 Standard Set)
 ---
 
-# Implementation Plan Record (2026-07-06 Standard Set)
+# Implementation Compatibility Record (2026-07-06 Standard Set)
 
-Historical coordination record for the 2026-07-06 FDAI tranche. It preserves the proposed
-"standard set" and phased waves; current implementation authority lives in each subsystem owner
-document and the code.
+This document preserves identifiers from the 2026-07-06 standard-set proposal that are still cited
+by source, schemas, and tests. It is not a current implementation plan. Current behavior and future
+work belong to the linked subsystem owner documents.
 
-- **Standard Set**: six design decisions (R1, R2, R3, R4, R6, R7) that unify
-  overlapping abstractions across the design docs added on 2026-07-06.
-- **Wave plan**: Foundation -> Console Day 1 -> Write set -> Ops ActionTypes
-  -> Live probes, plus two parallel tracks for Assurance Twin and Preflight.
+> **Scope:** R1, R2, R3, R4, R6, and R7 are historical proposal identifiers. The reconciliation
+> below decides how to interpret them. The M1.2 probe list remains an executable compatibility
+> contract because a focused test checks it against the shipped catalog.
 
-> Customer-agnostic scope: every module name and phase label below is generic.
-> A fork tunes without editing `core/` via the DI seams in
-> [project-structure.md](../architecture/project-structure.md).
->
-> **Current status.** "Locked", "non-negotiable", and "shipped" below describe the historical
-> planning snapshot. Do not use sections after the reconciliation table as a current backlog or API
-> contract.
+## Implementation status
 
-## Current implementation reconciliation (2026-07-21)
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Historical standard-set decisions R1, R2, R3, R6, and R7 | not-applicable | [Current reconciliation](#current-implementation-reconciliation) and linked owner documents | These proposals were not adopted and don't define current runtime behavior. |
+| Historical R4 shared projection proposal | not-applicable | [`projection.py`](../../../services/core-control-plane/src/fdai/shared/providers/projection.py), [Assurance Twin](../operations/assurance-twin.md), [Deployment Preflight](../deployment/deployment-preflight.md) | A shared protocol exists, but the two consumers retain different current abstractions. Their owner documents track implementation. |
+| M1.2 starter probe compatibility set | implemented | [`test_probe_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_probe_catalog.py), [`rule-catalog/probes/`](../../../rule-catalog/probes/) | The focused test enforces exact bidirectional parity between the four identifiers below and the shipped catalog. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-19 | implemented | Adopted the implementation ledger without reconstructing earlier provenance, classified the rejected standard-set proposals as historical compatibility identifiers, and retained the tested M1.2 probe set. | `current change`; current owner documents and the focused catalog parity test listed above. | No implementation is owned by this historical record; active work remains in the linked owner documents. |
+
+### Remaining work
+
+- [x] No implementation remains in this historical record. Current owners track active work, and
+  `test_probe_catalog.py` enforces the retained M1.2 compatibility set.
+
+## Current implementation reconciliation
 
 | Decision | Current status | Current authority |
 |----------|----------------|-------------------|
-| R1 | Not adopted | Axis A is the baseline; independent ceiling axes including static blast and env may lower autonomy. [`ceiling.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/ceiling.py) and [execution-model.md](../decisioning/execution-model.md) are authoritative. |
-| R2 | Not adopted | `ConversationCoordinator` receives an explicit `SystemConsoleTool` registry. ActionTypes provide discovery evidence, not automatic write-tool projection. |
-| R3 | Not adopted | `LlmBindings` aggregates role-specific Protocols/adapters. No unified `LlmBinding` or `AzureOpenAIChatBinding` exists. |
-| R4 | Partially implemented | `ScratchProjection` and the Assurance Twin consumer shipped. Deployment Preflight currently uses `FeasibilityProbe`/`PreflightAnalyzer`. |
-| R6 | Not adopted | `operator_memory` remains an independent append/supersede store, not an audit-log materialized view. |
-| R7 | Not adopted | `ExecutionPath` retains `pr_manual`, `pr_native`, and `direct_api`; there is no `require_manual_merge` field. |
+| R1 | Not adopted | Axis A is the baseline. Independent static-blast and environment axes may lower authority. [`ceiling.py`](../../../services/core-control-plane/src/fdai/core/risk_gate/ceiling.py) and [Execution Model](../decisioning/execution-model.md) are authoritative. |
+| R2 | Not adopted | `ConversationCoordinator` receives an explicit `SystemConsoleTool` registry. ActionTypes provide discovery evidence rather than automatic write-tool projection. [Operator Console](../interfaces/operator-console.md) owns the surface. |
+| R3 | Not adopted | `LlmBindings` aggregates role-specific protocols and adapters. [Prompt Composition](../decisioning/prompt-composition.md) owns current composition. |
+| R4 | Partially implemented outside this record | `ScratchProjection` and the Assurance Twin consumer exist. Deployment Preflight retains `FeasibilityProbe` and `PreflightAnalyzer`. |
+| R6 | Not adopted | `operator_memory` remains an independent append-and-supersede store. [Prompt Composition](../decisioning/prompt-composition.md#operator-memory-pipeline) owns the current contract. |
+| R7 | Not adopted | `ExecutionPath` retains `pr_manual`, `pr_native`, `direct_api`, and `tool_call`; no `require_manual_merge` field exists. [Execution Model](../decisioning/execution-model.md) is authoritative. |
 
-Track active work and open decisions only in the status/open-decision sections of the linked owner
-documents.
+## Historical standard set identifiers
 
-## 1. Why this doc exists
+These short records explain old references. They do not override the reconciliation above.
 
-The 2026-07-06 tranche added seven new roadmap docs (action-ontology,
-execution-model, operator-console, assurance-twin, deployment-preflight,
-prompt-composition expansions, db-dr-drill runbook). Read side-by-side,
-several concepts appear in two places at once:
+### 2.1 R1 - Axes D and G derive from Axis A
 
-- `Axis A` in the risk-classification table already evaluates
-  `blast_radius` and `environment`; six-axis ceiling axes D (static_blast)
-  and G (env) re-read the same signals.
-- Operator console `ConsoleTool` and ActionType `trigger_kind=operator_request`
-  express the same shape (name / argument_schema / RBAC floor /
-  side_effect_class) from two different catalogs.
-- Five planned Azure OpenAI adapters (cross-check / proposer / critic /
-  judge / conversational) all do the same "role -> deployment id -> chat
-  completions" round trip.
-- Assurance Twin `projection` and Deployment Preflight scratch analyzer
-  are the same primitive at different scopes.
-- `operator_memory` and `audit_log` both store append-only, hash-addressable
-  events, with the audit log already declared the source of truth for
-  session state.
-- `pr_native` and `pr_manual` differ only by a merge-policy label yet are
-  modeled as two distinct execution paths.
+R1 proposed deriving static-blast and environment results from Axis A. The proposal was not adopted;
+the current risk gate evaluates independent axes that can only preserve or lower authority.
 
-The standard set collapses each pair into one authoritative representation.
+### 2.2 R2 - ConsoleTool projects the ActionType catalog
 
-## 2. Historical standard set (proposed 2026-07-06)
+R2 proposed deriving write tools automatically from ActionTypes. The proposal was not adopted;
+current composition injects an explicit system tool registry and uses ActionTypes as separate
+discovery and action evidence.
 
-The following entries describe the proposed target shape at that time. When they conflict with the
-reconciliation above, follow the current authority.
+### 2.3 R3 - Unified LlmBinding
 
-### 2.1 R1 - Axes D and G are derivation-only from Axis A
+R3 proposed one adapter shape for every model role. The proposal was not adopted; current
+composition keeps role-specific protocols and resolved capability bindings.
 
-The six-axis ceiling in
-[execution-model.md § 2](../decisioning/execution-model.md#2-six-axis-ceiling--risk-classification-table)
-already declares Axis A (risk-classification table) as the authoritative
-baseline for `blast_radius` and `environment`. R1 makes that authority
-structural, not just semantic.
+### 2.4 R4 - Shared projection primitive
 
-**Contract change**
+R4 proposed one projection abstraction for Assurance Twin and Deployment Preflight. A shared
+`ScratchProjection` protocol exists, but current consumers retain separate behavior and ownership.
 
-- The RiskGate combinator computes `blast_radius` and `environment`
-  contributions **exactly once**, inside Axis A.
-- Axes D (`static_blast`) and G (`env`) are retained in
-  `resolved_ceiling` for readability, but their level is *derived from*
-  the Axis A verdict, not independently computed. Neither axis re-queries
-  the ActionType `blast_radius` block or the environment classifier.
-- Loader cross-check: any axis whose reason string contains a fact
-  already claimed by Axis A must reference the Axis A rule id in the
-  audit entry (`derived_from: <matched_rule_id>`), so a future audit
-  reader sees the derivation chain and cannot mistake D or G for a
-  second opinion.
-- The `min()` combinator remains unchanged (four independent axes plus
-  A, D-and-G-as-derivations).
+### 2.5 R6 - Operator memory as an audit materialized view
 
-**Effect**
+R6 proposed deriving operator memory from the audit log. The proposal was not adopted;
+operator-memory entries retain their own approval, scope, expiry, and supersession lifecycle.
 
-- One classification per signal, not two. Fewer places to tune, no risk
-  of A and D disagreeing.
-- Property test: for every `FeatureVector`, the level reported on Axis D
-  and Axis G is the value implied by Axis A's decision path (asserted by
-  the test, not by copying constants).
+### 2.6 R7 - Manual merge as a flag
 
-**Non-goal**
+R7 proposed replacing `pr_manual` with a flag on `pr_native`. The proposal was not adopted;
+execution paths remain distinct serialized contract values.
 
-- Removing the six-axis vocabulary from
-  [execution-model.md § 2](../decisioning/execution-model.md#2-six-axis-ceiling--risk-classification-table).
-  The prose value of showing operators a per-axis breakdown is preserved;
-  the change is in how the levels are computed.
+## Historical Wave M1 compatibility
 
-### 2.2 R2 - ConsoleTool is a projection over the ActionType catalog
+Only the M1.2 catalog set remains a current compatibility boundary. Historical sequencing and
+completed delivery narration are available in git history and are not a backlog.
 
-Operator console `ConsoleTool` (write / approve / execute class) and
-ActionType with `trigger_kind in {operator_request, both}` express the
-same shape. R2 makes the ActionType catalog the sole authoritative source
-for these tools.
+### M1.2 Starter probes
 
-**Contract change**
+The starter probe catalog contains exactly these ids:
 
-- Write-class console tools (`simulate_change`, `approve_hil`,
-  `run_runbook`, `activate_break_glass`, every `ops.*`, every
-  `governance.*`) are enumerated as **projections** of the ActionType
-  catalog filtered by `trigger_kind`. `list_tools()` for a principal is
-  `ActionTypeCatalog.filter(trigger_kind in {operator_request, both},
-   principal_role >= min_role) union SystemConsoleTools`.
-- Read-class tools (`describe_event`, `explain_verdict`, `explore_catalog`,
-  `query_audit`, `query_inventory`) remain a small distinct set
-  (`SystemConsoleTool`, five entries) since they do not map to a
-  mutation. They keep their own thin registry with argument_schema and
-  RBAC floor but no ActionType.
-- Tool discovery contract (name / description / parameters / rbac_floor
-  / side_effect_class / failure_modes) is unchanged - it becomes a view
-  computed from the ActionType, not a second source of truth.
-- The `ConsoleTool` Protocol becomes a **presentation adapter**, not a
-  catalog. It wraps an ActionType invocation and adds console-specific
-  behaviour (evidence_refs, preview text, redaction hints).
+- `vm_traffic_last_5m`
+- `storage_access_log`
+- `lb_backend_health`
+- `blast_radius_classifier`
 
-**Effect**
+[`test_probe_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_probe_catalog.py)
+checks both directions: every identifier above has a YAML declaration, and the starter catalog has no
+extra identifier absent from this list.
 
-- One catalog, one loader, one validation surface. Adding a new
-  `ops.*` YAML automatically exposes it in the console under the
-  configured RBAC floor. No mirror registration required.
-- The audit contract in
-  [action-ontology.md § 9](../decisioning/action-ontology.md#9-audit-contract) already
-  writes `action_type_id`, `trigger_kind`, and `side_effect_class` on
-  every dispatch - the console never needs to write a separate
-  console-tool audit record for a write-class call.
+## Related docs
 
-**Non-goal**
-
-- Forcing read-class tools into the ActionType shape. `describe_event`
-  and its four peers are not actions; keeping them out of the ontology
-  keeps the ontology honest.
-
-### 2.3 R3 - Unified `LlmBinding` with a role enum
-
-Five planned Azure OpenAI adapters (`AzureOpenAICrossCheckModel`,
-`AzureOpenAIProposer`, `AzureOpenAICritic`, `AzureOpenAIJudge`, the
-planned `AzureOpenAIConversationalModel`) share the same request /
-response shape and differ only in prompt / deployment / role. R3
-consolidates them.
-
-**Contract change**
-
-- One Protocol seam, `LlmBinding`, with a `role` parameter drawn from a
-  fixed enum: `t2_cross_check`, `proposer`, `critic`, `judge`,
-  `narrator_t1`, `narrator_t2`.
-- One Azure implementation, `AzureOpenAIChatBinding`, that looks up the
-  deployment id from `resolved-models.json` keyed by the role. Existing
-  role-specific classes become **thin factories** that call the shared
-  binding with the correct role (kept for one release for backward
-  compatibility, then removed).
-- Composition-root wiring is one Protocol -> one adapter. A fork replaces
-  every LLM role by binding a single alternate implementation.
-- The prompt composer
-  ([prompts/composer.py](../../../services/core-control-plane/src/fdai/core/prompts/composer.py))
-  is the only component that varies system prompt per role; the binding
-  is prompt-agnostic.
-
-**Effect**
-
-- Adding a role is `Enum.append + resolved-models.json entry`, not a
-  new adapter class. The upstream ships `narrator_t1` and `narrator_t2`
-  without introducing a fifth Azure OpenAI adapter.
-- Cost telemetry (prompt_tokens, completion_tokens, model_deployment_id)
-  emits one common shape across all roles, so cross-role cost
-  aggregation stays simple.
-
-**Non-goal**
-
-- Merging the shipped `AzureOpenAICrossCheckModel /Proposer / Critic /
-  Judge` classes in a breaking release. The migration is additive:
-  introduce `AzureOpenAIChatBinding`, re-implement each existing class
-  as a factory over it, remove the factories once no caller imports
-  them directly.
-
-### 2.4 R4 - Shared `Projection` primitive for Twin and Preflight
-
-Assurance Twin (whole subscription) and Deployment Preflight (single
-deploy) both build a read-only projection over the inventory, apply a
-diff, and evaluate T0 rules. R4 factors that primitive out.
-
-**Contract change**
-
-- New Protocol at `shared/providers/projection.py`:
-
-  ```python
-  class ScratchProjection(Protocol):
-      def apply_diff(self, diff: InventoryDiff) -> ScratchProjection: ...
-      def evaluate(self, rules: RuleSet) -> Findings: ...
-      # read-only, immutable, deterministic
-  ```
-
-- `core/deploy_preflight/analyzer.py` consumes the primitive with a
-  single-target diff.
-- `core/assurance_twin/projection.py` consumes the same primitive with a
-  whole-subscription snapshot as baseline plus per-change diffs for
-  review.
-- Both consumers keep their own outer types (`DeploymentReadinessReport`,
-  `PostureAssessmentReport`); only the projection kernel is shared.
-
-**Effect**
-
-- One place to test determinism, immutability, and diff replay.
-- Twin's simulation surface for the three verticals (§Twin as simulator)
-  becomes `ScratchProjection.apply_diff(...).evaluate(vertical_rules)` -
-  same primitive, three consumers.
-
-**Non-goal**
-
-- Merging the two report shapes. A single-deploy readiness verdict and
-  a whole-estate posture score have different consumers and different
-  shapes; only the projection kernel is common.
-
-### 2.5 R6 - `operator_memory` is a materialized view of the audit log
-
-Session state and operator memory both need append-only, hash-addressable
-storage; the audit log already provides that. R6 makes the audit log the
-source of truth and the `operator_memory` table a materialized view.
-
-**Contract change**
-
-- New `action_kind` values on the audit log:
-  `operator.memory.append`, `operator.memory.supersede`,
-  `operator.memory.expire`. Each carries the memory row's fields
-  (scope_kind, scope_ref, category, body, source_event, source_ref,
-  author, approved_by, ttl).
-- The Postgres `operator_memory` table stays for query performance but
-  becomes a **derived view** rebuilt from the corresponding audit
-  entries. A rebuild is deterministic: replaying the audit log yields
-  the same table byte for byte.
-- Write path: `OperatorMemoryStore.append(...)` writes the audit entry
-  first (source of truth), then updates the view.
-- Read path: unchanged for callers - the view is what they query - but
-  the store MUST tolerate a rebuild (drop + replay) as a supported
-  admin operation.
-- No new session table: `ConversationSession.turns` remains projected
-  from the audit log, which is already the design in
-  [operator-console.md § 6](../interfaces/operator-console.md#6-session-model--memory).
-
-**Effect**
-
-- One durable store instead of two. A GDPR-style deletion request runs
-  against the audit log alone.
-- Test invariant: for every sequence of memory operations, `replay(audit)
-  == current(operator_memory)`.
-
-**Non-goal**
-
-- Removing the `operator_memory` table. Its query patterns (scope index,
-  supersede chain) justify the materialization; the change is that it
-  is derived, not authoritative.
-
-### 2.6 R7 - `pr_manual` is a flag on `pr_native`
-
-The `pr_native` and `pr_manual` execution paths differ only by whether
-auto-merge is allowed. R7 flattens them.
-
-**Contract change**
-
-- `ActionType.execution_path` enum shrinks to `pr_native | direct_api`.
-- ActionType adds `require_manual_merge: bool` (default `false`). When
-  `true`, the shipped `GitOpsPrAdapter` sets the `hil` label and the
-  `merge-not-eligible` label and disables auto-merge for the PR
-  regardless of what the axes permit.
-- The executor selection table in
-  [execution-model.md § 5.4](../decisioning/execution-model.md#54-executor-selection-at-dispatch)
-  collapses. Strict order becomes:
-  `require_manual_merge (any path) > pr_native (auto-merge eligible) >
-  direct_api`. An axis may only *raise* `require_manual_merge` (never
-  clear it) and may only *step down* from `direct_api` to `pr_native`
-  (never up for speed) - the never-raising rule from
-  [execution-model.md § 2.7](../decisioning/execution-model.md#27-combining) is
-  preserved.
-- Existing YAMLs that would have set `execution_path: pr_manual`
-  translate to `execution_path: pr_native` + `require_manual_merge:
-  true`. The migration is mechanical and covered by a script under
-  [scripts/](../../../scripts).
-
-**Effect**
-
-- One less enum value. One executor path implementation. The
-  `GitOpsPrAdapter` is the only PR path; the flag governs the label
-  set.
-
-**Non-goal**
-
-- Merging PR paths with direct API. `pr_native` and `direct_api` remain
-  distinct because their audit / rollback contracts differ (git revert
-  vs `rollback_contract`).
-
-## 3. What the standard set does not change
-
-For clarity: the following stay exactly as described in the 2026-07-06
-docs. If a downstream PR reads one of these as changed, the reader is
-mis-reading this document.
-
-- The seven safeguards (stop-condition, rollback, blast-radius limit, dry-run, resource lock,
-  idempotency, audit entry) apply to every autonomous action, no chat-specific
-  carve-outs, no direct-API relaxation. See
-  [coding-conventions.instructions.md § Safety](../../../.github/instructions/coding-conventions.instructions.md#safety).
-- Shadow-first for every new action. Promotion to enforce is per-action,
-  measured against `promotion_gate`, and separately reviewed.
-- LLM is a translator, not a judge. Execution eligibility is granted by
-  deterministic verification, never by a model's confidence
-  ([architecture.instructions.md § LLM Quality Gate](../../../.github/instructions/architecture.instructions.md#llm-quality-gate-required-for-t2)).
-- The rule catalog stays customer-agnostic. Per-customer values live in
-  a fork ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
-
-## 4. Historical wave sequencing
-
-The waves below are dependency-ordered. Each wave has an explicit exit
-gate; a wave is not complete until every gate is measurable and green.
-
-### Wave F - Foundation
-
-Prerequisite for every other wave. Touches schema and the risk-gate
-integration; does not add new autonomy.
-
-- **F1** ActionType schema extension. New fields per
-  [action-ontology.md § 2](../decisioning/action-ontology.md#2-schema): `trigger_kind`,
-  `ceiling_by_tier`, `env_scope`, `prod_downgrade`, `execution_path`
-  (enum shrunk per R7), `require_manual_merge`, `argument_schema`,
-  `live_probe_ref`, `provenance`. Loader cross-checks per
-  [action-ontology.md § 8](../decisioning/action-ontology.md#8-loader--validation).
-- **F2** `resolved_ceiling` JSON Schema at
-  `services/core-control-plane/src/fdai/shared/contracts/ontology/resolved-ceiling.json`,
-  matching the shape in
-  [execution-model.md § 8](../decisioning/execution-model.md#8-resolved_ceiling-audit-block)
-  with the R1 derivation notation (`derived_from` on Axes D and G).
-- **F3** Backfill the 16 shipped ActionType YAMLs
-  ([action-ontology.md § 3.1](../decisioning/action-ontology.md#31-remediation)) with the
-  new fields. All `trigger_kind = rule_violation`, `execution_path =
-  pr_native`, `require_manual_merge = false`, `ceiling_by_tier` from
-  today's implicit defaults.
-- **F4** `RiskTable` and `risk-classification.yaml` cross-check that
-  Axes D and G contributions reference the Axis A rule id (R1
-  derivation invariant).
-- **F5** Overlay loader with the four-tier precedence in
-  [action-ontology.md § 7.5](../decisioning/action-ontology.md#75-precedence):
-  runtime > Rego > file overlay > upstream. Audit entry names the
-  winning layer.
-- **F6** `RiskDecision` migration: add `quorum`, `matched_rule_id`,
-  `catalog_version`, `resolved_ceiling`, `execution_path`,
-  `require_manual_merge` fields with safe defaults; keep `outcome` as
-  a derived alias one release.
-- **F7** `ControlLoop` and `composition.py` route every dispatch
-  through `evaluate_execution_authority()`
-  ([execution-model.md § 3](../decisioning/execution-model.md#3-unified-riskgate)).
-  Behaviour still shadow-only because no ActionType is promoted.
-- **F8** Six-axis property tests including R1 derivation invariant.
-
-**Exit gate**
-
-- All existing scenario suites green.
-- Every dispatch writes a `resolved_ceiling` block that names the Axis
-  A rule id.
-- No ActionType has been promoted; the loop remains shadow-only.
-
-### Wave D1 - Operator Console Day 1 (read-only CLI)
-
-Follows F. Implements
-[operator-console.md § Day 1](../interfaces/operator-console.md#day-1-this-session).
-
-- **D1.1** `AzureCliWorkloadIdentity` for local `az login` dev.
-- **D1.2** `LlmBinding` Protocol + `AzureOpenAIChatBinding` with the R3
-  role enum. Composition-root wires narrator roles via
-  `resolved-models.json`.
-- **D1.3** `ConversationCoordinator` + `ConversationSession` (state =
-  audit-log projection, per
-  [operator-console.md § 6](../interfaces/operator-console.md#6-session-model--memory)).
-- **D1.4** Five read-only tools (`describe_event`, `explain_verdict`,
-  `explore_catalog`, `query_audit`, `query_inventory`) implemented as
-  `SystemConsoleTool` (R2: not ActionType-derived).
-- **D1.5** RBAC gate before narrator sees the tool schema; Chat T0
-  intent matcher.
-- **D1.6** `CliReplChannel` and `tools/chat.py`. **CLI wired for the
-  full write set**: `tools/chat.py` now composes all five write tools
-  (`simulate_change`, `list_hil`, `approve_hil`, `run_runbook`,
-  `activate_break_glass`) alongside the five read tools with the
-  shipped in-memory fakes; the coordinator recognises each verb via
-  new Chat T0 intent patterns (JSON scenarios, positional-shorthand
-  approve, params_json runbook, natural-language break-glass reasons)
-  so an operator can drive every W1.1 tool end-to-end from the shell.
-- **D1.7** Tests: RBAC matrix, escalation triggers, verifier re-check,
-  golden transcript, session recovery.
-
-**Exit gate**
-
-- A Reader-role principal can complete every Day-1 tool scenario from
-  the CLI REPL against the deployed dev environment.
-
-### Wave W1 - Write set, Teams / Slack pull, human approval callback
-
-Follows D1. Implements
-[operator-console.md § Week 1](../interfaces/operator-console.md#week-1) and the
-prompt-composition Wave 3 step B pipeline slice 3 leftover
-([prompt-composition.md § Rollout waves](../decisioning/prompt-composition.md#rollout-waves)).
-
-- **W1.1** Write-class tools (`simulate_change`, `approve_hil`,
-  `list_hil`, `run_runbook`, `activate_break_glass`). Per R2, these are
-  ActionType projections and land as `governance.*` / `ops.*` ActionType
-  YAMLs that the console filters and exposes. **`simulate_change`
-  shipped**: `core/conversation/write_tools.py` runs one hypothetical
-  event through `EventIngest -> TrustRouter -> T0Engine ->
-  ActionBuilder -> TemplateRenderer` in memory, captures every PR
-  intent (title, patch preview, safety-invariant footprint), never
-  invokes ShadowExecutor or the real PR publisher, and writes exactly
-  one `console.simulate_change` audit entry so an operator can
-  discover the run via `query_audit`. Contributor floor,
-  `side_effect_class = 'simulate'`. **`list_hil` + `approve_hil`
-  shipped** (same module): the Approver-scoped queue projection lives
-  under a new CSP-neutral `HilApprovalRegistry` Protocol
-  (`shared/providers/hil_registry.py` + fake). `list_hil` returns full
-  Approver-visible detail (submitter_oid, action_id, citing rules),
-  distinct from the Reader dashboard tile in the Operator API. `approve_hil`
-  enforces four fail-closed invariants BEFORE the registry write:
-  existence check, verifier re-check (`action_kind` still in the
-  shipped catalog), `no_self_approval` (`principal.id ==
-  submitter_oid` refused), and terminal-state respect
-  (`HilItemAlreadyResolvedError` short-circuits without a second
-  write). Every terminal path writes exactly one
-  `console.approve_hil` audit entry. **`run_runbook` +
-  `activate_break_glass` shipped** (same module): `run_runbook` ships
-  the single-tool design from operator-console.md 3.2 - static
-  `rbac_floor = Contributor` for the dry-run path, live invocation
-  (`dry_run=False`) refused unless the caller is Owner. Routes by
-  name through a new CSP-neutral `RunbookRegistry` Protocol; every
-  terminal path (unknown-name, registry error, dry/live success or
-  failure) audits a `console.run_runbook` entry with the
-  `dry_run` boolean and `mode=shadow|enforce`. `activate_break_glass`
-  enforces chat invariant 7 (operator-console.md 7.2): reason MUST be
-  >= 20 chars AFTER a defense-in-depth secret scrub
-  (Azure/AWS/PEM/GH/Slack patterns), TTL bounded to [60s, 4h] with a
-  ceiling enforced at ctor time, and pager delivery via the new
-  `BreakGlassPager` Protocol is REQUIRED - a raise refuses the grant
-  ("fail-closed on notification"). Every path is audited, success
-  AND refusal, with a distinct `refusal_kind` (`short_reason` /
-  `invalid_expiry` / `expiry_below_minimum` / `expiry_above_ceiling`
-  / `pager_no_channel` / `pager_delivery`). Reader floor - any
-  authenticated user MAY attempt, the RBAC resolver still gates
-  role membership.
-- **W1.2** `TeamsBotChannel` and `SlackBotChannel` (pull). Reuse the
-  push channel credentials in
-  [config/notifications-matrix.yaml](../../../config/notifications-matrix.yaml).
-- **W1.3** Operator API HIL callback (`POST /hil/{approval_id}/decision`,
-  HMAC-verified). Only allowed POST on the Operator API. **Shipped**:
-  `delivery/operator_api/hil_callback.py` is the sole POST route carve-out,
-  gated OFF by default (opt-in via `OperatorApiConfig.hil_callback` +
-  `hil_registry`). HMAC-SHA256 over `timestamp.approval_id.body`, replay window
-  configurable (300s default), body size cap, no-self-approval
-  enforcement, and mandatory `X-FDAI-Signature` +
-  `X-FDAI-Timestamp` headers - the exact same shape the Teams
-  adapter signs with. Missing config -> fail-fast at `build_app`; if
-  neither `hil_callback` nor `hil_registry` is set the 4 GET routes are
-  the only registered surface (existing read-only invariant test
-  passes). **Production round-trip shipped**: the core parks the full
-  Action and a pending projection in the shared Postgres `StateStore`;
-  `fdai-api` records the decision atomically through
-  `PostgresHilApprovalRegistry` and publishes a receipt-only event on
-  `aw.hil.decisions`; the core consumes that topic under a separate group and
-  calls `HilResumeCoordinator.resolve`. The Operator API never receives the
-  executor identity. Broker delivery failure returns retryable HTTP 503 while
-  preserving the durable decision receipt.
-- **W1.4** BreakGlass fail-closed on notification: refuse when no
-  channel confirms delivery.
-- **W1.5** Prompt-composition Wave 3 step B pipeline slice 3
-  (fork-first second-approval channel).
-- **W1.6** Operator memory exposed to the console via
-  `OperatorMemoryStore` (per R6, backed by audit log). Scope-bounded
-  reads/writes only; never merged into narrator memory. **Shipped**:
-  the Reader-floor `query_operator_memory` console tool
-  (`core/conversation/system_tools.py::QueryOperatorMemoryTool`,
-  `side_effect_class='read'`) delegates to
-  `OperatorMemoryStore.list_active_for_scope` so the store's
-  active-only filter (superseded / expired dropped) is the single
-  policy surface. Reads only - never writes audit or state; every
-  returned row surfaces its `operator-memory:<uuid>` evidence ref.
-  Wired through the coordinator + CLI at Wave M1.5c.
-
-**Exit gate**
-
-- An Approver in Teams completes "detect -> chat inspect -> approve ->
-  shadow PR opens" against dev; every turn / verdict / PR link is in
-  the audit log.
-
-### Wave W2 - Ops ActionTypes, direct_api executor, cost gate
-
-Follows W1. Implements
-[execution-model.md § Week 2](../decisioning/execution-model.md#week-2).
-
-- **W2.1** `ops.*` ActionType YAMLs from
-  [action-ontology.md § 3.2](../decisioning/action-ontology.md#32-ops). Cost-increasing
-  entries declare `cost_impact_monthly` so the Axis A cost gate applies
-  ([execution-model.md § 2.8](../decisioning/execution-model.md#28-cost-increasing-ops-actions)).
-- **W2.2** `governance.*` ActionType YAMLs
-  ([action-ontology.md § 3.3](../decisioning/action-ontology.md#33-governance)). All
-  `execution_path: pr_native`.
-- **W2.3** Direct-API executor at
-  `services/core-control-plane/src/fdai/core/executor/direct_api.py` with idempotency-key
-  reuse, `stop_conditions` enforcement, and `mutation_target=direct`
-  HIL items. **Shipped**: the CSP-neutral :class:`DirectApiExecutor`
-  Protocol + fake (`shared/providers/direct_api.py` +
-  `shared/providers/testing/direct_api.py`) with idempotency-by-key,
-  the ``enforce`` promotion-label check, and the five-value outcome
-  enum (`SUCCEEDED / ALREADY_APPLIED / PRECONDITION_FAILED / STOPPED
-  / FAILED`) - AND the `core/executor/direct_api.py` glue
-  (:class:`DirectApiShadowExecutor`) that mirrors
-  :class:`~fdai.core.executor.executor.ShadowExecutor`: same
-  per-resource lock, same blast-radius cap, same seven-safeguard-
-  invariant fail-close, same shadow-only refusal for enforce-mode
-  Actions. Every terminal path writes exactly one audit entry with
-  ``action_kind = "executor.direct_api.<outcome>"`` (eight distinct
-  outcomes) and ``execution_path = "direct_api"``, so the audit
-  trail is filterable from the PR-native path.  Composition-root
-  wiring + HIL enqueue on `mutation_target=direct` remains a
-  follow-up.
-- **W2.4** Azure ARM adapters for the shipped ops actions.
-- **W2.5** Cost Governance vertical exposes the estimator to Axis A
-  ([execution-model.md § 2.8](../decisioning/execution-model.md#28-cost-increasing-ops-actions)).
-  **Shipped**: `shared/providers/cost_estimator.py` (CSP-neutral
-  `CostEstimator` Protocol + `CostEstimate` + `CostConfidence` +
-  `CostEstimatorError`) with the invariant `ABSTAIN <-> monthly_usd is
-  None`. `resolve_cost_impact_monthly()` adapter returns `None` on
-  abstain / raise / unwired estimator - Axis A treats "unknown" as HIL
-  fail-closed. `InMemoryCostEstimator` fake (`seed(key, usd)` /
-  `seed_abstain` / `next_error`) + control-loop wiring in
-  `ControlLoop._resolve_cost_override`: rule-declared
-  `remediation.cost_impact_monthly_usd` is authoritative (including
-  $0); when the rule is silent the estimator is consulted, otherwise
-  `None`. Live Azure Cost Management adapter stays fork territory.
-- **W2.6** Executor path selection tests (R7: `require_manual_merge`
-  strictly raises never lowers). **Shipped**:
-  `core/executor/path_selection.py` exports
-  :func:`strictest_execution_path` (commutative, associative fold
-  over any number of axis outputs; ``None`` acts as no-opinion;
-  ``(None, None)`` fails closed with
-  :class:`ExecutionPathSelectionError`) and
-  :func:`is_strictly_stricter_than` for the raise-only guard. 73
-  property tests fix the strictness ladder (`pr_manual > pr_native
-  > direct_api`), commutativity + associativity across every
-  3-tuple, the axis-can-only-raise invariant, and the "output is
-  always one of the inputs" no-fabrication rule. The RiskGate MAY
-  wire this at ceiling-resolution time once it grows a
-  ``forced_execution_path`` axis output; the executor may re-compose
-  it at dispatch time as defense in depth.
-
-**Exit gate**
-
-- Contributor via the console executes `ops.restart-service` on a
-  non-prod resource under a `quiet` live probe; audit shows
-  `execution_path=direct_api` and every safety invariant holds.
-
-### Wave M1 - Live probes, observation depth, Rego overlays
-
-Follows W2. Implements
-[execution-model.md § Month 1](../decisioning/execution-model.md#month-1) and
-[operator-console.md § Month 1](../interfaces/operator-console.md#month-1).
-
-- **M1.1** `LiveBlastProbe` Protocol, `NoOpBlastProbe`, and
-  `AzureMonitorBlastProbe` (KQL and Metrics API adapters).
-  **Shipped upstream**: the CSP-neutral :class:`LiveBlastProbe`
-  Protocol + :class:`NoOpBlastProbe` fake
-  (`shared/providers/blast_probe.py` +
-  `shared/providers/testing/blast_probe.py`) with the four-verdict
-  enum (`quiet / active / overloaded / no_opinion`),
-  :class:`BlastProbeTimeoutError` / :class:`BlastProbeConfigError`
-  error surface, and `force_verdict` / `next_timeout` / `next_error`
-  test hooks. The real :class:`AzureMonitorBlastProbe` is a
-  fork-authored delivery adapter.
-- **M1.2** Starter probes under
-  [rule-catalog/probes/](../../../rule-catalog/probes):
-  `vm_traffic_last_5m`, `storage_access_log`, `lb_backend_health`,
-  `blast_radius_classifier` (two-path external-vs-internal probe that
-  feeds `rca/causal_chain`; see the SRE demo coverage matrix in
-  [docs/internals/sre-demo-scenarios-08-fdai-coverage.md](../../../docs/internals/sre-demo-scenarios-08-fdai-coverage.md)
-  item 5).
-- **M1.3** ActionTypes opt into `live_probe_ref`. Probe failure ->
-  `active`; repeated failure -> `shadow_only`
-  ([execution-model.md § 4.2](../decisioning/execution-model.md#42-runtime-shape)).
-  **Shipped**: `ops.restart-service` + `ops.scale-in` both opt in with
-  `live_probe_ref: vm_traffic_last_5m`. `load_action_type_catalog(...,
-  probes_root=...)` cross-checks every declared probe id against the
-  shipped probe catalog and hard-fails on unknown ids or a broken
-  probe catalog (surfaces the `probes:` issue key, no silent skip).
-  Wired at `__main__` + `collect_cli`.
-- **M1.4** `governance.override-ceiling` runtime (Rego fragment writer
-  under `policies/action_types/`), time-boxed via the exemption
-  workflow. **Shipped**: `core/risk_gate/override_writer.py` is a pure
-  renderer - `OverrideRequest -> RegoOverlay(path, content)` with no
-  filesystem I/O (caller PR-writes the file). Fail-closed on
-  `target_level` not in `{enforce_hil, shadow_only}`, scope not in
-  `{resource, resource-group}`, malformed ISO-8601 `expires_at`,
-  justification outside `[20, 500]` chars, self-approval, and `'..'`
-  in `override_id`. Rendered Rego carries METADATA front-matter +
-  a namespaced `package fdai.action_types.<slug>.<override_slug>`
-  + `applies` (action_type/scope match + `now <= expires_at`) + verdict
-  block; all string interpolation goes through the backslash +
-  double-quote escaper.
-- **M1.5** Observation-depth tools (`query_log`, `query_metric`,
-  `query_deployments`, `correlate_incident`) via `AzureMonitorAdapter`
-  and `DeploymentHistoryAdapter`. **Shipped upstream** in three
-  layers: (1) `shared/providers/observation.py` +
-  `shared/providers/testing/observation.py` - four CSP-neutral
-  Protocols (`LogQueryProvider` / `MetricQueryProvider` /
-  `DeploymentHistoryProvider` / `IncidentCorrelator`) + fakes, all
-  errors inheriting `ObservationError`, all methods fail-close raise;
-  (2) four Reader-floor console tools
-  (`QueryLogTool` / `QueryMetricTool` / `QueryDeploymentsTool` /
-  `CorrelateIncidentTool`, `side_effect_class='read'`) that catch
-  `ObservationError` -> `abstain` + preview (never surface raw
-  stacktraces) and treat empty results as `abstain` (so the narrator
-  cannot summarize zero rows as "nothing wrong"); (3) coordinator +
-  CLI wire (`tools/chat.py` composes 15 tools = 10 previous + 5 new
-  read verbs). Real Azure Monitor / DeploymentHistory adapters stay
-  fork territory.
-- **M1.6** `WebChatChannel` on the read-only console SPA.
-- **M1.7** Prompt-composition Wave 5 beta. **Shipped upstream** with the
-  opt-in Azure Responses `WebSearchProvider`, deterministic eligibility and
-  privacy gates, domain-filtered citation snapshots, durable conversation
-  replay evidence, and periodic rolling-p50 routing across eligible narrator
-  deployments. The feature remains disabled until a deployment supplies its
-  accepted primary-source allowlist.
-
-**Exit gate**
-
-- At least one live probe reduces autonomy at least once in production
-  shadow measurement; the audit entry shows `winning_axis=live_blast`.
-
-### Wave A - Assurance Twin (parallel P2 / P3)
-
-Independent of Waves D1..M1 once Wave F ships. Implements
-[assurance-twin.md](../operations/assurance-twin.md).
-
-- **A.1** `ScratchProjection` primitive per R4 at
-  `shared/providers/projection.py`.
-- **A.2** `core/assurance_twin/projection.py` builds a whole-subscription
-  projection on top of the R4 primitive.
-- **A.3** `core/assurance_twin/query.py` compiles NL -> typed ontology
-  query; the T2 quality gate is the authority
-  ([assurance-twin.md § 3](../operations/assurance-twin.md#3-verifiable-text-to-query-not-text-to-answer)).
-  Upstream ships the `TypedQuery` / `Predicate` types, the
-  `QueryVerifier` (rejects unknown resource_type, non-read-only ops,
-  and count-with-projection), a deterministic
-  `DeterministicPatternCompiler` covering the T0 grammar
-  (`list` / `count` / `list ... without ...` / `list ... with ...` /
-  `list ... where ... is ...`), and the `execute_query` runner over
-  `ScratchProjection`. A fork installs its own `NlQueryCompiler` that
-  routes residual questions through the T2 quality gate; its output
-  MUST pass through the same shipped `QueryVerifier`.
-- **A.4** `core/assurance_twin/review.py` posts ambient reviews on IaC
-  PRs via the GitHub Checks API adapter. **Shipped upstream**:
-  `shared/providers/iac_review.py` (`IacReviewPublisher` Protocol +
-  `IacReview` + `ReviewReceipt` + `IacReviewPublishError`) is
-  idempotent by `review_key`; `shared/providers/testing/iac_review.py`
-  provides `InMemoryIacReviewPublisher` (records, idempotency,
-  `next_error` hook). The `publish_review()` orchestrator returns one
-  of three outcomes (`POSTED / ALREADY_POSTED / PUBLISH_ERROR`) and
-  fails-closed - it never raises up into the twin. The GitHub Checks
-  adapter (real HTTP calls) is fork territory.
-- **A.5** `core/assurance_twin/report.py` assembles the
-  `PostureAssessmentReport`; the console SPA gains a read-only panel.
-  **Shipped upstream**: `PostureAssessmentReport` produces a
-  whole-estate verdict (`CLEAR / NEEDS_REVIEW / BLOCKED`) derived from
-  findings; callers cannot spoof the verdict. Shadow-first:
-  `blocks_action` is `True` only for `ENFORCE + BLOCKED`. Aggregate
-  stats: `resource_count`, `rule_count`, `highest_severity`,
-  `severity_counts`, `blocking_findings`. The console SPA panel
-  landing remains fork territory.
-
-**Exit gate**
-
-- Every answered question cites a rule; every ungroundable question
-  abstains and feeds the discovery loop.
-
-### Wave P - Preflight live adapters + toggle catalog
-
-Independent of Waves D1..M1 once Wave F ships. Implements the delivery
-increments in
-[deployment-preflight.md § Delivery Increments](../deployment/deployment-preflight.md#delivery-increments).
-
-- **P.1** Live Azure preflight adapters (Policy Insights, Resource
-  Graph, Firewall/NSG, Quota) under
-  `delivery/azure/preflight/`. Consume the R4 primitive for scratch
-  evaluation.
-- **P.2** `infra/modules/` capability-mode toggles from
-  [deployment-preflight.md § Blocker to Terraform Toggle Mapping](../deployment/deployment-preflight.md#blocker-to-terraform-toggle-mapping).
-  **Shipped**: five data-only Terraform sub-modules under
-  `infra/modules/preflight-toggles/` (`disk_provisioning`,
-  `nsg_provisioning`, `registry_source`, `python_index_url`,
-  `dependency_ordering`). Each accepts a validated `mode` variable
-  plus toggle-specific auxiliary vars and emits normalized
-  outputs (`effective_mode`, plus toggle-specific config); no
-  `resource` blocks, no provider dependency, so `terraform validate`
-  passes in CI without an Azure subscription. A consumer module
-  reads the outputs and picks the concrete resource shape - the
-  toggle module itself never emits a live resource, which keeps the
-  Preflight analyzer's `terraform_toggle` finding a 1:1 map to a
-  single variable override.
-- **P.3** GitHub Check that posts the report on infrastructure PRs.
-  **Shipped upstream**: `shared/providers/preflight_check.py` mirrors
-  the A.4 seam - `PreflightCheckPublisher` Protocol +
-  `PreflightCheck` intent + `ReviewReceipt` +
-  `PreflightCheckPublishError`, idempotent by `check_key`, guarded by
-  a `TYPE_CHECKING` reference to `DeploymentReadinessReport` so
-  `shared/` has no runtime dependency on `core/`.
-  `InMemoryPreflightCheckPublisher` fake +
-  `core/deploy_preflight/check_publish.py::publish_preflight_check()`
-  orchestrator with the same three outcomes (`POSTED / ALREADY_POSTED /
-  PUBLISH_ERROR`), fail-closed. Real GitHub Check REST call is fork
-  territory.
-- **P.4** Deployment Environment Profile cache refreshed via the
-  `Inventory` delta stream. **Shipped**:
-  `core/deploy_preflight/environment_profile.py` -
-  `DeploymentEnvironmentProfile` (frozen dataclass with sorted
-  `rule_ids` + non-negative `resource_type_counts`) and a thread-safe
-  `DeploymentEnvironmentProfileCache` (`Lock`). `get_fresh(scope, now,
-  max_age_seconds)` returns `None` on missing / stale / unparseable
-  ISO-8601 (fail-closed); `apply_inventory_delta(cache,
-  changed_scopes)` is the invalidate helper that Inventory delta
-  callbacks call.
-
-## 5. Dependency graph
-
-```mermaid
-flowchart LR
-  F[Wave F: Foundation] --> D1[Wave D1: Console read-only]
-  F --> W2[Wave W2: Ops ActionTypes]
-  F --> A[Wave A: Assurance Twin P2]
-  F --> P[Wave P: Preflight live]
-  D1 --> W1[Wave W1: Write + Teams/Slack]
-  W1 --> W2
-  W2 --> M1[Wave M1: Live probes + Month-1 tools]
-  A --> A_P3[Wave A P3: ambient review]
-```
-
-## 6. Historical open decisions
-
-The former OD-C1 through OD-P2 questions were resolved or replaced across their owner documents and
-implementations. This snapshot no longer blocks any wave.
-
-## 7. Historical fork implications (not the current contract)
-
-These implications assumed adoption of the entire standard set. Current forks follow
-[downstream-fork-guide.md](downstream-fork-guide.md) and the machine-readable framework surface.
-
-- **R2** removes the mirror-registration step for a fork's custom ops
-  actions. A fork's `rule-catalog/action-types-overrides/` entry that
-  sets `trigger_kind: operator_request` is automatically exposed on the
-  console under the declared RBAC floor.
-- **R3** simplifies the LLM DI surface. A fork implements
-  `LlmBinding` once and gets every role.
-- **R4** gives forks a single Protocol (`ScratchProjection`) to
-  extend when they want to bring their own graph or their own diff
-  applier.
-- **R6** means a fork's audit-log retention policy is the single
-  operator_memory retention policy. A shorter TTL on the audit log
-  automatically truncates the memory view.
-- Full fork guidance stays in
-  [downstream-fork-guide.md](downstream-fork-guide.md); the standard
-  set does not add a new seam beyond `LlmBinding` and
-  `ScratchProjection`.
-
-## 8. Related docs
-
-- [action-ontology.md](../decisioning/action-ontology.md) - schema R1/R2/R7 land in.
-- [execution-model.md](../decisioning/execution-model.md) - the RiskGate that Axis
-  R1 constrains.
-- [operator-console.md](../interfaces/operator-console.md) - console shape R2 and R3
-  refine.
-- [assurance-twin.md](../operations/assurance-twin.md) - Twin subsystem R4 shares a
-  primitive with.
-- [deployment-preflight.md](../deployment/deployment-preflight.md) - Preflight
-  subsystem R4 shares a primitive with.
-- [prompt-composition.md](../decisioning/prompt-composition.md) - LLM binding surface
-  R3 unifies; operator_memory storage R6 refines.
-- [downstream-fork-guide.md](downstream-fork-guide.md) - fork walkthrough
-  the standard set simplifies.
-- [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) -
-  domain vocabulary the standard set does not add to.
-- [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md) -
-  safety and documentation contract every wave inherits.
+| To learn about | Read |
+|----------------|------|
+| Current authority calculation | [Execution Model](../decisioning/execution-model.md) and [Risk Classification](../decisioning/risk-classification.md) |
+| Current operator tool boundary | [Operator Console](../interfaces/operator-console.md) |
+| Current model composition | [Prompt Composition](../decisioning/prompt-composition.md) |
+| Current projection consumers | [Assurance Twin](../operations/assurance-twin.md) and [Deployment Preflight](../deployment/deployment-preflight.md) |
+| Current action schema and execution paths | [Action Ontology](../decisioning/action-ontology.md) |

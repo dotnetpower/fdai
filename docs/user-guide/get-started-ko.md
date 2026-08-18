@@ -2,7 +2,7 @@
 title: FDAI 시작하기
 description: FDAI 5분 오리엔테이션 - 무엇인지, 언제 적합한지, 다음으로 어디를 볼지.
 translation_of: get-started.md
-translation_source_sha: 249c09ffbca17903115fe03f1373b2d6721eafdf
+translation_source_sha: 4f1d35d2abeb0f7218f4518a3866c2c8eda73a80
 translation_revised: 2026-08-19
 ---
 
@@ -210,7 +210,7 @@ flowchart TB
   [변경 승인](guides/approve-change-ko.md)과
   [감사 로그 읽기](guides/read-audit-log-ko.md)를 따라 해보세요.
 - **도입 계획**:
-  [구현 계획](../roadmap/fork-and-sequencing/implementation-plan-ko.md)을 사용해 범위,
+  [로드맵 단계 요약](../roadmap/README-ko.md#단계-요약)을 사용해 범위,
   소유권, 관찰 근거, 승격 순서를 정하세요.
 
 ## 다음 단계
