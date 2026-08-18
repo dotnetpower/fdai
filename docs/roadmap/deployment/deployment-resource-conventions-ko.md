@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 2f178cbc34ec17e4fd6a124c233c838e9efc7be7
+translation_source_sha: 233f2c40c9cf3b32566d69efc6e0e13e5c36a5c2
 translation_revised: 2026-08-17
 ---
 # 배포 리소스 규약
@@ -30,6 +30,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-18 | implemented | core control plane에 범위가 제한된 startup probe를 부여했습니다. 런타임이 health 포트를 열기 전에 startup readiness를 평가하므로 약 91초인 liveness 예산이 정상 기동 중에 소진되었고, 이전 리비전은 healthy한 상태로 남은 채 새 리비전마다 `CrashLoopBackOff`에 빠졌습니다. Startup probe는 포트가 응답할 때까지 liveness와 readiness를 유예합니다. | `current change`; 서비스 root에서 `terraform fmt`, `terraform init -backend=false`, `terraform validate` 통과; 독립 서비스 계약 검사 `27 passed`, 서비스 Terraform root 스위트 통과, drift 계약 `7 passed`, CI 계약 `36 passed`. 측정된 원인: 실패한 replica가 `startup_ok`를 남긴 뒤 `notification_route_unavailable`에서 멈추고 `health_server_ready`가 없었으며, 시스템 이벤트는 readiness probe 반복 실패를 보고했고, 로컬 기동은 `startup_ok`에서 `startup_readiness_evaluated`까지 27초가 걸렸습니다. | 배포 환경에서 새 리비전이 `Healthy`에 도달하는지 확인합니다. 이슈 #181에서 추적합니다. |
 | 2026-08-13 | implemented | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 선택적 OHL VM Scale Set 규약을 추가했습니다. | current change, 집중 Terraform test 결과 8 passed | Exact protected 적용 및 실제 OHL 근거를 수집합니다. |
 | 2026-08-13 | implemented | 증적이 있는 service root 5개는 `validated`로 유지하고 이전 방식 platform 및 ops-bootstrap root는 `implemented`로 분류해 광범위한 state-root 주장을 정정했습니다. | current change, `config/independent-service-live-evidence-manifest.json`, `config/independent-service-remote-evidence.json`, roadmap, 번역 및 문서 검사 | `validated`로 전환하기 전에 platform 및 bootstrap root의 통제된 적용 증적을 보존합니다. |
 | 2026-08-13 | implemented | Schema migration Job이 성공한 뒤에만 실행되는 결정론적 Operator catalog Job을 추가했습니다. | 현재 변경의 `infra/main.tf`, `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml`, Terraform validate 통과 및 집중 배포 테스트 22개 통과. | 보호된 적용 및 Job 실행 증적을 수집합니다. |

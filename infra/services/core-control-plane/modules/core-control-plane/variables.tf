@@ -48,9 +48,11 @@ variable "health" {
     port                    = number
     liveness_path           = string
     readiness_path          = string
+    startup_path            = optional(string)
     interval_seconds        = optional(number, 30)
     timeout_seconds         = optional(number, 3)
     failure_count_threshold = optional(number, 3)
+    startup_failure_count   = optional(number, 30)
   })
 }
 variable "rollback" {
