@@ -1,7 +1,7 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: 795b13768d115ded0e2ec93cd1d6a76f0ad21c2b
+translation_source_sha: dacb18a7f10ab9cf0037d6fdd3cabf0027357cfc
 translation_revised: 2026-08-14
 ---
 
@@ -43,7 +43,6 @@ translation_revised: 2026-08-14
 | 2026-08-14 | in-progress | 하나의 카탈로그 digest에서 하드닝된 로컬 캠페인과 인증된 Console 변환 결과를 보존했습니다. | `6aae0837f` 중앙 receipt, 준비된 출처 8개, 명시적인 오래된 인벤토리, 정규화된 Cost 제한 및 프로바이더 실패가 없는 고유한 지역화 Agent Activity 행 10개 | 검증을 주장하기 전에 동등한 배포 실행과 남은 부정 런타임 결과를 보존합니다. |
 | 2026-08-14 | implemented | 잘못된 선택적 VM 종료 일정이 승격된 전체 인벤토리 그래프를 숨기지 않도록 했습니다. | `current change`, 순수 projection 회귀 검사 통과, 복구된 권위 있는 로컬 스냅샷이 fresh 상태의 209-resource active view를 구체화하고 일정 warning 4개를 격리했습니다. | 다음 실행 조건 캠페인이 stale에서 fresh로 전환되는지 관측한 뒤 배포 근거를 보존합니다. |
 | 2026-08-14 | in-progress | 권위 있는 인벤토리 복구 후 다음 실행 조건 캠페인을 확인하고 인증된 Agent Activity 변환 결과를 갱신했습니다. | 검증된 개정 번호 `6585d6fcd`, 준비된 출처 9개, 집계 기록 1,104개의 fresh 인벤토리, 정규화되어 보존된 Cost 제한, 고유한 Console 행 10개 및 프로바이더 실패 0개 | 검증을 주장하기 전에 권한 없음, 미구성 및 시간 초과 런타임 결과와 동등한 배포 실행을 보존합니다. |
-
 | 2026-08-17 | implemented | 고정된 상위 경로 깊이 대신 설치된 이미지 레이아웃에서 저장소 동봉 자산을 해석하도록 했습니다. campaign tick이 체크아웃과 컨테이너 이미지 양쪽에서 `config`와 `rule-catalog`를 찾습니다. | `current change`, `repo_assets.py`와 delivery tick 3개, focused resolver 테스트 3개 통과, Ruff 통과. 배포된 analyzer 실행은 모두 `probe catalog root not a directory: /app/.venv/rule-catalog/probes`로 실패하고 있었습니다. | 다음 이미지 롤아웃 이후 배포된 실행 성공을 확인합니다. |
 ### 남은 작업
 

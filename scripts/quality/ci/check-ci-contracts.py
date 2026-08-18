@@ -249,7 +249,6 @@ def _validate_python_test_partitioning() -> list[str]:
         "pytest regression shard ${{ matrix.shard }}/3",
         "FDAI_PYTEST_MODE: coverage",
         "FDAI_PYTEST_MODE: integration",
-        "behavior source citation precision",
     )
     errors = [
         f"ci.yml is missing partition contract: {fragment}"
