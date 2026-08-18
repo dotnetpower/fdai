@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: f559cc134fcb7df713e32c0c0495f07c5fa66feb
+translation_source_sha: 8df67da32cd0e29d2d4e8941b770d86026941eab
 translation_revised: 2026-08-18
 ---
 # 코드 맵
@@ -129,6 +129,7 @@ translation_revised: 2026-08-18
 | 2026-08-18 | 구현됨 | 각 리소스 하위 타입이 선언한 질의 용어를 `Resource.type` 영역의 단일 값 그룹으로 투영하고, plan shape 로그가 선택된 ObjectType과 필터 대상 속성 및 연산자를 기록하도록 했습니다. 범주 그룹만으로는 하위 타입 단어가 선언 값에 연결되지 않아 플래너가 ObjectType 전체를 선택하는 존재 술어로 후퇴했고, 로그만으로는 그 계획과 좁은 계획을 구분할 수 없었습니다. | `current change`; [Issue #183](https://github.com/dotnetpower/fdai/issues/183); `composition/semantic_query_value_domains.py`, `core/conversation/semantic_planning.py`; 집중 composition, 대화, ontology-platform, rule-catalog 검사 2222건이 통과했고 Ruff와 strict mypy가 통과했습니다. | 술어 피연산자는 로그에 남지 않으므로 좁히기 결함은 shape만으로 진단합니다. |
 | 2026-08-18 | 구현됨 | 발화에 명시된 값 필터를 plan 검증 전에 결정적으로 확정합니다. 발화가 선언된 값 그룹 하나의 질의 용어만 담고 있으면 해당 속성의 존재 술어를 그 그룹의 선언 값에 대한 `equals` 또는 `in`으로 다시 씁니다. 용어를 플래너에 노출하는 것만으로는 구속력이 없어 명시된 부분집합 질문이 여전히 ObjectType 전체로 답해졌습니다. | `current change`; [Issue #190](https://github.com/dotnetpower/fdai/issues/190); `core/conversation/semantic_planning.py`; 집중 대화, composition, ontology-platform 검사 934건이 통과했고 Ruff와 strict mypy가 통과했습니다. | 확정은 좁히기만 수행하며, 한 속성에 두 그룹을 함께 언급한 발화는 플래너 판단으로 남습니다. |
 | 2026-08-18 | 구현됨 | 의미 frame을 그것을 만든 질문과 대조해 검증했습니다. 런타임 리소스 인스턴스를 지명하는 스키마 수준 frame은 plan 선택 전에 거부되고 T2로 재시도되며, 재시도가 소진되면 지명된 리소스 질문에 선언 행으로 답하지 않고 지원되지 않음으로 보고합니다. 선언된 어휘에 속하는 하이픈 token은 스키마 질문을 그대로 답변 가능하도록 유지합니다. | `current change`, `core/conversation/semantic_planning_cascade.py`, `tests/conversation/test_semantic_planning_tier_routing.py`, focused tier-routing 검사 32건과 focused 대화, composition, 온톨로지 검사 931건 통과, 작업 범위 Ruff, format 및 strict mypy 통과 | `Resource` 선언은 여전히 상태 속성을 노출하지 않으므로 지명된 리소스 상태 질문은 선언된 필드가 아니라 개방형 속성 bag을 통해 상태에 도달합니다. |
+| 2026-08-18 | 구현됨 | 결정론적 한국어 현재 상태 인식 범위를 넓혀 `상태` 앞의 리소스 종류 명사 또는 `상태` 뒤의 요청 동사가 읽기 조사로 라우팅되도록 했습니다. 피어링, 상태, 이력, 귀속 경로는 기존 우선순위를 그대로 유지합니다. | `current change`, `core/read_investigation/routing.py`, `tests/core/read_investigation/test_routing.py`, focused 읽기 조사 및 에이전트 검사 1269건 통과, 작업 범위 Ruff 및 format 통과 | 결정론적 경로는 에이전트 선택에만 관여하며 Console 의미 턴은 여전히 모든 질문을 모델 cascade로 계획합니다. |
 
 ### 남은 작업
 

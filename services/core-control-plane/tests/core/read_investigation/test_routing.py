@@ -31,6 +31,12 @@ from fdai.shared.providers.read_investigation import ReadInvestigationIntent
         ("이거 OS 안에서 꺼진 거야?", ReadInvestigationIntent.GUEST_SHUTDOWN),
         ("What is the current VM state?", ReadInvestigationIntent.RESOURCE_STATE),
         ("가상 머신 현재 상태는?", ReadInvestigationIntent.RESOURCE_STATE),
+        (
+            "aks-fdai-observe-lab 클러스터 상태 요약해줘",
+            ReadInvestigationIntent.RESOURCE_STATE,
+        ),
+        ("vm-01 상태를 알려줘", ReadInvestigationIntent.RESOURCE_STATE),
+        ("node-pool-a 노드 상태 확인해줘", ReadInvestigationIntent.RESOURCE_STATE),
         ("Which ports are open on nsg-app?", ReadInvestigationIntent.NETWORK_SECURITY),
         ("nsg-app에서 열린 포트를 보여줘", ReadInvestigationIntent.NETWORK_SECURITY),
         ("How is vnet-hub peered?", ReadInvestigationIntent.NETWORK_PEERING),
