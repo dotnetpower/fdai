@@ -1,7 +1,7 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 13ad97922e4fbe6df4bb9aa330ee92faaee69768
+translation_source_sha: f892f6bf1b54be9a07aca6c737fba5f058d5411e
 translation_revised: 2026-08-19
 ---
 
@@ -40,7 +40,7 @@ translation_revised: 2026-08-19
 | 2026-08-19 | implemented | 실제 운영 변환에서 wildcard 리소스 그룹 상위와 exact 논리 서버 상위를 모두 유지하면 `contains` one-to-many cardinality를 위반한다는 사실이 드러나 SQL 포함 관계를 바로잡았습니다. 같은 contained 하위에 대해서 exact 출처 타입 `contains` mapping이 이제 wildcard mapping을 shadow합니다. 서로 다른 하위 계층은 독립적으로 유지되므로 리소스 그룹-VNet과 VNet-subnet 포함 관계는 모두 남습니다. `Resource.parent_id`도 간선과 같은 검토된 exact mapping을 사용합니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). 승격된 스냅샷은 성공했지만 온톨로지 변환 결과가 `contains violates one_to_many cardinality`로 실패했습니다. SQL 및 VNet 대조와 focused ARG, mapping audit 및 검증기 suite 117개가 통과했고 strict mypy도 통과했습니다. | 수정 사항을 커밋하고 전체 재조정을 다시 실행한 뒤 스냅샷과 온톨로지 SQL 포함 관계가 일치하는지 확인합니다. |
 | 2026-08-19 | implemented | `Microsoft.Sql/servers/databases`를 위한 검토된 Azure 프로바이더 상위 mapping을 추가했습니다. 어댑터는 구조가 유효한 immediate nested ARM 상위만 해석하고, 기존 리소스 그룹 포함 관계 후보를 보존하면서 `contains(sql-server, sql-database)`를 발행합니다. 상위가 없거나 완전 세대에서 엔드포인트가 누락되면 검증된 간선을 만들지 않습니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). focused ARG, exact mapping direction audit 및 완전 세대 검증기 검사 116개가 통과했습니다. 작업 범위 Ruff와 strict mypy, 온톨로지 및 Property coverage gate도 통과했습니다. | 전체 재조정 한 번을 실행하고 승격된 스냅샷 및 온톨로지 변환 결과에서 SQL 서버-데이터베이스 간선을 확인합니다. |
 | 2026-08-19 | validated | 활성 로컬 스냅샷에서 프로바이더 범위 coverage를 포함한 전체 ARG 재조정 한 번을 승격했습니다. 스냅샷은 구체화된 Resource 행 516개와 프로바이더 native 객체 533개를 분리해 저장합니다. 객체 476개는 검토된 vocabulary에 매핑되고 프로바이더 타입 15종의 객체 57개는 명시적으로 미매핑 상태를 유지합니다. 매핑된 프로바이더 객체와 스냅샷 Resource 사이의 행 40개 차이는 이전에 측정한 중첩 리소스 구체화와 구독 anchor이며 숨겨진 프로바이더 coverage가 아닙니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). committed callback은 객체 533/476/57개와 타입 68/15종을 반환했습니다. one-shot 작업은 `inventory snapshot promoted from arg`를 보고했고, loopback PostgreSQL 활성 행은 `source=arg`, `status=active`, `resource_count=516` 및 타입과 count 행 15개를 포함한 같은 coverage count를 보고합니다. | 프로바이더 범위 coverage 기록에 남은 작업은 없습니다. SQL 서버-데이터베이스 포함 관계가 다음 인벤토리 gap으로 남습니다. |
-| 2026-08-19 | implemented | 첫 committed 실제 운영 probe가 HTTP 400을 반환한 뒤 프로바이더 범위 Kusto pipeline을 고쳤습니다. ARG는 `Resources | summarize ... | union (...)`을 허용하고, 초기 producer가 사용한 prefix 형식 `union (Resources ...), (...)`은 거부합니다. parser는 이제 명시적인 `resource_count` 집계 열을 고정합니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). one-shot 작업은 이전 스냅샷을 유지하고 두 출처를 모두 사용할 수 없다고 보고했으며, 격리된 callback이 `ArgQueryError` HTTP 400을 재현했습니다. 수정된 읽기 전용 Azure CLI 조회는 범위가 제한된 타입 및 count 행을 반환했고 focused ARG 및 조립 검사 99개가 통과했습니다. | 수정 사항을 커밋하고 전체 재조정을 다시 실행한 뒤 승격된 리소스 57개 coverage 근거를 주장합니다. |
+| 2026-08-19 | implemented | 첫 committed 실제 운영 probe가 HTTP 400을 반환한 뒤 프로바이더 범위 Kusto pipeline을 고쳤습니다. ARG는 `Resources &#124; summarize ... &#124; union (...)`을 허용하고, 초기 producer가 사용한 prefix 형식 `union (Resources ...), (...)`은 거부합니다. parser는 이제 명시적인 `resource_count` 집계 열을 고정합니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). one-shot 작업은 이전 스냅샷을 유지하고 두 출처를 모두 사용할 수 없다고 보고했으며, 격리된 callback이 `ArgQueryError` HTTP 400을 재현했습니다. 수정된 읽기 전용 Azure CLI 조회는 범위가 제한된 타입 및 count 행을 반환했고 focused ARG 및 조립 검사 99개가 통과했습니다. | 수정 사항을 커밋하고 전체 재조정을 다시 실행한 뒤 승격된 리소스 57개 coverage 근거를 주장합니다. |
 | 2026-08-19 | implemented | Azure Resource Graph 타입 집계를 전체 스냅샷 fence에 연결했습니다. raw `Resources`와 리소스 그룹 `ResourceContainers`를 세고, 정규화된 프로바이더 타입을 검토된 전체 ARM vocabulary와 비교하며, 선언되지 않은 모든 타입과 count를 지원되는 Resource로 구체화하지 않은 채 기록합니다. 구독 anchor와 파생된 중첩 subnet은 이 프로바이더 범위 측정에서 제외합니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). focused ARG, Azure 인벤토리, 조립 및 인벤토리 작업 검사 136개와 작업 범위 Ruff 및 strict mypy가 통과했습니다. | 전체 재조정 한 번을 실행하고 승격된 메타데이터가 보존된 리소스 57개, 타입 15종 측정을 재현하는지 확인한 뒤 런타임 근거로 사용합니다. |
 | 2026-08-19 | implemented | 범위가 제한된 프로바이더 native 범위 coverage를 CSP-중립 `InventoryBatch` 최종 fence에 추가하고 승격할 때만 변경 불가능한 스냅샷 메타데이터로 변환했습니다. 생성 전에 count 합계를 대조하고, 최종이 아닌 배치는 근거를 운반할 수 없으며, 정적 출처 메타데이터는 완료된 수집을 가장할 수 없습니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). focused 프로바이더 계약 및 인벤토리 동기화 테스트 31개와 작업 범위 Ruff 및 strict mypy가 통과했습니다. | Azure 전체 범위 타입 집계 producer를 연결하고 승격된 스냅샷에 측정된 미매핑 count를 보존합니다. |
 | 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 Azure 계약 구현을 운영 근거 및 보류된 비-Azure 어댑터와 분리해 기록했습니다. | `current change`; 구현 범위 표의 프로바이더, 전달, 인프라 및 배포 근거입니다. | 하나의 통제된 8개 계약 캠페인을 보존하고 명시적으로 범위가 정해질 때까지 비-Azure 작업을 보류합니다. |
@@ -368,20 +368,13 @@ CSP 접촉면을 지배하는 여덟 개의 계약 (다섯 wire-level 기반 +
   `ResourceType` 으로 샤딩 (하나의 타입이 너무 넓으면 스코프로 더 세분화), semaphore 하에서
   동시 확산 쿼리, 배치를 ingest 파이프라인으로 스트리밍. 코어는 절대 단일-연결 블로킹
   스캔을 가정하지 않음.
-- **프로바이더 범위 coverage는 최종 fence에서 종결됩니다.** 완전한 어댑터는 범위가 제한된
-  `ProviderScopeCoverage` 하나를 최종 `InventoryBatch`에 붙일 수 있습니다. 프로바이더 native
-  객체 및 타입 count를 구체화된 스냅샷 레코드와 구분하고, 선언된 vocabulary에 없는 native 타입만
-  나열하며, 생성 전에 mapped와 unmapped count 합계를 대조합니다. 동기화 조정기는 최종 fence 뒤에만
-  이 근거를 변경 불가능한 스냅샷 메타데이터로 복사합니다. 부분 스트림 또는 정적 출처 매니페스트는
-  완료된 프로바이더 coverage를 주장할 수 없습니다.
-- **Coverage count는 범위가 제한된 exact 정수입니다.** Boolean 값은 count가 아닙니다. 프로바이더
-  객체가 0이면 관측된 프로바이더 타입도 0이어야 하며 그 반대도 같습니다. 관측된 타입마다 객체가
-  최소 하나 있으므로 `provider_type_count`는 `provider_object_count`보다 클 수 없습니다. 매핑 및
-  미매핑 객체 count는 계속 프로바이더 총계와 정확히 일치해야 합니다.
-- **Azure coverage는 변환된 그래프 객체가 아니라 프로바이더 native 행을 셉니다.** coverage
-  조회는 모든 ARG `Resources`와 `ResourceContainers`의 리소스 그룹 행을 정규화된 ARM 타입별로
-  묶습니다. 구독 anchor와 구체화된 subnet 같은 파생 중첩 리소스는 제외한 다음 해당 그룹을 검토된
-  전체 ARM vocabulary와 비교합니다. vocabulary에 없는 프로바이더 타입은 명시적인 미매핑 count로
+- **프로바이더 범위 coverage는 최종 fence에서 종결됩니다.** 완전한 어댑터는 범위가 제한된 `ProviderScopeCoverage` 하나를 최종 `InventoryBatch`에 붙일 수 있습니다. 프로바이더 native
+  객체 및 타입 count를 구체화된 스냅샷 레코드와 구분하고, 선언된 vocabulary에 없는 native 타입만 나열하며, 생성 전에 mapped와 unmapped count 합계를 대조합니다. 동기화 조정기는 최종 fence 뒤에만
+  이 근거를 변경 불가능한 스냅샷 메타데이터로 복사합니다. 부분 스트림 또는 정적 출처 매니페스트는 완료된 프로바이더 coverage를 주장할 수 없습니다.
+- **Coverage count는 범위가 제한된 exact 정수입니다.** Boolean 값은 count가 아닙니다. 프로바이더 객체가 0이면 관측된 프로바이더 타입도 0이어야 하며 그 반대도 같습니다. 관측된 타입마다 객체가
+  최소 하나 있으므로 `provider_type_count`는 `provider_object_count`보다 클 수 없습니다. 매핑 및 미매핑 객체 count는 계속 프로바이더 총계와 정확히 일치해야 합니다.
+- **Azure coverage는 변환된 그래프 객체가 아니라 프로바이더 native 행을 셉니다.** coverage 조회는 모든 ARG `Resources`와 `ResourceContainers`의 리소스 그룹 행을 정규화된 ARM 타입별로
+  묶습니다. 구독 anchor와 구체화된 subnet 같은 파생 중첩 리소스는 제외한 다음 해당 그룹을 검토된 전체 ARM vocabulary와 비교합니다. vocabulary에 없는 프로바이더 타입은 명시적인 미매핑 count로
   남고 자동 선언되지 않습니다.
 - **Exact 포함 관계가 wildcard fallback보다 하나의 하위를 우선 소유합니다.** Exact 출처 타입
   mapping과 wildcard `contains` mapping이 같은 contained 하위를 점유하면 exact mapping이 wildcard
