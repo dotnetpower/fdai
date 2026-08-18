@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import json
 import logging
+import re
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, Protocol
@@ -31,6 +32,14 @@ _LOGGER = logging.getLogger(__name__)
 _SERVER_BOUND_REQUIREMENTS = frozenset(
     {ClarificationRequirement.PRINCIPAL_SCOPE, ClarificationRequirement.PURPOSE}
 )
+_SCHEMA_LEVEL_OUTPUT_SHAPES = frozenset({"ontology_manifest", "ontology_relationships"})
+# Provider inventory names one concrete instance with joined segments
+# (`aks-fdai-observe-lab`). A declaration name is dotted or a single word, and a
+# two-segment token is a product word (`gpt-4o`), so neither shape matches.
+_RUNTIME_INSTANCE_TOKEN = re.compile(
+    r"(?<![A-Za-z0-9_.-])[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+){2,}(?![A-Za-z0-9_.-])"
+)
+_MAX_SCANNED_TOKENS = 32
 _SPECIALIZED_FUNCTION_OUTPUT_SHAPES = {
     "query.incident_evidence": "incident_evidence",
     "query.manifest": "ontology_manifest",
@@ -126,7 +135,7 @@ class SemanticPlanningCascade:
                 return None
             try:
                 proposal = SemanticFrameProposal.model_validate(raw)
-                _validate_frame_proposal(proposal)
+                _validate_frame_proposal(proposal, utterance=utterance, descriptors=descriptors)
             except (ValidationError, TypeError, ValueError) as exc:
                 if self._should_escalate(tier=tier, stage="frame", reason="invalid"):
                     continue
@@ -208,7 +217,12 @@ class SemanticPlanningCascade:
         return True
 
 
-def _validate_frame_proposal(proposal: SemanticFrameProposal) -> None:
+def _validate_frame_proposal(
+    proposal: SemanticFrameProposal,
+    *,
+    utterance: str,
+    descriptors: tuple[dict[str, Any], ...],
+) -> None:
     if _SERVER_BOUND_REQUIREMENTS.intersection(proposal.clarification_requirements):
         raise ValueError("semantic clarification requests server-bound context")
     is_evidence_validation = proposal.output_shape == "evidence_validation"
@@ -217,6 +231,76 @@ def _validate_frame_proposal(proposal: SemanticFrameProposal) -> None:
     is_causal_evidence = proposal.output_shape == "causal_evidence"
     if (proposal.operation is SemanticOperation.EXPLAIN_CHANGE) != is_causal_evidence:
         raise ValueError("semantic explain_change operation requires causal_evidence output")
+    if proposal.output_shape in _SCHEMA_LEVEL_OUTPUT_SHAPES and _names_runtime_instance(
+        (utterance, *proposal.subject_constraints),
+        descriptors=descriptors,
+    ):
+        raise ValueError("schema-level semantic frame names a runtime resource instance")
+
+
+def _names_runtime_instance(
+    texts: tuple[str, ...],
+    *,
+    descriptors: tuple[dict[str, Any], ...],
+) -> bool:
+    """Report whether any text names a concrete resource the schema cannot hold.
+
+    Every proposal stage below the frame is checked against the frame, so a
+    frame that answers a different question than the operator asked produces a
+    plan, a result, and an answer that all agree with each other and with
+    nothing else. A schema family reads declarations, so an identifier-shaped
+    token that matches no declared name, property, or value is evidence the
+    frame left the question behind.
+    """
+    candidates = [
+        match.group(0) for text in texts for match in _RUNTIME_INSTANCE_TOKEN.finditer(text)
+    ][:_MAX_SCANNED_TOKENS]
+    if not candidates:
+        return False
+    declared = _declared_vocabulary(descriptors)
+    return any(candidate.casefold() not in declared for candidate in candidates)
+
+
+def _declared_vocabulary(descriptors: tuple[dict[str, Any], ...]) -> frozenset[str]:
+    """Collect every word the supplied release lets a schema question name."""
+    words: set[str] = set()
+    for descriptor in descriptors:
+        name = descriptor.get("name")
+        if isinstance(name, str):
+            words.add(name.casefold())
+        properties = descriptor.get("properties")
+        if isinstance(properties, Mapping):
+            for property_name, facet in properties.items():
+                if isinstance(property_name, str):
+                    words.add(property_name.casefold())
+                words.update(_declared_facet_words(facet))
+        elif isinstance(properties, list):
+            words.update(item.casefold() for item in properties if isinstance(item, str))
+    return frozenset(words)
+
+
+def _declared_facet_words(facet: object) -> set[str]:
+    """Return the declared values and request terms of one property facet."""
+    if not isinstance(facet, Mapping):
+        return set()
+    words = {value.casefold() for value in _string_list(facet.get("values"))}
+    groups = facet.get("value_groups")
+    if isinstance(groups, list):
+        for group in groups:
+            if not isinstance(group, Mapping):
+                continue
+            group_id = group.get("id")
+            if isinstance(group_id, str):
+                words.add(group_id.casefold())
+            words.update(value.casefold() for value in _string_list(group.get("values")))
+            words.update(term.casefold() for term in _string_list(group.get("terms")))
+    return words
+
+
+def _string_list(value: object) -> tuple[str, ...]:
+    if not isinstance(value, list):
+        return ()
+    return tuple(item for item in value if isinstance(item, str))
 
 
 def _verify_frame_plan_alignment(

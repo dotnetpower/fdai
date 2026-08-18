@@ -27,6 +27,7 @@ from fdai.core.ontology_platform.incident_queries import (
     INCIDENT_EVIDENCE_MAX_RECORDS,
     incident_evidence_function_type,
 )
+from fdai.core.ontology_platform.property_values import PropertyValueDomain, PropertyValueGroup
 from fdai.rule_catalog.schema.llm_resolver import (
     CapabilityStatus,
     NarratorCandidate,
@@ -39,6 +40,7 @@ from fdai_service_contracts.ontology_query import QueryNodeKind
 
 NOW = datetime(2026, 8, 14, tzinfo=UTC)
 DIGEST = "sha256:" + ("a" * 64)
+_NAMED_INSTANCE_UTTERANCE = "aks-fdai-observe-lab 클러스터 상태 요약해줘"
 
 
 class _ManifestProvider:
@@ -72,7 +74,10 @@ class _AcceptingVerifier:
         assert manifest is not None
 
 
-def _fixture() -> tuple[Any, ObjectSetDefinition]:
+def _fixture(
+    *,
+    property_values: tuple[PropertyValueDomain, ...] = (),
+) -> tuple[Any, ObjectSetDefinition]:
     resource = OntologyObjectType(
         schema_version="1.0.0",
         name="Resource",
@@ -90,6 +95,7 @@ def _fixture() -> tuple[Any, ObjectSetDefinition]:
         purposes=("operations-review",),
         principal_scope_digest=DIGEST,
         object_types=(resource,),
+        property_values=property_values,
     )
     definition = ObjectSetDefinition(
         selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
@@ -193,9 +199,9 @@ def _service(t1: _Model, t2: _Model, manifest: Any) -> SemanticPlanningService:
     )
 
 
-def _run(service: SemanticPlanningService):  # type: ignore[no-untyped-def]
+def _run(service: SemanticPlanningService, *, utterance: str = "Show matching resources"):  # type: ignore[no-untyped-def]
     return service.plan(
-        utterance="Show matching resources",
+        utterance=utterance,
         prior_turns=(),
         principal=Principal(id="operator", role=Role.READER),
         purpose="operations-review",
@@ -475,6 +481,90 @@ def test_matching_specialized_t1_plan_never_invokes_t2() -> None:
     )
 
     outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_named_instance_question_never_settles_for_a_schema_frame() -> None:
+    manifest, definition = _fixture()
+    t1 = _Model(
+        frame=_frame(output_shape="ontology_manifest"),
+        plan=_function_plan("query.manifest", output_kind="query.table"),
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance=_NAMED_INSTANCE_UTTERANCE)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    assert tuple(node.kind for node in outcome.plan.nodes) == (QueryNodeKind.OBJECT_SET,)
+    assert (t1.frame_calls, t2.frame_calls) == (1, 1)
+    assert t2.plan_calls == 1
+
+
+def test_named_instance_question_is_unsupported_when_both_tiers_answer_the_schema() -> None:
+    manifest, _definition = _fixture()
+    manifest_frame = _frame(output_shape="ontology_manifest")
+    manifest_plan = _function_plan("query.manifest", output_kind="query.table")
+    t1 = _Model(frame=manifest_frame, plan=manifest_plan)
+    t2 = _Model(frame=manifest_frame, plan=manifest_plan)
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance=_NAMED_INSTANCE_UTTERANCE)
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.plan is None
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (1, 0)
+
+
+def test_declared_vocabulary_keeps_a_hyphenated_schema_question_answerable() -> None:
+    manifest, definition = _fixture(
+        property_values=(
+            PropertyValueDomain(
+                object_type="Resource",
+                property_name="id",
+                values=("app-service-plan", "kubernetes-node-pool"),
+                groups=(
+                    PropertyValueGroup(
+                        id="compute",
+                        values=("app-service-plan",),
+                        terms=("virtual-network-gateway",),
+                    ),
+                ),
+            ),
+        )
+    )
+    manifest_plan = _function_plan("query.manifest", output_kind="query.table")
+    t1 = _Model(frame=_frame(output_shape="ontology_manifest"), plan=manifest_plan)
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(
+        service,
+        utterance="app-service-plan and virtual-network-gateway declarations, please",
+    )
 
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
