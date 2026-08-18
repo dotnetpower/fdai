@@ -17,6 +17,7 @@ import { AccessGrantAttention } from "./access-grant-attention";
 import { IncidentAttention } from "./incident-attention";
 import { NavigationShell } from "./navigation-shell";
 import { NavigationTitleProvider } from "./navigation-title";
+import { Tooltip } from "./tooltip";
 
 interface ShellProps {
   readonly activePanelId: string;
@@ -81,16 +82,16 @@ export function Shell({ activePanelId, auth, client, children, onExitLocalSessio
           />
           {auth.localAzureCli && auth.account ? (
             <>
-              <span class="principal-identity" title={auth.account.username}>
-                {auth.account.username}
-              </span>
+              <Tooltip content={auth.account.username}>
+                <span class="principal-identity">{auth.account.username}</span>
+              </Tooltip>
               <span class="badge">Azure CLI</span>
             </>
           ) : auth.devMode && auth.account ? (
             <>
-              <span class="principal-identity" title={auth.account.username}>
-                {auth.account.username}
-              </span>
+              <Tooltip content={auth.account.username}>
+                <span class="principal-identity">{auth.account.username}</span>
+              </Tooltip>
               <span class="badge">Local Entra</span>
               <button type="button" onClick={() => { void auth.signOut(); }}>
                 {t("login.signOut")}
@@ -107,9 +108,9 @@ export function Shell({ activePanelId, auth, client, children, onExitLocalSessio
             </>
           ) : auth.account ? (
             <>
-              <span class="principal-identity" title={auth.account.username}>
-                {auth.account.username}
-              </span>
+              <Tooltip content={auth.account.username}>
+                <span class="principal-identity">{auth.account.username}</span>
+              </Tooltip>
               <button
                 type="button"
                 onClick={() => {
