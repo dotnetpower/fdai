@@ -17,6 +17,17 @@ test("typography has direct, kit, and master navigation entries", () => {
   assert.match(masterLanding, /<h3>Labs<\/h3><span class="count">10<\/span>/);
 });
 
+test("master navigation keeps one quiet, collapsible hierarchy", () => {
+  assert.match(masterLanding, /--nav-w: 248px/);
+  assert.match(masterLanding, /src="console\/public\/brand\/fdai-logo\.png"/);
+  assert.equal((masterLanding.match(/<button class="nav-group-head"/g) || []).length, 8);
+  assert.equal((masterLanding.match(/<button class="fam is-/g) || []).length, 4);
+  assert.match(masterLanding, /\.side \.nav-group a \.dot \{ visibility: hidden; \}/);
+  assert.match(masterLanding, /\.side \.nav-group a\.is-active \.dot \{ visibility: visible; \}/);
+  assert.match(masterLanding, /function revealPageGroup\(page\)/);
+  assert.match(masterLanding, /function setFamilyExpanded\(family, expanded\)/);
+});
+
 test("typography page renders every shared semantic role", () => {
   [
     "page-title",

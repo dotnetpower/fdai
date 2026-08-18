@@ -46,6 +46,23 @@ code { font-family: var(--cs-font-mono); font-size: .88em; background: var(--cs-
 .cs-type-specimen-sample { min-width: 0; margin: 0; overflow-wrap: anywhere; }
 .cs-type-specimen-stack { display: grid; gap: 8px; }
 .cs-type-specimen-stack > * { margin: 0; }
+.cs-type-page .cs-page { width: min(100%, 1040px); margin: 0 auto; padding: 44px 40px 88px; }
+.cs-type-page .cs-page-header { max-width: 76ch; margin-bottom: 0; padding-bottom: 28px; border-bottom: 1px solid var(--cs-hairline); }
+.cs-type-page .cs-section { margin: 56px 0; }
+.cs-type-page .cs-section-head { gap: 16px; margin-bottom: 24px; }
+.cs-type-page .cs-badge-num { width: 24px; height: 24px; margin-top: 0; border-radius: 0; background: transparent; color: var(--cs-text-soft); font-family: var(--cs-font-mono); font-size: 10px; font-weight: 600; }
+.cs-type-page .cs-section-title .cs-desc { max-width: 68ch; font-size: var(--cs-type-compact-size); line-height: var(--cs-type-compact-line-height); }
+.cs-type-page .cs-type-specimen { border-color: color-mix(in srgb, var(--cs-hairline) 78%, transparent); }
+.cs-type-page .cs-type-specimen-row { grid-template-columns: 152px minmax(0, 1fr); gap: 32px; padding: 22px 0; border-color: color-mix(in srgb, var(--cs-hairline) 78%, transparent); }
+.cs-type-page .cs-type-specimen-meta { gap: 5px; }
+.cs-type-page .cs-type-specimen-meta code { padding: 0; background: transparent; color: var(--cs-text-soft); font-size: 10.5px; }
+.cs-type-page .cs-type-specimen-sample { max-width: 76ch; }
+.cs-type-composition { max-width: 76ch; gap: 10px; padding: 24px 0; border-top: 1px solid var(--cs-hairline); border-bottom: 1px solid var(--cs-hairline); }
+@media (max-width: 780px) {
+  .cs-type-page .cs-page { padding: 32px 24px 72px; }
+  .cs-type-page .cs-section { margin: 44px 0; }
+  .cs-type-page .cs-type-specimen-row { grid-template-columns: minmax(0, 1fr); gap: 9px; }
+}
 @media (max-width: 620px) {
   .cs-type-specimen-row { grid-template-columns: minmax(0, 1fr); gap: 8px; }
 }
