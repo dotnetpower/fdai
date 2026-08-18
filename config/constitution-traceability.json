@@ -75,11 +75,11 @@
       "id": "FDAI-CONST-008",
       "status": "planned",
       "owner_docs": ["docs/roadmap/decisioning/escalation-and-standing-authority.md", "docs/roadmap/decisioning/risk-classification.md"],
-      "implementation": ["services/core-control-plane/src/fdai/core/hil_resume"],
-      "schemas": [],
-      "tests": ["services/core-control-plane/tests/core/hil_resume"],
+      "implementation": ["services/core-control-plane/src/fdai/core/hil_resume", "services/core-control-plane/src/fdai/core/standing_authority"],
+      "schemas": ["services/core-control-plane/src/fdai/shared/contracts/authority/standing-authorization.json"],
+      "tests": ["services/core-control-plane/tests/core/hil_resume", "services/core-control-plane/tests/core/standing_authority"],
       "runtime_evidence": ["services/core-control-plane/src/fdai/core/hil_resume"],
-      "gap": "A3-E standing human authorization has no executable catalog schema, evaluator, or production promotion path."
+      "gap": "The A3-E catalog schema, typed record, and deterministic evaluator now exist, and every constitutional condition has a failing case with an exact reason code. The evaluator is unwired by design, mode admits only shadow, and no promotion path, shadow cohort evidence, or runtime revocation store exists."
     },
     {
       "id": "FDAI-CONST-009",

@@ -1,8 +1,8 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: d9680d10faf48efe25376a3598cdb352f85ec3dc
-translation_revised: 2026-08-14
+translation_source_sha: 2b5e1e87152968b1ab44c5e66c7c07764b828298
+translation_revised: 2026-08-18
 ---
 
 # 에스컬레이션과 상시 권한(감독형 OODA 루프)
@@ -33,7 +33,7 @@ translation_revised: 2026-08-14
 | 영구 shadow 에스컬레이션 supervisor | implemented | [`escalation_supervisor.py`](../../../services/core-control-plane/src/fdai/core/hil_resume/escalation_supervisor.py), [`test_escalation_supervisor.py`](../../../services/core-control-plane/tests/core/hil_resume/test_escalation_supervisor.py) | 제한된 스캔, 전달 claim 및 에스컬레이션 예정 관찰이 승인 또는 실행 권한을 진행하지 않도록 구현되어 있습니다. |
 | HIL 재개 및 위임 단계 검증 | implemented | [`coordinator.py`](../../../services/core-control-plane/src/fdai/core/hil_resume/coordinator.py), [`test_delegation.py`](../../../services/core-control-plane/tests/core/hil_resume/test_delegation.py) | 타입이 지정된 경로를 계속하기 전에 재개 스냅샷과 단계 자격을 검증합니다. |
 | 에스컬레이션 사다리 및 긴급도 카탈로그 | in-progress | [`escalation_ladder.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/escalation_ladder.py), [`test_escalation_ladder_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_escalation_ladder_catalog.py), [`rule-catalog/escalation-ladders/`](../../../rule-catalog/escalation-ladders/README.md) | 검토된 사다리 및 긴급도 정책 인스턴스가 fail-closed 로더 및 순수 스케줄 함수와 함께 배포되었으며, 집중 검사가 만료, 대체 전달, starvation 방지, 결정론적 재실행을 다룹니다. Supervisor는 아직 카탈로그를 읽지 않으며, 실행 중인 집합에서 측정된 긴급도 압축 근거는 없습니다. |
-| A3-E 상시 사람 권한 | not-started | [`constitution-traceability.json`](../../../config/constitution-traceability.json), [상시 권한](#상시-권한사전-승인-조건부-실행) | 실행 가능한 상시 권한 스키마, 평가기 또는 운영 승격 경로가 입증되지 않았습니다. 침묵은 권한을 부여하지 않습니다. |
+| A3-E 상시 사람 권한 | in-progress | [`standing-authorization.json`](../../../services/core-control-plane/src/fdai/shared/contracts/authority/standing-authorization.json), [`record.py`](../../../services/core-control-plane/src/fdai/core/standing_authority/record.py), [`evaluator.py`](../../../services/core-control-plane/src/fdai/core/standing_authority/evaluator.py), [`test_evaluator.py`](../../../services/core-control-plane/tests/core/standing_authority/test_evaluator.py) | 카탈로그 스키마, 타입화된 레코드, 결정론적 평가기가 존재하며 모든 헌법 조건을 정확한 reason code로 거부합니다. 평가기는 의도적으로 연결되지 않았고, 결정 경로가 이를 import하면 focused 테스트가 실패합니다. `mode`는 `shadow`만 받으므로 승격 경로가 없습니다. 침묵은 권한을 부여하지 않습니다. |
 
 ### 구현 이력
 
@@ -41,6 +41,7 @@ translation_revised: 2026-08-14
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입하고 기존의 포괄적인 상태 요약을 바로잡았습니다. | `current change`; 구현 범위 표의 현재 소스, 집중 테스트 및 헌법 추적성입니다. | 카탈로그 기반 긴급도와 상시 권한 평가를 제공한 뒤 통제된 shadow 근거를 보존해야 합니다. |
 | 2026-08-14 | in-progress | 검토된 에스컬레이션 사다리와 긴급도 정책 카탈로그 인스턴스를 fail-closed 로더, 결정론적 first-match 선택, 순수 스케줄 함수와 함께 배포했습니다. | `current change`; [`escalation_ladder.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/escalation_ladder.py), [`test_escalation_ladder_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_escalation_ladder_catalog.py); 집중 카탈로그 검사 37건과 rule-catalog 전체 스위트 1251건이 통과했고 strict mypy가 통과했습니다. | Supervisor를 카탈로그에 연결하고 통제된 shadow 집합에서 측정된 긴급도 압축 근거를 보존해야 합니다. |
+| 2026-08-18 | in-progress | A3-E를 사용 가능하게 만들지 않은 채 실행 가능하게 만들었습니다. `authority/standing-authorization.json`이 카탈로그 스키마이고, `record.py`는 문서를 파싱·정규화하며 기본값을 채우는 대신 잘못된 입력을 거부합니다. `evaluator.py`는 모든 헌법 조건이 성립할 때만 적격을 반환하고 항상 첫 번째 실패 조건을 명시합니다. 레코드 부재, 파싱 실패, 시간대 없는 시계는 허용이 아니라 부적격입니다. 스키마는 `mode: shadow`와 resource 또는 resource group 범위만 허용하므로 enforce나 더 넓은 파급 범위는 표현할 수 없습니다. 어느 경로도 평가기를 소비하지 않으며, risk-gate·executor·HIL-resume·control-loop 트리를 파싱해 import가 있으면 실패하는 테스트가 있습니다. | `current change`, 긍정 경로 1건과 조건별 음성 사례를 정확한 reason code로 단언하는 `tests/core/standing_authority` focused 테스트 38건 통과, 작업 범위 Ruff·format·strict mypy 통과, core import 경계 게이트 통과 | envelope 이탈이 0인 통제된 shadow 집합을 보존한 뒤 독립적 승격 검토를 거쳐야 어느 결정 경로도 평가기를 참조할 수 있습니다. 철회 전파와 갱신의 신규 리비전화는 스키마에는 있지만 런타임 저장소가 없습니다. |
 
 ### 남은 작업
 

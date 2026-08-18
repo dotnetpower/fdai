@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/authority/standing-authorization/1.0.0",
+  "title": "StandingAuthorization",
+  "description": "One reviewed, revocable, time-bounded A3-E delegation. Constitutional article 8 requires every condition below. The record is inert until an evaluator admits it, and this version is shadow-only: no promotion path exists.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "authorization_revision",
+    "status",
+    "mode",
+    "requested_by",
+    "approvals",
+    "quorum_required",
+    "valid_from",
+    "valid_until",
+    "service_ref",
+    "scope",
+    "pins",
+    "envelope",
+    "incident_classes",
+    "responders",
+    "evidence"
+  ],
+  "properties": {
+    "schema_version": {"type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$"},
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{1,127}$"},
+    "authorization_revision": {"type": "string", "minLength": 1},
+    "status": {"type": "string", "enum": ["active", "revoked", "expired", "superseded"]},
+    "mode": {
+      "type": "string",
+      "enum": ["shadow"],
+      "description": "Only shadow ships. Enforce requires a governed shadow cohort and an independent promotion review that does not exist yet."
+    },
+    "requested_by": {"type": "string", "minLength": 1},
+    "approvals": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["principal", "role", "approved_at"],
+        "properties": {
+          "principal": {"type": "string", "minLength": 1},
+          "role": {"type": "string", "enum": ["service_owner", "owner", "approver"]},
+          "approved_at": {"type": "string", "format": "date-time"}
+        }
+      }
+    },
+    "quorum_required": {"type": "integer", "minimum": 2},
+    "valid_from": {"type": "string", "format": "date-time"},
+    "valid_until": {"type": "string", "format": "date-time"},
+    "service_ref": {"type": "string", "minLength": 1},
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "value"],
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["resource", "resource_group"],
+          "description": "Resource-group-equivalent or narrower. Subscription and tenant scope are never eligible."
+        },
+        "value": {"type": "string", "minLength": 1}
+      }
+    },
+    "pins": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy_digest",
+        "target_revision",
+        "action_type_versions",
+        "evidence_revisions"
+      ],
+      "properties": {
+        "policy_digest": {"type": "string", "minLength": 1},
+        "target_revision": {"type": "string", "minLength": 1},
+        "action_type_versions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*@\\d+\\.\\d+\\.\\d+$"}
+        },
+        "evidence_revisions": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "envelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_types",
+        "max_blast_radius",
+        "max_duration_seconds",
+        "reversible",
+        "rollback_contract",
+        "stop_conditions"
+      ],
+      "properties": {
+        "action_types": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "max_blast_radius": {"type": "integer", "minimum": 1},
+        "max_duration_seconds": {"type": "integer", "minimum": 1},
+        "reversible": {"type": "boolean"},
+        "rollback_contract": {
+          "type": "string",
+          "enum": ["pr_revert", "scripted", "pitr", "snapshot_restore", "state_forward_only"]
+        },
+        "stop_conditions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "incident_classes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "responders": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary", "backup", "confirmed_at"],
+      "properties": {
+        "primary": {"type": "string", "minLength": 1},
+        "backup": {"type": "string", "minLength": 1},
+        "confirmed_at": {"type": "string", "format": "date-time"}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["history_reviewed"],
+      "properties": {
+        "history_reviewed": {"type": "boolean"},
+        "precedent_ref": {"type": ["string", "null"]},
+        "scenario_evidence_ref": {"type": ["string", "null"]}
+      }
+    }
+  }
+}
