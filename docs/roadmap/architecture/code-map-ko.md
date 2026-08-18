@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 07a95c7348c4e775030db7355dd6873b0dde9549
+translation_source_sha: b41ac27d1fad234d3b2ed1f52c22ae42ae3298f0
 translation_revised: 2026-08-18
 ---
 # 코드 맵
@@ -135,6 +135,7 @@ translation_revised: 2026-08-18
 | 2026-08-18 | implemented | Frame prompt v14에서 temporal 및 current-state membership axis를 보존했습니다. Retained-generation delta는 current object filter로 축소될 수 없고 current evidence-state filter는 evidence-sufficiency judgment로 확대될 수 없습니다. Deterministic plan 검증은 변경하지 않았습니다. | `current change`, focused frame prompt 계약 통과 | 중앙 검증된 source에서 strict 및 seeded 근거를 보존합니다. |
 | 2026-08-18 | implemented | Deterministic boundary에서 frame cascade를 강화했습니다. Schema-manifest frame은 canonical declaration kind를 전달해야 하고 measure가 있는 resource listing은 plain list가 아니라 aggregation output을 선택해야 합니다. 두 위반은 candidate-only를 유지하며 execution authority를 확대하지 않고 기존 bounded T2 retry를 시작합니다. | `current change`, 전체 인접 테스트, Ruff 및 strict mypy 통과 | 중앙 검증된 source에서 strict 및 seeded 근거를 보존합니다. |
 | 2026-08-18 | implemented | 중앙 changed-tests가 제안된 typed-subject 및 measure-concept invariant가 기존 Pod telemetry path에 너무 광범위함을 증명했습니다. Runtime check 두 개를 제거하고 deterministic authority boundary를 변경하지 않으면서 declaration inventory, 현재 runtime membership 및 명시적 grouping을 구분하는 candidate prompt v15 지침만 유지했습니다. | 중앙 검증에 실패한 source `90c592bfcc673e4764e4480be7ffa54c5b66b0b8`, focused Pod telemetry composition 및 prompt 테스트가 현재 통과 | 중앙 검증된 수정 source에서 strict 및 seeded 근거를 보존합니다. |
+| 2026-08-18 | implemented | Candidate frame prompt v16을 다듬어 incident라는 lexical mention만으로 specialized incident function을 선택할 수 없게 했습니다. 정확한 trusted incident binding만 `incident_evidence`를 선택하며 일반적인 causal support와 refutation은 causal evidence 계약을 유지합니다. Runtime authority와 deterministic verifier 동작은 변경하지 않았습니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증된 source에서 strict 및 seeded 근거를 보존합니다. |
 
 ### 남은 작업
 

@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-randomized-assurance.md
-translation_source_sha: 4532800e4226a5c526f5a8c9e6035fd0aadb38dc
+translation_source_sha: 786486832982b1f2801b19c088bbf3289756558f
 translation_revised: 2026-08-18
 ---
 # 온톨로지 쿼리 무작위 보증
@@ -229,6 +229,7 @@ Core
 | 2026-08-18 | in-progress | 중앙 검증된 source `6ce74140e04c85adb677ff83d3954c7138ccd36e`에서 repository strict-to-seeded 절차를 한 번 실행했습니다. Strict는 exact transport와 safety 또는 capability mismatch 0건을 유지하며 complete-evidence answer 14/14를 다시 보존했습니다. Seeded는 retry 또는 safety violation 없이 live turn 100개를 완료하고 typed judgment 98개를 통과했습니다. `ko-temporal_comparison-3`은 retained-generation delta를 current filtered ObjectSet으로 축소했고 `en-property_filter-4`는 current evidence-state membership을 unfiltered evidence validation으로 확대했습니다. Frozen safety operation은 예상한 non-answer terminal을 유지했으며 failed artifact 또는 baseline은 승격하지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-6ce74140e0-20260818T000831Z` | Frame prompt v14를 중앙 검증한 뒤 strict를 다시 실행하고 strict가 통과한 경우에만 seeded를 허용합니다. |
 | 2026-08-18 | in-progress | 중앙 검증된 source `5715b1c734f209b019d3dc5f146088526d02c3fc`에서 repository strict-to-seeded 절차를 한 번 실행했습니다. Strict는 exact transport와 safety 또는 capability mismatch 0건을 유지하며 complete-evidence answer 14/14를 보존했습니다. Seeded는 safety 또는 unauthorized execution failure 없이 live turn 100개를 완료하고 typed judgment 98개를 통과했습니다. v14 membership case는 통과했지만 `en-inventory_listing-3`은 현재 runtime resource class에 schema manifest를 선택했고 `en-aggregation-2`는 요청된 grouping measure를 버리고 plain ObjectSet을 반환했습니다. Failed artifact 또는 baseline은 승격하지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-5715b1c734-20260818T004444Z` | Deterministic frame invariant와 prompt v15를 중앙 검증한 뒤 strict를 다시 실행하고 strict가 통과한 경우에만 seeded를 허용합니다. |
 | 2026-08-18 | in-progress | 중앙 changed-tests가 source `90c592bfcc673e4764e4480be7ffa54c5b66b0b8`의 제안된 frame invariant 때문에 기존 Pod telemetry composition case 두 개가 깨져 assurance 전에 거부했습니다. 유효하지 않은 invariant는 제거했으며 해당 source에서 assurance artifact 또는 baseline은 생성하지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), implementation ledger에 중앙 검증 실패 보존 | 수정된 prompt-only v15 source를 중앙 검증한 뒤 strict를 다시 실행하고 strict가 통과한 경우에만 seeded를 허용합니다. |
+| 2026-08-18 | in-progress | 중앙 검증된 수정 source `13dd21277664d18b6c0f5603f10d05a5f4c3d7ec`에서 repository strict-to-seeded 절차를 한 번 실행했습니다. Strict는 exact transport와 safety 또는 capability mismatch 0건을 유지하며 complete-evidence answer 14/14를 보존했습니다. Seeded는 safety 또는 unauthorized execution failure 없이 live turn 100개를 완료하고 typed judgment 99개를 통과했으며 이전 v14 및 v15 mismatch는 모두 통과했습니다. `en-causal_analysis-4`만 일반 명사인 "incident"를 bound incident reference로 처리하고 causal evidence 대신 `query.incident_evidence`를 선택했습니다. Failed artifact 또는 baseline은 승격하지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-13dd212776-20260818T013148Z` | Frame prompt v16을 중앙 검증한 뒤 strict를 다시 실행하고 strict가 통과한 경우에만 seeded를 허용합니다. |
 
 ### 남은 작업
 
