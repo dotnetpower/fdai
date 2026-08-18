@@ -115,6 +115,36 @@ export function overviewAttentionCount(
   return kpi.hil_pending + (policyEscapes ?? 0) + failedGuards;
 }
 
+export type AttentionState = "attention" | "clear" | "unknown";
+
+export interface ControlGapSummary {
+  readonly count: number;
+  readonly state: AttentionState;
+  readonly measured: boolean;
+}
+
+/**
+ * A counted gap is a true lower bound, so it is reported even while another source is
+ * missing. A zero is only reportable once every source that could raise it was measured.
+ */
+export function controlGapSummary(
+  kpi: DashboardKpi,
+  policyEscapes: number | null,
+  gates: GatesSummary | null,
+  autonomy: Pick<AutonomyPayload, "guards" | "synthetic"> | null,
+): ControlGapSummary {
+  const measuredGuards = autonomy !== null && !autonomy.synthetic;
+  const count =
+    (measuredGuards ? autonomy.guards.filter((guard) => !guard.ok).length : 0) +
+    (kpi.shadow_share < 0.95 ? 1 : 0) +
+    (gates !== null && gates.blocked_count > 0 ? 1 : 0) +
+    (policyEscapes !== null && policyEscapes > 0 ? 1 : 0);
+  const sourcesMeasured = measuredGuards && gates !== null && policyEscapes !== null;
+  if (count > 0) return { count, state: "attention", measured: true };
+  if (sourcesMeasured) return { count, state: "clear", measured: true };
+  return { count, state: "unknown", measured: false };
+}
+
 export function controlOutcomeGroup(outcome: string): (typeof CONTROL_OUTCOME_ORDER)[number] {
   const normalized = outcome.trim().toLowerCase().replaceAll("-", "_");
   if (
