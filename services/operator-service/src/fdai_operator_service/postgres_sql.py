@@ -160,7 +160,21 @@ SELECT occurred_at, correlation_id, capability_id, model_key, tier, mode,
 """
 
 HIL_COUNT_SQL: Final = """
-SELECT COUNT(*) AS total_count
+SELECT COUNT(*) AS total_count,
+       COUNT(*) FILTER (WHERE NOT (
+            jsonb_typeof(value->'approval_id') = 'string'
+        AND TRIM(value->>'approval_id') <> ''
+        AND jsonb_typeof(value->'parked_at') = 'string'
+        AND TRIM(value->>'parked_at') <> ''
+        AND jsonb_typeof(value#>'{action,event_id}') = 'string'
+        AND TRIM(value#>>'{action,event_id}') <> ''
+        AND (
+             (jsonb_typeof(value->'idempotency_key') = 'string'
+              AND TRIM(value->>'idempotency_key') <> '')
+          OR (jsonb_typeof(value#>'{action,idempotency_key}') = 'string'
+              AND TRIM(value#>>'{action,idempotency_key}') <> '')
+        )
+       )) AS unprojectable_count
   FROM state_kv
  WHERE key LIKE %(key_pattern)s
    AND value->>'status' = 'pending'

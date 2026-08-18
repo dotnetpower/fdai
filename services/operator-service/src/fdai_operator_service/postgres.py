@@ -175,10 +175,13 @@ class PostgresOperatorReadModel:
                 HIL_COUNT_SQL,
                 {"key_pattern": HIL_KEY_PATTERN},
             )
-            return HilQueueProjection(
-                items=(),
-                total=int(rows[0]["total_count"]) if rows else 0,
-            )
+            if not rows:
+                return HilQueueProjection(items=(), total=0)
+            # A count the detail path cannot render would tell a reader the queue is
+            # healthy while an approver sees it fail closed.
+            if int(rows[0]["unprojectable_count"]) > 0:
+                raise ProjectionUnavailableError("authoritative PostgreSQL HIL row is malformed")
+            return HilQueueProjection(items=(), total=int(rows[0]["total_count"]))
         rows = await self._fetch_all(
             HIL_PAGE_SQL,
             {

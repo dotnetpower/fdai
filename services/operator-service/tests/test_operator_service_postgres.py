@@ -49,6 +49,7 @@ from fdai_operator_service.postgres_sql import (
     LLM_USAGE_RECORDS_SQL,
     LLM_USAGE_SUMMARIES_SQL,
 )
+from fdai_operator_service.projection_logic import hil_item
 from fdai_operator_service.routes import _sse_frame
 from fdai_service_contracts import (
     AgentActivityQuery,
@@ -60,6 +61,25 @@ from fdai_service_contracts import (
 
 _NOW = datetime(2026, 8, 8, tzinfo=UTC)
 _GRANT_EXPIRY = datetime(2099, 1, 1, tzinfo=UTC)
+
+
+def _hil_row() -> dict[str, Any]:
+    """One authoritative pending park record the projection can render."""
+    return {
+        "total_count": 1,
+        "updated_at": _NOW,
+        "value": {
+            "approval_id": "approval-1",
+            "parked_at": _NOW.isoformat(),
+            "idempotency_key": "idem-1",
+            "action": {
+                "event_id": "00000000-0000-0000-0000-000000000001",
+                "action_type": "compute.restart",
+                "target_resource_ref": "resource-1",
+                "credential": "must-not-leak",
+            },
+        },
+    }
 
 
 class ReadinessPostgresFamilyStore(PostgresFamilyStore):
@@ -655,7 +675,9 @@ class StubPostgresReadModel(PostgresOperatorReadModel):
         if statement == KPI_SAMPLE_SQL:
             return self.audit_rows
         if statement == HIL_COUNT_SQL:
-            return [{"total_count": len(self.hil_rows)}]
+            # Mirrors the SQL projectability filter so the count agrees with the page.
+            unprojectable = sum(1 for row in self.hil_rows if hil_item(row) is None)
+            return [{"total_count": len(self.hil_rows), "unprojectable_count": unprojectable}]
         if statement == HIL_PAGE_SQL:
             return self.hil_rows
         if statement == INCIDENT_PAGE_SQL:
@@ -751,23 +773,7 @@ async def test_audit_projection_normalizes_null_string_correlation() -> None:
 @pytest.mark.asyncio
 async def test_hil_reader_gets_count_only_and_approver_gets_redacted_detail() -> None:
     model = StubPostgresReadModel()
-    model.hil_rows = [
-        {
-            "total_count": 1,
-            "updated_at": _NOW,
-            "value": {
-                "approval_id": "approval-1",
-                "parked_at": _NOW.isoformat(),
-                "idempotency_key": "idem-1",
-                "action": {
-                    "event_id": "00000000-0000-0000-0000-000000000001",
-                    "action_type": "compute.restart",
-                    "target_resource_ref": "resource-1",
-                    "credential": "must-not-leak",
-                },
-            },
-        }
-    ]
+    model.hil_rows = [_hil_row()]
 
     count_only = await model.list_hil_queue(
         HilQueueQuery(limit=50, search=None, include_details=False)
@@ -795,6 +801,32 @@ async def test_malformed_authoritative_hil_row_fails_closed() -> None:
 
     with pytest.raises(RuntimeError, match="HIL row is malformed"):
         await model.list_hil_queue(HilQueueQuery(limit=50, search=None, include_details=True))
+
+
+@pytest.mark.asyncio
+async def test_count_only_hil_queue_fails_closed_on_a_mixed_page() -> None:
+    """A reader without approval roles MUST NOT see a total the page cannot render."""
+    model = StubPostgresReadModel()
+    model.hil_rows = [
+        _hil_row(),
+        {"total_count": 2, "value": {"approval_id": "incomplete"}},
+    ]
+
+    with pytest.raises(RuntimeError, match="HIL row is malformed"):
+        await model.list_hil_queue(HilQueueQuery(limit=50, search=None, include_details=False))
+
+
+@pytest.mark.asyncio
+async def test_count_only_hil_queue_reports_a_renderable_total() -> None:
+    model = StubPostgresReadModel()
+    model.hil_rows = [_hil_row()]
+
+    projection = await model.list_hil_queue(
+        HilQueueQuery(limit=50, search=None, include_details=False)
+    )
+
+    assert projection.total == 1
+    assert projection.items == ()
 
 
 @pytest.mark.asyncio
