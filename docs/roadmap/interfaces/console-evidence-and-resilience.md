@@ -3,13 +3,9 @@ title: Console Evidence and Resilience
 ---
 
 # Console Evidence and Resilience
-
 This document owns the operator console contracts for evidence provenance, localization, stream recovery, durable replay, and Architecture-map resilience. The conversational tool and RBAC contract remains in [operator-console.md](operator-console.md).
-
 ## Implementation status
-
 ### Implementation scope
-
 | Area | State | Evidence | Notes |
 |------|-------|----------|-----------|
 | Governed ontology assurance provenance | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`; `console/tests/live-e2e/assurance-budget.ts`; `console/tests/live-e2e/assurance-checkpoint.ts`; focused Vitest: 143 passed | The strengthened release gate requires complete verified answers for every operation in both locales and rejects any ambient or incident-bound chat request. The run is bounded by a derived budget with per-question and no-progress deadlines and resumes from an evidence-identity-bound checkpoint, and an exhausted budget never reports a ready artifact. |

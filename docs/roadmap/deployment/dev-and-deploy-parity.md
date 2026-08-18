@@ -3,23 +3,14 @@ title: Runtime Parity - Authoritative Local Development and Test Fixtures
 ---
 # Runtime Parity - Authoritative Local Development and Test Fixtures
 
-**Goal**: automated tests remain deterministic and secret-free, while every interactive local Console
-session shows the operator's actual Azure development environment. Azure deployment still uses the **deployer's Azure permissions + region catalog to decide which LLM and other resources are provisioned**. Three truths hold at the same time:
+**Goal**: automated tests remain deterministic and secret-free, while every interactive local Console session shows the operator's actual Azure development environment. Azure deployment still uses the **deployer's Azure permissions + region catalog to decide which LLM and other resources are provisioned**. Three truths hold at the same time:
 
 - **Automated-test truth**: pytest and committed mocks may bind deterministic fakes. They use an explicit test-fixture builder and never represent observed Azure state.
-- **Full-stack local truth**: `Console Web: Full Stack` uses browser Entra sign-in with the same App Role checks as deployment. The server's Azure CLI session supplies provider credentials for
-  the Azure development data plane only. Inventory, model availability, agent activity, Process
-  state, promotion evidence, and audit data appear only from authoritative providers. Missing
-  sources render unavailable or explicitly empty; the Console never substitutes generated examples.
-- **Deploy truth**: `terraform apply` provisions the Azure-side realizations of the
-  CSP-neutral contracts. The **LLM subset is deployer-scoped**: the bootstrap resolver
-  queries the deployer's identity against the target region's catalog, provisions
-  **only what the deployer has permission to create**, and records the resolved
-  `{capability → deployment}` mapping plus resolver input provenance in the artifact.
+- **Full-stack local truth**: `Console Web: Full Stack` uses browser Entra sign-in with the same App Role checks as deployment. The server's Azure CLI session supplies provider credentials for the Azure development data plane only. Inventory, model availability, agent activity, Process state, promotion evidence, and audit data appear only from authoritative providers.
+  Missing sources render unavailable or explicitly empty; the Console never substitutes generated examples.
+- **Deploy truth**: `terraform apply` provisions the Azure-side realizations of the CSP-neutral contracts. The **LLM subset is deployer-scoped**: the bootstrap resolver queries the deployer's identity against the target region's catalog, provisions **only what the deployer has permission to create**, and records the resolved `{capability → deployment}` mapping plus resolver input provenance in the artifact.
 
-All profiles share **one control path**: only composition-root adapters and credentials differ
-([project-structure.md § Customization via Dependency Injection](../architecture/project-structure.md#customization-via-dependency-injection)). Its reviewed docstring records the existing boundary and does not create a runtime,
-change state ownership, or allow fixtures. Adding a real Azure client is a fork-side injection; it MUST NOT edit `core/`.
+All profiles share **one control path**: only composition-root adapters and credentials differ ([project-structure.md § Customization via Dependency Injection](../architecture/project-structure.md#customization-via-dependency-injection)). Its reviewed docstring records the existing boundary and does not create a runtime, change state ownership, or allow fixtures. Adding a real Azure client is a fork-side injection; it MUST NOT edit `core/`.
 
 ## Implementation status
 

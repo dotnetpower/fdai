@@ -1,7 +1,7 @@
 ---
 title: Action 온톨로지
 translation_of: action-ontology.md
-translation_source_sha: 8213b8882218fbe6890b2b8b2f43b945eb0dd754
+translation_source_sha: bf02eae4996798998de83f4be379e08ddf240cc4
 translation_revised: 2026-08-19
 ---
 
@@ -11,11 +11,8 @@ FDAI 의 모든 액션 - 룰이 발화시킨 교정 이든 오퍼레이터가 �
 
 이 온톨로지의 소비자:
 
-- T0Engine + ActionBuilder ([phase-1](../phases/phase-1-rule-catalog-t0-ko.md))
-  는 룰이 발화시킨 액션을 빌드할 때 `rollback_contract`, `preconditions`, `stop_conditions`, `blast_radius` 를 읽기.
-- 통합 RiskGate + 실행기 ([execution-model.md](execution-model-ko.md))
-  는 실행 **여부** 와 **방법** 을 결정할 때 계층 상한, min-role, 실행 경로를 읽습니다.
-  Live-probe 참조는 카탈로그에서 검증되지만 런타임 RiskGate 통합은 아직 필요합니다.
+- T0Engine + ActionBuilder ([phase-1](../phases/phase-1-rule-catalog-t0-ko.md)) 는 룰이 발화시킨 액션을 빌드할 때 `rollback_contract`, `preconditions`, `stop_conditions`, `blast_radius` 를 읽기.
+- 통합 RiskGate + 실행기 ([execution-model.md](execution-model-ko.md)) 는 실행 **여부** 와 **방법** 을 결정할 때 계층 상한, min-role, 실행 경로를 읽습니다. Live-probe 참조는 카탈로그에서 검증되지만 런타임 RiskGate 통합은 아직 필요합니다.
 - 오퍼레이터 콘솔 서술기 ([operator-console.md](../interfaces/operator-console-ko.md))
   는 ops-flavoured 도구 호출 을 제안하거나 실행할 때 `trigger_kind`, `description`, `argument_schema` 를 읽기.
 

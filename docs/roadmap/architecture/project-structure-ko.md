@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 44c16aa27c1dae2e43b27182ed13d99890cf3fee
+translation_source_sha: cda020ac0374454e76f7ac6b63f4f2d0d3606e4d
 translation_revised: 2026-08-19
 ---
 # 프로젝트 구조
@@ -10,8 +10,7 @@ translation_revised: 2026-08-19
 아래 배치는 물리적인 service-owned 트리를 기록하며, 완료 근거와 폐기 기준은 [서비스 분해 실행 계획](service-decomposition-execution-plan-ko.md#최종-리포지토리-레이아웃)에서 정의합니다.
 고정된 에이전트 15개가 타입이 지정된 이벤트로 컨트롤 루프를 소유합니다. 프로세스 분리는
 [서비스 승격과 데이터 소유권](service-graduation-and-ownership-ko.md), 모듈 이름은 [아키텍처](../../../.github/instructions/architecture.instructions.md)를 따릅니다.
-로컬 5개 서비스 프로필은 loopback PostgreSQL, Redpanda, filesystem 문서 저장소 및 ClamAV를 사용하면서 각 패키지를 독립적으로 유지합니다. 배포 조립은 shared wire 계약을 바꾸지 않고
-해당 adapter를 service-owned managed 구현으로 교체합니다.
+로컬 5개 서비스 프로필은 loopback PostgreSQL, Redpanda, filesystem 문서 저장소 및 ClamAV를 사용하면서 각 패키지를 독립적으로 유지합니다. 배포 조립은 shared wire 계약을 바꾸지 않고 해당 adapter를 service-owned managed 구현으로 교체합니다.
 
 ## 구현 상태
 ### 구현 범위

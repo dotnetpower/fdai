@@ -1,38 +1,28 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 832ab04478b43d963eb3bac53edb026416964b99
+translation_source_sha: 1dcd54979da0fedd2dafba8f1f3b4e3aff25966d
 translation_revised: 2026-08-19
 ---
 # FDAI 운영 온톨로지
 
-이 문서는 FDAI의 15개 에이전트가 사용하는 타입이 지정된 operational truth infrastructure를 정의합니다.
-활성 컨트롤 플레인은 에이전트이며, 온톨로지는 대상 신원, 의존성, 목표, 근거,
-허용 액션, 예상 효과의 해석이 서로 달라지지 않도록 제한합니다. 업스트림은 안정적인
-cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의도를 제공합니다.
+이 문서는 FDAI의 15개 에이전트가 사용하는 타입이 지정된 operational truth infrastructure를 정의합니다. 활성 컨트롤 플레인은 에이전트이며, 온톨로지는 대상 신원, 의존성, 목표, 근거,
+허용 액션, 예상 효과의 해석이 서로 달라지지 않도록 제한합니다. 업스트림은 안정적인 cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의도를 제공합니다.
 
-> **Positioning:** FDAI는 agent-driven이며 ontology-driven이 아닙니다. Graph는 해석을 제한하고
-> 에이전트 작업을 재생 가능하게 하지만 sensing, judgment, 승인, 실행, 복구, learning을
-> 수행하지 않습니다. 다만 그래프는 필수 읽기 경로입니다. 운영 질문은 ad hoc 프로바이더 조회가 아니라
-> 온톨로지를 통해 객체 신원, 관계, 근거를 해석하므로, 답이 의존하는 근거는
+> **Positioning:** FDAI는 agent-driven이며 ontology-driven이 아닙니다. Graph는 해석을 제한하고 에이전트 작업을 재생 가능하게 하지만 sensing, judgment, 승인, 실행, 복구, learning을 수행하지 않습니다.
+> 다만 그래프는 필수 읽기 경로입니다. 운영 질문은 ad hoc 프로바이더 조회가 아니라 온톨로지를 통해 객체 신원, 관계, 근거를 해석하므로, 답이 의존하는 근거는
 > 타입이 지정된·범위가 제한된·citable 상태로 유지되고 관측하지 못한 범위까지 밝힐 수 있습니다.
 
-> **권한 경계:** 온톨로지 그래프는 공유 의미 읽기 모델이며 변경 가능한 system of 기록 또는
-> 실행 표면이 아닙니다. Event, 승인된 구성, 텔레메트리 출처, 추가 전용 감사
+> **권한 경계:** 온톨로지 그래프는 공유 의미 읽기 모델이며 변경 가능한 system of 기록 또는 실행 표면이 아닙니다. Event, 승인된 구성, 텔레메트리 출처, 추가 전용 감사
 > 원장, catalog-as-code는 각자 소유한 사실의 권한으로 유지됩니다.
 >
-> 변환 결과 갱신은 언제나 권위 있는 재관측을 뒤따릅니다. 의도했거나 발송한 효과를 되쓰는
-> write-back이 아닙니다. 실행기 결과는 `execution_ledger` 권한을 지닌 `execution` lane 사실이며,
-> `shared/providers/state_evidence.py`의 lane 행렬이 이를 `observed`, `derived`, `desired`
-> lane에서 거부합니다. 따라서 "FDAI가 바꿨으니 그래프가 바뀌었다고 말한다"는 경로는 표현
-> 자체가 불가능합니다.
+> 변환 결과 갱신은 언제나 권위 있는 재관측을 뒤따릅니다. 의도했거나 발송한 효과를 되쓰는 write-back이 아닙니다. 실행기 결과는 `execution_ledger` 권한을 지닌 `execution` lane 사실이며,
+> `shared/providers/state_evidence.py`의 lane 행렬이 이를 `observed`, `derived`, `desired` lane에서 거부합니다. 따라서 "FDAI가 바꿨으니 그래프가 바뀌었다고 말한다"는 경로는 표현 자체가 불가능합니다.
 >
-> **안전 경계:** 온톨로지 맥락은 자율성을 유지하거나 낮출 수만 있습니다. 누락되거나
-> 오래되거나 충돌하거나 입증되지 않은 맥락은 알 수 없음으로 남고 범위가 제한된 근거 복구,
+> **안전 경계:** 온톨로지 맥락은 자율성을 유지하거나 낮출 수만 있습니다. 누락되거나 오래되거나 충돌하거나 입증되지 않은 맥락은 알 수 없음으로 남고 범위가 제한된 근거 복구,
 > 더 작은 safe 계획, no-op 또는 검토를 유발합니다. 실행 권한을 제공하지 않습니다.
 >
-> **구현 상태(2026-08-08):** O1-O4는 의미 선언, 변경할 수 없는 맥락, Forseti 상한
-> 배선, decision-case 선택, 응답 종결, Muninn/Norns learning intake를 구현합니다.
+> **구현 상태(2026-08-08):** O1-O4는 의미 선언, 변경할 수 없는 맥락, Forseti 상한 배선, decision-case 선택, 응답 종결, Muninn/Norns learning intake를 구현합니다.
 > `OperatingModelProvider`는 범위가 제한된 배포 인스턴스를 project하고 맥락 스냅샷은 타입이 지정된
 > 근거 경로, 개정 번호, effective 시간, 출처 이력, 완전한 최신성 증적을 보존합니다.
 > M3는 관찰된, derived, desired, 실행 레인에 변경할 수 없는 `StateFactMetadata`를 추가합니다.

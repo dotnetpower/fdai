@@ -3,36 +3,25 @@ title: FDAI Operating Ontology
 ---
 # FDAI Operating Ontology
 
-This document defines the typed operational truth infrastructure used by FDAI's 15 agents. Agents
-remain the active control plane; the ontology prevents them from disagreeing about target identity,
-dependencies, objectives, evidence, allowed actions, and expected effects. Upstream owns stable
-cloud-operations concepts, while each deployment supplies its observed instances and intent.
+This document defines the typed operational truth infrastructure used by FDAI's 15 agents. Agents remain the active control plane; the ontology prevents them from disagreeing about target identity,
+dependencies, objectives, evidence, allowed actions, and expected effects. Upstream owns stable cloud-operations concepts, while each deployment supplies its observed instances and intent.
 
-> **Positioning:** FDAI is agent-driven, not ontology-driven. The graph constrains interpretation
-> and makes agent work replayable; it never senses, judges, approves, executes, recovers, or learns.
-> It is nonetheless the required read path. An operational question resolves object identity,
-> relationships, and evidence through the ontology instead of an ad hoc provider query, so the
-> evidence an answer depends on stays typed, bounded, citable, and complete enough to name what it
-> did not observe.
+> **Positioning:** FDAI is agent-driven, not ontology-driven. The graph constrains interpretation and makes agent work replayable; it never senses, judges, approves, executes, recovers, or learns.
+> It is nonetheless the required read path. An operational question resolves object identity, relationships, and evidence through the ontology instead of an ad hoc provider query, so the
+> evidence an answer depends on stays typed, bounded, citable, and complete enough to name what it did not observe.
 
-> **Authority boundary:** The ontology graph is a shared semantic read model, not a mutable system
-> of record and not an execution surface. Events, approved configuration, telemetry sources, the
+> **Authority boundary:** The ontology graph is a shared semantic read model, not a mutable system of record and not an execution surface. Events, approved configuration, telemetry sources, the
 > append-only audit ledger, and catalog-as-code remain authoritative for their own facts.
 >
-> A projection refresh always follows an authoritative re-observation. It is never a write-back of
-> an intended or dispatched effect: an executor result is an `execution` lane fact carrying
-> `execution_ledger` authority, and the lane matrix in `shared/providers/state_evidence.py` rejects
-> it in the `observed`, `derived`, and `desired` lanes. "FDAI changed it, so the graph says it
+> A projection refresh always follows an authoritative re-observation. It is never a write-back of an intended or dispatched effect: an executor result is an `execution` lane fact carrying
+> `execution_ledger` authority, and the lane matrix in `shared/providers/state_evidence.py` rejects it in the `observed`, `derived`, and `desired` lanes. "FDAI changed it, so the graph says it
 > changed" is therefore not an expressible path.
 >
-> **Safety boundary:** Ontology context can only preserve or lower autonomy. Missing, stale,
-> conflicting, or unproven context remains explicitly unknown and triggers bounded evidence
+> **Safety boundary:** Ontology context can only preserve or lower autonomy. Missing, stale, conflicting, or unproven context remains explicitly unknown and triggers bounded evidence
 > recovery, a smaller safe plan, no-op, or review. It never supplies permission to execute.
 >
-> **Implementation status (2026-08-08):** O1-O4 implement semantic declarations, immutable context,
-> Forseti ceiling wiring, decision-case selection, response closure, and Muninn/Norns learning
-> intake. `OperatingModelProvider` projects bounded deployment instances; context snapshots retain
-> typed evidence paths, revisions, effective time, provenance, and complete freshness receipts.
+> **Implementation status (2026-08-08):** O1-O4 implement semantic declarations, immutable context, Forseti ceiling wiring, decision-case selection, response closure, and Muninn/Norns learning
+> intake. `OperatingModelProvider` projects bounded deployment instances; context snapshots retain typed evidence paths, revisions, effective time, provenance, and complete freshness receipts.
 > M3 adds immutable `StateFactMetadata` for observed, derived, desired, and execution lanes.
 > Optional inventory link observation metadata survives ontology projection and operational-context
 > materialization, contributes to snapshot identity, and lowers the snapshot ceiling when evidence

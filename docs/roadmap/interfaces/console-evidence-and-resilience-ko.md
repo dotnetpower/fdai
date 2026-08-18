@@ -1,18 +1,14 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 78a01dd4fc454819db1907dd3256defa0ef3ccc6
+translation_source_sha: 127d35b99b91d46fd894659710d4045e97a6bac2
 translation_revised: 2026-08-19
 ---
 
 # 콘솔 근거 및 복원력
-
 이 문서는 운영자 콘솔의 근거 출처 이력, localization, 스트림 복구, 영속 재생 및 아키텍처 지도 복원력 계약을 소유합니다. 대화형 도구 및 RBAC 계약은 [operator-console-ko.md](operator-console-ko.md)에 유지됩니다.
-
 ## 구현 상태
-
 ### 구현 범위
-
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|-----------|
 | 통제된 온톨로지 보증 출처 이력 | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`, `console/tests/live-e2e/assurance-budget.ts`, `console/tests/live-e2e/assurance-checkpoint.ts`, focused Vitest 143개 통과 | 강화된 release gate는 두 locale의 모든 operation에 완전하게 검증된 답변을 요구하고 ambient 또는 incident-bound chat 요청을 거부합니다. 실행은 질문별 및 무진행 deadline을 갖춘 유도된 budget으로 제한되고 evidence identity에 바인딩된 checkpoint에서 재개하며, 소진된 budget은 ready 아티팩트를 보고하지 않습니다. |

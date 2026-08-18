@@ -4,15 +4,12 @@ title: Action Ontology
 
 # Action Ontology
 
-Every FDAI action - whether a rule-fired remediation or an operator-requested ops task - is one
-instance of an **`ActionType`** entry in the shipped ontology. This document is authoritative for the schema, the trigger axis (`rule_violation` vs `operator_request`), the tier and role ceilings, the live-probe reference, and the **fork-override seams** that let a customer redefine any of these without editing `core/`.
+Every FDAI action - whether a rule-fired remediation or an operator-requested ops task - is one instance of an **`ActionType`** entry in the shipped ontology. This document is authoritative for the schema, the trigger axis (`rule_violation` vs `operator_request`), the tier and role ceilings, the live-probe reference, and the **fork-override seams** that let a customer redefine any of these without editing `core/`.
 
 Consumers of this ontology:
 
-- The T0Engine + ActionBuilder ([phase-1](../phases/phase-1-rule-catalog-t0.md)) reads
-  `rollback_contract`, `preconditions`, `stop_conditions`, and `blast_radius` when building a rule-fired action.
-- The unified RiskGate + Executor ([execution-model.md](execution-model.md))
-  reads the tier ceiling, min-role, and execution path to decide **whether** and **how** to run.
+- The T0Engine + ActionBuilder ([phase-1](../phases/phase-1-rule-catalog-t0.md)) reads `rollback_contract`, `preconditions`, `stop_conditions`, and `blast_radius` when building a rule-fired action.
+- The unified RiskGate + Executor ([execution-model.md](execution-model.md)) reads the tier ceiling, min-role, and execution path to decide **whether** and **how** to run.
   The live-probe reference is catalog-validated but still requires runtime RiskGate integration.
 - The operator-console narrator ([operator-console.md](../interfaces/operator-console.md))
   reads `trigger_kind`, `description`, and `argument_schema` when suggesting or executing an ops-flavoured tool call.
