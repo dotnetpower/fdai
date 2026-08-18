@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 5279128776b2d337bccbe38e8b551b0ebad4d363
+translation_source_sha: af4037798e4e2c5401d856e5bce4c18dcac2b765
 translation_revised: 2026-08-18
 ---
 # 코드 맵
@@ -138,6 +138,7 @@ translation_revised: 2026-08-18
 | 2026-08-18 | implemented | Candidate frame prompt v16을 다듬어 incident라는 lexical mention만으로 specialized incident function을 선택할 수 없게 했습니다. 정확한 trusted incident binding만 `incident_evidence`를 선택하며 일반적인 causal support와 refutation은 causal evidence 계약을 유지합니다. Runtime authority와 deterministic verifier 동작은 변경하지 않았습니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증된 source에서 strict 및 seeded 근거를 보존합니다. |
 | 2026-08-18 | implemented | Plan prompt v14에 최종 causal DAG self-audit를 추가했습니다. Generic causal evidence는 principal-scoped Resource set 하나, scoped metric window 두 개 및 evidence join 하나로 닫혀야 하며 incident function을 선택하거나 server-visible scope를 좁히지 않습니다. Deterministic verifier와 execution authority는 변경하지 않았습니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증된 source에서 strict 및 seeded 근거를 보존합니다. |
 | 2026-08-18 | implemented | Frame prompt v17에 최종 candidate-family audit를 추가했습니다. 명시된 causal claim을 검증하는 chronology는 output을 temporal comparison으로 낮출 수 없으며 current-generation ontology declaration inventory는 runtime ObjectSet으로 축소될 수 없습니다. Runtime authority와 deterministic verifier 동작은 변경하지 않았습니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증된 source에서 strict 및 seeded 근거를 보존합니다. |
+| 2026-08-18 | implemented | Frame prompt v18에 최종 relationship-scope audit를 추가했습니다. Schema relationship lookup은 정확한 ObjectType declaration으로 제한되며 principal-scoped current inventory traversal은 operational topology를 유지합니다. Runtime authority와 deterministic verifier 동작은 변경하지 않았습니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증된 source에서 strict 및 seeded 근거를 보존합니다. |
 
 ### 남은 작업
 
