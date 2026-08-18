@@ -67,14 +67,18 @@ variable "health" {
     port                    = number
     liveness_path           = string
     readiness_path          = string
+    startup_path            = optional(string)
     interval_seconds        = optional(number, 30)
     timeout_seconds         = optional(number, 3)
     failure_count_threshold = optional(number, 3)
+    startup_failure_count   = optional(number, 30)
   })
   default = {
     port           = 8080
     liveness_path  = "/live"
     readiness_path = "/ready"
+    # Bounded startup probe: the runtime evaluates startup readiness before it opens this port.
+    startup_path = "/live"
   }
 }
 
