@@ -109,6 +109,9 @@ def test_semantic_plan_prompt_pins_the_object_set_verifier_envelope() -> None:
     assert '"operator":"exists"' in body
     assert '"operator":"equals","equals"' in body
     assert '"operator":"in","values"' in body
+    assert "one direct key from the selected descriptor's properties map" in body
+    assert "never a projected row path such as properties.type" in body
+    assert "never a natural-language alias such as resource_type or ResourceType" in body
     assert "without an exact root id uses one topology_at node" in body
     assert "do not use object_set, project, or query.ontology_relationships" in body
     assert "uses exactly one object_set node with one or more definition.predicates" in body
@@ -171,7 +174,7 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "do not require incident_id or correlation_id" in frame.body
     assert "cause_claim_supported=false" in frame.body
     assert "Do not claim a cause" in frame.body
-    assert plan.version == 12
+    assert plan.version == 13
     assert "Satisfy the frame's exact output_shape" in plan.body
     assert "aggregation_table requires aggregate" in plan.body
     assert "topology_graph requires topology_at" in plan.body
