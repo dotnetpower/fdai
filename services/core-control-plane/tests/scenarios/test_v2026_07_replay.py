@@ -84,6 +84,11 @@ from fdai.shared.contracts.validation import (
     JsonSchemaContractValidator,
     JsonSchemaEventValidator,
 )
+from fdai.shared.providers.remediation_pr import (
+    PublishReceipt,
+    RemediationPr,
+    RemediationPrPublisher,
+)
 from fdai.shared.providers.testing import (
     InMemoryStateStore,
     RecordingRemediationPrPublisher,
@@ -160,13 +165,16 @@ def _make_loop(
     *,
     wire_risk_gate: bool = False,
     wire_t2: bool = False,
-) -> tuple[ControlLoop, RecordingRemediationPrPublisher, InMemoryStateStore]:
+    publisher: Any | None = None,
+    audit: InMemoryStateStore | None = None,
+    executor: Any | None = None,
+) -> tuple[ControlLoop, Any, InMemoryStateStore, Any]:
     rules, action_types = shipped_catalog
     index = RuleIndex.build(rules)
     evaluator = OpaRegoEvaluator(policies_root=POLICIES_ROOT)
-    publisher = RecordingRemediationPrPublisher()
-    audit = InMemoryStateStore()
-    executor = VerifiedShadowExecutor(
+    publisher = publisher if publisher is not None else RecordingRemediationPrPublisher()
+    audit = audit if audit is not None else InMemoryStateStore()
+    executor = executor or VerifiedShadowExecutor(
         publisher=publisher,
         audit_store=audit,
         renderer=TemplateRenderer(remediation_root=REMEDIATION_ROOT),
@@ -213,7 +221,7 @@ def _make_loop(
         t2_engine=t2_engine,
         **risk_kwargs,
     )
-    return loop, publisher, audit
+    return loop, publisher, audit, executor
 
 
 # ---------------------------------------------------------------------------
@@ -270,7 +278,7 @@ async def test_v2026_07_scenario_replays_through_control_loop(
         shipped_catalog,
         wire_risk_gate=bool(overlay.get("wire_risk_gate", False)),
         wire_t2=bool(overlay.get("wire_t2", False)),
-    )
+    )[:3]
     enriched_event = _merge_enrichment(scenario["event"], overlay)
 
     result: ControlLoopResult = await loop.process(enriched_event)
@@ -328,3 +336,88 @@ def test_every_frozen_scenario_has_an_xfail_reason_or_an_overlay() -> None:
             f"scenario {scenario_id!r} has no overlay under enrichment/v2026.07/ "
             f"and no reason documented in _XFAIL_REASONS"
         )
+
+
+class _FailOncePublisher(RemediationPrPublisher):
+    """Fail the first publish, then behave exactly like the recording publisher.
+
+    A transport that dies after the request left the process is the realistic partial
+    failure: the executor cannot know whether the PR exists.
+    """
+
+    def __init__(self) -> None:
+        self._delegate = RecordingRemediationPrPublisher()
+        self._failed = False
+
+    async def publish(self, pr: RemediationPr) -> PublishReceipt:
+        if not self._failed:
+            self._failed = True
+            raise ConnectionError("publisher transport dropped after the request was sent")
+        return await self._delegate.publish(pr)
+
+    @property
+    def records(self) -> tuple[RemediationPr, ...]:
+        return self._delegate.records
+
+
+@requires_opa
+@pytest.mark.asyncio
+async def test_sre_partial_publish_failure_closes_the_audit_and_recovers_on_retry(
+    shipped_catalog: tuple[Any, Any],
+) -> None:
+    """SRE `partial_failure_recovery` evidence for `sre.cluster-diagnostics-missing.001`.
+
+    The constitutional dimension asks for one partial failure followed by recovery. Here the
+    publisher dies mid-dispatch, so the effect outcome is genuinely unknown. What must hold is
+    that the run never claims success, closes its terminal audit entry before the error
+    escapes, caches nothing, and that a retry over the same executor publishes exactly one
+    shadow PR.
+    """
+
+    scenario_id = "sre.cluster-diagnostics-missing.001"
+    scenario = json.loads(
+        (SCENARIO_DIR / _scenario_id_to_filename(scenario_id)).read_text(encoding="utf-8")
+    )
+    overlay = _load_enrichment(scenario_id)
+    assert overlay is not None, f"{scenario_id} lost its enrichment overlay"
+    enriched_event = _merge_enrichment(scenario["event"], overlay)
+
+    publisher = _FailOncePublisher()
+    audit = InMemoryStateStore()
+    _, _, _, executor = _make_loop(shipped_catalog, publisher=publisher, audit=audit)
+    failing_loop, _, _, _ = _make_loop(
+        shipped_catalog, publisher=publisher, audit=audit, executor=executor
+    )
+
+    with pytest.raises(ConnectionError):
+        await failing_loop.process(enriched_event)
+
+    unknown = [
+        _unwrap_audit(entry)
+        for entry in audit.audit_entries
+        if _unwrap_audit(entry).get("outcome") == "publish_outcome_unknown"
+    ]
+    assert len(unknown) == 1, "the failed dispatch did not close its terminal audit entry"
+    assert unknown[0]["audit_phase"] == "terminal"
+    assert publisher.records == (), "a failed publish must not record a PR"
+
+    # A fresh ingest, the same executor: nothing cached the unknown attempt as handled.
+    retry_loop, _, _, _ = _make_loop(
+        shipped_catalog, publisher=publisher, audit=audit, executor=executor
+    )
+    retried = await retry_loop.process(enriched_event)
+
+    assert retried.outcome is ControlLoopOutcome.EXECUTED
+    assert len(publisher.records) == 1, "recovery published more than one PR"
+    assert publisher.records[0].mode is Mode.SHADOW
+    published = [
+        _unwrap_audit(entry)
+        for entry in audit.audit_entries
+        if _unwrap_audit(entry).get("outcome") == "published"
+    ]
+    assert len(published) == 1
+
+
+def _unwrap_audit(record: Any) -> dict[str, Any]:
+    inner = record.get("entry") if isinstance(record, dict) else None
+    return inner if isinstance(inner, dict) else dict(record)

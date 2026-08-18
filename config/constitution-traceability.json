@@ -49,7 +49,7 @@
       "schemas": ["services/core-control-plane/tests/scenarios/schema.json", "services/core-control-plane/tests/scenarios/manifest.schema.json"],
       "tests": ["services/core-control-plane/tests/scenarios/test_frozen.py", "services/core-control-plane/tests/scenarios/test_v2026_07_replay.py"],
       "runtime_evidence": ["services/core-control-plane/tests/scenarios/manifests/v2026.07.json"],
-      "gap": "Capability accounting is machine-validated and every pack now owns at least one scenario, so none is missing. Coverage remains partial: only deterministic replay is evidenced across packs, plus one unknown-or-deny case for SRE and one A3-E non-applicability case for chaos. Successful full loop, cross-objective conflict, and partial-failure recovery have no evidence in any pack."
+      "gap": "Capability accounting is machine-validated and every pack now owns at least one scenario, so none is missing. Coverage remains partial: only deterministic replay is evidenced across packs, plus one unknown-or-deny case for SRE and one A3-E non-applicability case for chaos. SRE also owns the first partial-failure-recovery case, proven by a dedicated test rather than the generic replay. Successful full loop and cross-objective conflict have no evidence in any pack, and the manifest check still proves only that a cited test exists."
     },
     {
       "id": "FDAI-CONST-006",
