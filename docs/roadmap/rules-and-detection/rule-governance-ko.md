@@ -1,8 +1,8 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: 964df69854e589998cafb56b7f3b60edd75af6ac
-translation_revised: 2026-08-17
+translation_source_sha: c3e813203dfd8d73fd4662f7f97842cb88bda50b
+translation_revised: 2026-08-18
 ---
 
 # 규칙 거버넌스(Rule 거버넌스)
@@ -475,6 +475,7 @@ provenance:
 | 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스, CI 연결, 집중 테스트. | T0 소비를 연결하고 exemption 운영을 완성하며 관리되는 재정의와 PR 신원 검사를 구현합니다. |
 | 2026-08-17 | in-progress | 순수 거버넌스 pull request 검토 권한 결정을 추가했습니다: 운영자 객체 신원, 변경 클래스별 필수 역량, 서로 다른 승인자 정족수, 고위험 phishing-resistant 승인, 리비전에 바인딩된 신선도, 작성자·공동 작성자·커미터 자기 승인 방지. | `current change`; `services/core-control-plane/src/fdai/rule_catalog/schema/governance_review_authority.py`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/rule_catalog/schema/test_governance_review_authority.py` 가 16개 테스트를 통과했습니다. | 이 결정을 거버넌스 CI 게이트의 실제 pull request 리뷰 메타데이터에 연결하고 차단 후 해소된 근거 기록 하나를 보존합니다. |
 | 2026-08-17 | in-progress | 절대 시각이 아닌 head 커밋 시각이 실패 시 닫히도록 검토 권한 결정을 강화했습니다: 모호한 시점과 신선도를 비교하지 않으며 어떤 승인도 정족수에 포함되지 않습니다. | `current change`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/rule_catalog/schema/test_governance_review_authority.py` 가 17개 테스트를 통과했습니다. | 이 결정을 거버넌스 CI 게이트의 실제 pull request 리뷰 메타데이터에 연결하고 차단 후 해소된 근거 기록 하나를 보존합니다. |
+| 2026-08-18 | in-progress | `shared/ontology/threshold_bounds.py`를 추가해 제공되는 `ontology/action-type` 계약에서 promotion gate의 수치 범위를 읽고 단일 검사기를 제공합니다. `ShadowDwellThresholds`는 하한과 정확도 상한을 직접 명시하지 않고 그 선언에서 도출하며, focused sweep 하나가 등록된 모든 적응형 임계값이 선언된 범위 안에 머문다는 점과 pydantic `PromotionGate` 모델과 JSON 계약이 서로 어긋나질 수 없음을 증명합니다. 온톨로지 선언이 없는 `GraphModelPromotionPolicy` 비율 임계값 2개는 숨기지 않고 명시적 공백으로 기록했습니다. | `current change`, `tests/core/operational_learning` focused 테스트 88건 통과, `tests/core/risk_gate`·`tests/core/measurement`·`tests/core/assurance_twin`·`tests/rule_catalog` 1716건 통과, 작업 범위 Ruff·format·strict mypy 통과 | `min_fidelity`와 `max_recurrence_rate`의 온톨로지 범위를 선언해 unbound 집합에서 제외하고, 등록부를 promotion gate 밖의 탐지·라우팅 임계값까지 확장해야 합니다. |
 
 ### 남은 작업
 

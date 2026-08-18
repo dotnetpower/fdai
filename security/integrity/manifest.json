@@ -541,7 +541,7 @@
     "services/core-control-plane/src/fdai/core/operational_learning/catalog.py": "4f4807b8a9d3be32c37aec9b1f2d01f62480e8d1c3f09493f82c8d284478b0f0",
     "services/core-control-plane/src/fdai/core/operational_learning/patterns.py": "3f32cea89397bf175cfd31f48886eda8ffbd5d62a6a53284316ae6c7d40cdf74",
     "services/core-control-plane/src/fdai/core/operational_learning/review.py": "e85b35a30c70640efc2fe91638a92ae40f00f9ef4b5300b807afe36dc1fe4e6e",
-    "services/core-control-plane/src/fdai/core/operational_learning/shadow_dwell.py": "d2bdbc3ffc9afb77df15f5bcfa9cbc9ee6bec9976edda6d9770fc4184bd3e487",
+    "services/core-control-plane/src/fdai/core/operational_learning/shadow_dwell.py": "a559c8073a8e8eafc30e1b63767a4c70b1f837925cca6543d0ecd73430326000",
     "services/core-control-plane/src/fdai/core/operational_planning/__init__.py": "279236c55851dc75f09df3f15042435465cc94e1bf654dce2bda8ef144e3b5af",
     "services/core-control-plane/src/fdai/core/operational_planning/constraints.py": "4f93be58c865977742fa96c95daa7e2b63a6a75c13a7fbbfe911961970064eac",
     "services/core-control-plane/src/fdai/core/operational_planning/coordinator.py": "006095f9299e46c940c5d97d8238ab48bdb17d539fff42dfd6b3e732fc5a9070",
@@ -1102,7 +1102,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workflow_definition.py": "01c40a52343b9b0f301a921d7931cc03ae5cc1d916b12f8fcaf06816d0b1c23a",
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204"
   },
-  "generated_at": "2026-08-18T13:17:49Z",
+  "generated_at": "2026-08-18T13:27:17Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",

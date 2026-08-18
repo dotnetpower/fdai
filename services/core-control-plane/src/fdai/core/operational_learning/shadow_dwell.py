@@ -34,6 +34,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from fdai.shared.ontology.threshold_bounds import load_promotion_gate_bounds
+
 _IDENTIFIER = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
 _MAX_TARGET_CHARS = 128
 _MAX_SAMPLE_SIZE = 1_000_000
@@ -43,6 +45,13 @@ _MAX_OBSERVATIONS_PER_TARGET = 10_000
 
 #: The discovery loop tolerates no shadow policy-violation escape. Not a setting.
 MAX_POLICY_ESCAPES = 0
+
+# The floors and the accuracy ceiling are read from the shipped ActionType contract, so a
+# widened ontology bound propagates instead of being shadowed by a copied literal.
+_PROMOTION_GATE_BOUNDS = load_promotion_gate_bounds()
+_MIN_SHADOW_DAYS_FLOOR = int(_PROMOTION_GATE_BOUNDS["promotion_gate.min_shadow_days"].minimum or 1)
+_MIN_SAMPLES_FLOOR = int(_PROMOTION_GATE_BOUNDS["promotion_gate.min_samples"].minimum or 1)
+_MIN_ACCURACY_CEILING = float(_PROMOTION_GATE_BOUNDS["promotion_gate.min_accuracy"].maximum or 1.0)
 
 _EVIDENCE_FIELDS = frozenset(
     {
@@ -78,13 +87,13 @@ class ShadowDwellThresholds:
             raise ValueError("min_shadow_days MUST be an integer")
         if isinstance(self.min_samples, bool) or not isinstance(self.min_samples, int):
             raise ValueError("min_samples MUST be an integer")
-        if self.min_shadow_days < 1 or self.min_samples < 1:
+        if self.min_shadow_days < _MIN_SHADOW_DAYS_FLOOR or self.min_samples < _MIN_SAMPLES_FLOOR:
             raise ValueError("shadow dwell thresholds MUST require at least one day and sample")
         if (
             not isinstance(self.min_accuracy, (int, float))
             or isinstance(self.min_accuracy, bool)
             or not math.isfinite(self.min_accuracy)
-            or not 0.0 < self.min_accuracy <= 1.0
+            or not 0.0 < self.min_accuracy <= _MIN_ACCURACY_CEILING
         ):
             raise ValueError("min_accuracy MUST be in (0, 1]")
 
