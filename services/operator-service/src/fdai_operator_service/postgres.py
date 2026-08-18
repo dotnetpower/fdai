@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import binascii
 import json
+import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -45,6 +46,7 @@ from fdai_operator_service.postgres_sql import (
     LLM_USAGE_CONVERSATIONS_SQL,
     LLM_USAGE_RECORDS_SQL,
     LLM_USAGE_SUMMARIES_SQL,
+    statement_identity,
 )
 from fdai_operator_service.projection_logic import (
     KPI_SAMPLE_LIMIT,
@@ -57,6 +59,8 @@ from fdai_operator_service.projection_logic import (
 )
 from fdai_operator_service.projections import ProjectionUnavailableError
 from fdai_operator_service.rca_projection import rca_view
+
+_LOGGER = logging.getLogger(__name__)
 
 INCIDENT_HISTORY_LIMIT: Final = 100
 HIL_KEY_PATTERN: Final = "hil_park:%"
@@ -341,6 +345,16 @@ class PostgresOperatorReadModel:
                     cursor = await connection.execute(statement, parameters)
                     return list(await cursor.fetchall())
         except psycopg.Error as exc:
+            # Parameters stay out of the record because a search term can carry operator text.
+            _LOGGER.warning(
+                "operator_projection_query_failed",
+                extra={
+                    "statement": statement_identity(statement),
+                    "error_class": type(exc).__name__,
+                    "sqlstate": getattr(exc, "sqlstate", None) or "",
+                    "statement_timeout_ms": self._config.statement_timeout_ms,
+                },
+            )
             raise ProjectionUnavailableError(
                 "authoritative PostgreSQL projection is unavailable"
             ) from exc

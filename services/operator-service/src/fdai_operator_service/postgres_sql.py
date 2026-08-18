@@ -392,6 +392,15 @@ SELECT ranked.seq, ranked.event_id, ranked.correlation_id, ranked.actor,
 
 INCIDENT_SNAPSHOT_SQL: Final = "SELECT COALESCE(MAX(seq), 0) AS snapshot_seq FROM audit_log"
 
+
+def statement_identity(statement: str) -> str:
+    """Name a statement for a failure record without emitting the statement text."""
+    for name, value in globals().items():
+        if name.endswith("_SQL") and value is statement:
+            return name
+    return "unregistered_statement"
+
+
 __all__ = [
     "AGENT_INVENTORY_ACTIVITY_SQL",
     "AGENT_OBSERVATION_ACTIVITY_SQL",
@@ -406,4 +415,5 @@ __all__ = [
     "LLM_USAGE_CONVERSATIONS_SQL",
     "LLM_USAGE_RECORDS_SQL",
     "LLM_USAGE_SUMMARIES_SQL",
+    "statement_identity",
 ]
