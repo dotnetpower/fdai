@@ -12,6 +12,7 @@ import httpx
 
 from fdai.delivery.azure.arg_projection import (
     extract_rg_contains_links,
+    parent_neutral_id,
     to_neutral_id,
     truncate_props,
 )
@@ -203,6 +204,10 @@ def _map_arm_row(
         },
         max_bytes=max_props_bytes,
     )
+    # Lifted after truncation so the containment anchor survives a large
+    # vendor payload; `Resource.parent_id` is what scoped questions read.
+    if (parent_id := parent_neutral_id(arm_id)) is not None:
+        props["parent_id"] = parent_id
     return ResourceRecord(
         resource_id=to_neutral_id(arm_id),
         type=resource_type,

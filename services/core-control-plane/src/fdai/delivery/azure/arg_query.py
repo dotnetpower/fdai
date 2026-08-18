@@ -93,6 +93,9 @@ from fdai.delivery.azure.arg_projection import (
 from fdai.delivery.azure.arg_projection import (
     materialize_nested_subnets as _materialize_nested_subnets,
 )
+from fdai.delivery.azure.arg_projection import (
+    parent_neutral_id as _parent_neutral_id,
+)
 from fdai.delivery.azure.arg_projection import resource_operational_status
 from fdai.delivery.azure.arg_projection import (
     to_neutral_id as _to_neutral_id,
@@ -303,8 +306,14 @@ class AzureArgQueryFactory:
         # any embedded single-quote at the boundary.
         if "'" in arm_type:
             raise ArgQueryError(f"illegal character in ARM type {arm_type!r}")
-        resource_groups = arm_type.lower() == "microsoft.resources/resourcegroups"
-        table = "ResourceContainers" if resource_groups else "Resources"
+        # Scope containers (subscriptions and resource groups) live in
+        # `ResourceContainers`, not `Resources`. Querying them from
+        # `Resources` returns an empty shard, which silently removes the
+        # containment anchors every scoped question needs.
+        normalized = arm_type.lower()
+        resource_groups = normalized == "microsoft.resources/resourcegroups"
+        subscriptions = normalized == "microsoft.resources/subscriptions"
+        table = "ResourceContainers" if resource_groups or subscriptions else "Resources"
         query_type = (
             "microsoft.resources/subscriptions/resourcegroups" if resource_groups else arm_type
         )
@@ -395,6 +404,10 @@ class AzureArgQueryFactory:
             props["properties"] = nested_schedule
 
         props = _truncate_props(props, max_bytes=self._config.max_props_bytes)
+        # Lifted after truncation so the containment anchor survives a large
+        # vendor payload; `Resource.parent_id` is what scoped questions read.
+        if (parent_id := _parent_neutral_id(arm_id)) is not None:
+            props["parent_id"] = parent_id
 
         return ResourceRecord(
             resource_id=neutral_id,
