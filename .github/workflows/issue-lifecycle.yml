@@ -22,7 +22,11 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const issue_number = issue.number;
-            const body = issue.body ?? "";
+            // The event payload carries a body snapshot taken when the event fired, so a
+            // close that follows an edit closely can read the pre-edit body and reopen a
+            // correctly completed issue. Read the current body instead.
+            const current = await github.rest.issues.get({ owner, repo, issue_number });
+            const body = current.data.body ?? "";
             const marker = "<!-- fdai-exit-criteria-contract -->";
             const label = "needs-exit-criteria";
             const hasHeading = /^#{2,3}\s+(Exit criteria|Acceptance criteria)\s*$/im.test(body);
@@ -30,7 +34,7 @@ jobs:
             const hasUnchecked = /^\s*-\s+\[\s\]\s+\S/m.test(body);
             const residualMarker = "<!-- fdai-residual-work-contract -->";
             const completionMarker = "<!-- fdai-completion-label-contract -->";
-            const labelNames = new Set(issue.labels.map((value) => value.name));
+            const labelNames = new Set(current.data.labels.map((value) => typeof value === "string" ? value : value.name));
             const hasType = labelNames.has("bug") || [...labelNames].some((name) => name.startsWith("type:"));
             const hasPriority = [...labelNames].some((name) => name.startsWith("priority:"));
             const hasArea = [...labelNames].some((name) => name.startsWith("area:"));
@@ -96,7 +100,7 @@ jobs:
                 });
               }
             }
-            if (action === "closed" && issue.state_reason !== "not_planned") {
+            if (action === "closed" && current.data.state_reason !== "not_planned") {
               if (hasUnchecked) {
                 await removeLabel("completed");
                 await github.rest.issues.update({
