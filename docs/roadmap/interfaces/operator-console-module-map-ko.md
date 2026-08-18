@@ -1,8 +1,8 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: c1507ce36e03435331a00c347db14d84b6be7de0
-translation_revised: 2026-08-15
+translation_source_sha: c7167dbfe715ab9ced138f38fa30d07fb00ba2d3
+translation_revised: 2026-08-19
 ---
 # Operator Console 모듈 지도 and Boundaries
 
@@ -45,7 +45,7 @@ file-count 목표가 아닌 설명 기준이지만, executable 완전성 게이�
 - [ ] 각 report-only 역방향 의존성을 검토된 neutral 계약 또는 provider 경계 뒤로 이동하고 해당 방향을 강제하기 전에 일치하는 `.check-operator-api-boundaries.debt` 예산을 줄입니다.
 - [ ] 의미 증적 표현의 준비 상태를 선언하기 전에 인증된 요청-Console 및 이중 언어 무작위 보증 근거를 통과한 상태로 보존합니다.
 
-### Dependency-direction 게이트
+## Dependency-direction 게이트
 
 `check-operator-api-boundaries.py`는 애플리케이션 코드를 로드하지 않고 가져오기를 파싱합니다. 정리된
 core-to-delivery, runtime-to-Operator API, ingestion-to-Operator API, shared
@@ -74,7 +74,7 @@ Enforced 발견 사항은 의존성을 neutral 계약 또는 프로바이더 경
 모드로 시작하고 검토 후에만 강제 적용으로 이동합니다. Justified exclusion은 누락된, 범위 밖
 또는 불필요한 상태가 되면 실패합니다. 이 structural AST 검사는 의미 truth를 증명하지 않습니다.
 
-### 첫 reversible 계열 이행
+## 첫 reversible 계열 이행
 
 Issue 70은 다섯 개의 `routes/audit*.py` 모듈을 첫 이행 계열로 선택합니다. Executable
 인벤토리는 이미 이 모듈을 하나의 read-projection 계열로 분류합니다. 각 모듈은 계열 외부에 한두
@@ -93,7 +93,7 @@ Rollback에서도 두 가져오기 표면을 안정적으로 유지합니다. �
 조립 가져오기는 패키지 파사드에 유지합니다. 이 절차는 API 또는 wire 롤백 없이 physical
 소유권을 되돌리고 broad 와일드카드 파사드를 만들지 않습니다.
 
-### 대화 턴 애플리케이션 경계
+## 대화 턴 애플리케이션 경계
 
 Issue 71은 JSON 및 SSE 채팅 경로가 공유하는 process-local application-service 경계로
 `fdai.delivery.operator_api.application.conversation_turn`을 도입합니다. Authentication과 범위가 제한된
@@ -114,7 +114,7 @@ evidence-reference, history-count 및 transport-mode 값만 포함합니다. 프
 순서/개정 번호, 헤더, 경로 이름, 권한 확인 및 취소 전송 계층은 경로가 계속 소유합니다.
 Bragi는 표현 translator로 유지되고 authority-bearing 에이전트 작업은 타입이 지정된 pub/sub을 계속 사용합니다.
 
-### 대화 의도 그래프 변환 결과 경계
+## 대화 의도 그래프 변환 결과 경계
 
 Shared ontology-query SDK는 exact-plan `IntentGraph` 및 `IntentGraphEvidence` 기록을 소유합니다.
 명시적 변환 결과 함수는 내부 프레임/계획 다이제스트를 제거하고 정본 목표 인자를 parse하며
@@ -150,7 +150,7 @@ DLQ에 쓴 다음 커밋합니다. 어댑터는 managed-identity 자격 증명�
 `GET /chat/health`를 소유하며 bridge worker 준비 상태를 직접 투영하고 영속 conversation projection을
 요구하지 않습니다.
 
-### 대화 단정 애플리케이션 경계
+## 대화 단정 애플리케이션 경계
 
 SD-01 단정 구획은 `fdai.delivery.operator_api.application.conversation.claims` 아래에서
 결정론적 answer-claim 검증을 소유합니다. 추출, 근거 수집, matching,
@@ -164,7 +164,7 @@ SD-01 단정 구획은 `fdai.delivery.operator_api.application.conversation.clai
 모듈과 파사드를 `routes/` 아래에 복원한 다음 단정 패키지 파사드가 복원된 소유자를 가리키게 합니다.
 이 과정에서 JSON 또는 SSE wire 계약은 변경하지 않습니다.
 
-### 대화 검증 애플리케이션 경계
+## 대화 검증 애플리케이션 경계
 
 SD-01 검증 구획은 `fdai.delivery.operator_api.application.conversation.verification`
 아래에서 최종 답변 검증을 소유합니다. 이 패키지는 정본 결과, text-integrity
@@ -177,7 +177,7 @@ owned 패키지를 직접 사용하므로 `routes/` 아래에 검증 호환성 �
 Rollback은 이동한 모듈을 `routes/` 아래에 복원하고 패키지 파사드가 복원된 소유자를 가리키게 합니다.
 JSON, SSE, authentication 또는 conversation-history 행동은 변경하지 않습니다.
 
-### 대화 표현 변환 결과 경계
+## 대화 표현 변환 결과 경계
 
 SD-01 표현 구획은
 `fdai.delivery.operator_api.projections.conversation.presentation` 아래에서 value-free 배치
@@ -193,7 +193,7 @@ JSON 묶음, SSE 순서와 개정 번호, 취소, 최종 assembly 및 대화 이
 구현 모듈을 복원하고 wire 계약을 변경하지 않은 채 표현 파사드가 복원된
 소유자를 가리키게 합니다.
 
-### 대화 인벤토리 애플리케이션 및 변환 결과 경계
+## 대화 인벤토리 애플리케이션 및 변환 결과 경계
 
 SD-01 인벤토리 구획은 타입이 지정된 조회, 결정론적 compilation, 후속 조치 범위,
 catalog-backed 언어/리소스 의미, 온톨로지 함수, 의미 수집 및 provider-read
@@ -212,7 +212,7 @@ Rollback은 인벤토리 구현 모듈을 `routes/` 아래에 복원하고 두 �
 파사드가 복원된 소유자를 가리키게 합니다. Wire 계약과 권위 있는 인벤토리 프로바이더는
 변경하지 않습니다.
 
-### 대화 백엔드 애플리케이션 및 어댑터 경계
+## 대화 백엔드 애플리케이션 및 어댑터 경계
 
 SD-01 백엔드 구획은 `fdai.delivery.operator_api.application.conversation.backend` 아래에서
 프로바이더 중립적인 계약과 request-local 지연 시간 라우팅을 소유합니다. 애플리케이션 패키지는 injected
@@ -229,7 +229,7 @@ HTTP 상태 대응, 순서와 개정 번호, 취소, 최종 전달 및 대화 �
 Rollback은 다섯 백엔드 모듈을 `routes/` 아래에 복원한 다음 애플리케이션 및 어댑터 파사드가 복원된
 소유자를 가리키게 합니다. Auth, 프로바이더 범위, JSON 또는 SSE는 변경하지 않습니다.
 
-### 대화 근거 애플리케이션 경계
+## 대화 근거 애플리케이션 경계
 
 SD-01 근거 구획은
 `fdai.delivery.operator_api.application.conversation.evidence` 아래에서 읽기 전용 operational
@@ -246,7 +246,7 @@ authentication, 요청 파싱, HTTP 상태 대응, 프레임 순서와 개정 �
 않습니다. Rollback은 다섯 경로 구현을 복원하고 JSON, SSE, authentication, 근거
 권한 또는 이력을 변경하지 않은 채 근거 파사드가 복원된 소유자를 가리키게 합니다.
 
-### 대화 진행 상황 메트릭 변환 결과 경계
+## 대화 진행 상황 메트릭 변환 결과 경계
 
 SD-01 스트리밍 메트릭 구획은
 `fdai.delivery.operator_api.projections.conversation.stream_metrics` 아래에서 큐에 수락된
@@ -259,7 +259,7 @@ SSE 경로는 프레임 순서, 큐 admission, 취소 및 전송 계층 전달�
 남기지 않습니다. Rollback은 집약기를 `routes/` 아래에 복원하고 메트릭 이름, SSE 프레임 또는
 취소 행동을 변경하지 않은 채 스트림 경로 가져오기를 되돌립니다.
 
-### 대화 최종 변환 결과 경계
+## 대화 최종 변환 결과 경계
 
 SD-01 최종 구획은 `fdai.delivery.operator_api.projections.conversation.terminal` 아래에서 pure
 verification-frame assembly, 최종 페이로드 compilation, 측정된 LLM 사용량 렌더링, 영속 인벤토리
@@ -273,7 +273,7 @@ JSON 및 SSE 경로는 계속 authentication, 요청 파싱, HTTP 상태 대응,
 않으므로 호환성 심이 남지 않습니다. Rollback은 경로 구현 4개를 복원하고 최종 파사드를
 redirect하며 두 wire 계약은 변경하지 않습니다.
 
-### 대화 post-generation 애플리케이션 경계
+## 대화 post-generation 애플리케이션 경계
 
 SD-01 post-generation 구획은
 `fdai.delivery.operator_api.application.conversation.post_generation` 아래에서 streamed 턴
@@ -289,7 +289,7 @@ SSE 경로는 권한 확인, 요청 파싱, 하트비트 framing, 연결 및 bus
 Rollback은 해당 경로 모듈을 복원하고 stream-route 가져오기를 변경하며 프레임 순서, JSON 또는 SSE
 최종 페이로드, 검증, 이력 및 post-turn 검토 행동은 변경하지 않습니다.
 
-### 대화 요청 preparation 애플리케이션 경계
+## 대화 요청 preparation 애플리케이션 경계
 
 SD-01 request-preparation 슬라이스는
 `fdai.delivery.operator_api.application.conversation.request_preparation` 아래에서 content-policy
@@ -314,7 +314,7 @@ Rollback은 이력과 preparation 보조 로직을 `routes/` 아래에 복원하
 복원한 뒤 JSON과 SSE 가져오기를 되돌립니다. Authentication, 상태 코드, 본문 한계,
 content-policy 재생, 이력, 문서 접근, 답변 계획 및 두 wire 계약은 변경하지 않습니다.
 
-### 대화 수명 주기 애플리케이션 경계
+## 대화 수명 주기 애플리케이션 경계
 
 SD-01 수명 주기 구획은 shadow answer-planning 작업 coordination을
 `application.conversation.planning`으로, Korean 서술기 검토를
@@ -333,7 +333,7 @@ ActionType 또는 managed-resource 상태에 연결하지 않습니다. JSON 및
 않습니다. Rollback은 네 경로 구현을 복원하고 내부 가져오기를 되돌리며 계획 수립 한계,
 quality 검증, 정책 복구, steering, 중단, JSON 또는 SSE 행동은 변경하지 않습니다.
 
-### 대화 최종 support 변환 결과 경계
+## 대화 최종 support 변환 결과 경계
 
 SD-01 최종 support 구획은 범위가 제한된 trajectory-detail 재생, 결정론적 current-screen T0
 답변, 명시적 선택 민감정보가 제거된 model-call 추적, 검증된 resource-follow-up 응답 맥락을
@@ -349,7 +349,7 @@ request-local입니다. `operator_api.routes` 모듈을 가져오기하지 않�
 내부이므로 호환성 심은 남기지 않습니다. Rollback은 네 경로 구현을 복원하고
 내부 소비자를 redirect하며 wire 계약은 변경하지 않습니다.
 
-### 대화 영속성 및 문서 근거 경계
+## 대화 영속성 및 문서 근거 경계
 
 SD-01 영속성 구획은 principal 범위 대화 기록 쓰기, 내용이 없는 정책 증적, 재생
 메타데이터 및 conversation-image 수명 주기를
@@ -370,7 +370,7 @@ JSON 및 SSE 경로는 authentication, 요청 파싱, HTTP 상태 대응, 프레
 복원하고 내부 가져오기를 되돌리며 대화 기록 신원, 이미지 만료, 문서 참조, JSON 또는 SSE 행동은
 변경하지 않습니다.
 
-### 대화 기능 애플리케이션 경계
+## 대화 기능 애플리케이션 경계
 
 SD-01 기능 구획은 범위가 제한된 Pantheon 위임, runtime-skill 공개,
 configuration-baseline 읽기, 공개 웹 근거 해석, request-time 기능 가시성 및 strict
@@ -393,7 +393,7 @@ JSON 및 SSE 경로는 authentication, 요청 파싱, HTTP 상태 대응, 프레
 구현을 `routes/` 아래에 복원하고 내부 가져오기를 되돌리며 권한 분류, 프로바이더
 범위, 의도 precedence 또는 wire 계약은 변경하지 않습니다.
 
-### 최종 대화 경로 종결
+## 최종 대화 경로 종결
 
 커밋 `e141ab07e`은 여섯 파일의 structural 인벤토리를 확립하고 compiled user 정책,
 assurance 정책 및 one-shot 응답 완료를 명시적 애플리케이션 소유자 뒤로 이동했습니다. Pure
@@ -417,14 +417,14 @@ JSON 파싱, 애플리케이션 error-to-status 대응, `JSONResponse` 전달, �
 중단, 취소, 이력 및 최종 페이로드를 보존하면서 structural transport-only 상태가
 되었습니다.
 
-### 변경 계보 변환 결과 경계
+## 변경 계보 변환 결과 경계
 
 SD-06 Operator 변환 결과는 `fdai.delivery.operator_api.projections.change_lineage` 아래에서
 정본 변경할 수 없는 변경 계보의 범위가 제한된 요약 및 상세 화면을 소유합니다. 읽기 전용이고
 request-local이며 후보 전용 learning과 실행/승격 권한 0을 보존하고 프로바이더 I/O나
 영속성을 수행하지 않습니다.
 
-### 변경할 수 없는 앱 조립
+## 변경할 수 없는 앱 조립
 
 Issue 72는 `OperatorApiConfig(**kwargs)`를 범위가 제한된 호환성 생성자로 유지하고 경로를 등록하기
 전에 `split()`으로 변환 결과합니다. `OperatorApiValues`에는 inert environment-derived 값만 포함됩니다.

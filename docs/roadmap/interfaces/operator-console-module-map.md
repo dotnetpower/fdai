@@ -43,7 +43,7 @@ An intentional default route addition updates this reviewed baseline in the same
 - [ ] Move each report-only reverse dependency behind its reviewed neutral contract or provider boundary, then reduce the matching `.check-operator-api-boundaries.debt` budget before making that direction enforceable.
 - [ ] Retain passing authenticated request-to-Console and bilingual randomized assurance evidence before declaring semantic receipt presentation ready.
 
-### Dependency-direction gate
+## Dependency-direction gate
 
 `check-operator-api-boundaries.py` parses imports without loading application code. It enforces
 the cleaned core-to-delivery, runtime-to-Operator API, ingestion-to-Operator API, shared
@@ -72,7 +72,7 @@ Boundary, Authority and state, Dependencies, and Deployment sections. Scopes sta
 and move to enforcement only after review. Justified exclusions fail when missing, out of scope,
 or no longer needed. This structural AST check does not prove semantic truth.
 
-### First reversible family migration
+## First reversible family migration
 
 Issue 70 selects the five `routes/audit*.py` modules as the first migration family. The executable
 inventory already classifies them as one read-projection family. Each module has one or two direct
@@ -92,7 +92,7 @@ change each new `projections.audit` module into a forwarding shim to its restore
 and leave composition imports on the package facade. This reverses physical ownership without an
 API or wire rollback and avoids a broad wildcard facade.
 
-### Conversation turn application boundary
+## Conversation turn application boundary
 
 Issue 71 introduces `fdai.delivery.operator_api.application.conversation_turn` as the process-local
 application-service boundary shared by JSON and SSE chat routes. After authentication and bounded
@@ -113,7 +113,7 @@ select provider scope, or receive Thor's identity. HTTP status mapping, SSE sequ
 headers, route names, authorization, and cancellation transport remain route-owned. Bragi remains
 the presentation translator, and authority-bearing agent work continues through typed pub/sub.
 
-### Conversation intent graph projection boundary
+## Conversation intent graph projection boundary
 
 The shared ontology-query SDK owns exact-plan `IntentGraph` and `IntentGraphEvidence` records.
 Explicit projection functions remove internal frame and plan digests, parse canonical goal
@@ -149,7 +149,7 @@ publisher/source pairs remain the test and downstream override seam. Semantic Ka
 dev-only local narrator are mutually exclusive. The same process boundary owns `GET /chat/health`:
 it projects bridge worker readiness directly and never requires a durable conversation projection.
 
-### Conversation claims application boundary
+## Conversation claims application boundary
 
 The SD-01 claims slice owns deterministic answer-claim verification under
 `fdai.delivery.operator_api.application.conversation.claims`. Extraction, evidence collection,
@@ -163,7 +163,7 @@ in the same slice, so no claim compatibility shim remains. Rollback restores the
 modules and facade under `routes/`, then redirects the claims package facade to that restored
 owner without changing the JSON or SSE wire contracts.
 
-### Conversation verification application boundary
+## Conversation verification application boundary
 
 The SD-01 verification slice owns terminal answer verification under
 `fdai.delivery.operator_api.application.conversation.verification`. The package contains the
@@ -177,7 +177,7 @@ that owned package directly, so no verification compatibility module remains und
 Rollback restores the moved modules under `routes/` and redirects the package facade without
 changing JSON, SSE, authentication, or conversation-history behavior.
 
-### Conversation presentation projection boundary
+## Conversation presentation projection boundary
 
 The SD-01 presentation slice owns value-free layout selection and verified evidence artifact
 compilation under `fdai.delivery.operator_api.projections.conversation.presentation`. The package
@@ -192,7 +192,7 @@ artifact schema, localized labels, evidence references, byte bounds, and planner
 Rollback restores the route implementation modules and redirects the presentation facade without
 changing either wire contract.
 
-### Conversation inventory application and projection boundaries
+## Conversation inventory application and projection boundaries
 
 The SD-01 inventory slice owns typed queries, deterministic compilation, follow-up scope,
 catalog-backed language and resource semantics, ontology functions, semantic retrieval, and
@@ -213,7 +213,7 @@ Rollback restores the inventory implementation modules under `routes/` and redir
 inventory package facades to those restored owners. It does not change either wire contract or the
 authoritative inventory providers.
 
-### Conversation backend application and adapter boundaries
+## Conversation backend application and adapter boundaries
 
 The SD-01 backend slice owns provider-neutral contracts and request-local latency routing under
 `fdai.delivery.operator_api.application.conversation.backend`. The application package selects
@@ -230,7 +230,7 @@ internal implementation or test imports, so no compatibility shim remains.
 Rollback restores the five backend modules under `routes/`, then redirects the application and
 adapter facades to those restored owners without changing auth, provider scope, JSON, or SSE.
 
-### Conversation evidence application boundary
+## Conversation evidence application boundary
 
 The SD-01 evidence slice owns read-only operational evidence resolution, provenance projection,
 bounded branch lifecycle, and authority-preserving result merge under
@@ -247,7 +247,7 @@ sequence and revision, cancellation, terminal assembly, and conversation history
 no compatibility shim remains. Rollback restores the five route implementations and redirects the
 evidence facade without changing JSON, SSE, authentication, evidence authority, or history.
 
-### Conversation progress metric projection boundary
+## Conversation progress metric projection boundary
 
 The SD-01 streaming metric slice owns pure queue-accepted progress reduction under
 `fdai.delivery.operator_api.projections.conversation.stream_metrics`. It records only aggregate
@@ -259,7 +259,7 @@ delivery. The former `routes.chat_stream_metrics` module had no external compati
 no shim remains. Rollback restores the reducer under `routes/` and changes the stream route import
 without changing metric names, SSE frames, or cancellation behavior.
 
-### Conversation terminal projection boundary
+## Conversation terminal projection boundary
 
 The SD-01 terminal slice owns pure verification-frame assembly, terminal payload compilation,
 measured LLM usage rendering, durable inventory result context, and source-failure replay context
@@ -274,7 +274,7 @@ imports no `fdai.delivery.operator_api.routes` module, so no compatibility shim 
 restores the four route implementations and redirects the terminal facade without changing either
 wire contract.
 
-### Conversation post-generation application boundary
+## Conversation post-generation application boundary
 
 The SD-01 post-generation slice owns streamed turn completion under
 `fdai.delivery.operator_api.application.conversation.post_generation`. After answer generation,
@@ -290,7 +290,7 @@ The package imports no `fdai.delivery.operator_api.routes` module. The former
 restores that route module and changes the stream-route import without changing frame order, JSON
 or SSE terminal payloads, verification, history, or post-turn review behavior.
 
-### Conversation request preparation application boundary
+## Conversation request preparation application boundary
 
 The SD-01 request-preparation slice owns content-policy validation and replay, user preferences,
 document-reference resolution, complete-history assembly, verified prior context, resource and
@@ -315,7 +315,7 @@ Rollback restores the history and preparation helpers under `routes/`, restores
 codes, body bounds, content-policy replay, history, document access, answer plans, or either wire
 contract.
 
-### Conversation lifecycle application boundary
+## Conversation lifecycle application boundary
 
 The SD-01 lifecycle slice moves shadow answer-planning task coordination to
 `application.conversation.planning`, Korean narrator review to
@@ -335,7 +335,7 @@ remains. Rollback restores the four route implementations and redirects those in
 without changing planning bounds, quality verification, policy recovery, steering, interruption,
 JSON, or SSE behavior.
 
-### Conversation terminal support projection boundary
+## Conversation terminal support projection boundary
 
 The SD-01 terminal support slice owns bounded trajectory-detail replay, deterministic current-screen
 T0 answers, opt-in redacted model-call traces, and verified resource-follow-up response context under
@@ -352,7 +352,7 @@ history. Every former route consumer was internal, so no compatibility shim rema
 restores the four route implementations and redirects internal consumers without changing either
 wire contract.
 
-### Conversation persistence and document evidence boundaries
+## Conversation persistence and document evidence boundaries
 
 The SD-01 persistence slice owns principal-scoped transcript writes, content-free policy receipts,
 replay metadata, and the conversation-image lifecycle under
@@ -374,7 +374,7 @@ source or test code, so no compatibility shim remains. Rollback restores the thr
 under `routes/` and redirects internal imports without changing transcript identity, image expiry,
 document refs, JSON, or SSE behavior.
 
-### Conversation capability application boundary
+## Conversation capability application boundary
 
 The SD-01 capability slice owns bounded Pantheon delegation, runtime-skill disclosure,
 configuration-baseline reads, public-web evidence resolution, request-time capability visibility,
@@ -397,7 +397,7 @@ former route modules were internal source or test imports, so no compatibility s
 Rollback restores those implementations under `routes/` and redirects internal imports without
 changing authority classification, provider scope, intent precedence, or either wire contract.
 
-### Final conversation route closure
+## Final conversation route closure
 
 Commit `e141ab07e` established a six-file structural inventory and moved compiled user-policy,
 assurance-policy, and one-shot response completion behind explicit application owners. Pure
@@ -422,14 +422,14 @@ SSE protocol, and `chat_stream_request.py` owns request transport. The chat fami
 transport-only while preserving SSE frame order, replay, interruption, cancellation, history, and
 terminal payloads.
 
-### Change lineage projection boundary
+## Change lineage projection boundary
 
 The SD-06 Operator projection owns bounded summary and detail views over canonical immutable
 Change lineage under `fdai.delivery.operator_api.projections.change_lineage`. It is read-only and
 request-local, preserves candidate-only learning and zero execution or promotion authority, and
 performs no provider I/O or persistence.
 
-### Immutable app composition
+## Immutable app composition
 
 Issue 72 keeps `OperatorApiConfig(**kwargs)` as the bounded compatibility constructor and projects
 it through `split()` before any route registration. `OperatorApiValues` contains only inert,
