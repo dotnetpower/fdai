@@ -16,13 +16,14 @@ deployment-specific values outside the upstream distribution.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Core control plane startup probe | superseded | `current change`; `terraform fmt` and `terraform validate` pass on the service root | Three attempts sized a startup probe to cover a boot that opened the health port late. The runtime now opens that port before startup readiness runs, so liveness answers immediately and the probe is unnecessary. The protected update contract also rejected it, because it proves rollback only for an image and revision-suffix change. |
+| Core control plane startup probe | not-applicable | `current change`; `terraform fmt` and `terraform validate` pass on the service root | Three attempts sized a startup probe to cover a boot that opened the health port late. The runtime now opens that port before startup readiness runs, so liveness answers immediately and the probe is unnecessary. The protected update contract also rejected it, because it proves rollback only for an image and revision-suffix change. |
 | CAF naming and `fdai:` ownership tags | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, and focused Terraform tests | Terraform computes names and tags; runtime code consumes outputs. |
 | Independent-service Terraform state roots | validated | `config/independent-service-live-evidence-manifest.json` and `config/independent-service-remote-evidence.json` | All five service roots have governed plan, apply, health, peer-isolation, and rollback evidence. |
 | Legacy platform and ops-bootstrap Terraform state roots | implemented | `infra/main.tf`, `infra/bootstrap/main.tf`, `.github/workflows/deploy-dev.yml`, and focused Terraform and workflow checks | Stable backend keys and deployment mechanisms are shipped; governed apply receipts for these two roots are not retained in the repository. |
 | OHL scale-out evidence target naming and tags | implemented | current change in `infra/main.tf`; `terraform -chdir=infra test -filter=tests/dev_operations_gateway.tftest.hcl` reports 8 passed | Live provisioning and recurrence evidence remain open. |
 | Operator schema and catalog Job naming | implemented | `infra/main.tf`, `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml`, and focused deployment workflow tests | Deterministic names and digest-pinned images are wired; a protected apply receipt for the ordered Jobs remains open. |
 | Browser-evidence cleanup Job naming | implemented | `infra/main.tf`; `tests/integration/infra/test_browser_evidence_cleanup_job.py`; focused checks (`4 passed`) and `terraform validate` | `caj-<workload>[-env][-region]-browser-gc` stays within the 32-character Azure limit for every allowed environment. Protected apply evidence remains open. |
+| Event Bus consumer lag alert | implemented | `event_bus.py`; `infra/modules/observability/monitoring/`; focused consumer and infrastructure checks (`5 passed`); strict mypy and `terraform validate` | Each bounded commit exports sanitized partition progress and lag. Opt-in monitoring alerts when ingress lag exceeds the configured bound; protected apply evidence remains open. |
 
 ### Implementation history
 
@@ -38,6 +39,7 @@ deployment-specific values outside the upstream distribution.
 | 2026-08-17 | implemented | Separated the trace-continuity detection window from the analyzer window. A discontinuity is keyed by its detection window, so equal windows let correlation starve while the ingress deduplicates the per-minute repeats. | `current change`; `analyzer_tick_cli.py`, the analyzer job module, and focused resolver tests: 6 passed. `terraform fmt` and `terraform validate` pass. | Record a deployed anomaly raised from repeated trace findings. |
 | 2026-08-17 | implemented | Kept the new trace window argument inside the existing alignment. The infra contract tests assert exact formatted argument text, so a longer variable name shifted every aligned argument in the block and failed unrelated assertions. | `current change`; infra contract suite: 71 passed, 1 skipped. | Consider whether those assertions should match formatted text at all. |
 | 2026-08-17 | not-applicable | Corrected the trace-window README description to use the approved display term `detected issue` instead of the contract term `finding`. The Terraform variable, analyzer behavior, machine records, and deployment contract are unchanged. | `current change`; focused display-terminology check passes. | None for this wording correction. |
+| 2026-08-19 | implemented | Exported sanitized per-partition Event Bus consumer progress after each bounded commit and added a Log Analytics scheduled-query alert for ingress lag. Token-expiry recycling still flushes a partial batch and remains a credential-refresh boundary, not a process restart. | `current change`; focused consumer and infrastructure checks passed 5 cases; Ruff, strict mypy, `terraform fmt -check`, and `terraform validate` passed. | Apply the monitoring plan and retain a live firing and recovery receipt before classifying the alert as validated. |
 ### Remaining work
 
 - [ ] Retain repository-safe governed apply receipts for the legacy platform and ops-bootstrap
@@ -48,6 +50,8 @@ deployment-specific values outside the upstream distribution.
 - [ ] Record a protected apply and execution receipt showing `caj-<workload>-migrate` succeeds
   before `caj-<workload>-catalog` starts with the reviewed Core image digest.
 - [ ] Record a protected apply and execution receipt for the deterministic `caj-<workload>[-env][-region]-browser-gc` Job.
+- [ ] Record a protected apply receipt showing the Event Bus consumer lag alert reads sanitized
+  `event_bus_consumer_progress` rows, fires above the configured bound, and resolves after lag recovers.
 
 ## Resource Naming Convention
 
@@ -89,6 +93,7 @@ placement (none today).
 | Key Vault | `kv-` | 3-24; alphanumerics + hyphens | `kv-fdai` |
 | **Container Registry (ACR)** | `cr` | 5-50; **alphanumeric only, no hyphens** | `crfdai` |
 | Log Analytics workspace | `log-` | 4-63 | `log-fdai` |
+| Azure Monitor alert / action group | `alert-` / `ag-` | 1-260 / 1-260 | `alert-fdai-event-bus-consumer-lag`, `ag-fdai` |
 | Foundry account (`AIServices`) | `aif-` | 2-64; alphanumerics + hyphens | `aif-fdai-search` |
 | Foundry account project | `proj-` | 2-64; alphanumerics + hyphens | `proj-fdai-search` |
 | Azure Bot (HIL Adaptive Cards) | `bot-` | 2-64 | `bot-fdai` |

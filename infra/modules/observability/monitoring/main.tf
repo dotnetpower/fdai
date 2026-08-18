@@ -174,6 +174,44 @@ resource "azurerm_monitor_metric_alert" "this" {
   tags = var.tags
 }
 
+resource "azurerm_monitor_scheduled_query_rules_alert_v2" "consumer_lag" {
+  name                 = "alert-${var.workload}-event-bus-consumer-lag"
+  resource_group_name  = var.resource_group_name
+  location             = var.location
+  evaluation_frequency = "PT5M"
+  window_duration      = "PT15M"
+  scopes               = [var.log_analytics_workspace_id]
+  severity             = 2
+  description          = "Event Bus ingress consumer partition lag exceeds its configured bound"
+  display_name         = "Event Bus ingress consumer lag"
+  enabled              = true
+
+  criteria {
+    query                   = <<-KQL
+      ContainerAppConsoleLogs_CL
+      | extend log = parse_json(Log_s)
+      | where tostring(log.message) == "event_bus_consumer_progress"
+      | where tostring(log.topic) == "aw.change.events"
+      | summarize consumer_lag=max(tolong(log.consumer_lag)) by tostring(log.consumer_group), toint(log.partition)
+      | where consumer_lag > ${var.event_bus_consumer_lag_threshold}
+    KQL
+    time_aggregation_method = "Count"
+    threshold               = 0
+    operator                = "GreaterThan"
+
+    failing_periods {
+      minimum_failing_periods_to_trigger_alert = 1
+      number_of_evaluation_periods             = 1
+    }
+  }
+
+  action {
+    action_groups = [azurerm_monitor_action_group.primary.id]
+  }
+
+  tags = var.tags
+}
+
 resource "azurerm_monitor_diagnostic_setting" "this" {
   for_each = local.diag_targets
 

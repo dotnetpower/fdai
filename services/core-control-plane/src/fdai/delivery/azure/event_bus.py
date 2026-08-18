@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, ClassVar, Final, Literal
 
-from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+from aiokafka import AIOKafkaConsumer, AIOKafkaProducer, TopicPartition
 from aiokafka.abc import AbstractTokenProvider
 
 from fdai.shared.providers.event_bus import (
@@ -385,6 +385,7 @@ async def _iter_consumer(
                 config=config,
             )
             uncommitted = 0
+            partition_offsets: dict[int, int] = {}
             last_commit_at = asyncio.get_running_loop().time()
             while True:
                 remaining = refresh_at - asyncio.get_running_loop().time()
@@ -402,6 +403,9 @@ async def _iter_consumer(
                     payload=payload,
                     offset=message.offset,
                 )
+                partition = getattr(message, "partition", None)
+                if isinstance(partition, int) and partition >= 0:
+                    partition_offsets[partition] = message.offset
                 # At-least-once: commit only after the caller finished iterating
                 # to the yield point. If the caller crashes mid-processing, the
                 # broker will redeliver the message and the ControlLoop's
@@ -414,14 +418,53 @@ async def _iter_consumer(
                     uncommitted >= config.commit_max_records
                     or now - last_commit_at >= config.commit_interval_seconds
                 ):
-                    await consumer.commit()
+                    await _commit_consumer_progress(
+                        consumer,
+                        topic=topic,
+                        group_id=group_id,
+                        partition_offsets=partition_offsets,
+                    )
                     uncommitted = 0
+                    partition_offsets.clear()
                     last_commit_at = now
             if uncommitted:
-                await consumer.commit()
+                await _commit_consumer_progress(
+                    consumer,
+                    topic=topic,
+                    group_id=group_id,
+                    partition_offsets=partition_offsets,
+                )
             _LOGGER.debug("event_bus_consumer_token_refresh", extra={"group_id": group_id})
         finally:
             await _stop_consumer(consumer, topic=topic, group_id=group_id)
+
+
+async def _commit_consumer_progress(
+    consumer: AIOKafkaConsumer,
+    *,
+    topic: str,
+    group_id: str,
+    partition_offsets: Mapping[int, int],
+) -> None:
+    """Commit one batch and export sanitized per-partition progress."""
+    await consumer.commit()
+    highwater_for = getattr(consumer, "highwater", None)
+    for partition, offset in sorted(partition_offsets.items()):
+        topic_partition = TopicPartition(topic, partition)
+        highwater = highwater_for(topic_partition) if callable(highwater_for) else None
+        committed_offset = offset + 1
+        lag = max(0, highwater - committed_offset) if isinstance(highwater, int) else None
+        _LOGGER.info(
+            "event_bus_consumer_progress",
+            extra={
+                "topic": topic,
+                "consumer_group": group_id,
+                "partition": partition,
+                "committed_offset": committed_offset,
+                "highwater_offset": highwater,
+                "consumer_lag": lag,
+            },
+        )
 
 
 async def _consume_messages(consumer: AIOKafkaConsumer) -> AsyncGenerator[EventEnvelope, None]:

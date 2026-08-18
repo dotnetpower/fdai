@@ -21,6 +21,7 @@ from types import SimpleNamespace
 
 import fdai.delivery.azure.event_bus as event_bus_module
 import pytest
+from aiokafka import TopicPartition
 from fdai.delivery.azure.event_bus import (
     EventHubsKafkaBus,
     EventHubsKafkaBusConfig,
@@ -455,6 +456,132 @@ async def test_consumer_commits_once_per_batch_not_per_event(
 
     assert offsets == [1, 2, 3]
     assert commits == [3], "three events MUST cost exactly one broker commit"
+
+
+@pytest.mark.asyncio
+async def test_consumer_flushes_partial_batch_before_token_refresh(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    commits: list[int] = []
+    instances = 0
+    delivered = 0
+
+    class _Message:
+        topic = "aw.control.canary"
+        partition = 0
+        key = b"resource"
+        value = b'{"event_id": "e"}'
+
+        def __init__(self, offset: int) -> None:
+            self.offset = offset
+
+    class _RecordingConsumer:
+        def __init__(self, *_args: object, **kwargs: object) -> None:
+            nonlocal instances
+            instances += 1
+            self.instance = instances
+            self.provider = kwargs["sasl_oauth_token_provider"]
+
+        async def start(self) -> None:
+            if self.instance > 1:
+                raise RuntimeError("stop after refresh")
+            await self.provider.token()
+
+        async def stop(self) -> None:
+            return None
+
+        async def getone(self) -> object:
+            nonlocal delivered
+            if delivered < 2:
+                delivered += 1
+                return _Message(delivered)
+            await asyncio.Future()
+
+        async def commit(self) -> None:
+            commits.append(delivered)
+
+        def highwater(self, _partition: object) -> int:
+            return 2
+
+    monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", _RecordingConsumer)
+    monkeypatch.setattr(event_bus_module, "_token_refresh_delay", lambda **_kwargs: 0.01)
+    iterator = _iter_consumer(
+        topic="aw.control.canary",
+        group_id="fdai-canary",
+        config=_cfg(commit_max_records=50, commit_interval_seconds=3600.0),
+        identity=_StaticIdentity(),
+        audience="https://evhns.servicebus.windows.net/.default",
+    )
+
+    assert (await anext(iterator)).offset == 1
+    assert (await anext(iterator)).offset == 2
+    with pytest.raises(RuntimeError, match="stop after refresh"):
+        await asyncio.wait_for(anext(iterator), timeout=1)
+
+    assert commits == [2]
+
+
+@pytest.mark.asyncio
+async def test_consumer_exports_partition_progress_and_lag_after_commit(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    delivered = False
+
+    class _Message:
+        topic = "aw.change.events"
+        partition = 1
+        key = b"resource"
+        value = b'{"event_id": "e"}'
+        offset = 7
+
+    class _RecordingConsumer:
+        def __init__(self, *_args: object, **kwargs: object) -> None:
+            self.provider = kwargs["sasl_oauth_token_provider"]
+
+        async def start(self) -> None:
+            await self.provider.token()
+
+        async def stop(self) -> None:
+            return None
+
+        async def getone(self) -> object:
+            nonlocal delivered
+            if delivered:
+                raise RuntimeError("consumer complete")
+            delivered = True
+            return _Message()
+
+        async def commit(self) -> None:
+            return None
+
+        def highwater(self, partition: object) -> int:
+            assert partition == TopicPartition("aw.change.events", 1)
+            return 13
+
+    monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", _RecordingConsumer)
+    caplog.set_level(logging.INFO, logger=event_bus_module.__name__)
+    iterator = _iter_consumer(
+        topic="aw.change.events",
+        group_id="fdai-pantheon.Huginn",
+        config=_cfg(commit_max_records=1),
+        identity=_StaticIdentity(),
+        audience="https://evhns.servicebus.windows.net/.default",
+    )
+
+    assert (await anext(iterator)).offset == 7
+    with pytest.raises(RuntimeError, match="consumer complete"):
+        await anext(iterator)
+
+    progress = next(
+        record for record in caplog.records if record.message == "event_bus_consumer_progress"
+    )
+    assert progress.topic == "aw.change.events"
+    assert progress.consumer_group == "fdai-pantheon.Huginn"
+    assert progress.partition == 1
+    assert progress.committed_offset == 8
+    assert progress.highwater_offset == 13
+    assert progress.consumer_lag == 5
 
 
 def test_config_rejects_unusable_commit_batching() -> None:

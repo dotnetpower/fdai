@@ -2141,6 +2141,7 @@ module "monitoring" {
 
   workload                   = var.workload
   resource_group_name        = module.resource_group.name
+  location                   = var.region
   log_analytics_workspace_id = module.log_analytics.workspace_id
   action_group_name          = "ag-${var.workload}${local.full_suffix}"
   action_group_short_name    = substr(var.workload, 0, 12)

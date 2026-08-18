@@ -6,6 +6,16 @@ variable "resource_group_name" {
   type = string
 }
 
+variable "location" {
+  description = "Azure region for resource-group-scoped Monitor alert rules."
+  type        = string
+
+  validation {
+    condition     = trimspace(var.location) != ""
+    error_message = "location must not be empty."
+  }
+}
+
 variable "log_analytics_workspace_id" {
   description = "Log Analytics workspace the diagnostic settings stream to."
   type        = string
@@ -69,6 +79,20 @@ variable "postgres_connection_threshold" {
 variable "container_app_restart_threshold" {
   type    = number
   default = 5
+}
+
+variable "event_bus_consumer_lag_threshold" {
+  description = "Per-partition ingress lag that triggers the consumer-stall alert."
+  type        = number
+  default     = 100
+
+  validation {
+    condition = (
+      var.event_bus_consumer_lag_threshold >= 1 &&
+      var.event_bus_consumer_lag_threshold <= 1000000
+    )
+    error_message = "event_bus_consumer_lag_threshold must be between 1 and 1000000."
+  }
 }
 
 variable "tags" {

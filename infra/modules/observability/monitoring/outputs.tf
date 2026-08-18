@@ -4,6 +4,9 @@ output "action_group_id" {
 }
 
 output "alert_names" {
-  value       = sort([for a in azurerm_monitor_metric_alert.this : a.name])
+  value = sort(concat(
+    [for alert in azurerm_monitor_metric_alert.this : alert.name],
+    [azurerm_monitor_scheduled_query_rules_alert_v2.consumer_lag.name],
+  ))
   description = "Provisioned metric alert names."
 }
