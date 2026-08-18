@@ -31,8 +31,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
 
-from fdai.shared.contracts.models import Action
-from fdai.shared.contracts.models.enums import ExecutionPath
+from fdai.shared.contracts.models import Action, ExecutionPath
 
 STOP_CONDITION = "stop_condition"
 ROLLBACK = "rollback"

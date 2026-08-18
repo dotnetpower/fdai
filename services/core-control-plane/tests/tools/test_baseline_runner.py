@@ -15,6 +15,11 @@ from tools.reference_agent import AgentDecision, ReferenceAgent
 REPO_ROOT = Path(__file__).resolve().parents[4]
 SCENARIOS = REPO_ROOT / "services" / "core-control-plane" / "tests" / "scenarios" / "v2026.07"
 
+#: The frozen scenario set is deliberately fixed, so adding a scenario is a visible decision
+#: that also has to regenerate `docs/baselines/v2026.07.*`. It moved from 9 to 12 when the
+#: three `sre.*` scenarios landed.
+_FROZEN_SCENARIO_COUNT = 12
+
 
 def test_reference_agent_is_deterministic() -> None:
     """Two invocations of the reference agent yield byte-identical outputs."""
@@ -35,7 +40,7 @@ def test_reference_agent_is_deterministic() -> None:
 
 def test_run_produces_the_expected_summary_shape() -> None:
     _, summary = _run(SCENARIOS)
-    assert summary["scenario_count"] == 9
+    assert summary["scenario_count"] == _FROZEN_SCENARIO_COUNT
     assert summary["reference_agent"] == ReferenceAgent.VERSION
     assert "success_metrics" in summary
     assert "guard_metrics_baseline" in summary
@@ -94,9 +99,16 @@ def test_measured_observations_are_marked_but_small_sample_is_not_claim_eligible
 
     assert summary["evidence"]["kind"] == "measured-observations"
     assert summary["evidence"]["claim_eligible"] is False
-    assert summary["confidence_intervals_95"]["routed_correctly_rate"]["sample_size"] == 9
-    assert summary["tier_economics"]["t2"]["model_calls"] == 1
-    assert summary["model_economics"]["cost_usd"] == 0.01
+    assert (
+        summary["confidence_intervals_95"]["routed_correctly_rate"]["sample_size"]
+        == _FROZEN_SCENARIO_COUNT
+    )
+    # Derived, not pinned: the fixture above emits exactly one model call and one cost unit
+    # per t2 scenario, so hardcoding a total would break every time the frozen set grows.
+    t2_count = sum(1 for scenario in scenarios if scenario["expected"]["tier"] == "t2")
+    assert t2_count >= 1, "the fixture proves nothing about t2 economics without a t2 scenario"
+    assert summary["tier_economics"]["t2"]["model_calls"] == t2_count
+    assert summary["model_economics"]["cost_usd"] == pytest.approx(0.01 * t2_count)
     assert summary["quality_evidence"]["verifier_failure_count"] == 0
     assert summary["release_gate"]["checks"]["minimum_sample_size"] is False
 
@@ -129,7 +141,7 @@ def test_cli_writes_report_and_json(tmp_path: Path) -> None:
     assert "unmeasured" in report.read_text(encoding="utf-8")
 
     parsed = json.loads(payload.read_text(encoding="utf-8"))
-    assert parsed["scenario_count"] == 9
+    assert parsed["scenario_count"] == _FROZEN_SCENARIO_COUNT
 
     # The KO sibling MUST have been emitted alongside the EN report.
     ko_sibling = report.with_name(report.stem + "-ko" + report.suffix)

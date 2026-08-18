@@ -19,8 +19,7 @@ from fdai.core.ontology_platform import (
     ReconciliationRequestProduction,
     ReconciliationRequestProductionStatus,
 )
-from fdai.shared.contracts.models import Action, Event, Mode, Rule
-from fdai.shared.contracts.models.enums import ExecutionPath
+from fdai.shared.contracts.models import Action, Event, ExecutionPath, Mode, Rule
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _NOW = datetime(2026, 7, 21, tzinfo=UTC)

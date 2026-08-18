@@ -1,7 +1,7 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: f8277f07f0bec500e6a699111017d00628522604
+translation_source_sha: cccdd17659ce0eaf500d79426ff2e297013348a8
 translation_revised: 2026-08-19
 ---
 
@@ -34,6 +34,7 @@ translation_revised: 2026-08-19
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | implemented | 커밋된 기준선을 다시 생성했습니다. `sre.*` 시나리오 3건이 추가되어 고정 세트가 12개가 된 뒤에도 기준선은 여전히 9개 세트를 기술하고 있었습니다. 발행된 모든 지표와 표본 크기, 신뢰구간이 더 이상 존재하지 않는 세트를 설명하고 있었고, `routed_correctly_rate`는 0.111에서 0.083이 되었습니다. 기준선 테스트는 이제 `9`와 "t2 시나리오가 정확히 하나"를 고정하는 대신 세트에서 시나리오 개수와 t2 경제성을 도출하므로, 다음 추가는 숫자 속에서 조용히 어긋나는 대신 산출물에서 크게 실패합니다. | `current change`, `tools.baseline_run`이 `docs/baselines/v2026.07.{json,md}`와 한국어 쌍을 재생성, core와 공유 패키지 suite가 11913건 통과(스킵 131건)하며 이전에 실패하던 `test_baseline_runner`와 `test_models_facade_only` 포함 | 기준선은 여전히 `synthetic-harness` 근거이며 주장 자격이 없습니다. 실측 기준선과 처리군 코호트는 아래의 열린 항목으로 남아 있습니다. |
 | 2026-08-19 | in-progress | `sre` 팩에 세 번째 커버리지 차원을 manifest 항목이 아니라 실제로 단언되는 근거로 추가했습니다. 전용 테스트가 첫 요청을 떨어뜨리는 publisher를 상대로 `sre.cluster-diagnostics-missing.001`을 재생해 효과 결과가 진짜 알 수 없는 상태로 만들고, 오류가 빠져나가기 전에 종단 `publish_outcome_unknown` audit 항목이 닫히며 PR이 기록되지 않고 캐시도 남지 않는다는 점, 그리고 같은 executor로 재시도하면 shadow PR이 정확히 하나만 발행된다는 점을 입증합니다. 어느 팩에서도 처음 확보한 `partial_failure_recovery` 근거입니다. | `current change`, `tests/scenarios`와 `test_shadow_eval.py`가 focused 116건 통과, 신규 테스트는 변이 검증 완료 - `_close_unknown_publish`를 no-op으로 바꾸면 `assert 0 == 1`로 실패합니다. | `sre`의 `successful_full_loop`, `cross_objective_conflict`, `a3e_or_non_applicability`는 여전히 근거가 없습니다. full-loop 주장은 shadow 실행이 제공하지 않는 독립 효과 검증이 필요하고, A3-E 주장은 아직 연결되지 않은 standing-authority 평가기가 필요합니다. manifest 검사는 인용된 테스트의 존재만 확인할 뿐 그 차원을 단언하는지는 확인하지 않습니다. |
 | 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 실행 가능한 측정 mechanics를 입증되지 않은 결과 주장과 분리했습니다. | `current change`; 위에 인용한 측정 소스, 집중 테스트, 시나리오 매니페스트 및 헌법 레지스터입니다. | 시나리오 커버리지를 완료하고 권위 있는 결과 종결을 포함한 실제 운영 기준선 및 처리 집단을 보존합니다. |
 | 2026-08-18 | in-progress | `sre` 능력 팩에 첫 시나리오를 부여해 `missing` 상태인 팩이 사라졌습니다. 고정 시나리오 3개가 제공되는 카탈로그로 실제 컨트롤 루프를 재생합니다. `kubernetes-cluster.diagnostic-settings-required`를 발화시켜 shadow PR을 여는 관측 가능성 전제 조건, 모델링되지 않은 대상의 error budget 소진이 abstain하고 아무것도 발행하지 않는 경우, 검토된 상한을 넘는 텔레메트리 보존입니다. 도메인마다 하나씩 배치해 균형 검사를 만족시킵니다. `unknown_or_deny`와 `deterministic_replay_with_evidence`만 주장했습니다. 나머지 네 차원은 근거가 없어 팩은 `partial`, 집합은 `incomplete`로 유지합니다. | `current change`, `tests/scenarios` focused 테스트 98건 통과. 신규 재생 3건 모두 제공되는 규칙·정책·ActionType으로 `ControlLoop.process`를 통과했습니다. | 모든 팩에 대해 successful-full-loop, cross-objective-conflict, partial-failure-recovery, A3-E 또는 비해당 사례를 작성해야 합니다. full-loop 주장에는 shadow 실행이 제공하지 않는 독립 효과 검증이 추가로 필요합니다. |

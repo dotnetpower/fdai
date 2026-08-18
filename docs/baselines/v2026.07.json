@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-07-25T09:29:07.337839+00:00",
+  "generated_at": "2026-08-18T16:02:09.010682+00:00",
   "reference_agent": "reference-agent-stub@1.0.0",
   "scenario_set_version": "v2026.07",
-  "scenario_count": 9,
+  "scenario_count": 12,
   "evidence": {
     "kind": "synthetic-harness",
     "claim_eligible": false,
@@ -11,24 +11,24 @@
   "success_metrics": {
     "auto_resolution_rate": 0.0,
     "hil_rate": 1.0,
-    "routed_correctly_rate": 0.1111111111111111,
+    "routed_correctly_rate": 0.08333333333333333,
     "human_touchpoints_per_100_events": 100.0
   },
   "confidence_intervals_95": {
     "auto_resolution_rate": {
-      "sample_size": 9,
-      "lower": 0.0,
-      "upper": 0.2991450484195441
+      "sample_size": 12,
+      "lower": 2.7755575615628914e-17,
+      "upper": 0.24249400665524085
     },
     "hil_rate": {
-      "sample_size": 9,
-      "lower": 0.7008549515804559,
+      "sample_size": 12,
+      "lower": 0.7575059933447592,
       "upper": 1.0
     },
     "routed_correctly_rate": {
-      "sample_size": 9,
-      "lower": 0.019890887638544907,
-      "upper": 0.434999705576656
+      "sample_size": 12,
+      "lower": 0.014865094404917095,
+      "upper": 0.35387991114111694
     }
   },
   "guard_metrics_baseline": {
@@ -36,7 +36,7 @@
     "rollback_rate": 0.0,
     "policy_violation_escape_rate": 0.0,
     "false_positive_rate": 0.0,
-    "false_negative_rate": 0.4444444444444444
+    "false_negative_rate": 0.5
   },
   "guard_metric_source": "observed reference outcomes",
   "tier_economics": {
@@ -61,7 +61,7 @@
       "unpriced_model_call_count": 0
     },
     "t2": {
-      "count": 9,
+      "count": 12,
       "share": 1.0,
       "model_calls": 0,
       "latency_sample_count": 0,
@@ -81,14 +81,14 @@
   },
   "quality_evidence": {
     "routed_correctly_count": 1,
-    "routed_correctly_rate": 0.1111111111111111,
+    "routed_correctly_rate": 0.08333333333333333,
     "abstention_count": 0,
     "abstention_rate": 0.0,
     "verifier_invocation_count": 0,
     "verifier_failure_count": 0,
     "verifier_failure_rate": 0.0,
     "verifier_outcomes": {
-      "not_invoked": 9,
+      "not_invoked": 12,
       "eligible": 0,
       "abstain": 0,
       "disagree": 0,
@@ -98,19 +98,19 @@
   },
   "per_domain": {
     "change": {
-      "count": 3,
+      "count": 4,
       "auto_resolution_rate": 0.0,
       "hil_rate": 1.0,
       "routed_correctly_rate": 0.0
     },
     "dr": {
-      "count": 3,
+      "count": 4,
       "auto_resolution_rate": 0.0,
       "hil_rate": 1.0,
-      "routed_correctly_rate": 0.3333333333333333
+      "routed_correctly_rate": 0.25
     },
     "finops": {
-      "count": 3,
+      "count": 4,
       "auto_resolution_rate": 0.0,
       "hil_rate": 1.0,
       "routed_correctly_rate": 0.0

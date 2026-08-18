@@ -16,7 +16,7 @@ import pytest
 from fdai.core.assurance_twin.model_promotion import GraphModelPromotionPolicy
 from fdai.core.operational_learning import shadow_dwell
 from fdai.core.operational_learning.shadow_dwell import MAX_POLICY_ESCAPES, ShadowDwellThresholds
-from fdai.shared.contracts.models.ontology import PromotionGate
+from fdai.shared.contracts.models import PromotionGate
 from fdai.shared.ontology.threshold_bounds import (
     ACTION_TYPE_SCHEMA,
     ADAPTIVE_THRESHOLD_BINDINGS,

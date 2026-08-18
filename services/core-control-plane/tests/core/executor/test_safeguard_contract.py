@@ -31,14 +31,12 @@ from fdai.shared.contracts.models import (
     Action,
     ActionStopCondition,
     BlastRadius,
-    Mode,
-    Operation,
-    RollbackRef,
-)
-from fdai.shared.contracts.models.enums import (
     BlastRadiusScope,
     ExecutionPath,
+    Mode,
+    Operation,
     RollbackKind,
+    RollbackRef,
     StopConditionKind,
 )
 

@@ -26,8 +26,7 @@ from fdai.core.executor.tool_call import (
     ToolCallExecutionResult,
     ToolCallShadowExecutor,
 )
-from fdai.shared.contracts.models import Action, Rule
-from fdai.shared.contracts.models.enums import ExecutionPath
+from fdai.shared.contracts.models import Action, ExecutionPath, Rule
 
 
 class _PrNativeExecutionPort(Protocol):

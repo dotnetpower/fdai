@@ -48,8 +48,7 @@ from fdai.core.executor.safeguards import (
     plan_digest_for_mapping,
     resource_lock_key,
 )
-from fdai.shared.contracts.models import Action, Mode
-from fdai.shared.contracts.models.enums import ExecutionPath
+from fdai.shared.contracts.models import Action, ExecutionPath, Mode
 from fdai.shared.providers.direct_api import (
     DirectApiAuthenticationError,
     DirectApiError,

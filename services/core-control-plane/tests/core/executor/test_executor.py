@@ -38,6 +38,7 @@ from fdai.shared.contracts.models import (
     Category,
     CheckLogic,
     CheckLogicKind,
+    ExecutionPath,
     Mode,
     Operation,
     Provenance,
@@ -50,7 +51,6 @@ from fdai.shared.contracts.models import (
     Severity,
     StopConditionKind,
 )
-from fdai.shared.contracts.models.enums import ExecutionPath
 from fdai.shared.providers.remediation_pr import PublishReceipt, RemediationPr
 from fdai.shared.providers.testing import (
     InMemoryStateStore,
