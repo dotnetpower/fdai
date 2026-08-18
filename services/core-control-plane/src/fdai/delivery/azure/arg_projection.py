@@ -192,6 +192,10 @@ def materialize_nested_subnets(
         resource_group = vnet.props.get("resourceGroup")
         if isinstance(resource_group, str) and resource_group:
             props["resourceGroup"] = resource_group
+        # A nested child is still a resource in the declared containment chain, so it
+        # reports the same parent level every other resource reports.
+        if (parent_id := parent_neutral_id(provider_ref)) is not None:
+            props["parent_id"] = parent_id
         records.append(
             ResourceRecord(
                 resource_id=resource_id,
