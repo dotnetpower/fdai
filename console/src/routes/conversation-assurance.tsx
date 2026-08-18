@@ -47,9 +47,12 @@ export function ConversationAssuranceRoute({
       const requestedTurn = currentRoute().search.get("turn");
       setSelectedId((current) => selectedAssessmentId(data, requestedTurn, current));
     } catch (error) {
+      const unavailable = isOptionalOperatorApiUnavailable(error);
       setState({
-        status: isOptionalOperatorApiUnavailable(error) ? "unavailable" : "error",
-        message: error instanceof Error ? error.message : String(error),
+        status: unavailable ? "unavailable" : "error",
+        message: unavailable
+          ? t("assurance.unavailable")
+          : error instanceof Error ? error.message : String(error),
       });
     }
   };

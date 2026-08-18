@@ -138,8 +138,7 @@ export function startChat(palette: readonly ActionTypePaletteEntry[]): BotTurn {
     return {
       text:
         "I can't reach the ActionType palette on this deployment, so I have no " +
-        "building blocks to offer. Enable `OperatorApiConfig.workflow_authoring` in the " +
-        "composition root, then reopen this page.",
+        "building blocks to offer. The workflow authoring routes are not wired here.",
       options: [],
       slots,
       draftReady: false,

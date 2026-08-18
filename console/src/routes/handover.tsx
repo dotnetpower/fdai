@@ -16,8 +16,8 @@ import { panelArray, panelBoolean, panelContractError, panelNonEmptyString, pane
  * (maintainers + 15 agents + their stewards) plus the coverage report
  * (bus-factor / over-assignment / maintainer findings) as read-only tables.
  *
- * Opt-in on the API side (``OperatorApiConfig.stewardship_map`` set). When not
- * wired, the panel surfaces a friendly "unavailable" state. Read-only: edits
+ * Opt-in on the API side. When the stewardship route is not wired, the panel
+ * surfaces a friendly "unavailable" state. Read-only: edits
  * are governance draft PRs, never a console mutation.
  */
 

@@ -272,3 +272,41 @@ def test_intent_graph_console_projections_are_exact_and_bounded() -> None:
     oversized_evidence = evidence.model_copy(update={"goals": (oversized_receipt,)})
     with pytest.raises(ValueError, match="references"):
         project_intent_graph_evidence(oversized_evidence)
+
+
+def test_console_intent_projection_accepts_an_object_set_membership_predicate() -> None:
+    frame = _frame()
+    plan = _plan(frame)
+    arguments = {
+        "definition": {
+            "selector": {"kind": "object_type", "name": "Resource"},
+            "predicates": [
+                {"property": "type", "operator": "in", "values": ["postgresql-server"]},
+                {"property": "name", "operator": "contains", "equals": "fdai"},
+            ],
+            "as_of": "2026-08-17T00:00:00+00:00",
+            "purpose": "operations-review",
+            "limit": 1000,
+        }
+    }
+    graph = IntentGraph(
+        problem_frame_digest=frame.frame_digest,
+        plan_digest=plan.plan_digest,
+        goals=(
+            IntentGoal(
+                goal_id="goal-1",
+                intent="object_set",
+                capability="query.object_set",
+                arguments_json=canonical_json(arguments),
+                evidence_mode=GoalEvidenceMode.OPERATIONAL,
+                freshness_required=True,
+                confidence=0.9,
+            ),
+        ),
+        confidence=0.9,
+        action_posture="advise_only",
+    )
+
+    projected = project_intent_graph(graph)
+
+    assert projected["goals"][0]["arguments"] == arguments

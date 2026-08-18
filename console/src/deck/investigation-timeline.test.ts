@@ -187,7 +187,7 @@ describe("upsertEvidenceBranch", () => {
     expect(view).toContain('class="deck-composer-inner"');
     expect(view).toContain('class="deck-transcript-inner"');
     expect(styles).toContain("overflow-anchor: none;");
-    expect(styles).toContain("padding: 16px 42px 88px;");
+    expect(styles).toContain("padding: 16px 42px 28px;");
     expect(styles).toContain(".deck-table-wrap { max-height: none; overflow: visible; }");
     expect(richContent).toContain("streaming ? parseStreamingAnswer(text) : parseAnswer(text)");
     expect(richContent).toContain("{rows.map((row, r) => (");

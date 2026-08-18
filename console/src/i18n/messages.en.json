@@ -507,7 +507,7 @@
       "approval-routes": "Approval routes",
       "mapping-reviews": "Mapping reviews"
     },
-    "unavailable": "The stewardship endpoint is not wired on this deployment. Set OperatorApiConfig.stewardship_map in the composition root to enable it.",
+    "unavailable": "The stewardship endpoint is not wired on this deployment, so no steward assignment or handover finding is claimed here.",
     "noMaintainer": "No maintainer configured - at least 1 is required.",
     "oneMaintainer": "Only 1 maintainer - 2 are recommended for succession safety.",
     "agents": "Agents",

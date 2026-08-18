@@ -708,6 +708,43 @@ async def test_shadow_mode_invariant_every_execution_is_shadow(
 
 @requires_opa
 @pytest.mark.asyncio
+async def test_compliant_evaluation_does_not_escalate_to_adaptive_tiers(
+    shipped_catalog: tuple[Any, Any],
+) -> None:
+    """A conclusive T0 pass MUST NOT spend T1/T2 or open an abstention."""
+    loop, _publisher, audit = _make_loop(shipped_catalog)
+
+    result = await loop.process(
+        _make_event(
+            idempotency_key="e-compliant",
+            resource_type="object-storage",
+            resource_id="rid-compliant",
+            props={
+                "public_access": "disabled",
+                "tags": {"owner": "team-a", "cost_center": "cc-1"},
+                "infrastructure_encryption_enabled": True,
+                "enable_https_traffic_only": True,
+                "min_tls_version": "TLS1_2",
+                "blob_soft_delete_enabled": True,
+                "blob_versioning_enabled": True,
+                "allow_shared_key_access": False,
+                "diagnostic_settings": ["diag-1"],
+            },
+        )
+    )
+
+    assert result.outcome is ControlLoopOutcome.COMPLIANT
+    assert result.decision == "compliant"
+    assert result.tier == "t0"
+    assert result.rca_result is None
+
+    kinds = [entry["entry"].get("action_kind") for entry in audit.audit_entries]
+    assert "control_loop.compliant" in kinds
+    assert "control_loop.abstain" not in kinds
+
+
+@requires_opa
+@pytest.mark.asyncio
 async def test_every_terminal_path_writes_audit(
     shipped_catalog: tuple[Any, Any],
 ) -> None:
@@ -722,15 +759,15 @@ async def test_every_terminal_path_writes_audit(
             props={},
         )
     )
-    # Path B: T0 abstain (matches type but no rule denies)
-    await loop.process(
+    # Path B: T0 evaluates every candidate and none denies -> compliant
+    result_b = await loop.process(
         _make_event(
             idempotency_key="e-b",
             resource_type="object-storage",
             resource_id="rid-b",
             # Fully compliant snapshot - every shipped object-storage rule
             # MUST see its expected property; if a new rule adds a property,
-            # its compliant value goes here so this path stays a T0 abstain.
+            # its compliant value goes here so this path stays compliant.
             props={
                 "public_access": "disabled",
                 "public_network_access_enabled": False,
@@ -757,14 +794,19 @@ async def test_every_terminal_path_writes_audit(
     )
 
     entries = list(audit.audit_entries)
-    # A: 1 abstain entry (routing)
-    # B: 1 abstain entry (T0 no-match)
+    # A: 1 abstain entry (routing found no rule)
+    # B: 1 compliant entry (T0 evaluated every candidate and none denied)
     # C: two executor entries per shipped-rule finding (intent + terminal)
     abstain_entries = sum(
         1 for e in entries if e["entry"].get("action_kind") == "control_loop.abstain"
     )
-    executor_entries = len(entries) - abstain_entries
-    assert abstain_entries == 2
+    compliant_entries = sum(
+        1 for e in entries if e["entry"].get("action_kind") == "control_loop.compliant"
+    )
+    executor_entries = len(entries) - abstain_entries - compliant_entries
+    assert abstain_entries == 1
+    assert compliant_entries == 1
+    assert result_b.outcome is ControlLoopOutcome.COMPLIANT
     assert executor_entries == 2 * len(result_c.execution_results)
     assert await audit.verify_chain(), "audit chain broken"
 

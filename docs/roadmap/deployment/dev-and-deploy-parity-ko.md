@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: a2fb0bd89c05a322f5d0cbcf2086979122ea51d9
-translation_revised: 2026-08-17
+translation_source_sha: 3f95fe492ebd4afcddaff19637b83e3559a39f18
+translation_revised: 2026-08-18
 ---
 
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -35,6 +35,7 @@ translation_revised: 2026-08-17
 | Live 관찰 소비자 격리 | implemented | `services/operator-service/src/fdai_operator_service/environment.py`, `services/operator-service/src/fdai_operator_service/composition.py`, `console/tests/live-e2e/operator_service.py` 및 focused 회귀 검사, 테스트 41개 통과 | `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID`는 독립적으로 실행되는 각 Operator 프로세스 또는 복제본을 고유한 그룹에 연결합니다. E2E launcher는 상속된 값을 항상 UUID 범위 그룹으로 교체합니다. |
 | Agent 새로 고침 최신 상태 초기화 | validated | focused 스트림 테스트 9개 통과, 인증된 `/agents` 새로 고침이 각각 224ms, 232ms, 228ms 안에 `Watching 2 / Idle 13 / Unobserved 0` 도달 | Agent hub는 agent별로 검증된 최신 `agent.state` 이벤트 하나를 새 구독자에게 초기값으로 제공합니다. 일반 Live는 이후 이벤트만 전달하며 어느 hub도 영속 이력 재생을 제공하지 않습니다. |
 | 인증된 로컬 Live 이벤트 경로 | validated | 2026-08-13 통제된 Browser Entra 실행이 `aw.change.events`, Core, `aw.pipeline.stages`, Operator SSE 및 기존 인증 Live DOM을 통과 | 이 실행은 권위 있는 온톨로지를 보존하고 이벤트와 허용된 네 단계를 모두 렌더링했습니다. 배포된 개정 번호, 브라우저 Notifications API 또는 브라우저 종료 상태의 push 전달은 검증하지 않았습니다. |
+| 로컬 컨트롤 루프 변경 이벤트 유입 | validated | `.vscode/tasks.json`, `infra/modules/compute/container-apps/inventory_job.tf`, `tests/integration/infra/test_inventory_repair_wiring.py`, 로컬 실행 1회가 권위 있는 `inventory.resource_changed` 이벤트 5건을 발행했고 인증된 Live 화면이 `Runtime observed`와 `5 routed events`를 보고 | 로컬 inventory reconciliation 태스크가 VNet 통합 배포 job과 똑같이 `FDAI_INVENTORY_RECOVERY_DELTA=1`을 바인딩하므로 Activity Log delta가 두 장소 모두에서 `aw.change.events`에 도달합니다. 배포 job은 infrastructure subnet이 없으면 여전히 delta를 비활성화합니다. |
 | 로컬 및 배포 composition 동등성 | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, `fdai_operator_service/composition.py`, 서비스 통합 테스트 및 focused Operator 검사(`51 passed`) | Composition root는 근거 권한을 바꾸지 않고 자격 증명과 어댑터를 선택합니다. 로컬 및 배포 Operator composition은 같은 Reader 범위 `GET /browser-evidence` 경로와 권위 있는 데이터 출처 ID를 등록하며 PostgreSQL이 없으면 합성 데이터 대신 사용 불가를 반환합니다. |
 | Primary worktree 자동 시작 격리 | implemented | `.vscode/tasks.json`과 `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 자동 시작 계약 통과 | 폴더 열기 자동 시작은 primary checkout에서만 실행되므로 연결된 worktree가 표준 포트를 두고 경합하지 않습니다. 명시적 준비 및 서비스 시작 작업은 연결된 worktree에서도 계속 사용할 수 있습니다. |
 | 리포지토리 범위 roadmap campaign 용량 | implemented | `roadmap_verification_watchdog.py`, `test_roadmap_verification_watchdog.py`, `scripts/README.md`의 무작위 campaign 운영 계약 | FDAI session lease와 최근 Copilot 활동을 모두 이 리포지토리 범위에서만 계산합니다. Linked worktree는 VS Code workspace ID를 도출하기 전에 primary checkout을 해석합니다. 다른 workspace는 FDAI 작업을 보류할 수 없으며, 900초 활동 창과 campaign 세션 2개 상한은 FDAI 동시 편집을 계속 보호합니다. |
@@ -49,6 +50,12 @@ translation_revised: 2026-08-17
 
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-08-17 | validated | 검토된 ActionType 팔레트와 워크플로 카탈로그를 `operator-projection:workflow:workflow.action-type-list`와 `workflow.catalog`로 구체화해, Workflow builder가 unavailable 대신 선언된 구성 요소를 렌더합니다. | 현재 변경; `test_materialize_authoritative_catalogs.py` 5개 통과; 인증된 `/workflow-builder` 로드가 ActionType 48개와 워크플로 12개를 트리거·스텝 수·모드와 함께 렌더했습니다. | 검토된 선언이 아니라 런타임 근거에 기반한 화면은 여전히 `503`을 반환합니다. |
+| 2026-08-17 | validated | 검토된 `config/agent-stewardship.yaml`을 기존 Core coverage 보고서를 통해 `operator-projection:operations:stewardship.coverage`로 구체화해, Agent oversight가 unavailable 대신 측정된 소유 현황을 렌더합니다. | 현재 변경; `test_materialize_authoritative_catalogs.py` 3개 통과(콘솔 계약 불변조건 테스트 포함); 인증된 `/agent-oversight` 로드가 `AGENTS 15`, `MAINTAINERS 2`, `AUTONOMOUS 1`과 Core 계산 finding 표를 unavailable 블록 없이 표시했습니다. | 리포 선언이 아닌 런타임에 생성되는 근거 화면은 여전히 `503`을 반환합니다. |
+| 2026-08-17 | implemented | 이 리포 어디에도 없는 심볼인 `OperatorApiConfig.<field>`를 안내하던 운영자 대상 문구를 담당 체계·워크플로 작성·승격 게이트·규칙 카탈로그·온톨로지·팬테온 패널에서 제거했습니다. | 현재 변경; 집중 콘솔 검사 9개 파일 71개 테스트 통과, Console typecheck 통과, 영향받는 5개 카탈로그 쌍 모두 키 패리티 유지, 6개 패널 인증 통과에서 제거된 심볼 참조가 없었습니다. | 해당 route 배선은 별도 작업이며, 패널은 이제 관측 가능한 상태만 진술합니다. |
+| 2026-08-17 | validated | 남은 미제공 읽기 화면(`/capabilities`, `/skills`, `/forecast-learning`, `/operator-memory`)을 선언하고, 대화 보증 패널이 날것 전송 코드를 표시하지 않도록 했습니다. | 현재 변경; Operator composition 집중 테스트 `50 passed`, Console typecheck 통과, 보증 카탈로그 키 패리티 확인; Agents·Governance·Evidence·Settings 하위 메뉴 인증 통과에서 `404`와 날것 `HTTP nnn`이 모두 없었습니다. | 이 화면 집합에 남은 작업은 없습니다. projection이 연결되지 않은 등록된 route는 계속 서버 소유 사유와 함께 `503`을 반환합니다. |
+| 2026-08-17 | validated | 제공하지 않는 `/onboarding`, `/configuration-baselines`, `/conversation-delivery` 화면을 각각 자신의 소스로 선언해 패널이 자기 자신에 대한 사유를 표시하도록 했습니다. | 현재 변경; Operator composition 집중 테스트 `50 passed`; Operations 13개 화면 인증 통과에서 오류 알림·`404`·날것 전송 코드 노출이 모두 없었습니다. | 소실된 onboarding·baseline·delivery 기능을 서비스 경계 안에서 재구축할지 결정합니다. 이전 구현은 Core provider를 직접 import했습니다. |
+| 2026-08-17 | validated | 이 배포판이 제공하지 않는 `/finops`와 `/kpi/autonomy` 측정 화면을 읽기 데이터 소스 레지스트리에 선언하고, 선택적 Overview projection이 레지스트리의 `503` 신호를 허용하도록 했습니다. | 현재 변경; Operator composition 집중 테스트 `49 passed`와 Console dashboard-loading 테스트 `3 passed`를 모두 변이 검증했고, Overview 6개 화면 인증 통과에서 오류 알림이 없었으며 모든 `404`가 사라졌습니다. | 이 배포판에 reader만 있고 writer가 없는 `promotion-gate.list` projection을 구현하거나 폐기합니다. |
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 machine 범위 Pylance launch 제어를 FDAI 프로파일로 이동했습니다. | 현재 변경의 `.vscode/fdai.code-profile`, `.vscode/settings.json`, `scripts/automation/configure-vscode-profile.py` 및 focused 프로파일/workspace 테스트 9개 통과. | FDAI Pylance process argument와 중앙 검증 receipt를 기록합니다. |
 | 2026-08-13 | deferred | 실효성 없는 Pylance machine 설정을 제거하고 중복 프로파일 JSON 키를 거부했으며 재도입 방지 contract를 추가했습니다. | Clean Remote WSL process command에 구성한 heap argument가 없었으며 focused 프로파일 및 workspace 테스트 11개가 통과했습니다. | 별도 root의 VS Code Server 또는 WSL 배포판을 사용한 뒤 재시작한 process command에서 heap argument를 증명합니다. |
 | 2026-08-13 | implemented | 파괴적인 검증을 위한 전용 로컬 PostgreSQL cluster를 추가하고 detached 검증 queue가 생성된 전용 DSN만 읽도록 했습니다. | 현재 변경, Compose config 통과, focused queue 및 local-env 테스트 68개 통과, 격리된 migration upgrade/downgrade 검사 2개 통과. | 로컬 검증 데이터베이스 격리에 남은 구현 작업은 없습니다. |
@@ -78,6 +85,7 @@ translation_revised: 2026-08-17
 | 2026-08-17 | implemented | Linked worktree session 계산을 바로잡았습니다. 기존 리포지토리 범위 구현은 campaign worktree 경로를 hash해 VS Code storage를 찾지 못했으므로 linked campaign이 FDAI session을 0개로 셀 수 있었습니다. 이제 workspace URI를 hash하기 전에 Git common directory에서 primary checkout을 도출합니다. | `current change`, `roadmap_verification_watchdog.py`, `test_roadmap_verification_watchdog.py`의 실제 linked-worktree 회귀, focused watchdog suite 9건 통과 | Linked-worktree workspace identity에 남은 작업은 없습니다. |
 | 2026-08-17 | implemented | 배포 README의 추적 연속성 문장을 필수 표시 용어로 다시 썼습니다. 운영자용 문장에 그대로 쓰인 `finding`이 중앙 검증의 `display-terminology`를 통과하지 못해 main이 거부되었고 모든 lane과 모든 착륙이 멈췄습니다. | `current change`, `infra/README.md`와 user-guide 쌍, `display-terminology`가 문서 524개에서 OK를 보고하고 번역 185/185 검증 통과 | 이 변경에 남은 작업은 없습니다. |
 | 2026-08-17 | implemented | 표준 로컬 또는 배포 네임스페이스를 바꾸지 않고 대체 로컬 Operator 프로세스의 영속 semantic outbox claim을 격리했습니다. 테스트 전용 Operator는 `FDAI_SEMANTIC_TURN_OUTBOX_NAMESPACE`를 실행 id에 연결할 수 있으며 운영 기본값은 복제본에 안전한 하나의 공유 queue를 계속 사용합니다. | `current change`, focused 환경, composition, 저장소 lease 및 runner 검사 114개 통과, strict mypy 통과 | 네임스페이스가 적용된 보증 runner에서 exact-source Browser 근거를 보존합니다. |
+| 2026-08-17 | validated | 로컬 장소를 배포와 동일한 권위 있는 컨트롤 루프 유입 경로에 바인딩했습니다. Activity Log recovery delta가 배포 inventory job에서는 켜져 있었지만 로컬에서는 `False` 기본값으로 남아 있어서 `aw.change.events`에 아무것도 들어오지 않았고, 모든 전송 구성 요소가 정상인데도 인증된 Live 화면이 `Source unavailable`을 표시했습니다. | `current change`, `.vscode/tasks.json`와 `tests/integration/infra/test_inventory_repair_wiring.py`, focused 인프라 및 헌법 검사 14건 통과, 로컬 실행 1회가 권위 있는 `inventory.resource_changed` 이벤트 5건을 발행해 `source: runtime-observed`인 `ingest`, `route`, `verify`, `audit` 프레임을 만들었고 Live 화면이 `Runtime observed`로 바뀜 | 남은 장소 선택 기능 플래그를 개별 바인딩 대신 하나의 계약으로 열거합니다. |
 ### 잔여 작업
 
 - [ ] FDAI 전용 Remote WSL server data root 또는 WSL 배포판을 마련한 뒤 제외 대상 workspace를 변경하지 않고 재시작한 Pylance process command에 `--max-old-space-size=2048`이 포함됨을 기록합니다.
@@ -88,6 +96,9 @@ translation_revised: 2026-08-17
 - [ ] 같은 카탈로그 digest를 사용하는 통제된 로컬 및 배포 관측 캠페인 쌍을 보존합니다.
   권한 있음, 사용 불가, 부분, 건너뜀 및 완료 출처 결과와 snapshot-first/실제 Agent Activity
   중복 제거를 포함합니다.
+- [ ] 장소가 선택하는 모든 기능 플래그를 하나의 계약으로 열거해서 배포가 켜는 바인딩을
+  로컬 프로파일이 조용히 누락할 수 없게 합니다. 현재는 바인딩마다 따로 보호합니다
+  ([#152](https://github.com/dotnetpower/fdai/issues/152)).
 
 ## 전수조사 - 로컬 동작 vs Azure 필요
 
@@ -319,43 +330,9 @@ MFA를 계속 완료합니다. 로컬 dev-access 상태가 없는 workstation에
 
 ### 로컬 개발의 Console 데이터
 
-정본 로컬 Operator API는 `FDAI_OPERATOR_API_LOCAL_ENTRA=1`을 사용하고 배포와 route-owned 런타임 보조 로직을 공유합니다. 브라우저가 API 토큰을
-얻고 API는 배포와 동일하게 JWT 및 App 역할을 검증합니다. 서버의 Azure CLI 토큰은
-Resource Graph, Microsoft Graph, 모델 발견, Event Hubs 같은 Azure 어댑터로 제한됩니다.
-`FDAI_OPERATOR_API_LOCAL_AZURE_CLI=1`과 `VITE_LOCAL_AZURE_CLI_AUTH=1` 조합은 fixed 역할 상한을
-사용하는 명시적 CLI-principal debug 대안입니다.
-
-로컬 Kubernetes 워크로드 근거는 명시적 선택이며 서버가 소유한입니다.
-`FDAI_LOCAL_KUBECONFIG`, `FDAI_LOCAL_KUBERNETES_CONTEXT`,
-`FDAI_LOCAL_KUBERNETES_CLUSTER_NAME`을 함께 설정하면 하나의 고정된 읽기 전용 `kubectl` 조회를
-연결합니다. 배포 또는 Pod 근거가 AKS 답변의 커버리지를 완료하려면 클러스터 이름이
-Azure 인벤토리 결과와 일치해야 합니다. 세 값이 모두 없으면 워크로드 커버리지는 명시적으로
-사용 불가 상태를 유지하며, 일부만 설정된 연결은 암묵적 현재 맥락을 사용하는 대신
-시작에 실패합니다.
-
-로컬 및 deployed 인벤토리 변환 결과는 같은 두 조회 모드를 사용합니다.
-`scope=<view-id>`는 결정론적 named 아키텍처 화면을 선택합니다. 이 모드와 함께 사용할 수
-없는 rooted 모드는 `root=<resource-id>`, `depth=1..8`, `limit=1..1000`으로 하나의 양방향
-neighborhood를 반환합니다. 알 수 없는 루트는 `404`를 반환하고 상한에 도달하면
-`truncated=true`로 표시합니다. 로컬 Azure CLI 프로바이더는 권위 있는 cached 스냅샷에
-동일한 제한을 적용하며 deployed PostgreSQL 프로바이더는 활성 스냅샷과 real-time 오버레이
-내부에 적용합니다. 어느 프로파일도 rooted 요청을 완전한 인벤토리로 확장하지 않습니다.
-Deployed 프로바이더는 유효 그래프를 하나의 repeatable-read, 읽기 전용 트랜잭션에서 읽으며,
-두 프로파일 모두 같은 깊이의 frontier 리소스를 결정론적 순서로 round-robin 확장합니다.
-Named-view 요청은 기존 3-argument 프로바이더 호출 계약을 유지하며 rooted 요청만 확장
-키워드를 요구합니다. Relationship-filter 개수와 텍스트 length는 프로바이더 전달 전에
-제한합니다. 읽기 경로는 malformed 리소스, 알 수 없음 또는 dangling 관계, 중복
-리소스 id, 잘못된 잘림 메타데이터, oversized 프로바이더 출력을 차단합니다. 두 프로파일은
-중첩된 AKS `powerState.code`를 포함한 관찰된 operational 상태를 프로비저닝 상태로 대체하지
-않고 보존합니다. 로컬 캐시 묶음 v13은 스냅샷을 만든 Azure CLI/ARG 명령의 strict 민감정보가 제거된
-증적을 기록합니다. 이전 묶음은 프로바이더 실행 상세를 노출하기 전에 새로 고침합니다.
-Command Deck 인벤토리 턴은 해당 스냅샷에 IQL을 적용하며 질문마다 프로바이더 명령을 다시
-실행했다고 주장하지 않습니다. Rooted 출력은
-요청된 리소스 상한과 이에 대응하는 간선 상한을 사용하고, named 화면은 기존
-5,000-resource 및 40,000-link 응답 상한을 유지합니다.
-두 프로파일은 리소스, adjacent-edge, internal-edge, 출처 상한으로 구성된 같은 잘림
-사유 vocabulary를 노출합니다. 읽기 경로는 알 수 없음 사유와 non-truncated 페이로드에 붙은
-사유를 차단합니다.
+데이터 소스 선언, 로컬 인증, 워크로드 근거 및 인벤토리 조회 계약은
+[Console 읽기 경계](console-read-boundary-ko.md)가 소유합니다. 이 동등성 문서는 아래의 나머지
+로컬/배포 런타임 바인딩을 유지합니다.
 
 런타임 policies는 배포와 로컬 PostgreSQL이 구성된 경우 동일한 StateStore 기록을
 사용합니다. 영속 로컬 상태가 없으면 출처 매니페스트는 영속성을 주장하지 않고 settings

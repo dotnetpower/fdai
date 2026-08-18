@@ -279,8 +279,8 @@ export async function validateWorkflowDraft(
   }
   if (response.status === 404) {
     throw new Error(
-      "The workflow authoring route is not wired on this deployment. " +
-        "Set OperatorApiConfig.workflow_authoring in the composition root to enable it.",
+      "The workflow authoring route is not wired on this deployment, " +
+        "so the definition cannot be validated here.",
     );
   }
   if (response.status === 413) {

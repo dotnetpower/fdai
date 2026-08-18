@@ -217,6 +217,45 @@ def test_bridge_observer_failure_does_not_block_handler_delivery() -> None:
     assert delivered == ["corr-delivered"]
 
 
+def test_bridge_skips_observer_for_non_pantheon_principal() -> None:
+    reg = load_pantheon()
+    provider = InMemoryEventBus()
+    observed: list[str] = []
+    delivered: list[str] = []
+
+    class Observer:
+        async def observe(
+            self,
+            *,
+            agent: str,
+            topic: str,
+            phase: AgentHandlerPhase,
+            payload: Mapping[str, object],
+            error_type: str | None = None,
+        ) -> None:
+            observed.append(agent)
+
+    bridge = EventBusBridge(provider=provider, registry=reg, handler_observer=Observer())
+
+    async def handler(_topic: str, payload: dict[str, object]) -> None:
+        delivered.append(str(payload["correlation_id"]))
+
+    bridge.subscribe("object.event", "runtime-observer", handler)
+
+    async def _drive() -> None:
+        await bridge.publish(
+            "Huginn",
+            "object.event",
+            {"correlation_id": "corr-internal", "event_type": "resource.changed"},
+        )
+        await bridge.run()
+
+    asyncio.run(_drive())
+
+    assert delivered == ["corr-internal"]
+    assert observed == []
+
+
 def test_bridge_dead_letters_on_handler_failure() -> None:
     reg = load_pantheon()
     provider = InMemoryEventBus()

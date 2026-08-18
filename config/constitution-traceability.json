@@ -7,9 +7,9 @@
       "owner_docs": [".github/instructions/app-shape.instructions.md", ".github/instructions/generic-scope.instructions.md"],
       "implementation": ["services/operator-service/src/fdai_operator_service", "services/core-control-plane/src/fdai/composition"],
       "schemas": [],
-      "tests": ["tests/integration/test_composition_llm.py", "tests/integration/scripts/test_fork_runtime_independence.py"],
+      "tests": ["tests/integration/test_composition_llm.py", "tests/integration/scripts/test_fork_runtime_independence.py", "tests/integration/infra/test_inventory_repair_wiring.py"],
       "runtime_evidence": ["services/operator-service/src/fdai_operator_service", "services/core-control-plane/src/fdai/runtime"],
-      "gap": "Product-purpose and customer-agnostic boundaries are enforced by several gates rather than one runtime receipt."
+      "gap": "Product-purpose and customer-agnostic boundaries are enforced by several gates rather than one runtime receipt. Venue parity is guarded per binding rather than by one contract that enumerates every venue-selected capability flag."
     },
     {
       "id": "FDAI-CONST-002",
