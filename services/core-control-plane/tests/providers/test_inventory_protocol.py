@@ -154,6 +154,49 @@ def test_provider_scope_coverage_requires_reconciled_counts() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    ("field_name", "value"),
+    [
+        ("provider_object_count", True),
+        ("mapped_provider_object_count", False),
+        ("provider_type_count", True),
+    ],
+)
+def test_provider_scope_coverage_rejects_boolean_counts(field_name: str, value: bool) -> None:
+    values = {
+        "capture_method": "provider_type_aggregation",
+        "provider_object_count": 1,
+        "mapped_provider_object_count": 1,
+        "provider_type_count": 1,
+    }
+    values[field_name] = value
+
+    with pytest.raises(ValueError, match="counts MUST be integers"):
+        ProviderScopeCoverage(**values)
+
+
+def test_provider_type_count_rejects_boolean_count() -> None:
+    with pytest.raises(ValueError, match="count MUST be an integer"):
+        ProviderTypeCount(provider_type="example.unmapped", count=True)
+
+
+@pytest.mark.parametrize(
+    ("provider_object_count", "provider_type_count"),
+    [(1, 0), (1, 2), (0, 1)],
+)
+def test_provider_scope_coverage_rejects_impossible_type_counts(
+    provider_object_count: int,
+    provider_type_count: int,
+) -> None:
+    with pytest.raises(ValueError, match="provider_type_count MUST match observed objects"):
+        ProviderScopeCoverage(
+            capture_method="provider_type_aggregation",
+            provider_object_count=provider_object_count,
+            mapped_provider_object_count=provider_object_count,
+            provider_type_count=provider_type_count,
+        )
+
+
 def test_inventory_batch_allows_provider_scope_coverage_only_on_final_fence() -> None:
     coverage = ProviderScopeCoverage(
         capture_method="provider_type_aggregation",

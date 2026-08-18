@@ -1,7 +1,7 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 7d15bd9fa685cf8fffecd018b8d078ec31c513a6
+translation_source_sha: 8e18dd06d6d9b08b555aec0d8b164429b5390019
 translation_revised: 2026-08-19
 ---
 
@@ -33,6 +33,7 @@ translation_revised: 2026-08-19
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | implemented | 하드닝 Round 2에서 계약, fence, 조회, fallback, mapping, 상위, 검증기, digest 및 근거 우려 14건을 검토했습니다. 제안된 지적과 별개로 실제 Medium 결함 한 건을 채택했습니다. Python boolean이 정수 count로 통과했고 양수 객체/0 타입이라는 불가능한 매니페스트도 유효했습니다. 이제 coverage count는 exact 정수여야 하고 0 객체와 0 타입이 서로 일치해야 하며 관측된 타입 count는 객체 count보다 클 수 없습니다. 반복된 unseeded 세대, ARG filter, shard/fence, 겹치는 glob, 잘못된 상위, 상위 근거 및 digest 우려는 focused 테스트, exact-string mapping grammar, 범위가 제한된 요청 timeout, 완전 세대 검증, 보존된 실제 운영 533/57/15 및 SQL parity 근거와 대조해 기각했습니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). guard 전에는 negative case 6개가 실패했고 guard 뒤에는 `ProviderTypeCount` boolean 거부를 포함한 7개 case가 통과합니다. | 10개 이상의 lens로 Round 3을 실행해 Low 또는 기각된 관측만 남는지 확인합니다. |
 | 2026-08-19 | implemented | 하드닝 Round 1에서 coverage, fence, 조회, mapping, cardinality 및 근거 우려 13건을 검토했습니다. Medium 결함 한 건을 채택했습니다. 출처 타입 하나에 exact 상위 포함 관계 mapping 두 개가 catalog load를 통과해 나중에 온톨로지 변환을 중단할 수 있었습니다. 이제 loader가 프로바이더 I/O 전에 모호한 소유권을 거부합니다. 빈 프로바이더 범위, 리소스 yield 뒤 coverage 실패, null ARM mapping, enum decoding 및 최종 fence 우려는 기각했습니다. 최종 fence가 실행 근거이고, Azure coverage 작업은 어떤 리소스 batch도 yield하기 전에 모두 끝나며, 타입이 지정된 loader와 테스트가 해당 경계를 이미 적용하기 때문입니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). 새 catalog 회귀는 guard 전에는 실패하고 guard 뒤에는 통과합니다. focused 프로바이더 mapping, ARG 및 관계 검증이 검증 표면으로 남습니다. | 두 번째 10건 이상 검토를 실행해 Medium 이상 결함이 남지 않았는지 확인합니다. 잘린 관측의 drop 상세와 timestamp 정밀도 관측은 Low입니다. |
 | 2026-08-19 | validated | 수정된 SQL 포함 관계 세대를 승격하고 활성 인벤토리 스냅샷과 온톨로지 읽기 모델의 parity를 확인했습니다. 관측된 모든 SQL 데이터베이스는 두 저장소 모두에서 논리 서버 `parent_id` 하나와 `contains(sql-server, sql-database)` 간선 하나를 가집니다. 온톨로지 observer failure는 발생하지 않았습니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). one-shot 작업은 `inventory snapshot promoted from arg`를 보고했습니다. loopback PostgreSQL은 스냅샷 SQL 데이터베이스 2개, parent id가 있는 데이터베이스 2개, 스냅샷 SQL 간선 2개, 온톨로지 SQL 데이터베이스 2개 및 온톨로지 SQL 간선 2개를 보고합니다. | SQL 논리 상위 포함 관계에 남은 작업은 없습니다. |
 | 2026-08-19 | implemented | 실제 운영 변환에서 wildcard 리소스 그룹 상위와 exact 논리 서버 상위를 모두 유지하면 `contains` one-to-many cardinality를 위반한다는 사실이 드러나 SQL 포함 관계를 바로잡았습니다. 같은 contained 하위에 대해서 exact 출처 타입 `contains` mapping이 이제 wildcard mapping을 shadow합니다. 서로 다른 하위 계층은 독립적으로 유지되므로 리소스 그룹-VNet과 VNet-subnet 포함 관계는 모두 남습니다. `Resource.parent_id`도 간선과 같은 검토된 exact mapping을 사용합니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). 승격된 스냅샷은 성공했지만 온톨로지 변환 결과가 `contains violates one_to_many cardinality`로 실패했습니다. SQL 및 VNet 대조와 focused ARG, mapping audit 및 검증기 suite 117개가 통과했고 strict mypy도 통과했습니다. | 수정 사항을 커밋하고 전체 재조정을 다시 실행한 뒤 스냅샷과 온톨로지 SQL 포함 관계가 일치하는지 확인합니다. |
@@ -372,6 +373,10 @@ CSP 접촉면을 지배하는 여덟 개의 계약 (다섯 wire-level 기반 +
   나열하며, 생성 전에 mapped와 unmapped count 합계를 대조합니다. 동기화 조정기는 최종 fence 뒤에만
   이 근거를 변경 불가능한 스냅샷 메타데이터로 복사합니다. 부분 스트림 또는 정적 출처 매니페스트는
   완료된 프로바이더 coverage를 주장할 수 없습니다.
+- **Coverage count는 범위가 제한된 exact 정수입니다.** Boolean 값은 count가 아닙니다. 프로바이더
+  객체가 0이면 관측된 프로바이더 타입도 0이어야 하며 그 반대도 같습니다. 관측된 타입마다 객체가
+  최소 하나 있으므로 `provider_type_count`는 `provider_object_count`보다 클 수 없습니다. 매핑 및
+  미매핑 객체 count는 계속 프로바이더 총계와 정확히 일치해야 합니다.
 - **Azure coverage는 변환된 그래프 객체가 아니라 프로바이더 native 행을 셉니다.** coverage
   조회는 모든 ARG `Resources`와 `ResourceContainers`의 리소스 그룹 행을 정규화된 ARM 타입별로
   묶습니다. 구독 anchor와 구체화된 subnet 같은 파생 중첩 리소스는 제외한 다음 해당 그룹을 검토된

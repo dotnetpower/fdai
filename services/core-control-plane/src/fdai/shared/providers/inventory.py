@@ -137,6 +137,8 @@ class ProviderTypeCount:
             raise ValueError("ProviderTypeCount.provider_type MUST be non-empty")
         if len(self.provider_type) > _MAX_PROVIDER_TYPE_LENGTH:
             raise ValueError("ProviderTypeCount.provider_type exceeds its length bound")
+        if isinstance(self.count, bool) or not isinstance(self.count, int):
+            raise ValueError("ProviderTypeCount.count MUST be an integer")
         if self.count < 1 or self.count > _MAX_PROVIDER_OBJECTS:
             raise ValueError("ProviderTypeCount.count MUST be in [1, 2^63-1]")
 
@@ -154,6 +156,15 @@ class ProviderScopeCoverage:
     def __post_init__(self) -> None:
         if not self.capture_method.strip():
             raise ValueError("ProviderScopeCoverage.capture_method MUST be non-empty")
+        if any(
+            isinstance(value, bool) or not isinstance(value, int)
+            for value in (
+                self.provider_object_count,
+                self.mapped_provider_object_count,
+                self.provider_type_count,
+            )
+        ):
+            raise ValueError("ProviderScopeCoverage counts MUST be integers")
         if not 0 <= self.mapped_provider_object_count <= self.provider_object_count:
             raise ValueError(
                 "ProviderScopeCoverage.mapped_provider_object_count MUST be within the total"
@@ -162,6 +173,12 @@ class ProviderScopeCoverage:
             raise ValueError("ProviderScopeCoverage.provider_object_count exceeds its bound")
         if not 0 <= self.provider_type_count <= _MAX_PROVIDER_TYPES:
             raise ValueError("ProviderScopeCoverage.provider_type_count exceeds its bound")
+        if (self.provider_object_count == 0) != (
+            self.provider_type_count == 0
+        ) or self.provider_type_count > self.provider_object_count:
+            raise ValueError(
+                "ProviderScopeCoverage.provider_type_count MUST match observed objects"
+            )
         provider_types = tuple(item.provider_type for item in self.unmapped_provider_types)
         if provider_types != tuple(sorted(set(provider_types))):
             raise ValueError(
