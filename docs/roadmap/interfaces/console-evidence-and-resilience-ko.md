@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: f8f91f40966f4bf5ad5470d83da85ae7587865e6
-translation_revised: 2026-08-17
+translation_source_sha: 3d10ef28a85888e960c7d85ecef8a3a9b08c0e7d
+translation_revised: 2026-08-19
 ---
 
 # 콘솔 근거 및 복원력
@@ -20,6 +20,7 @@ translation_revised: 2026-08-17
 | 의미 모델 및 관계 방향 | 구현됨 | `ontology-semantic-model.ts`, `ontology-semantic-map.tsx`, 카탈로그 토폴로지 renderer 및 inspector, focused Vitest 23개 및 Console 타입 검사 통과 | 검토된 네 가지 의미 영역, 다섯 가지 운영 보기, 화살표 및 분리된 들어오는 관계와 나가는 관계를 구현했습니다. 인증된 데스크톱 및 모바일 근거는 남아 있습니다. |
 | 에이전트 활동 하트비트 표현 | validated | `console/src/routes/agents.model.ts`, `console/src/routes/agents.model.test.ts`, `docs/baselines/agent-activity-heartbeat-assurance-2026-08-14.json`, focused Vitest 31개 통과 및 인증된 Browser Entra assurance | 두 번 새로고치는 동안 연속된 하트비트 시각 세 개가 증가했고 인증된 self 검사 세 번이 모두 성공했으며 런타임 초기화 행은 0개였습니다. |
 | Command Deck JSON 대비 | 구현됨 | `console/src/styles.css`, `console/src/deck/command-deck-workspace-visual.test.ts`, focused Vitest 10개 통과 및 인증된 브라우저 검사 | 구문 강조 JSON은 전역의 밝은 `pre` 스타일과 관계없이 고정된 어두운 코드 표면을 유지합니다. 브라우저 검사는 통제된 런타임 근거로 보존하지 않았습니다. |
+| Console 및 시안 공유 타이포그래피 | implemented | `ui/calm-slate-tokens.css`, `ui/calm-slate-primitives.css`, `console/src/shared-style-tokens.test.ts`, [이슈 #212](https://github.com/dotnetpower/fdai/issues/212) | 의미 기반 페이지 제목, 페이지 부제목, 리드, 구역 제목, 패널 제목, 본문, 간결한 본문, 레이블 및 캡션 역할이 하나의 크기와 행간 계약을 공유합니다. 대표 Console 및 시안 선택자는 같은 토큰을 사용하며, 특수한 경로 텍스트는 해당 경로가 계속 소유합니다. |
 | 탭 간 SSE 및 인시던트 복원력 | validated | 탭 간 stream hook, `incidents.milestones.ts`, incident projection, `docs/baselines/console-cross-tab-sse-assurance-2026-08-14.json`, `docs/baselines/incident-rca-report-assurance-2026-08-15.json`, focused Console/Operator 테스트 | 탭 간 leadership와 failover가 통과했고 인증된 Incident 상세가 notification delivery를 주장하지 않으면서 milestone 8개, 같은 스냅샷 분석 및 사용 불가 source와 plan context를 보존했습니다. |
 | 선택적 report PDF 컨트롤 | validated | `console/src/routes/reports.tsx`; service-local Operator PDF 어댑터; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; focused Console 및 Operator 테스트 | Catalog와 runtime registry가 함께 `pdf`를 표시했고 인증된 Browser Entra가 no-RCA 사용 불가 동작을 보존하면서 범위가 제한된 38809-byte PDF를 검증했습니다. |
 | 대화 검색 요청 복원력 | implemented | `console/src/routes/conversation-search.tsx`, `console/src/routes/conversation-search.test.tsx`, focused Console 테스트 (`22 passed`) 및 타입 검사 | 검색 generation은 오래된 결과 및 맥락 쓰기를 거부합니다. Generation 범위 in-flight key는 rerender 전 중복 맥락 요청을 억제하고 검색 간 결과를 섞지 않습니다. |
@@ -70,6 +71,7 @@ translation_revised: 2026-08-17
 | 2026-08-17 | implemented | Console의 페이지 로드 인시던트 자동 조사에서 ontology assurance를 격리했습니다. Harness는 빈 incident-attention stream을 제공하고 모든 chat POST를 관찰하며 ambient 및 incident-bound 요청 수를 기록하고, 두 수가 모두 0이 아니면 집단 gate와 변경 불가능한 아티팩트 gate를 모두 실패시킵니다. | `current change`, focused assurance Vitest 124개 통과, strict/full supervisor 검사 7개 통과, Console typecheck 통과, Playwright exact live test discovery 통과 | Seed 기반 집단을 시작하기 전에 ambient 및 bound 요청이 0인 새로운 엄격한 아티팩트를 보존합니다. |
 | 2026-08-17 | implemented | Exact-source 엄격한 시도가 서비스 준비 상태에 도달했지만 Browser 사전 단계에서 오래된 공유 MSAL optimizer URL 때문에 실패한 뒤 감독 대상 보증 Console마다 Vite 의존성 캐시를 격리했습니다. 이 시도는 측정 질문을 하나도 실행하지 않았고 아티팩트도 생성하지 않았으며 seed 기반 질문 집합도 시작하지 않았습니다. | `current change`, focused 캐시 검사 2개, supervisor 검사 9개, Console typecheck, Ruff 및 strict mypy 통과 | 중앙 검증을 확보하고 캐시가 격리된 소스에서 새로운 엄격한 아티팩트를 보존합니다. |
 | 2026-08-17 | in-progress | 캐시가 격리된 엄격한 Browser 질문 집합은 live turn 14개를 완료했지만 exact topic 근거에는 요청 레코드 6개와 변환 결과 레코드 6개만 보존됐습니다. Supervisor가 아티팩트를 거부했고 seed 기반 질문 집합은 시작하지 않았습니다. | 중앙 검증된 소스 `40fbd0c41eda506e6976e3090fab3bd9502b98f0`의 실행 `issue63-40fbd0c41e-20260817T084406Z`, Playwright 통과, 변경 불가능한 transport 소유권 실패 | 형제 outbox prefix가 중앙 검증된 뒤에만 새로운 엄격한 Browser 아티팩트를 보존합니다. |
+| 2026-08-19 | implemented | Console과 정적 시안의 의미 기반 타이포그래피 스케일을 중앙화하고 대표 셸 텍스트를 연결했으며, 기존 컴포넌트 갤러리에 영문 및 한글 반응형 표본을 추가했습니다. | 커밋 `1e4063e`, [이슈 #212](https://github.com/dotnetpower/fdai/issues/212), 공유 스타일 계약 테스트 2개 통과, Console 타입 검사 및 운영 빌드 통과, 1440 px와 390 px 브라우저 검사에서 문서, 구역 및 긴 식별자 넘침이 없었습니다. | 공유 의미 역할에는 남은 작업이 없습니다. 특수한 경로 타이포그래피는 해당 경로가 계속 소유하며 변경할 때 이 스케일을 적용하는 것이 좋습니다. |
 
 ### 잔여 작업
 
@@ -79,6 +81,7 @@ translation_revised: 2026-08-17
 - [x] Milestone, 원본, 대응 계획 및 같은 스냅샷 결과 표현을 위한 관리되는 incident-detail Browser 근거를 보존합니다.
 - [x] 사용할 수 없는 RCA 사실을 주장하지 않고 하나의 source revision과 workspace digest를 연결하는 인증된 roster-to-RCA-to-report/PDF 근거를 보존합니다.
 - [ ] 의미 모델과 카탈로그 토폴로지가 일치하는 하나의 온톨로지 릴리스를 표시하고 보안 receipt가 없으면 컨텍스트가 사용 불가로 유지됨을 보여 주는 인증된 Browser 근거를 보존합니다.
+- [x] 의미 기반 토큰과 반응형 컴포넌트 갤러리 표본을 통해 Console과 정적 시안의 페이지 제목, 페이지 부제목, 본문, 간결한 본문, 레이블 및 캡션 타이포그래피를 일치시킵니다.
 ## 탐색 컨텍스트
 
 활동 Bar 영역을 선택하면 Explorer가 열리고 운영자의 로컬 순서 및 표시 설정에 따라 첫 번째 visible 패널로 이동합니다. Command Deck이 닫혀 있거나 floating 상태여도 이 탐색은 동작하며, full-workspace Deck은 경로가 변경되기 전에 닫힙니다.
