@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 8da8b6ea41f1480ce3f06a4adc83507cf16ba479
+translation_source_sha: dce787d4683c321ad9caa44fe48dcae17fda4911
 translation_revised: 2026-08-18
 ---
 
@@ -218,6 +218,7 @@ translation_revised: 2026-08-18
 | 2026-08-18 | implemented | Semantic frame prompt를 v12로 versioning하고 evidence-property membership과 evidence sufficiency를 분리했습니다. 일치하는 객체를 나열하거나 식별하는 요청은 비어 있지 않은 predicate가 있는 `property_filtered_resources`를 요구하며, completeness 및 gap 판단은 `validate` 및 `evidence_validation` 쌍을 유지합니다. | `current change`, focused prompt 레지스트리 계약 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
 | 2026-08-18 | implemented | Semantic frame prompt를 v13으로 versioning하고 evidence-contract subject와 runtime object property를 분리했습니다. Claim, evidence reference, verification coverage 및 gap은 `validate`와 `evidence_validation`을 사용하며, readable evidence-valued property로 선택한 runtime ontology object만 `property_filtered_resources`를 사용합니다. | `current change`, focused prompt 레지스트리 계약 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
 | 2026-08-18 | implemented | Semantic plan prompt를 v13으로 versioning하고 ObjectSet predicate를 선택된 descriptor의 readable `properties` map에 있는 direct key로 고정했습니다. Predicate input은 projected row path나 natural-language alias를 사용할 수 없으며 downstream `properties.<name>` path는 presentation에만 사용합니다. | `current change`, focused ObjectSet prompt 계약 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
+| 2026-08-18 | implemented | Semantic frame prompt를 v14로 versioning하고 membership을 정의하는 axis를 보존했습니다. 보존 세대 사이에 추가, 제거 또는 변경된 객체는 list 답변이어도 `temporal_comparison`을 유지하며 현재 evidence state로 선택한 객체는 `property_filtered_resources`를 유지합니다. | `current change`, focused frame prompt 계약 통과 | 중앙 검증을 확보한 뒤 seeded 집단 전에 strict를 다시 실행합니다. |
 
 ### 남은 작업
 
