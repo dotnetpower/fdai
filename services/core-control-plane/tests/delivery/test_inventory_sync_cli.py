@@ -13,6 +13,7 @@ import httpx
 import pytest
 import yaml
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
+from fdai.delivery.azure.inventory import AzureResourceGraphInventory
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.delivery.inventory_sync_cli import (
@@ -261,7 +262,11 @@ async def test_source_builder_preserves_order_and_fallback_coverage() -> None:
         "attached_to",
         "depends_on",
     )
+    assert isinstance(sources[0].inventory, AzureResourceGraphInventory)
+    assert sources[0].inventory._scope_coverage is not None  # noqa: SLF001
     assert sources[1].manifest.metadata["link_types"] == ("contains",)
+    assert isinstance(sources[1].inventory, AzureResourceGraphInventory)
+    assert sources[1].inventory._scope_coverage is None  # noqa: SLF001
 
 
 async def test_ontology_observer_publishes_durable_topology_history(

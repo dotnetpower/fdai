@@ -29,6 +29,8 @@ from fdai.shared.providers import (
     Inventory,
     InventoryBatch,
     LinkRecord,
+    ProviderScopeCoverage,
+    ProviderTypeCount,
     ResourceRecord,
 )
 
@@ -52,10 +54,12 @@ def _adapter(
     *,
     types: tuple[str, ...] = ("compute.vm", "object-storage"),
     concurrency: int = 4,
+    scope_coverage=None,
 ) -> AzureResourceGraphInventory:
     return AzureResourceGraphInventory(
         config=AzureInventoryConfig(resource_types=types, max_concurrent_queries=concurrency),
         query=query,
+        scope_coverage=scope_coverage,
     )
 
 
@@ -95,6 +99,45 @@ async def test_full_snapshot_ends_with_final_true() -> None:
     for batch in seen[:-1]:
         assert batch.final is False
         assert batch.resources or batch.links
+
+
+@pytest.mark.asyncio
+async def test_full_snapshot_carries_provider_scope_coverage_on_final_fence() -> None:
+    async def _q(rt: str) -> tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
+        return (_rr(f"{rt}/1"),), ()
+
+    coverage = ProviderScopeCoverage(
+        capture_method="azure_resource_graph_type_aggregation",
+        provider_object_count=3,
+        mapped_provider_object_count=2,
+        provider_type_count=3,
+        unmapped_provider_types=(ProviderTypeCount(provider_type="example.unmapped", count=1),),
+    )
+
+    async def _coverage() -> ProviderScopeCoverage:
+        return coverage
+
+    seen = [batch async for batch in _adapter(_q, scope_coverage=_coverage).full_snapshot()]
+
+    assert seen[-1].final is True
+    assert seen[-1].provider_scope_coverage == coverage
+    assert all(batch.provider_scope_coverage is None for batch in seen[:-1])
+
+
+@pytest.mark.asyncio
+async def test_full_snapshot_emits_no_fence_when_provider_coverage_fails() -> None:
+    async def _q(rt: str) -> tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
+        return (_rr(f"{rt}/1"),), ()
+
+    async def _coverage() -> ProviderScopeCoverage:
+        raise RuntimeError("coverage unavailable")
+
+    seen: list[InventoryBatch] = []
+    with pytest.raises(RuntimeError, match="coverage unavailable"):
+        async for batch in _adapter(_q, scope_coverage=_coverage).full_snapshot():
+            seen.append(batch)
+
+    assert not any(batch.final for batch in seen)
 
 
 @pytest.mark.asyncio

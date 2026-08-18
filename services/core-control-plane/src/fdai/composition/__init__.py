@@ -186,12 +186,12 @@ def bind_azure_inventory(
     from ..delivery.azure.arg_query import AzureArgQueryFactory
     from ..delivery.azure.inventory import AzureResourceGraphInventory
 
-    query_fn = AzureArgQueryFactory(
+    query_factory = AzureArgQueryFactory(
         identity=identity,
         resource_types=resource_types,
         http_client=http_client,
         config=arg_config,
-    ).build_query_fn()
+    )
 
     delta_fetch = None
     if activity_log_config is not None:
@@ -206,7 +206,8 @@ def bind_azure_inventory(
 
     inventory = AzureResourceGraphInventory(
         config=inventory_config,
-        query=query_fn,
+        query=query_factory.build_query_fn(),
+        scope_coverage=query_factory.build_scope_coverage_fn(),
         delta_fetch=delta_fetch,
     )
     return replace(container, inventory=inventory)

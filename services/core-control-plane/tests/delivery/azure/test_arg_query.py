@@ -164,6 +164,43 @@ async def test_inventory_promotes_nested_service_state_to_status() -> None:
 
 
 @pytest.mark.asyncio
+async def test_scope_coverage_counts_unmapped_provider_types_without_materializing_them() -> None:
+    observed_query = ""
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal observed_query
+        observed_query = json.loads(request.content)["query"]
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    {"provider_type": "microsoft.compute/virtualmachines", "count": 2},
+                    {"provider_type": "microsoft.resources/resourcegroups", "count": 1},
+                    {"provider_type": "microsoft.example/watchers", "count": 3},
+                ]
+            },
+        )
+
+    async with _make_client(httpx.MockTransport(handler)) as client:
+        coverage = await AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        ).build_scope_coverage_fn()()
+
+    assert "Resources | summarize" in observed_query
+    assert "ResourceContainers" in observed_query
+    assert "microsoft.resources/subscriptions/resourcegroups" in observed_query
+    assert coverage.provider_object_count == 6
+    assert coverage.mapped_provider_object_count == 3
+    assert coverage.provider_type_count == 3
+    assert [(item.provider_type, item.count) for item in coverage.unmapped_provider_types] == [
+        ("microsoft.example/watchers", 3)
+    ]
+
+
+@pytest.mark.asyncio
 async def test_inventory_projects_vm_shutdown_schedule_in_production_arg() -> None:
     arm_id = (
         "/subscriptions/00000000-0000-0000-0000-000000000001/"

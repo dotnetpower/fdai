@@ -1,7 +1,7 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 2a3f8bc9f44fb34ebf43aa3474fd15cbf57e40a9
+translation_source_sha: 312e8b75e472ca50e74395b810b68a28ca3d3a3d
 translation_revised: 2026-08-19
 ---
 
@@ -33,6 +33,7 @@ translation_revised: 2026-08-19
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | implemented | Azure Resource Graph 타입 집계를 전체 스냅샷 fence에 연결했습니다. raw `Resources`와 리소스 그룹 `ResourceContainers`를 세고, 정규화된 프로바이더 타입을 검토된 전체 ARM vocabulary와 비교하며, 선언되지 않은 모든 타입과 count를 지원되는 Resource로 구체화하지 않은 채 기록합니다. 구독 anchor와 파생된 중첩 subnet은 이 프로바이더 범위 측정에서 제외합니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). focused ARG, Azure 인벤토리, 조립 및 인벤토리 작업 검사 136개와 작업 범위 Ruff 및 strict mypy가 통과했습니다. | 전체 재조정 한 번을 실행하고 승격된 메타데이터가 보존된 리소스 57개, 타입 15종 측정을 재현하는지 확인한 뒤 런타임 근거로 사용합니다. |
 | 2026-08-19 | implemented | 범위가 제한된 프로바이더 native 범위 coverage를 CSP-중립 `InventoryBatch` 최종 fence에 추가하고 승격할 때만 변경 불가능한 스냅샷 메타데이터로 변환했습니다. 생성 전에 count 합계를 대조하고, 최종이 아닌 배치는 근거를 운반할 수 없으며, 정적 출처 메타데이터는 완료된 수집을 가장할 수 없습니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). focused 프로바이더 계약 및 인벤토리 동기화 테스트 31개와 작업 범위 Ruff 및 strict mypy가 통과했습니다. | Azure 전체 범위 타입 집계 producer를 연결하고 승격된 스냅샷에 측정된 미매핑 count를 보존합니다. |
 | 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 Azure 계약 구현을 운영 근거 및 보류된 비-Azure 어댑터와 분리해 기록했습니다. | `current change`; 구현 범위 표의 프로바이더, 전달, 인프라 및 배포 근거입니다. | 하나의 통제된 8개 계약 캠페인을 보존하고 명시적으로 범위가 정해질 때까지 비-Azure 작업을 보류합니다. |
 
@@ -365,6 +366,11 @@ CSP 접촉면을 지배하는 여덟 개의 계약 (다섯 wire-level 기반 +
   나열하며, 생성 전에 mapped와 unmapped count 합계를 대조합니다. 동기화 조정기는 최종 fence 뒤에만
   이 근거를 변경 불가능한 스냅샷 메타데이터로 복사합니다. 부분 스트림 또는 정적 출처 매니페스트는
   완료된 프로바이더 coverage를 주장할 수 없습니다.
+- **Azure coverage는 변환된 그래프 객체가 아니라 프로바이더 native 행을 셉니다.** coverage
+  조회는 모든 ARG `Resources`와 `ResourceContainers`의 리소스 그룹 행을 정규화된 ARM 타입별로
+  묶습니다. 구독 anchor와 구체화된 subnet 같은 파생 중첩 리소스는 제외한 다음 해당 그룹을 검토된
+  전체 ARM vocabulary와 비교합니다. vocabulary에 없는 프로바이더 타입은 명시적인 미매핑 count로
+  남고 자동 선언되지 않습니다.
 - **완전한 ARG 읽기는 1,000개 이후에도 페이지를 계속 조회합니다.** Azure Resource Graph는
   응답 하나에 최대 1,000개 레코드를 반환합니다. 완전한 결과가 필요한 어댑터는 `$top`을
   최대 1,000으로 설정하고, 구성된 페이지 상한 안에서 각 `$skipToken`을 끝까지 따라가며,

@@ -258,7 +258,7 @@ def _build_sources(
         link_types: tuple[str, ...] = ("contains", "attached_to", "depends_on")
         inventory: Inventory
         if source_name == "arg":
-            query = AzureArgQueryFactory(
+            query_factory = AzureArgQueryFactory(
                 identity=identity,
                 resource_types=vocabulary,
                 http_client=http_client,
@@ -267,13 +267,14 @@ def _build_sources(
                     arg_endpoint=config.management_endpoint,
                     audience=config.management_audience,
                 ),
-            ).build_query_fn()
+            )
             inventory = AzureResourceGraphInventory(
                 config=AzureInventoryConfig(
                     resource_types=resource_types,
                     subscription_scopes=config.scopes,
                 ),
-                query=query,
+                query=query_factory.build_query_fn(),
+                scope_coverage=query_factory.build_scope_coverage_fn(),
             )
         elif source_name == "arm":
             link_types = ("contains",)

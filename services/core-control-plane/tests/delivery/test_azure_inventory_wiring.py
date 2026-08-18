@@ -10,6 +10,7 @@ the httpx client is backed by ``httpx.MockTransport``.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import httpx
@@ -64,6 +65,20 @@ def test_default_container_uses_empty_inventory() -> None:
 @pytest.mark.asyncio
 async def test_bind_azure_inventory_makes_full_snapshot_live() -> None:
     def _handler(request: httpx.Request) -> httpx.Response:
+        query = json.loads(request.content)["query"]
+        if query.startswith("union "):
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "provider_type": "microsoft.storage/storageaccounts",
+                            "count": 1,
+                        },
+                        {"provider_type": "microsoft.example/watchers", "count": 2},
+                    ]
+                },
+            )
         return httpx.Response(
             200,
             json={
@@ -107,6 +122,9 @@ async def test_bind_azure_inventory_makes_full_snapshot_live() -> None:
 
     # One shard batch with the mapped resource, then the atomic-promote fence.
     assert batches[-1].final is True
+    assert batches[-1].provider_scope_coverage is not None
+    assert batches[-1].provider_scope_coverage.provider_object_count == 3
+    assert batches[-1].provider_scope_coverage.unmapped_provider_object_count == 2
     resources = [r for b in batches for r in b.resources]
     assert len(resources) == 1
     assert resources[0].type == "object-storage"

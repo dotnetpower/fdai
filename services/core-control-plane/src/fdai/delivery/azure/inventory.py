@@ -57,6 +57,7 @@ from typing import Final
 from fdai.shared.providers.inventory import (
     InventoryBatch,
     LinkRecord,
+    ProviderScopeCoverage,
     RelationshipDrop,
     RelationshipDropReason,
     ResourceRecord,
@@ -89,6 +90,7 @@ ResourceQueryFn = Callable[
     [str],
     Awaitable[ResourceQueryResult | tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]],
 ]
+ScopeCoverageFn = Callable[[], Awaitable[ProviderScopeCoverage]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,6 +184,7 @@ class AzureResourceGraphInventory:
         *,
         config: AzureInventoryConfig,
         query: ResourceQueryFn,
+        scope_coverage: ScopeCoverageFn | None = None,
         delta_fetch: ActivityLogFetchFn | None = None,
     ) -> None:
         if config.max_concurrent_queries < 1:
@@ -190,6 +193,7 @@ class AzureResourceGraphInventory:
             raise ValueError("AzureInventoryConfig.max_delta_pages MUST be >= 1")
         self._config = config
         self._query = query
+        self._scope_coverage = scope_coverage
         self._delta_fetch = delta_fetch
 
     # ------------------------------------------------------------------
@@ -237,11 +241,27 @@ class AzureResourceGraphInventory:
             asyncio.create_task(_fetch(rt), name=f"arg-shard-{rt}")
             for rt in self._config.resource_types
         ]
+        coverage_task: asyncio.Task[ProviderScopeCoverage] | None = None
+        scope_coverage = self._scope_coverage
+        if scope_coverage is not None:
+
+            async def _fetch_coverage() -> ProviderScopeCoverage:
+                async with semaphore:
+                    return await scope_coverage()
+
+            coverage_task = asyncio.create_task(
+                _fetch_coverage(),
+                name="inventory-provider-scope-coverage",
+            )
+        all_tasks: list[asyncio.Task[object]] = [*tasks]
+        if coverage_task is not None:
+            all_tasks.append(coverage_task)
 
         try:
             completed: list[InventoryBatch] = []
             for coro in asyncio.as_completed(tasks):
                 completed.append(await coro)
+            provider_scope_coverage = await coverage_task if coverage_task is not None else None
         except BaseException:
             # Fail-closed: cancel outstanding shards so a partial snapshot
             # never quietly lands. The caller retains the previous graph
@@ -249,10 +269,10 @@ class AzureResourceGraphInventory:
             # cancels so shard sockets close before the exception unwinds
             # past our generator - otherwise aiohttp / httpx warn about
             # unfinished coroutines on shutdown.
-            for t in tasks:
+            for t in all_tasks:
                 if not t.done():
                     t.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)
+            await asyncio.gather(*all_tasks, return_exceptions=True)
             raise
 
         resources = _dedupe_resources(
@@ -272,7 +292,10 @@ class AzureResourceGraphInventory:
                 relationship_drops=relationship_drops,
             )
 
-        yield InventoryBatch(final=True)
+        yield InventoryBatch(
+            final=True,
+            provider_scope_coverage=provider_scope_coverage,
+        )
 
     async def delta(self, cursor: str) -> AsyncIterator[InventoryBatch]:
         """Incremental change stream from forwarded Azure Activity Log entries.

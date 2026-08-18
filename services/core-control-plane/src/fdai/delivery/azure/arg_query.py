@@ -107,8 +107,16 @@ from fdai.delivery.azure.arg_relationships import (
     RelationshipProjectionResult,
     project_provider_relationships,
 )
-from fdai.delivery.azure.arg_transport import ArgThrottleGate, fetch_arg_pages
-from fdai.delivery.azure.inventory import ResourceQueryFn, ResourceQueryResult
+from fdai.delivery.azure.arg_transport import (
+    ArgThrottleGate,
+    fetch_arg_pages,
+    fetch_arg_row_pages,
+)
+from fdai.delivery.azure.inventory import (
+    ResourceQueryFn,
+    ResourceQueryResult,
+    ScopeCoverageFn,
+)
 from fdai.delivery.inventory_schedule import (
     VM_SHUTDOWN_SCHEDULE_TYPE,
     project_vm_shutdown_schedule,
@@ -121,7 +129,12 @@ from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeRegistry,
     resolve_azure_resource_type,
 )
-from fdai.shared.providers.inventory import LinkRecord, ResourceRecord
+from fdai.shared.providers.inventory import (
+    LinkRecord,
+    ProviderScopeCoverage,
+    ProviderTypeCount,
+    ResourceRecord,
+)
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _DEFAULT_ARG_ENDPOINT: Final[str] = "https://management.azure.com"
@@ -134,6 +147,8 @@ _DEFAULT_MAX_PROPS_BYTES: Final[int] = 64 * 1024
 _DEFAULT_RELATIONSHIP_MAPPING_ROOT: Final[Path] = Path(
     "rule-catalog/vocabulary/provider-relationship-mappings"
 )
+_MAX_PROVIDER_TYPES: Final[int] = 10_000
+_RESOURCE_GROUP_PROVIDER_TYPE: Final[str] = "microsoft.resources/resourcegroups"
 
 
 class ArgQueryError(RuntimeError):
@@ -282,6 +297,30 @@ class AzureArgQueryFactory:
 
         return _fetch
 
+    def build_scope_coverage_fn(self) -> ScopeCoverageFn:
+        """Return a complete provider-native type aggregation for snapshot metadata."""
+
+        async def _fetch() -> ProviderScopeCoverage:
+            rows = await fetch_arg_row_pages(
+                identity=self._identity,
+                http_client=self._http,
+                audience=self._config.audience,
+                endpoint=self._config.arg_endpoint,
+                api_version=self._config.arg_api_version,
+                subscriptions=self._config.subscription_scopes,
+                query=self._build_scope_coverage_query(),
+                result_name="provider-scope-coverage",
+                page_size=self._config.page_size,
+                max_pages=self._config.max_pages,
+                timeout_seconds=self._config.timeout_seconds,
+                error_type=ArgQueryError,
+                throttle_gate=self._throttle_gate,
+                max_records=_MAX_PROVIDER_TYPES,
+            )
+            return self._project_scope_coverage(rows)
+
+        return _fetch
+
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
@@ -322,6 +361,72 @@ class AzureArgQueryFactory:
             "| order by id asc "
             "| project id, type, name, location, kind, sku, tags, properties, "
             "resourceGroup, subscriptionId"
+        )
+
+    @staticmethod
+    def _build_scope_coverage_query() -> str:
+        """Count raw resources and resource groups by normalized provider type."""
+        return (
+            "union "
+            "(Resources | summarize count=count() by provider_type=tolower(type)), "
+            "(ResourceContainers "
+            "| where type =~ 'microsoft.resources/subscriptions/resourcegroups' "
+            f"| summarize count=count() by provider_type='{_RESOURCE_GROUP_PROVIDER_TYPE}') "
+            "| summarize count=sum(count) by provider_type "
+            "| order by provider_type asc"
+        )
+
+    def _project_scope_coverage(
+        self,
+        rows: tuple[Mapping[str, Any], ...],
+    ) -> ProviderScopeCoverage:
+        """Validate provider aggregation rows against the reviewed ARM vocabulary."""
+        counts: dict[str, ProviderTypeCount] = {}
+        for row in rows:
+            provider_type = row.get("provider_type")
+            count = row.get("count")
+            if not isinstance(provider_type, str) or not provider_type.strip():
+                raise ArgQueryError("provider scope coverage row has no provider_type")
+            normalized_type = provider_type.strip().lower()
+            if normalized_type in counts:
+                raise ArgQueryError(
+                    f"provider scope coverage returned duplicate type {normalized_type!r}"
+                )
+            if isinstance(count, bool) or not isinstance(count, int):
+                raise ArgQueryError(
+                    f"provider scope coverage count for {normalized_type!r} is not an integer"
+                )
+            try:
+                counts[normalized_type] = ProviderTypeCount(
+                    provider_type=normalized_type,
+                    count=count,
+                )
+            except ValueError as exc:
+                raise ArgQueryError(
+                    f"provider scope coverage row for {normalized_type!r} is invalid"
+                ) from exc
+
+        mapped_provider_types = {
+            entry.azure_arm_type.lower()
+            for entry in self._resource_types
+            if entry.azure_arm_type is not None
+            and entry.azure_arm_type.lower() != "microsoft.resources/subscriptions"
+        }
+        provider_object_count = sum(item.count for item in counts.values())
+        mapped_provider_object_count = sum(
+            item.count
+            for provider_type, item in counts.items()
+            if provider_type in mapped_provider_types
+        )
+        unmapped = tuple(
+            counts[provider_type] for provider_type in sorted(counts.keys() - mapped_provider_types)
+        )
+        return ProviderScopeCoverage(
+            capture_method="azure_resource_graph_type_aggregation",
+            provider_object_count=provider_object_count,
+            mapped_provider_object_count=mapped_provider_object_count,
+            provider_type_count=len(counts),
+            unmapped_provider_types=unmapped,
         )
 
     async def _fetch_all_pages(self, *, resource_type: str, arm_type: str) -> ResourceQueryResult:
