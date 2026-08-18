@@ -344,6 +344,26 @@ class TestIdempotency:
 
 class TestRefusals:
     @pytest.mark.asyncio
+    async def test_audit_intent_failure_blocks_adapter_invocation(self) -> None:
+        """The pre-effect intent is a gate, not a log line: no intent, no invocation."""
+
+        class _FailingAuditStore(InMemoryStateStore):
+            async def append_audit_entry(self, entry: dict[str, Any]) -> None:
+                raise RuntimeError("audit unavailable")
+
+        adapter = RecordingToolExecutor()
+        executor = ToolCallShadowExecutor(
+            executor=adapter,
+            audit_store=_FailingAuditStore(),
+            resource_lock=ResourceLockManager(),
+        )
+
+        with pytest.raises(RuntimeError, match="audit unavailable"):
+            await executor.execute(action=_action())
+
+        assert adapter.records == ()
+
+    @pytest.mark.asyncio
     async def test_enforce_mode_rejected_before_adapter(self) -> None:
         exec_, adapter, audit = _executor()
         result = await exec_.execute(action=_action(mode=Mode.ENFORCE))

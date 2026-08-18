@@ -61,6 +61,10 @@ SEVEN_SAFEGUARDS: tuple[str, ...] = (
 #: Every shipped execution path declares all seven. A path added to
 #: :class:`ExecutionPath` without a row here fails the focused contract test rather than
 #: silently inheriting a weaker guarantee.
+#:
+#: ``pr_manual`` shares :class:`ShadowExecutor` with ``pr_native`` today, so a manual-merge
+#: action is evaluated under the ``pr_native`` label and its receipt records that path. The
+#: safeguards are identical; only the recorded label is imprecise.
 REQUIRED_SAFEGUARDS: Mapping[ExecutionPath, tuple[str, ...]] = MappingProxyType(
     {path: SEVEN_SAFEGUARDS for path in ExecutionPath}
 )

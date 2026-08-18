@@ -61,7 +61,7 @@ from fdai.delivery.trace_continuity_tick import (
     TraceContinuityTickRunner,
 )
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
-from fdai.runtime.venue import ExecutionVenue, resolve_execution_venue
+from fdai.runtime.venue import resolve_execution_venue, uses_developer_identity
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -373,7 +373,7 @@ def _empty_trace_report() -> TraceContinuityTickReport:
 
 
 def _build_identity(http_client: httpx.AsyncClient) -> WorkloadIdentity:
-    if resolve_execution_venue() is ExecutionVenue.LOCAL:
+    if uses_developer_identity(resolve_execution_venue()):
         return AsyncAzureCliWorkloadIdentity.from_env()
     return ManagedIdentityWorkloadIdentity.from_env(
         http_client=http_client,

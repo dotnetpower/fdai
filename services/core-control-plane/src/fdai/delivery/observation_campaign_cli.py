@@ -48,6 +48,7 @@ from fdai.runtime.venue import (
     ExecutionVenue,
     bus_security_protocol,
     resolve_execution_venue,
+    uses_developer_identity,
     uses_workload_identity,
 )
 from fdai.shared.config.loader import load_config_from_env
@@ -82,7 +83,7 @@ async def run_once(*, campaign_id: str | None = None) -> dict[str, object]:
     async with httpx.AsyncClient() as client:
         identity: WorkloadIdentity = (
             AsyncAzureCliWorkloadIdentity.from_env()
-            if venue is ExecutionVenue.LOCAL
+            if uses_developer_identity(venue)
             else ManagedIdentityWorkloadIdentity.from_env(
                 http_client=client,
                 client_id_env="FDAI_MI_CLIENT_ID",

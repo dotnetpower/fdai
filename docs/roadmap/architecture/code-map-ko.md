@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 171045ed48ba27bccef53c07875b9ab6e26630db
+translation_source_sha: 5bca3e52619acb47a0941b1178c9a0b3d084b5f3
 translation_revised: 2026-08-18
 ---
 # 코드 맵
@@ -157,6 +157,7 @@ translation_revised: 2026-08-18
 | 2026-08-18 | 구현됨 | 실행 venue를 해석하고 venue가 선택하는 모든 capability 플래그를 열거하는 단일 모듈 `runtime/venue.py`를 추가했으며, core-control-plane 소스 트리의 다른 곳에서 임의의 venue 읽기나 리터럴 비교가 다시 들어오면 실패하는 게이트도 추가했습니다. | `current change`, `tests/runtime` focused 테스트 209건 통과, 음성 픽스처를 포함한 게이트 통합 테스트 4건 통과, `tests/delivery` 1489건 통과, 작업 범위 Ruff·format·strict mypy 통과 | 나머지 세 서비스도 같은 계약 아래로 옮겨야 합니다. |
 | 2026-08-18 | in-progress | A3-E 카탈로그 스키마·타입화된 레코드·결정론적 평가기인 `core/standing_authority/`를 추가했습니다. 적격은 모든 헌법 조건을 요구하며 레코드 부재, 파싱 실패, 시간대 없는 시계는 부적격입니다. 스키마는 shadow 모드와 resource 또는 resource group 범위만 허용합니다. 이 패키지는 의도적으로 연결되지 않았고, risk gate·executor·HIL resume·control loop가 import하면 테스트가 실패합니다. | `current change`, `tests/core/standing_authority` focused 테스트 38건 통과, 작업 범위 Ruff·format·strict mypy 통과, core import 경계 게이트 통과 | envelope 이탈이 0인 통제된 shadow 집합을 보존한 뒤 독립적 승격 검토를 거쳐야 결정 경로가 이를 참조할 수 있습니다. |
 | 2026-08-18 | 구현됨 | 앞서 수행한 슬라이스들을 자체 검토로 보강했습니다. 내구성 idempotency 지문은 원래 공식을 유지합니다. 공유 안전장치 헬퍼로 우회시키면 저장된 비교 값이 바뀌어 기존 레코드에 대한 정당한 재시도가 감사된 충돌로 바뀝니다. citing rule 누락은 audit-intent 안전장치를 오보고하는 대신 `evidence_citation`으로 거부합니다. `ExecutionVenueError`는 `RuntimeError`와 `ValueError`를 모두 상속해 교체 이전 서명을 잡던 호출자가 계속 동작합니다. 임계값 범위 로더는 모델링하지 않는 배타적 범위를 무경계로 보고하지 않고 fail closed 합니다. A3-E 비연결 테스트는 검사 전에 대상 서브시스템의 존재를 단언합니다. 신규 시나리오 2개에서 측정하지 않는 `expected_mttr_s_max` 값을 제거했습니다. | `current change`, executor·standing-authority·runtime·scenario·operational-learning 수트 focused 테스트 783건 통과, 작업 범위 Ruff·format·strict mypy 통과 | 저심각도 지적만 남을 때까지 비평 라운드를 계속합니다. |
+| 2026-08-18 | 구현됨 | 라운드 3·4에서 새 계약이 실제보다 강해 보일 수 있는 경로 둘을 제거했습니다. 모든 호출자가 해시를 넘겨 dry-run 거부가 도달 불가능했습니다. PR 경로는 렌더 결과가 비었을 때 빈 digest를 넘기며, 빈 렌더가 영수증을 받지 않고 거부된다는 focused 테스트를 추가했습니다. 선언된 venue capability 5개 중 3개에 운영 소비자가 없어 표가 동작을 선택하지 않고 의도만 기록하고 있었습니다. 남은 둘을 `bus_identity_binding`과 `workload_identity_source`로 나누고, CLI 신원 분기가 capability를 읽도록 했으며, 선언된 capability에 운영 접근자가 없으면 실패하는 테스트를 추가했습니다. `tool_call`은 `direct_api`에만 있던 audit-intent 게이트 테스트를 얻었습니다. | `current change`, executor·runtime·delivery·scenario·standing-authority·venue-gate 수트 focused 테스트 1956건 통과, 작업 범위 Ruff·format·strict mypy 통과, venue 계약 게이트 통과 | `pr_manual`은 PR executor를 공유하므로 영수증에 여전히 `pr_native`가 기록됩니다. 구분된 라벨이 필요해지면 executor에 선택된 경로를 전달해야 합니다. |
 
 ### 남은 작업
 

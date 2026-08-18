@@ -20,6 +20,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
+from functools import cache
 from importlib import resources
 from typing import Any, Self
 
@@ -210,8 +211,13 @@ class StandingAuthorization:
         )
 
 
+@cache
 def load_schema() -> Mapping[str, Any]:
-    """Return the shipped standing-authorization JSON Schema."""
+    """Return the shipped standing-authorization JSON Schema.
+
+    The schema is an immutable package resource, so it is read and parsed once rather than
+    on every parse call.
+    """
 
     raw = resources.files(SCHEMA_PACKAGE).joinpath(SCHEMA_RESOURCE).read_text(encoding="utf-8")
     loaded = json.loads(raw)

@@ -320,6 +320,26 @@ async def test_dry_run_receipt_is_deterministic_and_input_sensitive() -> None:
 
 
 @pytest.mark.asyncio
+async def test_an_empty_render_is_refused_instead_of_receipted() -> None:
+    """A dry run that produced nothing is not a dry run that passed."""
+
+    executor, publisher, audit = _executor()
+
+    class _EmptyRenderer:
+        def render(self, request: object) -> str:  # noqa: ARG002
+            return "   \n"
+
+    executor._renderer = _EmptyRenderer()  # type: ignore[assignment]
+
+    result = await executor.execute(action=_action(idempotency_key="empty-render"), rule=_rule())
+
+    assert result.outcome is ExecutorOutcome.REJECTED_INVARIANT
+    assert "dry-run artifact" in (result.reason or "")
+    assert publisher.records == ()
+    assert list(audit.audit_entries)
+
+
+@pytest.mark.asyncio
 async def test_pr_native_preserves_authorized_identity_in_evidence() -> None:
     executor, publisher, audit = _executor()
     action = _action().model_copy(update={"executor_identity_ref": "identity/change"})

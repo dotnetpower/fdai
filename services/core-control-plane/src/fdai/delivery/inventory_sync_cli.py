@@ -74,9 +74,9 @@ from fdai.runtime.inventory_ontology import (
     InventoryOntologyProjector,
 )
 from fdai.runtime.venue import (
-    ExecutionVenue,
     bus_security_protocol,
     resolve_execution_venue,
+    uses_developer_identity,
     uses_workload_identity,
 )
 from fdai.shared.config.loader import load_config_from_env
@@ -545,7 +545,7 @@ def _build_job_event_bus(
 
 
 def _workload_identity(*, http_client: httpx.AsyncClient) -> WorkloadIdentity:
-    if resolve_execution_venue() is ExecutionVenue.LOCAL:
+    if uses_developer_identity(resolve_execution_venue()):
         return AsyncAzureCliWorkloadIdentity.from_env()
     return ManagedIdentityWorkloadIdentity.from_env(http_client=http_client)
 

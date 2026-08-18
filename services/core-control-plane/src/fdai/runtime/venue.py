@@ -34,13 +34,16 @@ class ExecutionVenue(StrEnum):
 
 
 class VenueCapability(StrEnum):
-    """A capability whose binding may differ by venue."""
+    """A capability whose binding may differ by venue.
+
+    Every member has a production consumer. A capability with no consumer would make this
+    table documentation rather than a contract, so a new member is added when a binding
+    starts reading it, not in anticipation.
+    """
 
     BUS_SECURITY_PROTOCOL = "bus_security_protocol"
-    WORKLOAD_IDENTITY = "workload_identity"
-    INVENTORY_SOURCE = "inventory_source"
-    EVENT_BUS_IMPLEMENTATION = "event_bus_implementation"
-    OBSERVATION_TRANSPORT = "observation_transport"
+    BUS_IDENTITY_BINDING = "bus_identity_binding"
+    WORKLOAD_IDENTITY_SOURCE = "workload_identity_source"
 
 
 #: The complete set of venue-selected values. Every capability declares a value for every
@@ -53,28 +56,16 @@ VENUE_CAPABILITIES: Mapping[VenueCapability, Mapping[ExecutionVenue, str]] = Map
                 ExecutionVenue.DEPLOYED: "SASL_SSL",
             }
         ),
-        VenueCapability.WORKLOAD_IDENTITY: MappingProxyType(
+        VenueCapability.BUS_IDENTITY_BINDING: MappingProxyType(
             {
                 ExecutionVenue.LOCAL: "none",
                 ExecutionVenue.DEPLOYED: "workload_identity",
             }
         ),
-        VenueCapability.INVENTORY_SOURCE: MappingProxyType(
+        VenueCapability.WORKLOAD_IDENTITY_SOURCE: MappingProxyType(
             {
-                ExecutionVenue.LOCAL: "declarative_file",
-                ExecutionVenue.DEPLOYED: "azure_resource_graph",
-            }
-        ),
-        VenueCapability.EVENT_BUS_IMPLEMENTATION: MappingProxyType(
-            {
-                ExecutionVenue.LOCAL: "loopback",
-                ExecutionVenue.DEPLOYED: "event_hubs_kafka",
-            }
-        ),
-        VenueCapability.OBSERVATION_TRANSPORT: MappingProxyType(
-            {
-                ExecutionVenue.LOCAL: "loopback",
-                ExecutionVenue.DEPLOYED: "event_hubs_kafka",
+                ExecutionVenue.LOCAL: "azure_cli",
+                ExecutionVenue.DEPLOYED: "managed_identity",
             }
         ),
     }
@@ -130,9 +121,15 @@ def bus_security_protocol(venue: ExecutionVenue) -> str:
 
 
 def uses_workload_identity(venue: ExecutionVenue) -> bool:
-    """Return whether this venue binds a workload identity to its transport."""
+    """Return whether this venue binds a workload identity to its message transport."""
 
-    return select_capability(VenueCapability.WORKLOAD_IDENTITY, venue) != "none"
+    return select_capability(VenueCapability.BUS_IDENTITY_BINDING, venue) != "none"
+
+
+def uses_developer_identity(venue: ExecutionVenue) -> bool:
+    """Return whether this venue obtains its workload identity from the developer CLI."""
+
+    return select_capability(VenueCapability.WORKLOAD_IDENTITY_SOURCE, venue) == "azure_cli"
 
 
 __all__ = [
@@ -144,5 +141,6 @@ __all__ = [
     "bus_security_protocol",
     "resolve_execution_venue",
     "select_capability",
+    "uses_developer_identity",
     "uses_workload_identity",
 ]

@@ -317,7 +317,9 @@ class ShadowExecutor:
             safeguards = evaluate_pre_dispatch(
                 action,
                 execution_path=ExecutionPath.PR_NATIVE,
-                plan_digest=_pr_plan_digest(rule=rule, patch=patch),
+                # An empty render is a dry run that produced nothing, so the digest of an
+                # empty string must not stand in for a what-if artifact.
+                plan_digest=_pr_plan_digest(rule=rule, patch=patch) if patch.strip() else "",
                 plan_kind="remediation_patch",
             )
             if isinstance(safeguards, SafeguardRefusal):
