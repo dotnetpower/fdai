@@ -1479,7 +1479,7 @@ def test_general_query_presentation_projects_verified_rows() -> None:
 
     artifact = cast(dict[str, object], done["presentation_artifact"])
     blocks = cast(list[dict[str, object]], artifact["blocks"])
-    assert [block["slot_id"] for block in blocks] == ["overview", "records"]
+    assert [block["slot_id"] for block in blocks] == ["overview", "records", "limitations"]
     overview = cast(dict[str, object], blocks[0]["data"])
     assert overview["items"] == [{"label": "resources", "value": "2 of 7 rows", "tone": "neutral"}]
     records = cast(dict[str, object], blocks[1]["data"])
@@ -1491,6 +1491,79 @@ def test_general_query_presentation_projects_verified_rows() -> None:
         {"c0": "vm-a", "c1": "running"},
         {"c0": "vm-b", "c1": "-"},
     ]
+    limitations = cast(dict[str, object], blocks[2]["data"])
+    assert limitations["lines"] == [
+        "2 of 7 verified rows are listed. The remaining rows stay in technical details."
+    ]
+
+
+def test_general_query_presentation_charts_a_complete_categorical_result() -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    projection = _projection(envelope, disposition="answered", answered_evidence=True)
+    projection["payload"] = {
+        "technical_details": {
+            "schema_version": 1,
+            "kind": "semantic_query_outputs",
+            "outputs": [
+                {
+                    "node_id": "resources",
+                    "rows": [
+                        {"row_id": "r1", "values": {"id": "a", "type": "resource-group"}},
+                        {"row_id": "r2", "values": {"id": "b", "type": "resource-group"}},
+                        {"row_id": "r3", "values": {"id": "c", "type": "compute.vm"}},
+                    ],
+                    "returned_rows": 3,
+                    "total_rows": 3,
+                }
+            ],
+        }
+    }
+
+    done = semantic_turn_runtime_module._done_event_data(projection, locale="en")
+
+    artifact = cast(dict[str, object], done["presentation_artifact"])
+    blocks = cast(list[dict[str, object]], artifact["blocks"])
+    assert [block["slot_id"] for block in blocks] == ["overview", "records", "distribution"]
+    distribution = cast(dict[str, object], blocks[2])
+    assert distribution["kind"] == "bar"
+    assert distribution["data"] == {
+        "items": [
+            {"label": "resource-group", "value": 2, "tone": "neutral"},
+            {"label": "compute.vm", "value": 1, "tone": "neutral"},
+        ]
+    }
+
+
+def test_general_query_presentation_omits_a_chart_for_a_truncated_result() -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    projection = _projection(envelope, disposition="answered", answered_evidence=True)
+    projection["payload"] = {
+        "technical_details": {
+            "schema_version": 1,
+            "kind": "semantic_query_outputs",
+            "outputs": [
+                {
+                    "node_id": "resources",
+                    "rows": [
+                        {"row_id": "r1", "values": {"id": "a", "type": "resource-group"}},
+                        {"row_id": "r2", "values": {"id": "b", "type": "compute.vm"}},
+                    ],
+                    "returned_rows": 2,
+                    "total_rows": 9,
+                }
+            ],
+        }
+    }
+
+    done = semantic_turn_runtime_module._done_event_data(projection, locale="en")
+
+    artifact = cast(dict[str, object], done["presentation_artifact"])
+    blocks = cast(list[dict[str, object]], artifact["blocks"])
+    assert [block["slot_id"] for block in blocks] == ["overview", "records", "limitations"]
 
 
 def test_general_query_presentation_lifts_readable_fields_out_of_property_bags() -> None:
@@ -1534,19 +1607,19 @@ def test_general_query_presentation_lifts_readable_fields_out_of_property_bags()
     blocks = cast(list[dict[str, object]], artifact["blocks"])
     records = cast(dict[str, object], blocks[1]["data"])
     assert records["columns"] == [
-        {"key": "c0", "label": "id"},
-        {"key": "c1", "label": "object_type"},
-        {"key": "c2", "label": "name"},
-        {"key": "c3", "label": "type"},
-        {"key": "c4", "label": "location"},
+        {"key": "c0", "label": "name"},
+        {"key": "c1", "label": "type"},
+        {"key": "c2", "label": "location"},
+        {"key": "c3", "label": "id"},
+        {"key": "c4", "label": "object_type"},
     ]
     assert records["rows"] == [
         {
-            "c0": "scope-1/resource-group/rg-a",
-            "c1": "Resource",
-            "c2": "rg-a",
-            "c3": "resource-group",
-            "c4": "example-region",
+            "c0": "rg-a",
+            "c1": "resource-group",
+            "c2": "example-region",
+            "c3": "scope-1/resource-group/rg-a",
+            "c4": "Resource",
         }
     ]
 

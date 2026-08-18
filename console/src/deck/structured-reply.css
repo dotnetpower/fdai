@@ -33,7 +33,9 @@
 
 .deck-presentation-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* auto-fit, not a fixed track count: a single-item summary otherwise renders
+     a bordered box with two empty cells beside it. */
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 1px;
   margin: 0;
   overflow: hidden;

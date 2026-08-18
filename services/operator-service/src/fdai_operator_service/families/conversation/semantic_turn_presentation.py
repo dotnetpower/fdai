@@ -27,6 +27,9 @@ _MAX_CELL_CHARS = 512
 # Scalar leaves lifted out of an open-shape property bag so the answer table
 # stays readable. The exact untouched row still travels in technical details.
 _LIFTED_ROW_FIELDS = ("name", "type", "status", "location")
+# Categorical fields worth charting once a result is complete, most specific
+# first. A single-value field yields no chart; the table already says it.
+_DISTRIBUTION_FIELDS = ("type", "status", "location", "object_type")
 _CONTROL_CHARACTERS = {chr(code) for code in range(32)} | {chr(127)}
 
 
@@ -691,8 +694,122 @@ def _general_query_blocks(
         records = _records_block(output, bounded_refs=bounded_refs, korean=korean)
         if records is not None:
             blocks.append(records)
+            distribution = _distribution_block(output, bounded_refs=bounded_refs, korean=korean)
+            if distribution is not None:
+                blocks.append(distribution)
+            limitation = _row_limitation_block(output, bounded_refs=bounded_refs, korean=korean)
+            if limitation is not None:
+                blocks.append(limitation)
             break
     return blocks
+
+
+def _readable_rows(output: object) -> list[Mapping[str, object]] | None:
+    """Return every verified row of ``output`` in its readable projection."""
+    if not isinstance(output, Mapping):
+        return None
+    rows = output.get("rows")
+    if not isinstance(rows, list) or not rows:
+        return None
+    readable: list[Mapping[str, object]] = []
+    for row in rows:
+        values = row.get("values") if isinstance(row, Mapping) else None
+        if not isinstance(values, Mapping):
+            return None
+        readable.append(_readable_row(values))
+    return readable
+
+
+def _distribution_block(
+    output: object,
+    *,
+    bounded_refs: list[str],
+    korean: bool,
+) -> JsonObject | None:
+    """Chart one categorical field, but only over a complete verified result.
+
+    A truncated result would make the counts read as the whole population, so
+    an incomplete or capped output yields no chart at all.
+    """
+    if not isinstance(output, Mapping):
+        return None
+    returned = output.get("returned_rows")
+    total = output.get("total_rows")
+    readable = _readable_rows(output)
+    if readable is None or not isinstance(returned, int) or not isinstance(total, int):
+        return None
+    if returned != total or len(readable) != total:
+        return None
+    for field in _DISTRIBUTION_FIELDS:
+        counts: dict[str, int] = {}
+        complete = True
+        for values in readable:
+            candidate = values.get(field)
+            if not isinstance(candidate, str) or not candidate.strip():
+                complete = False
+                break
+            counts[candidate.strip()[:_MAX_CELL_CHARS]] = (
+                counts.get(candidate.strip()[:_MAX_CELL_CHARS], 0) + 1
+            )
+        if not complete or not 2 <= len(counts) <= _MAX_SUMMARY_ITEMS:
+            continue
+        ordered = sorted(counts.items(), key=lambda entry: (-entry[1], entry[0]))
+        return cast(
+            JsonObject,
+            {
+                "slot_id": "distribution",
+                "kind": "bar",
+                "title": f"{field} 분포" if korean else f"Distribution by {field}",
+                "emphasis": "secondary",
+                "collapsed": False,
+                "evidence_refs": bounded_refs,
+                "data": {
+                    "items": [
+                        {"label": label, "value": count, "tone": "neutral"}
+                        for label, count in ordered
+                    ]
+                },
+            },
+        )
+    return None
+
+
+def _row_limitation_block(
+    output: object,
+    *,
+    bounded_refs: list[str],
+    korean: bool,
+) -> JsonObject | None:
+    """State that the listed rows are a bounded slice of the verified total."""
+    readable = _readable_rows(output)
+    if readable is None or not isinstance(output, Mapping):
+        return None
+    total = output.get("total_rows")
+    if not isinstance(total, int):
+        return None
+    shown = min(len(readable), _MAX_TABLE_ROWS)
+    if shown >= total:
+        return None
+    line = (
+        f"검증된 {total}개 행 중 {shown}개를 표시합니다. 나머지 행은 기술 세부에 있습니다."
+        if korean
+        else (
+            f"{shown} of {total} verified rows are listed. "
+            "The remaining rows stay in technical details."
+        )
+    )
+    return cast(
+        JsonObject,
+        {
+            "slot_id": "limitations",
+            "kind": "callout",
+            "title": "제한 사항" if korean else "Limitations",
+            "emphasis": "supporting",
+            "collapsed": False,
+            "evidence_refs": bounded_refs,
+            "data": {"tone": "neutral", "lines": [line]},
+        },
+    )
 
 
 def _overview_items(outputs: list[object], *, korean: bool) -> list[JsonObject]:
@@ -748,7 +865,7 @@ def _records_block(
         for field in readable:
             if field not in fields:
                 fields.append(field)
-    selected = fields[:_MAX_TABLE_COLUMNS]
+    selected = _ordered_columns(fields)[:_MAX_TABLE_COLUMNS]
     if not selected:
         return None
     # Positional keys: an ontology field name is not a valid Console column key.
@@ -773,6 +890,16 @@ def _records_block(
             },
         },
     )
+
+
+def _ordered_columns(fields: list[str]) -> list[str]:
+    """Lead with the fields an operator reads, keeping the rest in row order.
+
+    An opaque identifier is the widest column and the least useful one to read
+    first, so a named field takes the leading position when the row has one.
+    """
+    leading = [field for field in _LIFTED_ROW_FIELDS if field in fields]
+    return leading + [field for field in fields if field not in leading]
 
 
 def _readable_row(values: Mapping[str, object]) -> dict[str, object]:

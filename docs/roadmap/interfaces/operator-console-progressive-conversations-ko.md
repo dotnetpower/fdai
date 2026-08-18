@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 2f6f2c1030145ed211187044f1eee20e6f9a0358
-translation_revised: 2026-08-17
+translation_source_sha: 339a1b0ae12246b3db4a6c04db73fdd1e8886cf2
+translation_revised: 2026-08-18
 ---
 # 오퍼레이터 콘솔 점진적 대화
 
@@ -52,6 +52,7 @@ translation_revised: 2026-08-17
 | 2026-08-17 | implemented | 인시던트 후보 선택기가 답변이 충족할 수 없는 프롬프트를 제출하던 동작을 중단했습니다. 후보를 선택하면 주의 배지와 동일한 인시던트 고정 대화가 열리는데도 근본 원인을 요구했고, 그 답변은 항상 인과 분석이 구현되지 않았다고 보고합니다. 이제 두 진입점 모두 근거로 확인되는 사실, 누락된 근거, 다음 안전한 읽기 전용 조치를 요청합니다. | `current change`; `messages.{en,ko}.json`; focused 테스트가 두 프롬프트 키를 두 로케일에서 고정합니다. Console i18n과 grounded-reply 검사 17건과 typecheck가 통과했고, 원인 표현을 되돌리면 해당 테스트가 실패합니다. | 인시던트 프롬프트 계약에 남은 작업은 없습니다. |
 | 2026-08-17 | implemented | 카탈로그와 두 진입점이 근거 범위가 정해진 프롬프트를 채택한 뒤에도 폐기된 근본 원인 질문을 기대하던 인시던트 후보 회귀 테스트를 교정했습니다. | `current change`; `incident-candidates.test.ts`; 후보 선택 집중 테스트 4건이 통과했습니다. | 이 회귀 교정에 남은 작업은 없습니다. |
 | 2026-08-17 | implemented | 기록된 활동 타임라인이 생기기 전에 제공되던 블록 3개를 그대로 고정하고 있던 인증된 인시던트 표현 게이트를 바로잡았습니다. 이제 동일한 종료 응답이 담고 있는 상관 근거에서 기대 블록을 도출하므로, 타임라인이 사라지면 실패하고 행을 반환하지 않은 인시던트 읽기는 그대로 통과합니다. | `current change`; `console/tests/live-e2e/semantic-answer-presentation.spec.ts`; 오늘 관측한 라이브 Console 답변은 `overview`, `records`, `limitations`, `findings`를 렌더링합니다. Console typecheck가 통과했습니다. | 인증된 외부 스택에서 게이트를 실행합니다. |
+| 2026-08-18 | implemented | 검증된 목록 답변을 한눈에 읽을 수 있게 했습니다. 완전한 범주형 결과는 제한된 막대 분포를 그리고, 잘린 결과는 검증된 전체 중 몇 건을 표시했고 나머지가 어디에 있는지 밝히며, 이름 있는 읽기 쉬운 필드가 불투명한 식별자보다 앞에 오고, 요약 격자는 항목 수에 맞춰져 값 하나 옆에 빈 칸을 남기지 않습니다. 불완전하거나 상한에 걸린 결과는 차트를 그리지 않으므로 부분 집계가 전체처럼 읽히지 않습니다. | `current change`, [Issue #184](https://github.com/dotnetpower/fdai/issues/184), `semantic_turn_presentation.py`, `console/src/deck/structured-reply.css`, focused Operator 검사 394개 통과(차트 회귀 2건 신규), Console typecheck와 Ruff 및 strict mypy 통과 | 차트와 행 상한 안내에 대한 통제된 request-to-Console 및 이중 언어 무작위 근거를 보존합니다. |
 
 ### 남은 작업
 
