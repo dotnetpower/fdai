@@ -37,8 +37,27 @@ describe("parseIntentGraph", () => {
     expect(parseIntentGraph({ ...graph(), unexpected: "field" })).toBeUndefined();
     expect(parseIntentGraph({
       ...graph(),
-      goals: [{ ...graph().goals[0], arguments: { nested: [[[[["too deep"]]]]] } }],
+      goals: [{ ...graph().goals[0], arguments: { nested: [[[[[[["too deep"]]]]]]] } }],
     })).toBeUndefined();
+  });
+
+  it("keeps an object-set membership predicate inside the argument depth bound", () => {
+    const args = {
+      definition: {
+        selector: { kind: "object_type", name: "Resource" },
+        predicates: [{ property: "type", operator: "in", values: ["postgresql-server"] }],
+        as_of: "2026-08-17T00:00:00Z",
+        purpose: "operations-review",
+        limit: 1000,
+      },
+    };
+
+    const parsed = parseIntentGraph({
+      ...graph(),
+      goals: [{ ...graph().goals[0], arguments: args }],
+    });
+
+    expect(parsed?.goals[0]?.arguments).toEqual(args);
   });
 });
 

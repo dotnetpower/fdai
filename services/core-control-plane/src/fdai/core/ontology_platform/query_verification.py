@@ -13,8 +13,20 @@ from fdai_service_contracts.ontology_query import (
 )
 from jsonschema import Draft202012Validator
 
-from .models import ObjectSelectorKind, ObjectSetDefinition
+from .models import (
+    ObjectPredicate,
+    ObjectPredicateOperator,
+    ObjectSelectorKind,
+    ObjectSetDefinition,
+)
+from .property_values import declared_property_values
 from .query_manifest import QueryManifest
+
+_EXACT_VALUE_OPERATORS = {
+    ObjectPredicateOperator.EQUALS,
+    ObjectPredicateOperator.NOT_EQUALS,
+    ObjectPredicateOperator.IN,
+}
 
 _TABLE_KINDS = {
     QueryNodeKind.OBJECT_SET,
@@ -255,10 +267,23 @@ class OntologyQueryPlanVerifier:
         descriptor = descriptors.get((selector_kind, definition.selector.name))
         if descriptor is None:
             raise ValueError("object-set selector is absent from the principal manifest")
-        readable_properties = set(cast_mapping(descriptor.get("properties")))
+        properties = cast_mapping(descriptor.get("properties"))
         for predicate in definition.predicates:
-            if predicate.property not in readable_properties:
+            if predicate.property not in properties:
                 raise PermissionError("object-set predicate property is not readable")
+            declared = declared_property_values(properties.get(predicate.property))
+            if declared is None:
+                continue
+            for operand in _exact_operands(predicate):
+                if operand not in declared:
+                    raise ValueError(
+                        "object-set predicate operand is absent from the declared value domain"
+                    )
+            fragment = _fragment_operand(predicate)
+            if fragment is not None and not any(fragment in value for value in declared):
+                raise ValueError(
+                    "object-set predicate fragment matches no value in the declared domain"
+                )
         if definition.traversal is not None:
             for link_type in definition.traversal.link_types:
                 if ("link", link_type) not in descriptors:
@@ -424,6 +449,23 @@ def cast_mapping(value: object) -> Mapping[str, object]:
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
         return {str(item): None for item in value}
     raise ValueError("manifest properties descriptor is invalid")
+
+
+def _exact_operands(predicate: ObjectPredicate) -> tuple[str, ...]:
+    if predicate.operator not in _EXACT_VALUE_OPERATORS:
+        return ()
+    operands = (
+        predicate.values
+        if predicate.operator is ObjectPredicateOperator.IN
+        else (predicate.equals,)
+    )
+    return tuple(item for item in operands if isinstance(item, str))
+
+
+def _fragment_operand(predicate: ObjectPredicate) -> str | None:
+    if predicate.operator is not ObjectPredicateOperator.CONTAINS:
+        return None
+    return predicate.equals if isinstance(predicate.equals, str) else None
 
 
 __all__ = ["OntologyQueryPlanVerifier"]

@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: b4d1dd0da101003153bcb8f0828c0058feb2d568
+translation_source_sha: 2f6f2c1030145ed211187044f1eee20e6f9a0358
 translation_revised: 2026-08-17
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -166,6 +166,11 @@ POST 스트림은 요청 기한까지 영속 변환 결과를 기다립니다. �
 테넌트 식별자, 고객 리소스 식별자, 정제되지 않은 웹 콘텐츠를 노출하지 않습니다. 영속 재생은
 이미 끝난 읽기를 다시 실행하거나 프로바이더 메시지를 중복해서 보내지 않고 정본 최종 답변과
 개정판 상태만 저장합니다.
+
+intent 그래프 목표 인자는 계약의 양쪽에서 노드 128개와 중첩 6단계로 제한됩니다. 6단계는
+object-set membership 술어에 필요한 깊이입니다. arguments, definition, predicates, 술어 하나,
+그 values 배열, 값 하나 순서입니다. 이보다 얕은 한계치는 membership으로 걸러내는 계획의 답변을
+모두 조용히 보류시켰습니다.
 
 ## 지표
 

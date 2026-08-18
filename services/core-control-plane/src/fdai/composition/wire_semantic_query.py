@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import httpx
+import yaml
 from fdai_service_contracts.ontology_query import QueryNodeKind, content_digest
 
 from fdai.core.conversation.semantic_manifest import CatalogQueryManifestProvider
@@ -68,6 +69,7 @@ from fdai.core.ontology_platform.pod_telemetry import (
     POD_TELEMETRY_FUNCTION_NAME,
     pod_telemetry_function,
 )
+from fdai.core.ontology_platform.property_values import PropertyValueDomain
 from fdai.core.ontology_platform.query_execution import QueryNodeHandler
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
 from fdai.core.ontology_platform.query_receipt_authority import SecuredQueryReceiptAuthority
@@ -81,6 +83,7 @@ from fdai.delivery.azure.llm.semantic_planning import (
     AzureOpenAISemanticPlanningModelConfig,
 )
 from fdai.rule_catalog.schema.ontology_catalog import OntologyCatalog, load_ontology_catalog
+from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.shared.config.models import LlmMode
 from fdai.shared.contracts.models import CeilingRole, OntologyRelease
 from fdai.shared.ontology.acl import ProjectionRequest
@@ -91,6 +94,7 @@ from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 from ._helpers import Container, _load_resolved_models
 from .semantic_query_model_targets import t1_model_targets, t2_model_targets
+from .semantic_query_value_domains import resource_type_value_domains
 
 _FRAME_CAPABILITY = "semantic.query.frame"
 _PLAN_CAPABILITY = "semantic.query.plan"
@@ -127,6 +131,7 @@ def build_semantic_query_runtime(
     metric_registry: MetricSemanticRegistry | None = None,
     metric_window_provider: MetricWindowProvider | None = None,
     incident_evidence_reader: IncidentEvidenceReader | None = None,
+    property_values: Sequence[PropertyValueDomain] = (),
     purpose: str = "operations-review",
     now: Callable[[], datetime] | None = None,
 ) -> SemanticConversationRuntime:
@@ -260,6 +265,7 @@ def build_semantic_query_runtime(
             bound_function_names=tuple(
                 sorted(bound_function_names | {ONTOLOGY_MANIFEST_FUNCTION_NAME})
             ),
+            property_values=property_values,
         )
 
     function_registry.register_contextual(
@@ -317,6 +323,7 @@ def build_semantic_query_runtime(
             action_types=ontology_catalog.action_types,
             functions=function_types,
             bound_function_names=tuple(sorted(bound_function_names)),
+            property_values=property_values,
         ),
         verifier=OntologyQueryPlanVerifier(
             available_kinds=available_kinds,
@@ -453,11 +460,20 @@ def compose_azure_semantic_query_runtime(
             metric_registry=metric_registry,
             metric_window_provider=metric_window_provider,
             incident_evidence_reader=incident_evidence_reader,
+            property_values=_resource_type_property_values(catalog_root),
             purpose=purpose,
         )
     except (OSError, LookupError, TypeError, ValueError):
         return _unavailable("semantic_composition_invalid")
     return SemanticQueryRuntimeComposition(runtime=runtime, unavailable_reason=None)
+
+
+def _resource_type_property_values(catalog_root: Path) -> tuple[PropertyValueDomain, ...]:
+    vocabulary = catalog_root / "vocabulary" / "resource-types.yaml"
+    registry = load_resource_type_registry_from_mapping(
+        yaml.safe_load(vocabulary.read_text(encoding="utf-8"))
+    )
+    return resource_type_value_domains(registry)
 
 
 def _unavailable(reason: str) -> SemanticQueryRuntimeComposition:
