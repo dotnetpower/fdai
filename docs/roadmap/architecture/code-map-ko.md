@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 6c98864f8f6496fed25fa218d19fb4a34d8cf25a
+translation_source_sha: 6fae84567dc1b4ed0baf219bf84c532bdbf6a4c7
 translation_revised: 2026-08-18
 ---
 # 코드 맵
@@ -126,6 +126,7 @@ translation_revised: 2026-08-18
 | 2026-08-17 | implemented | 근거 계열 분류와 temporal cutoff 검증을 각각 담당하는 Core 경계에 유지했습니다. 의미 cascade는 plan 선택 전에 `evidence_validation`이 아닌 `validate` frame을 거부하고, ontology query verifier는 프로바이더 실행 전에 knowledge cutoff보다 늦은 `topology_at` event cutoff를 거부합니다. | `current change`, focused 의미 계획 및 query verifier 검사 41개 통과, 작업 범위 Ruff 및 strict mypy 통과 | Runner가 seed 기반 집단을 시작하기 전에 strict 14/14 답변 및 완전 근거를 보존합니다. |
 | 2026-08-17 | 구현됨 | 카탈로그 리소스 타입 어휘를 읽기 가능한 `Resource.type` 속성에 연결해 플래너가 선언된 값과 이중 언어 그룹을 읽도록 했고, 선언 영역이 담을 수 없는 피연산자나 조각은 plan 검증기가 거부하도록 했습니다. Console intent 변환 결과는 membership 술어에 필요한 6단계 중첩을 이제 허용합니다. | `current change`; `core/ontology_platform/property_values.py`, `query_manifest.py`, `query_verification.py`, `composition/semantic_query_value_domains.py`, `packages/service-contracts/.../ontology_query.py`, `console/src/deck/intent-graph.ts`; 집중 온톨로지, composition, 대화, 카탈로그, 계약 검사 2317건과 Console intent-graph 모음이 통과했습니다. | 선언된 값을 가진 속성은 `Resource.type` 하나뿐이며 다른 열거형 속성은 아직 값을 확정하지 못합니다. |
 | 2026-08-18 | 구현됨 | 각 리소스 하위 타입이 선언한 질의 용어를 `Resource.type` 영역의 단일 값 그룹으로 투영하고, plan shape 로그가 선택된 ObjectType과 필터 대상 속성 및 연산자를 기록하도록 했습니다. 범주 그룹만으로는 하위 타입 단어가 선언 값에 연결되지 않아 플래너가 ObjectType 전체를 선택하는 존재 술어로 후퇴했고, 로그만으로는 그 계획과 좁은 계획을 구분할 수 없었습니다. | `current change`; [Issue #183](https://github.com/dotnetpower/fdai/issues/183); `composition/semantic_query_value_domains.py`, `core/conversation/semantic_planning.py`; 집중 composition, 대화, ontology-platform, rule-catalog 검사 2222건이 통과했고 Ruff와 strict mypy가 통과했습니다. | 술어 피연산자는 로그에 남지 않으므로 좁히기 결함은 shape만으로 진단합니다. |
+| 2026-08-18 | 구현됨 | 발화에 명시된 값 필터를 plan 검증 전에 결정적으로 확정합니다. 발화가 선언된 값 그룹 하나의 질의 용어만 담고 있으면 해당 속성의 존재 술어를 그 그룹의 선언 값에 대한 `equals` 또는 `in`으로 다시 씁니다. 용어를 플래너에 노출하는 것만으로는 구속력이 없어 명시된 부분집합 질문이 여전히 ObjectType 전체로 답해졌습니다. | `current change`; [Issue #190](https://github.com/dotnetpower/fdai/issues/190); `core/conversation/semantic_planning.py`; 집중 대화, composition, ontology-platform 검사 934건이 통과했고 Ruff와 strict mypy가 통과했습니다. | 확정은 좁히기만 수행하며, 한 속성에 두 그룹을 함께 언급한 발화는 플래너 판단으로 남습니다. |
 
 ### 남은 작업
 
