@@ -199,6 +199,12 @@ types:
     description: Inbound endpoint that exposes a managed DNS resolver to a virtual network.
     azure_arm_type: Microsoft.Network/dnsResolvers/inboundEndpoints
     typical_parents: [network.dns-resolver]
+  - id: network.route-table
+    category: network
+    description: User-defined route table that steers subnet egress.
+    azure_arm_type: Microsoft.Network/routeTables
+    query_terms: [route table, route tables, udr, user defined route, 라우트 테이블, 경로 테이블]
+    typical_parents: [resource-group]
   - id: network.virtual-network-gateway
     category: network
     description: VPN or ExpressRoute gateway attached to a virtual network.
@@ -227,6 +233,12 @@ types:
     description: Network file share.
     azure_arm_type: Microsoft.Storage/storageAccounts/fileServices/shares
     typical_parents: [object-storage]
+  - id: disk-snapshot
+    category: storage
+    description: Point-in-time copy of a block-storage disk, the unit a restore reads.
+    azure_arm_type: Microsoft.Compute/snapshots
+    query_terms: [disk snapshot, disk snapshots, snapshot, snapshots, 디스크 스냅샷, 스냅샷]
+    typical_parents: [resource-group]
   - id: disk
     category: storage
     description: Block-storage disk attached to a compute resource.
@@ -234,12 +246,18 @@ types:
     typical_parents: [resource-group]
 
   # ── databases ────────────────────────────────────────────────────────
+  - id: sql-server
+    category: database
+    description: Logical SQL server that hosts SQL-family databases and owns their endpoint.
+    azure_arm_type: Microsoft.Sql/servers
+    query_terms: [sql server, sql servers, logical sql server, sql 서버]
+    typical_parents: [resource-group]
   - id: sql-database
     category: database
     description: SQL-family database engine (T-SQL family). Azure=Azure SQL / MI.
     azure_arm_type: Microsoft.Sql/servers/databases
     query_terms: [sql database, sql databases, sql db, sql 데이터베이스]
-    typical_parents: [resource-group]
+    typical_parents: [sql-server]
   - id: postgresql-server
     category: database
     description: PostgreSQL engine (Flexible / Single).
@@ -310,6 +328,24 @@ types:
     azure_arm_type: Microsoft.Insights/dataCollectionRules
     query_terms: [data collection rule, data collection rules, dcr, dcrs, 데이터 수집 규칙]
     typical_parents: [resource-group]
+  - id: data-collection-endpoint
+    category: observability
+    description: Ingestion endpoint a data collection rule forwards observations to.
+    azure_arm_type: Microsoft.Insights/dataCollectionEndpoints
+    query_terms: [data collection endpoint, data collection endpoints, dce, 데이터 수집 엔드포인트]
+    typical_parents: [resource-group]
+  - id: alert-rule
+    category: observability
+    description: Scheduled query rule that raises an alert when its condition holds.
+    azure_arm_type: Microsoft.Insights/scheduledQueryRules
+    query_terms: [alert rule, alert rules, scheduled query rule, log alert, 경고 규칙, 알림 규칙]
+    typical_parents: [resource-group]
+  - id: action-group
+    category: observability
+    description: Notification and automation fan-out target an alert rule invokes.
+    azure_arm_type: Microsoft.Insights/actionGroups
+    query_terms: [action group, action groups, 작업 그룹, 액션 그룹]
+    typical_parents: [resource-group]
   - id: llm-endpoint
     category: compute
     description: Managed language-model inference endpoint with quota and rate limits.
@@ -319,6 +355,12 @@ types:
     category: compute
     description: Managed event-streaming namespace used for durable message ingress and delivery.
     azure_arm_type: Microsoft.EventHub/namespaces
+    typical_parents: [resource-group]
+  - id: service-bus-namespace
+    category: observability
+    description: Message broker namespace that hosts queues and topics.
+    azure_arm_type: Microsoft.ServiceBus/namespaces
+    query_terms: [service bus, service bus namespace, message broker, 서비스 버스, 메시지 브로커]
     typical_parents: [resource-group]
   - id: event-grid-topic
     category: compute

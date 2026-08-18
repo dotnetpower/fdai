@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: ce35095db493aec477360cfb4d95f902fd282d38
+translation_source_sha: e29222ced4734b8254159ee4674c214e6aafa62a
 translation_revised: 2026-08-19
 ---
 # 코드 맵
@@ -62,6 +62,7 @@ translation_revised: 2026-08-19
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | implemented | Azure 스캔이 건너뛰고 있던 리소스 타입 7개를 선언했습니다. `delivery/azure/arg_query.py`는 선언된 `azure_arm_type`마다 Resource Graph 쿼리를 하나씩 발행하므로, 선언되지 않은 타입은 조회 자체가 일어나지 않고 스냅샷은 해당 리소스를 미매핑이 아니라 아예 없는 것으로 보고합니다. 7개 중 2개는 범위를 넓힌 것이 아니라 포함 관계의 구멍을 메웠습니다. `sql-database`는 상위인 `Microsoft.Sql/servers` 없이 선언돼 있었고, `data-collection-rule`도 짝이 되는 엔드포인트 없이 선언돼 있었습니다. | `current change`. `tests/rule_catalog`, `tests/delivery/azure`, `tests/providers`에서 집중 케이스 2395개 통과. `check-ontology-query-coverage`, `check-property-semantic-coverage`, `check-independent-services` 통과. 실제 구독 범위 측정 결과 Resource Graph는 객체 533개를 보고한 반면 스냅샷은 리소스 504개였고, 누락된 69개는 모두 선언되지 않은 ARM 타입 22종에 속했습니다. 전체 재조정을 강제 실행하자 승격된 스냅샷이 516으로 이동해 7개 타입이 보유한 리소스 12개와 일치했으며, 투영은 `status=available`에 드롭 없음이었습니다. | 플랫폼이 자동 생성했거나 버티컬 밖에 있는 타입 15종의 리소스 57개는 의도적으로 선언하지 않아 미매핑으로 남습니다. `ResourceType` 인스턴스는 컨트롤 플레인 런타임의 카탈로그 투영만 시드하므로, 인벤토리 잡이 더 새로운 어휘를 먼저 읽으면 시드되지 않은 엔드포인트로 `resource_classified_as` 링크를 발행해 해당 세대 전체가 실패합니다. 이번에 한 번 관측했고 검증 스캔 전에 런타임을 재시작해 해소했습니다. |
 | 2026-08-19 | implemented | `core/executor/`와 그 테스트의 모든 `ExecutionPath`·`PromotionGate` import를 `fdai.shared.contracts.models` facade로 통과시켰습니다. executor 모듈 5개가 `models.enums`를 직접 참조하고 있었는데, 이는 G-4 facade 테스트가 금지하는 형태이며 safeguard 계약이 들어온 이후 `main`에서 계속 실패하고 있었습니다. | `current change`, core와 공유 패키지 suite가 11913건 통과(스킵 131건)하며 이전에 실패하던 `test_models_facade_only` 포함, 작업 범위 Ruff·format 통과 | 이 seam에 남은 작업은 없습니다. |
 | 2026-08-19 | implemented | 안전 핵심의 검토 지적 2건을 해소했습니다. `core/assurance_twin/model_promotion.py`가 범위 등록부를 `type(self).__name__`로 조회해서 서브클래스가 안전 검사 안에서 `KeyError`를 낼 수 있었으므로, 이제 고정된 소유자 이름으로 semantic id 2개를 import 시점에 한 번만 해석합니다. `core/executor/executor.py`는 docstring이 부정하던 예외를 발생시킬 수 있게 되었으므로, docstring이 이를 명시하고 구성 오류와 비즈니스 로직 실패를 구분합니다. | `current change`, `tests/core/standing_authority`·`tests/core/assurance_twin`·`tests/core/operational_learning`·`tests/core/executor`·`tests/scenarios`와 venue 게이트 통합 테스트가 focused 520건 통과, 작업 범위 Ruff·format·mypy 통과, venue 게이트가 소스 트리 6개에서 OK 보고 | 이 두 지적에 남은 작업은 없습니다. |
 | 2026-08-19 | implemented | `core/executor/executor.py`에 자신을 선택한 실행 경로를 전달하도록 했습니다. `pr_manual`과 `pr_native`가 `ShadowExecutor`를 공유하므로 수동 병합 영수증과 두 audit 단계 모두 `pr_native`를 기록했습니다. 이제 `execute()`가 경로를 받고 제공하지 않는 경로는 거부하며, `core/control_loop/_execution.py`가 ActionType이 선택한 경로를 넘깁니다. `core/executor/port.py`도 새 키워드를 담습니다. | `current change`, `tests/core`·`tests/pipeline`·`tests/scenarios`·`tests/providers`·`tests/runtime`·`tests/delivery`가 focused 7294건 통과(스킵 4건), 작업 범위 Ruff·format·mypy와 core import 게이트 통과 | 출하되는 ActionType 중 `pr_manual`을 선택하는 것이 없어 업스트림 동작은 그대로이며, 이를 선택하는 fork는 이제 정확한 라벨을 받습니다. |
