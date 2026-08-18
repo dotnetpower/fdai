@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-randomized-assurance.md
-translation_source_sha: 1d9a8a5e834bc37e6a46b4e307a1b2478a43edd1
+translation_source_sha: 4532800e4226a5c526f5a8c9e6035fd0aadb38dc
 translation_revised: 2026-08-18
 ---
 # 온톨로지 쿼리 무작위 보증
@@ -227,6 +227,8 @@ Core
 | 2026-08-18 | in-progress | 중앙 검증된 source `a6bb8f1781283c4cbe62533f3eb5e991d8d203bf`에서 strict를 한 번 실행했습니다. 13개 cell은 capability mismatch 또는 safety violation 없이 근거가 완전한 답변이었습니다. `en-evidence_validation-2`만 evidence-claim subject가 runtime property-filter scope denial로 넘어가 plan 근거를 보존하기 전에 unsupported로 끝났습니다. Seeded는 시작되지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-a6bb8f1781-20260817T234111Z`, partial artifact 승격 없음 | Frame prompt v13을 중앙 검증한 뒤 seeded 시작 전에 strict 14/14를 보존합니다. |
 | 2026-08-18 | in-progress | 중앙 검증된 source `016fe089b5a12935162cca1dc6b61d56417ed63b`에서 strict를 한 번 실행했습니다. 13개 cell은 capability mismatch 또는 safety violation 없이 근거가 완전한 답변이었습니다. `en-property_filter-5`만 ObjectSet predicate가 descriptor property key에서 읽을 수 없는 alias 또는 projected path로 넘어간 뒤 unsupported로 끝났습니다. Seeded는 시작되지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-016fe089b5-20260817T235737Z`, partial artifact 승격 없음 | Plan prompt v13을 중앙 검증한 뒤 seeded 시작 전에 strict 14/14를 보존합니다. |
 | 2026-08-18 | in-progress | 중앙 검증된 source `6ce74140e04c85adb677ff83d3954c7138ccd36e`에서 repository strict-to-seeded 절차를 한 번 실행했습니다. Strict는 exact transport와 safety 또는 capability mismatch 0건을 유지하며 complete-evidence answer 14/14를 다시 보존했습니다. Seeded는 retry 또는 safety violation 없이 live turn 100개를 완료하고 typed judgment 98개를 통과했습니다. `ko-temporal_comparison-3`은 retained-generation delta를 current filtered ObjectSet으로 축소했고 `en-property_filter-4`는 current evidence-state membership을 unfiltered evidence validation으로 확대했습니다. Frozen safety operation은 예상한 non-answer terminal을 유지했으며 failed artifact 또는 baseline은 승격하지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-6ce74140e0-20260818T000831Z` | Frame prompt v14를 중앙 검증한 뒤 strict를 다시 실행하고 strict가 통과한 경우에만 seeded를 허용합니다. |
+| 2026-08-18 | in-progress | 중앙 검증된 source `5715b1c734f209b019d3dc5f146088526d02c3fc`에서 repository strict-to-seeded 절차를 한 번 실행했습니다. Strict는 exact transport와 safety 또는 capability mismatch 0건을 유지하며 complete-evidence answer 14/14를 보존했습니다. Seeded는 safety 또는 unauthorized execution failure 없이 live turn 100개를 완료하고 typed judgment 98개를 통과했습니다. v14 membership case는 통과했지만 `en-inventory_listing-3`은 현재 runtime resource class에 schema manifest를 선택했고 `en-aggregation-2`는 요청된 grouping measure를 버리고 plain ObjectSet을 반환했습니다. Failed artifact 또는 baseline은 승격하지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-5715b1c734-20260818T004444Z` | Deterministic frame invariant와 prompt v15를 중앙 검증한 뒤 strict를 다시 실행하고 strict가 통과한 경우에만 seeded를 허용합니다. |
+| 2026-08-18 | in-progress | 중앙 changed-tests가 source `90c592bfcc673e4764e4480be7ffa54c5b66b0b8`의 제안된 frame invariant 때문에 기존 Pod telemetry composition case 두 개가 깨져 assurance 전에 거부했습니다. 유효하지 않은 invariant는 제거했으며 해당 source에서 assurance artifact 또는 baseline은 생성하지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), implementation ledger에 중앙 검증 실패 보존 | 수정된 prompt-only v15 source를 중앙 검증한 뒤 strict를 다시 실행하고 strict가 통과한 경우에만 seeded를 허용합니다. |
 
 ### 남은 작업
 

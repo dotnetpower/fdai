@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 3d6392d8009f7ae84e002f3f1cf0e7a17b054717
+translation_source_sha: 07a95c7348c4e775030db7355dd6873b0dde9549
 translation_revised: 2026-08-18
 ---
 # 코드 맵
@@ -133,6 +133,8 @@ translation_revised: 2026-08-18
 | 2026-08-18 | implemented | Frame prompt v13에서 evidence-contract subject와 ontology-object predicate를 분리했습니다. Claim 및 evidence-reference coverage는 server-owned validation에 유지하고 evidence-valued property에 따른 object membership은 filtered ObjectSet 경로에 유지합니다. Utterance literal 또는 runtime authority는 추가하지 않았습니다. | `current change`, focused prompt 레지스트리 계약 통과 | 중앙 검증된 source에서 strict 및 seeded 근거를 보존합니다. |
 | 2026-08-18 | implemented | Plan prompt v13에서 모델이 제안한 ObjectSet predicate를 verifier의 direct descriptor-key 계약에 연결했습니다. Manifest, ACL 검사 또는 query authority를 변경하지 않고 definition-time property key와 projected table path 사이의 모호성을 제거합니다. | `current change`, focused ObjectSet prompt 계약 통과 | 중앙 검증된 source에서 strict 및 seeded 근거를 보존합니다. |
 | 2026-08-18 | implemented | Frame prompt v14에서 temporal 및 current-state membership axis를 보존했습니다. Retained-generation delta는 current object filter로 축소될 수 없고 current evidence-state filter는 evidence-sufficiency judgment로 확대될 수 없습니다. Deterministic plan 검증은 변경하지 않았습니다. | `current change`, focused frame prompt 계약 통과 | 중앙 검증된 source에서 strict 및 seeded 근거를 보존합니다. |
+| 2026-08-18 | implemented | Deterministic boundary에서 frame cascade를 강화했습니다. Schema-manifest frame은 canonical declaration kind를 전달해야 하고 measure가 있는 resource listing은 plain list가 아니라 aggregation output을 선택해야 합니다. 두 위반은 candidate-only를 유지하며 execution authority를 확대하지 않고 기존 bounded T2 retry를 시작합니다. | `current change`, 전체 인접 테스트, Ruff 및 strict mypy 통과 | 중앙 검증된 source에서 strict 및 seeded 근거를 보존합니다. |
+| 2026-08-18 | implemented | 중앙 changed-tests가 제안된 typed-subject 및 measure-concept invariant가 기존 Pod telemetry path에 너무 광범위함을 증명했습니다. Runtime check 두 개를 제거하고 deterministic authority boundary를 변경하지 않으면서 declaration inventory, 현재 runtime membership 및 명시적 grouping을 구분하는 candidate prompt v15 지침만 유지했습니다. | 중앙 검증에 실패한 source `90c592bfcc673e4764e4480be7ffa54c5b66b0b8`, focused Pod telemetry composition 및 prompt 테스트가 현재 통과 | 중앙 검증된 수정 source에서 strict 및 seeded 근거를 보존합니다. |
 
 ### 남은 작업
 

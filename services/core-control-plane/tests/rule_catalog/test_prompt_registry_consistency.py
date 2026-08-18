@@ -125,7 +125,7 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     frame = prompts.get_base("semantic.query.frame")
     plan = prompts.get_base("semantic.query.plan")
 
-    assert frame.version == 14
+    assert frame.version == 15
     assert "output_shape to exactly one capability family" in frame.body
     assert "aggregation_table for a count or grouping" in frame.body
     assert "topology_graph for current instance connectivity or containment" in frame.body
@@ -169,6 +169,8 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "membership is defined by being added, removed, or changed" in frame.body
     assert "use temporal_comparison even when the requested answer is a list" in frame.body
     assert "membership is defined by a current readable evidence state" in frame.body
+    assert "Distinguish declaration inventory from runtime membership" in frame.body
+    assert "an explicit count or grouping always uses aggregation_table" in frame.body
     assert "instead of clarification" in frame.body
     assert "Do not select that function for instance listing" in frame.body
     assert "query.incident_evidence" in frame.body
