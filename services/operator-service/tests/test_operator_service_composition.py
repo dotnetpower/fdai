@@ -502,6 +502,9 @@ def test_unserved_operations_routes_declare_an_explicit_unavailable_source() -> 
         "runtime-skill": "/skills",
         "forecast-learning": "/forecast-learning",
         "operator-memory": "/operator-memory",
+        # No component writes the promotion-gate projection, so the route must
+        # declare that rather than answer 503 on every Overview page load.
+        "promotion-gate-evidence": "/kpi/promotion-gates",
     }
     for key, route in expected.items():
         source = next(item for item in runtime.data_sources if item.key == key)
