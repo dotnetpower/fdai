@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 6164850ae895420f8f1d3421e5d7d38409eb0737
+translation_source_sha: 76495a7b09ed0256e1a683b88b6a52c02c88b360
 translation_revised: 2026-08-18
 ---
 # 코드 맵
@@ -144,6 +144,7 @@ translation_revised: 2026-08-18
 | 2026-08-18 | implemented | Frame prompt v20에 relation-verb precedence audit를 추가했습니다. Runtime traversal verb는 wording이 ontology object 또는 relationship type을 명시한다는 이유로 declaration inventory로 축소될 수 없습니다. Runtime authority와 deterministic verifier 동작은 변경하지 않았습니다. | `current change`, focused prompt-registry 계약 통과 | 중앙 검증된 source에서 strict 및 seeded 근거를 보존합니다. |
 | 2026-08-18 | validated | 중앙 검증된 source `a38922762ed805794b11bb9c6aaef43916f6f6c4`에서 첫 full governed ontology-query certification을 보존했습니다. 독립적으로 감독된 runtime은 exact event-bus transport, exact semantic-plan capability, 모든 answered turn의 complete evidence 및 authority와 safety counter 0건을 유지하며 strict 14/14와 seeded 100/100을 통과했습니다. | 실행 `issue63-a38922762e-20260818T034940Z`, repository-safe 기준선 [`ontology-query-randomized-assurance-2026-08-18.json`](../../baselines/ontology-query-randomized-assurance-2026-08-18.json) | 원시 local artifact를 보존하고 최신 integration source에서 baseline commit을 검증합니다. |
 | 2026-08-17 | 구현됨 | 카탈로그 리소스 타입 어휘를 읽기 가능한 `Resource.type` 속성에 연결해 플래너가 선언된 값과 이중 언어 그룹을 읽도록 했고, 선언 영역이 담을 수 없는 피연산자나 조각은 plan 검증기가 거부하도록 했습니다. Console intent 변환 결과는 membership 술어에 필요한 6단계 중첩을 이제 허용합니다. | `current change`; `core/ontology_platform/property_values.py`, `query_manifest.py`, `query_verification.py`, `composition/semantic_query_value_domains.py`, `packages/service-contracts/.../ontology_query.py`, `console/src/deck/intent-graph.ts`; 집중 온톨로지, composition, 대화, 카탈로그, 계약 검사 2317건과 Console intent-graph 모음이 통과했습니다. | 선언된 값을 가진 속성은 `Resource.type` 하나뿐이며 다른 열거형 속성은 아직 값을 확정하지 못합니다. |
+| 2026-08-18 | 구현됨 | 각 리소스 하위 타입이 선언한 질의 용어를 `Resource.type` 영역의 단일 값 그룹으로 투영하고, plan shape 로그가 선택된 ObjectType과 필터 대상 속성 및 연산자를 기록하도록 했습니다. 범주 그룹만으로는 하위 타입 단어가 선언 값에 연결되지 않아 플래너가 ObjectType 전체를 선택하는 존재 술어로 후퇴했고, 로그만으로는 그 계획과 좁은 계획을 구분할 수 없었습니다. | `current change`; [Issue #183](https://github.com/dotnetpower/fdai/issues/183); `composition/semantic_query_value_domains.py`, `core/conversation/semantic_planning.py`; 집중 composition, 대화, ontology-platform, rule-catalog 검사 2222건이 통과했고 Ruff와 strict mypy가 통과했습니다. | 술어 피연산자는 로그에 남지 않으므로 좁히기 결함은 shape만으로 진단합니다. |
 
 ### 남은 작업
 

@@ -58,3 +58,28 @@ def test_shipped_vocabulary_groups_stay_inside_the_declared_value_set() -> None:
     assert domain.groups
     assert all(set(group.values) <= declared for group in domain.groups)
     assert all(group.values == tuple(sorted(group.values)) for group in domain.groups)
+
+
+def test_shipped_vocabulary_exposes_each_type_request_term() -> None:
+    """A subtype word an operator types MUST select that subtype alone.
+
+    Without a single-value group a planner that cannot invent an operand falls
+    back to an existence predicate over the whole ObjectType.
+    """
+    registry = load_resource_type_registry_from_mapping(
+        yaml.safe_load(CATALOG.read_text(encoding="utf-8"))
+    )
+    domain = _domain()
+    by_id = {group.id: group for group in domain.groups}
+
+    for entry in registry.types:
+        if not entry.query_terms or entry.id not in by_id:
+            continue
+        group = by_id[entry.id]
+        assert group.values == (entry.id,)
+        assert set(entry.query_terms) <= set(group.terms)
+
+    resource_group = by_id["resource-group"]
+    assert resource_group.values == ("resource-group",)
+    assert "resource group" in resource_group.terms
+    assert "리소스그룹" in resource_group.terms
