@@ -184,7 +184,7 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "do not require incident_id or correlation_id" in frame.body
     assert "cause_claim_supported=false" in frame.body
     assert "Do not claim a cause" in frame.body
-    assert plan.version == 13
+    assert plan.version == 14
     assert "Satisfy the frame's exact output_shape" in plan.body
     assert "aggregation_table requires aggregate" in plan.body
     assert "topology_graph requires topology_at" in plan.body
@@ -211,3 +211,6 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert '"function_name":"query.incident_evidence"' in plan.body
     assert '"correlation_id":"the exact correlation_id' in plan.body
     assert '"dependency_arguments":{}' in plan.body
+    assert "audit the complete closed shape" in plan.body
+    assert "exactly one unfiltered visible Resource object_set scope" in plan.body
+    assert "Do not output or add query.incident_evidence" in plan.body
