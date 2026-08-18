@@ -38,6 +38,14 @@ describe("incident investigation milestones", () => {
     expect(milestones.map((milestone) => milestone.status)).toEqual(["success", "issue"]);
   });
 
+  it("reads a pre-rename compliant record as success, not as a blocker", () => {
+    const milestones = incidentMilestones([
+      item(1, "control_loop.abstain", { reason: "no_rule_denied" }),
+    ]);
+
+    expect(milestones[0]?.status).toBe("success");
+  });
+
   it("projects exact evidence, gaps, evaluation receipts, and inert learning candidates", () => {
     const [milestone] = incidentMilestones([item(2, "investigation.verified", {
       outcome: "verified",

@@ -115,6 +115,15 @@ describe("incident operational overview", () => {
     expect(overview.blockingReason).toBe("no_rule_matches_resource_and_signal_type");
   });
 
+  it("does not report a completed compliant evaluation as a blocker", () => {
+    const overview = incidentOperationalOverview(incident(), [
+      audit("control_loop.abstain", 1, { reason: "no_rule_matches_resource_type" }),
+      audit("control_loop.abstain", 2, { reason: "no_rule_denied" }),
+    ]);
+
+    expect(overview.blockingReason).toBe("no_rule_matches_resource_type");
+  });
+
   it("does not invent a blocker when no abstention recorded a reason", () => {
     const overview = incidentOperationalOverview(incident(), [
       audit("incident.open", 1, { reason: "operator opened the incident" }),
