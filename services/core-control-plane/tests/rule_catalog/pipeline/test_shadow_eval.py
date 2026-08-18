@@ -340,12 +340,15 @@ def test_evaluate_frozen_scenario_directory_smoke() -> None:
     shipped catalog, so we expect zero matches - this test guards
     against regressions in the loader / router / T0 abstain path, not
     against the P0 baseline coverage (that's a separate measurement).
+
+    The count is frozen deliberately, so adding a scenario is a visible decision. It moved
+    from 9 to 12 when `544e80a72` added the three `sre.*` scenarios without updating it.
     """
     evaluator = ShadowEvaluator(candidate_rules=_shipped_rules())
     report = evaluator.evaluate_scenario_directory(
         scenario_set_id="v2026.07", directory=SCENARIOS_DIR
     )
-    assert report.scenario_count == 9  # frozen count
+    assert report.scenario_count == 12  # frozen count
     assert report.matched_count == 0  # P0 scenarios use example.* rule ids
     # Every scenario expects `should_trigger_policy_violation: false`, so
     # zero-match doesn't escape.

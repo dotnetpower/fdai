@@ -12,9 +12,19 @@ from enum import StrEnum
 
 from fdai.core.assurance_twin.effect_model import CausalEvidenceGrade, EffectModelStatus
 from fdai.core.assurance_twin.graph_effect import GraphEffectModel
+from fdai.shared.ontology.threshold_bounds import (
+    ADAPTIVE_THRESHOLD_BINDINGS,
+    check_within_bounds,
+    load_promotion_gate_bounds,
+)
 
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _MAX_INVARIANT_EVIDENCE = 64
+
+# The ratio range is read from the shipped ActionType contract, so a widened ontology bound
+# propagates instead of being shadowed by a copied literal.
+_PROMOTION_GATE_BOUNDS = load_promotion_gate_bounds()
+_RATIO_THRESHOLDS = ("min_fidelity", "max_recurrence_rate")
 _EVIDENCE_RANK = {
     CausalEvidenceGrade.ASSOCIATION: 0,
     CausalEvidenceGrade.PREDICTIVE_PRECEDENCE: 1,
@@ -80,11 +90,16 @@ class GraphModelPromotionPolicy:
     def __post_init__(self) -> None:
         if self.min_samples < 1 or self.max_policy_escapes < 0:
             raise ValueError("graph model promotion count thresholds MUST be valid")
-        if any(
-            not math.isfinite(value) or not 0.0 <= value <= 1.0
-            for value in (self.min_fidelity, self.max_recurrence_rate)
-        ):
-            raise ValueError("graph model promotion rate thresholds MUST be in [0, 1]")
+        for field_name in _RATIO_THRESHOLDS:
+            semantic_id = ADAPTIVE_THRESHOLD_BINDINGS[f"{type(self).__name__}.{field_name}"]
+            violation = check_within_bounds(
+                semantic_id, getattr(self, field_name), _PROMOTION_GATE_BOUNDS
+            )
+            if violation is not None:
+                raise ValueError(
+                    f"graph model promotion threshold {field_name} is outside its declared "
+                    f"bound {semantic_id} ({violation.reason_code})"
+                )
         if not isinstance(self.min_evidence_grade, CausalEvidenceGrade):
             raise ValueError("graph model promotion evidence grade is invalid")
 

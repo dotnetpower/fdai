@@ -134,6 +134,10 @@ class PromotionGate(_Base):
     min_samples: Annotated[int, Field(ge=1)]
     min_accuracy: Annotated[float, Field(ge=0.0, le=1.0)]
     max_policy_escapes: Annotated[int, Field(ge=0)]
+    # Bound declarations only. The ActionType promotion evaluator does not read these two;
+    # governed effect-model promotion policies derive their range from them.
+    min_fidelity: Annotated[float, Field(ge=0.0, le=1.0)] | None = None
+    max_recurrence_rate: Annotated[float, Field(ge=0.0, le=1.0)] | None = None
 
 
 class OntologyFunctionKind(StrEnum):

@@ -39,7 +39,7 @@
       "schemas": ["services/core-control-plane/src/fdai/shared/contracts/ontology/object-type.json", "services/core-control-plane/src/fdai/shared/contracts/ontology/action-type.json"],
       "tests": ["services/core-control-plane/tests/agents/test_ontology_alignment.py", "services/core-control-plane/tests/core/operational_learning"],
       "runtime_evidence": ["services/core-control-plane/src/fdai/core/operational_context", "services/core-control-plane/src/fdai/core/operational_learning"],
-      "gap": "One focused sweep now proves every registered promotion-gate threshold stays inside its ontology-declared bound, and the shadow-dwell floors are read from that declaration. Thresholds outside the promotion gate are not registered yet, and two GraphModelPromotionPolicy rate thresholds have no ontology declaration."
+      "gap": "Every numeric threshold the registry discovers is now bound to an ontology declaration, and both the shadow-dwell floors and the graph-model ratio range are read from that declaration instead of restated. Thresholds outside the promotion gate, such as detection and routing thresholds, are still literals at their use sites and are not registered yet."
     },
     {
       "id": "FDAI-CONST-005",

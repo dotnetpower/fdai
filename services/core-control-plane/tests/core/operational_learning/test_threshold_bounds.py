@@ -210,3 +210,28 @@ def test_shadow_dwell_floors_are_read_from_the_declaration() -> None:
     # The rejection message stays truthful only while the declared floor is one day.
     assert shadow_dwell._MIN_SHADOW_DAYS_FLOOR == 1
     assert shadow_dwell._MIN_SAMPLES_FLOOR == 1
+
+
+def test_every_recorded_threshold_is_now_bound_to_a_declaration() -> None:
+    """The unbound set is empty; it stays so a future gap has to be recorded here."""
+
+    assert UNBOUND_ADAPTIVE_THRESHOLDS == frozenset()
+    assert _numeric_threshold_names() == set(ADAPTIVE_THRESHOLD_BINDINGS)
+
+
+@pytest.mark.parametrize("field_name", ["min_fidelity", "max_recurrence_rate"])
+def test_the_graph_model_policy_reads_its_ratio_range_from_the_declaration(
+    field_name: str,
+) -> None:
+    """A literal range here would keep accepting a value the ontology later narrows."""
+
+    semantic_id = ADAPTIVE_THRESHOLD_BINDINGS[f"GraphModelPromotionPolicy.{field_name}"]
+    bound = BOUNDS[semantic_id]
+    assert bound.minimum is not None and bound.maximum is not None
+
+    for accepted in (float(bound.minimum), float(bound.maximum)):
+        assert getattr(GraphModelPromotionPolicy(**{field_name: accepted}), field_name) == accepted
+
+    for rejected in (float(bound.minimum) - 0.01, float(bound.maximum) + 0.01, math.nan):
+        with pytest.raises(ValueError, match=semantic_id):
+            GraphModelPromotionPolicy(**{field_name: rejected})

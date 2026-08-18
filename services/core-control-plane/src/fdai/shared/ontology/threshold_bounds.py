@@ -149,6 +149,8 @@ def check_within_bounds(
 ADAPTIVE_THRESHOLD_BINDINGS: Mapping[str, str] = MappingProxyType(
     {
         "GraphModelPromotionPolicy.max_policy_escapes": "promotion_gate.max_policy_escapes",
+        "GraphModelPromotionPolicy.max_recurrence_rate": "promotion_gate.max_recurrence_rate",
+        "GraphModelPromotionPolicy.min_fidelity": "promotion_gate.min_fidelity",
         "GraphModelPromotionPolicy.min_samples": "promotion_gate.min_samples",
         "ShadowDwellThresholds.min_accuracy": "promotion_gate.min_accuracy",
         "ShadowDwellThresholds.min_samples": "promotion_gate.min_samples",
@@ -157,14 +159,10 @@ ADAPTIVE_THRESHOLD_BINDINGS: Mapping[str, str] = MappingProxyType(
     }
 )
 
-#: Numeric runtime thresholds the shipped ontology does not declare a bound for yet. They
-#: are named here so the gap is visible in one place instead of being silently absent.
-UNBOUND_ADAPTIVE_THRESHOLDS: frozenset[str] = frozenset(
-    {
-        "GraphModelPromotionPolicy.max_recurrence_rate",
-        "GraphModelPromotionPolicy.min_fidelity",
-    }
-)
+#: Numeric runtime thresholds the shipped ontology does not declare a bound for yet. The set is
+#: empty today; it stays because the focused test needs somewhere to record a future gap
+#: explicitly rather than letting an undeclared threshold pass unnoticed.
+UNBOUND_ADAPTIVE_THRESHOLDS: frozenset[str] = frozenset()
 
 
 def _object(node: Mapping[str, object], key: str) -> Mapping[str, object]:
