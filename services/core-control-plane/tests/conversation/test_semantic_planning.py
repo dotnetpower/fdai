@@ -21,6 +21,7 @@ from fdai.core.conversation.session import ConversationSession, Principal, Role,
 from fdai.core.conversation.tools import ToolResult
 from fdai.core.ontology_platform import (
     ObjectPredicate,
+    ObjectPredicateOperator,
     ObjectSelector,
     ObjectSelectorKind,
     ObjectSetDefinition,
@@ -30,6 +31,7 @@ from fdai.core.ontology_platform import (
     QueryPlanExecution,
     build_query_manifest,
 )
+from fdai.core.ontology_platform.property_values import PropertyValueDomain, PropertyValueGroup
 from fdai.shared.contracts.models import (
     CeilingRole,
     OntologyObjectType,
@@ -321,6 +323,144 @@ def test_frame_proposal_rejects_noncanonical_evidence_requirement() -> None:
 def test_frame_proposal_rejects_free_form_output_shape() -> None:
     with pytest.raises(ValidationError):
         SemanticFrameProposal.model_validate(_frame(output_shape="whatever_the_model_wants"))
+
+
+def _typed_fixture(*, groups: tuple[PropertyValueGroup, ...]) -> tuple[Any, ObjectSetDefinition]:
+    resource = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Resource",
+        version="1.0.0",
+        key="id",
+        properties={
+            "id": PropertyDecl(type=PropertyType.STRING, required=True),
+            "type": PropertyDecl(type=PropertyType.STRING, required=True),
+        },
+    )
+    release = build_ontology_release(object_types=(resource,))
+    manifest = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest=DIGEST,
+        object_types=(resource,),
+        property_values=(
+            PropertyValueDomain(
+                object_type="Resource",
+                property_name="type",
+                values=("compute.vm", "resource-group", "storage.account"),
+                groups=groups,
+            ),
+        ),
+    )
+    definition = ObjectSetDefinition(
+        selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
+        predicates=(ObjectPredicate(property="type", operator=ObjectPredicateOperator.EXISTS),),
+        as_of=NOW,
+        purpose="operations-review",
+        limit=1000,
+    )
+    return manifest, definition
+
+
+_RESOURCE_GROUP_GROUP = PropertyValueGroup(
+    id="resource-group",
+    values=("resource-group",),
+    terms=("resource group", "리소스 그룹", "리소스그룹"),
+)
+_VM_GROUP = PropertyValueGroup(
+    id="compute-vm",
+    values=("compute.vm",),
+    terms=("vm", "가상 머신"),
+)
+
+
+def _grounded_predicates(model: _Model, manifest: Any, utterance: str) -> list[dict[str, Any]]:
+    outcome = _service(model, manifest).plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+    )
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    predicates = outcome.plan.nodes[0].arguments["definition"]["predicates"]
+    assert isinstance(predicates, list)
+    return predicates
+
+
+def test_stated_value_narrows_an_existence_predicate_to_the_declared_value() -> None:
+    manifest, definition = _typed_fixture(groups=(_RESOURCE_GROUP_GROUP, _VM_GROUP))
+    model = _Model(frame=_frame(output_shape="property_filtered_resources"), plan=_plan(definition))
+
+    predicates = _grounded_predicates(model, manifest, "현재구독의 리소스그룹 모두 알려줘")
+
+    assert predicates == [{"property": "type", "operator": "equals", "equals": "resource-group"}]
+
+
+def test_stated_value_group_with_several_values_narrows_to_a_membership_predicate() -> None:
+    manifest, definition = _typed_fixture(
+        groups=(
+            PropertyValueGroup(
+                id="containers",
+                values=("compute.vm", "storage.account"),
+                terms=("infrastructure",),
+            ),
+        )
+    )
+    model = _Model(frame=_frame(output_shape="property_filtered_resources"), plan=_plan(definition))
+
+    predicates = _grounded_predicates(model, manifest, "List every infrastructure record.")
+
+    assert predicates == [
+        {"property": "type", "operator": "in", "values": ["compute.vm", "storage.account"]}
+    ]
+
+
+def test_unstated_value_leaves_the_existence_predicate_unchanged() -> None:
+    manifest, definition = _typed_fixture(groups=(_RESOURCE_GROUP_GROUP, _VM_GROUP))
+    model = _Model(frame=_frame(output_shape="property_filtered_resources"), plan=_plan(definition))
+
+    predicates = _grounded_predicates(model, manifest, "Show every typed resource.")
+
+    assert predicates == [{"property": "type", "operator": "exists"}]
+
+
+def test_two_stated_value_groups_leave_the_plan_to_the_planner() -> None:
+    manifest, definition = _typed_fixture(groups=(_RESOURCE_GROUP_GROUP, _VM_GROUP))
+    model = _Model(frame=_frame(output_shape="property_filtered_resources"), plan=_plan(definition))
+
+    predicates = _grounded_predicates(model, manifest, "리소스그룹 안의 가상 머신을 보여줘")
+
+    assert predicates == [{"property": "type", "operator": "exists"}]
+
+
+def test_a_term_inside_a_longer_word_does_not_ground_a_filter() -> None:
+    manifest, definition = _typed_fixture(groups=(_VM_GROUP,))
+    model = _Model(frame=_frame(output_shape="property_filtered_resources"), plan=_plan(definition))
+
+    predicates = _grounded_predicates(model, manifest, "Show records for vmss-prod-01.")
+
+    assert predicates == [{"property": "type", "operator": "exists"}]
+
+
+def test_a_planner_supplied_value_filter_is_never_rewritten() -> None:
+    manifest, definition = _typed_fixture(groups=(_RESOURCE_GROUP_GROUP, _VM_GROUP))
+    narrow = definition.model_copy(
+        update={
+            "predicates": (
+                ObjectPredicate(
+                    property="type",
+                    operator=ObjectPredicateOperator.EQUALS,
+                    equals="storage.account",
+                ),
+            )
+        }
+    )
+    model = _Model(frame=_frame(output_shape="property_filtered_resources"), plan=_plan(narrow))
+
+    predicates = _grounded_predicates(model, manifest, "리소스그룹 모두 알려줘")
+
+    assert predicates == [{"property": "type", "operator": "equals", "equals": "storage.account"}]
 
 
 def test_hidden_property_plan_is_rejected_before_execution() -> None:
