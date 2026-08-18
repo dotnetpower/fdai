@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, replace
 from datetime import UTC, datetime
@@ -38,6 +39,7 @@ from fdai_operator_service.families.iam.contracts import (
 from fdai_operator_service.families.iam.errors import (
     IamConflictError,
     IamNotFoundError,
+    IamPermissionError,
     IamUnavailableError,
 )
 from fdai_operator_service.postgres_family_store import (
@@ -45,10 +47,16 @@ from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStoreUnavailable,
     PostgresProposalConflict,
     StoredProposal,
+    StoredStatePage,
+    StoredStateRecord,
 )
 
 _HIL_PARK_PREFIX = "hil_park:"
 _HIL_DECISION_PREFIX = "operator-hil-decision:"
+_ACCESS_GRANT_PREFIX = "execution-authorization:grant-request:"
+_ACCESS_GRANT_SCAN_LIMIT = 1_000
+_CANONICAL_GRANT_ID = re.compile(r"^[A-Za-z0-9._:-]{1,256}$")
+_SCOPE_REF = re.compile(r"^scope://[\x20-\x7E]{1,504}$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,30 +66,56 @@ class PostgresIamAdapters:
     store: PostgresFamilyStore
 
     async def snapshot(self, query: AccessGrantSnapshotQuery) -> AccessGrantSnapshot:
-        """Read the authoritative access-grant snapshot for SSE replay."""
-        payload = await self._projection("access-grants.snapshot")
-        sequence = _integer(payload, "sequence")
-        if query.after_sequence is not None and sequence < query.after_sequence:
-            raise IamUnavailableError("access-grant projection replay moved backwards")
-        generated_at = _datetime(payload.get("generated_at"), "generated_at")
-        raw_requests = payload.get("requests", [])
-        if not isinstance(raw_requests, list):
-            raise IamUnavailableError("access-grant projection requests are malformed")
+        """Read the reviewer-scoped access-grant snapshot for SSE replay."""
+        page = await self._pending_grant_page()
+        if page.truncated:
+            raise IamUnavailableError("access-grant review coverage cannot be proven complete")
+        records = page.records
+        generated_at = datetime.now(tz=UTC)
+        # A decided request leaves the pending view, so the cursor is carried forward
+        # rather than allowed to regress with the page it no longer contains.
+        sequence = max(_snapshot_sequence(records), query.after_sequence or 0)
+        reviewer = query.reviewer_ref.casefold()
+        reviewer_roles = {role.casefold() for role in query.reviewer_roles}
+        visible = [
+            _access_grant(record.value)
+            for record in records
+            if reviewer_roles and _reviewable(record.value, reviewer, reviewer_roles, generated_at)
+        ]
+        # Oldest request first, so a busy queue cannot starve the longest-waiting approval.
+        visible.sort(key=lambda item: (item.requested_at, item.request_id))
         return AccessGrantSnapshot(
             sequence=sequence,
             generated_at=generated_at,
-            requests=tuple(_access_grant(item) for item in raw_requests[: query.limit]),
+            requests=tuple(visible[: query.limit]),
         )
 
     async def decide(self, command: AccessGrantDecisionCommand) -> AccessGrantDecisionResult:
         """Persist a revision-fenced access decision without applying permission."""
-        await self._proposal("access-grants.decide", command, command.request_id)
+        record = await self._state(f"{_ACCESS_GRANT_PREFIX}{command.request_id}")
+        if record is None:
+            raise IamNotFoundError("access grant request does not exist")
+        if str(record.get("status") or "") != "pending":
+            raise IamConflictError("access grant request is not pending")
+        # Deciding is bound to the same predicate as seeing, so the two cannot drift apart.
+        if not _reviewable(
+            record,
+            command.reviewer_ref.casefold(),
+            {role.casefold() for role in command.reviewer_roles},
+            command.decided_at,
+        ):
+            raise IamPermissionError("reviewer is not eligible to decide this access grant")
+        quorum = _integer(record, "quorum")
+        approved_by = record.get("approved_by", [])
+        if quorum < 1 or not isinstance(approved_by, list) or len(approved_by) > quorum:
+            raise IamUnavailableError("access-grant approval policy is malformed")
+        await self._proposal("access-grants.decide", command, _decision_key(command))
         return AccessGrantDecisionResult(
             request_id=command.request_id,
             status="pending",
-            revision=command.expected_revision,
-            approved_count=0,
-            quorum=1,
+            revision=_integer(record, "revision"),
+            approved_count=len(approved_by),
+            quorum=quorum,
             reviewed_at=command.decided_at,
         )
 
@@ -397,6 +431,17 @@ class PostgresIamAdapters:
         except PostgresFamilyStoreUnavailable as exc:
             raise IamUnavailableError("authoritative IAM state is unavailable") from exc
 
+    async def _pending_grant_page(self) -> StoredStatePage:
+        try:
+            return await self.store.read_state_page(
+                prefix=_ACCESS_GRANT_PREFIX,
+                limit=_ACCESS_GRANT_SCAN_LIMIT,
+                match_field="status",
+                match_value="pending",
+            )
+        except PostgresFamilyStoreUnavailable as exc:
+            raise IamUnavailableError("authoritative IAM state is unavailable") from exc
+
 
 def _submit_operation(command: object) -> str:
     if isinstance(command, AccessRequestCommand):
@@ -436,10 +481,19 @@ def _command_payload(command: object) -> dict[str, object]:
 
 
 def _json_mapping(value: object) -> dict[str, object]:
-    normalized = json.loads(json.dumps(value, default=str))
+    normalized = json.loads(json.dumps(value, default=_json_default))
     if not isinstance(normalized, dict):
         raise ValueError("IAM adapter payload MUST serialize to a JSON object")
     return cast(dict[str, object], normalized)
+
+
+def _json_default(value: object) -> object:
+    """Encode command values deterministically so a durable digest is process-stable."""
+    if isinstance(value, set | frozenset):
+        return sorted(str(item) for item in value)
+    if isinstance(value, datetime):
+        return value.astimezone(UTC).isoformat()
+    return str(value)
 
 
 def _mapping_items(payload: Mapping[str, object]) -> tuple[JsonMapping, ...]:
@@ -478,18 +532,64 @@ def _datetime(value: object, name: str) -> datetime:
 def _access_grant(value: object) -> AccessGrantRecord:
     if not isinstance(value, Mapping):
         raise IamUnavailableError("access-grant projection item is malformed")
+    quorum = _integer(value, "quorum")
+    if quorum < 1:
+        raise IamUnavailableError("access-grant projection quorum is malformed")
     return AccessGrantRecord(
-        request_id=str(value.get("request_id") or ""),
-        correlation_id=str(value.get("correlation_id") or ""),
-        capability_id=str(value.get("capability_id") or ""),
-        scope_ref=str(value.get("scope_ref") or ""),
-        grant_mode=str(value.get("grant_mode") or ""),
+        request_id=_grant_identifier(value.get("request_id"), "request_id"),
+        correlation_id=_grant_identifier(value.get("original_action_id"), "original_action_id"),
+        capability_id=_grant_identifier(value.get("capability_id"), "capability_id"),
+        scope_ref=_grant_scope(value.get("scope_ref")),
+        grant_mode=_grant_identifier(value.get("grant_mode"), "grant_mode"),
         requested_at=_datetime(value.get("requested_at"), "requested_at"),
         expires_at=_datetime(value.get("expires_at"), "expires_at"),
-        quorum=int(value.get("quorum", 0)),
+        quorum=quorum,
         status=str(value.get("status") or ""),
-        revision=int(value.get("revision", 0)),
+        revision=_integer(value, "revision"),
     )
+
+
+def _grant_identifier(value: object, name: str) -> str:
+    """Bound one projected identifier to the exact range the browser contract accepts."""
+    if not isinstance(value, str) or not _CANONICAL_GRANT_ID.match(value):
+        raise IamUnavailableError(f"authoritative IAM projection {name} is malformed")
+    return value
+
+
+def _grant_scope(value: object) -> str:
+    if not isinstance(value, str) or not _SCOPE_REF.match(value):
+        raise IamUnavailableError("authoritative IAM projection scope_ref is malformed")
+    return value
+
+
+def _decision_key(command: AccessGrantDecisionCommand) -> str:
+    """Fence one reviewer's decision on one revision so a quorum can still accumulate."""
+    reviewer = hashlib.sha256(command.reviewer_ref.encode()).hexdigest()[:32]
+    return f"{command.request_id}:{command.expected_revision}:{reviewer}"
+
+
+def _snapshot_sequence(records: Sequence[StoredStateRecord]) -> int:
+    """Derive a non-decreasing replay cursor from the newest authoritative write time."""
+    return max((int(record.updated_at.timestamp() * 1_000_000) for record in records), default=0)
+
+
+def _reviewable(
+    value: Mapping[str, object],
+    reviewer: str,
+    reviewer_roles: set[str],
+    now: datetime,
+) -> bool:
+    """Report whether one authoritative grant request is reviewable by this principal."""
+    if str(value.get("status") or "") != "pending":
+        return False
+    if _datetime(value.get("expires_at"), "expires_at") <= now:
+        return False
+    if str(value.get("requester_ref") or "").casefold() == reviewer:
+        return False
+    approver_roles = value.get("approver_roles")
+    if not isinstance(approver_roles, list):
+        raise IamUnavailableError("access-grant approver roles are malformed")
+    return bool(reviewer_roles.intersection(str(role).casefold() for role in approver_roles))
 
 
 def _directory_identity(value: Mapping[str, Any]) -> DirectoryIdentity:

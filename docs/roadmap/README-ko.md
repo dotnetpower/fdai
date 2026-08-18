@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 409812f64c58e31d93c9ffe33edff887858846fb
-translation_revised: 2026-08-14
+translation_source_sha: acbb2b6bf9d30bbad1e29f9e530949665716670a
+translation_revised: 2026-08-18
 ---
 # FDAI 로드맵
 
@@ -106,6 +106,7 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 | 17 | [risk-classification-ko.md](decisioning/risk-classification-ko.md) | auto vs HIL vs 거부 분류: 차원, 초기 규칙 표, 환경 감지 |
 | 17b | [escalation-and-standing-authority-ko.md](decisioning/escalation-and-standing-authority-ko.md) | `hil` 판정 후 아무도 응답하지 않을 때 무슨 일이 벌어지는가: 감독형 OODA 루프, 영향도 계층 별 시간 감쇠 에스컬레이션 사다리(채널 대체 경로 과 구별), 상시 권한(사전 승인·묶음 경계·가역 전용 조건부 자동 조치를 결정론적 risk-gate 입력으로) |
 | 18 | [dev-and-deploy-parity-ko.md](deployment/dev-and-deploy-parity-ko.md) | 권위 있는 interactive 로컬/deployed 동등성, 명시적 고정본 프로파일, deployer-scoped LLM 게이트 |
+| 18a | [console-read-boundary-ko.md](deployment/console-read-boundary-ko.md) | 서버 소유 읽기 출처 선언, 로컬 인증, 워크로드 근거 및 범위가 제한된 인벤토리 조회 |
 | 19 | [operator-console-ko.md](interfaces/operator-console-ko.md) | CLI, Teams, Slack, web의 FDAI Console 대화, 도구별 RBAC, LLM 계층, 세션 영속성 |
 | 19k | [operator-console-module-map-ko.md](interfaces/operator-console-module-map-ko.md) | 대화 모듈 소유권, CLI/API 경로 지도, 채널 어댑터 및 코어/전달 경계 |
 | 19l | [operator-console-progressive-conversations-ko.md](interfaces/operator-console-progressive-conversations-ko.md) | 범위가 제한된 읽기 가지, ordered reduction, 검증된 개정 번호, 취소, 재생 및 진행 상황 메트릭 |

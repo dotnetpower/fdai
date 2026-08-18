@@ -39,6 +39,14 @@ provider can be added without changing constitutional behavior. Upstream artifac
 customer-agnostic; deployment identities, values, objectives, evidence, and accountable people
 stay in governed deployment configuration or a supported downstream distribution.
 
+Execution venue does not change control-plane behavior. Every venue binds the same authoritative
+sources, ingress path, contracts, control-loop stages, and surfaces; only credentials, endpoints,
+scale, and provider scope may differ. An unbound venue path is a defect, not an accepted state: an
+unavailable or empty surface is correct only while its authoritative source is genuinely absent,
+unreachable, or unauthorized, and never as a substitute for a binding a venue failed to configure.
+Synthetic, fixture, seeded, or demo substitution remains prohibited in every venue, so closing a
+venue-parity gap means binding the real source rather than manufacturing its output.
+
 ## Article 2: Contract-conformant accuracy
 
 **FDAI-CONST-002 - Zero unsafe guesses.** FDAI targets 100% contract-conformant terminal behavior.

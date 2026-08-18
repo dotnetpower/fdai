@@ -4,6 +4,7 @@ import type {
   PresentationChartItem,
 } from "./backend-types";
 import { getLocale, t } from "../i18n";
+import { Tooltip } from "../components/tooltip";
 import {
   presentationActivity,
   presentationActor,
@@ -177,42 +178,46 @@ function PresentationValue({
   );
   if (timestamp) {
     return (
-      <time
-        class="deck-presentation-timestamp"
-        dateTime={timestamp.dateTime}
-        title={t("deck.presentation.recordedValue", { value })}
-      >
-        <span>{timestamp.date}</span>
-        <span>{timestamp.time}</span>
-      </time>
+      <Tooltip content={t("deck.presentation.recordedValue", { value })}>
+        <time class="deck-presentation-timestamp" dateTime={timestamp.dateTime}>
+          <span>{timestamp.date}</span>
+          <span>{timestamp.time}</span>
+        </time>
+      </Tooltip>
     );
   }
   if (isActorField(columnKey, label)) {
     const actors = presentationActors(value);
     return (
-      <span class="deck-presentation-actors" title={value}>
-        {actors.visible.map((actor) => (
-          <span key={actor} title={actor}>{presentationActor(actor)}</span>
-        ))}
-        {actors.hiddenCount > 0 ? (
-          <span class="deck-presentation-more">
-            +{actors.hiddenCount}
-            <span class="sr-only"> {t("deck.presentation.moreActors", {
-              count: actors.hiddenCount,
-            })}</span>
-          </span>
-        ) : null}
-      </span>
+      <Tooltip content={value}>
+        <span class="deck-presentation-actors">
+          {actors.visible.map((actor) => (
+            <span key={actor}>{presentationActor(actor)}</span>
+          ))}
+          {actors.hiddenCount > 0 ? (
+            <span class="deck-presentation-more">
+              +{actors.hiddenCount}
+              <span class="sr-only"> {t("deck.presentation.moreActors", {
+                count: actors.hiddenCount,
+              })}</span>
+            </span>
+          ) : null}
+        </span>
+      </Tooltip>
     );
   }
   if (isSeverityField(columnKey, label)) {
-    return <span title={value}>{presentationSeverity(value)}</span>;
+    return (
+      <Tooltip content={value}>
+        <span>{presentationSeverity(value)}</span>
+      </Tooltip>
+    );
   }
   if (isCanonicalTokenField(columnKey, label)) {
     return (
-      <span class="deck-presentation-token" title={value}>
-        {presentationActivity(value)}
-      </span>
+      <Tooltip content={value}>
+        <span class="deck-presentation-token">{presentationActivity(value)}</span>
+      </Tooltip>
     );
   }
   if (isReferenceField(columnKey, label)) {

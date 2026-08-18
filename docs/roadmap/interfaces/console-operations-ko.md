@@ -1,7 +1,7 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: c491c933e700031cdc51ca87395709a45cf832e1
+translation_source_sha: ab9860c1d78472e29e6dfdf4e39fcd7f5e54dec0
 translation_revised: 2026-08-17
 ---
 
@@ -40,6 +40,8 @@ translation_revised: 2026-08-17
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-18 | validated | 등록된 Console route 전체를 로컬 Operator API 기준으로 점검하고, 커밋 `bb56775e8` 이후 남아 있던 deck transcript padding 단언을 정정했습니다. | 현재 변경; 콘솔 `src/deck/investigation-timeline.test.ts` 11개 통과; 등록된 route 44개 인증 통과에서 `404`, 페이지 예외, 처리되지 않은 전송 코드가 없었고 `/agent-activity`, `/llm-cost`, `/architecture`, `/rules`가 측정된 내용을 렌더했습니다. | 런타임에 생성되는 근거 화면은 여전히 선언된 unavailable 사유를 렌더하며, `promotion-gate.list`에는 여전히 reader만 있고 writer가 없습니다. |
+| 2026-08-17 | implemented | 결론이 난 결정론적 통과를 판단 보류와 분리했습니다. 모든 후보 규칙이 평가되고 아무것도 거부하지 않으면 T0가 `control_loop.compliant`를 기록하고, 컨트롤 루프는 해당 이벤트에 RCA나 상위 티어 승격을 수행하지 않으며, incident 화면은 이를 차단 문제가 아닌 성공 마일스톤으로 표시합니다. | 현재 변경; `test_control_loop_e2e.py` 47개와 `t0_deterministic` 스위트 통과(총 109개), 둘 다 변이 검증; `incidents.milestones.test.ts` 5개 통과; 변경 전 실측으로 abstain 1641건 중 795건이 `no_rule_denied`였고 incident correlation 441건에 걸쳐 있었습니다. | 감사 로그는 추가 전용이므로 과거 행은 이전 `control_loop.abstain` 종류를 유지합니다. 보존 기간이 지나기 전까지는 혼재가 정상입니다. |
 | 2026-08-13 | implemented | 이전 구현 이력을 재구성하지 않고 구현 원장을 채택했으며 Approvals 경로를 타입이 지정된 출처 사용 불가 경계에 맞췄습니다. | `current change`; 구현 범위 표의 작업 소유 소스와 테스트; `vitest run src/routes/hil-queue.test.ts`에서 5개 테스트가 통과했고 범위를 한정한 라이브 `/approvals` Playwright 검사가 통과했습니다. | 아래의 변환 결과, 요청, 상호 작용 및 측정 완료 근거를 기록합니다. |
 | 2026-08-13 | implemented | Onboarding 경로를 타입이 지정된 출처 사용 불가 경계에 맞추고 Core에 의존하는 Command Deck 라이브 검사 2개의 명시적 outer budget을 복원했습니다. | `current change`; 구현 범위 표의 작업 소유 소스와 테스트; `vitest run src/routes/onboarding.test.ts`에서 6개 테스트가 통과했고 범위를 한정한 라이브 `/onboarding` Playwright 검사가 통과했으며 Playwright가 Command Deck 검사 2개를 검색했습니다. | Core semantic consumer를 복구하고 Command Deck 검사 2개를 실행하며 아래의 남은 완료 근거를 기록합니다. |
 | 2026-08-13 | validated | 대칭 피어링 표시를 추가하고 선택되거나 강조된 리소스를 유지하면서 밀집 아키텍처 지도의 선택적 반사 처리를 제한했습니다. | `current change`; 구현 범위 표의 작업 소유 소스, 카탈로그 및 테스트; 범위를 한정한 아키텍처 Vitest에서 54개 테스트가 통과했고 라이브 `/architecture` Playwright 검사가 4.9초에 통과했습니다. | 전체 경로 보증 캠페인을 계속하고 아래의 남은 완료 근거를 기록합니다. |

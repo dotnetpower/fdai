@@ -148,7 +148,7 @@
     }
   },
   "promotion": {
-    "unavailable": "Promotion-gate dashboard route is not wired on this deployment. Set OperatorApiConfig.promotion_gate_source in the composition root to enable it.",
+    "unavailable": "The promotion-gate dashboard route is not wired on this deployment, so no gate evidence is claimed here.",
     "subtitle": "Per-ActionType readiness against each shipped promotion_gate. Actions promote from shadow to enforce only when every gap is closed.",
     "resourceLabel": "promotion gates",
     "context": {
@@ -211,7 +211,7 @@
     },
     "lifecycleInvalid": "The requested rule lifecycle status is not registered.",
     "lifecycleUnavailable": "Rule {status} lifecycle evidence is not exposed by this deployment.",
-    "routeUnavailable": "The rule-catalog route is not wired on this deployment. Set OperatorApiConfig.rule_catalog_rules / rule_catalog_collected_rules in the composition root to enable it.",
+    "routeUnavailable": "The rule-catalog route is not wired on this deployment, so no reviewed rule is claimed here.",
     "subtitle": "Every policy the system knows: the active catalog T0 evaluates plus the imported collected corpus. Read-only - rule changes flow through the catalog pipeline as PRs.",
     "loadFailed": "Failed to load rule catalog: {message}",
     "refreshFailed": "Failed to refresh rule catalog: {message}",

@@ -18,6 +18,7 @@ from fdai.core.executor import ExecutionResult
 from fdai.core.executor.action_builder import ActionBuildError
 from fdai.core.executor.direct_api import DirectApiExecutionResult
 from fdai.core.executor.tool_call import ToolCallExecutionResult
+from fdai.core.tiers.t0_deterministic.engine import NO_RULE_DENIED
 from fdai.core.trust_router import RoutingTier
 from fdai.core.verticals.change_safety.detector import ChangeSafetyDecision
 from fdai.rule_catalog.schema.effect import Effect, Enforcement
@@ -181,14 +182,43 @@ async def process_event(host: Any, raw_event: Event | Mapping[str, Any]) -> Cont
         },
     )
     if not verdict.matched:
+        t0_reason = (
+            verdict.audit_hint.reason
+            if verdict.audit_hint and verdict.audit_hint.reason
+            else "t0_no_match"
+        )
+        if t0_reason == NO_RULE_DENIED:
+            # Every candidate rule evaluated and none denied, so the deterministic
+            # tier decided. Escalating a compliant resource would spend the
+            # adaptive tiers on a question that is already answered.
+            await host._write_abstain_audit(
+                event=event,
+                decision=decision,
+                reason=t0_reason,
+                stage="t0_evaluate",
+                action_kind="control_loop.compliant",
+            )
+            await host._emit_stage(
+                event_id=event_id,
+                correlation_id=correlation_id,
+                stage=StageName.AUDIT,
+                phase=StagePhase.DONE,
+                detail={"outcome": ControlLoopOutcome.COMPLIANT.value},
+            )
+            return ControlLoopResult(
+                outcome=ControlLoopOutcome.COMPLIANT,
+                tier="t0",
+                decision="compliant",
+                resource_type=decision.resource_type,
+                citing_rule_ids=citing,
+                reason=t0_reason,
+                event_id=str(event.event_id),
+                change_safety_decision=cs_decision,
+            )
         await host._write_abstain_audit(
             event=event,
             decision=decision,
-            reason=(
-                verdict.audit_hint.reason
-                if verdict.audit_hint and verdict.audit_hint.reason
-                else "t0_no_match"
-            ),
+            reason=t0_reason,
             stage="t0_evaluate",
         )
         rca_result = await host._analyze_t2_rca_on_abstain(
