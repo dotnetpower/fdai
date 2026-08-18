@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: 3808d39649a0fd24e6f287012df2289cea66994e
+translation_source_sha: 8b3b16f551ef963dcba5f3512a233090f2e548e8
 translation_revised: 2026-08-19
 ---
 # FDAI 운영 온톨로지 메타모델
@@ -119,6 +119,9 @@ LinkType은 구조적으로 directed 관계입니다. `from_type -> to_type`은 
 가진 선언된 중첩 프로바이더 타입에만 적용합니다. 현재 mapping은 Azure SQL 데이터베이스를
 대상으로 하며 immediate 논리 서버를 `contains(sql-server, sql-database)` direction으로 둡니다.
 최상위 리소스와 잘못된 프로바이더 경로는 프로바이더 상위 후보를 만들지 않습니다.
+이 exact mapping과 wildcard 포함 관계 mapping이 같은 하위를 점유하면 exact mapping이 wildcard
+후보를 shadow합니다. 이 규칙은 `contains` one-to-many cardinality를 보존하고 저장된 간선을
+`Resource.parent_id`와 정렬합니다. 서로 다른 하위 id를 가진 포함 관계 mapping은 계속 함께 적용됩니다.
 
 검토된 참조 형식은 이제 프로바이더 id, 해석된 이름, Kubernetes 레이블 선택기를 구분합니다.
 Kubernetes 후보 변환기는 같은 클러스터와 네임스페이스 안에서 Service를 일치하는 Pod 및

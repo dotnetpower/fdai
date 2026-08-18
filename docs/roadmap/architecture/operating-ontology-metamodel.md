@@ -116,6 +116,9 @@ The reviewed `id.providerParent` path is narrower than generic ARM hierarchy inf
 only to declared nested provider types with an explicit mapping. The current mapping covers Azure
 SQL databases and orients the immediate logical server as `contains(sql-server, sql-database)`;
 top-level resources and malformed provider paths produce no provider-parent candidate.
+If this exact mapping and a wildcard containment mapping claim the same child, the exact mapping
+shadows the wildcard candidate. This preserves `contains` one-to-many cardinality and aligns the
+stored edge with `Resource.parent_id`; containment mappings for different child ids still compose.
 
 Reviewed reference formats now distinguish provider ids, resolved names, and Kubernetes label
 selectors. The Kubernetes candidate projector maps one Service to matching Pods and the same-name

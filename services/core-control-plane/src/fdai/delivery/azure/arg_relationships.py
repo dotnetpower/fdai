@@ -143,6 +143,8 @@ def project_provider_relationships(
                 )
             )
 
+    shadowed = _shadowed_contains_candidate_ids(candidates)
+    candidates = [candidate for index, candidate in enumerate(candidates) if index not in shadowed]
     ambiguous = _ambiguous_candidate_ids(candidates)
     for candidate_id in sorted(ambiguous):
         mapping = candidates[candidate_id].mapping
@@ -309,6 +311,22 @@ def _ambiguous_candidate_ids(candidates: Sequence[_Candidate]) -> set[int]:
     return ambiguous
 
 
+def _shadowed_contains_candidate_ids(candidates: Sequence[_Candidate]) -> set[int]:
+    """Suppress wildcard containment when an exact mapping owns the same child."""
+    grouped: dict[str, list[int]] = {}
+    for index, candidate in enumerate(candidates):
+        if candidate.record.link_type == "contains":
+            grouped.setdefault(candidate.record.to_id, []).append(index)
+    shadowed: set[int] = set()
+    for indexes in grouped.values():
+        if not any("*" not in candidates[index].mapping.source_provider_types for index in indexes):
+            continue
+        shadowed.update(
+            index for index in indexes if "*" in candidates[index].mapping.source_provider_types
+        )
+    return shadowed
+
+
 def _drop(
     reason: RelationshipDropReason,
     mapping: ProviderRelationshipMapping,
@@ -341,7 +359,7 @@ def _path_matches(row: Mapping[str, Any], path: str) -> tuple[_PathMatch, ...]:
         return (_PathMatch(parent, ()),) if parent is not None else ()
     if path == "id.providerParent":
         raw_id = row.get("id")
-        parent = _provider_parent(raw_id) if isinstance(raw_id, str) else None
+        parent = provider_parent_id(raw_id) if isinstance(raw_id, str) else None
         return (_PathMatch(parent, ()),) if parent is not None else ()
     matches = [_PathMatch(row, ())]
     for segment in path.split("."):
@@ -374,7 +392,7 @@ def _resource_group_parent(arm_id: str) -> str | None:
     return None if next_slash == -1 else arm_id[:next_slash]
 
 
-def _provider_parent(arm_id: str) -> str | None:
+def provider_parent_id(arm_id: str) -> str | None:
     """Return the immediate parent for a structurally valid nested provider id."""
     marker = "/providers/"
     marker_index = arm_id.casefold().find(marker)
@@ -390,5 +408,6 @@ __all__ = [
     "ARG_RELATIONSHIP_SOURCE_SCHEMA_DIGEST",
     "ARG_RELATIONSHIP_SOURCE_SCHEMA_VERSION",
     "RelationshipProjectionResult",
+    "provider_parent_id",
     "project_provider_relationships",
 ]

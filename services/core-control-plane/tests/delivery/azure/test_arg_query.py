@@ -194,12 +194,13 @@ async def test_sql_database_projects_logical_server_containment() -> None:
         ).build_query_fn()("sql-database")
 
     assert len(result.resources) == 1
+    assert result.resources[0].props["parent_id"] == to_neutral_id(server_id)
     by_mapping = {
         link.mapping_evidence.mapping_id: link
         for link in result.links
         if link.mapping_evidence is not None
     }
-    assert "azure.resource-group-contains-resource" in by_mapping
+    assert "azure.resource-group-contains-resource" not in by_mapping
     link = by_mapping["azure.sql-server-contains-database"]
     assert (link.from_id, link.from_type) == (
         to_neutral_id(server_id),
@@ -211,6 +212,49 @@ async def test_sql_database_projects_logical_server_containment() -> None:
         "sql-database",
     )
     assert link.mapping_evidence is not None
+
+
+@pytest.mark.asyncio
+async def test_vnet_keeps_resource_group_parent_and_subnet_child_containment() -> None:
+    vnet_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.Network/virtualNetworks/vnet-example"
+    )
+    subnet_id = f"{vnet_id}/subnets/app"
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    _arm_row(
+                        arm_id=vnet_id,
+                        arm_type="Microsoft.Network/virtualNetworks",
+                        extra={"properties": {"subnets": [{"id": subnet_id, "name": "app"}]}},
+                    )
+                ]
+            },
+        )
+
+    async with _make_client(httpx.MockTransport(handler)) as client:
+        result = await AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        ).build_query_fn()("network.vnet")
+
+    by_mapping = {
+        link.mapping_evidence.mapping_id: link
+        for link in result.links
+        if link.mapping_evidence is not None
+    }
+    assert set(by_mapping) == {
+        "azure.resource-group-contains-resource",
+        "azure.vnet-contains-subnet",
+    }
+    assert by_mapping["azure.resource-group-contains-resource"].to_id == to_neutral_id(vnet_id)
+    assert by_mapping["azure.vnet-contains-subnet"].to_id == to_neutral_id(subnet_id)
 
 
 @pytest.mark.asyncio

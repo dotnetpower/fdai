@@ -72,9 +72,10 @@ dependencies, objectives, evidence, allowed actions, and expected effects. Upstr
 > The production inventory job injects the already loaded registry digest map, so promoted complete
 > generations persist this relationship in live projections.
 > Azure SQL databases also carry a reviewed `contains` candidate from the logical SQL server
-> encoded as their immediate ARM provider parent. The existing resource-group containment remains;
-> complete-generation verification must observe both the server and database before activating the
-> logical-parent edge.
+> encoded as their immediate ARM provider parent. For that same database child, this exact mapping
+> shadows the wildcard resource-group candidate so `contains` keeps one parent and
+> `Resource.parent_id` names the same logical server. Complete-generation verification must observe
+> both the server and database before activating the logical-parent edge.
 > Repeated authoritative observations of one resource identity inside a generation are now
 > adjudicated deterministically instead of failing the whole projection. Agreement collapses to one
 > object and keeps the earliest observation time; disagreement stays an explicit state-fact conflict
