@@ -1493,6 +1493,64 @@ def test_general_query_presentation_projects_verified_rows() -> None:
     ]
 
 
+def test_general_query_presentation_lifts_readable_fields_out_of_property_bags() -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    projection = _projection(envelope, disposition="answered", answered_evidence=True)
+    projection["payload"] = {
+        "technical_details": {
+            "schema_version": 1,
+            "kind": "semantic_query_outputs",
+            "outputs": [
+                {
+                    "node_id": "resources",
+                    "rows": [
+                        {
+                            "row_id": "r1",
+                            "values": {
+                                "id": "scope-1/resource-group/rg-a",
+                                "object_type": "Resource",
+                                "properties": {
+                                    "name": "rg-a",
+                                    "type": "resource-group",
+                                    "location": "example-region",
+                                    "tags": ["ignored"],
+                                    "properties": {"provisioningState": "Succeeded"},
+                                },
+                            },
+                        }
+                    ],
+                    "returned_rows": 1,
+                    "total_rows": 1,
+                }
+            ],
+        }
+    }
+
+    done = semantic_turn_runtime_module._done_event_data(projection, locale="en")
+
+    artifact = cast(dict[str, object], done["presentation_artifact"])
+    blocks = cast(list[dict[str, object]], artifact["blocks"])
+    records = cast(dict[str, object], blocks[1]["data"])
+    assert records["columns"] == [
+        {"key": "c0", "label": "id"},
+        {"key": "c1", "label": "object_type"},
+        {"key": "c2", "label": "name"},
+        {"key": "c3", "label": "type"},
+        {"key": "c4", "label": "location"},
+    ]
+    assert records["rows"] == [
+        {
+            "c0": "scope-1/resource-group/rg-a",
+            "c1": "Resource",
+            "c2": "rg-a",
+            "c3": "resource-group",
+            "c4": "example-region",
+        }
+    ]
+
+
 def test_general_query_presentation_without_rows_stays_a_summary() -> None:
     envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
         _proposal()
