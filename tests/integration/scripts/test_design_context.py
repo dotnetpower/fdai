@@ -678,6 +678,32 @@ def test_design_route_checker_parses_multiline_skill_description(tmp_path: Path)
     assert metadata["description"] == "Use when checking multiline metadata."
 
 
+def test_design_route_checker_counts_only_canonical_roadmap_context(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_design_route_checker()
+    roadmap = tmp_path / "docs/roadmap"
+    roadmap.mkdir(parents=True)
+    (roadmap / "owner.md").write_text("one\ntwo\nthree\n", encoding="utf-8")
+    (roadmap / "owner-ko.md").write_text("ignored\n" * 20, encoding="utf-8")
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+
+    count = module._roadmap_context_line_count(
+        [
+            "docs/roadmap/owner.md",
+            "docs/roadmap/owner-ko.md",
+            ".github/instructions/example.instructions.md",
+        ]
+    )
+
+    assert count == 3
+    assert module._roadmap_budget_error("example", ["docs/roadmap/owner.md"], 2) == (
+        "example: roadmap context is 3 lines; budget is 2. "
+        "Narrow must_read or split the owning document."
+    )
+
+
 def test_agent_customization_metadata_is_valid() -> None:
     assert _load_design_route_checker().validate() == []
 

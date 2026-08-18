@@ -43,6 +43,10 @@ require a measured baseline before they can be claimed
 Reference docs describe the system; phase docs (P0-P4) sequence the build.
 Read the reference docs first, then the phases in order.
 
+Agent design routes load only the owner documents required for a changed path. The route manifest
+caps canonical English roadmap context at 4,500 physical lines per route. When a route reaches the
+cap, narrow its owner set or split a multi-responsibility owner instead of adding more context.
+
 ### Core reference (system shape)
 
 | # | Document | What it covers |

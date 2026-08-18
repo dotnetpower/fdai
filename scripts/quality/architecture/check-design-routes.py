@@ -82,6 +82,36 @@ def _content_line_count(path: Path) -> int:
     return sum(bool(line.strip()) for line in path.read_text(encoding="utf-8").splitlines())
 
 
+def _roadmap_context_line_count(must_read: list[object]) -> int:
+    total = 0
+    for relative in must_read:
+        relative_text = str(relative)
+        if (
+            not relative_text.startswith("docs/roadmap/")
+            or not relative_text.endswith(".md")
+            or relative_text.endswith("-ko.md")
+        ):
+            continue
+        path = REPO_ROOT / relative_text
+        if path.is_file():
+            total += len(path.read_text(encoding="utf-8").splitlines())
+    return total
+
+
+def _roadmap_budget_error(
+    route_id: str,
+    must_read: list[object],
+    budget: int,
+) -> str | None:
+    line_count = _roadmap_context_line_count(must_read)
+    if budget > 0 and line_count > budget:
+        return (
+            f"{route_id}: roadmap context is {line_count} lines; budget is {budget}. "
+            "Narrow must_read or split the owning document."
+        )
+    return None
+
+
 def _matches(pattern: str, paths: tuple[str, ...]) -> bool:
     if pattern == "**":
         return bool(paths)
@@ -102,6 +132,7 @@ def validate() -> list[str]:
     skill_budget = int(manifest.get("skill_line_budget", 0))
     skill_description_budget = int(manifest.get("skill_description_char_budget", 0))
     prompt_budget = int(manifest.get("prompt_line_budget", 0))
+    roadmap_context_budget = int(manifest.get("roadmap_context_line_budget", 0))
 
     for route in routes:
         route_id = str(route.get("id", "")).strip()
@@ -137,6 +168,12 @@ def validate() -> list[str]:
                 errors.append(f"{route_id}: required context file does not exist: {relative}")
             if path.parent == INSTRUCTIONS_ROOT:
                 referenced_instructions.add(path)
+        if budget_error := _roadmap_budget_error(
+            route_id,
+            must_read,
+            roadmap_context_budget,
+        ):
+            errors.append(budget_error)
 
         for field in ("docs_update",):
             for relative in route.get(field, []):

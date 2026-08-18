@@ -1,7 +1,7 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 720d968315dcf64b7a8ab7acaa8aa5c5dadd3abe
+translation_source_sha: dd96c87fe9f77b5f1e227834be97d529416e39df
 translation_revised: 2026-08-19
 ---
 # FDAI 로드맵
@@ -39,6 +39,10 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 
 참조 문서는 시스템을 설명하고, 단계 문서(P0-P4)는 구축 순서를 제시합니다.
 참조 문서를 먼저 읽은 다음 단계 문서를 순서대로 읽으세요.
+
+에이전트 설계 route는 변경된 경로에 필요한 owner 문서만 로드합니다. Route manifest는 route별
+canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가 상한에 도달하면 context를
+더 추가하지 말고 owner 집합을 좁히거나 여러 책임을 가진 owner를 분리하세요.
 
 ### 핵심 참조 문서 (시스템 구조)
 

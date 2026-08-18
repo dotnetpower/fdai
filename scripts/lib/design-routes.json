@@ -4,6 +4,7 @@
   "skill_line_budget": 500,
   "skill_description_char_budget": 600,
   "prompt_line_budget": 200,
+  "roadmap_context_line_budget": 4500,
   "routes": [
     {
       "id": "baseline",
