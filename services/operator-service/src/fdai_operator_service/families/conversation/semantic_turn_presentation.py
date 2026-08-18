@@ -24,6 +24,9 @@ _MAX_SUMMARY_ITEMS = 16
 _MAX_TABLE_COLUMNS = 6
 _MAX_TABLE_ROWS = 40
 _MAX_CELL_CHARS = 512
+# Scalar leaves lifted out of an open-shape property bag so the answer table
+# stays readable. The exact untouched row still travels in technical details.
+_LIFTED_ROW_FIELDS = ("name", "type", "status", "location")
 _CONTROL_CHARACTERS = {chr(code) for code in range(32)} | {chr(127)}
 
 
@@ -740,9 +743,10 @@ def _records_block(
         values = row.get("values") if isinstance(row, Mapping) else None
         if not isinstance(values, Mapping):
             return None
-        row_values.append(values)
-        for field in values:
-            if isinstance(field, str) and field and field not in fields:
+        readable = _readable_row(values)
+        row_values.append(readable)
+        for field in readable:
+            if field not in fields:
                 fields.append(field)
     selected = fields[:_MAX_TABLE_COLUMNS]
     if not selected:
@@ -769,6 +773,33 @@ def _records_block(
             },
         },
     )
+
+
+def _readable_row(values: Mapping[str, object]) -> dict[str, object]:
+    """Keep scalar fields and lift named scalar leaves out of nested bags.
+
+    A serialized property bag is machine output, not an operator-facing
+    answer. Dropping it here keeps the reply legible; the untouched row is
+    still reachable through the technical-details trajectory.
+    """
+    readable: dict[str, object] = {}
+    nested: list[Mapping[str, object]] = []
+    for field, value in values.items():
+        if not isinstance(field, str) or not field:
+            continue
+        if isinstance(value, Mapping):
+            nested.append(value)
+            continue
+        if isinstance(value, list):
+            continue
+        readable[field] = value
+    for bag in nested:
+        for field in _LIFTED_ROW_FIELDS:
+            candidate = bag.get(field)
+            if candidate is None or isinstance(candidate, Mapping | list):
+                continue
+            readable.setdefault(field, candidate)
+    return readable
 
 
 def _cell(value: object) -> str:
