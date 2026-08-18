@@ -125,7 +125,7 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     frame = prompts.get_base("semantic.query.frame")
     plan = prompts.get_base("semantic.query.plan")
 
-    assert frame.version == 18
+    assert frame.version == 19
     assert "output_shape to exactly one capability family" in frame.body
     assert "aggregation_table for a count or grouping" in frame.body
     assert "topology_graph for current instance connectivity or containment" in frame.body
@@ -182,6 +182,9 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "Finally audit relationship scope" in frame.body
     assert "schema relation between one or two exact supplied ObjectType declarations" in frame.body
     assert "operational runtime traversal and MUST use topology_graph" in frame.body
+    assert "generic causal question is complete" in frame.body
+    assert "one cause concept and one effect concept" in frame.body
+    assert "no unresolved terms or clarification requirements" in frame.body
     assert "instead of clarification" in frame.body
     assert "Do not select that function for instance listing" in frame.body
     assert "query.incident_evidence" in frame.body
