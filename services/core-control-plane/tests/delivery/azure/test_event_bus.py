@@ -406,6 +406,65 @@ async def test_consumer_receives_event_hubs_safe_connection_windows(
 
 
 @pytest.mark.asyncio
+async def test_consumer_commits_once_per_batch_not_per_event(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    commits: list[int] = []
+    delivered = 0
+
+    class _Message:
+        def __init__(self, offset: int) -> None:
+            self.topic = "aw.control.canary"
+            self.key = b"resource"
+            self.value = b'{"event_id": "e"}'
+            self.offset = offset
+
+    class _RecordingConsumer:
+        def __init__(self, *_args: object, **kwargs: object) -> None:
+            self.provider = kwargs["sasl_oauth_token_provider"]
+
+        async def start(self) -> None:
+            await self.provider.token()
+
+        async def stop(self) -> None:
+            return None
+
+        async def getone(self) -> object:
+            nonlocal delivered
+            if delivered >= 3:
+                raise RuntimeError("consumer complete")
+            delivered += 1
+            return _Message(delivered)
+
+        async def commit(self) -> None:
+            commits.append(delivered)
+
+    monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", _RecordingConsumer)
+    iterator = _iter_consumer(
+        topic="aw.control.canary",
+        group_id="fdai-canary",
+        config=_cfg(commit_max_records=3, commit_interval_seconds=3600.0),
+        identity=_StaticIdentity(),
+        audience="https://evhns.servicebus.windows.net/.default",
+    )
+
+    offsets: list[int] = []
+    with pytest.raises(RuntimeError, match="consumer complete"):
+        async for envelope in iterator:
+            offsets.append(envelope.offset)
+
+    assert offsets == [1, 2, 3]
+    assert commits == [3], "three events MUST cost exactly one broker commit"
+
+
+def test_config_rejects_unusable_commit_batching() -> None:
+    with pytest.raises(ValueError, match="commit_max_records"):
+        _cfg(commit_max_records=0)
+    with pytest.raises(ValueError, match="commit_interval_seconds"):
+        _cfg(commit_interval_seconds=0)
+
+
+@pytest.mark.asyncio
 async def test_consumer_cancels_fetch_before_transport_shutdown(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
