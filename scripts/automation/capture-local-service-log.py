@@ -19,6 +19,7 @@ _PLAIN_CONTEXT_FIELDS = (
     "stage",
     "plan_nodes",
     "plan_source",
+    "output_shape",
     "failure_type",
 )
 
