@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 7830eca3a9e9a7f0711b64b9e0c8a20ab3aa01fc
+translation_source_sha: 23d1266b821bbef588f915c306d65b227305bd89
 translation_revised: 2026-08-17
 ---
 # 코드 맵
@@ -60,6 +60,8 @@ translation_revised: 2026-08-17
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-18 | 구현됨 | 검증된 frame의 `output_shape`를 `plan_verify` 단계 기록에 남기고 로컬 평문 로그 허용 목록에 추가했습니다. 한 turn이 어떤 역량 계열로 frame을 구성했는지 진단할 수 없어 잘못된 출처로 답한 경우와 잘못된 frame으로 답한 경우를 구분할 수 없었습니다. 자유 텍스트 frame 필드는 운영자 발화 내용을 담을 수 있으므로 로그에서 제외합니다. | `current change`; focused 계획기 검사 `29 passed`와 로컬 서비스 로그 실행기 검사 `13 passed`; 작업 범위 Ruff 통과. 감사 로그 행 수를 묻는 실제 로컬 turn이 `output_shape="aggregation_table"`과 `plan_nodes="function:query.manifest,aggregate"`를 기록해, frame은 옳았고 plan이 선언 인벤토리를 집계 입력으로 선택했음을 입증했습니다. | 질문이 선언을 묻지 않을 때 `aggregation_table` plan이 `query.manifest`를 집계 입력으로 쓸 수 있는지 결정합니다. 이슈 #174에서 추적합니다. |
 |------|------|------|------|-----------|
 | 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 exact-generation Rule 검색을 기록했습니다. | 현재 변경의 `catalog_queries.py`, `operational_functions.py`, `test_catalog_queries.py`, 통과한 focused 테스트 및 diff-scoped 검증 | 아래 IS-09 원격 검증 항목을 완료합니다. |
 | 2026-08-13 | 구현됨 | 플래너 함수 가시성을 실제 런타임 등록에 연결하고 바인딩되지 않은 읽기 가능 선언을 타입이 지정된 구조 coverage에 유지했습니다. | 현재 변경의 `wire_semantic_query.py`, `semantic_manifest.py`, `query_manifest.py` 및 해당 focused 테스트 | 영속 production 의미 인덱스는 이 변경 범위 밖에 있으며 아래 IS-09 원격 검증 항목을 완료합니다. |
