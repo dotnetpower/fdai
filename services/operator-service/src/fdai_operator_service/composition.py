@@ -500,6 +500,20 @@ def _build_data_sources(*, configured: bool) -> tuple[ReadDataSource, ...]:
             ),
         ),
         ReadDataSource(
+            key="promotion-gate-evidence",
+            source="not-implemented",
+            routes=("/kpi/promotion-gates",),
+            availability="unavailable",
+            configured=False,
+            reachable=None,
+            authoritative=False,
+            durable=None,
+            reason=(
+                "No component writes the promotion-gate projection in this distribution, "
+                "so no gate verdict is claimed."
+            ),
+        ),
+        ReadDataSource(
             key="onboarding-probe",
             source="not-implemented",
             routes=("/onboarding",),
