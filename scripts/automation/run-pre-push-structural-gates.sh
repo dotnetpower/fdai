@@ -12,6 +12,7 @@ for gate_path in \
   scripts/quality/architecture/check-independent-services.py \
   scripts/quality/architecture/check-operator-api-boundaries.py \
   scripts/quality/architecture/check-subsystem-fanout.sh \
+  scripts/quality/architecture/check-venue-capability-contract.py \
   scripts/quality/repository/check-doc-links.sh
 do
   gate="${gate_path##*/}"

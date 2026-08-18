@@ -73,6 +73,12 @@ from fdai.runtime.inventory_ontology import (
     InventoryOntologyProjectionStatus,
     InventoryOntologyProjector,
 )
+from fdai.runtime.venue import (
+    ExecutionVenue,
+    bus_security_protocol,
+    resolve_execution_venue,
+    uses_workload_identity,
+)
 from fdai.shared.config.loader import load_config_from_env
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.declarative_inventory import (
@@ -526,27 +532,22 @@ def _build_job_event_bus(
     identity: WorkloadIdentity,
 ) -> tuple[EventHubsKafkaBus, str]:
     app_config = load_config_from_env()
-    execution_venue = os.environ.get("FDAI_EXECUTION_VENUE", "deployed").strip()
-    if execution_venue not in {"local", "deployed"}:
-        raise RuntimeError("FDAI_EXECUTION_VENUE MUST be local or deployed")
+    venue = resolve_execution_venue()
     return EventHubsKafkaBus(
-        identity=identity if execution_venue == "deployed" else None,
+        identity=identity if uses_workload_identity(venue) else None,
         config=EventHubsKafkaBusConfig(
             bootstrap_servers=app_config.kafka.bootstrap_servers,
             dlq_suffix=app_config.kafka.topic_dlq_suffix,
-            security_protocol="SASL_SSL" if execution_venue == "deployed" else "PLAINTEXT",
+            security_protocol=bus_security_protocol(venue),
             client_id="fdai-inventory-recovery",
         ),
     ), app_config.kafka.topic_events
 
 
 def _workload_identity(*, http_client: httpx.AsyncClient) -> WorkloadIdentity:
-    execution_venue = os.environ.get("FDAI_EXECUTION_VENUE", "deployed").strip()
-    if execution_venue == "local":
+    if resolve_execution_venue() is ExecutionVenue.LOCAL:
         return AsyncAzureCliWorkloadIdentity.from_env()
-    if execution_venue == "deployed":
-        return ManagedIdentityWorkloadIdentity.from_env(http_client=http_client)
-    raise RuntimeError("FDAI_EXECUTION_VENUE MUST be local or deployed")
+    return ManagedIdentityWorkloadIdentity.from_env(http_client=http_client)
 
 
 async def _forward_recovery_deltas(

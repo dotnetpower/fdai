@@ -228,6 +228,7 @@ jobs:
           python3 scripts/quality/architecture/check-design-routes.py
           python3 scripts/quality/architecture/check-constitution.py
           python3 scripts/quality/architecture/check-fork-runtime-independence.py
+          python3 scripts/quality/architecture/check-venue-capability-contract.py
 
       - name: Resolve changed range
         id: range

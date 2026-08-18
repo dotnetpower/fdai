@@ -171,6 +171,11 @@ from fdai.runtime.rule_generation_documents import (
     RuleGenerationReconciliation,
     build_rule_generation_reconciliation,
 )
+from fdai.runtime.venue import (
+    bus_security_protocol,
+    resolve_execution_venue,
+    uses_workload_identity,
+)
 from fdai.shared.config.models import LlmMode
 from fdai.shared.config.runtime_flags import pantheon_start_enabled
 from fdai.shared.providers.event_bus import EventBus
@@ -285,11 +290,8 @@ async def _run() -> int:
                 EventHubsKafkaBusConfig,
             )
 
-            execution_venue = os.environ.get("FDAI_EXECUTION_VENUE", "deployed").strip()
-            local_transport = execution_venue == "local"
-            if execution_venue not in {"local", "deployed"}:
-                raise RuntimeError("FDAI_EXECUTION_VENUE MUST be local or deployed")
-            if identity is None and not local_transport:
+            venue = resolve_execution_venue()
+            if identity is None and uses_workload_identity(venue):
                 if http_client is None:
                     http_client = _new_http_client()
                 identity = _build_runtime_workload_identity(http_client)
@@ -299,7 +301,7 @@ async def _run() -> int:
                 config=EventHubsKafkaBusConfig(
                     bootstrap_servers=container.config.kafka.bootstrap_servers,
                     dlq_suffix=container.config.kafka.topic_dlq_suffix,
-                    security_protocol="PLAINTEXT" if local_transport else "SASL_SSL",
+                    security_protocol=bus_security_protocol(venue),
                 ),
             )
             from fdai.delivery.event_bus_multiplex import MultiplexedEventBus
@@ -318,7 +320,7 @@ async def _run() -> int:
                     config=EventHubsKafkaBusConfig(
                         bootstrap_servers=auxiliary_bootstrap,
                         dlq_suffix=container.config.kafka.topic_dlq_suffix,
-                        security_protocol="PLAINTEXT" if local_transport else "SASL_SSL",
+                        security_protocol=bus_security_protocol(venue),
                     ),
                 )
             operational_bus = _operational_event_bus(bus, auxiliary_bus)

@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 3f95fe492ebd4afcddaff19637b83e3559a39f18
+translation_source_sha: 472f909ee3b0870abe7c2c4bfa02942511744987
 translation_revised: 2026-08-18
 ---
 
@@ -86,6 +86,7 @@ translation_revised: 2026-08-18
 | 2026-08-17 | implemented | 배포 README의 추적 연속성 문장을 필수 표시 용어로 다시 썼습니다. 운영자용 문장에 그대로 쓰인 `finding`이 중앙 검증의 `display-terminology`를 통과하지 못해 main이 거부되었고 모든 lane과 모든 착륙이 멈췄습니다. | `current change`, `infra/README.md`와 user-guide 쌍, `display-terminology`가 문서 524개에서 OK를 보고하고 번역 185/185 검증 통과 | 이 변경에 남은 작업은 없습니다. |
 | 2026-08-17 | implemented | 표준 로컬 또는 배포 네임스페이스를 바꾸지 않고 대체 로컬 Operator 프로세스의 영속 semantic outbox claim을 격리했습니다. 테스트 전용 Operator는 `FDAI_SEMANTIC_TURN_OUTBOX_NAMESPACE`를 실행 id에 연결할 수 있으며 운영 기본값은 복제본에 안전한 하나의 공유 queue를 계속 사용합니다. | `current change`, focused 환경, composition, 저장소 lease 및 runner 검사 114개 통과, strict mypy 통과 | 네임스페이스가 적용된 보증 runner에서 exact-source Browser 근거를 보존합니다. |
 | 2026-08-17 | validated | 로컬 장소를 배포와 동일한 권위 있는 컨트롤 루프 유입 경로에 바인딩했습니다. Activity Log recovery delta가 배포 inventory job에서는 켜져 있었지만 로컬에서는 `False` 기본값으로 남아 있어서 `aw.change.events`에 아무것도 들어오지 않았고, 모든 전송 구성 요소가 정상인데도 인증된 Live 화면이 `Source unavailable`을 표시했습니다. | `current change`, `.vscode/tasks.json`와 `tests/integration/infra/test_inventory_repair_wiring.py`, focused 인프라 및 헌법 검사 14건 통과, 로컬 실행 1회가 권위 있는 `inventory.resource_changed` 이벤트 5건을 발행해 `source: runtime-observed`인 `ingest`, `route`, `verify`, `audit` 프레임을 만들었고 Live 화면이 `Runtime observed`로 바뀜 | 남은 장소 선택 기능 플래그를 개별 바인딩 대신 하나의 계약으로 열거합니다. |
+| 2026-08-18 | implemented | Core 컨트롤 플레인의 장소 선택 기능 플래그를 하나의 계약으로 열거했습니다. `runtime/venue.py`가 `FDAI_EXECUTION_VENUE`를 한 번만 해석하고 전송 보안, 워크로드 신원, 인벤토리 소스, 이벤트 버스, 관측 전송 바인딩을 소유하며, `bootstrap.py`와 인벤토리·관측·분석기 CLI는 각자 기본값을 둔 원시 문자열 비교 대신 이 표에서 읽습니다. 인식할 수 없는 값은 이제 더 약한 로컬 전송으로 떨어지지 않고 거부됩니다. `check-venue-capability-contract.py`는 임의의 직접 읽기나 리터럴 비교가 다시 들어오면 실패하며 pre-push 구조 게이트, `verify.sh`, CI에서 실행됩니다. | `current change`, `tests/runtime` focused 테스트 209건 통과, 음성 픽스처 2건을 포함한 게이트 통합 테스트 4건 통과, `tests/delivery` 1489건 통과, 작업 범위 Ruff·format·strict mypy 통과 | operator, document-ingestion, document-worker 서비스도 같은 계약 아래로 옮겨야 합니다. 각자 아직 장소를 따로 해석합니다. |
 ### 잔여 작업
 
 - [ ] FDAI 전용 Remote WSL server data root 또는 WSL 배포판을 마련한 뒤 제외 대상 workspace를 변경하지 않고 재시작한 Pylance process command에 `--max-old-space-size=2048`이 포함됨을 기록합니다.

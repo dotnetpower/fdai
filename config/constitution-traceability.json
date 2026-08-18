@@ -9,7 +9,7 @@
       "schemas": [],
       "tests": ["tests/integration/test_composition_llm.py", "tests/integration/scripts/test_fork_runtime_independence.py", "tests/integration/infra/test_inventory_repair_wiring.py"],
       "runtime_evidence": ["services/operator-service/src/fdai_operator_service", "services/core-control-plane/src/fdai/runtime"],
-      "gap": "Product-purpose and customer-agnostic boundaries are enforced by several gates rather than one runtime receipt. Venue parity is guarded per binding rather than by one contract that enumerates every venue-selected capability flag."
+      "gap": "Product-purpose and customer-agnostic boundaries are enforced by several gates rather than one runtime receipt. The core control plane now enumerates every venue-selected capability flag in services/core-control-plane/src/fdai/runtime/venue.py with a gate that keeps it the only reader, but the operator, document-ingestion, and document-worker services still resolve the venue independently."
     },
     {
       "id": "FDAI-CONST-002",

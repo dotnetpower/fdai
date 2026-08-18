@@ -44,6 +44,12 @@ from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventorySnapshotStoreConfig,
 )
 from fdai.delivery.repo_assets import repo_asset_root
+from fdai.runtime.venue import (
+    ExecutionVenue,
+    bus_security_protocol,
+    resolve_execution_venue,
+    uses_workload_identity,
+)
 from fdai.shared.config.loader import load_config_from_env
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
@@ -53,9 +59,7 @@ _LOOP_SECONDS = 60
 
 async def run_once(*, campaign_id: str | None = None) -> dict[str, object]:
     """Compose every configured source and run one due-checked campaign."""
-    venue = os.environ.get("FDAI_EXECUTION_VENUE", "deployed").strip()
-    if venue not in {"local", "deployed"}:
-        raise ValueError("FDAI_EXECUTION_VENUE MUST be local or deployed")
+    venue = resolve_execution_venue()
     dsn = _required_consistent(
         "FDAI_OBSERVATION_DSN",
         "FDAI_STATE_STORE_DSN",
@@ -78,7 +82,7 @@ async def run_once(*, campaign_id: str | None = None) -> dict[str, object]:
     async with httpx.AsyncClient() as client:
         identity: WorkloadIdentity = (
             AsyncAzureCliWorkloadIdentity.from_env()
-            if venue == "local"
+            if venue is ExecutionVenue.LOCAL
             else ManagedIdentityWorkloadIdentity.from_env(
                 http_client=client,
                 client_id_env="FDAI_MI_CLIENT_ID",
@@ -225,14 +229,14 @@ def _build_probes(
     return probes
 
 
-def _build_event_bus(*, identity: WorkloadIdentity, venue: str) -> EventHubsKafkaBus:
+def _build_event_bus(*, identity: WorkloadIdentity, venue: ExecutionVenue) -> EventHubsKafkaBus:
     config = load_config_from_env().kafka
     return EventHubsKafkaBus(
-        identity=identity if venue == "deployed" else None,
+        identity=identity if uses_workload_identity(venue) else None,
         config=EventHubsKafkaBusConfig(
             bootstrap_servers=config.bootstrap_servers,
             dlq_suffix=config.topic_dlq_suffix,
-            security_protocol="SASL_SSL" if venue == "deployed" else "PLAINTEXT",
+            security_protocol=bus_security_protocol(venue),
             client_id="fdai-observation-campaign",
         ),
     )
