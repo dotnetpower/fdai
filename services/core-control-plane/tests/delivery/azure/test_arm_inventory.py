@@ -70,6 +70,7 @@ async def test_arm_fallback_pages_and_emits_contains_link() -> None:
     assert resources[0].resource_id.endswith("providers/microsoft.compute/virtualmachines/vm-1")
     assert links[0].from_id.endswith("/resource-group/rg-1")
     assert links[0].to_id == resources[0].resource_id
+    assert resources[0].props["parent_id"] == links[0].from_id
 
 
 async def test_arm_fallback_rejects_cross_host_next_link() -> None:

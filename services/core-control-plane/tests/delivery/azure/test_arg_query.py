@@ -1234,6 +1234,38 @@ def test_resource_group_query_uses_resource_containers() -> None:
     assert "type =~ 'microsoft.resources/subscriptions/resourcegroups'" in query
 
 
+def test_subscription_query_uses_resource_containers() -> None:
+    factory = AzureArgQueryFactory(
+        identity=_identity(),
+        resource_types=_vocab(),
+        http_client=httpx.AsyncClient(),
+        config=AzureArgQueryFactoryConfig(subscription_scopes=("sub-1",)),
+    )
+    query = factory._build_query(arm_type="Microsoft.Resources/subscriptions")
+    assert query.startswith("ResourceContainers |")
+    assert "type =~ 'Microsoft.Resources/subscriptions'" in query
+
+
+def test_subscription_neutral_id_is_the_scope_anchor() -> None:
+    from fdai.delivery.azure.arg_query import _to_neutral_id
+
+    anchor = _to_neutral_id("/subscriptions/sub-1")
+    assert anchor.startswith("scope-")
+    assert not anchor.endswith("/")
+    assert _to_neutral_id("/subscriptions/sub-1/resourceGroups/rg-1").startswith(f"{anchor}/")
+
+
+def test_parent_neutral_id_walks_the_containment_chain() -> None:
+    from fdai.delivery.azure.arg_query import _parent_neutral_id, _to_neutral_id
+
+    subscription = "/subscriptions/sub-1"
+    group = f"{subscription}/resourceGroups/rg-1"
+    resource = f"{group}/providers/Microsoft.Compute/virtualMachines/vm-1"
+    assert _parent_neutral_id(resource) == _to_neutral_id(group)
+    assert _parent_neutral_id(group) == _to_neutral_id(subscription)
+    assert _parent_neutral_id(subscription) is None
+
+
 def test_neutral_ids_do_not_collide_across_subscriptions() -> None:
     from fdai.delivery.azure.arg_query import _to_neutral_id
 
