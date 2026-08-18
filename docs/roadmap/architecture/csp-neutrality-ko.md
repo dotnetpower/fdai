@@ -1,7 +1,7 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: cc3324b016b5c9b0aa29a9b97788d7f169f75c2c
+translation_source_sha: 3770f59a5e3a78acfdeb34f67592569c1b1fff71
 translation_revised: 2026-08-19
 ---
 
@@ -33,6 +33,7 @@ translation_revised: 2026-08-19
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | implemented | 예약된 프로바이더 신원을 위한 scheduled 인벤토리 reconciliation CLI를 composition binding과 일치시켰습니다. CLI는 이미 프로바이더 범위 coverage를 연결했지만 범위가 제한된 unmapped-resource callback을 누락했으므로, 조립된 adapter와 달리 ARG source가 identity-complete 1.1 fence를 만들 수 없었습니다. 이제 ARG는 두 callback을 모두 binding하고 ARM fallback은 둘 다 binding하지 않습니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Source별 wiring 회귀와 전체 인벤토리 작업 구성 파일의 focused case 18개, 작업 범위 Ruff 및 strict mypy가 통과했습니다. | 이 revision에서 새로운 전체 reconciliation을 승격하고 1.1 coverage 증적, snapshot-ontology identity parity 및 빈 realtime overlay를 확인합니다. |
 | 2026-08-19 | validated | 운영 범위 coverage를 인증된 읽기 전용 인벤토리 그래프 경로에 연결했습니다. 범위가 제한된 응답의 각 Resource는 `service_ref`를 포함합니다. 검토된 mapping이 없거나 충돌하면 `unknown_service`가 되며, 입력이 잘리거나 대응되지 않은 결과가 하나라도 있으면 명시적 gap과 함께 응답을 강등합니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Focused consumer 검사 4개와 strict mypy가 통과했습니다. 읽기 전용 loopback 응답은 Resource 213/213개를 표시하고 `operating_scope_unmapped`를 유지했습니다. | 배포가 검토한 서비스 mapping을 제공합니다. 경로와 완전성 증적은 구현됐습니다. |
 | 2026-08-19 | implemented | 검토된 중립 vocabulary 밖의 프로바이더 타입에 대해 신원 수준 종결을 추가했습니다. Azure 어댑터는 별도의 범위 제한 ARG 조회로 해당 행을 읽고, 검토된 단일 `unclassified-resource` 타입으로 구체화하며, 프로바이더 타입별 신원 count가 최종 fence의 coverage 집계와 정확히 일치할 때만 세대를 수락합니다. 예약 타입에는 프로바이더 mapping이나 query terms가 없으며 타입별 Rule 또는 Action 지원을 부여하지 않습니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). 프로바이더, 동기화, ARG, Azure 인벤토리, 조립, CLI, 온톨로지, 카탈로그 및 값 도메인 focused 검사 259개가 통과했고 작업 범위 Ruff와 strict mypy도 통과했습니다. | 새로운 전체 재조정을 승격하고 identity-complete coverage, 스냅샷-온톨로지 parity 및 실시간 overlay 정리를 확인한 뒤 이 행을 `validated`로 변경합니다. |
 | 2026-08-19 | validated | 하드닝 Round 3에서 count, fence, 취소, ARG, 정규화, fallback, seed 복구, precedence, catalog 소유권, 상위 parsing, 그래프 parity 및 근거 lens 12개를 다시 확인했습니다. 검증된 Medium 이상 결함은 남지 않았습니다. 관측 11건은 Low guard 확인 또는 선택적 진단이며 precedence 우려 한 건은 exact mapping 경로와 보존된 실제 운영 parity를 추적한 뒤 기각했습니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). Round 3은 Round 1 exact-parent guard와 Round 2 count-shape guard 뒤의 현재 HEAD를 검토했습니다. focused suite, 보존된 533/57/15 coverage, 2/2 SQL 스냅샷-온톨로지 parity 및 서명된 framework snapshot이 근거 경계로 남습니다. | 이슈 #216 하드닝에 남은 작업은 없습니다. |

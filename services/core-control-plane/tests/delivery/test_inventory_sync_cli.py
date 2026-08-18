@@ -264,9 +264,11 @@ async def test_source_builder_preserves_order_and_fallback_coverage() -> None:
     )
     assert isinstance(sources[0].inventory, AzureResourceGraphInventory)
     assert sources[0].inventory._scope_coverage is not None  # noqa: SLF001
+    assert sources[0].inventory._unmapped_resources is not None  # noqa: SLF001
     assert sources[1].manifest.metadata["link_types"] == ("contains",)
     assert isinstance(sources[1].inventory, AzureResourceGraphInventory)
     assert sources[1].inventory._scope_coverage is None  # noqa: SLF001
+    assert sources[1].inventory._unmapped_resources is None  # noqa: SLF001
 
 
 async def test_ontology_observer_publishes_durable_topology_history(

@@ -275,6 +275,7 @@ def _build_sources(
                 ),
                 query=query_factory.build_query_fn(),
                 scope_coverage=query_factory.build_scope_coverage_fn(),
+                unmapped_resources=query_factory.build_unmapped_resource_query_fn(),
             )
         elif source_name == "arm":
             link_types = ("contains",)
