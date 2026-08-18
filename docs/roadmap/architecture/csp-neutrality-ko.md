@@ -1,7 +1,7 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: c52239f6c48a09b8fe0f2e6810875df57055b7af
+translation_source_sha: 7d15bd9fa685cf8fffecd018b8d078ec31c513a6
 translation_revised: 2026-08-19
 ---
 
@@ -33,6 +33,7 @@ translation_revised: 2026-08-19
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | implemented | 하드닝 Round 1에서 coverage, fence, 조회, mapping, cardinality 및 근거 우려 13건을 검토했습니다. Medium 결함 한 건을 채택했습니다. 출처 타입 하나에 exact 상위 포함 관계 mapping 두 개가 catalog load를 통과해 나중에 온톨로지 변환을 중단할 수 있었습니다. 이제 loader가 프로바이더 I/O 전에 모호한 소유권을 거부합니다. 빈 프로바이더 범위, 리소스 yield 뒤 coverage 실패, null ARM mapping, enum decoding 및 최종 fence 우려는 기각했습니다. 최종 fence가 실행 근거이고, Azure coverage 작업은 어떤 리소스 batch도 yield하기 전에 모두 끝나며, 타입이 지정된 loader와 테스트가 해당 경계를 이미 적용하기 때문입니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). 새 catalog 회귀는 guard 전에는 실패하고 guard 뒤에는 통과합니다. focused 프로바이더 mapping, ARG 및 관계 검증이 검증 표면으로 남습니다. | 두 번째 10건 이상 검토를 실행해 Medium 이상 결함이 남지 않았는지 확인합니다. 잘린 관측의 drop 상세와 timestamp 정밀도 관측은 Low입니다. |
 | 2026-08-19 | validated | 수정된 SQL 포함 관계 세대를 승격하고 활성 인벤토리 스냅샷과 온톨로지 읽기 모델의 parity를 확인했습니다. 관측된 모든 SQL 데이터베이스는 두 저장소 모두에서 논리 서버 `parent_id` 하나와 `contains(sql-server, sql-database)` 간선 하나를 가집니다. 온톨로지 observer failure는 발생하지 않았습니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). one-shot 작업은 `inventory snapshot promoted from arg`를 보고했습니다. loopback PostgreSQL은 스냅샷 SQL 데이터베이스 2개, parent id가 있는 데이터베이스 2개, 스냅샷 SQL 간선 2개, 온톨로지 SQL 데이터베이스 2개 및 온톨로지 SQL 간선 2개를 보고합니다. | SQL 논리 상위 포함 관계에 남은 작업은 없습니다. |
 | 2026-08-19 | implemented | 실제 운영 변환에서 wildcard 리소스 그룹 상위와 exact 논리 서버 상위를 모두 유지하면 `contains` one-to-many cardinality를 위반한다는 사실이 드러나 SQL 포함 관계를 바로잡았습니다. 같은 contained 하위에 대해서 exact 출처 타입 `contains` mapping이 이제 wildcard mapping을 shadow합니다. 서로 다른 하위 계층은 독립적으로 유지되므로 리소스 그룹-VNet과 VNet-subnet 포함 관계는 모두 남습니다. `Resource.parent_id`도 간선과 같은 검토된 exact mapping을 사용합니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). 승격된 스냅샷은 성공했지만 온톨로지 변환 결과가 `contains violates one_to_many cardinality`로 실패했습니다. SQL 및 VNet 대조와 focused ARG, mapping audit 및 검증기 suite 117개가 통과했고 strict mypy도 통과했습니다. | 수정 사항을 커밋하고 전체 재조정을 다시 실행한 뒤 스냅샷과 온톨로지 SQL 포함 관계가 일치하는지 확인합니다. |
 | 2026-08-19 | implemented | `Microsoft.Sql/servers/databases`를 위한 검토된 Azure 프로바이더 상위 mapping을 추가했습니다. 어댑터는 구조가 유효한 immediate nested ARM 상위만 해석하고, 기존 리소스 그룹 포함 관계 후보를 보존하면서 `contains(sql-server, sql-database)`를 발행합니다. 상위가 없거나 완전 세대에서 엔드포인트가 누락되면 검증된 간선을 만들지 않습니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). focused ARG, exact mapping direction audit 및 완전 세대 검증기 검사 116개가 통과했습니다. 작업 범위 Ruff와 strict mypy, 온톨로지 및 Property coverage gate도 통과했습니다. | 전체 재조정 한 번을 실행하고 승격된 스냅샷 및 온톨로지 변환 결과에서 SQL 서버-데이터베이스 간선을 확인합니다. |

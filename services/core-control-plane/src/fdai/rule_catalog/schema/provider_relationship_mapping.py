@@ -161,11 +161,30 @@ class ProviderRelationshipMappingCatalog(BaseModel):
     def _reject_ambiguous_mappings(self) -> ProviderRelationshipMappingCatalog:
         seen_ids: set[str] = set()
         seen_routes: dict[tuple[str, str, str, str, str], EndpointOrientation] = {}
+        parent_containment_owners: dict[tuple[str, str, str], str] = {}
         for mapping in self.mappings:
             if mapping.mapping_id in seen_ids:
                 raise ValueError(f"duplicate provider relationship mapping {mapping.mapping_id!r}")
             seen_ids.add(mapping.mapping_id)
             for source_type in mapping.source_provider_types:
+                if (
+                    source_type != "*"
+                    and mapping.link_type == "contains"
+                    and mapping.endpoint_orientation is EndpointOrientation.REFERENCED_TO_OWNER
+                ):
+                    parent_key = (
+                        mapping.provider.casefold(),
+                        mapping.source_identity.casefold(),
+                        source_type,
+                    )
+                    prior_owner = parent_containment_owners.get(parent_key)
+                    if prior_owner is not None:
+                        raise ValueError(
+                            "provider relationship parent containment is ambiguous: "
+                            f"{prior_owner!r} and {mapping.mapping_id!r} both own "
+                            f"source type {source_type!r}"
+                        )
+                    parent_containment_owners[parent_key] = mapping.mapping_id
                 for target_type in mapping.target_provider_types:
                     route = (
                         mapping.provider.casefold(),

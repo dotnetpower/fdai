@@ -230,6 +230,33 @@ def test_rejects_ambiguous_endpoint_orientation(tmp_path: Path) -> None:
         load_provider_relationship_mapping_catalog(tmp_path)
 
 
+def test_rejects_multiple_exact_parent_containment_mappings(tmp_path: Path) -> None:
+    catalog = _catalog()
+    first = catalog["mappings"][0]
+    first.update(
+        {
+            "mapping_id": "azure.database-parent-one",
+            "source_provider_types": ["Microsoft.Example/servers/databases"],
+            "source_property_path": "id.providerParent",
+            "target_provider_types": ["Microsoft.Example/servers"],
+            "link_type": "contains",
+            "endpoint_orientation": "referenced_to_owner",
+        }
+    )
+    second = dict(first)
+    second["mapping_id"] = "azure.database-parent-two"
+    second["source_property_path"] = "properties.alternateParent.id"
+    catalog["mappings"].append(second)
+    catalog["review"]["content_hash"] = provider_relationship_mapping_content_hash(catalog)
+    _write(tmp_path, catalog)
+
+    with pytest.raises(
+        ProviderRelationshipMappingCatalogError,
+        match="parent containment is ambiguous",
+    ):
+        load_provider_relationship_mapping_catalog(tmp_path)
+
+
 def test_rejects_untrusted_evidence_method(tmp_path: Path) -> None:
     catalog = _catalog()
     catalog["mappings"][0]["evidence_method"] = "provider-assertion"
