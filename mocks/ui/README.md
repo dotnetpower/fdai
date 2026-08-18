@@ -76,7 +76,7 @@ Report and kit:
 | File | Purpose |
 |------|---------|
 | [report.html](report.html) | Weekly review layout: numbered sections, KPI grid, AS-IS / TO-BE compare, critique table |
-| [components.html](components.html) | Component gallery: 22 sections covering metrics, tables, tokens, forms, selection, navigation, feedback, trend, comparison, distribution and density charts, code, grid lists, feeds, comboboxes, menus, drawers, data states, structured lists, notifications, and calendars |
+| [components.html](components.html) | Component gallery: 23 sections covering shared typography, metrics, tables, tokens, forms, selection, navigation, feedback, trend, comparison, distribution and density charts, code, grid lists, feeds, comboboxes, menus, drawers, data states, structured lists, notifications, and calendars |
 | [index.html](index.html) | Kit landing: palette, page index, design principles |
 
 ## Assets

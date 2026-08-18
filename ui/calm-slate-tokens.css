@@ -22,5 +22,23 @@
   --cs-shadow-hover: 0 6px 22px rgba(46, 54, 64, 0.1);
   --cs-font: "Segoe UI Variable Text", "Segoe UI", "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
   --cs-font-mono: "Cascadia Code", "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
-  --cs-font-size: 14px;
+  --cs-type-page-title-size: 24px;
+  --cs-type-page-title-line-height: 1.25;
+  --cs-type-page-subtitle-size: 13px;
+  --cs-type-page-subtitle-line-height: 1.5;
+  --cs-type-lead-size: 16px;
+  --cs-type-lead-line-height: 1.5;
+  --cs-type-section-title-size: 18px;
+  --cs-type-section-title-line-height: 1.35;
+  --cs-type-panel-title-size: 15px;
+  --cs-type-panel-title-line-height: 1.4;
+  --cs-type-body-size: 14px;
+  --cs-type-body-line-height: 1.6;
+  --cs-type-compact-size: 13px;
+  --cs-type-compact-line-height: 1.5;
+  --cs-type-label-size: 12px;
+  --cs-type-label-line-height: 1.35;
+  --cs-type-caption-size: 11px;
+  --cs-type-caption-line-height: 1.35;
+  --cs-font-size: var(--cs-type-body-size);
 }

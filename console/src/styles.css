@@ -412,6 +412,7 @@ body,
 body {
   background: var(--bg);
   color: var(--fg);
+  line-height: var(--cs-type-body-line-height);
 }
 
 /* Lock document scroll while a modal drawer is open so the background
@@ -3013,10 +3014,11 @@ pre {
   display: flex;
   align-items: baseline;
   gap: 7px;
-  font-size: 24px;
+  font-size: var(--cs-type-page-title-size);
   font-weight: 600;
+  line-height: var(--cs-type-page-title-line-height);
   margin: 0 0 4px;
-  letter-spacing: -0.01em;
+  letter-spacing: 0;
 }
 .page-header-domain {
   overflow: hidden;
@@ -3030,8 +3032,9 @@ pre {
 .page-header-separator { color: color-mix(in oklab, var(--fg-muted) 55%, transparent); font-size: 14px; }
 .page-header-subtitle {
   margin: 0;
-  font-size: 13px;
   max-width: 720px;
+  font-size: var(--cs-type-page-subtitle-size);
+  line-height: var(--cs-type-page-subtitle-line-height);
 }
 .page-header-actions {
   display: inline-flex;
@@ -3049,7 +3052,8 @@ pre {
   border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--bg-elevated);
-  font-size: 13px;
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
   color: var(--fg);
 }
 .state-icon {
@@ -5309,10 +5313,11 @@ pre {
   gap: 8px;
 }
 .section-title {
-  font-size: 13px;
+  font-size: var(--cs-type-label-size);
   font-weight: 600;
+  line-height: var(--cs-type-label-line-height);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0;
   color: var(--fg-muted);
   margin: 0;
 }
@@ -5331,7 +5336,7 @@ pre {
   .two-col { grid-template-columns: 1fr; }
 }
 
-.footnote { margin: 0; font-size: 11.5px; color: var(--fg-muted); }
+.footnote { margin: 0; color: var(--fg-muted); font-size: var(--cs-type-caption-size); line-height: var(--cs-type-caption-line-height); }
 
 .rca-chain {
   display: flex;

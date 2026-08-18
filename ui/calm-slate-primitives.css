@@ -1,4 +1,57 @@
 /* Shared Calm Slate presentation primitives for the Console and static UI mocks. */
+.cs-type-page-title {
+  font-size: var(--cs-type-page-title-size);
+  font-weight: 600;
+  line-height: var(--cs-type-page-title-line-height);
+  letter-spacing: 0;
+}
+
+.cs-type-page-subtitle {
+  font-size: var(--cs-type-page-subtitle-size);
+  line-height: var(--cs-type-page-subtitle-line-height);
+}
+
+.cs-type-lead {
+  font-size: var(--cs-type-lead-size);
+  line-height: var(--cs-type-lead-line-height);
+}
+
+.cs-type-section-title {
+  font-size: var(--cs-type-section-title-size);
+  font-weight: 600;
+  line-height: var(--cs-type-section-title-line-height);
+  letter-spacing: 0;
+}
+
+.cs-type-panel-title {
+  font-size: var(--cs-type-panel-title-size);
+  font-weight: 600;
+  line-height: var(--cs-type-panel-title-line-height);
+  letter-spacing: 0;
+}
+
+.cs-type-body {
+  font-size: var(--cs-type-body-size);
+  line-height: var(--cs-type-body-line-height);
+}
+
+.cs-type-compact {
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+
+.cs-type-label {
+  font-size: var(--cs-type-label-size);
+  font-weight: 600;
+  line-height: var(--cs-type-label-line-height);
+  letter-spacing: 0;
+}
+
+.cs-type-caption {
+  font-size: var(--cs-type-caption-size);
+  line-height: var(--cs-type-caption-line-height);
+}
+
 .is-content-updated {
   position: relative;
   overflow: hidden;
