@@ -72,7 +72,7 @@ Safety / cost invariants
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -132,6 +132,7 @@ from fdai.rule_catalog.schema.resource_type import (
     resolve_azure_resource_type,
 )
 from fdai.shared.providers.inventory import (
+    UNCLASSIFIED_RESOURCE_TYPE,
     LinkRecord,
     ProviderScopeCoverage,
     ProviderTypeCount,
@@ -251,6 +252,12 @@ class AzureArgQueryFactory:
         # `attached_to` extraction hits this map per referenced id; a
         # fresh iteration per row would be O(vocabulary_size * rows).
         self._arm_to_neutral: Final[Mapping[str, str]] = _build_arm_to_neutral_map(resource_types)
+        self._mapped_provider_types: Final[frozenset[str]] = frozenset(
+            entry.azure_arm_type.lower()
+            for entry in resource_types
+            if entry.azure_arm_type is not None
+            and entry.azure_arm_type.lower() != "microsoft.resources/subscriptions"
+        )
         self._relationship_mappings: Final[ProviderRelationshipMappingCatalog] = (
             load_provider_relationship_mapping_catalog(config.relationship_mapping_root)
         )
@@ -323,6 +330,32 @@ class AzureArgQueryFactory:
 
         return _fetch
 
+    def build_unmapped_resource_query_fn(
+        self,
+    ) -> Callable[[], Awaitable[ResourceQueryResult]]:
+        """Return a bounded read that preserves identities outside the neutral vocabulary."""
+
+        async def _fetch() -> ResourceQueryResult:
+            return await fetch_arg_pages(
+                identity=self._identity,
+                http_client=self._http,
+                audience=self._config.audience,
+                endpoint=self._config.arg_endpoint,
+                api_version=self._config.arg_api_version,
+                subscriptions=self._config.subscription_scopes,
+                query=self._build_unmapped_resource_query(),
+                resource_type=UNCLASSIFIED_RESOURCE_TYPE,
+                page_size=self._config.page_size,
+                max_pages=self._config.max_pages,
+                timeout_seconds=self._config.timeout_seconds,
+                error_type=ArgQueryError,
+                map_row=self._map_unclassified_row,
+                project_links=self._project_links,
+                throttle_gate=self._throttle_gate,
+            )
+
+        return _fetch
+
     # ------------------------------------------------------------------
     # Internals
     # ------------------------------------------------------------------
@@ -379,6 +412,18 @@ class AzureArgQueryFactory:
             "| order by provider_type asc"
         )
 
+    def _build_unmapped_resource_query(self) -> str:
+        """Select provider rows whose type has no reviewed neutral mapping."""
+        if any("'" in provider_type for provider_type in self._mapped_provider_types):
+            raise ArgQueryError("mapped provider type contains an illegal quote")
+        mapped = ", ".join(f"'{item}'" for item in sorted(self._mapped_provider_types))
+        predicate = f"tolower(type) !in ({mapped})" if mapped else "isnotempty(type)"
+        return (
+            f"Resources | where {predicate} "
+            "| order by id asc "
+            "| project id, type, name, location, kind, resourceGroup, subscriptionId"
+        )
+
     def _project_scope_coverage(
         self,
         rows: tuple[Mapping[str, Any], ...],
@@ -409,20 +454,15 @@ class AzureArgQueryFactory:
                     f"provider scope coverage row for {normalized_type!r} is invalid"
                 ) from exc
 
-        mapped_provider_types = {
-            entry.azure_arm_type.lower()
-            for entry in self._resource_types
-            if entry.azure_arm_type is not None
-            and entry.azure_arm_type.lower() != "microsoft.resources/subscriptions"
-        }
         provider_object_count = sum(item.count for item in counts.values())
         mapped_provider_object_count = sum(
             item.count
             for provider_type, item in counts.items()
-            if provider_type in mapped_provider_types
+            if provider_type in self._mapped_provider_types
         )
         unmapped = tuple(
-            counts[provider_type] for provider_type in sorted(counts.keys() - mapped_provider_types)
+            counts[provider_type]
+            for provider_type in sorted(counts.keys() - self._mapped_provider_types)
         )
         return ProviderScopeCoverage(
             capture_method="azure_resource_graph_type_aggregation",
@@ -430,6 +470,33 @@ class AzureArgQueryFactory:
             mapped_provider_object_count=mapped_provider_object_count,
             provider_type_count=len(counts),
             unmapped_provider_types=unmapped,
+        )
+
+    def _map_unclassified_row(self, row: Mapping[str, Any]) -> ResourceRecord:
+        """Preserve one provider identity without asserting unsupported neutral semantics."""
+        arm_id = row.get("id")
+        provider_type = row.get("type")
+        if not isinstance(arm_id, str) or not arm_id:
+            raise ArgQueryError("unclassified ARG row lacks a provider id")
+        if not isinstance(provider_type, str) or not provider_type.strip():
+            raise ArgQueryError("unclassified ARG row lacks a provider type")
+        normalized_type = provider_type.strip().lower()
+        if normalized_type in self._mapped_provider_types:
+            raise ArgQueryError("unclassified ARG query returned a mapped provider type")
+
+        props: dict[str, Any] = {"providerType": normalized_type}
+        for key in ("name", "location", "kind", "resourceGroup"):
+            if key in row and row[key] is not None:
+                props[key] = row[key]
+        props = _truncate_props(props, max_bytes=self._config.max_props_bytes)
+        if (parent_id := _parent_neutral_id(arm_id)) is not None:
+            props["parent_id"] = parent_id
+        return ResourceRecord(
+            resource_id=_to_neutral_id(arm_id),
+            type=UNCLASSIFIED_RESOURCE_TYPE,
+            props=props,
+            provider_ref=arm_id,
+            last_seen=datetime.now(tz=UTC).isoformat(),
         )
 
     async def _fetch_all_pages(self, *, resource_type: str, arm_type: str) -> ResourceQueryResult:

@@ -61,12 +61,8 @@ from ..shared.providers.metric import NoopMetricProvider  # noqa: F401 - public 
 from ..shared.providers.workload_identity import WorkloadIdentity
 
 if TYPE_CHECKING:
-    from ..delivery.azure.activity_log import AzureActivityLogFactoryConfig
-    from ..delivery.azure.arg_query import AzureArgQueryFactoryConfig
-    from ..delivery.azure.inventory import AzureInventoryConfig
     from ..delivery.azure.metric_logs import AzureMonitorLogsConfig
     from ..delivery.pgvector.knowledge import PgvectorKnowledgeConfig
-    from ..rule_catalog.schema.resource_type import ResourceTypeRegistry
     from ..shared.providers.secret_provider import SecretProvider
 
 from . import wire_capabilities as _wire_capabilities  # noqa: E402
@@ -81,6 +77,7 @@ from .wire_execution_backends import (  # noqa: E402 - public composition facade
     bind_execution_backends,
     load_execution_backend_registry_file,
 )
+from .wire_inventory import bind_azure_inventory as bind_azure_inventory  # noqa: E402
 
 
 def _local_fake_llm_bindings() -> LlmBindings:
@@ -152,65 +149,6 @@ def bind_azure_monitor_logs(
         http_client=http_client,
     )
     return replace(container, metric_provider=provider)
-
-
-def bind_azure_inventory(
-    container: Container,
-    *,
-    arg_config: AzureArgQueryFactoryConfig,
-    inventory_config: AzureInventoryConfig,
-    resource_types: ResourceTypeRegistry,
-    identity: WorkloadIdentity,
-    http_client: httpx.AsyncClient,
-    activity_log_config: AzureActivityLogFactoryConfig | None = None,
-) -> Container:
-    """Return a new :class:`Container` with the live Azure Resource Graph
-    inventory bound in place of the default :class:`EmptyInventory`.
-
-    Wires the real Kusto-over-ARG :class:`AzureArgQueryFactory` (from
-    ``delivery/azure/arg_query.py``) into the
-    :class:`AzureResourceGraphInventory` shard runner - the pairing that
-    was documented but never assembled. Kept symmetric to
-    :func:`bind_azure_monitor_logs` and :func:`bind_azure_llm_bindings`:
-    dev / local-fake runs never call this, so ``container.inventory``
-    stays the empty default and the parity contract holds. ``core/``
-    never imports the concrete adapter.
-
-    The ``full_snapshot`` path is live once bound. When
-    ``activity_log_config`` is supplied, the ``delta`` path is also live:
-    an :class:`AzureActivityLogFactory` builds the forwarded-Activity-Log
-    fetch function so :meth:`AzureResourceGraphInventory.delta` streams
-    real change batches. When it is ``None``, ``delta`` stays the
-    empty-fence stub (see ``docs/roadmap/architecture/csp-neutrality.md § 5``).
-    """
-    from ..delivery.azure.arg_query import AzureArgQueryFactory
-    from ..delivery.azure.inventory import AzureResourceGraphInventory
-
-    query_factory = AzureArgQueryFactory(
-        identity=identity,
-        resource_types=resource_types,
-        http_client=http_client,
-        config=arg_config,
-    )
-
-    delta_fetch = None
-    if activity_log_config is not None:
-        from ..delivery.azure.activity_log import AzureActivityLogFactory
-
-        delta_fetch = AzureActivityLogFactory(
-            identity=identity,
-            resource_types=resource_types,
-            http_client=http_client,
-            config=activity_log_config,
-        ).build_fetch_fn()
-
-    inventory = AzureResourceGraphInventory(
-        config=inventory_config,
-        query=query_factory.build_query_fn(),
-        scope_coverage=query_factory.build_scope_coverage_fn(),
-        delta_fetch=delta_fetch,
-    )
-    return replace(container, inventory=inventory)
 
 
 def bind_embedding_knowledge_source(

@@ -14,6 +14,7 @@ from fdai.rule_catalog.schema.resource_type import (
     resolve_azure_resource_type,
     resource_type_mapping_digests,
 )
+from fdai.shared.providers.inventory import UNCLASSIFIED_RESOURCE_TYPE
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 VOCAB_YAML = REPO_ROOT / "rule-catalog" / "vocabulary" / "resource-types.yaml"
@@ -388,11 +389,12 @@ def test_only_subscription_has_no_parents() -> None:
 def test_azure_arm_type_present_or_explicitly_null() -> None:
     """A `null` azure_arm_type is a design choice, not an oversight."""
     registry = _shipped()
-    # P1 target list is all Azure-mappable.
-    for entry in registry.types:
-        assert entry.azure_arm_type is not None, (
-            f"{entry.id}: azure_arm_type MUST be set for P1 (Azure is the implemented target)"
-        )
+    without_provider_mapping = tuple(
+        entry for entry in registry.types if entry.azure_arm_type is None
+    )
+
+    assert tuple(entry.id for entry in without_provider_mapping) == (UNCLASSIFIED_RESOURCE_TYPE,)
+    assert without_provider_mapping[0].query_terms == ()
 
 
 def test_duplicate_id_is_rejected() -> None:

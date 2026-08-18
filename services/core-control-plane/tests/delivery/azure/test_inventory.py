@@ -24,8 +24,10 @@ from fdai.delivery.azure.inventory import (
     AzureInventoryConfig,
     AzureResourceGraphInventory,
     ResourceQueryFn,
+    ResourceQueryResult,
 )
 from fdai.shared.providers import (
+    UNCLASSIFIED_RESOURCE_TYPE,
     Inventory,
     InventoryBatch,
     LinkRecord,
@@ -55,11 +57,13 @@ def _adapter(
     types: tuple[str, ...] = ("compute.vm", "object-storage"),
     concurrency: int = 4,
     scope_coverage=None,
+    unmapped_resources=None,
 ) -> AzureResourceGraphInventory:
     return AzureResourceGraphInventory(
         config=AzureInventoryConfig(resource_types=types, max_concurrent_queries=concurrency),
         query=query,
         scope_coverage=scope_coverage,
+        unmapped_resources=unmapped_resources,
     )
 
 
@@ -138,6 +142,79 @@ async def test_full_snapshot_emits_no_fence_when_provider_coverage_fails() -> No
             seen.append(batch)
 
     assert not any(batch.final for batch in seen)
+
+
+@pytest.mark.asyncio
+async def test_full_snapshot_materializes_all_unmapped_provider_identities() -> None:
+    async def _q(rt: str) -> tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
+        return (_rr(f"{rt}/1", rtype=rt),), ()
+
+    coverage = ProviderScopeCoverage(
+        capture_method="azure_resource_graph_type_aggregation",
+        provider_object_count=3,
+        mapped_provider_object_count=2,
+        provider_type_count=3,
+        unmapped_provider_types=(ProviderTypeCount(provider_type="example.unmapped", count=1),),
+    )
+
+    async def _coverage() -> ProviderScopeCoverage:
+        return coverage
+
+    async def _unmapped():
+        return ResourceQueryResult(
+            resources=(
+                ResourceRecord(
+                    resource_id="opaque/1",
+                    type=UNCLASSIFIED_RESOURCE_TYPE,
+                    props={"providerType": "example.unmapped"},
+                ),
+            )
+        )
+
+    seen = [
+        batch
+        async for batch in _adapter(
+            _q,
+            scope_coverage=_coverage,
+            unmapped_resources=_unmapped,
+        ).full_snapshot()
+    ]
+
+    resources = [resource for batch in seen for resource in batch.resources]
+    assert [resource.type for resource in resources].count(UNCLASSIFIED_RESOURCE_TYPE) == 1
+    final_coverage = seen[-1].provider_scope_coverage
+    assert final_coverage is not None
+    assert final_coverage.materialized_unmapped_provider_object_count == 1
+    assert final_coverage.provider_identity_complete is True
+
+
+@pytest.mark.asyncio
+async def test_full_snapshot_emits_nothing_when_unmapped_identities_do_not_reconcile() -> None:
+    async def _q(rt: str) -> tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
+        return (_rr(f"{rt}/1", rtype=rt),), ()
+
+    async def _coverage() -> ProviderScopeCoverage:
+        return ProviderScopeCoverage(
+            capture_method="azure_resource_graph_type_aggregation",
+            provider_object_count=3,
+            mapped_provider_object_count=2,
+            provider_type_count=3,
+            unmapped_provider_types=(ProviderTypeCount(provider_type="example.unmapped", count=1),),
+        )
+
+    async def _unmapped():
+        return ResourceQueryResult()
+
+    seen: list[InventoryBatch] = []
+    with pytest.raises(RuntimeError, match="do not reconcile"):
+        async for batch in _adapter(
+            _q,
+            scope_coverage=_coverage,
+            unmapped_resources=_unmapped,
+        ).full_snapshot():
+            seen.append(batch)
+
+    assert seen == []
 
 
 @pytest.mark.asyncio

@@ -101,6 +101,7 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-19 | implemented | Added the catalog-owned `unclassified-resource` target and exact identity-completeness receipt for provider-native rows outside reviewed mappings. Classification remains a reviewed Resource-to-ResourceType edge, while unsupported native type text stays inert evidence and grants no semantic or execution authority. | [Issue #217](https://github.com/dotnetpower/fdai/issues/217); focused provider, Azure, ontology, catalog, and query-domain checks pass 259 cases; Ruff and strict mypy pass. | Refresh inventory and retain the release-bound manifest and parity evidence. |
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | Current source and tests listed in the scope table. | Complete the observable exit conditions below. |
 | 2026-08-13 | implemented | Added exact-generation, read-only `catalog.search_rules` candidate retrieval with bounded ranking and content-addressed receipts. | Commit `e4d9483a5`; focused `test_catalog_queries.py` reports 2 passed. | Compose objective-aware retrieval and validate it without granting evaluation or execution authority. |
 | 2026-08-13 | implemented | Registered the three objective vocabulary types as `Identifiable` implementations after centralized graph validation exposed the omission. | Focused `test_shipped_ontology_catalog_loads_as_one_graph` reports 1 passed. | Keep interface implementation coverage synchronized with every new object type. |
@@ -182,6 +183,11 @@ catalog startup becomes the stable non-blocking drop `unseeded_resource_type`; t
 Resource objects and other verified links in the complete generation still replace the owned
 subgraph. A present endpoint with the wrong type and every other instance validation error continue
 to fail the generation.
+
+The reviewed `unclassified-resource` target is the only exception to provider-specific type
+mapping. It is catalog-owned, carries no provider mapping or query terms, and receives a
+classification link only after the complete provider identity set reconciles with the final-fence
+coverage receipt. Runtime discovery never creates a new ResourceType declaration.
 
 The shared property-semantics registry gives every canonical property one content-addressed
 identity for meaning, unit, value kind, and bounds. Catalog projection validates each reference

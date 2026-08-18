@@ -175,6 +175,34 @@ def test_provider_scope_coverage_rejects_boolean_counts(field_name: str, value: 
         ProviderScopeCoverage(**values)
 
 
+def test_provider_scope_coverage_rejects_partial_unmapped_identity_materialization() -> None:
+    with pytest.raises(ValueError, match="materialized unmapped count MUST be zero or complete"):
+        ProviderScopeCoverage(
+            capture_method="provider_type_aggregation",
+            provider_object_count=3,
+            mapped_provider_object_count=1,
+            provider_type_count=2,
+            unmapped_provider_types=(ProviderTypeCount(provider_type="example.unmapped", count=2),),
+            materialized_unmapped_provider_object_count=1,
+        )
+
+
+def test_provider_scope_coverage_records_complete_provider_identity_materialization() -> None:
+    coverage = ProviderScopeCoverage(
+        capture_method="provider_type_aggregation",
+        provider_object_count=3,
+        mapped_provider_object_count=1,
+        provider_type_count=2,
+        unmapped_provider_types=(ProviderTypeCount(provider_type="example.unmapped", count=2),),
+        materialized_unmapped_provider_object_count=2,
+    )
+
+    assert coverage.provider_identity_complete is True
+    assert coverage.to_metadata()["schema_version"] == "1.1.0"
+    assert coverage.to_metadata()["materialized_unmapped_provider_object_count"] == 2
+    assert coverage.to_metadata()["provider_identity_complete"] is True
+
+
 def test_provider_type_count_rejects_boolean_count() -> None:
     with pytest.raises(ValueError, match="count MUST be an integer"):
         ProviderTypeCount(provider_type="example.unmapped", count=True)

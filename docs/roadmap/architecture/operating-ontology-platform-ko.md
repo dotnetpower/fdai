@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 6632afa2ed065ed763d97bedcfb723e32ff327a0
+translation_source_sha: 862a4143e7e79791a3d1f2b9d3e292ac889a7234
 translation_revised: 2026-08-19
 ---
 # FDAI 온톨로지 안전 인프라
@@ -106,6 +106,7 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | implemented | 검토된 mapping 밖의 프로바이더 native 행을 위해 카탈로그 소유 `unclassified-resource` 대상과 exact 신원 완전성 증적을 추가했습니다. 분류는 계속 검토된 Resource-ResourceType 간선이며, 지원되지 않는 native 타입 텍스트는 비활성 근거로 남아 의미 또는 실행 권한을 부여하지 않습니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). 프로바이더, Azure, 온톨로지, 카탈로그 및 조회 도메인 focused 검사 259개와 Ruff 및 strict mypy가 통과했습니다. | 인벤토리를 새로 고치고 release에 연결된 매니페스트와 parity 근거를 보존합니다. |
 | 2026-08-13 | in-progress | 이전 provenance를 재구성하지 않고 구현 원장을 도입했습니다. | 범위 표에 나열된 현재 소스와 테스트입니다. | 아래의 관찰 가능한 종료 조건을 완료합니다. |
 | 2026-08-13 | implemented | 범위가 제한된 순위와 내용 기반 주소를 가진 증적을 제공하는 exact-generation 읽기 전용 `catalog.search_rules` 후보 검색을 추가했습니다. | 커밋 `e4d9483a5`; 집중 `test_catalog_queries.py`에서 2개 테스트를 통과했습니다. | 평가 또는 실행 권한을 부여하지 않으면서 objective-aware 검색을 조립하고 검증합니다. |
 | 2026-08-13 | implemented | 중앙 graph 검증에서 누락을 발견한 뒤 세 objective vocabulary 타입을 `Identifiable` 구현으로 등록했습니다. | 집중 `test_shipped_ontology_catalog_loads_as_one_graph`에서 1개 테스트를 통과했습니다. | 새 object type을 추가할 때마다 interface 구현 범위를 동기화합니다. |
@@ -185,6 +186,11 @@ catalog-as-code가 계속 권위 원천이고 인스턴스 그래프는 읽기 �
 비차단 드롭 `unseeded_resource_type`이 되며, 완전한 세대의 권위 있는 Resource 객체와 다른 검증된
 링크는 소유 subgraph를 계속 교체합니다. 엔드포인트가 있지만 타입이 잘못됐거나 다른 인스턴스 검증
 오류가 있으면 계속 해당 세대를 실패 처리합니다.
+
+검토된 `unclassified-resource` 대상은 프로바이더별 타입 mapping의 유일한 예외입니다. 이 대상은
+카탈로그가 소유하고 프로바이더 mapping이나 query terms를 포함하지 않으며, 완전한 프로바이더 신원
+집합이 최종 fence coverage 증적과 일치한 뒤에만 분류 간선을 받습니다. 런타임 검색은 새
+ResourceType 선언을 만들지 않습니다.
 
 Shared property-semantics 레지스트리는 정본 속성마다 meaning, 단위, 값 종류, 한계에 대한
 내용 기반 주소를 가진 신원 하나를 제공합니다. 카탈로그 변환 결과는 모든 참조를 레지스트리에 대해

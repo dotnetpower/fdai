@@ -46,7 +46,7 @@ from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeRegistry,
     load_resource_type_registry_from_mapping,
 )
-from fdai.shared.providers.inventory import ResourceRecord
+from fdai.shared.providers.inventory import UNCLASSIFIED_RESOURCE_TYPE, ResourceRecord
 from fdai.shared.providers.testing.workload_identity import (
     StaticWorkloadIdentity,
 )
@@ -301,6 +301,55 @@ async def test_scope_coverage_counts_unmapped_provider_types_without_materializi
     assert [(item.provider_type, item.count) for item in coverage.unmapped_provider_types] == [
         ("microsoft.example/watchers", 3)
     ]
+
+
+@pytest.mark.asyncio
+async def test_unmapped_resource_query_preserves_identity_without_semantic_support() -> None:
+    arm_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000001/"
+        "resourceGroups/rg-example/providers/Microsoft.Example/watchers/watcher-one"
+    )
+    observed_query = ""
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal observed_query
+        observed_query = json.loads(request.content)["query"]
+        return httpx.Response(
+            200,
+            json={
+                "data": [
+                    _arm_row(
+                        arm_id=arm_id,
+                        arm_type="Microsoft.Example/watchers",
+                    )
+                ]
+            },
+        )
+
+    async with _make_client(httpx.MockTransport(handler)) as client:
+        result = await AzureArgQueryFactory(
+            identity=_identity(),
+            resource_types=_vocab(),
+            http_client=client,
+            config=_config(),
+        ).build_unmapped_resource_query_fn()()
+
+    assert observed_query.startswith("Resources | where tolower(type) !in (")
+    assert "microsoft.compute/virtualmachines" in observed_query
+    assert len(result.resources) == 1
+    resource = result.resources[0]
+    assert resource.type == UNCLASSIFIED_RESOURCE_TYPE
+    assert resource.props == {
+        "providerType": "microsoft.example/watchers",
+        "name": "watcher-one",
+        "location": "koreacentral",
+        "resourceGroup": "rg-example",
+        "parent_id": to_neutral_id(arm_id.rsplit("/providers/", 1)[0]),
+    }
+    assert len(result.links) == 1
+    assert result.links[0].mapping_evidence is not None
+    assert result.links[0].mapping_evidence.mapping_id == "azure.resource-group-contains-resource"
+    assert result.links[0].to_type == UNCLASSIFIED_RESOURCE_TYPE
 
 
 @pytest.mark.asyncio

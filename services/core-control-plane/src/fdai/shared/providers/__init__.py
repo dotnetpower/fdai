@@ -188,6 +188,7 @@ from .iac_review import (
     ReviewReceipt,
 )
 from .inventory import (
+    UNCLASSIFIED_RESOURCE_TYPE,
     Inventory,
     InventoryBatch,
     LinkRecord,
@@ -567,6 +568,7 @@ __all__ = [
     "RemediationPrPublisher",
     "ReadinessReportPublisher",
     "ResourceRecord",
+    "UNCLASSIFIED_RESOURCE_TYPE",
     "ReviewReceipt",
     "RunbookError",
     "RunbookExecutionError",

@@ -50,11 +50,13 @@ What is deliberately NOT here yet
 from __future__ import annotations
 
 import asyncio
+from collections import Counter
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterable, Iterator, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Final
 
 from fdai.shared.providers.inventory import (
+    UNCLASSIFIED_RESOURCE_TYPE,
     InventoryBatch,
     LinkRecord,
     ProviderScopeCoverage,
@@ -91,6 +93,7 @@ ResourceQueryFn = Callable[
     Awaitable[ResourceQueryResult | tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]],
 ]
 ScopeCoverageFn = Callable[[], Awaitable[ProviderScopeCoverage]]
+UnmappedResourceQueryFn = Callable[[], Awaitable[ResourceQueryResult]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,15 +188,19 @@ class AzureResourceGraphInventory:
         config: AzureInventoryConfig,
         query: ResourceQueryFn,
         scope_coverage: ScopeCoverageFn | None = None,
+        unmapped_resources: UnmappedResourceQueryFn | None = None,
         delta_fetch: ActivityLogFetchFn | None = None,
     ) -> None:
         if config.max_concurrent_queries < 1:
             raise ValueError("AzureInventoryConfig.max_concurrent_queries MUST be >= 1")
         if config.max_delta_pages < 1:
             raise ValueError("AzureInventoryConfig.max_delta_pages MUST be >= 1")
+        if unmapped_resources is not None and scope_coverage is None:
+            raise ValueError("unmapped_resources requires scope_coverage")
         self._config = config
         self._query = query
         self._scope_coverage = scope_coverage
+        self._unmapped_resources = unmapped_resources
         self._delta_fetch = delta_fetch
 
     # ------------------------------------------------------------------
@@ -253,15 +260,42 @@ class AzureResourceGraphInventory:
                 _fetch_coverage(),
                 name="inventory-provider-scope-coverage",
             )
+        unmapped_task: asyncio.Task[ResourceQueryResult] | None = None
+        unmapped_resources = self._unmapped_resources
+        if unmapped_resources is not None:
+
+            async def _fetch_unmapped_resources() -> ResourceQueryResult:
+                async with semaphore:
+                    return await unmapped_resources()
+
+            unmapped_task = asyncio.create_task(
+                _fetch_unmapped_resources(),
+                name="inventory-unclassified-provider-resources",
+            )
         all_tasks: list[asyncio.Task[object]] = [*tasks]
         if coverage_task is not None:
             all_tasks.append(coverage_task)
+        if unmapped_task is not None:
+            all_tasks.append(unmapped_task)
 
         try:
             completed: list[InventoryBatch] = []
             for coro in asyncio.as_completed(tasks):
                 completed.append(await coro)
             provider_scope_coverage = await coverage_task if coverage_task is not None else None
+            if unmapped_task is not None:
+                if provider_scope_coverage is None:
+                    raise RuntimeError("unclassified resources require provider scope coverage")
+                unmapped_batch, provider_scope_coverage = _reconcile_unmapped_resources(
+                    await unmapped_task,
+                    provider_scope_coverage,
+                )
+                if (
+                    unmapped_batch.resources
+                    or unmapped_batch.links
+                    or unmapped_batch.relationship_drops
+                ):
+                    completed.append(unmapped_batch)
         except BaseException:
             # Fail-closed: cancel outstanding shards so a partial snapshot
             # never quietly lands. The caller retains the previous graph
@@ -394,6 +428,41 @@ def _validate_links(
     return tuple(links), tuple(drops)
 
 
+def _reconcile_unmapped_resources(
+    result: ResourceQueryResult,
+    coverage: ProviderScopeCoverage,
+) -> tuple[InventoryBatch, ProviderScopeCoverage]:
+    """Require every unmapped provider row exactly once before final-fence promotion."""
+    resources = _dedupe_resources(result.resources)
+    provider_counts: Counter[str] = Counter()
+    for resource in resources:
+        if resource.type != UNCLASSIFIED_RESOURCE_TYPE:
+            raise RuntimeError("unmapped provider query returned a classified resource")
+        provider_type = resource.props.get("providerType")
+        if not isinstance(provider_type, str) or not provider_type.strip():
+            raise RuntimeError("unclassified resource lacks its provider type")
+        provider_counts[provider_type.strip().lower()] += 1
+    expected_counts = Counter(
+        {item.provider_type: item.count for item in coverage.unmapped_provider_types}
+    )
+    if provider_counts != expected_counts:
+        raise RuntimeError(
+            "unclassified resource identities do not reconcile with provider coverage"
+        )
+    links, duplicate_drops = _validate_links(result.links)
+    return (
+        InventoryBatch(
+            resources=resources,
+            links=links,
+            relationship_drops=(*result.relationship_drops, *duplicate_drops),
+        ),
+        replace(
+            coverage,
+            materialized_unmapped_provider_object_count=len(resources),
+        ),
+    )
+
+
 __all__ = [
     "ActivityLogFetchFn",
     "ActivityLogPage",
@@ -401,4 +470,5 @@ __all__ = [
     "AzureResourceGraphInventory",
     "ResourceQueryFn",
     "ResourceQueryResult",
+    "UnmappedResourceQueryFn",
 ]

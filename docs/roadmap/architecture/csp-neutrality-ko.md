@@ -1,7 +1,7 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: f892f6bf1b54be9a07aca6c737fba5f058d5411e
+translation_source_sha: 928067e52d57ffe9d9ccee7a106172e432cb9fba
 translation_revised: 2026-08-19
 ---
 
@@ -33,6 +33,7 @@ translation_revised: 2026-08-19
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | implemented | 검토된 중립 vocabulary 밖의 프로바이더 타입에 대해 신원 수준 종결을 추가했습니다. Azure 어댑터는 별도의 범위 제한 ARG 조회로 해당 행을 읽고, 검토된 단일 `unclassified-resource` 타입으로 구체화하며, 프로바이더 타입별 신원 count가 최종 fence의 coverage 집계와 정확히 일치할 때만 세대를 수락합니다. 예약 타입에는 프로바이더 mapping이나 query terms가 없으며 타입별 Rule 또는 Action 지원을 부여하지 않습니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). 프로바이더, 동기화, ARG, Azure 인벤토리, 조립, CLI, 온톨로지, 카탈로그 및 값 도메인 focused 검사 259개가 통과했고 작업 범위 Ruff와 strict mypy도 통과했습니다. | 새로운 전체 재조정을 승격하고 identity-complete coverage, 스냅샷-온톨로지 parity 및 실시간 overlay 정리를 확인한 뒤 이 행을 `validated`로 변경합니다. |
 | 2026-08-19 | validated | 하드닝 Round 3에서 count, fence, 취소, ARG, 정규화, fallback, seed 복구, precedence, catalog 소유권, 상위 parsing, 그래프 parity 및 근거 lens 12개를 다시 확인했습니다. 검증된 Medium 이상 결함은 남지 않았습니다. 관측 11건은 Low guard 확인 또는 선택적 진단이며 precedence 우려 한 건은 exact mapping 경로와 보존된 실제 운영 parity를 추적한 뒤 기각했습니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). Round 3은 Round 1 exact-parent guard와 Round 2 count-shape guard 뒤의 현재 HEAD를 검토했습니다. focused suite, 보존된 533/57/15 coverage, 2/2 SQL 스냅샷-온톨로지 parity 및 서명된 framework snapshot이 근거 경계로 남습니다. | 이슈 #216 하드닝에 남은 작업은 없습니다. |
 | 2026-08-19 | implemented | 하드닝 Round 2에서 계약, fence, 조회, fallback, mapping, 상위, 검증기, digest 및 근거 우려 14건을 검토했습니다. 제안된 지적과 별개로 실제 Medium 결함 한 건을 채택했습니다. Python boolean이 정수 count로 통과했고 양수 객체/0 타입이라는 불가능한 매니페스트도 유효했습니다. 이제 coverage count는 exact 정수여야 하고 0 객체와 0 타입이 서로 일치해야 하며 관측된 타입 count는 객체 count보다 클 수 없습니다. 반복된 unseeded 세대, ARG filter, shard/fence, 겹치는 glob, 잘못된 상위, 상위 근거 및 digest 우려는 focused 테스트, exact-string mapping grammar, 범위가 제한된 요청 timeout, 완전 세대 검증, 보존된 실제 운영 533/57/15 및 SQL parity 근거와 대조해 기각했습니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). guard 전에는 negative case 6개가 실패했고 guard 뒤에는 `ProviderTypeCount` boolean 거부를 포함한 7개 case가 통과합니다. | 10개 이상의 lens로 Round 3을 실행해 Low 또는 기각된 관측만 남는지 확인합니다. |
 | 2026-08-19 | implemented | 하드닝 Round 1에서 coverage, fence, 조회, mapping, cardinality 및 근거 우려 13건을 검토했습니다. Medium 결함 한 건을 채택했습니다. 출처 타입 하나에 exact 상위 포함 관계 mapping 두 개가 catalog load를 통과해 나중에 온톨로지 변환을 중단할 수 있었습니다. 이제 loader가 프로바이더 I/O 전에 모호한 소유권을 거부합니다. 빈 프로바이더 범위, 리소스 yield 뒤 coverage 실패, null ARM mapping, enum decoding 및 최종 fence 우려는 기각했습니다. 최종 fence가 실행 근거이고, Azure coverage 작업은 어떤 리소스 batch도 yield하기 전에 모두 끝나며, 타입이 지정된 loader와 테스트가 해당 경계를 이미 적용하기 때문입니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). 새 catalog 회귀는 guard 전에는 실패하고 guard 뒤에는 통과합니다. focused 프로바이더 mapping, ARG 및 관계 검증이 검증 표면으로 남습니다. | 두 번째 10건 이상 검토를 실행해 Medium 이상 결함이 남지 않았는지 확인합니다. 잘린 관측의 drop 상세와 timestamp 정밀도 관측은 Low입니다. |
@@ -376,6 +377,11 @@ CSP 접촉면을 지배하는 여덟 개의 계약 (다섯 wire-level 기반 +
 - **Azure coverage는 변환된 그래프 객체가 아니라 프로바이더 native 행을 셉니다.** coverage 조회는 모든 ARG `Resources`와 `ResourceContainers`의 리소스 그룹 행을 정규화된 ARM 타입별로
   묶습니다. 구독 anchor와 구체화된 subnet 같은 파생 중첩 리소스는 제외한 다음 해당 그룹을 검토된 전체 ARM vocabulary와 비교합니다. vocabulary에 없는 프로바이더 타입은 명시적인 미매핑 count로
   남고 자동 선언되지 않습니다.
+- **미분류 신원은 가시성이며 의미 지원이 아닙니다.** Azure 어댑터는 검토된 ARM vocabulary
+  밖의 모든 프로바이더 행을 조회하고, 범위가 제한된 신원, native 타입, 표시 필드 및 포함 관계
+  상위만 검토된 `unclassified-resource` ResourceType에 매핑합니다. 해당 신원이 모든 미매핑 타입
+  count와 정확히 일치하지 않으면 최종 fence를 내보내지 않습니다. 예약 타입에는 프로바이더
+  mapping이나 query terms가 없으며 제공되는 Rule 중 어느 것도 이 타입에 적용되지 않습니다.
 - **Exact 포함 관계가 wildcard fallback보다 하나의 하위를 우선 소유합니다.** Exact 출처 타입
   mapping과 wildcard `contains` mapping이 같은 contained 하위를 점유하면 exact mapping이 wildcard
   후보를 shadow합니다. 서로 다른 하위를 포함하는 mapping은 독립적으로 남습니다. 같은 선택된 mapping이
@@ -436,8 +442,9 @@ CSP 접촉면을 지배하는 여덟 개의 계약 (다섯 wire-level 기반 +
   검증 및 범위가 제한된 활동 발행을 공유합니다. 복구 delta는 cursor를 읽거나 전진하기 전에 각
   scope를 직렬화합니다. 작업은 읽기 전용 인벤토리 신원을 유지하며 Heimdall은 프로바이더를 직접
   조회하거나 작업을 시작하지 않습니다.
-- **미인식 `ResourceType` 또는 LinkType** 은 이슈를 열고 드롭됨; 어댑터는 런타임에 새
-  온톨로지 타입을 자동 등록하지 않음
+- **미인식 `ResourceType` 또는 LinkType** 은 이슈를 열고 드롭됩니다. 어댑터는 런타임에 새
+  온톨로지 타입을 자동 등록하지 않습니다. 전체 프로바이더 스캔은 미리 선언된
+  `unclassified-resource` 타입을 통해서만 알려지지 않은 native 리소스 신원을 보존할 수 있습니다.
   ([llm-strategy-ko.md § 포크 확장](llm-strategy-ko.md#포크-확장-self-extending-온톨로지)).
 - 신뢰할 수 없는 벤더 속성 (태그, 설명) 은 추가 전에 redact 또는 길이-상한화되어
   있어야 하며 inert 데이터이지 지시가 아님.

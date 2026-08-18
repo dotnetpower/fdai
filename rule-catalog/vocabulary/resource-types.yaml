@@ -27,7 +27,7 @@
 #
 # All values are English, secret-free, and customer-agnostic.
 schema_version: "1.0.0"
-version: "0.3.6"
+version: "0.3.7"
 category_query_terms:
   database: [database, databases, db, dbs, 데이터베이스, 디비]
 query_groups:
@@ -395,3 +395,8 @@ types:
     description: Billing / RBAC boundary containing many resource-groups.
     azure_arm_type: Microsoft.Resources/subscriptions
     typical_parents: []
+  - id: unclassified-resource
+    category: governance
+    description: Provider-observed resource whose native type has no reviewed neutral mapping; visible for read-only coverage and ineligible for type-specific rules.
+    azure_arm_type: null
+    typical_parents: [resource-group]

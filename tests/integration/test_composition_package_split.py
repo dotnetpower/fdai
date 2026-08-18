@@ -30,6 +30,8 @@ _EXPECTED_FILES = frozenset(
         # Dynamic branch, and effect-model providers without adding authority.
         "wire_azure_operational_evidence.py",
         "wire_change_feed.py",
+        # Azure inventory aggregate, identity-completeness, and delta binding.
+        "wire_inventory.py",
         # Durable execution profile and ledger binding.
         "wire_execution_backends.py",
         # Ontology-driven execution capability and grant-policy binding.

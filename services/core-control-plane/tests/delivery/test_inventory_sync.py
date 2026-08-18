@@ -120,11 +120,13 @@ async def test_final_fence_coverage_is_promoted_as_snapshot_metadata() -> None:
     )
 
     assert store.promoted_manifests[0].metadata["provider_scope_coverage"] == {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "capture_method": "provider_type_aggregation",
         "provider_object_count": 12,
         "mapped_provider_object_count": 9,
         "unmapped_provider_object_count": 3,
+        "materialized_unmapped_provider_object_count": 0,
+        "provider_identity_complete": False,
         "provider_type_count": 4,
         "unmapped_provider_type_count": 2,
         "unmapped_provider_types": [

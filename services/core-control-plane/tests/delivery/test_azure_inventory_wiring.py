@@ -24,7 +24,11 @@ from fdai.rule_catalog.schema.resource_type import (
     load_resource_type_registry_from_mapping,
 )
 from fdai.shared.config.models import AppConfig
-from fdai.shared.providers.inventory import EmptyInventory, InventoryBatch
+from fdai.shared.providers.inventory import (
+    UNCLASSIFIED_RESOURCE_TYPE,
+    EmptyInventory,
+    InventoryBatch,
+)
 from fdai.shared.providers.testing.workload_identity import StaticWorkloadIdentity
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -82,6 +86,27 @@ async def test_bind_azure_inventory_makes_full_snapshot_live() -> None:
                     ]
                 },
             )
+        if query.startswith("Resources | where tolower(type) !in ("):
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "id": (
+                                "/subscriptions/00000000-0000-0000-0000-000000000001/"
+                                "resourceGroups/rg-example/providers/Microsoft.Example/"
+                                f"watchers/watcher-{index}"
+                            ),
+                            "type": "Microsoft.Example/watchers",
+                            "name": f"watcher-{index}",
+                            "location": "koreacentral",
+                            "resourceGroup": "rg-example",
+                            "subscriptionId": "00000000-0000-0000-0000-000000000001",
+                        }
+                        for index in range(2)
+                    ]
+                },
+            )
         return httpx.Response(
             200,
             json={
@@ -128,8 +153,10 @@ async def test_bind_azure_inventory_makes_full_snapshot_live() -> None:
     assert batches[-1].provider_scope_coverage is not None
     assert batches[-1].provider_scope_coverage.provider_object_count == 3
     assert batches[-1].provider_scope_coverage.unmapped_provider_object_count == 2
+    assert batches[-1].provider_scope_coverage.provider_identity_complete is True
     resources = [r for b in batches for r in b.resources]
-    assert len(resources) == 1
-    assert resources[0].type == "object-storage"
-    assert resources[0].provider_ref is not None
-    assert resources[0].provider_ref.endswith("/storageAccounts/stg1")
+    assert len(resources) == 3
+    mapped = next(resource for resource in resources if resource.type == "object-storage")
+    assert mapped.provider_ref is not None
+    assert mapped.provider_ref.endswith("/storageAccounts/stg1")
+    assert sum(resource.type == UNCLASSIFIED_RESOURCE_TYPE for resource in resources) == 2

@@ -44,6 +44,7 @@ from typing import Any, Protocol, runtime_checkable
 from .state_evidence import LINK_OBSERVATION_METADATA_PROPERTY, LinkObservationMetadata
 
 INVENTORY_RELATIONSHIP_RECONCILIATION_PREFIX = "inventory-relationship-reconciliation:"
+UNCLASSIFIED_RESOURCE_TYPE = "unclassified-resource"
 _MAX_PROVIDER_TYPES = 10_000
 _MAX_PROVIDER_TYPE_LENGTH = 512
 _MAX_PROVIDER_OBJECTS = (2**63) - 1
@@ -152,6 +153,7 @@ class ProviderScopeCoverage:
     mapped_provider_object_count: int
     provider_type_count: int
     unmapped_provider_types: tuple[ProviderTypeCount, ...] = ()
+    materialized_unmapped_provider_object_count: int = 0
 
     def __post_init__(self) -> None:
         if not self.capture_method.strip():
@@ -162,6 +164,7 @@ class ProviderScopeCoverage:
                 self.provider_object_count,
                 self.mapped_provider_object_count,
                 self.provider_type_count,
+                self.materialized_unmapped_provider_object_count,
             )
         ):
             raise ValueError("ProviderScopeCoverage counts MUST be integers")
@@ -194,20 +197,38 @@ class ProviderScopeCoverage:
             raise ValueError(
                 "ProviderScopeCoverage unmapped counts MUST reconcile with the object totals"
             )
+        if self.materialized_unmapped_provider_object_count not in (
+            0,
+            self.unmapped_provider_object_count,
+        ):
+            raise ValueError(
+                "ProviderScopeCoverage materialized unmapped count MUST be zero or complete"
+            )
 
     @property
     def unmapped_provider_object_count(self) -> int:
         """Return provider objects whose native type has no declared mapping."""
         return self.provider_object_count - self.mapped_provider_object_count
 
+    @property
+    def provider_identity_complete(self) -> bool:
+        """Return whether every provider-native object has a materialized identity."""
+        return (
+            self.materialized_unmapped_provider_object_count == self.unmapped_provider_object_count
+        )
+
     def to_metadata(self) -> Mapping[str, object]:
         """Return the canonical JSON-compatible snapshot metadata projection."""
         return {
-            "schema_version": "1.0.0",
+            "schema_version": "1.1.0",
             "capture_method": self.capture_method,
             "provider_object_count": self.provider_object_count,
             "mapped_provider_object_count": self.mapped_provider_object_count,
             "unmapped_provider_object_count": self.unmapped_provider_object_count,
+            "materialized_unmapped_provider_object_count": (
+                self.materialized_unmapped_provider_object_count
+            ),
+            "provider_identity_complete": self.provider_identity_complete,
             "provider_type_count": self.provider_type_count,
             "unmapped_provider_type_count": len(self.unmapped_provider_types),
             "unmapped_provider_types": [
@@ -406,4 +427,5 @@ __all__ = [
     "RelationshipDrop",
     "RelationshipDropReason",
     "ResourceRecord",
+    "UNCLASSIFIED_RESOURCE_TYPE",
 ]
