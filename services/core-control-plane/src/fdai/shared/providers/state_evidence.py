@@ -34,6 +34,9 @@ class StateFactAuthority(StrEnum):
     EXECUTION_LEDGER = "execution_ledger"
 
 
+#: A lane accepts only the authority classes that may originate it. The separation is the
+#: executable form of the constitutional rule that external truth is never inferred from a
+#: write: an execution-ledger fact can never be recorded in the ``observed`` lane.
 _LANE_AUTHORITIES: dict[StateFactLane, frozenset[StateFactAuthority]] = {
     StateFactLane.OBSERVED: frozenset({StateFactAuthority.PROVIDER, StateFactAuthority.TELEMETRY}),
     StateFactLane.DERIVED: frozenset({StateFactAuthority.DETERMINISTIC_FUNCTION}),
@@ -60,7 +63,9 @@ class StateFactMetadata:
     evidence_refs: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        if self.authority not in _LANE_AUTHORITIES[self.lane]:
+        # An unmapped lane accepts no authority, so a lane added to the enum without a
+        # matrix row fails closed instead of raising KeyError.
+        if self.authority not in _LANE_AUTHORITIES.get(self.lane, frozenset()):
             raise ValueError(
                 f"state fact authority {self.authority.value!r} is invalid for "
                 f"{self.lane.value!r} lane"

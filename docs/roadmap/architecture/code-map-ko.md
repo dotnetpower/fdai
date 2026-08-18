@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 7982cd6f1df9fc2e125165e0360189eb17c44e6b
+translation_source_sha: 1b8264b3f71f87779f20a6469c133e34e48e8c91
 translation_revised: 2026-08-18
 ---
 # 코드 맵
@@ -151,6 +151,7 @@ translation_revised: 2026-08-18
 | 2026-08-18 | 구현됨 | 의미 frame을 그것을 만든 질문과 대조해 검증했습니다. 런타임 리소스 인스턴스를 지명하는 스키마 수준 frame은 plan 선택 전에 거부되고 T2로 재시도되며, 재시도가 소진되면 지명된 리소스 질문에 선언 행으로 답하지 않고 지원되지 않음으로 보고합니다. 선언된 어휘에 속하는 하이픈 token은 스키마 질문을 그대로 답변 가능하도록 유지합니다. | `current change`, `core/conversation/semantic_planning_cascade.py`, `tests/conversation/test_semantic_planning_tier_routing.py`, focused tier-routing 검사 32건과 focused 대화, composition, 온톨로지 검사 931건 통과, 작업 범위 Ruff, format 및 strict mypy 통과 | `Resource` 선언은 여전히 상태 속성을 노출하지 않으므로 지명된 리소스 상태 질문은 선언된 필드가 아니라 개방형 속성 bag을 통해 상태에 도달합니다. |
 | 2026-08-18 | 구현됨 | 결정론적 한국어 현재 상태 인식 범위를 넓혀 `상태` 앞의 리소스 종류 명사 또는 `상태` 뒤의 요청 동사가 읽기 조사로 라우팅되도록 했습니다. 피어링, 상태, 이력, 귀속 경로는 기존 우선순위를 그대로 유지합니다. | `current change`, `core/read_investigation/routing.py`, `tests/core/read_investigation/test_routing.py`, focused 읽기 조사 및 에이전트 검사 1269건 통과, 작업 범위 Ruff 및 format 통과 | 결정론적 경로는 에이전트 선택에만 관여하며 Console 의미 턴은 여전히 모든 질문을 모델 cascade로 계획합니다. |
 | 2026-08-18 | 철회됨 | 프로바이더가 보고한 상태와 위치를 선언된 `Resource` 모양으로 끌어올리는 작업을 구현했다가 철회했습니다. 이 변경이 이동시키는 온톨로지 릴리스 다이제스트가 승격된 의미 surface의 검증 영수증 대상을 무효화하기 때문입니다. 답변 경로는 이미 해당 필드를 읽고 정렬하므로 선언이 들어오면 추가 변경이 필요 없습니다. | 철회된 리비전의 전체 수트에서 `validation receipt subject mismatch`로 5건이 실패했고, 부모 커밋에서는 동일 수트 1490건이 통과했습니다. | 선언 변경은 surface 재검증 실행을 포함하는 설계 패스로 남겨둡니다. |
+| 2026-08-18 | 구현됨 | `shared/providers/state_evidence.py`의 상태 사실 레인·권한 분리를 전수 검증 가능하게 만들었습니다. 모든 레인·권한 쌍을 단언하고, `execution_ledger` 사실은 `observed`, `derived`, `desired` 레인에서 거부되며, 행이 없는 레인은 잠재적 `KeyError` 대신 문서화된 거부로 fail closed 합니다. | `current change`, `tests/providers/test_state_evidence.py` focused 테스트 39건 통과, 작업 범위 Ruff와 format 통과 | 모든 변환 쓰기 지점에서 같은 분리를 강제해 향후 작성자가 `StateFactMetadata` 생성 없이 상태 사실을 저장하지 못하게 해야 합니다. |
 
 ### 남은 작업
 

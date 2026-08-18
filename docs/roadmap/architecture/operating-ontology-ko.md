@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: c522f03e71860017652cdf424d092bcec3ea768b
-translation_revised: 2026-08-17
+translation_source_sha: 35a481ddf01e238cde771b14a744e69b662076a8
+translation_revised: 2026-08-18
 ---
 # FDAI 운영 온톨로지
 
@@ -108,6 +108,7 @@ cloud-operations 개념을 소유하고 배포는 관찰된 인스턴스와 의�
 | 2026-08-15 | implemented | 서로 독립된 첫 쌍을 판정했습니다. 실시간 프로바이더 읽기와 인벤토리로 변환된 그래프 상태입니다. 상태나 신원이 어긋나면 `derived` 교차 출처 충돌이 되어 영수증 다이제스트에 보존되고 hook이 상태 단정을 보류하며 활동을 강등합니다. 관측 시각 차이만 있는 경우는 명시적으로 충돌이 아닙니다. | `current change`, `test_resource_state_shadow.py` 판정 테스트 6개와 일치 대조군이 있는 `test_wire_read_investigation.py::test_cross_source_state_conflict_lowers_the_answer_and_activity` | 서로 독립된 두 프로바이더끼리, 그리고 변환된 상태와 텔레메트리를 판정해야 합니다. |
 | 2026-08-15 | implemented | 측정되는 Property 의미 커버리지 게이트를 추가하고 커버리지와 그 결과를 양자 문서쌍에 공개했으며, 제공 Rego 비교에 맞춰 `public_access` 값 종류를 교정하고 근거가 있는 의미 6개를 추가했습니다. | `current change`, `check-property-semantic-coverage.py`가 검토된 참조 14/62를 보고, `test_property_semantic.py`, `test_ontology_catalog.py`, `test_catalog_projection.py`, `test_property_semantic_coverage.py` focused 테스트 | 컬렉션 값 참조는 범위가 제한된 정본 JSON Property 의미가 생길 때까지 검토되지 않은 상태로 남습니다. |
 | 2026-08-16 | implemented | 구현 이력은 append-only이므로 2026-08-15 `Pattern` 및 `PatternObservation` 행을 기록 당시 문구로 되돌리고, 이후 병합이 그 앞에 끼워 넣은 행들보다 앞으로 위치를 되돌렸으며, 그 행을 덮어쓰던 작업을 여기에 별도로 기록합니다. 해당 작업은 제공되는 `Forecast`와 `Pattern` 선언을 채택하고, 소유 학습 객체 이름을 `Pattern`으로 통일해 스펙, 토픽, 모든 표가 한 이름을 쓰게 했으며, `unknown_service` 범위 커버리지 표시자를 추가하고, 보류된 관계 두 개가 어느 엔드포인트 쌍도 생산할 수 없어 막혀 있음을 기록했습니다. | `current change`, `rule-catalog/vocabulary/object-types/{Forecast,Pattern}.yaml`, `operating_scope.py`, `test_ontology_catalog.py` 문서 일관성 테스트, `test_shipped_catalog_accepts_and_traverses_one_lineage` 및 `test_shipped_catalog_rejects_a_lineage_missing_a_required_property`. 이전 fake-store 테스트가 잡지 못하던 `resulted_in` 방향 역전이 이제 실패합니다. 집중 카탈로그, 맥락, 변환 결과, 정합성, 인스턴스, explorer, release 집중 테스트가 통과했습니다. | 누락된 `DecisionCase`, `ActionOption`, `ExpectedEffect`, `ActionRun` 속성을 실제 생산자에서 공급한 뒤 조립 루트에서 `OperationalHypothesisLineageProjector`를 구성하고, 보류된 관계를 복원하기 전에 생산자를 마련하며, Norns가 살아 있는 소비자와 함께 `Pattern`을 발행하거나 해당 토픽을 폐기하고, 범위 커버리지를 소비자 하나에 연결하며 운영 의도 인스턴스를 고정해야 합니다. |
+| 2026-08-18 | implemented | 레인과 권한 분리를 전수 검증 가능하게 만들었습니다. 모든 레인·권한 쌍을 단언하고, `execution_ledger` 사실은 `observed`, `derived`, `desired` 레인에서 거부되며, 행이 없는 레인은 잠재적 `KeyError` 대신 문서화된 거부로 fail closed 합니다. | `current change`, `test_state_evidence.py` focused 테스트 39개 통과 | 모든 변환 쓰기 지점에서 같은 분리를 강제해 향후 작성자가 `StateFactMetadata` 생성 없이 상태 사실을 저장하지 못하게 해야 합니다. |
 
 ### 남은 작업
 

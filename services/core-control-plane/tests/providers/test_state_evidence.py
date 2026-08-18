@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from fdai.shared.providers.state_evidence import (
+    _LANE_AUTHORITIES,
     LinkObservationMetadata,
     StateFactAuthority,
     StateFactLane,
@@ -54,6 +55,59 @@ def test_observed_and_derived_facts_cannot_share_authority() -> None:
     assert derived.lane is StateFactLane.DERIVED
     with pytest.raises(ValueError, match="invalid.*derived"):
         replace(derived, authority=StateFactAuthority.PROVIDER)
+
+
+@pytest.mark.parametrize(
+    ("lane", "authority"),
+    [(lane, authority) for lane in StateFactLane for authority in StateFactAuthority],
+)
+def test_every_lane_authority_pair_matches_the_declared_matrix(
+    lane: StateFactLane,
+    authority: StateFactAuthority,
+) -> None:
+    allowed = authority in _LANE_AUTHORITIES[lane]
+
+    if allowed:
+        fact = _fact(lane=lane, authority=authority)
+        assert fact.lane is lane
+        assert fact.authority is authority
+        return
+
+    with pytest.raises(ValueError, match="invalid"):
+        _fact(lane=lane, authority=authority)
+
+
+@pytest.mark.parametrize(
+    "lane",
+    [StateFactLane.OBSERVED, StateFactLane.DERIVED, StateFactLane.DESIRED],
+)
+def test_execution_results_cannot_be_written_as_observed_truth(lane: StateFactLane) -> None:
+    """FDAI-CONST-002: external truth is never inferred from an execution write."""
+
+    with pytest.raises(ValueError, match="invalid"):
+        _fact(lane=lane, authority=StateFactAuthority.EXECUTION_LEDGER)
+
+    execution_fact = _fact(
+        lane=StateFactLane.EXECUTION,
+        authority=StateFactAuthority.EXECUTION_LEDGER,
+    )
+    for observing_authority in (StateFactAuthority.PROVIDER, StateFactAuthority.TELEMETRY):
+        with pytest.raises(ValueError, match="invalid.*execution"):
+            replace(execution_fact, authority=observing_authority)
+
+
+def test_lane_authority_matrix_covers_every_lane() -> None:
+    assert set(_LANE_AUTHORITIES) == set(StateFactLane)
+    assert all(bindings for bindings in _LANE_AUTHORITIES.values())
+
+
+def test_an_unmapped_lane_is_rejected_rather_than_raising_key_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delitem(_LANE_AUTHORITIES, StateFactLane.OBSERVED)
+
+    with pytest.raises(ValueError, match="invalid.*observed"):
+        _fact(lane=StateFactLane.OBSERVED, authority=StateFactAuthority.PROVIDER)
 
 
 @pytest.mark.parametrize("field_name", ["effective_at", "recorded_at", "evidence_cutoff"])
