@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: b50f1906259644b683ece65b989b27ec04f30261
+translation_source_sha: 0faf815e21eb03fa400a6ff17ffc60b32264b04b
 translation_revised: 2026-08-17
 ---
 
@@ -44,6 +44,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 읽기 전용 Conversation Search interaction | implemented | `conversation-search.tsx`, `conversation-search.model.ts`, `conversation-search.test.ts`, focused route 테스트(`5 passed`) 및 Console typecheck | Bounded filter, 안전한 text highlight, exact context toggle, empty 및 unavailable 상태, fail-closed decoder 오류는 승인 또는 실행 권한을 추가하지 않습니다. |
 | 인시던트 대화 RCA 표현 | implemented | `incident_queries.py`, `semantic_turn_processor.py`, `semantic_turn_presentation.py`, `presentation-artifact.ts`, focused Core, Operator 및 Console 검사(`138 passed`) | 기록된 원인은 일치하는 인용이 포함된 grounded 가설 또는 정확한 감사 행에 근거한 허용 목록의 결정론적 최종 실패를 요구합니다. T0는 범위가 제한된 영향 근거를 기록하고 두 언어 모두 실행 권한 없이 근본 원인, 영향 및 인용을 렌더링합니다. 누락된 근거는 명시적으로 유지합니다. |
 | 구조화된 인시던트 근거 가독성 | implemented | `structured-reply.tsx`, `presentation-value.ts`, `structured-reply.css`, 집중 Console 검사(`19 passed`) 및 타입 검사 | Console은 의미가 있는 마크업에 정확한 RFC 3339 값을 보존하면서 운영자 로컬 시각과 시간대, 관찰 구간, 읽기 쉬운 주체와 기계 토큰 레이블, 반응형 근거 행, 범위가 명확한 채팅 연결 상태, 모바일 44 px 컨트롤을 표시합니다. 브라우저 비평 5회 뒤에는 범위가 제한된 모바일 출처 목록의 가로 스크롤만 Low로 남았으며 통제된 브라우저 산출물은 보존하지 않았습니다. |
+| Console 사용자 권한 판별 | implemented | `handover-editor.tsx`, `handover-editor.test.ts`, 집중 Console 테스트(`26 passed`) 및 타입 검사 | FDAI App Role은 API 애플리케이션에 정의되므로 Console SPA id token에는 `roles` 클레임이 없습니다. 권한이 필요한 화면 요소는 서버가 소유한 `/iam` 기능 변환 결과에서 권한을 판별하고, id token 클레임은 대체 수단으로만 사용하며, 확인 중 상태를 별도로 표시하고, 변환 결과를 사용할 수 없으면 차단 상태로 유지합니다. 실제 통제 지점은 여전히 서버뿐입니다. |
 
 ### 구현 이력
 
@@ -65,6 +66,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 2026-08-17 | implemented | 검증된 산출물이나 기계 기록을 바꾸지 않고 구조화된 인시던트 근거의 가독성을 강화했습니다. 로컬 시각과 시간대, 보존된 원시 타임스탬프, 관찰 구간, 읽기 쉬운 주체와 토큰, 반응형 네이티브 표, 범위가 명확한 준비 상태 문구, 콘텐츠를 가리지 않는 최신 메시지 탐색, 32/44 px 컨트롤을 적용했습니다. | `current change`; `presentation-value.test.ts`와 `command-deck-workspace-visual.test.ts`의 집중 검사 19개 및 Console 타입 검사가 통과했습니다. 인증된 브라우저 비평 5회는 최종 데스크톱/모바일 검사 12개를 모두 통과했고 출처 목록 가로 스크롤만 Low로 남았습니다. | 아래에서 이미 추적하는 더 넓은 통제된 인시던트 표현 산출물을 보존합니다. 이 가독성 범위에는 Medium 이상의 구현 문제가 남아 있지 않습니다. |
 | 2026-08-17 | implemented | 고정된 각 질문 신원이 하나의 넓은 작업 수준 기능을 상속하지 않고 유효한 typed 기능군을 선언하도록 live ontology assurance oracle을 구체화했습니다. Oracle은 exact 질문에 필요한 관계, 인과, 시간, 필터 또는 근거 기능이 빠진 답변 plan을 계속 거부합니다. | `current change`, `ontology-query-assurance.test.ts` 99개와 Console typecheck 통과 | 다른 전체 seed 기반 집단을 실행하기 전에 통과한 strict 아티팩트를 보존합니다. |
 | 2026-08-17 | implemented | 근거 검증 질문이 Core의 server-owned secured ObjectSet plan을 계속 요구하도록 prompt별 oracle을 바로잡았습니다. Topology 또는 metric 기능은 다른 답변 형태에 근거를 제공할 수 있지만 evidence-validation 계약을 대체하지 않습니다. | `current change`, `ontology-query-assurance.test.ts` 99개와 Console typecheck 통과 | 다른 전체 seed 기반 집단을 실행하기 전에 통과한 strict 아티팩트를 보존합니다. |
+| 2026-08-18 | implemented | 에이전트 감독의 지식 인수인계 권한을 Console SPA id token의 `roles` 클레임 대신 서버가 소유한 `/iam` 기능 변환 결과에서 판별하도록 바꿨습니다. API 범위 App Role 모델에서는 해당 클레임이 채워지지 않습니다. 이 판별은 id token 클레임을 대체 수단으로 유지하고, 변환 결과를 불러오는 동안 확인 중 상태를 표시하며, 사용할 수 없으면 차단 상태로 유지합니다. | `current change`, `handover-editor.test.ts`와 `handover.test.ts`의 집중 검사 20개 통과, `index.test.ts` 카탈로그 일치 검사 6개 통과, Console typecheck 통과 | 권한이 있는 운영자가 담당자 등록 양식에 도달하는 통제된 Browser Entra 산출물을 보존합니다. |
 
 ### 남은 작업
 
@@ -72,6 +74,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 - [ ] 감사 기반이 아닌 운영 상관관계에 추적 링크가 없고 감사 근거가 없는 수동 조회가 중립적인 사용 불가 상태로 표시됨을 보여 주는 통제된 Browser Entra 산출물을 보존합니다.
 - [ ] 새로 기록된 RCA 인시던트에서 근본 원인, 영향 근거 및 근거 인용을 보여 주는 통제된 Browser Entra 산출물을 보존합니다. 영향 행이 없는 과거 인시던트는 명시적으로 불완전한 상태를 유지해야 합니다.
 - [x] 정확한 기계 값을 보존하면서 데스크톱과 모바일 폭에서 구조화된 인시던트 근거를 읽기 쉽게 유지합니다. 집중 검사, 타입 검사, 브라우저 비평 5회가 통과했으며 Medium 이상의 잔여 문제가 없습니다.
+- [ ] 권한이 부여된 Contributor, Approver 또는 Owner가 지식 인수인계 담당자 등록 양식에 도달하고 Reader에게는 잠금 화면이 계속 표시됨을 보여 주는 통제된 Browser Entra 산출물을 보존합니다.
 
 ## 1. Framing - 무엇인가 (그리고 무엇이 아닌가)
 
