@@ -1,0 +1,13 @@
+{
+  "scenario_id": "sre.slo-signal-source-unmapped.002",
+  "wire_t2": true,
+  "event_payload_resource": {
+    "resource_id": "example-unmapped-slo-target",
+    "type": "slo-target.unmapped",
+    "props": {}
+  },
+  "expected_control_loop_outcome": "abstained_routing",
+  "expected_decision": "abstain",
+  "expected_citing_rule_id_present": null,
+  "note": "The explicit unknown case for the SRE pack. An error-budget burn arrives for a target whose resource type the catalog does not model, so no deterministic rule matches and no learned action exists. The loop abstains and publishes nothing rather than guessing a remediation from an unmodelled signal; insufficient evidence stays unknown."
+}

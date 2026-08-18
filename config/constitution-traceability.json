@@ -49,7 +49,7 @@
       "schemas": ["services/core-control-plane/tests/scenarios/schema.json", "services/core-control-plane/tests/scenarios/manifest.schema.json"],
       "tests": ["services/core-control-plane/tests/scenarios/test_frozen.py", "services/core-control-plane/tests/scenarios/test_v2026_07_replay.py"],
       "runtime_evidence": ["services/core-control-plane/tests/scenarios/manifests/v2026.07.json"],
-      "gap": "Capability accounting is machine-validated, but SRE has no scenario and every existing pack still lacks one or more constitutional coverage dimensions."
+      "gap": "Capability accounting is machine-validated and every pack now owns at least one scenario, so none is missing. Coverage remains partial: only deterministic replay is evidenced across packs, plus one unknown-or-deny case for SRE and one A3-E non-applicability case for chaos. Successful full loop, cross-objective conflict, and partial-failure recovery have no evidence in any pack."
     },
     {
       "id": "FDAI-CONST-006",

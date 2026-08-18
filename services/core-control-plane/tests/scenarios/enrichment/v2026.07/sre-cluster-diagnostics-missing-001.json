@@ -1,0 +1,18 @@
+{
+  "scenario_id": "sre.cluster-diagnostics-missing.001",
+  "shipped_rule_id": "kubernetes-cluster.diagnostic-settings-required",
+  "event_payload_resource": {
+    "resource_id": "example-aks-cluster",
+    "type": "kubernetes-cluster",
+    "props": {
+      "diagnostic_settings": [],
+      "rbac_enabled": true,
+      "private_cluster_enabled": true,
+      "network_policy": "calico"
+    }
+  },
+  "expected_control_loop_outcome": "executed",
+  "expected_decision": "auto",
+  "expected_citing_rule_id_present": "kubernetes-cluster.diagnostic-settings-required",
+  "note": "SRE observability precondition: a cluster with no diagnostic settings emits no SLO signal, so a burn-rate alert can never fire and the reliability objective is unmeasurable. Props fire ONLY diagnostic-settings-required; rbac_enabled, private_cluster_enabled, and a non-empty network_policy satisfy the co-resident kubernetes-cluster rules so the citing set stays single-rule."
+}

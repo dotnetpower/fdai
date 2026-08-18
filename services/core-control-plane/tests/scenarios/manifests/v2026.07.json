@@ -4,9 +4,9 @@
   "status": "incomplete",
   "capability_packs": {
     "sre": {
-      "status": "missing",
-      "scenario_ids": [],
-      "coverage": {"successful_full_loop": [], "unknown_or_deny": [], "cross_objective_conflict": [], "partial_failure_recovery": [], "a3e_or_non_applicability": [], "deterministic_replay_with_evidence": []}
+      "status": "partial",
+      "scenario_ids": ["sre.cluster-diagnostics-missing.001", "sre.slo-signal-source-unmapped.002", "sre.telemetry-retention-excessive.003"],
+      "coverage": {"successful_full_loop": [], "unknown_or_deny": [{"scenario_id": "sre.slo-signal-source-unmapped.002", "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_07_replay.py::test_v2026_07_scenario_replays_through_control_loop"}], "cross_objective_conflict": [], "partial_failure_recovery": [], "a3e_or_non_applicability": [], "deterministic_replay_with_evidence": [{"scenario_id": "sre.cluster-diagnostics-missing.001", "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_07_replay.py::test_v2026_07_scenario_replays_through_control_loop"}, {"scenario_id": "sre.slo-signal-source-unmapped.002", "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_07_replay.py::test_v2026_07_scenario_replays_through_control_loop"}, {"scenario_id": "sre.telemetry-retention-excessive.003", "test_ref": "services/core-control-plane/tests/scenarios/test_v2026_07_replay.py::test_v2026_07_scenario_replays_through_control_loop"}]}
     },
     "arb_change_safety": {
       "status": "partial",

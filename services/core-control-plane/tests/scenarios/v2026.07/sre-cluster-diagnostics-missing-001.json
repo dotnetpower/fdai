@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0.0",
+  "id": "sre.cluster-diagnostics-missing.001",
+  "version": "v2026.07",
+  "domain": "change",
+  "capability": "sre",
+  "tags": [
+    "observability",
+    "kubernetes",
+    "slo-signal"
+  ],
+  "event": {
+    "schema_version": "1.0.0",
+    "event_id": "00000000-0000-0000-0000-000000000010",
+    "idempotency_key": "scenario-10",
+    "source": "example_resource_configuration",
+    "event_type": "drift_detected",
+    "detected_at": "2026-07-05T08:00:00Z",
+    "ingested_at": "2026-07-05T08:00:01Z",
+    "mode": "shadow"
+  },
+  "expected": {
+    "tier": "t0",
+    "decision": "auto",
+    "citing_rule_ids": [
+      "kubernetes-cluster.diagnostic-settings-required"
+    ],
+    "guard": {
+      "should_execute": true,
+      "should_rollback": false,
+      "should_trigger_policy_violation": false,
+      "expected_mttr_s_max": 60
+    }
+  }
+}

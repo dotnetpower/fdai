@@ -1,8 +1,8 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: 08851b7e817602fea3f1d420ea66e5b3e113162a
-translation_revised: 2026-08-14
+translation_source_sha: 279c4facb601c2db86d10688d800bf11ea0bf81c
+translation_revised: 2026-08-18
 ---
 
 # 목표와 메트릭
@@ -35,6 +35,7 @@ translation_revised: 2026-08-14
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 실행 가능한 측정 mechanics를 입증되지 않은 결과 주장과 분리했습니다. | `current change`; 위에 인용한 측정 소스, 집중 테스트, 시나리오 매니페스트 및 헌법 레지스터입니다. | 시나리오 커버리지를 완료하고 권위 있는 결과 종결을 포함한 실제 운영 기준선 및 처리 집단을 보존합니다. |
+| 2026-08-18 | in-progress | `sre` 능력 팩에 첫 시나리오를 부여해 `missing` 상태인 팩이 사라졌습니다. 고정 시나리오 3개가 제공되는 카탈로그로 실제 컨트롤 루프를 재생합니다. `kubernetes-cluster.diagnostic-settings-required`를 발화시켜 shadow PR을 여는 관측 가능성 전제 조건, 모델링되지 않은 대상의 error budget 소진이 abstain하고 아무것도 발행하지 않는 경우, 검토된 상한을 넘는 텔레메트리 보존입니다. 도메인마다 하나씩 배치해 균형 검사를 만족시킵니다. `unknown_or_deny`와 `deterministic_replay_with_evidence`만 주장했습니다. 나머지 네 차원은 근거가 없어 팩은 `partial`, 집합은 `incomplete`로 유지합니다. | `current change`, `tests/scenarios` focused 테스트 98건 통과. 신규 재생 3건 모두 제공되는 규칙·정책·ActionType으로 `ControlLoop.process`를 통과했습니다. | 모든 팩에 대해 successful-full-loop, cross-objective-conflict, partial-failure-recovery, A3-E 또는 비해당 사례를 작성해야 합니다. full-loop 주장에는 shadow 실행이 제공하지 않는 독립 효과 검증이 추가로 필요합니다. |
 
 ### 남은 작업
 

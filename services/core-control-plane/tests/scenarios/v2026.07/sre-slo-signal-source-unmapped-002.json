@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0.0",
+  "id": "sre.slo-signal-source-unmapped.002",
+  "version": "v2026.07",
+  "domain": "dr",
+  "capability": "sre",
+  "tags": [
+    "slo",
+    "unknown-signal",
+    "abstain"
+  ],
+  "event": {
+    "schema_version": "1.0.0",
+    "event_id": "00000000-0000-0000-0000-000000000011",
+    "idempotency_key": "scenario-11",
+    "source": "example_slo_monitor",
+    "event_type": "error_budget_burn",
+    "detected_at": "2026-07-05T08:00:00Z",
+    "ingested_at": "2026-07-05T08:00:01Z",
+    "mode": "shadow"
+  },
+  "expected": {
+    "tier": "t2",
+    "decision": "abstain",
+    "citing_rule_ids": [],
+    "guard": {
+      "should_execute": false,
+      "should_rollback": false,
+      "should_trigger_policy_violation": false
+    }
+  }
+}

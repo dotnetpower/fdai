@@ -2,8 +2,8 @@
 title: 변경 안전성
 description: FDAI가 제안된 모든 변경을 안전하게 유지하는 방법 - 정책 게이트, 리스크 분류, 감사 가능한 pull request 전달.
 translation_of: change-safety.md
-translation_source_sha: bf8a91ca79c164a5b154257f8a3e14e18cd3359d
-translation_revised: 2026-08-14
+translation_source_sha: 0ada577fd4fe5edda187ab30ad49c3a1e0ec7d41
+translation_revised: 2026-08-18
 ---
 
 # 변경 안전성

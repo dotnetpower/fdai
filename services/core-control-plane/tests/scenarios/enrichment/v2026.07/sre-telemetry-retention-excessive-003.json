@@ -1,0 +1,15 @@
+{
+  "scenario_id": "sre.telemetry-retention-excessive.003",
+  "shipped_rule_id": "log-workspace.retention-excessive",
+  "event_payload_resource": {
+    "resource_id": "example-log-workspace",
+    "type": "log-workspace",
+    "props": {
+      "retention_days": 400
+    }
+  },
+  "expected_control_loop_outcome": "executed",
+  "expected_decision": "auto",
+  "expected_citing_rule_id_present": "log-workspace.retention-excessive",
+  "note": "The SRE side of telemetry retention: observability data has an operating cost, and retention beyond the reviewed ceiling is billed as archive without improving any error-budget decision. 400 days exceeds the 90-day default ceiling, so the low-severity rule fires and the loop opens a shadow PR."
+}
