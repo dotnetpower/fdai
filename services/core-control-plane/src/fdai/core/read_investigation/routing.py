@@ -34,7 +34,9 @@ _HEALTH = re.compile(
 )
 _STATE = re.compile(
     r"\b(?:current state|resource state|vm state|power state|status|running|stopped|deallocated)\b|"
-    r"(?:현재 상태|리소스 상태|가상 머신 상태|전원 상태|실행 중|중지됨|할당 해제)",
+    r"(?:현재 상태|리소스 상태|가상 머신 상태|전원 상태|실행 중|중지됨|할당 해제)|"
+    r"상태[를은는]?\s*(?:요약|확인|점검|조회|알려|보여)|"
+    r"(?:클러스터|노드|파드|인스턴스|서버|디스크|계정|저장소|네임스페이스)\s*상태",
     re.IGNORECASE,
 )
 _NETWORK_MUTATION = re.compile(
