@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: cda020ac0374454e76f7ac6b63f4f2d0d3606e4d
+translation_source_sha: 29eb8c476e8e1c182f50dfbd8be40886c08b4e67
 translation_revised: 2026-08-19
 ---
 # 프로젝트 구조
@@ -56,7 +56,7 @@ translation_revised: 2026-08-19
 | 2026-08-17 | implemented | 기존 인시던트 근거 함수, 의미 답변, Operator 산출물 및 엄격한 Console 슬롯 디코더를 통해 기록된 grounded RCA를 전달했습니다. T0는 기존 발견 사항에서 측정값을 지어내지 않고 발견 사항 심각도 영향 행 하나를 기록합니다. 기록된 grounded 가설에 일치하는 인용이 있을 때만 원인을 지원하며, 영향 및 인용 행은 범위가 제한된 읽기 전용 근거로 유지하고, 근거가 없으면 이를 명시합니다. | `current change`; focused Core, Operator 및 Console 검사 138개 통과, Ruff, strict mypy 및 Console typecheck 통과 | 로컬 스택을 재시작한 뒤 인증된 Browser 근거를 보존합니다. |
 | 2026-08-17 | implemented | 읽기 전용 인시던트 근거 함수를 정확한 알림 최종 실패 허용 목록으로 확장했습니다. 파생한 원인, 영향 행 및 인용은 기존 감사 행 하나의 변환 결과로 유지하며 알림을 다시 보내거나 감사 이력을 변경하지 않습니다. | `current change`; focused Core 및 Operator 검사 133개 통과, Ruff 및 strict mypy 통과 | Core를 재시작하고 인증된 Console에서 현재 route-unresolved 인시던트를 검증합니다. |
 | 2026-08-18 | implemented | `FDAI_EXECUTION_VENUE`를 해석하고 venue가 선택하는 모든 capability 플래그를 열거하는 단일 계약으로 `runtime/venue.py`를 추가했습니다. `bootstrap.py`, `inventory_sync_cli.py`, `observation_campaign_cli.py`, `analyzer_tick_cli.py`는 이제 각자 기본값을 둔 원시 문자열 비교 대신 이 표에서 venue와 전송·신원·인벤토리·버스 바인딩을 읽습니다. 알 수 없는 값은 더 약한 로컬 전송으로 떨어지지 않고 거부됩니다. `check-venue-capability-contract.py`는 임의의 직접 읽기나 리터럴 비교가 다시 들어오면 실패하며 pre-push 구조 게이트, `verify.sh`, CI에 등록했습니다. | `current change`, 신규 `test_venue.py`를 포함해 `tests/runtime` focused 테스트 209건 통과, 음성 픽스처를 포함한 `tests/integration/scripts/test_venue_capability_contract.py` 4건 통과, `tests/delivery` 1489건 통과, 작업 범위 Ruff·format·strict mypy 통과 | Operator, document-ingestion, document-worker 서비스도 같은 계약 아래로 옮겨야 합니다. 아직 각자 venue를 해석합니다. |
-
+| 2026-08-19 | implemented | Declaration inventory와 운영 데이터를 서로 다른 결정론적 조회 경계로 유지했습니다. `semantic_planning_cascade.py`는 frame이 정확히 같은 canonical declaration kind를 요청할 때만 `query.manifest` 집계를 허용하므로 인시던트 및 감사 로그 개수가 declaration 행으로 대체될 수 없습니다. 거부된 T1 제안은 T2로 한 번만 재시도하며 이후에는 판단을 보류합니다. | `current change`, [Issue #174](https://github.com/dotnetpower/fdai/issues/174), 재현한 질문 3개와 일치하는 declaration control을 포함한 semantic planning 검사 70개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 이 수정 사항을 새로운 운영 근거로 취급하기 전에 통제된 대화 보증을 다시 실행합니다. |
 ### 남은 작업
 - [ ] 호환성 import deprecation 주기 뒤 연기된 Phase 2 물리 `git mv`를 완료하고 이 배치를 결과 service-owned 경로로 갱신합니다.
 ## 모노레포 레이아웃

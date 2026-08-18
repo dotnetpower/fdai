@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 0454adfa2e1b1f4d32622e0400f16239b8ab4b59
-translation_revised: 2026-08-18
+translation_source_sha: d97c4e1ad2b30b55e06a8aff602fbb5f56689b3f
+translation_revised: 2026-08-19
 ---
 
 # 온톨로지 조회 커버리지 구현 계획
@@ -233,7 +233,7 @@ translation_revised: 2026-08-18
 | 2026-08-18 | implemented | 검증된 목록 답변을 한눈에 읽을 수 있게 했습니다. 완전한 범주형 결과는 제한된 막대 분포를 그리고, 잘린 결과는 검증된 전체 중 몇 건을 표시했고 나머지가 어디에 있는지 밝히며, 이름 있는 읽기 쉬운 필드가 불투명한 식별자보다 앞에 오고, 항목이 하나인 요약은 빈 격자 칸을 남기지 않고 행을 채웁니다. 불완전하거나 상한에 걸린 결과는 차트를 그리지 않아 부분 집계가 전체처럼 읽히지 않습니다. | `current change`, [Issue #184](https://github.com/dotnetpower/fdai/issues/184), focused Operator 검사 394개 통과(차트 회귀 2건 신규), Console typecheck 및 작업 범위 Ruff와 strict mypy 통과, 인증된 실제 turn이 검증된 42행 중 20행을 상한과 함께 표시 | 차트와 행 상한 안내에 대한 통제된 request-to-Console 및 이중 언어 무작위 근거를 보존합니다. |
 | 2026-08-18 | implemented | 의미 turn이 관측한 단계를 스트림에서 주소 지정 가능한 step으로 만들었습니다. Operator가 진행 이벤트만 발행해 Console의 관측 과정 타임라인이 그릴 대상이 없었고, 답변이 도착할 때까지 한 줄이 고정돼 있었습니다. 이제 관측된 각 단계가 제한된 step을 함께 발행하며, 대기 step은 종단 projection이 생길 때까지 running으로 보고되고 disposition과 무관하게 종단 이벤트 전에 정리됩니다. | `current change`, [Issue #187](https://github.com/dotnetpower/fdai/issues/187), focused Operator 검사 394개 통과, Ruff 및 strict mypy 통과, 실제 turn이 running 대기 step과 완료 step 5개로 표시 | Core는 종단 projection 하나만 발행하므로 계획 하위 단계는 스트림이 관측하지 못하며 보고하지 않습니다. |
 | 2026-08-18 | implemented | 검증된 쿼리를 해당 step에 보고했습니다. 쿼리와 행 수는 이미 종단 projection으로 전달되고 있었지만 근거 step에 연결하는 곳이 없어 Console의 명령 블록에 출처가 없었습니다. 이제 근거 step이 투영된 intent graph와 보고된 출력 행 수로 구성한 제한된 읽기 전용 실행 기록을 담습니다. | `current change`, [Issue #188](https://github.com/dotnetpower/fdai/issues/188), focused Operator 검사 396개 통과, Ruff 및 strict mypy 통과, 실제 turn이 ObjectSet 정의를 코드로 표시 | goal이 여러 개인 plan은 명령을 보고하지 않으므로 복합 쿼리는 기술 세부에만 남습니다. |
-
+| 2026-08-19 | implemented | `query.manifest` 집계를 frame이 정확히 같은 canonical declaration kind를 요청할 때로 제한했습니다. 인시던트 및 감사 로그 개수 질문은 더 이상 declaration 행으로 대체되지 않으며 T1/T2의 제한된 제안이 결정론적 검증에 실패하면 unsupported가 됩니다. 일치하는 declaration 개수는 계속 유효합니다. | `current change`, [Issue #174](https://github.com/dotnetpower/fdai/issues/174), 재현된 운영 개수 질문 3개와 declaration-kind 불일치 재시도를 포함한 전체 semantic planning tier-routing suite 40개 사례 통과 | 이 수정을 새로운 운영 근거로 취급하기 전에 통제된 대화 보증을 다시 실행합니다. |
 ### 남은 작업
 
 - [ ] Operator 게시, Core 처리, exact Operator 변환 결과 읽기 및 인증된 Console 렌더링을 포함하는 통제된 요청-Console 증적 하나를 기록합니다. 이중 언어 무작위 보증 집단을 다시 실행하고 통과한 두 근거 기록을 연결합니다.

@@ -33,6 +33,7 @@ _SERVER_BOUND_REQUIREMENTS = frozenset(
     {ClarificationRequirement.PRINCIPAL_SCOPE, ClarificationRequirement.PURPOSE}
 )
 _SCHEMA_LEVEL_OUTPUT_SHAPES = frozenset({"ontology_manifest", "ontology_relationships"})
+_DECLARATION_KINDS = frozenset({"action", "function", "interface", "link", "object"})
 # Provider inventory names one concrete instance with joined segments
 # (`aks-fdai-observe-lab`). A declaration name is dotted or a single word, and a
 # two-segment token is a product word (`gpt-4o`), so neither shape matches.
@@ -317,6 +318,7 @@ def _verify_frame_plan_alignment(
         if node.kind is QueryNodeKind.OBJECT_SET
     ):
         raise ValueError("semantic property-filter plan requires a predicate")
+    _verify_manifest_aggregate_source(frame, plan)
 
     output_node_ids = set(plan.output_node_ids)
     selected_output_functions: set[str] = set()
@@ -344,6 +346,39 @@ def _verify_frame_plan_alignment(
         if function_name in selected_output_functions
     ):
         raise ValueError("semantic plan selects a function outside the frame output")
+
+
+def _verify_manifest_aggregate_source(
+    frame: SemanticProblemFrame,
+    plan: OntologyQueryPlan,
+) -> None:
+    """Allow manifest aggregation only for the declaration kinds the frame requests."""
+    if frame.output_shape != "aggregation_table":
+        return
+    manifest_kinds = tuple(
+        kinds
+        for node in plan.nodes
+        if node.kind is QueryNodeKind.FUNCTION
+        if (kinds := _manifest_query_kinds(node.arguments_json)) is not None
+    )
+    if not manifest_kinds:
+        return
+    requested_kinds = frozenset(frame.subject_constraints)
+    if not requested_kinds or not requested_kinds.issubset(_DECLARATION_KINDS):
+        raise ValueError("semantic manifest aggregate requires declaration subjects")
+    if any(kinds != requested_kinds for kinds in manifest_kinds):
+        raise ValueError("semantic manifest aggregate kinds differ from frame subjects")
+
+
+def _manifest_query_kinds(arguments_json: str) -> frozenset[str] | None:
+    arguments = json.loads(arguments_json)
+    if not isinstance(arguments, Mapping) or arguments.get("function_name") != "query.manifest":
+        return None
+    function_arguments = arguments.get("arguments")
+    kinds = function_arguments.get("kinds") if isinstance(function_arguments, Mapping) else None
+    if not isinstance(kinds, list) or any(not isinstance(kind, str) for kind in kinds):
+        return frozenset()
+    return frozenset(kinds)
 
 
 def _object_set_has_predicates(arguments_json: str) -> bool:

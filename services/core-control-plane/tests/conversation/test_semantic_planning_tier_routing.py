@@ -138,7 +138,12 @@ def _plan(definition: ObjectSetDefinition) -> dict[str, object]:
     }
 
 
-def _function_plan(function_name: str, *, output_kind: str) -> dict[str, object]:
+def _function_plan(
+    function_name: str,
+    *,
+    output_kind: str,
+    function_arguments: dict[str, object] | None = None,
+) -> dict[str, object]:
     return {
         "nodes": [
             {
@@ -147,7 +152,7 @@ def _function_plan(function_name: str, *, output_kind: str) -> dict[str, object]
                 "depends_on": [],
                 "arguments": {
                     "function_name": function_name,
-                    "arguments": {},
+                    "arguments": function_arguments or {},
                     "dependency_arguments": {},
                 },
                 "output_kind": output_kind,
@@ -173,8 +178,12 @@ def _aggregate_plan(definition: ObjectSetDefinition) -> dict[str, object]:
     return plan
 
 
-def _manifest_aggregate_plan() -> dict[str, object]:
-    plan = _function_plan("query.manifest", output_kind="query.table")
+def _manifest_aggregate_plan(*, kinds: tuple[str, ...] = ("object",)) -> dict[str, object]:
+    plan = _function_plan(
+        "query.manifest",
+        output_kind="query.table",
+        function_arguments={"kinds": list(kinds), "limit": 1000},
+    )
     plan["nodes"] = [
         *plan["nodes"],  # type: ignore[misc]
         {
@@ -934,10 +943,17 @@ def test_aggregation_frame_requires_aggregate_plan() -> None:
     assert (t2.frame_calls, t2.plan_calls) == (0, 1)
 
 
-def test_specialized_function_may_feed_matching_aggregate_output() -> None:
+def test_manifest_function_may_feed_declaration_aggregate_output() -> None:
     manifest, definition = _fixture()
     aggregate_plan = _manifest_aggregate_plan()
-    t1 = _Model(frame=_frame(output_shape="aggregation_table"), plan=aggregate_plan)
+    t1 = _Model(
+        frame=_frame(
+            subject_constraints=["object"],
+            measure_concepts=["count"],
+            output_shape="aggregation_table",
+        ),
+        plan=aggregate_plan,
+    )
     t2 = _Model(frame=_frame(), plan=_plan(definition))
     service = SemanticPlanningService(
         model=t1,
@@ -952,6 +968,66 @@ def test_specialized_function_may_feed_matching_aggregate_output() -> None:
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_manifest_aggregate_kinds_must_match_frame_subjects() -> None:
+    manifest, _definition = _fixture()
+    frame = _frame(
+        subject_constraints=["object"],
+        measure_concepts=["count"],
+        output_shape="aggregation_table",
+    )
+    t1 = _Model(frame=frame, plan=_manifest_aggregate_plan(kinds=("action",)))
+    t2 = _Model(frame=frame, plan=_manifest_aggregate_plan())
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="How many object declarations are available?")
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    assert (t1.plan_calls, t2.plan_calls) == (1, 1)
+
+
+@pytest.mark.parametrize(
+    ("utterance", "subject"),
+    (
+        ("현재 열려 있는 인시던트가 몇 건이야?", "Incident"),
+        ("감사 로그 전체 행 수가 몇 개야?", "audit_log"),
+        ("감사 로그에 기록된 전체 행 수를 세어줘", "audit_log"),
+    ),
+)
+def test_operational_count_never_aggregates_the_declaration_manifest(
+    utterance: str,
+    subject: str,
+) -> None:
+    manifest, _definition = _fixture()
+    frame = _frame(
+        subject_constraints=[subject],
+        measure_concepts=["count"],
+        output_shape="aggregation_table",
+    )
+    aggregate_plan = _manifest_aggregate_plan()
+    t1 = _Model(frame=frame, plan=aggregate_plan)
+    t2 = _Model(frame=frame, plan=aggregate_plan)
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance=utterance)
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert outcome.plan is None
+    assert (t1.plan_calls, t2.plan_calls) == (1, 1)
 
 
 def test_property_filter_frame_requires_object_set_predicate() -> None:
