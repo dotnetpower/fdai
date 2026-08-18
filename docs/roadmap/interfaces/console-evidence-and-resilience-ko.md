@@ -1,8 +1,8 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: f8f91f40966f4bf5ad5470d83da85ae7587865e6
-translation_revised: 2026-08-17
+translation_source_sha: a5d0c35fb93d0d3d57531e6e8f3cb48c3ce7f4f8
+translation_revised: 2026-08-18
 ---
 
 # 콘솔 근거 및 복원력
@@ -29,6 +29,7 @@ translation_revised: 2026-08-17
 
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-08-18 | implemented | 통제 공백의 출처 중 하나라도 사용할 수 없을 때 공백 개수를 보고하던 동작을 중단했습니다. Overview의 통제 보증 카드는 네 가지 출처를 더하면서 없는 출처마다 `0`을 더했기 때문에, `승격 준비 상태: 근거 없음`과 `정책 이탈: 근거 없음` 옆에 `공백 0건`을 표시했습니다. 집계된 공백은 참인 하한이므로 계속 보고하며, 0은 모든 출처가 측정된 경우에만 주장합니다. | `current change`, `dashboard.model.test.ts` 15개 통과(신규 4개 포함)이며 measured 플래그를 되돌려 변이 검증했습니다. Console 전체 스위트 222개 파일 `1878 passed`, Console typecheck 통과. 로컬 콘솔 실측: 네 출처 중 세 개가 근거 없음인 상태에서 카드가 `Incomplete / 0 gaps`를 표시했습니다. | 승격 게이트와 정책 이탈 출처 배선은 #159와 #205에서 따로 추적하는 작업입니다. |
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 온톨로지 보증 아티팩트를 정확한 source, configuration, workspace, 인증, request 및 projection 출처 이력에 연결했습니다. | 현재 변경의 `console/tests/live-e2e/ontology-query-assurance*.ts`, focused Vitest 25개 및 Console 타입 검사 통과. | 정확한 중앙 검증 receipt를 얻은 뒤 seeded 영/한 100-case cohort 전에 인증된 probe 하나를 실행합니다. |
 | 2026-08-14 | 구현됨 | 현재 상태와 하트비트 최신성을 유지하면서 주기적인 `Runtime agent initialized` 스냅샷이 페이지를 새로고칠 때마다 chronological 활동으로 다시 나타나지 않도록 수정했습니다. | `current change`, `agents.model.test.ts` focused 테스트 31개 통과, 인증된 브라우저에서 두 번 새로고침하는 동안 초기화 행 0개 확인 | 런타임 검증을 주장하기 전에 두 번 새로고침한 Browser Entra 결과를 통제된 아티팩트로 보존합니다. |
 | 2026-08-14 | 구현됨 | 전역 `pre` 배경이 덮어쓴 Command Deck JSON 구문 강조 영역 아래에 고정된 어두운 표면을 복원했습니다. | `current change`, 작업 소유 Console CSS 및 시각 계약 테스트, focused Vitest 10개 통과, Console 타입 검사 통과, 인증된 브라우저에서 의도한 어두운 표면과 토큰 색상 계산 확인 | 범위가 제한된 잔여 작업은 없습니다. 향후 테마 변경은 focused 회귀 테스트가 확인합니다. |

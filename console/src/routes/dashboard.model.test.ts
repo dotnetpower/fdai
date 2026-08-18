@@ -1,5 +1,6 @@
 import {
   auditSampleParams,
+  controlGapSummary,
   controlOutcomeGroup,
   dashboardEvidenceGaps,
   distributionRows,
@@ -105,6 +106,46 @@ describe("overview health", () => {
       ),
     ).toBe(4);
     expect(overviewAttentionCount(KPI, null, null)).toBe(0);
+  });
+});
+
+describe("control gap summary", () => {
+  const GATES = { rows: [], ready_count: 1, blocked_count: 0 };
+
+  test("does not claim zero gaps while a gap source is unavailable", () => {
+    expect(controlGapSummary(KPI, null, null, null)).toEqual({
+      count: 0,
+      state: "unknown",
+      measured: false,
+    });
+    expect(controlGapSummary(KPI, 0, GATES, null).measured).toBe(false);
+    expect(controlGapSummary(KPI, 0, null, AUTONOMY).measured).toBe(false);
+    expect(controlGapSummary(KPI, null, GATES, AUTONOMY).measured).toBe(false);
+  });
+
+  test("claims zero gaps only when every gap source was measured", () => {
+    expect(controlGapSummary(KPI, 0, GATES, AUTONOMY)).toEqual({
+      count: 0,
+      state: "clear",
+      measured: true,
+    });
+  });
+
+  test("reports a counted gap as a lower bound even while another source is unavailable", () => {
+    expect(controlGapSummary({ ...KPI, shadow_share: 0.5 }, null, null, null)).toEqual({
+      count: 1,
+      state: "attention",
+      measured: true,
+    });
+  });
+
+  test("does not let synthetic guards raise a gap", () => {
+    const synthetic = { synthetic: true, guards: [{ ...AUTONOMY.guards[0]!, ok: false }] };
+    expect(controlGapSummary(KPI, 0, GATES, synthetic)).toEqual({
+      count: 0,
+      state: "unknown",
+      measured: false,
+    });
   });
 });
 
