@@ -20,6 +20,7 @@ from fdai.core.ontology_platform import (
     ReconciliationRequestProductionStatus,
 )
 from fdai.shared.contracts.models import Action, Event, Mode, Rule
+from fdai.shared.contracts.models.enums import ExecutionPath
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _NOW = datetime(2026, 7, 21, tzinfo=UTC)
@@ -273,7 +274,12 @@ async def test_bound_profile_predicts_before_dispatch_and_observes_after() -> No
         order.append("predict")
         return _expected()
 
-    async def execute(*, action: Action, rule: Rule) -> ExecutionResult:  # noqa: ARG001
+    async def execute(
+        *,
+        action: Action,  # noqa: ARG001
+        rule: Rule,  # noqa: ARG001
+        execution_path: ExecutionPath = ExecutionPath.PR_NATIVE,  # noqa: ARG001
+    ) -> ExecutionResult:
         order.append("execute")
         return _result()
 

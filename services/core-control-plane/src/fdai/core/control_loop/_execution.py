@@ -330,7 +330,13 @@ class ControlLoopExecutionMixin:
                 reason=reason,
             )
         else:
-            result = await self._executor.execute(action=action, rule=rule)
+            result = await self._executor.execute(
+                action=action,
+                rule=rule,
+                execution_path=(
+                    path if path is ExecutionPath.PR_MANUAL else ExecutionPath.PR_NATIVE
+                ),
+            )
         request_production = await self._produce_effect_reconciliation_request(
             action=action,
             result=result,

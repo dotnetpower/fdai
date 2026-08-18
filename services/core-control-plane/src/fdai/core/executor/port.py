@@ -27,10 +27,17 @@ from fdai.core.executor.tool_call import (
     ToolCallShadowExecutor,
 )
 from fdai.shared.contracts.models import Action, Rule
+from fdai.shared.contracts.models.enums import ExecutionPath
 
 
 class _PrNativeExecutionPort(Protocol):
-    async def execute(self, *, action: Action, rule: Rule) -> ExecutionResult: ...
+    async def execute(
+        self,
+        *,
+        action: Action,
+        rule: Rule,
+        execution_path: ExecutionPath = ExecutionPath.PR_NATIVE,
+    ) -> ExecutionResult: ...
 
 
 @runtime_checkable

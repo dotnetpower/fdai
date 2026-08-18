@@ -6,6 +6,7 @@ from dataclasses import replace
 
 from fdai.core.executor import ExecutionResult, ExecutorOutcome, ShadowExecutor
 from fdai.shared.contracts.models import Action, Rule
+from fdai.shared.contracts.models.enums import ExecutionPath
 
 _VERIFIED_OUTCOMES = frozenset(
     {
@@ -18,8 +19,14 @@ _VERIFIED_OUTCOMES = frozenset(
 class VerifiedShadowExecutor(ShadowExecutor):
     """Attach deterministic verified-effect evidence for non-verifier integration tests."""
 
-    async def execute(self, *, action: Action, rule: Rule) -> ExecutionResult:
-        result = await super().execute(action=action, rule=rule)
+    async def execute(
+        self,
+        *,
+        action: Action,
+        rule: Rule,
+        execution_path: ExecutionPath = ExecutionPath.PR_NATIVE,
+    ) -> ExecutionResult:
+        result = await super().execute(action=action, rule=rule, execution_path=execution_path)
         if result.outcome not in _VERIFIED_OUTCOMES:
             return result
         return replace(

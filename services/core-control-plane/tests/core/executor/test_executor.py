@@ -50,6 +50,7 @@ from fdai.shared.contracts.models import (
     Severity,
     StopConditionKind,
 )
+from fdai.shared.contracts.models.enums import ExecutionPath
 from fdai.shared.providers.remediation_pr import PublishReceipt, RemediationPr
 from fdai.shared.providers.testing import (
     InMemoryStateStore,
@@ -747,3 +748,56 @@ async def test_audit_failure_does_not_poison_dedupe_cache() -> None:
     # Cache MUST NOT carry the failed key - a retry would otherwise
     # short-circuit past the audit path and never persist the record.
     assert "poison-test" not in executor._dedupe
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("path", [ExecutionPath.PR_NATIVE, ExecutionPath.PR_MANUAL])
+async def test_the_pr_executor_records_the_path_that_selected_it(path: ExecutionPath) -> None:
+    """`pr_manual` shares this executor with `pr_native`, so the label must be passed in.
+
+    Both paths publish a PR and differ only in merge policy. A receipt that always said
+    `pr_native` would misreport which path a manual-merge action actually took.
+    """
+
+    audit = InMemoryStateStore()
+    executor = ShadowExecutor(
+        publisher=RecordingRemediationPrPublisher(),
+        audit_store=audit,
+        renderer=TemplateRenderer(remediation_root=REMEDIATION_ROOT),
+        resource_lock=ResourceLockManager(),
+    )
+
+    result = await executor.execute(action=_action(), rule=_rule(), execution_path=path)
+
+    assert result.outcome is ExecutorOutcome.PUBLISHED
+    phases = {entry["audit_phase"]: entry for entry in _audit_entries(audit)}
+    assert set(phases) == {"intent", "terminal"}
+    assert phases["intent"]["execution_path"] == path.value
+    assert phases["terminal"]["execution_path"] == path.value
+
+
+@pytest.mark.asyncio
+async def test_the_pr_executor_refuses_a_path_it_does_not_serve() -> None:
+    """Silently mislabelling is the failure this contract exists to prevent."""
+
+    executor = ShadowExecutor(
+        publisher=RecordingRemediationPrPublisher(),
+        audit_store=InMemoryStateStore(),
+        renderer=TemplateRenderer(remediation_root=REMEDIATION_ROOT),
+        resource_lock=ResourceLockManager(),
+    )
+
+    with pytest.raises(ValueError, match="not a PR path"):
+        await executor.execute(
+            action=_action(),
+            rule=_rule(),
+            execution_path=ExecutionPath.DIRECT_API,
+        )
+
+
+def _audit_entries(audit: InMemoryStateStore) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for record in audit.audit_entries:
+        inner = record.get("entry") if isinstance(record, dict) else None
+        entries.append(inner if isinstance(inner, dict) else dict(record))
+    return entries

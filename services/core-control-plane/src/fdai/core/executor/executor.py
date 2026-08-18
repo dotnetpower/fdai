@@ -162,6 +162,12 @@ _MUTATION_OUTCOMES: frozenset[ExecutorOutcome] = frozenset(
     {ExecutorOutcome.PUBLISHED, ExecutorOutcome.ALREADY_EXISTED}
 )
 
+#: The two paths this executor serves. They differ only in merge policy, so they share one
+#: implementation, but a receipt that cannot tell them apart misreports which path ran.
+_PR_EXECUTION_PATHS: frozenset[ExecutionPath] = frozenset(
+    {ExecutionPath.PR_NATIVE, ExecutionPath.PR_MANUAL}
+)
+
 
 def _result_to_payload(result: ExecutionResult) -> dict[str, object]:
     return {
@@ -218,7 +224,13 @@ class ShadowExecutor:
         # one asyncio task at a time behind the resource lock.
         self._dedupe: dict[str, ExecutionResult] = {}
 
-    async def execute(self, *, action: Action, rule: Rule) -> ExecutionResult:
+    async def execute(
+        self,
+        *,
+        action: Action,
+        rule: Rule,
+        execution_path: ExecutionPath = ExecutionPath.PR_NATIVE,
+    ) -> ExecutionResult:
         """Execute one action against one rule; always writes an audit entry.
 
         Returns an :class:`ExecutionResult` describing the terminal state.
@@ -226,7 +238,16 @@ class ShadowExecutor:
         blast-radius overrun, or an enforce-mode Action all fail closed
         into an audited abstain, matching the "fail toward safety" rule
         in ``architecture.instructions.md § Design Principles``.
+
+        ``execution_path`` distinguishes the two paths that share this executor. Both
+        publish a PR; only the merge policy differs, so the safeguard receipt would
+        otherwise record ``pr_native`` for a ``pr_manual`` action.
         """
+        if execution_path not in _PR_EXECUTION_PATHS:
+            raise ValueError(
+                f"{execution_path.value!r} is not a PR path; "
+                f"ShadowExecutor may only be selected for {sorted(_PR_EXECUTION_PATHS)}"
+            )
         # Shadow-only path (P1): reject an enforce-mode Action BEFORE the
         # lock so we do not serialize with unrelated shadow work.
         if action.mode is not Mode.SHADOW:
@@ -235,6 +256,7 @@ class ShadowExecutor:
                 rule=rule,
                 outcome=ExecutorOutcome.REJECTED_MODE,
                 reason="enforce mode is out of scope in P1 (phase-1 § Autonomy Level)",
+                execution_path=execution_path,
             )
 
         invariant_reason = _missing_safety_invariant(action)
@@ -244,6 +266,7 @@ class ShadowExecutor:
                 rule=rule,
                 outcome=ExecutorOutcome.REJECTED_INVARIANT,
                 reason=invariant_reason,
+                execution_path=execution_path,
             )
 
         # Idempotency check - MUST happen inside the resource lock so a
@@ -255,6 +278,7 @@ class ShadowExecutor:
                 action=action,
                 rule=rule,
                 cached=cached,
+                execution_path=execution_path,
             )
 
         async with AsyncExitStack() as locks:
@@ -267,6 +291,7 @@ class ShadowExecutor:
                     action=action,
                     rule=rule,
                     cached=cached,
+                    execution_path=execution_path,
                 )
             await locks.enter_async_context(
                 self._resource_lock.acquire(_resource_lock_key(action.target_resource_ref))
@@ -284,6 +309,7 @@ class ShadowExecutor:
                         action=action,
                         rule=rule,
                         cached=result,
+                        execution_path=execution_path,
                     )
                     if resolved is result:
                         self._remember(action.idempotency_key, result)
@@ -296,6 +322,7 @@ class ShadowExecutor:
                     rule=rule,
                     outcome=ExecutorOutcome.ABSTAINED_BLAST_RADIUS,
                     reason=blast_reason,
+                    execution_path=execution_path,
                 )
 
             try:
@@ -312,11 +339,12 @@ class ShadowExecutor:
                     rule=rule,
                     outcome=ExecutorOutcome.ABSTAINED_RENDER_ERROR,
                     reason=str(exc),
+                    execution_path=execution_path,
                 )
 
             safeguards = evaluate_pre_dispatch(
                 action,
-                execution_path=ExecutionPath.PR_NATIVE,
+                execution_path=execution_path,
                 # An empty render is a dry run that produced nothing, so the digest of an
                 # empty string must not stand in for a what-if artifact.
                 plan_digest=_pr_plan_digest(rule=rule, patch=patch) if patch.strip() else "",
@@ -328,12 +356,14 @@ class ShadowExecutor:
                     rule=rule,
                     outcome=ExecutorOutcome.REJECTED_INVARIANT,
                     reason=safeguards.reason,
+                    execution_path=execution_path,
                 )
             dry_run_receipt = safeguards.dry_run_receipt
             await self._write_audit_intent(
                 action=action,
                 rule=rule,
                 dry_run_receipt=dry_run_receipt,
+                execution_path=execution_path,
             )
             pr = _build_remediation_pr(
                 action=action,
@@ -349,6 +379,7 @@ class ShadowExecutor:
                     rule=rule,
                     dry_run_receipt=dry_run_receipt,
                     publish_error=publish_error,
+                    execution_path=execution_path,
                 )
                 raise
 
@@ -365,6 +396,7 @@ class ShadowExecutor:
                 pr_ref=receipt.pr_ref,
                 pr_url=receipt.url,
                 dry_run_receipt=dry_run_receipt,
+                execution_path=execution_path,
             )
             return result
 
@@ -378,6 +410,7 @@ class ShadowExecutor:
         action: Action,
         rule: Rule,
         dry_run_receipt: str,
+        execution_path: ExecutionPath,
         publish_error: BaseException,
     ) -> None:
         try:
@@ -388,6 +421,7 @@ class ShadowExecutor:
                 reason="publisher outcome is unknown after an adapter error",
                 dry_run_receipt=dry_run_receipt,
                 remember=False,
+                execution_path=execution_path,
             )
         except Exception as audit_error:
             raise BaseExceptionGroup(
@@ -401,6 +435,7 @@ class ShadowExecutor:
         action: Action,
         rule: Rule,
         cached: ExecutionResult,
+        execution_path: ExecutionPath,
     ) -> ExecutionResult:
         expected = _execution_fingerprint(action=action, rule=rule)
         recorded = cached.audit_context.get("idempotency_fingerprint")
@@ -412,6 +447,7 @@ class ShadowExecutor:
             outcome=ExecutorOutcome.REJECTED_IDEMPOTENCY_CONFLICT,
             reason="idempotency key is already bound to a different action payload",
             remember=False,
+            execution_path=execution_path,
         )
 
     def _check_blast_radius(self, action: Action) -> str | None:
@@ -427,6 +463,7 @@ class ShadowExecutor:
         pr_ref: str | None = None,
         pr_url: str | None = None,
         dry_run_receipt: str | None = None,
+        execution_path: ExecutionPath | None = None,
         remember: bool = True,
     ) -> ExecutionResult:
         result = ExecutionResult(
@@ -445,6 +482,7 @@ class ShadowExecutor:
                 "blast_radius_scope": action.blast_radius.scope.value,
                 "idempotency_fingerprint": _execution_fingerprint(action=action, rule=rule),
                 "dry_run_receipt": dry_run_receipt,
+                "execution_path": None if execution_path is None else execution_path.value,
             },
         )
         # Write audit BEFORE caching the result. If the audit-store
@@ -492,6 +530,7 @@ class ShadowExecutor:
             "action_kind": action.action_type,
             "audit_phase": "terminal",
             "mode": Mode.SHADOW.value,
+            "execution_path": result.audit_context.get("execution_path"),
             "citing_rule_ids": list(action.citing_rules),
             "outcome": result.outcome.value,
             "pr_ref": result.pr_ref,
@@ -521,6 +560,7 @@ class ShadowExecutor:
         action: Action,
         rule: Rule,
         dry_run_receipt: str,
+        execution_path: ExecutionPath,
     ) -> None:
         await self._audit_store.append_audit_entry(
             {
@@ -531,6 +571,7 @@ class ShadowExecutor:
                 "action_kind": action.action_type,
                 "audit_phase": "intent",
                 "mode": Mode.SHADOW.value,
+                "execution_path": execution_path.value,
                 "outcome": "intent_persisted",
                 "rule_id": rule.id,
                 "rule_version": rule.version,
