@@ -37,8 +37,31 @@ def to_neutral_id(arm_id: str) -> str:
     if idx == -1:
         parts = [part for part in trimmed.lower().strip("/").split("/") if part]
         suffix = "/".join(parts[2:] if parts[:1] == ["subscriptions"] else parts)
-        return f"{scope_prefix}/{suffix}"
+        # A bare subscription path folds onto the scope anchor itself; a
+        # trailing slash would make the anchor unreferenceable by a parent.
+        return f"{scope_prefix}/{suffix}" if suffix else scope_prefix
     return f"{scope_prefix}/resource-group{trimmed[idx + len(marker) - len('/') :].lower()}"
+
+
+def parent_neutral_id(arm_id: str) -> str | None:
+    """Return the containment parent of ``arm_id`` in CSP-neutral form.
+
+    A resource inside a resource group reports that group; a resource group
+    reports its subscription scope anchor; a subscription has no parent.
+    """
+    trimmed = arm_id.strip()
+    if not trimmed:
+        return None
+    marker = "/resourceGroups/"
+    idx = trimmed.lower().find(marker.lower())
+    if idx == -1:
+        return None
+    after_marker = idx + len(marker)
+    next_slash = trimmed.find("/", after_marker)
+    if next_slash == -1:
+        # The resource group itself is contained by its subscription scope.
+        return _scope_prefix(trimmed)
+    return to_neutral_id(trimmed[:next_slash])
 
 
 def _scope_prefix(arm_id: str) -> str:
