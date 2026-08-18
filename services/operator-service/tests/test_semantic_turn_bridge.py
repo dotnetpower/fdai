@@ -858,7 +858,17 @@ async def test_missing_transport_projects_typed_held_result() -> None:
 
     assert receipt.response.body is not None
     assert cast(dict[str, object], receipt.response.body)["dispatch_status"] == "held"
-    assert [event.event for event in events] == ["status", "status", "done"]
+    assert [event.event for event in events if event.event != "activity"] == [
+        "status",
+        "status",
+        "done",
+    ]
+    # A held turn observes no evidence phase, so its waiting step still settles.
+    assert [event.data["status"] for event in events if event.event == "activity"] == [
+        "completed",
+        "running",
+        "completed",
+    ]
     semantic_result = cast(dict[str, object], events[-1].data["semantic_result"])
     verification = cast(dict[str, object], events[-1].data["verification"])
     assert semantic_result["disposition"] == "held"
@@ -1282,20 +1292,44 @@ async def test_answered_replay_emits_observed_lifecycle_before_readable_terminal
 
     assert [event.event for event in events] == [
         "status",
+        "activity",
         "status",
+        "activity",
         "status",
+        "activity",
         "verification",
+        "activity",
         "status",
+        "activity",
+        "activity",
         "done",
     ]
-    assert [event.data["phase"] for event in events[:-1]] == [
+    progress = [event for event in events if event.event != "activity"]
+    assert [event.data["phase"] for event in progress[:-1]] == [
         "accepted",
         "planning",
         "evidence",
         "verification",
         "presentation",
     ]
-    assert [event.event_id for event in events[:-1]] == [
+    steps = [event for event in events if event.event == "activity"]
+    assert [event.data["activity_id"] for event in steps] == [
+        "semantic:accepted",
+        "semantic:planning",
+        "semantic:evidence",
+        "semantic:verification",
+        "semantic:presentation",
+        "semantic:planning",
+    ]
+    assert [event.data["status"] for event in steps] == [
+        "completed",
+        "running",
+        "completed",
+        "completed",
+        "completed",
+        "completed",
+    ]
+    assert [event.event_id for event in progress[:-1]] == [
         "0:accepted",
         "0:planning",
         "1:evidence",
@@ -1735,13 +1769,21 @@ async def test_semantic_bridge_waits_for_delayed_terminal_projection() -> None:
     events = [event async for event in stream]
     await projection_task
 
-    assert [event.event for event in events] == [
+    assert [event.event for event in events if event.event != "activity"] == [
         "status",
         "status",
         "status",
         "verification",
         "status",
         "done",
+    ]
+    assert [event.data["status"] for event in events if event.event == "activity"] == [
+        "completed",
+        "running",
+        "completed",
+        "completed",
+        "completed",
+        "completed",
     ]
 
 
@@ -1769,7 +1811,7 @@ async def test_semantic_replay_cursor_resumes_after_observed_phase() -> None:
     )
     events = [event async for event in resumed]
 
-    assert [event.event_id for event in events] == [
+    assert [event.event_id for event in events if event.event != "activity"] == [
         "1:verification",
         "1:presentation",
         "1",
@@ -1831,7 +1873,11 @@ async def test_semantic_bridge_deadline_projects_typed_hold() -> None:
     )
     events = [event async for event in stream]
 
-    assert [event.event for event in events] == ["status", "status", "done"]
+    assert [event.event for event in events if event.event != "activity"] == [
+        "status",
+        "status",
+        "done",
+    ]
     semantic_result = cast(dict[str, object], events[-1].data["semantic_result"])
     assert semantic_result["disposition"] == "held"
     assert semantic_result["reason_code"] == "semantic_transport_unavailable"

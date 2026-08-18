@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 81c7680b1f1f314cf941e69d6479f2a371fb5896
+translation_source_sha: ee92213dc1149d76d4ac5e670cfd94ea20429fac
 translation_revised: 2026-08-18
 ---
 
@@ -212,6 +212,7 @@ translation_revised: 2026-08-18
 | 2026-08-18 | implemented | 검증된 행 표를 사람이 읽을 수 있게 유지했습니다. 표가 온톨로지 필드를 모두 투영하는 바람에 열린 형태의 속성 묶음이 한 셀에 수백 자 분량의 직렬화된 JSON으로 표시되었고, 기술 세부 궤적이 이미 담고 있는 기계 출력을 답변이 반복했습니다. 이제 표는 스칼라 필드만 투영하고 중첩 묶음에서 지정된 스칼라 leaf를 끌어올리며, 정확한 원본 행은 그대로 유지됩니다. | `current change`, [Issue #180](https://github.com/dotnetpower/fdai/issues/180), focused Operator 검사 392개 통과(중첩 묶음 회귀 1건 신규), 작업 범위 Ruff 및 strict mypy 통과, 인증된 실제 turn이 JSON 덩어리 대신 id, object type, name, type 열로 표시 | 읽기 쉬운 답변 표에 대한 통제된 request-to-Console 및 이중 언어 무작위 근거를 보존합니다. |
 | 2026-08-18 | implemented | 각 리소스 하위 타입이 선언한 질의 용어를 `Resource.type` 값 도메인에 연결했습니다. 도메인이 범주 그룹과 명시적 질의 그룹만 투영해 하나의 하위 타입을 지목한 질문이 연결할 선언 값을 갖지 못했고, 피연산자를 지어낼 수 없는 플래너가 존재 술어로 후퇴해 ObjectType 전체를 선택했습니다. 이제 plan shape 로그가 선택된 ObjectType과 필터 대상 속성 및 연산자를 기록하며 술어 피연산자는 기록하지 않습니다. | `current change`, [Issue #183](https://github.com/dotnetpower/fdai/issues/183), focused composition, conversation, ontology-platform, rule-catalog 검사 2222개 통과, 작업 범위 Ruff 및 strict mypy 통과, 실제 turn이 504행을 반환하던 `object_set[Resource;type exists]`에서 42개 리소스 그룹을 반환하는 `object_set[Resource;type equals]`로 전환 | 좁혀진 속성 필터에 대한 통제된 request-to-Console 및 이중 언어 무작위 근거를 보존합니다. |
 | 2026-08-18 | implemented | 검증된 목록 답변을 한눈에 읽을 수 있게 했습니다. 완전한 범주형 결과는 제한된 막대 분포를 그리고, 잘린 결과는 검증된 전체 중 몇 건을 표시했고 나머지가 어디에 있는지 밝히며, 이름 있는 읽기 쉬운 필드가 불투명한 식별자보다 앞에 오고, 항목이 하나인 요약은 빈 격자 칸을 남기지 않고 행을 채웁니다. 불완전하거나 상한에 걸린 결과는 차트를 그리지 않아 부분 집계가 전체처럼 읽히지 않습니다. | `current change`, [Issue #184](https://github.com/dotnetpower/fdai/issues/184), focused Operator 검사 394개 통과(차트 회귀 2건 신규), Console typecheck 및 작업 범위 Ruff와 strict mypy 통과, 인증된 실제 turn이 검증된 42행 중 20행을 상한과 함께 표시 | 차트와 행 상한 안내에 대한 통제된 request-to-Console 및 이중 언어 무작위 근거를 보존합니다. |
+| 2026-08-18 | implemented | 의미 turn이 관측한 단계를 스트림에서 주소 지정 가능한 step으로 만들었습니다. Operator가 진행 이벤트만 발행해 Console의 관측 과정 타임라인이 그릴 대상이 없었고, 답변이 도착할 때까지 한 줄이 고정돼 있었습니다. 이제 관측된 각 단계가 제한된 step을 함께 발행하며, 대기 step은 종단 projection이 생길 때까지 running으로 보고되고 disposition과 무관하게 종단 이벤트 전에 정리됩니다. | `current change`, [Issue #187](https://github.com/dotnetpower/fdai/issues/187), focused Operator 검사 394개 통과, Ruff 및 strict mypy 통과, 실제 turn이 running 대기 step과 완료 step 5개로 표시 | Core는 종단 projection 하나만 발행하므로 계획 하위 단계는 스트림이 관측하지 못하며 보고하지 않습니다. |
 
 ### 남은 작업
 

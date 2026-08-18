@@ -156,6 +156,7 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
         self._closed = False
         self._terminal_loaded = False
         self._stream_sequence = 0
+        self._running_activities: dict[str, str] = {}
         self._queue_pending_progress()
 
     def __aiter__(self) -> _SemanticEventIterator:
@@ -182,6 +183,63 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
             if _cursor_includes(self._cursor, 0, phase):
                 continue
             self._append_event("status", phase, label, event_id=f"0:{phase}")
+            # The same observation as an addressable step. `accepted` is already
+            # behind us when the stream opens; `planning` is what this stream is
+            # waiting on, so it stays running until the terminal projection
+            # settles it. A step is never reported ahead of its observation.
+            self._append_activity(
+                phase,
+                label,
+                status="completed" if phase == "accepted" else "running",
+                event_id=f"0:{phase}",
+            )
+
+    def _append_activity(
+        self,
+        phase: str,
+        label: str,
+        *,
+        status: str,
+        event_id: str,
+        completed: int | None = None,
+        total: int | None = None,
+    ) -> None:
+        """Queue one bounded step record for the observed-process timeline."""
+        if status == "running":
+            self._running_activities[phase] = label
+        else:
+            self._running_activities.pop(phase, None)
+        self._stream_sequence += 1
+        self._events.append(
+            StreamEvent(
+                event="activity",
+                event_id=event_id,
+                data=cast(
+                    JsonObject,
+                    {
+                        "seq": self._stream_sequence,
+                        "revision": 0,
+                        "activity_id": f"semantic:{phase}",
+                        "kind": "semantic_turn",
+                        "status": status,
+                        "label": label,
+                        "authority": "read_only",
+                        "completed": completed,
+                        "total": total,
+                    },
+                ),
+            )
+        )
+
+    def _settle_pending_activities(self, sequence: int) -> None:
+        """Complete every step still reported as running before the terminal."""
+        for phase, label in tuple(self._running_activities.items()):
+            self._append_activity(
+                phase,
+                label,
+                status="completed",
+                event_id=f"{sequence}:done",
+            )
 
     def _append_event(
         self,
@@ -264,6 +322,18 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
                     completed=checks_completed,
                     total=checks_total,
                 )
+                self._append_activity(
+                    phase,
+                    labels[phase],
+                    status="completed",
+                    event_id=f"{result.sequence}:{phase}",
+                    completed=checks_completed,
+                    total=checks_total,
+                )
+        # The waiting step is observed as finished only once a terminal
+        # projection exists. Settling it here keeps the timeline from holding a
+        # step that already ended, whatever the disposition turned out to be.
+        self._settle_pending_activities(result.sequence)
         if _cursor_includes(self._cursor, result.sequence, "done"):
             return
         self._stream_sequence += 1
