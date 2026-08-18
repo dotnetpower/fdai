@@ -65,6 +65,11 @@ from fdai.runtime.bootstrap_bindings import (
     semantic_query_providers as _semantic_query_providers,
 )
 from fdai.runtime.bootstrap_lifecycle import (
+    bind_health_readiness,
+    install_shutdown_signals,
+    open_health_port,
+)
+from fdai.runtime.bootstrap_lifecycle import (
     build_catalog_semantic_runtime_binding as _build_catalog_semantic_runtime_binding,
 )
 from fdai.runtime.bootstrap_lifecycle import (
@@ -78,9 +83,6 @@ from fdai.runtime.bootstrap_lifecycle import (
 )
 from fdai.runtime.bootstrap_lifecycle import (
     catalog_semantic_readiness_registration as _catalog_semantic_readiness_registration,
-)
-from fdai.runtime.bootstrap_lifecycle import (
-    install_shutdown_signals as _install_shutdown_signals,
 )
 from fdai.runtime.bootstrap_lifecycle import (
     log_rule_generation_outbox_exit as _log_rule_generation_outbox_exit,
@@ -108,9 +110,6 @@ from fdai.runtime.bootstrap_lifecycle import (
 )
 from fdai.runtime.bootstrap_lifecycle import (
     semantic_turn_readiness_registration as _semantic_turn_readiness_registration,
-)
-from fdai.runtime.bootstrap_lifecycle import (
-    start_health_server as _start_health_server,
 )
 from fdai.runtime.bootstrap_lifecycle import (
     supervise_runtime_tasks as _supervise_runtime_tasks,
@@ -231,6 +230,7 @@ async def _run() -> int:
     rule_generation_reconciliation: RuleGenerationReconciliation | None = None
 
     try:
+        health_server = await open_health_port()
         telemetry_requested = bool(
             os.environ.get("FDAI_MONITOR_WORKSPACE_ID", "").strip()
             or os.environ.get("FDAI_PROMETHEUS_ENDPOINT", "").strip()
@@ -724,12 +724,12 @@ async def _run() -> int:
             # than silently no-op so a miswired container is visible.
             _LOGGER.warning("pantheon_requested_without_consumer")
 
-        health_server = await _start_health_server(
+        bind_health_readiness(
+            health_server,
             control_loop=control_loop,
             startup_readiness=startup_readiness_runtime,
         )
-        stop = _install_shutdown_signals()
-
+        stop = install_shutdown_signals()
         if bus is not None and control_loop is not None and startup_readiness_runtime is not None:
             await run_runtime_tasks(
                 RuntimeTaskConfiguration(
