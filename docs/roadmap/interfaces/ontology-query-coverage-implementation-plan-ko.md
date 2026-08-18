@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 59c0b08f9dbe444b3102e0c432a416963da42d06
-translation_revised: 2026-08-17
+translation_source_sha: a70ae5dbf5aa888f039c0e259f3d69c3b34bc2a8
+translation_revised: 2026-08-18
 ---
 
 # 온톨로지 조회 커버리지 구현 계획
@@ -209,6 +209,7 @@ translation_revised: 2026-08-17
 | 2026-08-17 | implemented | 실행 범위 outbox key를 기본 key prefix의 자식에서 형제 prefix로 변경했습니다. 운영 기본 key를 바꾸거나 exact namespace 동등성을 약화하지 않으면서 이전의 넓은 prefix claim을 계속 실행하는 오래된 기본 프로세스에 대해서도 소유권을 닫습니다. | `current change`, focused bridge 검사 62개, Ruff 및 strict mypy 통과 | Seed 기반 질문 집합을 시작하기 전에 요청 및 변환 결과 transport가 exact 14/14인 새로운 엄격한 아티팩트를 보존합니다. |
 | 2026-08-17 | implemented | Exact transport를 적용한 첫 전체 집단에서 답변된 기능 불일치 11건이 드러난 뒤 seed 기반 질문 분류를 넓은 작업 범주와 분리하고 의미 frame prompt v9을 적용했습니다. Prompt별로 유효한 plan은 계속 허용하면서 관계 탐색, 인과 근거, 보존 세대 비교 및 근거 속성 선택은 서로 다른 기능 요구 사항을 유지합니다. | `current change`, focused prompt 레지스트리 검사 5개와 assurance oracle 검사 99개 통과 | 중앙 검증을 확보하고 seed 기반 실행을 다시 시작하기 전에 strict 집단을 한 번 실행합니다. |
 | 2026-08-17 | implemented | `validate` frame을 `evidence_validation` 출력 계열에 묶고 topology cutoff 순서 검증을 deterministic plan 검증 단계로 이동했습니다. 잘못 분류된 근거 요청은 frame만 다시 시도한 뒤 Core가 principal 범위 ObjectSet을 구성하며, event cutoff가 knowledge cutoff보다 늦은 topology snapshot은 프로바이더 실행 전에 거부됩니다. 비어 있거나 불완전한 보존 history는 계속 타입이 지정된 불완전 근거를 반환하며 합성되지 않습니다. | `current change`, focused 의미 계획 및 query verifier 검사 41개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 중앙 검증을 확보한 뒤 runner가 seed 기반 집단을 시작하기 전에 strict 14/14 답변 및 완전 근거 아티팩트 하나를 보존합니다. |
+| 2026-08-18 | implemented | 검증된 행 표를 사람이 읽을 수 있게 유지했습니다. 표가 온톨로지 필드를 모두 투영하는 바람에 열린 형태의 속성 묶음이 한 셀에 수백 자 분량의 직렬화된 JSON으로 표시되었고, 기술 세부 궤적이 이미 담고 있는 기계 출력을 답변이 반복했습니다. 이제 표는 스칼라 필드만 투영하고 중첩 묶음에서 지정된 스칼라 leaf를 끌어올리며, 정확한 원본 행은 그대로 유지됩니다. | `current change`, [Issue #180](https://github.com/dotnetpower/fdai/issues/180), focused Operator 검사 392개 통과(중첩 묶음 회귀 1건 신규), 작업 범위 Ruff 및 strict mypy 통과, 인증된 실제 turn이 JSON 덩어리 대신 id, object type, name, type 열로 표시 | 읽기 쉬운 답변 표에 대한 통제된 request-to-Console 및 이중 언어 무작위 근거를 보존합니다. |
 
 ### 남은 작업
 
