@@ -20,6 +20,7 @@ from fdai.shared.providers.inventory import (
     Inventory,
     InventoryBatch,
     LinkRecord,
+    ProviderScopeCoverage,
     RelationshipDrop,
     ResourceRecord,
 )
@@ -93,11 +94,15 @@ class InventorySyncCoordinator:
                 relationship_mapping_catalog=self._relationship_mapping_catalog,
             )
             try:
-                completed = await self._stage_stream(
+                completed, provider_scope_coverage = await self._stage_stream(
                     attempt_id,
                     cast(Inventory, source.inventory).full_snapshot(),
                     observed,
                 )
+                metadata = dict(source.manifest.metadata)
+                metadata.pop("provider_scope_coverage", None)
+                if provider_scope_coverage is not None:
+                    metadata["provider_scope_coverage"] = provider_scope_coverage.to_metadata()
                 manifest = InventoryCoverageManifest(
                     source=source.manifest.source,
                     scopes=source.manifest.scopes,
@@ -105,7 +110,7 @@ class InventorySyncCoordinator:
                     observation_kind=source.manifest.observation_kind,
                     started_at=source.manifest.started_at,
                     completed_at=completed,
-                    metadata=source.manifest.metadata,
+                    metadata=metadata,
                 )
                 await self._store.promote(attempt_id, manifest)
             except Exception as exc:  # noqa: BLE001 - source boundary, classified and retained
@@ -147,13 +152,15 @@ class InventorySyncCoordinator:
         attempt_id: str,
         stream: AsyncIterator[InventoryBatch],
         observed: _ObservationAccumulator,
-    ) -> datetime:
+    ) -> tuple[datetime, ProviderScopeCoverage | None]:
         saw_final = False
+        provider_scope_coverage: ProviderScopeCoverage | None = None
         async for batch in stream:
             if saw_final:
                 raise InventoryStreamError("inventory stream emitted data after final fence")
             if batch.final:
                 saw_final = True
+                provider_scope_coverage = batch.provider_scope_coverage
             if batch.resources or batch.links:
                 observed.add(batch)
                 await self._store.stage(
@@ -166,7 +173,7 @@ class InventorySyncCoordinator:
                 )
         if not saw_final:
             raise InventoryStreamError("inventory stream ended before final fence")
-        return datetime.now(tz=UTC)
+        return datetime.now(tz=UTC), provider_scope_coverage
 
 
 class _ObservationAccumulator:

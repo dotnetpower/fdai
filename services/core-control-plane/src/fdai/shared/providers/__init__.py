@@ -187,7 +187,14 @@ from .iac_review import (
     IacReviewPublishError,
     ReviewReceipt,
 )
-from .inventory import Inventory, InventoryBatch, LinkRecord, ResourceRecord
+from .inventory import (
+    Inventory,
+    InventoryBatch,
+    LinkRecord,
+    ProviderScopeCoverage,
+    ProviderTypeCount,
+    ResourceRecord,
+)
 from .observation import (
     DeploymentHistoryError,
     DeploymentHistoryProvider,
@@ -478,6 +485,8 @@ __all__ = [
     "InventoryBatch",
     "InboundTurn",
     "LinkRecord",
+    "ProviderScopeCoverage",
+    "ProviderTypeCount",
     "LiveBlastProbe",
     "LogQueryError",
     "LogQueryProvider",

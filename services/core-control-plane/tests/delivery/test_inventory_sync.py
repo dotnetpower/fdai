@@ -16,7 +16,12 @@ from fdai.delivery.inventory_sync import (
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
     load_provider_relationship_mapping_catalog,
 )
-from fdai.shared.providers.inventory import InventoryBatch, ResourceRecord
+from fdai.shared.providers.inventory import (
+    InventoryBatch,
+    ProviderScopeCoverage,
+    ProviderTypeCount,
+    ResourceRecord,
+)
 from fdai.shared.providers.inventory_snapshot import (
     InventoryAttemptFailure,
     InventoryCoverageManifest,
@@ -30,6 +35,7 @@ from fdai.shared.providers.inventory_snapshot import (
 class _Store:
     batches: dict[str, list[InventoryBatch]] = field(default_factory=dict)
     promoted: list[str] = field(default_factory=list)
+    promoted_manifests: list[InventoryCoverageManifest] = field(default_factory=list)
     failed: list[tuple[str, InventoryAttemptFailure]] = field(default_factory=list)
     sequence: int = 0
 
@@ -44,6 +50,7 @@ class _Store:
 
     async def promote(self, attempt_id: str, manifest: InventoryCoverageManifest) -> None:
         self.promoted.append(attempt_id)
+        self.promoted_manifests.append(manifest)
 
     async def fail(self, attempt_id: str, failure: InventoryAttemptFailure) -> None:
         self.failed.append((attempt_id, failure))
@@ -88,6 +95,43 @@ async def test_complete_stream_promotes_terminal_records() -> None:
     assert store.promoted == ["attempt-1"]
     assert store.batches["attempt-1"][0].resources == (resource,)
     assert store.batches["attempt-1"][0].final is False
+
+
+async def test_final_fence_coverage_is_promoted_as_snapshot_metadata() -> None:
+    store = _Store()
+    coverage = ProviderScopeCoverage(
+        capture_method="provider_type_aggregation",
+        provider_object_count=12,
+        mapped_provider_object_count=9,
+        provider_type_count=4,
+        unmapped_provider_types=(
+            ProviderTypeCount(provider_type="example.extensions", count=1),
+            ProviderTypeCount(provider_type="example.watchers", count=2),
+        ),
+    )
+
+    await InventorySyncCoordinator(store=store).run(
+        [
+            _source(
+                "arg",
+                _Inventory([InventoryBatch(final=True, provider_scope_coverage=coverage)]),
+            )
+        ]
+    )
+
+    assert store.promoted_manifests[0].metadata["provider_scope_coverage"] == {
+        "schema_version": "1.0.0",
+        "capture_method": "provider_type_aggregation",
+        "provider_object_count": 12,
+        "mapped_provider_object_count": 9,
+        "unmapped_provider_object_count": 3,
+        "provider_type_count": 4,
+        "unmapped_provider_type_count": 2,
+        "unmapped_provider_types": [
+            {"provider_type": "example.extensions", "count": 1},
+            {"provider_type": "example.watchers", "count": 2},
+        ],
+    }
 
 
 async def test_missing_fence_falls_back_without_promotion() -> None:

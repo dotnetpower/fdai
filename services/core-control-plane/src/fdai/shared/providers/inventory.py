@@ -44,6 +44,9 @@ from typing import Any, Protocol, runtime_checkable
 from .state_evidence import LINK_OBSERVATION_METADATA_PROPERTY, LinkObservationMetadata
 
 INVENTORY_RELATIONSHIP_RECONCILIATION_PREFIX = "inventory-relationship-reconciliation:"
+_MAX_PROVIDER_TYPES = 10_000
+_MAX_PROVIDER_TYPE_LENGTH = 512
+_MAX_PROVIDER_OBJECTS = (2**63) - 1
 
 
 class RelationshipDropReason(StrEnum):
@@ -120,6 +123,81 @@ class ProviderRelationshipEvidence:
 
 class InventoryGraphViewNotFoundError(LookupError):
     """Raised by named-view providers for an unknown explicit view id."""
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderTypeCount:
+    """One provider-native type omitted from the declared inventory vocabulary."""
+
+    provider_type: str
+    count: int
+
+    def __post_init__(self) -> None:
+        if not self.provider_type.strip():
+            raise ValueError("ProviderTypeCount.provider_type MUST be non-empty")
+        if len(self.provider_type) > _MAX_PROVIDER_TYPE_LENGTH:
+            raise ValueError("ProviderTypeCount.provider_type exceeds its length bound")
+        if self.count < 1 or self.count > _MAX_PROVIDER_OBJECTS:
+            raise ValueError("ProviderTypeCount.count MUST be in [1, 2^63-1]")
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderScopeCoverage:
+    """Complete provider-native type accounting for one full snapshot fence."""
+
+    capture_method: str
+    provider_object_count: int
+    mapped_provider_object_count: int
+    provider_type_count: int
+    unmapped_provider_types: tuple[ProviderTypeCount, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not self.capture_method.strip():
+            raise ValueError("ProviderScopeCoverage.capture_method MUST be non-empty")
+        if not 0 <= self.mapped_provider_object_count <= self.provider_object_count:
+            raise ValueError(
+                "ProviderScopeCoverage.mapped_provider_object_count MUST be within the total"
+            )
+        if self.provider_object_count > _MAX_PROVIDER_OBJECTS:
+            raise ValueError("ProviderScopeCoverage.provider_object_count exceeds its bound")
+        if not 0 <= self.provider_type_count <= _MAX_PROVIDER_TYPES:
+            raise ValueError("ProviderScopeCoverage.provider_type_count exceeds its bound")
+        provider_types = tuple(item.provider_type for item in self.unmapped_provider_types)
+        if provider_types != tuple(sorted(set(provider_types))):
+            raise ValueError(
+                "ProviderScopeCoverage.unmapped_provider_types MUST be unique and sorted"
+            )
+        if len(provider_types) > self.provider_type_count:
+            raise ValueError(
+                "ProviderScopeCoverage.unmapped_provider_types exceeds the provider type count"
+            )
+        if sum(item.count for item in self.unmapped_provider_types) != (
+            self.provider_object_count - self.mapped_provider_object_count
+        ):
+            raise ValueError(
+                "ProviderScopeCoverage unmapped counts MUST reconcile with the object totals"
+            )
+
+    @property
+    def unmapped_provider_object_count(self) -> int:
+        """Return provider objects whose native type has no declared mapping."""
+        return self.provider_object_count - self.mapped_provider_object_count
+
+    def to_metadata(self) -> Mapping[str, object]:
+        """Return the canonical JSON-compatible snapshot metadata projection."""
+        return {
+            "schema_version": "1.0.0",
+            "capture_method": self.capture_method,
+            "provider_object_count": self.provider_object_count,
+            "mapped_provider_object_count": self.mapped_provider_object_count,
+            "unmapped_provider_object_count": self.unmapped_provider_object_count,
+            "provider_type_count": self.provider_type_count,
+            "unmapped_provider_type_count": len(self.unmapped_provider_types),
+            "unmapped_provider_types": [
+                {"provider_type": item.provider_type, "count": item.count}
+                for item in self.unmapped_provider_types
+            ],
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -237,6 +315,12 @@ class InventoryBatch:
     scheduler uses it to request an authoritative ``full_snapshot``; consumers
     must not infer or delete relationships from this marker alone.
     """
+    provider_scope_coverage: ProviderScopeCoverage | None = None
+    """Complete provider-native accounting, allowed only on the final fence."""
+
+    def __post_init__(self) -> None:
+        if self.provider_scope_coverage is not None and not self.final:
+            raise ValueError("InventoryBatch.provider_scope_coverage requires final=True")
 
 
 @runtime_checkable
@@ -300,6 +384,8 @@ __all__ = [
     "InventoryGraphViewNotFoundError",
     "LinkRecord",
     "ProviderRelationshipEvidence",
+    "ProviderScopeCoverage",
+    "ProviderTypeCount",
     "RelationshipDrop",
     "RelationshipDropReason",
     "ResourceRecord",

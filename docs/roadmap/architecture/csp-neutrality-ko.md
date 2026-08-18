@@ -1,8 +1,8 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 22c8ece3e89c7b9b4c88e531bd31a9e12b3511cd
-translation_revised: 2026-08-14
+translation_source_sha: 2a3f8bc9f44fb34ebf43aa3474fd15cbf57e40a9
+translation_revised: 2026-08-19
 ---
 
 # CSP-중립성 계약
@@ -33,6 +33,7 @@ translation_revised: 2026-08-14
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | implemented | 범위가 제한된 프로바이더 native 범위 coverage를 CSP-중립 `InventoryBatch` 최종 fence에 추가하고 승격할 때만 변경 불가능한 스냅샷 메타데이터로 변환했습니다. 생성 전에 count 합계를 대조하고, 최종이 아닌 배치는 근거를 운반할 수 없으며, 정적 출처 메타데이터는 완료된 수집을 가장할 수 없습니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). focused 프로바이더 계약 및 인벤토리 동기화 테스트 31개와 작업 범위 Ruff 및 strict mypy가 통과했습니다. | Azure 전체 범위 타입 집계 producer를 연결하고 승격된 스냅샷에 측정된 미매핑 count를 보존합니다. |
 | 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 Azure 계약 구현을 운영 근거 및 보류된 비-Azure 어댑터와 분리해 기록했습니다. | `current change`; 구현 범위 표의 프로바이더, 전달, 인프라 및 배포 근거입니다. | 하나의 통제된 8개 계약 캠페인을 보존하고 명시적으로 범위가 정해질 때까지 비-Azure 작업을 보류합니다. |
 
 ### 남은 작업
@@ -358,6 +359,12 @@ CSP 접촉면을 지배하는 여덟 개의 계약 (다섯 wire-level 기반 +
   `ResourceType` 으로 샤딩 (하나의 타입이 너무 넓으면 스코프로 더 세분화), semaphore 하에서
   동시 확산 쿼리, 배치를 ingest 파이프라인으로 스트리밍. 코어는 절대 단일-연결 블로킹
   스캔을 가정하지 않음.
+- **프로바이더 범위 coverage는 최종 fence에서 종결됩니다.** 완전한 어댑터는 범위가 제한된
+  `ProviderScopeCoverage` 하나를 최종 `InventoryBatch`에 붙일 수 있습니다. 프로바이더 native
+  객체 및 타입 count를 구체화된 스냅샷 레코드와 구분하고, 선언된 vocabulary에 없는 native 타입만
+  나열하며, 생성 전에 mapped와 unmapped count 합계를 대조합니다. 동기화 조정기는 최종 fence 뒤에만
+  이 근거를 변경 불가능한 스냅샷 메타데이터로 복사합니다. 부분 스트림 또는 정적 출처 매니페스트는
+  완료된 프로바이더 coverage를 주장할 수 없습니다.
 - **완전한 ARG 읽기는 1,000개 이후에도 페이지를 계속 조회합니다.** Azure Resource Graph는
   응답 하나에 최대 1,000개 레코드를 반환합니다. 완전한 결과가 필요한 어댑터는 `$top`을
   최대 1,000으로 설정하고, 구성된 페이지 상한 안에서 각 `$skipToken`을 끝까지 따라가며,

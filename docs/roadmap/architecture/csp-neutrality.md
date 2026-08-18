@@ -30,6 +30,7 @@ boundaries in [project-structure.md](project-structure.md), the tech choices in
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-19 | implemented | Added bounded provider-native scope coverage to the CSP-neutral `InventoryBatch` final fence and projected it into immutable snapshot metadata only during promotion. Counts reconcile before construction, non-final batches cannot carry the evidence, and static source metadata cannot impersonate a completed capture. | [Issue #216](https://github.com/dotnetpower/fdai/issues/216); focused provider-contract and inventory-sync tests pass 31 cases; task-scoped Ruff and strict mypy pass. | Bind the Azure scope-wide type aggregation producer and retain the measured unmapped counts in a promoted snapshot. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance and recorded Azure contract implementations separately from operational evidence and deferred non-Azure adapters. | `current change`; provider, delivery, infrastructure, and deployment evidence listed in the scope table. | Retain one governed eight-contract campaign and keep non-Azure work deferred until explicitly scoped. |
 
 ### Remaining work
@@ -367,6 +368,12 @@ use the same view-classification rules so local and deployed consoles keep the s
   workload by `ResourceType` (and further by scope when a single type is too broad), fans
   out queries under a semaphore, and streams batches into the ingest pipeline. The core
   never assumes a single-connection blocking scan.
+- **Provider scope coverage closes on the final fence.** A complete adapter may attach one bounded
+  `ProviderScopeCoverage` to the terminal `InventoryBatch`. It distinguishes provider-native object
+  and type counts from materialized snapshot records, lists only native types absent from the
+  declared vocabulary, and reconciles mapped plus unmapped counts before construction. The sync
+  coordinator copies this evidence into immutable snapshot metadata only after the final fence; a
+  partial stream or static source manifest cannot claim completed provider coverage.
 - **Complete ARG reads page beyond 1,000 records**: Azure Resource Graph returns at most 1,000 records per response. Complete-result adapters set `$top` to at most 1,000, follow each `$skipToken` until exhaustion under a configured page cap, and order by a unique projected key such as inventory `id` or deployment-history `row_id`. Raw responses are capped at 10 MB per page and 64 MB per query before JSON projection.
   Every page consumes one query quota. A repeated token, a page-cap breach, or `resultTruncated=true` without a continuation token makes the read incomplete and fails closed. Bounded interactive reads instead request their explicit result cap plus one and report truncation. See [Guidance for pagination](https://learn.microsoft.com/azure/governance/resource-graph/concepts/paging-results).
 - **ARG calls respect service quota signals**: one shared gate per adapter reads `x-ms-user-quota-remaining` and `x-ms-user-quota-resets-after` from every response and delays concurrent shards when quota reaches zero. HTTP `429` retries wait for `Retry-After`; transport failures, `408`, and selected `5xx` responses use bounded exponential backoff.

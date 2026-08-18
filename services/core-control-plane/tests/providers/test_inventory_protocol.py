@@ -19,6 +19,8 @@ from fdai.shared.providers import (
     Inventory,
     InventoryBatch,
     LinkRecord,
+    ProviderScopeCoverage,
+    ProviderTypeCount,
     ResourceRecord,
 )
 from fdai.shared.providers.state_evidence import LINK_OBSERVATION_METADATA_PROPERTY
@@ -139,6 +141,33 @@ def test_inventory_batch_carries_relationship_reconciliation_marker() -> None:
     batch = InventoryBatch(relationship_reconciliation_after="2026-08-08T01:02:03+00:00")
 
     assert batch.relationship_reconciliation_after == "2026-08-08T01:02:03+00:00"
+
+
+def test_provider_scope_coverage_requires_reconciled_counts() -> None:
+    with pytest.raises(ValueError, match="unmapped counts MUST reconcile"):
+        ProviderScopeCoverage(
+            capture_method="provider_type_aggregation",
+            provider_object_count=3,
+            mapped_provider_object_count=1,
+            provider_type_count=2,
+            unmapped_provider_types=(ProviderTypeCount(provider_type="example.unmapped", count=1),),
+        )
+
+
+def test_inventory_batch_allows_provider_scope_coverage_only_on_final_fence() -> None:
+    coverage = ProviderScopeCoverage(
+        capture_method="provider_type_aggregation",
+        provider_object_count=1,
+        mapped_provider_object_count=0,
+        provider_type_count=1,
+        unmapped_provider_types=(ProviderTypeCount(provider_type="example.unmapped", count=1),),
+    )
+
+    with pytest.raises(ValueError, match="requires final=True"):
+        InventoryBatch(provider_scope_coverage=coverage)
+    assert InventoryBatch(final=True, provider_scope_coverage=coverage).provider_scope_coverage == (
+        coverage
+    )
 
 
 @pytest.mark.asyncio
