@@ -77,7 +77,7 @@ Report and kit:
 |------|---------|
 | [report.html](report.html) | Weekly review layout: numbered sections, KPI grid, AS-IS / TO-BE compare, critique table |
 | [typography.html](typography.html) | Shared semantic type scale, composed content hierarchy, English/Korean copy, and long-identifier reading bounds |
-| [components.html](components.html) | Category-indexed component gallery: 23 sections covering shared typography, metrics, tables, tokens, forms, selection, navigation, feedback, charts, code, lists, feeds, menus, drawers, data states, notifications, and calendars |
+| [components.html](components.html) | Searchable 23-section component gallery with exact-section links, light and dark previews, keyboard interaction states, shared typography, metrics, tables, forms, navigation, feedback, charts, code, lists, menus, drawers, data states, notifications, and calendars |
 | [index.html](index.html) | Kit landing: palette, page index, design principles |
 
 ## Assets

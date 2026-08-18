@@ -16,7 +16,7 @@ test("typography has direct, kit, and master navigation entries", () => {
   assert.match(landing, /data-page="typography\.html"[^>]*data-title="Typography"/);
   assert.match(masterLanding, /data-page="mocks\/ui\/typography\.html"[^>]*data-title="Typography"/);
   assert.match(masterLanding, /<h3>Console navigation<\/h3><span class="count">42 pages<\/span>/);
-  assert.match(masterLanding, /<h3>Labs<\/h3><span class="count">10<\/span>/);
+  assert.match(masterLanding, /<span class="nav-group-label">Labs<\/span><span class="count">10<\/span>/);
 });
 
 test("master navigation keeps one quiet, collapsible hierarchy", () => {
@@ -24,6 +24,7 @@ test("master navigation keeps one quiet, collapsible hierarchy", () => {
   assert.match(masterLanding, /src="console\/public\/brand\/fdai-logo\.png"/);
   assert.equal((masterLanding.match(/<button class="nav-group-head"/g) || []).length, 8);
   assert.equal((masterLanding.match(/<button class="fam is-/g) || []).length, 4);
+  assert.doesNotMatch(masterLanding, /<button[^>]*>[^<]*<h[1-6]>/);
   assert.match(masterLanding, /\.side \.nav-group a \.dot \{ visibility: hidden; \}/);
   assert.match(masterLanding, /\.side \.nav-group a\.is-active \.dot \{ visibility: visible; \}/);
   assert.match(masterLanding, /function revealPageGroup\(page\)/);
@@ -62,14 +63,45 @@ test("component gallery exposes a quiet category index", () => {
     advanced: "Select menus &amp; combobox",
     typography: "Typography &amp; content hierarchy",
   }).forEach(([id, heading]) => {
-    const start = components.indexOf(`id="${id}"`);
+    const start = components.indexOf(`<section class="cs-section" id="${id}"`);
     const end = components.indexOf("</section>", start);
-    assert.ok(start >= 0 && components.slice(start, end).includes(`<h2>${heading}</h2>`));
+    const section = components.slice(start, end);
+    const headingStart = section.indexOf("<h2");
+    const headingTextStart = section.indexOf(">", headingStart) + 1;
+    const headingEnd = section.indexOf("</h2>", headingTextStart);
+    assert.ok(start >= 0);
+    assert.equal(section.slice(headingTextStart, headingEnd), heading);
   });
-  assert.match(components, /<span class="cs-badge-num">01<\/span>/);
-  assert.match(components, /<span class="cs-badge-num">23<\/span>/);
+  assert.match(components, /<span class="cs-badge-num"[^>]*>01<\/span>/);
+  assert.match(components, /<span class="cs-badge-num"[^>]*>23<\/span>/);
   assert.match(stylesheet, /\.cs-components-page \.cs-badge-num \{[^}]*background: transparent/);
-  assert.match(stylesheet, /\.cs-gallery-index \{[^}]*position: sticky/);
+  assert.match(stylesheet, /\.cs-gallery-toolbar \{[^}]*position: sticky/);
   assert.match(stylesheet, /\.cs-gallery-index a\[aria-current="location"\]/);
+  assert.match(components, /data-cs-component-search/);
+  assert.doesNotMatch(components, /href="#"/);
   assert.match(components, /function syncActiveCategory\(\)/);
+});
+
+test("component gallery keeps the remediated interaction and accessibility contracts", () => {
+  assert.equal((components.match(/<section class="cs-section" id="[^"]+" aria-labelledby="[^"]+">/g) || []).length, 23);
+  assert.doesNotMatch(components, /class="cs-alert-bar/);
+  assert.ok((components.match(/<button\b[^>]*>/g) || []).every((button) => /\btype="button"/.test(button)));
+  assert.ok((components.match(/<th\b[^>]*>/g) || []).every((heading) => /\bscope="col"/.test(heading)));
+  assert.match(components, /data-cs-theme-toggle/);
+  assert.match(components, /class="cs-gallery-synthetic">Synthetic samples/);
+  assert.match(components, /class="cs-interaction-matrix"/);
+  assert.match(components, /type: "fdai:mock-section"/);
+  assert.match(stylesheet, /semantic-type-v2/);
+  assert.match(stylesheet, /small, code, dt, dd, th, time, kbd, svg text/);
+  assert.match(stylesheet, /\.cs-components-page \.cs-heading-link \{[^}]*width: 44px;[^}]*height: 44px/);
+});
+
+test("both mock shells preserve exact component section routes", () => {
+  [landing, masterLanding].forEach((shell) => {
+    assert.match(shell, /type !== ['"]fdai:mock-section['"]/);
+    assert.match(shell, /aria-current/);
+    assert.match(shell, /::/);
+  });
+  assert.match(masterLanding, /class="skip-link" href="#preview"/);
+  assert.match(masterLanding, /data-nav-toggle/);
 });

@@ -14,21 +14,27 @@
       <p class="cs-lead">Calm Slate building blocks, organized by operational role and responsive behavior.</p>
     </div>
 
-    <nav class="cs-gallery-index" aria-label="Component categories">
-      <a href="#display">Display</a>
-      <a href="#controls">Controls</a>
-      <a href="#navigation">Navigation</a>
-      <a href="#feedback">Feedback</a>
-      <a href="#data-views">Data views</a>
-      <a href="#advanced">Advanced</a>
-      <a href="#typography">Type</a>
-    </nav>
+    <div class="cs-gallery-toolbar">
+      <label class="cs-gallery-search" for="component-search"><span class="cs-sr-only">Find a component</span><input id="component-search" type="search" placeholder="Find a component" autocomplete="off" data-cs-component-search /></label>
+      <output class="cs-gallery-count" for="component-search" aria-live="polite" data-cs-gallery-count>23 sections</output>
+      <span class="cs-gallery-synthetic">Synthetic samples</span>
+      <button class="cs-theme-toggle" type="button" aria-pressed="false" data-cs-theme-toggle>Dark preview</button>
+      <nav class="cs-gallery-index" aria-label="Component categories">
+        <a href="#display">Display</a>
+        <a href="#controls">Controls</a>
+        <a href="#navigation">Navigation</a>
+        <a href="#feedback">Feedback</a>
+        <a href="#data-views">Data views</a>
+        <a href="#advanced">Advanced</a>
+        <a href="#typography">Typography</a>
+      </nav>
+    </div>
 
     <!-- KPI cards -->
-    <section class="cs-section" id="display">
+    <section class="cs-section" id="display" aria-labelledby="display-title">
       <div class="cs-section-head">
-        <span class="cs-badge-num">01</span>
-        <div class="cs-section-title"><h2>KPI cards</h2><p class="cs-desc">Metric, value, and a muted trend chip.</p></div>
+        <span class="cs-badge-num" aria-hidden="true">01</span>
+        <div class="cs-section-title"><h2 id="display-title">KPI cards</h2><p class="cs-desc">Metric, value, and a muted trend chip.</p></div>
       </div>
       <div class="cs-grid cs-grid-4">
         <div class="cs-card cs-kpi">
@@ -52,17 +58,17 @@
           <span class="cs-kpi-foot"><span class="cs-trend flat">- stable</span></span>
         </div>
       </div>
-      <aside class="cs-notice is-soft" role="note" aria-label="Cost estimate basis" style="margin-top:14px">
+      <aside class="cs-notice is-soft cs-mt-14" role="note" aria-label="Cost estimate basis">
         <span class="cs-notice-icon" aria-hidden="true">i</span>
         <div class="cs-notice-content"><h4>Standard-price estimate</h4><p>Displayed cost and savings amounts use published standard prices. Actual billed amounts may differ because of negotiated discounts, commitments, credits, taxes, exchange rates, and provider billing adjustments. Use these values for reference, not invoice reconciliation.</p></div>
       </aside>
     </section>
 
     <!-- Tags & severity -->
-    <section class="cs-section">
+    <section class="cs-section" id="tags-severity-tiers" aria-labelledby="tags-severity-tiers-title">
       <div class="cs-section-head">
-        <span class="cs-badge-num">02</span>
-        <div class="cs-section-title"><h2>Tags, severity &amp; tiers</h2><p class="cs-desc">Pill tags, severity badges, and trust-tier chips.</p></div>
+        <span class="cs-badge-num" aria-hidden="true">02</span>
+        <div class="cs-section-title"><h2 id="tags-severity-tiers-title">Tags, severity &amp; tiers</h2><p class="cs-desc">Pill tags, severity badges, and trust-tier chips.</p></div>
       </div>
       <div class="cs-card">
         <p class="cs-label">Pill tags</p>
@@ -86,41 +92,42 @@
           <span class="cs-tier t0">T0</span>
           <span class="cs-tier t1">T1</span>
           <span class="cs-tier t2">T2</span>
-          <span class="cs-muted" style="align-self:center">deterministic → lightweight → reasoning</span>
+          <span class="cs-muted cs-self-center">deterministic → lightweight → reasoning</span>
         </div>
       </div>
     </section>
 
     <!-- Table -->
-    <section class="cs-section">
+    <section class="cs-section" id="table" aria-labelledby="table-title">
       <div class="cs-section-head">
-        <span class="cs-badge-num">03</span>
-        <div class="cs-section-title"><h2>Table</h2><p class="cs-desc">Slate-navy header, subtly shaded even rows.</p></div>
+        <span class="cs-badge-num" aria-hidden="true">03</span>
+        <div class="cs-section-title"><h2 id="table-title">Table</h2><p class="cs-desc">Compact rows with explicit column headers and semantic decision labels.</p></div>
       </div>
       <div class="cs-table-wrap">
         <table class="cs-table">
-          <thead><tr><th>Rule id</th><th>Category</th><th>Severity</th><th>Tier</th><th>Decision</th></tr></thead>
+          <caption class="cs-sr-only">Rule decision samples</caption>
+          <thead><tr><th scope="col">Rule id</th><th scope="col">Category</th><th scope="col">Severity</th><th scope="col">Tier</th><th scope="col">Decision</th></tr></thead>
           <tbody>
-            <tr><td><code>object-storage.public-access.deny</code></td><td>security</td><td><span class="cs-sev high">high</span></td><td><span class="cs-tier t0">T0</span></td><td class="cs-muted">shadow - would remediate</td></tr>
+            <tr><td><code>object-storage.public-access.deny</code></td><td>security</td><td><span class="cs-sev high">high</span></td><td><span class="cs-tier t0">T0</span></td><td class="cs-muted">Observation mode - would prepare a correction</td></tr>
             <tr><td><code>sql-database.encryption.tde-required</code></td><td>security</td><td><span class="cs-sev high">high</span></td><td><span class="cs-tier t0">T0</span></td><td class="cs-muted">compliant</td></tr>
-            <tr><td><code>postgresql-server.dr.pitr-required</code></td><td>reliability</td><td><span class="cs-sev critical">critical</span></td><td><span class="cs-tier t1">T1</span></td><td class="cs-muted">HIL - awaiting approval</td></tr>
-            <tr><td><code>cost.idle-resource.recommend</code></td><td>cost</td><td><span class="cs-sev low">low</span></td><td><span class="cs-tier t0">T0</span></td><td class="cs-muted">shadow - would shut down</td></tr>
+            <tr><td><code>postgresql-server.dr.pitr-required</code></td><td>reliability</td><td><span class="cs-sev critical">critical</span></td><td><span class="cs-tier t1">T1</span></td><td class="cs-muted">Human approval - awaiting decision</td></tr>
+            <tr><td><code>cost.idle-resource.recommend</code></td><td>cost</td><td><span class="cs-sev low">low</span></td><td><span class="cs-tier t0">T0</span></td><td class="cs-muted">Observation mode - would prepare shutdown</td></tr>
           </tbody>
         </table>
       </div>
     </section>
 
     <!-- Alerts -->
-    <section class="cs-section">
+    <section class="cs-section" id="alerts" aria-labelledby="alerts-title">
       <div class="cs-section-head">
-        <span class="cs-badge-num">04</span>
-        <div class="cs-section-title"><h2>Alerts</h2><p class="cs-desc">Left hairline bar carries the muted status color.</p></div>
+        <span class="cs-badge-num" aria-hidden="true">04</span>
+        <div class="cs-section-title"><h2 id="alerts-title">Alerts</h2><p class="cs-desc">Content-local icons and text communicate status without decorating container edges.</p></div>
       </div>
       <div class="cs-grid cs-grid-2">
-        <div class="cs-alert is-info"><div class="cs-alert-bar"></div><div><h4>Information</h4><p>Event routed to T0 and resolved deterministically.</p></div></div>
-        <div class="cs-alert is-success"><div class="cs-alert-bar"></div><div><h4>Promoted</h4><p>Action passed shadow evaluation with zero policy escapes.</p></div></div>
-        <div class="cs-alert is-warn"><div class="cs-alert-bar"></div><div><h4>Awaiting HIL</h4><p>High-risk change queued for human approval.</p></div></div>
-        <div class="cs-alert is-danger"><div class="cs-alert-bar"></div><div><h4>Regression</h4><p>Assignment auto-demoted back to shadow mode.</p></div></div>
+        <div class="cs-alert is-info"><span class="cs-alert-icon" aria-hidden="true">i</span><div><h4>Information</h4><p>Event routed to T0 and resolved deterministically.</p></div></div>
+        <div class="cs-alert is-success"><span class="cs-alert-icon" aria-hidden="true">OK</span><div><h4>Promoted</h4><p>Action passed observation-mode evaluation with zero policy escapes.</p></div></div>
+        <div class="cs-alert is-warn"><span class="cs-alert-icon" aria-hidden="true">!</span><div><h4>Awaiting human approval</h4><p>High-risk change queued for an eligible approver.</p></div></div>
+        <div class="cs-alert is-danger"><span class="cs-alert-icon" aria-hidden="true">X</span><div><h4>Regression</h4><p>Assignment returned to observation mode automatically.</p></div></div>
       </div>
       <div class="cs-dismissible-showcase">
         <div class="cs-dismissible-showcase-head">
@@ -149,22 +156,22 @@
     </section>
 
     <!-- Buttons & forms -->
-    <section class="cs-section" id="controls">
+    <section class="cs-section" id="controls" aria-labelledby="controls-title">
       <div class="cs-section-head">
-        <span class="cs-badge-num">05</span>
-        <div class="cs-section-title"><h2>Buttons &amp; forms</h2><p class="cs-desc">Demo controls. The production console is read-only.</p></div>
+        <span class="cs-badge-num" aria-hidden="true">05</span>
+        <div class="cs-section-title"><h2 id="controls-title">Buttons &amp; forms</h2><p class="cs-desc">The Console submits bounded requests through governed Operator API routes.</p></div>
       </div>
       <div class="cs-grid cs-grid-2">
         <div class="cs-card">
           <p class="cs-label">Buttons</p>
           <div class="cs-flex cs-wrap cs-gap-8 cs-mb-16">
-            <button class="cs-btn is-primary">Primary</button>
-            <button class="cs-btn is-navy">Navy</button>
-            <button class="cs-btn">Default</button>
-            <button class="cs-btn is-ghost">Ghost</button>
-            <button class="cs-btn is-sm">Small</button>
+            <button class="cs-btn is-primary" type="button">Primary</button>
+            <button class="cs-btn is-navy" type="button">Navy</button>
+            <button class="cs-btn" type="button">Default</button>
+            <button class="cs-btn is-ghost" type="button">Ghost</button>
+            <button class="cs-btn is-sm" type="button">Small</button>
           </div>
-          <div class="cs-alert is-info"><div class="cs-alert-bar"></div><div><p>Buttons here are style samples only - the operator console issues no privileged calls.</p></div></div>
+          <div class="cs-alert is-info"><span class="cs-alert-icon" aria-hidden="true">i</span><div><p>These are presentation samples. The Operator API remains non-privileged.</p></div></div>
         </div>
         <div class="cs-card">
           <div class="cs-field">
@@ -181,23 +188,23 @@
     </section>
 
     <!-- Tabs & meters -->
-    <section class="cs-section">
+    <section class="cs-section" id="tabs-meters" aria-labelledby="tabs-meters-title">
       <div class="cs-section-head">
-        <span class="cs-badge-num">06</span>
-        <div class="cs-section-title"><h2>Tabs &amp; meters</h2><p class="cs-desc">Lightweight tab switch and coverage meters.</p></div>
+        <span class="cs-badge-num" aria-hidden="true">06</span>
+        <div class="cs-section-title"><h2 id="tabs-meters-title">Tabs &amp; meters</h2><p class="cs-desc">Lightweight tab switch and coverage meters.</p></div>
       </div>
       <div class="cs-card">
-        <div class="cs-tabs" data-cs-tabs>
-          <button class="cs-tab cs-active" data-cs-tab="tab-cov">Coverage</button>
-          <button class="cs-tab" data-cs-tab="tab-lat">Latency</button>
+        <div class="cs-tabs" role="tablist" aria-label="Coverage metrics" data-cs-tabs>
+          <button class="cs-tab cs-active" id="metrics-tab-cov" type="button" role="tab" aria-selected="true" aria-controls="tab-cov" data-cs-tab="tab-cov">Coverage</button>
+          <button class="cs-tab" id="metrics-tab-lat" type="button" role="tab" aria-selected="false" aria-controls="tab-lat" tabindex="-1" data-cs-tab="tab-lat">Latency</button>
         </div>
-        <div class="cs-tabpanel cs-active" id="tab-cov">
+        <div class="cs-tabpanel cs-active" id="tab-cov" role="tabpanel" aria-labelledby="metrics-tab-cov">
           <div class="cs-mb-16"><div class="cs-flex-between cs-mb-8"><span>T0 deterministic</span><span class="cs-muted">76%</span></div><div class="cs-meter is-sage"><span style="width:76%"></span></div></div>
           <div class="cs-mb-16"><div class="cs-flex-between cs-mb-8"><span>T1 lightweight</span><span class="cs-muted">17%</span></div><div class="cs-meter"><span style="width:17%"></span></div></div>
           <div><div class="cs-flex-between cs-mb-8"><span>T2 reasoning</span><span class="cs-muted">7%</span></div><div class="cs-meter is-terracotta"><span style="width:7%"></span></div></div>
-          <p class="cs-help cs-mt-0" style="margin-top:12px">Coverage figures are targets to validate against a measured baseline.</p>
+          <p class="cs-help cs-mt-12">Coverage figures are targets to validate against a measured baseline.</p>
         </div>
-        <div class="cs-tabpanel" id="tab-lat">
+        <div class="cs-tabpanel" id="tab-lat" role="tabpanel" aria-labelledby="metrics-tab-lat" hidden>
           <dl class="cs-dl">
             <dt>T0</dt><dd>milliseconds - no model call</dd>
             <dt>T1</dt><dd>~seconds - embedding + small model</dd>
@@ -207,10 +214,10 @@
       </div>
     </section>
 
-    <section class="cs-section">
+    <section class="cs-section" id="selection-controls" aria-labelledby="selection-controls-title">
       <div class="cs-section-head">
-        <span class="cs-badge-num">07</span>
-        <div class="cs-section-title"><h2>Selection controls</h2><p class="cs-desc">Switches, segmented buttons, checkboxes, and radio groups with disabled states.</p></div>
+        <span class="cs-badge-num" aria-hidden="true">07</span>
+        <div class="cs-section-title"><h2 id="selection-controls-title">Selection controls</h2><p class="cs-desc">Switches, segmented buttons, checkboxes, and radio groups with disabled states.</p></div>
       </div>
       <div class="cs-grid cs-grid-2">
         <div class="cs-card">
@@ -243,10 +250,10 @@
       </div>
     </section>
 
-    <section class="cs-section">
+    <section class="cs-section" id="date-time-values" aria-labelledby="date-time-values-title">
       <div class="cs-section-head">
-        <span class="cs-badge-num">08</span>
-        <div class="cs-section-title"><h2>Date, time &amp; values</h2><p class="cs-desc">Native pickers and a range control styled for filtering and local preferences.</p></div>
+        <span class="cs-badge-num" aria-hidden="true">08</span>
+        <div class="cs-section-title"><h2 id="date-time-values-title">Date, time &amp; values</h2><p class="cs-desc">Native pickers and a range control styled for filtering and local preferences.</p></div>
       </div>
       <div class="cs-card">
         <div class="cs-form-grid">
@@ -263,10 +270,10 @@
       </div>
     </section>
 
-    <section class="cs-section">
+    <section class="cs-section" id="text-search-inputs" aria-labelledby="text-search-inputs-title">
       <div class="cs-section-head">
-        <span class="cs-badge-num">09</span>
-        <div class="cs-section-title"><h2>Text &amp; search inputs</h2><p class="cs-desc">Search, multiline notes, validation help, and disabled state.</p></div>
+        <span class="cs-badge-num" aria-hidden="true">09</span>
+        <div class="cs-section-title"><h2 id="text-search-inputs-title">Text &amp; search inputs</h2><p class="cs-desc">Search, multiline notes, validation help, and disabled state.</p></div>
       </div>
       <div class="cs-card">
         <div class="cs-form-grid">
@@ -277,10 +284,10 @@
       </div>
     </section>
 
-    <section class="cs-section" id="navigation">
+    <section class="cs-section" id="navigation" aria-labelledby="navigation-title">
       <div class="cs-section-head">
-        <span class="cs-badge-num">10</span>
-        <div class="cs-section-title"><h2>Navigation &amp; filters</h2><p class="cs-desc">Sub-navigation, filter chips, search, and pagination.</p></div>
+        <span class="cs-badge-num" aria-hidden="true">10</span>
+        <div class="cs-section-title"><h2 id="navigation-title">Navigation &amp; filters</h2><p class="cs-desc">Sub-navigation, filter chips, search, and pagination.</p></div>
       </div>
       <div class="cs-card">
         <p class="cs-label">Menu status badge</p>
@@ -288,7 +295,7 @@
           <span class="cs-badge is-wip" aria-label="Work in progress">WIP</span>
         </div>
         <nav class="cs-subnav" aria-label="Example views">
-          <a class="cs-active" href="#" aria-current="page">Overview</a><a href="#">Evidence</a><a href="#">History</a>
+          <a class="cs-active" href="dashboard.html" aria-current="page">Overview</a><a href="audit.html">Evidence</a><a href="audit.html">History</a>
         </nav>
         <div class="cs-filterbar">
           <span class="cs-fb-label">Risk</span>
@@ -305,10 +312,10 @@
       </div>
     </section>
 
-    <section class="cs-section">
+    <section class="cs-section" id="status-decision-tokens" aria-labelledby="status-decision-tokens-title">
       <div class="cs-section-head">
-        <span class="cs-badge-num">11</span>
-        <div class="cs-section-title"><h2>Status &amp; decision tokens</h2><p class="cs-desc">Operational status, risk, execution mode, action category, and vertical labels.</p></div>
+        <span class="cs-badge-num" aria-hidden="true">11</span>
+        <div class="cs-section-title"><h2 id="status-decision-tokens-title">Status &amp; decision tokens</h2><p class="cs-desc">Operational status, risk, execution mode, action category, and vertical labels.</p></div>
       </div>
       <div class="cs-card">
         <p class="cs-label">Lifecycle status</p>
@@ -320,16 +327,16 @@
           <span class="cs-presence is-syncing"><span class="cs-presence-dots" aria-hidden="true"><span class="cs-presence-dot"></span><span class="cs-presence-dot"></span><span class="cs-presence-dot"></span></span>Syncing</span>
         </div>
         <p class="cs-label">Risk &amp; execution mode</p>
-        <div class="cs-flex cs-wrap cs-gap-8 cs-mb-24"><span class="cs-risk low">low</span><span class="cs-risk medium">medium</span><span class="cs-risk high">high</span><span class="cs-risk critical">critical</span><span class="cs-mode shadow">shadow</span><span class="cs-mode enforce">enforce</span><span class="cs-mode hil">approval</span><span class="cs-mode abstain">abstain</span><span class="cs-mode deny">deny</span></div>
+        <div class="cs-flex cs-wrap cs-gap-8 cs-mb-24"><span class="cs-risk low">low</span><span class="cs-risk medium">medium</span><span class="cs-risk high">high</span><span class="cs-risk critical">critical</span><span class="cs-mode shadow">observation</span><span class="cs-mode enforce">enforcement</span><span class="cs-mode hil">approval</span><span class="cs-mode abstain">review required</span><span class="cs-mode deny">denied</span></div>
         <p class="cs-label">Category &amp; vertical</p>
         <div class="cs-flex cs-wrap cs-gap-8"><span class="cs-cat remediation">remediation</span><span class="cs-cat ops">operations</span><span class="cs-cat governance">governance</span><span class="cs-vert resilience">Resilience</span><span class="cs-vert change">Change Safety</span><span class="cs-vert cost">Cost Governance</span></div>
       </div>
     </section>
 
-    <section class="cs-section" id="feedback">
+    <section class="cs-section" id="feedback" aria-labelledby="feedback-title">
       <div class="cs-section-head">
-        <span class="cs-badge-num">12</span>
-        <div class="cs-section-title"><h2>Feedback &amp; overlays</h2><p class="cs-desc">Content-update shimmer, read-only guidance, data states, tooltip, and modal dialog.</p></div>
+        <span class="cs-badge-num" aria-hidden="true">12</span>
+        <div class="cs-section-title"><h2 id="feedback-title">Feedback &amp; overlays</h2><p class="cs-desc">Content-update shimmer, read-only guidance, data states, tooltip, and modal dialog.</p></div>
       </div>
       <div class="cs-card cs-mb-24" data-cs-shimmer-demo>
         <p class="cs-label">Top-edge shimmer</p>
@@ -351,12 +358,17 @@
         <div class="cs-dialog-body"><p>Dialogs keep focused context above the page. Escape and backdrop click both close this sample.</p></div>
         <div class="cs-dialog-actions"><button class="cs-btn is-primary" type="button" data-cs-dialog-close>Done</button></div>
       </dialog>
+      <div class="cs-interaction-matrix" aria-label="Interaction state samples">
+        <div class="cs-interaction-sample"><span>Keyboard focus</span><button class="cs-btn cs-focus-demo" type="button">Focused control</button></div>
+        <div class="cs-interaction-sample"><span>Disabled</span><button class="cs-btn" type="button" disabled>Unavailable control</button></div>
+        <div class="cs-interaction-sample"><span>Motion preference</span><div class="cs-motion-demo">Update feedback remains visible with reduced motion.</div></div>
+      </div>
     </section>
 
-    <section class="cs-section" id="data-views">
+    <section class="cs-section" id="data-views" aria-labelledby="data-views-title">
       <div class="cs-section-head">
-        <span class="cs-badge-num">13</span>
-        <div class="cs-section-title"><h2>Charts &amp; structured summaries</h2><p class="cs-desc">Trend, comparison, distribution, and density charts with inspectable source data.</p></div>
+        <span class="cs-badge-num" aria-hidden="true">13</span>
+        <div class="cs-section-title"><h2 id="data-views-title">Charts &amp; structured summaries</h2><p class="cs-desc">Trend, comparison, distribution, and density charts with inspectable source data.</p></div>
       </div>
       <div class="cs-chart-grid">
         <figure class="cs-chart-card js-chartable" aria-label="Incident volume trend. Select to inspect daily values." data-chart-title="Incident volume" data-chart-sub="Seven-day synthetic trend" data-chart-columns='["Day","Incidents"]' data-chart-rows='[["Mon","18"],["Tue","24"],["Wed","21"],["Thu","31"],["Fri","27"],["Sat","36"],["Sun","29"]]' data-chart-num-cols="[1]" data-chart-source="Synthetic preview - 7-day window">
@@ -415,10 +427,10 @@
       </div>
     </section>
 
-    <section class="cs-section">
+    <section class="cs-section" id="code-highlight" aria-labelledby="code-highlight-title">
       <div class="cs-section-head">
-        <span class="cs-badge-num">14</span>
-        <div class="cs-section-title"><h2>Code highlight</h2><p class="cs-desc">Tabbed syntax viewer with file metadata, line numbers, horizontal scrolling, and copy feedback.</p></div>
+        <span class="cs-badge-num" aria-hidden="true">14</span>
+        <div class="cs-section-title"><h2 id="code-highlight-title">Code highlight</h2><p class="cs-desc">Tabbed syntax viewer with file metadata, line numbers, horizontal scrolling, and copy feedback.</p></div>
       </div>
       <div class="cs-code-viewer" data-cs-code-viewer>
         <div class="cs-code-toolbar">
@@ -472,10 +484,10 @@
       </div>
     </section>
 
-    <section class="cs-section">
+    <section class="cs-section" id="grid-lists" aria-labelledby="grid-lists-title">
       <div class="cs-section-head">
-        <span class="cs-badge-num">15</span>
-        <div class="cs-section-title"><h2>Grid lists</h2><p class="cs-desc">Responsive cards for agents, resources, and capabilities with shared metadata and actions.</p></div>
+        <span class="cs-badge-num" aria-hidden="true">15</span>
+        <div class="cs-section-title"><h2 id="grid-lists-title">Grid lists</h2><p class="cs-desc">Responsive cards for agents, resources, and capabilities with shared metadata and actions.</p></div>
       </div>
       <div class="cs-grid-list">
         <article class="cs-grid-item">
@@ -484,7 +496,7 @@
             <p class="cs-grid-item-summary">Reviewing a proposed policy change against the current evidence set.</p>
             <dl class="cs-grid-item-meta"><div><dt>Layer</dt><dd>governance</dd></div><div><dt>Reports to</dt><dd>Odin</dd></div><div><dt>Recent events</dt><dd>14</dd></div><div><dt>Authority</dt><dd>advise</dd></div></dl>
           </div>
-          <footer class="cs-grid-item-actions"><button type="button">Open</button><a href="#">Activity</a></footer>
+          <footer class="cs-grid-item-actions"><button type="button">Open</button><a href="agent-activity.html">Activity</a></footer>
         </article>
         <article class="cs-grid-item">
           <div class="cs-grid-item-main">
@@ -492,23 +504,23 @@
             <p class="cs-grid-item-summary">Point-in-time recovery is enabled and the latest restore check passed.</p>
             <dl class="cs-grid-item-meta"><div><dt>Scope</dt><dd>example-team</dd></div><div><dt>Region</dt><dd>primary</dd></div><div><dt>Findings</dt><dd>0 open</dd></div><div><dt>Observed</dt><dd>2m ago</dd></div></dl>
           </div>
-          <footer class="cs-grid-item-actions"><button type="button">Inspect</button><a href="#">Evidence</a></footer>
+          <footer class="cs-grid-item-actions"><button type="button">Inspect</button><a href="audit.html">Evidence</a></footer>
         </article>
         <article class="cs-grid-item">
           <div class="cs-grid-item-main">
-            <header class="cs-grid-item-head"><span class="cs-grid-item-avatar" aria-hidden="true">AT</span><div class="cs-grid-item-title"><h3>database.enable-pitr</h3><p>Recovery capability</p></div><span class="cs-mode shadow cs-grid-item-state">shadow</span></header>
+            <header class="cs-grid-item-head"><span class="cs-grid-item-avatar" aria-hidden="true">AT</span><div class="cs-grid-item-title"><h3>database.enable-pitr</h3><p>Recovery capability</p></div><span class="cs-mode shadow cs-grid-item-state">observation</span></header>
             <p class="cs-grid-item-summary">Evaluates recovery posture and proposes a governed correction when required.</p>
             <dl class="cs-grid-item-meta"><div><dt>Risk</dt><dd>high</dd></div><div><dt>Path</dt><dd>pr_native</dd></div><div><dt>Success</dt><dd>98.4%</dd></div><div><dt>Samples</dt><dd>184</dd></div></dl>
           </div>
-          <footer class="cs-grid-item-actions"><button type="button">Details</button><a href="#">Shadow log</a></footer>
+          <footer class="cs-grid-item-actions"><button type="button">Details</button><a href="audit.html">Observation log</a></footer>
         </article>
       </div>
     </section>
 
-    <section class="cs-section">
+    <section class="cs-section" id="feeds-timelines" aria-labelledby="feeds-timelines-title">
       <div class="cs-section-head">
-        <span class="cs-badge-num">16</span>
-        <div class="cs-section-title"><h2>Feeds &amp; timelines</h2><p class="cs-desc">Chronological activity with mixed event types, evidence links, and compact journal rows.</p></div>
+        <span class="cs-badge-num" aria-hidden="true">16</span>
+        <div class="cs-section-title"><h2 id="feeds-timelines-title">Feeds &amp; timelines</h2><p class="cs-desc">Chronological activity with mixed event types, evidence links, and compact journal rows.</p></div>
       </div>
       <div class="cs-feed-layout">
         <div class="cs-card">
@@ -532,10 +544,10 @@
       </div>
     </section>
 
-    <section class="cs-section" id="advanced">
+    <section class="cs-section" id="advanced" aria-labelledby="advanced-title">
       <div class="cs-section-head">
-        <span class="cs-badge-num">17</span>
-        <div class="cs-section-title"><h2>Select menus &amp; combobox</h2><p class="cs-desc">Native selection, rich options with status and secondary text, and searchable operational scope.</p></div>
+        <span class="cs-badge-num" aria-hidden="true">17</span>
+        <div class="cs-section-title"><h2 id="advanced-title">Select menus &amp; combobox</h2><p class="cs-desc">Native selection, rich options with status and secondary text, and searchable operational scope.</p></div>
       </div>
       <div class="cs-select-showcase">
         <div class="cs-select-demo">
@@ -572,10 +584,10 @@
       </div>
     </section>
 
-    <section class="cs-section">
+    <section class="cs-section" id="drawers-command-menus" aria-labelledby="drawers-command-menus-title">
       <div class="cs-section-head">
-        <span class="cs-badge-num">18</span>
-        <div class="cs-section-title"><h2>Drawers &amp; command menus</h2><p class="cs-desc">Row-action dropdowns, power-user command search, and a focused detail panel.</p></div>
+        <span class="cs-badge-num" aria-hidden="true">18</span>
+        <div class="cs-section-title"><h2 id="drawers-command-menus-title">Drawers &amp; command menus</h2><p class="cs-desc">Row-action dropdowns, power-user command search, and a focused detail panel.</p></div>
       </div>
       <div class="cs-overlay-showcase">
         <div class="cs-menu-demo">
@@ -605,33 +617,33 @@
           </div>
         </div>
       </div>
-      <div class="cs-flex cs-gap-8" style="margin-top:14px"><button class="cs-btn is-navy" type="button" data-cs-drawer-open="component-drawer">Open detail drawer</button></div>
+      <div class="cs-flex cs-gap-8 cs-mt-14"><button class="cs-btn is-navy" type="button" data-cs-drawer-open="component-drawer">Open detail drawer</button></div>
       <div class="cs-drawer-overlay" id="component-drawer" data-cs-drawer-overlay hidden>
         <aside class="cs-drawer" role="dialog" aria-modal="true" aria-labelledby="component-drawer-title" tabindex="-1" data-cs-drawer>
           <header class="cs-drawer-head"><div><h3 id="component-drawer-title"><code>database.enable-pitr</code></h3><p>Rule detail - read-only evidence</p></div><button class="cs-alert-dismiss" type="button" aria-label="Close detail drawer" data-cs-drawer-close>&times;</button></header>
           <div class="cs-drawer-body">
-            <section class="cs-drawer-section"><div class="cs-flex cs-wrap cs-gap-8 cs-mb-16"><span class="cs-mode shadow">shadow</span><span class="cs-risk high">high</span><span class="cs-tag is-teal">reliability</span></div><p class="cs-muted">Detects missing point-in-time recovery and prepares a governed correction.</p></section>
-            <section class="cs-drawer-section"><h4>Decision facts</h4><dl class="cs-drawer-facts"><div><dt>Tier</dt><dd>T1</dd></div><div><dt>Confidence</dt><dd>0.93</dd></div><div><dt>Execution path</dt><dd>pr_native</dd></div><div><dt>Policy escapes</dt><dd>0</dd></div></dl></section>
-            <section class="cs-drawer-section"><h4>Evidence</h4><ol class="cs-feed"><li class="cs-feed-item"><span class="cs-feed-marker is-success">1</span><div class="cs-feed-body"><p>Recovery policy snapshot</p><small>Observed 2 minutes ago</small></div></li><li class="cs-feed-item"><span class="cs-feed-marker is-plum">2</span><div class="cs-feed-body"><p>Prior resolved case</p><small>Similarity 0.93</small></div></li></ol></section>
+            <div class="cs-drawer-section"><div class="cs-flex cs-wrap cs-gap-8 cs-mb-16"><span class="cs-mode shadow">observation</span><span class="cs-risk high">high</span><span class="cs-tag is-teal">reliability</span></div><p class="cs-muted">Detects missing point-in-time recovery and prepares a governed correction.</p></div>
+            <div class="cs-drawer-section"><h4>Decision facts</h4><dl class="cs-drawer-facts"><div><dt>Tier</dt><dd>T1</dd></div><div><dt>Confidence</dt><dd>0.93</dd></div><div><dt>Execution path</dt><dd>pr_native</dd></div><div><dt>Policy escapes</dt><dd>0</dd></div></dl></div>
+            <div class="cs-drawer-section"><h4>Evidence</h4><ol class="cs-feed"><li class="cs-feed-item"><span class="cs-feed-marker is-success">1</span><div class="cs-feed-body"><p>Recovery policy snapshot</p><small>Observed 2 minutes ago</small></div></li><li class="cs-feed-item"><span class="cs-feed-marker is-plum">2</span><div class="cs-feed-body"><p>Prior resolved case</p><small>Similarity 0.93</small></div></li></ol></div>
           </div>
           <footer class="cs-drawer-foot"><button class="cs-btn" type="button" data-cs-drawer-close>Close</button><button class="cs-btn is-primary" type="button">View audit</button></footer>
         </aside>
       </div>
     </section>
 
-    <section class="cs-section">
+    <section class="cs-section" id="production-data-states" aria-labelledby="production-data-states-title">
       <div class="cs-section-head">
-        <span class="cs-badge-num">19</span>
-        <div class="cs-section-title"><h2>Production data states</h2><p class="cs-desc">Responsive selectable rows plus consistent loading, error, unavailable, and empty feedback.</p></div>
+        <span class="cs-badge-num" aria-hidden="true">19</span>
+        <div class="cs-section-title"><h2 id="production-data-states-title">Production data states</h2><p class="cs-desc">Responsive selectable rows plus consistent loading, error, unavailable, and empty feedback.</p></div>
       </div>
       <div class="cs-data-table-wrap">
         <table class="cs-data-table" data-cs-data-table>
           <caption>Rows become labeled stacks below 700px.</caption>
-          <thead><tr><th>Rule</th><th>Resource</th><th>Decision</th><th>Observed</th></tr></thead>
+          <thead><tr><th scope="col">Rule</th><th scope="col">Resource</th><th scope="col">Decision</th><th scope="col">Observed</th></tr></thead>
           <tbody>
             <tr class="is-selected"><td data-label="Rule"><button class="cs-data-row-action" type="button" aria-pressed="true" data-cs-row-select><code>database.enable-pitr</code></button></td><td data-label="Resource">example-db</td><td data-label="Decision"><span class="cs-mode hil">approval</span></td><td data-label="Observed">2m ago</td></tr>
             <tr><td data-label="Rule"><button class="cs-data-row-action" type="button" aria-pressed="false" data-cs-row-select><code>storage.public-blob.deny</code></button></td><td data-label="Resource">example-storage</td><td data-label="Decision"><span class="cs-mode enforce">auto</span></td><td data-label="Observed">8m ago</td></tr>
-            <tr><td data-label="Rule"><button class="cs-data-row-action" type="button" aria-pressed="false" data-cs-row-select><code>cost.rightsize.candidate</code></button></td><td data-label="Resource">example-workload</td><td data-label="Decision"><span class="cs-mode shadow">shadow</span></td><td data-label="Observed">14m ago</td></tr>
+            <tr><td data-label="Rule"><button class="cs-data-row-action" type="button" aria-pressed="false" data-cs-row-select><code>cost.rightsize.candidate</code></button></td><td data-label="Resource">example-workload</td><td data-label="Decision"><span class="cs-mode shadow">observation</span></td><td data-label="Observed">14m ago</td></tr>
           </tbody>
         </table>
       </div>
@@ -644,10 +656,10 @@
       </div>
     </section>
 
-    <section class="cs-section">
+    <section class="cs-section" id="structured-lists" aria-labelledby="structured-lists-title">
       <div class="cs-section-head">
-        <span class="cs-badge-num">20</span>
-        <div class="cs-section-title"><h2>Structured lists</h2><p class="cs-desc">Dense stacked rows, responsive description facts, and media objects for attached evidence.</p></div>
+        <span class="cs-badge-num" aria-hidden="true">20</span>
+        <div class="cs-section-title"><h2 id="structured-lists-title">Structured lists</h2><p class="cs-desc">Dense stacked rows, responsive description facts, and media objects for attached evidence.</p></div>
       </div>
       <div class="cs-structured-layout">
         <div>
@@ -656,7 +668,7 @@
             <ul class="cs-stacked-list">
               <li class="cs-stacked-item"><span class="cs-stacked-icon is-warning" aria-hidden="true">DB</span><div class="cs-stacked-body"><strong>Point-in-time recovery disabled</strong><p>example-db - awaiting human approval</p></div><div class="cs-stacked-side"><span class="cs-risk high">high</span><time>2m</time></div></li>
               <li class="cs-stacked-item"><span class="cs-stacked-icon" aria-hidden="true">ST</span><div class="cs-stacked-body"><strong>Public blob access detected</strong><p>example-storage - corrected automatically</p></div><div class="cs-stacked-side"><span class="cs-risk medium">medium</span><time>8m</time></div></li>
-              <li class="cs-stacked-item"><span class="cs-stacked-icon is-plum" aria-hidden="true">CO</span><div class="cs-stacked-body"><strong>Compute cost above baseline</strong><p>example-workload - observing in shadow</p></div><div class="cs-stacked-side"><span class="cs-risk low">low</span><time>14m</time></div></li>
+              <li class="cs-stacked-item"><span class="cs-stacked-icon is-plum" aria-hidden="true">CO</span><div class="cs-stacked-body"><strong>Compute cost above baseline</strong><p>example-workload - observing without changes</p></div><div class="cs-stacked-side"><span class="cs-risk low">low</span><time>14m</time></div></li>
             </ul>
           </div>
         </div>
@@ -674,13 +686,13 @@
       </div>
     </section>
 
-    <section class="cs-section">
+    <section class="cs-section" id="page-context-notifications" aria-labelledby="page-context-notifications-title">
       <div class="cs-section-head">
-        <span class="cs-badge-num">21</span>
-        <div class="cs-section-title"><h2>Page context &amp; notifications</h2><p class="cs-desc">Domain-aware headings, breadcrumbs, input groups, action panels, and non-intrusive UI feedback.</p></div>
+        <span class="cs-badge-num" aria-hidden="true">21</span>
+        <div class="cs-section-title"><h2 id="page-context-notifications-title">Page context &amp; notifications</h2><p class="cs-desc">Domain-aware headings, breadcrumbs, input groups, action panels, and non-intrusive UI feedback.</p></div>
       </div>
       <div class="cs-page-context-demo">
-        <nav class="cs-breadcrumbs" aria-label="Breadcrumb"><a href="#">Governance</a><span aria-hidden="true">/</span><a href="#">Rules</a><span aria-hidden="true">/</span><strong>database.enable-pitr</strong></nav>
+        <nav class="cs-breadcrumbs" aria-label="Breadcrumb"><a href="rules.html">Governance</a><span aria-hidden="true">/</span><a href="rules.html">Rules</a><span aria-hidden="true">/</span><strong>database.enable-pitr</strong></nav>
         <header class="cs-context-header"><div><h3><span class="cs-context-domain">Governance</span><span class="cs-context-separator" aria-hidden="true">/</span>Rule detail</h3><p>Review decision facts, evidence, and current observation mode.</p></div><div class="cs-context-actions"><button class="cs-btn" type="button">Copy link</button><button class="cs-btn is-navy" type="button">Open audit</button></div></header>
       </div>
       <div class="cs-action-layout">
@@ -691,15 +703,15 @@
       <div class="cs-toast-region" aria-live="polite" aria-atomic="true"><div class="cs-toast" role="status" data-cs-toast hidden><span class="cs-toast-icon" aria-hidden="true">✓</span><div><strong>Preferences saved</strong><small>The current filter layout is stored for this browser session.</small></div><button class="cs-alert-dismiss" type="button" aria-label="Close notification" data-cs-toast-close>&times;</button></div></div>
     </section>
 
-    <section class="cs-section">
+    <section class="cs-section" id="calendar-scheduling" aria-labelledby="calendar-scheduling-title">
       <div class="cs-section-head">
-        <span class="cs-badge-num">22</span>
-        <div class="cs-section-title"><h2>Calendar &amp; scheduling</h2><p class="cs-desc">Compact month view for maintenance windows, scheduled reviews, and experiment cadence.</p></div>
+        <span class="cs-badge-num" aria-hidden="true">22</span>
+        <div class="cs-section-title"><h2 id="calendar-scheduling-title">Calendar &amp; scheduling</h2><p class="cs-desc">Compact month view for maintenance windows, scheduled reviews, and experiment cadence.</p></div>
       </div>
       <div class="cs-calendar-layout">
         <div class="cs-calendar" data-cs-calendar data-year="2026" data-month="6" data-selected-date="2026-07-22">
           <header class="cs-calendar-head"><strong data-cs-calendar-title>July 2026</strong><div class="cs-calendar-nav"><button type="button" aria-label="Previous month" data-cs-calendar-nav="-1">&lsaquo;</button><button type="button" aria-label="Next month" data-cs-calendar-nav="1">&rsaquo;</button></div></header>
-          <table class="cs-calendar-grid"><thead><tr><th>Su</th><th>Mo</th><th>Tu</th><th>We</th><th>Th</th><th>Fr</th><th>Sa</th></tr></thead><tbody data-cs-calendar-body>
+          <table class="cs-calendar-grid"><caption class="cs-sr-only">July 2026 maintenance calendar</caption><thead><tr><th scope="col">Su</th><th scope="col">Mo</th><th scope="col">Tu</th><th scope="col">We</th><th scope="col">Th</th><th scope="col">Fr</th><th scope="col">Sa</th></tr></thead><tbody data-cs-calendar-body>
             <tr><td><button class="cs-calendar-day is-outside" type="button">28</button></td><td><button class="cs-calendar-day is-outside" type="button">29</button></td><td><button class="cs-calendar-day is-outside" type="button">30</button></td><td><button class="cs-calendar-day" type="button">1</button></td><td><button class="cs-calendar-day" type="button">2</button></td><td><button class="cs-calendar-day" type="button">3</button></td><td><button class="cs-calendar-day" type="button">4</button></td></tr>
             <tr><td><button class="cs-calendar-day" type="button">5</button></td><td><button class="cs-calendar-day has-event" type="button">6</button></td><td><button class="cs-calendar-day" type="button">7</button></td><td><button class="cs-calendar-day" type="button">8</button></td><td><button class="cs-calendar-day" type="button">9</button></td><td><button class="cs-calendar-day" type="button">10</button></td><td><button class="cs-calendar-day" type="button">11</button></td></tr>
             <tr><td><button class="cs-calendar-day" type="button">12</button></td><td><button class="cs-calendar-day" type="button">13</button></td><td><button class="cs-calendar-day has-event" type="button">14</button></td><td><button class="cs-calendar-day" type="button">15</button></td><td><button class="cs-calendar-day" type="button">16</button></td><td><button class="cs-calendar-day" type="button">17</button></td><td><button class="cs-calendar-day" type="button">18</button></td></tr>
@@ -711,10 +723,10 @@
       </div>
     </section>
 
-    <section class="cs-section" id="typography">
+    <section class="cs-section" id="typography" aria-labelledby="typography-title">
       <div class="cs-section-head">
-        <span class="cs-badge-num">23</span>
-        <div class="cs-section-title"><h2>Typography &amp; content hierarchy</h2><p class="cs-desc">Shared semantic text roles used by both the Console and static UI mocks.</p></div>
+        <span class="cs-badge-num" aria-hidden="true">23</span>
+        <div class="cs-section-title"><h2 id="typography-title">Typography &amp; content hierarchy</h2><p class="cs-desc">Shared semantic text roles used by both the Console and static UI mocks.</p></div>
       </div>
       <div class="cs-type-specimen">
         <div class="cs-type-specimen-row">
@@ -770,14 +782,56 @@
       var index = document.querySelector(".cs-gallery-index");
       if (!index) return;
       var links = Array.from(index.querySelectorAll("a[href^='#']"));
-      var sections = links.map(function (link) { return document.querySelector(link.getAttribute("href")); });
+      var categorySections = links.map(function (link) { return document.querySelector(link.getAttribute("href")); });
+      var allSections = Array.from(document.querySelectorAll("main > .cs-section"));
+      var search = document.querySelector("[data-cs-component-search]");
+      var count = document.querySelector("[data-cs-gallery-count]");
+      var themeToggle = document.querySelector("[data-cs-theme-toggle]");
       var scheduled = false;
+      var lastPublishedSection = "";
+
+      allSections.forEach(function (section) {
+        var heading = section.querySelector(":scope > .cs-section-head h2");
+        if (!heading) return;
+        var permalink = document.createElement("a");
+        permalink.className = "cs-heading-link";
+        permalink.href = "#" + section.id;
+        permalink.setAttribute("aria-label", "Link to " + heading.textContent);
+        permalink.textContent = "#";
+        heading.appendChild(permalink);
+      });
+
+      function visibleSections() {
+        return allSections.filter(function (section) { return !section.hidden; });
+      }
+
+      function topSection() {
+        var visible = visibleSections();
+        var current = visible[0] || allSections[0];
+        visible.forEach(function (section) {
+          if (section.getBoundingClientRect().top <= 108) current = section;
+        });
+        return current;
+      }
+
+      function categoryFor(section) {
+        var sectionIndex = allSections.indexOf(section);
+        var current = categorySections[0];
+        categorySections.forEach(function (candidate) {
+          if (allSections.indexOf(candidate) <= sectionIndex) current = candidate;
+        });
+        return current;
+      }
+
+      function publishSection(section) {
+        if (!section || section.id === lastPublishedSection || window.parent === window) return;
+        lastPublishedSection = section.id;
+        window.parent.postMessage({ type: "fdai:mock-section", section: section.id }, window.location.origin);
+      }
 
       function syncActiveCategory() {
-        var current = sections[0];
-        sections.forEach(function (section) {
-          if (section && section.getBoundingClientRect().top <= 64) current = section;
-        });
+        var currentSection = topSection();
+        var current = categoryFor(currentSection);
         links.forEach(function (link) {
           if (current && link.getAttribute("href") === "#" + current.id) {
             link.setAttribute("aria-current", "location");
@@ -785,7 +839,29 @@
             link.removeAttribute("aria-current");
           }
         });
+        publishSection(currentSection);
         scheduled = false;
+      }
+
+      function applyFilter(skipSync) {
+        var query = search.value.trim().toLocaleLowerCase();
+        var matches = 0;
+        allSections.forEach(function (section) {
+          var heading = section.querySelector(":scope > .cs-section-head h2");
+          var description = section.querySelector(":scope > .cs-section-head .cs-desc");
+          var searchable = ((heading ? heading.textContent : "") + " " + (description ? description.textContent : "")).toLocaleLowerCase();
+          section.hidden = Boolean(query) && !searchable.includes(query);
+          if (!section.hidden) matches += 1;
+        });
+        count.value = matches + (matches === 1 ? " section" : " sections");
+        if (!skipSync) syncActiveCategory();
+      }
+
+      function syncHashTarget() {
+        var sectionId = decodeURIComponent(window.location.hash.replace(/^#/, ""));
+        var target = allSections.find(function (section) { return section.id === sectionId && !section.hidden; });
+        if (target) target.scrollIntoView({ block: "start" });
+        syncActiveCategory();
       }
 
       document.addEventListener("scroll", function () {
@@ -793,8 +869,24 @@
         scheduled = true;
         requestAnimationFrame(syncActiveCategory);
       }, { passive: true });
-      window.addEventListener("hashchange", syncActiveCategory);
-      syncActiveCategory();
+      links.forEach(function (link) {
+        link.addEventListener("click", function () {
+          if (!search.value) return;
+          search.value = "";
+          applyFilter();
+        });
+      });
+      search.addEventListener("input", applyFilter);
+      themeToggle.addEventListener("click", function () {
+        var dark = document.body.getAttribute("data-theme") !== "dark";
+        if (dark) document.body.setAttribute("data-theme", "dark");
+        else document.body.removeAttribute("data-theme");
+        themeToggle.setAttribute("aria-pressed", String(dark));
+        themeToggle.textContent = dark ? "Light preview" : "Dark preview";
+      });
+      window.addEventListener("hashchange", syncHashTarget);
+      applyFilter(true);
+      syncHashTarget();
     })();
   </script>
 </body>

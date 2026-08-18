@@ -23,9 +23,9 @@ const componentGallery = readFileSync(
 describe("shared Calm Slate tokens", () => {
   test("keeps foundation tokens in one stylesheet consumed by Console and mocks", () => {
     expect(consoleStyles).toContain('@import url("../../ui/calm-slate-tokens.css")');
-    expect(mockStyles).toContain('@import url("../../../ui/calm-slate-tokens.css")');
+    expect(mockStyles).toContain('@import url("../../../ui/calm-slate-tokens.css?v=semantic-type-v2")');
     expect(consoleStyles).toContain('@import url("../../ui/calm-slate-primitives.css")');
-    expect(mockStyles).toContain('@import url("../../../ui/calm-slate-primitives.css")');
+    expect(mockStyles).toContain('@import url("../../../ui/calm-slate-primitives.css?v=semantic-type-v2")');
     expect(sharedTokens).toContain("--cs-radius: 8px");
     expect(sharedTokens).toContain("--cs-type-page-title-size: 24px");
     expect(sharedTokens).toContain("--cs-type-page-subtitle-size: 13px");

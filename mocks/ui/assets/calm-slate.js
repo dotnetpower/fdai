@@ -661,22 +661,42 @@
     if (!inside) event.target.close();
   });
 
-  // ---- Tabs (unchanged) -----------------------------------------------------
-  document.addEventListener("click", function (event) {
-    var tab = event.target.closest("[data-cs-tab]");
-    if (!tab) return;
+  // ---- Tabs -----------------------------------------------------------------
+  function activateTab(tab, moveFocus) {
     var group = tab.closest("[data-cs-tabs]");
     if (!group) return;
 
     var targetId = tab.getAttribute("data-cs-tab");
     group.querySelectorAll("[data-cs-tab]").forEach(function (t) {
-      t.classList.toggle("cs-active", t === tab);
+      var active = t === tab;
+      t.classList.toggle("cs-active", active);
+      t.setAttribute("aria-selected", String(active));
+      t.tabIndex = active ? 0 : -1;
     });
 
     var container = group.parentElement;
     container.querySelectorAll(".cs-tabpanel").forEach(function (panel) {
-      panel.classList.toggle("cs-active", panel.id === targetId);
+      var active = panel.id === targetId;
+      panel.classList.toggle("cs-active", active);
+      panel.hidden = !active;
     });
+    if (moveFocus) tab.focus();
+  }
+
+  document.addEventListener("click", function (event) {
+    var tab = event.target.closest("[data-cs-tab]");
+    if (!tab) return;
+    activateTab(tab, false);
+  });
+
+  document.addEventListener("keydown", function (event) {
+    var tab = event.target.closest("[data-cs-tab]");
+    if (!tab || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    var tabs = Array.from(tab.closest("[data-cs-tabs]").querySelectorAll("[data-cs-tab]"));
+    var current = tabs.indexOf(tab);
+    var next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : current + (event.key === "ArrowRight" ? 1 : -1);
+    event.preventDefault();
+    activateTab(tabs[(next + tabs.length) % tabs.length], true);
   });
 
   // ---- Chart -> data modal --------------------------------------------------
@@ -691,6 +711,7 @@
 
   var modalEl = null;
   var lastTrigger = null;
+  var inertRoots = [];
 
   function ensureModal() {
     if (modalEl) return modalEl;
@@ -736,13 +757,13 @@
     });
   }
 
-  function renderTable(columns, rows, numCols) {
+  function renderTable(columns, rows, numCols, caption) {
     var numSet = {};
     (numCols || []).forEach(function (i) { numSet[i] = true; });
 
     var thead = "<thead><tr>" + columns.map(function (c, i) {
       var cls = numSet[i] ? ' class="cs-num"' : "";
-      return "<th" + cls + ">" + escapeHtml(c) + "</th>";
+      return "<th scope=\"col\"" + cls + ">" + escapeHtml(c) + "</th>";
     }).join("") + "</tr></thead>";
 
     var tbody = "<tbody>" + rows.map(function (row) {
@@ -752,7 +773,20 @@
       }).join("") + "</tr>";
     }).join("") + "</tbody>";
 
-    return '<div class="cs-table-wrap"><table class="cs-table">' + thead + tbody + "</table></div>";
+    return '<div class="cs-table-wrap"><table class="cs-table"><caption class="cs-sr-only">' + escapeHtml(caption) + "</caption>" + thead + tbody + "</table></div>";
+  }
+
+  function isolateModal(modal) {
+    inertRoots = Array.from(document.body.children).filter(function (element) { return element !== modal; }).map(function (element) {
+      var wasInert = element.inert;
+      element.inert = true;
+      return { element: element, wasInert: wasInert };
+    });
+  }
+
+  function restoreModalBackground() {
+    inertRoots.forEach(function (entry) { entry.element.inert = entry.wasInert; });
+    inertRoots = [];
   }
 
   function openModal(trigger) {
@@ -785,7 +819,7 @@
     else { subEl.hidden = true; }
 
     m.querySelector(".cs-modal-body").innerHTML = columns.length && rows.length
-      ? renderTable(columns, rows, numCols)
+      ? renderTable(columns, rows, numCols, title + " source data")
       : '<p class="cs-muted">No data provided.</p>';
 
     var footEl = m.querySelector(".cs-modal-foot");
@@ -794,6 +828,7 @@
 
     lastTrigger = trigger;
     m.hidden = false;
+    isolateModal(m);
     document.body.classList.add("cs-modal-open");
     m.querySelector(".cs-modal-close").focus();
   }
@@ -801,6 +836,7 @@
   function closeModal() {
     if (!modalEl || modalEl.hidden) return;
     modalEl.hidden = true;
+    restoreModalBackground();
     document.body.classList.remove("cs-modal-open");
     if (lastTrigger && typeof lastTrigger.focus === "function") lastTrigger.focus();
   }
@@ -816,6 +852,20 @@
   document.addEventListener("keydown", function (event) {
     if (!modalEl || modalEl.hidden) return;
     if (event.key === "Escape") { event.preventDefault(); closeModal(); }
+    if (event.key !== "Tab") return;
+    var focusable = Array.from(modalEl.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')).filter(function (element) {
+      return !element.disabled && !element.hidden;
+    });
+    if (!focusable.length) return;
+    var first = focusable[0];
+    var last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   });
 
   // Make chartables keyboard-activatable.

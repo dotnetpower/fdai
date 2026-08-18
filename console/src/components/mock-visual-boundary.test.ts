@@ -37,7 +37,7 @@ describe("mock console visual boundary", () => {
 
   test("cache-busts iframe previews so removed variants do not persist", () => {
     const landing = readFileSync(`${MOCK_ROOT}/index.html`, "utf8");
-    expect(landing).toMatch(/const previewUrl = page \+ '\?shell=left-v5&preview=' \+ Date\.now\(\);/);
+    expect(landing).toMatch(/const previewUrl = page \+ '\?shell=left-v5&preview=' \+ Date\.now\(\) \+ \(section \?/);
     expect(landing).toContain("frame.src = previewUrl");
   });
 
@@ -49,7 +49,7 @@ describe("mock console visual boundary", () => {
 
     expect(landing).toContain("<h3>Visualization</h3>");
     expect(landing).toContain('data-page="service-map.html"');
-    expect(masterLanding).toContain("<h3>Visualization</h3>");
+    expect(masterLanding).toContain('<span class="nav-group-label">Visualization</span>');
     expect(masterLanding).toContain('data-page="mocks/ui/service-map.html"');
     expect(masterLanding).toContain('<span class="count">42 pages</span>');
     expect(navigation).toContain('["Visualization", [');
