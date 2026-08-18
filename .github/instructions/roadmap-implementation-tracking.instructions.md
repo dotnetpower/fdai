@@ -46,6 +46,11 @@ expects soon. A path alone proves implementation location, not runtime
 validation. Split rows when different parts of the design have different
 states.
 
+Implementation history MAY use `withdrawn` for a transition that was fully backed out and leaves
+no current implementation. Keep the withdrawal reason, failed or superseded evidence, and the
+condition for reconsideration in that append-only row. `withdrawn` is historical provenance, not
+an implementation-scope state.
+
 ## Implementation History
 
 Use an append-only table with the columns `Date`, `State`, `Change`, `Evidence`,

@@ -17,10 +17,14 @@ def _load_module() -> ModuleType:
 
 
 def _ledger(
-    *, state: str = "implemented", extra_history: str = "", leading_history: str = ""
+    *,
+    state: str = "implemented",
+    history_state: str = "implemented",
+    extra_history: str = "",
+    leading_history: str = "",
 ) -> str:
     history_row = (
-        "| 2026-08-14 | implemented | Added the loader. | "
+        f"| 2026-08-14 | {history_state} | Added the loader. | "
         "current change; focused tests pass. | Validate runtime evidence. |"
     )
     return f"""# Owner
@@ -66,6 +70,15 @@ def test_unknown_scope_state_is_rejected() -> None:
     errors = module.ledger_violations(_ledger(state="partial"))
 
     assert any("unsupported state 'partial'" in error for error in errors)
+
+
+def test_withdrawn_is_accepted_only_in_implementation_history() -> None:
+    module = _load_module()
+
+    assert module.ledger_violations(_ledger(history_state="withdrawn")) == []
+    errors = module.ledger_violations(_ledger(state="withdrawn"))
+
+    assert any("scope row 1 has unsupported state 'withdrawn'" in error for error in errors)
 
 
 def test_existing_history_rows_are_append_only() -> None:

@@ -28,6 +28,7 @@ ALLOWED_STATES = frozenset(
         "not-applicable",
     }
 )
+HISTORY_ALLOWED_STATES = ALLOWED_STATES | {"withdrawn"}
 DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 TASK_PATTERN = re.compile(r"^\s*-\s+\[[ xX]\]\s+\S")
 SEPARATOR_PATTERN = re.compile(r"^:?-{3,}:?$")
@@ -251,7 +252,7 @@ def ledger_violations(content: str, previous: str | None = None) -> list[str]:
         for index, row in enumerate(history_rows, start=1):
             if not DATE_PATTERN.fullmatch(row[0]):
                 errors.append(f"history row {index} date must use YYYY-MM-DD")
-            if row[1] not in ALLOWED_STATES:
+            if row[1] not in HISTORY_ALLOWED_STATES:
                 errors.append(f"history row {index} has unsupported state '{row[1]}'")
             if any(not cell for cell in row[2:]):
                 errors.append(f"history row {index} requires change, evidence, and remaining")
