@@ -39,6 +39,7 @@ SCANNED_TREES: dict[Path, Path | None] = {
     ROOT / "services/core-control-plane/src/fdai": (
         ROOT / "services/core-control-plane/src/fdai/runtime/venue.py"
     ),
+    ROOT / "services/core-control-plane/src/fdai_core_service": None,
     ROOT / "services/operator-service/src/fdai_operator_service": None,
     ROOT / "services/document-ingestion-api/src/fdai_ingestion_api_service": None,
     ROOT / "services/document-processing-worker/src/fdai_document_worker_service": None,
