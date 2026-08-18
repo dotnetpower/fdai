@@ -121,6 +121,12 @@ class EventHubsKafkaBusConfig:
     token_refresh_jitter_seconds: float = 15.0
     """Recycle consumers 30-45 seconds before their Entra token expires."""
 
+    commit_max_records: int = 50
+    commit_interval_seconds: float = 5.0
+    """Bound how much redelivery a lost consumer causes. A commit costs a broker
+    round-trip (~0.8s against Event Hubs), so committing per message caps ingest
+    throughput no matter how fast events are processed."""
+
     _EVENT_HUBS_IDLE_CLOSE_MS: ClassVar[int] = 240_000
     _EVENT_HUBS_REQUEST_TIMEOUT_FLOOR_MS: ClassVar[int] = 60_000
     _EVENT_HUBS_MAX_REQUEST_SIZE: ClassVar[int] = 1_000_000
@@ -157,6 +163,10 @@ class EventHubsKafkaBusConfig:
             raise ValueError("max_request_size MUST be in [1, 1000000]")
         if self.token_refresh_margin_seconds <= 0:
             raise ValueError("token_refresh_margin_seconds MUST be positive")
+        if self.commit_max_records < 1:
+            raise ValueError("commit_max_records MUST be at least 1")
+        if self.commit_interval_seconds <= 0:
+            raise ValueError("commit_interval_seconds MUST be positive")
         if not 0 <= self.token_refresh_jitter_seconds < self.token_refresh_margin_seconds:
             raise ValueError(
                 "token_refresh_jitter_seconds MUST be non-negative and less than "
@@ -374,6 +384,8 @@ async def _iter_consumer(
                 group_id=group_id,
                 config=config,
             )
+            uncommitted = 0
+            last_commit_at = asyncio.get_running_loop().time()
             while True:
                 remaining = refresh_at - asyncio.get_running_loop().time()
                 if remaining <= 0:
@@ -393,7 +405,19 @@ async def _iter_consumer(
                 # At-least-once: commit only after the caller finished iterating
                 # to the yield point. If the caller crashes mid-processing, the
                 # broker will redeliver the message and the ControlLoop's
-                # idempotency_key dedupe will make the retry a no-op.
+                # idempotency_key dedupe will make the retry a no-op. That same
+                # dedupe is what lets one commit cover a bounded batch instead of
+                # paying a broker round-trip for every single event.
+                uncommitted += 1
+                now = asyncio.get_running_loop().time()
+                if (
+                    uncommitted >= config.commit_max_records
+                    or now - last_commit_at >= config.commit_interval_seconds
+                ):
+                    await consumer.commit()
+                    uncommitted = 0
+                    last_commit_at = now
+            if uncommitted:
                 await consumer.commit()
             _LOGGER.debug("event_bus_consumer_token_refresh", extra={"group_id": group_id})
         finally:
