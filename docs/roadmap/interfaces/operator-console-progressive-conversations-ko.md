@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 589d260085cbcf52e3b6c205b5896d55a3e3f90f
+translation_source_sha: 2eb45c1e612fc401f39fcd6ee14a43cc622c95c9
 translation_revised: 2026-08-18
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -54,6 +54,7 @@ translation_revised: 2026-08-18
 | 2026-08-17 | implemented | 기록된 활동 타임라인이 생기기 전에 제공되던 블록 3개를 그대로 고정하고 있던 인증된 인시던트 표현 게이트를 바로잡았습니다. 이제 동일한 종료 응답이 담고 있는 상관 근거에서 기대 블록을 도출하므로, 타임라인이 사라지면 실패하고 행을 반환하지 않은 인시던트 읽기는 그대로 통과합니다. | `current change`; `console/tests/live-e2e/semantic-answer-presentation.spec.ts`; 오늘 관측한 라이브 Console 답변은 `overview`, `records`, `limitations`, `findings`를 렌더링합니다. Console typecheck가 통과했습니다. | 인증된 외부 스택에서 게이트를 실행합니다. |
 | 2026-08-18 | implemented | 검증된 목록 답변을 한눈에 읽을 수 있게 했습니다. 완전한 범주형 결과는 제한된 막대 분포를 그리고, 잘린 결과는 검증된 전체 중 몇 건을 표시했고 나머지가 어디에 있는지 밝히며, 이름 있는 읽기 쉬운 필드가 불투명한 식별자보다 앞에 오고, 요약 격자는 항목 수에 맞춰져 값 하나 옆에 빈 칸을 남기지 않습니다. 불완전하거나 상한에 걸린 결과는 차트를 그리지 않으므로 부분 집계가 전체처럼 읽히지 않습니다. | `current change`, [Issue #184](https://github.com/dotnetpower/fdai/issues/184), `semantic_turn_presentation.py`, `console/src/deck/structured-reply.css`, focused Operator 검사 394개 통과(차트 회귀 2건 신규), Console typecheck와 Ruff 및 strict mypy 통과 | 차트와 행 상한 안내에 대한 통제된 request-to-Console 및 이중 언어 무작위 근거를 보존합니다. |
 | 2026-08-18 | implemented | 의미 turn이 관측한 단계를 주소 지정 가능한 step으로 발행했습니다. Console은 이미 `activity` 이벤트로 관측 과정 타임라인을 그리지만 의미 turn은 `status`와 `verification`만 발행해 턴 내내 한 줄이 고정돼 있었습니다. 이제 관측된 각 단계가 제한된 step을 함께 발행하고, 대기 step은 종단 projection이 생길 때까지 running으로 보고되며 disposition과 무관하게 종단 이벤트 전에 정리됩니다. 관측하지 않은 시각은 합성하지 않으며 replay 이벤트 id는 그대로입니다. | `current change`, [Issue #187](https://github.com/dotnetpower/fdai/issues/187), `semantic_turn_runtime.py`, focused Operator 검사 394개 통과(수명 주기, held, 지연 종단, 재개 회귀 갱신), Ruff 및 strict mypy 통과, 실제 turn이 running 대기 step과 완료 step 5개로 타임라인 표시 | Core는 여전히 종단 projection 하나만 발행하므로 계획 하위 단계는 스트림이 관측하지 못합니다. |
+| 2026-08-18 | implemented | 근거 step에 명령 상세를 부여했습니다. Console은 이미 step별 도구 배지, 읽기 전용 라벨, 복사 가능한 명령 블록, 접히는 출력을 렌더링하지만 의미 step이 실행 기록을 담지 않아 모든 step이 라벨뿐이었습니다. 이제 근거 step이 동일한 종단 projection이 이미 담고 있는 검증된 쿼리와 행 수를 함께 전달하며, 실행한 것이 없는 step은 기록을 담지 않고, goal이 둘 이상인 plan은 하나를 실행된 쿼리로 지목하지 않고 명령을 보고하지 않습니다. | `current change`, [Issue #188](https://github.com/dotnetpower/fdai/issues/188), `semantic_turn_runtime.py`, focused Operator 검사 396개 통과(실행 기록 회귀 2건 신규), Ruff 및 strict mypy 통과, 실제 turn이 ObjectSet 정의와 `returned_rows`/`total_rows`를 JSON 코드 블록으로 표시 | step은 아직 소요 시간을 보고하지 않으므로 실행 기록에 관측 구간이 없습니다. |
 
 ### 남은 작업
 

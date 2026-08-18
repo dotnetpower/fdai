@@ -203,6 +203,7 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
         event_id: str,
         completed: int | None = None,
         total: int | None = None,
+        execution: JsonObject | None = None,
     ) -> None:
         """Queue one bounded step record for the observed-process timeline."""
         if status == "running":
@@ -226,6 +227,7 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
                         "authority": "read_only",
                         "completed": completed,
                         "total": total,
+                        **({"execution": execution} if execution is not None else {}),
                     },
                 ),
             )
@@ -307,6 +309,7 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
             and isinstance(checks_total, int)
         ):
             labels = _terminal_progress(self._request.locale)
+            executed_query = _verified_query_execution(result.data)
             for event, phase in (
                 ("status", "evidence"),
                 ("verification", "verification"),
@@ -329,6 +332,10 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
                     event_id=f"{result.sequence}:{phase}",
                     completed=checks_completed,
                     total=checks_total,
+                    # Only the evidence step ran a query. Attaching the same
+                    # record to a step that executed nothing would report work
+                    # the turn never did.
+                    execution=executed_query if phase == "evidence" else None,
                 )
         # The waiting step is observed as finished only once a terminal
         # projection exists. Settling it here keeps the timeline from holding a
@@ -712,6 +719,64 @@ def _projection_quarantine_key(payload: Mapping[str, object]) -> str:
     projection_id = payload.get("projection_id")
     identity = projection_id if isinstance(projection_id, str) else "missing-projection-id"
     return f"semantic-projection-rejected:{hashlib.sha256(identity.encode()).hexdigest()}"
+
+
+_MAX_EXECUTION_COMMAND_CHARS = 16 * 1024
+
+
+def _verified_query_execution(projection: Mapping[str, object]) -> JsonObject | None:
+    """Project the verified query the turn ran as one readable execution record.
+
+    The query and its row counts already travel in the terminal projection, so
+    nothing here is synthesized. A plan that carries more than one goal is
+    skipped rather than guessed at, because naming one of several goals as
+    *the* executed query would misreport the run.
+    """
+    semantic = projection.get("semantic_result")
+    graph = semantic.get("intent_graph") if isinstance(semantic, Mapping) else None
+    goals = graph.get("goals") if isinstance(graph, Mapping) else None
+    if not isinstance(goals, list) or len(goals) != 1 or not isinstance(goals[0], Mapping):
+        return None
+    arguments = goals[0].get("arguments")
+    if not isinstance(arguments, Mapping) or not arguments:
+        return None
+    command = json.dumps(arguments, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    if len(command) > _MAX_EXECUTION_COMMAND_CHARS:
+        return None
+    record: dict[str, object] = {
+        "tool": "Ontology query",
+        "input_kind": "query",
+        "command": command,
+        "redacted": True,
+    }
+    outputs = _verified_output_counts(projection)
+    if outputs is not None:
+        record["output"] = outputs
+    return cast(JsonObject, record)
+
+
+def _verified_output_counts(projection: Mapping[str, object]) -> str | None:
+    """Return the verified row counts the same projection already reported."""
+    payload = projection.get("payload")
+    details = payload.get("technical_details") if isinstance(payload, Mapping) else None
+    outputs = details.get("outputs") if isinstance(details, Mapping) else None
+    if not isinstance(outputs, list) or not outputs:
+        return None
+    counted = [
+        {
+            "node_id": output["node_id"],
+            "returned_rows": output["returned_rows"],
+            "total_rows": output["total_rows"],
+        }
+        for output in outputs
+        if isinstance(output, Mapping)
+        and isinstance(output.get("node_id"), str)
+        and isinstance(output.get("returned_rows"), int)
+        and isinstance(output.get("total_rows"), int)
+    ]
+    if not counted:
+        return None
+    return json.dumps(counted, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
 
 
 _SEMANTIC_PHASES = (
