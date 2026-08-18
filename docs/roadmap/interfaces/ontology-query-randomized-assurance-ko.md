@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-randomized-assurance.md
-translation_source_sha: 1aeed07a4dbb23e66772df7ea1b4d5edd4c61840
+translation_source_sha: 19c80329a5f5ea751b7595378bcda7784fa68f23
 translation_revised: 2026-08-18
 ---
 # 온톨로지 쿼리 무작위 보증
@@ -233,6 +233,7 @@ Core
 | 2026-08-18 | in-progress | 중앙 검증된 frame-v16 source `817b3faf19cdb414188f0f661c9432efc6a29294`에서 strict를 한 번 실행했습니다. 14개 cell 모두 exact 14-request transport와 capability mismatch 0건을 유지한 safe typed judgment였지만 `en-causal_analysis-1`은 planning tier 두 개가 모두 유효하지 않은 causal DAG를 생성한 뒤 unsupported로 끝났습니다. Immutable answered 14/14 gate가 실패해 seeded는 시작하지 않았고 artifact는 승격하지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-817b3faf19-20260818T020756Z` | Plan prompt v14를 중앙 검증한 뒤 strict를 다시 실행하고 strict가 통과한 경우에만 seeded를 허용합니다. |
 | 2026-08-18 | in-progress | 중앙 검증된 frame-v16 및 plan-v14 source `83639e704814e405d94ca175e2d57f69a93fa99c`에서 repository strict-to-seeded 절차를 한 번 실행했습니다. Strict는 exact transport와 safety 또는 capability mismatch 0건을 유지하며 complete-evidence answer 14/14를 보존했습니다. Seeded는 safety 또는 unauthorized execution failure 없이 live turn 100개를 완료하고 typed judgment 98개를 통과했습니다. `ko-causal_analysis-3`은 causal precedence를 topology comparison으로 축소했고 `ko-property_filter-3`은 current-generation ontology declaration을 runtime object로 처리했습니다. Failed artifact 또는 baseline은 승격하지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-83639e7048-20260818T021732Z` | Frame prompt v17을 중앙 검증한 뒤 strict를 다시 실행하고 strict가 통과한 경우에만 seeded를 허용합니다. |
 | 2026-08-18 | in-progress | 중앙 검증된 source `80962e748948684248cd04683e527db0fedaa985`의 frame-v17 실행 두 개는 저장된 Browser Entra token request timeout으로 Console access에 실패해 질문 0개와 semantic artifact 없음으로 끝났습니다. 인증 값을 노출하지 않고 loopback capture 계약을 통해 owner-only storage state를 갱신했습니다. 인증된 strict 재실행은 14개 cell을 모두 완료했지만 `ko-relationship_traversal-4`가 current inventory containment에 schema relationship을 선택해 capability judgment 한 개가 실패했습니다. Seeded는 시작하지 않았고 artifact는 승격하지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 인증된 실행 `issue63-80962e7489-20260818T025610Z` | Frame prompt v18을 중앙 검증한 뒤 strict를 다시 실행하고 strict가 통과한 경우에만 seeded를 허용합니다. |
+| 2026-08-18 | in-progress | 중앙 검증된 frame-v18 source `ffced363b1deb3fdd5bda7a535ac205bf543a751`에서 strict를 한 번 실행했습니다. 14개 cell 모두 exact transport와 capability mismatch 0건을 유지한 safe typed judgment였지만 `en-causal_analysis-1`은 완전한 visible-resource causal scope를 사용하지 않고 clarification을 요청했습니다. Immutable answered 14/14 gate가 실패해 seeded는 시작하지 않았고 artifact는 승격하지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-ffced363b1-20260818T030548Z` | Frame prompt v19를 중앙 검증한 뒤 strict를 다시 실행하고 strict가 통과한 경우에만 seeded를 허용합니다. |
 
 ### 남은 작업
 
