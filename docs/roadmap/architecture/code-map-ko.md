@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: f7b674ee03ef64d15be220a3b933672ffd3c1876
+translation_source_sha: 7982cd6f1df9fc2e125165e0360189eb17c44e6b
 translation_revised: 2026-08-18
 ---
 # 코드 맵
@@ -62,6 +62,7 @@ translation_revised: 2026-08-18
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-18 | implemented | 진술된 값 필터 접지를 `semantic_planning.py`에서 `semantic_planning_value_filters.py`로 분리했습니다. 이 기능을 추가하면서 플래너가 875 LOC가 되어 실패 기준 800을 넘어갔고, 모든 브랜치에서 파일 LOC 가드가 실패했습니다. 분리한 단위는 계획과 선언된 서술자만 읽으므로 플래너 상태에 의존하지 않습니다. 관찰된 단계가 타임라인 단계로 바뀜 뒤 더 이상 성립하지 않는 스트림 골격을 단언하던 semantic-turn 왕복 테스트도 맞췄습니다. | `current change`, 플래너 및 대화 스위트 `1343 passed, 6 skipped`, `tests/integration` `1654 passed, 1 skipped`, operator 스위트 `406 passed, 1 skipped`, enforce 모드 `check-file-loc.sh` 결과 `failed=0`, 작업 범위 Ruff check와 format 통과. 측정된 원인: `check-file-loc`가 플래너에 `FAIL 875 LOC`를 보고했고, 왕복 테스트는 예상하지 못한 `activity` 이벤트 6개로 실패했습니다. | 이 분리에 남은 작업은 없습니다. 플래너는 727 LOC로 경고 기준 400을 여전히 넘습니다. |
 | 2026-08-18 | 구현됨 | 검증된 frame의 `output_shape`를 `plan_verify` 단계 기록에 남기고 로컬 평문 로그 허용 목록에 추가했습니다. 한 turn이 어떤 역량 계열로 frame을 구성했는지 진단할 수 없어 잘못된 출처로 답한 경우와 잘못된 frame으로 답한 경우를 구분할 수 없었습니다. 자유 텍스트 frame 필드는 운영자 발화 내용을 담을 수 있으므로 로그에서 제외합니다. | `current change`; focused 계획기 검사 `29 passed`와 로컬 서비스 로그 실행기 검사 `13 passed`; 작업 범위 Ruff 통과. 감사 로그 행 수를 묻는 실제 로컬 turn이 `output_shape="aggregation_table"`과 `plan_nodes="function:query.manifest,aggregate"`를 기록해, frame은 옳았고 plan이 선언 인벤토리를 집계 입력으로 선택했음을 입증했습니다. | 질문이 선언을 묻지 않을 때 `aggregation_table` plan이 `query.manifest`를 집계 입력으로 쓸 수 있는지 결정합니다. 이슈 #174에서 추적합니다. |
 | 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 exact-generation Rule 검색을 기록했습니다. | 현재 변경의 `catalog_queries.py`, `operational_functions.py`, `test_catalog_queries.py`, 통과한 focused 테스트 및 diff-scoped 검증 | 아래 IS-09 원격 검증 항목을 완료합니다. |
 | 2026-08-13 | 구현됨 | 플래너 함수 가시성을 실제 런타임 등록에 연결하고 바인딩되지 않은 읽기 가능 선언을 타입이 지정된 구조 coverage에 유지했습니다. | 현재 변경의 `wire_semantic_query.py`, `semantic_manifest.py`, `query_manifest.py` 및 해당 focused 테스트 | 영속 production 의미 인덱스는 이 변경 범위 밖에 있으며 아래 IS-09 원격 검증 항목을 완료합니다. |

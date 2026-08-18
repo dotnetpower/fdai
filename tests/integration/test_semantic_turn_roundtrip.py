@@ -359,7 +359,9 @@ async def test_semantic_turn_round_trip_preserves_verified_evidence_and_principa
         )
     )
     events = [event async for event in stream]
-    assert [event.event for event in events] == [
+    # Timeline steps interleave with the backbone and have their own tests, so this
+    # roundtrip asserts the backbone it owns rather than the step count.
+    assert [event.event for event in events if event.event != "activity"] == [
         "status",
         "status",
         "status",
@@ -367,6 +369,7 @@ async def test_semantic_turn_round_trip_preserves_verified_evidence_and_principa
         "status",
         "done",
     ]
+    assert any(event.event == "activity" for event in events)
     terminal = events[-1]
     semantic_result = cast(dict[str, object], terminal.data["semantic_result"])
     assert terminal.data["status"] == "answered"
