@@ -50,6 +50,7 @@
     ]],
     ["Labs", [
       ["components.html", "Components", ""],
+      ["typography.html", "Typography", "is-steel"],
       ["agent-icons.html", "Agent icons", "is-plum"],
       ["agent-icons-v2.html", "Agent icons v2", "is-sage"],
       ["hcard-variants.html", "HIL card variants", "is-teal"]
