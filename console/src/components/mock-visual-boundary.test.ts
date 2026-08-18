@@ -51,7 +51,7 @@ describe("mock console visual boundary", () => {
     expect(landing).toContain('data-page="service-map.html"');
     expect(masterLanding).toContain("<h3>Visualization</h3>");
     expect(masterLanding).toContain('data-page="mocks/ui/service-map.html"');
-    expect(masterLanding).toContain('<span class="count">41 pages</span>');
+    expect(masterLanding).toContain('<span class="count">42 pages</span>');
     expect(navigation).toContain('["Visualization", [');
     expect(navigation).toContain('["service-map.html", "Service map", "is-steel"]');
     expect(serviceMap).toContain("Design preview · Synthetic telemetry");

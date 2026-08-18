@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 3d10ef28a85888e960c7d85ecef8a3a9b08c0e7d
+translation_source_sha: 78a01dd4fc454819db1907dd3256defa0ef3ccc6
 translation_revised: 2026-08-19
 ---
 
@@ -72,6 +72,7 @@ translation_revised: 2026-08-19
 | 2026-08-17 | implemented | Exact-source 엄격한 시도가 서비스 준비 상태에 도달했지만 Browser 사전 단계에서 오래된 공유 MSAL optimizer URL 때문에 실패한 뒤 감독 대상 보증 Console마다 Vite 의존성 캐시를 격리했습니다. 이 시도는 측정 질문을 하나도 실행하지 않았고 아티팩트도 생성하지 않았으며 seed 기반 질문 집합도 시작하지 않았습니다. | `current change`, focused 캐시 검사 2개, supervisor 검사 9개, Console typecheck, Ruff 및 strict mypy 통과 | 중앙 검증을 확보하고 캐시가 격리된 소스에서 새로운 엄격한 아티팩트를 보존합니다. |
 | 2026-08-17 | in-progress | 캐시가 격리된 엄격한 Browser 질문 집합은 live turn 14개를 완료했지만 exact topic 근거에는 요청 레코드 6개와 변환 결과 레코드 6개만 보존됐습니다. Supervisor가 아티팩트를 거부했고 seed 기반 질문 집합은 시작하지 않았습니다. | 중앙 검증된 소스 `40fbd0c41eda506e6976e3090fab3bd9502b98f0`의 실행 `issue63-40fbd0c41e-20260817T084406Z`, Playwright 통과, 변경 불가능한 transport 소유권 실패 | 형제 outbox prefix가 중앙 검증된 뒤에만 새로운 엄격한 Browser 아티팩트를 보존합니다. |
 | 2026-08-19 | implemented | Console과 정적 시안의 의미 기반 타이포그래피 스케일을 중앙화하고 대표 셸 텍스트를 연결했으며, 기존 컴포넌트 갤러리에 영문 및 한글 반응형 표본을 추가했습니다. | 커밋 `1e4063e`, [이슈 #212](https://github.com/dotnetpower/fdai/issues/212), 공유 스타일 계약 테스트 2개 통과, Console 타입 검사 및 운영 빌드 통과, 1440 px와 390 px 브라우저 검사에서 문서, 구역 및 긴 식별자 넘침이 없었습니다. | 공유 의미 역할에는 남은 작업이 없습니다. 특수한 경로 타이포그래피는 해당 경로가 계속 소유하며 변경할 때 이 스케일을 적용하는 것이 좋습니다. |
+| 2026-08-19 | implemented | 전용 Typography 페이지를 직접 시안 사이드바와 내부 키트 랜딩뿐 아니라 공유 세션 브라우저가 사용하는 저장소 루트 시안 인덱스에도 등록했습니다. | `current change`, [이슈 #212](https://github.com/dotnetpower/fdai/issues/212), 집중 탐색 계약 및 시안 시각 경계 테스트, 공유 브라우저에서 `#mocks/ui/typography.html` 선택과 루트 Labs 항목 활성화 및 미리 보기 프레임의 전용 페이지 로드를 확인했습니다. | Typography 시안 진입점에는 남은 작업이 없습니다. |
 
 ### 잔여 작업
 
