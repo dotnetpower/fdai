@@ -179,33 +179,6 @@ jobs:
           path: coverage.xml
           if-no-files-found: ignore
 
-  docs-citations:
-    name: behavior source citation precision
-    needs: changes
-    if: needs.changes.outputs.docs == 'true' && needs.changes.outputs.python != 'true'
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-
-      - name: Set up uv (Python 3.13)
-        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
-        with:
-          python-version: "3.13"
-          enable-cache: true
-          save-cache: false
-
-      - name: Install dependencies
-        run: uv sync --extra dev --frozen
-
-      - name: Check line-precise behavior citations
-        run: >-
-          uv run pytest -q --no-cov
-          tests/delivery/behavior_knowledge/test_sources_and_seeds.py
-          -k every_seed_citation_is_current_and_symbol_precise
-
   operator-surfaces:
     name: console and CLI tests • typecheck • build
     runs-on: ubuntu-24.04

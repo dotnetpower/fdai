@@ -702,19 +702,19 @@ function TurnRecordedTime({ turn }: { readonly turn: Turn }) {
     : null;
   if (timestamp && turn.recordedAt) {
     return (
-      <time
-        class="deck-turn-time muted"
-        dateTime={turn.recordedAt}
-        title={t("deck.presentation.recordedValue", { value: turn.recordedAt })}
-      >
-        {timestamp.time}
-      </time>
+      <Tooltip content={t("deck.presentation.recordedValue", { value: turn.recordedAt })}>
+        <time class="deck-turn-time muted" dateTime={turn.recordedAt}>
+          {timestamp.time}
+        </time>
+      </Tooltip>
     );
   }
   return (
-    <span class="deck-turn-time muted" title={t("deck.presentation.recordedDateUnavailable")}>
-      {turn.at} {presentationTimeZoneLabel()}
-    </span>
+    <Tooltip content={t("deck.presentation.recordedDateUnavailable")}>
+      <span class="deck-turn-time muted">
+        {turn.at} {presentationTimeZoneLabel()}
+      </span>
+    </Tooltip>
   );
 }
 
