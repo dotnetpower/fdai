@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 5bca3e52619acb47a0941b1178c9a0b3d084b5f3
+translation_source_sha: 1e3eacc7e6d6ddc09a7b6b3842f291553f532d20
 translation_revised: 2026-08-18
 ---
 # 코드 맵
@@ -62,6 +62,7 @@ translation_revised: 2026-08-18
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-18 | implemented | 실행 장소 계약을 공유 SDK의 `fdai_service_contracts/venue.py`로 옮겼습니다. 기존 위치인 `fdai/runtime/venue.py`는 독립 서비스가 import할 수 없어서 서비스 4개가 각자 파서와 리터럴 비교를 유지했고 게이트도 core 트리만 훑을 수 있었습니다. 이제 `fdai/runtime/venue.py`는 공유 모듈을 다시 내보내기만 하고 자체 바인딩을 선언하지 않습니다. | `current change`, `packages/service-contracts/tests`·`services/core-control-plane/tests/runtime`·게이트 통합 테스트·독립 서비스 4개 suite에서 focused 874건 통과(스킵 1건), `tests/delivery` 1689건 통과(스킵 3건), venue 게이트가 소스 트리 6개에서 OK 보고 | 게이트 탐지는 여전히 텍스트 기반이므로 계산된 키를 통한 우회적 재도입은 잡지 못합니다. |
 | 2026-08-18 | implemented | 진술된 값 필터 접지를 `semantic_planning.py`에서 `semantic_planning_value_filters.py`로 분리했습니다. 이 기능을 추가하면서 플래너가 875 LOC가 되어 실패 기준 800을 넘어갔고, 모든 브랜치에서 파일 LOC 가드가 실패했습니다. 분리한 단위는 계획과 선언된 서술자만 읽으므로 플래너 상태에 의존하지 않습니다. 관찰된 단계가 타임라인 단계로 바뀜 뒤 더 이상 성립하지 않는 스트림 골격을 단언하던 semantic-turn 왕복 테스트도 맞췄습니다. | `current change`, 플래너 및 대화 스위트 `1343 passed, 6 skipped`, `tests/integration` `1654 passed, 1 skipped`, operator 스위트 `406 passed, 1 skipped`, enforce 모드 `check-file-loc.sh` 결과 `failed=0`, 작업 범위 Ruff check와 format 통과. 측정된 원인: `check-file-loc`가 플래너에 `FAIL 875 LOC`를 보고했고, 왕복 테스트는 예상하지 못한 `activity` 이벤트 6개로 실패했습니다. | 이 분리에 남은 작업은 없습니다. 플래너는 727 LOC로 경고 기준 400을 여전히 넘습니다. |
 | 2026-08-18 | 구현됨 | 검증된 frame의 `output_shape`를 `plan_verify` 단계 기록에 남기고 로컬 평문 로그 허용 목록에 추가했습니다. 한 turn이 어떤 역량 계열로 frame을 구성했는지 진단할 수 없어 잘못된 출처로 답한 경우와 잘못된 frame으로 답한 경우를 구분할 수 없었습니다. 자유 텍스트 frame 필드는 운영자 발화 내용을 담을 수 있으므로 로그에서 제외합니다. | `current change`; focused 계획기 검사 `29 passed`와 로컬 서비스 로그 실행기 검사 `13 passed`; 작업 범위 Ruff 통과. 감사 로그 행 수를 묻는 실제 로컬 turn이 `output_shape="aggregation_table"`과 `plan_nodes="function:query.manifest,aggregate"`를 기록해, frame은 옳았고 plan이 선언 인벤토리를 집계 입력으로 선택했음을 입증했습니다. | 질문이 선언을 묻지 않을 때 `aggregation_table` plan이 `query.manifest`를 집계 입력으로 쓸 수 있는지 결정합니다. 이슈 #174에서 추적합니다. |
 | 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 exact-generation Rule 검색을 기록했습니다. | 현재 변경의 `catalog_queries.py`, `operational_functions.py`, `test_catalog_queries.py`, 통과한 focused 테스트 및 diff-scoped 검증 | 아래 IS-09 원격 검증 항목을 완료합니다. |
@@ -311,6 +312,11 @@ SDK는 두 semantic channel이 하나의 physical Event Hub를 공유할 때 사
 identity, logical topic 및 offset group을 유지하며 상대 서비스 구현을 가져오지 않습니다. 같은 계약은
 targeted Terraform 상태가 새 output을 아직 materialize하지 않았을 때 사용하는 canonical physical-topic
 기본값도 제공합니다.
+
+또한 SDK는 실행 장소 계약을 소유합니다. `FDAI_EXECUTION_VENUE`를 해석하는 유일한 resolver와
+장소가 선택하는 기능 플래그 표 하나입니다. 모든 프로세스가 같은 변수를 해석하고 독립 서비스는
+core 컨트롤 플레인을 import할 수 없으므로 특정 서비스가 아니라 여기에 둡니다.
+`fdai/runtime/venue.py`는 이를 다시 내보내기만 하고 자체 바인딩을 선언하지 않습니다.
 
 서비스 분포 5개는 deployable `0.1.2` 이미지를 N-1, `0.1.3`을 N으로 사용합니다. 기존 contract-set
 `1.0.0`/`1.1.0` 매트릭스는 프로세스 간 호환성 경계로 유지합니다.

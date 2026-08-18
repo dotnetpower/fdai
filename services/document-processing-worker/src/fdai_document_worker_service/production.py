@@ -13,6 +13,14 @@ import psycopg
 from azure.identity.aio import ManagedIdentityCredential
 from azure.storage.filedatalake.aio import DataLakeServiceClient
 from fdai_service_contracts import AdapterLiveReadinessProvider
+from fdai_service_contracts.venue import (
+    ExecutionVenue,
+    ExecutionVenueError,
+    bus_security_protocol,
+    resolve_execution_venue,
+    uses_local_document_providers,
+    uses_managed_identity,
+)
 
 from fdai_document_worker_service.adapters.activity import PostgresDocumentActivitySink
 from fdai_document_worker_service.adapters.event_bus import (
@@ -94,7 +102,7 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
     env = dict(environ)
     execution_venue = _execution_venue(env)
     required = _COMMON_REQUIRED_ENV + (
-        _DEPLOYED_REQUIRED_ENV if execution_venue == "deployed" else ()
+        _DEPLOYED_REQUIRED_ENV if execution_venue is ExecutionVenue.DEPLOYED else ()
     )
     missing = [key for key in required if not env.get(key, "").strip()]
     if missing:
@@ -116,11 +124,13 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
             f"FDAI_CLAMAV_PORT MUST be {_CLAMAV_SIDECAR_PORT} for the replica-local sidecar"
         )
     dsn = env["FDAI_DATABASE_URL"].strip()
-    credential = _managed_identity_credential(env) if execution_venue == "deployed" else None
+    credential = (
+        _managed_identity_credential(env) if uses_managed_identity(execution_venue) else None
+    )
     http_client = httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=10.0))
     source_store: AzureDataLakeObjectStore | LocalDocumentObjectStore
     artifact_store: AzureDataLakeArtifactStore | LocalDocumentArtifactStore
-    if execution_venue == "local":
+    if uses_local_document_providers(execution_venue):
         local_store_root = Path(env.get("FDAI_LOCAL_DOCUMENT_STORE_DIR", ".fdai/document-store"))
         source_store = LocalDocumentObjectStore(local_store_root)
         artifact_store = LocalDocumentArtifactStore(local_store_root)
@@ -141,7 +151,7 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
     raw_bus = EventHubsKafkaBus(
         config=EventHubsKafkaConfig(
             bootstrap_servers=env["FDAI_KAFKA_BOOTSTRAP_SERVERS"].strip(),
-            security_protocol="PLAINTEXT" if execution_venue == "local" else "SASL_SSL",
+            security_protocol=bus_security_protocol(execution_venue),
         ),
         credential=credential,
     )
@@ -151,7 +161,11 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
         physical_topic=env.get("FDAI_PANTHEON_OBJECT_TOPIC", "aw.pantheon.objects").strip(),
     )
     metadata = PostgresDocumentMetadataStore(config=PostgresWorkerConfig(dsn=dsn))
-    ocr_endpoint = env.get("FDAI_OCR_ENDPOINT", "").strip() if execution_venue == "deployed" else ""
+    ocr_endpoint = (
+        ""
+        if uses_local_document_providers(execution_venue)
+        else env.get("FDAI_OCR_ENDPOINT", "").strip()
+    )
     ocr = (
         AzureDocumentIntelligenceOcr(
             config=AzureDocumentOcrConfig(
@@ -172,7 +186,7 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
     )
     dimension = _positive_int(env, "FDAI_EMBEDDING_DIM", 384)
     embedding: EmbeddingModel
-    if execution_venue == "local":
+    if uses_local_document_providers(execution_venue):
         embedding = DeterministicLocalEmbeddingModel(dimension=dimension)
     else:
         embedding = AzureEmbeddingModel(
@@ -248,7 +262,7 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
                             "FDAI_GRAPH_BASE_URL", "https://graph.microsoft.com/v1.0"
                         ).strip(),
                     )
-                    if execution_venue == "deployed"
+                    if not uses_local_document_providers(execution_venue)
                     and _truthy(env.get("FDAI_GRAPH_STEWARDSHIP_ENABLED", ""))
                     else NullStewardPersonDirectory()
                 ),
@@ -325,11 +339,12 @@ def _deployed_credential(
     return credential
 
 
-def _execution_venue(env: Mapping[str, str]) -> str:
-    venue = env.get("FDAI_EXECUTION_VENUE", "deployed").strip().casefold()
-    if venue not in {"local", "deployed"}:
-        raise ProductionConfigurationError("FDAI_EXECUTION_VENUE MUST be local or deployed")
-    return venue
+def _execution_venue(env: Mapping[str, str]) -> ExecutionVenue:
+    """Resolve the venue through the shared contract, keeping this service's error type."""
+    try:
+        return resolve_execution_venue(env)
+    except ExecutionVenueError as exc:
+        raise ProductionConfigurationError(str(exc)) from exc
 
 
 def run_production_worker(environ: Mapping[str, str]) -> int:

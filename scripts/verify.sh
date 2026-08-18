@@ -197,7 +197,7 @@ if [[ -n "$DIFF_RANGE" ]]; then
 fi
 run_gate "roadmap-implementation-tracking" "${roadmap_implementation_tracking[@]}"
 run_gate_scoped "fork-runtime-independence" '^(src/|config/|infra/|scripts/quality/architecture/check-fork-runtime-independence\.py$)' python3 scripts/quality/architecture/check-fork-runtime-independence.py
-run_gate_scoped "venue-capability-contract" '^(services/core-control-plane/src/|scripts/quality/architecture/check-venue-capability-contract\.py$)' python3 scripts/quality/architecture/check-venue-capability-contract.py
+run_gate_scoped "venue-capability-contract" '^(services/[^/]+/src/|packages/service-contracts/src/|scripts/quality/architecture/check-venue-capability-contract\.py$)' python3 scripts/quality/architecture/check-venue-capability-contract.py
 run_gate_scoped "evaluation-boundaries" '^(evaluation-sdk/|src/|tests/|pyproject\.toml$|scripts/quality/architecture/check-evaluation-boundaries\.py$)' python3 scripts/quality/architecture/check-evaluation-boundaries.py
 run_gate_scoped "independent-services" '^(services/|packages/service-contracts/|tests/integration/|config/independent-services\.json$|scripts/quality/architecture/check-independent-services\.py$)' uv run python scripts/quality/architecture/check-independent-services.py
 run_gate_scoped "chat-semantic-routing" '^(services/operator-service/|console/|tests/integration/|scripts/quality/architecture/check-chat-semantic-routing\.py$)' python3 scripts/quality/architecture/check-chat-semantic-routing.py

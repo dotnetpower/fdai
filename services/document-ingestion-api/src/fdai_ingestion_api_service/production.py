@@ -12,6 +12,14 @@ import psycopg
 from azure.identity.aio import ManagedIdentityCredential
 from azure.storage.filedatalake.aio import DataLakeServiceClient
 from fdai_service_contracts import IngestionCapabilities, SourceStorageMode
+from fdai_service_contracts.venue import (
+    ExecutionVenue,
+    ExecutionVenueError,
+    resolve_execution_venue,
+    uses_local_document_providers,
+    uses_managed_identity,
+    uses_workload_identity,
+)
 from starlette.applications import Starlette
 
 from fdai_ingestion_api_service.access import ClaimsDocumentAccessProvider
@@ -82,7 +90,7 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
     env = dict(environ)
     execution_venue = _execution_venue(env)
     required = _COMMON_REQUIRED_ENV + (
-        _DEPLOYED_REQUIRED_ENV if execution_venue == "deployed" else ()
+        _DEPLOYED_REQUIRED_ENV if execution_venue is ExecutionVenue.DEPLOYED else ()
     )
     missing = [key for key in required if not env.get(key, "").strip()]
     if missing:
@@ -96,17 +104,15 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
     dsn = env["FDAI_DATABASE_URL"].strip()
     database = PostgresApiConfig(dsn=dsn)
     http_client = httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=10.0))
+    credential = (
+        _managed_identity_credential(env) if uses_managed_identity(execution_venue) else None
+    )
     storage: AzureDataLakeObjectStore | LocalDocumentObjectStore
-    publisher: EventHubsKafkaPublisher | PlaintextKafkaPublisher
-    if execution_venue == "local":
+    if uses_local_document_providers(execution_venue):
         storage = LocalDocumentObjectStore(
             Path(env.get("FDAI_LOCAL_DOCUMENT_STORE_DIR", ".fdai/document-store"))
         )
-        publisher = PlaintextKafkaPublisher(
-            bootstrap_servers=env["FDAI_KAFKA_BOOTSTRAP_SERVERS"].strip()
-        )
     else:
-        credential = _managed_identity_credential(env)
         storage_config = AzureDataLakeConfig(
             account_url=env["FDAI_ADLS_ACCOUNT_URL"].strip(),
             source_file_system=env.get("FDAI_ADLS_SOURCE_FILE_SYSTEM", "documents").strip(),
@@ -116,12 +122,18 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
             config=storage_config,
             service_client=DataLakeServiceClient(
                 account_url=storage_config.account_url,
-                credential=credential,
+                credential=_azure_credential(credential),
             ),
         )
+    publisher: EventHubsKafkaPublisher | PlaintextKafkaPublisher
+    if uses_workload_identity(execution_venue):
         publisher = EventHubsKafkaPublisher(
             bootstrap_servers=env["FDAI_KAFKA_BOOTSTRAP_SERVERS"].strip(),
-            credential=credential,
+            credential=_azure_credential(credential),
+        )
+    else:
+        publisher = PlaintextKafkaPublisher(
+            bootstrap_servers=env["FDAI_KAFKA_BOOTSTRAP_SERVERS"].strip()
         )
     metadata = PostgresDocumentMetadataStore(config=database)
     activity = PostgresDocumentActivitySink(
@@ -165,14 +177,14 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
     dimension = _positive_int(env, "FDAI_EMBEDDING_DIM", 384)
     embedding = (
         DeterministicLocalEmbeddingModel(dimension=dimension)
-        if execution_venue == "local"
+        if uses_local_document_providers(execution_venue)
         else AzureEmbeddingModel(
             config=AzureEmbeddingConfig(
                 endpoint=env["FDAI_EMBEDDING_ENDPOINT"].strip(),
                 deployment=env["FDAI_EMBEDDING_DEPLOYMENT"].strip(),
                 dimension=dimension,
             ),
-            credential=credential,
+            credential=_azure_credential(credential),
             client=http_client,
         )
     )
@@ -249,11 +261,21 @@ def _managed_identity_credential(env: Mapping[str, str]) -> ManagedIdentityCrede
     return ManagedIdentityCredential(client_id=env["FDAI_MI_CLIENT_ID"].strip())
 
 
-def _execution_venue(env: Mapping[str, str]) -> str:
-    venue = env.get("FDAI_EXECUTION_VENUE", "deployed").strip().casefold()
-    if venue not in {"local", "deployed"}:
-        raise ProductionConfigurationError("FDAI_EXECUTION_VENUE MUST be local or deployed")
-    return venue
+def _azure_credential(
+    credential: ManagedIdentityCredential | None,
+) -> ManagedIdentityCredential:
+    """Refuse to bind an Azure provider in a venue that declares no managed identity."""
+    if credential is None:
+        raise ProductionConfigurationError("an Azure-backed provider requires a managed identity")
+    return credential
+
+
+def _execution_venue(env: Mapping[str, str]) -> ExecutionVenue:
+    """Resolve the venue through the shared contract, keeping this service's error type."""
+    try:
+        return resolve_execution_venue(env)
+    except ExecutionVenueError as exc:
+        raise ProductionConfigurationError(str(exc)) from exc
 
 
 def _positive_int(env: Mapping[str, str], key: str, default: int) -> int:

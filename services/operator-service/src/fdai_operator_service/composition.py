@@ -9,6 +9,11 @@ from typing import Protocol
 
 from azure.identity.aio import ManagedIdentityCredential
 from fdai_service_contracts import OperatorReadModel, OperatorTokenVerifier, ReadDataSource
+from fdai_service_contracts.venue import (
+    bus_security_protocol,
+    resolve_execution_venue,
+    uses_workload_identity,
+)
 
 from fdai_operator_service.adapters import (
     LiveStageKafkaConfig,
@@ -338,11 +343,9 @@ def _build_semantic_bus(environment: OperatorEnvironment) -> OperatorSemanticKaf
     bootstrap_servers = environment.kafka_bootstrap_servers
     if bootstrap_servers is None:
         raise RuntimeError("validated semantic Kafka bootstrap servers are missing")
-    execution_venue = environment.values.get("FDAI_EXECUTION_VENUE", "deployed").strip()
-    if execution_venue not in {"local", "deployed"}:
-        raise RuntimeError("FDAI_EXECUTION_VENUE MUST be local or deployed")
+    execution_venue = resolve_execution_venue(environment.values)
     credential = None
-    if execution_venue == "deployed":
+    if uses_workload_identity(execution_venue):
         credential = (
             ManagedIdentityCredential(client_id=environment.managed_identity_client_id)
             if environment.managed_identity_client_id is not None
@@ -351,7 +354,7 @@ def _build_semantic_bus(environment: OperatorEnvironment) -> OperatorSemanticKaf
     return OperatorSemanticKafkaBus(
         config=OperatorSemanticKafkaConfig(
             bootstrap_servers=bootstrap_servers,
-            security_protocol="PLAINTEXT" if execution_venue == "local" else "SASL_SSL",
+            security_protocol=bus_security_protocol(execution_venue),
             request_topic=environment.semantic_request_topic or "operator.semantic-turn.requests",
             projection_topic=environment.semantic_projection_topic
             or "core.semantic-turn.projections",
@@ -370,9 +373,9 @@ def _build_live_stage_relay(
     bootstrap_servers = environment.kafka_bootstrap_servers
     if bootstrap_servers is None:
         raise RuntimeError("validated Kafka bootstrap servers are missing")
-    execution_venue = environment.values.get("FDAI_EXECUTION_VENUE", "deployed").strip()
+    execution_venue = resolve_execution_venue(environment.values)
     credential = None
-    if execution_venue == "deployed":
+    if uses_workload_identity(execution_venue):
         credential = (
             ManagedIdentityCredential(client_id=environment.managed_identity_client_id)
             if environment.managed_identity_client_id is not None
@@ -383,7 +386,7 @@ def _build_live_stage_relay(
             bootstrap_servers=bootstrap_servers,
             stage_topic=environment.stage_topic,
             group_id=environment.live_stage_consumer_group_id,
-            security_protocol="PLAINTEXT" if execution_venue == "local" else "SASL_SSL",
+            security_protocol=bus_security_protocol(execution_venue),
         ),
         hub=hub,
         agent_hub=agent_hub,
