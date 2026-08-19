@@ -1,6 +1,6 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: b17be0140965d4168473e89760869b836ddc555f
+translation_source_sha: fc49cfe199b27f2b1b953c704d98f75c28a1e14e
 translation_revised: 2026-08-20
 ---
 # 서비스 승격과 데이터 소유권
@@ -55,6 +55,7 @@ translation_revised: 2026-08-20
 | 2026-08-20 | 구현됨 | A3 rollout에서 드러난 distribution 및 Console catalog parity를 닫았습니다. Operator는 직접 `azure-core` 의존성을 선언하고, visible release heading을 allowlist하며, 모든 canonical resource type에 명시적 architecture layer, color 및 abbreviation을 제공합니다. | `current change`, 집중 service-distribution 및 Console catalog 검사, Console typecheck, frozen lock 검사 | 보호된 A3 배포 근거는 열린 상태입니다. |
 | 2026-08-20 | 구현됨 | Service ownership을 바꾸지 않고 강제 module size 경계를 복원했습니다. Vertical identity 구성은 기존 bootstrap binding 소유자로 이동했고, 순수 inventory row 및 graph projection helper는 PostgreSQL snapshot provider 옆으로 이동했습니다. | `current change`, 집중 bootstrap 검사 54개, loopback inventory 검사 28개, strict mypy, Ruff 및 전체 file-size gate 통과 | 이 refactor에 남은 runtime 동작 또는 권한 변경은 없습니다. |
 | 2026-08-20 | 구현됨 | 테스트된 private vertical-identity seam을 보존하도록 bootstrap size refactor를 교정하고 logical topic registry만 focused runtime module로 이동했습니다. | `current change`, 집중 bootstrap 및 identity-seam 검사 55개, Ruff 및 formatting 통과, bootstrap 792줄 | 이 교정에 남은 runtime 동작 또는 권한 변경은 없습니다. |
+| 2026-08-20 | 구현됨 | 추출한 topic module을 Core wheel 계약에 등록하고 검토된 unclassified resource type에 unknown type 전용 fallback과 구분되는 명시적 abbreviation을 부여했습니다. | `current change`, 집중 Core wheel 및 Console architecture 검사 | 이 교정에 남은 package 또는 Console catalog parity 작업은 없습니다. |
 ### 남은 작업
 
 - [x] 승인된 5개 서비스 토폴로지에 남은 작업이 없습니다. 승격, 쓰기 담당 소유권, 신원 격리, 롤백 및 원격 전이 근거는 분해 프로그램에 보존돼 있습니다.

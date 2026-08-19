@@ -39,6 +39,7 @@ EXPECTED_RUNTIME_MODULES = {
     "bootstrap_pantheon.py",
     "bootstrap_shutdown.py",
     "bootstrap_tasks.py",
+    "bootstrap_topics.py",
     "case_history.py",
     "catalog_ontology.py",
     "configuration.py",

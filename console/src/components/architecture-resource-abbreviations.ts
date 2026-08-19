@@ -88,7 +88,7 @@ export const ARCHITECTURE_RESOURCE_ABBREVIATIONS = {
   "communication-service": "acs",
   "email-service": "email",
   "email-domain": "domain",
-  "unclassified-resource": "res",
+  "unclassified-resource": "uncl",
 } as const satisfies Readonly<Record<string, string>>;
 
 export function hasArchitectureResourceAbbreviation(type: string): boolean {
