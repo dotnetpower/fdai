@@ -60,6 +60,7 @@ EXPECTED_DEPENDENCIES = {
     },
     "operator-service": {
         "aiokafka",
+        "azure-core",
         "azure-identity",
         "fdai-service-contracts",
         "httpx",

@@ -1,6 +1,6 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: f410309aab9d1134668128054bec4420438f63e0
+translation_source_sha: 21e01a2d17a7e7f2957839efc480a9c76e8e4654
 translation_revised: 2026-08-20
 ---
 # 서비스 승격과 데이터 소유권
@@ -52,6 +52,7 @@ translation_revised: 2026-08-20
 | 2026-08-19 | implemented | Operator writer 또는 새 서비스를 만들지 않고 재구성 가능한 temporal 인시던트 roster projection을 추가했습니다. Database trigger는 Saga 감사 append transaction 안에서 이전 correlation version을 닫고 다음 as-of version을 삽입하며, Operator branch는 Core schema prerequisite가 존재한 뒤 읽기 권한만 부여합니다. | `current change`, [이슈 #169](https://github.com/dotnetpower/fdai/issues/169), local PostgreSQL migration, trigger, temporal cursor, platform 제외, role grant 검사 통과, 집중 Operator 및 service-migration suite 117개 통과 | 보호된 migration과 service rollout 뒤 deployed latency 근거를 보존합니다. |
 | 2026-08-19 | 진행 중 | 승인된 A3 edge를 Core package 및 migration 소유권에서 이미 conversation writer와 semantic EventBus bridge를 소유한 Operator distribution의 별도 workload로 교정했습니다. | `current change`, `operator_a3_channel_delivery_20260819`, [운영 A3 채널 런타임](../interfaces/production-a3-channel-runtime-ko.md), service-migration 검사 47개 통과 | 여섯 번째 distribution을 추가하지 않고 A3 구현, hardening 및 통제된 runtime 근거를 완료합니다. |
 | 2026-08-20 | 구현됨 | Five-service inventory 또는 executor 권한을 바꾸지 않고 Operator distribution 안에서 non-distribution A3 edge 구현과 10개 round hardening 캠페인을 완료했습니다. | `current change`, [운영 A3 채널 런타임](../interfaces/production-a3-channel-runtime-ko.md), 집중 edge 검사 81개, Ruff 및 strict mypy 통과 | Edge runtime을 validated로 분류하기 전에 통제된 provider 및 보호된 배포 근거를 보존합니다. |
+| 2026-08-20 | 구현됨 | A3 rollout에서 드러난 distribution 및 Console catalog parity를 닫았습니다. Operator는 직접 `azure-core` 의존성을 선언하고, visible release heading을 allowlist하며, 모든 canonical resource type에 명시적 architecture layer, color 및 abbreviation을 제공합니다. | `current change`, 집중 service-distribution 및 Console catalog 검사, Console typecheck, frozen lock 검사 | 보호된 A3 배포 근거는 열린 상태입니다. |
 ### 남은 작업
 
 - [x] 승인된 5개 서비스 토폴로지에 남은 작업이 없습니다. 승격, 쓰기 담당 소유권, 신원 격리, 롤백 및 원격 전이 근거는 분해 프로그램에 보존돼 있습니다.

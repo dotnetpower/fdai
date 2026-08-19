@@ -13,6 +13,7 @@ const VISIBLE_TITLE_COMPONENTS = new Set([
   "OverviewSection",
   "PageHeader",
   "PanelLoading",
+  "ReleaseChanges",
   "RecordFacts",
   "RecordList",
   "RelationshipDirection",
