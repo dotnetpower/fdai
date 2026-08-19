@@ -36,5 +36,6 @@ describe("Impact scope controls", () => {
     expect(styles).toContain(".impact-query-check input:checked + .impact-query-check-box");
     expect(styles).toContain(".impact-query-submit:disabled");
     expect(styles).toContain(".impact-query-submit { width: 100%; }");
+    expect(styles).toContain(".segmented-control button:focus-visible");
   });
 });

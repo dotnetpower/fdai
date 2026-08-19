@@ -256,6 +256,7 @@
 .segmented-control { display: inline-flex; padding: 2px; border: 1px solid var(--border); border-radius: var(--cs-radius-sm); background: var(--cs-shade); }
 .segmented-control button { border: 0; border-radius: 4px; background: transparent; padding: 5px 10px; color: var(--fg-muted); font-size: 11px; }
 .segmented-control button.active { background: var(--bg-elevated); color: var(--fg); font-weight: 650; box-shadow: var(--cs-shadow); }
+.segmented-control button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .blast-map-wrap { position: relative; height: min(620px, 66vh); min-height: 430px; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; background: var(--cs-shade); }
 .blast-map-open { position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,.94); box-shadow: 0 3px 12px rgba(29,42,56,.1); }
 .finding-architecture-link { margin-left: auto; font-size: 10px; color: #146c77; text-decoration: none; }
