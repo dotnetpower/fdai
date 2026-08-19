@@ -369,6 +369,8 @@
 }
 
 .deck-presentation-series time {
+  display: grid;
+  gap: 1px;
   max-width: 94px;
   color: var(--fg-muted);
   font-size: 11px;

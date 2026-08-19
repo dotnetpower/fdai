@@ -1,11 +1,12 @@
 import { Tooltip } from "../../components/tooltip";
-import { t } from "../../i18n";
+import { getLocale, t } from "../../i18n";
 import type {
   PresentationBlock,
   PresentationChartItem,
   PresentationTableData,
 } from "../backend-types";
 import type { PresentationModuleProps } from "./types";
+import { presentationTimestamp } from "../presentation-value";
 import { PresentationTable } from "./table";
 
 export function ChartModule({ block }: PresentationModuleProps) {
@@ -83,6 +84,10 @@ function TimeSeries({ block }: { readonly block: Extract<PresentationBlock, { ki
         {block.data.points.map((point) => {
           const height = 18 + ((point.value - minimum) / range) * 72;
           const label = `${point.timestamp}: ${point.value} ${block.data.unit}`;
+          const timestamp = presentationTimestamp(
+            point.timestamp,
+            getLocale() === "ko" ? "ko-KR" : "en-US",
+          );
           return (
             <li key={point.timestamp}>
               <span class="deck-presentation-series-column" aria-hidden="true">
@@ -92,7 +97,9 @@ function TimeSeries({ block }: { readonly block: Extract<PresentationBlock, { ki
                 <span class="deck-presentation-series-point" tabIndex={0} role="img" aria-label={label} />
               </Tooltip>
               <strong>{point.value}</strong>
-              <time dateTime={point.timestamp}>{point.timestamp}</time>
+              <time dateTime={point.timestamp}>
+                {timestamp ? <><span>{timestamp.date}</span><span>{timestamp.time}</span></> : point.timestamp}
+              </time>
             </li>
           );
         })}

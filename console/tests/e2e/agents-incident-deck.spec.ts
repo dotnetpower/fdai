@@ -43,6 +43,7 @@ async function installOperatorApiFixture(
     readonly answer?: string;
     readonly executionTimeline?: boolean;
     readonly modelTrace?: boolean;
+    readonly presentationArtifact?: Record<string, unknown>;
   } = {},
 ): Promise<{
   readonly chatBody: () => Record<string, unknown> | null;
@@ -226,6 +227,9 @@ async function installOperatorApiFixture(
             claims: [],
             failed_claim_ids: [],
           },
+          ...(options.presentationArtifact
+            ? { presentation_artifact: options.presentationArtifact }
+            : {}),
         })}`,
       );
       await sse(route, frames);
@@ -238,6 +242,145 @@ async function installOperatorApiFixture(
   await page.route("**/incidents*", handleApi);
   return { chatBody: () => capturedChatBody };
 }
+
+const presentationRef = `incident:${correlationId}`;
+const timeSeriesDescription = (
+  "동일한 단위로 검증된 요청 수를 시간 순서대로 표시하며 누락된 값은 추론하지 않습니다."
+);
+const timeSeriesPresentation = {
+  schema_version: 2,
+  layout: "stack",
+  evidence_refs: [presentationRef],
+  blocks: [
+    {
+      slot_id: "trend",
+      kind: "time_series",
+      title: "검증된 요청 추세와 매우 긴 한국어 운영 설명",
+      emphasis: "primary",
+      collapsed: false,
+      evidence_refs: [presentationRef],
+      data: {
+        description: timeSeriesDescription,
+        metric: "requests",
+        unit: "count",
+        points: [
+          { timestamp: "2026-08-19T00:00:00Z", value: 1 },
+          { timestamp: "2026-08-19T00:01:00Z", value: 3 },
+          { timestamp: "2026-08-19T00:02:00Z", value: 2 },
+        ],
+        exact_table: {
+          columns: [
+            { key: "c0", label: "timestamp" },
+            { key: "c1", label: "value" },
+            { key: "c2", label: "opaque id" },
+          ],
+          rows: [
+            {
+              c0: "2026-08-19T00:00:00Z",
+              c1: "1",
+              c2: "result_01J5R1GQ7RM8M7PPQ4TYG9WXYZ",
+            },
+            {
+              c0: "2026-08-19T00:01:00Z",
+              c1: "3",
+              c2: "result_01J5R1GQ7RM8M7PPQ4TYG9WXYA",
+            },
+            {
+              c0: "2026-08-19T00:02:00Z",
+              c1: "2",
+              c2: "result_01J5R1GQ7RM8M7PPQ4TYG9WXYB",
+            },
+          ],
+          status_key: null,
+        },
+      },
+    },
+    {
+      slot_id: "limitations",
+      kind: "callout",
+      title: "제한 사항",
+      emphasis: "supporting",
+      collapsed: false,
+      evidence_refs: [presentationRef],
+      data: {
+        tone: "warning",
+        lines: [
+          "한 출처는 사용할 수 없어 부분 근거만 표시합니다.",
+          "보조 출처에서 검증된 레코드는 0개입니다.",
+        ],
+      },
+    },
+  ],
+};
+
+test("renders accessible v2 presentation at desktop constrained and mobile viewports", async ({
+  page,
+}, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() => {
+    localStorage.setItem("fdai.deck.layout.v1", "dock");
+  });
+  await installOperatorApiFixture(page, {
+    answer: "세 시점의 검증된 요청 수는 1, 3, 2입니다.",
+    presentationArtifact: timeSeriesPresentation,
+  });
+
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 993, height: 641 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto(`/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`);
+    await page.getByRole("button", { name: "Open command deck" }).click();
+    const dock = page.getByRole("complementary", { name: "Command deck" });
+    await dock.getByRole("button", { name: "Full workspace" }).click();
+    const workspace = page.getByRole("dialog", { name: "Command deck" });
+    await workspace.getByRole("toolbar", { name: "Workspace tools" })
+      .getByRole("button", { name: /New conversation/ }).click();
+    await workspace.getByPlaceholder(/Ask anything/i).fill("Show request trend");
+    await workspace.getByRole("button", { name: "Send" }).click();
+
+    const chart = workspace.locator('.deck-presentation-block[data-kind="time_series"]');
+    await expect(chart).toBeVisible();
+    await expect(workspace.getByRole("button", { name: "Send" })).toBeVisible();
+    await expect(chart.getByText(timeSeriesDescription)).toBeVisible();
+    await expect(workspace.getByText("한 출처는 사용할 수 없어 부분 근거만 표시합니다."))
+      .toBeVisible();
+    await expect(workspace.getByText("보조 출처에서 검증된 레코드는 0개입니다."))
+      .toBeVisible();
+    await expect(chart.locator(".deck-presentation-series-point")).toHaveCount(3);
+    await chart.locator(".deck-presentation-series-point").first().focus();
+    await expect(chart.locator(".deck-presentation-series-point").first()).toBeFocused();
+
+    const details = chart.locator(".deck-presentation-exact-values");
+    await expect(details).not.toHaveAttribute("open", "");
+    await details.locator(":scope > summary").click();
+    await expect(details.getByText("result_01J5R1GQ7RM8M7PPQ4TYG9WXYZ")).toBeVisible();
+    await expect(details.locator('time[datetime="2026-08-19T00:00:00Z"]')).toBeVisible();
+
+    const geometry = await workspace.evaluate((element) => ({
+      documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      workspaceOverflow: element.scrollWidth - element.clientWidth,
+      chartOverflow: element.querySelector(".deck-presentation")
+        ? (element.querySelector(".deck-presentation") as HTMLElement).scrollWidth -
+          (element.querySelector(".deck-presentation") as HTMLElement).clientWidth
+        : -1,
+      transitionMs: Number.parseFloat(getComputedStyle(
+        element.querySelector(".deck-presentation-series-column > span")!,
+      ).transitionDuration) * 1_000,
+    }));
+    expect(geometry.documentOverflow).toBe(0);
+    expect(geometry.workspaceOverflow).toBe(0);
+    expect(geometry.chartOverflow).toBe(0);
+    expect(geometry.transitionMs).toBeLessThanOrEqual(1);
+    if (viewport.width < 1_200) await details.locator(":scope > summary").click();
+    await page.screenshot({
+      path: testInfo.outputPath(`v2-presentation-${viewport.width}x${viewport.height}.png`),
+      fullPage: true,
+    });
+  }
+});
 
 test("defaults to the right dock and restores the last display mode", async ({ page }) => {
   await installOperatorApiFixture(page);
