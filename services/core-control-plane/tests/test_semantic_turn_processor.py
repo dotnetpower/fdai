@@ -55,6 +55,7 @@ from fdai_service_contracts import RuleSearchReceipt, rule_search_query_digest
 from fdai_service_contracts.ontology_query import (
     GoalEvidenceMode,
     GoalTaskReceipt,
+    SemanticOperation,
     TaskStatus,
 )
 
@@ -299,7 +300,14 @@ def _runtime_result(disposition: str) -> RuntimeSemanticTurnResult:
         semantic_catalog_digest=MANIFEST_DIGEST,
         plan_digest=PLAN_DIGEST,
     )
-    planning = SimpleNamespace(plan=plan, manifest_digest=MANIFEST_DIGEST)
+    planning = SimpleNamespace(
+        plan=plan,
+        frame=SimpleNamespace(
+            operation=SemanticOperation.SELECT,
+            output_shape="resource_list",
+        ),
+        manifest_digest=MANIFEST_DIGEST,
+    )
     if disposition != "answered":
         return RuntimeSemanticTurnResult(
             disposition=cast(Any, disposition),
@@ -442,7 +450,14 @@ def _rule_search_runtime_result(*, execution_authority: bool = False) -> Runtime
         plan_digest=PLAN_DIGEST,
         nodes=(node,),
     )
-    planning = SimpleNamespace(plan=plan, manifest_digest=MANIFEST_DIGEST)
+    planning = SimpleNamespace(
+        plan=plan,
+        frame=SimpleNamespace(
+            operation=SemanticOperation.SELECT,
+            output_shape="resource_list",
+        ),
+        manifest_digest=MANIFEST_DIGEST,
+    )
     function_receipt = result.execution.receipts[0].model_copy(
         update={
             "goal_id": "resources",
@@ -610,7 +625,14 @@ def _incident_evidence_runtime_result(
         plan_digest=PLAN_DIGEST,
         nodes=(node,),
     )
-    planning = SimpleNamespace(plan=plan, manifest_digest=MANIFEST_DIGEST)
+    planning = SimpleNamespace(
+        plan=plan,
+        frame=SimpleNamespace(
+            operation=SemanticOperation.SELECT,
+            output_shape="incident_evidence",
+        ),
+        manifest_digest=MANIFEST_DIGEST,
+    )
     function_receipt = result.execution.receipts[0].model_copy(
         update={
             "task_id": "query:incident-evidence",
@@ -707,7 +729,14 @@ def _ontology_relationship_runtime_result(
         plan_digest=PLAN_DIGEST,
         nodes=(node,),
     )
-    planning = SimpleNamespace(plan=plan, manifest_digest=MANIFEST_DIGEST)
+    planning = SimpleNamespace(
+        plan=plan,
+        frame=SimpleNamespace(
+            operation=SemanticOperation.SELECT,
+            output_shape="ontology_relationships",
+        ),
+        manifest_digest=MANIFEST_DIGEST,
+    )
     function_receipt = result.execution.receipts[0].model_copy(
         update={
             "task_id": "query:relationships",
@@ -1152,6 +1181,10 @@ async def test_incident_evidence_answer_reports_missing_recorded_rca() -> None:
     technical_details = payload["technical_details"]
     assert technical_details["schema_version"] == 1
     assert technical_details["kind"] == "semantic_query_outputs"
+    assert technical_details["presentation_context"] == {
+        "operation": "select",
+        "output_shape": "incident_evidence",
+    }
     incident = technical_details["outputs"][0]
     assert incident["incident_profile"]["correlation_id"] == "incident-correlation-301"
     assert incident["incident_profile"]["status"] == "triaging"
@@ -1601,7 +1634,14 @@ async def test_rule_search_candidates_must_not_exceed_function_limit() -> None:
     tampered = RuntimeSemanticTurnResult(
         disposition=runtime_result.disposition,
         reason=runtime_result.reason,
-        planning=SimpleNamespace(plan=plan, manifest_digest=MANIFEST_DIGEST),
+        planning=SimpleNamespace(
+            plan=plan,
+            frame=SimpleNamespace(
+                operation=SemanticOperation.SELECT,
+                output_shape="resource_list",
+            ),
+            manifest_digest=MANIFEST_DIGEST,
+        ),
         execution=runtime_result.execution,
         intent_graph=runtime_result.intent_graph,
         intent_graph_evidence=runtime_result.intent_graph_evidence,

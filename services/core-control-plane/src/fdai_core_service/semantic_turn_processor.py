@@ -622,9 +622,10 @@ def _project_runtime_result(
 
     planning = result.planning
     plan = planning.plan
+    frame = planning.frame
     execution = result.execution
     verified_plan_failure = _verified_plan_failure(result, plan, execution)
-    if verified_plan_failure is not None or plan is None or execution is None:
+    if verified_plan_failure is not None or frame is None or plan is None or execution is None:
         return _evidence_incomplete(request, verified_plan_failure or "plan_missing"), None
     evidence_refs = tuple(
         dict.fromkeys(
@@ -670,6 +671,8 @@ def _project_runtime_result(
     answer, technical_details = _render_query_answer(
         request,
         execution,
+        operation=frame.operation.value,
+        output_shape=frame.output_shape,
         rule_search=rule_search,
         rule_search_node_id=rule_search_node_id,
         incident_evidence=incident_evidence,
@@ -1133,6 +1136,8 @@ def _render_query_answer(
     request: SemanticTurnRequest,
     execution: QueryPlanExecution,
     *,
+    operation: str,
+    output_shape: str,
     rule_search: RuleSearchProjection | None = None,
     rule_search_node_id: str | None = None,
     incident_evidence: dict[str, object] | None = None,
@@ -1212,6 +1217,10 @@ def _render_query_answer(
     technical_details = {
         "schema_version": 1,
         "kind": "semantic_query_outputs",
+        "presentation_context": {
+            "operation": operation,
+            "output_shape": output_shape,
+        },
         "outputs": outputs,
     }
     if len(_answer_json(outputs).encode("utf-8")) > 48_000:
