@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: c86e83be4662d4188da65da42c36a96c23005dce
-translation_revised: 2026-08-14
+translation_source_sha: 3d40dcd774a7b55c4198892f9b956b6b1413ac55
+translation_revised: 2026-08-19
 ---
 # 설치형 배포 CLI
 
@@ -25,7 +25,7 @@ translation_revised: 2026-08-14
 | 전용 `fdaictl` 배포판 및 명령 진입점 | not-started | 저장소의 `pyproject.toml` 파일과 이 문서의 계획된 휠 섹션 | 현재 어떤 프로젝트도 `fdaictl` 스크립트를 등록하지 않으며, 사용 중단된 `fdai.deployment_cli` 런타임 패키지는 없습니다. |
 | 코어 배포 프리플라이트 기본 요소 | implemented | `services/core-control-plane/src/fdai/core/deploy_preflight/` 및 프리플라이트 집중 테스트 | 분석기, 리포트, Azure 실제 검사 스크립트, 토글 기본 요소 및 재조립 로직은 배포 CLI 파사드와 독립적으로 존재합니다. |
 | 보호된 실행기 계획 및 exact-apply 작업 흐름 | implemented | `.github/workflows/deploy-dev.yml` 및 집중 배포 작업 흐름 테스트 | 실행기는 보호된 계획 수립, 근거 연결, 점유/증적 가드, 수렴, 마이그레이션 및 상태 검사를 소유합니다. 패키지된 로컬 CLI 클라이언트는 없습니다. |
-| 서명된 배포 번들 release 경로 | in-progress | `scripts/deployment/release/build-deployment-bundle.py`, `.github/workflows/release-deployment-bundle.yml` 및 작업 흐름 테스트 | 빌드 및 작업 흐름 계약은 있지만 작업 흐름은 아직 사용할 수 없는 `fdaictl bundle verify` 명령을 호출합니다. |
+| 서명된 배포 번들 release 경로 | not-started | `scripts/deployment/release/build-deployment-bundle.py` 및 이슈 #222 | 번들 구성 기능은 남아 있지만 실행할 수 없는 작업 흐름은 제거했습니다. `fdaictl bundle verify`가 구현되고 깨끗한 체크아웃 테스트를 통과한 뒤에만 release 경로를 복원합니다. |
 | Offline 키트 및 폐쇄망 계획 | in-progress | `scripts/deployment/release/stage-offline-kit.sh`, `build-offline-kit.py` 및 `airgap-drill.sh` | 스크립트는 있지만 `build-offline-kit.py`가 존재하지 않는 `fdai.deployment_cli.offline_kit` 모듈을 가져오므로 경로를 끝까지 실행할 수 없습니다. |
 | 공개 설치 및 정리 경험 | not-started | 이 문서의 목표 설치 및 정리 계약 | 첫 공개 CLI 게시, pinned offline 루트 패키지 및 `deploy teardown` 명령이 없습니다. |
 
@@ -34,12 +34,13 @@ translation_revised: 2026-08-14
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 제거된 배포 CLI 패키지와 그 명령을 현재 사용할 수 있다는 이전 주장을 바로잡았습니다. | 현재 변경과 구현 범위 표에 기재한 패키지 메타데이터, release 스크립트, 보호된 작업 흐름 및 집중 작업 흐름 검사 | 전용 CLI 배포판을 만들고 그 경계 뒤에 검증 기능을 복원한 뒤 설치와 폐쇄망 사용을 입증해야 합니다. |
+| 2026-08-19 | deferred | 사용할 수 없는 `fdaictl bundle verify` 명령을 호출하고 성공 실행 근거도 없던 수동 배포 번들 작업 흐름을 제거했습니다. | 이슈 #222, 현재 작업 흐름 목록 및 집중 CI 계약 테스트 | 먼저 전용 CLI 검증기를 추가한 다음 깨끗한 체크아웃 근거와 함께 보호된 release 작업 흐름을 복원해야 합니다. |
 
 ### 남은 작업
 
 - [ ] `fdaictl` 프로젝트 스크립트를 가진 전용 경량 CLI 배포판을 추가하고, 결정론적 `version`, `doctor` 및 `security audit` 출력에 대한 소스 설치와 격리 휠 테스트를 통과합니다.
 - [ ] 기존 프리플라이트와 보호된 작업 흐름 계약을 `deploy preflight`, `plan`, `status`, `apply`에 연결하고 잘못된 대상, 실패 시 중단, exact-plan, 만료 및 정보 제거 테스트를 통과합니다.
-- [ ] 번들 및 offline-kit 검증을 전용 CLI 패키지로 옮기고 깨끗한 체크아웃에서 두 release 작업 흐름을 통과한 뒤 네트워크 없는 air-gap 훈련을 성공시킵니다.
+- [ ] 번들 및 offline-kit 검증을 전용 CLI 패키지로 옮기고, 깨끗한 체크아웃 테스트를 통과한 뒤에만 해당 release 작업 흐름을 복원하며, 네트워크 없는 air-gap 훈련을 성공시킵니다.
 - [ ] Offline trust 루트를 포함한 첫 pinned CLI release를 게시하고 설치, 업그레이드, 롤백, 내부 mirror 전달 및 보호된 정리를 검토 가능한 증적으로 입증합니다.
 
 ## 한눈에 보는 설계

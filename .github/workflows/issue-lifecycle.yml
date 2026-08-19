@@ -10,7 +10,10 @@ permissions:
 
 jobs:
   validate:
-    if: github.event_name == 'issues' && github.event.issue.pull_request == null
+    if: >-
+      github.event_name == 'issues' &&
+      github.event.issue.pull_request == null &&
+      github.actor != 'github-actions[bot]'
     runs-on: ubuntu-24.04
     steps:
       - name: Enforce exit criteria and lifecycle labels
