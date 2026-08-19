@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 031236f2dd6d2e838571937aefc8d22cc7941f5c
-translation_revised: 2026-08-19
+translation_source_sha: 6024b52fbbe77c7a08b7fa6d1e164ebc055e8c15
+translation_revised: 2026-08-20
 ---
 # 지속형 질문 공간
 
@@ -49,7 +49,7 @@ flowchart LR
 | 공유 one-shot 패키지 | implemented | `core/conversation/question_schedule.py`; `delivery/ontology_question_campaign.py`; `ontology_question_campaign_cli.py`; 집중 기한 판정 및 공유 실행기 검사 | 수동 및 예약 트리거는 주입된 실행기 패키지 하나를 사용합니다. 비활성, 실행 시점 아님, 근거 없음, 모델 없음, Reader 증명 없음, 예약 예산 소진, claim 충돌은 해당 모델 또는 의미 호출 전에 중단됩니다. |
 | 환경 구성 및 배포 Job | deferred | 형식화된 workload principal 증적과 기한 판정 보류, 배포 산출물 없음 | 권위 있는 workload principal mapper, 의미 제출 포트, 정확한 모델 연결, 준비 상태 probe가 생길 때까지 공유 패키지에는 독립 환경 구성과 배포 Job을 추가하지 않습니다. 계획의 인증 전 중단 조건을 보존합니다. |
 | Strict v2 릴리스 게이트 | implemented | `console/tests/live-e2e/ontology-query-assurance.ts`; `scripts/automation/run_ontology_assurance.py`; 집중 Console 및 감독기 검사 | 고정 100개 사례는 영어와 한국어 각각 50개를 유지합니다. Strict v2는 기존 14개와 선언, 릴리스/근거, 인벤토리 영향, Rule 상태를 두 로캘로 추가한 22개를 선택합니다. 릴리스 근거는 정확한 전송 22/22를 요구합니다. |
-| 현재 라이브 인증 | in-progress | `.fdai/live-validation`의 terminal 소스 결합 보류와 이 문서의 집중 검사 | 현재 소스 실행은 소스 리비전에 통합 검증 증적이 없어 질문 실행 전에 종료됐습니다. 의미 결과와 안전 카운터가 생성되지 않았으므로 제품 결함으로 분류하지 않습니다. |
+| 현재 라이브 인증 | in-progress | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); `current change`; 의미 계획, 구성, 선언 쿼리, 프로세서, 왕복 집중 테스트 164개 | 인증된 정확한 소스 strict v2 실행이 22개 셀을 모두 실행했고, 선언 셀 4개가 `query.manifest` 또는 `object_set`으로 계획되는 문제를 발견했습니다. 새로운 정확한 `ontology_declaration` 출력 계열과 intent 검증기가 소스 결함을 해결합니다. 검증을 완료하려면 새로운 strict 및 seeded 실행이 필요합니다. |
 | 예약 workload 제출 | deferred | 기한 판정의 `scheduled_principal_unavailable` 및 `scheduled_principal_reader_mapping_unavailable` 결과 | 형식화된 증적은 workload 종류, 불투명 principal 다이제스트, Reader 역할과 소스, 범위 다이제스트, `operations-review` 목적, 인증 근거 다이제스트, 만료를 요구합니다. 권위 있는 mapper가 없으므로 배포 Job과 인프라는 의도적으로 추가하지 않습니다. |
 
 ### 구현 이력
@@ -58,6 +58,9 @@ flowchart LR
 |------|------|------|------|-----------|
 | 2026-08-19 | implemented | 결정론적 질문 집합, 7개 관점, 활성/수집 Rule 분리, 후보 생성과 검증, 4개 의미 기능 계약, 캠페인 실행기와 PostgreSQL 원장, 예약 기한 판정, 공유 one-shot Job, strict v2 분류 체계를 추가했습니다. 이전 이력은 재구성하지 않았습니다. | `current change`; 문서 작성 전 Python 집중 테스트 266개, Console 보증 테스트 99개, 작업 범위 Ruff, strict mypy, 모델 카탈로그 검사, 마이그레이션 검사가 통과했습니다. | 정확한 소스 통합 검증을 확보한 뒤 strict v2와 seeded 라이브 보증을 실행합니다. 배포 Job 인프라를 추가하기 전에 서버 측 예약 principal 매핑을 구현합니다. |
 | 2026-08-19 | implemented | 가변 관점 사전 계산, 종료 처리 검증, 완전한 모델 사용량과 예약, 절대 무진척 기한, 불변 캠페인 완료, 프로세스 손실 재개, 동시 사례 lease, 후보 정보 제거, 형식화된 workload principal 증명, strict-v2 기능 일치를 하드닝했습니다. 독립 비평 12회를 완료했고 Low보다 높은 미해결 항목은 없습니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); `current change`; Python 집중 테스트 122개와 Console 집중 테스트 100개 통과, 작업 범위 Ruff 통과, 소스 파일 20개 strict mypy 통과, 이 ledger 갱신 전 설계 경로, roadmap ledger, 번역, 문장 부호, 읽기 쉬운 한글 게이트 통과. | 정확한 소스 라이브 인증과 인증된 예약 배포는 아래의 근거 게이트를 계속 적용합니다. |
+| 2026-08-19 | implemented | 인증된 strict-v2 실행에서 정확한 선언 및 Rule 상태 질문이 manifest 또는 object-set 계획으로 라우팅되는 회귀를 기록했습니다. 정확한 `ontology_declaration` frame 출력, 배타적인 `query.ontology_declaration` 계획 매핑, 정확한 subject 검증, 프롬프트 지침, Round 13 회귀 테스트를 추가했습니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); `current change`; 의미 계획, 구성, 선언 쿼리, 프로세서, 왕복 집중 테스트 157개 통과, 작업 범위 Ruff 및 형식 검사 통과, 변경된 소스 파일 2개 strict mypy 통과. | 새로운 정확한 소스 검증 증적을 확보하고 strict v2를 다시 실행합니다. Strict가 통과한 뒤에만 seeded 100을 시작합니다. |
+| 2026-08-20 | implemented | 선언 detail, dependents, Rule 상태 intent를 정확한 frame measure로 보존했습니다. 결정론적 검증기는 실행 전에 principal 매니페스트를 기준으로 누락된 intent, section drift, 선언 이름 drift, kind drift를 차단합니다. | `current change`; 의미 계획, 구성, 선언 쿼리, 프로세서, 왕복 집중 테스트 160개 통과, 커밋 전에 작업 범위 Ruff와 strict mypy를 실행해야 합니다. | 새로운 정확한 소스 검증 증적을 확보하고 strict v2를 다시 실행합니다. Strict가 통과한 뒤에만 seeded 100을 시작합니다. |
+| 2026-08-20 | implemented | 선언 계획 실행과 출력 형식을 닫았습니다. 모든 선언 node는 요청된 output이어야 하고, 관련 없는 숨은 node는 차단되며, 선언 frame은 읽기 전용 `select`이고 각 output은 `query.table`을 유지해야 합니다. | `current change`; 의미 계획, 구성, 선언 쿼리, 프로세서, 왕복 집중 테스트 164개 통과, 작업 범위 Ruff 통과. | Strict mypy와 diff 범위 검증을 실행한 뒤 새로운 정확한 소스 검증 증적을 확보하고 strict v2를 다시 실행합니다. |
 
 ### 남은 작업
 
@@ -179,6 +182,11 @@ cron, IANA 표준 시간대, 로캘, 관점, 질문 수, 토큰, 비용, 전체 
 | 10 | Roadmap 진실성 | High, resolved | 오래된 검증 수를 교체하고 패키지 구현과 환경 구성을 분리했으며 라이브 결과 주장 없이 terminal 소스 결합 보류를 기록했습니다. |
 | 11 | 서비스와 배포 경계 | Low | Core는 공급자 중립을 유지하고 delivery가 어댑터와 영속성을 소유합니다. 두 트리거는 패키지 하나를 공유하며 배포는 문서화된 인증 중단 조건으로 차단됩니다. |
 | 12 | 최종 적대적 종료 | Low | 수정 후 앞선 모든 관점을 다시 검사했습니다. 구성 검사는 unavailable 영향 함수가 planner 함수 이름에 없음을 증명합니다. 미해결 Medium, High, Critical 항목은 없습니다. |
+| 13 | 라이브 의미 기능 라우팅 | Medium, resolved | 인증된 strict-v2 실행이 22개 셀을 실행해 정확한 선언 또는 Rule 상태 질문 4개가 `query.manifest`나 `object_set`으로 계획되는 문제를 발견했습니다. 배타적인 `ontology_declaration` 출력 계열, 정확한 선언 이름 검증, 프롬프트 규칙, T1/T2 라우팅 회귀 테스트를 추가했습니다. 의미 집중 테스트 157개가 통과했고 라이브 재인증은 위의 열린 작업으로 유지됩니다. |
+| 14 | 선언 intent 보존 | Medium, resolved | 계획 모델은 원래 발화를 받지 않으므로 기능과 subject만으로 detail과 dependents를 구분할 수 없었습니다. Detail, dependents, Rule 상태를 위한 정확한 frame measure를 추가하고 함수 section, name, kind를 해당 measure와 principal 매니페스트에 결속했습니다. 누락되거나 달라진 축은 제한된 T1/T2 cascade에서 재시도하며 의미 집중 테스트 160개가 통과했습니다. |
+| 15 | 요청 output closure | Medium, resolved | 선언 frame에 읽기 전용 `select`를 요구하고 요청된 모든 detail 또는 dependents node가 최종 output에 나타나도록 했습니다. 요청된 section을 숨기면 제한된 계획 재시도가 발생합니다. |
+| 16 | 숨은 실행 범위 | Medium, resolved | 선언 계획에서 선언 output이 아닌 모든 node를 차단했습니다. 모델은 정확한 선언 결과 뒤에 관련 없는 숨은 읽기를 추가할 수 없습니다. |
+| 17 | 함수 output 형식 | Medium, resolved | 일반 함수 검증기는 input schema를 검증하지만 JSON Schema에서 node output kind를 유도하지 않으므로 모든 `query.ontology_declaration` node를 결정론적으로 `query.table`에 결속했습니다. Output kind 위장은 제한된 계획 재시도를 발생시킵니다. 의미 집중 테스트 164개가 통과했고 Low보다 높은 미해결 항목은 없습니다. |
 
 남은 Low 항목은 인벤토리 탐색 edge case 추가 음수 테스트, 캠페인 간 중복 corpus 보존 근거,
 과거 릴리스 차이 회귀 테스트 이름입니다. 범위, 권한, 변경, 릴리스 자격, 배포 준비 상태를

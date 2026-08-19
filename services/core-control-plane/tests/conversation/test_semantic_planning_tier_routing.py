@@ -77,6 +77,7 @@ class _AcceptingVerifier:
 def _fixture(
     *,
     property_values: tuple[PropertyValueDomain, ...] = (),
+    include_rule: bool = False,
 ) -> tuple[Any, ObjectSetDefinition]:
     resource = OntologyObjectType(
         schema_version="1.0.0",
@@ -88,13 +89,21 @@ def _fixture(
             "secret": PropertyDecl(type=PropertyType.STRING, access_scope=CeilingRole.OWNER),
         },
     )
-    release = build_ontology_release(object_types=(resource,))
+    rule = OntologyObjectType(
+        schema_version="1.0.0",
+        name="Rule",
+        version="1.0.0",
+        key="id",
+        properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
+    )
+    object_types = (resource, rule) if include_rule else (resource,)
+    release = build_ontology_release(object_types=object_types)
     manifest = build_query_manifest(
         release=release,
         principal_role=CeilingRole.READER,
         purposes=("operations-review",),
         principal_scope_digest=DIGEST,
-        object_types=(resource,),
+        object_types=object_types,
         property_values=property_values,
     )
     definition = ObjectSetDefinition(
@@ -160,6 +169,29 @@ def _function_plan(
         ],
         "output_node_ids": ["function-result"],
     }
+
+
+def _declaration_sections_plan(*sections: str) -> dict[str, object]:
+    nodes = [
+        {
+            "node_id": section,
+            "kind": "function",
+            "depends_on": [],
+            "arguments": {
+                "function_name": "query.ontology_declaration",
+                "arguments": {
+                    "kind": "object",
+                    "name": "Resource",
+                    "section": section,
+                    "limit": 100,
+                },
+                "dependency_arguments": {},
+            },
+            "output_kind": "query.table",
+        }
+        for section in sections
+    ]
+    return {"nodes": nodes, "output_node_ids": list(sections)}
 
 
 def _aggregate_plan(definition: ObjectSetDefinition) -> dict[str, object]:
@@ -494,6 +526,393 @@ def test_matching_specialized_t1_plan_never_invokes_t2() -> None:
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_exact_declaration_plan_never_invokes_t2() -> None:
+    manifest, definition = _fixture()
+    declaration_plan = _function_plan(
+        "query.ontology_declaration",
+        output_kind="query.table",
+        function_arguments={
+            "kind": "object",
+            "name": "Resource",
+            "section": "detail",
+            "limit": 100,
+        },
+    )
+    t1 = _Model(
+        frame=_frame(
+            measure_concepts=["declaration_detail"],
+            output_shape="ontology_declaration",
+        ),
+        plan=declaration_plan,
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_declaration_frame_without_exact_measure_retries_with_t2() -> None:
+    manifest, _definition = _fixture()
+    declaration_plan = _function_plan(
+        "query.ontology_declaration",
+        output_kind="query.table",
+        function_arguments={
+            "kind": "object",
+            "name": "Resource",
+            "section": "detail",
+            "limit": 100,
+        },
+    )
+    t1 = _Model(frame=_frame(output_shape="ontology_declaration"), plan=declaration_plan)
+    t2 = _Model(
+        frame=_frame(
+            measure_concepts=["declaration_detail"],
+            output_shape="ontology_declaration",
+        ),
+        plan=declaration_plan,
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (1, 0)
+
+
+def test_declaration_frame_with_non_select_operation_retries_with_t2() -> None:
+    manifest, _definition = _fixture()
+    declaration_plan = _declaration_sections_plan("detail")
+    t1 = _Model(
+        frame=_frame(
+            operation="action_draft",
+            measure_concepts=["declaration_detail"],
+            output_shape="ontology_declaration",
+        ),
+        plan=declaration_plan,
+    )
+    t2 = _Model(
+        frame=_frame(
+            measure_concepts=["declaration_detail"],
+            output_shape="ontology_declaration",
+        ),
+        plan=declaration_plan,
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (1, 0)
+
+
+def test_all_requested_declaration_sections_must_be_outputs() -> None:
+    manifest, _definition = _fixture()
+    incomplete = _declaration_sections_plan("detail", "dependents")
+    incomplete["output_node_ids"] = ["detail"]
+    complete = _declaration_sections_plan("detail", "dependents")
+    frame = _frame(
+        measure_concepts=["declaration_detail", "declaration_dependents"],
+        output_shape="ontology_declaration",
+    )
+    t1 = _Model(frame=frame, plan=incomplete)
+    t2 = _Model(frame=_frame(), plan=complete)
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+
+
+def test_declaration_plan_rejects_hidden_unrelated_nodes() -> None:
+    manifest, definition = _fixture()
+    hidden = _declaration_sections_plan("detail")
+    hidden["nodes"] = [*hidden["nodes"], *_plan(definition)["nodes"]]  # type: ignore[misc]
+    complete = _declaration_sections_plan("detail")
+    frame = _frame(
+        measure_concepts=["declaration_detail"],
+        output_shape="ontology_declaration",
+    )
+    t1 = _Model(frame=frame, plan=hidden)
+    t2 = _Model(frame=_frame(), plan=complete)
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+
+
+def test_declaration_plan_rejects_spoofed_output_kind() -> None:
+    manifest, _definition = _fixture()
+    spoofed = _declaration_sections_plan("detail")
+    spoofed["nodes"][0]["output_kind"] = "topology.graph"  # type: ignore[index]
+    complete = _declaration_sections_plan("detail")
+    frame = _frame(
+        measure_concepts=["declaration_detail"],
+        output_shape="ontology_declaration",
+    )
+    t1 = _Model(frame=frame, plan=spoofed)
+    t2 = _Model(frame=_frame(), plan=complete)
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+
+
+def test_manifest_cannot_satisfy_exact_declaration_frame() -> None:
+    manifest, _definition = _fixture()
+    exact_plan = _function_plan(
+        "query.ontology_declaration",
+        output_kind="query.table",
+        function_arguments={
+            "kind": "object",
+            "name": "Resource",
+            "section": "detail",
+            "limit": 100,
+        },
+    )
+    t1 = _Model(
+        frame=_frame(
+            measure_concepts=["declaration_detail"],
+            output_shape="ontology_declaration",
+        ),
+        plan=_function_plan("query.manifest", output_kind="query.table"),
+    )
+    t2 = _Model(frame=_frame(), plan=exact_plan)
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+
+
+def test_object_set_cannot_satisfy_exact_declaration_frame() -> None:
+    manifest, definition = _fixture()
+    exact_plan = _function_plan(
+        "query.ontology_declaration",
+        output_kind="query.table",
+        function_arguments={
+            "kind": "object",
+            "name": "Resource",
+            "section": "detail",
+            "limit": 100,
+        },
+    )
+    t1 = _Model(
+        frame=_frame(
+            measure_concepts=["declaration_detail"],
+            output_shape="ontology_declaration",
+        ),
+        plan=_plan(definition),
+    )
+    t2 = _Model(frame=_frame(), plan=exact_plan)
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+
+
+def test_exact_rule_declaration_plan_never_invokes_t2() -> None:
+    manifest, definition = _fixture(include_rule=True)
+    declaration_plan = _function_plan(
+        "query.ontology_declaration",
+        output_kind="query.table",
+        function_arguments={
+            "kind": "object",
+            "name": "Rule",
+            "section": "detail",
+            "limit": 100,
+        },
+    )
+    t1 = _Model(
+        frame=_frame(
+            measure_concepts=["rule_state"],
+            subject_constraints=["Rule"],
+            output_shape="ontology_declaration",
+        ),
+        plan=declaration_plan,
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+def test_declaration_plan_name_must_match_exact_frame_subject() -> None:
+    manifest, _definition = _fixture()
+    mismatched = _function_plan(
+        "query.ontology_declaration",
+        output_kind="query.table",
+        function_arguments={
+            "kind": "object",
+            "name": "Rule",
+            "section": "detail",
+            "limit": 100,
+        },
+    )
+    matching = _function_plan(
+        "query.ontology_declaration",
+        output_kind="query.table",
+        function_arguments={
+            "kind": "object",
+            "name": "Resource",
+            "section": "detail",
+            "limit": 100,
+        },
+    )
+    t1 = _Model(
+        frame=_frame(
+            measure_concepts=["declaration_detail"],
+            output_shape="ontology_declaration",
+        ),
+        plan=mismatched,
+    )
+    t2 = _Model(frame=_frame(), plan=matching)
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    (("section", "dependents"), ("kind", "link")),
+)
+def test_declaration_plan_axes_must_match_exact_frame_and_manifest(
+    field: str,
+    value: str,
+) -> None:
+    manifest, _definition = _fixture()
+    mismatched_arguments: dict[str, object] = {
+        "kind": "object",
+        "name": "Resource",
+        "section": "detail",
+        "limit": 100,
+    }
+    mismatched_arguments[field] = value
+    t1 = _Model(
+        frame=_frame(
+            measure_concepts=["declaration_detail"],
+            output_shape="ontology_declaration",
+        ),
+        plan=_function_plan(
+            "query.ontology_declaration",
+            output_kind="query.table",
+            function_arguments=mismatched_arguments,
+        ),
+    )
+    t2 = _Model(
+        frame=_frame(),
+        plan=_function_plan(
+            "query.ontology_declaration",
+            output_kind="query.table",
+            function_arguments={
+                "kind": "object",
+                "name": "Resource",
+                "section": "detail",
+                "limit": 100,
+            },
+        ),
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
 
 
 def test_named_instance_question_never_settles_for_a_schema_frame() -> None:

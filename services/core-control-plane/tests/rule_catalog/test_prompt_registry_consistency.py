@@ -126,7 +126,7 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     frame = prompts.get_base("semantic.query.frame")
     plan = prompts.get_base("semantic.query.plan")
 
-    assert frame.version == 21
+    assert frame.version == 22
     assert "output_shape to exactly one capability family" in frame.body
     assert "aggregation_table for a count or grouping" in frame.body
     assert "topology_graph for current instance connectivity or containment" in frame.body
@@ -190,6 +190,12 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "no unresolved terms or clarification requirements" in frame.body
     assert "requested runtime relation verb dominates ontology nouns" in frame.body
     assert "ontology_manifest only lists declarations" in frame.body
+    assert "ontology_declaration for the detail, dependents" in frame.body
+    assert "active Rule semantics from collected Rule references" in frame.body
+    assert "declaration_dependents for dependents" in frame.body
+    assert "rule_state as its only measure concept" in frame.body
+    assert "operation select with ontology_declaration" in frame.body
+    assert "Do not reduce either request to ontology_manifest" in frame.body
     assert "instead of clarification" in frame.body
     assert "Do not select that function for instance listing" in frame.body
     assert "query.incident_evidence" in frame.body
@@ -198,8 +204,13 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "do not require incident_id or correlation_id" in frame.body
     assert "cause_claim_supported=false" in frame.body
     assert "Do not claim a cause" in frame.body
-    assert plan.version == 15
+    assert plan.version == 16
     assert "Satisfy the frame's exact output_shape" in plan.body
+    assert "ontology_declaration requires query.ontology_declaration" in plan.body
+    assert '"function_name":"query.ontology_declaration"' in plan.body
+    assert "declaration_dependents outputs one dependents node" in plan.body
+    assert "Every plan node is a declaration output node" in plan.body
+    assert "rule_state measure uses the Rule detail node" in plan.body
     assert "aggregation_table requires aggregate" in plan.body
     assert "topology_graph requires topology_at" in plan.body
     assert "use query.manifest as a query.table dependency followed by aggregate" in plan.body

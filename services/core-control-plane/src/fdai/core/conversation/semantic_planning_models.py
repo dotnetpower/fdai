@@ -63,6 +63,7 @@ class SemanticOutputShape(StrEnum):
     CAUSAL_EVIDENCE = "causal_evidence"
     EVIDENCE_VALIDATION = "evidence_validation"
     INCIDENT_EVIDENCE = "incident_evidence"
+    ONTOLOGY_DECLARATION = "ontology_declaration"
     ONTOLOGY_MANIFEST = "ontology_manifest"
     ONTOLOGY_RELATIONSHIPS = "ontology_relationships"
     PROPERTY_FILTERED_RESOURCES = "property_filtered_resources"
