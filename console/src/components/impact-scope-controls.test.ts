@@ -37,5 +37,6 @@ describe("Impact scope controls", () => {
     expect(styles).toContain(".impact-query-submit:disabled");
     expect(styles).toContain(".impact-query-submit { width: 100%; }");
     expect(styles).toContain(".segmented-control button:focus-visible");
+    expect(styles).toContain(".blast-radius-route .segmented-control button { min-height: 44px; }");
   });
 });

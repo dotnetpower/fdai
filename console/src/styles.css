@@ -5572,6 +5572,7 @@ pre {
   .impact-query-checks,
   .impact-query-action { grid-column: 1 / -1; }
   .impact-query-submit { width: 100%; }
+  .blast-radius-route .segmented-control button { min-height: 44px; }
 }
 
 /* Inline form grid (rule-trace lookup) --------------------------------- */

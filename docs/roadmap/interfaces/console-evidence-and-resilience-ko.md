@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 0f93f80caf173bca2032d49da0bbac975edd814a
+translation_source_sha: 6b41d1d5cab614f824f68cc927e95ab993f520b0
 translation_revised: 2026-08-19
 ---
 
@@ -80,6 +80,7 @@ translation_revised: 2026-08-19
 | 2026-08-19 | implemented | Console 신뢰 경계에서 중복 영향 관계를 거부했습니다. 최종 adversarial decoder 검토에는 producer bound 재검증과 timestamp 허용 범위에 관한 Low 잔여만 남았고 그래프 일관성에 Medium 이상 finding은 없습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, `blast-radius.model.test.ts` focused 사례 15개와 Console typecheck가 통과했습니다. | Producer 배열 상한 및 더 엄격한 RFC 3339 parsing은 release blocker가 아니라 Low defense-in-depth 후보로 유지합니다. |
 | 2026-08-19 | implemented | 시각적 active styling에만 의존하지 않고 세 개 segmented button 모두의 `aria-pressed`로 선택한 Impact scope 보기를 노출했습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused control contract 사례 2개와 Console typecheck가 통과했고 인증된 390 px Browser가 pressed 보기 하나만 노출했습니다. | 별도로 측정한 focus indicator 및 target size finding을 대상으로 accessibility round를 계속합니다. |
 | 2026-08-19 | implemented | Segmented 보기 control에 명시적인 `:focus-visible` outline을 추가했습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused control contract 사례 2개와 Console typecheck가 통과했고 인증된 keyboard navigation에서 2 px offset을 가진 solid 2 px outline을 측정했습니다. | 별도로 측정한 22 px target size finding을 대상으로 accessibility round를 계속합니다. |
+| 2026-08-19 | implemented | 다른 밀도 높은 control을 바꾸지 않고 모바일 너비에서 Impact scope segmented button의 최소 높이를 44 px로 높였습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused control contract 사례 2개와 Console typecheck가 통과했고 인증된 390 px Browser에서 세 button 모두 44 px, pressed 상태 하나 및 유지된 visible focus outline을 측정했습니다. | Accessibility 비평을 다시 실행하고 Low 잔여만 남긴 뒤 round를 닫습니다. |
 
 ### 잔여 작업
 
