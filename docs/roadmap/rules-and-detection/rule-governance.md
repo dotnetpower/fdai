@@ -33,6 +33,11 @@ production `CatalogSemanticIndex` adapter stores grounded Rule documents in Post
 rank, and typed-neighbor similarity through deterministic reciprocal rank fusion (RRF). Stable
 Rule id ordering resolves score ties.
 
+The lexical projection includes both the reviewed active catalog and the recursively imported
+collected corpus. Every entry retains an `active` or `collected` origin. Collected entries remain
+inert reference records and don't join the active Catalog topology, T0 evaluation, or Workflow
+inputs.
+
 The index is built off the request and Operator API startup paths. A mechanical worker loads exact
 Rule, ActionType, Rego, ontology-release, and promoted-surface evidence, stages one complete
 generation, and changes the active corpus pointer only after an independent validation receipt.

@@ -89,6 +89,7 @@ def catalog_snapshots(repo_root: Path) -> dict[str, dict[str, object]]:
         policies_root=repo_root / "policies",
         remediation_root=catalog_root / "remediation",
     )
+    collected_rules = _load_collected_rules(catalog_root / "collected")
     rule_documents = [
         _yaml_mapping(path) for path in sorted((catalog_root / "catalog").glob("*.yaml"))
     ]
@@ -122,6 +123,7 @@ def catalog_snapshots(repo_root: Path) -> dict[str, dict[str, object]]:
         RULE_LIST_KEY: _revisioned(
             _rule_snapshot(
                 rules,
+                collected_rules=collected_rules,
                 policies_root=repo_root / "policies",
                 remediation_root=catalog_root / "remediation",
             )
@@ -150,32 +152,53 @@ def catalog_snapshots(repo_root: Path) -> dict[str, dict[str, object]]:
 
 
 def _rule_snapshot(
-    rules: Sequence[Rule],
+    active_rules: Sequence[Rule],
     *,
+    collected_rules: Sequence[Rule],
     policies_root: Path,
     remediation_root: Path,
 ) -> dict[str, object]:
+    entries = [
+        *((rule, "active") for rule in active_rules),
+        *((rule, "collected") for rule in collected_rules),
+    ]
     ordered = sorted(
-        rules,
-        key=lambda rule: (-_SEVERITY_RANK.get(rule.severity.value, 0), rule.id),
+        entries,
+        key=lambda entry: (
+            -_SEVERITY_RANK.get(entry[0].severity.value, 0),
+            entry[0].id,
+            entry[1],
+        ),
     )
-    summaries = [_rule_summary(rule) for rule in ordered]
+    summaries = [_rule_summary(rule, origin=origin) for rule, origin in ordered]
     details = {
-        f"active:{rule.id}": _rule_detail(
+        f"{origin}:{rule.id}": _rule_detail(
             rule,
+            origin=origin,
             policies_root=policies_root,
             remediation_root=remediation_root,
         )
-        for rule in sorted(rules, key=lambda item: item.id)
+        for rule, origin in sorted(entries, key=lambda entry: (entry[1], entry[0].id))
     }
     return {"rules": summaries, "details": details}
 
 
-def _rule_summary(rule: Rule) -> dict[str, object]:
+def _load_collected_rules(root: Path) -> tuple[Rule, ...]:
+    """Load the inert reference corpus without applying active-catalog cross-references."""
+    loaded: list[Rule] = []
+    for path in sorted(root.rglob("*.yaml")):
+        try:
+            loaded.append(Rule.model_validate(_yaml_mapping(path)))
+        except (OSError, ValueError, yaml.YAMLError) as exc:
+            raise RuntimeError(f"invalid collected Rule document: {path}") from exc
+    return tuple(loaded)
+
+
+def _rule_summary(rule: Rule, *, origin: str) -> dict[str, object]:
     provenance = rule.provenance
     return {
         "id": rule.id,
-        "origin": "active",
+        "origin": origin,
         "version": str(rule.version),
         "source": rule.source.value,
         "severity": rule.severity.value,
@@ -195,6 +218,7 @@ def _rule_summary(rule: Rule) -> dict[str, object]:
 def _rule_detail(
     rule: Rule,
     *,
+    origin: str,
     policies_root: Path,
     remediation_root: Path,
 ) -> dict[str, object]:
@@ -203,7 +227,7 @@ def _rule_detail(
         rule.check_logic.reference,
         prefix="policies/",
     )
-    detail = _rule_summary(rule)
+    detail = _rule_summary(rule, origin=origin)
     detail.update(
         {
             "schema_version": str(rule.schema_version),

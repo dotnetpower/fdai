@@ -1,7 +1,7 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: 7d6d10727c27356fcab3d34502debe556ba0262e
+translation_source_sha: a5a60fb6b7f136986ff9d9ab8d1b984239402935
 translation_revised: 2026-08-19
 ---
 
@@ -36,6 +36,10 @@ shadow-before-enforce 및 안전 불변식을 준수.
 대소문자를 구분하지 않는 정확한 Rule id, `tsvector` 어휘 순위, 벡터 코사인 순위, 타입이 지정된
 이웃 유사도를 결정론적 reciprocal 순위 fusion(RRF)으로 결합합니다. 점수가 같으면 안정적인 Rule
 id 순서로 결정합니다.
+
+어휘 변환 결과에는 검토된 활성 카탈로그와 재귀적으로 가져온 수집 말뭉치가 모두 포함됩니다.
+각 항목은 `active` 또는 `collected` 출처를 유지합니다. 수집 항목은 조회 전용 참조 기록으로
+유지되며 활성 Catalog topology, T0 평가 또는 Workflow 입력에 합쳐지지 않습니다.
 
 인덱스는 요청 및 Operator API 시작 경로 밖에서 빌드합니다. 기계적 워커는 정확한 Rule,
 ActionType, Rego, 온톨로지 release 및 promoted 표면 근거를 로드하고 하나의 완전한 세대를

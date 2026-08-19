@@ -44,6 +44,12 @@ def test_catalog_snapshots_are_deterministic_complete_reference_projections() ->
     rules = first[module.RULE_LIST_KEY]
     assert rules["_revision"].startswith("sha256:")
     assert rules["rules"]
+    expected_active = len(list((REPO_ROOT / "rule-catalog/catalog").glob("*.yaml")))
+    expected_collected = len(list((REPO_ROOT / "rule-catalog/collected").rglob("*.yaml")))
+    origins = [rule["origin"] for rule in rules["rules"]]
+    assert len(rules["rules"]) == expected_active + expected_collected
+    assert origins.count("active") == expected_active
+    assert origins.count("collected") == expected_collected
     assert len(rules["details"]) == len(rules["rules"])
     assert list(rules["details"]) == sorted(rules["details"])
     selected = rules["rules"][0]
