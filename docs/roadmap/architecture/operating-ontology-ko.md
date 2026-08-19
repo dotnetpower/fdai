@@ -1,7 +1,7 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: 6977e9383ed0057860d17e8d7596ba35338af07c
+translation_source_sha: d175456552a13a32b88dc43964be7f3d50d1f555
 translation_revised: 2026-08-19
 ---
 # FDAI 운영 온톨로지
@@ -97,13 +97,14 @@ translation_revised: 2026-08-19
 | Wave 2 근거, 변경, Property 및 토폴로지 기반 | in-progress | [구현 상태 설명](#fdai-운영-온톨로지), [운영 온톨로지 플랫폼](operating-ontology-platform-ko.md), [`check-property-semantic-coverage.py`](../../../scripts/quality/architecture/check-property-semantic-coverage.py) | 검토된 기반은 있지만 근거 번들이 런타임에 조립되지 않았고 계획 변경은 그래프 최신성 게이트를 자동 통과할 수 없으며 검토된 Property 커버리지는 측정되지만 일부이고 더 넓은 플랫폼 제공 작업도 남아 있습니다. |
 | Console 의미 band 선언 완전성 | implemented | [`Forecast.yaml`](../../../rule-catalog/vocabulary/object-types/Forecast.yaml), [`Pattern.yaml`](../../../rule-catalog/vocabulary/object-types/Pattern.yaml), [`test_ontology_console_projection.py`](../../../services/core-control-plane/tests/delivery/test_ontology_console_projection.py) | Console band가 지정하는 모든 객체 타입을 제공 릴리스가 선언하므로 band 구성원이 조용히 제외되지 않습니다. 두 선언은 의미 선언일 뿐이며 인스턴스 경로를 추가하지 않습니다. |
 | 운영 범위 `unknown_service` 커버리지 | validated | [`operating_scope.py`](../../../services/core-control-plane/src/fdai/core/operational_context/operating_scope.py), [`postgres_inventory_snapshot.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_inventory_snapshot.py), focused consumer 검사 4개 통과 | 인증된 인벤토리 그래프 변환 결과가 범위가 제한된 응답의 모든 Resource에 검토된 서비스 하나 또는 `unknown_service`를 표시하고, 집계 완전성을 반환하며, 대응되지 않거나 잘린 범위는 성능 저하로 표시합니다. |
-| 프로바이더 native 미분류 신원 | implemented | [`inventory.py`](../../../services/core-control-plane/src/fdai/shared/providers/inventory.py), [`arg_query.py`](../../../services/core-control-plane/src/fdai/delivery/azure/arg_query.py), focused 검사 259개 통과 | 검토된 예약 ResourceType이 타입별 의미를 지어내지 않고 지원되지 않는 프로바이더 신원을 계속 표시합니다. 실제 변환 근거는 아직 남아 있습니다. |
+| 프로바이더 native 미분류 신원 | validated | [`inventory.py`](../../../services/core-control-plane/src/fdai/shared/providers/inventory.py), [`arg_query.py`](../../../services/core-control-plane/src/fdai/delivery/azure/arg_query.py), focused 검사 259개 통과 및 [이슈 #217](https://github.com/dotnetpower/fdai/issues/217) | 검토된 예약 ResourceType이 타입별 의미를 지어내지 않고 지원되지 않는 프로바이더 신원을 계속 표시합니다. 승격된 로컬 스냅샷과 온톨로지는 realtime overlay 잔여 없이 exact provider identity coverage를 유지합니다. |
 | 운영 의도 런타임 인스턴스 | in-progress | 의도 6종의 카탈로그 선언, [`ontology_console_projection.py`](../../../services/core-control-plane/src/fdai/delivery/ontology_console_projection.py) | `ServiceObjective`, `RecoveryObjective`, `CostObjective`, `ArchitectureConstraint`, `Ownership`, `ChangeWindow`는 선언되고 band에 포함되며 `OperatingModelProjector`가 배포 제공 인스턴스를 보존할 수 있습니다. 이를 도출하는 변환 결과와 end-to-end로 고정하는 집중 테스트는 없습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | validated | Service-owned 인벤토리 entry point의 composition parity를 맞춘 뒤 identity-complete provider graph를 승격하고 측정했습니다. Provider fence는 native 객체 533개를 보고합니다. 검토된 mapping 476개와 예약 미분류 신원 57개가 provider type 68종에 걸쳐 있고 `provider_identity_complete=true`입니다. 스냅샷과 온톨로지는 각각 Resource 573개를 유지하며 두 identity 집합의 차이는 0이고 realtime overlay에는 Resource와 link가 모두 0개입니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217), coverage schema `1.1.0`, 최종 로컬 observation은 aggregate graph record 1,215개의 fresh inventory를 보고합니다. | 배포가 검토한 service mapping으로 `unknown_service`를 줄일 수 있습니다. Provider identity, projection parity 또는 realtime overlay 잔여는 없습니다. |
 | 2026-08-19 | validated | `project_operating_scope`를 PostgreSQL 기반 인증 인벤토리 그래프 응답에 연결했습니다. 범위가 제한된 역방향 링크 조회 두 개가 응답 Resource에서 끝나는 서비스 경로만 해석합니다. 모든 Resource는 `service_ref`를 포함하고, 불완전한 입력 또는 대응되지 않은 범위는 정상적인 부재 주장이 아니라 명시적 coverage gap이 됩니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Focused consumer 검사 4개와 strict mypy가 통과했습니다. 읽기 전용 loopback 측정에서 응답 Resource 213/213개가 표시됐고 `input_complete=true`, `complete=false`, `operating_scope_unmapped`를 반환했습니다. | 검토된 BusinessService와 Workload mapping을 제공해 측정된 `unknown_service` 집합을 줄입니다. Consumer 연결 작업은 남지 않았습니다. |
 | 2026-08-19 | implemented | 검토된 `unclassified-resource` ResourceType과 exact 프로바이더 신원 조정을 추가했습니다. 선언되지 않은 native 타입은 더 이상 완전한 세대에서 사라지지 않지만 query terms, 타입별 Rule 또는 작업 eligibility를 얻지 않습니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). 인벤토리, 온톨로지, 카탈로그 및 의미 값 도메인 focused 검사가 259개 묶음 안에서 통과했고 Ruff와 strict mypy도 통과했습니다. | 새 세대를 승격한 뒤 운영 범위 coverage를 읽기 전용 운영자 consumer 하나에 연결합니다. |
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했습니다. | 구현 범위 표의 현재 소스, 테스트 및 제공 계획입니다. | 아래의 관찰 가능한 종료 조건을 완료해야 합니다. |

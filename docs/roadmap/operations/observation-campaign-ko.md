@@ -1,7 +1,7 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: 5ee05ea0733885fa0dedd58ef7393e3eb2deda66
+translation_source_sha: d013eb46cd4809c4e08fe2f3979b6b757666ef4c
 translation_revised: 2026-08-19
 ---
 
@@ -31,12 +31,13 @@ translation_revised: 2026-08-19
 | 영속 캠페인 실행기 | implemented | `delivery/observation_campaign.py`, 집중 수명 주기 테스트 | 원자적 lease, 개정 번호를 확인하는 종료 기록, 충돌 복구, 현재 상태 커서, 부분 격리, 동시성 4 및 개인정보가 제한된 활동 요약을 실행할 수 있습니다. |
 | 로컬 및 배포 예약 동등성 | implemented | `delivery/observation_campaign_cli.py`, `delivery/inventory_sync_cli.py`, `.vscode/tasks.json`, `infra/modules/compute/container-apps/observation_campaign_job.tf`, 집중 CLI 및 workspace 테스트 | 두 실행 위치 모두 매분 캠페인 실행 조건을 확인합니다. 두 위치 모두 권위 있는 인벤토리 실행 조건 게이트도 실행하며 자격 증명과 PostgreSQL 연결만 다릅니다. |
 | Agent Activity 관측 변환 결과 | implemented | `fdai_operator_service/activity_projection.py`, `console/src/agent-operational-activity.ts`, 집중 Operator 및 Console 테스트 | 시작 및 종료 출처 상태를 실제 전달 전에 불러오고, 안정적인 활동 id를 사용하며, 잘못된 개인정보 필드를 거부하고, 지역화된 도메인 레이블을 표시합니다. |
-| 통제된 실제 캠페인 근거 | in-progress | 검증된 개정 번호 `6aae0837f`, 로컬 카탈로그 digest `sha256:86d8dac44f5a40b3fd5433e5a31ab00d42fa5ef81701a0b0e97056b6ff470366`, 인증된 Agent Activity | 하드닝된 로컬 실행은 프로바이더 실패 없이 고유한 출처 행 10개를 만들었습니다. 동등한 배포 개정 번호 근거는 열려 있습니다. |
+| 통제된 실제 캠페인 근거 | in-progress | 로컬 캠페인 `campaign-20260819t005835689445-9e1850c2`, 카탈로그 digest `sha256:0a3a4fa0c1ef0a0893f3ce50aec56320c6a558424af1e935eed81e27f81dc9fd`, 인증된 Agent Activity | 보존된 로컬 캠페인은 출처 10개가 모두 준비되고 최신인 상태로 완료됐으며 사유 코드가 없고 성공한 빈 상태도 명시적으로 유지합니다. 동등한 배포 개정 번호 근거는 열려 있습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | validated | 보존된 Activity Log backlog를 범위가 제한된 영속 attempt로 모두 소진하고 current source의 최종 로컬 캠페인을 보존했습니다. 등록된 출처 10개가 모두 `ready`, `fresh`, `completed`이고 성공한 빈 결과는 명시적으로 유지되며 사유 코드가 없습니다. 반복 로컬 캠페인 작업도 다시 실행 중입니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217), 캠페인 `campaign-20260819t005835689445-9e1850c2`, 카탈로그 digest `sha256:0a3a4fa0c1ef0a0893f3ce50aec56320c6a558424af1e935eed81e27f81dc9fd`, focused observation 검사 59개 통과 | End-to-end 배포 검증을 주장하기 전에 동등한 배포 개정 번호 근거와 등록된 부정 권한 및 구성 결과를 보존합니다. |
 | 2026-08-19 | implemented | 첫 실제 catch-up 실행이 checkpoint를 영속화하기 전에 30초 source timeout을 소진한 뒤, Activity Log catch-up attempt 하나를 완전히 읽은 adaptive 창 4개로 제한했습니다. 이제 각 terminal attempt는 영속 cursor를 전진시키거나 명시적 source failure를 보고하며, 큰 backlog는 즉시 실행 조건을 만족하는 `source_catchup` 전이로 이어서 처리합니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Bound 전 실제 실행은 `source_timeout`을 보고했고, 이후 focused checkpoint, cursor pruning, pagination 및 runner 검사 31개가 통과했습니다. | 완료된 로컬 campaign을 소진하고 보존합니다. |
 | 2026-08-19 | implemented | Activity Log coverage가 claims, request detail 또는 properties를 내려받지 않고 영속 cursor backlog를 복구하도록 했습니다. Probe는 timestamp 필드만 요청하고 등록된 result, byte 및 timeout 상한 안에서 닫힌 adaptive 시간 창을 조회하며, 완전히 읽은 창만 checkpoint합니다. `source_catchup`만 즉시 다시 실행 조건을 만족하며 권한, throttle, 전송 및 계약 실패는 정상 간격을 유지합니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Focused Azure probe 및 영속 runner 검사 30개가 통과했습니다. 수정 전 보존된 로컬 backlog는 event 12,882개와 page 65개로 측정됐습니다. | 변경을 커밋하고 보존된 cursor를 현재 cutoff까지 소진한 뒤, 런타임 검증을 주장하기 전에 출처 10개가 모두 `completed`인 로컬 campaign 하나를 보존합니다. |
 | 2026-08-14 | in-progress | 등록된 모든 출처를 위한 하나의 권한 인식 관측 캠페인을 정의하고 로컬과 배포의 동작 동등성을 명시했습니다. 이전 구현 출처 이력은 재구성하지 않았습니다. | `current change`, 구현 범위 표에 인용한 기존 어댑터와 scheduler 경로 | 아래 계약, 실행기, 출처 연결, 활동 변환 결과, 동등성 검사 및 통제된 런타임 근거를 구현합니다. |
@@ -53,6 +54,8 @@ translation_revised: 2026-08-19
 - [x] 검증된 개정 번호 `6aae0837f`에서 고유한 출처 행 10개, 준비됨, 오래됨, 제한됨, 빈 결과,
   건너뜀, 완료 및 저하 결과와 인증된 snapshot-first/실제 중복 제거 근거를 포함하는 통제된 로컬
   실행 하나를 보존합니다.
+- [x] 보존된 Activity Log cursor를 소진하고 출처 10개가 모두 `ready`, `fresh`, `completed`이며
+  사유 코드가 없고 빈 결과를 명시하는 current-source 로컬 캠페인을 보존합니다.
 - [ ] end-to-end 검증을 주장하기 전에 권한 없음, 미구성 및 시간 초과 런타임 결과와 같은 카탈로그
   digest의 배포 실행 하나를 보존합니다.
 
