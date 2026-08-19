@@ -71,11 +71,13 @@ jobs:
       - name: Inspect supported rename prerequisites
         run: |
           set -euo pipefail
-          runner_root="$(dirname "$RUNNER_WORKSPACE")"
-          [[ -x "$runner_root/config.sh" ]]
-          [[ -w "$runner_root" ]]
+          runner_root="$(dirname "$(dirname "$RUNNER_WORKSPACE")")"
+          config_available=false
+          root_writable=false
           service_mode=false
           passwordless_service_control=false
+          [[ -x "$runner_root/config.sh" ]] && config_available=true
+          [[ -w "$runner_root" ]] && root_writable=true
           if [[ -f "$runner_root/.service" ]]; then
             service_mode=true
             if sudo -n true 2>/dev/null; then
@@ -83,7 +85,11 @@ jobs:
             fi
           fi
           {
+            printf 'Runner configuration available: `%s`\n' "$config_available"
+            printf 'Runner root writable: `%s`\n' "$root_writable"
             printf 'Service mode: `%s`\n' "$service_mode"
             printf 'Passwordless service control: `%s`\n' \
               "$passwordless_service_control"
           } >> "$GITHUB_STEP_SUMMARY"
+          [[ "$config_available" == true ]]
+          [[ "$root_writable" == true ]]
