@@ -165,7 +165,10 @@ def _target_context(
     subscription_id: str,
     image_ref: str,
     initial_cutover: bool,
+    resource_side: str = "after",
 ) -> dict[str, Any]:
+    if resource_side not in {"before", "after"}:
+        raise PlanBundleError("target context resource side must be before or after")
     changes = payload.get("resource_changes")
     if not isinstance(changes, list):
         raise PlanBundleError("plan JSON resource_changes must be an array")
@@ -177,7 +180,7 @@ def _target_context(
     if len(matches) != 1:
         raise PlanBundleError("plan JSON must contain exactly one selected service resource")
     change = matches[0].get("change")
-    after = change.get("after") if isinstance(change, dict) else None
+    after = change.get(resource_side) if isinstance(change, dict) else None
     if not isinstance(after, dict):
         raise PlanBundleError("selected service plan has no planned resource")
 
@@ -216,7 +219,7 @@ def _target_context(
         image_ref=image_ref,
     )
     before = change.get("before") if isinstance(change, dict) else None
-    if sidecar_containers and not initial_cutover:
+    if sidecar_containers and not initial_cutover and resource_side == "after":
         if not isinstance(before, dict):
             raise PlanBundleError("worker sidecar contract requires a previous planned resource")
         before_containers = _containers(before, address=allowed_address)
@@ -278,8 +281,14 @@ def _deployment_context(
     resolved_models_digest: str,
     attestation_signer_workflow: str,
     initial_cutover: bool,
+    operator_channel_edge_transition: str,
 ) -> dict[str, Any]:
     contract = resolve_service(service, environment)
+    deployment_mode = _deployment_mode(
+        service=service,
+        initial_cutover=initial_cutover,
+        operator_channel_edge_transition=operator_channel_edge_transition,
+    )
     context = {
         "service": service,
         "environment": environment,
@@ -310,8 +319,39 @@ def _deployment_context(
             ),
         },
         "trusted_controls": {"commit_sha": controls_commit_sha},
-        "deployment_mode": "initial-cutover" if initial_cutover else "standard",
+        "deployment_mode": deployment_mode,
     }
+    plan_payload = _read_object(plan_json)
+    edge_address = "module.operator_service.module.channel_edge[0].azurerm_container_app.service"
+    edge_changes = plan_payload.get("resource_changes")
+    has_edge_resource = isinstance(edge_changes, list) and any(
+        isinstance(entry, dict) and entry.get("address") == edge_address for entry in edge_changes
+    )
+    if operator_channel_edge_transition == "enable" or (
+        operator_channel_edge_transition == "none" and has_edge_resource
+    ):
+        context["operator_channel_edge"] = _target_context(
+            plan_payload,
+            allowed_address=(
+                "module.operator_service.module.channel_edge[0].azurerm_container_app.service"
+            ),
+            service="operator-channel-edge",
+            subscription_id=subscription_id,
+            image_ref=image_ref,
+            initial_cutover=False,
+        )
+    elif operator_channel_edge_transition == "disable":
+        edge_context = _target_context(
+            plan_payload,
+            allowed_address=edge_address,
+            service="operator-channel-edge",
+            subscription_id=subscription_id,
+            image_ref=image_ref,
+            initial_cutover=False,
+            resource_side="before",
+        )
+        edge_context["state"] = "disabled"
+        context["operator_channel_edge"] = edge_context
     if service == "core-control-plane":
         if _SHA256_PATTERN.fullmatch(resolved_models_digest) is None:
             raise PlanBundleError("Core deployment requires a canonical resolved-models digest")
@@ -321,6 +361,25 @@ def _deployment_context(
     elif resolved_models_digest:
         raise PlanBundleError("resolved-models digest is valid only for the Core control plane")
     return context
+
+
+def _deployment_mode(
+    *,
+    service: str,
+    initial_cutover: bool,
+    operator_channel_edge_transition: str,
+) -> str:
+    if operator_channel_edge_transition not in {"none", "enable", "disable"}:
+        raise PlanBundleError("operator channel edge transition must be none, enable, or disable")
+    if operator_channel_edge_transition != "none" and service != "operator-service":
+        raise PlanBundleError("operator channel edge transition is valid only for operator-service")
+    if initial_cutover and operator_channel_edge_transition != "none":
+        raise PlanBundleError("initial cutover and operator channel edge transition are exclusive")
+    if initial_cutover:
+        return "initial-cutover"
+    if operator_channel_edge_transition != "none":
+        return f"operator-channel-edge-{operator_channel_edge_transition}"
+    return "standard"
 
 
 def create_bundle(
@@ -346,6 +405,7 @@ def create_bundle(
     now: datetime,
     resolved_models_digest: str = "",
     initial_cutover: bool = False,
+    operator_channel_edge_transition: str = "none",
 ) -> dict[str, Any]:
     """Seal a guarded binary plan and its deployment context for exact later apply."""
     if _COMMIT_PATTERN.fullmatch(commit_sha) is None:
@@ -375,6 +435,7 @@ def create_bundle(
         resolved_models_digest=resolved_models_digest,
         attestation_signer_workflow=attestation_signer_workflow,
         initial_cutover=initial_cutover,
+        operator_channel_edge_transition=operator_channel_edge_transition,
     )
     context_path.write_bytes(_canonical(context))
     context_digest = _digest(context_path)
@@ -403,7 +464,11 @@ def create_bundle(
         "controls_commit_sha": controls_commit_sha,
         "resolved_models_digest": resolved_models_digest,
         "attestation_signer_workflow": attestation_signer_workflow,
-        "deployment_mode": "initial-cutover" if initial_cutover else "standard",
+        "deployment_mode": _deployment_mode(
+            service=service,
+            initial_cutover=initial_cutover,
+            operator_channel_edge_transition=operator_channel_edge_transition,
+        ),
         "created_at": now.astimezone(UTC).isoformat(),
         "expires_at": (now.astimezone(UTC) + timedelta(hours=24)).isoformat(),
     }
@@ -436,6 +501,7 @@ def verify_bundle(
     now: datetime,
     resolved_models_digest: str = "",
     initial_cutover: bool = False,
+    operator_channel_edge_transition: str = "none",
 ) -> dict[str, Any]:
     """Verify exact apply inputs against every sealed plan artifact and mapping."""
     invalid_plan_digest = _SHA256_PATTERN.fullmatch(plan_digest) is None
@@ -473,7 +539,11 @@ def verify_bundle(
         "controls_commit_sha": controls_commit_sha,
         "resolved_models_digest": resolved_models_digest,
         "attestation_signer_workflow": attestation_signer_workflow,
-        "deployment_mode": "initial-cutover" if initial_cutover else "standard",
+        "deployment_mode": _deployment_mode(
+            service=service,
+            initial_cutover=initial_cutover,
+            operator_channel_edge_transition=operator_channel_edge_transition,
+        ),
     }
     for key, value in expected.items():
         if metadata.get(key) != value:
@@ -502,6 +572,7 @@ def verify_bundle(
         resolved_models_digest=resolved_models_digest,
         attestation_signer_workflow=attestation_signer_workflow,
         initial_cutover=initial_cutover,
+        operator_channel_edge_transition=operator_channel_edge_transition,
     )
     if context != expected_context:
         raise PlanBundleError("sealed deployment context does not match exact apply input")
@@ -534,6 +605,11 @@ def _common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--resolved-models-digest", default="")
     parser.add_argument("--attestation-signer-workflow", required=True)
     parser.add_argument("--initial-cutover", action="store_true")
+    parser.add_argument(
+        "--operator-channel-edge-transition",
+        choices=("none", "enable", "disable"),
+        default="none",
+    )
 
 
 def main() -> int:
@@ -569,6 +645,7 @@ def main() -> int:
         "resolved_models_digest": args.resolved_models_digest,
         "attestation_signer_workflow": args.attestation_signer_workflow,
         "initial_cutover": args.initial_cutover,
+        "operator_channel_edge_transition": args.operator_channel_edge_transition,
     }
     try:
         if args.command == "create":

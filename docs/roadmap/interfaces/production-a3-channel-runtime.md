@@ -52,7 +52,7 @@ flowchart LR
 | Authenticated ingress and provider publishers | implemented | `fdai_operator_service/families/conversation/channel_edge/`; focused edge checks (`81 passed`) | Operator-local Slack and Teams adapters enforce canonical-principal replacement, bounded admission, URL-free attachment metadata, fixed destinations, strict token audiences, and definitive-versus-ambiguous acknowledgement classification. The standalone runtime binds both route families. |
 | Operator migration and persistence | implemented | `operator_a3_channel_delivery_20260819`; `channel_{delivery_models,message_ledger}.py`; `postgres_channel_{binding,delivery}.py`; live PostgreSQL checks (`9 passed`, no skips) | The Operator branch owns the inbound processing lease and grants the Operator role only the six channel tables. Runtime-role tests prove lease reclaim, permanent dedupe, binding uniqueness, idempotent delivery, claim and acknowledgement closure, process-loss ambiguity, breaker CAS, and retention cleanup. The standalone lifespan binds these stores. |
 | Semantic request, result, and durable delivery pipeline | implemented | `semantic_turn_runtime.py`; `channel_edge/{pipeline,pipeline_contracts,worker}.py`; focused edge checks; live PostgreSQL join (`1 passed`, no skips) | The Operator edge resolves server-owned scope, persists typed semantic requests, waits for principal-scoped terminal replay, stores the terminal response before provider I/O, completes inbound ownership only after durable delivery, and fences retry and process-loss recovery with persisted breakers. Due sends revalidate the active principal, scope, conversation, and channel binding before provider I/O. |
-| Fail-closed runtime and local/Azure workload | implemented | `channel_edge/{application,composition,entry,environment,runtime}.py`; `.vscode/tasks.json`; `prepare-channel-edge-env.sh`; `infra/services/operator-service`; platform edge identity and RBAC; focused runtime checks | The standalone process exposes only health and enabled webhook routes, resolves all enabled dependencies before readiness, uses private local input or Key Vault references, and binds a dedicated non-executor identity. Protected plan, apply, provider acknowledgement, and rollback receipts remain open. |
+| Fail-closed runtime and local/Azure workload | implemented | `channel_edge/{application,composition,entry,environment,runtime}.py`; `.vscode/tasks.json`; `prepare-channel-edge-env.sh`; `infra/services/operator-service`; protected deployment workflows and helpers; focused deployment checks (`126 + 28 passed`) | The standalone process exposes only health and enabled webhook routes, resolves all enabled dependencies before readiness, uses private local input or Key Vault references, and binds a dedicated non-executor identity. Protected enable, update, disable, health, and automatic disabled-state rollback mechanisms are implemented. Apply, provider acknowledgement, and rollback receipts remain open. |
 | Independent hardening | implemented | [Hardening campaign](#hardening-campaign); focused edge checks (`81 passed`); Ruff and strict mypy | Ten independent rounds completed with focused regressions for every accepted finding and no verified Medium-or-higher residual. Protected runtime evidence remains a separate validation gate. |
 
 ### Implementation history
@@ -69,12 +69,18 @@ flowchart LR
 | 2026-08-20 | implemented | Added the standalone fail-closed Starlette workload, private local launch, optional Operator-service Container App, dedicated non-executor identity and least-privilege roles, Key Vault references, probes, and rollback metadata. Removed the superseded Core transports and Core PyJWT dependency. | `current change`; edge package checks passed 74 cases; shared plus Operator channel checks passed 110 cases; local launch checks passed 3 cases; Ruff and strict mypy passed; platform and Operator-service Terraform validation passed. | Complete independent hardening, then retain governed local provider and protected plan/apply/rollback evidence. |
 | 2026-08-20 | implemented | Completed ten independent hardening rounds. Accepted fixes reject platform-out-of-range Slack timestamps without a server error, disable inherited shell tracing before local secrets are read, refresh known Teams JWKS keys after a bounded TTL, revalidate active principal/scope/conversation/channel bindings before due sends, and close owned runtime and credential resources exactly once. | `current change`; focused edge checks passed 81 cases; Ruff and strict mypy passed; every accepted finding has a focused regression. | Retain governed local provider and protected plan/apply/rollback receipts before advancing runtime rows to `validated`. |
 | 2026-08-20 | implemented | Closed exact-commit structural findings by assigning every A3 test to the Operator service suite, routing venue selection through the shared `ExecutionVenue` contract, and removing retired Core prototype paths from the A3 design route. | `current change`; focused service-suite, venue-contract, design-route, environment, and composition checks. | Retain governed local provider and protected plan/apply/rollback receipts before advancing runtime rows to `validated`. |
+| 2026-08-20 | implemented | Closed the protected-delivery gap that rejected the separate edge Container App. Platform plans now bind the dedicated identity and secret scopes, while Operator service plans seal explicit edge enable or disable transitions, exact target identity and image, new-revision health, route removal, and an automatic disabled-state rollback before primary revision recovery. | `current change`; protected service deployment and workflow contract suites passed `126 + 28` cases; workflow YAML and rollback shell syntax passed. | Supply one real Slack or Teams provider credential and principal-mapping profile through the approved credential stores, then retain local provider and protected plan/apply/rollback receipts. |
+| 2026-08-20 | implemented | Re-reviewed the protected rollout for implicit actions, plan substitution, public-route survival, secret exposure, identity substitution, and recovery ordering. One accepted finding moved disable route-removal proof before primary health; eight suspected findings were rejected against separate primary/edge resources, exact transition sealing, and terminal rollback checks. No verified Medium-or-higher implementation residual remains. | `current change`; route-closure and automatic rollback checks passed 2 cases after the focused fix; the full protected deployment suites had already passed 154 cases. | Runtime validation still requires real provider material and governed receipts; it is not an implementation residual. |
 
 ### Remaining work
 
 - [x] Implement every scope row and pass the focused checks in this document; retain exact-diff evidence with the focused commit.
 - [x] Complete at least ten critique rounds and retain only Low or rejected residual findings.
-- [ ] Retain governed local and protected deployed receipts before changing any row to `validated`.
+- [ ] Configure one real Slack or Teams provider profile and principal mapping through local-only
+  inputs, Key Vault, GitHub secret configuration, and versionless secret-id variables without
+  exposing a value in repository or workflow output.
+- [ ] Retain governed local and protected deployed plan/apply/provider-acknowledgement/rollback
+  receipts before changing any row to `validated`.
 
 ## Architectural decision
 
@@ -190,6 +196,14 @@ Protected deployment follows the existing VNet runner path. Rollback restores th
 or prior-image edge revision without changing Core, Operator API, offsets, migration heads, or
 channel bindings. A rollback rehearsal proves route closure, no duplicate terminal send, exact identity
 roles, and five existing service revisions unchanged.
+
+The protected rollout uses two state owners. The platform plan first creates only the dedicated
+edge identity and its ACR, Event Hubs, and versionless Key Vault secret roles. The Operator service
+plan then seals one explicit `enable`, standard image update, or `disable` transition for the edge
+Container App in the existing Operator backend. Exact apply verifies the edge resource id, one
+workload identity, attested image, fresh healthy revision, and HTTPS readiness. A failed first
+enable applies a guarded disabled-state plan before restoring the primary Operator revision, so a
+partially created public route cannot survive automatic recovery.
 
 ## Failure behavior
 

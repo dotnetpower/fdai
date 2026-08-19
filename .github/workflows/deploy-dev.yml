@@ -16,6 +16,7 @@ name: deploy-dev
 #       ENTRA_CONSOLE_SPA_CLIENT_ID (required when deploy_console=true),
 #       MODEL_RESOLVER_DEPLOYER_OBJECT_ID, OPERATOR_API_AUDIENCE, RBAC_*_GROUP_ID,
 #       OPERATOR_API_WEB_SEARCH_ENABLED, OPERATOR_API_WEB_SEARCH_ALLOWED_DOMAINS_JSON,
+#       OPERATOR_CHANNEL_EDGE_SECRET_IDS_JSON,
 #       INGESTION_CORS_ALLOW_ORIGINS, CLAMAV_IMAGE,
 #       SCHEDULER_TICK_CRON_EXPRESSION, ANALYZER_TICK_CRON_EXPRESSION,
 #       ANALYZER_TARGETS_JSON, TRACE_TOPOLOGIES_JSON,
@@ -80,6 +81,10 @@ on:
         default: false
       deploy_operator_api:
         description: "Provision the console Operator API Container App + migration job (enable_operator_api)."
+        type: boolean
+        default: false
+      deploy_operator_channel_edge:
+        description: "Provision the dedicated non-executor Operator channel-edge identity and RBAC."
         type: boolean
         default: false
       deploy_isolated_executor:
@@ -166,6 +171,8 @@ jobs:
       TF_VAR_enable_console: ${{ inputs.deploy_console }}
       TF_VAR_enable_design_mocks: ${{ inputs.deploy_design_mocks }}
       TF_VAR_enable_operator_api: ${{ inputs.deploy_operator_api }}
+      TF_VAR_enable_operator_channel_edge: ${{ inputs.deploy_operator_channel_edge }}
+      TF_VAR_operator_channel_edge_secret_ids: "${{ vars.OPERATOR_CHANNEL_EDGE_SECRET_IDS_JSON || '[]' }}"
       TF_VAR_enable_isolated_executor: ${{ inputs.deploy_isolated_executor }}
       TF_VAR_enable_isolated_executor_authority_cutover: ${{ inputs.cutover_isolated_executor_authority }}
       TF_VAR_enable_dev_operations_gateway: ${{ inputs.environment == 'dev' && inputs.deploy_dev_operations_gateway }}

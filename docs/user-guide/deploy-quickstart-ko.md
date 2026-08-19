@@ -2,8 +2,8 @@
 title: 배포 빠른 시작
 description: FDAI 최소 Azure 인벤토리를 프로비저닝하는 방법. azd 턴키와 Terraform 직접 실행 두 경로 모두 먼저 미리보고, 계획이 맞을 때만 적용합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 2ad5b7716eb166078cdb2ef2ead5f7bffd200955
-translation_revised: 2026-08-17
+translation_source_sha: e0e5380bc2da905cc6a0b4808363b1299352ce8a
+translation_revised: 2026-08-20
 ---
 
 # 배포 빠른 시작
@@ -39,6 +39,10 @@ FDAI는 `infra/` 아래의 코드형 인프라(IaC)로 프로비저닝하며, Te
 - 내부 Isolated 실행기를 미리보려면 private-runner 작업 흐름에서
   `deploy_isolated_executor`를 선택하세요. 별도로 적용을 승인하기 전까지 plan-only 상태이며,
   shadow 자격 증명에는 작업별 효과 역할이 없습니다.
+- 독립 Slack 또는 Teams channel edge를 활성화하려면 프로바이더 credential과 principal mapping을
+  local-only input 및 Key Vault에 보관하세요. Repository variable에는 versionless secret-id 목록만
+  설정하고, 별도 Operator service `enable` plan보다 platform identity plan을 먼저 검토하고
+  적용하세요. Edge identity에는 executor role을 부여하지 않습니다.
 - 범위가 제한된 OHL scale-out 근거 대상을 프로비저닝하려면 private networking과 개발 운영
   게이트웨이를 사용하는 `dev` 환경에서만 `enable_ohl_scale_out_evidence_target`을 사용하도록
   설정하세요. Exact 이미지 버전, 보호된 작업 흐름의 SSH 공개 키 입력, 재시도해도 유지되는
@@ -113,6 +117,10 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
    확인합니다.
    - **Operator API**: 브라우저 Entra 앱 역할이 동작하고, 읽기와 명령 자격 증명이 Thor의 실행기
      관리 자격 증명과 분리돼 있습니다.
+   - **Operator channel edge**: 활성화한 경우 최신 edge revision이 attested Operator image와 정확히
+     하나의 non-executor identity를 사용하고, HTTPS의 `/health/ready`가 성공하며, primary Operator
+     revision이 정상인지 확인합니다. Disable 또는 첫 enable 실패 시 복구가 완료되기 전에 공개
+     edge resource가 없음을 증명해야 합니다.
    - **Isolated 실행기**: 활성화한 경우 내부 `/live`와 `/ready` 프로브가 통과하고 최신 개정 번호가
      활성 상태이며, 전용 자격 증명에는 이미지 pull, 명령 수신, 증적 또는 DLQ 전송,
      state-secret 읽기만 있습니다. 권한 전환 전에는 작업별 효과 역할이 없습니다.

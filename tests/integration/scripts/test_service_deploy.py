@@ -202,6 +202,134 @@ def _plan(address: str, actions: list[str], *, image: str = "image") -> dict[str
     }
 
 
+def _channel_edge_enable_plan() -> dict[str, object]:
+    address = "module.operator_service.module.channel_edge[0].azurerm_container_app.service"
+    resource = _resource(image="image")
+    resource["name"] = "example-channel-edge"
+    resource["id"] = (
+        "/subscriptions/example-subscription/resourceGroups/example/providers/"
+        "Microsoft.App/containerApps/example-channel-edge"
+    )
+    resource["identity"][0]["identity_ids"] = [  # type: ignore[index]
+        "/subscriptions/example-subscription/resourceGroups/example/providers/"
+        "Microsoft.ManagedIdentity/userAssignedIdentities/channel-edge"
+    ]
+    edge_identity = resource["identity"][0]["identity_ids"][0]  # type: ignore[index]
+    resource["registry"][0]["identity"] = edge_identity  # type: ignore[index]
+    resource["secret"] = [  # type: ignore[index]
+        {
+            "name": "edge-database-dsn",
+            "identity": edge_identity,
+            "key_vault_secret_id": (
+                "/subscriptions/example/resourceGroups/example/providers/"
+                "Microsoft.KeyVault/vaults/example/secrets/database"
+            ),
+        },
+        {
+            "name": "edge-principal-scopes",
+            "identity": edge_identity,
+            "key_vault_secret_id": (
+                "/subscriptions/example/resourceGroups/example/providers/"
+                "Microsoft.KeyVault/vaults/example/secrets/principal-scopes"
+            ),
+        },
+    ]
+    resource["template"][0]["container"] = [  # type: ignore[index]
+        {
+            "name": "operator-channel-edge",
+            "image": "image",
+            "command": ["fdai-operator-channel-edge"],
+            "args": [],
+            "env": [
+                {"name": "FDAI_DATABASE_URL", "secret_name": "edge-database-dsn"},
+                {"name": "FDAI_DATABASE_ROLE", "value": "fdai_operator"},
+                {"name": "FDAI_EXECUTION_VENUE", "value": "deployed"},
+                {"name": "RUNTIME_ENV", "value": "dev"},
+                {"name": "FDAI_CHANNEL_EDGE_MI_CLIENT_ID", "value": "channel-edge"},
+                {"name": "FDAI_CHANNEL_EDGE_ENABLED_CHANNELS", "value": "slack"},
+                {
+                    "name": "FDAI_CHANNEL_EDGE_PRINCIPAL_SCOPES_JSON",
+                    "secret_name": "edge-principal-scopes",
+                },
+                {"name": "FDAI_KAFKA_BOOTSTRAP_SERVERS", "value": "example"},
+                {"name": "FDAI_SEMANTIC_TURN_REQUEST_TOPIC", "value": "requests"},
+                {"name": "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC", "value": "projections"},
+                {"name": "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC", "value": "physical"},
+                {"name": "FDAI_CHANNEL_EDGE_PORT", "value": "8014"},
+                {"name": "FDAI_SLACK_SIGNING_SECRET", "secret_name": "slack-signing-secret"},
+                {"name": "FDAI_SLACK_BOT_TOKEN", "secret_name": "slack-bot-token"},
+                {"name": "FDAI_SLACK_TEAM_ID", "value": "example-team"},
+                {
+                    "name": "FDAI_SLACK_PRINCIPAL_MAP_JSON",
+                    "secret_name": "slack-principal-map",
+                },
+            ],
+            "startup_probe": [
+                {
+                    "transport": "HTTP",
+                    "port": 8014,
+                    "path": "/health/ready",
+                    "failure_count_threshold": 30,
+                }
+            ],
+            "liveness_probe": [
+                {
+                    "transport": "HTTP",
+                    "port": 8014,
+                    "path": "/health/live",
+                    "failure_count_threshold": 3,
+                }
+            ],
+            "readiness_probe": [
+                {
+                    "transport": "HTTP",
+                    "port": 8014,
+                    "path": "/health/ready",
+                    "failure_count_threshold": 3,
+                }
+            ],
+        }
+    ]
+    resource["ingress"] = [
+        {
+            "external_enabled": True,
+            "allow_insecure_connections": False,
+            "target_port": 8014,
+        }
+    ]
+    resource["tags"] = {"fdai:component": "operator-channel-edge"}
+    return {
+        "resource_changes": [
+            {
+                "address": "module.operator_service.terraform_data.channel_edge_contract[0]",
+                "change": {"actions": ["create"], "before": None, "after": {}},
+            },
+            {
+                "address": address,
+                "change": {"actions": ["create"], "before": None, "after": resource},
+            },
+        ]
+    }
+
+
+def _channel_edge_update_plan() -> dict[str, object]:
+    plan = _channel_edge_enable_plan()
+    app_change = plan["resource_changes"][1]["change"]  # type: ignore[index]
+    before = copy.deepcopy(app_change["after"])
+    before["template"][0]["container"][0]["image"] = "old-image"  # type: ignore[index]
+    app_change.update({"actions": ["update"], "before": before})
+    plan["resource_changes"] = [plan["resource_changes"][1]]  # type: ignore[index]
+    return plan
+
+
+def _channel_edge_disable_plan() -> dict[str, object]:
+    plan = _channel_edge_enable_plan()
+    for entry in plan["resource_changes"]:  # type: ignore[union-attr]
+        change = entry["change"]
+        change.update({"actions": ["delete"], "before": change["after"], "after": None})
+    return plan
+
+
 def _worker_plan() -> dict[str, object]:
     address = "module.document_processing_worker.module.container_app.azurerm_container_app.service"
     plan = _plan(address, ["update"])
@@ -464,6 +592,10 @@ def _write_fake_terraform(path: Path) -> None:
 
 def _health_evidence() -> tuple[dict[str, object], ...]:
     image = _image("fdai-operator-service")
+    identity_id = (
+        "/subscriptions/example-subscription/resourceGroups/example/providers/"
+        "Microsoft.ManagedIdentity/userAssignedIdentities/runtime"
+    )
     resource_id = (
         "/subscriptions/example-subscription/resourceGroups/example/providers/"
         "Microsoft.App/containerApps/example"
@@ -477,6 +609,7 @@ def _health_evidence() -> tuple[dict[str, object], ...]:
             "resource_group": "example",
             "component_tag": "operator-service",
             "image_ref": image,
+            "identity_resource_ids": [identity_id.lower()],
         },
     }
     service_output = {
@@ -489,6 +622,7 @@ def _health_evidence() -> tuple[dict[str, object], ...]:
         "id": resource_id,
         "name": "example",
         "tags": {"fdai:component": "operator-service"},
+        "identity": {"userAssignedIdentities": {identity_id: {}}},
         "properties": {
             "latestRevisionName": "example--new",
             "configuration": {"ingress": {"external": True}},
@@ -682,6 +816,88 @@ def test_plan_guard_allows_only_selected_service_image_update_or_noop(
             service="operator-service",
             environment="dev",
             image_ref="image",
+        )
+
+
+def test_plan_guard_allows_exact_operator_channel_edge_enable(guard: ModuleType) -> None:
+    guard.validate_plan(
+        _channel_edge_enable_plan(),
+        service="operator-service",
+        environment="dev",
+        image_ref="image",
+        operator_channel_edge_transition="enable",
+    )
+
+
+def test_plan_guard_allows_operator_channel_edge_image_update(guard: ModuleType) -> None:
+    guard.validate_plan(
+        _channel_edge_update_plan(),
+        service="operator-service",
+        environment="dev",
+        image_ref="image",
+    )
+
+
+def test_plan_guard_allows_exact_operator_channel_edge_disable(guard: ModuleType) -> None:
+    guard.validate_plan(
+        _channel_edge_disable_plan(),
+        service="operator-service",
+        environment="dev",
+        image_ref="image",
+        operator_channel_edge_transition="disable",
+    )
+
+
+def test_plan_guard_rejects_implicit_or_partial_operator_channel_edge_enable(
+    guard: ModuleType,
+) -> None:
+    with pytest.raises(guard.PlanGuardError, match="explicit none"):
+        guard.validate_plan(
+            _channel_edge_enable_plan(),
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+        )
+
+    partial = _channel_edge_enable_plan()
+    partial["resource_changes"] = partial["resource_changes"][1:]  # type: ignore[index]
+    with pytest.raises(guard.PlanGuardError, match="enable plan is incomplete"):
+        guard.validate_plan(
+            partial,
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+            operator_channel_edge_transition="enable",
+        )
+
+
+def test_plan_guard_rejects_authority_bearing_operator_channel_edge(guard: ModuleType) -> None:
+    plan = _channel_edge_enable_plan()
+    environment = plan["resource_changes"][1]["change"]["after"]["template"][0][  # type: ignore[index]
+        "container"
+    ][0]["env"]
+    environment.append({"name": "FDAI_COMMAND_MI_CLIENT_ID", "value": "command"})
+
+    with pytest.raises(guard.PlanGuardError, match="grants execution authority"):
+        guard.validate_plan(
+            plan,
+            service="operator-service",
+            environment="dev",
+            image_ref="image",
+            operator_channel_edge_transition="enable",
+        )
+
+
+def test_plan_guard_rejects_operator_channel_edge_transition_for_other_service(
+    guard: ModuleType,
+) -> None:
+    with pytest.raises(guard.PlanGuardError, match="only for operator-service"):
+        guard.validate_plan(
+            _channel_edge_enable_plan(),
+            service="core-control-plane",
+            environment="dev",
+            image_ref="image",
+            operator_channel_edge_transition="enable",
         )
 
 
@@ -1448,6 +1664,35 @@ def test_tfvars_selects_one_service_and_reserves_image(tfvars: ModuleType, tmp_p
     payload["environments"]["dev"]["operator-service"]["image"] = "mutable"
     with pytest.raises(tfvars.TfvarsError, match="must not set image"):
         tfvars.select_tfvars(payload, service="operator-service", environment="dev")
+
+
+def test_tfvars_derives_disabled_operator_channel_edge_without_mutating_source(
+    tfvars: ModuleType,
+) -> None:
+    payload = {
+        "environments": {
+            "dev": {
+                "operator-service": {
+                    "name": "example",
+                    "channel_edge": {
+                        "enabled": True,
+                        "principal_scopes_secret_id": "secret-reference",
+                    },
+                }
+            }
+        }
+    }
+
+    selected = tfvars.select_tfvars(
+        payload,
+        service="operator-service",
+        environment="dev",
+        operator_channel_edge_enabled=False,
+    )
+
+    assert selected["channel_edge"]["enabled"] is False
+    assert selected["channel_edge"]["principal_scopes_secret_id"] == "secret-reference"
+    assert payload["environments"]["dev"]["operator-service"]["channel_edge"]["enabled"] is True
 
 
 def test_state_migration_resolves_exact_source_and_destination(
@@ -2366,6 +2611,28 @@ def test_health_verification_rejects_stale_revision(recovery: ModuleType) -> Non
         )
 
 
+def test_health_verification_rejects_workload_identity_substitution(
+    recovery: ModuleType,
+) -> None:
+    context, service_output, account, app, revision = _health_evidence()
+    app["identity"] = {
+        "userAssignedIdentities": {
+            "/subscriptions/example-subscription/resourceGroups/example/providers/"
+            "Microsoft.ManagedIdentity/userAssignedIdentities/executor": {}
+        }
+    }
+
+    with pytest.raises(recovery.DeploymentRecoveryError, match="workload identity set"):
+        recovery.validate_health(
+            context=context,
+            service_output=service_output,
+            account=account,
+            app=app,
+            revision=revision,
+            previous_revision="example--old",
+        )
+
+
 def test_executor_rollback_uses_previous_revision_image_without_changing_authority(
     recovery: ModuleType,
 ) -> None:
@@ -2539,6 +2806,113 @@ def test_plan_bundle_binds_initial_cutover_mode(bundle: ModuleType, tmp_path: Pa
             now=now + timedelta(minutes=5),
             **coordinates,
         )
+
+
+def test_plan_bundle_binds_operator_channel_edge_transition(
+    bundle: ModuleType,
+    tmp_path: Path,
+) -> None:
+    plan = tmp_path / "service.plan"
+    plan.write_bytes(b"binary plan")
+    plan_json = tmp_path / "service-plan.json"
+    context = tmp_path / "context.json"
+    metadata = tmp_path / "metadata.json"
+    now = datetime(2026, 8, 8, 10, 0, tzinfo=UTC)
+    image = _image("fdai-operator-service")
+    _write_plan_json(plan_json, image=image)
+    payload = json.loads(plan_json.read_text(encoding="utf-8"))
+    edge_plan = _channel_edge_enable_plan()
+    edge_resource = edge_plan["resource_changes"][1]["change"]["after"]  # type: ignore[index]
+    edge_resource["template"][0]["container"][0]["image"] = image  # type: ignore[index]
+    payload["resource_changes"].extend(edge_plan["resource_changes"])
+    plan_json.write_text(json.dumps(payload), encoding="utf-8")
+    coordinates = _bundle_coordinates()
+    created = bundle.create_bundle(
+        plan=plan,
+        plan_json=plan_json,
+        context_path=context,
+        metadata_path=metadata,
+        service="operator-service",
+        environment="dev",
+        repository="example/fdai",
+        commit_sha="b" * 40,
+        image_ref=image,
+        workflow_run_id="123",
+        operator_channel_edge_transition="enable",
+        now=now,
+        **coordinates,
+    )
+    assert created["deployment_mode"] == "operator-channel-edge-enable"
+    assert json.loads(context.read_text(encoding="utf-8"))["deployment_mode"] == (
+        "operator-channel-edge-enable"
+    )
+    sealed_edge = json.loads(context.read_text(encoding="utf-8"))["operator_channel_edge"]
+    assert sealed_edge["service_name"] == "example-channel-edge"
+    assert sealed_edge["component_tag"] == "operator-channel-edge"
+    assert sealed_edge["image_ref"] == image
+    assert len(sealed_edge["identity_resource_ids"]) == 1
+    with pytest.raises(bundle.PlanBundleError, match="deployment_mode"):
+        bundle.verify_bundle(
+            plan=plan,
+            plan_json=plan_json,
+            context_path=context,
+            metadata_path=metadata,
+            service="operator-service",
+            environment="dev",
+            repository="example/fdai",
+            commit_sha="b" * 40,
+            image_ref=image,
+            plan_digest=created["plan_digest"],
+            context_digest=created["context_digest"],
+            plan_run_id="123",
+            operator_channel_edge_transition="disable",
+            now=now + timedelta(minutes=5),
+            **coordinates,
+        )
+
+
+def test_plan_bundle_seals_disabled_operator_channel_edge_target(
+    bundle: ModuleType,
+    tmp_path: Path,
+) -> None:
+    plan = tmp_path / "service.plan"
+    plan.write_bytes(b"binary plan")
+    plan_json = tmp_path / "service-plan.json"
+    context = tmp_path / "context.json"
+    metadata = tmp_path / "metadata.json"
+    image = _image("fdai-operator-service")
+    payload = _plan(
+        "module.operator_service.module.container_app.azurerm_container_app.service",
+        ["no-op"],
+        image=image,
+    )
+    edge_plan = _channel_edge_disable_plan()
+    edge_resource = edge_plan["resource_changes"][1]["change"]["before"]  # type: ignore[index]
+    edge_resource["template"][0]["container"][0]["image"] = image  # type: ignore[index]
+    payload["resource_changes"].extend(edge_plan["resource_changes"])
+    plan_json.write_text(json.dumps(payload), encoding="utf-8")
+
+    created = bundle.create_bundle(
+        plan=plan,
+        plan_json=plan_json,
+        context_path=context,
+        metadata_path=metadata,
+        service="operator-service",
+        environment="dev",
+        repository="example/fdai",
+        commit_sha="b" * 40,
+        image_ref=image,
+        workflow_run_id="123",
+        operator_channel_edge_transition="disable",
+        now=datetime(2026, 8, 8, 10, 0, tzinfo=UTC),
+        **_bundle_coordinates(),
+    )
+
+    sealed_edge = json.loads(context.read_text(encoding="utf-8"))["operator_channel_edge"]
+    assert created["deployment_mode"] == "operator-channel-edge-disable"
+    assert sealed_edge["state"] == "disabled"
+    assert sealed_edge["service_name"] == "example-channel-edge"
+    assert sealed_edge["image_ref"] == image
 
 
 def test_worker_plan_bundle_seals_exact_primary_and_sidecar_contract(

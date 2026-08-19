@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: b54496c0c44bfcadfad90046dd97c45520711843
-translation_revised: 2026-08-17
+translation_source_sha: e10bc37e88d46567c7161df128fd1cc927ee7d77
+translation_revised: 2026-08-20
 ---
 
 # 배포와 온보딩(Deploy and Onboard)
@@ -33,7 +33,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| Protected platform 계획 및 exact 적용 | implemented | `.github/workflows/deploy-dev.yml` 및 집중 배포 workflow 검사 | Private runner 계획, 변경할 수 없는 적용 claim 및 post-apply 검사가 제공되지만, 통제된 platform 적용 증적은 리포지토리에 보존되어 있지 않습니다. |
+| Protected platform 계획 및 exact 적용 | implemented | `.github/workflows/deploy-dev.yml` 및 집중 배포 workflow 검사 | Private runner 계획, 변경할 수 없는 적용 claim, post-apply 검사, 선택적 non-executor channel-edge identity 및 versionless secret-scope input이 제공되지만, 통제된 platform 적용 증적은 리포지토리에 보존되어 있지 않습니다. |
 | 독립 소유 런타임 service | validated | `.github/workflows/service-deploy.yml` 및 `config/independent-service-live-evidence-manifest.json` | 각 service에 별도 root, protected 계획, 상태 검사 및 rollback evidence가 있습니다. |
 | OHL scale-out evidence target 및 proposal Job | implemented | `infra/` 및 `services/core-control-plane/src/fdai/delivery/`의 current change, 집중 Terraform 및 publisher test 결과 8 passed와 13 passed | 둘 다 기본적으로 비활성화되며 protected 적용이 남아 있습니다. |
 | OHL production evidence campaign | in-progress | `config/ohl-scale-out-evidence.json` 및 `docs/runbooks/ohl-scale-out-evidence-ko.md` | Runtime rollout, 통제된 실행, sample 100개 및 14일 recurrence window가 남아 있습니다. |
@@ -54,6 +54,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 | 2026-08-17 | implemented | 서비스, 신원, 작업 영역 또는 scheduler 리소스를 추가하지 않고 기존 analyzer Job에 선택적 분산 추적 토폴로지 평가를 추가했습니다. | `current change`; 집중 동작 및 HIL 검사 55개 통과, Terraform format, validate 및 infrastructure 계약 검사 통과. | 이 범위를 `validated`로 올리기 전에 protected exact-revision 적용과 예약된 `preserve`, `regenerate`, `drop` 증적을 보존합니다. |
 | 2026-08-17 | implemented | Container supply chain이 게시하는 서비스별 Core 저장소를 읽도록 protected runtime image promotion을 수정하고 이전 방식의 단일 GHCR 경로 사용을 제거했습니다. | `current change`, `.github/workflows/deploy-dev.yml`, `test_legacy_platform_imports_the_service_specific_core_image` 통과. | 서비스별 Core 다이제스트를 검증하고 연결하는 protected 계획과 exact 적용을 완료합니다. |
 | 2026-08-17 | implemented | 개발 게이트웨이 대상 계획에 analyzer Job을 포함해 추적 토폴로지 구성과 예약된 탐지기가 기존 게이트웨이 배포 화면과 함께 수렴하도록 했습니다. | `current change`, `.github/workflows/deploy-dev.yml`, `test_detection_readiness.py` 4개 및 `test_service_deploy_workflow.py` 25개 통과. | 이 범위를 `validated`로 올리기 전에 protected 적용과 예약된 `preserve`, `regenerate`, `drop` 증적을 보존합니다. |
+| 2026-08-20 | implemented | 독립 Operator channel-edge identity와 해당 versionless Key Vault secret scope를 위한 명시적 protected-plan input을 추가했습니다. Platform owner는 ACR pull, semantic Event Hubs transport 및 나열된 secret read만 부여하고, Operator service root가 공개 edge Container App lifecycle을 별도로 소유합니다. | `current change`, 보호된 배포 검사 154개, workflow YAML, shell syntax, design-route 및 five-distribution 검사 통과 | 승인된 credential store에 실제 프로바이더 profile을 구성한 뒤 exact platform 및 Operator service plan/apply/rollback 증적을 보존합니다. |
 
 ### 남은 작업
 

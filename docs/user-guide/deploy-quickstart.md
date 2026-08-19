@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: b54496c0c44bfcadfad90046dd97c45520711843 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: e10bc37e88d46567c7161df128fd1cc927ee7d77 }]
 ---
 
 # Deploy Quickstart
@@ -44,6 +44,10 @@ first, so you can review the plan before you run the separate apply step.
 - To preview the internal Isolated Executor, select `deploy_isolated_executor`
   in the private-runner workflow. It remains plan-only until you separately
   approve apply, and the shadow identity receives no action-specific effect role.
+- To enable the standalone Slack or Teams channel edge, keep provider credentials and principal
+  mappings in local-only inputs and Key Vault. Set only the versionless secret-id list in the
+  repository variable, then review and apply the platform identity plan before the separate
+  Operator service `enable` plan. The edge identity receives no executor role.
 - To provision the bounded OHL scale-out evidence target, enable
   `enable_ohl_scale_out_evidence_target` only in `dev` with private networking and the
   development operations gateway. Supply an exact image version, the protected workflow's SSH
@@ -121,6 +125,10 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
    publisher Job finished. Then check the features you enabled:
    - **Operator API**: browser Entra App Roles work, and its read and command
      credentials stay separate from Thor's executor managed identity.
+   - **Operator channel edge**: when enabled, the latest edge revision uses the attested Operator
+     image and exactly one non-executor identity, `/health/ready` succeeds over HTTPS, and the
+     primary Operator revision remains healthy. A disable or failed first enable must prove the
+     public edge resource is absent before recovery is complete.
    - **Isolated Executor**: when enabled, its internal `/live` and `/ready`
      probes pass, its latest revision is active, and its dedicated identity has
      only image pull, command receive, receipt or DLQ send, and state-secret read.

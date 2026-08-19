@@ -1,7 +1,7 @@
 ---
 title: 운영 A3 채널 런타임
 translation_of: production-a3-channel-runtime.md
-translation_source_sha: 434cfd7676242c40cdc5ea9ddd58b928f38d7370
+translation_source_sha: ff5d5c9fea4503fb9c34b417405b7318e09752d2
 translation_revised: 2026-08-20
 ---
 # 운영 A3 채널 런타임
@@ -53,7 +53,7 @@ flowchart LR
 | 인증된 유입 및 프로바이더 publisher | 구현됨 | `fdai_operator_service/families/conversation/channel_edge/`, 집중 edge 검사 81개 통과 | Operator-local Slack 및 Teams adapter는 정규 principal 교체, 범위가 제한된 유입, URL 없는 첨부 메타데이터, 고정 목적지, 엄격한 token audience 및 확정 확인 응답과 모호한 확인 응답의 구분을 강제합니다. 독립 런타임이 두 경로 계열을 연결합니다. |
 | Operator migration 및 persistence | 구현됨 | `operator_a3_channel_delivery_20260819`, `channel_{delivery_models,message_ledger}.py`, `postgres_channel_{binding,delivery}.py`, live PostgreSQL 검사 9개 건너뛰기 없이 통과 | Operator branch가 inbound processing lease를 소유하고 Operator role에 channel table 6개만 부여합니다. Runtime-role 검사는 lease reclaim, permanent dedupe, binding uniqueness, idempotent delivery, claim 및 acknowledgement closure, process-loss ambiguity, breaker CAS 및 retention cleanup을 증명합니다. 독립 lifespan이 이 store를 연결합니다. |
 | 의미 요청, 결과 및 영속 전달 파이프라인 | 구현됨 | `semantic_turn_runtime.py`, `channel_edge/{pipeline,pipeline_contracts,worker}.py`, 집중 edge 검사, live PostgreSQL 연결 검사 1개 건너뛰기 없이 통과 | Operator edge는 서버 소유 범위를 해석하고 typed 의미 요청을 영속화하며 principal 범위의 최종 변환 결과를 기다립니다. 프로바이더 I/O 전에 최종 응답을 저장하고 영속 전달 소유권을 확보한 뒤에만 inbound 소유권을 완료하며, 영속 차단기로 재시도와 프로세스 손실 복구를 제한합니다. 기한이 된 전송은 프로바이더 I/O 전에 활성 principal, scope, conversation 및 channel binding을 다시 검증합니다. |
-| 실패 시 닫히는 런타임과 로컬/Azure workload | 구현됨 | `channel_edge/{application,composition,entry,environment,runtime}.py`, `.vscode/tasks.json`, `prepare-channel-edge-env.sh`, `infra/services/operator-service`, 플랫폼 edge identity 및 RBAC, 집중 런타임 검사 | 독립 process는 health와 활성화된 webhook 경로만 노출하고 준비 상태 전에 활성화된 모든 의존성을 해석하며, private local input 또는 Key Vault reference와 전용 non-executor identity를 사용합니다. 보호된 plan, apply, 프로바이더 확인 응답 및 rollback 증적은 열린 상태입니다. |
+| 실패 시 닫히는 런타임과 로컬/Azure workload | 구현됨 | `channel_edge/{application,composition,entry,environment,runtime}.py`, `.vscode/tasks.json`, `prepare-channel-edge-env.sh`, `infra/services/operator-service`, 보호된 배포 workflow 및 helper, 집중 배포 검사 126 + 28개 통과 | 독립 process는 health와 활성화된 webhook 경로만 노출하고 준비 상태 전에 활성화된 모든 의존성을 해석하며, private local input 또는 Key Vault reference와 전용 non-executor identity를 사용합니다. 보호된 enable, update, disable, health 및 자동 disabled-state rollback mechanism을 구현했습니다. Apply, 프로바이더 확인 응답 및 rollback 증적은 열린 상태입니다. |
 | 독립 hardening | 구현됨 | [Hardening 캠페인](#hardening-캠페인), 집중 edge 검사 81개 통과, Ruff 및 strict mypy | 독립 round 10개를 완료했고 수락한 모든 finding에 집중 회귀를 추가했으며 검증된 Medium 이상 잔여가 없습니다. 보호된 런타임 근거는 별도 검증 gate로 유지합니다. |
 
 ### 구현 이력
@@ -70,12 +70,18 @@ flowchart LR
 | 2026-08-20 | 구현됨 | 독립 fail-closed Starlette workload, private 로컬 실행, 선택적 Operator-service Container App, 전용 non-executor identity와 최소 권한 역할, Key Vault reference, probe 및 rollback metadata를 추가했습니다. 대체된 Core transport와 Core PyJWT 의존성을 제거했습니다. | `current change`, edge package 검사 74개, shared 및 Operator channel 검사 110개, 로컬 실행 검사 3개, Ruff 및 strict mypy 통과, 플랫폼 및 Operator-service Terraform 검증 통과 | 독립 hardening을 완료한 뒤 통제된 로컬 프로바이더 및 보호된 plan/apply/rollback 근거를 보존합니다. |
 | 2026-08-20 | 구현됨 | 독립 hardening round 10개를 완료했습니다. 플랫폼 범위를 벗어난 Slack timestamp를 server error 없이 거부하고, 로컬 secret을 읽기 전에 상속된 shell tracing을 끄며, 범위가 제한된 TTL 뒤 known Teams JWKS key를 갱신하고, 기한이 된 전송 전에 활성 principal/scope/conversation/channel binding을 다시 검증하며, 소유 runtime 및 credential resource를 정확히 한 번 닫습니다. | `current change`, 집중 edge 검사 81개, Ruff 및 strict mypy 통과, 수락한 모든 finding에 집중 회귀 추가 | Runtime 행을 `validated`로 올리기 전에 통제된 로컬 프로바이더 및 보호된 plan/apply/rollback 증적을 보존합니다. |
 | 2026-08-20 | 구현됨 | 모든 A3 test를 Operator service suite에 귀속하고, shared `ExecutionVenue` 계약을 통해 venue를 선택하며, A3 design route에서 폐기한 Core prototype 경로를 제거해 exact-commit 구조 finding을 닫았습니다. | `current change`, 집중 service-suite, venue-contract, design-route, environment 및 composition 검사 | Runtime 행을 `validated`로 올리기 전에 통제된 로컬 프로바이더 및 보호된 plan/apply/rollback 증적을 보존합니다. |
+| 2026-08-20 | 구현됨 | 별도 edge Container App을 거부하던 보호된 전달 gap을 닫았습니다. Platform plan은 전용 identity와 secret scope를 연결하고, Operator service plan은 명시적 edge enable 또는 disable transition, exact target identity와 image, 새 revision health, route 제거 및 primary revision 복구 전 자동 disabled-state rollback을 봉인합니다. | `current change`, 보호된 service 배포 및 workflow 계약 검사 126 + 28개, workflow YAML 및 rollback shell syntax 통과 | 승인된 credential store를 통해 실제 Slack 또는 Teams 프로바이더 credential과 principal-mapping profile 하나를 제공하고 로컬 provider 및 보호된 plan/apply/rollback 증적을 보존합니다. |
+| 2026-08-20 | 구현됨 | 암묵적 action, plan 대체, 공개 route 잔존, secret 노출, identity 대체 및 복구 순서를 대상으로 보호된 rollout을 다시 검토했습니다. 수락한 finding 하나는 primary health 전에 disable route-removal proof를 실행하도록 교정했습니다. 의심 finding 8개는 분리된 primary/edge resource, exact transition 봉인 및 terminal rollback 검사로 기각했습니다. 검증된 Medium 이상 구현 잔여는 없습니다. | `current change`, 집중 수정 뒤 route-closure 및 자동 rollback 검사 2개 통과, 전체 보호된 배포 검사는 앞서 154개 통과 | Runtime 검증에는 실제 프로바이더 material과 통제된 증적이 계속 필요하며 이는 구현 잔여가 아닙니다. |
 
 ### 남은 작업
 
 - [x] 이 문서의 모든 구현 범위를 완성하고 focused 검사를 통과합니다. Focused commit에 exact-diff 근거를 보존합니다.
 - [x] 최소 10개 비평 round를 완료하고 Low 또는 기각된 잔여만 보존합니다.
-- [ ] 어떤 행이든 `validated`로 바꾸기 전에 통제된 로컬 및 보호된 배포 증적을 보존합니다.
+- [ ] 저장소나 workflow 출력에 값을 노출하지 않고 local-only input, Key Vault, GitHub secret
+  configuration 및 versionless secret-id variable을 통해 실제 Slack 또는 Teams 프로바이더
+  profile과 principal mapping 하나를 구성합니다.
+- [ ] 어떤 행이든 `validated`로 바꾸기 전에 통제된 로컬 및 보호된 배포
+  plan/apply/provider-acknowledgement/rollback 증적을 보존합니다.
 
 ## 아키텍처 결정
 
@@ -190,6 +196,14 @@ Azure는 기존 Operator Service image의 별도 Container App을 다음과 같�
 또는 channel binding을 바꾸지 않고 이전 disabled 또는 이전 image edge revision을 복원합니다.
 Rollback rehearsal은 route 닫힘, 중복 최종 전송 없음, 정확한 identity role 및 기존 다섯 service
 revision 불변을 입증합니다.
+
+보호된 rollout은 state owner 두 개를 사용합니다. Platform plan은 전용 edge identity와 해당 ACR,
+Event Hubs 및 versionless Key Vault secret role만 먼저 만듭니다. Operator service plan은 기존
+Operator backend에서 edge Container App의 명시적 `enable`, 표준 image update 또는 `disable`
+transition 하나를 봉인합니다. Exact apply는 edge resource id, workload identity 하나, attested
+image, 새 healthy revision 및 HTTPS readiness를 검증합니다. 첫 enable이 실패하면 primary Operator
+revision을 복원하기 전에 guard를 통과한 disabled-state plan을 적용하므로 부분적으로 생성된 공개
+route가 자동 복구 뒤에 남지 않습니다.
 
 ## 실패 동작
 

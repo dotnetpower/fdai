@@ -323,6 +323,24 @@ def validate_health(
     tags = app.get("tags")
     if not isinstance(tags, dict) or tags.get("fdai:component") != expected_component:
         raise DeploymentRecoveryError("observed component tag does not match sealed context")
+    expected_identity_ids = target.get("identity_resource_ids")
+    if expected_identity_ids is not None:
+        if (
+            not isinstance(expected_identity_ids, list)
+            or not expected_identity_ids
+            or not all(isinstance(identity_id, str) for identity_id in expected_identity_ids)
+        ):
+            raise DeploymentRecoveryError("sealed workload identity contract is invalid")
+        app_identity = app.get("identity")
+        assigned = (
+            app_identity.get("userAssignedIdentities") if isinstance(app_identity, dict) else None
+        )
+        if not isinstance(assigned, dict) or {identity_id.lower() for identity_id in assigned} != {
+            identity_id.lower() for identity_id in expected_identity_ids
+        }:
+            raise DeploymentRecoveryError(
+                "observed workload identity set does not match sealed context"
+            )
     app_properties = app.get("properties")
     latest_revision = (
         app_properties.get("latestRevisionName") if isinstance(app_properties, dict) else None

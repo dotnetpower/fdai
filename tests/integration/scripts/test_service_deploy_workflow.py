@@ -85,6 +85,18 @@ def test_operator_migration_image_is_independently_pinned() -> None:
     assert "TF_VAR_operator_api_migration_image" in _LEGACY_WORKFLOW
 
 
+def test_platform_workflow_binds_channel_edge_identity_and_secret_scopes() -> None:
+    assert "deploy_operator_channel_edge:" in _LEGACY_WORKFLOW
+    assert "TF_VAR_enable_operator_channel_edge: ${{ inputs.deploy_operator_channel_edge }}" in (
+        _LEGACY_WORKFLOW
+    )
+    assert (
+        "TF_VAR_operator_channel_edge_secret_ids: "
+        "\"${{ vars.OPERATOR_CHANNEL_EDGE_SECRET_IDS_JSON || '[]' }}\""
+    ) in _LEGACY_WORKFLOW
+    assert "OPERATOR_CHANNEL_EDGE_SECRET_IDS_JSON" in _LEGACY_WORKFLOW
+
+
 def test_operator_catalog_materialization_runs_after_schema_migration() -> None:
     root = (_ROOT / "infra/main.tf").read_text(encoding="utf-8")
     outputs = (_ROOT / "infra/outputs.tf").read_text(encoding="utf-8")
@@ -190,6 +202,47 @@ def test_workflow_defaults_to_plan_and_requires_exact_apply_coordinates() -> Non
     for coordinate in ("PLAN_RUN_ID", "PLAN_RUN_ATTEMPT", "PLAN_DIGEST", "CONTEXT_DIGEST"):
         assert f'[[ "${coordinate}" =~' in _WORKFLOW
     assert "migrate_state and initial_cutover are mutually exclusive." in _WORKFLOW
+    assert "options: [none, enable, disable]" in _WORKFLOW
+    assert "operator channel-edge transitions are valid only for operator-service." in _WORKFLOW
+    assert (
+        _WORKFLOW.count(
+            "OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}"
+        )
+        == 4
+    )
+    assert (
+        _WORKFLOW.count('--operator-channel-edge-transition "$OPERATOR_CHANNEL_EDGE_TRANSITION"')
+        == 4
+    )
+    assert "PREVIOUS_CHANNEL_EDGE_REVISION" in _WORKFLOW
+    assert '.operator_channel_edge.service_resource_id // ""' in _WORKFLOW
+    assert "planned channel edge is missing before a non-enable transition." in _WORKFLOW
+
+
+def test_health_verifier_checks_channel_edge_revision_or_removal() -> None:
+    assert '.operator_channel_edge.state // "enabled"' in _HEALTH_SCRIPT
+    assert "disabled channel edge still exists after protected apply." in _HEALTH_SCRIPT
+    assert _HEALTH_SCRIPT.index("disabled channel edge route removal verified.") < (
+        _HEALTH_SCRIPT.index("health_deadline=$((SECONDS + 900))")
+    )
+    assert "channel edge revision does not match the exact protected image." in _HEALTH_SCRIPT
+    assert "del(.operator_channel_edge)" in _HEALTH_SCRIPT
+    assert 'deployment_recovery.py" verify' in _HEALTH_SCRIPT
+    assert "terraform output -json channel_edge_health_contract" in _HEALTH_SCRIPT
+
+
+def test_failed_channel_edge_enable_has_guarded_disabled_state_rollback() -> None:
+    assert "Prepare disabled channel-edge rollback inputs" in _WORKFLOW
+    assert "--operator-channel-edge-enabled false" in _WORKFLOW
+    assert "Remove failed newly enabled channel edge" in _WORKFLOW
+    assert '-out="$rollback_dir/edge-disable.plan"' in _WORKFLOW
+    assert "--operator-channel-edge-transition disable" in _WORKFLOW
+    assert '"$rollback_dir/edge-disable.plan"' in _WORKFLOW
+    assert "channel edge still exists after automatic disabled-state rollback." in _WORKFLOW
+    assert "steps.edge_rollback.outcome" in _WORKFLOW
+    assert _WORKFLOW.index("Remove failed newly enabled channel edge") < _WORKFLOW.index(
+        "Roll back unhealthy service revision"
+    )
 
 
 def test_workflow_uses_protected_controls_and_protected_commit_ancestry() -> None:
@@ -288,7 +341,8 @@ def test_plan_and_apply_both_verify_image_and_guard_exact_binary_plan() -> None:
     assert "manifests/sha-${COMMIT_SHA}" in _WORKFLOW
     assert '[[ "$commit_digest" == "$IMAGE_DIGEST" ]]' in _WORKFLOW
     assert "scripts/deployment/service/service_contract.py" in _WORKFLOW
-    assert _WORKFLOW.count("scripts/deployment/service/guard_plan.py") == 2
+    assert _WORKFLOW.count("scripts/deployment/service/guard_plan.py") == 3
+    assert '--plan-json "$rollback_dir/edge-disable-plan.json"' in _WORKFLOW
     assert 'scripts/deployment/service/plan_bundle.py" create' in _WORKFLOW
     assert 'scripts/deployment/service/plan_bundle.py" verify' in _WORKFLOW
     assert 'cmp "$bundle/service-plan.json" "$RUNNER_TEMP/replayed-service-plan.json"' in _WORKFLOW

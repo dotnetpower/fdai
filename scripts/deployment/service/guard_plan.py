@@ -21,6 +21,49 @@ _DIGEST_IMAGE = re.compile(r"[^\s]+@sha256:[0-9a-f]{64}")
 _ALLOWED_SIDECARS = {
     "document-processing-worker": frozenset({"clamav"}),
 }
+_OPERATOR_CHANNEL_EDGE_ADDRESS = (
+    "module.operator_service.module.channel_edge[0].azurerm_container_app.service"
+)
+_OPERATOR_CHANNEL_EDGE_CONTRACT_ADDRESS = (
+    "module.operator_service.terraform_data.channel_edge_contract[0]"
+)
+_OPERATOR_CHANNEL_EDGE_REQUIRED_ENVIRONMENT = frozenset(
+    {
+        "FDAI_DATABASE_URL",
+        "FDAI_DATABASE_ROLE",
+        "FDAI_EXECUTION_VENUE",
+        "RUNTIME_ENV",
+        "FDAI_CHANNEL_EDGE_MI_CLIENT_ID",
+        "FDAI_CHANNEL_EDGE_ENABLED_CHANNELS",
+        "FDAI_CHANNEL_EDGE_PRINCIPAL_SCOPES_JSON",
+        "FDAI_KAFKA_BOOTSTRAP_SERVERS",
+        "FDAI_SEMANTIC_TURN_REQUEST_TOPIC",
+        "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC",
+        "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC",
+        "FDAI_CHANNEL_EDGE_PORT",
+    }
+)
+_OPERATOR_CHANNEL_EDGE_FORBIDDEN_ENVIRONMENT = frozenset(
+    {
+        "FDAI_COMMAND_MI_CLIENT_ID",
+        "FDAI_DEV_OPERATIONS_GATEWAY_URL",
+        "FDAI_ISOLATED_EXECUTOR_MI_CLIENT_ID",
+        "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER",
+    }
+)
+
+
+def _operator_channel_edge_contract(base: ServiceContract) -> ServiceContract:
+    return ServiceContract(
+        service="operator-channel-edge",
+        environment=base.environment,
+        terraform_root=base.terraform_root,
+        backend_key=base.backend_key,
+        allowed_resource_address=_OPERATOR_CHANNEL_EDGE_ADDRESS,
+        image_repository=base.image_repository,
+        entrypoint="fdai-operator-channel-edge",
+        required_environment=tuple(sorted(_OPERATOR_CHANNEL_EDGE_REQUIRED_ENVIRONMENT)),
+    )
 
 
 def _difference_paths(before: Any, after: Any, *, path: str = "$") -> list[str]:
@@ -467,6 +510,100 @@ def _guard_service_runtime(
     return violations
 
 
+def _guard_operator_channel_edge(
+    resource: dict[str, Any],
+    *,
+    address: str,
+    image_ref: str,
+) -> list[str]:
+    """Validate the no-authority public edge companion before protected creation."""
+    violations: list[str] = []
+    containers = _containers(resource, address=address)
+    if set(containers) != {"operator-channel-edge"}:
+        violations.append(f"channel edge must contain exactly one owned container at {address}")
+        return violations
+    container = containers["operator-channel-edge"]
+    if container.get("image") != image_ref:
+        violations.append(f"channel edge image does not match the attested image at {address}")
+    if container.get("command") != ["fdai-operator-channel-edge"] or container.get("args") not in (
+        [],
+        None,
+    ):
+        violations.append(f"channel edge command is invalid at {address}")
+
+    environment = container.get("env")
+    if not isinstance(environment, list):
+        raise PlanGuardError(f"channel edge at {address} has an invalid environment")
+    names = [item.get("name") for item in environment if isinstance(item, dict)]
+    if len(names) != len(environment) or not all(isinstance(name, str) for name in names):
+        raise PlanGuardError(f"channel edge at {address} has an invalid environment entry")
+    if len(set(names)) != len(names):
+        violations.append(f"channel edge environment contains duplicate names at {address}")
+    missing = sorted(_OPERATOR_CHANNEL_EDGE_REQUIRED_ENVIRONMENT - set(names))
+    if missing:
+        violations.append(f"channel edge environment is missing required names at {address}")
+    forbidden = sorted(_OPERATOR_CHANNEL_EDGE_FORBIDDEN_ENVIRONMENT & set(names))
+    if forbidden:
+        violations.append(f"channel edge environment grants execution authority at {address}")
+
+    identity_ids = _identity_ids(resource, address=address)
+    if len(identity_ids) != 1:
+        violations.append(f"channel edge must use one dedicated workload identity at {address}")
+    else:
+        identity_id = next(iter(identity_ids))
+        registries = resource.get("registry")
+        if (
+            not isinstance(registries, list)
+            or len(registries) != 1
+            or not isinstance(registries[0], dict)
+            or registries[0].get("identity") != identity_id
+        ):
+            violations.append(f"channel edge registry identity is not dedicated at {address}")
+        secrets = resource.get("secret")
+        if not isinstance(secrets, list) or len(secrets) < 2:
+            violations.append(f"channel edge secret references are incomplete at {address}")
+        elif any(
+            not isinstance(secret, dict)
+            or secret.get("identity") != identity_id
+            or not isinstance(secret.get("key_vault_secret_id"), str)
+            or not secret["key_vault_secret_id"]
+            for secret in secrets
+        ):
+            violations.append(f"channel edge secret identity is not dedicated at {address}")
+
+    ingress = resource.get("ingress")
+    if (
+        not isinstance(ingress, list)
+        or len(ingress) != 1
+        or not isinstance(ingress[0], dict)
+        or ingress[0].get("external_enabled") is not True
+        or ingress[0].get("allow_insecure_connections") is not False
+        or ingress[0].get("target_port") != 8014
+    ):
+        violations.append(f"channel edge ingress contract is invalid at {address}")
+    expected_probes = {
+        "startup_probe": ("/health/ready", 30),
+        "liveness_probe": ("/health/live", 3),
+        "readiness_probe": ("/health/ready", 3),
+    }
+    for probe_name, (path, failure_count) in expected_probes.items():
+        probes = container.get(probe_name)
+        if (
+            not isinstance(probes, list)
+            or len(probes) != 1
+            or not isinstance(probes[0], dict)
+            or probes[0].get("transport") != "HTTP"
+            or probes[0].get("port") != 8014
+            or probes[0].get("path") != path
+            or probes[0].get("failure_count_threshold") != failure_count
+        ):
+            violations.append(f"channel edge {probe_name} contract is invalid at {address}")
+    tags = resource.get("tags")
+    if not isinstance(tags, dict) or tags.get("fdai:component") != "operator-channel-edge":
+        violations.append(f"channel edge component tag is invalid at {address}")
+    return violations
+
+
 def _guard_initial_worker_drift(
     resource_drift: Any,
     *,
@@ -691,15 +828,22 @@ def validate_plan(
     environment: str,
     image_ref: str,
     initial_cutover: bool = False,
+    operator_channel_edge_transition: str = "none",
 ) -> None:
     """Allow only bounded actions that deploy the exact attested service image."""
+    if operator_channel_edge_transition not in {"none", "enable", "disable"}:
+        raise PlanGuardError("operator channel edge transition must be none, enable, or disable")
+    if operator_channel_edge_transition != "none" and service != "operator-service":
+        raise PlanGuardError("operator channel edge transition is valid only for operator-service")
     contract = resolve_service(service, environment)
+    channel_edge_contract = _operator_channel_edge_contract(contract)
     resource_changes = payload.get("resource_changes", [])
     if not isinstance(resource_changes, list):
         raise PlanGuardError("Terraform plan resource_changes must be an array")
     violations: list[str] = []
     selected_after: dict[str, Any] | None = None
     selected_before: dict[str, Any] | None = None
+    channel_edge_actions: dict[str, tuple[str, ...]] = {}
     for entry in resource_changes:
         if not isinstance(entry, dict) or not isinstance(entry.get("address"), str):
             raise PlanGuardError("Terraform plan contains an invalid resource change")
@@ -707,6 +851,63 @@ def validate_plan(
         change = entry.get("change")
         actions = _actions(change, address=address)
         if actions == ("no-op",):
+            continue
+        if address in {
+            _OPERATOR_CHANNEL_EDGE_ADDRESS,
+            _OPERATOR_CHANNEL_EDGE_CONTRACT_ADDRESS,
+        }:
+            channel_edge_actions[address] = actions
+            expected_action = {
+                "none": ("update",),
+                "enable": ("create",),
+                "disable": ("delete",),
+            }[operator_channel_edge_transition]
+            if address == _OPERATOR_CHANNEL_EDGE_CONTRACT_ADDRESS:
+                if operator_channel_edge_transition == "none" or actions != expected_action:
+                    violations.append(
+                        "operator channel edge contract marker action "
+                        f"{actions!r} is not an explicit transition at {address}"
+                    )
+                continue
+            if actions != expected_action:
+                violations.append(
+                    f"operator channel edge action {actions!r} is not an explicit "
+                    f"{operator_channel_edge_transition} at {address}"
+                )
+                continue
+            if not isinstance(change, dict):
+                raise PlanGuardError(f"plan change for {address} is invalid")
+            if operator_channel_edge_transition == "enable":
+                violations.extend(
+                    _guard_operator_channel_edge(
+                        _resource(change, side="after", address=address),
+                        address=address,
+                        image_ref=image_ref,
+                    )
+                )
+            elif operator_channel_edge_transition == "disable":
+                violations.extend(
+                    _guard_operator_channel_edge(
+                        _resource(change, side="before", address=address),
+                        address=address,
+                        image_ref=image_ref,
+                    )
+                )
+            else:
+                before = _resource(change, side="before", address=address)
+                after = _resource(change, side="after", address=address)
+                violations.extend(
+                    _guard_operator_channel_edge(after, address=address, image_ref=image_ref)
+                )
+                violations.extend(
+                    _guard_update(
+                        before,
+                        after,
+                        address=address,
+                        contract=channel_edge_contract,
+                        initial_cutover=False,
+                    )
+                )
             continue
         if address != contract.allowed_resource_address:
             violations.append(f"cross-service or platform action {actions!r} at {address}")
@@ -741,6 +942,16 @@ def validate_plan(
                 initial_cutover=initial_cutover,
             )
         )
+    if operator_channel_edge_transition in {"enable", "disable"}:
+        if set(channel_edge_actions) != {
+            _OPERATOR_CHANNEL_EDGE_ADDRESS,
+            _OPERATOR_CHANNEL_EDGE_CONTRACT_ADDRESS,
+        }:
+            violations.append(
+                f"operator channel edge {operator_channel_edge_transition} plan is incomplete"
+            )
+    elif _OPERATOR_CHANNEL_EDGE_CONTRACT_ADDRESS in channel_edge_actions:
+        violations.append("operator channel edge standard update changed its contract marker")
     resource_drift = payload.get("resource_drift", [])
     allowed_worker_drift = (
         initial_cutover
@@ -802,6 +1013,11 @@ def main() -> int:
     parser.add_argument("--environment", required=True)
     parser.add_argument("--image-ref", required=True)
     parser.add_argument("--initial-cutover", action="store_true")
+    parser.add_argument(
+        "--operator-channel-edge-transition",
+        choices=("none", "enable", "disable"),
+        default="none",
+    )
     args = parser.parse_args()
     try:
         payload = json.loads(args.plan_json.read_text(encoding="utf-8"))
@@ -813,6 +1029,7 @@ def main() -> int:
             environment=args.environment,
             image_ref=args.image_ref,
             initial_cutover=args.initial_cutover,
+            operator_channel_edge_transition=args.operator_channel_edge_transition,
         )
     except (OSError, json.JSONDecodeError, ServiceContractError, PlanGuardError) as exc:
         parser.error(str(exc))

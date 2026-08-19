@@ -41,6 +41,11 @@ on:
         description: "Explicit one-time transition from the legacy runtime contract."
         type: boolean
         default: false
+      operator_channel_edge_transition:
+        description: "Explicit Operator channel-edge transition sealed into the protected plan."
+        type: choice
+        options: [none, enable, disable]
+        default: none
       plan_run_id:
         description: "Plan workflow run id. Required only for apply."
         type: string
@@ -128,6 +133,7 @@ jobs:
           APPLY: ${{ inputs.apply }}
           MIGRATE_STATE: ${{ inputs.migrate_state }}
           INITIAL_CUTOVER: ${{ inputs.initial_cutover }}
+          OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}
           COMMIT_SHA: ${{ inputs.commit_sha }}
           PLAN_RUN_ID: ${{ inputs.plan_run_id }}
           PLAN_RUN_ATTEMPT: ${{ inputs.plan_run_attempt }}
@@ -169,6 +175,16 @@ jobs:
           if [[ "$MIGRATE_STATE" == "true" && "$INITIAL_CUTOVER" == "true" ]]; then
             echo "migrate_state and initial_cutover are mutually exclusive." >&2
             exit 1
+          fi
+          if [[ "$OPERATOR_CHANNEL_EDGE_TRANSITION" != "none" ]]; then
+            [[ "${{ inputs.service }}" == "operator-service" ]] || {
+              echo "operator channel-edge transitions are valid only for operator-service." >&2
+              exit 1
+            }
+            [[ "$MIGRATE_STATE" != "true" && "$INITIAL_CUTOVER" != "true" ]] || {
+              echo "operator channel-edge transitions cannot migrate state or perform initial cutover." >&2
+              exit 1
+            }
           fi
           if [[ "$APPLY" == "true" ]]; then
             [[ "$PLAN_RUN_ID" =~ ^[0-9]+$ ]] || {
@@ -472,6 +488,7 @@ jobs:
         env:
           IMAGE_REF: ${{ inputs.image_ref }}
           INITIAL_CUTOVER: ${{ inputs.initial_cutover }}
+          OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}
         run: |
           set -euo pipefail
           terraform -chdir="$TERRAFORM_ROOT" plan \
@@ -489,6 +506,7 @@ jobs:
             --service "${{ inputs.service }}" \
             --environment "${{ inputs.environment }}" \
             --image-ref "$IMAGE_REF" \
+            --operator-channel-edge-transition "$OPERATOR_CHANNEL_EDGE_TRANSITION" \
             "${cutover_args[@]}"
 
       - name: Capture peer states after plan
@@ -508,6 +526,7 @@ jobs:
         env:
           IMAGE_REF: ${{ inputs.image_ref }}
           INITIAL_CUTOVER: ${{ inputs.initial_cutover }}
+          OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}
         run: |
           set -euo pipefail
           cutover_args=()
@@ -532,6 +551,7 @@ jobs:
             --controls-commit-sha "$CONTROLS_COMMIT_SHA" \
             --resolved-models-digest "$RESOLVED_MODELS_DIGEST" \
             --attestation-signer-workflow "$GITHUB_REPOSITORY/.github/workflows/container-supply-chain.yml" \
+            --operator-channel-edge-transition "$OPERATOR_CHANNEL_EDGE_TRANSITION" \
             "${cutover_args[@]}" >/dev/null
           python3 - "$RUNNER_TEMP/service-plan-metadata.json" "$GITHUB_OUTPUT" <<'PY'
           import json
@@ -563,7 +583,7 @@ jobs:
             echo "### Protected service plan"
             echo "- Service: \`${{ inputs.service }}\`"
             echo "- Environment: \`${{ inputs.environment }}\`"
-            echo "- Deployment mode: \`${{ inputs.initial_cutover && 'initial-cutover' || 'standard' }}\`"
+            echo "- Deployment mode: \`${{ inputs.initial_cutover && 'initial-cutover' || inputs.operator_channel_edge_transition != 'none' && format('operator-channel-edge-{0}', inputs.operator_channel_edge_transition) || 'standard' }}\`"
             echo "- Commit: \`${{ inputs.commit_sha }}\`"
             echo "- Plan run id: \`$GITHUB_RUN_ID\`"
             echo "- Plan run attempt: \`$GITHUB_RUN_ATTEMPT\`"
@@ -649,6 +669,7 @@ jobs:
         env:
           IMAGE_REF: ${{ inputs.image_ref }}
           INITIAL_CUTOVER: ${{ inputs.initial_cutover }}
+          OPERATOR_CHANNEL_EDGE_TRANSITION: ${{ inputs.operator_channel_edge_transition }}
         run: |
           set -euo pipefail
           bundle="$RUNNER_TEMP/service-plan-bundle"
@@ -676,6 +697,7 @@ jobs:
             --controls-commit-sha "$PLAN_CONTROLS_COMMIT_SHA" \
             --resolved-models-digest "$RESOLVED_MODELS_DIGEST" \
             --attestation-signer-workflow "$GITHUB_REPOSITORY/.github/workflows/container-supply-chain.yml" \
+            --operator-channel-edge-transition "$OPERATOR_CHANNEL_EDGE_TRANSITION" \
             "${cutover_args[@]}" >/dev/null
           terraform -chdir="$TERRAFORM_ROOT" show \
             -json "$bundle/service.plan" > "$RUNNER_TEMP/replayed-service-plan.json"
@@ -688,6 +710,7 @@ jobs:
             --service "${{ inputs.service }}" \
             --environment "${{ inputs.environment }}" \
             --image-ref "$IMAGE_REF" \
+            --operator-channel-edge-transition "$OPERATOR_CHANNEL_EDGE_TRANSITION" \
             "${cutover_args[@]}"
 
       - name: Apply service-owned database migrations
@@ -761,6 +784,23 @@ jobs:
           FDAI_DATABASE_URL="$migration_dsn" "$migration_command" upgrade head
           unset migration_dsn
 
+      - name: Prepare disabled channel-edge rollback inputs
+        if: ${{ inputs.apply && inputs.operator_channel_edge_transition == 'enable' }}
+        env:
+          SERVICE_TFVARS_JSON: ${{ secrets.SERVICE_DEPLOY_TFVARS_JSON }}
+        run: |
+          set -euo pipefail
+          [[ -n "$SERVICE_TFVARS_JSON" ]] || {
+            echo "SERVICE_DEPLOY_TFVARS_JSON is required for channel-edge rollback." >&2
+            exit 1
+          }
+          printf '%s' "$SERVICE_TFVARS_JSON" \
+            | python3 "$TRUSTED_CONTROLS/scripts/deployment/service/materialize_tfvars.py" \
+                --service operator-service \
+                --environment "${{ inputs.environment }}" \
+                --operator-channel-edge-enabled false \
+                --output "$RUNNER_TEMP/service-edge-disabled.tfvars.json"
+
       - name: Upload service migration adoption evidence
         if: ${{ always() && inputs.apply && inputs.initial_cutover }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -804,6 +844,23 @@ jobs:
             --rollback-contract "$rollback_dir/rollback-contract.json" \
             --output "$rollback_dir/snapshot.json"
           echo "PREVIOUS_REVISION=$previous_revision" >> "$GITHUB_ENV"
+          edge_resource_id="$(jq -r '.operator_channel_edge.service_resource_id // ""' \
+            "$bundle/service-context.json")"
+          if [[ -n "$edge_resource_id" ]]; then
+            if timeout 60s az containerapp show \
+              --ids "$edge_resource_id" \
+              --only-show-errors \
+              --output json >"$rollback_dir/edge-app.json"; then
+              previous_edge_revision="$(jq -er '.properties.latestRevisionName' \
+                "$rollback_dir/edge-app.json")"
+            elif [[ "${{ inputs.operator_channel_edge_transition }}" == "enable" ]]; then
+              previous_edge_revision="absent"
+            else
+              echo "planned channel edge is missing before a non-enable transition." >&2
+              exit 1
+            fi
+            echo "PREVIOUS_CHANNEL_EDGE_REVISION=$previous_edge_revision" >> "$GITHUB_ENV"
+          fi
 
       - name: Apply exact protected service plan
         if: ${{ inputs.apply }}
@@ -902,6 +959,50 @@ jobs:
           path: ${{ runner.temp }}/service-live-observations.json
           if-no-files-found: error
           retention-days: 90
+
+      - name: Remove failed newly enabled channel edge
+        if: ${{ inputs.apply && inputs.operator_channel_edge_transition == 'enable' && (steps.apply.outcome == 'failure' || steps.health.outcome == 'failure') }}
+        id: edge_rollback
+        continue-on-error: true
+        env:
+          IMAGE_REF: ${{ inputs.image_ref }}
+        run: |
+          set -euo pipefail
+          rollback_dir="$RUNNER_TEMP/service-rollback"
+          edge_resource_id="$(jq -er '.operator_channel_edge.service_resource_id' \
+            "$RUNNER_TEMP/service-plan-bundle/service-context.json")"
+          if ! timeout 60s az containerapp show \
+              --ids "$edge_resource_id" \
+              --only-show-errors \
+              --output none 2>/dev/null; then
+            echo "channel edge was absent after failed enable; no edge rollback was needed."
+            exit 0
+          fi
+          terraform -chdir="$TERRAFORM_ROOT" plan \
+            -input=false \
+            -lock-timeout=5m \
+            -out="$rollback_dir/edge-disable.plan" \
+            -var-file="$RUNNER_TEMP/service-edge-disabled.tfvars.json" \
+            -var="image=$IMAGE_REF"
+          terraform -chdir="$TERRAFORM_ROOT" show \
+            -json "$rollback_dir/edge-disable.plan" >"$rollback_dir/edge-disable-plan.json"
+          python3 "$TRUSTED_CONTROLS/scripts/deployment/service/guard_plan.py" \
+            --plan-json "$rollback_dir/edge-disable-plan.json" \
+            --service operator-service \
+            --environment "${{ inputs.environment }}" \
+            --image-ref "$IMAGE_REF" \
+            --operator-channel-edge-transition disable
+          terraform -chdir="$TERRAFORM_ROOT" apply \
+            -input=false \
+            -lock-timeout=5m \
+            "$rollback_dir/edge-disable.plan"
+          if timeout 60s az containerapp show \
+              --ids "$edge_resource_id" \
+              --only-show-errors \
+              --output none 2>/dev/null; then
+            echo "channel edge still exists after automatic disabled-state rollback." >&2
+            exit 1
+          fi
 
       - name: Roll back unhealthy service revision
         if: ${{ inputs.apply && (steps.apply.outcome == 'failure' || steps.health.outcome == 'failure') }}
@@ -1005,6 +1106,11 @@ jobs:
             echo "service apply or post-apply health failed; automatic image rollback was not verified and operator recovery is required." >&2
             exit 1
           fi
+          if [[ "${{ inputs.operator_channel_edge_transition }}" == "enable" \
+            && "${{ steps.edge_rollback.outcome }}" != "success" ]]; then
+            echo "service apply or post-apply health failed; automatic channel-edge removal was not verified and operator recovery is required." >&2
+            exit 1
+          fi
           if jq -e '.platform_rollback_required == true' "$rollback_dir/snapshot.json" >/dev/null; then
             echo "service apply or post-apply health failed; the previous image was restored and verified, but authority was unchanged; a protected platform rollback is required before Core authority can be claimed." >&2
           else
@@ -1022,6 +1128,7 @@ jobs:
             "$RUNNER_TEMP/service-context.json" \
             "$RUNNER_TEMP/service-plan-metadata.json" \
             "$RUNNER_TEMP/replayed-service-plan.json" \
+            "$RUNNER_TEMP/service-edge-disabled.tfvars.json" \
             "$RUNNER_TEMP/legacy-service-state.json" \
             "$RUNNER_TEMP/independent-service-state.json"
           rm -rf "$RUNNER_TEMP/service-plan-bundle" "$RUNNER_TEMP/service-deploy-azure"
