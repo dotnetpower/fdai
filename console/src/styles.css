@@ -10737,9 +10737,11 @@ main { padding-bottom: 60px !important; }
 .blast-impact-list li.is-target > span { color: #fff; background: var(--cs-steel); }
 .blast-impact-list code { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
 .blast-impact-list small { color: var(--fg-muted); font-size: 10.5px; }
+@media (max-width: 1120px) {
+  .blast-impact-layout { grid-template-columns: 1fr; }
+}
 @media (max-width: 980px) {
   .scope-axis-grid { grid-template-columns: 1fr; }
-  .blast-impact-layout { grid-template-columns: 1fr; }
 }
 @media (max-width: 680px) {
   .scope-hierarchy-list ul li { grid-template-columns: minmax(0, 1fr); }

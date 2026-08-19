@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 6b41d1d5cab614f824f68cc927e95ab993f520b0
+translation_source_sha: 3fe08146f6ca4903e9cea7802b054bfbabe514db
 translation_revised: 2026-08-19
 ---
 
@@ -81,6 +81,7 @@ translation_revised: 2026-08-19
 | 2026-08-19 | implemented | 시각적 active styling에만 의존하지 않고 세 개 segmented button 모두의 `aria-pressed`로 선택한 Impact scope 보기를 노출했습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused control contract 사례 2개와 Console typecheck가 통과했고 인증된 390 px Browser가 pressed 보기 하나만 노출했습니다. | 별도로 측정한 focus indicator 및 target size finding을 대상으로 accessibility round를 계속합니다. |
 | 2026-08-19 | implemented | Segmented 보기 control에 명시적인 `:focus-visible` outline을 추가했습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused control contract 사례 2개와 Console typecheck가 통과했고 인증된 keyboard navigation에서 2 px offset을 가진 solid 2 px outline을 측정했습니다. | 별도로 측정한 22 px target size finding을 대상으로 accessibility round를 계속합니다. |
 | 2026-08-19 | implemented | 다른 밀도 높은 control을 바꾸지 않고 모바일 너비에서 Impact scope segmented button의 최소 높이를 44 px로 높였습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused control contract 사례 2개와 Console typecheck가 통과했고 인증된 390 px Browser에서 세 button 모두 44 px, pressed 상태 하나 및 유지된 visible focus outline을 측정했습니다. | Accessibility 비평을 다시 실행하고 Low 잔여만 남긴 뒤 round를 닫습니다. |
+| 2026-08-19 | implemented | Console shell이 2열 최소 너비보다 좁아지기 전에 Impact scope topology를 1열로 쌓도록 변경했습니다. 제한된 desktop에서 main horizontal scrollbar가 더 이상 생기지 않습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused control 테스트, typecheck 및 production build가 통과했고 인증된 1440 x 900, 993 x 641, 390 x 844 Browser 검사에서 document, main, layout overflow 및 control overlap이 모두 0이었습니다. | 모바일 graph 여백, 의도적인 table scrolling, link가 있는 identifier ellipsis인 Low 시각 잔여만 남았습니다. |
 
 ### 잔여 작업
 
