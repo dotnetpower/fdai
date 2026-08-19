@@ -622,7 +622,7 @@ def _frame_bound_node_arguments(
         or node.kind is not QueryNodeKind.OBJECT_SET
     ):
         return arguments
-    if len(frame.subject_constraints) != 1:
+    if frame.subject_constraints != ("Resource",) or frame.measure_concepts != ("type",):
         return arguments
     definition = arguments.get("definition")
     if not isinstance(definition, dict) or definition.get("predicates"):
@@ -641,14 +641,9 @@ def _frame_bound_node_arguments(
     )
     if not isinstance(properties, Mapping):
         return arguments
-    requested_properties = tuple(
-        sorted({measure for measure in frame.measure_concepts if measure in properties})
-    )
-    if not requested_properties:
+    if "type" not in properties:
         return arguments
-    definition["predicates"] = [
-        {"property": property_name, "operator": "exists"} for property_name in requested_properties
-    ]
+    definition["predicates"] = [{"property": "type", "operator": "exists"}]
     return arguments
 
 

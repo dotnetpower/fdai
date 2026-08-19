@@ -89,6 +89,7 @@ def _fixture(
     *,
     property_values: tuple[PropertyValueDomain, ...] = (),
     include_rule: bool = False,
+    include_resource_type: bool = False,
     function_types: tuple[OntologyFunctionType, ...] = (),
 ) -> tuple[Any, ObjectSetDefinition]:
     resource = OntologyObjectType(
@@ -99,6 +100,11 @@ def _fixture(
         properties={
             "id": PropertyDecl(type=PropertyType.STRING, required=True),
             "secret": PropertyDecl(type=PropertyType.STRING, access_scope=CeilingRole.OWNER),
+            **(
+                {"type": PropertyDecl(type=PropertyType.STRING, required=True)}
+                if include_resource_type
+                else {}
+            ),
         },
     )
     rule = OntologyObjectType(
@@ -1573,12 +1579,13 @@ def test_property_filter_frame_requires_object_set_predicate() -> None:
 
 
 def test_property_filter_binds_missing_exact_frame_property() -> None:
-    manifest, definition = _fixture()
+    manifest, definition = _fixture(include_resource_type=True)
     unfiltered = definition.model_copy(update={"predicates": ()})
     t1 = _Model(
         frame=_frame(
             output_shape="property_filtered_resources",
-            measure_concepts=["id"],
+            subject_constraints=["Resource"],
+            measure_concepts=["type"],
         ),
         plan=_plan(unfiltered),
     )
@@ -1596,9 +1603,38 @@ def test_property_filter_binds_missing_exact_frame_property() -> None:
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert outcome.plan is not None
     assert outcome.plan.nodes[0].arguments["definition"]["predicates"] == [
-        {"property": "id", "operator": "exists"}
+        {"property": "type", "operator": "exists"}
     ]
     assert (t1.plan_calls, t2.plan_calls) == (1, 0)
+
+
+@pytest.mark.parametrize("measure_concepts", (["id"], ["type", "id"]))
+def test_property_filter_does_not_bind_a_nonclosed_frame(
+    measure_concepts: list[str],
+) -> None:
+    manifest, definition = _fixture(include_resource_type=True)
+    unfiltered = definition.model_copy(update={"predicates": ()})
+    t1 = _Model(
+        frame=_frame(
+            output_shape="property_filtered_resources",
+            subject_constraints=["Resource"],
+            measure_concepts=measure_concepts,
+        ),
+        plan=_plan(unfiltered),
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(unfiltered))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert (t1.plan_calls, t2.plan_calls) == (1, 1)
 
 
 def test_scope_denial_never_invokes_t2() -> None:
