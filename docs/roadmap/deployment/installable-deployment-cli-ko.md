@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 3d40dcd774a7b55c4198892f9b956b6b1413ac55
+translation_source_sha: 254cd2e3e2298cf50713f9d243e1f3f02b2dc516
 translation_revised: 2026-08-19
 ---
 # 설치형 배포 CLI
@@ -35,6 +35,7 @@ translation_revised: 2026-08-19
 |------|------|------|------|-----------|
 | 2026-08-14 | in-progress | 구현 원장을 도입했으며 이전 출처 이력은 재구성하지 않았습니다. 제거된 배포 CLI 패키지와 그 명령을 현재 사용할 수 있다는 이전 주장을 바로잡았습니다. | 현재 변경과 구현 범위 표에 기재한 패키지 메타데이터, release 스크립트, 보호된 작업 흐름 및 집중 작업 흐름 검사 | 전용 CLI 배포판을 만들고 그 경계 뒤에 검증 기능을 복원한 뒤 설치와 폐쇄망 사용을 입증해야 합니다. |
 | 2026-08-19 | deferred | 사용할 수 없는 `fdaictl bundle verify` 명령을 호출하고 성공 실행 근거도 없던 수동 배포 번들 작업 흐름을 제거했습니다. | 이슈 #222, 현재 작업 흐름 목록 및 집중 CI 계약 테스트 | 먼저 전용 CLI 검증기를 추가한 다음 깨끗한 체크아웃 근거와 함께 보호된 release 작업 흐름을 복원해야 합니다. |
+| 2026-08-19 | deferred | 연기된 작업 흐름과 함께 제거된 경로를 release 검사가 더 이상 요구하지 않도록 productization 검증에서 사용 중단된 작업 흐름 전용 테스트를 제거했습니다. | 현재 변경, `scripts/deployment/release/verify-productization.sh`, 55개의 집중 productization 및 구조 gate 테스트 통과 | 실행 가능한 CLI 검증기와 보호된 release 작업 흐름을 추가할 때만 작업 흐름 테스트를 복원해야 합니다. |
 
 ### 남은 작업
 
