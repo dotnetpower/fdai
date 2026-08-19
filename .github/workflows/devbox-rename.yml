@@ -73,7 +73,9 @@ jobs:
           [[ -n "$REGISTRATION_TOKEN" ]] && registration_token_available=true
           [[ -x "$runner_root/config.sh" ]] && config_available=true
           [[ -w "$runner_root" ]] && root_writable=true
-          [[ -f "$runner_root/.service" ]] && service_mode=true
+          if [[ -f "$runner_root/.service" ]]; then
+            service_mode=true
+          fi
           {
             printf 'Removal credential available: `%s`\n' "$remove_token_available"
             printf 'Registration credential available: `%s`\n' \
