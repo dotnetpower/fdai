@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 1d8aaa054ac3ac6ea9e2832c3861be1d344acb13
+translation_source_sha: f9ff9c205ff26f672df048a09bdc262b8dd89608
 translation_revised: 2026-08-19
 ---
 
@@ -287,6 +287,27 @@ ActionType 변환 결과 은 가산 입니다. 이전 배포 에서는
   모두 `false`로 고정합니다. Operator 데이터베이스 역할에는 활성 스냅샷 포인터와 스냅샷
   테이블에 대한 SELECT 전용 권한만 부여합니다.
 
+### 13.10 온톨로지 워크벤치 변환 결과 묶음
+
+모든 워크벤치 읽기는 인증되고 결정론적이며 release에 연결됩니다. Release가 일치하지 않으면
+변환 전에 fail closed합니다. 서버는 상세를 반환하기 전에 역할 및 용도 필터링을 적용합니다.
+Browser는 숨겨진 필드가 아니라 redaction 개수와 사유를 받습니다. 이 경로는 원시 SQL, Cypher,
+model 실행, catalog 업로드, 승인, restore, migration 또는 managed-resource 실행 operation을
+노출하지 않습니다.
+
+| 변환 결과 | 필요한 묶음 및 범위가 제한된 payload |
+|-----------|--------------------------------------|
+| 선언 상세 | `schema_version`, `_revision`, `ontology_release_digest`, `declaration_kind`, `declaration_name`, `complete`, `incomplete_reasons`, `redaction`, `declaration`, `relationships`, `related_actions`, `mutation_authority=false`입니다. ObjectType 속성은 `type`, `required`, `description`, `access_scope`, `purpose_binding`을 보존합니다. 관계 행은 선택한 방향, cardinality, causal/temporal 플래그, 설명 및 출처 이력을 보존합니다. |
+| 종속 항목 | `schema_version`, `_revision`, 정확한 release와 선언 신원, `complete`, `truncated`, nullable `truncation_reason`, 결정론적 `dependents`, `mutation_authority=false`입니다. 각 종속 항목은 `kind`, `name`, `relationship`, `evidence_ref`를 포함하며 카탈로그 토폴로지 간선만 행을 만들 수 있습니다. |
+| 근거 상태 | `schema_version`, `_revision`, `ontology_release_digest`, `object_type`, `availability`, nullable `unavailable_reason`, 정제된 `source`, `freshness_state`, `complete`, `truncated`, nullable `synthetic`, 충돌, 제외 사유, nullable 표시 수, 근거 참조 및 `false`로 고정된 두 권한 플래그입니다. 원본을 사용할 수 없으면 0이 아니라 null count를 반환합니다. |
+| Release diff | `schema_version`, 정확한 base/candidate release 다이제스트, `added`, `changed`, `removed`, `compatibility_verdict`, `migration_required`, nullable `breaking_change`, `historical_schema_detail`, `unbound_historical_evidence`, 결정론적 `diff_digest`, `mutation_authority=false`입니다. 보존된 선언 참조는 호환성 검토를 지원하지만 과거 field-level schema를 재구성하지 않습니다. |
+| 런타임 영향 범위 | `schema_version`, 정확한 온톨로지 release, `source_generation`, `source_cutoff`, 정확한 대상, 탐색 깊이와 LinkType, 도달한 노드, 탐색한 간선, 영향받는 수, 완전성, 깊이/간선 잘림 사유 및 `false`로 고정된 두 권한 플래그입니다. 모든 간선은 표시되는 `verification_status`를 포함하며 선택적 map은 같은 스냅샷 generation 또는 cutoff와 일치해야 합니다. |
+
+공통 상세 `_revision`과 종속 항목 `_revision`은 canonical 변환 결과 byte의 SHA-256
+다이제스트입니다. Release diff는 비교한 pair에 `diff_digest`를 사용합니다. 런타임 영향 범위는
+catalog revision을 런타임 근거로 사용하는 대신 활성 인벤토리 세대를 고정합니다. Context
+snapshot은 별도의 용도 범위 receipt-bound 변환 결과이며 현재 화면에서 재구성하지 않습니다.
+
 Console은 `/ontology/object-types/:name`과 `/ontology/releases/:digest`에서 이러한 읽기를
 제공합니다. LinkType과 ActionType clean path는 기존 계약 inspector를 재사용합니다. 관련
 ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 때만 표시합니다. 이 근거가
@@ -322,6 +343,7 @@ ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 
 | 2026-08-19 | implemented | 한 개 간선만 읽는 범위 제한 깊이 probe 결과가 잘리면 fail closed하도록 변경했습니다. 앞쪽 cycle이 뒤에 있는 아직 도달하지 않은 Resource를 숨겨 영향 범위 변환 결과를 완전하다고 잘못 보고할 수 없습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused 영향 범위 변환 결과 7개 사례와 Ruff, format, mypy가 통과했습니다. | 독립적인 hardening round를 계속합니다. 모호한 깊이 probe는 부재를 추론하지 않고 명시적으로 불완전한 상태를 유지합니다. |
 | 2026-08-19 | implemented | 읽기 전용 인벤토리 및 대화 테이블의 개별 변경, truncate, reference, trigger 권한을 Operator 데이터베이스 readiness가 각각 거부하도록 강화했습니다. 실수로 쓰기 권한 하나만 부여돼도 서비스 readiness 경계를 통과할 수 없습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused readiness 사례 2개와 Ruff, format, mypy가 통과했고 실제 로컬 `fdai_operator` 역할도 ready 상태를 유지했습니다. | 독립적인 hardening round를 계속합니다. 배포된 역할 변경은 migration으로만 통제합니다. |
 | 2026-08-19 | implemented | HTTP 경계에서 활성 인벤토리 대상 부재와 온톨로지 선언 부재를 분리했습니다. Impact scope는 이제 식별자를 포함하지 않는 Resource에 맞는 `404`를 반환하고 선언 경로는 기존 공개 문구를 유지합니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused operations 경로 회귀 검사와 Ruff, format, mypy가 통과했습니다. | 독립적인 hardening round를 계속합니다. 권한 있는 원본을 사용할 수 없으면 `503`, 잘못된 요청이면 `400`을 유지합니다. |
+| 2026-08-19 | implemented | Enhancement plan의 exact 선언, 종속 항목, 근거 상태, release diff 및 활성 인벤토리 영향 범위 묶음을 shipped field 이름으로 이 owner contract에 통합했습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, 문서 pair 및 route contract gate입니다. | 보존 근거를 추가할 때 이 묶음을 유지하고 경로를 작성 또는 실행 화면으로 넓히지 않습니다. |
 
 ### 남은 작업
 

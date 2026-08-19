@@ -293,6 +293,28 @@ The declaration workbench adds bounded reads without expanding the summary paylo
   `execution_authority` and `mutation_authority` to `false`. The Operator database role receives
   SELECT-only access to the active snapshot pointer and snapshot tables.
 
+### 13.10 Ontology workbench projection envelopes
+
+All workbench reads are authenticated, deterministic, and release-bound. A release mismatch fails
+closed before projection. The server applies role and purpose filtering before returning a detail;
+the browser receives redaction counts and reasons, never hidden fields. These routes expose no raw
+SQL, Cypher, model execution, catalog upload, approval, restore, migration, or managed-resource
+execution operation.
+
+| Projection | Required envelope and bounded payload |
+|------------|---------------------------------------|
+| Declaration detail | `schema_version`, `_revision`, `ontology_release_digest`, `declaration_kind`, `declaration_name`, `complete`, `incomplete_reasons`, `redaction`, `declaration`, `relationships`, `related_actions`, and `mutation_authority=false`. ObjectType properties retain `type`, `required`, `description`, `access_scope`, and `purpose_binding`. Relationship rows retain selected direction, cardinality, causal/temporal flags, description, and provenance. |
+| Dependents | `schema_version`, `_revision`, exact release and declaration identity, `complete`, `truncated`, nullable `truncation_reason`, deterministic `dependents`, and `mutation_authority=false`. Each dependent carries `kind`, `name`, `relationship`, and `evidence_ref`; only Catalog topology edges may produce a row. |
+| Evidence health | `schema_version`, `_revision`, `ontology_release_digest`, `object_type`, `availability`, nullable `unavailable_reason`, sanitized `source`, `freshness_state`, `complete`, `truncated`, nullable `synthetic`, conflicts, drop reasons, nullable visible counts, evidence refs, and both authority flags fixed to `false`. An unavailable source returns null counts, not zero. |
+| Release diff | `schema_version`, exact base and candidate release digests, `added`, `changed`, `removed`, `compatibility_verdict`, `migration_required`, nullable `breaking_change`, `historical_schema_detail`, `unbound_historical_evidence`, deterministic `diff_digest`, and `mutation_authority=false`. Retained declaration refs support compatibility review, not field-level historical reconstruction. |
+| Runtime impact | `schema_version`, exact ontology release, `source_generation`, `source_cutoff`, exact target, traversal depth and LinkTypes, reached nodes, traversed edges, affected count, completeness, depth/edge truncation reasons, and both authority flags fixed to `false`. Every edge carries visible `verification_status`; an optional map must match the same snapshot generation or cutoff. |
+
+The common detail `_revision` and dependent `_revision` are SHA-256 digests over canonical
+projection bytes. Release diff uses `diff_digest` for the compared pair. Runtime impact pins the
+active inventory generation instead of using a catalog revision as runtime evidence. Context
+snapshots remain separate, purpose-scoped, receipt-bound projections and are never reconstructed
+from the current screen.
+
 The Console exposes these reads at `/ontology/object-types/:name` and
 `/ontology/releases/:digest`. LinkType and ActionType clean paths reuse their existing contract
 inspectors. Related actions appear only when an ActionType carries an exact semantic ObjectType or
@@ -328,6 +350,7 @@ meaningful active declaration and an authoritative usage source justify dedicate
 | 2026-08-19 | implemented | Made the bounded depth probe fail closed when its one-edge result is truncated. A leading cycle can no longer hide a later unreached Resource and incorrectly report the impact projection as complete. | [Issue #223](https://github.com/dotnetpower/fdai/issues/223); `current change`; the focused impact projection suite passed 7 cases, and Ruff, format, and mypy passed. | Continue the independent hardening rounds; an ambiguous depth probe remains explicitly incomplete rather than inferring absence. |
 | 2026-08-19 | implemented | Hardened Operator database readiness to reject each individual mutation, truncate, reference, or trigger privilege on read-only inventory and conversation tables. A single accidentally granted write privilege can no longer satisfy the service readiness boundary. | [Issue #223](https://github.com/dotnetpower/fdai/issues/223); `current change`; focused readiness tests passed 2 cases, Ruff, format, and mypy passed, and the actual local `fdai_operator` role remained ready. | Continue the independent hardening rounds; deployed role changes remain migration-controlled. |
 | 2026-08-19 | implemented | Separated missing active-inventory targets from missing ontology declarations at the HTTP boundary. Impact scope now returns a resource-appropriate, identifier-free `404` while declaration routes preserve their existing public message. | [Issue #223](https://github.com/dotnetpower/fdai/issues/223); `current change`; the focused operations route regression passed, and Ruff, format, and mypy passed. | Continue the independent hardening rounds; unavailable authoritative sources remain `503` and malformed requests remain `400`. |
+| 2026-08-19 | implemented | Integrated the enhancement plan's exact declaration, dependent, evidence-health, release-diff, and active-inventory impact envelopes into this owner contract using the shipped field names. | [Issue #223](https://github.com/dotnetpower/fdai/issues/223); `current change`; paired documentation and route-contract gates. | Preserve these envelopes when adding retained evidence; don't widen the routes into authoring or execution surfaces. |
 
 ### Remaining work
 

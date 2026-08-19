@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 19b9e5ce69107d7e89ccc946b73dee03ad043603
+translation_source_sha: 3899215b0f842cd82511eab2d2fa15a652c2af02
 translation_revised: 2026-08-19
 ---
 # FDAI 온톨로지 안전 인프라
@@ -89,6 +89,28 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 > 라운드 13에서는 successful 갱신이 새로 검증한 current-state 개정 번호를 생성하고 pin하는 것을
 > 확인했습니다.
 
+## 선언 워크벤치 제품 경계
+
+워크벤치는 객체 중심 검사로 정확한 선언을 속성, 방향이 있는 관계, 액션, 종속 항목, 근거 상태,
+영향 범위 및 release 호환성과 연결합니다. `/ontology` 레지스트리 검색과 카탈로그 토폴로지는
+넓은 탐색 화면으로 유지합니다. 시각적 스키마 편집, 임의 release 업로드, 원시 인스턴스 table,
+개인화 및 kernel icon metadata는 제외합니다. 변경은 catalog-as-code pull request로 유지하며
+Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습니다.
+
+## 운영 역량 게이트
+
+워크벤치는 다음과 같은 범위가 제한된 운영 질문에 정직하게 답할 때 완료됩니다.
+
+| 역량 | 운영자 질문 | 필요한 변환 근거 |
+|------|-------------|------------------|
+| C1 - 신원 및 접근 | 이 선언의 정확한 신원은 무엇이며 이 principal은 무엇을 볼 수 있습니까? | Release 다이제스트, 선언 버전과 출처 이력, 역할/용도 필터링 및 redaction 사유입니다. |
+| C2 - 관계 | 이 유형은 다른 유형과 어떻게 연결됩니까? | 기록된 incoming, outgoing 또는 self 방향, cardinality, causal/temporal 플래그 및 출처 이력입니다. |
+| C3 - 종속 항목 | 어떤 카탈로그 선언이 이 유형에 의존합니까? | 결정론적 토폴로지 참조, 결과 상한 및 명시적 잘림 상태입니다. |
+| C4 - 영향 범위 | 이 정확한 대상에서 어떤 활성 Resource에 도달할 수 있습니까? | 활성 스냅샷 세대와 기준 시점, 저장 방향, 깊이/간선 상한, 완전성 및 간선 검증 상태입니다. |
+| C5 - 근거 상태 | 런타임 근거가 사용 가능하고 최신이며 완전합니까? 충돌하거나 합성된 상태입니까? | 정제된 원본 별칭, 세대, 기준 시점, 최신성, 충돌, 제외 사유 및 사용 불가 시 nullable count입니다. |
+| C6 - 거버넌스 적용 액션 | 어떤 액션이 이 선언에 의미적으로 연결되어 있습니까? | 정확한 ObjectType 또는 InterfaceType 대상 근거와 전체 ActionType 안전성 계약이며 execute control은 없습니다. |
+| C7 - 변경 안전성 | 보존된 두 release 사이에서 무엇이 바뀌었습니까? | 정확한 release 다이제스트, 선언 참조 추가/변경/제거, 호환성 판정, 이행 필요 여부 및 결정론적 diff 다이제스트입니다. |
+
 ## 구현 상태
 
 ### 구현 범위
@@ -109,6 +131,7 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 |------|------|------|------|-----------|
 | 2026-08-19 | implemented | 검토된 mapping 밖의 프로바이더 native 행을 위해 카탈로그 소유 `unclassified-resource` 대상과 exact 신원 완전성 증적을 추가했습니다. 분류는 계속 검토된 Resource-ResourceType 간선이며, 지원되지 않는 native 타입 텍스트는 비활성 근거로 남아 의미 또는 실행 권한을 부여하지 않습니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). 프로바이더, Azure, 온톨로지, 카탈로그 및 조회 도메인 focused 검사 259개와 Ruff 및 strict mypy가 통과했습니다. | 인벤토리를 새로 고치고 release에 연결된 매니페스트와 parity 근거를 보존합니다. |
 | 2026-08-19 | implemented | 역할과 목적에 따라 필터링한 선언 상세, 토폴로지 기반 종속 항목, 정제된 ObjectType 근거 상태, 선언 참조 release 호환성을 서로 다른 권한 없는 변환 결과로 추가했습니다. 로컬 인증 Console은 원시 프로바이더 payload나 resource id를 노출하지 않고 사용할 수 없는 `Decision` 근거와 사용할 수 있는 `Resource` 집계 근거를 모두 렌더링했습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223); `current change`; focused Core delivery, materializer, Operator 및 Console 검사와 Console production build가 통과했습니다. | 관리되는 Browser 산출물과 principal 범위 Context 증적을 보존합니다. P2 진입 조건을 측정하기 전에는 InterfaceType 또는 FunctionType 전용 보기를 추가하지 않습니다. |
+| 2026-08-19 | implemented | 온톨로지 enhancement plan의 제품 경계, C1-C7 역량 게이트, 전달 의존성 및 중단 조건을 기존 platform, wire contract 및 code map owner에 통합했습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, 문서 pair, route contract 및 roadmap tracking gate입니다. | 관리되는 Browser 보존과 principal 범위 Context receipt는 별도 검증 근거로 유지합니다. |
 | 2026-08-13 | in-progress | 이전 provenance를 재구성하지 않고 구현 원장을 도입했습니다. | 범위 표에 나열된 현재 소스와 테스트입니다. | 아래의 관찰 가능한 종료 조건을 완료합니다. |
 | 2026-08-13 | implemented | 범위가 제한된 순위와 내용 기반 주소를 가진 증적을 제공하는 exact-generation 읽기 전용 `catalog.search_rules` 후보 검색을 추가했습니다. | 커밋 `e4d9483a5`; 집중 `test_catalog_queries.py`에서 2개 테스트를 통과했습니다. | 평가 또는 실행 권한을 부여하지 않으면서 objective-aware 검색을 조립하고 검증합니다. |
 | 2026-08-13 | implemented | 중앙 graph 검증에서 누락을 발견한 뒤 세 objective vocabulary 타입을 `Identifiable` 구현으로 등록했습니다. | 집중 `test_shipped_ontology_catalog_loads_as_one_graph`에서 1개 테스트를 통과했습니다. | 새 object type을 추가할 때마다 interface 구현 범위를 동기화합니다. |
@@ -520,6 +543,20 @@ Security는 객체, 속성, 링크, 객체 집합, 액션 발견, 액션 제출,
 호출하지 않습니다.
 
 ## 제공 순서
+
+| 구획 | 전달 항목 | 종료 기준 |
+|------|-----------|-----------|
+| P0-A | Exact 선언 상세 변환 결과입니다. | ObjectType, LinkType, ActionType 응답이 하나의 release, 결정론적 개정 번호, 완전성, redaction 및 `mutation_authority=false`를 보존합니다. |
+| P0-B | ObjectType 워크벤치와 clean 상세 경로입니다. | 직접 탐색, 새로 고침 및 keyboard 경로가 동작하고 `Decision` 속성, lifecycle 부재, 출처 이력 및 관계가 1440 x 900, 993 x 641, 390 x 844에서 page horizontal overflow 없이 렌더링됩니다. |
+| P0-C | 거버넌스 적용 액션 탐색입니다. | 관련 액션에는 정확한 의미 대상 근거가 필요하며 연결되지 않은 기존 액션은 완전성을 낮추고 이름이나 설명으로 추론하지 않습니다. |
+| P1-A | 결정론적 종속 항목과 근거 상태입니다. | 종속 항목은 카탈로그 토폴로지에서만 가져오며 사용할 수 없는 런타임 근거는 측정된 0 대신 nullable count를 제공합니다. |
+| P1-B | 활성 인벤토리 영향 범위입니다. | 탐색은 범위가 제한되고 스냅샷에 고정되며 저장 방향을 따르고 해당하면 검증되지 않은 상태를 표시하며 실행 또는 변경 권한을 부여하지 않습니다. |
+| P1-C | 보존 release 비교입니다. | 추가, 변경, 제거가 결정론적이며 누락된 과거 field schema는 검토가 필요하고 restore 또는 migration 권한을 부여하지 않습니다. |
+| P2 | InterfaceType 및 FunctionType 전용 상세입니다. | 의미 있는 활성 선언 두 개 이상과 authoritative usage source가 있어야 진입하며, 그렇지 않으면 레지스트리 신원과 토폴로지 node로 충분합니다. |
+
+P1 완료 전에 P0-A부터 P0-C까지 함께 통과합니다. 새 kernel 필드, 유사도 연결, 원시 provider
+payload, 변경/executor 자격 증명 또는 browser 계산 권한/호환성이 필요한 구획은 설계를
+수정합니다. Runtime Context는 별도의 receipt-bound 변환 결과로 유지합니다.
 
 | Wave | Deliverable | 종료 기준 |
 |------|-------------|-----------|

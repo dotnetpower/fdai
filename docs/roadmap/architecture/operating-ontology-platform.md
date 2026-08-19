@@ -84,6 +84,29 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
 > are Low. Round 12 rejected retroactive release assignment for legacy reads. Round 13 confirmed
 > that a successful update creates and pins a newly validated current-state revision.
 
+## Declaration workbench product boundary
+
+The workbench uses object-centric inspection to connect an exact declaration to properties,
+directional relationships, actions, dependents, evidence health, impact, and release compatibility.
+`/ontology` registry search and Catalog topology remain the broad exploration surfaces. It excludes
+visual schema editing, arbitrary release upload, raw instance tables, personalization, and kernel
+icon metadata. Changes remain catalog-as-code pull requests; the Console never calculates
+redaction, compatibility, completeness, or authority.
+
+## Operational competency gates
+
+The workbench is complete only when it answers these bounded operational questions honestly:
+
+| Competency | Operator question | Required projection evidence |
+|------------|-------------------|------------------------------|
+| C1 - Identity and access | What exact declaration is this, and what may this principal see? | Release digest, declaration version and provenance, role/purpose filtering, and redaction reasons. |
+| C2 - Relationships | How does this type connect to other types? | Recorded incoming, outgoing, or self direction, cardinality, causal/temporal flags, and provenance. |
+| C3 - Dependents | Which catalog declarations depend on this type? | Deterministic topology references, a result bound, and explicit truncation. |
+| C4 - Impact scope | Which active Resources are reachable from this exact target? | Active snapshot generation and cutoff, stored direction, depth/edge bounds, completeness, and edge verification state. |
+| C5 - Evidence health | Is runtime evidence available, current, complete, conflicting, or synthetic? | Sanitized source alias, generation, cutoffs, freshness, conflicts, drop reasons, and nullable counts when unavailable. |
+| C6 - Governed actions | Which actions are semantically bound to this declaration? | Exact ObjectType or InterfaceType target evidence and the complete ActionType safety contract, with no execute control. |
+| C7 - Change safety | What changed between two retained releases? | Exact release digests, declaration-ref additions/changes/removals, compatibility verdict, migration requirement, and deterministic diff digest. |
+
 ## Implementation status
 
 ### Implementation scope
@@ -104,6 +127,7 @@ runtime transition; these primitives constrain their inputs, plans, and effect v
 |------|-------|--------|----------|-----------|
 | 2026-08-19 | implemented | Added the catalog-owned `unclassified-resource` target and exact identity-completeness receipt for provider-native rows outside reviewed mappings. Classification remains a reviewed Resource-to-ResourceType edge, while unsupported native type text stays inert evidence and grants no semantic or execution authority. | [Issue #217](https://github.com/dotnetpower/fdai/issues/217); focused provider, Azure, ontology, catalog, and query-domain checks pass 259 cases; Ruff and strict mypy pass. | Refresh inventory and retain the release-bound manifest and parity evidence. |
 | 2026-08-19 | implemented | Added role- and purpose-filtered declaration details, topology-backed dependents, sanitized ObjectType evidence health, and declaration-ref release compatibility as separate no-authority projections. The local authenticated Console rendered both unavailable `Decision` evidence and available aggregate `Resource` evidence without exposing raw provider payloads or resource ids. | [Issue #223](https://github.com/dotnetpower/fdai/issues/223); `current change`; focused Core delivery, materializer, Operator and Console checks plus Console production build. | Retain a governed Browser artifact and principal-scoped Context receipt. Do not add dedicated InterfaceType or FunctionType views until the P2 entry conditions are measured. |
+| 2026-08-19 | implemented | Integrated the ontology enhancement plan's product boundary, C1-C7 competency gates, delivery dependencies, and stop conditions into the existing platform, wire-contract, and code-map owners. | [Issue #223](https://github.com/dotnetpower/fdai/issues/223); `current change`; paired documentation, route-contract, and roadmap tracking gates. | Keep governed Browser retention and the principal-scoped Context receipt as separate validation evidence. |
 | 2026-08-13 | in-progress | Adopted the implementation ledger without reconstructing earlier provenance. | Current source and tests listed in the scope table. | Complete the observable exit conditions below. |
 | 2026-08-13 | implemented | Added exact-generation, read-only `catalog.search_rules` candidate retrieval with bounded ranking and content-addressed receipts. | Commit `e4d9483a5`; focused `test_catalog_queries.py` reports 2 passed. | Compose objective-aware retrieval and validate it without granting evaluation or execution authority. |
 | 2026-08-13 | implemented | Registered the three objective vocabulary types as `Identifiable` implementations after centralized graph validation exposed the omission. | Focused `test_shipped_ontology_catalog_loads_as_one_graph` reports 1 passed. | Keep interface implementation coverage synchronized with every new object type. |
@@ -521,6 +545,20 @@ generator includes only approved types and capabilities. Write methods submit ty
 proposals; they never call an executor.
 
 ## Delivery sequence
+
+| Slice | Deliverable | Exit criteria |
+|-------|-------------|---------------|
+| P0-A | Exact declaration detail projection. | ObjectType, LinkType, and ActionType responses preserve one release, deterministic revision, completeness, redaction, and `mutation_authority=false`. |
+| P0-B | ObjectType workbench and clean detail routes. | Direct navigation, refresh, and keyboard paths work; `Decision` properties, lifecycle absence, provenance, and relationships render without horizontal page overflow at 1440 x 900, 993 x 641, and 390 x 844. |
+| P0-C | Governed action navigation. | Related actions require exact semantic target evidence; legacy unbound actions lower completeness and are never inferred by name or description. |
+| P1-A | Deterministic dependents and evidence health. | Dependents come only from Catalog topology; unavailable runtime evidence carries nullable counts rather than measured zero. |
+| P1-B | Active-inventory impact scope. | Traversal is bounded, snapshot-pinned, stored-direction, visibly unverified where applicable, and grants no execution or mutation authority. |
+| P1-C | Retained-release comparison. | Additions, changes, and removals are deterministic; missing historical field schemas require review and never grant restore or migration authority. |
+| P2 | Dedicated InterfaceType and FunctionType details. | Entry requires more than one meaningful active declaration plus an authoritative usage source; otherwise registry identity and topology nodes remain sufficient. |
+
+P0-A through P0-C pass together before P1 is complete. Revise any slice that needs a new kernel
+field, similarity links, raw provider payloads, mutation/executor credentials, or browser-calculated
+authority or compatibility. Runtime Context remains a separate receipt-bound projection.
 
 | Wave | Deliverable | Exit criteria |
 |------|-------------|---------------|
