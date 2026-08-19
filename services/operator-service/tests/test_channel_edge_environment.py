@@ -10,6 +10,7 @@ from fdai_operator_service.families.conversation.channel_edge.environment import
     ChannelEdgeConfigurationError,
     ChannelEdgeEnvironment,
 )
+from fdai_service_contracts.venue import ExecutionVenue
 
 
 def _environment(*, channels: str = "slack") -> dict[str, str]:
@@ -47,6 +48,7 @@ def test_slack_environment_resolves_closed_principal_scope_without_secret_repr()
     environment = ChannelEdgeEnvironment.parse(_environment())
 
     assert environment.enabled_channels == {ChannelKind.SLACK}
+    assert environment.execution_venue is ExecutionVenue.LOCAL
     assert environment.slack is not None and environment.teams is None
     assert environment.slack.principal_by_sender_id == {"sender-example": "principal-example"}
     rendered = repr(environment)
@@ -83,6 +85,7 @@ def test_deployed_teams_uses_managed_identity_and_rejects_client_secret() -> Non
         ChannelEdgeEnvironment.parse(values)
     values["FDAI_TEAMS_APPLICATION_ID"] = "managed-identity-example"
     environment = ChannelEdgeEnvironment.parse(values)
+    assert environment.execution_venue is ExecutionVenue.DEPLOYED
     assert environment.teams is not None
     assert environment.teams.managed_identity_client_id == "managed-identity-example"
 

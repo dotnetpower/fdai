@@ -14,6 +14,11 @@ from fdai_operator_service.families.conversation.channel_edge.teams_ingress impo
     normalize_teams_service_url,
 )
 from fdai_service_contracts import OperatorRole
+from fdai_service_contracts.venue import (
+    ExecutionVenue,
+    ExecutionVenueError,
+    resolve_execution_venue,
+)
 
 HOST_ENV = "FDAI_CHANNEL_EDGE_HOST"
 PORT_ENV = "FDAI_CHANNEL_EDGE_PORT"
@@ -38,7 +43,6 @@ TEAMS_SERVICE_URLS_ENV = "FDAI_TEAMS_ALLOWED_SERVICE_URLS_JSON"
 TEAMS_JWKS_URL_ENV = "FDAI_TEAMS_JWKS_URL"
 TEAMS_CLIENT_SECRET_ENV = "FDAI_TEAMS_CLIENT_SECRET"  # noqa: S105 - environment key
 MANAGED_IDENTITY_CLIENT_ID_ENV = "FDAI_CHANNEL_EDGE_MI_CLIENT_ID"
-EXECUTION_VENUE_ENV = "FDAI_EXECUTION_VENUE"
 
 DEFAULT_HOST = "0.0.0.0"  # noqa: S104 - ingress terminates external HTTPS.
 DEFAULT_PORT = 8014
@@ -90,7 +94,7 @@ class ChannelEdgeEnvironment:
     values: Mapping[str, str] = field(repr=False)
     host: str
     port: int
-    execution_venue: str
+    execution_venue: ExecutionVenue
     enabled_channels: frozenset[ChannelKind]
     database_url: str = field(repr=False)
     database_role: str
@@ -113,9 +117,10 @@ class ChannelEdgeEnvironment:
         if not host:
             raise ChannelEdgeConfigurationError(f"{HOST_ENV} MUST be non-empty")
         port = _bounded_int(values, PORT_ENV, DEFAULT_PORT, minimum=1, maximum=65_535)
-        execution_venue = _required(values, EXECUTION_VENUE_ENV).lower()
-        if execution_venue not in {"local", "deployed"}:
-            raise ChannelEdgeConfigurationError(f"{EXECUTION_VENUE_ENV} MUST be local or deployed")
+        try:
+            execution_venue = resolve_execution_venue(values)
+        except ExecutionVenueError as exc:
+            raise ChannelEdgeConfigurationError("channel edge execution venue is invalid") from exc
         enabled_channels = _channels(_required(values, ENABLED_CHANNELS_ENV))
         database_url = _required(values, DATABASE_URL_ENV)
         database_role = _required(values, DATABASE_ROLE_ENV)
@@ -186,7 +191,7 @@ def _teams_settings(
     values: Mapping[str, str],
     scopes: Mapping[str, PrincipalScopeSettings],
     *,
-    execution_venue: str,
+    execution_venue: ExecutionVenue,
 ) -> TeamsEdgeSettings:
     mapping = _principal_mapping(_required(values, TEAMS_PRINCIPAL_MAP_ENV), scopes=scopes)
     service_urls_raw = _json(_required(values, TEAMS_SERVICE_URLS_ENV))
@@ -211,15 +216,15 @@ def _teams_settings(
         raise ChannelEdgeConfigurationError(f"{TEAMS_SERVICE_URLS_ENV} MUST contain unique URLs")
     client_secret = values.get(TEAMS_CLIENT_SECRET_ENV, "").strip() or None
     managed_identity_client_id = values.get(MANAGED_IDENTITY_CLIENT_ID_ENV, "").strip() or None
-    if execution_venue == "local" and client_secret is None:
+    if execution_venue is ExecutionVenue.LOCAL and client_secret is None:
         raise ChannelEdgeConfigurationError(
             f"{TEAMS_CLIENT_SECRET_ENV} MUST be set when Teams is enabled locally"
         )
-    if execution_venue == "deployed" and client_secret is not None:
+    if execution_venue is ExecutionVenue.DEPLOYED and client_secret is not None:
         raise ChannelEdgeConfigurationError(
             f"{TEAMS_CLIENT_SECRET_ENV} MUST be unset in the deployed venue"
         )
-    if execution_venue == "deployed" and (
+    if execution_venue is ExecutionVenue.DEPLOYED and (
         managed_identity_client_id is None
         or managed_identity_client_id != values.get(TEAMS_APPLICATION_ID_ENV, "").strip()
     ):

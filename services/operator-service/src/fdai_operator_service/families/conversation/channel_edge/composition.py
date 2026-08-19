@@ -77,7 +77,7 @@ from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     PostgresFamilyStoreConfig,
 )
-from fdai_service_contracts.venue import bus_security_protocol, resolve_execution_venue
+from fdai_service_contracts.venue import ExecutionVenue, bus_security_protocol
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,9 +128,7 @@ class ProductionChannelEdgeComposition:
         semantic_bus = OperatorSemanticKafkaBus(
             config=OperatorSemanticKafkaConfig(
                 bootstrap_servers=environment.kafka_bootstrap_servers,
-                security_protocol=bus_security_protocol(
-                    resolve_execution_venue(environment.values)
-                ),
+                security_protocol=bus_security_protocol(environment.execution_venue),
                 request_topic=environment.semantic_request_topic,
                 projection_topic=environment.semantic_projection_topic,
                 physical_topic=environment.semantic_physical_topic,
@@ -238,7 +236,7 @@ class ProductionChannelEdgeComposition:
 def _semantic_credential(
     environment: ChannelEdgeEnvironment,
 ) -> ManagedIdentityCredential | None:
-    if environment.execution_venue == "local":
+    if environment.execution_venue is ExecutionVenue.LOCAL:
         return None
     client_id = environment.managed_identity_client_id
     return (
@@ -252,7 +250,7 @@ def _teams_credential(
     teams = environment.teams
     if teams is None:
         raise RuntimeError("Teams credential requested while Teams is disabled")
-    if environment.execution_venue == "local":
+    if environment.execution_venue is ExecutionVenue.LOCAL:
         if teams.client_secret is None:
             raise RuntimeError("validated local Teams client secret is missing")
         return ClientSecretCredential(

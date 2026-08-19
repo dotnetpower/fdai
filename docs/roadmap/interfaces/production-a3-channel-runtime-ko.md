@@ -1,7 +1,7 @@
 ---
 title: 운영 A3 채널 런타임
 translation_of: production-a3-channel-runtime.md
-translation_source_sha: 79ca0e413e84a9a04c8e44549ff6c49339f880a5
+translation_source_sha: 434cfd7676242c40cdc5ea9ddd58b928f38d7370
 translation_revised: 2026-08-20
 ---
 # 운영 A3 채널 런타임
@@ -69,6 +69,7 @@ flowchart LR
 | 2026-08-19 | 구현됨 | 인증된 Slack 및 Teams 전송을 Operator distribution으로 이동하고 결정적 inbound replay, 의미 최종 변환 결과, 영속 소유권, 프로바이더 확인 응답 종결, 재시도 작업, 프로세스 손실 조정 및 영속 차단기 유입 제어를 조립했습니다. | 커밋 `3555ecf9c`, `current change`, 집중 채널 검사 32개, 파이프라인 및 worker 검사 10개, Operator runtime role을 사용한 live PostgreSQL 연결 검사 1개를 건너뛰기 없이 통과했고 Ruff 및 strict mypy 통과 | 실패 시 닫히는 Starlette lifespan에 의존성을 연결하고 로컬 및 배포 workload를 추가하며 대체된 Core prototype을 제거하고 통제된 근거를 보존합니다. |
 | 2026-08-20 | 구현됨 | 독립 fail-closed Starlette workload, private 로컬 실행, 선택적 Operator-service Container App, 전용 non-executor identity와 최소 권한 역할, Key Vault reference, probe 및 rollback metadata를 추가했습니다. 대체된 Core transport와 Core PyJWT 의존성을 제거했습니다. | `current change`, edge package 검사 74개, shared 및 Operator channel 검사 110개, 로컬 실행 검사 3개, Ruff 및 strict mypy 통과, 플랫폼 및 Operator-service Terraform 검증 통과 | 독립 hardening을 완료한 뒤 통제된 로컬 프로바이더 및 보호된 plan/apply/rollback 근거를 보존합니다. |
 | 2026-08-20 | 구현됨 | 독립 hardening round 10개를 완료했습니다. 플랫폼 범위를 벗어난 Slack timestamp를 server error 없이 거부하고, 로컬 secret을 읽기 전에 상속된 shell tracing을 끄며, 범위가 제한된 TTL 뒤 known Teams JWKS key를 갱신하고, 기한이 된 전송 전에 활성 principal/scope/conversation/channel binding을 다시 검증하며, 소유 runtime 및 credential resource를 정확히 한 번 닫습니다. | `current change`, 집중 edge 검사 81개, Ruff 및 strict mypy 통과, 수락한 모든 finding에 집중 회귀 추가 | Runtime 행을 `validated`로 올리기 전에 통제된 로컬 프로바이더 및 보호된 plan/apply/rollback 증적을 보존합니다. |
+| 2026-08-20 | 구현됨 | 모든 A3 test를 Operator service suite에 귀속하고, shared `ExecutionVenue` 계약을 통해 venue를 선택하며, A3 design route에서 폐기한 Core prototype 경로를 제거해 exact-commit 구조 finding을 닫았습니다. | `current change`, 집중 service-suite, venue-contract, design-route, environment 및 composition 검사 | Runtime 행을 `validated`로 올리기 전에 통제된 로컬 프로바이더 및 보호된 plan/apply/rollback 증적을 보존합니다. |
 
 ### 남은 작업
 
