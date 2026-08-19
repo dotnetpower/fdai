@@ -1,9 +1,9 @@
 """Drift guards for required structural gates.
 
 These tests assert that the gates the tracker (#14 / #22) requires stay
-wired into CI and the pre-push hook. They are the last line of defence
-against someone removing a job to unblock a red pipeline without also
-adding the file to an allowlist.
+wired into CI and the pre-push hook. A gate may share a CI job with other
+lightweight checks, but its command and aggregate required status remain
+mandatory.
 """
 
 from __future__ import annotations
@@ -17,16 +17,15 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 _CI = _REPO_ROOT / ".github" / "workflows" / "ci.yml"
 _PRE_PUSH = _REPO_ROOT / ".githooks" / "pre-push"
 
-_REQUIRED_JOBS = (
-    "core-imports",
-    "agents-imports",
-    "evaluation-boundaries",
-    "operator-api-boundaries",
-    "evaluation-packages",
-    "file-loc",
-    "subsystem-fanout",
-    "doc-links",
-    "protected-paths",
+_REQUIRED_GATE_BINDINGS = (
+    ("repository-contracts", "check-core-imports.sh"),
+    ("repository-contracts", "check-agents-imports.sh"),
+    ("repository-contracts", "check-evaluation-boundaries.py"),
+    ("repository-contracts", "check-operator-api-boundaries.py"),
+    ("repository-contracts", "check-file-loc.sh"),
+    ("repository-contracts", "check-subsystem-fanout.sh"),
+    ("repository-contracts", "check-doc-links.sh"),
+    ("design-contracts", "check-protected-paths.sh"),
 )
 
 
@@ -35,41 +34,29 @@ def ci_workflow() -> dict:
     return yaml.safe_load(_CI.read_text())
 
 
-@pytest.mark.parametrize("job", _REQUIRED_JOBS)
-def test_ci_workflow_declares_required_job(ci_workflow: dict, job: str) -> None:
-    assert job in ci_workflow["jobs"], (
-        f"CI workflow missing required structural gate job '{job}'. "
-        "Removing a gate to unblock a red pipeline is a drift regression - "
-        "add the offending file to the gate's allowlist with a justification "
-        "instead. See tracker #14."
-    )
-
-
-@pytest.mark.parametrize(
-    "job,script",
-    [
-        ("core-imports", "check-core-imports.sh"),
-        ("agents-imports", "check-agents-imports.sh"),
-        ("evaluation-boundaries", "check-evaluation-boundaries.py"),
-        ("operator-api-boundaries", "check-operator-api-boundaries.py"),
-        ("file-loc", "check-file-loc.sh"),
-        ("subsystem-fanout", "check-subsystem-fanout.sh"),
-        ("doc-links", "check-doc-links.sh"),
-    ],
-)
+@pytest.mark.parametrize("job,script", _REQUIRED_GATE_BINDINGS)
 def test_ci_job_invokes_expected_script(ci_workflow: dict, job: str, script: str) -> None:
+    assert job in ci_workflow["jobs"]
     steps = ci_workflow["jobs"][job]["steps"]
     invocations = " ".join(str(step.get("run", "")) for step in steps)
     assert script in invocations, (
         f"CI job '{job}' no longer invokes scripts/{script} - probable"
         " accidental rewrite. See tracker #14."
     )
+    assert job in ci_workflow["jobs"]["required"]["needs"]
+
+
+def test_evaluation_packages_remain_a_required_independent_job(ci_workflow: dict) -> None:
+    assert "evaluation-packages" in ci_workflow["jobs"]
+    assert "evaluation-packages" in ci_workflow["jobs"]["required"]["needs"]
 
 
 def test_operator_api_boundary_ci_step_is_exact(ci_workflow: dict) -> None:
-    steps = ci_workflow["jobs"]["operator-api-boundaries"]["steps"]
-    commands = [str(step.get("run", "")).strip() for step in steps if "run" in step]
-    assert commands == ["python3 scripts/quality/architecture/check-operator-api-boundaries.py"]
+    steps = ci_workflow["jobs"]["repository-contracts"]["steps"]
+    commands = "\n".join(str(step.get("run", "")) for step in steps if "run" in step)
+
+    command = "python3 scripts/quality/architecture/check-operator-api-boundaries.py"
+    assert commands.count(command) == 1
 
 
 def test_pre_push_hook_invokes_all_structural_gates() -> None:

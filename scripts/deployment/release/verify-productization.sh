@@ -79,7 +79,6 @@ test_paths=(
   services/core-control-plane/tests/delivery/azure/llm
   tests/integration/scripts/test_cleanup_deployment_plans.py
   tests/integration/scripts/test_check_runner_egress.py
-  tests/integration/scripts/test_release_deployment_bundle_workflow.py
   tests/integration/scripts/test_verify_deployment_plan.py
   tests/integration/scripts/test_verify_productization.py
   services/core-control-plane/tests/core/document_ingestion/test_document_ingestion.py

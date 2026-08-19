@@ -34,6 +34,7 @@ machine.
 |------|-------|--------|----------|-----------|
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. Corrected prior claims that the removed deployment CLI package and its commands were currently available. | current change; package metadata, release scripts, protected workflows, and focused workflow checks listed in the scope table | Create the dedicated CLI distribution, restore verification behind that boundary, and prove installation plus disconnected use. |
 | 2026-08-19 | deferred | Removed the manual deployment-bundle workflow because it invoked the unavailable `fdaictl bundle verify` command and had no successful run evidence. | issue #222; current workflow inventory and focused CI contract tests | Add the dedicated CLI verifier first, then restore a protected release workflow with clean-checkout evidence. |
+| 2026-08-19 | deferred | Removed the retired workflow-only test from productization validation so the release check no longer requires a path that the deferred workflow removed. | current change; `scripts/deployment/release/verify-productization.sh`; focused productization and structural-gate tests passed 55 cases | Restore the workflow test only with an executable CLI verifier and protected release workflow. |
 
 ### Remaining work
 
