@@ -1488,7 +1488,7 @@ def test_manifest_function_may_feed_declaration_aggregate_output() -> None:
     assert (t2.frame_calls, t2.plan_calls) == (0, 0)
 
 
-def test_manifest_aggregate_kinds_must_match_frame_subjects() -> None:
+def test_manifest_aggregate_kinds_are_bound_to_frame_subjects() -> None:
     manifest, _definition = _fixture()
     frame = _frame(
         subject_constraints=["object"],
@@ -1509,7 +1509,8 @@ def test_manifest_aggregate_kinds_must_match_frame_subjects() -> None:
 
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert outcome.plan is not None
-    assert (t1.plan_calls, t2.plan_calls) == (1, 1)
+    assert outcome.plan.nodes[0].arguments["arguments"]["kinds"] == ["object"]
+    assert (t1.plan_calls, t2.plan_calls) == (1, 0)
 
 
 @pytest.mark.parametrize(
@@ -1569,6 +1570,35 @@ def test_property_filter_frame_requires_object_set_predicate() -> None:
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
     assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+
+
+def test_property_filter_binds_missing_exact_frame_property() -> None:
+    manifest, definition = _fixture()
+    unfiltered = definition.model_copy(update={"predicates": ()})
+    t1 = _Model(
+        frame=_frame(
+            output_shape="property_filtered_resources",
+            measure_concepts=["id"],
+        ),
+        plan=_plan(unfiltered),
+    )
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[0].arguments["definition"]["predicates"] == [
+        {"property": "id", "operator": "exists"}
+    ]
+    assert (t1.plan_calls, t2.plan_calls) == (1, 0)
 
 
 def test_scope_denial_never_invokes_t2() -> None:

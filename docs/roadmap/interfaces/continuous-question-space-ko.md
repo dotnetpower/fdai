@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: a7a677fcad002c6bff4456b98096fc3b760f0eae
+translation_source_sha: f2ae4a6294b6f33fa4f1538a485031a5bb9b7405
 translation_revised: 2026-08-20
 ---
 # 지속형 질문 공간
@@ -49,7 +49,7 @@ flowchart LR
 | 공유 one-shot 패키지 | implemented | `core/conversation/question_schedule.py`; `delivery/ontology_question_campaign.py`; `ontology_question_campaign_cli.py`; 집중 기한 판정 및 공유 실행기 검사 | 수동 및 예약 트리거는 주입된 실행기 패키지 하나를 사용합니다. 비활성, 실행 시점 아님, 근거 없음, 모델 없음, Reader 증명 없음, 예약 예산 소진, claim 충돌은 해당 모델 또는 의미 호출 전에 중단됩니다. |
 | 환경 구성 및 배포 Job | deferred | 형식화된 workload principal 증적과 기한 판정 보류, 배포 산출물 없음 | 권위 있는 workload principal mapper, 의미 제출 포트, 정확한 모델 연결, 준비 상태 probe가 생길 때까지 공유 패키지에는 독립 환경 구성과 배포 Job을 추가하지 않습니다. 계획의 인증 전 중단 조건을 보존합니다. |
 | Strict v2 릴리스 게이트 | implemented | `console/tests/live-e2e/ontology-query-assurance.ts`; `scripts/automation/run_ontology_assurance.py`; 집중 Console 및 감독기 검사 | 고정 100개 사례는 영어와 한국어 각각 50개를 유지합니다. Strict v2는 기존 14개와 선언, 릴리스/근거, 인벤토리 영향, Rule 상태를 두 로캘로 추가한 22개를 선택합니다. 릴리스 근거는 정확한 전송 22/22를 요구합니다. |
-| 현재 라이브 인증 | in-progress | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); 정확한 소스 실행 `question-space-final-a50812c49-20260820-r8`; `current change`; 의미 계획 및 prompt registry 집중 테스트 61개 | 실행 r8은 답변 필수 셀 16개를 모두 답변한 뒤 정확한 함수가 unavailable인 선택 extension 셀 4개를 일반 `topology_at` 또는 `object_set` 계획으로 답변한 문제를 발견했습니다. 전용 릴리스/근거 상태 및 인벤토리 영향 출력 계열은 이제 일반 대체를 차단합니다. 검증을 완료하려면 새로운 strict 및 seeded 실행이 필요합니다. |
+| 현재 라이브 인증 | in-progress | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); 정확한 소스 실행 `question-space-final-709603208-20260820-r9`; `current change`; 의미 계획 및 prompt registry 집중 테스트 62개 | 실행 r9는 22개 셀을 모두 전송하고 판단했으며 모든 hard-zero 카운터가 0이었지만 15개만 답변해 immutable 최소값 16을 충족하지 못했고 seeded 보증 전에 종료됐습니다. 이제 Core는 검증된 frame에서 canonical manifest aggregate kind와 누락된 exact property predicate를 다시 결속하고 prompt v25와 v18은 닫힌 두 축을 보존합니다. 검증을 완료하려면 새로운 strict 및 seeded 실행이 필요합니다. |
 | 예약 workload 제출 | deferred | 기한 판정의 `scheduled_principal_unavailable` 및 `scheduled_principal_reader_mapping_unavailable` 결과 | 형식화된 증적은 workload 종류, 불투명 principal 다이제스트, Reader 역할과 소스, 범위 다이제스트, `operations-review` 목적, 인증 근거 다이제스트, 만료를 요구합니다. 권위 있는 mapper가 없으므로 배포 Job과 인프라는 의도적으로 추가하지 않습니다. |
 
 ### 구현 이력
@@ -65,6 +65,7 @@ flowchart LR
 | 2026-08-20 | implemented | Browser 보증 추출기의 중복 기능 허용 목록을 checkpoint 검증기의 공유 레지스트리로 교체했습니다. 첫 번째 정확한 소스 재실행은 strict turn 22개를 모두 완료했지만 검증된 선언 답변 2개에서 `query.ontology_declaration`을 버려 drift를 드러냈습니다. 레지스트리는 이제 `metric_scope_series`도 보존합니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); `current change`; 라이브 실행 `question-space-final-9fb7cb213-20260820-r6`은 정확한 22-turn 전송과 추출기 불일치 2건만 기록했고, 수정 뒤 집중 보증 테스트 100개와 Console typecheck가 통과했습니다. | 수정된 소스를 중앙 검증하고 strict v2를 다시 실행합니다. Strict가 통과한 뒤에만 seeded 100을 시작합니다. |
 | 2026-08-20 | implemented | 수정된 strict-v2 추출기가 relationship-type count 질문 2개를 모두 unsupported로 드러낸 뒤 semantic frame prompt v23으로 version을 올렸습니다. 이제 schema aggregation subject는 canonical manifest kind를 사용해야 하며 relationship 또는 relationship type에는 `link`를 사용하므로 alias가 두 plan tier 재시도에 고정될 수 없습니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); `current change`; 라이브 실행 `question-space-final-2333d7b69-20260820-r7`, 집중 prompt 레지스트리 계약 통과 | Frame v23을 중앙 검증하고 strict v2를 다시 실행합니다. Answer-required cell 16개가 모두 완전한 근거로 답한 뒤에만 seeded 100을 시작합니다. |
 | 2026-08-20 | implemented | Strict-v2 실행 r8에서 unavailable extension 함수가 일반 topology 또는 object-set 답변으로 대체된 뒤 전용 `ontology_release_evidence_health`와 `inventory_impact` frame 출력을 추가했습니다. 이제 결정론적 alignment는 정확한 인벤토리 함수 또는 릴리스 차이와 근거 상태 함수의 완전한 집합을 요구하고, prompt v24와 v17은 서버 소유 대상을 발명하지 않으면서 해당 계열을 보존합니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); `current change`; 정확한 소스 실행 `question-space-final-a50812c49-20260820-r8`; 의미 계획 및 prompt registry 집중 테스트 61개 통과; 작업 범위 Ruff와 strict mypy 통과. | 새로운 정확한 소스 검증 증적을 확보하고 strict v2를 다시 실행합니다. Strict가 통과한 뒤에만 seeded 100을 시작합니다. |
+| 2026-08-20 | implemented | Strict-v2 실행 r9가 immutable 답변 최소값에 미달한 뒤 이미 검증된 frame의 정확한 plan 축 두 개를 결속했습니다. Schema aggregation은 `query.manifest` kind를 canonical declaration subject로 다시 쓰고, 비어 있는 property-filter plan에는 frame이 이름 붙인 exact descriptor property만 추가합니다. Prompt v25와 v18은 relationship count와 declared resource type 모양을 닫습니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); `current change`; 정확한 소스 실행 `question-space-final-709603208-20260820-r9`은 22/22 전송과 판단 및 hard-zero 카운터 0을 기록했지만 답변은 15개였습니다. 의미 계획 및 prompt registry 집중 테스트 62개, 작업 범위 Ruff와 strict mypy가 통과했습니다. | 새로운 정확한 소스 검증 증적을 확보하고 strict v2를 다시 실행합니다. Strict가 통과한 뒤에만 seeded 100을 시작합니다. |
 
 ### 남은 작업
 
@@ -198,6 +199,7 @@ cron, IANA 표준 시간대, 로캘, 관점, 질문 수, 토큰, 비용, 전체 
 | 58 | 라이브 보증 기능 추출 | Medium, resolved | 정확한 소스 strict v2가 Browser 추출기의 로컬 기능 허용 목록과 타입이 지정된 보증 레지스트리 사이 drift를 증명했습니다. 이제 하나의 exported 레지스트리가 Browser 추출과 checkpoint 검증을 함께 구동하며 모든 strict-v2 함수와 `metric_scope_series`를 포함합니다. |
 | 59 | Strict aggregation frame 식별자 | Medium, resolved | 두 planning tier가 수락된 frame 하나에서 비표준 relationship kind subject를 상속해 exact manifest kind와 비교하는 plan을 거부했습니다. Frame v23은 schema aggregation에 canonical `object`, `interface`, `link`, `action`, `function` subject를 요구하고 relationship type을 `link`로 매핑합니다. 라이브 재인증은 위의 열린 근거 항목으로 유지됩니다. |
 | 60 | 정확한 extension 기능 대체 | Medium, resolved | 실행 r8은 답변 필수 셀을 모두 증명했지만 정확한 특수 함수가 unavailable인 상태에서 선택 extension 답변 4개가 일반 `topology_at` 또는 `object_set` 계획으로 생성되는 문제를 드러냈습니다. 전용 frame 계열과 결정론적 함수 집합 alignment는 이제 정확한 기능이 있을 때만 답변하고 그렇지 않으면 형식화된 보류를 강제합니다. Positive 및 negative 라우팅 검사가 통과합니다. |
+| 61 | 필수 답변 plan 축 drift | Medium, resolved | 실행 r9는 정확한 전송, 판단, 근거 및 hard-zero 안전성을 보존했지만 15개 셀만 답변했습니다. Frame이 해당 축을 이미 고정한 뒤에도 두 tier가 canonical schema aggregate kind를 다시 해석하거나 property predicate를 생략할 수 있었습니다. 이제 Core는 검증 전에 해당 exact frame 및 manifest 사실만 다시 적용하며 모호한 measure와 기존 predicate는 건드리지 않습니다. |
 
 남은 Low 항목은 인벤토리 탐색 edge case 추가 음수 테스트, 캠페인 간 중복 corpus 보존 근거,
 과거 릴리스 차이 회귀 테스트 이름, 추가 URI 스킴, 정상 자격 증명 어휘, 한국어 안전 변형입니다.
