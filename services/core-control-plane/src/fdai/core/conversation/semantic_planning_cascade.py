@@ -43,11 +43,20 @@ _RUNTIME_INSTANCE_TOKEN = re.compile(
     r"(?<![A-Za-z0-9_.-])[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+){2,}(?![A-Za-z0-9_.-])"
 )
 _MAX_SCANNED_TOKENS = 32
+_SPECIALIZED_FUNCTIONS_BY_OUTPUT_SHAPE = {
+    "incident_evidence": frozenset({"query.incident_evidence"}),
+    "inventory_impact": frozenset({"query.inventory_impact"}),
+    "ontology_declaration": frozenset({"query.ontology_declaration"}),
+    "ontology_manifest": frozenset({"query.manifest"}),
+    "ontology_relationships": frozenset({"query.ontology_relationships"}),
+    "ontology_release_evidence_health": frozenset(
+        {"query.ontology_evidence_health", "query.ontology_release_diff"}
+    ),
+}
 _SPECIALIZED_FUNCTION_OUTPUT_SHAPES = {
-    "query.incident_evidence": "incident_evidence",
-    "query.manifest": "ontology_manifest",
-    "query.ontology_declaration": "ontology_declaration",
-    "query.ontology_relationships": "ontology_relationships",
+    function_name: output_shape
+    for output_shape, function_names in _SPECIALIZED_FUNCTIONS_BY_OUTPUT_SHAPE.items()
+    for function_name in function_names
 }
 _DECLARATION_SECTIONS_BY_MEASURE = {
     "declaration_detail": "detail",
@@ -353,15 +362,8 @@ def _verify_frame_plan_alignment(
         if isinstance(function_name, str):
             selected_output_functions.add(function_name)
 
-    expected_function = next(
-        (
-            function_name
-            for function_name, output_shape in _SPECIALIZED_FUNCTION_OUTPUT_SHAPES.items()
-            if output_shape == frame.output_shape
-        ),
-        None,
-    )
-    if expected_function is not None and expected_function not in selected_output_functions:
+    expected_functions = _SPECIALIZED_FUNCTIONS_BY_OUTPUT_SHAPE.get(frame.output_shape)
+    if expected_functions is not None and not expected_functions <= selected_output_functions:
         raise ValueError("semantic plan does not satisfy specialized frame output")
     if any(
         output_shape != frame.output_shape

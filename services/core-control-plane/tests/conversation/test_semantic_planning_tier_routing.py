@@ -23,18 +23,29 @@ from fdai.core.ontology_platform import (
     OntologyQueryPlanVerifier,
     build_query_manifest,
 )
+from fdai.core.ontology_platform.evidence_health_queries import (
+    ontology_evidence_health_function_type,
+)
 from fdai.core.ontology_platform.incident_queries import (
     INCIDENT_EVIDENCE_MAX_RECORDS,
     incident_evidence_function_type,
 )
+from fdai.core.ontology_platform.inventory_impact_queries import inventory_impact_function_type
 from fdai.core.ontology_platform.property_values import PropertyValueDomain, PropertyValueGroup
+from fdai.core.ontology_platform.release_diff_queries import ontology_release_diff_function_type
 from fdai.rule_catalog.schema.llm_resolver import (
     CapabilityStatus,
     NarratorCandidate,
     ResolvedCapability,
     ResolvedModels,
 )
-from fdai.shared.contracts.models import CeilingRole, OntologyObjectType, PropertyDecl, PropertyType
+from fdai.shared.contracts.models import (
+    CeilingRole,
+    OntologyFunctionType,
+    OntologyObjectType,
+    PropertyDecl,
+    PropertyType,
+)
 from fdai.shared.ontology.release import build_ontology_release
 from fdai_service_contracts.ontology_query import QueryNodeKind
 
@@ -78,6 +89,7 @@ def _fixture(
     *,
     property_values: tuple[PropertyValueDomain, ...] = (),
     include_rule: bool = False,
+    function_types: tuple[OntologyFunctionType, ...] = (),
 ) -> tuple[Any, ObjectSetDefinition]:
     resource = OntologyObjectType(
         schema_version="1.0.0",
@@ -97,13 +109,15 @@ def _fixture(
         properties={"id": PropertyDecl(type=PropertyType.STRING, required=True)},
     )
     object_types = (resource, rule) if include_rule else (resource,)
-    release = build_ontology_release(object_types=object_types)
+    release = build_ontology_release(object_types=object_types, function_types=function_types)
     manifest = build_query_manifest(
         release=release,
         principal_role=CeilingRole.READER,
         purposes=("operations-review",),
         principal_scope_digest=DIGEST,
         object_types=object_types,
+        functions=function_types,
+        bound_function_names=tuple(item.name for item in function_types),
         property_values=property_values,
     )
     definition = ObjectSetDefinition(
@@ -168,6 +182,35 @@ def _function_plan(
             }
         ],
         "output_node_ids": ["function-result"],
+    }
+
+
+def _function_set_plan(*function_names: str) -> dict[str, object]:
+    function_arguments: dict[str, dict[str, object]] = {
+        "query.inventory_impact": {"depth": 1, "link_types": ["contains"]},
+        "query.ontology_evidence_health": {"object_type": "Resource"},
+        "query.ontology_release_diff": {
+            "base_release_digest": DIGEST,
+            "candidate_release_digest": "sha256:" + ("b" * 64),
+            "limit": 100,
+        },
+    }
+    return {
+        "nodes": [
+            {
+                "node_id": f"function-{index}",
+                "kind": "function",
+                "depends_on": [],
+                "arguments": {
+                    "function_name": function_name,
+                    "arguments": function_arguments[function_name],
+                    "dependency_arguments": {},
+                },
+                "output_kind": "query.table",
+            }
+            for index, function_name in enumerate(function_names)
+        ],
+        "output_node_ids": [f"function-{index}" for index in range(len(function_names))],
     }
 
 
@@ -518,6 +561,62 @@ def test_matching_specialized_t1_plan_never_invokes_t2() -> None:
         escalation_model=t2,
         manifests=_ManifestProvider(manifest),
         verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+@pytest.mark.parametrize(
+    "output_shape",
+    ("inventory_impact", "ontology_release_evidence_health"),
+)
+def test_strict_v2_specialized_frames_reject_generic_substitutes(output_shape: str) -> None:
+    manifest, definition = _fixture()
+    generic_plan = _plan(definition)
+    t1 = _Model(frame=_frame(output_shape=output_shape), plan=generic_plan)
+    t2 = _Model(frame=_frame(), plan=generic_plan)
+
+    outcome = _run(_service(t1, t2, manifest))
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+
+
+@pytest.mark.parametrize(
+    ("output_shape", "function_names"),
+    (
+        ("inventory_impact", ("query.inventory_impact",)),
+        (
+            "ontology_release_evidence_health",
+            ("query.ontology_release_diff", "query.ontology_evidence_health"),
+        ),
+    ),
+)
+def test_strict_v2_specialized_frames_accept_exact_function_sets(
+    output_shape: str,
+    function_names: tuple[str, ...],
+) -> None:
+    function_types = {
+        "query.inventory_impact": inventory_impact_function_type(),
+        "query.ontology_evidence_health": ontology_evidence_health_function_type(),
+        "query.ontology_release_diff": ontology_release_diff_function_type(),
+    }
+    manifest, definition = _fixture(
+        function_types=tuple(function_types[name] for name in function_names)
+    )
+    t1 = _Model(frame=_frame(output_shape=output_shape), plan=_function_set_plan(*function_names))
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=OntologyQueryPlanVerifier(available_kinds=(QueryNodeKind.FUNCTION,)),
         now=lambda: NOW,
     )
 

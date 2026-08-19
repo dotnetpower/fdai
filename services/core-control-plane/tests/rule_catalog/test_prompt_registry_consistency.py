@@ -126,7 +126,7 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     frame = prompts.get_base("semantic.query.frame")
     plan = prompts.get_base("semantic.query.plan")
 
-    assert frame.version == 23
+    assert frame.version == 24
     assert "output_shape to exactly one capability family" in frame.body
     assert "aggregation_table for a count or grouping" in frame.body
     assert "topology_graph for current instance connectivity or containment" in frame.body
@@ -193,6 +193,12 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "requested runtime relation verb dominates ontology nouns" in frame.body
     assert "ontology_manifest only lists declarations" in frame.body
     assert "ontology_declaration for the detail, dependents" in frame.body
+    assert (
+        "ontology_release_evidence_health for a combined retained-release comparison" in frame.body
+    )
+    assert "bounded direct impact scope of one selected resource" in frame.body
+    assert "Do not reduce this combined schema-and-evidence request" in frame.body
+    assert "never invent it, expose it as unresolved, or replace impact traversal" in frame.body
     assert "active Rule semantics from collected Rule references" in frame.body
     assert "declaration_dependents for dependents" in frame.body
     assert "rule_state as its only measure concept" in frame.body
@@ -206,9 +212,14 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "do not require incident_id or correlation_id" in frame.body
     assert "cause_claim_supported=false" in frame.body
     assert "Do not claim a cause" in frame.body
-    assert plan.version == 16
+    assert plan.version == 17
     assert "Satisfy the frame's exact output_shape" in plan.body
     assert "ontology_declaration requires query.ontology_declaration" in plan.body
+    assert "ontology_release_evidence_health requires both query.ontology_release_diff" in plan.body
+    assert "inventory_impact requires query.inventory_impact" in plan.body
+    assert "Both nodes are output nodes" in plan.body
+    assert "resource target is resolved by trusted server context" in plan.body
+    assert "do not substitute topology_at, object_set, resource_list" in plan.body
     assert '"function_name":"query.ontology_declaration"' in plan.body
     assert "declaration_dependents outputs one dependents node" in plan.body
     assert "Every plan node is a declaration output node" in plan.body
