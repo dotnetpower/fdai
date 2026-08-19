@@ -147,6 +147,18 @@
       }
     },
     {
+      "label": "channel edge: prepare local env",
+      "type": "shell",
+      "command": "bash scripts/deployment/local/prepare-channel-edge-env.sh",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "operator-channel-edge",
+        "close": true
+      }
+    },
+    {
       "label": "console: prepare local independent service envs",
       "type": "shell",
       "command": "bash scripts/deployment/local/prepare-independent-service-envs.sh",
@@ -313,6 +325,35 @@
         "focus": false,
         "panel": "dedicated",
         "group": "console-operator-api",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "runOptions": {
+        "instanceLimit": 1,
+        "instancePolicy": "silent"
+      }
+    },
+    {
+      "label": "channel edge: Operator Slack and Teams (Local)",
+      "type": "shell",
+      "dependsOrder": "sequence",
+      "dependsOn": ["channel edge: prepare local env"],
+      "command": "set -a && source .fdai/local-channel-edge.env && set +a && FDAI_LOCAL_SERVICE_LOG_FORMAT=json-plain bash scripts/automation/run-local-service.sh operator-channel-edge \"$PWD/.fdai/logs/operator-channel-edge.log\" -- env -u AZURE_CONFIG_DIR PYTHONPATH=\"$PWD/services/operator-service/src:$PWD/packages/service-contracts/src${PYTHONPATH:+:$PYTHONPATH}\" .venv/bin/fdai-operator-channel-edge",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "operator-channel-edge",
+        "pattern": { "regexp": "^(?!)$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*service=operator-channel-edge event=starting$",
+          "endsPattern": "Application startup complete\\."
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "group": "operator-channel-edge",
         "clear": true,
         "showReuseMessage": false
       },

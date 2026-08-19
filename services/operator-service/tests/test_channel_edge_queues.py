@@ -98,6 +98,20 @@ async def test_teams_queue_rejection_leaves_no_endpoint_binding() -> None:
         await anext(consumer)
 
 
+async def test_full_slack_queue_closes_without_waiting_and_drains() -> None:
+    queue = SlackIngressQueue(  # type: ignore[arg-type]
+        ingress=_SlackIngress(_turn(ChannelKind.SLACK)),
+        capacity=1,
+    )
+    queue.accept(body=b"{}", headers={}, received_at=_NOW)
+
+    await queue.close()
+    consumer = queue.receive()
+    assert (await anext(consumer)).turn.message_id == "message-conversation-example"
+    with pytest.raises(StopAsyncIteration):
+        await anext(consumer)
+
+
 def test_teams_endpoint_registry_rejects_change_and_capacity_exhaustion() -> None:
     endpoints = TeamsEndpointRegistry(
         allowed_service_urls=frozenset({_SERVICE_URL, "https://other.example.com"}),

@@ -73,6 +73,8 @@ class SlackIngressQueue:
     async def receive(self) -> AsyncIterator[AuthenticatedInboundTurn]:
         """Yield accepted turns until shutdown drains and closes the queue."""
         while True:
+            if self._closed and self._queue.empty():
+                return
             item = await self._queue.get()
             if item is _CLOSED:
                 return
@@ -83,7 +85,10 @@ class SlackIngressQueue:
         if self._closed:
             return
         self._closed = True
-        await self._queue.put(_CLOSED)
+        try:
+            self._queue.put_nowait(_CLOSED)
+        except asyncio.QueueFull:
+            pass
 
 
 class TeamsEndpointRegistry:
@@ -187,6 +192,8 @@ class TeamsIngressQueue:
     async def receive(self) -> AsyncIterator[AuthenticatedInboundTurn]:
         """Yield accepted turns until shutdown drains and closes the queue."""
         while True:
+            if self._closed and self._queue.empty():
+                return
             item = await self._queue.get()
             if item is _CLOSED:
                 return
@@ -197,7 +204,10 @@ class TeamsIngressQueue:
         if self._closed:
             return
         self._closed = True
-        await self._queue.put(_CLOSED)
+        try:
+            self._queue.put_nowait(_CLOSED)
+        except asyncio.QueueFull:
+            pass
 
 
 __all__ = ["SlackIngressQueue", "TeamsEndpointRegistry", "TeamsIngressQueue"]

@@ -49,6 +49,16 @@ class PostgresPrincipalChannelBindingStore:
     def __init__(self, *, config: PostgresChannelBindingConfig) -> None:
         self._config = config
 
+    async def probe_readiness(self) -> bool:
+        """Verify runtime-role access to the verified binding table."""
+        try:
+            async with await self._connect() as connection:
+                await self._set_timeout(connection)
+                await connection.execute("SELECT 1 FROM principal_conversation_binding LIMIT 0")
+            return True
+        except psycopg.Error:
+            return False
+
     async def create(self, binding: PrincipalChannelBinding) -> PrincipalChannelBinding:
         """Insert one immutable binding or return its exact idempotent replay."""
         endpoint = binding.endpoint

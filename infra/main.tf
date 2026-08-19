@@ -378,6 +378,15 @@ module "command_api_identity" {
   tags                = merge(local.tags, { "fdai:component" = "command-transport" })
 }
 
+module "operator_channel_edge_identity" {
+  count               = var.enable_operator_channel_edge ? 1 : 0
+  source              = "./modules/identity/user-assigned-mi"
+  name                = "id-${var.workload}${local.full_suffix}-channel-edge"
+  resource_group_name = module.resource_group.name
+  location            = var.region
+  tags                = merge(local.tags, { "fdai:component" = "operator-channel-edge" })
+}
+
 module "isolated_executor_identity" {
   count               = var.enable_isolated_executor ? 1 : 0
   source              = "./modules/identity/user-assigned-mi"
@@ -476,6 +485,13 @@ resource "azurerm_role_assignment" "operator_api_acr_pull" {
   principal_id         = module.operator_api_identity[0].principal_id
 }
 
+resource "azurerm_role_assignment" "operator_channel_edge_acr_pull" {
+  count                = var.enable_operator_channel_edge ? 1 : 0
+  scope                = module.container_registry.id
+  role_definition_name = "AcrPull"
+  principal_id         = module.operator_channel_edge_identity[0].principal_id
+}
+
 # -----------------------------------------------------------------------
 # Notification delivery - ACS Email with an Azure-managed sender domain.
 # -----------------------------------------------------------------------
@@ -572,6 +588,20 @@ resource "azurerm_role_assignment" "command_api_eventhubs_receiver" {
   scope                = each.value
   role_definition_name = "Azure Event Hubs Data Receiver"
   principal_id         = module.command_api_identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "operator_channel_edge_eventhubs_sender" {
+  count                = var.enable_operator_channel_edge ? 1 : 0
+  scope                = module.event_bus.topic_ids[local.semantic_turn_physical_topic]
+  role_definition_name = "Azure Event Hubs Data Sender"
+  principal_id         = module.operator_channel_edge_identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "operator_channel_edge_eventhubs_receiver" {
+  count                = var.enable_operator_channel_edge ? 1 : 0
+  scope                = module.event_bus.topic_ids[local.semantic_turn_physical_topic]
+  role_definition_name = "Azure Event Hubs Data Receiver"
+  principal_id         = module.operator_channel_edge_identity[0].principal_id
 }
 
 resource "azurerm_role_assignment" "isolated_executor_command_receiver" {
@@ -958,6 +988,13 @@ resource "azurerm_role_assignment" "operator_api_kv_secrets_user" {
   scope                = azurerm_key_vault_secret.state_store_dsn.resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = module.operator_api_identity[0].principal_id
+}
+
+resource "azurerm_role_assignment" "operator_channel_edge_kv_secrets_user" {
+  for_each             = var.enable_operator_channel_edge ? var.operator_channel_edge_secret_ids : toset([])
+  scope                = each.value
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.operator_channel_edge_identity[0].principal_id
 }
 
 resource "azurerm_role_assignment" "isolated_executor_kv_secrets_user" {

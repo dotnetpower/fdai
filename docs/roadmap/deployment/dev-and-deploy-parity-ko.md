@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 51371c4fcdcebd24b03d3cdd738b2d1472550658
-translation_revised: 2026-08-19
+translation_source_sha: 84340f433a6a8a02801b03e3f845c8a8f64d5ec7
+translation_revised: 2026-08-20
 ---
 
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -30,6 +30,7 @@ translation_revised: 2026-08-19
 | 인증된 로컬 Live 이벤트 경로 | validated | 2026-08-13 통제된 Browser Entra 실행이 `aw.change.events`, Core, `aw.pipeline.stages`, Operator SSE 및 기존 인증 Live DOM을 통과 | 이 실행은 권위 있는 온톨로지를 보존하고 이벤트와 허용된 네 단계를 모두 렌더링했습니다. 배포된 개정 번호, 브라우저 Notifications API 또는 브라우저 종료 상태의 push 전달은 검증하지 않았습니다. |
 | 로컬 컨트롤 루프 변경 이벤트 유입 | validated | `.vscode/tasks.json`, `infra/modules/compute/container-apps/inventory_job.tf`, `tests/integration/infra/test_inventory_repair_wiring.py`, 로컬 실행 1회가 권위 있는 `inventory.resource_changed` 이벤트 5건을 발행했고 인증된 Live 화면이 `Runtime observed`와 `5 routed events`를 보고 | 로컬 inventory reconciliation 태스크가 VNet 통합 배포 job과 똑같이 `FDAI_INVENTORY_RECOVERY_DELTA=1`을 바인딩하므로 Activity Log delta가 두 장소 모두에서 `aw.change.events`에 도달합니다. 배포 job은 infrastructure subnet이 없으면 여전히 delta를 비활성화합니다. |
 | 로컬 및 배포 composition 동등성 | implemented | `.vscode/tasks.json`, `.vscode/launch.json`, `scripts/deployment/local/`, `infra/`, `fdai_operator_service/composition.py`, 서비스 통합 테스트 및 focused Operator 검사(`51 passed`) | Composition root는 근거 권한을 바꾸지 않고 자격 증명과 어댑터를 선택합니다. 로컬 및 배포 Operator composition은 같은 Reader 범위 `GET /browser-evidence` 경로와 권위 있는 데이터 출처 ID를 등록하며 PostgreSQL이 없으면 합성 데이터 대신 사용 불가를 반환합니다. |
+| 독립 A3 channel-edge 동등성 | 구현됨 | `channel_edge/`, `prepare-channel-edge-env.sh`, `.vscode/tasks.json`, `infra/services/operator-service`, 플랫폼 edge identity/RBAC, 집중 edge 및 로컬 실행 검사 | 두 venue는 port 8014에서 동일한 Operator distribution ASGI factory, PostgreSQL store, 의미 EventBus bridge, 프로바이더 경로 및 readiness 논리를 실행합니다. Local은 private 0600 provider input과 Redpanda를 사용하고 deployed는 Key Vault reference, Event Hubs Kafka 및 전용 non-executor Managed Identity를 사용합니다. Provider 구성이 없으면 선택적 기능은 synthetic 대신 unavailable 상태를 유지합니다. |
 | Primary worktree 자동 시작 격리 | implemented | `.vscode/tasks.json`과 `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 자동 시작 계약 통과 | 폴더 열기 자동 시작은 primary checkout에서만 실행되므로 연결된 worktree가 표준 포트를 두고 경합하지 않습니다. 명시적 준비 및 서비스 시작 작업은 연결된 worktree에서도 계속 사용할 수 있습니다. |
 | 로컬 진단 로그 복원력 | implemented | `capture-local-service-log.py`, `fdai.shared.telemetry.logging`, 집중 telemetry 및 launcher 검사 | 경고 보존은 레코드별 압축 없이 추가하고, 로컬 파일 캡처는 터미널 역압력과 격리하며, 과대 레코드는 범위를 제한하고, 반복 의존성 실패는 최초·주기·서로 다른 실패 근거를 보존합니다. |
 | 폴더 열기 dev-access 경로 안정화 | implemented | `tools/dev-access/scripts/vscode-startup.sh`, `tests/integration/infra/test_dev_access.py`, 집중 dev-access 테스트 | 태스크는 Azure VPN Client를 최대 한 번 열고 범위가 제한된 7초 유예 시간 동안 mirrored WSL 경로를 8번 확인합니다. Direct 경로가 나타나면 DNS를 적용하고 실제 연결 끊김에는 exit `20`을 유지합니다. 로컬 상태가 없는 workstation과 direct-VNet 머신은 계속 조용히 종료합니다. |
@@ -89,6 +90,8 @@ translation_revised: 2026-08-19
 | 2026-08-18 | implemented | Core 컨트롤 플레인의 장소 선택 기능 플래그를 하나의 계약으로 열거했습니다. `runtime/venue.py`가 `FDAI_EXECUTION_VENUE`를 한 번만 해석하고 전송 보안, 워크로드 신원, 인벤토리 소스, 이벤트 버스, 관측 전송 바인딩을 소유하며, `bootstrap.py`와 인벤토리·관측·분석기 CLI는 각자 기본값을 둔 원시 문자열 비교 대신 이 표에서 읽습니다. 인식할 수 없는 값은 이제 더 약한 로컬 전송으로 떨어지지 않고 거부됩니다. `check-venue-capability-contract.py`는 임의의 직접 읽기나 리터럴 비교가 다시 들어오면 실패하며 pre-push 구조 게이트, `verify.sh`, CI에서 실행됩니다. | `current change`, `tests/runtime` focused 테스트 209건 통과, 음성 픽스처 2건을 포함한 게이트 통합 테스트 4건 통과, `tests/delivery` 1489건 통과, 작업 범위 Ruff·format·strict mypy 통과 | operator, document-ingestion, document-worker 서비스도 같은 계약 아래로 옮겨야 합니다. 각자 아직 장소를 따로 해석합니다. |
 | 2026-08-18 | implemented | 검토 결과 capability 표 5개 항목 중 3개에 운영 소비자가 없어 계약이 동작을 선택하지 않고 의도만 기록하고 있었으므로 표를 실제로 동작하게 만들었습니다. `inventory_source`, `event_bus_implementation`, `observation_transport`을 제거하고, 남은 둘을 실제 선택 대상을 가리키는 `bus_identity_binding`과 `workload_identity_source`로 나눴으며, 인벤토리·관측·분석기의 신원 분기가 venue enum 비교 대신 capability를 읽도록 했습니다. focused 테스트가 소스 트리를 훑어 선언된 capability에 운영 접근자가 없으면 실패하므로 표가 다시 문서로 되돌아갈 수 없습니다. | `current change`, `tests/runtime`·`tests/delivery`·게이트 통합 테스트 focused 1703건 통과(스킵 3건), 작업 범위 Ruff·format·strict mypy 통과, venue 계약 게이트 통과 | operator, document-ingestion, document-worker 서비스도 같은 계약 아래로 옮겨야 합니다. 각자 아직 장소를 따로 해석합니다. || 2026-08-18 | implemented | 모든 FDAI 서비스를 같은 장소 계약 아래로 옮겼습니다. 독립 서비스는 core 컨트롤 플레인을 import할 수 없으므로 표를 `packages/service-contracts/src/fdai_service_contracts/venue.py`로 옮기고 `fdai/runtime/venue.py`는 이를 다시 내보내도록 했습니다. Operator, Document Ingestion API, Document Processing Worker, 격리 Executor의 composition은 서로 다른 오류 타입을 가진 개별 파서 4개 대신 `resolve_execution_venue()`와 capability 접근자를 읽습니다. `document_provider_binding`은 두 문서 서비스에 소비자가 있는 신규 capability이며, `bus_security_protocol`은 이제 literal 타입을 반환하므로 선언되지 않은 프로토콜로 표를 고치면 전송이 낮아지는 대신 타입 검사가 실패합니다. 게이트는 소스 트리 6개를 모두 훑습니다. | `current change`, `packages/service-contracts/tests`·`services/core-control-plane/tests/runtime`·`tests/integration/scripts/test_venue_capability_contract.py`와 독립 서비스 4개 suite에서 focused 874건 통과(스킵 1건), `tests/delivery` 1689건 통과(스킵 3건), 작업 범위 Ruff·format·mypy 통과, venue 게이트가 소스 트리 6개에서 OK 보고, `check-independent-services.py` 통과 | 게이트 탐지는 여전히 텍스트 기반이므로 계산된 키를 통한 우회적 재도입은 잡지 못합니다. |
 
+| 2026-08-20 | 구현됨 | 다섯 distribution topology를 바꾸지 않고 독립 A3 channel edge의 local 및 deployed composition을 추가했습니다. 두 venue는 동일한 Operator 소유 runtime을 사용하며 프로바이더 credential, Kafka security, secret source 및 scale만 다릅니다. | `current change`, 집중 edge 검사 74개, 로컬 실행 검사 3개, 플랫폼 및 Operator-service Terraform root 검증 통과, independent-service 검사가 distribution 5개를 유지 | 통제된 local provider 증적 하나와 보호된 deployed plan/apply/rollback 증적 하나를 보존합니다. |
+
 ### 잔여 작업
 
 - [ ] FDAI 전용 Remote WSL server data root 또는 WSL 배포판을 마련한 뒤 제외 대상 workspace를 변경하지 않고 재시작한 Pylance process command에 `--max-old-space-size=2048`이 포함됨을 기록합니다.
@@ -99,6 +102,8 @@ translation_revised: 2026-08-19
 - [ ] 같은 카탈로그 digest를 사용하는 통제된 로컬 및 배포 관측 캠페인 쌍을 보존합니다.
   권한 있음, 사용 불가, 부분, 건너뜀 및 완료 출처 결과와 snapshot-first/실제 Agent Activity
   중복 제거를 포함합니다.
+- [ ] 동일한 webhook 경로, 의미 terminal digest, 프로바이더 확인 응답 분류 및 rollback 결과를
+  증명하는 통제된 local 및 보호된 deployed A3 channel-edge 증적을 보존합니다.
 - [ ] venue 게이트의 텍스트 기반 탐지를 import 그래프 또는 AST 검사로 바꿔서 계산된 키나
   우회 별칭으로 도달한 장소 읽기도 리터럴과 동일하게 실패하도록 합니다
   ([#152](https://github.com/dotnetpower/fdai/issues/152)).

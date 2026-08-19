@@ -22,6 +22,7 @@ pdf-report = [
 
 [project.scripts]
 fdai-operator-service = "fdai_operator_service.main:main"
+fdai-operator-channel-edge = "fdai_operator_service.families.conversation.channel_edge.entry:main"
 
 [build-system]
 requires = ["hatchling>=1.24"]

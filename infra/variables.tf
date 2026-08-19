@@ -758,6 +758,22 @@ variable "enable_operator_api" {
   default     = false
 }
 
+variable "enable_operator_channel_edge" {
+  description = "Provision the dedicated non-executor identity used by the standalone Operator channel edge. The Container App remains in the operator-service deployment root."
+  type        = bool
+  default     = false
+}
+
+variable "operator_channel_edge_secret_ids" {
+  description = "Versionless Key Vault secret resource ids readable by the channel-edge identity. Supply only the Operator DSN and enabled provider/principal configuration secrets."
+  type        = set(string)
+  default     = []
+  validation {
+    condition     = !var.enable_operator_channel_edge || length(var.operator_channel_edge_secret_ids) >= 2
+    error_message = "Enabled operator channel edge requires at least the DSN and principal-scope secret ids."
+  }
+}
+
 variable "enable_isolated_executor" {
   description = "Provision the internal SD-07 isolated Executor in shadow-only mode. Effect authority remains disabled until SD-08."
   type        = bool

@@ -22,7 +22,92 @@ variable "identity" {
     runtime_client_id   = string
     command_resource_id = string
     command_client_id   = string
+    edge_resource_id    = optional(string, "")
+    edge_client_id      = optional(string, "")
   })
+}
+variable "channel_edge" {
+  description = "Optional standalone public channel edge in the Operator distribution. Provider secrets and principal mappings are Key Vault references."
+  type = object({
+    enabled                       = bool
+    name                          = string
+    slack_enabled                 = bool
+    teams_enabled                 = bool
+    principal_scopes_secret_id    = string
+    slack_signing_secret_id       = string
+    slack_bot_token_secret_id     = string
+    slack_team_id                 = string
+    slack_principal_map_secret_id = string
+    teams_application_id          = string
+    teams_tenant_id               = string
+    teams_principal_map_secret_id = string
+    teams_allowed_service_urls    = string
+    teams_jwks_url                = string
+    health = object({
+      port                    = number
+      liveness_path           = string
+      readiness_path          = string
+      startup_path            = optional(string)
+      interval_seconds        = optional(number, 30)
+      timeout_seconds         = optional(number, 3)
+      failure_count_threshold = optional(number, 3)
+      startup_failure_count   = optional(number, 30)
+    })
+    scaling = object({
+      min_replicas = number
+      max_replicas = number
+      cpu          = number
+      memory       = string
+    })
+  })
+  default = {
+    enabled                       = false
+    name                          = ""
+    slack_enabled                 = false
+    teams_enabled                 = false
+    principal_scopes_secret_id    = ""
+    slack_signing_secret_id       = ""
+    slack_bot_token_secret_id     = ""
+    slack_team_id                 = ""
+    slack_principal_map_secret_id = ""
+    teams_application_id          = ""
+    teams_tenant_id               = ""
+    teams_principal_map_secret_id = ""
+    teams_allowed_service_urls    = ""
+    teams_jwks_url                = ""
+    health = {
+      port                    = 8014
+      liveness_path           = "/health/live"
+      readiness_path          = "/health/ready"
+      startup_path            = "/health/ready"
+      interval_seconds        = 15
+      timeout_seconds         = 3
+      failure_count_threshold = 3
+      startup_failure_count   = 30
+    }
+    scaling = { min_replicas = 1, max_replicas = 2, cpu = 0.5, memory = "1Gi" }
+  }
+  validation {
+    condition = !var.channel_edge.enabled || (
+      var.channel_edge.name != "" &&
+      (var.channel_edge.slack_enabled || var.channel_edge.teams_enabled) &&
+      var.channel_edge.principal_scopes_secret_id != "" &&
+      (!var.channel_edge.slack_enabled || (
+        var.channel_edge.slack_signing_secret_id != "" &&
+        var.channel_edge.slack_bot_token_secret_id != "" &&
+        var.channel_edge.slack_team_id != "" &&
+        var.channel_edge.slack_principal_map_secret_id != ""
+      )) &&
+      (!var.channel_edge.teams_enabled || (
+        var.channel_edge.teams_application_id != "" &&
+        var.channel_edge.teams_tenant_id != "" &&
+        var.channel_edge.teams_principal_map_secret_id != "" &&
+        can(jsondecode(var.channel_edge.teams_allowed_service_urls)) &&
+        startswith(var.channel_edge.teams_jwks_url, "https://")
+      ))
+    )
+    error_message = "Enabled channel_edge requires at least one complete Slack or Teams provider contract plus principal scopes."
+  }
 }
 variable "event_topics" {
   description = "Event Hub entities used for typed operator requests."

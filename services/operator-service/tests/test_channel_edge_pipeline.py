@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import replace
 from datetime import UTC, datetime
 
@@ -129,6 +130,13 @@ class _FailOnceStreams(_Streams):
             self.failed = True
             raise RuntimeError("simulated process loss after binding")
         return await super().open(request)
+
+
+class _BlockingStreams(_Streams):
+    async def open(self, request: ConversationStreamRequest) -> _Stream:
+        del request
+        await asyncio.Event().wait()
+        raise AssertionError("blocking stream unexpectedly resumed")
 
 
 class _Deliveries:
@@ -393,3 +401,25 @@ async def test_pipeline_persists_but_does_not_claim_when_breaker_is_open() -> No
     assert result.state is ChannelDeliveryState.PENDING
     assert messages.completed
     assert not publisher.messages
+
+
+async def test_pipeline_cancellation_releases_pre_delivery_inbound_claim() -> None:
+    messages = _Messages()
+    pipeline, _outbox = _pipeline(
+        messages=messages,
+        streams=_BlockingStreams(None),
+        deliveries=_Deliveries(),
+        publisher=_Publisher(),
+    )
+
+    task = asyncio.create_task(pipeline.process(_turn()))
+    await asyncio.sleep(0)
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+    else:
+        raise AssertionError("pipeline cancellation did not propagate")
+    assert len(messages.released) == 1
+    assert not messages.completed

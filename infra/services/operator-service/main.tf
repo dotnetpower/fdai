@@ -14,5 +14,6 @@ module "operator_service" {
   rbac               = var.rbac
   cors_allow_origins = var.cors_allow_origins
   scaling            = var.scaling
+  channel_edge       = var.channel_edge
   tags               = var.tags
 }

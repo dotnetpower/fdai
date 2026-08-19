@@ -1,6 +1,6 @@
 ---
 translation_of: durable-conversation-delivery.md
-translation_source_sha: ff03c4aa932ed4662affee9b03bfeb55336c5758
+translation_source_sha: 3468d19d5e10a8ae4b3154ef5794d6f90c221fa3
 translation_revised: 2026-08-20
 ---
 # 영구 대화 전송
@@ -27,6 +27,7 @@ translation_revised: 2026-08-20
 | 대화 게이트웨이 및 타입이 지정된 진행 상황 재생 | 구현됨 | [`channel_gateway.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_gateway.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py), [`test_rich_contract.py`](../../../services/core-control-plane/tests/delivery/channels/test_rich_contract.py) | 게이트웨이는 영구 전달 경계를 통해 완전한 응답 하나를 저장하고 중복 턴과 전달 실패를 격리합니다. 타입이 지정된 활동 및 진행 상황 페이로드가 집중 테스트에서 왕복 변환됩니다. 운영 채널 런타임은 이 경로를 연결하지 않습니다. |
 | PostgreSQL schema 및 운영 영속성 | 구현됨 | [`20260720_0047_conversation_delivery.py`](../../../alembic/versions/20260720_0047_conversation_delivery.py), `operator_a3_channel_delivery_20260819`, Operator store module, live PostgreSQL 검사 9개 건너뛰기 없이 통과 | Legacy revision 0047은 동결된 상태를 유지합니다. Operator branch가 새 processing/completed inbound claim과 정확한 role grant를 소유합니다. Concrete Operator store는 immutable response JSON, claim/attempt 및 finish/ack transaction 경계, process-loss ambiguity, breaker CAS 및 terminal retention cleanup을 보존합니다. |
 | Operator A3 의미 전달 및 복구 worker | 구현됨 | `channel_edge/{pipeline,pipeline_contracts,worker}.py`, 집중 검사 10개 통과, live PostgreSQL 연결 검사 1개 건너뛰기 없이 통과 | 결정적 프로바이더 메시지 identity는 재시도를 하나의 의미 제안, binding 및 delivery로 수렴시킵니다. Inbound 완료는 영속 소유권 뒤에 수행되고, 프로바이더 전송은 영속 차단기가 닫혀 있어야 하며, 모호한 확인 응답은 불변 중복 위험이 되고, 시작 조정은 worker 준비보다 먼저 수행됩니다. 운영 lifespan 연결은 열린 상태입니다. |
+| Operator A3 운영 조립 | 구현됨 | `channel_edge/{composition,runtime,application,entry}.py`, private 로컬 실행, Operator-service Terraform root, 집중 edge 검사 74개 통과 | 독립 lifespan은 Operator role과 모든 소유 table을 probe하고, consumer보다 먼저 의미 전송과 replay를 시작하며, 준비 상태 전에 만료된 전송을 조정하고, queue 및 delivery task를 감독하며, HTTP client와 credential을 끝까지 닫습니다. 통제된 restart 및 외부 프로바이더 증적은 열린 상태입니다. |
 | 어댑터 상태 정책 | 구현됨 | [`adapter_health.py`](../../../services/core-control-plane/src/fdai/core/conversation/adapter_health.py), [`test_adapter_health.py`](../../../services/core-control-plane/tests/conversation/test_adapter_health.py) | 제한된 실패 구간, 실패 시 닫히는 차단기 모드, 권한이 확인된 일시 중지 및 재개, 권한이 확인된 A2 대체 경로 동작이 메모리 내 집중 테스트를 통과합니다. 별도로 인증된 명령 앱은 구현되지 않았습니다. |
 | 예약 전달 및 어댑터 명령 표면 | 진행 중 | [`scheduled_continuation.py`](../../../services/core-control-plane/src/fdai/shared/providers/scheduled_continuation.py), [`continuation.py`](../../../services/core-control-plane/src/fdai/core/scheduler/continuation.py), [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py) | 예약 앵커와 전달 및 스냅샷 계약은 있습니다. `ScheduledContinuationDeliveryCoordinator`, 어댑터 명령 경로 및 운영 시작 조립은 현재 트리에 없습니다. |
 | 읽기 전용 전달 운영 패널 | 구현됨 | [`delivery_panel.py`](../../../services/core-control-plane/src/fdai/core/conversation/delivery_panel.py), [`test_delivery_panel.py`](../../../services/core-control-plane/tests/conversation/test_delivery_panel.py) | `ConversationDeliveryPanel`은 지연 시간 개수/평균/p95, 상태 개수, 중복 위험, 재시도, 포기, 시도 및 확인 응답 개수, 차단기 상태 개수, 선택적 progressive 계수기를 투영합니다. 페이로드는 `read_only=true` 및 `mutations_available=false`를 선언하고 식별자나 답변 본문을 노출하지 않으며 스냅샷 읽기 능력만 도달합니다. 아직 Console 경로나 운영 저장소가 이 투영을 연결하지 않았습니다. |
@@ -42,6 +43,7 @@ translation_revised: 2026-08-20
 | 2026-08-19 | 진행 중 | Inbound claim table과 정확한 6개 table grant를 Operator service migration branch에 추가했습니다. | `current change`, `operator_a3_channel_delivery_20260819`, ownership manifest, service-migration 검사 47개 통과, loopback Operator branch를 새 head로 upgrade | Operator-local store를 구현하고 binding한 뒤 restart 및 process-loss 근거를 보존합니다. |
 | 2026-08-19 | 구현됨 | 동결된 legacy table과 Operator service migration 위에 Operator-local binding, inbound claim, outbound delivery, attempt, acknowledgement, retention 및 breaker store를 추가했습니다. | `current change`, Operator runtime role을 통한 live loopback PostgreSQL 검사 9개 건너뛰기 없이 통과, Ruff, formatting 및 strict mypy 통과 | Production edge에 store를 binding하고 restart 및 외부 provider 근거를 보존합니다. |
 | 2026-08-19 | 구현됨 | Operator-local 의미 최종 전달, 정확한 binding replay, 즉시 및 기한 도래 프로바이더 claim, 원자적 확인 응답 종결, 프로세스 손실 조정 및 영속 차단기 유입 제어를 조립했습니다. | `current change`, 집중 파이프라인 및 worker 검사 10개, Operator runtime role을 사용한 live PostgreSQL 연결 검사 1개를 건너뛰기 없이 통과했고 Ruff 및 strict mypy 통과 | 실패 시 닫히는 edge lifespan에 worker와 store를 연결하고 restart 및 외부 프로바이더 근거를 보존합니다. |
+| 2026-08-20 | 구현됨 | 세 Operator store, 의미 bridge, 복구 worker, 프로바이더 adapter 및 readiness probe를 독립 fail-closed edge lifespan에 연결했습니다. | `current change`, 집중 edge 검사 74개, live channel PostgreSQL 검사 10개를 건너뛰기 없이 통과했고 Ruff 및 strict mypy 통과 | 검증 전에 통제된 restart 및 외부 프로바이더 근거를 보존합니다. |
 
 ### 남은 작업
 
@@ -49,8 +51,8 @@ translation_revised: 2026-08-20
      실제 database 집중 테스트를 통과합니다.
 - [x] 결정적 replay, 전송 전 영속 소유권, 차단기 유입 제어 및 live database 연결을 갖춘
      Operator-local 의미 전달 파이프라인과 감독되는 복구 worker를 구현합니다.
-- [ ] 세 PostgreSQL store를 운영 조립에 binding합니다.
-- [ ] 소비자보다 먼저 시작 조정을 호출하고 필수 첨부 또는 채널 종속성을 사용할 수 없을 때
+- [x] 세 PostgreSQL store를 운영 조립에 binding합니다.
+- [x] 소비자보다 먼저 시작 조정을 호출하고 필수 첨부 또는 채널 종속성을 사용할 수 없을 때
      실패 시 닫히는 운영 채널 런타임을 조립합니다.
 - [ ] 권한 확인, 감사 및 일시 중지, 재개, 상태 집중 테스트를 갖춘 별도 인증
      `/commands/adapters/*` 애플리케이션을 추가합니다.

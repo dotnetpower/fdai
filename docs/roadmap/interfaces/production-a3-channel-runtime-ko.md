@@ -1,7 +1,7 @@
 ---
 title: 운영 A3 채널 런타임
 translation_of: production-a3-channel-runtime.md
-translation_source_sha: 697aa295d1b13d4771c75461f2d67c5a565d7600
+translation_source_sha: 15451b8086f7d52afe643e7284135476786f7829
 translation_revised: 2026-08-20
 ---
 # 운영 A3 채널 런타임
@@ -49,11 +49,11 @@ flowchart LR
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| A3 edge 설계 및 소유권 | 진행 중 | [이슈 #235](https://github.com/dotnetpower/fdai/issues/235), 이 문서 쌍 | 수정된 설계는 비평을 통과했으며 구현 및 런타임 근거는 열린 상태입니다. |
+| A3 edge 설계 및 소유권 | 구현됨 | [이슈 #235](https://github.com/dotnetpower/fdai/issues/235), 이 문서 쌍, Operator source 및 배포 root | 권한 없는 Operator distribution 설계를 구현했습니다. 통제된 프로바이더 및 배포 근거는 열린 상태입니다. |
 | 인증된 유입 및 프로바이더 publisher | 구현됨 | `fdai_operator_service/families/conversation/channel_edge/`, 집중 Operator 채널 검사 32개 통과 | Operator-local Slack 및 Teams adapter는 정규 principal 교체, 범위가 제한된 유입, URL 없는 첨부 메타데이터, 고정 목적지, 엄격한 token audience 및 확정 확인 응답과 모호한 확인 응답의 구분을 강제합니다. 런타임 경로 연결은 열린 상태입니다. |
 | Operator migration 및 persistence | 구현됨 | `operator_a3_channel_delivery_20260819`, `channel_{delivery_models,message_ledger}.py`, `postgres_channel_{binding,delivery}.py`, live PostgreSQL 검사 9개 건너뛰기 없이 통과 | Operator branch가 inbound processing lease를 소유하고 Operator role에 channel table 6개만 부여합니다. Runtime-role 검사는 lease reclaim, permanent dedupe, binding uniqueness, idempotent delivery, claim 및 acknowledgement closure, process-loss ambiguity, breaker CAS 및 retention cleanup을 증명합니다. Production lifespan binding은 열린 상태입니다. |
 | 의미 요청, 결과 및 영속 전달 파이프라인 | 구현됨 | `semantic_turn_runtime.py`, `channel_edge/{pipeline,pipeline_contracts,worker}.py`, 집중 파이프라인 및 worker 검사 10개 통과, live PostgreSQL 연결 검사 1개 건너뛰기 없이 통과 | Operator edge는 서버 소유 범위를 해석하고 typed 의미 요청을 영속화하며 principal 범위의 최종 변환 결과를 기다립니다. 프로바이더 I/O 전에 최종 응답을 저장하고 영속 전달 소유권을 확보한 뒤에만 inbound 소유권을 완료하며, 영속 차단기로 재시도와 프로세스 손실 복구를 제한합니다. 운영 lifespan 연결은 열린 상태입니다. |
-| 로컬 및 Azure edge workload | 시작 안 함 | [배포 및 롤백](#배포-및-롤백) | 경로, entry point, 로컬 실행 또는 Container App이 아직 없습니다. |
+| 실패 시 닫히는 런타임과 로컬/Azure workload | 구현됨 | `channel_edge/{application,composition,entry,environment,runtime}.py`, `.vscode/tasks.json`, `prepare-channel-edge-env.sh`, `infra/services/operator-service`, 플랫폼 edge identity 및 RBAC, 집중 런타임 검사 | 독립 process는 health와 활성화된 webhook 경로만 노출하고 준비 상태 전에 활성화된 모든 의존성을 해석하며, private local input 또는 Key Vault reference와 전용 non-executor identity를 사용합니다. 보호된 plan, apply, 프로바이더 확인 응답 및 rollback 증적은 열린 상태입니다. |
 | 독립 hardening | 시작 안 함 | [Hardening 캠페인](#hardening-캠페인) | 완료하려면 최소 10개 round와 Medium 이상 잔여 0건이 필요합니다. |
 
 ### 구현 이력
@@ -67,6 +67,7 @@ flowchart LR
 | 2026-08-19 | 진행 중 | Edge를 Operator distribution으로 교정하고 기존 semantic-turn EventBus bridge를 재사용하며 inbound claim과 정확한 channel-table grant를 Operator service migration branch에 추가했습니다. | `current change`, `operator_a3_channel_delivery_20260819`, ownership manifest, service-migration 검사 47개 통과, loopback Operator branch를 새 head로 upgrade | Operator-local store, transport, lifecycle, workload, hardening 및 통제된 runtime 근거를 구현합니다. |
 | 2026-08-19 | 구현됨 | Core implementation import 또는 다른 writer를 추가하지 않고 Operator-local inbound claim, 검증된 binding, outbound delivery, attempt, acknowledgement, retention 및 breaker store를 추가했습니다. | `current change`, Operator runtime role을 사용한 live loopback PostgreSQL 검사 9개를 건너뛰기 없이 통과했고 Ruff, formatting 및 strict mypy 통과 | Provider transport를 Operator 소유권으로 이동하고 semantic bridge와 fail-closed lifespan을 조립합니다. |
 | 2026-08-19 | 구현됨 | 인증된 Slack 및 Teams 전송을 Operator distribution으로 이동하고 결정적 inbound replay, 의미 최종 변환 결과, 영속 소유권, 프로바이더 확인 응답 종결, 재시도 작업, 프로세스 손실 조정 및 영속 차단기 유입 제어를 조립했습니다. | 커밋 `3555ecf9c`, `current change`, 집중 채널 검사 32개, 파이프라인 및 worker 검사 10개, Operator runtime role을 사용한 live PostgreSQL 연결 검사 1개를 건너뛰기 없이 통과했고 Ruff 및 strict mypy 통과 | 실패 시 닫히는 Starlette lifespan에 의존성을 연결하고 로컬 및 배포 workload를 추가하며 대체된 Core prototype을 제거하고 통제된 근거를 보존합니다. |
+| 2026-08-20 | 구현됨 | 독립 fail-closed Starlette workload, private 로컬 실행, 선택적 Operator-service Container App, 전용 non-executor identity와 최소 권한 역할, Key Vault reference, probe 및 rollback metadata를 추가했습니다. 대체된 Core transport와 Core PyJWT 의존성을 제거했습니다. | `current change`, edge package 검사 74개, shared 및 Operator channel 검사 110개, 로컬 실행 검사 3개, Ruff 및 strict mypy 통과, 플랫폼 및 Operator-service Terraform 검증 통과 | 독립 hardening을 완료한 뒤 통제된 로컬 프로바이더 및 보호된 plan/apply/rollback 근거를 보존합니다. |
 
 ### 남은 작업
 

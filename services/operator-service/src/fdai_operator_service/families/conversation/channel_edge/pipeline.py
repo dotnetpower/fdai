@@ -139,7 +139,7 @@ class ChannelDeliveryPipeline:
                 )
             closed = await self._deliver_claimed(claimed, binding=binding)
             return ChannelPipelineResult(delivery_id, closed.state)
-        except Exception:
+        except BaseException:
             if not durable_owned:
                 await self._messages.release(inbound_key)
             raise

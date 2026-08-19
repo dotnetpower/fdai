@@ -166,6 +166,9 @@ async def test_operator_pipeline_joins_all_durable_delivery_owners() -> None:
         verification_ref=f"pipeline-verification-{suffix}",
     )
     try:
+        assert await messages.probe_readiness() is True
+        assert await bindings.probe_readiness() is True
+        assert await deliveries.probe_readiness() is True
         await worker.initialize()
         first = await pipeline.process(authenticated)
         duplicate = await pipeline.process(authenticated)

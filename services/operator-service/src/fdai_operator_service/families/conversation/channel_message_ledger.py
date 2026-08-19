@@ -33,6 +33,16 @@ class PostgresChannelMessageLedger:
     def __init__(self, *, config: PostgresChannelMessageLedgerConfig) -> None:
         self._config = config
 
+    async def probe_readiness(self) -> bool:
+        """Verify runtime-role access to the inbound ownership table."""
+        try:
+            async with await self._connect() as connection:
+                await self._set_timeout(connection)
+                await connection.execute("SELECT 1 FROM conversation_channel_message_claim LIMIT 0")
+            return True
+        except psycopg.Error:
+            return False
+
     async def claim(self, idempotency_key: str) -> bool:
         """Claim a new or expired processing record using the database clock."""
         _validate_key(idempotency_key)

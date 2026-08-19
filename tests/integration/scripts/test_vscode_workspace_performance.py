@@ -114,6 +114,14 @@ def test_workspace_starts_complete_console_topology_automatically() -> None:
             "instancePolicy": "silent",
         }
 
+    channel_prepare = tasks_by_label["channel edge: prepare local env"]
+    assert "prepare-channel-edge-env.sh" in channel_prepare["command"]
+    channel_edge = tasks_by_label["channel edge: Operator Slack and Teams (Local)"]
+    assert channel_edge["dependsOn"] == ["channel edge: prepare local env"]
+    assert "fdai-operator-channel-edge" in channel_edge["command"]
+    assert ".fdai/local-channel-edge.env" in channel_edge["command"]
+    assert "operator-channel-edge" not in local_services["dependsOn"]
+
     campaign = tasks_by_label["console: Observation Campaign (Local)"]
     assert "fdai.delivery.observation_campaign_cli --loop" in campaign["command"]
     assert 'FDAI_OBSERVATION_DSN="$FDAI_STATE_STORE_DSN"' in campaign["command"]

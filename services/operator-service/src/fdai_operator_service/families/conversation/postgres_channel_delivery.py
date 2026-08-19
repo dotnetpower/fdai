@@ -64,6 +64,22 @@ class PostgresChannelDeliveryStore:
     def __init__(self, *, config: PostgresChannelDeliveryConfig) -> None:
         self._config = config
 
+    async def probe_readiness(self) -> bool:
+        """Verify runtime-role access to delivery, attempt, acknowledgement, and breaker tables."""
+        try:
+            async with await self._connect() as connection:
+                await self._set_timeout(connection)
+                for table in (
+                    "conversation_outbound_delivery",
+                    "conversation_outbound_delivery_attempt",
+                    "conversation_outbound_delivery_acknowledgement",
+                    "conversation_adapter_breaker",
+                ):
+                    await connection.execute(f"SELECT 1 FROM {table} LIMIT 0")  # noqa: S608
+            return True
+        except psycopg.Error:
+            return False
+
     async def put(self, record: ChannelDeliveryRecord) -> ChannelDeliveryRecord:
         """Insert one pending response or return its exact idempotent replay."""
         try:
