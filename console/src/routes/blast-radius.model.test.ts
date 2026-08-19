@@ -272,4 +272,35 @@ describe("blast-radius route query", () => {
       mutation_authority: false,
     })).toThrow(message);
   });
+
+  test("rejects duplicate impact relationships", () => {
+    const edge = {
+      source: "root",
+      target: "child",
+      link_type: "contains",
+      depth: 1,
+      verification_status: "unverified",
+    };
+
+    expect(() => decodeBlastRadiusResponse({
+      schema_version: "1.0.0",
+      ontology_release_digest: `sha256:${"a".repeat(64)}`,
+      source_generation: "generation-1",
+      source_cutoff: "2026-08-19T00:00:00+00:00",
+      target: "root",
+      traversal_depth: 1,
+      traversal_links: ["contains"],
+      reached: [
+        { resource_id: "root", depth: 0, via_link_type: null },
+        { resource_id: "child", depth: 1, via_link_type: "contains" },
+      ],
+      edges: [edge, edge],
+      affected_count: 1,
+      complete: true,
+      truncated_at_depth: false,
+      truncation_reasons: [],
+      execution_authority: false,
+      mutation_authority: false,
+    })).toThrow("MUST NOT contain duplicate relationships");
+  });
 });

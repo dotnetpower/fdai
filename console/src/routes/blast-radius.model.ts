@@ -106,6 +106,14 @@ export function decodeBlastRadiusResponse(value: unknown): BlastRadiusResponse {
       verification_status: verificationStatus,
     };
   });
+  const edgeSignatures = edges.map((edge) => JSON.stringify([
+    edge.source,
+    edge.target,
+    edge.link_type,
+  ]));
+  if (new Set(edgeSignatures).size !== edgeSignatures.length) {
+    throw new Error("impact edges MUST NOT contain duplicate relationships");
+  }
   for (const node of reached) {
     if (node.resource_id === target) {
       if (node.via_link_type !== null) {
