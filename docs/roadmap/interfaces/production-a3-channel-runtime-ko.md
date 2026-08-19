@@ -1,7 +1,7 @@
 ---
 title: 운영 A3 채널 런타임
 translation_of: production-a3-channel-runtime.md
-translation_source_sha: 87b03eca7413ff975febf6dec40ef386c8254187
+translation_source_sha: d5b8720fae868469df9e7c30e802585fe3549faa
 translation_revised: 2026-08-19
 ---
 # 운영 A3 채널 런타임
@@ -44,7 +44,7 @@ flowchart LR
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | A3 edge 설계 및 소유권 | 진행 중 | [이슈 #235](https://github.com/dotnetpower/fdai/issues/235), 이 문서 쌍 | 수정된 설계는 비평을 통과했으며 구현 및 런타임 근거는 열린 상태입니다. |
-| 인증된 유입 및 프로바이더 publisher | 진행 중 | `delivery/channels/slack_{ingress,publisher,transport}.py`, `test_slack_transport.py`, 집중 채널 검사 76개 통과 | Slack exact-body 인증, 범위가 제한된 queue, URL 없는 파일 메타데이터, 고정 발행 endpoint 및 확인 응답 분류를 구현했습니다. Teams는 열린 상태입니다. 기존 A1 및 A2/A4 adapter는 A3 publisher가 아닙니다. |
+| 인증된 유입 및 프로바이더 publisher | 구현됨 | `delivery/channels/{slack,teams}_{auth,ingress,publisher,transport}.py`, 집중 채널 검사 92개 통과 | Slack exact-body 인증과 Teams RS256/JWKS service 인증이 닫힌 tenant/workspace/principal admission보다 먼저 실행됩니다. 두 adapter 모두 payload URL을 버리고 queue와 확인 응답을 제한하며 고정 publisher destination 및 token audience를 사용하고 executor 권한 부재를 보존합니다. 운영 조립은 열린 상태입니다. 기존 A1 및 A2/A4 adapter는 A3 publisher가 아닙니다. |
 | 영속 런타임 조립 | 시작 안 함 | [런타임 수명 주기](#런타임-수명-주기) | Migration 0047은 존재하지만 구체적인 PostgreSQL store 및 운영 조립은 없습니다. |
 | 로컬 및 Azure edge workload | 시작 안 함 | [배포 및 롤백](#배포-및-롤백) | 경로, entry point, 로컬 실행 또는 Container App이 아직 없습니다. |
 | 독립 hardening | 시작 안 함 | [Hardening 캠페인](#hardening-캠페인) | 완료하려면 최소 10개 round와 Medium 이상 잔여 0건이 필요합니다. |
@@ -55,6 +55,7 @@ flowchart LR
 |------|------|------|------|-----------|
 | 2026-08-19 | 진행 중 | Operator API 공동 hosting과 여섯 번째 service distribution을 비평에서 모두 거부한 뒤 권한 없는 edge workload 설계를 승인했습니다. | `current change`, [이슈 #235](https://github.com/dotnetpower/fdai/issues/235), route, tracking, translation 및 link 검사 | 구현, hardening, 검증 및 통제된 로컬/배포 증적 보존이 남았습니다. |
 | 2026-08-19 | 구현됨 | Slack A3 exact-body verifier, 닫힌 workspace/sender admission, opaque file 정규화, 범위가 제한된 queue adapter, 고정 Web API publisher 및 확정/모호 확인 응답 구분을 추가했습니다. | `current change`, 집중 Slack, renderer 및 gateway 검사 76개와 Ruff, formatting, strict mypy 및 editor diagnostics 통과 | 활성화된 A3 경로를 주장하기 전에 Teams 전송과 운영 런타임 조립을 구현합니다. |
+| 2026-08-19 | 구현됨 | 범위가 제한된 주입형 JWKS를 사용하는 고정 algorithm Bot Framework token 검증, exact tenant/principal/service URL admission, URL 없는 파일 정규화, 인증된 endpoint registry, 범위가 제한된 queue, 고정 Connector path와 audience 및 엄격한 확인 응답 parsing을 추가했습니다. Queue 거절은 endpoint binding을 남기지 않습니다. | `current change`, 집중 channel 및 gateway 검사 92개와 Ruff, formatting, strict mypy 및 editor diagnostics 통과 | 두 전송 중 하나라도 활성화하기 전에 영속 store와 fail-closed 런타임 조립을 추가합니다. |
 
 ### 남은 작업
 

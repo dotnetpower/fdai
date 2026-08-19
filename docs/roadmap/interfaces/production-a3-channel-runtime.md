@@ -44,7 +44,7 @@ flowchart LR
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | A3 edge design and ownership | in-progress | [Issue #235](https://github.com/dotnetpower/fdai/issues/235); this document pair | The revised design passed critique; implementation and runtime evidence remain open. |
-| Authenticated ingress and provider publishers | in-progress | `delivery/channels/slack_{ingress,publisher,transport}.py`; `test_slack_transport.py`; focused channel checks (`76 passed`) | Slack exact-body authentication, bounded queueing, URL-free file metadata, fixed publishing endpoints, and acknowledgement classification are implemented. Teams remains open. Existing A1 and A2/A4 adapters are not A3 publishers. |
+| Authenticated ingress and provider publishers | implemented | `delivery/channels/{slack,teams}_{auth,ingress,publisher,transport}.py`; focused channel checks (`92 passed`) | Slack exact-body authentication and Teams RS256/JWKS service authentication precede closed tenant/workspace/principal admission. Both adapters strip payload URLs, bound queues and acknowledgements, use fixed publisher destinations and token audiences, and preserve no-executor authority. Production composition remains open. Existing A1 and A2/A4 adapters are not A3 publishers. |
 | Durable runtime composition | not-started | [Runtime lifecycle](#runtime-lifecycle) | Migration 0047 exists; concrete PostgreSQL stores and production composition are absent. |
 | Local and Azure edge workload | not-started | [Deployment and rollback](#deployment-and-rollback) | No route, entry point, local launch, or Container App exists yet. |
 | Independent hardening | not-started | [Hardening campaign](#hardening-campaign) | Completion requires at least ten rounds and zero Medium-or-higher residuals. |
@@ -55,6 +55,7 @@ flowchart LR
 |------|-------|--------|----------|-----------|
 | 2026-08-19 | in-progress | Accepted the authority-free edge-workload design after critique rejected both Operator API co-hosting and a sixth service distribution. | `current change`; [Issue #235](https://github.com/dotnetpower/fdai/issues/235); route, tracking, translation, and link checks. | Implement, harden, validate, and retain governed local and deployed receipts. |
 | 2026-08-19 | implemented | Added the Slack A3 exact-body verifier, closed workspace/sender admission, opaque file normalization, bounded queue adapter, fixed Web API publisher, and strict definitive-versus-ambiguous acknowledgement parsing. | `current change`; focused Slack, renderer, and gateway checks passed 76 cases; Ruff, formatting, strict mypy, and editor diagnostics passed. | Implement the Teams transport and production runtime composition before claiming an enabled A3 path. |
+| 2026-08-19 | implemented | Added fixed-algorithm Bot Framework token verification over bounded injected JWKS, exact tenant/principal/service-URL admission, URL-free file normalization, an authenticated endpoint registry, bounded queueing, fixed Connector paths and audience, and strict acknowledgement parsing. Queue rejection leaves no endpoint binding. | `current change`; focused channel and gateway checks passed 92 cases; Ruff, formatting, strict mypy, and editor diagnostics passed. | Add durable stores and fail-closed runtime composition before enabling either transport. |
 
 ### Remaining work
 
