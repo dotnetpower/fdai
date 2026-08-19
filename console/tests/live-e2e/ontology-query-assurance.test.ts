@@ -802,8 +802,10 @@ describe("ontology query assurance cohort", () => {
       unsupported_domain: 8,
     };
     for (const operation of assuranceOperations()) {
+      const expectedCount = expectedCounts[operation];
+      expect(expectedCount).toBeDefined();
       expect(first.filter((question) => question.operation === operation)).toHaveLength(
-        expectedCounts[operation],
+        expectedCount!,
       );
     }
   });

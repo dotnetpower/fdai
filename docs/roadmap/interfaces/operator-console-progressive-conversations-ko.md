@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: d2f37bf9ca686036d73cf5df329958370d123669
+translation_source_sha: 5ee674d8d56f734885be6be4eef662b4cee06396
 translation_revised: 2026-08-19
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -23,7 +23,7 @@ translation_revised: 2026-08-19
 | 이중 언어 무작위 릴리스 게이트 | 진행 중 | [`ontology-query-assurance-readiness.ts`](../../../console/tests/live-e2e/ontology-query-assurance-readiness.ts), [`ontology-query-assurance.test.ts`](../../../console/tests/live-e2e/ontology-query-assurance.test.ts) | 집중 보증 테스트 49개가 통과했습니다. 통제되는 모든 실행은 범위가 제한된 실행 식별자를 요구하고 질문 범위의 안정된 backend session id를 파생하므로 checkpoint 재개는 정체성을 보존하지만 새 실행은 다른 실행의 영속 semantic projection을 재사용할 수 없습니다. 전체 집단은 영어와 한국어 모두에서 근거가 완전한 answered 턴이 없으면 `production_ready=true`를 보고할 수 없습니다. 새 100-case 통과 산출물은 여전히 필요합니다. |
 | 의미 명확화 표현 | 구현됨 | [`verification-presentation.ts`](../../../console/src/deck/verification-presentation.ts), [`verification-presentation.test.ts`](../../../console/src/deck/verification-presentation.test.ts) | `semantic_clarification_required`를 `Context required`로 표시하며 Console 집중 테스트 13개가 통과했습니다. 분류는 제어 평면이 실제로 방출하는 이유 코드만 다룹니다. 인증되고 보존된 증적은 열린 항목으로 남아 있습니다. |
 | 검증된 의미 답변 표현 | 검증됨 | [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`semantic_turn_presentation.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_presentation.py), [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`semantic-answer-presentation.spec.ts`](../../../console/tests/live-e2e/semantic-answer-presentation.spec.ts), `.fdai/live-validation/semantic-answer-presentation-244d003ef77bd37dc0041f0b6a29634cdbaacb91-post-validation/` | 범위가 제한된 인증 Web/한국어 경로는 명시적 workspace patch digest와 함께 중앙 검증된 source revision `244d003ef`에서 검증됐습니다. 최초 턴과 재생성 턴은 관찰된 5단계, 동일한 인시던트 및 기술 출력 digest, 읽기 전용 근거 수집, primary JSON 미노출, `execution_authority=false`를 유지했습니다. 이 상태는 Teams, Slack, 4단계 온톨로지 실행기 또는 이중 언어 100-case 집단을 주장하지 않습니다. |
-| 결정론적 교차 채널 표현 계획 | 진행 중 | 이 설계 구역 및 [이슈 #234](https://github.com/dotnetpower/fdai/issues/234) | 승인된 설계는 순수 근거 형태 분석기, 결정론적 플래너 및 추가적인 `presentation_artifact` v2 의미 규칙을 도입합니다. 이 행을 `구현됨`으로 바꾸기 전에 출처와 집중 검사 근거로 이 설계 전용 표시를 교체해야 합니다. |
+| 결정론적 교차 채널 표현 계획 | 구현됨 | `presentation_planner.py`, `presentation_artifact_v2.py`, `semantic_turn_presentation.py`, 집중 Operator 검사 33개 통과 | 검증된 operation, output shape, 항목 수, 필드 역할, 유한한 값, 단위, 분모, 시각 순서, 완전성 및 제한 사항으로 블록을 선택합니다. 이전 projection은 v1을 유지하고 타입이 지정된 projection은 추가적인 v2 또는 정본 텍스트 대체 경로를 사용합니다. |
 
 ### 구현 이력
 
@@ -57,6 +57,7 @@ translation_revised: 2026-08-19
 | 2026-08-18 | implemented | 의미 turn이 관측한 단계를 주소 지정 가능한 step으로 발행했습니다. Console은 이미 `activity` 이벤트로 관측 과정 타임라인을 그리지만 의미 turn은 `status`와 `verification`만 발행해 턴 내내 한 줄이 고정돼 있었습니다. 이제 관측된 각 단계가 제한된 step을 함께 발행하고, 대기 step은 종단 projection이 생길 때까지 running으로 보고되며 disposition과 무관하게 종단 이벤트 전에 정리됩니다. 관측하지 않은 시각은 합성하지 않으며 replay 이벤트 id는 그대로입니다. | `current change`, [Issue #187](https://github.com/dotnetpower/fdai/issues/187), `semantic_turn_runtime.py`, focused Operator 검사 394개 통과(수명 주기, held, 지연 종단, 재개 회귀 갱신), Ruff 및 strict mypy 통과, 실제 turn이 running 대기 step과 완료 step 5개로 타임라인 표시 | Core는 여전히 종단 projection 하나만 발행하므로 계획 하위 단계는 스트림이 관측하지 못합니다. |
 | 2026-08-18 | implemented | 근거 step에 명령 상세를 부여했습니다. Console은 이미 step별 도구 배지, 읽기 전용 라벨, 복사 가능한 명령 블록, 접히는 출력을 렌더링하지만 의미 step이 실행 기록을 담지 않아 모든 step이 라벨뿐이었습니다. 이제 근거 step이 동일한 종단 projection이 이미 담고 있는 검증된 쿼리와 행 수를 함께 전달하며, 실행한 것이 없는 step은 기록을 담지 않고, goal이 둘 이상인 plan은 하나를 실행된 쿼리로 지목하지 않고 명령을 보고하지 않습니다. | `current change`, [Issue #188](https://github.com/dotnetpower/fdai/issues/188), `semantic_turn_runtime.py`, focused Operator 검사 396개 통과(실행 기록 회귀 2건 신규), Ruff 및 strict mypy 통과, 실제 turn이 ObjectSet 정의와 `returned_rows`/`total_rows`를 JSON 코드 블록으로 표시 | step은 아직 소요 시간을 보고하지 않으므로 실행 기록에 관측 구간이 없습니다. |
 | 2026-08-19 | 진행 중 | 비평 후 결정론적 교차 채널 표현 설계를 승인했습니다. 수정안은 v1 재생을 그대로 유지하고 v2를 추가하며 근거 분석과 배치 계획을 분리하고 모델이나 브라우저의 서술 추측이 컴포넌트를 선택하지 못하게 합니다. | `current change`, 이 소유 문서 쌍 | 범위 상태를 바꾸기 전에 분석기, 플래너, v2 컴파일러, 호환성 검사 및 교차 채널 동등성 테스트를 구현합니다. |
+| 2026-08-19 | 구현됨 | 순수 근거 형태 분석기, 결정론적 결정 행렬, 검증된 frame 메타데이터 변환 결과 및 추가적인 v2 컴파일러를 구현했습니다. 알 수 없는 타입 맥락, 누락값, 혼합 단위, 불명확한 분모, 낮은 항목 수, 잘림 및 불완전한 검증은 0을 만들지 않고 exact 레코드, 제한 사항 또는 정본 텍스트로 대체됩니다. | `current change`, [이슈 #234](https://github.com/dotnetpower/fdai/issues/234), 집중 planner, compiler 및 producer/Console 계약 검사 33개와 Ruff, formatting, strict mypy 통과 | 순수 Teams, Slack 및 주입형 사용자 지정 기능 렌더러를 구현하고 검증합니다. |
 
 ### 남은 작업
 
@@ -65,7 +66,7 @@ translation_revised: 2026-08-19
 - [ ] 2026-08-11 기준선을 교체하지 않고, 두 언어 모두에서 근거가 완전한 answered 턴이 있는
   seed `0x0fda1`의 영어/한국어 100-case 무작위 보증 통과 산출물을 보존합니다.
 - [ ] 채널 전체 런타임 검증을 주장하기 전에 통제된 Teams 및 Slack 집약 증적을 기록합니다.
-- [ ] v1 재생, 차트 대체 경로, 잘못되거나 증적에 결속되지 않은 산출물 거부를 포함하는
+- [x] v1 재생, 차트 대체 경로, 잘못되거나 증적에 결속되지 않은 산출물 거부를 포함하는
   결정론적 근거 형태 분석기와 v2 플래너 결정 행렬을 구현하고 집중 테스트합니다.
 - [x] 정확한 machine payload와 최종 검증 증적은 접힌 기술 상세에 보존하면서 primary semantic
   답변의 fenced machine JSON을 지역화되고 결정론적인 운영자 대상 내용으로 교체합니다.

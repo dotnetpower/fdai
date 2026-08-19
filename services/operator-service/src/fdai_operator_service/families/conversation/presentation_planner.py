@@ -236,7 +236,7 @@ def _supports_threshold(shape: EvidenceShape) -> bool:
         and shape.current_field
         and shape.status_field
         and _fields_are_numeric(shape, shape.threshold_field, shape.current_field)
-        and _units_compatible(shape)
+        and _has_one_unit(shape)
     )
 
 
@@ -246,7 +246,7 @@ def _supports_comparison(shape: EvidenceShape) -> bool:
         for field in (shape.baseline_field, shape.current_field, shape.target_field)
         if field is not None
     )
-    return len(fields) >= 2 and _fields_are_numeric(shape, *fields) and _units_compatible(shape)
+    return len(fields) >= 2 and _fields_are_numeric(shape, *fields) and _has_one_unit(shape)
 
 
 def _supports_time_series(shape: EvidenceShape) -> bool:
@@ -259,7 +259,7 @@ def _supports_time_series(shape: EvidenceShape) -> bool:
         and value_field in shape.numeric_fields
         and shape.timestamps_ordered
         and _one_string_value(shape.records, shape.metric_field)
-        and _units_compatible(shape)
+        and _has_one_unit(shape)
     )
 
 
@@ -289,7 +289,7 @@ def _supports_bar(shape: EvidenceShape) -> bool:
         and value_field
         and value_field in shape.numeric_fields
         and len(_string_values(shape.records, shape.category_field)) == len(shape.records)
-        and _units_compatible(shape)
+        and _has_one_unit(shape)
     )
 
 
@@ -310,8 +310,8 @@ def _fields_are_numeric(shape: EvidenceShape, *fields: str) -> bool:
     return all(field in shape.numeric_fields for field in fields)
 
 
-def _units_compatible(shape: EvidenceShape) -> bool:
-    return shape.unit_field is None or len(shape.units) == 1
+def _has_one_unit(shape: EvidenceShape) -> bool:
+    return shape.unit_field is not None and len(shape.units) == 1
 
 
 def _one_string_value(records: tuple[Mapping[str, object], ...], field: str) -> bool:

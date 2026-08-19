@@ -7,6 +7,9 @@ from collections.abc import Mapping
 from typing import cast
 
 from fdai_operator_service.families.conversation.contracts import JsonObject
+from fdai_operator_service.families.conversation.presentation_artifact_v2 import (
+    compile_presentation_artifact_v2,
+)
 
 _SEMANTIC_ROUTE_BY_DISPOSITION = {
     "answered": "verified_query_plan",
@@ -517,6 +520,12 @@ def semantic_presentation_artifact(
     impacts = first.get("impact_evidence")
     citations = first.get("grounded_citations")
     korean = locale.casefold().startswith("ko")
+    if "presentation_context" in technical_details and not isinstance(profile, Mapping):
+        return compile_presentation_artifact_v2(
+            semantic=semantic,
+            technical_details=technical_details,
+            locale=locale,
+        )
     current_contract = (
         (root_cause is None or isinstance(root_cause, Mapping))
         and isinstance(impacts, list)

@@ -9,6 +9,8 @@
   margin: 0;
 }
 
+.deck-presentation-module { min-width: 0; }
+
 .deck-presentation-block > h4,
 .deck-presentation-block > summary {
   margin: 0 0 7px;
@@ -240,6 +242,7 @@
   height: 100%;
   border-radius: inherit;
   background: var(--fg-muted);
+  transition: width 180ms ease-out;
 }
 
 .deck-presentation-bar-row[data-tone="positive"] .deck-presentation-bar-track > span {
@@ -272,6 +275,180 @@
   margin: 0;
   color: var(--fg-muted);
   font-size: 12px;
+}
+
+.deck-presentation-accessible-chart {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+}
+
+.deck-presentation-accessible-chart > p {
+  max-width: 72ch;
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.deck-presentation-bar-track:focus-visible,
+.deck-presentation-series-point:focus-visible,
+.deck-presentation-comparison-track:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.deck-presentation-exact-values {
+  min-width: 0;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+
+.deck-presentation-exact-values > summary {
+  width: fit-content;
+  min-height: 32px;
+  color: var(--fg-muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 32px;
+}
+
+.deck-presentation-exact-values > .deck-presentation-table { margin-top: 7px; }
+
+.deck-presentation-series {
+  display: grid;
+  grid-template-columns: repeat(var(--series-count, 3), minmax(64px, 1fr));
+  min-height: 180px;
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+  list-style: none;
+  scrollbar-gutter: stable;
+}
+
+.deck-presentation-series > li {
+  display: grid;
+  grid-template-rows: 112px 12px auto auto;
+  min-width: 64px;
+  align-items: end;
+  justify-items: center;
+  gap: 4px;
+  padding: 0 6px 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.deck-presentation-series-column {
+  display: flex;
+  width: 16px;
+  height: 100%;
+  align-items: end;
+}
+
+.deck-presentation-series-column > span {
+  width: 100%;
+  min-height: 2px;
+  border-radius: 3px 3px 0 0;
+  background: var(--accent);
+  transition: height 180ms ease-out;
+}
+
+.deck-presentation-series-point {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--bg-elevated);
+  border-radius: 50%;
+  background: var(--accent-strong);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.deck-presentation-series strong {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.deck-presentation-series time {
+  max-width: 94px;
+  color: var(--fg-muted);
+  font-size: 11px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
+.deck-presentation-comparison {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.deck-presentation-comparison > div {
+  display: grid;
+  grid-template-columns: minmax(80px, 22%) minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.deck-presentation-comparison dt { color: var(--fg-muted); font-size: 12px; }
+.deck-presentation-comparison dd {
+  display: grid;
+  grid-template-columns: minmax(80px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.deck-presentation-comparison-track {
+  display: block;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--fg-muted) 14%, transparent);
+}
+
+.deck-presentation-comparison-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 180ms ease-out;
+}
+
+.deck-presentation-comparison strong {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.deck-presentation-timeline {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.deck-presentation-timeline > li {
+  display: grid;
+  grid-template-columns: minmax(168px, 28%) minmax(0, 1fr);
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.deck-presentation-timeline time {
+  color: var(--fg-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.deck-presentation-timeline span { min-width: 0; overflow-wrap: anywhere; }
+
+@media (prefers-reduced-motion: reduce) {
+  .deck-presentation-bar-track > span,
+  .deck-presentation-series-column > span,
+  .deck-presentation-comparison-track > span { transition: none; }
 }
 
 @container deck-transcript (max-width: 700px) {
@@ -348,4 +525,6 @@
 
 @media (max-width: 420px) {
   .deck-presentation-summary { grid-template-columns: minmax(0, 1fr); }
+  .deck-presentation-comparison > div,
+  .deck-presentation-timeline > li { grid-template-columns: minmax(0, 1fr); gap: 4px; }
 }

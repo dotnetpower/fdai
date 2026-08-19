@@ -2127,7 +2127,8 @@
       "observedSpan": "Observed span",
       "recordedValue": "Recorded value: {value}",
       "recordedDateUnavailable": "The exact recorded date is unavailable for this restored turn.",
-      "moreActors": "{count} more actor(s)"
+      "moreActors": "{count} more actor(s)",
+      "exactValues": "Exact values"
     },
     "attach": {
       "button": "Attach a file",

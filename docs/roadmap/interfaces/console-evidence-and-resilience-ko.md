@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 4773b4474734f7ae87cea384f4e87bbe6500cda5
+translation_source_sha: 485523cf2afb3fbaf9b481e6feed466aa4b49630
 translation_revised: 2026-08-19
 ---
 
@@ -17,7 +17,7 @@ translation_revised: 2026-08-19
 | 의미 모델 및 관계 방향 | 구현됨 | `ontology-semantic-model.ts`, `ontology-semantic-map.tsx`, 카탈로그 토폴로지 renderer 및 inspector, focused Vitest 23개 및 Console 타입 검사 통과 | 검토된 네 가지 의미 영역, 다섯 가지 운영 보기, 화살표 및 분리된 들어오는 관계와 나가는 관계를 구현했습니다. 인증된 데스크톱 및 모바일 근거는 남아 있습니다. |
 | 에이전트 활동 하트비트 표현 | validated | `console/src/routes/agents.model.ts`, `console/src/routes/agents.model.test.ts`, `docs/baselines/agent-activity-heartbeat-assurance-2026-08-14.json`, focused Vitest 31개 통과 및 인증된 Browser Entra assurance | 두 번 새로고치는 동안 연속된 하트비트 시각 세 개가 증가했고 인증된 self 검사 세 번이 모두 성공했으며 런타임 초기화 행은 0개였습니다. |
 | Command Deck JSON 대비 | 구현됨 | `console/src/styles.css`, `console/src/deck/command-deck-workspace-visual.test.ts`, focused Vitest 10개 통과 및 인증된 브라우저 검사 | 구문 강조 JSON은 전역의 밝은 `pre` 스타일과 관계없이 고정된 어두운 코드 표면을 유지합니다. 브라우저 검사는 통제된 런타임 근거로 보존하지 않았습니다. |
-| Web 표현 모듈 레지스트리 | 진행 중 | 이 설계 구역 및 [이슈 #234](https://github.com/dotnetpower/fdai/issues/234) | 승인된 설계는 각 블록 종류를 반응형 정책과 접근 가능한 대체 경로가 있는 레지스트리 항목 하나로 옮깁니다. 출처, 테스트 및 세 가지 화면 크기 근거가 아직 필요합니다. |
+| Web 표현 모듈 레지스트리 | 구현됨 | `console/src/deck/presentation-modules/`, `presentation-artifact.ts`, `structured-reply.tsx`, 집중 Console 검사 115개, 타입 검사 및 운영 빌드 통과 | 얇은 shell이 수락된 모든 블록을 닫힌 레지스트리 항목 하나에 위임합니다. V2 차트는 설명과 exact 표를 요구하며 키보드 focus 및 reduced-motion 규칙을 고정합니다. 세 가지 화면 크기 Browser 근거는 열린 상태입니다. |
 | Console 및 시안 공유 타이포그래피 | implemented | `ui/calm-slate-tokens.css`, `ui/calm-slate-primitives.css`, `console/src/shared-style-tokens.test.ts`, [이슈 #212](https://github.com/dotnetpower/fdai/issues/212) | 의미 기반 페이지 제목, 페이지 부제목, 리드, 구역 제목, 패널 제목, 본문, 간결한 본문, 레이블 및 캡션 역할이 하나의 크기와 행간 계약을 공유합니다. 대표 Console 및 시안 선택자는 같은 토큰을 사용하며, 특수한 경로 텍스트는 해당 경로가 계속 소유합니다. |
 | 정적 시안 상호 작용 보증 | implemented | `index.html`, `mocks/ui/components.html`, `mocks/ui/assets/calm-slate.{css,js}`, focused 시안 및 Console 시각 계약, [이슈 #215](https://github.com/dotnetpower/fdai/issues/215) | 마스터 및 내부 셸이 정확한 컴포넌트 구역 링크를 보존합니다. 갤러리는 런타임 근거를 주장하지 않으면서 검색, synthetic 표기, 밝고 어두운 미리 보기, 키보드, reduced-motion, 표, 모바일 터치 대상 및 읽을 수 있는 텍스트 참조 상태를 제공합니다. |
 | 탭 간 SSE 및 인시던트 복원력 | validated | 탭 간 stream hook, `incidents.milestones.ts`, incident projection, `docs/baselines/console-cross-tab-sse-assurance-2026-08-14.json`, `docs/baselines/incident-rca-report-assurance-2026-08-15.json`, focused Console/Operator 테스트 | 탭 간 leadership와 failover가 통과했고 인증된 Incident 상세가 notification delivery를 주장하지 않으면서 milestone 8개, 같은 스냅샷 분석 및 사용 불가 source와 plan context를 보존했습니다. |
@@ -87,6 +87,7 @@ translation_revised: 2026-08-19
 | 2026-08-19 | implemented | 선택적 Architecture map을 영향 범위 변환 결과의 인벤토리 스냅샷에 바인딩했습니다. 사용할 수 있으면 정확한 generation을 우선하고 legacy graph는 cutoff가 일치해야 하며, 영향 범위 스냅샷이 바뀌면 generation을 섞지 않고 map을 초기화해 다시 읽습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused Console 및 catalog 테스트 25개, typecheck, production build가 통과했고 인증된 Map 탭이 mismatch 상태 없이 일치하는 로컬 cutoff를 렌더링했습니다. | Concurrency 및 determinism 재비평을 계속합니다. 관리되는 exact-source Browser 보존은 별도 작업으로 남습니다. |
 | 2026-08-19 | implemented | Wire 불변식, 순회 정확성과 상한, SQL 권한, API 오류, adversarial decoding, 접근성, 반응형 layout, localization, migration rollback, concurrency 및 근거 권한을 대상으로 독립적인 비평과 hardening round 12개를 완료했습니다. 검증된 모든 Medium 이상 finding은 다음 round 전에 수정하고 다시 검사했습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, 앞 행에 기록한 작업 소유 focused 검사, 정확한 commit 검사, production build 및 인증된 세 viewport 관측입니다. | Decoder의 producer-bound 배열 상한, 엄격한 RFC 3339 defense in depth, link가 있는 identifier ellipsis, 모바일 graph 여백 및 의도적인 evidence table scrolling인 Low 구현 잔여만 남았습니다. 관리되는 exact-source Browser 보존과 principal 범위 Context receipt는 별도 근거 전달 작업으로 남습니다. |
 | 2026-08-19 | 진행 중 | 산출물 검증, 블록 조회 및 종류별 렌더링을 분리한 뒤 Web 표현 레지스트리 설계를 승인했습니다. | `current change`, 이 소유 문서 쌍 | 범위 상태를 바꾸기 전에 렌더러를 분리하고 접근 가능한 v2 차트 모듈을 추가하며 데스크톱, 제한된 화면 및 모바일 근거를 보존합니다. |
+| 2026-08-19 | 구현됨 | 구조화된 답변을 얇은 shell과 종류별 레지스트리 모듈로 분리하고 엄격한 v2 parsing을 추가했으며 bar, coverage, time-series, comparison 및 timeline 블록을 의미 설명, 키보드로 접근 가능한 값, reduced-motion 동작 및 접힌 exact 표와 함께 렌더링했습니다. | `current change`, [이슈 #234](https://github.com/dotnetpower/fdai/issues/234), 집중 parser, registry 및 assurance 검사 115개와 Console 타입 검사 및 운영 빌드 통과 | 긴 한국어, 시각, 불투명 식별자 및 사용 불가 상태를 포함하는 데스크톱, 제한된 화면 및 모바일 Browser 근거를 보존합니다. |
 
 ### 잔여 작업
 

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { AnswerVerification } from "./backend-types";
 import {
   parsePresentationArtifact,
+  parsePersistedPresentationArtifact,
+  presentationArtifactToWire,
   presentationArtifactSupersedesText,
 } from "./presentation-artifact";
 
@@ -45,6 +47,46 @@ function artifact(): Record<string, unknown> {
             { label: "Unavailable", value: 5, tone: "warning" },
             { label: "Unsupported", value: 413, tone: "neutral" },
           ],
+        },
+      },
+    ],
+  };
+}
+
+function timeSeriesArtifact(): Record<string, unknown> {
+  return {
+    schema_version: 2,
+    layout: "stack",
+    evidence_refs: [ref],
+    blocks: [
+      {
+        slot_id: "trend",
+        kind: "time_series",
+        title: "Verified trend",
+        emphasis: "primary",
+        collapsed: false,
+        evidence_refs: [ref],
+        data: {
+          description: "Ordered request observations.",
+          metric: "requests",
+          unit: "count",
+          points: [
+            { timestamp: "2026-08-19T00:00:00Z", value: 1 },
+            { timestamp: "2026-08-19T00:01:00Z", value: 3 },
+            { timestamp: "2026-08-19T00:02:00Z", value: 2 },
+          ],
+          exact_table: {
+            columns: [
+              { key: "c0", label: "timestamp" },
+              { key: "c1", label: "value" },
+            ],
+            rows: [
+              { c0: "2026-08-19T00:00:00Z", c1: "1" },
+              { c0: "2026-08-19T00:01:00Z", c1: "3" },
+              { c0: "2026-08-19T00:02:00Z", c1: "2" },
+            ],
+            status_key: null,
+          },
         },
       },
     ],
@@ -174,5 +216,45 @@ describe("presentation artifact boundary", () => {
     expect(withCoverage && presentationArtifactSupersedesText(withCoverage)).toBe(true);
     expect(parsedOverviewOnly && presentationArtifactSupersedesText(parsedOverviewOnly))
       .toBe(false);
+  });
+
+  it("accepts an accessible v2 time series and preserves its wire round trip", () => {
+    const parsed = parsePresentationArtifact(timeSeriesArtifact(), verification);
+
+    expect(parsed?.schemaVersion).toBe(2);
+    expect(parsed?.blocks[0]?.kind).toBe("time_series");
+    expect(parsed && presentationArtifactToWire(parsed)).toEqual(timeSeriesArtifact());
+    expect(parsed && parsePersistedPresentationArtifact(parsed, verification)).toEqual(parsed);
+  });
+
+  it("rejects v2-only kinds under the v1 schema", () => {
+    const raw = timeSeriesArtifact();
+    raw.schema_version = 1;
+
+    expect(parsePresentationArtifact(raw, verification)).toBeUndefined();
+  });
+
+  it("rejects unordered timestamps and unknown v2 data keys", () => {
+    const unordered = timeSeriesArtifact();
+    const unorderedData = ((unordered.blocks as Record<string, unknown>[])[0]!.data) as {
+      points: { timestamp: string; value: number }[];
+    };
+    unorderedData.points[1]!.timestamp = "2026-08-18T23:59:00Z";
+    expect(parsePresentationArtifact(unordered, verification)).toBeUndefined();
+
+    const unknown = timeSeriesArtifact();
+    const unknownData = ((unknown.blocks as Record<string, unknown>[])[0]!.data) as
+      Record<string, unknown>;
+    unknownData.color = "blue";
+    expect(parsePresentationArtifact(unknown, verification)).toBeUndefined();
+  });
+
+  it("rejects a v2 chart without its exact-value fallback", () => {
+    const raw = timeSeriesArtifact();
+    const data = ((raw.blocks as Record<string, unknown>[])[0]!.data) as
+      Record<string, unknown>;
+    delete data.exact_table;
+
+    expect(parsePresentationArtifact(raw, verification)).toBeUndefined();
   });
 });

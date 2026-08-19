@@ -5,6 +5,7 @@ import type {
   PresentationChartItem,
   PresentationColumn,
   PresentationEmphasis,
+  PresentationTableData,
   PresentationSummaryItem,
   PresentationTone,
 } from "./backend-types";
@@ -20,6 +21,8 @@ const SLOT_ID = /^[a-z][a-z0-9_]{0,63}$/;
 const COLUMN_KEY = /^[a-z][a-z0-9_]{0,63}$/;
 const EMPHASES = new Set<PresentationEmphasis>(["primary", "secondary", "supporting"]);
 const TONES = new Set<PresentationTone>(["neutral", "positive", "attention", "warning"]);
+const COMPARISON_ROLES = new Set(["baseline", "current", "target", "before", "after"]);
+const RFC3339 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/;
 const SLOT_KINDS: Readonly<Record<string, ReadonlySet<PresentationBlock["kind"]>>> = {
   overview: new Set(["summary"]),
   root_cause: new Set(["summary"]),
@@ -32,7 +35,13 @@ const SLOT_KINDS: Readonly<Record<string, ReadonlySet<PresentationBlock["kind"]>
   evidence: new Set(["evidence"]),
   records: new Set(["table", "list"]),
   distribution: new Set(["bar", "table"]),
+  trend: new Set(["time_series", "table"]),
+  comparison: new Set(["comparison", "table"]),
+  timeline: new Set(["timeline", "table", "list"]),
 };
+const V1_KINDS = new Set<PresentationBlock["kind"]>([
+  "summary", "callout", "table", "threshold_table", "list", "coverage", "bar", "evidence",
+]);
 
 export function parsePresentationArtifact(
   raw: unknown,
@@ -42,22 +51,23 @@ export function parsePresentationArtifact(
     raw,
     ["schema_version", "layout", "blocks", "evidence_refs"],
   )) return undefined;
-  if (raw.schema_version !== 1 || raw.layout !== "stack" ||
+  if ((raw.schema_version !== 1 && raw.schema_version !== 2) || raw.layout !== "stack" ||
       !Array.isArray(raw.blocks) || raw.blocks.length === 0 || raw.blocks.length > MAX_BLOCKS) {
     return undefined;
   }
+  const schemaVersion = raw.schema_version;
   const verificationRefs = new Set(verification.evidence_refs);
   const evidenceRefs = parseRefs(raw.evidence_refs, verificationRefs);
   if (!evidenceRefs) return undefined;
   const slots = new Set<string>();
   const blocks: PresentationBlock[] = [];
   for (const rawBlock of raw.blocks) {
-    const block = parseBlock(rawBlock, new Set(evidenceRefs));
+    const block = parseBlock(rawBlock, new Set(evidenceRefs), schemaVersion);
     if (!block || slots.has(block.slotId)) return undefined;
     slots.add(block.slotId);
     blocks.push(block);
   }
-  return { schemaVersion: 1, layout: "stack", blocks, evidenceRefs };
+  return { schemaVersion, layout: "stack", blocks, evidenceRefs };
 }
 
 /**
@@ -79,15 +89,7 @@ export function presentationArtifactToWire(artifact: PresentationArtifact): Reco
       emphasis: block.emphasis,
       collapsed: block.collapsed,
       evidence_refs: [...block.evidenceRefs],
-      data: block.kind === "table" || block.kind === "threshold_table" || block.kind === "list"
-        ? {
-            columns: block.data.columns.map((column) => ({ ...column })),
-            rows: block.data.rows.map((row) => ({ ...row })),
-            status_key: block.data.statusKey,
-          }
-        : block.kind === "callout"
-        ? { tone: block.data.tone, lines: [...block.data.lines] }
-        : { items: block.data.items.map((item) => ({ ...item })) },
+      data: blockDataToWire(block),
     })),
   };
 }
@@ -102,17 +104,8 @@ export function parsePersistedPresentationArtifact(
   const blocks: Record<string, unknown>[] = [];
   for (const rawBlock of raw.blocks) {
     if (!isRecord(rawBlock) || !isRecord(rawBlock.data)) return undefined;
-    let data: Record<string, unknown>;
-    if (rawBlock.kind === "table" || rawBlock.kind === "threshold_table" ||
-        rawBlock.kind === "list") {
-      data = {
-        columns: rawBlock.data.columns,
-        rows: rawBlock.data.rows,
-        status_key: rawBlock.data.statusKey,
-      };
-    } else {
-      data = { ...rawBlock.data };
-    }
+    const data = persistedDataToWire(rawBlock.kind, rawBlock.data);
+    if (!data) return undefined;
     blocks.push({
       slot_id: rawBlock.slotId,
       kind: rawBlock.kind,
@@ -131,7 +124,11 @@ export function parsePersistedPresentationArtifact(
   }, verification);
 }
 
-function parseBlock(raw: unknown, artifactRefs: ReadonlySet<string>): PresentationBlock | null {
+function parseBlock(
+  raw: unknown,
+  artifactRefs: ReadonlySet<string>,
+  schemaVersion: 1 | 2,
+): PresentationBlock | null {
   if (!isRecord(raw) || !hasExactKeys(
     raw,
     ["slot_id", "kind", "title", "emphasis", "collapsed", "evidence_refs", "data"],
@@ -147,6 +144,7 @@ function parseBlock(raw: unknown, artifactRefs: ReadonlySet<string>): Presentati
   const allowedKinds = SLOT_KINDS[slotId];
   if (!allowedKinds || typeof raw.kind !== "string" ||
       !allowedKinds.has(raw.kind as PresentationBlock["kind"])) return null;
+  if (schemaVersion === 1 && !V1_KINDS.has(raw.kind as PresentationBlock["kind"])) return null;
   const base = {
     slotId,
     title,
@@ -170,8 +168,31 @@ function parseBlock(raw: unknown, artifactRefs: ReadonlySet<string>): Presentati
     return table ? { ...base, kind: raw.kind, data: table } : null;
   }
   if (raw.kind === "coverage" || raw.kind === "bar") {
-    const items = parseChartItems(raw.data);
-    return items ? { ...base, kind: raw.kind, data: { items } } : null;
+    if (schemaVersion === 1) {
+      const items = parseChartItems(raw.data, true);
+      if (!items) return null;
+      return raw.kind === "bar"
+        ? { ...base, kind: "bar", data: { items } }
+        : { ...base, kind: "coverage", data: { items } };
+    }
+    if (raw.kind === "bar") {
+      const data = parseAccessibleBar(raw.data);
+      return data ? { ...base, kind: "bar", data } : null;
+    }
+    const data = parseAccessibleCoverage(raw.data);
+    return data ? { ...base, kind: "coverage", data } : null;
+  }
+  if (raw.kind === "time_series") {
+    const data = schemaVersion === 2 ? parseTimeSeries(raw.data) : null;
+    return data ? { ...base, kind: "time_series", data } : null;
+  }
+  if (raw.kind === "comparison") {
+    const data = schemaVersion === 2 ? parseComparison(raw.data) : null;
+    return data ? { ...base, kind: "comparison", data } : null;
+  }
+  if (raw.kind === "timeline") {
+    const data = schemaVersion === 2 ? parseTimeline(raw.data) : null;
+    return data ? { ...base, kind: "timeline", data } : null;
   }
   if (raw.kind === "evidence") {
     const items = parseLabelValues(raw.data);
@@ -197,7 +218,10 @@ function parseSummaryItems(data: Record<string, unknown>): PresentationSummaryIt
   return items;
 }
 
-function parseChartItems(data: Record<string, unknown>): PresentationChartItem[] | null {
+function parseChartItems(
+  data: Record<string, unknown>,
+  integersOnly: boolean,
+): PresentationChartItem[] | null {
   if (!hasExactKeys(data, ["items"]) || !Array.isArray(data.items) ||
       data.items.length === 0 || data.items.length > MAX_ITEMS) return null;
   const items: PresentationChartItem[] = [];
@@ -207,12 +231,114 @@ function parseChartItems(data: Record<string, unknown>): PresentationChartItem[]
     const label = text(rawItem.label);
     const value = rawItem.value;
     const tone = rawItem.tone;
-    if (!label || labels.has(label) || !Number.isSafeInteger(value) || (value as number) < 0 ||
+    if (!label || labels.has(label) || !finiteNumber(value) || (value as number) < 0 ||
+      (integersOnly && !Number.isSafeInteger(value)) ||
         !TONES.has(tone as PresentationTone)) return null;
     labels.add(label);
     items.push({ label, value: value as number, tone: tone as PresentationTone });
   }
   return items;
+}
+
+function parseAccessibleBar(data: Record<string, unknown>) {
+  if (!hasExactKeys(data, ["description", "unit", "items", "exact_table"])) return null;
+  const description = text(data.description);
+  const unit = text(data.unit, 64);
+  const items = parseChartItems({ items: data.items }, false);
+  const exactTable = isRecord(data.exact_table) ? parseTable(data.exact_table) : null;
+  return description && unit && items && exactTable ? { description, unit, items, exactTable } : null;
+}
+
+function parseAccessibleCoverage(data: Record<string, unknown>) {
+  if (!hasExactKeys(data, ["description", "unit", "items", "exact_table"]) ||
+      !Array.isArray(data.items) || data.items.length === 0 || data.items.length > MAX_ITEMS) {
+    return null;
+  }
+  const description = text(data.description);
+  const unit = text(data.unit, 64);
+  const exactTable = isRecord(data.exact_table) ? parseTable(data.exact_table) : null;
+  const items: { label: string; value: number; total: number; tone: PresentationTone }[] = [];
+  const labels = new Set<string>();
+  for (const rawItem of data.items) {
+    if (!isRecord(rawItem) || !hasExactKeys(rawItem, ["label", "value", "total", "tone"])) {
+      return null;
+    }
+    const label = text(rawItem.label);
+    if (!label || labels.has(label) || !finiteNumber(rawItem.value) ||
+        !finiteNumber(rawItem.total) || (rawItem.total as number) <= 0 ||
+        (rawItem.value as number) < 0 || (rawItem.value as number) > (rawItem.total as number) ||
+        !TONES.has(rawItem.tone as PresentationTone)) return null;
+    labels.add(label);
+    items.push({
+      label,
+      value: rawItem.value as number,
+      total: rawItem.total as number,
+      tone: rawItem.tone as PresentationTone,
+    });
+  }
+  return description && unit && exactTable ? { description, unit, items, exactTable } : null;
+}
+
+function parseTimeSeries(data: Record<string, unknown>) {
+  if (!hasExactKeys(data, ["description", "metric", "unit", "points", "exact_table"]) ||
+      !Array.isArray(data.points) || data.points.length < 3 || data.points.length > MAX_ROWS) {
+    return null;
+  }
+  const description = text(data.description);
+  const metric = text(data.metric);
+  const unit = text(data.unit, 64);
+  const exactTable = isRecord(data.exact_table) ? parseTable(data.exact_table) : null;
+  const points: { timestamp: string; value: number }[] = [];
+  for (const rawPoint of data.points) {
+    if (!isRecord(rawPoint) || !hasExactKeys(rawPoint, ["timestamp", "value"])) return null;
+    const timestamp = rfc3339(rawPoint.timestamp);
+    if (!timestamp || !finiteNumber(rawPoint.value)) return null;
+    points.push({ timestamp, value: rawPoint.value as number });
+  }
+  if (!timestampsStrictlyIncrease(points.map((point) => point.timestamp))) return null;
+  return description && metric && unit && exactTable
+    ? { description, metric, unit, points, exactTable }
+    : null;
+}
+
+function parseComparison(data: Record<string, unknown>) {
+  if (!hasExactKeys(data, ["description", "metric", "unit", "items", "exact_table"]) ||
+      !Array.isArray(data.items) || data.items.length < 2 || data.items.length > 5) return null;
+  const description = text(data.description);
+  const metric = text(data.metric);
+  const unit = text(data.unit, 64);
+  const exactTable = isRecord(data.exact_table) ? parseTable(data.exact_table) : null;
+  const roles = new Set<string>();
+  const items: { role: "baseline" | "current" | "target" | "before" | "after"; label: string; value: number }[] = [];
+  for (const rawItem of data.items) {
+    if (!isRecord(rawItem) || !hasExactKeys(rawItem, ["role", "label", "value"]) ||
+        typeof rawItem.role !== "string" || !COMPARISON_ROLES.has(rawItem.role) ||
+        roles.has(rawItem.role) || !finiteNumber(rawItem.value)) return null;
+    const label = text(rawItem.label);
+    if (!label) return null;
+    roles.add(rawItem.role);
+    items.push({ role: rawItem.role as typeof items[number]["role"], label, value: rawItem.value as number });
+  }
+  return description && metric && unit && exactTable
+    ? { description, metric, unit, items, exactTable }
+    : null;
+}
+
+function parseTimeline(data: Record<string, unknown>) {
+  if (!hasExactKeys(data, ["description", "items", "exact_table"]) ||
+      !Array.isArray(data.items) || data.items.length < 2 || data.items.length > MAX_ROWS) return null;
+  const description = text(data.description);
+  const exactTable = isRecord(data.exact_table) ? parseTable(data.exact_table) : null;
+  const items: { timestamp: string; label: string }[] = [];
+  for (const rawItem of data.items) {
+    if (!isRecord(rawItem) || !hasExactKeys(rawItem, ["timestamp", "label"])) return null;
+    const timestamp = rfc3339(rawItem.timestamp);
+    const label = text(rawItem.label);
+    if (!timestamp || !label) return null;
+    items.push({ timestamp, label });
+  }
+  if (!timestampsStrictlyIncrease(items.map((item) => item.timestamp))) return null;
+  return description && exactTable ? { description, items, exactTable } : null;
 }
 
 function parseTable(data: Record<string, unknown>): {
@@ -249,6 +375,86 @@ function parseTable(data: Record<string, unknown>): {
     rows.push(row);
   }
   return { columns, rows, statusKey };
+}
+
+function tableDataToWire(data: PresentationTableData): Record<string, unknown> {
+  return {
+    columns: data.columns.map((column) => ({ ...column })),
+    rows: data.rows.map((row) => ({ ...row })),
+    status_key: data.statusKey,
+  };
+}
+
+function blockDataToWire(block: PresentationBlock): Record<string, unknown> {
+  if (block.kind === "table" || block.kind === "threshold_table" || block.kind === "list") {
+    return tableDataToWire(block.data);
+  }
+  if (block.kind === "callout") return { tone: block.data.tone, lines: [...block.data.lines] };
+  if (block.kind === "time_series") return {
+    description: block.data.description,
+    metric: block.data.metric,
+    unit: block.data.unit,
+    points: block.data.points.map((point) => ({ ...point })),
+    exact_table: tableDataToWire(block.data.exactTable),
+  };
+  if (block.kind === "comparison") return {
+    description: block.data.description,
+    metric: block.data.metric,
+    unit: block.data.unit,
+    items: block.data.items.map((item) => ({ ...item })),
+    exact_table: tableDataToWire(block.data.exactTable),
+  };
+  if (block.kind === "timeline") return {
+    description: block.data.description,
+    items: block.data.items.map((item) => ({ ...item })),
+    exact_table: tableDataToWire(block.data.exactTable),
+  };
+  if ((block.kind === "bar" || block.kind === "coverage") && "description" in block.data) {
+    return {
+      description: block.data.description,
+      unit: block.data.unit,
+      items: block.data.items.map((item) => ({ ...item })),
+      exact_table: tableDataToWire(block.data.exactTable),
+    };
+  }
+  return { items: block.data.items.map((item) => ({ ...item })) };
+}
+
+function persistedDataToWire(kind: unknown, data: Record<string, unknown>): Record<string, unknown> | null {
+  if (kind === "table" || kind === "threshold_table" || kind === "list") {
+    return { columns: data.columns, rows: data.rows, status_key: data.statusKey };
+  }
+  if (kind === "time_series") return {
+    description: data.description,
+    metric: data.metric,
+    unit: data.unit,
+    points: data.points,
+    exact_table: persistedTableToWire(data.exactTable),
+  };
+  if (kind === "comparison") return {
+    description: data.description,
+    metric: data.metric,
+    unit: data.unit,
+    items: data.items,
+    exact_table: persistedTableToWire(data.exactTable),
+  };
+  if (kind === "timeline") return {
+    description: data.description,
+    items: data.items,
+    exact_table: persistedTableToWire(data.exactTable),
+  };
+  if ((kind === "bar" || kind === "coverage") && "description" in data) return {
+    description: data.description,
+    unit: data.unit,
+    items: data.items,
+    exact_table: persistedTableToWire(data.exactTable),
+  };
+  return { ...data };
+}
+
+function persistedTableToWire(raw: unknown): Record<string, unknown> | null {
+  if (!isRecord(raw)) return null;
+  return { columns: raw.columns, rows: raw.rows, status_key: raw.statusKey };
 }
 
 function parseLabelValues(data: Record<string, unknown>): { label: string; value: string }[] | null {
@@ -289,6 +495,20 @@ function text(raw: unknown, max = MAX_TEXT_CHARS): string | null {
   if (typeof raw !== "string" || raw.length === 0 || raw.length > max ||
       /[\u0000-\u001F\u007F]/.test(raw)) return null;
   return raw;
+}
+
+function finiteNumber(raw: unknown): raw is number {
+  return typeof raw === "number" && Number.isFinite(raw);
+}
+
+function rfc3339(raw: unknown): string | null {
+  const value = text(raw, 64);
+  return value && RFC3339.test(value) && Number.isFinite(Date.parse(value)) ? value : null;
+}
+
+function timestampsStrictlyIncrease(values: readonly string[]): boolean {
+  const times = values.map((value) => Date.parse(value));
+  return times.every((value, index) => index === 0 || times[index - 1]! < value);
 }
 
 function isRecord(raw: unknown): raw is Record<string, unknown> {

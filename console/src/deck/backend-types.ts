@@ -439,10 +439,21 @@ interface PresentationBlockBase {
   readonly evidenceRefs: readonly string[];
 }
 
-interface PresentationTableData {
+export interface PresentationTableData {
   readonly columns: readonly PresentationColumn[];
   readonly rows: readonly Readonly<Record<string, string>>[];
   readonly statusKey: string | null;
+}
+
+export interface PresentationAccessibleChartData {
+  readonly description: string;
+  readonly unit: string;
+  readonly items: readonly PresentationChartItem[];
+  readonly exactTable: PresentationTableData;
+}
+
+export interface PresentationCoverageItem extends PresentationChartItem {
+  readonly total: number;
 }
 
 export type PresentationBlock =
@@ -461,8 +472,54 @@ export type PresentationBlock =
     }
   | PresentationBlockBase & { readonly kind: "list"; readonly data: PresentationTableData }
   | PresentationBlockBase & {
-      readonly kind: "coverage" | "bar";
+      readonly kind: "bar";
       readonly data: { readonly items: readonly PresentationChartItem[] };
+    }
+  | PresentationBlockBase & {
+      readonly kind: "bar";
+      readonly data: PresentationAccessibleChartData;
+    }
+  | PresentationBlockBase & {
+      readonly kind: "coverage";
+      readonly data: { readonly items: readonly PresentationChartItem[] };
+    }
+  | PresentationBlockBase & {
+      readonly kind: "coverage";
+      readonly data: Omit<PresentationAccessibleChartData, "items"> & {
+        readonly items: readonly PresentationCoverageItem[];
+      };
+    }
+  | PresentationBlockBase & {
+      readonly kind: "time_series";
+      readonly data: {
+        readonly description: string;
+        readonly metric: string;
+        readonly unit: string;
+        readonly points: readonly { readonly timestamp: string; readonly value: number }[];
+        readonly exactTable: PresentationTableData;
+      };
+    }
+  | PresentationBlockBase & {
+      readonly kind: "comparison";
+      readonly data: {
+        readonly description: string;
+        readonly metric: string;
+        readonly unit: string;
+        readonly items: readonly {
+          readonly role: "baseline" | "current" | "target" | "before" | "after";
+          readonly label: string;
+          readonly value: number;
+        }[];
+        readonly exactTable: PresentationTableData;
+      };
+    }
+  | PresentationBlockBase & {
+      readonly kind: "timeline";
+      readonly data: {
+        readonly description: string;
+        readonly items: readonly { readonly timestamp: string; readonly label: string }[];
+        readonly exactTable: PresentationTableData;
+      };
     }
   | PresentationBlockBase & {
       readonly kind: "evidence";
@@ -472,7 +529,7 @@ export type PresentationBlock =
     };
 
 export interface PresentationArtifact {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 1 | 2;
   readonly layout: "stack";
   readonly blocks: readonly PresentationBlock[];
   readonly evidenceRefs: readonly string[];

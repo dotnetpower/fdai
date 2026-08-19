@@ -2127,7 +2127,8 @@
       "observedSpan": "관찰 구간",
       "recordedValue": "기록된 값: {value}",
       "recordedDateUnavailable": "복원된 이 턴의 정확한 기록 날짜를 사용할 수 없습니다.",
-      "moreActors": "추가 주체 {count}개"
+      "moreActors": "추가 주체 {count}개",
+      "exactValues": "정확한 값"
     },
     "attach": {
       "button": "파일 첨부",
