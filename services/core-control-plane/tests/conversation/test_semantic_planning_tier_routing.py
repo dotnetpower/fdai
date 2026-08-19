@@ -47,7 +47,7 @@ from fdai.shared.contracts.models import (
     PropertyType,
 )
 from fdai.shared.ontology.release import build_ontology_release
-from fdai_service_contracts.ontology_query import QueryNodeKind
+from fdai_service_contracts.ontology_query import QueryNodeKind, SemanticOperation
 
 NOW = datetime(2026, 8, 14, tzinfo=UTC)
 DIGEST = "sha256:" + ("a" * 64)
@@ -1450,7 +1450,10 @@ def test_anchored_turn_keeps_an_incident_question_for_another_output_shape() -> 
 
 def test_aggregation_frame_requires_aggregate_plan() -> None:
     manifest, definition = _fixture()
-    t1 = _Model(frame=_frame(output_shape="aggregation_table"), plan=_plan(definition))
+    t1 = _Model(
+        frame=_frame(operation="aggregate", output_shape="aggregation_table"),
+        plan=_plan(definition),
+    )
     t2 = _Model(frame=_frame(), plan=_aggregate_plan(definition))
     service = SemanticPlanningService(
         model=t1,
@@ -1467,11 +1470,115 @@ def test_aggregation_frame_requires_aggregate_plan() -> None:
     assert (t2.frame_calls, t2.plan_calls) == (0, 1)
 
 
+def test_aggregation_operation_retries_a_misclassified_t1_frame() -> None:
+    manifest, definition = _fixture()
+    t1 = _Model(
+        frame=_frame(
+            operation="select",
+            subject_constraints=["Resource"],
+            measure_concepts=["health"],
+            output_shape="property_filtered_resources",
+        ),
+        plan=_plan(definition),
+    )
+    t2 = _Model(
+        frame=_frame(
+            operation="aggregate",
+            subject_constraints=["Resource"],
+            measure_concepts=["health"],
+            output_shape="aggregation_table",
+        ),
+        plan=_aggregate_plan(definition),
+    )
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance="Group resources by health.")
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.operation is SemanticOperation.AGGREGATE
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (1, 1)
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    (
+        "Group readable resources by health status.",
+        "읽기 가능한 리소스를 상태별로 그룹화해 주세요.",
+    ),
+)
+def test_explicit_aggregation_request_rejects_a_fully_misclassified_frame(
+    utterance: str,
+) -> None:
+    manifest, definition = _fixture()
+    invalid_frame = _frame(
+        operation="select",
+        subject_constraints=["Resource"],
+        measure_concepts=["type"],
+        output_shape="property_filtered_resources",
+    )
+    t1 = _Model(frame=invalid_frame, plan=_plan(definition))
+    t2 = _Model(frame=invalid_frame, plan=_plan(definition))
+
+    outcome = _run(_service(t1, t2, manifest), utterance=utterance)
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (1, 0)
+
+
+def test_nonaggregation_request_does_not_require_an_aggregate_frame() -> None:
+    manifest, definition = _fixture()
+    frame = _frame(output_shape="property_filtered_resources")
+    t1 = _Model(frame=frame, plan=_plan(definition))
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+
+    outcome = _run(
+        _service(t1, t2, manifest),
+        utterance="Show resources with a declared type.",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+@pytest.mark.parametrize(
+    ("operation", "output_shape"),
+    (
+        ("select", "aggregation_table"),
+        ("aggregate", "property_filtered_resources"),
+    ),
+)
+def test_aggregation_operation_and_output_shape_must_match(
+    operation: str,
+    output_shape: str,
+) -> None:
+    manifest, definition = _fixture()
+    invalid_frame = _frame(operation=operation, output_shape=output_shape)
+    t1 = _Model(frame=invalid_frame, plan=_plan(definition))
+    t2 = _Model(frame=invalid_frame, plan=_plan(definition))
+
+    outcome = _run(_service(t1, t2, manifest))
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (1, 0)
+
+
 def test_manifest_function_may_feed_declaration_aggregate_output() -> None:
     manifest, definition = _fixture()
     aggregate_plan = _manifest_aggregate_plan()
     t1 = _Model(
         frame=_frame(
+            operation="aggregate",
             subject_constraints=["object"],
             measure_concepts=["count"],
             output_shape="aggregation_table",
@@ -1497,6 +1604,7 @@ def test_manifest_function_may_feed_declaration_aggregate_output() -> None:
 def test_manifest_aggregate_kinds_are_bound_to_frame_subjects() -> None:
     manifest, _definition = _fixture()
     frame = _frame(
+        operation="aggregate",
         subject_constraints=["object"],
         measure_concepts=["count"],
         output_shape="aggregation_table",
@@ -1533,6 +1641,7 @@ def test_operational_count_never_aggregates_the_declaration_manifest(
 ) -> None:
     manifest, _definition = _fixture()
     frame = _frame(
+        operation="aggregate",
         subject_constraints=[subject],
         measure_concepts=["count"],
         output_shape="aggregation_table",

@@ -43,6 +43,10 @@ _RUNTIME_INSTANCE_TOKEN = re.compile(
     r"(?<![A-Za-z0-9_.-])[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+){2,}(?![A-Za-z0-9_.-])"
 )
 _MAX_SCANNED_TOKENS = 32
+_EXPLICIT_AGGREGATION_REQUEST = re.compile(
+    r"(?:\b(?:count|group(?:ed|ing)?|how\s+many|number\s+of|total)\b|"
+    r"집계|그룹화|몇\s*(?:개|건|명)?|개수|수를\s*요약)"
+)
 _SPECIALIZED_FUNCTIONS_BY_OUTPUT_SHAPE = {
     "incident_evidence": frozenset({"query.incident_evidence"}),
     "inventory_impact": frozenset({"query.inventory_impact"}),
@@ -249,6 +253,11 @@ def _validate_frame_proposal(
     is_causal_evidence = proposal.output_shape == "causal_evidence"
     if (proposal.operation is SemanticOperation.EXPLAIN_CHANGE) != is_causal_evidence:
         raise ValueError("semantic explain_change operation requires causal_evidence output")
+    is_aggregation = proposal.output_shape == "aggregation_table"
+    if (proposal.operation is SemanticOperation.AGGREGATE) != is_aggregation:
+        raise ValueError("semantic aggregate operation requires aggregation_table output")
+    if _EXPLICIT_AGGREGATION_REQUEST.search(utterance.casefold()) and not is_aggregation:
+        raise ValueError("explicit aggregation request requires aggregation_table output")
     if proposal.output_shape in _SCHEMA_LEVEL_OUTPUT_SHAPES and _names_runtime_instance(
         (utterance, *proposal.subject_constraints),
         descriptors=descriptors,
