@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 6024b52fbbe77c7a08b7fa6d1e164ebc055e8c15
+translation_source_sha: ba80db313eda8e4469122842e406b8adbbb2eb91
 translation_revised: 2026-08-20
 ---
 # 지속형 질문 공간
@@ -44,7 +44,7 @@ flowchart LR
 |------|------|------|------|
 | 의미 기능 연결 | implemented | `core/ontology_platform/{declaration,release_diff,evidence_health,inventory_impact}_queries.py`; 집중 기능 및 구성 검사 | `query.ontology_declaration`은 운영 구성에 연결됩니다. 릴리스 차이, 근거 상태, 인벤토리 영향은 정확한 공급자 또는 서버 소유 앵커가 연결될 때까지 `runtime_binding_unavailable`로 유지됩니다. |
 | 7개 관점 질문 집합 | implemented | `core/conversation/question_perspectives.py`, `question_universe.py`, `question_selection.py`; 집중 질문 집합 및 선택 검사 | 적용 규칙은 카테시안 곱이 아닙니다. 사례 식별자는 로캘, 사례 종류, 관점, 기능, 근거 상태, 앵커, 종료 처리, 작업 자세, Rule 상태, 깊이, 결과 제한을 포함합니다. 활성 Rule과 수집된 Rule 사례는 분리됩니다. |
-| 후보 생성 및 검증 | implemented | `core/conversation/question_candidates.py`; `delivery/azure/llm/question_generation.py`; `scripts/automation/question_space_copilot.py`; 집중 생성기 및 검증기 검사 | 로컬 Copilot은 명시적으로만 실행되고 도구가 비활성화됩니다. 예약 생성은 분리된 `t1.question.generator`와 `t1.question.reviewer` 기능을 사용합니다. 불변 필드, 로캘, 식별자, 실행 가능한 텍스트, 프롬프트 주입, 중복, 초안 자세, 독립 동등성은 안전하게 차단됩니다. |
+| 후보 생성 및 검증 | implemented | `core/conversation/question_candidates.py`; `delivery/azure/llm/question_generation.py`; `scripts/automation/question_space_copilot.py`; 집중 생성기 및 검증기 검사 | 로컬 Copilot은 명시적으로만 실행되고 도구가 비활성화됩니다. 예약 생성은 분리된 `t1.question.generator`와 `t1.question.reviewer` 기능을 사용합니다. 불변 필드, 로캘, 식별자, 포함된 자격 증명, 실행 가능한 텍스트, 프롬프트 주입, 중복, 초안 자세, 독립 동등성은 안전하게 차단됩니다. |
 | 캠페인 근거 체인 | implemented | `core/conversation/question_campaign*.py`; `delivery/persistence/postgres_question_campaign.py`; Alembic `0086`; 집중 캠페인, 영속성, 마이그레이션 검사 | 캠페인, 시도, 불변 완료, 만료형 사례 claim 레코드는 다이제스트, 형식화된 처리 결과, 증적 연결, 사용량, hard-zero 카운터를 보존합니다. Claim은 동시 의미 실행 중복을 막습니다. 어떤 레코드도 질문, 답변, 공급자 페이로드, 엔드포인트, 결합된 리소스 식별자를 복제하지 않습니다. |
 | 공유 one-shot 패키지 | implemented | `core/conversation/question_schedule.py`; `delivery/ontology_question_campaign.py`; `ontology_question_campaign_cli.py`; 집중 기한 판정 및 공유 실행기 검사 | 수동 및 예약 트리거는 주입된 실행기 패키지 하나를 사용합니다. 비활성, 실행 시점 아님, 근거 없음, 모델 없음, Reader 증명 없음, 예약 예산 소진, claim 충돌은 해당 모델 또는 의미 호출 전에 중단됩니다. |
 | 환경 구성 및 배포 Job | deferred | 형식화된 workload principal 증적과 기한 판정 보류, 배포 산출물 없음 | 권위 있는 workload principal mapper, 의미 제출 포트, 정확한 모델 연결, 준비 상태 probe가 생길 때까지 공유 패키지에는 독립 환경 구성과 배포 Job을 추가하지 않습니다. 계획의 인증 전 중단 조건을 보존합니다. |
@@ -61,6 +61,7 @@ flowchart LR
 | 2026-08-19 | implemented | 인증된 strict-v2 실행에서 정확한 선언 및 Rule 상태 질문이 manifest 또는 object-set 계획으로 라우팅되는 회귀를 기록했습니다. 정확한 `ontology_declaration` frame 출력, 배타적인 `query.ontology_declaration` 계획 매핑, 정확한 subject 검증, 프롬프트 지침, Round 13 회귀 테스트를 추가했습니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); `current change`; 의미 계획, 구성, 선언 쿼리, 프로세서, 왕복 집중 테스트 157개 통과, 작업 범위 Ruff 및 형식 검사 통과, 변경된 소스 파일 2개 strict mypy 통과. | 새로운 정확한 소스 검증 증적을 확보하고 strict v2를 다시 실행합니다. Strict가 통과한 뒤에만 seeded 100을 시작합니다. |
 | 2026-08-20 | implemented | 선언 detail, dependents, Rule 상태 intent를 정확한 frame measure로 보존했습니다. 결정론적 검증기는 실행 전에 principal 매니페스트를 기준으로 누락된 intent, section drift, 선언 이름 drift, kind drift를 차단합니다. | `current change`; 의미 계획, 구성, 선언 쿼리, 프로세서, 왕복 집중 테스트 160개 통과, 커밋 전에 작업 범위 Ruff와 strict mypy를 실행해야 합니다. | 새로운 정확한 소스 검증 증적을 확보하고 strict v2를 다시 실행합니다. Strict가 통과한 뒤에만 seeded 100을 시작합니다. |
 | 2026-08-20 | implemented | 선언 계획 실행과 출력 형식을 닫았습니다. 모든 선언 node는 요청된 output이어야 하고, 관련 없는 숨은 node는 차단되며, 선언 frame은 읽기 전용 `select`이고 각 output은 `query.table`을 유지해야 합니다. | `current change`; 의미 계획, 구성, 선언 쿼리, 프로세서, 왕복 집중 테스트 164개 통과, 작업 범위 Ruff 통과. | Strict mypy와 diff 범위 검증을 실행한 뒤 새로운 정확한 소스 검증 증적을 확보하고 strict v2를 다시 실행합니다. |
+| 2026-08-20 | implemented | 중복 비교나 독립 검토 전에 포함된 자격 증명 할당, URI 사용자 정보, Unicode 제어 문자 난독화를 차단했습니다. 릴리스 식별자, strict 및 seeded 게이트, 질문 집합과 캠페인 동작, 자격 증명 우회, 오탐, 정규식 제한, 사용량, 권한, 문서를 검토하는 10개 관점의 적대적 라운드를 4회 실행했고, 검증된 Medium 이상 항목을 수정하거나 담당 코드로 반증했습니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); `current change`; 후보 검사 8개 통과, 정확한 변경 테스트 12,187개 통과 및 12개 건너뜀, 작업 범위 Ruff 통과, strict mypy 통과. | Low보다 높은 미해결 항목은 없습니다. 현재 인증을 `validated`로 바꾸기 전에 정확한 소스 통합 검증과 라이브 strict v2 및 seeded 근거를 확보합니다. |
 
 ### 남은 작업
 
@@ -187,10 +188,14 @@ cron, IANA 표준 시간대, 로캘, 관점, 질문 수, 토큰, 비용, 전체 
 | 15 | 요청 output closure | Medium, resolved | 선언 frame에 읽기 전용 `select`를 요구하고 요청된 모든 detail 또는 dependents node가 최종 output에 나타나도록 했습니다. 요청된 section을 숨기면 제한된 계획 재시도가 발생합니다. |
 | 16 | 숨은 실행 범위 | Medium, resolved | 선언 계획에서 선언 output이 아닌 모든 node를 차단했습니다. 모델은 정확한 선언 결과 뒤에 관련 없는 숨은 읽기를 추가할 수 없습니다. |
 | 17 | 함수 output 형식 | Medium, resolved | 일반 함수 검증기는 input schema를 검증하지만 JSON Schema에서 node output kind를 유도하지 않으므로 모든 `query.ontology_declaration` node를 결정론적으로 `query.table`에 결속했습니다. Output kind 위장은 제한된 계획 재시도를 발생시킵니다. 의미 집중 테스트 164개가 통과했고 Low보다 높은 미해결 항목은 없습니다. |
+| 18-27 | 계약 간 적대적 검토 | High, resolved | 재현 가능한 후보 경계 누출 1건을 찾았습니다. 구조화된 연결 문자열이 독립 검토로 전달될 수 있었습니다. 할당 및 URI 사용자 정보 차단을 추가했습니다. 누락된 timeout, 만료된 principal, strict/seeded 게이트, 릴리스 식별자 관련 주장은 실행되는 담당 경로로 반증했습니다. |
+| 28-37 | 자격 증명 우회 및 오탐 검토 | Medium, resolved | 앰퍼샌드 및 zero-width 난독화를 재현한 뒤 일반 secret 및 token 할당 경계와 범용 Unicode `Cc` 및 `Cf` 차단을 추가했습니다. 근거 없는 오탐을 피하기 위해 광범위한 bare-key 및 유사 문자 차단은 수락하지 않았습니다. |
+| 38-47 | URI 및 문장 부호 종료 검토 | Medium, resolved | 문장 부호에 안전한 할당 탐지와 공급자 중립 URI 사용자 정보 차단으로 일반화했습니다. 기존 URL 차단과 검토 전 안전성 검사 순서가 반복된 두 항목을 반증했습니다. |
+| 48-57 | 최종 종료 검토 | Low | 문장 부호, 일반 URI 스킴, 영어 및 한국어 오탐, 제어 문자, 정규식 복잡도, 검증 순서, 캠페인 사용량, 공급자 중립성, 문서를 다시 검사했습니다. 남은 관찰은 명시적 테스트 사례 확장뿐이며 미해결 Medium, High, Critical 항목은 없습니다. |
 
 남은 Low 항목은 인벤토리 탐색 edge case 추가 음수 테스트, 캠페인 간 중복 corpus 보존 근거,
-과거 릴리스 차이 회귀 테스트 이름입니다. 범위, 권한, 변경, 릴리스 자격, 배포 준비 상태를
-확장하지 않습니다.
+과거 릴리스 차이 회귀 테스트 이름, 추가 URI 스킴, 정상 자격 증명 어휘, 한국어 안전 변형입니다.
+범위, 권한, 변경, 릴리스 자격, 배포 준비 상태를 확장하지 않습니다.
 
 ## 관련 문서
 
