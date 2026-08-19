@@ -40,6 +40,15 @@ from .case_history import (
     CaseHistoryMetadataStore,
     CaseHistoryRevisionRecord,
 )
+from .channel_presentation import (
+    ChannelPresentationCapabilities,
+    ChannelPresentationEnvelope,
+    ChannelPresentationFact,
+    ChannelPresentationPayload,
+    ChannelPresentationRenderer,
+    ChannelPresentationRenderError,
+    ChannelPresentationSection,
+)
 from .code_workspace import (
     CodePatchKind,
     CodePatchOperation,
@@ -392,6 +401,13 @@ __all__ = [
     "ChannelProgressStatus",
     "ChannelProgressUpdate",
     "ChannelThreadMode",
+    "ChannelPresentationCapabilities",
+    "ChannelPresentationEnvelope",
+    "ChannelPresentationFact",
+    "ChannelPresentationPayload",
+    "ChannelPresentationRenderError",
+    "ChannelPresentationRenderer",
+    "ChannelPresentationSection",
     "ConversationChannelAdapter",
     "ConversationChannelKind",
     "ConversationExecutionStatus",

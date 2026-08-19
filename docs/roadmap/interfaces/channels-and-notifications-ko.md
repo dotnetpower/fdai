@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: ef7183e5999cee6ed128a40cfbaeecb968f12682
+translation_source_sha: eb4d72e421355d089c213add2611df8bf9723ed6
 translation_revised: 2026-08-19
 ---
 
@@ -39,7 +39,7 @@ FDAI가 Teams, Slack, 이메일, 웹훅, paging 서비스, SMS 및 명시적 선
 | 페어링과 교차 채널 신원 연결 | implemented | [`channel_access.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_access.py), [`postgres_channel_pairing.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_channel_pairing.py), [`postgres_channel_identity_link.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_channel_identity_link.py), [`test_channel_access.py`](../../../services/core-control-plane/tests/conversation/test_channel_access.py), [`test_identity_links.py`](../../../services/core-control-plane/tests/conversation/test_identity_links.py), [`test_postgres_channel_pairing.py`](../../../services/core-control-plane/tests/persistence/test_postgres_channel_pairing.py), [`test_postgres_channel_identity_link.py`](../../../services/core-control-plane/tests/persistence/test_postgres_channel_identity_link.py) | 서비스 수준 페어링, challenge digest 처리, 명시적 신원 연결 및 재시작 후 영속성이 집중 테스트를 통과했습니다. PostgreSQL 통합 테스트 파일 두 개는 지원되는 일회용 데이터베이스에서 네 건을 건너뛰기 없이 통과했습니다. |
 | Teams, Slack 및 아웃바운드 알림 어댑터 | in-progress | [`teams_adapter.py`](../../../services/core-control-plane/src/fdai/delivery/chatops/teams_adapter.py), [`slack.py`](../../../services/core-control-plane/src/fdai/delivery/notifications/slack.py), [`test_teams_adapter.py`](../../../services/core-control-plane/tests/chatops/test_teams_adapter.py), [`test_adapters.py`](../../../services/core-control-plane/tests/notifications/test_adapters.py) | Teams는 `HilChannel`을 구현하고 Teams, Slack, 이메일, 웹훅, PagerDuty 및 SMS 아웃바운드 어댑터는 집중 테스트를 통과했습니다. 현재 Slack에는 A2/A4 incoming-webhook 발신기만 있으며 Slack `HilChannel`, A1 callback, Entra 재인증 흐름 및 운영 A3 어댑터는 없습니다. |
 | 영속 아웃바운드 대화 전달 | implemented | [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`outbound_delivery.py`](../../../services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py), [`test_outbound_delivery.py`](../../../services/core-control-plane/tests/conversation/test_outbound_delivery.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | 조정기는 확정적인 거절과 모호한 확인 응답을 구분하고 재시도를 제한하며 중단된 전송을 조정하고 안정적인 전달 신원을 보존합니다. 이 동작은 집중 테스트를 통과했습니다. |
-| 순수 채널 표현 렌더링 | 진행 중 | 이 설계 구역 및 [이슈 #234](https://github.com/dotnetpower/fdai/issues/234) | 승인된 설계는 벤더 중립적인 정본 표현 묶음, 주입되는 기능 프로필, 순수 Teams, Slack 또는 사용자 지정 렌더러를 전송 및 확인 응답에서 분리합니다. 운영 A3 어댑터나 런타임을 주장하지 않습니다. |
+| 순수 채널 표현 렌더링 | 구현됨 | `shared/providers/channel_presentation.py`, `delivery/channels/`, `test_presentation_renderers.py`, 집중 채널 검사 40개 통과 | 정규화된 묶음 하나가 정본 텍스트, 사실, 제한, 근거, 권한 및 사용 불가 상태를 보존합니다. Teams 및 Slack 페이로드 builder와 가짜 사용자 지정 렌더러가 전송 또는 확인 응답 없이 기능 상한을 강제합니다. 운영 A3 어댑터나 런타임을 주장하지 않습니다. |
 | 명시적 선택 브라우저 알림 | implemented | [`browser-notifications.ts`](../../../console/src/browser-notifications.ts), [`browser-notification-control.tsx`](../../../console/src/components/browser-notification-control.tsx), [`browser-notifications.test.ts`](../../../console/src/browser-notifications.test.ts) | 권한, 기본 설정, 가시성 및 알림 동작이 일곱 개의 집중 Vitest 사례를 통과했습니다. 실제 브라우저 또는 push service 증적은 기록되지 않았습니다. |
 | 이해관계자 브리핑과 독립 채널 런타임 | in-progress | [`briefing.py`](../../../services/core-control-plane/src/fdai/core/notifications/briefing.py), [`test_briefing.py`](../../../services/core-control-plane/tests/notifications/test_briefing.py) | 결정론적 이해관계자 브리핑은 집중 테스트를 통과했습니다. `ProductionChannelRuntime` 구현, 운영 ASGI factory, Slack/Teams 대화 발행기, 서비스 entry point 및 Terraform workload는 없습니다. |
 
@@ -50,6 +50,7 @@ FDAI가 Teams, Slack, 이메일, 웹훅, paging 서비스, SMS 및 명시적 선
 | 2026-08-13 | in-progress | 이전 출처 이력을 재구성하지 않고 구현 원장을 도입했으며 근거가 없는 Slack A1 및 독립 런타임 구현 주장을 바로잡았습니다. | 현재 변경에서 Python 집중 테스트 170개가 통과했고, `FDAI_DATABASE_URL`이 설정되지 않아 PostgreSQL 통합 테스트 두 개가 건너뛰어졌으며, 브라우저 알림 집중 테스트 일곱 개가 통과했습니다. 테스트 경로는 구현 범위 표에 나열했습니다. | 데이터베이스 기반 검사를 실행하고 Slack A1과 운영 대화 어댑터를 구현하며 독립 런타임을 조립하고 통제된 runtime 증적을 수집해야 합니다. |
 | 2026-08-14 | implemented | PostgreSQL에서 재시작 후 영속성을 증명한 뒤 페어링과 교차 채널 신원 연결을 승격했습니다. | 현재 변경에서 `test_postgres_channel_pairing.py`와 `test_postgres_channel_identity_link.py`가 지원되는 일회용 데이터베이스에서 네 건을 건너뛰기 없이 통과했습니다. | Slack A1과 운영 대화 어댑터를 구현하고 독립 런타임을 조립하며 통제된 runtime 증적을 수집해야 합니다. |
 | 2026-08-19 | 진행 중 | 정본 사실 보존과 벤더 페이로드 구성을 분리하고 순수 렌더링을 구현되지 않은 A3 전송에서 분리한 뒤 기능 렌더링 설계를 승인했습니다. | `current change`, 이 소유 문서 쌍 | 운영 어댑터 상태를 바꾸지 않고 범위가 제한된 순수 렌더러와 가짜 사용자 지정 확장 테스트를 구현합니다. |
+| 2026-08-19 | 구현됨 | 프로바이더 중립 렌더러 Protocol과 기능 프로필, 엄격한 일회성 산출물 정규화, 필수 읽기 가능 대체 텍스트, 순수 Adaptive Card 및 Block Kit builder, 가짜 사용자 지정 렌더러를 추가했습니다. 큰 페이로드는 텍스트 대체 경로 전에 선택적 시각 상세를 제거하며 필수 제한, 근거, 권한 및 사용 불가 상태는 사라지지 않습니다. | `current change`, [이슈 #234](https://github.com/dotnetpower/fdai/issues/234), 집중 렌더러 및 영속 응답 검사 40개와 Ruff, formatting, strict mypy 통과 | 운영 Slack 및 Teams A3 전송, 신원, 확인 응답, 시작 및 런타임 증적은 열린 상태입니다. |
 
 ### 남은 작업
 
@@ -64,7 +65,7 @@ FDAI가 Teams, Slack, 이메일, 웹훅, paging 서비스, SMS 및 명시적 선
   구현하고 집중 시작 및 종료 테스트로 fail-closed 조립을 증명합니다.
 - [ ] 어떤 행이든 `validated`로 올리기 전에 활성화된 전달, 대체 경로, 브라우저 동작 및 배포된
   독립 채널 프로세스에 대한 통제된 runtime 증적을 기록합니다.
-- [ ] 정본 사실, 제한, 근거 참조, 권한 및 읽을 수 있는 대체 텍스트를 보존하는 순수 Teams,
+- [x] 정본 사실, 제한, 근거 참조, 권한 및 읽을 수 있는 대체 텍스트를 보존하는 순수 Teams,
   Slack 및 주입형 사용자 지정 표현 렌더러를 구현하고 동등성 테스트를 통과합니다.
 
 ## 1. 설계 원칙
