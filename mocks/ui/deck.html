@@ -10,19 +10,18 @@
   <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
   <script src="assets/calm-slate.js?v=page-context-v3" defer></script>
   <style>
-    /* Command deck: the operator's conversational surface.
-       Three columns: sessions (left) - transcript (center) - retrieval /
-       citations (right). Bragi is the narrator translator: it renders in the
-       operator's locale and never issues privileged calls. Read-only. */
+     /* Command deck: the operator's conversational surface. The production-
+       aligned workspace keeps the transcript primary and opens conversation
+       or context panels on demand. Bragi renders in the operator's locale and
+       never issues privileged calls. Read-only. */
     /* Shell + panel min-widths so the whole 3-column grid never triggers
        page-level horizontal scroll on narrow viewports. */
-    .dk-shell { display: grid; grid-template-columns: 240px minmax(0, 1fr) 300px; gap: 16px; align-items: start; min-width: 0; }
+    .dk-shell { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); min-width: 0; height: min(760px, calc(100vh - 176px)); min-height: 560px; border: 1px solid var(--cs-hairline); background: var(--cs-card); overflow: hidden; }
     .dk-shell > * { min-width: 0; }
-    @media (max-width: 1100px) { .dk-shell { grid-template-columns: 220px minmax(0, 1fr); } .dk-trace { display: none; } }
-    @media (max-width: 780px)  { .dk-shell { grid-template-columns: 1fr; } .dk-sessions { display: none; } }
+    @media (max-width: 780px)  { .dk-shell { min-height: 620px; height: calc(100vh - 112px); } }
 
     /* ---------- Sessions column ---------- */
-    .dk-sessions { padding: 12px 14px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); }
+    .dk-sessions { display: none; padding: 16px 12px; overflow-y: auto; border-right: 1px solid var(--cs-hairline); background: var(--cs-card); }
     .dk-sessions h3 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--cs-text-soft); font-weight: 600; }
     .dk-sessions .dk-new { display: block; width: 100%; padding: 7px 10px; font-size: 12.5px; text-align: left; border: 1px dashed var(--cs-hairline); border-radius: var(--cs-radius-sm); background: transparent; color: var(--cs-text-soft); cursor: pointer; margin-bottom: 10px; font: inherit; font-size: 12.5px; }
     .dk-sessions .dk-new:hover { background: var(--cs-shade); color: var(--cs-text); }
@@ -39,16 +38,38 @@
     .dk-sessions li .dk-s-avatar.is-sage  { background: var(--cs-sage); }
 
     /* ---------- Transcript column ---------- */
-    .dk-transcript { position: relative; padding: 0; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); display: flex; flex-direction: column; min-height: 620px; min-width: 0; overflow: hidden; }
-    .dk-t-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--cs-hairline); flex-wrap: wrap; min-width: 0; }
-    .dk-t-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--cs-plum); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 11.5px; font-weight: 700; flex: 0 0 auto; }
-    .dk-t-name { font-weight: 600; font-size: 14.5px; margin: 0; white-space: nowrap; }
-    .dk-t-role { color: var(--cs-text-soft); font-size: 12px; margin: 0; white-space: nowrap; }
-    .dk-t-badges { margin-left: auto; display: inline-flex; gap: 6px; flex-wrap: wrap; align-items: center; min-width: 0; }
+    .dk-transcript { position: relative; padding: 0; background: var(--cs-card); display: grid; grid-template-rows: auto auto auto minmax(0, 1fr) auto; min-height: 0; min-width: 0; overflow: hidden; container: dk-transcript / inline-size; }
+    .dk-transcript > * { min-width: 0; }
+    .dk-t-head { min-height: 50px; box-sizing: border-box; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 4px max(20px, calc((100% - 900px) / 2)); border-bottom: 1px solid var(--cs-hairline); min-width: 0; }
+    .dk-t-avatar { width: 16px; height: 16px; color: var(--cs-steel); display: inline-flex; align-items: center; justify-content: center; font-size: 0; flex: 0 0 auto; }
+    .dk-t-avatar::before { content: "\25A1"; font-size: 17px; line-height: 1; }
+    .dk-t-name { display: inline; font-weight: 600; font-size: 14px; margin: 0; white-space: nowrap; }
+    .dk-t-role { display: inline; color: var(--cs-text-soft); font-size: 11px; margin: 0 0 0 8px; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+    .dk-t-badges { margin-left: auto; display: inline-flex; gap: 6px; align-items: center; justify-content: flex-end; min-width: 0; }
     .dk-t-badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(94,130,89,.30); color: var(--cs-sage); background: rgba(94,130,89,.08); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
     .dk-t-badge.is-ro { color: var(--cs-text-soft); border-color: var(--cs-hairline); background: var(--cs-shade); }
+    .dk-layout-controls { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border: 1px solid var(--cs-hairline); border-radius: 7px; background: var(--cs-shade); }
+    .dk-layout-controls button, .dk-close { width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 5px; background: transparent; color: var(--cs-text-soft); font: inherit; font-size: 16px; line-height: 1; cursor: pointer; }
+    .dk-layout-controls button:hover, .dk-layout-controls button[aria-pressed="true"] { color: var(--cs-steel); background: var(--cs-card); }
+    .dk-close { border: 1px solid var(--cs-hairline); border-radius: 7px; font-size: 18px; }
+    .dk-close:hover { color: var(--cs-text); border-color: var(--cs-text-soft); }
 
-    .dk-stream { flex: 1; overflow: auto; padding: 14px 18px 6px; display: flex; flex-direction: column; gap: 12px; }
+    .dk-workspace-tools { width: min(100%, 900px); min-height: 36px; margin: 0 auto; padding: 2px 20px; box-sizing: border-box; display: flex; align-items: center; gap: 6px; overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+    .dk-workspace-tools::-webkit-scrollbar { display: none; }
+    .dk-workspace-tools button { min-height: 32px; padding: 4px 10px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--cs-text-soft); font: inherit; font-size: 12px; cursor: pointer; }
+    .dk-workspace-tools button:hover, .dk-workspace-tools button[aria-pressed="true"] { border-color: var(--cs-hairline); background: var(--cs-shade); color: var(--cs-text); }
+    .dk-workspace-tools button span { margin-left: 4px; font-variant-numeric: tabular-nums; }
+    .dk-source-readiness { min-height: 38px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 5px max(20px, calc((100% - 900px) / 2)); border-bottom: 1px solid var(--cs-hairline); background: var(--cs-shade); color: var(--cs-text-soft); font-size: 12px; }
+    .dk-source-readiness > strong { flex: 0 0 auto; color: var(--cs-text); font-weight: 600; }
+    .dk-source-readiness-list { min-width: 0; display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+    .dk-source-readiness-list::-webkit-scrollbar { display: none; }
+    .dk-source-ready { display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px; border: 1px solid var(--cs-hairline); border-radius: 6px; white-space: nowrap; }
+    .dk-source-ready::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--cs-text-soft); }
+    .dk-source-ready.is-live::before { background: var(--cs-sage); }
+    .dk-source-ready.is-missing::before { background: var(--cs-dusty-red); }
+    .dk-source-summary { flex: 0 0 auto; color: var(--cs-text); font-weight: 650; white-space: nowrap; }
+    .dk-source-time { margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .dk-stream { overflow-y: auto; overflow-x: hidden; padding: 16px max(20px, calc((100% - 900px) / 2)) 24px; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
 
     /* One turn = one message. Operator right-aligned, agents left-aligned. */
     .dk-turn { display: flex; gap: 10px; max-width: 88%; }
@@ -64,8 +85,10 @@
     .dk-turn:not(.is-op) > .dk-turn-avatar { display: none; }
 
     .dk-turn-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .dk-turn:not(.is-op) .dk-turn-body { width: 100%; }
     .dk-turn.is-op .dk-turn-body { align-items: flex-end; }
-    .dk-turn-meta { font-size: 11px; color: var(--cs-text-soft); display: inline-flex; gap: 6px; align-items: baseline; }
+    .dk-turn-meta { max-width: 100%; font-size: 11px; color: var(--cs-text-soft); display: inline-flex; flex-wrap: wrap; gap: 4px 6px; align-items: baseline; }
+    .dk-turn.is-op .dk-turn-meta { justify-content: flex-end; }
     .dk-turn-meta strong { color: var(--cs-text); font-weight: 600; }
     .dk-turn-meta time { font-variant-numeric: tabular-nums; }
 
@@ -80,9 +103,9 @@
     .dk-citations { margin-top: 6px; padding: 8px 12px; border: 1px dashed var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-shade); font-size: 12px; }
     .dk-citations-label { color: var(--cs-text-soft); text-transform: uppercase; letter-spacing: .06em; font-size: 10.5px; font-weight: 700; margin-bottom: 4px; }
     .dk-citations ol { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 3px; }
-    .dk-citations li { display: flex; gap: 8px; align-items: baseline; }
+    .dk-citations li { display: flex; flex-wrap: wrap; gap: 3px 8px; align-items: baseline; }
     .dk-citations .dk-cite-num { min-width: 20px; color: var(--cs-steel); font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
-    .dk-citations .dk-cite-link { color: var(--cs-steel); font-family: "Cascadia Code","Consolas",monospace; font-size: 11.5px; }
+    .dk-citations .dk-cite-link { min-width: 0; overflow-wrap: anywhere; color: var(--cs-steel); font-family: "Cascadia Code","Consolas",monospace; font-size: 11.5px; }
     .dk-citations .dk-cite-note { color: var(--cs-text-soft); }
 
     /* Suggested-command chips under Bragi's welcome turn. */
@@ -98,17 +121,36 @@
     @keyframes dk-blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: .85; } }
 
     /* Composer at the bottom of the transcript. */
-    .dk-composer { border-top: 1px solid var(--cs-hairline); padding: 10px 14px 12px; background: var(--cs-card); border-bottom-left-radius: var(--cs-radius); border-bottom-right-radius: var(--cs-radius); }
-    .dk-composer-row { display: flex; align-items: flex-end; gap: 8px; padding: 8px 10px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius-sm); background: var(--cs-card); min-width: 0; }
-    .dk-composer textarea { flex: 1 1 auto; min-width: 0; border: none; outline: none; font: inherit; font-size: 13.5px; line-height: 1.55; background: transparent; color: var(--cs-text); resize: none; min-height: 22px; max-height: 140px; }
+    .dk-composer { border-top: 1px solid var(--cs-hairline); padding: 12px max(20px, calc((100% - 900px) / 2)) 14px; background: var(--cs-card); }
+    .dk-composer-row { display: flex; align-items: flex-end; gap: 10px; padding: 0; border: 0; background: var(--cs-card); min-width: 0; }
+    .dk-composer textarea { flex: 1 1 auto; min-width: 0; border: 1px solid var(--cs-hairline); border-radius: 8px; outline: none; padding: 10px 12px; font: inherit; font-size: 13.5px; line-height: 1.55; background: var(--cs-card); color: var(--cs-text); resize: none; min-height: 42px; max-height: 140px; box-sizing: border-box; }
     .dk-composer .dk-send { flex: 0 0 auto; padding: 6px 14px; border-radius: var(--cs-radius-sm); border: 1px solid var(--cs-steel); background: var(--cs-steel); color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
     .dk-composer .dk-send:hover { background: var(--cs-navy); border-color: var(--cs-navy); }
     .dk-composer-foot { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; font-size: 11.5px; color: var(--cs-text-soft); margin-top: 6px; padding: 0 2px; }
     .dk-composer-foot .dk-tag { color: var(--cs-text-soft); }
     .dk-composer-foot .dk-mode { color: var(--cs-teal); font-weight: 600; }
+    .dk-composer > .dk-mention-pop,
+    .dk-composer > .dk-slash-pop,
+    .dk-composer > .dk-dropzone,
+    .dk-composer > .dk-attach-tray,
+    .dk-composer > .dk-composer-foot { display: none; }
+    @container dk-transcript (max-width: 760px) {
+      .dk-source-time { display: none; }
+      .dk-source-readiness { gap: 6px; }
+      .dk-t-badge { display: none; }
+    }
+    @container dk-transcript (max-width: 620px) {
+      .dk-source-readiness > strong, .dk-source-summary { display: none; }
+      .dk-source-readiness-list { width: 100%; }
+      .dk-layout-controls { display: none; }
+      .dk-t-head { grid-template-columns: auto minmax(0, 1fr); padding: 6px 12px; }
+      .dk-t-badges { grid-column: 1 / -1; width: 100%; margin-left: 0; justify-content: stretch; }
+      .dk-search { flex: 1 1 auto; max-width: none; }
+      .dk-close { flex: 0 0 auto; }
+    }
 
     /* ---------- Retrieval / trace column (right) ---------- */
-    .dk-trace { padding: 14px 16px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); }
+    .dk-trace { display: none; padding: 14px 16px; overflow-y: auto; border-left: 1px solid var(--cs-hairline); background: var(--cs-card); }
     .dk-trace h3 { margin: 0 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--cs-text-soft); font-weight: 600; }
     .dk-trace .dk-q { font-size: 12.5px; color: var(--cs-text-soft); margin: 0 0 10px; }
     .dk-trace .dk-q strong { color: var(--cs-text); }
@@ -145,7 +187,7 @@
     .dk-copy.is-copied { opacity: 1; color: var(--cs-sage); border-color: rgba(94,130,89,.4); }
     .dk-tool-call pre { font-family: "JetBrains Mono", "Cascadia Code", "Fira Code", "SF Mono", "Consolas", ui-monospace, monospace; font-size: 12.5px; font-variant-ligatures: none; }
 
-    .dk-table-wrap { margin: 8px 0 4px; border: 0; border-radius: 0; overflow: visible; }
+    .dk-table-wrap { width: 100%; max-width: 100%; margin: 8px 0 4px; border: 0; border-radius: 0; overflow-x: auto; }
     .dk-table { width: 100%; border-collapse: collapse; font-size: 12.5px; border-top: 1px solid var(--cs-hairline); }
     .dk-table thead th { background: transparent; color: var(--cs-text); text-align: left; padding: 8px 10px 6px; font-weight: 600; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; border-bottom: 2px solid var(--cs-navy); }
     .dk-table tbody td { padding: 7px 10px; border-top: 1px solid var(--cs-hairline); color: var(--cs-text); }
@@ -252,49 +294,14 @@
     .dk-composer-row.is-mentioning { border-color: rgba(68,104,142,.35); box-shadow: 0 0 0 2px rgba(68,104,142,.08); }
     .dk-composer-foot kbd { font-family: "Cascadia Code","Consolas",monospace; padding: 0 5px; border: 1px solid var(--cs-hairline); border-radius: 3px; background: var(--cs-shade); font-size: 10.5px; font-weight: 600; color: var(--cs-text); }
 
-    /* -------------------------------------------------------------------
-       Retrieval trace collapse. Header carries a toggle; collapsed state
-       hides the trace column so the transcript stretches into that space.
-       ------------------------------------------------------------------- */
-    .dk-shell.is-trace-collapsed { grid-template-columns: 240px minmax(0, 1fr); }
-    .dk-shell.is-trace-collapsed .dk-trace { display: none; }
-    @media (max-width: 780px) { .dk-shell.is-trace-collapsed { grid-template-columns: 1fr; } }
-
-    /* Header toggles rendered as switches. The label sits next to a
-       track+knob; state is carried on aria-checked, not on the label
-       text, so it reads as a genuine two-state control. */
-    .dk-toggle { display: inline-flex; align-items: center; gap: 8px; padding: 3px 6px 3px 10px; font: inherit; font-size: 12px; font-weight: 500; border-radius: 999px; border: 1px solid var(--cs-hairline); background: var(--cs-card); color: var(--cs-text-soft); cursor: pointer; }
-    .dk-toggle:hover { color: var(--cs-text); background: var(--cs-shade); }
-    .dk-toggle[aria-checked="true"] { color: var(--cs-text); }
-    .dk-toggle-track {
-      position: relative;
-      width: 28px; height: 16px;
-      border-radius: 999px;
-      background: var(--cs-shade);
-      border: 1px solid var(--cs-hairline);
-      transition: background .18s ease, border-color .18s ease;
-      flex: 0 0 auto;
-    }
-    .dk-toggle-track::after {
-      content: "";
-      position: absolute; top: 1px; left: 1px;
-      width: 12px; height: 12px;
-      border-radius: 50%;
-      background: var(--cs-card);
-      border: 1px solid var(--cs-hairline);
-      box-shadow: 0 1px 2px rgba(46,54,64,.15);
-      transition: transform .18s ease, background .18s ease, border-color .18s ease;
-    }
-    .dk-toggle[aria-checked="true"] .dk-toggle-track {
-      background: var(--cs-steel);
-      border-color: var(--cs-steel);
-    }
-    .dk-toggle[aria-checked="true"] .dk-toggle-track::after {
-      transform: translateX(12px);
-      background: #fff;
-      border-color: rgba(0,0,0,.08);
-    }
-    .dk-toggle:focus-visible { outline: 2px solid var(--cs-steel); outline-offset: 2px; }
+    /* Optional workspace panels are collapsed by default. */
+    .dk-shell.is-conversations-open { grid-template-columns: 220px minmax(0, 1fr); }
+    .dk-shell.is-conversations-open .dk-sessions { display: block; }
+    .dk-shell.is-trace-open { grid-template-columns: minmax(0, 1fr) 280px; }
+    .dk-shell.is-trace-open .dk-trace { display: block; }
+    .dk-shell.is-conversations-open.is-trace-open { grid-template-columns: 220px minmax(0, 1fr) 280px; }
+    @media (max-width: 980px) { .dk-shell.is-trace-open { grid-template-columns: minmax(0, 1fr); } .dk-shell.is-trace-open .dk-trace { display: none; } }
+    @media (max-width: 780px) { .dk-shell.is-conversations-open { grid-template-columns: minmax(0, 1fr); } .dk-shell.is-conversations-open .dk-sessions { display: none; } }
 
     /* -------------------------------------------------------------------
        Token accounting: per-turn pill in the meta line + session total
@@ -310,17 +317,6 @@
        can jump from turn to turn on the spend column. */
     .dk-tokens .k.is-cost { color: var(--cs-terracotta); opacity: .85; }
     .dk-tokens b.is-cost  { color: var(--cs-terracotta); }
-    /* Session total, sits in the transcript header next to the trace
-       toggle. Same monospace tabular figures so cost/tokens read cleanly. */
-    .dk-session-tokens { display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--cs-hairline); background: var(--cs-card); font-family: "Cascadia Code","Consolas",monospace; font-size: 11px; color: var(--cs-text-soft); font-variant-numeric: tabular-nums; white-space: nowrap; }
-    .dk-session-tokens .lab { color: var(--cs-text-soft); text-transform: uppercase; letter-spacing: .06em; font-family: "Segoe UI","Malgun Gothic",sans-serif; font-size: 10px; font-weight: 700; letter-spacing: .06em; }
-    .dk-session-tokens b { color: var(--cs-text); font-weight: 600; }
-    .dk-session-tokens b.is-cost { color: var(--cs-terracotta); }
-    .dk-session-tokens .sep { color: var(--cs-hairline); }
-    /* Toggle hides both surfaces in one go. */
-    .dk-shell.is-tokens-hidden .dk-tokens,
-    .dk-shell.is-tokens-hidden .dk-session-tokens { display: none; }
-
     /* -------------------------------------------------------------------
        Governance chips (per-turn): intent, correlation, audit, redaction,
        aggregation attribution, router-snapshot, T2 opt-in escalation.
@@ -348,7 +344,7 @@
     .dk-aggregation strong { color: var(--cs-plum); font-weight: 700; }
     .dk-aggregation .dk-mention { font-size: 11px; padding: 0 6px 0 5px; }
     /* Per-turn router snapshot: which model answered, why, latency. */
-    .dk-router { display: inline-flex; align-items: center; gap: 8px; margin-top: 6px; padding: 4px 8px; border-radius: var(--cs-radius-sm); background: var(--cs-shade); font-size: 11px; color: var(--cs-text-soft); font-family: "Cascadia Code","Consolas",monospace; }
+    .dk-router { display: inline-flex; align-items: center; flex-wrap: wrap; max-width: 100%; box-sizing: border-box; gap: 4px 8px; margin-top: 6px; padding: 4px 8px; border-radius: var(--cs-radius-sm); background: var(--cs-shade); font-size: 11px; color: var(--cs-text-soft); font-family: "Cascadia Code","Consolas",monospace; }
     .dk-router b { color: var(--cs-text); font-weight: 600; }
     .dk-router .dk-router-alt { color: var(--cs-steel); cursor: pointer; text-decoration: underline dotted; }
     /* T2 escalation opt-in - shown as a small button under a low-confidence answer. */
@@ -477,11 +473,6 @@
     .dk-slash-pop li.is-active { background: rgba(68,104,142,.10); }
     .dk-slash-pop code { font-family: "Cascadia Code","Consolas",monospace; color: var(--cs-steel); font-size: 12px; }
     .dk-slash-pop .dk-slash-desc { color: var(--cs-text-soft); font-size: 11.5px; }
-
-    /* Sticky 'new message' pill (illustrative - shown when scrolled up).
-       Sits just above the composer, centered in the transcript column. */
-    .dk-new-msg { position: absolute; left: 50%; bottom: 138px; transform: translateX(-50%); padding: 5px 12px; border-radius: 999px; background: var(--cs-navy); color: #fff; font-size: 12px; font-weight: 500; box-shadow: 0 4px 10px rgba(15,23,30,.18); cursor: pointer; z-index: 4; display: inline-flex; align-items: center; gap: 6px; }
-    .dk-new-msg::after { content: "\2193"; }
 
     /* Session metadata panel - alternative to the retrieval trace column. */
     .dk-session-meta { padding: 14px 16px; border: 1px solid var(--cs-hairline); border-radius: var(--cs-radius); background: var(--cs-card); box-shadow: var(--cs-shadow); margin-top: 12px; }
@@ -631,28 +622,44 @@
         <header class="dk-t-head">
           <span class="dk-t-avatar" aria-hidden="true">Br</span>
           <div>
-            <p class="dk-t-name">Bragi</p>
-            <p class="dk-t-role">Narrator &middot; translator only</p>
+            <p class="dk-t-name">Command deck</p>
+            <p class="dk-t-role">Impact scope</p>
           </div>
           <div class="dk-t-badges">
-            <span class="dk-t-badge">Open</span>
-            <span class="dk-t-badge is-ro">Read-only</span>
+            <span class="dk-t-badge">Chat connected</span>
             <label class="dk-search" title="Search this conversation (Cmd+K)">
               <span aria-hidden="true">&#128269;</span>
               <input type="search" placeholder="Search turns..." />
               <kbd>&#8984;K</kbd>
             </label>
-            <span class="dk-session-tokens" id="dk-session-tokens" title="Session breakdown - hover for input / output split"><span class="lab">Session</span><b>44.4k</b><span class="k">tokens</span><span class="sep">&middot;</span><span class="k">11 turns</span></span>
-            <button type="button" class="dk-toggle" id="dk-tokens-toggle" role="switch" aria-checked="true" title="Toggle per-turn token counts + session total" aria-controls="dk-stream">
-              <span>Tokens</span>
-              <span class="dk-toggle-track" aria-hidden="true"></span>
-            </button>
-            <button type="button" class="dk-toggle" id="dk-trace-toggle" role="switch" aria-checked="true" aria-controls="dk-trace">
-              <span>Trace</span>
-              <span class="dk-toggle-track" aria-hidden="true"></span>
-            </button>
+            <span class="dk-layout-controls" aria-label="Deck layout">
+              <button type="button" title="Floating panel" aria-label="Floating panel">&#9645;</button>
+              <button type="button" title="Dock right" aria-label="Dock right">&#9707;</button>
+              <button type="button" title="Full workspace" aria-label="Full workspace" aria-pressed="true">&#9974;</button>
+            </span>
+            <button type="button" class="dk-close" title="Close command deck" aria-label="Close command deck">&times;</button>
           </div>
         </header>
+
+        <div class="dk-source-readiness" aria-label="Evidence source readiness">
+          <strong>Evidence sources</strong>
+          <div class="dk-source-readiness-list">
+            <span class="dk-source-ready is-live">Inventory</span>
+            <span class="dk-source-ready is-live">Incidents</span>
+            <span class="dk-source-ready is-live">Audit</span>
+            <span class="dk-source-ready is-live">Knowledge</span>
+            <span class="dk-source-ready is-live">Automation</span>
+          </div>
+          <span class="dk-source-summary">5 ready</span>
+          <span class="dk-source-time">Observed 09:43</span>
+        </div>
+
+        <div class="dk-workspace-tools" role="toolbar" aria-label="Command deck workspace tools">
+          <button type="button">+ New conversation</button>
+          <button type="button" id="dk-conversations-toggle" aria-pressed="false">Conversations <span>20+</span></button>
+          <button type="button" id="dk-trace-toggle" aria-pressed="false" aria-controls="dk-trace">Context <span>5</span></button>
+          <button type="button" style="margin-left:auto"><span aria-hidden="true">&darr;</span> Jump to latest</button>
+        </div>
 
         <div class="dk-stream">
           <!-- Bragi welcome + suggestions -->
@@ -1338,12 +1345,9 @@
           </div>
         </div>
 
-        <span class="dk-new-msg" title="Scroll to the newest turn">3 new</span>
-
         <footer class="dk-composer">
-          <!-- @-mention autocomplete popup. Static in the mock (always open)
-               so the interaction is discoverable at a glance. Extended to
-               include ontology ids: rules, events, tickets, workflows. -->
+          <!-- @-mention autocomplete specimen. Hidden in the default state;
+            includes ontology ids for rules, events, tickets, workflows. -->
           <div class="dk-mention-pop" role="listbox" aria-label="Mention an agent, rule, event, or workflow">
             <div class="dk-mention-pop-head">
               <span>Mention &middot; matching <code>@fo</code></span>
@@ -1475,10 +1479,10 @@
             </div>
           </div>
 
-          <div class="dk-composer-row is-mentioning">
+          <div class="dk-composer-row">
             <input type="file" id="dk-file" multiple hidden />
             <button type="button" class="dk-attach-btn" title="Attach a file as read-only evidence" aria-label="Attach a file">+</button>
-            <textarea rows="1" placeholder="Ask Bragi, @mention any agent / rule / event, attach a file, or type / for commands...">Hey @fo</textarea>
+            <textarea rows="1" placeholder="Ask anything about Impact scope, or type / for commands"></textarea>
             <button type="button" class="dk-send">Send</button>
           </div>
           <div class="dk-composer-foot">
@@ -1569,48 +1573,27 @@
   </main>
 
   <script>
-    // Retrieval-trace toggle. Presentational switch: flips a class on the
-     // shell so the transcript column stretches into the trace column's
-     // space, and syncs aria-checked. State persists in localStorage.
+    // Workspace panel toggles mirror the production deck's collapsed-by-default
+    // conversation and context panels.
     (function () {
       const shell = document.querySelector('.dk-shell');
-      const btn = document.getElementById('dk-trace-toggle');
-      if (!shell || !btn) return;
-      const KEY = 'fdai.deck.traceCollapsed';
-      function apply(collapsed) {
-        shell.classList.toggle('is-trace-collapsed', collapsed);
-        // aria-checked reflects whether the trace is SHOWN, so it is the
-        // inverse of "collapsed".
-        btn.setAttribute('aria-checked', collapsed ? 'false' : 'true');
+      if (!shell) return;
+      function bind(buttonId, className, storageKey) {
+        const button = document.getElementById(buttonId);
+        if (!button) return;
+        function apply(open) {
+          shell.classList.toggle(className, open);
+          button.setAttribute('aria-pressed', open ? 'true' : 'false');
+        }
+        try { apply(localStorage.getItem(storageKey) === '1'); } catch (_) { apply(false); }
+        button.addEventListener('click', function () {
+          const open = !shell.classList.contains(className);
+          apply(open);
+          try { localStorage.setItem(storageKey, open ? '1' : '0'); } catch (_) { /* private mode ok */ }
+        });
       }
-      try { apply(localStorage.getItem(KEY) === '1'); } catch (_) { /* private mode ok */ }
-      btn.addEventListener('click', function () {
-        const next = !shell.classList.contains('is-trace-collapsed');
-        apply(next);
-        try { localStorage.setItem(KEY, next ? '1' : '0'); } catch (_) { /* ok */ }
-      });
-    })();
-
-    // ------------------------------------------------------------------
-    // Token-view toggle. Mirrors the trace toggle. Flips is-tokens-hidden
-    // on the shell so both the per-turn pills and the session-total badge
-    // collapse in one place. Persisted per-browser.
-    // ------------------------------------------------------------------
-    (function () {
-      const shell = document.querySelector('.dk-shell');
-      const btn = document.getElementById('dk-tokens-toggle');
-      if (!shell || !btn) return;
-      const KEY = 'fdai.deck.tokensHidden';
-      function apply(hidden) {
-        shell.classList.toggle('is-tokens-hidden', hidden);
-        btn.setAttribute('aria-checked', hidden ? 'false' : 'true');
-      }
-      try { apply(localStorage.getItem(KEY) === '1'); } catch (_) { /* ok */ }
-      btn.addEventListener('click', function () {
-        const next = !shell.classList.contains('is-tokens-hidden');
-        apply(next);
-        try { localStorage.setItem(KEY, next ? '1' : '0'); } catch (_) { /* ok */ }
-      });
+      bind('dk-conversations-toggle', 'is-conversations-open', 'fdai.deck.conversationsOpen');
+      bind('dk-trace-toggle', 'is-trace-open', 'fdai.deck.contextOpen');
     })();
 
     // ------------------------------------------------------------------
