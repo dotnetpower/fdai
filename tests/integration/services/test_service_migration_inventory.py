@@ -65,6 +65,7 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "document_worker_effect",
         "document_worker_outbox",
         "executor_receipt_outbox",
+        "conversation_channel_message_claim",
         "operator_incident_projection",
         "topology_link_revision",
         "topology_object_revision",

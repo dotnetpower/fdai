@@ -734,11 +734,16 @@
       "id": "production-a3-channel-runtime",
       "paths": [
         "services/core-control-plane/src/fdai/delivery/channels/**",
-        "services/core-control-plane/src/fdai/delivery/persistence/postgres_conversation*.py",
-        "services/core-control-plane/src/fdai/delivery/persistence/postgres_channel*.py",
-        "services/core-control-plane/src/fdai/runtime/*.py",
         "services/core-control-plane/tests/delivery/channels/**",
-        "services/core-control-plane/tests/**/*conversation_delivery*.py",
+        "services/operator-service/src/fdai_operator_service/families/conversation/**",
+        "services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn*.py",
+        "services/operator-service/src/fdai_operator_service/postgres_semantic_turn_store.py",
+        "services/operator-service/tests/test_semantic_turn*.py",
+        "service-migrations/branches/operator-service/versions/**",
+        "service-migrations/ownership.json",
+        "tests/integration/services/test_service_migration_inventory.py",
+        ".vscode/launch.json",
+        ".vscode/tasks.json",
         "infra/services/**"
       ],
       "must_read": [
@@ -758,7 +763,7 @@
         "docs/roadmap/deployment/dev-and-deploy-parity.md"
       ],
       "validate": [
-        "uv run pytest -q --no-cov services/core-control-plane/tests/delivery/channels services/core-control-plane/tests/conversation/test_channel_gateway.py services/core-control-plane/tests/conversation/test_outbound_delivery.py"
+        "uv run pytest -q --no-cov services/operator-service/tests/channel_edge tests/integration/services/test_service_migration_inventory.py"
       ]
     },
     {

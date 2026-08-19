@@ -12,26 +12,31 @@ contracts without creating another judgment or execution surface.
 > policy, document semantic transport, inline vision, and unrelated channel backlog remain with
 > their existing owners.
 >
-> **Topology:** The runtime is an authority-free edge adapter workload built from the existing Core
-> distribution. It is not a sixth independently releasable control-plane distribution, does not
-> own a migration branch or domain writer, and never receives Thor's identity.
+> **Topology:** The runtime is an authority-free edge adapter workload built from the existing
+> Operator Service distribution. It is not a sixth independently releasable control-plane
+> distribution, uses the Operator migration branch and conversation table writer, and never
+> receives Thor's identity.
 
 ## Design at a glance
 
 The edge accepts only provider-authenticated requests, replaces vendor identity with one configured
-FDAI principal, and queues a bounded `InboundTurn`. Existing conversation coordination produces one
-`OutboundResponse`; existing durable delivery persists it before a pure provider publisher sends
-it. Startup resolves every required dependency and reconciles uncertain sends before Starlette
-accepts traffic.
+FDAI principal, and claims the provider message in the Operator-owned inbound ledger. It submits a
+typed semantic request through `SemanticTurnBridge.append()`, waits for the principal-scoped
+terminal projection through `SemanticTurnBridge.open()`, and compiles one presentation artifact.
+Operator-owned durable delivery persists that artifact before a pure provider publisher sends it.
+Startup resolves every required dependency and reconciles uncertain sends before Starlette accepts
+traffic.
 
 ```mermaid
 flowchart LR
   S[Slack signed event] --> SI[Slack ingress]
   T[Teams service token] --> TI[Teams ingress]
-  SI --> Q[Bounded adapter queue]
+  SI --> Q[Bounded Operator edge queue]
   TI --> Q
-  Q --> G[ConversationChannelGateway]
-  G --> D[Durable delivery ledger]
+  Q --> B[SemanticTurnBridge append]
+  B --> E[Core semantic EventBus runtime]
+  E --> O[SemanticTurnBridge open]
+  O --> D[Operator delivery ledger]
   D --> P[Pure capability renderer]
   P --> SP[Slack publisher]
   P --> TP[Teams publisher]
@@ -44,8 +49,9 @@ flowchart LR
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | A3 edge design and ownership | in-progress | [Issue #235](https://github.com/dotnetpower/fdai/issues/235); this document pair | The revised design passed critique; implementation and runtime evidence remain open. |
-| Authenticated ingress and provider publishers | implemented | `delivery/channels/{slack,teams}_{auth,ingress,publisher,transport}.py`; focused channel checks (`92 passed`) | Slack exact-body authentication and Teams RS256/JWKS service authentication precede closed tenant/workspace/principal admission. Both adapters strip payload URLs, bound queues and acknowledgements, use fixed publisher destinations and token audiences, and preserve no-executor authority. Production composition remains open. Existing A1 and A2/A4 adapters are not A3 publishers. |
-| Durable runtime composition | not-started | [Runtime lifecycle](#runtime-lifecycle) | Migration 0047 exists; concrete PostgreSQL stores and production composition are absent. |
+| Authenticated ingress and provider publishers | in-progress | Core-local transport prototypes under `delivery/channels/`; focused channel checks (`92 passed`) | The verified algorithms are not the production package. They must move behind Operator-owned edge interfaces without importing Core implementation modules. Existing A1 and A2/A4 adapters are not A3 publishers. |
+| Operator migration and persistence | in-progress | `operator_a3_channel_delivery_20260819`; `service-migrations/ownership.json`; service-migration checks (`47 passed`) | The Operator branch owns the inbound processing lease and grants the Operator role only the six channel tables. Operator-local claim, binding, delivery, attempt, acknowledgement, and breaker adapters remain to be implemented. |
+| Semantic request and result bridge | implemented | `semantic_turn_runtime.py`; `postgres_semantic_turn_store.py`; focused Operator semantic-turn checks | The Operator distribution already persists and publishes typed requests and replays principal-scoped terminal projections over EventBus. The edge composition and channel projection adapter remain open. |
 | Local and Azure edge workload | not-started | [Deployment and rollback](#deployment-and-rollback) | No route, entry point, local launch, or Container App exists yet. |
 | Independent hardening | not-started | [Hardening campaign](#hardening-campaign) | Completion requires at least ten rounds and zero Medium-or-higher residuals. |
 
@@ -56,6 +62,8 @@ flowchart LR
 | 2026-08-19 | in-progress | Accepted the authority-free edge-workload design after critique rejected both Operator API co-hosting and a sixth service distribution. | `current change`; [Issue #235](https://github.com/dotnetpower/fdai/issues/235); route, tracking, translation, and link checks. | Implement, harden, validate, and retain governed local and deployed receipts. |
 | 2026-08-19 | implemented | Added the Slack A3 exact-body verifier, closed workspace/sender admission, opaque file normalization, bounded queue adapter, fixed Web API publisher, and strict definitive-versus-ambiguous acknowledgement parsing. | `current change`; focused Slack, renderer, and gateway checks passed 76 cases; Ruff, formatting, strict mypy, and editor diagnostics passed. | Implement the Teams transport and production runtime composition before claiming an enabled A3 path. |
 | 2026-08-19 | implemented | Added fixed-algorithm Bot Framework token verification over bounded injected JWKS, exact tenant/principal/service-URL admission, URL-free file normalization, an authenticated endpoint registry, bounded queueing, fixed Connector paths and audience, and strict acknowledgement parsing. Queue rejection leaves no endpoint binding. | `current change`; focused channel and gateway checks passed 92 cases; Ruff, formatting, strict mypy, and editor diagnostics passed. | Add durable stores and fail-closed runtime composition before enabling either transport. |
+| 2026-08-19 | withdrawn | Withdrew the Core-owned channel persistence slice after service ownership validation showed that conversation delivery tables belong to Operator Service and the frozen root Alembic chain cannot accept revision 0087. | Root migration head restored to `20260819_0086`; legacy inventory restored to 88 revisions and 105 tables; focused Core migration checks passed 200 cases and service-migration checks passed 47 cases. | Rebuild persistence and edge composition in the Operator distribution without a Core table writer. |
+| 2026-08-19 | in-progress | Corrected the edge to the Operator distribution, reused the existing semantic-turn EventBus bridge, and added the inbound claim plus exact channel-table grants to the Operator service migration branch. | `current change`; `operator_a3_channel_delivery_20260819`; ownership manifest; service-migration checks passed 47 cases; loopback Operator branch upgraded to the new head. | Implement Operator-local stores, transports, lifecycle, workload, hardening, and governed runtime evidence. |
 
 ### Remaining work
 
@@ -71,13 +79,14 @@ Three placements were evaluated:
 
 | Placement | Decision | Reason |
 |-----------|----------|--------|
-| Operator API routes | Rejected | Channel secrets, public webhook ingress, and provider acknowledgement would widen the authenticated read API's blast radius and contradict its non-channel ownership. |
+| Operator API process co-hosting | Rejected | Channel secrets, public webhook ingress, and provider acknowledgement would widen the authenticated read API process blast radius. |
 | Sixth independently releasable service distribution | Rejected | It would reopen the completed five-distribution N/N-1, migration, image, and rollback program without a new domain writer or implementation-isolation need. |
-| Existing Core distribution, separate edge Container App | Accepted | It isolates public ingress and channel credentials with a dedicated identity while reusing the owning gateway and durable contracts without cross-service imports or a new writer. |
+| Existing Operator distribution, separate edge Container App | Accepted | It isolates public ingress and channel credentials while reusing the owning conversation writer, service migration branch, and typed semantic EventBus bridge without cross-service implementation imports. |
 
-The edge workload is independently runnable and can scale separately, but package, contract, and
-migration ownership remain with Core. This deployment distinction does not change the fixed five
-service distributions or the fifteen-agent pantheon.
+The edge workload is independently runnable and can scale separately, but package, writer, and
+migration ownership remain with Operator Service. Core receives only the versioned semantic request
+and returns only the versioned semantic projection through EventBus. This deployment distinction
+does not change the fixed five service distributions or the fifteen-agent pantheon.
 
 ## Ingress and publishing
 
@@ -117,7 +126,9 @@ admission. No error includes request bodies, sender ids, file names, credentials
 
 ## Durable delivery
 
-Migration `20260720_0047` remains the schema owner. Concrete PostgreSQL adapters implement:
+Legacy migration `20260720_0047` remains unchanged. The Operator branch revision
+`operator_a3_channel_delivery_20260819` adds the inbound claim table and exact role grants. The
+Operator-local PostgreSQL adapters implement:
 
 - verified principal binding create/read/revoke/list operations;
 - immutable response insert with idempotency-content conflict rejection;
@@ -125,9 +136,10 @@ Migration `20260720_0047` remains the schema owner. Concrete PostgreSQL adapters
 - attempt and acknowledgement persistence in the same transaction as state closure;
 - process-loss conversion from expired `sending` to immutable `ambiguous`;
 - revisioned adapter breaker compare-and-set;
-- bounded inbound message claims that can be released only before protected ingestion completes.
+- processing leases that can be reclaimed after expiry and completed claims that permanently
+  suppress provider redelivery.
 
-Database grants keep the edge on those channel tables only. It receives no audit append, ontology,
+Database grants keep the edge on those six channel tables only. It receives no audit append, ontology,
 policy, Action, executor, or managed-resource grant. Durable response JSON round-trips artifact
 version, facts, limitations, evidence references, activities, progress, and thread intent exactly.
 
@@ -138,8 +150,8 @@ version, facts, limitations, evidence references, activities, progress, and thre
 1. Validate the closed environment/config schema and enabled channel set.
 2. Resolve secret references and identity dependencies without logging values.
 3. Open PostgreSQL and the owned HTTP client with redirects disabled and bounded timeouts.
-4. Build authenticated adapters, principal resolvers, protected attachment ingestion, gateway,
-   delivery coordinator, and fixed routes.
+4. Build authenticated adapters, principal resolvers, protected attachment ingestion, semantic
+  bridge, presentation compiler, delivery coordinator, and fixed routes.
 5. Reconcile expired `sending` rows before marking readiness true or accepting traffic.
 6. Start one supervised gateway consumer per enabled adapter.
 7. On shutdown, stop route admission, close queues, cancel and await consumers, close providers,
@@ -157,7 +169,7 @@ Console and Operator ports unchanged. Local and deployed use the same routes, st
 renderers, queue bounds, reconciliation, and health contract. Local secrets remain local-only and
 the full-stack launcher fails closed when an enabled channel is not configured.
 
-Azure uses a separate Container App from the existing Core image with:
+Azure uses a separate Container App from the existing Operator Service image with:
 
 - dedicated user-assigned managed identity and no executor roles;
 - Key Vault references for channel secret values;
@@ -168,8 +180,8 @@ Azure uses a separate Container App from the existing Core image with:
 - structured logs and aggregate delivery metrics without content or identity.
 
 Protected deployment follows the existing VNet runner path. Rollback restores the prior disabled
-or prior-image edge revision without changing Core, Operator, offsets, migration heads, or channel
-bindings. A rollback rehearsal proves route closure, no duplicate terminal send, exact identity
+or prior-image edge revision without changing Core, Operator API, offsets, migration heads, or
+channel bindings. A rollback rehearsal proves route closure, no duplicate terminal send, exact identity
 roles, and five existing service revisions unchanged.
 
 ## Failure behavior

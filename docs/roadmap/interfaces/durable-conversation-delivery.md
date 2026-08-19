@@ -21,10 +21,10 @@ durable state-machine owner.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Verified bindings and delivery context | implemented | [`principal_binding.py`](../../../services/core-control-plane/src/fdai/core/conversation/principal_binding.py), [`binding_delivery_context.py`](../../../services/core-control-plane/src/fdai/core/conversation/binding_delivery_context.py), [`test_principal_binding.py`](../../../services/core-control-plane/tests/conversation/test_principal_binding.py), [`test_binding_delivery_context.py`](../../../services/core-control-plane/tests/conversation/test_binding_delivery_context.py) | In-memory binding, explicit cross-channel resume, revocation, endpoint matching, and verified delivery-context resolution pass focused tests. No current PostgreSQL binding store or production composition is present. |
+| Verified bindings and delivery context | in-progress | [`principal_binding.py`](../../../services/core-control-plane/src/fdai/core/conversation/principal_binding.py); focused in-memory binding checks | The provider-neutral service enforces explicit cross-channel resume, active-endpoint uniqueness, revocation CAS, endpoint matching, and verified delivery-context resolution. The Operator-local PostgreSQL adapter and restart evidence remain open. |
 | Immutable delivery ledger and recovery coordinator | implemented | [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`outbound_delivery.py`](../../../services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py), [`test_conversation_delivery.py`](../../../services/core-control-plane/tests/providers/test_conversation_delivery.py), [`test_outbound_delivery.py`](../../../services/core-control-plane/tests/conversation/test_outbound_delivery.py) | The in-memory store and coordinator enforce stable idempotency, CAS claims, bounded retry, terminal ambiguity, and stale-lease reconciliation in focused tests. This row does not claim restart durability. |
 | Conversation gateway and typed progress replay | implemented | [`channel_gateway.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_gateway.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py), [`test_rich_contract.py`](../../../services/core-control-plane/tests/delivery/channels/test_rich_contract.py) | The gateway persists one complete response through its durable-delivery boundary and isolates duplicate turns and delivery failures. Typed activity and progress payloads round-trip in focused tests. No production channel runtime binds this path. |
-| PostgreSQL schema and production persistence | in-progress | [`20260720_0047_conversation_delivery.py`](../../../alembic/versions/20260720_0047_conversation_delivery.py) | The migration defines binding, delivery, attempt, acknowledgement, and breaker tables plus constraints and indexes. The current service tree has no PostgreSQL conversation-delivery or principal-binding store, database-backed focused test, or production binding. |
+| PostgreSQL schema and production persistence | in-progress | [`20260720_0047_conversation_delivery.py`](../../../alembic/versions/20260720_0047_conversation_delivery.py); `operator_a3_channel_delivery_20260819`; service-migration checks (`47 passed`) | Legacy revision 0047 remains frozen. The Operator branch owns the new processing/completed inbound claim and exact role grants. Operator-local binding, delivery, attempt, acknowledgement, breaker, and claim adapters remain open. |
 | Adapter health policy | implemented | [`adapter_health.py`](../../../services/core-control-plane/src/fdai/core/conversation/adapter_health.py), [`test_adapter_health.py`](../../../services/core-control-plane/tests/conversation/test_adapter_health.py) | Bounded failure windows, fail-closed breaker modes, authorized pause and resume, and authorized A2 fallback behavior pass focused in-memory tests. The separately authenticated command app is not implemented. |
 | Scheduled delivery and adapter command surfaces | in-progress | [`scheduled_continuation.py`](../../../services/core-control-plane/src/fdai/shared/providers/scheduled_continuation.py), [`continuation.py`](../../../services/core-control-plane/src/fdai/core/scheduler/continuation.py), [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py) | Scheduled anchors and delivery/snapshot contracts exist. `ScheduledContinuationDeliveryCoordinator`, adapter command routes, and production startup composition are absent from the current tree. |
 | Read-only delivery operations panel | implemented | [`delivery_panel.py`](../../../services/core-control-plane/src/fdai/core/conversation/delivery_panel.py), [`test_delivery_panel.py`](../../../services/core-control-plane/tests/conversation/test_delivery_panel.py) | `ConversationDeliveryPanel` projects latency count/average/p95, state counts, duplicate risk, retries, abandonment, attempt and acknowledgement counts, breaker mode counts, and optional progressive counters. The payload declares `read_only=true` and `mutations_available=false`, exposes no identifier or answer text, and only the snapshot read capability is reachable. No console route or production store binds this projection yet. |
@@ -35,11 +35,15 @@ durable state-machine owner.
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted the implementation ledger and corrected production persistence, startup, command, scheduled-delivery, and operations-view claims to match the current service tree. | The 76 focused tests listed in the scope table passed. Repository search found no current production store, runtime composition, command route, scheduled delivery coordinator, or read panel. | Implement and bind the missing production surfaces, run database-backed checks, and capture governed runtime receipts. |
 | 2026-08-16 | in-progress | Implemented the GET-only `ConversationDeliveryPanel` aggregate projection with bounded latency percentiles, breaker and state counts, optional progressive counters, and no mutation or identifier surface. | `pytest services/core-control-plane/tests/conversation/test_delivery_panel.py` passed 11 focused tests, including read-only declaration, identifier-free payload, and mutation-path refusal. | Bind the panel to an authenticated console read route and a production delivery store, then capture governed runtime receipts. |
+| 2026-08-19 | implemented | Added concrete PostgreSQL principal binding and outbound delivery stores over unchanged revision 0047, plus additive revision 0087 and a lease-aware inbound message ledger. The gateway marks an inbound claim complete only after direct acknowledgement or durable delivery ownership. | `current change`; live loopback PostgreSQL checks passed 9 cases with no skips, in-memory/gateway parity passed 36 cases, migration checks passed 183 cases, and Ruff, formatting, and strict mypy passed. | Bind all stores in the fail-closed production A3 lifespan and retain runtime restart evidence. |
+| 2026-08-19 | withdrawn | Withdrew the Core-owned PostgreSQL adapters and root revision 0087 because the Operator Service owns the conversation tables and the root Alembic lineage is frozen. | Root migration head restored to `20260819_0086`; legacy inventory restored to 88 revisions and 105 tables; focused Core migration checks passed 200 cases and service-migration checks passed 47 cases. | Reimplement the stores under Operator ownership. |
+| 2026-08-19 | in-progress | Added the inbound claim table and exact six-table grants to the Operator service migration branch. | `current change`; `operator_a3_channel_delivery_20260819`; ownership manifest; service-migration checks passed 47 cases; loopback Operator branch upgraded to the new head. | Implement and bind the Operator-local stores, then retain restart and process-loss evidence. |
 
 ### Remaining work
 
-- [ ] Implement PostgreSQL `ConversationDeliveryStore` and `PrincipalConversationBindingStore`
-    adapters, add database-backed focused tests, and bind them in production composition.
+- [ ] Implement Operator-local PostgreSQL delivery, binding, breaker, and inbound claim adapters
+    with live database-backed focused tests.
+- [ ] Bind the three PostgreSQL stores in production composition.
 - [ ] Compose a production channel runtime that invokes startup reconciliation before consumers and
     fails closed when required attachment or channel dependencies are unavailable.
 - [ ] Add the separately authenticated `/commands/adapters/*` application with authorization,
@@ -124,19 +128,23 @@ background task, scheduled task, or response generator.
 
 ## PostgreSQL consistency
 
-Alembic revision `20260720_0047` adds binding, delivery, attempt, acknowledgement, and adapter
-breaker tables. The database enforces:
+Frozen legacy revision `20260720_0047` adds binding, delivery, attempt, acknowledgement, and
+adapter breaker tables. Operator service revision `operator_a3_channel_delivery_20260819` adds the
+inbound processing lease and completed deduplication table and grants only the Operator role. The
+database enforces:
 
 - Unique delivery idempotency keys and binding endpoint constraints.
 - Due-row indexes for `pending` and `failed`, plus retention, latency, and duplicate-risk indexes.
 - Row-lock CAS claims with `FOR UPDATE SKIP LOCKED` for concurrent workers.
 - One attempt sequence per delivery and one acknowledgement per delivered record.
 - A trigger that rejects updates to `delivered`, `ambiguous`, and `abandoned` rows.
+- One processing lease per inbound message digest, reclaim only after lease expiry, permanent
+    completed deduplication, and release only while processing.
 - Retention deletion only after a terminal row reaches `retention_until`.
 
-The in-memory implementation follows the same transition rules for deterministic tests. Production
-must use PostgreSQL stores; those adapters and their production composition are not present in the
-current service tree.
+The in-memory implementation follows the same transition rules for deterministic tests. The
+Operator-local PostgreSQL stores and production composition are not present in the current service
+tree.
 
 ## Crash recovery
 

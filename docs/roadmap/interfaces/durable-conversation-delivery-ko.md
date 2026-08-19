@@ -1,7 +1,7 @@
 ---
 translation_of: durable-conversation-delivery.md
-translation_source_sha: 64dbd540c01a4c8a337fe6b62b528831c97ada56
-translation_revised: 2026-08-16
+translation_source_sha: b5fc41d8ba263576461466498be2c8faf8f54cae
+translation_revised: 2026-08-20
 ---
 # 영구 대화 전송
 
@@ -22,10 +22,10 @@ translation_revised: 2026-08-16
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
-| 검증된 연결 및 전달 맥락 | 구현됨 | [`principal_binding.py`](../../../services/core-control-plane/src/fdai/core/conversation/principal_binding.py), [`binding_delivery_context.py`](../../../services/core-control-plane/src/fdai/core/conversation/binding_delivery_context.py), [`test_principal_binding.py`](../../../services/core-control-plane/tests/conversation/test_principal_binding.py), [`test_binding_delivery_context.py`](../../../services/core-control-plane/tests/conversation/test_binding_delivery_context.py) | 메모리 내 연결, 명시적 채널 간 재개, 철회, 엔드포인트 일치 및 검증된 전달 맥락 확인이 집중 테스트를 통과합니다. 현재 PostgreSQL 연결 저장소나 운영 조립은 없습니다. |
+| 검증된 연결 및 전달 맥락 | 진행 중 | [`principal_binding.py`](../../../services/core-control-plane/src/fdai/core/conversation/principal_binding.py), 집중 in-memory binding 검사 | 프로바이더 중립 service가 명시적 cross-channel resume, active-endpoint uniqueness, revocation CAS, endpoint 일치 및 검증된 delivery-context resolution을 강제합니다. Operator-local PostgreSQL adapter와 restart 근거는 열린 상태입니다. |
 | 불변 전달 원장 및 복구 조정기 | 구현됨 | [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`outbound_delivery.py`](../../../services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py), [`test_conversation_delivery.py`](../../../services/core-control-plane/tests/providers/test_conversation_delivery.py), [`test_outbound_delivery.py`](../../../services/core-control-plane/tests/conversation/test_outbound_delivery.py) | 메모리 내 저장소와 조정기는 집중 테스트에서 안정적인 멱등성, CAS 점유, 제한된 재시도, 최종 모호성 및 오래된 임차 조정을 강제합니다. 이 행은 재시작 내구성을 주장하지 않습니다. |
 | 대화 게이트웨이 및 타입이 지정된 진행 상황 재생 | 구현됨 | [`channel_gateway.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_gateway.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py), [`test_rich_contract.py`](../../../services/core-control-plane/tests/delivery/channels/test_rich_contract.py) | 게이트웨이는 영구 전달 경계를 통해 완전한 응답 하나를 저장하고 중복 턴과 전달 실패를 격리합니다. 타입이 지정된 활동 및 진행 상황 페이로드가 집중 테스트에서 왕복 변환됩니다. 운영 채널 런타임은 이 경로를 연결하지 않습니다. |
-| PostgreSQL 스키마 및 운영 영속성 | 진행 중 | [`20260720_0047_conversation_delivery.py`](../../../alembic/versions/20260720_0047_conversation_delivery.py) | 마이그레이션은 연결, 전달, 시도, 확인 응답 및 차단기 테이블과 제약 조건 및 인덱스를 정의합니다. 현재 서비스 트리에는 PostgreSQL 대화 전달 또는 principal 연결 저장소, 데이터베이스 기반 집중 테스트 또는 운영 연결이 없습니다. |
+| PostgreSQL schema 및 운영 영속성 | 진행 중 | [`20260720_0047_conversation_delivery.py`](../../../alembic/versions/20260720_0047_conversation_delivery.py), `operator_a3_channel_delivery_20260819`, service-migration 검사 47개 통과 | Legacy revision 0047은 동결된 상태를 유지합니다. Operator branch가 새 processing/completed inbound claim과 정확한 role grant를 소유합니다. Operator-local binding, delivery, attempt, acknowledgement, breaker 및 claim adapter는 열린 상태입니다. |
 | 어댑터 상태 정책 | 구현됨 | [`adapter_health.py`](../../../services/core-control-plane/src/fdai/core/conversation/adapter_health.py), [`test_adapter_health.py`](../../../services/core-control-plane/tests/conversation/test_adapter_health.py) | 제한된 실패 구간, 실패 시 닫히는 차단기 모드, 권한이 확인된 일시 중지 및 재개, 권한이 확인된 A2 대체 경로 동작이 메모리 내 집중 테스트를 통과합니다. 별도로 인증된 명령 앱은 구현되지 않았습니다. |
 | 예약 전달 및 어댑터 명령 표면 | 진행 중 | [`scheduled_continuation.py`](../../../services/core-control-plane/src/fdai/shared/providers/scheduled_continuation.py), [`continuation.py`](../../../services/core-control-plane/src/fdai/core/scheduler/continuation.py), [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py) | 예약 앵커와 전달 및 스냅샷 계약은 있습니다. `ScheduledContinuationDeliveryCoordinator`, 어댑터 명령 경로 및 운영 시작 조립은 현재 트리에 없습니다. |
 | 읽기 전용 전달 운영 패널 | 구현됨 | [`delivery_panel.py`](../../../services/core-control-plane/src/fdai/core/conversation/delivery_panel.py), [`test_delivery_panel.py`](../../../services/core-control-plane/tests/conversation/test_delivery_panel.py) | `ConversationDeliveryPanel`은 지연 시간 개수/평균/p95, 상태 개수, 중복 위험, 재시도, 포기, 시도 및 확인 응답 개수, 차단기 상태 개수, 선택적 progressive 계수기를 투영합니다. 페이로드는 `read_only=true` 및 `mutations_available=false`를 선언하고 식별자나 답변 본문을 노출하지 않으며 스냅샷 읽기 능력만 도달합니다. 아직 Console 경로나 운영 저장소가 이 투영을 연결하지 않았습니다. |
@@ -36,11 +36,15 @@ translation_revised: 2026-08-16
 |------|------|------|------|-----------|
 | 2026-08-13 | 진행 중 | 구현 장부를 도입하고 운영 영속성, 시작, 명령, 예약 전달 및 운영 화면 주장을 현재 서비스 트리에 맞게 수정했습니다. | 구현 범위 표에 나열한 집중 테스트 76개가 통과했습니다. 저장소 검색에서 현재 운영 저장소, 런타임 조립, 명령 경로, 예약 전달 조정기 또는 읽기 패널을 찾지 못했습니다. | 누락된 운영 표면을 구현하고 연결하며 데이터베이스 기반 검사를 실행하고 통제된 런타임 증적을 확보해야 합니다. |
 | 2026-08-16 | 진행 중 | 범위가 제한된 지연 시간 백분위수, 차단기 및 상태 개수, 선택적 progressive 계수기를 갖추고 변경 제어나 식별자 표면이 없는 GET 전용 `ConversationDeliveryPanel` 집계 투영을 구현했습니다. | `pytest services/core-control-plane/tests/conversation/test_delivery_panel.py`가 읽기 전용 선언, 식별자 없는 페이로드, 변경 경로 거부를 포함한 집중 테스트 11개를 통과했습니다. | 패널을 인증된 Console 읽기 경로와 운영 전달 저장소에 연결한 뒤 통제된 런타임 증적을 확보해야 합니다. |
+| 2026-08-19 | 구현됨 | 변경하지 않은 revision 0047 위에 구체적인 PostgreSQL principal binding 및 outbound delivery store를 추가하고 additive revision 0087과 lease-aware inbound message ledger를 추가했습니다. Gateway는 direct acknowledgement 또는 durable delivery ownership 이후에만 inbound claim을 완료로 표시합니다. | `current change`, loopback PostgreSQL 실제 검사 9개 건너뛰기 없이 통과, in-memory/gateway parity 36개, migration 검사 183개 및 Ruff, formatting, strict mypy 통과 | Fail-closed 운영 A3 lifespan에 모든 store를 binding하고 runtime restart 근거를 보존합니다. |
+| 2026-08-19 | 철회됨 | Operator Service가 conversation table을 소유하고 root Alembic lineage가 동결되어 있으므로 Core 소유 PostgreSQL adapter와 root revision 0087을 철회했습니다. | Root migration head를 `20260819_0086`으로 복원했고 legacy inventory를 revision 88개와 table 105개로 복원했습니다. 집중 Core migration 검사 200개와 service-migration 검사 47개를 통과했습니다. | Operator 소유권 아래에서 store를 다시 구현합니다. |
+| 2026-08-19 | 진행 중 | Inbound claim table과 정확한 6개 table grant를 Operator service migration branch에 추가했습니다. | `current change`, `operator_a3_channel_delivery_20260819`, ownership manifest, service-migration 검사 47개 통과, loopback Operator branch를 새 head로 upgrade | Operator-local store를 구현하고 binding한 뒤 restart 및 process-loss 근거를 보존합니다. |
 
 ### 남은 작업
 
-- [ ] PostgreSQL `ConversationDeliveryStore` 및 `PrincipalConversationBindingStore` 어댑터를
-     구현하고 데이터베이스 기반 집중 테스트를 추가한 뒤 운영 조립에 연결합니다.
+- [ ] Operator-local PostgreSQL delivery, binding, breaker 및 inbound claim adapter를 구현하고
+     실제 database 집중 테스트를 통과합니다.
+- [ ] 세 PostgreSQL store를 운영 조립에 binding합니다.
 - [ ] 소비자보다 먼저 시작 조정을 호출하고 필수 첨부 또는 채널 종속성을 사용할 수 없을 때
      실패 시 닫히는 운영 채널 런타임을 조립합니다.
 - [ ] 권한 확인, 감사 및 일시 중지, 재개, 상태 집중 테스트를 갖춘 별도 인증
@@ -125,8 +129,10 @@ background 작업, scheduled 작업 또는 응답 generator를 호출하지 않�
 
 ## PostgreSQL 일관성
 
-Alembic 개정 번호 `20260720_0047`은 연결, 전달, 시도, 확인 응답 및 어댑터 차단기
-표를 추가합니다. 데이터베이스는 다음을 강제합니다.
+동결된 legacy revision `20260720_0047`은 연결, 전달, 시도, 확인 응답 및 어댑터 차단기
+table을 추가합니다. Operator service revision `operator_a3_channel_delivery_20260819`는 inbound
+processing lease와 completed deduplication table을 추가하고 Operator role에만 grant합니다.
+데이터베이스는 다음을 강제합니다.
 
 - Unique 전달 멱등성 키 및 연결 엔드포인트 제약입니다.
 - `pending`과 `failed`를 위한 due-row 인덱스, 보존, 지연 시간, duplicate-risk 인덱스입니다.
@@ -135,8 +141,8 @@ Alembic 개정 번호 `20260720_0047`은 연결, 전달, 시도, 확인 응답 �
 - `delivered`, `ambiguous`, `abandoned` 행 갱신을 거부하는 트리거입니다.
 - 최종 행이 `retention_until`에 도달한 뒤에만 보존 삭제를 허용합니다.
 
-메모리 내 구현은 결정론적 테스트를 위해 동일한 전이 규칙을 따릅니다. 운영에서는 PostgreSQL
-저장소를 사용해야 하지만 해당 어댑터와 운영 조립은 현재 서비스 트리에 없습니다.
+메모리 내 구현은 결정론적 테스트를 위해 동일한 전이 규칙을 따릅니다. Operator-local
+PostgreSQL store와 운영 조립은 현재 service tree에 없습니다.
 
 ## 비정상 종료 복구
 

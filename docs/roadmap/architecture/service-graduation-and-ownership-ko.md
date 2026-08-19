@@ -1,7 +1,7 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: 0d27d344f67d9130873d9eb333a9b3ee19b6face
-translation_revised: 2026-08-19
+translation_source_sha: a40d9e758a5c44226759b3ff11d221a43f2a7490
+translation_revised: 2026-08-20
 ---
 # 서비스 승격과 데이터 소유권
 
@@ -50,6 +50,7 @@ translation_revised: 2026-08-19
 | 2026-08-14 | validated | 원장 도입 이전의 설계 이력을 재구성하지 않고 완료된 5개 서비스 근거와 보류된 향후 후보를 분리해 기록했습니다. | `current change`; 구현 범위 표에 인용한 머신 매니페스트, 서비스 migration 가지, 공유 계약 및 보존된 전이 근거입니다. | 관찰 가능한 강제 트리거와 완전한 점수표 근거가 생긴 보류 후보만 다시 평가합니다. |
 | 2026-08-15 | validated | Norns가 소유하는 객체 이름을 `PatternObservation`에서 `Pattern`으로 변경해 에이전트 스펙, 등록된 토픽, 판테온 표, Console 에이전트 계약이 하나의 기록을 가리키게 했습니다. | `current change`, `PANTHEON_SPECS`, `agents/_framework/topics.py`, `console/src/routes/agents.model.ts`, 집중 판테온 레이아웃, 문서 파리티, 카탈로그 테스트 통과 | 아직 어느 것도 이 기록을 생산하지 않으며, 발행 또는 폐기는 prediction-learning 원장에서 추적합니다. |
 | 2026-08-19 | implemented | Operator writer 또는 새 서비스를 만들지 않고 재구성 가능한 temporal 인시던트 roster projection을 추가했습니다. Database trigger는 Saga 감사 append transaction 안에서 이전 correlation version을 닫고 다음 as-of version을 삽입하며, Operator branch는 Core schema prerequisite가 존재한 뒤 읽기 권한만 부여합니다. | `current change`, [이슈 #169](https://github.com/dotnetpower/fdai/issues/169), local PostgreSQL migration, trigger, temporal cursor, platform 제외, role grant 검사 통과, 집중 Operator 및 service-migration suite 117개 통과 | 보호된 migration과 service rollout 뒤 deployed latency 근거를 보존합니다. |
+| 2026-08-19 | 진행 중 | 승인된 A3 edge를 Core package 및 migration 소유권에서 이미 conversation writer와 semantic EventBus bridge를 소유한 Operator distribution의 별도 workload로 교정했습니다. | `current change`, `operator_a3_channel_delivery_20260819`, [운영 A3 채널 런타임](../interfaces/production-a3-channel-runtime-ko.md), service-migration 검사 47개 통과 | 여섯 번째 distribution을 추가하지 않고 A3 구현, hardening 및 통제된 runtime 근거를 완료합니다. |
 ### 남은 작업
 
 - [x] 승인된 5개 서비스 토폴로지에 남은 작업이 없습니다. 승격, 쓰기 담당 소유권, 신원 격리, 롤백 및 원격 전이 근거는 분해 프로그램에 보존돼 있습니다.
@@ -98,7 +99,7 @@ channel을 multiplex할 수 있습니다. Broker entity를 공유해도 서비�
 | Operator API SSE 스트리밍 | 보류 | Versioned 중계/재생 계약과 측정된 연결 격리 benefit이 필요합니다. |
 | 문서 인제스트 API | 승인 | 권한과 scaling 격리, 타입이 지정된 전송 계층, role-scoped 데이터베이스 접근, 탐색, co-host 롤백이 구현됐습니다. |
 | 문서 인제스트 워커 | 승인 | 영속 임차 기간/CAS 점유, 재시작/reorder/DLQ 테스트, 내부 상태, dedicated 신원, 규모 게이트가 구현됐습니다. |
-| 대화 채널 런타임 | 여섯 번째 distribution이 아닌 edge adapter workload로 승인 | 공개 프로바이더 인증 유입과 channel-secret 격리가 forcing trigger입니다. Core distribution 및 migration 소유권을 재사용하고 executor 권한이 없는 전용 신원을 받으며 [운영 A3 채널 런타임](../interfaces/production-a3-channel-runtime-ko.md)의 gate를 통과해야 합니다. |
+| 대화 채널 런타임 | 여섯 번째 distribution이 아닌 edge adapter workload로 승인 | 공개 프로바이더 인증 유입과 channel-secret 격리가 forcing trigger입니다. Operator distribution, conversation writer, migration branch 및 semantic EventBus bridge를 사용하고 executor 권한이 없는 전용 신원을 받으며 [운영 A3 채널 런타임](../interfaces/production-a3-channel-runtime-ko.md)의 gate를 통과해야 합니다. |
 | Background read-task 실행기 | 보류 | 영속 시도는 있지만 독립 비용/실패 트리거와 deployed 전송 계층 근거가 측정되지 않았습니다. |
 | 스케줄러, 인벤토리, 측정, canary 작업 | 작업으로 승인 | 범위가 제한된 run-to-completion 계약과 dedicated 신원이 out-of-band Container Apps 작업을 이미 정당화합니다. |
 | 권위 있는 control-loop 단계 | Ad hoc 서비스로 거절 | 에이전트 single-writer 소유권, 필수 의존성, 타입이 지정된 pub/sub, 완전한 실행 safeguard를 보존하지 않으면 단계를 분리할 수 없습니다. |
@@ -121,7 +122,7 @@ Logical 기록 또는 수명 주기 전이 하나에는 쓰기 담당 하나만 
 | Operator API SSE 스트리밍 | 영속 쓰기 없음. Connection-local 커서/backpressure 상태만 소유 | Authorized 단계/활동 스트림과 영속 재생 변환 결과 | 해당 없음 |
 | `conversation_record`, `conversation_turn`, `conversation_policy` ([이행 0019](../../../alembic/versions/20260716_0019_user_context_automation.py)) | Owning principal의 user-context/대화 애플리케이션 서비스 | Operator API 대화/이력 변환 결과 | Alembic 이행 작업 |
 | `conversation_image` | principal 범위로 한정된 Operator API 이미지 저장소 | 인증된 owning-principal 이력 경로 | Alembic 이행 작업 |
-| `conversation_outbound_delivery*`, `conversation_adapter_breaker` | 영속 conversation-delivery 조정기 | Operator API 전달 상태와 claimed 작업의 채널 어댑터 | Alembic 이행 작업 |
+| `conversation_outbound_delivery*`, `conversation_adapter_breaker`, `conversation_channel_message_claim` | Operator 영속 conversation-delivery 조정기 | Operator API 전달 상태와 claimed 작업의 Operator edge adapter | Operator service migration branch |
 | `background_task_attempt`, `background_task_progress`, `background_task_completion` ([이행 0040/0051](../../../alembic/versions/20260720_0040_background_task.py)) | Background-task 조정기/저장소 | Owner-scoped Operator API 변환 결과와 완료 전달 | Alembic 이행 작업 |
 | `scheduled_task`, `schedule_dispatch_run`, `scheduled_conversation_anchor` | 정의와 CAS-claimed 전달 실행의 스케줄러 서비스/저장소 | Operator API 스케줄러/실행 변환 결과와 이어가기 전달 | Alembic 이행 작업 |
 | `inventory_snapshot*`, `inventory_active` | Full-snapshot 승격의 인벤토리 synchronization 작업 | Core 인벤토리 프로바이더와 authorized Operator API 인벤토리 변환 결과 | Alembic 이행 작업 |
@@ -174,7 +175,7 @@ Rollback은 exact 서비스 가지 헤드에서만 시작하고 exact 기준선�
 | 인제스트 API | 업로드/검색 DB 역할, ADLS 업로드/삭제, Event Hubs 전송 | 없음 | 공개 HTTPS Container App |
 | 인제스트 워커 | 워커 DB 역할, ADLS 처리, Event Hubs 전송/수신, 임베딩/OCR | 없음 | ClamAV를 포함한 내부 Container App |
 | 인제스트 이행 | `alembic upgrade head`용 administrator DSN 읽기와 ACR pull. 신원은 run-to-completion 작업에만 첨부 | 없음 | 수동 Container Apps 작업 |
-| 채널 어댑터/런타임 | 채널 시크릿과 범위가 제한된 메시지 전송 계층만 허용 | 없음 | 완성된 경우 deployment-specific 유입 프로세스 |
+| Operator 채널 edge workload | Operator conversation role, 채널 secret 및 범위가 제한된 메시지 전송만 허용 | 없음 | 완료 시 Operator distribution의 별도 public ingress process |
 | Scheduled 작업 | Job-specific 신원과 최소 data-plane 역할 | 타입이 지정된 액션이 Thor로 돌아가는 경우 외에는 없음 | Run-to-completion Container Apps 작업 |
 
 런타임, 환경, 근거 프로파일, 포크 상태는 non-executor 신원을 실행기 권한으로
