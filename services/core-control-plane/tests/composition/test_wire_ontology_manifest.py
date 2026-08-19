@@ -53,6 +53,7 @@ class _ManifestAggregateModel(_ManifestModel):
     def propose_frame(self, **_kwargs: Any) -> dict[str, object]:
         return {
             **super().propose_frame(),
+            "operation": "aggregate",
             "measure_concepts": ["count"],
             "output_shape": "aggregation_table",
         }

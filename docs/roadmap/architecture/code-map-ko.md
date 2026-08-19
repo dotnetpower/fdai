@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: e6503ad2dfb9a19761f68933a11d285d3d685533
+translation_source_sha: 60de2e6d8459e6068dc17cae1ead3ac76cf1f304
 translation_revised: 2026-08-20
 ---
 # 코드 맵
@@ -207,6 +207,7 @@ translation_revised: 2026-08-20
 | 2026-08-20 | 구현됨 | Strict-v2 실행 r9가 모든 셀을 전송하고 판단했지만 15개만 답변한 뒤 plan 검증 전에 exact frame 축 두 개를 다시 적용했습니다. Canonical schema aggregate kind는 이제 검증된 frame에서 오고, 비어 있는 property filter에는 해당 frame이 이름 붙인 exact descriptor property만 추가됩니다. | `current change`, 정확한 소스 실행 `question-space-final-709603208-20260820-r9`, 집중 의미 계획 및 prompt registry 테스트 62개 통과, 작업 범위 Ruff와 strict mypy 통과 | 런타임 상태를 validated로 올리기 전에 통과한 strict-v2 및 seeded 보증 기록을 보존합니다. |
 | 2026-08-20 | 구현됨 | 적대적 검토 뒤 앞선 일반 property 결속을 수정했습니다. 이제 서버는 닫힌 `Resource`와 단일 `type` frame에만 existence predicate를 추가하므로 다른 property 또는 혼합 measure 집합이 조용히 넓어질 수 없습니다. | `current change`, 집중 positive 및 negative 의미 계획 control, 작업 범위 Ruff, format, strict mypy 통과 | 좁혀진 소스에서 통과한 strict-v2 및 seeded 보증 기록을 보존합니다. |
 | 2026-08-20 | 구현됨 | 실행 r12에서 grouping 요청 하나가 property-filter 답변으로 나타난 뒤 shared `aggregate` semantic operation과 fail-closed explicit aggregation consistency를 추가했습니다. Operation과 output shape는 양방향으로 일치해야 하며 명시적 영어 및 한국어 count 또는 grouping operator는 plan 작업 전에 nonaggregation frame을 거부하고 기능을 선택하지 않습니다. | `current change`, 정확한 소스 실행 `question-space-final-b997de285-20260820-r12`, 집중 shared contract, 의미 계획, prompt 테스트 79개와 작업 범위 Ruff, format, strict mypy 통과 | 통과한 정확한 소스 strict-v2 및 seeded 보증 기록을 보존합니다. |
+| 2026-08-20 | 구현됨 | Downstream composition 테스트에서 `network security group` false positive를 재현한 뒤 explicit 영어 grouping detector를 수정했습니다. Bare `group`만으로는 충분하지 않으며 명령형 grouping에는 범위가 제한된 뒤따르는 `by`가 필요하고 canonical manifest aggregate fixture는 operation `aggregate`를 선언합니다. | `current change`, 실패했던 composition consumer 2개와 aggregation guard control 7개가 통과했고 전체 집중 slice 82개와 Ruff, format, strict mypy가 통과했습니다. | 수정된 소스에서 통과한 정확한 source strict-v2 및 seeded 보증 기록을 보존합니다. |
 
 ### 남은 작업
 

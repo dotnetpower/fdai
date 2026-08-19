@@ -1534,7 +1534,16 @@ def test_explicit_aggregation_request_rejects_a_fully_misclassified_frame(
     assert (t2.frame_calls, t2.plan_calls) == (1, 0)
 
 
-def test_nonaggregation_request_does_not_require_an_aggregate_frame() -> None:
+@pytest.mark.parametrize(
+    "utterance",
+    (
+        "Show resources with a declared type.",
+        "Find the network security group rule.",
+    ),
+)
+def test_nonaggregation_request_does_not_require_an_aggregate_frame(
+    utterance: str,
+) -> None:
     manifest, definition = _fixture()
     frame = _frame(output_shape="property_filtered_resources")
     t1 = _Model(frame=frame, plan=_plan(definition))
@@ -1542,7 +1551,7 @@ def test_nonaggregation_request_does_not_require_an_aggregate_frame() -> None:
 
     outcome = _run(
         _service(t1, t2, manifest),
-        utterance="Show resources with a declared type.",
+        utterance=utterance,
     )
 
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
