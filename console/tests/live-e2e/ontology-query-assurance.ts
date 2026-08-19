@@ -941,6 +941,23 @@ export function requiredAnswerOperations(): readonly AssuranceOperation[] {
   return ANSWER_REQUIRED_OPERATIONS;
 }
 
+export function hasExactOperationCoverage(
+  results: readonly { readonly operation: AssuranceOperation }[],
+  cohort: readonly { readonly operation: AssuranceOperation }[],
+): boolean {
+  const resultCounts = new Map<AssuranceOperation, number>();
+  const cohortCounts = new Map<AssuranceOperation, number>();
+  for (const result of results) {
+    resultCounts.set(result.operation, (resultCounts.get(result.operation) ?? 0) + 1);
+  }
+  for (const question of cohort) {
+    cohortCounts.set(question.operation, (cohortCounts.get(question.operation) ?? 0) + 1);
+  }
+  return results.length === cohort.length && OPERATIONS.every(
+    (operation) => resultCounts.get(operation) === cohortCounts.get(operation),
+  );
+}
+
 export function hasRequiredAnswerCoverage(
   results: readonly {
     readonly operation: AssuranceOperation;

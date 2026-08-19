@@ -50,6 +50,7 @@ import {
   assuranceSessionId,
   generateOntologyAssuranceCohort,
   hasRequiredAnswerCoverage,
+  hasExactOperationCoverage,
   isRetryableAssuranceTransportFailure,
   judgeSemanticTurn,
   resolveAssuranceRunId,
@@ -599,9 +600,8 @@ test("authenticated Console completes the seeded bilingual ontology assurance co
   ).length;
   const localeCoverageComplete = runScope === "full_cohort" &&
     localeCounts.en === 50 && localeCounts.ko === 50;
-  const operationCoverageComplete = runScope === "full_cohort" && assuranceOperations().every(
-    (operation) => operationCounts[operation] === 10,
-  );
+  const operationCoverageComplete = runScope === "full_cohort" &&
+    hasExactOperationCoverage(retained, questions);
   const requiredAnswerCoverageComplete = runScope === "full_cohort" &&
     hasRequiredAnswerCoverage(retained.map((result) => ({
       operation: result.operation,

@@ -28,6 +28,7 @@ import {
   buildAssuranceRunProvenance,
   generateOntologyAssuranceCohort,
   hasRequiredAnswerCoverage,
+  hasExactOperationCoverage,
   isRetryableAssuranceTransportFailure,
   judgeSemanticReceipt,
   judgeSemanticTurn,
@@ -831,6 +832,20 @@ describe("ontology query assurance cohort", () => {
     expect(new Set(first.map((question) => question.question_id))).toEqual(
       new Set(second.map((question) => question.question_id)),
     );
+  });
+
+  it("checks operation coverage against the authoritative cohort distribution", () => {
+    const cohort = generateOntologyAssuranceCohort(0x0fda1);
+
+    expect(hasExactOperationCoverage(cohort, cohort)).toBe(true);
+    expect(hasExactOperationCoverage(cohort.slice(1), cohort)).toBe(false);
+    expect(hasExactOperationCoverage(
+      [
+        ...cohort.slice(1),
+        { ...cohort[1]!, question_id: "replacement-question" },
+      ],
+      cohort,
+    )).toBe(false);
   });
 
   it("contains no expected answer text or prose-derived oracle fields", () => {
