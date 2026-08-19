@@ -235,6 +235,6 @@ def test_readable_hangul_gate_is_wired_to_ci_and_fast_verification() -> None:
     workflow = (_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     verification = (_ROOT / "scripts" / "verify.sh").read_text(encoding="utf-8")
 
-    assert "readable-hangul:" in workflow
+    assert "repository-contracts:" in workflow
     assert "python3 scripts/quality/localization/check-readable-hangul.py" in workflow
     assert 'run_gate "readable-hangul"' in verification

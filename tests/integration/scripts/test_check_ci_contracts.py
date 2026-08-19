@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import importlib.util
-import re
 from pathlib import Path
 from types import ModuleType
 
 import pytest
+import yaml
 from scripts.deployment.service.select_changed_images import IMAGE_TARGETS
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -99,6 +99,14 @@ def test_deploy_workspace_preparation_runs_before_checkout() -> None:
     assert "working-directory: ${{ runner.temp }}" in prepare_step
 
 
+def test_destroy_helper_dispatches_the_protected_main_commit() -> None:
+    helper = (_REPO_ROOT / "scripts/deployment/azure/teardown-env.sh").read_text(encoding="utf-8")
+
+    assert 'COMMIT_SHA="$(gh api "repos/$REPO/commits/main" --jq .sha)"' in helper
+    assert '[[ "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]]' in helper
+    assert '-f commit_sha="$COMMIT_SHA"' in helper
+
+
 @pytest.mark.parametrize(
     "workflow",
     (
@@ -178,38 +186,17 @@ def test_event_scoped_issue_mutation_does_not_require_repository_guard(
     assert module._validate_privileged_workflow_guards() == []
 
 
+def test_issue_lifecycle_ignores_events_created_by_its_own_token() -> None:
+    workflow = (_REPO_ROOT / ".github/workflows/issue-lifecycle.yml").read_text(encoding="utf-8")
+
+    assert "github.actor != 'github-actions[bot]'" in workflow
+
+
 def test_shipped_workflows_satisfy_security_contracts() -> None:
     module = _load_contract_module()
 
     assert module._validate_action_runtime_versions() == []
     assert module._validate_privileged_workflow_guards() == []
-
-
-def test_release_bundle_uses_exact_commit_and_reviewed_action_shas() -> None:
-    workflow = (
-        Path(__file__).resolve().parents[3]
-        / ".github"
-        / "workflows"
-        / "release-deployment-bundle.yml"
-    ).read_text(encoding="utf-8")
-    uses = re.findall(r"^\s*uses:\s+([^\s#]+)", workflow, re.MULTILINE)
-    pins = {
-        "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
-        "actions/setup-node": "820762786026740c76f36085b0efc47a31fe5020",
-        "actions/upload-artifact": "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
-        "actions/download-artifact": "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
-        "astral-sh/setup-uv": "11f9893b081a58869d3b5fccaea48c9e9e46f990",
-        "pypa/gh-action-pip-audit": "1220774d901786e6f652ae159f7b6bc8fea6d266",
-        "pypa/gh-action-pypi-publish": "2834a314042ef964da07689278dd1e9d773e8afd",
-    }
-
-    assert "commit_sha:" in workflow
-    assert 'description: "Exact protected origin/main commit to release."' in workflow
-    assert workflow.count("ref: ${{ inputs.commit_sha }}") == 4
-    assert "github.sha" not in workflow
-    assert uses and all(re.fullmatch(r"[^@]+@[0-9a-f]{40}", value) for value in uses)
-    for action, sha in pins.items():
-        assert f"{action}@{sha}" in uses
 
 
 def test_shipped_privileged_workflow_inventory_is_explicitly_audited() -> None:
@@ -231,7 +218,6 @@ def test_shipped_privileged_workflow_inventory_is_explicitly_audited() -> None:
         "issue-lifecycle.yml",
         "model-lifecycle-reconcile.yml",
         "pages.yml",
-        "release-deployment-bundle.yml",
         "remote-evidence-attest.yml",
         "service-deploy.yml",
     }
@@ -413,14 +399,27 @@ def test_ci_installs_and_audits_the_frozen_runtime_workspace() -> None:
     workflow = (Path(__file__).resolve().parents[3] / ".github" / "workflows" / "ci.yml").read_text(
         encoding="utf-8"
     )
-    chaos_job = workflow.split("  chaos-scenarios:", 1)[1].split("\n  core-imports:", 1)[0]
+    governance_job = workflow.split("  governance-runtime-contracts:", 1)[1].split(
+        "\n  evaluation-packages:", 1
+    )[0]
     audit_job = workflow.split("  deps-audit:", 1)[1].split("\n  exemption-check:", 1)[0]
 
-    assert "uv sync --frozen --package fdai-core-control-plane --no-dev" in chaos_job
-    assert "python3 -m pip install --quiet -e ." not in chaos_job
+    assert "uv sync --frozen --package fdai-core-control-plane --no-dev" in governance_job
+    assert "python3 -m pip install --quiet -e ." not in governance_job
     assert "uv export --format requirements.txt --frozen --no-dev" in audit_job
     assert "--no-emit-workspace --output-file audit-requirements.txt" in audit_job
     assert "inputs: audit-requirements.txt" in audit_job
+
+
+def test_ci_required_status_aggregates_every_execution_job() -> None:
+    workflow_path = _REPO_ROOT / ".github" / "workflows" / "ci.yml"
+    jobs = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))["jobs"]
+    required = jobs["required"]
+
+    assert set(required["needs"]) == set(jobs) - {"required"}
+    assert "always()" in str(required["if"])
+    assert "NEEDS_JSON: ${{ toJSON(needs) }}" in workflow_path.read_text(encoding="utf-8")
+    assert '{"success", "skipped"}' in workflow_path.read_text(encoding="utf-8")
 
 
 def test_container_scan_blocks_all_medium_high_and_critical_vulnerabilities() -> None:

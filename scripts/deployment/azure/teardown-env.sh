@@ -52,10 +52,15 @@ case "${1:-}" in
     echo "(real remote state; the ops hub + state account are NOT touched)."
     read -r -p "Type the env name to confirm: " confirm
     [ "$confirm" = "$ENV" ] || { echo "aborted."; exit 1; }
+    COMMIT_SHA="$(gh api "repos/$REPO/commits/main" --jq .sha)"
+    [[ "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+      echo "could not resolve the protected main commit for $REPO." >&2
+      exit 1
+    }
     # The destroy runs on the self-hosted runner with the vetted backend + vars,
     # never a stale local dir. The workflow re-checks confirm == environment.
     gh workflow run destroy-env.yml -R "$REPO" \
-      -f environment="$ENV" -f confirm="$ENV"
+      -f environment="$ENV" -f confirm="$ENV" -f commit_sha="$COMMIT_SHA"
     echo "destroy-env workflow dispatched; watch: gh run watch -R $REPO"
     ;;
   *)

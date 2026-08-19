@@ -20,7 +20,6 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       python: ${{ steps.scope.outputs.python }}
-      docs: ${{ steps.scope.outputs.docs }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -205,14 +204,20 @@ jobs:
         run: bash scripts/quality/ci/run-operator-surfaces.sh
 
   translations:
-    name: docs/**/*.md ↔ -ko.md pair check
+    name: documentation source contracts
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: check-translations.sh
+      - name: Install documentation check dependencies
+        run: python3 -m pip install --quiet pyyaml
+
+      - name: Check translation pairs
         run: bash scripts/quality/localization/check-translations.sh
+
+      - name: Check derived source revisions
+        run: python3 scripts/quality/localization/check-derived-sources.py
 
   design-contracts:
     name: instruction routes and docs-after contract
@@ -249,78 +254,73 @@ jobs:
           python3 scripts/quality/architecture/check-design-doc-impact.py "${{ steps.range.outputs.value }}"
           python3 scripts/quality/architecture/check-document-size.py "${{ steps.range.outputs.value }}"
 
-  catalog-parity:
-    name: L2 message-catalog parity (ko keys subset of en)
+      - name: Check protected framework paths
+        run: bash scripts/integrity/check-protected-paths.sh "${{ steps.range.outputs.value }}"
+
+  repository-contracts:
+    name: repository policy and boundary contracts
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: check-catalog-parity.sh
-        run: bash scripts/quality/localization/check-catalog-parity.sh
-
-  punctuation:
-    name: ASCII punctuation (no em-dash / smart-quotes / nbsp)
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: check-punctuation.sh
-        run: bash scripts/quality/repository/check-punctuation.sh
-
-  readable-hangul:
-    name: Readable UTF-8 Korean source literals
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: check-readable-hangul.py
-        run: python3 scripts/quality/localization/check-readable-hangul.py
-
-  guids:
-    name: No customer/personal GUIDs (generic-scope guard)
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: check-guids.sh
-        run: bash scripts/quality/repository/check-guids.sh
-
-  architecture-review:
-    name: architecture-review readiness contract
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Install PyYAML
+      - name: Install repository check dependencies
         run: python3 -m pip install --quiet pyyaml
 
-      - name: Validate architecture-review manifest
-        run: python3 scripts/governance/check-arb-readiness.py
+      - name: Run repository policy and boundary checks
+        run: |
+          set -uo pipefail
+          failed=0
+          run_check() {
+            local label="$1"
+            shift
+            echo "::group::$label"
+            "$@"
+            local result=$?
+            echo "::endgroup::"
+            if (( result != 0 )); then
+              echo "::error::$label failed with exit code $result"
+              failed=1
+            fi
+          }
+          run_check "Message catalog parity" \
+            bash scripts/quality/localization/check-catalog-parity.sh
+          run_check "ASCII punctuation" \
+            bash scripts/quality/repository/check-punctuation.sh
+          run_check "Readable Hangul" \
+            python3 scripts/quality/localization/check-readable-hangul.py
+          run_check "Generic GUID scope" \
+            bash scripts/quality/repository/check-guids.sh
+          run_check "Architecture review readiness" \
+            python3 scripts/governance/check-arb-readiness.py
+          run_check "Agent stewardship" \
+            bash scripts/governance/check-stewardship.sh
+          run_check "Core import boundary" \
+            bash scripts/quality/architecture/check-core-imports.sh
+          run_check "Report format boundary" \
+            python3 scripts/quality/architecture/check-report-format-boundary.py
+          run_check "Agent import boundary" \
+            bash scripts/quality/architecture/check-agents-imports.sh
+          run_check "Evaluation package boundaries" \
+            python3 scripts/quality/architecture/check-evaluation-boundaries.py
+          run_check "Operator API boundary" \
+            python3 scripts/quality/architecture/check-operator-api-boundaries.py
+          run_check "File LOC" env FILE_LOC_MODE=enforce \
+            bash scripts/quality/architecture/check-file-loc.sh
+          run_check "Subsystem fan-out" env SUBSYSTEM_FANOUT_MODE=enforce \
+            bash scripts/quality/architecture/check-subsystem-fanout.sh
+          run_check "Documentation links" \
+            bash scripts/quality/repository/check-doc-links.sh
+          exit "$failed"
 
-  stewardship:
-    name: agent stewardship handover-map guard
+  governance-runtime-contracts:
+    name: catalog and governance runtime contracts
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Install PyYAML
-        run: python3 -m pip install --quiet pyyaml
-
-      - name: check-stewardship.sh
-        run: bash scripts/governance/check-stewardship.sh
-
-  rule-semantics:
-    name: rule <-> Rego semantic drift guard
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -345,77 +345,55 @@ jobs:
           sudo mv /tmp/opa /usr/local/bin/opa
           opa version
 
-      - name: sync-rule-semantics.py --check
+      - name: Run catalog and governance runtime checks
         env:
-          PYTHONPATH: services/core-control-plane/src:packages/service-contracts/src
-        run: uv run python scripts/catalog/sync-rule-semantics.py --check
-
-  chaos-scenarios:
-    name: chaos-scenarios catalog + symptom-index guard
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.13"
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
-
-      - name: Install frozen runtime workspace
-        run: uv sync --frozen --package fdai-core-control-plane --no-dev
-
-      - name: check-chaos-scenarios.sh
-        run: bash scripts/catalog/check-chaos-scenarios.sh
-
-  core-imports:
-    name: core/ module-boundary guard (no cloud SDK, no HTTP client)
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: check-core-imports.sh
-        run: bash scripts/quality/architecture/check-core-imports.sh
-      - name: check-report-format-boundary.py
-        run: python3 scripts/quality/architecture/check-report-format-boundary.py
-
-  agents-imports:
-    name: agents/ module-boundary guard (no cloud SDK, no HTTP client, no delivery/)
-    # Mirror of `core-imports`, applied to src/fdai/agents/. Agents are
-    # policy / decision code (pantheon); a transport import in an agent
-    # collapses the delivery boundary the same way a core violation
-    # collapses the CSP boundary. Tracker #14, issue #22.
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: check-agents-imports.sh
-        run: bash scripts/quality/architecture/check-agents-imports.sh
-
-  evaluation-boundaries:
-    name: evaluation SDK and external-adapter boundary guard
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: check-evaluation-boundaries.py
-        run: python3 scripts/quality/architecture/check-evaluation-boundaries.py
-
-  operator-api-boundaries:
-    name: Operator API dependency-direction guard
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: check-operator-api-boundaries.py
-        run: python3 scripts/quality/architecture/check-operator-api-boundaries.py
+          PR_BASE_REF: ${{ github.base_ref }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -uo pipefail
+          failed=0
+          run_check() {
+            local label="$1"
+            shift
+            echo "::group::$label"
+            "$@"
+            local result=$?
+            echo "::endgroup::"
+            if (( result != 0 )); then
+              echo "::error::$label failed with exit code $result"
+              failed=1
+            fi
+          }
+          validate_exemptions() {
+            shopt -s nullglob
+            local files=(rule-catalog/exemptions/*.json)
+            if (( ${#files[@]} == 0 )); then
+              echo "No exemption artifacts to validate."
+              return 0
+            fi
+            uv run python -m fdai.rule_catalog.schema.exemption_cli "${files[@]}"
+          }
+          validate_governance_transitions() {
+            local base
+            if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+              git fetch --no-tags --depth=1 origin "$PR_BASE_REF"
+              base="origin/$PR_BASE_REF"
+            elif [[ -z "$PUSH_BEFORE_SHA" || "$PUSH_BEFORE_SHA" =~ ^0+$ ]]; then
+              echo "No prior commit to compare; skipping governance transitions."
+              return 0
+            else
+              base="$PUSH_BEFORE_SHA"
+            fi
+            uv run python scripts/governance/check-governance-transitions.py --base "$base"
+          }
+          run_check "Rule semantic drift" env \
+            PYTHONPATH=services/core-control-plane/src:packages/service-contracts/src \
+            uv run python scripts/catalog/sync-rule-semantics.py --check
+          run_check "Chaos scenario catalog" \
+            bash scripts/catalog/check-chaos-scenarios.sh
+          run_check "Exemption artifacts" validate_exemptions
+          run_check "Governance transitions" validate_governance_transitions
+          exit "$failed"
 
   evaluation-packages:
     name: evaluation SDK and external-adapter packages
@@ -454,82 +432,6 @@ jobs:
           uv build --wheel benchmarks/sregym
           uv build --wheel benchmarks/cybergym
 
-  file-loc:
-    name: file LOC guard (warn > 400, fail > 800 in enforce mode)
-    # Existing >800 LOC debt is capped at its recorded size; any growth or
-    # new file above 800 blocks the change, and completed splits remove caps.
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: check-file-loc.sh
-        env:
-          FILE_LOC_MODE: enforce
-        run: bash scripts/quality/architecture/check-file-loc.sh
-
-  subsystem-fanout:
-    name: core/ subsystem fan-out guard (warn >= 8, fail >= 15 in enforce mode)
-    # Prevents a second control_loop.py (1,725 LOC / 30+ subsystem imports)
-    # from emerging. The current tree passes enforce mode with one allowlist.
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: check-subsystem-fanout.sh
-        env:
-          SUBSYSTEM_FANOUT_MODE: enforce
-        run: bash scripts/quality/architecture/check-subsystem-fanout.sh
-
-  doc-links:
-    name: broken markdown link guard (symlink-aware)
-    # 41 doc links pointed at pre-refactor Python paths after G-1..G-7
-    # landed. This gate catches the class of drift so refactors that
-    # rename or move a source file can never silently orphan a doc
-    # link. Tracker #14, follow-up sweep.
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: check-doc-links.sh
-        run: bash scripts/quality/repository/check-doc-links.sh
-
-  protected-paths:
-    name: framework-surface guard (advisory upstream, block in fork)
-    # Runs on PRs (base..head range) and on direct pushes to a protected
-    # branch (before..after range), because this repo is trunk-based - a
-    # fork that bypasses the local pre-push hook must still be caught here.
-    # Upstream mode emits ::warning:: annotations and passes; a fork clone
-    # (committed `.fdai-fork` marker, or FDAI_FORK=1) turns it into a blocker.
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # Full history so the diff range resolves.
-          fetch-depth: 0
-
-      - name: check-protected-paths.sh
-        run: |
-          set -euo pipefail
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
-            base_sha="$(git rev-parse "origin/${{ github.base_ref }}")"
-            range="${base_sha}...HEAD"
-          else
-            before="${{ github.event.before }}"
-            # All-zeros = branch just created / no prior tip; nothing to diff.
-            if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ]; then
-              echo "protected-paths: no prior commit to diff against - skipping."
-              exit 0
-            fi
-            range="${before}...${{ github.sha }}"
-          fi
-          echo "protected-paths: diffing range '$range'"
-          bash scripts/integrity/check-protected-paths.sh "$range"
-
   secret-scan:
     name: gitleaks
     runs-on: ubuntu-24.04
@@ -564,75 +466,6 @@ jobs:
         uses: pypa/gh-action-pip-audit@1220774d901786e6f652ae159f7b6bc8fea6d266 # v1.1.0
         with:
           inputs: audit-requirements.txt
-
-  exemption-check:
-    name: Exemption artifact validation
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Set up uv (Python 3.13)
-        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
-        with:
-          python-version: "3.13"
-          enable-cache: true
-          save-cache: false
-
-      - name: Install dependencies
-        run: uv sync --frozen --package fdai-core-control-plane --no-dev
-
-      - name: Validate every rule-catalog/exemptions/*.json
-        # No-op when the directory is empty (fresh clone).
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          files=(rule-catalog/exemptions/*.json)
-          if (( ${#files[@]} == 0 )); then
-            echo "No exemption artifacts to validate."
-            exit 0
-          fi
-          uv run python -m fdai.rule_catalog.schema.exemption_cli "${files[@]}"
-
-  governance-transitions:
-    name: Governance effect-transition gate
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          # Full history so the base ref resolves for the before/after diff.
-          fetch-depth: 0
-
-      - name: Set up uv (Python 3.13)
-        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
-        with:
-          python-version: "3.13"
-          enable-cache: true
-          save-cache: false
-
-      - name: Install dependencies
-        run: uv sync --frozen --package fdai-core-control-plane --no-dev
-
-      - name: Reject disallowed governance effect transitions
-        # Compares the governance catalog at the base ref against the working
-        # tree. No-op until rule-catalog/governance/ is populated (a missing
-        # root at either snapshot loads as an empty catalog).
-        run: |
-          set -euo pipefail
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
-            base="origin/${{ github.base_ref }}"
-          else
-            before="${{ github.event.before }}"
-            if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ]; then
-              echo "governance-transitions: no prior commit to diff against - skipping."
-              exit 0
-            fi
-            base="$before"
-          fi
-          echo "governance-transitions: base ref '$base'"
-          uv run python scripts/governance/check-governance-transitions.py --base "$base"
 
   freeze-scenarios:
     name: Frozen scenario-set immutability (PR only)
@@ -758,3 +591,45 @@ jobs:
         run: |
           terraform -chdir=bootstrap init -backend=false -input=false
           terraform -chdir=bootstrap test
+
+  required:
+    name: required
+    if: always()
+    needs:
+      - changes
+      - lint
+      - python-regression
+      - python-tests
+      - operator-surfaces
+      - translations
+      - design-contracts
+      - repository-contracts
+      - governance-runtime-contracts
+      - evaluation-packages
+      - secret-scan
+      - deps-audit
+      - freeze-scenarios
+      - db-migrations
+      - terraform-validate
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every CI job to pass or skip
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+
+          results = json.loads(os.environ["NEEDS_JSON"])
+          failed = {
+              name: detail["result"]
+              for name, detail in results.items()
+              if detail["result"] not in {"success", "skipped"}
+          }
+          if failed:
+              for name, result in sorted(failed.items()):
+                  print(f"::error::{name} finished with {result}")
+              raise SystemExit(1)
+          print("All required CI jobs passed or were intentionally skipped.")
+          PY
