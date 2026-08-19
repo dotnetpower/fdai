@@ -13,6 +13,7 @@ from fdai_operator_service.families.operations import (
     OPERATIONS_ROUTE_MANIFEST,
     EventProposal,
     PanelRoute,
+    ProjectionNotFoundError,
     ProjectionQuery,
     ProjectionUnavailableError,
     ProposalConflictError,
@@ -94,6 +95,7 @@ class RecordingDependencies:
         self.replays: list[ReplayQuery] = []
         self.unavailable = False
         self.conflict = False
+        self.not_found_operations: set[str] = set()
         self.projections: dict[str, Mapping[str, object]] = {}
         self.replay_events = (
             ReplayEvent(8, "message", {"type": "provision.progress", "secret": "x"}),
@@ -103,6 +105,8 @@ class RecordingDependencies:
         self.queries.append(query)
         if self.unavailable:
             raise ProjectionUnavailableError
+        if query.operation in self.not_found_operations:
+            raise ProjectionNotFoundError
         return self.projections.get(
             query.operation,
             {"operation": query.operation, "token": "hidden", "items": []},
@@ -463,6 +467,37 @@ def test_unavailable_projection_is_explicit_not_fake_empty_state() -> None:
     assert (response.status_code, response.json()) == (
         503,
         {"error": {"status": 503, "message": "authoritative projection is unavailable"}},
+    )
+
+
+def test_not_found_projection_uses_operation_specific_public_message() -> None:
+    dependencies = RecordingDependencies()
+    dependencies.not_found_operations.update(
+        {"blast_radius.simulate", "ontology.declaration.detail"}
+    )
+    client = _client(dependencies)
+
+    impact = client.get(
+        "/simulate/blast-radius?target=missing&depth=1&link=contains",
+        headers=HEADERS,
+    )
+    declaration = client.get(
+        "/ontology/declarations/object-types/Missing",
+        headers=HEADERS,
+    )
+
+    assert (impact.status_code, impact.json()) == (
+        404,
+        {
+            "error": {
+                "status": 404,
+                "message": "target resource is not available in the active inventory",
+            }
+        },
+    )
+    assert (declaration.status_code, declaration.json()) == (
+        404,
+        {"error": {"status": 404, "message": "ontology declaration is not available"}},
     )
 
 

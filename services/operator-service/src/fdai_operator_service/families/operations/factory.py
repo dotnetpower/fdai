@@ -183,6 +183,8 @@ async def _projection(
             report_pdf_encoder=report_pdf_encoder,
         )
     except ProjectionNotFoundError:
+        if entry.operation == "blast_radius.simulate":
+            return _error(404, "target resource is not available in the active inventory")
         return _error(404, "ontology declaration is not available")
     except ProjectionUnavailableError:
         return _error(503, "authoritative projection is unavailable")

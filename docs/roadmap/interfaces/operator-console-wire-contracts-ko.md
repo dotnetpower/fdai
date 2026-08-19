@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 15ab0f146ff18560a9cbc221c2edea729f2c1dbc
+translation_source_sha: 1d8aaa054ac3ac6ea9e2832c3861be1d344acb13
 translation_revised: 2026-08-19
 ---
 
@@ -321,6 +321,7 @@ ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 
 | 2026-08-19 | implemented | 영향 범위 경로를 활성 인벤토리 스냅샷의 제한된 탐색에 연결하고 singleton 포인터에 누락된 Operator SELECT 전용 권한을 추가했습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused Operator, migration, Console, 타입 및 빌드 검사, 인증된 로컬 Browser에서 exact release와 기준 시각이 포함된 완전한 깊이 1 결과, 권한 부재 및 390 px document overflow 부재를 확인했습니다. | 로컬 관측을 영속 근거로 취급하기 전에 보안 principal 범위 Context 증적과 함께 관리되는 exact-source 산출물로 보존해야 합니다. |
 | 2026-08-19 | implemented | 한 개 간선만 읽는 범위 제한 깊이 probe 결과가 잘리면 fail closed하도록 변경했습니다. 앞쪽 cycle이 뒤에 있는 아직 도달하지 않은 Resource를 숨겨 영향 범위 변환 결과를 완전하다고 잘못 보고할 수 없습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused 영향 범위 변환 결과 7개 사례와 Ruff, format, mypy가 통과했습니다. | 독립적인 hardening round를 계속합니다. 모호한 깊이 probe는 부재를 추론하지 않고 명시적으로 불완전한 상태를 유지합니다. |
 | 2026-08-19 | implemented | 읽기 전용 인벤토리 및 대화 테이블의 개별 변경, truncate, reference, trigger 권한을 Operator 데이터베이스 readiness가 각각 거부하도록 강화했습니다. 실수로 쓰기 권한 하나만 부여돼도 서비스 readiness 경계를 통과할 수 없습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused readiness 사례 2개와 Ruff, format, mypy가 통과했고 실제 로컬 `fdai_operator` 역할도 ready 상태를 유지했습니다. | 독립적인 hardening round를 계속합니다. 배포된 역할 변경은 migration으로만 통제합니다. |
+| 2026-08-19 | implemented | HTTP 경계에서 활성 인벤토리 대상 부재와 온톨로지 선언 부재를 분리했습니다. Impact scope는 이제 식별자를 포함하지 않는 Resource에 맞는 `404`를 반환하고 선언 경로는 기존 공개 문구를 유지합니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused operations 경로 회귀 검사와 Ruff, format, mypy가 통과했습니다. | 독립적인 hardening round를 계속합니다. 권한 있는 원본을 사용할 수 없으면 `503`, 잘못된 요청이면 `400`을 유지합니다. |
 
 ### 남은 작업
 
