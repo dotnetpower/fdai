@@ -126,11 +126,13 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     frame = prompts.get_base("semantic.query.frame")
     plan = prompts.get_base("semantic.query.plan")
 
-    assert frame.version == 22
+    assert frame.version == 23
     assert "output_shape to exactly one capability family" in frame.body
     assert "aggregation_table for a count or grouping" in frame.body
     assert "topology_graph for current instance connectivity or containment" in frame.body
     assert "including a count of queryable relationship or declaration types" in frame.body
+    assert "canonical manifest kinds object, interface, link, action, and function" in frame.body
+    assert "relationship or relationship type to link" in frame.body
     assert "declared resource type is property_filtered_resources" in frame.body
     assert "runtime resource the operator names is property_filtered_resources" in frame.body
     assert "supplied context rather than an invented identity" in frame.body
