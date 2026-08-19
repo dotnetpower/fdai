@@ -61,6 +61,7 @@
     .dk-turn-avatar.is-teal  { background: var(--cs-teal); }
     .dk-turn-avatar.is-sage  { background: var(--cs-sage); }
     .dk-turn-avatar.is-terracotta { background: var(--cs-terracotta); }
+    .dk-turn:not(.is-op) > .dk-turn-avatar { display: none; }
 
     .dk-turn-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
     .dk-turn.is-op .dk-turn-body { align-items: flex-end; }
@@ -69,6 +70,7 @@
     .dk-turn-meta time { font-variant-numeric: tabular-nums; }
 
     .dk-bubble { padding: 10px 14px; border-radius: 12px; border: 1px solid var(--cs-hairline); background: var(--cs-card); font-size: 13.5px; line-height: 1.55; color: var(--cs-text); }
+  .dk-turn:not(.is-op) .dk-bubble { border: 0; }
     .dk-turn.is-op .dk-bubble { background: rgba(68,104,142,.08); border-color: rgba(68,104,142,.22); }
     .dk-bubble p { margin: 0; }
     .dk-bubble p + p { margin-top: 6px; }
