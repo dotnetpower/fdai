@@ -75,6 +75,7 @@ export function decodeBlastRadiusResponse(value: unknown): BlastRadiusResponse {
     throw new Error("impact reached identities MUST be unique and include the target root");
   }
   const reachedIdentities = new Set(identities);
+  const reachedDepths = new Map(reached.map((item) => [item.resource_id, item.depth]));
   const edges = impactArray(record.edges, "edges").map((raw) => {
     const item = impactRecord(raw, "edge");
     const verification = item.verification_status;
@@ -91,11 +92,17 @@ export function decodeBlastRadiusResponse(value: unknown): BlastRadiusResponse {
     if (!reachedIdentities.has(source) || !reachedIdentities.has(edgeTarget)) {
       throw new Error("impact edge endpoints MUST reference reached identities");
     }
+    const depth = impactInteger(item, "depth", 1, traversalDepth);
+    const sourceDepth = reachedDepths.get(source);
+    const targetDepth = reachedDepths.get(edgeTarget);
+    if (sourceDepth !== depth - 1 || targetDepth === undefined || targetDepth > depth) {
+      throw new Error("impact edge depth MUST follow the reached breadth-first depths");
+    }
     return {
       source,
       target: edgeTarget,
       link_type: linkType,
-      depth: impactInteger(item, "depth", 1, traversalDepth),
+      depth,
       verification_status: verificationStatus,
     };
   });

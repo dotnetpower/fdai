@@ -162,4 +162,54 @@ describe("blast-radius route query", () => {
       mutation_authority: false,
     })).toThrow("endpoints MUST reference reached identities");
   });
+
+  test.each([
+    {
+      label: "source discovered in the same wave",
+      reached: [
+        { resource_id: "root", depth: 0, via_link_type: null },
+        { resource_id: "source", depth: 1, via_link_type: "contains" },
+        { resource_id: "target", depth: 1, via_link_type: "contains" },
+      ],
+      edge: {
+        source: "source",
+        target: "target",
+        link_type: "contains",
+        depth: 1,
+        verification_status: "unverified",
+      },
+    },
+    {
+      label: "target deeper than the edge wave",
+      reached: [
+        { resource_id: "root", depth: 0, via_link_type: null },
+        { resource_id: "target", depth: 2, via_link_type: "contains" },
+      ],
+      edge: {
+        source: "root",
+        target: "target",
+        link_type: "contains",
+        depth: 1,
+        verification_status: "unverified",
+      },
+    },
+  ])("rejects impossible breadth-first edge depth: $label", ({ reached, edge }) => {
+    expect(() => decodeBlastRadiusResponse({
+      schema_version: "1.0.0",
+      ontology_release_digest: `sha256:${"a".repeat(64)}`,
+      source_generation: "generation-1",
+      source_cutoff: "2026-08-19T00:00:00+00:00",
+      target: "root",
+      traversal_depth: 2,
+      traversal_links: ["contains"],
+      reached,
+      edges: [edge],
+      affected_count: reached.length - 1,
+      complete: true,
+      truncated_at_depth: false,
+      truncation_reasons: [],
+      execution_authority: false,
+      mutation_authority: false,
+    })).toThrow("edge depth MUST follow the reached breadth-first depths");
+  });
 });
