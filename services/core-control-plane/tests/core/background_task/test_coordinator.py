@@ -37,7 +37,7 @@ def _task(task_id: str, *, wall_seconds: int = 30) -> BackgroundTask:
         correlation_id=f"correlation:{task_id}",
         idempotency_key=f"idempotency:{task_id}",
         created_at=_NOW,
-        retention_until=_NOW + timedelta(days=30),
+        retention_until=datetime.max.replace(tzinfo=UTC),
     )
 
 

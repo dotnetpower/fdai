@@ -2,8 +2,8 @@
 title: 영구 Background Task Session
 translation_of: background-task-sessions.md
 translation_source: docs/roadmap/interfaces/background-task-sessions.md
-translation_source_sha: 6d7c568ec65c04fde7aef265f0dc5e5e0748cadd
-translation_revised: 2026-08-16
+translation_source_sha: 4303a81f33f824b7adfb26891e17a7497da0090a
+translation_revised: 2026-08-19
 ---
 
 # 영구 Background 작업 세션
@@ -177,6 +177,7 @@ PostgreSQL 이행 및 재시작, 즉시 HTTP 응답, RBAC, cross-owner hiding, S
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | implemented | Coordinator test fixture에서 실제 시간에 따른 만료를 제거했습니다. 2026-07-20으로 고정된 task가 30일 동안만 데이터를 보존했기 때문에 실제 clock이 2026-08-19에 persistence 및 retry assertion 전에 attempt를 purge하기 시작했습니다. 이제 fixture는 production retention 동작을 바꾸지 않고 결정론적인 nonexpiring horizon을 사용합니다. | [이슈 #218](https://github.com/dotnetpower/fdai/issues/218). 두 failure는 parent revision에서 재현되고 fixture 수정 뒤 통과합니다. Focused coordinator 파일은 case 6개와 Ruff 및 format 검사를 통과했습니다. | Fixture 만료에 남은 작업은 없습니다. Production composition은 아래에서 별도로 추적합니다. |
 | 2026-08-13 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | 현재 owner 문서 쌍 변경과 구현 범위 표에 나열된 focused core, PostgreSQL 및 Operator API 검사입니다. | 실행기, 조정기, 완료 싱크, API 구체화 로직, Console 컨트롤, live 영속성 검사 및 관리되는 운영 근거를 연결해야 합니다. |
 | 2026-08-14 | implemented | 격리된 지원 로컬 PostgreSQL database에서 모든 focused background-task 영속성 case를 실행하고 실행 후 database를 삭제했습니다. | `current change`; `services/core-control-plane/tests/persistence/test_background_task.py`; `12 passed`, skip 없음. | 프로덕션 executor와 completion sink를 조립하고 Operator 및 Console surface를 materialize하며 governed 운영 근거를 보존합니다. |
 | 2026-08-16 | in-progress | 결정론적 대화 턴을 추가하고 영속 전달 원장으로 변경할 수 없는 회신을 제출하는 완료 싱크를 구현했습니다. | `pytest services/core-control-plane/tests/core/background_task/`가 턴과 전달 레코드 하나를 재사용하는 재생, 최종 상태 전용 게시, 신뢰되지 않는 턴, 닫힘 실패 채널 처리를 포함해 집중 테스트 29개를 통과했습니다. | 싱크와 조정기를 프로덕션 조립에 연결하고 완료 감사 표시를 추가하며 관리되는 전달 증적을 보존해야 합니다. |
