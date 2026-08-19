@@ -119,6 +119,7 @@ def test_destroy_helper_dispatches_the_protected_main_commit() -> None:
         "permissions: {contents: read, packages: write}\n",
         "jobs:\n  deploy:\n    runs-on: [self-hosted, fdai-deploy]\n",
         "jobs:\n  deploy:\n    runs-on: self-hosted\n",
+        "jobs:\n  smoke:\n    runs-on:\n      - self-hosted\n      - custom\n",
         "permissions:\n  id-token: write\n",
         "steps:\n  - run: terraform apply saved.plan\n",
         "steps:\n  - run: terraform destroy -auto-approve\n",
@@ -192,6 +193,19 @@ def test_issue_lifecycle_ignores_events_created_by_its_own_token() -> None:
     assert "github.actor != 'github-actions[bot]'" in workflow
 
 
+def test_devbox_smoke_is_manual_protected_and_label_indirected() -> None:
+    workflow = (_REPO_ROOT / ".github/workflows/devbox-smoke.yml").read_text(encoding="utf-8")
+
+    assert "  workflow_dispatch:" in workflow
+    assert "pull_request:" not in workflow
+    assert "  push:" not in workflow
+    assert "    runs-on:\n      - self-hosted\n      - ${{ vars.DEVBOX_RUNNER_LABEL }}" in workflow
+    assert "Verify protected workflow source" in workflow
+    assert "PROTECTED_WORKFLOW_PATH: .github/workflows/devbox-smoke.yml" in workflow
+    assert "ref: ${{ inputs.commit_sha }}" in workflow
+    assert "secrets." not in workflow
+
+
 def test_shipped_workflows_satisfy_security_contracts() -> None:
     module = _load_contract_module()
 
@@ -213,6 +227,7 @@ def test_shipped_privileged_workflow_inventory_is_explicitly_audited() -> None:
         "automatic-version.yml",
         "container-supply-chain.yml",
         "deploy-dev.yml",
+        "devbox-smoke.yml",
         "destroy-env.yml",
         "infra-drift.yml",
         "issue-lifecycle.yml",

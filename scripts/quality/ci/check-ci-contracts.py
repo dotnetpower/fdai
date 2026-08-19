@@ -56,6 +56,12 @@ IMMUTABLE_ACTION_REF_RE = re.compile(r"[0-9a-f]{40}")
 WRITE_PERMISSION_RE = re.compile(r"(?m)^\s+[a-z-]+:\s*write\s*(?:#.*)?$")
 WRITE_ALL_PERMISSION_RE = re.compile(r"(?m)^\s*permissions:\s*write-all\s*(?:#.*)?$")
 INLINE_WRITE_PERMISSION_RE = re.compile(r"permissions:\s*\{[^}\n]*:\s*write(?:\s*[,}])")
+SELF_HOSTED_RUNNER_RE = re.compile(
+    r"(?m)^[ \t]*runs-on:[ \t]*"
+    r"(?:\[[^\]\n]*\bself-hosted\b[^\]\n]*\]|self-hosted)[ \t]*(?:#.*)?$"
+    r"|^[ \t]*runs-on:[ \t]*(?:#.*)?$\n"
+    r"(?:^[ \t]+-[^\n]*\n)*?^[ \t]+-[ \t]*self-hosted[ \t]*(?:#.*)?$"
+)
 PRIVILEGED_COMMAND_RE = re.compile(
     r"\b(?:terraform\s+(?:apply|destroy)|git\s+push|docker\s+push|"
     r"gh\s+(?:release|issue)\s+(?:create|delete|edit|upload|close|reopen)|"
@@ -298,7 +304,7 @@ def _is_privileged_workflow(content: str) -> bool:
             WRITE_PERMISSION_RE.search(content),
             WRITE_ALL_PERMISSION_RE.search(content),
             INLINE_WRITE_PERMISSION_RE.search(content),
-            re.search(r"runs-on:\s*(?:\[[^\]]*\bself-hosted\b|self-hosted\b)", content),
+            SELF_HOSTED_RUNNER_RE.search(content),
             PRIVILEGED_COMMAND_RE.search(content),
         )
     )
