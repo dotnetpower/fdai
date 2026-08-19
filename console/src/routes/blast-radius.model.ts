@@ -106,6 +106,24 @@ export function decodeBlastRadiusResponse(value: unknown): BlastRadiusResponse {
       verification_status: verificationStatus,
     };
   });
+  for (const node of reached) {
+    if (node.resource_id === target) {
+      if (node.via_link_type !== null) {
+        throw new Error("impact target root via_link_type MUST be null");
+      }
+      continue;
+    }
+    if (node.depth === 0
+      || node.via_link_type === null
+      || !traversalLinks.includes(node.via_link_type)
+      || !edges.some((edge) => (
+        edge.target === node.resource_id
+        && edge.depth === node.depth
+        && edge.link_type === node.via_link_type
+      ))) {
+      throw new Error("impact reached node MUST have matching traversal edge provenance");
+    }
+  }
   const affectedCount = impactInteger(record, "affected_count", 0, Number.MAX_SAFE_INTEGER);
   if (affectedCount !== reached.length - 1) {
     throw new Error("impact affected_count MUST match reached identities excluding the target");

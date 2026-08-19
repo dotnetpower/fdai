@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 44838e169a549577c31980bde7f04157e9ece1e2
+translation_source_sha: d916b1ab1dedeba023608179bc673bfce7653590
 translation_revised: 2026-08-19
 ---
 
@@ -76,6 +76,7 @@ translation_revised: 2026-08-19
 | 2026-08-19 | implemented | 연결되지 않았던 Impact scope 변환 결과를 제한된 활성 스냅샷 탐색으로 교체하고 Resource 선언 워크벤치에서 진입할 수 있게 했습니다. 인증된 로컬 Console은 exact release와 기준 시각, 고정된 권한 부재 플래그를 포함하는 완전한 깊이 1 간선 하나를 반환했고 390 px document overflow가 없었습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused Operator, migration, Console, 타입 및 production build 검사입니다. | 이 영역을 `validated`로 변경하기 전에 관측을 관리되는 exact-source 산출물로 보존하고 보안 principal 범위 Context 증적을 연결합니다. |
 | 2026-08-19 | implemented | Impact scope decoder가 도달한 노드 변환 결과에 없는 원본 또는 대상을 가진 간선을 거부하도록 강화했습니다. 잘못된 upstream 그래프를 일관된 제한 결과로 렌더링할 수 없습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, `blast-radius.model.test.ts` focused 사례 9개와 Console typecheck가 통과했습니다. | 독립적인 hardening round를 계속하고 범위가 제한된 구획에 Medium 이상 finding이 없어진 뒤 관리되는 exact-source Browser 근거를 보존합니다. |
 | 2026-08-19 | implemented | Producer의 breadth-first 간선 깊이 불변식을 Console 경계에서 강제했습니다. 간선은 바로 앞 깊이에서 출발해야 하며 자신의 탐색 wave보다 더 깊은 노드를 가리킬 수 없습니다. 이전 깊이로 향하는 유효한 back 및 cycle 간선은 계속 허용합니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, `blast-radius.model.test.ts` focused 사례 11개와 Console typecheck가 통과했습니다. | 일관되지 않은 그래프 형태에 Medium 이상 finding이 없을 때까지 adversarial decoder 검토를 계속합니다. |
+| 2026-08-19 | implemented | 도달한 모든 노드에 producer가 만들 수 있는 출처 이력을 요구했습니다. 대상 root는 들어오는 LinkType이 없고 각 non-root 노드는 같은 breadth-first 깊이에서 일치하는 incoming 간선으로 뒷받침된 요청 LinkType을 지정해야 합니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, `blast-radius.model.test.ts` focused 사례 14개와 Console typecheck가 통과했습니다. | 이 round를 닫기 전에 duplicate 및 bounded-array 잔여 항목을 대상으로 adversarial decoder 검토를 다시 실행합니다. |
 
 ### 잔여 작업
 

@@ -212,4 +212,64 @@ describe("blast-radius route query", () => {
       mutation_authority: false,
     })).toThrow("edge depth MUST follow the reached breadth-first depths");
   });
+
+  test.each([
+    {
+      label: "non-null root origin",
+      reached: [
+        { resource_id: "root", depth: 0, via_link_type: "contains" },
+        { resource_id: "child", depth: 1, via_link_type: "contains" },
+      ],
+      edges: [{
+        source: "root",
+        target: "child",
+        link_type: "contains",
+        depth: 1,
+        verification_status: "unverified",
+      }],
+      message: "target root via_link_type MUST be null",
+    },
+    {
+      label: "orphan reached node",
+      reached: [
+        { resource_id: "root", depth: 0, via_link_type: null },
+        { resource_id: "child", depth: 1, via_link_type: "contains" },
+      ],
+      edges: [],
+      message: "matching traversal edge provenance",
+    },
+    {
+      label: "mismatched discovery link",
+      reached: [
+        { resource_id: "root", depth: 0, via_link_type: null },
+        { resource_id: "child", depth: 1, via_link_type: "depends_on" },
+      ],
+      edges: [{
+        source: "root",
+        target: "child",
+        link_type: "contains",
+        depth: 1,
+        verification_status: "unverified",
+      }],
+      message: "matching traversal edge provenance",
+    },
+  ])("rejects invalid reached-node provenance: $label", ({ reached, edges, message }) => {
+    expect(() => decodeBlastRadiusResponse({
+      schema_version: "1.0.0",
+      ontology_release_digest: `sha256:${"a".repeat(64)}`,
+      source_generation: "generation-1",
+      source_cutoff: "2026-08-19T00:00:00+00:00",
+      target: "root",
+      traversal_depth: 1,
+      traversal_links: ["contains", "depends_on"],
+      reached,
+      edges,
+      affected_count: reached.length - 1,
+      complete: true,
+      truncated_at_depth: false,
+      truncation_reasons: [],
+      execution_authority: false,
+      mutation_authority: false,
+    })).toThrow(message);
+  });
 });
