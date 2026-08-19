@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 2eb45c1e612fc401f39fcd6ee14a43cc622c95c9
-translation_revised: 2026-08-18
+translation_source_sha: d2f37bf9ca686036d73cf5df329958370d123669
+translation_revised: 2026-08-19
 ---
 # 오퍼레이터 콘솔 점진적 대화
 
@@ -23,6 +23,7 @@ translation_revised: 2026-08-18
 | 이중 언어 무작위 릴리스 게이트 | 진행 중 | [`ontology-query-assurance-readiness.ts`](../../../console/tests/live-e2e/ontology-query-assurance-readiness.ts), [`ontology-query-assurance.test.ts`](../../../console/tests/live-e2e/ontology-query-assurance.test.ts) | 집중 보증 테스트 49개가 통과했습니다. 통제되는 모든 실행은 범위가 제한된 실행 식별자를 요구하고 질문 범위의 안정된 backend session id를 파생하므로 checkpoint 재개는 정체성을 보존하지만 새 실행은 다른 실행의 영속 semantic projection을 재사용할 수 없습니다. 전체 집단은 영어와 한국어 모두에서 근거가 완전한 answered 턴이 없으면 `production_ready=true`를 보고할 수 없습니다. 새 100-case 통과 산출물은 여전히 필요합니다. |
 | 의미 명확화 표현 | 구현됨 | [`verification-presentation.ts`](../../../console/src/deck/verification-presentation.ts), [`verification-presentation.test.ts`](../../../console/src/deck/verification-presentation.test.ts) | `semantic_clarification_required`를 `Context required`로 표시하며 Console 집중 테스트 13개가 통과했습니다. 분류는 제어 평면이 실제로 방출하는 이유 코드만 다룹니다. 인증되고 보존된 증적은 열린 항목으로 남아 있습니다. |
 | 검증된 의미 답변 표현 | 검증됨 | [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`semantic_turn_presentation.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_presentation.py), [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`semantic-answer-presentation.spec.ts`](../../../console/tests/live-e2e/semantic-answer-presentation.spec.ts), `.fdai/live-validation/semantic-answer-presentation-244d003ef77bd37dc0041f0b6a29634cdbaacb91-post-validation/` | 범위가 제한된 인증 Web/한국어 경로는 명시적 workspace patch digest와 함께 중앙 검증된 source revision `244d003ef`에서 검증됐습니다. 최초 턴과 재생성 턴은 관찰된 5단계, 동일한 인시던트 및 기술 출력 digest, 읽기 전용 근거 수집, primary JSON 미노출, `execution_authority=false`를 유지했습니다. 이 상태는 Teams, Slack, 4단계 온톨로지 실행기 또는 이중 언어 100-case 집단을 주장하지 않습니다. |
+| 결정론적 교차 채널 표현 계획 | 진행 중 | 이 설계 구역 및 [이슈 #234](https://github.com/dotnetpower/fdai/issues/234) | 승인된 설계는 순수 근거 형태 분석기, 결정론적 플래너 및 추가적인 `presentation_artifact` v2 의미 규칙을 도입합니다. 이 행을 `구현됨`으로 바꾸기 전에 출처와 집중 검사 근거로 이 설계 전용 표시를 교체해야 합니다. |
 
 ### 구현 이력
 
@@ -55,6 +56,7 @@ translation_revised: 2026-08-18
 | 2026-08-18 | implemented | 검증된 목록 답변을 한눈에 읽을 수 있게 했습니다. 완전한 범주형 결과는 제한된 막대 분포를 그리고, 잘린 결과는 검증된 전체 중 몇 건을 표시했고 나머지가 어디에 있는지 밝히며, 이름 있는 읽기 쉬운 필드가 불투명한 식별자보다 앞에 오고, 요약 격자는 항목 수에 맞춰져 값 하나 옆에 빈 칸을 남기지 않습니다. 불완전하거나 상한에 걸린 결과는 차트를 그리지 않으므로 부분 집계가 전체처럼 읽히지 않습니다. | `current change`, [Issue #184](https://github.com/dotnetpower/fdai/issues/184), `semantic_turn_presentation.py`, `console/src/deck/structured-reply.css`, focused Operator 검사 394개 통과(차트 회귀 2건 신규), Console typecheck와 Ruff 및 strict mypy 통과 | 차트와 행 상한 안내에 대한 통제된 request-to-Console 및 이중 언어 무작위 근거를 보존합니다. |
 | 2026-08-18 | implemented | 의미 turn이 관측한 단계를 주소 지정 가능한 step으로 발행했습니다. Console은 이미 `activity` 이벤트로 관측 과정 타임라인을 그리지만 의미 turn은 `status`와 `verification`만 발행해 턴 내내 한 줄이 고정돼 있었습니다. 이제 관측된 각 단계가 제한된 step을 함께 발행하고, 대기 step은 종단 projection이 생길 때까지 running으로 보고되며 disposition과 무관하게 종단 이벤트 전에 정리됩니다. 관측하지 않은 시각은 합성하지 않으며 replay 이벤트 id는 그대로입니다. | `current change`, [Issue #187](https://github.com/dotnetpower/fdai/issues/187), `semantic_turn_runtime.py`, focused Operator 검사 394개 통과(수명 주기, held, 지연 종단, 재개 회귀 갱신), Ruff 및 strict mypy 통과, 실제 turn이 running 대기 step과 완료 step 5개로 타임라인 표시 | Core는 여전히 종단 projection 하나만 발행하므로 계획 하위 단계는 스트림이 관측하지 못합니다. |
 | 2026-08-18 | implemented | 근거 step에 명령 상세를 부여했습니다. Console은 이미 step별 도구 배지, 읽기 전용 라벨, 복사 가능한 명령 블록, 접히는 출력을 렌더링하지만 의미 step이 실행 기록을 담지 않아 모든 step이 라벨뿐이었습니다. 이제 근거 step이 동일한 종단 projection이 이미 담고 있는 검증된 쿼리와 행 수를 함께 전달하며, 실행한 것이 없는 step은 기록을 담지 않고, goal이 둘 이상인 plan은 하나를 실행된 쿼리로 지목하지 않고 명령을 보고하지 않습니다. | `current change`, [Issue #188](https://github.com/dotnetpower/fdai/issues/188), `semantic_turn_runtime.py`, focused Operator 검사 396개 통과(실행 기록 회귀 2건 신규), Ruff 및 strict mypy 통과, 실제 turn이 ObjectSet 정의와 `returned_rows`/`total_rows`를 JSON 코드 블록으로 표시 | step은 아직 소요 시간을 보고하지 않으므로 실행 기록에 관측 구간이 없습니다. |
+| 2026-08-19 | 진행 중 | 비평 후 결정론적 교차 채널 표현 설계를 승인했습니다. 수정안은 v1 재생을 그대로 유지하고 v2를 추가하며 근거 분석과 배치 계획을 분리하고 모델이나 브라우저의 서술 추측이 컴포넌트를 선택하지 못하게 합니다. | `current change`, 이 소유 문서 쌍 | 범위 상태를 바꾸기 전에 분석기, 플래너, v2 컴파일러, 호환성 검사 및 교차 채널 동등성 테스트를 구현합니다. |
 
 ### 남은 작업
 
@@ -63,6 +65,8 @@ translation_revised: 2026-08-18
 - [ ] 2026-08-11 기준선을 교체하지 않고, 두 언어 모두에서 근거가 완전한 answered 턴이 있는
   seed `0x0fda1`의 영어/한국어 100-case 무작위 보증 통과 산출물을 보존합니다.
 - [ ] 채널 전체 런타임 검증을 주장하기 전에 통제된 Teams 및 Slack 집약 증적을 기록합니다.
+- [ ] v1 재생, 차트 대체 경로, 잘못되거나 증적에 결속되지 않은 산출물 거부를 포함하는
+  결정론적 근거 형태 분석기와 v2 플래너 결정 행렬을 구현하고 집중 테스트합니다.
 - [x] 정확한 machine payload와 최종 검증 증적은 접힌 기술 상세에 보존하면서 primary semantic
   답변의 fenced machine JSON을 지역화되고 결정론적인 운영자 대상 내용으로 교체합니다.
 - [x] `Preparing answer`가 `done` 전에 관찰된 수락, 계획, 근거, 검증 및 표현 작업을 반영하도록
@@ -94,6 +98,47 @@ Machine 결과는 계속 권위 있고 재생 가능하지만 primary 사람 답
 검증됐고 인과 분석은 사용할 수 없으며 impact와 grounded citation 근거가 누락됐고 변경을
 제안하기 전에 누락된 근거 유형을 수집하는 것이 다음 안전 단계임을 설명하는 것이 좋습니다.
 정확한 식별자, 시각, 기록 및 digest는 대화를 이끄는 대신 기술 근거로 확인할 수 있게 유지합니다.
+
+## 결정론적 교차 채널 표현 설계
+
+의미 표현 플래너는 검증된 의도와 타입이 지정된 근거 형태 분석만 받습니다. 분석 결과는 항목 수,
+필드 역할, 숫자 단위, 분모 검증, 시각 순서, 누락값, 잘림, 제한 사항 및 근거 참조를 기록합니다.
+Markdown을 읽어 차트를 추론하지 않으며 모델은 컴포넌트 이름이나 필드 역할을 바꿀 수 없습니다.
+플래너는 블록 결정을 반환하고 컴파일러는 변경할 수 없는 근거의 정확한 값을 버전이 있는 산출물에
+복사합니다.
+
+### 결정 표
+
+| 근거와 의도 | 선택 블록 | 필수 검사 | 안전한 대체 경로 |
+|-------------|-----------|-----------|------------------|
+| 스칼라 KPI 또는 짧은 상태 2-8개 | `summary` | 고유한 레이블과 정확한 값 | `list` |
+| 정확한 식별자, 이질적인 열, 행 비교, 감사 행 또는 정밀도가 중요한 값 | `table` | 닫힌 열 집합과 범위가 제한된 행 | `list` |
+| 소수의 이질적인 레코드 또는 레이블/값 레코드 | `list` | 범위가 제한된 레코드와 행 간 비교 불필요 | `table` |
+| 관찰값, 기준선, 임계값 및 상태 | `threshold_table` | 호환 단위와 명시적 임계값 방향 | `table`과 `callout` |
+| 범주형 또는 순위 값 2-12개 | `bar` | 단일 단위, 완전한 값, 잘림 없음 | `table` |
+| 구성비 또는 커버리지 | `coverage` | 검증된 0이 아닌 분모와 완전한 분자 의미 | `table`과 `callout` |
+| 단일 메트릭의 정렬된 관찰값 3개 이상 | `time_series` | RFC 3339 시각, 엄격한 정렬, 단일 메트릭, 단일 단위, 누락값 없음 | `table` |
+| 기준선/현재/목표 또는 이전/이후 | `comparison` | 명시적 역할, 호환 단위, 완전한 비교값 | `table` |
+| 인시던트 이벤트, 관찰 활동 또는 인계 | `timeline` | 정렬된 시각 또는 명시적으로 검증된 순서 | `table` 또는 `list` |
+| 제한, 사용 불가 상태, 부분 근거 또는 승인 경계 | `callout` | 정확한 사유와 추론한 0 없음 | 정본 텍스트 |
+| 인용, 출처, 증적 또는 정확한 출처 참조 | `evidence` | 최종 검증 증적에 속하는 참조 | 정본 텍스트 |
+
+차트가 빠른 파악에 유리하지만 정확한 값도 중요하면 같은 근거 참조를 사용하는 접힌 표 블록을
+뒤에 둡니다. 단위 불일치, 누락값, 불명확한 분모, 낮은 항목 수, 잘림 또는 불완전한 검증은 차트
+선택을 차단합니다. `unavailable`은 그대로 유지하며 0으로 바꾸지 않습니다.
+
+### 버전 및 실패 계약
+
+`presentation_artifact` v1은 바이트 단위 재생 호환성을 유지합니다. 버전 2는 타입이 지정된
+`time_series`, `comparison`, `timeline` 블록과 명시적인 차트 설명 및 단위를 추가합니다. v2
+소비자는 정확한 키, 종류별 상한, 정렬된 시각, 유한한 값, 호환 단위, 고유한 슬롯 및 증적에
+결속된 근거 참조를 검증합니다. 알 수 없는 버전, 블록, 필드 또는 참조가 있으면 산출물 전체를
+거부하고 읽을 수 있는 정본 텍스트를 렌더링합니다. 원시 JSON을 기본 답변으로 렌더링하지 않습니다.
+
+각 차트 블록은 의미 설명과 인접한 정확한 값 표를 제공합니다. 블록 자체가 접근 가능한 표라면
+표를 추가하지 않아도 됩니다. Web은 전체 모듈을 표시할 수 있습니다. Teams와 Slack은 기능
+렌더러를 통해 같은 검증된 산출물을 축약합니다. 사용자 지정 채널은 플래너나 코어에 벤더 분기를
+추가하지 않고 같은 렌더러 프로토콜을 주입합니다.
 
 ## 가지 계약
 

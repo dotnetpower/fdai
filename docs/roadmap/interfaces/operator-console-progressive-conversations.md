@@ -20,6 +20,7 @@ bounded progress contract for progressive Operator Console conversations.
 | Bilingual randomized release gate | in-progress | [`ontology-query-assurance-readiness.ts`](../../../console/tests/live-e2e/ontology-query-assurance-readiness.ts), [`ontology-query-assurance.test.ts`](../../../console/tests/live-e2e/ontology-query-assurance.test.ts) | Focused assurance tests passed 49 cases. Every governed run now requires a bounded run id and derives a stable question-scoped backend session id, so checkpoint resume preserves identity while a new run cannot reuse another run's durable semantic projection. A full cohort cannot report `production_ready=true` without evidence-complete answered turns in both English and Korean. A new passing 100-case artifact remains required. |
 | Semantic clarification presentation | implemented | [`verification-presentation.ts`](../../../console/src/deck/verification-presentation.ts), [`verification-presentation.test.ts`](../../../console/src/deck/verification-presentation.test.ts) | `semantic_clarification_required` renders as `Context required`; the focused Console suite passed 13 tests. Classification covers only reason codes the control plane emits. An authenticated retained receipt remains open. |
 | Verified semantic answer presentation | validated | [`semantic_turn_processor.py`](../../../services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py), [`semantic_turn_presentation.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_presentation.py), [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`semantic-answer-presentation.spec.ts`](../../../console/tests/live-e2e/semantic-answer-presentation.spec.ts), `.fdai/live-validation/semantic-answer-presentation-244d003ef77bd37dc0041f0b6a29634cdbaacb91-post-validation/` | The bounded authenticated Web/Korean path is validated at centrally validated source revision `244d003ef` with an explicit workspace patch digest. The first and regenerated turns retained five observed phases, the same incident and technical-output digests, read-only evidence collection, no primary JSON, and `execution_authority=false`. This state does not claim Teams, Slack, the four-stage ontology runner, or the bilingual 100-case cohort. |
+| Deterministic cross-channel presentation planning | in-progress | This design section and [Issue #234](https://github.com/dotnetpower/fdai/issues/234) | The accepted design adds a pure evidence-shape analyzer, a deterministic planner, and additive `presentation_artifact` v2 semantics. Source and focused-check evidence must replace this design-only marker before the row can become `implemented`. |
 
 ### Implementation history
 
@@ -52,6 +53,7 @@ bounded progress contract for progressive Operator Console conversations.
 | 2026-08-18 | implemented | Made a verified list answer readable at a glance. A complete categorical result renders a bounded bar distribution, a truncated result states how many of the verified total are listed and where the rest stay, named readable fields lead the table ahead of the opaque identifier, and the summary grid fits its item count instead of leaving empty cells beside a single value. An incomplete or capped result renders no chart, so a partial count cannot read as the whole population. | `current change`; [Issue #184](https://github.com/dotnetpower/fdai/issues/184); `semantic_turn_presentation.py`, `console/src/deck/structured-reply.css`; focused Operator checks passed 394 cases with two new chart regressions; Console typecheck, Ruff, and strict mypy passed. | Retain the governed request-to-Console and bilingual randomized evidence for the chart and row-bound notice. |
 | 2026-08-18 | implemented | Emitted the semantic turn's observed phases as addressable steps. The Console already renders a stepped observed-process timeline from `activity` events, but a semantic turn emitted only `status` and `verification`, so the deck held one frozen line for the whole turn. Each observed phase now also emits a bounded step, the waiting step reports running until a terminal projection exists, and it is settled before the terminal event for every disposition. No unobserved timing is synthesized and replay event ids are unchanged. | `current change`; [Issue #187](https://github.com/dotnetpower/fdai/issues/187); `semantic_turn_runtime.py`; focused Operator checks passed 394 cases with the lifecycle, held, delayed-terminal, and resume regressions updated; Ruff and strict mypy passed; a live turn rendered the stepped timeline with a running waiting step and five completed steps. | Core still publishes one terminal projection, so planning substages stay unobserved by the stream. |
 | 2026-08-18 | implemented | Gave the evidence step its command detail. The Console already renders a per-step tool badge, read-only label, copyable command block, and collapsible output, but a semantic step carried no execution record so every step was a bare label. The evidence step now carries the verified query and the row counts the same terminal projection already holds; a step that executed nothing carries none, and a plan with more than one goal reports no command rather than naming one goal as the executed query. | `current change`; [Issue #188](https://github.com/dotnetpower/fdai/issues/188); `semantic_turn_runtime.py`; focused Operator checks passed 396 cases with two new execution regressions; Ruff and strict mypy passed; a live turn rendered the ObjectSet definition and its `returned_rows`/`total_rows` as JSON code blocks. | Steps still report no duration, so the execution record carries no observed interval. |
+| 2026-08-19 | in-progress | Accepted the deterministic cross-channel presentation design after critique. The revision keeps v1 replay intact, makes v2 additive, separates evidence analysis from layout planning, and prevents a model or browser prose heuristic from selecting a component. | `current change`; this owner document pair. | Implement the analyzer, planner, v2 compiler, compatibility checks, and cross-channel parity tests before changing the scope state. |
 
 ### Remaining work
 
@@ -61,6 +63,8 @@ bounded progress contract for progressive Operator Console conversations.
   evidence-complete answered turns in both locales, without replacing the 2026-08-11 baseline.
 - [ ] Record governed Teams and Slack reduction receipts before claiming channel-wide runtime
   validation.
+- [ ] Implement and focused-test the deterministic evidence-shape analyzer and v2 planner decision
+  matrix, including v1 replay, chart fallback, and malformed or unbound artifact rejection.
 - [x] Replace fenced machine JSON as the primary semantic answer with localized, deterministic
   operator-facing content while keeping the exact payload available under collapsed technical
   details and preserving the terminal verification receipt.
@@ -94,6 +98,50 @@ correlated audit records were verified, causal analysis isn't available, impact 
 citation evidence are missing, and the next safe step is to collect those missing evidence classes
 before proposing a change. The exact identifiers, timestamps, records, and digests remain available
 as technical evidence rather than leading the conversation.
+
+## Deterministic cross-channel presentation design
+
+The semantic presentation planner receives only a verified intent and a typed evidence-shape
+analysis. The analysis records cardinality, field roles, numeric units, denominator verification,
+timestamp order, missing values, truncation, limitations, and evidence references. It never reads
+Markdown to infer a chart, and a model can neither name a component nor change a field role. The
+planner returns a block decision; the compiler copies exact values from immutable evidence into the
+versioned artifact.
+
+### Decision table
+
+| Evidence and intent | Selected block | Required checks | Safe fallback |
+|---------------------|----------------|-----------------|---------------|
+| Two through eight scalar KPIs or short states | `summary` | Unique labels and exact values | `list` |
+| Exact identifiers, heterogeneous columns, row comparison, audit rows, or precision-sensitive values | `table` | Closed columns and bounded rows | `list` |
+| A few heterogeneous records or label/value records | `list` | Bounded records and no required cross-row comparison | `table` |
+| Observed, baseline, threshold, and status | `threshold_table` | Compatible units and explicit threshold direction | `table` plus `callout` |
+| Two through twelve categorical or ranked values | `bar` | One unit, complete values, and no truncation | `table` |
+| Composition or coverage | `coverage` | Verified non-zero denominator and complete numerator semantics | `table` plus `callout` |
+| Three or more ordered observations of one metric | `time_series` | RFC 3339 timestamps, strict ordering, one metric, one unit, and no missing values | `table` |
+| Baseline/current/target or before/after | `comparison` | Explicit roles, compatible units, and complete compared values | `table` |
+| Incident events, observed activities, or handoffs | `timeline` | Ordered timestamps or an explicit verified sequence | `table` or `list` |
+| Limitation, unavailable state, partial evidence, or approval boundary | `callout` | Exact reason and no inferred zero | Canonical text |
+| Citation, provenance, receipt, or exact source reference | `evidence` | Reference belongs to the terminal verification receipt | Canonical text |
+
+A chart that improves scanning while exact values remain important is followed by a collapsed
+table block with the same evidence references. Unit mismatch, a missing value, an unclear
+denominator, low cardinality, truncation, or incomplete verification blocks chart selection.
+`unavailable` stays unavailable and never becomes zero.
+
+### Version and failure contract
+
+`presentation_artifact` v1 remains byte-for-byte replay compatible. Version 2 adds typed
+`time_series`, `comparison`, and `timeline` blocks plus explicit chart descriptions and units. A
+v2 consumer validates exact keys, per-kind bounds, ordered timestamps, finite values, compatible
+units, unique slots, and receipt-bound evidence references. An unknown version, block, field, or
+reference rejects the complete artifact and renders the readable canonical text. It never renders
+raw JSON as the primary answer.
+
+Every chart block carries a semantic description and an adjacent exact-value table unless the
+block itself is already an accessible table. Web can show the full module. Teams and Slack reduce
+the same verified artifact through their capability renderer. A custom channel injects the same
+renderer protocol rather than adding a vendor branch to the planner or core.
 
 ## Branch contract
 

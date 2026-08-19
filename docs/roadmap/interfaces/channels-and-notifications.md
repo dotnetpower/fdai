@@ -35,6 +35,7 @@ only its outbound browser-notification boundary. Console identity lives in
 | Pairing and cross-channel identity linkage | implemented | [`channel_access.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_access.py), [`postgres_channel_pairing.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_channel_pairing.py), [`postgres_channel_identity_link.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_channel_identity_link.py), [`test_channel_access.py`](../../../services/core-control-plane/tests/conversation/test_channel_access.py), [`test_identity_links.py`](../../../services/core-control-plane/tests/conversation/test_identity_links.py), [`test_postgres_channel_pairing.py`](../../../services/core-control-plane/tests/persistence/test_postgres_channel_pairing.py), [`test_postgres_channel_identity_link.py`](../../../services/core-control-plane/tests/persistence/test_postgres_channel_identity_link.py) | Service-level pairing, challenge-digest handling, explicit identity links, and restart persistence pass focused tests. The two PostgreSQL integration files passed four cases with zero skips against a disposable supported database. |
 | Teams, Slack, and outbound notification adapters | in-progress | [`teams_adapter.py`](../../../services/core-control-plane/src/fdai/delivery/chatops/teams_adapter.py), [`slack.py`](../../../services/core-control-plane/src/fdai/delivery/notifications/slack.py), [`test_teams_adapter.py`](../../../services/core-control-plane/tests/chatops/test_teams_adapter.py), [`test_adapters.py`](../../../services/core-control-plane/tests/notifications/test_adapters.py) | Teams implements `HilChannel`, and Teams, Slack, email, webhook, PagerDuty, and SMS outbound adapters pass focused tests. Slack currently has an A2/A4 incoming-webhook sender only; no Slack `HilChannel`, A1 callback, Entra re-authentication flow, or production A3 adapter is present. |
 | Durable outbound conversation delivery | implemented | [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`outbound_delivery.py`](../../../services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py), [`test_outbound_delivery.py`](../../../services/core-control-plane/tests/conversation/test_outbound_delivery.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | The coordinator distinguishes definitive rejection from ambiguous acknowledgement, bounds retries, reconciles interrupted sends, and preserves stable delivery identity in focused tests. |
+| Pure channel presentation rendering | in-progress | This design section and [Issue #234](https://github.com/dotnetpower/fdai/issues/234) | The accepted design separates a vendor-neutral canonical presentation envelope, injected capability profiles, and pure Teams, Slack, or custom renderers from transport and acknowledgement. No production A3 adapter or runtime is claimed. |
 | Opt-in browser notifications | implemented | [`browser-notifications.ts`](../../../console/src/browser-notifications.ts), [`browser-notification-control.tsx`](../../../console/src/components/browser-notification-control.tsx), [`browser-notifications.test.ts`](../../../console/src/browser-notifications.test.ts) | Permission, preference, visibility, and notification behavior pass seven focused Vitest cases. No live browser or push-service receipt is recorded. |
 | Stakeholder briefing and standalone channel runtime | in-progress | [`briefing.py`](../../../services/core-control-plane/src/fdai/core/notifications/briefing.py), [`test_briefing.py`](../../../services/core-control-plane/tests/notifications/test_briefing.py) | Deterministic stakeholder briefing passes focused tests. No `ProductionChannelRuntime` implementation, production ASGI factory, Slack/Teams conversation publishers, service entry point, or Terraform workload is present. |
 
@@ -44,6 +45,7 @@ only its outbound browser-notification boundary. Console identity lives in
 |------|-------|--------|----------|-----------|
 | 2026-08-13 | in-progress | Adopted the implementation ledger and corrected unsupported Slack A1 and standalone runtime implementation claims without reconstructing earlier provenance. | Current change; 170 focused Python tests passed, two PostgreSQL integration tests skipped because `FDAI_DATABASE_URL` was unset, and seven focused browser-notification tests passed. Test paths are listed in the scope table. | Run the database-backed checks, implement Slack A1 and production conversation adapters, compose the standalone runtime, and capture governed runtime receipts. |
 | 2026-08-14 | implemented | Promoted pairing and cross-channel identity linkage after proving restart persistence against PostgreSQL. | Current change; `test_postgres_channel_pairing.py` and `test_postgres_channel_identity_link.py` passed four cases with zero skips against a disposable supported database. | Implement Slack A1 and production conversation adapters, compose the standalone runtime, and capture governed runtime receipts. |
+| 2026-08-19 | in-progress | Accepted the capability-rendering design after separating canonical fact preservation from vendor payload shaping and separating pure rendering from the unimplemented A3 transport. | `current change`; this owner document pair. | Implement bounded pure renderers and fake custom extension tests without changing the production adapter status. |
 
 ### Remaining work
 
@@ -58,6 +60,8 @@ only its outbound browser-notification boundary. Console identity lives in
   a Terraform workload; focused startup and shutdown tests must prove fail-closed composition.
 - [ ] Record governed runtime receipts for enabled delivery, fallback, browser behavior, and the
   deployed standalone channel process before promoting any row to `validated`.
+- [ ] Implement pure Teams, Slack, and injected custom presentation renderers whose parity tests
+  preserve canonical facts, limitations, evidence references, authority, and readable fallback.
 
 ## 1. Design Principles
 
@@ -259,6 +263,36 @@ Planned concrete publishers map that intent as follows:
 Publisher transport and acknowledgement handling will stay separate from pure bounded Slack Block
 Kit and Teams Adaptive Card rendering. This split preserves wire payload and fallback behavior and
 keeps vendor presentation independently testable.
+
+#### Presentation capability rendering
+
+One validated `ChannelPresentationEnvelope` carries canonical text, a versioned presentation
+artifact, exact evidence references, limitations, authority, and an optional server-owned Web link.
+The envelope is the only input to a `ChannelPresentationRenderer`. A renderer returns a bounded
+vendor payload and the complete readable text fallback; it cannot fetch evidence, run a tool,
+authorize a request, or change a fact.
+
+`ChannelPresentationCapabilities` owns provider limits and support for text bytes, serialized
+bytes, block count, fields, actions, images, deterministic sparklines, edits, threads, and progress.
+The core planner never branches on a vendor. A deployment injects a renderer and capability
+profile, and an unknown or failed renderer returns the canonical text fallback.
+
+| Surface | Rich rendering | Chart degradation | Mandatory retained content |
+|---------|----------------|-------------------|----------------------------|
+| Teams | Adaptive Card `FactSet`, `Container`, and `ColumnSet` | Textual trend plus top facts and a Web action unless a verified image renderer is injected | Limitations, evidence references, authority, unavailable state, and canonical text fallback |
+| Slack | Block Kit `section`, `fields`, `context`, and `actions` | Bounded textual summary; a sparkline is allowed only from a reviewed deterministic renderer | Limitations, evidence references, authority, unavailable state, and top-level `text` fallback |
+| Custom | Injected renderer and capability profile | Renderer-declared bounded fallback | The same mandatory content and bounds as built-in renderers |
+
+Rendering is loss-bounded, not fact-selective. It can omit optional visual detail only after the
+readable fallback retains the same canonical facts. It never maps unavailable to zero, drops an
+approval or authority boundary, or emits raw artifact JSON as the primary answer. Provider byte,
+block, and field caps apply before transport. Exceeding a cap first removes optional visual detail,
+then uses the complete bounded text fallback. If mandatory content alone cannot fit, rendering
+fails closed before a provider call.
+
+The initial implementation supplies pure payload builders and a fake custom renderer contract.
+It does not add Slack or Teams ingress, credentials, HTTP calls, acknowledgements, service startup,
+or deployment resources. Production A3 adapters and runtime evidence remain open work.
 
 | Behavior | Slack | Teams | Text fallback |
 |----------|-------|-------|---------------|

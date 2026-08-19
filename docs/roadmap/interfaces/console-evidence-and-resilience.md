@@ -14,6 +14,7 @@ This document owns the operator console contracts for evidence provenance, local
 | Semantic model and relationship direction | implemented | `ontology-semantic-model.ts`; `ontology-semantic-map.tsx`; catalog topology renderer and inspector; focused Vitest: 23 passed; Console typecheck passed | The four reviewed semantic bands, five operational lenses, arrowheads, and separate incoming and outgoing relationships are implemented. Authenticated desktop and mobile evidence remains open. |
 | Agent Activity heartbeat presentation | validated | `console/src/routes/agents.model.ts`; `console/src/routes/agents.model.test.ts`; `docs/baselines/agent-activity-heartbeat-assurance-2026-08-14.json`; focused Vitest: 31 passed; authenticated Browser Entra assurance | Three successive heartbeat timestamps advanced across two refreshes, all three authenticated self checks succeeded, and zero runtime-initialization rows appeared. |
 | Command Deck JSON contrast | implemented | `console/src/styles.css`; `console/src/deck/command-deck-workspace-visual.test.ts`; focused Vitest: 10 passed; authenticated browser inspection | Syntax-highlighted JSON keeps the fixed dark code surface despite the global light `pre` style. Browser inspection is not retained as governed runtime evidence. |
+| Web presentation module registry | in-progress | This design section and [Issue #234](https://github.com/dotnetpower/fdai/issues/234) | The accepted design moves each block kind behind one registry entry with responsive policy and an accessible fallback. Source, tests, and three-viewport evidence remain required. |
 | Shared Console and mock typography | implemented | `ui/calm-slate-tokens.css`; `ui/calm-slate-primitives.css`; `console/src/shared-style-tokens.test.ts`; [Issue #212](https://github.com/dotnetpower/fdai/issues/212) | Semantic page title, page subtitle, lead, section title, panel title, body, compact, label, and caption roles share one size and line-height contract. Representative Console and mock selectors consume the same tokens; specialized route text remains route-owned. |
 | Static mock interaction assurance | implemented | `index.html`; `mocks/ui/components.html`; `mocks/ui/assets/calm-slate.{css,js}`; focused mock and Console visual contracts; [Issue #215](https://github.com/dotnetpower/fdai/issues/215) | The master and nested shells preserve exact component-section links. The gallery exposes searchable, synthetic, light and dark, keyboard, reduced-motion, table, mobile-target, and readable-text reference states without claiming runtime evidence. |
 | Cross-tab SSE and incident resilience | validated | Cross-tab stream hooks; `incidents.milestones.ts`; incident projections; `docs/baselines/console-cross-tab-sse-assurance-2026-08-14.json`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; focused Console and Operator tests | Cross-tab leadership and failover passed, and authenticated Incident detail retained eight milestones, same-snapshot analytics, and unavailable source and plan context without claiming notification delivery. |
@@ -82,6 +83,7 @@ This document owns the operator console contracts for evidence provenance, local
 | 2026-08-19 | implemented | Made edge verification status visible instead of accepting `unverified` as hidden machine metadata. The edge table localizes the status, and the published view context preserves the exact machine value. | [Issue #223](https://github.com/dotnetpower/fdai/issues/223); `current change`; focused Console and catalog tests passed 11 cases, typecheck and production build passed, and the authenticated Browser rendered one `Verification` column with the current `Unverified` edge. | Re-run localization and documentation critique; governed exact-source Browser retention remains separate. |
 | 2026-08-19 | implemented | Bound the optional Architecture map to the impact projection's inventory snapshot. Exact generation wins when available, legacy graphs must match the cutoff, and a changed impact snapshot resets and refetches the map instead of combining generations. | [Issue #223](https://github.com/dotnetpower/fdai/issues/223); `current change`; focused Console and catalog tests passed 25 cases, typecheck and production build passed, and the authenticated Map tab rendered for the matching local cutoff without a mismatch state. | Continue the concurrency and determinism recritique; governed exact-source Browser retention remains separate. |
 | 2026-08-19 | implemented | Completed 12 independent critique-and-hardening rounds over wire invariants, traversal correctness and bounds, SQL privileges, API errors, adversarial decoding, accessibility, responsive layout, localization, migration rollback, concurrency, and evidence authority. Every verified Medium-or-higher finding was fixed and rechecked before the next round. | [Issue #223](https://github.com/dotnetpower/fdai/issues/223); `current change`; task-owned focused checks, exact commit checks, production build, and authenticated three-viewport observations cited in the preceding rows. | Residual implementation findings are Low: producer-bound array limits in the decoder, strict RFC 3339 defense in depth, linked identifier ellipsis, mobile graph whitespace, and intentional evidence-table scrolling. Governed exact-source Browser retention and a principal-scoped Context receipt remain separate evidence delivery. |
+| 2026-08-19 | in-progress | Accepted the Web presentation registry design after separating artifact validation, block lookup, and per-kind rendering. | `current change`; this owner document pair. | Split the renderer, add accessible v2 chart modules, and retain desktop, constrained, and mobile evidence before changing the scope state. |
 
 ### Remaining work
 
@@ -97,6 +99,9 @@ This document owns the operator console contracts for evidence provenance, local
 - [x] Render a bounded active-inventory impact result with exact release and cutoff, explicit completeness and truncation, and no execution or mutation authority.
 - [x] Keep shared Console and static mock page title, page subtitle, body, compact, label, and caption typography aligned through semantic tokens and the responsive component-gallery specimen.
 - [x] Keep the Components gallery and both static shells searchable, exact-linkable, keyboard accessible, overflow-free, and explicit about synthetic preview data through focused contracts and three-viewport browser checks.
+- [ ] Implement the Web block registry and accessible v2 chart modules, then verify keyboard,
+  reduced-motion, exact-value fallback, Korean text, opaque identifiers, timestamps, empty and
+  unavailable states at 1440 x 900, 993 x 641, and 390 x 844.
 ## Navigation context
 
 Selecting an Activity Bar domain opens its Explorer and navigates to the first visible panel under the operator's local order and visibility preferences. This navigation remains active when the Command Deck is closed or floating; a full-workspace Deck closes before the route changes.
@@ -328,6 +333,32 @@ details use the same catalog rather than embedding English in reconstructed evid
 
 Localization changes presentation labels only. Machine values, workflow ids, serialized records,
 provider payloads, and validation results remain unchanged.
+
+## Web presentation module registry
+
+The Command Deck validates a complete artifact before module lookup. The registry maps each closed
+block kind to one Preact component, responsive policy, and accessibility fallback. A module receives
+only its validated block and never inspects prose to infer a table, chart, status, or unit.
+
+| Block family | Module responsibility | Accessibility and fallback |
+|--------------|-----------------------|----------------------------|
+| `summary`, `callout`, `evidence` | KPI facts, limitations, provenance, and receipts | Native description lists or lists; exact text remains visible |
+| `table`, `threshold_table`, `list` | Exact records and comparisons | Native table/list semantics; narrow layouts reflow labels without changing values |
+| `bar`, `coverage` | Bounded categorical values or verified composition | Visible values plus a semantic description; adjacent exact-value table when required |
+| `time_series` | One ordered metric and unit | Focusable points, description, exact timestamp/value table, and no motion requirement |
+| `comparison` | Baseline/current/target or before/after | Role labels, unit, exact values, and a table fallback |
+| `timeline` | Evidence-bearing order | Ordered list with machine timestamps preserved in `time` elements |
+
+The registry owns component selection only after parser acceptance. Unknown or malformed v2 input,
+an unbound evidence reference, duplicate slot, non-finite value, timestamp disorder, unit mismatch,
+or missing required fallback rejects the artifact and leaves canonical text visible. A module error
+cannot expose raw JSON as the primary answer.
+
+Charts use CSS and semantic HTML rather than a canvas-only surface. Keyboard users can reach every
+data point that has a tooltip, and the visible tooltip repeats exact values rather than introducing
+new text. `prefers-reduced-motion` removes transitions without hiding data. Stable dimensions and
+overflow policies prevent labels, long Korean, timestamps, and opaque identifiers from moving or
+overlapping the transcript.
 
 ## Observed conversation trajectory
 
