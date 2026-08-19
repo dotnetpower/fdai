@@ -46,7 +46,7 @@ _MAX_SCANNED_TOKENS = 32
 _EXPLICIT_AGGREGATION_REQUEST = re.compile(
     r"(?:\b(?:count|grouped|grouping|how\s+many|number\s+of|total)\b|"
     r"\bgroup\b[^.!?\n]{0,80}\bby\b|"
-    r"집계|그룹화|몇\s*(?:개|건|명)?|개수|수를\s*요약)"
+    r"집계|그룹화|그루핑|합계|몇\s*(?:개|건|명)?|개수|수를\s*요약)"
 )
 _SPECIALIZED_FUNCTIONS_BY_OUTPUT_SHAPE = {
     "incident_evidence": frozenset({"query.incident_evidence"}),

@@ -1512,6 +1512,8 @@ def test_aggregation_operation_retries_a_misclassified_t1_frame() -> None:
     (
         "Group readable resources by health status.",
         "읽기 가능한 리소스를 상태별로 그룹화해 주세요.",
+        "읽기 가능한 리소스를 상태별로 그루핑해 주세요.",
+        "조회 가능한 리소스의 상태별 합계를 보여 주세요.",
     ),
 )
 def test_explicit_aggregation_request_rejects_a_fully_misclassified_frame(

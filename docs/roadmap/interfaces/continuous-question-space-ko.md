@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 5d450824236c6e47bd3ddff2dab3c71203300c8a
+translation_source_sha: 2aa6ba13ccdb5fee4d132b5e5d9da477cd12d525
 translation_revised: 2026-08-20
 ---
 # 지속형 질문 공간
@@ -70,6 +70,7 @@ flowchart LR
 | 2026-08-20 | implemented | Seeded release oracle의 불가능한 균일 operation 개수 조건을 결정론적으로 생성된 cohort와의 exact 비교로 교체했습니다. Extension operation 계열 4개가 추가된 뒤 기존 `operation당 10개` 규칙은 고정 100개 cohort에서 140개 결과를 요구했습니다. 누락되거나 대체된 operation 결과는 exact histogram 검사에서 계속 실패합니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); `current change`; 정확한 소스 실행 `question-space-final-b4604e07b-20260820-r11`은 strict 22/22를 통과했고 seeded 100/100을 판단했으며 완전한 근거 답변 81/81, required-answer coverage 완료, 모든 hard-zero 카운터 0을 기록했습니다. 집중 Console 보증 테스트 101개가 통과했습니다. | 수정된 소스를 중앙 검증한 뒤 새로운 strict-v2 및 seeded artifact를 보존합니다. |
 | 2026-08-20 | implemented | 실행 r12에서 한국어 grouping 요청 하나가 filtered ObjectSet 답변으로 나타난 뒤 canonical `aggregate` semantic operation과 fail-closed 발화-to-frame 일치 검사를 추가했습니다. 명시적인 영어 또는 한국어 count와 grouping operator는 nonaggregation frame을 거부하고 제한된 frame 재시도를 유발할 뿐 기능을 선택하거나 구성하지 않습니다. Aggregate operation과 output shape는 양방향으로 일치해야 하며 frame prompt v26도 둘을 요구합니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); `current change`; 정확한 소스 실행 `question-space-final-b997de285-20260820-r12`는 seeded 100/100을 완료하고 `semantic_plan_operation_mismatch` 1개를 기록했습니다. 집중 shared contract, 의미 계획, prompt 테스트 79개와 작업 범위 Ruff, format, strict mypy가 통과했습니다. | 수정된 소스를 중앙 검증한 뒤 새로운 strict-v2 및 seeded artifact를 보존합니다. |
 | 2026-08-20 | implemented | 중앙 downstream 테스트에서 bare `group`이 `network security group`의 domain noun과도 일치함을 확인한 뒤 영어 explicit-grouping guard를 좁혔습니다. 이제 명령형 grouping은 범위가 제한된 `group ... by` 구문을 요구하며 `grouped`와 `grouping`은 명시적 operator로 유지됩니다. Manifest aggregate fixture도 canonical operation을 사용합니다. | `current change`; 이전에 실패한 composition consumer 2개와 positive, negative, 이중 언어, domain noun, false-positive control 7개가 통과했고 전체 집중 slice 82개와 Ruff, format, strict mypy가 통과했습니다. | 수정된 소스를 중앙 검증한 뒤 새로운 strict-v2 및 seeded artifact를 보존합니다. |
+| 2026-08-20 | implemented | 적대적 검토에서 기존 exact 집합 밖의 일반적인 한국어 operator 두 개를 발견한 뒤 rejection-only 한국어 aggregation 어휘를 확장했습니다. `그루핑`과 `합계`는 이제 기능을 선택하거나 구성하지 않고 nonaggregation frame을 거부합니다. | `current change`; positive, negative, 이중 언어, 한국어 recall, domain noun, false-positive control 9개가 통과했고 전체 집중 slice 84개와 Ruff, format, strict mypy가 통과했습니다. | 수정된 소스를 중앙 검증한 뒤 새로운 strict-v2 및 seeded artifact를 보존합니다. |
 
 ### 남은 작업
 
@@ -207,6 +208,7 @@ cron, IANA 표준 시간대, 로캘, 관점, 질문 수, 토큰, 비용, 전체 
 | 62 | Frame 결속 predicate 과잉 범위 | Medium, resolved | 14개 관점의 적대적 검토에서 일반 missing-predicate 결속이 값이 있는 property filter를 넓은 existence 검사로 약화할 수 있음을 발견했습니다. 이제 결속은 닫힌 `Resource` subject와 `type` measure 하나로 제한되며 단일 또는 혼합 nonclosed measure는 두 planning tier에서 계속 unsupported로 유지됩니다. 나머지 지적은 deep-copy, principal manifest, grounding, verifier 경계로 반증했거나 Low 수준 관측성 및 테스트 깊이 항목으로 유지했습니다. |
 | 63 | Seeded operation coverage 산술 | High, resolved | 실행 r11은 judgment, 근거, 기능, 전송, 권한 또는 안전 실패 없이 seeded turn 100개를 모두 완료했지만 gate가 base 및 extension operation마다 10개를 요구해 `production_ready`가 false로 남았습니다. 이제 exact result-to-cohort histogram equality가 결정론적 generator에서 분모를 도출하며 개수를 복제하지 않고 누락 또는 대체 operation을 거부합니다. |
 | 64 | Aggregation intent 식별자 | High, resolved | 실행 r12는 seeded turn 100개를 모두 완료하고 한국어 grouping 요청 하나의 frame과 plan이 일관되게 property filter를 주장한 문제를 격리했습니다. 기존 `SemanticOperation`에는 aggregation token이 없어 결정론적 alignment가 요청된 결과 operator를 검증할 수 없었습니다. Additive `aggregate` token, 양방향 operation-output invariant, 보수적인 explicit-operator mismatch 거부, v26 prompt가 이 공백을 닫습니다. Positive, negative, 이중 언어, domain noun, false-positive control 7개가 통과했고 Low보다 높은 미해결 항목은 없습니다. |
+| 65 | 한국어 aggregation operator recall | Medium, resolved | 14개 관점의 후속 검토에서 일반적인 한국어 `그루핑`과 `합계` 요청을 rejection-only 일치 guard가 인식하지 못함을 발견했습니다. 이제 둘 다 범위가 제한된 frame 재시도를 유발하며 80자 영어 `group ... by` 제한, 현재 turn 전용 입력, domain noun 제외, wire 호환성, 권한, 개인정보 경계는 바뀌지 않습니다. Low보다 높은 미해결 항목은 없습니다. |
 
 남은 Low 항목은 인벤토리 탐색 edge case 추가 음수 테스트, 캠페인 간 중복 corpus 보존 근거,
 과거 릴리스 차이 회귀 테스트 이름, 추가 URI 스킴, 정상 자격 증명 어휘, 한국어 안전 변형입니다.
