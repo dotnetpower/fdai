@@ -365,6 +365,7 @@
     "affectedCount": "{count} affected",
     "mapUnavailable": "Map unavailable: {message}",
     "mapLoading": "Loading architecture map...",
+    "mapSnapshotMismatch": "the architecture map uses a different inventory snapshot",
     "openArchitecture": "Open full architecture"
   }
 }

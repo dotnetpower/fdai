@@ -59,6 +59,20 @@ export function blastRadiusFailure(error: unknown): AsyncState<never> {
   };
 }
 
+export function inventoryGraphMatchesImpact(
+  graph: Pick<InventoryGraphResponse, "snapshot_id" | "snapshot_at">,
+  impact: Pick<BlastRadiusResponse, "source_generation" | "source_cutoff">,
+): boolean {
+  if (graph.snapshot_id !== undefined) {
+    return graph.snapshot_id === impact.source_generation;
+  }
+  const graphCutoff = Date.parse(graph.snapshot_at);
+  const impactCutoff = Date.parse(impact.source_cutoff);
+  return Number.isFinite(graphCutoff)
+    && Number.isFinite(impactCutoff)
+    && graphCutoff === impactCutoff;
+}
+
 export function BlastRadiusRoute({ client }: Props) {
   const initialQuery = blastRadiusQueryFromSearch(window.location.search);
   const [target, setTarget] = useState(() => initialQuery.target ?? "");
@@ -490,17 +504,26 @@ function BlastRadiusMap({ client, data, architectureView }: { readonly client: O
   const [message, setMessage] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
+    setGraph(null);
+    setMessage(null);
     const params: Record<string, string> = {
       depth: "4",
       include: "contains,attached_to,depends_on",
     };
     if (architectureView) params.scope = architectureView;
     client.panel<InventoryGraphResponse>("/inventory/graph", params).then(
-      (value) => { if (!cancelled) setGraph(value); },
+      (value) => {
+        if (cancelled) return;
+        if (!inventoryGraphMatchesImpact(value, data)) {
+          setMessage(t("ontology.blast.mapSnapshotMismatch"));
+          return;
+        }
+        setGraph(value);
+      },
       (error: unknown) => { if (!cancelled) setMessage(error instanceof Error ? error.message : String(error)); },
     );
     return () => { cancelled = true; };
-  }, [client, architectureView]);
+  }, [client, architectureView, data.source_generation, data.source_cutoff]);
   if (message) return <p class="muted footnote">{t("ontology.blast.mapUnavailable", { message })}</p>;
   if (!graph) return <p class="muted footnote">{t("ontology.blast.mapLoading")}</p>;
   const highlighted = new Set([data.target, ...data.reached.map((node) => node.resource_id)]);

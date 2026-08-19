@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { OperatorApiError } from "../api";
-import { blastRadiusFailure } from "./blast-radius";
+import { blastRadiusFailure, inventoryGraphMatchesImpact } from "./blast-radius";
 import {
   decodeBlastRadiusResponse,
   blastRadiusHref,
@@ -74,6 +74,28 @@ describe("blast-radius route query", () => {
       status: "error",
       message: "inventory failed",
     });
+  });
+
+  test("binds the optional map to the impact inventory snapshot", () => {
+    const impact = {
+      source_generation: "generation-1",
+      source_cutoff: "2026-08-19T00:00:00+00:00",
+    };
+
+    expect(inventoryGraphMatchesImpact({
+      snapshot_id: "generation-1",
+      snapshot_at: "2026-08-19T00:30:00+00:00",
+    }, impact)).toBe(true);
+    expect(inventoryGraphMatchesImpact({
+      snapshot_id: "generation-2",
+      snapshot_at: "2026-08-19T00:00:00+00:00",
+    }, impact)).toBe(false);
+    expect(inventoryGraphMatchesImpact({
+      snapshot_at: "2026-08-19T00:00:00Z",
+    }, impact)).toBe(true);
+    expect(inventoryGraphMatchesImpact({
+      snapshot_at: "2026-08-19T00:30:00Z",
+    }, impact)).toBe(false);
   });
 
   test("decodes an exact-release no-authority impact projection", () => {

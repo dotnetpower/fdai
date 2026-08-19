@@ -49,6 +49,7 @@ export const DEFAULT_ARCHITECTURE_DISPLAY_OPTIONS: ArchitectureDisplayOptions = 
 };
 
 export interface InventoryGraphResponse {
+  readonly snapshot_id?: string;
   readonly snapshot_at: string;
   readonly freshness: "fresh" | "stale" | "unknown";
   readonly source?: string;
