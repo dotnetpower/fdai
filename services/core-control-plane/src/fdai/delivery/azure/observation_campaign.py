@@ -28,6 +28,7 @@ InventoryCoverageReader = Callable[[int], Awaitable[Mapping[str, Any]]]
 _ARG_API_VERSION = "2022-10-01"
 _ACTIVITY_API_VERSION = "2015-04-01"
 _COST_API_VERSION = "2023-11-01"
+_MAX_ACTIVITY_WINDOW_SECONDS = 86_400
 
 
 class AzureResourceGraphObservation(StrEnum):
@@ -72,6 +73,15 @@ _LOG_QUERIES: Mapping[str, str] = {
         "| summarize Count=count())"
     ),
 }
+
+
+@dataclass(frozen=True, slots=True)
+class _ActivityWindowResult:
+    evidence_count: int = 0
+    observed_bytes: int = 0
+    denied: bool = False
+    result_limited: bool = False
+    byte_limited: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,6 +207,8 @@ class AzureActivityLogObservationProbe:
             if key == "legacy" or key in selected_cursor_keys
         }
         result_limited = False
+        byte_limited = False
+        catchup_required = False
         for index, subscription_id in enumerate(subscriptions):
             source_budget = _partition_budget(
                 spec.max_results,
@@ -205,82 +217,70 @@ class AzureActivityLogObservationProbe:
             )
             source_count = 0
             cursor_key = _subscription_cursor_key(subscription_id)
-            url = (
-                f"{self._config.management_endpoint.rstrip('/')}/subscriptions/"
-                f"{subscription_id}/providers/microsoft.insights/eventtypes/management/values"
-            )
             lower = (
                 cursors.get(cursor_key)
                 or cursors.get("legacy")
                 or (self._clock() - timedelta(seconds=spec.lookback_seconds)).isoformat()
             )
-            checked_through = self._clock().isoformat()
-            params: Mapping[str, str] | None = {
-                "api-version": _ACTIVITY_API_VERSION,
-                "$filter": f"eventTimestamp ge '{lower}'",
-            }
-            latest_timestamp: str | None = None
-            complete = False
-            while True:
-                response = await self._http.get(
-                    url,
-                    params=params,
-                    headers=_headers(token.token),
-                    timeout=spec.timeout_seconds,
+            lower_bound = _activity_datetime(lower)
+            checked_through = self._clock()
+            if lower_bound > checked_through:
+                raise ObservationProbeContractError(
+                    "Activity Log cursor MUST NOT be later than the collection cutoff"
                 )
-                if response.status_code in {401, 403}:
+            window_seconds = min(spec.lookback_seconds, _MAX_ACTIVITY_WINDOW_SECONDS)
+            while lower_bound < checked_through:
+                remaining_results = source_budget - source_count
+                remaining_bytes = spec.max_output_bytes - observed_bytes
+                if remaining_results <= 0 or remaining_bytes <= 0:
+                    catchup_required = True
+                    break
+                upper_bound = min(
+                    lower_bound + timedelta(seconds=window_seconds),
+                    checked_through,
+                )
+                window = await self._collect_activity_window(
+                    subscription_id=subscription_id,
+                    token=token.token,
+                    lower_bound=lower_bound,
+                    upper_bound=upper_bound,
+                    max_results=remaining_results,
+                    max_output_bytes=remaining_bytes,
+                    timeout_seconds=spec.timeout_seconds,
+                )
+                observed_bytes += window.observed_bytes
+                if window.denied:
                     denied += 1
                     break
-                _raise_for_status(response, source="activity-log")
-                observed_bytes += len(response.content)
-                if observed_bytes > spec.max_output_bytes:
-                    return ObservationProbeResult(
-                        coverage=ObservationCoverage.PARTIAL,
-                        evidence_count=count,
-                        cursor=_encode_activity_cursors(next_cursors),
-                        reason_codes=("byte_limit",),
-                    )
-                payload = _mapping(response.json(), "Activity Log response")
-                values = payload.get("value")
-                if not isinstance(values, list):
-                    raise RuntimeError("Activity Log response value MUST be an array")
-                remaining = source_budget - source_count
-                if len(values) > remaining:
-                    count += remaining
-                    source_count += remaining
-                    result_limited = True
+                if window.result_limited or window.byte_limited:
+                    if window_seconds > 1 and observed_bytes < spec.max_output_bytes:
+                        window_seconds = max(1, window_seconds // 2)
+                        continue
+                    result_limited = result_limited or window.result_limited
+                    byte_limited = byte_limited or window.byte_limited
+                    catchup_required = True
                     break
-                count += len(values)
-                source_count += len(values)
-                latest_timestamp = _latest_activity_timestamp(values) or latest_timestamp
-                next_link = payload.get("nextLink")
-                if next_link:
-                    if source_count >= source_budget:
-                        result_limited = True
-                        break
-                    url = _activity_next_link(
-                        next_link,
-                        management_endpoint=self._config.management_endpoint,
-                        subscription_id=subscription_id,
+                count += window.evidence_count
+                source_count += window.evidence_count
+                lower_bound = upper_bound
+                next_cursors[cursor_key] = upper_bound.isoformat()
+                if lower_bound < checked_through and window.evidence_count * 4 <= remaining_results:
+                    window_seconds = min(
+                        window_seconds * 2,
+                        _MAX_ACTIVITY_WINDOW_SECONDS,
                     )
-                    params = None
-                    continue
-                complete = True
-                break
-            if response.status_code in {401, 403}:
-                continue
-            if not complete:
-                continue
-            next_cursors[cursor_key] = latest_timestamp or checked_through
+            catchup_required = catchup_required or lower_bound < checked_through
         if denied == len(subscriptions) and not target_limited:
             raise PermissionError("Activity Log access denied")
-        if denied or target_limited or result_limited:
+        if denied or target_limited or result_limited or byte_limited or catchup_required:
             reasons = tuple(
                 reason
                 for condition, reason in (
                     (denied > 0, "source_unauthorized"),
                     (target_limited, "target_limit"),
                     (result_limited, "result_limit"),
+                    (byte_limited, "byte_limit"),
+                    (catchup_required, "source_catchup"),
                 )
                 if condition
             )
@@ -295,6 +295,71 @@ class AzureActivityLogObservationProbe:
             evidence_count=count,
             cursor=_encode_activity_cursors(next_cursors),
         )
+
+    async def _collect_activity_window(
+        self,
+        *,
+        subscription_id: str,
+        token: str,
+        lower_bound: datetime,
+        upper_bound: datetime,
+        max_results: int,
+        max_output_bytes: int,
+        timeout_seconds: float,
+    ) -> _ActivityWindowResult:
+        """Read one closed time window without checkpointing a partial page chain."""
+        url = (
+            f"{self._config.management_endpoint.rstrip('/')}/subscriptions/"
+            f"{subscription_id}/providers/microsoft.insights/eventtypes/management/values"
+        )
+        params: Mapping[str, str] | None = {
+            "api-version": _ACTIVITY_API_VERSION,
+            "$filter": (
+                f"eventTimestamp ge '{lower_bound.isoformat()}' and "
+                f"eventTimestamp le '{upper_bound.isoformat()}'"
+            ),
+            "$select": "eventTimestamp",
+        }
+        count = 0
+        observed_bytes = 0
+        while True:
+            response = await self._http.get(
+                url,
+                params=params,
+                headers=_headers(token),
+                timeout=timeout_seconds,
+            )
+            if response.status_code in {401, 403}:
+                return _ActivityWindowResult(denied=True)
+            _raise_for_status(response, source="activity-log")
+            observed_bytes += len(response.content)
+            if observed_bytes > max_output_bytes:
+                return _ActivityWindowResult(
+                    observed_bytes=observed_bytes,
+                    byte_limited=True,
+                )
+            payload = _mapping(response.json(), "Activity Log response")
+            values = payload.get("value")
+            if not isinstance(values, list):
+                raise RuntimeError("Activity Log response value MUST be an array")
+            if count + len(values) > max_results:
+                return _ActivityWindowResult(
+                    observed_bytes=observed_bytes,
+                    result_limited=True,
+                )
+            count += len(values)
+            next_link = payload.get("nextLink")
+            if not next_link:
+                return _ActivityWindowResult(
+                    evidence_count=count,
+                    observed_bytes=observed_bytes,
+                )
+            url = _activity_next_link(
+                next_link,
+                management_endpoint=self._config.management_endpoint,
+                subscription_id=subscription_id,
+            )
+            params = None
 
 
 class AzureCostObservationProbe:
@@ -583,12 +648,17 @@ def _activity_next_link(
 
 
 def _validate_activity_timestamp(value: str) -> None:
+    _activity_datetime(value)
+
+
+def _activity_datetime(value: str) -> datetime:
     try:
         timestamp = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as exc:
         raise ValueError("Activity Log cursor timestamp is invalid") from exc
     if timestamp.tzinfo is None:
         raise ValueError("Activity Log cursor timestamp MUST include a timezone")
+    return timestamp
 
 
 __all__ = [

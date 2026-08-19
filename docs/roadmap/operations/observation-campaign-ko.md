@@ -1,8 +1,8 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: dacb18a7f10ab9cf0037d6fdd3cabf0027357cfc
-translation_revised: 2026-08-17
+translation_source_sha: 80a503d2700cf7622d08d434719d1b69bfbce602
+translation_revised: 2026-08-19
 ---
 
 # 권한 인식 관측 캠페인
@@ -37,6 +37,7 @@ translation_revised: 2026-08-17
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | implemented | Activity Log coverage가 claims, request detail 또는 properties를 내려받지 않고 영속 cursor backlog를 복구하도록 했습니다. Probe는 timestamp 필드만 요청하고 등록된 result, byte 및 timeout 상한 안에서 닫힌 adaptive 시간 창을 조회하며, 완전히 읽은 창만 checkpoint합니다. `source_catchup`만 즉시 다시 실행 조건을 만족하며 권한, throttle, 전송 및 계약 실패는 정상 간격을 유지합니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Focused Azure probe 및 영속 runner 검사 30개가 통과했습니다. 수정 전 보존된 로컬 backlog는 event 12,882개와 page 65개로 측정됐습니다. | 변경을 커밋하고 보존된 cursor를 현재 cutoff까지 소진한 뒤, 런타임 검증을 주장하기 전에 출처 10개가 모두 `completed`인 로컬 campaign 하나를 보존합니다. |
 | 2026-08-14 | in-progress | 등록된 모든 출처를 위한 하나의 권한 인식 관측 캠페인을 정의하고 로컬과 배포의 동작 동등성을 명시했습니다. 이전 구현 출처 이력은 재구성하지 않았습니다. | `current change`, 구현 범위 표에 인용한 기존 어댑터와 scheduler 경로 | 아래 계약, 실행기, 출처 연결, 활동 변환 결과, 동등성 검사 및 통제된 런타임 근거를 구현합니다. |
 | 2026-08-14 | implemented | 공유 커버리지 캠페인, 반복 로컬 인벤토리 동등성, 배포 작업과 읽기 역할, 영속 Operator 변환 결과 및 지역화된 Console lane을 구현하고 하드닝했습니다. | `current change`, 집중 계약, 수명 주기, 프로바이더, CLI, 인벤토리, Operator, Console, workspace, 타입, lint, JSON 및 Terraform 검사 | 검증을 주장하기 전에 하나의 카탈로그 digest에서 통제된 로컬 및 배포 실행을 보존합니다. |
 | 2026-08-14 | implemented | 첫 통제된 로컬 실행에서 그래프 속성 decode, Service Health payload 크기 및 대상 없는 메트릭 라우팅 실패를 발견한 뒤 집계 전용 커버리지를 하드닝했습니다. | 검증된 개정 번호 `214409710`, 이 실행은 준비된 출처 6개, 정규화된 Cost 제한 1개 및 격리된 프로바이더 실패 3개에 도달했습니다. `current change`, 집중 집계 커버리지 검사 125개 통과 | 하드닝된 개정 번호에서 통제된 로컬 캠페인을 다시 실행한 뒤 동등한 배포 실행을 보존합니다. |
@@ -153,7 +154,8 @@ flowchart LR
 - **출처별 push 우선:** Event Grid, Diagnostic Settings 및 native 경보는 기존의 타입이 지정된
   수집 경로를 계속 사용합니다. 캠페인은 구성된 pull 또는 승격 상태 커버리지를 보고합니다.
 - **커서 복구:** Pull 읽기 담당은 영속 출처 커서로 공백을 닫고 종료 결과가 영속화된 뒤에만
-  커서를 확정합니다.
+  커서를 확정합니다. Activity Log 복구는 timestamp 전용 닫힌 창을 요청하고 완전히 읽은 창만
+  checkpoint하며, 관련 없는 실패를 가속하지 않고 명시적 `source_catchup` 상태만 즉시 이어갑니다.
 - **완전 조정:** 권위 있는 인벤토리 CLI는 로컬과 배포의 같은 실행 조건 게이트를 통해 전체
   ARG/ARM 승격을 수행합니다. 캠페인은 해당 승격 그래프를 관측하며 구성, 비용 및 복구 probe는
   등록된 범위 제한 읽기를 각각 실행합니다.

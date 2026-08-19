@@ -35,6 +35,7 @@ agent or the Console managed-resource execution authority.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-19 | implemented | Made Activity Log coverage recover a durable cursor backlog without downloading claims, request details, or properties. The probe requests only timestamp fields, scans closed adaptive time windows under the registered result, byte, and timeout ceilings, and checkpoints only a fully read window. `source_catchup` alone is immediately due again; authorization, throttle, transport, and contract failures keep their normal interval. | [Issue #217](https://github.com/dotnetpower/fdai/issues/217); focused Azure probe and durable-runner checks pass 30 cases; the retained local backlog measured 12,882 events across 65 pages before the fix. | Commit the change, drain the retained cursor to the current cutoff, and retain one ten-source `completed` local campaign before claiming runtime validation. |
 | 2026-08-14 | in-progress | Defined one permission-aware observation campaign for all registered sources and made local/deployed behavioral parity explicit. Earlier implementation provenance was not reconstructed. | `current change`; existing adapter and scheduler paths cited in the scope table | Implement the contract, runner, source bindings, activity projection, parity checks, and governed runtime evidence below. |
 | 2026-08-14 | implemented | Implemented and hardened the shared coverage campaign, recurring local inventory parity, deployed job and read roles, durable Operator projection, and localized Console lane. | `current change`; focused contract, lifecycle, provider, CLI, inventory, Operator, Console, workspace, type, lint, JSON, and Terraform checks | Retain governed local and deployed runs on one catalog digest before claiming validation. |
 | 2026-08-14 | implemented | Hardened aggregate-only coverage after the first governed local run exposed graph-property decoding, Service Health payload size, and target-free metric routing failures. | Validated revision `214409710`; the trial reached six ready sources, one normalized Cost throttle, and three isolated provider failures. `current change`; focused aggregate coverage checks passed 125 cases. | Rerun the governed local campaign on the hardened revision, then retain the equivalent deployed run. |
@@ -149,7 +150,9 @@ No missing source becomes a zero count, healthy state, or permission inference.
 - **Source-native push first:** Event Grid, Diagnostic Settings, and native alerts continue through
   their typed ingest paths. The campaign reports their configured pull or promoted-state coverage.
 - **Cursor recovery:** Pull readers close gaps with persisted source cursors and commit a cursor
-  only after the terminal result is durable.
+  only after the terminal result is durable. Activity Log recovery requests timestamp-only closed
+  windows, checkpoints only a fully read window, and immediately continues an explicit
+  `source_catchup` state without accelerating unrelated failures.
 - **Complete reconciliation:** The authoritative inventory CLI performs the full ARG/ARM promotion
   through the same due gate in local and deployment. The campaign observes that promoted graph;
   configuration, cost, and recovery probes execute their own bounded registered reads.

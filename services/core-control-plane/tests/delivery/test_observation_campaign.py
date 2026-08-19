@@ -326,6 +326,44 @@ async def test_not_due_source_preserves_last_degraded_evidence_state() -> None:
     assert probe.calls == []
 
 
+async def test_source_catchup_retries_without_waiting_for_the_normal_interval() -> None:
+    clock = SimpleNamespace(now=datetime(2026, 8, 14, tzinfo=UTC))
+    store = InMemoryStateStore()
+    await store.write_state(
+        "observation-campaign:source:activity-log",
+        {
+            "campaign_id": "earlier",
+            "status": "degraded",
+            "coverage": "partial",
+            "freshness": "unavailable",
+            "completed_at": clock.now.isoformat(),
+            "evidence_count": 100,
+            "duration_ms": 20,
+            "reason_codes": ["source_catchup"],
+            "cursor": "2026-08-13T23:00:00+00:00",
+        },
+    )
+    probe = Probe(
+        ObservationProbeResult(
+            coverage=ObservationCoverage.READY,
+            cursor="2026-08-14T00:00:30+00:00",
+        )
+    )
+    runner = ObservationCampaignRunner(
+        sources=(_source("activity-log", ObservationDomain.ACTIVITY_LOG, "Huginn"),),
+        probes={"activity-log": probe},
+        store=store,
+        publisher=RecordingPublisher(),
+        clock=lambda: clock.now + timedelta(seconds=30),
+    )
+
+    summary = await runner.run("campaign-catchup")
+
+    assert summary.status == "completed"
+    assert not summary.sources[0].skipped
+    assert probe.calls == ["2026-08-13T23:00:00+00:00"]
+
+
 async def test_cursor_advances_only_after_terminal_state_write() -> None:
     store = InMemoryStateStore()
     await store.write_state(

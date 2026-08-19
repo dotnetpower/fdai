@@ -468,6 +468,9 @@ def _activity_state(
 
 
 def _due(state: Mapping[str, object], *, now: datetime, interval_seconds: int) -> bool:
+    reason_codes = state.get("reason_codes")
+    if isinstance(reason_codes, list) and "source_catchup" in reason_codes:
+        return True
     completed_at = _timestamp(state.get("completed_at"))
     if completed_at is None:
         return True

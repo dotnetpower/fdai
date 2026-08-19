@@ -152,7 +152,7 @@ async def test_activity_log_follows_pages_before_advancing_anonymous_cursor() ->
             return httpx.Response(
                 200,
                 json={
-                    "value": [{"eventTimestamp": "2026-08-14T00:00:01Z"}],
+                    "value": [{"eventTimestamp": "2026-08-13T23:59:01Z"}],
                     "nextLink": (
                         "https://management.azure.com/subscriptions/sub/providers/"
                         "microsoft.insights/eventtypes/management/values?token=opaque"
@@ -161,7 +161,7 @@ async def test_activity_log_follows_pages_before_advancing_anonymous_cursor() ->
             )
         return httpx.Response(
             200,
-            json={"value": [{"eventTimestamp": "2026-08-14T00:00:02Z"}]},
+            json={"value": [{"eventTimestamp": "2026-08-13T23:59:02Z"}]},
         )
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
@@ -179,9 +179,11 @@ async def test_activity_log_follows_pages_before_advancing_anonymous_cursor() ->
     assert result.coverage is ObservationCoverage.READY
     assert result.evidence_count == 2
     cursor = json.loads(result.cursor or "")
-    assert list(cursor["subscriptions"].values()) == ["2026-08-14T00:00:02Z"]
+    assert list(cursor["subscriptions"].values()) == ["2026-08-14T00:00:00+00:00"]
     assert list(cursor["subscriptions"]) != ["sub"]
     assert all(key.startswith("sha256:") for key in cursor["subscriptions"])
+    assert requests[0].url.params["$select"] == "eventTimestamp"
+    assert "eventTimestamp le '2026-08-14T00:00:00+00:00'" in requests[0].url.params["$filter"]
 
 
 async def test_activity_log_keeps_prior_cursor_when_page_limit_leaves_unread_data() -> None:
@@ -223,9 +225,9 @@ async def test_activity_log_keeps_prior_cursor_when_page_limit_leaves_unread_dat
         )
 
     assert result.coverage is ObservationCoverage.PARTIAL
-    assert result.evidence_count == 1
+    assert result.evidence_count == 0
     assert result.cursor is None
-    assert result.reason_codes == ("result_limit",)
+    assert result.reason_codes == ("result_limit", "source_catchup")
 
 
 async def test_activity_log_result_limit_does_not_starve_later_subscription() -> None:
@@ -268,10 +270,12 @@ async def test_activity_log_result_limit_does_not_starve_later_subscription() ->
             cursor=None,
         )
 
-    assert requested_subscriptions == ["sub-1", "sub-2"]
+    assert set(requested_subscriptions) == {"sub-1", "sub-2"}
+    assert requested_subscriptions.index("sub-2") < 10
+    assert len(requested_subscriptions) <= 18
     assert result.coverage is ObservationCoverage.PARTIAL
-    assert result.evidence_count == 2
-    assert result.reason_codes == ("result_limit",)
+    assert result.evidence_count == 0
+    assert result.reason_codes == ("result_limit", "source_catchup")
 
 
 async def test_activity_log_rejects_cross_subscription_next_link() -> None:
