@@ -26,17 +26,19 @@ def test_legacy_operator_module_maps_configured_semantic_topics_once() -> None:
     assert "var.semantic_turn_physical_topic" in module
 
 
-def test_independent_operator_module_maps_configured_semantic_topics_once() -> None:
+def test_independent_operator_module_maps_topics_once_per_runtime() -> None:
     module = (_ROOT / "infra/services/operator-service/modules/operator-service/main.tf").read_text(
         encoding="utf-8"
     )
+    operator_environment, channel_edge_environment = module.split("locals {", maxsplit=1)
 
     assert (
         '{ name = "FDAI_KAFKA_BOOTSTRAP_SERVERS", value = var.platform.kafka_bootstrap_servers }'
     ) in module
-    assert module.count('name = "FDAI_SEMANTIC_TURN_REQUEST_TOPIC"') == 1
-    assert module.count('name = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC"') == 1
-    assert module.count('name = "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC"') == 1
+    for environment in (operator_environment, channel_edge_environment):
+        assert environment.count('name = "FDAI_SEMANTIC_TURN_REQUEST_TOPIC"') == 1
+        assert environment.count('name = "FDAI_SEMANTIC_TURN_PROJECTION_TOPIC"') == 1
+        assert environment.count('name = "FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC"') == 1
     assert "var.event_topics.semantic_requests" in module
     assert "var.event_topics.semantic_projections" in module
     assert "var.event_topics.semantic_physical" in module
