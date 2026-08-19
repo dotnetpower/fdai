@@ -3,6 +3,14 @@
 (function () {
   "use strict";
 
+  var directMockMatch = window.location.pathname.match(/^\/(mocks\/ui\/.+\.html)$/);
+  if (window.self === window.top && directMockMatch) {
+    var directSection = window.location.hash.replace(/^#/, "");
+    var canonicalUrl = "/#" + directMockMatch[1] + (directSection ? "::" + directSection : "");
+    window.location.replace(canonicalUrl);
+    return;
+  }
+
   var navigationGroups = [
     ["Overview", [
       ["dashboard.html", "Dashboard", "is-sage"],

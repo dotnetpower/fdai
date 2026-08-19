@@ -16,7 +16,14 @@ test("typography has direct, kit, and master navigation entries", () => {
   assert.match(landing, /data-page="typography\.html"[^>]*data-title="Typography"/);
   assert.match(masterLanding, /data-page="mocks\/ui\/typography\.html"[^>]*data-title="Typography"/);
   assert.match(masterLanding, /<h3>Console navigation<\/h3><span class="count">42 pages<\/span>/);
-  assert.match(masterLanding, /<span class="nav-group-label">Labs<\/span><span class="count">10<\/span>/);
+  assert.match(masterLanding, /<span class="nav-group-label">Labs<\/span><span class="count">9<\/span>/);
+});
+
+test("direct mock URLs canonicalize through the master hash router", () => {
+  assert.match(navigation, /window\.location\.pathname\.match\(\/\^\\\/\(mocks\\\/ui\\\/\.\+\\\.html\)\$\/\)/);
+  assert.match(navigation, /window\.self === window\.top && directMockMatch/);
+  assert.match(navigation, /directSection \? "::" \+ directSection : ""/);
+  assert.match(navigation, /window\.location\.replace\(canonicalUrl\)/);
 });
 
 test("master navigation keeps one quiet, collapsible hierarchy", () => {
