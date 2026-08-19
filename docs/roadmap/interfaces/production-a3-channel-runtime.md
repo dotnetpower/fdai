@@ -49,11 +49,11 @@ flowchart LR
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | A3 edge design and ownership | implemented | [Issue #235](https://github.com/dotnetpower/fdai/issues/235); this document pair; Operator source and deployment roots | The authority-free Operator-distribution design is implemented. Governed provider and deployment evidence remain open. |
-| Authenticated ingress and provider publishers | implemented | `fdai_operator_service/families/conversation/channel_edge/`; focused Operator channel checks (`32 passed`) | Operator-local Slack and Teams adapters enforce canonical-principal replacement, bounded admission, URL-free attachment metadata, fixed destinations, strict token audiences, and definitive-versus-ambiguous acknowledgement classification. Runtime route binding remains open. |
-| Operator migration and persistence | implemented | `operator_a3_channel_delivery_20260819`; `channel_{delivery_models,message_ledger}.py`; `postgres_channel_{binding,delivery}.py`; live PostgreSQL checks (`9 passed`, no skips) | The Operator branch owns the inbound processing lease and grants the Operator role only the six channel tables. Runtime-role tests prove lease reclaim, permanent dedupe, binding uniqueness, idempotent delivery, claim and acknowledgement closure, process-loss ambiguity, breaker CAS, and retention cleanup. Production lifespan binding remains open. |
-| Semantic request, result, and durable delivery pipeline | implemented | `semantic_turn_runtime.py`; `channel_edge/{pipeline,pipeline_contracts,worker}.py`; focused pipeline and worker checks (`10 passed`); live PostgreSQL join (`1 passed`, no skips) | The Operator edge resolves server-owned scope, persists typed semantic requests, waits for principal-scoped terminal replay, stores the terminal response before provider I/O, completes inbound ownership only after durable delivery, and fences retry and process-loss recovery with persisted breakers. Production lifespan binding remains open. |
+| Authenticated ingress and provider publishers | implemented | `fdai_operator_service/families/conversation/channel_edge/`; focused edge checks (`81 passed`) | Operator-local Slack and Teams adapters enforce canonical-principal replacement, bounded admission, URL-free attachment metadata, fixed destinations, strict token audiences, and definitive-versus-ambiguous acknowledgement classification. The standalone runtime binds both route families. |
+| Operator migration and persistence | implemented | `operator_a3_channel_delivery_20260819`; `channel_{delivery_models,message_ledger}.py`; `postgres_channel_{binding,delivery}.py`; live PostgreSQL checks (`9 passed`, no skips) | The Operator branch owns the inbound processing lease and grants the Operator role only the six channel tables. Runtime-role tests prove lease reclaim, permanent dedupe, binding uniqueness, idempotent delivery, claim and acknowledgement closure, process-loss ambiguity, breaker CAS, and retention cleanup. The standalone lifespan binds these stores. |
+| Semantic request, result, and durable delivery pipeline | implemented | `semantic_turn_runtime.py`; `channel_edge/{pipeline,pipeline_contracts,worker}.py`; focused edge checks; live PostgreSQL join (`1 passed`, no skips) | The Operator edge resolves server-owned scope, persists typed semantic requests, waits for principal-scoped terminal replay, stores the terminal response before provider I/O, completes inbound ownership only after durable delivery, and fences retry and process-loss recovery with persisted breakers. Due sends revalidate the active principal, scope, conversation, and channel binding before provider I/O. |
 | Fail-closed runtime and local/Azure workload | implemented | `channel_edge/{application,composition,entry,environment,runtime}.py`; `.vscode/tasks.json`; `prepare-channel-edge-env.sh`; `infra/services/operator-service`; platform edge identity and RBAC; focused runtime checks | The standalone process exposes only health and enabled webhook routes, resolves all enabled dependencies before readiness, uses private local input or Key Vault references, and binds a dedicated non-executor identity. Protected plan, apply, provider acknowledgement, and rollback receipts remain open. |
-| Independent hardening | not-started | [Hardening campaign](#hardening-campaign) | Completion requires at least ten rounds and zero Medium-or-higher residuals. |
+| Independent hardening | implemented | [Hardening campaign](#hardening-campaign); focused edge checks (`81 passed`); Ruff and strict mypy | Ten independent rounds completed with focused regressions for every accepted finding and no verified Medium-or-higher residual. Protected runtime evidence remains a separate validation gate. |
 
 ### Implementation history
 
@@ -67,11 +67,12 @@ flowchart LR
 | 2026-08-19 | implemented | Added Operator-local inbound claim, verified binding, outbound delivery, attempt, acknowledgement, retention, and breaker stores without importing Core implementation or adding another writer. | `current change`; live loopback PostgreSQL checks passed 9 cases with no skips through the Operator runtime role; Ruff, formatting, and strict mypy passed. | Move the provider transports to Operator ownership and compose the semantic bridge plus fail-closed lifespan. |
 | 2026-08-19 | implemented | Moved authenticated Slack and Teams transport into the Operator distribution and composed deterministic inbound replay, semantic terminal projection, durable ownership, provider acknowledgement closure, retry work, process-loss reconciliation, and persisted breaker admission. | Commit `3555ecf9c`; `current change`; focused channel checks passed 32 cases, pipeline and worker checks passed 10 cases, the runtime-role PostgreSQL join passed 1 case with no skips, and Ruff plus strict mypy passed. | Bind the dependencies in a fail-closed Starlette lifespan, add local and deployed workloads, remove the superseded Core prototypes, and retain governed evidence. |
 | 2026-08-20 | implemented | Added the standalone fail-closed Starlette workload, private local launch, optional Operator-service Container App, dedicated non-executor identity and least-privilege roles, Key Vault references, probes, and rollback metadata. Removed the superseded Core transports and Core PyJWT dependency. | `current change`; edge package checks passed 74 cases; shared plus Operator channel checks passed 110 cases; local launch checks passed 3 cases; Ruff and strict mypy passed; platform and Operator-service Terraform validation passed. | Complete independent hardening, then retain governed local provider and protected plan/apply/rollback evidence. |
+| 2026-08-20 | implemented | Completed ten independent hardening rounds. Accepted fixes reject platform-out-of-range Slack timestamps without a server error, disable inherited shell tracing before local secrets are read, refresh known Teams JWKS keys after a bounded TTL, revalidate active principal/scope/conversation/channel bindings before due sends, and close owned runtime and credential resources exactly once. | `current change`; focused edge checks passed 81 cases; Ruff and strict mypy passed; every accepted finding has a focused regression. | Retain governed local provider and protected plan/apply/rollback receipts before advancing runtime rows to `validated`. |
 
 ### Remaining work
 
-- [ ] Implement every scope row and pass the focused and exact-diff checks in this document.
-- [ ] Complete at least ten critique rounds and retain only Low or rejected residual findings.
+- [x] Implement every scope row and pass the focused checks in this document; retain exact-diff evidence with the focused commit.
+- [x] Complete at least ten critique rounds and retain only Low or rejected residual findings.
 - [ ] Retain governed local and protected deployed receipts before changing any row to `validated`.
 
 ## Architectural decision
@@ -114,6 +115,8 @@ Teams ingress validates the Bot Framework bearer token before parsing operator i
 authenticator verifies RS256 against bounded cached JWKS, application audience, approved issuer,
 `exp` and `nbf`, and the service URL claim. The activity must also match the configured tenant,
 `channelId=msteams`, verified service URL, and a configured `aadObjectId` to FDAI principal map.
+The cache refreshes after five minutes even for a known key, so a key removed from the current JWKS
+cannot remain accepted for the process lifetime.
 
 Teams publishing resolves only the authenticated service URL allowed for the conversation, obtains
 a Bot Framework audience token from the injected workload identity, uses the pure Adaptive Card
@@ -148,7 +151,7 @@ version, facts, limitations, evidence references, activities, progress, and thre
 
 ## Runtime lifecycle
 
-`ProductionChannelRuntime` is composed in the top-level Starlette lifespan:
+`ChannelEdgeRuntime` is composed in the top-level Starlette lifespan:
 
 1. Validate the closed environment/config schema and enabled channel set.
 2. Resolve secret references and identity dependencies without logging values.
@@ -157,13 +160,13 @@ version, facts, limitations, evidence references, activities, progress, and thre
   bridge, presentation compiler, delivery coordinator, and fixed routes.
 5. Reconcile expired `sending` rows before marking readiness true or accepting traffic.
 6. Start one supervised gateway consumer per enabled adapter.
-7. On shutdown, stop route admission, close queues, cancel and await consumers, close providers,
-   and leave no detached read or send task.
+7. On shutdown, stop route admission, close queues, cancel and await consumers, close providers
+  exactly once, and leave no detached read or send task.
 
 Startup fails before traffic when any enabled channel lacks a secret, principal map, identity,
-endpoint policy, database, attachment dependency, or durable delivery binding. `/healthz` reports
-only liveness and readiness booleans. It exposes no channel, principal, endpoint, credential,
-delivery, or queue identifiers.
+endpoint policy, database, attachment dependency, or durable delivery binding. `/health/live` and
+`/health/ready` report only content-free process state. They expose no channel, principal, endpoint,
+credential, delivery, or queue identifiers.
 
 ## Deployment and rollback
 
@@ -221,6 +224,15 @@ focused regression and a new round rechecks the corrected boundary.
 
 Continue beyond round ten while any verified Medium-or-higher finding remains. Final review records
 Low tradeoffs separately and never promotes unit or synthetic evidence to deployed validation.
+
+The 2026-08-20 campaign completed all ten rounds. Accepted findings are the bounded Slack timestamp,
+local secret tracing, Teams JWKS freshness, due-delivery binding revalidation, and idempotent runtime
+and credential shutdown fixes recorded in the implementation history. Rejected findings included a
+missing Operator migration, unbounded duplicate processing, payload-selected destinations, a sixth
+distribution, executor authority, TCP-only liveness, and v2 artifact incompatibility; the owning
+migration, deterministic durable ids, fixed endpoints, Operator-distribution topology, no-authority
+contracts, HTTP probes, and version-aware normalization disproved them. No verified Medium-or-higher
+residual remains.
 
 ## Verification
 

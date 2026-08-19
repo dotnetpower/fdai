@@ -49,13 +49,15 @@ Core only after the exact live evidence closes.
 | 2026-08-15 | validated | Renamed the object Norns owns from `PatternObservation` to `Pattern`, so the agent spec, the registered topic, the pantheon tables, and the Console agent contract name one record. | `current change`; `PANTHEON_SPECS`, `agents/_framework/topics.py`, `console/src/routes/agents.model.ts`; focused pantheon layout, doc-parity, and catalog suites passed. | Nothing produces the record yet; publication or retirement is tracked in the prediction-learning ledger. |
 | 2026-08-19 | implemented | Added a rebuildable temporal Incident roster projection without creating an Operator writer or another service. The database trigger runs in the Saga audit append transaction, closes the prior correlation version, and inserts the next as-of version; the Operator branch only grants read access after the Core schema prerequisite exists. | `current change`; [Issue #169](https://github.com/dotnetpower/fdai/issues/169); local PostgreSQL migration, trigger, temporal-cursor, platform-exclusion, and role-grant checks passed; focused Operator and service-migration suites passed 117 cases. | Retain deployed latency evidence after the protected migration and service rollout. |
 | 2026-08-19 | in-progress | Corrected the accepted A3 edge from Core package and migration ownership to a separate workload in the Operator distribution, which already owns the conversation writer and semantic EventBus bridge. | `current change`; `operator_a3_channel_delivery_20260819`; [Production A3 channel runtime](../interfaces/production-a3-channel-runtime.md); service-migration checks passed 47 cases. | Complete the A3 implementation, hardening, and governed runtime evidence without adding a sixth distribution. |
+| 2026-08-20 | implemented | Completed the non-distribution A3 edge implementation and ten-round hardening campaign inside the Operator distribution without changing the five-service inventory or executor authority. | `current change`; [Production A3 channel runtime](../interfaces/production-a3-channel-runtime.md); focused edge checks passed 81 cases; Ruff and strict mypy passed. | Retain governed provider and protected deployment evidence before classifying the edge runtime as validated. |
 ### Remaining work
 
 - [x] No work remains for the approved five-service topology; its graduation, writer ownership, identity isolation, rollback, and remote transition evidence is retained in the decomposition program.
 - [ ] Re-evaluate Operator application, read-projection, and SSE candidates only after one candidate records a scorecard forcing trigger and all binary gate evidence on one pinned revision.
-- [ ] Implement the accepted non-distribution A3 edge through its owner design. Re-evaluate only
-	the background read-task executor as a future service candidate after it has independent
-	transport, identity, persistence, cost/failure evidence, deployment smoke, and rollback.
+- [ ] Retain governed provider and protected deployment evidence for the implemented
+	non-distribution A3 edge through its owner design. Re-evaluate only the background read-task
+	executor as a future service candidate after it has independent transport, identity,
+	persistence, cost/failure evidence, deployment smoke, and rollback.
 
 ## Graduation scorecard
 
@@ -173,7 +175,7 @@ receipt that points to a resolvable persisted rollback artifact.
 | Ingestion API | Upload/search DB role, ADLS upload/delete, Event Hubs send | None | Public HTTPS Container App |
 | Ingestion worker | Worker DB role, ADLS processing, Event Hubs send/receive, embedding/OCR | None | Internal Container App with ClamAV |
 | Ingestion migration | Administrator DSN read and ACR pull for `alembic upgrade head`; identity attaches only to the run-to-completion job | None | Manual Container Apps Job |
-| Operator channel edge workload | Operator conversation role, channel secrets, and bounded message transport only | None | Separate public ingress process from the Operator distribution when complete |
+| Operator channel edge workload | Operator conversation role, channel secrets, and bounded message transport only | None | Separate public ingress process from the Operator distribution |
 | Scheduled jobs | Job-specific identity and minimum required data-plane role | None unless a typed action returns to Thor | Run-to-completion Container Apps Jobs |
 
 Runtime, environment, evidence profile, and fork status cannot convert any non-executor identity

@@ -333,3 +333,20 @@ async def test_real_runtime_closes_later_resources_after_close_error() -> None:
         await runtime.aclose()
 
     assert events[-2:] == ["close:resource", "close:resource"]
+
+
+async def test_real_runtime_closes_owned_dependencies_only_once() -> None:
+    events: list[str] = []
+    runtime, _queue = _real_runtime(events)
+    await runtime.start()
+
+    await runtime.aclose()
+    await runtime.aclose()
+
+    assert events.count("close:queue") == 1
+    assert events.count("close:worker") == 1
+    assert events.count("close:bridge") == 1
+    assert events.count("close:transport") == 1
+    assert events.count("close:resource") == 1
+    with pytest.raises(RuntimeError, match="cannot restart"):
+        await runtime.start()

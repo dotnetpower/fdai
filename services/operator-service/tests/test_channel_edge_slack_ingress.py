@@ -80,6 +80,21 @@ def test_slack_ingress_maps_principal_and_strips_payload_urls() -> None:
     assert "user-example" not in result.verification_ref
 
 
+def test_ingress_rejects_out_of_range_timestamp_without_server_error() -> None:
+    with pytest.raises(SlackIngressError) as raised:
+        _verifier().parse(
+            body=b"{}",
+            headers={
+                "X-Slack-Request-Timestamp": "9999999999999999",
+                "X-Slack-Signature": "v0=invalid",
+            },
+            received_at=_NOW,
+        )
+
+    assert raised.value.code == "invalid_timestamp"
+    assert raised.value.http_status == 401
+
+
 @pytest.mark.parametrize(
     ("mutate", "code", "status"),
     [

@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping, Sequence
+import time
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Protocol
@@ -27,6 +28,7 @@ class TeamsTokenConfig:
     issuer: str = "https://api.botframework.com"
     algorithms: tuple[str, ...] = ("RS256",)
     leeway: timedelta = timedelta(seconds=60)
+    jwks_cache_ttl: timedelta = timedelta(minutes=5)
 
     def __post_init__(self) -> None:
         if not self.application_id or len(self.application_id) > 200:
@@ -37,6 +39,8 @@ class TeamsTokenConfig:
             raise ValueError("Teams token algorithms MUST contain only RS256")
         if not timedelta(0) <= self.leeway <= timedelta(minutes=5):
             raise ValueError("Teams token leeway is outside the bounded range")
+        if not timedelta(seconds=1) <= self.jwks_cache_ttl <= timedelta(hours=1):
+            raise ValueError("Teams JWKS cache TTL is outside the bounded range")
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,10 +58,18 @@ class TeamsAuthenticationError(ValueError):
 class TeamsServiceTokenVerifier:
     """Resolve one RS256 key by kid and verify every decision-critical claim."""
 
-    def __init__(self, *, config: TeamsTokenConfig, jwks: TeamsJwksProvider) -> None:
+    def __init__(
+        self,
+        *,
+        config: TeamsTokenConfig,
+        jwks: TeamsJwksProvider,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         self._config = config
         self._jwks = jwks
+        self._clock = clock
         self._keys: dict[str, jwt.PyJWK] = {}
+        self._keys_refreshed_at: float | None = None
         self._lock = asyncio.Lock()
 
     async def verify(self, authorization: str) -> VerifiedTeamsServiceToken:
@@ -92,12 +104,14 @@ class TeamsServiceTokenVerifier:
         return VerifiedTeamsServiceToken(service_url=service_url, key_id=key_id)
 
     async def _resolve_key(self, key_id: str) -> jwt.PyJWK:
+        now = self._clock()
         key = self._keys.get(key_id)
-        if key is not None:
+        if key is not None and self._cache_is_fresh(now):
             return key
         async with self._lock:
+            now = self._clock()
             key = self._keys.get(key_id)
-            if key is not None:
+            if key is not None and self._cache_is_fresh(now):
                 return key
             keys = await self._jwks.get_keys()
             if not 1 <= len(keys) <= _MAX_JWKS_KEYS:
@@ -117,10 +131,18 @@ class TeamsServiceTokenVerifier:
             except jwt.PyJWTError as exc:
                 raise TeamsAuthenticationError("Teams JWKS contains an invalid key") from exc
             self._keys = refreshed
+            self._keys_refreshed_at = now
             key = refreshed.get(key_id)
             if key is None:
                 raise TeamsAuthenticationError("Teams service token key id is unknown")
             return key
+
+    def _cache_is_fresh(self, now: float) -> bool:
+        refreshed_at = self._keys_refreshed_at
+        return (
+            refreshed_at is not None
+            and 0 <= now - refreshed_at < self._config.jwks_cache_ttl.total_seconds()
+        )
 
 
 def _bearer_token(value: str) -> str:

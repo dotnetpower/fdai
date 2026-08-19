@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Generate the private local environment for the standalone Operator channel edge.
 
+set +x
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"

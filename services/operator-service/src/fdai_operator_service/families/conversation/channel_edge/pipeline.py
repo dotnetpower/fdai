@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from uuid import UUID, uuid5
 
 from fdai_operator_service.families.conversation.channel_delivery_models import (
+    ChannelBindingState,
     ChannelBreakerMode,
     ChannelDeliveryAcknowledgement,
     ChannelDeliveryRecord,
@@ -152,7 +153,7 @@ class ChannelDeliveryPipeline:
         if record.binding_id is None:
             return await self._abandon(record, "binding_missing")
         binding = await self._bindings.get(record.binding_id)
-        if binding is None or binding.principal_id != record.principal_id:
+        if binding is None or not _binding_matches_record(binding, record):
             return await self._abandon(record, "binding_unavailable")
         return await self._deliver_claimed(record, binding=binding)
 
@@ -180,7 +181,8 @@ class ChannelDeliveryPipeline:
         if existing is not None:
             endpoint = existing.endpoint
             if (
-                existing.principal_id != authenticated.principal_id
+                existing.state is not ChannelBindingState.ACTIVE
+                or existing.principal_id != authenticated.principal_id
                 or existing.scope_ref != context.scope_ref
                 or endpoint.channel_kind is not turn.channel_kind
                 or endpoint.channel_id != turn.channel_id
@@ -349,6 +351,19 @@ def _inbound_key(authenticated: AuthenticatedInboundTurn) -> str:
 
 def _delivery_id(inbound_key: str) -> str:
     return f"channel-delivery:{inbound_key}"
+
+
+def _binding_matches_record(
+    binding: PrincipalChannelBinding,
+    record: ChannelDeliveryRecord,
+) -> bool:
+    return (
+        binding.state is ChannelBindingState.ACTIVE
+        and binding.principal_id == record.principal_id
+        and binding.scope_ref == record.scope_ref
+        and binding.conversation_id == record.conversation_id
+        and binding.endpoint.channel_kind is record.channel_kind
+    )
 
 
 def _delivery_record(

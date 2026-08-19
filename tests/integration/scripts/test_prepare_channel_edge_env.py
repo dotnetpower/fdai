@@ -96,3 +96,19 @@ def test_prepare_channel_edge_env_rejects_open_provider_file(tmp_path: Path) -> 
     assert result.returncode != 0
     assert "MUST NOT be readable" in result.stderr
     assert not (repo / ".fdai/local-channel-edge.env").exists()
+
+
+def test_prepare_channel_edge_env_disables_inherited_secret_tracing(tmp_path: Path) -> None:
+    repo = _repo(tmp_path)
+
+    result = subprocess.run(  # noqa: S603 - resolved Bash runs a task-owned fixture script.
+        [_BASH, "-x", str(repo / "scripts/deployment/local/prepare-channel-edge-env.sh")],
+        cwd=repo,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "signing secret with spaces" not in result.stderr
+    assert "test token with spaces" not in result.stderr

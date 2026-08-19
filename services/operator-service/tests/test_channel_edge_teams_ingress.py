@@ -30,13 +30,18 @@ _KEY_ID = "key-example"
 _PRIVATE_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 _PUBLIC_JWK = json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(_PRIVATE_KEY.public_key()))
 _PUBLIC_JWK["kid"] = _KEY_ID
+_ROTATED_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+_ROTATED_JWK = json.loads(jwt.algorithms.RSAAlgorithm.to_jwk(_ROTATED_KEY.public_key()))
+_ROTATED_JWK["kid"] = "rotated-key"
 
 
 class _Jwks:
     def __init__(self, keys: Sequence[Mapping[str, Any]] | None = None) -> None:
         self.keys = keys or [_PUBLIC_JWK]
+        self.calls = 0
 
     async def get_keys(self) -> Sequence[Mapping[str, Any]]:
+        self.calls += 1
         return self.keys
 
 
@@ -140,6 +145,27 @@ async def test_teams_token_algorithm_is_fixed_before_key_use() -> None:
     )
     with pytest.raises(TeamsAuthenticationError, match="algorithm"):
         await verifier.verify("Bearer " + token)
+
+
+async def test_teams_token_refreshes_known_key_after_bounded_ttl() -> None:
+    jwks = _Jwks()
+    current = [0.0]
+    verifier = TeamsServiceTokenVerifier(
+        config=TeamsTokenConfig(
+            application_id=_APPLICATION_ID,
+            jwks_cache_ttl=timedelta(seconds=1),
+        ),
+        jwks=jwks,
+        clock=lambda: current[0],
+    )
+    await verifier.verify("Bearer " + _token())
+    jwks.keys = [_ROTATED_JWK]
+    current[0] = 2.0
+
+    with pytest.raises(TeamsAuthenticationError, match="key id is unknown"):
+        await verifier.verify("Bearer " + _token())
+
+    assert jwks.calls == 2
 
 
 @pytest.mark.parametrize(

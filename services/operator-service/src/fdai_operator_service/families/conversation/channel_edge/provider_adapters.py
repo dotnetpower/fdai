@@ -74,6 +74,7 @@ class AzureChannelTokenProvider:
 
     def __init__(self, credential: AsyncTokenCredential) -> None:
         self._credential = credential
+        self._closed = False
 
     async def get_token(self, audience: str) -> ChannelAccessToken:
         """Acquire one secret token while retaining only its requested audience proof."""
@@ -86,6 +87,9 @@ class AzureChannelTokenProvider:
 
     async def aclose(self) -> None:
         """Close the process-owned Azure credential exactly once at shutdown."""
+        if self._closed:
+            return
+        self._closed = True
         await self._credential.close()
 
 

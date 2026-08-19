@@ -36,7 +36,7 @@ owned by [Production A3 channel runtime](production-a3-channel-runtime.md).
 |------|-------|----------|-------|
 | Provider contracts and config-driven routing | implemented | [`base.py`](../../../services/core-control-plane/src/fdai/shared/providers/notifications/base.py), [`hil_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/hil_channel.py), [`conversation_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_channel.py), [`test_matrix.py`](../../../services/core-control-plane/tests/notifications/test_matrix.py), [`test_router.py`](../../../services/core-control-plane/tests/notifications/test_router.py) | Separate A1, A2/A4, and A3 contracts exist. Matrix loading, category checks, trust-preserving fallback, bounded retries, and escalation pass focused tests. |
 | Pairing and cross-channel identity linkage | implemented | [`channel_access.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_access.py), [`postgres_channel_pairing.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_channel_pairing.py), [`postgres_channel_identity_link.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_channel_identity_link.py), [`test_channel_access.py`](../../../services/core-control-plane/tests/conversation/test_channel_access.py), [`test_identity_links.py`](../../../services/core-control-plane/tests/conversation/test_identity_links.py), [`test_postgres_channel_pairing.py`](../../../services/core-control-plane/tests/persistence/test_postgres_channel_pairing.py), [`test_postgres_channel_identity_link.py`](../../../services/core-control-plane/tests/persistence/test_postgres_channel_identity_link.py) | Service-level pairing, challenge-digest handling, explicit identity links, and restart persistence pass focused tests. The two PostgreSQL integration files passed four cases with zero skips against a disposable supported database. |
-| Teams, Slack, and outbound notification adapters | implemented | [`teams_adapter.py`](../../../services/core-control-plane/src/fdai/delivery/chatops/teams_adapter.py); `fdai_operator_service/families/conversation/channel_edge/`; focused Operator channel checks (`74 passed`) | Teams implements `HilChannel`; the A2/A4 notification adapters pass focused tests; and the Operator-owned A3 workload implements authenticated ingress, pure rendering, durable delivery, fixed provider publication, and fail-closed lifecycle. Slack `HilChannel`, A1 callback, Entra re-authentication, and deployed transport receipts remain open. |
+| Teams, Slack, and outbound notification adapters | implemented | [`teams_adapter.py`](../../../services/core-control-plane/src/fdai/delivery/chatops/teams_adapter.py); `fdai_operator_service/families/conversation/channel_edge/`; focused edge checks (`81 passed`) | Teams implements `HilChannel`; the A2/A4 notification adapters pass focused tests; and the Operator-owned A3 workload implements authenticated ingress, pure rendering, durable delivery, fixed provider publication, and fail-closed lifecycle. Slack `HilChannel`, A1 callback, Entra re-authentication, and deployed transport receipts remain open. |
 | Durable outbound conversation delivery | implemented | [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`outbound_delivery.py`](../../../services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py), [`test_outbound_delivery.py`](../../../services/core-control-plane/tests/conversation/test_outbound_delivery.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | The coordinator distinguishes definitive rejection from ambiguous acknowledgement, bounds retries, reconciles interrupted sends, and preserves stable delivery identity in focused tests. |
 | Pure channel presentation rendering | implemented | `fdai_operator_service/families/conversation/channel_edge/{presentation,renderers}.py`; focused Operator renderer checks | One normalized envelope preserves canonical text, facts, limitations, evidence, authority, and unavailable state. Pure Teams and Slack payload builders enforce capability bounds without transport or acknowledgement, and malformed artifacts degrade to canonical text. |
 | Opt-in browser notifications | implemented | [`browser-notifications.ts`](../../../console/src/browser-notifications.ts), [`browser-notification-control.tsx`](../../../console/src/components/browser-notification-control.tsx), [`browser-notifications.test.ts`](../../../console/src/browser-notifications.test.ts) | Permission, preference, visibility, and notification behavior pass seven focused Vitest cases. No live browser or push-service receipt is recorded. |
@@ -53,6 +53,7 @@ owned by [Production A3 channel runtime](production-a3-channel-runtime.md).
 | 2026-08-19 | implemented | Added authenticated bounded Slack and Teams A3 transport adapters with closed principal mappings, URL-free file metadata, fixed provider destinations, and explicit acknowledgement ambiguity. The transports are not runtime-bound. | `current change`; [Issue #235](https://github.com/dotnetpower/fdai/issues/235); focused channel and gateway checks passed 92 cases; Ruff, formatting, and strict mypy passed. | Add PostgreSQL stores and fail-closed startup composition before claiming availability. |
 | 2026-08-19 | in-progress | Corrected production A3 package and writer ownership from Core to a separate edge workload in the Operator distribution. The tested Core-local transports remain prototypes until the Operator implementations pass equivalent checks. | `current change`; [Production A3 channel runtime](production-a3-channel-runtime.md); service-migration checks passed 47 cases and design-route checks passed 122 cases. | Implement Operator-local transports, stores, lifecycle, workload, and governed runtime evidence. |
 | 2026-08-20 | implemented | Replaced the temporary Core-local A3 prototypes with the Operator-owned transport, renderer, durable pipeline, supervised runtime, local launch, and optional Container App. Core retains the implementation-free rich channel contract only. | `current change`; focused shared and Operator channel checks passed 110 cases; edge package checks passed 74 cases; Ruff and strict mypy passed; platform and Operator service Terraform roots validated. | Retain governed local provider and protected deployed receipts before claiming validation. |
+| 2026-08-20 | implemented | Hardened the standalone A3 edge across ten independent ingress, identity, persistence, publisher, lifecycle, deployment, and replay reviews. Known Teams keys refresh after a bounded TTL, due sends revalidate active binding authority, local secret preparation disables inherited tracing, and owned resources close once. | `current change`; focused edge checks passed 81 cases; Ruff and strict mypy passed; [Production A3 channel runtime](production-a3-channel-runtime.md). | Retain governed local provider and protected deployed receipts before claiming validation. |
 
 ### Remaining work
 
@@ -231,22 +232,17 @@ string-to-string JSON object capped at 1000 entries. Missing, malformed, or unbo
 fails at startup. The Bot service token authenticates the channel service; it never substitutes
 for the operator's Entra principal or grants an FDAI role.
 
-`ProductionChannelRuntime` is the planned library runtime for a standalone Operator-distribution
-edge process. It isn't mounted into the Operator API process and never receives the executor
-identity. The repository does not yet ship this runtime, its production ASGI factory, or a
-Terraform workload. When that separate composition is implemented, ASGI startup resolves
-Slack signing and bot-token references through the injected `SecretProvider`, builds fixed-endpoint
-Slack and workload-identity Teams publishers, registers only the enabled bounded ingress routes,
-and starts one Operator semantic-turn consumer per adapter. Missing credentials, Teams
-identity, endpoint resolver, JWT config, or principal bindings fail startup before a route accepts
-traffic. Shutdown closes channel queues, waits for consumers, removes dynamic routes, and closes an
-owned HTTP client.
+`ChannelEdgeRuntime` is the implemented library runtime for a standalone Operator-distribution edge
+process. It isn't mounted into the Operator API process and never receives the executor identity.
+The production ASGI factory and Terraform workload register only enabled bounded ingress routes and
+start one Operator semantic-turn consumer per adapter. Missing credentials, Teams identity,
+endpoint policy, JWT configuration, principal scopes, or persistence fail startup before a route
+accepts traffic. Shutdown closes queues, consumers, provider clients, and credentials exactly once.
 
-Channel enablement and queue bounds use `FDAI_SLACK_CHANNEL_ENABLED`,
-`FDAI_TEAMS_CHANNEL_ENABLED`, `FDAI_SLACK_SIGNING_SECRET_REF`,
-`FDAI_SLACK_BOT_TOKEN_REF`, and `FDAI_CHANNEL_QUEUE_CAPACITY`. Secret values remain in the provider;
-configuration and errors carry reference names only. `GET /healthz` exposes process liveness and no
-channel, principal, or credential data.
+Channel enablement uses `FDAI_CHANNEL_EDGE_ENABLED_CHANNELS`; queue and request bounds remain
+server-owned. Container Apps native Key Vault references populate the Slack and Teams secret
+environment values without placing secret values in source or Terraform variables. `/health/live`
+and `/health/ready` expose only content-free process state.
 
 ### 4.2 Rich thread and delivery behavior
 
@@ -265,9 +261,9 @@ Bearer credentials are rejected across whitespace and common separator forms.
 Durable activity decoding is type-strict and validates ordered RFC 3339 timestamps before a
 publisher receives the response.
 
-Planned concrete publishers map that intent as follows:
+Concrete publishers map that intent as follows:
 
-Publisher transport and acknowledgement handling will stay separate from pure bounded Slack Block
+Publisher transport and acknowledgement handling stay separate from pure bounded Slack Block
 Kit and Teams Adaptive Card rendering. This split preserves wire payload and fallback behavior and
 keeps vendor presentation independently testable.
 
@@ -297,9 +293,10 @@ block, and field caps apply before transport. Exceeding a cap first removes opti
 then uses the complete bounded text fallback. If mandatory content alone cannot fit, rendering
 fails closed before a provider call.
 
-The initial implementation supplies pure payload builders and a fake custom renderer contract.
-It does not add Slack or Teams ingress, credentials, HTTP calls, acknowledgements, service startup,
-or deployment resources. Production A3 adapters and runtime evidence remain open work.
+The pure payload builders and fake custom renderer remain independently testable. The standalone
+Operator edge binds the Slack and Teams builders to authenticated ingress, fixed HTTP transports,
+strict acknowledgements, and durable replay. Governed provider and deployed runtime evidence remains
+open work.
 
 | Behavior | Slack | Teams | Text fallback |
 |----------|-------|-------|---------------|

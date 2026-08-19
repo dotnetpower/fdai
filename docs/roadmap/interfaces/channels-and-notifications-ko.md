@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 2c99329f2061617a370640412835496cedbc559f
+translation_source_sha: afd7a5fbc4ffc8774e23d9b3709854273b6621aa
 translation_revised: 2026-08-20
 ---
 
@@ -40,7 +40,7 @@ FDAI가 Teams, Slack, 이메일, 웹훅, paging 서비스, SMS 및 명시적 선
 |------|------|------|------|
 | 프로바이더 계약과 구성 기반 라우팅 | implemented | [`base.py`](../../../services/core-control-plane/src/fdai/shared/providers/notifications/base.py), [`hil_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/hil_channel.py), [`conversation_channel.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_channel.py), [`test_matrix.py`](../../../services/core-control-plane/tests/notifications/test_matrix.py), [`test_router.py`](../../../services/core-control-plane/tests/notifications/test_router.py) | A1, A2/A4 및 A3 계약이 분리되어 있습니다. 매트릭스 로드, 카테고리 검사, 신뢰 수준을 보존하는 대체 경로, 범위가 제한된 재시도 및 에스컬레이션이 집중 테스트를 통과했습니다. |
 | 페어링과 교차 채널 신원 연결 | implemented | [`channel_access.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_access.py), [`postgres_channel_pairing.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_channel_pairing.py), [`postgres_channel_identity_link.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_channel_identity_link.py), [`test_channel_access.py`](../../../services/core-control-plane/tests/conversation/test_channel_access.py), [`test_identity_links.py`](../../../services/core-control-plane/tests/conversation/test_identity_links.py), [`test_postgres_channel_pairing.py`](../../../services/core-control-plane/tests/persistence/test_postgres_channel_pairing.py), [`test_postgres_channel_identity_link.py`](../../../services/core-control-plane/tests/persistence/test_postgres_channel_identity_link.py) | 서비스 수준 페어링, challenge digest 처리, 명시적 신원 연결 및 재시작 후 영속성이 집중 테스트를 통과했습니다. PostgreSQL 통합 테스트 파일 두 개는 지원되는 일회용 데이터베이스에서 네 건을 건너뛰기 없이 통과했습니다. |
-| Teams, Slack 및 아웃바운드 알림 어댑터 | 구현됨 | [`teams_adapter.py`](../../../services/core-control-plane/src/fdai/delivery/chatops/teams_adapter.py), `fdai_operator_service/families/conversation/channel_edge/`, 집중 Operator 채널 검사 74개 통과 | Teams는 `HilChannel`을 구현하고 A2/A4 알림 adapter는 집중 테스트를 통과합니다. Operator 소유 A3 workload는 인증된 유입, 순수 렌더링, 영속 전달, 고정 프로바이더 발행 및 실패 시 닫히는 수명 주기를 구현합니다. Slack `HilChannel`, A1 callback, Entra 재인증 및 배포된 전송 증적은 열린 상태입니다. |
+| Teams, Slack 및 아웃바운드 알림 어댑터 | 구현됨 | [`teams_adapter.py`](../../../services/core-control-plane/src/fdai/delivery/chatops/teams_adapter.py), `fdai_operator_service/families/conversation/channel_edge/`, 집중 edge 검사 81개 통과 | Teams는 `HilChannel`을 구현하고 A2/A4 알림 adapter는 집중 테스트를 통과합니다. Operator 소유 A3 workload는 인증된 유입, 순수 렌더링, 영속 전달, 고정 프로바이더 발행 및 실패 시 닫히는 수명 주기를 구현합니다. Slack `HilChannel`, A1 callback, Entra 재인증 및 배포된 전송 증적은 열린 상태입니다. |
 | 영속 아웃바운드 대화 전달 | implemented | [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`outbound_delivery.py`](../../../services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py), [`test_outbound_delivery.py`](../../../services/core-control-plane/tests/conversation/test_outbound_delivery.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | 조정기는 확정적인 거절과 모호한 확인 응답을 구분하고 재시도를 제한하며 중단된 전송을 조정하고 안정적인 전달 신원을 보존합니다. 이 동작은 집중 테스트를 통과했습니다. |
 | 순수 채널 표현 렌더링 | 구현됨 | `fdai_operator_service/families/conversation/channel_edge/{presentation,renderers}.py`, 집중 Operator 렌더러 검사 | 정규화된 묶음 하나가 정본 텍스트, 사실, 제한, 근거, 권한 및 사용 불가 상태를 보존합니다. 순수 Teams 및 Slack 페이로드 builder는 전송 또는 확인 응답 없이 기능 상한을 강제하며 잘못된 산출물은 정본 텍스트로 저하됩니다. |
 | 명시적 선택 브라우저 알림 | implemented | [`browser-notifications.ts`](../../../console/src/browser-notifications.ts), [`browser-notification-control.tsx`](../../../console/src/components/browser-notification-control.tsx), [`browser-notifications.test.ts`](../../../console/src/browser-notifications.test.ts) | 권한, 기본 설정, 가시성 및 알림 동작이 일곱 개의 집중 Vitest 사례를 통과했습니다. 실제 브라우저 또는 push service 증적은 기록되지 않았습니다. |
@@ -57,6 +57,7 @@ FDAI가 Teams, Slack, 이메일, 웹훅, paging 서비스, SMS 및 명시적 선
 | 2026-08-19 | 구현됨 | 닫힌 principal mapping, URL 없는 파일 metadata, 고정 프로바이더 destination 및 명시적 확인 응답 모호성을 갖춘 인증된 범위 제한 Slack/Teams A3 전송 adapter를 추가했습니다. 전송은 런타임에 binding되지 않았습니다. | `current change`, [이슈 #235](https://github.com/dotnetpower/fdai/issues/235), 집중 channel 및 gateway 검사 92개와 Ruff, formatting, strict mypy 통과 | 가용성을 주장하기 전에 PostgreSQL store와 fail-closed 시작 조립을 추가합니다. |
 | 2026-08-19 | 진행 중 | 운영 A3 package와 writer 소유권을 Core에서 Operator distribution의 별도 edge workload로 교정했습니다. 검증된 Core-local transport는 동등한 Operator 구현이 검사를 통과할 때까지 prototype으로 유지합니다. | `current change`, [운영 A3 채널 런타임](production-a3-channel-runtime-ko.md), service-migration 검사 47개 및 design-route 검사 122개 통과 | Operator-local transport, store, lifecycle, workload 및 통제된 runtime 근거를 구현합니다. |
 | 2026-08-20 | 구현됨 | 임시 Core-local A3 prototype을 Operator 소유 전송, 렌더러, 영속 파이프라인, 감독되는 런타임, 로컬 실행 및 선택적 Container App으로 교체했습니다. Core에는 구현이 없는 rich channel 계약만 유지합니다. | `current change`, 집중 shared 및 Operator channel 검사 110개, edge package 검사 74개, Ruff 및 strict mypy 통과, 플랫폼 및 Operator service Terraform root 검증 통과 | 검증됨을 주장하기 전에 통제된 로컬 프로바이더 및 보호된 배포 증적을 보존합니다. |
+| 2026-08-20 | 구현됨 | 독립 유입, 신원, persistence, publisher, lifecycle, 배포 및 replay 검토 10개로 standalone A3 edge를 hardening했습니다. Known Teams key는 범위가 제한된 TTL 뒤 갱신하고, 기한이 된 전송은 활성 binding 권한을 다시 검증하며, 로컬 secret 준비는 상속된 tracing을 끄고, 소유 resource는 한 번만 닫습니다. | `current change`, 집중 edge 검사 81개, Ruff 및 strict mypy 통과, [운영 A3 채널 런타임](production-a3-channel-runtime-ko.md) | 검증됨을 주장하기 전에 통제된 로컬 프로바이더 및 보호된 배포 증적을 보존합니다. |
 
 ### 남은 작업
 
@@ -231,22 +232,17 @@ string-to-string JSON 객체이며 최대 1000 항목입니다. 누락된, malfo
 시작에서 실패합니다. Bot 서비스 토큰은 채널 서비스를 인증하며 운영자의 Entra
 principal을 대체하거나 FDAI 역할을 부여하지 않습니다.
 
-`ProductionChannelRuntime`은 standalone Operator-distribution edge process를 위한 계획된
-library runtime입니다. Operator API process에 mount되지 않고 실행기 신원을 받지 않습니다.
-저장소는 아직 이 runtime, 운영 ASGI factory 또는 Terraform workload를 제공하지 않습니다.
-이 별도 조립을 구현하면 ASGI 시작에서 injected
-`SecretProvider`를 통해 Slack 서명 및 bot-token 참조를 해석하고 fixed-endpoint Slack,
-workload-identity Teams 발행기를 생성하며 활성화된 범위가 제한된 유입 경로만 등록하고 어댑터별
-Operator semantic-turn consumer를 하나씩 시작합니다. 자격 증명, Teams 신원,
-엔드포인트 해석기, JWT 구성, principal 연결이 누락되면 경로가 트래픽을 받기 전에 시작이
-실패합니다. 종료는 채널 큐를 닫고 소비자를 기다리고 dynamic 경로를 제거하며 owned
-HTTP 클라이언트를 닫습니다.
+`ChannelEdgeRuntime`은 standalone Operator-distribution edge process를 위한 구현된 library
+runtime입니다. Operator API process에 mount되지 않고 실행기 신원을 받지 않습니다. 운영 ASGI
+factory와 Terraform workload는 활성화된 범위 제한 유입 경로만 등록하고 adapter마다 Operator
+semantic-turn consumer 하나를 시작합니다. 자격 증명, Teams 신원, endpoint policy, JWT 구성,
+principal scope 또는 persistence가 누락되면 경로가 트래픽을 받기 전에 시작이 실패합니다.
+종료는 queue, consumer, provider client 및 credential을 정확히 한 번 닫습니다.
 
-채널 활성화 및 큐 한계는 `FDAI_SLACK_CHANNEL_ENABLED`,
-`FDAI_TEAMS_CHANNEL_ENABLED`, `FDAI_SLACK_SIGNING_SECRET_REF`,
-`FDAI_SLACK_BOT_TOKEN_REF`, `FDAI_CHANNEL_QUEUE_CAPACITY`를 사용합니다. 시크릿 값은 프로바이더
-안에 유지되고 구성 및 오류에는 참조 이름만 들어갑니다. `GET /healthz`는 프로세스
-생존만 노출하며 채널, principal, 자격 증명 데이터를 포함하지 않습니다.
+채널 활성화에는 `FDAI_CHANNEL_EDGE_ENABLED_CHANNELS`를 사용하며 queue와 request 상한은 서버가
+소유합니다. Container Apps native Key Vault reference는 secret 값을 source 또는 Terraform
+variable에 넣지 않고 Slack 및 Teams secret environment 값을 채웁니다. `/health/live`와
+`/health/ready`는 content-free process 상태만 노출합니다.
 
 ### 4.2 Rich 스레드 및 전달 행동
 
@@ -265,7 +261,7 @@ whitespace 및 일반적인 구분자 양식에서 차단됩니다.
 영속 활동 decode는 type-strict하며 발행기가 응답을 받기 전에 ordered RFC 3339
 시각을 검증합니다.
 
-계획된 구체적인 발행기는 해당 의도를 다음과 같이 대응합니다.
+구체적인 발행기는 해당 의도를 다음과 같이 대응합니다.
 
 발행기 전송 계층 및 확인 응답 처리는 pure하고 범위가 제한된 Slack 블록 키트 및 Teams
 Adaptive 카드 렌더링과 분리합니다. 이 분리는 wire 페이로드와 대체 경로 행동을 보존하고
@@ -297,9 +293,10 @@ Adaptive 카드 렌더링과 분리합니다. 이 분리는 wire 페이로드와
 제거하고 그다음 완전하며 범위가 제한된 텍스트 대체 경로를 사용합니다. 필수 내용만으로도 맞지
 않으면 프로바이더 호출 전에 실패합니다.
 
-첫 구현은 순수 페이로드 빌더와 가짜 사용자 지정 렌더러 계약을 제공합니다. Slack 또는 Teams
-유입, 자격 증명, HTTP 호출, 확인 응답, 서비스 시작 또는 배포 리소스는 추가하지 않습니다.
-운영 A3 어댑터와 런타임 근거는 열린 작업으로 유지합니다.
+순수 페이로드 builder와 가짜 사용자 지정 렌더러는 계속 독립적으로 테스트할 수 있습니다.
+Standalone Operator edge는 Slack 및 Teams builder를 인증된 유입, 고정 HTTP transport, 엄격한
+확인 응답 및 영속 replay에 연결합니다. 통제된 프로바이더 및 배포 runtime 근거는 열린 작업으로
+유지합니다.
 
 | 행동 | Slack | Teams | 텍스트 대체 경로 |
 |----------|-------|-------|---------------|

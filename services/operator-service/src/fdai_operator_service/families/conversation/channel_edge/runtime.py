@@ -134,6 +134,7 @@ class ChannelEdgeRuntime:
         self._shutdown_grace_seconds = shutdown_grace_seconds
         self._consumer_tasks: tuple[asyncio.Task[None], ...] = ()
         self._started = False
+        self._closed = False
 
     @property
     def ready(self) -> bool:
@@ -148,6 +149,8 @@ class ChannelEdgeRuntime:
 
     async def start(self) -> None:
         """Resolve transport, trust roots, stores, recovery, then queue consumers in order."""
+        if self._closed:
+            raise RuntimeError("closed channel edge runtime cannot restart")
         if self._started:
             return
         try:
@@ -185,6 +188,9 @@ class ChannelEdgeRuntime:
 
     async def aclose(self) -> None:
         """Close admission, bound queue drain, workers, semantic transport, and resources."""
+        if self._closed:
+            return
+        self._closed = True
         self._started = False
         first_error: BaseException | None = None
 

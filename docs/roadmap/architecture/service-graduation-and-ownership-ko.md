@@ -1,6 +1,6 @@
 ---
 translation_of: service-graduation-and-ownership.md
-translation_source_sha: a40d9e758a5c44226759b3ff11d221a43f2a7490
+translation_source_sha: f410309aab9d1134668128054bec4420438f63e0
 translation_revised: 2026-08-20
 ---
 # 서비스 승격과 데이터 소유권
@@ -51,13 +51,14 @@ translation_revised: 2026-08-20
 | 2026-08-15 | validated | Norns가 소유하는 객체 이름을 `PatternObservation`에서 `Pattern`으로 변경해 에이전트 스펙, 등록된 토픽, 판테온 표, Console 에이전트 계약이 하나의 기록을 가리키게 했습니다. | `current change`, `PANTHEON_SPECS`, `agents/_framework/topics.py`, `console/src/routes/agents.model.ts`, 집중 판테온 레이아웃, 문서 파리티, 카탈로그 테스트 통과 | 아직 어느 것도 이 기록을 생산하지 않으며, 발행 또는 폐기는 prediction-learning 원장에서 추적합니다. |
 | 2026-08-19 | implemented | Operator writer 또는 새 서비스를 만들지 않고 재구성 가능한 temporal 인시던트 roster projection을 추가했습니다. Database trigger는 Saga 감사 append transaction 안에서 이전 correlation version을 닫고 다음 as-of version을 삽입하며, Operator branch는 Core schema prerequisite가 존재한 뒤 읽기 권한만 부여합니다. | `current change`, [이슈 #169](https://github.com/dotnetpower/fdai/issues/169), local PostgreSQL migration, trigger, temporal cursor, platform 제외, role grant 검사 통과, 집중 Operator 및 service-migration suite 117개 통과 | 보호된 migration과 service rollout 뒤 deployed latency 근거를 보존합니다. |
 | 2026-08-19 | 진행 중 | 승인된 A3 edge를 Core package 및 migration 소유권에서 이미 conversation writer와 semantic EventBus bridge를 소유한 Operator distribution의 별도 workload로 교정했습니다. | `current change`, `operator_a3_channel_delivery_20260819`, [운영 A3 채널 런타임](../interfaces/production-a3-channel-runtime-ko.md), service-migration 검사 47개 통과 | 여섯 번째 distribution을 추가하지 않고 A3 구현, hardening 및 통제된 runtime 근거를 완료합니다. |
+| 2026-08-20 | 구현됨 | Five-service inventory 또는 executor 권한을 바꾸지 않고 Operator distribution 안에서 non-distribution A3 edge 구현과 10개 round hardening 캠페인을 완료했습니다. | `current change`, [운영 A3 채널 런타임](../interfaces/production-a3-channel-runtime-ko.md), 집중 edge 검사 81개, Ruff 및 strict mypy 통과 | Edge runtime을 validated로 분류하기 전에 통제된 provider 및 보호된 배포 근거를 보존합니다. |
 ### 남은 작업
 
 - [x] 승인된 5개 서비스 토폴로지에 남은 작업이 없습니다. 승격, 쓰기 담당 소유권, 신원 격리, 롤백 및 원격 전이 근거는 분해 프로그램에 보존돼 있습니다.
 - [ ] Operator 애플리케이션, 읽기 변환 결과 및 SSE 후보 중 하나가 고정된 개정 번호에서 점수표 강제 트리거와 모든 binary 게이트 근거를 기록한 뒤에만 다시 평가합니다.
-- [ ] 승인된 non-distribution A3 edge를 소유 설계에 따라 구현합니다. Background 읽기 작업
-	실행기만 독립 전송 계층, 신원, 영속성, 비용 또는 실패 근거, 배포 smoke 및 롤백을 갖춘 뒤
-	향후 서비스 후보로 다시 평가합니다.
+- [ ] 구현된 non-distribution A3 edge의 통제된 provider 및 보호된 배포 근거를 소유 설계에
+  보존합니다. Background 읽기 작업 실행기만 독립 전송 계층, 신원, 영속성, 비용 또는 실패
+  근거, 배포 smoke 및 롤백을 갖춘 뒤 향후 서비스 후보로 다시 평가합니다.
 
 ## 승격 점수표
 
@@ -175,7 +176,7 @@ Rollback은 exact 서비스 가지 헤드에서만 시작하고 exact 기준선�
 | 인제스트 API | 업로드/검색 DB 역할, ADLS 업로드/삭제, Event Hubs 전송 | 없음 | 공개 HTTPS Container App |
 | 인제스트 워커 | 워커 DB 역할, ADLS 처리, Event Hubs 전송/수신, 임베딩/OCR | 없음 | ClamAV를 포함한 내부 Container App |
 | 인제스트 이행 | `alembic upgrade head`용 administrator DSN 읽기와 ACR pull. 신원은 run-to-completion 작업에만 첨부 | 없음 | 수동 Container Apps 작업 |
-| Operator 채널 edge workload | Operator conversation role, 채널 secret 및 범위가 제한된 메시지 전송만 허용 | 없음 | 완료 시 Operator distribution의 별도 public ingress process |
+| Operator 채널 edge workload | Operator conversation role, 채널 secret 및 범위가 제한된 메시지 전송만 허용 | 없음 | Operator distribution의 별도 public ingress process |
 | Scheduled 작업 | Job-specific 신원과 최소 data-plane 역할 | 타입이 지정된 액션이 Thor로 돌아가는 경우 외에는 없음 | Run-to-completion Container Apps 작업 |
 
 런타임, 환경, 근거 프로파일, 포크 상태는 non-executor 신원을 실행기 권한으로

@@ -19,6 +19,7 @@ class _Credential:
     def __init__(self) -> None:
         self.scopes: list[tuple[str, ...]] = []
         self.closed = False
+        self.close_count = 0
 
     async def get_token(self, *scopes: str, **_kwargs: object) -> _AccessToken:
         self.scopes.append(scopes)
@@ -26,6 +27,7 @@ class _Credential:
 
     async def close(self) -> None:
         self.closed = True
+        self.close_count += 1
 
 
 async def test_jwks_provider_uses_fixed_url_without_redirects() -> None:
@@ -88,7 +90,9 @@ async def test_azure_token_adapter_requests_exact_scope_and_closes() -> None:
 
     token = await provider.get_token("https://api.botframework.com/.default")
     await provider.aclose()
+    await provider.aclose()
 
     assert credential.scopes == [("https://api.botframework.com/.default",)]
     assert credential.closed is True
+    assert credential.close_count == 1
     assert "test-access-token" not in repr(token)

@@ -1,7 +1,7 @@
 ---
 title: 운영 A3 채널 런타임
 translation_of: production-a3-channel-runtime.md
-translation_source_sha: 15451b8086f7d52afe643e7284135476786f7829
+translation_source_sha: 79ca0e413e84a9a04c8e44549ff6c49339f880a5
 translation_revised: 2026-08-20
 ---
 # 운영 A3 채널 런타임
@@ -50,11 +50,11 @@ flowchart LR
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | A3 edge 설계 및 소유권 | 구현됨 | [이슈 #235](https://github.com/dotnetpower/fdai/issues/235), 이 문서 쌍, Operator source 및 배포 root | 권한 없는 Operator distribution 설계를 구현했습니다. 통제된 프로바이더 및 배포 근거는 열린 상태입니다. |
-| 인증된 유입 및 프로바이더 publisher | 구현됨 | `fdai_operator_service/families/conversation/channel_edge/`, 집중 Operator 채널 검사 32개 통과 | Operator-local Slack 및 Teams adapter는 정규 principal 교체, 범위가 제한된 유입, URL 없는 첨부 메타데이터, 고정 목적지, 엄격한 token audience 및 확정 확인 응답과 모호한 확인 응답의 구분을 강제합니다. 런타임 경로 연결은 열린 상태입니다. |
-| Operator migration 및 persistence | 구현됨 | `operator_a3_channel_delivery_20260819`, `channel_{delivery_models,message_ledger}.py`, `postgres_channel_{binding,delivery}.py`, live PostgreSQL 검사 9개 건너뛰기 없이 통과 | Operator branch가 inbound processing lease를 소유하고 Operator role에 channel table 6개만 부여합니다. Runtime-role 검사는 lease reclaim, permanent dedupe, binding uniqueness, idempotent delivery, claim 및 acknowledgement closure, process-loss ambiguity, breaker CAS 및 retention cleanup을 증명합니다. Production lifespan binding은 열린 상태입니다. |
-| 의미 요청, 결과 및 영속 전달 파이프라인 | 구현됨 | `semantic_turn_runtime.py`, `channel_edge/{pipeline,pipeline_contracts,worker}.py`, 집중 파이프라인 및 worker 검사 10개 통과, live PostgreSQL 연결 검사 1개 건너뛰기 없이 통과 | Operator edge는 서버 소유 범위를 해석하고 typed 의미 요청을 영속화하며 principal 범위의 최종 변환 결과를 기다립니다. 프로바이더 I/O 전에 최종 응답을 저장하고 영속 전달 소유권을 확보한 뒤에만 inbound 소유권을 완료하며, 영속 차단기로 재시도와 프로세스 손실 복구를 제한합니다. 운영 lifespan 연결은 열린 상태입니다. |
+| 인증된 유입 및 프로바이더 publisher | 구현됨 | `fdai_operator_service/families/conversation/channel_edge/`, 집중 edge 검사 81개 통과 | Operator-local Slack 및 Teams adapter는 정규 principal 교체, 범위가 제한된 유입, URL 없는 첨부 메타데이터, 고정 목적지, 엄격한 token audience 및 확정 확인 응답과 모호한 확인 응답의 구분을 강제합니다. 독립 런타임이 두 경로 계열을 연결합니다. |
+| Operator migration 및 persistence | 구현됨 | `operator_a3_channel_delivery_20260819`, `channel_{delivery_models,message_ledger}.py`, `postgres_channel_{binding,delivery}.py`, live PostgreSQL 검사 9개 건너뛰기 없이 통과 | Operator branch가 inbound processing lease를 소유하고 Operator role에 channel table 6개만 부여합니다. Runtime-role 검사는 lease reclaim, permanent dedupe, binding uniqueness, idempotent delivery, claim 및 acknowledgement closure, process-loss ambiguity, breaker CAS 및 retention cleanup을 증명합니다. 독립 lifespan이 이 store를 연결합니다. |
+| 의미 요청, 결과 및 영속 전달 파이프라인 | 구현됨 | `semantic_turn_runtime.py`, `channel_edge/{pipeline,pipeline_contracts,worker}.py`, 집중 edge 검사, live PostgreSQL 연결 검사 1개 건너뛰기 없이 통과 | Operator edge는 서버 소유 범위를 해석하고 typed 의미 요청을 영속화하며 principal 범위의 최종 변환 결과를 기다립니다. 프로바이더 I/O 전에 최종 응답을 저장하고 영속 전달 소유권을 확보한 뒤에만 inbound 소유권을 완료하며, 영속 차단기로 재시도와 프로세스 손실 복구를 제한합니다. 기한이 된 전송은 프로바이더 I/O 전에 활성 principal, scope, conversation 및 channel binding을 다시 검증합니다. |
 | 실패 시 닫히는 런타임과 로컬/Azure workload | 구현됨 | `channel_edge/{application,composition,entry,environment,runtime}.py`, `.vscode/tasks.json`, `prepare-channel-edge-env.sh`, `infra/services/operator-service`, 플랫폼 edge identity 및 RBAC, 집중 런타임 검사 | 독립 process는 health와 활성화된 webhook 경로만 노출하고 준비 상태 전에 활성화된 모든 의존성을 해석하며, private local input 또는 Key Vault reference와 전용 non-executor identity를 사용합니다. 보호된 plan, apply, 프로바이더 확인 응답 및 rollback 증적은 열린 상태입니다. |
-| 독립 hardening | 시작 안 함 | [Hardening 캠페인](#hardening-캠페인) | 완료하려면 최소 10개 round와 Medium 이상 잔여 0건이 필요합니다. |
+| 독립 hardening | 구현됨 | [Hardening 캠페인](#hardening-캠페인), 집중 edge 검사 81개 통과, Ruff 및 strict mypy | 독립 round 10개를 완료했고 수락한 모든 finding에 집중 회귀를 추가했으며 검증된 Medium 이상 잔여가 없습니다. 보호된 런타임 근거는 별도 검증 gate로 유지합니다. |
 
 ### 구현 이력
 
@@ -68,11 +68,12 @@ flowchart LR
 | 2026-08-19 | 구현됨 | Core implementation import 또는 다른 writer를 추가하지 않고 Operator-local inbound claim, 검증된 binding, outbound delivery, attempt, acknowledgement, retention 및 breaker store를 추가했습니다. | `current change`, Operator runtime role을 사용한 live loopback PostgreSQL 검사 9개를 건너뛰기 없이 통과했고 Ruff, formatting 및 strict mypy 통과 | Provider transport를 Operator 소유권으로 이동하고 semantic bridge와 fail-closed lifespan을 조립합니다. |
 | 2026-08-19 | 구현됨 | 인증된 Slack 및 Teams 전송을 Operator distribution으로 이동하고 결정적 inbound replay, 의미 최종 변환 결과, 영속 소유권, 프로바이더 확인 응답 종결, 재시도 작업, 프로세스 손실 조정 및 영속 차단기 유입 제어를 조립했습니다. | 커밋 `3555ecf9c`, `current change`, 집중 채널 검사 32개, 파이프라인 및 worker 검사 10개, Operator runtime role을 사용한 live PostgreSQL 연결 검사 1개를 건너뛰기 없이 통과했고 Ruff 및 strict mypy 통과 | 실패 시 닫히는 Starlette lifespan에 의존성을 연결하고 로컬 및 배포 workload를 추가하며 대체된 Core prototype을 제거하고 통제된 근거를 보존합니다. |
 | 2026-08-20 | 구현됨 | 독립 fail-closed Starlette workload, private 로컬 실행, 선택적 Operator-service Container App, 전용 non-executor identity와 최소 권한 역할, Key Vault reference, probe 및 rollback metadata를 추가했습니다. 대체된 Core transport와 Core PyJWT 의존성을 제거했습니다. | `current change`, edge package 검사 74개, shared 및 Operator channel 검사 110개, 로컬 실행 검사 3개, Ruff 및 strict mypy 통과, 플랫폼 및 Operator-service Terraform 검증 통과 | 독립 hardening을 완료한 뒤 통제된 로컬 프로바이더 및 보호된 plan/apply/rollback 근거를 보존합니다. |
+| 2026-08-20 | 구현됨 | 독립 hardening round 10개를 완료했습니다. 플랫폼 범위를 벗어난 Slack timestamp를 server error 없이 거부하고, 로컬 secret을 읽기 전에 상속된 shell tracing을 끄며, 범위가 제한된 TTL 뒤 known Teams JWKS key를 갱신하고, 기한이 된 전송 전에 활성 principal/scope/conversation/channel binding을 다시 검증하며, 소유 runtime 및 credential resource를 정확히 한 번 닫습니다. | `current change`, 집중 edge 검사 81개, Ruff 및 strict mypy 통과, 수락한 모든 finding에 집중 회귀 추가 | Runtime 행을 `validated`로 올리기 전에 통제된 로컬 프로바이더 및 보호된 plan/apply/rollback 증적을 보존합니다. |
 
 ### 남은 작업
 
-- [ ] 이 문서의 모든 구현 범위를 완성하고 focused 및 exact-diff 검사를 통과합니다.
-- [ ] 최소 10개 비평 round를 완료하고 Low 또는 기각된 잔여만 보존합니다.
+- [x] 이 문서의 모든 구현 범위를 완성하고 focused 검사를 통과합니다. Focused commit에 exact-diff 근거를 보존합니다.
+- [x] 최소 10개 비평 round를 완료하고 Low 또는 기각된 잔여만 보존합니다.
 - [ ] 어떤 행이든 `validated`로 바꾸기 전에 통제된 로컬 및 보호된 배포 증적을 보존합니다.
 
 ## 아키텍처 결정
@@ -116,6 +117,8 @@ Authenticator는 범위가 제한된 cached JWKS의 RS256, application audience,
 `exp`, `nbf` 및 service URL claim을 검증합니다. Activity도 구성된 tenant,
 `channelId=msteams`, 검증된 service URL 및 구성된 `aadObjectId`와 FDAI principal map에
 일치해야 합니다.
+Cache는 known key도 5분 뒤 갱신하므로 현재 JWKS에서 제거된 key를 process 수명 전체에서
+계속 수락할 수 없습니다.
 
 Teams 발행은 대화에 허용된 인증된 service URL만 해석하고 주입된 workload identity에서 Bot
 Framework audience token을 얻으며 순수 Adaptive Card renderer를 사용하고 범위가 제한된 resource
@@ -150,7 +153,7 @@ fact, limitation, evidence reference, activity, progress 및 thread intent를 �
 
 ## 런타임 수명 주기
 
-`ProductionChannelRuntime`은 최상위 Starlette lifespan에서 조립합니다.
+`ChannelEdgeRuntime`은 최상위 Starlette lifespan에서 조립합니다.
 
 1. 닫힌 environment/config schema와 활성화된 channel 집합을 검증합니다.
 2. 값을 logging하지 않고 secret reference와 identity 의존성을 해석합니다.
@@ -159,12 +162,12 @@ fact, limitation, evidence reference, activity, progress 및 thread intent를 �
    presentation compiler, delivery coordinator 및 고정 경로를 만듭니다.
 5. Readiness를 true로 바꾸거나 트래픽을 받기 전에 만료된 `sending` 행을 조정합니다.
 6. 활성화된 adapter마다 감독되는 gateway consumer 하나를 시작합니다.
-7. 종료 시 route 수락을 중지하고 queue를 닫고 consumer를 취소하고 기다린 뒤 provider를 닫으며 분리된 read/send task를 남기지 않습니다.
+7. 종료 시 route 수락을 중지하고 queue를 닫고 consumer를 취소하고 기다린 뒤 provider를 정확히 한 번 닫으며 분리된 read/send task를 남기지 않습니다.
 
 활성화된 channel에 secret, principal map, identity, endpoint policy, database, attachment dependency
-또는 영속 전달 binding이 없으면 트래픽 전에 시작이 실패합니다. `/healthz`는 liveness와 readiness
-boolean만 보고합니다. Channel, principal, endpoint, credential, delivery 또는 queue identifier를
-노출하지 않습니다.
+또는 영속 전달 binding이 없으면 트래픽 전에 시작이 실패합니다. `/health/live`와
+`/health/ready`는 content-free process 상태만 보고합니다. Channel, principal, endpoint,
+credential, delivery 또는 queue identifier를 노출하지 않습니다.
 
 ## 배포 및 롤백
 
@@ -221,6 +224,14 @@ revision 불변을 입증합니다.
 
 검증된 Medium 이상 finding이 남아 있으면 round 10 이후에도 계속합니다. 최종 검토는 Low tradeoff를
 별도로 기록하고 unit 또는 synthetic 근거를 배포 검증으로 승격하지 않습니다.
+
+2026-08-20 캠페인은 round 10개를 모두 완료했습니다. 수락한 finding은 구현 이력에 기록한
+범위가 제한된 Slack timestamp, 로컬 secret tracing, Teams JWKS freshness, 기한 도래 전달의
+binding 재검증, 멱등적인 runtime 및 credential 종료 수정입니다. 누락된 Operator migration,
+제한되지 않은 중복 처리, payload가 선택하는 목적지, 여섯 번째 distribution, executor 권한,
+TCP-only liveness 및 v2 artifact 비호환성 주장은 소유 migration, 결정적 영속 id, 고정 endpoint,
+Operator-distribution topology, no-authority 계약, HTTP probe 및 version-aware 정규화로 기각했습니다.
+검증된 Medium 이상 잔여는 없습니다.
 
 ## 검증
 

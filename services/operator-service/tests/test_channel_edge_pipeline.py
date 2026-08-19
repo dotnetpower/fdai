@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 
 from fdai_operator_service.families.conversation.channel_delivery_models import (
     ChannelAdapterBreaker,
+    ChannelBindingState,
     ChannelBreakerMode,
     ChannelDeliveryRecord,
     ChannelDeliveryState,
@@ -250,13 +251,14 @@ def _pipeline(
     streams: _Streams,
     deliveries: _Deliveries,
     publisher: _Publisher,
+    bindings: _Bindings | None = None,
 ) -> tuple[ChannelDeliveryPipeline, _Outbox]:
     outbox = _Outbox()
     return (
         ChannelDeliveryPipeline(
             messages=messages,
             principals=_Principals(),
-            bindings=_Bindings(),
+            bindings=bindings or _Bindings(),
             deliveries=deliveries,
             semantic_outbox=outbox,  # type: ignore[arg-type]
             semantic_streams=streams,
@@ -423,3 +425,64 @@ async def test_pipeline_cancellation_releases_pre_delivery_inbound_claim() -> No
         raise AssertionError("pipeline cancellation did not propagate")
     assert len(messages.released) == 1
     assert not messages.completed
+
+
+async def test_due_delivery_abandons_a_revoked_binding_without_provider_io() -> None:
+    messages = _Messages()
+    deliveries = _Deliveries()
+    deliveries.breaker_mode = ChannelBreakerMode.OPEN
+    bindings = _Bindings()
+    publisher = _Publisher()
+    pipeline, _outbox = _pipeline(
+        messages=messages,
+        streams=_Streams(_terminal()),
+        deliveries=deliveries,
+        publisher=publisher,
+        bindings=bindings,
+    )
+    result = await pipeline.process(_turn())
+    record = await deliveries.claim(delivery_id=result.delivery_id)
+    assert record is not None and record.binding_id is not None
+    binding = bindings.values[record.binding_id]
+    bindings.values[record.binding_id] = replace(
+        binding,
+        state=ChannelBindingState.REVOKED,
+        revoked_by="operator-example",
+        revoked_at=_NOW,
+    )
+
+    closed = await pipeline.deliver_claimed(record)
+
+    assert closed.state is ChannelDeliveryState.ABANDONED
+    assert closed.last_error_code == "binding_unavailable"
+    assert not publisher.messages
+
+
+async def test_due_delivery_abandons_a_cross_scope_binding_without_provider_io() -> None:
+    messages = _Messages()
+    deliveries = _Deliveries()
+    deliveries.breaker_mode = ChannelBreakerMode.OPEN
+    bindings = _Bindings()
+    publisher = _Publisher()
+    pipeline, _outbox = _pipeline(
+        messages=messages,
+        streams=_Streams(_terminal()),
+        deliveries=deliveries,
+        publisher=publisher,
+        bindings=bindings,
+    )
+    result = await pipeline.process(_turn())
+    record = await deliveries.claim(delivery_id=result.delivery_id)
+    assert record is not None and record.binding_id is not None
+    binding = bindings.values[record.binding_id]
+    bindings.values[record.binding_id] = replace(
+        binding,
+        scope_ref="scope://operator/other",
+        endpoint=replace(binding.endpoint, scope_ref="scope://operator/other"),
+    )
+
+    closed = await pipeline.deliver_claimed(record)
+
+    assert closed.state is ChannelDeliveryState.ABANDONED
+    assert closed.last_error_code == "binding_unavailable"
+    assert not publisher.messages

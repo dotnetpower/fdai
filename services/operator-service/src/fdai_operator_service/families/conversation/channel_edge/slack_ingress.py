@@ -119,13 +119,13 @@ class SlackIngressVerifier:
         signature = _header(headers, "x-slack-signature")
         try:
             timestamp = int(timestamp_text)
-        except (TypeError, ValueError) as exc:
+            observed_at = datetime.fromtimestamp(timestamp, tz=received_at.tzinfo)
+        except (OSError, OverflowError, TypeError, ValueError) as exc:
             raise SlackIngressError(
                 "Slack request timestamp is invalid",
                 code="invalid_timestamp",
                 http_status=401,
             ) from exc
-        observed_at = datetime.fromtimestamp(timestamp, tz=received_at.tzinfo)
         if abs(received_at - observed_at) > self._config.replay_window:
             raise SlackIngressError(
                 "Slack request is outside the replay window",
