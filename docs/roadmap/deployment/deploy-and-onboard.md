@@ -3,9 +3,8 @@ title: Deploy and Onboard
 ---
 # Deploy and Onboard
 
-How to provision FDAI into an Azure subscription and complete first-time onboarding
-so the system is ready to observe. This file is authoritative for **the concrete deployment
-inventory, the bootstrap sequence, and the distribution/deployment responsibility split**; the deployment
+How to provision and onboard FDAI in Azure so it is ready to observe. This file owns **the concrete
+deployment inventory, bootstrap sequence, and distribution/deployment responsibility split**; the deployment
 lifecycle (CI/CD, progressive delivery, rollback, DR) remains in
 [deployment.md](deployment.md).
 
