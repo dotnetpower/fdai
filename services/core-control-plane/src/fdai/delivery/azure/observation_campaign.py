@@ -29,6 +29,7 @@ _ARG_API_VERSION = "2022-10-01"
 _ACTIVITY_API_VERSION = "2015-04-01"
 _COST_API_VERSION = "2023-11-01"
 _MAX_ACTIVITY_WINDOW_SECONDS = 86_400
+_MAX_ACTIVITY_WINDOWS_PER_ATTEMPT = 4
 
 
 class AzureResourceGraphObservation(StrEnum):
@@ -229,7 +230,11 @@ class AzureActivityLogObservationProbe:
                     "Activity Log cursor MUST NOT be later than the collection cutoff"
                 )
             window_seconds = min(spec.lookback_seconds, _MAX_ACTIVITY_WINDOW_SECONDS)
+            completed_windows = 0
             while lower_bound < checked_through:
+                if completed_windows >= _MAX_ACTIVITY_WINDOWS_PER_ATTEMPT:
+                    catchup_required = True
+                    break
                 remaining_results = source_budget - source_count
                 remaining_bytes = spec.max_output_bytes - observed_bytes
                 if remaining_results <= 0 or remaining_bytes <= 0:
@@ -263,6 +268,7 @@ class AzureActivityLogObservationProbe:
                 count += window.evidence_count
                 source_count += window.evidence_count
                 lower_bound = upper_bound
+                completed_windows += 1
                 next_cursors[cursor_key] = upper_bound.isoformat()
                 if lower_bound < checked_through and window.evidence_count * 4 <= remaining_results:
                     window_seconds = min(

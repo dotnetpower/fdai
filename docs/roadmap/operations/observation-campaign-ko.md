@@ -1,7 +1,7 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: 80a503d2700cf7622d08d434719d1b69bfbce602
+translation_source_sha: 5ee05ea0733885fa0dedd58ef7393e3eb2deda66
 translation_revised: 2026-08-19
 ---
 
@@ -37,6 +37,7 @@ translation_revised: 2026-08-19
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | implemented | 첫 실제 catch-up 실행이 checkpoint를 영속화하기 전에 30초 source timeout을 소진한 뒤, Activity Log catch-up attempt 하나를 완전히 읽은 adaptive 창 4개로 제한했습니다. 이제 각 terminal attempt는 영속 cursor를 전진시키거나 명시적 source failure를 보고하며, 큰 backlog는 즉시 실행 조건을 만족하는 `source_catchup` 전이로 이어서 처리합니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Bound 전 실제 실행은 `source_timeout`을 보고했고, 이후 focused checkpoint, cursor pruning, pagination 및 runner 검사 31개가 통과했습니다. | 완료된 로컬 campaign을 소진하고 보존합니다. |
 | 2026-08-19 | implemented | Activity Log coverage가 claims, request detail 또는 properties를 내려받지 않고 영속 cursor backlog를 복구하도록 했습니다. Probe는 timestamp 필드만 요청하고 등록된 result, byte 및 timeout 상한 안에서 닫힌 adaptive 시간 창을 조회하며, 완전히 읽은 창만 checkpoint합니다. `source_catchup`만 즉시 다시 실행 조건을 만족하며 권한, throttle, 전송 및 계약 실패는 정상 간격을 유지합니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Focused Azure probe 및 영속 runner 검사 30개가 통과했습니다. 수정 전 보존된 로컬 backlog는 event 12,882개와 page 65개로 측정됐습니다. | 변경을 커밋하고 보존된 cursor를 현재 cutoff까지 소진한 뒤, 런타임 검증을 주장하기 전에 출처 10개가 모두 `completed`인 로컬 campaign 하나를 보존합니다. |
 | 2026-08-14 | in-progress | 등록된 모든 출처를 위한 하나의 권한 인식 관측 캠페인을 정의하고 로컬과 배포의 동작 동등성을 명시했습니다. 이전 구현 출처 이력은 재구성하지 않았습니다. | `current change`, 구현 범위 표에 인용한 기존 어댑터와 scheduler 경로 | 아래 계약, 실행기, 출처 연결, 활동 변환 결과, 동등성 검사 및 통제된 런타임 근거를 구현합니다. |
 | 2026-08-14 | implemented | 공유 커버리지 캠페인, 반복 로컬 인벤토리 동등성, 배포 작업과 읽기 역할, 영속 Operator 변환 결과 및 지역화된 Console lane을 구현하고 하드닝했습니다. | `current change`, 집중 계약, 수명 주기, 프로바이더, CLI, 인벤토리, Operator, Console, workspace, 타입, lint, JSON 및 Terraform 검사 | 검증을 주장하기 전에 하나의 카탈로그 digest에서 통제된 로컬 및 배포 실행을 보존합니다. |

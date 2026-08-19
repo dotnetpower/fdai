@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: cae032bd81a0c7299d91a11d6a19ea94e4bc94ef
+translation_source_sha: 1ba039f3b6c8b090128d3643ad36ea2d173f66f3
 translation_revised: 2026-08-19
 ---
 
@@ -44,6 +44,7 @@ translation_revised: 2026-08-19
 
 | 날짜 | 상태 | 변경 | 근거 | 잔여 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | implemented | 로컬 및 배포 job에 완전한 창 4개라는 동일한 catch-up 상한을 적용했습니다. 첫 로컬 실제 실행에서 개별 창이 각각 범위 내에 있어도 창의 연속 개수가 제한되지 않으면 terminal cursor 기록 전에 source 수준 timeout을 소진할 수 있음을 확인했습니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Bound 전 로컬 실행은 `source_timeout`을 보고했고, 이후 focused 공유 provider 및 runner 검사 31개가 통과했습니다. | 완료된 로컬 및 배포 revision campaign 근거를 보존합니다. |
 | 2026-08-19 | implemented | 로컬 및 배포 observation job에서 Activity Log backlog 복구 동작을 동일하게 유지했습니다. 두 실행 위치 모두 timestamp 전용 adaptive 창, 완전한 창 단위 cursor checkpoint, result 10,000개 및 2,000,000 byte 상한, 즉시 `source_catchup` 연속 실행을 사용하며 관련 없는 실패는 정상 간격을 유지합니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Focused provider 및 runner 검사 30개가 통과했습니다. 동작은 공유 출처 catalog와 campaign package에 유지됩니다. | 완료된 로컬 campaign을 보존한 뒤 기존의 열린 배포 revision campaign 근거를 확보합니다. |
 | 2026-08-19 | implemented | venue 게이트 자체의 범위가 조용히 줄어들 수 없게 했습니다. `main([])`은 넘겨받은 트리만 보고하고 테스트는 종료 코드만 단언했으므로, `SCANNED_TREES`에서 행을 지워도 게이트는 통과했을 것입니다. 이제 테스트가 저장소 구조에서 기대 집합을 도출하며, core 서비스가 패키지 2개를 배포하기 때문에 `services/core-control-plane/src/fdai_core_service`가 스캔되지 않고 있었다는 사실을 바로 찾았습니다. 게이트는 트리 7개를 훑습니다. 그 패키지에는 위반이 없었으므로 이는 결함이 아니라 커버리지 구멍을 메운 것입니다. | `current change`, `tests/integration/scripts/test_venue_capability_contract.py`가 5건 통과했고 신규 테스트는 표를 고치기 전에 `core-control-plane has 2 source packages`로 실패했습니다. 게이트는 소스 트리 7개에서 OK를 보고하고 pre-push 구조 게이트 10개가 모두 통과했습니다. | 게이트 탐지는 여전히 텍스트 기반이므로 계산된 키를 통한 우회적 재도입은 잡지 못합니다. |
 | 2026-08-19 | implemented | WSL 재시작 뒤 transient 경로가 VPN 연결 끊김 경고로 나타난 문제를 막기 위해 폴더 열기 dev-access 태스크에 범위가 제한된 유예 시간을 추가했습니다. Azure VPN Client는 한 번만 열고 direct 경로가 나타나면 즉시 재시도를 끝내 WSL DNS를 적용하며, 8번 확인 뒤에도 indirect인 경로는 기존 actionable 오류를 계속 보고합니다. | `current change`, 즉시 준비됨, 세 번째 probe에서 회복, 영구 연결 끊김을 다루는 실제 startup harness가 client 1회 실행, 재시도 8회, 대기 7회, DNS 미적용 및 exit `20`을 검증합니다. | Transient 폴더 열기 경로 전파에 남은 구현 작업은 없습니다. Private endpoint 진단은 계속 명시적 `doctor.sh` 대상을 사용합니다. |

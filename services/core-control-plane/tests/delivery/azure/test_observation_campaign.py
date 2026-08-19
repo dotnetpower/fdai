@@ -358,7 +358,45 @@ async def test_activity_log_prunes_retired_cursor_and_advances_empty_source() ->
         )
 
     cursor = json.loads(result.cursor or "")
-    assert cursor["subscriptions"] == {current_key: "2026-08-14T00:00:00+00:00"}
+    assert cursor["subscriptions"] == {current_key: "2026-08-13T01:15:00+00:00"}
+    assert result.coverage is ObservationCoverage.PARTIAL
+    assert result.reason_codes == ("source_catchup",)
+
+
+async def test_activity_log_checkpoints_bounded_catchup_before_source_timeout() -> None:
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json={"value": []})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        result = await AzureActivityLogObservationProbe(
+            config=AzureObservationConfig(subscription_ids=("sub",)),
+            identity=_identity(),
+            http_client=client,
+            clock=lambda: datetime(2026, 8, 14, tzinfo=UTC),
+        ).collect(
+            ObservationSourceSpec(
+                source_id="activity-log",
+                domain=ObservationDomain.ACTIVITY_LOG,
+                owner_agent="Huginn",
+                interval_seconds=60,
+                lookback_seconds=60,
+                timeout_seconds=2,
+                max_targets=1,
+                max_results=10_000,
+                max_output_bytes=2_000_000,
+            ),
+            cursor="2026-08-13T23:00:00+00:00",
+        )
+
+    assert len(requests) == 4
+    assert result.coverage is ObservationCoverage.PARTIAL
+    assert result.evidence_count == 0
+    assert result.reason_codes == ("source_catchup",)
+    cursor = json.loads(result.cursor or "")
+    assert list(cursor["subscriptions"].values()) == ["2026-08-13T23:15:00+00:00"]
 
 
 async def test_activity_log_many_subscriptions_use_conservative_bounded_cursor() -> None:
