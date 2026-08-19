@@ -9,13 +9,8 @@ from datetime import UTC, datetime
 from typing import Any
 
 import httpx
-from fdai_service_contracts.semantic_turn import (
-    SEMANTIC_PROJECTION_TOPIC,
-    SEMANTIC_REQUEST_TOPIC,
-)
 
 from fdai.agents import (
-    OWNED_OBJECT_TOPICS,
     PantheonRuntime,
     ShadowDivergenceLedger,
 )
@@ -27,20 +22,15 @@ from fdai.composition import (
 )
 from fdai.core.chaos.symptom_index import build_from_promoted
 from fdai.core.control_loop import ControlLoop
-from fdai.core.readiness.coordinator import _TRANSITION_TOPIC
 from fdai.delivery.agent_activity import (
     DEFAULT_STAGE_TOPIC,
     AgentRuntimeStatePublisher,
 )
-from fdai.delivery.agent_introspection_bus import AGENT_INTROSPECTION_TOPICS
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
 from fdai.runtime.bootstrap_bindings import (
-    RECONCILIATION_TOPICS,
-    RULE_GENERATION_TOPICS,
     VERTICAL_IDENTITY_ENV,
     EffectReconciliationRequestRuntimeBinding,
     RuleGenerationRuntimeBinding,
-    build_vertical_execution_identities,
 )
 from fdai.runtime.bootstrap_bindings import (
     build_effect_reconciliation_request_binding as _build_effect_reconciliation_request_binding,
@@ -53,6 +43,9 @@ from fdai.runtime.bootstrap_bindings import (
 )
 from fdai.runtime.bootstrap_bindings import (
     build_runtime_workload_identity as _build_runtime_workload_identity,
+)
+from fdai.runtime.bootstrap_bindings import (
+    build_vertical_execution_identities as _build_vertical_execution_identities_impl,
 )
 from fdai.runtime.bootstrap_bindings import (
     case_history_identity_client_id as _case_history_identity_client_id,
@@ -125,6 +118,7 @@ from fdai.runtime.bootstrap_tasks import (
 from fdai.runtime.bootstrap_tasks import (
     schedule_semantic_turn_consumer as _schedule_semantic_turn_consumer,
 )
+from fdai.runtime.bootstrap_topics import RUNTIME_LOGICAL_TOPICS as _RUNTIME_LOGICAL_TOPICS
 from fdai.runtime.case_history import (
     CaseHistoryRetentionTickPublisher,
 )
@@ -183,13 +177,18 @@ from fdai.shared.providers.event_bus import EventBus
 
 _LOGGER = logging.getLogger("fdai.startup")
 _AUXILIARY_KAFKA_BOOTSTRAP_ENV = "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS"
-_RUNTIME_LOGICAL_TOPICS = (
-    OWNED_OBJECT_TOPICS
-    | AGENT_INTROSPECTION_TOPICS
-    | frozenset({_TRANSITION_TOPIC, SEMANTIC_REQUEST_TOPIC, SEMANTIC_PROJECTION_TOPIC})
-    | RECONCILIATION_TOPICS
-    | RULE_GENERATION_TOPICS
-)
+
+
+def _build_vertical_execution_identities(
+    *,
+    http_client: httpx.AsyncClient | None,
+) -> dict[str, Any]:
+    """Preserve the bootstrap test seam while delegating provider construction."""
+    return _build_vertical_execution_identities_impl(
+        http_client,
+        identity_environment=VERTICAL_IDENTITY_ENV,
+        identity_builder=_build_runtime_workload_identity,
+    )
 
 
 async def _run() -> int:
@@ -484,10 +483,8 @@ async def _run() -> int:
                 tool_receipt_observer=_observe_tool_receipt,
                 symptom_index=runtime_symptom_index,
                 identity=identity,
-                execution_identities=build_vertical_execution_identities(
-                    http_client,
-                    identity_environment=VERTICAL_IDENTITY_ENV,
-                    identity_builder=_build_runtime_workload_identity,
+                execution_identities=_build_vertical_execution_identities(
+                    http_client=http_client,
                 ),
                 direct_api_execution_port=isolated_executor_client,
                 response_outcome_sink=_relay_response_outcome,
