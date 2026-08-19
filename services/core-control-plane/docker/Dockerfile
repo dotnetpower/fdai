@@ -58,6 +58,10 @@ RUN uv build --wheel --package fdai-service-contracts --out-dir /wheels \
 
 FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:9fdbf2e3e82628351513560b121e2ee6ce31cac212be9e070c5a5e2769fb5e76 AS runtime
 
+ARG SQLITE_LIBS_VERSION=3.53.4-r0
+RUN apk add --no-cache --repository https://dl-cdn.alpinelinux.org/alpine/edge/main \
+    "sqlite-libs=${SQLITE_LIBS_VERSION}"
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     AZURE_MCP_COLLECT_TELEMETRY=false \

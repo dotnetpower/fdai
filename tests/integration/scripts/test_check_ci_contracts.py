@@ -413,6 +413,18 @@ def test_dockerfile_installs_only_runtime_workspace_packages() -> None:
         assert "ENTRYPOINT" in text
 
 
+def test_shipped_runtime_images_pin_the_fixed_sqlite_package() -> None:
+    root = Path(__file__).resolve().parents[3]
+    dockerfiles = sorted((root / "services").glob("*/docker/Dockerfile"))
+
+    assert len(dockerfiles) == 5
+    for dockerfile in dockerfiles:
+        text = dockerfile.read_text(encoding="utf-8")
+        assert "ARG SQLITE_LIBS_VERSION=3.53.4-r0" in text
+        assert "https://dl-cdn.alpinelinux.org/alpine/edge/main" in text
+        assert '"sqlite-libs=${SQLITE_LIBS_VERSION}"' in text
+
+
 def test_ci_installs_and_audits_the_frozen_runtime_workspace() -> None:
     workflow = (Path(__file__).resolve().parents[3] / ".github" / "workflows" / "ci.yml").read_text(
         encoding="utf-8"
