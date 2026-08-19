@@ -73,25 +73,47 @@ SELECT (
     AND NOT has_table_privilege(current_user, 'llm_invocation', 'REFERENCES')
     AND NOT has_table_privilege(current_user, 'llm_invocation', 'TRIGGER')
     AND has_table_privilege(current_user, 'inventory_snapshot', 'SELECT')
-    AND NOT has_table_privilege(current_user, 'inventory_snapshot', 'INSERT,UPDATE,DELETE')
+    AND NOT has_table_privilege(current_user, 'inventory_snapshot', 'INSERT')
+    AND NOT has_table_privilege(current_user, 'inventory_snapshot', 'UPDATE')
+    AND NOT has_table_privilege(current_user, 'inventory_snapshot', 'DELETE')
+    AND NOT has_table_privilege(current_user, 'inventory_snapshot', 'TRUNCATE')
+    AND NOT has_table_privilege(current_user, 'inventory_snapshot', 'REFERENCES')
+    AND NOT has_table_privilege(current_user, 'inventory_snapshot', 'TRIGGER')
     AND has_table_privilege(current_user, 'inventory_snapshot_resource', 'SELECT')
-    AND NOT has_table_privilege(
-        current_user, 'inventory_snapshot_resource', 'INSERT,UPDATE,DELETE'
-    )
+    AND NOT has_table_privilege(current_user, 'inventory_snapshot_resource', 'INSERT')
+    AND NOT has_table_privilege(current_user, 'inventory_snapshot_resource', 'UPDATE')
+    AND NOT has_table_privilege(current_user, 'inventory_snapshot_resource', 'DELETE')
+    AND NOT has_table_privilege(current_user, 'inventory_snapshot_resource', 'TRUNCATE')
+    AND NOT has_table_privilege(current_user, 'inventory_snapshot_resource', 'REFERENCES')
+    AND NOT has_table_privilege(current_user, 'inventory_snapshot_resource', 'TRIGGER')
     AND has_table_privilege(current_user, 'inventory_snapshot_link', 'SELECT')
-    AND NOT has_table_privilege(
-        current_user, 'inventory_snapshot_link', 'INSERT,UPDATE,DELETE'
-    )
+    AND NOT has_table_privilege(current_user, 'inventory_snapshot_link', 'INSERT')
+    AND NOT has_table_privilege(current_user, 'inventory_snapshot_link', 'UPDATE')
+    AND NOT has_table_privilege(current_user, 'inventory_snapshot_link', 'DELETE')
+    AND NOT has_table_privilege(current_user, 'inventory_snapshot_link', 'TRUNCATE')
+    AND NOT has_table_privilege(current_user, 'inventory_snapshot_link', 'REFERENCES')
+    AND NOT has_table_privilege(current_user, 'inventory_snapshot_link', 'TRIGGER')
     AND has_table_privilege(current_user, 'inventory_active', 'SELECT')
-    AND NOT has_table_privilege(current_user, 'inventory_active', 'INSERT,UPDATE,DELETE')
+    AND NOT has_table_privilege(current_user, 'inventory_active', 'INSERT')
+    AND NOT has_table_privilege(current_user, 'inventory_active', 'UPDATE')
+    AND NOT has_table_privilege(current_user, 'inventory_active', 'DELETE')
+    AND NOT has_table_privilege(current_user, 'inventory_active', 'TRUNCATE')
+    AND NOT has_table_privilege(current_user, 'inventory_active', 'REFERENCES')
+    AND NOT has_table_privilege(current_user, 'inventory_active', 'TRIGGER')
     AND has_table_privilege(current_user, 'conversation_record', 'SELECT')
-    AND NOT has_table_privilege(
-        current_user, 'conversation_record', 'INSERT,UPDATE,DELETE'
-    )
+    AND NOT has_table_privilege(current_user, 'conversation_record', 'INSERT')
+    AND NOT has_table_privilege(current_user, 'conversation_record', 'UPDATE')
+    AND NOT has_table_privilege(current_user, 'conversation_record', 'DELETE')
+    AND NOT has_table_privilege(current_user, 'conversation_record', 'TRUNCATE')
+    AND NOT has_table_privilege(current_user, 'conversation_record', 'REFERENCES')
+    AND NOT has_table_privilege(current_user, 'conversation_record', 'TRIGGER')
     AND has_table_privilege(current_user, 'conversation_turn', 'SELECT')
-    AND NOT has_table_privilege(
-        current_user, 'conversation_turn', 'INSERT,UPDATE,DELETE'
-    )
+    AND NOT has_table_privilege(current_user, 'conversation_turn', 'INSERT')
+    AND NOT has_table_privilege(current_user, 'conversation_turn', 'UPDATE')
+    AND NOT has_table_privilege(current_user, 'conversation_turn', 'DELETE')
+    AND NOT has_table_privilege(current_user, 'conversation_turn', 'TRUNCATE')
+    AND NOT has_table_privilege(current_user, 'conversation_turn', 'REFERENCES')
+    AND NOT has_table_privilege(current_user, 'conversation_turn', 'TRIGGER')
        ) AS ready
   FROM pg_catalog.pg_roles AS login_role
  WHERE login_role.rolname = current_user

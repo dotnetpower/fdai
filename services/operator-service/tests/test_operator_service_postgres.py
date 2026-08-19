@@ -591,20 +591,25 @@ async def test_operator_readiness_verifies_role_and_privileges_without_durable_w
         "NOT has_table_privilege(current_user, 'llm_invocation', 'UPDATE')",
         "NOT has_table_privilege(current_user, 'llm_invocation', 'DELETE')",
         "has_table_privilege(current_user, 'inventory_snapshot', 'SELECT')",
-        "NOT has_table_privilege(current_user, 'inventory_snapshot', 'INSERT,UPDATE,DELETE')",
         "has_table_privilege(current_user, 'inventory_snapshot_resource', 'SELECT')",
-        "'inventory_snapshot_resource', 'INSERT,UPDATE,DELETE'",
         "has_table_privilege(current_user, 'inventory_snapshot_link', 'SELECT')",
-        "'inventory_snapshot_link', 'INSERT,UPDATE,DELETE'",
         "has_table_privilege(current_user, 'inventory_active', 'SELECT')",
-        "'inventory_active', 'INSERT,UPDATE,DELETE'",
         "has_table_privilege(current_user, 'conversation_record', 'SELECT')",
-        "'conversation_record', 'INSERT,UPDATE,DELETE'",
         "has_table_privilege(current_user, 'conversation_turn', 'SELECT')",
-        "'conversation_turn', 'INSERT,UPDATE,DELETE'",
         "NOT has_schema_privilege(current_user, 'public', 'CREATE')",
     ):
         assert fragment in statement
+    for table in (
+        "inventory_snapshot",
+        "inventory_snapshot_resource",
+        "inventory_snapshot_link",
+        "inventory_active",
+        "conversation_record",
+        "conversation_turn",
+    ):
+        for privilege in ("INSERT", "UPDATE", "DELETE", "TRUNCATE", "REFERENCES", "TRIGGER"):
+            assert f"NOT has_table_privilege(current_user, '{table}', '{privilege}')" in statement
+    assert "INSERT,UPDATE,DELETE" not in statement
     for mutation in ("INSERT INTO", "UPDATE state_kv", "DELETE FROM"):
         assert mutation not in statement
 
