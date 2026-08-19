@@ -231,7 +231,14 @@ class _AnsweredRuntime:
             semantic_catalog_digest=MANIFEST_DIGEST,
             plan_digest=PLAN_DIGEST,
         )
-        planning = SimpleNamespace(plan=plan, manifest_digest=MANIFEST_DIGEST)
+        planning = SimpleNamespace(
+            plan=plan,
+            frame=SimpleNamespace(
+                operation=SimpleNamespace(value="select"),
+                output_shape="resource_list",
+            ),
+            manifest_digest=MANIFEST_DIGEST,
+        )
         receipt = GoalTaskReceipt(
             task_id="query:resources",
             goal_id="goal-1",

@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 6c50f63d103e09e09e25049024eee11d5ad54eee
+translation_source_sha: 03f95c5c6bb57977759ee45220830edd701bb510
 translation_revised: 2026-08-19
 ---
 # 코드 맵
@@ -65,6 +65,7 @@ translation_revised: 2026-08-19
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | 구현됨 | Exact commit 선택이 fixture 전용 보류 대신 v2 표현 메타데이터를 실행하도록 교차 서비스 의미 round-trip 테스트 double을 검증된 frame 계약과 맞췄습니다. | `current change`, [이슈 #234](https://github.com/dotnetpower/fdai/issues/234), 집중 round-trip 검사 1개 통과, 영향을 받은 planner selector 452개 통과 및 1개 선택 제외 | Fixture 정렬에 남은 작업은 없습니다. |
 | 2026-08-19 | 구현됨 | 프로바이더 중립 채널 표현 DI seam을 추가하고 엄격한 정규화와 Teams/Slack 페이로드 구성을 delivery에 유지했습니다. | `current change`, [이슈 #234](https://github.com/dotnetpower/fdai/issues/234), 집중 채널 검사 40개와 Ruff, formatting, strict mypy 통과 | 별도로 통제되는 런타임 작업에서만 운영 A3 전송을 연결합니다. |
 | 2026-08-19 | 구현됨 | 표현 계획이 정본 서술에서 의도를 추론하지 않도록 검증기가 수락한 의미 operation과 output shape를 영속 기술 상세에 보존했습니다. | `current change`, [이슈 #234](https://github.com/dotnetpower/fdai/issues/234), 집중 의미 processor 검사 62개와 작업 범위 Ruff 및 strict mypy 통과 | 채널 소유 구획에서 추가적인 v2 표현 산출물을 컴파일하고 렌더링합니다. |
 | 2026-08-19 | implemented | 공급자, 영속성, 의미 또는 권한 경계를 옮기지 않고 정확한 릴리스의 지속형 질문 공간 파이프라인을 정식 인터페이스 소유 문서에 배정했습니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233), [지속형 질문 공간](../interfaces/continuous-question-space-ko.md), 집중 질문 공간 검사 | 정확한 소스 라이브 인증과 인증된 예약 배포 근거를 인터페이스 소유 문서에 보존합니다. |
