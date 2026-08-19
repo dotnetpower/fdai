@@ -224,7 +224,7 @@ def build_arm_to_neutral_map(registry: ResourceTypeRegistry) -> dict[str, str]:
             by_arm_type.setdefault(entry.azure_arm_type.lower(), []).append(entry.id)
     ambiguous = sorted(arm_type for arm_type, type_ids in by_arm_type.items() if len(type_ids) > 1)
     if ambiguous:
-        _LOGGER.warning(
+        _LOGGER.debug(
             "azure_arm_reverse_map_ambiguous_types",
             extra={"count": len(ambiguous), "arm_types": ambiguous},
         )

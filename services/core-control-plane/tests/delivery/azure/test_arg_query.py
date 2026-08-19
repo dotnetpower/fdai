@@ -1908,16 +1908,21 @@ def test_extract_routes_to_requires_exact_resource_next_hop() -> None:
     )
 
 
-def test_reverse_map_reports_shared_arm_type_gap(
+def test_reverse_map_keeps_shared_arm_type_as_debug_diagnostic(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     from fdai.delivery.azure.arg_query import _build_arm_to_neutral_map
 
-    with caplog.at_level("WARNING"):
+    with caplog.at_level("DEBUG"):
         reverse = _build_arm_to_neutral_map(_vocab())
 
     assert "microsoft.web/sites" not in reverse
-    assert "azure_arm_reverse_map_ambiguous_types" in caplog.text
+    diagnostics = [
+        record
+        for record in caplog.records
+        if record.message == "azure_arm_reverse_map_ambiguous_types"
+    ]
+    assert [record.levelname for record in diagnostics] == ["DEBUG"]
 
 
 def test_extract_attached_to_from_nsg_reference() -> None:
