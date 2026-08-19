@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol
 
 from fdai_service_contracts import OperatorRole
@@ -40,6 +41,54 @@ class ProjectionReader(Protocol):
 
     async def read(self, query: ProjectionQuery) -> Mapping[str, object]:
         """Return a JSON-compatible projection or raise unavailable."""
+        ...
+
+
+@dataclass(frozen=True, slots=True)
+class InventoryImpactContext:
+    """Exact active inventory generation and its authoritative observation cutoff."""
+
+    snapshot_id: str
+    observed_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class InventoryImpactEdge:
+    """One stored-direction inventory edge visible to a bounded impact read."""
+
+    source: str
+    target: str
+    link_type: str
+
+
+@dataclass(frozen=True, slots=True)
+class InventoryImpactLinkPage:
+    """One deterministic outgoing-link page plus its source truncation state."""
+
+    edges: tuple[InventoryImpactEdge, ...]
+    truncated: bool
+
+
+class InventoryImpactReader(Protocol):
+    """Read only the active inventory identities needed for bounded impact traversal."""
+
+    async def read_inventory_impact_context(self) -> InventoryImpactContext | None:
+        """Return the active complete inventory generation, if one exists."""
+        ...
+
+    async def inventory_resource_exists(self, *, snapshot_id: str, resource_id: str) -> bool:
+        """Return whether one exact Resource identity exists in the active snapshot."""
+        ...
+
+    async def read_inventory_outgoing_links(
+        self,
+        *,
+        snapshot_id: str,
+        source_ids: tuple[str, ...],
+        link_types: tuple[str, ...],
+        limit: int,
+    ) -> InventoryImpactLinkPage:
+        """Return stored-direction links from one bounded frontier."""
         ...
 
 
@@ -157,6 +206,10 @@ __all__ = [
     "DurableReplayReader",
     "EventProposal",
     "EventProposalWriter",
+    "InventoryImpactContext",
+    "InventoryImpactEdge",
+    "InventoryImpactLinkPage",
+    "InventoryImpactReader",
     "ProjectionQuery",
     "ProjectionReader",
     "ProjectionNotFoundError",

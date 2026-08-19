@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: e06bab9a7e367ed7cfa50588770fe66f6ebe1a6d
+translation_source_sha: 40cc9341e7d78e956964f5a5dd3ebb511f9adde8
 translation_revised: 2026-08-19
 ---
 
@@ -280,6 +280,12 @@ ActionType 변환 결과 은 가산 입니다. 이전 배포 에서는
 - `GET /ontology/releases/{candidate_digest}/diff`는 보존된 선언 참조를 비교합니다.
   추가는 호환 가능, 제거는 비호환으로 판정합니다. 변경된 선언은 보존 release
   매니페스트가 과거 field-level schema를 재구성하지 않으므로 마이그레이션 검토가 필요합니다.
+- `GET /simulate/blast-radius`는 활성 인벤토리 스냅샷에 저장된 방향의 링크만 탐색합니다.
+  호출자는 정확한 Resource id 하나, 1부터 5까지의 깊이, 선언된 LinkType을 제공합니다. 응답은
+  온톨로지 release, 스냅샷 세대, 기준 시각, 완전성, 잘림 사유 및 검증되지 않은 간선 상태를
+  연결합니다. provider 속성은 반환하지 않으며 `execution_authority`와 `mutation_authority`를
+  모두 `false`로 고정합니다. Operator 데이터베이스 역할에는 활성 스냅샷 포인터와 스냅샷
+  테이블에 대한 SELECT 전용 권한만 부여합니다.
 
 Console은 `/ontology/object-types/:name`과 `/ontology/releases/:digest`에서 이러한 읽기를
 제공합니다. LinkType과 ActionType clean path는 기존 계약 inspector를 재사용합니다. 관련
@@ -296,6 +302,7 @@ ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 
 |------|------|------|------|
 | 감사 및 읽기 전용 wire 변환 결과 | implemented | Operator family 매니페스트 및 변환 결과; `services/operator-service/tests/test_operator_service_composition.py`; Console trace 테스트 | 기본 GET/HEAD 경로, 범위가 제한된 묶음 및 사용 불가 동작에 focused 검사가 있습니다. |
 | Exact-release 온톨로지 레지스트리 및 워크벤치 | implemented | `ontology_declaration_projection.py`; `ontology_dependents_projection.py`; `ontology_evidence_health_projection.py`; `ontology_release_diff_projection.py`; Operator operations 경로; `console/src/routes/ontology-object-type-detail.tsx`; focused Python 및 Console 검사 | 정확한 선언 상세, 서버 측 redaction, 범위가 제한된 종속 항목, 정직한 근거 상태, 보존 release 비교, clean route, 권한 없는 렌더링이 구현됐습니다. 인증된 로컬 Browser에서 `Decision`과 `Resource` 경로에 overflow, 원시 resource id, execute control이 없음을 확인했지만 관리되는 Browser 산출물은 보존하지 않았습니다. |
+| 활성 인벤토리 런타임 영향 범위 | implemented | `inventory_impact.py`, `PostgresFamilyStore` 영향 범위 읽기, `operator_inventory_active_read_20260819`, 엄격한 Console decoder 및 경로 테스트 | 읽기 전용 경로는 정확한 Resource 하나에서 활성 스냅샷의 저장 방향 링크를 제한된 범위로 탐색하고 provider 속성이나 실행 권한 없이 exact release, 원본 기준 시각, 완전성 및 잘림 상태를 보고합니다. |
 | 증적 기반 런타임 Context snapshot | in-progress | 온톨로지 플랫폼의 보안 ObjectSet 및 Context 계약, 기존 Console 사용 불가 상태 | 워크벤치는 카탈로그 선언과 런타임 인스턴스를 병합하지 않습니다. principal 범위 Context 증적은 별도 전달 작업으로 남아 있습니다. |
 | HIL callback 계약 | implemented | Operator IAM family 경로; `services/operator-service/tests/test_operator_iam_family.py`; full-composition 테스트 | 서명, 재생 구간, 역할, 자기 승인 금지, 정확한 pending id 및 멱등적 결정 동작이 구현됐습니다. |
 | Python task workbench 및 근거 기반 code | implemented | `services/core-control-plane/src/fdai/core/python_task/`; `services/core-control-plane/tests/core/python_task/`; Operator workflow family; Console Python task 테스트 | 정적 검증, inert 산출물, 기능 및 chat 실행 부재 경계에 focused 검사가 있습니다. |
@@ -311,11 +318,13 @@ ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 
 | 2026-08-14 | in-progress | 생성된 하나의 force graph를 운영 온톨로지로 표현하는 대신 의미 모델, 카탈로그 토폴로지 및 receipt 기반 컨텍스트 스냅샷 계약을 분리했습니다. | `current change`; 영문 및 한국어 Console 계약 문서와 focused 문서 게이트입니다. | 하나의 exact-release 생산자를 구현하고 focused 및 인증된 Console 근거를 보존해야 합니다. |
 | 2026-08-14 | in-progress | 저장된 레이아웃을 바꾸지 않으면서 카탈로그 토폴로지가 처음 나타날 때 범위가 제한된 결정적 spring-settle 효과를 추가했습니다. 조작하거나 동작 감소를 요청하면 효과를 끝내거나 건너뛰며, 지속적인 simulation은 실행하지 않습니다. | `current change`; `ontology-knowledge-graph.geometry.ts`, `ontology-knowledge-graph.renderer.ts`, `use-ontology-knowledge-graph-controller.ts`; Console 토폴로지 focused 테스트 12개와 Console 타입 검사가 통과했습니다. | 아래에 설명한 별도 관리 대상인 인증된 컨텍스트 스냅샷 근거를 보존해야 합니다. |
 | 2026-08-19 | implemented | 정확한 release 선언 워크벤치를 추가하고 선언, 런타임 근거, 의존성, release 이력 권한을 서로 다른 범위 제한 변환 결과로 유지했습니다. 역할과 목적 필터링은 Operator 응답 전에 수행하며, 사용할 수 없는 근거는 0을 포함하지 않고, release 비교는 restore 또는 migration 권한 없이 보존된 선언 참조만 사용합니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223); `current change`; focused Core delivery, materializer, Operator family, Console decoder/router/localization 테스트, Console typecheck 및 production build, 1440 x 900, 993 x 641, 390 x 844 인증 로컬 Browser 검사에서 document overflow와 execute control이 없었습니다. | 관리되는 Browser 산출물을 보존하고 principal 범위 Context snapshot을 연결합니다. InterfaceType 및 FunctionType 전용 보기는 P2 진입 조건을 측정할 때까지 deferred 상태입니다. |
+| 2026-08-19 | implemented | 영향 범위 경로를 활성 인벤토리 스냅샷의 제한된 탐색에 연결하고 singleton 포인터에 누락된 Operator SELECT 전용 권한을 추가했습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused Operator, migration, Console, 타입 및 빌드 검사, 인증된 로컬 Browser에서 exact release와 기준 시각이 포함된 완전한 깊이 1 결과, 권한 부재 및 390 px document overflow 부재를 확인했습니다. | 로컬 관측을 영속 근거로 취급하기 전에 보안 principal 범위 Context 증적과 함께 관리되는 exact-source 산출물로 보존해야 합니다. |
 
 ### 남은 작업
 
 - [ ] 스키마 한도, 정확한 source 개정, 자기 승인 금지, stale 및 멱등성 conflict, 타입이 지정된 확인, 감사 상관관계 및 직접 실행 부재를 입증하는 인증된 semantic action-draft 증적을 보존합니다.
 - [x] 하나의 exact-release 온톨로지 레지스트리와 선언 워크벤치를 구체화하고 같은 생산자에서 선언과 토폴로지 동등성을 입증하며 네 개의 의미 영역과 서로 독립적인 다섯 가지 보기를 렌더링했습니다. [이슈 #223](https://github.com/dotnetpower/fdai/issues/223)의 focused 검사와 인증 로컬 Browser 관측은 변경 권한 없이 통과했습니다.
+- [x] Exact release와 기준 시각, 명시적 잘림 상태, provider 속성 부재, 실행 및 변경 권한 부재를 갖춘 제한된 활성 인벤토리 영향 범위 탐색에 Impact scope를 연결합니다.
 - [ ] ObjectType 워크벤치의 관리되는 Browser 산출물을 보존하고 변경 권한 없이 완전성을 노출하는 인증된 principal 범위 Context snapshot을 연결합니다.
 - [ ] Operator API와 Console 전반에서 Python task 기능, 정적 검증, 근거 기반 code rendering, malformed 산출물 및 실행 부재 증적을 보존합니다.
 - [ ] 최종 상태, 근거 참조, truncation, 취소, 재생 및 사용 불가 동작에 대한 CLI, Teams, Slack 및 Web 동등성 사례를 실행하고 보존합니다.

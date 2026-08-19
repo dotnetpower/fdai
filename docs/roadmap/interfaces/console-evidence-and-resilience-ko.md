@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 8d047c9b7d192cacb931ad8582913c39c9a53d1f
+translation_source_sha: 2213e43371ab62b5f17de972919d7ef8c008427a
 translation_revised: 2026-08-19
 ---
 
@@ -13,6 +13,7 @@ translation_revised: 2026-08-19
 |------|------|------|-----------|
 | 통제된 온톨로지 보증 출처 이력 | in-progress | `console/tests/live-e2e/ontology-query-assurance*.ts`, `console/tests/live-e2e/assurance-budget.ts`, `console/tests/live-e2e/assurance-checkpoint.ts`, focused Vitest 143개 통과 | 강화된 release gate는 두 locale의 모든 operation에 완전하게 검증된 답변을 요구하고 ambient 또는 incident-bound chat 요청을 거부합니다. 실행은 질문별 및 무진행 deadline을 갖춘 유도된 budget으로 제한되고 evidence identity에 바인딩된 checkpoint에서 재개하며, 소진된 budget은 ready 아티팩트를 보고하지 않습니다. |
 | Exact-release 온톨로지 카탈로그 및 선언 워크벤치 | implemented | `ontology_console_projection.py`, `ontology_{declaration,dependents,evidence_health,release_diff}_projection.py`, `materialize-authoritative-catalogs.py`, Console 워크벤치 경로, focused Python 및 Console 검사 | 하나의 생산자가 exact release 신원과 변경 권한 부재를 유지하면서 요약, 선언 상세, 종속 항목, 정제된 근거 상태, release 비교 및 카탈로그 토폴로지를 제공합니다. 증적 기반 Context 근거는 남아 있습니다. |
+| 활성 인벤토리 영향 범위 | implemented | `inventory_impact.py`, 엄격한 `blast-radius.model.ts` decoder, Operator 및 Console focused 검사, 인증된 로컬 Browser 관측 | Console은 exact release, 스냅샷 세대와 기준 시각, 완전성, 잘림 상태 및 검증되지 않은 간선 상태를 포함하는 저장 방향의 제한된 탐색을 렌더링합니다. 응답에는 provider 속성이 없고 실행 또는 변경 권한을 부여하지 않습니다. |
 | 의미 모델 및 관계 방향 | 구현됨 | `ontology-semantic-model.ts`, `ontology-semantic-map.tsx`, 카탈로그 토폴로지 renderer 및 inspector, focused Vitest 23개 및 Console 타입 검사 통과 | 검토된 네 가지 의미 영역, 다섯 가지 운영 보기, 화살표 및 분리된 들어오는 관계와 나가는 관계를 구현했습니다. 인증된 데스크톱 및 모바일 근거는 남아 있습니다. |
 | 에이전트 활동 하트비트 표현 | validated | `console/src/routes/agents.model.ts`, `console/src/routes/agents.model.test.ts`, `docs/baselines/agent-activity-heartbeat-assurance-2026-08-14.json`, focused Vitest 31개 통과 및 인증된 Browser Entra assurance | 두 번 새로고치는 동안 연속된 하트비트 시각 세 개가 증가했고 인증된 self 검사 세 번이 모두 성공했으며 런타임 초기화 행은 0개였습니다. |
 | Command Deck JSON 대비 | 구현됨 | `console/src/styles.css`, `console/src/deck/command-deck-workspace-visual.test.ts`, focused Vitest 10개 통과 및 인증된 브라우저 검사 | 구문 강조 JSON은 전역의 밝은 `pre` 스타일과 관계없이 고정된 어두운 코드 표면을 유지합니다. 브라우저 검사는 통제된 런타임 근거로 보존하지 않았습니다. |
@@ -72,6 +73,7 @@ translation_revised: 2026-08-19
 | 2026-08-19 | implemented | 전용 Typography 페이지를 직접 시안 사이드바와 내부 키트 랜딩뿐 아니라 공유 세션 브라우저가 사용하는 저장소 루트 시안 인덱스에도 등록했습니다. | `current change`, [이슈 #212](https://github.com/dotnetpower/fdai/issues/212), 집중 탐색 계약 및 시안 시각 경계 테스트, 공유 브라우저에서 `#mocks/ui/typography.html` 선택과 루트 Labs 항목 활성화 및 미리 보기 프레임의 전용 페이지 로드를 확인했습니다. | Typography 시안 진입점에는 남은 작업이 없습니다. |
 | 2026-08-19 | implemented | 30개 finding 비평 뒤 Components 시연 23개와 두 시안 셸을 모두 강화했습니다. 검색, 정확한 구역 경로, 이해하기 쉬운 표시 용어, synthetic 및 어두운 미리 보기 상태, 키보드 tab과 dialog, 반응형 탐색, 접근 가능한 표와 터치 계약이 이제 하나의 참조 화면을 공유합니다. | `current change`, [이슈 #215](https://github.com/dotnetpower/fdai/issues/215), 시안 Node 계약 12개 통과, Console 시각 및 토큰 계약 5개 통과, 1440 px, 993 px, 390 px 브라우저 검사에서 조치 가능한 의미, overflow, 12 px 미만 텍스트 및 터치 대상 finding이 0개였습니다. | Components 참조 갤러리와 두 정적 셸의 범위가 제한된 잔여 작업은 없습니다. |
 | 2026-08-19 | implemented | 정확한 속성, 수명주기, 출처, 관계, 거버넌스 적용 ActionType, 근거 상태, 종속 항목, release 호환성 구역을 제공하는 ObjectType 선언 워크벤치를 추가했습니다. 인증된 로컬 Console에서 `Decision`의 사용 불가 근거와 `Resource` 집계 근거를 표시했고 원시 resource id, execute control, 1440 x 900, 993 x 641, 390 x 844 document overflow는 없었습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223); `current change`; focused Python 테스트 50개, focused Console 테스트 43개, typecheck, production build, Ruff 및 strict mypy가 통과했습니다. | 이 영역을 `validated`로 변경하기 전에 Browser 결과를 관리되는 exact-source 산출물로 보존하고 보안 principal 범위 Context 증적을 연결합니다. |
+| 2026-08-19 | implemented | 연결되지 않았던 Impact scope 변환 결과를 제한된 활성 스냅샷 탐색으로 교체하고 Resource 선언 워크벤치에서 진입할 수 있게 했습니다. 인증된 로컬 Console은 exact release와 기준 시각, 고정된 권한 부재 플래그를 포함하는 완전한 깊이 1 간선 하나를 반환했고 390 px document overflow가 없었습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused Operator, migration, Console, 타입 및 production build 검사입니다. | 이 영역을 `validated`로 변경하기 전에 관측을 관리되는 exact-source 산출물로 보존하고 보안 principal 범위 Context 증적을 연결합니다. |
 
 ### 잔여 작업
 
@@ -83,6 +85,7 @@ translation_revised: 2026-08-19
 - [ ] 의미 모델과 카탈로그 토폴로지가 일치하는 하나의 온톨로지 릴리스를 표시하고 보안 receipt가 없으면 컨텍스트가 사용 불가로 유지됨을 보여 주는 인증된 Browser 근거를 보존합니다.
 - [ ] 완전한 근거 경로와 사용 불가 근거 경로, exact release 신원, 키보드 탐색, 세 가지 viewport
 	overflow 검사를 포함하는 ObjectType 워크벤치의 관리되는 exact-source Browser 산출물을 보존합니다.
+- [x] Exact release와 기준 시각, 명시적 완전성 및 잘림 상태, 실행 및 변경 권한 부재를 갖춘 제한된 활성 인벤토리 영향 범위 결과를 렌더링합니다.
 - [x] 의미 기반 토큰과 반응형 컴포넌트 갤러리 표본을 통해 Console과 정적 시안의 페이지 제목, 페이지 부제목, 본문, 간결한 본문, 레이블 및 캡션 타이포그래피를 일치시킵니다.
 - [x] focused 계약과 세 가지 viewport 브라우저 검사를 통해 Components 갤러리와 두 정적 셸을 검색 가능하고 정확한 링크를 제공하며 키보드로 접근할 수 있고 overflow가 없으며 synthetic 미리 보기 데이터를 명시하도록 유지합니다.
 ## 탐색 컨텍스트

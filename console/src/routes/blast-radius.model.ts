@@ -10,6 +10,166 @@ export interface BlastRadiusQuery {
   readonly architectureView: string | null;
 }
 
+export interface ReachedNode {
+  readonly resource_id: string;
+  readonly depth: number;
+  readonly via_link_type: string | null;
+}
+
+export interface TraversedEdge {
+  readonly source: string;
+  readonly target: string;
+  readonly link_type: string;
+  readonly depth: number;
+  readonly verification_status: "verified" | "unverified";
+}
+
+export interface BlastRadiusResponse {
+  readonly schema_version: "1.0.0";
+  readonly ontology_release_digest: string;
+  readonly source_generation: string;
+  readonly source_cutoff: string;
+  readonly target: string;
+  readonly traversal_depth: number;
+  readonly traversal_links: readonly string[];
+  readonly reached: readonly ReachedNode[];
+  readonly edges: readonly TraversedEdge[];
+  readonly affected_count: number;
+  readonly complete: boolean;
+  readonly truncated_at_depth: boolean;
+  readonly truncation_reasons: readonly ("depth_limit" | "edge_limit")[];
+  readonly execution_authority: false;
+  readonly mutation_authority: false;
+}
+
+export function decodeBlastRadiusResponse(value: unknown): BlastRadiusResponse {
+  const record = impactRecord(value, "response");
+  if (record.schema_version !== "1.0.0"
+    || record.execution_authority !== false
+    || record.mutation_authority !== false) {
+    throw new Error("impact response MUST be read-only schema version 1.0.0");
+  }
+  const releaseDigest = impactString(record, "ontology_release_digest");
+  if (!/^sha256:[a-f0-9]{64}$/.test(releaseDigest)) {
+    throw new Error("impact ontology release digest MUST be sha256");
+  }
+  const target = impactString(record, "target");
+  const traversalDepth = impactInteger(record, "traversal_depth", 1, 5);
+  const traversalLinks = impactStringArray(record.traversal_links, "traversal_links");
+  if (traversalLinks.length === 0) throw new Error("impact traversal_links MUST NOT be empty");
+  const reached = impactArray(record.reached, "reached").map((raw) => {
+    const item = impactRecord(raw, "reached item");
+    const via = item.via_link_type;
+    if (via !== null && (typeof via !== "string" || !via)) {
+      throw new Error("impact via_link_type MUST be null or non-empty");
+    }
+    return {
+      resource_id: impactString(item, "resource_id"),
+      depth: impactInteger(item, "depth", 0, traversalDepth),
+      via_link_type: via as string | null,
+    };
+  });
+  const identities = reached.map((item) => item.resource_id);
+  if (new Set(identities).size !== identities.length
+    || reached.filter((item) => item.resource_id === target && item.depth === 0).length !== 1) {
+    throw new Error("impact reached identities MUST be unique and include the target root");
+  }
+  const edges = impactArray(record.edges, "edges").map((raw) => {
+    const item = impactRecord(raw, "edge");
+    const verification = item.verification_status;
+    if (verification !== "verified" && verification !== "unverified") {
+      throw new Error("impact edge verification_status MUST be bounded");
+    }
+    const verificationStatus: TraversedEdge["verification_status"] = verification;
+    const linkType = impactString(item, "link_type");
+    if (!traversalLinks.includes(linkType)) {
+      throw new Error("impact edge link_type MUST belong to the traversal request");
+    }
+    return {
+      source: impactString(item, "source"),
+      target: impactString(item, "target"),
+      link_type: linkType,
+      depth: impactInteger(item, "depth", 1, traversalDepth),
+      verification_status: verificationStatus,
+    };
+  });
+  const affectedCount = impactInteger(record, "affected_count", 0, Number.MAX_SAFE_INTEGER);
+  if (affectedCount !== reached.length - 1) {
+    throw new Error("impact affected_count MUST match reached identities excluding the target");
+  }
+  const reasons = impactStringArray(record.truncation_reasons, "truncation_reasons");
+  if (reasons.some((reason) => reason !== "depth_limit" && reason !== "edge_limit")) {
+    throw new Error("impact truncation reasons MUST be bounded");
+  }
+  if (typeof record.complete !== "boolean" || typeof record.truncated_at_depth !== "boolean") {
+    throw new Error("impact completeness flags MUST be boolean");
+  }
+  if (record.complete !== (reasons.length === 0)
+    || record.truncated_at_depth !== reasons.includes("depth_limit")) {
+    throw new Error("impact completeness flags MUST match truncation reasons");
+  }
+  const sourceCutoff = impactString(record, "source_cutoff");
+  if (!Number.isFinite(Date.parse(sourceCutoff))) {
+    throw new Error("impact source_cutoff MUST be an RFC 3339 timestamp");
+  }
+  return {
+    schema_version: "1.0.0",
+    ontology_release_digest: releaseDigest,
+    source_generation: impactString(record, "source_generation"),
+    source_cutoff: sourceCutoff,
+    target,
+    traversal_depth: traversalDepth,
+    traversal_links: traversalLinks,
+    reached,
+    edges,
+    affected_count: affectedCount,
+    complete: record.complete,
+    truncated_at_depth: record.truncated_at_depth,
+    truncation_reasons: reasons as BlastRadiusResponse["truncation_reasons"],
+    execution_authority: false,
+    mutation_authority: false,
+  };
+}
+
+function impactRecord(value: unknown, label: string): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(`impact ${label} MUST be an object`);
+  }
+  return value as Record<string, unknown>;
+}
+
+function impactString(record: Record<string, unknown>, key: string): string {
+  const value = record[key];
+  if (typeof value !== "string" || !value) throw new Error(`impact ${key} MUST be non-empty`);
+  return value;
+}
+
+function impactInteger(
+  record: Record<string, unknown>,
+  key: string,
+  minimum: number,
+  maximum: number,
+): number {
+  const value = record[key];
+  if (!Number.isInteger(value) || (value as number) < minimum || (value as number) > maximum) {
+    throw new Error(`impact ${key} MUST be an integer in [${minimum}, ${maximum}]`);
+  }
+  return value as number;
+}
+
+function impactArray(value: unknown, label: string): unknown[] {
+  if (!Array.isArray(value)) throw new Error(`impact ${label} MUST be an array`);
+  return value;
+}
+
+function impactStringArray(value: unknown, label: string): string[] {
+  const values = impactArray(value, label);
+  if (values.some((item) => typeof item !== "string" || !item)) {
+    throw new Error(`impact ${label} values MUST be non-empty strings`);
+  }
+  return values as string[];
+}
+
 export function blastRadiusQueryFromSearch(search: string): BlastRadiusQuery {
   const params = new URLSearchParams(search.replace(/^\?/, ""));
   const target = params.get("target")?.trim() || null;

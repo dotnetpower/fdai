@@ -336,6 +336,20 @@ function OntologyObjectTypeWorkbench({ data }: { readonly data: WorkbenchData })
         )}
       </DetailSection>
 
+      <DetailSection title={t("ontology.detail.runtimeImpactTitle")}>
+        {declaration.name === "Resource"
+          && evidenceHealth?.availability === "available" ? (
+          <div class="ontology-runtime-impact">
+            <p>{t("ontology.detail.runtimeImpactDescription")}</p>
+            <a class="button button-secondary" href="/blast-radius">
+              {t("ontology.detail.openImpactScope")}
+            </a>
+          </div>
+        ) : (
+          <UnavailableState message={t("ontology.detail.runtimeImpactUnavailable")} />
+        )}
+      </DetailSection>
+
       <DetailSection title={t("ontology.detail.dependentsTitle")}>
         {dependents.truncated ? (
           <div class="state-block state-unavailable" role="status">

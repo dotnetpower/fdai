@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { OperatorApiError } from "../api";
 import { blastRadiusFailure } from "./blast-radius";
 import {
+  decodeBlastRadiusResponse,
   blastRadiusHref,
   blastRadiusQueryFromSearch,
   blastRadiusRequestIsCurrent,
@@ -73,5 +74,66 @@ describe("blast-radius route query", () => {
       status: "error",
       message: "inventory failed",
     });
+  });
+
+  test("decodes an exact-release no-authority impact projection", () => {
+    const digest = `sha256:${"a".repeat(64)}`;
+    const decoded = decodeBlastRadiusResponse({
+      schema_version: "1.0.0",
+      ontology_release_digest: digest,
+      source_generation: "generation-1",
+      source_cutoff: "2026-08-19T00:00:00+00:00",
+      target: "root",
+      traversal_depth: 1,
+      traversal_links: ["contains"],
+      reached: [
+        { resource_id: "root", depth: 0, via_link_type: null },
+        { resource_id: "child", depth: 1, via_link_type: "contains" },
+      ],
+      edges: [{
+        source: "root",
+        target: "child",
+        link_type: "contains",
+        depth: 1,
+        verification_status: "unverified",
+      }],
+      affected_count: 1,
+      complete: true,
+      truncated_at_depth: false,
+      truncation_reasons: [],
+      execution_authority: false,
+      mutation_authority: false,
+    });
+
+    expect(decoded.affected_count).toBe(1);
+    expect(decoded.mutation_authority).toBe(false);
+  });
+
+  test("rejects authority and contradictory completeness", () => {
+    const base = {
+      schema_version: "1.0.0",
+      ontology_release_digest: `sha256:${"a".repeat(64)}`,
+      source_generation: "generation-1",
+      source_cutoff: "2026-08-19T00:00:00+00:00",
+      target: "root",
+      traversal_depth: 1,
+      traversal_links: ["contains"],
+      reached: [{ resource_id: "root", depth: 0, via_link_type: null }],
+      edges: [],
+      affected_count: 0,
+      complete: true,
+      truncated_at_depth: false,
+      truncation_reasons: [],
+      execution_authority: false,
+      mutation_authority: false,
+    };
+
+    expect(() => decodeBlastRadiusResponse({ ...base, mutation_authority: true }))
+      .toThrow("MUST be read-only");
+    expect(() => decodeBlastRadiusResponse({
+      ...base,
+      complete: true,
+      truncation_reasons: ["edge_limit"],
+    })).toThrow("MUST match truncation reasons");
   });
 });

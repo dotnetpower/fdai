@@ -8,6 +8,16 @@
   "migration_dependencies": [
     {
       "consumer_service": "operator-service",
+      "consumer_revision": "operator_inventory_active_read_20260819",
+      "provider_service": "core-control-plane",
+      "provider_revision": "core_shared_data_ownership_20260808",
+      "schema_prerequisites": [
+        "inventory_active"
+      ],
+      "provider_rollback": "blocked-until-operator-read-grant-rollback"
+    },
+    {
+      "consumer_service": "operator-service",
       "consumer_revision": "operator_incident_projection_read_20260819",
       "provider_service": "core-control-plane",
       "provider_revision": "core_incident_projection_20260819",

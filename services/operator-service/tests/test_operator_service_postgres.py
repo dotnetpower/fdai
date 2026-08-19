@@ -596,6 +596,8 @@ async def test_operator_readiness_verifies_role_and_privileges_without_durable_w
         "'inventory_snapshot_resource', 'INSERT,UPDATE,DELETE'",
         "has_table_privilege(current_user, 'inventory_snapshot_link', 'SELECT')",
         "'inventory_snapshot_link', 'INSERT,UPDATE,DELETE'",
+        "has_table_privilege(current_user, 'inventory_active', 'SELECT')",
+        "'inventory_active', 'INSERT,UPDATE,DELETE'",
         "has_table_privilege(current_user, 'conversation_record', 'SELECT')",
         "'conversation_record', 'INSERT,UPDATE,DELETE'",
         "has_table_privilege(current_user, 'conversation_turn', 'SELECT')",

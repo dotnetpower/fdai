@@ -44,6 +44,9 @@ from fdai_operator_service.families.operations.contracts import (
     ReplayEvent,
     ReplayQuery,
 )
+from fdai_operator_service.families.operations.inventory_impact import (
+    project_inventory_impact,
+)
 from fdai_operator_service.families.workflow.contracts import (
     ProjectionProvenance,
     WorkflowOperation,
@@ -359,6 +362,19 @@ class PostgresOperationsAdapters:
 
     async def read(self, query: ProjectionQuery) -> Mapping[str, object]:
         """Read one explicitly materialized operations projection."""
+        if query.operation == "blast_radius.simulate":
+            try:
+                ontology_projection = await self.store.read_projection(
+                    family="operations",
+                    operation="ontology.graph",
+                )
+                return await project_inventory_impact(
+                    query=query,
+                    reader=self.store,
+                    ontology_projection=ontology_projection,
+                )
+            except PostgresFamilyStoreUnavailable as exc:
+                raise ProjectionUnavailableError from exc
         operation = query.operation
         if operation in {"ontology.declaration.detail", "ontology.declaration.dependents"}:
             operation = (

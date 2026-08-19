@@ -450,6 +450,26 @@ def test_operator_activity_projection_has_exact_read_only_inventory_grants() -> 
     assert "GRANT DELETE" not in source
 
 
+def test_operator_active_inventory_pointer_has_exact_read_only_grant() -> None:
+    revision_path = (
+        MIGRATION_ROOT
+        / "branches/operator-service/versions/20260819_operator_inventory_active_read.py"
+    )
+    source = revision_path.read_text(encoding="utf-8")
+    migration = runpy.run_path(str(revision_path))
+
+    assert (
+        "down_revision: str | Sequence[str] | None = "
+        '"operator_incident_projection_read_20260819"' in source
+    )
+    assert migration["owned_tables"] == ()
+    assert "FROM PUBLIC, fdai_operator" in source
+    assert "GRANT SELECT ON TABLE inventory_active TO fdai_operator" in source
+    assert "GRANT INSERT" not in source
+    assert "GRANT UPDATE" not in source
+    assert "GRANT DELETE" not in source
+
+
 def test_worker_migration_widens_claim_check_and_blocks_inflight_deletion() -> None:
     revision_path = (
         MIGRATION_ROOT

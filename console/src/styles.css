@@ -11044,6 +11044,8 @@ main { padding-bottom: 60px !important; }
 .ontology-technical-details { margin-top: 8px; }
 .ontology-release-summary { margin-top: 24px; }
 .ontology-release-boundary { margin: 10px 0 0; max-width: 76ch; }
+.ontology-runtime-impact { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.ontology-runtime-impact p { max-width: 76ch; margin: 0; color: var(--fg-muted); }
 .ontology-technical-details dl { margin: 12px 0 0; }
 .ontology-technical-details dl > div { padding: 8px 0; border-bottom: 1px solid var(--border); }
 .ontology-detail-skeleton { display: grid; gap: 24px; min-height: 620px; }
@@ -11074,6 +11076,8 @@ main { padding-bottom: 60px !important; }
   .ontology-release-route .page-header-actions a,
   .ontology-detail-table a { display: inline-flex; align-items: center; min-height: 44px; }
   .ontology-related-actions li { grid-template-columns: 1fr; gap: 5px; }
+  .ontology-runtime-impact { align-items: stretch; flex-direction: column; }
+  .ontology-runtime-impact a { justify-content: center; min-height: 44px; }
 }
 .ontology-semantic-map { display: grid; gap: 12px; min-width: 0; }
 .ontology-semantic-map > * { min-width: 0; width: 100%; max-width: 100%; }

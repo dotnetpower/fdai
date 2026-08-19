@@ -19,11 +19,15 @@ import { TERMS, composeGlossary } from "../deck/glossary";
 import { currentRoute, navigate, replaceRouteState, routeHref } from "../router";
 import {
   BLAST_RADIUS_LINKS,
+  decodeBlastRadiusResponse,
   blastRadiusHref,
   blastRadiusQueryFromSearch,
   blastRadiusRequestIsCurrent,
   DEFAULT_BLAST_RADIUS_LINKS,
+  type BlastRadiusResponse,
   type BlastRadiusQuery,
+  type ReachedNode,
+  type TraversedEdge,
 } from "./blast-radius.model";
 import { formatNumber, t } from "./i18n/ontology";
 
@@ -36,29 +40,6 @@ import { formatNumber, t } from "./i18n/ontology";
  * Purely read-only. There is no button that mutates state; the panel
  * is a projection over the ontology graph the API knows about.
  */
-
-interface ReachedNode {
-  readonly resource_id: string;
-  readonly depth: number;
-  readonly via_link_type: string | null;
-}
-
-interface TraversedEdge {
-  readonly source: string;
-  readonly target: string;
-  readonly link_type: string;
-  readonly depth: number;
-}
-
-interface BlastRadiusResponse {
-  readonly target: string;
-  readonly traversal_depth: number;
-  readonly traversal_links: readonly string[];
-  readonly reached: readonly ReachedNode[];
-  readonly edges: readonly TraversedEdge[];
-  readonly affected_count: number;
-  readonly truncated_at_depth: boolean;
-}
 
 interface Props {
   readonly client: OperatorApiClient;
@@ -156,7 +137,8 @@ export function BlastRadiusRoute({ client }: Props) {
       params.set("depth", String(query.depth));
       for (const link of query.links) params.append("link", link);
       const url = `/simulate/blast-radius?${params.toString()}`;
-      const data = await client.panel<BlastRadiusResponse>(url);
+      const payload = await client.panel<unknown>(url);
+      const data = decodeBlastRadiusResponse(payload);
       if (blastRadiusRequestIsCurrent(requestGeneration.current, generation)) {
         setState({ status: "ready", data });
       }
@@ -294,7 +276,7 @@ function ReportView({ data, client, architectureView }: { readonly data: BlastRa
       routeLabel: t("ontology.context.impactLabel"),
       purpose: t("ontology.context.impactPurpose"),
       glossary: composeGlossary([TERMS.blastRadius, TERMS.actionType]),
-      headline: t(data.truncated_at_depth
+      headline: t(!data.complete
         ? "ontology.context.impactHeadlineTruncated"
         : "ontology.context.impactHeadline", {
         resources: formatNumber(data.affected_count),
@@ -307,7 +289,10 @@ function ReportView({ data, client, architectureView }: { readonly data: BlastRa
         { key: "links", value: data.traversal_links.join(", ") || t("ontology.context.none"), group: "query" },
         { key: "affected_count", value: data.affected_count, group: "result" },
         { key: "edge_count", value: data.edges.length, group: "result" },
-        { key: "truncated", value: data.truncated_at_depth, group: "result" },
+        { key: "complete", value: data.complete, group: "result" },
+        { key: "truncation_reasons", value: data.truncation_reasons.join(", "), group: "result" },
+        { key: "source_generation", value: data.source_generation, group: "evidence" },
+        { key: "source_cutoff", value: data.source_cutoff, group: "evidence" },
       ],
       records: {
         reached: data.reached.map((n) => ({
@@ -364,8 +349,8 @@ function ReportView({ data, client, architectureView }: { readonly data: BlastRa
         <span class="is-steel"><strong>{data.target}</strong></span>
         <span>{t("ontology.blast.depthSummary", { depth: formatNumber(data.traversal_depth) })}</span>
         <span>{data.traversal_links.join(" + ") || t("ontology.blast.noLinks")}</span>
-        <span class={data.truncated_at_depth ? "is-plum" : "is-teal"}>
-          {data.truncated_at_depth ? t("ontology.blast.truncated") : t("ontology.blast.complete")}
+        <span class={!data.complete ? "is-plum" : "is-teal"}>
+          {!data.complete ? t("ontology.blast.truncated") : t("ontology.blast.complete")}
         </span>
       </div>
       <KpiGrid>
@@ -383,9 +368,9 @@ function ReportView({ data, client, architectureView }: { readonly data: BlastRa
         <KpiCard
           href={evidenceHref}
           label={t("ontology.blast.truncatedAtCap")}
-          value={data.truncated_at_depth ? t("ontology.common.yes") : t("ontology.common.no")}
-          tone={data.truncated_at_depth ? "warning" : "positive"}
-          hint={data.truncated_at_depth ? t("ontology.blast.raiseDepth") : t("ontology.blast.fullGraph")}
+          value={!data.complete ? t("ontology.common.yes") : t("ontology.common.no")}
+          tone={!data.complete ? "warning" : "positive"}
+          hint={!data.complete ? data.truncation_reasons.join(", ") : t("ontology.blast.fullGraph")}
         />
       </KpiGrid>
 

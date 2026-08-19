@@ -17,6 +17,11 @@ import psycopg
 from psycopg.rows import dict_row
 
 from fdai_operator_service.environment import EXPECTED_DATABASE_ROLE
+from fdai_operator_service.families.operations.contracts import (
+    InventoryImpactContext,
+    InventoryImpactEdge,
+    InventoryImpactLinkPage,
+)
 from fdai_operator_service.postgres_semantic_turn_store import (
     PostgresSemanticTurnRepository,
     SemanticTurnClaim,
@@ -77,6 +82,8 @@ SELECT (
     AND NOT has_table_privilege(
         current_user, 'inventory_snapshot_link', 'INSERT,UPDATE,DELETE'
     )
+    AND has_table_privilege(current_user, 'inventory_active', 'SELECT')
+    AND NOT has_table_privilege(current_user, 'inventory_active', 'INSERT,UPDATE,DELETE')
     AND has_table_privilege(current_user, 'conversation_record', 'SELECT')
     AND NOT has_table_privilege(
         current_user, 'conversation_record', 'INSERT,UPDATE,DELETE'
@@ -265,6 +272,85 @@ class PostgresFamilyStore:
                 f"authoritative {family} projection is unavailable for {operation}"
             )
         return _json_object(rows[0].get("value"), label=key)
+
+    async def read_inventory_impact_context(self) -> InventoryImpactContext | None:
+        """Read the exact active snapshot identity and cutoff without provider payloads."""
+
+        rows = await self._fetch_all(
+            "SELECT snapshot.id, snapshot.completed_at "
+            "FROM inventory_active AS active "
+            "JOIN inventory_snapshot AS snapshot ON snapshot.id = active.snapshot_id "
+            "WHERE active.singleton = TRUE "
+            "AND snapshot.status = 'active' "
+            "AND snapshot.completed_at IS NOT NULL",
+            {},
+        )
+        if not rows:
+            return None
+        snapshot_id = str(rows[0].get("id") or "")
+        if not snapshot_id:
+            raise PostgresFamilyStoreUnavailable("active inventory snapshot identity is malformed")
+        return InventoryImpactContext(
+            snapshot_id=snapshot_id,
+            observed_at=_stored_timestamp(
+                rows[0].get("completed_at"),
+                label="active inventory snapshot",
+            ),
+        )
+
+    async def inventory_resource_exists(self, *, snapshot_id: str, resource_id: str) -> bool:
+        """Check one exact Resource identity inside the selected snapshot."""
+
+        rows = await self._fetch_all(
+            "SELECT 1 AS present FROM inventory_snapshot_resource "
+            "WHERE snapshot_id = %(snapshot_id)s AND resource_id = %(resource_id)s "
+            "LIMIT 1",
+            {"snapshot_id": snapshot_id, "resource_id": resource_id},
+        )
+        return bool(rows)
+
+    async def read_inventory_outgoing_links(
+        self,
+        *,
+        snapshot_id: str,
+        source_ids: tuple[str, ...],
+        link_types: tuple[str, ...],
+        limit: int,
+    ) -> InventoryImpactLinkPage:
+        """Read one stable stored-direction frontier with an explicit edge bound."""
+
+        if not source_ids or len(source_ids) > 1_000:
+            raise ValueError("inventory impact frontier MUST contain 1 to 1000 Resources")
+        if not link_types or len(link_types) > 16:
+            raise ValueError("inventory impact link types MUST contain 1 to 16 values")
+        if not 1 <= limit <= 1_000:
+            raise ValueError("inventory impact link limit MUST be in [1, 1000]")
+        rows = await self._fetch_all(
+            "SELECT from_id, link_type, to_id "
+            "FROM inventory_snapshot_link "
+            "WHERE snapshot_id = %(snapshot_id)s "
+            "AND from_id = ANY(%(source_ids)s) "
+            "AND link_type = ANY(%(link_types)s) "
+            "ORDER BY from_id, link_type, to_id "
+            "LIMIT %(probe)s",
+            {
+                "snapshot_id": snapshot_id,
+                "source_ids": list(source_ids),
+                "link_types": list(link_types),
+                "probe": limit + 1,
+            },
+        )
+        return InventoryImpactLinkPage(
+            edges=tuple(
+                InventoryImpactEdge(
+                    source=str(row.get("from_id") or ""),
+                    target=str(row.get("to_id") or ""),
+                    link_type=str(row.get("link_type") or ""),
+                )
+                for row in rows[:limit]
+            ),
+            truncated=len(rows) > limit,
+        )
 
     async def read_state_page(
         self,
