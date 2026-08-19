@@ -593,8 +593,11 @@ What we adopt from the general AIOps model, and where we intentionally differ:
   emit a false finding or auto-act.
 - Repeated-event Incident policy is startup-bound Runtime Settings:
   `incident.auto_open.enabled` (default `true`), `incident.auto_open.min_severity` (default `high`),
-  `incident.repeat_threshold` (default `5`, range `2-100`), and
-  `incident.repeat_window_seconds` (default `300`, range `10-86400`). Invalid values fail startup.
+  `incident.repeat_threshold` (default `5`, range `2-100`),
+  `incident.repeat_window_seconds` (default `300`, range `10-86400`),
+  `incident.security_high_threshold` (default `5`, range `1-100`),
+  `incident.security_window_events` (default `100`, range `1-10000`), and
+  `incident.alert_rate_per_hour` (default `5`, range `1-1000`). Invalid values fail startup.
   Severity maps deterministically from `critical/high/medium/low/info` to `SEV1-SEV5`; composition
   does not replace every candidate with a fixed severity.
 - Detection findings are **untrusted input**; any LLM use (fuzzy correlation, T2 RCA) passes the

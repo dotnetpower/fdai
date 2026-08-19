@@ -515,6 +515,22 @@ async def test_runtime_injects_configured_heimdall_repeat_policy() -> None:
     assert len(candidates) == 1
 
 
+def test_runtime_injects_configured_heimdall_security_policy() -> None:
+    runtime = PantheonRuntime.build(
+        provider=InMemoryEventBus(),
+        raw_event_topic=_RAW_TOPIC,
+        heimdall_security_high_threshold=7,
+        heimdall_security_window_events=250,
+        heimdall_alert_rate_per_hour=12,
+    )
+    heimdall = runtime.agents["Heimdall"]
+    assert isinstance(heimdall, Heimdall)
+
+    assert heimdall._security_high_threshold == 7  # noqa: SLF001
+    assert heimdall._security_recent.maxlen == 250  # noqa: SLF001
+    assert heimdall._alert_rate_per_hour == 12  # noqa: SLF001
+
+
 async def test_runtime_feeds_uncovered_incident_symptom_to_norns() -> None:
     runtime = PantheonRuntime.build(
         provider=InMemoryEventBus(),

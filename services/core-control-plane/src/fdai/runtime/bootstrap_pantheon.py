@@ -317,6 +317,18 @@ async def initialize_pantheon(
             config.runtime_values,
             "incident.repeat_window_seconds",
         ),
+        heimdall_security_high_threshold=config.runtime_positive_integer(
+            config.runtime_values,
+            "incident.security_high_threshold",
+        ),
+        heimdall_security_window_events=config.runtime_positive_integer(
+            config.runtime_values,
+            "incident.security_window_events",
+        ),
+        heimdall_alert_rate_per_hour=config.runtime_positive_integer(
+            config.runtime_values,
+            "incident.alert_rate_per_hour",
+        ),
         read_investigation_hook=config.read_investigation_hook,
         discovery_projector=config.build_inventory_delta_projector(),
         scenario_coverage_aggregator=ScenarioCoverageAggregator(index=config.runtime_symptom_index),

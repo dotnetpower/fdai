@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 4f019e8100f465f8e23bf13f445fff9ef6503c5d
+translation_source_sha: a23e45312f89aab2ee290603a1e10c6f4d8185cc
 translation_revised: 2026-08-19
 ---
 
@@ -44,6 +44,7 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-13 | in-progress | 이전 제공 이력을 재구성하지 않고 근거 범위를 명시한 구현 원장을 도입했습니다. | 현재 변경 | 검증 완료 또는 enforce 사용을 주장하기 전에 실제 운영 근거를 수집하고 독립적으로 검토된 승격을 완료합니다. |
+| 2026-08-19 | implemented | Heimdall의 AgentSpec, topic, 소유 객체, 결정론적 hot path 또는 권한을 바꾸지 않고 남은 production 보안 상관관계 threshold를 bounded startup setting에 연결했습니다. Framework 줄 상한을 유지하기 위해 raw Huginn ingress handler 구성을 private subscription wiring 모듈로 옮겼을 뿐이며 정규화 및 drop 의미는 바뀌지 않았습니다. | [이슈 #219](https://github.com/dotnetpower/fdai/issues/219). Focused setting, Heimdall 주입, framework layout, raw ingress 및 threshold source 검사 134개가 통과했습니다. | Runtime exit gate 근거와 독립 promotion outcome은 바뀌지 않았습니다. |
 | 2026-08-19 | implemented | AgentSpec, 토픽, 소유권, LLM 정책 또는 권한을 바꾸지 않고 Norns의 비활성 후보 게시를 기본적으로 닫힌 발견 활성화 결정에 연결했습니다. 닫힌 게이트는 이후 평가를 위해 범위가 제한된 대기 큐를 보존합니다. | `current change`; 집중 발견 활성화, Norns, 시작 연결, 수집기 및 인프라 검사. | 운영 검증을 주장하기 전에 통제된 수집기 및 활성화 전이 증적을 보존합니다. |
 | 2026-08-13 | implemented | Mimir의 권한을 넓히지 않고 검증된 Rule 세대 명령 유입과 최종 결과 책임을 Mimir에 연결했습니다. | `current change`, 집중 Mimir, 런타임, bootstrap, 활성화 및 발행 검사 32개 통과 | 운영 검증을 주장하기 전에 통제된 실제 활성화 결과 증적을 보존합니다. |
 | 2026-08-13 | implemented | 토픽, 소유권 또는 권한을 변경하지 않고 런타임 모듈의 프레임워크 레이아웃 경계를 복구하도록 비공개 Rule 세대 구독 연결을 추출했습니다. | [`runtime_subscriptions.py`](../../../services/core-control-plane/src/fdai/agents/_framework/runtime_subscriptions.py), 프레임워크 레이아웃, 런타임 및 판테온 동등성 검사 통과 | 구현 범위에서 요구하는 동일한 통제된 실제 근거를 보존합니다. |

@@ -1,7 +1,7 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: f2f61f9eebae8845ed986ddb4f3340574c5679e0
+translation_source_sha: 7d6d10727c27356fcab3d34502debe556ba0262e
 translation_revised: 2026-08-19
 ---
 
@@ -472,6 +472,7 @@ provenance:
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | implemented | 헌법 제4조에 맞춰 오래된 탐지 및 라우팅 threshold 잔여를 닫았습니다. Production T1, quality gate 및 self-consistency 값은 이미 versioned `config/1.0.0` schema에서 오고 Heimdall 반복 정책은 bounded Runtime Settings에서 옵니다. 남아 있던 Heimdall 보안 상관관계 literal 3개도 기본값을 바꾸지 않고 bounded startup setting을 사용합니다. AST 기반 테스트가 숫자 LLM consumer 7개와 Heimdall setting consumer 5개의 exact 집합을 고정하므로 새로운 unbound production threshold는 gate를 실패시킵니다. | [이슈 #219](https://github.com/dotnetpower/fdai/issues/219). Focused setting, runtime, framework layout, ingress 및 threshold 검사 134개가 통과했습니다. | Production composition의 routing 및 detection threshold bound에 남은 작업은 없습니다. 순수 detector constructor default는 active composition policy가 아니라 주입 가능한 algorithm default로 남습니다. |
 | 2026-08-19 | implemented | 마지막까지 남아 있던 미바운드 적응 임계값 2개를 선언했습니다. 출하되는 `ontology/action-type` 계약의 `promotion_gate`가 이제 `min_fidelity`와 `max_recurrence_rate`를 선택적 비율 범위로 선언하며, ActionType 승격 평가기가 읽지 않는 범위 선언 전용임을 문서화했습니다. `GraphModelPromotionPolicy`는 다시 적은 리터럴 `0.0 <= value <= 1.0` 대신 이 선언에서 허용 범위를 도출합니다. `UNBOUND_ADAPTIVE_THRESHOLDS`는 이제 비어 있고, focused 테스트가 발견된 모든 수치 임계값이 바인딩되었음을 단언합니다. 아울러 `544e80a72`가 `sre.*` 시나리오 3건을 추가하면서 갱신하지 않아 깨져 있던 `test_shadow_eval.py`의 고정 시나리오 개수도 바로잡았습니다. | `current change`, `tests/core/operational_learning/test_threshold_bounds.py`·`tests/core/assurance_twin`·`tests/contracts`·`tests/rule_catalog`·`tests/core/measurement`가 focused 1640건 통과, 작업 범위 Ruff·format·mypy 통과, `check-core-imports`와 `check-property-semantic-coverage` 통과 | promotion gate 밖의 탐지·라우팅 임계값까지 등록부를 넓혀야 합니다. 그 값들은 아직 사용 지점의 리터럴입니다. |
 | 2026-08-14 | in-progress | 이전 출처를 재구성하지 않고 구현 원장을 도입했습니다. | `current change`; 구현 범위 표의 현재 소스, CI 연결, 집중 테스트. | T0 소비를 연결하고 exemption 운영을 완성하며 관리되는 재정의와 PR 신원 검사를 구현합니다. |
 | 2026-08-17 | in-progress | 순수 거버넌스 pull request 검토 권한 결정을 추가했습니다: 운영자 객체 신원, 변경 클래스별 필수 역량, 서로 다른 승인자 정족수, 고위험 phishing-resistant 승인, 리비전에 바인딩된 신선도, 작성자·공동 작성자·커미터 자기 승인 방지. | `current change`; `services/core-control-plane/src/fdai/rule_catalog/schema/governance_review_authority.py`; `PYTHONPATH="$PWD/services/core-control-plane/src:$PWD/packages/service-contracts/src" .venv/bin/python -m pytest -q --no-cov services/core-control-plane/tests/rule_catalog/schema/test_governance_review_authority.py` 가 16개 테스트를 통과했습니다. | 이 결정을 거버넌스 CI 게이트의 실제 pull request 리뷰 메타데이터에 연결하고 차단 후 해소된 근거 기록 하나를 보존합니다. |

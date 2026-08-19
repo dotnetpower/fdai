@@ -18,7 +18,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import Counter
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -140,6 +140,9 @@ class PantheonRuntime:
         incident_candidate_hook: IncidentCandidateHook | None = None,
         heimdall_rate_threshold: int = 5,
         heimdall_rate_window: int = 300,
+        heimdall_security_high_threshold: int = 5,
+        heimdall_security_window_events: int = 100,
+        heimdall_alert_rate_per_hour: int = 5,
         read_investigation_hook: ReadInvestigationHook | None = None,
         operational_evidence_hook: OperationalEvidenceHook | None = None,
         discovery_projector: DiscoveryProjector | None = None,
@@ -296,6 +299,9 @@ class PantheonRuntime:
         instantiated["Heimdall"] = Heimdall(
             rate_threshold=heimdall_rate_threshold,
             rate_window=heimdall_rate_window,
+            security_high_threshold=heimdall_security_high_threshold,
+            security_window_events=heimdall_security_window_events,
+            alert_rate_per_hour=heimdall_alert_rate_per_hour,
             action_semantics=action_semantics,
             forecast_evaluator=forecast_evaluator,
             forecast_closer=forecast_closer,
@@ -431,7 +437,14 @@ class PantheonRuntime:
         # ingress bridge is wired explicitly here. If Huginn is disabled
         # there is no ingress - the pantheon idles.
         if huginn_active:
-            bridge.subscribe(raw_event_topic, _INGRESS_PRINCIPAL, runtime._make_ingress(agents))
+            bridge.subscribe(
+                raw_event_topic,
+                _INGRESS_PRINCIPAL,
+                runtime_subscriptions.build_ingress_handler(
+                    agent=agents[_INGRESS_PRINCIPAL],
+                    on_unkeyed=runtime._record_ingress_drop,
+                ),
+            )
         else:
             _LOG.warning("pantheon_ingress_disabled_no_huginn")
 
@@ -776,25 +789,12 @@ class PantheonRuntime:
     async def _observe_action_run(self, _topic: str, payload: dict[str, Any]) -> None:
         self.shadow_decisions[f"action_run:{payload.get('state', 'unknown')}"] += 1
 
-    def _make_ingress(
-        self, agents: dict[str, Agent]
-    ) -> Callable[[str, dict[str, Any]], Awaitable[None]]:
-        """Return the raw-event handler that feeds Huginn without DLQ noise."""
-        huginn = agents[_INGRESS_PRINCIPAL]
-        if not isinstance(huginn, Huginn):  # pragma: no cover - factory guarantees it
-            raise TypeError("Huginn agent is missing from the pantheon")
-
-        async def _ingress(_topic: str, payload: dict[str, Any]) -> None:
-            try:
-                await huginn.ingest(payload)
-            except ValueError as exc:
-                self._ingress_dropped += 1
-                _LOG.warning(
-                    "pantheon_ingress_unkeyed_event",
-                    extra={"error": str(exc), "raw_event_topic": self.raw_event_topic},
-                )
-
-        return _ingress
+    def _record_ingress_drop(self, error: ValueError) -> None:
+        self._ingress_dropped += 1
+        _LOG.warning(
+            "pantheon_ingress_unkeyed_event",
+            extra={"error": str(error), "raw_event_topic": self.raw_event_topic},
+        )
 
 
 __all__ = ["PantheonRuntime"]

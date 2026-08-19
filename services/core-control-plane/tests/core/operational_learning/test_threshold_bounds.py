@@ -7,15 +7,19 @@ contract each restating the same limit, with nothing failing when one of them mo
 
 from __future__ import annotations
 
+import ast
+import json
 import math
 from dataclasses import fields
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 
 import pytest
 from fdai.core.assurance_twin.model_promotion import GraphModelPromotionPolicy
 from fdai.core.operational_learning import shadow_dwell
 from fdai.core.operational_learning.shadow_dwell import MAX_POLICY_ESCAPES, ShadowDwellThresholds
+from fdai.delivery.runtime_settings import RUNTIME_SETTING_SPECS
 from fdai.shared.contracts.models import PromotionGate
 from fdai.shared.ontology.threshold_bounds import (
     ACTION_TYPE_SCHEMA,
@@ -30,6 +34,7 @@ from fdai.shared.ontology.threshold_bounds import (
 from pydantic import ValidationError
 
 BOUNDS = load_promotion_gate_bounds()
+_REPO_ROOT = Path(__file__).resolve().parents[5]
 
 #: Every dataclass that owns a numeric adaptive threshold today.
 THRESHOLD_OWNERS = (ShadowDwellThresholds, GraphModelPromotionPolicy)
@@ -217,6 +222,91 @@ def test_every_recorded_threshold_is_now_bound_to_a_declaration() -> None:
 
     assert UNBOUND_ADAPTIVE_THRESHOLDS == frozenset()
     assert _numeric_threshold_names() == set(ADAPTIVE_THRESHOLD_BINDINGS)
+
+
+def test_every_production_routing_and_detection_threshold_has_a_versioned_bound() -> None:
+    config_schema = json.loads(
+        (_REPO_ROOT / "services/core-control-plane/src/fdai/shared/config/schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert config_schema["$id"] == "https://fdai.dev/schemas/config/1.0.0"
+    llm_properties = config_schema["properties"]["llm"]["properties"]
+    control_loop = ast.parse(
+        (_REPO_ROOT / "services/core-control-plane/src/fdai/runtime/control_loop.py").read_text(
+            encoding="utf-8"
+        )
+    )
+    llm_thresholds = {
+        node.attr
+        for node in ast.walk(control_loop)
+        if isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "llm_config"
+        and llm_properties.get(node.attr, {}).get("type") in {"integer", "number"}
+    }
+    llm_thresholds.update(
+        node.attr
+        for node in ast.walk(control_loop)
+        if isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Attribute)
+        and isinstance(node.value.value, ast.Attribute)
+        and isinstance(node.value.value.value, ast.Name)
+        and node.value.value.value.id == "container"
+        and node.value.value.attr == "config"
+        and node.value.attr == "llm"
+        and llm_properties.get(node.attr, {}).get("type") in {"integer", "number"}
+    )
+    assert llm_thresholds == {
+        "quality_gate_confidence_threshold",
+        "quality_gate_quorum",
+        "self_consistency_sample_threshold",
+        "self_consistency_samples",
+        "self_consistency_stability_threshold",
+        "t1_min_success_rate",
+        "t1_similarity_threshold",
+    }
+    for field_name in llm_thresholds:
+        declaration = llm_properties[field_name]
+        assert "minimum" in declaration or "maximum" in declaration
+        assert check_within_schema_bounds(declaration, declaration["default"])
+
+    bootstrap = ast.parse(
+        (
+            _REPO_ROOT / "services/core-control-plane/src/fdai/runtime/bootstrap_pantheon.py"
+        ).read_text(encoding="utf-8")
+    )
+    heimdall_settings = {
+        call.args[1].value
+        for node in ast.walk(bootstrap)
+        if isinstance(node, ast.Call)
+        for keyword in node.keywords
+        if keyword.arg is not None
+        and keyword.arg.startswith("heimdall_")
+        and isinstance((call := keyword.value), ast.Call)
+        and len(call.args) >= 2
+        and isinstance(call.args[1], ast.Constant)
+        and isinstance(call.args[1].value, str)
+    }
+    assert heimdall_settings == {
+        "incident.alert_rate_per_hour",
+        "incident.repeat_threshold",
+        "incident.repeat_window_seconds",
+        "incident.security_high_threshold",
+        "incident.security_window_events",
+    }
+    specs = {spec.key: spec for spec in RUNTIME_SETTING_SPECS}
+    for key in heimdall_settings:
+        spec = specs[key]
+        assert spec.value_type in {"integer", "number"}
+        assert spec.minimum is not None or spec.maximum is not None
+        assert spec.validate(spec.default) == spec.default
+
+
+def check_within_schema_bounds(declaration: dict[str, Any], value: int | float) -> bool:
+    minimum = declaration.get("minimum")
+    maximum = declaration.get("maximum")
+    return (minimum is None or value >= minimum) and (maximum is None or value <= maximum)
 
 
 @pytest.mark.parametrize("field_name", ["min_fidelity", "max_recurrence_rate"])

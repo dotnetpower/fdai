@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from typing import Any
 
 from fdai.agents._framework.base import Agent
 from fdai.agents._framework.bus_bridge import EventBusBridge
 from fdai.agents.heimdall import Heimdall
+from fdai.agents.huginn import Huginn
 from fdai.agents.mimir import Mimir
 from fdai.core.rule_semantic_generation import (
     RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
@@ -24,6 +27,24 @@ class RuleGenerationWorkerBindings:
 
     build: RuleGenerationBuildHandler
     validation: RuleGenerationValidationHandler
+
+
+def build_ingress_handler(
+    *,
+    agent: Agent,
+    on_unkeyed: Callable[[ValueError], None],
+) -> Callable[[str, dict[str, Any]], Awaitable[None]]:
+    """Return the raw-event handler that feeds Huginn without DLQ noise."""
+    if not isinstance(agent, Huginn):  # pragma: no cover - factory guarantee
+        raise TypeError("Huginn agent is missing from the pantheon")
+
+    async def _ingress(_topic: str, payload: dict[str, Any]) -> None:
+        try:
+            await agent.ingest(payload)
+        except ValueError as exc:
+            on_unkeyed(exc)
+
+    return _ingress
 
 
 def bind_runtime_subscriptions(
@@ -76,4 +97,8 @@ def bind_runtime_subscriptions(
     return subscription_count
 
 
-__all__ = ["RuleGenerationWorkerBindings", "bind_runtime_subscriptions"]
+__all__ = [
+    "RuleGenerationWorkerBindings",
+    "bind_runtime_subscriptions",
+    "build_ingress_handler",
+]

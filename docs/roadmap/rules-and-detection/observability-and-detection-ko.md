@@ -1,8 +1,8 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: b26c041d9b3ab574ac26e578b36479fcc6745deb
-translation_revised: 2026-08-17
+translation_source_sha: 2ed5f41442af2fc7d9f5ab5cd4a5df87fa4f7ddd
+translation_revised: 2026-08-19
 ---
 
 # 관측성과 감지(Observability and Detection)
@@ -556,8 +556,11 @@ telemetry / metrics
 - Repeated-event 인시던트 정책은 startup-bound 런타임 Settings입니다.
   `incident.auto_open.enabled`(기본 `true`), `incident.auto_open.min_severity`(기본 `high`),
   `incident.repeat_threshold`(기본 `5`, 범위 `2-100`),
-  `incident.repeat_window_seconds`(기본 `300`, 범위 `10-86400`)를 사용합니다. 잘못된 값은
-  시작을 실패시킵니다. 심각도는 `critical/high/medium/low/info`에서 `SEV1-SEV5`로
+  `incident.repeat_window_seconds`(기본 `300`, 범위 `10-86400`),
+  `incident.security_high_threshold`(기본 `5`, 범위 `1-100`),
+  `incident.security_window_events`(기본 `100`, 범위 `1-10000`),
+  `incident.alert_rate_per_hour`(기본 `5`, 범위 `1-1000`)를 사용합니다. 잘못된 값은 시작을
+  실패시킵니다. 심각도는 `critical/high/medium/low/info`에서 `SEV1-SEV5`로
   결정론적으로 매핑하며 조립은 모든 후보를 고정 심각도로 바꾸지 않습니다.
 - 감지 발견 사항은 **신뢰할 수 없는 입력**; 어떤 LLM 사용(퍼지 상관관계, T2 RCA)도 quality 게이트
   ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md))

@@ -158,6 +158,9 @@ async def test_incident_auto_open_settings_are_bounded_and_startup_bound() -> No
         "incident.auto_open.min_severity": "HIGH",
         "incident.repeat_threshold": 5,
         "incident.repeat_window_seconds": 300,
+        "incident.security_high_threshold": 5,
+        "incident.security_window_events": 100,
+        "incident.alert_rate_per_hour": 5,
     }
     for key, value in expected.items():
         setting = _setting(projection, key)
@@ -175,6 +178,9 @@ async def test_incident_auto_open_settings_accept_audited_override() -> None:
             "incident.auto_open.min_severity": "CRITICAL",
             "incident.repeat_threshold": 9,
             "incident.repeat_window_seconds": 600,
+            "incident.security_high_threshold": 7,
+            "incident.security_window_events": 250,
+            "incident.alert_rate_per_hour": 12,
         },
         expected_revision=0,
     )
@@ -184,6 +190,9 @@ async def test_incident_auto_open_settings_accept_audited_override() -> None:
     assert effective["incident.auto_open.min_severity"] == "CRITICAL"
     assert effective["incident.repeat_threshold"] == 9
     assert effective["incident.repeat_window_seconds"] == 600
+    assert effective["incident.security_high_threshold"] == 7
+    assert effective["incident.security_window_events"] == 250
+    assert effective["incident.alert_rate_per_hour"] == 12
 
 
 async def test_discovery_is_disabled_by_default_and_uses_configured_threshold() -> None:
@@ -231,6 +240,9 @@ async def test_discovery_policy_can_be_audited_without_restart() -> None:
         ({"FDAI_INCIDENT_AUTO_OPEN_MIN_SEVERITY": "urgent"}, "min_severity"),
         ({"FDAI_INCIDENT_REPEAT_THRESHOLD": "1"}, "REPEAT_THRESHOLD"),
         ({"FDAI_INCIDENT_REPEAT_WINDOW_SECONDS": "0"}, "REPEAT_WINDOW_SECONDS"),
+        ({"FDAI_INCIDENT_SECURITY_HIGH_THRESHOLD": "0"}, "SECURITY_HIGH_THRESHOLD"),
+        ({"FDAI_INCIDENT_SECURITY_WINDOW_EVENTS": "0"}, "SECURITY_WINDOW_EVENTS"),
+        ({"FDAI_INCIDENT_ALERT_RATE_PER_HOUR": "0"}, "ALERT_RATE_PER_HOUR"),
     ],
 )
 async def test_invalid_incident_auto_open_environment_fails_closed(

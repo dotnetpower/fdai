@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: b299c3220549dce6402fefa5824e8812507cee27
+translation_source_sha: 79bdfe2e4a2446ece626a14ae404268458dbbd5c
 translation_revised: 2026-08-19
 ---
 # 코드 맵
@@ -63,6 +63,7 @@ translation_revised: 2026-08-19
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | implemented | Ontology promotion bound와 active configuration을 혼동하지 않으면서 production threshold source coverage를 완료했습니다. Production control loop의 숫자 LLM threshold 7개는 versioned config schema에 고정되고 Heimdall 상관관계 threshold 5개는 bounded Runtime Settings에 고정됩니다. Heimdall 보안 기본값 3개는 이제 bootstrap 및 Pantheon composition을 통과합니다. Raw Huginn ingress 구성을 기존 subscription 모듈로 추출해 handler 의미를 바꾸지 않고 `runtime.py`를 framework 800줄 상한 아래에 유지했습니다. | [이슈 #219](https://github.com/dotnetpower/fdai/issues/219). AST 기반 threshold coverage와 focused setting, runtime, layout 및 ingress 검사 134개가 통과했습니다. | Production composition threshold source coverage에 남은 작업은 없습니다. |
 | 2026-08-19 | implemented | Service-owned 인벤토리 작업의 composition parity gap을 닫았습니다. `inventory_sync_cli.py`는 ARG coverage 집계는 연결했지만 `composition/wire_inventory.py`가 이미 연결한 unclassified identity query는 연결하지 않아 scheduled service가 identity-complete fence를 실행할 수 없었습니다. 이제 ARG 작업은 두 callback을 모두 binding하고 ARM fallback의 count 없는 동작을 유지합니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). `test_inventory_sync_cli.py`의 focused case 18개와 작업 범위 Ruff 및 strict mypy가 통과했습니다. | 수정된 service-owned entry point에서 새로운 완전 세대 하나를 승격하고 측정합니다. |
 | 2026-08-19 | validated | 결정론적 운영 범위 변환 결과를 인증된 PostgreSQL 인벤토리 그래프 응답에 연결했습니다. Reader는 `workload_runs_on`과 `implemented_by`만 범위가 제한된 역방향으로 조회하고 모든 응답 Resource를 표시하며, 속성을 노출하거나 변경 권한을 부여하지 않고 집계 완전성을 보고합니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Focused consumer 검사 4개와 strict mypy가 통과했습니다. 읽기 전용 loopback 근거는 응답 Resource 213/213개가 표시됐고 명시적 unmapped coverage gap을 보고합니다. | 배포가 검토한 서비스 mapping을 제공합니다. 읽기 전용 consumer 연결 작업은 남지 않았습니다. |
 | 2026-08-19 | implemented | 중립 vocabulary 밖의 모든 프로바이더 native 신원을 의미 지원을 자동 선언하지 않고 검토된 `unclassified-resource` 타입으로 보존했습니다. Azure 전체 스냅샷은 payload나 최종 fence를 내보내기 전에 native 타입별 count를 대조하며, coverage 1.1 증적은 count 전용 근거와 identity-complete 구체화를 구분합니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). 프로바이더, 동기화, Azure, 조립, 온톨로지, 카탈로그 및 값 도메인 focused 검사 259개가 통과했고 Ruff와 strict mypy도 통과했습니다. | 런타임 검증을 주장하기 전에 새로운 활성 스냅샷을 승격하고 측정합니다. |
