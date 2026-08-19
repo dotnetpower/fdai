@@ -21,9 +21,17 @@ from fdai.core.ontology_platform import (
     QueryTable,
 )
 from fdai.core.ontology_platform.catalog_queries import CATALOG_SEARCH_RULES_FUNCTION_NAME
+from fdai.core.ontology_platform.declaration_queries import ONTOLOGY_DECLARATION_FUNCTION_NAME
+from fdai.core.ontology_platform.evidence_health_queries import (
+    ONTOLOGY_EVIDENCE_HEALTH_FUNCTION_NAME,
+)
 from fdai.core.ontology_platform.incident_queries import INCIDENT_EVIDENCE_FUNCTION_NAME
+from fdai.core.ontology_platform.inventory_impact_queries import INVENTORY_IMPACT_FUNCTION_NAME
 from fdai.core.ontology_platform.network_path import NetworkPathResult, NetworkPathStatus
 from fdai.core.ontology_platform.operational_functions import operational_function_types
+from fdai.core.ontology_platform.release_diff_queries import (
+    ONTOLOGY_RELEASE_DIFF_FUNCTION_NAME,
+)
 from fdai.delivery.catalog_search import InMemoryCatalogSemanticIndex
 from fdai.rule_catalog.schema.ontology_catalog import OntologyCatalog
 from fdai.rule_catalog.schema.property_semantic import empty_property_semantic_registry
@@ -755,6 +763,36 @@ async def test_runtime_hides_unbound_catalog_search_from_planner() -> None:
 
     assert result.disposition == "answered"
     assert CATALOG_SEARCH_RULES_FUNCTION_NAME not in model.function_names
+
+
+async def test_runtime_exposes_only_bound_question_space_capabilities() -> None:
+    object_type = _object_type()
+    model = _ManifestCaptureModel(_definition())
+    runtime = build_semantic_query_runtime(
+        model=model,
+        ontology_release=build_ontology_release(
+            object_types=(object_type,),
+            function_types=operational_function_types(()),
+        ),
+        ontology_catalog=_catalog(object_type),
+        ontology_store=InMemoryOntologyInstanceStore(
+            object_types=(object_type,),
+            link_types=(),
+        ),
+        now=lambda: NOW,
+    )
+
+    result = await runtime.handle(
+        utterance="Describe the Resource declaration.",
+        prior_turns=(),
+        principal=Principal(id="reader", role=Role.READER),
+    )
+
+    assert result.disposition == "answered"
+    assert ONTOLOGY_DECLARATION_FUNCTION_NAME in model.function_names
+    assert ONTOLOGY_RELEASE_DIFF_FUNCTION_NAME not in model.function_names
+    assert ONTOLOGY_EVIDENCE_HEALTH_FUNCTION_NAME not in model.function_names
+    assert INVENTORY_IMPACT_FUNCTION_NAME not in model.function_names
 
 
 async def test_runtime_exposes_bound_catalog_search_to_planner() -> None:

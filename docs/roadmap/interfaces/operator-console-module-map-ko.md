@@ -1,7 +1,7 @@
 ---
 title: Operator Console Module Map and Boundaries
 translation_of: operator-console-module-map.md
-translation_source_sha: c7167dbfe715ab9ced138f38fa30d07fb00ba2d3
+translation_source_sha: 42a38a60d6fd93938d3a9cb4ff9acaf43be83f78
 translation_revised: 2026-08-19
 ---
 # Operator Console 모듈 지도 and Boundaries
@@ -28,12 +28,14 @@ file-count 목표가 아닌 설명 기준이지만, executable 완전성 게이�
 |------|------|------|------|
 | 현재 상태 활동 projection 경계 | 구현됨 | `fdai_operator_service/activity_projection.py`, `test_activity_projection.py`, focused 영속성 및 projection 테스트 (`6 passed`) | 영속 행은 hash된 correlation 참조를 요구하고 실제 운영 프레임과 같은 activity id를 사용하며, 중복 중 가장 최신 항목만 유지하고 `execution_authority=false`를 보존합니다. |
 | 통제된 의미 증적 표현 | 구현됨 | `console/src/deck/backend-normalizers.ts`, `backend-stream.ts`, `transcript-store.ts`, `conversation-trajectory-view.tsx`, `console-routes.spec.ts`, focused Console 테스트 | Console은 최종 의미 증적을 안전하게 실패하도록 파싱하고 exact 타입 필드를 영속화 및 replay하며 경로, 사용 불가 사유, 보증 다이제스트, 근거 참조 및 실행 권한 없음 상태를 렌더링합니다. 인증된 실행기는 최종 증적을 호출자 요청 UUID에 연결하고 복제한 응답 스트림을 읽으므로 애플리케이션의 소비 동작을 변경하지 않습니다. 인증된 브라우저 근거는 아직 확보하지 않았습니다. |
+| 지속형 질문 공간 보증 oracle | 구현됨 | [지속형 질문 공간](continuous-question-space-ko.md), `console/tests/live-e2e/ontology-query-assurance.ts`, 집중 Console 테스트 | Console 하네스는 고정된 이중 언어 100개 분류와 strict v2 22개 셀 oracle을 소유합니다. 런타임 인프라가 되지 않으면서 정확한 계획 기능, 전송 신원, 답변 턴의 완전한 근거, 권한 없는 실행 0을 검증합니다. |
 | 브라우저 근거 메타데이터 패널 경계 | 구현됨 | `console/src/routes/browser-evidence.tsx`, `console/src/panels.tsx`, focused decoder, panel 및 router 검사(`26 passed`) | 기존 Evidence 탐색 경로는 정확한 payload-free Operator 묶음만 사용합니다. 컨트롤과 수집 또는 구조화된 페이로드를 거부하고 변경 명령을 렌더링하지 않으며 인증된 배포 읽기 근거는 별도 런타임 gate로 유지합니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-19 | implemented | 고정된 로캘 50/50 분할을 보존하면서 읽기 전용 보증 하네스에 strict v2 선언, 릴리스/근거, 인벤토리 영향, Rule 상태 셀을 추가했습니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233), [지속형 질문 공간](continuous-question-space-ko.md), 집중 Console 테스트 100개 | seeded 인증 전에 정확한 소스의 인증된 strict-v2 증적을 보존합니다. |
 | 2026-08-13 | 구현됨 | 이전 출처 이력을 재구성하지 않고 구현 ledger를 도입했으며 영속/실시간 현재 상태 projection identity를 기록했습니다. | 현재 출처와 `test_activity_projection.py`, 통과한 focused projection 및 영속성 테스트 | 아래의 검토된 이행 계열로 report-only 의존성 debt를 줄입니다. |
 | 2026-08-13 | 진행 중 | Exact 타입 기반 의미 증적 파싱, 스트림 수집, 영속 replay, 표현 및 인증된 근거 실행기를 추가했습니다. | `current change`, 통과한 focused Console 테스트 및 typecheck | 통제된 요청-Console 및 이중 언어 무작위 보증 브라우저 경로를 실행하고 통과한 두 기록을 보존합니다. |
 | 2026-08-13 | 구현됨 | 인증된 최종 증적 수집을 호출자 요청 UUID에 연결하고 애플리케이션의 원본 스트림을 소비하지 않도록 `Response.clone()`에서 SSE 본문을 수집했습니다. | `current change`, `console-routes.spec.ts`, Console typecheck 및 Playwright discovery 통과 | 무작위 보증 전에 인증된 통제 실행기를 수행하고 통과한 기록을 보존합니다. |

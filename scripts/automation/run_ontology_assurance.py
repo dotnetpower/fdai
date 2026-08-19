@@ -50,6 +50,14 @@ STRICT_QUESTION_IDS: Final = (
     "ko-causal_analysis-1",
     "en-evidence_validation-2",
     "ko-evidence_validation-3",
+    "en-declaration_detail-1",
+    "ko-declaration_detail-1",
+    "en-release_evidence_health-1",
+    "ko-release_evidence_health-1",
+    "en-inventory_impact-1",
+    "ko-inventory_impact-1",
+    "en-rule_state_distinction-1",
+    "ko-rule_state_distinction-1",
 )
 STRICT_OPERATION_COUNTS: Final = {
     "aggregation": 2,
@@ -59,6 +67,10 @@ STRICT_OPERATION_COUNTS: Final = {
     "property_filter": 2,
     "relationship_traversal": 2,
     "temporal_comparison": 2,
+    "declaration_detail": 2,
+    "release_evidence_health": 2,
+    "inventory_impact": 2,
+    "rule_state_distinction": 2,
 }
 
 
@@ -223,13 +235,14 @@ def _transport_evidence_accepted(
 
 
 def strict_artifact_accepted(payload: Mapping[str, Any], source_revision: str) -> bool:
-    """Return whether the fresh 14-cell artifact clears the immutable strict gate."""
+    """Return whether the fresh bilingual 22-cell artifact clears strict v2."""
     summary = payload.get("summary")
     configuration = payload.get("run_configuration")
+    answered_count = summary.get("answered_count") if isinstance(summary, Mapping) else None
     return (
         isinstance(summary, Mapping)
         and isinstance(configuration, Mapping)
-        and _transport_evidence_accepted(payload, phase="strict_14", expected_count=14)
+        and _transport_evidence_accepted(payload, phase="strict_v2", expected_count=22)
         and all(
             (
                 payload.get("schema_version") == "1.3.0",
@@ -238,15 +251,15 @@ def strict_artifact_accepted(payload: Mapping[str, Any], source_revision: str) -
                 payload.get("passed") is True,
                 payload.get("run_mode") == "live",
                 payload.get("receipt_source") == "live_assurance",
-                summary.get("question_count") == 14,
-                summary.get("live_question_count") == 14,
+                summary.get("question_count") == 22,
+                summary.get("live_question_count") == 22,
                 summary.get("resumed_question_count") == 0,
-                summary.get("passed_count") == 14,
-                summary.get("answered_count") == 14,
-                summary.get("answered_with_complete_evidence_count") == 14,
+                summary.get("passed_count") == 22,
+                isinstance(answered_count, int) and answered_count >= 16,
+                answered_count == summary.get("answered_with_complete_evidence_count"),
                 summary.get("evidence_generation_consistent") is True,
                 summary.get("answered_locale_coverage_complete") is True,
-                summary.get("locale_counts") == {"en": 7, "ko": 7},
+                summary.get("locale_counts") == {"en": 11, "ko": 11},
                 summary.get("operation_counts") == STRICT_OPERATION_COUNTS,
                 summary.get("transport_retry_count") == 0,
                 summary.get("exhausted_transport_retry_count") == 0,
@@ -351,7 +364,7 @@ class OntologyAssuranceRunner:
             self.repo
             / ".fdai"
             / "live-validation"
-            / (f"ontology-query-14-cell-{run_id}-{source_revision}")
+            / (f"ontology-query-22-cell-{run_id}-{source_revision}")
         )
         self.full_output = (
             self.repo
@@ -379,14 +392,14 @@ class OntologyAssuranceRunner:
                 self._topic_high_watermark, self.projection_topic
             )
             strict_exit = await self._run_playwright_phase(
-                label="strict_14",
+                label="strict_v2",
                 output=self.strict_output,
                 checkpoint=self.strict_checkpoint,
                 run_budget_ms=1_800_000,
                 question_ids=STRICT_QUESTION_IDS,
             )
             if strict_exit.returncode != 0:
-                raise AssuranceRunError(f"strict 14-cell phase exited {strict_exit.returncode}")
+                raise AssuranceRunError(f"strict v2 22-cell phase exited {strict_exit.returncode}")
             strict_artifact = _find_artifact(self.strict_output)
             request_after = await asyncio.to_thread(self._topic_high_watermark, self.request_topic)
             projection_after = await asyncio.to_thread(
@@ -397,7 +410,7 @@ class OntologyAssuranceRunner:
             await asyncio.to_thread(
                 _bind_transport_evidence,
                 strict_artifact,
-                phase="strict_14",
+                phase="strict_v2",
                 request_topic=self.request_topic,
                 projection_topic=self.projection_topic,
                 request_count=request_count,
@@ -408,12 +421,12 @@ class OntologyAssuranceRunner:
                 request_after=request_after,
                 projection_before=projection_before,
                 projection_after=projection_after,
-                expected_count=14,
+                expected_count=22,
             ):
-                raise AssuranceRunError("strict semantic topic counts do not match 14 live turns")
+                raise AssuranceRunError("strict semantic topic counts do not match 22 live turns")
             strict_payload = _read_artifact(strict_artifact)
             if not strict_artifact_accepted(strict_payload, self.source_revision):
-                raise AssuranceRunError("strict 14-cell artifact failed the immutable gate")
+                raise AssuranceRunError("strict v2 22-cell artifact failed the immutable gate")
 
             full_exit = await self._run_playwright_phase(
                 label="seeded_100",

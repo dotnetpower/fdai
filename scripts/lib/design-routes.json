@@ -1177,6 +1177,7 @@
       "paths": [
         "docs/roadmap/interfaces/hierarchical-conversation-planning*.md",
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan*.md",
+        "docs/roadmap/interfaces/continuous-question-space*.md",
         "config/ontology-query-competency.json",
         "scripts/quality/architecture/check-ontology-query-coverage.py",
         "rule-catalog/vocabulary/**"
@@ -1186,6 +1187,7 @@
         ".github/instructions/app-shape.instructions.md",
         "docs/roadmap/interfaces/hierarchical-conversation-planning.md",
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md",
+        "docs/roadmap/interfaces/continuous-question-space.md",
         "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/architecture/operating-ontology-platform.md",
         "docs/roadmap/rules-and-detection/rule-semantic-retrieval.md",
@@ -1195,6 +1197,7 @@
       "docs_update": [
         "docs/roadmap/interfaces/hierarchical-conversation-planning.md",
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md",
+        "docs/roadmap/interfaces/continuous-question-space.md",
         "docs/roadmap/architecture/operating-ontology-platform.md",
         "docs/roadmap/architecture/code-map.md",
         "docs/roadmap/interfaces/operator-console-module-map.md"
@@ -1213,8 +1216,15 @@
         "services/core-control-plane/src/fdai/core/conversation/coverage_gate.py",
         "services/core-control-plane/src/fdai/core/conversation/epistemic_coverage.py",
         "services/core-control-plane/src/fdai/core/conversation/intent_graph.py",
+        "services/core-control-plane/src/fdai/core/conversation/question_*.py",
         "services/core-control-plane/src/fdai/core/conversation/semantic_*.py",
         "services/core-control-plane/src/fdai/core/ontology_platform/**",
+        "services/core-control-plane/src/fdai/delivery/ontology_question_campaign*.py",
+        "services/core-control-plane/src/fdai/delivery/azure/llm/question_generation.py",
+        "services/core-control-plane/src/fdai/delivery/persistence/postgres_question_campaign.py",
+        "alembic/versions/*question_campaign.py",
+        "scripts/automation/question_space_copilot.py",
+        "scripts/automation/run_ontology_assurance.py",
         "services/core-control-plane/src/fdai/shared/contracts/models/ontology.py",
         "services/core-control-plane/src/fdai/shared/ontology/**",
         "services/core-control-plane/src/fdai/runtime/catalog_ontology.py",
@@ -1235,11 +1245,13 @@
       "must_read": [
         ".github/instructions/architecture.instructions.md",
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md",
+        "docs/roadmap/interfaces/continuous-question-space.md",
         "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/architecture/operating-ontology-platform.md"
       ],
       "docs_update": [
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md",
+        "docs/roadmap/interfaces/continuous-question-space.md",
         "docs/roadmap/architecture/operating-ontology-platform.md",
         "docs/roadmap/architecture/code-map.md"
       ],

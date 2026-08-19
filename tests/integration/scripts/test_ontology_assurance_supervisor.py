@@ -168,16 +168,20 @@ def _passing_artifact(question_count: int) -> dict[str, object]:
         "bound_request_count": 0,
         "plan_capability_mismatch_count": 0,
     }
-    if question_count == 14:
+    if question_count == 22:
         summary.update(
-            locale_counts={"en": 7, "ko": 7},
+            locale_counts={"en": 11, "ko": 11},
             operation_counts={
                 "aggregation": 2,
                 "causal_analysis": 2,
+                "declaration_detail": 2,
                 "evidence_validation": 2,
+                "inventory_impact": 2,
                 "inventory_listing": 2,
                 "property_filter": 2,
                 "relationship_traversal": 2,
+                "release_evidence_health": 2,
+                "rule_state_distinction": 2,
                 "temporal_comparison": 2,
             },
         )
@@ -197,7 +201,7 @@ def _passing_artifact(question_count: int) -> dict[str, object]:
         "run_configuration": {"schema_version": "1.4.0"},
         "transport_evidence": {
             "schema_version": "1.0.0",
-            "phase": "strict_14" if question_count == 14 else "seeded_100",
+            "phase": "strict_v2" if question_count == 22 else "seeded_100",
             "request_topic_digest": "sha256:" + "b" * 64,
             "projection_topic_digest": "sha256:" + "c" * 64,
             "request_count": question_count,
@@ -208,7 +212,7 @@ def _passing_artifact(question_count: int) -> dict[str, object]:
 
 
 def test_strict_gate_rejects_resumed_or_incomplete_evidence() -> None:
-    passing = _passing_artifact(14)
+    passing = _passing_artifact(22)
     assert strict_artifact_accepted(passing, SOURCE_REVISION)
 
     resumed = json.loads(json.dumps(passing))
@@ -216,7 +220,7 @@ def test_strict_gate_rejects_resumed_or_incomplete_evidence() -> None:
     assert not strict_artifact_accepted(resumed, SOURCE_REVISION)
 
     incomplete = json.loads(json.dumps(passing))
-    incomplete["summary"]["answered_with_complete_evidence_count"] = 13
+    incomplete["summary"]["answered_with_complete_evidence_count"] = 21
     assert not strict_artifact_accepted(incomplete, SOURCE_REVISION)
 
     ambient = json.loads(json.dumps(passing))

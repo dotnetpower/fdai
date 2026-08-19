@@ -499,6 +499,29 @@ describe("assuranceOperationMatchesPlan", () => {
     )).toBe(false);
   });
 
+  it("checks exact capabilities when hold-capable strict-v2 operations answer", () => {
+    expect(assuranceOperationMatchesPlan("release_evidence_health", [
+      "function:query.ontology_release_diff",
+      "function:query.ontology_evidence_health",
+    ])).toBe(true);
+    expect(assuranceOperationMatchesPlan(
+      "release_evidence_health",
+      ["function:query.ontology_release_diff"],
+    )).toBe(false);
+    expect(assuranceOperationMatchesPlan(
+      "inventory_impact",
+      ["function:query.inventory_impact"],
+    )).toBe(true);
+    expect(assuranceOperationMatchesPlan(
+      "inventory_impact",
+      ["function:query.manifest"],
+    )).toBe(false);
+    expect(assuranceOperationMatchesPlan(
+      "rule_state_distinction",
+      ["function:query.ontology_declaration"],
+    )).toBe(true);
+  });
+
   it("does not impose answer capabilities on governed refusal operations", () => {
     expect(assuranceOperationMatchesPlan("action_draft_boundary", [])).toBe(true);
     expect(assuranceOperationMatchesPlan("ambiguous_clarification", [])).toBe(true);
@@ -762,8 +785,26 @@ describe("ontology query assurance cohort", () => {
     expect(new Set(first.map((question) => question.prompt))).toHaveLength(100);
     expect(first.filter((question) => question.locale === "en")).toHaveLength(50);
     expect(first.filter((question) => question.locale === "ko")).toHaveLength(50);
+    const expectedCounts: Record<string, number> = {
+      inventory_listing: 10,
+      relationship_traversal: 10,
+      property_filter: 10,
+      aggregation: 10,
+      temporal_comparison: 10,
+      causal_analysis: 10,
+      evidence_validation: 10,
+      declaration_detail: 2,
+      release_evidence_health: 2,
+      inventory_impact: 2,
+      rule_state_distinction: 2,
+      action_draft_boundary: 6,
+      ambiguous_clarification: 8,
+      unsupported_domain: 8,
+    };
     for (const operation of assuranceOperations()) {
-      expect(first.filter((question) => question.operation === operation)).toHaveLength(10);
+      expect(first.filter((question) => question.operation === operation)).toHaveLength(
+        expectedCounts[operation],
+      );
     }
   });
 

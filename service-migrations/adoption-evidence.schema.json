@@ -23,10 +23,10 @@
       ]
     },
     "observed_legacy_head": {
-      "const": "20260817_0085"
+      "const": "20260819_0086"
     },
     "observed_legacy_revision_count": {
-      "const": 87
+      "const": 88
     },
     "observed_schema_fingerprint": {
       "type": "string",

@@ -50,9 +50,9 @@
     }
   ],
   "legacy_inventory": {
-    "head": "20260817_0085",
-    "revision_count": 87,
-    "table_count": 101
+    "head": "20260819_0086",
+    "revision_count": 88,
+    "table_count": 105
   },
   "table_migrations": {
     "core-control-plane": [
@@ -85,6 +85,10 @@
       "process_event",
       "process_projection_outbox",
       "process_runtime",
+      "question_campaign",
+      "question_campaign_attempt",
+      "question_campaign_case_claim",
+      "question_campaign_completion",
       "report_signal",
       "schedule_dispatch_run",
       "scheduled_task",
@@ -204,6 +208,10 @@
       "process_event",
       "process_projection_outbox",
       "process_runtime",
+      "question_campaign",
+      "question_campaign_attempt",
+      "question_campaign_case_claim",
+      "question_campaign_completion",
       "report_signal",
       "schedule_dispatch_run",
       "scheduled_task",

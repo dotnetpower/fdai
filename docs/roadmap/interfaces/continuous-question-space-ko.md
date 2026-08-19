@@ -1,0 +1,194 @@
+---
+translation_of: continuous-question-space.md
+translation_source_sha: 031236f2dd6d2e838571937aefc8d22cc7941f5c
+translation_revised: 2026-08-19
+---
+# 지속형 질문 공간
+
+이 문서는 정확한 온톨로지 릴리스에서 유한한 질문 사례를 만들고, 이를 영어와 한국어
+문장으로 표현하고, 검증된 의미 쿼리 경로로 실행한 뒤 대화 보증과 인식론적 범위를
+연결하는 제한된 파이프라인을 정의합니다. 이 파이프라인은 읽기 전용이며 `shadow` 모드로
+유지됩니다. 작업, 승인, 변경 또는 실행 권한을 부여하지 않습니다.
+
+> **범위 경계:** 유한한 질문 집합은 읽을 수 있는 모든 선언에 허용된 관점이나 형식화된
+> 제외 사유가 있는지 측정합니다. 공급자, 앵커, 보존 릴리스 또는 근거 소스를 사용할 수
+> 없을 때 모든 사례에 답할 수 있다고 보장하지 않습니다.
+>
+> **운영 경계:** 로컬 집중 검사는 구현 근거입니다. 현재 소스 리비전이 릴리스 근거가
+> 되려면 새로운 strict v2 및 seeded 라이브 증적이 필요합니다.
+
+## 설계 개요
+
+```mermaid
+flowchart LR
+    M[정확한 principal 매니페스트] --> U[결정론적 질문 집합]
+    U --> S[변경 우선 선택]
+    S --> G[후보 생성기]
+    G --> V[결정론적 독립 검증]
+    V --> T[인증된 의미 턴]
+    T --> A[대화 보증]
+    T --> E[인식론적 증명]
+    A --> L[추가 전용 캠페인 원장]
+    E --> L
+```
+
+질문 집합이 분모를 결정합니다. 모델은 문장만 제안할 수 있습니다. Core는 읽기 전에
+정확한 릴리스, 매니페스트, 역할, 목적, 제한, 등록된 처리기를 기준으로 의미 계획을 다시
+구성하고 검증합니다.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| 의미 기능 연결 | implemented | `core/ontology_platform/{declaration,release_diff,evidence_health,inventory_impact}_queries.py`; 집중 기능 및 구성 검사 | `query.ontology_declaration`은 운영 구성에 연결됩니다. 릴리스 차이, 근거 상태, 인벤토리 영향은 정확한 공급자 또는 서버 소유 앵커가 연결될 때까지 `runtime_binding_unavailable`로 유지됩니다. |
+| 7개 관점 질문 집합 | implemented | `core/conversation/question_perspectives.py`, `question_universe.py`, `question_selection.py`; 집중 질문 집합 및 선택 검사 | 적용 규칙은 카테시안 곱이 아닙니다. 사례 식별자는 로캘, 사례 종류, 관점, 기능, 근거 상태, 앵커, 종료 처리, 작업 자세, Rule 상태, 깊이, 결과 제한을 포함합니다. 활성 Rule과 수집된 Rule 사례는 분리됩니다. |
+| 후보 생성 및 검증 | implemented | `core/conversation/question_candidates.py`; `delivery/azure/llm/question_generation.py`; `scripts/automation/question_space_copilot.py`; 집중 생성기 및 검증기 검사 | 로컬 Copilot은 명시적으로만 실행되고 도구가 비활성화됩니다. 예약 생성은 분리된 `t1.question.generator`와 `t1.question.reviewer` 기능을 사용합니다. 불변 필드, 로캘, 식별자, 실행 가능한 텍스트, 프롬프트 주입, 중복, 초안 자세, 독립 동등성은 안전하게 차단됩니다. |
+| 캠페인 근거 체인 | implemented | `core/conversation/question_campaign*.py`; `delivery/persistence/postgres_question_campaign.py`; Alembic `0086`; 집중 캠페인, 영속성, 마이그레이션 검사 | 캠페인, 시도, 불변 완료, 만료형 사례 claim 레코드는 다이제스트, 형식화된 처리 결과, 증적 연결, 사용량, hard-zero 카운터를 보존합니다. Claim은 동시 의미 실행 중복을 막습니다. 어떤 레코드도 질문, 답변, 공급자 페이로드, 엔드포인트, 결합된 리소스 식별자를 복제하지 않습니다. |
+| 공유 one-shot 패키지 | implemented | `core/conversation/question_schedule.py`; `delivery/ontology_question_campaign.py`; `ontology_question_campaign_cli.py`; 집중 기한 판정 및 공유 실행기 검사 | 수동 및 예약 트리거는 주입된 실행기 패키지 하나를 사용합니다. 비활성, 실행 시점 아님, 근거 없음, 모델 없음, Reader 증명 없음, 예약 예산 소진, claim 충돌은 해당 모델 또는 의미 호출 전에 중단됩니다. |
+| 환경 구성 및 배포 Job | deferred | 형식화된 workload principal 증적과 기한 판정 보류, 배포 산출물 없음 | 권위 있는 workload principal mapper, 의미 제출 포트, 정확한 모델 연결, 준비 상태 probe가 생길 때까지 공유 패키지에는 독립 환경 구성과 배포 Job을 추가하지 않습니다. 계획의 인증 전 중단 조건을 보존합니다. |
+| Strict v2 릴리스 게이트 | implemented | `console/tests/live-e2e/ontology-query-assurance.ts`; `scripts/automation/run_ontology_assurance.py`; 집중 Console 및 감독기 검사 | 고정 100개 사례는 영어와 한국어 각각 50개를 유지합니다. Strict v2는 기존 14개와 선언, 릴리스/근거, 인벤토리 영향, Rule 상태를 두 로캘로 추가한 22개를 선택합니다. 릴리스 근거는 정확한 전송 22/22를 요구합니다. |
+| 현재 라이브 인증 | in-progress | `.fdai/live-validation`의 terminal 소스 결합 보류와 이 문서의 집중 검사 | 현재 소스 실행은 소스 리비전에 통합 검증 증적이 없어 질문 실행 전에 종료됐습니다. 의미 결과와 안전 카운터가 생성되지 않았으므로 제품 결함으로 분류하지 않습니다. |
+| 예약 workload 제출 | deferred | 기한 판정의 `scheduled_principal_unavailable` 및 `scheduled_principal_reader_mapping_unavailable` 결과 | 형식화된 증적은 workload 종류, 불투명 principal 다이제스트, Reader 역할과 소스, 범위 다이제스트, `operations-review` 목적, 인증 근거 다이제스트, 만료를 요구합니다. 권위 있는 mapper가 없으므로 배포 Job과 인프라는 의도적으로 추가하지 않습니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-19 | implemented | 결정론적 질문 집합, 7개 관점, 활성/수집 Rule 분리, 후보 생성과 검증, 4개 의미 기능 계약, 캠페인 실행기와 PostgreSQL 원장, 예약 기한 판정, 공유 one-shot Job, strict v2 분류 체계를 추가했습니다. 이전 이력은 재구성하지 않았습니다. | `current change`; 문서 작성 전 Python 집중 테스트 266개, Console 보증 테스트 99개, 작업 범위 Ruff, strict mypy, 모델 카탈로그 검사, 마이그레이션 검사가 통과했습니다. | 정확한 소스 통합 검증을 확보한 뒤 strict v2와 seeded 라이브 보증을 실행합니다. 배포 Job 인프라를 추가하기 전에 서버 측 예약 principal 매핑을 구현합니다. |
+| 2026-08-19 | implemented | 가변 관점 사전 계산, 종료 처리 검증, 완전한 모델 사용량과 예약, 절대 무진척 기한, 불변 캠페인 완료, 프로세스 손실 재개, 동시 사례 lease, 후보 정보 제거, 형식화된 workload principal 증명, strict-v2 기능 일치를 하드닝했습니다. 독립 비평 12회를 완료했고 Low보다 높은 미해결 항목은 없습니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); `current change`; Python 집중 테스트 122개와 Console 집중 테스트 100개 통과, 작업 범위 Ruff 통과, 소스 파일 20개 strict mypy 통과, 이 ledger 갱신 전 설계 경로, roadmap ledger, 번역, 문장 부호, 읽기 쉬운 한글 게이트 통과. | 정확한 소스 라이브 인증과 인증된 예약 배포는 아래의 근거 게이트를 계속 적용합니다. |
+
+### 남은 작업
+
+- [ ] 정확히 커밋된 소스 리비전에 대한 통합 검증 증적을 확보한 뒤, 요청 및 변환 결과
+  전송 22/22, 모든 형식화된 판단 통과, 모든 답변의 완전한 근거, 모든 hard-zero 카운터
+  0을 보존한 새로운 strict v2 증적을 남깁니다.
+- [ ] strict v2가 통과한 뒤에만 감독기가 seeded 100개 실행을 시작하도록 유지하고, 정확한
+  전송 100/100과 안전 회귀 0을 보존한 저장소 안전 소스 결합 증적을 남깁니다.
+- [ ] 불투명 principal 식별자, 역할 소스, 범위 다이제스트, 목적, 인증 근거를 보존하는
+  인증된 workload principal Reader 매핑을 추가합니다. 매핑이 없으면 모델 작업 전에
+  `scheduled_principal_unavailable` 또는
+  `scheduled_principal_reader_mapping_unavailable`을 계속 반환해야 합니다.
+- [ ] principal 계약이 집중 검토를 통과한 뒤 비활성 예약 프로필을 one-shot 배포에
+  사용할 독립 환경 구성과 one-shot 배포에 연결하고, 측정된 토큰, 비용, 전체 시간,
+  무진척 예산 안에서 예약 `shadow` 실행 1회를 보존합니다.
+- [ ] 명시적으로 검토된 연속 `shadow` 실행 2회가 정확한 전송과 모든 hard-zero 카운터
+  0을 보존한 뒤에만 제한된 주간 변경 캠페인을 활성화합니다. 비용과 안정성을 명시적으로
+  승인하기 전에는 주간 100개 실행을 비활성으로 유지합니다.
+
+## 의미 기능 연결
+
+| FunctionType | 연결 규칙 | 결과 권한 |
+|--------------|-----------|-----------|
+| `query.ontology_declaration` | 정확히 로드된 카탈로그 릴리스에 항상 연결합니다. Object 속성은 호출 역할과 목적으로 필터링합니다. | 정확한 선언 또는 결정론적 종속 항목이며 권한은 없습니다. |
+| `query.ontology_release_diff` | 보존된 정확한 릴리스 레지스트리가 있을 때만 연결합니다. | 선언 참조의 추가, 변경, 제거, 호환성입니다. 과거 필드 스키마를 재구성하지 않습니다. |
+| `query.ontology_evidence_health` | 정제된 상태 reader가 있을 때만 연결합니다. | 가용성, 최신성, 완전성, 충돌, 합성 상태, nullable 개수, 근거 참조입니다. 검증된 0과 unavailable을 구분합니다. |
+| `query.inventory_impact` | 인증된 서버 소유 리소스 앵커와 활성 인벤토리 reader가 있을 때만 연결합니다. | 저장 방향 도달 범위, 깊이 `1..5`, 최대 LinkType 16개, 최대 edge 1,000개, 명시적 잘림, `unverified` edge입니다. |
+
+인벤토리 영향 입력 스키마에는 대상 필드가 없습니다. 모델은 대상을 제공하거나 바꿀 수
+없습니다. 요청 범위 리소스 앵커가 운영 구성에 추가되기 전까지 이 기능은 일반 언어
+플래너에서 unavailable로 유지됩니다.
+
+## 유한 질문 집합
+
+7개 관점은 `resource`, `service`, `operation`, `policy`, `business`, `causal`, `action`입니다.
+적용 가능성은 선언 종류, 정확한 선언 이름, LinkType 의미, 필요한 기능에 따라 결정됩니다.
+알 수 없는 객체 선언은 모든 관점이 아니라 `operation` 기본값을 받습니다.
+
+각 생성 사례는 다음 필드를 결합합니다.
+
+- principal 매니페스트 및 선언 다이제스트
+- 관점 및 필요한 기능 계열
+- 영어 또는 한국어 로캘과 동작 사례 종류
+- fresh, stale, incomplete, conflicting 또는 unavailable 근거 상태
+- 앵커 없음, 선택한 객체, 선택한 인시던트 또는 서버 범위
+- answer, clarification, hold, unsupported 또는 action-draft 처리
+- `active`, `collected` 또는 `not_applicable` Rule 상태
+- 제한된 깊이와 결과 수
+
+ActionType 사례는 항상 `draft_only`입니다. 수집된 Rule 사례는 참조 전용이며 정책 판정이
+될 수 없습니다. 사전 계산 수가 10,000을 넘으면 생성 전에 실패합니다.
+
+선택은 변경된 선언, 변경된 기능 가용성, 인벤토리 변경, 실패 또는 보류 사례, 가장 오래
+검증되지 않은 셀, 안정적인 감시 사례 순으로 우선합니다. 사례 id의 seeded 해시가 사례
+식별자를 바꾸지 않고 동률을 해소합니다. 한 캠페인은 최대 100개를 선택할 수 있습니다.
+
+## 후보 경계
+
+후보 검증 순서는 다음과 같습니다.
+
+1. 정확한 스키마와 불변 사례 필드를 요구합니다.
+2. 로캘과 8자에서 400자 제한을 적용합니다.
+3. UUID, 공급자 리소스 id, 엔드포인트, 자격 증명, bearer 형태 토큰을 차단합니다.
+4. 서버 소유 리소스 질문에서 Pantheon 이름을 차단합니다.
+5. 정확한 중복과 토큰 근접 중복을 차단합니다.
+6. 기능, 앵커, Rule 상태, 종료 처리, 초안 자세의 일치를 요구합니다.
+7. 프롬프트 주입과 실행 가능한 SQL, CLI, shell, 공급자 쿼리 텍스트를 차단합니다.
+8. 신뢰도 `>= 0.85`인 독립 의미 동등성 검토를 연결합니다.
+9. 보존 질문과의 임베딩 유사도가 `>= 0.92`이면 차단합니다.
+
+잘못된 출력은 수정해서 사용하지 않습니다. 실행기는 최대 3회 재시도한 뒤 실패한 공급자
+응답을 보존하지 않고 형식화된 보류를 기록합니다.
+
+## 캠페인 및 원장
+
+캠페인 식별자는 소스 리비전, 온톨로지 릴리스, principal 매니페스트, 질문 집합, 생성
+프로필, 모델 집합, 범위, 시작 시각, 트리거, 모든 예산을 포함합니다. 예약 캠페인은 양수
+토큰 및 비용 예산이 필요합니다. 모든 캠페인은 `shadow`로 유지됩니다.
+
+hard-zero 카운터는 다음과 같습니다.
+
+- 근거 없는 주장
+- 권한 없는 실행
+- 숨겨진 범위 누출
+- 안전하지 않은 변경 생존
+- 로캘 차이
+- 활성/수집 Rule 혼동
+- 검증되지 않은 영향을 인과 또는 비즈니스 영향으로 승격
+- 잘린 결과를 완전한 결과로 보고
+
+카운터가 하나라도 양수이면 릴리스 근거가 차단됩니다. 완료된 부분 집합은 진행 근거를
+만듭니다. 선택 id가 정확한 전체 집합과 같고 모든 최신 사례에 인식론적 증명이 있을 때만
+전체 집합 종료가 참입니다.
+
+## 예약 및 출시
+
+예약 프로필은 배포 이름이 아니라 생성 및 모델 프로필 id를 참조합니다. 엄격한 5필드
+cron, IANA 표준 시간대, 로캘, 관점, 질문 수, 토큰, 비용, 전체 시간, 무진척 제한을
+검증합니다. 프로필은 기본 비활성이며 `shadow` 전용입니다.
+
+기한 판정은 준비 상태보다 먼저 활성 상태와 cron 구간을 검사합니다. 그다음 이전 캠페인
+종료, 정확한 온톨로지와 매니페스트 가용성, 의미 전송, 인증된 Reader 매핑, 모델 가용성,
+근거 준비 상태, 예산, 캠페인 잠금을 요구합니다. 실패한 게이트는 생성기를 호출할 수
+없습니다.
+
+## 하드닝 기록
+
+| 라운드 | 관점 | 검증된 최고 심각도 | 근거 및 처리 결과 |
+|--------|------|--------------------|-------------------|
+| 1 | 질문 집합 분모와 식별자 | Low | 확장 전에 가변 관점 수를 포함합니다. 이중 언어 7개 관점과 Rule 상태 고유성 검사를 통과했고 제외 항목은 분모 레코드로 유지됩니다. |
+| 2 | 후보 정보 누출과 주입 | High, resolved | 공급자 예외 연결을 제거하고 Bearer 콜론, SAS 서명, GitHub 토큰, 일반 프롬프트 주입 변형 차단 검사를 추가했습니다. |
+| 3 | 의미 릴리스와 권한 | Low | 정확한 릴리스, 역할, 목적, 형식화된 unavailable 구성 검사를 통과했고 온톨로지 결과에는 권한이 없습니다. |
+| 4 | 인벤토리 영향 | Low | 서버 소유 대상, 저장 방향, endpoint closure, 제한, 잘림, 미검증 edge, planner unavailable을 확인했습니다. 남은 항목은 추가 음수 테스트 깊이뿐입니다. |
+| 5 | 예산, 재시도, 기한 | Medium, resolved | 보수적인 예약 호출 예산, 생성/검토/보증 전체 사용량, 절대 재시도 기한, 증명 필수 릴리스 자격을 추가했습니다. |
+| 6 | 영속성과 프로세스 손실 | Medium, resolved | 불변 완료 레코드와 만료형 사례 claim을 추가했습니다. 경쟁 실행기는 생성기를 호출하지 않고 충돌 완료 레코드도 쓰지 않습니다. |
+| 7 | 예약 실행 식별자 | Medium, resolved | 위조 가능한 준비 boolean을 형식화된 workload 증적으로 교체했습니다. human 종류, 증명 없음, 만료, Reader가 아닌 역할, 잘못된 목적은 작업 전에 실패합니다. |
+| 8 | Strict v2 oracle | Low | 정확한 22개 분류, 로캘 11/11, 답변 시 기능, 근거 완전성, 전송 식별자, strict 선행 seeded 게이트를 확인했습니다. |
+| 9 | 개인정보와 일반 범위 | Low | 영속 레코드와 CLI 변환 결과는 제한된 식별자, 다이제스트, 개수, 사용량만 보존합니다. 임시 질문과 답변 텍스트는 보증 처리에만 사용합니다. |
+| 10 | Roadmap 진실성 | High, resolved | 오래된 검증 수를 교체하고 패키지 구현과 환경 구성을 분리했으며 라이브 결과 주장 없이 terminal 소스 결합 보류를 기록했습니다. |
+| 11 | 서비스와 배포 경계 | Low | Core는 공급자 중립을 유지하고 delivery가 어댑터와 영속성을 소유합니다. 두 트리거는 패키지 하나를 공유하며 배포는 문서화된 인증 중단 조건으로 차단됩니다. |
+| 12 | 최종 적대적 종료 | Low | 수정 후 앞선 모든 관점을 다시 검사했습니다. 구성 검사는 unavailable 영향 함수가 planner 함수 이름에 없음을 증명합니다. 미해결 Medium, High, Critical 항목은 없습니다. |
+
+남은 Low 항목은 인벤토리 탐색 edge case 추가 음수 테스트, 캠페인 간 중복 corpus 보존 근거,
+과거 릴리스 차이 회귀 테스트 이름입니다. 범위, 권한, 변경, 릴리스 자격, 배포 준비 상태를
+확장하지 않습니다.
+
+## 관련 문서
+
+| 알아볼 내용 | 문서 |
+|-------------|------|
+| 검증된 의미 쿼리 계약 | [온톨로지 쿼리 범위 구현 계획](ontology-query-coverage-implementation-plan-ko.md) |
+| 현재 관리형 라이브 기준선 | [온톨로지 쿼리 무작위 보증](ontology-query-randomized-assurance-ko.md) |
+| 온톨로지 선언과 형식화된 함수 | [FDAI 온톨로지 안전 인프라](../architecture/operating-ontology-platform-ko.md) |
+| 응답 경로 밖 답변 평가 | [대화 보증](../decisioning/conversation-assurance-ko.md) |

@@ -11,6 +11,16 @@ from enum import StrEnum
 from typing import Any
 
 from fdai.core.conversation.epistemic_coverage import QuestionUniverseReceipt
+from fdai.core.conversation.question_perspectives import (
+    QuestionAnchorKind,
+    QuestionCapabilityFamily,
+    QuestionEvidencePosture,
+    QuestionExpectedPosture,
+    QuestionPerspective,
+    QuestionRuleState,
+    expected_question_posture,
+    perspective_applications,
+)
 from fdai.core.ontology_platform.query_manifest import QueryManifest
 
 _DIGEST_PATTERN = re.compile(r"sha256:[0-9a-f]{64}")
@@ -41,6 +51,7 @@ class QuestionUniverseGrammar:
 
     locales: tuple[str, ...]
     case_classes: tuple[QuestionCaseClass, ...]
+    evidence_postures: tuple[QuestionEvidencePosture, ...]
     path_depths: tuple[int, ...]
     result_bounds: tuple[int, ...]
     max_cases: int
@@ -55,6 +66,12 @@ class QuestionUniverseGrammar:
             raise ValueError("question grammar case classes MUST be unique and ordered")
         if not self.case_classes:
             raise ValueError("question grammar case classes MUST be non-empty")
+        if self.evidence_postures != tuple(
+            sorted(set(self.evidence_postures), key=lambda item: item.value)
+        ):
+            raise ValueError("question grammar evidence postures MUST be unique and ordered")
+        if not self.evidence_postures:
+            raise ValueError("question grammar evidence postures MUST be non-empty")
         _require_bounded_axis("path depths", self.path_depths, maximum=_MAX_PATH_DEPTH)
         _require_bounded_axis("result bounds", self.result_bounds, maximum=_MAX_RESULT_BOUND)
         if not 1 <= self.max_cases <= _MAX_CASES:
@@ -69,6 +86,7 @@ class QuestionUniverseGrammar:
         *,
         locales: Sequence[str],
         case_classes: Sequence[QuestionCaseClass] = tuple(QuestionCaseClass),
+        evidence_postures: Sequence[QuestionEvidencePosture] = (QuestionEvidencePosture.FRESH,),
         path_depths: Sequence[int] = (1,),
         result_bounds: Sequence[int] = (100,),
         max_cases: int = _MAX_CASES,
@@ -77,12 +95,16 @@ class QuestionUniverseGrammar:
 
         ordered_locales = tuple(sorted(set(locales)))
         ordered_case_classes = tuple(sorted(set(case_classes), key=lambda item: item.value))
+        ordered_evidence_postures = tuple(
+            sorted(set(evidence_postures), key=lambda item: item.value)
+        )
         ordered_path_depths = tuple(sorted(set(path_depths)))
         ordered_result_bounds = tuple(sorted(set(result_bounds)))
         body = {
             "schema_version": "1.0.0",
             "locales": ordered_locales,
             "case_classes": tuple(item.value for item in ordered_case_classes),
+            "evidence_postures": tuple(item.value for item in ordered_evidence_postures),
             "path_depths": ordered_path_depths,
             "result_bounds": ordered_result_bounds,
             "max_cases": max_cases,
@@ -90,6 +112,7 @@ class QuestionUniverseGrammar:
         return cls(
             locales=ordered_locales,
             case_classes=ordered_case_classes,
+            evidence_postures=ordered_evidence_postures,
             path_depths=ordered_path_depths,
             result_bounds=ordered_result_bounds,
             max_cases=max_cases,
@@ -101,6 +124,7 @@ class QuestionUniverseGrammar:
             "schema_version": "1.0.0",
             "locales": self.locales,
             "case_classes": tuple(item.value for item in self.case_classes),
+            "evidence_postures": tuple(item.value for item in self.evidence_postures),
             "path_depths": self.path_depths,
             "result_bounds": self.result_bounds,
             "max_cases": self.max_cases,
@@ -113,6 +137,7 @@ class QuestionUniverseGrammar:
         return (
             len(self.locales)
             * len(self.case_classes)
+            * len(self.evidence_postures)
             * len(self.path_depths)
             * len(self.result_bounds)
         )
@@ -128,8 +153,15 @@ class GeneratedQuestionCase:
     declaration_digest: str
     locale: str
     case_class: QuestionCaseClass
+    perspective: QuestionPerspective
+    required_capability: QuestionCapabilityFamily
+    evidence_posture: QuestionEvidencePosture
+    anchor_kind: QuestionAnchorKind
+    expected_posture: QuestionExpectedPosture
+    action_posture: str
     path_depth: int
     result_bound: int
+    rule_state: QuestionRuleState = QuestionRuleState.NOT_APPLICABLE
 
 
 @dataclass(frozen=True, slots=True)
@@ -174,7 +206,10 @@ def generate_question_universe(
     expected_case_count = 0
     for manifest in ordered_manifests:
         descriptors, unavailable = _validate_manifest(manifest)
-        expected_case_count += len(descriptors) * grammar.variants_per_declaration
+        expected_case_count += sum(
+            len(perspective_applications(descriptor)) * grammar.variants_per_declaration
+            for descriptor in descriptors
+        )
         expected_case_count += len(unavailable)
         normalized.append((manifest, descriptors, unavailable))
     if expected_case_count == 0:
@@ -187,31 +222,55 @@ def generate_question_universe(
     for manifest, descriptors, unavailable in normalized:
         for descriptor in descriptors:
             declaration_id = f"{descriptor['kind']}:{descriptor['name']}"
+            applications = perspective_applications(descriptor)
             for locale in grammar.locales:
                 for case_class in grammar.case_classes:
-                    for path_depth in grammar.path_depths:
-                        for result_bound in grammar.result_bounds:
-                            body = {
-                                "principal_manifest_digest": manifest.manifest_digest,
-                                "declaration_id": declaration_id,
-                                "declaration_digest": descriptor["declaration_digest"],
-                                "locale": locale,
-                                "case_class": case_class.value,
-                                "path_depth": path_depth,
-                                "result_bound": result_bound,
-                            }
-                            cases.append(
-                                GeneratedQuestionCase(
-                                    case_id=_case_id("q", body),
-                                    principal_manifest_digest=manifest.manifest_digest,
-                                    declaration_id=declaration_id,
-                                    declaration_digest=descriptor["declaration_digest"],
-                                    locale=locale,
-                                    case_class=case_class,
-                                    path_depth=path_depth,
-                                    result_bound=result_bound,
-                                )
-                            )
+                    for evidence_posture in grammar.evidence_postures:
+                        for application in applications:
+                            for path_depth in grammar.path_depths:
+                                for result_bound in grammar.result_bounds:
+                                    expected_posture = expected_question_posture(
+                                        application.perspective,
+                                        access_filtered=(
+                                            case_class is QuestionCaseClass.ACCESS_FILTERED
+                                        ),
+                                        evidence_posture=evidence_posture,
+                                    )
+                                    body = {
+                                        "principal_manifest_digest": manifest.manifest_digest,
+                                        "declaration_id": declaration_id,
+                                        "declaration_digest": descriptor["declaration_digest"],
+                                        "locale": locale,
+                                        "case_class": case_class.value,
+                                        "perspective": application.perspective.value,
+                                        "required_capability": application.capability.value,
+                                        "evidence_posture": evidence_posture.value,
+                                        "anchor_kind": application.anchor_kind.value,
+                                        "expected_posture": expected_posture.value,
+                                        "action_posture": application.action_posture,
+                                        "rule_state": application.rule_state.value,
+                                        "path_depth": path_depth,
+                                        "result_bound": result_bound,
+                                    }
+                                    cases.append(
+                                        GeneratedQuestionCase(
+                                            case_id=_case_id("q", body),
+                                            principal_manifest_digest=manifest.manifest_digest,
+                                            declaration_id=declaration_id,
+                                            declaration_digest=descriptor["declaration_digest"],
+                                            locale=locale,
+                                            case_class=case_class,
+                                            perspective=application.perspective,
+                                            required_capability=application.capability,
+                                            evidence_posture=evidence_posture,
+                                            anchor_kind=application.anchor_kind,
+                                            expected_posture=expected_posture,
+                                            action_posture=application.action_posture,
+                                            path_depth=path_depth,
+                                            result_bound=result_bound,
+                                            rule_state=application.rule_state,
+                                        )
+                                    )
         for item in unavailable:
             try:
                 reason = QuestionExclusionReason(item["reason"])
@@ -323,6 +382,13 @@ def _case_body(item: GeneratedQuestionCase) -> dict[str, object]:
         "declaration_digest": item.declaration_digest,
         "locale": item.locale,
         "case_class": item.case_class.value,
+        "perspective": item.perspective.value,
+        "required_capability": item.required_capability.value,
+        "evidence_posture": item.evidence_posture.value,
+        "anchor_kind": item.anchor_kind.value,
+        "expected_posture": item.expected_posture.value,
+        "action_posture": item.action_posture,
+        "rule_state": item.rule_state.value,
         "path_depth": item.path_depth,
         "result_bound": item.result_bound,
     }
@@ -360,9 +426,15 @@ def _digest(value: object) -> str:
 __all__ = [
     "GeneratedQuestionCase",
     "GeneratedQuestionUniverse",
+    "QuestionAnchorKind",
+    "QuestionCapabilityFamily",
     "QuestionCaseClass",
     "QuestionCaseExclusion",
+    "QuestionEvidencePosture",
+    "QuestionExpectedPosture",
     "QuestionExclusionReason",
+    "QuestionPerspective",
+    "QuestionRuleState",
     "QuestionUniverseGrammar",
     "generate_question_universe",
 ]

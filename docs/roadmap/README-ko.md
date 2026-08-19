@@ -1,7 +1,7 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: dd96c87fe9f77b5f1e227834be97d529416e39df
+translation_source_sha: 6eb6dab346f6b5dbce8fe3c3da7b1846a43e5320
 translation_revised: 2026-08-19
 ---
 # FDAI 로드맵
@@ -117,6 +117,7 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 19m | [narrator-routing-and-latency-ko.md](interfaces/narrator-routing-and-latency-ko.md) | T1 서술기 배포 라우팅, 멀티모달 탐색, 운영자 선호 설정, TTFT, 웹 검색 풀 및 런타임 전달 결정 |
 | 19n | [hierarchical-conversation-planning-ko.md](interfaces/hierarchical-conversation-planning-ko.md) | Non-keyword 의미 decomposition, structural 온톨로지 조회 커버리지, 검증된 의도 그래프, 근거 결합 및 답변 경계 |
 | 19o | [ontology-query-coverage-implementation-plan-ko.md](interfaces/ontology-query-coverage-implementation-plan-ko.md) | 매니페스트, 조회 계획, 의미 세대, 토폴로지 이력, causal 근거 및 이전 방식 전환을 위한 감사된 구현 공백과 의존성 순서 작업 패키지 |
+| 19p | [continuous-question-space-ko.md](interfaces/continuous-question-space-ko.md) | 정확한 릴리스의 유한 질문 사례, 이중 언어 후보 생성, 캠페인 근거 원장, strict v2 보증 및 제한된 예약 실행 |
 | 19j | [console-operations-ko.md](interfaces/console-operations-ko.md) | 기존 Operations 탐색, 출처별 작업 변환 결과와 스키마, 운영 요청, pantheon 소유권, 실행 분리 |
 | 19f | [console-evidence-and-resilience-ko.md](interfaces/console-evidence-and-resilience-ko.md) | 콘솔 근거 출처 이력, localization, 영속 재생, 스트림 복구 및 아키텍처 지도 복원력 |
 | 19a | [document-ingestion-ko.md](interfaces/document-ingestion-ko.md) | Drop-zone UX, 대용량 및 보호 문서 처리, format 추출, 비공개 저장소, 공유 가시성, 보존, deletion 계약 |

@@ -51,6 +51,10 @@ from fdai.core.ontology_platform.catalog_queries import (
     CATALOG_SEARCH_RULES_FUNCTION_NAME,
     catalog_search_rules_function,
 )
+from fdai.core.ontology_platform.declaration_queries import (
+    ONTOLOGY_DECLARATION_FUNCTION_NAME,
+    ontology_declaration_function,
+)
 from fdai.core.ontology_platform.incident_queries import (
     INCIDENT_EVIDENCE_FUNCTION_NAME,
     IncidentEvidenceReader,
@@ -276,6 +280,19 @@ def build_semantic_query_runtime(
         ),
     )
     bound_function_names.add(manifest_declaration.name)
+    declaration_query = declarations[ONTOLOGY_DECLARATION_FUNCTION_NAME]
+    function_registry.register_contextual(
+        declaration_query,
+        ontology_declaration_function(
+            ontology_release,
+            object_types=ontology_catalog.object_types,
+            link_types=ontology_catalog.link_types,
+            action_types=ontology_catalog.action_types,
+            interface_types=ontology_catalog.interface_types,
+            interface_implementations=ontology_catalog.interface_implementations,
+        ),
+    )
+    bound_function_names.add(declaration_query.name)
     handlers: dict[QueryNodeKind, QueryNodeHandler] = {
         QueryNodeKind.UNION: SetOperationNodeHandler("union"),
         QueryNodeKind.INTERSECTION: SetOperationNodeHandler("intersection"),

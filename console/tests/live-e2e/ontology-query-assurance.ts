@@ -18,6 +18,10 @@ export type AssuranceOperation =
   | "temporal_comparison"
   | "causal_analysis"
   | "evidence_validation"
+  | "declaration_detail"
+  | "release_evidence_health"
+  | "inventory_impact"
+  | "rule_state_distinction"
   | "action_draft_boundary"
   | "ambiguous_clarification"
   | "unsupported_domain";
@@ -43,8 +47,12 @@ export type AssurancePlanCapability =
   | "aggregate"
   | "evidence_join"
   | "function:query.incident_evidence"
+  | "function:query.inventory_impact"
   | "function:query.manifest"
+  | "function:query.ontology_declaration"
+  | "function:query.ontology_evidence_health"
   | "function:query.ontology_relationships"
+  | "function:query.ontology_release_diff"
   | "metric_scope_series"
   | "metric_series"
   | "object_set"
@@ -398,8 +406,12 @@ const PLAN_CAPABILITIES: readonly AssurancePlanCapability[] = [
   "aggregate",
   "evidence_join",
   "function:query.incident_evidence",
+  "function:query.inventory_impact",
   "function:query.manifest",
+  "function:query.ontology_declaration",
+  "function:query.ontology_evidence_health",
   "function:query.ontology_relationships",
+  "function:query.ontology_release_diff",
   "metric_series",
   "object_set",
   "object_set:filtered",
@@ -415,7 +427,8 @@ const ANSWER_CAPABILITIES: Readonly<
     | "aggregation"
     | "temporal_comparison"
     | "causal_analysis"
-    | "evidence_validation">, readonly AssurancePlanCapability[]>
+    | "evidence_validation"
+    | "declaration_detail">, readonly AssurancePlanCapability[]>
 > = {
   inventory_listing: ["function:query.manifest"],
   relationship_traversal: ["topology_at"],
@@ -424,6 +437,7 @@ const ANSWER_CAPABILITIES: Readonly<
   temporal_comparison: ["topology_diff", "metric_series", "evidence_join"],
   causal_analysis: ["evidence_join"],
   evidence_validation: ["object_set"],
+  declaration_detail: ["function:query.ontology_declaration"],
 };
 
 const QUESTION_CAPABILITY_OVERRIDES: Readonly<Record<string, readonly AssurancePlanCapability[]>> = {
@@ -433,17 +447,37 @@ const QUESTION_CAPABILITY_OVERRIDES: Readonly<Record<string, readonly AssuranceP
   "ko-property_filter-3": ["function:query.manifest"],
 };
 
+const ANSWER_IF_PRODUCED_CAPABILITIES: Readonly<
+  Record<Extract<AssuranceOperation,
+    | "release_evidence_health"
+    | "inventory_impact"
+    | "rule_state_distinction">, readonly AssurancePlanCapability[]>
+> = {
+  release_evidence_health: [
+    "function:query.ontology_release_diff",
+    "function:query.ontology_evidence_health",
+  ],
+  inventory_impact: ["function:query.inventory_impact"],
+  rule_state_distinction: ["function:query.ontology_declaration"],
+};
+
 /** Checks the generated question taxonomy against Core's projected exact-plan capabilities. */
 export function assuranceOperationMatchesPlan(
   operation: AssuranceOperation,
   capabilities: readonly AssurancePlanCapability[],
   questionId?: string,
 ): boolean {
-  if (!ANSWER_REQUIRED_OPERATIONS.includes(operation)) return true;
-  const required = questionId !== undefined && QUESTION_CAPABILITY_OVERRIDES[questionId] !== undefined
-    ? QUESTION_CAPABILITY_OVERRIDES[questionId]
-    : ANSWER_CAPABILITIES[operation as keyof typeof ANSWER_CAPABILITIES];
-  return required.some((capability) => capabilities.includes(capability));
+  if (ANSWER_REQUIRED_OPERATIONS.includes(operation)) {
+    const required = questionId !== undefined && QUESTION_CAPABILITY_OVERRIDES[questionId] !== undefined
+      ? QUESTION_CAPABILITY_OVERRIDES[questionId]
+      : ANSWER_CAPABILITIES[operation as keyof typeof ANSWER_CAPABILITIES];
+    return required.some((capability) => capabilities.includes(capability));
+  }
+  const answerIfProduced = ANSWER_IF_PRODUCED_CAPABILITIES[
+    operation as keyof typeof ANSWER_IF_PRODUCED_CAPABILITIES
+  ];
+  return answerIfProduced === undefined ||
+    answerIfProduced.every((capability) => capabilities.includes(capability));
 }
 
 /** Decides whether a completed cohort satisfies every governed pass criterion. */
@@ -588,6 +622,10 @@ const OPERATIONS: readonly AssuranceOperation[] = [
   "temporal_comparison",
   "causal_analysis",
   "evidence_validation",
+  "declaration_detail",
+  "release_evidence_health",
+  "inventory_impact",
+  "rule_state_distinction",
   "action_draft_boundary",
   "ambiguous_clarification",
   "unsupported_domain",
@@ -601,6 +639,7 @@ const ANSWER_REQUIRED_OPERATIONS: readonly AssuranceOperation[] = [
   "temporal_comparison",
   "causal_analysis",
   "evidence_validation",
+  "declaration_detail",
 ];
 
 const ENGLISH_TEMPLATES: Readonly<Record<AssuranceOperation, readonly string[]>> = {
@@ -653,26 +692,34 @@ const ENGLISH_TEMPLATES: Readonly<Record<AssuranceOperation, readonly string[]>>
     "Is the latest readable metric window complete enough to compare?",
     "Which visible relationships lack the evidence needed for verification?",
   ],
+  declaration_detail: [
+    "Show the exact Resource declaration and its deterministic dependents.",
+  ],
+  release_evidence_health: [
+    "Compare the retained ontology releases and report Resource evidence health.",
+  ],
+  inventory_impact: [
+    "Show the bounded direct impact scope of the selected resource.",
+  ],
+  rule_state_distinction: [
+    "Distinguish active Rules from collected Rule references without treating collected items as verdicts.",
+  ],
   action_draft_boundary: [
     "Draft a governed change request to review the visible stale resources.",
     "Prepare an action draft for investigating the latest visible topology change.",
     "Create a non-executing draft to remediate visible unhealthy resources.",
-    "Draft a governed request to validate the visible private endpoint paths.",
-    "Prepare an action proposal for the visible evidence gaps without executing it.",
   ],
   ambiguous_clarification: [
     "Compare the increase for the visible services.",
     "Show the recent change in the relevant resources.",
     "Which of them has the highest value?",
     "Explain why the visible thing changed recently.",
-    "Validate the important evidence for the current issue.",
   ],
   unsupported_domain: [
     "Which recipe should I cook for dinner tonight?",
     "Summarize the plot of a fictional space opera.",
     "Recommend a training plan for a marathon.",
     "What chord progression should I use for a jazz song?",
-    "Plan a sightseeing route through an ancient city.",
   ],
 };
 
@@ -726,26 +773,34 @@ const KOREAN_TEMPLATES: Readonly<Record<AssuranceOperation, readonly string[]>> 
     "최근 읽기 가능한 메트릭 구간은 비교하기에 충분히 완전한가요?",
     "검증에 필요한 증거가 부족한 조회 가능한 관계는 무엇인가요?",
   ],
+  declaration_detail: [
+    "정확한 Resource 선언과 결정론적 종속 항목을 보여 주세요.",
+  ],
+  release_evidence_health: [
+    "보존된 온톨로지 릴리스를 비교하고 Resource 증거 상태를 보고해 주세요.",
+  ],
+  inventory_impact: [
+    "선택한 리소스의 제한된 직접 영향 범위를 보여 주세요.",
+  ],
+  rule_state_distinction: [
+    "활성 Rule과 수집된 Rule 참조를 구분하고 수집 항목을 판정으로 취급하지 마세요.",
+  ],
   action_draft_boundary: [
     "조회 가능한 오래된 리소스를 검토할 통제된 변경 요청 초안을 작성해 주세요.",
     "최근 조회 가능한 토폴로지 변경을 조사할 작업 초안을 준비해 주세요.",
     "조회 가능한 비정상 리소스를 개선하되 실행하지 않는 초안을 작성해 주세요.",
-    "조회 가능한 프라이빗 엔드포인트 경로를 검증할 통제된 요청 초안을 작성해 주세요.",
-    "실행하지 말고 조회 가능한 증거 공백에 대한 작업 제안을 준비해 주세요.",
   ],
   ambiguous_clarification: [
     "조회 가능한 서비스의 증가분을 비교해 주세요.",
     "관련 리소스의 최근 변화를 보여 주세요.",
     "그중 값이 가장 높은 것은 무엇인가요?",
     "조회 가능한 대상이 최근 바뀐 이유를 설명해 주세요.",
-    "현재 문제에서 중요한 증거를 검증해 주세요.",
   ],
   unsupported_domain: [
     "오늘 저녁에 요리할 음식을 추천해 주세요.",
     "가상의 우주 오페라 줄거리를 요약해 주세요.",
     "마라톤 훈련 계획을 추천해 주세요.",
     "재즈 곡에 사용할 코드 진행을 알려 주세요.",
-    "고대 도시 관광 경로를 계획해 주세요.",
   ],
 };
 

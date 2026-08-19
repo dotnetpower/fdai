@@ -8,20 +8,31 @@ import pytest
 from fdai.core.conversation import (
     GeneratedQuestionCase,
     GeneratedQuestionUniverse,
+    QuestionAnchorKind,
+    QuestionCapabilityFamily,
     QuestionCaseClass,
     QuestionCaseExclusion,
+    QuestionEvidencePosture,
     QuestionExclusionReason,
+    QuestionExpectedPosture,
+    QuestionPerspective,
+    QuestionRuleState,
     QuestionUniverseGrammar,
     generate_question_universe,
 )
 from fdai.core.ontology_platform import QueryManifest, build_query_manifest
 from fdai.shared.contracts.models import (
+    ActionInterface,
     CeilingRole,
+    OntologyActionType,
     OntologyFunctionKind,
     OntologyFunctionType,
     OntologyObjectType,
+    Operation,
+    PromotionGate,
     PropertyDecl,
     PropertyType,
+    RollbackKind,
 )
 from fdai.shared.ontology.release import build_ontology_release
 
@@ -54,6 +65,24 @@ def _function() -> OntologyFunctionType:
         input_schema={"type": "object"},
         output_schema={"type": "object"},
         required_role=CeilingRole.READER,
+    )
+
+
+def _action() -> OntologyActionType:
+    return OntologyActionType(
+        schema_version="1.0.0",
+        name="remediate.example",
+        version="1.0.0",
+        operation=Operation.TAG,
+        interfaces=(ActionInterface.CONTROL_PLANE, ActionInterface.IDEMPOTENT_BY_KEY),
+        rollback_contract=RollbackKind.PR_REVERT,
+        promotion_gate=PromotionGate(
+            min_shadow_days=14,
+            min_samples=100,
+            min_accuracy=0.95,
+            max_policy_escapes=0,
+        ),
+        description="Draft-only generic remediation example.",
     )
 
 
@@ -125,6 +154,96 @@ def test_unavailable_declaration_becomes_reason_bearing_exclusion() -> None:
     assert generated.receipt.excluded_case_ids == (generated.exclusions[0].case_id,)
 
 
+def test_non_cartesian_perspectives_and_evidence_postures_enter_case_identity() -> None:
+    manifest = _object_manifest("Resource", "BusinessService", "CausalHypothesis")
+    grammar = QuestionUniverseGrammar.build(
+        locales=("en", "ko"),
+        case_classes=(QuestionCaseClass.POSITIVE,),
+        evidence_postures=(
+            QuestionEvidencePosture.FRESH,
+            QuestionEvidencePosture.INCOMPLETE,
+        ),
+    )
+
+    generated = generate_question_universe(manifests=(manifest,), grammar=grammar)
+
+    assert {case.perspective for case in generated.cases} == {
+        QuestionPerspective.RESOURCE,
+        QuestionPerspective.SERVICE,
+        QuestionPerspective.OPERATION,
+        QuestionPerspective.BUSINESS,
+        QuestionPerspective.CAUSAL,
+    }
+    resource_cases = [case for case in generated.cases if case.declaration_id == "object:Resource"]
+    assert {case.perspective for case in resource_cases} == {
+        QuestionPerspective.RESOURCE,
+        QuestionPerspective.OPERATION,
+    }
+    assert all(case.perspective is not QuestionPerspective.ACTION for case in resource_cases)
+    assert {
+        case.expected_posture
+        for case in generated.cases
+        if case.evidence_posture is QuestionEvidencePosture.INCOMPLETE
+    } == {QuestionExpectedPosture.HOLD}
+    assert any(
+        case.required_capability is QuestionCapabilityFamily.EVIDENCE_JOIN
+        and case.anchor_kind is QuestionAnchorKind.SERVER_SCOPE
+        for case in generated.cases
+    )
+    assert len({case.case_id for case in generated.cases}) == len(generated.cases)
+
+
+def test_all_seven_perspectives_have_english_and_korean_coverage() -> None:
+    objects = (
+        _object("Resource"),
+        _object("BusinessService"),
+        _object("BusinessCapability"),
+        _object("CausalHypothesis"),
+        _object("Rule"),
+    )
+    action = _action()
+    release = build_ontology_release(object_types=objects, action_types=(action,))
+    manifest = build_query_manifest(
+        release=release,
+        principal_role=CeilingRole.READER,
+        purposes=(),
+        principal_scope_digest=SCOPE_DIGEST,
+        object_types=objects,
+        action_types=(action,),
+    )
+    generated = generate_question_universe(
+        manifests=(manifest,),
+        grammar=QuestionUniverseGrammar.build(
+            locales=("en", "ko"),
+            case_classes=(QuestionCaseClass.POSITIVE,),
+        ),
+    )
+
+    expected = set(QuestionPerspective)
+    for locale in ("en", "ko"):
+        assert {case.perspective for case in generated.cases if case.locale == locale} == expected
+
+
+def test_active_and_collected_rule_cases_are_distinct_policy_references() -> None:
+    generated = generate_question_universe(
+        manifests=(_object_manifest("Rule"),),
+        grammar=QuestionUniverseGrammar.build(
+            locales=("en",),
+            case_classes=(QuestionCaseClass.POSITIVE,),
+        ),
+    )
+
+    assert {case.rule_state for case in generated.cases} == {
+        QuestionRuleState.ACTIVE,
+        QuestionRuleState.COLLECTED,
+    }
+    assert {case.perspective for case in generated.cases} == {QuestionPerspective.POLICY}
+    assert {case.required_capability for case in generated.cases} == {
+        QuestionCapabilityFamily.POLICY_REFERENCE
+    }
+    assert len({case.case_id for case in generated.cases}) == 2
+
+
 def test_generation_rejects_mixed_releases_and_incomplete_accounting() -> None:
     first = _object_manifest("Resource")
     second = _object_manifest("Service")
@@ -147,6 +266,17 @@ def test_generation_fails_preflight_before_case_expansion_exceeds_bound() -> Non
         locales=("en-US",),
         case_classes=(QuestionCaseClass.POSITIVE,),
         max_cases=1,
+    )
+
+    with pytest.raises(ValueError, match="preflight case bound"):
+        generate_question_universe(manifests=(manifest,), grammar=grammar)
+
+
+def test_generation_preflight_counts_each_perspective_application() -> None:
+    manifest = _object_manifest("Resource")
+    grammar = QuestionUniverseGrammar.build(
+        locales=("en-US",),
+        max_cases=4,
     )
 
     with pytest.raises(ValueError, match="preflight case bound"):

@@ -59,6 +59,28 @@ models:
     sku: GlobalStandard
     capacity_tpm: 100000
 
+  t1.question.generator:
+    # Off-path wording only. Deterministic universe and candidate validation
+    # own coverage, scope, authority, and acceptance.
+    preferences:
+      - {publisher: OpenAI, family: gpt-5.4-mini}
+      - {publisher: OpenAI, family: gpt-5-mini}
+      - {publisher: OpenAI, family: gpt-4.1-mini}
+    sku: Standard
+    capacity_tpm: 100000
+    invocation: on_novel_case
+
+  t1.question.reviewer:
+    # Independent semantic-equivalence review. Runtime rejects the same model
+    # family as the selected generator even when both use one publisher.
+    preferences:
+      - {publisher: OpenAI, family: gpt-4.1}
+      - {publisher: OpenAI, family: gpt-4o}
+      - {publisher: OpenAI, family: gpt-5.2}
+    sku: Standard
+    capacity_tpm: 50000
+    invocation: on_novel_case
+
   t2.reasoner.primary:
     preferences:
       - {publisher: OpenAI, family: gpt-4o}
