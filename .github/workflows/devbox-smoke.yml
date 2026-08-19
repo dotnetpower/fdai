@@ -67,3 +67,23 @@ jobs:
           [[ "$(git rev-parse HEAD)" == "$TARGET_COMMIT_SHA" ]]
           printf 'Devbox runner accepted protected commit `%s`.\n' \
             "$TARGET_COMMIT_SHA" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Inspect supported rename prerequisites
+        run: |
+          set -euo pipefail
+          runner_root="$(dirname "$RUNNER_WORKSPACE")"
+          [[ -x "$runner_root/config.sh" ]]
+          [[ -w "$runner_root" ]]
+          service_mode=false
+          passwordless_service_control=false
+          if [[ -f "$runner_root/.service" ]]; then
+            service_mode=true
+            if sudo -n true 2>/dev/null; then
+              passwordless_service_control=true
+            fi
+          fi
+          {
+            printf 'Service mode: `%s`\n' "$service_mode"
+            printf 'Passwordless service control: `%s`\n' \
+              "$passwordless_service_control"
+          } >> "$GITHUB_STEP_SUMMARY"

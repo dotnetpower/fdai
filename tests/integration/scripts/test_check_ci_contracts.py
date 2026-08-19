@@ -204,6 +204,9 @@ def test_devbox_smoke_is_manual_protected_and_label_indirected() -> None:
     assert "PROTECTED_WORKFLOW_PATH: .github/workflows/devbox-smoke.yml" in workflow
     assert "ref: ${{ inputs.commit_sha }}" in workflow
     assert "secrets." not in workflow
+    assert 'runner_root="$(dirname "$RUNNER_WORKSPACE")"' in workflow
+    assert '[[ -x "$runner_root/config.sh" ]]' in workflow
+    assert "sudo -n true" in workflow
 
 
 def test_shipped_workflows_satisfy_security_contracts() -> None:
