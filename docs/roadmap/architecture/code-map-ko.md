@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: dbc0c0b9736a7c41e23ffb7a65c0b462586ded02
+translation_source_sha: 1450c4588a5761d442d27dc4010f75f913e1fb96
 translation_revised: 2026-08-20
 ---
 # 코드 맵
@@ -80,6 +80,7 @@ translation_revised: 2026-08-20
 | 2026-08-19 | 구현됨 | 표현 계획이 정본 서술에서 의도를 추론하지 않도록 검증기가 수락한 의미 operation과 output shape를 영속 기술 상세에 보존했습니다. | `current change`, [이슈 #234](https://github.com/dotnetpower/fdai/issues/234), 집중 의미 processor 검사 62개와 작업 범위 Ruff 및 strict mypy 통과 | 채널 소유 구획에서 추가적인 v2 표현 산출물을 컴파일하고 렌더링합니다. |
 | 2026-08-19 | implemented | 공급자, 영속성, 의미 또는 권한 경계를 옮기지 않고 정확한 릴리스의 지속형 질문 공간 파이프라인을 정식 인터페이스 소유 문서에 배정했습니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233), [지속형 질문 공간](../interfaces/continuous-question-space-ko.md), 집중 질문 공간 검사 | 정확한 소스 라이브 인증과 인증된 예약 배포 근거를 인터페이스 소유 문서에 보존합니다. |
 | 2026-08-20 | implemented | 선언 detail, dependents, Rule 상태 질문을 위한 정확한 의미 frame과 plan을 추가했습니다. 결정론적 alignment는 실행 전에 manifest 대체, ObjectSet 대체, intent 누락, subject 또는 kind drift, section drift, 숨은 읽기, 불완전한 output, output 형식 위장을 차단합니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233), `current change`, 집중 의미 검사 164개와 작업 범위 Ruff 및 strict mypy 통과 | 정확한 검증 source에서 새로운 strict v2 및 seeded 100 근거를 보존합니다. |
+| 2026-08-20 | implemented | 서비스 소유권 통합 과정에서 직접 환경 읽기와 리터럴 비교가 다시 들어온 뒤 독립 실행 Operator channel edge를 공유 실행 장소 계약으로 복원했습니다. 이제 환경 파싱은 타입이 지정된 `ExecutionVenue` 하나를 해석하고 의미 및 Teams 자격 증명 조립이 채널 권한을 바꾸지 않고 이를 재사용합니다. | `current change`, venue-capability 계약이 소스 트리 7개에서 OK 보고, 집중 channel 환경 및 application 검사 11개 통과, 작업 범위 Ruff 및 strict mypy 통과 | 실행 장소 계약 회귀에 남은 작업은 없습니다. |
 | 2026-08-19 | implemented | Ontology promotion bound와 active configuration을 혼동하지 않으면서 production threshold source coverage를 완료했습니다. Production control loop의 숫자 LLM threshold 7개는 versioned config schema에 고정되고 Heimdall 상관관계 threshold 5개는 bounded Runtime Settings에 고정됩니다. Heimdall 보안 기본값 3개는 이제 bootstrap 및 Pantheon composition을 통과합니다. Raw Huginn ingress 구성을 기존 subscription 모듈로 추출해 handler 의미를 바꾸지 않고 `runtime.py`를 framework 800줄 상한 아래에 유지했습니다. | [이슈 #219](https://github.com/dotnetpower/fdai/issues/219). AST 기반 threshold coverage와 focused setting, runtime, layout 및 ingress 검사 134개가 통과했습니다. | Production composition threshold source coverage에 남은 작업은 없습니다. |
 | 2026-08-19 | implemented | Service-owned 인벤토리 작업의 composition parity gap을 닫았습니다. `inventory_sync_cli.py`는 ARG coverage 집계는 연결했지만 `composition/wire_inventory.py`가 이미 연결한 unclassified identity query는 연결하지 않아 scheduled service가 identity-complete fence를 실행할 수 없었습니다. 이제 ARG 작업은 두 callback을 모두 binding하고 ARM fallback의 count 없는 동작을 유지합니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). `test_inventory_sync_cli.py`의 focused case 18개와 작업 범위 Ruff 및 strict mypy가 통과했습니다. | 수정된 service-owned entry point에서 새로운 완전 세대 하나를 승격하고 측정합니다. |
 | 2026-08-19 | validated | 결정론적 운영 범위 변환 결과를 인증된 PostgreSQL 인벤토리 그래프 응답에 연결했습니다. Reader는 `workload_runs_on`과 `implemented_by`만 범위가 제한된 역방향으로 조회하고 모든 응답 Resource를 표시하며, 속성을 노출하거나 변경 권한을 부여하지 않고 집계 완전성을 보고합니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Focused consumer 검사 4개와 strict mypy가 통과했습니다. 읽기 전용 loopback 근거는 응답 Resource 213/213개가 표시됐고 명시적 unmapped coverage gap을 보고합니다. | 배포가 검토한 서비스 mapping을 제공합니다. 읽기 전용 consumer 연결 작업은 남지 않았습니다. |
