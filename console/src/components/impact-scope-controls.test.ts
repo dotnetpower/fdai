@@ -33,6 +33,8 @@ describe("Impact scope controls", () => {
     expect(route).toContain('class="impact-query-check-box"');
     expect(route).toContain('class="btn primary impact-query-submit"');
     expect(route.match(/aria-pressed=\{view === "(impact|map|table)"\}/g)).toHaveLength(3);
+    expect(route).toContain('header: t("ontology.blast.columnVerification")');
+    expect(route).toContain("verification_status: e.verification_status");
     expect(styles).toContain(".impact-query-check input:checked + .impact-query-check-box");
     expect(styles).toContain(".impact-query-submit:disabled");
     expect(styles).toContain(".impact-query-submit { width: 100%; }");

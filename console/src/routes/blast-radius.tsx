@@ -11,6 +11,7 @@ import {
   KpiCard,
   KpiGrid,
   PageHeader,
+  StatusPill,
   type AsyncState,
   type Column,
 } from "../components/ui";
@@ -305,6 +306,7 @@ function ReportView({ data, client, architectureView }: { readonly data: BlastRa
           target: e.target,
           link_type: e.link_type,
           depth: e.depth,
+          verification_status: e.verification_status,
         })),
       },
     }),
@@ -340,6 +342,18 @@ function ReportView({ data, client, architectureView }: { readonly data: BlastRa
       header: t("ontology.blast.columnTarget"),
       render: (e) => <a href={architectureHref(e.target, architectureView)}>{e.target}</a>,
       cellClass: "mono",
+    },
+    {
+      key: "v",
+      header: t("ontology.blast.columnVerification"),
+      render: (e) => (
+        <StatusPill
+          kind={e.verification_status === "verified" ? "success" : "warning"}
+          label={t(e.verification_status === "verified"
+            ? "ontology.blast.verified"
+            : "ontology.blast.unverified")}
+        />
+      ),
     },
   ];
 
