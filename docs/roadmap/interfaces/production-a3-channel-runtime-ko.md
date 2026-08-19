@@ -1,7 +1,7 @@
 ---
 title: 운영 A3 채널 런타임
 translation_of: production-a3-channel-runtime.md
-translation_source_sha: bf22a1942b216a6c9ac0bb97930aba0097df3e12
+translation_source_sha: 697aa295d1b13d4771c75461f2d67c5a565d7600
 translation_revised: 2026-08-20
 ---
 # 운영 A3 채널 런타임
@@ -50,9 +50,9 @@ flowchart LR
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | A3 edge 설계 및 소유권 | 진행 중 | [이슈 #235](https://github.com/dotnetpower/fdai/issues/235), 이 문서 쌍 | 수정된 설계는 비평을 통과했으며 구현 및 런타임 근거는 열린 상태입니다. |
-| 인증된 유입 및 프로바이더 publisher | 진행 중 | `delivery/channels/` 아래 Core-local transport prototype, 집중 채널 검사 92개 통과 | 검증된 algorithm은 운영 package가 아닙니다. Core implementation module을 import하지 않고 Operator 소유 edge interface 뒤로 이동해야 합니다. 기존 A1 및 A2/A4 adapter는 A3 publisher가 아닙니다. |
+| 인증된 유입 및 프로바이더 publisher | 구현됨 | `fdai_operator_service/families/conversation/channel_edge/`, 집중 Operator 채널 검사 32개 통과 | Operator-local Slack 및 Teams adapter는 정규 principal 교체, 범위가 제한된 유입, URL 없는 첨부 메타데이터, 고정 목적지, 엄격한 token audience 및 확정 확인 응답과 모호한 확인 응답의 구분을 강제합니다. 런타임 경로 연결은 열린 상태입니다. |
 | Operator migration 및 persistence | 구현됨 | `operator_a3_channel_delivery_20260819`, `channel_{delivery_models,message_ledger}.py`, `postgres_channel_{binding,delivery}.py`, live PostgreSQL 검사 9개 건너뛰기 없이 통과 | Operator branch가 inbound processing lease를 소유하고 Operator role에 channel table 6개만 부여합니다. Runtime-role 검사는 lease reclaim, permanent dedupe, binding uniqueness, idempotent delivery, claim 및 acknowledgement closure, process-loss ambiguity, breaker CAS 및 retention cleanup을 증명합니다. Production lifespan binding은 열린 상태입니다. |
-| Semantic request 및 result bridge | 구현됨 | `semantic_turn_runtime.py`, `postgres_semantic_turn_store.py`, 집중 Operator semantic-turn 검사 | Operator distribution은 이미 typed request를 영속화하고 발행하며 EventBus를 통해 principal 범위 terminal projection을 replay합니다. Edge 조립과 channel projection adapter는 열린 상태입니다. |
+| 의미 요청, 결과 및 영속 전달 파이프라인 | 구현됨 | `semantic_turn_runtime.py`, `channel_edge/{pipeline,pipeline_contracts,worker}.py`, 집중 파이프라인 및 worker 검사 10개 통과, live PostgreSQL 연결 검사 1개 건너뛰기 없이 통과 | Operator edge는 서버 소유 범위를 해석하고 typed 의미 요청을 영속화하며 principal 범위의 최종 변환 결과를 기다립니다. 프로바이더 I/O 전에 최종 응답을 저장하고 영속 전달 소유권을 확보한 뒤에만 inbound 소유권을 완료하며, 영속 차단기로 재시도와 프로세스 손실 복구를 제한합니다. 운영 lifespan 연결은 열린 상태입니다. |
 | 로컬 및 Azure edge workload | 시작 안 함 | [배포 및 롤백](#배포-및-롤백) | 경로, entry point, 로컬 실행 또는 Container App이 아직 없습니다. |
 | 독립 hardening | 시작 안 함 | [Hardening 캠페인](#hardening-캠페인) | 완료하려면 최소 10개 round와 Medium 이상 잔여 0건이 필요합니다. |
 
@@ -66,6 +66,7 @@ flowchart LR
 | 2026-08-19 | 철회됨 | Conversation delivery table이 Operator Service 소유이고 동결된 root Alembic chain에 revision 0087을 추가할 수 없다는 service ownership 검증 결과에 따라 Core 소유 channel persistence slice를 철회했습니다. | Root migration head를 `20260819_0086`으로 복원했고 legacy inventory를 revision 88개와 table 105개로 복원했습니다. 집중 Core migration 검사 200개와 service-migration 검사 47개를 통과했습니다. | Core table writer 없이 Operator distribution에서 persistence와 edge 조립을 다시 구현합니다. |
 | 2026-08-19 | 진행 중 | Edge를 Operator distribution으로 교정하고 기존 semantic-turn EventBus bridge를 재사용하며 inbound claim과 정확한 channel-table grant를 Operator service migration branch에 추가했습니다. | `current change`, `operator_a3_channel_delivery_20260819`, ownership manifest, service-migration 검사 47개 통과, loopback Operator branch를 새 head로 upgrade | Operator-local store, transport, lifecycle, workload, hardening 및 통제된 runtime 근거를 구현합니다. |
 | 2026-08-19 | 구현됨 | Core implementation import 또는 다른 writer를 추가하지 않고 Operator-local inbound claim, 검증된 binding, outbound delivery, attempt, acknowledgement, retention 및 breaker store를 추가했습니다. | `current change`, Operator runtime role을 사용한 live loopback PostgreSQL 검사 9개를 건너뛰기 없이 통과했고 Ruff, formatting 및 strict mypy 통과 | Provider transport를 Operator 소유권으로 이동하고 semantic bridge와 fail-closed lifespan을 조립합니다. |
+| 2026-08-19 | 구현됨 | 인증된 Slack 및 Teams 전송을 Operator distribution으로 이동하고 결정적 inbound replay, 의미 최종 변환 결과, 영속 소유권, 프로바이더 확인 응답 종결, 재시도 작업, 프로세스 손실 조정 및 영속 차단기 유입 제어를 조립했습니다. | 커밋 `3555ecf9c`, `current change`, 집중 채널 검사 32개, 파이프라인 및 worker 검사 10개, Operator runtime role을 사용한 live PostgreSQL 연결 검사 1개를 건너뛰기 없이 통과했고 Ruff 및 strict mypy 통과 | 실패 시 닫히는 Starlette lifespan에 의존성을 연결하고 로컬 및 배포 workload를 추가하며 대체된 Core prototype을 제거하고 통제된 근거를 보존합니다. |
 
 ### 남은 작업
 

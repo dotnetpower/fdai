@@ -140,17 +140,26 @@ class PostgresChannelDeliveryStore:
         worker_id: str,
         lease_seconds: int,
         limit: int,
+        channel_kind: ChannelKind | None = None,
     ) -> tuple[ChannelDeliveryRecord, ...]:
-        """Claim a bounded due batch with `SKIP LOCKED` scale-out isolation."""
+        """Claim a bounded optional-channel batch with `SKIP LOCKED` isolation."""
         _claim_bounds(lease_seconds=lease_seconds, limit=limit)
         async with await self._connect() as connection, connection.transaction():
             await self._set_timeout(connection)
             cursor = await connection.execute(
                 f"SELECT {_DELIVERY_COLUMNS} FROM conversation_outbound_delivery "
                 "WHERE state IN ('pending', 'failed') AND due_at <= %s AND expires_at > %s "
-                "AND attempt_count < %s ORDER BY due_at, delivery_id "
+                "AND attempt_count < %s AND (%s::text IS NULL OR channel_kind = %s) "
+                "ORDER BY due_at, delivery_id "
                 "FOR UPDATE SKIP LOCKED LIMIT %s",
-                (now, now, MAX_DELIVERY_ATTEMPTS, limit),
+                (
+                    now,
+                    now,
+                    MAX_DELIVERY_ATTEMPTS,
+                    channel_kind.value if channel_kind is not None else None,
+                    channel_kind.value if channel_kind is not None else None,
+                    limit,
+                ),
             )
             claimed: list[ChannelDeliveryRecord] = []
             for row in await cursor.fetchall():
