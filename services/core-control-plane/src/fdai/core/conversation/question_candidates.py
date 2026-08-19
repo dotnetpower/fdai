@@ -26,6 +26,14 @@ _RESOURCE_ID_PATTERN = re.compile(
     r"|\bgh[pousr]_[A-Za-z0-9]{20,}\b",
     re.I,
 )
+_CREDENTIAL_PATTERN = re.compile(
+    r"(?<![A-Za-z0-9_-])"
+    r"(?:password|pwd|accountkey|sharedaccesskey|clientsecret|api[-_]?key|secretaccesskey"
+    r"|access[-_]?token|refresh[-_]?token|secret|token)"
+    r"\s*[:=]\s*[^;,\s]+"
+    r"|\b[A-Za-z][A-Za-z0-9+.-]*://[^/\s:@]+:[^@\s]+@",
+    re.I,
+)
 _EXECUTABLE_QUERY_PATTERN = re.compile(
     r"(?:^|\s)(?:SELECT\s+.+\s+FROM|az\s+|kubectl\s+|curl\s+|pwsh\s+|powershell\s+)",
     re.I,
@@ -314,6 +322,8 @@ def _validate_text(
     question = candidate.question
     if not _MIN_QUESTION_LENGTH <= len(question) <= _MAX_QUESTION_LENGTH:
         return "candidate_length_invalid"
+    if any(unicodedata.category(character) in {"Cc", "Cf"} for character in question):
+        return "candidate_control_character_rejected"
     has_hangul = _HANGUL_PATTERN.search(question) is not None
     if (candidate.locale.startswith("ko") and not has_hangul) or (
         candidate.locale.startswith("en") and has_hangul
@@ -323,6 +333,7 @@ def _validate_text(
         _UUID_PATTERN.search(question)
         or _URL_PATTERN.search(question)
         or _RESOURCE_ID_PATTERN.search(question)
+        or _CREDENTIAL_PATTERN.search(question)
     ):
         return "candidate_environment_identifier_rejected"
     if _EXECUTABLE_QUERY_PATTERN.search(question):
