@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: eb4d72e421355d089c213add2611df8bf9723ed6
+translation_source_sha: f43cc9ff021e809b5b95425379cbe246820401e1
 translation_revised: 2026-08-19
 ---
 
@@ -19,6 +19,9 @@ FDAI가 Teams, Slack, 이메일, 웹훅, paging 서비스, SMS 및 명시적 선
 읽기 전용 콘솔의 신원 및 interaction 흐름은 이 문서 범위 밖이고, 아웃바운드 브라우저
 알림 경계만 이 문서가 소유합니다. 콘솔 신원은
 [user-rbac-and-identity-ko.md](user-rbac-and-identity-ko.md)에 있습니다.
+
+운영 A3 유입, 발행, 수명 주기, 영속성 조립, 배포 및 롤백은
+[운영 A3 채널 런타임](production-a3-channel-runtime-ko.md)이 소유합니다.
 
 > **방향 범위.** 아웃바운드 알림, A1 승인, bidirectional 대화는 서로 다른
 > 프로토콜입니다. 이 문서는 공통 trust/category/라우팅 원칙과 아웃바운드 전달을 소유하고,
@@ -41,7 +44,7 @@ FDAI가 Teams, Slack, 이메일, 웹훅, paging 서비스, SMS 및 명시적 선
 | 영속 아웃바운드 대화 전달 | implemented | [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`outbound_delivery.py`](../../../services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py), [`test_outbound_delivery.py`](../../../services/core-control-plane/tests/conversation/test_outbound_delivery.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | 조정기는 확정적인 거절과 모호한 확인 응답을 구분하고 재시도를 제한하며 중단된 전송을 조정하고 안정적인 전달 신원을 보존합니다. 이 동작은 집중 테스트를 통과했습니다. |
 | 순수 채널 표현 렌더링 | 구현됨 | `shared/providers/channel_presentation.py`, `delivery/channels/`, `test_presentation_renderers.py`, 집중 채널 검사 40개 통과 | 정규화된 묶음 하나가 정본 텍스트, 사실, 제한, 근거, 권한 및 사용 불가 상태를 보존합니다. Teams 및 Slack 페이로드 builder와 가짜 사용자 지정 렌더러가 전송 또는 확인 응답 없이 기능 상한을 강제합니다. 운영 A3 어댑터나 런타임을 주장하지 않습니다. |
 | 명시적 선택 브라우저 알림 | implemented | [`browser-notifications.ts`](../../../console/src/browser-notifications.ts), [`browser-notification-control.tsx`](../../../console/src/components/browser-notification-control.tsx), [`browser-notifications.test.ts`](../../../console/src/browser-notifications.test.ts) | 권한, 기본 설정, 가시성 및 알림 동작이 일곱 개의 집중 Vitest 사례를 통과했습니다. 실제 브라우저 또는 push service 증적은 기록되지 않았습니다. |
-| 이해관계자 브리핑과 독립 채널 런타임 | in-progress | [`briefing.py`](../../../services/core-control-plane/src/fdai/core/notifications/briefing.py), [`test_briefing.py`](../../../services/core-control-plane/tests/notifications/test_briefing.py) | 결정론적 이해관계자 브리핑은 집중 테스트를 통과했습니다. `ProductionChannelRuntime` 구현, 운영 ASGI factory, Slack/Teams 대화 발행기, 서비스 entry point 및 Terraform workload는 없습니다. |
+| 이해관계자 브리핑과 A3 edge 런타임 | in-progress | [`briefing.py`](../../../services/core-control-plane/src/fdai/core/notifications/briefing.py), [`test_briefing.py`](../../../services/core-control-plane/tests/notifications/test_briefing.py), [운영 A3 채널 런타임](production-a3-channel-runtime-ko.md) | 결정론적 이해관계자 브리핑은 집중 테스트를 통과했습니다. 수정된 edge-workload 설계를 승인했으며 구현 및 런타임 근거는 소유 문서에서 추적합니다. |
 
 ### 구현 이력
 

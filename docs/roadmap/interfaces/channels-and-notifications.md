@@ -16,6 +16,9 @@ The read-only console's identity and interaction flows remain out of scope; this
 only its outbound browser-notification boundary. Console identity lives in
 [user-rbac-and-identity.md](user-rbac-and-identity.md).
 
+Production A3 ingress, publishing, lifecycle, persistence composition, deployment, and rollback are
+owned by [Production A3 channel runtime](production-a3-channel-runtime.md).
+
 > **Direction scope.** Outbound notifications, A1 approvals, and bidirectional conversations use
 > separate Protocols. This document owns their shared trust/category/routing principles and
 > outbound delivery; [operator-console.md](operator-console.md) owns conversation tool and session
@@ -37,7 +40,7 @@ only its outbound browser-notification boundary. Console identity lives in
 | Durable outbound conversation delivery | implemented | [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`outbound_delivery.py`](../../../services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py), [`test_outbound_delivery.py`](../../../services/core-control-plane/tests/conversation/test_outbound_delivery.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py) | The coordinator distinguishes definitive rejection from ambiguous acknowledgement, bounds retries, reconciles interrupted sends, and preserves stable delivery identity in focused tests. |
 | Pure channel presentation rendering | implemented | `shared/providers/channel_presentation.py`; `delivery/channels/`; `test_presentation_renderers.py`; focused channel checks (`40 passed`) | One normalized envelope preserves canonical text, facts, limitations, evidence, authority, and unavailable state. Teams and Slack payload builders plus a fake custom renderer enforce capability bounds without transport or acknowledgement. No production A3 adapter or runtime is claimed. |
 | Opt-in browser notifications | implemented | [`browser-notifications.ts`](../../../console/src/browser-notifications.ts), [`browser-notification-control.tsx`](../../../console/src/components/browser-notification-control.tsx), [`browser-notifications.test.ts`](../../../console/src/browser-notifications.test.ts) | Permission, preference, visibility, and notification behavior pass seven focused Vitest cases. No live browser or push-service receipt is recorded. |
-| Stakeholder briefing and standalone channel runtime | in-progress | [`briefing.py`](../../../services/core-control-plane/src/fdai/core/notifications/briefing.py), [`test_briefing.py`](../../../services/core-control-plane/tests/notifications/test_briefing.py) | Deterministic stakeholder briefing passes focused tests. No `ProductionChannelRuntime` implementation, production ASGI factory, Slack/Teams conversation publishers, service entry point, or Terraform workload is present. |
+| Stakeholder briefing and A3 edge runtime | in-progress | [`briefing.py`](../../../services/core-control-plane/src/fdai/core/notifications/briefing.py), [`test_briefing.py`](../../../services/core-control-plane/tests/notifications/test_briefing.py), [Production A3 channel runtime](production-a3-channel-runtime.md) | Deterministic stakeholder briefing passes focused tests. The revised edge-workload design is accepted; implementation and runtime evidence are tracked by its owner document. |
 
 ### Implementation history
 

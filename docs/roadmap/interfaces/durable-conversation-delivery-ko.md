@@ -1,6 +1,6 @@
 ---
 translation_of: durable-conversation-delivery.md
-translation_source_sha: 65aa00169ce2fc36fbf1992ff703b68c6d43f639
+translation_source_sha: 64dbd540c01a4c8a337fe6b62b528831c97ada56
 translation_revised: 2026-08-16
 ---
 # 영구 대화 전송
@@ -8,6 +8,10 @@ translation_revised: 2026-08-16
 이 문서는 검증된 principal-to-channel 연결, 영구 outbound 회신 전달, process-loss
 복구, 어댑터 health control, 읽기 전용 reliability 메트릭을 정의합니다. Console에 변경
 권한을 부여하지 않으면서 Web, Slack, Teams 및 scheduled-result 이어가기에 적용됩니다.
+
+운영 A3 시작 조립 및 전송 수명 주기는
+[운영 A3 채널 런타임](production-a3-channel-runtime-ko.md)이 소유하며 이 문서는 영속 상태 machine
+소유권을 유지합니다.
 
 > 벤더 sender id는 라우팅 근거이며 principal id가 아닙니다. 모호한 프로바이더 증적은
 > visible 최종 상태이며 자동으로 재시도하지 않습니다.

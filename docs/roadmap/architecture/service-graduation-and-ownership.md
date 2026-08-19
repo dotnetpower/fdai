@@ -38,7 +38,7 @@ Core only after the exact live evidence closes.
 | Five-service graduation decisions and authority cutover | validated | `config/service-decomposition.json`; `config/independent-services.json`; [Service Decomposition evidence log](service-decomposition-execution-plan.md#evidence-log) | The required and approved service candidates completed exact topology, identity, health, rollback, and remote transition evidence. |
 | Single-writer data ownership and service migration branches | validated | `service-migrations/branches/`; independent-service adoption and peer-isolation evidence in the execution plan | Five migration branches and service roles retain disjoint writer ownership across the protected N/N-1/N transition. |
 | Versioned cross-process contracts and isolated identities | validated | `packages/service-contracts/`; `infra/services/`; IS-03, IS-05, IS-07, and IS-09 evidence | Service distributions consume the shared contract SDK without importing another service implementation, and only the isolated Executor can hold effect authority. |
-| Deferred and rejected future candidates | deferred | [Candidate decisions](#candidate-decisions) | Operator application/read/SSE splits, conversation runtime, and background read tasks remain deferred until their measured forcing triggers and complete gate evidence exist. Ad hoc control-loop service splits remain rejected. |
+| Deferred and rejected future candidates | deferred | [Candidate decisions](#candidate-decisions) | Operator application/read/SSE splits and background read tasks remain deferred until their measured forcing triggers and complete gate evidence exist. The A3 channel edge is accepted as a non-distribution adapter workload with separate implementation gates. Ad hoc control-loop service splits remain rejected. |
 | Boundary docstring enforcement | implemented | `scripts/quality/architecture/check-boundary-docstrings.py`; SD-09 evidence | All reviewed decomposition scopes enforce the structural docstring contract. Semantic correctness still depends on focused architecture tests. |
 | Temporal Incident roster projection | implemented | `core_incident_projection_20260819`; `operator_incident_projection_read_20260819`; focused migration and Operator checks | An Alembic-owned trigger derives temporal versions inside the append-only audit transaction. Core and Executor roles receive no direct projection write grant, while the Operator role receives SELECT only. |
 ### Implementation history
@@ -52,7 +52,9 @@ Core only after the exact live evidence closes.
 
 - [x] No work remains for the approved five-service topology; its graduation, writer ownership, identity isolation, rollback, and remote transition evidence is retained in the decomposition program.
 - [ ] Re-evaluate Operator application, read-projection, and SSE candidates only after one candidate records a scorecard forcing trigger and all binary gate evidence on one pinned revision.
-- [ ] Re-evaluate the conversation runtime and background read-task executor only after each has independent transport, identity, persistence, cost/failure evidence, deployment smoke, and a tested rollback receipt.
+- [ ] Implement the accepted non-distribution A3 edge through its owner design. Re-evaluate only
+	the background read-task executor as a future service candidate after it has independent
+	transport, identity, persistence, cost/failure evidence, deployment smoke, and rollback.
 
 ## Graduation scorecard
 
@@ -94,7 +96,7 @@ API inventory and deployed application shape.
 | Operator API SSE streaming | Deferred | Requires a versioned relay/replay contract and measured connection isolation benefit. |
 | Document ingestion API | Approved | Privilege and scaling isolation, typed transport, role-scoped database access, probes, and co-host rollback are implemented. |
 | Document ingestion worker | Approved | Durable lease/CAS claims, restart/reorder/DLQ tests, internal health, dedicated identity, and scale gate are implemented. |
-| Conversation channel runtime | Deferred | Durable delivery coordination remains in-process; standalone adapter ingress, identity, persistence binding, and deployment smoke remain unbound. |
+| Conversation channel runtime | Accepted as an edge adapter workload, not a sixth distribution | Public provider-authenticated ingress and channel-secret isolation are the forcing trigger. It reuses the Core distribution and migration ownership, receives a dedicated no-executor identity, and must pass [Production A3 channel runtime](../interfaces/production-a3-channel-runtime.md). |
 | Background read-task executor | Deferred | Durable attempts exist; independent cost/failure trigger and deployed transport evidence are not yet measured. |
 | Scheduler, inventory, measurement, and canary jobs | Approved as jobs | Bounded run-to-completion contracts and dedicated identities already justify out-of-band Container Apps Jobs. |
 | Authoritative control-loop stages | Rejected as ad hoc services | No stage may split without preserving agent single-writer ownership, hard dependencies, typed pub/sub, and complete execution safeguards. |

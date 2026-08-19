@@ -8,6 +8,10 @@ process-loss recovery, adapter health controls, and read-only reliability metric
 web, Slack, Teams, and scheduled-result continuations without granting the console mutation
 authority.
 
+Production A3 startup composition and transport lifecycle are owned by
+[Production A3 channel runtime](production-a3-channel-runtime.md); this document remains the
+durable state-machine owner.
+
 > A vendor sender id is routing evidence, not a principal id. Ambiguous provider receipt is a
 > visible terminal state and is never retried automatically.
 
