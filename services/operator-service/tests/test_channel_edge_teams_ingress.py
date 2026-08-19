@@ -120,6 +120,7 @@ async def test_teams_ingress_verifies_service_tenant_and_principal() -> None:
         _token(expires=_NOW - timedelta(minutes=10)),
         _token(key_id="unknown-key"),
     ],
+    ids=("wrong-audience", "wrong-issuer", "expired", "unknown-key"),
 )
 async def test_teams_service_token_verification_fails_closed(token: str) -> None:
     with pytest.raises(TeamsIngressError) as error:
