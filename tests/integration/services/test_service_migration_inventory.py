@@ -469,6 +469,21 @@ def test_operator_active_inventory_pointer_has_exact_read_only_grant() -> None:
     assert "GRANT UPDATE" not in source
     assert "GRANT DELETE" not in source
 
+    raw = json.loads((MIGRATION_ROOT / "ownership.json").read_text(encoding="utf-8"))
+    dependency = next(
+        item
+        for item in raw["migration_dependencies"]
+        if item["consumer_revision"] == "operator_inventory_active_read_20260819"
+    )
+    assert dependency == {
+        "consumer_service": "operator-service",
+        "consumer_revision": "operator_inventory_active_read_20260819",
+        "provider_service": "core-control-plane",
+        "provider_revision": "core_runtime_role_20260809",
+        "schema_prerequisites": ["inventory_active"],
+        "provider_rollback": "blocked-until-operator-read-grant-rollback",
+    }
+
 
 def test_worker_migration_widens_claim_check_and_blocks_inflight_deletion() -> None:
     revision_path = (

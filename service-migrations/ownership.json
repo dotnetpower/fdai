@@ -10,7 +10,7 @@
       "consumer_service": "operator-service",
       "consumer_revision": "operator_inventory_active_read_20260819",
       "provider_service": "core-control-plane",
-      "provider_revision": "core_shared_data_ownership_20260808",
+      "provider_revision": "core_runtime_role_20260809",
       "schema_prerequisites": [
         "inventory_active"
       ],
