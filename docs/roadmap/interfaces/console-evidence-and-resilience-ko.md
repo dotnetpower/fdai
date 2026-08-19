@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: c9021ff56575456c350116eb056a0c49675f144e
+translation_source_sha: 9b69525b66e7d6d091e9f0be83346650b712e7fb
 translation_revised: 2026-08-19
 ---
 
@@ -84,6 +84,7 @@ translation_revised: 2026-08-19
 | 2026-08-19 | implemented | Console shell이 2열 최소 너비보다 좁아지기 전에 Impact scope topology를 1열로 쌓도록 변경했습니다. 제한된 desktop에서 main horizontal scrollbar가 더 이상 생기지 않습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused control 테스트, typecheck 및 production build가 통과했고 인증된 1440 x 900, 993 x 641, 390 x 844 Browser 검사에서 document, main, layout overflow 및 control overlap이 모두 0이었습니다. | 모바일 graph 여백, 의도적인 table scrolling, link가 있는 identifier ellipsis인 Low 시각 잔여만 남았습니다. |
 | 2026-08-19 | implemented | `unverified`를 숨겨진 machine metadata로 받아들이는 대신 간선 검증 상태를 표시했습니다. 간선 table은 상태를 localization하고 발행한 view context는 정확한 machine 값을 보존합니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused Console 및 catalog 테스트 11개, typecheck, production build가 통과했고 인증된 Browser가 현재 `Unverified` 간선과 `Verification` column 하나를 렌더링했습니다. | Localization 및 문서 비평을 다시 실행합니다. 관리되는 exact-source Browser 보존은 별도 작업으로 남습니다. |
 | 2026-08-19 | implemented | 선택적 Architecture map을 영향 범위 변환 결과의 인벤토리 스냅샷에 바인딩했습니다. 사용할 수 있으면 정확한 generation을 우선하고 legacy graph는 cutoff가 일치해야 하며, 영향 범위 스냅샷이 바뀌면 generation을 섞지 않고 map을 초기화해 다시 읽습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused Console 및 catalog 테스트 25개, typecheck, production build가 통과했고 인증된 Map 탭이 mismatch 상태 없이 일치하는 로컬 cutoff를 렌더링했습니다. | Concurrency 및 determinism 재비평을 계속합니다. 관리되는 exact-source Browser 보존은 별도 작업으로 남습니다. |
+| 2026-08-19 | implemented | Wire 불변식, 순회 정확성과 상한, SQL 권한, API 오류, adversarial decoding, 접근성, 반응형 layout, localization, migration rollback, concurrency 및 근거 권한을 대상으로 독립적인 비평과 hardening round 12개를 완료했습니다. 검증된 모든 Medium 이상 finding은 다음 round 전에 수정하고 다시 검사했습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, 앞 행에 기록한 작업 소유 focused 검사, 정확한 commit 검사, production build 및 인증된 세 viewport 관측입니다. | Decoder의 producer-bound 배열 상한, 엄격한 RFC 3339 defense in depth, link가 있는 identifier ellipsis, 모바일 graph 여백 및 의도적인 evidence table scrolling인 Low 구현 잔여만 남았습니다. 관리되는 exact-source Browser 보존과 principal 범위 Context receipt는 별도 근거 전달 작업으로 남습니다. |
 
 ### 잔여 작업
 
