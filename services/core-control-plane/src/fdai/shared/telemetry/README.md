@@ -27,9 +27,18 @@ writes `WARNING`, `ERROR`, and `CRITICAL` records to:
 The file remains JSON Lines so local automation can parse the same fields emitted to
 stdout. The handler uses a cross-process lock, stores the directory with mode `0700`,
 stores files with mode `0600`, and retains only records from the latest 24 hours. It
-compacts on startup, before each write, and every five minutes while the process runs.
+appends each warning without rewriting the existing file, then coordinates compaction
+across processes on startup and at most once every five minutes. Lock acquisition is
+bounded so a stalled writer doesn't block the application logging path indefinitely.
 Malformed records and records without a timezone-aware timestamp are removed during
 compaction.
+
+Structured records are capped at 64 KiB. Oversized records retain their timestamp,
+level, logger, correlation id, bounded message and exception, selected scalar context,
+and original byte count. Repeated warning-or-higher aiokafka failures and Pantheon
+observer failures keep the first record and periodic summaries with `suppressed_count`;
+different rendered failures and correlation episodes are never combined. Pantheon
+observer recovery records the complete bridge-owned failure count.
 
 Pytest runs don't attach the automatic local file handler. Tests that exercise expected
 failure paths therefore stay in pytest capture instead of becoming hardening candidates.

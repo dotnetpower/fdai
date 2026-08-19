@@ -12,6 +12,7 @@ usable against a real Postgres + Kafka backend without change.
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Mapping
 
 import pytest
@@ -215,6 +216,56 @@ def test_bridge_observer_failure_does_not_block_handler_delivery() -> None:
     asyncio.run(_drive())
 
     assert delivered == ["corr-delivered"]
+
+
+def test_bridge_summarizes_handler_observer_recovery(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    reg = load_pantheon()
+
+    class FlakyObserver:
+        attempts = 0
+
+        async def observe(
+            self,
+            *,
+            agent: str,
+            topic: str,
+            phase: AgentHandlerPhase,
+            payload: Mapping[str, object],
+            error_type: str | None = None,
+        ) -> None:
+            self.attempts += 1
+            if self.attempts < 3:
+                raise RuntimeError("observer unavailable")
+
+    bridge = EventBusBridge(
+        provider=InMemoryEventBus(),
+        registry=reg,
+        handler_observer=FlakyObserver(),
+    )
+
+    async def _drive() -> None:
+        for _ in range(3):
+            await bridge._notify_handler_observer(
+                agent="Heimdall",
+                topic="object.event",
+                phase=AgentHandlerPhase.STARTED,
+                payload={"correlation_id": "corr-recovery"},
+            )
+
+    with caplog.at_level(logging.INFO, logger="fdai.agents._framework.bus_bridge"):
+        asyncio.run(_drive())
+
+    recovery = next(
+        record
+        for record in caplog.records
+        if record.message == "pantheon_handler_observer_recovered"
+    )
+    assert recovery.agent == "Heimdall"
+    assert recovery.topic == "object.event"
+    assert recovery.phase == "started"
+    assert recovery.failure_count == 2
 
 
 def test_bridge_skips_observer_for_non_pantheon_principal() -> None:

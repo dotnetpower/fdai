@@ -17,11 +17,15 @@ Design rules (see ``coding-conventions.instructions.md``):
 from __future__ import annotations
 
 import fcntl
+import hashlib
 import json
 import logging
 import os
 import sys
 import threading
+import time
+from collections import OrderedDict
+from collections.abc import Hashable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TextIO
@@ -30,6 +34,37 @@ from .correlation import current_correlation_id
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
+
+_MAX_JSON_LOG_BYTES = 65_536
+_MAX_TRUNCATED_MESSAGE_BYTES = 32_768
+_MAX_TRUNCATED_EXCEPTION_BYTES = 16_384
+_MAX_TRUNCATED_CONTEXT_BYTES = 512
+_TRUNCATED_CONTEXT_FIELDS = (
+    "agent",
+    "error_type",
+    "failure_count",
+    "phase",
+    "state",
+    "suppressed_count",
+    "suppression_window_seconds",
+    "topic",
+)
+
+
+def _truncate_json_text(value: str, max_bytes: int) -> str:
+    if len(json.dumps(value, ensure_ascii=True).encode("utf-8")) <= max_bytes:
+        return value
+    suffix = "...[truncated]"
+    lower = 0
+    upper = len(value)
+    while lower < upper:
+        midpoint = (lower + upper + 1) // 2
+        candidate = value[:midpoint] + suffix
+        if len(json.dumps(candidate, ensure_ascii=True).encode("utf-8")) <= max_bytes:
+            lower = midpoint
+        else:
+            upper = midpoint - 1
+    return value[:lower] + suffix
 
 
 class JsonFormatter(logging.Formatter):
@@ -82,12 +117,160 @@ class JsonFormatter(logging.Formatter):
                 continue
             payload[k] = v
 
-        return json.dumps(payload, ensure_ascii=True, default=str)
+        rendered = json.dumps(payload, ensure_ascii=True, default=str)
+        rendered_bytes = len(rendered.encode("utf-8"))
+        if rendered_bytes <= _MAX_JSON_LOG_BYTES:
+            return rendered
+
+        bounded: dict[str, Any] = {
+            "timestamp": payload["timestamp"],
+            "level": payload["level"],
+            "logger": _truncate_json_text(str(payload["logger"]), _MAX_TRUNCATED_CONTEXT_BYTES),
+            "message": _truncate_json_text(
+                str(payload["message"]),
+                _MAX_TRUNCATED_MESSAGE_BYTES,
+            ),
+            "correlation_id": _truncate_json_text(
+                str(payload["correlation_id"]),
+                _MAX_TRUNCATED_CONTEXT_BYTES,
+            )
+            if payload["correlation_id"] is not None
+            else None,
+            "log_record_truncated": True,
+            "original_bytes": rendered_bytes,
+        }
+        exception = payload.get("exception")
+        if isinstance(exception, str):
+            bounded["exception"] = _truncate_json_text(
+                exception,
+                _MAX_TRUNCATED_EXCEPTION_BYTES,
+            )
+        for field in _TRUNCATED_CONTEXT_FIELDS:
+            value = payload.get(field)
+            if isinstance(value, (bool, int, float)):
+                bounded[field] = value
+            elif isinstance(value, str):
+                bounded[field] = _truncate_json_text(value, _MAX_TRUNCATED_CONTEXT_BYTES)
+        bounded_rendered = json.dumps(bounded, ensure_ascii=True, default=str)
+        if len(bounded_rendered.encode("utf-8")) <= _MAX_JSON_LOG_BYTES:
+            return bounded_rendered
+
+        fallback: dict[str, Any] = {
+            "timestamp": payload["timestamp"],
+            "level": payload["level"],
+            "logger": _truncate_json_text(str(payload["logger"]), 256),
+            "message": _truncate_json_text(str(payload["message"]), 8_192),
+            "correlation_id": _truncate_json_text(str(payload["correlation_id"]), 256)
+            if payload["correlation_id"] is not None
+            else None,
+            "log_record_truncated": True,
+            "original_bytes": rendered_bytes,
+            "context_truncated": True,
+        }
+        if isinstance(exception, str):
+            fallback["exception"] = _truncate_json_text(exception, 4_096)
+        return json.dumps(fallback, ensure_ascii=True, default=str)
 
 
 _HANDLER_MARKER = "_fdai_json_handler"
 _DEFAULT_WARNING_RETENTION = timedelta(hours=24)
 _DEFAULT_CLEANUP_INTERVAL_SECONDS = 300.0
+_LOCK_TIMEOUT_SECONDS = 0.25
+_LOCK_RETRY_SECONDS = 0.005
+_BURST_SUMMARY_INTERVAL_SECONDS = 10.0
+_BURST_STATE_CAPACITY = 256
+_BURST_DECISION_FIELD = "_fdai_burst_summary_allowed"
+_OWNED_BURST_MESSAGES = frozenset(
+    {
+        "pantheon_consumer_state_observer_failed",
+        "pantheon_handler_observer_failed",
+    }
+)
+
+
+class _BurstSummaryFilter(logging.Filter):
+    """Keep first and periodic evidence for bounded, explicitly noisy log families."""
+
+    def __init__(
+        self,
+        *,
+        interval_seconds: float = _BURST_SUMMARY_INTERVAL_SECONDS,
+        capacity: int = _BURST_STATE_CAPACITY,
+        clock: Callable[[], float] | None = None,
+    ) -> None:
+        super().__init__()
+        if interval_seconds <= 0:
+            raise ValueError("burst summary interval MUST be positive")
+        if capacity < 1:
+            raise ValueError("burst summary capacity MUST be positive")
+        self._interval_seconds = interval_seconds
+        self._capacity = capacity
+        self._clock = clock or time.monotonic
+        self._states: OrderedDict[tuple[Hashable, ...], tuple[float, int]] = OrderedDict()
+        self._state_lock = threading.Lock()
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        existing = getattr(record, _BURST_DECISION_FIELD, None)
+        if isinstance(existing, bool):
+            return existing
+        key = self._key(record)
+        if key is None:
+            setattr(record, _BURST_DECISION_FIELD, True)
+            return True
+        now = self._clock()
+        with self._state_lock:
+            state = self._states.get(key)
+            if state is not None and now - state[0] < self._interval_seconds:
+                self._states[key] = (state[0], state[1] + 1)
+                self._states.move_to_end(key)
+                setattr(record, _BURST_DECISION_FIELD, False)
+                return False
+            if state is not None and state[1] > 0:
+                record.suppressed_count = state[1]
+                record.suppression_window_seconds = self._interval_seconds
+            self._states[key] = (now, 0)
+            self._states.move_to_end(key)
+            while len(self._states) > self._capacity:
+                self._states.popitem(last=False)
+        setattr(record, _BURST_DECISION_FIELD, True)
+        return True
+
+    @staticmethod
+    def _key(record: logging.LogRecord) -> tuple[Hashable, ...] | None:
+        message_template = record.msg if isinstance(record.msg, str) else type(record.msg).__name__
+        if record.levelno >= logging.WARNING and (
+            record.name == "aiokafka" or record.name.startswith("aiokafka.")
+        ):
+            exception_type = (
+                record.exc_info[0].__name__
+                if record.exc_info is not None and record.exc_info[0] is not None
+                else None
+            )
+            rendered_digest = hashlib.sha256(record.getMessage().encode("utf-8")).digest()
+            return (
+                "dependency",
+                record.name,
+                record.levelno,
+                message_template,
+                rendered_digest,
+                exception_type,
+                current_correlation_id(),
+            )
+        if (
+            record.name == "fdai.agents._framework.bus_bridge"
+            and message_template in _OWNED_BURST_MESSAGES
+        ):
+            return (
+                "pantheon-observer",
+                message_template,
+                record.__dict__.get("agent"),
+                record.__dict__.get("topic"),
+                record.__dict__.get("phase"),
+                record.__dict__.get("state"),
+                record.__dict__.get("error_type"),
+                current_correlation_id(),
+            )
+        return None
 
 
 class RetainedJsonlHandler(logging.Handler):
@@ -112,6 +295,7 @@ class RetainedJsonlHandler(logging.Handler):
         self._cleanup_interval_seconds = cleanup_interval_seconds
         self._clock = clock or (lambda: datetime.now(UTC))
         self._stop = threading.Event()
+        self._prepare_storage()
         self._compact(self._clock())
         self._cleanup_thread = threading.Thread(
             target=self._cleanup_loop,
@@ -127,14 +311,8 @@ class RetainedJsonlHandler(logging.Handler):
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
-            self._path.parent.mkdir(parents=True, exist_ok=True)
-            os.chmod(self._path.parent, 0o700)
             with self._locked():
-                self._compact_unlocked(self._clock())
-                with self._path.open("a", encoding="utf-8") as handle:
-                    handle.write(self.format(record))
-                    handle.write("\n")
-                os.chmod(self._path, 0o600)
+                self._append_unlocked(self.format(record) + "\n")
         except Exception:
             self.handleError(record)
 
@@ -149,22 +327,75 @@ class RetainedJsonlHandler(logging.Handler):
         while not self._stop.wait(self._cleanup_interval_seconds):
             self._compact(self._clock())
 
-    def _compact(self, now: datetime) -> None:
-        if not self._path.is_file():
-            return
+    def _prepare_storage(self) -> None:
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        os.chmod(self._path.parent, 0o700)
+        self._path.touch(exist_ok=True)
+        os.chmod(self._path, 0o600)
+        self._lock_path.touch(exist_ok=True)
+        os.chmod(self._lock_path, 0o600)
+
+    def _append_unlocked(self, entry: str) -> None:
+        payload = entry.encode("utf-8")
+        descriptor = os.open(
+            self._path,
+            os.O_WRONLY | os.O_APPEND | os.O_CLOEXEC,
+        )
         try:
-            self._path.parent.mkdir(parents=True, exist_ok=True)
-            with self._locked():
+            offset = 0
+            while offset < len(payload):
+                offset += os.write(descriptor, payload[offset:])
+        finally:
+            os.close(descriptor)
+
+    def _compact(self, now: datetime) -> None:
+        try:
+            with self._locked() as lock:
+                if not self._compaction_due(lock, now):
+                    return
                 self._compact_unlocked(now)
+                self._record_compaction(lock, now)
         except OSError:
             return
 
+    def _compaction_due(self, lock: TextIO, now: datetime) -> bool:
+        lock.seek(0)
+        raw = lock.read().strip()
+        if not raw:
+            return True
+        try:
+            last_compaction = datetime.fromisoformat(raw)
+        except ValueError:
+            return True
+        if last_compaction.tzinfo is None:
+            return True
+        elapsed = now.astimezone(UTC) - last_compaction.astimezone(UTC)
+        return elapsed < timedelta(0) or elapsed.total_seconds() >= self._cleanup_interval_seconds
+
+    @staticmethod
+    def _record_compaction(lock: TextIO, now: datetime) -> None:
+        lock.seek(0)
+        lock.truncate()
+        lock.write(now.astimezone(UTC).isoformat())
+        lock.flush()
+
     def _locked(self) -> Any:
-        self._lock_path.parent.mkdir(parents=True, exist_ok=True)
-        lock = self._lock_path.open("a+", encoding="utf-8")
-        os.chmod(self._lock_path, 0o600)
-        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
-        return lock
+        lock = self._lock_path.open("r+", encoding="utf-8")
+        try:
+            deadline = time.monotonic() + _LOCK_TIMEOUT_SECONDS
+            while True:
+                try:
+                    fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    return lock
+                except BlockingIOError as exc:
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError(
+                            f"warning log lock timed out after {_LOCK_TIMEOUT_SECONDS} seconds"
+                        ) from exc
+                    time.sleep(_LOCK_RETRY_SECONDS)
+        except Exception:
+            lock.close()
+            raise
 
     def _compact_unlocked(self, now: datetime) -> None:
         if not self._path.is_file():
@@ -233,6 +464,8 @@ def configure_logging(
     handler = logging.StreamHandler(stream or sys.stdout)
     handler.setLevel(level)
     handler.setFormatter(JsonFormatter())
+    burst_filter = _BurstSummaryFilter()
+    handler.addFilter(burst_filter)
     setattr(handler, _HANDLER_MARKER, True)
     root.addHandler(handler)
 
@@ -243,6 +476,7 @@ def configure_logging(
         )
         warning_handler.setLevel(logging.WARNING)
         warning_handler.setFormatter(JsonFormatter())
+        warning_handler.addFilter(burst_filter)
         setattr(warning_handler, _HANDLER_MARKER, True)
         root.addHandler(warning_handler)
 

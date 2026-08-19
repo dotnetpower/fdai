@@ -117,6 +117,9 @@ class EventBusBridge:
     _subs: dict[str, list[tuple[str, Handler]]] = field(default_factory=lambda: defaultdict(list))
     _tasks: list[asyncio.Task[None]] = field(default_factory=list)
     _consumer_states: dict[str, str] = field(default_factory=dict)
+    _handler_observer_failures: dict[tuple[str, str, AgentHandlerPhase], int] = field(
+        default_factory=dict
+    )
     metrics: BridgeMetrics = field(default_factory=BridgeMetrics)
 
     # ---- pantheon-style API --------------------------------------------
@@ -510,6 +513,7 @@ class EventBusBridge:
         # The observer projects Pantheon agents only; framework principals have no lane.
         if agent not in self.registry.names():
             return
+        failure_key = (agent, topic, phase)
         try:
             await observer.observe(
                 agent=agent,
@@ -518,9 +522,23 @@ class EventBusBridge:
                 payload=payload,
                 error_type=error_type,
             )
+            failure_count = self._handler_observer_failures.pop(failure_key, 0)
+            if failure_count:
+                _LOG.info(
+                    "pantheon_handler_observer_recovered",
+                    extra={
+                        "agent": agent,
+                        "topic": topic,
+                        "phase": phase.value,
+                        "failure_count": failure_count,
+                    },
+                )
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # noqa: BLE001 - observation must not break delivery
+            self._handler_observer_failures[failure_key] = (
+                self._handler_observer_failures.get(failure_key, 0) + 1
+            )
             _LOG.warning(
                 "pantheon_handler_observer_failed",
                 extra={

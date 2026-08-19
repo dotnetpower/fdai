@@ -118,6 +118,33 @@ def test_runner_rotates_three_bounded_previous_logs(tmp_path: Path) -> None:
     assert current.splitlines()[-1].endswith("service=core-runtime event=stopped exit_code=0")
 
 
+def test_runner_rotation_accounts_for_multibyte_log_bytes(tmp_path: Path) -> None:
+    log_file = tmp_path / "core-runtime.log"
+    environment = os.environ.copy()
+    environment["FDAI_LOCAL_SERVICE_LOG_MAX_BYTES"] = "256"
+
+    result = subprocess.run(  # noqa: S603 - command and executable are fixed test inputs
+        [
+            _BASH,
+            str(_RUNNER),
+            "core-runtime",
+            str(log_file),
+            "--",
+            sys.executable,
+            "-c",
+            "[print('가' * 30) for _ in range(12)]",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+
+    assert result.returncode == 0
+    assert Path(f"{log_file}.1").stat().st_size <= 256
+    assert log_file.stat().st_size <= 256
+
+
 def test_runner_uses_one_mibibyte_default_rotation_limit(tmp_path: Path) -> None:
     log_file = tmp_path / "operator-api.log"
     log_file.write_bytes(b"x" * 1_048_576)
@@ -246,6 +273,70 @@ def test_runner_flushes_output_while_child_is_running(tmp_path: Path) -> None:
     finally:
         process.terminate()
         process.wait(timeout=5)
+
+
+def test_runner_keeps_capturing_when_terminal_output_is_backpressured(
+    tmp_path: Path,
+) -> None:
+    log_file = tmp_path / "operator-api.log"
+    child_completed = tmp_path / "child-completed"
+    process = subprocess.Popen(  # noqa: S603 - command and executable are fixed test inputs
+        [
+            _BASH,
+            str(_RUNNER),
+            "operator-api",
+            str(log_file),
+            "--",
+            sys.executable,
+            "-c",
+            (
+                "from pathlib import Path; "
+                "[print('x' * 1024, flush=True) for _ in range(4096)]; "
+                f"Path({str(child_completed)!r}).write_text('done')"
+            ),
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    try:
+        deadline = time.monotonic() + 5
+        while not child_completed.exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert child_completed.read_text() == "done"
+        assert log_file.stat().st_size > 0
+    finally:
+        process.terminate()
+        process.wait(timeout=5)
+
+
+def test_runner_bounds_one_oversized_log_entry_and_terminal_line(tmp_path: Path) -> None:
+    log_file = tmp_path / "operator-api.log"
+    environment = os.environ.copy()
+    environment["FDAI_LOCAL_SERVICE_LOG_MAX_BYTES"] = "4096"
+
+    result = subprocess.run(  # noqa: S603 - command and executable are fixed test inputs
+        [
+            _BASH,
+            str(_RUNNER),
+            "operator-api",
+            str(log_file),
+            "--",
+            sys.executable,
+            "-c",
+            "print('x' * (5 * 1024 * 1024))",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=environment,
+    )
+
+    assert result.returncode == 0
+    assert len(result.stdout.encode("utf-8")) < 10_000
+    assert "bounded file entry retained" in result.stdout
+    assert Path(f"{log_file}.1").stat().st_size <= 4096
+    assert log_file.stat().st_size <= 4096
 
 
 def test_runner_isolates_child_from_terminal_process_group(tmp_path: Path) -> None:
