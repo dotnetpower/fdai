@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Command deck - Execution timeline - FDAI Console</title>
+  <title>Command deck - Adaptive response - FDAI Console</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet" />
@@ -48,16 +48,27 @@
     .ex-turn.is-bragi .ex-turn-foot { justify-content: flex-start; }
     .ex-turn-time { color: var(--ex-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
     .ex-agent-head { min-height: 18px; display: flex; align-items: center; gap: 5px; margin-bottom: 6px; }
-    .ex-agent-name { display: inline-flex; align-items: center; gap: 5px; color: var(--ex-ink); font-size: 12px; font-weight: 700; }
-    .ex-agent-icon { width: 16px; height: 16px; flex: 0 0 auto; background: var(--ex-blue); -webkit-mask: url("../../console/public/agent-icons/bragi.svg") center / contain no-repeat; mask: url("../../console/public/agent-icons/bragi.svg") center / contain no-repeat; }
+    .ex-agent-name { display: inline-flex; align-items: center; color: var(--ex-ink); font-size: 12px; font-weight: 700; }
     .ex-agent-source { max-width: min(60%, 420px); overflow: hidden; margin-left: 8px; padding: 1px 6px; border: 1px solid var(--ex-line); border-radius: 4px; background: #fff; color: var(--ex-muted); font: 10px "JetBrains Mono", monospace; text-overflow: ellipsis; white-space: nowrap; }
-    .ex-answer-preparing { min-height: 22px; display: none; align-items: center; gap: 7px; margin: 1px 0 8px; color: var(--ex-blue); font-size: 11px; font-weight: 650; }
-    .ex-answer-preparing.is-active { display: inline-flex; animation: ex-arrive .12s ease both; }
+    .ex-answer-preparing { display: none; margin: 4px 0 12px; overflow: hidden; border: 1px solid var(--ex-line); border-radius: 7px; background: #fbfcfd; }
+    .ex-answer-preparing.is-active { display: block; animation: ex-arrive .12s ease both; }
+    .ex-answer-preparing-head { min-height: 36px; display: flex; align-items: center; gap: 7px; padding: 0 10px; color: var(--ex-blue); font-size: 11px; font-weight: 650; }
     .ex-answer-preparing-spinner { width: 11px; height: 11px; border: 2px solid rgba(53,109,155,.2); border-top-color: var(--ex-blue); border-radius: 50%; animation: ex-spin .62s linear infinite; }
+    .ex-answer-preparing-copy { color: var(--ex-muted); font-weight: 500; }
+    .ex-answer-preparing-mode { margin-left: auto; padding: 2px 6px; border-radius: 999px; background: rgba(79,125,85,.08); color: var(--ex-green); font-size: 9px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+    .ex-answer-sources { display: flex; align-items: center; gap: 5px; padding: 7px 10px 9px; overflow-x: auto; border-top: 1px solid #e7eaee; scrollbar-width: none; }
+    .ex-answer-sources::-webkit-scrollbar { display: none; }
+    .ex-answer-source { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px; border: 1px solid var(--ex-line); border-radius: 5px; background: #fff; color: var(--ex-muted); font-size: 10px; white-space: nowrap; }
+    .ex-answer-source::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--ex-green); }
+    .ex-promotion { display: flex; align-items: center; gap: 7px; margin: 2px 0 10px; color: var(--ex-muted); font-size: 10.5px; }
+    .ex-promotion::before { content: ""; width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--ex-blue); }
+    .ex-promotion strong { color: var(--ex-blue); font-weight: 750; }
     .ex-answer-lead { margin: 2px 0 10px; color: var(--ex-ink); font-size: 13.5px; line-height: 1.55; }
 
     .ex-run { position: relative; isolation: isolate; display: flex; flex-direction: column; gap: 2px; }
     .ex-run::before { content: ""; position: absolute; z-index: 0; top: 24px; bottom: 35px; left: 9px; width: 1px; background: #cbd2d9; pointer-events: none; }
+    .ex-workbench[data-mode="complete"] .ex-answer-lead,
+    .ex-workbench[data-mode="complete"] .ex-run { display: none; }
     .ex-phase { display: none; }
     .ex-phase.is-visible { position: relative; z-index: 1; display: block; animation: ex-arrive .32s cubic-bezier(.22,1,.36,1) both; }
     .ex-next-skeleton { position: relative; z-index: 1; display: none; grid-template-columns: 19px minmax(0, 1fr); gap: 11px; margin: 14px 0 8px; padding: 1px 0; }
@@ -128,7 +139,7 @@
     .ex-output.is-success { color: #8fc394; }
     .ex-output.is-warning { color: #d5a66a; }
 
-    .ex-final { display: none; opacity: 0; transform: translateY(4px); }
+    .ex-final { display: none; margin-top: 16px; opacity: 0; transform: translateY(4px); }
     .ex-final.is-visible { display: block; animation: ex-arrive .3s cubic-bezier(.22,1,.36,1) forwards; }
     @keyframes ex-arrive { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
     @keyframes ex-output-arrive { from { opacity: 0; } to { opacity: 1; } }
@@ -244,8 +255,8 @@
     [hidden] { display: none !important; }
     @media (max-width: 720px) {
       .ex-page-header { align-items: flex-start; flex-direction: column; }
-      .ex-controls { width: 100%; }
-      .ex-control { flex: 1; }
+      .ex-controls { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .ex-control { min-width: 0; min-height: 46px; padding-inline: 6px; }
       .ex-thread { min-height: 590px; padding: 17px 12px 72px; scroll-padding-bottom: 72px; }
       .ex-window-context { display: none; }
       .ex-step-toggle { grid-template-columns: 18px minmax(0, 1fr) 16px; }
@@ -290,42 +301,46 @@
   <main class="cs-container cs-page ex-page">
     <header class="ex-page-header">
       <div>
-        <div class="cs-eyebrow">Command deck v2</div>
-        <h1>Execution timeline</h1>
-        <p>Long-running investigation, code, and command work stays inspectable without taking over the conversation.</p>
+        <div class="cs-eyebrow">Command deck &middot; unified response</div>
+        <h1>Adaptive answer lifecycle</h1>
+        <p>Every answer starts compact, expands only when observed work requires it, and preserves one inspectable run record.</p>
       </div>
       <div class="ex-controls" aria-label="Demo controls">
-        <button class="ex-control" id="ex-replay" type="button">Replay</button>
+        <button class="ex-control" id="ex-compact" type="button">Compact answer</button>
+        <button class="ex-control" id="ex-replay" type="button">Replay investigation</button>
         <button class="ex-control" id="ex-finish" type="button">Show result</button>
       </div>
     </header>
 
-    <section class="ex-workbench" aria-label="Command deck execution mock">
+    <section class="ex-workbench" id="ex-workbench" data-mode="retrieval" aria-label="Adaptive Command deck response mock">
       <div class="ex-windowbar">
         <span class="ex-window-dot"></span><span class="ex-window-dot"></span><span class="ex-window-dot"></span>
         <span class="ex-window-title">FDAI Command deck</span>
-        <span class="ex-window-context">task / probe-diagnostics</span>
+        <span class="ex-window-context" id="ex-window-context">compact retrieval / read-only</span>
       </div>
       <div class="ex-thread">
         <article class="ex-turn is-user">
           <div class="ex-turn-body">
-            <div class="ex-user-bubble"><p class="ex-user-message">Find why the example API health probe keeps failing. Check Azure, fix the validator script, and run it.</p></div>
+            <div class="ex-user-bubble"><p class="ex-user-message">Find why the example API health probe keeps failing. Check Azure, prepare a bounded validator fix, and verify it.</p></div>
             <div class="ex-turn-foot"><time class="ex-turn-time">10:42</time></div>
           </div>
         </article>
         <article class="ex-turn is-bragi">
           <div class="ex-turn-body">
-            <header class="ex-agent-head"><span class="ex-agent-name"><span class="ex-agent-icon" aria-hidden="true"></span>Bragi</span><span class="ex-agent-source">investigation / probe-diagnostics</span></header>
-            <div class="ex-answer-preparing" role="status" aria-live="polite"><span class="ex-answer-preparing-spinner" aria-hidden="true"></span><span>Preparing answer</span></div>
+            <header class="ex-agent-head"><span class="ex-agent-name">Bragi</span><span class="ex-agent-source" id="ex-agent-source">preparing / read-only sources</span></header>
+            <div class="ex-answer-preparing" role="status" aria-live="polite">
+              <div class="ex-answer-preparing-head"><span class="ex-answer-preparing-spinner" aria-hidden="true"></span><span>Preparing answer</span><span class="ex-answer-preparing-copy">Grounding the current view</span><span class="ex-answer-preparing-mode">Compact</span></div>
+              <div class="ex-answer-sources" aria-label="Sources being read">
+                <span class="ex-answer-source">Screen context</span>
+                <span class="ex-answer-source">Azure state</span>
+                <span class="ex-answer-source">Workspace evidence</span>
+              </div>
+            </div>
+            <div class="ex-promotion" id="ex-promotion" hidden><strong>Expanded automatically</strong><span>Sequential observed work requires verification</span></div>
             <p class="ex-answer-lead" aria-live="polite" aria-busy="false">I will check the deployed state first, then follow the local failure through the validator before changing anything.</p>
             <div class="ex-run" id="ex-run" aria-live="polite"></div>
-            <div class="ex-turn-foot"><time class="ex-turn-time">10:42</time></div>
-          </div>
-        </article>
-        <article class="ex-turn is-bragi ex-final" id="ex-final">
-          <div class="ex-turn-body">
-            <header class="ex-agent-head"><span class="ex-agent-name"><span class="ex-agent-icon" aria-hidden="true"></span>Bragi</span><span class="ex-agent-source">llm:narrator-gpt-4-1-mini · 1090ms · 1.2k tok</span></header>
-            <div class="ex-final-copy">
+            <div class="ex-final" id="ex-final">
+              <div class="ex-final-copy">
               <div class="ex-stream-answer" aria-live="polite" aria-busy="false">
                 <p>The probe endpoint is healthy in Azure. The local validator was treating the expected <code>204</code> response as a failure because it accepted only <code>200</code>.</p>
                 <p>I updated <code>scripts/ops/check_probe.py</code> to accept the full successful response range and ran the focused checks. All four passed; no cloud resource was changed.</p>
@@ -336,7 +351,7 @@
                 <span class="ex-result-chip"><span class="ex-result-dot"></span><strong>1</strong> local file changed</span>
                 <span class="ex-result-chip"><span class="ex-result-dot"></span><strong>4/4</strong> checks passed</span>
               </div>
-              <details class="ex-observed" open>
+              <details class="ex-observed">
                 <summary>
                   <span class="ex-observed-heading">
                     <span class="ex-observed-glyph" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -357,7 +372,7 @@
                   </ol>
                   <section class="ex-observed-timeline" aria-labelledby="ex-observed-timeline-title">
                     <header class="ex-observed-timeline-head">
-                      <h4 id="ex-observed-timeline-title">Observed execution timeline</h4>
+                      <h4 id="ex-observed-timeline-title">Observed work timeline</h4>
                       <span>10 observed events</span>
                     </header>
                     <ol class="ex-observed-events">
@@ -499,6 +514,7 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
                 </div>
               </details>
               </div>
+              </div>
             </div>
             <div class="ex-turn-foot"><time class="ex-turn-time">10:43</time></div>
           </div>
@@ -543,6 +559,10 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         }
       ];
       var runHost = document.getElementById("ex-run");
+      var workbench = document.getElementById("ex-workbench");
+      var windowContext = document.getElementById("ex-window-context");
+      var promotion = document.getElementById("ex-promotion");
+      var operatorMessage = document.querySelector(".ex-user-message");
       var answerLead = document.querySelector(".ex-answer-lead");
       var answerLeadText = answerLead.textContent;
       var answerPreparing = document.querySelector(".ex-answer-preparing");
@@ -551,8 +571,25 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       var finalParagraphHtml = finalParagraphs.map(function (paragraph) { return paragraph.innerHTML; });
       var finalParagraphText = finalParagraphs.map(function (paragraph) { return paragraph.textContent; });
       var finalReveal = finalAnswer.querySelector(".ex-final-reveal");
-      var finalSource = finalAnswer.querySelector(".ex-agent-source");
-      var finalSourceText = finalSource.textContent;
+      var resultLine = finalAnswer.querySelector(".ex-result-line");
+      var observed = finalAnswer.querySelector(".ex-observed");
+      var observedTitle = observed.querySelector(".ex-observed-title");
+      var observedSummary = observed.querySelector(".ex-observed-summary");
+      var observedDuration = observed.querySelector(".ex-observed-duration");
+      var observedBody = observed.querySelector(".ex-observed-body");
+      var finalSource = document.getElementById("ex-agent-source");
+      var investigationSourceText = "investigation / probe-diagnostics";
+      var finalSourceText = "llm:narrator-gpt-4-1-mini · 1090ms · 1.2k tok";
+      var expandedQuestion = operatorMessage.textContent;
+      var expandedResultHtml = resultLine.innerHTML;
+      var expandedObservedTitle = observedTitle.textContent;
+      var expandedObservedSummaryHtml = observedSummary.innerHTML;
+      var expandedObservedDuration = observedDuration.textContent;
+      var expandedObservedBodyHtml = observedBody.innerHTML;
+      var compactAnswer = [
+        "The example API is running and its configured health endpoint currently returns HTTP 204, which is a successful no-content response.",
+        "This answer used the current screen, one read-only Azure state query, and the probe record. No sequential investigation or change was required."
+      ];
       var streamAnswer = finalAnswer.querySelector(".ex-stream-answer");
       var nextSkeleton = null;
       var runToken = 0;
@@ -561,18 +598,63 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       function create(tag, className, text) { var node = document.createElement(tag); if (className) node.className = className; if (text != null) node.textContent = text; return node; }
       function wait(ms, token) { return new Promise(function (resolve) { var timer = setTimeout(function () { resolve(token === runToken); }, ms); waits.push(timer); }); }
       function clearWaits() { waits.forEach(clearTimeout); waits = []; }
+      function setMode(mode, context, source) {
+        workbench.dataset.mode = mode;
+        windowContext.textContent = context;
+        finalSource.textContent = source;
+        promotion.hidden = mode === "retrieval" || mode === "compact";
+        if (mode === "complete") {
+          promotion.querySelector("strong").textContent = "Expanded path completed";
+          promotion.querySelector("span").textContent = "3 phases, commands, and verification observed";
+        } else if (mode === "investigation") {
+          promotion.querySelector("strong").textContent = "Expanded automatically";
+          promotion.querySelector("span").textContent = "Sequential observed work requires verification";
+        }
+      }
       function prepareFinalAnswer() {
         finalAnswer.classList.remove("is-visible", "is-streaming");
         finalParagraphs.forEach(function (paragraph) { paragraph.textContent = ""; });
         finalReveal.hidden = true;
         finalReveal.classList.remove("is-visible");
-        finalSource.textContent = finalSourceText;
+        setMode("retrieval", "compact retrieval / read-only", "preparing / read-only sources");
         streamAnswer.setAttribute("aria-busy", "false");
+      }
+      function restoreExpandedPresentation() {
+        operatorMessage.textContent = expandedQuestion;
+        resultLine.innerHTML = expandedResultHtml;
+        observedTitle.textContent = expandedObservedTitle;
+        observedSummary.innerHTML = expandedObservedSummaryHtml;
+        observedDuration.textContent = expandedObservedDuration;
+        observedBody.innerHTML = expandedObservedBodyHtml;
+        observed.hidden = false;
+        observed.open = false;
       }
       function completeFinalAnswer() {
         finalParagraphs.forEach(function (paragraph, index) { paragraph.innerHTML = finalParagraphHtml[index]; });
         finalAnswer.classList.remove("is-streaming");
-        finalSource.textContent = finalSourceText;
+        setMode("complete", "complete / run record available", finalSourceText);
+        streamAnswer.setAttribute("aria-busy", "false");
+        finalReveal.hidden = false;
+        finalReveal.classList.add("is-visible");
+      }
+      function completeCompactAnswer() {
+        finalParagraphs.forEach(function (paragraph, index) { paragraph.textContent = compactAnswer[index]; });
+        finalAnswer.classList.add("is-visible");
+        finalAnswer.classList.remove("is-streaming");
+        setMode("compact", "complete / compact answer", "grounded / 3 read-only sources");
+        resultLine.innerHTML =
+          '<span class="ex-result-chip"><span class="ex-result-dot"></span><strong>3</strong> sources</span>' +
+          '<span class="ex-result-chip"><span class="ex-result-dot"></span><strong>1</strong> live read</span>' +
+          '<span class="ex-result-chip"><span class="ex-result-dot"></span><strong>0</strong> changes</span>';
+        observedTitle.textContent = "Grounding record";
+        observedSummary.innerHTML = '3 observed events / sources 3 / <strong>verified</strong>';
+        observedDuration.textContent = "0.8s";
+        observedBody.innerHTML =
+          '<blockquote class="ex-observed-prompt"><span>Compact path</span><p>No activity, handoff, command, retry, or change was observed. The answer remained a bounded read.</p></blockquote>' +
+          '<ul class="ex-observed-source-list"><li><span>Screen</span><strong>Current API health context</strong><code>[1]</code></li><li><span>Azure</span><strong>Resource state and probe response</strong><code>[2]</code></li><li><span>Record</span><strong>Configured health endpoint</strong><code>[3]</code></li></ul>' +
+          '<dl class="ex-observed-signals"><div class="ex-observed-signal"><dt>Evidence</dt><dd>3 read-only sources</dd></div><div class="ex-observed-signal"><dt>Guardrail</dt><dd>No execution requested</dd></div><div class="ex-observed-signal"><dt>Outcome</dt><dd>Compact answer</dd></div></dl>';
+        observed.hidden = false;
+        observed.open = false;
         streamAnswer.setAttribute("aria-busy", "false");
         finalReveal.hidden = false;
         finalReveal.classList.add("is-visible");
@@ -774,8 +856,11 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       }
 
       async function run() {
+        restoreExpandedPresentation();
         var token = reset();
         if (!await wait(1400, token)) return;
+        answerPreparing.classList.remove("is-active");
+        setMode("investigation", "investigation progress / observed work", investigationSourceText);
         if (!await streamNodeText(answerLead, answerLeadText, token, 14)) return;
         if (!await wait(120, token)) return;
         for (var phaseIndex = 0; phaseIndex < PHASES.length; phaseIndex += 1) {
@@ -814,8 +899,18 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         await streamFinalAnswer(token);
       }
 
+      async function runCompact() {
+        var token = reset();
+        operatorMessage.textContent = "What is the current health state of the example API?";
+        if (!await wait(760, token)) return;
+        answerPreparing.classList.remove("is-active");
+        answerLead.textContent = "The available read-only sources are sufficient, so this turn stays compact.";
+        completeCompactAnswer();
+      }
+
       document.getElementById("ex-replay").addEventListener("click", run);
-      document.getElementById("ex-finish").addEventListener("click", function () { reset(); runToken += 1; clearWaits(); completeRun(); });
+      document.getElementById("ex-compact").addEventListener("click", runCompact);
+      document.getElementById("ex-finish").addEventListener("click", function () { restoreExpandedPresentation(); reset(); runToken += 1; clearWaits(); completeRun(); });
       run();
     }());
   </script>

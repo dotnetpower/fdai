@@ -46,7 +46,7 @@
       ["report.html", "Weekly report", "is-terracotta"],
       ["rca-report.html", "RCA report", "is-teal"],
       ["deck-sources.html", "Deck sources", ""],
-      ["deck-sources-v2.html", "Deck execution", "is-teal"]
+      ["deck-sources-v2.html", "Deck adaptive response", "is-teal"]
     ]],
     ["Labs", [
       ["components.html", "Components", ""],
