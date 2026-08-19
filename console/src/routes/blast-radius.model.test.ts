@@ -136,4 +136,30 @@ describe("blast-radius route query", () => {
       truncation_reasons: ["edge_limit"],
     })).toThrow("MUST match truncation reasons");
   });
+
+  test("rejects impact edges outside the reached projection", () => {
+    expect(() => decodeBlastRadiusResponse({
+      schema_version: "1.0.0",
+      ontology_release_digest: `sha256:${"a".repeat(64)}`,
+      source_generation: "generation-1",
+      source_cutoff: "2026-08-19T00:00:00+00:00",
+      target: "root",
+      traversal_depth: 1,
+      traversal_links: ["contains"],
+      reached: [{ resource_id: "root", depth: 0, via_link_type: null }],
+      edges: [{
+        source: "root",
+        target: "orphan",
+        link_type: "contains",
+        depth: 1,
+        verification_status: "unverified",
+      }],
+      affected_count: 0,
+      complete: true,
+      truncated_at_depth: false,
+      truncation_reasons: [],
+      execution_authority: false,
+      mutation_authority: false,
+    })).toThrow("endpoints MUST reference reached identities");
+  });
 });

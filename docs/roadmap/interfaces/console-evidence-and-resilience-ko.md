@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: 2213e43371ab62b5f17de972919d7ef8c008427a
+translation_source_sha: ae640222738b7d8f1acfa1084f4d6cbac20cf313
 translation_revised: 2026-08-19
 ---
 
@@ -74,6 +74,7 @@ translation_revised: 2026-08-19
 | 2026-08-19 | implemented | 30개 finding 비평 뒤 Components 시연 23개와 두 시안 셸을 모두 강화했습니다. 검색, 정확한 구역 경로, 이해하기 쉬운 표시 용어, synthetic 및 어두운 미리 보기 상태, 키보드 tab과 dialog, 반응형 탐색, 접근 가능한 표와 터치 계약이 이제 하나의 참조 화면을 공유합니다. | `current change`, [이슈 #215](https://github.com/dotnetpower/fdai/issues/215), 시안 Node 계약 12개 통과, Console 시각 및 토큰 계약 5개 통과, 1440 px, 993 px, 390 px 브라우저 검사에서 조치 가능한 의미, overflow, 12 px 미만 텍스트 및 터치 대상 finding이 0개였습니다. | Components 참조 갤러리와 두 정적 셸의 범위가 제한된 잔여 작업은 없습니다. |
 | 2026-08-19 | implemented | 정확한 속성, 수명주기, 출처, 관계, 거버넌스 적용 ActionType, 근거 상태, 종속 항목, release 호환성 구역을 제공하는 ObjectType 선언 워크벤치를 추가했습니다. 인증된 로컬 Console에서 `Decision`의 사용 불가 근거와 `Resource` 집계 근거를 표시했고 원시 resource id, execute control, 1440 x 900, 993 x 641, 390 x 844 document overflow는 없었습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223); `current change`; focused Python 테스트 50개, focused Console 테스트 43개, typecheck, production build, Ruff 및 strict mypy가 통과했습니다. | 이 영역을 `validated`로 변경하기 전에 Browser 결과를 관리되는 exact-source 산출물로 보존하고 보안 principal 범위 Context 증적을 연결합니다. |
 | 2026-08-19 | implemented | 연결되지 않았던 Impact scope 변환 결과를 제한된 활성 스냅샷 탐색으로 교체하고 Resource 선언 워크벤치에서 진입할 수 있게 했습니다. 인증된 로컬 Console은 exact release와 기준 시각, 고정된 권한 부재 플래그를 포함하는 완전한 깊이 1 간선 하나를 반환했고 390 px document overflow가 없었습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused Operator, migration, Console, 타입 및 production build 검사입니다. | 이 영역을 `validated`로 변경하기 전에 관측을 관리되는 exact-source 산출물로 보존하고 보안 principal 범위 Context 증적을 연결합니다. |
+| 2026-08-19 | implemented | Impact scope decoder가 도달한 노드 변환 결과에 없는 원본 또는 대상을 가진 간선을 거부하도록 강화했습니다. 잘못된 upstream 그래프를 일관된 제한 결과로 렌더링할 수 없습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, `blast-radius.model.test.ts` focused 사례 9개와 Console typecheck가 통과했습니다. | 독립적인 hardening round를 계속하고 범위가 제한된 구획에 Medium 이상 finding이 없어진 뒤 관리되는 exact-source Browser 근거를 보존합니다. |
 
 ### 잔여 작업
 

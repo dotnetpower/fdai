@@ -74,6 +74,7 @@ export function decodeBlastRadiusResponse(value: unknown): BlastRadiusResponse {
     || reached.filter((item) => item.resource_id === target && item.depth === 0).length !== 1) {
     throw new Error("impact reached identities MUST be unique and include the target root");
   }
+  const reachedIdentities = new Set(identities);
   const edges = impactArray(record.edges, "edges").map((raw) => {
     const item = impactRecord(raw, "edge");
     const verification = item.verification_status;
@@ -85,9 +86,14 @@ export function decodeBlastRadiusResponse(value: unknown): BlastRadiusResponse {
     if (!traversalLinks.includes(linkType)) {
       throw new Error("impact edge link_type MUST belong to the traversal request");
     }
+    const source = impactString(item, "source");
+    const edgeTarget = impactString(item, "target");
+    if (!reachedIdentities.has(source) || !reachedIdentities.has(edgeTarget)) {
+      throw new Error("impact edge endpoints MUST reference reached identities");
+    }
     return {
-      source: impactString(item, "source"),
-      target: impactString(item, "target"),
+      source,
+      target: edgeTarget,
       link_type: linkType,
       depth: impactInteger(item, "depth", 1, traversalDepth),
       verification_status: verificationStatus,
