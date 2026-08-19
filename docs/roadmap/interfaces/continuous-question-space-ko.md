@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: ba80db313eda8e4469122842e406b8adbbb2eb91
+translation_source_sha: aca57f9cf41e43fcf55699c9af07844499cf0597
 translation_revised: 2026-08-20
 ---
 # 지속형 질문 공간
@@ -62,6 +62,7 @@ flowchart LR
 | 2026-08-20 | implemented | 선언 detail, dependents, Rule 상태 intent를 정확한 frame measure로 보존했습니다. 결정론적 검증기는 실행 전에 principal 매니페스트를 기준으로 누락된 intent, section drift, 선언 이름 drift, kind drift를 차단합니다. | `current change`; 의미 계획, 구성, 선언 쿼리, 프로세서, 왕복 집중 테스트 160개 통과, 커밋 전에 작업 범위 Ruff와 strict mypy를 실행해야 합니다. | 새로운 정확한 소스 검증 증적을 확보하고 strict v2를 다시 실행합니다. Strict가 통과한 뒤에만 seeded 100을 시작합니다. |
 | 2026-08-20 | implemented | 선언 계획 실행과 출력 형식을 닫았습니다. 모든 선언 node는 요청된 output이어야 하고, 관련 없는 숨은 node는 차단되며, 선언 frame은 읽기 전용 `select`이고 각 output은 `query.table`을 유지해야 합니다. | `current change`; 의미 계획, 구성, 선언 쿼리, 프로세서, 왕복 집중 테스트 164개 통과, 작업 범위 Ruff 통과. | Strict mypy와 diff 범위 검증을 실행한 뒤 새로운 정확한 소스 검증 증적을 확보하고 strict v2를 다시 실행합니다. |
 | 2026-08-20 | implemented | 중복 비교나 독립 검토 전에 포함된 자격 증명 할당, URI 사용자 정보, Unicode 제어 문자 난독화를 차단했습니다. 릴리스 식별자, strict 및 seeded 게이트, 질문 집합과 캠페인 동작, 자격 증명 우회, 오탐, 정규식 제한, 사용량, 권한, 문서를 검토하는 10개 관점의 적대적 라운드를 4회 실행했고, 검증된 Medium 이상 항목을 수정하거나 담당 코드로 반증했습니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); `current change`; 후보 검사 8개 통과, 정확한 변경 테스트 12,187개 통과 및 12개 건너뜀, 작업 범위 Ruff 통과, strict mypy 통과. | Low보다 높은 미해결 항목은 없습니다. 현재 인증을 `validated`로 바꾸기 전에 정확한 소스 통합 검증과 라이브 strict v2 및 seeded 근거를 확보합니다. |
+| 2026-08-20 | implemented | Browser 보증 추출기의 중복 기능 허용 목록을 checkpoint 검증기의 공유 레지스트리로 교체했습니다. 첫 번째 정확한 소스 재실행은 strict turn 22개를 모두 완료했지만 검증된 선언 답변 2개에서 `query.ontology_declaration`을 버려 drift를 드러냈습니다. 레지스트리는 이제 `metric_scope_series`도 보존합니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); `current change`; 라이브 실행 `question-space-final-9fb7cb213-20260820-r6`은 정확한 22-turn 전송과 추출기 불일치 2건만 기록했고, 수정 뒤 집중 보증 테스트 100개와 Console typecheck가 통과했습니다. | 수정된 소스를 중앙 검증하고 strict v2를 다시 실행합니다. Strict가 통과한 뒤에만 seeded 100을 시작합니다. |
 
 ### 남은 작업
 
@@ -192,6 +193,7 @@ cron, IANA 표준 시간대, 로캘, 관점, 질문 수, 토큰, 비용, 전체 
 | 28-37 | 자격 증명 우회 및 오탐 검토 | Medium, resolved | 앰퍼샌드 및 zero-width 난독화를 재현한 뒤 일반 secret 및 token 할당 경계와 범용 Unicode `Cc` 및 `Cf` 차단을 추가했습니다. 근거 없는 오탐을 피하기 위해 광범위한 bare-key 및 유사 문자 차단은 수락하지 않았습니다. |
 | 38-47 | URI 및 문장 부호 종료 검토 | Medium, resolved | 문장 부호에 안전한 할당 탐지와 공급자 중립 URI 사용자 정보 차단으로 일반화했습니다. 기존 URL 차단과 검토 전 안전성 검사 순서가 반복된 두 항목을 반증했습니다. |
 | 48-57 | 최종 종료 검토 | Low | 문장 부호, 일반 URI 스킴, 영어 및 한국어 오탐, 제어 문자, 정규식 복잡도, 검증 순서, 캠페인 사용량, 공급자 중립성, 문서를 다시 검사했습니다. 남은 관찰은 명시적 테스트 사례 확장뿐이며 미해결 Medium, High, Critical 항목은 없습니다. |
+| 58 | 라이브 보증 기능 추출 | Medium, resolved | 정확한 소스 strict v2가 Browser 추출기의 로컬 기능 허용 목록과 타입이 지정된 보증 레지스트리 사이 drift를 증명했습니다. 이제 하나의 exported 레지스트리가 Browser 추출과 checkpoint 검증을 함께 구동하며 모든 strict-v2 함수와 `metric_scope_series`를 포함합니다. |
 
 남은 Low 항목은 인벤토리 탐색 edge case 추가 음수 테스트, 캠페인 간 중복 corpus 보존 근거,
 과거 릴리스 차이 회귀 테스트 이름, 추가 URI 스킴, 정상 자격 증명 어휘, 한국어 안전 변형입니다.

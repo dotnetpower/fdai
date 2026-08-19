@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { canonicalJsonDigest } from "./browser-evidence-provenance";
 import { isOntologyAssuranceProductionReady } from "./ontology-query-assurance-readiness";
 import {
+  ASSURANCE_PLAN_CAPABILITIES,
   assuranceCarriesLiveAuthority,
   assuranceCheckpointPath,
   assuranceCohortPassed,
@@ -407,6 +408,16 @@ describe("isRetainedTurnResult", () => {
       request_id: "r1",
       evidence_ref_count: 2,
     })).toBe(true);
+    expect(isRetainedTurnResult({
+      ...retained,
+      operation: "declaration_detail",
+      disposition: "answered",
+      projection_id: "p2",
+      request_id: "r2",
+      plan_capabilities: ["function:query.ontology_declaration"],
+      plan_capability_match: true,
+    })).toBe(true);
+    expect(ASSURANCE_PLAN_CAPABILITIES).toContain("metric_scope_series");
   });
 
   it("rejects a result that lost a field the pass criteria read", () => {

@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: e204a70713614b330ea17f132d85bc5d0d9e6112
-translation_revised: 2026-08-19
+translation_source_sha: 5a629144b9bb2635eea908d051db57057884e14f
+translation_revised: 2026-08-20
 ---
 
 # FDAI Console 대화
@@ -62,6 +62,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 2026-08-17 | implemented | 검증된 산출물이나 기계 기록을 바꾸지 않고 구조화된 인시던트 근거의 가독성을 강화했습니다. 로컬 시각과 시간대, 보존된 원시 타임스탬프, 관찰 구간, 읽기 쉬운 주체와 토큰, 반응형 네이티브 표, 범위가 명확한 준비 상태 문구, 콘텐츠를 가리지 않는 최신 메시지 탐색, 32/44 px 컨트롤을 적용했습니다. | `current change`; `presentation-value.test.ts`와 `command-deck-workspace-visual.test.ts`의 집중 검사 19개 및 Console 타입 검사가 통과했습니다. 인증된 브라우저 비평 5회는 최종 데스크톱/모바일 검사 12개를 모두 통과했고 출처 목록 가로 스크롤만 Low로 남았습니다. | 아래에서 이미 추적하는 더 넓은 통제된 인시던트 표현 산출물을 보존합니다. 이 가독성 범위에는 Medium 이상의 구현 문제가 남아 있지 않습니다. |
 | 2026-08-17 | implemented | 고정된 각 질문 신원이 하나의 넓은 작업 수준 기능을 상속하지 않고 유효한 typed 기능군을 선언하도록 live ontology assurance oracle을 구체화했습니다. Oracle은 exact 질문에 필요한 관계, 인과, 시간, 필터 또는 근거 기능이 빠진 답변 plan을 계속 거부합니다. | `current change`, `ontology-query-assurance.test.ts` 99개와 Console typecheck 통과 | 다른 전체 seed 기반 집단을 실행하기 전에 통과한 strict 아티팩트를 보존합니다. |
 | 2026-08-17 | implemented | 근거 검증 질문이 Core의 server-owned secured ObjectSet plan을 계속 요구하도록 prompt별 oracle을 바로잡았습니다. Topology 또는 metric 기능은 다른 답변 형태에 근거를 제공할 수 있지만 evidence-validation 계약을 대체하지 않습니다. | `current change`, `ontology-query-assurance.test.ts` 99개와 Console typecheck 통과 | 다른 전체 seed 기반 집단을 실행하기 전에 통과한 strict 아티팩트를 보존합니다. |
+| 2026-08-20 | implemented | 라이브 온톨로지 보증 Browser 추출기와 checkpoint 검증기가 타입이 지정된 기능 레지스트리 하나를 사용하도록 통합했습니다. 첫 strict-v2 재실행에서 검증된 intent graph가 새 선언 함수를 포함했지만 Browser 로컬 허용 목록이 이를 버리는 문제가 드러났습니다. 공유 레지스트리는 모든 strict-v2 함수와 `metric_scope_series`를 포함하므로 앞으로 기능을 추가할 때 한 보증 경계만 갱신할 수 없습니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233), `current change`, 라이브 실행 `question-space-final-9fb7cb213-20260820-r6`, 집중 보증 테스트 100개 및 Console typecheck 통과 | seeded 100개 집단을 시작하기 전에 통과한 strict-v2 아티팩트를 보존합니다. |
 | 2026-08-18 | implemented | 검증, 근거 또는 관찰된 작업을 숨기지 않으면서 운영 Command Deck을 검토된 mock의 차분한 transcript 계층에 맞췄습니다. 하나의 읽기 폭이 답변과 구조화된 표를 소유하고 불투명한 값은 제자리에서 줄바꿈하며 긴 데스크톱 표는 머리글을 유지하고 작성기는 더 가벼운 명령 비중을 사용합니다. | `current change`; `command-deck-workspace-visual.test.ts`, `investigation-timeline.test.ts`, `conversation-trajectory-visual.test.ts`의 집중 검사 29개와 Console 타입 검사가 통과했습니다. 격리된 인증 질문 10개는 prose, 목록, unavailable 또는 clarification 상태, 1행 표, 20행 영어와 한국어 표를 포함했고 데스크톱과 390 px 폭에서 가로 overflow가 없었습니다. | 브라우저 관찰은 통제된 산출물로 보존하지 않았습니다. 기존의 범위가 제한된 모바일 출처 strip 스크롤은 Low 잔여로 유지하고 더 넓은 통제된 대화 근거는 별도로 보존합니다. |
 | 2026-08-18 | implemented | 레이블과 값을 한 행에 압축하지 않고 `답변 준비 중`의 각 단계가 관찰된 내용을 표시하도록 했습니다. 화면 맥락은 경로, 제목 및 화면 사실 수를 포함하고, 라우팅은 기록된 이유를 유지하며, 백엔드 진행 상황은 검사 및 출처 수를 유지하고, 출처 미리 보기는 기본으로 열린 3개 카드 창에서 종류, 제목 및 범위가 제한된 상세를 보여 줍니다. | `current change`; `retrieval-trace.tsx`, `styles.css`, 지역화된 Console 카탈로그 및 집중 `investigation-timeline.test.ts`; 인증된 데스크톱 및 390 px 검사에서 열린 상세, 단계별 텍스트, DOM의 최대 출처 카드 3개 및 가로 overflow 0을 확인했습니다. | 브라우저 관찰은 통제된 산출물로 보존하지 않았습니다. 이후 서버 단계 이벤트는 브라우저 추론 없이 같은 typed progress seam을 보강할 수 있습니다. |
 

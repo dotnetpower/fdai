@@ -59,6 +59,7 @@ import {
   type AssurancePlanCapability,
   type RetainedTransportAttempt,
   type RetainedTurnResult,
+  ASSURANCE_PLAN_CAPABILITIES,
 } from "./ontology-query-assurance";
 
 const COHORT_SEED = 0x0fda1;
@@ -79,7 +80,7 @@ async function runBrowserTurn(
   question: AssuranceQuestion,
   runId: string,
 ): Promise<BrowserTurnResult> {
-  return page.evaluate(async ({ prompt, sessionId }) => {
+  return page.evaluate(async ({ prompt, sessionId, allowedCapabilities }) => {
     const { askBackendStream } = await import("/src/deck/backend-stream.ts");
     const reply = await askBackendStream(prompt, null, [], {
       onToken: () => undefined,
@@ -104,23 +105,14 @@ async function runBrowserTurn(
             : ["object_set"];
         }
         return [goal.intent];
-      }))).filter((capability): capability is AssurancePlanCapability => [
-        "aggregate",
-        "evidence_join",
-        "function:query.incident_evidence",
-        "function:query.manifest",
-        "function:query.ontology_relationships",
-        "metric_scope_series",
-        "metric_series",
-        "object_set",
-        "object_set:filtered",
-        "topology_at",
-        "topology_diff",
-      ].includes(capability)),
+      }))).filter((capability): capability is AssurancePlanCapability =>
+        allowedCapabilities.includes(capability as AssurancePlanCapability)
+      ),
     };
   }, {
     prompt: question.prompt,
     sessionId: assuranceSessionId(runId, question.question_id),
+    allowedCapabilities: ASSURANCE_PLAN_CAPABILITIES,
   });
 }
 
