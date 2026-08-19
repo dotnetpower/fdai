@@ -1,7 +1,7 @@
 ---
 title: 콘솔 근거 및 복원력
 translation_of: console-evidence-and-resilience.md
-translation_source_sha: a1133886a4fc3c66ccdffbf73e8c8bbbc56033d2
+translation_source_sha: 21ccf04fbad0442d8f6e1e82ab13acbf3f048fca
 translation_revised: 2026-08-19
 ---
 
@@ -78,6 +78,7 @@ translation_revised: 2026-08-19
 | 2026-08-19 | implemented | Producer의 breadth-first 간선 깊이 불변식을 Console 경계에서 강제했습니다. 간선은 바로 앞 깊이에서 출발해야 하며 자신의 탐색 wave보다 더 깊은 노드를 가리킬 수 없습니다. 이전 깊이로 향하는 유효한 back 및 cycle 간선은 계속 허용합니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, `blast-radius.model.test.ts` focused 사례 11개와 Console typecheck가 통과했습니다. | 일관되지 않은 그래프 형태에 Medium 이상 finding이 없을 때까지 adversarial decoder 검토를 계속합니다. |
 | 2026-08-19 | implemented | 도달한 모든 노드에 producer가 만들 수 있는 출처 이력을 요구했습니다. 대상 root는 들어오는 LinkType이 없고 각 non-root 노드는 같은 breadth-first 깊이에서 일치하는 incoming 간선으로 뒷받침된 요청 LinkType을 지정해야 합니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, `blast-radius.model.test.ts` focused 사례 14개와 Console typecheck가 통과했습니다. | 이 round를 닫기 전에 duplicate 및 bounded-array 잔여 항목을 대상으로 adversarial decoder 검토를 다시 실행합니다. |
 | 2026-08-19 | implemented | Console 신뢰 경계에서 중복 영향 관계를 거부했습니다. 최종 adversarial decoder 검토에는 producer bound 재검증과 timestamp 허용 범위에 관한 Low 잔여만 남았고 그래프 일관성에 Medium 이상 finding은 없습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, `blast-radius.model.test.ts` focused 사례 15개와 Console typecheck가 통과했습니다. | Producer 배열 상한 및 더 엄격한 RFC 3339 parsing은 release blocker가 아니라 Low defense-in-depth 후보로 유지합니다. |
+| 2026-08-19 | implemented | 시각적 active styling에만 의존하지 않고 세 개 segmented button 모두의 `aria-pressed`로 선택한 Impact scope 보기를 노출했습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused control contract 사례 2개와 Console typecheck가 통과했고 인증된 390 px Browser가 pressed 보기 하나만 노출했습니다. | 별도로 측정한 focus indicator 및 target size finding을 대상으로 accessibility round를 계속합니다. |
 
 ### 잔여 작업
 

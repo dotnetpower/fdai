@@ -378,9 +378,9 @@ function ReportView({ data, client, architectureView }: { readonly data: BlastRa
         <div class="section-header">
           <h3 class="section-title">{t("ontology.blast.topology")}</h3>
           <div class="segmented-control" role="group" aria-label={t("ontology.blast.viewLabel")}>
-            <button type="button" class={view === "impact" ? "active" : ""} onClick={() => selectView("impact")}>{t("ontology.blast.viewImpact")}</button>
-            <button type="button" class={view === "map" ? "active" : ""} onClick={() => selectView("map")}>{t("ontology.blast.viewMap")}</button>
-            <button type="button" class={view === "table" ? "active" : ""} onClick={() => selectView("table")}>{t("ontology.blast.viewTable")}</button>
+            <button type="button" class={view === "impact" ? "active" : ""} aria-pressed={view === "impact"} onClick={() => selectView("impact")}>{t("ontology.blast.viewImpact")}</button>
+            <button type="button" class={view === "map" ? "active" : ""} aria-pressed={view === "map"} onClick={() => selectView("map")}>{t("ontology.blast.viewMap")}</button>
+            <button type="button" class={view === "table" ? "active" : ""} aria-pressed={view === "table"} onClick={() => selectView("table")}>{t("ontology.blast.viewTable")}</button>
           </div>
         </div>
         {view === "impact" ? (
