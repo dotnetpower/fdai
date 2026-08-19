@@ -8,9 +8,11 @@ import hashlib
 import json
 import os
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
+import psycopg
 import yaml
 from fdai.agents import PANTHEON_SPECS
 from fdai.core.ontology_explorer import render_ontology_mermaid
@@ -21,17 +23,37 @@ from fdai.delivery.ontology_console_projection import (
     build_catalog_topology,
     semantic_model_profile,
 )
+from fdai.delivery.ontology_declaration_projection import (
+    build_action_type_detail_projection,
+    build_link_type_detail_projection,
+    build_object_type_detail_projection,
+)
+from fdai.delivery.ontology_dependents_projection import (
+    build_declaration_dependents_projection,
+)
+from fdai.delivery.ontology_evidence_health_projection import (
+    OntologyEvidenceSourceStatus,
+    build_object_type_evidence_health_projection,
+)
+from fdai.delivery.ontology_release_diff_projection import build_release_diff_registry
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
 from fdai.rule_catalog.schema.ontology_catalog import OntologyCatalog, load_ontology_catalog
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.rule_catalog.schema.rule import load_rule_catalog
 from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_mapping
 from fdai.rule_catalog.schema.workflow import load_workflow_catalog
-from fdai.shared.contracts.models import Rule
+from fdai.shared.contracts.models import CeilingRole, OntologyRelease, Rule
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
+from psycopg.rows import dict_row
 
 RULE_LIST_KEY = "operator-projection:workflow:rule.list"
 ONTOLOGY_GRAPH_KEY = "operator-projection:operations:ontology.graph"
+ONTOLOGY_DECLARATION_KEYS = {
+    role: f"operator-projection:operations:ontology.declaration.detail.{role.value}"
+    for role in CeilingRole
+}
+ONTOLOGY_RELEASE_DIFF_KEY = "operator-projection:operations:ontology.release.diff"
+ONTOLOGY_EVIDENCE_HEALTH_KEY = "operator-projection:operations:ontology.evidence.health"
 STEWARDSHIP_KEY = "operator-projection:operations:stewardship.coverage"
 ACTION_TYPE_LIST_KEY = "operator-projection:workflow:workflow.action-type-list"
 WORKFLOW_CATALOG_KEY = "operator-projection:workflow:workflow.catalog"
@@ -89,7 +111,14 @@ def catalog_snapshots(repo_root: Path) -> dict[str, dict[str, object]]:
         }
         for spec in PANTHEON_SPECS
     ]
-    return {
+    topology = build_catalog_topology(
+        ontology=ontology,
+        resource_types=resource_type_documents,
+        rules=rule_documents,
+        workflows=workflow_documents,
+        agents=agent_documents,
+    )
+    snapshots = {
         RULE_LIST_KEY: _revisioned(
             _rule_snapshot(
                 rules,
@@ -104,12 +133,20 @@ def catalog_snapshots(repo_root: Path) -> dict[str, dict[str, object]]:
                 rules=rule_documents,
                 workflows=workflow_documents,
                 agents=agent_documents,
+                topology=topology,
             )
         ),
         STEWARDSHIP_KEY: _revisioned(_stewardship_snapshot(repo_root)),
         ACTION_TYPE_LIST_KEY: _revisioned(_action_type_palette(ontology.action_types)),
         WORKFLOW_CATALOG_KEY: _revisioned(_workflow_catalog(workflows, catalog_root=catalog_root)),
     }
+    snapshots.update(
+        {
+            key: _revisioned(_ontology_declaration_snapshot(ontology, topology=topology, role=role))
+            for role, key in ONTOLOGY_DECLARATION_KEYS.items()
+        }
+    )
+    return snapshots
 
 
 def _rule_snapshot(
@@ -277,6 +314,7 @@ def _ontology_snapshot(
     rules: Sequence[Mapping[str, object]],
     workflows: Sequence[Mapping[str, object]],
     agents: Sequence[Mapping[str, object]],
+    topology: Mapping[str, object],
 ) -> dict[str, object]:
     object_types = sorted(ontology.object_types, key=lambda item: item.name)
     interface_types = sorted(ontology.interface_types, key=lambda item: item.name)
@@ -290,13 +328,7 @@ def _ontology_snapshot(
         "ontology_release_digest": release.digest,
         "mutation_authority": False,
         "semantic_model": semantic_model_profile(ontology),
-        "catalog_topology": build_catalog_topology(
-            ontology=ontology,
-            resource_types=resource_types,
-            rules=rules,
-            workflows=workflows,
-            agents=agents,
-        ),
+        "catalog_topology": topology,
         "mermaid": rendered.mermaid,
         "object_type_count": len(object_types),
         "interface_type_count": len(interface_types),
@@ -340,6 +372,63 @@ def _ontology_snapshot(
             }
             for item in link_types
         ],
+    }
+
+
+def _ontology_declaration_snapshot(
+    ontology: OntologyCatalog,
+    *,
+    topology: Mapping[str, object],
+    role: CeilingRole,
+) -> dict[str, object]:
+    """Build one purpose-bound detail bundle for an ordinary Operator role."""
+
+    purpose = "operations-review"
+    release_digest = ontology.build_release().digest
+    return {
+        "schema_version": "1.0.0",
+        "ontology_release_digest": release_digest,
+        "role": role.value,
+        "purpose": purpose,
+        "mutation_authority": False,
+        "details": {
+            "object-types": {
+                object_type.name: build_object_type_detail_projection(
+                    ontology=ontology,
+                    name=object_type.name,
+                    role=role,
+                    purpose=purpose,
+                    expected_release_digest=release_digest,
+                )
+                for object_type in sorted(ontology.object_types, key=lambda item: item.name)
+            },
+            "link-types": {
+                link_type.name: build_link_type_detail_projection(
+                    ontology=ontology,
+                    name=link_type.name,
+                    expected_release_digest=release_digest,
+                )
+                for link_type in sorted(ontology.link_types, key=lambda item: item.name)
+            },
+            "action-types": {
+                action_type.name: build_action_type_detail_projection(
+                    ontology=ontology,
+                    name=action_type.name,
+                    expected_release_digest=release_digest,
+                )
+                for action_type in sorted(ontology.action_types, key=lambda item: item.name)
+            },
+        },
+        "dependents": {
+            "object-types": {
+                object_type.name: build_declaration_dependents_projection(
+                    topology=topology,
+                    declaration_kind="object-types",
+                    declaration_name=object_type.name,
+                )
+                for object_type in sorted(ontology.object_types, key=lambda item: item.name)
+            }
+        },
     }
 
 
@@ -535,8 +624,164 @@ async def materialize(repo_root: Path) -> None:
     if not dsn:
         raise RuntimeError("FDAI_STATE_STORE_DSN MUST be configured")
     store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
-    for key, payload in catalog_snapshots(repo_root).items():
+    snapshots = catalog_snapshots(repo_root)
+    for key, payload in snapshots.items():
         await store.write_state(key, payload)
+    releases, releases_truncated = await _retained_ontology_releases(dsn)
+    await store.write_state(
+        ONTOLOGY_RELEASE_DIFF_KEY,
+        build_release_diff_registry(
+            releases=releases,
+            truncated=releases_truncated,
+        ),
+    )
+    await store.write_state(
+        ONTOLOGY_EVIDENCE_HEALTH_KEY,
+        await _ontology_evidence_health(
+            dsn,
+            ontology_snapshot=snapshots[ONTOLOGY_GRAPH_KEY],
+        ),
+    )
+
+
+async def _retained_ontology_releases(
+    dsn: str,
+) -> tuple[tuple[OntologyRelease, ...], bool]:
+    """Read a bounded chronological release window through the Core-owned DSN."""
+
+    async with await psycopg.AsyncConnection.connect(dsn, row_factory=dict_row) as connection:
+        cursor = await connection.execute(
+            "SELECT manifest FROM ontology_release ORDER BY created_at DESC, digest DESC LIMIT 17"
+        )
+        rows = await cursor.fetchall()
+    truncated = len(rows) > 16
+    selected = reversed(rows[:16])
+    return (
+        tuple(OntologyRelease.model_validate(row["manifest"]) for row in selected),
+        truncated,
+    )
+
+
+async def _ontology_evidence_health(
+    dsn: str,
+    *,
+    ontology_snapshot: Mapping[str, object],
+) -> dict[str, object]:
+    """Read sanitized inventory projection health without returning instance payloads."""
+
+    async with await psycopg.AsyncConnection.connect(dsn, row_factory=dict_row) as connection:
+        status_cursor = await connection.execute(
+            "SELECT value, updated_at FROM state_kv WHERE key='inventory-ontology:status'"
+        )
+        manifest_cursor = await connection.execute(
+            "SELECT value FROM state_kv WHERE key='inventory-ontology:manifest'"
+        )
+        inventory_cursor = await connection.execute(
+            "SELECT snapshot.id, snapshot.observation_kind, snapshot.completed_at "
+            "FROM inventory_active AS active "
+            "JOIN inventory_snapshot AS snapshot ON snapshot.id=active.snapshot_id "
+            "WHERE active.singleton=TRUE"
+        )
+        count_cursor = await connection.execute(
+            "SELECT "
+            "(SELECT COUNT(*) FROM ontology_resource WHERE object_type='Resource') "
+            "AS object_count, "
+            "(SELECT COUNT(DISTINCT link.id) FROM ontology_link AS link "
+            "JOIN ontology_resource AS source ON source.id=link.from_id "
+            "JOIN ontology_resource AS target ON target.id=link.to_id "
+            "WHERE source.object_type='Resource' OR target.object_type='Resource') "
+            "AS link_count"
+        )
+        status_row = await status_cursor.fetchone()
+        manifest_row = await manifest_cursor.fetchone()
+        inventory_row = await inventory_cursor.fetchone()
+        count_row = await count_cursor.fetchone()
+
+    release_digest = str(ontology_snapshot["ontology_release_digest"])
+    object_types = _runtime_string_sequence(
+        ontology_snapshot["object_types"],
+        field="ontology object_types",
+    )
+    resource_source: OntologyEvidenceSourceStatus | None = None
+    resource_unavailable_reason = "inventory_ontology_projection_not_bound"
+    if status_row and manifest_row and inventory_row and count_row:
+        status = _runtime_mapping(status_row["value"], field="inventory ontology status")
+        manifest = _runtime_mapping(
+            manifest_row["value"],
+            field="inventory ontology manifest",
+        )
+        dropped = _runtime_string_sequence(
+            manifest.get("dropped_reasons", ()),
+            field="inventory ontology dropped_reasons",
+        )
+        if status.get("ontology_release_digest") != release_digest:
+            resource_unavailable_reason = "stale_ontology_projection_release"
+        elif status.get("status") != "available":
+            resource_unavailable_reason = "inventory_ontology_projection_unavailable"
+        elif inventory_row["completed_at"] is None:
+            resource_unavailable_reason = "inventory_observation_cutoff_unavailable"
+        else:
+            generation = str(status.get("generation") or "")
+            if not generation:
+                resource_unavailable_reason = "inventory_generation_unavailable"
+            else:
+                resource_source = OntologyEvidenceSourceStatus(
+                    source_kind="provider_observation",
+                    source_identity_alias="inventory-projection",
+                    generation=generation,
+                    ontology_release_digest=release_digest,
+                    observed_at=inventory_row["completed_at"],
+                    recorded_at=status_row["updated_at"],
+                    freshness_ceiling_seconds=None,
+                    complete=manifest.get("complete") is True and not dropped,
+                    truncated=any("truncat" in reason for reason in dropped),
+                    synthetic=inventory_row["observation_kind"] != "observed",
+                    conflicts=tuple(reason for reason in dropped if "conflict" in reason),
+                    drop_reasons=dropped,
+                    visible_instance_count=int(count_row["object_count"]),
+                    visible_link_count=int(count_row["link_count"]),
+                    evidence_refs=(
+                        f"inventory-ontology:manifest@{generation}",
+                        f"inventory-snapshot:{inventory_row['id']}",
+                    ),
+                )
+    now = datetime.now(UTC)
+    health = {
+        name: build_object_type_evidence_health_projection(
+            object_type=name,
+            ontology_release_digest=release_digest,
+            now=now,
+            source=resource_source if name == "Resource" else None,
+            unavailable_reason=(
+                resource_unavailable_reason
+                if name == "Resource"
+                else "object_type_evidence_source_not_bound"
+            ),
+        )
+        for name in object_types
+    }
+    return _revisioned(
+        {
+            "schema_version": "1.0.0",
+            "ontology_release_digest": release_digest,
+            "mutation_authority": False,
+            "evidence_health": health,
+        }
+    )
+
+
+def _runtime_mapping(value: object, *, field: str) -> Mapping[str, object]:
+    if not isinstance(value, Mapping):
+        raise RuntimeError(f"{field} MUST be a mapping")
+    return value
+
+
+def _runtime_string_sequence(value: object, *, field: str) -> tuple[str, ...]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        raise RuntimeError(f"{field} MUST be a sequence")
+    if any(not isinstance(item, str) or not item for item in value):
+        raise RuntimeError(f"{field} values MUST be non-empty strings")
+    return cast(tuple[str, ...], tuple(value))
 
 
 def main() -> int:

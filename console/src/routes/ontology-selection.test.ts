@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { OntologyEdge, OntologyNode } from "../components/ontology-graph";
 import {
   ontologyNamedSelection,
+  ontologyPathSelection,
   selectedOntologyExplanations,
   selectedOntologyRecords,
 } from "./ontology";
@@ -87,6 +88,19 @@ describe("ontology explicit selections", () => {
     });
   });
 
+  it("maps exact declaration detail segments to existing inspectors", () => {
+    expect(ontologyPathSelection(["link-types", "based_on"])).toEqual({
+      view: "links",
+      name: "based_on",
+    });
+    expect(ontologyPathSelection(["action-types", "ops.restart-service"])).toEqual({
+      view: "actions",
+      name: "ops.restart-service",
+    });
+    expect(ontologyPathSelection(["object-types", "Decision"])).toBeNull();
+    expect(ontologyPathSelection(["link-types"])).toBeNull();
+  });
+
   it("never substitutes another ActionType for an invalid or filtered selection", () => {
     const alpha = action("alpha");
     const beta = action("beta");
@@ -107,7 +121,7 @@ describe("ontology explicit selections", () => {
       execution: "direct_api",
     });
     expect(ontologyActionHref(filters, "restart-service")).toBe(
-      "/ontology?view=actions&action=restart-service&q=restart&category=ops&trigger=operator_request&execution=direct_api",
+      "/ontology/action-types/restart-service?q=restart&category=ops&trigger=operator_request&execution=direct_api",
     );
   });
 

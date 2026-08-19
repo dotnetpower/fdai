@@ -17,6 +17,7 @@ from fdai_operator_service.families.operations.contracts import (
     DurableReplayReader,
     EventProposal,
     EventProposalWriter,
+    ProjectionNotFoundError,
     ProjectionQuery,
     ProjectionReader,
     ProjectionUnavailableError,
@@ -152,6 +153,8 @@ async def _projection(
                 params=params,
                 limit=_limit(params),
                 cursor=_cursor(params),
+                roles=principal.roles,
+                purpose="operations-review",
             )
         )
         redacted_value = redact_projection(payload)
@@ -179,6 +182,8 @@ async def _projection(
             operation=entry.operation,
             report_pdf_encoder=report_pdf_encoder,
         )
+    except ProjectionNotFoundError:
+        return _error(404, "ontology declaration is not available")
     except ProjectionUnavailableError:
         return _error(503, "authoritative projection is unavailable")
     except ValueError as exc:

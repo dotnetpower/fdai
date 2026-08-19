@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 862a4143e7e79791a3d1f2b9d3e292ac889a7234
+translation_source_sha: 19b9e5ce69107d7e89ccc946b73dee03ad043603
 translation_revised: 2026-08-19
 ---
 # FDAI 온톨로지 안전 인프라
@@ -96,6 +96,7 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | K0 exact release 신원 및 영속성 | implemented | [`release.py`](../../../services/core-control-plane/src/fdai/shared/ontology/release.py), [`postgres_ontology.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_ontology.py), [`inventory_ontology.py`](../../../services/core-control-plane/src/fdai/runtime/inventory_ontology.py), [`20260813_0081_ontology_release_registry.py`](../../../alembic/versions/20260813_0081_ontology_release_registry.py), [`20260817_0085_historical_ontology_release.py`](../../../alembic/versions/20260817_0085_historical_ontology_release.py), focused 영속성/런타임 테스트 | Exact 신원, release에 고정된 쓰기, 재시작에 안전한 매니페스트 로딩, release에 결속된 인벤토리 변환 근거, 정확한 과거 객체/링크 release backfill이 존재합니다. 등록되지 않은 release는 계속 안전하게 차단됩니다. 이행 전 행과 과거 인벤토리 매니페스트는 정직하게 고정하지 않은 상태로 유지합니다. 운영 Live 근거는 아직 남아 있습니다. |
+| Exact-release 선언 워크벤치 변환 결과 | implemented | `delivery/ontology_{declaration,dependents,evidence_health,release_diff}_projection.py`; 로컬 권한 카탈로그 materializer; Operator operations family; focused 변환 및 route 검사 | ObjectType, LinkType, ActionType 상세는 정확한 release 신원을 보존합니다. 종속 항목은 카탈로그 토폴로지만 사용하고, 근거 상태는 0을 만들어 내지 않으며, 보존 release 비교는 변경 권한 없이 선언 참조 수준을 유지합니다. InterfaceType 및 FunctionType 전용 보기는 측정된 P2 진입 조건에 따라 deferred 상태입니다. |
 | K1-K5 범위가 제한된 의미 조회 및 함수 인프라 | in-progress | [`operational_functions.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py), [`incident_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/incident_queries.py), [`kubernetes_relationships.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_relationships.py), [`inventory_sync.py`](../../../services/core-control-plane/src/fdai/delivery/inventory_sync.py), [`test_inventory_sync.py`](../../../services/core-control-plane/tests/delivery/test_inventory_sync.py), [`test_wire_pod_telemetry.py`](../../../services/core-control-plane/tests/composition/test_wire_pod_telemetry.py) | Core 기본 요소, ObjectSet 및 table transform을 통한 집계 필드 스키마 전파, 서로 다른 canonical 인시던트 신원과 감사 상관관계 신원을 보존하는 범위가 제한된 인시던트 감사 근거, 공급된 Kubernetes 기록을 위한 production 인벤토리 조립, 발급된 Pod 조립 검사가 존재합니다. 인시던트 조회는 기록된 grounded 가설 또는 자체 감사 인용이 있는 닫힌 결정론적 최종 실패 결과에서 근본 원인을 노출할 수 있습니다. 일반 활동, 자유 형식 텍스트 및 시간 순서는 원인이 되지 않습니다. 기록된 영향 행과 인용 행은 읽기 전용 근거로 유지되며 실행 권한을 부여하지 않습니다. 인증된 인시던트 및 Kubernetes live 근거는 아직 남아 있습니다. |
 | Exact-release principal 매니페스트 함수 | implemented | [`manifest_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/manifest_queries.py), [`query_source_handlers.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/query_source_handlers.py), focused 매니페스트 및 조립 검사(`42 passed`) | `query.manifest`는 role, purpose 및 요청한 kind별로 읽을 수 있는 범위 제한 선언 요약을 나열합니다. 바인딩되지 않은 선언은 완전성을 낮추고 호출 증적은 exact-release 근거로 유지되며 모든 행은 `execution_authority=false`를 고정합니다. |
 | 카탈로그 변환 결과와 exact-generation Rule 검색 | implemented | [`catalog_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/catalog_queries.py), [`test_catalog_queries.py`](../../../services/core-control-plane/tests/core/ontology_platform/test_catalog_queries.py), 커밋 `e4d9483a5` | `catalog.search_rules`는 exact 세대 증적과 함께 범위가 제한된 순위 후보를 반환하며 판단 또는 액션 권한을 부여하지 않습니다. 시작 변환 결과는 아직 control-objective 인스턴스를 구체화하지 않습니다. |
@@ -107,6 +108,7 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-08-19 | implemented | 검토된 mapping 밖의 프로바이더 native 행을 위해 카탈로그 소유 `unclassified-resource` 대상과 exact 신원 완전성 증적을 추가했습니다. 분류는 계속 검토된 Resource-ResourceType 간선이며, 지원되지 않는 native 타입 텍스트는 비활성 근거로 남아 의미 또는 실행 권한을 부여하지 않습니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). 프로바이더, Azure, 온톨로지, 카탈로그 및 조회 도메인 focused 검사 259개와 Ruff 및 strict mypy가 통과했습니다. | 인벤토리를 새로 고치고 release에 연결된 매니페스트와 parity 근거를 보존합니다. |
+| 2026-08-19 | implemented | 역할과 목적에 따라 필터링한 선언 상세, 토폴로지 기반 종속 항목, 정제된 ObjectType 근거 상태, 선언 참조 release 호환성을 서로 다른 권한 없는 변환 결과로 추가했습니다. 로컬 인증 Console은 원시 프로바이더 payload나 resource id를 노출하지 않고 사용할 수 없는 `Decision` 근거와 사용할 수 있는 `Resource` 집계 근거를 모두 렌더링했습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223); `current change`; focused Core delivery, materializer, Operator 및 Console 검사와 Console production build가 통과했습니다. | 관리되는 Browser 산출물과 principal 범위 Context 증적을 보존합니다. P2 진입 조건을 측정하기 전에는 InterfaceType 또는 FunctionType 전용 보기를 추가하지 않습니다. |
 | 2026-08-13 | in-progress | 이전 provenance를 재구성하지 않고 구현 원장을 도입했습니다. | 범위 표에 나열된 현재 소스와 테스트입니다. | 아래의 관찰 가능한 종료 조건을 완료합니다. |
 | 2026-08-13 | implemented | 범위가 제한된 순위와 내용 기반 주소를 가진 증적을 제공하는 exact-generation 읽기 전용 `catalog.search_rules` 후보 검색을 추가했습니다. | 커밋 `e4d9483a5`; 집중 `test_catalog_queries.py`에서 2개 테스트를 통과했습니다. | 평가 또는 실행 권한을 부여하지 않으면서 objective-aware 검색을 조립하고 검증합니다. |
 | 2026-08-13 | implemented | 중앙 graph 검증에서 누락을 발견한 뒤 세 objective vocabulary 타입을 `Identifiable` 구현으로 등록했습니다. | 집중 `test_shipped_ontology_catalog_loads_as_one_graph`에서 1개 테스트를 통과했습니다. | 새 object type을 추가할 때마다 interface 구현 범위를 동기화합니다. |
@@ -146,6 +148,11 @@ exact 스키마 pinning, 생성된 SDK 표면을 추가합니다. 모든 런타�
 
 ### 남은 작업
 
+- [x] 읽기 전용 Operator 및 Console 워크벤치에서 exact-release 선언 상세, 토폴로지 기반 종속
+  항목, 정직한 근거 상태 가용성, 선언 참조 release 비교를 제공합니다.
+  [이슈 #223](https://github.com/dotnetpower/fdai/issues/223)의 focused 검사가 통과했습니다.
+- [ ] 워크벤치 상태를 `implemented`에서 `validated`로 높이기 전에 관리되는 Browser 산출물과
+  인증된 principal 범위 Context 증적 하나를 보존합니다.
 - [ ] 검토된 control-objective 및 binding vocabulary를 범위가 제한된 시작 변환 결과에
   구체화하고 집중 테스트에서 exact release 신원과 권한 필드가 없음을 입증합니다.
 - [ ] PostgreSQL 과거 토폴로지, 운영 메트릭 프로바이더 및 inventory-promotion 발행을

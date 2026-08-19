@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 576e04ffebe8d7278dd46f20c7e9827289ed2762
-translation_revised: 2026-08-14
+translation_source_sha: e06bab9a7e367ed7cfa50588770fe66f6ebe1a6d
+translation_revised: 2026-08-19
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -267,6 +267,27 @@ ActionType 변환 결과 은 가산 입니다. 이전 배포 에서는
 토폴로지에는 Rule, Workflow 및 Agent 링크가 있는 카탈로그 노드로 포함됩니다. 모든 레지스트리
 및 컨텍스트 보기는 읽기 전용이며 액션 또는 승인 호출을 실행하지 않습니다.
 
+선언 워크벤치는 요약 payload를 늘리지 않고 다음과 같은 범위가 제한된 읽기 경로를
+추가합니다.
+
+- `GET /ontology/declarations/{kind}/{name}`은 활성 release에서 역할과 목적에 따라
+  필터링한 ObjectType, LinkType 또는 ActionType 상세 하나를 반환합니다.
+- `GET /ontology/declarations/{kind}/{name}/dependents`는 결정론적 카탈로그 토폴로지
+  참조만 반환하며 결과 상한과 잘림 상태를 명시합니다.
+- `GET /ontology/object-types/{name}/evidence-health`는 정제된 원본, 세대, 기준 시점,
+  최신성, 완전성, 충돌, 합성 여부 및 집계 수를 반환합니다. 런타임 원본이 연결되지 않은
+  유형은 사용할 수 없음으로 표시하며 0을 만들어 내지 않습니다.
+- `GET /ontology/releases/{candidate_digest}/diff`는 보존된 선언 참조를 비교합니다.
+  추가는 호환 가능, 제거는 비호환으로 판정합니다. 변경된 선언은 보존 release
+  매니페스트가 과거 field-level schema를 재구성하지 않으므로 마이그레이션 검토가 필요합니다.
+
+Console은 `/ontology/object-types/:name`과 `/ontology/releases/:digest`에서 이러한 읽기를
+제공합니다. LinkType과 ActionType clean path는 기존 계약 inspector를 재사용합니다. 관련
+ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 때만 표시합니다. 이 근거가
+없는 기존 ActionType은 완전성을 낮추며 추론하지 않습니다. InterfaceType과 FunctionType은 의미 있는
+활성 선언이 두 개 이상이고 권한 있는 사용 원본이 전용 P2 보기를 정당화할 때까지 레지스트리 신원과
+토폴로지 노드만 유지합니다.
+
 ## 구현 상태
 
 ### 구현 범위
@@ -274,7 +295,8 @@ ActionType 변환 결과 은 가산 입니다. 이전 배포 에서는
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 감사 및 읽기 전용 wire 변환 결과 | implemented | Operator family 매니페스트 및 변환 결과; `services/operator-service/tests/test_operator_service_composition.py`; Console trace 테스트 | 기본 GET/HEAD 경로, 범위가 제한된 묶음 및 사용 불가 동작에 focused 검사가 있습니다. |
-| Exact-release 온톨로지 표현 | in-progress | `scripts/deployment/local/materialize-authoritative-catalogs.py`; `console/src/routes/ontology.tsx`; 현재 카탈로그 토폴로지 생성기 및 focused 테스트 | 선언 탐색은 있지만 의미 모델, exact release 신원, 단일 변환 결과 출처 및 receipt 기반 컨텍스트 스냅샷에는 아직 구현 근거가 필요합니다. |
+| Exact-release 온톨로지 레지스트리 및 워크벤치 | implemented | `ontology_declaration_projection.py`; `ontology_dependents_projection.py`; `ontology_evidence_health_projection.py`; `ontology_release_diff_projection.py`; Operator operations 경로; `console/src/routes/ontology-object-type-detail.tsx`; focused Python 및 Console 검사 | 정확한 선언 상세, 서버 측 redaction, 범위가 제한된 종속 항목, 정직한 근거 상태, 보존 release 비교, clean route, 권한 없는 렌더링이 구현됐습니다. 인증된 로컬 Browser에서 `Decision`과 `Resource` 경로에 overflow, 원시 resource id, execute control이 없음을 확인했지만 관리되는 Browser 산출물은 보존하지 않았습니다. |
+| 증적 기반 런타임 Context snapshot | in-progress | 온톨로지 플랫폼의 보안 ObjectSet 및 Context 계약, 기존 Console 사용 불가 상태 | 워크벤치는 카탈로그 선언과 런타임 인스턴스를 병합하지 않습니다. principal 범위 Context 증적은 별도 전달 작업으로 남아 있습니다. |
 | HIL callback 계약 | implemented | Operator IAM family 경로; `services/operator-service/tests/test_operator_iam_family.py`; full-composition 테스트 | 서명, 재생 구간, 역할, 자기 승인 금지, 정확한 pending id 및 멱등적 결정 동작이 구현됐습니다. |
 | Python task workbench 및 근거 기반 code | implemented | `services/core-control-plane/src/fdai/core/python_task/`; `services/core-control-plane/tests/core/python_task/`; Operator workflow family; Console Python task 테스트 | 정적 검증, inert 산출물, 기능 및 chat 실행 부재 경계에 focused 검사가 있습니다. |
 | Semantic action draft 및 타입이 지정된 확인 | in-progress | Operator conversation 및 workflow application 경로 | 범위가 제한된 draft 및 proposal 경로는 있지만 이 owner 문서는 모든 conflict 및 denial 사례를 통과하는 관리되는 request-to-audit 확인 증적을 보존하지 않습니다. |
@@ -288,11 +310,13 @@ ActionType 변환 결과 은 가산 입니다. 이전 배포 에서는
 | 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 현재 Operator, Core Python task, CLI, channel, Console 및 focused 테스트 근거입니다. | Semantic 확인, 채널 동등성 및 관리되는 계약 간 근거를 완료해야 합니다. |
 | 2026-08-14 | in-progress | 생성된 하나의 force graph를 운영 온톨로지로 표현하는 대신 의미 모델, 카탈로그 토폴로지 및 receipt 기반 컨텍스트 스냅샷 계약을 분리했습니다. | `current change`; 영문 및 한국어 Console 계약 문서와 focused 문서 게이트입니다. | 하나의 exact-release 생산자를 구현하고 focused 및 인증된 Console 근거를 보존해야 합니다. |
 | 2026-08-14 | in-progress | 저장된 레이아웃을 바꾸지 않으면서 카탈로그 토폴로지가 처음 나타날 때 범위가 제한된 결정적 spring-settle 효과를 추가했습니다. 조작하거나 동작 감소를 요청하면 효과를 끝내거나 건너뛰며, 지속적인 simulation은 실행하지 않습니다. | `current change`; `ontology-knowledge-graph.geometry.ts`, `ontology-knowledge-graph.renderer.ts`, `use-ontology-knowledge-graph-controller.ts`; Console 토폴로지 focused 테스트 12개와 Console 타입 검사가 통과했습니다. | 아래에 설명한 별도 관리 대상인 인증된 컨텍스트 스냅샷 근거를 보존해야 합니다. |
+| 2026-08-19 | implemented | 정확한 release 선언 워크벤치를 추가하고 선언, 런타임 근거, 의존성, release 이력 권한을 서로 다른 범위 제한 변환 결과로 유지했습니다. 역할과 목적 필터링은 Operator 응답 전에 수행하며, 사용할 수 없는 근거는 0을 포함하지 않고, release 비교는 restore 또는 migration 권한 없이 보존된 선언 참조만 사용합니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223); `current change`; focused Core delivery, materializer, Operator family, Console decoder/router/localization 테스트, Console typecheck 및 production build, 1440 x 900, 993 x 641, 390 x 844 인증 로컬 Browser 검사에서 document overflow와 execute control이 없었습니다. | 관리되는 Browser 산출물을 보존하고 principal 범위 Context snapshot을 연결합니다. InterfaceType 및 FunctionType 전용 보기는 P2 진입 조건을 측정할 때까지 deferred 상태입니다. |
 
 ### 남은 작업
 
 - [ ] 스키마 한도, 정확한 source 개정, 자기 승인 금지, stale 및 멱등성 conflict, 타입이 지정된 확인, 감사 상관관계 및 직접 실행 부재를 입증하는 인증된 semantic action-draft 증적을 보존합니다.
-- [ ] 하나의 exact-release 온톨로지 변환 결과를 구체화하고 같은 생산자에서 선언과 토폴로지 동등성을 입증하며 네 개의 의미 영역과 서로 독립적인 다섯 가지 보기를 렌더링하고 변경 권한 없이 완전성을 노출하는 인증된 컨텍스트 스냅샷을 보존합니다.
+- [x] 하나의 exact-release 온톨로지 레지스트리와 선언 워크벤치를 구체화하고 같은 생산자에서 선언과 토폴로지 동등성을 입증하며 네 개의 의미 영역과 서로 독립적인 다섯 가지 보기를 렌더링했습니다. [이슈 #223](https://github.com/dotnetpower/fdai/issues/223)의 focused 검사와 인증 로컬 Browser 관측은 변경 권한 없이 통과했습니다.
+- [ ] ObjectType 워크벤치의 관리되는 Browser 산출물을 보존하고 변경 권한 없이 완전성을 노출하는 인증된 principal 범위 Context snapshot을 연결합니다.
 - [ ] Operator API와 Console 전반에서 Python task 기능, 정적 검증, 근거 기반 code rendering, malformed 산출물 및 실행 부재 증적을 보존합니다.
 - [ ] 최종 상태, 근거 참조, truncation, 취소, 재생 및 사용 불가 동작에 대한 CLI, Teams, Slack 및 Web 동등성 사례를 실행하고 보존합니다.
-- [ ] 카탈로그 데이터를 런타임 근거로 표현하지 않으면서 catalog 다이제스트, ObjectType, LinkType, ActionType 및 생성된 map을 묶는 읽기 전용 온톨로지 변환 증적 하나를 보존합니다.
+- [ ] 카탈로그 데이터를 런타임 근거로 표현하지 않으면서 catalog 다이제스트, ObjectType, LinkType, ActionType, 워크벤치 상세 및 생성된 map을 묶는 관리되는 읽기 전용 온톨로지 증적 하나를 보존합니다.

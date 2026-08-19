@@ -1,6 +1,7 @@
 import { useEffect, useState } from "preact/hooks";
 import { currentRoute, replaceRouteState, routeHref } from "../router";
 import { t } from "./i18n/ontology";
+import { ontologyDeclarationHref } from "./ontology-object-type-detail";
 import {
   compactRecord,
   formatUnknown,
@@ -35,16 +36,16 @@ export function ontologyActionHref(
   filters: OntologyActionFilters,
   selectedName: string | null,
 ): string {
-  return routeHref("ontology", {
-    params: {
-      view: "actions",
-      action: selectedName,
-      q: filters.query || null,
-      category: filters.category === ALL ? null : filters.category,
-      trigger: filters.trigger === ALL ? null : filters.trigger,
-      execution: filters.execution === ALL ? null : filters.execution,
-    },
-  });
+  const params = new URLSearchParams();
+  if (filters.query) params.set("q", filters.query);
+  if (filters.category !== ALL) params.set("category", filters.category);
+  if (filters.trigger !== ALL) params.set("trigger", filters.trigger);
+  if (filters.execution !== ALL) params.set("execution", filters.execution);
+  const path = selectedName === null
+    ? routeHref("ontology", { params: { view: "actions" } })
+    : ontologyDeclarationHref("action-types", selectedName);
+  const query = params.toString();
+  return query ? `${path}?${query}` : path;
 }
 
 export function resolveOntologyActionSelection(

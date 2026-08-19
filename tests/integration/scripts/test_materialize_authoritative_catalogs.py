@@ -103,6 +103,33 @@ def test_catalog_snapshots_are_deterministic_complete_reference_projections() ->
         edge["source"] in node_ids and edge["target"] in node_ids for edge in topology["edges"]
     )
 
+    for role, key in module.ONTOLOGY_DECLARATION_KEYS.items():
+        bundle = first[key]
+        assert bundle["_revision"].startswith("sha256:")
+        assert bundle["ontology_release_digest"] == ontology["ontology_release_digest"]
+        assert bundle["role"] == role.value
+        assert bundle["purpose"] == "operations-review"
+        assert bundle["mutation_authority"] is False
+        decision = bundle["details"]["object-types"]["Decision"]
+        assert decision["ontology_release_digest"] == ontology["ontology_release_digest"]
+        assert decision["declaration"]["key"] == "id"
+        assert len(decision["declaration"]["properties"]) == 5
+        assert decision["mutation_authority"] is False
+        assert len(bundle["details"]["link-types"]) == ontology["link_type_count"]
+        assert len(bundle["details"]["action-types"]) == ontology["action_type_count"]
+        assert bundle["details"]["link-types"]["based_on"]["declaration_kind"] == "link_type"
+        assert all(
+            detail["mutation_authority"] is False
+            for detail in bundle["details"]["action-types"].values()
+        )
+        decision_dependents = bundle["dependents"]["object-types"]["Decision"]
+        assert decision_dependents["ontology_release_digest"] == ontology["ontology_release_digest"]
+        assert decision_dependents["mutation_authority"] is False
+        assert {item["name"] for item in decision_dependents["dependents"]} >= {
+            "based_on",
+            "resolved_by",
+        }
+
 
 def test_mock_and_authoritative_catalog_topologies_are_identical() -> None:
     materializer = _module()

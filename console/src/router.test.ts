@@ -69,6 +69,16 @@ describe("clean console routes", () => {
     expect(route.segments).toEqual(["Run_A"]);
   });
 
+  test("preserves exact ontology declaration identities during canonicalization", () => {
+    const objectType = parseConsoleRoute("/ontology/object-types/Decision");
+    const release = parseConsoleRoute(`/ontology/releases/sha256:${"a".repeat(64)}`);
+
+    expect(objectType.canonicalPathname).toBe("/ontology/object-types/Decision");
+    expect(objectType.segments).toEqual(["object-types", "Decision"]);
+    expect(release.canonicalPathname).toBe(`/ontology/releases/sha256%3A${"a".repeat(64)}`);
+    expect(release.segments).toEqual(["releases", `sha256:${"a".repeat(64)}`]);
+  });
+
   test("matches nested Settings routes by their longest registered prefix", () => {
     const route = parseConsoleRoute("/settings/iam/users", "?role=Owner");
     expect(route.panelId).toBe("settings-iam");

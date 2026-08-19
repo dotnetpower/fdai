@@ -132,7 +132,8 @@ export function parseConsoleRoute(pathname: string, search = ""): ConsoleRoute {
       search: new URLSearchParams(search.startsWith("?") ? search.slice(1) : search),
     };
   }
-  const canonicalPathname = panelId === "processes" && detailSegments.length > 0
+  const preservesExactSegments = panelId === "processes" || panelId === "ontology";
+  const canonicalPathname = preservesExactSegments && detailSegments.length > 0
     ? `${panelPath(panelId)}/${detailSegments.map(encodeURIComponent).join("/")}`
     : routeHref(panelId, { segments: detailSegments });
   return {

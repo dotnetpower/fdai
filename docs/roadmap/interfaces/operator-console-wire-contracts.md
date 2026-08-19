@@ -274,6 +274,26 @@ exploration continues to work. ActionTypes stay out of the selected ObjectType o
 the Catalog topology includes them as catalog nodes with Rule, Workflow, and Agent links. All
 registry and context views are read-only and issue no action or approval call.
 
+The declaration workbench adds bounded reads without expanding the summary payload:
+
+- `GET /ontology/declarations/{kind}/{name}` returns one role- and purpose-filtered
+  ObjectType, LinkType, or ActionType detail on the active release.
+- `GET /ontology/declarations/{kind}/{name}/dependents` returns only deterministic
+  catalog-topology references, with an explicit result bound and truncation state.
+- `GET /ontology/object-types/{name}/evidence-health` returns sanitized source,
+  generation, cutoff, freshness, completeness, conflict, synthetic, and aggregate count state.
+  A type with no bound runtime source returns unavailable and does not fabricate a zero count.
+- `GET /ontology/releases/{candidate_digest}/diff` compares retained declaration references.
+  Added declarations are compatible, removals are incompatible, and a changed declaration needs
+  migration review because retained release manifests do not reconstruct historical field schemas.
+
+The Console exposes these reads at `/ontology/object-types/:name` and
+`/ontology/releases/:digest`. LinkType and ActionType clean paths reuse their existing contract
+inspectors. Related actions appear only when an ActionType carries an exact semantic ObjectType or
+InterfaceType target. Legacy actions without that evidence lower completeness and are not inferred.
+InterfaceType and FunctionType keep their registry identity and topology nodes until more than one
+meaningful active declaration and an authoritative usage source justify dedicated P2 views.
+
 ## Implementation status
 
 ### Implementation scope
@@ -281,7 +301,8 @@ registry and context views are read-only and issue no action or approval call.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Audit and read-only wire projections | implemented | Operator family manifests and projections; `services/operator-service/tests/test_operator_service_composition.py`; Console trace tests | Default GET/HEAD routes, bounded envelopes, and unavailable behavior have focused coverage. |
-| Exact-release ontology presentation | in-progress | `scripts/deployment/local/materialize-authoritative-catalogs.py`; `console/src/routes/ontology.tsx`; current Catalog topology generator and focused tests | Declaration browsing exists, but the Semantic model, exact release identity, single projection source, and receipt-bound Context snapshot still need implementation evidence. |
+| Exact-release ontology registry and workbench | implemented | `ontology_declaration_projection.py`; `ontology_dependents_projection.py`; `ontology_evidence_health_projection.py`; `ontology_release_diff_projection.py`; Operator operations routes; `console/src/routes/ontology-object-type-detail.tsx`; focused Python and Console checks | Exact declaration detail, server-side redaction, bounded dependents, honest evidence health, retained-release comparison, clean routes, and no-authority rendering are implemented. The authenticated local Browser showed the `Decision` and `Resource` paths without overflow, raw resource ids, or execute controls, but no governed Browser artifact was retained. |
+| Receipt-bound runtime Context snapshot | in-progress | Secured ObjectSet and Context contracts in the ontology platform; existing Console unavailable state | The workbench does not merge catalog declarations with runtime instances. A principal-scoped Context receipt remains separate delivery work. |
 | HIL callback contract | implemented | Operator IAM family routes; `services/operator-service/tests/test_operator_iam_family.py`; full-composition tests | Signature, replay window, role, no-self-approval, exact pending id, and idempotent decision behavior are implemented. |
 | Python task workbench and grounded code | implemented | `services/core-control-plane/src/fdai/core/python_task/`; `services/core-control-plane/tests/core/python_task/`; Operator workflow family; Console Python task tests | Static validation, inert artifacts, capabilities, and no-chat-execution boundaries have focused coverage. |
 | Semantic action draft and typed confirmation | in-progress | Operator conversation and workflow application paths | Bounded draft and proposal paths exist, but this owner document retains no governed request-to-audit confirmation receipt across every conflict and denial case. |
@@ -295,11 +316,13 @@ registry and context views are read-only and issue no action or approval call.
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. | `current change`; current Operator, Core Python task, CLI, channel, Console, and focused test evidence listed in the scope table. | Close semantic confirmation, channel parity, and governed cross-contract evidence. |
 | 2026-08-14 | in-progress | Defined separate Semantic model, Catalog topology, and receipt-bound Context snapshot contracts instead of presenting one generated force graph as the operating ontology. | `current change`; paired Console contract documents and focused documentation gates. | Implement one exact-release producer and retain focused and authenticated Console evidence. |
 | 2026-08-14 | in-progress | Added a bounded deterministic spring-settle when Catalog topology first appears without changing its stored layout. Interaction and reduced-motion requests end or skip the effect, and no persistent simulation runs. | `current change`; `ontology-knowledge-graph.geometry.ts`, `ontology-knowledge-graph.renderer.ts`, `use-ontology-knowledge-graph-controller.ts`; focused Console topology tests report 12 passed and Console typecheck passed. | Retain the separately governed authenticated Context snapshot evidence described below. |
+| 2026-08-19 | implemented | Added the exact-release declaration workbench and kept declaration, runtime evidence, dependency, and release-history authority in separate bounded projections. Role and purpose filtering happens before the Operator response, unavailable evidence carries no zero count, and release comparison uses retained declaration refs without restore or migration authority. | [Issue #223](https://github.com/dotnetpower/fdai/issues/223); `current change`; focused Core delivery, materializer, Operator family, Console decoder/router/localization tests, Console typecheck and production build; authenticated local Browser checks at 1440 x 900, 993 x 641, and 390 x 844 found no document overflow or execute control. | Retain a governed Browser artifact and bind a principal-scoped Context snapshot. Dedicated InterfaceType and FunctionType views remain deferred until their P2 entry conditions are measured. |
 
 ### Remaining work
 
 - [ ] Retain an authenticated semantic action-draft receipt that proves schema bounds, exact source revision, no-self-approval, stale and idempotency conflicts, typed confirmation, audit correlation, and no direct execution.
-- [ ] Materialize one exact-release ontology projection, prove declaration and topology parity from the same producer, render the four semantic bands with five orthogonal lenses, and retain an authenticated Context snapshot that exposes completeness without mutation authority.
+- [x] Materialize one exact-release ontology registry and declaration workbench, prove declaration and topology parity from the same producer, and render the four semantic bands with five orthogonal lenses. Focused checks and the authenticated local Browser observation for [Issue #223](https://github.com/dotnetpower/fdai/issues/223) passed without mutation authority.
+- [ ] Retain a governed Browser artifact for the ObjectType workbench and bind an authenticated, principal-scoped Context snapshot that exposes completeness without mutation authority.
 - [ ] Retain Python task capability, static validation, grounded-code rendering, malformed artifact, and no-execution receipts across Operator API and Console.
 - [ ] Run and retain CLI, Teams, Slack, and Web parity cases for terminal status, evidence references, truncation, cancellation, replay, and unavailable behavior.
-- [ ] Retain one read-only ontology projection receipt that binds catalog digest, ObjectType, LinkType, ActionType, and generated map without presenting catalog data as runtime evidence.
+- [ ] Retain one governed read-only ontology receipt that binds catalog digest, ObjectType, LinkType, ActionType, workbench detail, and generated map without presenting catalog data as runtime evidence.

@@ -1,11 +1,55 @@
 import { describe, expect, it } from "vitest";
 import {
   compactRecord,
+  decodeOntologyDependents,
+  decodeOntologyEvidenceHealth,
   decodeOntologyGraphResponse,
+  decodeOntologyObjectTypeDetail,
+  decodeOntologyReleaseDiff,
   formatUnknown,
   ontologyView,
   recordValue,
 } from "./ontology.types";
+
+function objectTypeDetail(): Record<string, unknown> {
+  const digest = `sha256:${"a".repeat(64)}`;
+  return {
+    schema_version: "1.0.0",
+    _revision: digest,
+    ontology_release_digest: digest,
+    declaration_kind: "object_type",
+    declaration_name: "Decision",
+    mutation_authority: false,
+    complete: true,
+    incomplete_reasons: [],
+    redaction: { redacted_field_count: 0, reasons: [] },
+    declaration: {
+      schema_version: "1.0.0",
+      name: "Decision",
+      version: "1.0.0",
+      key: "id",
+      properties: {
+        id: {
+          type: "string",
+          required: true,
+          access_scope: "reader",
+          purpose_binding: [],
+        },
+      },
+      description: "Recorded decision.",
+    },
+    relationships: [{
+      schema_version: "1.0.0",
+      name: "based_on",
+      version: "1.0.0",
+      from_type: "Decision",
+      to_type: "EvidenceArtifact",
+      selected_type_direction: "outgoing",
+      cardinality: "many_to_many",
+    }],
+    related_actions: [],
+  };
+}
 
 function graphResponse(): Record<string, unknown> {
   const digest = `sha256:${"a".repeat(64)}`;
@@ -137,5 +181,124 @@ describe("ontology view model", () => {
       nodes: [{ ...topology.nodes[0], degree: -1 }],
     };
     expect(() => decodeOntologyGraphResponse(negativeDegree)).toThrow("degree MUST be non-negative");
+  });
+
+  it("decodes one exact-release ObjectType detail without browser-side filtering", () => {
+    const detail = objectTypeDetail();
+    const decoded = decodeOntologyObjectTypeDetail(detail, detail.ontology_release_digest as string);
+
+    expect(decoded.declaration.name).toBe("Decision");
+    expect(Object.keys(decoded.declaration.properties)).toEqual(["id"]);
+    expect(decoded.relationships[0]?.selected_type_direction).toBe("outgoing");
+    expect(decoded.mutation_authority).toBe(false);
+  });
+
+  it("rejects stale release, authority, identity, and reversed relationship claims", () => {
+    const digest = `sha256:${"b".repeat(64)}`;
+    expect(() => decodeOntologyObjectTypeDetail(objectTypeDetail(), digest)).toThrow(
+      "release MUST match registry release",
+    );
+    expect(() => decodeOntologyObjectTypeDetail({
+      ...objectTypeDetail(),
+      mutation_authority: true,
+    })).toThrow("mutation_authority MUST be false");
+    expect(() => decodeOntologyObjectTypeDetail({
+      ...objectTypeDetail(),
+      declaration_name: "Resource",
+    })).toThrow("identity MUST match");
+    expect(() => decodeOntologyObjectTypeDetail({
+      ...objectTypeDetail(),
+      relationships: [{
+        ...(objectTypeDetail().relationships as Record<string, unknown>[])[0],
+        selected_type_direction: "incoming",
+      }],
+    })).toThrow("direction MUST match exact endpoints");
+  });
+
+  it("decodes bounded exact-release dependents and rejects stale identity", () => {
+    const digest = `sha256:${"a".repeat(64)}`;
+    const value = {
+      schema_version: "1.0.0",
+      _revision: digest,
+      ontology_release_digest: digest,
+      declaration_kind: "object_type",
+      declaration_name: "Decision",
+      mutation_authority: false,
+      complete: true,
+      truncated: false,
+      truncation_reason: null,
+      dependents: [{
+        kind: "link_type",
+        name: "based_on",
+        relationship: "references_object_type",
+        evidence_ref: "LinkType:based_on",
+      }],
+    };
+
+    expect(decodeOntologyDependents(value, digest, "Decision").dependents[0]?.name).toBe(
+      "based_on",
+    );
+    expect(() => decodeOntologyDependents(value, digest, "Resource")).toThrow(
+      "identity MUST match",
+    );
+    expect(() => decodeOntologyDependents({ ...value, truncated: true }, digest, "Decision"))
+      .toThrow("MUST be inverse states");
+  });
+
+  it("decodes declaration-ref release compatibility without migration authority", () => {
+    const candidate = `sha256:${"a".repeat(64)}`;
+    const base = `sha256:${"b".repeat(64)}`;
+    const value = {
+      schema_version: "1.0.0",
+      base_release_digest: base,
+      candidate_release_digest: candidate,
+      mutation_authority: false,
+      added: [],
+      changed: [],
+      removed: [],
+      compatibility_verdict: "compatible",
+      migration_required: false,
+      breaking_change: null,
+      historical_schema_detail: "declaration_refs_only",
+      unbound_historical_evidence: false,
+      diff_digest: candidate,
+      registry_truncated: false,
+    };
+
+    expect(decodeOntologyReleaseDiff(value, candidate).compatibility_verdict).toBe("compatible");
+    expect(() => decodeOntologyReleaseDiff({ ...value, mutation_authority: true }, candidate))
+      .toThrow("MUST be read-only");
+    expect(() => decodeOntologyReleaseDiff(value, base)).toThrow("candidate MUST match");
+  });
+
+  it("keeps unavailable evidence distinct from a measured zero", () => {
+    const digest = `sha256:${"a".repeat(64)}`;
+    const unavailable = {
+      schema_version: "1.0.0",
+      _revision: digest,
+      ontology_release_digest: digest,
+      object_type: "Decision",
+      availability: "unavailable",
+      unavailable_reason: "object_type_evidence_source_not_bound",
+      source: null,
+      freshness_state: "unavailable",
+      complete: false,
+      truncated: false,
+      synthetic: null,
+      conflicts: [],
+      drop_reasons: [],
+      visible_instance_count: null,
+      visible_link_count: null,
+      evidence_refs: [],
+      execution_authority: false,
+      mutation_authority: false,
+    };
+
+    const decoded = decodeOntologyEvidenceHealth(unavailable, digest, "Decision");
+    expect(decoded.visible_instance_count).toBeNull();
+    expect(() => decodeOntologyEvidenceHealth({
+      ...unavailable,
+      visible_instance_count: 0,
+    }, digest, "Decision")).toThrow("MUST NOT fabricate");
   });
 });

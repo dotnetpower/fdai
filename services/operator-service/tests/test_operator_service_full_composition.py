@@ -59,18 +59,18 @@ def test_aggregate_manifest_and_registered_routes_have_exact_unique_ownership() 
     identities = {(item.method, item.path) for item in manifest}
     owner_counts = Counter(item.owner for item in manifest)
 
-    assert len(manifest) == len(identities) == 150
+    assert len(manifest) == len(identities) == 154
     assert owner_counts == {
         "minimal": 15,
         "conversation": 38,
         "iam": 28,
         "workflow": 39,
-        "operations": 30,
+        "operations": 34,
     }
     assert tuple(manifest[:15]) == MINIMAL_ROUTE_MANIFEST
     app = cast(Starlette, _client().app)
     assert _registered_identities(app) == identities
-    assert len(app.router.routes) == 150
+    assert len(app.router.routes) == 154
 
 
 def test_unavailable_families_enforce_authentication_and_rbac_before_503() -> None:

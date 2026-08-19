@@ -23,6 +23,11 @@ import { currentRoute, navigate, replaceRouteState, routeHref } from "../router"
 import { OntologyActionsView, requestedOntologyAction } from "./ontology-actions";
 import { OntologyKnowledgeMap } from "./ontology-knowledge-map";
 import { OntologyLinksView } from "./ontology-links";
+import {
+  OntologyObjectTypeDetailRoute,
+  ontologyDeclarationHref,
+} from "./ontology-object-type-detail";
+import { OntologyReleaseDetailRoute } from "./ontology-release-detail";
 import { formatNumber, t } from "./i18n/ontology";
 import {
   decodeOntologyGraphResponse,
@@ -45,6 +50,16 @@ export function ontologyNamedSelection(
   requested: string | null,
 ): string | null {
   return requested ?? names[0] ?? null;
+}
+
+export function ontologyPathSelection(segments: readonly string[]): {
+  readonly view: "links" | "actions";
+  readonly name: string;
+} | null {
+  if (segments.length !== 2 || !segments[1]) return null;
+  if (segments[0] === "link-types") return { view: "links", name: segments[1] };
+  if (segments[0] === "action-types") return { view: "actions", name: segments[1] };
+  return null;
 }
 
 export function selectedOntologyRecords(
@@ -133,6 +148,13 @@ export function selectedOntologyExplanations(
 }
 
 export function OntologyRoute({ client }: Props) {
+  const segments = currentRoute().segments;
+  if (segments.length === 2 && segments[0] === "object-types") {
+    return <OntologyObjectTypeDetailRoute client={client} name={segments[1] ?? ""} />;
+  }
+  if (segments.length === 2 && segments[0] === "releases") {
+    return <OntologyReleaseDetailRoute client={client} digest={segments[1] ?? ""} />;
+  }
   const [state, setState] = useState<AsyncState<OntologyGraphResponse>>({ status: "loading" });
   const [includeProperties, setIncludeProperties] = useState(
     () => currentRoute().search.get("properties") !== "false",
@@ -204,6 +226,7 @@ function OntologyBody({
   readonly includeProperties: boolean;
   readonly onIncludePropertiesChange: (value: boolean) => void;
 }) {
+  const initialPathSelection = ontologyPathSelection(currentRoute().segments);
   const initialName = useMemo(() => {
     const requested = new URLSearchParams(window.location.search).get("type");
     if (requested && data.nodes?.some((node) => node.name === requested)) return requested;
@@ -211,14 +234,19 @@ function OntologyBody({
     return data.nodes?.[0]?.name ?? null;
   }, [data.nodes]);
   const [selectedName, setSelectedName] = useState<string | null>(initialName);
-  const [view, setView] = useState<OntologyView>(() => ontologyView(currentRoute().search.get("view")));
+  const [view, setView] = useState<OntologyView>(
+    () => initialPathSelection?.view ?? ontologyView(currentRoute().search.get("view")),
+  );
   const [selectedLink, setSelectedLink] = useState<string | null>(() => {
+    if (initialPathSelection?.view === "links") return initialPathSelection.name;
     const requested = currentRoute().search.get("link");
     return ontologyNamedSelection(data.link_types, requested);
   });
   const actionTypes = data.action_types ?? [];
   const [selectedAction, setSelectedAction] = useState<string | null>(
-    () => requestedOntologyAction(currentRoute().search),
+    () => initialPathSelection?.view === "actions"
+      ? initialPathSelection.name
+      : requestedOntologyAction(currentRoute().search),
   );
   const [invalidName, setInvalidName] = useState<string | null>(() => {
     const requested = currentRoute().search.get("type");
@@ -227,14 +255,19 @@ function OntologyBody({
   useEffect(() => {
     const sync = () => {
       const route = currentRoute();
+      const pathSelection = ontologyPathSelection(route.segments);
       const requested = route.search.get("type");
       const valid = requested && data.nodes?.some((node) => node.name === requested);
       setInvalidName(requested && !valid ? requested : null);
       setSelectedName(valid ? requested : requested ? null : data.nodes?.[0]?.name ?? null);
-      setView(ontologyView(route.search.get("view")));
+      setView(pathSelection?.view ?? ontologyView(route.search.get("view")));
       const link = route.search.get("link");
-      setSelectedLink(ontologyNamedSelection(data.link_types, link));
-      setSelectedAction(requestedOntologyAction(route.search));
+      setSelectedLink(pathSelection?.view === "links"
+        ? pathSelection.name
+        : ontologyNamedSelection(data.link_types, link));
+      setSelectedAction(pathSelection?.view === "actions"
+        ? pathSelection.name
+        : requestedOntologyAction(route.search));
     };
     window.addEventListener("popstate", sync);
     window.addEventListener("fdai:route-changed", sync);
@@ -244,7 +277,7 @@ function OntologyBody({
     };
   }, [actionTypes, data.link_types, data.nodes]);
   const selectType = (name: string | null): void => {
-    navigate(routeHref("ontology", { params: { view: "objects", type: name } }));
+    if (name !== null) navigate(ontologyDeclarationHref("object-types", name));
   };
   usePublishViewContext(
     () => {

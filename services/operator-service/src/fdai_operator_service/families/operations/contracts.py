@@ -6,9 +6,15 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
+from fdai_service_contracts import OperatorRole
+
 
 class ProjectionUnavailableError(RuntimeError):
     """An authoritative projection cannot satisfy the bounded read."""
+
+
+class ProjectionNotFoundError(RuntimeError):
+    """An exact projection identity does not exist in the visible source."""
 
 
 class ProposalConflictError(RuntimeError):
@@ -25,6 +31,8 @@ class ProjectionQuery:
     params: Mapping[str, tuple[str, ...]]
     limit: int
     cursor: str | None
+    roles: frozenset[OperatorRole] = frozenset()
+    purpose: str = "operations-review"
 
 
 class ProjectionReader(Protocol):
@@ -151,6 +159,7 @@ __all__ = [
     "EventProposalWriter",
     "ProjectionQuery",
     "ProjectionReader",
+    "ProjectionNotFoundError",
     "ProjectionUnavailableError",
     "ReportPdfEncoder",
     "ReportPdfEncodingError",

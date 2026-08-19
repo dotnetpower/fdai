@@ -34,6 +34,26 @@ HEADERS = {"Authorization": "Bearer reader"}
 LEGACY_ROUTE_SNAPSHOT = {
     (("GET", "HEAD"), "/inventory/graph", "handler"),
     (("GET", "HEAD"), "/ontology/graph", "handler"),
+    (
+        ("GET", "HEAD"),
+        "/ontology/declarations/{kind:str}/{name:str}",
+        "ontology_declaration_detail",
+    ),
+    (
+        ("GET", "HEAD"),
+        "/ontology/declarations/{kind:str}/{name:str}/dependents",
+        "ontology_declaration_dependents",
+    ),
+    (
+        ("GET", "HEAD"),
+        "/ontology/releases/{candidate_digest:str}/diff",
+        "ontology_release_diff",
+    ),
+    (
+        ("GET", "HEAD"),
+        "/ontology/object-types/{name:str}/evidence-health",
+        "ontology_object_type_evidence_health",
+    ),
     (("GET", "HEAD"), "/pantheon/graph", "handler"),
     (("GET", "HEAD"), "/pantheon/workflows", "handler"),
     (("GET", "HEAD"), "/views/workflow-apps", "list_workflow_apps"),
@@ -177,7 +197,7 @@ def test_manifest_preserves_exact_legacy_paths_methods_and_names() -> None:
         )
         for entry in OPERATIONS_ROUTE_MANIFEST
     } == LEGACY_ROUTE_SNAPSHOT
-    assert len(OPERATIONS_ROUTE_MANIFEST) == 30
+    assert len(OPERATIONS_ROUTE_MANIFEST) == 34
 
 
 def test_automation_blueprints_projection_is_reader_gated_and_read_only() -> None:
@@ -336,7 +356,102 @@ def test_projection_requires_reader_bounds_pagination_and_redacts() -> None:
         params={"limit": ("25",), "cursor": ("next",), "link": ("contains", "depends_on")},
         limit=25,
         cursor="next",
+        roles=frozenset({OperatorRole.READER}),
+        purpose="operations-review",
     )
+
+
+def test_declaration_detail_route_binds_exact_path_role_and_purpose() -> None:
+    dependencies = RecordingDependencies()
+    dependencies.projections["ontology.declaration.detail"] = {
+        "schema_version": "1.0.0",
+        "declaration_name": "Decision",
+        "mutation_authority": False,
+    }
+
+    response = _client(dependencies).get(
+        "/ontology/declarations/object-types/Decision",
+        headers=HEADERS,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["declaration_name"] == "Decision"
+    assert dependencies.queries[-1] == ProjectionQuery(
+        operation="ontology.declaration.detail",
+        principal_id="reader-oid",
+        path={"kind": "object-types", "name": "Decision"},
+        params={},
+        limit=100,
+        cursor=None,
+        roles=frozenset({OperatorRole.READER}),
+        purpose="operations-review",
+    )
+
+
+def test_declaration_dependents_route_keeps_the_same_read_boundary() -> None:
+    dependencies = RecordingDependencies()
+    dependencies.projections["ontology.declaration.dependents"] = {
+        "schema_version": "1.0.0",
+        "declaration_name": "Decision",
+        "mutation_authority": False,
+        "dependents": [],
+    }
+
+    response = _client(dependencies).get(
+        "/ontology/declarations/object-types/Decision/dependents",
+        headers=HEADERS,
+    )
+
+    assert response.status_code == 200
+    query = dependencies.queries[-1]
+    assert query.operation == "ontology.declaration.dependents"
+    assert query.path == {"kind": "object-types", "name": "Decision"}
+    assert query.roles == frozenset({OperatorRole.READER})
+    assert query.purpose == "operations-review"
+
+
+def test_release_diff_route_binds_candidate_and_base_without_mutation() -> None:
+    dependencies = RecordingDependencies()
+    candidate = f"sha256:{'a' * 64}"
+    base = f"sha256:{'b' * 64}"
+    dependencies.projections["ontology.release.diff"] = {
+        "schema_version": "1.0.0",
+        "candidate_release_digest": candidate,
+        "base_release_digest": base,
+        "mutation_authority": False,
+    }
+
+    response = _client(dependencies).get(
+        f"/ontology/releases/{candidate}/diff?base={base}",
+        headers=HEADERS,
+    )
+
+    assert response.status_code == 200
+    query = dependencies.queries[-1]
+    assert query.operation == "ontology.release.diff"
+    assert query.path == {"candidate_digest": candidate}
+    assert query.params == {"base": (base,)}
+
+
+def test_evidence_health_route_binds_the_exact_object_type() -> None:
+    dependencies = RecordingDependencies()
+    dependencies.projections["ontology.evidence.health"] = {
+        "schema_version": "1.0.0",
+        "object_type": "Decision",
+        "availability": "unavailable",
+        "mutation_authority": False,
+    }
+
+    response = _client(dependencies).get(
+        "/ontology/object-types/Decision/evidence-health",
+        headers=HEADERS,
+    )
+
+    assert response.status_code == 200
+    query = dependencies.queries[-1]
+    assert query.operation == "ontology.evidence.health"
+    assert query.path == {"name": "Decision"}
+    assert query.roles == frozenset({OperatorRole.READER})
 
 
 def test_unavailable_projection_is_explicit_not_fake_empty_state() -> None:

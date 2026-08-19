@@ -42,6 +42,30 @@ class OperationRoute:
 OPERATIONS_ROUTE_MANIFEST: tuple[OperationRoute, ...] = (
     OperationRoute("/inventory/graph", "GET", "handler", "inventory.graph"),
     OperationRoute("/ontology/graph", "GET", "handler", "ontology.graph"),
+    OperationRoute(
+        "/ontology/declarations/{kind:str}/{name:str}",
+        "GET",
+        "ontology_declaration_detail",
+        "ontology.declaration.detail",
+    ),
+    OperationRoute(
+        "/ontology/declarations/{kind:str}/{name:str}/dependents",
+        "GET",
+        "ontology_declaration_dependents",
+        "ontology.declaration.dependents",
+    ),
+    OperationRoute(
+        "/ontology/releases/{candidate_digest:str}/diff",
+        "GET",
+        "ontology_release_diff",
+        "ontology.release.diff",
+    ),
+    OperationRoute(
+        "/ontology/object-types/{name:str}/evidence-health",
+        "GET",
+        "ontology_object_type_evidence_health",
+        "ontology.evidence.health",
+    ),
     OperationRoute("/pantheon/graph", "GET", "handler", "pantheon.graph"),
     OperationRoute("/pantheon/workflows", "GET", "handler", "pantheon.workflows"),
     OperationRoute("/views/workflow-apps", "GET", "list_workflow_apps", "process.apps"),

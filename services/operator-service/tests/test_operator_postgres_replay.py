@@ -3,14 +3,72 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
 from typing import Any
 
-from fdai_operator_service.families.operations.contracts import ReplayQuery
+import pytest
+from fdai_operator_service.families.operations.contracts import (
+    ProjectionNotFoundError,
+    ProjectionQuery,
+    ReplayQuery,
+)
 from fdai_operator_service.family_adapters import PostgresOperationsAdapters
 from fdai_operator_service.postgres_family_store import (
     PostgresFamilyStore,
     PostgresFamilyStoreConfig,
 )
+from fdai_service_contracts import OperatorRole
+
+
+async def test_postgres_operations_selects_role_scoped_exact_declaration(
+    monkeypatch: Any,
+) -> None:
+    operations: list[str] = []
+
+    async def read_projection(
+        self: PostgresFamilyStore,
+        *,
+        family: str,
+        operation: str,
+    ) -> Mapping[str, object]:
+        del self
+        assert family == "operations"
+        operations.append(operation)
+        return {
+            "purpose": "operations-review",
+            "mutation_authority": False,
+            "details": {
+                "object-types": {
+                    "Decision": {
+                        "schema_version": "1.0.0",
+                        "declaration_name": "Decision",
+                        "mutation_authority": False,
+                    }
+                }
+            },
+        }
+
+    monkeypatch.setattr(PostgresFamilyStore, "read_projection", read_projection)
+    adapter = PostgresOperationsAdapters(
+        PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+    )
+    query = ProjectionQuery(
+        operation="ontology.declaration.detail",
+        principal_id="principal-a",
+        path={"kind": "object-types", "name": "Decision"},
+        params={},
+        limit=100,
+        cursor=None,
+        roles=frozenset({OperatorRole.READER, OperatorRole.APPROVER}),
+    )
+
+    detail = await adapter.read(query)
+
+    assert detail["declaration_name"] == "Decision"
+    assert operations == ["ontology.declaration.detail.approver"]
+
+    with pytest.raises(ProjectionNotFoundError):
+        await adapter.read(replace(query, path={"kind": "object-types", "name": "Unknown"}))
 
 
 async def test_postgres_operations_replay_scopes_sql_to_authenticated_principal(

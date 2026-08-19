@@ -1,6 +1,6 @@
 import type { OntologyEdge, OntologyNode } from "../components/ontology-graph";
-import { routeHref } from "../router";
 import { formatNumber, t } from "./i18n/ontology";
+import { ontologyDeclarationHref } from "./ontology-object-type-detail";
 
 export function OntologyLinksView({
   names,
@@ -28,7 +28,7 @@ export function OntologyLinksView({
               {names.map((name) => (
                 <li key={name}>
                   <a
-                    href={routeHref("ontology", { params: { view: "links", link: name } })}
+                    href={ontologyDeclarationHref("link-types", name)}
                     class={name === selectedName ? "is-active" : undefined}
                     aria-current={name === selectedName ? "page" : undefined}
                   >
@@ -62,7 +62,7 @@ export function OntologyLinksView({
                   <article class="ontology-link-usage" key={`${edge.from_type}-${edge.to_type}-${index}`}>
                     <a
                       class="ontology-endpoint"
-                      href={routeHref("ontology", { params: { view: "objects", type: edge.from_type } })}
+                      href={ontologyDeclarationHref("object-types", edge.from_type)}
                     >
                       <span>{t("ontology.links.fromObject")}</span>
                       <strong>{edge.from_type}</strong>
@@ -75,7 +75,7 @@ export function OntologyLinksView({
                     </div>
                     <a
                       class="ontology-endpoint"
-                      href={routeHref("ontology", { params: { view: "objects", type: edge.to_type } })}
+                      href={ontologyDeclarationHref("object-types", edge.to_type)}
                     >
                       <span>{t("ontology.links.toObject")}</span>
                       <strong>{edge.to_type}</strong>
