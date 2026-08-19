@@ -28,7 +28,7 @@
     .ex-control:hover { border-color: #b9c0c8; background: var(--cs-shade); }
     .ex-control:focus-visible, .ex-step-toggle:focus-visible, .ex-summary-toggle:focus-visible, .ex-copy:focus-visible { outline: 2px solid rgba(53,109,155,.42); outline-offset: 2px; }
 
-    .ex-workbench { width: min(900px, 100%); margin: 0 auto; overflow: hidden; border: 1px solid var(--ex-line); border-radius: 8px; background: #fff; box-shadow: 0 10px 34px rgba(31,36,40,.08); }
+    .ex-workbench { width: min(900px, 100%); margin: 0 auto; overflow: clip; border: 1px solid var(--ex-line); border-radius: 8px; background: #fff; box-shadow: 0 10px 34px rgba(31,36,40,.08); }
     .ex-windowbar { min-height: 39px; display: flex; align-items: center; gap: 7px; padding: 0 13px; border-bottom: 1px solid var(--ex-line); background: #f3f4f6; color: var(--ex-muted); font-size: 11.5px; }
     .ex-window-dot { width: 9px; height: 9px; border-radius: 50%; background: #c8cdd2; }
     .ex-window-title { margin-left: 5px; color: var(--ex-ink); font-weight: 600; }
@@ -51,15 +51,19 @@
     .ex-agent-name { display: inline-flex; align-items: center; color: var(--ex-ink); font-size: 12px; font-weight: 700; }
     .ex-agent-source { max-width: min(60%, 420px); overflow: hidden; margin-left: 8px; padding: 1px 6px; border: 1px solid var(--ex-line); border-radius: 4px; background: #fff; color: var(--ex-muted); font: 10px "JetBrains Mono", monospace; text-overflow: ellipsis; white-space: nowrap; }
     .ex-answer-preparing { display: none; margin: 4px 0 12px; overflow: hidden; border: 1px solid var(--ex-line); border-radius: 7px; background: #fbfcfd; }
-    .ex-answer-preparing.is-active { display: block; animation: ex-arrive .12s ease both; }
+    .ex-answer-preparing.is-active, .ex-answer-preparing.is-settled { display: block; animation: ex-arrive .12s ease both; }
     .ex-answer-preparing-head { min-height: 36px; display: flex; align-items: center; gap: 7px; padding: 0 10px; color: var(--ex-blue); font-size: 11px; font-weight: 650; }
     .ex-answer-preparing-spinner { width: 11px; height: 11px; border: 2px solid rgba(53,109,155,.2); border-top-color: var(--ex-blue); border-radius: 50%; animation: ex-spin .62s linear infinite; }
+    .ex-answer-preparing.is-settled .ex-answer-preparing-spinner { display: grid; place-items: center; border-color: rgba(79,125,85,.4); animation: none; }
+    .ex-answer-preparing.is-settled .ex-answer-preparing-spinner::before { content: "\2713"; color: var(--ex-green); font-size: 8px; font-weight: 900; line-height: 1; }
+    .ex-answer-preparing.is-settled .ex-answer-preparing-head { color: var(--ex-green); }
     .ex-answer-preparing-copy { color: var(--ex-muted); font-weight: 500; }
     .ex-answer-preparing-mode { margin-left: auto; padding: 2px 6px; border-radius: 999px; background: rgba(79,125,85,.08); color: var(--ex-green); font-size: 9px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
     .ex-answer-sources { display: flex; align-items: center; gap: 5px; padding: 7px 10px 9px; overflow-x: auto; border-top: 1px solid #e7eaee; scrollbar-width: none; }
     .ex-answer-sources::-webkit-scrollbar { display: none; }
     .ex-answer-source { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px; border: 1px solid var(--ex-line); border-radius: 5px; background: #fff; color: var(--ex-muted); font-size: 10px; white-space: nowrap; }
     .ex-answer-source::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--ex-green); }
+    .ex-workbench[data-mode="investigation"] .ex-answer-preparing.is-settled { position: sticky; z-index: 6; top: 8px; box-shadow: 0 5px 16px rgba(31,36,40,.08); }
     .ex-promotion { display: flex; align-items: center; gap: 7px; margin: 2px 0 10px; color: var(--ex-muted); font-size: 10.5px; }
     .ex-promotion::before { content: ""; width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--ex-blue); }
     .ex-promotion strong { color: var(--ex-blue); font-weight: 750; }
@@ -68,7 +72,8 @@
     .ex-run { position: relative; isolation: isolate; display: flex; flex-direction: column; gap: 2px; }
     .ex-run::before { content: ""; position: absolute; z-index: 0; top: 24px; bottom: 35px; left: 9px; width: 1px; background: #cbd2d9; pointer-events: none; }
     .ex-workbench[data-mode="complete"] .ex-answer-lead,
-    .ex-workbench[data-mode="complete"] .ex-run { display: none; }
+    .ex-workbench[data-mode="complete"] .ex-run,
+    .ex-workbench[data-mode="complete"] .ex-answer-preparing { display: none; }
     .ex-phase { display: none; }
     .ex-phase.is-visible { position: relative; z-index: 1; display: block; animation: ex-arrive .32s cubic-bezier(.22,1,.36,1) both; }
     .ex-next-skeleton { position: relative; z-index: 1; display: none; grid-template-columns: 19px minmax(0, 1fr); gap: 11px; margin: 14px 0 8px; padding: 1px 0; }
@@ -566,6 +571,9 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
       var answerLead = document.querySelector(".ex-answer-lead");
       var answerLeadText = answerLead.textContent;
       var answerPreparing = document.querySelector(".ex-answer-preparing");
+      var preparationTitle = answerPreparing.querySelector(".ex-answer-preparing-head > span:nth-child(2)");
+      var preparationCopy = answerPreparing.querySelector(".ex-answer-preparing-copy");
+      var preparationMode = answerPreparing.querySelector(".ex-answer-preparing-mode");
       var finalAnswer = document.getElementById("ex-final");
       var finalParagraphs = Array.prototype.slice.call(finalAnswer.querySelectorAll(".ex-stream-answer p"));
       var finalParagraphHtml = finalParagraphs.map(function (paragraph) { return paragraph.innerHTML; });
@@ -807,7 +815,11 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         runToken += 1;
         clearWaits();
         renderRun();
+        answerPreparing.classList.remove("is-settled");
         answerPreparing.classList.add("is-active");
+        preparationTitle.textContent = "Preparing answer";
+        preparationCopy.textContent = "Grounding the current view";
+        preparationMode.textContent = "Compact";
         answerLead.textContent = "";
         answerLead.setAttribute("aria-busy", "false");
         prepareFinalAnswer();
@@ -860,6 +872,10 @@ Exit code 0</span></pre><dl class="ex-observed-event-facts">
         var token = reset();
         if (!await wait(1400, token)) return;
         answerPreparing.classList.remove("is-active");
+        answerPreparing.classList.add("is-settled");
+        preparationTitle.textContent = "Answer preparation complete";
+        preparationCopy.textContent = "3 read-only sources grounded";
+        preparationMode.textContent = "Expanded";
         setMode("investigation", "investigation progress / observed work", investigationSourceText);
         if (!await streamNodeText(answerLead, answerLeadText, token, 14)) return;
         if (!await wait(120, token)) return;
