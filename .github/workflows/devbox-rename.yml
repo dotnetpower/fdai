@@ -63,14 +63,35 @@ jobs:
           ORIGINAL_RUNNER_NAME: ${{ runner.name }}
         run: |
           set -euo pipefail
-          [[ -n "$REMOVE_TOKEN" ]]
-          [[ -n "$REGISTRATION_TOKEN" ]]
+          runner_root="$(dirname "$(dirname "$RUNNER_WORKSPACE")")"
+          remove_token_available=false
+          registration_token_available=false
+          config_available=false
+          root_writable=false
+          service_mode=false
+          [[ -n "$REMOVE_TOKEN" ]] && remove_token_available=true
+          [[ -n "$REGISTRATION_TOKEN" ]] && registration_token_available=true
+          [[ -x "$runner_root/config.sh" ]] && config_available=true
+          [[ -w "$runner_root" ]] && root_writable=true
+          [[ -f "$runner_root/.service" ]] && service_mode=true
+          {
+            printf 'Removal credential available: `%s`\n' "$remove_token_available"
+            printf 'Registration credential available: `%s`\n' \
+              "$registration_token_available"
+            printf 'Runner configuration available: `%s`\n' "$config_available"
+            printf 'Runner root writable: `%s`\n' "$root_writable"
+            printf 'Service mode: `%s`\n' "$service_mode"
+          } >> "$GITHUB_STEP_SUMMARY"
+          [[ "$remove_token_available" == true ]]
+          [[ "$registration_token_available" == true ]]
+          [[ "$config_available" == true ]]
+          [[ "$root_writable" == true ]]
+          if [[ "$service_mode" == true ]]; then
+            echo "Service-mode runner rename requires a direct host authentication handoff." >&2
+            exit 1
+          fi
           [[ -n "$TARGET_RUNNER_NAME" ]]
           [[ -n "$TARGET_RUNNER_LABEL" ]]
-          runner_root="$(dirname "$(dirname "$RUNNER_WORKSPACE")")"
-          [[ -x "$runner_root/config.sh" ]]
-          [[ -w "$runner_root" ]]
-          [[ ! -f "$runner_root/.service" ]]
           export FDAI_RUNNER_ROOT="$runner_root"
           export FDAI_REPOSITORY_URL="$REPOSITORY_URL"
           export FDAI_ORIGINAL_RUNNER_NAME="$ORIGINAL_RUNNER_NAME"
