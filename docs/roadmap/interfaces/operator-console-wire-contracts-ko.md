@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 40cc9341e7d78e956964f5a5dd3ebb511f9adde8
+translation_source_sha: 2aad378e6f314dfd7c44d84a3692b015d8d519ea
 translation_revised: 2026-08-19
 ---
 
@@ -319,6 +319,7 @@ ActionType은 정확한 의미 ObjectType 또는 InterfaceType target이 있을 
 | 2026-08-14 | in-progress | 저장된 레이아웃을 바꾸지 않으면서 카탈로그 토폴로지가 처음 나타날 때 범위가 제한된 결정적 spring-settle 효과를 추가했습니다. 조작하거나 동작 감소를 요청하면 효과를 끝내거나 건너뛰며, 지속적인 simulation은 실행하지 않습니다. | `current change`; `ontology-knowledge-graph.geometry.ts`, `ontology-knowledge-graph.renderer.ts`, `use-ontology-knowledge-graph-controller.ts`; Console 토폴로지 focused 테스트 12개와 Console 타입 검사가 통과했습니다. | 아래에 설명한 별도 관리 대상인 인증된 컨텍스트 스냅샷 근거를 보존해야 합니다. |
 | 2026-08-19 | implemented | 정확한 release 선언 워크벤치를 추가하고 선언, 런타임 근거, 의존성, release 이력 권한을 서로 다른 범위 제한 변환 결과로 유지했습니다. 역할과 목적 필터링은 Operator 응답 전에 수행하며, 사용할 수 없는 근거는 0을 포함하지 않고, release 비교는 restore 또는 migration 권한 없이 보존된 선언 참조만 사용합니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223); `current change`; focused Core delivery, materializer, Operator family, Console decoder/router/localization 테스트, Console typecheck 및 production build, 1440 x 900, 993 x 641, 390 x 844 인증 로컬 Browser 검사에서 document overflow와 execute control이 없었습니다. | 관리되는 Browser 산출물을 보존하고 principal 범위 Context snapshot을 연결합니다. InterfaceType 및 FunctionType 전용 보기는 P2 진입 조건을 측정할 때까지 deferred 상태입니다. |
 | 2026-08-19 | implemented | 영향 범위 경로를 활성 인벤토리 스냅샷의 제한된 탐색에 연결하고 singleton 포인터에 누락된 Operator SELECT 전용 권한을 추가했습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused Operator, migration, Console, 타입 및 빌드 검사, 인증된 로컬 Browser에서 exact release와 기준 시각이 포함된 완전한 깊이 1 결과, 권한 부재 및 390 px document overflow 부재를 확인했습니다. | 로컬 관측을 영속 근거로 취급하기 전에 보안 principal 범위 Context 증적과 함께 관리되는 exact-source 산출물로 보존해야 합니다. |
+| 2026-08-19 | implemented | 한 개 간선만 읽는 범위 제한 깊이 probe 결과가 잘리면 fail closed하도록 변경했습니다. 앞쪽 cycle이 뒤에 있는 아직 도달하지 않은 Resource를 숨겨 영향 범위 변환 결과를 완전하다고 잘못 보고할 수 없습니다. | [이슈 #223](https://github.com/dotnetpower/fdai/issues/223), `current change`, focused 영향 범위 변환 결과 7개 사례와 Ruff, format, mypy가 통과했습니다. | 독립적인 hardening round를 계속합니다. 모호한 깊이 probe는 부재를 추론하지 않고 명시적으로 불완전한 상태를 유지합니다. |
 
 ### 남은 작업
 

@@ -112,6 +112,26 @@ async def test_inventory_impact_preserves_direction_cutoff_and_depth_truncation(
     assert result["execution_authority"] is False
 
 
+async def test_inventory_impact_depth_probe_fails_closed_after_a_leading_cycle() -> None:
+    reader = _Reader()
+    reader.edges = (
+        InventoryImpactEdge("root", "service-a", "contains"),
+        InventoryImpactEdge("root", "service-b", "contains"),
+        InventoryImpactEdge("service-a", "root", "depends_on"),
+        InventoryImpactEdge("service-b", "database", "depends_on"),
+    )
+
+    result = await project_inventory_impact(
+        query=_query(target=("root",), depth=("1",), link=("contains", "depends_on")),
+        reader=reader,
+        ontology_projection=_ontology(),
+    )
+
+    assert result["complete"] is False
+    assert result["truncated_at_depth"] is True
+    assert result["truncation_reasons"] == ["depth_limit"]
+
+
 @pytest.mark.parametrize(
     ("params", "message"),
     [

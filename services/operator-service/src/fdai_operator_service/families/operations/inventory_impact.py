@@ -111,7 +111,9 @@ async def project_inventory_impact(
             link_types=request.link_types,
             limit=1,
         )
-        depth_limit_reached = any(edge.target not in reached for edge in probe.edges)
+        depth_limit_reached = probe.truncated or any(
+            edge.target not in reached for edge in probe.edges
+        )
 
     truncation_reasons = [
         reason
