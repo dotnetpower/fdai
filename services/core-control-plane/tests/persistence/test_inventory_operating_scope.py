@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-import fdai.delivery.persistence.postgres_inventory_snapshot as snapshot_module
+import fdai.delivery.persistence.postgres_inventory_graph_helpers as graph_helpers
 import pytest
-from fdai.delivery.persistence.postgres_inventory_snapshot import (
+from fdai.delivery.persistence.postgres_inventory_graph_helpers import (
     _annotate_operating_scope,
     _load_operating_scope,
 )
@@ -136,7 +136,7 @@ async def test_loader_reads_only_paths_ending_at_response_resources() -> None:
 async def test_loader_reports_truncation_without_partial_service_claims(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(snapshot_module, "_MAX_OPERATING_SCOPE_LINKS", 1)
+    monkeypatch.setattr(graph_helpers, "_MAX_OPERATING_SCOPE_LINKS", 1)
     connection = _Connection(
         [
             [

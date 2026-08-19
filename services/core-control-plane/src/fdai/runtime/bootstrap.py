@@ -37,8 +37,10 @@ from fdai.delivery.startup_probe import OpaCompileStartupProbe
 from fdai.runtime.bootstrap_bindings import (
     RECONCILIATION_TOPICS,
     RULE_GENERATION_TOPICS,
+    VERTICAL_IDENTITY_ENV,
     EffectReconciliationRequestRuntimeBinding,
     RuleGenerationRuntimeBinding,
+    build_vertical_execution_identities,
 )
 from fdai.runtime.bootstrap_bindings import (
     build_effect_reconciliation_request_binding as _build_effect_reconciliation_request_binding,
@@ -51,9 +53,6 @@ from fdai.runtime.bootstrap_bindings import (
 )
 from fdai.runtime.bootstrap_bindings import (
     build_runtime_workload_identity as _build_runtime_workload_identity,
-)
-from fdai.runtime.bootstrap_bindings import (
-    build_vertical_execution_identities as _build_vertical_execution_identities_impl,
 )
 from fdai.runtime.bootstrap_bindings import (
     case_history_identity_client_id as _case_history_identity_client_id,
@@ -191,23 +190,6 @@ _RUNTIME_LOGICAL_TOPICS = (
     | RECONCILIATION_TOPICS
     | RULE_GENERATION_TOPICS
 )
-_VERTICAL_IDENTITY_ENV = {
-    "identity/change": "FDAI_CHANGE_MI_CLIENT_ID",
-    "identity/resilience": "FDAI_RESILIENCE_MI_CLIENT_ID",
-    "identity/finops": "FDAI_FINOPS_MI_CLIENT_ID",
-}
-
-
-def _build_vertical_execution_identities(
-    *,
-    http_client: httpx.AsyncClient | None,
-) -> dict[str, Any]:
-    """Preserve the bootstrap test seam while delegating provider construction."""
-    return _build_vertical_execution_identities_impl(
-        http_client,
-        identity_environment=_VERTICAL_IDENTITY_ENV,
-        identity_builder=_build_runtime_workload_identity,
-    )
 
 
 async def _run() -> int:
@@ -246,7 +228,7 @@ async def _run() -> int:
         gateway_requested = bool(os.environ.get("FDAI_DEV_OPERATIONS_GATEWAY_URL", "").strip())
         case_history_requested = bool(os.environ.get("FDAI_CASE_HISTORY_CONTAINER_URL", "").strip())
         vertical_execution_requested = any(
-            os.environ.get(env_var, "").strip() for env_var in _VERTICAL_IDENTITY_ENV.values()
+            os.environ.get(env_var, "").strip() for env_var in VERTICAL_IDENTITY_ENV.values()
         )
         if case_history_requested:
             _case_history_identity_client_id(os.environ)
@@ -502,8 +484,10 @@ async def _run() -> int:
                 tool_receipt_observer=_observe_tool_receipt,
                 symptom_index=runtime_symptom_index,
                 identity=identity,
-                execution_identities=_build_vertical_execution_identities(
-                    http_client=http_client,
+                execution_identities=build_vertical_execution_identities(
+                    http_client,
+                    identity_environment=VERTICAL_IDENTITY_ENV,
+                    identity_builder=_build_runtime_workload_identity,
                 ),
                 direct_api_execution_port=isolated_executor_client,
                 response_outcome_sink=_relay_response_outcome,
