@@ -66,6 +66,7 @@ EXPECTED_RUNTIME_MODULES = {
     "rule_profile.py",
     "t2_recovery.py",
     "t2_route_registry.py",
+    "venue.py",
 }
 
 PROHIBITED_WHEEL_PREFIXES = (
