@@ -436,20 +436,26 @@ class PostgresInventoryGraphProvider:
                 truncated = len(rows) > _MAX_GRAPH_ROWS
                 truncation_reasons = ["source_limit"] if truncated else []
                 rows = rows[:_MAX_GRAPH_ROWS]
-                ids = [str(row["resource_id"]) for row in rows]
                 links = ()
-                if ids:
+                selected_ids = [str(row["resource_id"]) for row in rows]
+                if selected_ids:
                     classification_link_types = tuple(dict.fromkeys((*link_types, "contains")))
                     links_cursor = await connection.execute(
                         _SELECT_EFFECTIVE_LINKS_QUERY,
-                        (snapshot["id"], ids, ids, list(classification_link_types)),
+                        (
+                            snapshot["id"],
+                            selected_ids,
+                            selected_ids,
+                            list(classification_link_types),
+                        ),
                     )
                     links = await links_cursor.fetchall()
-                (
-                    operating_objects,
-                    operating_links,
-                    operating_scope_complete,
-                ) = await _load_operating_scope(connection, tuple(ids))
+            resource_ids = tuple(str(row["resource_id"]) for row in rows)
+            (
+                operating_objects,
+                operating_links,
+                operating_scope_complete,
+            ) = await _load_operating_scope(connection, resource_ids)
         completed = snapshot["completed_at"]
         now = datetime.now(tz=UTC)
         age = max(0, int((now - completed).total_seconds()))
