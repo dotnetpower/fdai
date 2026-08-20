@@ -11,12 +11,16 @@ MIGRATION = (
 
 def test_incident_projection_backfill_initializes_each_correlation_once() -> None:
     migration_source = MIGRATION.read_text(encoding="utf-8")
-    backfill = migration_source.split("DO $backfill$", maxsplit=1)[1].split(
-        "$backfill$;", maxsplit=1
-    )[0]
+    backfill = migration_source.rsplit("INSERT INTO operator_incident_projection (", maxsplit=1)[
+        1
+    ].split("CREATE TRIGGER", maxsplit=1)[0]
 
     assert "SELECT COALESCE(MAX(seq), 0)" in backfill
-    assert "SELECT DISTINCT COALESCE(" in backfill
-    assert "PERFORM fdai_refresh_operator_incident_projection(candidate, snapshot_seq)" in backfill
+    assert "PARTITION BY normalized_correlation_id" in backfill
+    assert "GROUP BY normalized_correlation_id" in backfill
+    assert "HAVING BOOL_OR(NOT platform_activity)" in backfill
+    assert "FILTER (WHERE recent_rank <= 100)" in backfill
+    assert "PERFORM fdai_refresh_operator_incident_projection" not in backfill
+    assert "FOR candidate IN" not in backfill
     assert "FOR audit_row IN SELECT * FROM audit_log" not in backfill
     assert "PERFORM fdai_project_operator_incident_audit_row(audit_row)" not in backfill

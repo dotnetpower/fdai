@@ -380,35 +380,187 @@ def upgrade() -> None:
             fdai_project_operator_incident_audit_trigger()
         FROM PUBLIC;
 
-        DO $backfill$
-        DECLARE
-            candidate TEXT;
-            snapshot_seq BIGINT;
-        BEGIN
-            SELECT COALESCE(MAX(seq), 0)
-              INTO snapshot_seq
-              FROM audit_log;
-
-            FOR candidate IN
-                SELECT DISTINCT COALESCE(
-                    NULLIF(BTRIM(correlation_id), ''),
-                    NULLIF(BTRIM(entry->>'correlation_id'), '')
-                ) AS correlation_id
-                  FROM audit_log
-                 WHERE COALESCE(
-                           NULLIF(BTRIM(correlation_id), ''),
-                           NULLIF(BTRIM(entry->>'correlation_id'), '')
-                       ) IS NOT NULL
-                   AND LOWER(COALESCE(
-                           NULLIF(BTRIM(correlation_id), ''),
-                           NULLIF(BTRIM(entry->>'correlation_id'), '')
-                       )) NOT IN ('none', 'null')
-                 ORDER BY correlation_id
-            LOOP
-                PERFORM fdai_refresh_operator_incident_projection(candidate, snapshot_seq);
-            END LOOP;
-        END;
-        $backfill$;
+        INSERT INTO operator_incident_projection (
+            correlation_id,
+            valid_from_seq,
+            valid_to_seq,
+            last_seq,
+            projected_state,
+            projected_vertical,
+            projected_severity,
+            search_document,
+            group_history_count,
+            has_incident_activity,
+            history
+        )
+        WITH snapshot AS (
+            SELECT COALESCE(MAX(seq), 0) AS snapshot_seq
+              FROM audit_log
+        ),
+        event_anchor AS (
+            SELECT event_id,
+                   MIN(COALESCE(
+                       NULLIF(BTRIM(correlation_id), ''),
+                       NULLIF(BTRIM(entry->>'correlation_id'), '')
+                   )) AS correlation_id
+              FROM audit_log
+             WHERE seq <= (SELECT snapshot_seq FROM snapshot)
+               AND COALESCE(
+                       NULLIF(BTRIM(correlation_id), ''),
+                       NULLIF(BTRIM(entry->>'correlation_id'), '')
+                   ) IS NOT NULL
+             GROUP BY event_id
+            HAVING COUNT(DISTINCT COALESCE(
+                       NULLIF(BTRIM(correlation_id), ''),
+                       NULLIF(BTRIM(entry->>'correlation_id'), '')
+                   )) = 1
+        ),
+        incident_anchor AS (
+            SELECT NULLIF(BTRIM(entry->>'incident_id'), '') AS incident_id,
+                   MIN(COALESCE(
+                       NULLIF(BTRIM(correlation_id), ''),
+                       NULLIF(BTRIM(entry->>'correlation_id'), '')
+                   )) AS correlation_id
+              FROM audit_log
+             WHERE seq <= (SELECT snapshot_seq FROM snapshot)
+               AND entry->>'kind' = 'incident.open'
+               AND NULLIF(BTRIM(entry->>'incident_id'), '') IS NOT NULL
+               AND COALESCE(
+                       NULLIF(BTRIM(correlation_id), ''),
+                       NULLIF(BTRIM(entry->>'correlation_id'), '')
+                   ) IS NOT NULL
+             GROUP BY NULLIF(BTRIM(entry->>'incident_id'), '')
+            HAVING COUNT(DISTINCT COALESCE(
+                       NULLIF(BTRIM(correlation_id), ''),
+                       NULLIF(BTRIM(entry->>'correlation_id'), '')
+                   )) = 1
+        ),
+        normalized AS (
+            SELECT audit.*,
+                   COALESCE(
+                       NULLIF(BTRIM(audit.correlation_id), ''),
+                       NULLIF(BTRIM(audit.entry->>'correlation_id'), ''),
+                       incident_anchor.correlation_id,
+                       event_anchor.correlation_id
+                   ) AS normalized_correlation_id,
+                   CASE
+                       WHEN audit.entry->>'kind' = 'incident.transition'
+                       THEN audit.entry->>'to_state'
+                       WHEN audit.entry->>'kind' = 'incident.open'
+                       THEN audit.entry->>'state'
+                       ELSE NULL
+                   END AS lifecycle_state,
+                   CASE LOWER(REPLACE(COALESCE(
+                       audit.entry->>'vertical', audit.entry->>'category', ''
+                   ), '-', '_'))
+                       WHEN 'resilience' THEN 'resilience'
+                       WHEN 'dr' THEN 'resilience'
+                       WHEN 'reliability' THEN 'resilience'
+                       WHEN 'chaos' THEN 'resilience'
+                       WHEN 'change' THEN 'change_safety'
+                       WHEN 'change_safety' THEN 'change_safety'
+                       WHEN 'config_drift' THEN 'change_safety'
+                       WHEN 'security' THEN 'change_safety'
+                       WHEN 'cost' THEN 'cost_governance'
+                       WHEN 'cost_governance' THEN 'cost_governance'
+                       WHEN 'finops' THEN 'cost_governance'
+                       ELSE NULL
+                   END AS vertical_bucket,
+                   CASE LOWER(BTRIM(COALESCE(audit.entry->>'severity', '')))
+                       WHEN 'critical' THEN 'critical'
+                       WHEN 'sev1' THEN 'critical'
+                       WHEN 'high' THEN 'high'
+                       WHEN 'sev2' THEN 'high'
+                       WHEN 'medium' THEN 'medium'
+                       WHEN 'sev3' THEN 'medium'
+                       WHEN 'low' THEN 'low'
+                       WHEN 'sev4' THEN 'low'
+                       ELSE NULL
+                   END AS severity_bucket,
+                   SPLIT_PART(LOWER(COALESCE(audit.action_kind, '')), '.', 1) IN (
+                       'background-task',
+                       'iam',
+                       'startup_readiness',
+                       'semantic_turn',
+                       'observation-campaign',
+                       'read-investigation'
+                   ) AS platform_activity
+              FROM audit_log AS audit
+              LEFT JOIN event_anchor ON event_anchor.event_id = audit.event_id
+              LEFT JOIN incident_anchor
+                ON incident_anchor.incident_id =
+                   NULLIF(BTRIM(audit.entry->>'incident_id'), '')
+             WHERE audit.seq <= (SELECT snapshot_seq FROM snapshot)
+        ),
+        ranked AS (
+            SELECT normalized.*,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY normalized_correlation_id ORDER BY seq DESC
+                   ) AS recent_rank
+              FROM normalized
+             WHERE normalized_correlation_id IS NOT NULL
+               AND LOWER(BTRIM(normalized_correlation_id)) NOT IN ('none', 'null')
+        )
+        SELECT normalized_correlation_id,
+               (SELECT snapshot_seq FROM snapshot),
+               NULL,
+               MAX(seq),
+               COALESCE(
+                   (ARRAY_AGG(lifecycle_state ORDER BY seq DESC)
+                        FILTER (WHERE lifecycle_state IS NOT NULL))[1],
+                   CASE
+                       WHEN BOOL_OR(LOWER(COALESCE(entry->>'outcome', '')) IN (
+                           'resolved', 'remediated', 'mitigated',
+                           'rollback_succeeded', 'rollback_completed'
+                       )) THEN 'resolved'
+                       WHEN COUNT(*) > 1 OR BOOL_OR(
+                           LOWER(COALESCE(entry->>'decision', '')) = 'hil'
+                       ) THEN 'in_progress'
+                       ELSE 'open'
+                   END
+               ),
+               COALESCE(
+                   (ARRAY_AGG(vertical_bucket ORDER BY seq DESC)
+                        FILTER (WHERE vertical_bucket IS NOT NULL))[1],
+                   'unknown'
+               ),
+               COALESCE(
+                   (ARRAY_AGG(severity_bucket ORDER BY seq DESC)
+                        FILTER (WHERE severity_bucket IS NOT NULL))[1],
+                   'unknown'
+               ),
+               LOWER(STRING_AGG(CONCAT_WS(
+                   ' ', normalized_correlation_id, event_id, action_kind,
+                   entry->>'title', entry->>'summary', entry->>'rule_id',
+                   (entry->'citing_rules')::text,
+                   (entry->'correlation_keys')::text,
+                   entry->>'resource_id', entry->>'resource_type',
+                   entry->>'reason', entry->>'stage',
+                   entry#>>'{payload,title}', entry#>>'{payload,summary}',
+                   entry#>>'{payload,rule_id}',
+                   (entry#>'{payload,citing_rules}')::text,
+                   (entry#>'{payload,correlation_keys}')::text,
+                   entry#>>'{payload,resource_id}',
+                   entry#>>'{payload,resource_type}',
+                   entry#>>'{payload,reason}', entry#>>'{payload,stage}'
+               ), ' ' ORDER BY seq)),
+               COUNT(*),
+               TRUE,
+               JSONB_AGG(JSONB_BUILD_OBJECT(
+                   'seq', seq,
+                   'event_id', event_id,
+                   'correlation_id', correlation_id,
+                   'actor', actor,
+                   'action_kind', action_kind,
+                   'mode', mode,
+                   'entry', entry,
+                   'previous_hash', previous_hash,
+                   'entry_hash', entry_hash,
+                   'created_at', created_at
+               ) ORDER BY seq) FILTER (WHERE recent_rank <= 100)
+          FROM ranked
+         GROUP BY normalized_correlation_id
+        HAVING BOOL_OR(NOT platform_activity);
 
         CREATE TRIGGER audit_log_operator_incident_projection
             AFTER INSERT ON audit_log
