@@ -8,7 +8,7 @@ and opt-in browser notifications. This file is authoritative for the **channel a
 trust levels, category boundaries, routing policy, and channel-specific rules**. It
 resolves the placeholder "notifier interface" hinted at in
 [tech-stack.md](../architecture/tech-stack.md) and consolidates the Alert Routing fragments from
-[operating-and-verification.md](../operations/operating-and-verification.md#alert-routing) and the
+[alert-routing contract](../operations/operating-and-verification.md#alert-routing) and the
 Teams-specific flows in
 [user-rbac-and-identity.md](user-rbac-and-identity.md#7-chatops-hil-flow).
 

@@ -14,7 +14,7 @@ All identifiers are synthetic per
 [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md).
 
 > The day-zero service tiers and counts are decided in
-> [Azure Resource Inventory](#azure-resource-inventory-minimum-set). A deployment owner confirms the
+> [minimum Azure resource inventory](#azure-resource-inventory-minimum-set). A deployment owner confirms the
 > region, quota, retention, replica caps, and production tier overrides before deployment.
 > The **execution engine is decided**: `terraform apply` against `infra/` (Terraform HCL).
 > The planned operator entry point is the installable `fdaictl` facade, which keeps Terraform
@@ -322,7 +322,7 @@ provisions an action group + metric alerts (Postgres / Key Vault / Event Hubs / 
 - A **Teams tenant** with a group-connected team for human approval (the `hil` route). Teams is
   the default A1 primary. See
   [channels-and-notifications.md](../interfaces/channels-and-notifications.md).
-- A **Slack workspace** with the FDAI Slack app installed and the mandatory userId ↔ Entra OID mapping store provisioned; required for the P1 Slack A1 channel ([channels-and-notifications.md#7-channel-specific-notes](../interfaces/channels-and-notifications.md#7-channel-specific-notes)).
+- A **Slack workspace** with the FDAI Slack app installed and the mandatory userId ↔ Entra OID mapping store provisioned; required for the P1 Slack A1 channel ([channel-specific Slack prerequisites](../interfaces/channels-and-notifications.md#7-channel-specific-notes)).
 - A **container registry** (ACR or an external registry) that supports signature +
   attestation storage.
 - **OpenTelemetry backend**: Log Analytics with Application Insights bound to the workspace.
@@ -369,7 +369,7 @@ replica caps are still **deployment-specific** and tuned per environment; the sh
 | # | Resource | Tier | Purpose | Notes |
 |---|----------|------|---------|-------|
 | 1 | **Container Apps environment** | Consumption | shared serverless compute host | one environment shared by the core app and scheduled jobs; realizes the [Runtime contract](../architecture/csp-neutrality.md#2-runtime-contract--oci-image--knative-compatible-manifest) |
-| 2 | **Container Apps** (current Core and target Executor) | current Core app uses `minReplicas: 1`; target adds 1 internal app | transition baseline composes execution in Core; completed five-service topology isolates Executor | Executor receives effect authority only after every graduation gate passes; see [Compute Shape](#compute-shape-current-core-and-five-service-target) |
+| 2 | **Container Apps** (five independent services) | Core remains at `minReplicas: 1`; Operator, Ingestion API, Processing Worker, and Isolated Executor scale by their service contracts | the completed topology separates Core, Operator, ingestion, processing, and execution ownership | Isolated Executor is the only effect-capable service; see the [compute shape](#compute-shape-current-core-and-five-service-target) |
 | 3 | **Container Apps Job** | Consumption | scheduled probes and out-of-band change detection | replaces Azure Functions; shares the environment |
 | 4 | **Event Hubs namespace shards** | 2 x Standard (1 TU, auto-inflate off) | Kafka-wire event bus (endpoints on `:9093`) | Primary owns governed ingress, DLQs, HIL, and stages. Operational owns canary + DLQ, the dedicated synthetic startup round-trip, raw inventory, Executor command + DLQ, and Executor receipt entities. Core receives the operational bootstrap endpoint and startup topic through deployment configuration. |
 | 5 | **Event Grid inventory system topic + subscription + Diagnostic Settings** | global subscription event delivery / Log Analytics | send resource writes/deletes to `aw.inventory.raw` and platform diagnostics to the workspace | Terraform adopts one tracked topic with Azure's canonical lowercase type, assigns the send-only inventory UAMI, and uses the dedicated system-topic subscription API; ambiguous discovery blocks the plan |
@@ -651,7 +651,7 @@ wiring is stable.
 | FinOps | cost anomaly alerts, budget alerts, Advisor cost recommendations | Cost Management pull → Kafka topic (`aw.finops.events`); anomaly alerts fan in through the same Diagnostic-Settings path |
 
 Every event is stamped with an **idempotency key at ingress** so a replay is a no-op; DLQs
-MUST be reachable and covered by the [alert routing](../operations/operating-and-verification.md#alert-routing)
+MUST be reachable and covered by the [alert-routing contract](../operations/operating-and-verification.md#alert-routing)
 before enforce is enabled anywhere.
 
 The Azure forwarding mechanism must preserve the no-shared-secret boundary. Do not enable Event
@@ -663,7 +663,7 @@ in every deployment as the completeness backstop.
 ## Verification After Provisioning
 
 Post-provision verification (adapter reachability, canary round-trip, shadow correctness) is
-defined in [operating-and-verification.md](../operations/operating-and-verification.md#post-deploy-smoke-tests).
+defined in the [post-deploy smoke test contract](../operations/operating-and-verification.md#post-deploy-smoke-test-contract).
 A failing verification aborts the promotion and rolls traffic back
 ([deployment.md#release-and-rollback](deployment.md#release-and-rollback)).
 

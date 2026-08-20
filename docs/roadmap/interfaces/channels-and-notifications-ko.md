@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: afd7a5fbc4ffc8774e23d9b3709854273b6621aa
+translation_source_sha: 152b830742ad9b29b715ad3b32b21b3db8639667
 translation_revised: 2026-08-20
 ---
 
@@ -11,7 +11,7 @@ FDAI가 Teams, Slack, 이메일, 웹훅, paging 서비스, SMS 및 명시적 선
 통해 사람과 소통하는 방법. 이 문서는 **채널 추상화, 신뢰 레벨, 카테고리 경계, 라우팅
 정책, 채널 특이 규칙**의 진실 원본입니다. [tech-stack-ko.md](../architecture/tech-stack-ko.md) 에서 힌트한
 "notifier 인터페이스" 자리 표시자를 해결하고
-[operating-and-verification-ko.md](../operations/operating-and-verification-ko.md#alert-routing)의 경보
+[경보 라우팅 계약](../operations/operating-and-verification-ko.md#경보-라우팅)의 경보
 라우팅 조각들과
 [user-rbac-and-identity-ko.md](user-rbac-and-identity-ko.md#7-chatops-hil-flow)의 Teams-특이
 흐름을 통합.

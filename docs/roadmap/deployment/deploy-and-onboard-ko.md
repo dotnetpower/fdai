@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: fe51df1143605a429930e80e9263a70a7058a4da
+translation_source_sha: b91be5376541eb201e425cf37ee4b3f7099202c4
 translation_revised: 2026-08-20
 ---
 
@@ -19,7 +19,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 따라 합성.
 
 > Day-zero 서비스 계층과 수량은
-> [Azure Resource 인벤토리](#azure-resource-inventory-minimum-set)에서 결정되어 있습니다.
+> [최소 Azure 리소스 인벤토리](#azure-리소스-인벤토리-최소-세트)에서 결정되어 있습니다.
 > 배포 소유자는 배포 전에 지역, 할당량, 보존, 복제본 상한, 운영 계층 재정의를
 > 확인합니다. **실행 엔진**은 `infra/`의 `terraform apply`로 결정되어 있습니다.
 > 계획된 운영자 진입점은 설치형 `fdaictl` 파사드입니다. 이 파사드는 Terraform을 출처 of
@@ -330,7 +330,7 @@ provision 하며, 경보 는 인간 신호일 뿐 자율 액션이 아니다.
   [channels-and-notifications-ko.md](../interfaces/channels-and-notifications-ko.md)를 참조하세요.
 - FDAI Slack 앱이 설치되고 필수 Slack userId ↔ Entra OID 매핑 저장소가 프로비저닝된
   **Slack 워크스페이스**; P1 Slack A1 채널에 필요
-  ([channels-and-notifications-ko.md#7-channel-specific-notes](../interfaces/channels-and-notifications-ko.md#7-channel-specific-notes)).
+  ([채널별 Slack 필수 조건](../interfaces/channels-and-notifications-ko.md#7-채널-특이-노트)).
 - 서명 + 증명 저장을 지원하는 **컨테이너 레지스트리** (ACR 또는 외부 레지스트리).
 - **OpenTelemetry 백엔드**: Log Analytics workspace에 Application Insights를 바인딩합니다.
   포크는 텔레메트리 프로바이더 계약을 통해 백엔드를 교체할 수 있지만 Azure day-zero
@@ -366,14 +366,14 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
 ## Azure 리소스 인벤토리 (최소 세트)
 
 인벤토리는 **비용 효율 우선**을 위해 의도적으로 최소화. 아래 모든 선택은 이 문서 끝의
-[Cost-Efficiency Principles](#cost-efficiency-principles)가 주도. 인벤토리는 [csp-neutrality-ko.md](../architecture/csp-neutrality-ko.md)
+[비용 효율 원칙](#비용-효율-원칙)이 주도. 인벤토리는 [csp-neutrality-ko.md](../architecture/csp-neutrality-ko.md)
 에 정의된 네 개의 CSP-중립 계약 (이벤트버스, 런타임, 시크릿, 워크로드 아이덴티티) 에서
 렌더링된것; Azure는 오늘의 각 계약의 구현. 구체적 티어 값, 정확한 이름, 리전, 앱별 복제본
 상한은 여전히 **배포별** 이며 환경마다 튜닝하고 형상은 안정적으로 유지합니다.
 | # | 리소스 | 티어 | 목적 | 노트 |
 |---|--------|------|------|------|
 | 1 | **Container Apps 환경** | Consumption | 공유 서버리스 컴퓨트 호스트 | 코어 앱과 예약 작업이 하나의 환경을 공유하며 [런타임 계약](../architecture/csp-neutrality-ko.md#2-런타임-계약--oci-이미지--knative-호환-매니페스트)을 구현합니다. |
-| 2 | **Container Apps** (현재 Core와 목표 실행기) | 현재 Core 앱은 `minReplicas: 1`, 목표는 내부 앱 1개 추가 | 전이 기준선은 Core에서 실행을 구성하고 완료된 5개 서비스 토폴로지는 실행기를 격리합니다. | 모든 graduation 게이트 통과 후에만 실행기가 효과 권한을 받습니다. [Compute 형태](#compute-shape-current-core와-5개-service-목표)를 참조하세요. |
+| 2 | **Container Apps** (5개 독립 서비스) | Core는 `minReplicas: 1`을 유지하고 Operator, Ingestion API, Processing Worker, Isolated Executor는 각 서비스 계약에 따라 확장됩니다. | 완료된 토폴로지는 Core, Operator, 수집, 처리, 실행 소유권을 분리합니다. | Isolated Executor만 효과 권한을 보유합니다. [Compute 형태](#compute-형태-현재-core와-5개-서비스-목표)를 참조하세요. |
 | 3 | **Container Apps 작업** | Consumption | 스케줄 프로브와 out-of-band 변경 감지 | Azure Functions 대체; 환경 공유 |
 | 4 | **Event Hubs 이름 공간 샤드** | Standard 2개 (각 1 TU, auto-inflate off) | Kafka-와이어 이벤트 버스 (`:9093` 엔드포인트) | 기본은 통제된 유입, DLQ, HIL 및 단계를 소유합니다. Operational은 canary + DLQ, 전용 synthetic 시작 round-trip, raw 인벤토리, 실행기 명령 + DLQ 및 실행기 증적 개체를 소유합니다. Core는 배포 구성을 통해 operational 초기화 엔드포인트와 시작 토픽을 받습니다. |
 | 5 | **Event Grid 인벤토리 system 토픽 + 구독 + Diagnostic Settings** | global 구독 이벤트 전달 / Log Analytics | Resource 쓰기/삭제를 `aw.inventory.raw`로 보내고 플랫폼 진단을 workspace로 보냄 | Terraform은 Azure 정본 lowercase 타입으로 tracked 토픽 하나를 adopt하고 send-only 인벤토리 UAMI를 할당하며 dedicated system-topic 구독 API를 사용합니다. 발견이 모호하면 계획을 차단합니다. |
@@ -652,7 +652,7 @@ Onboarding 콘솔은 모든 Azure 탐색 입력이 있을 때만 `probe_mode=con
 
 모든 이벤트는 유입에서 **멱등성 키가 스탬프** 되어 리플레이는 no-op; DLQ는 도달 가능
 해야 하며 어디에서든 강제 적용이 활성화되기 전에
-[경보 라우팅](../operations/operating-and-verification-ko.md#alert-routing)이 커버해야 함.
+[경보 라우팅 계약](../operations/operating-and-verification-ko.md#경보-라우팅)이 커버해야 함.
 
 Azure forwarding 방식은 shared 시크릿이 없는 경계를 유지하는 것이 좋습니다. 진단
 Settings 내보내기를 위해 Event Hubs 로컬 authentication만 다시 활성화하지 않습니다. 선택한 Azure
@@ -663,7 +663,7 @@ backstop으로 계속 필요합니다.
 ## 프로비저닝 후 검증
 
 프로비저닝 후 검증(어댑터 도달성, canary 왕복, shadow 정확성)은
-[operating-and-verification-ko.md](../operations/operating-and-verification-ko.md#post-deploy-smoke-tests)
+[배포 후 smoke 테스트 계약](../operations/operating-and-verification-ko.md#post-deploy-smoke-테스트-계약)
 에 정의. 실패한 검증은 승격을 중단하고 트래픽 롤백
 ([deployment-ko.md#release-and-rollback](deployment-ko.md#release-and-rollback)).
 

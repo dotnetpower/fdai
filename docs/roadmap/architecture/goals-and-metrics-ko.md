@@ -1,8 +1,8 @@
 ---
 title: 목표와 메트릭
 translation_of: goals-and-metrics.md
-translation_source_sha: cccdd17659ce0eaf500d79426ff2e297013348a8
-translation_revised: 2026-08-19
+translation_source_sha: d386e0f967796dae24f7dbc99e733da68e50ecbd
+translation_revised: 2026-08-20
 ---
 
 # 목표와 메트릭
@@ -11,7 +11,7 @@ translation_revised: 2026-08-19
 측정된 베이스라인으로 뒷받침되며, 어떤 것도 추정으로 단언되지 않습니다. 아래의 개선 배수
 (`5×`, `large reduction`, `1/5`)는 달성된 결과가 아니라 **목표(targets)** 이며 - 동일한
 시나리오 세트에서 레퍼런스 베이스라인과 FDAI 트리트먼트가 **모두 측정된 후에만**
-달성으로 언급할 수 있습니다 ([Measurement-First Rule](#measurement-first-rule) 참조).
+달성으로 언급할 수 있습니다 ([Measurement-First 규칙](#measurement-first-규칙) 참조).
 
 이 문서는 KPI의 진실 원본(정본)입니다.
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md)의

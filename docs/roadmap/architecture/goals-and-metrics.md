@@ -7,7 +7,7 @@ The roadmap optimizes for **autonomy with proof**. Every autonomy claim is backe
 measured baseline; nothing is asserted from estimation. Improvement factors below (`5×`,
 `large reduction`, `1/5`) are **targets**, not achieved results - they may only be stated as
 achieved once both the reference baseline and the FDAI treatment have been measured on
-the same scenario set (see [Measurement-First Rule](#measurement-first-rule)).
+the same scenario set (see the [measurement-first rule](#measurement-first-rule)).
 
 This document is the source of truth for KPIs. It aligns with the tier coverage targets in
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md) and is

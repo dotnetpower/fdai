@@ -182,7 +182,7 @@ blocking regardless of the profile default, reusing the prod-downgrade posture
 that every mutating ActionType already declares
 ([risk-classification.md](../decisioning/risk-classification.md)). The environment classifier and
 promotion order are specified in
-[risk-classification.md](../decisioning/risk-classification.md#environment-promotion-handoff-target);
+[environment-promotion contract](../decisioning/risk-classification.md#environment-promotion-handoff-target);
 the ORR consumes them and doesn't define them.
 
 ## Module placement
@@ -275,6 +275,6 @@ yet compose those pieces into the running control plane, so the current evidence
 | The whole-graph review the ORR composes | [assurance-twin.md](assurance-twin.md) |
 | The single-deploy feasibility pass it reuses | [deployment-preflight.md](../deployment/deployment-preflight.md) |
 | The RBAC least-privilege rules the identity dimension fires | [rule-catalog-collection.md](../rules-and-detection/rule-catalog-collection.md) |
-| The cross-agent workflow that runs the gate | [agent-workflows.md § 11](../agents/agent-workflows.md#11-operational-readiness-handoff) |
+| The cross-agent workflow that runs the gate | [operational readiness handoff](../agents/agent-workflows.md#11-operational-readiness-handoff) |
 | The environment model the gate consumes | [risk-classification.md § Environment Promotion](../decisioning/risk-classification.md#environment-promotion-handoff-target) |
 | The risk classification each proposed fix resolves against | [risk-classification.md](../decisioning/risk-classification.md) |

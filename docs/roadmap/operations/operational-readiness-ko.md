@@ -1,8 +1,8 @@
 ---
 title: 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 translation_of: operational-readiness.md
-translation_source_sha: 56ea8334d15529d498f113779dc7e6e72ae9004f
-translation_revised: 2026-08-16
+translation_source_sha: b129e28cb3eea6cb127f31fa49a659c055b52611
+translation_revised: 2026-08-20
 ---
 # 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 
@@ -185,7 +185,7 @@ ORR 은 환경 승격(dev -> staging -> prod) 의 강제 지점입니다.
 prod-downgrade 자세 를 재사용합니다
 ([risk-classification.md](../decisioning/risk-classification-ko.md)). 환경 분류기와 그것이
 consume 하는 승격 순서는
-[risk-classification.md § 환경 승격](../decisioning/risk-classification-ko.md#환경-승격environment-promotion-핸드오프-대상)
+[환경 승격 계약](../decisioning/risk-classification-ko.md#환경-승격환경-승격-핸드오프-대상)
 에 명세됩니다; ORR 은 그것을 consume 하며, 정의하지 않습니다.
 
 ## 모듈 배치
@@ -277,6 +277,6 @@ ORR 은 새로운 특권 표면을 도입하지 않고 최소한의 새 코드�
 | ORR 이 조합하는 전체 그래프 리뷰 | [assurance-twin.md](assurance-twin-ko.md) |
 | 재사용하는 단일 배포 feasibility 패스 | [deployment-preflight.md](../deployment/deployment-preflight-ko.md) |
 | 아이덴티티 차원이 발동하는 RBAC 최소권한 규칙 | [rule-catalog-collection.md](../rules-and-detection/rule-catalog-collection-ko.md) |
-| 게이트를 실행하는 cross-agent 워크플로우 | [agent-workflows.md § 11](../agents/agent-workflows-ko.md#11-operational-readiness-handoff) |
-| 게이트가 consume 하는 환경 모델 | [risk-classification.md § 환경 승격](../decisioning/risk-classification-ko.md#환경-승격environment-promotion-핸드오프-대상) |
+| 게이트를 실행하는 cross-agent 워크플로우 | [운영 준비 상태 인계](../agents/agent-workflows-ko.md#11-operational-준비-상태-인계) |
+| 게이트가 consume 하는 환경 모델 | [환경 승격 계약](../decisioning/risk-classification-ko.md#환경-승격환경-승격-핸드오프-대상) |
 | 제안된 각 fix 가 해석 하는 risk 분류 | [risk-classification.md](../decisioning/risk-classification-ko.md) |

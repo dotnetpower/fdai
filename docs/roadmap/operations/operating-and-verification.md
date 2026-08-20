@@ -18,7 +18,7 @@ providers are TBD (see
 ## Self-Health Signals
 
 Signals a healthy deployment MUST emit continuously. Every signal maps 1:1 to an alert rule
-(see [Alert Routing](#alert-routing)).
+(see the [alert-routing contract](#alert-routing)).
 
 | Signal | Purpose | Failure mode caught |
 |--------|---------|---------------------|
@@ -134,7 +134,7 @@ healthy**. Mitigation: a periodic canary on a separately authorized topic.
   enters T0/T1/T2, the risk gate, execution, IRP, or the learning loop.
 - The **full loop** - `ingest → correlation → tier decision → audit entry` - MUST complete
   within a bounded budget; a failure to complete raises an SLO-burn alert on the
-  [operational lane](#alert-routing).
+  [operational alert-routing lane](#alert-routing).
 - The canary is **versioned**, **rate-capped**, and its idempotency key is distinguishable
   from a real event's so canary samples cannot corrupt regression measurement or the
   autonomous discovery loop's observe stage.
@@ -284,7 +284,7 @@ proves its detection and judgment against realistic conditions without acting:
   so a tier that misses its p95 budget under load surfaces before go-live, not
   after.
 - **Canary + smoke round-trip.** The [synthetic canary](#synthetic-canary-event)
-  and the [post-deploy smoke tests](#post-deploy-smoke-tests) confirm the full
+  and the [post-deploy smoke test contract](#post-deploy-smoke-test-contract) confirm the full
   `ingest -> tier -> gate -> audit` loop completes within budget on the loaded
   environment.
 - **Scenario replay.** `tools/baseline_run.py` replays the frozen scenario set

@@ -1,8 +1,8 @@
 ---
 title: 위험 분류 (자동 실행 vs 사람 승인 vs 차단)
 translation_of: risk-classification.md
-translation_source_sha: 1fcfb3ec579184fecf01619303af30b654887351
-translation_revised: 2026-08-14
+translation_source_sha: 9a874452bfad11066a260c37ccce727182b1f5b8
+translation_revised: 2026-08-20
 ---
 
 # 위험 분류 (자동 실행 vs 사람 승인 vs 차단)
@@ -96,7 +96,7 @@ A3-E 경계가 계속 유효하고 에스컬레이션 기한이 지난 후 사�
 | `blast_radius` | enum `resource` \| `resource_group` \| `subscription` | `applies_to` × 영향받은 리소스의 스코프; `ActionType.blast_radius.computation == graph_derived` 일 때 risk-gate가 Resource→Resource 링크(기본 `contains` + 역방향 `depends_on`, 깊이 2)를 walk 해서 영향받는 리소스 개수를 버킷으로 매핑 |
 | `rollback_path` | enum `pr_revert` \| `scripted` \| `pitr` \| `snapshot_restore` \| `state_forward_only` | `remediates` 액션의 롤백 계약 (`none`은 유효 값 아님 - 모든 ActionType이 undo 경로를 선언) |
 | `reversible` | bool | `irreversible == false`의 지름길 |
-| `environment` | enum `prod` \| `non-prod` | [환경 Detection](#environment-detection) 참조 |
+| `environment` | enum `prod` \| `non-prod` | [환경 감지 방법](#환경-감지환경-detection) 참조 |
 | `data_plane_touched` | bool | 온톨로지 `ActionType.interfaces`가 `DataPlaneMutating` 포함 |
 | `graph_stale` | bool | `ActionType.interfaces`에 `RequiresInventoryFresh` 포함 AND 대상 Resource의 인벤토리 레코드가 `freshness_ttl` 초과 |
 | `cross_resource_impact` | int | `ActionType.blast_radius.computation == graph_derived` ⇒ 탐색이 반환한 영향받는 Resource 개수; `GraphTraversalRequired` 없고 그래프 또한 없으면 `unknown` |

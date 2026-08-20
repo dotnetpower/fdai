@@ -1,8 +1,8 @@
 ---
 title: 운영과 검증(Operating and Verification)
 translation_of: operating-and-verification.md
-translation_source_sha: 6003e5159b95f63be53bf3bc0207d9febd2dfde6
-translation_revised: 2026-08-14
+translation_source_sha: c473ba5dd92f8048b4cf1a85633f081989190835
+translation_revised: 2026-08-20
 ---
 
 # 운영과 검증(Operating and 검증)
@@ -21,7 +21,7 @@ translation_revised: 2026-08-14
 ## 자체 헬스 신호(Self-Health Signals)
 
 건강한 배포가 지속적으로 발행해야 하는 신호. 모든 신호는 알림 규칙에 1:1 매핑 (
-[경보 라우팅](#alert-routing) 참조).
+[경보 라우팅](#경보-라우팅) 참조).
 
 | 신호 | 목적 | 잡히는 실패 모드 |
 |------|------|----------------|
@@ -132,7 +132,7 @@ HTTPS가 필수이며 엔드포인트의 자격 증명, 조회 문자열, 조각
 - Canary 경로는 ingest, 경로, 감사 단계와 no-op 감사 항목을 기록합니다. T0/T1/T2, risk 게이트,
   실행, IRP, learning 루프에는 진입하지 않습니다.
 - **전체 루프** - `ingest → correlation → tier decision → audit entry` - 이 범위가 제한된 예산 내에
-  완료되어야 함; 완료 실패는 [operational 라인](#alert-routing) 에서 SLO-burn 알림 발동.
+  완료되어야 함; 완료 실패는 [operational 경보 라우팅](#경보-라우팅)에서 SLO-burn 알림 발동.
 - 카나리는 **버전됨**, **속도 상한**, 멱등성 키가 실제 이벤트와 구별되어 카나리 샘플이
   회귀 측정이나 자율 발견 루프의 observe 스테이지를 오염시킬 수 없음.
 - 각 5분 자리는 고정된 UUID와 `canary:<slot>` 멱등성 키를 생성합니다. Container Apps는
@@ -270,8 +270,8 @@ Testing, k6, JMeter)가 트래픽을 만든다 - 그 트래픽이 도는 동안 
 - **예산 대비 감지 지연 측정.** 부하가 만든 이벤트가 계층 별 `LatencyBudgetMonitor`
   ([`core/measurement/latency_budget.py`](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py))
   에 공급되어, 부하 하에서 p95 예산을 놓치는 계층 가 go-live 후가 아니라 전에 드러난다.
-- **canary + smoke 왕복.** [합성 canary](#synthetic-canary-event) 와
-  [post-deploy smoke 테스트](#post-deploy-smoke-tests) 가 로드된 환경에서 전체
+- **canary + smoke 왕복.** [합성 canary](#합성-카나리-이벤트synthetic-canary-event)와
+  [배포 후 smoke 테스트 계약](#post-deploy-smoke-테스트-계약)이 로드된 환경에서 전체
   `ingest -> tier -> gate -> audit` 루프가 예산 내에 완료됨을 확인한다.
 - **시나리오 재생.** `tools/baseline_run.py` 가 동결 시나리오 세트
   ([goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md)) 를 재생해
@@ -304,7 +304,7 @@ release 근거로 남습니다. Dedicated 검증 환경이 Azure 변경 없이 �
 
 서비스 오픈 후, FDAI는 처음 며칠 동안 관찰 강도를 높여 **켜 두었을 때** 가장 유용하다 -
 안정화 윈도우다. 이는 별도 모드가 아니라 30일
-[측정 윈도우](../architecture/goals-and-metrics-ko.md#definitions) 의 선단이며, 기존
+[측정 윈도우](../architecture/goals-and-metrics-ko.md#정의definitions)의 선단이며, 기존
 프리미티브를 조합한다:
 
 > **구현 상태**: 스케줄러와 측정 기본 요소는 존재하지만 업스트림은 현재 daily
@@ -322,7 +322,7 @@ release 근거로 남습니다. Dedicated 검증 환경이 Azure 변경 없이 �
   ([operator-console-ko.md § 9.3](../interfaces/operator-console-ko.md)) 가 반복된 조사를
   룰 후보로 바꾸어, 오픈이 실제로 드러낸 것으로부터 카탈로그가 성장한다.
 - **guard-metric 밀착 감시.** guard-metric 드리프트
-  ([goals-and-metrics-ko.md § 가드 메트릭](../architecture/goals-and-metrics-ko.md#guard-metrics-must-not-regress))
+  ([goals-and-metrics-ko.md § 가드 메트릭](../architecture/goals-and-metrics-ko.md#가드-메트릭회귀-금지))
   를 윈도우 내내 밀착 감시한다; breach 는 자동으로 shadow 로 강등한다. 신호가
   안정되면 정상 주기로 돌아간다.
 
