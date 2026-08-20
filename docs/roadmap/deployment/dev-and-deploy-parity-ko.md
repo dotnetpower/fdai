@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: a3c9c78524d4196c8e6285aad004e5146d6738b6
+translation_source_sha: 748513b6206fd633c7cab91e8e822f693ffd2f1b
 translation_revised: 2026-08-20
 ---
 
@@ -299,17 +299,11 @@ Python 가져오기 경로의 첫 위치에 둡니다. 따라서 다른 워크�
 
 ### Workspace 맥락 정리
 
-VS 코드 설정은 의존성, 캐시, 생성된 보고, 로컬 상태, 시크릿, Terraform 상태, 임시 출력 및
-`.improve/`를 Explorer, 검색, 파일 watching에서 제외합니다. 이 설정은 editor 부하와 워크트리
-copy로 인한 Problems 중복을 줄입니다. 이는 탐색 기본값이므로 제외된 경로를 직접 열 수 있으며
-근거, 신원, 권한 또는 런타임 어댑터에는 영향을 주지 않습니다. 출처, 테스트 및 담당
-design doc은 계속 검색할 수 있습니다. Terraform 인덱싱은 검증된 non-Terraform 디렉터리 이름을
-건너뛰고 tracked `.tf` 파일이 있는 모든 디렉터리를 보존합니다.
+VS 코드 설정은 의존성, 캐시, 생성된 보고, 로컬 상태, 시크릿, Terraform 상태, 임시 출력 및 `.improve/`를 Explorer, 검색, 파일 watching에서 제외합니다.
+이 설정은 editor 부하와 워크트리 copy로 인한 Problems 중복을 줄이며, 제외된 경로를 직접 열 수 있고 근거, 신원, 권한 또는 런타임 어댑터에는 영향을 주지 않습니다.
+출처, 테스트 및 담당 design doc은 계속 검색할 수 있으며 Terraform 인덱싱은 tracked `.tf` 파일이 있는 모든 디렉터리를 보존합니다.
 
-Workspace는 `terminal.integrated.showExitAlert`도 비활성화합니다. 0이 아닌 프로세스 종료는
-터미널 출력과 작업 상태에서 계속 확인할 수 있지만, 사용자가 입력한 셸이 닫힌 뒤 VS Code가
-두 번째 토스트를 표시하지 않습니다. 이 설정은 셸 통합, 종료 코드, 작업 실행 또는 백그라운드
-서비스 준비 상태를 바꾸지 않습니다.
+Workspace는 `terminal.integrated.showExitAlert`도 비활성화합니다. 0이 아닌 프로세스 종료는 터미널 출력과 작업 상태에서 계속 확인할 수 있지만, 사용자가 입력한 셸이 닫힌 뒤 VS Code가 두 번째 토스트를 표시하지 않습니다. 이 설정은 셸 통합, 종료 코드, 작업 실행 또는 백그라운드 서비스 준비 상태를 바꾸지 않습니다.
 
 Pylance 분석은 서비스 소스 루트 5개, 공유 패키지, 독립 패키지로 제공되는 SDK와 벤치마크 소스 및
 저장소 유지관리 스크립트를 대상으로 합니다. Workspace 백그라운드 인덱싱은 비활성화합니다. 열린

@@ -297,18 +297,12 @@ therefore can't launch stale source or cross the independent-service implementat
 
 ### Workspace context hygiene
 
-VS Code excludes dependencies, caches, generated reports, local state, secrets, Terraform state,
-scratch output, and `.improve/` from Explorer, search, and file watching. This reduces editor load,
-keeps local artifacts out of workspace search, and prevents duplicate Problems entries from
-worktree copies. These are discovery preferences: excluded paths remain explicitly accessible and
-do not change evidence, identity, authority, or runtime adapters. Source, tests, and owning design
-docs remain searchable. Terraform indexing skips verified non-Terraform directory names and
-preserves every directory containing a tracked `.tf` file.
+VS Code excludes dependencies, caches, generated reports, local state, secrets, Terraform state, scratch output,
+and `.improve/` from Explorer, search, and file watching. This reduces editor load, keeps local artifacts out of workspace search,
+and prevents duplicate Problems entries from worktree copies. These discovery preferences don't change evidence, identity, authority,
+or runtime adapters; source, tests, and owning design docs remain searchable, and Terraform indexing preserves tracked `.tf` directories.
 
-The workspace also disables `terminal.integrated.showExitAlert`. A nonzero process exit remains
-visible in terminal output and task status, but VS Code doesn't raise a second toast after an
-interacted shell closes. This setting doesn't change shell integration, exit codes, task execution,
-or background-service readiness.
+The workspace also disables `terminal.integrated.showExitAlert`. A nonzero process exit remains visible in terminal output and task status, but VS Code doesn't raise a second toast after an interacted shell closes. This setting doesn't change shell integration, exit codes, task execution, or background-service readiness.
 
 Pylance analysis covers the five service source roots, shared packages, independently packaged SDK
 and benchmark sources, and repository maintenance scripts. Background workspace indexing is
