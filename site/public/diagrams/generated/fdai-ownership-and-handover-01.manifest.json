@@ -5,14 +5,14 @@
   "updated": "2026-08-20",
   "locales": {
     "en": {
-      "title": "How a handover document becomes a change",
-      "description": "FDAI flow for How a handover document becomes a change.",
-      "alt": "How a handover document becomes a change. The main stages are Handover document, Upload through ingestion, Extract claims with citations, Resolve names to directory identities, Draft ownership map, Draft pull request, A person reviews and merges, Ownership map updated."
+      "title": "Governed ownership handover",
+      "description": "A handover document can produce reviewable evidence and a draft pull request, but it never changes ownership or access authority by itself.",
+      "alt": "A handover document enters the inspected ingestion boundary. FDAI extracts cited deterministic claims and can consult an optional grounded interpreter whose upstream default abstains. Candidates below the confidence floor are set aside, names are resolved without guessing, and unresolved people or unmapped agents remain visible warnings. Draft validation checks the fixed 15-agent pantheon, forbids access-role fields, and checks accountable primary and backup coverage. An empty or abstained draft produces no pull request. A valid draft is published as one content-addressed, review-only pull request; retrying does not create a duplicate. A different person reviews and may merge it. After merge, the loader validates the complete map before activation. Rejection or invalid configuration leaves the active map unchanged, and every outcome is audited. Ownership never grants RBAC or executor authority."
     },
     "ko": {
-      "title": "인수인계 문서가 변경이 되기까지",
-      "description": "인수인계 문서가 변경이 되기까지에 대한 FDAI 흐름입니다.",
-      "alt": "인수인계 문서가 변경이 되기까지. 주요 단계는 인수인계 문서, 수집 경로로 업로드, 출처와 함께 주장 추출, 이름을 디렉터리 신원으로 연결, 담당 체계 맵 초안, 초안 pull request, 사람이 검토하고 병합, 담당 체계 맵 갱신입니다."
+      "title": "통제된 담당 체계 인수인계",
+      "description": "인수인계 문서는 검토 가능한 근거와 초안 pull request를 만들 수 있지만 담당 체계나 접근 권한을 스스로 변경하지 않습니다.",
+      "alt": "인수인계 문서는 안전 검사를 거치는 수집 경계로 들어갑니다. FDAI는 출처를 인용하는 결정적 주장을 추출하며, 상위 저장소에서 기본적으로 판단을 보류하는 선택적 근거 기반 해석기를 호출할 수 있습니다. 신뢰도 기준보다 낮은 후보는 별도 검토 대상으로 남기고 이름은 추측 없이 확인하며, 미해결 사람과 담당자가 없는 에이전트는 경고로 계속 표시합니다. 초안 검증은 고정된 15개 에이전트 전체, 접근 역할 필드 금지 및 최종 책임자의 1차 담당과 백업 범위를 검사합니다. 비어 있거나 판단을 보류한 초안은 pull request를 만들지 않습니다. 유효한 초안은 내용 기반 식별자를 사용하는 하나의 검토 전용 pull request로 게시되며 재시도해도 중복 요청을 만들지 않습니다. 다른 사람이 검토하고 병합할 수 있습니다. 병합 후 로더가 전체 담당 체계를 검증한 뒤 활성화합니다. 거부되거나 구성이 잘못되면 활성 담당 체계는 바뀌지 않으며 모든 결과를 감사합니다. 담당 체계는 RBAC 또는 실행기 권한을 부여하지 않습니다."
     }
   },
   "assets": {
@@ -25,9 +25,11 @@
   },
   "nodes": [
     {
-      "id": "d",
-      "kind": "process",
-      "shape": "card",
+      "id": "handover-document",
+      "kind": "external",
+      "shape": "document",
+      "tone": "input",
+      "badge": 1,
       "label": {
         "en": "Handover document",
         "ko": "인수인계 문서"
@@ -35,148 +37,438 @@
       "description": {
         "en": "Handover document",
         "ko": "인수인계 문서"
-      }
+      },
+      "content": [
+        {
+          "en": "Roster, RACI, runbook, org chart, or memo",
+          "ko": "당직표, RACI, 런북, 조직도 또는 메모"
+        }
+      ]
     },
     {
-      "id": "u",
+      "id": "ingestion",
       "kind": "process",
       "shape": "card",
+      "tone": "policy",
+      "badge": 2,
       "label": {
-        "en": "Upload through ingestion",
-        "ko": "수집 경로로 업로드"
+        "en": "Inspected ingestion",
+        "ko": "안전 검사를 거친 수집"
       },
       "description": {
-        "en": "Upload through ingestion",
-        "ko": "수집 경로로 업로드"
-      }
+        "en": "Inspected ingestion",
+        "ko": "안전 검사를 거친 수집"
+      },
+      "content": [
+        {
+          "en": "Scan, type, version, and retain provenance",
+          "ko": "검사, 유형, 버전 및 출처 보존"
+        }
+      ]
     },
     {
-      "id": "x",
+      "id": "deterministic-extract",
       "kind": "process",
       "shape": "card",
+      "tone": "interpretation",
+      "badge": 3,
       "label": {
-        "en": "Extract claims with citations",
-        "ko": "출처와 함께 주장 추출"
+        "en": "Deterministic extraction",
+        "ko": "결정적 추출"
       },
       "description": {
-        "en": "Extract claims with citations",
-        "ko": "출처와 함께 주장 추출"
-      }
+        "en": "Deterministic extraction",
+        "ko": "결정적 추출"
+      },
+      "content": [
+        {
+          "en": "Agent, person, responsibility, and line citations",
+          "ko": "에이전트, 사람, 책임 및 줄 인용"
+        }
+      ]
     },
     {
-      "id": "r",
+      "id": "grounded-interpreter",
       "kind": "process",
       "shape": "card",
+      "tone": "model",
       "label": {
-        "en": "Resolve names to directory identities",
-        "ko": "이름을 디렉터리 신원으로 연결"
+        "en": "Optional grounded interpreter",
+        "ko": "선택적 근거 기반 해석기"
       },
       "description": {
-        "en": "Resolve names to directory identities",
-        "ko": "이름을 디렉터리 신원으로 연결"
-      }
+        "en": "Optional grounded interpreter",
+        "ko": "선택적 근거 기반 해석기"
+      },
+      "content": [
+        {
+          "en": "Upstream default abstains; ungrounded proposals drop",
+          "ko": "상위 저장소 기본값은 판단을 보류하고 근거 없는 제안은 제외"
+        }
+      ]
     },
     {
-      "id": "dr",
+      "id": "confidence-hold",
       "kind": "process",
       "shape": "card",
+      "tone": "neutral",
       "label": {
-        "en": "Draft ownership map",
-        "ko": "담당 체계 맵 초안"
+        "en": "Below-floor hold",
+        "ko": "기준 미달 보류"
       },
       "description": {
-        "en": "Draft ownership map",
-        "ko": "담당 체계 맵 초안"
-      }
+        "en": "Below-floor hold",
+        "ko": "기준 미달 보류"
+      },
+      "content": [
+        {
+          "en": "Keep for human review; never auto-map",
+          "ko": "사람 검토 대상으로 남기고 자동 연결하지 않음"
+        }
+      ]
     },
     {
-      "id": "pr",
+      "id": "directory-resolution",
       "kind": "process",
       "shape": "card",
+      "tone": "interpretation",
+      "badge": 4,
       "label": {
-        "en": "Draft pull request",
-        "ko": "초안 pull request"
+        "en": "Directory resolution",
+        "ko": "디렉터리 신원 확인"
       },
       "description": {
-        "en": "Draft pull request",
-        "ko": "초안 pull request"
-      }
+        "en": "Directory resolution",
+        "ko": "디렉터리 신원 확인"
+      },
+      "content": [
+        {
+          "en": "Exact person or group identity; no guessing",
+          "ko": "정확한 개인 또는 그룹 신원만 사용하고 추측하지 않음"
+        }
+      ]
     },
     {
-      "id": "h",
+      "id": "coverage-warnings",
       "kind": "process",
       "shape": "card",
+      "tone": "decision",
       "label": {
-        "en": "A person reviews and merges",
-        "ko": "사람이 검토하고 병합"
+        "en": "Visible coverage warnings",
+        "ko": "표시되는 담당 범위 경고"
       },
       "description": {
-        "en": "A person reviews and merges",
-        "ko": "사람이 검토하고 병합"
-      }
+        "en": "Visible coverage warnings",
+        "ko": "표시되는 담당 범위 경고"
+      },
+      "content": [
+        {
+          "en": "Unresolved people, abstained mappings, and unmapped agents",
+          "ko": "미해결 사람, 보류된 연결 및 담당자 없는 에이전트"
+        }
+      ]
     },
     {
-      "id": "m",
+      "id": "draft-validation",
       "kind": "process",
       "shape": "card",
+      "tone": "policy",
+      "badge": 5,
       "label": {
-        "en": "Ownership map updated",
-        "ko": "담당 체계 맵 갱신"
+        "en": "Stewardship contract validation",
+        "ko": "담당 체계 계약 검증"
       },
       "description": {
-        "en": "Ownership map updated",
-        "ko": "담당 체계 맵 갱신"
-      }
+        "en": "Stewardship contract validation",
+        "ko": "담당 체계 계약 검증"
+      },
+      "content": [
+        {
+          "en": "Fixed 15-agent pantheon and no access-role fields",
+          "ko": "고정된 15개 에이전트와 접근 역할 필드 금지"
+        },
+        {
+          "en": "Accountable primary plus backup or escalation",
+          "ko": "최종 책임자의 1차 담당과 백업 또는 에스컬레이션"
+        }
+      ]
+    },
+    {
+      "id": "inert-draft",
+      "kind": "store",
+      "shape": "database",
+      "tone": "store",
+      "label": {
+        "en": "Inert ownership draft",
+        "ko": "비활성 담당 체계 초안"
+      },
+      "description": {
+        "en": "Inert ownership draft",
+        "ko": "비활성 담당 체계 초안"
+      },
+      "content": [
+        {
+          "en": "Carries warnings and citations; grants no RBAC",
+          "ko": "경고와 인용을 포함하며 RBAC를 부여하지 않음"
+        }
+      ]
+    },
+    {
+      "id": "draft-pr",
+      "kind": "process",
+      "shape": "card",
+      "tone": "feedback",
+      "badge": 6,
+      "label": {
+        "en": "Idempotent draft pull request",
+        "ko": "멱등한 초안 pull request"
+      },
+      "description": {
+        "en": "Idempotent draft pull request",
+        "ko": "멱등한 초안 pull request"
+      },
+      "content": [
+        {
+          "en": "Content-addressed, review-only, and shadow",
+          "ko": "내용 기반 식별, 검토 전용 및 shadow"
+        }
+      ]
+    },
+    {
+      "id": "human-review",
+      "kind": "person",
+      "shape": "card",
+      "tone": "policy",
+      "badge": 7,
+      "label": {
+        "en": "Independent human review",
+        "ko": "독립된 사람 검토"
+      },
+      "description": {
+        "en": "Independent human review",
+        "ko": "독립된 사람 검토"
+      },
+      "content": [
+        {
+          "en": "Merge, reject, or request corrections",
+          "ko": "병합, 거부 또는 수정 요청"
+        }
+      ]
+    },
+    {
+      "id": "unchanged",
+      "kind": "process",
+      "shape": "card",
+      "tone": "neutral",
+      "label": {
+        "en": "Active map unchanged",
+        "ko": "활성 담당 체계 변경 없음"
+      },
+      "description": {
+        "en": "Active map unchanged",
+        "ko": "활성 담당 체계 변경 없음"
+      },
+      "content": [
+        {
+          "en": "Abstained draft, no mapping, rejection, or invalid config",
+          "ko": "보류된 초안, 연결 없음, 거부 또는 잘못된 구성"
+        }
+      ]
+    },
+    {
+      "id": "loader-validation",
+      "kind": "process",
+      "shape": "card",
+      "tone": "policy",
+      "badge": 8,
+      "label": {
+        "en": "Loader validation",
+        "ko": "로더 검증"
+      },
+      "description": {
+        "en": "Loader validation",
+        "ko": "로더 검증"
+      },
+      "content": [
+        {
+          "en": "Complete map, maintainers, duties, and deployment bindings",
+          "ko": "전체 맵, 유지관리자, 역할 및 배포 바인딩"
+        }
+      ]
+    },
+    {
+      "id": "active-map",
+      "kind": "store",
+      "shape": "database",
+      "tone": "store",
+      "label": {
+        "en": "Active ownership map",
+        "ko": "활성 담당 체계"
+      },
+      "description": {
+        "en": "Active ownership map",
+        "ko": "활성 담당 체계"
+      },
+      "content": [
+        {
+          "en": "Escalation routing only; no execution authority",
+          "ko": "에스컬레이션 라우팅만 제공하며 실행 권한 없음"
+        }
+      ]
+    },
+    {
+      "id": "audit",
+      "kind": "store",
+      "shape": "database",
+      "tone": "feedback",
+      "label": {
+        "en": "Audit and rollback history",
+        "ko": "감사 및 롤백 이력"
+      },
+      "description": {
+        "en": "Audit and rollback history",
+        "ko": "감사 및 롤백 이력"
+      },
+      "content": [
+        {
+          "en": "Proposal, review, activation, rejection, and revert evidence",
+          "ko": "제안, 검토, 활성화, 거부 및 되돌리기 근거"
+        }
+      ]
     }
   ],
   "edges": [
     {
       "id": "flow-01",
-      "from": "d",
-      "to": "u",
+      "from": "handover-document",
+      "to": "ingestion",
       "kind": "request",
       "label": null
     },
     {
       "id": "flow-02",
-      "from": "u",
-      "to": "x",
+      "from": "ingestion",
+      "to": "deterministic-extract",
       "kind": "request",
       "label": null
     },
     {
       "id": "flow-03",
-      "from": "x",
-      "to": "r",
+      "from": "deterministic-extract",
+      "to": "grounded-interpreter",
       "kind": "request",
       "label": null
     },
     {
       "id": "flow-04",
-      "from": "r",
-      "to": "dr",
+      "from": "deterministic-extract",
+      "to": "directory-resolution",
       "kind": "request",
       "label": null
     },
     {
       "id": "flow-05",
-      "from": "dr",
-      "to": "pr",
+      "from": "grounded-interpreter",
+      "to": "directory-resolution",
       "kind": "request",
       "label": null
     },
     {
       "id": "flow-06",
-      "from": "pr",
-      "to": "h",
-      "kind": "request",
+      "from": "grounded-interpreter",
+      "to": "confidence-hold",
+      "kind": "feedback",
       "label": null
     },
     {
       "id": "flow-07",
-      "from": "h",
-      "to": "m",
+      "from": "directory-resolution",
+      "to": "coverage-warnings",
+      "kind": "feedback",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "directory-resolution",
+      "to": "draft-validation",
       "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "coverage-warnings",
+      "to": "inert-draft",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "draft-validation",
+      "to": "inert-draft",
+      "kind": "write",
+      "label": null
+    },
+    {
+      "id": "flow-11",
+      "from": "draft-validation",
+      "to": "unchanged",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-12",
+      "from": "inert-draft",
+      "to": "draft-pr",
+      "kind": "feedback",
+      "label": null
+    },
+    {
+      "id": "flow-13",
+      "from": "draft-pr",
+      "to": "human-review",
+      "kind": "approval",
+      "label": null
+    },
+    {
+      "id": "flow-14",
+      "from": "human-review",
+      "to": "loader-validation",
+      "kind": "approval",
+      "label": null
+    },
+    {
+      "id": "flow-15",
+      "from": "human-review",
+      "to": "unchanged",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-16",
+      "from": "loader-validation",
+      "to": "active-map",
+      "kind": "write",
+      "label": null
+    },
+    {
+      "id": "flow-17",
+      "from": "loader-validation",
+      "to": "unchanged",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-18",
+      "from": "active-map",
+      "to": "audit",
+      "kind": "audit",
+      "label": null
+    },
+    {
+      "id": "flow-19",
+      "from": "unchanged",
+      "to": "audit",
+      "kind": "audit",
       "label": null
     }
   ]

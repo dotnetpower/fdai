@@ -73,20 +73,25 @@ agent is broken and needs attention soon. It doesn't mean FDAI stopped working.
 Handover starts with a document someone already has: an on-call roster, a RACI chart, an org chart,
 a runbook, or a memo written on the way out. FDAI reads it, proposes a map change, and stops.
 
-![How a handover document becomes a change. The main stages are Handover document, Upload through ingestion, Extract claims with citations, Resolve names to directory identities, Draft ownership map, Draft pull request, A person reviews and merges, Ownership map updated.](../../diagrams/generated/fdai-ownership-and-handover-01.en.svg)
+![A handover document passes inspected ingestion, cited deterministic extraction, optional grounded interpretation, exact directory resolution, confidence and coverage warnings, fixed-pantheon contract validation, an idempotent review-only draft pull request, independent human review, post-merge loader validation, and audit. Unresolved, abstained, rejected, or invalid proposals leave the active map unchanged, and ownership never grants access or execution authority.](../../diagrams/generated/fdai-ownership-and-handover-01.en.svg)
 
 1. **Upload.** You submit the document through the console's knowledge-handover form, or through the
    ingestion path directly. It passes the same safety inspection as any other upload.
 2. **Extract.** A deterministic extractor scans line by line for agent domain terms, responsibility
-   markers, and people. Every claim it makes cites the line it came from.
+  markers, and people. A deployment can also bind an optional grounded interpreter; the upstream
+  default abstains. Every accepted claim cites its source, and an ungrounded proposal is discarded.
 3. **Resolve.** Named people are looked up in your directory. FDAI never guesses an identity. A name
    it can't resolve is flagged as unresolved and left for a person to settle.
-4. **Draft.** The result is a draft ownership map with its warnings attached, including which agents
-   ended up unmapped and which people couldn't be resolved.
-5. **Propose.** When the governance path is enabled, the draft is published as a draft pull request
-   against the ownership map. Uploading the same document again doesn't open a second one.
-6. **Merge.** A person reviews that pull request and merges it. Nothing about the map changes until
-   they do.
+4. **Draft.** Candidates below the confidence floor are set aside for human review. The result is an
+  inert draft ownership map with warnings for unresolved people, abstained candidates, and agents
+  without a confident accountable owner.
+5. **Validate and propose.** The draft must name only the fixed 15 agents, contain no access-role
+  fields, and satisfy the ownership schema. When the governance path is enabled, a nonempty draft
+  is published as one content-addressed, review-only pull request. An abstained or empty draft
+  opens no pull request, and retrying the same document doesn't open a duplicate.
+6. **Merge and activate.** A person reviews that pull request and may merge it. The loader validates
+  the complete map after merge before it becomes active. Rejection or invalid configuration leaves
+  the previous map unchanged and preserves an audit trail for correction or revert.
 
 The draft is never applied automatically, at any confidence level. That is the point: a document is
 evidence about who owned what, and evidence doesn't get to rewrite an escalation path on its own.
