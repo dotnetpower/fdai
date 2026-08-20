@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: c3ab210102e103f4264f9e34cad559abcfde5854
+translation_source_sha: 9c8b9974301663689eb2ca9709175e771fb6d8da
 translation_revised: 2026-08-20
 ---
 # 지속형 질문 공간
@@ -34,7 +34,7 @@ translation_revised: 2026-08-20
 |------|------|------|------|
 | 의미 기능 연결 | implemented | `core/ontology_platform/{declaration,release_diff,evidence_health,inventory_impact}_queries.py`; 집중 기능 및 구성 검사 | `query.ontology_declaration`은 운영 구성에 연결됩니다. 릴리스 차이, 근거 상태, 인벤토리 영향은 정확한 공급자 또는 서버 소유 앵커가 연결될 때까지 `runtime_binding_unavailable`로 유지됩니다. |
 | 7개 관점 질문 집합 | implemented | `core/conversation/question_perspectives.py`, `question_universe.py`, `question_selection.py`; 집중 질문 집합 및 선택 검사 | 적용 규칙은 카테시안 곱이 아닙니다. 사례 식별자는 로캘, 사례 종류, 관점, 기능, 근거 상태, 앵커, 종료 처리, 작업 자세, Rule 상태, 깊이, 결과 제한을 포함합니다. 활성 Rule과 수집된 Rule 사례는 분리됩니다. |
-| 구조화된 조사 보증 | implemented | `semantic_investigation.py`, `semantic_investigation_planning.py`, 조사 query-node 및 표현 테스트, 의미 frame prompt v28 | 대상 결속 diagnostic 인과 사례는 관련 없는 선언을 늘리지 않으면서 정확한 entity 해석, 정렬된 근거 window, 순서가 있는 관계 경로, 증상 방향, 경쟁하는 지지 및 반증, 결정론적 표현을 추가합니다. 일반 principal 범위 인과 사례는 기존의 범위가 제한된 plan을 유지합니다. |
+| 구조화된 조사 보증 | implemented | `semantic_investigation.py`, `semantic_investigation_planning.py`, 조사 query-node 및 표현 테스트, 의미 frame prompt v29 | 대상 결속 diagnostic 인과 사례는 관련 없는 선언을 늘리지 않으면서 정확한 entity 해석, 정렬된 근거 window, 순서가 있는 관계 경로, 증상 방향, 경쟁하는 지지 및 반증, 결정론적 표현을 추가합니다. 일반 principal 범위 인과 사례는 기존의 범위가 제한된 plan을 유지합니다. |
 | 후보 생성 및 검증 | implemented | `core/conversation/question_candidates.py`; `delivery/azure/llm/question_generation.py`; `scripts/automation/question_space_copilot.py`; 집중 생성기 및 검증기 검사 | 로컬 Copilot은 명시적으로만 실행되고 도구가 비활성화됩니다. 예약 생성은 분리된 `t1.question.generator`와 `t1.question.reviewer` 기능을 사용합니다. 불변 필드, 로캘, 식별자, 포함된 자격 증명, 실행 가능한 텍스트, 프롬프트 주입, 중복, 초안 자세, 독립 동등성은 안전하게 차단됩니다. |
 | 캠페인 근거 체인 | implemented | `core/conversation/question_campaign*.py`; `delivery/persistence/postgres_question_campaign.py`; Alembic `0086`; 집중 캠페인, 영속성, 마이그레이션 검사 | 캠페인, 시도, 불변 완료, 만료형 사례 claim 레코드는 다이제스트, 형식화된 처리 결과, 증적 연결, 사용량, hard-zero 카운터를 보존합니다. Claim은 동시 의미 실행 중복을 막습니다. 어떤 레코드도 질문, 답변, 공급자 페이로드, 엔드포인트, 결합된 리소스 식별자를 복제하지 않습니다. |
 | 공유 one-shot 패키지 | implemented | `core/conversation/question_schedule.py`; `delivery/ontology_question_campaign.py`; `ontology_question_campaign_cli.py`; 집중 기한 판정 및 공유 실행기 검사 | 수동 및 예약 트리거는 주입된 실행기 패키지 하나를 사용합니다. 비활성, 실행 시점 아님, 근거 없음, 모델 없음, Reader 증명 없음, 예약 예산 소진, claim 충돌은 해당 모델 또는 의미 호출 전에 중단됩니다. |
@@ -47,6 +47,7 @@ translation_revised: 2026-08-20
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-20 | 구현됨 | 인증된 재실행에서 fragment를 누락해 의도한 FDAI 관련 부분집합 대신 resource group 42개 전체로 검증된 답변이 넓어진 뒤 prompt v29가 운영자가 작성한 name fragment와 선언된 resource type을 함께 보존하도록 했습니다. Core는 발화에 fragment가 있는지 확인하고 좁히는 predicate만 추가하는 권한 경계를 유지합니다. | `current change`, [이슈 #242](https://github.com/dotnetpower/fdai/issues/242), 집중 prompt 및 이중 언어 grounding 검사 | 수정된 resource-filter 근거를 보존한 뒤 대상 결속 slowdown 질문을 실행합니다. |
 | 2026-08-20 | 구현됨 | 일반 선언 범위 causal evidence가 인증된 의미 경로와 계속 호환되고, 공급된 선언 이름 밖의 정확한 대상만 structured investigation intent를 요구하도록 v28 경계를 수정했습니다. 비인과 frame은 investigation payload를 계속 차단합니다. | `current change`, [이슈 #242](https://github.com/dotnetpower/fdai/issues/242), 집중 호환성, 대상 결속, prompt 및 service-suite 검사 37개 통과 | 정확히 수정된 소스에서 인증된 Console 답변 두 개를 보존합니다. |
 | 2026-08-20 | 구현됨 | 현재 v27 frame 동작과 구조화된 조사 intent를 prompt v28로 통합했습니다. 이제 인과 frame은 source에 근거한 entity, 증상, 시간 단서, 순서가 있는 관계 side 및 경쟁 가설을 전달하고, Core가 intent를 검증한 뒤 읽기 plan을 서버에서 컴파일합니다. | `current change`, [이슈 #242](https://github.com/dotnetpower/fdai/issues/242), 집중 조사, tier-routing, query-node, 표현 및 prompt 검사 | 정확히 커밋된 소스에서 인증된 resource filter 및 slowdown 답변을 보존합니다. 기존 strict-v2 22/22 및 seeded 100/100 인증은 이전 소스의 근거로만 유지됩니다. |
 | 2026-08-20 | validated | Aggregate 및 listing 대칭 수정 뒤 정확한 소스 라이브 인증을 완료했습니다. 감독기는 strict v2가 통과한 뒤에만 seeded 실행을 허용했고 두 단계는 소스, 깨끗한 작업 공간, Browser Entra, 세대 및 정확한 전송 증명을 보존했습니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); 실행 `question-space-final-4dc5365aa-20260820-r15`; `4dc5365aaf8d2f6d8c6e0e9aaac4b6374a54f766` 중앙 검증 증적; 리포지토리에 안전한 2026-08-20 기준선; strict 22/22 및 seeded 100/100 승인 | 라이브 릴리스 인증은 완료했습니다. 서버 소유 예약 principal 매핑과 배포된 shadow 예약 실행은 아래에서 별도 근거 게이트를 유지합니다. |

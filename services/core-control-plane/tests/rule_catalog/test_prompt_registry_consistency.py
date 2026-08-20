@@ -126,7 +126,7 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     frame = prompts.get_base("semantic.query.frame")
     plan = prompts.get_base("semantic.query.plan")
 
-    assert frame.version == 28
+    assert frame.version == 29
     assert "output_shape to exactly one capability family" in frame.body
     assert "aggregation_table for a count or grouping" in frame.body
     assert "operation aggregate together with aggregation_table" in frame.body
@@ -139,6 +139,13 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     assert "relationship or relationship type to link" in frame.body
     assert 'subject_constraints exactly ["link"]' in frame.body
     assert 'measure_concepts exactly ["type"]' in frame.body
+    assert (
+        "combines a declared type with an operator-authored free-text name fragment" in frame.body
+    )
+    assert "Resource and the exact written fragment as separate subject_constraints" in frame.body
+    assert (
+        "Never drop the free-text fragment while retaining only the declared category" in frame.body
+    )
     assert "declared resource type is property_filtered_resources" in frame.body
     assert "runtime resource the operator names is property_filtered_resources" in frame.body
     assert "supplied context rather than an invented identity" in frame.body
