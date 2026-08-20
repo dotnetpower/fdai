@@ -1,22 +1,15 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 2abfa71c18909d599d31563e410f492e41b4d35f
+translation_source_sha: 591755b859215ad9926f9b770e6692faf0d8fb7e
 translation_revised: 2026-08-20
 ---
 
 # 배포와 온보딩(Deploy and Onboard)
 
-Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는
-방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 진실
-원본입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은
-[deployment-ko.md](deployment-ko.md)에 남습니다.
+Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 진실 원본입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
 
-Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로바이더는 TBD
-([구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must)).
-모든 식별자는
-[generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)에
-따라 합성.
+Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로바이더는 TBD ([구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must)). 모든 식별자는 [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)에 따라 합성.
 
 > Day-zero 서비스 계층과 수량은
 > [최소 Azure 리소스 인벤토리](#azure-리소스-인벤토리-최소-세트)에서 결정되어 있습니다.
