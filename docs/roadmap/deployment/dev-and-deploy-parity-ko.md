@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: e50a4922021e8180eb42f59bfa4dd82392963777
+translation_source_sha: 81cbf3808dc8e4ba402f8589a9fc16b62afe03ec
 translation_revised: 2026-08-20
 ---
 
@@ -91,6 +91,7 @@ translation_revised: 2026-08-20
 | 2026-08-18 | implemented | 모든 FDAI 서비스를 같은 장소 계약 아래로 옮겼습니다. 독립 서비스는 core 컨트롤 플레인을 import할 수 없으므로 표를 `packages/service-contracts/src/fdai_service_contracts/venue.py`로 옮기고 `fdai/runtime/venue.py`는 이를 다시 내보내도록 했습니다. Operator, Document Ingestion API, Document Processing Worker, 격리 Executor의 composition은 서로 다른 오류 타입을 가진 개별 파서 4개 대신 `resolve_execution_venue()`와 capability 접근자를 읽습니다. `document_provider_binding`은 두 문서 서비스에 소비자가 있는 신규 capability이며, `bus_security_protocol`은 이제 literal 타입을 반환하므로 선언되지 않은 프로토콜로 표를 고치면 전송이 낮아지는 대신 타입 검사가 실패합니다. 게이트는 소스 트리 6개를 모두 훑습니다. | `current change`, `packages/service-contracts/tests`·`services/core-control-plane/tests/runtime`·`tests/integration/scripts/test_venue_capability_contract.py`와 독립 서비스 4개 suite에서 focused 874건 통과(스킵 1건), `tests/delivery` 1689건 통과(스킵 3건), 작업 범위 Ruff·format·mypy 통과, venue 게이트가 소스 트리 6개에서 OK 보고, `check-independent-services.py` 통과 | 게이트 탐지는 여전히 텍스트 기반이므로 계산된 키를 통한 우회적 재도입은 잡지 못합니다. |
 | 2026-08-20 | 구현됨 | 다섯 distribution topology를 바꾸지 않고 독립 A3 channel edge의 local 및 deployed composition을 추가했습니다. 두 venue는 동일한 Operator 소유 runtime을 사용하며 프로바이더 credential, Kafka security, secret source 및 scale만 다릅니다. | `current change`, 집중 edge 검사 74개, 로컬 실행 검사 3개, 플랫폼 및 Operator-service Terraform root 검증 통과, independent-service 검사가 distribution 5개를 유지 | 통제된 local provider 증적 하나와 보호된 deployed plan/apply/rollback 증적 하나를 보존합니다. |
 | 2026-08-20 | 구현됨 | Frozen legacy lineage와 service-owned branch 5개의 local 및 protected deployed migration 실패 경계를 정렬했습니다. 모든 연결에는 10초 deadline이 있고 모든 database 잠금 대기에는 5분 deadline이 있으며 하나의 protected migration 단계는 Terraform 적용 전에 누적 20분 deadline을 갖습니다. | `current change`; 집중 migration, A3 route 및 protected 배포 검사 282개 통과, 환경 제한 skip 1개; migration entry point 3개 strict mypy 통과. | 성공한 exact Core 적용 및 post-apply 상태 증적을 보존합니다. |
+| 2026-08-20 | implemented | Local legacy migration, local service-branch migration 및 protected service 조정에 같은 15분 PostgreSQL statement deadline을 추가했습니다. Server가 20분 workflow deadline 전에 장기 실행 DDL을 취소하므로 연결이 끊긴 runner가 service 간 advisory lock을 보유하는 방치된 transaction을 남길 수 없습니다. | `current change`; 집중 migration deadline 검사; entry point 3개 strict mypy 통과; 일회용 PostgreSQL에서 예산을 초과한 statement를 취소하고 연결 해제 뒤 advisory lock 0개를 확인함. | 성공한 exact Core 적용 및 post-apply 상태 증적을 보존합니다. |
 | 2026-08-20 | implemented | PTY host와 셸 시작은 정상인데 VS Code 기본 설정이 사용자가 입력한 통합 터미널의 0이 아닌 종료를 알림으로 표시한다는 진단에 따라 FDAI workspace에서 터미널 종료 알림을 비활성화했습니다. 중복 토스트만 억제하며 터미널 출력, 작업 상태 및 프로세스 종료 코드는 계속 확인할 수 있습니다. | `current change`, `.vscode/settings.json`, `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 workspace 계약 및 VS Code JSON 진단 | 터미널 종료 토스트에 남은 구현 작업은 없습니다. |
 
 ### 잔여 작업

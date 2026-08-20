@@ -13,6 +13,7 @@ from sqlalchemy.engine import Connection
 config = context.config
 target_metadata = None
 _MIGRATION_LOCK_TIMEOUT = "5min"
+_MIGRATION_STATEMENT_TIMEOUT = "15min"
 _MIGRATION_CONNECT_TIMEOUT_SECONDS = 10
 
 service_id = config.get_main_option("service_id")
@@ -60,6 +61,10 @@ def _run_online_migrations(connection: Connection) -> None:
         version_table=version_table,
     )
     with context.begin_transaction():
+        connection.execute(
+            text("SELECT set_config('statement_timeout', :timeout, false)"),
+            {"timeout": _MIGRATION_STATEMENT_TIMEOUT},
+        )
         connection.execute(
             text("SELECT set_config('lock_timeout', :timeout, false)"),
             {"timeout": _MIGRATION_LOCK_TIMEOUT},

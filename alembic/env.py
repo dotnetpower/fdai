@@ -46,6 +46,7 @@ config.set_main_option("sqlalchemy.url", _url)
 target_metadata = None
 _MIGRATION_LOCK_KEY = 0x464441494D494752
 _MIGRATION_LOCK_TIMEOUT = "5min"
+_MIGRATION_STATEMENT_TIMEOUT = "15min"
 _MIGRATION_CONNECT_TIMEOUT_SECONDS = 10
 
 
@@ -75,6 +76,10 @@ def run_migrations_online() -> None:
             target_metadata=target_metadata,
         )
         with context.begin_transaction():
+            connection.execute(
+                text("SELECT set_config('statement_timeout', :timeout, false)"),
+                {"timeout": _MIGRATION_STATEMENT_TIMEOUT},
+            )
             connection.execute(
                 text("SELECT set_config('lock_timeout', :timeout, false)"),
                 {"timeout": _MIGRATION_LOCK_TIMEOUT},

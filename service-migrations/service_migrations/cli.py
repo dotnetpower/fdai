@@ -39,6 +39,7 @@ MIGRATION_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = MIGRATION_ROOT.parent
 _LOGGER = logging.getLogger(__name__)
 _MIGRATION_LOCK_TIMEOUT = "5min"
+_MIGRATION_STATEMENT_TIMEOUT = "15min"
 _MIGRATION_CONNECT_TIMEOUT_SECONDS = 10
 
 
@@ -94,6 +95,10 @@ def _migration_engine() -> Engine:
 
 
 def _configure_migration_connection(connection: Connection) -> None:
+    connection.execute(
+        text("SELECT set_config('statement_timeout', :timeout, false)"),
+        {"timeout": _MIGRATION_STATEMENT_TIMEOUT},
+    )
     connection.execute(
         text("SELECT set_config('lock_timeout', :timeout, false)"),
         {"timeout": _MIGRATION_LOCK_TIMEOUT},

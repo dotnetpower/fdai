@@ -45,6 +45,7 @@ Azure focus: this document targets an Azure subscription. Non-Azure providers ar
 | 2026-08-17 | implemented | Included the analyzer Job in development-gateway targeted plans so trace-topology configuration and the scheduled detector converge with the existing gateway deployment surface. | `current change`; `.github/workflows/deploy-dev.yml`; `test_detection_readiness.py` passed 4 cases and `test_service_deploy_workflow.py` passed 25 cases. | Retain the protected apply and scheduled `preserve`, `regenerate`, and `drop` receipts before raising this scope to `validated`. |
 | 2026-08-20 | implemented | Added an explicit protected-plan input for the standalone Operator channel-edge identity and its versionless Key Vault secret scopes. The platform owner grants only ACR pull, semantic Event Hubs transport, and listed secret reads; the Operator service root separately owns the public edge Container App lifecycle. | `current change`; protected deployment suites passed 154 cases; workflow YAML, shell syntax, design-route, and five-distribution checks passed. | Configure a real provider profile in approved credential stores, then retain exact platform and Operator service plan/apply/rollback receipts. |
 | 2026-08-20 | implemented | Added per-stage service migration deadlines after a protected Core apply spent its full job budget waiting inside migration. All service and legacy paths now use a 10-second connection deadline and 5-minute lock deadline, while the workflow closes the complete migration stage after 20 minutes. | `current change`; focused service migration and protected workflow checks passed 204 cases. | Rerun the exact protected Core apply and retain the successful migration and post-apply health receipt. |
+| 2026-08-20 | implemented | Added a 15-minute PostgreSQL statement deadline to every legacy and service migration connection. It expires before the 20-minute workflow deadline so the database cancels long-running DDL and releases its transaction and advisory locks even when the runner process disappears. | `current change`; focused migration deadline checks; disposable PostgreSQL canceled an over-budget statement and reported zero advisory locks after disconnect; protected runs `32357855293` and `32361126642` exposed an abandoned backend that survived the shell deadline. | Rerun the exact protected Core apply and retain the successful migration and post-apply health receipt. |
 
 ### Remaining work
 
@@ -506,8 +507,10 @@ later stage with a broken earlier one.
   Postgres FQDN with the admin DSN. Every tracked migration under `alembic/versions/` defines
   `downgrade()`, but schema/data rollback can be destructive. Rehearse backup/restore and each
   migration-specific downgrade in staging before using it. The protected service path uses a
-  10-second connection deadline, a 5-minute database lock deadline, and a 20-minute complete
-  migration-stage deadline so a stalled migration fails before the service plan is applied.
+  10-second connection deadline, a 5-minute database lock deadline, a 15-minute server statement
+  deadline, and a 20-minute complete migration-stage deadline. The database cancels over-budget
+  DDL and releases its locks before the workflow closes the stage, so a stalled migration fails
+  before the service plan is applied.
 - Post-deploy smoke tests and the synthetic canary are defined in
   [operating-and-verification.md](../operations/operating-and-verification.md).
 
