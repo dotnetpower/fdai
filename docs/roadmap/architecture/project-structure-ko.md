@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: d5e2eb77933377c2b5e69b7053c6ac6b9319e1c8
+translation_source_sha: e1f619cb0f196a8904026b1e72c060836ea3a7ce
 translation_revised: 2026-08-20
 ---
 # 프로젝트 구조
@@ -24,6 +24,7 @@ translation_revised: 2026-08-20
 | 리소스 검색 계약 경계 | implemented | `fdai_service_contracts/discovery.py`, `fdai_service_contracts/discovery_evidence.py`, `core/discovery/router.py`, 집중 검색 검사 (`44 passed`) | 공유 SDK는 불변이고 권한이 없는 wire 레코드를 소유하고 Core는 프로바이더 중립적인 정확히 동등한 라우팅과 병합을 소유하며 Azure delivery는 버전이 고정된 프로파일, 렌더링, 실행 증적 및 커버리지 조정을 소유합니다. |
 | 인벤토리 신원 완전성 경계 | implemented | `shared/providers/inventory.py`, `delivery/azure/{arg_query,inventory}.py`, `composition/wire_inventory.py`, focused 검사 259개 통과 | Shared는 exact coverage 증적을 소유하고 Azure delivery는 범위가 제한된 native 신원 읽기를 소유하며 composition은 프로바이더 I/O를 Core로 옮기지 않고 두 경로를 연결합니다. |
 | 질문에 결속된 의미 필터 근거 확인 | 구현됨 | `core/conversation/semantic_planning_value_filters.py`, `tests/conversation/test_semantic_planning.py`, focused 계획 검사(`79 passed`) | Core는 발화에 명시된 카탈로그 값 그룹 또는 검증된 frame이 보존하고 해당 발화에 그대로 존재하는 정확한 자유 텍스트 subject 하나로만 후보 ObjectSet을 좁힐 수 있습니다. 프로바이더 I/O, 판단, 승인, 변경 또는 실행 권한은 추가하지 않습니다. |
+| 의미 frame 구성 경계 | 구현됨 | `core/conversation/semantic_planning_frame.py`, 집중 planner, tier-routing, investigation 및 Azure adapter 검사 111개 통과 | 집중 Core 모듈이 후보 frame을 정확한 입력 및 investigation identity에 결속하고 서버 소유 명확화 맥락만 해석합니다. 프로바이더 I/O를 수행하지 않으며 판단, 승인, 변경 또는 실행 권한을 부여하지 않습니다. |
 | 통제된 규칙 발견 시작 경계 | implemented | `core/readiness/discovery_activation.py`, `runtime/discovery_activation.py`, `runtime/bootstrap*.py`, `agents/norns.py`, 집중 활성화 및 연결 검사 | Core는 최신 선행 조건 근거를 집약하고, 런타임은 기본적으로 닫힌 결정을 Norns의 비활성 후보 게시 경계에만 주입하며, 감독되는 새로 고침이 실패하면 카탈로그 또는 승격 권한을 바꾸지 않고 로컬 게이트를 닫습니다. |
 | 로컬 telemetry 쓰기 경계 | implemented | `shared/telemetry/logging.py`, `capture-local-service-log.py`, 집중 telemetry·launcher·provider integration·framework layout 검사 | Shared telemetry는 범위가 제한된 구조화 경고 보존과 의존성 요약을 소유합니다. 로컬 launcher는 터미널 표시와 완전한 회전 파일 캡처를 소유하며, 어느 경로도 에이전트 전달이나 권한을 바꾸지 않습니다. |
 | Pre-dispatch kinetic safety 경계 | implemented | `core/operational_planning/kinetic_safety.py`, `delivery/kinetic_safety.py`, `delivery/kinetic_proposal.py`, `runtime/control_loop.py`, 집중 dispatch, HIL, artifact, proposal 및 runtime 검사(`119 passed`) | Core는 프로바이더 중립 ordering seam을 선언합니다. Delivery는 영속 OperationalPlan 및 proposal lineage를 다시 검증하고 correlation index에 있는 기존 exact V2 proposal과 기존 typed Action을 결합하며 runtime은 모든 Thor 실행기 전에 ControlLoop와 HIL resume이 하나의 writer를 공유하도록 합니다. Proposal이 없으면 legacy 동작을 유지하고 invalid evidence는 권한을 높이지 않은 채 dispatch를 차단합니다. |
@@ -31,6 +32,7 @@ translation_revised: 2026-08-20
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-20 | 구현됨 | 정확한 후보 전용 frame 구성과 서버 소유 명확화 해석을 의미 플래너에서 집중 Core 모듈로 추출했습니다. 플래너는 기존 private adapter 표면을 유지하면서 적용되는 800줄 상한 아래로 돌아왔으며 frame digest, 명확화, 권한 또는 I/O 동작은 바뀌지 않았습니다. | `current change`, `semantic_planning.py`, `semantic_planning_frame.py`, 집중 의미 테스트 111개와 작업 범위 Ruff, formatting, strict mypy 및 강제 파일 LOC 검사 통과 | 구조 상한 복구에 남은 작업은 없습니다. |
 | 2026-08-20 | 구현됨 | 후보 계획 경계에서 결정론적 복수 필터 보존을 완성했습니다. 모델이 선택한 존재 조건식이 카탈로그에 선언된 다른 필터를 더 이상 누락하지 않으며, frame이 보존한 정확한 자유 텍스트 subject는 운영자가 그대로 작성한 경우에만 fragment 조건식이 됩니다. | `current change`, [이슈 #241](https://github.com/dotnetpower/fdai/issues/241), 의미 계획 검사 79개 통과, Ruff, formatting 및 strict mypy 통과 | 작업을 닫기 전에 인증된 Console 및 3개 viewport 표현 근거를 보존합니다. |
 | 2026-08-19 | implemented | 보존 경고 쓰기를 hot path에서 추가 전용으로 유지하고, 프로세스 간 24시간 압축을 조정하며, 잠금 대기와 구조화 레코드에 상한을 두고, 완전한 로컬 파일 캡처를 터미널 역압력과 분리했습니다. 반복 aiokafka와 Pantheon 관찰자 실패는 서로 다른 최초·주기 근거를 보존하고, 관찰자 복구는 전달이나 권한을 바꾸지 않고 bridge 소유 횟수를 기록합니다. | [이슈 #220](https://github.com/dotnetpower/fdai/issues/220), 집중 검사에서 telemetry 18건·launcher 16건·provider integration 45건·framework layout 11건 통과, Ruff 및 strict mypy 통과, 비평 16회 결과 Low 잔여 tradeoff만 남음 | 구현을 런타임 근거로 취급하기 전에 실제 로컬 프로세스를 다시 시작합니다. 배포 및 승격 근거는 변경되지 않았습니다. |
 | 2026-08-19 | implemented | 프로바이더 중립 Inventory seam을 exact 0-or-all 신원 완전성 증적으로 확장하고 Azure의 미분류 행 조회는 delivery에 유지했습니다. `wire_inventory.py`는 집계와 신원 읽기를 하나의 semaphore와 원자적 최종 fence 아래에서 연결하고 Core는 canonical Resource 레코드만 받으며 composition facade는 적용되는 400 LOC 상한 아래에 남습니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Focused 검사 259개, Ruff, strict mypy 및 composition 계약 pin이 통과했습니다. | 검증을 주장하기 전에 새로운 실제 재조정 증적 하나를 보존합니다. |

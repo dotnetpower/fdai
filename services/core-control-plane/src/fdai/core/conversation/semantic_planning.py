@@ -44,9 +44,17 @@ from .semantic_investigation_planning import (
     compile_investigation_plan,
 )
 from .semantic_planning_cascade import ProposalRejectedError, SemanticPlanningCascade
+from .semantic_planning_frame import (
+    build_semantic_frame as _build_frame,
+)
+from .semantic_planning_frame import (
+    resolve_incident_reference as _resolve_incident_reference,
+)
+from .semantic_planning_frame import (
+    resolve_principal_scope_evidence_subject as _resolve_principal_scope_evidence_subject,
+)
 from .semantic_planning_models import (
     BoundIncident,
-    ClarificationRequirement,
     CompleteManifestSelector,
     QueryManifestProvider,
     QueryNodeProposal,
@@ -406,65 +414,6 @@ class SemanticPlanningService:
         return plan
 
 
-def _resolve_incident_reference(
-    proposal: SemanticFrameProposal,
-    frame: SemanticProblemFrame,
-    *,
-    utterance: str,
-    context: tuple[str, ...],
-) -> tuple[SemanticFrameProposal, SemanticProblemFrame]:
-    """The binding names the incident, so never ask the operator which one it is.
-
-    Only a turn that will read the anchored incident is answered by the binding.
-    Clearing the question on any other shape would let a proposed plan read a
-    different incident behind a question the operator never got to answer.
-    """
-    requirements = proposal.clarification_requirements
-    if (
-        requirements != (ClarificationRequirement.INCIDENT_REFERENCE,)
-        or frame.output_shape != SemanticOutputShape.INCIDENT_EVIDENCE
-    ):
-        return proposal, frame
-    resolved = proposal.model_copy(
-        update={
-            "unresolved_terms": (),
-            "clarification_requirements": (),
-            "clarification": None,
-        }
-    )
-    return resolved, _build_frame(resolved, utterance=utterance, context=context)
-
-
-def _resolve_principal_scope_evidence_subject(
-    proposal: SemanticFrameProposal,
-    frame: SemanticProblemFrame,
-    *,
-    utterance: str,
-    context: tuple[str, ...],
-) -> tuple[SemanticFrameProposal, SemanticProblemFrame]:
-    """Use the server-owned Resource scope for an otherwise complete evidence frame."""
-    if (
-        frame.operation is not SemanticOperation.VALIDATE
-        or frame.output_shape != SemanticOutputShape.EVIDENCE_VALIDATION
-        or proposal.clarification_requirements
-        not in {
-            (ClarificationRequirement.SUBJECT,),
-            (ClarificationRequirement.RESOURCE_IDENTITY,),
-        }
-        or proposal.subject_constraints not in {(), ("Resource",)}
-    ):
-        return proposal, frame
-    resolved = proposal.model_copy(
-        update={
-            "subject_constraints": ("Resource",),
-            "unresolved_terms": (),
-            "clarification_requirements": (),
-            "clarification": None,
-        }
-    )
-    return resolved, _build_frame(resolved, utterance=utterance, context=context)
-
-
 def _plan_node_summary(plan: OntologyQueryPlan) -> str:
     """Name the capabilities a verified plan selected, for operator diagnosis."""
     parts: list[str] = []
@@ -506,45 +455,6 @@ def _object_set_shape(arguments: object) -> str:
                 rendered.append(f"{field} {operator}")
     selected = name if isinstance(name, str) and name else "?"
     return f"[{selected}" + (f";{','.join(rendered)}]" if rendered else ";no-predicate]")
-
-
-def _build_frame(
-    proposal: SemanticFrameProposal,
-    *,
-    utterance: str,
-    context: tuple[str, ...],
-    investigation_intent: VerifiedInvestigationIntent | None = None,
-) -> SemanticProblemFrame:
-    input_digest = content_digest({"utterance": utterance, "context": context})
-    payload = {
-        "schema_version": "1.0.0",
-        "operation": proposal.operation.value,
-        "subject_constraints": proposal.subject_constraints,
-        "measure_concepts": proposal.measure_concepts,
-        "temporal_scope": proposal.temporal_scope,
-        "output_shape": proposal.output_shape.value,
-        "evidence_requirements": proposal.evidence_requirements,
-        "unresolved_terms": proposal.unresolved_terms,
-        "input_digest": input_digest,
-        "authority": "candidate_only",
-        "execution_authority": False,
-    }
-    if investigation_intent is not None:
-        payload["investigation_intent_digest"] = investigation_intent.intent_digest
-    return SemanticProblemFrame(
-        operation=proposal.operation,
-        subject_constraints=proposal.subject_constraints,
-        measure_concepts=proposal.measure_concepts,
-        temporal_scope_json=canonical_json(proposal.temporal_scope),
-        output_shape=proposal.output_shape.value,
-        evidence_requirements=proposal.evidence_requirements,
-        unresolved_terms=proposal.unresolved_terms,
-        investigation_intent_digest=(
-            investigation_intent.intent_digest if investigation_intent is not None else None
-        ),
-        input_digest=input_digest,
-        frame_digest=content_digest(payload),
-    )
 
 
 def _build_plan(
