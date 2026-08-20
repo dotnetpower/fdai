@@ -15,6 +15,7 @@ import {
 export interface PublicMigrationEntry {
   source: string;
   koreanSource?: string;
+  assetBase?: string;
   idPrefix?: string;
   blocks: number;
   reused: Record<number, string>;
@@ -60,8 +61,9 @@ export const PUBLIC_MIGRATION: PublicMigrationEntry[] = [
     reused: {},
   },
   {
-    source: "docs/user-guide/deck/ref-ontology-context-vs-rag.md",
-    koreanSource: "docs/user-guide/deck/ref-ontology-context-vs-rag-ko.md",
+    source: "site/src/content/docs/deck/ref-ontology-context-vs-rag.md",
+    koreanSource: "site/src/content/docs/ko/deck/ref-ontology-context-vs-rag.md",
+    assetBase: "../../diagrams/generated",
     idPrefix: "ontology-context-rag",
     blocks: 2,
     reused: {},
@@ -111,19 +113,23 @@ async function loadDiagram(root: string, id: string): Promise<DiagramSpec> {
 }
 
 function fallbackMarkdown(
+  entry: PublicMigrationEntry,
   sourcePath: string,
   id: string,
   locale: Locale,
   alt: string,
 ): string {
-  const target = path.posix.relative(
-    path.posix.dirname(sourcePath),
-    `docs/diagrams/generated/${id}.${locale}.svg`,
-  );
+  const target = fallbackAssetPath(entry, sourcePath, id, locale);
   return `![${alt.replaceAll("]", "\\]")}](${target})`;
 }
 
-function fallbackAssetPath(sourcePath: string, id: string, locale: Locale): string {
+function fallbackAssetPath(
+  entry: PublicMigrationEntry,
+  sourcePath: string,
+  id: string,
+  locale: Locale,
+): string {
+  if (entry.assetBase) return `${entry.assetBase}/${id}.${locale}.svg`;
   return path.posix.relative(
     path.posix.dirname(sourcePath),
     `docs/diagrams/generated/${id}.${locale}.svg`,
@@ -177,10 +183,10 @@ async function migrationPlan(root: string): Promise<MigrationPlan> {
       if (reusedId) reusedBlocks += 1;
       else specs.push(spec);
       englishReplacements.push(
-        fallbackMarkdown(englishPath, spec.id, "en", spec.locales.en.alt),
+        fallbackMarkdown(entry, englishPath, spec.id, "en", spec.locales.en.alt),
       );
       koreanReplacements.push(
-        fallbackMarkdown(koreanPath, spec.id, "ko", spec.locales.ko.alt),
+        fallbackMarkdown(entry, koreanPath, spec.id, "ko", spec.locales.ko.alt),
       );
       totalBlocks += 1;
     }
@@ -231,8 +237,8 @@ export async function validatePublishedMigration(root: string): Promise<Migratio
     }
     for (let blockIndex = 1; blockIndex <= entry.blocks; blockIndex += 1) {
       const id = diagramId(entry, blockIndex);
-      const englishAsset = fallbackAssetPath(englishPath, id, "en");
-      const koreanAsset = fallbackAssetPath(koreanPath, id, "ko");
+      const englishAsset = fallbackAssetPath(entry, englishPath, id, "en");
+      const koreanAsset = fallbackAssetPath(entry, koreanPath, id, "ko");
       if (!english.includes(`](${englishAsset})`) || !korean.includes(`](${koreanAsset})`)) {
         throw new Error(`${englishPath} is missing the localized fallback for ${id}`);
       }
@@ -298,10 +304,10 @@ export async function writePublicMigration(root: string): Promise<MigrationPlan>
           );
       if (!reusedId) specs.push(spec);
       englishReplacements.push(
-        fallbackMarkdown(englishPath, spec.id, "en", spec.locales.en.alt),
+        fallbackMarkdown(entry, englishPath, spec.id, "en", spec.locales.en.alt),
       );
       koreanReplacements.push(
-        fallbackMarkdown(koreanPath, spec.id, "ko", spec.locales.ko.alt),
+        fallbackMarkdown(entry, koreanPath, spec.id, "ko", spec.locales.ko.alt),
       );
     }
     await validateCompiledSpecs(specs);
