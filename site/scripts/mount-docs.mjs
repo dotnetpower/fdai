@@ -34,6 +34,7 @@ import { execFileSync } from "node:child_process";
 import { mkdir, readdir, readFile, rm, stat, symlink, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { publicationRecord, SITE_OWNED_ROUTES } from "./publication-manifest.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const siteRoot = resolve(scriptDir, "..");
@@ -45,6 +46,7 @@ const staleListPath = resolve(siteRoot, "src", "data", "stale-translations.json"
 // hand-authored files that happen to share a mount root (index.mdx,
 // ko/index.mdx, and any future user-guide top-level pages).
 const manifestPath = resolve(siteRoot, "src", "data", "mount-manifest.json");
+const publicationManifestPath = resolve(siteRoot, "src", "data", "publication-routes.json");
 
 /**
  * The engineering roadmap (docs/roadmap/**) is the source-of-truth
@@ -102,12 +104,14 @@ const RUNBOOK_SITE_ALLOWLIST = new Set([
 const MOUNTS = [
   {
     source: resolve(repoRoot, "docs", "user-guide"),
+    sourceKind: "user-guide",
     enPrefix: [],
     koPrefix: ["ko"],
     optional: true,
   },
   {
     source: resolve(repoRoot, "docs", "roadmap"),
+    sourceKind: "roadmap",
     enPrefix: ["reference", "roadmap"],
     koPrefix: ["ko", "reference", "roadmap"],
     optional: false,
@@ -115,6 +119,7 @@ const MOUNTS = [
   },
   {
     source: resolve(repoRoot, "docs", "runbooks"),
+    sourceKind: "runbook",
     enPrefix: ["runbooks"],
     koPrefix: ["ko", "runbooks"],
     optional: false,
@@ -277,6 +282,7 @@ async function main() {
   let linked = 0;
   const staleEntries = [];
   const createdLinks = [];
+  const publicationEntries = [...SITE_OWNED_ROUTES];
 
   for (const mount of MOUNTS) {
     const src = await stat(mount.source).catch(() => null);
@@ -295,6 +301,14 @@ async function main() {
       if (!target) continue;
       await linkOne(absPath, target);
       createdLinks.push(target);
+      publicationEntries.push(publicationRecord({
+        sourcePath: relative(repoRoot, absPath),
+        sourceKind: mount.sourceKind,
+        enPrefix: mount.enPrefix,
+        koPrefix: mount.koPrefix,
+        relPath,
+        content: await readFile(absPath, "utf8"),
+      }));
       linked += 1;
 
       // For each Korean translation, compare the recorded
@@ -328,11 +342,18 @@ async function main() {
     `${JSON.stringify(createdLinks, null, 2)}\n`,
     "utf8",
   );
+  publicationEntries.sort((left, right) => left.route.localeCompare(right.route));
+  await writeFile(
+    publicationManifestPath,
+    `${JSON.stringify(publicationEntries, null, 2)}\n`,
+    "utf8",
+  );
 
   console.log(`mount-docs: linked ${linked} markdown files across ${MOUNTS.length} tree(s).`);
   console.log(
     `mount-docs: stale-translations.json lists ${staleEntries.length} ko page(s) whose translation_source_sha is out of date.`,
   );
+  console.log(`mount-docs: publication-routes.json lists ${publicationEntries.length} classified route(s).`);
 }
 
 main().catch((err) => {

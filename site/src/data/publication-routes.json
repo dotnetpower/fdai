@@ -1,0 +1,1681 @@
+[
+  {
+    "route": "/",
+    "locale": "en",
+    "source_path": "site/src/content/docs/index.mdx",
+    "source_kind": "site",
+    "navigation_section": "Get started",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/404.html",
+    "locale": "en",
+    "source_path": "@astrojs/starlight/404",
+    "source_kind": "site",
+    "navigation_section": "Fallback",
+    "audience": "operator",
+    "publication_state": "fallback",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/architecture/",
+    "locale": "en",
+    "source_path": "docs/user-guide/architecture.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Get started",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [
+      "docs/roadmap/architecture/service-decomposition-execution-plan.md"
+    ],
+    "diagram_ids": [
+      "fdai-agent-driven-runtime",
+      "fdai-azure-deployment-topology",
+      "fdai-azure-resource-network-flow",
+      "fdai-conceptual-control-loop",
+      "fdai-reference-architecture",
+      "fdai-system-overview"
+    ]
+  },
+  {
+    "route": "/capabilities/change-safety/",
+    "locale": "en",
+    "source_path": "docs/user-guide/capabilities/change-safety.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [
+      "docs/roadmap/architecture/goals-and-metrics.md"
+    ],
+    "diagram_ids": []
+  },
+  {
+    "route": "/capabilities/cost-governance/",
+    "locale": "en",
+    "source_path": "docs/user-guide/capabilities/cost-governance.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [
+      "docs/roadmap/architecture/goals-and-metrics.md",
+      "docs/roadmap/interfaces/cost-model.md"
+    ],
+    "diagram_ids": []
+  },
+  {
+    "route": "/capabilities/resilience/",
+    "locale": "en",
+    "source_path": "docs/user-guide/capabilities/resilience.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [
+      "docs/roadmap/architecture/goals-and-metrics.md"
+    ],
+    "diagram_ids": []
+  },
+  {
+    "route": "/concepts/agents-and-self-healing/",
+    "locale": "en",
+    "source_path": "docs/user-guide/concepts/agents-and-self-healing.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Understand",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-agent-driven-runtime",
+      "fdai-agents-and-self-healing-02"
+    ]
+  },
+  {
+    "route": "/concepts/approvals-and-channels/",
+    "locale": "en",
+    "source_path": "docs/user-guide/concepts/approvals-and-channels.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Understand",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-approvals-and-channels-01"
+    ]
+  },
+  {
+    "route": "/concepts/deterministic-first/",
+    "locale": "en",
+    "source_path": "docs/user-guide/concepts/deterministic-first.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Understand",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-deterministic-first-01"
+    ]
+  },
+  {
+    "route": "/concepts/ontology-driven-automation/",
+    "locale": "en",
+    "source_path": "docs/user-guide/concepts/ontology-driven-automation.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Understand",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-ontology-driven-automation-01",
+      "fdai-ontology-driven-automation-02"
+    ]
+  },
+  {
+    "route": "/concepts/ownership-and-handover/",
+    "locale": "en",
+    "source_path": "docs/user-guide/concepts/ownership-and-handover.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Understand",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-ownership-and-handover-01"
+    ]
+  },
+  {
+    "route": "/concepts/risk-tiers/",
+    "locale": "en",
+    "source_path": "docs/user-guide/concepts/risk-tiers.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Understand",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-risk-tiers-01"
+    ]
+  },
+  {
+    "route": "/concepts/shadow-then-enforce/",
+    "locale": "en",
+    "source_path": "docs/user-guide/concepts/shadow-then-enforce.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Understand",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-shadow-then-enforce-01"
+    ]
+  },
+  {
+    "route": "/concepts/sre-foundations/",
+    "locale": "en",
+    "source_path": "docs/user-guide/concepts/sre-foundations.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Understand",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/deck/",
+    "locale": "en",
+    "source_path": "docs/user-guide/deck/README.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Reference",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/deck/l100-act1-why/",
+    "locale": "en",
+    "source_path": "docs/user-guide/deck/l100-act1-why.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Reference",
+    "audience": "operator",
+    "publication_state": "search-only",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/deck/l100-act2-how/",
+    "locale": "en",
+    "source_path": "docs/user-guide/deck/l100-act2-how.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Reference",
+    "audience": "operator",
+    "publication_state": "search-only",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/deck/l100-act3-adopt/",
+    "locale": "en",
+    "source_path": "docs/user-guide/deck/l100-act3-adopt.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Reference",
+    "audience": "operator",
+    "publication_state": "search-only",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/deck/ref-ontology-context-vs-rag/",
+    "locale": "en",
+    "source_path": "docs/user-guide/deck/ref-ontology-context-vs-rag.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Reference",
+    "audience": "operator",
+    "publication_state": "search-only",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-ontology-context-rag-01",
+      "fdai-ontology-context-rag-02"
+    ]
+  },
+  {
+    "route": "/deploy-quickstart/",
+    "locale": "en",
+    "source_path": "docs/user-guide/deploy-quickstart.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Get started",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/diagram-gallery/",
+    "locale": "en",
+    "source_path": "docs/user-guide/diagram-gallery.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Reference",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-assurance-radar",
+      "fdai-capability-quadrant",
+      "fdai-conceptual-control-loop",
+      "fdai-decision-mix",
+      "fdai-delivery-roadmap",
+      "fdai-evidence-sankey",
+      "fdai-governance-kanban"
+    ]
+  },
+  {
+    "route": "/get-started/",
+    "locale": "en",
+    "source_path": "docs/user-guide/get-started.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Get started",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [
+      "docs/roadmap/architecture/goals-and-metrics.md"
+    ],
+    "diagram_ids": [
+      "fdai-get-started-01"
+    ]
+  },
+  {
+    "route": "/guides/approve-change/",
+    "locale": "en",
+    "source_path": "docs/user-guide/guides/approve-change.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/guides/investigate-azure-resources/",
+    "locale": "en",
+    "source_path": "docs/user-guide/guides/investigate-azure-resources.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/guides/override-a-rule/",
+    "locale": "en",
+    "source_path": "docs/user-guide/guides/override-a-rule.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/guides/read-audit-log/",
+    "locale": "en",
+    "source_path": "docs/user-guide/guides/read-audit-log.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/guides/use-console-operations/",
+    "locale": "en",
+    "source_path": "docs/user-guide/guides/use-console-operations.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/guides/use-operator-conversations/",
+    "locale": "en",
+    "source_path": "docs/user-guide/guides/use-operator-conversations.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/",
+    "locale": "ko",
+    "source_path": "site/src/content/docs/ko/index.mdx",
+    "source_kind": "site",
+    "navigation_section": "Get started",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/404/",
+    "locale": "ko",
+    "source_path": "site/src/pages/ko/404.astro",
+    "source_kind": "site",
+    "navigation_section": "Fallback",
+    "audience": "operator",
+    "publication_state": "fallback",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/architecture/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/architecture-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-agent-driven-runtime",
+      "fdai-azure-deployment-topology",
+      "fdai-azure-resource-network-flow",
+      "fdai-conceptual-control-loop",
+      "fdai-reference-architecture",
+      "fdai-system-overview"
+    ]
+  },
+  {
+    "route": "/ko/capabilities/change-safety/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/capabilities/change-safety-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/capabilities/cost-governance/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/capabilities/cost-governance-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/capabilities/resilience/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/capabilities/resilience-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/concepts/agents-and-self-healing/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/concepts/agents-and-self-healing-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Understand",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-agent-driven-runtime",
+      "fdai-agents-and-self-healing-02"
+    ]
+  },
+  {
+    "route": "/ko/concepts/approvals-and-channels/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/concepts/approvals-and-channels-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Understand",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-approvals-and-channels-01"
+    ]
+  },
+  {
+    "route": "/ko/concepts/deterministic-first/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/concepts/deterministic-first-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Understand",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-deterministic-first-01"
+    ]
+  },
+  {
+    "route": "/ko/concepts/ontology-driven-automation/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/concepts/ontology-driven-automation-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Understand",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-ontology-driven-automation-01",
+      "fdai-ontology-driven-automation-02"
+    ]
+  },
+  {
+    "route": "/ko/concepts/ownership-and-handover/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/concepts/ownership-and-handover-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Understand",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-ownership-and-handover-01"
+    ]
+  },
+  {
+    "route": "/ko/concepts/risk-tiers/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/concepts/risk-tiers-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Understand",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-risk-tiers-01"
+    ]
+  },
+  {
+    "route": "/ko/concepts/shadow-then-enforce/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/concepts/shadow-then-enforce-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Understand",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-shadow-then-enforce-01"
+    ]
+  },
+  {
+    "route": "/ko/concepts/sre-foundations/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/concepts/sre-foundations-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Understand",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/deck/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/deck/README-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Reference",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/deck/l100-act1-why/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/deck/l100-act1-why-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Reference",
+    "audience": "operator",
+    "publication_state": "search-only",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/deck/l100-act2-how/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/deck/l100-act2-how-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Reference",
+    "audience": "operator",
+    "publication_state": "search-only",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/deck/l100-act3-adopt/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/deck/l100-act3-adopt-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Reference",
+    "audience": "operator",
+    "publication_state": "search-only",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/deck/ref-ontology-context-vs-rag/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/deck/ref-ontology-context-vs-rag-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Reference",
+    "audience": "operator",
+    "publication_state": "search-only",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-ontology-context-rag-01",
+      "fdai-ontology-context-rag-02"
+    ]
+  },
+  {
+    "route": "/ko/deploy-quickstart/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/deploy-quickstart-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/diagram-gallery/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/diagram-gallery-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-assurance-radar",
+      "fdai-capability-quadrant",
+      "fdai-conceptual-control-loop",
+      "fdai-decision-mix",
+      "fdai-delivery-roadmap",
+      "fdai-evidence-sankey",
+      "fdai-governance-kanban"
+    ]
+  },
+  {
+    "route": "/ko/get-started/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/get-started-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-get-started-01"
+    ]
+  },
+  {
+    "route": "/ko/guides/approve-change/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/guides/approve-change-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/guides/investigate-azure-resources/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/guides/investigate-azure-resources-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/guides/override-a-rule/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/guides/override-a-rule-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/guides/read-audit-log/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/guides/read-audit-log-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/guides/use-console-operations/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/guides/use-console-operations-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/guides/use-operator-conversations/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/guides/use-operator-conversations-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/reference/roadmap/",
+    "locale": "ko",
+    "source_path": "docs/roadmap/README-ko.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "search-only",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-delivery-roadmap"
+    ]
+  },
+  {
+    "route": "/ko/reference/roadmap/agents/",
+    "locale": "ko",
+    "source_path": "docs/roadmap/agents/README-ko.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "search-only",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-agent-waves-01"
+    ]
+  },
+  {
+    "route": "/ko/reference/roadmap/agents/agent-workflows/",
+    "locale": "ko",
+    "source_path": "docs/roadmap/agents/agent-workflows-ko.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-agent-workflows-01",
+      "fdai-agent-workflows-02",
+      "fdai-agent-workflows-03",
+      "fdai-agent-workflows-04",
+      "fdai-agent-workflows-05",
+      "fdai-agent-workflows-06",
+      "fdai-agent-workflows-07",
+      "fdai-agent-workflows-08",
+      "fdai-agent-workflows-09",
+      "fdai-agent-workflows-10",
+      "fdai-agent-workflows-11",
+      "fdai-agent-workflows-12"
+    ]
+  },
+  {
+    "route": "/ko/reference/roadmap/architecture/architecture-review-board/",
+    "locale": "ko",
+    "source_path": "docs/roadmap/architecture/architecture-review-board-ko.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/reference/roadmap/architecture/decisions/",
+    "locale": "ko",
+    "source_path": "docs/roadmap/architecture/decisions/README-ko.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "search-only",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/reference/roadmap/architecture/goals-and-metrics/",
+    "locale": "ko",
+    "source_path": "docs/roadmap/architecture/goals-and-metrics-ko.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/reference/roadmap/decisioning/escalation-and-standing-authority/",
+    "locale": "ko",
+    "source_path": "docs/roadmap/decisioning/escalation-and-standing-authority-ko.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-escalation-and-standing-authority-01",
+      "fdai-escalation-and-standing-authority-02"
+    ]
+  },
+  {
+    "route": "/ko/reference/roadmap/decisioning/risk-classification/",
+    "locale": "ko",
+    "source_path": "docs/roadmap/decisioning/risk-classification-ko.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/reference/roadmap/deployment/deploy-and-onboard/",
+    "locale": "ko",
+    "source_path": "docs/roadmap/deployment/deploy-and-onboard-ko.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-deploy-and-onboard-01"
+    ]
+  },
+  {
+    "route": "/ko/reference/roadmap/deployment/deployment-preflight/",
+    "locale": "ko",
+    "source_path": "docs/roadmap/deployment/deployment-preflight-ko.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/reference/roadmap/deployment/preflight-active-reassembly/",
+    "locale": "ko",
+    "source_path": "docs/roadmap/deployment/preflight-active-reassembly-ko.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/reference/roadmap/fork-and-sequencing/implementation-plan/",
+    "locale": "ko",
+    "source_path": "docs/roadmap/fork-and-sequencing/implementation-plan-ko.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/reference/roadmap/interfaces/channels-and-notifications/",
+    "locale": "ko",
+    "source_path": "docs/roadmap/interfaces/channels-and-notifications-ko.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-channels-and-notifications-01"
+    ]
+  },
+  {
+    "route": "/ko/reference/roadmap/interfaces/operator-console/",
+    "locale": "ko",
+    "source_path": "docs/roadmap/interfaces/operator-console-ko.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-operator-console-01"
+    ]
+  },
+  {
+    "route": "/ko/reference/roadmap/operations/operating-and-verification/",
+    "locale": "ko",
+    "source_path": "docs/roadmap/operations/operating-and-verification-ko.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-operating-and-verification-01"
+    ]
+  },
+  {
+    "route": "/ko/reference/roadmap/operations/operational-readiness/",
+    "locale": "ko",
+    "source_path": "docs/roadmap/operations/operational-readiness-ko.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/reference/roadmap/rules-and-detection/observability-and-detection/",
+    "locale": "ko",
+    "source_path": "docs/roadmap/rules-and-detection/observability-and-detection-ko.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/runbooks/",
+    "locale": "ko",
+    "source_path": "docs/runbooks/README-ko.md",
+    "source_kind": "runbook",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/runbooks/alert-tuning/",
+    "locale": "ko",
+    "source_path": "docs/runbooks/alert-tuning-ko.md",
+    "source_kind": "runbook",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/runbooks/chaos-game-day/",
+    "locale": "ko",
+    "source_path": "docs/runbooks/chaos-game-day-ko.md",
+    "source_kind": "runbook",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/runbooks/db-dr-drill/",
+    "locale": "ko",
+    "source_path": "docs/runbooks/db-dr-drill-ko.md",
+    "source_kind": "runbook",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/runbooks/entra-app-registration/",
+    "locale": "ko",
+    "source_path": "docs/runbooks/entra-app-registration-ko.md",
+    "source_kind": "runbook",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/runbooks/exemption-workflow/",
+    "locale": "ko",
+    "source_path": "docs/runbooks/exemption-workflow-ko.md",
+    "source_kind": "runbook",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/runbooks/incident-mitigation-and-rollback/",
+    "locale": "ko",
+    "source_path": "docs/runbooks/incident-mitigation-and-rollback-ko.md",
+    "source_kind": "runbook",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/runbooks/incident-triage/",
+    "locale": "ko",
+    "source_path": "docs/runbooks/incident-triage-ko.md",
+    "source_kind": "runbook",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/runbooks/postmortem-workflow/",
+    "locale": "ko",
+    "source_path": "docs/runbooks/postmortem-workflow-ko.md",
+    "source_kind": "runbook",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/runbooks/rca-evidence-collection/",
+    "locale": "ko",
+    "source_path": "docs/runbooks/rca-evidence-collection-ko.md",
+    "source_kind": "runbook",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/runbooks/slo-burn-response/",
+    "locale": "ko",
+    "source_path": "docs/runbooks/slo-burn-response-ko.md",
+    "source_kind": "runbook",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/sre/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/sre/README-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/sre/capacity-and-performance/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/sre/capacity-and-performance-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/sre/chaos-engineering/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/sre/chaos-engineering-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/sre/disaster-recovery-and-drills/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/sre/disaster-recovery-and-drills-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/sre/incident-management/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/sre/incident-management-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/sre/measuring-sre-outcomes/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/sre/measuring-sre-outcomes-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/sre/observability-detection-and-forecasting/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/sre/observability-detection-and-forecasting-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/sre/on-call-and-escalation/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/sre/on-call-and-escalation-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/sre/postmortems-and-learning/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/sre/postmortems-and-learning-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/sre/response-plans-and-mitigation/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/sre/response-plans-and-mitigation-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/sre/root-cause-analysis/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/sre/root-cause-analysis-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/sre/scenario-validation-inventory/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/sre/scenario-validation-inventory-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/sre/slos-and-error-budgets/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/sre/slos-and-error-budgets-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/ko/sre/triage-and-investigation/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/sre/triage-and-investigation-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/reference/roadmap/",
+    "locale": "en",
+    "source_path": "docs/roadmap/README.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-delivery-roadmap"
+    ]
+  },
+  {
+    "route": "/reference/roadmap/agents/",
+    "locale": "en",
+    "source_path": "docs/roadmap/agents/README.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "search-only",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-agent-waves-01"
+    ]
+  },
+  {
+    "route": "/reference/roadmap/agents/agent-workflows/",
+    "locale": "en",
+    "source_path": "docs/roadmap/agents/agent-workflows.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-agent-workflows-01",
+      "fdai-agent-workflows-02",
+      "fdai-agent-workflows-03",
+      "fdai-agent-workflows-04",
+      "fdai-agent-workflows-05",
+      "fdai-agent-workflows-06",
+      "fdai-agent-workflows-07",
+      "fdai-agent-workflows-08",
+      "fdai-agent-workflows-09",
+      "fdai-agent-workflows-10",
+      "fdai-agent-workflows-11",
+      "fdai-agent-workflows-12"
+    ]
+  },
+  {
+    "route": "/reference/roadmap/architecture/architecture-review-board/",
+    "locale": "en",
+    "source_path": "docs/roadmap/architecture/architecture-review-board.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/reference/roadmap/architecture/decisions/",
+    "locale": "en",
+    "source_path": "docs/roadmap/architecture/decisions/README.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "search-only",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/reference/roadmap/architecture/goals-and-metrics/",
+    "locale": "en",
+    "source_path": "docs/roadmap/architecture/goals-and-metrics.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/reference/roadmap/decisioning/escalation-and-standing-authority/",
+    "locale": "en",
+    "source_path": "docs/roadmap/decisioning/escalation-and-standing-authority.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-escalation-and-standing-authority-01",
+      "fdai-escalation-and-standing-authority-02"
+    ]
+  },
+  {
+    "route": "/reference/roadmap/decisioning/risk-classification/",
+    "locale": "en",
+    "source_path": "docs/roadmap/decisioning/risk-classification.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/reference/roadmap/deployment/deploy-and-onboard/",
+    "locale": "en",
+    "source_path": "docs/roadmap/deployment/deploy-and-onboard.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-deploy-and-onboard-01"
+    ]
+  },
+  {
+    "route": "/reference/roadmap/deployment/deployment-preflight/",
+    "locale": "en",
+    "source_path": "docs/roadmap/deployment/deployment-preflight.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/reference/roadmap/deployment/preflight-active-reassembly/",
+    "locale": "en",
+    "source_path": "docs/roadmap/deployment/preflight-active-reassembly.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/reference/roadmap/fork-and-sequencing/implementation-plan/",
+    "locale": "en",
+    "source_path": "docs/roadmap/fork-and-sequencing/implementation-plan.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/reference/roadmap/interfaces/channels-and-notifications/",
+    "locale": "en",
+    "source_path": "docs/roadmap/interfaces/channels-and-notifications.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-channels-and-notifications-01"
+    ]
+  },
+  {
+    "route": "/reference/roadmap/interfaces/operator-console/",
+    "locale": "en",
+    "source_path": "docs/roadmap/interfaces/operator-console.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-operator-console-01"
+    ]
+  },
+  {
+    "route": "/reference/roadmap/operations/operating-and-verification/",
+    "locale": "en",
+    "source_path": "docs/roadmap/operations/operating-and-verification.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": [
+      "fdai-operating-and-verification-01"
+    ]
+  },
+  {
+    "route": "/reference/roadmap/operations/operational-readiness/",
+    "locale": "en",
+    "source_path": "docs/roadmap/operations/operational-readiness.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/reference/roadmap/rules-and-detection/observability-and-detection/",
+    "locale": "en",
+    "source_path": "docs/roadmap/rules-and-detection/observability-and-detection.md",
+    "source_kind": "roadmap",
+    "navigation_section": "Reference",
+    "audience": "operator-and-contributor",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/runbooks/",
+    "locale": "en",
+    "source_path": "docs/runbooks/README.md",
+    "source_kind": "runbook",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/runbooks/alert-tuning/",
+    "locale": "en",
+    "source_path": "docs/runbooks/alert-tuning.md",
+    "source_kind": "runbook",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/runbooks/chaos-game-day/",
+    "locale": "en",
+    "source_path": "docs/runbooks/chaos-game-day.md",
+    "source_kind": "runbook",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/runbooks/db-dr-drill/",
+    "locale": "en",
+    "source_path": "docs/runbooks/db-dr-drill.md",
+    "source_kind": "runbook",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/runbooks/entra-app-registration/",
+    "locale": "en",
+    "source_path": "docs/runbooks/entra-app-registration.md",
+    "source_kind": "runbook",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/runbooks/exemption-workflow/",
+    "locale": "en",
+    "source_path": "docs/runbooks/exemption-workflow.md",
+    "source_kind": "runbook",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/runbooks/incident-mitigation-and-rollback/",
+    "locale": "en",
+    "source_path": "docs/runbooks/incident-mitigation-and-rollback.md",
+    "source_kind": "runbook",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/runbooks/incident-triage/",
+    "locale": "en",
+    "source_path": "docs/runbooks/incident-triage.md",
+    "source_kind": "runbook",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/runbooks/postmortem-workflow/",
+    "locale": "en",
+    "source_path": "docs/runbooks/postmortem-workflow.md",
+    "source_kind": "runbook",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/runbooks/rca-evidence-collection/",
+    "locale": "en",
+    "source_path": "docs/runbooks/rca-evidence-collection.md",
+    "source_kind": "runbook",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/runbooks/slo-burn-response/",
+    "locale": "en",
+    "source_path": "docs/runbooks/slo-burn-response.md",
+    "source_kind": "runbook",
+    "navigation_section": "Operate",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/sre/",
+    "locale": "en",
+    "source_path": "docs/user-guide/sre/README.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/sre/capacity-and-performance/",
+    "locale": "en",
+    "source_path": "docs/user-guide/sre/capacity-and-performance.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/sre/chaos-engineering/",
+    "locale": "en",
+    "source_path": "docs/user-guide/sre/chaos-engineering.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/sre/disaster-recovery-and-drills/",
+    "locale": "en",
+    "source_path": "docs/user-guide/sre/disaster-recovery-and-drills.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/sre/incident-management/",
+    "locale": "en",
+    "source_path": "docs/user-guide/sre/incident-management.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/sre/measuring-sre-outcomes/",
+    "locale": "en",
+    "source_path": "docs/user-guide/sre/measuring-sre-outcomes.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/sre/observability-detection-and-forecasting/",
+    "locale": "en",
+    "source_path": "docs/user-guide/sre/observability-detection-and-forecasting.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/sre/on-call-and-escalation/",
+    "locale": "en",
+    "source_path": "docs/user-guide/sre/on-call-and-escalation.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/sre/postmortems-and-learning/",
+    "locale": "en",
+    "source_path": "docs/user-guide/sre/postmortems-and-learning.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/sre/response-plans-and-mitigation/",
+    "locale": "en",
+    "source_path": "docs/user-guide/sre/response-plans-and-mitigation.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/sre/root-cause-analysis/",
+    "locale": "en",
+    "source_path": "docs/user-guide/sre/root-cause-analysis.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/sre/scenario-validation-inventory/",
+    "locale": "en",
+    "source_path": "docs/user-guide/sre/scenario-validation-inventory.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/sre/slos-and-error-budgets/",
+    "locale": "en",
+    "source_path": "docs/user-guide/sre/slos-and-error-budgets.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
+    "route": "/sre/triage-and-investigation/",
+    "locale": "en",
+    "source_path": "docs/user-guide/sre/triage-and-investigation.md",
+    "source_kind": "user-guide",
+    "navigation_section": "SRE",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  }
+]

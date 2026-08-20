@@ -88,7 +88,7 @@ jobs:
 
       - name: Verify architecture diagrams
         working-directory: tools/architecture-diagrams
-        run: npm test && npm run typecheck && npm run check
+        run: npm test && npm run typecheck && npm run check && npm run check-public-migration && npm run check-repository-migration
 
       - name: Install dependencies
         working-directory: site
@@ -107,6 +107,10 @@ jobs:
         with:
           enablement: false
 
+      - name: Test site source
+        working-directory: site
+        run: npm test
+
       - name: Build site
         working-directory: site
         env:
@@ -115,6 +119,15 @@ jobs:
           SITE_URL: ${{ steps.pages.outputs.origin || 'https://dotnetpower.github.io' }}
           BASE_PATH: ${{ steps.pages.outputs.base_path || '/fdai' }}
         run: npm run build
+
+      - name: Verify built routes and links
+        working-directory: site
+        env:
+          BASE_PATH: ${{ steps.pages.outputs.base_path || '/fdai' }}
+        run: npm run check:built
+
+      - name: Verify publication manifest is current
+        run: git diff --exit-code -- site/src/data/publication-routes.json
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0

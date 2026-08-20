@@ -57,6 +57,45 @@ normal Starlight disclosure tree remains available.
 
 The route and locale contract is covered by `test/focused-navigation.test.mjs`;
 desktop and mobile DOM behavior is verified with Playwright during UI changes.
+The Reference section also links the diagram gallery and presentation deck so
+these visual resources are deliberate documentation destinations rather than
+orphan build outputs.
+
+## Publication manifest
+
+Each build generates
+[`src/data/publication-routes.json`](src/data/publication-routes.json) from the
+canonical mount inputs. Every public route records its locale, source owner,
+source kind, navigation section, audience, publication state, derived sources,
+and diagram IDs. The supported publication states are:
+
+- `navigated`: reachable from the English or Korean home page through ordinary
+  links and navigation.
+- `search-only`: intentionally published reference detail that isn't part of
+  the primary task journey.
+- `fallback`: a locale-specific not-found route.
+
+The generated manifest is committed so route additions and removals are
+reviewable. The Pages workflow rebuilds it and fails when the committed copy is
+stale. A canonical Markdown file remains the only content owner; mounted
+symlinks and the manifest are presentation outputs.
+
+## Site validation
+
+Run the same fast source and built-artifact checks used by Pages:
+
+```bash
+npm test
+npm run build
+npm run check:built
+```
+
+The built-site check parses all generated HTML with `parse5`. It verifies that
+the route manifest and generated pages agree, local links and assets resolve
+under the production base path, anchors exist, navigated routes are reachable
+from the matching locale home, each documentation page has one H1, and no
+Mermaid runtime container remains. Artifact upload runs only after these checks
+pass.
 
 ## Local development
 
@@ -71,7 +110,7 @@ npm run preview
 
 ## Deployment
 
-`main` → `.github/workflows/pages.yml` → `actions/deploy-pages@v4`. Fork owners can
+`main` → `.github/workflows/pages.yml` → `actions/deploy-pages@v5`. Fork owners can
 override the target URL without editing config:
 
 ```bash

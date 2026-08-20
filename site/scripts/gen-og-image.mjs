@@ -11,7 +11,7 @@
 // headless here, so a single captured frame is committed as the source
 // asset scripts/og-nebula-bg.png (1200x900) and this script composites
 // the FDAI wordmark over it. Re-capture the background by serving
-// site/public/nebula-demo.html, screenshotting the canvas, and
+// site/scripts/nebula-demo.html, screenshotting the canvas, and
 // cover-resizing to 1200x900 -> scripts/og-nebula-bg.png.
 //
 // The output is a static asset committed at site/public/og-cover.png.

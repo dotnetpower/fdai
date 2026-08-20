@@ -415,6 +415,16 @@ export default defineConfig({
                   translations: { ko: "Alert tuning" },
                   link: "/runbooks/alert-tuning/",
                 },
+                {
+                  label: "Register a Microsoft Entra application",
+                  translations: { ko: "Microsoft Entra 애플리케이션 등록" },
+                  link: "/runbooks/entra-app-registration/",
+                },
+                {
+                  label: "Handle an exemption",
+                  translations: { ko: "예외 처리" },
+                  link: "/runbooks/exemption-workflow/",
+                },
               ],
             },
             {
@@ -463,6 +473,16 @@ export default defineConfig({
           label: "Reference",
           translations: { ko: "레퍼런스" },
           items: [
+            {
+              label: "Diagram gallery",
+              translations: { ko: "다이어그램 갤러리" },
+              link: "/diagram-gallery/",
+            },
+            {
+              label: "Presentation deck",
+              translations: { ko: "프레젠테이션 자료" },
+              link: "/deck/",
+            },
             {
               label: "Goals & metrics",
               translations: { ko: "목표와 메트릭" },
