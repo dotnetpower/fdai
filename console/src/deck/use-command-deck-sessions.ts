@@ -5,6 +5,7 @@ import {
   fetchConversationTurns,
   fetchUserContext,
   type ConversationCursorPayload,
+  UserContextRequestError,
 } from "../user-context-client";
 import { restoredTurn, sessionIdFor } from "./command-deck-session";
 import type { Turn } from "./command-deck-presenters";
@@ -31,6 +32,26 @@ import {
 import { EMPTY_HISTORY } from "./draft-history";
 import { parseTurns, serializeTurns, transcriptKeyFor } from "./transcript-store";
 import type { IncidentConversationBinding } from "./open-deck";
+
+export type ConversationHydrationStatus =
+  | "idle"
+  | "loading"
+  | "empty"
+  | "unavailable"
+  | "error";
+
+export interface ConversationHydrationState {
+  readonly key: string;
+  readonly status: ConversationHydrationStatus;
+}
+
+export function conversationHydrationFailureStatus(
+  error: unknown,
+): "unavailable" | "error" {
+  return error instanceof UserContextRequestError && [404, 501, 503].includes(error.status)
+    ? "unavailable"
+    : "error";
+}
 
 export function sessionStore(): Storage | null {
   if (typeof window === "undefined") return null;
@@ -93,6 +114,10 @@ export function useCommandDeckSessionState(
   const [conversationHasMore, setConversationHasMore] = useState(false);
   const [conversationPageLoading, setConversationPageLoading] = useState(false);
   const conversationPageLoadingRef = useRef(false);
+  const [conversationHydration, setConversationHydration] = useState<ConversationHydrationState>({
+    key: initialScreenSession,
+    status: "idle",
+  });
 
   const mergeServerPage = useCallback((records: readonly ConversationSummary[]) => {
     setConversations((current) => {
@@ -180,6 +205,7 @@ export function useCommandDeckSessionState(
   return {
     conversations,
     conversationHasMore,
+    conversationHydration,
     conversationPageLoading,
     historyRef,
     indexKey,
@@ -190,6 +216,7 @@ export function useCommandDeckSessionState(
     sessionLabel,
     sessionMetadataRef,
     setConversations,
+    setConversationHydration,
     setSessionKey,
     setSessionLabel,
     setTurns,
@@ -211,6 +238,7 @@ interface SessionControllerOptions {
   readonly turnsRef: { current: readonly Turn[] };
   readonly historyRef: { current: typeof EMPTY_HISTORY };
   readonly setConversations: (value: readonly ConversationSummary[]) => void;
+  readonly setConversationHydration: (value: ConversationHydrationState) => void;
   readonly setDraft: (value: string) => void;
   readonly setSessionKey: (value: string) => void;
   readonly setSessionLabel: (value: string | null) => void;
@@ -239,6 +267,7 @@ export function useCommandDeckSessionController({
   turnsRef,
   historyRef,
   setConversations,
+  setConversationHydration,
   setDraft,
   setSessionKey,
   setSessionLabel,
@@ -252,15 +281,22 @@ export function useCommandDeckSessionController({
 }: SessionControllerOptions) {
   const hydrateDurableTurns = useCallback(async (key: string): Promise<void> => {
     if (sessionKeyRef.current !== key || turnsRef.current.length > 0) return;
+    const summary = conversations.find((item) => item.key === key);
+    const expectsDurableHistory = summary?.restoredFromServer === true;
+    if (expectsDurableHistory) setConversationHydration({ key, status: "loading" });
     try {
       const durable = await fetchConversationTurns(sessionIdFor(sessionIdsRef.current, key));
-      if (sessionKeyRef.current !== key || turnsRef.current.length > 0 || durable.length === 0) {
+      if (sessionKeyRef.current !== key || turnsRef.current.length > 0) {
+        return;
+      }
+      if (durable.length === 0) {
+        if (expectsDurableHistory) setConversationHydration({ key, status: "empty" });
         return;
       }
       const restored = durable.map(restoredTurn);
       turnsRef.current = restored;
       setTurns(restored);
-      const summary = conversations.find((item) => item.key === key);
+      setConversationHydration({ key, status: "idle" });
       const firstOperator = durable.find((turn) => turn.role === "operator");
       if (summary?.restoredFromServer && firstOperator) {
         const titled = {
@@ -276,14 +312,17 @@ export function useCommandDeckSessionController({
       } catch {
         /* browser cache is best-effort; durable history remains authoritative */
       }
-    } catch {
-      /* A missing server conversation is a normal first-open cache miss. */
+    } catch (error) {
+      if (expectsDurableHistory && sessionKeyRef.current === key) {
+        setConversationHydration({ key, status: conversationHydrationFailureStatus(error) });
+      }
     }
   }, [
     conversations,
     sessionIdsRef,
     sessionKeyRef,
     sessionMetadataRef,
+    setConversationHydration,
     setTurns,
     turnsRef,
     updateConversationIndex,
@@ -322,6 +361,7 @@ export function useCommandDeckSessionController({
       : [];
     sessionKeyRef.current = key;
     turnsRef.current = next;
+    setConversationHydration({ key, status: "idle" });
     setSessionKey(key);
     setSessionLabel(agent);
     setTurns(next);
@@ -365,6 +405,7 @@ export function useCommandDeckSessionController({
     sessionKeyRef,
     sessionMetadataRef,
     setActiveSearchMatch,
+    setConversationHydration,
     setSearchQuery,
     setSessionKey,
     setSessionLabel,

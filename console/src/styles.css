@@ -6292,7 +6292,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   gap: 10px;
   min-height: 40px;
   box-sizing: border-box;
-  padding: 4px max(20px, calc((100% - 900px) / 2));
+  padding: 4px max(20px, calc((100% - 1100px) / 2));
 }
 .deck-header-title {
   grid-area: title;
@@ -6397,7 +6397,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   gap: 12px;
 }
 .deck-search {
-  flex: 0 1 320px;
+  flex: 0 1 420px;
   min-width: 180px;
   display: flex;
   align-items: center;
@@ -7589,6 +7589,44 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   flex-wrap: wrap;
   gap: 6px;
 }
+
+.deck-history-state {
+  width: min(100%, 720px);
+  box-sizing: border-box;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+}
+.deck-history-state strong { display: block; margin-bottom: 4px; font-size: 14px; }
+.deck-history-state p { max-width: 62ch; margin: 0; color: var(--fg-muted); font-size: 13px; }
+.deck-history-state button {
+  min-height: 36px;
+  margin-top: 12px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+.deck-history-state button:hover { border-color: var(--fg-muted); }
+.deck-history-state button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.deck-history-state.is-error { border-color: color-mix(in oklab, var(--danger) 45%, var(--border)); }
+.deck-history-state.is-loading {
+  display: grid;
+  gap: 10px;
+}
+.deck-history-state.is-loading span {
+  height: 14px;
+  border-radius: 4px;
+  background: var(--skeleton, var(--bg-subtle));
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+.deck-history-state.is-loading span:nth-child(1) { width: 42%; }
+.deck-history-state.is-loading span:nth-child(2) { width: 88%; }
+.deck-history-state.is-loading span:nth-child(3) { width: 68%; }
 .deck-suggest {
   padding: 6px 12px;
   border-radius: 999px;
@@ -10163,7 +10201,11 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
   }
-  .deck-body.has-conversations { grid-template-rows: auto minmax(0, 1fr); }
+  .deck-body.has-conversations,
+  .deck-body.has-conversations.has-digest {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
   .deck-conversations {
     overflow: visible;
     padding: 8px 12px;
@@ -10186,7 +10228,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   .topbar .principal button,
   .topbar .principal .theme-toggle { min-height: 44px; }
   .deck-invoke { left: var(--rail-width); }
-  .deck-overlay { left: 0; }
+  .deck-overlay,
+  .deck-overlay.deck-overlay-mode-workspace { left: 0; }
   .deck-overlay-mode-floating,
   .deck-overlay-mode-dock {
     inset: var(--header-height) 0 0;
@@ -10203,14 +10246,14 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   .deck-invoke-kbd { display: none; }
   .deck-backend-invoke { margin-left: auto; }
   .deck-header {
-    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
-      "title new controls close"
-      "headline headline headline headline";
+      "title close"
+      "headline headline";
     gap: 6px 10px;
-    padding: 10px 12px;
+    padding: 6px 12px;
   }
-  .deck-overlay-mode-workspace .deck-header { padding: 8px 12px; }
+  .deck-overlay-mode-workspace .deck-header { padding: 6px 12px; }
   .deck-header-title {
     grid-area: title;
     min-width: 0;
@@ -10223,10 +10266,11 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
     grid-template-columns: minmax(0, 1fr);
     gap: 6px;
   }
+  .deck-header-new-slot,
+  .deck-layout-controls { display: none; }
   .deck-search { width: 100%; min-width: 0; }
+  .deck-search input { min-height: 44px; }
   .deck-search button { width: 44px; height: 44px; }
-  .deck-layout-controls { grid-area: controls; }
-  .deck-layout-button { width: 44px; height: 44px; }
   .deck-close { grid-area: close; width: 44px; height: 44px; }
   .deck-backend-header {
     max-width: 100%;
@@ -10240,6 +10284,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
     white-space: nowrap;
   }
   .deck-transcript-inner { padding: 16px 12px 72px; }
+  .deck-source-status { min-height: 44px; box-sizing: border-box; }
   .deck-transcript-tools { overflow-x: auto; padding-inline: 12px; }
   .deck-transcript-tools button,
   .deck-overlay-mode-workspace .deck-transcript-tools button {
@@ -10311,12 +10356,17 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
     padding: 10px 12px 12px;
   }
   .deck-input-row button { min-width: 44px; min-height: 44px; }
-  .deck-composer-inner { grid-template-columns: auto minmax(0, 1fr); gap: 8px; }
+  .deck-input { min-height: 44px; }
+  .deck-vertical-suggest,
+  .deck-suggest { min-height: 44px; }
+  .deck-history-state button { min-height: 44px; }
+  .deck-composer-inner { grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; }
+  .deck-composer-inner > .tooltip-anchor { align-self: end; }
   .deck-overlay-mode-workspace .deck-composer-inner { padding-inline: 0; }
   .deck-overlay-mode-workspace .deck-btn-primary,
   .deck-overlay-mode-workspace .deck-btn-stop { min-width: 0; }
-  .deck-input-actions { grid-column: 1 / -1; }
-  .deck-input-actions { justify-content: flex-end; }
+  .deck-input-actions { grid-column: auto; justify-content: flex-end; }
+  .deck-btn { padding-inline: 12px; }
   .deck-btn { min-height: 44px; }
 }
 
@@ -10343,6 +10393,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   .deck-next-skeleton-line,
   .deck-next-skeleton-pill,
   .deck-conversation-load-skeleton span,
+  .deck-history-state.is-loading span,
   .deck-investigation-item-disclosure[open] > .deck-investigation-execution,
   .deck-investigation-spinner,
   .deck-branch-item,

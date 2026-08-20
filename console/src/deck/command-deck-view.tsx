@@ -18,6 +18,7 @@ import { DigestList } from "./command-deck-digest";
 import { CommandDeckLauncher } from "./command-deck-launcher";
 import { CommandDeckHeader } from "./command-deck-header";
 import { ComposerAttachments } from "./composer-attachments.view";
+import { ConversationHistoryState } from "./conversation-history-state";
 import { ContextFreshnessIndicator } from "./context-freshness";
 import { resumedConversationAt } from "./conversation-resume";
 import { clampDockWidth, type DeckLayoutMode } from "./command-deck-session";
@@ -25,6 +26,7 @@ import { presentationTimestamp } from "./presentation-value";
 import { investigationFlowPosition } from "./investigation-turn-state";
 import type { DeckSlashCommand } from "./command-deck-slash";
 import type { ConversationSummary } from "./conversation-sessions";
+import type { ConversationHydrationState } from "./use-command-deck-sessions";
 import { conversationTrajectoriesByAnswer } from "./conversation-trajectory";
 import {
   clampConversationWidth,
@@ -49,6 +51,7 @@ interface CommandDeckViewProps {
   readonly srStatus: string;
   readonly conversations: readonly ConversationSummary[];
   readonly conversationHasMore: boolean;
+  readonly conversationHydration: ConversationHydrationState;
   readonly conversationPageLoading: boolean;
   readonly sessionKey: string;
   readonly currentPath: string;
@@ -79,6 +82,7 @@ interface CommandDeckViewProps {
   readonly onMoveSearch: (direction: -1 | 1) => void;
   readonly onNewConversation: () => void;
   readonly onLoadMoreConversations: () => void;
+  readonly onRetryConversation: () => void;
   readonly onSelectLayout: (mode: DeckLayoutMode) => void;
   readonly onRemoveConversation: (conversation: ConversationSummary) => void;
   readonly onToggleFavorite: (conversation: ConversationSummary) => void;
@@ -107,6 +111,7 @@ export function CommandDeckView({
   srStatus,
   conversations,
   conversationHasMore,
+  conversationHydration,
   conversationPageLoading,
   sessionKey,
   currentPath,
@@ -137,6 +142,7 @@ export function CommandDeckView({
   onMoveSearch,
   onNewConversation,
   onLoadMoreConversations,
+  onRetryConversation,
   onSelectLayout,
   onRemoveConversation,
   onToggleFavorite,
@@ -183,6 +189,9 @@ export function CommandDeckView({
     lastTurn.kind !== "activity" && lastTurn.source !== "investigation" &&
     (lastTurn.streaming === true || lastTurn.terminal === true);
   const showPreparingAnswer = inFlight && !finalAnswerPresent;
+  const hydrationStatus = conversationHydration.key === sessionKey
+    ? conversationHydration.status
+    : "idle";
   const activeOperatorIndex = turns.reduce(
     (latest, turn, index) => turn.role === "operator" ? index : latest,
     -1,
@@ -286,6 +295,7 @@ export function CommandDeckView({
                 resizable={layoutMode === "workspace"}
                 width={conversationWidth}
                 onNew={onNewConversation}
+                onDismiss={() => setShowConversations(false)}
                 onLoadMore={onLoadMoreConversations}
                 onRemove={onRemoveConversation}
                 onToggleFavorite={onToggleFavorite}
@@ -344,7 +354,13 @@ export function CommandDeckView({
                   <button type="button" onClick={onNewConversation}>{t("deck.newConversation")}</button>
                 </div>
               ) : null}
-              {turns.length === 0 ? (
+              {turns.length === 0 && hydrationStatus !== "idle" ? (
+                <ConversationHistoryState
+                  status={hydrationStatus}
+                  onRetry={onRetryConversation}
+                />
+              ) : null}
+              {turns.length === 0 && hydrationStatus === "idle" ? (
                 <IntroPanel snapshot={snapshot} onPick={onSubmit} />
               ) : null}
               {turns.map((turn, index) => {
@@ -437,7 +453,8 @@ export function CommandDeckView({
               <textarea
                 ref={inputRef}
                 class="deck-input"
-                placeholder={t("deck.inputPlaceholderContext", { route: routeLabel })}
+                placeholder={t("deck.inputPlaceholder")}
+                aria-label={t("deck.inputPlaceholderContext", { route: routeLabel })}
                 value={draft}
                 rows={1}
                 onInput={(event) => onDraftInput((event.target as HTMLTextAreaElement).value)}

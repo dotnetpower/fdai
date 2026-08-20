@@ -93,6 +93,7 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
   const {
     conversations,
     conversationHasMore,
+    conversationHydration,
     conversationPageLoading,
     historyRef,
     indexKey,
@@ -103,6 +104,7 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
     sessionLabel,
     sessionMetadataRef,
     setConversations,
+    setConversationHydration,
     setSessionKey,
     setSessionLabel,
     setTurns,
@@ -182,6 +184,7 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
     turnsRef,
     historyRef,
     setConversations,
+    setConversationHydration,
     setDraft,
     setSessionKey,
     setSessionLabel,
@@ -300,6 +303,7 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
       srStatus={srStatus}
       conversations={conversations}
       conversationHasMore={conversationHasMore}
+      conversationHydration={conversationHydration}
       conversationPageLoading={conversationPageLoading}
       sessionKey={sessionKey}
       currentPath={currentPathname()}
@@ -333,6 +337,7 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
       onMoveSearch={moveSearch}
       onNewConversation={startNewConversation}
       onLoadMoreConversations={loadMoreConversations}
+      onRetryConversation={() => void hydrateDurableTurns(sessionKey)}
       onSelectLayout={selectLayoutMode}
       onRemoveConversation={removeCachedConversation}
       onToggleFavorite={(conversation) => {

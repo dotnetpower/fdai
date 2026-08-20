@@ -22,9 +22,19 @@
 
     /* ---------- Sessions column ---------- */
     .dk-sessions { display: none; padding: 16px 12px; overflow-y: auto; border-right: 1px solid var(--cs-hairline); background: var(--cs-card); }
+    .dk-sessions-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+    .dk-sessions-head h3 { margin: 0; }
+    .dk-sessions-close { display: none; width: 32px; height: 32px; place-items: center; padding: 0; border: 1px solid var(--cs-hairline); border-radius: 6px; background: transparent; color: var(--cs-text-soft); font: inherit; font-size: 18px; cursor: pointer; }
+    .dk-sessions-close:hover { color: var(--cs-text); }
+    .dk-sessions-close:focus-visible { outline: 2px solid var(--cs-steel); outline-offset: 1px; }
     .dk-sessions h3 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--cs-text-soft); font-weight: 600; }
-    .dk-sessions .dk-new { display: block; width: 100%; padding: 7px 10px; font-size: 12.5px; text-align: left; border: 1px dashed var(--cs-hairline); border-radius: var(--cs-radius-sm); background: transparent; color: var(--cs-text-soft); cursor: pointer; margin-bottom: 10px; font: inherit; font-size: 12.5px; }
+    .dk-session-controls { display: grid; grid-template-columns: minmax(0, 1fr) 32px; gap: 6px; margin-bottom: 7px; }
+    .dk-session-controls input { min-width: 0; height: 32px; padding: 5px 8px; border: 1px solid var(--cs-hairline); border-radius: 6px; background: var(--cs-card); color: var(--cs-text); font: inherit; font-size: 12px; }
+    .dk-sessions .dk-new { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 1px solid var(--cs-hairline); border-radius: 6px; background: transparent; color: var(--cs-text-soft); cursor: pointer; font: inherit; font-size: 17px; }
     .dk-sessions .dk-new:hover { background: var(--cs-shade); color: var(--cs-text); }
+    .dk-session-filters { display: flex; gap: 12px; margin: 0 0 10px; border-bottom: 1px solid var(--cs-hairline); }
+    .dk-session-filters button { flex: 1 1 0; min-height: 32px; padding: 4px 0 6px; border: 0; border-radius: 0; background: transparent; color: var(--cs-text-soft); font: inherit; font-size: 11.5px; cursor: pointer; }
+    .dk-session-filters button[aria-pressed="true"] { color: var(--cs-text); box-shadow: inset 0 -2px var(--cs-steel); }
     .dk-sessions ul { list-style: none; padding: 0; margin: 0 0 10px; display: flex; flex-direction: column; gap: 2px; }
     .dk-sessions li { padding: 8px 10px; border-radius: var(--cs-radius-sm); font-size: 12.5px; cursor: default; display: flex; align-items: center; gap: 8px; }
     .dk-sessions li:hover { background: var(--cs-shade); }
@@ -300,8 +310,38 @@
     .dk-shell.is-trace-open { grid-template-columns: minmax(0, 1fr) 280px; }
     .dk-shell.is-trace-open .dk-trace { display: block; }
     .dk-shell.is-conversations-open.is-trace-open { grid-template-columns: 220px minmax(0, 1fr) 280px; }
-    @media (max-width: 980px) { .dk-shell.is-trace-open { grid-template-columns: minmax(0, 1fr); } .dk-shell.is-trace-open .dk-trace { display: none; } }
-    @media (max-width: 780px) { .dk-shell.is-conversations-open { grid-template-columns: minmax(0, 1fr); } .dk-shell.is-conversations-open .dk-sessions { display: none; } }
+    @media (max-width: 1100px) {
+      .dk-shell.is-trace-open { grid-template-columns: minmax(0, 1fr); }
+      .dk-shell.is-conversations-open.is-trace-open { grid-template-columns: 220px minmax(0, 1fr); }
+      .dk-shell.is-trace-open .dk-trace { display: none; }
+      #dk-trace-toggle { display: none; }
+    }
+    @media (max-width: 780px) {
+      .dk-shell.is-conversations-open,
+      .dk-shell.is-conversations-open.is-trace-open { position: relative; grid-template-columns: minmax(0, 1fr); }
+      .dk-shell.is-conversations-open .dk-sessions {
+        display: block;
+        position: absolute;
+        z-index: 4;
+        inset: 0 auto 0 0;
+        width: min(300px, 82%);
+        box-sizing: border-box;
+        box-shadow: 8px 0 22px rgba(15,23,42,.18);
+      }
+      .dk-shell.is-conversations-open .dk-sessions-close { display: grid; width: 44px; height: 44px; }
+      .dk-session-controls { grid-template-columns: minmax(0, 1fr) 44px; }
+      .dk-session-controls input,
+      .dk-sessions .dk-new,
+      .dk-session-filters button,
+      .dk-search input,
+      .dk-workspace-tools button,
+      .dk-suggest button,
+      .dk-composer textarea,
+      .dk-composer button { min-height: 44px; }
+      .dk-sessions .dk-new { width: 44px; height: 44px; }
+      .dk-close { width: 44px; height: 44px; }
+      a.dk-chip { min-height: 44px; align-items: center; }
+    }
 
     /* -------------------------------------------------------------------
        Token accounting: per-turn pill in the meta line + session total
@@ -575,8 +615,19 @@
     <div class="dk-shell">
       <!-- ============================ Sessions (left) ============================ -->
       <aside class="dk-sessions" aria-label="Conversations">
-        <h3>Conversations</h3>
-        <button class="dk-new" type="button">+ New conversation</button>
+        <div class="dk-sessions-head">
+          <h3>Conversations</h3>
+          <button class="dk-sessions-close" id="dk-conversations-close" type="button" aria-label="Close conversations">&times;</button>
+        </div>
+        <div class="dk-session-controls">
+          <input type="search" aria-label="Filter conversations" placeholder="Filter conversations" />
+          <button class="dk-new" type="button" aria-label="New conversation">+</button>
+        </div>
+        <div class="dk-session-filters" role="group" aria-label="Conversation filters">
+          <button type="button" aria-pressed="true">Mine</button>
+          <button type="button" aria-pressed="false">Unread</button>
+          <button type="button" aria-pressed="false">Favorites</button>
+        </div>
 
         <h3 style="margin-top:6px;">Active</h3>
         <ul>
@@ -657,7 +708,7 @@
         <div class="dk-workspace-tools" role="toolbar" aria-label="Command deck workspace tools">
           <button type="button">+ New conversation</button>
           <button type="button" id="dk-conversations-toggle" aria-pressed="false">Conversations <span>20+</span></button>
-          <button type="button" id="dk-trace-toggle" aria-pressed="false" aria-controls="dk-trace">Context <span>5</span></button>
+          <button type="button" id="dk-trace-toggle" aria-pressed="false" aria-controls="dk-trace">What I see <span>11</span></button>
           <button type="button" style="margin-left:auto"><span aria-hidden="true">&darr;</span> Jump to latest</button>
         </div>
 
@@ -1482,7 +1533,7 @@
           <div class="dk-composer-row">
             <input type="file" id="dk-file" multiple hidden />
             <button type="button" class="dk-attach-btn" title="Attach a file as read-only evidence" aria-label="Attach a file">+</button>
-            <textarea rows="1" placeholder="Ask anything about Impact scope, or type / for commands"></textarea>
+            <textarea rows="1" placeholder="Ask anything..." aria-label="Ask anything about Impact scope, or type / for commands"></textarea>
             <button type="button" class="dk-send">Send</button>
           </div>
           <div class="dk-composer-foot">
@@ -1494,80 +1545,22 @@
         </footer>
       </section>
 
-      <!-- ============================ Retrieval / trace (right) ============================ -->
-      <aside class="dk-trace" id="dk-trace" aria-label="Retrieval and citations">
-        <h3>Retrieval trace</h3>
-        <p class="dk-q">Query: <strong>"FDAI-8812 root cause + who approved"</strong> &middot; 4 sources &middot; 210 ms</p>
+      <!-- ============================ Current screen digest (right) ============================ -->
+      <aside class="dk-trace" id="dk-trace" aria-label="What the deck sees">
+        <h3>What I see</h3>
+        <p class="dk-q">Current screen snapshot &middot; observed 09:43</p>
 
-        <!-- Session metadata: what this session is scoped to. Complements
-             the retrieval sources with the governance context Bragi is
-             operating under. -->
         <div class="dk-session-meta">
-          <h3>Session</h3>
+          <h3>Impact scope</h3>
           <dl>
-            <dt>Correlation root</dt><dd><code>evt-01H7A88H</code></dd>
-            <dt>RBAC scope</dt><dd>Approver &middot; env=prod, workload=nginx</dd>
-            <dt>Granted tools</dt><dd><code>describe_event</code> &middot; <code>explain_verdict</code> &middot; <code>simulate_change</code></dd>
-            <dt>Locale</dt><dd>en (operator preference)</dd>
-            <dt>Started</dt><dd>09:42 &middot; by <span class="dk-mention is-navy">@You</span></dd>
-            <dt>TTL</dt><dd>expires in 42m (idle cleanup)</dd>
-            <dt>Handoff rate</dt><dd><b>3.2%</b> <span class="cs-muted">(target &lt; 5%)</span></dd>
+            <dt>Selected target</dt><dd><code>nginx-canary</code></dd>
+            <dt>Direct links</dt><dd>3</dd>
+            <dt>Indirect links</dt><dd>7</dd>
+            <dt>Snapshot state</dt><dd>Complete</dd>
+            <dt>Verification</dt><dd>Unverified</dd>
           </dl>
-          <div class="dk-budget">
-            <div class="dk-budget-lab"><span>Daily LLM budget</span><span><b>$0.12</b> of $30 (0.4%)</span></div>
-            <div class="dk-budget-bar"><span style="width:0.4%"></span></div>
-          </div>
         </div>
-
-        <div class="dk-source">
-          <div class="dk-source-head">
-            <span class="dk-source-num">[1]</span>
-            <span class="dk-source-title">Heimdall observation</span>
-            <span class="dk-source-score">0.94</span>
-          </div>
-          <p class="dk-source-snippet"><code>nginx</code> restart rate 3/min sustained 4 minutes; baseline 0.4/min; correlation id <code>evt-01H7A88H-...</code></p>
-          <span class="dk-source-kind is-audit">audit entry</span>
-        </div>
-
-        <div class="dk-source">
-          <div class="dk-source-head">
-            <span class="dk-source-num">[2]</span>
-            <span class="dk-source-title">chaos.experiments.registered</span>
-            <span class="dk-source-score">0.91</span>
-          </div>
-          <p class="dk-source-snippet">Rule declares <code>aks-pod-kill</code> as registered on <code>nginx-canary</code> with blast cap = 1, cadence weekly Mon 09:30 KST.</p>
-          <span class="dk-source-kind is-rule">rule catalog</span>
-        </div>
-
-        <div class="dk-source">
-          <div class="dk-source-head">
-            <span class="dk-source-num">[3]</span>
-            <span class="dk-source-title">Var approval - policy matched</span>
-            <span class="dk-source-score">0.88</span>
-          </div>
-          <p class="dk-source-snippet">Approver: Var. Reason: "within blast-radius policy". Not self-approved (Thor did not vote).</p>
-          <span class="dk-source-kind is-audit">audit entry</span>
-        </div>
-
-        <div class="dk-source">
-          <div class="dk-source-head">
-            <span class="dk-source-num">[4]</span>
-            <span class="dk-source-title">Thor execute - sealed</span>
-            <span class="dk-source-score">0.86</span>
-          </div>
-          <p class="dk-source-snippet"><code>k8s.scale-deployment</code> on <code>nginx-canary</code> from 2 to 4; stop-condition p95 &lt; 800ms met; Saga sealed at 09:38:14.</p>
-          <span class="dk-source-kind is-trace">correlation trace</span>
-        </div>
-
-        <div class="dk-source" style="opacity:.65">
-          <div class="dk-source-head">
-            <span class="dk-source-num">[5]</span>
-            <span class="dk-source-title">Bragi glossary</span>
-            <span class="dk-source-score">0.42</span>
-          </div>
-          <p class="dk-source-snippet">Definition of <em>blast radius</em> in the operator glossary; below the quality gate threshold - not cited in the answer above.</p>
-          <span class="dk-source-kind is-doc">glossary</span>
-        </div>
+        <p class="cs-muted">11 bounded records are available to the answerer. Open answer details to inspect query-specific evidence and tool activity.</p>
       </aside>
     </div>
   </main>
@@ -1594,6 +1587,15 @@
       }
       bind('dk-conversations-toggle', 'is-conversations-open', 'fdai.deck.conversationsOpen');
       bind('dk-trace-toggle', 'is-trace-open', 'fdai.deck.contextOpen');
+      const conversationsClose = document.getElementById('dk-conversations-close');
+      if (conversationsClose) {
+        conversationsClose.addEventListener('click', function () {
+          shell.classList.remove('is-conversations-open');
+          const toggle = document.getElementById('dk-conversations-toggle');
+          if (toggle) toggle.setAttribute('aria-pressed', 'false');
+          try { localStorage.setItem('fdai.deck.conversationsOpen', '0'); } catch (_) { /* private mode ok */ }
+        });
+      }
     })();
 
     // ------------------------------------------------------------------

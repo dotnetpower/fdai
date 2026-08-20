@@ -258,10 +258,13 @@ export function mergeConversationActivity(
     ? observed.label
     : null;
   const hasNewerActivity = Date.parse(observed.updatedAt) > Date.parse(existing.updatedAt);
-  if (!hasNewerActivity && observedTitle === null) return existing;
+  const gainedDurableSource = observed.restoredFromServer === true &&
+    existing.restoredFromServer !== true;
+  if (!hasNewerActivity && observedTitle === null && !gainedDurableSource) return existing;
   return {
     ...existing,
     ...(observedTitle !== null ? { label: observedTitle } : {}),
+    ...(gainedDurableSource ? { restoredFromServer: true } : {}),
     ...(hasNewerActivity
       ? {
           updatedAt: observed.updatedAt,

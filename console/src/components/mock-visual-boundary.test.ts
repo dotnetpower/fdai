@@ -41,6 +41,23 @@ describe("mock console visual boundary", () => {
     expect(landing).toContain("frame.src = previewUrl");
   });
 
+  test("keeps the Command Deck mock aligned with responsive production panels", () => {
+    const deck = readFileSync(`${MOCK_ROOT}/deck.html`, "utf8");
+    const readme = readFileSync(`${MOCK_ROOT}/README.md`, "utf8");
+
+    expect(deck).toContain('id="dk-conversations-close"');
+    expect(deck).toContain('aria-label="What the deck sees"');
+    expect(deck).toContain("Current screen snapshot");
+    expect(deck).toContain(".dk-shell.is-conversations-open.is-trace-open { position: relative; grid-template-columns: minmax(0, 1fr); }");
+    expect(deck).toMatch(/@media \(max-width: 780px\)[\s\S]*\.dk-shell\.is-conversations-open \.dk-sessions \{[\s\S]*position: absolute;[\s\S]*width: min\(300px, 82%\);/);
+    expect(deck).toContain(".dk-shell.is-conversations-open .dk-sessions-close { display: grid; width: 44px; height: 44px; }");
+    expect(deck).toMatch(/@media \(max-width: 1100px\)[\s\S]*#dk-trace-toggle \{ display: none; \}/);
+    expect(deck).toMatch(/@media \(max-width: 780px\)[\s\S]*\.dk-session-controls input,[\s\S]*\.dk-composer button \{ min-height: 44px; \}/);
+    expect(deck).toContain("a.dk-chip { min-height: 44px; align-items: center; }");
+    expect(deck).not.toContain("Retrieval trace</h3>");
+    expect(readme).toContain("transcript-first workspace with optional conversation history and current-screen context panels");
+  });
+
   test("registers the synthetic Service Map under Visualization", () => {
     const landing = readFileSync(`${MOCK_ROOT}/index.html`, "utf8");
     const masterLanding = readFileSync(`${REPOSITORY_ROOT}/index.html`, "utf8");

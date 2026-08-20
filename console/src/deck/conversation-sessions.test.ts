@@ -159,6 +159,15 @@ describe("conversationGroups", () => {
       .toBe(false);
   });
 
+  it("preserves durable provenance when a cached summary has no transcript", () => {
+    const observed = mergeConversationActivity(
+      { ...GENERAL },
+      { ...GENERAL, restoredFromServer: true },
+    );
+
+    expect(observed.restoredFromServer).toBe(true);
+  });
+
   it("filters principal-scoped conversations by unread and favorite metadata", () => {
     const unread = {
       ...GENERAL,

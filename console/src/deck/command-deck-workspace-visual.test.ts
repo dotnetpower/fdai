@@ -23,6 +23,10 @@ const sessions = readFileSync(
   fileURLToPath(new URL("./use-command-deck-sessions.ts", import.meta.url)),
   "utf8",
 );
+const historyState = readFileSync(
+  fileURLToPath(new URL("./conversation-history-state.tsx", import.meta.url)),
+  "utf8",
+);
 
 describe("Command Deck workspace hierarchy", () => {
   test("opens transcript-first and adds columns only for requested panels", () => {
@@ -40,6 +44,18 @@ describe("Command Deck workspace hierarchy", () => {
     expect(sessions).toContain("setSessionLabel(agent);");
     expect(presenters).toContain("CONVERSATION_VISIBLE_BATCH_SIZE");
     expect(presenters).toContain("visibleLimit");
+  });
+
+  test("separates durable history loading and failures from a new conversation", () => {
+    expect(source).toContain('hydrationStatus !== "idle"');
+    expect(source).toContain('hydrationStatus === "idle"');
+    expect(historyState).toContain('aria-busy="true"');
+    expect(historyState).toContain('role={failed ? "alert" : "status"}');
+    expect(historyState).toContain('t("deck.history.retry")');
+    expect(styles).toContain(".deck-history-state.is-error");
+    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-history-state button \{ min-height: 44px; \}/);
+    expect(styles).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*\.deck-history-state\.is-loading span,/);
+    expect(styles).toContain(".deck-history-state button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }");
   });
 
   test("persists a bounded workspace conversation width", () => {
@@ -62,7 +78,24 @@ describe("Command Deck workspace hierarchy", () => {
   test("does not reserve a hidden digest column on narrow screens", () => {
     expect(styles).toContain(".deck-body.has-digest { grid-template-columns: minmax(0, 1fr); }");
     expect(styles).toContain(".deck-panel-toggle-context { display: none; }");
+    expect(sidebarStyles).toMatch(
+      /@media \(max-width: 1100px\)[\s\S]*\.deck-overlay-mode-workspace \.deck-body\.has-conversations\.has-digest \{[^}]*grid-template-columns: var\(--deck-conversation-width, 240px\) minmax\(0, 1fr\);/,
+    );
     expect(styles).not.toContain(".deck-body { min-width: 0; grid-template-columns: 200px minmax(0, 1fr); }");
+  });
+
+  test("opens mobile conversation history over a full-width transcript", () => {
+    expect(sidebarStyles).toMatch(
+      /@media \(max-width: 780px\)[\s\S]*\.deck-overlay-mode-workspace \.deck-body\.has-conversations,[\s\S]*grid-template-columns: minmax\(0, 1fr\);/,
+    );
+    expect(sidebarStyles).toMatch(
+      /\.deck-overlay-mode-workspace \.deck-conversations \{[^}]*position: absolute;[^}]*width: min\(300px, 82%\);/s,
+    );
+    expect(sidebarStyles).toMatch(
+      /\.deck-overlay-mode-workspace \.deck-conversations-dismiss \{[^}]*display: grid;[^}]*width: 44px;[^}]*height: 44px;/s,
+    );
+    expect(source).toContain("onDismiss={() => setShowConversations(false)}");
+    expect(presenters).toContain('class="deck-conversations-dismiss"');
   });
 
   test("opens conversation history as an overlay outside workspace mode", () => {
@@ -83,6 +116,8 @@ describe("Command Deck workspace hierarchy", () => {
     expect(source).toContain("<CommandDeckHeader");
     expect(source).toContain("routeLabel={routeLabel}");
     expect(source).toContain('class="deck-digest-header"');
+    expect(source).toContain('placeholder={t("deck.inputPlaceholder")}');
+    expect(source).toContain('aria-label={t("deck.inputPlaceholderContext", { route: routeLabel })}');
   });
 
   test("keeps the latest-message action in the toolbar instead of over transcript content", () => {
@@ -157,7 +192,26 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).toMatch(/\.deck-gr-icon \{[^}]*width: 32px;[^}]*height: 32px;/s);
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-search button \{ width: 44px; height: 44px; \}/);
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-gr-icon \{ width: 44px; height: 44px; \}/);
-    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-layout-button \{ width: 44px; height: 44px; \}/);
+    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-layout-controls \{ display: none; \}/);
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-input-row button \{ min-width: 44px; min-height: 44px; \}/);
+    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-source-status \{ min-height: 44px;/);
+    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-search input \{ min-height: 44px; \}/);
+    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-input \{ min-height: 44px; \}/);
+    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-vertical-suggest,[\s\S]*\.deck-suggest \{ min-height: 44px; \}/);
+    expect(sidebarStyles).toMatch(/@media \(max-width: 780px\)[\s\S]*\.deck-overlay-mode-workspace \.deck-conversation-filter \{ min-height: 44px; \}/);
+    expect(sidebarStyles).toMatch(/\.deck-overlay-mode-workspace \.deck-conversation-remove \{[^}]*width: 44px;[^}]*height: 44px;/s);
+    expect(sidebarStyles).toMatch(/\.deck-overlay-mode-workspace \.deck-conversation-favorite \{[^}]*width: 44px;[^}]*height: 44px;/s);
+  });
+
+  test("keeps mobile header and composer compact", () => {
+    expect(styles).toMatch(
+      /@media \(max-width: 640px\)[\s\S]*grid-template-areas:\s*"title close"\s*"headline headline";/,
+    );
+    expect(styles).toMatch(
+      /@media \(max-width: 640px\)[\s\S]*\.deck-composer-inner \{ grid-template-columns: auto minmax\(0, 1fr\) auto;/,
+    );
+    expect(styles).toContain("calc((100% - 1100px) / 2)");
+    expect(styles).toContain("flex: 0 1 420px;");
+    expect(styles).toContain(".deck-overlay.deck-overlay-mode-workspace { left: 0; }");
   });
 });

@@ -303,6 +303,7 @@ export function ConversationSidebar({
   resizable,
   width,
   onNew,
+  onDismiss,
   onLoadMore,
   onSelect,
   onRemove,
@@ -318,6 +319,7 @@ export function ConversationSidebar({
   readonly resizable: boolean;
   readonly width: number;
   readonly onNew: () => void;
+  readonly onDismiss: () => void;
   readonly onLoadMore: () => void;
   readonly onSelect: (conversation: ConversationSummary) => void;
   readonly onRemove: (conversation: ConversationSummary) => void;
@@ -350,8 +352,18 @@ export function ConversationSidebar({
     >
       <div class="deck-conversations-head">
         <span>{t("deck.conversations")}</span>
-        <span class="deck-conversations-count">
-          {conversationCountLabel(conversations.length, hasMore)}
+        <span class="deck-conversations-head-actions">
+          <span class="deck-conversations-count">
+            {conversationCountLabel(conversations.length, hasMore)}
+          </span>
+          <button
+            type="button"
+            class="deck-conversations-dismiss"
+            onClick={onDismiss}
+            aria-label={`${t("deck.close")} ${t("deck.conversations")}`}
+          >
+            ×
+          </button>
         </span>
       </div>
       <div class="deck-conversation-controls">

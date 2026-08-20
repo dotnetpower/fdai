@@ -17,6 +17,35 @@
 
 .deck-overlay .deck-conversations-head { margin: 0 2px 8px; }
 
+.deck-conversations-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.deck-conversations-dismiss {
+  display: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.deck-conversations-dismiss:hover { color: var(--fg); }
+
+.deck-conversations-dismiss:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
 .deck-conversation-controls {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 30px;
@@ -115,6 +144,61 @@
   }
 }
 
+@media (max-width: 1100px) {
+  .deck-overlay-mode-workspace .deck-body.has-conversations.has-digest {
+    grid-template-columns: var(--deck-conversation-width, 240px) minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 780px) {
   .deck-conversation-resize-handle { display: none; }
+
+  .deck-overlay-mode-workspace .deck-body.has-conversations,
+  .deck-overlay-mode-workspace .deck-body.has-conversations.has-digest {
+    position: relative;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .deck-overlay-mode-workspace .deck-conversations {
+    position: absolute;
+    z-index: 4;
+    inset: 0 auto 0 0;
+    width: min(300px, 82%);
+    box-sizing: border-box;
+    border-right: 1px solid var(--border);
+    border-bottom: 0;
+    box-shadow: 8px 0 22px rgb(15 23 42 / 18%);
+  }
+
+  .deck-overlay-mode-workspace .deck-conversations-head { display: flex; }
+  .deck-overlay-mode-workspace .deck-conversations-dismiss {
+    display: grid;
+    width: 44px;
+    height: 44px;
+  }
+  .deck-overlay-mode-workspace .deck-conversation-controls {
+    grid-template-columns: minmax(0, 1fr) 44px;
+  }
+  .deck-overlay-mode-workspace .deck-conversation-controls > .tooltip-anchor { width: 44px; }
+  .deck-overlay-mode-workspace .deck-conversation-filter { min-height: 44px; }
+  .deck-overlay-mode-workspace .deck-conversation-new { width: 44px; height: 44px; }
+  .deck-overlay-mode-workspace .deck-conversation-filters button { min-height: 44px; }
+  .deck-overlay-mode-workspace .deck-conversation-list {
+    display: block;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding-bottom: 0;
+  }
+  .deck-overlay-mode-workspace .deck-conversation { flex: none; min-height: 52px; }
+  .deck-overlay-mode-workspace .deck-conversation-select { min-height: 52px; padding-right: 102px; }
+  .deck-overlay-mode-workspace .deck-conversation-remove {
+    right: 49px;
+    width: 44px;
+    height: 44px;
+  }
+  .deck-overlay-mode-workspace .deck-conversation-favorite {
+    right: 5px;
+    width: 44px;
+    height: 44px;
+  }
 }

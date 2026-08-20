@@ -62,7 +62,7 @@ Chat surfaces:
 
 | File | Purpose |
 |------|---------|
-| [deck.html](deck.html) | Command deck (chat) - 3-column shell with visible Bragi-to-agent handoffs, grounded citations, observed read-command evidence with collapsible output and timestamps, evidence attachments, and a right-side retrieval trace |
+| [deck.html](deck.html) | Command deck (chat) - transcript-first workspace with optional conversation history and current-screen context panels, visible Bragi-to-agent handoffs, grounded citations, observed read-command evidence, and evidence attachments |
 | [deck-sources.html](deck-sources.html) | Same conversation surface zoomed into how Bragi streams retrieval + citations into an in-progress reply |
 
 Presentation wireframes (offline, not part of the console shell):
