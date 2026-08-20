@@ -53,7 +53,7 @@
     {
       "id": "i",
       "kind": "decision",
-      "shape": "diamond",
+      "shape": "card",
       "label": {
         "en": "All seven safeguards present?",
         "ko": "7개 보호장치가 모두 있는가?"

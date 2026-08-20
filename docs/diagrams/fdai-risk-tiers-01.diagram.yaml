@@ -28,12 +28,14 @@ nodes:
   - id: c
     kind: decision
     shape: diamond
+    width: 320
+    height: 220
     label:
       en: Impact scope, / reversibility, / novelty, / signal trust
       ko: 영향 범위, / 되돌리기 어려움, / 새로움, / 신호 신뢰도
   - id: i
     kind: decision
-    shape: diamond
+    shape: card
     label:
       en: All seven safeguards present?
       ko: 7개 보호장치가 모두 있는가?
