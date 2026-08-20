@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 69e266fec3cea3273a64de81cf76093d313d5a33
+translation_source_sha: 8f9e17a4b8f829600198b96ccdcbfdbc3ff03dc3
 translation_revised: 2026-08-20
 ---
 # 지속형 질문 공간
@@ -47,6 +47,7 @@ translation_revised: 2026-08-20
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-20 | implemented | Schema DDL을 Core service branch로 옮긴 뒤 legacy revision `0086`을 실행 가능한 raw-SQL no-op marker로 유지했습니다. 이 marker는 question-campaign table을 생성, 삭제 또는 grant하지 않고 legacy version history만 전진하거나 되돌립니다. | `current change`; migration-file 계약 검사 181개 통과; service migration inventory 검사 51개 통과; 일회용 PostgreSQL에서 두 migration 순서 통과. | 동일한 protected Core 적용을 다시 실행하고 성공한 migration 및 post-apply 상태 증적을 보존합니다. |
 | 2026-08-20 | implemented | Question-campaign schema 생성을 legacy revision `0086`에서 Core 소유 forward migration으로 옮기고 `0086`은 no-op compatibility head로 유지했습니다. Legacy `0085`에서 이미 cutover한 환경은 service branch에서 schema를 받고 initial-cutover 환경도 같은 single writer를 유지합니다. | `current change`; 보호된 run `32363836352`가 Terraform apply 전에 누락 table을 드러냄; 일회용 PostgreSQL에서 service-first 및 legacy-first 순서가 table 4개와 index 3개로 모두 통과함; 측정된 Core fingerprint로 service 5개의 fresh adoption 통과. | 동일한 protected Core 적용을 다시 실행하고 성공한 migration 및 post-apply 상태 증적을 보존합니다. |
 | 2026-08-20 | implemented | 질문 문구 map을 추가하지 않고 실제 운영 대상 결속 T1 거부와 전송 지연의 소유 경로를 닫았습니다. Prompt v30은 null이 아닌 구조화된 조사를 대상 결속 diagnosis의 첫 audit로 만들고, 정확한 span text는 검증 전에 모호하지 않은 offset 하나를 복구할 수 있으며, 429는 sleep 및 같은 후보 재시도 없이 즉시 해당 후보를 벗어납니다. 안전한 로그는 허용 목록 validation reason 또는 validation location만 유지합니다. | [이슈 #244](https://github.com/dotnetpower/fdai/issues/244), `current change`, 수정 전 인증 replay 1회는 `target-bound causal evidence requires structured investigation intent`와 T2 후보 하나의 429 응답 3회 뒤 69.9초에 hold로 끝났고 수정 뒤 집중 조사, routing, adapter, prompt 및 일반 causal 검사 103개 통과 | 대상, 증상 방향, 시간 범위, 근거로 평가한 가설 2개 이상, 제한, `execution_authority=false`를 포함한 post-commit 인증 slowdown 답변 1개를 보존합니다. |
 | 2026-08-20 | implemented | 질문 생성이나 assurance Issue #242를 변경하지 않고 결정론적 diagnosis 회귀 matrix와 최종 projection을 완성했습니다. 한국어와 영어 대상 intent, ambiguous 대상 clarification, 일반 visible-scope causal evidence, 불완전하거나 충돌하는 가설 근거, 제한 fallback, 0개/1개/다수 결과 표현을 focused test로 검증합니다. | `current change`, [이슈 #244](https://github.com/dotnetpower/fdai/issues/244), Python matrix 39개 및 Console matrix 37개 통과, 이중 언어 causal artifact test는 target, symptom, 정렬된 window, `supported`/`refuted`/`unresolved`, evidence, limitation, `execution_authority=false`를 보존 | Post-commit 인증 slowdown 답변과 viewport 근거 1개를 보존합니다. 해당 근거 전에는 Issue #244를 닫지 않습니다. |
