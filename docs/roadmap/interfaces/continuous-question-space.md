@@ -12,8 +12,9 @@ shadow mode. It never grants action, approval, mutation, or execution authority.
 > allowed perspective or a typed exclusion. It does not promise that every case can be answered
 > when a provider, anchor, retained release, or evidence source is unavailable.
 >
-> **Operational boundary:** Local focused checks are implementation evidence. A fresh strict v2
-> and seeded live artifact are required before the current source revision becomes release evidence.
+> **Operational boundary:** Local focused checks are implementation evidence. Source revision
+> `4dc5365aaf8d2f6d8c6e0e9aaac4b6374a54f766` is certified by fresh strict v2 and seeded live
+> artifacts. Every later source revision requires a new exact-source certification.
 
 ## Design at a glance
 
@@ -47,13 +48,14 @@ handlers before any read.
 | Shared one-shot package | implemented | `core/conversation/question_schedule.py`; `delivery/ontology_question_campaign.py`; `ontology_question_campaign_cli.py`; focused due-gate and shared-runner checks | Manual and scheduled triggers use one injected runner package. Disabled, not-due, missing evidence, missing model, missing Reader proof, reserved budget exhaustion, and claim contention stop before the affected model or semantic call. |
 | Environment composition and deployed Job | deferred | Typed workload-principal receipt and due-gate holds; no deployment artifact | The shared package deliberately has no standalone environment composition or deployed Job until an authoritative workload-principal mapper, semantic submission port, exact model bindings, and readiness probes exist. This preserves the plan's pre-authentication stop condition. |
 | Strict v2 release gate | implemented | `console/tests/live-e2e/ontology-query-assurance.ts`; `scripts/automation/run_ontology_assurance.py`; focused Console and supervisor checks | The fixed 100-case cohort remains 50/50 bilingual. Strict v2 selects 22 cells: the retained 14 plus declaration, release/evidence, inventory-impact, and Rule-state cells in both locales. Release evidence requires exact 22/22 transport. |
-| Current live certification | in-progress | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); exact-source run `question-space-final-f7fff0f9e-20260820-r13`; `current change`; focused semantic planning and prompt tests | Run r13 passed strict v2 with 22/22 transport, 16/16 complete-evidence answers, and every hard-zero counter at zero. Seeded assurance completed all 100 turns and isolated one Korean listing request answered through `query.manifest` plus `aggregate`. Explicit listing now rejects both an aggregation frame and an aggregate plan behind a valid listing frame, while explicit aggregation keeps precedence. Fresh exact-source strict and seeded evidence is still required for validation. |
+| Current live certification | validated | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); run `question-space-final-4dc5365aa-20260820-r15`; [`ontology-query-randomized-assurance-2026-08-20.json`](../../baselines/ontology-query-randomized-assurance-2026-08-20.json) | Centrally validated exact source passed strict v2 with 22/22 request and projection transport, 22/22 typed judgments, and 16/16 complete-evidence answers. Seeded assurance passed 100/100 live judgments and exact transport with 73/73 complete-evidence answers, zero retries or capability mismatches, and every hard-zero counter at zero. |
 | Scheduled workload authentication | in-progress | `fdai_service_contracts/operator.py`; `fdai_operator_service/{auth,family_authorization}.py`; focused shared-contract and Operator bridge checks | Verified app-only Entra tokens are reduced to an opaque subject digest and exactly the Reader App Role. Workload principals may submit only `chat.stream`; human routes and higher roles are not inherited. The server-owned scope and authentication receipt mapper and campaign execution port remain open. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-08-20 | validated | Completed exact-source live certification after the aggregate and listing symmetry fixes. The supervisor admitted seeded execution only after strict v2 passed, and both phases retained source, clean-workspace, Browser Entra, generation, and exact transport proof. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); run `question-space-final-4dc5365aa-20260820-r15`; central validation receipt for `4dc5365aaf8d2f6d8c6e0e9aaac4b6374a54f766`; repository-safe 2026-08-20 baseline; strict accepted 22/22 and seeded accepted 100/100. | Live release certification is complete. Server-owned scheduled-principal mapping and deployed shadow scheduling remain separately evidence-gated below. |
 | 2026-08-20 | implemented | Corrected the Round 66 diagnosis after reproducing the exact live shape with a verifier that accepts the otherwise valid plan. The utterance-to-frame guard was already closed, but a valid listing frame could still accept an aggregate plan because frame-plan alignment enforced only the forward implication. Aggregate node presence and the verified `aggregate` operation now match in both directions. | `current change`; the focused tier-routing file passes 73 cases; the exact Korean fixture fails before the fix and retries only the plan stage after it; task-scoped Ruff and strict mypy pass. | Centrally validate the corrected source and retain fresh strict-v2 plus seeded artifacts. |
 | 2026-08-20 | implemented | Added the workload side of the scheduled semantic authentication boundary. Operator authentication distinguishes app-only tokens, rejects every workload role set except Reader, persists only a stable subject digest, carries the workload kind through the additive semantic contract, and limits the principal to `chat.stream`. Legacy human envelopes omit the new field and remain wire-compatible. | `current change`; 93 focused shared-contract, conversation-family, semantic-bridge, and workload-auth tests passed; task-scoped Ruff and strict mypy passed. | Build the server-owned scope and authentication receipt mapper, then bind the real campaign work and execution ports before environment composition or deployment. |
 | 2026-08-19 | implemented | Added the deterministic universe, seven perspectives, active/collected Rule split, candidate generation and validation, four semantic capability contracts, campaign runner and PostgreSQL ledger, schedule due gate, shared one-shot job, and strict v2 taxonomy. Earlier provenance was not reconstructed. | `current change`; 266 focused Python tests, 99 Console assurance tests, task-scoped Ruff, strict mypy, model-catalog checks, and migration checks passed before documentation. | Obtain exact-source integration validation, then run strict v2 and seeded live assurance. Implement server-side scheduled-principal mapping before adding deployed Job infrastructure. |
@@ -76,10 +78,10 @@ handlers before any read.
 
 ### Remaining work
 
-- [ ] Obtain a passing integration-validation receipt for the exact committed source revision, then
+- [x] Obtain a passing integration-validation receipt for the exact committed source revision, then
   retain one fresh strict v2 artifact with 22/22 request and projection transport, every typed
   judgment passing, every answered turn evidence-complete, and every hard-zero counter at zero.
-- [ ] Allow the supervisor to start the seeded 100-case run only after strict v2 passes, and retain
+- [x] Allow the supervisor to start the seeded 100-case run only after strict v2 passes, and retain
   one repository-safe source-bound artifact with exact 100/100 transport and no safety regression.
 - [ ] Complete the authenticated workload-principal Reader mapping with a server-owned scope
   digest, role source, `operations-review` purpose, authentication evidence, and expiry. A missing

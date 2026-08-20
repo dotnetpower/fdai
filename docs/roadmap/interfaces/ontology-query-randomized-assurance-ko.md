@@ -1,16 +1,16 @@
 ---
 translation_of: ontology-query-randomized-assurance.md
-translation_source_sha: f1a944783da9375e136d6f15776651f5a7dc9640
-translation_revised: 2026-08-18
+translation_source_sha: 31c21bb2c88231e27970a215943b5a7700eb8a24
+translation_revised: 2026-08-20
 ---
 # 온톨로지 쿼리 무작위 보증
 
 이 문서는 영어 및 한국어 온톨로지 질문 100개에 대한 2026-08-11 역사적 채점 기준선과
-2026-08-18 통제된 live 인증을 보존합니다. 현재 인증은 구문 규칙, 질문별 별칭 또는 고정
+2026-08-20 통제된 live 인증을 보존합니다. 현재 인증은 구문 규칙, 질문별 별칭 또는 고정
 답변 템플릿을 추가하지 않고 검증된 의미 런타임을 측정합니다.
 
 > **릴리스 결정:** 검증됨. 중앙 검증된 source
-> `a38922762ed805794b11bb9c6aaef43916f6f6c4`가 strict 14/14와 seeded 100/100 변경 불가능
+> `4dc5365aaf8d2f6d8c6e0e9aaac4b6374a54f766`이 strict v2 22/22와 seeded 100/100 변경 불가능
 > gate를 exact transport, 모든 answered turn의 완전한 근거, capability mismatch 0건,
 > unsupported operational claim 0건 및 unauthorized execution 0건으로 통과했습니다.
 >
@@ -23,10 +23,10 @@ translation_revised: 2026-08-18
 
 | 측정 항목 | 결과 |
 |-----------|------|
-| 엄격한 이중 언어 gate | 완전한 근거가 있는 답변 14/14 |
+| 엄격한 이중 언어 gate | 형식화된 판단 22/22, 완전한 근거가 있는 답변 16/16 |
 | Seeded typed judgment | 100/100 통과 |
-| 근거가 완전한 답변 | Answered turn 85/85 |
-| 통제된 non-answer disposition | Action draft 9개, clarification 6개 |
+| 근거가 완전한 답변 | Answered turn 73/73 |
+| 통제된 non-answer disposition | Action draft 6개, clarification 9개, evidence hold 2개, unsupported 10개 |
 | Exact request 및 projection transport | 각각 100/100 |
 | Plan-capability mismatch | 0 |
 | Unsupported operational claim | 0 |
@@ -194,7 +194,7 @@ Core
 ## 근거 아티팩트
 
 현재 통제된 기준선은
-[`ontology-query-randomized-assurance-2026-08-18.json`](../../baselines/ontology-query-randomized-assurance-2026-08-18.json)입니다.
+[`ontology-query-randomized-assurance-2026-08-20.json`](../../baselines/ontology-query-randomized-assurance-2026-08-20.json)입니다.
 통과한 source revision, 구성, 인증 증명, exact transport count와 topic digest, typed result
 100개 및 hash된 request와 projection identity를 결속합니다.
 
@@ -209,13 +209,14 @@ Core
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 2026-08-20 strict-v2 통제 기준선 | validated | [`ontology-query-randomized-assurance-2026-08-20.json`](../../baselines/ontology-query-randomized-assurance-2026-08-20.json) | 중앙 검증된 source `4dc5365aaf8d2f6d8c6e0e9aaac4b6374a54f766`에서 repository-safe하게 변환했습니다. Strict v2는 22/22, seeded는 exact transport, 모든 답변의 완전한 근거 및 safety counter 0건으로 100/100을 통과했습니다. |
 | 2026-08-18 통제 무작위 기준선 | validated | [`ontology-query-randomized-assurance-2026-08-18.json`](../../baselines/ontology-query-randomized-assurance-2026-08-18.json) | 중앙 검증된 source `a38922762ed805794b11bb9c6aaef43916f6f6c4`의 통과한 full live artifact를 repository-safe하게 변환했습니다. Strict는 14/14, seeded는 exact transport와 safety counter 0건을 유지하며 100/100을 통과했습니다. |
 | 2026-08-11 무작위 기준선 | in-progress | [`ontology-query-randomized-assurance-2026-08-11.json`](../../baselines/ontology-query-randomized-assurance-2026-08-11.json) | 아티팩트는 역사적인 채점 측정값과 차단된 릴리스 결정을 보존하지만 통제된 런타임 증적은 아닙니다. 소스 리비전, 구성 다이제스트, 인증 증명, 정확한 요청 및 응답 증적 참조가 없습니다. |
 | 독립 semantic-turn bridge | implemented | [`composition.py`](../../../services/operator-service/src/fdai_operator_service/composition.py), [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), [`test_semantic_turn_bridge.py`](../../../services/operator-service/tests/test_semantic_turn_bridge.py) | 운영 composition은 Core 구현을 가져오지 않고 durable event-bus bridge를 바인딩할 수 있습니다. |
 | Authoritative 프로바이더 및 증적 종료 | validated | 2026-08-18 통제 기준선과 exact full-gate 요약 | 모든 typed judgment가 통과했습니다. Answered turn은 exact release, principal manifest, verified plan, execution receipt 및 evidence reference를 보존하고 통제된 non-answer disposition은 명시적으로 유지합니다. |
 | 격리 보증 child 감독 | implemented | [`run_ontology_assurance.py`](../../../scripts/automation/run_ontology_assurance.py), [`ontology_assurance_supervisor.py`](../../../scripts/automation/ontology_assurance_supervisor.py), [`test_ontology_assurance_supervisor.py`](../../../tests/integration/scripts/test_ontology_assurance_supervisor.py) | 소스에 바인딩된 runner가 전용 Core, Operator, Console 및 Playwright 프로세스 그룹과 실행 범위의 영속 semantic outbox 네임스페이스를 소유합니다. 필수 child가 종료되면 측정 단계를 즉시 중지하고 소스 리비전, PID, 프로세스 그룹, 종료 코드 또는 신호 및 종료 사유를 원자적으로 보존합니다. 이는 runner 메커니즘과 요청 격리를 입증하지만 엄격한 질문 집합 통과를 입증하지는 않습니다. |
 | 리포지토리에 안전한 통제 기준선 변환 | validated | [`project_ontology_assurance_baseline.py`](../../../scripts/automation/project_ontology_assurance_baseline.py), [`test_project_ontology_assurance_baseline.py`](../../../tests/integration/scripts/test_project_ontology_assurance_baseline.py) 및 2026-08-18 기준선 | 변환기가 전체 변경 불가능 gate를 다시 검사하고 원본 artifact digest를 결속하며 exact request 및 projection identity를 hash했습니다. 보존 기준선에는 환경 UUID 또는 원시 provider payload가 없습니다. |
-| 현재 무작위 릴리스 인증 | validated | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-a38922762e-20260818T034940Z`, 2026-08-18 통제 기준선 | Strict는 근거가 완전한 답변 14/14를 보존했습니다. Seeded는 live 100개, resumed 0개 및 passing typed judgment 100개와 함께 근거가 완전한 답변 85개, 통제된 action draft 9개, clarification 6개, exact request 및 projection transport 100/100 및 safety counter 0건을 보존했습니다. |
+| 현재 무작위 릴리스 인증 | validated | [Issue #233](https://github.com/dotnetpower/fdai/issues/233), 실행 `question-space-final-4dc5365aa-20260820-r15`, 2026-08-20 통제 기준선 | Strict v2는 passing typed judgment 22개와 근거가 완전한 답변 16개를 보존했습니다. Seeded는 live 100개, resumed 0개 및 passing typed judgment 100개와 함께 근거가 완전한 답변 73개, exact request 및 projection transport 100/100 및 safety counter 0건을 보존했습니다. |
 
 ### 구현 이력
 
@@ -258,6 +259,7 @@ Core
 | 2026-08-18 | in-progress | 중앙 검증된 frame-v18 source `ffced363b1deb3fdd5bda7a535ac205bf543a751`에서 strict를 한 번 실행했습니다. 14개 cell 모두 exact transport와 capability mismatch 0건을 유지한 safe typed judgment였지만 `en-causal_analysis-1`은 완전한 visible-resource causal scope를 사용하지 않고 clarification을 요청했습니다. Immutable answered 14/14 gate가 실패해 seeded는 시작하지 않았고 artifact는 승격하지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-ffced363b1-20260818T030548Z` | Frame prompt v19를 중앙 검증한 뒤 strict를 다시 실행하고 strict가 통과한 경우에만 seeded를 허용합니다. |
 | 2026-08-18 | in-progress | 중앙 검증된 frame-v19 source `49e0e54635a30bf05f7d1a119df3d6e7216a8277`에서 repository strict-to-seeded 절차를 한 번 실행했습니다. Strict는 exact transport와 safety 또는 capability mismatch 0건을 유지하며 complete-evidence answer 14/14를 보존했습니다. Seeded는 safety 또는 unauthorized execution failure 없이 live turn 100개를 완료하고 typed judgment 99개를 통과했습니다. `ko-relationship_traversal-5`만 다른 ontology object로 routing되는 runtime resource에 declaration manifest를 선택했습니다. Failed artifact 또는 baseline은 승격하지 않았습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-49e0e54635-20260818T031435Z` | Frame prompt v20을 중앙 검증한 뒤 strict를 다시 실행하고 strict가 통과한 경우에만 seeded를 허용합니다. |
 | 2026-08-18 | validated | 중앙 검증된 frame-v20 source `a38922762ed805794b11bb9c6aaef43916f6f6c4`에서 통제된 strict-to-seeded 절차를 완료했습니다. Strict는 complete evidence와 exact transport를 유지하며 14/14를 통과했습니다. Seeded는 evidence-complete answer 85개, action draft 9개, clarification 6개, exact request 및 projection transport 100/100, capability mismatch 0건, unsupported operational claim 0건, unauthorized execution 0건 및 `production_ready=true`를 유지하며 live typed judgment 100개를 모두 통과했습니다. 통과한 raw artifact를 repository-safe 2026-08-18 기준선으로 변환했습니다. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63), 실행 `issue63-a38922762e-20260818T034940Z`, 위에 연결된 committed 통제 기준선 | 무작위 보증 릴리스 blocker가 남아 있지 않습니다. 원시 local artifact를 보존하고 최신 integration source에서 baseline commit을 검증합니다. |
+| 2026-08-20 | validated | 릴리스 oracle을 strict v2로 확장하고 aggregate/listing 하드닝이 적용된 정확한 소스를 인증했습니다. Strict v2는 완전한 근거 답변 16/16과 정확한 전송으로 형식화된 판단 22/22를 통과했습니다. Seeded는 완전한 근거 답변 73/73, 정확한 전송, 재시도 및 기능 불일치 0건, 모든 safety counter 0건, `production_ready=true`로 live typed judgment 100/100을 통과했습니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233), 실행 `question-space-final-4dc5365aa-20260820-r15`, 위에 연결된 repository-safe 2026-08-20 기준선 | 이 소스에는 무작위 보증 릴리스 blocker가 남아 있지 않습니다. 이후 소스 리비전은 새로운 정확한 소스 인증이 필요합니다. |
 
 ### 남은 작업
 

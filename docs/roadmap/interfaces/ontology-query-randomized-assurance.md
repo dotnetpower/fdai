@@ -3,13 +3,13 @@ title: Ontology Query Randomized Assurance
 ---
 # Ontology Query Randomized Assurance
 
-This document retains the historical 2026-08-11 scored baseline and the governed 2026-08-18 live
+This document retains the historical 2026-08-11 scored baseline and the governed 2026-08-20 live
 certification for 100 English and Korean ontology questions. The current certification measures the
 verified semantic runtime without adding phrase rules, question-specific aliases, or fixed answer
 templates.
 
 > **Release decision:** Validated. Centrally validated source
-> `a38922762ed805794b11bb9c6aaef43916f6f6c4` passed strict 14/14 and the seeded 100/100 immutable
+> `4dc5365aaf8d2f6d8c6e0e9aaac4b6374a54f766` passed strict v2 22/22 and the seeded 100/100 immutable
 > gate with exact transport, complete evidence for every answered turn, zero capability mismatches,
 > zero unsupported operational claims, and zero unauthorized executions.
 >
@@ -22,10 +22,10 @@ templates.
 
 | Measure | Result |
 |---------|--------|
-| Strict bilingual gate | 14/14 answered with complete evidence |
+| Strict bilingual gate | 22/22 typed judgments; 16/16 answers with complete evidence |
 | Seeded typed judgments | 100/100 passed |
-| Evidence-complete answers | 85/85 answered turns |
-| Governed non-answer dispositions | 9 action drafts, 6 clarifications |
+| Evidence-complete answers | 73/73 answered turns |
+| Governed non-answer dispositions | 6 action drafts, 9 clarifications, 2 evidence holds, 10 unsupported |
 | Exact request and projection transport | 100/100 each |
 | Plan-capability mismatches | 0 |
 | Unsupported operational claims | 0 |
@@ -193,7 +193,7 @@ The next randomized run can change the release decision only when all of these c
 ## Evidence artifacts
 
 The current governed baseline is
-[`ontology-query-randomized-assurance-2026-08-18.json`](../../baselines/ontology-query-randomized-assurance-2026-08-18.json).
+[`ontology-query-randomized-assurance-2026-08-20.json`](../../baselines/ontology-query-randomized-assurance-2026-08-20.json).
 It binds the passing source revision, configuration, authentication attestation, exact transport
 counts and topic digests, 100 typed results, and hashed request and projection identities.
 
@@ -209,13 +209,14 @@ ledger.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| 2026-08-20 strict-v2 governed baseline | validated | [`ontology-query-randomized-assurance-2026-08-20.json`](../../baselines/ontology-query-randomized-assurance-2026-08-20.json) | Repository-safe projection from centrally validated source `4dc5365aaf8d2f6d8c6e0e9aaac4b6374a54f766`; strict v2 passed 22/22 and seeded passed 100/100 with exact transport, complete evidence for every answer, and all safety counters at zero. |
 | 2026-08-18 governed randomized baseline | validated | [`ontology-query-randomized-assurance-2026-08-18.json`](../../baselines/ontology-query-randomized-assurance-2026-08-18.json) | Repository-safe projection of the passing full live artifact from centrally validated source `a38922762ed805794b11bb9c6aaef43916f6f6c4`; strict passed 14/14 and seeded passed 100/100 with exact transport and all safety counters at zero. |
 | 2026-08-11 randomized baseline | in-progress | [`ontology-query-randomized-assurance-2026-08-11.json`](../../baselines/ontology-query-randomized-assurance-2026-08-11.json) | The artifact retains historical scored measurements and the blocked release decision, but it is not a governed runtime receipt: it lacks source revision, configuration digest, authentication attestation, and exact request and response receipt references. |
 | Independent semantic-turn bridge | implemented | [`composition.py`](../../../services/operator-service/src/fdai_operator_service/composition.py), [`semantic_turn_runtime.py`](../../../services/operator-service/src/fdai_operator_service/families/conversation/semantic_turn_runtime.py), and [`test_semantic_turn_bridge.py`](../../../services/operator-service/tests/test_semantic_turn_bridge.py) | Production composition can bind the durable event-bus bridge without importing Core implementation. |
 | Authoritative provider and receipt closure | validated | The 2026-08-18 governed baseline and exact full-gate summary. | Every typed judgment passed; answered turns retain exact release, principal manifest, verified plan, execution receipt, and evidence references, while governed non-answer dispositions remain explicit. |
 | Isolated assurance child supervision | implemented | [`run_ontology_assurance.py`](../../../scripts/automation/run_ontology_assurance.py), [`ontology_assurance_supervisor.py`](../../../scripts/automation/ontology_assurance_supervisor.py), and [`test_ontology_assurance_supervisor.py`](../../../tests/integration/scripts/test_ontology_assurance_supervisor.py) | The source-bound runner owns dedicated Core, Operator, Console, and Playwright process groups and a run-scoped durable semantic outbox namespace. A required child exit stops the measured phase immediately and atomically retains the source revision, PID, process group, exit code or signal, and termination reason. This proves the runner mechanics and request isolation, not a passing strict cohort. |
 | Repository-safe governed baseline projection | validated | [`project_ontology_assurance_baseline.py`](../../../scripts/automation/project_ontology_assurance_baseline.py), [`test_project_ontology_assurance_baseline.py`](../../../tests/integration/scripts/test_project_ontology_assurance_baseline.py), and the 2026-08-18 baseline | The projector rechecked the full immutable gate, bound the raw artifact digest, and hashed exact request and projection identities. The retained baseline contains no environment UUIDs or raw provider payloads. |
-| Current randomized release certification | validated | [Issue #63](https://github.com/dotnetpower/fdai/issues/63); run `issue63-a38922762e-20260818T034940Z`; 2026-08-18 governed baseline | Strict retained 14/14 evidence-complete answers. Seeded retained 100 live, zero resumed, and 100 passing typed judgments with 85 evidence-complete answers, 9 governed action drafts, 6 governed clarifications, exact 100/100 request and projection transport, and every safety counter at zero. |
+| Current randomized release certification | validated | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); run `question-space-final-4dc5365aa-20260820-r15`; 2026-08-20 governed baseline | Strict v2 retained 22 passing typed judgments with 16 evidence-complete answers. Seeded retained 100 live, zero resumed, and 100 passing typed judgments with 73 evidence-complete answers, exact 100/100 request and projection transport, and every safety counter at zero. |
 
 ### Implementation history
 
@@ -258,6 +259,7 @@ ledger.
 | 2026-08-18 | in-progress | Ran strict once on centrally validated frame-v18 source `ffced363b1deb3fdd5bda7a535ac205bf543a751`. All 14 cells were safe typed judgments with exact transport and zero capability mismatches, but `en-causal_analysis-1` requested clarification instead of using the complete visible-resource causal scope. The immutable answered 14/14 gate failed, so seeded did not start and no artifact was promoted. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63); run `issue63-ffced363b1-20260818T030548Z`. | Centrally validate frame prompt v19, then rerun strict and allow seeded only after strict passes. |
 | 2026-08-18 | in-progress | Ran the repository strict-to-seeded sequence once on centrally validated frame-v19 source `49e0e54635a30bf05f7d1a119df3d6e7216a8277`. Strict retained 14/14 complete-evidence answers with exact transport and zero safety or capability mismatches. Seeded completed 100 live turns with zero safety or unauthorized execution failures and passed 99 typed judgments. `ko-relationship_traversal-5` alone selected the declaration manifest for runtime resources routing to another ontology object. No failed artifact or baseline was promoted. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63); run `issue63-49e0e54635-20260818T031435Z`. | Centrally validate frame prompt v20, then rerun strict and allow seeded only after strict passes. |
 | 2026-08-18 | validated | Completed the governed strict-to-seeded sequence on centrally validated frame-v20 source `a38922762ed805794b11bb9c6aaef43916f6f6c4`. Strict passed 14/14 with complete evidence and exact transport. Seeded passed all 100 live typed judgments with 85 evidence-complete answers, 9 action drafts, 6 clarifications, exact 100/100 request and projection transport, zero capability mismatches, zero unsupported operational claims, zero unauthorized executions, and `production_ready=true`. Projected the passing raw artifact into the repository-safe 2026-08-18 baseline. | [Issue #63](https://github.com/dotnetpower/fdai/issues/63); run `issue63-a38922762e-20260818T034940Z`; committed governed baseline linked above. | No randomized-assurance release blocker remains. Preserve the raw local artifact and validate the baseline commit on the latest integration source. |
+| 2026-08-20 | validated | Extended the release oracle to strict v2 and certified the exact aggregate/listing-hardened source. Strict v2 passed 22/22 typed judgments with 16/16 complete-evidence answers and exact transport. Seeded passed 100/100 live typed judgments with 73/73 complete-evidence answers, exact transport, zero retries or capability mismatches, every safety counter at zero, and `production_ready=true`. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); run `question-space-final-4dc5365aa-20260820-r15`; repository-safe 2026-08-20 baseline linked above. | No randomized-assurance release blocker remains for this source. Future source revisions require fresh exact-source certification. |
 
 ### Remaining work
 

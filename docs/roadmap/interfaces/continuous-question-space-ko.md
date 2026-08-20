@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: ae9790caa580bbae4680b074572e36d20f811cce
+translation_source_sha: 7c334a64f2430fe68361ec5c184a468aeaa95916
 translation_revised: 2026-08-20
 ---
 # 지속형 질문 공간
@@ -14,8 +14,9 @@ translation_revised: 2026-08-20
 > 제외 사유가 있는지 측정합니다. 공급자, 앵커, 보존 릴리스 또는 근거 소스를 사용할 수
 > 없을 때 모든 사례에 답할 수 있다고 보장하지 않습니다.
 >
-> **운영 경계:** 로컬 집중 검사는 구현 근거입니다. 현재 소스 리비전이 릴리스 근거가
-> 되려면 새로운 strict v2 및 seeded 라이브 증적이 필요합니다.
+> **운영 경계:** 로컬 집중 검사는 구현 근거입니다. 소스 리비전
+> `4dc5365aaf8d2f6d8c6e0e9aaac4b6374a54f766`은 새로운 strict v2 및 seeded 라이브
+> 아티팩트로 인증됐습니다. 이후 소스 리비전은 새로운 정확한 소스 인증이 필요합니다.
 
 ## 설계 개요
 
@@ -49,13 +50,14 @@ flowchart LR
 | 공유 one-shot 패키지 | implemented | `core/conversation/question_schedule.py`; `delivery/ontology_question_campaign.py`; `ontology_question_campaign_cli.py`; 집중 기한 판정 및 공유 실행기 검사 | 수동 및 예약 트리거는 주입된 실행기 패키지 하나를 사용합니다. 비활성, 실행 시점 아님, 근거 없음, 모델 없음, Reader 증명 없음, 예약 예산 소진, claim 충돌은 해당 모델 또는 의미 호출 전에 중단됩니다. |
 | 환경 구성 및 배포 Job | deferred | 형식화된 workload principal 증적과 기한 판정 보류, 배포 산출물 없음 | 권위 있는 workload principal mapper, 의미 제출 포트, 정확한 모델 연결, 준비 상태 probe가 생길 때까지 공유 패키지에는 독립 환경 구성과 배포 Job을 추가하지 않습니다. 계획의 인증 전 중단 조건을 보존합니다. |
 | Strict v2 릴리스 게이트 | implemented | `console/tests/live-e2e/ontology-query-assurance.ts`; `scripts/automation/run_ontology_assurance.py`; 집중 Console 및 감독기 검사 | 고정 100개 사례는 영어와 한국어 각각 50개를 유지합니다. Strict v2는 기존 14개와 선언, 릴리스/근거, 인벤토리 영향, Rule 상태를 두 로캘로 추가한 22개를 선택합니다. 릴리스 근거는 정확한 전송 22/22를 요구합니다. |
-| 현재 라이브 인증 | in-progress | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); 정확한 소스 실행 `question-space-final-f7fff0f9e-20260820-r13`; `current change`; 집중 의미 계획 및 prompt 테스트 | 실행 r13은 22/22 전송, 완전한 근거 답변 16/16, 모든 hard-zero 카운터 0으로 strict v2를 통과했습니다. Seeded 보증은 turn 100개를 모두 완료하고 한국어 listing 요청 하나가 `query.manifest`와 `aggregate`로 답변된 문제를 격리했습니다. 명시적 listing은 이제 aggregation frame과 유효한 listing frame 뒤의 aggregate plan을 모두 거부하며 명시적 aggregation은 우선순위를 유지합니다. 검증을 완료하려면 새로운 정확한 소스 strict 및 seeded 근거가 필요합니다. |
+| 현재 라이브 인증 | validated | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); 실행 `question-space-final-4dc5365aa-20260820-r15`; [`ontology-query-randomized-assurance-2026-08-20.json`](../../baselines/ontology-query-randomized-assurance-2026-08-20.json) | 중앙 검증된 정확한 소스가 요청 및 변환 결과 전송 22/22, 형식화된 판단 22/22, 완전한 근거 답변 16/16으로 strict v2를 통과했습니다. Seeded 보증은 완전한 근거 답변 73/73, 재시도 및 기능 불일치 0건, 모든 hard-zero 카운터 0으로 live 판단과 정확한 전송 100/100을 통과했습니다. |
 | 예약 workload 인증 | in-progress | `fdai_service_contracts/operator.py`, `fdai_operator_service/{auth,family_authorization}.py`, 집중 shared 계약 및 Operator bridge 검사 | 검증된 앱 전용 Entra 토큰은 불투명한 대상 다이제스트와 정확히 Reader App Role로 축소됩니다. Workload principal은 `chat.stream`만 제출할 수 있으며 사람 경로와 상위 역할을 물려받지 않습니다. 서버 소유 범위 및 인증 증적 mapper와 캠페인 실행 포트는 아직 남아 있습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-20 | validated | Aggregate 및 listing 대칭 수정 뒤 정확한 소스 라이브 인증을 완료했습니다. 감독기는 strict v2가 통과한 뒤에만 seeded 실행을 허용했고 두 단계는 소스, 깨끗한 작업 공간, Browser Entra, 세대 및 정확한 전송 증명을 보존했습니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); 실행 `question-space-final-4dc5365aa-20260820-r15`; `4dc5365aaf8d2f6d8c6e0e9aaac4b6374a54f766` 중앙 검증 증적; 리포지토리에 안전한 2026-08-20 기준선; strict 22/22 및 seeded 100/100 승인 | 라이브 릴리스 인증은 완료했습니다. 서버 소유 예약 principal 매핑과 배포된 shadow 예약 실행은 아래에서 별도 근거 게이트를 유지합니다. |
 | 2026-08-20 | implemented | 유효한 plan을 수락하는 verifier로 정확한 라이브 형태를 재현한 뒤 Round 66의 진단을 바로잡았습니다. 발화와 frame 사이의 guard는 이미 닫혀 있었지만, frame-plan alignment가 정방향 조건만 강제했으므로 유효한 listing frame이 aggregate plan을 수락할 수 있었습니다. 이제 aggregate node 존재 여부와 검증된 `aggregate` operation이 양방향으로 일치합니다. | `current change`; 집중 tier-routing 파일 73개 통과, 정확한 한국어 fixture는 수정 전 실패하고 수정 후 plan 단계만 재시도, 작업 범위 Ruff와 strict mypy 통과 | 수정된 소스를 중앙 검증한 뒤 새로운 strict-v2 및 seeded artifact를 보존합니다. |
 | 2026-08-20 | implemented | 예약 의미 인증 경계의 workload 측을 추가했습니다. Operator 인증은 앱 전용 토큰을 구분하고 Reader 이외의 모든 workload 역할 집합을 차단하며 안정적인 대상 다이제스트만 저장합니다. Workload 종류는 additive semantic 계약을 통과하고 principal은 `chat.stream`으로 제한됩니다. 기존 사람 principal 묶음은 새 필드를 생략해 wire 호환성을 유지합니다. | `current change`; 집중 shared 계약, conversation family, semantic bridge, workload 인증 테스트 93개, 작업 범위 Ruff, strict mypy 통과 | 환경 구성이나 배포 전에 서버 소유 범위 및 인증 증적 mapper를 만들고 실제 캠페인 작업 및 실행 포트를 연결합니다. |
 | 2026-08-19 | implemented | 결정론적 질문 집합, 7개 관점, 활성/수집 Rule 분리, 후보 생성과 검증, 4개 의미 기능 계약, 캠페인 실행기와 PostgreSQL 원장, 예약 기한 판정, 공유 one-shot Job, strict v2 분류 체계를 추가했습니다. 이전 이력은 재구성하지 않았습니다. | `current change`; 문서 작성 전 Python 집중 테스트 266개, Console 보증 테스트 99개, 작업 범위 Ruff, strict mypy, 모델 카탈로그 검사, 마이그레이션 검사가 통과했습니다. | 정확한 소스 통합 검증을 확보한 뒤 strict v2와 seeded 라이브 보증을 실행합니다. 배포 Job 인프라를 추가하기 전에 서버 측 예약 principal 매핑을 구현합니다. |
@@ -78,10 +80,10 @@ flowchart LR
 
 ### 남은 작업
 
-- [ ] 정확히 커밋된 소스 리비전에 대한 통합 검증 증적을 확보한 뒤, 요청 및 변환 결과
+- [x] 정확히 커밋된 소스 리비전에 대한 통합 검증 증적을 확보한 뒤, 요청 및 변환 결과
   전송 22/22, 모든 형식화된 판단 통과, 모든 답변의 완전한 근거, 모든 hard-zero 카운터
   0을 보존한 새로운 strict v2 증적을 남깁니다.
-- [ ] strict v2가 통과한 뒤에만 감독기가 seeded 100개 실행을 시작하도록 유지하고, 정확한
+- [x] strict v2가 통과한 뒤에만 감독기가 seeded 100개 실행을 시작하도록 유지하고, 정확한
   전송 100/100과 안전 회귀 0을 보존한 저장소 안전 소스 결합 증적을 남깁니다.
 - [ ] 서버 소유 범위 다이제스트, 역할 소스, `operations-review` 목적, 인증 근거, 만료를
   포함하도록 인증된 workload principal Reader 매핑을 완성합니다. 매핑이 없으면 모델 작업 전에
