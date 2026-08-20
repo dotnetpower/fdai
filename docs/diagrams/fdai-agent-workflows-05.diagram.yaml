@@ -74,8 +74,8 @@ nodes:
     kind: process
     badge: 6
     label:
-      en: F- -> Var
-      ko: F- -> Var
+      en: Forseti -> Var
+      ko: Forseti -> Var
     description:
       en: "alt: severity >= high / verdict = auto (governance notification)"
       ko: "alt: severity >= high / verdict = auto (governance notification)"

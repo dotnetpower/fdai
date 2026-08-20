@@ -46,8 +46,8 @@ nodes:
     kind: process
     badge: 3
     label:
-      en: H- -> Forseti
-      ko: H- -> Forseti
+      en: Heimdall -> Forseti
+      ko: Heimdall -> Forseti
     description:
       en: signal_confirm {leading_indicators, confidence}
       ko: signal_confirm {leading_indicators, confidence}
@@ -64,8 +64,8 @@ nodes:
     kind: process
     badge: 5
     label:
-      en: Nj- -> Forseti
-      ko: Nj- -> Forseti
+      en: Njord -> Forseti
+      ko: Njord -> Forseti
     description:
       en: cost_estimate
       ko: cost_estimate
@@ -82,8 +82,8 @@ nodes:
     kind: process
     badge: 7
     label:
-      en: O- -> Forseti
-      ko: O- -> Forseti
+      en: Odin -> Forseti
+      ko: Odin -> Forseti
     description:
       en: "alt: cost > fork_config.scale_cost_ceiling / arbitration_response"
       ko: "alt: cost > fork_config.scale_cost_ceiling / arbitration_response"

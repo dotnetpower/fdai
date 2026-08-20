@@ -55,8 +55,8 @@
       "kind": "process",
       "badge": 3,
       "label": {
-        "en": "Va- -> Forseti",
-        "ko": "Va- -> Forseti"
+        "en": "Var -> Forseti",
+        "ko": "Var -> Forseti"
       },
       "description": {
         "en": "approval",
@@ -107,8 +107,8 @@
       "kind": "process",
       "badge": 7,
       "label": {
-        "en": "H- -> Vidar",
-        "ko": "H- -> Vidar"
+        "en": "Heimdall -> Vidar",
+        "ko": "Heimdall -> Vidar"
       },
       "description": {
         "en": "observations",

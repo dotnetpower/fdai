@@ -63,8 +63,8 @@ nodes:
     kind: process
     badge: 5
     label:
-      en: V- -> Forseti
-      ko: V- -> Forseti
+      en: Var -> Forseti
+      ko: Var -> Forseti
     description:
       en: approval
       ko: approval

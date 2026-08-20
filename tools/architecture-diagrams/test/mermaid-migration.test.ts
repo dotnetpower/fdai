@@ -139,6 +139,8 @@ end`;
     { heading: "순서", source: koSource },
   );
   assert.equal(spec.kind, "sequence");
+  assert.equal(spec.nodes[1]?.label.en, "Forseti -> Heimdall");
+  assert.equal(spec.nodes[1]?.label.ko, "Forseti -> Heimdall");
   assert.equal(spec.nodes[1]?.description?.ko, "alt: 검토 필요 / 보류");
   assert.equal(spec.edges[0]?.kind, "sequence");
 });

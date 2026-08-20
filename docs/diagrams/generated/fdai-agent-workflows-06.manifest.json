@@ -81,8 +81,8 @@
       "kind": "process",
       "badge": 5,
       "label": {
-        "en": "M- -> Norns",
-        "ko": "M- -> Norns"
+        "en": "Mimir -> Norns",
+        "ko": "Mimir -> Norns"
       },
       "description": {
         "en": "alt: fingerprint occurrence >= threshold / alt: promotion passes / rule promoted",

@@ -92,8 +92,12 @@ export function nodeBodyLines(
   node: DiagramNode,
   locale: Locale,
   maxUnits: number,
+  descriptionAsBody = false,
 ): string[] {
-  return (node.content ?? []).flatMap((item) => {
+  const content = node.content ?? (
+    descriptionAsBody && node.description ? [node.description] : []
+  );
+  return content.flatMap((item) => {
     const lines = wrapText(item[locale], Math.max(4, maxUnits - 2));
     return lines.map((line, index) => `${index === 0 ? "- " : "  "}${line}`);
   });
@@ -111,7 +115,11 @@ export interface NodeGeometry {
   maxBodyUnits: number;
 }
 
-export function nodeGeometry(node: DiagramNode, compact = false): NodeGeometry {
+export function nodeGeometry(
+  node: DiagramNode,
+  compact = false,
+  descriptionAsBody = false,
+): NodeGeometry {
   const nodeFontSize = compact ? REFERENCE_NODE_FONT_SIZE : NODE_FONT_SIZE;
   const nodeLineHeight = compact ? REFERENCE_NODE_LINE_HEIGHT : NODE_LINE_HEIGHT;
   const bodyFontSize = compact ? REFERENCE_NODE_BODY_FONT_SIZE : NODE_BODY_FONT_SIZE;
@@ -129,11 +137,13 @@ export function nodeGeometry(node: DiagramNode, compact = false): NodeGeometry {
       ),
     ),
   );
+  const hasBody = Boolean(node.content?.length) ||
+    (descriptionAsBody && Boolean(node.description));
   const width = node.width ?? (
     iconPresentation
       ? 116
-      : node.content?.length
-        ? 220
+      : hasBody
+        ? descriptionAsBody ? 360 : 220
         : compact
           ? 148
           : naturalLabelWidth
@@ -143,7 +153,8 @@ export function nodeGeometry(node: DiagramNode, compact = false): NodeGeometry {
   const lineCount = maxLocaleLineCount(node.label, maxLabelUnits);
   const bodyLineCount = Math.max(
     ...(["en", "ko"] satisfies Locale[]).map(
-      (locale) => nodeBodyLines(node, locale, maxBodyUnits).length,
+      (locale) =>
+        nodeBodyLines(node, locale, maxBodyUnits, descriptionAsBody).length,
     ),
   );
   const hasIcon = Boolean(node.icon) || node.kind === "agent";

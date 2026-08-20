@@ -55,8 +55,8 @@
       "kind": "process",
       "badge": 3,
       "label": {
-        "en": "Nj- -> Forseti",
-        "ko": "Nj- -> Forseti"
+        "en": "Njord -> Forseti",
+        "ko": "Njord -> Forseti"
       },
       "description": {
         "en": "cost_estimate {monthly_delta_usd, confidence}",

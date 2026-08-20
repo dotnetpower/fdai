@@ -280,7 +280,7 @@ export function parseSequence(source: string): ParsedSequence {
       context.pop();
       continue;
     }
-    const message = /^([A-Za-z0-9_.-]+)\s*-{1,2}(?:>>|>|x|\))\s*([A-Za-z0-9_.-]+)\s*:\s*(.+)$/u.exec(line);
+    const message = /^([A-Za-z0-9_.-]+?)\s*-{1,2}(?:>>|>|x|\))\s*([A-Za-z0-9_.-]+)\s*:\s*(.+)$/u.exec(line);
     if (!message) throw new Error(`Unsupported Mermaid sequence line: ${line}`);
     participants.set(message[1]!, participants.get(message[1]!) ?? message[1]!);
     participants.set(message[2]!, participants.get(message[2]!) ?? message[2]!);

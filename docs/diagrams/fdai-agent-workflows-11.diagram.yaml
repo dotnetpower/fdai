@@ -47,8 +47,8 @@ nodes:
     kind: process
     badge: 3
     label:
-      en: M- -> Forseti
-      ko: M- -> Forseti
+      en: Mimir -> Forseti
+      ko: Mimir -> Forseti
     description:
       en: rule set (+ profile mode)
       ko: rule set (+ profile mode)
@@ -92,8 +92,8 @@ nodes:
     kind: process
     badge: 8
     label:
-      en: V- -> Thor
-      ko: V- -> Thor
+      en: Var -> Thor
+      ko: Var -> Thor
     description:
       en: "alt: blocked and enforce mode / approved fixes"
       ko: "alt: blocked and enforce mode / approved fixes"

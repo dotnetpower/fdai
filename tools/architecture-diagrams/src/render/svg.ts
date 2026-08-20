@@ -264,8 +264,9 @@ async function renderNode(
   offsetX = 0,
   offsetY = 0,
   compact = false,
+  descriptionAsBody = false,
 ): Promise<string> {
-  const geometry = nodeGeometry(node, compact);
+  const geometry = nodeGeometry(node, compact, descriptionAsBody);
   const nodeFontSize = compact ? REFERENCE_NODE_FONT_SIZE : NODE_FONT_SIZE;
   const nodeLineHeight = compact ? REFERENCE_NODE_LINE_HEIGHT : NODE_LINE_HEIGHT;
   const bodyFontSize = compact ? REFERENCE_NODE_BODY_FONT_SIZE : NODE_BODY_FONT_SIZE;
@@ -296,7 +297,12 @@ async function renderNode(
     ? shape.y + shape.height / 2 -
       ((labelLines.length - 1) * nodeLineHeight) / 2 + nodeFontSize * 0.35
     : shape.y + geometry.labelTop + nodeFontSize;
-  const bodyLines = nodeBodyLines(node, locale, geometry.maxBodyUnits);
+  const bodyLines = nodeBodyLines(
+    node,
+    locale,
+    geometry.maxBodyUnits,
+    descriptionAsBody,
+  );
   const bodyMarkup = bodyLines.length
     ? textLines(
         bodyLines,
@@ -606,7 +612,22 @@ export async function renderSvg(
   layout: DiagramLayout,
   locale: Locale,
 ): Promise<string> {
-  const offsetX = 48;
+  const defaultOffsetX = 48;
+  const sequenceBounds = spec.kind === "sequence" && layout.nodes.size
+    ? {
+        left: Math.min(...[...layout.nodes.values()].map((node) => node.x)),
+        right: Math.max(
+          ...[...layout.nodes.values()].map((node) => node.x + node.width),
+        ),
+      }
+    : undefined;
+  const offsetX = sequenceBounds
+    ? Math.max(
+        defaultOffsetX,
+        (spec.canvas.width - (sequenceBounds.right - sequenceBounds.left)) / 2 -
+          sequenceBounds.left,
+      )
+    : defaultOffsetX;
   const offsetY = 112;
   const legendHeight = spec.legend?.length ? 58 : 20;
   const width = Math.max(spec.canvas.width, Math.ceil(layout.width + offsetX * 2));
@@ -679,6 +700,7 @@ export async function renderSvg(
           offsetX,
           offsetY,
           spec.canvas.profile === "azure-reference",
+          spec.kind === "sequence",
         );
       }),
     )

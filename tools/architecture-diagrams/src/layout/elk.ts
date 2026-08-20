@@ -217,9 +217,10 @@ function diagramNodeToElk(
   node: DiagramNode,
   compact: boolean,
   equalizedHeight?: number,
+  descriptionAsBody = false,
 ): ElkNode {
   const ports = nodePorts(node);
-  const geometry = nodeGeometry(node, compact);
+  const geometry = nodeGeometry(node, compact, descriptionAsBody);
   return {
     id: node.id,
     width: geometry.width,
@@ -238,6 +239,7 @@ function childrenForGroup(
   directNodeHeight?: number,
 ): ElkNode[] {
   const compact = spec.canvas.profile === "azure-reference";
+  const descriptionAsBody = spec.kind === "sequence";
   const childGroupSpecs = spec.groups.filter((candidate) => candidate.parent === group.id);
   const peerNodeSpecs = childGroupSpecs.flatMap((candidate) => {
     const directNodes = spec.nodes.filter((node) => node.parent === candidate.id);
@@ -247,7 +249,11 @@ function childrenForGroup(
     group.layout === "row" &&
     childGroupSpecs.length > 1 &&
     peerNodeSpecs.length === childGroupSpecs.length
-    ? Math.max(...peerNodeSpecs.map((node) => nodeGeometry(node, compact).height))
+    ? Math.max(
+        ...peerNodeSpecs.map((node) =>
+          nodeGeometry(node, compact, descriptionAsBody).height
+        ),
+      )
     : undefined;
   const childGroups = childGroupSpecs.map((candidate) =>
     groupToElk(spec, candidate, containedEdges, peerNodeHeight),
@@ -255,11 +261,15 @@ function childrenForGroup(
   const childNodeSpecs = spec.nodes.filter((node) => node.parent === group.id);
   const equalizedHeight = directNodeHeight ?? (
     !compact && group.layout === "row" && childNodeSpecs.length > 1
-    ? Math.max(...childNodeSpecs.map((node) => nodeGeometry(node, compact).height))
+    ? Math.max(
+        ...childNodeSpecs.map((node) =>
+          nodeGeometry(node, compact, descriptionAsBody).height
+        ),
+      )
     : undefined
   );
   const childNodes = childNodeSpecs.map((node) =>
-    diagramNodeToElk(node, compact, equalizedHeight),
+    diagramNodeToElk(node, compact, equalizedHeight, descriptionAsBody),
   );
   return [...childGroups, ...childNodes];
 }
@@ -1582,7 +1592,9 @@ export async function layoutDiagram(spec: DiagramSpec): Promise<DiagramLayout> {
     .map((group) => groupToElk(spec, group, containedEdges));
   const rootNodes = spec.nodes
     .filter((node) => !node.parent)
-    .map((node) => diagramNodeToElk(node, compact));
+    .map((node) =>
+      diagramNodeToElk(node, compact, undefined, spec.kind === "sequence")
+    );
   const graph: ElkNode = {
     id: "root",
     children: [...rootGroups, ...rootNodes],

@@ -81,8 +81,8 @@
       "kind": "process",
       "badge": 5,
       "label": {
-        "en": "F- -> Bragi",
-        "ko": "F- -> Bragi"
+        "en": "Forseti -> Bragi",
+        "ko": "Forseti -> Bragi"
       },
       "description": {
         "en": "what-if verdicts",
@@ -107,8 +107,8 @@
       "kind": "process",
       "badge": 7,
       "label": {
-        "en": "N- -> Bragi",
-        "ko": "N- -> Bragi"
+        "en": "Norns -> Bragi",
+        "ko": "Norns -> Bragi"
       },
       "description": {
         "en": "diff summary",
@@ -120,8 +120,8 @@
       "kind": "process",
       "badge": 8,
       "label": {
-        "en": "Br- -> Operator",
-        "ko": "Br- -> Operator"
+        "en": "Bragi -> Operator",
+        "ko": "Bragi -> Operator"
       },
       "description": {
         "en": "report",

@@ -4,6 +4,7 @@ import test from "node:test";
 import { layoutDiagram } from "../src/layout/elk.js";
 import type { DiagramKind, EdgeKind } from "../src/model/types.js";
 import { validateDiagram } from "../src/model/validate.js";
+import { renderSvg } from "../src/render/svg.js";
 
 function linearSpec(kind: DiagramKind, edgeKind: EdgeKind) {
   return validateDiagram({
@@ -17,16 +18,22 @@ function linearSpec(kind: DiagramKind, edgeKind: EdgeKind) {
     canvas: { width: 800, height: 480, direction: "RIGHT" },
     groups: [],
     nodes: [
-      { id: "first", kind: "process", label: { en: "First", ko: "첫 번째" } },
-      { id: "second", kind: "process", label: { en: "Second", ko: "두 번째" } },
+      { id: "first", kind: "process", label: { en: "First", ko: "첫 번째" }, description: { en: "First message", ko: "첫 번째 메시지" } },
+      { id: "second", kind: "process", label: { en: "Second", ko: "두 번째" }, description: { en: "Second message", ko: "두 번째 메시지" } },
     ],
     edges: [{ id: "flow", from: "first", to: "second", kind: edgeKind }],
   });
 }
 
-test("sequence strategy lays interactions out from top to bottom", async () => {
-  const layout = await layoutDiagram(linearSpec("sequence", "sequence"));
+test("sequence strategy centers readable interactions from top to bottom", async () => {
+  const spec = linearSpec("sequence", "sequence");
+  const layout = await layoutDiagram(spec);
   assert.ok(layout.nodes.get("second")!.y > layout.nodes.get("first")!.y);
+  assert.equal(layout.nodes.get("first")!.width, 360);
+  const svg = await renderSvg(spec, layout, "en");
+  assert.match(svg, /transform="translate\(180 112\)"/u);
+  assert.match(svg, /class="node-body"/u);
+  assert.match(svg, /First message/u);
 });
 
 test("state, domain, and timeline strategies preserve their primary axis", async () => {
