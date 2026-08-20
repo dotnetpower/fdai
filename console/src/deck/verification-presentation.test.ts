@@ -44,6 +44,11 @@ describe("verification presentation", () => {
     ["ordinal_resource_no_longer_observed", "sourceUnavailable"],
     ["ordinal_requery_truncated", "sourceUnavailable"],
     ["ordinal_query_invalid_result", "sourceUnavailable"],
+    ["semantic_evidence_held", "sourceUnavailable"],
+    ["semantic_deadline_exceeded", "sourceUnavailable"],
+    ["semantic_result_store_unavailable", "sourceUnavailable"],
+    ["semantic_runtime_unavailable", "sourceUnavailable"],
+    ["semantic_transport_unavailable", "sourceUnavailable"],
   ] as const)("maps conversation hold %s to %s", (reason, kind) => {
     expect(verificationIssueKind(reason)).toBe(kind);
   });

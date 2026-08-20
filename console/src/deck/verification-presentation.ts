@@ -18,6 +18,11 @@ const SOURCE_UNAVAILABLE_REASONS = new Set([
   "ordinal_query_invalid_result",
   "ordinal_requery_truncated",
   "ordinal_resource_no_longer_observed",
+  "semantic_deadline_exceeded",
+  "semantic_evidence_held",
+  "semantic_result_store_unavailable",
+  "semantic_runtime_unavailable",
+  "semantic_transport_unavailable",
 ]);
 
 export function verificationIssueKind(reasonCode: string | null): VerificationIssueKind {

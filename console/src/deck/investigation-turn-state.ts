@@ -21,6 +21,19 @@ export function investigationFlowPosition(
   };
 }
 
+export function investigationFlowHasTerminalAnswer(
+  turns: readonly Turn[],
+  index: number,
+): boolean {
+  if (!isInvestigationTurn(turns[index])) return false;
+  let cursor = index + 1;
+  while (isInvestigationTurn(turns[cursor])) cursor += 1;
+  const answer = turns[cursor];
+  return answer?.role === "deck" && answer.terminal === true &&
+    answer.kind !== "activity" &&
+    !(answer.kind === "message" && answer.source === "investigation");
+}
+
 function turnContinuesInvestigation(turns: readonly Turn[], index: number): boolean {
   const turn = turns[index];
   if (!turn) return false;

@@ -23,7 +23,10 @@ import { ContextFreshnessIndicator } from "./context-freshness";
 import { resumedConversationAt } from "./conversation-resume";
 import { clampDockWidth, type DeckLayoutMode } from "./command-deck-session";
 import { presentationTimestamp } from "./presentation-value";
-import { investigationFlowPosition } from "./investigation-turn-state";
+import {
+  investigationFlowHasTerminalAnswer,
+  investigationFlowPosition,
+} from "./investigation-turn-state";
 import type { DeckSlashCommand } from "./command-deck-slash";
 import type { ConversationSummary } from "./conversation-sessions";
 import type { ConversationHydrationState } from "./use-command-deck-sessions";
@@ -376,6 +379,10 @@ export function CommandDeckView({
               {turns.map((turn, index) => {
                 const trajectory = trajectories.get(turn.id);
                 const investigationFlow = investigationFlowPosition(turns, index);
+                const investigationAnswerSettled = investigationFlowHasTerminalAnswer(
+                  turns,
+                  index,
+                );
                 const progressIndex = turn.kind === "message" && turn.source === "investigation"
                   ? turns.slice(0, index).filter((candidate) =>
                       candidate.kind === "message" && candidate.source === "investigation").length
@@ -393,6 +400,7 @@ export function CommandDeckView({
                     investigationFlowContinuation={investigationFlow.continuation}
                     investigationFlowStart={investigationFlow.start}
                     investigationFlowEnd={investigationFlow.end}
+                    investigationAnswerSettled={investigationAnswerSettled}
                     {...(turn.role === "deck" &&
                       !turn.streaming &&
                       !inFlight &&

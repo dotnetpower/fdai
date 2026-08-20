@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { InvestigationActivity } from "./backend";
 import type { Turn } from "./command-deck-presenters";
 import {
+  investigationFlowHasTerminalAnswer,
   investigationFlowPosition,
   investigationTurnsAreSettled,
   settleInvestigationTurn,
@@ -71,6 +72,24 @@ describe("investigation turn state", () => {
       end: true,
     });
     expect(investigationFlowPosition(turns, 4).inFlow).toBe(false);
+  });
+
+  it("compacts every activity group once the shared flow has a terminal answer", () => {
+    const first = { ...activityTurn("phase-1"), streaming: false, terminal: true };
+    const second = { ...activityTurn("phase-2"), streaming: false, terminal: true };
+    const answer: Turn = {
+      id: "answer",
+      role: "deck",
+      text: "Verified evidence is unavailable.",
+      terminal: true,
+      at: "01:00:03",
+    };
+    const turns = [first, second, answer];
+
+    expect(investigationFlowHasTerminalAnswer(turns, 0)).toBe(true);
+    expect(investigationFlowHasTerminalAnswer(turns, 1)).toBe(true);
+    expect(investigationFlowHasTerminalAnswer(turns, 2)).toBe(false);
+    expect(investigationFlowHasTerminalAnswer([first, second], 0)).toBe(false);
   });
 
   it("settles only the activity group that precedes a milestone", () => {

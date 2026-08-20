@@ -343,11 +343,13 @@ export function InvestigationTimeline({
   branches,
   running,
   showStartNote,
+  answerSettled,
 }: {
   readonly activities: readonly InvestigationActivity[];
   readonly branches: readonly EvidenceBranch[];
   readonly running: boolean;
   readonly showStartNote: boolean;
+  readonly answerSettled: boolean;
 }) {
   const finalDurationMs = terminalDuration(branches, activities);
   const elapsedMs = useInvestigationElapsed(running, finalDurationMs);
@@ -495,9 +497,36 @@ export function InvestigationTimeline({
     </div>
   );
 
+  const head = (
+    <>
+      {running ? (
+        <span class="deck-investigation-spinner" aria-hidden="true" />
+      ) : (
+        <span class="deck-investigation-state" aria-hidden="true">
+          <span class="deck-marker-glyph">
+            {tone === "completed" ? "\u2713" : tone === "failed" ? "\u00d7" : tone === "partial" ? "~" : "!"}
+          </span>
+        </span>
+      )}
+      <span class="deck-investigation-session-copy">
+        <strong>{phaseTitle}</strong>
+        <small>{callSummary} · {formatDuration(running ? elapsedMs : finalDurationMs)}</small>
+      </span>
+      {!answerSettled ? (
+        <span class="deck-investigation-session-summary muted">{summary}</span>
+      ) : null}
+      <span class="deck-investigation-readonly">
+        {t("deck.investigation.readOnly")}
+      </span>
+      <span class={`deck-investigation-badge is-${running ? "running" : tone}`}>
+        {statusLabel(running ? "running" : tone)}
+      </span>
+    </>
+  );
+
   return (
     <>
-      {showStartNote && startCopy ? (
+      {showStartNote && !answerSettled && startCopy ? (
         <div class="deck-progress-note deck-progress-note-derived" role="status">
           <span class="deck-progress-note-mark" aria-hidden="true">
             <span class="deck-marker-glyph">01</span>
@@ -508,37 +537,25 @@ export function InvestigationTimeline({
           </div>
         </div>
       ) : null}
-      <details
-        key={running ? "running" : "settled"}
-        class={`deck-investigation ${running ? "is-running" : `is-settled is-${tone}`}`}
-        open={running}
-        aria-label={t("deck.investigation.label")}
-      >
-        <summary class="deck-investigation-head">
-          {running ? (
-            <span class="deck-investigation-spinner" aria-hidden="true" />
-          ) : (
-            <span class="deck-investigation-state" aria-hidden="true">
-              <span class="deck-marker-glyph">
-                {tone === "completed" ? "\u2713" : tone === "failed" ? "\u00d7" : tone === "partial" ? "~" : "!"}
-              </span>
-            </span>
-          )}
-          <span class="deck-investigation-session-copy">
-            <strong>{phaseTitle}</strong>
-            <small>{callSummary} · {formatDuration(running ? elapsedMs : finalDurationMs)}</small>
-          </span>
-          <span class="deck-investigation-session-summary muted">{summary}</span>
-          <span class="deck-investigation-readonly">
-            {t("deck.investigation.readOnly")}
-          </span>
-          <span class={`deck-investigation-badge is-${running ? "running" : tone}`}>
-            {statusLabel(running ? "running" : tone)}
-          </span>
-        </summary>
-        {body}
-        {running && allObservedCallsSettled ? <InvestigationNextSkeleton /> : null}
-      </details>
+      {answerSettled ? (
+        <div
+          class={`deck-investigation is-settled is-${tone} is-answer-settled`}
+          aria-label={t("deck.investigation.label")}
+        >
+          <div class="deck-investigation-head">{head}</div>
+        </div>
+      ) : (
+        <details
+          key={running ? "running" : "settled"}
+          class={`deck-investigation ${running ? "is-running" : `is-settled is-${tone}`}`}
+          open={running}
+          aria-label={t("deck.investigation.label")}
+        >
+          <summary class="deck-investigation-head">{head}</summary>
+          {body}
+          {running && allObservedCallsSettled ? <InvestigationNextSkeleton /> : null}
+        </details>
+      )}
     </>
   );
 }

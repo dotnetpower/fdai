@@ -135,6 +135,12 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain('key={running ? "running" : "settled"}');
     expect(component).toContain('class={`deck-investigation ${running ? "is-running" : `is-settled is-${tone}`}`}');
     expect(component).toContain("open={running}");
+    expect(component).toContain("answerSettled ? (");
+    expect(component).toContain("is-answer-settled");
+    expect(component).toContain('<div class="deck-investigation-head">{head}</div>');
+    expect(component).toContain("!answerSettled ? (");
+    expect(styles).toContain(".deck-investigation > summary.deck-investigation-head { cursor: pointer; }");
+    expect(styles).toContain(".deck-investigation.is-answer-settled .deck-investigation-head");
     expect(component).not.toContain("deck-investigation-activity-disclosure");
     expect(styles).toContain(".deck-investigation-head::-webkit-details-marker { display: none; }");
     expect(component).toContain('class="deck-investigation-readonly"');
@@ -142,6 +148,9 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain('class="deck-investigation-item-disclosure"');
     expect(component).toContain('open={activity.status === "running" ||');
     expect(presenter).toContain("showStartNote={investigationFlowStart}");
+    expect(presenter).toContain("answerSettled={investigationAnswerSettled}");
+    expect(view).toContain("investigationFlowHasTerminalAnswer(");
+    expect(component).toContain("showStartNote && !answerSettled && startCopy");
     expect(presenter).toContain("const isInvestigationFinalAnswer = isDeck && investigationFlowEnd");
     expect(presenter).toContain("!isInvestigationFlow || investigationFlowStart");
     expect(presenter).not.toContain("investigationFlowStart || isInvestigationFinalAnswer");

@@ -476,17 +476,9 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   );
   await expect(investigation.locator(".deck-investigation-badge")).toHaveText("Completed");
   await expect(investigation.locator(".deck-branch-item")).toHaveCount(0);
-  await expect(investigation.locator(".deck-investigation-item")).toHaveCount(1);
-  await expect(investigation.locator(".deck-investigation-kind-badge")).toHaveText("QUERY");
-  await investigation.locator(".deck-investigation-item-disclosure > summary").click();
-  const queryResult = investigation.locator(
-    "details.deck-investigation-disclosure:has(> .deck-investigation-output)",
-  );
-  await queryResult.locator(":scope > summary").click();
-  const queryResultCode = queryResult.locator(".deck-investigation-output code");
-  await expect(queryResultCode).toHaveAttribute("data-format", "json");
-  await expect(queryResultCode).toContainText('"resources": [');
-  await expect(queryResultCode).toContainText('"name": "vm-example"');
+  await expect(investigation).toHaveClass(/is-answer-settled/);
+  await expect(investigation.locator(".deck-investigation-item")).toHaveCount(0);
+  await expect(investigation.locator(".deck-investigation-session-summary")).toHaveCount(0);
 
   const runRecord = workspace.locator(".deck-trajectory");
   await expect(runRecord).not.toHaveAttribute("open", "");
@@ -566,6 +558,18 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   await expect(runRecord.locator(".deck-trajectory-question strong")).toHaveText(
     "List resource groups",
   );
+  await runRecord.locator(".deck-trajectory-records > summary").click();
+  const evidencePhase = runRecord.locator('.deck-trajectory-event[data-phase="evidence"] > details');
+  await evidencePhase.locator(":scope > summary").click();
+  const queryActivity = evidencePhase.locator(".deck-trajectory-evidence > li > details", {
+    hasText: "Inspect server-owned read evidence",
+  });
+  await queryActivity.locator(":scope > summary").click();
+  const queryResult = queryActivity.locator(".deck-trajectory-nested");
+  await queryResult.locator(":scope > summary").click();
+  const queryResultCode = queryResult.locator("code");
+  await expect(queryResultCode).toContainText('"resources": [');
+  await expect(queryResultCode).toContainText('"name": "vm-example"');
   await expect(prompt).toBeVisible();
   const modelTrace = runRecord.locator(".deck-model-trace");
   await expect(modelTrace).toBeVisible();
@@ -582,10 +586,15 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
 
   const metrics = await workspace.evaluate((root) => {
     const transcript = root.querySelector<HTMLElement>(".deck-transcript");
-    const command = root.querySelector<HTMLElement>(".deck-investigation-command");
+    const command = root.querySelector<HTMLElement>(
+      '.deck-trajectory-event[data-phase="evidence"] .deck-code',
+    );
+    const commandScrollSurface = command?.querySelector<HTMLElement>(".deck-code-pre");
     const composer = root.querySelector<HTMLElement>(".deck-input-row");
-    const code = command?.querySelector<HTMLElement>("code");
-    const output = root.querySelector<HTMLElement>(".deck-investigation-output");
+    const code = commandScrollSurface?.querySelector<HTMLElement>("code");
+    const output = root.querySelector<HTMLElement>(
+      '.deck-trajectory-nested .deck-code-pre',
+    );
     const modelMessage = root.querySelector<HTMLElement>(".deck-model-trace-message-content");
     const rootBounds = root.getBoundingClientRect();
     const composerBounds = composer?.getBoundingClientRect();
@@ -607,7 +616,9 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
         : false,
       commandBackground: command ? getComputedStyle(command).backgroundColor : "",
       codeBackground: code ? getComputedStyle(code).backgroundColor : "",
-      commandScrollbar: command ? getComputedStyle(command).scrollbarColor : "",
+      commandScrollbar: commandScrollSurface
+        ? getComputedStyle(commandScrollSurface).scrollbarColor
+        : "",
       outputScrollbar: output ? getComputedStyle(output).scrollbarColor : "",
       modelMessageScrollbar: modelMessage ? getComputedStyle(modelMessage).scrollbarColor : "",
     };
@@ -621,7 +632,7 @@ test("keeps a mock-aligned execution timeline in full workspace", async ({ page 
   expect(metrics.bodyOverflow).toBe(false);
   expect(metrics.investigationOverflow).toBe(false);
   expect(metrics.composerInsideDeck).toBe(true);
-  expect(metrics.commandBackground).toBe("rgb(31, 36, 40)");
+  expect(metrics.commandBackground).toBe("rgb(13, 17, 23)");
   expect(metrics.codeBackground).toBe("rgba(0, 0, 0, 0)");
   expect(metrics.commandScrollbar).not.toBe("auto");
   expect(metrics.outputScrollbar).not.toBe("auto");

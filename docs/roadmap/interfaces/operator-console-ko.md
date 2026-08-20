@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 6f7d3809c7a67b3877d556523af50360509574df
+translation_source_sha: e0dcbddd80a5b2ab8c49c1e9ddc341d96aa898d9
 translation_revised: 2026-08-20
 ---
 # FDAI Console 대화
@@ -73,6 +73,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 2026-08-20 | implemented | 완료된 실행 상세와 2행 준비 단계가 검증된 답변을 밀어내던 문제를 해결해 데스크톱 Command Deck 계층을 복원했습니다. 완료된 관찰 작업은 접힌 disclosure 하나로 다시 mount되고 데스크톱 준비 머리글과 단계 상세는 범위가 제한된 한 줄과 말줄임표를 우선합니다. | `current change`, `investigation-timeline.tsx`, `styles.css`, `investigation-timeline.test.ts`, 집중 Console 검사 30개 통과, 새로 mount한 인증 데스크톱 화면에서 닫힌 activity 행 높이 38 px와 그 뒤의 검증된 표, body 및 transcript 가로 overflow 0 확인 | 브라우저 관찰은 통제된 산출물로 보존하지 않았습니다. 허용된 데스크톱 기준선 뒤에서만 반응형 검증을 진행합니다. |
 | 2026-08-20 | implemented | 일반 v2 단일 output compiler보다 먼저 대상 결속 causal multi-output을 렌더링하도록 복원하고 Core 결과가 이미 포함하던 근거 차원을 노출했습니다. 이제 구조화된 답변은 exact 대상 identity, 증상, 정렬된 time window, 관측 변화, 가설 상태 3개, 근거 등급, 표본 수, falsifier 및 limitation을 두 언어에서 보존합니다. | `current change`, [이슈 #244](https://github.com/dotnetpower/fdai/issues/244), 집중 이중 언어 projection 검사 4개와 전체 Python 및 Console 회귀 matrix 64개 통과 | Exact committed Core를 재시작하고 인증된 slowdown 답변 1개와 데스크톱 viewport 근거를 보존한 뒤 이 행을 `validated`로 변경합니다. |
 | 2026-08-20 | implemented | Command Deck과 adaptive-response 시안을 기준으로 독립적인 답변 상태 동등성 검토 12회를 완료했습니다. 연결된 조사는 에이전트 머리글 하나를 유지하고, 기본 답변과 복사는 일치하는 최종 기계 사유 접미사만 제외하며, 출처 및 컨텍스트 보류는 주의 색상을 사용하고, 검증되지 않은 참조는 근거 있음 표시를 사용하지 않습니다. 표는 평면 리포트 계층을 사용하고, 시계열은 순서가 있는 단일 축을 유지하며, 부호가 있는 비교는 방향을 보존하고, 모바일 overlay grid는 Send를 viewport 안에 유지합니다. | `current change`, [이슈 #246](https://github.com/dotnetpower/fdai/issues/246), 집중 답변 UI 검사 164개, Console 타입 검사, 운영 빌드, entry bundle 및 1440 x 900, 993 x 641, 390 x 844 합성 Playwright 통과 | 이 범위에는 Medium 이상의 표현 문제가 남아 있지 않습니다. 통제된 인증 답변 근거와 기존 Low 수준의 범위 제한 모바일 출처 strip 가로 스크롤은 별도로 추적합니다. |
+| 2026-08-20 | implemented | 인증된 screenshot에서 최종 답변 앞에 일시적인 시작 카드와 펼칠 수 있는 수명 주기 행이 남아 답변을 밀어내는 문제가 확인되어 앞선 동등성 결론을 바로잡았습니다. 완료된 흐름은 일시적인 화면을 정적인 관찰 작업 요약 하나로 바꾸고, 정확한 쿼리 및 출력 근거는 접힌 Run record 안에만 유지하며, 의미 근거 보류를 `Unsupported claim`이 아니라 `Source unavailable`로 표시합니다. 모바일 최종 요약과 답변 동작은 간결한 의미 단위 grid를 사용합니다. | `current change`, 다시 연 [이슈 #246](https://github.com/dotnetpower/fdai/issues/246), 집중 수명 주기 및 시각 검사, 시안 정렬 실행 Playwright, 가로 overflow가 없는 인증된 1440 x 900, 993 x 641, 390 x 844 배치 측정 | 최종 답변 계층에는 Medium 이상의 문제가 남아 있지 않습니다. 정확한 실행 근거는 Run record에서 계속 확인할 수 있고 권한은 바뀌지 않았습니다. |
 
 ### 남은 작업
 
@@ -84,8 +85,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 
 ## 1. Framing - 무엇인가 (그리고 무엇이 아닌가)
 
-FDAI Console 대화 표면은 **판단 권한을 가지지 않습니다**. FDAI의 판단 권한은 이미 있는 곳에 그대로 남습니다 - 결정론적 엔진 (T0), quality gate (T2 검증기), risk gate, shipped Rego 정책. 콘솔은
-그 판단을 오퍼레이터가 검사하고, 변경을 시뮬레이션하고, 시스템이
+FDAI Console 대화 표면은 **판단 권한을 가지지 않습니다**. FDAI의 판단 권한은 이미 있는 곳에 그대로 남습니다 - 결정론적 엔진 (T0), quality gate (T2 검증기), risk gate, shipped Rego 정책. 콘솔은 그 판단을 오퍼레이터가 검사하고, 변경을 시뮬레이션하고, 시스템이
 이미 큐잉한 것을 승인하는 **대화형 표면** 이다.
 
 세 속성이 직접 따라온다:

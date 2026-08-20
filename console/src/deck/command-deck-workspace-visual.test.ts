@@ -263,6 +263,8 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).toContain("flex: 0 1 420px;");
     expect(styles).toContain(".deck-overlay.deck-overlay-mode-workspace { left: 0; }");
     expect(styles).toMatch(/\.deck-input \{[^}]*width: 100%;[^}]*min-width: 0;[^}]*box-sizing: border-box;/s);
+    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-investigation\.is-answer-settled \.deck-investigation-head \{[^}]*grid-template-columns: 16px minmax\(0, 1fr\) auto;/s);
+    expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-gr-actions \{[^}]*grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);/s);
     expect(styles).toMatch(/@media \(max-width: 1100px\)[\s\S]*\.deck-search kbd \{ display: none; \}/);
   });
 });

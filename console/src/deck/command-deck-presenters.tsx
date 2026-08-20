@@ -582,6 +582,7 @@ export function TurnBubble({
   investigationFlowContinuation,
   investigationFlowStart,
   investigationFlowEnd,
+  investigationAnswerSettled,
 }: {
   readonly turn: Turn;
   readonly trajectory?: ConversationTrajectory;
@@ -594,6 +595,7 @@ export function TurnBubble({
   readonly investigationFlowContinuation: boolean;
   readonly investigationFlowStart: boolean;
   readonly investigationFlowEnd: boolean;
+  readonly investigationAnswerSettled: boolean;
 }) {
   const isDeck = turn.role === "deck";
   const isActivity = turn.kind === "activity";
@@ -634,6 +636,7 @@ export function TurnBubble({
           branches={turn.branches ?? []}
           running={turn.streaming === true}
           showStartNote={investigationFlowStart}
+          answerSettled={investigationAnswerSettled}
         />
       ) : isProgressMessage ? (
         <div class="deck-progress-note" role="status">
