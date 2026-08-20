@@ -54,8 +54,10 @@ cap, narrow its owner set or split a multi-responsibility owner instead of addin
 | 0 | [fdai-constitution.md](architecture/fdai-constitution.md) | purpose, guarantees, authority precedence, domains, autonomy, and amendment rules |
 | 1 | [goals-and-metrics.md](architecture/goals-and-metrics.md) | success criteria, KPIs, measurement-first rule |
 | 2 | [project-structure.md](architecture/project-structure.md) | repo layout, module boundaries, control-loop wiring |
+| 2a | [capability-bundle-lifecycle.md](architecture/capability-bundle-lifecycle.md) | validated capability bundles, trusted artifacts, extensions, skill disclosure, and revocation |
 | 3 | [tech-stack.md](architecture/tech-stack.md) | languages, frameworks, data stores, event bus |
 | 4 | [csp-neutrality.md](architecture/csp-neutrality.md) | wire-level contracts that keep the core CSP-neutral |
+| 4a | [azure-inventory-network-paths.md](architecture/azure-inventory-network-paths.md) | restricted-network Azure inventory paths, fallback order, coverage, and stale retention |
 | 5 | [llm-strategy.md](architecture/llm-strategy.md) | per-tier model choices, mixed-model gate, abstraction |
 | 5a | [operating-ontology.md](architecture/operating-ontology.md) | shared cloud-operations meaning for services, workloads, objectives, decisions, effects, agent ownership, and controlled extension |
 | 5b | [outcome-assurance.md](architecture/outcome-assurance.md) | scoped operational-readiness, objective-alignment, and control-assurance projection over the three FDAI verticals |
@@ -76,13 +78,15 @@ cap, narrow its owner set or split a multi-responsibility owner instead of addin
 |---|----------|----------------|
 | 8 | [rule-catalog-collection.md](rules-and-detection/rule-catalog-collection.md) | where rules / checklists / baselines come from and their YAML shape |
 | 9 | [rule-governance.md](rules-and-detection/rule-governance.md) | how admins author, scope, enable, and exempt rules (Azure Policy-like) |
-| 10 | [observability-and-detection.md](rules-and-detection/observability-and-detection.md) | event correlation, anomaly detection, forecasting, root-cause analysis |
+| 10 | [observability-and-detection.md](rules-and-detection/observability-and-detection.md) | event correlation, anomaly detection, and forecasting |
+| 10f | [root-cause-analysis.md](rules-and-detection/root-cause-analysis.md) | cited T0/T1/T2 hypotheses, deterministic causal chains, grounding, and read-only projection |
 | 10a | [manual-distillation.md](rules-and-detection/manual-distillation.md) | compiling an adopting company's operational / deployment manuals into deterministic rules / workflows / policies (vs runtime RAG), and verifying the distillation |
 | 10b | [operational-learning-ontology.md](rules-and-detection/operational-learning-ontology.md) | converting benchmark and live incident outcomes into immutable cases, deterministic failure fingerprints, governed rule candidates, and reusable promoted operating patterns |
 | 10c | [causal-incident-graph.md](rules-and-detection/causal-incident-graph.md) | ontology-grounded causal hypotheses, support and refutation evidence, evidence grades, and outcome closure |
 | 10d | [document-ontology-distillation.md](rules-and-detection/document-ontology-distillation.md) | compiling governed operational documents into grounded, review-only ontology object and link proposals with deterministic verification |
 | 10e | [policy-abstraction-and-control-objectives.md](rules-and-detection/policy-abstraction-and-control-objectives.md) | provider-neutral control objectives, proof-carrying Rule bindings, authority boundaries, corpus-scale generations, migration, and implementation scope |
 | 11 | [deploy-and-onboard.md](deployment/deploy-and-onboard.md) | concrete Azure resource inventory, bootstrap sequence, fork vs core split |
+| 11d | [production-deployment-hardening.md](deployment/production-deployment-hardening.md) | production locks, durability, private networking, trusted images, monitoring, and cost ceilings |
 | 11a | [deployment-resource-conventions.md](deployment/deployment-resource-conventions.md) | deterministic CAF resource names, ownership tags, and deployment-supplied tag rules |
 | 11b | [hyperscale-cell-architecture.md](architecture/hyperscale-cell-architecture.md) | scale-out blueprint for 300 subscriptions: cell-based streaming, policy-driven fan-in, two-plane logging, CQRS audit indexing over ADX, cost envelope, standard/sovereign profiles, Container Apps default (AKS deferred) |
 | 11c | [control-plane-disaster-recovery.md](deployment/control-plane-disaster-recovery.md) | active-passive regional recovery profiles, fencing, state and event recovery, failback, and evidence gates |

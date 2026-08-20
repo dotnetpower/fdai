@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 4b53d05e57a2bb8972ef04d96aca2ecb73179ed6
+translation_source_sha: 388e444d322494d3908a6e37eb0bb7eea7460392
 translation_revised: 2026-08-21
 ---
 
@@ -399,111 +399,8 @@ transactional 게시 발신함 및 기계적 틱 배선은 구현되어 있습�
 
 ## 4. 근본원인 분석(Root-Cause Analysis)
 
-RCA를 암묵적 부작용이 아니라 티어의 일급 출력으로 만듦.
-
-| 티어 | RCA 역할 |
-|------|---------|
-| **T0** | 직접 원인: 매칭된 규칙/정책이 위반된 컨트롤과 교정을 명명 |
-| **T1** | 상관관계 원인: (a) 인시던트를 이전 **해결된** 인시던트와 매칭하고 그 식별된 루트 원인 + 학습된 액션 재사용(출처 이력과 재검증), 또는 (b) 인시던트 자신의 상관 이벤트로부터 **결정론적 인과사슬**을 재구성 - 관련 리소스에서 범위가 제한된 구간 내 실패에 선행한 가장 가까운 변경 / 변경 을 식별("deploy 가 나갔고, 그 다음 오류 비율 가 올랐다" 사슬) |
-| **T2** | 추론 원인: 신규/모호 인시던트에 대해 quality 게이트를 통과하는 **증거를 인용**(규칙, 상관 이벤트, 원격측정, 자유형식 오퍼레이터 문서) 하는 근거 있는 root-cause 가설 생산 |
-
-- RCA 출력은 권위 있는 판정이 아니라 **인용 있는 가설**; **실행 자격은 여전히 결정론적 검증**
-  (검증기 + 정책 재검사) 으로 부여, RCA 텍스트나 예보만으로 절대 아님.
-- T2 RCA에 공급되는 원격측정과 상관 이벤트는 **신뢰할 수 없는 입력** 이며 프롬프트 인젝션을 운반할
-  수 있음; [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) 에 따라 검증기와
-  정책 재검사가 어떤 모델 텍스트에 대해서도 권위.
-- 이전 해결된 인시던트의 루트 원인을 T1이 재사용할 때는 이전 원인과 학습된 액션이 여전히
-  **적용된다는 것을 재검증**(출처 이력과 함께) 해야 하며, 결과 액션은 리스크 게이트 전에
-  what-if를 실행 - stale 학습된 액션은 절대 눈감고 재생되지 않음.
-- 근거를 가질 수 없는 RCA는 **abstain** 하고 HIL로 라우팅.
-- 상관된 인시던트(1절)가 RCA 입력이므로 RCA는 중복 폭풍이 아니라 하나의 인시던트를 추론.
-- **업스트림 구현**: `core/rca/` 가 RCA 계약
-  (`RootCauseHypothesis` + `Citation`), 결정론적 **T0** 원인
-  (`t0_root_cause`, 매칭된 룰 에 확신도 1.0 으로 근거에 기반한 되고
-  교정 포함), 그리고 **grounding 게이트** (`enforce_grounding`,
-  ungrounded 이거나 확신도 미만인 가설 는 HIL 로 abstain) 를
-  ship 한다. **T2** reasoner 는 `RcaReasoner` 프로토콜 경계 - 포크 가
-  mixed-model, RAG-grounded 생산자 (via `core/quality_gate`) 를 그
-  뒤에 plug 한다. 업스트림 은 `core/rca/llm.py` (`LlmRcaReasoner` + the
-  `RcaModel` 경계) 를 ship 하며, 그 결정론적 파서 는 malformed 답변,
-  fabricated 인용 (프롬프트 주입), ungrounded 답변을 거부한다 -
-  모델은 제안하고, 파서 와 grounding 게이트 가 결정한다. Azure T2
-  연결 은 `delivery/azure/llm/rca_model.py` (`AzureOpenAIRcaModel`)
-  로, managed-identity 토큰 으로 Azure OpenAI 를 호출하고 업스트림
-  파서 가 검증할 raw JSON 을 반환하는 `RcaModel` 어댑터다. 조립
-  루트 가 이것을 `resolved-models.json` 의 `t2.rca` 기능 로
-  바인드한다 (`bind_azure_llm_bindings`, 비평자 / Judge 바인딩과
-  대칭) - 기능 나 프롬프트 가 없으면 `LlmBindings.rca_reasoner =
-  None` 이라 T2 RCA 는 dark 상태로 남고 T0 RCA 만 동작한다.
-  `__main__` 은 그 결과의 `RcaCoordinator` (그리고 `EventCorrelator`) 를
-  `ControlLoop` 에 주입한다. 그 출력도
-  grounding 게이트 와 risk-gate 검증기 를 통과하며, 모델의 산문
-  만으로는 절대 실행하지 않는다. `RcaCoordinator`
-  가 세 계층 를 모두 orchestrate 한다 - T0, **T1** correlation-reuse
-  (이전 resolved 인시던트 의 원인, 현재 근거 대비 stale 이면
-  abstain), 그리고 T2 (공급된 근거 밖의 인용 은 fabricated 로
-  거부). 이것이 `ControlLoop` 에 배선되어, 발견 사항 마다 결정론적 T0
-  `rca.hypothesis` 감사 엔트리 하나를 덧붙이기 하며, 상관된 `incident_id`
-  (`EventCorrelator`, 1절) 를 실어 한 인시던트의 발견 사항 들을 묶는다 -
-  "왜"이지 새로운 실행 경로가 아니다. T2 reasoner 가 배선되면, novel (T0
-  no-match) 사례 는 추가로 근거에 기반한 T2 `rca.hypothesis` (또는 abstain) 를
-  받으며, reasoner-gated 라 LLM 없는 배포는 T2 노이즈를 발행 하지 않는다.
-- **자유형식 knowledge leg**: `core/rca/knowledge_evidence.py`
-  (`KnowledgeEvidenceGatherer`) 는 Knowledge Base 인제스트 경계
-  (`shared/providers/knowledge.py` `KnowledgeSource` +
-  `EmbeddingKnowledgeSource` / `PgvectorKnowledgeSource`) 의 RCA 소비자다.
-  바인드되면 `RcaCoordinator` 의 T2 편의 래퍼가 오퍼레이터가 인제스트한
-  문서(런북, 아키텍처 노트, **리소스 플랜**)에서 인시던트 요약과 관련된
-  조각 를 검색해 각각을 `CitationKind.KNOWLEDGE` 후보로 추가한다 - 즉
-  오퍼레이터가 업로드한 문서가 T2 가 가설을 세울 때 실제로 참조된다.
-  Fail-safe (미바인드 소스, 빈 인덱스, 프로바이더 장애는 아무것도 기여하지
-  않고 게이트 는 abstain) 이며 secret-safe (인용 참조 는 조각 본문이
-  아니라 opaque `knowledge:<source_ref>#<chunk_id>` 핸들). reasoner 는
-  여전히 이 보증된 집합 밖의 조각 를 인용할 수 없고, grounding 게이트 +
-  검증기 가 권위를 유지한다.
-- **T1 인과사슬 (결정론적)**: `core/rca/causal_chain.py`
-  (`CausalChainAnalyzer`, `core/rca/t1.py` 의 `t1_causal_chain` 이 구동) 은
-  T1 상관관계 (b) 의 model-free 형태다. 인시던트의 상관 이벤트(각각
-  시각, 범용 `resource_ref`, `is_change` 마커, 선택적 `change_kind`
-  를 carry)가 주어지면, 실패에서 끝나는 가장 probable 한 **multi-hop 인과사슬**
-  - `root change -> symptom -> ... -> failure` - 을 재구성한다. 단순히 가장
-  가까운 선행 하나가 아니다. **루트 는 반드시 변경** 여야 한다(변경 만
-  원인이 될 수 있고 symptom 은 전파만 한다). 따라서 선행 변경 가 없는 순수
-  symptom 만의 구간 는 **abstain**(`None` 반환, T2 로 defer)한다. 재구성은
-  **dependency-aware**: resource-dependency 그래프가 공급되면, 실패가
-  의존하는 리소스(직접, 또는 범위가 제한된 깊이 내 transitive)의 변경 가 무관한
-  것보다 우선하고, 그래프가 주어지면 무관한 리소스는 아예 링크 될 수 없다.
-  그래프가 없으면 엔진은 permissive 하게 유지(어떤 상관 리소스든 링크 가능 -
-  cross-resource 기본값). `same_resource_only` 는 모든 홉 을 실패 리소스로
-  국한한다. 확신도 는 사슬 홉 들의 weakest-link 집계(각 홉 은 temporal
-  proximity, 관계 강도, change-kind 로 가중)이고, 서로 다른 여러 루트
-  가 실패를 비슷하게 잘 설명할 때 **ambiguity-discount** 되며, T1 band
-  (`0.35`-`0.85`)로 한계 된다 - temporal antecedent 는 강한 힌트 이지
-  T0-style 확실성이 아니다. strict temporal 선행성이 이벤트 집합을 DAG 로
-  만들어 사슬은 결정론적(동일 이벤트는 항상 동일 사슬)이고 사슬의 모든 이벤트를
-  cite 한다; grounding 게이트 와 risk-gate 검증기 를 통과한 뒤에야 무언가 act
-  한다. `RcaCoordinator.analyze_t1_causal_chain` 이 근거에 기반한 진입점이다. 라이브
-  배선: `ControlLoop` 이 매 매칭된 인시던트의 멤버를 `IncidentMemberSource`
-  시밍(`core/rca/member_source.py`; 포크 의 어댑터가 어떤 멤버가 변경 인지
-  표시)을 통해 공급하고, 이벤트당 하나의 shadow `rca.hypothesis`(계층 t1)를
-  덧붙이기 한다. 설정된 `causal_chain_window` 와 선택적 resource-dependency 그래프로
-  한계 된다. 가설은 transport-safe `causal_chain`(루트/실패 ID, 모호성,
-  순서가 있는 홉 근거)을 보존하며 컨트롤 루프는 이를 산문으로 축약하지 않고
-  추가 전용 감사 항목에 기록한다. 업스트림 참조 구현 `DeploymentHistoryMemberSource`
-  (`core/rca/deployment_member_source.py`)는 실제 `DeploymentHistoryProvider`
-  (예: Azure Resource Graph 어댑터)와 인시던트 레코드 조회를 선행 `is_change=True`
-  이벤트로 브리지 하므로, 포크 는 소스를 직접 작성하지 않고도 change-history 기반
-  라이브 사슬을 얻는다. 소스가 없으면 T1 인과사슬 RCA 는 dark 로 유지되고 T0(및
-  wired 시 T2) RCA 만 실행된다(하위호환).
-- **읽기 전용 콘솔 표면**: shadow `rca.hypothesis` 감사 항목은 일급
-  **이력 > RCA** 오퍼레이터 콘솔 패널로 투영된다(`GET /rca?correlation=<id>`,
-  순수 투영은 `services/operator-service/src/fdai_operator_service/rca_projection.py`). 인시던트
-  `correlation_id`가 주어지면 티어별 가설, 인용, 근거 상태(기권 가설은 신뢰할 수
-  있는 원인이 아니라 "근거 부족 -> HIL"로 표시), 기록된 경우 구조화된 T1 인과 체인,
-  그리고 동일한 상관관계 감사
-  스트림에서 조합한 연결 대응 계획(판정 / 작업 / 모드 / 롤백)을 렌더링한다.
-  이 표면은 엄격히 읽기 전용이며 새로운 진실 원천을 추가하지 않는다 - 참조:
-  [operator-console.md](../interfaces/operator-console-incident-roster.md#1351-rca-view-root-cause-analysis).
+티어 계약, 결정론적 인과사슬, 근거가 있는 reasoning, knowledge 근거 및 읽기 전용 프로젝션은
+[근본원인 분석](root-cause-analysis-ko.md)에서 소유합니다.
 
 ## 컨트롤 루프에 플러그
 

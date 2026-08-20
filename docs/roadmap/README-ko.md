@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: f66632ab3e1dbb1c6928d131d4d8bf61eb370a85
-translation_revised: 2026-08-20
+translation_source_sha: 5882ef61785da8b7b1a7d287627d0ea3d6b1baf7
+translation_revised: 2026-08-21
 ---
 # FDAI 로드맵
 
@@ -51,8 +51,10 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 0 | [fdai-constitution-ko.md](architecture/fdai-constitution-ko.md) | 목적, 보장, 권한 우선순위, 도메인, 자율성 및 개정 규칙 |
 | 1 | [goals-and-metrics-ko.md](architecture/goals-and-metrics-ko.md) | 성공 기준, KPI, measurement-first 규칙 |
 | 2 | [project-structure-ko.md](architecture/project-structure-ko.md) | 저장소 레이아웃, 모듈 경계, 컨트롤 루프 배선 |
+| 2a | [capability-bundle-lifecycle-ko.md](architecture/capability-bundle-lifecycle-ko.md) | 검증된 기능 번들, trusted artifact, 확장, 스킬 공개 및 철회 |
 | 3 | [tech-stack-ko.md](architecture/tech-stack-ko.md) | 언어, 프레임워크, 데이터 스토어, 이벤트 버스 |
 | 4 | [csp-neutrality-ko.md](architecture/csp-neutrality-ko.md) | 코어를 CSP-neutral로 유지하는 wire-level 계약 |
+| 4a | [azure-inventory-network-paths-ko.md](architecture/azure-inventory-network-paths-ko.md) | 제한된 네트워크의 Azure 인벤토리 경로, 대체 순서, 커버리지 및 stale 유지 |
 | 5 | [llm-strategy-ko.md](architecture/llm-strategy-ko.md) | 계층별 모델 선택, mixed-model 게이트, 추상화 |
 | 5a | [operating-ontology-ko.md](architecture/operating-ontology-ko.md) | 서비스, 워크로드, 목표, 결정, 효과, 에이전트 소유권, 통제된 확장을 위한 공유 cloud-operations 의미 |
 | 5b | [outcome-assurance-ko.md](architecture/outcome-assurance-ko.md) | FDAI의 세 버티컬을 대상으로 하는 운영 준비도, 목표 정렬, 통제 보증 변환 결과 |
@@ -73,13 +75,15 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 |---|------|-------------|
 | 8 | [rule-catalog-collection-ko.md](rules-and-detection/rule-catalog-collection-ko.md) | 규칙, 체크리스트, 기준선의 출처와 YAML 형식 |
 | 9 | [rule-governance-ko.md](rules-and-detection/rule-governance-ko.md) | 관리자가 규칙을 작성하고 범위를 지정하며 활성화하거나 예외 처리하는 방식 (Azure Policy 유사) |
-| 10 | [observability-and-detection-ko.md](rules-and-detection/observability-and-detection-ko.md) | 이벤트 상관, 이상 탐지, 예측, 근본 원인 분석 |
+| 10 | [observability-and-detection-ko.md](rules-and-detection/observability-and-detection-ko.md) | 이벤트 상관, 이상 탐지 및 예측 |
+| 10f | [root-cause-analysis-ko.md](rules-and-detection/root-cause-analysis-ko.md) | 인용된 T0/T1/T2 가설, 결정론적 인과사슬, grounding 및 읽기 전용 프로젝션 |
 | 10a | [manual-distillation-ko.md](rules-and-detection/manual-distillation-ko.md) | 도입 회사의 운영 / 배포 매뉴얼을 결정론적 규칙 / 워크플로우 / 정책으로 컴파일(런타임 RAG 대비)하고 증류를 검증 |
 | 10b | [operational-learning-ontology-ko.md](rules-and-detection/operational-learning-ontology-ko.md) | 벤치마크 및 실제 운영 인시던트 결과를 변경할 수 없는 사례, 결정론적 실패 지문, 통제된 룰 후보, 재사용 가능한 promoted operating pattern으로 전환 |
 | 10c | [causal-incident-graph-ko.md](rules-and-detection/causal-incident-graph-ko.md) | 온톨로지 기반 causal 가설, support/refutation 근거, 근거 grade, 결과 종결 |
 | 10d | [document-ontology-distillation-ko.md](rules-and-detection/document-ontology-distillation-ko.md) | 승인된 운영 문서를 결정론적으로 검증되는 근거에 기반한 review-only 온톨로지 객체/링크 제안으로 compile |
 | 10e | [policy-abstraction-and-control-objectives-ko.md](rules-and-detection/policy-abstraction-and-control-objectives-ko.md) | 공급자 중립 통제 목표, 근거 포함 Rule 바인딩, 권한 경계, 코퍼스 규모 세대, 이행 및 구현 범위 |
 | 11 | [deploy-and-onboard-ko.md](deployment/deploy-and-onboard-ko.md) | 구체적인 Azure 리소스 인벤토리, 부트스트랩 순서, 포크 vs 코어 분리 |
+| 11d | [production-deployment-hardening-ko.md](deployment/production-deployment-hardening-ko.md) | 운영 잠금, 내구성, 비공개 네트워킹, 신뢰할 수 있는 이미지, 모니터링 및 비용 상한 |
 | 11a | [deployment-resource-conventions-ko.md](deployment/deployment-resource-conventions-ko.md) | 결정론적 CAF 리소스 이름, 소유권 태그, 배포 공급 태그 규칙 |
 | 11b | [hyperscale-cell-architecture-ko.md](architecture/hyperscale-cell-architecture-ko.md) | 구독 300개를 위한 확장 청사진: 셀 기반 스트리밍, 정책 기반 fan-in, 2-평면 로깅, ADX 기반 CQRS 감사 인덱싱, 비용 범위, standard/sovereign 프로파일, Container Apps 기본(AKS 연기) |
 | 11c | [control-plane-disaster-recovery-ko.md](deployment/control-plane-disaster-recovery-ko.md) | Active-passive regional 복구 프로파일, fencing, 상태 및 이벤트 복구, failback, 근거 게이트 |

@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: dc0450e3e1cdc59b684262351978bf277f80c7f2
+translation_source_sha: 6f17ccfbf31b5868eb648e39ab08424b0029e0b0
 translation_revised: 2026-08-21
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -63,11 +63,8 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 
 ### 배포자 아이덴티티 (Azure)
 
-- 대상 리소스 그룹에 대한 subscription-scoped **Owner** 또는 **기여자 + User 접근
-  Administrator** - 실행기 Managed Identity와 그 범위된 롤 할당 생성에 필요.
-- 실행기의 **액션 화이트리스트**에 매칭되는 subscription-scoped 롤 부여 능력
-  ([security-and-identity-ko.md](../architecture/security-and-identity-ko.md)).
-- **TBD**: 목적별 custom 롤이 배포자 권한을 패키징할지.
+운영 배포자 권한 경계는
+[운영 배포 강화](production-deployment-hardening-ko.md#배포자-신원)에서 소유합니다.
 
 ### Azure 전제조건
 
@@ -223,20 +220,8 @@ Analyzer 작업은 기본 1분 shadow 예약으로 `fdai.delivery.analyzer_tick_
 
 #### 제한된 egress 환경의 인벤토리 디스커버리
 
-강한 NSG egress 제어는 Azure 서비스 디스커버리를 비활성화하지 않고 애플리케이션 서브넷을
-폐쇄 상태로 유지하는 것이 좋습니다. Preflight 중 실제 디스커버리 서브넷에서 managed
-신원 토큰 발급, DNS, ARM 관리 엔드포인트에 대한 TLS, 제한된 Azure Resource Graph
-쿼리 하나, 페이지 나누기, 비공개 변환 결과 게시를 테스트합니다.
-
-직접 ARG 접근이 차단되면 승인된 허브 관리 경로를 사용하는 VNet 통합 ops 실행기
-또는 Container Apps 작업에서 읽기 전용 수집기를 실행합니다. 그런 다음 검증된 Resource
-관리 Private Link 경로, 샤드된 ARM 목록 작업, 범위가 명시된 권위 있는 Azure
-인벤토리, Activity Log 연속성, 마지막으로 서명된 declarative 복구 스냅샷 순서로
-대체 경로합니다. 실패한 경로는 마지막 완전한 그래프를 유지하고 stale로 표시하며 빈 그래프를
-게시하지 않습니다. 전체 네트워크 매트릭스, 출처 우선순위, 커버리지 매니페스트, 자율성 저하
-규칙은
-[제한적인 NSG egress 환경의 Azure 인벤토리](../architecture/csp-neutrality-ko.md#제한적인-nsg-egress-환경의-azure-인벤토리)를
-참조하세요.
+Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
+[제한된 네트워크의 Azure 인벤토리](../architecture/azure-inventory-network-paths-ko.md)에서 소유합니다.
 
 #### 온보딩 자동화
 
@@ -266,56 +251,7 @@ exact 쌍에 접근할 수 없으면 변경 전에 fail합니다.
 
 #### 프로덕션 하드닝 knob
 
-전부 dev 자세 를 기본값으로(라이브 무변경) 하고 env 별 tfvars 로 강화한다
-([`staging.tfvars.example`](../../../infra/envs/staging.tfvars.example) /
-[`prod.tfvars.example`](../../../infra/envs/prod.tfvars.example) 참조):
-
-| 관심사 | knob | prod 값 |
-|--------|------|---------|
-| 삭제 보호 | `enable_resource_locks`, 초기화 `enable_state_lock` | `true` |
-| Key Vault | `kv_purge_protection_enabled`, `kv_soft_delete_retention_days` | `true`, `90` |
-| Postgres 네트워크 | `enable_private_postgres` | `true` |
-| Postgres 내구성 | `postgres_backup_retention_days`, `postgres_geo_redundant_backup` | `35`, `true` |
-| Postgres 가용성 | `postgres_high_availability_mode` | `ZoneRedundant` |
-| HIL 전달 | `enable_chatops_hil`, `chatops_webhook_url`, `chatops_webhook_secret` | 활성화 + CI 시크릿 |
-| 이메일 알림 | `enable_email_notifications`, `notification_email_recipients`, `email_data_location` | 활성화 + 수신자 그룹 |
-| 레지스트리 | `acr_sku` | `Premium` |
-| 모니터링 | `enable_monitoring`, `alert_email`, `alert_webhook_url` | on + 목적지 |
-| 비용 | `monthly_budget_amount`, `budget_alert_emails`, 초기화 `runner_auto_shutdown_time` | 설정 |
-
-공개 레지스트리 egress가 없는 테난트는 `--build-arg BASE_IMAGE_REGISTRY=<내부-미러>`로 런타임
-이미지를 빌드합니다. 움직이는 것은 레지스트리 호스트뿐이고 base 이미지 다이제스트는 `Dockerfile`에 pin된
-채로 남습니다. 따라서 미러는 바이트의 출처를 바꿀 수 있어도 어떤 바이트가 수락되는지는 바꿀 수
-없습니다. Base 이미지가 둘 중 하나라도 잃으면 `scripts/quality/ci/check-ci-contracts.py`가 빌드를
-실패시킵니다.
-
-`enable_private_postgres`는 PostgreSQL Flexible Server 전용 delegated 서브넷을 추가하고 앱/ops
-VNet에 비공개 DNS 영역을 연결하며 공개 접근과 `AllowAllAzureServices` firewall 룰을
-비활성화합니다. 기존 공개 서버에서 활성화하면 서버가 교체될 수 있으므로 승격 전에
-계획을 검토하고 백업/복원을 예행 연습하는 것이 좋습니다. `infra/production-gates.tf`의
-assertion은 signed 이미지 다이제스트, 비공개 networking, 내구성, 경보 대상, 비용 예산
-최소값이 제공될 때까지 운영 계획을 차단합니다.
-
-`enable_private_networking = true`이고 delegated-subnet PostgreSQL이 꺼져 있으면 Terraform은
-`postgresqlServer` 비공개 엔드포인트를 추가하고 `privatelink.postgres.database.azure.com`을 앱/ops
-VNet에 연결합니다. 두 Event Hubs 샤드는 `privatelink.servicebus.windows.net`을 공유하며 각
-이름 공간은 자체 비공개 엔드포인트를 갖고 공개 네트워크 접근은 비활성화됩니다. 따라서 시작
-탐색은 개발 데이터베이스를 교체하지 않고 Container Apps 서브넷 또는 peered 실행기에서 실행할
-수 있습니다.
-
-승인된 out-of-band ACS 이메일 초기화는 첫 dev convergence 계획에서
-`import_existing_email_notifications=true`를 설정할 수 있습니다. 가져오기 블록은
-Communication 서비스, 이메일 서비스, Azure-managed 도메인, association, 알림 신원,
-결정론적 역할 배정을 상태로 가져옵니다. 계획을 적용한 뒤 플래그를 끄는 것이 좋으며,
-새 환경에서는 Terraform이 stack을 직접 생성하도록 합니다.
-
-CI는 자격증명 없는 가드 2개를 추가합니다. [`infra-lint.yml`](../../../.github/workflows/infra-lint.yml)은
-모든 infra PR에서 fmt + validate + tfsec + Checkov를 실행합니다.
-[`infra-drift.yml`](../../../.github/workflows/infra-drift.yml)은 실행기에서 이전 방식, 독립 서비스 5개,
-초기화 상태 루트에 대해 스케줄된 `plan -detailed-exitcode`를 실행합니다. 루트가 없거나 읽을 수 없거나
-변경되면 닫힌 상태로 실패하므로 green 실행은 루트 7개를 모두 확인했다는 뜻입니다. 모니터링은 활성화 시 액션 그룹 +
-메트릭 경보(Postgres / Key Vault / Event Hubs / Container App) + Log Analytics 진단설정을
-provision 하며, 경보 는 인간 신호일 뿐 자율 액션이 아니다.
+환경별 상한은 [운영 배포 강화](production-deployment-hardening-ko.md)에서 소유합니다.
 
 ### 비-Azure 전제조건
 

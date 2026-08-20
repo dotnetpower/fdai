@@ -60,12 +60,8 @@ Azure focus: this document targets an Azure subscription. Non-Azure providers ar
 
 ### Deployer Identity (Azure)
 
-- Subscription-scoped **Owner** or **Contributor + User Access Administrator** on the target
-  resource group - required to create the executor Managed Identity and its scoped role
-  assignments.
-- Ability to grant subscription-scoped roles matching the executor's **action whitelist**
-  ([security-and-identity.md](../architecture/security-and-identity.md)).
-- **TBD**: whether a purpose-built custom role packages the deployer permissions.
+The production deployer permission boundary is owned by
+[Production deployment hardening](production-deployment-hardening.md#deployer-identity).
 
 ### Azure Prerequisites
 
@@ -221,19 +217,8 @@ analyzer cron to an explicit empty string to disable the job.
 
 #### Inventory discovery with restricted egress
 
-Strong NSG egress control should keep the application subnet closed without disabling Azure
-service discovery. During preflight, test managed-identity token acquisition, DNS, TLS to the
-ARM management endpoint, one bounded Azure Resource Graph query, pagination, and publication
-to the private projection from the actual discovery subnet.
-
-If direct ARG access is blocked, run the read-only collector on the VNet-integrated ops runner
-or a Container Apps Job with the approved hub management path. Then fall back in order to a
-validated Resource Management Private Link route, sharded ARM list operations, an
-authoritative scoped Azure inventory, Activity Log continuity, and finally a signed
-declarative recovery snapshot. A failed path retains the last complete graph and marks it
-stale; it never publishes an empty graph. The complete network matrix, source precedence,
-coverage manifest, and autonomy degradation rules are defined in
-[Azure inventory under restricted NSG egress](../architecture/csp-neutrality.md#azure-inventory-under-restricted-nsg-egress).
+The preflight, source precedence, coverage, and stale-retention contract is owned by
+[Restricted-network Azure inventory](../architecture/azure-inventory-network-paths.md).
 
 #### Onboarding automation
 
@@ -263,55 +248,7 @@ before mutation when the identity cannot access that exact pair.
 
 #### Production hardening knobs
 
-All default to the dev posture (the live env is unchanged) and tighten via tfvars per env
-(see [`staging.tfvars.example`](../../../infra/envs/staging.tfvars.example) /
-[`prod.tfvars.example`](../../../infra/envs/prod.tfvars.example)):
-
-| Concern | Knob | Prod value |
-|---------|------|------------|
-| Delete protection | `enable_resource_locks`, bootstrap `enable_state_lock` | `true` |
-| Key Vault | `kv_purge_protection_enabled`, `kv_soft_delete_retention_days` | `true`, `90` |
-| Postgres network | `enable_private_postgres` | `true` |
-| Postgres durability | `postgres_backup_retention_days`, `postgres_geo_redundant_backup` | `35`, `true` |
-| Postgres availability | `postgres_high_availability_mode` | `ZoneRedundant` |
-| HIL delivery | `enable_chatops_hil`, `chatops_webhook_url`, `chatops_webhook_secret` | enabled + CI secrets |
-| Email notifications | `enable_email_notifications`, `notification_email_recipients`, `email_data_location` | enabled + recipient group |
-| Registry | `acr_sku` | `Premium` |
-| Monitoring | `enable_monitoring`, `alert_email`, `alert_webhook_url` | on + destination |
-| Cost | `monthly_budget_amount`, `budget_alert_emails`, bootstrap `runner_auto_shutdown_time` | set |
-
-A tenant without public registry egress builds the runtime image with
-`--build-arg BASE_IMAGE_REGISTRY=<internal-mirror>`. Only the registry host moves; the base
-image digests stay pinned in the `Dockerfile`, so a mirror can change where the bytes come from
-but never which bytes are accepted. `scripts/quality/ci/check-ci-contracts.py` fails the build
-when a base image loses either property.
-
-`enable_private_postgres` adds a dedicated subnet delegated to PostgreSQL Flexible Server,
-links a private DNS zone to the app and ops VNet, disables public access, and removes the
-`AllowAllAzureServices` firewall rule. Turning it on for an existing public server may replace
-that server, so review the plan and rehearse backup/restore before promotion. The assertions in
-`infra/production-gates.tf` block a production plan until the signed image digest, private
-networking, durability, alert destination, and cost budget minimums are supplied.
-
-When `enable_private_networking = true` and delegated-subnet PostgreSQL is off, Terraform adds a
-`postgresqlServer` private endpoint and links `privatelink.postgres.database.azure.com` to the app
-and ops VNets. Both Event Hubs shards share `privatelink.servicebus.windows.net`; each namespace
-has its own private endpoint, and public network access is disabled. This lets startup probes run
-from the Container Apps subnet or the peered runner without replacing the development database.
-
-An approved out-of-band ACS Email bootstrap can set
-`import_existing_email_notifications=true` for its first dev convergence plan. The import
-blocks adopt the Communication Service, Email Service, Azure-managed domain, association,
-notification identity, and deterministic role assignment. Turn the flag off after the plan
-is applied; new environments should let Terraform create the stack directly.
-
-CI adds two credential-free guards: [`infra-lint.yml`](../../../.github/workflows/infra-lint.yml)
-(fmt + validate + tfsec + Checkov on every infra PR) and
-[`infra-drift.yml`](../../../.github/workflows/infra-drift.yml) (scheduled `plan -detailed-exitcode`
-on the runner for the legacy, five independent-service, and bootstrap state roots). It fails closed
-on a missing, unreadable, or changed root, so green covers all seven. Monitoring, when enabled,
-provisions an action group + metric alerts (Postgres / Key Vault / Event Hubs / Container App)
-+ diagnostic settings to Log Analytics; alerts are a human signal only, never an autonomous action.
+Environment-specific ceilings are owned by [Production deployment hardening](production-deployment-hardening.md).
 
 ### Non-Azure Prerequisites
 

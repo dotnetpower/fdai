@@ -413,6 +413,7 @@
       "id": "causal-recovery-and-chaos",
       "paths": [
         "docs/roadmap/rules-and-detection/causal-incident-graph*.md",
+        "docs/roadmap/rules-and-detection/root-cause-analysis*.md",
         "docs/roadmap/decisioning/recovery-and-chaos-enforcement*.md",
         "services/core-control-plane/src/fdai/core/rca/**",
         "services/core-control-plane/src/fdai/core/chaos/**",
@@ -426,12 +427,14 @@
         ".github/instructions/agent-pantheon.instructions.md",
         "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/rules-and-detection/observability-and-detection.md",
+        "docs/roadmap/rules-and-detection/root-cause-analysis.md",
         "docs/roadmap/rules-and-detection/causal-incident-graph.md",
         "docs/roadmap/decisioning/action-ontology.md",
         "docs/roadmap/decisioning/process-automation.md",
         "docs/roadmap/decisioning/recovery-and-chaos-enforcement.md"
       ],
       "docs_update": [
+        "docs/roadmap/rules-and-detection/root-cause-analysis.md",
         "docs/roadmap/rules-and-detection/causal-incident-graph.md",
         "docs/roadmap/decisioning/recovery-and-chaos-enforcement.md",
         "docs/roadmap/architecture/code-map.md",
@@ -803,6 +806,7 @@
       "id": "progressive-skill-disclosure",
       "paths": [
         "services/core-control-plane/src/fdai/core/skills/**",
+        "docs/roadmap/architecture/capability-bundle-lifecycle*.md",
         "services/core-control-plane/src/fdai/core/prompts/skill_disclosure.py",
         "services/core-control-plane/src/fdai/core/supply_chain/skill_*.py",
         "services/core-control-plane/src/fdai/core/conversation/skill_discovery.py",
@@ -813,11 +817,13 @@
       "must_read": [
         ".github/instructions/architecture.instructions.md",
         ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/architecture/capability-bundle-lifecycle.md",
         "docs/roadmap/decisioning/prompt-composition.md",
         "docs/roadmap/interfaces/operator-console.md",
         "docs/roadmap/interfaces/console-evidence-and-resilience.md"
       ],
       "docs_update": [
+        "docs/roadmap/architecture/capability-bundle-lifecycle.md",
         "docs/roadmap/decisioning/prompt-composition.md",
         "docs/roadmap/interfaces/operator-console.md",
         "docs/roadmap/interfaces/console-evidence-and-resilience.md",
@@ -832,6 +838,7 @@
       "id": "governed-skill-bundles",
       "paths": [
         "services/core-control-plane/src/fdai/core/skills/bundle_*.py",
+        "docs/roadmap/architecture/capability-bundle-lifecycle*.md",
         "services/core-control-plane/src/fdai/core/supply_chain/skill_bundle_loader.py",
         "rule-catalog/schema/skill-bundle.schema.json",
         "alembic/versions/*skill_bundle*.py",
@@ -842,9 +849,11 @@
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",
+        "docs/roadmap/architecture/capability-bundle-lifecycle.md",
         "docs/roadmap/decisioning/governed-skill-bundles.md"
       ],
       "docs_update": [
+        "docs/roadmap/architecture/capability-bundle-lifecycle.md",
         "docs/roadmap/decisioning/governed-skill-bundles.md",
         "docs/roadmap/decisioning/prompt-composition.md",
         "docs/roadmap/interfaces/operator-console.md",
@@ -859,6 +868,7 @@
       "id": "skill-source-management",
       "paths": [
         "services/core-control-plane/src/fdai/core/skills/source_registry.py",
+        "docs/roadmap/architecture/capability-bundle-lifecycle*.md",
         "services/core-control-plane/src/fdai/core/supply_chain/skill_quarantine.py",
         "services/core-control-plane/src/fdai/core/supply_chain/skill_source_*.py",
         "services/core-control-plane/src/fdai/shared/providers/skill_source.py",
@@ -870,9 +880,11 @@
       "must_read": [
         ".github/instructions/architecture.instructions.md",
         ".github/instructions/app-shape.instructions.md",
+        "docs/roadmap/architecture/capability-bundle-lifecycle.md",
         "docs/roadmap/interfaces/skill-source-management.md"
       ],
       "docs_update": [
+        "docs/roadmap/architecture/capability-bundle-lifecycle.md",
         "docs/roadmap/interfaces/skill-source-management.md",
         "docs/roadmap/decisioning/prompt-composition.md",
         "docs/roadmap/interfaces/operator-console.md",
@@ -1487,16 +1499,22 @@
       "paths": [
         "infra/**",
         "azure.yaml",
+        "docs/roadmap/architecture/azure-inventory-network-paths*.md",
+        "docs/roadmap/deployment/production-deployment-hardening*.md",
         ".github/workflows/deploy-*.yml"
       ],
       "must_read": [
         ".github/instructions/app-shape.instructions.md",
         "docs/roadmap/deployment/deployment.md",
         "docs/roadmap/deployment/deploy-and-onboard.md",
+        "docs/roadmap/deployment/production-deployment-hardening.md",
+        "docs/roadmap/architecture/azure-inventory-network-paths.md",
         "docs/roadmap/deployment/deployment-resource-conventions.md"
       ],
       "docs_update": [
         "docs/roadmap/deployment/deploy-and-onboard.md",
+        "docs/roadmap/deployment/production-deployment-hardening.md",
+        "docs/roadmap/architecture/azure-inventory-network-paths.md",
         "docs/roadmap/deployment/deployment-resource-conventions.md",
         "docs/roadmap/deployment/dev-and-deploy-parity.md"
       ],
@@ -1508,6 +1526,7 @@
       "id": "network-connectivity-matrix",
       "paths": [
         "docs/roadmap/deployment/network-connectivity-matrix*.md",
+        "docs/roadmap/architecture/azure-inventory-network-paths*.md",
         "scripts/deployment/azure/check-network-connectivity.py",
         "scripts/deployment/azure/network_connectivity.py",
         "tests/integration/scripts/test_check_network_connectivity.py"
@@ -1515,11 +1534,13 @@
       "must_read": [
         ".github/instructions/app-shape.instructions.md",
         "docs/roadmap/deployment/deploy-and-onboard.md",
+        "docs/roadmap/architecture/azure-inventory-network-paths.md",
         "docs/roadmap/deployment/disconnected-deployment.md",
         "docs/roadmap/architecture/llm-strategy.md"
       ],
       "docs_update": [
-        "docs/roadmap/deployment/network-connectivity-matrix.md"
+        "docs/roadmap/deployment/network-connectivity-matrix.md",
+        "docs/roadmap/architecture/azure-inventory-network-paths.md"
       ],
       "validate": [
         "uv run python scripts/quality/architecture/check-independent-services.py"

@@ -514,73 +514,8 @@ clean (see the fork model in
 
 ### Capability Bundles
 
-Use a `CapabilityBundle` when a fork adds a discoverable capability rather than replacing one
-infrastructure seam. A bundle groups the operator-facing `Capability` metadata, one typed
-`CapabilityBinding`, optional reviewed `ToolArtifact` metadata, and any reasoning-tool
-`ToolProvider` implementations. A binding points to either an already loaded reasoning tool or a
-tool carried by the same bundle, or to an existing `ActionType` or `Workflow`. It does not define
-another execution path or load provider code from an artifact.
-
-Install a bundle with `fdai.composition.install_capability_bundle(...)`. The installer builds
-cross-references from the loaded catalogs and returns a new `Container` whose
-`capability_runtime` contains the validated registration. Startup is blocked when a target is
-unknown, a provider is missing or duplicated, a tool's declared provider does not match the
-bundle, a package tool is unreferenced, or a package tool id shadows another source. The input
-container remains unchanged when validation fails.
-
-`wire_azure_container(...)` combines the file-backed tool catalog with package tools from the
-installed runtime, then combines runtime providers with explicit
-`AzureWireOverrides.tool_providers`. Duplicate tool or provider ids are configuration errors
-rather than implicit overrides. `ActionType` and `Workflow` bindings are references only:
-mutating requests still re-enter the trust router, risk gate, executor, and audit path. See
-[Core package root](../../../services/core-control-plane/src/fdai/)
-for a copy-ready read-only provider and bundle.
-
-When a deployment needs install, enable, disable, or uninstall lifecycle around those bundles,
-use `ExtensionManager` in `core/capability_catalog/extensions.py`. Installation verifies the
-archive SHA-256 digest, an injected publisher trust decision, host-version compatibility, and
-manifest-to-bundle capability parity. A verified extension is installed disabled. Enabling it
-rebuilds a candidate `CapabilityRuntime` from the immutable base and every enabled bundle, so an
-unknown ActionType, Workflow, reasoning tool, or provider blocks activation without changing the
-current manager. Disable the extension before uninstalling it.
-
-This lifecycle is intentionally not a dynamic code loader or public package downloader. The fork
-composition root supplies already-reviewed provider implementations and the trust verifier.
-Extension activation registers typed metadata and references only; every mutation still uses the
-normal pipeline and starts in shadow mode according to its ActionType or Workflow contract.
-
-`core/supply_chain/` owns the durable trusted-artifact contract and install orchestration shared by
-extensions and skills. Installation first passes the existing extension or skill lifecycle, then
-persists the exact raw artifact, detached signature, publisher source, digest, and disabled state.
-A failed durable write returns no candidate catalog to the caller. `delivery/trust/` provides the
-concrete source-keyed Ed25519 verifiers with distinct extension and skill signature domains, so a
-signature cannot replay across artifact kind, source, id, version, or content digest.
-
-Production uses `PostgresTrustedArtifactStore` and the `trusted_artifact` table. Extension and skill
-ids share one schema but remain separated by `artifact_kind`; insert requires expected revision 0,
-and every update requires an exact revision and increments by one. The table repeats the content
-size, SHA-256, 64-byte signature, state, timestamp, and revision constraints. It stores no private
-key or provider credential. Production Operator API startup loads skill records, resolves publisher
-public keys from `FDAI_SKILL_TRUSTED_PUBLISHERS_PATH`, and atomically publishes a reverified
-`RuntimeSkillDisclosure` shared by Bragi, optional typed RPC, and the GET-only Skills panel. Local
-composition publishes an empty fail-closed snapshot when no durable skill store is configured.
-Governed multi-skill manifests use the separate `skill_bundle` artifact kind and
-`fdai.skill-bundle-signature.v1` domain. Startup rebuilds skills before bundles so exact member
-versions and enabled state are validated before the shared runtime snapshot is published. The three
-read surfaces share that one snapshot: republishing it moves the Bragi commands, the read-scoped
-`skill_bundles.*` RPC operations, and the Skills panel inspection payload together, and every bundle
-rejection returns one stable content-free reason drawn from a fixed English token vocabulary.
-A refused describe and a refused load each append their own rejection diagnostic, and an unbound
-bundle catalog is one of those stable reasons rather than a caller-parameter error. Listing an
-unbound catalog still reports zero, because with no catalog bound nothing is installed.
-
-Approved external skill repositories use the separate durable source pipeline in
-[skill-source-management.md](../interfaces/skill-source-management.md). `core/skills/source_registry.py`
-owns immutable source identity; `core/supply_chain/skill_source_*.py` owns quarantine, disabled
-candidate approval, scheduled ETag refresh, and revocation policy. PostgreSQL adapters persist the
-five Alembic `0045` tables. Reader GET routes expose source evidence, while separate Approver and
-Owner POST routes install disabled candidates or revoke without deleting provenance. Production
-reloads the runtime disclosure after either command so durable disablement takes effect immediately.
+The validated bundle, extension, trusted-artifact, skill disclosure, and revocation lifecycle is
+owned by [Capability bundle lifecycle](capability-bundle-lifecycle.md).
 
 ### Injectable Seams
 
