@@ -58,35 +58,9 @@ Each slide brief has six fields:
 
 Use the briefs as proposal source, not as a teleprompter. Remove any statement that cannot be supported by architecture, a demo artifact, or a measured pilot baseline.
 
-## HTML design studies
+## Local delivery artifacts
 
-The HTML files are lightweight design studies for selecting a visual direction before producing the complete deck:
-
-| Study | Direction | Best fit |
-|-------|-----------|----------|
-| [fdai-l100-deck.html](fdai-l100-deck.html) | Quiet Azure | Balanced technical and executive proposal. |
-| [fdai-proposal-blueprint.html](fdai-proposal-blueprint.html) | Architecture Blueprint | Architecture and platform review. |
-| [fdai-proposal-executive.html](fdai-proposal-executive.html) | Executive Brief | Sponsor and steering committee review. |
-
-All studies use a light theme, restrained Azure blue, neutral surfaces, keyboard navigation, and a 16:9 layout. They intentionally avoid colored strips on card edges and decorative gradients.
-
-## PowerPoint output
-
-The Executive Brief PowerPoint contains 17 editable 16:9 slides. Slide 16 is reserved for the demo video. Build the default deck with a video placeholder:
-
-```bash
-cd docs/user-guide/deck
-npm install
-npm run build:ppt
-```
-
-To embed a local video and an optional poster image, run:
-
-```bash
-npm run build:ppt -- --video /absolute/path/demo.mp4 --poster /absolute/path/poster.png
-```
-
-The generator writes `fdai-proposal-executive.pptx`. Use an MP4 encoded with H.264 video and AAC audio for the broadest PowerPoint compatibility. If `--video` is omitted, the dedicated slide remains as a replaceable 16:9 placeholder.
+The tracked Markdown briefs are the public proposal source. Rendered HTML, PowerPoint files, generators, dependencies, screenshots, and demo media stay in an approved delivery copy because they can contain customer-specific framing. Build and review those artifacts only in that delivery workspace.
 
 ## Proposal content rules
 

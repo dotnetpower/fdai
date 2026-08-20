@@ -2,7 +2,7 @@
 title: FDAI 제안서 덱 키트
 description: FDAI 아키텍처, 안전성, 가치 및 도입 방안을 설명하는 의사결정 중심 제안서 원본입니다.
 translation_of: README.md
-translation_source_sha: 020010239904e31eddc729d45719b105aff864bf
+translation_source_sha: 21e4ca6c4e613bfa398ea516f7255ffda9323280
 translation_revised: 2026-08-20
 ---
 
@@ -61,35 +61,9 @@ translation_revised: 2026-08-20
 
 브리프는 제안서 원본으로 사용하고 대본처럼 읽지 않습니다. 아키텍처, 데모 산출물, 측정된 시범 운영 기준값으로 뒷받침할 수 없는 문장은 제거하세요.
 
-## HTML 디자인 시안
+## 로컬 전달 산출물
 
-HTML 파일은 전체 덱을 제작하기 전에 시각 방향을 선택하기 위한 간단한 디자인 시안입니다.
-
-| 시안 | 방향 | 적합한 검토 |
-|------|------|-------------|
-| [fdai-l100-deck.html](fdai-l100-deck.html) | Quiet Azure | 기술과 경영 관점을 함께 다루는 제안입니다. |
-| [fdai-proposal-blueprint.html](fdai-proposal-blueprint.html) | 아키텍처 청사진 | 아키텍처 및 플랫폼 검토입니다. |
-| [fdai-proposal-executive.html](fdai-proposal-executive.html) | Executive Brief | 스폰서 및 운영위원회 검토입니다. |
-
-모든 시안은 Light 테마, 절제된 Azure Blue, 중립적인 표면, 키보드 탐색, 16:9 레이아웃을 사용합니다. 카드 상단이나 좌측의 색상 막대와 장식용 그라데이션은 사용하지 않습니다.
-
-## PowerPoint 산출물
-
-Executive Brief PowerPoint는 편집 가능한 16:9 장표 17장으로 구성됩니다. 16번 장표는 데모 영상 전용입니다. 영상 플레이스홀더가 있는 기본 덱은 다음과 같이 생성합니다.
-
-```bash
-cd docs/user-guide/deck
-npm install
-npm run build:ppt
-```
-
-로컬 영상과 선택적 포스터 이미지를 포함하려면 다음 명령을 실행합니다.
-
-```bash
-npm run build:ppt -- --video /absolute/path/demo.mp4 --poster /absolute/path/poster.png
-```
-
-생성기는 `fdai-proposal-executive.pptx`를 만듭니다. PowerPoint 호환성을 위해 H.264 영상과 AAC 오디오로 인코딩한 MP4를 사용하세요. `--video`를 생략하면 전용 장표에 교체 가능한 16:9 플레이스홀더가 남습니다.
+추적되는 Markdown 장표 브리프가 공개 제안서 원본입니다. 렌더링된 HTML, PowerPoint 파일, 생성기, 의존성, 스크린샷 및 데모 미디어는 고객별 맥락을 포함할 수 있으므로 승인된 전달용 사본에서 관리합니다. 해당 산출물은 전달용 작업 공간에서만 빌드하고 검토하세요.
 
 ## 제안서 콘텐츠 원칙
 
