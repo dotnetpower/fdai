@@ -4,7 +4,7 @@ description: FDAI의 15개 에이전트 조직이 이벤트 기반 컨트롤 플
 sidebar:
   order: 2
 translation_of: architecture.md
-translation_source_sha: ec1e2f3380471be4922c4a43660a12eb7c5f7a41
+translation_source_sha: f33cf4e412d68f69ad0f5cae61d3850e89456d9d
 translation_revised: 2026-08-20
 ---
 
@@ -223,14 +223,9 @@ FDAI의 15개 에이전트는 **컨트롤 루프 위에 얹혀진 소유권 레�
 위 표는 조직도입니다. 아래 다이어그램은 데이터 흐름, 즉 에이전트가 소유한 객체가 어디로
 이동하는지를 보여 줍니다.
 
-![외부 신호가 shared typed event bus로 들어와 Huginn에 도달합니다. Huginn이 발행한 normalized event는 Heimdall과 Forseti로 fan-out됩니다. Heimdall, Njord, Freyr, Loki, Mimir, Muninn은 서로 직접 호출하지 않고 finding, domain evidence, rule, context를 제공합니다. Forseti는 결정을 소유하고 cross-domain conflict의 arbitration을 Odin에 요청합니다. 실행 가능한 결정은 Thor에 도달하며 Var는 사람 승인을, Vidar는 rollback을 소유합니다. Forseti, Thor, Var, Vidar는 Saga에 audit evidence를 발행합니다. Saga outcome은 Norns로 전달되고 Norns는 inert rule candidate를 Mimir에 제안합니다. Bragi는 Muninn에서 context를 읽고 typed action proposal을 Huginn에 보내 conversation도 동일한 governed path를 사용하게 합니다.](../diagrams/generated/fdai-agent-driven-runtime.ko.svg)
-
-위 Mermaid 도해로 토픽 소유권을 빠르게 훑어볼 수 있습니다. 아래 상세 도해는 같은 구조를 런타임
-관점에서 보여 줍니다. 에이전트는 각자 독립적으로 구독하고, 작업은 동시에 여러 곳으로 퍼질 수
+대화형 도해는 런타임 관점의 구조를 보여 줍니다. 에이전트는 각자 독립적으로 구독하고, 작업은 동시에 여러 곳으로 퍼질 수
 있으며, 권위 있는 객체는 그것을 소유한 에이전트만 발행합니다. 게이트웨이와 워커는 이벤트를
 중계할 뿐, 숨은 의사 결정자가 되지 않습니다.
-
-#### 에이전트 주도 런타임
 
 <fdai-architecture-diagram manifest="../../diagrams/generated/fdai-agent-driven-runtime.manifest.json" locale="ko" style="display:block">
   <img src="../../diagrams/generated/fdai-agent-driven-runtime.ko.svg" alt="외부 신호가 shared typed event bus로 들어와 Huginn에 도달합니다. Huginn이 발행한 normalized event는 Heimdall과 Forseti로 fan-out됩니다. Heimdall, Njord, Freyr, Loki, Mimir, Muninn은 서로 직접 호출하지 않고 finding, domain evidence, rule, context를 제공합니다. Forseti는 결정을 소유하고 cross-domain conflict의 arbitration을 Odin에 요청합니다. 실행 가능한 결정은 Thor에 도달하며 Var는 사람 승인을, Vidar는 rollback을 소유합니다. Forseti, Thor, Var, Vidar는 Saga에 audit evidence를 발행합니다. Saga outcome은 Norns로 전달되고 Norns는 inert rule candidate를 Mimir에 제안합니다. Bragi는 Muninn에서 context를 읽고 typed action proposal을 Huginn에 보내 conversation도 동일한 governed path를 사용하게 합니다." loading="lazy" style="display:block;width:100%;height:auto" />

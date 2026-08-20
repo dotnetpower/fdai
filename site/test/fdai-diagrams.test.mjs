@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { diagramEmbedForImage } from "../src/plugins/fdai-diagrams.mjs";
@@ -42,4 +43,18 @@ test("ordinary images are left unchanged", () => {
     ),
     null,
   );
+});
+
+test("architecture renders the agent runtime diagram once per locale", async () => {
+  const cases = [
+    [new URL("../src/content/docs/architecture.md", import.meta.url), "en"],
+    [new URL("../src/content/docs/ko/architecture.md", import.meta.url), "ko"],
+  ];
+
+  for (const [sourceUrl, locale] of cases) {
+    const source = await readFile(sourceUrl, "utf8");
+    const asset = `fdai-agent-driven-runtime.${locale}.svg`;
+    assert.equal(source.split(asset).length - 1, 1);
+    assert.equal(source.split("fdai-agent-driven-runtime.manifest.json").length - 1, 1);
+  }
 });
