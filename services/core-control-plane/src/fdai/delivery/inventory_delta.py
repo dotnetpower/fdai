@@ -78,7 +78,10 @@ async def forward_inventory_delta(
         if previous_observed_at is None or relationship_reconciliation_after > previous_observed_at:
             await state_store.write_state(
                 marker_key,
-                {"observed_at": relationship_reconciliation_after.isoformat()},
+                {
+                    "observed_at": relationship_reconciliation_after.isoformat(),
+                    "recorded_at": datetime.now(tz=UTC).isoformat(),
+                },
             )
     await state_store.write_state(cursor_key, {"cursor": final_cursor})
     return published

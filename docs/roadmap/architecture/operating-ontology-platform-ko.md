@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: a8dbd3418634cb7ad82276949f5196cbad087a81
-translation_revised: 2026-08-20
+translation_source_sha: 97712df8284d6e1f69ba71ceea653b6b3e29f194
+translation_revised: 2026-08-21
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -118,6 +118,7 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | K0 exact release 신원 및 영속성 | implemented | [`release.py`](../../../services/core-control-plane/src/fdai/shared/ontology/release.py), [`postgres_ontology.py`](../../../services/core-control-plane/src/fdai/delivery/persistence/postgres_ontology.py), [`inventory_ontology.py`](../../../services/core-control-plane/src/fdai/runtime/inventory_ontology.py), [`20260813_0081_ontology_release_registry.py`](../../../alembic/versions/20260813_0081_ontology_release_registry.py), [`20260817_0085_historical_ontology_release.py`](../../../alembic/versions/20260817_0085_historical_ontology_release.py), focused 영속성/런타임 테스트 | Exact 신원, release에 고정된 쓰기, 재시작에 안전한 매니페스트 로딩, release에 결속된 인벤토리 변환 근거, 정확한 과거 객체/링크 release backfill이 존재합니다. 등록되지 않은 release는 계속 안전하게 차단됩니다. 이행 전 행과 과거 인벤토리 매니페스트는 정직하게 고정하지 않은 상태로 유지합니다. 운영 Live 근거는 아직 남아 있습니다. |
+| 인벤토리 상태 사실 최신성과 분류 동등성 | implemented | `inventory_projection.py`, `inventory_ontology.py`, 예약 및 로컬 인벤토리 조립, 집중 변환 및 연결 검사 | 관측 상태 사실은 더 짧은 고정 유효 기간 대신 구성된 정상 조정 보장 시간을 선언합니다. 예약 및 로컬 변환기는 모두 검토된 ResourceType mapping digest를 받습니다. Exact revision 런타임 근거는 아직 남아 있습니다. |
 | Exact-release 선언 워크벤치 변환 결과 | implemented | `delivery/ontology_{declaration,dependents,evidence_health,release_diff}_projection.py`; 로컬 권한 카탈로그 materializer; Operator operations family; focused 변환 및 route 검사 | ObjectType, LinkType, ActionType 상세는 정확한 release 신원을 보존합니다. 종속 항목은 카탈로그 토폴로지만 사용하고, 근거 상태는 0을 만들어 내지 않으며, 보존 release 비교는 변경 권한 없이 선언 참조 수준을 유지합니다. InterfaceType 및 FunctionType 전용 보기는 측정된 P2 진입 조건에 따라 deferred 상태입니다. |
 | K1-K5 범위가 제한된 의미 조회 및 함수 인프라 | in-progress | [`semantic_planning_frame.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_planning_frame.py), [`operational_functions.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/operational_functions.py), [`incident_queries.py`](../../../services/core-control-plane/src/fdai/core/ontology_platform/incident_queries.py), [`kubernetes_relationships.py`](../../../services/core-control-plane/src/fdai/delivery/kubernetes_relationships.py), [`inventory_sync.py`](../../../services/core-control-plane/src/fdai/delivery/inventory_sync.py), [`test_inventory_sync.py`](../../../services/core-control-plane/tests/delivery/test_inventory_sync.py), [`test_wire_pod_telemetry.py`](../../../services/core-control-plane/tests/composition/test_wire_pod_telemetry.py) | Core 기본 요소, ObjectSet 및 table transform을 통한 집계 필드 스키마 전파, 서로 다른 canonical 인시던트 신원과 감사 상관관계 신원을 보존하는 범위가 제한된 인시던트 감사 근거, 공급된 Kubernetes 기록을 위한 production 인벤토리 조립, 발급된 Pod 조립 검사가 존재합니다. 인시던트 조회는 기록된 grounded 가설 또는 자체 감사 인용이 있는 닫힌 결정론적 최종 실패 결과에서 근본 원인을 노출할 수 있습니다. 일반 활동, 자유 형식 텍스트 및 시간 순서는 원인이 되지 않습니다. 기록된 영향 행과 인용 행은 읽기 전용 근거로 유지되며 실행 권한을 부여하지 않습니다. 인증된 인시던트 및 Kubernetes live 근거는 아직 남아 있습니다. |
 | Dependency-wave 조사 query node | 구현됨 | `query_source_handlers.py`, `query_metric_handlers.py`, `query_verification.py`, 집중 조사 query-node 테스트 | 정확한 secured ObjectSet 결과가 endpoint를 검사하는 multi-hop traversal 하나의 root를 제공할 수 있습니다. 동일 길이 metric comparison은 누락 근거와 0을 구분하고, 조사 evidence join은 요청한 증상 방향을 관측하지 않으면 가설을 지지할 수 없습니다. 모호하거나 불완전한 root는 provider 또는 graph I/O 전에 중단됩니다. |
@@ -131,6 +132,7 @@ Console은 redaction, 호환성, 완전성 또는 권한을 계산하지 않습�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-20 | implemented | 관측 상태 최신성을 구성된 정상 인벤토리 주기에 연결하고 로컬 authoritative 새로 고침에 ResourceType mapping digest를 복원했습니다. 느리지만 진행 중인 스캔은 근거를 주장하지 않는 샤드 heartbeat를 내보내며, 최종 fence만 완전성을 주장합니다. | [이슈 #139](https://github.com/dotnetpower/fdai/issues/139); 현재 변환, 런타임, 어댑터, 로컬 새로 고침 및 집중 회귀 검사입니다. | 프로바이더 변경 뒤 현재 최신성 메타데이터와 분류 링크를 보여 주는 exact revision 실제 운영 변환 결과 하나를 보존합니다. |
 | 2026-08-20 | 구현됨 | 닫힌 query algebra에 dependency-bound relationship traversal, 검토된 metric comparison, 안정적인 branch hold, 증상 변화에 결속된 causal join을 추가했습니다. 운영 조립은 secured ObjectSet gateway, 검토된 metric registry, topology history, 기존 bounded executor를 재사용합니다. | `current change`, 집중 조사 gate 97개, Ruff, formatting, strict mypy 통과 | 이 행을 `validated`로 변경하기 전에 authoritative service topology 및 metric provider를 사용한 인증 근거를 보존합니다. |
 | 2026-08-19 | implemented | 읽기 전용 질문 공간 FunctionType 계약 네 개를 추가하고 정확한 조립이 생길 때까지 공급자 또는 앵커가 필요한 처리기를 플래너에서 사용할 수 없게 유지했습니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233), [지속형 질문 공간](../interfaces/continuous-question-space-ko.md), 집중 온톨로지 플랫폼 및 조립 검사 | 기능의 unavailable 상태를 bound로 바꾸기 전에 정확한 소스 라이브 근거를 보존합니다. |
 | 2026-08-19 | implemented | 검토된 mapping 밖의 프로바이더 native 행을 위해 카탈로그 소유 `unclassified-resource` 대상과 exact 신원 완전성 증적을 추가했습니다. 분류는 계속 검토된 Resource-ResourceType 간선이며, 지원되지 않는 native 타입 텍스트는 비활성 근거로 남아 의미 또는 실행 권한을 부여하지 않습니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). 프로바이더, Azure, 온톨로지, 카탈로그 및 조회 도메인 focused 검사 259개와 Ruff 및 strict mypy가 통과했습니다. | 인벤토리를 새로 고치고 release에 연결된 매니페스트와 parity 근거를 보존합니다. |

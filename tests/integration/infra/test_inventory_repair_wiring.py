@@ -16,16 +16,47 @@ def _load_jsonc(path: Path) -> Any:
     return json.loads(content)
 
 
-def test_inventory_job_wakes_frequently_but_keeps_full_scan_interval() -> None:
+def test_inventory_job_wakes_every_minute_but_keeps_full_scan_interval() -> None:
     variables = (_ROOT / "infra" / "variables.tf").read_text(encoding="utf-8")
     job = (
         _ROOT / "infra" / "modules" / "compute" / "container-apps" / "inventory_job.tf"
     ).read_text(encoding="utf-8")
 
-    assert 'default     = "*/10 * * * *"' in variables
+    assert 'default     = "* * * * *"' in variables
     assert "inventory_reconciliation_interval_seconds" in variables
     assert 'name  = "FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS"' in job
     assert "value = tostring(var.inventory_reconciliation_interval_seconds)" in job
+
+
+def test_inventory_job_carries_continuous_collection_budgets() -> None:
+    root_variables = (_ROOT / "infra" / "variables.tf").read_text(encoding="utf-8")
+    module_call = (_ROOT / "infra" / "main.tf").read_text(encoding="utf-8")
+    module_variables = (
+        _ROOT / "infra" / "modules" / "compute" / "container-apps" / "variables.tf"
+    ).read_text(encoding="utf-8")
+    job = (
+        _ROOT / "infra" / "modules" / "compute" / "container-apps" / "inventory_job.tf"
+    ).read_text(encoding="utf-8")
+
+    names = (
+        "inventory_change_min_interval_seconds",
+        "inventory_progress_deadline_seconds",
+        "inventory_attempt_deadline_seconds",
+        "inventory_arg_requests_per_second",
+    )
+    for name in names:
+        assert f'variable "{name}"' in root_variables
+        assert f'variable "{name}"' in module_variables
+        assert f"{name}" in module_call
+        assert f"value = tostring(var.{name})" in job
+
+    for key in (
+        "FDAI_INVENTORY_CHANGE_MIN_INTERVAL_SECONDS",
+        "FDAI_INVENTORY_PROGRESS_DEADLINE_SECONDS",
+        "FDAI_INVENTORY_ATTEMPT_DEADLINE_SECONDS",
+        "FDAI_INVENTORY_ARG_REQUESTS_PER_SECOND",
+    ):
+        assert f'name  = "{key}"' in job
 
 
 def test_inventory_recovery_delta_is_private_network_only() -> None:

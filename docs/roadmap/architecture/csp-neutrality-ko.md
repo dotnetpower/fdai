@@ -1,8 +1,8 @@
 ---
 title: CSP-중립성 계약
 translation_of: csp-neutrality.md
-translation_source_sha: 3770f59a5e3a78acfdeb34f67592569c1b1fff71
-translation_revised: 2026-08-19
+translation_source_sha: de8535d52849946f2f6c5dfa2e01ef01221f9e82
+translation_revised: 2026-08-21
 ---
 
 # CSP-중립성 계약
@@ -24,7 +24,7 @@ translation_revised: 2026-08-19
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | 이벤트 버스, 런타임, 시크릿 및 워크로드 신원 계약 | implemented | `shared/providers/`; `delivery/azure/`; `infra/modules/event-bus/`; `infra/modules/compute/`; `infra/modules/secret-store/`; 집중 어댑터 및 인프라 테스트 | Azure는 프로바이더 중립 계약 뒤에서 Event Hubs의 Kafka, OCI Container Apps, native 시크릿 참조 및 워크로드 신원을 사용합니다. |
-| 인벤토리 스냅샷, 델타 및 범위가 제한된 그래프 변환 결과 | implemented | `shared/providers/inventory.py`; `delivery/azure/inventory.py`; `delivery/inventory_sync_cli.py`; 집중 인벤토리 및 변환 결과 테스트 | 전체 조정, 순서가 보장된 델타, 원자적 세대 승격 및 범위가 제한된 읽기 변환 결과를 구현했습니다. 실제 운영 완전성은 코드 경로 주장이 아니라 배포 근거입니다. |
+| 인벤토리 스냅샷, 델타 및 범위가 제한된 그래프 변환 결과 | implemented | `shared/providers/inventory.py`; `delivery/azure/{arg_transport,inventory}.py`; `delivery/inventory_sync_cli.py`; 집중 인벤토리 및 변환 결과 테스트 | 전체 조정, 순서가 보장된 델타, 선제적 공유 요청 속도 제어, 진행 및 절대 마감, 원자적 세대 승격 및 범위가 제한된 읽기 변환 결과를 구현했습니다. 실제 운영 완전성은 코드 경로 주장이 아니라 배포 근거입니다. |
 | 메트릭, 로그 및 추적 조회 계약 | implemented | `shared/providers/metric.py`; `log_query.py`; `trace_query.py`; `delivery/azure/metric_logs.py`; `delivery/azure/log_query.py`; `delivery/azure/telemetry_query.py` | Azure Monitor 및 Log Analytics 어댑터가 있으며 구성이 없으면 의도적으로 no-op 바인딩을 유지합니다. |
 | 8개 계약 전체의 통제된 운영 근거 | in-progress | [배포 및 온보딩 구현 상태](../deployment/deploy-and-onboard-ko.md#구현-상태); `delivery/azure/` 아래의 관측 캠페인 어댑터 | 독립 서비스 배포는 검증됐지만 이 소유 문서는 모든 인벤토리와 텔레메트리 계약을 함께 입증하는 최신 통제 캠페인을 하나로 보존하지 않습니다. |
 | 비-Azure 프로바이더 구현 | deferred | [구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must) | 이식성을 위해 계약 형태를 유지합니다. AWS, GCP 또는 다른 프로바이더 어댑터는 승인된 구현 범위에 없습니다. |
@@ -47,6 +47,7 @@ translation_revised: 2026-08-19
 | 2026-08-19 | implemented | Azure Resource Graph 타입 집계를 전체 스냅샷 fence에 연결했습니다. raw `Resources`와 리소스 그룹 `ResourceContainers`를 세고, 정규화된 프로바이더 타입을 검토된 전체 ARM vocabulary와 비교하며, 선언되지 않은 모든 타입과 count를 지원되는 Resource로 구체화하지 않은 채 기록합니다. 구독 anchor와 파생된 중첩 subnet은 이 프로바이더 범위 측정에서 제외합니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). focused ARG, Azure 인벤토리, 조립 및 인벤토리 작업 검사 136개와 작업 범위 Ruff 및 strict mypy가 통과했습니다. | 전체 재조정 한 번을 실행하고 승격된 메타데이터가 보존된 리소스 57개, 타입 15종 측정을 재현하는지 확인한 뒤 런타임 근거로 사용합니다. |
 | 2026-08-19 | implemented | 범위가 제한된 프로바이더 native 범위 coverage를 CSP-중립 `InventoryBatch` 최종 fence에 추가하고 승격할 때만 변경 불가능한 스냅샷 메타데이터로 변환했습니다. 생성 전에 count 합계를 대조하고, 최종이 아닌 배치는 근거를 운반할 수 없으며, 정적 출처 메타데이터는 완료된 수집을 가장할 수 없습니다. | [이슈 #216](https://github.com/dotnetpower/fdai/issues/216). focused 프로바이더 계약 및 인벤토리 동기화 테스트 31개와 작업 범위 Ruff 및 strict mypy가 통과했습니다. | Azure 전체 범위 타입 집계 producer를 연결하고 승격된 스냅샷에 측정된 미매핑 count를 보존합니다. |
 | 2026-08-14 | in-progress | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 Azure 계약 구현을 운영 근거 및 보류된 비-Azure 어댑터와 분리해 기록했습니다. | `current change`; 구현 범위 표의 프로바이더, 전달, 인프라 및 배포 근거입니다. | 하나의 통제된 8개 계약 캠페인을 보존하고 명시적으로 범위가 정해질 때까지 비-Azure 작업을 보류합니다. |
+| 2026-08-20 | implemented | 두 번째 그래프 작성자를 만들지 않고 인벤토리 수집을 지속 실행 형태로 전환했습니다. 1분 틱은 실행 조건 확인 전에 프로바이더 변경을 비우고, 구성 가능한 하한은 변경으로 시작되는 스캔을 합칩니다. 모든 ARG 샤드는 선제적 속도 제어를 공유하고, 반응형 초기화 대기는 제한되며, 각 출처에는 진행 시 다시 설정되는 마감과 절대 마감이 있습니다. | [이슈 #139](https://github.com/dotnetpower/fdai/issues/139); 현재 소스와 집중 ARG, 인벤토리, 예약, 구성, 변환 결과 및 인프라 검사입니다. | 이 범위를 `validated`로 변경하기 전에 exact revision 보호 적용, 측정된 1분 주기와 비용, 실제 프로바이더 변경 조정 증적 하나를 보존합니다. |
 
 ### 남은 작업
 
@@ -442,8 +443,11 @@ coverage가 대응되지 않거나 잘리면 응답을 강등합니다.
 - **주기적 조정은 계속 필요합니다.** 가져올 수 있는 인벤토리 sync CLI는 기본 6시간 주기로
   완전한 ARG/ARM 세대를 만들고 원자적으로 promote하며, 해당 세대에 이미
   반영된 오버레이 항목을 정리합니다. Delta 스트림만으로 완전성을 증명하지 않습니다.
-  작업은 10분마다 영속 시도 상태를 확인하지만 6시간 간격이 due이거나 newer 시도가
-  실패 또는 포기된 경우에만 검사합니다. 로컬 새로 고침과 배포 작업은 영속 시도 전이, 활성 포인터
+  작업은 매분 변경 스트림을 비우고 영속 시도 상태를 확인하지만, 6시간 간격이 due이거나
+  관측된 변경이 하한을 넘어 아직 조정되지 않았거나 실패한 시도의 백오프가 끝난 경우에만
+  검사합니다. 변경은 이 컨트롤 플레인이 활성 스냅샷 시작 뒤에 기록했을 때 미조정으로 봅니다.
+  시도 하나에는 진행 시 다시 설정되는 무진행 마감과 절대 상한이 있고, 모든 ARG 샤드는 지속
+  요청 예산을 공유합니다. 로컬 새로 고침과 배포 작업은 영속 시도 전이, 활성 포인터
   검증 및 범위가 제한된 활동 발행을 공유합니다. 복구 delta는 cursor를 읽거나 전진하기 전에 각
   scope를 직렬화합니다. 작업은 읽기 전용 인벤토리 신원을 유지하며 Heimdall은 프로바이더를 직접
   조회하거나 작업을 시작하지 않습니다.

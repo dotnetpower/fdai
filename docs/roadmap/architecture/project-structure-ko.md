@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b96503b21afed359bf7239e2eb534dd318d1c61a
-translation_revised: 2026-08-20
+translation_source_sha: 3afb3ce5d81c1ba41390f544a18da6517ffb9ec4
+translation_revised: 2026-08-21
 ---
 # 프로젝트 구조
 
@@ -401,8 +401,9 @@ fdai/
   exclusive 승격 게이트를 유지하므로 어떤 delta 트랜잭션과도 동시에 실행되지 않습니다. 전용
   인벤토리 sync 작업은 기본 6시간마다 Azure Resource Graph를 조회하고 ARM 대체 경로를 사용해 완전한
   조정 스냅샷을 원자적으로 promote합니다. Heimdall은 발견 최신성, lag,
-  커버리지를 관찰하며 복구를 시작하지 않습니다. 작업은 10분마다 영속 시도 상태를 확인하고
-  정상 6시간 검사 간격을 유지하며 newer 실패한/abandoned 시도는 다음 틱에 재시도합니다. 로컬 실행 장치는
+  커버리지를 관찰하며 복구를 시작하지 않습니다. 작업은 매분 영속 시도 상태를 확인하고
+  정상 6시간 검사 간격을 유지하되 관측된 변경이 하한을 넘으면 앞당겨 조정하며, 실패한 시도는
+  범위가 제한된 백오프가 끝난 뒤 재시도합니다. 로컬 실행 장치는
   Azure 발견을 실행하지 않습니다.
   Organization은 디렉터리와 Org chart 보기를 제공하며, `?view=org`는 실시간 보고 계층의 직접
   링크를 유지하고 각 노드는 해당 에이전트의 런타임 상세 포커스를 엽니다.

@@ -633,9 +633,11 @@ default and retires overlay entries covered by the new generation. Heimdall dete
 snapshots, cursor lag, fallback spikes, and coverage loss. A missing, degraded, or stale freshness
 lookup routes graph-dependent actions to human review. Inventory-backed readiness probes preserve
 that freshness state instead of asserting discovery success. Heimdall remains an observer. The
-Inventory job checks durable attempt state every 10 minutes, runs the normal six-hour scan only
-when due, and retries a newer failed or abandoned attempt on the next tick without granting job-start authority
-to the core runtime.
+Inventory job checks durable attempt state every minute and runs the normal six-hour scan when due
+or when an observed change remains unreconciled above its floor. A re-arming no-progress deadline
+and an absolute ceiling let a stalled source fail without terminating a slow source that continues
+to produce batches. Failed attempts retry under exponential backoff, without granting job-start
+authority to the core runtime.
 
 ## Implementation status
 

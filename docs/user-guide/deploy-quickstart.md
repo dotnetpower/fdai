@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Provision the FDAI minimum-set inventory on Azure - two equivalent paths (azd turnkey or Terraform direct), preview first, apply only when the plan looks right.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: a84ae53267622cf15c685fce86e896bf16a66dc2 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: dc0450e3e1cdc59b684262351978bf277f80c7f2 }]
 ---
 
 # Deploy Quickstart
@@ -114,9 +114,10 @@ terraform -chdir=infra apply -var-file=envs/dev.tfvars
      reach `aw.inventory.raw` on the operational Event Hubs shard.
    - The primary shard stays inside its ten-entity Standard limit, and Huginn
      projects a test resource change.
-   - The Inventory Job wakes every 10 minutes, PostgreSQL keeps healthy full
-     scans at six hours, and a failed or abandoned attempt retries on the next
-     tick without giving the core a job-start role.
+   - The Inventory Job wakes every minute, PostgreSQL keeps healthy full scans
+     at six hours, an observed resource change reconciles early, and a failed or
+     deadline-exceeded attempt retries under bounded backoff without giving the
+     core a job-start role.
    - With private networking on, PostgreSQL and both Event Hubs shards resolve to
      private addresses from the runtime subnet or a peered runner, pass their TLS
      checks, and keep Event Hubs public access disabled.

@@ -109,6 +109,10 @@ from fdai.delivery.azure.arg_relationships import (
     provider_parent_id,
 )
 from fdai.delivery.azure.arg_transport import (
+    DEFAULT_ARG_REQUEST_BURST,
+    DEFAULT_ARG_REQUESTS_PER_SECOND,
+    DEFAULT_ARG_THROTTLE_MAX_DEFER_SECONDS,
+    ArgRateLimiter,
     ArgThrottleGate,
     fetch_arg_pages,
     fetch_arg_row_pages,
@@ -215,6 +219,15 @@ class AzureArgQueryFactoryConfig:
     relationship_mapping_root: Path = _DEFAULT_RELATIONSHIP_MAPPING_ROOT
     """Reviewed provider relationship mapping catalog loaded at adapter startup."""
 
+    requests_per_second: float = DEFAULT_ARG_REQUESTS_PER_SECOND
+    """Sustained ARG request budget shared by every shard of one adapter."""
+
+    requests_burst: int = DEFAULT_ARG_REQUEST_BURST
+    """Requests that may run ahead before the sustained budget applies."""
+
+    throttle_max_defer_seconds: float = DEFAULT_ARG_THROTTLE_MAX_DEFER_SECONDS
+    """Cap on one reactive quota deferral before the attempt deadline decides."""
+
 
 class AzureArgQueryFactory:
     """Build a :type:`ResourceQueryFn` bound to a WorkloadIdentity + HTTP client."""
@@ -247,7 +260,13 @@ class AzureArgQueryFactory:
         self._resource_types: Final[ResourceTypeRegistry] = resource_types
         self._http: Final[httpx.AsyncClient] = http_client
         self._config: Final[AzureArgQueryFactoryConfig] = config
-        self._throttle_gate = ArgThrottleGate()
+        self._throttle_gate = ArgThrottleGate(
+            max_defer_seconds=config.throttle_max_defer_seconds,
+        )
+        self._rate_limiter = ArgRateLimiter(
+            requests_per_second=config.requests_per_second,
+            burst=config.requests_burst,
+        )
         # Pre-compute the ARM-type → neutral-id reverse map once. Every
         # `attached_to` extraction hits this map per referenced id; a
         # fresh iteration per row would be O(vocabulary_size * rows).
@@ -324,6 +343,7 @@ class AzureArgQueryFactory:
                 timeout_seconds=self._config.timeout_seconds,
                 error_type=ArgQueryError,
                 throttle_gate=self._throttle_gate,
+                rate_limiter=self._rate_limiter,
                 max_records=_MAX_PROVIDER_TYPES,
             )
             return self._project_scope_coverage(rows)
@@ -352,6 +372,7 @@ class AzureArgQueryFactory:
                 map_row=self._map_unclassified_row,
                 project_links=self._project_links,
                 throttle_gate=self._throttle_gate,
+                rate_limiter=self._rate_limiter,
             )
 
         return _fetch
@@ -517,6 +538,7 @@ class AzureArgQueryFactory:
             map_row=lambda row: self._map_row(row, resource_type=resource_type),
             project_links=self._project_links,
             throttle_gate=self._throttle_gate,
+            rate_limiter=self._rate_limiter,
         )
 
     def _project_links(

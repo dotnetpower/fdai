@@ -19,6 +19,9 @@ wired against a real interface:
 - **Atomic-promote fence**: the stream **always** ends with an
   :class:`InventoryBatch` whose ``final=True``. A caller MUST discard a
   stream that ends without it; the stub enforces this on every path.
+- **Progress heartbeat**: an empty non-final batch claims no graph evidence.
+    ``full_snapshot`` emits one as each bounded provider read completes so a
+    consumer can distinguish a slow scan from a stalled one.
 - **Idempotent upsert (interface)**: batches are keyed on
   ``resource_id`` for resources and ``(from_id, link_type, to_id)`` for
   links. Adapters MUST NOT emit duplicates within one snapshot - this
@@ -282,7 +285,10 @@ class AzureResourceGraphInventory:
             completed: list[InventoryBatch] = []
             for coro in asyncio.as_completed(tasks):
                 completed.append(await coro)
+                yield InventoryBatch()
             provider_scope_coverage = await coverage_task if coverage_task is not None else None
+            if coverage_task is not None:
+                yield InventoryBatch()
             if unmapped_task is not None:
                 if provider_scope_coverage is None:
                     raise RuntimeError("unclassified resources require provider scope coverage")
@@ -296,6 +302,7 @@ class AzureResourceGraphInventory:
                     or unmapped_batch.relationship_drops
                 ):
                     completed.append(unmapped_batch)
+                yield InventoryBatch()
         except BaseException:
             # Fail-closed: cancel outstanding shards so a partial snapshot
             # never quietly lands. The caller retains the previous graph

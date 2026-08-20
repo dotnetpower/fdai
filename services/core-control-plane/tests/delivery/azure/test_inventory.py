@@ -99,10 +99,8 @@ async def test_full_snapshot_ends_with_final_true() -> None:
     assert seen[-1].final is True
     assert seen[-1].resources == ()
     assert seen[-1].links == ()
-    # Every prior batch had payload; the fence never carries data.
-    for batch in seen[:-1]:
-        assert batch.final is False
-        assert batch.resources or batch.links
+    assert sum(not batch.final and not batch.resources and not batch.links for batch in seen) == 2
+    assert all(batch.final is False for batch in seen[:-1])
 
 
 @pytest.mark.asyncio
@@ -189,7 +187,7 @@ async def test_full_snapshot_materializes_all_unmapped_provider_identities() -> 
 
 
 @pytest.mark.asyncio
-async def test_full_snapshot_emits_nothing_when_unmapped_identities_do_not_reconcile() -> None:
+async def test_full_snapshot_emits_no_evidence_when_unmapped_identities_do_not_reconcile() -> None:
     async def _q(rt: str) -> tuple[Sequence[ResourceRecord], Sequence[LinkRecord]]:
         return (_rr(f"{rt}/1", rtype=rt),), ()
 
@@ -214,7 +212,11 @@ async def test_full_snapshot_emits_nothing_when_unmapped_identities_do_not_recon
         ).full_snapshot():
             seen.append(batch)
 
-    assert seen == []
+    assert seen
+    assert all(
+        not batch.final and not batch.resources and not batch.links and not batch.relationship_drops
+        for batch in seen
+    )
 
 
 @pytest.mark.asyncio

@@ -406,7 +406,8 @@ Dependency direction is strict and one-way; a violation is a review blocker.
   dedicated Inventory sync job queries Azure Resource Graph with ARM fallback every six hours by
   default and atomically promotes a complete reconciliation snapshot. Heimdall monitors discovery
   freshness, lag, and coverage without starting repair. The job checks durable attempt state every
-  10 minutes, keeps a six-hour healthy scan interval, and retries newer failed or abandoned attempts on the next tick;
+  minute, keeps a six-hour healthy scan interval, reconciles an observed change early above its
+  floor, and retries failed attempts when their bounded backoff expires;
   the local harness runs no Azure discovery.
   Organization offers Directory and Org chart views; `?view=org` preserves a direct link to the
   live reporting hierarchy, and each node opens that agent's focused runtime detail.

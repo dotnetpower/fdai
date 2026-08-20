@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import socket
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
@@ -41,6 +42,9 @@ _LOG = logging.getLogger(__name__)
 #: degrades to an explicitly incomplete observation instead of exhausting memory.
 _MAX_OBSERVED_RESOURCES = 50_000
 _MAX_OBSERVED_LINKS = 200_000
+DEFAULT_PROGRESS_DEADLINE_SECONDS = 900.0
+DEFAULT_ATTEMPT_DEADLINE_SECONDS = 1500.0
+MAX_ATTEMPT_DEADLINE_SECONDS = 1740.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,10 +82,24 @@ class InventorySyncCoordinator:
         store: InventorySnapshotStore,
         promotion_observer: InventoryPromotionObserver | None = None,
         relationship_mapping_catalog: ProviderRelationshipMappingCatalog | None = None,
+        progress_deadline_seconds: float = DEFAULT_PROGRESS_DEADLINE_SECONDS,
+        attempt_deadline_seconds: float = DEFAULT_ATTEMPT_DEADLINE_SECONDS,
     ) -> None:
+        if progress_deadline_seconds <= 0:
+            raise ValueError("inventory progress_deadline_seconds MUST be > 0")
+        if attempt_deadline_seconds < progress_deadline_seconds:
+            raise ValueError(
+                "inventory attempt_deadline_seconds MUST be >= progress_deadline_seconds"
+            )
+        if attempt_deadline_seconds > MAX_ATTEMPT_DEADLINE_SECONDS:
+            raise ValueError(
+                "inventory attempt_deadline_seconds MUST resolve before the abandonment window"
+            )
         self._store = store
         self._observer = promotion_observer
         self._relationship_mapping_catalog = relationship_mapping_catalog
+        self._progress_deadline_seconds = progress_deadline_seconds
+        self._attempt_deadline_seconds = attempt_deadline_seconds
 
     async def run(self, sources: Sequence[InventorySource]) -> InventorySyncResult:
         if not sources:
@@ -153,24 +171,45 @@ class InventorySyncCoordinator:
         stream: AsyncIterator[InventoryBatch],
         observed: _ObservationAccumulator,
     ) -> tuple[datetime, ProviderScopeCoverage | None]:
+        """Stage one source under a re-arming progress deadline and hard ceiling."""
+
         saw_final = False
         provider_scope_coverage: ProviderScopeCoverage | None = None
-        async for batch in stream:
-            if saw_final:
-                raise InventoryStreamError("inventory stream emitted data after final fence")
-            if batch.final:
-                saw_final = True
-                provider_scope_coverage = batch.provider_scope_coverage
-            if batch.resources or batch.links:
-                observed.add(batch)
-                await self._store.stage(
-                    attempt_id,
-                    InventoryBatch(
-                        resources=batch.resources,
-                        links=batch.links,
-                        cursor=batch.cursor,
-                    ),
-                )
+        loop = asyncio.get_running_loop()
+        ceiling_at = loop.time() + self._attempt_deadline_seconds
+
+        def _next_deadline() -> float:
+            return min(ceiling_at, loop.time() + self._progress_deadline_seconds)
+
+        try:
+            async with asyncio.timeout(self._attempt_deadline_seconds) as deadline:
+                deadline.reschedule(_next_deadline())
+                async for batch in stream:
+                    deadline.reschedule(_next_deadline())
+                    if saw_final:
+                        raise InventoryStreamError(
+                            "inventory stream emitted data after final fence"
+                        )
+                    if batch.final:
+                        saw_final = True
+                        provider_scope_coverage = batch.provider_scope_coverage
+                    if batch.resources or batch.links:
+                        observed.add(batch)
+                        await self._store.stage(
+                            attempt_id,
+                            InventoryBatch(
+                                resources=batch.resources,
+                                links=batch.links,
+                                cursor=batch.cursor,
+                            ),
+                        )
+        except TimeoutError as exc:
+            reason = "absolute ceiling" if loop.time() >= ceiling_at else "no-progress deadline"
+            raise InventoryStreamError(f"inventory source exceeded its {reason}") from exc
+        finally:
+            aclose = getattr(stream, "aclose", None)
+            if callable(aclose):
+                await aclose()
         if not saw_final:
             raise InventoryStreamError("inventory stream ended before final fence")
         return datetime.now(tz=UTC), provider_scope_coverage

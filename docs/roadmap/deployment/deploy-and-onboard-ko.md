@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: a84ae53267622cf15c685fce86e896bf16a66dc2
-translation_revised: 2026-08-20
+translation_source_sha: dc0450e3e1cdc59b684262351978bf277f80c7f2
+translation_revised: 2026-08-21
 ---
 # 배포와 온보딩(Deploy and Onboard)
 
@@ -32,6 +32,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 | 로컬 파괴적 검증 격리 | implemented | `infra/local/docker-compose.yml`, 로컬 준비 스크립트 및 focused migration test | 런타임은 port `5432`의 로컬 PostgreSQL을 사용하고 파괴적 검증은 port `5433`의 별도 로컬 cluster와 volume을 사용합니다. Azure 배포 리소스는 추가하지 않습니다. |
 | 인벤토리 기반 analyzer Job 대상 | implemented | `analyzer_tick_cli.py`, `analyzer_targets.py`, `analyzer_tick_job.tf`, focused analyzer 및 infrastructure 테스트 | Job은 구성된 상한 안에서 명시적 대상과 영속 인벤토리 projection의 지원 리소스를 병합합니다. 인벤토리 DSN이 없으면 명시적 대상 전용 경로를 유지하며, 두 출처 모두 대상이 없으면 정상 no-op으로 종료합니다. |
 | Analyzer Job 추적 토폴로지 바인딩 | implemented | `trace_continuity.py`, `analyzer_tick_cli.py`, `analyzer_tick_job.tf`, `test_detection_readiness.py`, 집중 추적 검사 | 선택적 배포 제공 토폴로지 선언은 기존 Job, 읽기 신원, Log Analytics 작업 영역, Event Bus를 재사용합니다. 구성이 비어 있으면 현재 analyzer 전용 경로를 유지하고 Azure 리소스를 추가하지 않습니다. |
+| 지속 인벤토리 Job | implemented | `inventory_job.tf`, `inventory_job_config.py`, 집중 인벤토리 및 인프라 검사 | 1분 cron이 변경 비우기와 실행 조건 확인을 구동합니다. Terraform은 변경 하한, 진행 및 절대 마감, 공유 ARG 요청 예산을 전달합니다. 보호 적용 및 실제 운영 주기 근거는 아직 남아 있습니다. |
 
 ### 구현 이력
 
@@ -49,6 +50,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 | 2026-08-20 | implemented | 독립 Operator channel-edge identity와 해당 versionless Key Vault secret scope를 위한 명시적 protected-plan input을 추가했습니다. Platform owner는 ACR pull, semantic Event Hubs transport 및 나열된 secret read만 부여하고, Operator service root가 공개 edge Container App lifecycle을 별도로 소유합니다. | `current change`, 보호된 배포 검사 154개, workflow YAML, shell syntax, design-route 및 five-distribution 검사 통과 | 승인된 credential store에 실제 프로바이더 profile을 구성한 뒤 exact platform 및 Operator service plan/apply/rollback 증적을 보존합니다. |
 | 2026-08-20 | implemented | Protected Core 적용이 migration 내부 대기로 job 전체 예산을 소진한 뒤 service migration 단계별 deadline을 추가했습니다. 모든 service 및 legacy 경로는 10초 연결 deadline과 5분 잠금 deadline을 사용하고 workflow는 전체 migration 단계를 20분 뒤 닫습니다. | `current change`; 집중 service migration 및 protected workflow 검사 204개 통과. | 동일한 protected Core 적용을 다시 실행하고 성공한 migration 및 post-apply 상태 증적을 보존합니다. |
 | 2026-08-20 | implemented | 모든 legacy 및 service migration 연결에 15분 PostgreSQL statement deadline을 추가했습니다. 이 deadline은 20분 workflow deadline보다 먼저 만료되므로 runner process가 사라져도 database가 장기 실행 DDL을 취소하고 transaction과 advisory lock을 해제합니다. | `current change`; 집중 migration deadline 검사; 일회용 PostgreSQL에서 예산을 초과한 statement를 취소하고 연결 해제 뒤 advisory lock 0개를 확인함; 보호된 run `32357855293`과 `32361126642`에서 shell deadline 뒤에도 남은 backend를 확인함. | 동일한 protected Core 적용을 다시 실행하고 성공한 migration 및 post-apply 상태 증적을 보존합니다. |
+| 2026-08-20 | implemented | 지속 인벤토리 계약을 Container Apps Job에 연결했습니다. Cron은 매분 실행되지만 영속 예약 상태는 정상 6시간 스캔을 유지하고 관측된 변경을 120초 하한 위에서 합칩니다. 진행 마감, 절대 시도 마감 및 ARG 속도 예산은 로컬 구성과 같습니다. | [이슈 #139](https://github.com/dotnetpower/fdai/issues/139); 현재 Terraform 및 집중 인프라 계약 검사입니다. | 보호된 실행기에서 exact revision을 적용한 뒤 주기, 비용 및 실제 변경부터 조정까지 걸린 시간을 측정합니다. |
 
 ### 남은 작업
 
@@ -559,6 +561,12 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `FDAI_INVENTORY_SOURCES` | env | 업스트림 | Ordered 대체 경로 목록. 기본값은 `arg,arm`입니다. `declarative`는 고정본 경로와 SHA-256이 모두 있을 때만 허용합니다. |
 | `FDAI_INVENTORY_MANAGEMENT_ENDPOINT` / `FDAI_INVENTORY_MANAGEMENT_AUDIENCE` | env | 배포 | 검증된 HTTPS ARM 루트 및 OIDC 대상 쌍. 승인된 sovereign-cloud 또는 검증된 Resource 관리 Private Link 경로에서는 둘 다 재정의합니다. |
 | `FDAI_INVENTORY_FRESHNESS_SECONDS` | env | 업스트림 | 활성 스냅샷이 stale 상태가 되고 그래프 기반 자율성을 사람 검토로 낮추기 전의 최대 age입니다. 기본값은 `86400`입니다. |
+| `FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS` | env | 업스트림 | 정상 전체 스캔 간격이며 예약된 변환기가 선언하는 관측 상태 최신성 상한입니다. 기본값은 `21600`입니다. |
+| `FDAI_INVENTORY_CHANGE_MIN_INTERVAL_SECONDS` | env | 업스트림 | 변경으로 시작되는 두 조정 사이의 하한으로, 변경 폭주가 스캔 폭주로 번지는 것을 막습니다. 기본값은 `120`입니다. |
+| `FDAI_INVENTORY_PROGRESS_DEADLINE_SECONDS` | env | 업스트림 | 출처가 진행 배치 없이 실행될 수 있는 최대 시간입니다. 배치마다 마감을 다시 설정합니다. 기본값은 `900`입니다. |
+| `FDAI_INVENTORY_ATTEMPT_DEADLINE_SECONDS` | env | 업스트림 | 시도의 절대 상한입니다. 진행 마감 이상, 포기 구간보다 짧은 `1740` 이하여야 합니다. 기본값은 `1500`입니다. |
+| `FDAI_INVENTORY_ARG_REQUESTS_PER_SECOND` | env | 업스트림 | 스캔 하나의 모든 샤드가 공유하는 지속 Azure Resource Graph 예산입니다. 기본값은 `3`입니다. |
+| `FDAI_INVENTORY_LOOP_SECONDS` | env | dev-only | 로컬 `--loop` 틱 사이의 지연입니다. 배포 실행은 cron을 사용합니다. 기본값은 `60`입니다. |
 | `FDAI_ANALYZER_TARGETS` / `FDAI_ANALYZER_WINDOW_SECONDS` / `FDAI_ANALYZER_MAX_DISCOVERED_TARGETS` | env | 배포 / 업스트림 | 명시적 analyzer 대상, metric window 및 인벤토리 발견 상한입니다. 명시적 대상과 지원되는 인벤토리 대상을 결정론적으로 병합합니다. 잘못된 값이나 읽을 수 없는 구성된 projection은 차단되고, 완전히 해석된 대상 집합이 비어 있을 때만 정상 no-op입니다. |
 | `FDAI_TRACE_TOPOLOGIES_JSON` | env | 배포 | 작업 영역 기반 Application Insights 연속성 검사용 선택적이고 범위가 제한된 `topology_ref`, `resource_ref`, 순서가 있는 `expected_hops` 선언입니다. 보호된 배포 workflow는 `TRACE_TOPOLOGIES_JSON` repository variable을 Terraform으로 전달합니다. 값이 비어 있으면 이 검사만 비활성화하고 metric analyzer는 유지합니다. |
 | `KAFKA_TOPIC_EVENTS` | env | 배포 | 주 이벤트 ingest 토픽 |

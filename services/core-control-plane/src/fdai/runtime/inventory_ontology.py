@@ -20,6 +20,7 @@ from dataclasses import dataclass, replace
 from enum import StrEnum
 
 from fdai.core.ontology_platform.inventory_projection import (
+    DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS,
     InventoryOntologyProjection,
     build_inventory_ontology_projection,
 )
@@ -77,13 +78,17 @@ class InventoryOntologyProjector:
         status_store: StateStore,
         ontology_release_digest: str,
         resource_type_mappings: Mapping[str, str] | None = None,
+        freshness_ceiling_seconds: int = DEFAULT_OBSERVED_STATE_FRESHNESS_CEILING_SECONDS,
     ) -> None:
         if _DIGEST_PATTERN.fullmatch(ontology_release_digest) is None:
             raise ValueError("inventory ontology release digest MUST be sha256:<64 lowercase hex>")
+        if freshness_ceiling_seconds < 1:
+            raise ValueError("inventory ontology freshness ceiling MUST be >= 1 second")
         self._store = store
         self._status_store = status_store
         self._ontology_release_digest = ontology_release_digest
         self._resource_type_mappings = resource_type_mappings
+        self._freshness_ceiling_seconds = freshness_ceiling_seconds
 
     async def apply(
         self,
@@ -103,6 +108,7 @@ class InventoryOntologyProjector:
             relationship_drops=observation.relationship_drops,
             resource_type_mappings=self._resource_type_mappings,
             seeded_resource_types=await self._seeded_resource_types(observation),
+            freshness_ceiling_seconds=self._freshness_ceiling_seconds,
         )
         if not projection.complete:
             await self._write_status(

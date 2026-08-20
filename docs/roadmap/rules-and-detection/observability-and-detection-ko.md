@@ -1,8 +1,8 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 2ed5f41442af2fc7d9f5ab5cd4a5df87fa4f7ddd
-translation_revised: 2026-08-19
+translation_source_sha: 4b53d05e57a2bb8972ef04d96aca2ecb73179ed6
+translation_revised: 2026-08-21
 ---
 
 # 관측성과 감지(Observability and Detection)
@@ -592,8 +592,10 @@ Azure 리소스 생성, 갱신, 삭제 신호는 정본 Event Hubs 유입을 통
 정리합니다. Heimdall은 stale 스냅샷, 커서 lag, 대체 경로 spike, 커버리지 loss를 감지합니다.
 최신성 조회가 없거나 degraded 또는 stale이면 graph-dependent 액션을 사람 검토로 보냅니다.
 인벤토리 기반 준비 상태 탐색은 발견 성공을 단정하지 않고 해당 최신성 상태를
-보존하며 Heimdall은 관찰기로 유지됩니다. 인벤토리 작업은 10분마다 영속 시도 상태를
-확인하고 due일 때만 정상 6시간 검사를 실행하며, newer 실패한/abandoned 시도는 다음 틱에 재시도합니다.
+보존하며 Heimdall은 관찰기로 유지됩니다. 인벤토리 작업은 매분 영속 시도 상태를 확인하고
+실행 조건이 충족되거나 관측된 변경이 하한을 넘어 아직 조정되지 않았을 때 정상 6시간 검사를
+실행합니다. 진행 시 다시 설정되는 무진행 마감과 절대 상한은 계속 배치를 내는 느린 출처를
+종료하지 않으면서 멈춘 출처를 실패시킵니다. 실패한 시도는 지수 백오프 뒤에 재시도합니다.
 Core 런타임에는 job-start 권한을 부여하지 않습니다.
 
 ## 구현 상태

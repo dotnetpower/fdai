@@ -21,6 +21,7 @@ def test_refresh_binds_projection_to_loaded_ontology_release() -> None:
     source = SCRIPT.read_text(encoding="utf-8")
 
     assert "ontology_release_digest=ontology.build_release().digest" in source
+    assert "resource_type_mappings=resource_type_mapping_digests(resource_types)" in source
     assert "relationship_mapping_catalog=load_provider_relationship_mapping_catalog(" in source
 
 

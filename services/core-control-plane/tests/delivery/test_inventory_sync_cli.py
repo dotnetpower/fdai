@@ -15,15 +15,15 @@ import yaml
 from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
 from fdai.delivery.azure.inventory import AzureResourceGraphInventory
 from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
+from fdai.delivery.inventory_job_config import InventoryJobConfig, verify_declarative_sha256
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.delivery.inventory_sync_cli import (
-    InventoryJobConfig,
     _build_ontology_observer,
     _build_sources,
+    _drain_change_stream,
     _forward_recovery_deltas,
     _load_relationship_mapping_catalog,
     _resolve_resource_types,
-    _verify_sha256,
     _workload_identity,
 )
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
@@ -52,6 +52,7 @@ def _ontology_observer_harness(monkeypatch: pytest.MonkeyPatch):
     ontology_store = SimpleNamespace(sync_catalog=AsyncMock())
     history_store = SimpleNamespace(append=AsyncMock())
     projector = SimpleNamespace(
+        construction_kwargs={},
         apply=AsyncMock(
             return_value=SimpleNamespace(
                 status=InventoryOntologyProjectionStatus.AVAILABLE,
@@ -59,7 +60,7 @@ def _ontology_observer_harness(monkeypatch: pytest.MonkeyPatch):
                 link_count=0,
                 dropped_reasons=(),
             )
-        )
+        ),
     )
     release_digest = "sha256:" + ("a" * 64)
     catalog = SimpleNamespace(
@@ -81,7 +82,7 @@ def _ontology_observer_harness(monkeypatch: pytest.MonkeyPatch):
     )
     monkeypatch.setattr(
         "fdai.delivery.inventory_sync_cli.InventoryOntologyProjector",
-        lambda **_: projector,
+        lambda **kwargs: projector.construction_kwargs.update(kwargs) or projector,
     )
     activity_publisher = SimpleNamespace(publish=AsyncMock())
     observer = _build_ontology_observer(
@@ -123,6 +124,12 @@ def test_job_config_defaults_to_arg_then_arm() -> None:
     assert config.freshness_budget_seconds == 86_400
     assert config.reconciliation_interval_seconds == 21_600
     assert config.management_audience == "https://management.azure.com/.default"
+    assert config.loop_seconds == 60
+    assert config.change_min_interval_seconds == 120
+    assert config.progress_deadline_seconds == 900
+    assert config.attempt_deadline_seconds == 1500
+    assert config.arg_requests_per_second == 3.0
+    assert config.recovery_delta_enabled is True
 
 
 async def test_inventory_job_selects_only_the_venue_specific_identity(
@@ -200,6 +207,97 @@ def test_job_config_rejects_invalid_reconciliation_interval(value: str) -> None:
         )
 
 
+def test_job_config_reads_continuous_scan_overrides() -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+            "FDAI_INVENTORY_LOOP_SECONDS": "15",
+            "FDAI_INVENTORY_CHANGE_MIN_INTERVAL_SECONDS": "300",
+            "FDAI_INVENTORY_PROGRESS_DEADLINE_SECONDS": "300",
+            "FDAI_INVENTORY_ATTEMPT_DEADLINE_SECONDS": "600",
+            "FDAI_INVENTORY_ARG_REQUESTS_PER_SECOND": "1.5",
+            "FDAI_INVENTORY_RECOVERY_DELTA": "0",
+        }
+    )
+
+    assert config.loop_seconds == 15
+    assert config.change_min_interval_seconds == 300
+    assert config.progress_deadline_seconds == 300
+    assert config.attempt_deadline_seconds == 600
+    assert config.arg_requests_per_second == 1.5
+    assert config.recovery_delta_enabled is False
+
+
+@pytest.mark.parametrize(
+    ("key", "value", "match"),
+    [
+        ("FDAI_INVENTORY_LOOP_SECONDS", "4", "LOOP_SECONDS"),
+        ("FDAI_INVENTORY_LOOP_SECONDS", "3601", "LOOP_SECONDS"),
+        ("FDAI_INVENTORY_CHANGE_MIN_INTERVAL_SECONDS", "0", "CHANGE_MIN_INTERVAL"),
+        ("FDAI_INVENTORY_CHANGE_MIN_INTERVAL_SECONDS", "21601", "CHANGE_MIN_INTERVAL"),
+        ("FDAI_INVENTORY_PROGRESS_DEADLINE_SECONDS", "59", "PROGRESS_DEADLINE"),
+        ("FDAI_INVENTORY_ATTEMPT_DEADLINE_SECONDS", "899", "ATTEMPT_DEADLINE"),
+        ("FDAI_INVENTORY_ATTEMPT_DEADLINE_SECONDS", "1741", "ATTEMPT_DEADLINE"),
+        ("FDAI_INVENTORY_ARG_REQUESTS_PER_SECOND", "0", "ARG_REQUESTS_PER_SECOND"),
+        ("FDAI_INVENTORY_ARG_REQUESTS_PER_SECOND", "101", "ARG_REQUESTS_PER_SECOND"),
+        ("FDAI_INVENTORY_ARG_REQUESTS_PER_SECOND", "fast", "ARG_REQUESTS_PER_SECOND"),
+    ],
+)
+def test_job_config_rejects_out_of_range_continuous_settings(
+    key: str,
+    value: str,
+    match: str,
+) -> None:
+    with pytest.raises(ValueError, match=match):
+        InventoryJobConfig.from_env(
+            {
+                "FDAI_INVENTORY_DSN": "postgresql://example",
+                "AZURE_SUBSCRIPTION_ID": "sub-1",
+                key: value,
+            }
+        )
+
+
+async def test_change_stream_failure_degrades_without_stopping_the_tick(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+        }
+    )
+
+    async def _unavailable(_config: InventoryJobConfig) -> int:
+        raise RuntimeError("activity log unavailable")
+
+    monkeypatch.setattr("fdai.delivery.inventory_sync_cli.run_recovery_delta", _unavailable)
+
+    assert await _drain_change_stream(config) is None
+
+
+async def test_change_stream_is_skipped_when_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "AZURE_SUBSCRIPTION_ID": "sub-1",
+            "FDAI_INVENTORY_RECOVERY_DELTA": "false",
+        }
+    )
+    called = False
+
+    async def _record(_config: InventoryJobConfig) -> int:
+        nonlocal called
+        called = True
+        return 3
+
+    monkeypatch.setattr("fdai.delivery.inventory_sync_cli.run_recovery_delta", _record)
+
+    assert await _drain_change_stream(config) == 0
+    assert called is False
+
+
 def test_job_config_rejects_unsigned_declarative_fallback() -> None:
     with pytest.raises(ValueError, match="requires"):
         InventoryJobConfig.from_env(
@@ -216,9 +314,9 @@ def test_declarative_sha_verification(tmp_path) -> None:
     fixture.write_text("resources: []\nlinks: []\n", encoding="utf-8")
     digest = hashlib.sha256(fixture.read_bytes()).hexdigest()
 
-    _verify_sha256(fixture, digest)
+    verify_declarative_sha256(fixture, digest)
     with pytest.raises(ValueError, match="does not match"):
-        _verify_sha256(fixture, "0" * 64)
+        verify_declarative_sha256(fixture, "0" * 64)
 
 
 def test_resource_type_resolution_rejects_unknown_type() -> None:
@@ -287,6 +385,7 @@ async def test_ontology_observer_publishes_durable_topology_history(
 
     history_store.append.assert_awaited_once()
     assert history_store.append.await_args.kwargs["ontology_release_digest"] == release_digest
+    assert projector.construction_kwargs["freshness_ceiling_seconds"] == 21_600
     ontology_store.sync_catalog.assert_awaited_once()
     projector.apply.assert_awaited_once()
 

@@ -489,6 +489,33 @@ def test_generation_is_required() -> None:
         build_inventory_ontology_projection(generation="  ", resources=(_resource("vm-1"),))
 
 
+def test_observed_state_uses_the_declared_refresh_cadence() -> None:
+    projection = build_inventory_ontology_projection(
+        generation="snapshot-1",
+        resources=(
+            ResourceRecord(
+                resource_id="vm-1",
+                type="compute.vm",
+                props={"status": "running"},
+                last_seen=OBSERVED_AT.isoformat(),
+            ),
+        ),
+        freshness_ceiling_seconds=21_600,
+    )
+
+    state_fact = projection.objects[0].properties["properties"][STATE_FACT_METADATA_PROPERTY]
+    assert state_fact["freshness_ceiling_seconds"] == 21_600
+
+
+def test_projection_rejects_non_positive_freshness_ceiling() -> None:
+    with pytest.raises(ValueError, match="freshness ceiling"):
+        build_inventory_ontology_projection(
+            generation="snapshot-1",
+            resources=(),
+            freshness_ceiling_seconds=0,
+        )
+
+
 def test_a_contested_resource_without_an_observation_time_fails_closed() -> None:
     """The conflict travels on the state fact, which needs a time; silence would read as clean."""
     records = (

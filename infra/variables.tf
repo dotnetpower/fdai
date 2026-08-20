@@ -454,9 +454,9 @@ variable "forecast_targets_json" {
 # ---------------------------------------------------------------------------
 
 variable "inventory_cron_expression" {
-  description = "Cron for inventory due checks and failed-attempt retries. Empty disables the job."
+  description = "Cron for inventory change drains, due checks, and failed-attempt retries. Not-due ticks exit after one state query. Empty disables the job."
   type        = string
-  default     = "*/10 * * * *"
+  default     = "* * * * *"
 }
 
 variable "browser_evidence_cleanup_cron_expression" {
@@ -513,6 +513,50 @@ variable "inventory_reconciliation_interval_seconds" {
   validation {
     condition     = var.inventory_reconciliation_interval_seconds >= 60
     error_message = "inventory_reconciliation_interval_seconds must be >= 60."
+  }
+}
+
+variable "inventory_change_min_interval_seconds" {
+  description = "Floor between change-triggered reconciliations."
+  type        = number
+  default     = 120
+
+  validation {
+    condition     = var.inventory_change_min_interval_seconds >= 1 && var.inventory_change_min_interval_seconds <= var.inventory_reconciliation_interval_seconds
+    error_message = "inventory_change_min_interval_seconds must be in [1, inventory_reconciliation_interval_seconds]."
+  }
+}
+
+variable "inventory_progress_deadline_seconds" {
+  description = "Re-arming no-progress deadline for one inventory source attempt."
+  type        = number
+  default     = 900
+
+  validation {
+    condition     = var.inventory_progress_deadline_seconds >= 60
+    error_message = "inventory_progress_deadline_seconds must be >= 60."
+  }
+}
+
+variable "inventory_attempt_deadline_seconds" {
+  description = "Absolute wall-clock ceiling for one inventory source attempt."
+  type        = number
+  default     = 1500
+
+  validation {
+    condition     = var.inventory_attempt_deadline_seconds >= var.inventory_progress_deadline_seconds && var.inventory_attempt_deadline_seconds <= 1740
+    error_message = "inventory_attempt_deadline_seconds must be in [inventory_progress_deadline_seconds, 1740]."
+  }
+}
+
+variable "inventory_arg_requests_per_second" {
+  description = "Sustained Azure Resource Graph request budget shared by every shard of one scan."
+  type        = number
+  default     = 3
+
+  validation {
+    condition     = var.inventory_arg_requests_per_second > 0 && var.inventory_arg_requests_per_second <= 100
+    error_message = "inventory_arg_requests_per_second must be in (0, 100]."
   }
 }
 
