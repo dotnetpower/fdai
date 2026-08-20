@@ -2,7 +2,11 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import type { ReadDataSourcesPayload } from "../api-data-sources";
-import { deckSourceReadiness, latestSourceObservation } from "./source-readiness";
+import {
+  deckSourceReadiness,
+  hasVerifiedSourceReadiness,
+  latestSourceObservation,
+} from "./source-readiness";
 
 const payload: ReadDataSourcesPayload = {
   surface: "read-data-sources",
@@ -66,6 +70,15 @@ describe("Command Deck source readiness", () => {
     expect(latestSourceObservation(deckSourceReadiness(payload))).toBe("2026-08-04T11:00:00Z");
   });
 
+  test("distinguishes actionable readiness from an all-unknown manifest", () => {
+    const sources = deckSourceReadiness(payload);
+    expect(hasVerifiedSourceReadiness(sources)).toBe(true);
+    expect(hasVerifiedSourceReadiness(sources.map((source) => ({
+      ...source,
+      availability: "unknown",
+    })))).toBe(false);
+  });
+
   test("renders the strip from the authoritative manifest client", () => {
     const source = readFileSync(
       fileURLToPath(new URL("./source-readiness-view.tsx", import.meta.url)),
@@ -73,6 +86,7 @@ describe("Command Deck source readiness", () => {
     );
 
     expect(source).toContain("client.dataSources()");
+    expect(source).toContain("if (!hasVerifiedSourceReadiness(state.sources)) return null;");
     expect(source).toContain('class={`deck-source-status is-${item.availability}`}');
     expect(source).toContain('aria-label={`${t(`deck.sourceReadiness.source.${item.key}`)}: ${t(`deck.sourceReadiness.status.${item.availability}`)}`}');
     expect(source).toContain("panelPath(SOURCE_PANELS[item.key])");

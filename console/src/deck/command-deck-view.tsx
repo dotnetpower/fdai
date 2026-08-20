@@ -279,7 +279,9 @@ export function CommandDeckView({
             {srStatus}
           </div>
 
-          <SourceReadinessStrip client={client} />
+          <div class="deck-source-readiness-slot">
+            <SourceReadinessStrip client={client} />
+          </div>
 
           <div
             class={`deck-body${showConversations ? " has-conversations" : ""}${showDigest ? " has-digest" : ""}`}

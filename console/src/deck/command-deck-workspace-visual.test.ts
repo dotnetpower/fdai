@@ -32,6 +32,7 @@ describe("Command Deck workspace hierarchy", () => {
   test("opens transcript-first and adds columns only for requested panels", () => {
     expect(source).toContain("const [showConversations, setShowConversations] = useState(false);");
     expect(source).toContain("const [showDigest, setShowDigest] = useState(false);");
+    expect(source).toContain('class="deck-source-readiness-slot"');
     expect(sidebarStyles).toContain("grid-template-columns: var(--deck-conversation-width, 240px) minmax(0, 1fr);");
     expect(styles).toContain(".deck-body.has-digest { grid-template-columns: minmax(0, 1fr) 280px; }");
   });

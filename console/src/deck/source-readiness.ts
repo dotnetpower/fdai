@@ -48,3 +48,9 @@ export function latestSourceObservation(
     .sort((left, right) => right.timestamp - left.timestamp);
   return observed[0]?.value ?? null;
 }
+
+export function hasVerifiedSourceReadiness(
+  sources: readonly DeckSourceReadiness[],
+): boolean {
+  return sources.some((source) => source.availability !== "unknown");
+}

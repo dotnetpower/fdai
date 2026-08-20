@@ -5,6 +5,7 @@ import { panelPath } from "../router";
 import { presentationTimestamp } from "./presentation-value";
 import {
   deckSourceReadiness,
+  hasVerifiedSourceReadiness,
   latestSourceObservation,
   type DeckSourceKey,
   type DeckSourceReadiness,
@@ -67,6 +68,8 @@ export function SourceReadinessStrip({ client }: { readonly client: OperatorApiC
       </div>
     );
   }
+
+  if (!hasVerifiedSourceReadiness(state.sources)) return null;
 
   return (
     <nav class="deck-source-readiness" aria-label={t("deck.sourceReadiness.label")}>
