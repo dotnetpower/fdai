@@ -97,6 +97,14 @@ def test_platform_workflow_binds_channel_edge_identity_and_secret_scopes() -> No
     assert "OPERATOR_CHANNEL_EDGE_SECRET_IDS_JSON" in _LEGACY_WORKFLOW
 
 
+def test_platform_workflow_exposes_opt_in_monitoring_for_every_environment() -> None:
+    assert "deploy_monitoring:" in _LEGACY_WORKFLOW
+    assert 'description: "Provision the action group, alerts, and diagnostic settings."' in (
+        _LEGACY_WORKFLOW
+    )
+    assert "TF_VAR_enable_monitoring: ${{ inputs.deploy_monitoring }}" in _LEGACY_WORKFLOW
+
+
 def test_operator_catalog_materialization_runs_after_schema_migration() -> None:
     root = (_ROOT / "infra/main.tf").read_text(encoding="utf-8")
     outputs = (_ROOT / "infra/outputs.tf").read_text(encoding="utf-8")

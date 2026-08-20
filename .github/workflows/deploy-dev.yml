@@ -119,6 +119,10 @@ on:
         description: "Provision ADLS Gen2 HNS storage and the document-ingestion gateway."
         type: boolean
         default: false
+      deploy_monitoring:
+        description: "Provision the action group, alerts, and diagnostic settings."
+        type: boolean
+        default: false
       production_core_image:
         description: "Prod-only signed image reference pinned by sha256 digest."
         type: string
@@ -177,6 +181,7 @@ jobs:
       TF_VAR_enable_isolated_executor_authority_cutover: ${{ inputs.cutover_isolated_executor_authority }}
       TF_VAR_enable_dev_operations_gateway: ${{ inputs.environment == 'dev' && inputs.deploy_dev_operations_gateway }}
       TF_VAR_enable_ohl_scale_out_evidence_target: ${{ inputs.environment == 'dev' && inputs.deploy_ohl_scale_out_evidence_target }}
+      TF_VAR_enable_monitoring: ${{ inputs.deploy_monitoring }}
       TF_VAR_ohl_scale_out_evidence_campaign_id: ${{ vars.OHL_SCALE_OUT_EVIDENCE_CAMPAIGN_ID }}
       TF_VAR_ohl_scale_out_evidence_image_version: ${{ vars.OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION }}
       TF_VAR_ohl_scale_out_evidence_initiator_principal_id: ${{ vars.OHL_SCALE_OUT_EVIDENCE_INITIATOR_PRINCIPAL_ID }}
