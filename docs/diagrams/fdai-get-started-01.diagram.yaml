@@ -6,115 +6,276 @@ formats:
   - svg
 locales:
   en:
-    title: When FDAI fits
-    description: FDAI flow for When FDAI fits.
-    alt: When FDAI fits. The main stages are Do operators / repeatedly approve or / roll back the same / types of events?,
-      Not a fit yet. The / deterministic tier has / nothing repeatable to / automate., Is infrastructure / expressed as
-      IaC and / policy-as-code?, Not a fit yet. T0 / needs machine-readable / rules to run., Can you reproduce / a
-      baseline for / measuring gains?, Build the baseline first. / Phase 0 exists for / exactly this., Are you on
-      Azure?, Adapters for other clouds / are not shipped yet., FDAI fits. / Start with Phase 0..
+    title: Readiness for a bounded pilot
+    description: FDAI is ready to pilot when one repeatable, observable action has typed evidence, a complete safety contract, separated authority, measurable baselines, and a supported Azure target.
+    alt: Assess one bounded FDAI pilot rather than approving a full rollout. First confirm that operators repeatedly decide the same event type and that the desired outcome is observable. Then confirm authoritative typed evidence and deterministic policy, one registered action with all seven safeguards and independent effect verification, separated operator, approver, executor, and audit identities, a frozen baseline with success and guard metrics, and an Azure target with an accountable owner and operational dependencies ready. A missing requirement produces a concrete preparation step and no automation. Passing every gate starts one ActionType in observation mode; it does not enable broad enforcement. Non-Azure adapters and Slack A1 approval are not currently shipped.
   ko:
-    title: FDAI가 적합한 경우
-    description: FDAI가 적합한 경우에 대한 FDAI 흐름입니다.
-    alt: FDAI가 적합한 경우. 주요 단계는 운영자가 같은 유형 / 이벤트를 반복 승인/롤백 / 하고 있는가?, 아직 적합하지 않습니다. / 결정론 티어가 자동화할 / 반복 대상이 없습니다., 인프라가 IaC 와
-      / policy-as-code 로 표현 / 되어 있는가?, 아직 적합하지 않습니다. / T0 는 기계가 읽을 수 있는 / 룰이 필요합니다., 이득 측정을 위한 / 재현 가능한 기준선이 / 있는가?, 먼저
-      기준선을 만드세요. / Phase 0 가 바로 이걸 / 위해 존재합니다., Azure 사용 중?, 다른 클라우드 어댑터는 / 아직 제공되지 않습니다., FDAI가 적합. / Phase 0부터 시작.입니다.
+    title: 범위가 제한된 파일럿 준비 상태
+    description: 반복 가능하고 결과를 관찰할 수 있는 액션 하나에 타입이 지정된 근거, 완전한 안전 계약, 분리된 권한, 측정 가능한 기준선 및 지원되는 Azure 대상이 있으면 FDAI 파일럿을 시작할 수 있습니다.
+    alt: 전체 롤아웃을 승인하는 대신 범위가 제한된 FDAI 파일럿 하나를 평가합니다. 먼저 운영자가 같은 유형의 이벤트를 반복 결정하는지와 원하는 결과를 관찰할 수 있는지 확인합니다. 그런 다음 권위 있고 타입이 지정된 근거와 결정적 정책, 7개 보호장치와 독립적인 효과 검증을 모두 갖춘 등록 액션 하나, 분리된 운영자·승인자·실행기·감사 신원, 성공 지표와 보호 지표가 있는 고정 기준선, 최종 책임자와 운영 의존성이 준비된 Azure 대상을 확인합니다. 요구 사항이 빠졌으면 자동화하지 않고 구체적인 준비 작업을 수행합니다. 모든 게이트를 통과하면 ActionType 하나를 관찰 모드로 시작하며 광범위한 적용 모드를 켜지 않습니다. Azure 외 어댑터와 Slack A1 승인은 현재 제공되지 않습니다.
 canvas:
-  width: 1350
-  height: 810
+  width: 1320
+  height: 1800
   direction: DOWN
-groups: []
+  rootLayout: column
+  padding: 44
+groups:
+  - id: workload
+    kind: layer
+    presentation: band
+    label: { en: 1 | Choose a repeatable outcome, ko: 1 | 반복 가능한 결과 선택 }
+    description: { en: Start with one event family and one observable result, ko: 이벤트 제품군 하나와 관찰 가능한 결과 하나로 시작합니다. }
+    layout: row
+    gap: 80
+    justify: center
+    width: 1200
+  - id: evidence
+    kind: layer
+    presentation: lane
+    label: { en: 2 | Prove the decision inputs, ko: 2 | 결정 입력 증명 }
+    description: { en: Machine-readable evidence matters more than IaC alone, ko: IaC 자체보다 기계가 읽을 수 있는 근거가 중요합니다. }
+    layout: row
+    gap: 80
+    justify: center
+    width: 1200
+  - id: action
+    kind: layer
+    presentation: panel
+    label: { en: 3 | Register one safe action, ko: 3 | 안전한 액션 하나 등록 }
+    description: { en: No mutation without the complete action contract, ko: 완전한 액션 계약 없이는 변경하지 않습니다. }
+    layout: row
+    gap: 80
+    justify: center
+    width: 1200
+  - id: authority
+    kind: layer
+    presentation: panel
+    label: { en: 4 | Separate authority, ko: 4 | 권한 분리 }
+    description: { en: "Operators, approvers, executors, and auditors stay distinct", ko: "운영자, 승인자, 실행기 및 감사 주체를 분리합니다." }
+    layout: row
+    gap: 80
+    justify: center
+    width: 1200
+  - id: measurement
+    kind: layer
+    presentation: feedback
+    label: { en: 5 | Establish measurement, ko: 5 | 측정 체계 수립 }
+    description: { en: A deployment is not evidence of a better outcome, ko: 배포 성공만으로 더 나은 결과를 증명할 수 없습니다. }
+    layout: row
+    gap: 80
+    justify: center
+    width: 1200
+  - id: platform
+    kind: layer
+    presentation: datastore
+    label: { en: 6 | Confirm supported operations, ko: 6 | 지원되는 운영 환경 확인 }
+    description: { en: Current implementation scope and ownership must be explicit, ko: 현재 구현 범위와 담당 체계를 명확히 해야 합니다. }
+    layout: row
+    gap: 64
+    justify: center
+    width: 1200
 nodes:
-  - id: q1
+  - id: repeatable-check
+    parent: workload
     kind: decision
-    shape: diamond
-    label:
-      en: Do operators / repeatedly approve or / roll back the same / types of events?
-      ko: 운영자가 같은 유형 / 이벤트를 반복 승인/롤백 / 하고 있는가?
-  - id: n1
+    shape: card
+    icon: lucide-refresh-ccw
+    tone: decision
+    badge: 1
+    width: 360
+    label: { en: Repeatable decision and observable outcome?, ko: 반복 결정과 관찰 가능한 결과가 있는가? }
+    content:
+      - { en: "Same event family, bounded scope, measurable expected effect", ko: "같은 이벤트 제품군, 제한된 범위, 측정 가능한 예상 효과" }
+  - id: prepare-workload
+    parent: workload
     kind: process
     shape: card
-    label:
-      en: Not a fit yet. The / deterministic tier has / nothing repeatable to / automate.
-      ko: 아직 적합하지 않습니다. / 결정론 티어가 자동화할 / 반복 대상이 없습니다.
-  - id: q2
+    icon: lucide-file-check
+    tone: neutral
+    width: 330
+    label: { en: Define the workload first, ko: 먼저 워크로드 정의 }
+    content:
+      - { en: Collect cases and define the outcome before automation, ko: 자동화 전에 사례를 모으고 결과를 정의 }
+  - id: evidence-check
+    parent: evidence
     kind: decision
-    shape: diamond
-    label:
-      en: Is infrastructure / expressed as IaC and / policy-as-code?
-      ko: 인프라가 IaC 와 / policy-as-code 로 표현 / 되어 있는가?
-  - id: n2
+    shape: card
+    icon: lucide-search-check
+    tone: policy
+    badge: 2
+    width: 360
+    label: { en: Authoritative typed evidence and policy?, ko: 권위 있고 타입이 지정된 근거와 정책이 있는가? }
+    content:
+      - { en: "Inventory, telemetry, rules, and exact target identity", ko: "인벤토리, 텔레메트리, 규칙 및 정확한 대상 신원" }
+  - id: prepare-evidence
+    parent: evidence
     kind: process
     shape: card
-    label:
-      en: Not a fit yet. T0 / needs machine-readable / rules to run.
-      ko: 아직 적합하지 않습니다. / T0 는 기계가 읽을 수 있는 / 룰이 필요합니다.
-  - id: q3
+    icon: lucide-file-check
+    tone: neutral
+    width: 330
+    label: { en: Build evidence and rules, ko: 근거와 규칙 준비 }
+    content:
+      - { en: IaC helps but is not the only supported evidence path, ko: IaC가 도움이 되지만 유일한 지원 근거 경로는 아님 }
+  - id: action-check
+    parent: action
     kind: decision
-    shape: diamond
-    label:
-      en: Can you reproduce / a baseline for / measuring gains?
-      ko: 이득 측정을 위한 / 재현 가능한 기준선이 / 있는가?
-  - id: n3
+    shape: card
+    icon: lucide-shield-check
+    tone: policy
+    badge: 3
+    width: 360
+    label: { en: Registered action with complete safeguards?, ko: 완전한 보호장치를 갖춘 등록 액션이 있는가? }
+    content:
+      - { en: "Stop, rollback, impact cap, dry-run, lock, idempotency, audit", ko: "중단, 롤백, 영향 상한, dry-run, 잠금, 멱등성, 감사" }
+      - { en: Independent effect verification is also required, ko: 독립적인 효과 검증도 필요 }
+  - id: prepare-action
+    parent: action
     kind: process
     shape: card
-    label:
-      en: Build the baseline first. / Phase 0 exists for / exactly this.
-      ko: 먼저 기준선을 만드세요. / Phase 0 가 바로 이걸 / 위해 존재합니다.
-  - id: q4
+    icon: lucide-file-check
+    tone: neutral
+    width: 330
+    label: { en: Complete the action contract, ko: 액션 계약 완성 }
+    content:
+      - { en: Register one ActionType before proposing execution, ko: 실행을 제안하기 전에 ActionType 하나를 등록 }
+  - id: authority-check
+    parent: authority
     kind: decision
-    shape: diamond
-    label:
-      en: Are you on Azure?
-      ko: Azure 사용 중?
-  - id: n4
+    shape: card
+    icon: lucide-shield-check
+    tone: decision
+    badge: 4
+    width: 360
+    label: { en: "Identity, approval, and executor boundaries ready?", ko: "신원, 승인 및 실행기 경계가 준비됐는가?" }
+    content:
+      - { en: No self-approval and no operator executor credential, ko: 자기 승인 금지 및 운영자에게 실행기 자격 증명 없음 }
+  - id: prepare-authority
+    parent: authority
     kind: process
     shape: card
-    label:
-      en: Adapters for other clouds / are not shipped yet.
-      ko: 다른 클라우드 어댑터는 / 아직 제공되지 않습니다.
-  - id: ok
+    icon: lucide-file-check
+    tone: neutral
+    width: 330
+    label: { en: Configure authority first, ko: 먼저 권한 구성 }
+    content:
+      - { en: "Bind RBAC, approval route, executor identity, and audit store", ko: "RBAC, 승인 경로, 실행기 신원 및 감사 저장소 연결" }
+  - id: measurement-check
+    parent: measurement
+    kind: decision
+    shape: card
+    icon: lucide-search-check
+    tone: feedback
+    badge: 5
+    width: 360
+    label: { en: Reproducible baseline and guard metrics?, ko: 재현 가능한 기준선과 보호 지표가 있는가? }
+    content:
+      - { en: "Frozen scenarios, sample size, success metrics, zero-threshold guards", ko: "고정 시나리오, 표본 크기, 성공 지표 및 허용값 0인 보호 지표" }
+  - id: prepare-measurement
+    parent: measurement
     kind: process
     shape: card
-    label:
-      en: FDAI fits. / Start with Phase 0.
-      ko: FDAI가 적합. / Phase 0부터 시작.
+    icon: lucide-file-check
+    tone: neutral
+    width: 330
+    label: { en: Establish Phase 0 evidence, ko: Phase 0 근거 수립 }
+    content:
+      - { en: Measure before making any autonomy claim, ko: 자율성 성과를 주장하기 전에 측정 }
+  - id: prepare-platform
+    parent: platform
+    kind: process
+    shape: card
+    icon: lucide-file-check
+    tone: neutral
+    width: 300
+    label: { en: Prepare the supported target, ko: 지원 대상 준비 }
+    content:
+      - { en: Non-Azure adapters and Slack A1 are not shipped, ko: Azure 외 어댑터와 Slack A1은 제공되지 않음 }
+  - id: platform-check
+    parent: platform
+    kind: decision
+    shape: card
+    icon: lucide-shield-check
+    tone: policy
+    badge: 6
+    width: 350
+    label: { en: Azure target and operational owner ready?, ko: Azure 대상과 운영 담당자가 준비됐는가? }
+    content:
+      - { en: "Preflight, connectivity, rollback dependencies, and on-call path", ko: "사전 검사, 연결, 롤백 의존성 및 당직 경로" }
+  - id: observation-pilot
+    parent: platform
+    kind: process
+    shape: card
+    icon: lucide-play
+    tone: execution
+    badge: 7
+    width: 330
+    label: { en: Start one observation pilot, ko: 관찰 파일럿 하나 시작 }
+    content:
+      - { en: One scope and one ActionType; no managed change, ko: 범위 하나와 ActionType 하나로 시작하며 관리 대상 변경 없음 }
 edges:
   - id: flow-01
-    from: q1
-    to: n1
-    kind: request
-    label:
-      en: no
-      ko: 아니오
+    from: repeatable-check
+    to: prepare-workload
+    kind: feedback
+    route: orthogonal-horizontal
   - id: flow-02
-    from: q1
-    to: q2
+    from: repeatable-check
+    to: evidence-check
     kind: request
-    label:
-      en: yes
-      ko: 예
+    route: orthogonal-shortest
   - id: flow-03
-    from: q2
-    to: n2
-    kind: request
+    from: evidence-check
+    to: prepare-evidence
+    kind: feedback
+    route: orthogonal-horizontal
   - id: flow-04
-    from: q2
-    to: q3
+    from: evidence-check
+    to: action-check
     kind: request
+    route: orthogonal-shortest
   - id: flow-05
-    from: q3
-    to: n3
-    kind: request
+    from: action-check
+    to: prepare-action
+    kind: feedback
+    route: orthogonal-horizontal
   - id: flow-06
-    from: q3
-    to: q4
+    from: action-check
+    to: authority-check
     kind: request
+    route: orthogonal-shortest
   - id: flow-07
-    from: q4
-    to: n4
-    kind: request
+    from: authority-check
+    to: prepare-authority
+    kind: feedback
+    route: orthogonal-horizontal
   - id: flow-08
-    from: q4
-    to: ok
+    from: authority-check
+    to: measurement-check
     kind: request
+    route: orthogonal-shortest
+  - id: flow-09
+    from: measurement-check
+    to: prepare-measurement
+    kind: feedback
+    route: orthogonal-horizontal
+  - id: flow-10
+    from: measurement-check
+    to: platform-check
+    kind: request
+    route: orthogonal-shortest
+  - id: flow-11
+    from: platform-check
+    to: prepare-platform
+    kind: feedback
+    route: orthogonal-horizontal
+  - id: flow-12
+    from: platform-check
+    to: observation-pilot
+    kind: request
+    route: orthogonal-horizontal
+legend:
+  - kind: request
+    label: { en: Ready for the next gate, ko: 다음 게이트 준비 완료 }
+  - kind: feedback
+    label: { en: Prepare and reassess, ko: 준비 후 재평가 }

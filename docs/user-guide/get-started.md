@@ -44,13 +44,14 @@ safety check.
 
 Every proposed change passes rule-catalog policy checks. FDAI dry-runs the
 candidate against policy-as-code (policies expressed as machine-readable rules),
-limits its impact scope, and then either merges it automatically or sends it for
-human approval.
+limits its impact scope, and then either dispatches an eligible registered action
+or sends it for human approval. A generated remediation pull request is never
+auto-merged.
 
 Example: an IaC pull request proposes a public-egress NSG rule -> the safety
 check marks it high risk -> an approval card arrives in Teams -> the approver
-selects approve -> the executor merges the fix pull request and writes the audit
-entry.
+selects approve -> the governed delivery path applies the reviewed action and
+writes the audit entry.
 
 ### Resilience
 
@@ -87,9 +88,10 @@ you already run:
 - **Policy-as-code**: rules normalize to a cloud-provider-neutral schema and
   evaluate through OPA and Rego, so the deterministic tier runs on
   machine-readable policy.
-- **Delivery channels**: actions ship as fix pull requests, and approval requests
-  reach you as Teams or Slack Adaptive Cards. Git keeps the change record and the
-  rollback reference.
+- **Delivery channels**: actions can ship as fix pull requests, and runtime
+  approval requests currently reach you through Teams or the Console
+  `approve_hil` tool. Slack A1 approval is planned, not currently shipped. Git
+  keeps the change record and rollback reference for PR-native actions.
 - **FDAI Console**: inspect operations, ask questions, review decisions, and submit bounded
   operational requests without holding the executor's privileged identity.
 
@@ -135,17 +137,19 @@ Two things sit on top of that loop and make it operable:
   page you only for the high-risk few. Read
   [concepts/agents-and-self-healing.md](concepts/agents-and-self-healing.md).
 
-## When FDAI fits
+## When FDAI is ready to pilot
 
-FDAI is a good fit when all of these are true:
+Assess one bounded scope and one action family rather than treating readiness as
+approval for a broad rollout:
 
-![When FDAI fits. The main stages are Do operators / repeatedly approve or / roll back the same / types of events?, Not a fit yet. The / deterministic tier has / nothing repeatable to / automate., Is infrastructure / expressed as IaC and / policy-as-code?, Not a fit yet. T0 / needs machine-readable / rules to run., Can you reproduce / a baseline for / measuring gains?, Build the baseline first. / Phase 0 exists for / exactly this., Are you on Azure?, Adapters for other clouds / are not shipped yet., FDAI fits. / Start with Phase 0..](../diagrams/generated/fdai-get-started-01.en.svg)
+![Assess one bounded FDAI pilot across six readiness gates: a repeatable decision with an observable outcome, authoritative typed evidence and deterministic policy, one registered action with all safeguards and independent effect verification, separated operator and executor authority, a reproducible baseline with guard metrics, and a supported Azure target with an accountable owner. Missing requirements produce preparation work, while passing every gate starts one ActionType in observation mode rather than broad enforcement.](../diagrams/generated/fdai-get-started-01.en.svg)
 
 - Your operators already spend real time approving or rolling back repeatable
   cloud-configuration events such as drift, cost regressions, and policy
   violations.
-- Your infrastructure is expressed as IaC and policy-as-code, or you are moving
-  that way.
+- You have authoritative, machine-readable evidence and deterministic policy for
+  the selected event family. IaC is one strong path, but registered direct API
+  and tool actions can use the same typed safety contract.
 - You have a baseline, or can build one, to measure autonomy gains against. FDAI
   never claims a multiplier without a paired measurement.
 - Your compliance regime accepts automatically executed low-risk changes as long
@@ -154,7 +158,9 @@ FDAI is a good fit when all of these are true:
 
 ## When FDAI does not fit yet
 
-- **No IaC or no policy-as-code**: the deterministic tier has nothing to run.
+- **No authoritative evidence or deterministic policy**: the control loop can't
+  verify the selected event and action without guessing. IaC is helpful but not
+  mandatory for every execution path.
 - **One-off, non-repeatable incidents**: FDAI's advantage comes from settling the
   repeatable majority. The novel minority stays with people.
 - **Non-Azure clouds**: the abstractions are neutral by design, but the Azure
