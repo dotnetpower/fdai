@@ -14,9 +14,8 @@ test("public migration inventory validates all bilingual diagrams in memory", as
 
   assert.equal(PUBLIC_MIGRATION.length, 18);
   const deckEntry = PUBLIC_MIGRATION.find((entry) => entry.idPrefix === "ontology-context-rag");
-  assert.equal(deckEntry?.source, "site/src/content/docs/deck/ref-ontology-context-vs-rag.md");
-  assert.equal(deckEntry?.koreanSource, "site/src/content/docs/ko/deck/ref-ontology-context-vs-rag.md");
-  assert.equal(deckEntry?.assetBase, "../../diagrams/generated");
+  assert.equal(deckEntry?.source, "docs/user-guide/deck/ref-ontology-context-vs-rag.md");
+  assert.equal(deckEntry?.koreanSource, "docs/user-guide/deck/ref-ontology-context-vs-rag-ko.md");
   assert.equal(plan.totalBlocks, 35);
   assert.equal(plan.reusedBlocks, 5);
   assert.equal(plan.specs.length, 30);

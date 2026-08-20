@@ -325,8 +325,18 @@ logs/validation/
 tmp/
 
 # --------------------------------------------------------------------------
-# Presentation deck working folder. The L100 deck outline, its rendered HTML,
-# and the demo/screenshot media a delivery drops in are working artifacts that
-# carry customer-specific framing. They stay local and out of the repo.
+# Presentation deck working folder. Publish only the customer-agnostic Markdown
+# sources used by GitHub Pages. Rendered decks, working notes, dependencies, and
+# delivery media can carry customer-specific framing and stay local.
 # --------------------------------------------------------------------------
-docs/user-guide/deck/
+docs/user-guide/deck/*
+!docs/user-guide/deck/README.md
+!docs/user-guide/deck/README-ko.md
+!docs/user-guide/deck/l100-act1-why.md
+!docs/user-guide/deck/l100-act1-why-ko.md
+!docs/user-guide/deck/l100-act2-how.md
+!docs/user-guide/deck/l100-act2-how-ko.md
+!docs/user-guide/deck/l100-act3-adopt.md
+!docs/user-guide/deck/l100-act3-adopt-ko.md
+!docs/user-guide/deck/ref-ontology-context-vs-rag.md
+!docs/user-guide/deck/ref-ontology-context-vs-rag-ko.md
