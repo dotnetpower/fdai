@@ -105,6 +105,25 @@ def test_platform_workflow_exposes_opt_in_monitoring_for_every_environment() -> 
     assert "TF_VAR_enable_monitoring: ${{ inputs.deploy_monitoring }}" in _LEGACY_WORKFLOW
 
 
+def test_platform_workflow_isolates_monitoring_plan_changes() -> None:
+    target_expression = _LEGACY_WORKFLOW[_LEGACY_WORKFLOW.index("TF_CLI_ARGS_plan:") :]
+    target_expression = target_expression[: target_expression.index("\n")]
+
+    assert "inputs.deploy_monitoring && '-target=module.monitoring'" in target_expression
+    assert target_expression.index("inputs.deploy_monitoring") < target_expression.index(
+        "inputs.deploy_dev_operations_gateway"
+    )
+    assert "Monitoring-only plan contains changes outside module.monitoring:" in _LEGACY_WORKFLOW
+    assert '.startswith("module.monitoring[")' in _LEGACY_WORKFLOW
+    design_mocks_guard = _LEGACY_WORKFLOW[
+        _LEGACY_WORKFLOW.index("- name: Validate design-mocks-only request") :
+    ]
+    design_mocks_guard = design_mocks_guard[
+        : design_mocks_guard.index("- name: Validate remote plan request")
+    ]
+    assert "DEPLOY_MONITORING" in design_mocks_guard
+
+
 def test_operator_catalog_materialization_runs_after_schema_migration() -> None:
     root = (_ROOT / "infra/main.tf").read_text(encoding="utf-8")
     outputs = (_ROOT / "infra/outputs.tf").read_text(encoding="utf-8")
