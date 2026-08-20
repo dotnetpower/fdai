@@ -45,7 +45,17 @@ test("Azure resource network flow routes every compound edge", async () => {
   assert.match(svg, /data-group-id="gateway-subnet"/);
   assert.doesNotMatch(svg, /data-group-id="postgres-subnet"/);
   assert.match(svg, /data-node-id="postgres-pe"/);
-  assert.match(svg, /data-node-id="ingestion-gateway"/);
+  for (const serviceId of [
+    "core-runtime",
+    "operator-api",
+    "ingestion-api",
+    "processing-worker",
+    "isolated-executor",
+  ]) {
+    assert.match(svg, new RegExp(`data-node-id="${serviceId}"`));
+  }
+  assert.doesNotMatch(svg, /data-node-id="ingestion-gateway"/);
+  assert.doesNotMatch(source, /privileged executor|권한 있는 executor/iu);
   assert.match(svg, /data-node-id="document-blob-pe"/);
   assert.match(svg, /data-node-id="document-dfs-pe"/);
   assert.match(svg, /data-node-id="document-storage"/);
@@ -98,8 +108,8 @@ test("Azure resource network flow routes every compound edge", async () => {
     layout.groups.get("private-endpoint-subnet")!,
     layout.groups.get("private-service-backends")!,
   ];
-  assert.ok(Math.max(...gridGroups.map((group) => group.x)) - Math.min(...gridGroups.map((group) => group.x)) <= 1);
-  assert.ok(Math.max(...gridGroups.map((group) => group.width)) - Math.min(...gridGroups.map((group) => group.width)) <= 1);
+  const gridCenters = gridGroups.map((group) => group.x + group.width / 2);
+  assert.ok(Math.max(...gridCenters) - Math.min(...gridCenters) <= 1);
   const containerApps = layout.groups.get("container-apps-subnet")!;
   const gatewaySubnet = layout.groups.get("gateway-subnet")!;
   const privateEndpoints = layout.groups.get("private-endpoint-subnet")!;
@@ -143,7 +153,7 @@ test("Azure resource network flow routes every compound edge", async () => {
   assert.equal(operatorAccess.width, 184);
   assert.ok(operatorAccess.height > operatorAccess.width);
   assert.ok(governedDelivery.width <= 460);
-  assert.ok(layout.width < 2050);
+  assert.ok(layout.width < 2800);
   const gitProviders = layout.groups.get("git-providers")!;
   const approvalChannels = layout.groups.get("approval-channels")!;
   assert.ok(gitProviders.y + gitProviders.height < approvalChannels.y);
@@ -193,17 +203,19 @@ test("Azure resource network flow routes every compound edge", async () => {
     assert.doesNotMatch(endpoint.label.en, /private endpoint/iu);
   }
   const orderedContainerApps = [
-    "operator-api",
     "scheduled-jobs",
+    "processing-worker",
+    "operator-api",
+    "ingestion-api",
+    "isolated-executor",
     "core-runtime",
-    "ingestion-gateway",
   ].map((id) => layout.nodes.get(id)!);
   for (let index = 1; index < orderedContainerApps.length; index += 1) {
     assert.ok(orderedContainerApps[index - 1]!.x < orderedContainerApps[index]!.x);
     const gap = orderedContainerApps[index]!.x -
       orderedContainerApps[index - 1]!.x -
       orderedContainerApps[index - 1]!.width;
-    assert.equal(gap, 48);
+    assert.equal(gap, 16);
   }
   const platformNodes = spec.nodes
     .filter((node) => node.parent === "platform-services")
@@ -311,17 +323,20 @@ test("Azure resource network flow routes every compound edge", async () => {
   );
   assert.equal(
     gatewayToIngestion.endPoint.y,
-    layout.nodes.get("ingestion-gateway")!.y,
+    layout.nodes.get("ingestion-api")!.y,
   );
   const gitSection = layout.edges.find(
-    (candidate) => candidate.id === "core-to-git-providers",
+    (candidate) => candidate.id === "executor-to-git-providers",
   )?.sections?.[0];
   const approvalSection = layout.edges.find(
     (candidate) => candidate.id === "core-to-approval-channels",
   )?.sections?.[0];
-  assert.ok(gitSection?.bendPoints?.length === 3);
+  assert.ok(gitSection?.bendPoints?.length === 4);
   assert.ok(approvalSection?.bendPoints?.length === 4);
-  assert.ok(gitSection.bendPoints[1]!.y < gitSection.startPoint.y);
+  assert.equal(
+    spec.edges.find((edge) => edge.id === "executor-to-git-providers")!.route,
+    "orthogonal-outer",
+  );
   for (const edge of layout.edges) {
     for (const section of edge.sections ?? []) {
       const previous = section.bendPoints?.at(-1) ?? section.startPoint;
@@ -338,14 +353,14 @@ test("Azure resource network flow routes every compound edge", async () => {
     (edge) => edge.id === "core-to-approval-channels",
   )!;
   const gitEdge = spec.edges.find(
-    (edge) => edge.id === "core-to-git-providers",
+    (edge) => edge.id === "executor-to-git-providers",
   )!;
   assert.equal(approvalEdge.to, "approval-channels");
   assert.equal(gitEdge.to, "git-providers");
   assert.equal(approvalEdge.step, 6);
   assert.equal(gitEdge.step, 7);
   assert.equal(gitSection.endPoint.x, gitProviders.x + gitProviders.width / 2);
-  assert.equal(gitSection.endPoint.y, gitProviders.y);
+  assert.equal(gitSection.endPoint.y, gitProviders.y + gitProviders.height);
   assert.equal(approvalSection.endPoint.x, approvalChannels.x);
   assert.equal(
     approvalSection.endPoint.y,

@@ -19,6 +19,7 @@ import {
   zoomViewBox,
   type ViewBox,
 } from "./viewport.js";
+import { isSafeEmbeddedImageHref } from "./security.js";
 import { embeddedThemeCss } from "../render/theme.js";
 
 type Locale = "en" | "ko";
@@ -214,7 +215,7 @@ function safeSvg(source: string): SVGSVGElement {
   }
   for (const image of svg.querySelectorAll("image")) {
     const href = image.getAttribute("href") ?? "";
-    if (!href.startsWith("data:image/svg+xml;base64,")) {
+    if (!isSafeEmbeddedImageHref(href)) {
       throw new Error("The diagram SVG contains an external image reference");
     }
   }

@@ -3,6 +3,9 @@ title: FDAI Architecture
 description: How FDAI's 15-agent organization separates sensing, judgment, approval, execution, delivery, and audit across an event-driven control plane.
 sidebar:
   order: 2
+derives_from:
+  - source: docs/roadmap/architecture/service-decomposition-execution-plan.md
+    sha: 71f202b15adcffa8b6bd14eb5964839a9e37246c
 ---
 
 # FDAI Architecture
@@ -97,15 +100,16 @@ The diagram shows the FDAI Web Console path. The FDAI CLI uses the same
 Operator API but is omitted from this view for clarity.
 
 <fdai-architecture-diagram manifest="../diagrams/generated/fdai-azure-resource-network-flow.manifest.json" locale="en" style="display:block">
-  <img src="../diagrams/generated/fdai-azure-resource-network-flow.en.svg" alt="An operator signs in through Microsoft Entra ID and uses the FDAI Web Console on Azure Static Web Apps. A private Application Gateway protected by a WAF policy routes requests to the separately identified Operator API and optional Ingestion Gateway in the Container Apps infrastructure subnet. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL, and optional ADLS Gen2 storage connect through dedicated private endpoints. The FDAI core and Container Apps Jobs run in the Container Apps subnet. Managed identities authorize workload access. Azure Resource Graph supplies inventory, Application Insights and Log Analytics receive telemetry, and Azure Managed Grafana reads monitoring data. Email, Teams, and Slack carry human approvals. GitHub, GitLab, and Azure DevOps receive governed remediation pull requests." loading="lazy" style="display:block;width:100%;height:auto" />
+  <img src="../diagrams/generated/fdai-azure-resource-network-flow.en.svg" alt="An operator signs in through Microsoft Entra ID and uses the FDAI Web Console. A planned private Application Gateway routes requests to the Operator Service and Document Ingestion API. The Container Apps environment runs five independent FDAI services plus scheduled jobs. Core has no managed-resource effect identity, while the Isolated Executor alone may hold explicitly approved effect roles. Private endpoints connect the services to Event Hubs, Container Registry, Key Vault, model services, PostgreSQL, and optional document storage. Separate channels carry human approval and governed pull requests." loading="lazy" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
 The baseline portion shows the default private-networking profile, where
 `enable_private_postgres=false` adds a `postgresqlServer` private endpoint.
 Setting `enable_private_postgres=true` replaces that path with PostgreSQL
 Flexible Server in its delegated subnet and doesn't create the endpoint.
-The optional document-ingestion path shows its Ingestion Gateway, Blob and DFS
-private endpoints, and ADLS Gen2 account. One Event Hubs symbol represents both
+The document path separates its authenticated Ingestion API from the durable
+Processing Worker. Both use the optional Blob and DFS private endpoints and
+ADLS Gen2 account. One Event Hubs symbol represents both
 the primary and operational namespaces because they use the same Azure resource
 and private-link pattern. Case-history storage is documented but not repeated as
 another Storage Account and private-endpoint pair. The development operations
@@ -144,6 +148,25 @@ Azure Resource Graph reads and observability writes are shown outside the
 private data-plane path because they use Azure control-plane and telemetry
 contracts. The day-zero Terraform baseline still doesn't add an Application
 Gateway, WAF, Managed Grafana, or load balancer.
+
+## The five deployable services
+
+The 15 agents are logical responsibility owners inside the Core runtime. They
+are not 15 Azure services. FDAI deploys five independently releasable services,
+each with its own image, Terraform state, migration branch, health contract,
+and workload identity.
+
+| Service | Responsibility | Effect authority |
+|---------|----------------|------------------|
+| Core Control Plane | Agent runtime, decisioning, approval joins, audit intent, and recovery coordination | None |
+| Operator Service | Authenticated queries, conversations, projections, and governed request submission | None |
+| Document Ingestion API | Authenticated upload intake and API-owned document transitions | None |
+| Document Processing Worker | Durable inspection, extraction, indexing, claims, and reconciliation | None |
+| Isolated Executor | Command validation, target locking, provider effect, rollback attempt, and execution receipt | Sole eligible holder |
+
+The event bus and versioned service contracts connect these services. One
+service never imports another service's implementation or shares its mutable
+workflow state.
 
 ## The five architecture layers
 

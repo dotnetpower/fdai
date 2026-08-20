@@ -2,16 +2,16 @@ id: fdai-azure-resource-network-flow
 version: 1
 kind: deployment
 formats: [svg]
-updated: 2026-08-02
+updated: 2026-08-20
 locales:
   en:
     title: FDAI Azure resource network flow
-    description: Azure resources, private-endpoint flows, target-state gateway services, and governed delivery channels for FDAI private networking.
-    alt: An operator signs in through Microsoft Entra ID and uses the FDAI Web Console on Azure Static Web Apps. A private Application Gateway protected by a WAF policy routes requests to the separately identified Operator API and optional Ingestion Gateway in the Container Apps infrastructure subnet. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL, and optional ADLS Gen2 storage connect through dedicated private endpoints. The FDAI core and Container Apps Jobs run in the Container Apps subnet. Managed identities authorize workload access. Azure Resource Graph supplies inventory, Application Insights and Log Analytics receive telemetry, and Azure Managed Grafana reads monitoring data. Email, Teams, and Slack carry human approvals. GitHub, GitLab, and Azure DevOps receive governed remediation pull requests.
+    description: Azure resources, private-endpoint flows, five independent FDAI services, and governed delivery channels for FDAI private networking.
+    alt: An operator signs in through Microsoft Entra ID and uses the FDAI Web Console on Azure Static Web Apps. A planned private Application Gateway protected by a WAF policy routes requests to the Operator Service and Document Ingestion API. A VNet-integrated Container Apps environment runs the Core Control Plane, Operator Service, Document Ingestion API, Document Processing Worker, Isolated Executor, and scheduled jobs. The Core has no effect identity, and the Isolated Executor alone may hold explicitly approved effect roles. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL, and optional ADLS Gen2 storage connect through dedicated private endpoints. Azure Resource Graph supplies inventory, Application Insights and Log Analytics receive telemetry, and Azure Managed Grafana reads monitoring data. Email, Teams, and Slack carry human approvals. GitHub, GitLab, and Azure DevOps receive governed remediation pull requests.
   ko:
     title: FDAI Azure resource network flow
-    description: FDAI private networking의 Azure resource, private endpoint, target-state gateway service 및 통제된 전달 채널입니다.
-    alt: 운영자는 Microsoft Entra ID로 로그인하고 Azure Static Web Apps의 FDAI Web Console을 사용합니다. WAF policy로 보호되는 private Application Gateway가 Container Apps infrastructure subnet에서 별도 identity로 실행되는 Operator API와 optional Ingestion Gateway로 요청을 전달합니다. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL 및 optional ADLS Gen2 storage는 전용 private endpoint를 통해 연결됩니다. FDAI core와 Container Apps Jobs는 Container Apps subnet에서 실행됩니다. Managed identity가 workload 접근 권한을 부여합니다. Azure Resource Graph는 inventory를 제공하고 Application Insights와 Log Analytics는 telemetry를 수집하며 Azure Managed Grafana는 monitoring data를 읽습니다. Email, Teams 및 Slack은 사람 승인을 전달합니다. GitHub, GitLab 및 Azure DevOps는 통제된 수정 pull request를 받습니다.
+    description: FDAI private networking의 Azure resource, private endpoint, 5개 독립 FDAI service 및 통제된 전달 채널입니다.
+    alt: 운영자는 Microsoft Entra ID로 로그인하고 Azure Static Web Apps의 FDAI Web Console을 사용합니다. 계획된 private Application Gateway는 WAF policy로 보호되며 Operator Service와 Document Ingestion API로 요청을 전달합니다. VNet에 통합된 Container Apps 환경에서는 Core Control Plane, Operator Service, Document Ingestion API, Document Processing Worker, Isolated Executor 및 예약 job이 실행됩니다. Core에는 effect identity가 없고 Isolated Executor만 명시적으로 승인된 effect role을 보유할 수 있습니다. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL 및 optional ADLS Gen2 storage는 전용 private endpoint를 통해 연결됩니다. Azure Resource Graph는 inventory를 제공하고 Application Insights와 Log Analytics는 telemetry를 수집하며 Azure Managed Grafana는 monitoring data를 읽습니다. Email, Teams 및 Slack은 사람 승인을 전달합니다. GitHub, GitLab 및 Azure DevOps는 통제된 수정 pull request를 받습니다.
 canvas:
   width: 1600
   height: 960
@@ -60,10 +60,10 @@ groups:
     label: { en: Container Apps subnet, ko: Container Apps subnet }
     direction: RIGHT
     layout: row
-    gap: 48
+    gap: 16
     justify: center
     alignWith: private-endpoint-subnet
-    width: 948
+    width: 1200
   - id: private-endpoint-subnet
     parent: fdai-vnet
     kind: subnet
@@ -136,12 +136,6 @@ nodes:
     presentation: icon
     label: { en: FDAI Web Console, ko: FDAI Web Console }
     description: { en: Browser-based projections and bounded governed requests, ko: Browser 기반 projection 및 범위가 제한된 통제 요청 }
-  - id: operator-api
-    parent: container-apps-subnet
-    kind: process
-    icon: container-apps
-    label: { en: Operator API, ko: Operator API }
-    description: { en: Separate read and command transport identities with no executor permission, ko: Executor 권한 없이 분리된 read 및 command transport identity }
   - id: application-gateway
     parent: gateway-subnet
     kind: azure-service
@@ -163,18 +157,36 @@ nodes:
     presentation: icon
     label: { en: Scheduled jobs, ko: 예약 job }
     description: { en: "Inventory, detection, canary, measurement, and resilience jobs", ko: "Inventory, detection, canary, measurement 및 resilience job" }
+  - id: processing-worker
+    parent: container-apps-subnet
+    kind: process
+    icon: container-apps
+    label: { en: Document Processing Worker, ko: Document Processing Worker }
+    description: { en: "Durable inspection, extraction, indexing, claims, and reconciliation", ko: "영속 inspection, extraction, indexing, claim 및 reconciliation" }
+  - id: operator-api
+    parent: container-apps-subnet
+    kind: process
+    icon: container-apps
+    label: { en: Operator Service, ko: Operator Service }
+    description: { en: Separate read and command transport identities with no executor permission, ko: Executor 권한 없이 분리된 read 및 command transport identity }
+  - id: ingestion-api
+    parent: container-apps-subnet
+    kind: process
+    icon: container-apps
+    label: { en: Document Ingestion API, ko: Document Ingestion API }
+    description: { en: Authenticated upload intake and API-owned document transitions, ko: 인증된 upload 수신 및 API 소유 document transition }
+  - id: isolated-executor
+    parent: container-apps-subnet
+    kind: process
+    icon: container-apps
+    label: { en: Isolated Executor, ko: Isolated Executor }
+    description: { en: Sole holder of explicitly approved managed-resource effect roles, ko: 명시적으로 승인된 관리 대상 resource effect role의 유일한 보유자 }
   - id: core-runtime
     parent: container-apps-subnet
     kind: process
     icon: container-apps
-    label: { en: FDAI core, ko: FDAI core }
-    description: { en: "Fifteen agents, trust router, safety checks, and privileged executor", ko: "15개 agent, trust router, 안전성 검토 및 권한 있는 executor" }
-  - id: ingestion-gateway
-    parent: container-apps-subnet
-    kind: process
-    icon: container-apps
-    label: { en: Ingestion gateway (optional), ko: Ingestion gateway (optional) }
-    description: { en: Authenticated document upload and governed ingestion, ko: 인증된 document upload 및 통제된 ingestion }
+    label: { en: Core Control Plane, ko: Core Control Plane }
+    description: { en: "Fifteen agents, trust router, safety checks, and no managed-resource effect identity", ko: "15개 agent, trust router, 안전성 검토 및 관리 대상 resource effect identity 없음" }
   - id: event-hubs-pe
     parent: private-endpoint-subnet
     kind: service
@@ -387,7 +399,7 @@ edges:
     route: orthogonal
   - id: gateway-to-ingestion
     from: application-gateway
-    to: ingestion-gateway
+    to: ingestion-api
     kind: request
     route: orthogonal-shortest
   - id: event-hubs-to-pe
@@ -409,6 +421,18 @@ edges:
     kind: event
     route: orthogonal-trunk
     lane: -1
+  - id: event-pe-to-processing
+    from: event-hubs-pe
+    to: processing-worker
+    kind: event
+    route: orthogonal-trunk
+    lane: -3
+  - id: event-pe-to-executor
+    from: event-hubs-pe
+    to: isolated-executor
+    kind: event
+    route: orthogonal-trunk
+    lane: -4
   - id: registry-to-pe
     from: container-registry
     to: registry-pe
@@ -475,17 +499,23 @@ edges:
     route: orthogonal
     label: { en: PostgreSQL private link, ko: PostgreSQL private link }
   - id: ingestion-to-blob-pe
-    from: ingestion-gateway
+    from: ingestion-api
     to: document-blob-pe
     kind: write
     route: orthogonal-trunk
     lane: 4
-  - id: ingestion-to-dfs-pe
-    from: ingestion-gateway
+  - id: processing-to-blob-pe
+    from: processing-worker
+    to: document-blob-pe
+    kind: read
+    route: orthogonal-trunk
+    lane: 5
+  - id: processing-to-dfs-pe
+    from: processing-worker
     to: document-dfs-pe
     kind: write
     route: orthogonal-trunk
-    lane: 5
+    lane: 6
   - id: blob-pe-to-storage
     from: document-blob-pe
     to: document-storage
@@ -517,11 +547,11 @@ edges:
     kind: approval
     route: orthogonal-above
     step: 6
-  - id: core-to-git-providers
-    from: core-runtime
+  - id: executor-to-git-providers
+    from: isolated-executor
     to: git-providers
     kind: mutation
-    route: orthogonal-above
+    route: orthogonal-outer
     step: 7
 legend:
   - kind: event

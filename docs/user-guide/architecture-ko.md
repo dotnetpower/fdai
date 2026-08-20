@@ -4,8 +4,8 @@ description: FDAI의 15개 에이전트 조직이 이벤트 기반 컨트롤 플
 sidebar:
   order: 2
 translation_of: architecture.md
-translation_source_sha: 62ce6d7dbec9ecaec2bf88320a46a55307ff3dbe
-translation_revised: 2026-08-11
+translation_source_sha: 8251de4b8659a646f48c1666653a7bcbabcecf4a
+translation_revised: 2026-08-20
 ---
 
 # FDAI 아키텍처
@@ -92,15 +92,16 @@ FDAI는 느슨하게 결합된 5개 레이어로 이루어집니다. 레이어�
 사용하지만 가독성을 위해 이 보기에서는 생략합니다.
 
 <fdai-architecture-diagram manifest="../../diagrams/generated/fdai-azure-resource-network-flow.manifest.json" locale="ko" style="display:block">
-  <img src="../../diagrams/generated/fdai-azure-resource-network-flow.ko.svg" alt="운영자는 Microsoft Entra ID로 로그인하고 Azure Static Web Apps의 FDAI Web Console을 사용합니다. WAF policy로 보호되는 private Application Gateway가 Container Apps infrastructure subnet에서 별도 identity로 실행되는 Operator API와 optional Ingestion Gateway로 요청을 전달합니다. Azure Event Hubs, Container Registry, Key Vault, Azure OpenAI, Microsoft Foundry, Azure Database for PostgreSQL 및 optional ADLS Gen2 storage는 전용 private endpoint를 통해 연결됩니다. FDAI core와 Container Apps Jobs는 Container Apps subnet에서 실행됩니다. Managed identity가 workload 접근 권한을 부여합니다. Azure Resource Graph는 inventory를 제공하고 Application Insights와 Log Analytics는 telemetry를 수집하며 Azure Managed Grafana는 monitoring data를 읽습니다. Email, Teams 및 Slack은 사람 승인을 전달합니다. GitHub, GitLab 및 Azure DevOps는 통제된 수정 pull request를 받습니다." loading="lazy" style="display:block;width:100%;height:auto" />
+  <img src="../../diagrams/generated/fdai-azure-resource-network-flow.ko.svg" alt="운영자는 Microsoft Entra ID로 로그인하고 FDAI Web Console을 사용합니다. 계획된 private Application Gateway는 Operator Service와 Document Ingestion API로 요청을 전달합니다. Container Apps 환경은 5개 독립 FDAI 서비스와 예약 job을 실행합니다. Core에는 관리 대상 resource effect identity가 없고 Isolated Executor만 명시적으로 승인된 effect role을 보유할 수 있습니다. Private endpoint는 서비스와 Event Hubs, Container Registry, Key Vault, model service, PostgreSQL, 선택적 document storage를 연결합니다. 분리된 채널은 사람 승인과 통제된 pull request를 전달합니다." loading="lazy" style="display:block;width:100%;height:auto" />
 </fdai-architecture-diagram>
 
 기준선 영역은 `enable_private_postgres=false`일 때 `postgresqlServer` 비공개 엔드포인트를
 추가하는 기본 private-networking 프로파일을 표시합니다. `enable_private_postgres=true`로
 설정하면 이 경로 대신 PostgreSQL Flexible Server를 delegated 서브넷에 배치하고 엔드포인트를
 생성하지 않습니다.
-선택적 document-ingestion 경로는 인제스트 게이트웨이, Blob 및 DFS 비공개 엔드포인트와 ADLS
-Gen2 계정을 표시합니다. 기본과 operational 이름 공간은 같은 Azure 리소스 및
+Document 경로는 인증된 Ingestion API와 영속 Processing Worker를 분리합니다. 두 서비스는
+선택적인 Blob 및 DFS 비공개 엔드포인트와 ADLS Gen2 계정을 사용합니다. 기본과 operational
+이름 공간은 같은 Azure 리소스 및
 private-link pattern을 사용하므로 하나의 Event Hubs symbol로 나타냅니다. Case-history
 저장소는 문서로 설명하고, 동일한 Storage Account 및 비공개 엔드포인트 쌍을 반복하지
 않습니다. 개발 operations 게이트웨이와 APIM은 각각의 feature-specific 프로파일에
@@ -137,6 +138,23 @@ private-link pattern을 사용하므로 하나의 Event Hubs symbol로 나타냅
 Azure Resource Graph 조회와 observability 쓰기는 Azure 컨트롤 플레인 및 텔레메트리 계약을
 사용하므로 비공개 데이터 플레인 경로 밖에 표시합니다. Day-zero Terraform 기준선은 여전히
 애플리케이션 게이트웨이, WAF, Managed Grafana 또는 부하 balancer를 추가하지 않습니다.
+
+## 배포 가능한 5개 서비스
+
+15개 agent는 Core runtime 안의 논리적 책임 소유자이며 15개의 Azure service가 아닙니다.
+FDAI는 자체 image, Terraform state, migration branch, 상태 계약, workload identity를 가진
+5개 서비스를 독립적으로 배포하고 릴리스합니다.
+
+| 서비스 | 책임 | Effect 권한 |
+|--------|------|-------------|
+| Core Control Plane | Agent runtime, 판단, 승인 결합, 감사 intent 및 복구 조정 | 없음 |
+| Operator Service | 인증된 조회, 대화, projection 및 통제된 요청 제출 | 없음 |
+| Document Ingestion API | 인증된 upload 수신 및 API 소유 document transition | 없음 |
+| Document Processing Worker | 영속 inspection, extraction, indexing, claim 및 reconciliation | 없음 |
+| Isolated Executor | 명령 검증, 대상 잠금, provider effect, 롤백 시도 및 실행 receipt | 유일하게 보유 가능 |
+
+Event bus와 버전이 지정된 service contract가 이 서비스를 연결합니다. 한 서비스는 다른 서비스의
+구현을 import하거나 가변 workflow state를 공유하지 않습니다.
 
 ## 5개 아키텍처 레이어
 
