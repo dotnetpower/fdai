@@ -1,10 +1,9 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 81cbf3808dc8e4ba402f8589a9fc16b62afe03ec
+translation_source_sha: 2a2069609b7dfa8e383435368989628e9c913bc0
 translation_revised: 2026-08-20
 ---
-
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 
 **목표**: 자동화 테스트는 결정론적이고 secret-free 상태를 유지하며, interactive 로컬 Console은 운영자의 실제 Azure 개발 환경만 표시합니다. Azure 배포에서는 계속 **배포자의 Azure 권한과 리전 카탈로그가 어떤 LLM과 기타 리소스를 프로비저닝할지 결정**합니다. 세 명제가 동시에 참입니다:

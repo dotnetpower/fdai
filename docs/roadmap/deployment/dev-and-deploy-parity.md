@@ -2,7 +2,6 @@
 title: Runtime Parity - Authoritative Local Development and Test Fixtures
 ---
 # Runtime Parity - Authoritative Local Development and Test Fixtures
-
 **Goal**: automated tests remain deterministic and secret-free, while every interactive local Console session shows the operator's actual Azure development environment. Azure deployment still uses the **deployer's Azure permissions + region catalog to decide which LLM and other resources are provisioned**. Three truths hold at the same time:
 
 - **Automated-test truth**: pytest and committed mocks may bind deterministic fakes. They use an explicit test-fixture builder and never represent observed Azure state.

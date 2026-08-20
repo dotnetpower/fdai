@@ -1,10 +1,9 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 64637844b8a59d8105584ab268e25b59aa78bfee
+translation_source_sha: a84ae53267622cf15c685fce86e896bf16a66dc2
 translation_revised: 2026-08-20
 ---
-
 # 배포와 온보딩(Deploy and Onboard)
 
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 진실 원본입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -500,10 +499,8 @@ networking과 digest-pinned FDAI 및 ClamAV 이미지를 요구합니다.
 
 - **첫 배포에서 shadow-only**: 어떤 규칙/액션도 절대 강제 적용 모드로 시작하지 않음. 승격은
   별개의 행위 ([rule-governance-ko.md](../rules-and-detection/rule-governance-ko.md)).
-- **첫 컨트롤 루프 틱 전에 마이그레이션이 반드시 실행되어야 함**. Container App 은
-  시작 시 마이그레이션을 실행하지 않음 (복제본 간 일관성 유지 + race 방지).
-  프로비저닝된 Postgres FQDN 에 admin DSN 으로 접속 가능한 워크스테이션 또는 CI 잡에서
-  `alembic upgrade head` 를 실행. `alembic/versions/`의 모든 tracked 이행은
+- **첫 컨트롤 루프 틱 전에 마이그레이션이 반드시 실행되어야 함**. Container App은 시작 시 마이그레이션을 실행하지 않습니다(복제본 간 일관성 유지 + race 방지).
+  프로비저닝된 Postgres FQDN에 admin DSN으로 접속 가능한 워크스테이션 또는 CI job에서 `alembic upgrade head` 를 실행. `alembic/versions/`의 모든 tracked 이행은
   `downgrade()`를 정의하지만, 스키마/데이터 롤백은 파괴적일 수 있으므로 백업/복원과
   이행별 downgrade를 staging에서 예행 연습한 뒤 실행합니다. Protected service 경로는
   10초 연결 deadline, 5분 database 잠금 deadline, 15분 server statement deadline 및 20분

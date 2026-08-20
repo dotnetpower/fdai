@@ -501,16 +501,13 @@ later stage with a broken earlier one.
 
 - **Shadow-only on first deploy**: no rule / action starts in enforce mode, ever. Promotion is
   a separate act ([rule-governance.md](../rules-and-detection/rule-governance.md)).
-- **Migrations MUST run before the first control-loop tick**. The Container App itself does
-  not migrate on start (to keep replicas identical + prevent races). Run
-  `alembic upgrade head` from a workstation or a CI job that can reach the provisioned
-  Postgres FQDN with the admin DSN. Every tracked migration under `alembic/versions/` defines
+- **Migrations MUST run before the first control-loop tick**. The Container App itself does not migrate
+  on start (to keep replicas identical + prevent races). Run `alembic upgrade head` from a workstation or a CI job that can reach the provisioned Postgres FQDN with the admin DSN. Every tracked migration under `alembic/versions/` defines
   `downgrade()`, but schema/data rollback can be destructive. Rehearse backup/restore and each
   migration-specific downgrade in staging before using it. The protected service path uses a
   10-second connection deadline, a 5-minute database lock deadline, a 15-minute server statement
   deadline, and a 20-minute complete migration-stage deadline. The database cancels over-budget
-  DDL and releases its locks before the workflow closes the stage, so a stalled migration fails
-  before the service plan is applied.
+  DDL and releases its locks before the workflow closes the stage, so a stalled migration fails before the service plan is applied.
 - Post-deploy smoke tests and the synthetic canary are defined in
   [operating-and-verification.md](../operations/operating-and-verification.md).
 
