@@ -1,10 +1,9 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 92803fefd1c011a6f6c4a18527fab78452602219
+translation_source_sha: 5c18e8d63c6ea72fab5ade4ec6633f9fc9152d51
 translation_revised: 2026-08-20
 ---
-
 # FDAI Console 대화
 
 사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗을 통해 FDAI에 **역으로 말할 수 있는** 방식입니다. 별도 제품이 아닌 FDAI Console의 **대화형 표면**로서 계층 아키텍처, 도구 카탈로그, LLM tier, 세션 지속성, 도구별 RBAC, 안전 invariant, 롤아웃 상태를 정의합니다.

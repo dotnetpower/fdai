@@ -1,7 +1,6 @@
 ---
 title: FDAI Console Conversations
 ---
-
 # FDAI Console Conversations
 
 How a human operator talks *back to* FDAI through CLI, Teams, Slack, and web chat. This FDAI Console capability owns the **conversational surface**, not a separate product: layered architecture, tool catalog, LLM tiers, session persistence, per-tool RBAC, safety invariants, and rollout status.
