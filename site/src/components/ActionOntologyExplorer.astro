@@ -58,7 +58,7 @@ const {
   axisLabels = {},
   irreversibleLabel = "irreversible - human approval required",
   invariantsNote =
-    "Every action carries all four: stop-condition, rollback path, impact-scope limit, audit-log entry.",
+    "Every action carries all seven safeguards: stop condition, rollback, impact-scope limit, dry-run, logical-target lock, idempotency key, and two-phase audit.",
   scopeNote =
     "Showing the shipped fix catalog (rule-fired, PR-native, observation-first). The ontology also spans ops and governance categories in the spec.",
 } = Astro.props as Props;

@@ -130,9 +130,10 @@ import ScrollReveal from "../../components/ScrollReveal.astro";
   </li>
   <li>
     <span class="impact-tick" aria-hidden="true">↳</span>
-    <strong>Every autonomous action carries four invariants.</strong>
-    Stop-condition · rollback path · impact-scope limit · audit-log entry.
-    Missing any of the four ⇒ the action requires human approval, not automatic execution.
+    <strong>Every autonomous action carries seven safeguards.</strong>
+    Stop condition, rollback, impact-scope limit, dry-run, logical-target lock,
+    idempotency key, and two-phase audit. Missing any one blocks execution;
+    high-risk work also requires independent human approval.
   </li>
   <li>
     <span class="impact-tick" aria-hidden="true">↳</span>

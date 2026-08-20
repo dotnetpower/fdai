@@ -26,7 +26,7 @@ const {
     { label: "Ingest", desc: "Normalise, dedup, and correlate raw events into incidents." },
     { label: "Route", desc: "The trust router scores confidence and picks the cheapest tier: T0, T1, or T2." },
     { label: "Check", desc: "The safety check routes to automatic action, human approval, or denial; T2 first clears the quality check." },
-    { label: "Execute", desc: "The executor applies the change with a stop-condition, rollback, and impact-scope limit." },
+    { label: "Execute", desc: "The executor applies a change only after all seven safeguards pass, including dry-run, lock, rollback, and two-phase audit." },
     { label: "Audit", desc: "Every decision - including no-ops - is appended to the immutable audit log." },
   ],
 } = Astro.props as Props;

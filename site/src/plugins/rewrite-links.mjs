@@ -109,6 +109,26 @@ function relativeSiteUrl(fromUrl, toUrl) {
   return rel;
 }
 
+function repositoryTargetKind(originalPath) {
+  const target = path.resolve(REPO_ROOT, originalPath);
+  const relativeTarget = path.relative(REPO_ROOT, target);
+  if (relativeTarget === "" || relativeTarget.startsWith(`..${path.sep}`)) {
+    return null;
+  }
+  try {
+    return fs.statSync(target).isDirectory() ? "tree" : "blob";
+  } catch {
+    return null;
+  }
+}
+
+export function repositorySourceUrl(originalPath, hash = "") {
+  const kind = repositoryTargetKind(originalPath);
+  if (kind == null) return null;
+  const repoRelative = originalPath.replace(/^(\.\.\/)+/, "");
+  return `https://github.com/dotnetpower/fdai/${kind}/main/${repoRelative}${hash ? `#${hash}` : ""}`;
+}
+
 export function remarkRewriteLinks() {
   return (tree, file) => {
     const absPath = file.path ?? "";
@@ -153,20 +173,12 @@ export function remarkRewriteLinks() {
         return;
       }
 
-      // Non-markdown links that point at a repo path (source code,
-      // config, policy, etc.) are not published to the site. Send them
-      // to GitHub so the reader still lands on the canonical source.
-      // We treat as a repo link when the target has an extension we
-      // publish only as source, OR when the target has no scheme AND
-      // ends in `/` (a directory reference).
-      const isSourceExt = /\.(py|yaml|yml|json|toml|ini|sh|ts|tsx|js|mjs|cjs|tf|tftpl|rego|mako|astro|mdx|css|html|env|env-example|env-local|Dockerfile|dockerignore|lock)$/i.test(pathPart);
-      const isDirRef = pathPart.endsWith("/");
-      if (isSourceExt || isDirRef) {
-        const repoRelative = targetOriginal.replace(/^(\.\.\/)+/, "");
-        const kind = isDirRef ? "tree/main/" : "blob/main/";
-        node.url = `https://github.com/dotnetpower/fdai/${kind}${repoRelative}${hash ? `#${hash}` : ""}`;
-        return;
-      }
+      // Existing repository files and directories are not published as
+      // site routes. Resolve the target instead of guessing from its suffix:
+      // extensionless files, directories without a trailing slash, and
+      // compound suffixes such as `.tfvars.example` are all valid sources.
+      const repositoryUrl = repositorySourceUrl(targetOriginal, hash);
+      if (repositoryUrl != null) node.url = repositoryUrl;
 
       // Anything else (images, other assets) - leave alone.
     });
