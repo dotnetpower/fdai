@@ -1470,6 +1470,35 @@ def test_aggregation_frame_requires_aggregate_plan() -> None:
     assert (t2.frame_calls, t2.plan_calls) == (0, 1)
 
 
+def test_listing_frame_rejects_an_aggregate_plan() -> None:
+    manifest, definition = _fixture()
+    listing_frame = _frame(
+        operation="select",
+        subject_constraints=["Resource"],
+        output_shape="resource_list",
+    )
+    t1 = _Model(frame=listing_frame, plan=_aggregate_plan(definition))
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(
+        service,
+        utterance="현재 범위에서 볼 수 있는 리소스 클래스를 보여 주세요.",
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.plan is not None
+    assert all(node.kind is not QueryNodeKind.AGGREGATE for node in outcome.plan.nodes)
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 1)
+
+
 def test_aggregation_operation_retries_a_misclassified_t1_frame() -> None:
     manifest, definition = _fixture()
     t1 = _Model(

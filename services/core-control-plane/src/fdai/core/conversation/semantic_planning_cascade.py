@@ -362,6 +362,10 @@ def _verify_frame_plan_alignment(
     descriptors: tuple[dict[str, Any], ...],
 ) -> None:
     selected_node_kinds = {node.kind for node in plan.nodes}
+    if (QueryNodeKind.AGGREGATE in selected_node_kinds) != (
+        frame.operation is SemanticOperation.AGGREGATE
+    ):
+        raise ValueError("semantic aggregate plan must match the frame operation")
     required_node_kinds = _REQUIRED_NODE_KINDS_BY_OUTPUT_SHAPE.get(frame.output_shape)
     if required_node_kinds is not None and required_node_kinds.isdisjoint(selected_node_kinds):
         raise ValueError("semantic plan does not satisfy frame capability")

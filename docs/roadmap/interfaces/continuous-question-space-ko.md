@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: a2aae3418dc6dc05ba33f5df623fe6c76e15c339
+translation_source_sha: ae9790caa580bbae4680b074572e36d20f811cce
 translation_revised: 2026-08-20
 ---
 # 지속형 질문 공간
@@ -49,13 +49,14 @@ flowchart LR
 | 공유 one-shot 패키지 | implemented | `core/conversation/question_schedule.py`; `delivery/ontology_question_campaign.py`; `ontology_question_campaign_cli.py`; 집중 기한 판정 및 공유 실행기 검사 | 수동 및 예약 트리거는 주입된 실행기 패키지 하나를 사용합니다. 비활성, 실행 시점 아님, 근거 없음, 모델 없음, Reader 증명 없음, 예약 예산 소진, claim 충돌은 해당 모델 또는 의미 호출 전에 중단됩니다. |
 | 환경 구성 및 배포 Job | deferred | 형식화된 workload principal 증적과 기한 판정 보류, 배포 산출물 없음 | 권위 있는 workload principal mapper, 의미 제출 포트, 정확한 모델 연결, 준비 상태 probe가 생길 때까지 공유 패키지에는 독립 환경 구성과 배포 Job을 추가하지 않습니다. 계획의 인증 전 중단 조건을 보존합니다. |
 | Strict v2 릴리스 게이트 | implemented | `console/tests/live-e2e/ontology-query-assurance.ts`; `scripts/automation/run_ontology_assurance.py`; 집중 Console 및 감독기 검사 | 고정 100개 사례는 영어와 한국어 각각 50개를 유지합니다. Strict v2는 기존 14개와 선언, 릴리스/근거, 인벤토리 영향, Rule 상태를 두 로캘로 추가한 22개를 선택합니다. 릴리스 근거는 정확한 전송 22/22를 요구합니다. |
-| 현재 라이브 인증 | in-progress | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); 정확한 소스 실행 `question-space-final-f7fff0f9e-20260820-r13`; `current change`; 집중 의미 계획 및 prompt 테스트 | 실행 r13은 22/22 전송, 완전한 근거 답변 16/16, 모든 hard-zero 카운터 0으로 strict v2를 통과했습니다. Seeded 보증은 turn 100개를 모두 완료하고 한국어 listing 요청 하나가 `query.manifest`와 `aggregate`로 답변된 문제를 격리했습니다. Count 또는 grouping operator가 없는 명시적 listing은 이제 aggregation frame을 거부하고 명시적 aggregation은 우선순위를 유지하며 frame prompt v27도 같은 계약을 보존합니다. 검증을 완료하려면 새로운 정확한 소스 strict 및 seeded 근거가 필요합니다. |
+| 현재 라이브 인증 | in-progress | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); 정확한 소스 실행 `question-space-final-f7fff0f9e-20260820-r13`; `current change`; 집중 의미 계획 및 prompt 테스트 | 실행 r13은 22/22 전송, 완전한 근거 답변 16/16, 모든 hard-zero 카운터 0으로 strict v2를 통과했습니다. Seeded 보증은 turn 100개를 모두 완료하고 한국어 listing 요청 하나가 `query.manifest`와 `aggregate`로 답변된 문제를 격리했습니다. 명시적 listing은 이제 aggregation frame과 유효한 listing frame 뒤의 aggregate plan을 모두 거부하며 명시적 aggregation은 우선순위를 유지합니다. 검증을 완료하려면 새로운 정확한 소스 strict 및 seeded 근거가 필요합니다. |
 | 예약 workload 인증 | in-progress | `fdai_service_contracts/operator.py`, `fdai_operator_service/{auth,family_authorization}.py`, 집중 shared 계약 및 Operator bridge 검사 | 검증된 앱 전용 Entra 토큰은 불투명한 대상 다이제스트와 정확히 Reader App Role로 축소됩니다. Workload principal은 `chat.stream`만 제출할 수 있으며 사람 경로와 상위 역할을 물려받지 않습니다. 서버 소유 범위 및 인증 증적 mapper와 캠페인 실행 포트는 아직 남아 있습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-20 | implemented | 유효한 plan을 수락하는 verifier로 정확한 라이브 형태를 재현한 뒤 Round 66의 진단을 바로잡았습니다. 발화와 frame 사이의 guard는 이미 닫혀 있었지만, frame-plan alignment가 정방향 조건만 강제했으므로 유효한 listing frame이 aggregate plan을 수락할 수 있었습니다. 이제 aggregate node 존재 여부와 검증된 `aggregate` operation이 양방향으로 일치합니다. | `current change`; 집중 tier-routing 파일 73개 통과, 정확한 한국어 fixture는 수정 전 실패하고 수정 후 plan 단계만 재시도, 작업 범위 Ruff와 strict mypy 통과 | 수정된 소스를 중앙 검증한 뒤 새로운 strict-v2 및 seeded artifact를 보존합니다. |
 | 2026-08-20 | implemented | 예약 의미 인증 경계의 workload 측을 추가했습니다. Operator 인증은 앱 전용 토큰을 구분하고 Reader 이외의 모든 workload 역할 집합을 차단하며 안정적인 대상 다이제스트만 저장합니다. Workload 종류는 additive semantic 계약을 통과하고 principal은 `chat.stream`으로 제한됩니다. 기존 사람 principal 묶음은 새 필드를 생략해 wire 호환성을 유지합니다. | `current change`; 집중 shared 계약, conversation family, semantic bridge, workload 인증 테스트 93개, 작업 범위 Ruff, strict mypy 통과 | 환경 구성이나 배포 전에 서버 소유 범위 및 인증 증적 mapper를 만들고 실제 캠페인 작업 및 실행 포트를 연결합니다. |
 | 2026-08-19 | implemented | 결정론적 질문 집합, 7개 관점, 활성/수집 Rule 분리, 후보 생성과 검증, 4개 의미 기능 계약, 캠페인 실행기와 PostgreSQL 원장, 예약 기한 판정, 공유 one-shot Job, strict v2 분류 체계를 추가했습니다. 이전 이력은 재구성하지 않았습니다. | `current change`; 문서 작성 전 Python 집중 테스트 266개, Console 보증 테스트 99개, 작업 범위 Ruff, strict mypy, 모델 카탈로그 검사, 마이그레이션 검사가 통과했습니다. | 정확한 소스 통합 검증을 확보한 뒤 strict v2와 seeded 라이브 보증을 실행합니다. 배포 Job 인프라를 추가하기 전에 서버 측 예약 principal 매핑을 구현합니다. |
 | 2026-08-19 | implemented | 가변 관점 사전 계산, 종료 처리 검증, 완전한 모델 사용량과 예약, 절대 무진척 기한, 불변 캠페인 완료, 프로세스 손실 재개, 동시 사례 lease, 후보 정보 제거, 형식화된 workload principal 증명, strict-v2 기능 일치를 하드닝했습니다. 독립 비평 12회를 완료했고 Low보다 높은 미해결 항목은 없습니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); `current change`; Python 집중 테스트 122개와 Console 집중 테스트 100개 통과, 작업 범위 Ruff 통과, 소스 파일 20개 strict mypy 통과, 이 ledger 갱신 전 설계 경로, roadmap ledger, 번역, 문장 부호, 읽기 쉬운 한글 게이트 통과. | 정확한 소스 라이브 인증과 인증된 예약 배포는 아래의 근거 게이트를 계속 적용합니다. |
@@ -213,6 +214,7 @@ cron, IANA 표준 시간대, 로캘, 관점, 질문 수, 토큰, 비용, 전체 
 | 64 | Aggregation intent 식별자 | High, resolved | 실행 r12는 seeded turn 100개를 모두 완료하고 한국어 grouping 요청 하나의 frame과 plan이 일관되게 property filter를 주장한 문제를 격리했습니다. 기존 `SemanticOperation`에는 aggregation token이 없어 결정론적 alignment가 요청된 결과 operator를 검증할 수 없었습니다. Additive `aggregate` token, 양방향 operation-output invariant, 보수적인 explicit-operator mismatch 거부, v26 prompt가 이 공백을 닫습니다. Positive, negative, 이중 언어, domain noun, false-positive control 7개가 통과했고 Low보다 높은 미해결 항목은 없습니다. |
 | 65 | 한국어 aggregation operator recall | Medium, resolved | 14개 관점의 후속 검토에서 일반적인 한국어 `그루핑`과 `합계` 요청을 rejection-only 일치 guard가 인식하지 못함을 발견했습니다. 이제 둘 다 범위가 제한된 frame 재시도를 유발하며 80자 영어 `group ... by` 제한, 현재 turn 전용 입력, domain noun 제외, wire 호환성, 권한, 개인정보 경계는 바뀌지 않습니다. Low보다 높은 미해결 항목은 없습니다. |
 | 66 | Listing 결과 operator 식별자 | High, resolved | 실행 r13은 strict v2를 통과하고 seeded 100/100을 완료한 뒤 한국어 listing 요청 하나의 frame과 plan이 일관되게 aggregation을 주장한 문제를 격리했습니다. 대칭적인 rejection-only guard는 aggregation operator가 없을 때 명시적 listing intent를 보존하고 명시적 count 또는 grouping은 우선합니다. Prompt v27과 control 13개가 EN/KO, 우선순위, false-positive 경계를 닫았으며 Low보다 높은 미해결 항목은 없습니다. |
+| 67 | Listing frame-plan operation 종결 | High, resolved | 운영과 같은 verifier가 수락된 frame 자체가 aggregate였다는 Round 66의 가정을 반증했습니다. Listing frame은 유효했지만 frame-plan alignment가 aggregate frame에 node가 있는지만 검사해 aggregate node를 허용했습니다. 이제 aggregate node 존재 여부는 검증된 `aggregate` frame operation과 같아야 하므로 listing frame은 plan 단계를 재시도하고 aggregate 결과를 실행할 수 없습니다. |
 
 남은 Low 항목은 인벤토리 탐색 edge case 추가 음수 테스트, 캠페인 간 중복 corpus 보존 근거,
 과거 릴리스 차이 회귀 테스트 이름, 추가 URI 스킴, 정상 자격 증명 어휘, 한국어 안전 변형입니다.
