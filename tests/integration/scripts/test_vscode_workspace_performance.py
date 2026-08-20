@@ -59,6 +59,13 @@ def test_workspace_uses_one_instruction_and_git_sync_path() -> None:
     assert settings["git.autofetch"] is False
 
 
+def test_workspace_suppresses_terminal_exit_toast() -> None:
+    settings = _load_jsonc(REPO_ROOT / ".vscode" / "settings.json")
+    assert isinstance(settings, dict)
+
+    assert settings["terminal.integrated.showExitAlert"] is False
+
+
 def test_workspace_starts_complete_console_topology_automatically() -> None:
     tasks = _load_jsonc(REPO_ROOT / ".vscode" / "tasks.json")
     assert isinstance(tasks, dict)

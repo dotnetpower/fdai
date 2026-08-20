@@ -10,6 +10,7 @@
     "liveServer.settings.host": "127.0.0.1",
     "liveServer.settings.port": 5373,
     "task.allowAutomaticTasks": "on",
+    "terminal.integrated.showExitAlert": false,
     "makefile.configureOnOpen": false,
     "chat.hookFilesLocations": {
         ".github/hooks": true,

@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 0f9846eed097643fd8546dfb11b4cebb19532c90
+translation_source_sha: a3c9c78524d4196c8e6285aad004e5146d6738b6
 translation_revised: 2026-08-20
 ---
 
@@ -38,7 +38,7 @@ translation_revised: 2026-08-20
 | 의미 계획 tier 동등성 | implemented | `composition/semantic_query_model_targets.py`, `composition/wire_semantic_query.py`, 해석된 모델 산출물, 집중 tier 라우팅 및 조립 테스트 | 로컬 및 배포 Core는 같은 기능 산출물을 로드하고 해석된 narrator 또는 `t1.judge` pool을 T1으로 연결하며 T2는 선택 사항으로 유지합니다. T1 제안을 사용할 수 없거나 결정론적 검증을 통과하지 못한 경우에만 해당 단계를 T2로 다시 시도할 수 있습니다. |
 | 권한 인식 관측 캠페인 동등성 | implemented | `config/observation-sources.yaml`, `fdai.delivery.observation_campaign*`, `.vscode/tasks.json`, `infra/modules/compute/container-apps/observation_campaign_job.tf`, 집중 Core, Operator, Console, workspace 및 인프라 검사 | 로컬과 배포 프로필은 같은 출처 카탈로그, 실행 조건 상태, 실행기, 정규화 활동 계약 및 1분 기동을 사용합니다. 검증 전에는 런타임 산출물이 더 필요합니다. |
 | 로컬 검증 데이터베이스 격리 | implemented | `infra/local/docker-compose.yml`, `scripts/automation/validation_queue_context.py`, 로컬 준비 스크립트 및 focused 검증과 migration 통합 테스트 | 런타임 상태는 로컬 PostgreSQL port `5432`에 유지하고 파괴적인 migration 검증은 port `5433`의 별도 로컬 PostgreSQL cluster를 사용합니다. |
-| FDAI workspace 및 프로파일 부하 제어 | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`, focused 프로파일 및 workspace 테스트 11개 통과 | Resource 범위 분석 제어는 workspace에 둡니다. Copilot은 선택한 모델의 맥락 창 80%에서 에이전트 이력을 압축하며, Portable 프로파일은 격리할 수 없는 Remote WSL Pylance machine 설정을 거부합니다. |
+| FDAI workspace 및 프로파일 부하 제어 | implemented | `.vscode/settings.json`, `.vscode/fdai.code-profile`, `scripts/automation/configure-vscode-profile.py`, `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 프로파일 및 workspace 검사 | 리소스 범위 분석 제어는 workspace에 둡니다. Copilot은 선택한 모델의 맥락 창 80%에서 에이전트 이력을 압축하고, 이식 가능한 프로파일은 격리할 수 없는 Remote WSL Pylance 머신 설정을 거부하며, 0이 아닌 터미널 종료는 중복 VS Code 알림 없이 계속 확인할 수 있습니다. |
 | 격리된 Console E2E 개발 루프 | implemented | `console/playwright.config.ts`, `console/playwright.live.config.ts`, `console/scripts/playwright-port-pool.ts`, focused 테스트 및 `.github/skills/vscode-profile-onboarding/SKILL.md`의 Playwright 지침, Console 타입 검사와 동시 focused desktop E2E 통과 | 각 세션은 frontend/API 포트 쌍 10개 중 하나를 원자적으로 임대하고 worker와 공유합니다. slot별로 산출물을 격리하고 종료된 PID의 잠금을 회수하며 전체 desktop 및 mobile 행렬은 바꾸지 않습니다. |
 | FDAI Pylance launch ceiling 런타임 증명 | deferred | FDAI Remote WSL을 clean restart해도 Pylance는 bundled VS Code Node 실행 파일로 시작했고 `--max-old-space-size=2048`이 없었습니다. VS Code Server 1.133은 활성 프로파일 서비스와 별개로 Remote Machine 설정 리소스 하나를 생성합니다. | 격리된 런타임을 마련할 때까지 blocked 상태입니다. Shared Remote Machine 재정의는 제외 대상 workspace에도 영향을 주므로 ceiling을 활성화하려면 별도 VS Code Server data root 또는 WSL 배포판으로 런타임을 격리해야 합니다. |
 
@@ -91,6 +91,7 @@ translation_revised: 2026-08-20
 | 2026-08-18 | implemented | 검토 결과 capability 표 5개 항목 중 3개에 운영 소비자가 없어 계약이 동작을 선택하지 않고 의도만 기록하고 있었으므로 표를 실제로 동작하게 만들었습니다. `inventory_source`, `event_bus_implementation`, `observation_transport`을 제거하고, 남은 둘을 실제 선택 대상을 가리키는 `bus_identity_binding`과 `workload_identity_source`로 나눴으며, 인벤토리·관측·분석기의 신원 분기가 venue enum 비교 대신 capability를 읽도록 했습니다. focused 테스트가 소스 트리를 훑어 선언된 capability에 운영 접근자가 없으면 실패하므로 표가 다시 문서로 되돌아갈 수 없습니다. | `current change`, `tests/runtime`·`tests/delivery`·게이트 통합 테스트 focused 1703건 통과(스킵 3건), 작업 범위 Ruff·format·strict mypy 통과, venue 계약 게이트 통과 | operator, document-ingestion, document-worker 서비스도 같은 계약 아래로 옮겨야 합니다. 각자 아직 장소를 따로 해석합니다. |
 | 2026-08-18 | implemented | 모든 FDAI 서비스를 같은 장소 계약 아래로 옮겼습니다. 독립 서비스는 core 컨트롤 플레인을 import할 수 없으므로 표를 `packages/service-contracts/src/fdai_service_contracts/venue.py`로 옮기고 `fdai/runtime/venue.py`는 이를 다시 내보내도록 했습니다. Operator, Document Ingestion API, Document Processing Worker, 격리 Executor의 composition은 서로 다른 오류 타입을 가진 개별 파서 4개 대신 `resolve_execution_venue()`와 capability 접근자를 읽습니다. `document_provider_binding`은 두 문서 서비스에 소비자가 있는 신규 capability이며, `bus_security_protocol`은 이제 literal 타입을 반환하므로 선언되지 않은 프로토콜로 표를 고치면 전송이 낮아지는 대신 타입 검사가 실패합니다. 게이트는 소스 트리 6개를 모두 훑습니다. | `current change`, `packages/service-contracts/tests`·`services/core-control-plane/tests/runtime`·`tests/integration/scripts/test_venue_capability_contract.py`와 독립 서비스 4개 suite에서 focused 874건 통과(스킵 1건), `tests/delivery` 1689건 통과(스킵 3건), 작업 범위 Ruff·format·mypy 통과, venue 게이트가 소스 트리 6개에서 OK 보고, `check-independent-services.py` 통과 | 게이트 탐지는 여전히 텍스트 기반이므로 계산된 키를 통한 우회적 재도입은 잡지 못합니다. |
 | 2026-08-20 | 구현됨 | 다섯 distribution topology를 바꾸지 않고 독립 A3 channel edge의 local 및 deployed composition을 추가했습니다. 두 venue는 동일한 Operator 소유 runtime을 사용하며 프로바이더 credential, Kafka security, secret source 및 scale만 다릅니다. | `current change`, 집중 edge 검사 74개, 로컬 실행 검사 3개, 플랫폼 및 Operator-service Terraform root 검증 통과, independent-service 검사가 distribution 5개를 유지 | 통제된 local provider 증적 하나와 보호된 deployed plan/apply/rollback 증적 하나를 보존합니다. |
+| 2026-08-20 | implemented | PTY host와 셸 시작은 정상인데 VS Code 기본 설정이 사용자가 입력한 통합 터미널의 0이 아닌 종료를 알림으로 표시한다는 진단에 따라 FDAI workspace에서 터미널 종료 알림을 비활성화했습니다. 중복 토스트만 억제하며 터미널 출력, 작업 상태 및 프로세스 종료 코드는 계속 확인할 수 있습니다. | `current change`, `.vscode/settings.json`, `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 workspace 계약 및 VS Code JSON 진단 | 터미널 종료 토스트에 남은 구현 작업은 없습니다. |
 
 ### 잔여 작업
 
@@ -304,6 +305,11 @@ copy로 인한 Problems 중복을 줄입니다. 이는 탐색 기본값이므로
 근거, 신원, 권한 또는 런타임 어댑터에는 영향을 주지 않습니다. 출처, 테스트 및 담당
 design doc은 계속 검색할 수 있습니다. Terraform 인덱싱은 검증된 non-Terraform 디렉터리 이름을
 건너뛰고 tracked `.tf` 파일이 있는 모든 디렉터리를 보존합니다.
+
+Workspace는 `terminal.integrated.showExitAlert`도 비활성화합니다. 0이 아닌 프로세스 종료는
+터미널 출력과 작업 상태에서 계속 확인할 수 있지만, 사용자가 입력한 셸이 닫힌 뒤 VS Code가
+두 번째 토스트를 표시하지 않습니다. 이 설정은 셸 통합, 종료 코드, 작업 실행 또는 백그라운드
+서비스 준비 상태를 바꾸지 않습니다.
 
 Pylance 분석은 서비스 소스 루트 5개, 공유 패키지, 독립 패키지로 제공되는 SDK와 벤치마크 소스 및
 저장소 유지관리 스크립트를 대상으로 합니다. Workspace 백그라운드 인덱싱은 비활성화합니다. 열린
