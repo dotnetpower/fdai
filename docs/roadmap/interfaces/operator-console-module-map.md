@@ -3,16 +3,13 @@ title: Operator Console Module Map and Boundaries
 ---
 # Operator Console Module Map and Boundaries
 
-This document maps the Operator Console conversation modules, routes, channels, and provider
-boundaries. It keeps source ownership discoverable without expanding the main console contract.
+This document maps Operator Console modules, routes, channels, providers, and source ownership boundaries.
 
 ## Executable baseline
 
-[`operator-console-module-inventory.json`](operator-console-module-inventory.json) records the
-current Operator API package responsibilities, route-family classifications, candidate
-destinations, and import-surface status. It is descriptive rather than a file-count target, but an
-executable completeness gate requires every current module directory and route module to remain
-classified.
+[`operator-console-module-inventory.json`](operator-console-module-inventory.json) records current
+Operator API responsibilities, route families, candidate destinations, and import status. It is descriptive rather than a
+file-count target, and an executable completeness gate requires every module directory and route module to remain classified.
 Candidate destinations remain package hints. [Service Graduation and Data Ownership](../architecture/service-graduation-and-ownership.md) is the gate for a new process, identity, transport, or data owner.
 [`test_operator_api_layout.py`](../../../services/operator-service/tests/)
 also pins the exact default method, path, and route-name set plus representative HTTP envelopes.
