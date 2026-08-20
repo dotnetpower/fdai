@@ -318,7 +318,7 @@ test("renders accessible v2 presentation at desktop constrained and mobile viewp
 }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.addInitScript(() => {
-    localStorage.setItem("fdai.deck.layout.v1", "dock");
+    localStorage.setItem("fdai.deck.layout.v1", "workspace");
   });
   await installOperatorApiFixture(page, {
     answer: "세 시점의 검증된 요청 수는 1, 3, 2입니다.",
@@ -333,13 +333,33 @@ test("renders accessible v2 presentation at desktop constrained and mobile viewp
     await page.setViewportSize(viewport);
     await page.goto(`/agents?view=org&agent=Var&correlation=${encodeURIComponent(correlationId)}`);
     await page.getByRole("button", { name: "Open command deck" }).click();
-    const dock = page.getByRole("complementary", { name: "Command deck" });
-    await dock.getByRole("button", { name: "Full workspace" }).click();
     const workspace = page.getByRole("dialog", { name: "Command deck" });
     await workspace.getByRole("toolbar", { name: "Workspace tools" })
       .getByRole("button", { name: /New conversation/ }).click();
     await workspace.getByPlaceholder(/Ask anything/i).fill("Show request trend");
-    await workspace.getByRole("button", { name: "Send" }).click();
+    const send = workspace.getByRole("button", { name: "Send" });
+    const composerGeometry = await workspace.locator(".deck-composer-inner").evaluate((element) => {
+      const sendElement = element.querySelector(".deck-btn-primary");
+      const sendBox = sendElement?.getBoundingClientRect();
+      const composerBox = element.getBoundingClientRect();
+      const workspaceBox = element.closest(".deck-overlay")?.getBoundingClientRect();
+      return {
+        composerOverflow: element.scrollWidth - element.clientWidth,
+        composerLeft: composerBox.left,
+        composerRight: composerBox.right,
+        workspaceLeft: workspaceBox?.left ?? null,
+        workspaceRight: workspaceBox?.right ?? null,
+        viewportWidth: innerWidth,
+        sendInsideViewport: Boolean(sendBox && sendBox.left >= 0 && sendBox.right <= innerWidth),
+      };
+    });
+    expect(composerGeometry.composerOverflow).toBe(0);
+    expect(composerGeometry.workspaceLeft).toBeGreaterThanOrEqual(0);
+    expect(composerGeometry.workspaceRight).toBeLessThanOrEqual(viewport.width);
+    expect(composerGeometry.composerLeft).toBeGreaterThanOrEqual(0);
+    expect(composerGeometry.composerRight).toBeLessThanOrEqual(viewport.width);
+    expect(composerGeometry.sendInsideViewport).toBe(true);
+    await send.click();
 
     const chart = workspace.locator('.deck-presentation-block[data-kind="time_series"]');
     await expect(chart).toBeVisible();

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { setLocale } from "../i18n";
 import type { AnswerVerification } from "./backend";
-import { assuranceHref, verificationLabel } from "./grounded-reply";
+import { assuranceHref, primaryAnswerText, verificationLabel } from "./grounded-reply";
 
 function verification(authority: string): AnswerVerification {
   return {
@@ -77,6 +77,23 @@ describe("verificationLabel", () => {
 });
 
 describe("grounded reply presentation", () => {
+  it("keeps a terminal machine reason in technical detail instead of primary prose", () => {
+    const unavailable = {
+      ...verification("server_read_model"),
+      status: "unverified" as const,
+      reason_code: "semantic_runtime_unavailable",
+    };
+
+    expect(primaryAnswerText(
+      "Verified evidence is unavailable. (semantic_runtime_unavailable)",
+      unavailable,
+    )).toBe("Verified evidence is unavailable.");
+    expect(primaryAnswerText(
+      "The semantic_runtime_unavailable state was observed earlier.",
+      unavailable,
+    )).toBe("The semantic_runtime_unavailable state was observed earlier.");
+  });
+
   it("links answer review to the exact turn assessment", () => {
     expect(assuranceHref("turn 1")).toBe("/conversation-assurance?turn=turn+1");
   });
@@ -107,5 +124,19 @@ describe("grounded reply presentation", () => {
     expect(component).not.toContain("TrajectoryStatusTrigger");
     expect(component).not.toContain("ConversationTrajectoryResults");
     expect(component).not.toContain('class="deck-trajectory-flyout"');
+    expect(component).toContain("verificationIssueKind(verification.reason_code)");
+    expect(component).toContain('is-${verificationIssue}');
+    expect(component).toContain('verification?.status === "unverified"');
+    expect(component).toContain('groundingAttention ? "!" : "\\u2713"');
+  });
+
+  it("copies the same primary answer text the operator can see", () => {
+    const component = readFileSync(
+      fileURLToPath(new URL("./grounded-reply.tsx", import.meta.url)),
+      "utf8",
+    );
+
+    expect(component).toContain("navigator.clipboard?.writeText(renderedText)");
+    expect(component).not.toContain("navigator.clipboard?.writeText(text)");
   });
 });

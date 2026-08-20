@@ -30,6 +30,24 @@ describe("parseAnswer - text", () => {
   });
 });
 
+describe("parseInline - emphasis boundaries", () => {
+  it("preserves underscore-delimited machine tokens inside identifiers", () => {
+    expect(parseInline("semantic_runtime_unavailable")).toEqual([
+      { t: "text", s: "semantic" },
+      { t: "text", s: "_runtime_" },
+      { t: "text", s: "unavailable" },
+    ]);
+  });
+
+  it("keeps standalone underscore emphasis", () => {
+    expect(parseInline("This is _important_.")).toEqual([
+      { t: "text", s: "This is " },
+      { t: "emphasis", s: "important" },
+      { t: "text", s: "." },
+    ]);
+  });
+});
+
 describe("parseAnswer - headings", () => {
   it("parses ATX headings without exposing hash markers", () => {
     const segments = parseAnswer("### Main components\nDetails follow.");

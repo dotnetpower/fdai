@@ -411,12 +411,17 @@ export function parseInline(line: string): InlineRun[] {
     const idx = m.index ?? 0;
     if (idx > last) runs.push({ t: "text", s: line.slice(last, idx) });
     const tok = m[0];
+    const intrawordUnderscore = tok.startsWith("_") &&
+      /[\p{L}\p{N}_]/u.test(line[idx - 1] ?? "") &&
+      /[\p{L}\p{N}_]/u.test(line[idx + tok.length] ?? "");
     if (tok.startsWith("`")) {
       runs.push({ t: "code", s: tok.slice(1, -1) });
     } else if (tok.startsWith("**")) {
       runs.push({ t: "strong", s: tok.slice(2, -2) });
     } else if (tok.startsWith("~~")) {
       runs.push({ t: "strike", s: tok.slice(2, -2) });
+    } else if (intrawordUnderscore) {
+      runs.push({ t: "text", s: tok });
     } else if (tok.startsWith("*") || tok.startsWith("_")) {
       runs.push({ t: "emphasis", s: tok.slice(1, -1) });
     } else {

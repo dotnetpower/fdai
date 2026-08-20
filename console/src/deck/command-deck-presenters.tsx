@@ -606,7 +606,7 @@ export function TurnBubble({
       id={`deck-turn-${turn.id}`}
       class={`deck-turn deck-turn-${turn.role}${isActivity ? " deck-turn-activity" : ""}${turn.source === "context" ? " is-context" : ""}${turn.streaming ? " is-streaming" : ""}${searchMatch ? " is-search-match" : ""}${activeSearchMatch ? " is-active-search-match" : ""}${isInvestigationFlow ? " is-investigation-flow" : ""}${investigationFlowStart ? " is-flow-start" : ""}${investigationFlowEnd ? " is-flow-end" : ""}`}
     >
-      {isDeck && (!isInvestigationFlow || investigationFlowStart || isInvestigationFinalAnswer) ? (
+      {isDeck && (!isInvestigationFlow || investigationFlowStart) ? (
         <header class="deck-turn-head">
           <span class="deck-turn-role deck-turn-agent">
             <span

@@ -143,7 +143,8 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain('open={activity.status === "running" ||');
     expect(presenter).toContain("showStartNote={investigationFlowStart}");
     expect(presenter).toContain("const isInvestigationFinalAnswer = isDeck && investigationFlowEnd");
-    expect(presenter).toContain("!isInvestigationFlow || investigationFlowStart || isInvestigationFinalAnswer");
+    expect(presenter).toContain("!isInvestigationFlow || investigationFlowStart");
+    expect(presenter).not.toContain("investigationFlowStart || isInvestigationFinalAnswer");
     expect(presenter).toContain("!isInvestigationFlow || isInvestigationFinalAnswer");
     expect(component).toContain('class="deck-progress-note deck-progress-note-derived"');
     expect(component).toContain('class="deck-marker-glyph"');

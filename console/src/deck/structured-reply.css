@@ -27,8 +27,18 @@
 }
 
 .deck-presentation-block.is-collapsible > summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
   margin: 0;
   cursor: pointer;
+}
+
+.deck-presentation-block.is-collapsible > summary:focus-visible,
+.deck-presentation-exact-values > summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .deck-presentation-block-body { margin-top: 9px; }
@@ -95,7 +105,8 @@
   max-width: 100%;
   table-layout: fixed;
   border-collapse: collapse;
-  border: 1px solid var(--border);
+  border: 0;
+  border-top: 1px solid var(--border);
   font-size: 13px;
 }
 
@@ -113,15 +124,17 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  background: color-mix(in oklab, var(--accent) 8%, var(--bg-elevated));
-  color: var(--fg-muted);
-  font-size: 12px;
+  background: var(--bg-elevated);
+  color: var(--fg);
+  font-size: 11px;
   font-weight: 650;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--accent-strong, var(--accent));
 }
 
-.deck-presentation-table tbody tr:last-child td { border-bottom: 0; }
 .deck-presentation-table tbody tr:nth-child(even) {
-  background: color-mix(in oklab, var(--fg-muted) 3%, transparent);
+  background: transparent;
 }
 .deck-presentation-table th[data-column="recorded"],
 .deck-presentation-table td[data-column="recorded"] { width: 156px; }
@@ -329,12 +342,12 @@
 
 .deck-presentation-exact-values > summary {
   width: fit-content;
-  min-height: 32px;
+  min-height: 44px;
   color: var(--fg-muted);
   cursor: pointer;
   font-size: 12px;
   font-weight: 650;
-  line-height: 32px;
+  line-height: 44px;
 }
 
 .deck-presentation-exact-values > .deck-presentation-table { margin-top: 7px; }
@@ -425,6 +438,7 @@
 }
 
 .deck-presentation-comparison-track {
+  position: relative;
   display: block;
   height: 12px;
   overflow: hidden;
@@ -432,12 +446,29 @@
   background: color-mix(in oklab, var(--fg-muted) 14%, transparent);
 }
 
+.deck-presentation-comparison-track::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--comparison-zero, 0%);
+  width: 1px;
+  background: color-mix(in oklab, var(--fg-muted) 65%, transparent);
+}
+
 .deck-presentation-comparison-track > span {
+  position: absolute;
+  left: var(--comparison-start, 0%);
+  width: var(--comparison-width, 0%);
   display: block;
   height: 100%;
   border-radius: inherit;
   background: var(--accent);
   transition: width 180ms ease-out;
+}
+
+.deck-presentation-comparison-track[data-sign="negative"] > span {
+  background: var(--warning);
 }
 
 .deck-presentation-comparison strong {

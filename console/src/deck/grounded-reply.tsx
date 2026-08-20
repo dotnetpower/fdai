@@ -37,7 +37,11 @@ import { StructuredReply } from "./structured-reply";
 import { openDeckWithContext, type DeckOpenDetail } from "./open-deck";
 import { relevantCitations, type Citation } from "./citations";
 import type { ConversationTrajectory } from "./conversation-trajectory";
-import { unverifiedDetailLabel, verificationPrimaryLabel } from "./verification-presentation";
+import {
+  unverifiedDetailLabel,
+  verificationIssueKind,
+  verificationPrimaryLabel,
+} from "./verification-presentation";
 import {
   buildSources,
   citationMarks,
@@ -90,14 +94,16 @@ export function GroundedReply({
   const [copied, showCopied] = useTransientFlag(1500);
   const [draftState, setDraftState] = useState<"idle" | "submitting" | "done" | "cancelled">("idle");
   const [draftResult, setDraftResult] = useState<string | null>(null);
-  const cites = relevantCitations(citations ?? [], text);
+  const primaryText = primaryAnswerText(text, verification);
+  const cites = relevantCitations(citations ?? [], primaryText);
   const renderedText = incidentCandidates && incidentCandidates.length > 0
-    ? incidentCandidateAnswerLead(text)
-    : text;
+    ? incidentCandidateAnswerLead(primaryText)
+    : primaryText;
   const evidenceReferences = cites.every((citation) =>
     citation.label.startsWith("evidence."));
   const sources = buildSources(verification, cites);
   const groundingIncomplete = verification?.evidence_manifest?.complete === false;
+  const groundingAttention = groundingIncomplete || verification?.status === "unverified";
   const marks = citationMarks(sources);
   const stages = groundingStages({
     sources,
@@ -122,6 +128,9 @@ export function GroundedReply({
     verification.reason_code === "ambiguous_incident";
   const recordedFailure = verification?.status === "verified" &&
     verification.reason_code === "recorded_failure_reason";
+  const verificationIssue = verification?.status === "unverified"
+    ? verificationIssueKind(verification.reason_code)
+    : null;
   const showProcessingDisclosure = !streaming && (
     parsedSource?.kind === "llm" || parsedSource?.kind === "deterministic"
   );
@@ -138,12 +147,12 @@ export function GroundedReply({
     ? "confirmed"
     : "complete";
   const showAnswerState = answerState !== "complete";
-  const sourceButtonLabel = evidenceReferences
+  const sourceButtonLabel = evidenceReferences || verification?.status === "unverified"
     ? t("deck.tooltip.evidenceReferences", { count: sources.length })
     : t("deck.tooltip.groundedSources", { count: sources.length });
 
   const copy = () => {
-    void navigator.clipboard?.writeText(text).then(
+    void navigator.clipboard?.writeText(renderedText).then(
       () => {
         showCopied();
       },
@@ -320,7 +329,7 @@ export function GroundedReply({
           {verification ? (
             <Tooltip content={verificationLabel(verification)}>
               <div
-                class={`deck-verification is-${verifiedAmbiguity || recordedFailure ? "consistent" : boundedCorrection ? "verified" : verification.status}`}
+                class={`deck-verification is-${verifiedAmbiguity || recordedFailure ? "consistent" : boundedCorrection ? "verified" : verification.status}${verificationIssue ? ` is-${verificationIssue}` : ""}`}
                 role="status"
                 aria-label={verificationLabel(verification)}
               >
@@ -383,7 +392,7 @@ export function GroundedReply({
                   aria-label={sourceButtonLabel}
                 >
                   <span class="deck-gr-check" aria-hidden="true">
-                    {groundingIncomplete ? "!" : "\u2713"}
+                    {groundingAttention ? "!" : "\u2713"}
                   </span>
                   <span class="deck-gr-stat">
                     <strong>{sources.length}</strong>{" "}
@@ -411,6 +420,19 @@ export function GroundedReply({
       ) : null}
     </div>
   );
+}
+
+export function primaryAnswerText(
+  text: string,
+  verification: AnswerVerification | undefined,
+): string {
+  const reason = verification?.reason_code?.trim();
+  if (!reason) return text;
+  const trimmed = text.trimEnd();
+  const suffix = ` (${reason})`;
+  return trimmed.endsWith(suffix)
+    ? trimmed.slice(0, -suffix.length).trimEnd()
+    : text;
 }
 
 export function assuranceHref(turnId: string): string {

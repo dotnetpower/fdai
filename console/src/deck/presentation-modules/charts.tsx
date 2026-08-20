@@ -25,6 +25,26 @@ export function ExactTableDisclosure({ data }: { readonly data: PresentationTabl
   );
 }
 
+export function timeSeriesStyle(pointCount: number): Record<string, string | number> {
+  return { "--series-count": pointCount };
+}
+
+export function comparisonTrackStyle(
+  values: readonly number[],
+  value: number,
+): Record<string, string> {
+  const minimum = Math.min(0, ...values);
+  const maximum = Math.max(0, ...values);
+  const range = Math.max(1, maximum - minimum);
+  const zero = (-minimum / range) * 100;
+  const endpoint = ((value - minimum) / range) * 100;
+  return {
+    "--comparison-zero": `${zero}%`,
+    "--comparison-start": `${Math.min(zero, endpoint)}%`,
+    "--comparison-width": `${Math.max(value === 0 ? 0 : 2, Math.abs(endpoint - zero))}%`,
+  };
+}
+
 function BarOrCoverage({
   block,
 }: {
@@ -80,7 +100,11 @@ function TimeSeries({ block }: { readonly block: Extract<PresentationBlock, { ki
   return (
     <div class="deck-presentation-accessible-chart">
       <p>{block.data.description}</p>
-      <ol class="deck-presentation-series" aria-label={block.data.description}>
+      <ol
+        class="deck-presentation-series"
+        aria-label={block.data.description}
+        style={timeSeriesStyle(block.data.points.length)}
+      >
         {block.data.points.map((point) => {
           const height = 18 + ((point.value - minimum) / range) * 72;
           const label = `${point.timestamp}: ${point.value} ${block.data.unit}`;
@@ -114,7 +138,7 @@ function Comparison({
 }: {
   readonly block: Extract<PresentationBlock, { kind: "comparison" }>;
 }) {
-  const maximum = Math.max(1, ...block.data.items.map((item) => Math.abs(item.value)));
+  const values = block.data.items.map((item) => item.value);
   return (
     <div class="deck-presentation-accessible-chart">
       <p>{block.data.description}</p>
@@ -126,8 +150,15 @@ function Comparison({
               <dt>{item.label}</dt>
               <dd>
                 <Tooltip content={label}>
-                  <span class="deck-presentation-comparison-track" tabIndex={0} role="img" aria-label={label}>
-                    <span style={{ width: `${Math.max(2, Math.abs(item.value) / maximum * 100)}%` }} />
+                  <span
+                    class="deck-presentation-comparison-track"
+                    tabIndex={0}
+                    role="img"
+                    aria-label={label}
+                    data-sign={item.value < 0 ? "negative" : item.value > 0 ? "positive" : "zero"}
+                    style={comparisonTrackStyle(values, item.value)}
+                  >
+                    <span />
                   </span>
                 </Tooltip>
                 <strong>{item.value} {block.data.unit}</strong>

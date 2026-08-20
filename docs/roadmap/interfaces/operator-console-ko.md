@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: a8eaa2e68cae7b4e3dcad40a7b3483acea513701
+translation_source_sha: 6f7d3809c7a67b3877d556523af50360509574df
 translation_revised: 2026-08-20
 ---
 # FDAI Console 대화
@@ -38,7 +38,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 읽기 전용 Conversation Search interaction | implemented | `conversation-search.tsx`, `conversation-search.model.ts`, `conversation-search.test.ts`, focused route 테스트(`5 passed`) 및 Console typecheck | Bounded filter, 안전한 text highlight, exact context toggle, empty 및 unavailable 상태, fail-closed decoder 오류는 승인 또는 실행 권한을 추가하지 않습니다. |
 | 인시던트 대화 RCA 표현 | implemented | `incident_queries.py`, `semantic_turn_processor.py`, `semantic_turn_presentation.py`, `presentation-artifact.ts`, focused Core, Operator 및 Console 검사(`138 passed`) | 기록된 원인은 일치하는 인용이 포함된 grounded 가설 또는 정확한 감사 행에 근거한 허용 목록의 결정론적 최종 실패를 요구합니다. T0는 범위가 제한된 영향 근거를 기록하고 두 언어 모두 실행 권한 없이 근본 원인, 영향 및 인용을 렌더링합니다. 누락된 근거는 명시적으로 유지합니다. |
 | 구조화된 인시던트 근거 가독성 | implemented | `structured-reply.tsx`, `presentation-value.ts`, `structured-reply.css`, 집중 Console 검사(`19 passed`) 및 타입 검사 | Console은 의미가 있는 마크업에 정확한 RFC 3339 값을 보존하면서 운영자 로컬 시각과 시간대, 관찰 구간, 읽기 쉬운 주체와 기계 토큰 레이블, 반응형 근거 행, 범위가 명확한 채팅 연결 상태, 모바일 44 px 컨트롤을 표시합니다. 브라우저 비평 5회 뒤에는 범위가 제한된 모바일 출처 목록의 가로 스크롤만 Low로 남았으며 통제된 브라우저 산출물은 보존하지 않았습니다. |
-| Command Deck workspace 시각적 계층 | implemented | `console/src/styles.css`, `investigation-timeline.tsx`, `retrieval-trace.tsx`, `structured-reply.css`, 집중 Command Deck 검사 30개 통과 | Workspace 답변과 구조화된 근거는 하나의 760 px 읽기 폭을 공유합니다. 완료된 관찰 작업은 답변 앞에서 기본으로 접힌 native disclosure 하나가 되고 읽기 전용 실행 상세는 계속 확인할 수 있습니다. 데스크톱의 `답변 준비 중` 머리글과 각 단계는 한 줄을 우선하며 범위가 제한된 상세는 말줄임표로 표시하고 3개 출처 근거 창은 그대로 보존합니다. 검증된 표는 읽기 쉬운 이름을 우선하고 body, transcript 및 표의 가로 overflow를 0으로 유지합니다. 통제된 브라우저 산출물은 보존하지 않았습니다. |
+| Command Deck workspace 시각적 계층 | implemented | `console/src/styles.css`, 답변, 활동, 서식 있는 텍스트 및 표현 모듈, 집중 답변 UI 검사 164개 통과, 타입 검사, 운영 빌드, 합성 3개 viewport Playwright | 시안 동등성 검토 12회에서 연결된 조사의 신원, 기본 답변 텍스트와 복사, 제한 상태 색상, 근거 참조의 정확한 의미, 평면 리포트 표, 순서와 부호를 보존하는 차트, 44 px disclosure, 범위가 제한된 workspace 및 작성기 grid를 정렬했습니다. 정확한 기계 사유는 Run record에 남고 답변, 근거, 승인, 변경 또는 실행 권한은 바뀌지 않았습니다. 합성 브라우저 근거는 표현 방식만 증명합니다. |
 | 대상 결속 인과 표현 | implemented | `semantic_turn_presentation.py`, `test_semantic_turn_bridge.py`, 집중 이중 언어 및 causal matrix 검사 31개 통과 | 여러 output으로 구성된 causal 결과는 exact 대상, 증상 concept, 정렬된 baseline 및 current window, 측정된 변화, 경쟁 가설 2개 이상을 표시합니다. 각 가설은 `supported`, `refuted`, `unresolved` 중 하나와 범위가 제한된 근거 상세 및 limitation을 유지합니다. 불완전하거나 오래되거나 충돌하는 근거는 limitation으로 남고 인과 claim으로 승격되지 않습니다. 이 projection은 승인, 변경 또는 실행 권한을 부여하지 않습니다. 인증된 post-commit 검증은 Issue #244에 열린 상태로 남아 있습니다. |
 | 온톨로지 보증 cohort release oracle | implemented | `console/tests/live-e2e/ontology-query-assurance.{ts,spec.ts,test.ts}`, 집중 보증 테스트 101개 통과 | 전체 cohort operation coverage는 고정 개수를 복제하지 않고 결과 histogram을 결정론적으로 생성된 cohort와 비교합니다. 누락 또는 대체 operation은 실패하고 extension operation은 작성된 범위 제한 분포를 유지합니다. |
 
@@ -72,6 +72,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 2026-08-20 | implemented | 권위 있는 매니페스트가 검증된 가용성 신호를 하나도 제공하지 않을 때 오해를 유발하던 상시 노출 `Evidence sources` 목록을 제거했습니다. 누락되거나 권위가 없는 고정 출처는 내부에서 계속 `unknown`으로 유지하지만, 조치할 수 있는 상태가 없는 전체 unknown 변환 결과는 대화 머리글 공간을 차지하지 않습니다. 검증된 available 또는 unavailable 출처가 하나라도 있으면 링크가 포함된 목록을 계속 표시하고, 목록이 없을 때는 높이 0의 grid slot으로 대화 내용과 작성기 배치를 보존합니다. | `current change`, [Issue #237](https://github.com/dotnetpower/fdai/issues/237), 출처 변환, API gating, 매니페스트 decoding 및 workspace 시각 검사 32개 통과, Console typecheck, 운영 build 및 bundle 검사 통과, 인증된 993 x 641 화면에서 목록 없음, 0 px slot, 435 px 대화 내용, 70 px 작성기 및 가로 overflow 0 확인. | 브라우저 관찰은 통제된 산출물로 보존하지 않았습니다. 로컬 출처 매니페스트는 계속 권위 있는 기준이며 누락된 항목을 정상으로 추론하지 않습니다. |
 | 2026-08-20 | implemented | 완료된 실행 상세와 2행 준비 단계가 검증된 답변을 밀어내던 문제를 해결해 데스크톱 Command Deck 계층을 복원했습니다. 완료된 관찰 작업은 접힌 disclosure 하나로 다시 mount되고 데스크톱 준비 머리글과 단계 상세는 범위가 제한된 한 줄과 말줄임표를 우선합니다. | `current change`, `investigation-timeline.tsx`, `styles.css`, `investigation-timeline.test.ts`, 집중 Console 검사 30개 통과, 새로 mount한 인증 데스크톱 화면에서 닫힌 activity 행 높이 38 px와 그 뒤의 검증된 표, body 및 transcript 가로 overflow 0 확인 | 브라우저 관찰은 통제된 산출물로 보존하지 않았습니다. 허용된 데스크톱 기준선 뒤에서만 반응형 검증을 진행합니다. |
 | 2026-08-20 | implemented | 일반 v2 단일 output compiler보다 먼저 대상 결속 causal multi-output을 렌더링하도록 복원하고 Core 결과가 이미 포함하던 근거 차원을 노출했습니다. 이제 구조화된 답변은 exact 대상 identity, 증상, 정렬된 time window, 관측 변화, 가설 상태 3개, 근거 등급, 표본 수, falsifier 및 limitation을 두 언어에서 보존합니다. | `current change`, [이슈 #244](https://github.com/dotnetpower/fdai/issues/244), 집중 이중 언어 projection 검사 4개와 전체 Python 및 Console 회귀 matrix 64개 통과 | Exact committed Core를 재시작하고 인증된 slowdown 답변 1개와 데스크톱 viewport 근거를 보존한 뒤 이 행을 `validated`로 변경합니다. |
+| 2026-08-20 | implemented | Command Deck과 adaptive-response 시안을 기준으로 독립적인 답변 상태 동등성 검토 12회를 완료했습니다. 연결된 조사는 에이전트 머리글 하나를 유지하고, 기본 답변과 복사는 일치하는 최종 기계 사유 접미사만 제외하며, 출처 및 컨텍스트 보류는 주의 색상을 사용하고, 검증되지 않은 참조는 근거 있음 표시를 사용하지 않습니다. 표는 평면 리포트 계층을 사용하고, 시계열은 순서가 있는 단일 축을 유지하며, 부호가 있는 비교는 방향을 보존하고, 모바일 overlay grid는 Send를 viewport 안에 유지합니다. | `current change`, [이슈 #246](https://github.com/dotnetpower/fdai/issues/246), 집중 답변 UI 검사 164개, Console 타입 검사, 운영 빌드, entry bundle 및 1440 x 900, 993 x 641, 390 x 844 합성 Playwright 통과 | 이 범위에는 Medium 이상의 표현 문제가 남아 있지 않습니다. 통제된 인증 답변 근거와 기존 Low 수준의 범위 제한 모바일 출처 strip 가로 스크롤은 별도로 추적합니다. |
 
 ### 남은 작업
 
@@ -83,8 +84,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 
 ## 1. Framing - 무엇인가 (그리고 무엇이 아닌가)
 
-FDAI Console 대화 표면은 **판단 권한을 가지지 않습니다**. FDAI의 판단 권한은 이미 있는 곳에 그대로 남습니다 - 결정론적 엔진 (T0),
-quality gate (T2 검증기), risk gate, shipped Rego 정책. 콘솔은
+FDAI Console 대화 표면은 **판단 권한을 가지지 않습니다**. FDAI의 판단 권한은 이미 있는 곳에 그대로 남습니다 - 결정론적 엔진 (T0), quality gate (T2 검증기), risk gate, shipped Rego 정책. 콘솔은
 그 판단을 오퍼레이터가 검사하고, 변경을 시뮬레이션하고, 시스템이
 이미 큐잉한 것을 승인하는 **대화형 표면** 이다.
 

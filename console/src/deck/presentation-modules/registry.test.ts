@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { PresentationBlock } from "../backend-types";
+import { comparisonTrackStyle, timeSeriesStyle } from "./charts";
 import { presentationModuleRegistration } from "./registry";
 
 const kinds: PresentationBlock["kind"][] = [
@@ -46,6 +47,9 @@ describe("presentation module registry", () => {
     expect(shell).toContain("PresentationModuleView");
     expect(shell).not.toMatch(/block\.kind\s*===/);
     expect(css).toContain(".deck-presentation-exact-values");
+    expect(css).toMatch(/\.deck-presentation-exact-values > summary \{[^}]*min-height: 44px;/s);
+    expect(css).toMatch(/\.deck-presentation-block\.is-collapsible > summary \{[^}]*min-height: 44px;/s);
+    expect(css).toContain(".deck-presentation-exact-values > summary:focus-visible");
     expect(css).toContain(".deck-presentation-series-point:focus-visible");
     expect(css).toContain(".deck-presentation-comparison-track:focus-visible");
     expect(css).toContain("@media (prefers-reduced-motion: reduce)");
@@ -53,5 +57,22 @@ describe("presentation module registry", () => {
     expect(value).toContain('class="deck-presentation-identifier"');
     expect(css).toMatch(/\.deck-presentation-identifier \{[^}]*text-overflow: ellipsis;[^}]*white-space: nowrap;/s);
     expect(css).toContain(".deck-presentation-table td > .tooltip-anchor:focus-within");
+  });
+
+  it("keeps every ordered time-series point on one explicit grid axis", () => {
+    expect(timeSeriesStyle(7)).toEqual({ "--series-count": 7 });
+  });
+
+  it("preserves comparison direction around a shared zero baseline", () => {
+    expect(comparisonTrackStyle([-20, 40], -20)).toEqual({
+      "--comparison-zero": "33.33333333333333%",
+      "--comparison-start": "0%",
+      "--comparison-width": "33.33333333333333%",
+    });
+    expect(comparisonTrackStyle([-20, 40], 40)).toEqual({
+      "--comparison-zero": "33.33333333333333%",
+      "--comparison-start": "33.33333333333333%",
+      "--comparison-width": "66.66666666666667%",
+    });
   });
 });

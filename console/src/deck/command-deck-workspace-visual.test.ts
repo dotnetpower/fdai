@@ -39,6 +39,7 @@ describe("Command Deck workspace hierarchy", () => {
     expect(source).toContain('class="deck-source-readiness-slot"');
     expect(sidebarStyles).toContain("grid-template-columns: var(--deck-conversation-width, 240px) minmax(0, 1fr);");
     expect(styles).toContain(".deck-body.has-digest { grid-template-columns: minmax(0, 1fr) 280px; }");
+    expect(styles).toMatch(/\.deck-overlay \{[^}]*grid-template-columns: minmax\(0, 1fr\);/s);
   });
 
   test("loads conversation history incrementally", () => {
@@ -148,6 +149,7 @@ describe("Command Deck workspace hierarchy", () => {
     expect(presenters).toContain('class="deck-turn-time muted"');
     expect(presenters).toContain("dateTime={turn.recordedAt}");
     expect(presenters).toContain("presentationTimestamp(");
+    expect(styles).toContain(".deck-verification.is-unverified.is-sourceUnavailable");
   });
 
   test("keeps syntax-highlighted code on its dark slab", () => {
@@ -166,6 +168,14 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).toContain(".deck-turn-head > .tooltip-anchor .deck-turn-source { max-width: 100%; }");
     expect(structuredStyles).toContain("@media (max-width: 560px)");
     expect(structuredStyles).toMatch(/@media \(max-width: 560px\)[\s\S]*\.deck-presentation-table,[\s\S]*display: block;/);
+  });
+
+  test("matches the mock's flat report-table hierarchy", () => {
+    expect(styles).toMatch(/\.deck-table \{[^}]*border: 0;[^}]*border-top: 1px solid var\(--border\);/s);
+    expect(styles).toMatch(/\.deck-table thead th \{[^}]*background: transparent;[^}]*border-bottom: 2px solid var\(--accent-strong, var\(--accent\)\);/s);
+    expect(structuredStyles).toMatch(/\.deck-presentation-table \{[^}]*border: 0;[^}]*border-top: 1px solid var\(--border\);/s);
+    expect(structuredStyles).toMatch(/\.deck-presentation-table th \{[^}]*text-transform: uppercase;[^}]*border-bottom: 2px solid var\(--accent-strong, var\(--accent\)\);/s);
+    expect(structuredStyles).toMatch(/\.deck-presentation-table tbody tr:nth-child\(even\) \{\s*background: transparent;/s);
   });
 
   test("aligns answers, structured evidence, and the composer to one calm reading measure", () => {
@@ -223,6 +233,8 @@ describe("Command Deck workspace hierarchy", () => {
   });
 
   test("keeps deck controls operable at desktop and touch sizes", () => {
+    expect(styles).toMatch(/\.deck-llm-escalation-head \{[^}]*min-height: 44px;/s);
+    expect(styles).toContain(".deck-llm-escalation-head:focus-visible");
     expect(styles).toMatch(/\.deck-search button \{[^}]*width: 32px;[^}]*height: 32px;/s);
     expect(styles).toMatch(/\.deck-gr-icon \{[^}]*width: 32px;[^}]*height: 32px;/s);
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-search button \{ width: 44px; height: 44px; \}/);
@@ -250,6 +262,7 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).toContain("calc((100% - 1100px) / 2)");
     expect(styles).toContain("flex: 0 1 420px;");
     expect(styles).toContain(".deck-overlay.deck-overlay-mode-workspace { left: 0; }");
+    expect(styles).toMatch(/\.deck-input \{[^}]*width: 100%;[^}]*min-width: 0;[^}]*box-sizing: border-box;/s);
     expect(styles).toMatch(/@media \(max-width: 1100px\)[\s\S]*\.deck-search kbd \{ display: none; \}/);
   });
 });
