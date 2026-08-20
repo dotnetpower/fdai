@@ -334,6 +334,7 @@ def _typed_fixture(*, groups: tuple[PropertyValueGroup, ...]) -> tuple[Any, Obje
         properties={
             "id": PropertyDecl(type=PropertyType.STRING, required=True),
             "type": PropertyDecl(type=PropertyType.STRING, required=True),
+            "name": PropertyDecl(type=PropertyType.STRING),
         },
     )
     release = build_ontology_release(object_types=(resource,))
@@ -365,7 +366,7 @@ def _typed_fixture(*, groups: tuple[PropertyValueGroup, ...]) -> tuple[Any, Obje
 _RESOURCE_GROUP_GROUP = PropertyValueGroup(
     id="resource-group",
     values=("resource-group",),
-    terms=("resource group", "리소스 그룹", "리소스그룹"),
+    terms=("resource group", "resource groups", "리소스 그룹", "리소스그룹"),
 )
 _VM_GROUP = PropertyValueGroup(
     id="compute-vm",
@@ -395,6 +396,63 @@ def test_stated_value_narrows_an_existence_predicate_to_the_declared_value() -> 
     predicates = _grounded_predicates(model, manifest, "현재구독의 리소스그룹 모두 알려줘")
 
     assert predicates == [{"property": "type", "operator": "equals", "equals": "resource-group"}]
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    (
+        "fdai 와 관련있는 리소스 그룹은?",
+        "Which resource groups are related to fdai?",
+    ),
+)
+def test_stated_type_and_name_fragment_ground_all_filters(utterance: str) -> None:
+    manifest, definition = _typed_fixture(groups=(_RESOURCE_GROUP_GROUP, _VM_GROUP))
+    name_exists = definition.model_copy(
+        update={
+            "predicates": (
+                ObjectPredicate(property="name", operator=ObjectPredicateOperator.EXISTS),
+            )
+        }
+    )
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource", "fdai"],
+            output_shape="property_filtered_resources",
+        ),
+        plan=_plan(name_exists),
+    )
+
+    predicates = _grounded_predicates(model, manifest, utterance)
+
+    assert predicates == [
+        {"property": "name", "operator": "contains", "equals": "fdai"},
+        {"property": "type", "operator": "equals", "equals": "resource-group"},
+    ]
+
+
+def test_unstated_frame_subject_never_becomes_a_filter_operand() -> None:
+    manifest, definition = _typed_fixture(groups=(_RESOURCE_GROUP_GROUP, _VM_GROUP))
+    name_exists = definition.model_copy(
+        update={
+            "predicates": (
+                ObjectPredicate(property="name", operator=ObjectPredicateOperator.EXISTS),
+            )
+        }
+    )
+    model = _Model(
+        frame=_frame(
+            subject_constraints=["Resource", "fdai"],
+            output_shape="property_filtered_resources",
+        ),
+        plan=_plan(name_exists),
+    )
+
+    predicates = _grounded_predicates(model, manifest, "리소스 그룹을 모두 보여줘")
+
+    assert predicates == [
+        {"operator": "exists", "property": "name"},
+        {"property": "type", "operator": "equals", "equals": "resource-group"},
+    ]
 
 
 def test_stated_value_group_with_several_values_narrows_to_a_membership_predicate() -> None:

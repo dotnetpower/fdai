@@ -19,6 +19,7 @@ from fdai_service_contracts.ontology_query import (
 )
 
 MAX_GROUNDED_FILTER_VALUES = 16
+_FREE_TEXT_FRAGMENT_PROPERTIES = ("name", "label", "id")
 
 
 def _stated_value_filters(
@@ -86,11 +87,79 @@ def _term_stated(term: str, lowered_utterance: str) -> bool:
     return False
 
 
+def _stated_subject_fragment(
+    utterance: str,
+    subject_constraints: Sequence[str],
+    descriptors: Sequence[Mapping[str, Any]],
+) -> str | None:
+    """Return one exact free-text subject preserved from the operator turn.
+
+    Descriptor names, property names, and declared value terms already have a
+    typed grounding path. A remaining subject can narrow a free-text property
+    only when it occurs verbatim in the utterance. Multiple remaining subjects
+    are ambiguous and therefore ground nothing.
+    """
+    vocabulary = _declared_subject_vocabulary(descriptors)
+    lowered = utterance.casefold()
+    candidates: list[str] = []
+    seen: set[str] = set()
+    for subject in subject_constraints:
+        candidate = subject.strip()
+        normalized = candidate.casefold()
+        if (
+            not candidate
+            or normalized in vocabulary
+            or normalized in seen
+            or not _term_stated(candidate, lowered)
+        ):
+            continue
+        candidates.append(candidate)
+        seen.add(normalized)
+    return candidates[0] if len(candidates) == 1 else None
+
+
+def _declared_subject_vocabulary(
+    descriptors: Sequence[Mapping[str, Any]],
+) -> frozenset[str]:
+    """Return typed descriptor words that must not become free-text operands."""
+    words: set[str] = set()
+    for descriptor in descriptors:
+        name = descriptor.get("name")
+        if isinstance(name, str):
+            words.add(name.casefold())
+        properties = descriptor.get("properties")
+        if not isinstance(properties, Mapping):
+            continue
+        for property_name, declaration in properties.items():
+            if isinstance(property_name, str):
+                words.add(property_name.casefold())
+            if not isinstance(declaration, Mapping):
+                continue
+            values = declaration.get("values")
+            if isinstance(values, list):
+                words.update(value.casefold() for value in values if isinstance(value, str))
+            groups = declaration.get("value_groups")
+            if not isinstance(groups, list):
+                continue
+            for group in groups:
+                if not isinstance(group, Mapping):
+                    continue
+                group_id = group.get("id")
+                if isinstance(group_id, str):
+                    words.add(group_id.casefold())
+                for key in ("terms", "values"):
+                    items = group.get(key)
+                    if isinstance(items, list):
+                        words.update(item.casefold() for item in items if isinstance(item, str))
+    return frozenset(words)
+
+
 def ground_stated_value_filters(
     plan: OntologyQueryPlan,
     *,
     utterance: str,
     descriptors: Sequence[Mapping[str, Any]],
+    subject_constraints: Sequence[str] = (),
 ) -> tuple[OntologyQueryPlan, tuple[str, ...]]:
     """Constrain an existence predicate the operator already stated a value for.
 
@@ -100,12 +169,23 @@ def ground_stated_value_filters(
     from the declared domain the verifier checks.
     """
     filters = _stated_value_filters(utterance, descriptors)
-    if not filters:
+    subject_fragment = _stated_subject_fragment(
+        utterance,
+        subject_constraints,
+        descriptors,
+    )
+    if not filters and subject_fragment is None:
         return plan, ()
     grounded: list[str] = []
     nodes: list[OntologyQueryNode] = []
     for node in plan.nodes:
-        rewritten = _grounded_object_set(node, filters=filters, grounded=grounded)
+        rewritten = _grounded_object_set(
+            node,
+            descriptors=descriptors,
+            filters=filters,
+            subject_fragment=subject_fragment,
+            grounded=grounded,
+        )
         nodes.append(rewritten)
     if not grounded:
         return plan, ()
@@ -120,7 +200,9 @@ def ground_stated_value_filters(
 def _grounded_object_set(
     node: OntologyQueryNode,
     *,
+    descriptors: Sequence[Mapping[str, Any]],
     filters: Mapping[tuple[str, str], tuple[str, ...]],
+    subject_fragment: str | None,
     grounded: list[str],
 ) -> OntologyQueryNode:
     if node.kind.value != "object_set":
@@ -135,27 +217,71 @@ def _grounded_object_set(
     predicates = definition.get("predicates")
     if not isinstance(object_type, str) or not isinstance(predicates, list):
         return node
+    properties = _object_properties(object_type, descriptors)
     rewritten: list[Any] = []
+    selected_properties: set[str] = set()
     changed = False
     for predicate in predicates:
+        property_name = predicate.get("property") if isinstance(predicate, Mapping) else None
+        if isinstance(property_name, str):
+            selected_properties.add(property_name)
         if not isinstance(predicate, Mapping) or predicate.get("operator") != "exists":
             rewritten.append(predicate)
             continue
-        property_name = predicate.get("property")
         values = (
             filters.get((object_type, property_name)) if isinstance(property_name, str) else None
         )
-        if values is None:
+        if values is not None:
+            rewritten.append(_value_predicate(str(property_name), values))
+            grounded.append(f"{object_type}.{property_name}")
+            changed = True
+            continue
+        if (
+            subject_fragment is None
+            or property_name not in _FREE_TEXT_FRAGMENT_PROPERTIES
+            or property_name not in properties
+            or _property_has_values(properties[property_name])
+        ):
             rewritten.append(predicate)
             continue
-        property_name = str(property_name)
         rewritten.append(
-            {"property": property_name, "operator": "equals", "equals": values[0]}
-            if len(values) == 1
-            else {"property": property_name, "operator": "in", "values": list(values)}
+            {
+                "property": property_name,
+                "operator": "contains",
+                "equals": subject_fragment,
+            }
         )
         grounded.append(f"{object_type}.{property_name}")
         changed = True
+    for (filter_type, property_name), values in sorted(filters.items()):
+        if filter_type != object_type or property_name in selected_properties:
+            continue
+        rewritten.append(_value_predicate(property_name, values))
+        selected_properties.add(property_name)
+        grounded.append(f"{object_type}.{property_name}")
+        changed = True
+    if subject_fragment is not None and not any(
+        property_name in selected_properties for property_name in _FREE_TEXT_FRAGMENT_PROPERTIES
+    ):
+        fragment_property = next(
+            (
+                property_name
+                for property_name in _FREE_TEXT_FRAGMENT_PROPERTIES
+                if property_name in properties
+                and not _property_has_values(properties[property_name])
+            ),
+            None,
+        )
+        if fragment_property is not None:
+            rewritten.append(
+                {
+                    "property": fragment_property,
+                    "operator": "contains",
+                    "equals": subject_fragment,
+                }
+            )
+            grounded.append(f"{object_type}.{fragment_property}")
+            changed = True
     if not changed:
         return node
     return node.model_copy(
@@ -167,6 +293,31 @@ def _grounded_object_set(
                 }
             )
         }
+    )
+
+
+def _object_properties(
+    object_type: str,
+    descriptors: Sequence[Mapping[str, Any]],
+) -> Mapping[str, Any]:
+    for descriptor in descriptors:
+        if descriptor.get("kind") != "object" or descriptor.get("name") != object_type:
+            continue
+        properties = descriptor.get("properties")
+        if isinstance(properties, Mapping):
+            return properties
+    return {}
+
+
+def _property_has_values(declaration: object) -> bool:
+    return isinstance(declaration, Mapping) and isinstance(declaration.get("values"), list)
+
+
+def _value_predicate(property_name: str, values: tuple[str, ...]) -> dict[str, object]:
+    return (
+        {"property": property_name, "operator": "equals", "equals": values[0]}
+        if len(values) == 1
+        else {"property": property_name, "operator": "in", "values": list(values)}
     )
 
 

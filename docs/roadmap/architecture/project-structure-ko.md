@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ba8a4d36b44cc54573f447aa047945eec9ae7161
-translation_revised: 2026-08-19
+translation_source_sha: cd6256133b8badb680c11995cacfd0ac02027056
+translation_revised: 2026-08-20
 ---
 # 프로젝트 구조
 
@@ -23,6 +23,7 @@ translation_revised: 2026-08-19
 | 권한 인식 관측 경계 | implemented | `fdai_service_contracts/operational_activity.py`, `delivery/observation_campaign.py`, `delivery/observation_source_catalog.py`, 집중 계약, 수명 주기 및 projection 검사 | 공유 계약은 권한이 없는 요약을 전달하고 delivery는 프로바이더 읽기, 원자적 캠페인 상태 및 로컬 또는 배포 어댑터 선택을 소유합니다. 출처별 경로는 의미 있는 근거 소유권을 유지합니다. |
 | 리소스 검색 계약 경계 | implemented | `fdai_service_contracts/discovery.py`, `fdai_service_contracts/discovery_evidence.py`, `core/discovery/router.py`, 집중 검색 검사 (`44 passed`) | 공유 SDK는 불변이고 권한이 없는 wire 레코드를 소유하고 Core는 프로바이더 중립적인 정확히 동등한 라우팅과 병합을 소유하며 Azure delivery는 버전이 고정된 프로파일, 렌더링, 실행 증적 및 커버리지 조정을 소유합니다. |
 | 인벤토리 신원 완전성 경계 | implemented | `shared/providers/inventory.py`, `delivery/azure/{arg_query,inventory}.py`, `composition/wire_inventory.py`, focused 검사 259개 통과 | Shared는 exact coverage 증적을 소유하고 Azure delivery는 범위가 제한된 native 신원 읽기를 소유하며 composition은 프로바이더 I/O를 Core로 옮기지 않고 두 경로를 연결합니다. |
+| 질문에 결속된 의미 필터 근거 확인 | 구현됨 | `core/conversation/semantic_planning_value_filters.py`, `tests/conversation/test_semantic_planning.py`, focused 계획 검사(`79 passed`) | Core는 발화에 명시된 카탈로그 값 그룹 또는 검증된 frame이 보존하고 해당 발화에 그대로 존재하는 정확한 자유 텍스트 subject 하나로만 후보 ObjectSet을 좁힐 수 있습니다. 프로바이더 I/O, 판단, 승인, 변경 또는 실행 권한은 추가하지 않습니다. |
 | 통제된 규칙 발견 시작 경계 | implemented | `core/readiness/discovery_activation.py`, `runtime/discovery_activation.py`, `runtime/bootstrap*.py`, `agents/norns.py`, 집중 활성화 및 연결 검사 | Core는 최신 선행 조건 근거를 집약하고, 런타임은 기본적으로 닫힌 결정을 Norns의 비활성 후보 게시 경계에만 주입하며, 감독되는 새로 고침이 실패하면 카탈로그 또는 승격 권한을 바꾸지 않고 로컬 게이트를 닫습니다. |
 | 로컬 telemetry 쓰기 경계 | implemented | `shared/telemetry/logging.py`, `capture-local-service-log.py`, 집중 telemetry·launcher·provider integration·framework layout 검사 | Shared telemetry는 범위가 제한된 구조화 경고 보존과 의존성 요약을 소유합니다. 로컬 launcher는 터미널 표시와 완전한 회전 파일 캡처를 소유하며, 어느 경로도 에이전트 전달이나 권한을 바꾸지 않습니다. |
 | Pre-dispatch kinetic safety 경계 | implemented | `core/operational_planning/kinetic_safety.py`, `delivery/kinetic_safety.py`, `delivery/kinetic_proposal.py`, `runtime/control_loop.py`, 집중 dispatch, HIL, artifact, proposal 및 runtime 검사(`119 passed`) | Core는 프로바이더 중립 ordering seam을 선언합니다. Delivery는 영속 OperationalPlan 및 proposal lineage를 다시 검증하고 correlation index에 있는 기존 exact V2 proposal과 기존 typed Action을 결합하며 runtime은 모든 Thor 실행기 전에 ControlLoop와 HIL resume이 하나의 writer를 공유하도록 합니다. Proposal이 없으면 legacy 동작을 유지하고 invalid evidence는 권한을 높이지 않은 채 dispatch를 차단합니다. |
@@ -30,6 +31,7 @@ translation_revised: 2026-08-19
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-20 | 구현됨 | 후보 계획 경계에서 결정론적 복수 필터 보존을 완성했습니다. 모델이 선택한 존재 조건식이 카탈로그에 선언된 다른 필터를 더 이상 누락하지 않으며, frame이 보존한 정확한 자유 텍스트 subject는 운영자가 그대로 작성한 경우에만 fragment 조건식이 됩니다. | `current change`, [이슈 #241](https://github.com/dotnetpower/fdai/issues/241), 의미 계획 검사 79개 통과, Ruff, formatting 및 strict mypy 통과 | 작업을 닫기 전에 인증된 Console 및 3개 viewport 표현 근거를 보존합니다. |
 | 2026-08-19 | implemented | 보존 경고 쓰기를 hot path에서 추가 전용으로 유지하고, 프로세스 간 24시간 압축을 조정하며, 잠금 대기와 구조화 레코드에 상한을 두고, 완전한 로컬 파일 캡처를 터미널 역압력과 분리했습니다. 반복 aiokafka와 Pantheon 관찰자 실패는 서로 다른 최초·주기 근거를 보존하고, 관찰자 복구는 전달이나 권한을 바꾸지 않고 bridge 소유 횟수를 기록합니다. | [이슈 #220](https://github.com/dotnetpower/fdai/issues/220), 집중 검사에서 telemetry 18건·launcher 16건·provider integration 45건·framework layout 11건 통과, Ruff 및 strict mypy 통과, 비평 16회 결과 Low 잔여 tradeoff만 남음 | 구현을 런타임 근거로 취급하기 전에 실제 로컬 프로세스를 다시 시작합니다. 배포 및 승격 근거는 변경되지 않았습니다. |
 | 2026-08-19 | implemented | 프로바이더 중립 Inventory seam을 exact 0-or-all 신원 완전성 증적으로 확장하고 Azure의 미분류 행 조회는 delivery에 유지했습니다. `wire_inventory.py`는 집계와 신원 읽기를 하나의 semaphore와 원자적 최종 fence 아래에서 연결하고 Core는 canonical Resource 레코드만 받으며 composition facade는 적용되는 400 LOC 상한 아래에 남습니다. | [이슈 #217](https://github.com/dotnetpower/fdai/issues/217). Focused 검사 259개, Ruff, strict mypy 및 composition 계약 pin이 통과했습니다. | 검증을 주장하기 전에 새로운 실제 재조정 증적 하나를 보존합니다. |
 | 2026-08-19 | implemented | 통제된 규칙 발견의 최초 활성화 전이를 수정했습니다. 상태가 없으면 이제 감사 기록을 포함한 원자적 생성을 사용하고, 이후 전이는 revision 비교 후 설정을 유지하며, 동시 생성에 실패하면 후보 게시를 허용하지 않고 계속 차단합니다. | `current change`; `core/readiness/discovery_activation.py`, `tests/core/readiness/test_discovery_activation.py`; 영속 저장소의 상태 부재 동작을 재현하는 회귀 검사를 포함해 집중 활성화 검사 20개가 통과했습니다. | 운영 검증을 주장하기 전에 Core를 재시작하고 통제된 활성화 전이를 보존합니다. |

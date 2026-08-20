@@ -218,6 +218,7 @@ class SemanticPlanningService:
                     plan,
                     utterance=utterance,
                     descriptors=descriptors,
+                    subject_constraints=frame.subject_constraints,
                 )
                 if grounded:
                     _LOGGER.info(

@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: d97c4e1ad2b30b55e06a8aff602fbb5f56689b3f
-translation_revised: 2026-08-19
+translation_source_sha: 92044e9b343075aa095fcdd6549f298f14700f72
+translation_revised: 2026-08-20
 ---
 
 # 온톨로지 조회 커버리지 구현 계획
@@ -154,6 +154,7 @@ translation_revised: 2026-08-19
 | 통제된 운영 보증 | 진행 중 | [온톨로지 조회 무작위 보증](ontology-query-randomized-assurance-ko.md)과 아래의 검증된 기준선 공백 표 | 로컬 검사는 안전하게 실패하는 조립을 입증하지만 운영 준비 상태를 입증하는 통제된 실제 서비스 간 증적은 없습니다. |
 | 타입 기반 Console 보증 실행기 | 구현됨 | `console-routes.spec.ts`, `ontology-query-assurance.ts`, `ontology-query-assurance.spec.ts`, focused Console 검사 | 한 실행기는 게시, Core 처리, exact projection 읽기 및 인증된 증적 렌더링을 검증합니다. Seed 기반 100-turn 실행기는 타입 전용 oracle로 영어 50개와 한국어 50개 prompt를 다룹니다. 보존 artifact가 통과하기 전에는 어느 구현도 실제 운영 근거가 아닙니다. |
 | T1 명확화 평가 | 구현됨 | `semantic_planning_models.py`, `semantic_planning_cascade.py`, focused tier-routing 및 prompt 검사 | Frame 제안은 누락된 사용자 맥락을 범위가 제한된 `clarification_requirements`로 분류합니다. 정당한 T1 명확화는 T2 없이 종료되고, Core가 이미 바인딩한 principal 범위 또는 용도를 요청하는 제안은 결정론적으로 유효하지 않으며 frame 단계만 T2로 한 번 재시도할 수 있습니다. |
+| 명시적 리소스 필터 근거 확인 | 구현됨 | `semantic_planning_value_filters.py`, `test_semantic_planning.py`, focused 플래너 검사(`27 passed`) | Core는 발화에 명시된 모든 카탈로그 값 필터와 frame이 보존한 정확한 자유 텍스트 subject 하나를 유지합니다. 결과를 좁히는 조건식만 추가하고 subject가 발화에 그대로 존재해야 하며 실행 권한을 부여하지 않습니다. |
 | 타입 기반 extension 답변 projection | 구현됨 | `semantic_turn_processor.py`, focused Core processor 테스트 | 검증된 `TopologyGraphAt`, `TopologyDiff`, `MetricWindow`, `CausalEvidenceJoin` 출력은 exact digest, 완전성, 개수, 제한 사항 및 `execution_authority=false`가 있는 범위 제한 요약으로 렌더링됩니다. Raw provider payload는 계속 제외하고 evidence reference는 기존 receipt 경로로 전달합니다. |
 | Principal 범위 스키마 인벤토리 | 구현됨 | `core/ontology_platform/manifest_queries.py`, `composition/wire_semantic_query.py`, focused 매니페스트, 핸들러, 조립 및 prompt 검사(`42 passed`) | `query.manifest`는 exact role 및 purpose 필터가 적용된 매니페스트에서 선언 인벤토리 질문에 범위 제한 일반 table과 호출 증적 하나로 답합니다. 임의 관계 또는 인스턴스 조회로 대체하지 않습니다. |
 | 인시던트 의미 근거 | 구현됨 | `core/incident/ontology_projection.py`, `core/ontology_platform/incident_queries.py`, focused Core, Operator 및 Console 검사 | Canonical 인시던트 상태를 ObjectSet으로 조회할 수 있고 T0는 범위가 제한된 영향 근거를 기록하며, `query.incident_evidence`는 서로 다른 canonical 인시던트 신원과 감사 상관관계 신원을 보존하면서 감사 기반 프로파일, 상관 기록, 인용으로 근거를 확인한 기록된 근본 원인 또는 허용 목록의 결정론적 최종 실패, 영향 근거, 인용 및 명시적 공백을 반환합니다. 경로는 읽기 전용이며 실행 권한을 부여하지 않습니다. 인증된 Console 근거는 아직 남아 있습니다. |
@@ -234,6 +235,7 @@ translation_revised: 2026-08-19
 | 2026-08-18 | implemented | 의미 turn이 관측한 단계를 스트림에서 주소 지정 가능한 step으로 만들었습니다. Operator가 진행 이벤트만 발행해 Console의 관측 과정 타임라인이 그릴 대상이 없었고, 답변이 도착할 때까지 한 줄이 고정돼 있었습니다. 이제 관측된 각 단계가 제한된 step을 함께 발행하며, 대기 step은 종단 projection이 생길 때까지 running으로 보고되고 disposition과 무관하게 종단 이벤트 전에 정리됩니다. | `current change`, [Issue #187](https://github.com/dotnetpower/fdai/issues/187), focused Operator 검사 394개 통과, Ruff 및 strict mypy 통과, 실제 turn이 running 대기 step과 완료 step 5개로 표시 | Core는 종단 projection 하나만 발행하므로 계획 하위 단계는 스트림이 관측하지 못하며 보고하지 않습니다. |
 | 2026-08-18 | implemented | 검증된 쿼리를 해당 step에 보고했습니다. 쿼리와 행 수는 이미 종단 projection으로 전달되고 있었지만 근거 step에 연결하는 곳이 없어 Console의 명령 블록에 출처가 없었습니다. 이제 근거 step이 투영된 intent graph와 보고된 출력 행 수로 구성한 제한된 읽기 전용 실행 기록을 담습니다. | `current change`, [Issue #188](https://github.com/dotnetpower/fdai/issues/188), focused Operator 검사 396개 통과, Ruff 및 strict mypy 통과, 실제 turn이 ObjectSet 정의를 코드로 표시 | goal이 여러 개인 plan은 명령을 보고하지 않으므로 복합 쿼리는 기술 세부에만 남습니다. |
 | 2026-08-19 | implemented | `query.manifest` 집계를 frame이 정확히 같은 canonical declaration kind를 요청할 때로 제한했습니다. 인시던트 및 감사 로그 개수 질문은 더 이상 declaration 행으로 대체되지 않으며 T1/T2의 제한된 제안이 결정론적 검증에 실패하면 unsupported가 됩니다. 일치하는 declaration 개수는 계속 유효합니다. | `current change`, [Issue #174](https://github.com/dotnetpower/fdai/issues/174), 재현된 운영 개수 질문 3개와 declaration-kind 불일치 재시도를 포함한 전체 semantic planning tier-routing suite 40개 사례 통과 | 이 수정을 새로운 운영 근거로 취급하기 전에 통제된 대화 보증을 다시 실행합니다. |
+| 2026-08-20 | 구현됨 | 모델이 `Resource.name exists`만 제안한 경우에도 모든 명시적 필터를 보존하도록 했습니다. Core는 frame이 보존한 정확한 이름 조각과 카탈로그가 선언한 리소스 타입 값 그룹을 결합해, 전체 Resource 집합을 실행하는 대신 이름 조각과 리소스 타입 조건식으로 결과를 좁힙니다. 운영자 발화에 없는 subject는 피연산자로 승격하지 않습니다. | `current change`, `semantic_planning_value_filters.py`, `test_semantic_planning.py`, 영어와 한국어를 포함한 focused 의미 계획 파일 27개 사례 통과 | Core를 재시작하고 좁혀진 검증 쿼리, 읽기 쉬운 표, 범위가 제한된 trace 및 가로 overflow가 없음을 보여 주는 인증된 Console 결과를 보존합니다. |
 ### 남은 작업
 
 - [ ] Operator 게시, Core 처리, exact Operator 변환 결과 읽기 및 인증된 Console 렌더링을 포함하는 통제된 요청-Console 증적 하나를 기록합니다. 이중 언어 무작위 보증 집단을 다시 실행하고 통과한 두 근거 기록을 연결합니다.
