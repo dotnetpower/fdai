@@ -1246,6 +1246,7 @@ jobs:
           python3 - <<'PY'
           import json
           import os
+          from pathlib import Path
 
           runtime_image_revision = os.environ.get("FDAI_RUNTIME_IMAGE_REVISION", "")
           runtime_image_digest = os.environ.get("FDAI_RUNTIME_IMAGE_DIGEST", "")
@@ -1274,23 +1275,23 @@ jobs:
                   "source_revision": runtime_image_revision,
                   "digest": runtime_image_digest,
               }
-            resolved_models_path = os.environ.get("FDAI_RESOLVED_MODELS_PATH", "")
-            deployment_models_path = os.environ.get("FDAI_DEPLOYMENT_MODELS_PATH", "")
-            if bool(resolved_models_path) != bool(deployment_models_path):
+          resolved_models_path = os.environ.get("FDAI_RESOLVED_MODELS_PATH", "")
+          deployment_models_path = os.environ.get("FDAI_DEPLOYMENT_MODELS_PATH", "")
+          if bool(resolved_models_path) != bool(deployment_models_path):
               raise SystemExit("protected plan model-resolution evidence is incomplete")
-            if resolved_models_path:
+          if resolved_models_path:
               resolved_digest = os.environ.get("FDAI_RESOLVED_MODELS_SHA256", "")
               deployment_digest = os.environ.get("FDAI_DEPLOYMENT_MODELS_SHA256", "")
               if not all(
-                len(value) == 64 and all(char in "0123456789abcdef" for char in value)
-                for value in (resolved_digest, deployment_digest)
+                  len(value) == 64 and all(char in "0123456789abcdef" for char in value)
+                  for value in (resolved_digest, deployment_digest)
               ):
-                raise SystemExit("protected plan model-resolution evidence is incomplete")
+                  raise SystemExit("protected plan model-resolution evidence is incomplete")
               if not Path(resolved_models_path).is_file() or not Path(deployment_models_path).is_file():
-                raise SystemExit("protected plan model-resolution evidence is incomplete")
+                  raise SystemExit("protected plan model-resolution evidence is incomplete")
               metadata["model_resolution"] = {
-                "resolved_models_digest": resolved_digest,
-                "deployment_models_digest": deployment_digest,
+                  "resolved_models_digest": resolved_digest,
+                  "deployment_models_digest": deployment_digest,
               }
           with open("plan-metadata.json", "w", encoding="utf-8") as stream:
               json.dump(metadata, stream, sort_keys=True, separators=(",", ":"))

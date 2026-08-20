@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: d008952b0eddfb2132a6f6c929fa182067630726
+translation_source_sha: 4a69246516785ed98379c9347dceea2e76390022
 translation_revised: 2026-08-20
 ---
 # 배포 리소스 규약
@@ -53,6 +53,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | 2026-08-20 | implemented | 유휴 partial Event Bus batch에서 `commit_interval_seconds`가 wall-clock flush deadline으로 동작하게 했습니다. 이전에는 다음 메시지가 도착한 뒤에만 interval을 확인해서 마지막 처리 offset이 다음 token recycle까지 commit되지 않고 잘못된 지연을 보고할 수 있었습니다. | `current change`; `event_bus.py`; idle-batch 회귀 검사 및 전체 집중 Event Bus suite 49개 통과; Ruff 및 formatting 통과. | 수정된 Core image를 배포하고 token recycle 전후에 범위가 제한된 지연과 정규화를 확인합니다. |
 | 2026-08-20 | implemented | 리포지토리 수준 LLM 변수가 활성화되어도 monitoring-only 계획이 실제 모델 해석을 실행하지 않게 했습니다. 격리된 monitoring target이 무관한 모델 해석기로 진입해서 run `32374901098`과 `32375097678`이 Terraform 전에 실패했습니다. | `current change`; `.github/workflows/deploy-dev.yml`; focused workflow 계약 검사. | 새로운 보호된 monitoring-only 계획을 만들고 적용한 뒤 경고 발생 및 복구 근거를 보존합니다. |
 | 2026-08-20 | implemented | Azure Monitor action group, diagnostic setting, metric alert 및 scheduled-query alert의 보호된 실제 preflight mapping을 완성했습니다. 프로필이 해당 Terraform create action을 분류하지 못해 run `32376699737`이 계획을 봉인하기 전에 실패했습니다. | `current change`; `.github/workflows/deploy-dev.yml`; focused workflow 및 실제 preflight mapping 테스트. | 새로운 보호된 monitoring-only 계획을 만들고 적용한 뒤 경고 발생 및 복구 근거를 보존합니다. |
+| 2026-08-20 | implemented | Run `32378121573`이 최종 저장 단계에 도달한 뒤 embedded Python 들여쓰기 오류와 누락된 `Path` import를 드러내서 보호된 계획 metadata 봉인을 수정했습니다. 이제 workflow 계약 테스트가 해당 heredoc을 compile합니다. | `current change`; `.github/workflows/deploy-dev.yml`; focused embedded-Python compile 및 workflow 검사. | 새로운 보호된 monitoring-only 계획을 만들고 적용한 뒤 경고 발생 및 복구 근거를 보존합니다. |
 ### 남은 작업
 
 - [ ] 이전 방식 platform 및 ops-bootstrap root의 리포지토리에 안전한 통제된 적용 증적을

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import textwrap
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[3]
@@ -143,6 +144,18 @@ def test_platform_workflow_isolates_monitoring_plan_changes() -> None:
         "monitor-log-alert",
     ):
         assert neutral_type in preflight_step
+
+
+def test_platform_workflow_plan_metadata_python_is_compilable() -> None:
+    step = _LEGACY_WORKFLOW.split("- name: Store protected plan artifact", maxsplit=1)[1].split(
+        "- name: Publish sanitized plan metadata", maxsplit=1
+    )[0]
+    match = re.search(r"python3 - <<'PY'\n(?P<source>.*?)\n\s+PY", step, re.DOTALL)
+
+    assert match is not None
+    source = textwrap.dedent(match.group("source"))
+    compile(source, "deploy-dev-plan-metadata", "exec")
+    assert "from pathlib import Path" in source
 
 
 def test_operator_catalog_materialization_runs_after_schema_migration() -> None:
