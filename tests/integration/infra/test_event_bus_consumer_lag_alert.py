@@ -8,9 +8,10 @@ _MODULE = _ROOT / "infra" / "modules" / "observability" / "monitoring"
 
 def test_monitoring_alerts_on_exported_ingress_consumer_lag() -> None:
     module = (_MODULE / "main.tf").read_text(encoding="utf-8")
+    normalized = " ".join(module.split())
 
     assert 'resource "azurerm_monitor_scheduled_query_rules_alert_v2" "consumer_lag"' in module
-    assert "scopes               = [var.log_analytics_workspace_id]" in module
+    assert "scopes = [var.log_analytics_workspace_id]" in normalized
     assert 'tostring(log.message) == "event_bus_consumer_progress"' in module
     assert 'tostring(log.topic) == "aw.change.events"' in module
     assert "max(tolong(log.consumer_lag))" in module
@@ -18,6 +19,7 @@ def test_monitoring_alerts_on_exported_ingress_consumer_lag() -> None:
     assert "toint(log.partition)" in module
     assert "threshold               = 0" in module
     assert "action_groups = [azurerm_monitor_action_group.primary.id]" in module
+    assert "auto_mitigation_enabled = true" in module
 
 
 def test_consumer_lag_alert_threshold_is_configurable_and_bounded() -> None:

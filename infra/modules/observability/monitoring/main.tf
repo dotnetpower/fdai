@@ -175,16 +175,17 @@ resource "azurerm_monitor_metric_alert" "this" {
 }
 
 resource "azurerm_monitor_scheduled_query_rules_alert_v2" "consumer_lag" {
-  name                 = "alert-${var.workload}-event-bus-consumer-lag"
-  resource_group_name  = var.resource_group_name
-  location             = var.location
-  evaluation_frequency = "PT5M"
-  window_duration      = "PT15M"
-  scopes               = [var.log_analytics_workspace_id]
-  severity             = 2
-  description          = "Event Bus ingress consumer partition lag exceeds its configured bound"
-  display_name         = "Event Bus ingress consumer lag"
-  enabled              = true
+  name                    = "alert-${var.workload}-event-bus-consumer-lag"
+  resource_group_name     = var.resource_group_name
+  location                = var.location
+  evaluation_frequency    = "PT5M"
+  window_duration         = "PT15M"
+  scopes                  = [var.log_analytics_workspace_id]
+  severity                = 2
+  description             = "Event Bus ingress consumer partition lag exceeds its configured bound"
+  display_name            = "Event Bus ingress consumer lag"
+  enabled                 = true
+  auto_mitigation_enabled = true
 
   criteria {
     query                   = <<-KQL
