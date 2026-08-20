@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: a5dee5a29e1bc84d87eb3fa66331516e6e0b77d4
+translation_source_sha: 17e352477d1c6818a8bab0c4fab8431e9a506a16
 translation_revised: 2026-08-20
 ---
 # 코드 맵
@@ -211,6 +211,7 @@ translation_revised: 2026-08-20
 | 2026-08-20 | 구현됨 | Downstream composition 테스트에서 `network security group` false positive를 재현한 뒤 explicit 영어 grouping detector를 수정했습니다. Bare `group`만으로는 충분하지 않으며 명령형 grouping에는 범위가 제한된 뒤따르는 `by`가 필요하고 canonical manifest aggregate fixture는 operation `aggregate`를 선언합니다. | `current change`, 실패했던 composition consumer 2개와 aggregation guard control 7개가 통과했고 전체 집중 slice 82개와 Ruff, format, strict mypy가 통과했습니다. | 수정된 소스에서 통과한 정확한 source strict-v2 및 seeded 보증 기록을 보존합니다. |
 | 2026-08-20 | 구현됨 | 적대적 검토 뒤 rejection-only aggregation 일치 guard에 일반적인 한국어 `그루핑`과 `합계` operator를 추가했습니다. 두 표현은 nonaggregation frame을 invalid로 만들 수 있지만 plan을 선택하거나 범위를 넓히거나 권한을 부여할 수 없습니다. | `current change`, aggregation guard control 9개와 전체 집중 slice 84개가 Ruff, format, strict mypy와 함께 통과했습니다. | 수정된 소스에서 통과한 정확한 source strict-v2 및 seeded 보증 기록을 보존합니다. |
 | 2026-08-20 | 구현됨 | 실행 r13에서 한국어 listing 하나가 aggregate 답변으로 나타난 뒤 대칭적인 listing-versus-aggregation consistency를 추가했습니다. 명시적 listing은 명시적 count, total 또는 grouping operator가 없을 때만 aggregation을 거부하고 prompt v27도 같은 우선순위를 보존합니다. | `current change`, 정확한 소스 실행 `question-space-final-f7fff0f9e-20260820-r13`, 집중 대칭, 이중 언어, 우선순위, domain noun, false-positive control 13개 통과 | 수정된 소스에서 통과한 정확한 source strict-v2 및 seeded 보증 기록을 보존합니다. |
+| 2026-08-20 | 구현됨 | Aggregate 및 unrelated fixture 발화를 수정한 뒤 listing-intent 집중 검증을 확장했습니다. | `current change`, 전체 contract, 의미, prompt, composition slice 88개가 Ruff, format, strict mypy와 함께 통과 | 수정된 소스에서 통과한 정확한 source strict-v2 및 seeded 보증 기록을 보존합니다. |
 
 ### 남은 작업
 

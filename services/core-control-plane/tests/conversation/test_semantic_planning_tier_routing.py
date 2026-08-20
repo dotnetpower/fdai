@@ -1463,7 +1463,7 @@ def test_aggregation_frame_requires_aggregate_plan() -> None:
         now=lambda: NOW,
     )
 
-    outcome = _run(service)
+    outcome = _run(service, utterance="Count matching resources.")
 
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
@@ -1562,6 +1562,62 @@ def test_nonaggregation_request_does_not_require_an_aggregate_frame(
 
 
 @pytest.mark.parametrize(
+    "utterance",
+    (
+        "Show ontology objects in the current inventory generation.",
+        "현재 인벤토리 세대의 온톨로지 객체를 보여 주세요.",
+    ),
+)
+def test_explicit_listing_request_rejects_a_fully_aggregated_frame(
+    utterance: str,
+) -> None:
+    manifest, definition = _fixture()
+    invalid_frame = _frame(
+        operation="aggregate",
+        subject_constraints=["Resource"],
+        measure_concepts=["count"],
+        output_shape="aggregation_table",
+    )
+    t1 = _Model(frame=invalid_frame, plan=_aggregate_plan(definition))
+    t2 = _Model(frame=invalid_frame, plan=_aggregate_plan(definition))
+
+    outcome = _run(_service(t1, t2, manifest), utterance=utterance)
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNSUPPORTED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
+    assert (t2.frame_calls, t2.plan_calls) == (1, 0)
+
+
+@pytest.mark.parametrize(
+    "utterance",
+    (
+        "Show the number of visible resources by class.",
+        "조회 가능한 리소스의 클래스별 합계를 보여 주세요.",
+    ),
+)
+def test_listing_word_does_not_override_an_explicit_aggregation_request(
+    utterance: str,
+) -> None:
+    manifest, definition = _fixture()
+    aggregate_frame = _frame(operation="aggregate", output_shape="aggregation_table")
+    t1 = _Model(frame=aggregate_frame, plan=_aggregate_plan(definition))
+    t2 = _Model(frame=_frame(), plan=_plan(definition))
+    service = SemanticPlanningService(
+        model=t1,
+        escalation_model=t2,
+        manifests=_ManifestProvider(manifest),
+        verifier=_AcceptingVerifier(),  # type: ignore[arg-type]
+        now=lambda: NOW,
+    )
+
+    outcome = _run(service, utterance=utterance)
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (0, 0)
+
+
+@pytest.mark.parametrize(
     ("operation", "output_shape"),
     (
         ("select", "aggregation_table"),
@@ -1605,7 +1661,7 @@ def test_manifest_function_may_feed_declaration_aggregate_output() -> None:
         now=lambda: NOW,
     )
 
-    outcome = _run(service)
+    outcome = _run(service, utterance="How many object declarations are available?")
 
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)

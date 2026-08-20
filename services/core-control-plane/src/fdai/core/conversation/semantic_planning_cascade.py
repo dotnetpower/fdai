@@ -48,6 +48,9 @@ _EXPLICIT_AGGREGATION_REQUEST = re.compile(
     r"\bgroup\b[^.!?\n]{0,80}\bby\b|"
     r"집계|그룹화|그루핑|합계|몇\s*(?:개|건|명)?|개수|수를\s*요약)"
 )
+_EXPLICIT_LISTING_REQUEST = re.compile(
+    r"(?:\b(?:find|list|show|which)\b|나열|보여\s*(?:주세요|줘)|찾아\s*(?:주세요|줘))"
+)
 _SPECIALIZED_FUNCTIONS_BY_OUTPUT_SHAPE = {
     "incident_evidence": frozenset({"query.incident_evidence"}),
     "inventory_impact": frozenset({"query.inventory_impact"}),
@@ -257,8 +260,16 @@ def _validate_frame_proposal(
     is_aggregation = proposal.output_shape == "aggregation_table"
     if (proposal.operation is SemanticOperation.AGGREGATE) != is_aggregation:
         raise ValueError("semantic aggregate operation requires aggregation_table output")
-    if _EXPLICIT_AGGREGATION_REQUEST.search(utterance.casefold()) and not is_aggregation:
+    normalized_utterance = utterance.casefold()
+    explicit_aggregation = _EXPLICIT_AGGREGATION_REQUEST.search(normalized_utterance) is not None
+    if explicit_aggregation and not is_aggregation:
         raise ValueError("explicit aggregation request requires aggregation_table output")
+    if (
+        is_aggregation
+        and not explicit_aggregation
+        and _EXPLICIT_LISTING_REQUEST.search(normalized_utterance) is not None
+    ):
+        raise ValueError("explicit listing request cannot use aggregation_table output")
     if proposal.output_shape in _SCHEMA_LEVEL_OUTPUT_SHAPES and _names_runtime_instance(
         (utterance, *proposal.subject_constraints),
         descriptors=descriptors,
