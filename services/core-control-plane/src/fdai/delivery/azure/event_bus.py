@@ -398,12 +398,34 @@ async def _iter_consumer(
             partition_offsets: dict[int, int] = {}
             last_commit_at = asyncio.get_running_loop().time()
             while True:
-                remaining = refresh_at - asyncio.get_running_loop().time()
-                if remaining <= 0:
+                now = asyncio.get_running_loop().time()
+                refresh_remaining = refresh_at - now
+                if refresh_remaining <= 0:
                     break
+                commit_remaining = (
+                    config.commit_interval_seconds - (now - last_commit_at)
+                    if uncommitted
+                    else refresh_remaining
+                )
+                if uncommitted and commit_remaining <= 0:
+                    await _commit_consumer_progress(
+                        consumer,
+                        topic=topic,
+                        group_id=group_id,
+                        partition_offsets=partition_offsets,
+                    )
+                    uncommitted = 0
+                    partition_offsets.clear()
+                    last_commit_at = now
+                    continue
                 try:
-                    message = await asyncio.wait_for(consumer.getone(), timeout=remaining)
+                    message = await asyncio.wait_for(
+                        consumer.getone(),
+                        timeout=min(refresh_remaining, commit_remaining),
+                    )
                 except TimeoutError:
+                    if uncommitted:
+                        continue
                     break
                 key = _decode_key(message.key)
                 payload = _decode(message.value, topic=message.topic, key=key)

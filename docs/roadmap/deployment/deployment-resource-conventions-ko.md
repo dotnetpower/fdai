@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 8ae093c34255e7191f0f9e7be93cf968c5bd360c
+translation_source_sha: 9fc51b92a6d968a8ba60807b97866a284fbb3287
 translation_revised: 2026-08-20
 ---
 # 배포 리소스 규약
@@ -27,7 +27,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | Operator schema 및 catalog Job 명명 | implemented | `infra/main.tf`, `infra/modules/operator-api/container-app/`, `.github/workflows/deploy-dev.yml` 및 집중 배포 workflow 테스트 | 결정론적 이름과 digest-pinned image를 연결했으며 순서가 지정된 Job의 보호된 적용 증적은 열려 있습니다. |
 | 예약된 규칙 수집기 Job | implemented | `infra/main.tf`; `infra/modules/compute/container-apps/rule_watcher_job.tf`; `tests/integration/infra/test_rule_watcher_job.py`; 집중 인프라 검사(`26 passed`) 및 `terraform validate` | 구성 가능한 cron이 실행 권한이 없는 인벤토리 신원과 네이티브 StateStore 비밀 참조를 사용해 검증된 수집기 wrapper를 호출합니다. 실행기 신원을 받거나 카탈로그 항목을 승격할 수 없습니다. 보호된 적용 및 실행 증적은 열려 있습니다. |
 | 브라우저 근거 정리 Job 명명 | implemented | `infra/main.tf`; `tests/integration/infra/test_browser_evidence_cleanup_job.py`; focused 검사(`4 passed`) 및 `terraform validate` | `caj-<workload>[-env][-region]-browser-gc`는 허용된 모든 환경에서 Azure 32자 한계를 지킵니다. Protected 적용 근거는 남아 있습니다. |
-| Event Bus 소비자 지연 경고 | implemented | `event_bus.py`; `infra/modules/observability/monitoring/`; `.github/workflows/deploy-dev.yml`; 집중 소비자, 인프라 및 workflow 검사; strict mypy 및 `terraform validate` | 범위가 제한된 commit이 정제된 파티션 진행률과 지연을 내보냅니다. Broker 기반 heartbeat도 downstream 처리가 멈춘 동안 할당된 파티션을 보고하므로 commit 진행률이 0이어도 소비자가 유휴 상태로 보이지 않습니다. 명시적 `deploy_monitoring` 보호 입력은 monitoring module만 대상으로 하고 그 밖의 변경을 차단하며, 보호된 적용 증적은 열려 있습니다. |
+| Event Bus 소비자 지연 경고 | implemented | `event_bus.py`; `infra/modules/observability/monitoring/`; `.github/workflows/deploy-dev.yml`; 집중 소비자, 인프라 및 workflow 검사; strict mypy 및 `terraform validate` | 범위가 제한된 commit이 정제된 파티션 진행률과 지연을 내보냅니다. Broker 기반 heartbeat도 downstream 처리가 멈춘 동안 할당된 파티션을 보고하며, 유휴 partial batch는 wall-clock commit deadline에 flush됩니다. 명시적 `deploy_monitoring` 보호 입력은 monitoring module만 대상으로 하고 그 밖의 변경을 차단하며, 보호된 적용 증적은 열려 있습니다. |
 | 보호된 모델 해석 산출물 | implemented | `.github/workflows/deploy-dev.yml`; `model_lifecycle_reconciler.py`; 집중 수명 주기, 계획 검증기, Terraform 및 CI 보안 검사 | 보호된 계획은 전체 및 배포 전용 매니페스트와 SHA-256 다이제스트를 봉인합니다. Exact apply가 그 byte를 복원하며 런타임은 같은 인라인 JSON과 다이제스트를 받습니다. |
 
 ### 구현 이력
@@ -50,6 +50,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | 2026-08-20 | implemented | 할당된 각 Event Bus 파티션을 위한 독립적인 broker 기반 지연 heartbeat를 추가했습니다. Downstream 처리가 멈추고 commit이 완료되지 않아도 정제된 진행률을 계속 내보내며, 한 sampling deadline 안에 broker 읽기를 닫고, 변경 없는 catch-up 행을 억제하며, local 및 deployed transport에서 동작합니다. | `current change`; `event_bus.py`; `test_event_bus.py`; 집중 Event Bus 검사 48개 통과. | 경고를 `validated`로 분류하기 전에 모니터링 계획을 적용하고 실제 경고 발생 및 복구 증적을 보존합니다. |
 | 2026-08-20 | implemented | 기존 선택적 모니터링 모듈을 dev, staging 및 production에서 사용할 수 있는 명시적 보호 workflow 입력으로 노출했습니다. 이전에는 `deploy-dev.yml`이 production 결합 안에서만 모니터링을 활성화할 수 있어 구현된 소비자 지연 경고를 dev에 계획하거나 적용할 수 없었습니다. | `current change`; `.github/workflows/deploy-dev.yml`; focused workflow 계약 검사. | 경고를 `validated`로 분류하기 전에 정확한 dev 모니터링 계획을 적용하고 실제 경고 발생 및 복구 증적을 보존합니다. |
 | 2026-08-20 | implemented | `deploy_monitoring` 계획을 `module.monitoring`으로 격리하고, 해당 module 밖의 모든 계획 변경을 차단했으며, design-mocks-only 경로와 monitoring을 함께 선택하지 못하게 했습니다. 기존 선택적 리소스는 저장된 계획에 들어가지 않은 채 입력에서 계속 활성화할 수 있습니다. | `current change`; `.github/workflows/deploy-dev.yml`; `tests/integration/scripts/test_service_deploy_workflow.py`; 집중 monitoring 격리 검사 1개 통과. | 보호된 monitoring-only 계획을 실행해 예상하지 않은 변경이 없음을 확인한 뒤 실제 경고 발생 및 복구 근거를 보존합니다. |
+| 2026-08-20 | implemented | 유휴 partial Event Bus batch에서 `commit_interval_seconds`가 wall-clock flush deadline으로 동작하게 했습니다. 이전에는 다음 메시지가 도착한 뒤에만 interval을 확인해서 마지막 처리 offset이 다음 token recycle까지 commit되지 않고 잘못된 지연을 보고할 수 있었습니다. | `current change`; `event_bus.py`; idle-batch 회귀 검사 및 전체 집중 Event Bus suite 49개 통과; Ruff 및 formatting 통과. | 수정된 Core image를 배포하고 token recycle 전후에 범위가 제한된 지연과 정규화를 확인합니다. |
 ### 남은 작업
 
 - [ ] 이전 방식 platform 및 ops-bootstrap root의 리포지토리에 안전한 통제된 적용 증적을

@@ -578,6 +578,63 @@ async def test_consumer_flushes_partial_batch_before_token_refresh(
 
 
 @pytest.mark.asyncio
+async def test_consumer_flushes_partial_batch_at_commit_interval_while_idle(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    committed = asyncio.Event()
+    delivered = False
+
+    class _Message:
+        topic = "aw.change.events"
+        partition = 0
+        key = b"resource"
+        value = b'{"event_id":"e"}'
+        offset = 7
+
+    class _IdleConsumer:
+        def __init__(self, *_args: object, **kwargs: object) -> None:
+            self.provider = kwargs["sasl_oauth_token_provider"]
+
+        async def start(self) -> None:
+            await self.provider.token()
+
+        async def stop(self) -> None:
+            return None
+
+        async def getone(self) -> object:
+            nonlocal delivered
+            if not delivered:
+                delivered = True
+                return _Message()
+            await asyncio.Future()
+
+        async def commit(self) -> None:
+            committed.set()
+
+        def highwater(self, _partition: object) -> int:
+            return 8
+
+    monkeypatch.setattr(event_bus_module, "AIOKafkaConsumer", _IdleConsumer)
+    monkeypatch.setattr(event_bus_module, "_token_refresh_delay", lambda **_kwargs: 3600.0)
+    iterator = _iter_consumer(
+        topic="aw.change.events",
+        group_id="fdai-pantheon.Huginn",
+        config=_cfg(commit_max_records=50, commit_interval_seconds=0.01),
+        identity=_StaticIdentity(),
+        audience="https://evhns.servicebus.windows.net/.default",
+    )
+
+    assert (await anext(iterator)).offset == 7
+    pending = asyncio.create_task(anext(iterator))
+    try:
+        await asyncio.wait_for(committed.wait(), timeout=0.5)
+    finally:
+        pending.cancel()
+        await asyncio.gather(pending, return_exceptions=True)
+        await iterator.aclose()
+
+
+@pytest.mark.asyncio
 async def test_consumer_exports_partition_progress_and_lag_after_commit(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
