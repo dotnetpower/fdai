@@ -1,8 +1,8 @@
 ---
 title: Phase 0 - 계측과 언블록
 translation_of: phase-0-instrumentation.md
-translation_source_sha: 6b9e8fedb87433f061cc5b39d984242db502c096
-translation_revised: 2026-08-11
+translation_source_sha: 2b58c73ecb069bb5f75e454bca1eedae361b5c92
+translation_revised: 2026-08-20
 ---
 
 # 단계 0 - 계측과 언블록
@@ -160,57 +160,7 @@ P0에는 enforce-mode 능력이 범위에 없음.
 
 ### 시퀀싱된 태스크 타임라인
 
-```mermaid
-gantt
-    title Phase 0 - Implementation Sequence
-    dateFormat X
-    axisFormat %s
-
-    section WI4 identity (critical path)
-    W4.1 Bootstrap modules    :w41, 0, 10
-    W4.2 Executor MI          :w42, after w41, 4
-    W4.3 Policy deny          :w43, after w42, 4
-    W4.4 LPP probe            :w44, after w43, 2
-    W4.5 App regs             :w45, after w41, 4
-    W4.6 Entra groups         :w46, after w45, 2
-    W4.7 Conditional access   :w47, after w46, 2
-    W4.8 Recertification      :w48, after w47, 1
-
-    section WI1 telemetry
-    W1.1 Skeleton             :w11, 0, 1
-    W1.2 Ontology contracts   :w12, after w11, 4
-    W1.3 Config loader        :w13, after w11, 1
-    W1.4 OTel wiring          :w14, after w13, 4
-    W1.5 DDL instance+audit   :w15, after w12, 4
-    W1.6 DDL layered cache    :w16, after w15, 1
-    W1.7 CI baseline          :w17, after w11, 4
-    W1.8 Golden fixture       :w18, after w15, 4
-    W1.9 KPI dashboard        :w19, after w18, 4
-
-    section WI2 scenarios
-    W2.1 Schema               :w21, after w12, 1
-    W2.2 Author               :w22, after w21, 4
-    W2.3 Freeze               :w23, after w22, 1
-    W2.4 Coverage tests       :w24, after w22, 1
-
-    section WI3 baseline (blocked by W2.3)
-    W3.1 Reference agent      :w31, after w23, 4
-    W3.2 Runner CLI           :w32, after w31, 1
-    W3.3 Report               :w33, after w32, 1
-    W3.4 Repro CI             :w34, after w33, 4
-
-    section WI5 exemption
-    W5.1 Schema + template    :w51, after w12, 1
-    W5.2 CI check             :w52, after w51, 1
-    W5.3 Expiry job           :w53, after w51, 4
-    W5.4 Lookahead digest     :w54, after w53, 1
-    W5.5 Runbook              :w55, after w51, 1
-
-    section WI6 local dev preset
-    W6.1 Provider interfaces  :w61, after w12, 1
-    W6.2 In-memory fakes      :w62, after w61, 4
-    W6.3 Docker Compose       :w63, after w61, 3
-```
+![시퀀싱된 태스크 타임라인. 주요 단계는 W4.1 Bootstrap modules, W4.2 Executor MI, W4.3 Policy deny, W4.4 LPP probe, W4.5 App regs, W4.6 Entra groups, W4.7 Conditional access, W4.8 Recertification, W1.1 Skeleton, W1.2 Ontology contracts, W1.3 Config loader, W1.4 OTel wiring입니다.](../../diagrams/generated/fdai-roadmap-phases-phase-0-instrumentation-01.ko.svg)
 
 ### Critical-Path 규칙
 
@@ -237,6 +187,25 @@ gantt
 4. **Shadow-mode 기본** - 태스크가 실행할 *가능한* 능력을 도입하면 출시 기본은
    `enforcement: do-not-enforce`.
 5. **감사 로그 엔트리 발행** - 런타임에 상태-변경 태스크(Terraform 적용 포함) 에 대해.
+
+## 구현 상태
+
+### 구현 범위
+
+| 영역 | 상태 | 근거 | 참고 |
+|------|------|------|------|
+| Phase 0 작업 W1-W6 | in-progress | 이 문서의 작업별 산출물 및 수용 검사, 각 작업에서 이름을 명시한 현재 소스 및 테스트 경로 | 이 ledger 도입은 리포지토리 형태만으로 완료를 추론하지 않습니다. 각 작업은 자체 수용 검사와 아래 종료 기준을 계속 적용합니다. |
+| 순차 작업 타임라인 | implemented | `docs/diagrams/fdai-roadmap-phases-phase-0-instrumentation-01.diagram.yaml`, `npm --prefix tools/architecture-diagrams run check` | 유지 관리되는 이중 언어 FDAI 다이어그램이 작업 의존성이나 구현 권한을 바꾸지 않고 기존 Mermaid 렌더링을 대체합니다. |
+
+### 구현 이력
+
+| 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
+|------|------|------|------|-----------|
+| 2026-08-20 | in-progress | 구현 ledger를 도입했으며 이전 작업 이력은 재구성하지 않았습니다. 작업 타임라인을 리포지토리 소유 이중 언어 다이어그램으로 교체했습니다. | `current change`, Phase 0 로드맵 문서 쌍, 다이어그램 명세, 집중 다이어그램 검사 | Scope row를 implemented 또는 validated로 높이기 전에 W1-W6의 각 수용 검사를 현재 구현 및 CI 근거와 비교해 검토합니다. |
+
+### 남은 작업
+
+- [ ] 모든 W1-W6 작업을 선언된 수용 검사와 비교해 분류하고 현재 소스 및 CI 근거를 인용한 뒤, 독립적으로 증명할 수 있는 상태가 다르면 집계 scope row를 분리합니다.
 
 ## 데이터와 범위 제약
 

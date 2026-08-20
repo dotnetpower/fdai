@@ -1,8 +1,8 @@
 ---
 title: 고객 워크플로 자동화 제공 계획
 translation_of: customer-workflow-automation-plan.md
-translation_source_sha: 9d201c43e2e29198fed643754dee8c8a236bfe84
-translation_revised: 2026-08-14
+translation_source_sha: 1eefd6256e48b04f3be2b645c9b76f8f27790e03
+translation_revised: 2026-08-20
 ---
 
 # 고객 워크플로 자동화 제공 계획
@@ -54,17 +54,7 @@ translation_revised: 2026-08-14
 각 웨이브에는 릴리스 게이트가 있으며, 한 웨이브의 통과가 이후 웨이브의 권한을 부여하지는
 않습니다.
 
-```mermaid
-flowchart LR
-    A[발견 및 범위 제한] --> B[컴파일 및 검증]
-    B --> C[재생 및 관찰]
-    C --> D[승인 및 선택 도구 적용]
-    D --> E[제한된 변경 추가]
-    E --> F[확장 및 운영]
-    C -. 회귀 .-> B
-    D -. 정책 이탈 .-> C
-    E -. 롤백 실패 .-> C
-```
+![설계 요약. 주요 단계는 발견 및 범위 제한, 컴파일 및 검증, 재생 및 관찰, 승인 및 선택 도구 적용, 제한된 변경 추가, 확장 및 운영입니다.](../../diagrams/generated/fdai-roadmap-decisioning-customer-workflow-automation-plan-01.ko.svg)
 
 ## 목표 결과
 

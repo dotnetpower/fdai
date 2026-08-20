@@ -1,8 +1,8 @@
 ---
 title: 권한 인식 관측 캠페인
 translation_of: observation-campaign.md
-translation_source_sha: d013eb46cd4809c4e08fe2f3979b6b757666ef4c
-translation_revised: 2026-08-19
+translation_source_sha: d0eb0fd3b6e45657849059e396e3d9d3c2f935d9
+translation_revised: 2026-08-20
 ---
 
 # 권한 인식 관측 캠페인
@@ -68,16 +68,7 @@ translation_revised: 2026-08-19
 타입이 지정된 경로에서 의미 있는 근거를 소비하며 프로바이더를 호출하거나 캠페인 작업을 직접
 시작하지 않습니다.
 
-```mermaid
-flowchart LR
-    T[예약 기동] --> R[출처 레지스트리 및 실행 조건 게이트]
-    R --> P[권한 및 준비 상태 검사]
-    P --> A[범위가 제한된 프로바이더 어댑터]
-    A --> S[영속 출처 결과 및 커서]
-    S --> AA[Agent Activity 요약]
-    S --> G[Saga 감사 근거]
-    N[출처별 타입 수집 및 분석] --> H[책임 에이전트]
-```
+![설계 개요. 주요 단계는 예약 기동, 출처 레지스트리 및 실행 조건 게이트, 권한 및 준비 상태 검사, 범위가 제한된 프로바이더 어댑터, 영속 출처 결과 및 커서, Agent Activity 요약, Saga 감사 근거, 출처별 타입 수집 및 분석, 책임 에이전트입니다.](../../diagrams/generated/fdai-roadmap-operations-observation-campaign-01.ko.svg)
 
 ## 출처 카탈로그
 

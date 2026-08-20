@@ -1,0 +1,144 @@
+id: fdai-roadmap-interfaces-azure-resource-discovery-commands-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: Design at a glance. The main stages are Operator question, DiscoveryIntent, Ontology and provider profile,
+      DiscoveryQueryPlan, Backend router, Promoted inventory, Resource Graph, ARM, registered CLI, or typed data plane,
+      Normalized evidence, Sanitized command explanation, Grounded ChatOps answer.
+  ko:
+    title: 설계 요약
+    description: 설계 요약에 대한 FDAI 흐름입니다.
+    alt: 설계 요약. 주요 단계는 Operator question, DiscoveryIntent, Ontology and provider profile, DiscoveryQueryPlan, Backend
+      router, Promoted inventory, Resource Graph, ARM, registered CLI, or typed data plane, Normalized evidence,
+      Sanitized command explanation, Grounded ChatOps answer입니다.
+canvas:
+  width: 1600
+  height: 990
+  direction: RIGHT
+groups: []
+nodes:
+  - id: q
+    kind: process
+    shape: card
+    label:
+      en: Operator question
+      ko: Operator question
+  - id: i
+    kind: process
+    shape: card
+    label:
+      en: DiscoveryIntent
+      ko: DiscoveryIntent
+  - id: o
+    kind: process
+    shape: card
+    label:
+      en: Ontology and provider profile
+      ko: Ontology and provider profile
+  - id: p
+    kind: process
+    shape: card
+    label:
+      en: DiscoveryQueryPlan
+      ko: DiscoveryQueryPlan
+  - id: r
+    kind: decision
+    shape: diamond
+    label:
+      en: Backend router
+      ko: Backend router
+  - id: inv
+    kind: process
+    shape: card
+    label:
+      en: Promoted inventory
+      ko: Promoted inventory
+  - id: arg
+    kind: process
+    shape: card
+    label:
+      en: Resource Graph
+      ko: Resource Graph
+  - id: az
+    kind: process
+    shape: card
+    label:
+      en: ARM, registered CLI, or typed data plane
+      ko: ARM, registered CLI, or typed data plane
+  - id: e
+    kind: process
+    shape: card
+    label:
+      en: Normalized evidence
+      ko: Normalized evidence
+  - id: c
+    kind: process
+    shape: card
+    label:
+      en: Sanitized command explanation
+      ko: Sanitized command explanation
+  - id: a
+    kind: process
+    shape: card
+    label:
+      en: Grounded ChatOps answer
+      ko: Grounded ChatOps answer
+edges:
+  - id: flow-01
+    from: q
+    to: i
+    kind: request
+  - id: flow-02
+    from: i
+    to: o
+    kind: request
+  - id: flow-03
+    from: o
+    to: p
+    kind: request
+  - id: flow-04
+    from: p
+    to: r
+    kind: request
+  - id: flow-05
+    from: r
+    to: inv
+    kind: request
+  - id: flow-06
+    from: r
+    to: arg
+    kind: request
+  - id: flow-07
+    from: r
+    to: az
+    kind: request
+  - id: flow-08
+    from: inv
+    to: e
+    kind: request
+  - id: flow-09
+    from: arg
+    to: e
+    kind: request
+  - id: flow-10
+    from: az
+    to: e
+    kind: request
+  - id: flow-11
+    from: p
+    to: c
+    kind: request
+  - id: flow-12
+    from: e
+    to: a
+    kind: request
+  - id: flow-13
+    from: c
+    to: a
+    kind: request

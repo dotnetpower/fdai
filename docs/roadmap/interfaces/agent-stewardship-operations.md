@@ -24,23 +24,7 @@ The lifecycle has four independent safety boundaries:
 4. **Merge observation** verifies the GitHub signature, re-reads changed files and merged content,
    then writes the merge audit and notifies the new accountable owners.
 
-```mermaid
-flowchart LR
-    TF[Terraform bindings] --> START[Production startup validation]
-    START --> VIEW[GET /stewardship]
-    START --> HEALTH[Scheduled Entra liveness check]
-    FORM[Guided registration form] --> DOC[Grounded handover upload]
-    DOC --> DRAFT[Durable handover draft]
-    DRAFT --> PR[Idempotent draft governance PR]
-    PR --> REVIEW[Git review and approval]
-    REVIEW --> HOOK[Signed merge webhook]
-    HOOK --> VERIFY[GitHub files and merged YAML re-read]
-    VERIFY --> AUDIT[Append-only Saga audit]
-    VERIFY --> NOTIFY[Accountable owners and maintainer notification]
-    HEALTH --> AUDIT
-    PR --> AUDIT
-    PR --> NOTIFY
-```
+![Design at a glance. The main stages are Terraform bindings, Production startup validation, GET /stewardship, Scheduled Entra liveness check, Guided registration form, Grounded handover upload, Durable handover draft, Idempotent draft governance PR, Git review and approval, Signed merge webhook, GitHub files and merged YAML re-read, Append-only Saga audit.](../../diagrams/generated/fdai-roadmap-interfaces-agent-stewardship-operations-01.en.svg)
 
 ## Implementation status
 

@@ -40,15 +40,7 @@ question through the real Console Command Deck, waited for terminal assistant ca
 separate tool-disabled judge. The judge scored whether the requested operation was understood and
 whether the final disposition and evidence were sufficient as two independent dimensions.
 
-```mermaid
-flowchart LR
-    Q[100 generated questions] --> V[Mechanical cohort validation]
-    V --> C[Authenticated Console Command Deck]
-    C --> T[Terminal response capture]
-    T --> J[Independent evidence-aware judge]
-    J --> R[Intent and answer rates]
-    R --> D[Release decision and action ledger]
-```
+![Historical design at a glance. The main stages are 100 generated questions, Mechanical cohort validation, Authenticated Console Command Deck, Terminal response capture, Independent evidence-aware judge, Intent and answer rates, Release decision and action ledger.](../../diagrams/generated/fdai-roadmap-interfaces-ontology-query-randomized-assurance-01.en.svg)
 
 ## Historical method
 

@@ -145,19 +145,7 @@ evaluation gates, and failed-query feedback loop.
 FDAI resolves meaning before it ranks Rules. Exact catalog identity and reviewed ontology links
 constrain the candidate set, while lexical and vector retrieval absorb natural-language variation.
 
-```mermaid
-flowchart LR
-    Q[Operator question] --> I[Interpretation candidate]
-    I --> C[Ontology concepts]
-    C --> G[Bounded graph expansion]
-    G --> R[Hybrid Rule retrieval]
-    R --> V[Catalog and generation verification]
-    V --> D{Operation class}
-    D -->|discover or explain| A[Read-only answer]
-    D -->|evaluate| T[Existing T0 and OPA path]
-    D -->|action draft| P[Governed ActionType proposal]
-    V -->|ambiguous| H[Clarification or hold]
-```
+![Design at a glance. The main stages are Operator question, Interpretation candidate, Ontology concepts, Bounded graph expansion, Hybrid Rule retrieval, Catalog and generation verification, Operation class, Read-only answer, Existing T0 and OPA path, Governed ActionType proposal, Clarification or hold.](../../diagrams/generated/fdai-roadmap-rules-and-detection-rule-semantic-retrieval-01.en.svg)
 
 The flow preserves three distinctions:
 

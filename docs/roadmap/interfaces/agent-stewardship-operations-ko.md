@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-operations.md
-translation_source_sha: 0856454aef94c9a42de5f2ffda3d67deee85c0fa
-translation_revised: 2026-08-18
+translation_source_sha: 648b89a13ecdba3fbb0af6a03fa18a7750868a22
+translation_revised: 2026-08-20
 title: 에이전트 운영 책임 수명 주기
 ---
 # 에이전트 운영 책임 수명 주기
@@ -27,23 +27,7 @@ Handover-map 스키마와 소유권 개념은
 4. **병합 observation**은 GitHub 서명을 검증하고 changed file과 merged 내용을 다시 읽은
   다음 병합 감사를 작성하고 새 accountable 소유자에게 알립니다.
 
-```mermaid
-flowchart LR
-  TF[Terraform bindings] --> START[Production startup validation]
-  START --> VIEW[GET /stewardship]
-  START --> HEALTH[Scheduled Entra liveness check]
-  FORM[Guided registration form] --> DOC[Grounded handover upload]
-  DOC --> DRAFT[Durable handover draft]
-  DRAFT --> PR[Idempotent draft governance PR]
-  PR --> REVIEW[Git review and approval]
-  REVIEW --> HOOK[Signed merge webhook]
-  HOOK --> VERIFY[GitHub files and merged YAML re-read]
-  VERIFY --> AUDIT[Append-only Saga audit]
-  VERIFY --> NOTIFY[Accountable owners and maintainer notification]
-  HEALTH --> AUDIT
-  PR --> AUDIT
-  PR --> NOTIFY
-```
+![설계 개요. 주요 단계는 Terraform bindings, Production startup validation, GET /stewardship, Scheduled Entra liveness check, Guided registration form, Grounded handover upload, Durable handover draft, Idempotent draft governance PR, Git review and approval, Signed merge webhook, GitHub files and merged YAML re-read, Append-only Saga audit입니다.](../../diagrams/generated/fdai-roadmap-interfaces-agent-stewardship-operations-01.ko.svg)
 
 ## 구현 상태
 

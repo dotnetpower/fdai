@@ -1,0 +1,206 @@
+{
+  "id": "fdai-roadmap-operations-assurance-twin-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "3. Verifiable (text-to-query, not text-to-answer)",
+      "description": "FDAI flow for 3. Verifiable (text-to-query, not text-to-answer).",
+      "alt": "3. Verifiable (text-to-query, not text-to-answer). The main stages are NL question, model: compile / NL to typed ontology query, verifier: query is / well-typed and read-only, T0: execute query / over the twin (deterministic), Assurance Twin / ontology graph, grounded result set, model: explain / result + cite rule path, answer + provenance / + confidence + what-if, abstain: 'not known'."
+    },
+    "ko": {
+      "title": "3. Verifiable (text-to-answer가 아니라 text-to-query)",
+      "description": "3. Verifiable (text-to-answer가 아니라 text-to-query)에 대한 FDAI 흐름입니다.",
+      "alt": "3. Verifiable (text-to-answer가 아니라 text-to-query). 주요 단계는 NL 질문, 모델: NL을 타입 있는 / 온톨로지 질의로 컴파일, verifier: 질의가 / well-typed하고 읽기 전용인지, T0: 트윈 위에서 질의 실행 / (결정론적), 어슈어런스 트윈 / 온톨로지 그래프, 근거 있는 결과 집합, 모델: 결과 설명 / + 규칙 경로 인용, 답 + provenance / + confidence + what-if, abstain: '모름'입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-operations-assurance-twin-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-operations-assurance-twin-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "q",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "NL question",
+        "ko": "NL 질문"
+      },
+      "description": {
+        "en": "NL question",
+        "ko": "NL 질문"
+      }
+    },
+    {
+      "id": "c",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "model: compile / NL to typed ontology query",
+        "ko": "모델: NL을 타입 있는 / 온톨로지 질의로 컴파일"
+      },
+      "description": {
+        "en": "model: compile / NL to typed ontology query",
+        "ko": "모델: NL을 타입 있는 / 온톨로지 질의로 컴파일"
+      }
+    },
+    {
+      "id": "v",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "verifier: query is / well-typed and read-only",
+        "ko": "verifier: 질의가 / well-typed하고 읽기 전용인지"
+      },
+      "description": {
+        "en": "verifier: query is / well-typed and read-only",
+        "ko": "verifier: 질의가 / well-typed하고 읽기 전용인지"
+      }
+    },
+    {
+      "id": "t0q",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "T0: execute query / over the twin (deterministic)",
+        "ko": "T0: 트윈 위에서 질의 실행 / (결정론적)"
+      },
+      "description": {
+        "en": "T0: execute query / over the twin (deterministic)",
+        "ko": "T0: 트윈 위에서 질의 실행 / (결정론적)"
+      }
+    },
+    {
+      "id": "twin",
+      "kind": "store",
+      "shape": "database",
+      "label": {
+        "en": "Assurance Twin / ontology graph",
+        "ko": "어슈어런스 트윈 / 온톨로지 그래프"
+      },
+      "description": {
+        "en": "Assurance Twin / ontology graph",
+        "ko": "어슈어런스 트윈 / 온톨로지 그래프"
+      }
+    },
+    {
+      "id": "r",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "grounded result set",
+        "ko": "근거 있는 결과 집합"
+      },
+      "description": {
+        "en": "grounded result set",
+        "ko": "근거 있는 결과 집합"
+      }
+    },
+    {
+      "id": "exp",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "model: explain / result + cite rule path",
+        "ko": "모델: 결과 설명 / + 규칙 경로 인용"
+      },
+      "description": {
+        "en": "model: explain / result + cite rule path",
+        "ko": "모델: 결과 설명 / + 규칙 경로 인용"
+      }
+    },
+    {
+      "id": "a",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "answer + provenance / + confidence + what-if",
+        "ko": "답 + provenance / + confidence + what-if"
+      },
+      "description": {
+        "en": "answer + provenance / + confidence + what-if",
+        "ko": "답 + provenance / + confidence + what-if"
+      }
+    },
+    {
+      "id": "ab",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "abstain: 'not known'",
+        "ko": "abstain: '모름'"
+      },
+      "description": {
+        "en": "abstain: 'not known'",
+        "ko": "abstain: '모름'"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "q",
+      "to": "c",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "c",
+      "to": "v",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "v",
+      "to": "t0q",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "twin",
+      "to": "t0q",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "t0q",
+      "to": "r",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "r",
+      "to": "exp",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "exp",
+      "to": "a",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "r",
+      "to": "ab",
+      "kind": "request",
+      "label": {
+        "en": "empty / low confidence",
+        "ko": "비어있음 / 낮은 confidence"
+      }
+    }
+  ]
+}

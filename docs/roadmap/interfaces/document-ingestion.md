@@ -24,20 +24,7 @@ the file. Raw bytes, normalized content, metadata, and vectors use separate stor
 policies. Every preview, search result, and citation applies the document access policy again, so
 ingestion never turns a restricted document into broadly visible text.
 
-```mermaid
-flowchart LR
-  U[Operator drop zone] --> S[Upload session]
-  S --> G[Authenticated ingestion gateway]
-  G --> Q[Private quarantine storage]
-  Q --> M[Malware and content safety]
-  M --> P[Protection and classification]
-  P --> X[Format extractor]
-  X --> N[Normalized document artifacts]
-  N --> K[Chunk and index]
-  K --> R[Knowledge retrieval]
-  N --> D[Manual distillation]
-  P -->|access denied or policy hold| H[Held for review]
-```
+![Design at a glance. The main stages are Operator drop zone, Upload session, Authenticated ingestion gateway, Private quarantine storage, Malware and content safety, Protection and classification, Format extractor, Normalized document artifacts, Chunk and index, Knowledge retrieval, Manual distillation, Held for review.](../../diagrams/generated/fdai-roadmap-interfaces-document-ingestion-01.en.svg)
 
 ## Agent ownership of the ingestion pipeline
 

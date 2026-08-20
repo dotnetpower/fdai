@@ -1,0 +1,147 @@
+id: fdai-roadmap-architecture-llm-strategy-02
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Bootstrap Provisioner
+    description: FDAI flow for Bootstrap Provisioner.
+    alt: "Bootstrap Provisioner. The main stages are Terraform / Bicep: azd up, Azure OpenAI or Foundry resource, resolver,
+      llm-registry.yaml, query catalog: / available families + versions in region, for each capability: / first
+      preference available, mark capability hil-only / report completeness impact, create deployment / with TPM or PTU
+      capacity, verify mixed-model invariant: / primary.publisher ≠ secondary.publisher, FAIL, write
+      resolved-models.json to Key Vault / + audit entry."
+  ko:
+    title: 부트스트랩 Provisioner
+    description: 부트스트랩 Provisioner에 대한 FDAI 흐름입니다.
+    alt: "부트스트랩 Provisioner. 주요 단계는 Terraform / Bicep: azd up, Azure OpenAI or Foundry resource, resolver,
+      llm-registry.yaml, query catalog: / available families + versions in region, for each capability: / first
+      preference available, capability를 hil-only로 표시 / completeness impact 보고, create deployment / with TPM or PTU
+      capacity, verify mixed-model invariant: / primary.publisher ≠ secondary.publisher, FAIL, write
+      resolved-models.json to Key Vault / + audit entry입니다."
+canvas:
+  width: 1600
+  height: 990
+  direction: RIGHT
+groups: []
+nodes:
+  - id: iac
+    kind: process
+    shape: card
+    label:
+      en: "Terraform / Bicep: azd up"
+      ko: "Terraform / Bicep: azd up"
+  - id: aoai
+    kind: process
+    shape: card
+    label:
+      en: Azure OpenAI or Foundry resource
+      ko: Azure OpenAI or Foundry resource
+  - id: res
+    kind: process
+    shape: card
+    label:
+      en: resolver
+      ko: resolver
+  - id: reg
+    kind: process
+    shape: card
+    label:
+      en: llm-registry.yaml
+      ko: llm-registry.yaml
+  - id: cat
+    kind: process
+    shape: card
+    label:
+      en: "query catalog: / available families + versions in region"
+      ko: "query catalog: / available families + versions in region"
+  - id: pick
+    kind: decision
+    shape: diamond
+    label:
+      en: "for each capability: / first preference available"
+      ko: "for each capability: / first preference available"
+  - id: hil
+    kind: process
+    shape: card
+    label:
+      en: mark capability hil-only / report completeness impact
+      ko: capability를 hil-only로 표시 / completeness impact 보고
+    description:
+      en: "When: none available"
+      ko: "조건: none available"
+  - id: deploy
+    kind: process
+    shape: card
+    label:
+      en: create deployment / with TPM or PTU capacity
+      ko: create deployment / with TPM or PTU capacity
+    description:
+      en: "When: resolved"
+      ko: "조건: resolved"
+  - id: inv
+    kind: process
+    shape: card
+    label:
+      en: "verify mixed-model invariant: / primary.publisher ≠ secondary.publisher"
+      ko: "verify mixed-model invariant: / primary.publisher ≠ secondary.publisher"
+  - id: fail
+    kind: process
+    label:
+      en: FAIL
+      ko: FAIL
+    description:
+      en: "When: violated"
+      ko: "조건: violated"
+  - id: map
+    kind: process
+    shape: card
+    label:
+      en: write resolved-models.json to Key Vault / + audit entry
+      ko: write resolved-models.json to Key Vault / + audit entry
+    description:
+      en: "When: ok"
+      ko: "조건: ok"
+edges:
+  - id: flow-01
+    from: iac
+    to: aoai
+    kind: request
+  - id: flow-02
+    from: aoai
+    to: res
+    kind: request
+  - id: flow-03
+    from: reg
+    to: res
+    kind: request
+  - id: flow-04
+    from: res
+    to: cat
+    kind: request
+  - id: flow-05
+    from: cat
+    to: pick
+    kind: request
+  - id: flow-06
+    from: pick
+    to: hil
+    kind: request
+  - id: flow-07
+    from: pick
+    to: deploy
+    kind: request
+  - id: flow-08
+    from: deploy
+    to: inv
+    kind: request
+  - id: flow-09
+    from: inv
+    to: fail
+    kind: request
+  - id: flow-10
+    from: inv
+    to: map
+    kind: request

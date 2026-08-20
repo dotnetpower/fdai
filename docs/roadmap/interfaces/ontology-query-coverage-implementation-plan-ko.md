@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 92044e9b343075aa095fcdd6549f298f14700f72
+translation_source_sha: fdb95ab4ede00d97f495804f772f8e00e165bd23
 translation_revised: 2026-08-20
 ---
 
@@ -247,17 +247,7 @@ translation_revised: 2026-08-20
 
 ## 설계 개요
 
-```mermaid
-flowchart LR
-    Q[Operator turn] --> F[SemanticProblemFrame candidate]
-    R[Active ontology release] --> M[Principal-scoped query manifest]
-    M --> F
-    F --> V[Deterministic verifier]
-    V --> P[Verified OntologyQueryPlan]
-    P --> D[Bounded task DAG]
-    D --> E[Authoritative evidence and receipts]
-    E --> A[Verified answer or explicit limitation]
-```
+![설계 개요. 주요 단계는 Operator turn, SemanticProblemFrame candidate, Active ontology release, Principal-scoped query manifest, Deterministic verifier, Verified OntologyQueryPlan, Bounded task DAG, Authoritative evidence and receipts, Verified answer or explicit limitation입니다.](../../diagrams/generated/fdai-roadmap-interfaces-ontology-query-coverage-implementation-plan-01.ko.svg)
 
 모델은 언어를 분해하고 meaning 표현을 제안합니다. 검증기는 스키마 신원,
 관계 조립, 시간 한계, 범위, 용도 및 기능 검사를 소유합니다. 구체적인 객체는

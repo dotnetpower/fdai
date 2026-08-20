@@ -1,0 +1,140 @@
+id: fdai-roadmap-rules-and-detection-causal-incident-graph-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: Design at a glance. The main stages are Events and observations, Correlated incident, Dependency topology,
+      Time-consistent incident graph, CausalHypothesis candidates, Supporting evidence, Refuting evidence, Deterministic
+      causal verifier, DecisionCase, Recovery plan, Observed outcome.
+  ko:
+    title: 설계 개요
+    description: 설계 개요에 대한 FDAI 흐름입니다.
+    alt: 설계 개요. 주요 단계는 Event 및 observation, Correlated incident, Dependency topology, Time-consistent incident graph,
+      CausalHypothesis candidate, Supporting evidence, Refuting evidence, Deterministic causal verifier, DecisionCase,
+      Recovery plan, Observed outcome입니다.
+canvas:
+  width: 1600
+  height: 990
+  direction: RIGHT
+groups: []
+nodes:
+  - id: e
+    kind: process
+    shape: card
+    label:
+      en: Events and observations
+      ko: Event 및 observation
+  - id: c
+    kind: process
+    shape: card
+    label:
+      en: Correlated incident
+      ko: Correlated incident
+  - id: t
+    kind: process
+    shape: card
+    label:
+      en: Dependency topology
+      ko: Dependency topology
+  - id: g
+    kind: process
+    shape: card
+    label:
+      en: Time-consistent incident graph
+      ko: Time-consistent incident graph
+  - id: h
+    kind: process
+    shape: card
+    label:
+      en: CausalHypothesis candidates
+      ko: CausalHypothesis candidate
+  - id: s
+    kind: process
+    shape: card
+    label:
+      en: Supporting evidence
+      ko: Supporting evidence
+  - id: r
+    kind: process
+    shape: card
+    label:
+      en: Refuting evidence
+      ko: Refuting evidence
+  - id: v
+    kind: process
+    shape: card
+    label:
+      en: Deterministic causal verifier
+      ko: Deterministic causal verifier
+  - id: d
+    kind: process
+    shape: card
+    label:
+      en: DecisionCase
+      ko: DecisionCase
+  - id: p
+    kind: process
+    shape: card
+    label:
+      en: Recovery plan
+      ko: Recovery plan
+  - id: o
+    kind: process
+    shape: card
+    label:
+      en: Observed outcome
+      ko: Observed outcome
+edges:
+  - id: flow-01
+    from: e
+    to: c
+    kind: request
+  - id: flow-02
+    from: t
+    to: g
+    kind: request
+  - id: flow-03
+    from: c
+    to: g
+    kind: request
+  - id: flow-04
+    from: g
+    to: h
+    kind: request
+  - id: flow-05
+    from: h
+    to: s
+    kind: request
+  - id: flow-06
+    from: h
+    to: r
+    kind: request
+  - id: flow-07
+    from: s
+    to: v
+    kind: request
+  - id: flow-08
+    from: r
+    to: v
+    kind: request
+  - id: flow-09
+    from: v
+    to: d
+    kind: request
+  - id: flow-10
+    from: d
+    to: p
+    kind: request
+  - id: flow-11
+    from: p
+    to: o
+    kind: request
+  - id: flow-12
+    from: o
+    to: h
+    kind: request

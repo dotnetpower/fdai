@@ -1,8 +1,8 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: d9eab4af4dc7a639de29260f2f83c266ce2a8d6e
-translation_revised: 2026-08-14
+translation_source_sha: 2f5dfe02a012e0a38f7c19ac01c15dfce4bf7754
+translation_revised: 2026-08-20
 ---
 
 # 벤치마크 어댑터
@@ -26,16 +26,7 @@ driver는 `fdai-evaluation-sdk`에 의존하고 공개 `EvaluationHost`를 받�
 시작합니다. 호스트는 neutral 작업을 타입이 지정된 유입으로 변환하고 결정, risk, 승인, 실행 및
 감사를 FDAI 내부에 유지합니다.
 
-```mermaid
-flowchart LR
-  H[External harness] <--> D[External driver]
-  D --> SDK[Evaluation SDK]
-  SDK --> EH[Public EvaluationHost]
-  EH --> C[Capability and custody brokers]
-  EH --> F[FDAI typed ingress and control loop]
-  F --> R[EvaluationResult]
-  R --> D
-```
+![설계 요약. 주요 단계는 External harness, External driver, Evaluation SDK, Public EvaluationHost, Capability and custody brokers, FDAI typed ingress and control loop, EvaluationResult입니다.](../../diagrams/generated/fdai-roadmap-interfaces-benchmark-adapters-01.ko.svg)
 
 ## 패키지 경계
 

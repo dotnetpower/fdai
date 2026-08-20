@@ -1,0 +1,270 @@
+{
+  "id": "fdai-roadmap-decisioning-execution-authorization-ontology-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are ActionType, AuthorizationRequirement, AuthorizationCapability, ResourceType, AuthorizationPolicyAssignment, ExecutionProfile, ProviderPermissionSet, Deployment identity binding, Provider operations, Effective-access observation, AuthorizationDecision, Risk gate."
+    },
+    "ko": {
+      "title": "설계 개요",
+      "description": "설계 개요에 대한 FDAI 흐름입니다.",
+      "alt": "설계 개요. 주요 단계는 ActionType, AuthorizationRequirement, AuthorizationCapability, ResourceType, AuthorizationPolicyAssignment, ExecutionProfile, ProviderPermissionSet, Deployment identity binding, Provider operations, Effective-access observation, AuthorizationDecision, Risk gate입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-decisioning-execution-authorization-ontology-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-decisioning-execution-authorization-ontology-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "at",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "ActionType",
+        "ko": "ActionType"
+      },
+      "description": {
+        "en": "ActionType",
+        "ko": "ActionType"
+      }
+    },
+    {
+      "id": "ar",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "AuthorizationRequirement",
+        "ko": "AuthorizationRequirement"
+      },
+      "description": {
+        "en": "When: requires",
+        "ko": "조건: requires"
+      }
+    },
+    {
+      "id": "ac",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "AuthorizationCapability",
+        "ko": "AuthorizationCapability"
+      },
+      "description": {
+        "en": "When: demands / When: governs / When: implements",
+        "ko": "조건: demands / 조건: governs / 조건: implements"
+      }
+    },
+    {
+      "id": "rt",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "ResourceType",
+        "ko": "ResourceType"
+      },
+      "description": {
+        "en": "When: targets",
+        "ko": "조건: targets"
+      }
+    },
+    {
+      "id": "pa",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "AuthorizationPolicyAssignment",
+        "ko": "AuthorizationPolicyAssignment"
+      },
+      "description": {
+        "en": "AuthorizationPolicyAssignment",
+        "ko": "AuthorizationPolicyAssignment"
+      }
+    },
+    {
+      "id": "ep",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "ExecutionProfile",
+        "ko": "ExecutionProfile"
+      },
+      "description": {
+        "en": "When: permits",
+        "ko": "조건: permits"
+      }
+    },
+    {
+      "id": "pm",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "ProviderPermissionSet",
+        "ko": "ProviderPermissionSet"
+      },
+      "description": {
+        "en": "ProviderPermissionSet",
+        "ko": "ProviderPermissionSet"
+      }
+    },
+    {
+      "id": "ir",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Deployment identity binding",
+        "ko": "Deployment identity binding"
+      },
+      "description": {
+        "en": "Deployment identity binding",
+        "ko": "Deployment identity binding"
+      }
+    },
+    {
+      "id": "op",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Provider operations",
+        "ko": "Provider operations"
+      },
+      "description": {
+        "en": "Provider operations",
+        "ko": "Provider operations"
+      }
+    },
+    {
+      "id": "eo",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Effective-access observation",
+        "ko": "Effective-access observation"
+      },
+      "description": {
+        "en": "Effective-access observation",
+        "ko": "Effective-access observation"
+      }
+    },
+    {
+      "id": "ad",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "AuthorizationDecision",
+        "ko": "AuthorizationDecision"
+      },
+      "description": {
+        "en": "AuthorizationDecision",
+        "ko": "AuthorizationDecision"
+      }
+    },
+    {
+      "id": "rg",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Risk gate",
+        "ko": "Risk gate"
+      },
+      "description": {
+        "en": "Risk gate",
+        "ko": "Risk gate"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "at",
+      "to": "ar",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "ar",
+      "to": "ac",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "ar",
+      "to": "rt",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "pa",
+      "to": "ac",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "pa",
+      "to": "ep",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "pm",
+      "to": "ac",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "ep",
+      "to": "ir",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "pm",
+      "to": "op",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "ir",
+      "to": "eo",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "op",
+      "to": "eo",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-11",
+      "from": "eo",
+      "to": "ad",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-12",
+      "from": "ad",
+      "to": "rg",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

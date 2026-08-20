@@ -1,0 +1,164 @@
+{
+  "id": "fdai-roadmap-decisioning-customer-workflow-automation-plan-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are Discover and bound, Compile and validate, Replay and observe, Approve and enforce selected tools, Add bounded mutations, Scale and operate."
+    },
+    "ko": {
+      "title": "설계 요약",
+      "description": "설계 요약에 대한 FDAI 흐름입니다.",
+      "alt": "설계 요약. 주요 단계는 발견 및 범위 제한, 컴파일 및 검증, 재생 및 관찰, 승인 및 선택 도구 적용, 제한된 변경 추가, 확장 및 운영입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-decisioning-customer-workflow-automation-plan-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-decisioning-customer-workflow-automation-plan-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "a",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Discover and bound",
+        "ko": "발견 및 범위 제한"
+      },
+      "description": {
+        "en": "Discover and bound",
+        "ko": "발견 및 범위 제한"
+      }
+    },
+    {
+      "id": "b",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Compile and validate",
+        "ko": "컴파일 및 검증"
+      },
+      "description": {
+        "en": "When: regression",
+        "ko": "조건: 회귀"
+      }
+    },
+    {
+      "id": "c",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Replay and observe",
+        "ko": "재생 및 관찰"
+      },
+      "description": {
+        "en": "When: policy escape / When: rollback failure",
+        "ko": "조건: 정책 이탈 / 조건: 롤백 실패"
+      }
+    },
+    {
+      "id": "d",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Approve and enforce selected tools",
+        "ko": "승인 및 선택 도구 적용"
+      },
+      "description": {
+        "en": "Approve and enforce selected tools",
+        "ko": "승인 및 선택 도구 적용"
+      }
+    },
+    {
+      "id": "e",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Add bounded mutations",
+        "ko": "제한된 변경 추가"
+      },
+      "description": {
+        "en": "Add bounded mutations",
+        "ko": "제한된 변경 추가"
+      }
+    },
+    {
+      "id": "f",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Scale and operate",
+        "ko": "확장 및 운영"
+      },
+      "description": {
+        "en": "Scale and operate",
+        "ko": "확장 및 운영"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "a",
+      "to": "b",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "b",
+      "to": "c",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "c",
+      "to": "d",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "d",
+      "to": "e",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "e",
+      "to": "f",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "c",
+      "to": "b",
+      "kind": "dependency",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "d",
+      "to": "c",
+      "kind": "dependency",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "e",
+      "to": "c",
+      "kind": "dependency",
+      "label": null
+    }
+  ]
+}

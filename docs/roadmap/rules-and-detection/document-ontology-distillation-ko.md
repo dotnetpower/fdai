@@ -1,7 +1,7 @@
 ---
 translation_of: document-ontology-distillation.md
-translation_source_sha: bb5396629d1d4e7aa4bb721b0d6b9a32a6dad32e
-translation_revised: 2026-08-14
+translation_source_sha: f4240a2fef0027ec97386a3d5a7bf60eec9b3e92
+translation_revised: 2026-08-20
 ---
 # 문서 온톨로지 증류
 
@@ -38,17 +38,7 @@ translation_revised: 2026-08-14
 근거를 검증한 뒤 검토 가능한 그래프 차이를 단계합니다. 승인된 제안은 새로운 변경할 수 없는
 개정 번호를 만들며, 조정은 승인된 의도와 관측된 외부 사실을 분리합니다.
 
-```mermaid
-flowchart LR
-    D[승인된 문서] --> I[Claim inventory]
-    I --> E[Typed extraction]
-    E --> V[결정론적 검증]
-    V --> P[Ontology change proposal]
-    P --> H[책임 있는 검토]
-    H --> R[Immutable ontology revision]
-    R --> C[Authority reconciliation]
-    C --> S[Shadow measurement]
-```
+![한눈에 보는 설계. 주요 단계는 승인된 문서, Claim inventory, Typed extraction, 결정론적 검증, Ontology change proposal, 책임 있는 검토, Immutable ontology revision, Authority reconciliation, Shadow measurement입니다.](../../diagrams/generated/fdai-roadmap-rules-and-detection-document-ontology-distillation-01.ko.svg)
 
 ## 제안 계약
 

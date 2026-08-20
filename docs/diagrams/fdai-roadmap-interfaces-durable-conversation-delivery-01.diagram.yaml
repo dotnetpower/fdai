@@ -1,0 +1,110 @@
+id: fdai-roadmap-interfaces-durable-conversation-delivery-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: Design at a glance. The main stages are Verify channel identity and scope, Resolve active binding, Persist complete
+      response, CAS claim and attempt, Provider send, Delivered and acknowledged, Bounded retry, Ambiguous duplicate
+      risk.
+  ko:
+    title: 설계 개요
+    description: 설계 개요에 대한 FDAI 흐름입니다.
+    alt: 설계 개요. 주요 단계는 Channel identity 및 scope 검증, Active binding 확인, Complete response 저장, CAS claim 및 attempt, Provider
+      send, Delivered 및 acknowledged, Bounded retry, Ambiguous duplicate risk입니다.
+canvas:
+  width: 1200
+  height: 720
+  direction: RIGHT
+groups: []
+nodes:
+  - id: auth
+    kind: process
+    shape: card
+    label:
+      en: Verify channel identity and scope
+      ko: Channel identity 및 scope 검증
+  - id: bind
+    kind: process
+    shape: card
+    label:
+      en: Resolve active binding
+      ko: Active binding 확인
+  - id: store
+    kind: process
+    shape: card
+    label:
+      en: Persist complete response
+      ko: Complete response 저장
+  - id: claim
+    kind: process
+    shape: card
+    label:
+      en: CAS claim and attempt
+      ko: CAS claim 및 attempt
+  - id: send
+    kind: process
+    shape: card
+    label:
+      en: Provider send
+      ko: Provider send
+  - id: ack
+    kind: process
+    shape: card
+    label:
+      en: Delivered and acknowledged
+      ko: Delivered 및 acknowledged
+    description:
+      en: "When: confirmed"
+      ko: "조건: confirmed"
+  - id: retry
+    kind: process
+    shape: card
+    label:
+      en: Bounded retry
+      ko: Bounded retry
+    description:
+      en: "When: definitive failure"
+      ko: "조건: definitive failure"
+  - id: ambig
+    kind: process
+    shape: card
+    label:
+      en: Ambiguous duplicate risk
+      ko: Ambiguous duplicate risk
+    description:
+      en: "When: unknown receipt"
+      ko: "조건: unknown receipt"
+edges:
+  - id: flow-01
+    from: auth
+    to: bind
+    kind: request
+  - id: flow-02
+    from: bind
+    to: store
+    kind: request
+  - id: flow-03
+    from: store
+    to: claim
+    kind: request
+  - id: flow-04
+    from: claim
+    to: send
+    kind: request
+  - id: flow-05
+    from: send
+    to: ack
+    kind: request
+  - id: flow-06
+    from: send
+    to: retry
+    kind: request
+  - id: flow-07
+    from: send
+    to: ambig
+    kind: request

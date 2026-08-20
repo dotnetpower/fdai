@@ -1,8 +1,8 @@
 ---
 title: Outcome Assurance
 translation_of: outcome-assurance.md
-translation_source_sha: ec3d2c11abe863db58ac9687bcd9ee477cbf79e7
-translation_revised: 2026-08-14
+translation_source_sha: c269cb3a050121f78dac0e09dd9d57bd071e4e7a
+translation_revised: 2026-08-20
 ---
 # 결과 Assurance
 
@@ -29,18 +29,7 @@ FDAI는 서비스가 보호해야 할 목표, 검토한 액션, 실제 실행, �
    그 목표를 개선했습니까?
 3. **통제 보증:** 결과가 정책, 승인, 롤백, 승격 guardrail 안에 머물렀습니까?
 
-```mermaid
-flowchart LR
-  S[BusinessService and Workload] --> O[Operational Objective]
-  O --> D[DecisionCase and ExpectedEffect]
-  D --> A[ActionRun]
-  A --> R[ObservedOutcome]
-  R --> M[Measured outcome]
-  RR[Readiness evidence] --> P[Outcome Assurance projection]
-  M --> P
-  G[Guard and promotion evidence] --> P
-  P --> C[Read-only console]
-```
+![한눈에 보는 설계. 주요 단계는 BusinessService and Workload, Operational Objective, DecisionCase and ExpectedEffect, ActionRun, ObservedOutcome, Measured outcome, Readiness evidence, Outcome Assurance projection, Guard and promotion evidence, Read-only console입니다.](../../diagrams/generated/fdai-roadmap-architecture-outcome-assurance-01.ko.svg)
 
 ## 구현 상태
 

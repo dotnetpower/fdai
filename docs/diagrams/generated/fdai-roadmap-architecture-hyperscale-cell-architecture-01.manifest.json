@@ -1,0 +1,163 @@
+{
+  "id": "fdai-roadmap-architecture-hyperscale-cell-architecture-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are Azure Policy DeployIfNotExists / (AMBA pattern) - fan-in as code, Activity Log + resource events, Per-cell Event Hubs (sharded), FDAI cell (scale unit) / event-ingest -> trust-router -> risk-gate -> executor, Audit ledger / append-only, hash-chained, never sampled, Telemetry plane / ADX / Log Analytics - tiered, sampled, rolled up, Index plane: ADX + Postgres + pgvector."
+    },
+    "ko": {
+      "title": "한눈에 보는 설계",
+      "description": "한눈에 보는 설계에 대한 FDAI 흐름입니다.",
+      "alt": "한눈에 보는 설계. 주요 단계는 Azure Policy DeployIfNotExists / (AMBA 패턴) - fan-in as code, Activity Log + resource events, 셀별 Event Hubs (샤딩), FDAI 셀 (scale unit) / event-ingest -> trust-router -> risk-gate -> executor, 감사 원장 / append-only, 해시체인, 절대 샘플링 안 함, 텔레메트리 평면 / ADX / Log Analytics - 티어·샘플·롤업, 인덱스 평면: ADX + Postgres + pgvector입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-architecture-hyperscale-cell-architecture-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-architecture-hyperscale-cell-architecture-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "pol",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Azure Policy DeployIfNotExists / (AMBA pattern) - fan-in as code",
+        "ko": "Azure Policy DeployIfNotExists / (AMBA 패턴) - fan-in as code"
+      },
+      "description": {
+        "en": "Azure Policy DeployIfNotExists / (AMBA pattern) - fan-in as code",
+        "ko": "Azure Policy DeployIfNotExists / (AMBA 패턴) - fan-in as code"
+      }
+    },
+    {
+      "id": "s",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Activity Log + resource events",
+        "ko": "Activity Log + resource events"
+      },
+      "description": {
+        "en": "When: auto-deploy diagnostic settings",
+        "ko": "조건: diagnostic settings 자동 배포"
+      }
+    },
+    {
+      "id": "eh",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Per-cell Event Hubs (sharded)",
+        "ko": "셀별 Event Hubs (샤딩)"
+      },
+      "description": {
+        "en": "When: forwarded to Kafka :9093",
+        "ko": "조건: Kafka :9093 로 포워딩"
+      }
+    },
+    {
+      "id": "cell",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "FDAI cell (scale unit) / event-ingest -> trust-router -> risk-gate -> executor",
+        "ko": "FDAI 셀 (scale unit) / event-ingest -> trust-router -> risk-gate -> executor"
+      },
+      "description": {
+        "en": "FDAI cell (scale unit) / event-ingest -> trust-router -> risk-gate -> executor",
+        "ko": "FDAI 셀 (scale unit) / event-ingest -> trust-router -> risk-gate -> executor"
+      }
+    },
+    {
+      "id": "led",
+      "kind": "store",
+      "shape": "database",
+      "label": {
+        "en": "Audit ledger / append-only, hash-chained, never sampled",
+        "ko": "감사 원장 / append-only, 해시체인, 절대 샘플링 안 함"
+      },
+      "description": {
+        "en": "Audit ledger / append-only, hash-chained, never sampled",
+        "ko": "감사 원장 / append-only, 해시체인, 절대 샘플링 안 함"
+      }
+    },
+    {
+      "id": "tel",
+      "kind": "store",
+      "shape": "database",
+      "label": {
+        "en": "Telemetry plane / ADX / Log Analytics - tiered, sampled, rolled up",
+        "ko": "텔레메트리 평면 / ADX / Log Analytics - 티어·샘플·롤업"
+      },
+      "description": {
+        "en": "When: telemetry",
+        "ko": "조건: telemetry"
+      }
+    },
+    {
+      "id": "idx",
+      "kind": "store",
+      "shape": "database",
+      "label": {
+        "en": "Index plane: ADX + Postgres + pgvector",
+        "ko": "인덱스 평면: ADX + Postgres + pgvector"
+      },
+      "description": {
+        "en": "When: async projector",
+        "ko": "조건: async projector"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "pol",
+      "to": "s",
+      "kind": "dependency",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "s",
+      "to": "eh",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "eh",
+      "to": "cell",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "cell",
+      "to": "led",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "cell",
+      "to": "tel",
+      "kind": "dependency",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "led",
+      "to": "idx",
+      "kind": "dependency",
+      "label": null
+    }
+  ]
+}

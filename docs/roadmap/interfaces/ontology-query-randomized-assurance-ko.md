@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-randomized-assurance.md
-translation_source_sha: f1a944783da9375e136d6f15776651f5a7dc9640
-translation_revised: 2026-08-18
+translation_source_sha: 7bc214fda0d25464874b2010db49ea939bd7e874
+translation_revised: 2026-08-20
 ---
 # 온톨로지 쿼리 무작위 보증
 
@@ -40,15 +40,7 @@ translation_revised: 2026-08-18
 Console Command Deck을 통해 모든 질문을 제출하고 최종 assistant 카드를 기다렸습니다.
 충분성을 서로 독립적으로 평가했습니다.
 
-```mermaid
-flowchart LR
-    Q[생성된 질문 100개] --> V[질문 집합 기계 검증]
-    V --> C[인증된 Console Command Deck]
-    C --> T[최종 응답 캡처]
-    T --> J[독립적인 근거 인식 judge]
-    J --> R[의도 및 답변 성공률]
-    R --> D[릴리스 결정 및 조치 원장]
-```
+![역사적 설계 개요. 주요 단계는 생성된 질문 100개, 질문 집합 기계 검증, 인증된 Console Command Deck, 최종 응답 캡처, 독립적인 근거 인식 judge, 의도 및 답변 성공률, 릴리스 결정 및 조치 원장입니다.](../../diagrams/generated/fdai-roadmap-interfaces-ontology-query-randomized-assurance-01.ko.svg)
 
 ## 역사적 방법
 

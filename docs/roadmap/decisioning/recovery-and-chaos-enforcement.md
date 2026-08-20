@@ -48,21 +48,7 @@ any mutation, and asks for one decision covering injection, stop, rollback, and 
 runtime then compares observed impact with the approved envelope continuously. Exceeding any bound
 stops the experiment and starts the already authorized recovery path.
 
-```mermaid
-flowchart LR
-    H[Grounded causal hypothesis] --> D[DecisionCase]
-    G[Fresh ontology graph] --> I[ImpactEnvelope]
-    D --> R[RecoveryPlan]
-    I --> R
-    R --> P[Dry run and approval]
-    P --> X[Thor executes]
-    X --> M[Continuous impact guard]
-    M -->|inside envelope| V[Verify expected effect]
-    M -->|bound exceeded| B[Vidar recovery control]
-    B --> C[Thor compensation actions]
-    C --> V
-    V --> O[ObservedOutcome and audit]
-```
+![Design at a glance. The main stages are Grounded causal hypothesis, DecisionCase, Fresh ontology graph, ImpactEnvelope, RecoveryPlan, Dry run and approval, Thor executes, Continuous impact guard, Verify expected effect, Vidar recovery control, Thor compensation actions, ObservedOutcome and audit.](../../diagrams/generated/fdai-roadmap-decisioning-recovery-and-chaos-enforcement-01.en.svg)
 
 ## Ontology contract
 

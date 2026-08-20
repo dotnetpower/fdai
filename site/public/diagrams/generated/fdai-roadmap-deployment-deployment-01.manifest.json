@@ -1,0 +1,304 @@
+{
+  "id": "fdai-roadmap-deployment-deployment-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "CI/CD Pipeline",
+      "description": "FDAI flow for CI/CD Pipeline.",
+      "alt": "CI/CD Pipeline. The main stages are Pull Request, lint + repository gates, unit tests: T0 engine + risk gate, block merge/promotion, IaC + dependency + secret scan, build + SBOM + sign + attest, deploy same artifact to staging, shadow evaluation + regression, promote code?, deploy same image to prod, enable enforce?, enforce per action."
+    },
+    "ko": {
+      "title": "CI/CD 파이프라인",
+      "description": "CI/CD 파이프라인에 대한 FDAI 흐름입니다.",
+      "alt": "CI/CD 파이프라인. 주요 단계는 Pull Request, lint + repository gates, unit tests: T0 engine + risk gate, block merge/promotion, IaC + dependency + secret scan, build + SBOM + sign + attest, deploy same artifact to staging, shadow evaluation + regression, promote code?, deploy same image to prod, enable enforce?, enforce per action입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-deployment-deployment-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-deployment-deployment-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "pr",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Pull Request",
+        "ko": "Pull Request"
+      },
+      "description": {
+        "en": "Pull Request",
+        "ko": "Pull Request"
+      }
+    },
+    {
+      "id": "lint",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "lint + repository gates",
+        "ko": "lint + repository gates"
+      },
+      "description": {
+        "en": "lint + repository gates",
+        "ko": "lint + repository gates"
+      }
+    },
+    {
+      "id": "unit",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "unit tests: T0 engine + risk gate",
+        "ko": "unit tests: T0 engine + risk gate"
+      },
+      "description": {
+        "en": "unit tests: T0 engine + risk gate",
+        "ko": "unit tests: T0 engine + risk gate"
+      }
+    },
+    {
+      "id": "stop",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "block merge/promotion",
+        "ko": "block merge/promotion"
+      },
+      "description": {
+        "en": "When: fail / When: fail / When: escape or regression / When: reject",
+        "ko": "조건: fail / 조건: fail / 조건: escape or regression / 조건: reject"
+      }
+    },
+    {
+      "id": "scan",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "IaC + dependency + secret scan",
+        "ko": "IaC + dependency + secret scan"
+      },
+      "description": {
+        "en": "When: pass",
+        "ko": "조건: pass"
+      }
+    },
+    {
+      "id": "build",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "build + SBOM + sign + attest",
+        "ko": "build + SBOM + sign + attest"
+      },
+      "description": {
+        "en": "When: pass",
+        "ko": "조건: pass"
+      }
+    },
+    {
+      "id": "stage",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "deploy same artifact to staging",
+        "ko": "deploy same artifact to staging"
+      },
+      "description": {
+        "en": "deploy same artifact to staging",
+        "ko": "deploy same artifact to staging"
+      }
+    },
+    {
+      "id": "shadow",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "shadow evaluation + regression",
+        "ko": "shadow evaluation + regression"
+      },
+      "description": {
+        "en": "shadow evaluation + regression",
+        "ko": "shadow evaluation + regression"
+      }
+    },
+    {
+      "id": "gate",
+      "kind": "decision",
+      "shape": "diamond",
+      "label": {
+        "en": "promote code?",
+        "ko": "promote code?"
+      },
+      "description": {
+        "en": "When: clean",
+        "ko": "조건: clean"
+      }
+    },
+    {
+      "id": "prodcd",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "deploy same image to prod",
+        "ko": "deploy same image to prod"
+      },
+      "description": {
+        "en": "When: manual approve",
+        "ko": "조건: manual approve"
+      }
+    },
+    {
+      "id": "enforce",
+      "kind": "decision",
+      "shape": "diamond",
+      "label": {
+        "en": "enable enforce?",
+        "ko": "enable enforce?"
+      },
+      "description": {
+        "en": "enable enforce?",
+        "ko": "enable enforce?"
+      }
+    },
+    {
+      "id": "on",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "enforce per action",
+        "ko": "enforce per action"
+      },
+      "description": {
+        "en": "When: separate manual approve",
+        "ko": "조건: separate manual approve"
+      }
+    },
+    {
+      "id": "shadowmode",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "stay in shadow",
+        "ko": "stay in shadow"
+      },
+      "description": {
+        "en": "When: default",
+        "ko": "조건: default"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "pr",
+      "to": "lint",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "lint",
+      "to": "unit",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "unit",
+      "to": "stop",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "unit",
+      "to": "scan",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "scan",
+      "to": "stop",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "scan",
+      "to": "build",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "build",
+      "to": "stage",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "stage",
+      "to": "shadow",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "shadow",
+      "to": "stop",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "shadow",
+      "to": "gate",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-11",
+      "from": "gate",
+      "to": "prodcd",
+      "kind": "approval",
+      "label": null
+    },
+    {
+      "id": "flow-12",
+      "from": "gate",
+      "to": "stop",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-13",
+      "from": "prodcd",
+      "to": "enforce",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-14",
+      "from": "enforce",
+      "to": "on",
+      "kind": "approval",
+      "label": null
+    },
+    {
+      "id": "flow-15",
+      "from": "enforce",
+      "to": "shadowmode",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

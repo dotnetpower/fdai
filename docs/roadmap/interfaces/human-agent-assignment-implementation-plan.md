@@ -48,20 +48,7 @@ observation mode until separately promoted. Packages 6 through 8 add approval co
 knowledge capture without raising IAM authority. Complete and validate each package before its
 focused commit; don't mix unrelated worktree changes into that commit.
 
-```mermaid
-flowchart LR
-   P1[Package 1 duty schema] --> P2[Package 2 assignment core]
-   P2 --> P3[Package 3 API and console]
-   P2 --> P4[Package 4 ownership coordination]
-   P3 --> P5[Package 5 IAM provisioner]
-  P4 --> P5
-   P2 --> P6[Package 6 approval supervisor]
-   P3 --> P7[Package 7 handover goals]
-   P7 --> P8[Package 8 knowledge lifecycle]
-   P5 --> P9[Package 9 production rollout]
-  P6 --> P9
-  P8 --> P9
-```
+![Delivery shape. The main stages are Package 1 duty schema, Package 2 assignment core, Package 3 API and console, Package 4 ownership coordination, Package 5 IAM provisioner, Package 6 approval supervisor, Package 7 handover goals, Package 8 knowledge lifecycle, Package 9 production rollout.](../../diagrams/generated/fdai-roadmap-interfaces-human-agent-assignment-implementation-plan-01.en.svg)
 
 ## Current baseline and gaps
 

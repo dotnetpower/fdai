@@ -1,7 +1,7 @@
 ---
 translation_of: azure-resource-discovery-commands.md
-translation_source_sha: 181d82e5e96df50cb6a25ee142512f304797f502
-translation_revised: 2026-08-18
+translation_source_sha: aac91fa5ab09ef4136054c5e85184d6db4ebac4d
+translation_revised: 2026-08-20
 ---
 
 # Azure 리소스 검색 명령 커버리지
@@ -25,22 +25,7 @@ FDAI는 운영자 질문을 형식화된 검색 의도로 컴파일하고, 해�
 `CommandExplanation`을 생성하므로, 서버 자격 증명이나 실행된 raw argv를 노출하지 않고 읽기를
 재현하는 방법을 답변에 표시할 수 있습니다.
 
-```mermaid
-flowchart LR
-  Q[Operator question] --> I[DiscoveryIntent]
-  I --> O[Ontology and provider profile]
-  O --> P[DiscoveryQueryPlan]
-  P --> R{Backend router}
-  R --> INV[Promoted inventory]
-  R --> ARG[Resource Graph]
-  R --> AZ[ARM, registered CLI, or typed data plane]
-  INV --> E[Normalized evidence]
-  ARG --> E
-  AZ --> E
-  P --> C[Sanitized command explanation]
-  E --> A[Grounded ChatOps answer]
-  C --> A
-```
+![설계 요약. 주요 단계는 Operator question, DiscoveryIntent, Ontology and provider profile, DiscoveryQueryPlan, Backend router, Promoted inventory, Resource Graph, ARM, registered CLI, or typed data plane, Normalized evidence, Sanitized command explanation, Grounded ChatOps answer입니다.](../../diagrams/generated/fdai-roadmap-interfaces-azure-resource-discovery-commands-01.ko.svg)
 
 ## 구현 상태
 

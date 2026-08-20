@@ -1,0 +1,184 @@
+id: fdai-roadmap-agents-agent-pantheon-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: 2. Organization chart
+    description: FDAI flow for 2. Organization chart.
+    alt: 2. Organization chart. The main stages are Odin / (Master Planner), Thor / (Responder), Forseti / (Judge), Mimir /
+      (Rule Steward), Muninn / (Memory), Saga / (Auditor), Norns / (Learner), Vidar / (Recovery), Bragi / (Narrator),
+      Var / (Approver), Huginn / (Event Collector), Heimdall / (Observer).
+  ko:
+    title: 2. 조직도
+    description: 2. 조직도에 대한 FDAI 흐름입니다.
+    alt: 2. 조직도. 주요 단계는 Odin / (Master Planner), Thor / (Responder), Forseti / (Judge), Mimir / (Rule Steward), Muninn /
+      (Memory), Saga / (Auditor), Norns / (Learner), Vidar / (Recovery), Bragi / (Narrator), Var / (Approver), Huginn /
+      (Event Collector), Heimdall / (Observer)입니다.
+canvas:
+  width: 1600
+  height: 1200
+  direction: DOWN
+groups: []
+nodes:
+  - id: odin
+    kind: process
+    shape: card
+    label:
+      en: Odin / (Master Planner)
+      ko: Odin / (Master Planner)
+  - id: thor
+    kind: process
+    shape: card
+    label:
+      en: Thor / (Responder)
+      ko: Thor / (Responder)
+  - id: forseti
+    kind: process
+    shape: card
+    label:
+      en: Forseti / (Judge)
+      ko: Forseti / (Judge)
+  - id: mimir
+    kind: process
+    shape: card
+    label:
+      en: Mimir / (Rule Steward)
+      ko: Mimir / (Rule Steward)
+    description:
+      en: "When: staff"
+      ko: "조건: staff"
+  - id: muninn
+    kind: process
+    shape: card
+    label:
+      en: Muninn / (Memory)
+      ko: Muninn / (Memory)
+    description:
+      en: "When: staff"
+      ko: "조건: staff"
+  - id: saga
+    kind: process
+    shape: card
+    label:
+      en: Saga / (Auditor)
+      ko: Saga / (Auditor)
+    description:
+      en: "When: staff"
+      ko: "조건: staff"
+  - id: norns
+    kind: process
+    shape: card
+    label:
+      en: Norns / (Learner)
+      ko: Norns / (Learner)
+    description:
+      en: "When: staff"
+      ko: "조건: staff"
+  - id: vidar
+    kind: process
+    shape: card
+    label:
+      en: Vidar / (Recovery)
+      ko: Vidar / (Recovery)
+  - id: bragi
+    kind: process
+    shape: card
+    label:
+      en: Bragi / (Narrator)
+      ko: Bragi / (Narrator)
+  - id: var
+    kind: process
+    shape: card
+    label:
+      en: Var / (Approver)
+      ko: Var / (Approver)
+  - id: huginn
+    kind: process
+    shape: card
+    label:
+      en: Huginn / (Event Collector)
+      ko: Huginn / (Event Collector)
+  - id: heimdall
+    kind: process
+    shape: card
+    label:
+      en: Heimdall / (Observer)
+      ko: Heimdall / (Observer)
+  - id: njord
+    kind: process
+    shape: card
+    label:
+      en: Njord / (Cost)
+      ko: Njord / (Cost)
+  - id: freyr
+    kind: process
+    shape: card
+    label:
+      en: Freyr / (Capacity)
+      ko: Freyr / (Capacity)
+  - id: loki
+    kind: process
+    shape: card
+    label:
+      en: Loki / (Chaos)
+      ko: Loki / (Chaos)
+edges:
+  - id: flow-01
+    from: odin
+    to: thor
+    kind: request
+  - id: flow-02
+    from: odin
+    to: forseti
+    kind: request
+  - id: flow-03
+    from: odin
+    to: mimir
+    kind: dependency
+  - id: flow-04
+    from: odin
+    to: muninn
+    kind: dependency
+  - id: flow-05
+    from: odin
+    to: saga
+    kind: dependency
+  - id: flow-06
+    from: odin
+    to: norns
+    kind: dependency
+  - id: flow-07
+    from: thor
+    to: vidar
+    kind: request
+  - id: flow-08
+    from: thor
+    to: bragi
+    kind: request
+  - id: flow-09
+    from: thor
+    to: var
+    kind: request
+  - id: flow-10
+    from: forseti
+    to: huginn
+    kind: request
+  - id: flow-11
+    from: forseti
+    to: heimdall
+    kind: request
+  - id: flow-12
+    from: forseti
+    to: njord
+    kind: request
+  - id: flow-13
+    from: forseti
+    to: freyr
+    kind: request
+  - id: flow-14
+    from: forseti
+    to: loki
+    kind: request

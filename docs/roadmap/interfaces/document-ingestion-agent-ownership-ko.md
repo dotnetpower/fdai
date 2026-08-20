@@ -1,7 +1,7 @@
 ---
 translation_of: document-ingestion-agent-ownership.md
-translation_source_sha: e9c69139d48a7942832769c4a17dc3373f9814fb
-translation_revised: 2026-08-14
+translation_source_sha: 0b3f085b95ee898fb1857aa21492a034a9528e9a
+translation_revised: 2026-08-20
 ---
 
 # 문서 인제스트 에이전트 소유권
@@ -19,19 +19,7 @@ translation_revised: 2026-08-14
 발행하거나 소비합니다. 워커나 게이트웨이의 부수 효과는 소유 에이전트의 결정을 대체할 수
 없습니다.
 
-```mermaid
-flowchart LR
-  U[Upload event] --> HU[Huginn - ingress]
-  HU --> HE[Heimdall - safety signals]
-  HE --> FO[Forseti - admissibility]
-  FO -->|malware / RMS-denied| X[abandon or deny]
-  FO -->|sensitive / authoritative| VA[Var - human approval]
-  FO -->|admit| MU[Muninn - retrieval index]
-  VA --> MU
-  MU --> SA[Saga - audit seal]
-  SA --> KM[Mimir / Norns - catalog growth]
-  MU --> BR[Bragi - progress + citation]
-```
+![설계 개요. 주요 단계는 Upload event, Huginn - ingress, Heimdall - safety signals, Forseti - admissibility, abandon or deny, Var - human approval, Muninn - retrieval index, Saga - audit seal, Mimir / Norns - catalog growth, Bragi - progress + citation입니다.](../../diagrams/generated/fdai-roadmap-interfaces-document-ingestion-agent-ownership-01.ko.svg)
 
 ## 소유권 맵
 

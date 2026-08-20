@@ -130,17 +130,7 @@ This is the core mechanism. The model is used to **compile a natural-language
 question into a typed ontology query** and, at the end, to **render the result
 back into prose**. It is never the source of the fact.
 
-```mermaid
-flowchart LR
-    Q[NL question] --> C["model: compile<br/>NL to typed ontology query"]
-    C --> V["verifier: query is<br/>well-typed and read-only"]
-    V --> T0Q["T0: execute query<br/>over the twin (deterministic)"]
-    TWIN[(Assurance Twin<br/>ontology graph)] --> T0Q
-    T0Q --> R[grounded result set]
-    R --> EXP["model: explain<br/>result + cite rule path"]
-    EXP --> A["answer + provenance<br/>+ confidence + what-if"]
-    R -->|empty / low confidence| AB[abstain: 'not known']
-```
+![3. Verifiable (text-to-query, not text-to-answer). The main stages are NL question, model: compile / NL to typed ontology query, verifier: query is / well-typed and read-only, T0: execute query / over the twin (deterministic), Assurance Twin / ontology graph, grounded result set, model: explain / result + cite rule path, answer + provenance / + confidence + what-if, abstain: 'not known'.](../../diagrams/generated/fdai-roadmap-operations-assurance-twin-01.en.svg)
 
 - **Compilation is verified**: the compiled query MUST be well-typed against the
   ontology schema and MUST be read-only; a query that fails the check is rejected,

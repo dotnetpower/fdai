@@ -1,0 +1,177 @@
+{
+  "id": "fdai-roadmap-interfaces-benchmark-adapters-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are External harness, External driver, Evaluation SDK, Public EvaluationHost, Capability and custody brokers, FDAI typed ingress and control loop, EvaluationResult."
+    },
+    "ko": {
+      "title": "설계 요약",
+      "description": "설계 요약에 대한 FDAI 흐름입니다.",
+      "alt": "설계 요약. 주요 단계는 External harness, External driver, Evaluation SDK, Public EvaluationHost, Capability and custody brokers, FDAI typed ingress and control loop, EvaluationResult입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-interfaces-benchmark-adapters-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-interfaces-benchmark-adapters-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "h",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "External harness",
+        "ko": "External harness"
+      },
+      "description": {
+        "en": "External harness",
+        "ko": "External harness"
+      }
+    },
+    {
+      "id": "d",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "External driver",
+        "ko": "External driver"
+      },
+      "description": {
+        "en": "External driver",
+        "ko": "External driver"
+      }
+    },
+    {
+      "id": "sdk",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Evaluation SDK",
+        "ko": "Evaluation SDK"
+      },
+      "description": {
+        "en": "Evaluation SDK",
+        "ko": "Evaluation SDK"
+      }
+    },
+    {
+      "id": "eh",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Public EvaluationHost",
+        "ko": "Public EvaluationHost"
+      },
+      "description": {
+        "en": "Public EvaluationHost",
+        "ko": "Public EvaluationHost"
+      }
+    },
+    {
+      "id": "c",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Capability and custody brokers",
+        "ko": "Capability and custody brokers"
+      },
+      "description": {
+        "en": "Capability and custody brokers",
+        "ko": "Capability and custody brokers"
+      }
+    },
+    {
+      "id": "f",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "FDAI typed ingress and control loop",
+        "ko": "FDAI typed ingress and control loop"
+      },
+      "description": {
+        "en": "FDAI typed ingress and control loop",
+        "ko": "FDAI typed ingress and control loop"
+      }
+    },
+    {
+      "id": "r",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "EvaluationResult",
+        "ko": "EvaluationResult"
+      },
+      "description": {
+        "en": "EvaluationResult",
+        "ko": "EvaluationResult"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "h",
+      "to": "d",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "d",
+      "to": "h",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "d",
+      "to": "sdk",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "sdk",
+      "to": "eh",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "eh",
+      "to": "c",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "eh",
+      "to": "f",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "f",
+      "to": "r",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "r",
+      "to": "d",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

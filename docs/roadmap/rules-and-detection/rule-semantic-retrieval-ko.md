@@ -1,7 +1,7 @@
 ---
 translation_of: rule-semantic-retrieval.md
-translation_source_sha: 4a4c843feb34acf4cec4dee27441fbfdffaddabe
-translation_revised: 2026-08-13
+translation_source_sha: db493119999b05d5d0d99c6091883b7964257a2b
+translation_revised: 2026-08-20
 ---
 # Rule 의미 검색
 
@@ -145,19 +145,7 @@ translation_revised: 2026-08-13
 FDAI는 Rule 순위를 정하기 전에 의미를 해석합니다. 정확한 카탈로그 ID와 검토된 온톨로지
 링크로 후보 집합을 제한하고, lexical 및 vector 검색으로 다양한 자연어 표현을 수용합니다.
 
-```mermaid
-flowchart LR
-    Q[Operator question] --> I[Interpretation candidate]
-    I --> C[Ontology concepts]
-    C --> G[Bounded graph expansion]
-    G --> R[Hybrid Rule retrieval]
-    R --> V[Catalog and generation verification]
-    V --> D{Operation class}
-    D -->|discover or explain| A[Read-only answer]
-    D -->|evaluate| T[Existing T0 and OPA path]
-    D -->|action draft| P[Governed ActionType proposal]
-    V -->|ambiguous| H[Clarification or hold]
-```
+![설계 개요. 주요 단계는 Operator question, Interpretation candidate, Ontology concepts, Bounded graph expansion, Hybrid Rule retrieval, Catalog and generation verification, Operation class, Read-only answer, Existing T0 and OPA path, Governed ActionType proposal, Clarification or hold입니다.](../../diagrams/generated/fdai-roadmap-rules-and-detection-rule-semantic-retrieval-01.ko.svg)
 
 이 흐름은 다음 세 가지 구분을 유지합니다.
 

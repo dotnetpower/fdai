@@ -1,0 +1,163 @@
+{
+  "id": "fdai-roadmap-interfaces-ontology-query-randomized-assurance-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Historical design at a glance",
+      "description": "FDAI flow for Historical design at a glance.",
+      "alt": "Historical design at a glance. The main stages are 100 generated questions, Mechanical cohort validation, Authenticated Console Command Deck, Terminal response capture, Independent evidence-aware judge, Intent and answer rates, Release decision and action ledger."
+    },
+    "ko": {
+      "title": "역사적 설계 개요",
+      "description": "역사적 설계 개요에 대한 FDAI 흐름입니다.",
+      "alt": "역사적 설계 개요. 주요 단계는 생성된 질문 100개, 질문 집합 기계 검증, 인증된 Console Command Deck, 최종 응답 캡처, 독립적인 근거 인식 judge, 의도 및 답변 성공률, 릴리스 결정 및 조치 원장입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-interfaces-ontology-query-randomized-assurance-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-interfaces-ontology-query-randomized-assurance-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "q",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "100 generated questions",
+        "ko": "생성된 질문 100개"
+      },
+      "description": {
+        "en": "100 generated questions",
+        "ko": "생성된 질문 100개"
+      }
+    },
+    {
+      "id": "v",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Mechanical cohort validation",
+        "ko": "질문 집합 기계 검증"
+      },
+      "description": {
+        "en": "Mechanical cohort validation",
+        "ko": "질문 집합 기계 검증"
+      }
+    },
+    {
+      "id": "c",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Authenticated Console Command Deck",
+        "ko": "인증된 Console Command Deck"
+      },
+      "description": {
+        "en": "Authenticated Console Command Deck",
+        "ko": "인증된 Console Command Deck"
+      }
+    },
+    {
+      "id": "t",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Terminal response capture",
+        "ko": "최종 응답 캡처"
+      },
+      "description": {
+        "en": "Terminal response capture",
+        "ko": "최종 응답 캡처"
+      }
+    },
+    {
+      "id": "j",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Independent evidence-aware judge",
+        "ko": "독립적인 근거 인식 judge"
+      },
+      "description": {
+        "en": "Independent evidence-aware judge",
+        "ko": "독립적인 근거 인식 judge"
+      }
+    },
+    {
+      "id": "r",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Intent and answer rates",
+        "ko": "의도 및 답변 성공률"
+      },
+      "description": {
+        "en": "Intent and answer rates",
+        "ko": "의도 및 답변 성공률"
+      }
+    },
+    {
+      "id": "d",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Release decision and action ledger",
+        "ko": "릴리스 결정 및 조치 원장"
+      },
+      "description": {
+        "en": "Release decision and action ledger",
+        "ko": "릴리스 결정 및 조치 원장"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "q",
+      "to": "v",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "v",
+      "to": "c",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "c",
+      "to": "t",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "t",
+      "to": "j",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "j",
+      "to": "r",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "r",
+      "to": "d",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

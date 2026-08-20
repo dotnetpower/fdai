@@ -1,0 +1,203 @@
+{
+  "id": "fdai-roadmap-rules-and-detection-document-ontology-distillation-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are Governed document, Claim inventory, Typed extraction, Deterministic verification, Ontology change proposal, Accountable review, Immutable ontology revision, Authority reconciliation, Shadow measurement."
+    },
+    "ko": {
+      "title": "한눈에 보는 설계",
+      "description": "한눈에 보는 설계에 대한 FDAI 흐름입니다.",
+      "alt": "한눈에 보는 설계. 주요 단계는 승인된 문서, Claim inventory, Typed extraction, 결정론적 검증, Ontology change proposal, 책임 있는 검토, Immutable ontology revision, Authority reconciliation, Shadow measurement입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-rules-and-detection-document-ontology-distillation-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-rules-and-detection-document-ontology-distillation-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "d",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Governed document",
+        "ko": "승인된 문서"
+      },
+      "description": {
+        "en": "Governed document",
+        "ko": "승인된 문서"
+      }
+    },
+    {
+      "id": "i",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Claim inventory",
+        "ko": "Claim inventory"
+      },
+      "description": {
+        "en": "Claim inventory",
+        "ko": "Claim inventory"
+      }
+    },
+    {
+      "id": "e",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Typed extraction",
+        "ko": "Typed extraction"
+      },
+      "description": {
+        "en": "Typed extraction",
+        "ko": "Typed extraction"
+      }
+    },
+    {
+      "id": "v",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Deterministic verification",
+        "ko": "결정론적 검증"
+      },
+      "description": {
+        "en": "Deterministic verification",
+        "ko": "결정론적 검증"
+      }
+    },
+    {
+      "id": "p",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Ontology change proposal",
+        "ko": "Ontology change proposal"
+      },
+      "description": {
+        "en": "Ontology change proposal",
+        "ko": "Ontology change proposal"
+      }
+    },
+    {
+      "id": "h",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Accountable review",
+        "ko": "책임 있는 검토"
+      },
+      "description": {
+        "en": "Accountable review",
+        "ko": "책임 있는 검토"
+      }
+    },
+    {
+      "id": "r",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Immutable ontology revision",
+        "ko": "Immutable ontology revision"
+      },
+      "description": {
+        "en": "Immutable ontology revision",
+        "ko": "Immutable ontology revision"
+      }
+    },
+    {
+      "id": "c",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Authority reconciliation",
+        "ko": "Authority reconciliation"
+      },
+      "description": {
+        "en": "Authority reconciliation",
+        "ko": "Authority reconciliation"
+      }
+    },
+    {
+      "id": "s",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Shadow measurement",
+        "ko": "Shadow measurement"
+      },
+      "description": {
+        "en": "Shadow measurement",
+        "ko": "Shadow measurement"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "d",
+      "to": "i",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "i",
+      "to": "e",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "e",
+      "to": "v",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "v",
+      "to": "p",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "p",
+      "to": "h",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "h",
+      "to": "r",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "r",
+      "to": "c",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "c",
+      "to": "s",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

@@ -1,8 +1,8 @@
 ---
 title: 문서 인제스트와 Drop Zone
 translation_of: document-ingestion.md
-translation_source_sha: c019813cfd05f497dae5881716428d151c32f80c
-translation_revised: 2026-08-14
+translation_source_sha: eca72b81cb50e6e0839ca82c1b45bd4c9d60dea1
+translation_revised: 2026-08-20
 ---
 # 문서 인제스트와 투입 구역
 
@@ -29,20 +29,7 @@ translation_revised: 2026-08-14
 검색 결과, 인용에서 문서 액세스 정책을 다시 적용하므로 제한된 문서가 인제스트로 인해
 광범위하게 공개되는 텍스트로 바뀌지 않습니다.
 
-```mermaid
-flowchart LR
-  U[Operator drop zone] --> S[Upload session]
-  S --> G[Authenticated ingestion gateway]
-  G --> Q[Private quarantine storage]
-  Q --> M[Malware and content safety]
-  M --> P[Protection and classification]
-  P --> X[Format extractor]
-  X --> N[Normalized document artifacts]
-  N --> K[Chunk and index]
-  K --> R[Knowledge retrieval]
-  N --> D[Manual distillation]
-  P -->|access denied or policy hold| H[Held for review]
-```
+![설계 개요. 주요 단계는 Operator drop zone, Upload session, Authenticated ingestion gateway, Private quarantine storage, Malware and content safety, Protection and classification, Format extractor, Normalized document artifacts, Chunk and index, Knowledge retrieval, Manual distillation, Held for review입니다.](../../diagrams/generated/fdai-roadmap-interfaces-document-ingestion-01.ko.svg)
 
 ## 인제스트 파이프라인의 에이전트 소유
 

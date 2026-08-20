@@ -26,18 +26,7 @@ and what outcome was observed. Outcome Assurance joins those facts into three op
    and did the measured effect move that objective?
 3. **Control assurance:** Did the result stay inside policy, approval, rollback, and promotion guardrails?
 
-```mermaid
-flowchart LR
-  S[BusinessService and Workload] --> O[Operational Objective]
-  O --> D[DecisionCase and ExpectedEffect]
-  D --> A[ActionRun]
-  A --> R[ObservedOutcome]
-  R --> M[Measured outcome]
-  RR[Readiness evidence] --> P[Outcome Assurance projection]
-  M --> P
-  G[Guard and promotion evidence] --> P
-  P --> C[Read-only console]
-```
+![Design at a glance. The main stages are BusinessService and Workload, Operational Objective, DecisionCase and ExpectedEffect, ActionRun, ObservedOutcome, Measured outcome, Readiness evidence, Outcome Assurance projection, Guard and promotion evidence, Read-only console.](../../diagrams/generated/fdai-roadmap-architecture-outcome-assurance-01.en.svg)
 
 ## Implementation status
 

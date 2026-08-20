@@ -1,0 +1,223 @@
+{
+  "id": "fdai-roadmap-architecture-outcome-assurance-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are BusinessService and Workload, Operational Objective, DecisionCase and ExpectedEffect, ActionRun, ObservedOutcome, Measured outcome, Readiness evidence, Outcome Assurance projection, Guard and promotion evidence, Read-only console."
+    },
+    "ko": {
+      "title": "한눈에 보는 설계",
+      "description": "한눈에 보는 설계에 대한 FDAI 흐름입니다.",
+      "alt": "한눈에 보는 설계. 주요 단계는 BusinessService and Workload, Operational Objective, DecisionCase and ExpectedEffect, ActionRun, ObservedOutcome, Measured outcome, Readiness evidence, Outcome Assurance projection, Guard and promotion evidence, Read-only console입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-architecture-outcome-assurance-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-architecture-outcome-assurance-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "s",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "BusinessService and Workload",
+        "ko": "BusinessService and Workload"
+      },
+      "description": {
+        "en": "BusinessService and Workload",
+        "ko": "BusinessService and Workload"
+      }
+    },
+    {
+      "id": "o",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Operational Objective",
+        "ko": "Operational Objective"
+      },
+      "description": {
+        "en": "Operational Objective",
+        "ko": "Operational Objective"
+      }
+    },
+    {
+      "id": "d",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "DecisionCase and ExpectedEffect",
+        "ko": "DecisionCase and ExpectedEffect"
+      },
+      "description": {
+        "en": "DecisionCase and ExpectedEffect",
+        "ko": "DecisionCase and ExpectedEffect"
+      }
+    },
+    {
+      "id": "a",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "ActionRun",
+        "ko": "ActionRun"
+      },
+      "description": {
+        "en": "ActionRun",
+        "ko": "ActionRun"
+      }
+    },
+    {
+      "id": "r",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "ObservedOutcome",
+        "ko": "ObservedOutcome"
+      },
+      "description": {
+        "en": "ObservedOutcome",
+        "ko": "ObservedOutcome"
+      }
+    },
+    {
+      "id": "m",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Measured outcome",
+        "ko": "Measured outcome"
+      },
+      "description": {
+        "en": "Measured outcome",
+        "ko": "Measured outcome"
+      }
+    },
+    {
+      "id": "rr",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Readiness evidence",
+        "ko": "Readiness evidence"
+      },
+      "description": {
+        "en": "Readiness evidence",
+        "ko": "Readiness evidence"
+      }
+    },
+    {
+      "id": "p",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Outcome Assurance projection",
+        "ko": "Outcome Assurance projection"
+      },
+      "description": {
+        "en": "Outcome Assurance projection",
+        "ko": "Outcome Assurance projection"
+      }
+    },
+    {
+      "id": "g",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Guard and promotion evidence",
+        "ko": "Guard and promotion evidence"
+      },
+      "description": {
+        "en": "Guard and promotion evidence",
+        "ko": "Guard and promotion evidence"
+      }
+    },
+    {
+      "id": "c",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Read-only console",
+        "ko": "Read-only console"
+      },
+      "description": {
+        "en": "Read-only console",
+        "ko": "Read-only console"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "s",
+      "to": "o",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "o",
+      "to": "d",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "d",
+      "to": "a",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "a",
+      "to": "r",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "r",
+      "to": "m",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "rr",
+      "to": "p",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "m",
+      "to": "p",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "g",
+      "to": "p",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "p",
+      "to": "c",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

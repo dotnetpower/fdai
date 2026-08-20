@@ -1,0 +1,203 @@
+{
+  "id": "fdai-roadmap-interfaces-conversation-search-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are Authenticated operator, GET search API, Server-resolved principal scope, Bounded query and filters, Generated trigram projection, Snippet and provenance, Authorized neighbor turns, Read-only Evidence panel, Untrusted narrator tool result."
+    },
+    "ko": {
+      "title": "한눈에 보는 설계",
+      "description": "한눈에 보는 설계에 대한 FDAI 흐름입니다.",
+      "alt": "한눈에 보는 설계. 주요 단계는 인증된 operator, GET search API, Server-resolved principal scope, Bounded query 및 filter, Generated trigram projection, Snippet 및 provenance, Authorized neighbor turn, Read-only Evidence panel, Untrusted narrator tool result입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-interfaces-conversation-search-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-interfaces-conversation-search-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "user",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Authenticated operator",
+        "ko": "인증된 operator"
+      },
+      "description": {
+        "en": "Authenticated operator",
+        "ko": "인증된 operator"
+      }
+    },
+    {
+      "id": "api",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "GET search API",
+        "ko": "GET search API"
+      },
+      "description": {
+        "en": "GET search API",
+        "ko": "GET search API"
+      }
+    },
+    {
+      "id": "scope",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Server-resolved principal scope",
+        "ko": "Server-resolved principal scope"
+      },
+      "description": {
+        "en": "Server-resolved principal scope",
+        "ko": "Server-resolved principal scope"
+      }
+    },
+    {
+      "id": "query",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Bounded query and filters",
+        "ko": "Bounded query 및 filter"
+      },
+      "description": {
+        "en": "Bounded query and filters",
+        "ko": "Bounded query 및 filter"
+      }
+    },
+    {
+      "id": "index",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Generated trigram projection",
+        "ko": "Generated trigram projection"
+      },
+      "description": {
+        "en": "Generated trigram projection",
+        "ko": "Generated trigram projection"
+      }
+    },
+    {
+      "id": "result",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Snippet and provenance",
+        "ko": "Snippet 및 provenance"
+      },
+      "description": {
+        "en": "Snippet and provenance",
+        "ko": "Snippet 및 provenance"
+      }
+    },
+    {
+      "id": "context",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Authorized neighbor turns",
+        "ko": "Authorized neighbor turn"
+      },
+      "description": {
+        "en": "Authorized neighbor turns",
+        "ko": "Authorized neighbor turn"
+      }
+    },
+    {
+      "id": "ui",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Read-only Evidence panel",
+        "ko": "Read-only Evidence panel"
+      },
+      "description": {
+        "en": "Read-only Evidence panel",
+        "ko": "Read-only Evidence panel"
+      }
+    },
+    {
+      "id": "tool",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Untrusted narrator tool result",
+        "ko": "Untrusted narrator tool result"
+      },
+      "description": {
+        "en": "Untrusted narrator tool result",
+        "ko": "Untrusted narrator tool result"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "user",
+      "to": "api",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "api",
+      "to": "scope",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "scope",
+      "to": "query",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "query",
+      "to": "index",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "index",
+      "to": "result",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "result",
+      "to": "context",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "result",
+      "to": "ui",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "result",
+      "to": "tool",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

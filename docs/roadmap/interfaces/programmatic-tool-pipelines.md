@@ -50,17 +50,7 @@ an immutable run specification to an injected `ProgrammaticPipelineRunner`. The 
 the generated `PipelineClient`; each call returns through the parent broker and the existing
 registered `ToolExecutor` dispatch path.
 
-```mermaid
-flowchart LR
-    R[Reviewed source + digest] --> V[AST and sandbox validation]
-    V --> C[Run capability]
-    C --> X[Isolated child]
-    X -->|generated client| B[Parent broker]
-    B --> T[Registered ToolExecutor]
-    T --> P[(Per-call receipts)]
-    X --> O[Bounded final projection]
-    O --> A[(Aggregate result)]
-```
+![Design at a glance. The main stages are Reviewed source + digest, AST and sandbox validation, Run capability, Isolated child, Parent broker, Registered ToolExecutor, Per-call receipts, Bounded final projection, Aggregate result.](../../diagrams/generated/fdai-roadmap-interfaces-programmatic-tool-pipelines-01.en.svg)
 
 ## Immutable contracts
 

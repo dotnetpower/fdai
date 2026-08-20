@@ -1,0 +1,163 @@
+id: fdai-roadmap-decisioning-post-turn-improvement-review-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: Design at a glance. The main stages are Persist completed turn, Bounded non-blocking queue, Bragi publishes
+      object.turn, Norns checks eligibility, Durable terminal record, Two distinct model families, Exact agreement and
+      deterministic checks, Operator-memory draft, Runtime-skill draft, Norns RuleCandidate path, Read-only projection.
+  ko:
+    title: 한눈에 보는 설계
+    description: 한눈에 보는 설계에 대한 FDAI 흐름입니다.
+    alt: 한눈에 보는 설계. 주요 단계는 완료 turn 저장, Bounded non-blocking queue, Bragi가 object.turn 발행, Norns eligibility 검사, Durable
+      terminal record, 서로 다른 두 model family, 완전한 합의와 결정론적 검사, Operator-memory draft, Runtime-skill draft, Norns
+      RuleCandidate 경로, Read-only projection입니다.
+canvas:
+  width: 1600
+  height: 990
+  direction: RIGHT
+groups: []
+nodes:
+  - id: chat
+    kind: process
+    shape: card
+    label:
+      en: Persist completed turn
+      ko: 완료 turn 저장
+  - id: queue
+    kind: process
+    shape: card
+    label:
+      en: Bounded non-blocking queue
+      ko: Bounded non-blocking queue
+  - id: bragi
+    kind: process
+    shape: card
+    label:
+      en: Bragi publishes object.turn
+      ko: Bragi가 object.turn 발행
+  - id: norns
+    kind: process
+    shape: card
+    label:
+      en: Norns checks eligibility
+      ko: Norns eligibility 검사
+  - id: ledger
+    kind: process
+    shape: card
+    label:
+      en: Durable terminal record
+      ko: Durable terminal record
+    description:
+      en: "When: not eligible / When: hold"
+      ko: "조건: 대상 아님 / 조건: 보류"
+  - id: models
+    kind: process
+    shape: card
+    label:
+      en: Two distinct model families
+      ko: 서로 다른 두 model family
+    description:
+      en: "When: eligible"
+      ko: "조건: 대상"
+  - id: verify
+    kind: process
+    shape: card
+    label:
+      en: Exact agreement and deterministic checks
+      ko: 완전한 합의와 결정론적 검사
+  - id: memory
+    kind: process
+    shape: card
+    label:
+      en: Operator-memory draft
+      ko: Operator-memory draft
+    description:
+      en: "When: memory"
+      ko: "조건: memory"
+  - id: skill
+    kind: process
+    shape: card
+    label:
+      en: Runtime-skill draft
+      ko: Runtime-skill draft
+    description:
+      en: "When: skill"
+      ko: "조건: skill"
+  - id: rule
+    kind: process
+    shape: card
+    label:
+      en: Norns RuleCandidate path
+      ko: Norns RuleCandidate 경로
+    description:
+      en: "When: rule hint"
+      ko: "조건: rule hint"
+  - id: panel
+    kind: process
+    shape: card
+    label:
+      en: Read-only projection
+      ko: Read-only projection
+edges:
+  - id: flow-01
+    from: chat
+    to: queue
+    kind: request
+  - id: flow-02
+    from: queue
+    to: bragi
+    kind: request
+  - id: flow-03
+    from: bragi
+    to: norns
+    kind: request
+  - id: flow-04
+    from: norns
+    to: ledger
+    kind: request
+  - id: flow-05
+    from: norns
+    to: models
+    kind: request
+  - id: flow-06
+    from: models
+    to: verify
+    kind: request
+  - id: flow-07
+    from: verify
+    to: ledger
+    kind: request
+  - id: flow-08
+    from: verify
+    to: memory
+    kind: request
+  - id: flow-09
+    from: verify
+    to: skill
+    kind: request
+  - id: flow-10
+    from: verify
+    to: rule
+    kind: request
+  - id: flow-11
+    from: memory
+    to: panel
+    kind: request
+  - id: flow-12
+    from: skill
+    to: panel
+    kind: request
+  - id: flow-13
+    from: rule
+    to: panel
+    kind: request
+  - id: flow-14
+    from: ledger
+    to: panel
+    kind: request

@@ -43,24 +43,7 @@ Bragi persists the terminal turn. Norns evaluates it off path, Saga records each
 policy transition, and Mimir governs the fixed rubric. This loop cannot change RBAC, approval,
 risk, policy, agent roles, or executor authority.
 
-```mermaid
-flowchart LR
-    TURN[Terminal turn] --> CHECK[Deterministic checks]
-    CHECK -->|Decisive| LEDGER[Assessment ledger]
-    CHECK -->|Semantic review| A[Independent evaluator A]
-    CHECK -->|Semantic review| B[Independent evaluator B]
-    A --> REDUCE[Deterministic reducer]
-    B --> REDUCE
-    REDUCE -->|Disagreement| TIE[Independent tie-breaker]
-    TIE --> LEDGER
-    LEDGER --> CLUSTER[Norns failure clustering]
-    CLUSTER --> CANDIDATE[Bounded policy candidate]
-    CANDIDATE --> REPLAY[Blind bilingual replay]
-    REPLAY --> SHADOW[Shadow and canary]
-    SHADOW -->|Guard pass| PROMOTE[Automatic promotion]
-    SHADOW -->|Regression| ROLLBACK[Automatic rollback]
-    HUMAN[Operator dispute] --> LEDGER
-```
+![Design at a glance. The main stages are Terminal turn, Deterministic checks, Assessment ledger, Independent evaluator A, Independent evaluator B, Deterministic reducer, Independent tie-breaker, Norns failure clustering, Bounded policy candidate, Blind bilingual replay, Shadow and canary, Automatic promotion.](../../diagrams/generated/fdai-roadmap-decisioning-conversation-assurance-01.en.svg)
 
 ## Why subscriptions learn differently
 

@@ -1,0 +1,183 @@
+{
+  "id": "fdai-roadmap-architecture-operating-ontology-metamodel-02",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Operational intent flow",
+      "description": "FDAI flow for Operational intent flow.",
+      "alt": "Operational intent flow. The main stages are Natural language, Candidate interpretation, Verified semantic plan, Query FunctionType, ObjectSet and evidence functions, Context snapshot, Policy input when needed, Decision pipeline."
+    },
+    "ko": {
+      "title": "Operational 의도 흐름",
+      "description": "Operational 의도 흐름에 대한 FDAI 흐름입니다.",
+      "alt": "Operational 의도 흐름. 주요 단계는 Natural language, Candidate interpretation, Verified semantic plan, Query FunctionType, ObjectSet and evidence functions, Context snapshot, Policy input when needed, Decision pipeline입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-architecture-operating-ontology-metamodel-02.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-architecture-operating-ontology-metamodel-02.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "n",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Natural language",
+        "ko": "Natural language"
+      },
+      "description": {
+        "en": "Natural language",
+        "ko": "Natural language"
+      }
+    },
+    {
+      "id": "c",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Candidate interpretation",
+        "ko": "Candidate interpretation"
+      },
+      "description": {
+        "en": "Candidate interpretation",
+        "ko": "Candidate interpretation"
+      }
+    },
+    {
+      "id": "v",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Verified semantic plan",
+        "ko": "Verified semantic plan"
+      },
+      "description": {
+        "en": "Verified semantic plan",
+        "ko": "Verified semantic plan"
+      }
+    },
+    {
+      "id": "f",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Query FunctionType",
+        "ko": "Query FunctionType"
+      },
+      "description": {
+        "en": "Query FunctionType",
+        "ko": "Query FunctionType"
+      }
+    },
+    {
+      "id": "q",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "ObjectSet and evidence functions",
+        "ko": "ObjectSet and evidence functions"
+      },
+      "description": {
+        "en": "ObjectSet and evidence functions",
+        "ko": "ObjectSet and evidence functions"
+      }
+    },
+    {
+      "id": "s",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Context snapshot",
+        "ko": "Context snapshot"
+      },
+      "description": {
+        "en": "Context snapshot",
+        "ko": "Context snapshot"
+      }
+    },
+    {
+      "id": "p",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Policy input when needed",
+        "ko": "Policy input when needed"
+      },
+      "description": {
+        "en": "Policy input when needed",
+        "ko": "Policy input when needed"
+      }
+    },
+    {
+      "id": "d",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Decision pipeline",
+        "ko": "Decision pipeline"
+      },
+      "description": {
+        "en": "Decision pipeline",
+        "ko": "Decision pipeline"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "n",
+      "to": "c",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "c",
+      "to": "v",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "v",
+      "to": "f",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "f",
+      "to": "q",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "q",
+      "to": "s",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "s",
+      "to": "p",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "p",
+      "to": "d",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

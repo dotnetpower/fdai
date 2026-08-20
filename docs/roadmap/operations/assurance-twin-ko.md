@@ -1,8 +1,8 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: c3c845141bf0e17963f6a2f9e8a98a6464352a87
-translation_revised: 2026-08-14
+translation_source_sha: d86d64a539bc3fc122507b9c5c37179efc64e507
+translation_revised: 2026-08-20
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 
@@ -123,17 +123,7 @@ Finding: storage-x violates rule:object-storage.private-endpoint.required
 이것이 핵심 메커니즘입니다. 모델은 **자연어 질문을 타입 있는 온톨로지 질의로 컴파일**하고,
 마지막에 **결과를 산문으로 렌더링**하는 데 쓰입니다. 사실의 출처는 결코 모델이 아닙니다.
 
-```mermaid
-flowchart LR
-    Q[NL 질문] --> C["모델: NL을 타입 있는<br/>온톨로지 질의로 컴파일"]
-    C --> V["verifier: 질의가<br/>well-typed하고 읽기 전용인지"]
-    V --> T0Q["T0: 트윈 위에서 질의 실행<br/>(결정론적)"]
-    TWIN[(어슈어런스 트윈<br/>온톨로지 그래프)] --> T0Q
-    T0Q --> R[근거 있는 결과 집합]
-    R --> EXP["모델: 결과 설명<br/>+ 규칙 경로 인용"]
-    EXP --> A["답 + provenance<br/>+ confidence + what-if"]
-    R -->|비어있음 / 낮은 confidence| AB[abstain: '모름']
-```
+![3. Verifiable (text-to-answer가 아니라 text-to-query). 주요 단계는 NL 질문, 모델: NL을 타입 있는 / 온톨로지 질의로 컴파일, verifier: 질의가 / well-typed하고 읽기 전용인지, T0: 트윈 위에서 질의 실행 / (결정론적), 어슈어런스 트윈 / 온톨로지 그래프, 근거 있는 결과 집합, 모델: 결과 설명 / + 규칙 경로 인용, 답 + provenance / + confidence + what-if, abstain: '모름'입니다.](../../diagrams/generated/fdai-roadmap-operations-assurance-twin-01.ko.svg)
 
 - **컴파일이 검증됨**: 컴파일된 질의는 온톨로지 스키마에 대해 well-typed여야 하고 읽기
   전용이어야 합니다; 검사를 통과하지 못한 질의는 실행되지 않고 거부됩니다. 이는 T2

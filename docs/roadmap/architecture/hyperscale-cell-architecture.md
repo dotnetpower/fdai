@@ -43,24 +43,7 @@ runtime becomes horizontally-sharded cells, and the audit path splits into a
 lock-free write plane and an async index plane. The control loop, the tiers, the
 risk gate, and the seven autonomous-action safeguards are untouched.
 
-```mermaid
-flowchart TB
-  subgraph MG["Management group hierarchy"]
-    POL["Azure Policy DeployIfNotExists<br/>(AMBA pattern) - fan-in as code"]
-  end
-  subgraph Subs["300 subscriptions / dozens of landing zones"]
-    S["Activity Log + resource events"]
-  end
-  POL -.auto-deploy diagnostic settings.-> S
-  S -->|forwarded to Kafka :9093| EH["Per-cell Event Hubs (sharded)"]
-  EH --> CELL["FDAI cell (scale unit)<br/>event-ingest -> trust-router -> risk-gate -> executor"]
-  CELL --> LED[("Audit ledger<br/>append-only, hash-chained, never sampled")]
-  CELL -.telemetry.-> TEL[("Telemetry plane<br/>ADX / Log Analytics - tiered, sampled, rolled up")]
-  LED -.async projector.-> IDX[("Index plane: ADX + Postgres + pgvector")]
-  style LED fill:#522,stroke:#f00
-  style TEL fill:#225,stroke:#08f
-  style POL fill:#252,stroke:#0a0
-```
+![Design at a glance. The main stages are Azure Policy DeployIfNotExists / (AMBA pattern) - fan-in as code, Activity Log + resource events, Per-cell Event Hubs (sharded), FDAI cell (scale unit) / event-ingest -> trust-router -> risk-gate -> executor, Audit ledger / append-only, hash-chained, never sampled, Telemetry plane / ADX / Log Analytics - tiered, sampled, rolled up, Index plane: ADX + Postgres + pgvector.](../../diagrams/generated/fdai-roadmap-architecture-hyperscale-cell-architecture-01.en.svg)
 
 ## Implementation status
 

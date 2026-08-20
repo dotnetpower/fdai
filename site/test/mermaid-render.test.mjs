@@ -4,8 +4,10 @@ import test from "node:test";
 
 const config = await readFile(new URL("../astro.config.mjs", import.meta.url), "utf8");
 
-test("initial and theme-triggered Mermaid renders are serialized", () => {
-  assert.match(config, /if \(rendering\) \{\s*rerenderRequested = true;/);
-  assert.match(config, /do \{[\s\S]*await mermaid\.run\([\s\S]*while \(rerenderRequested\)/);
-  assert.match(config, /renderAll\(\)\.catch\(\(error\) => console\.error/);
+test("site uses the FDAI diagram viewer without a Mermaid runtime", () => {
+  assert.match(config, /DIAGRAM_VIEWER_SCRIPT/);
+  assert.match(config, /remarkFdaiDiagrams/);
+  assert.doesNotMatch(config, /remarkMermaid/);
+  assert.doesNotMatch(config, /cdn\.jsdelivr\.net\/npm\/mermaid/);
+  assert.doesNotMatch(config, /pre\.mermaid/);
 });

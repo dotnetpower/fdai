@@ -71,19 +71,7 @@ The Operations area reads existing domain projections and submits requests throu
 that already owns each schema and lifecycle. The responsible agents judge, approve, execute,
 recover, and audit the request through typed events.
 
-```mermaid
-flowchart LR
-  UI[FDAI Console - Operations] --> READ[Domain projections]
-  UI --> API[Operator API request routes]
-  API --> BUS[Typed event bus]
-  BUS --> OWNER[Owning agents]
-  OWNER --> GATES[Quality and risk gates]
-  GATES --> VAR[Var approval]
-  GATES --> THOR[Thor execution]
-  VAR --> THOR
-  THOR --> SAGA[Saga audit]
-  OWNER --> SAGA
-```
+![Design at a glance. The main stages are FDAI Console - Operations, Domain projections, Operator API request routes, Typed event bus, Owning agents, Quality and risk gates, Var approval, Thor execution, Saga audit.](../../diagrams/generated/fdai-roadmap-interfaces-console-operations-01.en.svg)
 
 ## Architectural decision
 

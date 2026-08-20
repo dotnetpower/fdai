@@ -1,0 +1,112 @@
+id: fdai-roadmap-interfaces-ontology-query-coverage-implementation-plan-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: Design at a glance. The main stages are Operator turn, SemanticProblemFrame candidate, Active ontology release,
+      Principal-scoped query manifest, Deterministic verifier, Verified OntologyQueryPlan, Bounded task DAG,
+      Authoritative evidence and receipts, Verified answer or explicit limitation.
+  ko:
+    title: 설계 개요
+    description: 설계 개요에 대한 FDAI 흐름입니다.
+    alt: 설계 개요. 주요 단계는 Operator turn, SemanticProblemFrame candidate, Active ontology release, Principal-scoped query
+      manifest, Deterministic verifier, Verified OntologyQueryPlan, Bounded task DAG, Authoritative evidence and
+      receipts, Verified answer or explicit limitation입니다.
+canvas:
+  width: 1350
+  height: 810
+  direction: RIGHT
+groups: []
+nodes:
+  - id: q
+    kind: process
+    shape: card
+    label:
+      en: Operator turn
+      ko: Operator turn
+  - id: f
+    kind: process
+    shape: card
+    label:
+      en: SemanticProblemFrame candidate
+      ko: SemanticProblemFrame candidate
+  - id: r
+    kind: process
+    shape: card
+    label:
+      en: Active ontology release
+      ko: Active ontology release
+  - id: m
+    kind: process
+    shape: card
+    label:
+      en: Principal-scoped query manifest
+      ko: Principal-scoped query manifest
+  - id: v
+    kind: process
+    shape: card
+    label:
+      en: Deterministic verifier
+      ko: Deterministic verifier
+  - id: p
+    kind: process
+    shape: card
+    label:
+      en: Verified OntologyQueryPlan
+      ko: Verified OntologyQueryPlan
+  - id: d
+    kind: process
+    shape: card
+    label:
+      en: Bounded task DAG
+      ko: Bounded task DAG
+  - id: e
+    kind: process
+    shape: card
+    label:
+      en: Authoritative evidence and receipts
+      ko: Authoritative evidence and receipts
+  - id: a
+    kind: process
+    shape: card
+    label:
+      en: Verified answer or explicit limitation
+      ko: Verified answer or explicit limitation
+edges:
+  - id: flow-01
+    from: q
+    to: f
+    kind: request
+  - id: flow-02
+    from: r
+    to: m
+    kind: request
+  - id: flow-03
+    from: m
+    to: f
+    kind: request
+  - id: flow-04
+    from: f
+    to: v
+    kind: request
+  - id: flow-05
+    from: v
+    to: p
+    kind: request
+  - id: flow-06
+    from: p
+    to: d
+    kind: request
+  - id: flow-07
+    from: d
+    to: e
+    kind: request
+  - id: flow-08
+    from: e
+    to: a
+    kind: request

@@ -21,15 +21,7 @@ validated authority with an immutable server-owned `ExecutionBackendProfile`. Th
 only the effective request and performs lifecycle I/O. It never decides whether the action should
 run.
 
-```mermaid
-flowchart LR
-    THOR[Thor dispatch] --> SANDBOX[Existing sandbox validation]
-    SANDBOX --> INTERSECT[No-widening profile intersection]
-    INTERSECT --> LEDGER[Durable submission claim]
-    LEDGER --> BACKEND[ExecutionBackend]
-    BACKEND --> STATUS[Status, receipt, cleanup]
-    STATUS --> LEDGER
-```
+![Design at a glance. The main stages are Thor dispatch, Existing sandbox validation, No-widening profile intersection, Durable submission claim, ExecutionBackend, Status, receipt, cleanup.](../../diagrams/generated/fdai-roadmap-interfaces-execution-backends-01.en.svg)
 
 ## Authority boundary
 

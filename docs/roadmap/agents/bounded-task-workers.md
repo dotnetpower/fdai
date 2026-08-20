@@ -17,17 +17,7 @@ A parent creates a typed request from an existing answer plan. The runtime inter
 capabilities with parent-visible tools and a server-owned profile, then runs the worker with fresh
 context. Only a bounded, untrusted terminal result returns to parent synthesis.
 
-```mermaid
-flowchart LR
-    PLAN[Existing answer plan] --> REQUEST[Typed worker request]
-    REQUEST --> ATTENUATE[Capability intersection]
-    ATTENUATE -->|no read tools| DENY[Denied terminal result]
-    ATTENUATE -->|bounded read tools| RUN[Isolated worker runtime]
-    RUN --> STORE[Durable snapshot and branch events]
-    STORE --> SYNTHESIS[Untrusted parent synthesis]
-    STORE --> VIEW[Read-only projection]
-    STORE --> SINK[Completion handoff]
-```
+![Design at a glance. The main stages are Existing answer plan, Typed worker request, Capability intersection, Denied terminal result, Isolated worker runtime, Durable snapshot and branch events, Untrusted parent synthesis, Read-only projection, Completion handoff.](../../diagrams/generated/fdai-roadmap-agents-bounded-task-workers-01.en.svg)
 
 ## Worker identity and ownership
 

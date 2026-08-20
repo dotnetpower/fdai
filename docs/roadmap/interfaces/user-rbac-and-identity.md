@@ -278,21 +278,7 @@ current `GitOpsPrAdapter` publishes executor-generated remediation draft PRs, bu
 draft-governance endpoint, Entra OID trailer, and human OID-to-GitHub-login mapping store aren't
 implemented.
 
-```mermaid
-sequenceDiagram
-  actor U as User (Contributor)
-  participant SPA as Console SPA
-  participant API as fdai-api
-  participant GHA as GitHub App
-  participant REPO as catalog-as-code repo
-  participant AUD as Audit log
-  U->>SPA: Sign in (MSAL, PKCE)
-  SPA->>API: Draft change (JSON) + access_token
-  API->>API: Validate token, extract roles claim, schema-check, CI-dryrun
-  API->>GHA: createPR(branch, patch, meta{entra_oid, upn, role, ts, sig})
-  GHA->>REPO: Signed commit (author=github-app,<br/>trailer: Entra-Author-OID: <oid>)
-  API->>AUD: append(actor=entra_oid, action=draft-pr-create,<br/>pr_url, correlation_id)
-```
+![6. Target Identity Flow: Console → Draft PR → Audit. The main stages are Sign in (MSAL, PKCE), Draft change (JSON) + access_token, Validate token, extract roles claim, schema-check, CI-dryrun, createPR(branch, patch, meta{entra_oid, upn, role, ts, sig}), Signed commit (author=github-app, / trailer: Entra-Author-OID: ), append(actor=entra_oid, action=draft-pr-create, / pr_url, correlation_id).](../../diagrams/generated/fdai-roadmap-interfaces-user-rbac-and-identity-01.en.svg)
 
 - The SPA never holds a GitHub PAT. Write access to the catalog belongs only to the
   GitHub App.
@@ -313,21 +299,7 @@ categories, trust tiers, per-vendor rules, and fallback policy - lives in
 > `HilResumeCoordinator`. The Teams SSO OBO exchange and user callback carrying App Roles below
 > are a target flow and aren't implemented yet.
 
-```mermaid
-sequenceDiagram
-  participant CORE as core/risk-gate
-  participant BOT as approval-bot
-  actor A as Approver
-  participant API as fdai-api
-  participant EX as executor MI
-  CORE->>BOT: HIL request (action_hash, idempotency_key, ttl)
-  BOT->>A: Adaptive Card (Teams SSO)
-  A->>BOT: approve / reject + justification
-  BOT->>API: POST /approvals (SSO on-behalf-of)
-  API->>API: Verify approver OID ∈ aw-approvers,<br/>action_hash matches pending,<br/>approver OID ≠ action originator OID
-  API->>CORE: decision + audit entry (correlation_id)
-  CORE->>EX: (approved) execute
-```
+![7. ChatOps Human Approval Flow. The main stages are HIL request (action_hash, idempotency_key, ttl), Adaptive Card (Teams SSO), approve / reject + justification, POST /approvals (SSO on-behalf-of), Verify approver OID ∈ aw-approvers, / action_hash matches pending, / approver OID ≠ action originator OID, decision + audit entry (correlation_id), (approved) execute.](../../diagrams/generated/fdai-roadmap-interfaces-user-rbac-and-identity-02.en.svg)
 
 - The current callback binds its HMAC to the timestamp, URL `approval_id`, and body. The registry
   or parked coordinator resolves that identifier against a pending item and enforces idempotent
@@ -404,27 +376,7 @@ recommendations; a fork tunes them via Conditional Access.
 > to Entra sign-in, so an auth-enforcing local API cannot be entered as a broken anonymous
 > session.
 
-```mermaid
-sequenceDiagram
-  actor U as User
-  participant SPA as Console SPA (MSAL)
-  participant E as Entra ID
-  participant API as fdai-api
-  U->>SPA: navigate https://console.<fork>/
-  SPA->>E: /authorize (client_id=spa, scope=api://<api>/access + openid,<br/>response_type=code, PKCE)
-  E->>U: sign-in prompt
-  U->>E: credentials
-  E->>E: Conditional Access evaluate<br/>(approvers/owners → phishing-resistant MFA)
-  E-->>U: MFA challenge (if triggered)
-  U->>E: FIDO2 / WHfB response
-  E->>SPA: /callback?code=...
-  SPA->>E: /token (code + PKCE verifier)
-  E->>SPA: id_token + access_token(aud=api://<api>) + refresh_token
-  SPA->>API: GET /me + Authorization: Bearer <access_token>
-  API->>API: verify signature (JWKS), aud, iss, exp;<br/>extract oid, upn, roles
-  API->>SPA: {oid, upn, roles, correlation_id}
-  SPA->>SPA: role-based UI render
-```
+![10.1 Console (SPA) - OIDC + Authorization Code with PKCE. The main stages are navigate https://console./, /authorize (client_id=spa, scope=api:///access + openid, / response_type=code, PKCE), sign-in prompt, credentials, Conditional Access evaluate / (approvers/owners → phishing-resistant MFA), MFA challenge (if triggered), FIDO2 / WHfB response, /callback?code=..., /token (code + PKCE verifier), id_token + access_token(aud=api://) + refresh_token, GET /me + Authorization: Bearer, verify signature (JWKS), aud, iss, exp; / extract oid, upn, roles.](../../diagrams/generated/fdai-roadmap-interfaces-user-rbac-and-identity-03.en.svg)
 
 ### 10.2 API Token Validation
 

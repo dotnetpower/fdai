@@ -1,0 +1,152 @@
+id: fdai-roadmap-decisioning-recovery-and-chaos-enforcement-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: Design at a glance. The main stages are Grounded causal hypothesis, DecisionCase, Fresh ontology graph,
+      ImpactEnvelope, RecoveryPlan, Dry run and approval, Thor executes, Continuous impact guard, Verify expected
+      effect, Vidar recovery control, Thor compensation actions, ObservedOutcome and audit.
+  ko:
+    title: 설계 개요
+    description: 설계 개요에 대한 FDAI 흐름입니다.
+    alt: 설계 개요. 주요 단계는 Grounded causal hypothesis, DecisionCase, Fresh ontology graph, ImpactEnvelope, RecoveryPlan, Dry run
+      및 approval, Thor executes, Continuous impact guard, Expected effect verification, Vidar recovery control, Thor
+      compensation action, ObservedOutcome 및 audit입니다.
+canvas:
+  width: 1600
+  height: 1080
+  direction: RIGHT
+groups: []
+nodes:
+  - id: h
+    kind: process
+    shape: card
+    label:
+      en: Grounded causal hypothesis
+      ko: Grounded causal hypothesis
+  - id: d
+    kind: process
+    shape: card
+    label:
+      en: DecisionCase
+      ko: DecisionCase
+  - id: g
+    kind: process
+    shape: card
+    label:
+      en: Fresh ontology graph
+      ko: Fresh ontology graph
+  - id: i
+    kind: process
+    shape: card
+    label:
+      en: ImpactEnvelope
+      ko: ImpactEnvelope
+  - id: r
+    kind: process
+    shape: card
+    label:
+      en: RecoveryPlan
+      ko: RecoveryPlan
+  - id: p
+    kind: process
+    shape: card
+    label:
+      en: Dry run and approval
+      ko: Dry run 및 approval
+  - id: x
+    kind: process
+    shape: card
+    label:
+      en: Thor executes
+      ko: Thor executes
+  - id: m
+    kind: process
+    shape: card
+    label:
+      en: Continuous impact guard
+      ko: Continuous impact guard
+  - id: v
+    kind: process
+    shape: card
+    label:
+      en: Verify expected effect
+      ko: Expected effect verification
+    description:
+      en: "When: inside envelope"
+      ko: "조건: envelope 내부"
+  - id: b
+    kind: process
+    shape: card
+    label:
+      en: Vidar recovery control
+      ko: Vidar recovery control
+    description:
+      en: "When: bound exceeded"
+      ko: "조건: bound 초과"
+  - id: c
+    kind: process
+    shape: card
+    label:
+      en: Thor compensation actions
+      ko: Thor compensation action
+  - id: o
+    kind: process
+    shape: card
+    label:
+      en: ObservedOutcome and audit
+      ko: ObservedOutcome 및 audit
+edges:
+  - id: flow-01
+    from: h
+    to: d
+    kind: request
+  - id: flow-02
+    from: g
+    to: i
+    kind: request
+  - id: flow-03
+    from: d
+    to: r
+    kind: request
+  - id: flow-04
+    from: i
+    to: r
+    kind: request
+  - id: flow-05
+    from: r
+    to: p
+    kind: request
+  - id: flow-06
+    from: p
+    to: x
+    kind: request
+  - id: flow-07
+    from: x
+    to: m
+    kind: request
+  - id: flow-08
+    from: m
+    to: v
+    kind: request
+  - id: flow-09
+    from: m
+    to: b
+    kind: request
+  - id: flow-10
+    from: b
+    to: c
+    kind: request
+  - id: flow-11
+    from: c
+    to: v
+    kind: request
+  - id: flow-12
+    from: v
+    to: o
+    kind: request

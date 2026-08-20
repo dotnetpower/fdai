@@ -1,0 +1,217 @@
+{
+  "id": "fdai-roadmap-interfaces-reporting-subsystem-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Architecture",
+      "description": "FDAI flow for Architecture.",
+      "alt": "Architecture. The main stages are rule-catalog/reports/*.yaml, ReportCatalog, ReportEngine, WidgetRegistry, DataSourceRegistry, RenderedReport, FormatRegistry, GET /reports/id/render, Console SPA."
+    },
+    "ko": {
+      "title": "아키텍처",
+      "description": "아키텍처에 대한 FDAI 흐름입니다.",
+      "alt": "아키텍처. 주요 단계는 rule-catalog/reports/*.yaml, ReportCatalog, ReportEngine, WidgetRegistry, DataSourceRegistry, RenderedReport, FormatRegistry, GET /reports/id/render, Console SPA입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-interfaces-reporting-subsystem-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-interfaces-reporting-subsystem-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "yaml",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "rule-catalog/reports/*.yaml",
+        "ko": "rule-catalog/reports/*.yaml"
+      },
+      "description": {
+        "en": "rule-catalog/reports/*.yaml",
+        "ko": "rule-catalog/reports/*.yaml"
+      }
+    },
+    {
+      "id": "catalog",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "ReportCatalog",
+        "ko": "ReportCatalog"
+      },
+      "description": {
+        "en": "ReportCatalog",
+        "ko": "ReportCatalog"
+      }
+    },
+    {
+      "id": "engine",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "ReportEngine",
+        "ko": "ReportEngine"
+      },
+      "description": {
+        "en": "When: Mapping",
+        "ko": "조건: Mapping"
+      }
+    },
+    {
+      "id": "widgets",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "WidgetRegistry",
+        "ko": "WidgetRegistry"
+      },
+      "description": {
+        "en": "When: ReportSpec / When: DataSet",
+        "ko": "조건: ReportSpec / 조건: DataSet"
+      }
+    },
+    {
+      "id": "sources",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "DataSourceRegistry",
+        "ko": "DataSourceRegistry"
+      },
+      "description": {
+        "en": "When: QuerySpec",
+        "ko": "조건: QuerySpec"
+      }
+    },
+    {
+      "id": "rendered",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "RenderedReport",
+        "ko": "RenderedReport"
+      },
+      "description": {
+        "en": "RenderedReport",
+        "ko": "RenderedReport"
+      }
+    },
+    {
+      "id": "formats",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "FormatRegistry",
+        "ko": "FormatRegistry"
+      },
+      "description": {
+        "en": "FormatRegistry",
+        "ko": "FormatRegistry"
+      }
+    },
+    {
+      "id": "api",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "GET /reports/id/render",
+        "ko": "GET /reports/id/render"
+      },
+      "description": {
+        "en": "GET /reports/id/render",
+        "ko": "GET /reports/id/render"
+      }
+    },
+    {
+      "id": "fe",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Console SPA",
+        "ko": "Console SPA"
+      },
+      "description": {
+        "en": "Console SPA",
+        "ko": "Console SPA"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "yaml",
+      "to": "catalog",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "catalog",
+      "to": "engine",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "engine",
+      "to": "widgets",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "engine",
+      "to": "sources",
+      "kind": "read",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "sources",
+      "to": "widgets",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "widgets",
+      "to": "engine",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "engine",
+      "to": "rendered",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "rendered",
+      "to": "formats",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "formats",
+      "to": "api",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "api",
+      "to": "fe",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

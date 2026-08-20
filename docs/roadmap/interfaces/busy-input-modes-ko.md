@@ -2,8 +2,8 @@
 title: 처리 중인 Conversation 입력 모드
 translation_of: busy-input-modes.md
 translation_source: docs/roadmap/interfaces/busy-input-modes.md
-translation_source_sha: 07c8dd08d774d2b6a83e15f4720bae8e79995475
-translation_revised: 2026-08-14
+translation_source_sha: 0b0131f72348b3ae3a5582783d80afa5151c487b
+translation_revised: 2026-08-20
 ---
 
 # 처리 중인 대화 입력 모드
@@ -21,15 +21,7 @@ translation_revised: 2026-08-14
 하나의 처리 결과를 선택하고 활성 conversational 턴에만 신호를 보내며, 선언된 모델 또는 도구
 경계에서 steer 입력을 consume합니다.
 
-```mermaid
-flowchart LR
-  INPUT[인증된 후속 입력] --> STORE[영구 CAS arbitration]
-  STORE -->|queue| QUEUE[다음 turn queue]
-  STORE -->|interrupt| CANCEL[Conversation cancel event]
-  STORE -->|steer| BOUNDARY[Safe boundary]
-  BOUNDARY --> RERUN[제한된 narrator rerun]
-  TURN[Turn이 먼저 종료] --> FALLBACK[Steer가 queued로 변경]
-```
+![설계 요약. 주요 단계는 인증된 후속 입력, 영구 CAS arbitration, 다음 turn queue, Conversation cancel event, Safe boundary, 제한된 narrator rerun, Turn이 먼저 종료, Steer가 queued로 변경입니다.](../../diagrams/generated/fdai-roadmap-interfaces-busy-input-modes-01.ko.svg)
 
 ## 계약
 

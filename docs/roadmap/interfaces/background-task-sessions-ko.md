@@ -2,8 +2,8 @@
 title: 영구 Background Task Session
 translation_of: background-task-sessions.md
 translation_source: docs/roadmap/interfaces/background-task-sessions.md
-translation_source_sha: 4303a81f33f824b7adfb26891e17a7497da0090a
-translation_revised: 2026-08-19
+translation_source_sha: e23d8b2335392a214b8ff41ad693a12229df33e5
+translation_revised: 2026-08-20
 ---
 
 # 영구 Background 작업 세션
@@ -22,17 +22,7 @@ translation_revised: 2026-08-19
 완료를 하나의 트랜잭션으로 저장합니다. 별도의 leased 완료 발신함이 출처 이력 라벨이
 있는 대화 턴을 추가하고 변경할 수 없는 회신을 영속 대화 전달 원장에 큐에 추가합니다.
 
-```mermaid
-flowchart LR
-  USER[Operator conversation] --> CREATE[영구 queued task]
-  CREATE --> CLAIM[CAS lease claim]
-  CLAIM --> RUN[읽기 전용 executor]
-  RUN --> PROGRESS[Coalesced progress]
-  RUN --> RESULT[Atomic terminal result 및 pending completion]
-  RESULT --> OUTBOX[Leased completion outbox]
-  OUTBOX --> TURN[Idempotent conversation turn]
-  TURN --> DELIVERY[Durable reply ledger]
-```
+![설계 요약. 주요 단계는 Operator conversation, 영구 queued task, CAS lease claim, 읽기 전용 executor, Coalesced progress, Atomic terminal result 및 pending completion, Leased completion outbox, Idempotent conversation turn, Durable reply ledger입니다.](../../diagrams/generated/fdai-roadmap-interfaces-background-task-sessions-01.ko.svg)
 
 ## 계약 및 상태
 

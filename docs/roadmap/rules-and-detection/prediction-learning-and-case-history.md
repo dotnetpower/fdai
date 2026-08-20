@@ -20,20 +20,7 @@ forecast result, Saga records the immutable audit evidence, Muninn materializes 
 revision, Norns analyzes reviewed failure cohorts off-path, and Mimir controls candidate replay,
 shadow comparison, promotion, and rollback.
 
-```mermaid
-flowchart LR
-    H[Huginn observations] --> HD[Heimdall forecast and outcome]
-    HD -->|object.forecast| S[Saga audit]
-    HD -->|object.forecast-outcome| S
-    HD -->|object.forecast-outcome| MU[Muninn case revision]
-    MU --> CH[Case history storage]
-    MU -->|object.context-index| N[Norns failure analysis]
-    N -->|object.rule-candidate| M[Mimir replay and shadow gate]
-    M -->|object.rule or policy| HD
-    HD --> F[Forseti judgment]
-    F --> T[Thor execution]
-    T --> V[Vidar rollback]
-```
+![Design at a glance. The main stages are Huginn observations, Heimdall forecast and outcome, Saga audit, Muninn case revision, Case history storage, Norns failure analysis, Mimir replay and shadow gate, Forseti judgment, Thor execution, Vidar rollback.](../../diagrams/generated/fdai-roadmap-rules-and-detection-prediction-learning-and-case-history-01.en.svg)
 
 ## Agent-owned actions
 

@@ -1,0 +1,145 @@
+id: fdai-roadmap-interfaces-document-ingestion-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: Design at a glance. The main stages are Operator drop zone, Upload session, Authenticated ingestion gateway,
+      Private quarantine storage, Malware and content safety, Protection and classification, Format extractor,
+      Normalized document artifacts, Chunk and index, Knowledge retrieval, Manual distillation, Held for review.
+  ko:
+    title: 설계 개요
+    description: 설계 개요에 대한 FDAI 흐름입니다.
+    alt: 설계 개요. 주요 단계는 Operator drop zone, Upload session, Authenticated ingestion gateway, Private quarantine storage,
+      Malware and content safety, Protection and classification, Format extractor, Normalized document artifacts, Chunk
+      and index, Knowledge retrieval, Manual distillation, Held for review입니다.
+canvas:
+  width: 1600
+  height: 1080
+  direction: RIGHT
+groups: []
+nodes:
+  - id: u
+    kind: process
+    shape: card
+    label:
+      en: Operator drop zone
+      ko: Operator drop zone
+  - id: s
+    kind: process
+    shape: card
+    label:
+      en: Upload session
+      ko: Upload session
+  - id: g
+    kind: process
+    shape: card
+    label:
+      en: Authenticated ingestion gateway
+      ko: Authenticated ingestion gateway
+  - id: q
+    kind: process
+    shape: card
+    label:
+      en: Private quarantine storage
+      ko: Private quarantine storage
+  - id: m
+    kind: process
+    shape: card
+    label:
+      en: Malware and content safety
+      ko: Malware and content safety
+  - id: p
+    kind: process
+    shape: card
+    label:
+      en: Protection and classification
+      ko: Protection and classification
+  - id: x
+    kind: process
+    shape: card
+    label:
+      en: Format extractor
+      ko: Format extractor
+  - id: n
+    kind: process
+    shape: card
+    label:
+      en: Normalized document artifacts
+      ko: Normalized document artifacts
+  - id: k
+    kind: process
+    shape: card
+    label:
+      en: Chunk and index
+      ko: Chunk and index
+  - id: r
+    kind: process
+    shape: card
+    label:
+      en: Knowledge retrieval
+      ko: Knowledge retrieval
+  - id: d
+    kind: process
+    shape: card
+    label:
+      en: Manual distillation
+      ko: Manual distillation
+  - id: h
+    kind: process
+    shape: card
+    label:
+      en: Held for review
+      ko: Held for review
+edges:
+  - id: flow-01
+    from: u
+    to: s
+    kind: request
+  - id: flow-02
+    from: s
+    to: g
+    kind: request
+  - id: flow-03
+    from: g
+    to: q
+    kind: request
+  - id: flow-04
+    from: q
+    to: m
+    kind: request
+  - id: flow-05
+    from: m
+    to: p
+    kind: request
+  - id: flow-06
+    from: p
+    to: x
+    kind: request
+  - id: flow-07
+    from: x
+    to: n
+    kind: request
+  - id: flow-08
+    from: n
+    to: k
+    kind: request
+  - id: flow-09
+    from: k
+    to: r
+    kind: request
+  - id: flow-10
+    from: n
+    to: d
+    kind: request
+  - id: flow-11
+    from: p
+    to: h
+    kind: request
+    label:
+      en: access denied or policy hold
+      ko: access denied or policy hold

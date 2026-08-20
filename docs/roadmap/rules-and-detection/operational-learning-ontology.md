@@ -39,19 +39,7 @@ decided, attempted, verified, and rolled back. A **promoted operating pattern** 
 catalog relationship `Rule -> remediates -> ActionType`, accepted only after cohort analysis,
 replay, shadow comparison, and the ordinary promotion gate.
 
-```mermaid
-flowchart LR
-    B[Benchmark or live incident] --> S[Saga audit evidence]
-    S --> C[Muninn operational case revision]
-    C --> F[Deterministic failure fingerprint]
-    F --> N[Norns cohort analysis]
-    N --> RC[Inert RuleCandidate]
-    RC --> M[Mimir replay and shadow gate]
-    M --> R[Rule catalog]
-    R --> A[ActionType catalog]
-    A --> T[T1 similarity reuse with current checks]
-    T --> G[Risk, approval, execution, and audit]
-```
+![Design at a glance. The main stages are Benchmark or live incident, Saga audit evidence, Muninn operational case revision, Deterministic failure fingerprint, Norns cohort analysis, Inert RuleCandidate, Mimir replay and shadow gate, Rule catalog, ActionType catalog, T1 similarity reuse with current checks, Risk, approval, execution, and audit.](../../diagrams/generated/fdai-roadmap-rules-and-detection-operational-learning-ontology-01.en.svg)
 
 The evaluation adapter is only an evidence source. It emits the same canonical case inputs as a
 production incident, then leaves the normal agent-owned learning path to decide whether the case

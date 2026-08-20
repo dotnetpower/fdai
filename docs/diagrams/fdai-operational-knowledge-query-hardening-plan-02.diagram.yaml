@@ -1,0 +1,100 @@
+id: fdai-operational-knowledge-query-hardening-plan-02
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Rule and Rego projection
+    description: FDAI flow for Rule and Rego projection.
+    alt: Rule and Rego projection. The main stages are Rule YAML, Catalog validation, Rego source, OPA AST parsing,
+      RegoSemantics, Catalog ontology projection, Catalog semantic subgraph, RuleIndex and OPA evaluation.
+  ko:
+    title: Rule and Rego projection
+    description: Rule and Rego projection에 대한 FDAI 흐름입니다.
+    alt: Rule and Rego projection. 주요 단계는 Rule YAML, Catalog validation, Rego source, OPA AST parsing, RegoSemantics,
+      Catalog ontology projection, Catalog semantic subgraph, RuleIndex and OPA evaluation입니다.
+canvas:
+  width: 1200
+  height: 720
+  direction: RIGHT
+groups: []
+nodes:
+  - id: rule
+    kind: process
+    shape: card
+    label:
+      en: Rule YAML
+      ko: Rule YAML
+  - id: load
+    kind: process
+    shape: card
+    label:
+      en: Catalog validation
+      ko: Catalog validation
+  - id: rego
+    kind: process
+    shape: card
+    label:
+      en: Rego source
+      ko: Rego source
+  - id: opa
+    kind: process
+    shape: card
+    label:
+      en: OPA AST parsing
+      ko: OPA AST parsing
+  - id: sem
+    kind: process
+    shape: card
+    label:
+      en: RegoSemantics
+      ko: RegoSemantics
+  - id: cat
+    kind: process
+    shape: card
+    label:
+      en: Catalog ontology projection
+      ko: Catalog ontology projection
+  - id: graph
+    kind: store
+    shape: database
+    label:
+      en: Catalog semantic subgraph
+      ko: Catalog semantic subgraph
+  - id: t0
+    kind: process
+    shape: card
+    label:
+      en: RuleIndex and OPA evaluation
+      ko: RuleIndex and OPA evaluation
+edges:
+  - id: flow-01
+    from: rule
+    to: load
+    kind: request
+  - id: flow-02
+    from: rego
+    to: opa
+    kind: request
+  - id: flow-03
+    from: opa
+    to: sem
+    kind: request
+  - id: flow-04
+    from: load
+    to: cat
+    kind: request
+  - id: flow-05
+    from: sem
+    to: cat
+    kind: request
+  - id: flow-06
+    from: cat
+    to: graph
+    kind: request
+  - id: flow-07
+    from: rule
+    to: t0
+    kind: request

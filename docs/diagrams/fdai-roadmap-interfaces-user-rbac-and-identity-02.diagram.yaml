@@ -1,0 +1,115 @@
+id: fdai-roadmap-interfaces-user-rbac-and-identity-02
+version: 1
+kind: sequence
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: 7. ChatOps Human Approval Flow
+    description: Ordered FDAI interactions for 7. ChatOps Human Approval Flow.
+    alt: 7. ChatOps Human Approval Flow. The main stages are HIL request (action_hash, idempotency_key, ttl), Adaptive Card
+      (Teams SSO), approve / reject + justification, POST /approvals (SSO on-behalf-of), Verify approver OID ∈
+      aw-approvers, / action_hash matches pending, / approver OID ≠ action originator OID, decision + audit entry
+      (correlation_id), (approved) execute.
+  ko:
+    title: 7. ChatOps 사람 승인 흐름
+    description: 7. ChatOps 사람 승인 흐름에 대한 순서가 있는 FDAI 상호 작용입니다.
+    alt: 7. ChatOps 사람 승인 흐름. 주요 단계는 HIL request (action_hash, idempotency_key, ttl), Adaptive Card (Teams SSO), approve /
+      reject + justification, POST /approvals (SSO on-behalf-of), Verify approver OID ∈ aw-approvers, / action_hash
+      matches pending, / approver OID ≠ action originator OID, decision + audit entry (correlation_id), (approved)
+      execute입니다.
+canvas:
+  width: 1100
+  height: 770
+  direction: DOWN
+groups: []
+nodes:
+  - id: step-01
+    kind: process
+    badge: 1
+    label:
+      en: core/risk-gate -> approval-bot
+      ko: core/risk-gate -> approval-bot
+    description:
+      en: HIL request (action_hash, idempotency_key, ttl)
+      ko: HIL request (action_hash, idempotency_key, ttl)
+  - id: step-02
+    kind: process
+    badge: 2
+    label:
+      en: approval-bot -> Approver
+      ko: approval-bot -> Approver
+    description:
+      en: Adaptive Card (Teams SSO)
+      ko: Adaptive Card (Teams SSO)
+  - id: step-03
+    kind: process
+    badge: 3
+    label:
+      en: Approver -> approval-bot
+      ko: Approver -> approval-bot
+    description:
+      en: approve / reject + justification
+      ko: approve / reject + justification
+  - id: step-04
+    kind: process
+    badge: 4
+    label:
+      en: approval-bot -> fdai-api
+      ko: approval-bot -> fdai-api
+    description:
+      en: POST /approvals (SSO on-behalf-of)
+      ko: POST /approvals (SSO on-behalf-of)
+  - id: step-05
+    kind: process
+    badge: 5
+    label:
+      en: fdai-api -> fdai-api
+      ko: fdai-api -> fdai-api
+    description:
+      en: Verify approver OID ∈ aw-approvers, / action_hash matches pending, / approver OID ≠ action originator OID
+      ko: Verify approver OID ∈ aw-approvers, / action_hash matches pending, / approver OID ≠ action originator OID
+  - id: step-06
+    kind: process
+    badge: 6
+    label:
+      en: fdai-api -> core/risk-gate
+      ko: fdai-api -> core/risk-gate
+    description:
+      en: decision + audit entry (correlation_id)
+      ko: decision + audit entry (correlation_id)
+  - id: step-07
+    kind: process
+    badge: 7
+    label:
+      en: core/risk-gate -> executor MI
+      ko: core/risk-gate -> executor MI
+    description:
+      en: (approved) execute
+      ko: (approved) execute
+edges:
+  - id: sequence-01
+    from: step-01
+    to: step-02
+    kind: sequence
+  - id: sequence-02
+    from: step-02
+    to: step-03
+    kind: sequence
+  - id: sequence-03
+    from: step-03
+    to: step-04
+    kind: sequence
+  - id: sequence-04
+    from: step-04
+    to: step-05
+    kind: sequence
+  - id: sequence-05
+    from: step-05
+    to: step-06
+    kind: sequence
+  - id: sequence-06
+    from: step-06
+    to: step-07
+    kind: sequence

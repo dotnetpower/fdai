@@ -1,0 +1,243 @@
+{
+  "id": "fdai-roadmap-interfaces-human-agent-assignment-and-knowledge-handover-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are Owner searches Entra, Assignment case, Validate identity, role, coverage, and separation, Independent human review, Ownership draft PR, Reviewed merge, Allowlisted IAM group mutation, Convergence check, Bounded handover invitation, Governed documents and answers, Chunk, index, ontology candidates, and audit."
+    },
+    "ko": {
+      "title": "설계 개요",
+      "description": "설계 개요에 대한 FDAI 흐름입니다.",
+      "alt": "설계 개요. 주요 단계는 Owner가 Entra 검색, 할당 케이스, ID, 역할, 커버리지, 역할 분리 검증, 독립적인 사람 검토, 담당 체계 초안 PR, 검토 후 병합, 허용된 IAM 그룹 변경, 수렴 확인, 제한된 인수인계 초대, 통제된 문서와 답변, 청킹, 인덱싱, 온톨로지 후보, 감사입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-interfaces-human-agent-assignment-and-knowledge-handover-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-interfaces-human-agent-assignment-and-knowledge-handover-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "a",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Owner searches Entra",
+        "ko": "Owner가 Entra 검색"
+      },
+      "description": {
+        "en": "Owner searches Entra",
+        "ko": "Owner가 Entra 검색"
+      }
+    },
+    {
+      "id": "c",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Assignment case",
+        "ko": "할당 케이스"
+      },
+      "description": {
+        "en": "Assignment case",
+        "ko": "할당 케이스"
+      }
+    },
+    {
+      "id": "v",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Validate identity, role, coverage, and separation",
+        "ko": "ID, 역할, 커버리지, 역할 분리 검증"
+      },
+      "description": {
+        "en": "Validate identity, role, coverage, and separation",
+        "ko": "ID, 역할, 커버리지, 역할 분리 검증"
+      }
+    },
+    {
+      "id": "r",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Independent human review",
+        "ko": "독립적인 사람 검토"
+      },
+      "description": {
+        "en": "Independent human review",
+        "ko": "독립적인 사람 검토"
+      }
+    },
+    {
+      "id": "p",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Ownership draft PR",
+        "ko": "담당 체계 초안 PR"
+      },
+      "description": {
+        "en": "Ownership draft PR",
+        "ko": "담당 체계 초안 PR"
+      }
+    },
+    {
+      "id": "m",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Reviewed merge",
+        "ko": "검토 후 병합"
+      },
+      "description": {
+        "en": "Reviewed merge",
+        "ko": "검토 후 병합"
+      }
+    },
+    {
+      "id": "i",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Allowlisted IAM group mutation",
+        "ko": "허용된 IAM 그룹 변경"
+      },
+      "description": {
+        "en": "Allowlisted IAM group mutation",
+        "ko": "허용된 IAM 그룹 변경"
+      }
+    },
+    {
+      "id": "x",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Convergence check",
+        "ko": "수렴 확인"
+      },
+      "description": {
+        "en": "Convergence check",
+        "ko": "수렴 확인"
+      }
+    },
+    {
+      "id": "h",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Bounded handover invitation",
+        "ko": "제한된 인수인계 초대"
+      },
+      "description": {
+        "en": "Bounded handover invitation",
+        "ko": "제한된 인수인계 초대"
+      }
+    },
+    {
+      "id": "k",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Governed documents and answers",
+        "ko": "통제된 문서와 답변"
+      },
+      "description": {
+        "en": "Governed documents and answers",
+        "ko": "통제된 문서와 답변"
+      }
+    },
+    {
+      "id": "g",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Chunk, index, ontology candidates, and audit",
+        "ko": "청킹, 인덱싱, 온톨로지 후보, 감사"
+      },
+      "description": {
+        "en": "Chunk, index, ontology candidates, and audit",
+        "ko": "청킹, 인덱싱, 온톨로지 후보, 감사"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "a",
+      "to": "c",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "c",
+      "to": "v",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "v",
+      "to": "r",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "r",
+      "to": "p",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "p",
+      "to": "m",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "m",
+      "to": "i",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "i",
+      "to": "x",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "x",
+      "to": "h",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "h",
+      "to": "k",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "k",
+      "to": "g",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

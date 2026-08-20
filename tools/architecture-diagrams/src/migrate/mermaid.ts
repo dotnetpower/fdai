@@ -45,6 +45,12 @@ interface ParsedTimeline {
   entries: Array<{ id: string; details: string[] }>;
 }
 
+interface ParsedGantt {
+  title: string;
+  sections: Array<{ id: string; label: string }>;
+  tasks: Array<{ id: string; label: string; schedule: string; section: string }>;
+}
+
 const IGNORED_FLOW_LINE = /^(?:%%|direction\b|classDef\b|class\b|style\b|linkStyle\b)/;
 
 export function extractMermaidBlocks(markdown: string): MermaidBlock[] {
@@ -204,6 +210,18 @@ export function parseFlowchart(source: string): ParsedFlow {
       }
       continue;
     }
+    const bidirectional = /^(.+?)\s*<-->\s*(.+)$/u.exec(line);
+    if (bidirectional) {
+      const from = parseEndpoint(bidirectional[1]!);
+      const to = parseEndpoint(bidirectional[2]!);
+      registerEndpoint(from);
+      registerEndpoint(to);
+      edges.push(
+        { from: from.id, to: to.id, label: "", dotted: false },
+        { from: to.id, to: from.id, label: "", dotted: false },
+      );
+      continue;
+    }
     const edge = splitFlowEdge(line);
     if (edge) {
       const from = parseEndpoint(edge.left);
@@ -237,7 +255,7 @@ export function parseSequence(source: string): ParsedSequence {
   const context: string[] = [];
   for (const line of lines) {
     if (line.startsWith("%%")) continue;
-    const participant = /^participant\s+([A-Za-z0-9_.-]+)(?:\s+as\s+(.+))?$/i.exec(line);
+    const participant = /^(?:participant|actor)\s+([A-Za-z0-9_.-]+)(?:\s+as\s+(.+))?$/i.exec(line);
     if (participant) {
       participants.set(participant[1]!, cleanText(participant[2] ?? participant[1]!));
       continue;
@@ -299,6 +317,40 @@ export function parseTimeline(source: string): ParsedTimeline {
   }
   if (entries.length < 2) throw new Error("Mermaid timeline requires at least two entries");
   return { title, entries };
+}
+
+export function parseGantt(source: string): ParsedGantt {
+  const lines = source.split(/\r?\n/u).map((line) => line.trim()).filter(Boolean);
+  if (lines.shift() !== "gantt") throw new Error("Mermaid Gantt must start with gantt");
+  let title = "Delivery timeline";
+  const sections: ParsedGantt["sections"] = [];
+  const tasks: ParsedGantt["tasks"] = [];
+  let section = "delivery";
+  for (const line of lines) {
+    if (line.startsWith("%%") || /^(?:dateFormat|axisFormat|tickInterval)\b/iu.test(line)) continue;
+    const titleMatch = /^title\s+(.+)$/iu.exec(line);
+    if (titleMatch) {
+      title = cleanText(titleMatch[1]!);
+      continue;
+    }
+    const sectionMatch = /^section\s+(.+)$/iu.exec(line);
+    if (sectionMatch) {
+      const label = cleanText(sectionMatch[1]!);
+      section = `section-${String(sections.length + 1).padStart(2, "0")}`;
+      sections.push({ id: section, label });
+      continue;
+    }
+    const taskMatch = /^(.+?)\s*:\s*([^,]+),\s*(.+)$/u.exec(line);
+    if (!taskMatch) throw new Error(`Unsupported Mermaid Gantt line: ${line}`);
+    tasks.push({
+      id: cleanText(taskMatch[2]!),
+      label: cleanText(taskMatch[1]!),
+      schedule: cleanText(taskMatch[3]!),
+      section,
+    });
+  }
+  if (!tasks.length) throw new Error("Mermaid Gantt requires at least one task");
+  return { title, sections, tasks };
 }
 
 function edgeKind(label: string, dotted: boolean): EdgeKind {
@@ -363,13 +415,14 @@ function flowSpec(id: string, en: MermaidBlock, ko: MermaidBlock): DiagramSpec {
   for (const edge of enFlow.edges) {
     if (edge.label) labeledOutgoing.set(edge.from, (labeledOutgoing.get(edge.from) ?? 0) + 1);
   }
-  const targetConditions = new Map<string, { en: string; ko: string }>();
+  const suppressEdgeLabels = enFlow.edges.filter((edge) => edge.label).length > 1;
+  const targetConditions = new Map<string, { en: string[]; ko: string[] }>();
   enFlow.edges.forEach((edge, index) => {
-    if (!edge.label || (labeledOutgoing.get(edge.from) ?? 0) < 3) return;
-    targetConditions.set(edge.to, {
-      en: `When: ${edge.label}`,
-      ko: `조건: ${koFlow.edges[index]!.label || edge.label}`,
-    });
+    if (!edge.label || (!suppressEdgeLabels && (labeledOutgoing.get(edge.from) ?? 0) < 3)) return;
+    const conditions = targetConditions.get(edge.to) ?? { en: [], ko: [] };
+    conditions.en.push(`When: ${edge.label}`);
+    conditions.ko.push(`조건: ${koFlow.edges[index]!.label || edge.label}`);
+    targetConditions.set(edge.to, conditions);
   });
   const groups: DiagramGroup[] = enFlow.groups.map((group) => ({
     id: normalizedIds.get(group.id)!,
@@ -386,7 +439,12 @@ function flowSpec(id: string, en: MermaidBlock, ko: MermaidBlock): DiagramSpec {
     ...(node.shape ? { shape: node.shape } : {}),
     label: { en: node.label, ko: koNodes.get(node.id)!.label },
     ...(targetConditions.has(node.id)
-      ? { description: targetConditions.get(node.id)! }
+      ? {
+          description: {
+            en: targetConditions.get(node.id)!.en.join(" / "),
+            ko: targetConditions.get(node.id)!.ko.join(" / "),
+          },
+        }
       : {}),
   }));
   const labelCounts = new Map<string, number>();
@@ -397,7 +455,7 @@ function flowSpec(id: string, en: MermaidBlock, ko: MermaidBlock): DiagramSpec {
   const edges: DiagramEdge[] = enFlow.edges.map((edge, index) => {
     const repeated = edge.label && (labelCounts.get(edge.label) ?? 0) > 1;
     const denseFanOut = (labeledOutgoing.get(edge.from) ?? 0) >= 3;
-    const includeLabel = edge.label && !denseFanOut && (!repeated || !emittedLabels.has(edge.label));
+    const includeLabel = edge.label && !suppressEdgeLabels && !denseFanOut && (!repeated || !emittedLabels.has(edge.label));
     if (includeLabel) emittedLabels.add(edge.label);
     return {
       id: `flow-${String(index + 1).padStart(2, "0")}`,
@@ -552,6 +610,65 @@ function timelineSpec(id: string, en: MermaidBlock, ko: MermaidBlock): DiagramSp
   });
 }
 
+function ganttSpec(id: string, en: MermaidBlock, ko: MermaidBlock): DiagramSpec {
+  const enGantt = parseGantt(en.source);
+  const koGantt = parseGantt(ko.source);
+  assertSameIds("Gantt section", enGantt.sections.map((section) => section.id), koGantt.sections.map((section) => section.id));
+  assertSameIds("Gantt task", enGantt.tasks.map((task) => task.id), koGantt.tasks.map((task) => task.id));
+  const normalizedIds = normalizedIdMap(enGantt.tasks.map((task) => task.id));
+  const groups: DiagramGroup[] = enGantt.sections.map((section, index) => ({
+    id: section.id,
+    kind: "layer",
+    presentation: "lane",
+    label: { en: section.label, ko: koGantt.sections[index]!.label },
+    direction: "RIGHT",
+  }));
+  const nodes: DiagramNode[] = enGantt.tasks.map((task, index) => ({
+    id: normalizedIds.get(task.id)!,
+    parent: task.section,
+    kind: "process",
+    badge: index + 1,
+    label: { en: task.label, ko: koGantt.tasks[index]!.label },
+    description: {
+      en: task.schedule,
+      ko: koGantt.tasks[index]!.schedule,
+    },
+  }));
+  const edges: DiagramEdge[] = nodes.slice(1).map((node, index) => ({
+    id: `gantt-${String(index + 1).padStart(2, "0")}`,
+    from: nodes[index]!.id,
+    to: node.id,
+    kind: "timeline",
+  }));
+  return validateDiagram({
+    id,
+    version: 1,
+    kind: "timeline" satisfies DiagramKind,
+    updated: "2026-08-20",
+    formats: ["svg"],
+    locales: {
+      en: {
+        title: enGantt.title,
+        description: `Sequenced FDAI delivery tasks for ${en.heading}.`,
+        alt: localizedAlt(en.heading, enGantt.tasks.map((task) => task.label), "en"),
+      },
+      ko: {
+        title: koGantt.title,
+        description: `${ko.heading}에 대한 순차 FDAI delivery task입니다.`,
+        alt: localizedAlt(ko.heading, koGantt.tasks.map((task) => task.label), "ko"),
+      },
+    },
+    canvas: {
+      width: 1600,
+      height: Math.min(1400, Math.max(720, enGantt.sections.length * 250)),
+      direction: "RIGHT",
+    },
+    groups,
+    nodes,
+    edges,
+  });
+}
+
 export function convertMermaidPair(
   id: string,
   en: MermaidBlock,
@@ -563,5 +680,6 @@ export function convertMermaidPair(
   if (/^(?:flowchart|graph)\b/u.test(firstLine)) return flowSpec(id, en, ko);
   if (firstLine === "sequenceDiagram") return sequenceSpec(id, en, ko);
   if (firstLine === "timeline") return timelineSpec(id, en, ko);
+  if (firstLine === "gantt") return ganttSpec(id, en, ko);
   throw new Error(`Unsupported Mermaid diagram kind for ${id}: ${firstLine}`);
 }

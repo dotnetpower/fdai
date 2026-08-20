@@ -1,0 +1,263 @@
+{
+  "id": "fdai-roadmap-interfaces-production-a3-channel-runtime-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are Slack signed event, Slack ingress, Teams service token, Teams ingress, Bounded Operator edge queue, SemanticTurnBridge append, Core semantic EventBus runtime, SemanticTurnBridge open, Operator delivery ledger, Pure capability renderer, Slack publisher, Teams publisher."
+    },
+    "ko": {
+      "title": "설계 개요",
+      "description": "설계 개요에 대한 FDAI 흐름입니다.",
+      "alt": "설계 개요. 주요 단계는 Slack signed event, Slack ingress, Teams service token, Teams ingress, Bounded Operator edge queue, SemanticTurnBridge append, Core semantic EventBus runtime, SemanticTurnBridge open, Operator delivery ledger, Pure capability renderer, Slack publisher, Teams publisher입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-interfaces-production-a3-channel-runtime-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-interfaces-production-a3-channel-runtime-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "s",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Slack signed event",
+        "ko": "Slack signed event"
+      },
+      "description": {
+        "en": "Slack signed event",
+        "ko": "Slack signed event"
+      }
+    },
+    {
+      "id": "si",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Slack ingress",
+        "ko": "Slack ingress"
+      },
+      "description": {
+        "en": "Slack ingress",
+        "ko": "Slack ingress"
+      }
+    },
+    {
+      "id": "t",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Teams service token",
+        "ko": "Teams service token"
+      },
+      "description": {
+        "en": "Teams service token",
+        "ko": "Teams service token"
+      }
+    },
+    {
+      "id": "ti",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Teams ingress",
+        "ko": "Teams ingress"
+      },
+      "description": {
+        "en": "Teams ingress",
+        "ko": "Teams ingress"
+      }
+    },
+    {
+      "id": "q",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Bounded Operator edge queue",
+        "ko": "Bounded Operator edge queue"
+      },
+      "description": {
+        "en": "Bounded Operator edge queue",
+        "ko": "Bounded Operator edge queue"
+      }
+    },
+    {
+      "id": "b",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "SemanticTurnBridge append",
+        "ko": "SemanticTurnBridge append"
+      },
+      "description": {
+        "en": "SemanticTurnBridge append",
+        "ko": "SemanticTurnBridge append"
+      }
+    },
+    {
+      "id": "e",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Core semantic EventBus runtime",
+        "ko": "Core semantic EventBus runtime"
+      },
+      "description": {
+        "en": "Core semantic EventBus runtime",
+        "ko": "Core semantic EventBus runtime"
+      }
+    },
+    {
+      "id": "o",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "SemanticTurnBridge open",
+        "ko": "SemanticTurnBridge open"
+      },
+      "description": {
+        "en": "SemanticTurnBridge open",
+        "ko": "SemanticTurnBridge open"
+      }
+    },
+    {
+      "id": "d",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Operator delivery ledger",
+        "ko": "Operator delivery ledger"
+      },
+      "description": {
+        "en": "Operator delivery ledger",
+        "ko": "Operator delivery ledger"
+      }
+    },
+    {
+      "id": "p",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Pure capability renderer",
+        "ko": "Pure capability renderer"
+      },
+      "description": {
+        "en": "Pure capability renderer",
+        "ko": "Pure capability renderer"
+      }
+    },
+    {
+      "id": "sp",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Slack publisher",
+        "ko": "Slack publisher"
+      },
+      "description": {
+        "en": "Slack publisher",
+        "ko": "Slack publisher"
+      }
+    },
+    {
+      "id": "tp",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Teams publisher",
+        "ko": "Teams publisher"
+      },
+      "description": {
+        "en": "Teams publisher",
+        "ko": "Teams publisher"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "s",
+      "to": "si",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "t",
+      "to": "ti",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "si",
+      "to": "q",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "ti",
+      "to": "q",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "q",
+      "to": "b",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "b",
+      "to": "e",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "e",
+      "to": "o",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "o",
+      "to": "d",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "d",
+      "to": "p",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "p",
+      "to": "sp",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-11",
+      "from": "p",
+      "to": "tp",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

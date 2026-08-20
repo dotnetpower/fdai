@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-attachments.md
-translation_source_sha: 0b4060989dda352bb3ca9d0010619919dde01e91
-translation_revised: 2026-08-16
+translation_source_sha: ba4918798e152d11ea3b74c806558f3d94a495cc
+translation_revised: 2026-08-20
 title: 대화 첨부파일
 ---
 # 대화 첨부파일
@@ -18,19 +18,7 @@ title: 대화 첨부파일
 
 모든 채널 타입은 동일한 문서 수명 주기로 수렴합니다.
 
-```mermaid
-flowchart LR
-    S[Slack opaque file id] --> F[Server-authenticated fetcher]
-    T[Teams opaque attachment id] --> F
-    W[Web upload session] --> I[Ingestion gateway]
-    F --> I
-    I --> M[Malware and protection checks]
-    M --> X[Text, Office, or optional OCR extraction]
-    X --> D[Immutable document version and index]
-    D --> C[Authorized doc citation]
-    C --> Q[Conversation evidence]
-    D -->|explicit /handover| H[Ownership draft and governance PR]
-```
+![설계 개요. 주요 단계는 Slack opaque file id, Server-authenticated fetcher, Teams opaque attachment id, Web upload session, Ingestion gateway, Malware and protection checks, Text, Office, or optional OCR extraction, Immutable document version and index, Authorized doc citation, Conversation evidence, Ownership draft and governance PR입니다.](../../diagrams/generated/fdai-roadmap-interfaces-conversation-attachments-01.ko.svg)
 
 파일 출처는 채널마다 다릅니다. 안전성, 저장소, 용도, 인용, 보존 및 감사는
 동일합니다.

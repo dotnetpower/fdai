@@ -84,22 +84,7 @@ central planner or another authority surface.
 An operational-planning run is a version-pinned Workflow instance. Its Process journal records
 progress, while DecisionCase and ActionOption remain the immutable semantic decision artifacts.
 
-```mermaid
-flowchart LR
-    R[Typed planning request] --> P[Workflow and Process]
-    P --> C[Forseti operational context snapshot]
-    C --> F[Forseti DecisionCase]
-    F --> S[Specialist evidence]
-    S --> L[Versioned logic assets]
-    L --> X[Compute and twin simulation]
-    X --> H[Heimdall verification]
-    H --> O[Odin arbitration]
-    O --> V[Forseti verdict]
-    V --> A[Var approval when required]
-    A --> T[Thor execution]
-    T --> E[Observed outcome]
-    E --> N[Muninn and Norns learning]
-```
+![Design at a glance. The main stages are Typed planning request, Workflow and Process, Forseti operational context snapshot, Forseti DecisionCase, Specialist evidence, Versioned logic assets, Compute and twin simulation, Heimdall verification, Odin arbitration, Forseti verdict, Var approval when required, Thor execution.](../../diagrams/generated/fdai-roadmap-decisioning-operational-planning-01.en.svg)
 
 ## Reused authorities
 

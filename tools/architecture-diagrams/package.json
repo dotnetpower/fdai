@@ -12,6 +12,8 @@
     "check": "tsx src/cli.ts check",
     "migrate-public": "tsx src/migrate-public-cli.ts write",
     "check-public-migration": "tsx src/migrate-public-cli.ts check",
+    "migrate-repository": "tsx src/migrate-repository-cli.ts write",
+    "check-repository-migration": "tsx src/migrate-repository-cli.ts check",
     "build:viewer": "tsx src/viewer/build-cli.ts"
   },
   "dependencies": {

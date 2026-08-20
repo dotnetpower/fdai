@@ -60,7 +60,7 @@ SPLICE_ALLOWED = frozenset(
 )
 
 LINK_FILENAME_RE = re.compile(
-    rf"\[[^\]]*[{HANGUL}][^\]]*\.(?:md|py|ts|tsx|js|json|yaml|yml|sh|tf)[^\]]*\]"
+    rf"(?<!!)\[[^\]]*[{HANGUL}][^\]]*\.(?:md|py|ts|tsx|js|json|yaml|yml|sh|tf)[^\]]*\]"
 )
 
 CODE_FENCE_RE = re.compile(r"^\s*```")

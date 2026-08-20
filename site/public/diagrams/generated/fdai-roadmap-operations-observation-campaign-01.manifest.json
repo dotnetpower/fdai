@@ -1,0 +1,196 @@
+{
+  "id": "fdai-roadmap-operations-observation-campaign-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are Scheduled wake, Source registry and due gate, Permission and readiness probe, Bounded provider adapters, Persistent source results and cursors, Agent Activity summary, Saga audit evidence, Source-native typed ingest and analyzers, Accountable agents."
+    },
+    "ko": {
+      "title": "설계 개요",
+      "description": "설계 개요에 대한 FDAI 흐름입니다.",
+      "alt": "설계 개요. 주요 단계는 예약 기동, 출처 레지스트리 및 실행 조건 게이트, 권한 및 준비 상태 검사, 범위가 제한된 프로바이더 어댑터, 영속 출처 결과 및 커서, Agent Activity 요약, Saga 감사 근거, 출처별 타입 수집 및 분석, 책임 에이전트입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-operations-observation-campaign-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-operations-observation-campaign-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "t",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Scheduled wake",
+        "ko": "예약 기동"
+      },
+      "description": {
+        "en": "Scheduled wake",
+        "ko": "예약 기동"
+      }
+    },
+    {
+      "id": "r",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Source registry and due gate",
+        "ko": "출처 레지스트리 및 실행 조건 게이트"
+      },
+      "description": {
+        "en": "Source registry and due gate",
+        "ko": "출처 레지스트리 및 실행 조건 게이트"
+      }
+    },
+    {
+      "id": "p",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Permission and readiness probe",
+        "ko": "권한 및 준비 상태 검사"
+      },
+      "description": {
+        "en": "Permission and readiness probe",
+        "ko": "권한 및 준비 상태 검사"
+      }
+    },
+    {
+      "id": "a",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Bounded provider adapters",
+        "ko": "범위가 제한된 프로바이더 어댑터"
+      },
+      "description": {
+        "en": "Bounded provider adapters",
+        "ko": "범위가 제한된 프로바이더 어댑터"
+      }
+    },
+    {
+      "id": "s",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Persistent source results and cursors",
+        "ko": "영속 출처 결과 및 커서"
+      },
+      "description": {
+        "en": "Persistent source results and cursors",
+        "ko": "영속 출처 결과 및 커서"
+      }
+    },
+    {
+      "id": "aa",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Agent Activity summary",
+        "ko": "Agent Activity 요약"
+      },
+      "description": {
+        "en": "Agent Activity summary",
+        "ko": "Agent Activity 요약"
+      }
+    },
+    {
+      "id": "g",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Saga audit evidence",
+        "ko": "Saga 감사 근거"
+      },
+      "description": {
+        "en": "Saga audit evidence",
+        "ko": "Saga 감사 근거"
+      }
+    },
+    {
+      "id": "n",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Source-native typed ingest and analyzers",
+        "ko": "출처별 타입 수집 및 분석"
+      },
+      "description": {
+        "en": "Source-native typed ingest and analyzers",
+        "ko": "출처별 타입 수집 및 분석"
+      }
+    },
+    {
+      "id": "h",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Accountable agents",
+        "ko": "책임 에이전트"
+      },
+      "description": {
+        "en": "Accountable agents",
+        "ko": "책임 에이전트"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "t",
+      "to": "r",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "r",
+      "to": "p",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "p",
+      "to": "a",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "a",
+      "to": "s",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "s",
+      "to": "aa",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "s",
+      "to": "g",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "n",
+      "to": "h",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

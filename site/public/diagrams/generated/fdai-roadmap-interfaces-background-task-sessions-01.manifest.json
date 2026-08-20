@@ -1,0 +1,203 @@
+{
+  "id": "fdai-roadmap-interfaces-background-task-sessions-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are Operator conversation, Durable queued task, CAS lease claim, Read-only executor, Coalesced progress, Atomic terminal result and pending completion, Leased completion outbox, Idempotent conversation turn, Durable reply ledger."
+    },
+    "ko": {
+      "title": "설계 요약",
+      "description": "설계 요약에 대한 FDAI 흐름입니다.",
+      "alt": "설계 요약. 주요 단계는 Operator conversation, 영구 queued task, CAS lease claim, 읽기 전용 executor, Coalesced progress, Atomic terminal result 및 pending completion, Leased completion outbox, Idempotent conversation turn, Durable reply ledger입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-interfaces-background-task-sessions-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-interfaces-background-task-sessions-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "user",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Operator conversation",
+        "ko": "Operator conversation"
+      },
+      "description": {
+        "en": "Operator conversation",
+        "ko": "Operator conversation"
+      }
+    },
+    {
+      "id": "create",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Durable queued task",
+        "ko": "영구 queued task"
+      },
+      "description": {
+        "en": "Durable queued task",
+        "ko": "영구 queued task"
+      }
+    },
+    {
+      "id": "claim",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "CAS lease claim",
+        "ko": "CAS lease claim"
+      },
+      "description": {
+        "en": "CAS lease claim",
+        "ko": "CAS lease claim"
+      }
+    },
+    {
+      "id": "run",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Read-only executor",
+        "ko": "읽기 전용 executor"
+      },
+      "description": {
+        "en": "Read-only executor",
+        "ko": "읽기 전용 executor"
+      }
+    },
+    {
+      "id": "progress",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Coalesced progress",
+        "ko": "Coalesced progress"
+      },
+      "description": {
+        "en": "Coalesced progress",
+        "ko": "Coalesced progress"
+      }
+    },
+    {
+      "id": "result",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Atomic terminal result and pending completion",
+        "ko": "Atomic terminal result 및 pending completion"
+      },
+      "description": {
+        "en": "Atomic terminal result and pending completion",
+        "ko": "Atomic terminal result 및 pending completion"
+      }
+    },
+    {
+      "id": "outbox",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Leased completion outbox",
+        "ko": "Leased completion outbox"
+      },
+      "description": {
+        "en": "Leased completion outbox",
+        "ko": "Leased completion outbox"
+      }
+    },
+    {
+      "id": "turn",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Idempotent conversation turn",
+        "ko": "Idempotent conversation turn"
+      },
+      "description": {
+        "en": "Idempotent conversation turn",
+        "ko": "Idempotent conversation turn"
+      }
+    },
+    {
+      "id": "delivery",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Durable reply ledger",
+        "ko": "Durable reply ledger"
+      },
+      "description": {
+        "en": "Durable reply ledger",
+        "ko": "Durable reply ledger"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "user",
+      "to": "create",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "create",
+      "to": "claim",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "claim",
+      "to": "run",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "run",
+      "to": "progress",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "run",
+      "to": "result",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "result",
+      "to": "outbox",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "outbox",
+      "to": "turn",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "turn",
+      "to": "delivery",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

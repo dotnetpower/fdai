@@ -1,0 +1,208 @@
+id: fdai-roadmap-agents-agent-pantheon-02
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: 3. Runtime relationship diagram
+    description: FDAI flow for 3. Runtime relationship diagram.
+    alt: 3. Runtime relationship diagram. The main stages are Huginn, Heimdall, Forseti, Mimir, Muninn, Njord, Freyr, Loki,
+      Thor, Vidar, Var, Saga.
+  ko:
+    title: 3. 런타임 관계도
+    description: 3. 런타임 관계도에 대한 FDAI 흐름입니다.
+    alt: 3. 런타임 관계도. 주요 단계는 Huginn, Heimdall, Forseti, Mimir, Muninn, Njord, Freyr, Loki, Thor, Vidar, Var, Saga입니다.
+canvas:
+  width: 1600
+  height: 1200
+  direction: RIGHT
+groups: []
+nodes:
+  - id: huginn
+    kind: process
+    shape: card
+    label:
+      en: Huginn
+      ko: Huginn
+  - id: heimdall
+    kind: process
+    shape: card
+    label:
+      en: Heimdall
+      ko: Heimdall
+    description:
+      en: "When: schedules"
+      ko: "조건: schedules"
+  - id: forseti
+    kind: process
+    shape: card
+    label:
+      en: Forseti
+      ko: Forseti
+    description:
+      en: "When: rules / When: context / When: advises / When: advises / When: arbitrates"
+      ko: "조건: rules / 조건: context / 조건: advises / 조건: advises / 조건: arbitrates"
+  - id: mimir
+    kind: process
+    shape: card
+    label:
+      en: Mimir
+      ko: Mimir
+    description:
+      en: "When: proposes"
+      ko: "조건: proposes"
+  - id: muninn
+    kind: process
+    shape: card
+    label:
+      en: Muninn
+      ko: Muninn
+    description:
+      en: "When: queries"
+      ko: "조건: queries"
+  - id: njord
+    kind: process
+    shape: card
+    label:
+      en: Njord
+      ko: Njord
+  - id: freyr
+    kind: process
+    shape: card
+    label:
+      en: Freyr
+      ko: Freyr
+  - id: loki
+    kind: process
+    shape: card
+    label:
+      en: Loki
+      ko: Loki
+  - id: thor
+    kind: process
+    shape: card
+    label:
+      en: Thor
+      ko: Thor
+    description:
+      en: "When: verdict: auto/hil/deny"
+      ko: "조건: verdict: auto/hil/deny"
+  - id: vidar
+    kind: process
+    shape: card
+    label:
+      en: Vidar
+      ko: Vidar
+    description:
+      en: "When: auto"
+      ko: "조건: auto"
+  - id: var
+    kind: process
+    shape: card
+    label:
+      en: Var
+      ko: Var
+    description:
+      en: "When: hil"
+      ko: "조건: hil"
+  - id: saga
+    kind: process
+    shape: card
+    label:
+      en: Saga
+      ko: Saga
+    description:
+      en: "When: deny"
+      ko: "조건: deny"
+  - id: bragi
+    kind: process
+    shape: card
+    label:
+      en: Bragi
+      ko: Bragi
+  - id: odin
+    kind: process
+    shape: card
+    label:
+      en: Odin
+      ko: Odin
+  - id: norns
+    kind: process
+    shape: card
+    label:
+      en: Norns
+      ko: Norns
+    description:
+      en: "When: signals"
+      ko: "조건: signals"
+edges:
+  - id: flow-01
+    from: huginn
+    to: heimdall
+    kind: request
+  - id: flow-02
+    from: heimdall
+    to: forseti
+    kind: request
+  - id: flow-03
+    from: mimir
+    to: forseti
+    kind: dependency
+  - id: flow-04
+    from: muninn
+    to: forseti
+    kind: dependency
+  - id: flow-05
+    from: njord
+    to: forseti
+    kind: dependency
+  - id: flow-06
+    from: freyr
+    to: forseti
+    kind: dependency
+  - id: flow-07
+    from: loki
+    to: heimdall
+    kind: dependency
+  - id: flow-08
+    from: forseti
+    to: thor
+    kind: request
+  - id: flow-09
+    from: thor
+    to: vidar
+    kind: request
+  - id: flow-10
+    from: thor
+    to: var
+    kind: request
+  - id: flow-11
+    from: var
+    to: thor
+    kind: request
+  - id: flow-12
+    from: thor
+    to: saga
+    kind: request
+  - id: flow-13
+    from: vidar
+    to: saga
+    kind: request
+  - id: flow-14
+    from: bragi
+    to: muninn
+    kind: dependency
+  - id: flow-15
+    from: odin
+    to: forseti
+    kind: dependency
+  - id: flow-16
+    from: saga
+    to: norns
+    kind: dependency
+  - id: flow-17
+    from: norns
+    to: mimir
+    kind: dependency

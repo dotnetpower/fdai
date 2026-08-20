@@ -1,0 +1,89 @@
+id: fdai-roadmap-deployment-developer-workflow-assurance-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: Design at a glance. The main stages are Edit and focused check, Workflow diagnostics, Focused commit, Structural
+      pre-push, SHA-addressed CI, Remote work, Bounded handover.
+  ko:
+    title: 설계 개요
+    description: 설계 개요에 대한 FDAI 흐름입니다.
+    alt: 설계 개요. 주요 단계는 편집과 집중 검사, 워크플로 진단, 집중 커밋, 구조 pre-push, SHA 기반 CI, 원격 작업, 제한된 인계입니다.
+canvas:
+  width: 1050
+  height: 630
+  direction: RIGHT
+groups: []
+nodes:
+  - id: e
+    kind: process
+    shape: card
+    label:
+      en: Edit and focused check
+      ko: 편집과 집중 검사
+  - id: d
+    kind: process
+    shape: card
+    label:
+      en: Workflow diagnostics
+      ko: 워크플로 진단
+  - id: c
+    kind: process
+    shape: card
+    label:
+      en: Focused commit
+      ko: 집중 커밋
+  - id: p
+    kind: process
+    shape: card
+    label:
+      en: Structural pre-push
+      ko: 구조 pre-push
+  - id: v
+    kind: process
+    shape: card
+    label:
+      en: SHA-addressed CI
+      ko: SHA 기반 CI
+  - id: x
+    kind: process
+    shape: card
+    label:
+      en: Remote work
+      ko: 원격 작업
+  - id: h
+    kind: process
+    shape: card
+    label:
+      en: Bounded handover
+      ko: 제한된 인계
+edges:
+  - id: flow-01
+    from: e
+    to: d
+    kind: request
+  - id: flow-02
+    from: d
+    to: c
+    kind: request
+  - id: flow-03
+    from: c
+    to: p
+    kind: request
+  - id: flow-04
+    from: p
+    to: v
+    kind: request
+  - id: flow-05
+    from: v
+    to: x
+    kind: request
+  - id: flow-06
+    from: d
+    to: h
+    kind: request

@@ -1,0 +1,132 @@
+id: fdai-roadmap-interfaces-hierarchical-conversation-planning-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: Design at a glance. The main stages are Text, screen, image, document, Bounded context resolver, T1 mini-model
+      intent graph, Deterministic graph validator, Available capability binding, T2 reasoner retry, Read task DAG,
+      Evidence ledger, Claim verification, Bragi presentation.
+  ko:
+    title: 설계 개요
+    description: 설계 개요에 대한 FDAI 흐름입니다.
+    alt: 설계 개요. 주요 단계는 Text, screen, image, document, Bounded context resolver, T1 mini-model intent graph, Deterministic
+      graph validator, Available capability binding, T2 reasoner retry, Read task DAG, Evidence ledger, Claim
+      verification, Bragi presentation입니다.
+canvas:
+  width: 1500
+  height: 900
+  direction: RIGHT
+groups: []
+nodes:
+  - id: input
+    kind: process
+    shape: card
+    label:
+      en: Text, screen, image, document
+      ko: Text, screen, image, document
+  - id: context
+    kind: process
+    shape: card
+    label:
+      en: Bounded context resolver
+      ko: Bounded context resolver
+  - id: plan
+    kind: process
+    shape: card
+    label:
+      en: T1 mini-model intent graph
+      ko: T1 mini-model intent graph
+  - id: validate
+    kind: process
+    shape: card
+    label:
+      en: Deterministic graph validator
+      ko: Deterministic graph validator
+  - id: bind
+    kind: process
+    shape: card
+    label:
+      en: Available capability binding
+      ko: Available capability binding
+    description:
+      en: "When: valid"
+      ko: "조건: valid"
+  - id: escalate
+    kind: process
+    shape: card
+    label:
+      en: T2 reasoner retry
+      ko: T2 reasoner retry
+    description:
+      en: "When: proposal unavailable or invalid"
+      ko: "조건: proposal unavailable or invalid"
+  - id: dag
+    kind: process
+    shape: card
+    label:
+      en: Read task DAG
+      ko: Read task DAG
+  - id: evidence
+    kind: process
+    shape: card
+    label:
+      en: Evidence ledger
+      ko: Evidence ledger
+  - id: verify
+    kind: process
+    shape: card
+    label:
+      en: Claim verification
+      ko: Claim verification
+  - id: bragi
+    kind: process
+    shape: card
+    label:
+      en: Bragi presentation
+      ko: Bragi presentation
+edges:
+  - id: flow-01
+    from: input
+    to: context
+    kind: request
+  - id: flow-02
+    from: context
+    to: plan
+    kind: request
+  - id: flow-03
+    from: plan
+    to: validate
+    kind: request
+  - id: flow-04
+    from: validate
+    to: bind
+    kind: request
+  - id: flow-05
+    from: validate
+    to: escalate
+    kind: request
+  - id: flow-06
+    from: escalate
+    to: validate
+    kind: request
+  - id: flow-07
+    from: bind
+    to: dag
+    kind: request
+  - id: flow-08
+    from: dag
+    to: evidence
+    kind: request
+  - id: flow-09
+    from: evidence
+    to: verify
+    kind: request
+  - id: flow-10
+    from: verify
+    to: bragi
+    kind: request

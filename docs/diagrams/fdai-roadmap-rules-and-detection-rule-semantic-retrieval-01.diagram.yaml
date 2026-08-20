@@ -1,0 +1,144 @@
+id: fdai-roadmap-rules-and-detection-rule-semantic-retrieval-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: Design at a glance. The main stages are Operator question, Interpretation candidate, Ontology concepts, Bounded
+      graph expansion, Hybrid Rule retrieval, Catalog and generation verification, Operation class, Read-only answer,
+      Existing T0 and OPA path, Governed ActionType proposal, Clarification or hold.
+  ko:
+    title: 설계 개요
+    description: 설계 개요에 대한 FDAI 흐름입니다.
+    alt: 설계 개요. 주요 단계는 Operator question, Interpretation candidate, Ontology concepts, Bounded graph expansion, Hybrid Rule
+      retrieval, Catalog and generation verification, Operation class, Read-only answer, Existing T0 and OPA path,
+      Governed ActionType proposal, Clarification or hold입니다.
+canvas:
+  width: 1600
+  height: 990
+  direction: RIGHT
+groups: []
+nodes:
+  - id: q
+    kind: process
+    shape: card
+    label:
+      en: Operator question
+      ko: Operator question
+  - id: i
+    kind: process
+    shape: card
+    label:
+      en: Interpretation candidate
+      ko: Interpretation candidate
+  - id: c
+    kind: process
+    shape: card
+    label:
+      en: Ontology concepts
+      ko: Ontology concepts
+  - id: g
+    kind: process
+    shape: card
+    label:
+      en: Bounded graph expansion
+      ko: Bounded graph expansion
+  - id: r
+    kind: process
+    shape: card
+    label:
+      en: Hybrid Rule retrieval
+      ko: Hybrid Rule retrieval
+  - id: v
+    kind: process
+    shape: card
+    label:
+      en: Catalog and generation verification
+      ko: Catalog and generation verification
+  - id: d
+    kind: decision
+    shape: diamond
+    label:
+      en: Operation class
+      ko: Operation class
+  - id: a
+    kind: process
+    shape: card
+    label:
+      en: Read-only answer
+      ko: Read-only answer
+    description:
+      en: "When: discover or explain"
+      ko: "조건: discover or explain"
+  - id: t
+    kind: process
+    shape: card
+    label:
+      en: Existing T0 and OPA path
+      ko: Existing T0 and OPA path
+    description:
+      en: "When: evaluate"
+      ko: "조건: evaluate"
+  - id: p
+    kind: process
+    shape: card
+    label:
+      en: Governed ActionType proposal
+      ko: Governed ActionType proposal
+    description:
+      en: "When: action draft"
+      ko: "조건: action draft"
+  - id: h
+    kind: process
+    shape: card
+    label:
+      en: Clarification or hold
+      ko: Clarification or hold
+    description:
+      en: "When: ambiguous"
+      ko: "조건: ambiguous"
+edges:
+  - id: flow-01
+    from: q
+    to: i
+    kind: request
+  - id: flow-02
+    from: i
+    to: c
+    kind: request
+  - id: flow-03
+    from: c
+    to: g
+    kind: request
+  - id: flow-04
+    from: g
+    to: r
+    kind: request
+  - id: flow-05
+    from: r
+    to: v
+    kind: request
+  - id: flow-06
+    from: v
+    to: d
+    kind: request
+  - id: flow-07
+    from: d
+    to: a
+    kind: request
+  - id: flow-08
+    from: d
+    to: t
+    kind: request
+  - id: flow-09
+    from: d
+    to: p
+    kind: request
+  - id: flow-10
+    from: v
+    to: h
+    kind: request

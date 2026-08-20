@@ -12,19 +12,7 @@ agent-driven control loop used for every other event.
 An upload is an `Event`. Each pipeline stage emits or consumes a typed object on
 `aw.pipeline.stages`; no worker or gateway side effect can substitute for an owning agent decision.
 
-```mermaid
-flowchart LR
-  U[Upload event] --> HU[Huginn - ingress]
-  HU --> HE[Heimdall - safety signals]
-  HE --> FO[Forseti - admissibility]
-  FO -->|malware / RMS-denied| X[abandon or deny]
-  FO -->|sensitive / authoritative| VA[Var - human approval]
-  FO -->|admit| MU[Muninn - retrieval index]
-  VA --> MU
-  MU --> SA[Saga - audit seal]
-  SA --> KM[Mimir / Norns - catalog growth]
-  MU --> BR[Bragi - progress + citation]
-```
+![Design at a glance. The main stages are Upload event, Huginn - ingress, Heimdall - safety signals, Forseti - admissibility, abandon or deny, Var - human approval, Muninn - retrieval index, Saga - audit seal, Mimir / Norns - catalog growth, Bragi - progress + citation.](../../diagrams/generated/fdai-roadmap-interfaces-document-ingestion-agent-ownership-01.en.svg)
 
 ## Ownership map
 

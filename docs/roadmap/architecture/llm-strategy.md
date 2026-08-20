@@ -104,19 +104,7 @@ eligibility.
 
 All four are typed, audited outcomes; only **eligible** can proceed toward execution.
 
-```mermaid
-flowchart TD
-    CASE[novel or ambiguous case] --> POOL[mixed-model pool: 2+ independent models]
-    POOL --> CMP{quorum agreement?}
-    CMP -->|no| HOLD[escalate to HIL]
-    CMP -->|yes| VER[deterministic verifier: policy-as-code and what-if]
-    VER -->|fail| DENY[deny: no-op, audited]
-    VER -->|pass| GRD{grounded and citations valid?}
-    GRD -->|no| ABST[abstain to HIL]
-    GRD -->|yes| THR{confidence over threshold?}
-    THR -->|no| HOLD
-    THR -->|yes| ELIG[execution-eligible to risk gate]
-```
+![Outcome Semantics. The main stages are novel or ambiguous case, mixed-model pool: 2+ independent models, quorum agreement?, escalate to HIL, deterministic verifier: policy-as-code and what-if, deny: no-op, audited, grounded and citations valid?, abstain to HIL, confidence over threshold?, execution-eligible to risk gate.](../../diagrams/generated/fdai-roadmap-architecture-llm-strategy-01.en.svg)
 
 ### Rubric Gate (hallucination filter)
 
@@ -315,19 +303,7 @@ authored in
 [dev-and-deploy-parity.md § Deployer-Scoped LLM Provisioning](../deployment/dev-and-deploy-parity.md#deployer-scoped-llm-provisioning);
 this section shows the happy-path shape.
 
-```mermaid
-flowchart LR
-    IAC[Terraform / Bicep: azd up] --> AOAI[Azure OpenAI or Foundry resource]
-    AOAI --> RES[resolver]
-    REG[llm-registry.yaml] --> RES
-    RES --> CAT[query catalog:<br/>available families + versions in region]
-    CAT --> PICK{for each capability:<br/>first preference available}
-    PICK -->|none available| HIL[mark capability hil-only<br/>report completeness impact]
-    PICK -->|resolved| DEPLOY[create deployment<br/>with TPM or PTU capacity]
-    DEPLOY --> INV[verify mixed-model invariant:<br/>primary.publisher ≠ secondary.publisher]
-    INV -->|violated| FAIL
-    INV -->|ok| MAP[write resolved-models.json to Key Vault<br/>+ audit entry]
-```
+![Bootstrap Provisioner. The main stages are Terraform / Bicep: azd up, Azure OpenAI or Foundry resource, resolver, llm-registry.yaml, query catalog: / available families + versions in region, for each capability: / first preference available, mark capability hil-only / report completeness impact, create deployment / with TPM or PTU capacity, verify mixed-model invariant: / primary.publisher ≠ secondary.publisher, FAIL, write resolved-models.json to Key Vault / + audit entry.](../../diagrams/generated/fdai-roadmap-architecture-llm-strategy-02.en.svg)
 
 **Bootstrap invariants (MUST)**
 - Environmental failures such as a missing role, unavailable preferred family, or zero
@@ -804,22 +780,7 @@ ActionType whose interface set does not cover the safety-invariant requirements 
 
 ### Layered Lookup Pipeline
 
-```mermaid
-flowchart TD
-    E[Signal arrives] --> L0["L0. event-ingest<br/>normalize + dedup + correlate into incident"]
-    L0 -->|replay / duplicate| DROP[no-op, audited]
-    L0 --> L1["L1. T0 rule match<br/>ontology traversal: applies_to ∩ triggered_by<br/>run each rule's evaluate action (OPA/Rego, in-memory)"]
-    L1 -->|verdict| RG1[risk-gate]
-    L1 -->|no rule verdict| L2["L2. Learned-action lookup<br/>(signature, rule_id, catalog_version) → verified action"]
-    L2 -->|hit| RG2[risk-gate]
-    L2 -->|miss| L3["L3. Embedding similarity (T1)<br/>1 embedding call → pgvector kNN<br/>reuse neighbor.action iff cos > threshold and context compatible"]
-    L3 -->|hit| RG3[risk-gate]
-    L3 -->|below threshold| L4["L4. T2 result cache<br/>signature includes catalog_version + model_config_version + mode"]
-    L4 -->|hit| RG4[risk-gate]
-    L4 -->|miss| L5["L5. T2 cascade<br/>primary → agree? → done / disagree? → escalated<br/>quality-gate authoritative"]
-    L5 --> WRITE["writeback: promote verified outcome<br/>into L2 (learned action) + L4 (result cache)"]
-    WRITE --> RG5[risk-gate]
-```
+![Layered Lookup Pipeline. The main stages are Signal arrives, L0. event-ingest / normalize + dedup + correlate into incident, no-op, audited, L1. T0 rule match / ontology traversal: applies_to ∩ triggered_by / run each rule's evaluate action (OPA/Rego, in-memory), risk-gate, L2. Learned-action lookup / (signature, rule_id, catalog_version) → verified action, L3. Embedding similarity (T1) / 1 embedding call → pgvector kNN / reuse neighbor.action iff cos > threshold and context compatible, L4. T2 result cache / signature includes catalog_version + model_config_version + mode, L5. T2 cascade / primary → agree? → done / disagree? → escalated / quality-gate authoritative, writeback: promote verified outcome / into L2 (learned action) + L4 (result cache).](../../diagrams/generated/fdai-roadmap-architecture-llm-strategy-03.en.svg)
 
 **Expected hit distribution** (design targets, subject to measurement per
 [goals-and-metrics.md](goals-and-metrics.md)):

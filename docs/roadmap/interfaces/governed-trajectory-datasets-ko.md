@@ -1,8 +1,8 @@
 ---
 title: 관리형 Trajectory 데이터셋
 translation_of: governed-trajectory-datasets.md
-translation_source_sha: 017ca2c6fc816a7a9ecd7cab97e68254033985a3
-translation_revised: 2026-08-15
+translation_source_sha: cfa890ef4b4e280515f4308c18a6503d25b62b15
+translation_revised: 2026-08-20
 ---
 
 # 관리형 Trajectory 데이터셋
@@ -20,18 +20,7 @@ trajectory 데이터셋으로 조인하여 오프라인 품질 검토에 사용�
 변경할 수 없는 출처 스냅샷을 정본 순서로 조인하고, 모든 변환 결과 기록을 스캔하고,
 결정론적 JSONL을 스트리밍한 다음 데이터 파일과 매니페스트가 모두 완료된 경우에만 게시합니다.
 
-```mermaid
-flowchart LR
-  REQUEST[Purpose + access scope] --> AUTH[Authorize]
-  AUTH --> SOURCES[Immutable source snapshots]
-  SOURCES --> JOIN[Canonical join + projection]
-  JOIN --> SCAN[Secret, identifier, injection scan]
-  SCAN -->|clean| EXPORT[JSONL + checksums + manifest]
-  SCAN -->|uncertain| QUARANTINE[Quarantine metadata]
-  EXPORT --> VALIDATE[Offline validate + replay check]
-  VALIDATE --> REVIEW[Human review]
-  REVIEW --> NORNS[Norns aggregate intake]
-```
+![한눈에 보는 설계. 주요 단계는 Purpose + access scope, Authorize, Immutable source snapshots, Canonical join + projection, Secret, identifier, injection scan, JSONL + checksums + manifest, Quarantine metadata, Offline validate + replay check, Human review, Norns aggregate intake입니다.](../../diagrams/generated/fdai-roadmap-interfaces-governed-trajectory-datasets-01.ko.svg)
 
 ## 안정적인 묶음
 

@@ -1,0 +1,224 @@
+{
+  "id": "fdai-roadmap-interfaces-human-agent-assignment-implementation-plan-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Delivery shape",
+      "description": "FDAI flow for Delivery shape.",
+      "alt": "Delivery shape. The main stages are Package 1 duty schema, Package 2 assignment core, Package 3 API and console, Package 4 ownership coordination, Package 5 IAM provisioner, Package 6 approval supervisor, Package 7 handover goals, Package 8 knowledge lifecycle, Package 9 production rollout."
+    },
+    "ko": {
+      "title": "제공 형태",
+      "description": "제공 형태에 대한 FDAI 흐름입니다.",
+      "alt": "제공 형태. 주요 단계는 묶음 1 임무 스키마, 묶음 2 할당 코어, 묶음 3 API 및 콘솔, 묶음 4 담당 체계 조정, 묶음 5 IAM 프로비저너, 묶음 6 승인 감독자, 묶음 7 인수인계 목표, 묶음 8 지식 수명주기, 묶음 9 프로덕션 롤아웃입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-interfaces-human-agent-assignment-implementation-plan-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-interfaces-human-agent-assignment-implementation-plan-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "p1",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Package 1 duty schema",
+        "ko": "묶음 1 임무 스키마"
+      },
+      "description": {
+        "en": "Package 1 duty schema",
+        "ko": "묶음 1 임무 스키마"
+      }
+    },
+    {
+      "id": "p2",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Package 2 assignment core",
+        "ko": "묶음 2 할당 코어"
+      },
+      "description": {
+        "en": "Package 2 assignment core",
+        "ko": "묶음 2 할당 코어"
+      }
+    },
+    {
+      "id": "p3",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Package 3 API and console",
+        "ko": "묶음 3 API 및 콘솔"
+      },
+      "description": {
+        "en": "Package 3 API and console",
+        "ko": "묶음 3 API 및 콘솔"
+      }
+    },
+    {
+      "id": "p4",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Package 4 ownership coordination",
+        "ko": "묶음 4 담당 체계 조정"
+      },
+      "description": {
+        "en": "Package 4 ownership coordination",
+        "ko": "묶음 4 담당 체계 조정"
+      }
+    },
+    {
+      "id": "p5",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Package 5 IAM provisioner",
+        "ko": "묶음 5 IAM 프로비저너"
+      },
+      "description": {
+        "en": "Package 5 IAM provisioner",
+        "ko": "묶음 5 IAM 프로비저너"
+      }
+    },
+    {
+      "id": "p6",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Package 6 approval supervisor",
+        "ko": "묶음 6 승인 감독자"
+      },
+      "description": {
+        "en": "Package 6 approval supervisor",
+        "ko": "묶음 6 승인 감독자"
+      }
+    },
+    {
+      "id": "p7",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Package 7 handover goals",
+        "ko": "묶음 7 인수인계 목표"
+      },
+      "description": {
+        "en": "Package 7 handover goals",
+        "ko": "묶음 7 인수인계 목표"
+      }
+    },
+    {
+      "id": "p8",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Package 8 knowledge lifecycle",
+        "ko": "묶음 8 지식 수명주기"
+      },
+      "description": {
+        "en": "Package 8 knowledge lifecycle",
+        "ko": "묶음 8 지식 수명주기"
+      }
+    },
+    {
+      "id": "p9",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Package 9 production rollout",
+        "ko": "묶음 9 프로덕션 롤아웃"
+      },
+      "description": {
+        "en": "Package 9 production rollout",
+        "ko": "묶음 9 프로덕션 롤아웃"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "p1",
+      "to": "p2",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "p2",
+      "to": "p3",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "p2",
+      "to": "p4",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "p3",
+      "to": "p5",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "p4",
+      "to": "p5",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "p2",
+      "to": "p6",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "p3",
+      "to": "p7",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "p7",
+      "to": "p8",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "p5",
+      "to": "p9",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "p6",
+      "to": "p9",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-11",
+      "from": "p8",
+      "to": "p9",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

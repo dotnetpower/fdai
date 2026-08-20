@@ -1,0 +1,136 @@
+id: fdai-roadmap-interfaces-conversation-attachments-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: Design at a glance. The main stages are Slack opaque file id, Server-authenticated fetcher, Teams opaque attachment
+      id, Web upload session, Ingestion gateway, Malware and protection checks, Text, Office, or optional OCR
+      extraction, Immutable document version and index, Authorized doc citation, Conversation evidence, Ownership draft
+      and governance PR.
+  ko:
+    title: 설계 개요
+    description: 설계 개요에 대한 FDAI 흐름입니다.
+    alt: 설계 개요. 주요 단계는 Slack opaque file id, Server-authenticated fetcher, Teams opaque attachment id, Web upload session,
+      Ingestion gateway, Malware and protection checks, Text, Office, or optional OCR extraction, Immutable document
+      version and index, Authorized doc citation, Conversation evidence, Ownership draft and governance PR입니다.
+canvas:
+  width: 1600
+  height: 990
+  direction: RIGHT
+groups: []
+nodes:
+  - id: s
+    kind: process
+    shape: card
+    label:
+      en: Slack opaque file id
+      ko: Slack opaque file id
+  - id: f
+    kind: process
+    shape: card
+    label:
+      en: Server-authenticated fetcher
+      ko: Server-authenticated fetcher
+  - id: t
+    kind: process
+    shape: card
+    label:
+      en: Teams opaque attachment id
+      ko: Teams opaque attachment id
+  - id: w
+    kind: process
+    shape: card
+    label:
+      en: Web upload session
+      ko: Web upload session
+  - id: i
+    kind: process
+    shape: card
+    label:
+      en: Ingestion gateway
+      ko: Ingestion gateway
+  - id: m
+    kind: process
+    shape: card
+    label:
+      en: Malware and protection checks
+      ko: Malware and protection checks
+  - id: x
+    kind: process
+    shape: card
+    label:
+      en: Text, Office, or optional OCR extraction
+      ko: Text, Office, or optional OCR extraction
+  - id: d
+    kind: process
+    shape: card
+    label:
+      en: Immutable document version and index
+      ko: Immutable document version and index
+  - id: c
+    kind: process
+    shape: card
+    label:
+      en: Authorized doc citation
+      ko: Authorized doc citation
+  - id: q
+    kind: process
+    shape: card
+    label:
+      en: Conversation evidence
+      ko: Conversation evidence
+  - id: h
+    kind: process
+    shape: card
+    label:
+      en: Ownership draft and governance PR
+      ko: Ownership draft and governance PR
+edges:
+  - id: flow-01
+    from: s
+    to: f
+    kind: request
+  - id: flow-02
+    from: t
+    to: f
+    kind: request
+  - id: flow-03
+    from: w
+    to: i
+    kind: request
+  - id: flow-04
+    from: f
+    to: i
+    kind: request
+  - id: flow-05
+    from: i
+    to: m
+    kind: request
+  - id: flow-06
+    from: m
+    to: x
+    kind: request
+  - id: flow-07
+    from: x
+    to: d
+    kind: request
+  - id: flow-08
+    from: d
+    to: c
+    kind: request
+  - id: flow-09
+    from: c
+    to: q
+    kind: request
+  - id: flow-10
+    from: d
+    to: h
+    kind: request
+    label:
+      en: explicit /handover
+      ko: explicit /handover

@@ -1,0 +1,100 @@
+id: fdai-roadmap-rules-and-detection-near-real-time-detection-paths-02
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: "Push path #2 - Diagnostic Setting -> Event Hub -> Kafka (~15-60 s)"
+    description: "FDAI flow for Push path #2 - Diagnostic Setting -> Event Hub -> Kafka (~15-60 s)."
+    alt: "Push path #2 - Diagnostic Setting -> Event Hub -> Kafka (~15-60 s). The main stages are Azure Resource, Diagnostic
+      Setting, Azure Event Hub, FDAI Kafka consumer, normalize_diagnostic_records, Event on ingest topic, trust-router +
+      risk-gate."
+  ko:
+    title: "Push 경로 #2 - Diagnostic Setting -> Event 허브 -> Kafka (~15~60s)"
+    description: "Push 경로 #2 - Diagnostic Setting -> Event 허브 -> Kafka (~15~60s)에 대한 FDAI 흐름입니다."
+    alt: "Push 경로 #2 - Diagnostic Setting -> Event 허브 -> Kafka (~15~60s). 주요 단계는 Azure Resource, Diagnostic Setting, Azure
+      Event Hub, FDAI Kafka consumer, normalize_diagnostic_records, ingest topic 의 Event, trust-router + risk-gate입니다."
+canvas:
+  width: 1050
+  height: 630
+  direction: RIGHT
+groups: []
+nodes:
+  - id: r
+    kind: process
+    shape: card
+    label:
+      en: Azure Resource
+      ko: Azure Resource
+  - id: d
+    kind: process
+    shape: card
+    label:
+      en: Diagnostic Setting
+      ko: Diagnostic Setting
+    description:
+      en: "When: AllMetrics + AllLogs"
+      ko: "조건: AllMetrics + AllLogs"
+  - id: h
+    kind: process
+    shape: card
+    label:
+      en: Azure Event Hub
+      ko: Azure Event Hub
+    description:
+      en: "When: stream"
+      ko: "조건: stream"
+  - id: c
+    kind: process
+    shape: card
+    label:
+      en: FDAI Kafka consumer
+      ko: FDAI Kafka consumer
+    description:
+      en: "When: Kafka :9093"
+      ko: "조건: Kafka :9093"
+  - id: n
+    kind: process
+    shape: card
+    label:
+      en: normalize_diagnostic_records
+      ko: normalize_diagnostic_records
+  - id: e
+    kind: process
+    shape: card
+    label:
+      en: Event on ingest topic
+      ko: ingest topic 의 Event
+  - id: t
+    kind: process
+    shape: card
+    label:
+      en: trust-router + risk-gate
+      ko: trust-router + risk-gate
+edges:
+  - id: flow-01
+    from: r
+    to: d
+    kind: request
+  - id: flow-02
+    from: d
+    to: h
+    kind: request
+  - id: flow-03
+    from: h
+    to: c
+    kind: request
+  - id: flow-04
+    from: c
+    to: n
+    kind: request
+  - id: flow-05
+    from: n
+    to: e
+    kind: request
+  - id: flow-06
+    from: e
+    to: t
+    kind: request

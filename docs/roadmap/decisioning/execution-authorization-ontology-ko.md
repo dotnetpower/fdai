@@ -1,7 +1,7 @@
 ---
 translation_of: execution-authorization-ontology.md
-translation_source_sha: 839768c8928c4c5924bb80b76b35f1cd08db8040
-translation_revised: 2026-08-17
+translation_source_sha: beeb600a10853131231159a0fdcb88ffc9afadfc
+translation_revised: 2026-08-20
 ---
 # 실행 권한 부여 온톨로지
 
@@ -64,21 +64,7 @@ translation_revised: 2026-08-17
 실행 권한 부여는 독립적으로 versioning되는 네 계층에서 확인됩니다. 모든 결정은 결정론적
 재생을 위해 네 계층의 입력을 고정합니다.
 
-```mermaid
-flowchart LR
-    AT[ActionType] -->|requires| AR[AuthorizationRequirement]
-    AR -->|demands| AC[AuthorizationCapability]
-    AR -->|targets| RT[ResourceType]
-    PA[AuthorizationPolicyAssignment] -->|governs| AC
-    PA -->|permits| EP[ExecutionProfile]
-    PM[ProviderPermissionSet] -->|implements| AC
-    EP --> IR[Deployment identity binding]
-    PM --> OP[Provider operations]
-    IR --> EO[Effective-access observation]
-    OP --> EO
-    EO --> AD[AuthorizationDecision]
-    AD --> RG[Risk gate]
-```
+![설계 개요. 주요 단계는 ActionType, AuthorizationRequirement, AuthorizationCapability, ResourceType, AuthorizationPolicyAssignment, ExecutionProfile, ProviderPermissionSet, Deployment identity binding, Provider operations, Effective-access observation, AuthorizationDecision, Risk gate입니다.](../../diagrams/generated/fdai-roadmap-decisioning-execution-authorization-ontology-01.ko.svg)
 
 | 계층 | 질문 | 권한 |
 |------|------|------|
@@ -302,23 +288,7 @@ Azure 어댑터가 해당 값을 소유합니다.
 멱등성 키에 바인딩됩니다. 여러 누락된 쌍은 서로 다른 요청 id를 생성합니다. 일부 제안
 제출이 실패하면 제안별로 감사하고 원래 액션을 계속 보류합니다.
 
-```mermaid
-sequenceDiagram
-    participant F as Forseti
-    participant V as Var
-    participant D as Protected deployer
-    participant H as Heimdall
-    participant T as Thor
-    participant S as Saga
-    F->>S: AuthorizationDecision(GRANT_REQUIRED)
-    F->>V: AccessGrantRequest
-    V->>S: independently approved exact request
-    V->>D: exact-plan governance change
-    D->>S: apply receipt and expiry
-    H->>S: fresh-token effective-access observation
-    H->>F: re-evaluate original action from the beginning
-    F->>T: authorized verdict only after all gates pass
-```
+![권한 부여 수명 주기. 주요 단계는 AuthorizationDecision(GRANT_REQUIRED), AccessGrantRequest, independently approved exact request, exact-plan governance change, apply receipt and expiry, fresh-token effective-access observation, re-evaluate original action from the beginning, authorized verdict only after all gates pass입니다.](../../diagrams/generated/fdai-roadmap-decisioning-execution-authorization-ontology-02.ko.svg)
 
 실행기 신원은 자체 역할을 부여할 수 없습니다. Protected deployer가 승인된 exact 계획을 적용합니다.
 범위, 연산 집합, 소요 시간, 신원 프로파일 또는 계획 다이제스트가 변경되면 승인은 무효가 됩니다. 만료와

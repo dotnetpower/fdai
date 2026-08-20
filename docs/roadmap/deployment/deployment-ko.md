@@ -1,8 +1,8 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: f57c488e1287a97419f9cc533f4630cdc6882a9c
-translation_revised: 2026-08-15
+translation_source_sha: d8670754732610750ef2340cd653c6d268b9d139
+translation_revised: 2026-08-20
 ---
 
 # 배포(배포)
@@ -151,24 +151,7 @@ Staging은 prod 토폴로지를 미러링하여 shadow 평가가 대표성을 �
 
 ## CI/CD 파이프라인
 
-```mermaid
-flowchart TD
-    PR[Pull Request] --> LINT[lint + repository gates]
-    LINT --> UNIT[unit tests: T0 engine + risk gate]
-    UNIT -->|fail| STOP[block merge/promotion]
-    UNIT -->|pass| SCAN[IaC + dependency + secret scan]
-    SCAN -->|fail| STOP
-    SCAN -->|pass| BUILD[build + SBOM + sign + attest]
-    BUILD --> STAGE[deploy same artifact to staging]
-    STAGE --> SHADOW[shadow evaluation + regression]
-    SHADOW -->|escape or regression| STOP
-    SHADOW -->|clean| GATE{promote code?}
-    GATE -->|manual approve| PRODCD[deploy same image to prod]
-    GATE -->|reject| STOP
-    PRODCD --> ENFORCE{enable enforce?}
-    ENFORCE -->|separate manual approve| ON[enforce per action]
-    ENFORCE -->|default| SHADOWMODE[stay in shadow]
-```
+![CI/CD 파이프라인. 주요 단계는 Pull Request, lint + repository gates, unit tests: T0 engine + risk gate, block merge/promotion, IaC + dependency + secret scan, build + SBOM + sign + attest, deploy same artifact to staging, shadow evaluation + regression, promote code?, deploy same image to prod, enable enforce?, enforce per action입니다.](../../diagrams/generated/fdai-roadmap-deployment-deployment-01.ko.svg)
 
 - **CI 신원**: 파이프라인은 **단명, OIDC-federated** 신원으로 인증(장기 클라우드 키 CI에
   없음). 시크릿은 런타임에 시크릿 저장소에서 pull, 로그·빌드 아티팩트에 **절대 쓰지 않음**

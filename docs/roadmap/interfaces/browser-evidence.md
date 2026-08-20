@@ -20,17 +20,7 @@ declared evidence, redacts sensitive content, and returns material to the core s
 service hashes and stores the sanitized bytes, links an append-only custody audit record, and marks
 all extracted content as untrusted.
 
-```mermaid
-flowchart LR
-    REQUEST[Typed capture request] --> POLICY[Origin and DNS policy]
-    POLICY --> BROWSER[Ephemeral Playwright context]
-    BROWSER --> REDACT[Visual and text redaction]
-    REDACT --> HASH[Deterministic hashes]
-    HASH --> STORE[Content-addressed artifact]
-    STORE --> AUDIT[Append-only custody audit]
-    STORE --> SHADOW[Human and API comparison]
-    STORE --> VIEW[Read-only inspection]
-```
+![Design at a glance. The main stages are Typed capture request, Origin and DNS policy, Ephemeral Playwright context, Visual and text redaction, Deterministic hashes, Content-addressed artifact, Append-only custody audit, Human and API comparison, Read-only inspection.](../../diagrams/generated/fdai-roadmap-interfaces-browser-evidence-01.en.svg)
 
 ## Contracts and ownership
 

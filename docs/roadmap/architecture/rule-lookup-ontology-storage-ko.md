@@ -1,8 +1,8 @@
 ---
 title: 규칙 조회 온톨로지 저장소
 translation_of: rule-lookup-ontology-storage.md
-translation_source_sha: 2af56c9dd4b4874d04c6a279283f020cc47e513b
-translation_revised: 2026-08-14
+translation_source_sha: e7a49011cbfc814b6100098dd17026486fb44dc7
+translation_revised: 2026-08-20
 ---
 
 # 규칙 조회 온톨로지 저장소
@@ -164,17 +164,7 @@ CREATE INDEX ix_t2_cache_expiry ON t2_cache(expires_at);
 
 ## 부트와 리로드
 
-```mermaid
-flowchart LR
-  G[Git: catalog-as-code] -->|azd deploy / config-reload event| P[process start]
-  P --> COMP[load ObjectType/LinkType/ActionType + Rule YAMLs]
-  COMP --> OPA[compile OPA/Rego]
-  COMP --> IDX[build in-memory dispatch indexes<br/>applies_to, triggered_by inverted lookup]
-  OPA --> READY[ready]
-  IDX --> READY
-  P --> DB[(PostgreSQL: instance state)]
-  P --> KV[(Key Vault: resolved-models.json)]
-```
+![부트와 리로드. 주요 단계는 Git: catalog-as-code, process start, load ObjectType/LinkType/ActionType + Rule YAMLs, compile OPA/Rego, build in-memory dispatch indexes / applies_to, triggered_by inverted lookup, ready, PostgreSQL: instance state, Key Vault: resolved-models.json입니다.](../../diagrams/generated/fdai-roadmap-architecture-rule-lookup-ontology-storage-01.ko.svg)
 
 - **정적 아티팩트 진실 원본은 Git; 인스턴스 상태 진실 원본은 PostgreSQL.** 두 레이어는 절대
   겹치지 않음.

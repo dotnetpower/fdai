@@ -1,0 +1,187 @@
+id: fdai-roadmap-decisioning-conversation-assurance-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: Design at a glance. The main stages are Terminal turn, Deterministic checks, Assessment ledger, Independent
+      evaluator A, Independent evaluator B, Deterministic reducer, Independent tie-breaker, Norns failure clustering,
+      Bounded policy candidate, Blind bilingual replay, Shadow and canary, Automatic promotion.
+  ko:
+    title: 설계 요약
+    description: 설계 요약에 대한 FDAI 흐름입니다.
+    alt: 설계 요약. 주요 단계는 최종 turn, 결정론적 검사, 평가 원장, 독립 평가자 A, 독립 평가자 B, 결정론적 reducer, 독립 중재자, Norns 실패 군집화, 제한된 정책 후보, 블라인드 이중
+      언어 재실행, shadow 및 canary, 자동 승격입니다.
+canvas:
+  width: 1600
+  height: 1200
+  direction: RIGHT
+groups: []
+nodes:
+  - id: turn
+    kind: process
+    shape: card
+    label:
+      en: Terminal turn
+      ko: 최종 turn
+  - id: check
+    kind: process
+    shape: card
+    label:
+      en: Deterministic checks
+      ko: 결정론적 검사
+  - id: ledger
+    kind: process
+    shape: card
+    label:
+      en: Assessment ledger
+      ko: 평가 원장
+    description:
+      en: "When: Decisive"
+      ko: "조건: 판정 가능"
+  - id: a
+    kind: process
+    shape: card
+    label:
+      en: Independent evaluator A
+      ko: 독립 평가자 A
+    description:
+      en: "When: Semantic review"
+      ko: "조건: 의미 평가"
+  - id: b
+    kind: process
+    shape: card
+    label:
+      en: Independent evaluator B
+      ko: 독립 평가자 B
+    description:
+      en: "When: Semantic review"
+      ko: "조건: 의미 평가"
+  - id: reduce
+    kind: process
+    shape: card
+    label:
+      en: Deterministic reducer
+      ko: 결정론적 reducer
+  - id: tie
+    kind: process
+    shape: card
+    label:
+      en: Independent tie-breaker
+      ko: 독립 중재자
+    description:
+      en: "When: Disagreement"
+      ko: "조건: 불일치"
+  - id: cluster
+    kind: process
+    shape: card
+    label:
+      en: Norns failure clustering
+      ko: Norns 실패 군집화
+  - id: candidate
+    kind: process
+    shape: card
+    label:
+      en: Bounded policy candidate
+      ko: 제한된 정책 후보
+  - id: replay
+    kind: process
+    shape: card
+    label:
+      en: Blind bilingual replay
+      ko: 블라인드 이중 언어 재실행
+  - id: shadow
+    kind: process
+    shape: card
+    label:
+      en: Shadow and canary
+      ko: shadow 및 canary
+  - id: promote
+    kind: process
+    shape: card
+    label:
+      en: Automatic promotion
+      ko: 자동 승격
+    description:
+      en: "When: Guard pass"
+      ko: "조건: 보호 지표 통과"
+  - id: rollback
+    kind: process
+    shape: card
+    label:
+      en: Automatic rollback
+      ko: 자동 롤백
+    description:
+      en: "When: Regression"
+      ko: "조건: 회귀"
+  - id: human
+    kind: process
+    shape: card
+    label:
+      en: Operator dispute
+      ko: 운영자 이의 제기
+edges:
+  - id: flow-01
+    from: turn
+    to: check
+    kind: request
+  - id: flow-02
+    from: check
+    to: ledger
+    kind: request
+  - id: flow-03
+    from: check
+    to: a
+    kind: request
+  - id: flow-04
+    from: check
+    to: b
+    kind: request
+  - id: flow-05
+    from: a
+    to: reduce
+    kind: request
+  - id: flow-06
+    from: b
+    to: reduce
+    kind: request
+  - id: flow-07
+    from: reduce
+    to: tie
+    kind: request
+  - id: flow-08
+    from: tie
+    to: ledger
+    kind: request
+  - id: flow-09
+    from: ledger
+    to: cluster
+    kind: request
+  - id: flow-10
+    from: cluster
+    to: candidate
+    kind: request
+  - id: flow-11
+    from: candidate
+    to: replay
+    kind: request
+  - id: flow-12
+    from: replay
+    to: shadow
+    kind: request
+  - id: flow-13
+    from: shadow
+    to: promote
+    kind: request
+  - id: flow-14
+    from: shadow
+    to: rollback
+    kind: request
+  - id: flow-15
+    from: human
+    to: ledger
+    kind: request

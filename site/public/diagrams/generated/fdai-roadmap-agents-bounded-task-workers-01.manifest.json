@@ -1,0 +1,203 @@
+{
+  "id": "fdai-roadmap-agents-bounded-task-workers-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are Existing answer plan, Typed worker request, Capability intersection, Denied terminal result, Isolated worker runtime, Durable snapshot and branch events, Untrusted parent synthesis, Read-only projection, Completion handoff."
+    },
+    "ko": {
+      "title": "설계 요약",
+      "description": "설계 요약에 대한 FDAI 흐름입니다.",
+      "alt": "설계 요약. 주요 단계는 기존 answer plan, Typed worker 요청, Capability 교집합, 차단된 terminal result, 격리된 worker runtime, 영구 snapshot 및 branch event, 신뢰되지 않은 부모 합성, 읽기 전용 projection, 완료 인계입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-agents-bounded-task-workers-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-agents-bounded-task-workers-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "plan",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Existing answer plan",
+        "ko": "기존 answer plan"
+      },
+      "description": {
+        "en": "Existing answer plan",
+        "ko": "기존 answer plan"
+      }
+    },
+    {
+      "id": "request",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Typed worker request",
+        "ko": "Typed worker 요청"
+      },
+      "description": {
+        "en": "Typed worker request",
+        "ko": "Typed worker 요청"
+      }
+    },
+    {
+      "id": "attenuate",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Capability intersection",
+        "ko": "Capability 교집합"
+      },
+      "description": {
+        "en": "Capability intersection",
+        "ko": "Capability 교집합"
+      }
+    },
+    {
+      "id": "deny",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Denied terminal result",
+        "ko": "차단된 terminal result"
+      },
+      "description": {
+        "en": "When: no read tools",
+        "ko": "조건: 읽기 도구 없음"
+      }
+    },
+    {
+      "id": "run",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Isolated worker runtime",
+        "ko": "격리된 worker runtime"
+      },
+      "description": {
+        "en": "When: bounded read tools",
+        "ko": "조건: 제한된 읽기 도구"
+      }
+    },
+    {
+      "id": "store",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Durable snapshot and branch events",
+        "ko": "영구 snapshot 및 branch event"
+      },
+      "description": {
+        "en": "Durable snapshot and branch events",
+        "ko": "영구 snapshot 및 branch event"
+      }
+    },
+    {
+      "id": "synthesis",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Untrusted parent synthesis",
+        "ko": "신뢰되지 않은 부모 합성"
+      },
+      "description": {
+        "en": "Untrusted parent synthesis",
+        "ko": "신뢰되지 않은 부모 합성"
+      }
+    },
+    {
+      "id": "view",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Read-only projection",
+        "ko": "읽기 전용 projection"
+      },
+      "description": {
+        "en": "Read-only projection",
+        "ko": "읽기 전용 projection"
+      }
+    },
+    {
+      "id": "sink",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Completion handoff",
+        "ko": "완료 인계"
+      },
+      "description": {
+        "en": "Completion handoff",
+        "ko": "완료 인계"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "plan",
+      "to": "request",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "request",
+      "to": "attenuate",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "attenuate",
+      "to": "deny",
+      "kind": "read",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "attenuate",
+      "to": "run",
+      "kind": "read",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "run",
+      "to": "store",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "store",
+      "to": "synthesis",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "store",
+      "to": "view",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "store",
+      "to": "sink",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

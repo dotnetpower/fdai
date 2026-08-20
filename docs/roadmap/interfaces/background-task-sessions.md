@@ -19,17 +19,7 @@ the terminal result together with a pending completion in one transaction. A sep
 completion outbox appends the provenance-labeled conversation turn and enqueues the immutable reply
 through the durable conversation delivery ledger.
 
-```mermaid
-flowchart LR
-    USER[Operator conversation] --> CREATE[Durable queued task]
-    CREATE --> CLAIM[CAS lease claim]
-    CLAIM --> RUN[Read-only executor]
-    RUN --> PROGRESS[Coalesced progress]
-    RUN --> RESULT[Atomic terminal result and pending completion]
-    RESULT --> OUTBOX[Leased completion outbox]
-    OUTBOX --> TURN[Idempotent conversation turn]
-    TURN --> DELIVERY[Durable reply ledger]
-```
+![Design at a glance. The main stages are Operator conversation, Durable queued task, CAS lease claim, Read-only executor, Coalesced progress, Atomic terminal result and pending completion, Leased completion outbox, Idempotent conversation turn, Durable reply ledger.](../../diagrams/generated/fdai-roadmap-interfaces-background-task-sessions-01.en.svg)
 
 ## Contracts and state
 

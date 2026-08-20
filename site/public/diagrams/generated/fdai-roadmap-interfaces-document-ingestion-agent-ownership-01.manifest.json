@@ -1,0 +1,230 @@
+{
+  "id": "fdai-roadmap-interfaces-document-ingestion-agent-ownership-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are Upload event, Huginn - ingress, Heimdall - safety signals, Forseti - admissibility, abandon or deny, Var - human approval, Muninn - retrieval index, Saga - audit seal, Mimir / Norns - catalog growth, Bragi - progress + citation."
+    },
+    "ko": {
+      "title": "설계 개요",
+      "description": "설계 개요에 대한 FDAI 흐름입니다.",
+      "alt": "설계 개요. 주요 단계는 Upload event, Huginn - ingress, Heimdall - safety signals, Forseti - admissibility, abandon or deny, Var - human approval, Muninn - retrieval index, Saga - audit seal, Mimir / Norns - catalog growth, Bragi - progress + citation입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-interfaces-document-ingestion-agent-ownership-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-interfaces-document-ingestion-agent-ownership-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "u",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Upload event",
+        "ko": "Upload event"
+      },
+      "description": {
+        "en": "Upload event",
+        "ko": "Upload event"
+      }
+    },
+    {
+      "id": "hu",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Huginn - ingress",
+        "ko": "Huginn - ingress"
+      },
+      "description": {
+        "en": "Huginn - ingress",
+        "ko": "Huginn - ingress"
+      }
+    },
+    {
+      "id": "he",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Heimdall - safety signals",
+        "ko": "Heimdall - safety signals"
+      },
+      "description": {
+        "en": "Heimdall - safety signals",
+        "ko": "Heimdall - safety signals"
+      }
+    },
+    {
+      "id": "fo",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Forseti - admissibility",
+        "ko": "Forseti - admissibility"
+      },
+      "description": {
+        "en": "Forseti - admissibility",
+        "ko": "Forseti - admissibility"
+      }
+    },
+    {
+      "id": "x",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "abandon or deny",
+        "ko": "abandon or deny"
+      },
+      "description": {
+        "en": "When: malware / RMS-denied",
+        "ko": "조건: malware / RMS-denied"
+      }
+    },
+    {
+      "id": "va",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Var - human approval",
+        "ko": "Var - human approval"
+      },
+      "description": {
+        "en": "When: sensitive / authoritative",
+        "ko": "조건: sensitive / authoritative"
+      }
+    },
+    {
+      "id": "mu",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Muninn - retrieval index",
+        "ko": "Muninn - retrieval index"
+      },
+      "description": {
+        "en": "When: admit",
+        "ko": "조건: admit"
+      }
+    },
+    {
+      "id": "sa",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Saga - audit seal",
+        "ko": "Saga - audit seal"
+      },
+      "description": {
+        "en": "Saga - audit seal",
+        "ko": "Saga - audit seal"
+      }
+    },
+    {
+      "id": "km",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Mimir / Norns - catalog growth",
+        "ko": "Mimir / Norns - catalog growth"
+      },
+      "description": {
+        "en": "Mimir / Norns - catalog growth",
+        "ko": "Mimir / Norns - catalog growth"
+      }
+    },
+    {
+      "id": "br",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Bragi - progress + citation",
+        "ko": "Bragi - progress + citation"
+      },
+      "description": {
+        "en": "Bragi - progress + citation",
+        "ko": "Bragi - progress + citation"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "u",
+      "to": "hu",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "hu",
+      "to": "he",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "he",
+      "to": "fo",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "fo",
+      "to": "x",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "fo",
+      "to": "va",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "fo",
+      "to": "mu",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "va",
+      "to": "mu",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "mu",
+      "to": "sa",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "sa",
+      "to": "km",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "mu",
+      "to": "br",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

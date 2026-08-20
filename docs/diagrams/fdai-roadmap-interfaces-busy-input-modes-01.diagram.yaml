@@ -1,0 +1,105 @@
+id: fdai-roadmap-interfaces-busy-input-modes-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: Design at a glance. The main stages are Authenticated follow-up, Durable CAS arbitration, Next-turn queue,
+      Conversation cancel event, Safe boundary, Bounded narrator rerun, Turn finishes first, Steer becomes queued.
+  ko:
+    title: 설계 요약
+    description: 설계 요약에 대한 FDAI 흐름입니다.
+    alt: 설계 요약. 주요 단계는 인증된 후속 입력, 영구 CAS arbitration, 다음 turn queue, Conversation cancel event, Safe boundary, 제한된 narrator
+      rerun, Turn이 먼저 종료, Steer가 queued로 변경입니다.
+canvas:
+  width: 1200
+  height: 720
+  direction: RIGHT
+groups: []
+nodes:
+  - id: input
+    kind: process
+    shape: card
+    label:
+      en: Authenticated follow-up
+      ko: 인증된 후속 입력
+  - id: store
+    kind: process
+    shape: card
+    label:
+      en: Durable CAS arbitration
+      ko: 영구 CAS arbitration
+  - id: queue
+    kind: process
+    shape: card
+    label:
+      en: Next-turn queue
+      ko: 다음 turn queue
+    description:
+      en: "When: queue"
+      ko: "조건: queue"
+  - id: cancel
+    kind: process
+    shape: card
+    label:
+      en: Conversation cancel event
+      ko: Conversation cancel event
+    description:
+      en: "When: interrupt"
+      ko: "조건: interrupt"
+  - id: boundary
+    kind: process
+    shape: card
+    label:
+      en: Safe boundary
+      ko: Safe boundary
+    description:
+      en: "When: steer"
+      ko: "조건: steer"
+  - id: rerun
+    kind: process
+    shape: card
+    label:
+      en: Bounded narrator rerun
+      ko: 제한된 narrator rerun
+  - id: turn
+    kind: process
+    shape: card
+    label:
+      en: Turn finishes first
+      ko: Turn이 먼저 종료
+  - id: fallback
+    kind: process
+    shape: card
+    label:
+      en: Steer becomes queued
+      ko: Steer가 queued로 변경
+edges:
+  - id: flow-01
+    from: input
+    to: store
+    kind: request
+  - id: flow-02
+    from: store
+    to: queue
+    kind: request
+  - id: flow-03
+    from: store
+    to: cancel
+    kind: request
+  - id: flow-04
+    from: store
+    to: boundary
+    kind: request
+  - id: flow-05
+    from: boundary
+    to: rerun
+    kind: request
+  - id: flow-06
+    from: turn
+    to: fallback
+    kind: request

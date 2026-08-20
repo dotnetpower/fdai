@@ -37,20 +37,7 @@ baseline and bounded `ActionOption` values. Each option cites an `ExpectedEffect
 `Process` journals multi-step work. After the observation horizon closes, independent evidence can
 revise the existing `CausalHypothesis`; provider acceptance remains dispatch evidence only.
 
-```mermaid
-flowchart LR
-    C[DecisionCase] --> N[No-action baseline]
-    C --> O[ActionOption]
-    O --> E[ExpectedEffect and horizon]
-    O --> P[Process and ActionRun]
-    P --> R[Provider receipt]
-    P --> I[Independent observation]
-    I --> H[CausalHypothesis revision]
-    R -. dispatch only .-> H
-    H --> X[Active/challenger comparison]
-    X --> Q[Inert promotion evidence]
-    Q --> M[Mimir review and promotion registry]
-```
+![Design at a glance. The main stages are DecisionCase, No-action baseline, ActionOption, ExpectedEffect and horizon, Process and ActionRun, Provider receipt, Independent observation, CausalHypothesis revision, Active/challenger comparison, Inert promotion evidence, Mimir review and promotion registry.](../../diagrams/generated/fdai-roadmap-rules-and-detection-operational-hypothesis-loop-01.en.svg)
 
 ## Reused contract
 

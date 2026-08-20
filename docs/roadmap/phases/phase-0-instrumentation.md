@@ -163,57 +163,7 @@ run against.
 
 ### Sequenced Task Timeline
 
-```mermaid
-gantt
-    title Phase 0 - Implementation Sequence
-    dateFormat X
-    axisFormat %s
-
-    section WI4 identity (critical path)
-    W4.1 Bootstrap modules    :w41, 0, 10
-    W4.2 Executor MI          :w42, after w41, 4
-    W4.3 Policy deny          :w43, after w42, 4
-    W4.4 LPP probe            :w44, after w43, 2
-    W4.5 App regs             :w45, after w41, 4
-    W4.6 Entra groups         :w46, after w45, 2
-    W4.7 Conditional access   :w47, after w46, 2
-    W4.8 Recertification      :w48, after w47, 1
-
-    section WI1 telemetry
-    W1.1 Skeleton             :w11, 0, 1
-    W1.2 Ontology contracts   :w12, after w11, 4
-    W1.3 Config loader        :w13, after w11, 1
-    W1.4 OTel wiring          :w14, after w13, 4
-    W1.5 DDL instance+audit   :w15, after w12, 4
-    W1.6 DDL layered cache    :w16, after w15, 1
-    W1.7 CI baseline          :w17, after w11, 4
-    W1.8 Golden fixture       :w18, after w15, 4
-    W1.9 KPI dashboard        :w19, after w18, 4
-
-    section WI2 scenarios
-    W2.1 Schema               :w21, after w12, 1
-    W2.2 Author               :w22, after w21, 4
-    W2.3 Freeze               :w23, after w22, 1
-    W2.4 Coverage tests       :w24, after w22, 1
-
-    section WI3 baseline (blocked by W2.3)
-    W3.1 Reference agent      :w31, after w23, 4
-    W3.2 Runner CLI           :w32, after w31, 1
-    W3.3 Report               :w33, after w32, 1
-    W3.4 Repro CI             :w34, after w33, 4
-
-    section WI5 exemption
-    W5.1 Schema + template    :w51, after w12, 1
-    W5.2 CI check             :w52, after w51, 1
-    W5.3 Expiry job           :w53, after w51, 4
-    W5.4 Lookahead digest     :w54, after w53, 1
-    W5.5 Runbook              :w55, after w51, 1
-
-    section WI6 local dev preset
-    W6.1 Provider interfaces  :w61, after w12, 1
-    W6.2 In-memory fakes      :w62, after w61, 4
-    W6.3 Docker Compose       :w63, after w61, 3
-```
+![Sequenced Task Timeline. The main stages are W4.1 Bootstrap modules, W4.2 Executor MI, W4.3 Policy deny, W4.4 LPP probe, W4.5 App regs, W4.6 Entra groups, W4.7 Conditional access, W4.8 Recertification, W1.1 Skeleton, W1.2 Ontology contracts, W1.3 Config loader, W1.4 OTel wiring.](../../diagrams/generated/fdai-roadmap-phases-phase-0-instrumentation-01.en.svg)
 
 ### Critical-Path Rules
 
@@ -243,6 +193,25 @@ Each task is done only when:
    its shipping default is `enforcement: do-not-enforce`.
 5. **Audit-log entry emitted** for any state-changing task at runtime (Terraform apply
    included).
+
+## Implementation status
+
+### Implementation scope
+
+| Area | State | Evidence | Notes |
+|------|-------|----------|-------|
+| Phase 0 work items W1-W6 | in-progress | Work-item deliverables and acceptance checks in this document; current source and test paths named by each work item | This ledger adoption does not infer completion from repository shape. Each work item remains bounded by its own acceptance check and the exit criteria below. |
+| Sequenced task timeline | implemented | `docs/diagrams/fdai-roadmap-phases-phase-0-instrumentation-01.diagram.yaml`; `npm --prefix tools/architecture-diagrams run check` | The maintained bilingual FDAI diagram replaces the former Mermaid rendering without changing task dependencies or implementation authority. |
+
+### Implementation history
+
+| Date | State | Change | Evidence | Remaining |
+|------|-------|--------|----------|-----------|
+| 2026-08-20 | in-progress | Adopted the implementation ledger; earlier work-item provenance was not reconstructed. Replaced the task timeline with a repository-owned bilingual diagram. | `current change`; Phase 0 roadmap pair, diagram specification, and focused diagram checks. | Review each W1-W6 acceptance check against current implementation and CI evidence before raising any scope row to implemented or validated. |
+
+### Remaining work
+
+- [ ] Classify every W1-W6 work item against its declared acceptance check, cite the current source and CI evidence, and split the aggregate scope row when independently provable states differ.
 
 ## Data and Scope Constraints
 

@@ -654,29 +654,7 @@ rejects malformed reuse evidence, and a T2 proposal cannot bypass grounding auth
 provider fails. HIL approval ids and executor idempotency keys are claimed atomically, while
 per-resource locking serializes competing applies before any delivery adapter can mutate state.
 
-```mermaid
-flowchart LR
-    EV[events] --> NORM["event-ingest<br/>normalize + dedup"]
-    NORM --> ROUTER[trust-router]
-    ROUTER -->|rule match| T0[t0-deterministic]
-    ROUTER -->|similar| T1[t1-lightweight]
-    ROUTER -->|novel| T2[t2-reasoning]
-    T2 --> QG[quality-gate]
-    T0 --> RG[risk-gate]
-    T1 --> RG
-    QG --> RG
-    RG -->|low risk| EX[executor]
-    RG -->|high risk| HIL["HIL approval<br/>via chatops"]
-    RG -->|abstain / deny| NOOP[no-op]
-    HIL -->|approve| EX
-    HIL -->|reject / timeout| NOOP
-    EX --> DEL["delivery: gitops-pr / chatops"]
-    EX --> AUD[audit]
-    DEL --> AUD
-    NOOP --> AUD
-    AUD --> LIB[(pattern library)]
-    LIB --> T1
-```
+![Control-Loop Wiring. The main stages are events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.en.svg)
 
 ## Configuration Model
 

@@ -1,0 +1,143 @@
+{
+  "id": "fdai-operational-knowledge-query-hardening-plan-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Azure resource projection",
+      "description": "FDAI flow for Azure resource projection.",
+      "alt": "Azure resource projection. The main stages are Azure Resource Graph, ResourceRecord and LinkRecord, Promoted inventory generation, Inventory ontology projection, PostgreSQL ontology graph, Secured ObjectSet query."
+    },
+    "ko": {
+      "title": "Azure resource projection",
+      "description": "Azure resource projection에 대한 FDAI 흐름입니다.",
+      "alt": "Azure resource projection. 주요 단계는 Azure Resource Graph, ResourceRecord and LinkRecord, Promoted inventory generation, Inventory ontology projection, PostgreSQL ontology graph, Secured ObjectSet query입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-operational-knowledge-query-hardening-plan-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-operational-knowledge-query-hardening-plan-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "arg",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Azure Resource Graph",
+        "ko": "Azure Resource Graph"
+      },
+      "description": {
+        "en": "Azure Resource Graph",
+        "ko": "Azure Resource Graph"
+      }
+    },
+    {
+      "id": "inv",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "ResourceRecord and LinkRecord",
+        "ko": "ResourceRecord and LinkRecord"
+      },
+      "description": {
+        "en": "ResourceRecord and LinkRecord",
+        "ko": "ResourceRecord and LinkRecord"
+      }
+    },
+    {
+      "id": "promote",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Promoted inventory generation",
+        "ko": "Promoted inventory generation"
+      },
+      "description": {
+        "en": "Promoted inventory generation",
+        "ko": "Promoted inventory generation"
+      }
+    },
+    {
+      "id": "build",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Inventory ontology projection",
+        "ko": "Inventory ontology projection"
+      },
+      "description": {
+        "en": "Inventory ontology projection",
+        "ko": "Inventory ontology projection"
+      }
+    },
+    {
+      "id": "store",
+      "kind": "store",
+      "shape": "database",
+      "label": {
+        "en": "PostgreSQL ontology graph",
+        "ko": "PostgreSQL ontology graph"
+      },
+      "description": {
+        "en": "PostgreSQL ontology graph",
+        "ko": "PostgreSQL ontology graph"
+      }
+    },
+    {
+      "id": "obj",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Secured ObjectSet query",
+        "ko": "Secured ObjectSet query"
+      },
+      "description": {
+        "en": "Secured ObjectSet query",
+        "ko": "Secured ObjectSet query"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "arg",
+      "to": "inv",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "inv",
+      "to": "promote",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "promote",
+      "to": "build",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "build",
+      "to": "store",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "store",
+      "to": "obj",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

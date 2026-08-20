@@ -36,17 +36,7 @@ maps each claim to existing ontology declarations, verifies exact source support
 external evidence, and stages a reviewable graph diff. Approved proposals create a new immutable
 revision; reconciliation keeps accepted intent separate from observed external truth.
 
-```mermaid
-flowchart LR
-    D[Governed document] --> I[Claim inventory]
-    I --> E[Typed extraction]
-    E --> V[Deterministic verification]
-    V --> P[Ontology change proposal]
-    P --> H[Accountable review]
-    H --> R[Immutable ontology revision]
-    R --> C[Authority reconciliation]
-    C --> S[Shadow measurement]
-```
+![Design at a glance. The main stages are Governed document, Claim inventory, Typed extraction, Deterministic verification, Ontology change proposal, Accountable review, Immutable ontology revision, Authority reconciliation, Shadow measurement.](../../diagrams/generated/fdai-roadmap-rules-and-detection-document-ontology-distillation-01.en.svg)
 
 ## Proposal contract
 

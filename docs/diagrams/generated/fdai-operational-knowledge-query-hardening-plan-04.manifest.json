@@ -1,0 +1,197 @@
+{
+  "id": "fdai-operational-knowledge-query-hardening-plan-04",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Target query spine",
+      "description": "FDAI flow for Target query spine.",
+      "alt": "Target query spine. The main stages are Resource instance, ResourceType, Rule, PolicyArtifact, Property, Verified query plan, OperationalKnowledgeReceipt, Evidence-bound answer claims."
+    },
+    "ko": {
+      "title": "Target query spine",
+      "description": "Target query spine에 대한 FDAI 흐름입니다.",
+      "alt": "Target query spine. 주요 단계는 Resource instance, ResourceType, Rule, PolicyArtifact, Property, Verified query plan, OperationalKnowledgeReceipt, Evidence-bound answer claims입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-operational-knowledge-query-hardening-plan-04.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-operational-knowledge-query-hardening-plan-04.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "r",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Resource instance",
+        "ko": "Resource instance"
+      },
+      "description": {
+        "en": "Resource instance",
+        "ko": "Resource instance"
+      }
+    },
+    {
+      "id": "rt",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "ResourceType",
+        "ko": "ResourceType"
+      },
+      "description": {
+        "en": "When: resource_classified_as / When: applies_to",
+        "ko": "조건: resource_classified_as / 조건: applies_to"
+      }
+    },
+    {
+      "id": "rule",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Rule",
+        "ko": "Rule"
+      },
+      "description": {
+        "en": "Rule",
+        "ko": "Rule"
+      }
+    },
+    {
+      "id": "pa",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "PolicyArtifact",
+        "ko": "PolicyArtifact"
+      },
+      "description": {
+        "en": "When: implemented_by_policy",
+        "ko": "조건: implemented_by_policy"
+      }
+    },
+    {
+      "id": "p",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Property",
+        "ko": "Property"
+      },
+      "description": {
+        "en": "When: evaluates / When: has observed value",
+        "ko": "조건: evaluates / 조건: has observed value"
+      }
+    },
+    {
+      "id": "q",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Verified query plan",
+        "ko": "Verified query plan"
+      },
+      "description": {
+        "en": "Verified query plan",
+        "ko": "Verified query plan"
+      }
+    },
+    {
+      "id": "ks",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "OperationalKnowledgeReceipt",
+        "ko": "OperationalKnowledgeReceipt"
+      },
+      "description": {
+        "en": "OperationalKnowledgeReceipt",
+        "ko": "OperationalKnowledgeReceipt"
+      }
+    },
+    {
+      "id": "a",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Evidence-bound answer claims",
+        "ko": "Evidence-bound answer claims"
+      },
+      "description": {
+        "en": "Evidence-bound answer claims",
+        "ko": "Evidence-bound answer claims"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "r",
+      "to": "rt",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "rule",
+      "to": "rt",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "rule",
+      "to": "pa",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "rule",
+      "to": "p",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "r",
+      "to": "p",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "q",
+      "to": "r",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "q",
+      "to": "rule",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "q",
+      "to": "ks",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "ks",
+      "to": "a",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

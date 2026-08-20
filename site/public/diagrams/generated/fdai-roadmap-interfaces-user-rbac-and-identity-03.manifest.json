@@ -1,0 +1,303 @@
+{
+  "id": "fdai-roadmap-interfaces-user-rbac-and-identity-03",
+  "kind": "sequence",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "10.1 Console (SPA) - OIDC + Authorization Code with PKCE",
+      "description": "Ordered FDAI interactions for 10.1 Console (SPA) - OIDC + Authorization Code with PKCE.",
+      "alt": "10.1 Console (SPA) - OIDC + Authorization Code with PKCE. The main stages are navigate https://console./, /authorize (client_id=spa, scope=api:///access + openid, / response_type=code, PKCE), sign-in prompt, credentials, Conditional Access evaluate / (approvers/owners → phishing-resistant MFA), MFA challenge (if triggered), FIDO2 / WHfB response, /callback?code=..., /token (code + PKCE verifier), id_token + access_token(aud=api://) + refresh_token, GET /me + Authorization: Bearer, verify signature (JWKS), aud, iss, exp; / extract oid, upn, roles."
+    },
+    "ko": {
+      "title": "10.1 콘솔 (SPA) - OIDC + PKCE 있는 권한 확인 코드",
+      "description": "10.1 콘솔 (SPA) - OIDC + PKCE 있는 권한 확인 코드에 대한 순서가 있는 FDAI 상호 작용입니다.",
+      "alt": "10.1 콘솔 (SPA) - OIDC + PKCE 있는 권한 확인 코드. 주요 단계는 navigate https://console./, /authorize (client_id=spa, scope=api:///access + openid, / response_type=code, PKCE), sign-in prompt, credentials, Conditional Access evaluate / (approvers/owners → phishing-resistant MFA), MFA challenge (if triggered), FIDO2 / WHfB response, /callback?code=..., /token (code + PKCE verifier), id_token + access_token(aud=api://) + refresh_token, GET /me + Authorization: Bearer, verify signature (JWKS), aud, iss, exp; / extract oid, upn, roles입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-interfaces-user-rbac-and-identity-03.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-interfaces-user-rbac-and-identity-03.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "step-01",
+      "kind": "process",
+      "badge": 1,
+      "label": {
+        "en": "User -> Console SPA (MSAL)",
+        "ko": "User -> Console SPA (MSAL)"
+      },
+      "description": {
+        "en": "navigate https://console./",
+        "ko": "navigate https://console./"
+      }
+    },
+    {
+      "id": "step-02",
+      "kind": "process",
+      "badge": 2,
+      "label": {
+        "en": "Console SPA (MSAL) -> Entra ID",
+        "ko": "Console SPA (MSAL) -> Entra ID"
+      },
+      "description": {
+        "en": "/authorize (client_id=spa, scope=api:///access + openid, / response_type=code, PKCE)",
+        "ko": "/authorize (client_id=spa, scope=api:///access + openid, / response_type=code, PKCE)"
+      }
+    },
+    {
+      "id": "step-03",
+      "kind": "process",
+      "badge": 3,
+      "label": {
+        "en": "Entra ID -> User",
+        "ko": "Entra ID -> User"
+      },
+      "description": {
+        "en": "sign-in prompt",
+        "ko": "sign-in prompt"
+      }
+    },
+    {
+      "id": "step-04",
+      "kind": "process",
+      "badge": 4,
+      "label": {
+        "en": "User -> Entra ID",
+        "ko": "User -> Entra ID"
+      },
+      "description": {
+        "en": "credentials",
+        "ko": "credentials"
+      }
+    },
+    {
+      "id": "step-05",
+      "kind": "process",
+      "badge": 5,
+      "label": {
+        "en": "Entra ID -> Entra ID",
+        "ko": "Entra ID -> Entra ID"
+      },
+      "description": {
+        "en": "Conditional Access evaluate / (approvers/owners → phishing-resistant MFA)",
+        "ko": "Conditional Access evaluate / (approvers/owners → phishing-resistant MFA)"
+      }
+    },
+    {
+      "id": "step-06",
+      "kind": "process",
+      "badge": 6,
+      "label": {
+        "en": "E- -> User",
+        "ko": "E- -> User"
+      },
+      "description": {
+        "en": "MFA challenge (if triggered)",
+        "ko": "MFA challenge (if triggered)"
+      }
+    },
+    {
+      "id": "step-07",
+      "kind": "process",
+      "badge": 7,
+      "label": {
+        "en": "User -> Entra ID",
+        "ko": "User -> Entra ID"
+      },
+      "description": {
+        "en": "FIDO2 / WHfB response",
+        "ko": "FIDO2 / WHfB response"
+      }
+    },
+    {
+      "id": "step-08",
+      "kind": "process",
+      "badge": 8,
+      "label": {
+        "en": "Entra ID -> Console SPA (MSAL)",
+        "ko": "Entra ID -> Console SPA (MSAL)"
+      },
+      "description": {
+        "en": "/callback?code=...",
+        "ko": "/callback?code=..."
+      }
+    },
+    {
+      "id": "step-09",
+      "kind": "process",
+      "badge": 9,
+      "label": {
+        "en": "Console SPA (MSAL) -> Entra ID",
+        "ko": "Console SPA (MSAL) -> Entra ID"
+      },
+      "description": {
+        "en": "/token (code + PKCE verifier)",
+        "ko": "/token (code + PKCE verifier)"
+      }
+    },
+    {
+      "id": "step-10",
+      "kind": "process",
+      "badge": 10,
+      "label": {
+        "en": "Entra ID -> Console SPA (MSAL)",
+        "ko": "Entra ID -> Console SPA (MSAL)"
+      },
+      "description": {
+        "en": "id_token + access_token(aud=api://) + refresh_token",
+        "ko": "id_token + access_token(aud=api://) + refresh_token"
+      }
+    },
+    {
+      "id": "step-11",
+      "kind": "process",
+      "badge": 11,
+      "label": {
+        "en": "Console SPA (MSAL) -> fdai-api",
+        "ko": "Console SPA (MSAL) -> fdai-api"
+      },
+      "description": {
+        "en": "GET /me + Authorization: Bearer",
+        "ko": "GET /me + Authorization: Bearer"
+      }
+    },
+    {
+      "id": "step-12",
+      "kind": "process",
+      "badge": 12,
+      "label": {
+        "en": "fdai-api -> fdai-api",
+        "ko": "fdai-api -> fdai-api"
+      },
+      "description": {
+        "en": "verify signature (JWKS), aud, iss, exp; / extract oid, upn, roles",
+        "ko": "verify signature (JWKS), aud, iss, exp; / extract oid, upn, roles"
+      }
+    },
+    {
+      "id": "step-13",
+      "kind": "process",
+      "badge": 13,
+      "label": {
+        "en": "fdai-api -> Console SPA (MSAL)",
+        "ko": "fdai-api -> Console SPA (MSAL)"
+      },
+      "description": {
+        "en": "{oid, upn, roles, correlation_id}",
+        "ko": "{oid, upn, roles, correlation_id}"
+      }
+    },
+    {
+      "id": "step-14",
+      "kind": "process",
+      "badge": 14,
+      "label": {
+        "en": "Console SPA (MSAL) -> Console SPA (MSAL)",
+        "ko": "Console SPA (MSAL) -> Console SPA (MSAL)"
+      },
+      "description": {
+        "en": "role-based UI render",
+        "ko": "role-based UI render"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "sequence-01",
+      "from": "step-01",
+      "to": "step-02",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-02",
+      "from": "step-02",
+      "to": "step-03",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-03",
+      "from": "step-03",
+      "to": "step-04",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-04",
+      "from": "step-04",
+      "to": "step-05",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-05",
+      "from": "step-05",
+      "to": "step-06",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-06",
+      "from": "step-06",
+      "to": "step-07",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-07",
+      "from": "step-07",
+      "to": "step-08",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-08",
+      "from": "step-08",
+      "to": "step-09",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-09",
+      "from": "step-09",
+      "to": "step-10",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-10",
+      "from": "step-10",
+      "to": "step-11",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-11",
+      "from": "step-11",
+      "to": "step-12",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-12",
+      "from": "step-12",
+      "to": "step-13",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-13",
+      "from": "step-13",
+      "to": "step-14",
+      "kind": "sequence",
+      "label": null
+    }
+  ]
+}

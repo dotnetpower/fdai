@@ -1,0 +1,109 @@
+id: fdai-roadmap-architecture-rule-lookup-ontology-storage-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Boot and Reload
+    description: FDAI flow for Boot and Reload.
+    alt: "Boot and Reload. The main stages are Git: catalog-as-code, process start, load ObjectType/LinkType/ActionType +
+      Rule YAMLs, compile OPA/Rego, build in-memory dispatch indexes / applies_to, triggered_by inverted lookup, ready,
+      PostgreSQL: instance state, Key Vault: resolved-models.json."
+  ko:
+    title: 부트와 리로드
+    description: 부트와 리로드에 대한 FDAI 흐름입니다.
+    alt: "부트와 리로드. 주요 단계는 Git: catalog-as-code, process start, load ObjectType/LinkType/ActionType + Rule YAMLs, compile
+      OPA/Rego, build in-memory dispatch indexes / applies_to, triggered_by inverted lookup, ready, PostgreSQL: instance
+      state, Key Vault: resolved-models.json입니다."
+canvas:
+  width: 1200
+  height: 720
+  direction: RIGHT
+groups: []
+nodes:
+  - id: g
+    kind: process
+    shape: card
+    label:
+      en: "Git: catalog-as-code"
+      ko: "Git: catalog-as-code"
+  - id: p
+    kind: process
+    shape: card
+    label:
+      en: process start
+      ko: process start
+  - id: comp
+    kind: process
+    shape: card
+    label:
+      en: load ObjectType/LinkType/ActionType + Rule YAMLs
+      ko: load ObjectType/LinkType/ActionType + Rule YAMLs
+  - id: opa
+    kind: process
+    shape: card
+    label:
+      en: compile OPA/Rego
+      ko: compile OPA/Rego
+  - id: idx
+    kind: process
+    shape: card
+    label:
+      en: build in-memory dispatch indexes / applies_to, triggered_by inverted lookup
+      ko: build in-memory dispatch indexes / applies_to, triggered_by inverted lookup
+  - id: ready
+    kind: process
+    shape: card
+    label:
+      en: ready
+      ko: ready
+  - id: db
+    kind: store
+    shape: database
+    label:
+      en: "PostgreSQL: instance state"
+      ko: "PostgreSQL: instance state"
+  - id: kv
+    kind: store
+    shape: database
+    label:
+      en: "Key Vault: resolved-models.json"
+      ko: "Key Vault: resolved-models.json"
+edges:
+  - id: flow-01
+    from: g
+    to: p
+    kind: event
+    label:
+      en: azd deploy / config-reload event
+      ko: azd deploy / config-reload event
+  - id: flow-02
+    from: p
+    to: comp
+    kind: request
+  - id: flow-03
+    from: comp
+    to: opa
+    kind: request
+  - id: flow-04
+    from: comp
+    to: idx
+    kind: request
+  - id: flow-05
+    from: opa
+    to: ready
+    kind: request
+  - id: flow-06
+    from: idx
+    to: ready
+    kind: request
+  - id: flow-07
+    from: p
+    to: db
+    kind: request
+  - id: flow-08
+    from: p
+    to: kv
+    kind: request

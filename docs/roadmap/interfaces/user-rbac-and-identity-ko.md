@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 11ca2638bcb54501f2640a3c9c36f0a151661fa9
-translation_revised: 2026-08-15
+translation_source_sha: 90d3693eca190de748580a91775c0989d7eb0a19
+translation_revised: 2026-08-20
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -272,21 +272,7 @@ Entra OID를 no-self-approval과 감사 상관관계 검사까지 전달합니�
 생성한 교정 초안 PR을 게시하지만, 콘솔 draft-governance 엔드포인트, Entra OID trailer,
 사람 OID와 GitHub 로그인 매핑 저장소는 구현되어 있지 않습니다.
 
-```mermaid
-sequenceDiagram
- actor U as User (Contributor)
- participant SPA as Console SPA
- participant API as fdai-api
- participant GHA as GitHub App
- participant REPO as catalog-as-code repo
- participant AUD as Audit log
- U->>SPA: Sign in (MSAL, PKCE)
- SPA->>API: Draft change (JSON) + access_token
- API->>API: Validate token, extract roles claim, schema-check, CI-dryrun
- API->>GHA: createPR(branch, patch, meta{entra_oid, upn, role, ts, sig})
- GHA->>REPO: Signed commit (author=github-app,<br/>trailer: Entra-Author-OID: <oid>)
- API->>AUD: append(actor=entra_oid, action=draft-pr-create,<br/>pr_url, correlation_id)
-```
+![6. 목표 아이덴티티 흐름: 콘솔 → 초안 PR → 감사. 주요 단계는 Sign in (MSAL, PKCE), Draft change (JSON) + access_token, Validate token, extract roles claim, schema-check, CI-dryrun, createPR(branch, patch, meta{entra_oid, upn, role, ts, sig}), Signed commit (author=github-app, / trailer: Entra-Author-OID: ), append(actor=entra_oid, action=draft-pr-create, / pr_url, correlation_id)입니다.](../../diagrams/generated/fdai-roadmap-interfaces-user-rbac-and-identity-01.ko.svg)
 
 - SPA는 절대 GitHub PAT를 보유하지 않음. 카탈로그로의 쓰기 접근은 GitHub App에만 속함.
 - 커밋의 git 작성자는 GitHub App; 사람 사용자의 Entra OID는 커밋 trailer
@@ -306,21 +292,7 @@ sequenceDiagram
 > 결정을 전달합니다. 아래 Teams SSO OBO 교환과 App 역할을 포함한 사용자 콜백은 목표
 > 흐름이며 아직 구현되어 있지 않습니다.
 
-```mermaid
-sequenceDiagram
- participant CORE as core/risk-gate
- participant BOT as approval-bot
- actor A as Approver
- participant API as fdai-api
- participant EX as executor MI
- CORE->>BOT: HIL request (action_hash, idempotency_key, ttl)
- BOT->>A: Adaptive Card (Teams SSO)
- A->>BOT: approve / reject + justification
- BOT->>API: POST /approvals (SSO on-behalf-of)
- API->>API: Verify approver OID ∈ aw-approvers,<br/>action_hash matches pending,<br/>approver OID ≠ action originator OID
- API->>CORE: decision + audit entry (correlation_id)
- CORE->>EX: (approved) execute
-```
+![7. ChatOps 사람 승인 흐름. 주요 단계는 HIL request (action_hash, idempotency_key, ttl), Adaptive Card (Teams SSO), approve / reject + justification, POST /approvals (SSO on-behalf-of), Verify approver OID ∈ aw-approvers, / action_hash matches pending, / approver OID ≠ action originator OID, decision + audit entry (correlation_id), (approved) execute입니다.](../../diagrams/generated/fdai-roadmap-interfaces-user-rbac-and-identity-02.ko.svg)
 
 - 현재 콜백은 시각, URL `approval_id`, 본문을 HMAC에 바인딩합니다. 레지스트리 또는 parked
   조정기는 이 식별자를 pending 항목과 대조하고 멱등적 최종 결정을 강제합니다.
@@ -391,27 +363,7 @@ RBAC 그룹 slot, IAM 요청/디렉터리 계약, 교정 PR 어댑터가 있습�
 > 저장합니다. `401` 또는 `403`이면 선택기를 유지하고 운영자에게 Entra 로그인을 안내하므로,
 > 인증을 강제하는 로컬 API에 깨진 anonymous 세션으로 진입하지 않습니다.
 
-```mermaid
-sequenceDiagram
- actor U as User
- participant SPA as Console SPA (MSAL)
- participant E as Entra ID
- participant API as fdai-api
- U->>SPA: navigate https://console.<fork>/
- SPA->>E: /authorize (client_id=spa, scope=api://<api>/access + openid,<br/>response_type=code, PKCE)
- E->>U: sign-in prompt
- U->>E: credentials
- E->>E: Conditional Access evaluate<br/>(approvers/owners → phishing-resistant MFA)
- E-->>U: MFA challenge (if triggered)
- U->>E: FIDO2 / WHfB response
- E->>SPA: /callback?code=...
- SPA->>E: /token (code + PKCE verifier)
- E->>SPA: id_token + access_token(aud=api://<api>) + refresh_token
- SPA->>API: GET /me + Authorization: Bearer <access_token>
- API->>API: verify signature (JWKS), aud, iss, exp;<br/>extract oid, upn, roles
- API->>SPA: {oid, upn, roles, correlation_id}
- SPA->>SPA: role-based UI render
-```
+![10.1 콘솔 (SPA) - OIDC + PKCE 있는 권한 확인 코드. 주요 단계는 navigate https://console./, /authorize (client_id=spa, scope=api:///access + openid, / response_type=code, PKCE), sign-in prompt, credentials, Conditional Access evaluate / (approvers/owners → phishing-resistant MFA), MFA challenge (if triggered), FIDO2 / WHfB response, /callback?code=..., /token (code + PKCE verifier), id_token + access_token(aud=api://) + refresh_token, GET /me + Authorization: Bearer, verify signature (JWKS), aud, iss, exp; / extract oid, upn, roles입니다.](../../diagrams/generated/fdai-roadmap-interfaces-user-rbac-and-identity-03.ko.svg)
 
 ### 10.2 API 토큰 검증
 

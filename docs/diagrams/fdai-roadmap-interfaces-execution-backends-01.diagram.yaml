@@ -1,0 +1,84 @@
+id: fdai-roadmap-interfaces-execution-backends-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: Design at a glance. The main stages are Thor dispatch, Existing sandbox validation, No-widening profile
+      intersection, Durable submission claim, ExecutionBackend, Status, receipt, cleanup.
+  ko:
+    title: 한눈에 보는 설계
+    description: 한눈에 보는 설계에 대한 FDAI 흐름입니다.
+    alt: 한눈에 보는 설계. 주요 단계는 Thor dispatch, 기존 sandbox validation, No-widening profile intersection, Durable submission claim,
+      ExecutionBackend, Status, receipt, cleanup입니다.
+canvas:
+  width: 900
+  height: 540
+  direction: RIGHT
+groups: []
+nodes:
+  - id: thor
+    kind: process
+    shape: card
+    label:
+      en: Thor dispatch
+      ko: Thor dispatch
+  - id: sandbox
+    kind: process
+    shape: card
+    label:
+      en: Existing sandbox validation
+      ko: 기존 sandbox validation
+  - id: intersect
+    kind: process
+    shape: card
+    label:
+      en: No-widening profile intersection
+      ko: No-widening profile intersection
+  - id: ledger
+    kind: process
+    shape: card
+    label:
+      en: Durable submission claim
+      ko: Durable submission claim
+  - id: backend
+    kind: process
+    shape: card
+    label:
+      en: ExecutionBackend
+      ko: ExecutionBackend
+  - id: status
+    kind: process
+    shape: card
+    label:
+      en: Status, receipt, cleanup
+      ko: Status, receipt, cleanup
+edges:
+  - id: flow-01
+    from: thor
+    to: sandbox
+    kind: request
+  - id: flow-02
+    from: sandbox
+    to: intersect
+    kind: request
+  - id: flow-03
+    from: intersect
+    to: ledger
+    kind: request
+  - id: flow-04
+    from: ledger
+    to: backend
+    kind: request
+  - id: flow-05
+    from: backend
+    to: status
+    kind: request
+  - id: flow-06
+    from: status
+    to: ledger
+    kind: request

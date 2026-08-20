@@ -15,19 +15,7 @@ governance.
 
 All channel types converge on the same document lifecycle:
 
-```mermaid
-flowchart LR
-    S[Slack opaque file id] --> F[Server-authenticated fetcher]
-    T[Teams opaque attachment id] --> F
-    W[Web upload session] --> I[Ingestion gateway]
-    F --> I
-    I --> M[Malware and protection checks]
-    M --> X[Text, Office, or optional OCR extraction]
-    X --> D[Immutable document version and index]
-    D --> C[Authorized doc citation]
-    C --> Q[Conversation evidence]
-    D -->|explicit /handover| H[Ownership draft and governance PR]
-```
+![Design at a glance. The main stages are Slack opaque file id, Server-authenticated fetcher, Teams opaque attachment id, Web upload session, Ingestion gateway, Malware and protection checks, Text, Office, or optional OCR extraction, Immutable document version and index, Authorized doc citation, Conversation evidence, Ownership draft and governance PR.](../../diagrams/generated/fdai-roadmap-interfaces-conversation-attachments-01.en.svg)
 
 The file source changes by channel. Safety, storage, purpose, citations, retention, and audit do not.
 

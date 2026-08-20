@@ -1,8 +1,8 @@
 ---
 title: LLM 전략(LLM Strategy)
 translation_of: llm-strategy.md
-translation_source_sha: eb4f2ac258241f0f9d7c19f83d0fd35834cfe7b2
-translation_revised: 2026-08-19
+translation_source_sha: e4b72aa8cb2b3d695b616f269ccc644bc935f501
+translation_revised: 2026-08-20
 ---
 
 # LLM 전략(LLM Strategy)
@@ -104,19 +104,7 @@ T2는 신규 또는 모호 케이스만 처리(~5-10%). 그 출력은 실행 전
 
 네 개 모두 타입된, 감사된 결과; **조건을 충족한** 만 실행으로 진행 가능.
 
-```mermaid
-flowchart TD
-    CASE[novel or ambiguous case] --> POOL[mixed-model pool: 2+ independent models]
-    POOL --> CMP{quorum agreement?}
-    CMP -->|no| HOLD[escalate to HIL]
-    CMP -->|yes| VER[deterministic verifier: policy-as-code and what-if]
-    VER -->|fail| DENY[deny: no-op, audited]
-    VER -->|pass| GRD{grounded and citations valid?}
-    GRD -->|no| ABST[abstain to HIL]
-    GRD -->|yes| THR{confidence over threshold?}
-    THR -->|no| HOLD
-    THR -->|yes| ELIG[execution-eligible to risk gate]
-```
+![결과 시맨틱. 주요 단계는 novel or ambiguous case, mixed-model pool: 2+ independent models, quorum agreement?, escalate to HIL, deterministic verifier: policy-as-code and what-if, deny: no-op, audited, grounded and citations valid?, abstain to HIL, confidence over threshold?, execution-eligible to risk gate입니다.](../../diagrams/generated/fdai-roadmap-architecture-llm-strategy-01.ko.svg)
 
 ### 루브릭 게이트 (환각 필터)
 
@@ -308,19 +296,7 @@ models:
 [dev-and-deploy-parity-ko.md § 배포자-스코프 LLM 프로비저닝](../deployment/dev-and-deploy-parity-ko.md#배포자-스코프-llm-프로비저닝)
 에서 저술; 이 섹션은 happy-path 형태만 보여줌.
 
-```mermaid
-flowchart LR
-    IAC[Terraform / Bicep: azd up] --> AOAI[Azure OpenAI or Foundry resource]
-    AOAI --> RES[resolver]
-    REG[llm-registry.yaml] --> RES
-    RES --> CAT[query catalog:<br/>available families + versions in region]
-    CAT --> PICK{for each capability:<br/>first preference available}
-    PICK -->|none available| HIL[capability를 hil-only로 표시<br/>completeness impact 보고]
-    PICK -->|resolved| DEPLOY[create deployment<br/>with TPM or PTU capacity]
-    DEPLOY --> INV[verify mixed-model invariant:<br/>primary.publisher ≠ secondary.publisher]
-    INV -->|violated| FAIL
-    INV -->|ok| MAP[write resolved-models.json to Key Vault<br/>+ audit entry]
-```
+![부트스트랩 Provisioner. 주요 단계는 Terraform / Bicep: azd up, Azure OpenAI or Foundry resource, resolver, llm-registry.yaml, query catalog: / available families + versions in region, for each capability: / first preference available, capability를 hil-only로 표시 / completeness impact 보고, create deployment / with TPM or PTU capacity, verify mixed-model invariant: / primary.publisher ≠ secondary.publisher, FAIL, write resolved-models.json to Key Vault / + audit entry입니다.](../../diagrams/generated/fdai-roadmap-architecture-llm-strategy-02.ko.svg)
 
 **부트스트랩 불변식 (MUST)**
 - 누락된 역할, 선호 계열 부재, zero 할당량 같은 환경 실패는 영향을 받은 기능을
@@ -771,22 +747,7 @@ ActionType 의 `interfaces` 집합은 실행기 가 지켜야 하는 런타임 �
 
 ### 계층 조회 파이프라인
 
-```mermaid
-flowchart TD
-    E[Signal arrives] --> L0["L0. event-ingest<br/>normalize + dedup + correlate into incident"]
-    L0 -->|replay / duplicate| DROP[no-op, audited]
-    L0 --> L1["L1. T0 rule match<br/>ontology traversal: applies_to ∩ triggered_by<br/>run each rule's evaluate action (OPA/Rego, in-memory)"]
-    L1 -->|verdict| RG1[risk-gate]
-    L1 -->|no rule verdict| L2["L2. Learned-action lookup<br/>(signature, rule_id, catalog_version) → verified action"]
-    L2 -->|hit| RG2[risk-gate]
-    L2 -->|miss| L3["L3. Embedding similarity (T1)<br/>1 embedding call → pgvector kNN<br/>reuse neighbor.action iff cos > threshold and context compatible"]
-    L3 -->|hit| RG3[risk-gate]
-    L3 -->|below threshold| L4["L4. T2 result cache<br/>signature includes catalog_version + model_config_version + mode"]
-    L4 -->|hit| RG4[risk-gate]
-    L4 -->|miss| L5["L5. T2 cascade<br/>primary → agree? → done / disagree? → escalated<br/>quality-gate authoritative"]
-    L5 --> WRITE["writeback: promote verified outcome<br/>into L2 (learned action) + L4 (result cache)"]
-    WRITE --> RG5[risk-gate]
-```
+![계층 조회 파이프라인. 주요 단계는 Signal arrives, L0. event-ingest / normalize + dedup + correlate into incident, no-op, audited, L1. T0 rule match / ontology traversal: applies_to ∩ triggered_by / run each rule's evaluate action (OPA/Rego, in-memory), risk-gate, L2. Learned-action lookup / (signature, rule_id, catalog_version) → verified action, L3. Embedding similarity (T1) / 1 embedding call → pgvector kNN / reuse neighbor.action iff cos > threshold and context compatible, L4. T2 result cache / signature includes catalog_version + model_config_version + mode, L5. T2 cascade / primary → agree? → done / disagree? → escalated / quality-gate authoritative, writeback: promote verified outcome / into L2 (learned action) + L4 (result cache)입니다.](../../diagrams/generated/fdai-roadmap-architecture-llm-strategy-03.ko.svg)
 
 **예상 적중 분포** (설계 목표, [goals-and-metrics-ko.md](goals-and-metrics-ko.md) 에 따라 측정
 대상):

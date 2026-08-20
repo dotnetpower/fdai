@@ -1,0 +1,128 @@
+id: fdai-roadmap-interfaces-governed-trajectory-datasets-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: Design at a glance. The main stages are Purpose + access scope, Authorize, Immutable source snapshots, Canonical
+      join + projection, Secret, identifier, injection scan, JSONL + checksums + manifest, Quarantine metadata, Offline
+      validate + replay check, Human review, Norns aggregate intake.
+  ko:
+    title: 한눈에 보는 설계
+    description: 한눈에 보는 설계에 대한 FDAI 흐름입니다.
+    alt: 한눈에 보는 설계. 주요 단계는 Purpose + access scope, Authorize, Immutable source snapshots, Canonical join + projection,
+      Secret, identifier, injection scan, JSONL + checksums + manifest, Quarantine metadata, Offline validate + replay
+      check, Human review, Norns aggregate intake입니다.
+canvas:
+  width: 1500
+  height: 900
+  direction: RIGHT
+groups: []
+nodes:
+  - id: request
+    kind: process
+    shape: card
+    label:
+      en: Purpose + access scope
+      ko: Purpose + access scope
+  - id: auth
+    kind: process
+    shape: card
+    label:
+      en: Authorize
+      ko: Authorize
+  - id: sources
+    kind: process
+    shape: card
+    label:
+      en: Immutable source snapshots
+      ko: Immutable source snapshots
+  - id: join
+    kind: process
+    shape: card
+    label:
+      en: Canonical join + projection
+      ko: Canonical join + projection
+  - id: scan
+    kind: process
+    shape: card
+    label:
+      en: Secret, identifier, injection scan
+      ko: Secret, identifier, injection scan
+  - id: export
+    kind: process
+    shape: card
+    label:
+      en: JSONL + checksums + manifest
+      ko: JSONL + checksums + manifest
+    description:
+      en: "When: clean"
+      ko: "조건: clean"
+  - id: quarantine
+    kind: process
+    shape: card
+    label:
+      en: Quarantine metadata
+      ko: Quarantine metadata
+    description:
+      en: "When: uncertain"
+      ko: "조건: uncertain"
+  - id: validate
+    kind: process
+    shape: card
+    label:
+      en: Offline validate + replay check
+      ko: Offline validate + replay check
+  - id: review
+    kind: process
+    shape: card
+    label:
+      en: Human review
+      ko: Human review
+  - id: norns
+    kind: process
+    shape: card
+    label:
+      en: Norns aggregate intake
+      ko: Norns aggregate intake
+edges:
+  - id: flow-01
+    from: request
+    to: auth
+    kind: request
+  - id: flow-02
+    from: auth
+    to: sources
+    kind: request
+  - id: flow-03
+    from: sources
+    to: join
+    kind: request
+  - id: flow-04
+    from: join
+    to: scan
+    kind: request
+  - id: flow-05
+    from: scan
+    to: export
+    kind: request
+  - id: flow-06
+    from: scan
+    to: quarantine
+    kind: request
+  - id: flow-07
+    from: export
+    to: validate
+    kind: request
+  - id: flow-08
+    from: validate
+    to: review
+    kind: request
+  - id: flow-09
+    from: review
+    to: norns
+    kind: request

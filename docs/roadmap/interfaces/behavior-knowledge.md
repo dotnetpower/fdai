@@ -18,15 +18,7 @@ the trigger, preconditions, processing steps, outcomes, exclusions, safety behav
 implementation status, and bounded provenance. Source files and tests remain a second layer that
 validates the contract and detects stale records.
 
-```mermaid
-flowchart LR
-    Q[Operator behavior question] --> B[Behavior Knowledge Index]
-    B --> H[Exact + lexical + semantic retrieval]
-    H --> F[Source freshness check]
-    F -->|fresh| A[Structured terminal answer]
-    F -->|stale, absent, conflict| X[Hold answer for review]
-    S[Tracked code, tests, docs, schemas] --> F
-```
+![Design at a glance. The main stages are Operator behavior question, Behavior Knowledge Index, Exact + lexical + semantic retrieval, Source freshness check, Structured terminal answer, Hold answer for review, Tracked code, tests, docs, schemas.](../../diagrams/generated/fdai-roadmap-interfaces-behavior-knowledge-01.en.svg)
 
 ## Two-layer contract
 

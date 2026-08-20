@@ -1,0 +1,250 @@
+{
+  "id": "fdai-roadmap-architecture-operating-ontology-platform-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are Authority sources, ProjectionBinding, Observed object graph, ObjectSet query, Decision context, MutationPlan, Risk and approval, ActionRun, Provider, Git, ledger, or FDAI store, ReconciliationReceipt, ObservedOutcome."
+    },
+    "ko": {
+      "title": "한눈에 보는 설계",
+      "description": "한눈에 보는 설계에 대한 FDAI 흐름입니다.",
+      "alt": "한눈에 보는 설계. 주요 단계는 Authority sources, ProjectionBinding, Observed object graph, ObjectSet query, Decision context, MutationPlan, Risk and approval, ActionRun, Provider, Git, ledger, or FDAI store, ReconciliationReceipt, ObservedOutcome입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-architecture-operating-ontology-platform-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-architecture-operating-ontology-platform-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "s",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Authority sources",
+        "ko": "Authority sources"
+      },
+      "description": {
+        "en": "Authority sources",
+        "ko": "Authority sources"
+      }
+    },
+    {
+      "id": "pb",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "ProjectionBinding",
+        "ko": "ProjectionBinding"
+      },
+      "description": {
+        "en": "ProjectionBinding",
+        "ko": "ProjectionBinding"
+      }
+    },
+    {
+      "id": "g",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Observed object graph",
+        "ko": "Observed object graph"
+      },
+      "description": {
+        "en": "Observed object graph",
+        "ko": "Observed object graph"
+      }
+    },
+    {
+      "id": "q",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "ObjectSet query",
+        "ko": "ObjectSet query"
+      },
+      "description": {
+        "en": "ObjectSet query",
+        "ko": "ObjectSet query"
+      }
+    },
+    {
+      "id": "d",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Decision context",
+        "ko": "Decision context"
+      },
+      "description": {
+        "en": "Decision context",
+        "ko": "Decision context"
+      }
+    },
+    {
+      "id": "mp",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "MutationPlan",
+        "ko": "MutationPlan"
+      },
+      "description": {
+        "en": "MutationPlan",
+        "ko": "MutationPlan"
+      }
+    },
+    {
+      "id": "r",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Risk and approval",
+        "ko": "Risk and approval"
+      },
+      "description": {
+        "en": "Risk and approval",
+        "ko": "Risk and approval"
+      }
+    },
+    {
+      "id": "a",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "ActionRun",
+        "ko": "ActionRun"
+      },
+      "description": {
+        "en": "ActionRun",
+        "ko": "ActionRun"
+      }
+    },
+    {
+      "id": "x",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Provider, Git, ledger, or FDAI store",
+        "ko": "Provider, Git, ledger, or FDAI store"
+      },
+      "description": {
+        "en": "Provider, Git, ledger, or FDAI store",
+        "ko": "Provider, Git, ledger, or FDAI store"
+      }
+    },
+    {
+      "id": "rc",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "ReconciliationReceipt",
+        "ko": "ReconciliationReceipt"
+      },
+      "description": {
+        "en": "ReconciliationReceipt",
+        "ko": "ReconciliationReceipt"
+      }
+    },
+    {
+      "id": "o",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "ObservedOutcome",
+        "ko": "ObservedOutcome"
+      },
+      "description": {
+        "en": "ObservedOutcome",
+        "ko": "ObservedOutcome"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "s",
+      "to": "pb",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "pb",
+      "to": "g",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "g",
+      "to": "q",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "q",
+      "to": "d",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "d",
+      "to": "mp",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "mp",
+      "to": "r",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "r",
+      "to": "a",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "a",
+      "to": "x",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "x",
+      "to": "rc",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "rc",
+      "to": "g",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-11",
+      "from": "rc",
+      "to": "o",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

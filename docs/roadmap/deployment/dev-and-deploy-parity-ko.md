@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 84340f433a6a8a02801b03e3f845c8a8f64d5ec7
+translation_source_sha: 0f9846eed097643fd8546dfb11b4cebb19532c90
 translation_revised: 2026-08-20
 ---
 
@@ -612,25 +612,7 @@ auto-open도 비활성화하므로 결정론적 동등성 테스트가 Azure CLI
 
 `terraform apply` 시점의 해석기 동작:
 
-```mermaid
-flowchart LR
-    START([terraform apply]) --> WHOAMI["az account show<br/>+ 배포자 principal 해결"]
-    WHOAMI --> AUDIT[Bootstrap audit entry:<br/>deployer_object_id, sub, region]
-    AUDIT --> REG[rule-catalog/llm-registry.yaml 읽기]
-    REG --> CAT["Azure 카탈로그 조회:<br/>var.region 에서<br/>사용가능한 Foundry / AOAI SKU"]
-    CAT --> RBAC{배포자가<br/>Cognitive Services Contributor<br/>대상 subscription에 있음?}
-    RBAC -->|no| SKIP1[경고 emit:<br/>LLM 프로비저닝 스킵<br/>T2 capability = HIL-only]
-    RBAC -->|yes| MATCH{"preferred family 사용가능<br/>AND 배포자 sub 쿼터 있음?"}
-    MATCH -->|no for capability| SKIP2["이 capability HIL-only 마킹<br/>나머지는 계속"]
-    MATCH -->|yes| DEPLOY["deployment 프로비저닝<br/>cap_tpm 은 registry에서"]
-    DEPLOY --> INV{"mixed-model 불변식:<br/>primary.publisher != secondary.publisher?"}
-    INV -->|violated| ABORT["명확한 에러로 abort<br/>(fork가 preference 확장)"]
-    INV -->|ok| WRITE[resolved-models.json 파일 또는 inline JSON emit]
-    SKIP1 --> WRITE
-    SKIP2 --> WRITE
-    WRITE --> ROLE[executor MI에 role-assign:<br/>Cognitive Services OpenAI User]
-    ROLE --> DONE([done])
-```
+![배포자-스코프 LLM 프로비저닝. 주요 단계는 [terraform apply\], az account show / + 배포자 principal 해결, Bootstrap audit entry: / deployer_object_id, sub, region, rule-catalog/llm-registry.yaml 읽기, Azure 카탈로그 조회: / var.region 에서 / 사용가능한 Foundry / AOAI SKU, 배포자가 / Cognitive Services Contributor / 대상 subscription에 있음?, 경고 emit: / LLM 프로비저닝 스킵 / T2 capability = HIL-only, preferred family 사용가능 / AND 배포자 sub 쿼터 있음?, 이 capability HIL-only 마킹 / 나머지는 계속, deployment 프로비저닝 / cap_tpm 은 registry에서, mixed-model 불변식: / primary.publisher != secondary.publisher?, 명확한 에러로 abort / (fork가 preference 확장)입니다.](../../diagrams/generated/fdai-roadmap-deployment-dev-and-deploy-parity-01.ko.svg)
 
 **배포자 권한 게이트** (해석기가 카탈로그 건드리기 전 확인):
 

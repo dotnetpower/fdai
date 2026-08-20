@@ -1,8 +1,8 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 94c2d25516d6d36bf26261d69bf5ac3d372c9306
-translation_revised: 2026-08-13
+translation_source_sha: 135400b66c720fc1fb8cd71b6a78da6f8cb4942c
+translation_revised: 2026-08-20
 ---
 
 # 계층형 대화 계획
@@ -17,19 +17,7 @@ translation_revised: 2026-08-13
 
 ## 설계 개요
 
-```mermaid
-flowchart LR
-    INPUT[Text, screen, image, document] --> CONTEXT[Bounded context resolver]
-    CONTEXT --> PLAN[T1 mini-model intent graph]
-    PLAN --> VALIDATE[Deterministic graph validator]
-    VALIDATE -->|valid| BIND[Available capability binding]
-    VALIDATE -->|proposal unavailable or invalid| ESCALATE[T2 reasoner retry]
-    ESCALATE --> VALIDATE
-    BIND --> DAG[Read task DAG]
-    DAG --> EVIDENCE[Evidence ledger]
-    EVIDENCE --> VERIFY[Claim verification]
-    VERIFY --> BRAGI[Bragi presentation]
-```
+![설계 개요. 주요 단계는 Text, screen, image, document, Bounded context resolver, T1 mini-model intent graph, Deterministic graph validator, Available capability binding, T2 reasoner retry, Read task DAG, Evidence ledger, Claim verification, Bragi presentation입니다.](../../diagrams/generated/fdai-roadmap-interfaces-hierarchical-conversation-planning-01.ko.svg)
 
 T1 소형 모델은 언어를 해석해 그래프를 제안합니다. 이 모델은 현재 principal과 배포 환경에서 쓸 수
 있는 기능만 볼 수 있습니다. 검증기는 알 수 없는 기능, 순환 참조, 해결되지 않은 의존성, 잘못된

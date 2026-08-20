@@ -24,22 +24,7 @@ Azure discovery-profile catalog, and chooses the narrowest verified backend. The
 plan produces normalized evidence and a sanitized `CommandExplanation`, so the answer can show
 how to reproduce the read without exposing the server's credentials or raw executed argv.
 
-```mermaid
-flowchart LR
-    Q[Operator question] --> I[DiscoveryIntent]
-  I --> O[Ontology and provider profile]
-  O --> P[DiscoveryQueryPlan]
-    P --> R{Backend router}
-    R --> INV[Promoted inventory]
-  R --> ARG[Resource Graph]
-  R --> AZ[ARM, registered CLI, or typed data plane]
-    INV --> E[Normalized evidence]
-    ARG --> E
-  AZ --> E
-    P --> C[Sanitized command explanation]
-    E --> A[Grounded ChatOps answer]
-    C --> A
-```
+![Design at a glance. The main stages are Operator question, DiscoveryIntent, Ontology and provider profile, DiscoveryQueryPlan, Backend router, Promoted inventory, Resource Graph, ARM, registered CLI, or typed data plane, Normalized evidence, Sanitized command explanation, Grounded ChatOps answer.](../../diagrams/generated/fdai-roadmap-interfaces-azure-resource-discovery-commands-01.en.svg)
 
 ## Implementation status
 

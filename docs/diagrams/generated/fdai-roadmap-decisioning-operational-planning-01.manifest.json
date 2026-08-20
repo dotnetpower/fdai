@@ -1,0 +1,303 @@
+{
+  "id": "fdai-roadmap-decisioning-operational-planning-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are Typed planning request, Workflow and Process, Forseti operational context snapshot, Forseti DecisionCase, Specialist evidence, Versioned logic assets, Compute and twin simulation, Heimdall verification, Odin arbitration, Forseti verdict, Var approval when required, Thor execution."
+    },
+    "ko": {
+      "title": "한눈에 보는 설계",
+      "description": "한눈에 보는 설계에 대한 FDAI 흐름입니다.",
+      "alt": "한눈에 보는 설계. 주요 단계는 Typed planning request, Workflow and Process, Forseti operational context snapshot, Forseti DecisionCase, Specialist evidence, Versioned logic assets, Compute and twin simulation, Heimdall verification, Odin arbitration, Forseti verdict, Var approval when required, Thor execution입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-decisioning-operational-planning-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-decisioning-operational-planning-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "r",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Typed planning request",
+        "ko": "Typed planning request"
+      },
+      "description": {
+        "en": "Typed planning request",
+        "ko": "Typed planning request"
+      }
+    },
+    {
+      "id": "p",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Workflow and Process",
+        "ko": "Workflow and Process"
+      },
+      "description": {
+        "en": "Workflow and Process",
+        "ko": "Workflow and Process"
+      }
+    },
+    {
+      "id": "c",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Forseti operational context snapshot",
+        "ko": "Forseti operational context snapshot"
+      },
+      "description": {
+        "en": "Forseti operational context snapshot",
+        "ko": "Forseti operational context snapshot"
+      }
+    },
+    {
+      "id": "f",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Forseti DecisionCase",
+        "ko": "Forseti DecisionCase"
+      },
+      "description": {
+        "en": "Forseti DecisionCase",
+        "ko": "Forseti DecisionCase"
+      }
+    },
+    {
+      "id": "s",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Specialist evidence",
+        "ko": "Specialist evidence"
+      },
+      "description": {
+        "en": "Specialist evidence",
+        "ko": "Specialist evidence"
+      }
+    },
+    {
+      "id": "l",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Versioned logic assets",
+        "ko": "Versioned logic assets"
+      },
+      "description": {
+        "en": "Versioned logic assets",
+        "ko": "Versioned logic assets"
+      }
+    },
+    {
+      "id": "x",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Compute and twin simulation",
+        "ko": "Compute and twin simulation"
+      },
+      "description": {
+        "en": "Compute and twin simulation",
+        "ko": "Compute and twin simulation"
+      }
+    },
+    {
+      "id": "h",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Heimdall verification",
+        "ko": "Heimdall verification"
+      },
+      "description": {
+        "en": "Heimdall verification",
+        "ko": "Heimdall verification"
+      }
+    },
+    {
+      "id": "o",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Odin arbitration",
+        "ko": "Odin arbitration"
+      },
+      "description": {
+        "en": "Odin arbitration",
+        "ko": "Odin arbitration"
+      }
+    },
+    {
+      "id": "v",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Forseti verdict",
+        "ko": "Forseti verdict"
+      },
+      "description": {
+        "en": "Forseti verdict",
+        "ko": "Forseti verdict"
+      }
+    },
+    {
+      "id": "a",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Var approval when required",
+        "ko": "Var approval when required"
+      },
+      "description": {
+        "en": "Var approval when required",
+        "ko": "Var approval when required"
+      }
+    },
+    {
+      "id": "t",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Thor execution",
+        "ko": "Thor execution"
+      },
+      "description": {
+        "en": "Thor execution",
+        "ko": "Thor execution"
+      }
+    },
+    {
+      "id": "e",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Observed outcome",
+        "ko": "Observed outcome"
+      },
+      "description": {
+        "en": "Observed outcome",
+        "ko": "Observed outcome"
+      }
+    },
+    {
+      "id": "n",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Muninn and Norns learning",
+        "ko": "Muninn and Norns learning"
+      },
+      "description": {
+        "en": "Muninn and Norns learning",
+        "ko": "Muninn and Norns learning"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "r",
+      "to": "p",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "p",
+      "to": "c",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "c",
+      "to": "f",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "f",
+      "to": "s",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "s",
+      "to": "l",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "l",
+      "to": "x",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "x",
+      "to": "h",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "h",
+      "to": "o",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "o",
+      "to": "v",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "v",
+      "to": "a",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-11",
+      "from": "a",
+      "to": "t",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-12",
+      "from": "t",
+      "to": "e",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-13",
+      "from": "e",
+      "to": "n",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

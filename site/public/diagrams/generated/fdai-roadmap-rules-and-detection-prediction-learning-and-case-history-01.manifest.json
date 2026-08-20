@@ -1,0 +1,237 @@
+{
+  "id": "fdai-roadmap-rules-and-detection-prediction-learning-and-case-history-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are Huginn observations, Heimdall forecast and outcome, Saga audit, Muninn case revision, Case history storage, Norns failure analysis, Mimir replay and shadow gate, Forseti judgment, Thor execution, Vidar rollback."
+    },
+    "ko": {
+      "title": "설계 요약",
+      "description": "설계 요약에 대한 FDAI 흐름입니다.",
+      "alt": "설계 요약. 주요 단계는 Huginn observations, Heimdall forecast and outcome, Saga audit, Muninn case revision, Case history storage, Norns failure analysis, Mimir replay and shadow gate, Forseti judgment, Thor execution, Vidar rollback입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-rules-and-detection-prediction-learning-and-case-history-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-rules-and-detection-prediction-learning-and-case-history-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "h",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Huginn observations",
+        "ko": "Huginn observations"
+      },
+      "description": {
+        "en": "Huginn observations",
+        "ko": "Huginn observations"
+      }
+    },
+    {
+      "id": "hd",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Heimdall forecast and outcome",
+        "ko": "Heimdall forecast and outcome"
+      },
+      "description": {
+        "en": "When: object.rule or policy",
+        "ko": "조건: object.rule or policy"
+      }
+    },
+    {
+      "id": "s",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Saga audit",
+        "ko": "Saga audit"
+      },
+      "description": {
+        "en": "When: object.forecast / When: object.forecast-outcome",
+        "ko": "조건: object.forecast / 조건: object.forecast-outcome"
+      }
+    },
+    {
+      "id": "mu",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Muninn case revision",
+        "ko": "Muninn case revision"
+      },
+      "description": {
+        "en": "When: object.forecast-outcome",
+        "ko": "조건: object.forecast-outcome"
+      }
+    },
+    {
+      "id": "ch",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Case history storage",
+        "ko": "Case history storage"
+      },
+      "description": {
+        "en": "Case history storage",
+        "ko": "Case history storage"
+      }
+    },
+    {
+      "id": "n",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Norns failure analysis",
+        "ko": "Norns failure analysis"
+      },
+      "description": {
+        "en": "When: object.context-index",
+        "ko": "조건: object.context-index"
+      }
+    },
+    {
+      "id": "m",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Mimir replay and shadow gate",
+        "ko": "Mimir replay and shadow gate"
+      },
+      "description": {
+        "en": "When: object.rule-candidate",
+        "ko": "조건: object.rule-candidate"
+      }
+    },
+    {
+      "id": "f",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Forseti judgment",
+        "ko": "Forseti judgment"
+      },
+      "description": {
+        "en": "Forseti judgment",
+        "ko": "Forseti judgment"
+      }
+    },
+    {
+      "id": "t",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Thor execution",
+        "ko": "Thor execution"
+      },
+      "description": {
+        "en": "Thor execution",
+        "ko": "Thor execution"
+      }
+    },
+    {
+      "id": "v",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Vidar rollback",
+        "ko": "Vidar rollback"
+      },
+      "description": {
+        "en": "Vidar rollback",
+        "ko": "Vidar rollback"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "h",
+      "to": "hd",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "hd",
+      "to": "s",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "hd",
+      "to": "s",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "hd",
+      "to": "mu",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "mu",
+      "to": "ch",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "mu",
+      "to": "n",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "n",
+      "to": "m",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "m",
+      "to": "hd",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "hd",
+      "to": "f",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "f",
+      "to": "t",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-11",
+      "from": "t",
+      "to": "v",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

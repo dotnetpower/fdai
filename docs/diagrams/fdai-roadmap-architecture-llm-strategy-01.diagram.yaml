@@ -1,0 +1,147 @@
+id: fdai-roadmap-architecture-llm-strategy-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Outcome Semantics
+    description: FDAI flow for Outcome Semantics.
+    alt: "Outcome Semantics. The main stages are novel or ambiguous case, mixed-model pool: 2+ independent models, quorum
+      agreement?, escalate to HIL, deterministic verifier: policy-as-code and what-if, deny: no-op, audited, grounded
+      and citations valid?, abstain to HIL, confidence over threshold?, execution-eligible to risk gate."
+  ko:
+    title: 결과 시맨틱
+    description: 결과 시맨틱에 대한 FDAI 흐름입니다.
+    alt: "결과 시맨틱. 주요 단계는 novel or ambiguous case, mixed-model pool: 2+ independent models, quorum agreement?, escalate to
+      HIL, deterministic verifier: policy-as-code and what-if, deny: no-op, audited, grounded and citations valid?,
+      abstain to HIL, confidence over threshold?, execution-eligible to risk gate입니다."
+canvas:
+  width: 1500
+  height: 900
+  direction: DOWN
+groups: []
+nodes:
+  - id: case
+    kind: process
+    shape: card
+    label:
+      en: novel or ambiguous case
+      ko: novel or ambiguous case
+  - id: pool
+    kind: process
+    shape: card
+    label:
+      en: "mixed-model pool: 2+ independent models"
+      ko: "mixed-model pool: 2+ independent models"
+  - id: cmp
+    kind: decision
+    shape: diamond
+    label:
+      en: quorum agreement?
+      ko: quorum agreement?
+  - id: hold
+    kind: process
+    shape: card
+    label:
+      en: escalate to HIL
+      ko: escalate to HIL
+    description:
+      en: "When: no / When: no"
+      ko: "조건: no / 조건: no"
+  - id: ver
+    kind: process
+    shape: card
+    label:
+      en: "deterministic verifier: policy-as-code and what-if"
+      ko: "deterministic verifier: policy-as-code and what-if"
+    description:
+      en: "When: yes"
+      ko: "조건: yes"
+  - id: deny
+    kind: process
+    shape: card
+    label:
+      en: "deny: no-op, audited"
+      ko: "deny: no-op, audited"
+    description:
+      en: "When: fail"
+      ko: "조건: fail"
+  - id: grd
+    kind: decision
+    shape: diamond
+    label:
+      en: grounded and citations valid?
+      ko: grounded and citations valid?
+    description:
+      en: "When: pass"
+      ko: "조건: pass"
+  - id: abst
+    kind: process
+    shape: card
+    label:
+      en: abstain to HIL
+      ko: abstain to HIL
+    description:
+      en: "When: no"
+      ko: "조건: no"
+  - id: thr
+    kind: decision
+    shape: diamond
+    label:
+      en: confidence over threshold?
+      ko: confidence over threshold?
+    description:
+      en: "When: yes"
+      ko: "조건: yes"
+  - id: elig
+    kind: process
+    shape: card
+    label:
+      en: execution-eligible to risk gate
+      ko: execution-eligible to risk gate
+    description:
+      en: "When: yes"
+      ko: "조건: yes"
+edges:
+  - id: flow-01
+    from: case
+    to: pool
+    kind: request
+  - id: flow-02
+    from: pool
+    to: cmp
+    kind: request
+  - id: flow-03
+    from: cmp
+    to: hold
+    kind: request
+  - id: flow-04
+    from: cmp
+    to: ver
+    kind: request
+  - id: flow-05
+    from: ver
+    to: deny
+    kind: request
+  - id: flow-06
+    from: ver
+    to: grd
+    kind: request
+  - id: flow-07
+    from: grd
+    to: abst
+    kind: request
+  - id: flow-08
+    from: grd
+    to: thr
+    kind: request
+  - id: flow-09
+    from: thr
+    to: hold
+    kind: request
+  - id: flow-10
+    from: thr
+    to: elig
+    kind: request

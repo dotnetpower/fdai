@@ -1,0 +1,161 @@
+id: fdai-roadmap-interfaces-agent-stewardship-operations-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: Design at a glance. The main stages are Terraform bindings, Production startup validation, GET /stewardship,
+      Scheduled Entra liveness check, Guided registration form, Grounded handover upload, Durable handover draft,
+      Idempotent draft governance PR, Git review and approval, Signed merge webhook, GitHub files and merged YAML
+      re-read, Append-only Saga audit.
+  ko:
+    title: 설계 개요
+    description: 설계 개요에 대한 FDAI 흐름입니다.
+    alt: 설계 개요. 주요 단계는 Terraform bindings, Production startup validation, GET /stewardship, Scheduled Entra liveness check,
+      Guided registration form, Grounded handover upload, Durable handover draft, Idempotent draft governance PR, Git
+      review and approval, Signed merge webhook, GitHub files and merged YAML re-read, Append-only Saga audit입니다.
+canvas:
+  width: 1600
+  height: 1170
+  direction: RIGHT
+groups: []
+nodes:
+  - id: tf
+    kind: process
+    shape: card
+    label:
+      en: Terraform bindings
+      ko: Terraform bindings
+  - id: start
+    kind: process
+    shape: card
+    label:
+      en: Production startup validation
+      ko: Production startup validation
+  - id: view
+    kind: process
+    shape: card
+    label:
+      en: GET /stewardship
+      ko: GET /stewardship
+  - id: health
+    kind: process
+    shape: card
+    label:
+      en: Scheduled Entra liveness check
+      ko: Scheduled Entra liveness check
+  - id: form
+    kind: process
+    shape: card
+    label:
+      en: Guided registration form
+      ko: Guided registration form
+  - id: doc
+    kind: process
+    shape: card
+    label:
+      en: Grounded handover upload
+      ko: Grounded handover upload
+  - id: draft
+    kind: process
+    shape: card
+    label:
+      en: Durable handover draft
+      ko: Durable handover draft
+  - id: pr
+    kind: process
+    shape: card
+    label:
+      en: Idempotent draft governance PR
+      ko: Idempotent draft governance PR
+  - id: review
+    kind: process
+    shape: card
+    label:
+      en: Git review and approval
+      ko: Git review and approval
+  - id: hook
+    kind: process
+    shape: card
+    label:
+      en: Signed merge webhook
+      ko: Signed merge webhook
+  - id: verify
+    kind: process
+    shape: card
+    label:
+      en: GitHub files and merged YAML re-read
+      ko: GitHub files and merged YAML re-read
+  - id: audit
+    kind: process
+    shape: card
+    label:
+      en: Append-only Saga audit
+      ko: Append-only Saga audit
+  - id: notify
+    kind: process
+    shape: card
+    label:
+      en: Accountable owners and maintainer notification
+      ko: Accountable owners and maintainer notification
+edges:
+  - id: flow-01
+    from: tf
+    to: start
+    kind: request
+  - id: flow-02
+    from: start
+    to: view
+    kind: request
+  - id: flow-03
+    from: start
+    to: health
+    kind: request
+  - id: flow-04
+    from: form
+    to: doc
+    kind: request
+  - id: flow-05
+    from: doc
+    to: draft
+    kind: request
+  - id: flow-06
+    from: draft
+    to: pr
+    kind: request
+  - id: flow-07
+    from: pr
+    to: review
+    kind: request
+  - id: flow-08
+    from: review
+    to: hook
+    kind: request
+  - id: flow-09
+    from: hook
+    to: verify
+    kind: request
+  - id: flow-10
+    from: verify
+    to: audit
+    kind: request
+  - id: flow-11
+    from: verify
+    to: notify
+    kind: request
+  - id: flow-12
+    from: health
+    to: audit
+    kind: request
+  - id: flow-13
+    from: pr
+    to: audit
+    kind: request
+  - id: flow-14
+    from: pr
+    to: notify
+    kind: request

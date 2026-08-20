@@ -1,7 +1,7 @@
 ---
 title: 운영 A3 채널 런타임
 translation_of: production-a3-channel-runtime.md
-translation_source_sha: ff5d5c9fea4503fb9c34b417405b7318e09752d2
+translation_source_sha: 7638eae714164eed6af1bf49d9bebfe26ef743e1
 translation_revised: 2026-08-20
 ---
 # 운영 A3 채널 런타임
@@ -28,20 +28,7 @@ presentation artifact를 compile합니다. Operator가 소유한 영속 전달�
 전송하기 전에 이 artifact를 저장합니다. 시작 과정은 모든 필수 의존성을 해석하고 불확실한 전송을
 조정한 뒤에만 Starlette가 트래픽을 받게 합니다.
 
-```mermaid
-flowchart LR
-  S[Slack signed event] --> SI[Slack ingress]
-  T[Teams service token] --> TI[Teams ingress]
-  SI --> Q[Bounded Operator edge queue]
-  TI --> Q
-  Q --> B[SemanticTurnBridge append]
-  B --> E[Core semantic EventBus runtime]
-  E --> O[SemanticTurnBridge open]
-  O --> D[Operator delivery ledger]
-  D --> P[Pure capability renderer]
-  P --> SP[Slack publisher]
-  P --> TP[Teams publisher]
-```
+![설계 개요. 주요 단계는 Slack signed event, Slack ingress, Teams service token, Teams ingress, Bounded Operator edge queue, SemanticTurnBridge append, Core semantic EventBus runtime, SemanticTurnBridge open, Operator delivery ledger, Pure capability renderer, Slack publisher, Teams publisher입니다.](../../diagrams/generated/fdai-roadmap-interfaces-production-a3-channel-runtime-01.ko.svg)
 
 ## 구현 상태
 

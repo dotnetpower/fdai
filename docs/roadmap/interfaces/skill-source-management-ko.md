@@ -1,8 +1,8 @@
 ---
 title: 스킬 소스 관리
 translation_of: skill-source-management.md
-translation_source_sha: e082ed203b819f384a0876d59b469898c165bfae
-translation_revised: 2026-08-14
+translation_source_sha: f55819c29125b4e411659f8ca5820dafe694b43d
+translation_revised: 2026-08-20
 ---
 # 스킬 소스 관리
 
@@ -22,19 +22,7 @@ Owner는 PostgreSQL 트랜잭션 하나로 출처와 installed 산출물을 비�
 철회된으로 표시하며 철회 기록을 덧붙이기할 수 있습니다. 이 수명 주기는 출처 이력을 삭제하지
 않습니다.
 
-```mermaid
-flowchart LR
-  SRC[승인된 source] --> FETCH[ETag로 commit resolve]
-  FETCH --> QUAR[Exact file quarantine]
-  QUAR --> SCAN[Deterministic scan]
-  SCAN --> VERIFY[Publisher verification]
-  VERIFY --> CAND[Disabled candidate]
-  CAND --> APPROVE[Approver command]
-  APPROVE --> INST[Trusted artifact disabled]
-  SRC --> REVOKE[Owner revocation]
-  REVOKE --> DISABLE[Source와 artifact disable]
-  REVOKE --> KEEP[Quarantine과 provenance 유지]
-```
+![설계 요약. 주요 단계는 승인된 source, ETag로 commit resolve, Exact file quarantine, Deterministic scan, Publisher verification, Disabled candidate, Approver command, Trusted artifact disabled, Owner revocation, Source와 artifact disable, Quarantine과 provenance 유지입니다.](../../diagrams/generated/fdai-roadmap-interfaces-skill-source-management-01.ko.svg)
 
 ## 출처 계약
 

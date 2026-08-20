@@ -269,20 +269,7 @@ kinetic execution. A graph write, function result, generated SDK call, or `Mutat
 proposal or context until the accountable agents complete judgment, authorization, execution, and
 independent effect verification.
 
-```mermaid
-flowchart LR
-    S[Authority sources] --> PB[ProjectionBinding]
-    PB --> G[Observed object graph]
-    G --> Q[ObjectSet query]
-    Q --> D[Decision context]
-    D --> MP[MutationPlan]
-    MP --> R[Risk and approval]
-    R --> A[ActionRun]
-    A --> X[Provider, Git, ledger, or FDAI store]
-    X --> RC[ReconciliationReceipt]
-    RC --> G
-    RC --> O[ObservedOutcome]
-```
+![Design at a glance. The main stages are Authority sources, ProjectionBinding, Observed object graph, ObjectSet query, Decision context, MutationPlan, Risk and approval, ActionRun, Provider, Git, ledger, or FDAI store, ReconciliationReceipt, ObservedOutcome.](../../diagrams/generated/fdai-roadmap-architecture-operating-ontology-platform-01.en.svg)
 
 ## Exact type identity
 

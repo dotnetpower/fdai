@@ -1,0 +1,297 @@
+{
+  "id": "fdai-roadmap-interfaces-agent-stewardship-operations-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are Terraform bindings, Production startup validation, GET /stewardship, Scheduled Entra liveness check, Guided registration form, Grounded handover upload, Durable handover draft, Idempotent draft governance PR, Git review and approval, Signed merge webhook, GitHub files and merged YAML re-read, Append-only Saga audit."
+    },
+    "ko": {
+      "title": "설계 개요",
+      "description": "설계 개요에 대한 FDAI 흐름입니다.",
+      "alt": "설계 개요. 주요 단계는 Terraform bindings, Production startup validation, GET /stewardship, Scheduled Entra liveness check, Guided registration form, Grounded handover upload, Durable handover draft, Idempotent draft governance PR, Git review and approval, Signed merge webhook, GitHub files and merged YAML re-read, Append-only Saga audit입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-interfaces-agent-stewardship-operations-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-interfaces-agent-stewardship-operations-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "tf",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Terraform bindings",
+        "ko": "Terraform bindings"
+      },
+      "description": {
+        "en": "Terraform bindings",
+        "ko": "Terraform bindings"
+      }
+    },
+    {
+      "id": "start",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Production startup validation",
+        "ko": "Production startup validation"
+      },
+      "description": {
+        "en": "Production startup validation",
+        "ko": "Production startup validation"
+      }
+    },
+    {
+      "id": "view",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "GET /stewardship",
+        "ko": "GET /stewardship"
+      },
+      "description": {
+        "en": "GET /stewardship",
+        "ko": "GET /stewardship"
+      }
+    },
+    {
+      "id": "health",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Scheduled Entra liveness check",
+        "ko": "Scheduled Entra liveness check"
+      },
+      "description": {
+        "en": "Scheduled Entra liveness check",
+        "ko": "Scheduled Entra liveness check"
+      }
+    },
+    {
+      "id": "form",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Guided registration form",
+        "ko": "Guided registration form"
+      },
+      "description": {
+        "en": "Guided registration form",
+        "ko": "Guided registration form"
+      }
+    },
+    {
+      "id": "doc",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Grounded handover upload",
+        "ko": "Grounded handover upload"
+      },
+      "description": {
+        "en": "Grounded handover upload",
+        "ko": "Grounded handover upload"
+      }
+    },
+    {
+      "id": "draft",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Durable handover draft",
+        "ko": "Durable handover draft"
+      },
+      "description": {
+        "en": "Durable handover draft",
+        "ko": "Durable handover draft"
+      }
+    },
+    {
+      "id": "pr",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Idempotent draft governance PR",
+        "ko": "Idempotent draft governance PR"
+      },
+      "description": {
+        "en": "Idempotent draft governance PR",
+        "ko": "Idempotent draft governance PR"
+      }
+    },
+    {
+      "id": "review",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Git review and approval",
+        "ko": "Git review and approval"
+      },
+      "description": {
+        "en": "Git review and approval",
+        "ko": "Git review and approval"
+      }
+    },
+    {
+      "id": "hook",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Signed merge webhook",
+        "ko": "Signed merge webhook"
+      },
+      "description": {
+        "en": "Signed merge webhook",
+        "ko": "Signed merge webhook"
+      }
+    },
+    {
+      "id": "verify",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "GitHub files and merged YAML re-read",
+        "ko": "GitHub files and merged YAML re-read"
+      },
+      "description": {
+        "en": "GitHub files and merged YAML re-read",
+        "ko": "GitHub files and merged YAML re-read"
+      }
+    },
+    {
+      "id": "audit",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Append-only Saga audit",
+        "ko": "Append-only Saga audit"
+      },
+      "description": {
+        "en": "Append-only Saga audit",
+        "ko": "Append-only Saga audit"
+      }
+    },
+    {
+      "id": "notify",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Accountable owners and maintainer notification",
+        "ko": "Accountable owners and maintainer notification"
+      },
+      "description": {
+        "en": "Accountable owners and maintainer notification",
+        "ko": "Accountable owners and maintainer notification"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "tf",
+      "to": "start",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "start",
+      "to": "view",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "start",
+      "to": "health",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "form",
+      "to": "doc",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "doc",
+      "to": "draft",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "draft",
+      "to": "pr",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "pr",
+      "to": "review",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "review",
+      "to": "hook",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "hook",
+      "to": "verify",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "verify",
+      "to": "audit",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-11",
+      "from": "verify",
+      "to": "notify",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-12",
+      "from": "health",
+      "to": "audit",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-13",
+      "from": "pr",
+      "to": "audit",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-14",
+      "from": "pr",
+      "to": "notify",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

@@ -1,0 +1,114 @@
+id: fdai-roadmap-interfaces-programmatic-tool-pipelines-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: Design at a glance. The main stages are Reviewed source + digest, AST and sandbox validation, Run capability,
+      Isolated child, Parent broker, Registered ToolExecutor, Per-call receipts, Bounded final projection, Aggregate
+      result.
+  ko:
+    title: 한눈에 보는 설계
+    description: 한눈에 보는 설계에 대한 FDAI 흐름입니다.
+    alt: 한눈에 보는 설계. 주요 단계는 Reviewed source + digest, AST and sandbox validation, Run capability, Isolated child, Parent
+      broker, Registered ToolExecutor, Per-call receipts, Bounded final projection, Aggregate result입니다.
+canvas:
+  width: 1350
+  height: 810
+  direction: RIGHT
+groups: []
+nodes:
+  - id: r
+    kind: process
+    shape: card
+    label:
+      en: Reviewed source + digest
+      ko: Reviewed source + digest
+  - id: v
+    kind: process
+    shape: card
+    label:
+      en: AST and sandbox validation
+      ko: AST and sandbox validation
+  - id: c
+    kind: process
+    shape: card
+    label:
+      en: Run capability
+      ko: Run capability
+  - id: x
+    kind: process
+    shape: card
+    label:
+      en: Isolated child
+      ko: Isolated child
+  - id: b
+    kind: process
+    shape: card
+    label:
+      en: Parent broker
+      ko: Parent broker
+  - id: t
+    kind: process
+    shape: card
+    label:
+      en: Registered ToolExecutor
+      ko: Registered ToolExecutor
+  - id: p
+    kind: store
+    shape: database
+    label:
+      en: Per-call receipts
+      ko: Per-call receipts
+  - id: o
+    kind: process
+    shape: card
+    label:
+      en: Bounded final projection
+      ko: Bounded final projection
+  - id: a
+    kind: store
+    shape: database
+    label:
+      en: Aggregate result
+      ko: Aggregate result
+edges:
+  - id: flow-01
+    from: r
+    to: v
+    kind: request
+  - id: flow-02
+    from: v
+    to: c
+    kind: request
+  - id: flow-03
+    from: c
+    to: x
+    kind: request
+  - id: flow-04
+    from: x
+    to: b
+    kind: request
+    label:
+      en: generated client
+      ko: generated client
+  - id: flow-05
+    from: b
+    to: t
+    kind: request
+  - id: flow-06
+    from: t
+    to: p
+    kind: request
+  - id: flow-07
+    from: x
+    to: o
+    kind: request
+  - id: flow-08
+    from: o
+    to: a
+    kind: request

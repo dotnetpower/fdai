@@ -1,0 +1,210 @@
+{
+  "id": "fdai-roadmap-rules-and-detection-rule-governance-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Administrator Control Flow (GitOps, not buttons)",
+      "description": "FDAI flow for Administrator Control Flow (GitOps, not buttons).",
+      "alt": "Administrator Control Flow (GitOps, not buttons). The main stages are administrator, draft change: rule / assignment / exemption, catalog-as-code PR, CI: schema + policy-as-code + shadow eval, review + approval, blocked, separate enforce-promotion approval, merge → catalog, T0 loads at runtime."
+    },
+    "ko": {
+      "title": "관리자 컨트롤 흐름 (GitOps, 버튼 아님)",
+      "description": "관리자 컨트롤 흐름 (GitOps, 버튼 아님)에 대한 FDAI 흐름입니다.",
+      "alt": "관리자 컨트롤 흐름 (GitOps, 버튼 아님). 주요 단계는 administrator, draft change: rule / assignment / exemption, catalog-as-code PR, CI: schema + policy-as-code + shadow eval, review + approval, blocked, separate enforce-promotion approval, merge → catalog, T0 loads at runtime입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-rules-and-detection-rule-governance-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-rules-and-detection-rule-governance-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "admin",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "administrator",
+        "ko": "administrator"
+      },
+      "description": {
+        "en": "administrator",
+        "ko": "administrator"
+      }
+    },
+    {
+      "id": "draft",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "draft change: rule / assignment / exemption",
+        "ko": "draft change: rule / assignment / exemption"
+      },
+      "description": {
+        "en": "When: authoring UI or edit",
+        "ko": "조건: authoring UI or edit"
+      }
+    },
+    {
+      "id": "pr",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "catalog-as-code PR",
+        "ko": "catalog-as-code PR"
+      },
+      "description": {
+        "en": "catalog-as-code PR",
+        "ko": "catalog-as-code PR"
+      }
+    },
+    {
+      "id": "val",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "CI: schema + policy-as-code + shadow eval",
+        "ko": "CI: schema + policy-as-code + shadow eval"
+      },
+      "description": {
+        "en": "CI: schema + policy-as-code + shadow eval",
+        "ko": "CI: schema + policy-as-code + shadow eval"
+      }
+    },
+    {
+      "id": "rev",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "review + approval",
+        "ko": "review + approval"
+      },
+      "description": {
+        "en": "When: pass",
+        "ko": "조건: pass"
+      }
+    },
+    {
+      "id": "block",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "blocked",
+        "ko": "blocked"
+      },
+      "description": {
+        "en": "When: fail",
+        "ko": "조건: fail"
+      }
+    },
+    {
+      "id": "gate",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "separate enforce-promotion approval",
+        "ko": "separate enforce-promotion approval"
+      },
+      "description": {
+        "en": "When: effect raises enforce?",
+        "ko": "조건: effect raises enforce?"
+      }
+    },
+    {
+      "id": "merge",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "merge → catalog",
+        "ko": "merge → catalog"
+      },
+      "description": {
+        "en": "When: audit only",
+        "ko": "조건: audit only"
+      }
+    },
+    {
+      "id": "load",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "T0 loads at runtime",
+        "ko": "T0 loads at runtime"
+      },
+      "description": {
+        "en": "T0 loads at runtime",
+        "ko": "T0 loads at runtime"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "admin",
+      "to": "draft",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "draft",
+      "to": "pr",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "pr",
+      "to": "val",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "val",
+      "to": "rev",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "val",
+      "to": "block",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "rev",
+      "to": "gate",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "rev",
+      "to": "merge",
+      "kind": "audit",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "gate",
+      "to": "merge",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "merge",
+      "to": "load",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

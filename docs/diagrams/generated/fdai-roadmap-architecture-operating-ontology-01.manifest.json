@@ -1,0 +1,283 @@
+{
+  "id": "fdai-roadmap-architecture-operating-ontology-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are BusinessCapability, BusinessService, Workload, Resource, Operational objectives, Signal, Change, DecisionCase, ActionOption, ExpectedEffect, ActionRun, ObservedOutcome."
+    },
+    "ko": {
+      "title": "한눈에 보는 설계",
+      "description": "한눈에 보는 설계에 대한 FDAI 흐름입니다.",
+      "alt": "한눈에 보는 설계. 주요 단계는 BusinessCapability, BusinessService, Workload, Resource, Operational objectives, Signal, Change, DecisionCase, ActionOption, ExpectedEffect, ActionRun, ObservedOutcome입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-architecture-operating-ontology-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-architecture-operating-ontology-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "bc",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "BusinessCapability",
+        "ko": "BusinessCapability"
+      },
+      "description": {
+        "en": "BusinessCapability",
+        "ko": "BusinessCapability"
+      }
+    },
+    {
+      "id": "bs",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "BusinessService",
+        "ko": "BusinessService"
+      },
+      "description": {
+        "en": "When: delivered_by",
+        "ko": "조건: delivered_by"
+      }
+    },
+    {
+      "id": "w",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Workload",
+        "ko": "Workload"
+      },
+      "description": {
+        "en": "When: implemented_by / When: affects",
+        "ko": "조건: implemented_by / 조건: affects"
+      }
+    },
+    {
+      "id": "r",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Resource",
+        "ko": "Resource"
+      },
+      "description": {
+        "en": "When: runs_on / When: observes",
+        "ko": "조건: runs_on / 조건: observes"
+      }
+    },
+    {
+      "id": "w2",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Workload",
+        "ko": "Workload"
+      },
+      "description": {
+        "en": "When: depends_on",
+        "ko": "조건: depends_on"
+      }
+    },
+    {
+      "id": "o",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Operational objectives",
+        "ko": "Operational objectives"
+      },
+      "description": {
+        "en": "When: governed_by / When: protects",
+        "ko": "조건: governed_by / 조건: protects"
+      }
+    },
+    {
+      "id": "s",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Signal",
+        "ko": "Signal"
+      },
+      "description": {
+        "en": "Signal",
+        "ko": "Signal"
+      }
+    },
+    {
+      "id": "c",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Change",
+        "ko": "Change"
+      },
+      "description": {
+        "en": "Change",
+        "ko": "Change"
+      }
+    },
+    {
+      "id": "d",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "DecisionCase",
+        "ko": "DecisionCase"
+      },
+      "description": {
+        "en": "DecisionCase",
+        "ko": "DecisionCase"
+      }
+    },
+    {
+      "id": "ao",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "ActionOption",
+        "ko": "ActionOption"
+      },
+      "description": {
+        "en": "When: considers",
+        "ko": "조건: considers"
+      }
+    },
+    {
+      "id": "ee",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "ExpectedEffect",
+        "ko": "ExpectedEffect"
+      },
+      "description": {
+        "en": "When: expects",
+        "ko": "조건: expects"
+      }
+    },
+    {
+      "id": "ar",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "ActionRun",
+        "ko": "ActionRun"
+      },
+      "description": {
+        "en": "When: executed_as",
+        "ko": "조건: executed_as"
+      }
+    },
+    {
+      "id": "oo",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "ObservedOutcome",
+        "ko": "ObservedOutcome"
+      },
+      "description": {
+        "en": "When: resulted_in",
+        "ko": "조건: resulted_in"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "bc",
+      "to": "bs",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "bs",
+      "to": "w",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "w",
+      "to": "r",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "w",
+      "to": "w2",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "bs",
+      "to": "o",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "s",
+      "to": "r",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "c",
+      "to": "w",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "d",
+      "to": "o",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "d",
+      "to": "ao",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "ao",
+      "to": "ee",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-11",
+      "from": "ao",
+      "to": "ar",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-12",
+      "from": "ar",
+      "to": "oo",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

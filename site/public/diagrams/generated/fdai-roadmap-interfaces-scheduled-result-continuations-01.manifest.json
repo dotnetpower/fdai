@@ -1,0 +1,143 @@
+{
+  "id": "fdai-roadmap-interfaces-scheduled-result-continuations-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are Scheduled run, Persist result, Create scoped anchor, Deliver with anchor metadata, Authorized reply, Project typed fact with no instruction authority."
+    },
+    "ko": {
+      "title": "설계 개요",
+      "description": "설계 개요에 대한 FDAI 흐름입니다.",
+      "alt": "설계 개요. 주요 단계는 예약 실행, 결과 저장, 범위 제한 앵커 생성, 앵커 metadata와 함께 전달, 권한 있는 답장, 명령 권한 없는 typed fact 투영입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-interfaces-scheduled-result-continuations-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-interfaces-scheduled-result-continuations-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "run",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Scheduled run",
+        "ko": "예약 실행"
+      },
+      "description": {
+        "en": "Scheduled run",
+        "ko": "예약 실행"
+      }
+    },
+    {
+      "id": "result",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Persist result",
+        "ko": "결과 저장"
+      },
+      "description": {
+        "en": "Persist result",
+        "ko": "결과 저장"
+      }
+    },
+    {
+      "id": "anchor",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Create scoped anchor",
+        "ko": "범위 제한 앵커 생성"
+      },
+      "description": {
+        "en": "Create scoped anchor",
+        "ko": "범위 제한 앵커 생성"
+      }
+    },
+    {
+      "id": "delivery",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Deliver with anchor metadata",
+        "ko": "앵커 metadata와 함께 전달"
+      },
+      "description": {
+        "en": "Deliver with anchor metadata",
+        "ko": "앵커 metadata와 함께 전달"
+      }
+    },
+    {
+      "id": "reply",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Authorized reply",
+        "ko": "권한 있는 답장"
+      },
+      "description": {
+        "en": "Authorized reply",
+        "ko": "권한 있는 답장"
+      }
+    },
+    {
+      "id": "fact",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Project typed fact with no instruction authority",
+        "ko": "명령 권한 없는 typed fact 투영"
+      },
+      "description": {
+        "en": "Project typed fact with no instruction authority",
+        "ko": "명령 권한 없는 typed fact 투영"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "run",
+      "to": "result",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "result",
+      "to": "anchor",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "anchor",
+      "to": "delivery",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "delivery",
+      "to": "reply",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "reply",
+      "to": "fact",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

@@ -1,8 +1,8 @@
 ---
 title: Near-real-time detection paths
 translation_of: near-real-time-detection-paths.md
-translation_source_sha: 8d4abb754ceb876d90e5f303f16bca1ef3d9bb78
-translation_revised: 2026-08-16
+translation_source_sha: c2e9fee3e9dc3fdf1478486d402a8b92f19eac65
+translation_revised: 2026-08-20
 ---
 
 # 근실시간 감지 경로
@@ -41,16 +41,7 @@ translation_revised: 2026-08-16
 
 ## Push 경로 #1 - 메트릭 경보 Rule -> 웹훅 (~30~90s)
 
-```mermaid
-flowchart LR
-    R[Azure Resource] -->|metric| M[Azure Monitor Metrics store]
-    M -->|rule window 매치| A[Metric Alert Rule]
-    A --> G[Action Group webhook receiver]
-    G -->|HTTPS POST| W[FDAI /webhook/azure-monitor]
-    W --> N[normalize_common_alert_schema]
-    N --> E[ingest topic 의 Event]
-    E --> T[trust-router + risk-gate]
-```
+![Push 경로 #1 - 메트릭 경보 Rule -> 웹훅 (~30~90s). 주요 단계는 Azure Resource, Azure Monitor Metrics store, Metric Alert Rule, Action Group webhook receiver, FDAI /webhook/azure-monitor, normalize_common_alert_schema, ingest topic 의 Event, trust-router + risk-gate입니다.](../../diagrams/generated/fdai-roadmap-rules-and-detection-near-real-time-detection-paths-01.ko.svg)
 
 **언제 고를까**: 포크가 소수의 잘 알려진 알람을 자율 액션에 1:1로
 매핑하고 싶을 때 ("MySQL CPU 5분간 90% 초과 -> change-safety 인시던트
@@ -95,15 +86,7 @@ trusted proxy 또는 Entra-authenticated secure-webhook 어댑터를 액션 그�
 
 ## Push 경로 #2 - Diagnostic Setting -> Event 허브 -> Kafka (~15~60s)
 
-```mermaid
-flowchart LR
-    R[Azure Resource] -->|AllMetrics + AllLogs| D[Diagnostic Setting]
-    D -->|stream| H[Azure Event Hub]
-    H -->|Kafka :9093| C[FDAI Kafka consumer]
-    C --> N[normalize_diagnostic_records]
-    N --> E[ingest topic 의 Event]
-    E --> T[trust-router + risk-gate]
-```
+![Push 경로 #2 - Diagnostic Setting -> Event 허브 -> Kafka (~15~60s). 주요 단계는 Azure Resource, Diagnostic Setting, Azure Event Hub, FDAI Kafka consumer, normalize_diagnostic_records, ingest topic 의 Event, trust-router + risk-gate입니다.](../../diagrams/generated/fdai-roadmap-rules-and-detection-near-real-time-detection-paths-02.ko.svg)
 
 **언제 고를까**: 포크가 FDAI 안에서 중앙 집중식으로 임계값 권한을
 가지고 싶고, 리소스당 여러 메트릭에 대해 낮은 지연을 원하며, 경로 #1의

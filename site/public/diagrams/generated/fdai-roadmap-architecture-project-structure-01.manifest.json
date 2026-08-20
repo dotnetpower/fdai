@@ -1,0 +1,352 @@
+{
+  "id": "fdai-roadmap-architecture-project-structure-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Control-Loop Wiring",
+      "description": "FDAI flow for Control-Loop Wiring.",
+      "alt": "Control-Loop Wiring. The main stages are events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops."
+    },
+    "ko": {
+      "title": "컨트롤 루프 배선",
+      "description": "컨트롤 루프 배선에 대한 FDAI 흐름입니다.",
+      "alt": "컨트롤 루프 배선. 주요 단계는 events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-architecture-project-structure-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-architecture-project-structure-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "ev",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "events",
+        "ko": "events"
+      },
+      "description": {
+        "en": "events",
+        "ko": "events"
+      }
+    },
+    {
+      "id": "norm",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "event-ingest / normalize + dedup",
+        "ko": "event-ingest / normalize + dedup"
+      },
+      "description": {
+        "en": "event-ingest / normalize + dedup",
+        "ko": "event-ingest / normalize + dedup"
+      }
+    },
+    {
+      "id": "router",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "trust-router",
+        "ko": "trust-router"
+      },
+      "description": {
+        "en": "trust-router",
+        "ko": "trust-router"
+      }
+    },
+    {
+      "id": "t0",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "t0-deterministic",
+        "ko": "t0-deterministic"
+      },
+      "description": {
+        "en": "When: rule match",
+        "ko": "조건: rule match"
+      }
+    },
+    {
+      "id": "t1",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "t1-lightweight",
+        "ko": "t1-lightweight"
+      },
+      "description": {
+        "en": "When: similar",
+        "ko": "조건: similar"
+      }
+    },
+    {
+      "id": "t2",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "t2-reasoning",
+        "ko": "t2-reasoning"
+      },
+      "description": {
+        "en": "When: novel",
+        "ko": "조건: novel"
+      }
+    },
+    {
+      "id": "qg",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "quality-gate",
+        "ko": "quality-gate"
+      },
+      "description": {
+        "en": "quality-gate",
+        "ko": "quality-gate"
+      }
+    },
+    {
+      "id": "rg",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "risk-gate",
+        "ko": "risk-gate"
+      },
+      "description": {
+        "en": "risk-gate",
+        "ko": "risk-gate"
+      }
+    },
+    {
+      "id": "ex",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "executor",
+        "ko": "executor"
+      },
+      "description": {
+        "en": "When: low risk / When: approve",
+        "ko": "조건: low risk / 조건: approve"
+      }
+    },
+    {
+      "id": "hil",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "HIL approval / via chatops",
+        "ko": "HIL approval / via chatops"
+      },
+      "description": {
+        "en": "When: high risk",
+        "ko": "조건: high risk"
+      }
+    },
+    {
+      "id": "noop",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "no-op",
+        "ko": "no-op"
+      },
+      "description": {
+        "en": "When: abstain / deny / When: reject / timeout",
+        "ko": "조건: abstain / deny / 조건: reject / timeout"
+      }
+    },
+    {
+      "id": "del",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "delivery: gitops-pr / chatops",
+        "ko": "delivery: gitops-pr / chatops"
+      },
+      "description": {
+        "en": "delivery: gitops-pr / chatops",
+        "ko": "delivery: gitops-pr / chatops"
+      }
+    },
+    {
+      "id": "aud",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "audit",
+        "ko": "audit"
+      },
+      "description": {
+        "en": "audit",
+        "ko": "audit"
+      }
+    },
+    {
+      "id": "lib",
+      "kind": "store",
+      "shape": "database",
+      "label": {
+        "en": "pattern library",
+        "ko": "pattern library"
+      },
+      "description": {
+        "en": "pattern library",
+        "ko": "pattern library"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "ev",
+      "to": "norm",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "norm",
+      "to": "router",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "router",
+      "to": "t0",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "router",
+      "to": "t1",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "router",
+      "to": "t2",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "t2",
+      "to": "qg",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "t0",
+      "to": "rg",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "t1",
+      "to": "rg",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "qg",
+      "to": "rg",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "rg",
+      "to": "ex",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-11",
+      "from": "rg",
+      "to": "hil",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-12",
+      "from": "rg",
+      "to": "noop",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-13",
+      "from": "hil",
+      "to": "ex",
+      "kind": "approval",
+      "label": null
+    },
+    {
+      "id": "flow-14",
+      "from": "hil",
+      "to": "noop",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-15",
+      "from": "ex",
+      "to": "del",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-16",
+      "from": "ex",
+      "to": "aud",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-17",
+      "from": "del",
+      "to": "aud",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-18",
+      "from": "noop",
+      "to": "aud",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-19",
+      "from": "aud",
+      "to": "lib",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-20",
+      "from": "lib",
+      "to": "t1",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

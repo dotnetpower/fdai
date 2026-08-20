@@ -1,8 +1,8 @@
 ---
 title: 콘솔 운영
 translation_of: console-operations.md
-translation_source_sha: 482413693f00b1fa497a380a845bc3cd55265069
-translation_revised: 2026-08-18
+translation_source_sha: 5154b3e618b4f26c9db1324fff4f44080245c3ef
+translation_revised: 2026-08-20
 ---
 
 # 콘솔 운영
@@ -73,19 +73,7 @@ Operations 영역은 기존 도메인 변환 결과를 읽고, 각 스키마와 
 경로로 요청을 제출합니다. 담당 에이전트는 타입이 지정된 이벤트를 통해 요청을 판단하고, 승인하고,
 실행하고, 복구하고, 감사합니다.
 
-```mermaid
-flowchart LR
-  UI[FDAI Console - Operations] --> READ[Domain projections]
-  UI --> API[Operator API request routes]
-  API --> BUS[Typed event bus]
-  BUS --> OWNER[Owning agents]
-  OWNER --> GATES[Quality and risk gates]
-  GATES --> VAR[Var approval]
-  GATES --> THOR[Thor execution]
-  VAR --> THOR
-  THOR --> SAGA[Saga audit]
-  OWNER --> SAGA
-```
+![설계 요약. 주요 단계는 FDAI Console - Operations, Domain projections, Operator API request routes, Typed event bus, Owning agents, Quality and risk gates, Var approval, Thor execution, Saga audit입니다.](../../diagrams/generated/fdai-roadmap-interfaces-console-operations-01.ko.svg)
 
 ## 아키텍처 결정
 

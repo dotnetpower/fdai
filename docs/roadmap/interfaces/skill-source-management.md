@@ -19,19 +19,7 @@ persists it disabled. An Owner can revoke a source in one PostgreSQL transaction
 source and installed artifacts, marks quarantine rows revoked, and appends revocation records.
 Nothing in this lifecycle deletes provenance.
 
-```mermaid
-flowchart LR
-    SRC[Approved source] --> FETCH[Resolve commit with ETag]
-    FETCH --> QUAR[Quarantine exact files]
-    QUAR --> SCAN[Deterministic scan]
-    SCAN --> VERIFY[Publisher verification]
-    VERIFY --> CAND[Disabled candidate]
-    CAND --> APPROVE[Approver command]
-    APPROVE --> INST[Trusted artifact disabled]
-    SRC --> REVOKE[Owner revocation]
-    REVOKE --> DISABLE[Disable source and artifact]
-    REVOKE --> KEEP[Retain quarantine and provenance]
-```
+![Design at a glance. The main stages are Approved source, Resolve commit with ETag, Quarantine exact files, Deterministic scan, Publisher verification, Disabled candidate, Approver command, Trusted artifact disabled, Owner revocation, Disable source and artifact, Retain quarantine and provenance.](../../diagrams/generated/fdai-roadmap-interfaces-skill-source-management-01.en.svg)
 
 ## Source contract
 

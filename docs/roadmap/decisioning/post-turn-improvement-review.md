@@ -42,23 +42,7 @@ the learner, applies deterministic eligibility and optionally asks two distinct 
 the same typed proposal. Exact agreement can create a draft in the subsystem that owns the target
 artifact. Every other outcome becomes a bounded terminal record.
 
-```mermaid
-flowchart LR
-    CHAT[Persist completed turn] --> QUEUE[Bounded non-blocking queue]
-    QUEUE --> BRAGI[Bragi publishes object.turn]
-    BRAGI --> NORNS[Norns checks eligibility]
-    NORNS -->|not eligible| LEDGER[Durable terminal record]
-    NORNS -->|eligible| MODELS[Two distinct model families]
-    MODELS --> VERIFY[Exact agreement and deterministic checks]
-    VERIFY -->|hold| LEDGER
-    VERIFY -->|memory| MEMORY[Operator-memory draft]
-    VERIFY -->|skill| SKILL[Runtime-skill draft]
-    VERIFY -->|rule hint| RULE[Norns RuleCandidate path]
-    MEMORY --> PANEL[Read-only projection]
-    SKILL --> PANEL
-    RULE --> PANEL
-    LEDGER --> PANEL
-```
+![Design at a glance. The main stages are Persist completed turn, Bounded non-blocking queue, Bragi publishes object.turn, Norns checks eligibility, Durable terminal record, Two distinct model families, Exact agreement and deterministic checks, Operator-memory draft, Runtime-skill draft, Norns RuleCandidate path, Read-only projection.](../../diagrams/generated/fdai-roadmap-decisioning-post-turn-improvement-review-01.en.svg)
 
 ## Input contract
 

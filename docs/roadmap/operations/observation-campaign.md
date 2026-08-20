@@ -65,16 +65,7 @@ current result before publishing an operational activity summary. It does not re
 create findings, or replace source-native ingest and analyzers. Agents consume semantic evidence
 from those existing typed paths; they do not call providers or start campaign jobs directly.
 
-```mermaid
-flowchart LR
-    T[Scheduled wake] --> R[Source registry and due gate]
-    R --> P[Permission and readiness probe]
-    P --> A[Bounded provider adapters]
-    A --> S[Persistent source results and cursors]
-    S --> AA[Agent Activity summary]
-    S --> G[Saga audit evidence]
-    N[Source-native typed ingest and analyzers] --> H[Accountable agents]
-```
+![Design at a glance. The main stages are Scheduled wake, Source registry and due gate, Permission and readiness probe, Bounded provider adapters, Persistent source results and cursors, Agent Activity summary, Saga audit evidence, Source-native typed ingest and analyzers, Accountable agents.](../../diagrams/generated/fdai-roadmap-operations-observation-campaign-01.en.svg)
 
 ## Source catalog
 

@@ -190,18 +190,7 @@ Administrators control rules exactly like changing Azure Policy - author, parame
 exempt - but the change is delivered as a **reviewed PR to catalog-as-code**, so audit, rollback,
 and approval come from git for free:
 
-```mermaid
-flowchart LR
-    ADMIN[administrator] -->|authoring UI or edit| DRAFT["draft change: rule / assignment / exemption"]
-    DRAFT --> PR[catalog-as-code PR]
-    PR --> VAL["CI: schema + policy-as-code + shadow eval"]
-    VAL -->|pass| REV[review + approval]
-    VAL -->|fail| BLOCK[blocked]
-    REV -->|effect raises enforce?| GATE[separate enforce-promotion approval]
-    REV -->|audit only| MERGE[merge → catalog]
-    GATE --> MERGE
-    MERGE --> LOAD[T0 loads at runtime]
-```
+![Administrator Control Flow (GitOps, not buttons). The main stages are administrator, draft change: rule / assignment / exemption, catalog-as-code PR, CI: schema + policy-as-code + shadow eval, review + approval, blocked, separate enforce-promotion approval, merge → catalog, T0 loads at runtime.](../../diagrams/generated/fdai-roadmap-rules-and-detection-rule-governance-01.en.svg)
 
 - The console MAY offer an **authoring UI**, but it only **produces a draft PR** - it never
   executes or mutates the live catalog directly (keeps the console read-only).

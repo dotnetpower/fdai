@@ -1,0 +1,237 @@
+{
+  "id": "fdai-roadmap-operations-operator-initiated-sre-and-arb-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are Operator request, Problem response?, Correlation ID and optional Process ID, Incident registry, Typed ActionProposal, Trust and risk gates, Judge, journal, and audit, Promoted executor adapter, Approval then resume, Stage stream."
+    },
+    "ko": {
+      "title": "설계 요약",
+      "description": "설계 요약에 대한 FDAI 흐름입니다.",
+      "alt": "설계 요약. 주요 단계는 오퍼레이터 요청, 문제 대응인가?, Correlation ID 및 선택적 Process ID, Incident registry, Typed ActionProposal, Trust 및 risk gate, 판단, journal, audit, 승격된 executor adapter, 승인 후 재개, Stage stream입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-operations-operator-initiated-sre-and-arb-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-operations-operator-initiated-sre-and-arb-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "ask",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Operator request",
+        "ko": "오퍼레이터 요청"
+      },
+      "description": {
+        "en": "Operator request",
+        "ko": "오퍼레이터 요청"
+      }
+    },
+    {
+      "id": "classify",
+      "kind": "decision",
+      "shape": "diamond",
+      "label": {
+        "en": "Problem response?",
+        "ko": "문제 대응인가?"
+      },
+      "description": {
+        "en": "Problem response?",
+        "ko": "문제 대응인가?"
+      }
+    },
+    {
+      "id": "work",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Correlation ID and optional Process ID",
+        "ko": "Correlation ID 및 선택적 Process ID"
+      },
+      "description": {
+        "en": "When: No",
+        "ko": "조건: 아니요"
+      }
+    },
+    {
+      "id": "incident",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Incident registry",
+        "ko": "Incident registry"
+      },
+      "description": {
+        "en": "When: Yes",
+        "ko": "조건: 예"
+      }
+    },
+    {
+      "id": "proposal",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Typed ActionProposal",
+        "ko": "Typed ActionProposal"
+      },
+      "description": {
+        "en": "Typed ActionProposal",
+        "ko": "Typed ActionProposal"
+      }
+    },
+    {
+      "id": "route",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Trust and risk gates",
+        "ko": "Trust 및 risk gate"
+      },
+      "description": {
+        "en": "Trust and risk gates",
+        "ko": "Trust 및 risk gate"
+      }
+    },
+    {
+      "id": "observe",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Judge, journal, and audit",
+        "ko": "판단, journal, audit"
+      },
+      "description": {
+        "en": "When: shadow",
+        "ko": "조건: shadow"
+      }
+    },
+    {
+      "id": "execute",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Promoted executor adapter",
+        "ko": "승격된 executor adapter"
+      },
+      "description": {
+        "en": "When: auto",
+        "ko": "조건: auto"
+      }
+    },
+    {
+      "id": "approve",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Approval then resume",
+        "ko": "승인 후 재개"
+      },
+      "description": {
+        "en": "When: hil",
+        "ko": "조건: hil"
+      }
+    },
+    {
+      "id": "stream",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Stage stream",
+        "ko": "Stage stream"
+      },
+      "description": {
+        "en": "Stage stream",
+        "ko": "Stage stream"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "ask",
+      "to": "classify",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "classify",
+      "to": "work",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "classify",
+      "to": "incident",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "incident",
+      "to": "proposal",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "proposal",
+      "to": "route",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "route",
+      "to": "observe",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "route",
+      "to": "execute",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "route",
+      "to": "approve",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "observe",
+      "to": "stream",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "execute",
+      "to": "stream",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-11",
+      "from": "approve",
+      "to": "stream",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

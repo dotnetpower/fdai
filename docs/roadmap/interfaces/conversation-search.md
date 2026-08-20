@@ -18,17 +18,7 @@ The Operator API resolves the principal before it constructs `ConversationSearch
 applies that scope inside every storage query, then applies request filters that can only narrow the
 result. No inference call is required.
 
-```mermaid
-flowchart LR
-    USER[Authenticated operator] --> API[GET search API]
-    API --> SCOPE[Server-resolved principal scope]
-    SCOPE --> QUERY[Bounded query and filters]
-    QUERY --> INDEX[Generated trigram projection]
-    INDEX --> RESULT[Snippet and provenance]
-    RESULT --> CONTEXT[Authorized neighbor turns]
-    RESULT --> UI[Read-only Evidence panel]
-    RESULT --> TOOL[Untrusted narrator tool result]
-```
+![Design at a glance. The main stages are Authenticated operator, GET search API, Server-resolved principal scope, Bounded query and filters, Generated trigram projection, Snippet and provenance, Authorized neighbor turns, Read-only Evidence panel, Untrusted narrator tool result.](../../diagrams/generated/fdai-roadmap-interfaces-conversation-search-01.en.svg)
 
 ## Contracts
 

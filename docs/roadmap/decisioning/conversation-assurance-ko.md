@@ -1,7 +1,7 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 8d155f8484f65c427c9a21ff94c78ccecf9d5c7f
-translation_revised: 2026-08-14
+translation_source_sha: 310f91e8c8fd33ef6c2ac101131dbad138f40564
+translation_revised: 2026-08-20
 ---
 # 대화 품질 보증
 
@@ -45,24 +45,7 @@ Bragi는 최종 턴을 저장합니다. Norns는 응답 경로 밖에서 이를 
 정책 전환을 기록하며, Mimir는 고정 루브릭을 관리합니다. 이 루프는 RBAC, 승인, 위험, 정책,
 에이전트 역할 또는 실행기 권한을 변경할 수 없습니다.
 
-```mermaid
-flowchart LR
- TURN[최종 turn] --> CHECK[결정론적 검사]
- CHECK -->|판정 가능| LEDGER[평가 원장]
- CHECK -->|의미 평가| A[독립 평가자 A]
- CHECK -->|의미 평가| B[독립 평가자 B]
- A --> REDUCE[결정론적 reducer]
- B --> REDUCE
- REDUCE -->|불일치| TIE[독립 중재자]
- TIE --> LEDGER
- LEDGER --> CLUSTER[Norns 실패 군집화]
- CLUSTER --> CANDIDATE[제한된 정책 후보]
- CANDIDATE --> REPLAY[블라인드 이중 언어 재실행]
- REPLAY --> SHADOW[shadow 및 canary]
- SHADOW -->|보호 지표 통과| PROMOTE[자동 승격]
- SHADOW -->|회귀| ROLLBACK[자동 롤백]
- HUMAN[운영자 이의 제기] --> LEDGER
-```
+![설계 요약. 주요 단계는 최종 turn, 결정론적 검사, 평가 원장, 독립 평가자 A, 독립 평가자 B, 결정론적 reducer, 독립 중재자, Norns 실패 군집화, 제한된 정책 후보, 블라인드 이중 언어 재실행, shadow 및 canary, 자동 승격입니다.](../../diagrams/generated/fdai-roadmap-decisioning-conversation-assurance-01.ko.svg)
 
 ## 구독마다 학습 결과가 다른 이유
 

@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지
 translation_of: operating-ontology.md
-translation_source_sha: d175456552a13a32b88dc43964be7f3d50d1f555
-translation_revised: 2026-08-19
+translation_source_sha: 4deba22cb748a34963e33809bc1a05d92f9d17e4
+translation_revised: 2026-08-20
 ---
 # FDAI 운영 온톨로지
 
@@ -255,21 +255,7 @@ Composition이 발급한 secured 조회 결과와 해당 그래프에 보존된 
 일어날 수 있는지, intervention이 의도한 효과를 냈는지를 연결합니다. Reliability, 아키텍처
 검토, predictive 비용 거버넌스, operational learning이 같은 언어를 사용합니다.
 
-```mermaid
-flowchart LR
-    BC[BusinessCapability] -->|delivered_by| BS[BusinessService]
-    BS -->|implemented_by| W[Workload]
-    W -->|runs_on| R[Resource]
-    W -->|depends_on| W2[Workload]
-    BS -->|governed_by| O[Operational objectives]
-    S[Signal] -->|observes| R
-    C[Change] -->|affects| W
-    D[DecisionCase] -->|protects| O
-    D -->|considers| AO[ActionOption]
-    AO -->|expects| EE[ExpectedEffect]
-    AO -->|executed_as| AR[ActionRun]
-    AR -->|resulted_in| OO[ObservedOutcome]
-```
+![한눈에 보는 설계. 주요 단계는 BusinessCapability, BusinessService, Workload, Resource, Operational objectives, Signal, Change, DecisionCase, ActionOption, ExpectedEffect, ActionRun, ObservedOutcome입니다.](../../diagrams/generated/fdai-roadmap-architecture-operating-ontology-01.ko.svg)
 
 ## 도메인 관점
 

@@ -1,0 +1,120 @@
+id: fdai-operational-knowledge-query-hardening-plan-05
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Dependency order and parallel lanes
+    description: FDAI flow for Dependency order and parallel lanes.
+    alt: Dependency order and parallel lanes. The main stages are OKQ-00 baseline, OKQ-01 identity spine, OKQ-02 policy
+      identity, OKQ-03 Rule graph retrieval, OKQ-04 evidence providers, OKQ-05 semantic selection, OKQ-06 claim binding,
+      OKQ-07 live assurance, OKQ-08 continuous closure.
+  ko:
+    title: Dependency order and parallel lanes
+    description: Dependency order and parallel lanes에 대한 FDAI 흐름입니다.
+    alt: Dependency order and parallel lanes. 주요 단계는 OKQ-00 baseline, OKQ-01 identity spine, OKQ-02 policy identity, OKQ-03
+      Rule graph retrieval, OKQ-04 evidence providers, OKQ-05 semantic selection, OKQ-06 claim binding, OKQ-07 live
+      assurance, OKQ-08 continuous closure입니다.
+canvas:
+  width: 1350
+  height: 810
+  direction: RIGHT
+groups: []
+nodes:
+  - id: b
+    kind: process
+    shape: card
+    label:
+      en: OKQ-00 baseline
+      ko: OKQ-00 baseline
+  - id: i
+    kind: process
+    shape: card
+    label:
+      en: OKQ-01 identity spine
+      ko: OKQ-01 identity spine
+  - id: p
+    kind: process
+    shape: card
+    label:
+      en: OKQ-02 policy identity
+      ko: OKQ-02 policy identity
+  - id: r
+    kind: process
+    shape: card
+    label:
+      en: OKQ-03 Rule graph retrieval
+      ko: OKQ-03 Rule graph retrieval
+  - id: e
+    kind: process
+    shape: card
+    label:
+      en: OKQ-04 evidence providers
+      ko: OKQ-04 evidence providers
+  - id: s
+    kind: process
+    shape: card
+    label:
+      en: OKQ-05 semantic selection
+      ko: OKQ-05 semantic selection
+  - id: c
+    kind: process
+    shape: card
+    label:
+      en: OKQ-06 claim binding
+      ko: OKQ-06 claim binding
+  - id: v
+    kind: process
+    shape: card
+    label:
+      en: OKQ-07 live assurance
+      ko: OKQ-07 live assurance
+  - id: a
+    kind: process
+    shape: card
+    label:
+      en: OKQ-08 continuous closure
+      ko: OKQ-08 continuous closure
+edges:
+  - id: flow-01
+    from: b
+    to: i
+    kind: request
+  - id: flow-02
+    from: b
+    to: p
+    kind: request
+  - id: flow-03
+    from: i
+    to: r
+    kind: request
+  - id: flow-04
+    from: p
+    to: r
+    kind: request
+  - id: flow-05
+    from: b
+    to: e
+    kind: request
+  - id: flow-06
+    from: r
+    to: s
+    kind: request
+  - id: flow-07
+    from: e
+    to: s
+    kind: request
+  - id: flow-08
+    from: s
+    to: c
+    kind: request
+  - id: flow-09
+    from: c
+    to: v
+    kind: request
+  - id: flow-10
+    from: v
+    to: a
+    kind: request

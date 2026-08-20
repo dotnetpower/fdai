@@ -1,0 +1,151 @@
+id: fdai-roadmap-architecture-operating-ontology-metamodel-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: Design at a glance. The main stages are Object, Relationship, State, Context, Action, ObjectType, LinkType,
+      InterfaceType, FunctionType, ActionType, Object and Link instances, Observed and derived facts.
+  ko:
+    title: 한눈에 보는 설계
+    description: 한눈에 보는 설계에 대한 FDAI 흐름입니다.
+    alt: 한눈에 보는 설계. 주요 단계는 Object, Relationship, State, Context, Action, ObjectType, LinkType, InterfaceType, FunctionType,
+      ActionType, Object and Link instances, Observed and derived facts입니다.
+canvas:
+  width: 1600
+  height: 1200
+  direction: DOWN
+groups:
+  - id: l
+    kind: layer
+    presentation: lane
+    label:
+      en: Operational lenses
+      ko: Operational lenses
+    direction: DOWN
+  - id: d
+    kind: layer
+    presentation: lane
+    label:
+      en: Versioned declarations
+      ko: Versioned declarations
+    direction: DOWN
+  - id: x
+    kind: layer
+    presentation: lane
+    label:
+      en: Runtime artifacts
+      ko: Runtime artifacts
+    direction: DOWN
+nodes:
+  - id: o
+    parent: l
+    kind: process
+    shape: card
+    label:
+      en: Object
+      ko: Object
+  - id: r
+    parent: l
+    kind: process
+    shape: card
+    label:
+      en: Relationship
+      ko: Relationship
+  - id: s
+    parent: l
+    kind: process
+    shape: card
+    label:
+      en: State
+      ko: State
+  - id: c
+    parent: l
+    kind: process
+    shape: card
+    label:
+      en: Context
+      ko: Context
+  - id: a
+    parent: l
+    kind: process
+    shape: card
+    label:
+      en: Action
+      ko: Action
+  - id: ot
+    parent: d
+    kind: process
+    shape: card
+    label:
+      en: ObjectType
+      ko: ObjectType
+  - id: lt
+    parent: d
+    kind: process
+    shape: card
+    label:
+      en: LinkType
+      ko: LinkType
+  - id: it
+    parent: d
+    kind: process
+    shape: card
+    label:
+      en: InterfaceType
+      ko: InterfaceType
+  - id: ft
+    parent: d
+    kind: process
+    shape: card
+    label:
+      en: FunctionType
+      ko: FunctionType
+  - id: at
+    parent: d
+    kind: process
+    shape: card
+    label:
+      en: ActionType
+      ko: ActionType
+  - id: oi
+    parent: x
+    kind: process
+    shape: card
+    label:
+      en: Object and Link instances
+      ko: Object and Link instances
+  - id: sf
+    parent: x
+    kind: process
+    shape: card
+    label:
+      en: Observed and derived facts
+      ko: Observed and derived facts
+  - id: cs
+    parent: x
+    kind: process
+    shape: card
+    label:
+      en: Immutable context snapshot
+      ko: Immutable context snapshot
+  - id: mp
+    parent: x
+    kind: process
+    shape: card
+    label:
+      en: MutationPlan, KineticSafetyReceipt, and ActionRun
+      ko: MutationPlan, KineticSafetyReceipt, and ActionRun
+edges:
+  - id: flow-01
+    from: l
+    to: d
+    kind: request
+  - id: flow-02
+    from: d
+    to: x
+    kind: request

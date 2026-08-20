@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: cd6256133b8badb680c11995cacfd0ac02027056
+translation_source_sha: d5e2eb77933377c2b5e69b7053c6ac6b9319e1c8
 translation_revised: 2026-08-20
 ---
 # 프로젝트 구조
@@ -643,29 +643,7 @@ shared 런타임 스냅샷 publish 전에 exact 구성원 버전과 활성화된
 grounding 권한을 우회할 수 없습니다. HIL 승인 id와 실행기 멱등성 키는 원자적으로
 점유되고, 리소스별 잠금은 전달 어댑터가 상태를 변경하기 전에 경합하는 적용을 직렬화합니다.
 
-```mermaid
-flowchart LR
-    EV[events] --> NORM["event-ingest<br/>normalize + dedup"]
-    NORM --> ROUTER[trust-router]
-    ROUTER -->|rule match| T0[t0-deterministic]
-    ROUTER -->|similar| T1[t1-lightweight]
-    ROUTER -->|novel| T2[t2-reasoning]
-    T2 --> QG[quality-gate]
-    T0 --> RG[risk-gate]
-    T1 --> RG
-    QG --> RG
-    RG -->|low risk| EX[executor]
-    RG -->|high risk| HIL["HIL approval<br/>via chatops"]
-    RG -->|abstain / deny| NOOP[no-op]
-    HIL -->|approve| EX
-    HIL -->|reject / timeout| NOOP
-    EX --> DEL["delivery: gitops-pr / chatops"]
-    EX --> AUD[audit]
-    DEL --> AUD
-    NOOP --> AUD
-    AUD --> LIB[(pattern library)]
-    LIB --> T1
-```
+![컨트롤 루프 배선. 주요 단계는 events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops입니다.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.ko.svg)
 
 ## 구성 모델
 

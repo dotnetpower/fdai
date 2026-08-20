@@ -1,7 +1,7 @@
 ---
 translation_of: prediction-learning-and-case-history.md
-translation_source_sha: a93ce5ddf0c82b532ead7ab84554c2b6476f2747
-translation_revised: 2026-08-15
+translation_source_sha: 724bb8c2b0f4f4d4d505850534d1fe347121fd87
+translation_revised: 2026-08-20
 ---
 # 예측 학습 및 케이스 히스토리
 
@@ -22,20 +22,7 @@ translation_revised: 2026-08-15
 구성하고 색인하며, Norns는 검토된 실패 집단을 off-path에서 분석하고, Mimir는 후보
 재생, shadow 비교, 승격 및 롤백을 관리합니다.
 
-```mermaid
-flowchart LR
-    H[Huginn observations] --> HD[Heimdall forecast and outcome]
-    HD -->|object.forecast| S[Saga audit]
-    HD -->|object.forecast-outcome| S
-    HD -->|object.forecast-outcome| MU[Muninn case revision]
-    MU --> CH[Case history storage]
-    MU -->|object.context-index| N[Norns failure analysis]
-    N -->|object.rule-candidate| M[Mimir replay and shadow gate]
-    M -->|object.rule or policy| HD
-    HD --> F[Forseti judgment]
-    F --> T[Thor execution]
-    T --> V[Vidar rollback]
-```
+![설계 요약. 주요 단계는 Huginn observations, Heimdall forecast and outcome, Saga audit, Muninn case revision, Case history storage, Norns failure analysis, Mimir replay and shadow gate, Forseti judgment, Thor execution, Vidar rollback입니다.](../../diagrams/generated/fdai-roadmap-rules-and-detection-prediction-learning-and-case-history-01.ko.svg)
 
 ## 에이전트 소유 액션
 

@@ -1,0 +1,329 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="2214" viewBox="0 0 1600 2214" role="img" aria-labelledby="diagram-title diagram-description" data-diagram-id="fdai-roadmap-architecture-llm-strategy-03" data-kind="flowchart" data-locale="ko" data-profile="default">
+  <title id="diagram-title">계층 조회 파이프라인</title>
+  <desc id="diagram-description">계층 조회 파이프라인. 주요 단계는 Signal arrives, L0. event-ingest / normalize + dedup + correlate into incident, no-op, audited, L1. T0 rule match / ontology traversal: applies_to ∩ triggered_by / run each rule&apos;s evaluate action (OPA/Rego, in-memory), risk-gate, L2. Learned-action lookup / (signature, rule_id, catalog_version) → verified action, L3. Embedding similarity (T1) / 1 embedding call → pgvector kNN / reuse neighbor.action iff cos &gt; threshold and context compatible, L4. T2 result cache / signature includes catalog_version + model_config_version + mode, L5. T2 cascade / primary → agree? → done / disagree? → escalated / quality-gate authoritative, writeback: promote verified outcome / into L2 (learned action) + L4 (result cache)입니다.</desc>
+  <metadata>{&quot;id&quot;:&quot;fdai-roadmap-architecture-llm-strategy-03&quot;,&quot;version&quot;:1,&quot;updated&quot;:&quot;2026-08-20&quot;}</metadata>
+  <defs><marker id="arrow-request" viewBox="0 0 10 10" refX="0" refY="5" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 1L9 5L0 9z" fill="var(--fdai-diagram-edge-request, #315f82)"/></marker><marker id="arrow-event" viewBox="0 0 10 10" refX="0" refY="5" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 1L9 5L0 9z" fill="var(--fdai-diagram-edge-event, #3f7773)"/></marker><marker id="arrow-approval" viewBox="0 0 10 10" refX="0" refY="5" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 1L9 5L0 9z" fill="var(--fdai-diagram-edge-approval, #705f8a)"/></marker><marker id="arrow-mutation" viewBox="0 0 10 10" refX="0" refY="5" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 1L9 5L0 9z" fill="var(--fdai-diagram-edge-mutation, #a86a45)"/></marker><marker id="arrow-audit" viewBox="0 0 10 10" refX="0" refY="5" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 1L9 5L0 9z" fill="var(--fdai-diagram-edge-audit, #617950)"/></marker><marker id="arrow-rollback" viewBox="0 0 10 10" refX="0" refY="5" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 1L9 5L0 9z" fill="var(--fdai-diagram-edge-rollback, #9d555b)"/></marker><marker id="arrow-read" viewBox="0 0 10 10" refX="0" refY="5" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 1L9 5L0 9z" fill="var(--fdai-diagram-edge-read, #3f7773)"/></marker><marker id="arrow-write" viewBox="0 0 10 10" refX="0" refY="5" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 1L9 5L0 9z" fill="var(--fdai-diagram-edge-write, #705f8a)"/></marker><marker id="arrow-feedback" viewBox="0 0 10 10" refX="0" refY="5" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 1L9 5L0 9z" fill="var(--fdai-diagram-edge-feedback, #80688d)"/></marker><marker id="arrow-sequence" viewBox="0 0 10 10" refX="0" refY="5" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 1L9 5L0 9z" fill="var(--fdai-diagram-edge-sequence, #315f82)"/></marker><marker id="arrow-transition" viewBox="0 0 10 10" refX="0" refY="5" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 1L9 5L0 9z" fill="var(--fdai-diagram-edge-transition, #705f8a)"/></marker><marker id="arrow-association" viewBox="0 0 10 10" refX="0" refY="5" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 1L9 5L0 9z" fill="var(--fdai-diagram-edge-association, #626c73)"/></marker><marker id="arrow-dependency" viewBox="0 0 10 10" refX="0" refY="5" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 1L9 5L0 9z" fill="var(--fdai-diagram-edge-dependency, #778087)"/></marker><marker id="arrow-timeline" viewBox="0 0 10 10" refX="0" refY="5" markerUnits="userSpaceOnUse" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 1L9 5L0 9z" fill="var(--fdai-diagram-edge-timeline, #986346)"/></marker><filter id="node-shadow" x="-25%" y="-30%" width="150%" height="170%"><feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="var(--fdai-diagram-shadow, #17212b)" flood-opacity="0.10"/><feDropShadow dx="0" dy="7" stdDeviation="10" flood-color="var(--fdai-diagram-shadow, #17212b)" flood-opacity="0.07"/></filter><filter id="group-shadow" x="-10%" y="-15%" width="120%" height="135%"><feDropShadow dx="0" dy="5" stdDeviation="12" flood-color="var(--fdai-diagram-shadow, #17212b)" flood-opacity="0.045"/></filter><filter id="label-shadow" x="-20%" y="-40%" width="140%" height="180%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="var(--fdai-diagram-shadow, #17212b)" flood-opacity="0.08"/></filter></defs>
+  <style>
+    svg[data-diagram-id] { color: var(--fdai-diagram-text, #323130); font-family: "Noto Sans KR", "Noto Sans", "Segoe UI", sans-serif; }
+    @media (prefers-color-scheme: dark) {
+      svg[data-diagram-id]:not([data-embedded]) {
+        --fdai-diagram-canvas: #111315; --fdai-diagram-surface: #1b1f23; --fdai-diagram-node: #20252a; --fdai-diagram-label-surface: #1b1f23; --fdai-diagram-text: #f3f5f7; --fdai-diagram-muted: #c5cbd2; --fdai-diagram-border: #69737d; --fdai-diagram-border-strong: #aab2bb; --fdai-diagram-neutral-header: #30363d; --fdai-diagram-control-surface: #10283d; --fdai-diagram-control-header: #153d5c; --fdai-diagram-delivery-surface: #102d32; --fdai-diagram-delivery-header: #134148; --fdai-diagram-azure: #63d9ff; --fdai-diagram-azure-dark: #8bc8ff; --fdai-diagram-cyan-dark: #63d9ff;
+        --fdai-diagram-tone-input-fill: #10243a; --fdai-diagram-tone-input-stroke: #6cb8ff; --fdai-diagram-tone-interpretation-fill: #102a3a; --fdai-diagram-tone-interpretation-stroke: #50c8ff; --fdai-diagram-tone-model-fill: #0e2d28; --fdai-diagram-tone-model-stroke: #5ee0bd; --fdai-diagram-tone-policy-fill: #17331d; --fdai-diagram-tone-policy-stroke: #73d17c; --fdai-diagram-tone-decision-fill: #3a2a0b; --fdai-diagram-tone-decision-stroke: #f3c969; --fdai-diagram-tone-execution-fill: #2b2040; --fdai-diagram-tone-execution-stroke: #c7a0ff; --fdai-diagram-tone-feedback-fill: #261f42; --fdai-diagram-tone-feedback-stroke: #b9a1ff; --fdai-diagram-tone-store-fill: #25292e; --fdai-diagram-tone-store-stroke: #b8c2cc; --fdai-diagram-tone-neutral-fill: #20252a; --fdai-diagram-tone-neutral-stroke: #b8c2cc;
+        --fdai-diagram-edge-request: #6cb8ff; --fdai-diagram-edge-event: #50c8ff; --fdai-diagram-edge-approval: #c7a0ff; --fdai-diagram-edge-mutation: #ff9d72; --fdai-diagram-edge-audit: #73d17c; --fdai-diagram-edge-rollback: #ff8b91; --fdai-diagram-edge-read: #5ee0bd; --fdai-diagram-edge-write: #d6a8ff; --fdai-diagram-edge-feedback: #b9a1ff; --fdai-diagram-edge-sequence: #6cb8ff; --fdai-diagram-edge-transition: #c7a0ff; --fdai-diagram-edge-association: #c5cbd2; --fdai-diagram-edge-dependency: #aab2bb; --fdai-diagram-edge-timeline: #f3c969;
+        --fdai-diagram-group-lane-fill: #1b1f23; --fdai-diagram-group-lane-stroke: #7890a8; --fdai-diagram-group-sidebar-fill: #25203a; --fdai-diagram-group-sidebar-stroke: #b9a1ff; --fdai-diagram-group-feedback-fill: #211d35; --fdai-diagram-group-feedback-stroke: #b9a1ff; --fdai-diagram-group-datastore-fill: #20252a; --fdai-diagram-group-datastore-stroke: #aab2bb; --fdai-diagram-badge-fill: #6cb8ff; --fdai-diagram-badge-text: #07131f; --fdai-diagram-gantt-planned: #313840; --fdai-diagram-gantt-planned-stroke: #aab2bb; --fdai-diagram-gantt-planned-text: #f3f5f7; --fdai-diagram-gantt-active: #237bc2; --fdai-diagram-gantt-active-stroke: #8bc8ff; --fdai-diagram-gantt-done: #267a35; --fdai-diagram-gantt-done-stroke: #73d17c; --fdai-diagram-gantt-critical: #b94a2f; --fdai-diagram-gantt-critical-stroke: #ff9d72; --fdai-diagram-gantt-milestone: #7655bd; --fdai-diagram-gantt-milestone-stroke: #c7a0ff; --fdai-diagram-gantt-progress: #ffffff; --fdai-diagram-gantt-text: #ffffff; --fdai-diagram-chart-surface: #1b1f23; --fdai-diagram-chart-1: #6cb8ff; --fdai-diagram-chart-2: #5ee0bd; --fdai-diagram-chart-3: #c7a0ff; --fdai-diagram-chart-4: #ff9d72; --fdai-diagram-chart-5: #f3c969; --fdai-diagram-chart-6: #ff8b91; --fdai-diagram-chart-7: #50c8ff; --fdai-diagram-chart-8: #d6a8ff; --fdai-diagram-pie-text: #07131f;
+      }
+    }
+    .diagram-title { font-size: 26px; font-weight: 700; fill: var(--fdai-diagram-text, #323130); }
+    .diagram-subtitle { font-size: 15px; fill: var(--fdai-diagram-muted, #605e5c); }
+    .diagram-group .group-surface { fill: var(--fdai-diagram-surface, #ffffff); stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1.5; stroke-dasharray: 5 4; }
+    .diagram-group .group-header { fill: var(--fdai-diagram-neutral-header, #edebe9); stroke: none; }
+    .diagram-group.group-system .group-surface { fill: var(--fdai-diagram-control-surface, #eff6fc); stroke: var(--fdai-diagram-azure, #0078d4); }
+    .diagram-group.group-system .group-header { fill: var(--fdai-diagram-control-header, #deecf9); }
+    .diagram-group[data-group-id="control-flow"] .group-header { fill: var(--fdai-diagram-control-header, #deecf9); }
+    .diagram-group[data-group-id="operational-signals"] .group-surface { fill: var(--fdai-diagram-surface, #ffffff); stroke: var(--fdai-diagram-border, #a19f9d); }
+    .diagram-group[data-group-id="operational-signals"] .group-header { fill: var(--fdai-diagram-neutral-header, #edebe9); }
+    .diagram-group[data-group-id="delivery-surfaces"] .group-surface { fill: var(--fdai-diagram-delivery-surface, #f0fbfd); stroke: var(--fdai-diagram-cyan-dark, #35b4e3); }
+    .diagram-group[data-group-id="delivery-surfaces"] .group-header { fill: var(--fdai-diagram-delivery-header, #d9f8ff); }
+    .diagram-group[data-group-id="rule-catalog-layer"] .group-surface { fill: var(--fdai-diagram-surface, #ffffff); stroke: var(--fdai-diagram-border-strong, #605e5c); }
+    .diagram-group[data-group-id="rule-catalog-layer"] .group-header { fill: var(--fdai-diagram-neutral-header, #edebe9); }
+    .diagram-group[data-group-id="human-channel"] .group-surface { fill: var(--fdai-diagram-delivery-surface, #f0fbfd); stroke: var(--fdai-diagram-cyan-dark, #35b4e3); }
+    .diagram-group[data-group-id="human-channel"] .group-header { fill: var(--fdai-diagram-delivery-header, #d9f8ff); }
+    .diagram-group[data-group-id="action-delivery"] .group-surface { fill: var(--fdai-diagram-control-surface, #eff6fc); stroke: var(--fdai-diagram-azure, #0078d4); }
+    .diagram-group[data-group-id="action-delivery"] .group-header { fill: var(--fdai-diagram-control-header, #deecf9); }
+    .diagram-group[data-group-id="operator-console-layer"] .group-surface { fill: var(--fdai-diagram-delivery-surface, #f0fbfd); stroke: var(--fdai-diagram-cyan-dark, #35b4e3); }
+    .diagram-group[data-group-id="operator-console-layer"] .group-header { fill: var(--fdai-diagram-delivery-header, #d9f8ff); }
+    .diagram-group.group-network .group-surface, .diagram-group.group-subnet .group-surface { fill: var(--fdai-diagram-delivery-surface, #f0fbfd); stroke: #008272; }
+    .group-label { font-size: 17px; font-weight: 650; fill: var(--fdai-diagram-muted, #605e5c); }
+    .diagram-node > rect, .diagram-node > .node-surface { fill: var(--fdai-diagram-node, #ffffff); stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1.25; filter: url(#node-shadow); }
+    .diagram-node:hover > rect, .diagram-node:focus > rect, .diagram-node.is-active > rect,
+    .diagram-node:hover > .node-surface, .diagram-node:focus > .node-surface, .diagram-node.is-active > .node-surface { stroke: var(--fdai-diagram-azure-dark, #005a9e); stroke-width: 3; }
+    .diagram-node:focus { outline: none; }
+    .node-label { font-size: 17px; font-weight: 650; fill: var(--fdai-diagram-text, #323130); letter-spacing: 0; }
+    .node-body { font-size: 14px; font-weight: 450; fill: var(--fdai-diagram-muted, #605e5c); letter-spacing: 0; }
+    .node-detail { fill: none; stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1.25; }
+    .node-progress { fill: var(--fdai-diagram-gantt-progress, #ffffff); fill-opacity: 0.2; pointer-events: none; }
+    .node-badge { filter: url(#label-shadow); }
+    .node-badge circle { fill: var(--fdai-diagram-badge-fill, #173b6c); stroke: var(--fdai-diagram-badge-ring, #ffffff); stroke-width: 2.5; }
+    .node-badge text { fill: var(--fdai-diagram-badge-text, #ffffff); font-size: 12px; font-weight: 700; text-anchor: middle; }
+    .diagram-node[data-tone="input"] > .node-surface { fill: var(--fdai-diagram-tone-input-fill, #edf2f5); stroke: var(--fdai-diagram-tone-input-stroke, #315f82); }
+    .diagram-node[data-tone="interpretation"] > .node-surface { fill: var(--fdai-diagram-tone-interpretation-fill, #edf3f3); stroke: var(--fdai-diagram-tone-interpretation-stroke, #4b7180); }
+    .diagram-node[data-tone="model"] > .node-surface { fill: var(--fdai-diagram-tone-model-fill, #ebf2ef); stroke: var(--fdai-diagram-tone-model-stroke, #3f7773); }
+    .diagram-node[data-tone="policy"] > .node-surface { fill: var(--fdai-diagram-tone-policy-fill, #eff2ea); stroke: var(--fdai-diagram-tone-policy-stroke, #617950); }
+    .diagram-node[data-tone="decision"] > .node-surface { fill: var(--fdai-diagram-tone-decision-fill, #f5eee8); stroke: var(--fdai-diagram-tone-decision-stroke, #986346); }
+    .diagram-node[data-tone="execution"] > .node-surface { fill: var(--fdai-diagram-tone-execution-fill, #f0edf4); stroke: var(--fdai-diagram-tone-execution-stroke, #705f8a); }
+    .diagram-node[data-tone="feedback"] > .node-surface { fill: var(--fdai-diagram-tone-feedback-fill, #f2edf3); stroke: var(--fdai-diagram-tone-feedback-stroke, #80688d); }
+    .diagram-node[data-tone="store"] > .node-surface { fill: var(--fdai-diagram-tone-store-fill, #eff1f2); stroke: var(--fdai-diagram-tone-store-stroke, #596871); }
+    .diagram-node[data-tone="neutral"] > .node-surface { fill: var(--fdai-diagram-tone-neutral-fill, #ffffff); stroke: var(--fdai-diagram-tone-neutral-stroke, #737d84); }
+    .node-inset { fill: none; stroke: var(--fdai-diagram-surface, #ffffff); stroke-opacity: 0.72; stroke-width: 1; pointer-events: none; }
+    .node-divider { stroke: var(--fdai-diagram-border, #d7dbde); stroke-width: 1; stroke-opacity: 0.72; }
+    .node-icon-backplate { fill: var(--fdai-diagram-surface, #ffffff); stroke-width: 1.25; stroke-opacity: 0.34; }
+    .diagram-node[data-tone="input"] > .node-icon-backplate { stroke: var(--fdai-diagram-tone-input-stroke, #315f82); }
+    .diagram-node[data-tone="interpretation"] > .node-icon-backplate { stroke: var(--fdai-diagram-tone-interpretation-stroke, #4b7180); }
+    .diagram-node[data-tone="model"] > .node-icon-backplate { stroke: var(--fdai-diagram-tone-model-stroke, #3f7773); }
+    .diagram-node[data-tone="policy"] > .node-icon-backplate { stroke: var(--fdai-diagram-tone-policy-stroke, #617950); }
+    .diagram-node[data-tone="decision"] > .node-icon-backplate { stroke: var(--fdai-diagram-tone-decision-stroke, #986346); }
+    .diagram-node[data-tone="execution"] > .node-icon-backplate { stroke: var(--fdai-diagram-tone-execution-stroke, #705f8a); }
+    .diagram-node[data-tone="feedback"] > .node-icon-backplate { stroke: var(--fdai-diagram-tone-feedback-stroke, #80688d); }
+    .diagram-node[data-tone="store"] > .node-icon-backplate { stroke: var(--fdai-diagram-tone-store-stroke, #596871); }
+    .diagram-node[data-tone="neutral"] > .node-icon-backplate { stroke: var(--fdai-diagram-tone-neutral-stroke, #737d84); }
+    .diagram-node[data-shape="bar"] > .node-surface { fill: var(--fdai-diagram-gantt-planned, #e8edf2); stroke: var(--fdai-diagram-gantt-planned-stroke, #667085); filter: none; }
+    .diagram-node[data-shape="bar"] .node-label { fill: var(--fdai-diagram-gantt-planned-text, #323130); font-size: 14px; }
+    .diagram-node[data-shape="bar"][data-status="active"] > .node-surface { fill: var(--fdai-diagram-gantt-active, #0f6cbd); stroke: var(--fdai-diagram-gantt-active-stroke, #005a9e); }
+    .diagram-node[data-shape="bar"][data-status="done"] > .node-surface { fill: var(--fdai-diagram-gantt-done, #107c10); stroke: var(--fdai-diagram-gantt-done-stroke, #0b5c0b); }
+    .diagram-node[data-shape="bar"][data-status="critical"] > .node-surface { fill: var(--fdai-diagram-gantt-critical, #c43501); stroke: var(--fdai-diagram-gantt-critical-stroke, #8f2600); }
+    .diagram-node[data-shape="bar"][data-status="milestone"] > .node-surface { fill: var(--fdai-diagram-gantt-milestone, #6b46c1); stroke: var(--fdai-diagram-gantt-milestone-stroke, #51349a); }
+    .diagram-node[data-shape="bar"][data-status="active"] .node-label,
+    .diagram-node[data-shape="bar"][data-status="done"] .node-label,
+    .diagram-node[data-shape="bar"][data-status="critical"] .node-label,
+    .diagram-node[data-shape="bar"][data-status="milestone"] .node-label { fill: var(--fdai-diagram-gantt-text, #ffffff); }
+    .diagram-node[data-shape="pie-slice"] > .node-surface { filter: none; stroke: var(--fdai-diagram-surface, #ffffff); stroke-width: 2; }
+    .diagram-node[data-shape="pie-slice"] .node-label { fill: var(--fdai-diagram-pie-text, #ffffff); font-size: 14px; }
+    .diagram-node[data-shape="pie-slice"][data-palette-index="0"] > .node-surface { fill: var(--fdai-diagram-chart-1, #0f6cbd); }
+    .diagram-node[data-shape="pie-slice"][data-palette-index="1"] > .node-surface { fill: var(--fdai-diagram-chart-2, #008272); }
+    .diagram-node[data-shape="pie-slice"][data-palette-index="2"] > .node-surface { fill: var(--fdai-diagram-chart-3, #6b46c1); }
+    .diagram-node[data-shape="pie-slice"][data-palette-index="3"] > .node-surface { fill: var(--fdai-diagram-chart-4, #c43501); }
+    .diagram-node[data-shape="pie-slice"][data-palette-index="4"] > .node-surface { fill: var(--fdai-diagram-chart-5, #9a6500); }
+    .diagram-node[data-shape="pie-slice"][data-palette-index="5"] > .node-surface { fill: var(--fdai-diagram-chart-6, #a4262c); }
+    .diagram-node[data-shape="pie-slice"][data-palette-index="6"] > .node-surface { fill: var(--fdai-diagram-chart-7, #187ea8); }
+    .diagram-node[data-shape="pie-slice"][data-palette-index="7"] > .node-surface { fill: var(--fdai-diagram-chart-8, #5c2d91); }
+    svg[data-kind="venn"] .diagram-node > .node-surface { fill-opacity: 0.34; }
+    svg[data-kind="venn"] .diagram-node[data-palette-index="0"] > .node-surface { fill: var(--fdai-diagram-chart-1, #0f6cbd); stroke: var(--fdai-diagram-chart-1, #0f6cbd); }
+    svg[data-kind="venn"] .diagram-node[data-palette-index="1"] > .node-surface { fill: var(--fdai-diagram-chart-2, #008272); stroke: var(--fdai-diagram-chart-2, #008272); }
+    svg[data-kind="venn"] .diagram-node[data-palette-index="2"] > .node-surface { fill: var(--fdai-diagram-chart-3, #6b46c1); stroke: var(--fdai-diagram-chart-3, #6b46c1); }
+    .chart-frame { fill: var(--fdai-diagram-chart-surface, #ffffff); stroke: var(--fdai-diagram-border-strong, #605e5c); stroke-width: 1; }
+    .chart-guide { stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1; stroke-dasharray: 5 5; opacity: 0.72; }
+    .chart-guide-ring { fill: none; stroke: var(--fdai-diagram-border, #a19f9d); stroke-width: 1; stroke-dasharray: 4 6; opacity: 0.76; }
+    .chart-axis-label { fill: var(--fdai-diagram-muted, #605e5c); font-size: 14px; font-weight: 600; }
+    .edge-hit { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: pointer; }
+    .edge-path { pointer-events: stroke; transition: stroke-width 140ms ease, opacity 140ms ease; }
+    .diagram-edge[data-edge-route="orthogonal-above"][data-edge-step] > .edge-path { opacity: 0.52; stroke-width: 2; }
+    .edge-label { cursor: pointer; }
+    .edge-label rect { fill: var(--fdai-diagram-label-surface, #ffffff); stroke: var(--fdai-diagram-border, #a19f9d); transition: fill 140ms ease, stroke 140ms ease, stroke-width 140ms ease; }
+    .edge-label-text, .legend-item text { font-size: 14px; font-weight: 600; fill: var(--fdai-diagram-muted, #605e5c); }
+    .edge-label-text { transition: fill 140ms ease; }
+    .diagram-edge.is-muted { opacity: 0.12; }
+    .diagram-edge.is-muted:hover { opacity: 1; }
+    svg:not([data-kind="sankey"]) .diagram-edge.is-active > .edge-path,
+    svg:not([data-kind="sankey"]) .diagram-edge:hover > .edge-path { stroke-width: 4; opacity: 1; }
+    .diagram-edge:hover .edge-label rect { fill: var(--fdai-diagram-control-header, #deecf9); stroke: var(--fdai-diagram-azure-dark, #005a9e); stroke-width: 2; }
+    .diagram-edge:hover .edge-label-text { fill: var(--fdai-diagram-text, #323130); font-weight: 700; }
+    .edge-step circle { fill: #107c10; stroke: #ffffff; stroke-width: 2; }
+    .edge-step text { fill: #ffffff; font-size: 12px; font-weight: 700; text-anchor: middle; }
+    svg[data-profile="conceptual"] .diagram-group .group-surface { stroke-dasharray: none; }
+    svg[data-profile="conceptual"] .diagram-group[data-presentation="lane"] .group-surface { fill: var(--fdai-diagram-group-lane-fill, #ffffff); stroke: var(--fdai-diagram-group-lane-stroke, #9fb3c8); }
+    svg[data-profile="conceptual"] .diagram-group[data-presentation="sidebar"] .group-surface { fill: var(--fdai-diagram-group-sidebar-fill, #f7f5ff); stroke: var(--fdai-diagram-group-sidebar-stroke, #7c5ce7); }
+    svg[data-profile="conceptual"] .diagram-group[data-presentation="feedback"] .group-surface { fill: var(--fdai-diagram-group-feedback-fill, #faf8ff); stroke: var(--fdai-diagram-group-feedback-stroke, #6045df); }
+    svg[data-profile="conceptual"] .diagram-group[data-presentation="datastore"] .group-surface { fill: var(--fdai-diagram-group-datastore-fill, #f7f8fa); stroke: var(--fdai-diagram-group-datastore-stroke, #6b7280); }
+    svg[data-profile="azure-reference"] .diagram-title { font-size: 24px; }
+    svg[data-profile="azure-reference"] .diagram-group .group-surface { stroke-dasharray: none; }
+    svg[data-profile="azure-reference"] .diagram-group .group-header { fill: transparent; }
+    svg[data-profile="azure-reference"] .diagram-group[data-presentation="boundary"] .group-surface { fill: #ffffff; stroke: var(--fdai-diagram-azure, #0078d4); stroke-width: 1.75; }
+    svg[data-profile="azure-reference"] .diagram-group[data-presentation="band"] .group-surface { fill: #f3f2f1; stroke: #d2d0ce; stroke-width: 1; }
+    svg[data-profile="azure-reference"] .diagram-group[data-presentation="band"] .group-header { fill: #e9e9e9; }
+    svg[data-profile="azure-reference"] .diagram-group[data-presentation="panel"] .group-surface { fill: #ffffff; stroke: #d2d0ce; stroke-width: 1; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="azure-region"] > .group-surface { fill: #f8fbfe; stroke: #b8c7d9; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="azure-region"] > .group-header { fill: #eef4fa; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="fdai-vnet"] > .group-surface { fill: #ffffff; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="platform-services"] > .group-surface { fill: #f5f9fc; stroke: #b8c7d9; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="platform-services"] > .group-header { fill: #e7f0f7; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="governed-delivery"] > .group-surface { fill: #f8fafc; stroke: #b8c7d9; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="governed-delivery"] > .group-header { fill: #eaf0f5; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="private-service-backends"] > .group-surface { fill: #fbfcfd; stroke: #c8d0d8; }
+    svg[data-profile="azure-reference"] .diagram-group[data-group-id="private-service-backends"] > .group-header { fill: #f1f4f6; }
+    svg[data-profile="azure-reference"] .diagram-node > rect { filter: none; }
+    svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"] > rect { fill: transparent; stroke: transparent; }
+    svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"]:hover > rect,
+    svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"]:focus > rect,
+    svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"].is-active > rect { fill: #ffffff; stroke: var(--fdai-diagram-azure, #0078d4); stroke-width: 1.5; }
+    svg[data-profile="azure-reference"] .group-label { fill: #3b3a39; font-size: 14px; font-weight: 650; }
+    svg[data-profile="azure-reference"] .node-label { font-size: 13px; font-weight: 650; fill: #323130; }
+    svg[data-profile="azure-reference"] .node-body { font-size: 11px; }
+    svg[data-profile="azure-reference"] .edge-label-text,
+    svg[data-profile="azure-reference"] .legend-item text { fill: #484644; font-size: 12px; font-weight: 650; }
+
+    svg[data-diagram-id]:not([data-embedded]) { --fdai-diagram-canvas:#f6f7f6;--fdai-diagram-surface:#ffffff;--fdai-diagram-node:#ffffff;--fdai-diagram-label-surface:#ffffff;--fdai-diagram-text:#20262d;--fdai-diagram-muted:#5f6872;--fdai-diagram-border:#d7dbde;--fdai-diagram-border-strong:#9ba3aa;--fdai-diagram-shadow:#17212b;--fdai-diagram-neutral-header:#ecefee;--fdai-diagram-control-surface:#edf2f5;--fdai-diagram-control-header:#dfe8ed;--fdai-diagram-delivery-surface:#edf3f1;--fdai-diagram-delivery-header:#dce8e4;--fdai-diagram-azure:#315f82;--fdai-diagram-azure-dark:#243f56;--fdai-diagram-cyan-dark:#3f7773;--fdai-diagram-tone-input-fill:#edf2f5;--fdai-diagram-tone-input-stroke:#315f82;--fdai-diagram-tone-interpretation-fill:#edf3f3;--fdai-diagram-tone-interpretation-stroke:#4b7180;--fdai-diagram-tone-model-fill:#ebf2ef;--fdai-diagram-tone-model-stroke:#3f7773;--fdai-diagram-tone-policy-fill:#eff2ea;--fdai-diagram-tone-policy-stroke:#617950;--fdai-diagram-tone-decision-fill:#f5eee8;--fdai-diagram-tone-decision-stroke:#986346;--fdai-diagram-tone-execution-fill:#f0edf4;--fdai-diagram-tone-execution-stroke:#705f8a;--fdai-diagram-tone-feedback-fill:#f2edf3;--fdai-diagram-tone-feedback-stroke:#80688d;--fdai-diagram-tone-store-fill:#eff1f2;--fdai-diagram-tone-store-stroke:#596871;--fdai-diagram-tone-neutral-fill:#ffffff;--fdai-diagram-tone-neutral-stroke:#737d84;--fdai-diagram-edge-request:#315f82;--fdai-diagram-edge-event:#3f7773;--fdai-diagram-edge-approval:#705f8a;--fdai-diagram-edge-mutation:#a86a45;--fdai-diagram-edge-audit:#617950;--fdai-diagram-edge-rollback:#9d555b;--fdai-diagram-edge-read:#3f7773;--fdai-diagram-edge-write:#705f8a;--fdai-diagram-edge-feedback:#80688d;--fdai-diagram-edge-sequence:#315f82;--fdai-diagram-edge-transition:#705f8a;--fdai-diagram-edge-association:#626c73;--fdai-diagram-edge-dependency:#778087;--fdai-diagram-edge-timeline:#986346;--fdai-diagram-group-lane-fill:#f8f9f8;--fdai-diagram-group-lane-stroke:#cfd4d6;--fdai-diagram-group-sidebar-fill:#f0edf3;--fdai-diagram-group-sidebar-stroke:#8a7895;--fdai-diagram-group-feedback-fill:#f4f0f4;--fdai-diagram-group-feedback-stroke:#8a7895;--fdai-diagram-group-datastore-fill:#f0f2f2;--fdai-diagram-group-datastore-stroke:#8d979c;--fdai-diagram-badge-fill:#243f56;--fdai-diagram-badge-ring:#ffffff;--fdai-diagram-badge-text:#ffffff;--fdai-diagram-gantt-planned:#e7e5e2;--fdai-diagram-gantt-planned-stroke:#aaa6a1;--fdai-diagram-gantt-planned-text:#2c333a;--fdai-diagram-gantt-active:#6685a4;--fdai-diagram-gantt-active-stroke:#44688e;--fdai-diagram-gantt-done:#718c6d;--fdai-diagram-gantt-done-stroke:#5e8259;--fdai-diagram-gantt-critical:#b97b59;--fdai-diagram-gantt-critical-stroke:#9e5f3c;--fdai-diagram-gantt-milestone:#887aa5;--fdai-diagram-gantt-milestone-stroke:#6f608c;--fdai-diagram-gantt-progress:#ffffff;--fdai-diagram-gantt-text:#ffffff;--fdai-diagram-chart-surface:#ffffff;--fdai-diagram-chart-1:#426b8c;--fdai-diagram-chart-2:#477d75;--fdai-diagram-chart-3:#75628d;--fdai-diagram-chart-4:#a26e50;--fdai-diagram-chart-5:#987a4d;--fdai-diagram-chart-6:#9a5e65;--fdai-diagram-chart-7:#5e7f91;--fdai-diagram-chart-8:#5c536f;--fdai-diagram-pie-text:#ffffff; }
+    @media (prefers-color-scheme: dark) {
+      svg[data-diagram-id]:not([data-embedded]) { --fdai-diagram-canvas:#181b1d;--fdai-diagram-surface:#22272a;--fdai-diagram-node:#252b2e;--fdai-diagram-label-surface:#22272a;--fdai-diagram-text:#f1f3f2;--fdai-diagram-muted:#b8c0c4;--fdai-diagram-border:#3d454a;--fdai-diagram-border-strong:#737e84;--fdai-diagram-shadow:#000000;--fdai-diagram-neutral-header:#2b3035;--fdai-diagram-control-surface:#202b35;--fdai-diagram-control-header:#273744;--fdai-diagram-delivery-surface:#202f2d;--fdai-diagram-delivery-header:#283d39;--fdai-diagram-azure:#7196b2;--fdai-diagram-azure-dark:#b1c7d8;--fdai-diagram-cyan-dark:#70a19a;--fdai-diagram-tone-input-fill:#202d37;--fdai-diagram-tone-input-stroke:#7196b2;--fdai-diagram-tone-interpretation-fill:#213033;--fdai-diagram-tone-interpretation-stroke:#78a0ad;--fdai-diagram-tone-model-fill:#20312d;--fdai-diagram-tone-model-stroke:#70a19a;--fdai-diagram-tone-policy-fill:#293226;--fdai-diagram-tone-policy-stroke:#93a77a;--fdai-diagram-tone-decision-fill:#382d27;--fdai-diagram-tone-decision-stroke:#d09a77;--fdai-diagram-tone-execution-fill:#302b37;--fdai-diagram-tone-execution-stroke:#a99ac0;--fdai-diagram-tone-feedback-fill:#332b36;--fdai-diagram-tone-feedback-stroke:#b299b6;--fdai-diagram-tone-store-fill:#292f32;--fdai-diagram-tone-store-stroke:#9ba7ad;--fdai-diagram-tone-neutral-fill:#24292e;--fdai-diagram-tone-neutral-stroke:#8e979f;--fdai-diagram-edge-request:#7196b2;--fdai-diagram-edge-event:#70a19a;--fdai-diagram-edge-approval:#a99ac0;--fdai-diagram-edge-mutation:#d09a77;--fdai-diagram-edge-audit:#93a77a;--fdai-diagram-edge-rollback:#cd8585;--fdai-diagram-edge-read:#70a19a;--fdai-diagram-edge-write:#a99ac0;--fdai-diagram-edge-feedback:#b299b6;--fdai-diagram-edge-sequence:#7196b2;--fdai-diagram-edge-transition:#a99ac0;--fdai-diagram-edge-association:#a9afb4;--fdai-diagram-edge-dependency:#8e979f;--fdai-diagram-edge-timeline:#d09a77;--fdai-diagram-group-lane-fill:#1d2125;--fdai-diagram-group-lane-stroke:#41484f;--fdai-diagram-group-sidebar-fill:#292631;--fdai-diagram-group-sidebar-stroke:#8f82a5;--fdai-diagram-group-feedback-fill:#29262f;--fdai-diagram-group-feedback-stroke:#8f82a5;--fdai-diagram-group-datastore-fill:#25292d;--fdai-diagram-group-datastore-stroke:#68717a;--fdai-diagram-badge-fill:#9db3c8;--fdai-diagram-badge-ring:#171a1d;--fdai-diagram-badge-text:#171a1d;--fdai-diagram-gantt-planned:#353a3f;--fdai-diagram-gantt-planned-stroke:#737b83;--fdai-diagram-gantt-planned-text:#edf0f2;--fdai-diagram-gantt-active:#567897;--fdai-diagram-gantt-active-stroke:#86a4c2;--fdai-diagram-gantt-done:#617b5f;--fdai-diagram-gantt-done-stroke:#91ad89;--fdai-diagram-gantt-critical:#9a6248;--fdai-diagram-gantt-critical-stroke:#d09a77;--fdai-diagram-gantt-milestone:#6f6088;--fdai-diagram-gantt-milestone-stroke:#aa99c4;--fdai-diagram-gantt-progress:#ffffff;--fdai-diagram-gantt-text:#ffffff;--fdai-diagram-chart-surface:#202429;--fdai-diagram-chart-1:#7196b2;--fdai-diagram-chart-2:#70a19a;--fdai-diagram-chart-3:#a99ac0;--fdai-diagram-chart-4:#c58b69;--fdai-diagram-chart-5:#b5966f;--fdai-diagram-chart-6:#b97d7d;--fdai-diagram-chart-7:#87a6b8;--fdai-diagram-chart-8:#8b7ea8;--fdai-diagram-pie-text:#ffffff; }
+    }
+
+
+    svg[data-diagram-id] {
+      font-family: "Segoe UI Variable Text", "Segoe UI", "Noto Sans KR", sans-serif;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-title {
+      font-size: 28px; font-weight: 720;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-subtitle {
+      font-size: 14px; font-weight: 480;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-group .group-surface {
+      stroke-width: 1; stroke-dasharray: none;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .group-accent {
+      stroke: var(--fdai-diagram-border-strong); stroke-width: 2; stroke-linecap: round;
+      opacity: 0.56;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-group[data-depth="1"] > .group-surface {
+      filter: url(#group-shadow);
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-group:not([data-depth="1"]) > .group-surface {
+      stroke-opacity: 0.78;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-group:not([data-depth="1"]) > .group-header {
+      opacity: 0.72;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-node > rect,
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-node > .node-surface {
+      stroke-width: 1;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-node:hover > rect,
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-node:focus > rect,
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-node.is-active > rect,
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-node.is-keyboard-focused > rect,
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-node:hover > .node-surface,
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-node:focus > .node-surface,
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-node.is-active > .node-surface,
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-node.is-keyboard-focused > .node-surface {
+      stroke-width: 2;
+    }
+    svg[data-profile="azure-reference"] .diagram-node.is-keyboard-focused > rect,
+    svg[data-profile="azure-reference"] .diagram-node.is-keyboard-focused > .node-surface {
+      stroke: var(--fdai-diagram-azure); stroke-width: 1.5;
+    }
+    svg[data-profile="azure-reference"] .diagram-node[data-presentation="icon"].is-keyboard-focused > rect {
+      fill: #ffffff;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .node-label,
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .group-label {
+      font-weight: 680;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .node-body {
+      font-weight: 470;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .group-label {
+      font-weight: 650;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .edge-path {
+      opacity: 0.82;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .edge-label rect {
+      filter: url(#label-shadow); stroke-width: 1;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .diagram-legend {
+      opacity: 0.9;
+    }
+    svg[data-diagram-id]:not([data-profile="azure-reference"]) .legend-swatch {
+      stroke-width: 1.25;
+    }
+    svg[data-kind="gantt"] .diagram-node[data-shape="bar"] .node-label {
+      fill: var(--fdai-diagram-text); font-size: 14px; font-weight: 600;
+    }
+    svg[data-kind="gantt"] .diagram-node[data-shape="bar"] > .node-surface {
+      stroke-width: 1; filter: url(#label-shadow);
+    }
+    svg[data-kind="gantt"] .node-progress {
+      fill-opacity: 0.24;
+    }
+    svg[data-kind="gantt"] .diagram-node[data-status="milestone"] > .node-surface {
+      filter: none;
+    }
+    svg[data-kind="gantt"] .chart-tick-label {
+      fill: var(--fdai-diagram-muted); font-size: 12px; font-weight: 550;
+    }
+    svg[data-kind="gantt"] .gantt-grid .chart-guide {
+      stroke-dasharray: 2 7; opacity: 0.48;
+    }
+    svg[data-profile="conceptual"] .diagram-group[data-presentation="panel"] > .group-surface {
+      fill: var(--fdai-diagram-canvas); stroke: var(--fdai-diagram-border);
+    }
+    svg[data-profile="conceptual"] .diagram-group[data-presentation="panel"] > .group-header {
+      fill: transparent;
+    }
+    svg[data-profile="conceptual"] .diagram-node > .node-surface {
+      filter: url(#node-shadow);
+    }
+    svg[data-kind="pie"] .diagram-node[data-shape="pie-slice"] .node-label {
+      fill: var(--fdai-diagram-text); font-size: 14px; font-weight: 620;
+    }
+    svg[data-kind="pie"] .diagram-node[data-shape="pie-slice"] > .node-surface {
+      stroke: var(--fdai-diagram-canvas); stroke-width: 3;
+    }
+    svg[data-kind="pie"] .chart-leader {
+      fill: none; stroke: var(--fdai-diagram-border-strong); stroke-width: 1;
+    }
+    svg[data-kind="pie"] .donut-total {
+      fill: var(--fdai-diagram-text); font-size: 25px; font-weight: 680;
+    }
+    svg[data-kind="pie"] .donut-caption {
+      fill: var(--fdai-diagram-muted); font-size: 11px; font-weight: 650;
+    }
+    svg[data-kind="pie"] .donut-center-ring {
+      fill: var(--fdai-diagram-surface); fill-opacity: 0.32;
+      stroke: var(--fdai-diagram-border); stroke-width: 1;
+    }
+    svg[data-kind="radar"] .radar-spoke {
+      stroke: var(--fdai-diagram-border); stroke-width: 1; opacity: 0.66;
+    }
+    svg[data-kind="radar"] .radar-area {
+      fill: var(--fdai-diagram-chart-1); fill-opacity: 0.18;
+      stroke: var(--fdai-diagram-chart-1); stroke-width: 2.5;
+    }
+    svg[data-kind="radar"] .diagram-edge { opacity: 0; pointer-events: none; }
+    svg[data-kind="radar"] .diagram-node > .node-surface {
+      fill: var(--fdai-diagram-surface); stroke-width: 1.5; filter: url(#label-shadow);
+    }
+    svg[data-kind="quadrant"] .quadrant-region { stroke: none; }
+    svg[data-kind="quadrant"] .region-one { fill: var(--fdai-diagram-tone-policy-fill); }
+    svg[data-kind="quadrant"] .region-two { fill: var(--fdai-diagram-tone-model-fill); }
+    svg[data-kind="quadrant"] .region-three { fill: var(--fdai-diagram-tone-neutral-fill); }
+    svg[data-kind="quadrant"] .region-four { fill: var(--fdai-diagram-tone-decision-fill); }
+    svg[data-kind="quadrant"] .quadrant-region { fill-opacity: 0.44; }
+    svg[data-kind="quadrant"] .diagram-node > .node-surface {
+      filter: url(#label-shadow); stroke-width: 1.5;
+    }
+    svg[data-kind="kanban"] .diagram-group > .group-surface {
+      fill: var(--fdai-diagram-surface); fill-opacity: 0.72;
+      stroke: var(--fdai-diagram-border); filter: url(#group-shadow);
+    }
+    svg[data-kind="kanban"] .diagram-group > .group-header {
+      fill: var(--fdai-diagram-neutral-header); opacity: 0.76;
+    }
+    svg[data-kind="kanban"] .group-accent { display: none; }
+    svg[data-kind="kanban"] .kanban-header-divider {
+      stroke: var(--fdai-diagram-border); stroke-width: 1;
+    }
+    svg[data-kind="kanban"] .kanban-count circle {
+      fill: var(--fdai-diagram-surface); stroke: var(--fdai-diagram-border-strong);
+      stroke-width: 1;
+    }
+    svg[data-kind="kanban"] .kanban-count text {
+      fill: var(--fdai-diagram-muted); font-size: 11px; font-weight: 700;
+      text-anchor: middle;
+    }
+    svg[data-kind="kanban"] .diagram-node > .node-surface {
+      fill: var(--fdai-diagram-surface); stroke: var(--fdai-diagram-border-strong);
+      filter: url(#label-shadow);
+    }
+    svg[data-kind="kanban"] .diagram-node .node-label {
+      font-weight: 650;
+    }
+    svg[data-kind="sankey"] .diagram-edge > .edge-path {
+      opacity: 0.52; stroke-linecap: butt;
+    }
+    svg[data-kind="sankey"] .diagram-edge:hover > .edge-path,
+    svg[data-kind="sankey"] .diagram-edge.is-active > .edge-path {
+      opacity: 0.88; stroke-width: revert;
+    }
+    svg[data-kind="sankey"] .diagram-node > .node-surface {
+      fill: var(--fdai-diagram-surface); filter: none; stroke-width: 1.5;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      svg[data-diagram-id] .edge-path { transition: none; }
+    }
+
+  </style>
+  <rect class="diagram-background" width="1600" height="2214" fill="var(--fdai-diagram-canvas, #faf9f8)"/>
+  <text class="diagram-title" x="48" y="45">계층 조회 파이프라인</text>
+  <text class="diagram-subtitle" x="48" y="72">계층 조회 파이프라인에 대한 FDAI 흐름입니다.</text>
+  <g data-diagram-viewport=""><g class="diagram-edge edge-request" data-edge-id="flow-01" data-edge-from="e" data-edge-to="l0" data-edge-route="auto"><title>결정 요청</title><path class="edge-hit" d="M348.3333333333333 250 L348.3333333333333 302"/><path class="edge-path" d="M348.3333333333333 250 L348.3333333333333 302" fill="none" stroke="var(--fdai-diagram-edge-request, #315f82)" stroke-width="2.4" stroke-dasharray="none" stroke-linecap="butt" stroke-linejoin="round" marker-end="url(#arrow-request)"/></g><g class="diagram-edge edge-request" data-edge-id="flow-02" data-edge-from="l0" data-edge-to="drop" data-edge-route="auto"><title>결정 요청</title><path class="edge-hit" d="M311.66666666666663 466 L311.66666666666663 471 Q311.66666666666663 476 306.66666666666663 476 L181.5 476 Q167.5 476 167.5 490 L167.5 518"/><path class="edge-path" d="M311.66666666666663 466 L311.66666666666663 471 Q311.66666666666663 476 306.66666666666663 476 L181.5 476 Q167.5 476 167.5 490 L167.5 518" fill="none" stroke="var(--fdai-diagram-edge-request, #315f82)" stroke-width="2.4" stroke-dasharray="none" stroke-linecap="butt" stroke-linejoin="round" marker-end="url(#arrow-request)"/></g><g class="diagram-edge edge-request" data-edge-id="flow-03" data-edge-from="l0" data-edge-to="l1" data-edge-route="auto"><title>결정 요청</title><path class="edge-hit" d="M385 466 L385 518"/><path class="edge-path" d="M385 466 L385 518" fill="none" stroke="var(--fdai-diagram-edge-request, #315f82)" stroke-width="2.4" stroke-dasharray="none" stroke-linecap="butt" stroke-linejoin="round" marker-end="url(#arrow-request)"/></g><g class="diagram-edge edge-request" data-edge-id="flow-04" data-edge-from="l1" data-edge-to="rg1" data-edge-route="auto"><title>결정 요청</title><path class="edge-hit" d="M348.33333333333337 748 L348.33333333333337 753 Q348.33333333333337 758 343.33333333333337 758 L219.66666666666669 758 Q205.66666666666669 758 205.66666666666669 772 L205.66666666666669 800"/><path class="edge-path" d="M348.33333333333337 748 L348.33333333333337 753 Q348.33333333333337 758 343.33333333333337 758 L219.66666666666669 758 Q205.66666666666669 758 205.66666666666669 772 L205.66666666666669 800" fill="none" stroke="var(--fdai-diagram-edge-request, #315f82)" stroke-width="2.4" stroke-dasharray="none" stroke-linecap="butt" stroke-linejoin="round" marker-end="url(#arrow-request)"/></g><g class="diagram-edge edge-request" data-edge-id="flow-05" data-edge-from="l1" data-edge-to="l2" data-edge-route="auto"><title>결정 요청</title><path class="edge-hit" d="M421.6666666666667 748 L421.6666666666667 800"/><path class="edge-path" d="M421.6666666666667 748 L421.6666666666667 800" fill="none" stroke="var(--fdai-diagram-edge-request, #315f82)" stroke-width="2.4" stroke-dasharray="none" stroke-linecap="butt" stroke-linejoin="round" marker-end="url(#arrow-request)"/></g><g class="diagram-edge edge-request" data-edge-id="flow-06" data-edge-from="l2" data-edge-to="rg2" data-edge-route="auto"><title>결정 요청</title><path class="edge-hit" d="M385 986 L385 991 Q385 996 380 996 L256.33333333333337 996 Q242.33333333333337 996 242.33333333333337 1010 L242.33333333333337 1038"/><path class="edge-path" d="M385 986 L385 991 Q385 996 380 996 L256.33333333333337 996 Q242.33333333333337 996 242.33333333333337 1010 L242.33333333333337 1038" fill="none" stroke="var(--fdai-diagram-edge-request, #315f82)" stroke-width="2.4" stroke-dasharray="none" stroke-linecap="butt" stroke-linejoin="round" marker-end="url(#arrow-request)"/></g><g class="diagram-edge edge-request" data-edge-id="flow-07" data-edge-from="l2" data-edge-to="l3" data-edge-route="auto"><title>결정 요청</title><path class="edge-hit" d="M458.33333333333337 986 L458.33333333333337 1038"/><path class="edge-path" d="M458.33333333333337 986 L458.33333333333337 1038" fill="none" stroke="var(--fdai-diagram-edge-request, #315f82)" stroke-width="2.4" stroke-dasharray="none" stroke-linecap="butt" stroke-linejoin="round" marker-end="url(#arrow-request)"/></g><g class="diagram-edge edge-request" data-edge-id="flow-08" data-edge-from="l3" data-edge-to="rg3" data-edge-route="auto"><title>결정 요청</title><path class="edge-hit" d="M421.66666666666674 1268 L421.66666666666674 1273 Q421.66666666666674 1278 416.66666666666674 1278 L293.00000000000006 1278 Q279.00000000000006 1278 279.00000000000006 1292 L279.00000000000006 1320"/><path class="edge-path" d="M421.66666666666674 1268 L421.66666666666674 1273 Q421.66666666666674 1278 416.66666666666674 1278 L293.00000000000006 1278 Q279.00000000000006 1278 279.00000000000006 1292 L279.00000000000006 1320" fill="none" stroke="var(--fdai-diagram-edge-request, #315f82)" stroke-width="2.4" stroke-dasharray="none" stroke-linecap="butt" stroke-linejoin="round" marker-end="url(#arrow-request)"/></g><g class="diagram-edge edge-request" data-edge-id="flow-09" data-edge-from="l3" data-edge-to="l4" data-edge-route="auto"><title>결정 요청</title><path class="edge-hit" d="M495.00000000000006 1268 L495.00000000000006 1320"/><path class="edge-path" d="M495.00000000000006 1268 L495.00000000000006 1320" fill="none" stroke="var(--fdai-diagram-edge-request, #315f82)" stroke-width="2.4" stroke-dasharray="none" stroke-linecap="butt" stroke-linejoin="round" marker-end="url(#arrow-request)"/></g><g class="diagram-edge edge-request" data-edge-id="flow-10" data-edge-from="l4" data-edge-to="rg4" data-edge-route="auto"><title>결정 요청</title><path class="edge-hit" d="M458.33333333333337 1506 L458.33333333333337 1511 Q458.33333333333337 1516 453.33333333333337 1516 L329.66666666666674 1516 Q315.66666666666674 1516 315.66666666666674 1530 L315.66666666666674 1558"/><path class="edge-path" d="M458.33333333333337 1506 L458.33333333333337 1511 Q458.33333333333337 1516 453.33333333333337 1516 L329.66666666666674 1516 Q315.66666666666674 1516 315.66666666666674 1530 L315.66666666666674 1558" fill="none" stroke="var(--fdai-diagram-edge-request, #315f82)" stroke-width="2.4" stroke-dasharray="none" stroke-linecap="butt" stroke-linejoin="round" marker-end="url(#arrow-request)"/></g><g class="diagram-edge edge-request" data-edge-id="flow-11" data-edge-from="l4" data-edge-to="l5" data-edge-route="auto"><title>결정 요청</title><path class="edge-hit" d="M531.6666666666667 1506 L531.6666666666667 1558"/><path class="edge-path" d="M531.6666666666667 1506 L531.6666666666667 1558" fill="none" stroke="var(--fdai-diagram-edge-request, #315f82)" stroke-width="2.4" stroke-dasharray="none" stroke-linecap="butt" stroke-linejoin="round" marker-end="url(#arrow-request)"/></g><g class="diagram-edge edge-request" data-edge-id="flow-12" data-edge-from="l5" data-edge-to="write" data-edge-route="auto"><title>결정 요청</title><path class="edge-hit" d="M531.6666666666667 1766 L531.6666666666667 1818"/><path class="edge-path" d="M531.6666666666667 1766 L531.6666666666667 1818" fill="none" stroke="var(--fdai-diagram-edge-request, #315f82)" stroke-width="2.4" stroke-dasharray="none" stroke-linecap="butt" stroke-linejoin="round" marker-end="url(#arrow-request)"/></g><g class="diagram-edge edge-request" data-edge-id="flow-13" data-edge-from="write" data-edge-to="rg5" data-edge-route="auto"><title>결정 요청</title><path class="edge-hit" d="M531.6666666666667 2004 L531.6666666666667 2056"/><path class="edge-path" d="M531.6666666666667 2004 L531.6666666666667 2056" fill="none" stroke="var(--fdai-diagram-edge-request, #315f82)" stroke-width="2.4" stroke-dasharray="none" stroke-linecap="butt" stroke-linejoin="round" marker-end="url(#arrow-request)"/></g><g class="diagram-node node-process" data-node-id="e" data-presentation="card" data-shape="card" data-tone="neutral" transform="translate(48 112)" role="button" tabindex="0" aria-label="Signal arrives. Signal arrives"><rect class="node-surface" x="217.83333333333331" y="40" width="165" height="98" rx="8"/><rect class="node-inset" x="219.83333333333331" y="42" width="161" height="94" rx="6" aria-hidden="true"/><text class="node-label" x="300.3333333333333" y="95" text-anchor="middle"><tspan x="300.3333333333333" dy="0">Signal arrives</tspan></text></g><g class="diagram-node node-process" data-node-id="l0" data-presentation="card" data-shape="card" data-tone="neutral" transform="translate(48 112)" role="button" tabindex="0" aria-label="L0. event-ingest / normalize + dedup + correlate into incident. L0. event-ingest / normalize + dedup + correlate into incident"><rect class="node-surface" x="190.33333333333331" y="190" width="220" height="164" rx="8"/><rect class="node-inset" x="192.33333333333331" y="192" width="216" height="160" rx="6" aria-hidden="true"/><text class="node-label" x="300.3333333333333" y="245" text-anchor="middle"><tspan x="300.3333333333333" dy="0">L0. event-ingest /</tspan><tspan x="300.3333333333333" dy="22">normalize + dedup +</tspan><tspan x="300.3333333333333" dy="22">correlate into</tspan><tspan x="300.3333333333333" dy="22">incident</tspan></text></g><g class="diagram-node node-process" data-node-id="drop" data-presentation="card" data-shape="card" data-tone="neutral" transform="translate(48 112)" role="button" tabindex="0" aria-label="no-op, audited. 조건: replay / duplicate"><rect class="node-surface" x="40" y="406" width="159" height="98" rx="8"/><rect class="node-inset" x="42" y="408" width="155" height="94" rx="6" aria-hidden="true"/><text class="node-label" x="119.5" y="461" text-anchor="middle"><tspan x="119.5" dy="0">no-op, audited</tspan></text></g><g class="diagram-node node-process" data-node-id="l1" data-presentation="card" data-shape="card" data-tone="neutral" transform="translate(48 112)" role="button" tabindex="0" aria-label="L1. T0 rule match / ontology traversal: applies_to ∩ triggered_by / run each rule&apos;s evaluate action (OPA/Rego, in-memory). L1. T0 rule match / ontology traversal: applies_to ∩ triggered_by / run each rule&apos;s evaluate action (OPA/Rego, in-memory)"><rect class="node-surface" x="227" y="406" width="220" height="230" rx="8"/><rect class="node-inset" x="229" y="408" width="216" height="226" rx="6" aria-hidden="true"/><text class="node-label" x="337" y="461" text-anchor="middle"><tspan x="337" dy="0">L1. T0 rule match /</tspan><tspan x="337" dy="22">ontology traversal:</tspan><tspan x="337" dy="22">applies_to ∩</tspan><tspan x="337" dy="22">triggered_by / run</tspan><tspan x="337" dy="22">each rule&apos;s evaluate</tspan><tspan x="337" dy="22">action (OPA/Rego,</tspan><tspan x="337" dy="22">in-memory)</tspan></text></g><g class="diagram-node node-process" data-node-id="rg1" data-presentation="card" data-shape="card" data-tone="neutral" transform="translate(48 112)" role="button" tabindex="0" aria-label="risk-gate. 조건: verdict"><rect class="node-surface" x="79.66666666666669" y="688" width="156" height="98" rx="8"/><rect class="node-inset" x="81.66666666666669" y="690" width="152" height="94" rx="6" aria-hidden="true"/><text class="node-label" x="157.66666666666669" y="743" text-anchor="middle"><tspan x="157.66666666666669" dy="0">risk-gate</tspan></text></g><g class="diagram-node node-process" data-node-id="l2" data-presentation="card" data-shape="card" data-tone="neutral" transform="translate(48 112)" role="button" tabindex="0" aria-label="L2. Learned-action lookup / (signature, rule_id, catalog_version) → verified action. 조건: no rule verdict"><rect class="node-surface" x="263.6666666666667" y="688" width="220" height="186" rx="8"/><rect class="node-inset" x="265.6666666666667" y="690" width="216" height="182" rx="6" aria-hidden="true"/><text class="node-label" x="373.6666666666667" y="743" text-anchor="middle"><tspan x="373.6666666666667" dy="0">L2. Learned-action</tspan><tspan x="373.6666666666667" dy="22">lookup / (signature,</tspan><tspan x="373.6666666666667" dy="22">rule_id,</tspan><tspan x="373.6666666666667" dy="22">catalog_version) →</tspan><tspan x="373.6666666666667" dy="22">verified action</tspan></text></g><g class="diagram-node node-process" data-node-id="rg2" data-presentation="card" data-shape="card" data-tone="neutral" transform="translate(48 112)" role="button" tabindex="0" aria-label="risk-gate. 조건: hit"><rect class="node-surface" x="116.33333333333337" y="926" width="156" height="98" rx="8"/><rect class="node-inset" x="118.33333333333337" y="928" width="152" height="94" rx="6" aria-hidden="true"/><text class="node-label" x="194.33333333333337" y="981" text-anchor="middle"><tspan x="194.33333333333337" dy="0">risk-gate</tspan></text></g><g class="diagram-node node-process" data-node-id="l3" data-presentation="card" data-shape="card" data-tone="neutral" transform="translate(48 112)" role="button" tabindex="0" aria-label="L3. Embedding similarity (T1) / 1 embedding call → pgvector kNN / reuse neighbor.action iff cos &gt; threshold and context compatible. 조건: miss"><rect class="node-surface" x="300.33333333333337" y="926" width="220" height="230" rx="8"/><rect class="node-inset" x="302.33333333333337" y="928" width="216" height="226" rx="6" aria-hidden="true"/><text class="node-label" x="410.33333333333337" y="981" text-anchor="middle"><tspan x="410.33333333333337" dy="0">L3. Embedding</tspan><tspan x="410.33333333333337" dy="22">similarity (T1) / 1</tspan><tspan x="410.33333333333337" dy="22">embedding call →</tspan><tspan x="410.33333333333337" dy="22">pgvector kNN / reuse</tspan><tspan x="410.33333333333337" dy="22">neighbor.action iff</tspan><tspan x="410.33333333333337" dy="22">cos &gt; threshold and</tspan><tspan x="410.33333333333337" dy="22">context compatible</tspan></text></g><g class="diagram-node node-process" data-node-id="rg3" data-presentation="card" data-shape="card" data-tone="neutral" transform="translate(48 112)" role="button" tabindex="0" aria-label="risk-gate. 조건: hit"><rect class="node-surface" x="153.00000000000006" y="1208" width="156" height="98" rx="8"/><rect class="node-inset" x="155.00000000000006" y="1210" width="152" height="94" rx="6" aria-hidden="true"/><text class="node-label" x="231.00000000000006" y="1263" text-anchor="middle"><tspan x="231.00000000000006" dy="0">risk-gate</tspan></text></g><g class="diagram-node node-process" data-node-id="l4" data-presentation="card" data-shape="card" data-tone="neutral" transform="translate(48 112)" role="button" tabindex="0" aria-label="L4. T2 result cache / signature includes catalog_version + model_config_version + mode. 조건: below threshold"><rect class="node-surface" x="337.00000000000006" y="1208" width="220" height="186" rx="8"/><rect class="node-inset" x="339.00000000000006" y="1210" width="216" height="182" rx="6" aria-hidden="true"/><text class="node-label" x="447.00000000000006" y="1263" text-anchor="middle"><tspan x="447.00000000000006" dy="0">L4. T2 result cache /</tspan><tspan x="447.00000000000006" dy="22">signature includes</tspan><tspan x="447.00000000000006" dy="22">catalog_version +</tspan><tspan x="447.00000000000006" dy="22">model_config_version</tspan><tspan x="447.00000000000006" dy="22">+ mode</tspan></text></g><g class="diagram-node node-process" data-node-id="rg4" data-presentation="card" data-shape="card" data-tone="neutral" transform="translate(48 112)" role="button" tabindex="0" aria-label="risk-gate. 조건: hit"><rect class="node-surface" x="189.66666666666674" y="1446" width="156" height="98" rx="8"/><rect class="node-inset" x="191.66666666666674" y="1448" width="152" height="94" rx="6" aria-hidden="true"/><text class="node-label" x="267.66666666666674" y="1501" text-anchor="middle"><tspan x="267.66666666666674" dy="0">risk-gate</tspan></text></g><g class="diagram-node node-process" data-node-id="l5" data-presentation="card" data-shape="card" data-tone="neutral" transform="translate(48 112)" role="button" tabindex="0" aria-label="L5. T2 cascade / primary → agree? → done / disagree? → escalated / quality-gate authoritative. 조건: miss"><rect class="node-surface" x="373.66666666666674" y="1446" width="220" height="208" rx="8"/><rect class="node-inset" x="375.66666666666674" y="1448" width="216" height="204" rx="6" aria-hidden="true"/><text class="node-label" x="483.66666666666674" y="1501" text-anchor="middle"><tspan x="483.66666666666674" dy="0">L5. T2 cascade /</tspan><tspan x="483.66666666666674" dy="22">primary → agree? →</tspan><tspan x="483.66666666666674" dy="22">done / disagree? →</tspan><tspan x="483.66666666666674" dy="22">escalated /</tspan><tspan x="483.66666666666674" dy="22">quality-gate</tspan><tspan x="483.66666666666674" dy="22">authoritative</tspan></text></g><g class="diagram-node node-process" data-node-id="write" data-presentation="card" data-shape="card" data-tone="neutral" transform="translate(48 112)" role="button" tabindex="0" aria-label="writeback: promote verified outcome / into L2 (learned action) + L4 (result cache). writeback: promote verified outcome / into L2 (learned action) + L4 (result cache)"><rect class="node-surface" x="373.66666666666674" y="1706" width="220" height="186" rx="8"/><rect class="node-inset" x="375.66666666666674" y="1708" width="216" height="182" rx="6" aria-hidden="true"/><text class="node-label" x="483.66666666666674" y="1761" text-anchor="middle"><tspan x="483.66666666666674" dy="0">writeback: promote</tspan><tspan x="483.66666666666674" dy="22">verified outcome /</tspan><tspan x="483.66666666666674" dy="22">into L2 (learned</tspan><tspan x="483.66666666666674" dy="22">action) + L4 (result</tspan><tspan x="483.66666666666674" dy="22">cache)</tspan></text></g><g class="diagram-node node-process" data-node-id="rg5" data-presentation="card" data-shape="card" data-tone="neutral" transform="translate(48 112)" role="button" tabindex="0" aria-label="risk-gate. risk-gate"><rect class="node-surface" x="405.66666666666674" y="1944" width="156" height="98" rx="8"/><rect class="node-inset" x="407.66666666666674" y="1946" width="152" height="94" rx="6" aria-hidden="true"/><text class="node-label" x="483.66666666666674" y="1999" text-anchor="middle"><tspan x="483.66666666666674" dy="0">risk-gate</tspan></text></g></g>
+</svg>

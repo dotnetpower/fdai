@@ -1,0 +1,217 @@
+{
+  "id": "fdai-operational-knowledge-query-hardening-plan-05",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Dependency order and parallel lanes",
+      "description": "FDAI flow for Dependency order and parallel lanes.",
+      "alt": "Dependency order and parallel lanes. The main stages are OKQ-00 baseline, OKQ-01 identity spine, OKQ-02 policy identity, OKQ-03 Rule graph retrieval, OKQ-04 evidence providers, OKQ-05 semantic selection, OKQ-06 claim binding, OKQ-07 live assurance, OKQ-08 continuous closure."
+    },
+    "ko": {
+      "title": "Dependency order and parallel lanes",
+      "description": "Dependency order and parallel lanes에 대한 FDAI 흐름입니다.",
+      "alt": "Dependency order and parallel lanes. 주요 단계는 OKQ-00 baseline, OKQ-01 identity spine, OKQ-02 policy identity, OKQ-03 Rule graph retrieval, OKQ-04 evidence providers, OKQ-05 semantic selection, OKQ-06 claim binding, OKQ-07 live assurance, OKQ-08 continuous closure입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-operational-knowledge-query-hardening-plan-05.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-operational-knowledge-query-hardening-plan-05.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "b",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "OKQ-00 baseline",
+        "ko": "OKQ-00 baseline"
+      },
+      "description": {
+        "en": "OKQ-00 baseline",
+        "ko": "OKQ-00 baseline"
+      }
+    },
+    {
+      "id": "i",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "OKQ-01 identity spine",
+        "ko": "OKQ-01 identity spine"
+      },
+      "description": {
+        "en": "OKQ-01 identity spine",
+        "ko": "OKQ-01 identity spine"
+      }
+    },
+    {
+      "id": "p",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "OKQ-02 policy identity",
+        "ko": "OKQ-02 policy identity"
+      },
+      "description": {
+        "en": "OKQ-02 policy identity",
+        "ko": "OKQ-02 policy identity"
+      }
+    },
+    {
+      "id": "r",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "OKQ-03 Rule graph retrieval",
+        "ko": "OKQ-03 Rule graph retrieval"
+      },
+      "description": {
+        "en": "OKQ-03 Rule graph retrieval",
+        "ko": "OKQ-03 Rule graph retrieval"
+      }
+    },
+    {
+      "id": "e",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "OKQ-04 evidence providers",
+        "ko": "OKQ-04 evidence providers"
+      },
+      "description": {
+        "en": "OKQ-04 evidence providers",
+        "ko": "OKQ-04 evidence providers"
+      }
+    },
+    {
+      "id": "s",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "OKQ-05 semantic selection",
+        "ko": "OKQ-05 semantic selection"
+      },
+      "description": {
+        "en": "OKQ-05 semantic selection",
+        "ko": "OKQ-05 semantic selection"
+      }
+    },
+    {
+      "id": "c",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "OKQ-06 claim binding",
+        "ko": "OKQ-06 claim binding"
+      },
+      "description": {
+        "en": "OKQ-06 claim binding",
+        "ko": "OKQ-06 claim binding"
+      }
+    },
+    {
+      "id": "v",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "OKQ-07 live assurance",
+        "ko": "OKQ-07 live assurance"
+      },
+      "description": {
+        "en": "OKQ-07 live assurance",
+        "ko": "OKQ-07 live assurance"
+      }
+    },
+    {
+      "id": "a",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "OKQ-08 continuous closure",
+        "ko": "OKQ-08 continuous closure"
+      },
+      "description": {
+        "en": "OKQ-08 continuous closure",
+        "ko": "OKQ-08 continuous closure"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "b",
+      "to": "i",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "b",
+      "to": "p",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "i",
+      "to": "r",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "p",
+      "to": "r",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "b",
+      "to": "e",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "r",
+      "to": "s",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "e",
+      "to": "s",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "s",
+      "to": "c",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "c",
+      "to": "v",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "v",
+      "to": "a",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

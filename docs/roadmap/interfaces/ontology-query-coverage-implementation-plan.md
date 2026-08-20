@@ -253,17 +253,7 @@ units for 100% structural query coverage.
 
 ## Design at a glance
 
-```mermaid
-flowchart LR
-    Q[Operator turn] --> F[SemanticProblemFrame candidate]
-    R[Active ontology release] --> M[Principal-scoped query manifest]
-    M --> F
-    F --> V[Deterministic verifier]
-    V --> P[Verified OntologyQueryPlan]
-    P --> D[Bounded task DAG]
-    D --> E[Authoritative evidence and receipts]
-    E --> A[Verified answer or explicit limitation]
-```
+![Design at a glance. The main stages are Operator turn, SemanticProblemFrame candidate, Active ontology release, Principal-scoped query manifest, Deterministic verifier, Verified OntologyQueryPlan, Bounded task DAG, Authoritative evidence and receipts, Verified answer or explicit limitation.](../../diagrams/generated/fdai-roadmap-interfaces-ontology-query-coverage-implementation-plan-01.en.svg)
 
 The model decomposes language and proposes a meaning representation. The verifier owns schema
 identity, relationship composition, time bounds, scope, purpose, and capability checks. Concrete

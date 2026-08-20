@@ -1,8 +1,8 @@
 ---
 title: FDAI 운영 온톨로지 메타모델
 translation_of: operating-ontology-metamodel.md
-translation_source_sha: 8b3b16f551ef963dcba5f3512a233090f2e548e8
-translation_revised: 2026-08-19
+translation_source_sha: 7d5601a13de7f3658ae5ac0e8cf09ac7c3879efb
+translation_revised: 2026-08-20
 ---
 # FDAI 운영 온톨로지 메타모델
 
@@ -20,34 +20,7 @@ translation_revised: 2026-08-19
 
 ## 한눈에 보는 설계
 
-```mermaid
-flowchart TB
- subgraph L[Operational lenses]
-  O[Object]
-  R[Relationship]
-  S[State]
-  C[Context]
-  A[Action]
- end
-
- subgraph D[Versioned declarations]
-  OT[ObjectType]
-  LT[LinkType]
-  IT[InterfaceType]
-  FT[FunctionType]
-  AT[ActionType]
- end
-
- subgraph X[Runtime artifacts]
-  OI[Object and Link instances]
-  SF[Observed and derived facts]
-  CS[Immutable context snapshot]
-    MP[MutationPlan, KineticSafetyReceipt, and ActionRun]
- end
-
- L --> D
- D --> X
-```
+![한눈에 보는 설계. 주요 단계는 Object, Relationship, State, Context, Action, ObjectType, LinkType, InterfaceType, FunctionType, ActionType, Object and Link instances, Observed and derived facts입니다.](../../diagrams/generated/fdai-roadmap-architecture-operating-ontology-metamodel-01.ko.svg)
 
 두 그룹은 서로 다른 질문에 답합니다. Operational 관점은 운영자에게 도메인을 설명합니다.
 선언 종류는 exact 내용 기반 주소를 가진 계약을 정의합니다. 런타임 산출물은 해당 계약
@@ -198,16 +171,7 @@ derived 평가가 그래프에 들어갑니다. Late 근거는 새 산출물을 
 
 ## Operational 의도 흐름
 
-```mermaid
-flowchart LR
- N[Natural language] --> C[Candidate interpretation]
- C --> V[Verified semantic plan]
- V --> F[Query FunctionType]
- F --> Q[ObjectSet and evidence functions]
- Q --> S[Context snapshot]
- S --> P[Policy input when needed]
- P --> D[Decision pipeline]
-```
+![Operational 의도 흐름. 주요 단계는 Natural language, Candidate interpretation, Verified semantic plan, Query FunctionType, ObjectSet and evidence functions, Context snapshot, Policy input when needed, Decision pipeline입니다.](../../diagrams/generated/fdai-roadmap-architecture-operating-ontology-metamodel-02.ko.svg)
 
 Lexical matching, 임베딩, 모델은 후보만 만듭니다. 후보는
 `VerifiedSemanticPlan`이 되기 전에 exact 온톨로지 release, 의미 카탈로그, 인자 및 검토된

@@ -162,17 +162,7 @@ Notes on the schema:
 
 ## Boot and Reload
 
-```mermaid
-flowchart LR
-  G[Git: catalog-as-code] -->|azd deploy / config-reload event| P[process start]
-  P --> COMP[load ObjectType/LinkType/ActionType + Rule YAMLs]
-  COMP --> OPA[compile OPA/Rego]
-  COMP --> IDX[build in-memory dispatch indexes<br/>applies_to, triggered_by inverted lookup]
-  OPA --> READY[ready]
-  IDX --> READY
-  P --> DB[(PostgreSQL: instance state)]
-  P --> KV[(Key Vault: resolved-models.json)]
-```
+![Boot and Reload. The main stages are Git: catalog-as-code, process start, load ObjectType/LinkType/ActionType + Rule YAMLs, compile OPA/Rego, build in-memory dispatch indexes / applies_to, triggered_by inverted lookup, ready, PostgreSQL: instance state, Key Vault: resolved-models.json.](../../diagrams/generated/fdai-roadmap-architecture-rule-lookup-ontology-storage-01.en.svg)
 
 - **Static artifacts source of truth is Git; instance state source of truth is PostgreSQL.**
   The two layers never overlap.

@@ -23,16 +23,7 @@ on `fdai-evaluation-sdk`, receives a public `EvaluationHost`, and initiates a bo
 host turns neutral tasks into typed ingress and keeps decision, risk, approval, execution, and audit
 inside FDAI.
 
-```mermaid
-flowchart LR
-  H[External harness] <--> D[External driver]
-  D --> SDK[Evaluation SDK]
-  SDK --> EH[Public EvaluationHost]
-  EH --> C[Capability and custody brokers]
-  EH --> F[FDAI typed ingress and control loop]
-  F --> R[EvaluationResult]
-  R --> D
-```
+![Design at a glance. The main stages are External harness, External driver, Evaluation SDK, Public EvaluationHost, Capability and custody brokers, FDAI typed ingress and control loop, EvaluationResult.](../../diagrams/generated/fdai-roadmap-interfaces-benchmark-adapters-01.en.svg)
 
 ## Package boundary
 

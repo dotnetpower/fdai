@@ -1,8 +1,8 @@
 ---
 title: 프로그래밍 방식 도구 파이프라인
 translation_of: programmatic-tool-pipelines.md
-translation_source_sha: 89330c7f406a71492c78d2bac0459f71aacec426
-translation_revised: 2026-08-14
+translation_source_sha: cea50461d1aaa4bd92e0011cf05355a899fca116
+translation_revised: 2026-08-20
 ---
 # 프로그래밍 방식 도구 파이프라인
 
@@ -52,17 +52,7 @@ translation_revised: 2026-08-14
 `PipelineClient`만 호출할 수 있으며, 각 호출은 상위 브로커와 기존 등록 `ToolExecutor` dispatch
 경로로 돌아옵니다.
 
-```mermaid
-flowchart LR
-    R[Reviewed source + digest] --> V[AST and sandbox validation]
-    V --> C[Run capability]
-    C --> X[Isolated child]
-    X -->|generated client| B[Parent broker]
-    B --> T[Registered ToolExecutor]
-    T --> P[(Per-call receipts)]
-    X --> O[Bounded final projection]
-    O --> A[(Aggregate result)]
-```
+![한눈에 보는 설계. 주요 단계는 Reviewed source + digest, AST and sandbox validation, Run capability, Isolated child, Parent broker, Registered ToolExecutor, Per-call receipts, Bounded final projection, Aggregate result입니다.](../../diagrams/generated/fdai-roadmap-interfaces-programmatic-tool-pipelines-01.ko.svg)
 
 ## 변경할 수 없는 계약
 

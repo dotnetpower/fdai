@@ -35,19 +35,7 @@ YAML gets a live board immediately, and the FE **does not change**.
 
 ## Architecture
 
-```mermaid
-flowchart LR
-    yaml[rule-catalog/reports/*.yaml] --> catalog[ReportCatalog]
-    catalog --> engine[ReportEngine]
-    engine -->|ReportSpec| widgets[WidgetRegistry]
-    engine -->|QuerySpec| sources[DataSourceRegistry]
-    sources -->|DataSet| widgets
-    widgets -->|Mapping| engine
-    engine --> rendered[RenderedReport]
-    rendered --> formats[FormatRegistry]
-    formats --> api[GET /reports/id/render]
-    api --> fe[Console SPA]
-```
+![Architecture. The main stages are rule-catalog/reports/*.yaml, ReportCatalog, ReportEngine, WidgetRegistry, DataSourceRegistry, RenderedReport, FormatRegistry, GET /reports/id/render, Console SPA.](../../diagrams/generated/fdai-roadmap-interfaces-reporting-subsystem-01.en.svg)
 
 Four registries, one engine:
 

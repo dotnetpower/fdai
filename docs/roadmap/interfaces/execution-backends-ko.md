@@ -1,8 +1,8 @@
 ---
 title: 거버넌스 적용 실행 백엔드
 translation_of: execution-backends.md
-translation_source_sha: 3604e9875edfd37fc725e55cecbc9e499132477c
-translation_revised: 2026-08-16
+translation_source_sha: 64e895ea8a83d02e02009f9828842c0ef896c2b0
+translation_revised: 2026-08-20
 ---
 
 # 거버넌스 적용 실행 백엔드
@@ -24,15 +24,7 @@ FDAI는 명령 또는 작업을 먼저 기존 샌드박스 카탈로그로 검�
 불변 서버가 소유한 `ExecutionBackendProfile`의 교집합을 계산합니다. 백엔드는 effective 요청만
 받아 수명 주기 I/O를 수행하며, 액션 실행 여부를 결정하지 않습니다.
 
-```mermaid
-flowchart LR
-    THOR[Thor dispatch] --> SANDBOX[기존 sandbox validation]
-    SANDBOX --> INTERSECT[No-widening profile intersection]
-    INTERSECT --> LEDGER[Durable submission claim]
-    LEDGER --> BACKEND[ExecutionBackend]
-    BACKEND --> STATUS[Status, receipt, cleanup]
-    STATUS --> LEDGER
-```
+![한눈에 보는 설계. 주요 단계는 Thor dispatch, 기존 sandbox validation, No-widening profile intersection, Durable submission claim, ExecutionBackend, Status, receipt, cleanup입니다.](../../diagrams/generated/fdai-roadmap-interfaces-execution-backends-01.ko.svg)
 
 ## 권한 경계
 

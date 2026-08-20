@@ -1,8 +1,8 @@
 ---
 title: 정책 추상화와 통제 목표
 translation_of: policy-abstraction-and-control-objectives.md
-translation_source_sha: b27976122224a842abd7b4fd71edc06c354c9303
-translation_revised: 2026-08-13
+translation_source_sha: 23a3ec42c698ab94f9562413c6cc31a841767040
+translation_revised: 2026-08-20
 ---
 # 정책 추상화와 통제 목표
 
@@ -24,17 +24,7 @@ translation_revised: 2026-08-13
 공급자, 리소스 형태, 근거, 매개 변수 또는 구현이 서로 다른 여러 버전 고정 Rule로 실현될 수
 있습니다.
 
-```mermaid
-flowchart LR
-    Q[Natural-language request] --> I[Typed operational intent]
-    I --> O[Applicable ControlObjectives]
-    O --> B[Verified RuleObjectiveBindings]
-    B --> R[Active Rules and Assignments]
-    R --> P[PolicyArtifact]
-    P --> E[OPA or deterministic evaluator]
-    E --> V[Verdict]
-    V --> A[Governed ActionType path]
-```
+![한눈에 보는 설계. 주요 단계는 Natural-language request, Typed operational intent, Applicable ControlObjectives, Verified RuleObjectiveBindings, Active Rules and Assignments, PolicyArtifact, OPA or deterministic evaluator, Verdict, Governed ActionType path입니다.](../../diagrams/generated/fdai-roadmap-rules-and-detection-policy-abstraction-and-control-objectives-01.ko.svg)
 
 이 흐름은 다음 세 경계를 유지합니다.
 

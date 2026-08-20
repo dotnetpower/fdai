@@ -1,7 +1,7 @@
 ---
 translation_of: operational-planning.md
-translation_source_sha: e15f9099e620e73c10cddb396aab3f579cb71698
-translation_revised: 2026-08-15
+translation_source_sha: ceef098b4bd909a1bf633e87a6ed8938c73ee337
+translation_revised: 2026-08-20
 ---
 # 운영 계획
 
@@ -80,22 +80,7 @@ DecisionCase, ActionOption, 타입이 지정된 온톨로지 함수, Assurance T
 운영 계획 실행은 버전이 고정된 작업 흐름 인스턴스입니다. 프로세스 저널이 진행 상태를 기록하고,
 DecisionCase와 ActionOption은 변경할 수 없는 의미 기반 결정 산출물로 유지됩니다.
 
-```mermaid
-flowchart LR
-    R[Typed planning request] --> P[Workflow and Process]
-    P --> C[Forseti operational context snapshot]
-    C --> F[Forseti DecisionCase]
-    F --> S[Specialist evidence]
-    S --> L[Versioned logic assets]
-    L --> X[Compute and twin simulation]
-    X --> H[Heimdall verification]
-    H --> O[Odin arbitration]
-    O --> V[Forseti verdict]
-    V --> A[Var approval when required]
-    A --> T[Thor execution]
-    T --> E[Observed outcome]
-    E --> N[Muninn and Norns learning]
-```
+![한눈에 보는 설계. 주요 단계는 Typed planning request, Workflow and Process, Forseti operational context snapshot, Forseti DecisionCase, Specialist evidence, Versioned logic assets, Compute and twin simulation, Heimdall verification, Odin arbitration, Forseti verdict, Var approval when required, Thor execution입니다.](../../diagrams/generated/fdai-roadmap-decisioning-operational-planning-01.ko.svg)
 
 ## 재사용하는 권위 원천
 

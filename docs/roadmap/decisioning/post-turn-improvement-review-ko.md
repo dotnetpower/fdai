@@ -1,8 +1,8 @@
 ---
 title: Post-Turn 개선 검토
 translation_of: post-turn-improvement-review.md
-translation_source_sha: b52d39b29e4ab1a570271e8d930126f34378b4b6
-translation_revised: 2026-08-14
+translation_source_sha: 697b74ff99ec9d39a750c8212e6892be3be6aeb2
+translation_revised: 2026-08-20
 ---
 
 # Post-Turn 개선 검토
@@ -45,23 +45,7 @@ Norns는 결정론적 충족 여부를 적용하고 선택적으로 서로 다�
 제안을 요청합니다. 완전한 합의가 이루어지면 대상 산출물의 소유자 subsystem에 초안을 만들
 수 있습니다. 그 밖의 모든 결과는 범위가 제한된 최종 기록이 됩니다.
 
-```mermaid
-flowchart LR
-    CHAT[완료 turn 저장] --> QUEUE[Bounded non-blocking queue]
-    QUEUE --> BRAGI[Bragi가 object.turn 발행]
-    BRAGI --> NORNS[Norns eligibility 검사]
-    NORNS -->|대상 아님| LEDGER[Durable terminal record]
-    NORNS -->|대상| MODELS[서로 다른 두 model family]
-    MODELS --> VERIFY[완전한 합의와 결정론적 검사]
-    VERIFY -->|보류| LEDGER
-    VERIFY -->|memory| MEMORY[Operator-memory draft]
-    VERIFY -->|skill| SKILL[Runtime-skill draft]
-    VERIFY -->|rule hint| RULE[Norns RuleCandidate 경로]
-    MEMORY --> PANEL[Read-only projection]
-    SKILL --> PANEL
-    RULE --> PANEL
-    LEDGER --> PANEL
-```
+![한눈에 보는 설계. 주요 단계는 완료 turn 저장, Bounded non-blocking queue, Bragi가 object.turn 발행, Norns eligibility 검사, Durable terminal record, 서로 다른 두 model family, 완전한 합의와 결정론적 검사, Operator-memory draft, Runtime-skill draft, Norns RuleCandidate 경로, Read-only projection입니다.](../../diagrams/generated/fdai-roadmap-decisioning-post-turn-improvement-review-01.ko.svg)
 
 ## 입력 계약
 

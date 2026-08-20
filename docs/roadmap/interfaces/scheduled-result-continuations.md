@@ -16,14 +16,7 @@ An eligible schedule selects `origin_thread` or `dedicated_thread`. FDAI persist
 `ScheduledConversationAnchor` before delivery, then projects the result as provenance-labeled data
 when an authorized operator opens it.
 
-```mermaid
-flowchart LR
-    RUN[Scheduled run] --> RESULT[Persist result]
-    RESULT --> ANCHOR[Create scoped anchor]
-    ANCHOR --> DELIVERY[Deliver with anchor metadata]
-    DELIVERY --> REPLY[Authorized reply]
-    REPLY --> FACT[Project typed fact with no instruction authority]
-```
+![Design at a glance. The main stages are Scheduled run, Persist result, Create scoped anchor, Deliver with anchor metadata, Authorized reply, Project typed fact with no instruction authority.](../../diagrams/generated/fdai-roadmap-interfaces-scheduled-result-continuations-01.en.svg)
 
 ## Contracts
 

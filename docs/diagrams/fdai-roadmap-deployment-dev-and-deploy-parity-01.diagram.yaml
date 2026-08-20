@@ -1,0 +1,205 @@
+id: fdai-roadmap-deployment-dev-and-deploy-parity-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Deployer-Scoped LLM Provisioning
+    description: FDAI flow for Deployer-Scoped LLM Provisioning.
+    alt: "Deployer-Scoped LLM Provisioning. The main stages are [terraform apply], az account show / + resolve deployer
+      principal, Bootstrap audit entry: / deployer_object_id, sub, region, read rule-catalog/llm-registry.yaml, query
+      Azure catalog: / Foundry / AOAI SKUs available / in var.region, deployer has / Cognitive Services Contributor / on
+      target subscription?, emit warning: / skip LLM provisioning / mark T2 capability = HIL-only, preferred family
+      available / AND deployer sub has quota?, mark this capability HIL-only / continue with remaining, provision
+      deployment / cap_tpm from registry, mixed-model invariant: / primary.publisher != secondary.publisher?, abort with
+      clear error / (fork must expand preferences)."
+  ko:
+    title: 배포자-스코프 LLM 프로비저닝
+    description: 배포자-스코프 LLM 프로비저닝에 대한 FDAI 흐름입니다.
+    alt: "배포자-스코프 LLM 프로비저닝. 주요 단계는 [terraform apply], az account show / + 배포자 principal 해결, Bootstrap audit entry: /
+      deployer_object_id, sub, region, rule-catalog/llm-registry.yaml 읽기, Azure 카탈로그 조회: / var.region 에서 / 사용가능한 Foundry
+      / AOAI SKU, 배포자가 / Cognitive Services Contributor / 대상 subscription에 있음?, 경고 emit: / LLM 프로비저닝 스킵 / T2 capability
+      = HIL-only, preferred family 사용가능 / AND 배포자 sub 쿼터 있음?, 이 capability HIL-only 마킹 / 나머지는 계속, deployment 프로비저닝 /
+      cap_tpm 은 registry에서, mixed-model 불변식: / primary.publisher != secondary.publisher?, 명확한 에러로 abort / (fork가
+      preference 확장)입니다."
+canvas:
+  width: 1600
+  height: 1200
+  direction: RIGHT
+groups: []
+nodes:
+  - id: start
+    kind: process
+    shape: terminator
+    label:
+      en: "[terraform apply]"
+      ko: "[terraform apply]"
+  - id: whoami
+    kind: process
+    shape: card
+    label:
+      en: az account show / + resolve deployer principal
+      ko: az account show / + 배포자 principal 해결
+  - id: audit
+    kind: process
+    shape: card
+    label:
+      en: "Bootstrap audit entry: / deployer_object_id, sub, region"
+      ko: "Bootstrap audit entry: / deployer_object_id, sub, region"
+  - id: reg
+    kind: process
+    shape: card
+    label:
+      en: read rule-catalog/llm-registry.yaml
+      ko: rule-catalog/llm-registry.yaml 읽기
+  - id: cat
+    kind: process
+    shape: card
+    label:
+      en: "query Azure catalog: / Foundry / AOAI SKUs available / in var.region"
+      ko: "Azure 카탈로그 조회: / var.region 에서 / 사용가능한 Foundry / AOAI SKU"
+  - id: rbac
+    kind: decision
+    shape: diamond
+    label:
+      en: deployer has / Cognitive Services Contributor / on target subscription?
+      ko: 배포자가 / Cognitive Services Contributor / 대상 subscription에 있음?
+  - id: skip1
+    kind: process
+    shape: card
+    label:
+      en: "emit warning: / skip LLM provisioning / mark T2 capability = HIL-only"
+      ko: "경고 emit: / LLM 프로비저닝 스킵 / T2 capability = HIL-only"
+    description:
+      en: "When: no"
+      ko: "조건: no"
+  - id: match
+    kind: decision
+    shape: diamond
+    label:
+      en: preferred family available / AND deployer sub has quota?
+      ko: preferred family 사용가능 / AND 배포자 sub 쿼터 있음?
+    description:
+      en: "When: yes"
+      ko: "조건: yes"
+  - id: skip2
+    kind: process
+    shape: card
+    label:
+      en: mark this capability HIL-only / continue with remaining
+      ko: 이 capability HIL-only 마킹 / 나머지는 계속
+    description:
+      en: "When: no for capability"
+      ko: "조건: no for capability"
+  - id: deploy
+    kind: process
+    shape: card
+    label:
+      en: provision deployment / cap_tpm from registry
+      ko: deployment 프로비저닝 / cap_tpm 은 registry에서
+    description:
+      en: "When: yes"
+      ko: "조건: yes"
+  - id: inv
+    kind: decision
+    shape: diamond
+    label:
+      en: "mixed-model invariant: / primary.publisher != secondary.publisher?"
+      ko: "mixed-model 불변식: / primary.publisher != secondary.publisher?"
+  - id: abort
+    kind: process
+    shape: card
+    label:
+      en: abort with clear error / (fork must expand preferences)
+      ko: 명확한 에러로 abort / (fork가 preference 확장)
+    description:
+      en: "When: violated"
+      ko: "조건: violated"
+  - id: write
+    kind: process
+    shape: card
+    label:
+      en: emit resolved-models.json file or inline JSON
+      ko: resolved-models.json 파일 또는 inline JSON emit
+    description:
+      en: "When: ok"
+      ko: "조건: ok"
+  - id: role
+    kind: process
+    shape: card
+    label:
+      en: "role-assign executor MI: / Cognitive Services OpenAI User"
+      ko: "executor MI에 role-assign: / Cognitive Services OpenAI User"
+  - id: done
+    kind: process
+    shape: terminator
+    label:
+      en: "[done]"
+      ko: "[done]"
+edges:
+  - id: flow-01
+    from: start
+    to: whoami
+    kind: request
+  - id: flow-02
+    from: whoami
+    to: audit
+    kind: request
+  - id: flow-03
+    from: audit
+    to: reg
+    kind: request
+  - id: flow-04
+    from: reg
+    to: cat
+    kind: request
+  - id: flow-05
+    from: cat
+    to: rbac
+    kind: request
+  - id: flow-06
+    from: rbac
+    to: skip1
+    kind: request
+  - id: flow-07
+    from: rbac
+    to: match
+    kind: request
+  - id: flow-08
+    from: match
+    to: skip2
+    kind: request
+  - id: flow-09
+    from: match
+    to: deploy
+    kind: request
+  - id: flow-10
+    from: deploy
+    to: inv
+    kind: request
+  - id: flow-11
+    from: inv
+    to: abort
+    kind: request
+  - id: flow-12
+    from: inv
+    to: write
+    kind: request
+  - id: flow-13
+    from: skip1
+    to: write
+    kind: request
+  - id: flow-14
+    from: skip2
+    to: write
+    kind: request
+  - id: flow-15
+    from: write
+    to: role
+    kind: request
+  - id: flow-16
+    from: role
+    to: done
+    kind: request

@@ -1,8 +1,8 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: b4a35dc8f618f5381ce264d6a2ad857132a6ffaf
-translation_revised: 2026-08-16
+translation_source_sha: 4dccbccd402a88b2e348db53bab8549901b24002
+translation_revised: 2026-08-20
 ---
 # 리포팅 서브시스템
 
@@ -40,19 +40,7 @@ translation_revised: 2026-08-16
 
 ## 아키텍처
 
-```mermaid
-flowchart LR
-    yaml[rule-catalog/reports/*.yaml] --> catalog[ReportCatalog]
-    catalog --> engine[ReportEngine]
-    engine -->|ReportSpec| widgets[WidgetRegistry]
-    engine -->|QuerySpec| sources[DataSourceRegistry]
-    sources -->|DataSet| widgets
-    widgets -->|Mapping| engine
-    engine --> rendered[RenderedReport]
-    rendered --> formats[FormatRegistry]
-    formats --> api[GET /reports/id/render]
-    api --> fe[Console SPA]
-```
+![아키텍처. 주요 단계는 rule-catalog/reports/*.yaml, ReportCatalog, ReportEngine, WidgetRegistry, DataSourceRegistry, RenderedReport, FormatRegistry, GET /reports/id/render, Console SPA입니다.](../../diagrams/generated/fdai-roadmap-interfaces-reporting-subsystem-01.ko.svg)
 
 네 개의 레지스트리, 하나의 엔진:
 

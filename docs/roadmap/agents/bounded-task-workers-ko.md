@@ -2,8 +2,8 @@
 title: 제한된 작업 워커
 translation_of: bounded-task-workers.md
 translation_source: docs/roadmap/agents/bounded-task-workers.md
-translation_source_sha: 8e37f1bc1152587d672863fe2a3fff0791d0db02
-translation_revised: 2026-08-14
+translation_source_sha: 2474364697751e02b98193d91450f4f842fbf0d0
+translation_revised: 2026-08-20
 ---
 
 # 제한된 작업 워커
@@ -20,17 +20,7 @@ translation_revised: 2026-08-14
 보이는 도구, 서버 소유 프로파일의 교집합을 계산한 다음 fresh 맥락으로 워커를 실행합니다.
 제한되고 신뢰되지 않은 최종 결과만 부모 합성으로 돌아갑니다.
 
-```mermaid
-flowchart LR
-    PLAN[기존 answer plan] --> REQUEST[Typed worker 요청]
-    REQUEST --> ATTENUATE[Capability 교집합]
-    ATTENUATE -->|읽기 도구 없음| DENY[차단된 terminal result]
-    ATTENUATE -->|제한된 읽기 도구| RUN[격리된 worker runtime]
-    RUN --> STORE[영구 snapshot 및 branch event]
-    STORE --> SYNTHESIS[신뢰되지 않은 부모 합성]
-    STORE --> VIEW[읽기 전용 projection]
-    STORE --> SINK[완료 인계]
-```
+![설계 요약. 주요 단계는 기존 answer plan, Typed worker 요청, Capability 교집합, 차단된 terminal result, 격리된 worker runtime, 영구 snapshot 및 branch event, 신뢰되지 않은 부모 합성, 읽기 전용 projection, 완료 인계입니다.](../../diagrams/generated/fdai-roadmap-agents-bounded-task-workers-01.ko.svg)
 
 ## 워커 신원 및 소유권
 

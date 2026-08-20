@@ -1,7 +1,7 @@
 ---
 translation_of: human-agent-assignment-implementation-plan.md
-translation_source_sha: 79ab72f1bc6bcdc6a175770880e292de035118f8
-translation_revised: 2026-08-13
+translation_source_sha: 4823e93e599bf4f2df4ee5273c00f4e09bdb9b0a
+translation_revised: 2026-08-20
 ---
 # 사용자-에이전트 할당 구현 계획
 
@@ -49,20 +49,7 @@ translation_revised: 2026-08-13
 묶음 6부터 묶음 8까지는 IAM 권한을 높이지 않고 승인 연속성과 지식 수집을 추가합니다. 각 묶음은
 집중 커밋 전에 완료하고 검증하며, 관련 없는 작업 트리 변경을 해당 커밋에 섞지 않습니다.
 
-```mermaid
-flowchart LR
-  P1[묶음 1 임무 스키마] --> P2[묶음 2 할당 코어]
-  P2 --> P3[묶음 3 API 및 콘솔]
-  P2 --> P4[묶음 4 담당 체계 조정]
-  P3 --> P5[묶음 5 IAM 프로비저너]
- P4 --> P5
-  P2 --> P6[묶음 6 승인 감독자]
-  P3 --> P7[묶음 7 인수인계 목표]
-  P7 --> P8[묶음 8 지식 수명주기]
-  P5 --> P9[묶음 9 프로덕션 롤아웃]
- P6 --> P9
- P8 --> P9
-```
+![제공 형태. 주요 단계는 묶음 1 임무 스키마, 묶음 2 할당 코어, 묶음 3 API 및 콘솔, 묶음 4 담당 체계 조정, 묶음 5 IAM 프로비저너, 묶음 6 승인 감독자, 묶음 7 인수인계 목표, 묶음 8 지식 수명주기, 묶음 9 프로덕션 롤아웃입니다.](../../diagrams/generated/fdai-roadmap-interfaces-human-agent-assignment-implementation-plan-01.ko.svg)
 
 ## 현재 기준선과 공백
 

@@ -1,7 +1,7 @@
 ---
 translation_of: scheduled-result-continuations.md
-translation_source_sha: 10fcbd960d338b0c39d02270b9835918d402b9f2
-translation_revised: 2026-08-16
+translation_source_sha: ea68d32d5281c2705b07ad771114ea35c609ff28
+translation_revised: 2026-08-20
 ---
 # 예약 결과 이어가기
 
@@ -18,14 +18,7 @@ translation_revised: 2026-08-16
 `ScheduledConversationAnchor`를 저장한 다음, 권한이 있는 오퍼레이터가 열 때 출처 이력 라벨이
 있는 데이터로 결과를 투영합니다.
 
-```mermaid
-flowchart LR
-  RUN[예약 실행] --> RESULT[결과 저장]
-  RESULT --> ANCHOR[범위 제한 앵커 생성]
-  ANCHOR --> DELIVERY[앵커 metadata와 함께 전달]
-  DELIVERY --> REPLY[권한 있는 답장]
-  REPLY --> FACT[명령 권한 없는 typed fact 투영]
-```
+![설계 개요. 주요 단계는 예약 실행, 결과 저장, 범위 제한 앵커 생성, 앵커 metadata와 함께 전달, 권한 있는 답장, 명령 권한 없는 typed fact 투영입니다.](../../diagrams/generated/fdai-roadmap-interfaces-scheduled-result-continuations-01.ko.svg)
 
 ## 계약
 

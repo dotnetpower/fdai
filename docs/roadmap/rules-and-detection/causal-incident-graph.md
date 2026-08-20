@@ -26,21 +26,7 @@ hypotheses, actively searches for evidence that both supports and refutes each h
 records one of four causal evidence grades. Timing alone can show association; only controlled
 intervention or an equivalent recovery reversal can establish interventional evidence.
 
-```mermaid
-flowchart LR
-    E[Events and observations] --> C[Correlated incident]
-    T[Dependency topology] --> G[Time-consistent incident graph]
-    C --> G
-    G --> H[CausalHypothesis candidates]
-    H --> S[Supporting evidence]
-    H --> R[Refuting evidence]
-    S --> V[Deterministic causal verifier]
-    R --> V
-    V --> D[DecisionCase]
-    D --> P[Recovery plan]
-    P --> O[Observed outcome]
-    O --> H
-```
+![Design at a glance. The main stages are Events and observations, Correlated incident, Dependency topology, Time-consistent incident graph, CausalHypothesis candidates, Supporting evidence, Refuting evidence, Deterministic causal verifier, DecisionCase, Recovery plan, Observed outcome.](../../diagrams/generated/fdai-roadmap-rules-and-detection-causal-incident-graph-01.en.svg)
 
 ## Competency questions
 

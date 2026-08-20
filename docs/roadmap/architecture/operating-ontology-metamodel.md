@@ -17,34 +17,7 @@ without turning every view into a new ontology declaration kind.
 
 ## Design at a glance
 
-```mermaid
-flowchart TB
-    subgraph L[Operational lenses]
-        O[Object]
-        R[Relationship]
-        S[State]
-        C[Context]
-        A[Action]
-    end
-
-    subgraph D[Versioned declarations]
-        OT[ObjectType]
-        LT[LinkType]
-        IT[InterfaceType]
-        FT[FunctionType]
-        AT[ActionType]
-    end
-
-    subgraph X[Runtime artifacts]
-        OI[Object and Link instances]
-        SF[Observed and derived facts]
-        CS[Immutable context snapshot]
-        MP[MutationPlan, KineticSafetyReceipt, and ActionRun]
-    end
-
-    L --> D
-    D --> X
-```
+![Design at a glance. The main stages are Object, Relationship, State, Context, Action, ObjectType, LinkType, InterfaceType, FunctionType, ActionType, Object and Link instances, Observed and derived facts.](../../diagrams/generated/fdai-roadmap-architecture-operating-ontology-metamodel-01.en.svg)
 
 The two groups answer different questions. Operational lenses explain the domain to an operator.
 Declaration kinds define exact, content-addressed contracts. Runtime artifacts carry values,
@@ -198,16 +171,7 @@ authority-bearing collaboration channel.
 
 ## Operational intent flow
 
-```mermaid
-flowchart LR
-    N[Natural language] --> C[Candidate interpretation]
-    C --> V[Verified semantic plan]
-    V --> F[Query FunctionType]
-    F --> Q[ObjectSet and evidence functions]
-    Q --> S[Context snapshot]
-    S --> P[Policy input when needed]
-    P --> D[Decision pipeline]
-```
+![Operational intent flow. The main stages are Natural language, Candidate interpretation, Verified semantic plan, Query FunctionType, ObjectSet and evidence functions, Context snapshot, Policy input when needed, Decision pipeline.](../../diagrams/generated/fdai-roadmap-architecture-operating-ontology-metamodel-02.en.svg)
 
 Lexical matching, embeddings, and models produce candidates only. A candidate must resolve the
 exact ontology release, semantic catalog, arguments, and reviewed evidence before it becomes a

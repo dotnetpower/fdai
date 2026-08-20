@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: 9059284e7cacb2ab994fa1332beb5e2d331a2e2f
-translation_revised: 2026-08-16
+translation_source_sha: f10c2bee64a7f8e2830b25538666b1dba48e9d75
+translation_revised: 2026-08-20
 ---
 
 # 오퍼레이터 시작 SRE 및 아키텍처 리뷰
@@ -35,20 +35,7 @@ FDAI는 모든 작업 단위에 하나의 추적 신원을 사용하고, 근거�
 결정을 기록하지만, 그 결과 발생하는 리소스 변경은 일반 ActionType 파이프라인으로 다시
 진입합니다.
 
-```mermaid
-flowchart LR
-  ASK[오퍼레이터 요청] --> CLASSIFY{문제 대응인가?}
-  CLASSIFY -->|아니요| WORK[Correlation ID 및 선택적 Process ID]
-  CLASSIFY -->|예| INCIDENT[Incident registry]
-  INCIDENT --> PROPOSAL[Typed ActionProposal]
-  PROPOSAL --> ROUTE[Trust 및 risk gate]
-  ROUTE -->|shadow| OBSERVE[판단, journal, audit]
-  ROUTE -->|auto| EXECUTE[승격된 executor adapter]
-  ROUTE -->|hil| APPROVE[승인 후 재개]
-  OBSERVE --> STREAM[Stage stream]
-  EXECUTE --> STREAM
-  APPROVE --> STREAM
-```
+![설계 요약. 주요 단계는 오퍼레이터 요청, 문제 대응인가?, Correlation ID 및 선택적 Process ID, Incident registry, Typed ActionProposal, Trust 및 risk gate, 판단, journal, audit, 승격된 executor adapter, 승인 후 재개, Stage stream입니다.](../../diagrams/generated/fdai-roadmap-operations-operator-initiated-sre-and-arb-01.ko.svg)
 
 ## 구현 상태
 

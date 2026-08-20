@@ -64,21 +64,7 @@ risk and human-approval decision.
 Execution authorization is resolved in four independently versioned layers. Every decision pins
 the inputs from all four layers for deterministic replay.
 
-```mermaid
-flowchart LR
-    AT[ActionType] -->|requires| AR[AuthorizationRequirement]
-    AR -->|demands| AC[AuthorizationCapability]
-    AR -->|targets| RT[ResourceType]
-    PA[AuthorizationPolicyAssignment] -->|governs| AC
-    PA -->|permits| EP[ExecutionProfile]
-    PM[ProviderPermissionSet] -->|implements| AC
-    EP --> IR[Deployment identity binding]
-    PM --> OP[Provider operations]
-    IR --> EO[Effective-access observation]
-    OP --> EO
-    EO --> AD[AuthorizationDecision]
-    AD --> RG[Risk gate]
-```
+![Design at a glance. The main stages are ActionType, AuthorizationRequirement, AuthorizationCapability, ResourceType, AuthorizationPolicyAssignment, ExecutionProfile, ProviderPermissionSet, Deployment identity binding, Provider operations, Effective-access observation, AuthorizationDecision, Risk gate.](../../diagrams/generated/fdai-roadmap-decisioning-execution-authorization-ontology-01.en.svg)
 
 | Layer | Question | Authority |
 |-------|----------|-----------|
@@ -302,23 +288,7 @@ profile, provider mapping version, grant mode, expiry, original action id, combi
 decision digest, and idempotency key. Multiple missing pairs produce distinct request ids. A
 partial submission failure is audited per proposal and leaves the original action held.
 
-```mermaid
-sequenceDiagram
-    participant F as Forseti
-    participant V as Var
-    participant D as Protected deployer
-    participant H as Heimdall
-    participant T as Thor
-    participant S as Saga
-    F->>S: AuthorizationDecision(GRANT_REQUIRED)
-    F->>V: AccessGrantRequest
-    V->>S: independently approved exact request
-    V->>D: exact-plan governance change
-    D->>S: apply receipt and expiry
-    H->>S: fresh-token effective-access observation
-    H->>F: re-evaluate original action from the beginning
-    F->>T: authorized verdict only after all gates pass
-```
+![Grant lifecycle. The main stages are AuthorizationDecision(GRANT_REQUIRED), AccessGrantRequest, independently approved exact request, exact-plan governance change, apply receipt and expiry, fresh-token effective-access observation, re-evaluate original action from the beginning, authorized verdict only after all gates pass.](../../diagrams/generated/fdai-roadmap-decisioning-execution-authorization-ontology-02.en.svg)
 
 The executor identity cannot grant roles to itself. The protected deployer applies the approved
 exact plan. A changed scope, operation set, duration, identity profile, or plan digest invalidates

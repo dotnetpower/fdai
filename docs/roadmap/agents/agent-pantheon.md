@@ -110,27 +110,7 @@ governance staff report as staff (dotted) to Odin, independent from the
 operations line. Domain specialists and sensing agents sit under Forseti so
 that data flows into judgment, not directly into execution.
 
-```mermaid
-graph TD
-    Odin["Odin<br/>(Master Planner)"]
-
-    Odin --> Thor["Thor<br/>(Responder)"]
-    Odin --> Forseti["Forseti<br/>(Judge)"]
-    Odin -. staff .-> Mimir["Mimir<br/>(Rule Steward)"]
-    Odin -. staff .-> Muninn["Muninn<br/>(Memory)"]
-    Odin -. staff .-> Saga["Saga<br/>(Auditor)"]
-    Odin -. staff .-> Norns["Norns<br/>(Learner)"]
-
-    Thor --> Vidar["Vidar<br/>(Recovery)"]
-    Thor --> Bragi["Bragi<br/>(Narrator)"]
-    Thor --> Var["Var<br/>(Approver)"]
-
-    Forseti --> Huginn["Huginn<br/>(Event Collector)"]
-    Forseti --> Heimdall["Heimdall<br/>(Observer)"]
-    Forseti --> Njord["Njord<br/>(Cost)"]
-    Forseti --> Freyr["Freyr<br/>(Capacity)"]
-    Forseti --> Loki["Loki<br/>(Chaos)"]
-```
+![2. Organization chart. The main stages are Odin / (Master Planner), Thor / (Responder), Forseti / (Judge), Mimir / (Rule Steward), Muninn / (Memory), Saga / (Auditor), Norns / (Learner), Vidar / (Recovery), Bragi / (Narrator), Var / (Approver), Huginn / (Event Collector), Heimdall / (Observer).](../../diagrams/generated/fdai-roadmap-agents-agent-pantheon-01.en.svg)
 
 ## 3. Runtime relationship diagram
 
@@ -141,26 +121,7 @@ lineage through Huginn, Forseti, and Thor. A delivery-owned producer stores an o
 neither changes quorum, mode, judgment, approval, or execution authority.
 Norns proposes to Mimir, and Odin arbitrates conflicts before judgment.
 
-```mermaid
-graph LR
-    Huginn["Huginn"] --> Heimdall["Heimdall"]
-    Heimdall --> Forseti["Forseti"]
-    Mimir["Mimir"] -. rules .-> Forseti
-    Muninn["Muninn"] -. context .-> Forseti
-    Njord["Njord"] -. advises .-> Forseti
-    Freyr["Freyr"] -. advises .-> Forseti
-    Loki["Loki"] -. schedules .-> Heimdall
-    Forseti -->|verdict: auto/hil/deny| Thor["Thor"]
-    Thor -->|auto| Vidar["Vidar"]
-    Thor -->|hil| Var["Var"]
-    Var --> Thor
-    Thor -->|deny| Saga["Saga"]
-    Vidar --> Saga
-    Bragi["Bragi"] -. queries .-> Muninn
-    Odin["Odin"] -. arbitrates .-> Forseti
-    Saga -. signals .-> Norns["Norns"]
-    Norns -. proposes .-> Mimir
-```
+![3. Runtime relationship diagram. The main stages are Huginn, Heimdall, Forseti, Mimir, Muninn, Njord, Freyr, Loki, Thor, Vidar, Var, Saga.](../../diagrams/generated/fdai-roadmap-agents-agent-pantheon-02.en.svg)
 
 ### 3.1 Multi-objective arbitration
 

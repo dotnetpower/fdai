@@ -149,24 +149,7 @@ prod topology so shadow evaluation is representative.
 
 ## CI/CD Pipeline
 
-```mermaid
-flowchart TD
-    PR[Pull Request] --> LINT[lint + repository gates]
-    LINT --> UNIT[unit tests: T0 engine + risk gate]
-    UNIT -->|fail| STOP[block merge/promotion]
-    UNIT -->|pass| SCAN[IaC + dependency + secret scan]
-    SCAN -->|fail| STOP
-    SCAN -->|pass| BUILD[build + SBOM + sign + attest]
-    BUILD --> STAGE[deploy same artifact to staging]
-    STAGE --> SHADOW[shadow evaluation + regression]
-    SHADOW -->|escape or regression| STOP
-    SHADOW -->|clean| GATE{promote code?}
-    GATE -->|manual approve| PRODCD[deploy same image to prod]
-    GATE -->|reject| STOP
-    PRODCD --> ENFORCE{enable enforce?}
-    ENFORCE -->|separate manual approve| ON[enforce per action]
-    ENFORCE -->|default| SHADOWMODE[stay in shadow]
-```
+![CI/CD Pipeline. The main stages are Pull Request, lint + repository gates, unit tests: T0 engine + risk gate, block merge/promotion, IaC + dependency + secret scan, build + SBOM + sign + attest, deploy same artifact to staging, shadow evaluation + regression, promote code?, deploy same image to prod, enable enforce?, enforce per action.](../../diagrams/generated/fdai-roadmap-deployment-deployment-01.en.svg)
 
 - **CI identity**: the pipeline authenticates with a **short-lived, OIDC-federated** identity
   (no long-lived cloud keys in CI). Secrets are pulled from the secret store at runtime and

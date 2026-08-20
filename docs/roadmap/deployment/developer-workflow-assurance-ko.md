@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 498af6b8dc745bae2fa32cd5f2dfa04e21a57137
-translation_revised: 2026-08-17
+translation_source_sha: 95cdb7f2204cee662808790acb6e92ed03b723a4
+translation_revised: 2026-08-20
 ---
 
 # 개발 워크플로 보증
@@ -36,15 +36,7 @@ FDAI는 로컬 스크립트 전반에서 하나의 읽기 전용 개발 워크�
 추가하거나, 커밋 후 세션 소유권을 추론하거나, 사용할 수 없는 진단을 성공 결과로 바꾸지
 않습니다.
 
-```mermaid
-flowchart LR
-    E[편집과 집중 검사] --> D[워크플로 진단]
-    D --> C[집중 커밋]
-    C --> P[구조 pre-push]
-    P --> V[SHA 기반 CI]
-    V --> X[원격 작업]
-    D --> H[제한된 인계]
-```
+![설계 개요. 주요 단계는 편집과 집중 검사, 워크플로 진단, 집중 커밋, 구조 pre-push, SHA 기반 CI, 원격 작업, 제한된 인계입니다.](../../diagrams/generated/fdai-roadmap-deployment-developer-workflow-assurance-01.ko.svg)
 
 ## 측정 통제
 

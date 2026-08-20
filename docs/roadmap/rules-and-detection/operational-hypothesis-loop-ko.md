@@ -1,7 +1,7 @@
 ---
 translation_of: operational-hypothesis-loop.md
-translation_source_sha: 7f1403514eecb8b0a5f2f657a835ab498c37d852
-translation_revised: 2026-08-17
+translation_source_sha: 5374030260ade3ef4f5a24269cae07cdd74a522a
+translation_revised: 2026-08-20
 ---
 # 운영 가설 루프
 
@@ -37,20 +37,7 @@ FDAI는 no-action baseline과 범위가 제한된 `ActionOption` 값을 포함�
 `Process`가 여러 단계의 작업을 기록합니다. 관측 구간이 닫힌 후 독립 근거가 기존
 `CausalHypothesis`를 개정할 수 있으며, provider acceptance는 dispatch 근거로만 남습니다.
 
-```mermaid
-flowchart LR
-    C[DecisionCase] --> N[No-action baseline]
-    C --> O[ActionOption]
-    O --> E[ExpectedEffect and horizon]
-    O --> P[Process and ActionRun]
-    P --> R[Provider receipt]
-    P --> I[Independent observation]
-    I --> H[CausalHypothesis revision]
-    R -. dispatch only .-> H
-    H --> X[Active/challenger comparison]
-    X --> Q[Inert promotion evidence]
-    Q --> M[Mimir review and promotion registry]
-```
+![설계 요약. 주요 단계는 DecisionCase, No-action baseline, ActionOption, ExpectedEffect and horizon, Process and ActionRun, Provider receipt, Independent observation, CausalHypothesis revision, Active/challenger comparison, Inert promotion evidence, Mimir review and promotion registry입니다.](../../diagrams/generated/fdai-roadmap-rules-and-detection-operational-hypothesis-loop-01.ko.svg)
 
 ## 재사용 계약
 

@@ -21,17 +21,7 @@ The abstraction represents a stable operational invariant, not another executabl
 objective can be realized by several version-pinned Rules whose provider, resource shape,
 evidence, parameters, or implementation differ.
 
-```mermaid
-flowchart LR
-    Q[Natural-language request] --> I[Typed operational intent]
-    I --> O[Applicable ControlObjectives]
-    O --> B[Verified RuleObjectiveBindings]
-    B --> R[Active Rules and Assignments]
-    R --> P[PolicyArtifact]
-    P --> E[OPA or deterministic evaluator]
-    E --> V[Verdict]
-    V --> A[Governed ActionType path]
-```
+![Design at a glance. The main stages are Natural-language request, Typed operational intent, Applicable ControlObjectives, Verified RuleObjectiveBindings, Active Rules and Assignments, PolicyArtifact, OPA or deterministic evaluator, Verdict, Governed ActionType path.](../../diagrams/generated/fdai-roadmap-rules-and-detection-policy-abstraction-and-control-objectives-01.en.svg)
 
 The flow preserves three boundaries:
 

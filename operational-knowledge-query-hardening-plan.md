@@ -237,14 +237,7 @@ operational surface without repairing any of these semantic gaps.
 
 ### Azure resource projection
 
-```mermaid
-flowchart LR
-    ARG[Azure Resource Graph] --> INV[ResourceRecord and LinkRecord]
-    INV --> PROMOTE[Promoted inventory generation]
-    PROMOTE --> BUILD[Inventory ontology projection]
-    BUILD --> STORE[(PostgreSQL ontology graph)]
-    STORE --> OBJ[Secured ObjectSet query]
-```
+![Azure resource projection. The main stages are Azure Resource Graph, ResourceRecord and LinkRecord, Promoted inventory generation, Inventory ontology projection, PostgreSQL ontology graph, Secured ObjectSet query.](docs/diagrams/generated/fdai-operational-knowledge-query-hardening-plan-01.en.svg)
 
 The projection is conservative. A missing endpoint, incomplete generation, unregistered link type,
 synthetic state, conflicting duplicate, or unverified relationship cannot become an active edge.
@@ -252,16 +245,7 @@ This is the right safety posture and should remain unchanged.
 
 ### Rule and Rego projection
 
-```mermaid
-flowchart LR
-    RULE[Rule YAML] --> LOAD[Catalog validation]
-    REGO[Rego source] --> OPA[OPA AST parsing]
-    OPA --> SEM[RegoSemantics]
-    LOAD --> CAT[Catalog ontology projection]
-    SEM --> CAT
-    CAT --> GRAPH[(Catalog semantic subgraph)]
-    RULE --> T0[RuleIndex and OPA evaluation]
-```
+![Rule and Rego projection. The main stages are Rule YAML, Catalog validation, Rego source, OPA AST parsing, RegoSemantics, Catalog ontology projection, Catalog semantic subgraph, RuleIndex and OPA evaluation.](docs/diagrams/generated/fdai-operational-knowledge-query-hardening-plan-02.en.svg)
 
 The catalog graph currently supports these semantic paths:
 
@@ -277,17 +261,7 @@ semantic digest distinct from the source-file digest.
 
 ### Ordinary-language query
 
-```mermaid
-flowchart LR
-    USER[Console question] --> OP[Operator semantic-turn outbox]
-    OP --> REQ[Semantic request topic]
-    REQ --> PLAN[Core semantic planning]
-    PLAN --> VERIFY[Exact manifest verifier]
-    VERIFY --> DAG[Bounded query DAG]
-    DAG --> RECEIPTS[Node and evidence receipts]
-    RECEIPTS --> RESULT[Principal-scoped terminal projection]
-    RESULT --> UI[Console answer]
-```
+![Ordinary-language query. The main stages are Console question, Operator semantic-turn outbox, Semantic request topic, Core semantic planning, Exact manifest verifier, Bounded query DAG, Node and evidence receipts, Principal-scoped terminal projection, Console answer.](docs/diagrams/generated/fdai-operational-knowledge-query-hardening-plan-03.en.svg)
 
 This path correctly rejects stale releases, hidden properties, unavailable node kinds, invalid
 function arguments, mismatched roles and purposes, and unverified execution. Its current production
@@ -323,18 +297,7 @@ the production executor registration.
 
 The target should make this path explicit and executable:
 
-```mermaid
-flowchart LR
-    R[Resource instance] -->|resource_classified_as| RT[ResourceType]
-    RULE[Rule] -->|applies_to| RT
-    RULE -->|implemented_by_policy| PA[PolicyArtifact]
-    RULE -->|evaluates| P[Property]
-    R -->|has observed value| P
-    Q[Verified query plan] --> R
-    Q --> RULE
-    Q --> KS[OperationalKnowledgeReceipt]
-    KS --> A[Evidence-bound answer claims]
-```
+![Target query spine. The main stages are Resource instance, ResourceType, Rule, PolicyArtifact, Property, Verified query plan, OperationalKnowledgeReceipt, Evidence-bound answer claims.](docs/diagrams/generated/fdai-operational-knowledge-query-hardening-plan-04.en.svg)
 
 ### Resource classification
 
@@ -601,19 +564,7 @@ receipt.
 
 ## Dependency order and parallel lanes
 
-```mermaid
-flowchart LR
-    B[OKQ-00 baseline] --> I[OKQ-01 identity spine]
-    B --> P[OKQ-02 policy identity]
-    I --> R[OKQ-03 Rule graph retrieval]
-    P --> R
-    B --> E[OKQ-04 evidence providers]
-    R --> S[OKQ-05 semantic selection]
-    E --> S
-    S --> C[OKQ-06 claim binding]
-    C --> V[OKQ-07 live assurance]
-    V --> A[OKQ-08 continuous closure]
-```
+![Dependency order and parallel lanes. The main stages are OKQ-00 baseline, OKQ-01 identity spine, OKQ-02 policy identity, OKQ-03 Rule graph retrieval, OKQ-04 evidence providers, OKQ-05 semantic selection, OKQ-06 claim binding, OKQ-07 live assurance, OKQ-08 continuous closure.](docs/diagrams/generated/fdai-operational-knowledge-query-hardening-plan-05.en.svg)
 
 - **Lane A - semantic identity:** OKQ-01 and OKQ-02 can proceed in parallel after OKQ-00.
 - **Lane B - temporal evidence:** OKQ-04 can proceed in parallel with Lane A.

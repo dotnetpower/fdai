@@ -5,6 +5,7 @@ import {
   convertMermaidPair,
   extractMermaidBlocks,
   parseFlowchart,
+  parseGantt,
   parseSequence,
   parseTimeline,
   replaceMermaidBlocks,
@@ -45,7 +46,16 @@ A[Authorize] --> B[Plan] --> C[Execute] --> D[Audit]`);
   );
 });
 
-test("flowchart migration emits repeated fan-out labels once", () => {
+test("flowchart migration preserves bidirectional edges", () => {
+  const parsed = parseFlowchart(`flowchart LR
+A[Harness] <--> B[Driver]`);
+  assert.deepEqual(
+    parsed.edges.map((edge) => `${edge.from}->${edge.to}`),
+    ["A->B", "B->A"],
+  );
+});
+
+test("flowchart migration moves repeated fan-out labels into targets", () => {
   const en = {
     heading: "Tools",
     source: `flowchart LR
@@ -59,8 +69,11 @@ A[내레이터] -. 도구 호출 .-> B[규칙]
 A -. 도구 호출 .-> C[인벤토리]`,
   };
   const spec = convertMermaidPair("tool-fan-out", en, ko);
-  assert.equal(spec.edges.filter((edge) => edge.label).length, 1);
-  assert.equal(spec.edges[0]?.label?.ko, "도구 호출");
+  assert.equal(spec.edges.filter((edge) => edge.label).length, 0);
+  assert.deepEqual(spec.nodes.find((node) => node.id === "c")?.description, {
+    en: "When: tool call",
+    ko: "조건: 도구 호출",
+  });
 });
 
 test("flowchart migration moves dense decision conditions into targets", () => {
@@ -130,6 +143,15 @@ end`;
   assert.equal(spec.edges[0]?.kind, "sequence");
 });
 
+test("sequence migration accepts actors with display labels", () => {
+  const parsed = parseSequence(`sequenceDiagram
+actor U as User
+participant A as API
+U->>A: request`);
+  assert.equal(parsed.participants.get("U"), "User");
+  assert.equal(parsed.steps.length, 1);
+});
+
 test("timeline migration preserves bilingual wave order", () => {
   const enSource = `timeline
 title Wave plan
@@ -147,6 +169,31 @@ W1 : 런타임 : 테스트`;
   );
   assert.equal(spec.kind, "timeline");
   assert.equal(spec.nodes[1]?.description?.ko, "런타임 / 테스트");
+  assert.equal(spec.edges[0]?.kind, "timeline");
+});
+
+test("Gantt migration preserves task groups and schedule details", () => {
+  const enSource = `gantt
+title Delivery
+dateFormat X
+section Identity
+Bootstrap :w1, 0, 2
+Policy :w2, after w1, 1`;
+  const koSource = `gantt
+title 제공
+dateFormat X
+section 신원
+부트스트랩 :w1, 0, 2
+정책 :w2, after w1, 1`;
+  assert.equal(parseGantt(enSource).tasks.length, 2);
+  const spec = convertMermaidPair(
+    "delivery-gantt",
+    { heading: "Tasks", source: enSource },
+    { heading: "작업", source: koSource },
+  );
+  assert.equal(spec.kind, "timeline");
+  assert.equal(spec.groups[0]?.label.ko, "신원");
+  assert.equal(spec.nodes[1]?.description?.en, "after w1, 1");
   assert.equal(spec.edges[0]?.kind, "timeline");
 });
 

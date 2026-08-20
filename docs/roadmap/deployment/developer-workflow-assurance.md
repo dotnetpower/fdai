@@ -31,15 +31,7 @@ The command reads existing Git-common-dir state and process metadata. It does no
 audit log, infer session ownership after a commit, or convert an unavailable diagnostic into a
 successful result.
 
-```mermaid
-flowchart LR
-    E[Edit and focused check] --> D[Workflow diagnostics]
-    D --> C[Focused commit]
-    C --> P[Structural pre-push]
-    P --> V[SHA-addressed CI]
-    V --> X[Remote work]
-    D --> H[Bounded handover]
-```
+![Design at a glance. The main stages are Edit and focused check, Workflow diagnostics, Focused commit, Structural pre-push, SHA-addressed CI, Remote work, Bounded handover.](../../diagrams/generated/fdai-roadmap-deployment-developer-workflow-assurance-01.en.svg)
 
 ## Measured controls
 

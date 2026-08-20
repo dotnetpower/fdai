@@ -1,6 +1,6 @@
 ---
 translation_of: durable-conversation-delivery.md
-translation_source_sha: 9e2997f3f10b5d21e43bb29048a68b55c7e82fab
+translation_source_sha: b0a1f24072c66884dbed935c26eb829dd5c558c7
 translation_revised: 2026-08-20
 ---
 # 영구 대화 전송
@@ -74,16 +74,7 @@ FDAI는 프로바이더 호출 전에 완전하고 제한된 응답을 저장합
 (CAS)으로 변경할 수 없는 페이로드를 점유하고 한 번 전송한 뒤 confirmed 확인 응답, 범위가 제한된
 재시도가 가능한 definitive 실패 또는 visible 중복 risk를 기록합니다.
 
-```mermaid
-flowchart LR
- AUTH[Channel identity 및 scope 검증] --> BIND[Active binding 확인]
- BIND --> STORE[Complete response 저장]
- STORE --> CLAIM[CAS claim 및 attempt]
- CLAIM --> SEND[Provider send]
- SEND -->|confirmed| ACK[Delivered 및 acknowledged]
- SEND -->|definitive failure| RETRY[Bounded retry]
- SEND -->|unknown receipt| AMBIG[Ambiguous duplicate risk]
-```
+![설계 개요. 주요 단계는 Channel identity 및 scope 검증, Active binding 확인, Complete response 저장, CAS claim 및 attempt, Provider send, Delivered 및 acknowledged, Bounded retry, Ambiguous duplicate risk입니다.](../../diagrams/generated/fdai-roadmap-interfaces-durable-conversation-delivery-01.ko.svg)
 
 ## 신원 및 연결
 

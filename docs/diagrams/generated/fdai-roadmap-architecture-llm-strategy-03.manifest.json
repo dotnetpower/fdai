@@ -1,0 +1,303 @@
+{
+  "id": "fdai-roadmap-architecture-llm-strategy-03",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Layered Lookup Pipeline",
+      "description": "FDAI flow for Layered Lookup Pipeline.",
+      "alt": "Layered Lookup Pipeline. The main stages are Signal arrives, L0. event-ingest / normalize + dedup + correlate into incident, no-op, audited, L1. T0 rule match / ontology traversal: applies_to ∩ triggered_by / run each rule's evaluate action (OPA/Rego, in-memory), risk-gate, L2. Learned-action lookup / (signature, rule_id, catalog_version) → verified action, L3. Embedding similarity (T1) / 1 embedding call → pgvector kNN / reuse neighbor.action iff cos > threshold and context compatible, L4. T2 result cache / signature includes catalog_version + model_config_version + mode, L5. T2 cascade / primary → agree? → done / disagree? → escalated / quality-gate authoritative, writeback: promote verified outcome / into L2 (learned action) + L4 (result cache)."
+    },
+    "ko": {
+      "title": "계층 조회 파이프라인",
+      "description": "계층 조회 파이프라인에 대한 FDAI 흐름입니다.",
+      "alt": "계층 조회 파이프라인. 주요 단계는 Signal arrives, L0. event-ingest / normalize + dedup + correlate into incident, no-op, audited, L1. T0 rule match / ontology traversal: applies_to ∩ triggered_by / run each rule's evaluate action (OPA/Rego, in-memory), risk-gate, L2. Learned-action lookup / (signature, rule_id, catalog_version) → verified action, L3. Embedding similarity (T1) / 1 embedding call → pgvector kNN / reuse neighbor.action iff cos > threshold and context compatible, L4. T2 result cache / signature includes catalog_version + model_config_version + mode, L5. T2 cascade / primary → agree? → done / disagree? → escalated / quality-gate authoritative, writeback: promote verified outcome / into L2 (learned action) + L4 (result cache)입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-architecture-llm-strategy-03.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-architecture-llm-strategy-03.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "e",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Signal arrives",
+        "ko": "Signal arrives"
+      },
+      "description": {
+        "en": "Signal arrives",
+        "ko": "Signal arrives"
+      }
+    },
+    {
+      "id": "l0",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "L0. event-ingest / normalize + dedup + correlate into incident",
+        "ko": "L0. event-ingest / normalize + dedup + correlate into incident"
+      },
+      "description": {
+        "en": "L0. event-ingest / normalize + dedup + correlate into incident",
+        "ko": "L0. event-ingest / normalize + dedup + correlate into incident"
+      }
+    },
+    {
+      "id": "drop",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "no-op, audited",
+        "ko": "no-op, audited"
+      },
+      "description": {
+        "en": "When: replay / duplicate",
+        "ko": "조건: replay / duplicate"
+      }
+    },
+    {
+      "id": "l1",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "L1. T0 rule match / ontology traversal: applies_to ∩ triggered_by / run each rule's evaluate action (OPA/Rego, in-memory)",
+        "ko": "L1. T0 rule match / ontology traversal: applies_to ∩ triggered_by / run each rule's evaluate action (OPA/Rego, in-memory)"
+      },
+      "description": {
+        "en": "L1. T0 rule match / ontology traversal: applies_to ∩ triggered_by / run each rule's evaluate action (OPA/Rego, in-memory)",
+        "ko": "L1. T0 rule match / ontology traversal: applies_to ∩ triggered_by / run each rule's evaluate action (OPA/Rego, in-memory)"
+      }
+    },
+    {
+      "id": "rg1",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "risk-gate",
+        "ko": "risk-gate"
+      },
+      "description": {
+        "en": "When: verdict",
+        "ko": "조건: verdict"
+      }
+    },
+    {
+      "id": "l2",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "L2. Learned-action lookup / (signature, rule_id, catalog_version) → verified action",
+        "ko": "L2. Learned-action lookup / (signature, rule_id, catalog_version) → verified action"
+      },
+      "description": {
+        "en": "When: no rule verdict",
+        "ko": "조건: no rule verdict"
+      }
+    },
+    {
+      "id": "rg2",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "risk-gate",
+        "ko": "risk-gate"
+      },
+      "description": {
+        "en": "When: hit",
+        "ko": "조건: hit"
+      }
+    },
+    {
+      "id": "l3",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "L3. Embedding similarity (T1) / 1 embedding call → pgvector kNN / reuse neighbor.action iff cos > threshold and context compatible",
+        "ko": "L3. Embedding similarity (T1) / 1 embedding call → pgvector kNN / reuse neighbor.action iff cos > threshold and context compatible"
+      },
+      "description": {
+        "en": "When: miss",
+        "ko": "조건: miss"
+      }
+    },
+    {
+      "id": "rg3",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "risk-gate",
+        "ko": "risk-gate"
+      },
+      "description": {
+        "en": "When: hit",
+        "ko": "조건: hit"
+      }
+    },
+    {
+      "id": "l4",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "L4. T2 result cache / signature includes catalog_version + model_config_version + mode",
+        "ko": "L4. T2 result cache / signature includes catalog_version + model_config_version + mode"
+      },
+      "description": {
+        "en": "When: below threshold",
+        "ko": "조건: below threshold"
+      }
+    },
+    {
+      "id": "rg4",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "risk-gate",
+        "ko": "risk-gate"
+      },
+      "description": {
+        "en": "When: hit",
+        "ko": "조건: hit"
+      }
+    },
+    {
+      "id": "l5",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "L5. T2 cascade / primary → agree? → done / disagree? → escalated / quality-gate authoritative",
+        "ko": "L5. T2 cascade / primary → agree? → done / disagree? → escalated / quality-gate authoritative"
+      },
+      "description": {
+        "en": "When: miss",
+        "ko": "조건: miss"
+      }
+    },
+    {
+      "id": "write",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "writeback: promote verified outcome / into L2 (learned action) + L4 (result cache)",
+        "ko": "writeback: promote verified outcome / into L2 (learned action) + L4 (result cache)"
+      },
+      "description": {
+        "en": "writeback: promote verified outcome / into L2 (learned action) + L4 (result cache)",
+        "ko": "writeback: promote verified outcome / into L2 (learned action) + L4 (result cache)"
+      }
+    },
+    {
+      "id": "rg5",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "risk-gate",
+        "ko": "risk-gate"
+      },
+      "description": {
+        "en": "risk-gate",
+        "ko": "risk-gate"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "e",
+      "to": "l0",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "l0",
+      "to": "drop",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "l0",
+      "to": "l1",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "l1",
+      "to": "rg1",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "l1",
+      "to": "l2",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "l2",
+      "to": "rg2",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "l2",
+      "to": "l3",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "l3",
+      "to": "rg3",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "l3",
+      "to": "l4",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "l4",
+      "to": "rg4",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-11",
+      "from": "l4",
+      "to": "l5",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-12",
+      "from": "l5",
+      "to": "write",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-13",
+      "from": "write",
+      "to": "rg5",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

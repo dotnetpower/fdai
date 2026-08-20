@@ -32,20 +32,7 @@ investigation creates an Incident and publishes an investigation ActionProposal 
 correlation. The ARB process remains a governance Process: its enforce mode records real approvals
 and decisions, while any resulting resource change re-enters the normal ActionType pipeline.
 
-```mermaid
-flowchart LR
-  ASK[Operator request] --> CLASSIFY{Problem response?}
-  CLASSIFY -->|No| WORK[Correlation ID and optional Process ID]
-  CLASSIFY -->|Yes| INCIDENT[Incident registry]
-  INCIDENT --> PROPOSAL[Typed ActionProposal]
-  PROPOSAL --> ROUTE[Trust and risk gates]
-  ROUTE -->|shadow| OBSERVE[Judge, journal, and audit]
-  ROUTE -->|auto| EXECUTE[Promoted executor adapter]
-  ROUTE -->|hil| APPROVE[Approval then resume]
-  OBSERVE --> STREAM[Stage stream]
-  EXECUTE --> STREAM
-  APPROVE --> STREAM
-```
+![Design at a glance. The main stages are Operator request, Problem response?, Correlation ID and optional Process ID, Incident registry, Typed ActionProposal, Trust and risk gates, Judge, journal, and audit, Promoted executor adapter, Approval then resume, Stage stream.](../../diagrams/generated/fdai-roadmap-operations-operator-initiated-sre-and-arb-01.en.svg)
 
 ## Implementation status
 

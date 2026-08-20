@@ -253,21 +253,7 @@ happening now or may happen next, and whether an intervention produced the inten
 the common language for reliability, architecture review, predictive cost governance, and
 operational learning.
 
-```mermaid
-flowchart LR
-    BC[BusinessCapability] -->|delivered_by| BS[BusinessService]
-    BS -->|implemented_by| W[Workload]
-    W -->|runs_on| R[Resource]
-    W -->|depends_on| W2[Workload]
-    BS -->|governed_by| O[Operational objectives]
-    S[Signal] -->|observes| R
-    C[Change] -->|affects| W
-    D[DecisionCase] -->|protects| O
-    D -->|considers| AO[ActionOption]
-    AO -->|expects| EE[ExpectedEffect]
-    AO -->|executed_as| AR[ActionRun]
-    AR -->|resulted_in| OO[ObservedOutcome]
-```
+![Design at a glance. The main stages are BusinessCapability, BusinessService, Workload, Resource, Operational objectives, Signal, Change, DecisionCase, ActionOption, ExpectedEffect, ActionRun, ObservedOutcome.](../../diagrams/generated/fdai-roadmap-architecture-operating-ontology-01.en.svg)
 
 ## Domain stance
 

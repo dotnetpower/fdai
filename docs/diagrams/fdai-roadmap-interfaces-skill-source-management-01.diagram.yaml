@@ -1,0 +1,132 @@
+id: fdai-roadmap-interfaces-skill-source-management-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: Design at a glance. The main stages are Approved source, Resolve commit with ETag, Quarantine exact files,
+      Deterministic scan, Publisher verification, Disabled candidate, Approver command, Trusted artifact disabled, Owner
+      revocation, Disable source and artifact, Retain quarantine and provenance.
+  ko:
+    title: 설계 요약
+    description: 설계 요약에 대한 FDAI 흐름입니다.
+    alt: 설계 요약. 주요 단계는 승인된 source, ETag로 commit resolve, Exact file quarantine, Deterministic scan, Publisher verification,
+      Disabled candidate, Approver command, Trusted artifact disabled, Owner revocation, Source와 artifact disable,
+      Quarantine과 provenance 유지입니다.
+canvas:
+  width: 1600
+  height: 990
+  direction: RIGHT
+groups: []
+nodes:
+  - id: src
+    kind: process
+    shape: card
+    label:
+      en: Approved source
+      ko: 승인된 source
+  - id: fetch
+    kind: process
+    shape: card
+    label:
+      en: Resolve commit with ETag
+      ko: ETag로 commit resolve
+  - id: quar
+    kind: process
+    shape: card
+    label:
+      en: Quarantine exact files
+      ko: Exact file quarantine
+  - id: scan
+    kind: process
+    shape: card
+    label:
+      en: Deterministic scan
+      ko: Deterministic scan
+  - id: verify
+    kind: process
+    shape: card
+    label:
+      en: Publisher verification
+      ko: Publisher verification
+  - id: cand
+    kind: process
+    shape: card
+    label:
+      en: Disabled candidate
+      ko: Disabled candidate
+  - id: approve
+    kind: process
+    shape: card
+    label:
+      en: Approver command
+      ko: Approver command
+  - id: inst
+    kind: process
+    shape: card
+    label:
+      en: Trusted artifact disabled
+      ko: Trusted artifact disabled
+  - id: revoke
+    kind: process
+    shape: card
+    label:
+      en: Owner revocation
+      ko: Owner revocation
+  - id: disable
+    kind: process
+    shape: card
+    label:
+      en: Disable source and artifact
+      ko: Source와 artifact disable
+  - id: keep
+    kind: process
+    shape: card
+    label:
+      en: Retain quarantine and provenance
+      ko: Quarantine과 provenance 유지
+edges:
+  - id: flow-01
+    from: src
+    to: fetch
+    kind: request
+  - id: flow-02
+    from: fetch
+    to: quar
+    kind: request
+  - id: flow-03
+    from: quar
+    to: scan
+    kind: request
+  - id: flow-04
+    from: scan
+    to: verify
+    kind: request
+  - id: flow-05
+    from: verify
+    to: cand
+    kind: request
+  - id: flow-06
+    from: cand
+    to: approve
+    kind: request
+  - id: flow-07
+    from: approve
+    to: inst
+    kind: request
+  - id: flow-08
+    from: src
+    to: revoke
+    kind: request
+  - id: flow-09
+    from: revoke
+    to: disable
+    kind: request
+  - id: flow-10
+    from: revoke
+    to: keep
+    kind: request

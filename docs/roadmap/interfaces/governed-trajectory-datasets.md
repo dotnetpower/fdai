@@ -17,18 +17,7 @@ The export path authorizes the principal, purpose, and access scope before any s
 called. It then joins immutable source snapshots in canonical order, scans every projected record,
 streams deterministic JSONL, and publishes the data file and manifest only after both complete.
 
-```mermaid
-flowchart LR
-    REQUEST[Purpose + access scope] --> AUTH[Authorize]
-    AUTH --> SOURCES[Immutable source snapshots]
-    SOURCES --> JOIN[Canonical join + projection]
-    JOIN --> SCAN[Secret, identifier, injection scan]
-    SCAN -->|clean| EXPORT[JSONL + checksums + manifest]
-    SCAN -->|uncertain| QUARANTINE[Quarantine metadata]
-    EXPORT --> VALIDATE[Offline validate + replay check]
-    VALIDATE --> REVIEW[Human review]
-    REVIEW --> NORNS[Norns aggregate intake]
-```
+![Design at a glance. The main stages are Purpose + access scope, Authorize, Immutable source snapshots, Canonical join + projection, Secret, identifier, injection scan, JSONL + checksums + manifest, Quarantine metadata, Offline validate + replay check, Human review, Norns aggregate intake.](../../diagrams/generated/fdai-roadmap-interfaces-governed-trajectory-datasets-01.en.svg)
 
 ## Stable envelope
 

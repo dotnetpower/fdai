@@ -27,20 +27,7 @@ Operator-owned durable delivery persists that artifact before a pure provider pu
 Startup resolves every required dependency and reconciles uncertain sends before Starlette accepts
 traffic.
 
-```mermaid
-flowchart LR
-  S[Slack signed event] --> SI[Slack ingress]
-  T[Teams service token] --> TI[Teams ingress]
-  SI --> Q[Bounded Operator edge queue]
-  TI --> Q
-  Q --> B[SemanticTurnBridge append]
-  B --> E[Core semantic EventBus runtime]
-  E --> O[SemanticTurnBridge open]
-  O --> D[Operator delivery ledger]
-  D --> P[Pure capability renderer]
-  P --> SP[Slack publisher]
-  P --> TP[Teams publisher]
-```
+![Design at a glance. The main stages are Slack signed event, Slack ingress, Teams service token, Teams ingress, Bounded Operator edge queue, SemanticTurnBridge append, Core semantic EventBus runtime, SemanticTurnBridge open, Operator delivery ledger, Pure capability renderer, Slack publisher, Teams publisher.](../../diagrams/generated/fdai-roadmap-interfaces-production-a3-channel-runtime-01.en.svg)
 
 ## Implementation status
 

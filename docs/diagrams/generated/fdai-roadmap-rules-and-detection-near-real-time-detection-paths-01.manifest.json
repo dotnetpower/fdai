@@ -1,0 +1,183 @@
+{
+  "id": "fdai-roadmap-rules-and-detection-near-real-time-detection-paths-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Push path #1 - Metric Alert Rule -> Webhook (~30-90 s)",
+      "description": "FDAI flow for Push path #1 - Metric Alert Rule -> Webhook (~30-90 s).",
+      "alt": "Push path #1 - Metric Alert Rule -> Webhook (~30-90 s). The main stages are Azure Resource, Azure Monitor Metrics store, Metric Alert Rule, Action Group webhook receiver, FDAI /webhook/azure-monitor, normalize_common_alert_schema, Event on ingest topic, trust-router + risk-gate."
+    },
+    "ko": {
+      "title": "Push 경로 #1 - 메트릭 경보 Rule -> 웹훅 (~30~90s)",
+      "description": "Push 경로 #1 - 메트릭 경보 Rule -> 웹훅 (~30~90s)에 대한 FDAI 흐름입니다.",
+      "alt": "Push 경로 #1 - 메트릭 경보 Rule -> 웹훅 (~30~90s). 주요 단계는 Azure Resource, Azure Monitor Metrics store, Metric Alert Rule, Action Group webhook receiver, FDAI /webhook/azure-monitor, normalize_common_alert_schema, ingest topic 의 Event, trust-router + risk-gate입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-rules-and-detection-near-real-time-detection-paths-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-rules-and-detection-near-real-time-detection-paths-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "r",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Azure Resource",
+        "ko": "Azure Resource"
+      },
+      "description": {
+        "en": "Azure Resource",
+        "ko": "Azure Resource"
+      }
+    },
+    {
+      "id": "m",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Azure Monitor Metrics store",
+        "ko": "Azure Monitor Metrics store"
+      },
+      "description": {
+        "en": "When: metric",
+        "ko": "조건: metric"
+      }
+    },
+    {
+      "id": "a",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Metric Alert Rule",
+        "ko": "Metric Alert Rule"
+      },
+      "description": {
+        "en": "When: rule window match",
+        "ko": "조건: rule window 매치"
+      }
+    },
+    {
+      "id": "g",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Action Group webhook receiver",
+        "ko": "Action Group webhook receiver"
+      },
+      "description": {
+        "en": "Action Group webhook receiver",
+        "ko": "Action Group webhook receiver"
+      }
+    },
+    {
+      "id": "w",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "FDAI /webhook/azure-monitor",
+        "ko": "FDAI /webhook/azure-monitor"
+      },
+      "description": {
+        "en": "When: HTTPS POST",
+        "ko": "조건: HTTPS POST"
+      }
+    },
+    {
+      "id": "n",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "normalize_common_alert_schema",
+        "ko": "normalize_common_alert_schema"
+      },
+      "description": {
+        "en": "normalize_common_alert_schema",
+        "ko": "normalize_common_alert_schema"
+      }
+    },
+    {
+      "id": "e",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Event on ingest topic",
+        "ko": "ingest topic 의 Event"
+      },
+      "description": {
+        "en": "Event on ingest topic",
+        "ko": "ingest topic 의 Event"
+      }
+    },
+    {
+      "id": "t",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "trust-router + risk-gate",
+        "ko": "trust-router + risk-gate"
+      },
+      "description": {
+        "en": "trust-router + risk-gate",
+        "ko": "trust-router + risk-gate"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "r",
+      "to": "m",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "m",
+      "to": "a",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "a",
+      "to": "g",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "g",
+      "to": "w",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "w",
+      "to": "n",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "n",
+      "to": "e",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "e",
+      "to": "t",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

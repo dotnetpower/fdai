@@ -1,8 +1,8 @@
 ---
 title: 초대규모 셀 아키텍처 (B안)
 translation_of: hyperscale-cell-architecture.md
-translation_source_sha: d979b87b25d7d18369baa98362160e2453188cf3
-translation_revised: 2026-08-14
+translation_source_sha: a95104dd30b69c5b7bacc07bea620ce7652f2d56
+translation_revised: 2026-08-20
 ---
 # 초대규모 셀 아키텍처 (B안)
 
@@ -43,24 +43,7 @@ deterministic-first 제어 루프는 그대로 두고, **셀 기반 스트리밍
 인덱스 평면으로 분리된다. 제어 루프, 티어, 리스크 게이트, 7개 자율 작업 안전조건은
 건드리지 않는다.
 
-```mermaid
-flowchart TB
-  subgraph MG["Management group 계층"]
-    POL["Azure Policy DeployIfNotExists<br/>(AMBA 패턴) - fan-in as code"]
-  end
-  subgraph Subs["300 구독 / 수십 랜딩존"]
-    S["Activity Log + resource events"]
-  end
-  POL -.diagnostic settings 자동 배포.-> S
-  S -->|Kafka :9093 로 포워딩| EH["셀별 Event Hubs (샤딩)"]
-  EH --> CELL["FDAI 셀 (scale unit)<br/>event-ingest -> trust-router -> risk-gate -> executor"]
-  CELL --> LED[("감사 원장<br/>append-only, 해시체인, 절대 샘플링 안 함")]
-  CELL -.telemetry.-> TEL[("텔레메트리 평면<br/>ADX / Log Analytics - 티어·샘플·롤업")]
-  LED -.async projector.-> IDX[("인덱스 평면: ADX + Postgres + pgvector")]
-  style LED fill:#522,stroke:#f00
-  style TEL fill:#225,stroke:#08f
-  style POL fill:#252,stroke:#0a0
-```
+![한눈에 보는 설계. 주요 단계는 Azure Policy DeployIfNotExists / (AMBA 패턴) - fan-in as code, Activity Log + resource events, 셀별 Event Hubs (샤딩), FDAI 셀 (scale unit) / event-ingest -> trust-router -> risk-gate -> executor, 감사 원장 / append-only, 해시체인, 절대 샘플링 안 함, 텔레메트리 평면 / ADX / Log Analytics - 티어·샘플·롤업, 인덱스 평면: ADX + Postgres + pgvector입니다.](../../diagrams/generated/fdai-roadmap-architecture-hyperscale-cell-architecture-01.ko.svg)
 
 ## 구현 상태
 

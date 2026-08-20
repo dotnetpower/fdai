@@ -73,16 +73,7 @@ FDAI persists the complete bounded response before a provider call. A worker cla
 payload with compare-and-set (CAS), sends it once, and records either a confirmed acknowledgement,
 a definitive failure eligible for bounded retry, or visible duplicate risk.
 
-```mermaid
-flowchart LR
-    AUTH[Verify channel identity and scope] --> BIND[Resolve active binding]
-    BIND --> STORE[Persist complete response]
-    STORE --> CLAIM[CAS claim and attempt]
-    CLAIM --> SEND[Provider send]
-    SEND -->|confirmed| ACK[Delivered and acknowledged]
-    SEND -->|definitive failure| RETRY[Bounded retry]
-    SEND -->|unknown receipt| AMBIG[Ambiguous duplicate risk]
-```
+![Design at a glance. The main stages are Verify channel identity and scope, Resolve active binding, Persist complete response, CAS claim and attempt, Provider send, Delivered and acknowledged, Bounded retry, Ambiguous duplicate risk.](../../diagrams/generated/fdai-roadmap-interfaces-durable-conversation-delivery-01.en.svg)
 
 ## Identity and binding
 

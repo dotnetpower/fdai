@@ -1,8 +1,8 @@
 ---
 title: Access-Scoped 대화 검색
 translation_of: conversation-search.md
-translation_source_sha: 60c0d32a2e849b2c39b0b11e8402a5d5b49384a3
-translation_revised: 2026-08-14
+translation_source_sha: 4f3bdad9e8bf583d1aa653bfca62e0645eb0ab1c
+translation_revised: 2026-08-20
 ---
 
 # Access-Scoped 대화 검색
@@ -20,17 +20,7 @@ Operator API는 `ConversationSearchScope`를 만들기 전에 principal을 해�
 저장소 조회 안에서 범위를 적용한 뒤 결과를 좁히기만 하는 요청 필터를 적용합니다.
 Inference 호출은 필요하지 않습니다.
 
-```mermaid
-flowchart LR
-    USER[인증된 operator] --> API[GET search API]
-    API --> SCOPE[Server-resolved principal scope]
-    SCOPE --> QUERY[Bounded query 및 filter]
-    QUERY --> INDEX[Generated trigram projection]
-    INDEX --> RESULT[Snippet 및 provenance]
-    RESULT --> CONTEXT[Authorized neighbor turn]
-    RESULT --> UI[Read-only Evidence panel]
-    RESULT --> TOOL[Untrusted narrator tool result]
-```
+![한눈에 보는 설계. 주요 단계는 인증된 operator, GET search API, Server-resolved principal scope, Bounded query 및 filter, Generated trigram projection, Snippet 및 provenance, Authorized neighbor turn, Read-only Evidence panel, Untrusted narrator tool result입니다.](../../diagrams/generated/fdai-roadmap-interfaces-conversation-search-01.ko.svg)
 
 ## 계약
 

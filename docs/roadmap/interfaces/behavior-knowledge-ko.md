@@ -1,8 +1,8 @@
 ---
 title: Command Deck 행동 지식
 translation_of: behavior-knowledge.md
-translation_source_sha: 990d7e067f8ec96714d50c8bda50cf380e35c13e
-translation_revised: 2026-08-16
+translation_source_sha: e05474269925f3f7c7677be2c0a02cc0c31125d1
+translation_revised: 2026-08-20
 ---
 
 # Command Deck 행동 지식
@@ -21,15 +21,7 @@ Command Deck은 저장소 소스 조각이 아니라 `BehaviorKnowledgeIndex`를
 구현 상태, 제한된 출처 이력을 제공합니다. 소스 파일과 테스트는 계약을 검증하고
 stale 기록을 찾는 두 번째 계층으로 유지합니다.
 
-```mermaid
-flowchart LR
-    Q[운영자 행동 질문] --> B[행동 지식 인덱스]
-    B --> H[Exact + lexical + semantic 검색]
-    H --> F[소스 freshness 검사]
-    F -->|fresh| A[구조화된 최종 답변]
-    F -->|stale, absent, conflict| X[답변 판단 보류]
-    S[Tracked code, tests, docs, schemas] --> F
-```
+![설계 요약. 주요 단계는 운영자 행동 질문, 행동 지식 인덱스, Exact + lexical + semantic 검색, 소스 freshness 검사, 구조화된 최종 답변, 답변 판단 보류, Tracked code, tests, docs, schemas입니다.](../../diagrams/generated/fdai-roadmap-interfaces-behavior-knowledge-01.ko.svg)
 
 ## 2계층 계약
 

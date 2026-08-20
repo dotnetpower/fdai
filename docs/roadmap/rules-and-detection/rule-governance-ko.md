@@ -1,8 +1,8 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: a5a60fb6b7f136986ff9d9ab8d1b984239402935
-translation_revised: 2026-08-19
+translation_source_sha: ab55621ca628affd0736e8d05c8ab1c2a531ce7f
+translation_revised: 2026-08-20
 ---
 
 # 규칙 거버넌스(Rule 거버넌스)
@@ -190,18 +190,7 @@ Azure Policy는 *정의* 를 *할당* 과 *예외* 에서 분리. FDAI가 이를
 관리자는 Azure Policy 변경처럼 규칙을 컨트롤 - 작성, 파라미터화, 할당, 예외 - 하지만 변경은
 **catalog-as-code로의 리뷰된 PR** 로 전달, 감사·롤백·승인을 git에서 무료로:
 
-```mermaid
-flowchart LR
-    ADMIN[administrator] -->|authoring UI or edit| DRAFT["draft change: rule / assignment / exemption"]
-    DRAFT --> PR[catalog-as-code PR]
-    PR --> VAL["CI: schema + policy-as-code + shadow eval"]
-    VAL -->|pass| REV[review + approval]
-    VAL -->|fail| BLOCK[blocked]
-    REV -->|effect raises enforce?| GATE[separate enforce-promotion approval]
-    REV -->|audit only| MERGE[merge → catalog]
-    GATE --> MERGE
-    MERGE --> LOAD[T0 loads at runtime]
-```
+![관리자 컨트롤 흐름 (GitOps, 버튼 아님). 주요 단계는 administrator, draft change: rule / assignment / exemption, catalog-as-code PR, CI: schema + policy-as-code + shadow eval, review + approval, blocked, separate enforce-promotion approval, merge → catalog, T0 loads at runtime입니다.](../../diagrams/generated/fdai-roadmap-rules-and-detection-rule-governance-01.ko.svg)
 
 - 콘솔은 **authoring UI** 를 제공할 수 있지만 **초안 PR을 생산** 만 할 뿐 - 라이브 카탈로그를
   절대 직접 실행/변형하지 않음(콘솔 읽기 전용 유지).

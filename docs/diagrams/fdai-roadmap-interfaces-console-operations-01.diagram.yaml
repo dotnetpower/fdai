@@ -1,0 +1,118 @@
+id: fdai-roadmap-interfaces-console-operations-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: Design at a glance. The main stages are FDAI Console - Operations, Domain projections, Operator API request routes,
+      Typed event bus, Owning agents, Quality and risk gates, Var approval, Thor execution, Saga audit.
+  ko:
+    title: 설계 요약
+    description: 설계 요약에 대한 FDAI 흐름입니다.
+    alt: 설계 요약. 주요 단계는 FDAI Console - Operations, Domain projections, Operator API request routes, Typed event bus, Owning
+      agents, Quality and risk gates, Var approval, Thor execution, Saga audit입니다.
+canvas:
+  width: 1350
+  height: 810
+  direction: RIGHT
+groups: []
+nodes:
+  - id: ui
+    kind: process
+    shape: card
+    label:
+      en: FDAI Console - Operations
+      ko: FDAI Console - Operations
+  - id: read
+    kind: process
+    shape: card
+    label:
+      en: Domain projections
+      ko: Domain projections
+  - id: api
+    kind: process
+    shape: card
+    label:
+      en: Operator API request routes
+      ko: Operator API request routes
+  - id: bus
+    kind: process
+    shape: card
+    label:
+      en: Typed event bus
+      ko: Typed event bus
+  - id: owner
+    kind: process
+    shape: card
+    label:
+      en: Owning agents
+      ko: Owning agents
+  - id: gates
+    kind: process
+    shape: card
+    label:
+      en: Quality and risk gates
+      ko: Quality and risk gates
+  - id: var
+    kind: process
+    shape: card
+    label:
+      en: Var approval
+      ko: Var approval
+  - id: thor
+    kind: process
+    shape: card
+    label:
+      en: Thor execution
+      ko: Thor execution
+  - id: saga
+    kind: process
+    shape: card
+    label:
+      en: Saga audit
+      ko: Saga audit
+edges:
+  - id: flow-01
+    from: ui
+    to: read
+    kind: request
+  - id: flow-02
+    from: ui
+    to: api
+    kind: request
+  - id: flow-03
+    from: api
+    to: bus
+    kind: request
+  - id: flow-04
+    from: bus
+    to: owner
+    kind: request
+  - id: flow-05
+    from: owner
+    to: gates
+    kind: request
+  - id: flow-06
+    from: gates
+    to: var
+    kind: request
+  - id: flow-07
+    from: gates
+    to: thor
+    kind: request
+  - id: flow-08
+    from: var
+    to: thor
+    kind: request
+  - id: flow-09
+    from: thor
+    to: saga
+    kind: request
+  - id: flow-10
+    from: owner
+    to: saga
+    kind: request

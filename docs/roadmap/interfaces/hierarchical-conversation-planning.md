@@ -14,19 +14,7 @@ renders only evidence and verified limitations.
 
 ## Design at a glance
 
-```mermaid
-flowchart LR
-    INPUT[Text, screen, image, document] --> CONTEXT[Bounded context resolver]
-    CONTEXT --> PLAN[T1 mini-model intent graph]
-    PLAN --> VALIDATE[Deterministic graph validator]
-    VALIDATE -->|valid| BIND[Available capability binding]
-    VALIDATE -->|proposal unavailable or invalid| ESCALATE[T2 reasoner retry]
-    ESCALATE --> VALIDATE
-    BIND --> DAG[Read task DAG]
-    DAG --> EVIDENCE[Evidence ledger]
-    EVIDENCE --> VERIFY[Claim verification]
-    VERIFY --> BRAGI[Bragi presentation]
-```
+![Design at a glance. The main stages are Text, screen, image, document, Bounded context resolver, T1 mini-model intent graph, Deterministic graph validator, Available capability binding, T2 reasoner retry, Read task DAG, Evidence ledger, Claim verification, Bragi presentation.](../../diagrams/generated/fdai-roadmap-interfaces-hierarchical-conversation-planning-01.en.svg)
 
 The T1 mini-model interprets language and proposes a graph. It sees only capabilities available to
 the current principal and deployment. The validator blocks unknown capabilities, cycles,

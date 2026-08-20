@@ -1,0 +1,97 @@
+id: fdai-roadmap-interfaces-behavior-knowledge-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: Design at a glance. The main stages are Operator behavior question, Behavior Knowledge Index, Exact + lexical +
+      semantic retrieval, Source freshness check, Structured terminal answer, Hold answer for review, Tracked code,
+      tests, docs, schemas.
+  ko:
+    title: 설계 요약
+    description: 설계 요약에 대한 FDAI 흐름입니다.
+    alt: 설계 요약. 주요 단계는 운영자 행동 질문, 행동 지식 인덱스, Exact + lexical + semantic 검색, 소스 freshness 검사, 구조화된 최종 답변, 답변 판단 보류, Tracked
+      code, tests, docs, schemas입니다.
+canvas:
+  width: 1050
+  height: 630
+  direction: RIGHT
+groups: []
+nodes:
+  - id: q
+    kind: process
+    shape: card
+    label:
+      en: Operator behavior question
+      ko: 운영자 행동 질문
+  - id: b
+    kind: process
+    shape: card
+    label:
+      en: Behavior Knowledge Index
+      ko: 행동 지식 인덱스
+  - id: h
+    kind: process
+    shape: card
+    label:
+      en: Exact + lexical + semantic retrieval
+      ko: Exact + lexical + semantic 검색
+  - id: f
+    kind: process
+    shape: card
+    label:
+      en: Source freshness check
+      ko: 소스 freshness 검사
+  - id: a
+    kind: process
+    shape: card
+    label:
+      en: Structured terminal answer
+      ko: 구조화된 최종 답변
+    description:
+      en: "When: fresh"
+      ko: "조건: fresh"
+  - id: x
+    kind: process
+    shape: card
+    label:
+      en: Hold answer for review
+      ko: 답변 판단 보류
+    description:
+      en: "When: stale, absent, conflict"
+      ko: "조건: stale, absent, conflict"
+  - id: s
+    kind: process
+    shape: card
+    label:
+      en: Tracked code, tests, docs, schemas
+      ko: Tracked code, tests, docs, schemas
+edges:
+  - id: flow-01
+    from: q
+    to: b
+    kind: request
+  - id: flow-02
+    from: b
+    to: h
+    kind: request
+  - id: flow-03
+    from: h
+    to: f
+    kind: request
+  - id: flow-04
+    from: f
+    to: a
+    kind: request
+  - id: flow-05
+    from: f
+    to: x
+    kind: request
+  - id: flow-06
+    from: s
+    to: f
+    kind: request

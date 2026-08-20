@@ -1,0 +1,264 @@
+{
+  "id": "fdai-roadmap-interfaces-azure-read-investigations-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are Operator, Bragi conversation, Read investigation planner, Heimdall investigation, Durable background task, Attenuated read-tool gateway, Resource Graph or inventory, Activity Log, Resource Health, Guest or Monitor logs, Normalized evidence."
+    },
+    "ko": {
+      "title": "설계 개요",
+      "description": "설계 개요에 대한 FDAI 흐름입니다.",
+      "alt": "설계 개요. 주요 단계는 Operator, Bragi conversation, Read investigation planner, Heimdall investigation, Durable background task, Attenuated read-tool gateway, Resource Graph or inventory, Activity Log, Resource Health, Guest or Monitor logs, Normalized evidence입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-interfaces-azure-read-investigations-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-interfaces-azure-read-investigations-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "user",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Operator",
+        "ko": "Operator"
+      },
+      "description": {
+        "en": "Operator",
+        "ko": "Operator"
+      }
+    },
+    {
+      "id": "bragi",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Bragi conversation",
+        "ko": "Bragi conversation"
+      },
+      "description": {
+        "en": "Bragi conversation",
+        "ko": "Bragi conversation"
+      }
+    },
+    {
+      "id": "plan",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Read investigation planner",
+        "ko": "Read investigation planner"
+      },
+      "description": {
+        "en": "Read investigation planner",
+        "ko": "Read investigation planner"
+      }
+    },
+    {
+      "id": "heimdall",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Heimdall investigation",
+        "ko": "Heimdall investigation"
+      },
+      "description": {
+        "en": "When: direct or streamed",
+        "ko": "조건: direct or streamed"
+      }
+    },
+    {
+      "id": "task",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Durable background task",
+        "ko": "Durable background task"
+      },
+      "description": {
+        "en": "When: detached",
+        "ko": "조건: detached"
+      }
+    },
+    {
+      "id": "gateway",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Attenuated read-tool gateway",
+        "ko": "Attenuated read-tool gateway"
+      },
+      "description": {
+        "en": "Attenuated read-tool gateway",
+        "ko": "Attenuated read-tool gateway"
+      }
+    },
+    {
+      "id": "arg",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Resource Graph or inventory",
+        "ko": "Resource Graph or inventory"
+      },
+      "description": {
+        "en": "Resource Graph or inventory",
+        "ko": "Resource Graph or inventory"
+      }
+    },
+    {
+      "id": "activity",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Activity Log",
+        "ko": "Activity Log"
+      },
+      "description": {
+        "en": "Activity Log",
+        "ko": "Activity Log"
+      }
+    },
+    {
+      "id": "health",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Resource Health",
+        "ko": "Resource Health"
+      },
+      "description": {
+        "en": "Resource Health",
+        "ko": "Resource Health"
+      }
+    },
+    {
+      "id": "guest",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Guest or Monitor logs",
+        "ko": "Guest or Monitor logs"
+      },
+      "description": {
+        "en": "Guest or Monitor logs",
+        "ko": "Guest or Monitor logs"
+      }
+    },
+    {
+      "id": "evidence",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Normalized evidence",
+        "ko": "Normalized evidence"
+      },
+      "description": {
+        "en": "Normalized evidence",
+        "ko": "Normalized evidence"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "user",
+      "to": "bragi",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "bragi",
+      "to": "plan",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "plan",
+      "to": "heimdall",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "plan",
+      "to": "task",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "task",
+      "to": "heimdall",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "heimdall",
+      "to": "gateway",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "gateway",
+      "to": "arg",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "gateway",
+      "to": "activity",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "gateway",
+      "to": "health",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "gateway",
+      "to": "guest",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-11",
+      "from": "gateway",
+      "to": "evidence",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-12",
+      "from": "evidence",
+      "to": "bragi",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-13",
+      "from": "bragi",
+      "to": "user",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

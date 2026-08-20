@@ -24,22 +24,7 @@ typed read tools, then chooses a direct, streamed, or detached execution mode fr
 latency. Every answer cites normalized server-owned evidence or reports that evidence is
 unavailable.
 
-```mermaid
-flowchart LR
-    USER[Operator] --> BRAGI[Bragi conversation]
-    BRAGI --> PLAN[Read investigation planner]
-    PLAN -->|direct or streamed| HEIMDALL[Heimdall investigation]
-    PLAN -->|detached| TASK[Durable background task]
-    TASK --> HEIMDALL
-    HEIMDALL --> GATEWAY[Attenuated read-tool gateway]
-    GATEWAY --> ARG[Resource Graph or inventory]
-    GATEWAY --> ACTIVITY[Activity Log]
-    GATEWAY --> HEALTH[Resource Health]
-    GATEWAY --> GUEST[Guest or Monitor logs]
-    GATEWAY --> EVIDENCE[Normalized evidence]
-    EVIDENCE --> BRAGI
-    BRAGI --> USER
-```
+![Design at a glance. The main stages are Operator, Bragi conversation, Read investigation planner, Heimdall investigation, Durable background task, Attenuated read-tool gateway, Resource Graph or inventory, Activity Log, Resource Health, Guest or Monitor logs, Normalized evidence.](../../diagrams/generated/fdai-roadmap-interfaces-azure-read-investigations-01.en.svg)
 
 ## Ownership and boundaries
 

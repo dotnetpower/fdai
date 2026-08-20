@@ -1,0 +1,112 @@
+id: fdai-roadmap-interfaces-browser-evidence-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: Design at a glance. The main stages are Typed capture request, Origin and DNS policy, Ephemeral Playwright context,
+      Visual and text redaction, Deterministic hashes, Content-addressed artifact, Append-only custody audit, Human and
+      API comparison, Read-only inspection.
+  ko:
+    title: 설계 개요
+    description: 설계 개요에 대한 FDAI 흐름입니다.
+    alt: 설계 개요. 주요 단계는 Typed capture request, Origin and DNS policy, Ephemeral Playwright context, Visual and text
+      redaction, Deterministic hashes, Content-addressed artifact, Append-only custody audit, Human and API comparison,
+      Read-only inspection입니다.
+canvas:
+  width: 1350
+  height: 810
+  direction: RIGHT
+groups: []
+nodes:
+  - id: request
+    kind: process
+    shape: card
+    label:
+      en: Typed capture request
+      ko: Typed capture request
+  - id: policy
+    kind: process
+    shape: card
+    label:
+      en: Origin and DNS policy
+      ko: Origin and DNS policy
+  - id: browser
+    kind: process
+    shape: card
+    label:
+      en: Ephemeral Playwright context
+      ko: Ephemeral Playwright context
+  - id: redact
+    kind: process
+    shape: card
+    label:
+      en: Visual and text redaction
+      ko: Visual and text redaction
+  - id: hash
+    kind: process
+    shape: card
+    label:
+      en: Deterministic hashes
+      ko: Deterministic hashes
+  - id: store
+    kind: process
+    shape: card
+    label:
+      en: Content-addressed artifact
+      ko: Content-addressed artifact
+  - id: audit
+    kind: process
+    shape: card
+    label:
+      en: Append-only custody audit
+      ko: Append-only custody audit
+  - id: shadow
+    kind: process
+    shape: card
+    label:
+      en: Human and API comparison
+      ko: Human and API comparison
+  - id: view
+    kind: process
+    shape: card
+    label:
+      en: Read-only inspection
+      ko: Read-only inspection
+edges:
+  - id: flow-01
+    from: request
+    to: policy
+    kind: request
+  - id: flow-02
+    from: policy
+    to: browser
+    kind: request
+  - id: flow-03
+    from: browser
+    to: redact
+    kind: request
+  - id: flow-04
+    from: redact
+    to: hash
+    kind: request
+  - id: flow-05
+    from: hash
+    to: store
+    kind: request
+  - id: flow-06
+    from: store
+    to: audit
+    kind: request
+  - id: flow-07
+    from: store
+    to: shadow
+    kind: request
+  - id: flow-08
+    from: store
+    to: view
+    kind: request

@@ -1,8 +1,8 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: e7334108f561673842165fd60ca837cd4a41f758
-translation_revised: 2026-08-19
+translation_source_sha: fd46d6d996e1fefb1e68b2c8dcaf521a78a8a80f
+translation_revised: 2026-08-20
 ---
 # FDAI 온톨로지 안전 인프라
 
@@ -270,20 +270,7 @@ Infrastructure는 의미 선언, authority-specific 상태, agent-owned kinetic 
 judgment, 권한 확인, 실행, 독립적인 효과 검증을 완료할 때까지 제안 또는
 맥락으로 유지됩니다.
 
-```mermaid
-flowchart LR
-    S[Authority sources] --> PB[ProjectionBinding]
-    PB --> G[Observed object graph]
-    G --> Q[ObjectSet query]
-    Q --> D[Decision context]
-    D --> MP[MutationPlan]
-    MP --> R[Risk and approval]
-    R --> A[ActionRun]
-    A --> X[Provider, Git, ledger, or FDAI store]
-    X --> RC[ReconciliationReceipt]
-    RC --> G
-    RC --> O[ObservedOutcome]
-```
+![한눈에 보는 설계. 주요 단계는 Authority sources, ProjectionBinding, Observed object graph, ObjectSet query, Decision context, MutationPlan, Risk and approval, ActionRun, Provider, Git, ledger, or FDAI store, ReconciliationReceipt, ObservedOutcome입니다.](../../diagrams/generated/fdai-roadmap-architecture-operating-ontology-platform-01.ko.svg)
 
 ## 정확한 타입 신원
 

@@ -1,8 +1,8 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: 3687f60c3f58ef29fc45614362cee9051417d8e5
-translation_revised: 2026-08-16
+translation_source_sha: 15eb2fe540427cbd6852231a1a3f084e268f0700
+translation_revised: 2026-08-20
 ---
 # 운영 학습 온톨로지
 
@@ -42,19 +42,7 @@ FDAI는 두 계층으로 학습합니다. **Operational 사례**는 관측, 결�
 `Rule -> remediates -> ActionType`이며, 집단 분석, 재생, shadow 비교, 일반 승격
 게이트를 통과한 후에만 수락됩니다.
 
-```mermaid
-flowchart LR
-    B[Benchmark or live incident] --> S[Saga audit evidence]
-    S --> C[Muninn operational case revision]
-    C --> F[Deterministic failure fingerprint]
-    F --> N[Norns cohort analysis]
-    N --> RC[Inert RuleCandidate]
-    RC --> M[Mimir replay and shadow gate]
-    M --> R[Rule catalog]
-    R --> A[ActionType catalog]
-    A --> T[T1 similarity reuse with current checks]
-    T --> G[Risk, approval, execution, and audit]
-```
+![한눈에 보는 설계. 주요 단계는 Benchmark or live incident, Saga audit evidence, Muninn operational case revision, Deterministic failure fingerprint, Norns cohort analysis, Inert RuleCandidate, Mimir replay and shadow gate, Rule catalog, ActionType catalog, T1 similarity reuse with current checks, Risk, approval, execution, and audit입니다.](../../diagrams/generated/fdai-roadmap-rules-and-detection-operational-learning-ontology-01.ko.svg)
 
 Evaluation 어댑터는 증거 소스일 뿐입니다. 운영 인시던트와 동일한 정본 사례
 입력을 방출한 뒤, 해당 사례가 후보에 기여할지는 일반 agent-owned learning 경로가

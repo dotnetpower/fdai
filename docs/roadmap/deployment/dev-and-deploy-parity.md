@@ -612,25 +612,7 @@ adapter remains under `delivery/azure/`. See
 
 At `terraform apply` time the resolver behaves like this:
 
-```mermaid
-flowchart LR
-    START([terraform apply]) --> WHOAMI["az account show<br/>+ resolve deployer principal"]
-    WHOAMI --> AUDIT[Bootstrap audit entry:<br/>deployer_object_id, sub, region]
-    AUDIT --> REG[read rule-catalog/llm-registry.yaml]
-    REG --> CAT["query Azure catalog:<br/>Foundry / AOAI SKUs available<br/>in var.region"]
-    CAT --> RBAC{deployer has<br/>Cognitive Services Contributor<br/>on target subscription?}
-    RBAC -->|no| SKIP1[emit warning:<br/>skip LLM provisioning<br/>mark T2 capability = HIL-only]
-    RBAC -->|yes| MATCH{"preferred family available<br/>AND deployer sub has quota?"}
-    MATCH -->|no for capability| SKIP2["mark this capability HIL-only<br/>continue with remaining"]
-    MATCH -->|yes| DEPLOY["provision deployment<br/>cap_tpm from registry"]
-    DEPLOY --> INV{"mixed-model invariant:<br/>primary.publisher != secondary.publisher?"}
-    INV -->|violated| ABORT["abort with clear error<br/>(fork must expand preferences)"]
-    INV -->|ok| WRITE[emit resolved-models.json file or inline JSON]
-    SKIP1 --> WRITE
-    SKIP2 --> WRITE
-    WRITE --> ROLE[role-assign executor MI:<br/>Cognitive Services OpenAI User]
-    ROLE --> DONE([done])
-```
+![Deployer-Scoped LLM Provisioning. The main stages are [terraform apply\], az account show / + resolve deployer principal, Bootstrap audit entry: / deployer_object_id, sub, region, read rule-catalog/llm-registry.yaml, query Azure catalog: / Foundry / AOAI SKUs available / in var.region, deployer has / Cognitive Services Contributor / on target subscription?, emit warning: / skip LLM provisioning / mark T2 capability = HIL-only, preferred family available / AND deployer sub has quota?, mark this capability HIL-only / continue with remaining, provision deployment / cap_tpm from registry, mixed-model invariant: / primary.publisher != secondary.publisher?, abort with clear error / (fork must expand preferences).](../../diagrams/generated/fdai-roadmap-deployment-dev-and-deploy-parity-01.en.svg)
 
 **Deployer permission gates** (checked by the resolver before touching the catalog):
 

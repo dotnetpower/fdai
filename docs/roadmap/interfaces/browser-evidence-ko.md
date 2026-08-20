@@ -1,7 +1,7 @@
 ---
 translation_of: browser-evidence.md
-translation_source_sha: d3c6c8f65b7e88ac68b265f876b0566e2e481ae2
-translation_revised: 2026-08-15
+translation_source_sha: 795574f8df2bb25e88f0a57cd47a67c3128666cd
+translation_revised: 2026-08-20
 ---
 # 브라우저 근거 수집
 
@@ -21,17 +21,7 @@ translation_revised: 2026-08-15
 내용을 마스킹하여 코어 서비스에 전달합니다. Core 서비스는 정제된 바이트를 해시하고 저장하며
 추가 전용 보관 감사 기록을 연결하고 추출한 모든 내용을 신뢰되지 않은 것으로 표시합니다.
 
-```mermaid
-flowchart LR
-    REQUEST[Typed capture request] --> POLICY[Origin and DNS policy]
-    POLICY --> BROWSER[Ephemeral Playwright context]
-    BROWSER --> REDACT[Visual and text redaction]
-    REDACT --> HASH[Deterministic hashes]
-    HASH --> STORE[Content-addressed artifact]
-    STORE --> AUDIT[Append-only custody audit]
-    STORE --> SHADOW[Human and API comparison]
-    STORE --> VIEW[Read-only inspection]
-```
+![설계 개요. 주요 단계는 Typed capture request, Origin and DNS policy, Ephemeral Playwright context, Visual and text redaction, Deterministic hashes, Content-addressed artifact, Append-only custody audit, Human and API comparison, Read-only inspection입니다.](../../diagrams/generated/fdai-roadmap-interfaces-browser-evidence-01.ko.svg)
 
 ## 계약 및 담당
 

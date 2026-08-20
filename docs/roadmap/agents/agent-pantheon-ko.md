@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: a23e45312f89aab2ee290603a1e10c6f4d8185cc
-translation_revised: 2026-08-19
+translation_source_sha: c2286a4bb55d608b7bb5ae65b64acc0ce5eb00b5
+translation_revised: 2026-08-20
 ---
 
 # 에이전트 판테온
@@ -107,27 +107,7 @@ Odin 에 두 라인이 보고한다: Thor (operations) 와 Forseti (judgment). 4
 독립적이다. 도메인 전문가 와 sensing 에이전트는 Forseti 아래에 위치해
 데이터가 실행이 아니라 판단으로 흐르도록 한다.
 
-```mermaid
-graph TD
-    Odin["Odin<br/>(Master Planner)"]
-
-    Odin --> Thor["Thor<br/>(Responder)"]
-    Odin --> Forseti["Forseti<br/>(Judge)"]
-    Odin -. staff .-> Mimir["Mimir<br/>(Rule Steward)"]
-    Odin -. staff .-> Muninn["Muninn<br/>(Memory)"]
-    Odin -. staff .-> Saga["Saga<br/>(Auditor)"]
-    Odin -. staff .-> Norns["Norns<br/>(Learner)"]
-
-    Thor --> Vidar["Vidar<br/>(Recovery)"]
-    Thor --> Bragi["Bragi<br/>(Narrator)"]
-    Thor --> Var["Var<br/>(Approver)"]
-
-    Forseti --> Huginn["Huginn<br/>(Event Collector)"]
-    Forseti --> Heimdall["Heimdall<br/>(Observer)"]
-    Forseti --> Njord["Njord<br/>(Cost)"]
-    Forseti --> Freyr["Freyr<br/>(Capacity)"]
-    Forseti --> Loki["Loki<br/>(Chaos)"]
-```
+![2. 조직도. 주요 단계는 Odin / (Master Planner), Thor / (Responder), Forseti / (Judge), Mimir / (Rule Steward), Muninn / (Memory), Saga / (Auditor), Norns / (Learner), Vidar / (Recovery), Bragi / (Narrator), Var / (Approver), Huginn / (Event Collector), Heimdall / (Observer)입니다.](../../diagrams/generated/fdai-roadmap-agents-agent-pantheon-01.ko.svg)
 
 ## 3. 런타임 관계도
 
@@ -139,26 +119,7 @@ terminal audit을 영속화합니다. Workflow request는 Huginn, Forseti, Thor�
 judgment, approval 또는 execution authority를 바꾸지 않습니다.
 Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다.
 
-```mermaid
-graph LR
-    Huginn["Huginn"] --> Heimdall["Heimdall"]
-    Heimdall --> Forseti["Forseti"]
-    Mimir["Mimir"] -. rules .-> Forseti
-    Muninn["Muninn"] -. context .-> Forseti
-    Njord["Njord"] -. advises .-> Forseti
-    Freyr["Freyr"] -. advises .-> Forseti
-    Loki["Loki"] -. schedules .-> Heimdall
-    Forseti -->|verdict: auto/hil/deny| Thor["Thor"]
-    Thor -->|auto| Vidar["Vidar"]
-    Thor -->|hil| Var["Var"]
-    Var --> Thor
-    Thor -->|deny| Saga["Saga"]
-    Vidar --> Saga
-    Bragi["Bragi"] -. queries .-> Muninn
-    Odin["Odin"] -. arbitrates .-> Forseti
-    Saga -. signals .-> Norns["Norns"]
-    Norns -. proposes .-> Mimir
-```
+![3. 런타임 관계도. 주요 단계는 Huginn, Heimdall, Forseti, Mimir, Muninn, Njord, Freyr, Loki, Thor, Vidar, Var, Saga입니다.](../../diagrams/generated/fdai-roadmap-agents-agent-pantheon-02.ko.svg)
 
 ### 3.1 다목적 중재 (multi-objective 중재)
 

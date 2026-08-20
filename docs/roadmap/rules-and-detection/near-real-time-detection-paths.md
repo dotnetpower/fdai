@@ -40,16 +40,7 @@ resource; nothing runs upstream unless explicitly wired.
 
 ## Push path #1 - Metric Alert Rule -> Webhook (~30-90 s)
 
-```mermaid
-flowchart LR
-    R[Azure Resource] -->|metric| M[Azure Monitor Metrics store]
-    M -->|rule window match| A[Metric Alert Rule]
-    A --> G[Action Group webhook receiver]
-    G -->|HTTPS POST| W[FDAI /webhook/azure-monitor]
-    W --> N[normalize_common_alert_schema]
-    N --> E[Event on ingest topic]
-    E --> T[trust-router + risk-gate]
-```
+![Push path #1 - Metric Alert Rule -> Webhook (~30-90 s). The main stages are Azure Resource, Azure Monitor Metrics store, Metric Alert Rule, Action Group webhook receiver, FDAI /webhook/azure-monitor, normalize_common_alert_schema, Event on ingest topic, trust-router + risk-gate.](../../diagrams/generated/fdai-roadmap-rules-and-detection-near-real-time-detection-paths-01.en.svg)
 
 **When to pick this.** The fork has a small, well-known set of
 alerts that map 1:1 to autonomy actions ("MySQL CPU over 90% for 5
@@ -97,15 +88,7 @@ Group and `https://<fdai-endpoint>/webhook/azure-monitor`.
 
 ## Push path #2 - Diagnostic Setting -> Event Hub -> Kafka (~15-60 s)
 
-```mermaid
-flowchart LR
-    R[Azure Resource] -->|AllMetrics + AllLogs| D[Diagnostic Setting]
-    D -->|stream| H[Azure Event Hub]
-    H -->|Kafka :9093| C[FDAI Kafka consumer]
-    C --> N[normalize_diagnostic_records]
-    N --> E[Event on ingest topic]
-    E --> T[trust-router + risk-gate]
-```
+![Push path #2 - Diagnostic Setting -> Event Hub -> Kafka (~15-60 s). The main stages are Azure Resource, Diagnostic Setting, Azure Event Hub, FDAI Kafka consumer, normalize_diagnostic_records, Event on ingest topic, trust-router + risk-gate.](../../diagrams/generated/fdai-roadmap-rules-and-detection-near-real-time-detection-paths-02.en.svg)
 
 **When to pick this.** The fork wants centralized threshold authority
 inside FDAI, low latency for many metrics per resource, and does not

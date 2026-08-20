@@ -1,8 +1,8 @@
 ---
 title: Azure 읽기 조사
 translation_of: azure-read-investigations.md
-translation_source_sha: 36f899a197698a471c11c347f44075837e0455c8
-translation_revised: 2026-08-18
+translation_source_sha: 85ba00e73e82ca7d2cc29fd9a9b86db73b80d361
+translation_revised: 2026-08-20
 ---
 
 # Azure 읽기 조사
@@ -25,22 +25,7 @@ Thor의 실행 신원을 사용하지 않고 근거를 수집합니다.
 선택한 다음 측정된 도구 지연 시간을 기준으로 direct, streamed 또는 detached 실행 모드를 선택합니다.
 모든 답변은 정규화된 서버가 소유한 근거를 인용하거나 근거가 사용 불가임을 보고합니다.
 
-```mermaid
-flowchart LR
-    USER[Operator] --> BRAGI[Bragi conversation]
-    BRAGI --> PLAN[Read investigation planner]
-    PLAN -->|direct or streamed| HEIMDALL[Heimdall investigation]
-    PLAN -->|detached| TASK[Durable background task]
-    TASK --> HEIMDALL
-    HEIMDALL --> GATEWAY[Attenuated read-tool gateway]
-    GATEWAY --> ARG[Resource Graph or inventory]
-    GATEWAY --> ACTIVITY[Activity Log]
-    GATEWAY --> HEALTH[Resource Health]
-    GATEWAY --> GUEST[Guest or Monitor logs]
-    GATEWAY --> EVIDENCE[Normalized evidence]
-    EVIDENCE --> BRAGI
-    BRAGI --> USER
-```
+![설계 개요. 주요 단계는 Operator, Bragi conversation, Read investigation planner, Heimdall investigation, Durable background task, Attenuated read-tool gateway, Resource Graph or inventory, Activity Log, Resource Health, Guest or Monitor logs, Normalized evidence입니다.](../../diagrams/generated/fdai-roadmap-interfaces-azure-read-investigations-01.ko.svg)
 
 ## 소유권 및 경계
 

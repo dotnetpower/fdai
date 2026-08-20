@@ -1,0 +1,183 @@
+{
+  "id": "fdai-roadmap-decisioning-execution-authorization-ontology-02",
+  "kind": "sequence",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Grant lifecycle",
+      "description": "Ordered FDAI interactions for Grant lifecycle.",
+      "alt": "Grant lifecycle. The main stages are AuthorizationDecision(GRANT_REQUIRED), AccessGrantRequest, independently approved exact request, exact-plan governance change, apply receipt and expiry, fresh-token effective-access observation, re-evaluate original action from the beginning, authorized verdict only after all gates pass."
+    },
+    "ko": {
+      "title": "권한 부여 수명 주기",
+      "description": "권한 부여 수명 주기에 대한 순서가 있는 FDAI 상호 작용입니다.",
+      "alt": "권한 부여 수명 주기. 주요 단계는 AuthorizationDecision(GRANT_REQUIRED), AccessGrantRequest, independently approved exact request, exact-plan governance change, apply receipt and expiry, fresh-token effective-access observation, re-evaluate original action from the beginning, authorized verdict only after all gates pass입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-decisioning-execution-authorization-ontology-02.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-decisioning-execution-authorization-ontology-02.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "step-01",
+      "kind": "process",
+      "badge": 1,
+      "label": {
+        "en": "Forseti -> Saga",
+        "ko": "Forseti -> Saga"
+      },
+      "description": {
+        "en": "AuthorizationDecision(GRANT_REQUIRED)",
+        "ko": "AuthorizationDecision(GRANT_REQUIRED)"
+      }
+    },
+    {
+      "id": "step-02",
+      "kind": "process",
+      "badge": 2,
+      "label": {
+        "en": "Forseti -> Var",
+        "ko": "Forseti -> Var"
+      },
+      "description": {
+        "en": "AccessGrantRequest",
+        "ko": "AccessGrantRequest"
+      }
+    },
+    {
+      "id": "step-03",
+      "kind": "process",
+      "badge": 3,
+      "label": {
+        "en": "Var -> Saga",
+        "ko": "Var -> Saga"
+      },
+      "description": {
+        "en": "independently approved exact request",
+        "ko": "independently approved exact request"
+      }
+    },
+    {
+      "id": "step-04",
+      "kind": "process",
+      "badge": 4,
+      "label": {
+        "en": "Var -> Protected deployer",
+        "ko": "Var -> Protected deployer"
+      },
+      "description": {
+        "en": "exact-plan governance change",
+        "ko": "exact-plan governance change"
+      }
+    },
+    {
+      "id": "step-05",
+      "kind": "process",
+      "badge": 5,
+      "label": {
+        "en": "Protected deployer -> Saga",
+        "ko": "Protected deployer -> Saga"
+      },
+      "description": {
+        "en": "apply receipt and expiry",
+        "ko": "apply receipt and expiry"
+      }
+    },
+    {
+      "id": "step-06",
+      "kind": "process",
+      "badge": 6,
+      "label": {
+        "en": "Heimdall -> Saga",
+        "ko": "Heimdall -> Saga"
+      },
+      "description": {
+        "en": "fresh-token effective-access observation",
+        "ko": "fresh-token effective-access observation"
+      }
+    },
+    {
+      "id": "step-07",
+      "kind": "process",
+      "badge": 7,
+      "label": {
+        "en": "Heimdall -> Forseti",
+        "ko": "Heimdall -> Forseti"
+      },
+      "description": {
+        "en": "re-evaluate original action from the beginning",
+        "ko": "re-evaluate original action from the beginning"
+      }
+    },
+    {
+      "id": "step-08",
+      "kind": "process",
+      "badge": 8,
+      "label": {
+        "en": "Forseti -> Thor",
+        "ko": "Forseti -> Thor"
+      },
+      "description": {
+        "en": "authorized verdict only after all gates pass",
+        "ko": "authorized verdict only after all gates pass"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "sequence-01",
+      "from": "step-01",
+      "to": "step-02",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-02",
+      "from": "step-02",
+      "to": "step-03",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-03",
+      "from": "step-03",
+      "to": "step-04",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-04",
+      "from": "step-04",
+      "to": "step-05",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-05",
+      "from": "step-05",
+      "to": "step-06",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-06",
+      "from": "step-06",
+      "to": "step-07",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-07",
+      "from": "step-07",
+      "to": "step-08",
+      "kind": "sequence",
+      "label": null
+    }
+  ]
+}

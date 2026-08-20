@@ -1,0 +1,102 @@
+id: fdai-roadmap-interfaces-user-rbac-and-identity-01
+version: 1
+kind: sequence
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: "6. Target Identity Flow: Console → Draft PR → Audit"
+    description: "Ordered FDAI interactions for 6. Target Identity Flow: Console → Draft PR → Audit."
+    alt: "6. Target Identity Flow: Console → Draft PR → Audit. The main stages are Sign in (MSAL, PKCE), Draft change (JSON)
+      + access_token, Validate token, extract roles claim, schema-check, CI-dryrun, createPR(branch, patch,
+      meta{entra_oid, upn, role, ts, sig}), Signed commit (author=github-app, / trailer: Entra-Author-OID: ),
+      append(actor=entra_oid, action=draft-pr-create, / pr_url, correlation_id)."
+  ko:
+    title: "6. 목표 아이덴티티 흐름: 콘솔 → 초안 PR → 감사"
+    description: "6. 목표 아이덴티티 흐름: 콘솔 → 초안 PR → 감사에 대한 순서가 있는 FDAI 상호 작용입니다."
+    alt: "6. 목표 아이덴티티 흐름: 콘솔 → 초안 PR → 감사. 주요 단계는 Sign in (MSAL, PKCE), Draft change (JSON) + access_token, Validate token,
+      extract roles claim, schema-check, CI-dryrun, createPR(branch, patch, meta{entra_oid, upn, role, ts, sig}), Signed
+      commit (author=github-app, / trailer: Entra-Author-OID: ), append(actor=entra_oid, action=draft-pr-create, /
+      pr_url, correlation_id)입니다."
+canvas:
+  width: 1100
+  height: 660
+  direction: DOWN
+groups: []
+nodes:
+  - id: step-01
+    kind: process
+    badge: 1
+    label:
+      en: User (Contributor) -> Console SPA
+      ko: User (Contributor) -> Console SPA
+    description:
+      en: Sign in (MSAL, PKCE)
+      ko: Sign in (MSAL, PKCE)
+  - id: step-02
+    kind: process
+    badge: 2
+    label:
+      en: Console SPA -> fdai-api
+      ko: Console SPA -> fdai-api
+    description:
+      en: Draft change (JSON) + access_token
+      ko: Draft change (JSON) + access_token
+  - id: step-03
+    kind: process
+    badge: 3
+    label:
+      en: fdai-api -> fdai-api
+      ko: fdai-api -> fdai-api
+    description:
+      en: Validate token, extract roles claim, schema-check, CI-dryrun
+      ko: Validate token, extract roles claim, schema-check, CI-dryrun
+  - id: step-04
+    kind: process
+    badge: 4
+    label:
+      en: fdai-api -> GitHub App
+      ko: fdai-api -> GitHub App
+    description:
+      en: createPR(branch, patch, meta{entra_oid, upn, role, ts, sig})
+      ko: createPR(branch, patch, meta{entra_oid, upn, role, ts, sig})
+  - id: step-05
+    kind: process
+    badge: 5
+    label:
+      en: GitHub App -> catalog-as-code repo
+      ko: GitHub App -> catalog-as-code repo
+    description:
+      en: "Signed commit (author=github-app, / trailer: Entra-Author-OID: )"
+      ko: "Signed commit (author=github-app, / trailer: Entra-Author-OID: )"
+  - id: step-06
+    kind: process
+    badge: 6
+    label:
+      en: fdai-api -> Audit log
+      ko: fdai-api -> Audit log
+    description:
+      en: append(actor=entra_oid, action=draft-pr-create, / pr_url, correlation_id)
+      ko: append(actor=entra_oid, action=draft-pr-create, / pr_url, correlation_id)
+edges:
+  - id: sequence-01
+    from: step-01
+    to: step-02
+    kind: sequence
+  - id: sequence-02
+    from: step-02
+    to: step-03
+    kind: sequence
+  - id: sequence-03
+    from: step-03
+    to: step-04
+    kind: sequence
+  - id: sequence-04
+    from: step-04
+    to: step-05
+    kind: sequence
+  - id: sequence-05
+    from: step-05
+    to: step-06
+    kind: sequence

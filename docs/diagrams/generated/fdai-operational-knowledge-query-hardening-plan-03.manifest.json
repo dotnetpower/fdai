@@ -1,0 +1,203 @@
+{
+  "id": "fdai-operational-knowledge-query-hardening-plan-03",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Ordinary-language query",
+      "description": "FDAI flow for Ordinary-language query.",
+      "alt": "Ordinary-language query. The main stages are Console question, Operator semantic-turn outbox, Semantic request topic, Core semantic planning, Exact manifest verifier, Bounded query DAG, Node and evidence receipts, Principal-scoped terminal projection, Console answer."
+    },
+    "ko": {
+      "title": "Ordinary-language query",
+      "description": "Ordinary-language query에 대한 FDAI 흐름입니다.",
+      "alt": "Ordinary-language query. 주요 단계는 Console question, Operator semantic-turn outbox, Semantic request topic, Core semantic planning, Exact manifest verifier, Bounded query DAG, Node and evidence receipts, Principal-scoped terminal projection, Console answer입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-operational-knowledge-query-hardening-plan-03.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-operational-knowledge-query-hardening-plan-03.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "user",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Console question",
+        "ko": "Console question"
+      },
+      "description": {
+        "en": "Console question",
+        "ko": "Console question"
+      }
+    },
+    {
+      "id": "op",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Operator semantic-turn outbox",
+        "ko": "Operator semantic-turn outbox"
+      },
+      "description": {
+        "en": "Operator semantic-turn outbox",
+        "ko": "Operator semantic-turn outbox"
+      }
+    },
+    {
+      "id": "req",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Semantic request topic",
+        "ko": "Semantic request topic"
+      },
+      "description": {
+        "en": "Semantic request topic",
+        "ko": "Semantic request topic"
+      }
+    },
+    {
+      "id": "plan",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Core semantic planning",
+        "ko": "Core semantic planning"
+      },
+      "description": {
+        "en": "Core semantic planning",
+        "ko": "Core semantic planning"
+      }
+    },
+    {
+      "id": "verify",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Exact manifest verifier",
+        "ko": "Exact manifest verifier"
+      },
+      "description": {
+        "en": "Exact manifest verifier",
+        "ko": "Exact manifest verifier"
+      }
+    },
+    {
+      "id": "dag",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Bounded query DAG",
+        "ko": "Bounded query DAG"
+      },
+      "description": {
+        "en": "Bounded query DAG",
+        "ko": "Bounded query DAG"
+      }
+    },
+    {
+      "id": "receipts",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Node and evidence receipts",
+        "ko": "Node and evidence receipts"
+      },
+      "description": {
+        "en": "Node and evidence receipts",
+        "ko": "Node and evidence receipts"
+      }
+    },
+    {
+      "id": "result",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Principal-scoped terminal projection",
+        "ko": "Principal-scoped terminal projection"
+      },
+      "description": {
+        "en": "Principal-scoped terminal projection",
+        "ko": "Principal-scoped terminal projection"
+      }
+    },
+    {
+      "id": "ui",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Console answer",
+        "ko": "Console answer"
+      },
+      "description": {
+        "en": "Console answer",
+        "ko": "Console answer"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "user",
+      "to": "op",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "op",
+      "to": "req",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "req",
+      "to": "plan",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "plan",
+      "to": "verify",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "verify",
+      "to": "dag",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "dag",
+      "to": "receipts",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "receipts",
+      "to": "result",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "result",
+      "to": "ui",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

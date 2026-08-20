@@ -1,8 +1,8 @@
 ---
 title: Recovery 및 chaos enforcement
 translation_of: recovery-and-chaos-enforcement.md
-translation_source_sha: 93bdb2cec28c096c232816fb51f3def3e3b4870e
-translation_revised: 2026-08-14
+translation_source_sha: 658a36770227c07c9b86d27c79c2ce6f4e8ca364
+translation_revised: 2026-08-20
 ---
 # 복구 및 chaos 적용
 
@@ -51,21 +51,7 @@ compile하며 주입, stop, 롤백, 검증을 함께 다루는 하나의 결정�
 런타임은 관찰된 영향과 approved 묶음을 계속 비교합니다. 한계를 하나라도 넘으면
 실험을 중지하고 이미 승인된 복구 경로를 시작합니다.
 
-```mermaid
-flowchart LR
-    H[Grounded causal hypothesis] --> D[DecisionCase]
-    G[Fresh ontology graph] --> I[ImpactEnvelope]
-    D --> R[RecoveryPlan]
-    I --> R
-    R --> P[Dry run 및 approval]
-    P --> X[Thor executes]
-    X --> M[Continuous impact guard]
-    M -->|envelope 내부| V[Expected effect verification]
-    M -->|bound 초과| B[Vidar recovery control]
-    B --> C[Thor compensation action]
-    C --> V
-    V --> O[ObservedOutcome 및 audit]
-```
+![설계 개요. 주요 단계는 Grounded causal hypothesis, DecisionCase, Fresh ontology graph, ImpactEnvelope, RecoveryPlan, Dry run 및 approval, Thor executes, Continuous impact guard, Expected effect verification, Vidar recovery control, Thor compensation action, ObservedOutcome 및 audit입니다.](../../diagrams/generated/fdai-roadmap-decisioning-recovery-and-chaos-enforcement-01.ko.svg)
 
 ## 온톨로지 계약
 

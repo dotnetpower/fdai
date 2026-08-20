@@ -1,8 +1,8 @@
 ---
 title: 인과 incident graph
 translation_of: causal-incident-graph.md
-translation_source_sha: 77750cd224fe0c13b20844c72c0f61864d95edee
-translation_revised: 2026-08-16
+translation_source_sha: e963d6c40bbc7e4c5d7cec916b2e763eb33a05e0
+translation_revised: 2026-08-20
 ---
 # 인과 인시던트 그래프
 
@@ -30,21 +30,7 @@ FDAI는 하나의 근거 기준 시점을 기준으로 인시던트 subgraph를 
 있습니다. 통제된 intervention 또는 동등한 복구 reversal만 interventional 근거를
 입증할 수 있습니다.
 
-```mermaid
-flowchart LR
-    E[Event 및 observation] --> C[Correlated incident]
-    T[Dependency topology] --> G[Time-consistent incident graph]
-    C --> G
-    G --> H[CausalHypothesis candidate]
-    H --> S[Supporting evidence]
-    H --> R[Refuting evidence]
-    S --> V[Deterministic causal verifier]
-    R --> V
-    V --> D[DecisionCase]
-    D --> P[Recovery plan]
-    P --> O[Observed outcome]
-    O --> H
-```
+![설계 개요. 주요 단계는 Event 및 observation, Correlated incident, Dependency topology, Time-consistent incident graph, CausalHypothesis candidate, Supporting evidence, Refuting evidence, Deterministic causal verifier, DecisionCase, Recovery plan, Observed outcome입니다.](../../diagrams/generated/fdai-roadmap-rules-and-detection-causal-incident-graph-01.ko.svg)
 
 ## 역량 질문
 

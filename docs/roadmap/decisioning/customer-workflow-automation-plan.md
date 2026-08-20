@@ -52,17 +52,7 @@ versioned `Workflow`, exercised without changes, approved when required, execute
 plan uses six delivery waves. Each wave has a release gate, and passing one wave doesn't grant a
 later wave's authority.
 
-```mermaid
-flowchart LR
-    A[Discover and bound] --> B[Compile and validate]
-    B --> C[Replay and observe]
-    C --> D[Approve and enforce selected tools]
-    D --> E[Add bounded mutations]
-    E --> F[Scale and operate]
-    C -. regression .-> B
-    D -. policy escape .-> C
-    E -. rollback failure .-> C
-```
+![Design at a glance. The main stages are Discover and bound, Compile and validate, Replay and observe, Approve and enforce selected tools, Add bounded mutations, Scale and operate.](../../diagrams/generated/fdai-roadmap-decisioning-customer-workflow-automation-plan-01.en.svg)
 
 ## Target outcome
 

@@ -1,0 +1,253 @@
+{
+  "id": "fdai-roadmap-rules-and-detection-operational-hypothesis-loop-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are DecisionCase, No-action baseline, ActionOption, ExpectedEffect and horizon, Process and ActionRun, Provider receipt, Independent observation, CausalHypothesis revision, Active/challenger comparison, Inert promotion evidence, Mimir review and promotion registry."
+    },
+    "ko": {
+      "title": "설계 요약",
+      "description": "설계 요약에 대한 FDAI 흐름입니다.",
+      "alt": "설계 요약. 주요 단계는 DecisionCase, No-action baseline, ActionOption, ExpectedEffect and horizon, Process and ActionRun, Provider receipt, Independent observation, CausalHypothesis revision, Active/challenger comparison, Inert promotion evidence, Mimir review and promotion registry입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-rules-and-detection-operational-hypothesis-loop-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-rules-and-detection-operational-hypothesis-loop-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "c",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "DecisionCase",
+        "ko": "DecisionCase"
+      },
+      "description": {
+        "en": "DecisionCase",
+        "ko": "DecisionCase"
+      }
+    },
+    {
+      "id": "n",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "No-action baseline",
+        "ko": "No-action baseline"
+      },
+      "description": {
+        "en": "No-action baseline",
+        "ko": "No-action baseline"
+      }
+    },
+    {
+      "id": "o",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "ActionOption",
+        "ko": "ActionOption"
+      },
+      "description": {
+        "en": "ActionOption",
+        "ko": "ActionOption"
+      }
+    },
+    {
+      "id": "e",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "ExpectedEffect and horizon",
+        "ko": "ExpectedEffect and horizon"
+      },
+      "description": {
+        "en": "ExpectedEffect and horizon",
+        "ko": "ExpectedEffect and horizon"
+      }
+    },
+    {
+      "id": "p",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Process and ActionRun",
+        "ko": "Process and ActionRun"
+      },
+      "description": {
+        "en": "Process and ActionRun",
+        "ko": "Process and ActionRun"
+      }
+    },
+    {
+      "id": "r",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Provider receipt",
+        "ko": "Provider receipt"
+      },
+      "description": {
+        "en": "Provider receipt",
+        "ko": "Provider receipt"
+      }
+    },
+    {
+      "id": "i",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Independent observation",
+        "ko": "Independent observation"
+      },
+      "description": {
+        "en": "Independent observation",
+        "ko": "Independent observation"
+      }
+    },
+    {
+      "id": "h",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "CausalHypothesis revision",
+        "ko": "CausalHypothesis revision"
+      },
+      "description": {
+        "en": "CausalHypothesis revision",
+        "ko": "CausalHypothesis revision"
+      }
+    },
+    {
+      "id": "x",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Active/challenger comparison",
+        "ko": "Active/challenger comparison"
+      },
+      "description": {
+        "en": "Active/challenger comparison",
+        "ko": "Active/challenger comparison"
+      }
+    },
+    {
+      "id": "q",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Inert promotion evidence",
+        "ko": "Inert promotion evidence"
+      },
+      "description": {
+        "en": "Inert promotion evidence",
+        "ko": "Inert promotion evidence"
+      }
+    },
+    {
+      "id": "m",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Mimir review and promotion registry",
+        "ko": "Mimir review and promotion registry"
+      },
+      "description": {
+        "en": "Mimir review and promotion registry",
+        "ko": "Mimir review and promotion registry"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "c",
+      "to": "n",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "c",
+      "to": "o",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "o",
+      "to": "e",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "o",
+      "to": "p",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "p",
+      "to": "r",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "p",
+      "to": "i",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "i",
+      "to": "h",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "r",
+      "to": "h",
+      "kind": "dependency",
+      "label": {
+        "en": "dispatch only",
+        "ko": "dispatch only"
+      }
+    },
+    {
+      "id": "flow-09",
+      "from": "h",
+      "to": "x",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "x",
+      "to": "q",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-11",
+      "from": "q",
+      "to": "m",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

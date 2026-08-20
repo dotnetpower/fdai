@@ -1,0 +1,112 @@
+id: fdai-roadmap-rules-and-detection-policy-abstraction-and-control-objectives-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: Design at a glance. The main stages are Natural-language request, Typed operational intent, Applicable
+      ControlObjectives, Verified RuleObjectiveBindings, Active Rules and Assignments, PolicyArtifact, OPA or
+      deterministic evaluator, Verdict, Governed ActionType path.
+  ko:
+    title: 한눈에 보는 설계
+    description: 한눈에 보는 설계에 대한 FDAI 흐름입니다.
+    alt: 한눈에 보는 설계. 주요 단계는 Natural-language request, Typed operational intent, Applicable ControlObjectives, Verified
+      RuleObjectiveBindings, Active Rules and Assignments, PolicyArtifact, OPA or deterministic evaluator, Verdict,
+      Governed ActionType path입니다.
+canvas:
+  width: 1350
+  height: 810
+  direction: RIGHT
+groups: []
+nodes:
+  - id: q
+    kind: process
+    shape: card
+    label:
+      en: Natural-language request
+      ko: Natural-language request
+  - id: i
+    kind: process
+    shape: card
+    label:
+      en: Typed operational intent
+      ko: Typed operational intent
+  - id: o
+    kind: process
+    shape: card
+    label:
+      en: Applicable ControlObjectives
+      ko: Applicable ControlObjectives
+  - id: b
+    kind: process
+    shape: card
+    label:
+      en: Verified RuleObjectiveBindings
+      ko: Verified RuleObjectiveBindings
+  - id: r
+    kind: process
+    shape: card
+    label:
+      en: Active Rules and Assignments
+      ko: Active Rules and Assignments
+  - id: p
+    kind: process
+    shape: card
+    label:
+      en: PolicyArtifact
+      ko: PolicyArtifact
+  - id: e
+    kind: process
+    shape: card
+    label:
+      en: OPA or deterministic evaluator
+      ko: OPA or deterministic evaluator
+  - id: v
+    kind: process
+    shape: card
+    label:
+      en: Verdict
+      ko: Verdict
+  - id: a
+    kind: process
+    shape: card
+    label:
+      en: Governed ActionType path
+      ko: Governed ActionType path
+edges:
+  - id: flow-01
+    from: q
+    to: i
+    kind: request
+  - id: flow-02
+    from: i
+    to: o
+    kind: request
+  - id: flow-03
+    from: o
+    to: b
+    kind: request
+  - id: flow-04
+    from: b
+    to: r
+    kind: request
+  - id: flow-05
+    from: r
+    to: p
+    kind: request
+  - id: flow-06
+    from: p
+    to: e
+    kind: request
+  - id: flow-07
+    from: e
+    to: v
+    kind: request
+  - id: flow-08
+    from: v
+    to: a
+    kind: request

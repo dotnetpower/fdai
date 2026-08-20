@@ -1,7 +1,7 @@
 ---
 translation_of: human-agent-assignment-and-knowledge-handover.md
-translation_source_sha: d536ed3c6965d37cd6ce9bcf20c5c94d64fa9494
-translation_revised: 2026-08-13
+translation_source_sha: f769f734cd19290a8024d455b988103dcc1cefe1
+translation_revised: 2026-08-20
 ---
 # 사용자-에이전트 할당 및 지식 이전
 
@@ -56,19 +56,7 @@ ID, FDAI App 역할, 접근 요청을 담당합니다. `Governance > Agent overs
 3. 두 결과가 일치한 후 매핑된 에이전트는 Bragi를 통해 제한된 지식 인수인계를 시작할 수 있고,
    업로드된 근거는 기존 에이전트 소유 수집 경로로 들어갑니다.
 
-```mermaid
-flowchart LR
-  A[Owner가 Entra 검색] --> C[할당 케이스]
-  C --> V[ID, 역할, 커버리지, 역할 분리 검증]
-  V --> R[독립적인 사람 검토]
-  R --> P[담당 체계 초안 PR]
-  P --> M[검토 후 병합]
-  M --> I[허용된 IAM 그룹 변경]
-  I --> X[수렴 확인]
-  X --> H[제한된 인수인계 초대]
-  H --> K[통제된 문서와 답변]
-  K --> G[청킹, 인덱싱, 온톨로지 후보, 감사]
-```
+![설계 개요. 주요 단계는 Owner가 Entra 검색, 할당 케이스, ID, 역할, 커버리지, 역할 분리 검증, 독립적인 사람 검토, 담당 체계 초안 PR, 검토 후 병합, 허용된 IAM 그룹 변경, 수렴 확인, 제한된 인수인계 초대, 통제된 문서와 답변, 청킹, 인덱싱, 온톨로지 후보, 감사입니다.](../../diagrams/generated/fdai-roadmap-interfaces-human-agent-assignment-and-knowledge-handover-01.ko.svg)
 
 ## 결정과 경계
 

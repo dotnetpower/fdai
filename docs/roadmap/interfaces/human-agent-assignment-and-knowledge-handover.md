@@ -54,19 +54,7 @@ assignment case. The case coordinates two effects:
 3. After both effects converge, the mapped agents can begin a bounded knowledge handover through
    Bragi, and uploaded evidence enters the existing agent-owned ingestion path.
 
-```mermaid
-flowchart LR
-  A[Owner searches Entra] --> C[Assignment case]
-  C --> V[Validate identity, role, coverage, and separation]
-  V --> R[Independent human review]
-  R --> P[Ownership draft PR]
-  P --> M[Reviewed merge]
-  M --> I[Allowlisted IAM group mutation]
-  I --> X[Convergence check]
-  X --> H[Bounded handover invitation]
-  H --> K[Governed documents and answers]
-  K --> G[Chunk, index, ontology candidates, and audit]
-```
+![Design at a glance. The main stages are Owner searches Entra, Assignment case, Validate identity, role, coverage, and separation, Independent human review, Ownership draft PR, Reviewed merge, Allowlisted IAM group mutation, Convergence check, Bounded handover invitation, Governed documents and answers, Chunk, index, ontology candidates, and audit.](../../diagrams/generated/fdai-roadmap-interfaces-human-agent-assignment-and-knowledge-handover-01.en.svg)
 
 ## Decisions and boundaries
 

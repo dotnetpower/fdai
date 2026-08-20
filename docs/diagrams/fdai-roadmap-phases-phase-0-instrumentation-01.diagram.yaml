@@ -1,0 +1,526 @@
+id: fdai-roadmap-phases-phase-0-instrumentation-01
+version: 1
+kind: timeline
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Phase 0 - Implementation Sequence
+    description: Sequenced FDAI delivery tasks for Sequenced Task Timeline.
+    alt: Sequenced Task Timeline. The main stages are W4.1 Bootstrap modules, W4.2 Executor MI, W4.3 Policy deny, W4.4 LPP
+      probe, W4.5 App regs, W4.6 Entra groups, W4.7 Conditional access, W4.8 Recertification, W1.1 Skeleton, W1.2
+      Ontology contracts, W1.3 Config loader, W1.4 OTel wiring.
+  ko:
+    title: Phase 0 - Implementation Sequence
+    description: 시퀀싱된 태스크 타임라인에 대한 순차 FDAI delivery task입니다.
+    alt: 시퀀싱된 태스크 타임라인. 주요 단계는 W4.1 Bootstrap modules, W4.2 Executor MI, W4.3 Policy deny, W4.4 LPP probe, W4.5 App regs,
+      W4.6 Entra groups, W4.7 Conditional access, W4.8 Recertification, W1.1 Skeleton, W1.2 Ontology contracts, W1.3
+      Config loader, W1.4 OTel wiring입니다.
+canvas:
+  width: 1600
+  height: 1400
+  direction: RIGHT
+groups:
+  - id: section-01
+    kind: layer
+    presentation: lane
+    label:
+      en: WI4 identity (critical path)
+      ko: WI4 identity (critical path)
+    direction: RIGHT
+  - id: section-02
+    kind: layer
+    presentation: lane
+    label:
+      en: WI1 telemetry
+      ko: WI1 telemetry
+    direction: RIGHT
+  - id: section-03
+    kind: layer
+    presentation: lane
+    label:
+      en: WI2 scenarios
+      ko: WI2 scenarios
+    direction: RIGHT
+  - id: section-04
+    kind: layer
+    presentation: lane
+    label:
+      en: WI3 baseline (blocked by W2.3)
+      ko: WI3 baseline (blocked by W2.3)
+    direction: RIGHT
+  - id: section-05
+    kind: layer
+    presentation: lane
+    label:
+      en: WI5 exemption
+      ko: WI5 exemption
+    direction: RIGHT
+  - id: section-06
+    kind: layer
+    presentation: lane
+    label:
+      en: WI6 local dev preset
+      ko: WI6 local dev preset
+    direction: RIGHT
+nodes:
+  - id: w41
+    parent: section-01
+    kind: process
+    badge: 1
+    label:
+      en: W4.1 Bootstrap modules
+      ko: W4.1 Bootstrap modules
+    description:
+      en: 0, 10
+      ko: 0, 10
+  - id: w42
+    parent: section-01
+    kind: process
+    badge: 2
+    label:
+      en: W4.2 Executor MI
+      ko: W4.2 Executor MI
+    description:
+      en: after w41, 4
+      ko: after w41, 4
+  - id: w43
+    parent: section-01
+    kind: process
+    badge: 3
+    label:
+      en: W4.3 Policy deny
+      ko: W4.3 Policy deny
+    description:
+      en: after w42, 4
+      ko: after w42, 4
+  - id: w44
+    parent: section-01
+    kind: process
+    badge: 4
+    label:
+      en: W4.4 LPP probe
+      ko: W4.4 LPP probe
+    description:
+      en: after w43, 2
+      ko: after w43, 2
+  - id: w45
+    parent: section-01
+    kind: process
+    badge: 5
+    label:
+      en: W4.5 App regs
+      ko: W4.5 App regs
+    description:
+      en: after w41, 4
+      ko: after w41, 4
+  - id: w46
+    parent: section-01
+    kind: process
+    badge: 6
+    label:
+      en: W4.6 Entra groups
+      ko: W4.6 Entra groups
+    description:
+      en: after w45, 2
+      ko: after w45, 2
+  - id: w47
+    parent: section-01
+    kind: process
+    badge: 7
+    label:
+      en: W4.7 Conditional access
+      ko: W4.7 Conditional access
+    description:
+      en: after w46, 2
+      ko: after w46, 2
+  - id: w48
+    parent: section-01
+    kind: process
+    badge: 8
+    label:
+      en: W4.8 Recertification
+      ko: W4.8 Recertification
+    description:
+      en: after w47, 1
+      ko: after w47, 1
+  - id: w11
+    parent: section-02
+    kind: process
+    badge: 9
+    label:
+      en: W1.1 Skeleton
+      ko: W1.1 Skeleton
+    description:
+      en: 0, 1
+      ko: 0, 1
+  - id: w12
+    parent: section-02
+    kind: process
+    badge: 10
+    label:
+      en: W1.2 Ontology contracts
+      ko: W1.2 Ontology contracts
+    description:
+      en: after w11, 4
+      ko: after w11, 4
+  - id: w13
+    parent: section-02
+    kind: process
+    badge: 11
+    label:
+      en: W1.3 Config loader
+      ko: W1.3 Config loader
+    description:
+      en: after w11, 1
+      ko: after w11, 1
+  - id: w14
+    parent: section-02
+    kind: process
+    badge: 12
+    label:
+      en: W1.4 OTel wiring
+      ko: W1.4 OTel wiring
+    description:
+      en: after w13, 4
+      ko: after w13, 4
+  - id: w15
+    parent: section-02
+    kind: process
+    badge: 13
+    label:
+      en: W1.5 DDL instance+audit
+      ko: W1.5 DDL instance+audit
+    description:
+      en: after w12, 4
+      ko: after w12, 4
+  - id: w16
+    parent: section-02
+    kind: process
+    badge: 14
+    label:
+      en: W1.6 DDL layered cache
+      ko: W1.6 DDL layered cache
+    description:
+      en: after w15, 1
+      ko: after w15, 1
+  - id: w17
+    parent: section-02
+    kind: process
+    badge: 15
+    label:
+      en: W1.7 CI baseline
+      ko: W1.7 CI baseline
+    description:
+      en: after w11, 4
+      ko: after w11, 4
+  - id: w18
+    parent: section-02
+    kind: process
+    badge: 16
+    label:
+      en: W1.8 Golden fixture
+      ko: W1.8 Golden fixture
+    description:
+      en: after w15, 4
+      ko: after w15, 4
+  - id: w19
+    parent: section-02
+    kind: process
+    badge: 17
+    label:
+      en: W1.9 KPI dashboard
+      ko: W1.9 KPI dashboard
+    description:
+      en: after w18, 4
+      ko: after w18, 4
+  - id: w21
+    parent: section-03
+    kind: process
+    badge: 18
+    label:
+      en: W2.1 Schema
+      ko: W2.1 Schema
+    description:
+      en: after w12, 1
+      ko: after w12, 1
+  - id: w22
+    parent: section-03
+    kind: process
+    badge: 19
+    label:
+      en: W2.2 Author
+      ko: W2.2 Author
+    description:
+      en: after w21, 4
+      ko: after w21, 4
+  - id: w23
+    parent: section-03
+    kind: process
+    badge: 20
+    label:
+      en: W2.3 Freeze
+      ko: W2.3 Freeze
+    description:
+      en: after w22, 1
+      ko: after w22, 1
+  - id: w24
+    parent: section-03
+    kind: process
+    badge: 21
+    label:
+      en: W2.4 Coverage tests
+      ko: W2.4 Coverage tests
+    description:
+      en: after w22, 1
+      ko: after w22, 1
+  - id: w31
+    parent: section-04
+    kind: process
+    badge: 22
+    label:
+      en: W3.1 Reference agent
+      ko: W3.1 Reference agent
+    description:
+      en: after w23, 4
+      ko: after w23, 4
+  - id: w32
+    parent: section-04
+    kind: process
+    badge: 23
+    label:
+      en: W3.2 Runner CLI
+      ko: W3.2 Runner CLI
+    description:
+      en: after w31, 1
+      ko: after w31, 1
+  - id: w33
+    parent: section-04
+    kind: process
+    badge: 24
+    label:
+      en: W3.3 Report
+      ko: W3.3 Report
+    description:
+      en: after w32, 1
+      ko: after w32, 1
+  - id: w34
+    parent: section-04
+    kind: process
+    badge: 25
+    label:
+      en: W3.4 Repro CI
+      ko: W3.4 Repro CI
+    description:
+      en: after w33, 4
+      ko: after w33, 4
+  - id: w51
+    parent: section-05
+    kind: process
+    badge: 26
+    label:
+      en: W5.1 Schema + template
+      ko: W5.1 Schema + template
+    description:
+      en: after w12, 1
+      ko: after w12, 1
+  - id: w52
+    parent: section-05
+    kind: process
+    badge: 27
+    label:
+      en: W5.2 CI check
+      ko: W5.2 CI check
+    description:
+      en: after w51, 1
+      ko: after w51, 1
+  - id: w53
+    parent: section-05
+    kind: process
+    badge: 28
+    label:
+      en: W5.3 Expiry job
+      ko: W5.3 Expiry job
+    description:
+      en: after w51, 4
+      ko: after w51, 4
+  - id: w54
+    parent: section-05
+    kind: process
+    badge: 29
+    label:
+      en: W5.4 Lookahead digest
+      ko: W5.4 Lookahead digest
+    description:
+      en: after w53, 1
+      ko: after w53, 1
+  - id: w55
+    parent: section-05
+    kind: process
+    badge: 30
+    label:
+      en: W5.5 Runbook
+      ko: W5.5 Runbook
+    description:
+      en: after w51, 1
+      ko: after w51, 1
+  - id: w61
+    parent: section-06
+    kind: process
+    badge: 31
+    label:
+      en: W6.1 Provider interfaces
+      ko: W6.1 Provider interfaces
+    description:
+      en: after w12, 1
+      ko: after w12, 1
+  - id: w62
+    parent: section-06
+    kind: process
+    badge: 32
+    label:
+      en: W6.2 In-memory fakes
+      ko: W6.2 In-memory fakes
+    description:
+      en: after w61, 4
+      ko: after w61, 4
+  - id: w63
+    parent: section-06
+    kind: process
+    badge: 33
+    label:
+      en: W6.3 Docker Compose
+      ko: W6.3 Docker Compose
+    description:
+      en: after w61, 3
+      ko: after w61, 3
+edges:
+  - id: gantt-01
+    from: w41
+    to: w42
+    kind: timeline
+  - id: gantt-02
+    from: w42
+    to: w43
+    kind: timeline
+  - id: gantt-03
+    from: w43
+    to: w44
+    kind: timeline
+  - id: gantt-04
+    from: w44
+    to: w45
+    kind: timeline
+  - id: gantt-05
+    from: w45
+    to: w46
+    kind: timeline
+  - id: gantt-06
+    from: w46
+    to: w47
+    kind: timeline
+  - id: gantt-07
+    from: w47
+    to: w48
+    kind: timeline
+  - id: gantt-08
+    from: w48
+    to: w11
+    kind: timeline
+  - id: gantt-09
+    from: w11
+    to: w12
+    kind: timeline
+  - id: gantt-10
+    from: w12
+    to: w13
+    kind: timeline
+  - id: gantt-11
+    from: w13
+    to: w14
+    kind: timeline
+  - id: gantt-12
+    from: w14
+    to: w15
+    kind: timeline
+  - id: gantt-13
+    from: w15
+    to: w16
+    kind: timeline
+  - id: gantt-14
+    from: w16
+    to: w17
+    kind: timeline
+  - id: gantt-15
+    from: w17
+    to: w18
+    kind: timeline
+  - id: gantt-16
+    from: w18
+    to: w19
+    kind: timeline
+  - id: gantt-17
+    from: w19
+    to: w21
+    kind: timeline
+  - id: gantt-18
+    from: w21
+    to: w22
+    kind: timeline
+  - id: gantt-19
+    from: w22
+    to: w23
+    kind: timeline
+  - id: gantt-20
+    from: w23
+    to: w24
+    kind: timeline
+  - id: gantt-21
+    from: w24
+    to: w31
+    kind: timeline
+  - id: gantt-22
+    from: w31
+    to: w32
+    kind: timeline
+  - id: gantt-23
+    from: w32
+    to: w33
+    kind: timeline
+  - id: gantt-24
+    from: w33
+    to: w34
+    kind: timeline
+  - id: gantt-25
+    from: w34
+    to: w51
+    kind: timeline
+  - id: gantt-26
+    from: w51
+    to: w52
+    kind: timeline
+  - id: gantt-27
+    from: w52
+    to: w53
+    kind: timeline
+  - id: gantt-28
+    from: w53
+    to: w54
+    kind: timeline
+  - id: gantt-29
+    from: w54
+    to: w55
+    kind: timeline
+  - id: gantt-30
+    from: w55
+    to: w61
+    kind: timeline
+  - id: gantt-31
+    from: w61
+    to: w62
+    kind: timeline
+  - id: gantt-32
+    from: w62
+    to: w63
+    kind: timeline

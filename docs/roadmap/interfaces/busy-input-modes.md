@@ -17,15 +17,7 @@ Every accepted follow-up is persisted before acknowledgement. The shared coordin
 disposition from the session mode, signals only the active conversational turn, and consumes steer
 input at a declared model or tool boundary.
 
-```mermaid
-flowchart LR
-    INPUT[Authenticated follow-up] --> STORE[Durable CAS arbitration]
-    STORE -->|queue| QUEUE[Next-turn queue]
-    STORE -->|interrupt| CANCEL[Conversation cancel event]
-    STORE -->|steer| BOUNDARY[Safe boundary]
-    BOUNDARY --> RERUN[Bounded narrator rerun]
-    TURN[Turn finishes first] --> FALLBACK[Steer becomes queued]
-```
+![Design at a glance. The main stages are Authenticated follow-up, Durable CAS arbitration, Next-turn queue, Conversation cancel event, Safe boundary, Bounded narrator rerun, Turn finishes first, Steer becomes queued.](../../diagrams/generated/fdai-roadmap-interfaces-busy-input-modes-01.en.svg)
 
 ## Contracts
 

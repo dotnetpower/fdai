@@ -1,0 +1,243 @@
+{
+  "id": "fdai-roadmap-rules-and-detection-operational-learning-ontology-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are Benchmark or live incident, Saga audit evidence, Muninn operational case revision, Deterministic failure fingerprint, Norns cohort analysis, Inert RuleCandidate, Mimir replay and shadow gate, Rule catalog, ActionType catalog, T1 similarity reuse with current checks, Risk, approval, execution, and audit."
+    },
+    "ko": {
+      "title": "한눈에 보는 설계",
+      "description": "한눈에 보는 설계에 대한 FDAI 흐름입니다.",
+      "alt": "한눈에 보는 설계. 주요 단계는 Benchmark or live incident, Saga audit evidence, Muninn operational case revision, Deterministic failure fingerprint, Norns cohort analysis, Inert RuleCandidate, Mimir replay and shadow gate, Rule catalog, ActionType catalog, T1 similarity reuse with current checks, Risk, approval, execution, and audit입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-rules-and-detection-operational-learning-ontology-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-rules-and-detection-operational-learning-ontology-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "b",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Benchmark or live incident",
+        "ko": "Benchmark or live incident"
+      },
+      "description": {
+        "en": "Benchmark or live incident",
+        "ko": "Benchmark or live incident"
+      }
+    },
+    {
+      "id": "s",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Saga audit evidence",
+        "ko": "Saga audit evidence"
+      },
+      "description": {
+        "en": "Saga audit evidence",
+        "ko": "Saga audit evidence"
+      }
+    },
+    {
+      "id": "c",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Muninn operational case revision",
+        "ko": "Muninn operational case revision"
+      },
+      "description": {
+        "en": "Muninn operational case revision",
+        "ko": "Muninn operational case revision"
+      }
+    },
+    {
+      "id": "f",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Deterministic failure fingerprint",
+        "ko": "Deterministic failure fingerprint"
+      },
+      "description": {
+        "en": "Deterministic failure fingerprint",
+        "ko": "Deterministic failure fingerprint"
+      }
+    },
+    {
+      "id": "n",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Norns cohort analysis",
+        "ko": "Norns cohort analysis"
+      },
+      "description": {
+        "en": "Norns cohort analysis",
+        "ko": "Norns cohort analysis"
+      }
+    },
+    {
+      "id": "rc",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Inert RuleCandidate",
+        "ko": "Inert RuleCandidate"
+      },
+      "description": {
+        "en": "Inert RuleCandidate",
+        "ko": "Inert RuleCandidate"
+      }
+    },
+    {
+      "id": "m",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Mimir replay and shadow gate",
+        "ko": "Mimir replay and shadow gate"
+      },
+      "description": {
+        "en": "Mimir replay and shadow gate",
+        "ko": "Mimir replay and shadow gate"
+      }
+    },
+    {
+      "id": "r",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Rule catalog",
+        "ko": "Rule catalog"
+      },
+      "description": {
+        "en": "Rule catalog",
+        "ko": "Rule catalog"
+      }
+    },
+    {
+      "id": "a",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "ActionType catalog",
+        "ko": "ActionType catalog"
+      },
+      "description": {
+        "en": "ActionType catalog",
+        "ko": "ActionType catalog"
+      }
+    },
+    {
+      "id": "t",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "T1 similarity reuse with current checks",
+        "ko": "T1 similarity reuse with current checks"
+      },
+      "description": {
+        "en": "T1 similarity reuse with current checks",
+        "ko": "T1 similarity reuse with current checks"
+      }
+    },
+    {
+      "id": "g",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Risk, approval, execution, and audit",
+        "ko": "Risk, approval, execution, and audit"
+      },
+      "description": {
+        "en": "Risk, approval, execution, and audit",
+        "ko": "Risk, approval, execution, and audit"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "b",
+      "to": "s",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "s",
+      "to": "c",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "c",
+      "to": "f",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "f",
+      "to": "n",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "n",
+      "to": "rc",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "rc",
+      "to": "m",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "m",
+      "to": "r",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "r",
+      "to": "a",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "a",
+      "to": "t",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "t",
+      "to": "g",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}
