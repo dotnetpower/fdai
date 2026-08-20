@@ -177,6 +177,53 @@ def test_unit_mismatch_and_missing_values_fall_back_without_coercion() -> None:
     assert blocks[1]["slot_id"] == "limitations"
 
 
+def test_v2_resource_table_lifts_readable_fields_from_nested_property_bags() -> None:
+    details = _details(
+        [
+            {
+                "id": "scope-1/resource-group/rg-fdai",
+                "object_type": "Resource",
+                "properties": {
+                    "id": "scope-1/resource-group/rg-fdai",
+                    "name": "rg-fdai",
+                    "type": "resource-group",
+                    "properties": {
+                        "location": "example-region",
+                        "tags": {"workload": "fdai"},
+                    },
+                },
+            }
+        ],
+        output_shape="property_filtered_resources",
+    )
+
+    artifact = compile_presentation_artifact_v2(
+        semantic=_SEMANTIC,
+        technical_details=details,
+        locale="en",
+    )
+
+    assert artifact is not None
+    block = cast(list[dict[str, object]], artifact["blocks"])[0]
+    data = cast(dict[str, object], block["data"])
+    assert data["columns"] == [
+        {"key": "c0", "label": "name"},
+        {"key": "c1", "label": "type"},
+        {"key": "c2", "label": "location"},
+        {"key": "c3", "label": "id"},
+        {"key": "c4", "label": "object_type"},
+    ]
+    assert data["rows"] == [
+        {
+            "c0": "rg-fdai",
+            "c1": "resource-group",
+            "c2": "example-region",
+            "c3": "scope-1/resource-group/rg-fdai",
+            "c4": "Resource",
+        }
+    ]
+
+
 def test_unknown_typed_context_fails_closed_instead_of_using_v1_heuristics() -> None:
     details = _details([{"available": "yes", "count": 4}])
     cast(dict[str, str], details["presentation_context"])["output_shape"] = "unknown_shape"

@@ -1,6 +1,6 @@
 ---
 translation_of: durable-conversation-delivery.md
-translation_source_sha: 4d5c0928d4765ab010c3e976533a5bd700b0076e
+translation_source_sha: 9e2997f3f10b5d21e43bb29048a68b55c7e82fab
 translation_revised: 2026-08-20
 ---
 # 영구 대화 전송
@@ -25,6 +25,7 @@ translation_revised: 2026-08-20
 | 검증된 연결 및 전달 맥락 | 구현됨 | `channel_delivery_models.py`, `postgres_channel_binding.py`, live PostgreSQL 검사 | Operator-local store가 exact idempotent create, active-endpoint uniqueness, revocation CAS, principal 범위 listing 및 runtime role을 통한 restart persistence를 강제합니다. 독립 edge가 store를 연결하고 기한이 된 전송마다 binding 상태와 신원을 다시 검증합니다. |
 | 불변 전달 원장 및 복구 조정기 | 구현됨 | [`conversation_delivery.py`](../../../services/core-control-plane/src/fdai/shared/providers/conversation_delivery.py), [`outbound_delivery.py`](../../../services/core-control-plane/src/fdai/core/conversation/outbound_delivery.py), [`test_conversation_delivery.py`](../../../services/core-control-plane/tests/providers/test_conversation_delivery.py), [`test_outbound_delivery.py`](../../../services/core-control-plane/tests/conversation/test_outbound_delivery.py) | 메모리 내 저장소와 조정기는 집중 테스트에서 안정적인 멱등성, CAS 점유, 제한된 재시도, 최종 모호성 및 오래된 임차 조정을 강제합니다. 이 행은 재시작 내구성을 주장하지 않습니다. |
 | 대화 게이트웨이 및 타입이 지정된 진행 상황 재생 | 구현됨 | [`channel_gateway.py`](../../../services/core-control-plane/src/fdai/core/conversation/channel_gateway.py), [`test_channel_gateway.py`](../../../services/core-control-plane/tests/conversation/test_channel_gateway.py), [`test_rich_contract.py`](../../../services/core-control-plane/tests/delivery/channels/test_rich_contract.py) | 게이트웨이는 영구 전달 경계를 통해 완전한 응답 하나를 저장하고 중복 턴과 전달 실패를 격리합니다. 타입이 지정된 활동 및 진행 상황 페이로드가 집중 테스트에서 왕복 변환됩니다. 운영 채널 런타임은 이 경로를 연결하지 않습니다. |
+| 교차 채널 읽기 쉬운 의미 행 | 구현됨 | Operator `presentation_rows.py`, v1/v2 artifact compiler, focused Operator 표현 검사(`94 passed`) | Web, Slack, Teams 및 replay가 읽기 쉬운 리소스 필드를 앞세우고 중첩 provider bag을 표시 block에서 제외하는 범위 제한 projection 하나를 받습니다. Immutable response는 exact 기술 근거를 계속 보존하고 delivery는 retry 중 projection을 다시 만들지 않습니다. |
 | PostgreSQL schema 및 운영 영속성 | 구현됨 | [`20260720_0047_conversation_delivery.py`](../../../alembic/versions/20260720_0047_conversation_delivery.py), `operator_a3_channel_delivery_20260819`, Operator store module, live PostgreSQL 검사 9개 건너뛰기 없이 통과 | Legacy revision 0047은 동결된 상태를 유지합니다. Operator branch가 새 processing/completed inbound claim과 정확한 role grant를 소유합니다. Concrete Operator store는 immutable response JSON, claim/attempt 및 finish/ack transaction 경계, process-loss ambiguity, breaker CAS 및 terminal retention cleanup을 보존합니다. |
 | Operator A3 의미 전달 및 복구 worker | 구현됨 | `channel_edge/{pipeline,pipeline_contracts,worker}.py`, 집중 edge 검사 81개 통과, live PostgreSQL 연결 검사 1개 건너뛰기 없이 통과 | 결정적 프로바이더 메시지 identity는 재시도를 하나의 의미 제안, binding 및 delivery로 수렴시킵니다. Inbound 완료는 영속 소유권 뒤에 수행되고, 프로바이더 전송은 영속 차단기가 닫혀 있고 활성 exact-scope binding이 있어야 하며, 모호한 확인 응답은 불변 중복 위험이 되고, 시작 조정은 worker 준비보다 먼저 수행됩니다. |
 | Operator A3 운영 조립 | 구현됨 | `channel_edge/{composition,runtime,application,entry}.py`, private 로컬 실행, Operator-service Terraform root, 집중 edge 검사 74개 통과 | 독립 lifespan은 Operator role과 모든 소유 table을 probe하고, consumer보다 먼저 의미 전송과 replay를 시작하며, 준비 상태 전에 만료된 전송을 조정하고, queue 및 delivery task를 감독하며, HTTP client와 credential을 끝까지 닫습니다. 통제된 restart 및 외부 프로바이더 증적은 열린 상태입니다. |
@@ -45,6 +46,7 @@ translation_revised: 2026-08-20
 | 2026-08-19 | 구현됨 | Operator-local 의미 최종 전달, 정확한 binding replay, 즉시 및 기한 도래 프로바이더 claim, 원자적 확인 응답 종결, 프로세스 손실 조정 및 영속 차단기 유입 제어를 조립했습니다. | `current change`, 집중 파이프라인 및 worker 검사 10개, Operator runtime role을 사용한 live PostgreSQL 연결 검사 1개를 건너뛰기 없이 통과했고 Ruff 및 strict mypy 통과 | 실패 시 닫히는 edge lifespan에 worker와 store를 연결하고 restart 및 외부 프로바이더 근거를 보존합니다. |
 | 2026-08-20 | 구현됨 | 세 Operator store, 의미 bridge, 복구 worker, 프로바이더 adapter 및 readiness probe를 독립 fail-closed edge lifespan에 연결했습니다. | `current change`, 집중 edge 검사 74개, live channel PostgreSQL 검사 10개를 건너뛰기 없이 통과했고 Ruff 및 strict mypy 통과 | 검증 전에 통제된 restart 및 외부 프로바이더 근거를 보존합니다. |
 | 2026-08-20 | 구현됨 | 기한 도래 전달 권한과 lifecycle 복구를 hardening했습니다. Claim된 모든 재시도는 활성 principal, scope, conversation 및 channel binding을 다시 검증하고, known Teams JWKS key는 범위가 제한된 TTL 뒤 갱신하며, runtime과 credential 종료는 멱등적입니다. | `current change`, 집중 edge 검사 81개, Ruff 및 strict mypy 통과 | 검증 전에 통제된 restart 및 외부 프로바이더 근거를 보존합니다. |
+| 2026-08-20 | 구현됨 | 영속 채널 reduction 전에 사용하는 읽기 쉬운 의미 행 projection을 통합했습니다. 중첩 provider property가 v2에서 사라지거나 raw 표시 JSON으로 노출되지 않고, response는 허용된 이름, 타입, 상태, 위치 필드를 보여 주면서 replay를 위한 exact 근거를 보존합니다. | `current change`, [이슈 #241](https://github.com/dotnetpower/fdai/issues/241), focused Operator 표현 검사 94개 통과, Ruff, formatting, strict mypy 통과 | 채널 검증 주장을 높이기 전에 인증된 Web 근거와 기존 통제된 Slack/Teams 런타임 증적을 보존합니다. |
 
 ### 남은 작업
 

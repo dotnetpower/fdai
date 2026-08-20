@@ -16,6 +16,11 @@ from numbers import Real
 from types import MappingProxyType
 from typing import cast
 
+from fdai_operator_service.families.conversation.presentation_rows import (
+    ordered_columns,
+    readable_row,
+)
+
 
 class PresentationIntent(StrEnum):
     """Verified question intent relevant to presentation selection."""
@@ -116,15 +121,13 @@ def analyze_evidence_shape(
                 records = []
                 columns = []
                 break
-            record = {
-                key: value
-                for key, value in values.items()
-                if isinstance(key, str) and key and not isinstance(value, Mapping | list)
-            }
+            record = readable_row(values)
             records.append(MappingProxyType(record))
             for key in record:
                 if key not in columns:
                     columns.append(key)
+
+    columns = ordered_columns(columns)
 
     returned_rows = output.get("returned_rows")
     total_rows = output.get("total_rows")

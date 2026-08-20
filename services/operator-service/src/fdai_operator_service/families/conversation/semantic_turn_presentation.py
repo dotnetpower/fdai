@@ -10,6 +10,12 @@ from fdai_operator_service.families.conversation.contracts import JsonObject
 from fdai_operator_service.families.conversation.presentation_artifact_v2 import (
     compile_presentation_artifact_v2,
 )
+from fdai_operator_service.families.conversation.presentation_rows import (
+    ordered_columns as _ordered_columns,
+)
+from fdai_operator_service.families.conversation.presentation_rows import (
+    readable_row as _readable_row,
+)
 
 _SEMANTIC_ROUTE_BY_DISPOSITION = {
     "answered": "verified_query_plan",
@@ -27,23 +33,9 @@ _MAX_SUMMARY_ITEMS = 16
 _MAX_TABLE_COLUMNS = 6
 _MAX_TABLE_ROWS = 40
 _MAX_CELL_CHARS = 512
-# Scalar leaves lifted out of an open-shape property bag so the answer table
-# stays readable. The exact untouched row still travels in technical details.
-_LIFTED_ROW_FIELDS = ("name", "type", "status", "location")
 # Categorical fields worth charting once a result is complete, most specific
 # first. A single-value field yields no chart; the table already says it.
 _DISTRIBUTION_FIELDS = ("type", "status", "location", "object_type")
-# Provenance an operator never reads in an answer table. The exact untouched row
-# keeps these and still travels in technical details.
-_INTERNAL_ROW_FIELDS = frozenset(
-    {
-        "catalog_digest",
-        "declaration_digest",
-        "execution_authority",
-        "revision",
-        "type_version",
-    }
-)
 _CONTROL_CHARACTERS = {chr(code) for code in range(32)} | {chr(127)}
 
 
@@ -929,47 +921,6 @@ def _records_block(
             },
         },
     )
-
-
-def _ordered_columns(fields: list[str]) -> list[str]:
-    """Lead with the fields an operator reads and drop internal provenance.
-
-    An opaque identifier is the widest column and the least useful one to read
-    first, so a named field takes the leading position when the row has one. A
-    digest or authority flag is machine provenance rather than an answer, so it
-    is withheld here unless the row carries nothing else.
-    """
-    readable = [field for field in fields if field not in _INTERNAL_ROW_FIELDS]
-    selected = readable or fields
-    leading = [field for field in _LIFTED_ROW_FIELDS if field in selected]
-    return leading + [field for field in selected if field not in leading]
-
-
-def _readable_row(values: Mapping[str, object]) -> dict[str, object]:
-    """Keep scalar fields and lift named scalar leaves out of nested bags.
-
-    A serialized property bag is machine output, not an operator-facing
-    answer. Dropping it here keeps the reply legible; the untouched row is
-    still reachable through the technical-details trajectory.
-    """
-    readable: dict[str, object] = {}
-    nested: list[Mapping[str, object]] = []
-    for field, value in values.items():
-        if not isinstance(field, str) or not field:
-            continue
-        if isinstance(value, Mapping):
-            nested.append(value)
-            continue
-        if isinstance(value, list):
-            continue
-        readable[field] = value
-    for bag in nested:
-        for field in _LIFTED_ROW_FIELDS:
-            candidate = bag.get(field)
-            if candidate is None or isinstance(candidate, Mapping | list):
-                continue
-            readable.setdefault(field, candidate)
-    return readable
 
 
 def _cell(value: object) -> str:
