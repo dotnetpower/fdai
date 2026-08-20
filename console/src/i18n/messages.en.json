@@ -2077,6 +2077,7 @@
     "label": "Command deck",
     "open": "Open command deck",
     "close": "Close command deck",
+    "closeConversations": "Close conversations",
     "invoke": "Ask anything about this screen",
     "conversations": "Conversations",
     "newConversation": "New conversation",

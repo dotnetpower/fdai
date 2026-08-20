@@ -79,23 +79,26 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).toContain(".deck-body.has-digest { grid-template-columns: minmax(0, 1fr); }");
     expect(styles).toContain(".deck-panel-toggle-context { display: none; }");
     expect(sidebarStyles).toMatch(
-      /@media \(max-width: 1100px\)[\s\S]*\.deck-overlay-mode-workspace \.deck-body\.has-conversations\.has-digest \{[^}]*grid-template-columns: var\(--deck-conversation-width, 240px\) minmax\(0, 1fr\);/,
+      /@media \(max-width: 1100px\)[\s\S]*\.deck-overlay-mode-workspace \.deck-body\.has-conversations\.has-digest \{[^}]*grid-template-columns: minmax\(0, 1fr\);/,
     );
     expect(styles).not.toContain(".deck-body { min-width: 0; grid-template-columns: 200px minmax(0, 1fr); }");
   });
 
   test("opens mobile conversation history over a full-width transcript", () => {
     expect(sidebarStyles).toMatch(
-      /@media \(max-width: 780px\)[\s\S]*\.deck-overlay-mode-workspace \.deck-body\.has-conversations,[\s\S]*grid-template-columns: minmax\(0, 1fr\);/,
+      /@media \(max-width: 1100px\)[\s\S]*\.deck-overlay-mode-workspace \.deck-body\.has-conversations,[\s\S]*grid-template-columns: minmax\(0, 1fr\);/,
     );
     expect(sidebarStyles).toMatch(
-      /\.deck-overlay-mode-workspace \.deck-conversations \{[^}]*position: absolute;[^}]*width: min\(300px, 82%\);/s,
+      /@media \(max-width: 1100px\)[\s\S]*\.deck-overlay-mode-workspace \.deck-conversations \{[^}]*position: absolute;[^}]*width: var\(--deck-conversation-width, 240px\);/,
     );
+    expect(sidebarStyles).toMatch(/@media \(max-width: 780px\)[\s\S]*width: min\(300px, 82%\);/);
     expect(sidebarStyles).toMatch(
       /\.deck-overlay-mode-workspace \.deck-conversations-dismiss \{[^}]*display: grid;[^}]*width: 44px;[^}]*height: 44px;/s,
     );
     expect(source).toContain("onDismiss={() => setShowConversations(false)}");
     expect(presenters).toContain('class="deck-conversations-dismiss"');
+    expect(source).toContain('class="deck-conversations-scrim"');
+    expect(sidebarStyles).toMatch(/@media \(max-width: 1100px\)[\s\S]*\.deck-overlay-mode-workspace \.deck-conversations-scrim \{[^}]*position: absolute;[^}]*inset: 0;[^}]*display: block;/);
   });
 
   test("opens conversation history as an overlay outside workspace mode", () => {
@@ -103,10 +106,8 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).toContain(".deck-overlay-mode-floating .deck-body.has-digest,");
     expect(styles).toContain(".deck-overlay-mode-dock .deck-body.has-conversations,");
     expect(styles).toContain(".deck-overlay-mode-dock .deck-body.has-digest { grid-template-columns: minmax(0, 1fr); }");
-    expect(styles).toContain(".deck-overlay-mode-dock .deck-conversations {");
-    expect(styles).toContain("position: absolute;");
-    expect(styles).toContain("inset: 42px auto 0 0;");
-    expect(styles).toContain("width: min(300px, 82%);");
+    expect(sidebarStyles).toMatch(/\.deck-overlay-mode-floating \.deck-conversations,[\s\S]*\.deck-overlay-mode-dock \.deck-conversations \{[^}]*position: absolute;[^}]*inset: 0 auto 0 0;[^}]*width: min\(300px, 82%\);/);
+    expect(sidebarStyles).toMatch(/\.deck-overlay-mode-floating \.deck-conversations-scrim,[\s\S]*\.deck-overlay-mode-dock \.deck-conversations-scrim \{[^}]*position: absolute;[^}]*inset: 0;[^}]*display: block;/);
     expect(styles).not.toContain(".deck-overlay-mode-dock .deck-transcript-tools { display: none; }");
   });
 
@@ -158,12 +159,13 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).toContain(".deck-turn-head > .tooltip-anchor {");
     expect(styles).toContain("max-width: min(75%, 420px);");
     expect(styles).toContain(".deck-turn-head > .tooltip-anchor .deck-turn-source { max-width: 100%; }");
-    expect(structuredStyles).toContain("@media (max-width: 700px)");
-    expect(structuredStyles).toMatch(/@media \(max-width: 700px\)[\s\S]*\.deck-presentation-table,[\s\S]*display: block;/);
+    expect(structuredStyles).toContain("@media (max-width: 560px)");
+    expect(structuredStyles).toMatch(/@media \(max-width: 560px\)[\s\S]*\.deck-presentation-table,[\s\S]*display: block;/);
   });
 
   test("aligns answers, structured evidence, and the composer to one calm reading measure", () => {
     expect(styles).toContain("--deck-reading-width: 760px;");
+    expect(styles).toMatch(/\.deck-overlay-mode-workspace \{[^}]*inset: var\(--header-height\) 0 0 var\(--rail-width, 88px\);[^}]*width: auto;[^}]*height: auto;[^}]*min-width: 0;[^}]*min-height: 0;/s);
     expect(styles).toMatch(
       /\.deck-overlay-mode-workspace \.deck-transcript-inner \{[^}]*padding-inline: clamp\(24px, 6vw, 60px\);/s,
     );
@@ -183,8 +185,27 @@ describe("Command Deck workspace hierarchy", () => {
       /\.deck-presentation-table th \{[^}]*position: sticky;[^}]*top: 0;[^}]*z-index: 1;/s,
     );
     expect(structuredStyles).toMatch(
-      /@media \(max-width: 700px\)[\s\S]*\.deck-presentation-table th \{ position: static; \}/,
+      /@media \(max-width: 560px\)[\s\S]*\.deck-presentation-table th \{ position: static; \}/,
     );
+  });
+
+  test("keeps pending stages visible and sizes the source slot from content", () => {
+    expect(styles).toMatch(/\.deck-rt-slot \{[^}]*max-height: 180px;[^}]*overflow: hidden;/s);
+    expect(styles).not.toMatch(/\.deck-rt-slot \{[^}]*\n\s*height: 180px;/s);
+    expect(styles).toMatch(/@keyframes deck-rt-rise \{\s*from \{ opacity: 0;/s);
+    expect(styles).toMatch(/@keyframes deck-rt-pop \{\s*from \{ opacity: 0;/s);
+    expect(styles).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*\.deck-rt-stage,[\s\S]*\.deck-rt-source \{\s*opacity: 1;\s*transform: none;/);
+  });
+
+  test("restores workspace geometry without reduced-motion transitions", () => {
+    expect(styles).toMatch(
+      /:root\[data-motion="reduced"\] \.deck-overlay \{\s*animation: none !important;\s*transition: none !important;/,
+    );
+    expect(styles).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.deck-overlay \{ transition: none !important; \}/,
+    );
+    expect(styles.match(/transition-duration: 0s !important;/g)).toHaveLength(2);
+    expect(styles).not.toContain("transition-duration: 0.01ms !important;");
   });
 
   test("keeps deck controls operable at desktop and touch sizes", () => {
@@ -213,5 +234,6 @@ describe("Command Deck workspace hierarchy", () => {
     expect(styles).toContain("calc((100% - 1100px) / 2)");
     expect(styles).toContain("flex: 0 1 420px;");
     expect(styles).toContain(".deck-overlay.deck-overlay-mode-workspace { left: 0; }");
+    expect(styles).toMatch(/@media \(max-width: 1100px\)[\s\S]*\.deck-search kbd \{ display: none; \}/);
   });
 });

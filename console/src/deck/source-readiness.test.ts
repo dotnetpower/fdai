@@ -74,6 +74,7 @@ describe("Command Deck source readiness", () => {
 
     expect(source).toContain("client.dataSources()");
     expect(source).toContain('class={`deck-source-status is-${item.availability}`}');
+    expect(source).toContain('aria-label={`${t(`deck.sourceReadiness.source.${item.key}`)}: ${t(`deck.sourceReadiness.status.${item.availability}`)}`}');
     expect(source).toContain("panelPath(SOURCE_PANELS[item.key])");
     expect(source).not.toContain("item.source?.source");
     expect(source).not.toContain("item.source?.reason");

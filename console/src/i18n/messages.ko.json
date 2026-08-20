@@ -2077,6 +2077,7 @@
     "label": "명령 덱",
     "open": "명령 덱 열기",
     "close": "명령 덱 닫기",
+    "closeConversations": "대화 닫기",
     "invoke": "이 화면에 대해 질문하기",
     "conversations": "대화",
     "newConversation": "새 대화",

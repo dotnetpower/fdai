@@ -46,7 +46,7 @@ interface CommandDeckViewProps {
   readonly health: BackendHealth | null;
   readonly client: OperatorApiClient;
   readonly sessionLabel: string | null;
-  readonly deckStyle: Record<string, string> | undefined;
+  readonly deckStyle: Record<string, string>;
   readonly dockWidth: number;
   readonly srStatus: string;
   readonly conversations: readonly ConversationSummary[];
@@ -286,23 +286,31 @@ export function CommandDeckView({
             style={`--deck-conversation-width: ${conversationWidth}px`}
           >
             {showConversations ? (
-              <ConversationSidebar
-                conversations={conversations}
-                activeKey={sessionKey}
-                currentPath={currentPath}
-                hasMore={conversationHasMore}
-                loading={conversationPageLoading}
-                resizable={layoutMode === "workspace"}
-                width={conversationWidth}
-                onNew={onNewConversation}
-                onDismiss={() => setShowConversations(false)}
-                onLoadMore={onLoadMoreConversations}
-                onRemove={onRemoveConversation}
-                onToggleFavorite={onToggleFavorite}
-                onSelect={onSelectConversation}
-                onResizeKeyDown={resizeConversationWithKeyboard}
-                onResizeStart={startConversationResize}
-              />
+              <>
+                <button
+                  type="button"
+                  class="deck-conversations-scrim"
+                  aria-label={t("deck.closeConversations")}
+                  onClick={() => setShowConversations(false)}
+                />
+                <ConversationSidebar
+                  conversations={conversations}
+                  activeKey={sessionKey}
+                  currentPath={currentPath}
+                  hasMore={conversationHasMore}
+                  loading={conversationPageLoading}
+                  resizable={layoutMode === "workspace"}
+                  width={conversationWidth}
+                  onNew={onNewConversation}
+                  onDismiss={() => setShowConversations(false)}
+                  onLoadMore={onLoadMoreConversations}
+                  onRemove={onRemoveConversation}
+                  onToggleFavorite={onToggleFavorite}
+                  onSelect={onSelectConversation}
+                  onResizeKeyDown={resizeConversationWithKeyboard}
+                  onResizeStart={startConversationResize}
+                />
+              </>
             ) : null}
             <div class="deck-transcript-column">
               <div class="deck-transcript-tools" role="toolbar" aria-label={t("deck.workspaceTools")}>

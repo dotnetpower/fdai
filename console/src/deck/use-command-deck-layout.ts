@@ -34,7 +34,7 @@ export function commandDeckLayoutStyle(
   mode: DeckLayoutMode,
   floatingPosition: { readonly x: number; readonly y: number },
   dockWidth: number,
-): Record<string, string> | undefined {
+): Record<string, string> {
   if (mode === "floating") {
     return {
       left: `${floatingPosition.x}px`,
@@ -42,7 +42,7 @@ export function commandDeckLayoutStyle(
     };
   }
   if (mode === "dock") return { "--deck-dock-width": `${dockWidth}px` };
-  return undefined;
+  return {};
 }
 
 export function useCommandDeckLayout(open: boolean) {

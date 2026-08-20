@@ -46,12 +46,15 @@ describe("mock console visual boundary", () => {
     const readme = readFileSync(`${MOCK_ROOT}/README.md`, "utf8");
 
     expect(deck).toContain('id="dk-conversations-close"');
+    expect(deck).toContain('class="dk-sessions-scrim" aria-label="Close conversations"');
     expect(deck).toContain('aria-label="What the deck sees"');
     expect(deck).toContain("Current screen snapshot");
     expect(deck).toContain(".dk-shell.is-conversations-open.is-trace-open { position: relative; grid-template-columns: minmax(0, 1fr); }");
     expect(deck).toMatch(/@media \(max-width: 780px\)[\s\S]*\.dk-shell\.is-conversations-open \.dk-sessions \{[\s\S]*position: absolute;[\s\S]*width: min\(300px, 82%\);/);
     expect(deck).toContain(".dk-shell.is-conversations-open .dk-sessions-close { display: grid; width: 44px; height: 44px; }");
     expect(deck).toMatch(/@media \(max-width: 1100px\)[\s\S]*#dk-trace-toggle \{ display: none; \}/);
+    expect(deck).toMatch(/@media \(max-width: 1100px\)[\s\S]*\.dk-shell\.is-conversations-open \.dk-sessions-scrim \{[\s\S]*position: absolute;[\s\S]*inset: 0;[\s\S]*display: block;/);
+    expect(deck).toMatch(/@media \(max-width: 1100px\)[\s\S]*\.dk-shell\.is-conversations-open \.dk-sessions \{[\s\S]*position: absolute;[\s\S]*width: 220px;/);
     expect(deck).toMatch(/@media \(max-width: 780px\)[\s\S]*\.dk-session-controls input,[\s\S]*\.dk-composer button \{ min-height: 44px; \}/);
     expect(deck).toContain("a.dk-chip { min-height: 44px; align-items: center; }");
     expect(deck).not.toContain("Retrieval trace</h3>");

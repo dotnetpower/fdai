@@ -7452,6 +7452,14 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-overlay-mode-workspace {
   --deck-reading-width: 760px;
+  inset: var(--header-height) 0 0 var(--rail-width, 88px);
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  resize: none;
 }
 .deck-overlay-mode-workspace .deck-transcript-inner {
   padding-inline: clamp(24px, 6vw, 60px);
@@ -8075,6 +8083,16 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
+.deck-investigation-readonly {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--success) 8%, var(--bg));
+  color: var(--success);
+  font-size: 9.5px !important;
+  font-weight: 700;
+  white-space: nowrap;
+}
 .deck-investigation-badge.is-completed {
   border-color: color-mix(in oklab, var(--success) 28%, var(--border));
   background: color-mix(in oklab, var(--success) 8%, var(--bg-elevated));
@@ -8309,6 +8327,35 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-investigation-activity-disclosure > summary {
   display: none;
+}
+.deck-investigation.is-settled .deck-investigation-activity-disclosure > summary {
+  display: flex;
+  min-height: 36px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 6px;
+  border-top: 1px solid var(--border);
+  color: var(--fg-muted);
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 650;
+  list-style: none;
+}
+.deck-investigation.is-settled .deck-investigation-activity-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+.deck-investigation.is-settled .deck-investigation-activity-disclosure > summary::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translateY(-2px);
+}
+.deck-investigation.is-settled .deck-investigation-activity-disclosure[open] > summary::after {
+  transform: rotate(225deg) translate(-1px, -1px);
 }
 .deck-investigation-activity-disclosure[open] > summary {
   color: var(--fg);
@@ -8721,14 +8768,17 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   padding: 7px 6px;
   border-radius: 7px;
   font-size: 12px;
-  opacity: 0;
-  transform: translateY(4px);
+  opacity: 1;
+  transform: none;
   animation: deck-rt-rise 0.28s ease forwards;
 }
 .deck-rt-stage:nth-child(2) { animation-delay: 70ms; }
 .deck-rt-stage:nth-child(3) { animation-delay: 140ms; }
 .deck-rt-stage:nth-child(4) { animation-delay: 210ms; }
-@keyframes deck-rt-rise { to { opacity: 1; transform: none; } }
+@keyframes deck-rt-rise {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
 .deck-rt-ico {
   width: 16px;
   height: 16px;
@@ -8822,7 +8872,7 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 /* Slot window: only ~3 cards show; the track rolls upward as sources
  * arrive, with top/bottom fade masks for the slot-machine feel. */
 .deck-rt-slot {
-  height: 180px;
+  max-height: 180px;
   overflow: hidden;
   position: relative;
   -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 20%, #000 86%, transparent 100%);
@@ -8847,8 +8897,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg-elevated);
-  opacity: 0;
-  transform: translateY(8px) scale(0.98);
+  opacity: 1;
+  transform: none;
   animation: deck-rt-pop 0.26s ease forwards;
   position: relative;
   overflow: hidden;
@@ -8870,7 +8920,10 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 @keyframes deck-rt-scan {
   45%, 100% { transform: translateX(110%); }
 }
-@keyframes deck-rt-pop { to { opacity: 1; transform: none; } }
+@keyframes deck-rt-pop {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
 .deck-rt-badge {
   margin-top: 1px;
   flex: none;
@@ -10182,14 +10235,15 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 
 @media (max-width: 1100px) {
   .deck-body.has-digest { grid-template-columns: minmax(0, 1fr); }
-  .deck-body.has-conversations.has-digest { grid-template-columns: 200px minmax(0, 1fr); }
+  .deck-body.has-conversations,
+  .deck-body.has-conversations.has-digest { grid-template-columns: minmax(0, 1fr); }
   .deck-digest { display: none; }
   .deck-panel-toggle-context { display: none; }
+  .deck-search kbd { display: none; }
 }
 
 @media (max-width: 900px) {
   .deck-body { min-width: 0; }
-  .deck-body.has-conversations { grid-template-columns: 200px minmax(0, 1fr); }
   .deck-transcript,
   .deck-turn,
   .deck-gr,
@@ -10379,6 +10433,11 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 
 /* Motion-sensitivity: collapse every command-deck animation to a jump-cut so
    the conversational surface is usable with `prefers-reduced-motion: reduce`. */
+:root[data-motion="reduced"] .deck-overlay {
+  animation: none !important;
+  transition: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .deck-overlay,
   .deck-backend-probing,
@@ -10404,6 +10463,12 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   .deck-gr-caret,
   .deck-chart-skel-fill {
     animation: none !important;
+  }
+  .deck-overlay { transition: none !important; }
+  .deck-rt-stage,
+  .deck-rt-source {
+    opacity: 1;
+    transform: none;
   }
   .deck-investigation.is-running,
   .deck-next-skeleton,
@@ -16146,7 +16211,7 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
   scroll-behavior: auto !important;
   animation-duration: 0.01ms !important;
   animation-iteration-count: 1 !important;
-  transition-duration: 0.01ms !important;
+  transition-duration: 0s !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -16156,6 +16221,6 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-duration: 0s !important;
   }
 }

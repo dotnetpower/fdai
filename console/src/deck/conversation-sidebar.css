@@ -46,6 +46,8 @@
   outline-offset: 1px;
 }
 
+.deck-conversations-scrim { display: none; }
+
 .deck-conversation-controls {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 30px;
@@ -107,6 +109,32 @@
   padding-right: 2px;
 }
 
+.deck-overlay-mode-floating .deck-conversations,
+.deck-overlay-mode-dock .deck-conversations {
+  position: absolute;
+  z-index: 4;
+  inset: 0 auto 0 0;
+  width: min(300px, 82%);
+  box-sizing: border-box;
+  border-right: 1px solid var(--border);
+  box-shadow: 8px 0 22px rgb(15 23 42 / 18%);
+}
+
+.deck-overlay-mode-floating .deck-conversations-scrim,
+.deck-overlay-mode-dock .deck-conversations-scrim {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: rgb(15 23 42 / 7%);
+  cursor: pointer;
+}
+
+.deck-overlay-mode-floating .deck-conversations-dismiss,
+.deck-overlay-mode-dock .deck-conversations-dismiss { display: grid; }
+
 .deck-conversation-resize-handle {
   position: absolute;
   z-index: 3;
@@ -145,14 +173,6 @@
 }
 
 @media (max-width: 1100px) {
-  .deck-overlay-mode-workspace .deck-body.has-conversations.has-digest {
-    grid-template-columns: var(--deck-conversation-width, 240px) minmax(0, 1fr);
-  }
-}
-
-@media (max-width: 780px) {
-  .deck-conversation-resize-handle { display: none; }
-
   .deck-overlay-mode-workspace .deck-body.has-conversations,
   .deck-overlay-mode-workspace .deck-body.has-conversations.has-digest {
     position: relative;
@@ -163,11 +183,40 @@
     position: absolute;
     z-index: 4;
     inset: 0 auto 0 0;
-    width: min(300px, 82%);
+    width: var(--deck-conversation-width, 240px);
+    max-width: 82%;
     box-sizing: border-box;
     border-right: 1px solid var(--border);
-    border-bottom: 0;
     box-shadow: 8px 0 22px rgb(15 23 42 / 18%);
+  }
+
+  .deck-overlay-mode-workspace .deck-conversations-scrim {
+    position: absolute;
+    z-index: 3;
+    inset: 0;
+    display: block;
+    padding: 0;
+    border: 0;
+    background: rgb(15 23 42 / 7%);
+    cursor: pointer;
+  }
+
+  .deck-overlay-mode-workspace .deck-conversations-scrim:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -3px;
+  }
+
+  .deck-overlay-mode-workspace .deck-conversations-dismiss {
+    display: grid;
+  }
+
+  .deck-conversation-resize-handle { display: none; }
+}
+
+@media (max-width: 780px) {
+  .deck-overlay-mode-workspace .deck-conversations {
+    width: min(300px, 82%);
+    border-bottom: 0;
   }
 
   .deck-overlay-mode-workspace .deck-conversations-head { display: flex; }

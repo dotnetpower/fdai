@@ -59,6 +59,13 @@ export function PresentationValue({
   if (isReferenceField(columnKey, label)) {
     return <code class="deck-presentation-ref">{value}</code>;
   }
+  if (isOpaqueIdentifierField(columnKey, label)) {
+    return (
+      <Tooltip content={value} placement="top-start">
+        <code class="deck-presentation-identifier">{value}</code>
+      </Tooltip>
+    );
+  }
   return <span>{value}</span>;
 }
 
@@ -84,4 +91,8 @@ function isSeverityField(key: string, label: string): boolean {
 
 function isReferenceField(key: string, label: string): boolean {
   return /(?:ref|reference)$/i.test(key) || /reference|참조/i.test(label);
+}
+
+function isOpaqueIdentifierField(key: string, label: string): boolean {
+  return /^(?:id|.*_id)$/i.test(key) || /^(?:id|identifier|식별자)$/i.test(label);
 }

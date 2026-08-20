@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 4add66e4d3b11cca3b35e0bcbba979fd5fdecd14
+translation_source_sha: cfe3a6ab7fcd96f287a94ebb83c7d9a14b77cee2
 translation_revised: 2026-08-20
 ---
 
@@ -65,6 +65,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 2026-08-18 | implemented | 검증, 근거 또는 관찰된 작업을 숨기지 않으면서 운영 Command Deck을 검토된 mock의 차분한 transcript 계층에 맞췄습니다. 하나의 읽기 폭이 답변과 구조화된 표를 소유하고 불투명한 값은 제자리에서 줄바꿈하며 긴 데스크톱 표는 머리글을 유지하고 작성기는 더 가벼운 명령 비중을 사용합니다. | `current change`; `command-deck-workspace-visual.test.ts`, `investigation-timeline.test.ts`, `conversation-trajectory-visual.test.ts`의 집중 검사 29개와 Console 타입 검사가 통과했습니다. 격리된 인증 질문 10개는 prose, 목록, unavailable 또는 clarification 상태, 1행 표, 20행 영어와 한국어 표를 포함했고 데스크톱과 390 px 폭에서 가로 overflow가 없었습니다. | 브라우저 관찰은 통제된 산출물로 보존하지 않았습니다. 기존의 범위가 제한된 모바일 출처 strip 스크롤은 Low 잔여로 유지하고 더 넓은 통제된 대화 근거는 별도로 보존합니다. |
 | 2026-08-18 | implemented | 레이블과 값을 한 행에 압축하지 않고 `답변 준비 중`의 각 단계가 관찰된 내용을 표시하도록 했습니다. 화면 맥락은 경로, 제목 및 화면 사실 수를 포함하고, 라우팅은 기록된 이유를 유지하며, 백엔드 진행 상황은 검사 및 출처 수를 유지하고, 출처 미리 보기는 기본으로 열린 3개 카드 창에서 종류, 제목 및 범위가 제한된 상세를 보여 줍니다. | `current change`; `retrieval-trace.tsx`, `styles.css`, 지역화된 Console 카탈로그 및 집중 `investigation-timeline.test.ts`; 인증된 데스크톱 및 390 px 검사에서 열린 상세, 단계별 텍스트, DOM의 최대 출처 카드 3개 및 가로 overflow 0을 확인했습니다. | 브라우저 관찰은 통제된 산출물로 보존하지 않았습니다. 이후 서버 단계 이벤트는 브라우저 추론 없이 같은 typed progress seam을 보강할 수 있습니다. |
 | 2026-08-20 | implemented | 운영 Command Deck과 정적 mock을 독립적인 비평 5회로 강화했습니다. 모바일 대화 이력은 닫기 동작이 있는 전체 폭 대화 내용 위에 겹쳐서 열리고, 영속 이력은 `loading`, `empty`, `unavailable`, `error` 및 `retry` 상태를 구분하며, 간결한 머리글과 작성기 제어는 읽기 영역을 보존하고, mock은 운영의 대화 및 현재 화면 맥락 모델을 사용합니다. | `current change`, [Issue #237](https://github.com/dotnetpower/fdai/issues/237), focused Console 검사 53개 통과, Console typecheck 및 운영 build 통과, 인증된 운영 화면과 합성 mock에서 1440 x 900, 993 x 641 및 390 x 844 검사. 다섯 라운드는 반응형 배치, 이력 상태 의미, 접근성, mock 동등성 및 회귀 증거의 정확성을 각각 10개 이상의 검사로 확인했습니다. | 모바일 근거 출처 목록의 범위가 제한된 가로 스크롤만 Low로 남았습니다. 브라우저 관찰은 통제된 산출물로 보존하지 않았습니다. |
+| 2026-08-20 | implemented | 복원된 인증 대화와 활성 렌더링 전환을 대상으로 라운드마다 10개 이상의 검사를 포함한 독립 비평 20회를 반복해 Command Deck을 강화했습니다. 대화 이력은 범위가 제한된 workspace, dock 및 floating 배치에서 대화 내용을 축소하지 않고 겹쳐서 열립니다. 대기 중이거나 완료된 활동은 빈 공간을 예약하지 않고 계속 보이며, 완료된 활동은 기본으로 접힙니다. 최종 조사 답변은 신원과 시각을 유지하고, 긴 구조화된 표는 좁은 모바일 분기점 전까지 밀도 있게 유지되며, 불투명한 식별자는 정확한 값을 계속 검사할 수 있습니다. 또한 동작 감소 전환을 즉시 전환으로 만들어 workspace 복원 시 floating 배치가 남지 않습니다. | `current change`, [Issue #237](https://github.com/dotnetpower/fdai/issues/237), focused Console 검사 47개 통과, Console typecheck, 운영 build 및 bundle 검사 통과, 인증된 운영 화면과 정적 mock에서 1440 x 900, 993 x 641 및 390 x 844와 workspace, dock 및 floating 전환 검사. | 모바일 근거 출처 목록의 범위가 제한된 가로 스크롤만 Low로 남았습니다. 브라우저 관찰은 통제된 산출물로 보존하지 않았습니다. |
 
 ### 남은 작업
 

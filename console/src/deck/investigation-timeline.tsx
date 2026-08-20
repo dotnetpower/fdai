@@ -465,7 +465,7 @@ export function InvestigationTimeline({
         </ol>
       ) : null}
       {activities.length > 0 ? (
-        <details class="deck-investigation-activity-disclosure" open>
+        <details class="deck-investigation-activity-disclosure" open={running}>
           <summary>
             {t("deck.investigation.executionDetails", { count: activities.length })}
           </summary>
@@ -532,6 +532,9 @@ export function InvestigationTimeline({
             <small>{callSummary} · {formatDuration(running ? elapsedMs : finalDurationMs)}</small>
           </span>
           <span class="deck-investigation-session-summary muted">{summary}</span>
+          <span class="deck-investigation-readonly">
+            {t("deck.investigation.readOnly")}
+          </span>
           <span class={`deck-investigation-badge is-${running ? "running" : tone}`}>
             {statusLabel(running ? "running" : tone)}
           </span>

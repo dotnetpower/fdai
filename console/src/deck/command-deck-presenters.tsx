@@ -360,7 +360,7 @@ export function ConversationSidebar({
             type="button"
             class="deck-conversations-dismiss"
             onClick={onDismiss}
-            aria-label={`${t("deck.close")} ${t("deck.conversations")}`}
+            aria-label={t("deck.closeConversations")}
           >
             ×
           </button>
@@ -599,12 +599,14 @@ export function TurnBubble({
   const isActivity = turn.kind === "activity";
   const isProgressMessage = turn.kind === "message" && turn.source === "investigation";
   const isInvestigationFlow = isActivity || isProgressMessage || investigationFlowContinuation;
+  const isInvestigationFinalAnswer = isDeck && investigationFlowEnd &&
+    !isActivity && !isProgressMessage;
   return (
     <article
       id={`deck-turn-${turn.id}`}
       class={`deck-turn deck-turn-${turn.role}${isActivity ? " deck-turn-activity" : ""}${turn.source === "context" ? " is-context" : ""}${turn.streaming ? " is-streaming" : ""}${searchMatch ? " is-search-match" : ""}${activeSearchMatch ? " is-active-search-match" : ""}${isInvestigationFlow ? " is-investigation-flow" : ""}${investigationFlowStart ? " is-flow-start" : ""}${investigationFlowEnd ? " is-flow-end" : ""}`}
     >
-      {isDeck && (!isInvestigationFlow || investigationFlowStart) ? (
+      {isDeck && (!isInvestigationFlow || investigationFlowStart || isInvestigationFinalAnswer) ? (
         <header class="deck-turn-head">
           <span class="deck-turn-role deck-turn-agent">
             <span
@@ -617,7 +619,7 @@ export function TurnBubble({
             />
             {replyAgentLabel(turn.agent ?? DEFAULT_NARRATOR, turn.delegation)}
           </span>
-          {isInvestigationFlow ? (
+          {isInvestigationFlow && !isInvestigationFinalAnswer ? (
             <span class="deck-turn-source">{t("deck.investigation.title")}</span>
           ) : turn.source ? (
             <Tooltip content={routerTooltip(turn.router) ?? t("deck.tooltip.replySource")}>
@@ -699,7 +701,7 @@ export function TurnBubble({
           showModelTrace={showModelTrace}
         />
       ) : null}
-      {!isInvestigationFlow ? (
+      {!isInvestigationFlow || isInvestigationFinalAnswer ? (
         <div class="deck-turn-foot">
           <TurnRecordedTime turn={turn} />
         </div>

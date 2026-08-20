@@ -77,6 +77,7 @@ export function SourceReadinessStrip({ client }: { readonly client: OperatorApiC
             key={item.key}
             class={`deck-source-status is-${item.availability}`}
             href={panelPath(SOURCE_PANELS[item.key])}
+            aria-label={`${t(`deck.sourceReadiness.source.${item.key}`)}: ${t(`deck.sourceReadiness.status.${item.availability}`)}`}
           >
             <span class="deck-source-status-dot" aria-hidden="true" />
             <span>{t(`deck.sourceReadiness.source.${item.key}`)}</span>

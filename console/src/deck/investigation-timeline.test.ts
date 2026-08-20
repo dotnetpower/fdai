@@ -132,10 +132,15 @@ describe("upsertEvidenceBranch", () => {
       "utf8",
     );
 
-    expect(component).toContain('<details class="deck-investigation-activity-disclosure" open>');
+    expect(component).toContain('<details class="deck-investigation-activity-disclosure" open={running}>');
+    expect(component).toContain('class="deck-investigation-readonly"');
+    expect(component).toContain('t("deck.investigation.readOnly")');
     expect(component).toContain('class="deck-investigation-item-disclosure"');
     expect(component).toContain('open={activity.status === "running" ||');
     expect(presenter).toContain("showStartNote={investigationFlowStart}");
+    expect(presenter).toContain("const isInvestigationFinalAnswer = isDeck && investigationFlowEnd");
+    expect(presenter).toContain("!isInvestigationFlow || investigationFlowStart || isInvestigationFinalAnswer");
+    expect(presenter).toContain("!isInvestigationFlow || isInvestigationFinalAnswer");
     expect(component).toContain('class="deck-progress-note deck-progress-note-derived"');
     expect(component).toContain('class="deck-marker-glyph"');
     expect(component).toContain("<InvestigationNextSkeleton />");
@@ -150,7 +155,7 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain('"deck.investigation.startingQuery"');
     expect(component).toContain('"deck.investigation.startingCommand"');
     expect(presenter).toContain("!isInvestigationFlow || investigationFlowStart");
-    expect(presenter).toContain("!isInvestigationFlow ? (");
+    expect(presenter).toContain("!isInvestigationFlow || isInvestigationFinalAnswer ? (");
     expect(component).toContain('"deck.investigation.sourceSummaryOne"');
     expect(component).toContain('"deck.investigation.callCompletedOne"');
     expect(component).toContain('"deck.investigation.callsCompletedMany"');

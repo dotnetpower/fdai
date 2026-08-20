@@ -38,6 +38,10 @@ describe("presentation module registry", () => {
       fileURLToPath(new URL("../structured-reply.css", import.meta.url)),
       "utf8",
     );
+    const value = readFileSync(
+      fileURLToPath(new URL("./value.tsx", import.meta.url)),
+      "utf8",
+    );
 
     expect(shell).toContain("PresentationModuleView");
     expect(shell).not.toMatch(/block\.kind\s*===/);
@@ -45,5 +49,9 @@ describe("presentation module registry", () => {
     expect(css).toContain(".deck-presentation-series-point:focus-visible");
     expect(css).toContain(".deck-presentation-comparison-track:focus-visible");
     expect(css).toContain("@media (prefers-reduced-motion: reduce)");
+    expect(value).toContain("isOpaqueIdentifierField(columnKey, label)");
+    expect(value).toContain('class="deck-presentation-identifier"');
+    expect(css).toMatch(/\.deck-presentation-identifier \{[^}]*text-overflow: ellipsis;[^}]*white-space: nowrap;/s);
+    expect(css).toContain(".deck-presentation-table td > .tooltip-anchor:focus-within");
   });
 });

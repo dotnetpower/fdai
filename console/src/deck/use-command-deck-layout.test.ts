@@ -14,6 +14,6 @@ describe("commandDeckLayoutStyle", () => {
       left: "10px",
       top: "20px",
     });
-    expect(commandDeckLayoutStyle("workspace", { x: 10, y: 20 }, 440)).toBeUndefined();
+    expect(commandDeckLayoutStyle("workspace", { x: 10, y: 20 }, 440)).toEqual({});
   });
 });
