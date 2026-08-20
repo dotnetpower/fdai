@@ -104,7 +104,6 @@ const diagramDefinitions: Record<DiagramKind, DiagramDefinition> = {
     kind: "state",
     layoutStrategy: "state",
     hierarchyHandling: "SEPARATE_CHILDREN",
-    direction: "RIGHT",
     edgeRouting: "POLYLINE",
     nodeSpacing: 44,
     layerSpacing: 58,

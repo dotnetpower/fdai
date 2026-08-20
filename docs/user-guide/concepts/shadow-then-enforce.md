@@ -7,18 +7,18 @@ sidebar:
 
 # Observe, then enable changes
 
-New autonomous actions in FDAI never turn on all at once. Every rule, detector,
-and fix ships in **observation mode** first. It makes the same decision it would
-make in production, but the decision is only recorded, never applied. An action
-earns the right to run for real only after a measured comparison against the
-baseline.
+New autonomous actions in FDAI never turn on all at once. Every promotable rule,
+assignment, workflow, and `ActionType` starts in **observation mode**. It makes
+the same decision it would make in production, but the decision is only recorded,
+never applied. An action becomes eligible for enforcement only after a measured
+comparison against the baseline and a separate governance review.
 
 ## What observation mode records
 
 While a new capability is observing, every event flows through it as if autonomy
 were already on:
 
-![What observation mode records. The main stages are New capability / ships, Shadow mode / judge + log only / no execution, Evidence gate met? / sample + accuracy + / zero policy escapes, Enforce mode / auto-execute, Live regression?.](../../diagrams/generated/fdai-shadow-then-enforce-01.en.svg)
+![Each event passes through the full decision pipeline. Observation mode records the proposed decision without changing managed resources. Enforcement mode still passes through risk and authority gates before automatic execution, human approval, or no change. Every path closes in audit, and executed changes require independent effect verification.](../../diagrams/generated/fdai-shadow-then-enforce-02.en.svg)
 
 - FDAI computes the full trust-routing and safety-check decision.
 - It stores the proposed action, meaning what would have executed.
@@ -40,15 +40,27 @@ the comparison.
   met.
 - **Outcome quality**: agreement, false-positive, and false-negative rates meet
   the action's thresholds against the same scenario set.
-- **Zero policy escapes**: no observed action would have slipped past a
-  deterministic policy denial. This guard metric has to be exactly zero.
+- **Zero would-be policy violations**: no observed action would have slipped past
+  a deterministic policy denial. The canonical `policy_escapes` guard metric has
+  to be exactly zero.
 - **Safety readiness**: preconditions, stop conditions, impact scope caps,
   idempotency, rollback rehearsal, and audit completeness all pass.
 - **Operational guard metrics**: change-failure and rollback rates do not get
   worse than the baseline.
 
-Promotion is always explicit. It is a separate pull request with its own review
-gate, and it is never bundled with the capability's first commit.
+Evidence readiness does not change the lifecycle mode by itself. It opens a
+separate governance review for the exact target, scope, version, and evidence
+digest. A rule or assignment uses a reviewed catalog pull request. An
+`ActionType` or workflow uses a governed promotion-registry update. Neither is
+bundled with the capability's first commit.
+
+## How lifecycle state changes
+
+The authoritative promotion registry is the only source that changes an action
+from observation to enforcement eligibility. Deployment environment, execution
+venue, and local flags cannot perform this transition.
+
+![A new action version starts in observation mode and gathers reproducible evidence. Passing evidence opens a separate promotion review. Approval records enforcement eligibility in the promotion registry. Rejection, stale evidence, or a live regression returns the action to observation mode. Demotion stops future execution and does not roll back changes that already ran.](../../diagrams/generated/fdai-shadow-then-enforce-01.en.svg)
 
 ## What exactly is promoted
 
@@ -58,7 +70,7 @@ Related controls move independently:
 |---------|-------------------|----------------|
 | Rule effect | `audit` or `do-not-enforce` | `deny` or `remediate` for a bound scope |
 | Assignment | Observes a rule set on selected resources | Applies the reviewed effect and parameters to that scope |
-| `ActionType` | `default_mode: shadow`, and it changes nothing | Enforcement is enabled only inside its risk ceilings and promotion gate |
+| `ActionType` | `default_mode: shadow`, and it changes nothing | The promotion registry marks it enforcement-eligible; each event still passes the risk and authority gates |
 
 Promoting a rule does not automatically promote every assignment or action that
 references it. Each control keeps its own evidence, review, scope, and rollback
@@ -66,11 +78,13 @@ reference.
 
 ## Who approves promotion
 
-Promotion is a governance change delivered as a reviewed catalog pull request.
-The request includes the evidence packet, the target scope, the action version,
-and the rollback plan. The requester cannot approve their own promotion. The
-required role and quorum come from the governance action and the risk decision,
-and the approval is recorded separately from execution outcomes.
+Promotion is a governance change delivered through the reviewed control that
+owns the target: a catalog pull request for rules and assignments, or a governed
+promotion-registry update for `ActionType` and workflow state. The request
+includes the evidence packet, target scope, action version, and rollback plan.
+The requester cannot approve their own promotion. The required role and quorum
+come from the governance action and risk decision, and the approval is recorded
+separately from execution outcomes.
 
 ## What triggers a demotion
 

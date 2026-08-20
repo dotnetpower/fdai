@@ -1,0 +1,254 @@
+id: fdai-shadow-then-enforce-02
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: What happens for each event
+    description: Lifecycle mode controls whether FDAI may change state, while risk and authority still decide each enforced event.
+    alt: Each operational event passes through the full decision pipeline. Observation mode records the proposed decision and reviewed outcome without changing managed resources. Enforcement mode still passes through the risk and authority gate, which selects automatic execution, human approval, or no change. Authorized execution requires independent effect verification before the terminal audit record can report success, and every other path also closes in audit.
+  ko:
+    title: 이벤트마다 수행되는 처리
+    description: 수명 주기 모드는 FDAI가 상태를 변경할 수 있는지를 제한하며, 적용 모드에서도 위험과 권한이 각 이벤트를 결정합니다.
+    alt: 각 운영 이벤트는 전체 결정 파이프라인을 통과합니다. 관찰 모드는 관리 리소스를 변경하지 않고 제안 결정과 검토 결과를 기록합니다. 적용 모드에서도 위험 및 권한 게이트를 통과하며 자동 실행, 사람 승인 또는 변경 없음 중 하나를 선택합니다. 승인된 실행은 종료 감사 기록에서 성공을 보고하기 전에 독립적인 효과 검증이 필요하며 다른 모든 경로도 감사로 종료됩니다.
+canvas:
+  width: 1120
+  height: 1320
+  direction: DOWN
+  rootLayout: column
+  padding: 44
+groups:
+  - id: decision-context
+    kind: layer
+    presentation: band
+    label: { en: 1 | Decide, ko: 1 | 결정 }
+    description: { en: Build the complete proposed decision, ko: 완전한 제안 결정을 구성합니다. }
+    layout: row
+    gap: 28
+    justify: center
+    width: 1040
+  - id: lifecycle-branch
+    kind: layer
+    presentation: lane
+    label: { en: 2 | Apply lifecycle authority, ko: 2 | 수명 주기 권한 적용 }
+    description: { en: Observation cannot mutate; enforcement still has gates, ko: 관찰은 변경할 수 없으며 적용에도 게이트가 남습니다. }
+    layout: row
+    gap: 28
+    justify: center
+    width: 1040
+  - id: governed-outcome
+    kind: layer
+    presentation: panel
+    label: { en: 3 | Resolve authority, ko: 3 | 권한 결정 }
+    description: { en: "Select execution, approval, or no change", ko: "실행, 승인 또는 변경 없음을 선택합니다." }
+    layout: row
+    gap: 90
+    justify: center
+    width: 1100
+  - id: evidence-closure
+    kind: layer
+    presentation: datastore
+    label: { en: 4 | Verify and close, ko: 4 | 검증 및 종료 }
+    description: { en: Success requires observed effect; every path is audited, ko: 성공에는 관찰된 효과가 필요하며 모든 경로를 감사합니다. }
+    layout: row
+    gap: 140
+    justify: center
+    width: 1040
+nodes:
+  - id: event
+    parent: decision-context
+    kind: process
+    shape: card
+    icon: lucide-inbox
+    tone: input
+    badge: 1
+    width: 300
+    label: { en: Operational event, ko: 운영 이벤트 }
+  - id: decision-pipeline
+    parent: decision-context
+    kind: process
+    shape: card
+    icon: lucide-search-check
+    tone: interpretation
+    badge: 2
+    width: 300
+    label: { en: Full decision pipeline, ko: 전체 결정 파이프라인 }
+    content:
+      - { en: Trust routing and deterministic checks, ko: 신뢰 라우팅 및 결정적 검사 }
+      - { en: Proposed action and audit intent, ko: 제안 액션 및 감사 의도 }
+  - id: lifecycle-mode
+    parent: decision-context
+    kind: decision
+    shape: diamond
+    tone: decision
+    badge: 3
+    width: 300
+    height: 190
+    label: { en: Authoritative lifecycle mode?, ko: 권위 있는 수명 주기 모드? }
+  - id: risk-authority
+    parent: lifecycle-branch
+    kind: process
+    shape: card
+    icon: lucide-shield-check
+    tone: policy
+    badge: 4
+    width: 300
+    label: { en: Risk and authority gate, ko: 위험 및 권한 게이트 }
+    content:
+      - { en: Most conservative result wins, ko: 가장 보수적인 결과를 적용 }
+      - { en: Promotion never bypasses approval, ko: 승격은 승인을 우회하지 않음 }
+  - id: final-decision
+    parent: lifecycle-branch
+    kind: decision
+    shape: diamond
+    tone: decision
+    badge: 5
+    width: 300
+    height: 190
+    label: { en: Final decision?, ko: 최종 결정? }
+  - id: observation-path
+    parent: lifecycle-branch
+    kind: process
+    shape: card
+    icon: lucide-file-check
+    tone: feedback
+    width: 300
+    label: { en: Observation path, ko: 관찰 경로 }
+    content:
+      - { en: Record the proposed decision, ko: 제안 결정을 기록 }
+      - { en: Compare reviewed outcome; never mutate, ko: 검토 결과와 비교하고 변경하지 않음 }
+  - id: authorized-execution
+    parent: governed-outcome
+    kind: process
+    shape: card
+    icon: lucide-play
+    tone: execution
+    width: 280
+    label: { en: Authorized execution, ko: 권한 있는 실행 }
+    content:
+      - { en: Seven safeguards and exact target, ko: 7개 보호장치 및 정확한 대상 }
+      - { en: Lock and stable idempotency key, ko: 잠금 및 안정적인 멱등성 키 }
+  - id: human-approval
+    parent: governed-outcome
+    kind: process
+    shape: card
+    icon: lucide-shield-check
+    tone: policy
+    width: 280
+    label: { en: Human approval, ko: 사람 승인 }
+    content:
+      - { en: Current approval or valid standing authority, ko: 현재 승인 또는 유효한 상시 권한 }
+      - { en: Requester cannot self-approve, ko: 요청자는 자체 승인할 수 없음 }
+      - { en: Approval executes; rejection or expiry makes no change, ko: 승인 시 실행하고 거절 또는 만료 시 변경하지 않음 }
+  - id: no-change
+    parent: governed-outcome
+    kind: process
+    shape: card
+    icon: lucide-file-check
+    tone: neutral
+    width: 280
+    label: { en: No change, ko: 변경 없음 }
+    content:
+      - { en: "Denied, unsupported, rejected, or expired", ko: "거부, 근거 부족, 승인 거절 또는 만료" }
+  - id: effect-verification
+    parent: evidence-closure
+    kind: process
+    shape: card
+    icon: lucide-search-check
+    tone: feedback
+    badge: 6
+    width: 300
+    label: { en: Independent effect verification, ko: 독립적인 효과 검증 }
+    content:
+      - { en: Report success only after the expected effect is observed, ko: 예상 효과를 관찰한 후에만 성공 보고 }
+  - id: terminal-audit
+    parent: evidence-closure
+    kind: store
+    shape: database
+    icon: lucide-file-check
+    tone: store
+    badge: 7
+    width: 300
+    label: { en: Terminal audit record, ko: 종료 감사 기록 }
+    content:
+      - { en: Every path closes with evidence, ko: 모든 경로를 근거와 함께 종료 }
+edges:
+  - id: flow-01
+    from: event
+    to: decision-pipeline
+    kind: event
+    route: orthogonal
+  - id: flow-02
+    from: decision-pipeline
+    to: lifecycle-mode
+    kind: request
+    route: orthogonal
+  - id: flow-03
+    from: lifecycle-mode
+    to: observation-path
+    kind: feedback
+    route: orthogonal-shortest
+  - id: flow-04
+    from: lifecycle-mode
+    to: risk-authority
+    kind: request
+    route: orthogonal-shortest
+  - id: flow-05
+    from: observation-path
+    to: terminal-audit
+    kind: audit
+    route: orthogonal-outer
+  - id: flow-06
+    from: risk-authority
+    to: final-decision
+    kind: request
+    route: orthogonal-horizontal
+  - id: flow-07
+    from: final-decision
+    to: authorized-execution
+    kind: mutation
+    route: orthogonal-shortest
+  - id: flow-08
+    from: final-decision
+    to: human-approval
+    kind: approval
+    route: orthogonal-shortest
+  - id: flow-09
+    from: final-decision
+    to: no-change
+    kind: request
+    route: orthogonal-shortest
+  - id: flow-10
+    from: human-approval
+    to: authorized-execution
+    kind: approval
+    route: orthogonal-horizontal
+  - id: flow-11
+    from: human-approval
+    to: no-change
+    kind: approval
+    route: orthogonal-horizontal
+  - id: flow-12
+    from: authorized-execution
+    to: effect-verification
+    kind: mutation
+    route: orthogonal-shortest
+  - id: flow-13
+    from: effect-verification
+    to: terminal-audit
+    kind: audit
+    route: orthogonal-horizontal
+  - id: flow-14
+    from: no-change
+    to: terminal-audit
+    kind: audit
+    route: orthogonal-shortest
+legend:
+  - kind: approval
+    label: { en: Human authority, ko: 사람 권한 }
+  - kind: mutation
+    label: { en: Managed change, ko: 관리 대상 변경 }
+  - kind: audit
+    label: { en: Evidence closure, ko: 근거 종료 }

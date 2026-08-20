@@ -36,9 +36,8 @@ test("sequence strategy centers readable interactions from top to bottom", async
   assert.match(svg, /First message/u);
 });
 
-test("state, domain, and timeline strategies preserve their primary axis", async () => {
+test("domain and timeline strategies preserve their horizontal axis", async () => {
   for (const [kind, edgeKind] of [
-    ["state", "transition"],
     ["domain", "association"],
     ["entity-relationship", "association"],
     ["timeline", "timeline"],
@@ -46,6 +45,43 @@ test("state, domain, and timeline strategies preserve their primary axis", async
     const layout = await layoutDiagram(linearSpec(kind, edgeKind));
     assert.ok(layout.nodes.get("second")!.x > layout.nodes.get("first")!.x);
   }
+});
+
+test("state strategy honors the configured lifecycle direction", async () => {
+  const horizontal = linearSpec("state", "transition");
+  const horizontalLayout = await layoutDiagram(horizontal);
+  assert.ok(horizontalLayout.nodes.get("second")!.x > horizontalLayout.nodes.get("first")!.x);
+
+  const vertical = linearSpec("state", "transition");
+  vertical.canvas.direction = "DOWN";
+  const verticalLayout = await layoutDiagram(vertical);
+  assert.ok(verticalLayout.nodes.get("second")!.y > verticalLayout.nodes.get("first")!.y);
+});
+
+test("state return routes do not reverse the primary lifecycle order", async () => {
+  const spec = linearSpec("state", "transition");
+  spec.canvas.direction = "DOWN";
+  spec.nodes.push({
+    id: "third",
+    kind: "process",
+    label: { en: "Third", ko: "세 번째" },
+  });
+  spec.edges.push(
+    { id: "forward", from: "second", to: "third", kind: "transition" },
+    {
+      id: "return",
+      from: "third",
+      to: "first",
+      kind: "transition",
+      route: "orthogonal-outer",
+    },
+  );
+
+  const layout = await layoutDiagram(spec);
+
+  assert.ok(layout.nodes.get("second")!.y > layout.nodes.get("first")!.y);
+  assert.ok(layout.nodes.get("third")!.y > layout.nodes.get("second")!.y);
+  assert.equal(layout.edges.length, 3);
 });
 
 test("decision tree strategy places branches below their decision", async () => {

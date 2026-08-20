@@ -213,6 +213,17 @@ function edgesByContainer(spec: DiagramSpec): Map<string, ElkExtendedEdge[]> {
   return result;
 }
 
+function deferredStateReturnEdges(
+  spec: DiagramSpec,
+): DiagramSpec["edges"] {
+  if (spec.kind !== "state") return [];
+  return spec.edges.filter(
+    (edge) =>
+      edge.route === "orthogonal-right" ||
+      edge.route === "orthogonal-outer",
+  );
+}
+
 function diagramNodeToElk(
   node: DiagramNode,
   compact: boolean,
@@ -1586,7 +1597,16 @@ export async function layoutDiagram(spec: DiagramSpec): Promise<DiagramLayout> {
   if (definition.layoutStrategy === "coordinate") return layoutCoordinate(spec);
   if (definition.layoutStrategy === "radial") return layoutRadial(spec);
   if (definition.layoutStrategy === "grid") return layoutGrid(spec);
-  const containedEdges = edgesByContainer(spec);
+  const deferredReturns = deferredStateReturnEdges(spec);
+  const layoutSpec = deferredReturns.length
+    ? {
+        ...spec,
+        edges: spec.edges.filter(
+          (edge) => !deferredReturns.some((candidate) => candidate.id === edge.id),
+        ),
+      }
+    : spec;
+  const containedEdges = edgesByContainer(layoutSpec);
   const rootGroups = spec.groups
     .filter((group) => !group.parent)
     .map((group) => groupToElk(spec, group, containedEdges));
@@ -1629,6 +1649,11 @@ export async function layoutDiagram(spec: DiagramSpec): Promise<DiagramLayout> {
     nodes,
     edges,
   );
+  for (const edge of deferredReturns) {
+    const restored = elkEdge(edge, compact);
+    const container = edgeContainer(spec, edge);
+    edges.push(container === "root" ? restored : { ...restored, container });
+  }
   applyDirectLayouts(spec, groups, nodes);
   applyHorizontalAlignments(spec, groups, nodes);
   const placementBottom = applyGroupPlacements(spec, groups, nodes);

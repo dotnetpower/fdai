@@ -1,89 +1,128 @@
 id: fdai-shadow-then-enforce-01
 version: 1
-kind: flowchart
+kind: state
 updated: 2026-08-20
 formats:
   - svg
 locales:
   en:
-    title: What observation mode records
-    description: FDAI flow for What observation mode records.
-    alt: What observation mode records. The main stages are New capability / ships, Shadow mode / judge + log only / no
-      execution, Evidence gate met? / sample + accuracy + / zero policy escapes, Enforce mode / auto-execute, Live
-      regression?.
+    title: Action lifecycle
+    description: Evidence can open a promotion review, but only governance changes the authoritative lifecycle state.
+    alt: A new action version starts in observation mode and collects reproducible evidence. Passing evidence opens a separate governance review. Approval updates the promotion registry to enforcement eligibility, while rejection, stale evidence, or a live regression returns the action to observation mode. Demotion stops future execution and does not roll back changes that already ran.
   ko:
-    title: 관찰 모드가 기록하는 것
-    description: 관찰 모드가 기록하는 것에 대한 FDAI 흐름입니다.
-    alt: 관찰 모드가 기록하는 것. 주요 단계는 새 기능 / 배포, 관찰 모드 / 판단 + 로깅만 / 실행 없음, 근거 기준 통과? / 표본 + 정확도 + / 정책 우회 0건, 적용 모드 / 자동 실행, 라이브
-      회귀?입니다.
+    title: 액션 수명 주기
+    description: 근거가 승격 검토를 시작할 수 있지만 권위 있는 수명 주기 상태는 거버넌스를 통해서만 변경됩니다.
+    alt: 새 액션 버전은 관찰 모드로 시작하여 재현 가능한 근거를 수집합니다. 근거 기준을 통과하면 별도 거버넌스 검토를 시작합니다. 승인되면 승격 레지스트리가 적용 가능 상태로 변경되며, 거부되거나 근거가 오래되거나 라이브 회귀가 발생하면 액션은 관찰 모드로 돌아갑니다. 강등은 이후 실행을 중지하며 이미 실행된 변경을 롤백하지 않습니다.
 canvas:
-  width: 900
-  height: 520
-  direction: RIGHT
+  width: 820
+  height: 980
+  direction: DOWN
+  padding: 44
 groups: []
 nodes:
-  - id: new
+  - id: observation
     kind: process
     shape: card
+    icon: lucide-search-check
+    tone: input
+    badge: 1
+    width: 320
     label:
-      en: New capability / ships
-      ko: 새 기능 / 배포
-  - id: sh
+      en: Observation mode
+      ko: 관찰 모드
+    content:
+      - en: New version is judge-and-log only
+        ko: 새 버전은 판단하고 기록만 함
+      - en: No managed-resource mutation
+        ko: 관리 리소스를 변경하지 않음
+  - id: evidence
     kind: process
     shape: card
+    icon: lucide-file-check
+    tone: feedback
+    badge: 2
+    width: 320
     label:
-      en: Shadow mode / judge + log only / no execution
-      ko: 관찰 모드 / 판단 + 로깅만 / 실행 없음
-  - id: m
-    kind: decision
-    shape: diamond
-    label:
-      en: Evidence gate met? / sample + accuracy + / zero policy escapes
-      ko: 근거 기준 통과? / 표본 + 정확도 + / 정책 우회 0건
-  - id: en
+      en: Reproducible evidence
+      ko: 재현 가능한 근거
+    content:
+      - en: Dwell time, reviewed samples, and accuracy
+        ko: 관찰 기간, 검토 표본 및 정확도
+      - en: Pinned revision and zero would-be violations
+        ko: 고정된 개정 번호 및 잠재 정책 위반 0건
+  - id: review
     kind: process
     shape: card
+    icon: lucide-shield-check
+    tone: policy
+    badge: 3
+    width: 320
     label:
-      en: Enforce mode / auto-execute
-      ko: 적용 모드 / 자동 실행
-  - id: r
-    kind: decision
-    shape: diamond
+      en: Separate promotion review
+      ko: 별도 승격 검토
+    content:
+      - en: Exact target, scope, version, and rollback plan
+        ko: 정확한 대상, 범위, 버전 및 롤백 계획
+      - en: No self-approval; required quorum applies
+        ko: 자체 승인을 금지하고 정족수를 적용
+  - id: enforcement
+    kind: process
+    shape: card
+    icon: lucide-play
+    tone: execution
+    badge: 4
+    width: 320
     label:
-      en: Live regression?
-      ko: 라이브 회귀?
+      en: Enforcement eligible
+      ko: 적용 가능
+    content:
+      - en: Registry records the reviewed lifecycle state
+        ko: 레지스트리가 검토된 수명 주기 상태를 기록
+      - en: Every event still passes risk and authority gates
+        ko: 모든 이벤트가 계속 위험 및 권한 게이트를 통과
 edges:
   - id: flow-01
-    from: new
-    to: sh
-    kind: request
+    from: observation
+    to: evidence
+    kind: transition
+    label:
+      en: collect and compare
+      ko: 수집 및 비교
   - id: flow-02
-    from: sh
-    to: m
-    kind: request
+    from: evidence
+    to: review
+    kind: transition
+    label:
+      en: evidence ready
+      ko: 근거 준비 완료
   - id: flow-03
-    from: m
-    to: en
-    kind: request
+    from: evidence
+    to: observation
+    kind: transition
+    route: orthogonal-right
     label:
-      en: yes
-      ko: yes
+      en: incomplete or stale
+      ko: 불완전하거나 오래됨
   - id: flow-04
-    from: m
-    to: sh
-    kind: request
+    from: review
+    to: enforcement
+    kind: transition
     label:
-      en: no
-      ko: no
+      en: approved and recorded
+      ko: 승인 및 기록 완료
   - id: flow-05
-    from: en
-    to: r
-    kind: request
+    from: review
+    to: observation
+    kind: transition
+    route: orthogonal-outer
+    label:
+      en: rejected or changed
+      ko: 거부되거나 변경됨
   - id: flow-06
-    from: r
-    to: sh
-    kind: request
-  - id: flow-07
-    from: r
-    to: en
-    kind: request
+    from: enforcement
+    to: observation
+    kind: transition
+    route: orthogonal-outer
+    label:
+      en: regression - demote
+      ko: 회귀 - 강등
