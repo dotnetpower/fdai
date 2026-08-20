@@ -130,6 +130,19 @@ function fallbackAssetPath(sourcePath: string, id: string, locale: Locale): stri
   );
 }
 
+function hasLocalizedFallback(
+  markdown: string,
+  assetPath: string,
+  id: string,
+  locale: Locale,
+): boolean {
+  if (markdown.includes(`](${assetPath})`)) return true;
+  const embeds = markdown.match(/<fdai-architecture-diagram\b[\s\S]*?<\/fdai-architecture-diagram>/gu) ?? [];
+  return embeds.some((embed) =>
+    embed.includes(`${id}.manifest.json`) && embed.includes(`${id}.${locale}.svg`),
+  );
+}
+
 async function migrationPlan(root: string): Promise<MigrationPlan> {
   const pairs: MigrationPair[] = [];
   const specs: DiagramSpec[] = [];
@@ -233,7 +246,10 @@ export async function validatePublishedMigration(root: string): Promise<Migratio
       const id = diagramId(entry, blockIndex);
       const englishAsset = fallbackAssetPath(englishPath, id, "en");
       const koreanAsset = fallbackAssetPath(koreanPath, id, "ko");
-      if (!english.includes(`](${englishAsset})`) || !korean.includes(`](${koreanAsset})`)) {
+      if (
+        !hasLocalizedFallback(english, englishAsset, id, "en") ||
+        !hasLocalizedFallback(korean, koreanAsset, id, "ko")
+      ) {
         throw new Error(`${englishPath} is missing the localized fallback for ${id}`);
       }
       if (entry.reused[blockIndex]) reusedBlocks += 1;
