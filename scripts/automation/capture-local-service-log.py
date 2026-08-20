@@ -24,6 +24,7 @@ _PLAIN_CONTEXT_FIELDS = (
     "plan_source",
     "output_shape",
     "failure_type",
+    "validation_reason",
 )
 _TERMINAL_BUFFER_LINES = 1_024
 _TERMINAL_BUFFER_BYTES = 4 * 1_024 * 1_024

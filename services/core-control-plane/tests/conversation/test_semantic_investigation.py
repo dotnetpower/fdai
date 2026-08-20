@@ -145,6 +145,7 @@ def test_frame_json_schema_exposes_complete_structured_investigation_contract() 
         "answer_shape",
     }
     assert investigation["additionalProperties"] is False
+    assert "investigation" in schema["required"]
     span = schema["$defs"]["IntentSourceSpan"]
     assert set(span["required"]) == {"start", "end", "text"}
     assert span["additionalProperties"] is False
@@ -166,6 +167,62 @@ def test_changed_span_text_is_rejected_before_planning() -> None:
     )
 
     with pytest.raises(ValueError, match="source span does not match"):
+        verify_investigation_intent(
+            changed,
+            utterance=utterance,
+            descriptors=_descriptors(),
+            metric_concepts=("dependency.latency", "resource.saturation", "service.latency"),
+        )
+
+
+def test_unique_span_text_rebinds_an_invalid_offset_before_planning() -> None:
+    utterance = "A서비스가 갑자기 왜 느려졌어?"
+    proposal = _proposal(utterance)
+    symptom = proposal.symptom_measures[0]
+    changed = proposal.model_copy(
+        update={
+            "symptom_measures": (
+                symptom.model_copy(
+                    update={
+                        "span": symptom.span.model_copy(
+                            update={"start": symptom.span.start - 1, "end": symptom.span.end - 1}
+                        )
+                    }
+                ),
+            )
+        }
+    )
+
+    verified = verify_investigation_intent(
+        changed,
+        utterance=utterance,
+        descriptors=_descriptors(),
+        metric_concepts=("dependency.latency", "resource.saturation", "service.latency"),
+    )
+
+    rebound = verified.symptom_measures[0].span
+    assert (rebound.start, rebound.end, rebound.text) == (
+        utterance.index("느려졌어"),
+        utterance.index("느려졌어") + len("느려졌어"),
+        "느려졌어",
+    )
+
+
+def test_invalid_offset_with_repeated_span_text_is_rejected_as_ambiguous() -> None:
+    utterance = "왜 A서비스가 갑자기 왜 느려졌어?"
+    proposal = _proposal(utterance)
+    relationship = proposal.relationship_intents[0]
+    changed = proposal.model_copy(
+        update={
+            "relationship_intents": (
+                relationship.model_copy(
+                    update={"span": relationship.span.model_copy(update={"start": 1, "end": 2})}
+                ),
+            )
+        }
+    )
+
+    with pytest.raises(ValueError, match="source span text is ambiguous"):
         verify_investigation_intent(
             changed,
             utterance=utterance,

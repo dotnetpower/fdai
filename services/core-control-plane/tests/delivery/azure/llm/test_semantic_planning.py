@@ -61,6 +61,7 @@ def _frame_payload() -> dict[str, object]:
         "evidence_requirements": ["authoritative_inventory"],
         "unresolved_terms": [],
         "clarification": None,
+        "investigation": None,
         "confidence": 0.9,
     }
 
@@ -202,7 +203,7 @@ async def test_adapter_rejects_free_form_output_shape() -> None:
     assert frame_raw is None
 
 
-async def test_adapter_retries_repeated_throttling_within_its_budget(monkeypatch) -> None:
+async def test_adapter_does_not_retry_one_throttled_candidate(monkeypatch) -> None:
     requests = 0
     delays: list[float] = []
 
@@ -212,9 +213,7 @@ async def test_adapter_retries_repeated_throttling_within_its_budget(monkeypatch
     def handler(request: httpx.Request) -> httpx.Response:
         nonlocal requests
         requests += 1
-        if requests <= 2:
-            return httpx.Response(429, headers={"Retry-After": "30"})
-        return _response(_frame_payload())
+        return httpx.Response(429, headers={"Retry-After": "30"})
 
     monkeypatch.setattr(asyncio, "sleep", record_sleep)
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
@@ -237,9 +236,9 @@ async def test_adapter_retries_repeated_throttling_within_its_budget(monkeypatch
             purpose="operations-review",
         )
 
-    assert frame_raw is not None
-    assert requests == 3
-    assert delays == [30.0, 30.0]
+    assert frame_raw is None
+    assert requests == 1
+    assert delays == []
 
 
 async def test_adapter_retries_schema_invalid_structured_outputs() -> None:

@@ -27,6 +27,7 @@ class _ManifestModel:
             "evidence_requirements": ["principal_manifest_evidence"],
             "unresolved_terms": [],
             "clarification": None,
+            "investigation": None,
             "confidence": 0.95,
         }
 

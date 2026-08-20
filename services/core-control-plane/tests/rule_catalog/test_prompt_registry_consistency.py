@@ -126,7 +126,10 @@ def test_semantic_prompts_pin_incident_evidence_without_cause_authority() -> Non
     frame = prompts.get_base("semantic.query.frame")
     plan = prompts.get_base("semantic.query.plan")
 
-    assert frame.version == 29
+    assert frame.version == 30
+    assert "First close the target-bound diagnosis invariant" in frame.body
+    assert "investigation MUST be a non-null structured investigation object" in frame.body
+    assert "never a phrase list or provider-specific resource name" in frame.body
     assert "output_shape to exactly one capability family" in frame.body
     assert "aggregation_table for a count or grouping" in frame.body
     assert "operation aggregate together with aggregation_table" in frame.body

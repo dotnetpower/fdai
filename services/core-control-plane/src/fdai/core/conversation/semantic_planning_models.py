@@ -98,7 +98,7 @@ class SemanticFrameProposal(_Proposal):
         default=(), max_length=8
     )
     clarification: str | None = Field(default=None, min_length=1, max_length=512)
-    investigation: InvestigationIntentProposal | None = None
+    investigation: InvestigationIntentProposal | None
     confidence: float = Field(ge=0.0, le=1.0)
 
     @field_validator(

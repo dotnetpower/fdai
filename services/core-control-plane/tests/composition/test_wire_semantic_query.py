@@ -109,6 +109,7 @@ class _Model:
             "evidence_requirements": ["authoritative_ontology"],
             "unresolved_terms": [],
             "clarification": None,
+            "investigation": None,
             "confidence": 0.9,
         }
 
@@ -382,6 +383,7 @@ class _ScopedCausalEvidenceModel(_Model):
             "evidence_requirements": ["metric_evidence"],
             "unresolved_terms": [],
             "clarification": None,
+            "investigation": None,
             "confidence": 0.9,
         }
 
@@ -680,6 +682,7 @@ class _IncidentEvidenceModel(_Model):
             "evidence_requirements": ["audit_projection"],
             "unresolved_terms": [],
             "clarification": None,
+            "investigation": None,
             "confidence": 0.95,
         }
 

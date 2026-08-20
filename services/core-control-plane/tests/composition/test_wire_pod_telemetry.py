@@ -65,6 +65,7 @@ class _PodTelemetryModel:
             "evidence_requirements": ["authoritative_ontology"],
             "unresolved_terms": [],
             "clarification": None,
+            "investigation": None,
             "confidence": 0.9,
         }
 

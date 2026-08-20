@@ -219,6 +219,8 @@ retired top-level application tree.
 
 | 2026-08-20 | implemented | Reduced verified resource tables to operator-readable fields without deleting technical identity from the durable semantic result. Readable rows lead with `name`, `type`, and optional `location`; identity-only rows still render `id` and `object_type`, and zero rows produce a typed empty-evidence presentation. | `current change`; `presentation_rows.py`, `presentation_artifact_v2.py`; focused Operator checks passed 20 cases. | Retain the governed causal-diagnosis evidence tracked by Issue #244 before raising that separate answer path to validated. |
 
+| 2026-08-20 | implemented | Made target-bound diagnosis closure explicit at the T1 frame boundary and removed same-candidate throttling retries. Prompt v30 requires non-null structured investigation before generic frame classification, Core verifies and compiles that intent without a model-authored plan, and the Azure adapter treats 429 as immediate candidate unavailability while retaining bounded retries for schema-invalid structured output. | `current change`; [Issue #244](https://github.com/dotnetpower/fdai/issues/244); focused investigation, tier-routing, Azure adapter, prompt, and generic causal checks passed 103 cases. | Retain one post-commit authenticated structured slowdown answer; the pre-fix replay remains a hold and does not validate causal diagnosis. |
+
 ### Remaining work
 
 - [ ] Record governed IS-09 remote verification evidence and update the service-owned map state when that evidence passes.

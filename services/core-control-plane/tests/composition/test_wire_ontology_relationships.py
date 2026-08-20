@@ -39,6 +39,7 @@ class _RelationshipModel:
             "evidence_requirements": ["ontology_relationship_evidence"],
             "unresolved_terms": [],
             "clarification": None,
+            "investigation": None,
             "confidence": 0.95,
         }
 

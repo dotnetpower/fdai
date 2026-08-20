@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: c9380eea85b9dc7947b1b94a56044bbb9e0078a5
+translation_source_sha: 789c0c421ac8e0279738d7002a53a407ac3a438e
 translation_revised: 2026-08-20
 ---
 # 지속형 질문 공간
@@ -34,7 +34,7 @@ translation_revised: 2026-08-20
 |------|------|------|------|
 | 의미 기능 연결 | implemented | `core/ontology_platform/{declaration,release_diff,evidence_health,inventory_impact}_queries.py`; 집중 기능 및 구성 검사 | `query.ontology_declaration`은 운영 구성에 연결됩니다. 릴리스 차이, 근거 상태, 인벤토리 영향은 정확한 공급자 또는 서버 소유 앵커가 연결될 때까지 `runtime_binding_unavailable`로 유지됩니다. |
 | 7개 관점 질문 집합 | implemented | `core/conversation/question_perspectives.py`, `question_universe.py`, `question_selection.py`; 집중 질문 집합 및 선택 검사 | 적용 규칙은 카테시안 곱이 아닙니다. 사례 식별자는 로캘, 사례 종류, 관점, 기능, 근거 상태, 앵커, 종료 처리, 작업 자세, Rule 상태, 깊이, 결과 제한을 포함합니다. 활성 Rule과 수집된 Rule 사례는 분리됩니다. |
-| 구조화된 조사 보증 | implemented | `semantic_investigation.py`, `semantic_investigation_planning.py`, 조사 query-node 및 표현 테스트, 의미 frame prompt v29 | 대상 결속 diagnostic 인과 사례는 관련 없는 선언을 늘리지 않으면서 정확한 entity 해석, 정렬된 근거 window, 순서가 있는 관계 경로, 증상 방향, 경쟁하는 지지 및 반증, 결정론적 표현을 추가합니다. 일반 principal 범위 인과 사례는 기존의 범위가 제한된 plan을 유지합니다. |
+| 구조화된 조사 보증 | implemented | `semantic_investigation.py`, `semantic_investigation_planning.py`, 조사 query-node 및 표현 테스트, 의미 frame prompt v30 | 대상 결속 diagnostic 인과 사례는 null이 아닌 구조화된 intent, 정확한 entity 해석, 정렬된 근거 window, 순서가 있는 관계 경로, 증상 방향, 경쟁하는 지지 및 반증, 결정론적 표현을 요구하며 관련 없는 선언을 늘리지 않습니다. 일반 principal 범위 인과 사례는 기존의 범위가 제한된 plan을 유지합니다. 제한에 걸린 fallback 후보는 한 번만 시도하고 같은 후보를 지연한 뒤 재시도하지 않으며 타입이 지정된 frame unavailable로 끝납니다. |
 | 후보 생성 및 검증 | implemented | `core/conversation/question_candidates.py`; `delivery/azure/llm/question_generation.py`; `scripts/automation/question_space_copilot.py`; 집중 생성기 및 검증기 검사 | 로컬 Copilot은 명시적으로만 실행되고 도구가 비활성화됩니다. 예약 생성은 분리된 `t1.question.generator`와 `t1.question.reviewer` 기능을 사용합니다. 불변 필드, 로캘, 식별자, 포함된 자격 증명, 실행 가능한 텍스트, 프롬프트 주입, 중복, 초안 자세, 독립 동등성은 안전하게 차단됩니다. |
 | 캠페인 근거 체인 | implemented | `core/conversation/question_campaign*.py`; `delivery/persistence/postgres_question_campaign.py`; Alembic `0086`; 집중 캠페인, 영속성, 마이그레이션 검사 | 캠페인, 시도, 불변 완료, 만료형 사례 claim 레코드는 다이제스트, 형식화된 처리 결과, 증적 연결, 사용량, hard-zero 카운터를 보존합니다. Claim은 동시 의미 실행 중복을 막습니다. 어떤 레코드도 질문, 답변, 공급자 페이로드, 엔드포인트, 결합된 리소스 식별자를 복제하지 않습니다. |
 | 공유 one-shot 패키지 | implemented | `core/conversation/question_schedule.py`; `delivery/ontology_question_campaign.py`; `ontology_question_campaign_cli.py`; 집중 기한 판정 및 공유 실행기 검사 | 수동 및 예약 트리거는 주입된 실행기 패키지 하나를 사용합니다. 비활성, 실행 시점 아님, 근거 없음, 모델 없음, Reader 증명 없음, 예약 예산 소진, claim 충돌은 해당 모델 또는 의미 호출 전에 중단됩니다. |
@@ -47,6 +47,7 @@ translation_revised: 2026-08-20
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-20 | implemented | 질문 문구 map을 추가하지 않고 실제 운영 대상 결속 T1 거부와 전송 지연의 소유 경로를 닫았습니다. Prompt v30은 null이 아닌 구조화된 조사를 대상 결속 diagnosis의 첫 audit로 만들고, 정확한 span text는 검증 전에 모호하지 않은 offset 하나를 복구할 수 있으며, 429는 sleep 및 같은 후보 재시도 없이 즉시 해당 후보를 벗어납니다. 안전한 로그는 허용 목록 validation reason 또는 validation location만 유지합니다. | [이슈 #244](https://github.com/dotnetpower/fdai/issues/244), `current change`, 수정 전 인증 replay 1회는 `target-bound causal evidence requires structured investigation intent`와 T2 후보 하나의 429 응답 3회 뒤 69.9초에 hold로 끝났고 수정 뒤 집중 조사, routing, adapter, prompt 및 일반 causal 검사 103개 통과 | 대상, 증상 방향, 시간 범위, 근거로 평가한 가설 2개 이상, 제한, `execution_authority=false`를 포함한 post-commit 인증 slowdown 답변 1개를 보존합니다. |
 | 2026-08-20 | 진행 중 | 아래 인과 통합 이력의 tracking owner를 정정했습니다. 이슈 #242는 golden 및 generative question assurance를 소유하고, 인증된 SRE Agent 비교, resource-filter 증명, 인과 runtime blocker는 이슈 #244가 소유합니다. Append-only 규칙에 따라 과거 행은 변경하지 않습니다. | [이슈 #244](https://github.com/dotnetpower/fdai/issues/244), 인증된 표준 포트 Console 근거 | 이슈 #244에서 대상 결속 diagnosis 및 보존된 viewport 근거를 완료합니다. |
 | 2026-08-20 | 구현됨 | 인증된 재실행에서 fragment를 누락해 의도한 FDAI 관련 부분집합 대신 resource group 42개 전체로 검증된 답변이 넓어진 뒤 prompt v29가 운영자가 작성한 name fragment와 선언된 resource type을 함께 보존하도록 했습니다. Core는 발화에 fragment가 있는지 확인하고 좁히는 predicate만 추가하는 권한 경계를 유지합니다. | `current change`, [이슈 #242](https://github.com/dotnetpower/fdai/issues/242), 집중 prompt 및 이중 언어 grounding 검사 | 수정된 resource-filter 근거를 보존한 뒤 대상 결속 slowdown 질문을 실행합니다. |
 | 2026-08-20 | 구현됨 | 일반 선언 범위 causal evidence가 인증된 의미 경로와 계속 호환되고, 공급된 선언 이름 밖의 정확한 대상만 structured investigation intent를 요구하도록 v28 경계를 수정했습니다. 비인과 frame은 investigation payload를 계속 차단합니다. | `current change`, [이슈 #242](https://github.com/dotnetpower/fdai/issues/242), 집중 호환성, 대상 결속, prompt 및 service-suite 검사 37개 통과 | 정확히 수정된 소스에서 인증된 Console 답변 두 개를 보존합니다. |

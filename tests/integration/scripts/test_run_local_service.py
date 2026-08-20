@@ -211,6 +211,8 @@ def test_runner_preserves_allowlisted_consumer_context_only(tmp_path: Path) -> N
         '"message":"event_bus_consumer_started","topic":"aw.change.events",'
         '"consumer_group":"fdai-local-pantheon.Huginn",'
         '"client_id":"fdai-core","auth_mechanism":"OAUTHBEARER",'
+        '"validation_reason":"target-bound causal evidence requires '
+        'structured investigation intent",'
         '"access_token":"must-not-render"}'
     )
 
@@ -240,6 +242,10 @@ def test_runner_preserves_allowlisted_consumer_context_only(tmp_path: Path) -> N
     assert 'consumer_group="fdai-local-pantheon.Huginn"' in formatted_line
     assert 'client_id="fdai-core"' in formatted_line
     assert 'auth_mechanism="OAUTHBEARER"' in formatted_line
+    assert (
+        'validation_reason="target-bound causal evidence requires structured investigation intent"'
+        in formatted_line
+    )
     assert "must-not-render" not in current
 
 

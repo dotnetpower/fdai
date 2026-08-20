@@ -147,6 +147,7 @@ def _frame(**overrides: object) -> dict[str, object]:
         "unresolved_terms": [],
         "clarification_requirements": [],
         "clarification": None,
+        "investigation": None,
         "confidence": 0.9,
         **overrides,
     }
@@ -455,7 +456,10 @@ def test_misclassified_causal_frame_retries_frame_with_t2() -> None:
     assert (t2.frame_calls, t2.plan_calls) == (1, 0)
 
 
-def test_target_bound_causal_frame_requires_structured_investigation() -> None:
+def test_target_bound_causal_frame_requires_structured_investigation(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level("INFO", logger="fdai.core.conversation.semantic_planning_cascade")
     manifest, definition = _fixture()
     t1 = _Model(
         frame=_frame(
@@ -471,6 +475,34 @@ def test_target_bound_causal_frame_requires_structured_investigation() -> None:
 
     assert outcome.disposition is SemanticPlanningDisposition.PLANNED
     assert (t1.frame_calls, t1.plan_calls) == (1, 1)
+    assert (t2.frame_calls, t2.plan_calls) == (1, 0)
+    escalation = next(
+        record for record in caplog.records if record.message == "semantic_planning_t2_escalated"
+    )
+    assert escalation.validation_reason == (
+        "target-bound causal evidence requires structured investigation intent"
+    )
+    assert "resource-a" not in escalation.getMessage()
+
+
+def test_target_bound_t1_invalid_and_t2_unavailable_returns_typed_unavailable() -> None:
+    manifest, definition = _fixture()
+    t1 = _Model(
+        frame=_frame(
+            operation="explain_change",
+            subject_constraints=["Resource", "resource-a"],
+            output_shape="causal_evidence",
+        ),
+        plan=_plan(definition),
+    )
+    t2 = _Model(frame=None, plan=_plan(definition))
+
+    outcome = _run(_service(t1, t2, manifest), utterance="Why is resource-a slower?")
+
+    assert outcome.disposition is SemanticPlanningDisposition.UNAVAILABLE
+    assert outcome.reason == "semantic_frame_unavailable"
+    assert outcome.execution_authority is False
+    assert (t1.frame_calls, t1.plan_calls) == (1, 0)
     assert (t2.frame_calls, t2.plan_calls) == (1, 0)
 
 

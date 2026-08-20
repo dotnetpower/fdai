@@ -228,15 +228,6 @@ class AzureOpenAISemanticPlanningModel:
                             timeout=candidate_timeout,
                         )
                         if response.status_code == 429:
-                            if attempt + 1 >= _MAX_ATTEMPTS_PER_CANDIDATE:
-                                response.raise_for_status()
-                            retry_after = _retry_after_seconds(
-                                response.headers.get("Retry-After"),
-                                maximum=candidate_timeout - 1.0,
-                            )
-                            if retry_after is not None:
-                                await asyncio.sleep(retry_after)
-                                continue
                             response.raise_for_status()
                         response.raise_for_status()
                         try:
@@ -279,17 +270,6 @@ class AzureOpenAISemanticPlanningModel:
                     extra=failure,
                 )
         return None
-
-
-def _retry_after_seconds(value: str | None, *, maximum: float) -> float | None:
-    if maximum <= 0:
-        return None
-    try:
-        delay = float(value) if value is not None else 1.0
-    except ValueError:
-        delay = 1.0
-    delay = max(0.0, delay)
-    return delay if delay <= maximum else None
 
 
 def _bounded_input(

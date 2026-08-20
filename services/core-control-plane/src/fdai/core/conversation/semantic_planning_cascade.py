@@ -90,6 +90,44 @@ _REQUIRED_NODE_KINDS_BY_OUTPUT_SHAPE = {
     ),
     "topology_graph": frozenset({QueryNodeKind.TOPOLOGY_AT}),
 }
+_SAFE_FRAME_REJECTION_REASONS = frozenset(
+    {
+        "causal investigation requires a diagnosis answer shape",
+        "causal investigation requires an onset or change-point cue",
+        "causal investigation requires support and refutation evidence",
+        "explicit aggregation request requires aggregation_table output",
+        "explicit listing request cannot use aggregation_table output",
+        "investigation entity ids MUST be unique",
+        "investigation entity type is absent from the principal manifest",
+        "investigation hypothesis competitors are invalid",
+        "investigation hypothesis effect measure is unknown",
+        "investigation hypothesis ids MUST be unique",
+        "investigation hypothesis metric concept is unavailable",
+        "investigation hypothesis relationship is unknown",
+        "investigation intent MUST use explain_change",
+        "investigation intent requires one affected target",
+        "investigation measure ids MUST be unique",
+        "investigation measure target is unknown",
+        "investigation metric concept is unavailable",
+        "investigation primary symptom measure is unknown",
+        "investigation relationship endpoint is unknown",
+        "investigation relationship ids MUST be unique",
+        "investigation relationship side is absent from the manifest",
+        "investigation relationship source type does not match",
+        "investigation relationship target type does not match",
+        "investigation source span does not match the utterance",
+        "investigation utterance MUST be non-empty and bounded",
+        "schema-level semantic frame names a runtime resource instance",
+        "semantic aggregate operation requires aggregation_table output",
+        "semantic clarification requests server-bound context",
+        "semantic declaration frame requires an exact declaration measure",
+        "semantic explain_change operation requires causal_evidence output",
+        "semantic Rule state frame requires the exact Rule declaration",
+        "semantic validate operation requires evidence_validation output",
+        "structured investigation intent requires semantic causal evidence",
+        "target-bound causal evidence requires structured investigation intent",
+    }
+)
 
 
 class FrameBuilder(Protocol):
@@ -187,7 +225,12 @@ class SemanticPlanningCascade:
                     else None
                 )
             except (ValidationError, TypeError, ValueError) as exc:
-                if self._should_escalate(tier=tier, stage="frame", reason="invalid"):
+                if self._should_escalate(
+                    tier=tier,
+                    stage="frame",
+                    reason="invalid",
+                    validation_reason=_safe_frame_rejection_reason(exc),
+                ):
                     continue
                 raise ProposalRejectedError("frame_validation", type(exc).__name__) from exc
             try:
@@ -262,14 +305,32 @@ class SemanticPlanningCascade:
             return (("t1", self._model),)
         return (("t1", self._model), ("t2", self._escalation_model))
 
-    def _should_escalate(self, *, tier: str, stage: str, reason: str) -> bool:
+    def _should_escalate(
+        self,
+        *,
+        tier: str,
+        stage: str,
+        reason: str,
+        validation_reason: str | None = None,
+    ) -> bool:
         if tier != "t1" or self._escalation_model is None:
             return False
         _LOGGER.info(
             "semantic_planning_t2_escalated",
-            extra={"stage": stage, "reason": reason},
+            extra={
+                "stage": stage,
+                "reason": reason,
+                "validation_reason": validation_reason,
+            },
         )
         return True
+
+
+def _safe_frame_rejection_reason(exc: Exception) -> str:
+    message = str(exc)
+    if type(exc) is ValueError and message in _SAFE_FRAME_REJECTION_REASONS:
+        return message
+    return type(exc).__name__
 
 
 def _validate_frame_proposal(

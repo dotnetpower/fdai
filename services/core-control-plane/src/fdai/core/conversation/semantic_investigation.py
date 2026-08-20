@@ -212,7 +212,7 @@ def verify_investigation_intent(
     if proposal.answer_shape is not InvestigationAnswerShape.DIAGNOSIS:
         raise ValueError("causal investigation requires a diagnosis answer shape")
 
-    _verify_source_spans(proposal, utterance=utterance)
+    proposal = _rebind_source_spans(proposal, utterance=utterance)
     entity_by_id = _verify_entities(proposal.entities, descriptors=descriptors)
     _verify_measures(
         proposal,
@@ -261,29 +261,60 @@ def verify_investigation_intent(
     )
 
 
-def _verify_source_spans(
+def _rebind_source_spans(
     proposal: InvestigationIntentProposal,
     *,
     utterance: str,
-) -> None:
-    records: tuple[
-        InvestigationEntityMention
-        | InvestigationSymptomMeasure
-        | InvestigationTemporalCue
-        | InvestigationRelationshipIntent
-        | InvestigationHypothesis,
-        ...,
-    ] = (
-        *proposal.entities,
-        *proposal.symptom_measures,
-        *proposal.temporal_cues,
-        *proposal.relationship_intents,
-        *proposal.hypotheses,
+) -> InvestigationIntentProposal:
+    """Bind exact span text to one unambiguous Python code-point range."""
+    return proposal.model_copy(
+        update={
+            "entities": tuple(
+                _rebind_record_span(record, utterance=utterance) for record in proposal.entities
+            ),
+            "symptom_measures": tuple(
+                _rebind_record_span(record, utterance=utterance)
+                for record in proposal.symptom_measures
+            ),
+            "temporal_cues": tuple(
+                _rebind_record_span(record, utterance=utterance)
+                for record in proposal.temporal_cues
+            ),
+            "relationship_intents": tuple(
+                _rebind_record_span(record, utterance=utterance)
+                for record in proposal.relationship_intents
+            ),
+            "hypotheses": tuple(
+                _rebind_record_span(record, utterance=utterance) for record in proposal.hypotheses
+            ),
+        }
     )
-    for record in records:
-        span = record.span
-        if span.end > len(utterance) or utterance[span.start : span.end] != span.text:
-            raise ValueError("investigation source span does not match the utterance")
+
+
+def _rebind_record_span[
+    SpanRecordT: (
+        InvestigationEntityMention,
+        InvestigationSymptomMeasure,
+        InvestigationTemporalCue,
+        InvestigationRelationshipIntent,
+        InvestigationHypothesis,
+    )
+](
+    record: SpanRecordT,
+    *,
+    utterance: str,
+) -> SpanRecordT:
+    span = record.span
+    if span.end <= len(utterance) and utterance[span.start : span.end] == span.text:
+        return record
+    start = utterance.find(span.text)
+    if start < 0:
+        raise ValueError("investigation source span does not match the utterance")
+    if utterance.find(span.text, start + 1) >= 0:
+        raise ValueError("investigation source span text is ambiguous")
+    return record.model_copy(
+        update={"span": span.model_copy(update={"start": start, "end": start + len(span.text)})}
+    )
 
 
 def _verify_entities(

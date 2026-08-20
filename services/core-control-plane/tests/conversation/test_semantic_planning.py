@@ -135,6 +135,7 @@ def _frame(**overrides: object) -> dict[str, object]:
         "output_shape": "resource_list",
         "evidence_requirements": ["authoritative_inventory"],
         "unresolved_terms": [],
+        "investigation": None,
         "clarification": None,
         "confidence": 0.9,
         **overrides,
