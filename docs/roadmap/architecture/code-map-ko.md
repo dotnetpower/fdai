@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 4b483bf96c71231b1864c2566b38fda5f4c4dce2
+translation_source_sha: 46deeac538fa86d83e5d02c4e1eb5f70fd8fa533
 translation_revised: 2026-08-20
 ---
 # 코드 맵
@@ -219,9 +219,7 @@ translation_revised: 2026-08-20
 | 2026-08-20 | 구현됨 | 적대적 검토 뒤 rejection-only aggregation 일치 guard에 일반적인 한국어 `그루핑`과 `합계` operator를 추가했습니다. 두 표현은 nonaggregation frame을 invalid로 만들 수 있지만 plan을 선택하거나 범위를 넓히거나 권한을 부여할 수 없습니다. | `current change`, aggregation guard control 9개와 전체 집중 slice 84개가 Ruff, format, strict mypy와 함께 통과했습니다. | 수정된 소스에서 통과한 정확한 source strict-v2 및 seeded 보증 기록을 보존합니다. |
 | 2026-08-20 | 구현됨 | 실행 r13에서 한국어 listing 하나가 aggregate 답변으로 나타난 뒤 대칭적인 listing-versus-aggregation consistency를 추가했습니다. 명시적 listing은 명시적 count, total 또는 grouping operator가 없을 때만 aggregation을 거부하고 prompt v27도 같은 우선순위를 보존합니다. | `current change`, 정확한 소스 실행 `question-space-final-f7fff0f9e-20260820-r13`, 집중 대칭, 이중 언어, 우선순위, domain noun, false-positive control 13개 통과 | 수정된 소스에서 통과한 정확한 source strict-v2 및 seeded 보증 기록을 보존합니다. |
 | 2026-08-20 | 구현됨 | Aggregate 및 unrelated fixture 발화를 수정한 뒤 listing-intent 집중 검증을 확장했습니다. | `current change`, 전체 contract, 의미, prompt, composition slice 88개가 Ruff, format, strict mypy와 함께 통과 | 수정된 소스에서 통과한 정확한 source strict-v2 및 seeded 보증 기록을 보존합니다. |
-
 | 2026-08-20 | implemented | 영속 의미 결과에서 기술 identity를 삭제하지 않으면서 검증된 리소스 표를 운영자가 읽을 수 있는 필드로 줄였습니다. 읽기 가능한 행은 `name`, `type`, 선택적 `location`을 앞에 두고 identity-only 행은 `id`와 `object_type`을 계속 표시하며 0개 행은 타입이 지정된 빈 근거 표현을 생성합니다. | `current change`, `presentation_rows.py`, `presentation_artifact_v2.py`, 집중 Operator 검사 20개 통과 | 별도의 답변 경로를 validated로 올리기 전에 Issue #244에서 추적하는 통제된 인과 진단 근거를 보존합니다. |
-
 | 2026-08-20 | implemented | T1 frame 경계에서 대상 결속 diagnosis 종결 조건을 명시하고 같은 제한 후보의 반복 재시도를 제거했습니다. Prompt v30은 일반 frame 분류 전에 null이 아닌 구조화된 조사를 요구하고 Core는 모델이 작성한 plan 없이 해당 intent를 검증하고 compile하며 Azure adapter는 구조화된 schema-invalid 출력의 범위가 제한된 재시도는 유지하면서 429를 즉시 후보 unavailable로 처리합니다. | `current change`, [이슈 #244](https://github.com/dotnetpower/fdai/issues/244), 집중 조사, tier-routing, Azure adapter, prompt 및 일반 causal 검사 103개 통과 | Post-commit 인증 구조화 slowdown 답변 1개를 보존합니다. 수정 전 replay는 hold이므로 인과 diagnosis를 검증하지 않습니다. |
 
 ### 남은 작업
