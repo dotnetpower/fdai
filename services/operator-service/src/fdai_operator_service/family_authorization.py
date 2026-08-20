@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from fdai_service_contracts import OperatorPrincipal, OperatorRole
+from fdai_service_contracts import OperatorPrincipal, OperatorPrincipalKind, OperatorRole
 from starlette.requests import Request
 
-from fdai_operator_service.auth import OperatorAuthenticator
+from fdai_operator_service.auth import AuthorizationError, OperatorAuthenticator
 from fdai_operator_service.families.conversation.contracts import PrincipalScope
 from fdai_operator_service.families.conversation.manifest import CONVERSATION_ROUTE_MANIFEST
 from fdai_operator_service.families.iam.contracts import IamPrincipal
@@ -37,13 +37,22 @@ class OperatorFamilyAuthorizer:
     async def authorize(self, request: Request, *, operation: str) -> PrincipalScope:
         """Authenticate conversation reads and require contributor roles for proposals."""
         required = _WRITE_ROLES if operation in _CONVERSATION_WRITE_OPERATIONS else _READ_ROLES
-        principal = self.authenticator.require_any(
-            request.headers.get("authorization"),
-            required,
-        )
+        principal = self.authenticator.authenticate(request.headers.get("authorization"))
+        if principal.principal_kind is OperatorPrincipalKind.WORKLOAD:
+            if operation != "chat.stream" or principal.roles != frozenset({OperatorRole.READER}):
+                raise AuthorizationError(
+                    "workload principals may submit only Reader-scoped semantic turns"
+                )
+        elif principal.roles.isdisjoint(required):
+            expected = ", ".join(sorted(role.value for role in required))
+            actual = ", ".join(sorted(role.value for role in principal.roles))
+            raise AuthorizationError(
+                f"principal lacks required role: any of {{{expected}}} (has {{{actual}}})"
+            )
         return PrincipalScope(
             subject_id=principal.subject_id,
             roles=frozenset(role.value for role in principal.roles),
+            principal_kind=principal.principal_kind,
         )
 
     async def iam(self, request: Request) -> IamPrincipal:

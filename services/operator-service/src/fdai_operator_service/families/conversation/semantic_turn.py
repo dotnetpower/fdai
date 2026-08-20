@@ -11,6 +11,7 @@ from uuid import UUID, uuid5
 from fdai_operator_service.families.conversation.contracts import ConversationProposal
 from fdai_service_contracts import (
     JsonSchemaContractValidator,
+    OperatorPrincipalKind,
     OperatorRole,
     PackageResourceSchemaRegistry,
     SemanticBoundContext,
@@ -47,6 +48,7 @@ class SemanticTurnEnvelopeBuilder:
             principal=SemanticTurnPrincipal(
                 subject_id=proposal.scope.subject_id,
                 roles=_authorized_roles(proposal),
+                principal_kind=proposal.scope.principal_kind,
             ),
             session_id=session_id,
             turn_id=turn_id,
@@ -59,6 +61,11 @@ class SemanticTurnEnvelopeBuilder:
             prior_turns=_prior_turns(proposal.body.get("history")),
             cancelled=proposal.cancellation,
         )
+        semantic_payload = semantic_turn.model_dump(mode="json", exclude_none=True)
+        if proposal.scope.principal_kind is OperatorPrincipalKind.HUMAN:
+            principal_payload = semantic_payload.get("principal")
+            if isinstance(principal_payload, dict):
+                principal_payload.pop("principal_kind", None)
         envelope: dict[str, object] = {
             "schema_version": "1.3.0",
             "request_id": request_id,
@@ -67,7 +74,7 @@ class SemanticTurnEnvelopeBuilder:
             "resource_ref": f"operator-conversation:{_digest_text(session_id)[:32]}",
             "request_kind": "semantic_query",
             "requested_at": requested_at.isoformat(),
-            "semantic_turn": semantic_turn.model_dump(mode="json", exclude_none=True),
+            "semantic_turn": semantic_payload,
         }
         self._validator.validate("operator-core-request", envelope, version="1.3.0")
         return envelope

@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 2aa6ba13ccdb5fee4d132b5e5d9da477cd12d525
+translation_source_sha: 00e504ba2ad29f370af9bd0a77718eb7507a0806
 translation_revised: 2026-08-20
 ---
 # 지속형 질문 공간
@@ -49,13 +49,14 @@ flowchart LR
 | 공유 one-shot 패키지 | implemented | `core/conversation/question_schedule.py`; `delivery/ontology_question_campaign.py`; `ontology_question_campaign_cli.py`; 집중 기한 판정 및 공유 실행기 검사 | 수동 및 예약 트리거는 주입된 실행기 패키지 하나를 사용합니다. 비활성, 실행 시점 아님, 근거 없음, 모델 없음, Reader 증명 없음, 예약 예산 소진, claim 충돌은 해당 모델 또는 의미 호출 전에 중단됩니다. |
 | 환경 구성 및 배포 Job | deferred | 형식화된 workload principal 증적과 기한 판정 보류, 배포 산출물 없음 | 권위 있는 workload principal mapper, 의미 제출 포트, 정확한 모델 연결, 준비 상태 probe가 생길 때까지 공유 패키지에는 독립 환경 구성과 배포 Job을 추가하지 않습니다. 계획의 인증 전 중단 조건을 보존합니다. |
 | Strict v2 릴리스 게이트 | implemented | `console/tests/live-e2e/ontology-query-assurance.ts`; `scripts/automation/run_ontology_assurance.py`; 집중 Console 및 감독기 검사 | 고정 100개 사례는 영어와 한국어 각각 50개를 유지합니다. Strict v2는 기존 14개와 선언, 릴리스/근거, 인벤토리 영향, Rule 상태를 두 로캘로 추가한 22개를 선택합니다. 릴리스 근거는 정확한 전송 22/22를 요구합니다. |
-| 현재 라이브 인증 | in-progress | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); 정확한 소스 실행 `question-space-final-b997de285-20260820-r12`; `current change`; 집중 shared contract, 의미 계획, prompt 테스트 | 실행 r12는 strict v2를 통과하고 seeded turn 100개를 모두 완료했지만 한국어 상태 grouping 질문 하나가 filtered ObjectSet으로 답변되어 exact capability matching에 실패했습니다. 이제 shared semantic contract는 additive `aggregate` operation을 포함하고 frame 검증은 이를 `aggregation_table`과 일치시키며, 명시적 count 또는 grouping 요청은 plan 작업 전에 nonaggregation frame을 거부합니다. Frame prompt v26도 같은 계약을 보존합니다. 검증을 완료하려면 새로운 정확한 소스 strict 및 seeded 근거가 필요합니다. |
-| 예약 workload 제출 | deferred | 기한 판정의 `scheduled_principal_unavailable` 및 `scheduled_principal_reader_mapping_unavailable` 결과 | 형식화된 증적은 workload 종류, 불투명 principal 다이제스트, Reader 역할과 소스, 범위 다이제스트, `operations-review` 목적, 인증 근거 다이제스트, 만료를 요구합니다. 권위 있는 mapper가 없으므로 배포 Job과 인프라는 의도적으로 추가하지 않습니다. |
+| 현재 라이브 인증 | in-progress | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); 정확한 소스 실행 `question-space-final-f7fff0f9e-20260820-r13`; `current change`; 집중 의미 계획 및 prompt 테스트 | 실행 r13은 22/22 전송, 완전한 근거 답변 16/16, 모든 hard-zero 카운터 0으로 strict v2를 통과했습니다. Seeded 보증은 turn 100개를 모두 완료하고 한국어 listing 요청 하나가 `query.manifest`와 `aggregate`로 답변된 문제를 격리했습니다. Count 또는 grouping operator가 없는 명시적 listing은 이제 aggregation frame을 거부하고 명시적 aggregation은 우선순위를 유지하며 frame prompt v27도 같은 계약을 보존합니다. 검증을 완료하려면 새로운 정확한 소스 strict 및 seeded 근거가 필요합니다. |
+| 예약 workload 인증 | in-progress | `fdai_service_contracts/operator.py`, `fdai_operator_service/{auth,family_authorization}.py`, 집중 shared 계약 및 Operator bridge 검사 | 검증된 앱 전용 Entra 토큰은 불투명한 대상 다이제스트와 정확히 Reader App Role로 축소됩니다. Workload principal은 `chat.stream`만 제출할 수 있으며 사람 경로와 상위 역할을 물려받지 않습니다. 서버 소유 범위 및 인증 증적 mapper와 캠페인 실행 포트는 아직 남아 있습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-20 | implemented | 예약 의미 인증 경계의 workload 측을 추가했습니다. Operator 인증은 앱 전용 토큰을 구분하고 Reader 이외의 모든 workload 역할 집합을 차단하며 안정적인 대상 다이제스트만 저장합니다. Workload 종류는 additive semantic 계약을 통과하고 principal은 `chat.stream`으로 제한됩니다. 기존 사람 principal 묶음은 새 필드를 생략해 wire 호환성을 유지합니다. | `current change`; 집중 shared 계약, conversation family, semantic bridge, workload 인증 테스트 93개, 작업 범위 Ruff, strict mypy 통과 | 환경 구성이나 배포 전에 서버 소유 범위 및 인증 증적 mapper를 만들고 실제 캠페인 작업 및 실행 포트를 연결합니다. |
 | 2026-08-19 | implemented | 결정론적 질문 집합, 7개 관점, 활성/수집 Rule 분리, 후보 생성과 검증, 4개 의미 기능 계약, 캠페인 실행기와 PostgreSQL 원장, 예약 기한 판정, 공유 one-shot Job, strict v2 분류 체계를 추가했습니다. 이전 이력은 재구성하지 않았습니다. | `current change`; 문서 작성 전 Python 집중 테스트 266개, Console 보증 테스트 99개, 작업 범위 Ruff, strict mypy, 모델 카탈로그 검사, 마이그레이션 검사가 통과했습니다. | 정확한 소스 통합 검증을 확보한 뒤 strict v2와 seeded 라이브 보증을 실행합니다. 배포 Job 인프라를 추가하기 전에 서버 측 예약 principal 매핑을 구현합니다. |
 | 2026-08-19 | implemented | 가변 관점 사전 계산, 종료 처리 검증, 완전한 모델 사용량과 예약, 절대 무진척 기한, 불변 캠페인 완료, 프로세스 손실 재개, 동시 사례 lease, 후보 정보 제거, 형식화된 workload principal 증명, strict-v2 기능 일치를 하드닝했습니다. 독립 비평 12회를 완료했고 Low보다 높은 미해결 항목은 없습니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); `current change`; Python 집중 테스트 122개와 Console 집중 테스트 100개 통과, 작업 범위 Ruff 통과, 소스 파일 20개 strict mypy 통과, 이 ledger 갱신 전 설계 경로, roadmap ledger, 번역, 문장 부호, 읽기 쉬운 한글 게이트 통과. | 정확한 소스 라이브 인증과 인증된 예약 배포는 아래의 근거 게이트를 계속 적용합니다. |
 | 2026-08-19 | implemented | 인증된 strict-v2 실행에서 정확한 선언 및 Rule 상태 질문이 manifest 또는 object-set 계획으로 라우팅되는 회귀를 기록했습니다. 정확한 `ontology_declaration` frame 출력, 배타적인 `query.ontology_declaration` 계획 매핑, 정확한 subject 검증, 프롬프트 지침, Round 13 회귀 테스트를 추가했습니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); `current change`; 의미 계획, 구성, 선언 쿼리, 프로세서, 왕복 집중 테스트 157개 통과, 작업 범위 Ruff 및 형식 검사 통과, 변경된 소스 파일 2개 strict mypy 통과. | 새로운 정확한 소스 검증 증적을 확보하고 strict v2를 다시 실행합니다. Strict가 통과한 뒤에만 seeded 100을 시작합니다. |
@@ -71,6 +72,7 @@ flowchart LR
 | 2026-08-20 | implemented | 실행 r12에서 한국어 grouping 요청 하나가 filtered ObjectSet 답변으로 나타난 뒤 canonical `aggregate` semantic operation과 fail-closed 발화-to-frame 일치 검사를 추가했습니다. 명시적인 영어 또는 한국어 count와 grouping operator는 nonaggregation frame을 거부하고 제한된 frame 재시도를 유발할 뿐 기능을 선택하거나 구성하지 않습니다. Aggregate operation과 output shape는 양방향으로 일치해야 하며 frame prompt v26도 둘을 요구합니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); `current change`; 정확한 소스 실행 `question-space-final-b997de285-20260820-r12`는 seeded 100/100을 완료하고 `semantic_plan_operation_mismatch` 1개를 기록했습니다. 집중 shared contract, 의미 계획, prompt 테스트 79개와 작업 범위 Ruff, format, strict mypy가 통과했습니다. | 수정된 소스를 중앙 검증한 뒤 새로운 strict-v2 및 seeded artifact를 보존합니다. |
 | 2026-08-20 | implemented | 중앙 downstream 테스트에서 bare `group`이 `network security group`의 domain noun과도 일치함을 확인한 뒤 영어 explicit-grouping guard를 좁혔습니다. 이제 명령형 grouping은 범위가 제한된 `group ... by` 구문을 요구하며 `grouped`와 `grouping`은 명시적 operator로 유지됩니다. Manifest aggregate fixture도 canonical operation을 사용합니다. | `current change`; 이전에 실패한 composition consumer 2개와 positive, negative, 이중 언어, domain noun, false-positive control 7개가 통과했고 전체 집중 slice 82개와 Ruff, format, strict mypy가 통과했습니다. | 수정된 소스를 중앙 검증한 뒤 새로운 strict-v2 및 seeded artifact를 보존합니다. |
 | 2026-08-20 | implemented | 적대적 검토에서 기존 exact 집합 밖의 일반적인 한국어 operator 두 개를 발견한 뒤 rejection-only 한국어 aggregation 어휘를 확장했습니다. `그루핑`과 `합계`는 이제 기능을 선택하거나 구성하지 않고 nonaggregation frame을 거부합니다. | `current change`; positive, negative, 이중 언어, 한국어 recall, domain noun, false-positive control 9개가 통과했고 전체 집중 slice 84개와 Ruff, format, strict mypy가 통과했습니다. | 수정된 소스를 중앙 검증한 뒤 새로운 strict-v2 및 seeded artifact를 보존합니다. |
+| 2026-08-20 | implemented | 실행 r13에서 한국어 inventory listing 하나가 aggregate 답변으로 나타난 뒤 대칭적인 explicit-listing 일치 검사를 추가했습니다. 영어와 한국어 list, show, find operator는 명시적 count, total 또는 grouping operator가 없을 때만 `aggregation_table`을 거부합니다. 검사는 rejection-only를 유지하고 prompt v27도 같은 요청 모양에 `select`를 요구합니다. | [Issue #233](https://github.com/dotnetpower/fdai/issues/233); `current change`; 실행 `question-space-final-f7fff0f9e-20260820-r13`은 strict 22/22를 통과하고 seeded 100/100을 완료했으며 capability mismatch 1개를 기록했습니다. Aggregate/listing 대칭, 이중 언어, 우선순위, domain noun, false-positive control 13개가 통과했습니다. | 수정된 소스를 중앙 검증한 뒤 새로운 strict-v2 및 seeded artifact를 보존합니다. |
 
 ### 남은 작업
 
@@ -79,8 +81,8 @@ flowchart LR
   0을 보존한 새로운 strict v2 증적을 남깁니다.
 - [ ] strict v2가 통과한 뒤에만 감독기가 seeded 100개 실행을 시작하도록 유지하고, 정확한
   전송 100/100과 안전 회귀 0을 보존한 저장소 안전 소스 결합 증적을 남깁니다.
-- [ ] 불투명 principal 식별자, 역할 소스, 범위 다이제스트, 목적, 인증 근거를 보존하는
-  인증된 workload principal Reader 매핑을 추가합니다. 매핑이 없으면 모델 작업 전에
+- [ ] 서버 소유 범위 다이제스트, 역할 소스, `operations-review` 목적, 인증 근거, 만료를
+  포함하도록 인증된 workload principal Reader 매핑을 완성합니다. 매핑이 없으면 모델 작업 전에
   `scheduled_principal_unavailable` 또는
   `scheduled_principal_reader_mapping_unavailable`을 계속 반환해야 합니다.
 - [ ] principal 계약이 집중 검토를 통과한 뒤 비활성 예약 프로필을 one-shot 배포에
@@ -209,6 +211,7 @@ cron, IANA 표준 시간대, 로캘, 관점, 질문 수, 토큰, 비용, 전체 
 | 63 | Seeded operation coverage 산술 | High, resolved | 실행 r11은 judgment, 근거, 기능, 전송, 권한 또는 안전 실패 없이 seeded turn 100개를 모두 완료했지만 gate가 base 및 extension operation마다 10개를 요구해 `production_ready`가 false로 남았습니다. 이제 exact result-to-cohort histogram equality가 결정론적 generator에서 분모를 도출하며 개수를 복제하지 않고 누락 또는 대체 operation을 거부합니다. |
 | 64 | Aggregation intent 식별자 | High, resolved | 실행 r12는 seeded turn 100개를 모두 완료하고 한국어 grouping 요청 하나의 frame과 plan이 일관되게 property filter를 주장한 문제를 격리했습니다. 기존 `SemanticOperation`에는 aggregation token이 없어 결정론적 alignment가 요청된 결과 operator를 검증할 수 없었습니다. Additive `aggregate` token, 양방향 operation-output invariant, 보수적인 explicit-operator mismatch 거부, v26 prompt가 이 공백을 닫습니다. Positive, negative, 이중 언어, domain noun, false-positive control 7개가 통과했고 Low보다 높은 미해결 항목은 없습니다. |
 | 65 | 한국어 aggregation operator recall | Medium, resolved | 14개 관점의 후속 검토에서 일반적인 한국어 `그루핑`과 `합계` 요청을 rejection-only 일치 guard가 인식하지 못함을 발견했습니다. 이제 둘 다 범위가 제한된 frame 재시도를 유발하며 80자 영어 `group ... by` 제한, 현재 turn 전용 입력, domain noun 제외, wire 호환성, 권한, 개인정보 경계는 바뀌지 않습니다. Low보다 높은 미해결 항목은 없습니다. |
+| 66 | Listing 결과 operator 식별자 | High, resolved | 실행 r13은 strict v2를 통과하고 seeded 100/100을 완료한 뒤 한국어 listing 요청 하나의 frame과 plan이 일관되게 aggregation을 주장한 문제를 격리했습니다. 대칭적인 rejection-only guard는 aggregation operator가 없을 때 명시적 listing intent를 보존하고 명시적 count 또는 grouping은 우선합니다. Prompt v27과 control 13개가 EN/KO, 우선순위, false-positive 경계를 닫았으며 Low보다 높은 미해결 항목은 없습니다. |
 
 남은 Low 항목은 인벤토리 탐색 edge case 추가 음수 테스트, 캠페인 간 중복 corpus 보존 근거,
 과거 릴리스 차이 회귀 테스트 이름, 추가 URI 스킴, 정상 자격 증명 어휘, 한국어 안전 변형입니다.

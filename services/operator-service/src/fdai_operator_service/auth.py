@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import cast
 
 import jwt
-from fdai_service_contracts import OperatorPrincipal, OperatorRole, OperatorTokenVerifier
+from fdai_service_contracts import (
+    OperatorPrincipal,
+    OperatorPrincipalKind,
+    OperatorRole,
+    OperatorTokenVerifier,
+)
 from jwt import PyJWKClient
 
 from fdai_operator_service.environment import OperatorEnvironment
@@ -67,7 +73,7 @@ class EntraJwtVerifier:
 
 @dataclass(frozen=True, slots=True)
 class OperatorAuthenticator:
-    """Authenticate verified claims and enforce server-owned human role gates."""
+    """Authenticate verified claims and enforce server-owned role gates."""
 
     verifier: OperatorTokenVerifier
     group_ids: Mapping[OperatorRole, str]
@@ -86,6 +92,17 @@ class OperatorAuthenticator:
             raise AuthenticationError("invalid claims: missing non-empty oid")
 
         claimed_roles = _parse_roles(claims.get("roles"))
+        principal_kind = _principal_kind(claims)
+        if principal_kind is OperatorPrincipalKind.WORKLOAD:
+            if claimed_roles != frozenset({OperatorRole.READER}):
+                raise AuthenticationError(
+                    "invalid claims: workload principals require the Reader App Role"
+                )
+            return OperatorPrincipal(
+                subject_id=_principal_digest(subject_id),
+                roles=claimed_roles,
+                principal_kind=principal_kind,
+            )
         if not claimed_roles and _has_group_overage(claims):
             raise AuthenticationError("invalid claims: group overage tokens require FDAI App Roles")
         if not claimed_roles:
@@ -96,6 +113,7 @@ class OperatorAuthenticator:
         return OperatorPrincipal(
             subject_id=subject_id,
             roles=claimed_roles - {OperatorRole.BREAK_GLASS},
+            principal_kind=principal_kind,
         )
 
     def require_any(
@@ -149,6 +167,20 @@ def _has_group_overage(claims: Mapping[str, object]) -> bool:
         return True
     claim_names = claims.get("_claim_names")
     return isinstance(claim_names, Mapping) and "groups" in claim_names
+
+
+def _principal_kind(claims: Mapping[str, object]) -> OperatorPrincipalKind:
+    identity_type = claims.get("idtyp")
+    if identity_type is None or identity_type == "user":
+        return OperatorPrincipalKind.HUMAN
+    if identity_type == "app":
+        return OperatorPrincipalKind.WORKLOAD
+    raise AuthenticationError("invalid claims: unsupported principal type")
+
+
+def _principal_digest(subject_id: str) -> str:
+    digest = hashlib.sha256(subject_id.casefold().encode("utf-8")).hexdigest()
+    return f"sha256:{digest}"
 
 
 __all__ = [
