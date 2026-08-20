@@ -766,43 +766,48 @@ def _investigation_blocks(
     baseline = _measure_cell(comparison.get("baseline_value"), unit_text)
     current = _measure_cell(comparison.get("current_value"), unit_text)
     change = _measure_cell(comparison.get("absolute_change"), unit_text)
-    summary_items: list[JsonObject] = [
-        {
-            "label": "대상" if korean else "Target",
-            "value": _identity_cell(comparison.get("resource_id")),
-            "tone": "neutral",
-        },
-        {
-            "label": "증상" if korean else "Symptom",
-            "value": _identity_cell(comparison.get("concept_id")),
-            "tone": "neutral",
-        },
-        {
-            "label": "기준 구간" if korean else "Baseline window",
-            "value": _window_cell(comparison.get("baseline_start"), comparison.get("baseline_end")),
-            "tone": "neutral",
-        },
-        {
-            "label": "현재 구간" if korean else "Current window",
-            "value": _window_cell(comparison.get("current_start"), comparison.get("current_end")),
-            "tone": "neutral",
-        },
-        {
-            "label": "기준값" if korean else "Baseline",
-            "value": baseline,
-            "tone": "neutral",
-        },
-        {
-            "label": "현재값" if korean else "Current",
-            "value": current,
-            "tone": "neutral",
-        },
-        {
-            "label": "관측 변화" if korean else "Observed change",
-            "value": change,
-            "tone": "attention",
-        },
-    ]
+    summary_items: list[JsonObject] = []
+    for label, value in (
+        ("대상" if korean else "Target", _identity_cell(comparison.get("resource_id"))),
+        ("증상" if korean else "Symptom", _identity_cell(comparison.get("concept_id"))),
+        (
+            "기준 구간" if korean else "Baseline window",
+            _window_cell(comparison.get("baseline_start"), comparison.get("baseline_end")),
+        ),
+        (
+            "현재 구간" if korean else "Current window",
+            _window_cell(comparison.get("current_start"), comparison.get("current_end")),
+        ),
+    ):
+        if value != "-":
+            summary_items.append({"label": label, "value": value, "tone": "neutral"})
+    summary_items.extend(
+        [
+            {
+                "label": "기준값" if korean else "Baseline",
+                "value": baseline,
+                "tone": "neutral",
+            },
+            {
+                "label": "현재값" if korean else "Current",
+                "value": current,
+                "tone": "neutral",
+            },
+            {
+                "label": "관측 변화" if korean else "Observed change",
+                "value": change,
+                "tone": "attention",
+            },
+        ]
+    )
+    show_hypothesis_evidence = any(
+        isinstance(hypothesis.get("temporal_claim"), Mapping)
+        and _hypothesis_evidence_cell(
+            cast(Mapping[str, object], hypothesis["temporal_claim"]), korean=korean
+        )
+        != "-"
+        for hypothesis in hypotheses
+    )
     rows: list[JsonObject] = []
     limitations: list[str] = []
     for hypothesis in hypotheses:
@@ -817,21 +822,32 @@ def _investigation_blocks(
         limitations.extend(hypothesis_limitations)
         hypothesis_id = hypothesis.get("hypothesis_id")
         status = hypothesis.get("status")
-        rows.append(
-            {
-                "hypothesis": _readable_token(hypothesis_id),
-                "status": _readable_token(status),
-                "cause": _readable_token(claim_map.get("cause_metric")),
-                "lag": _lag_cell(claim_map.get("lag_seconds")),
-                "correlation": _number_cell(claim_map.get("correlation")),
-                "evidence": _hypothesis_evidence_cell(claim_map, korean=korean),
-                "limitations": (
-                    ", ".join(_readable_token(item) for item in hypothesis_limitations)
-                    if hypothesis_limitations
-                    else "-"
-                ),
-            }
-        )
+        row: JsonObject = {
+            "hypothesis": _readable_token(hypothesis_id),
+            "status": _readable_token(status),
+            "cause": _readable_token(claim_map.get("cause_metric")),
+            "lag": _lag_cell(claim_map.get("lag_seconds")),
+            "correlation": _number_cell(claim_map.get("correlation")),
+            "limitations": (
+                ", ".join(_readable_token(item) for item in hypothesis_limitations)
+                if hypothesis_limitations
+                else "-"
+            ),
+        }
+        if show_hypothesis_evidence:
+            row["evidence"] = _hypothesis_evidence_cell(claim_map, korean=korean)
+        rows.append(row)
+
+    hypothesis_columns: list[JsonObject] = [
+        {"key": "hypothesis", "label": "가설" if korean else "Hypothesis"},
+        {"key": "status", "label": "판정" if korean else "Status"},
+        {"key": "cause", "label": "원인 측정" if korean else "Cause measure"},
+        {"key": "lag", "label": "시차" if korean else "Lag"},
+        {"key": "correlation", "label": "상관" if korean else "Correlation"},
+    ]
+    if show_hypothesis_evidence:
+        hypothesis_columns.append({"key": "evidence", "label": "근거" if korean else "Evidence"})
+    hypothesis_columns.append({"key": "limitations", "label": "제한" if korean else "Limitations"})
 
     blocks: list[JsonObject] = [
         cast(
@@ -856,24 +872,7 @@ def _investigation_blocks(
                 "collapsed": False,
                 "evidence_refs": bounded_refs,
                 "data": {
-                    "columns": [
-                        {"key": "hypothesis", "label": "가설" if korean else "Hypothesis"},
-                        {"key": "status", "label": "판정" if korean else "Status"},
-                        {"key": "cause", "label": "원인 측정" if korean else "Cause measure"},
-                        {"key": "lag", "label": "시차" if korean else "Lag"},
-                        {
-                            "key": "correlation",
-                            "label": "상관" if korean else "Correlation",
-                        },
-                        {
-                            "key": "evidence",
-                            "label": "근거" if korean else "Evidence",
-                        },
-                        {
-                            "key": "limitations",
-                            "label": "제한" if korean else "Limitations",
-                        },
-                    ],
+                    "columns": hypothesis_columns,
                     "rows": rows,
                     "status_key": "status",
                 },

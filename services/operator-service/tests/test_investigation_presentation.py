@@ -74,6 +74,8 @@ def test_verified_investigation_renders_symptom_and_competing_hypotheses() -> No
     ]
     overview = cast(dict[str, object], blocks[0]["data"])
     assert overview["items"] == [
+        {"label": "Target", "value": "service:a", "tone": "neutral"},
+        {"label": "Symptom", "value": "service.latency", "tone": "neutral"},
         {"label": "Baseline", "value": "15 ms", "tone": "neutral"},
         {"label": "Current", "value": "40 ms", "tone": "neutral"},
         {"label": "Observed change", "value": "25 ms", "tone": "attention"},
