@@ -188,6 +188,7 @@ def test_five_configs_have_distinct_heads_and_explicit_adoption() -> None:
 
 def test_service_migrations_serialize_cross_service_ddl_before_service_lock() -> None:
     environment_source = (MIGRATION_ROOT / "runtime/env.py").read_text(encoding="utf-8")
+    legacy_environment_source = (REPO_ROOT / "alembic/env.py").read_text(encoding="utf-8")
     cli_source = (MIGRATION_ROOT / "service_migrations/cli.py").read_text(encoding="utf-8")
 
     assert 'coordination_lock_key = _lock_key("all-services")' in environment_source
@@ -195,7 +196,19 @@ def test_service_migrations_serialize_cross_service_ddl_before_service_lock() ->
     service_lock = environment_source.index('{"lock_key": migration_lock_key}')
     migration_run = environment_source.index("context.run_migrations()", service_lock)
     assert coordination_lock < service_lock < migration_run
+    environment_timeout = environment_source.index("set_config('lock_timeout'")
+    assert environment_timeout < coordination_lock
+    legacy_timeout = legacy_environment_source.index("set_config('lock_timeout'")
+    legacy_lock = legacy_environment_source.index("pg_advisory_xact_lock")
+    assert legacy_timeout < legacy_lock
+    for source in (environment_source, legacy_environment_source):
+        assert '_MIGRATION_LOCK_TIMEOUT = "5min"' in source
+        assert 'connect_args={"connect_timeout": _MIGRATION_CONNECT_TIMEOUT_SECONDS}' in source
     assert 'text("SELECT pg_advisory_lock(:lock_key)")' in cli_source
+    lock_timeout = cli_source.index("text(\"SELECT set_config('lock_timeout', :timeout, false)\")")
+    coordination_session_lock = cli_source.index('text("SELECT pg_advisory_lock(:lock_key)")')
+    assert lock_timeout < coordination_session_lock
+    assert '_MIGRATION_LOCK_TIMEOUT = "5min"' in cli_source
     assert 'config.attributes["connection"] = connection' in cli_source
     dependency_check = cli_source.index(
         "_require_dependency_revisions(", cli_source.index("def _upgrade_service")
@@ -208,6 +221,110 @@ def test_service_migrations_serialize_cross_service_ddl_before_service_lock() ->
     )
     command_downgrade = cli_source.index("command.downgrade(config, revision)")
     assert dependent_check < command_downgrade
+
+
+def test_coordination_connection_bounds_lock_before_acquisition(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executed: list[tuple[str, dict[str, object]]] = []
+
+    class _Connection:
+        def __enter__(self) -> _Connection:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def execute(self, statement: object, parameters: dict[str, object]) -> None:
+            executed.append((str(statement), parameters))
+
+        def commit(self) -> None:
+            return None
+
+        def rollback(self) -> None:
+            return None
+
+        def in_transaction(self) -> bool:
+            return False
+
+    connection = _Connection()
+    engine = SimpleNamespace(connect=lambda: connection)
+    monkeypatch.setenv("FDAI_DATABASE_URL", "postgresql://example.invalid/fdai")
+    engine_inputs: list[tuple[str, dict[str, object]]] = []
+
+    def _create_engine(url: str, **kwargs: object) -> object:
+        engine_inputs.append((url, kwargs))
+        return engine
+
+    monkeypatch.setattr(cli_module, "create_engine", _create_engine)
+
+    with cli_module._coordination_connection() as held:
+        assert held is connection
+
+    assert [sql for sql, _parameters in executed] == [
+        "SELECT set_config('lock_timeout', :timeout, false)",
+        "SELECT pg_advisory_lock(:lock_key)",
+        "SELECT pg_advisory_unlock(:lock_key)",
+    ]
+    assert executed[0][1] == {"timeout": "5min"}
+    assert engine_inputs == [
+        (
+            "postgresql+psycopg://example.invalid/fdai",
+            {"connect_args": {"connect_timeout": 10}},
+        )
+    ]
+
+
+def test_coordination_unlock_failure_preserves_the_migration_error(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    class _Connection:
+        def __enter__(self) -> _Connection:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def execute(self, statement: object, _parameters: dict[str, object]) -> None:
+            if "pg_advisory_unlock" in str(statement):
+                raise RuntimeError("connection closed")
+
+        def commit(self) -> None:
+            return None
+
+        def rollback(self) -> None:
+            return None
+
+        def in_transaction(self) -> bool:
+            return True
+
+    connection = _Connection()
+    monkeypatch.setenv("FDAI_DATABASE_URL", "postgresql://example.invalid/fdai")
+    monkeypatch.setattr(
+        cli_module,
+        "create_engine",
+        lambda *_args, **_kwargs: SimpleNamespace(connect=lambda: connection),
+    )
+
+    with pytest.raises(ValueError, match="migration failed"):
+        with cli_module._coordination_connection():
+            raise ValueError("migration failed")
+
+    assert any(
+        record.message == "migration_coordination_cleanup_failed" for record in caplog.records
+    )
+
+
+def test_every_cli_engine_and_owned_connection_uses_migration_deadlines() -> None:
+    cli_source = (MIGRATION_ROOT / "service_migrations/cli.py").read_text(encoding="utf-8")
+
+    assert cli_source.count("create_engine(") == 1
+    assert cli_source.count("_migration_engine()") == 5
+    assert cli_source.count("_configure_migration_connection(") == 5
+    assert "engine_from_config" not in cli_source
+    assert 'connect_args={"connect_timeout": _MIGRATION_CONNECT_TIMEOUT_SECONDS}' in cli_source
+    assert "text(\"SELECT set_config('lock_timeout', :timeout, false)\")" in cli_source
 
 
 def test_forward_revision_requires_rollback_metadata(tmp_path: Path) -> None:

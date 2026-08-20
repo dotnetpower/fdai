@@ -2370,6 +2370,11 @@ def test_apply_runs_service_migrations_from_masked_key_vault_dsn() -> None:
     assert "- name: Apply service-owned database migrations" in workflow
     assert 'echo "::add-mask::$migration_dsn"' in workflow
     assert 'migration_command="$TRUSTED_CONTROLS/service-migrations/bin/$SERVICE"' in workflow
+    assert workflow.count("migration_deadline=$((SECONDS + 1200))") == 1
+    assert 'timeout --kill-after=30s "${remaining}s" "$@"' in workflow
+    assert 'export FDAI_DATABASE_URL="$migration_dsn"' in workflow
+    assert "run_migration env FDAI_DATABASE_URL=" not in workflow
+    assert "service migration exceeded its 20-minute stage deadline" in workflow
     assert 'cd "$TRUSTED_CONTROLS"' in workflow
     assert "alembic upgrade head" in workflow
     assert workflow.index("alembic upgrade head") < workflow.index(

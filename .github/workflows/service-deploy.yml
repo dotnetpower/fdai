@@ -762,11 +762,28 @@ jobs:
             exit 1
           }
           echo "::add-mask::$migration_dsn"
+          export FDAI_DATABASE_URL="$migration_dsn"
           migration_command="$TRUSTED_CONTROLS/service-migrations/bin/$SERVICE"
+          migration_deadline=$((SECONDS + 1200))
+          run_migration() {
+            remaining=$((migration_deadline - SECONDS))
+            if ((remaining <= 0)); then
+              echo "service migration exceeded its 20-minute stage deadline" >&2
+              return 124
+            fi
+            set +e
+            timeout --kill-after=30s "${remaining}s" "$@"
+            status=$?
+            set -e
+            if [[ $status -eq 124 || $status -eq 137 ]]; then
+              echo "service migration exceeded its 20-minute stage deadline" >&2
+            fi
+            return "$status"
+          }
           if [[ "$INITIAL_CUTOVER" == "true" ]]; then
             (
               cd "$TRUSTED_CONTROLS"
-              FDAI_DATABASE_URL="$migration_dsn" uv run \
+              run_migration uv run \
                 --frozen \
                 --extra dev \
                 alembic upgrade head
@@ -774,14 +791,15 @@ jobs:
             evidence="$RUNNER_TEMP/service-migration-adoption.json"
             schema="$RUNNER_TEMP/service-migration-schema.json"
             rollback_reference="git:${PLAN_CONTROLS_COMMIT_SHA}:service-migrations/branches/${SERVICE}/adoption.json#rollback"
-            FDAI_DATABASE_URL="$migration_dsn" "$migration_command" prepare-adoption \
+            run_migration "$migration_command" prepare-adoption \
               --evidence-output "$evidence" \
               --schema-output "$schema" \
               --rollback-reference "$rollback_reference"
-            FDAI_DATABASE_URL="$migration_dsn" "$migration_command" stamp-baseline \
+            run_migration "$migration_command" stamp-baseline \
               --evidence "$evidence"
           fi
-          FDAI_DATABASE_URL="$migration_dsn" "$migration_command" upgrade head
+          run_migration "$migration_command" upgrade head
+          unset FDAI_DATABASE_URL
           unset migration_dsn
 
       - name: Prepare disabled channel-edge rollback inputs

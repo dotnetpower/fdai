@@ -1,7 +1,7 @@
 ---
 title: 배포(Deployment)
 translation_of: deployment.md
-translation_source_sha: d8670754732610750ef2340cd653c6d268b9d139
+translation_source_sha: 11e2e69664444044ed8ae29b865d0bb6a2417fed
 translation_revised: 2026-08-20
 ---
 
@@ -40,6 +40,7 @@ translation_revised: 2026-08-20
 | 2026-08-13 | implemented | 이전 provenance를 재구성하지 않고 implementation ledger를 도입하고 schema migration 뒤 배포된 Operator catalog 초기화를 추가했습니다. | current change, 집중 deployment workflow 및 Terraform 검사 | Catalog Job의 통제된 적용 증적을 수집하고 점진적 배포 목표를 구현합니다. |
 | 2026-08-14 | implemented | Co-host 호환 경로가 제거된 뒤 인제스트 롤백 지침을 수정했습니다. 이제 롤백은 독립 API 및 워커의 정확한 이전 개정 번호를 복원합니다. | `current change`, 집중 Terraform 검증 및 mock 인제스트 테스트 5개 통과 | 배포 가이드와 mock 테스트를 독립 서비스 루트에 맞게 유지합니다. |
 | 2026-08-15 | implemented | 실행기 신원이나 즉시 플랫폼 재시도 없이 범위가 제한된 브라우저 근거 보존을 수행하는 명시적 선택 예약 Container Apps Job을 추가했습니다. | `current change`; focused Terraform 계약 검사 `4 passed`; `terraform validate`. | Protected 적용 및 성공과 실패 Job 실행 증적을 수집합니다. |
+| 2026-08-20 | implemented | 정지한 migration이 service job의 2시간 전체 예산을 소진한 뒤 모든 service migration 연결, service 간 잠금 및 protected workflow 단계에 경계를 추가했습니다. Cleanup은 이제 원래 migration 오류를 보존합니다. | `current change`; service migration 및 protected workflow 계약 검사 204개 통과; Ruff 및 strict mypy 통과. | Protected exact 적용 하나를 완료하고 migration, service 상태 및 rollback 경계 근거를 보존합니다. |
 
 ### 남은 작업
 
@@ -199,7 +200,9 @@ Traffic-split canary 전략은 아직 자동 배선되지 않았습니다. Platf
   **전에** 게이트된 스텝으로 실행되고, 개정 번호 롤백이 스키마를 깨지 않도록 하위 호환되는
   상태를 유지합니다. Online Alembic 실행은 database-scoped 트랜잭션 잠금으로 개정 번호 확인,
   DDL 및 version-row 갱신을 직렬화하므로 동시 시작 또는 테스트 워커가 같은 개정 번호를
-  두 번 적용하지 않습니다. Operator migration이 성공하면 배포는 별도의 Core-image Job을 실행해
+  두 번 적용하지 않습니다. 연결은 10초 안에 실패하고 잠금 대기는 5분 안에 실패하며 protected
+  migration 단계는 20분 안에 종료됩니다. 2시간 배포 예산이 첫 migration deadline이 되지 않습니다.
+  Operator migration이 성공하면 배포는 별도의 Core-image Job을 실행해
   변경 불가능한 리포지토리 catalog projection을 결정론적으로 새로 고칩니다. 이 행은 검토된 참조
   선언을 설명할 뿐 finding, inventory, incident, readiness 또는 실행 권한을 만들지 않습니다.
 

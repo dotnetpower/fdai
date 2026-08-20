@@ -8,9 +8,12 @@ import sys
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool, text
+from sqlalchemy.engine import Connection
 
 config = context.config
 target_metadata = None
+_MIGRATION_LOCK_TIMEOUT = "5min"
+_MIGRATION_CONNECT_TIMEOUT_SECONDS = 10
 
 service_id = config.get_main_option("service_id")
 version_table = config.get_main_option("version_table")
@@ -50,13 +53,17 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
-def _run_online_migrations(connection: object) -> None:
+def _run_online_migrations(connection: Connection) -> None:
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
         version_table=version_table,
     )
     with context.begin_transaction():
+        connection.execute(
+            text("SELECT set_config('lock_timeout', :timeout, false)"),
+            {"timeout": _MIGRATION_LOCK_TIMEOUT},
+        )
         connection.execute(
             text("SELECT pg_advisory_xact_lock(:lock_key)"),
             {"lock_key": coordination_lock_key},
@@ -78,6 +85,7 @@ def run_migrations_online() -> None:
         config.get_section(config.config_ini_section) or {},
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args={"connect_timeout": _MIGRATION_CONNECT_TIMEOUT_SECONDS},
     )
     with connectable.connect() as connection:
         _run_online_migrations(connection)

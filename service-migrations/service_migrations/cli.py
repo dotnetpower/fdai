@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import logging
 import os
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -17,7 +18,7 @@ from alembic.config import Config
 from alembic.script import ScriptDirectory
 from alembic.script.revision import ResolutionError
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, Engine
 
 from service_migrations.adoption import AdoptionManifest
 from service_migrations.inventory import load_legacy_inventory
@@ -36,6 +37,9 @@ from service_migrations.validation import validate_service_branches
 
 MIGRATION_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = MIGRATION_ROOT.parent
+_LOGGER = logging.getLogger(__name__)
+_MIGRATION_LOCK_TIMEOUT = "5min"
+_MIGRATION_CONNECT_TIMEOUT_SECONDS = 10
 
 
 def _lock_key(scope: str) -> int:
@@ -82,11 +86,26 @@ def _database_url() -> str:
     return database_url
 
 
+def _migration_engine() -> Engine:
+    return create_engine(
+        _database_url(),
+        connect_args={"connect_timeout": _MIGRATION_CONNECT_TIMEOUT_SECONDS},
+    )
+
+
+def _configure_migration_connection(connection: Connection) -> None:
+    connection.execute(
+        text("SELECT set_config('lock_timeout', :timeout, false)"),
+        {"timeout": _MIGRATION_LOCK_TIMEOUT},
+    )
+
+
 @contextmanager
 def _coordination_connection() -> Iterator[Connection]:
     """Hold the cross-service migration fence from dependency checks through DDL."""
-    engine = create_engine(_database_url())
+    engine = _migration_engine()
     with engine.connect() as connection:
+        _configure_migration_connection(connection)
         connection.execute(
             text("SELECT pg_advisory_lock(:lock_key)"),
             {"lock_key": _COORDINATION_LOCK_KEY},
@@ -95,13 +114,16 @@ def _coordination_connection() -> Iterator[Connection]:
         try:
             yield connection
         finally:
-            if connection.in_transaction():
-                connection.rollback()
-            connection.execute(
-                text("SELECT pg_advisory_unlock(:lock_key)"),
-                {"lock_key": _COORDINATION_LOCK_KEY},
-            )
-            connection.commit()
+            try:
+                if connection.in_transaction():
+                    connection.rollback()
+                connection.execute(
+                    text("SELECT pg_advisory_unlock(:lock_key)"),
+                    {"lock_key": _COORDINATION_LOCK_KEY},
+                )
+                connection.commit()
+            except Exception:  # noqa: BLE001 - preserve the migration failure
+                _LOGGER.warning("migration_coordination_cleanup_failed", exc_info=True)
 
 
 def _read_versions(
@@ -113,8 +135,9 @@ def _read_versions(
         raise RuntimeError(f"unsafe version table identifier: {table_name}")
     if connection is not None:
         return _read_versions_on_connection(connection, table_name)
-    engine = create_engine(_database_url())
+    engine = _migration_engine()
     with engine.connect() as owned_connection:
+        _configure_migration_connection(owned_connection)
         return _read_versions_on_connection(owned_connection, table_name)
 
 
@@ -147,8 +170,9 @@ def _ensure_service_version_capacity(
     if connection is not None:
         connection.execute(statement)
         return
-    engine = create_engine(_database_url())
+    engine = _migration_engine()
     with engine.begin() as owned_connection:
+        _configure_migration_connection(owned_connection)
         owned_connection.execute(statement)
 
 
@@ -199,8 +223,9 @@ def _live_schema_fingerprint(
 ) -> str:
     if connection is not None:
         return fingerprint_owned_schema(connection, owned_tables=owned_tables).digest
-    engine = create_engine(_database_url())
+    engine = _migration_engine()
     with engine.connect() as owned_connection:
+        _configure_migration_connection(owned_connection)
         return fingerprint_owned_schema(owned_connection, owned_tables=owned_tables).digest
 
 

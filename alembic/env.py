@@ -45,6 +45,8 @@ config.set_main_option("sqlalchemy.url", _url)
 # Migrations are raw SQL - no ORM metadata to introspect.
 target_metadata = None
 _MIGRATION_LOCK_KEY = 0x464441494D494752
+_MIGRATION_LOCK_TIMEOUT = "5min"
+_MIGRATION_CONNECT_TIMEOUT_SECONDS = 10
 
 
 def run_migrations_offline() -> None:
@@ -65,6 +67,7 @@ def run_migrations_online() -> None:
         config.get_section(config.config_ini_section) or {},
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args={"connect_timeout": _MIGRATION_CONNECT_TIMEOUT_SECONDS},
     )
     with connectable.connect() as connection:
         context.configure(
@@ -72,6 +75,10 @@ def run_migrations_online() -> None:
             target_metadata=target_metadata,
         )
         with context.begin_transaction():
+            connection.execute(
+                text("SELECT set_config('lock_timeout', :timeout, false)"),
+                {"timeout": _MIGRATION_LOCK_TIMEOUT},
+            )
             connection.execute(
                 text("SELECT pg_advisory_xact_lock(:lock_key)"),
                 {"lock_key": _MIGRATION_LOCK_KEY},

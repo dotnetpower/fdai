@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 13191711e12e738f869360470197725c7c0ce773
+translation_source_sha: 2abfa71c18909d599d31563e410f492e41b4d35f
 translation_revised: 2026-08-20
 ---
 
@@ -55,6 +55,7 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 | 2026-08-17 | implemented | Container supply chain이 게시하는 서비스별 Core 저장소를 읽도록 protected runtime image promotion을 수정하고 이전 방식의 단일 GHCR 경로 사용을 제거했습니다. | `current change`, `.github/workflows/deploy-dev.yml`, `test_legacy_platform_imports_the_service_specific_core_image` 통과. | 서비스별 Core 다이제스트를 검증하고 연결하는 protected 계획과 exact 적용을 완료합니다. |
 | 2026-08-17 | implemented | 개발 게이트웨이 대상 계획에 analyzer Job을 포함해 추적 토폴로지 구성과 예약된 탐지기가 기존 게이트웨이 배포 화면과 함께 수렴하도록 했습니다. | `current change`, `.github/workflows/deploy-dev.yml`, `test_detection_readiness.py` 4개 및 `test_service_deploy_workflow.py` 25개 통과. | 이 범위를 `validated`로 올리기 전에 protected 적용과 예약된 `preserve`, `regenerate`, `drop` 증적을 보존합니다. |
 | 2026-08-20 | implemented | 독립 Operator channel-edge identity와 해당 versionless Key Vault secret scope를 위한 명시적 protected-plan input을 추가했습니다. Platform owner는 ACR pull, semantic Event Hubs transport 및 나열된 secret read만 부여하고, Operator service root가 공개 edge Container App lifecycle을 별도로 소유합니다. | `current change`, 보호된 배포 검사 154개, workflow YAML, shell syntax, design-route 및 five-distribution 검사 통과 | 승인된 credential store에 실제 프로바이더 profile을 구성한 뒤 exact platform 및 Operator service plan/apply/rollback 증적을 보존합니다. |
+| 2026-08-20 | implemented | Protected Core 적용이 migration 내부 대기로 job 전체 예산을 소진한 뒤 service migration 단계별 deadline을 추가했습니다. 모든 service 및 legacy 경로는 10초 연결 deadline과 5분 잠금 deadline을 사용하고 workflow는 전체 migration 단계를 20분 뒤 닫습니다. | `current change`; 집중 service migration 및 protected workflow 검사 204개 통과. | 동일한 protected Core 적용을 다시 실행하고 성공한 migration 및 post-apply 상태 증적을 보존합니다. |
 
 ### 남은 작업
 
@@ -510,7 +511,9 @@ networking과 digest-pinned FDAI 및 ClamAV 이미지를 요구합니다.
   프로비저닝된 Postgres FQDN 에 admin DSN 으로 접속 가능한 워크스테이션 또는 CI 잡에서
   `alembic upgrade head` 를 실행. `alembic/versions/`의 모든 tracked 이행은
   `downgrade()`를 정의하지만, 스키마/데이터 롤백은 파괴적일 수 있으므로 백업/복원과
-  이행별 downgrade를 staging에서 예행 연습한 뒤 실행합니다.
+  이행별 downgrade를 staging에서 예행 연습한 뒤 실행합니다. Protected service 경로는
+  10초 연결 deadline, 5분 database 잠금 deadline 및 20분 전체 migration 단계 deadline을
+  사용하므로 정지한 migration은 service 계획을 적용하기 전에 실패합니다.
 - Post-deploy smoke 테스트와 합성 카나리는
   [operating-and-verification-ko.md](../operations/operating-and-verification-ko.md)에 정의.
 

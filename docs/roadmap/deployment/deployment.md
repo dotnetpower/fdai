@@ -36,6 +36,7 @@ bindings through configuration (see
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and added deployed Operator catalog bootstrap after schema migration. | current change; focused deployment workflow and Terraform checks | Capture governed apply evidence for the catalog Job and implement the progressive-delivery targets. |
 | 2026-08-14 | implemented | Corrected ingestion rollback guidance after the co-host compatibility path was retired. Rollback now restores exact prior independent API and worker revisions. | `current change`; focused Terraform validation and mocked ingestion tests passed 5 cases. | Keep deployment guides and mocked tests aligned with the independent service roots. |
 | 2026-08-15 | implemented | Added an opt-in scheduled Container Apps Job for bounded browser-evidence retention with no executor identity or immediate platform retry. | `current change`; focused Terraform contract checks `4 passed`; `terraform validate`. | Capture the protected apply and successful and failed Job run receipts. |
+| 2026-08-20 | implemented | Bounded every service migration connection, cross-service lock, and protected workflow stage after a stalled migration consumed the service job's full two-hour budget. Cleanup now preserves the original migration error. | `current change`; service migration and protected workflow contract checks passed 204 cases; Ruff and strict mypy passed. | Complete one protected exact apply and retain its migration, service health, and rollback-boundary evidence. |
 
 ### Remaining work
 
@@ -199,7 +200,9 @@ target design.
   Migrations run as a gated step **before** the app revision takes traffic and stay
   backward-compatible so a revision rollback does not break the schema. Online Alembic runs
   serialize revision inspection, DDL, and version-row updates with a database-scoped transaction
-  lock, so concurrent startup or test workers cannot apply one revision twice. After the Operator
+  lock, so concurrent startup or test workers cannot apply one revision twice. Connections fail
+  within 10 seconds, lock waits fail within 5 minutes, and the protected migration stage closes
+  within 20 minutes; the two-hour deployment budget is never the first migration deadline. After the Operator
   migration succeeds, deployment runs a separate Core-image Job that deterministically refreshes
   immutable repository catalog projections. These rows describe reviewed reference declarations;
   they do not create findings, inventory, incidents, readiness, or execution authority.

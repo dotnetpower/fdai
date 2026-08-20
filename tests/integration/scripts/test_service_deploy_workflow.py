@@ -400,6 +400,12 @@ def test_initial_cutover_prepares_stamps_and_upgrades_service_migrations() -> No
     assert migration_index < snapshot_index < apply_index
     assert "migration_dsn_secret_name" in _WORKFLOW
     assert "az keyvault secret show" in _WORKFLOW
+    assert _WORKFLOW.count("migration_deadline=$((SECONDS + 1200))") == 1
+    assert "remaining=$((migration_deadline - SECONDS))" in _WORKFLOW
+    assert 'timeout --kill-after=30s "${remaining}s" "$@"' in _WORKFLOW
+    assert 'export FDAI_DATABASE_URL="$migration_dsn"' in _WORKFLOW
+    assert "run_migration env FDAI_DATABASE_URL=" not in _WORKFLOW
+    assert "service migration exceeded its 20-minute stage deadline" in _WORKFLOW
     assert 'if [[ "$INITIAL_CUTOVER" == "true" ]]' in _WORKFLOW
     legacy_upgrade = "alembic upgrade head"
     assert legacy_upgrade in _WORKFLOW

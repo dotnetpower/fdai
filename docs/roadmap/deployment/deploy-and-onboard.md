@@ -50,6 +50,7 @@ All identifiers are synthetic per
 | 2026-08-17 | implemented | Corrected protected runtime image promotion to read the service-specific Core repository published by the container supply chain instead of the retired monolithic GHCR path. | `current change`; `.github/workflows/deploy-dev.yml`; `test_legacy_platform_imports_the_service_specific_core_image` passed. | Complete a protected plan and exact apply that verify and bind the service-specific Core digest. |
 | 2026-08-17 | implemented | Included the analyzer Job in development-gateway targeted plans so trace-topology configuration and the scheduled detector converge with the existing gateway deployment surface. | `current change`; `.github/workflows/deploy-dev.yml`; `test_detection_readiness.py` passed 4 cases and `test_service_deploy_workflow.py` passed 25 cases. | Retain the protected apply and scheduled `preserve`, `regenerate`, and `drop` receipts before raising this scope to `validated`. |
 | 2026-08-20 | implemented | Added an explicit protected-plan input for the standalone Operator channel-edge identity and its versionless Key Vault secret scopes. The platform owner grants only ACR pull, semantic Event Hubs transport, and listed secret reads; the Operator service root separately owns the public edge Container App lifecycle. | `current change`; protected deployment suites passed 154 cases; workflow YAML, shell syntax, design-route, and five-distribution checks passed. | Configure a real provider profile in approved credential stores, then retain exact platform and Operator service plan/apply/rollback receipts. |
+| 2026-08-20 | implemented | Added per-stage service migration deadlines after a protected Core apply spent its full job budget waiting inside migration. All service and legacy paths now use a 10-second connection deadline and 5-minute lock deadline, while the workflow closes the complete migration stage after 20 minutes. | `current change`; focused service migration and protected workflow checks passed 204 cases. | Rerun the exact protected Core apply and retain the successful migration and post-apply health receipt. |
 
 ### Remaining work
 
@@ -510,7 +511,9 @@ later stage with a broken earlier one.
   `alembic upgrade head` from a workstation or a CI job that can reach the provisioned
   Postgres FQDN with the admin DSN. Every tracked migration under `alembic/versions/` defines
   `downgrade()`, but schema/data rollback can be destructive. Rehearse backup/restore and each
-  migration-specific downgrade in staging before using it.
+  migration-specific downgrade in staging before using it. The protected service path uses a
+  10-second connection deadline, a 5-minute database lock deadline, and a 20-minute complete
+  migration-stage deadline so a stalled migration fails before the service plan is applied.
 - Post-deploy smoke tests and the synthetic canary are defined in
   [operating-and-verification.md](../operations/operating-and-verification.md).
 
