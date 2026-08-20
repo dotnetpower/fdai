@@ -53,6 +53,12 @@ export function conversationHydrationFailureStatus(
     : "error";
 }
 
+export function shouldExposeConversationHydration(
+  summary: ConversationSummary | undefined,
+): boolean {
+  return summary?.restoredFromServer === true && summary.kind !== "screen-default";
+}
+
 export function sessionStore(): Storage | null {
   if (typeof window === "undefined") return null;
   try {
@@ -282,7 +288,7 @@ export function useCommandDeckSessionController({
   const hydrateDurableTurns = useCallback(async (key: string): Promise<void> => {
     if (sessionKeyRef.current !== key || turnsRef.current.length > 0) return;
     const summary = conversations.find((item) => item.key === key);
-    const expectsDurableHistory = summary?.restoredFromServer === true;
+    const expectsDurableHistory = shouldExposeConversationHydration(summary);
     if (expectsDurableHistory) setConversationHydration({ key, status: "loading" });
     try {
       const durable = await fetchConversationTurns(sessionIdFor(sessionIdsRef.current, key));

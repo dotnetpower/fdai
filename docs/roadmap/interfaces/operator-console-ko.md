@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: cfe3a6ab7fcd96f287a94ebb83c7d9a14b77cee2
+translation_source_sha: ab48eff7c7eec62baae344953a58c97e67e71da1
 translation_revised: 2026-08-20
 ---
 
@@ -66,6 +66,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 | 2026-08-18 | implemented | 레이블과 값을 한 행에 압축하지 않고 `답변 준비 중`의 각 단계가 관찰된 내용을 표시하도록 했습니다. 화면 맥락은 경로, 제목 및 화면 사실 수를 포함하고, 라우팅은 기록된 이유를 유지하며, 백엔드 진행 상황은 검사 및 출처 수를 유지하고, 출처 미리 보기는 기본으로 열린 3개 카드 창에서 종류, 제목 및 범위가 제한된 상세를 보여 줍니다. | `current change`; `retrieval-trace.tsx`, `styles.css`, 지역화된 Console 카탈로그 및 집중 `investigation-timeline.test.ts`; 인증된 데스크톱 및 390 px 검사에서 열린 상세, 단계별 텍스트, DOM의 최대 출처 카드 3개 및 가로 overflow 0을 확인했습니다. | 브라우저 관찰은 통제된 산출물로 보존하지 않았습니다. 이후 서버 단계 이벤트는 브라우저 추론 없이 같은 typed progress seam을 보강할 수 있습니다. |
 | 2026-08-20 | implemented | 운영 Command Deck과 정적 mock을 독립적인 비평 5회로 강화했습니다. 모바일 대화 이력은 닫기 동작이 있는 전체 폭 대화 내용 위에 겹쳐서 열리고, 영속 이력은 `loading`, `empty`, `unavailable`, `error` 및 `retry` 상태를 구분하며, 간결한 머리글과 작성기 제어는 읽기 영역을 보존하고, mock은 운영의 대화 및 현재 화면 맥락 모델을 사용합니다. | `current change`, [Issue #237](https://github.com/dotnetpower/fdai/issues/237), focused Console 검사 53개 통과, Console typecheck 및 운영 build 통과, 인증된 운영 화면과 합성 mock에서 1440 x 900, 993 x 641 및 390 x 844 검사. 다섯 라운드는 반응형 배치, 이력 상태 의미, 접근성, mock 동등성 및 회귀 증거의 정확성을 각각 10개 이상의 검사로 확인했습니다. | 모바일 근거 출처 목록의 범위가 제한된 가로 스크롤만 Low로 남았습니다. 브라우저 관찰은 통제된 산출물로 보존하지 않았습니다. |
 | 2026-08-20 | implemented | 복원된 인증 대화와 활성 렌더링 전환을 대상으로 라운드마다 10개 이상의 검사를 포함한 독립 비평 20회를 반복해 Command Deck을 강화했습니다. 대화 이력은 범위가 제한된 workspace, dock 및 floating 배치에서 대화 내용을 축소하지 않고 겹쳐서 열립니다. 대기 중이거나 완료된 활동은 빈 공간을 예약하지 않고 계속 보이며, 완료된 활동은 기본으로 접힙니다. 최종 조사 답변은 신원과 시각을 유지하고, 긴 구조화된 표는 좁은 모바일 분기점 전까지 밀도 있게 유지되며, 불투명한 식별자는 정확한 값을 계속 검사할 수 있습니다. 또한 동작 감소 전환을 즉시 전환으로 만들어 workspace 복원 시 floating 배치가 남지 않습니다. | `current change`, [Issue #237](https://github.com/dotnetpower/fdai/issues/237), focused Console 검사 47개 통과, Console typecheck, 운영 build 및 bundle 검사 통과, 인증된 운영 화면과 정적 mock에서 1440 x 900, 993 x 641 및 390 x 844와 workspace, dock 및 floating 전환 검사. | 모바일 근거 출처 목록의 범위가 제한된 가로 스크롤만 Low로 남았습니다. 브라우저 관찰은 통제된 산출물로 보존하지 않았습니다. |
+| 2026-08-20 | implemented | 인증된 첫 열기에서 `Conversation history unavailable`이 전체 대화 내용을 대체한 회귀를 확인한 뒤 기본 화면의 이력 복원 경계를 바로잡았습니다. 기본 화면 이력은 백그라운드에서 복원하고 선택적 출처를 사용할 수 없으면 정상 대화 안내 화면으로 돌아갑니다. 반면 운영자가 명시적으로 선택한 영속 thread 또는 agent 대화는 `loading`, `unavailable`, `error` 및 `retry` 상태를 계속 표시합니다. | `current change`, [Issue #237](https://github.com/dotnetpower/fdai/issues/237), focused hydration, 대화 인덱스 및 workspace 시각 검사 46개 통과, Console typecheck 통과, 인증된 993 x 641 화면에서 사용할 수 없는 출처를 재현한 뒤 이력 패널이 닫히고 가로 overflow가 없는 안내 화면 렌더링 확인. | 브라우저 관찰은 통제된 산출물로 보존하지 않았습니다. 명시적으로 선택한 저장 대화의 실패는 fail-closed 상태로 계속 표시합니다. |
 
 ### 남은 작업
 
