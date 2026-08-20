@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 3e66a7208bd1b0fd79e030e4b2e3a978d41bb489
+translation_source_sha: a8eaa2e68cae7b4e3dcad40a7b3483acea513701
 translation_revised: 2026-08-20
 ---
 # FDAI Console 대화
@@ -21,8 +21,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 
 이 문서는 **pull 방향**, 즉 오퍼레이터가 묻고 시뮬레이션하고 승인하는 경로를 다룹니다. Push와 pull은 같은 채널 자격 증명과 감사 계약을 공유하지만 서로 다른 통합 표면입니다.
 
-> 고객-무관: 아래의 모든 채널 id, LLM 배포 이름, 리소스 id, 그룹 이름은 자리 표시자. 포크는 구성으로 실제 값을 공급
-> ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
+> 고객-무관: 아래의 모든 채널 id, LLM 배포 이름, 리소스 id, 그룹 이름은 자리 표시자. 포크는 구성으로 실제 값을 공급합니다 ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 
 ## 구현 상태
 
@@ -84,8 +83,7 @@ Tab과 Deck이 idle 상태이면 브라우저에서 인시던트를 처음 관�
 
 ## 1. Framing - 무엇인가 (그리고 무엇이 아닌가)
 
-FDAI Console 대화 표면은 **판단 권한을 가지지 않습니다**. FDAI의 판단
-권한 는 이미 있는 곳에 그대로 남는다 - 결정론적 엔진 (T0),
+FDAI Console 대화 표면은 **판단 권한을 가지지 않습니다**. FDAI의 판단 권한은 이미 있는 곳에 그대로 남습니다 - 결정론적 엔진 (T0),
 quality gate (T2 검증기), risk gate, shipped Rego 정책. 콘솔은
 그 판단을 오퍼레이터가 검사하고, 변경을 시뮬레이션하고, 시스템이
 이미 큐잉한 것을 승인하는 **대화형 표면** 이다.

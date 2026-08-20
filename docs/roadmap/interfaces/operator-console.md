@@ -18,9 +18,7 @@ The click is the operator's explicit request; an automatic active-incident strea
 This doc covers the **pull direction** - the operator asks, simulates, approves - across every channel the notification doc already ships adapters for. Push and pull share the same channel credentials
 and the same audit contract, but they are distinct integration surfaces.
 
-> Customer-agnostic: every channel id, LLM deployment name, resource id, and group name below is a
-> placeholder. A fork supplies concrete values via config
-> ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
+> Customer-agnostic: every channel id, LLM deployment name, resource id, and group name below is a placeholder. A fork supplies concrete values via config ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 
 ## Implementation status
 
