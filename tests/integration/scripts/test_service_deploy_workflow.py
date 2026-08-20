@@ -126,6 +126,23 @@ def test_platform_workflow_isolates_monitoring_plan_changes() -> None:
         1
     ].split("- name: Ensure protected storage containers", maxsplit=1)[0]
     assert "!inputs.deploy_monitoring" in model_step
+    preflight_step = _LEGACY_WORKFLOW.split(
+        "- name: Run complete Azure live preflight", maxsplit=1
+    )[1].split("- name: Cleanup expired protected plans", maxsplit=1)[0]
+    for resource_type in (
+        "azurerm_monitor_action_group",
+        "azurerm_monitor_diagnostic_setting",
+        "azurerm_monitor_metric_alert",
+        "azurerm_monitor_scheduled_query_rules_alert_v2",
+    ):
+        assert resource_type in preflight_step
+    for neutral_type in (
+        "action-group",
+        "diagnostic-settings",
+        "monitor-metric-alert",
+        "monitor-log-alert",
+    ):
+        assert neutral_type in preflight_step
 
 
 def test_operator_catalog_materialization_runs_after_schema_migration() -> None:

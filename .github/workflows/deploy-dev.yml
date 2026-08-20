@@ -1083,6 +1083,7 @@ jobs:
       - name: Run complete Azure live preflight
         if: ${{ !inputs.apply && inputs.request_id != '' }}
         env:
+          DEPLOY_MONITORING: ${{ inputs.deploy_monitoring }}
           PREFLIGHT_ENVIRONMENT: ${{ inputs.environment }}
           PREFLIGHT_SUBSCRIPTION_ID: ${{ vars.ARM_SUBSCRIPTION_ID }}
           PREFLIGHT_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
@@ -1107,6 +1108,23 @@ jobs:
           live = profile.get("azure_live")
           if not isinstance(live, dict) or set(live.get("required_categories", ())) != required:
             raise SystemExit("runner preflight profile must require all Azure live categories")
+          if os.environ["DEPLOY_MONITORING"] == "true":
+            terraform_types = profile.setdefault("terraform_resource_type_map", {})
+            arm_types = live.setdefault("arm_resource_type_map", {})
+            if not isinstance(terraform_types, dict) or not isinstance(arm_types, dict):
+              raise SystemExit("runner preflight resource type mappings must be objects")
+            terraform_types.update({
+              "azurerm_monitor_action_group": "action-group",
+              "azurerm_monitor_diagnostic_setting": "diagnostic-settings",
+              "azurerm_monitor_metric_alert": "monitor-metric-alert",
+              "azurerm_monitor_scheduled_query_rules_alert_v2": "monitor-log-alert",
+            })
+            arm_types.update({
+              "action-group": "Microsoft.Insights/actionGroups",
+              "diagnostic-settings": "Microsoft.Insights/diagnosticSettings",
+              "monitor-metric-alert": "Microsoft.Insights/metricAlerts",
+              "monitor-log-alert": "Microsoft.Insights/scheduledQueryRules",
+            })
           profile["mode"] = "enforce"
           profile["generated_at"] = os.environ["CREATED_AT"]
           profile["scope"] = "resource-group-equivalent:deployment"

@@ -197,6 +197,42 @@ def test_live_preflight_fails_closed_on_unmapped_created_resource() -> None:
         _MODULE.run_preflight(profile, _plan(), _environment(), _Reader())
 
 
+def test_live_preflight_accepts_complete_monitoring_resource_mappings() -> None:
+    profile = _profile()
+    profile["terraform_resource_type_map"].update(
+        {
+            "azurerm_monitor_action_group": "action-group",
+            "azurerm_monitor_diagnostic_setting": "diagnostic-settings",
+            "azurerm_monitor_metric_alert": "monitor-metric-alert",
+            "azurerm_monitor_scheduled_query_rules_alert_v2": "monitor-log-alert",
+        }
+    )
+    profile["azure_live"]["arm_resource_type_map"].update(
+        {
+            "action-group": "Microsoft.Insights/actionGroups",
+            "diagnostic-settings": "Microsoft.Insights/diagnosticSettings",
+            "monitor-metric-alert": "Microsoft.Insights/metricAlerts",
+            "monitor-log-alert": "Microsoft.Insights/scheduledQueryRules",
+        }
+    )
+    plan = {
+        "format_version": "1.2",
+        "resource_changes": [
+            {"mode": "managed", "type": resource_type, "change": {"actions": ["create"]}}
+            for resource_type in (
+                "azurerm_monitor_action_group",
+                "azurerm_monitor_diagnostic_setting",
+                "azurerm_monitor_metric_alert",
+                "azurerm_monitor_scheduled_query_rules_alert_v2",
+            )
+        ],
+    }
+
+    result = _MODULE.run_preflight(profile, plan, _environment(), _Reader())
+
+    assert result["report"]["verdict"] == "clear"
+
+
 def test_azure_reader_retries_transient_throttle_then_succeeds(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
