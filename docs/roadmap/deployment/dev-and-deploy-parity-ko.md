@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 2a2069609b7dfa8e383435368989628e9c913bc0
+translation_source_sha: adfdab67bca0a645e15e08c364ccf2c32a3039bd
 translation_revised: 2026-08-20
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -91,6 +91,7 @@ translation_revised: 2026-08-20
 | 2026-08-20 | 구현됨 | 다섯 distribution topology를 바꾸지 않고 독립 A3 channel edge의 local 및 deployed composition을 추가했습니다. 두 venue는 동일한 Operator 소유 runtime을 사용하며 프로바이더 credential, Kafka security, secret source 및 scale만 다릅니다. | `current change`, 집중 edge 검사 74개, 로컬 실행 검사 3개, 플랫폼 및 Operator-service Terraform root 검증 통과, independent-service 검사가 distribution 5개를 유지 | 통제된 local provider 증적 하나와 보호된 deployed plan/apply/rollback 증적 하나를 보존합니다. |
 | 2026-08-20 | 구현됨 | Frozen legacy lineage와 service-owned branch 5개의 local 및 protected deployed migration 실패 경계를 정렬했습니다. 모든 연결에는 10초 deadline이 있고 모든 database 잠금 대기에는 5분 deadline이 있으며 하나의 protected migration 단계는 Terraform 적용 전에 누적 20분 deadline을 갖습니다. | `current change`; 집중 migration, A3 route 및 protected 배포 검사 282개 통과, 환경 제한 skip 1개; migration entry point 3개 strict mypy 통과. | 성공한 exact Core 적용 및 post-apply 상태 증적을 보존합니다. |
 | 2026-08-20 | implemented | Local legacy migration, local service-branch migration 및 protected service 조정에 같은 15분 PostgreSQL statement deadline을 추가했습니다. Server가 20분 workflow deadline 전에 장기 실행 DDL을 취소하므로 연결이 끊긴 runner가 service 간 advisory lock을 보유하는 방치된 transaction을 남길 수 없습니다. | `current change`; 집중 migration deadline 검사; entry point 3개 strict mypy 통과; 일회용 PostgreSQL에서 예산을 초과한 statement를 취소하고 연결 해제 뒤 advisory lock 0개를 확인함. | 성공한 exact Core 적용 및 post-apply 상태 증적을 보존합니다. |
+| 2026-08-20 | implemented | Question-campaign table 생성을 legacy compatibility head에서 Core service branch로 옮겼습니다. Local 준비와 protected 배포는 legacy `0086` 또는 Core branch 중 어느 쪽이 먼저 실행돼도 같은 single writer를 통해 수렴합니다. | `current change`; service migration inventory 검사; 일회용 PostgreSQL에서 두 migration 순서 통과; service 5개의 fresh adoption 통과. | 성공한 exact Core 적용 및 post-apply 상태 증적을 보존합니다. |
 | 2026-08-20 | implemented | PTY host와 셸 시작은 정상인데 VS Code 기본 설정이 사용자가 입력한 통합 터미널의 0이 아닌 종료를 알림으로 표시한다는 진단에 따라 FDAI workspace에서 터미널 종료 알림을 비활성화했습니다. 중복 토스트만 억제하며 터미널 출력, 작업 상태 및 프로세스 종료 코드는 계속 확인할 수 있습니다. | `current change`, `.vscode/settings.json`, `tests/integration/scripts/test_vscode_workspace_performance.py`, 집중 workspace 계약 및 VS Code JSON 진단 | 터미널 종료 토스트에 남은 구현 작업은 없습니다. |
 
 ### 잔여 작업
@@ -98,8 +99,7 @@ translation_revised: 2026-08-20
 - [ ] FDAI 전용 Remote WSL server data root 또는 WSL 배포판을 마련한 뒤 제외 대상 workspace를 변경하지 않고 재시작한 Pylance process command에 `--max-old-space-size=2048`이 포함됨을 기록합니다.
 - [ ] 등록된 Console 경로 50개 전체의 통과 근거를 기록한 뒤 최소 10회 보증 라운드와 10회 비평/하드닝 라운드를 완료하여 해결되지 않은 finding의 심각도가 모두 Low 이하임을 입증합니다.
 - [ ] 복제본별 `FDAI_LIVE_STAGE_CONSUMER_GROUP_ID`를 통해 인증된 Live DOM에 도달하는 배포 개정 이벤트를 기록합니다. 브라우저 Notifications API 및 브라우저 종료 상태의 push 전달이 범위에 들어오면 별도로 추적합니다.
-- [ ] Operator schema migration이 성공한 뒤 catalog Job이 검토된 Rule 및 Ontology 참조
-  변환 결과를 기록함을 보여 주는 보호된 배포 증적을 기록합니다.
+- [ ] Operator schema migration이 성공한 뒤 catalog Job이 검토된 Rule 및 Ontology 참조 변환 결과를 기록함을 보여 주는 보호된 배포 증적을 기록합니다.
 - [ ] 같은 카탈로그 digest를 사용하는 통제된 로컬 및 배포 관측 캠페인 쌍을 보존합니다.
   권한 있음, 사용 불가, 부분, 건너뜀 및 완료 출처 결과와 snapshot-first/실제 Agent Activity
   중복 제거를 포함합니다.

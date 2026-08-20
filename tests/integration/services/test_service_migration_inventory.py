@@ -40,7 +40,7 @@ def test_legacy_migration_inventory_is_linear_and_complete() -> None:
 
     assert len(inventory.down_revisions) == 88
     assert inventory.heads == ("20260819_0086",)
-    assert len(inventory.table_sources) == 105
+    assert len(inventory.table_sources) == 101
     assert "IF" not in inventory.table_sources
     assert inventory.table_sources["document_worker_claim"] == ("20260806_0075",)
     assert inventory.table_sources["case_history_migration_state"] == (
@@ -67,6 +67,10 @@ def test_every_legacy_table_has_one_migrator_and_one_write_contract() -> None:
         "executor_receipt_outbox",
         "conversation_channel_message_claim",
         "operator_incident_projection",
+        "question_campaign",
+        "question_campaign_attempt",
+        "question_campaign_case_claim",
+        "question_campaign_completion",
         "topology_link_revision",
         "topology_object_revision",
         "topology_revision_batch",
@@ -230,6 +234,35 @@ def test_service_migrations_serialize_cross_service_ddl_before_service_lock() ->
     )
     command_downgrade = cli_source.index("command.downgrade(config, revision)")
     assert dependent_check < command_downgrade
+
+
+def test_question_campaign_schema_converges_before_runtime_grants() -> None:
+    legacy_source = (REPO_ROOT / "alembic/versions/20260819_0086_question_campaign.py").read_text(
+        encoding="utf-8"
+    )
+    service_source = (
+        MIGRATION_ROOT / "branches/core-control-plane/versions/20260819_core_question_campaign.py"
+    ).read_text(encoding="utf-8")
+
+    assert "CREATE TABLE" not in legacy_source
+    for table in (
+        "question_campaign",
+        "question_campaign_attempt",
+        "question_campaign_completion",
+        "question_campaign_case_claim",
+    ):
+        declaration = f"CREATE TABLE IF NOT EXISTS {table}"
+        assert declaration in service_source
+    assert service_source.index("CREATE TABLE IF NOT EXISTS question_campaign") < (
+        service_source.index("GRANT SELECT, INSERT ON TABLE question_campaign")
+    )
+    for index in (
+        "idx_question_campaign_source_started",
+        "idx_question_campaign_universe_started",
+        "idx_question_campaign_attempt_case",
+    ):
+        declaration = f"CREATE INDEX IF NOT EXISTS {index}"
+        assert declaration in service_source
 
 
 def test_coordination_connection_bounds_lock_before_acquisition(
@@ -1121,7 +1154,7 @@ def test_schema_contract_covers_exactly_five_services() -> None:
     assert all(value.table_count > 0 for value in contract.values())
     assert all(value.column_count >= value.table_count for value in contract.values())
     assert all(value.extensions for value in contract.values())
-    assert contract["core-control-plane"].constraint_count == 212
+    assert contract["core-control-plane"].constraint_count == 183
 
 
 def test_schema_contract_rejects_stale_legacy_revision(tmp_path: Path) -> None:

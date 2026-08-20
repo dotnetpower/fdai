@@ -52,7 +52,7 @@
   "legacy_inventory": {
     "head": "20260819_0086",
     "revision_count": 88,
-    "table_count": 105
+    "table_count": 101
   },
   "table_migrations": {
     "core-control-plane": [
