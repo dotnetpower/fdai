@@ -1,0 +1,260 @@
+{
+  "id": "fdai-channels-and-notifications-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "2. Where Channels Sit in the Architecture",
+      "description": "FDAI flow for 2. Where Channels Sit in the Architecture.",
+      "alt": "2. Where Channels Sit in the Architecture. The main stages are risk-gate, channel-router, observability, digest-writer, Channel interface, teams adapter, slack adapter, email adapter, webhook adapter, pager adapter, fdai-api."
+    },
+    "ko": {
+      "title": "2. 아키텍처 상 채널의 위치",
+      "description": "2. 아키텍처 상 채널의 위치에 대한 FDAI 흐름입니다.",
+      "alt": "2. 아키텍처 상 채널의 위치. 주요 단계는 risk-gate, channel-router, observability, digest-writer, Channel interface, teams adapter, slack adapter, email adapter, webhook adapter, pager adapter, fdai-api입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-channels-and-notifications-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-channels-and-notifications-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "rg",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "risk-gate",
+        "ko": "risk-gate"
+      },
+      "description": {
+        "en": "risk-gate",
+        "ko": "risk-gate"
+      }
+    },
+    {
+      "id": "r",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "channel-router",
+        "ko": "channel-router"
+      },
+      "description": {
+        "en": "channel-router",
+        "ko": "channel-router"
+      }
+    },
+    {
+      "id": "obs",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "observability",
+        "ko": "observability"
+      },
+      "description": {
+        "en": "observability",
+        "ko": "observability"
+      }
+    },
+    {
+      "id": "dig",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "digest-writer",
+        "ko": "digest-writer"
+      },
+      "description": {
+        "en": "digest-writer",
+        "ko": "digest-writer"
+      }
+    },
+    {
+      "id": "ch",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Channel interface",
+        "ko": "Channel interface"
+      },
+      "description": {
+        "en": "Channel interface",
+        "ko": "Channel interface"
+      }
+    },
+    {
+      "id": "t",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "teams adapter",
+        "ko": "teams adapter"
+      },
+      "description": {
+        "en": "teams adapter",
+        "ko": "teams adapter"
+      }
+    },
+    {
+      "id": "s",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "slack adapter",
+        "ko": "slack adapter"
+      },
+      "description": {
+        "en": "slack adapter",
+        "ko": "slack adapter"
+      }
+    },
+    {
+      "id": "e",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "email adapter",
+        "ko": "email adapter"
+      },
+      "description": {
+        "en": "email adapter",
+        "ko": "email adapter"
+      }
+    },
+    {
+      "id": "w",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "webhook adapter",
+        "ko": "webhook adapter"
+      },
+      "description": {
+        "en": "webhook adapter",
+        "ko": "webhook adapter"
+      }
+    },
+    {
+      "id": "p",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "pager adapter",
+        "ko": "pager adapter"
+      },
+      "description": {
+        "en": "pager adapter",
+        "ko": "pager adapter"
+      }
+    },
+    {
+      "id": "api",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "fdai-api",
+        "ko": "fdai-api"
+      },
+      "description": {
+        "en": "fdai-api",
+        "ko": "fdai-api"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "rg",
+      "to": "r",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "obs",
+      "to": "r",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "dig",
+      "to": "r",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "r",
+      "to": "ch",
+      "kind": "request",
+      "label": {
+        "en": "category-tagged / message",
+        "ko": "category-tagged / message"
+      }
+    },
+    {
+      "id": "flow-05",
+      "from": "ch",
+      "to": "t",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "ch",
+      "to": "s",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "ch",
+      "to": "e",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "ch",
+      "to": "w",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "ch",
+      "to": "p",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "t",
+      "to": "api",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-11",
+      "from": "s",
+      "to": "api",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-12",
+      "from": "api",
+      "to": "rg",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

@@ -1,0 +1,102 @@
+id: fdai-operating-and-verification-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Audit Investigation Flow
+    description: FDAI flow for Audit Investigation Flow.
+    alt: Audit Investigation Flow. The main stages are Audit id or correlation id, Event lookup, Tier decision plus
+      confidence, Cited rules and their versions, Risk-gate decision auto or HIL, Approver identity when HIL, Action
+      outcome plus idempotency key, Rollback reference when applicable.
+  ko:
+    title: 감사 조사 흐름
+    description: 감사 조사 흐름에 대한 FDAI 흐름입니다.
+    alt: 감사 조사 흐름. 주요 단계는 Audit id or correlation id, Event lookup, Tier decision plus confidence, Cited rules and their
+      versions, Risk-gate decision auto or HIL, Approver identity when HIL, Action outcome plus idempotency key,
+      Rollback reference when applicable입니다.
+canvas:
+  width: 1200
+  height: 720
+  direction: RIGHT
+groups: []
+nodes:
+  - id: a
+    kind: process
+    shape: card
+    label:
+      en: Audit id or correlation id
+      ko: Audit id or correlation id
+  - id: b
+    kind: process
+    shape: card
+    label:
+      en: Event lookup
+      ko: Event lookup
+  - id: c
+    kind: process
+    shape: card
+    label:
+      en: Tier decision plus confidence
+      ko: Tier decision plus confidence
+  - id: d
+    kind: process
+    shape: card
+    label:
+      en: Cited rules and their versions
+      ko: Cited rules and their versions
+  - id: e
+    kind: process
+    shape: card
+    label:
+      en: Risk-gate decision auto or HIL
+      ko: Risk-gate decision auto or HIL
+  - id: f
+    kind: process
+    shape: card
+    label:
+      en: Approver identity when HIL
+      ko: Approver identity when HIL
+  - id: g
+    kind: process
+    shape: card
+    label:
+      en: Action outcome plus idempotency key
+      ko: Action outcome plus idempotency key
+  - id: h
+    kind: process
+    shape: card
+    label:
+      en: Rollback reference when applicable
+      ko: Rollback reference when applicable
+edges:
+  - id: flow-01
+    from: a
+    to: b
+    kind: request
+  - id: flow-02
+    from: b
+    to: c
+    kind: request
+  - id: flow-03
+    from: c
+    to: d
+    kind: request
+  - id: flow-04
+    from: d
+    to: e
+    kind: request
+  - id: flow-05
+    from: e
+    to: f
+    kind: request
+  - id: flow-06
+    from: f
+    to: g
+    kind: request
+  - id: flow-07
+    from: g
+    to: h
+    kind: request

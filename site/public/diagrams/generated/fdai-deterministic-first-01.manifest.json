@@ -1,0 +1,226 @@
+{
+  "id": "fdai-deterministic-first-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "How FDAI resolves it",
+      "description": "FDAI flow for How FDAI resolves it.",
+      "alt": "How FDAI resolves it. The main stages are Incoming event, Rule catalog / hit?, T0 - deterministic / rule + policy evidence, Similar to a / past resolved / incident?, T1 - lightweight reuse / provenance + learned action, T2 - grounded reasoning / mixed-model + verifier, Risk gate, Quality gate, Auto / HIL / deny."
+    },
+    "ko": {
+      "title": "FDAI가 해결하는 방식",
+      "description": "FDAI가 해결하는 방식에 대한 FDAI 흐름입니다.",
+      "alt": "FDAI가 해결하는 방식. 주요 단계는 들어오는 이벤트, 규칙 카탈로그 / 히트?, T0 - 결정론 / 규칙 + 정책 증거, 과거 해소된 / 인시던트와 유사?, T1 - 경량 재사용 / 출처 + 학습된 액션, T2 - 근거 기반 추론 / 다중 모델 + verifier, risk-gate, quality-gate, Auto / HIL / deny입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-deterministic-first-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-deterministic-first-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "e",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Incoming event",
+        "ko": "들어오는 이벤트"
+      },
+      "description": {
+        "en": "Incoming event",
+        "ko": "들어오는 이벤트"
+      }
+    },
+    {
+      "id": "r",
+      "kind": "decision",
+      "shape": "diamond",
+      "label": {
+        "en": "Rule catalog / hit?",
+        "ko": "규칙 카탈로그 / 히트?"
+      },
+      "description": {
+        "en": "Rule catalog / hit?",
+        "ko": "규칙 카탈로그 / 히트?"
+      }
+    },
+    {
+      "id": "t0",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "T0 - deterministic / rule + policy evidence",
+        "ko": "T0 - 결정론 / 규칙 + 정책 증거"
+      },
+      "description": {
+        "en": "T0 - deterministic / rule + policy evidence",
+        "ko": "T0 - 결정론 / 규칙 + 정책 증거"
+      }
+    },
+    {
+      "id": "s",
+      "kind": "decision",
+      "shape": "diamond",
+      "label": {
+        "en": "Similar to a / past resolved / incident?",
+        "ko": "과거 해소된 / 인시던트와 유사?"
+      },
+      "description": {
+        "en": "Similar to a / past resolved / incident?",
+        "ko": "과거 해소된 / 인시던트와 유사?"
+      }
+    },
+    {
+      "id": "t1",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "T1 - lightweight reuse / provenance + learned action",
+        "ko": "T1 - 경량 재사용 / 출처 + 학습된 액션"
+      },
+      "description": {
+        "en": "T1 - lightweight reuse / provenance + learned action",
+        "ko": "T1 - 경량 재사용 / 출처 + 학습된 액션"
+      }
+    },
+    {
+      "id": "t2",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "T2 - grounded reasoning / mixed-model + verifier",
+        "ko": "T2 - 근거 기반 추론 / 다중 모델 + verifier"
+      },
+      "description": {
+        "en": "T2 - grounded reasoning / mixed-model + verifier",
+        "ko": "T2 - 근거 기반 추론 / 다중 모델 + verifier"
+      }
+    },
+    {
+      "id": "g",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Risk gate",
+        "ko": "risk-gate"
+      },
+      "description": {
+        "en": "Risk gate",
+        "ko": "risk-gate"
+      }
+    },
+    {
+      "id": "q",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Quality gate",
+        "ko": "quality-gate"
+      },
+      "description": {
+        "en": "Quality gate",
+        "ko": "quality-gate"
+      }
+    },
+    {
+      "id": "v",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Auto / HIL / deny",
+        "ko": "Auto / HIL / deny"
+      },
+      "description": {
+        "en": "Auto / HIL / deny",
+        "ko": "Auto / HIL / deny"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "e",
+      "to": "r",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "r",
+      "to": "t0",
+      "kind": "request",
+      "label": {
+        "en": "yes",
+        "ko": "yes"
+      }
+    },
+    {
+      "id": "flow-03",
+      "from": "r",
+      "to": "s",
+      "kind": "request",
+      "label": {
+        "en": "no",
+        "ko": "no"
+      }
+    },
+    {
+      "id": "flow-04",
+      "from": "s",
+      "to": "t1",
+      "kind": "request",
+      "label": {
+        "en": "score >= threshold",
+        "ko": "점수 >= 임계값"
+      }
+    },
+    {
+      "id": "flow-05",
+      "from": "s",
+      "to": "t2",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "t0",
+      "to": "g",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "t1",
+      "to": "g",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "t2",
+      "to": "q",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "q",
+      "to": "g",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "g",
+      "to": "v",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

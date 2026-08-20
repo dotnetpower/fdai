@@ -1,0 +1,114 @@
+id: fdai-ontology-driven-automation-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: How the operating model fits together
+    description: FDAI flow for How the operating model fits together.
+    alt: How the operating model fits together. The main stages are BusinessCapability, BusinessService, Workload, Resource,
+      ServiceObjective, Ownership, Rule, ActionType.
+  ko:
+    title: 운영 모델의 연결 방식
+    description: 운영 모델의 연결 방식에 대한 FDAI 흐름입니다.
+    alt: 운영 모델의 연결 방식. 주요 단계는 BusinessCapability, BusinessService, Workload, Resource, ServiceObjective, Ownership, Rule,
+      ActionType입니다.
+canvas:
+  width: 1200
+  height: 720
+  direction: RIGHT
+groups: []
+nodes:
+  - id: bc
+    kind: process
+    shape: card
+    label:
+      en: BusinessCapability
+      ko: BusinessCapability
+  - id: bs
+    kind: process
+    shape: card
+    label:
+      en: BusinessService
+      ko: BusinessService
+  - id: w
+    kind: process
+    shape: card
+    label:
+      en: Workload
+      ko: Workload
+    description:
+      en: "When: implemented_by"
+      ko: "조건: implemented_by"
+  - id: r
+    kind: process
+    shape: card
+    label:
+      en: Resource
+      ko: Resource
+  - id: o
+    kind: process
+    shape: card
+    label:
+      en: ServiceObjective
+      ko: ServiceObjective
+    description:
+      en: "When: service_has_service_objective"
+      ko: "조건: service_has_service_objective"
+  - id: ow
+    kind: process
+    shape: card
+    label:
+      en: Ownership
+      ko: Ownership
+    description:
+      en: "When: service_owned_by"
+      ko: "조건: service_owned_by"
+  - id: rl
+    kind: process
+    shape: card
+    label:
+      en: Rule
+      ko: Rule
+  - id: at
+    kind: process
+    shape: card
+    label:
+      en: ActionType
+      ko: ActionType
+edges:
+  - id: flow-01
+    from: bc
+    to: bs
+    kind: request
+    label:
+      en: delivered_by
+      ko: delivered_by
+  - id: flow-02
+    from: bs
+    to: w
+    kind: request
+  - id: flow-03
+    from: w
+    to: r
+    kind: request
+    label:
+      en: workload_runs_on
+      ko: workload_runs_on
+  - id: flow-04
+    from: bs
+    to: o
+    kind: request
+  - id: flow-05
+    from: bs
+    to: ow
+    kind: request
+  - id: flow-06
+    from: rl
+    to: at
+    kind: request
+    label:
+      en: remediates
+      ko: remediates

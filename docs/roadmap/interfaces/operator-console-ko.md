@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 2e1488fd204f69c8934ff2e2f18dd954a1c9ca0e
+translation_source_sha: d5477a9947f50a582311e4a7acaae44a1090436c
 translation_revised: 2026-08-20
 ---
 
@@ -126,39 +126,7 @@ intent-graph 도구보다 정본 glossary를 먼저 사용합니다. 이 우선�
 
 ## 2. 3-layer 아키텍처
 
-```mermaid
-flowchart TD
- subgraph L3["Layer 3 - Channel (thin adapter)"]
-  CLI["CLI REPL"]
-  TEAMS_PULL["Teams (pull)"]
-  SLACK_PULL["Slack (pull)"]
-  WEB["Web chat (Console SPA)"]
- end
- subgraph L2["Layer 2 - Conversation Coordinator"]
-  NARR["Narrator (LLM)\nT1 translation default\nT2 translation escalation"]
-  INTENT["Intent classify\n(read | simulate | approve | breakglass)"]
-  RBAC["RBAC gate\n(per-tool role floor)"]
-  VERIF["Verifier re-check\n(no auto-execute)"]
-  SESS["Session state\n(audit-log-backed)"]
- end
- subgraph L1["Layer 1 - Existing deterministic core (unchanged)"]
-  CL["ControlLoop"]
-  RULES["RuleIndex / T0Engine"]
-  QG["QualityGate"]
-  EXEC["ShadowExecutor / RiskGate"]
-  INV["Inventory / StateStore"]
- end
- CLI --> INTENT
- TEAMS_PULL --> INTENT
- SLACK_PULL --> INTENT
- WEB --> INTENT
- INTENT --> RBAC --> NARR --> VERIF --> SESS
- NARR -.tool call.-> CL
- NARR -.tool call.-> RULES
- NARR -.tool call.-> QG
- NARR -.tool call.-> EXEC
- NARR -.tool call.-> INV
-```
+![2. 3-layer 아키텍처. 주요 단계는 CLI REPL, Teams (pull), Slack (pull), Web chat (Console SPA), Narrator (LLM)\nT1 translation default\nT2 translation escalation, Intent classify\n(read | simulate | approve | breakglass), RBAC gate\n(per-tool role floor), Verifier re-check\n(no auto-execute), Session state\n(audit-log-backed), ControlLoop, RuleIndex / T0Engine, QualityGate입니다.](../../diagrams/generated/fdai-operator-console-01.ko.svg)
 
 - **계층 3 (채널)**은 얇습니다. 어댑터는 wire format과 `ConversationTurn` 사이에서 한 턴을 변환하며 판단하지 않습니다. Streamed 읽기는 프로바이더 작업이 idle인 동안 진행 상황 또는 근거가
   없는 SSE comment 하트비트를 전송합니다. 스트림을 닫으면 해당 작업을 취소하고 대기합니다.

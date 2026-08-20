@@ -126,39 +126,7 @@ selector continues to require server-owned action lifecycle evidence.
 
 ## 2. Three-layer architecture
 
-```mermaid
-flowchart TD
-  subgraph L3["Layer 3 - Channel (thin adapter)"]
-    CLI["CLI REPL"]
-    TEAMS_PULL["Teams (pull)"]
-    SLACK_PULL["Slack (pull)"]
-    WEB["Web chat (Console SPA)"]
-  end
-  subgraph L2["Layer 2 - Conversation Coordinator"]
-    NARR["Narrator (LLM)\nT1 translation default\nT2 translation escalation"]
-    INTENT["Intent classify\n(read | simulate | approve | breakglass)"]
-    RBAC["RBAC gate\n(per-tool role floor)"]
-    VERIF["Verifier re-check\n(no auto-execute)"]
-    SESS["Session state\n(audit-log-backed)"]
-  end
-  subgraph L1["Layer 1 - Existing deterministic core (unchanged)"]
-    CL["ControlLoop"]
-    RULES["RuleIndex / T0Engine"]
-    QG["QualityGate"]
-    EXEC["ShadowExecutor / RiskGate"]
-    INV["Inventory / StateStore"]
-  end
-  CLI --> INTENT
-  TEAMS_PULL --> INTENT
-  SLACK_PULL --> INTENT
-  WEB --> INTENT
-  INTENT --> RBAC --> NARR --> VERIF --> SESS
-  NARR -.tool call.-> CL
-  NARR -.tool call.-> RULES
-  NARR -.tool call.-> QG
-  NARR -.tool call.-> EXEC
-  NARR -.tool call.-> INV
-```
+![2. Three-layer architecture. The main stages are CLI REPL, Teams (pull), Slack (pull), Web chat (Console SPA), Narrator (LLM)\nT1 translation default\nT2 translation escalation, Intent classify\n(read | simulate | approve | breakglass), RBAC gate\n(per-tool role floor), Verifier re-check\n(no auto-execute), Session state\n(audit-log-backed), ControlLoop, RuleIndex / T0Engine, QualityGate.](../../diagrams/generated/fdai-operator-console-01.en.svg)
 
 - **Layer 3 (Channel)** is thin. Every adapter converts one turn between its wire format and a
   `ConversationTurn`; no judgment lives here. A streamed read sends SSE comment heartbeats while the provider task is idle, without progress or evidence. Stream close cancels and awaits that task.

@@ -4,7 +4,7 @@ description: FDAI의 15개 에이전트 조직이 이벤트 기반 컨트롤 플
 sidebar:
   order: 2
 translation_of: architecture.md
-translation_source_sha: 8251de4b8659a646f48c1666653a7bcbabcecf4a
+translation_source_sha: ec1e2f3380471be4922c4a43660a12eb7c5f7a41
 translation_revised: 2026-08-20
 ---
 
@@ -174,26 +174,7 @@ ChatOps가 멈추면 위험도가 높은 작업은 승인 없이 실행되는 �
 Azure 리소스 변경, SLO 소진 감지, 예약 작업, 운영자 요청 중 어디에서 시작하든 모든
 이벤트는 같은 경로를 따릅니다.
 
-```mermaid
-flowchart TD
-  E[Event 또는 finding] --> I[event ingest]
-  I -->|validate, normalize, deduplicate, correlate| R[trust router]
-  R --> T0[T0 deterministic rule]
-  R --> T1[T1 lightweight reuse]
-  R --> T2[T2 grounded reasoning]
-  T2 --> Q[quality gate]
-  T0 --> G[risk gate]
-  T1 --> G
-  Q --> G
-  G -->|auto| X[executor]
-  G -->|approval required| H[human approval]
-  G -->|deny 또는 hold| N[no-op]
-  H -->|approve| X
-  H -->|reject 또는 timeout| N
-  X --> D[delivery]
-  D --> A[audit]
-  N --> A
-```
+![Azure 리소스 변경, 관찰 데이터, 운영자 요청, 예약 점검이 포트 9093의 Kafka endpoint를 통해 Event Hubs로 들어갑니다. FDAI 컨트롤 플레인은 이벤트를 수집하고 결정 수준을 선택한 뒤 근거와 위험을 검증합니다. 실행 가능한 작업은 권한 있는 실행기로 전달되고, 승인이 필요한 작업은 사람 승인으로 보내며, 불확실한 작업은 검토 대기로 보관합니다. 실행 실패는 롤백 경로로 이어지고 모든 결과는 PostgreSQL 감사 저장소에 기록됩니다.](../diagrams/generated/fdai-system-overview.ko.svg)
 
 1. **수집과 상관관계 연결**: FDAI는 이벤트 스키마를 확인하고, 재시도를 안전하게 만드는
    멱등성 키로 중복을 걸러낸 뒤, 관련된 신호를 하나의 인시던트로 묶습니다.
@@ -242,46 +223,7 @@ FDAI의 15개 에이전트는 **컨트롤 루프 위에 얹혀진 소유권 레�
 위 표는 조직도입니다. 아래 다이어그램은 데이터 흐름, 즉 에이전트가 소유한 객체가 어디로
 이동하는지를 보여 줍니다.
 
-```mermaid
-flowchart LR
-  EXT[Azure adapter, schedule, operator]
-  HUG[Huginn<br/>Event owner]
-  HEI[Heimdall<br/>Anomaly, Drift, Forecast]
-  DOM[Njord, Freyr, Loki<br/>domain evidence]
-  FOR[Forseti<br/>Verdict owner]
-  ODI[Odin<br/>ArbitrationDecision owner]
-  THO[Thor<br/>ActionRun owner]
-  VAR[Var<br/>Approval owner]
-  VID[Vidar<br/>Rollback owner]
-  SAG[Saga<br/>AuditEntry owner]
-  NOR[Norns<br/>RuleCandidate owner]
-  MIM[Mimir<br/>Rule 및 Policy owner]
-  MUN[Muninn<br/>state 및 context]
-  BRA[Bragi<br/>conversation translator]
-
-  EXT --> HUG
-  HUG --> HEI
-  HUG --> FOR
-  HEI --> FOR
-  DOM --> FOR
-  MIM -. rules .-> FOR
-  MUN -. context .-> FOR
-  FOR -->|cross-domain conflict| ODI
-  ODI -->|arbitration decision| FOR
-  FOR -->|auto, hil, deny verdict| THO
-  THO -->|hil pending| VAR
-  VAR -->|approved 또는 rejected| THO
-  THO -->|failed action run| VID
-  VID -->|rollback result| THO
-  FOR --> SAG
-  THO --> SAG
-  VAR --> SAG
-  VID --> SAG
-  SAG -. outcomes .-> NOR
-  NOR -. inert candidate .-> MIM
-  BRA -. question .-> MUN
-  BRA -->|typed action proposal| HUG
-```
+![외부 신호가 shared typed event bus로 들어와 Huginn에 도달합니다. Huginn이 발행한 normalized event는 Heimdall과 Forseti로 fan-out됩니다. Heimdall, Njord, Freyr, Loki, Mimir, Muninn은 서로 직접 호출하지 않고 finding, domain evidence, rule, context를 제공합니다. Forseti는 결정을 소유하고 cross-domain conflict의 arbitration을 Odin에 요청합니다. 실행 가능한 결정은 Thor에 도달하며 Var는 사람 승인을, Vidar는 rollback을 소유합니다. Forseti, Thor, Var, Vidar는 Saga에 audit evidence를 발행합니다. Saga outcome은 Norns로 전달되고 Norns는 inert rule candidate를 Mimir에 제안합니다. Bragi는 Muninn에서 context를 읽고 typed action proposal을 Huginn에 보내 conversation도 동일한 governed path를 사용하게 합니다.](../diagrams/generated/fdai-agent-driven-runtime.ko.svg)
 
 위 Mermaid 도해로 토픽 소유권을 빠르게 훑어볼 수 있습니다. 아래 상세 도해는 같은 구조를 런타임
 관점에서 보여 줍니다. 에이전트는 각자 독립적으로 구독하고, 작업은 동시에 여러 곳으로 퍼질 수
@@ -397,17 +339,7 @@ FDAI에서 권한 분리는 아키텍처 속성입니다. 나중에 손쉬운 �
 
 리포지토리는 런타임 시스템과 같은 의존 방향을 따릅니다.
 
-```mermaid
-flowchart TB
-  UI[console 및 CLI] --> API[Operator API 및 ChatOps adapter]
-  API --> CONTRACTS[shared contract 및 provider protocol]
-  DELIVERY[delivery adapter] --> CONTRACTS
-  CORE[core control loop] --> CONTRACTS
-  CORE --> CATALOG[rule catalog 및 OPA policy]
-  COMPOSE[composition root] --> CORE
-  COMPOSE --> DELIVERY
-  AZURE[Azure SDK implementation] --> DELIVERY
-```
+![연결된 Azure resource, telemetry, repository 및 enterprise connector가 typed signal을 FDAI 자동 운영 판단 엔진에 publish합니다. 운영자는 Web Console, CLI 및 ChatOps interface를 사용합니다. 15개 독립 실행 agent가 모든 제어 단계를 소유하고 schema-validated event bus로 협업합니다. Event는 ingest와 trust routing을 거쳐 T0 deterministic rule, T1 verified reuse 또는 T2 grounded reasoning으로 전달됩니다. T2만 mixed-model quality gate를 통과한 뒤 모든 tier가 공통 risk 및 authority gate로 들어갑니다. 영향이 큰 작업은 독립적인 사람 권한을 요청하고, typed approval event는 executor를 직접 호출하지 않고 agent runtime으로 다시 들어갑니다. 실행 가능한 작업은 privileged executor에 도달하여 remediation pull request 또는 범위가 제한된 direct action을 생성합니다. 실행할 수 없는 작업은 hold, deny 또는 no-op으로 종료됩니다. Microsoft Foundry, Azure OpenAI, provider tool, OPA 및 Rego policy evaluation, IQL inventory query, operating ontology, governed catalog 및 PostgreSQL은 FDAI 자동 운영 판단 엔진 경계 밖에서 통제된 capability를 제공합니다. Azure Container Apps, Microsoft Entra ID, managed identity, Key Vault 및 Azure Monitor는 deployment foundation을 구성합니다. 모든 terminal result는 추적하고 replay할 수 있습니다.](../diagrams/generated/fdai-reference-architecture.ko.svg)
 
 - **`core/`**에는 판단과 조율 로직이 들어 있습니다. Azure SDK나 UI 컴포넌트가 아니라 공유
   계약에만 의존합니다.
@@ -450,15 +382,17 @@ flowchart TB
 
 ## 모든 작업에 들어 있는 안전장치
 
-작업 유형은 다음 4가지를 선언해야 비로소 완성됩니다.
+작업 유형은 7개 보호장치를 모두 선언해야 비로소 완성됩니다.
 
 - **중단 조건**: 실행을 멈추는 측정 가능한 신호입니다.
 - **롤백 경로**: 이전 상태로 되돌리거나 안전하게 앞으로 나아가는 검증된 방법입니다.
 - **영향 범위 제한**: 작업이 건드릴 수 있는 최대 범위, 배치 크기, 동시성, 속도입니다.
-- **감사 기록**: 이벤트, 결정, 권한을 부여한 주체, 실행 내용, 최종 결과를 다시 구성하는 데
-  필요한 근거입니다.
+- **Dry-run receipt**: 정확한 대상과 revision에 대해 성공한 what-if 결과입니다.
+- **논리 대상 잠금**: side effect가 commit될 때까지 유지합니다.
+- **멱등성 키**: 재시도에서도 중복 실행을 막는 안정적인 키입니다.
+- **2단계 감사**: effect 전 intent와 실행 및 독립 결과 관찰 뒤 terminal closure입니다.
 
-실행에는 정책 검사와 what-if 검사, 리소스별 잠금, 멱등성 키도 필요합니다. 감사
+감사
 저장소처럼 필수적인 의존 항목을 쓰지 못하면 FDAI는 자율성을 관찰 모드로 낮추거나 작업을
 검토 대기로 둘니다. 위험한 쪽으로 열어 두지 않습니다.
 

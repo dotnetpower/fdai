@@ -1,0 +1,209 @@
+{
+  "id": "fdai-get-started-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "When FDAI fits",
+      "description": "FDAI flow for When FDAI fits.",
+      "alt": "When FDAI fits. The main stages are Do operators / repeatedly approve or / roll back the same / types of events?, Not a fit yet. The / deterministic tier has / nothing repeatable to / automate., Is infrastructure / expressed as IaC and / policy-as-code?, Not a fit yet. T0 / needs machine-readable / rules to run., Can you reproduce / a baseline for / measuring gains?, Build the baseline first. / Phase 0 exists for / exactly this., Are you on Azure?, Adapters for other clouds / are not shipped yet., FDAI fits. / Start with Phase 0.."
+    },
+    "ko": {
+      "title": "FDAI가 적합한 경우",
+      "description": "FDAI가 적합한 경우에 대한 FDAI 흐름입니다.",
+      "alt": "FDAI가 적합한 경우. 주요 단계는 운영자가 같은 유형 / 이벤트를 반복 승인/롤백 / 하고 있는가?, 아직 적합하지 않습니다. / 결정론 티어가 자동화할 / 반복 대상이 없습니다., 인프라가 IaC 와 / policy-as-code 로 표현 / 되어 있는가?, 아직 적합하지 않습니다. / T0 는 기계가 읽을 수 있는 / 룰이 필요합니다., 이득 측정을 위한 / 재현 가능한 기준선이 / 있는가?, 먼저 기준선을 만드세요. / Phase 0 가 바로 이걸 / 위해 존재합니다., Azure 사용 중?, 다른 클라우드 어댑터는 / 아직 제공되지 않습니다., FDAI가 적합. / Phase 0부터 시작.입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-get-started-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-get-started-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "q1",
+      "kind": "decision",
+      "shape": "diamond",
+      "label": {
+        "en": "Do operators / repeatedly approve or / roll back the same / types of events?",
+        "ko": "운영자가 같은 유형 / 이벤트를 반복 승인/롤백 / 하고 있는가?"
+      },
+      "description": {
+        "en": "Do operators / repeatedly approve or / roll back the same / types of events?",
+        "ko": "운영자가 같은 유형 / 이벤트를 반복 승인/롤백 / 하고 있는가?"
+      }
+    },
+    {
+      "id": "n1",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Not a fit yet. The / deterministic tier has / nothing repeatable to / automate.",
+        "ko": "아직 적합하지 않습니다. / 결정론 티어가 자동화할 / 반복 대상이 없습니다."
+      },
+      "description": {
+        "en": "Not a fit yet. The / deterministic tier has / nothing repeatable to / automate.",
+        "ko": "아직 적합하지 않습니다. / 결정론 티어가 자동화할 / 반복 대상이 없습니다."
+      }
+    },
+    {
+      "id": "q2",
+      "kind": "decision",
+      "shape": "diamond",
+      "label": {
+        "en": "Is infrastructure / expressed as IaC and / policy-as-code?",
+        "ko": "인프라가 IaC 와 / policy-as-code 로 표현 / 되어 있는가?"
+      },
+      "description": {
+        "en": "Is infrastructure / expressed as IaC and / policy-as-code?",
+        "ko": "인프라가 IaC 와 / policy-as-code 로 표현 / 되어 있는가?"
+      }
+    },
+    {
+      "id": "n2",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Not a fit yet. T0 / needs machine-readable / rules to run.",
+        "ko": "아직 적합하지 않습니다. / T0 는 기계가 읽을 수 있는 / 룰이 필요합니다."
+      },
+      "description": {
+        "en": "Not a fit yet. T0 / needs machine-readable / rules to run.",
+        "ko": "아직 적합하지 않습니다. / T0 는 기계가 읽을 수 있는 / 룰이 필요합니다."
+      }
+    },
+    {
+      "id": "q3",
+      "kind": "decision",
+      "shape": "diamond",
+      "label": {
+        "en": "Can you reproduce / a baseline for / measuring gains?",
+        "ko": "이득 측정을 위한 / 재현 가능한 기준선이 / 있는가?"
+      },
+      "description": {
+        "en": "Can you reproduce / a baseline for / measuring gains?",
+        "ko": "이득 측정을 위한 / 재현 가능한 기준선이 / 있는가?"
+      }
+    },
+    {
+      "id": "n3",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Build the baseline first. / Phase 0 exists for / exactly this.",
+        "ko": "먼저 기준선을 만드세요. / Phase 0 가 바로 이걸 / 위해 존재합니다."
+      },
+      "description": {
+        "en": "Build the baseline first. / Phase 0 exists for / exactly this.",
+        "ko": "먼저 기준선을 만드세요. / Phase 0 가 바로 이걸 / 위해 존재합니다."
+      }
+    },
+    {
+      "id": "q4",
+      "kind": "decision",
+      "shape": "diamond",
+      "label": {
+        "en": "Are you on Azure?",
+        "ko": "Azure 사용 중?"
+      },
+      "description": {
+        "en": "Are you on Azure?",
+        "ko": "Azure 사용 중?"
+      }
+    },
+    {
+      "id": "n4",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Adapters for other clouds / are not shipped yet.",
+        "ko": "다른 클라우드 어댑터는 / 아직 제공되지 않습니다."
+      },
+      "description": {
+        "en": "Adapters for other clouds / are not shipped yet.",
+        "ko": "다른 클라우드 어댑터는 / 아직 제공되지 않습니다."
+      }
+    },
+    {
+      "id": "ok",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "FDAI fits. / Start with Phase 0.",
+        "ko": "FDAI가 적합. / Phase 0부터 시작."
+      },
+      "description": {
+        "en": "FDAI fits. / Start with Phase 0.",
+        "ko": "FDAI가 적합. / Phase 0부터 시작."
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "q1",
+      "to": "n1",
+      "kind": "request",
+      "label": {
+        "en": "no",
+        "ko": "아니오"
+      }
+    },
+    {
+      "id": "flow-02",
+      "from": "q1",
+      "to": "q2",
+      "kind": "request",
+      "label": {
+        "en": "yes",
+        "ko": "예"
+      }
+    },
+    {
+      "id": "flow-03",
+      "from": "q2",
+      "to": "n2",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "q2",
+      "to": "q3",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "q3",
+      "to": "n3",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "q3",
+      "to": "q4",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "q4",
+      "to": "n4",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "q4",
+      "to": "ok",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

@@ -1,10 +1,8 @@
 // @ts-check
-import { readFileSync } from "node:fs";
 import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import remarkCjkFriendly from "remark-cjk-friendly";
 import { remarkStripFirstH1 } from "./src/plugins/strip-first-h1.mjs";
-import { remarkMermaid } from "./src/plugins/mermaid.mjs";
 import { remarkFdaiDiagrams } from "./src/plugins/fdai-diagrams.mjs";
 import { remarkRewriteLinks } from "./src/plugins/rewrite-links.mjs";
 import { remarkCards } from "./src/plugins/cards.mjs";
@@ -32,10 +30,6 @@ const BASE_PATH = process.env.BASE_PATH ?? (IS_PROD ? "/fdai" : "/");
 // double slash regardless of whether BASE_PATH is "/" (dev) or "/fdai".
 const OG_IMAGE = `${SITE_URL}${BASE_PATH.replace(/\/$/, "")}/og-cover.png`;
 const DIAGRAM_VIEWER_SCRIPT = `${BASE_PATH.replace(/\/$/, "")}/diagrams/architecture-diagram.js`;
-const MERMAID_ZOOM_SCRIPT = readFileSync(
-  new URL("./src/scripts/mermaid-zoom.mjs", import.meta.url),
-  "utf8",
-);
 
 export default defineConfig({
   site: SITE_URL,
@@ -46,10 +40,6 @@ export default defineConfig({
   // reads naturally on GitHub, so left alone the site would show two H1s
   // back-to-back. remarkStripFirstH1 drops the first H1 iff it duplicates
   // the front-matter title; anything else is preserved.
-  // remarkMermaid rewrites ```mermaid fenced blocks into a bare
-  // <pre class="mermaid"> so the head-level mermaid loader can render
-  // them on the client (Expressive Code otherwise turns them into a
-  // syntax-highlighted code sample).
   // remarkRewriteLinks turns cross-file `.md` links (authored for
   // GitHub reading) into site-relative URLs, and re-points `.github/**`
   // links at GitHub blob URLs since the site intentionally does not
@@ -73,7 +63,6 @@ export default defineConfig({
       remarkDisplayTerminology,
       remarkStripFirstH1,
       remarkFdaiDiagrams,
-      remarkMermaid,
       remarkRewriteLinks,
       remarkCards,
       remarkSteps,
@@ -117,17 +106,6 @@ export default defineConfig({
         Sidebar: "./src/components/FocusedSidebar.astro",
         SiteTitle: "./src/components/SiteTitle.astro",
       },
-      // Client-side Mermaid renderer. Loaded from jsDelivr as an ES module
-      // so it stays out of the site's build graph (build-time SVG via
-      // Playwright/rehype-mermaid would be heavier and, importantly,
-      // would not react to the reader's theme toggle). The script:
-      //   1. imports mermaid.esm.min.mjs from a CDN,
-      //   2. initialises it with the current theme (data-theme on <html>),
-      //   3. calls mermaid.run() once the DOM is ready,
-      //   4. observes data-theme changes and re-renders every diagram so
-      //      switching to dark mode isn't visually jarring.
-      // Content lives in an inline module script because Starlight's head
-      // slot inserts raw HTML - Astro's script pipeline is out of scope.
       head: [
         {
           tag: "script",
@@ -167,71 +145,6 @@ export default defineConfig({
         {
           tag: "meta",
           attrs: { name: "twitter:image", content: OG_IMAGE },
-        },
-        {
-          tag: "script",
-          attrs: { type: "module" },
-          content: `
-            import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-            const currentTheme = () =>
-              document.documentElement.dataset.theme === 'dark' ? 'dark' : 'default';
-            const configure = () =>
-              mermaid.initialize({
-                startOnLoad: false,
-                theme: currentTheme(),
-                securityLevel: 'strict',
-                fontFamily: 'inherit',
-              });
-            let rendering = false;
-            let rerenderRequested = false;
-            const renderAll = async () => {
-              if (rendering) {
-                rerenderRequested = true;
-                return;
-              }
-              rendering = true;
-              try {
-                do {
-                  rerenderRequested = false;
-                  configure();
-                  const nodes = document.querySelectorAll('pre.mermaid');
-                  nodes.forEach((el) => {
-                    if (!el.dataset.mermaidSrc) el.dataset.mermaidSrc = el.textContent ?? '';
-                    el.textContent = el.dataset.mermaidSrc;
-                    el.removeAttribute('data-processed');
-                  });
-                  await mermaid.run({ nodes: [...nodes] });
-                } while (rerenderRequested);
-              } finally {
-                rendering = false;
-              }
-            };
-            const scheduleRender = () => {
-              renderAll().catch((error) => console.error('Mermaid render failed', error));
-            };
-            if (document.readyState === 'loading') {
-              document.addEventListener('DOMContentLoaded', scheduleRender, { once: true });
-            } else {
-              scheduleRender();
-            }
-            new MutationObserver(() => {
-              scheduleRender();
-            }).observe(document.documentElement, {
-              attributes: true,
-              attributeFilter: ['data-theme'],
-            });
-          `,
-        },
-        {
-          // Click-to-zoom for rendered Mermaid diagrams. Diagrams often
-          // render smaller than their detail deserves; clicking one opens a
-          // fullscreen overlay with wheel zoom, drag-to-pan, +/- / Reset
-          // buttons, and Escape/backdrop to close. Dependency-free and bound
-          // via event delegation so it also covers diagrams re-rendered on
-          // theme toggle.
-          tag: "script",
-          attrs: { type: "module" },
-          content: MERMAID_ZOOM_SCRIPT,
         },
       ],
       sidebar: [

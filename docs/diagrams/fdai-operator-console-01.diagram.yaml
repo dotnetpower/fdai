@@ -1,0 +1,214 @@
+id: fdai-operator-console-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: 2. Three-layer architecture
+    description: FDAI flow for 2. Three-layer architecture.
+    alt: 2. Three-layer architecture. The main stages are CLI REPL, Teams (pull), Slack (pull), Web chat (Console SPA),
+      Narrator (LLM)\nT1 translation default\nT2 translation escalation, Intent classify\n(read | simulate | approve |
+      breakglass), RBAC gate\n(per-tool role floor), Verifier re-check\n(no auto-execute), Session
+      state\n(audit-log-backed), ControlLoop, RuleIndex / T0Engine, QualityGate.
+  ko:
+    title: 2. 3-layer 아키텍처
+    description: 2. 3-layer 아키텍처에 대한 FDAI 흐름입니다.
+    alt: 2. 3-layer 아키텍처. 주요 단계는 CLI REPL, Teams (pull), Slack (pull), Web chat (Console SPA), Narrator (LLM)\nT1
+      translation default\nT2 translation escalation, Intent classify\n(read | simulate | approve | breakglass), RBAC
+      gate\n(per-tool role floor), Verifier re-check\n(no auto-execute), Session state\n(audit-log-backed), ControlLoop,
+      RuleIndex / T0Engine, QualityGate입니다.
+canvas:
+  width: 1600
+  height: 1200
+  direction: DOWN
+groups:
+  - id: l3
+    kind: layer
+    presentation: lane
+    label:
+      en: Layer 3 - Channel (thin adapter)
+      ko: Layer 3 - Channel (thin adapter)
+    direction: DOWN
+  - id: l2
+    kind: layer
+    presentation: lane
+    label:
+      en: Layer 2 - Conversation Coordinator
+      ko: Layer 2 - Conversation Coordinator
+    direction: DOWN
+  - id: l1
+    kind: layer
+    presentation: lane
+    label:
+      en: Layer 1 - Existing deterministic core (unchanged)
+      ko: Layer 1 - Existing deterministic core (unchanged)
+    direction: DOWN
+nodes:
+  - id: cli
+    parent: l3
+    kind: process
+    shape: card
+    label:
+      en: CLI REPL
+      ko: CLI REPL
+  - id: teams-pull
+    parent: l3
+    kind: process
+    shape: card
+    label:
+      en: Teams (pull)
+      ko: Teams (pull)
+  - id: slack-pull
+    parent: l3
+    kind: process
+    shape: card
+    label:
+      en: Slack (pull)
+      ko: Slack (pull)
+  - id: web
+    parent: l3
+    kind: process
+    shape: card
+    label:
+      en: Web chat (Console SPA)
+      ko: Web chat (Console SPA)
+  - id: narr
+    parent: l2
+    kind: process
+    shape: card
+    label:
+      en: Narrator (LLM)\nT1 translation default\nT2 translation escalation
+      ko: Narrator (LLM)\nT1 translation default\nT2 translation escalation
+  - id: intent
+    parent: l2
+    kind: process
+    shape: card
+    label:
+      en: Intent classify\n(read | simulate | approve | breakglass)
+      ko: Intent classify\n(read | simulate | approve | breakglass)
+  - id: rbac
+    parent: l2
+    kind: process
+    shape: card
+    label:
+      en: RBAC gate\n(per-tool role floor)
+      ko: RBAC gate\n(per-tool role floor)
+  - id: verif
+    parent: l2
+    kind: process
+    shape: card
+    label:
+      en: Verifier re-check\n(no auto-execute)
+      ko: Verifier re-check\n(no auto-execute)
+  - id: sess
+    parent: l2
+    kind: process
+    shape: card
+    label:
+      en: Session state\n(audit-log-backed)
+      ko: Session state\n(audit-log-backed)
+  - id: cl
+    parent: l1
+    kind: process
+    shape: card
+    label:
+      en: ControlLoop
+      ko: ControlLoop
+    description:
+      en: "When: tool call"
+      ko: "조건: tool call"
+  - id: rules
+    parent: l1
+    kind: process
+    shape: card
+    label:
+      en: RuleIndex / T0Engine
+      ko: RuleIndex / T0Engine
+    description:
+      en: "When: tool call"
+      ko: "조건: tool call"
+  - id: qg
+    parent: l1
+    kind: process
+    shape: card
+    label:
+      en: QualityGate
+      ko: QualityGate
+    description:
+      en: "When: tool call"
+      ko: "조건: tool call"
+  - id: exec
+    parent: l1
+    kind: process
+    shape: card
+    label:
+      en: ShadowExecutor / RiskGate
+      ko: ShadowExecutor / RiskGate
+    description:
+      en: "When: tool call"
+      ko: "조건: tool call"
+  - id: inv
+    parent: l1
+    kind: process
+    shape: card
+    label:
+      en: Inventory / StateStore
+      ko: Inventory / StateStore
+    description:
+      en: "When: tool call"
+      ko: "조건: tool call"
+edges:
+  - id: flow-01
+    from: cli
+    to: intent
+    kind: request
+  - id: flow-02
+    from: teams-pull
+    to: intent
+    kind: request
+  - id: flow-03
+    from: slack-pull
+    to: intent
+    kind: request
+  - id: flow-04
+    from: web
+    to: intent
+    kind: request
+  - id: flow-05
+    from: intent
+    to: rbac
+    kind: request
+  - id: flow-06
+    from: rbac
+    to: narr
+    kind: request
+  - id: flow-07
+    from: narr
+    to: verif
+    kind: request
+  - id: flow-08
+    from: verif
+    to: sess
+    kind: request
+  - id: flow-09
+    from: narr
+    to: cl
+    kind: dependency
+  - id: flow-10
+    from: narr
+    to: rules
+    kind: dependency
+  - id: flow-11
+    from: narr
+    to: qg
+    kind: dependency
+  - id: flow-12
+    from: narr
+    to: exec
+    kind: dependency
+  - id: flow-13
+    from: narr
+    to: inv
+    kind: dependency

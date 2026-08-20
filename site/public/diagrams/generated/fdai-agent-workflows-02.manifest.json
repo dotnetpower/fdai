@@ -1,0 +1,203 @@
+{
+  "id": "fdai-agent-workflows-02",
+  "kind": "sequence",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "2. Predictive scale",
+      "description": "Ordered FDAI interactions for 2. Predictive scale.",
+      "alt": "2. Predictive scale. The main stages are proposed_action {scale_out, target, size}, typed query {resource, recent_signals}, signal_confirm {leading_indicators, confidence}, cost_impact query, cost_estimate, arbitration_request {sre_intent, cost_block}, arbitration_response, verdict {scale_out, size}, dispatch (auto if under ceiling)."
+    },
+    "ko": {
+      "title": "2. Predictive 규모",
+      "description": "2. Predictive 규모에 대한 순서가 있는 FDAI 상호 작용입니다.",
+      "alt": "2. Predictive 규모. 주요 단계는 proposed_action {scale_out, target, size}, typed query {resource, recent_signals}, signal_confirm {leading_indicators, confidence}, cost_impact query, cost_estimate, arbitration_request {sre_intent, cost_block}, arbitration_response, verdict {scale_out, size}, dispatch (auto if under ceiling)입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-agent-workflows-02.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-agent-workflows-02.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "step-01",
+      "kind": "process",
+      "badge": 1,
+      "label": {
+        "en": "Freyr -> Forseti",
+        "ko": "Freyr -> Forseti"
+      },
+      "description": {
+        "en": "proposed_action {scale_out, target, size}",
+        "ko": "proposed_action {scale_out, target, size}"
+      }
+    },
+    {
+      "id": "step-02",
+      "kind": "process",
+      "badge": 2,
+      "label": {
+        "en": "Forseti -> Heimdall",
+        "ko": "Forseti -> Heimdall"
+      },
+      "description": {
+        "en": "typed query {resource, recent_signals}",
+        "ko": "typed query {resource, recent_signals}"
+      }
+    },
+    {
+      "id": "step-03",
+      "kind": "process",
+      "badge": 3,
+      "label": {
+        "en": "H- -> Forseti",
+        "ko": "H- -> Forseti"
+      },
+      "description": {
+        "en": "signal_confirm {leading_indicators, confidence}",
+        "ko": "signal_confirm {leading_indicators, confidence}"
+      }
+    },
+    {
+      "id": "step-04",
+      "kind": "process",
+      "badge": 4,
+      "label": {
+        "en": "Forseti -> Njord",
+        "ko": "Forseti -> Njord"
+      },
+      "description": {
+        "en": "cost_impact query",
+        "ko": "cost_impact query"
+      }
+    },
+    {
+      "id": "step-05",
+      "kind": "process",
+      "badge": 5,
+      "label": {
+        "en": "Nj- -> Forseti",
+        "ko": "Nj- -> Forseti"
+      },
+      "description": {
+        "en": "cost_estimate",
+        "ko": "cost_estimate"
+      }
+    },
+    {
+      "id": "step-06",
+      "kind": "process",
+      "badge": 6,
+      "label": {
+        "en": "Forseti -> Odin",
+        "ko": "Forseti -> Odin"
+      },
+      "description": {
+        "en": "alt: cost > fork_config.scale_cost_ceiling / arbitration_request {sre_intent, cost_block}",
+        "ko": "alt: cost > fork_config.scale_cost_ceiling / arbitration_request {sre_intent, cost_block}"
+      }
+    },
+    {
+      "id": "step-07",
+      "kind": "process",
+      "badge": 7,
+      "label": {
+        "en": "O- -> Forseti",
+        "ko": "O- -> Forseti"
+      },
+      "description": {
+        "en": "alt: cost > fork_config.scale_cost_ceiling / arbitration_response",
+        "ko": "alt: cost > fork_config.scale_cost_ceiling / arbitration_response"
+      }
+    },
+    {
+      "id": "step-08",
+      "kind": "process",
+      "badge": 8,
+      "label": {
+        "en": "Forseti -> Thor",
+        "ko": "Forseti -> Thor"
+      },
+      "description": {
+        "en": "verdict {scale_out, size}",
+        "ko": "verdict {scale_out, size}"
+      }
+    },
+    {
+      "id": "step-09",
+      "kind": "process",
+      "badge": 9,
+      "label": {
+        "en": "Thor -> Thor",
+        "ko": "Thor -> Thor"
+      },
+      "description": {
+        "en": "dispatch (auto if under ceiling)",
+        "ko": "dispatch (auto if under ceiling)"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "sequence-01",
+      "from": "step-01",
+      "to": "step-02",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-02",
+      "from": "step-02",
+      "to": "step-03",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-03",
+      "from": "step-03",
+      "to": "step-04",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-04",
+      "from": "step-04",
+      "to": "step-05",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-05",
+      "from": "step-05",
+      "to": "step-06",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-06",
+      "from": "step-06",
+      "to": "step-07",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-07",
+      "from": "step-07",
+      "to": "step-08",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-08",
+      "from": "step-08",
+      "to": "step-09",
+      "kind": "sequence",
+      "label": null
+    }
+  ]
+}

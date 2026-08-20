@@ -90,25 +90,7 @@ owned by [Production A3 channel runtime](production-a3-channel-runtime.md).
 
 ## 2. Where Channels Sit in the Architecture
 
-```mermaid
-flowchart LR
-    subgraph core[core/]
-      RG[risk-gate] --> R[channel-router]
-      OBS[observability] --> R
-      DIG[digest-writer] --> R
-    end
-    R -->|category-tagged<br/>message| CH[Channel interface]
-    subgraph delivery[delivery/]
-      CH --> T[teams adapter]
-      CH --> S[slack adapter]
-      CH --> E[email adapter]
-      CH --> W[webhook adapter]
-      CH --> P[pager adapter]
-    end
-    T --> API[fdai-api]
-    S --> API
-    API --> RG
-```
+![2. Where Channels Sit in the Architecture. The main stages are risk-gate, channel-router, observability, digest-writer, Channel interface, teams adapter, slack adapter, email adapter, webhook adapter, pager adapter, fdai-api.](../../diagrams/generated/fdai-channels-and-notifications-01.en.svg)
 
 - Outbound adapters live under `delivery/notifications/`, bidirectional adapters under
   `delivery/channels/`, and A1 approval adapters under `delivery/chatops/`. Their contracts live in

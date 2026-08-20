@@ -1,8 +1,8 @@
 ---
 title: 에스컬레이션과 상시 권한(감독형 OODA 루프)
 translation_of: escalation-and-standing-authority.md
-translation_source_sha: 6497856b893124675a7e749d11bf81d00f6cefd6
-translation_revised: 2026-08-19
+translation_source_sha: dea4693dda5e629b62c34ac0ef1de00e91e1c157
+translation_revised: 2026-08-20
 ---
 
 # 에스컬레이션과 상시 권한(감독형 OODA 루프)
@@ -85,33 +85,7 @@ translation_revised: 2026-08-19
 의 매핑 참조). 여기서 추가하는 것은 *하나의 보류 결정* 을 감독하며 종단 상태에 이를
 때까지 틱 하는 **두 번째, 더 느린 루프** 다.
 
-```mermaid
-flowchart LR
-  subgraph OBSERVE["Observe (per tick)"]
-    O1["approval still pending?"]
-    O2["forecast ETA now?<br/>(lead time recomputed)"]
-    O3["inaction blast radius?"]
-  end
-  subgraph ORIENT["Orient"]
-    R1["recompute urgency<br/>= f(impact, ETA, rung age)"]
-    R2["which ladder rung<br/>should hold this now?"]
-  end
-  subgraph DECIDE["Decide"]
-    D1{"standing authorization<br/>matches + envelope holds<br/>+ deadline passed?"}
-  end
-  subgraph ACT["Act"]
-    A1["escalate to next rung"]
-    A2["trip standing action<br/>-> re-enter typed pipeline"]
-    A3["terminal no-op<br/>(ladder exhausted)"]
-  end
-  OBSERVE --> ORIENT --> DECIDE
-  D1 -->|no, rung TTL left| A1
-  D1 -->|yes| A2
-  D1 -->|no, ladder done| A3
-  A1 -. next tick .-> OBSERVE
-  A2 --> AUD["audit (Saga)"]
-  A3 --> AUD
-```
+![감독 프레임으로서의 OODA. 주요 단계는 approval still pending?, forecast ETA now? / (lead time recomputed), inaction blast radius?, recompute urgency / = f(impact, ETA, rung age), which ladder rung / should hold this now?, standing authorization / matches + envelope holds / + deadline passed?, escalate to next rung, trip standing action / -> re-enter typed pipeline, terminal no-op / (ladder exhausted), audit (Saga)입니다.](../../diagrams/generated/fdai-escalation-and-standing-authority-01.ko.svg)
 
 - 감독자는 **기반 를 직접 변경하지 않는다**. 유일한 privileged 결과(`A2`)는
   액션을 정상 principal 을 통해 재판단·실행하도록 **타입 파이프라인을 재진입** 시키는
@@ -327,16 +301,7 @@ mode: shadow                      # judge-and-log until explicitly promoted
 상시 권한이 발동되면 감독자는 **실행하지 않는다.** 보류된 액션을 새 결정으로 **타입
 파이프라인에 재주입** 한다:
 
-```mermaid
-flowchart LR
-  SUP["escalation supervisor<br/>(ladder deadline + SA match)"] -->|re-enter| RG["risk-gate<br/>re-evaluates"]
-  RG -->|"SA precondition + envelope verified"| V["Var<br/>standing Approval"]
-  V --> EX["Thor<br/>executes approved HIL action"]
-  EX --> DEL["delivery<br/>remediation-PR / direct-api"]
-  DEL --> AUD["audit (Saga)<br/>reason: standing-authority sa-...id"]
-  RG -->|"SA invalid / envelope exceeded"| NO["terminal no-op<br/>+ A2 alert"]
-  NO --> AUD
-```
+![재결정 경로(우회 없음). 주요 단계는 escalation supervisor / (ladder deadline + SA match), risk-gate / re-evaluates, Var / standing Approval, Thor / executes approved HIL action, delivery / remediation-PR / direct-api, audit (Saga) / reason: standing-authority sa-...id, terminal no-op / + A2 alert입니다.](../../diagrams/generated/fdai-escalation-and-standing-authority-02.ko.svg)
 
 - **Forseti는 위험을 높이지 않고 재판단합니다.** 원래 `hil` 기준 판정은 유지됩니다. Risk 게이트는
   유효하고 만료되지 않았으며 범위가 맞고 전제조건과 경계가 계속 성립하는 상시 권한을

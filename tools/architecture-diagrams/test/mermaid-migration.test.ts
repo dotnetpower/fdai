@@ -6,6 +6,7 @@ import {
   extractMermaidBlocks,
   parseFlowchart,
   parseSequence,
+  parseTimeline,
   replaceMermaidBlocks,
 } from "../src/migrate/mermaid.js";
 
@@ -127,6 +128,26 @@ end`;
   assert.equal(spec.kind, "sequence");
   assert.equal(spec.nodes[1]?.description?.ko, "alt: 검토 필요 / 보류");
   assert.equal(spec.edges[0]?.kind, "sequence");
+});
+
+test("timeline migration preserves bilingual wave order", () => {
+  const enSource = `timeline
+title Wave plan
+W0 : Foundation : Contracts
+W1 : Runtime : Tests`;
+  const koSource = `timeline
+title Wave 계획
+W0 : 기반 : 계약
+W1 : 런타임 : 테스트`;
+  assert.equal(parseTimeline(enSource).entries.length, 2);
+  const spec = convertMermaidPair(
+    "wave-plan",
+    { heading: "Waves", source: enSource },
+    { heading: "웨이브", source: koSource },
+  );
+  assert.equal(spec.kind, "timeline");
+  assert.equal(spec.nodes[1]?.description?.ko, "런타임 / 테스트");
+  assert.equal(spec.edges[0]?.kind, "timeline");
 });
 
 test("Markdown extraction and replacement are count checked", () => {

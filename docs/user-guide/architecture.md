@@ -187,26 +187,7 @@ instead of executing without approval.
 Every event takes the same path, whether it comes from an Azure resource change,
 an SLO burn detector, a scheduled job, or an operator request.
 
-```mermaid
-flowchart TD
-  E[Event or finding] --> I[event ingest]
-  I -->|validate, normalize, deduplicate, correlate| R[trust router]
-  R --> T0[T0 deterministic rules]
-  R --> T1[T1 lightweight reuse]
-  R --> T2[T2 grounded reasoning]
-  T2 --> Q[quality gate]
-  T0 --> G[risk gate]
-  T1 --> G
-  Q --> G
-  G -->|auto| X[executor]
-  G -->|approval required| H[human approval]
-  G -->|deny or hold| N[no-op]
-  H -->|approve| X
-  H -->|reject or timeout| N
-  X --> D[delivery]
-  D --> A[audit]
-  N --> A
-```
+![Azure changes, telemetry, operator requests, and scheduled probes enter Event Hubs through its Kafka endpoint on port 9093. The FDAI control plane ingests each event, selects a trust tier, verifies the decision, applies the risk gate, and either executes, requests approval, or holds. Outcomes are delivered through remediation pull requests and recorded in PostgreSQL for the read-only console.](../diagrams/generated/fdai-system-overview.en.svg)
 
 1. **Ingest and correlate**: FDAI checks the event schema, drops repeats using a
    stable idempotency key (a key that makes a retry safe), and groups related
@@ -259,46 +240,7 @@ dependencies, so you cannot turn off audit or rollback.
 The table above is the organization chart. The diagram below is the data flow:
 which agent-owned object moves where.
 
-```mermaid
-flowchart LR
-  EXT[Azure adapters, schedules, operator]
-  HUG[Huginn<br/>Event owner]
-  HEI[Heimdall<br/>Anomaly, Drift, Forecast]
-  DOM[Njord, Freyr, Loki<br/>domain evidence]
-  FOR[Forseti<br/>Verdict owner]
-  ODI[Odin<br/>ArbitrationDecision owner]
-  THO[Thor<br/>ActionRun owner]
-  VAR[Var<br/>Approval owner]
-  VID[Vidar<br/>Rollback owner]
-  SAG[Saga<br/>AuditEntry owner]
-  NOR[Norns<br/>RuleCandidate owner]
-  MIM[Mimir<br/>Rule and Policy owner]
-  MUN[Muninn<br/>state and context]
-  BRA[Bragi<br/>conversation translator]
-
-  EXT --> HUG
-  HUG --> HEI
-  HUG --> FOR
-  HEI --> FOR
-  DOM --> FOR
-  MIM -. rules .-> FOR
-  MUN -. context .-> FOR
-  FOR -->|cross-domain conflict| ODI
-  ODI -->|arbitration decision| FOR
-  FOR -->|auto, hil, deny verdict| THO
-  THO -->|hil pending| VAR
-  VAR -->|approved or rejected| THO
-  THO -->|failed action run| VID
-  VID -->|rollback result| THO
-  FOR --> SAG
-  THO --> SAG
-  VAR --> SAG
-  VID --> SAG
-  SAG -. outcomes .-> NOR
-  NOR -. inert candidate .-> MIM
-  BRA -. question .-> MUN
-  BRA -->|typed action proposal| HUG
-```
+![External signals enter the shared typed event bus and reach Huginn. Huginn publishes normalized events that fan out to Heimdall and Forseti. Heimdall, Njord, Freyr, Loki, Mimir, and Muninn contribute findings, domain evidence, rules, and context without calling one another directly. Forseti owns decisions and asks Odin to arbitrate cross-domain conflicts. Eligible decisions reach Thor, while Var owns human approval and Vidar owns rollback. Forseti, Thor, Var, and Vidar publish audit evidence to Saga. Saga outcomes reach Norns, which proposes inert rule candidates to Mimir. Bragi reads context from Muninn and returns typed action proposals to Huginn so conversations use the same governed path.](../diagrams/generated/fdai-agent-driven-runtime.en.svg)
 
 The Mermaid view above makes topic ownership easy to scan. The detailed view
 below shows the same topology at runtime: agents subscribe independently, work
@@ -427,17 +369,7 @@ risk, and audit path as any other request.
 
 The repository follows the same dependency direction as the runtime system.
 
-```mermaid
-flowchart TB
-  UI[console and CLI] --> API[Operator API and ChatOps adapters]
-  API --> CONTRACTS[shared contracts and provider protocols]
-  DELIVERY[delivery adapters] --> CONTRACTS
-  CORE[core control loop] --> CONTRACTS
-  CORE --> CATALOG[rule catalog and OPA policies]
-  COMPOSE[composition root] --> CORE
-  COMPOSE --> DELIVERY
-  AZURE[Azure SDK implementations] --> DELIVERY
-```
+![Connected Azure resources, telemetry, repositories, and enterprise connectors publish typed signals into the headless FDAI control plane. Operators use the Web Console, CLI, and ChatOps interfaces. Fifteen independently runnable agents own every control stage and coordinate through a schema-validated event bus. Events pass through ingest and trust routing into T0 deterministic rules, T1 verified reuse, or T2 grounded reasoning. T2 alone passes a mixed-model quality gate before all tiers enter the common risk and authority gate. High-impact work requests independent human authority, and the resulting typed approval event re-enters the agent runtime instead of calling the executor directly. Eligible work reaches the privileged executor and produces remediation pull requests or bounded direct actions; ineligible work is held, denied, or closed as a no-op. Microsoft Foundry, Azure OpenAI, provider tools, OPA and Rego policy evaluation, IQL inventory queries, the operating ontology, governed catalogs, and PostgreSQL provide governed capabilities outside the headless control-plane boundary. Azure Container Apps, Microsoft Entra ID, managed identities, Key Vault, and Azure Monitor form the deployment foundation. Every terminal result is attributable and replayable.](../diagrams/generated/fdai-reference-architecture.en.svg)
 
 - **`core/`** holds decision and coordination logic. It depends on shared
   contracts, never on Azure SDKs or UI components.
@@ -483,18 +415,20 @@ contracts](../roadmap/architecture/csp-neutrality.md).
 
 ## Safety built into every action
 
-An action type is incomplete until it declares four controls:
+An action type is incomplete until it declares all seven safeguards:
 
 - **Stop condition**: the measurable signal that halts execution.
 - **Rollback path**: the tested way to restore the old state or move forward
   safely.
 - **Impact scope limit**: the largest scope, batch size, concurrency, or rate
   the action may touch.
-- **Audit record**: the evidence needed to reconstruct the event, the decision,
-  who authorized it, what ran, and how it ended.
+- **Dry-run receipt**: the successful what-if result for the exact target and revision.
+- **Logical-target lock**: held until the side effect commits.
+- **Idempotency key**: stable duplicate suppression across retries.
+- **Two-phase audit**: intent before the effect and terminal closure after
+  execution and independent outcome observation.
 
-Execution also needs policy and what-if checks, a per-resource lock, and an
-idempotency key. If a required dependency such as the audit store is
+If a required dependency such as the audit store is
 unavailable, FDAI drops autonomy to observation mode or holds the work for
 review. It does not fail open.
 

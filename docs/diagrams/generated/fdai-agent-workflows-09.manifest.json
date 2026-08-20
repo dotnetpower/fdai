@@ -1,0 +1,203 @@
+{
+  "id": "fdai-agent-workflows-09",
+  "kind": "sequence",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "9. Rollback rehearsal",
+      "description": "Ordered FDAI interactions for 9. Rollback rehearsal.",
+      "alt": "9. Rollback rehearsal. The main stages are proposed_action {rehearse_rollback, action_type_id}, verdict = hil (all rehearsals HIL), approval, verdict {execute}, apply mutation in shadow env, invoke rollback per rollback_contract, observe post-rollback state, state matches pre-mutation baseline?, audit {rehearsal_result, deviation}."
+    },
+    "ko": {
+      "title": "9. Rollback 예행 연습",
+      "description": "9. Rollback 예행 연습에 대한 순서가 있는 FDAI 상호 작용입니다.",
+      "alt": "9. Rollback 예행 연습. 주요 단계는 proposed_action {rehearse_rollback, action_type_id}, verdict = hil (all rehearsals HIL), approval, verdict {execute}, apply mutation in shadow env, invoke rollback per rollback_contract, observe post-rollback state, state matches pre-mutation baseline?, audit {rehearsal_result, deviation}입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-agent-workflows-09.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-agent-workflows-09.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "step-01",
+      "kind": "process",
+      "badge": 1,
+      "label": {
+        "en": "Loki -> Forseti",
+        "ko": "Loki -> Forseti"
+      },
+      "description": {
+        "en": "proposed_action {rehearse_rollback, action_type_id}",
+        "ko": "proposed_action {rehearse_rollback, action_type_id}"
+      }
+    },
+    {
+      "id": "step-02",
+      "kind": "process",
+      "badge": 2,
+      "label": {
+        "en": "Forseti -> Var",
+        "ko": "Forseti -> Var"
+      },
+      "description": {
+        "en": "verdict = hil (all rehearsals HIL)",
+        "ko": "verdict = hil (all rehearsals HIL)"
+      }
+    },
+    {
+      "id": "step-03",
+      "kind": "process",
+      "badge": 3,
+      "label": {
+        "en": "Va- -> Forseti",
+        "ko": "Va- -> Forseti"
+      },
+      "description": {
+        "en": "approval",
+        "ko": "approval"
+      }
+    },
+    {
+      "id": "step-04",
+      "kind": "process",
+      "badge": 4,
+      "label": {
+        "en": "Forseti -> Vidar",
+        "ko": "Forseti -> Vidar"
+      },
+      "description": {
+        "en": "verdict {execute}",
+        "ko": "verdict {execute}"
+      }
+    },
+    {
+      "id": "step-05",
+      "kind": "process",
+      "badge": 5,
+      "label": {
+        "en": "Vidar -> Vidar",
+        "ko": "Vidar -> Vidar"
+      },
+      "description": {
+        "en": "apply mutation in shadow env",
+        "ko": "apply mutation in shadow env"
+      }
+    },
+    {
+      "id": "step-06",
+      "kind": "process",
+      "badge": 6,
+      "label": {
+        "en": "Vidar -> Vidar",
+        "ko": "Vidar -> Vidar"
+      },
+      "description": {
+        "en": "invoke rollback per rollback_contract",
+        "ko": "invoke rollback per rollback_contract"
+      }
+    },
+    {
+      "id": "step-07",
+      "kind": "process",
+      "badge": 7,
+      "label": {
+        "en": "Vidar -> Heimdall",
+        "ko": "Vidar -> Heimdall"
+      },
+      "description": {
+        "en": "observe post-rollback state",
+        "ko": "observe post-rollback state"
+      }
+    },
+    {
+      "id": "step-08",
+      "kind": "process",
+      "badge": 8,
+      "label": {
+        "en": "H- -> Vidar",
+        "ko": "H- -> Vidar"
+      },
+      "description": {
+        "en": "state matches pre-mutation baseline?",
+        "ko": "state matches pre-mutation baseline?"
+      }
+    },
+    {
+      "id": "step-09",
+      "kind": "process",
+      "badge": 9,
+      "label": {
+        "en": "Vidar -> Saga",
+        "ko": "Vidar -> Saga"
+      },
+      "description": {
+        "en": "audit {rehearsal_result, deviation}",
+        "ko": "audit {rehearsal_result, deviation}"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "sequence-01",
+      "from": "step-01",
+      "to": "step-02",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-02",
+      "from": "step-02",
+      "to": "step-03",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-03",
+      "from": "step-03",
+      "to": "step-04",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-04",
+      "from": "step-04",
+      "to": "step-05",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-05",
+      "from": "step-05",
+      "to": "step-06",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-06",
+      "from": "step-06",
+      "to": "step-07",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-07",
+      "from": "step-07",
+      "to": "step-08",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-08",
+      "from": "step-08",
+      "to": "step-09",
+      "kind": "sequence",
+      "label": null
+    }
+  ]
+}

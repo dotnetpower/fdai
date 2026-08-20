@@ -61,17 +61,7 @@ When the safety check classifies an action as **human approval** (see
 request to an A1-capable channel. You approve or reject it, and only then does
 the executor act.
 
-```mermaid
-flowchart LR
-  RG["risk-gate<br/>verdict = HIL"] --> R["channel-router<br/>picks an A1 channel"]
-  R --> C["Approval card<br/>Teams / Slack<br/>carries an opaque approval_id"]
-  C --> H["You approve<br/>or reject"]
-  H --> API["fdai-api<br/>re-verifies your identity<br/>+ replay + no self-approval"]
-  API -->|approved| EX["executor<br/>applies the action"]
-  API -->|rejected / timeout| NO["no-op"]
-  EX --> AUD["audit log"]
-  NO --> AUD
-```
+![How an approval reaches you. The main stages are risk-gate / verdict = HIL, channel-router / picks an A1 channel, Approval card / Teams / Slack / carries an opaque approval_id, You approve / or reject, fdai-api / re-verifies your identity / + replay + no self-approval, executor / applies the action, no-op, audit log.](../../diagrams/generated/fdai-approvals-and-channels-01.en.svg)
 
 Two properties make this safe:
 

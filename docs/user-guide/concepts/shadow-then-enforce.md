@@ -18,17 +18,7 @@ baseline.
 While a new capability is observing, every event flows through it as if autonomy
 were already on:
 
-```mermaid
-flowchart LR
-  NEW[New capability<br/>ships]
-  NEW --> SH[Shadow mode<br/>judge + log only<br/>no execution]
-  SH --> M{Evidence gate met?<br/>sample + accuracy +<br/>zero policy escapes}
-  M -->|yes| EN[Enforce mode<br/>auto-execute]
-  M -->|no| SH
-  EN --> R{Live regression?}
-  R -->|yes| SH
-  R -->|no| EN
-```
+![What observation mode records. The main stages are New capability / ships, Shadow mode / judge + log only / no execution, Evidence gate met? / sample + accuracy + / zero policy escapes, Enforce mode / auto-execute, Live regression?.](../../diagrams/generated/fdai-shadow-then-enforce-01.en.svg)
 
 - FDAI computes the full trust-routing and safety-check decision.
 - It stores the proposed action, meaning what would have executed.

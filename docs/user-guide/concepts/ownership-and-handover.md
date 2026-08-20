@@ -73,16 +73,7 @@ agent is broken and needs attention soon. It doesn't mean FDAI stopped working.
 Handover starts with a document someone already has: an on-call roster, a RACI chart, an org chart,
 a runbook, or a memo written on the way out. FDAI reads it, proposes a map change, and stops.
 
-```mermaid
-flowchart LR
-  D[Handover document] --> U[Upload through ingestion]
-  U --> X[Extract claims with citations]
-  X --> R[Resolve names to directory identities]
-  R --> DR[Draft ownership map]
-  DR --> PR[Draft pull request]
-  PR --> H[A person reviews and merges]
-  H --> M[Ownership map updated]
-```
+![How a handover document becomes a change. The main stages are Handover document, Upload through ingestion, Extract claims with citations, Resolve names to directory identities, Draft ownership map, Draft pull request, A person reviews and merges, Ownership map updated.](../../diagrams/generated/fdai-ownership-and-handover-01.en.svg)
 
 1. **Upload.** You submit the document through the console's knowledge-handover form, or through the
    ingestion path directly. It passes the same safety inspection as any other upload.

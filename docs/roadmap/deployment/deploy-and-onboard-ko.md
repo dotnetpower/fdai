@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: b91be5376541eb201e425cf37ee4b3f7099202c4
+translation_source_sha: 13191711e12e738f869360470197725c7c0ce773
 translation_revised: 2026-08-20
 ---
 
@@ -501,18 +501,7 @@ networking과 digest-pinned FDAI 및 ClamAV 이미지를 요구합니다.
 프로비저닝은 IaC 주도이지만 첫 라이브 이벤트까지의 **논리적 부트스트랩 순서**는 지켜야 함.
 앞의 단계가 실패하면 halt하고 unwind; 배포는 깨진 앞 단계로 뒤 단계에 진행하지 않음.
 
-```mermaid
-flowchart TD
-    A[Prerequisites resolved] --> B[IaC provision core resources]
-    B --> C[Create executor MI plus scoped role assignments]
-    C --> D[Deploy signed image to Container Apps in shadow-only]
-    D --> D1[Run alembic upgrade head against the provisioned Postgres]
-    D1 --> E[Attach Diagnostic Settings and Kafka topic forwarders]
-    E --> F[Seed rule catalog with day-zero rule set]
-    F --> G[Register HIL approvers and ChatOps channel]
-    G --> H[Run post-deploy smoke tests]
-    H --> I[System is warm; first real event may arrive]
-```
+![부트스트랩 순서. 주요 단계는 Prerequisites resolved, IaC provision core resources, Create executor MI plus scoped role assignments, Deploy signed image to Container Apps in shadow-only, Run alembic upgrade head against the provisioned Postgres, Attach Diagnostic Settings and Kafka topic forwarders, Seed rule catalog with day-zero rule set, Register HIL approvers and ChatOps channel, Run post-deploy smoke tests, System is warm; first real event may arrive입니다.](../../diagrams/generated/fdai-deploy-and-onboard-01.ko.svg)
 
 - **첫 배포에서 shadow-only**: 어떤 규칙/액션도 절대 강제 적용 모드로 시작하지 않음. 승격은
   별개의 행위 ([rule-governance-ko.md](../rules-and-detection/rule-governance-ko.md)).

@@ -1,0 +1,303 @@
+{
+  "id": "fdai-operator-console-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "2. Three-layer architecture",
+      "description": "FDAI flow for 2. Three-layer architecture.",
+      "alt": "2. Three-layer architecture. The main stages are CLI REPL, Teams (pull), Slack (pull), Web chat (Console SPA), Narrator (LLM)\\nT1 translation default\\nT2 translation escalation, Intent classify\\n(read | simulate | approve | breakglass), RBAC gate\\n(per-tool role floor), Verifier re-check\\n(no auto-execute), Session state\\n(audit-log-backed), ControlLoop, RuleIndex / T0Engine, QualityGate."
+    },
+    "ko": {
+      "title": "2. 3-layer 아키텍처",
+      "description": "2. 3-layer 아키텍처에 대한 FDAI 흐름입니다.",
+      "alt": "2. 3-layer 아키텍처. 주요 단계는 CLI REPL, Teams (pull), Slack (pull), Web chat (Console SPA), Narrator (LLM)\\nT1 translation default\\nT2 translation escalation, Intent classify\\n(read | simulate | approve | breakglass), RBAC gate\\n(per-tool role floor), Verifier re-check\\n(no auto-execute), Session state\\n(audit-log-backed), ControlLoop, RuleIndex / T0Engine, QualityGate입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-operator-console-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-operator-console-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "cli",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "CLI REPL",
+        "ko": "CLI REPL"
+      },
+      "description": {
+        "en": "CLI REPL",
+        "ko": "CLI REPL"
+      }
+    },
+    {
+      "id": "teams-pull",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Teams (pull)",
+        "ko": "Teams (pull)"
+      },
+      "description": {
+        "en": "Teams (pull)",
+        "ko": "Teams (pull)"
+      }
+    },
+    {
+      "id": "slack-pull",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Slack (pull)",
+        "ko": "Slack (pull)"
+      },
+      "description": {
+        "en": "Slack (pull)",
+        "ko": "Slack (pull)"
+      }
+    },
+    {
+      "id": "web",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Web chat (Console SPA)",
+        "ko": "Web chat (Console SPA)"
+      },
+      "description": {
+        "en": "Web chat (Console SPA)",
+        "ko": "Web chat (Console SPA)"
+      }
+    },
+    {
+      "id": "narr",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Narrator (LLM)\\nT1 translation default\\nT2 translation escalation",
+        "ko": "Narrator (LLM)\\nT1 translation default\\nT2 translation escalation"
+      },
+      "description": {
+        "en": "Narrator (LLM)\\nT1 translation default\\nT2 translation escalation",
+        "ko": "Narrator (LLM)\\nT1 translation default\\nT2 translation escalation"
+      }
+    },
+    {
+      "id": "intent",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Intent classify\\n(read | simulate | approve | breakglass)",
+        "ko": "Intent classify\\n(read | simulate | approve | breakglass)"
+      },
+      "description": {
+        "en": "Intent classify\\n(read | simulate | approve | breakglass)",
+        "ko": "Intent classify\\n(read | simulate | approve | breakglass)"
+      }
+    },
+    {
+      "id": "rbac",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "RBAC gate\\n(per-tool role floor)",
+        "ko": "RBAC gate\\n(per-tool role floor)"
+      },
+      "description": {
+        "en": "RBAC gate\\n(per-tool role floor)",
+        "ko": "RBAC gate\\n(per-tool role floor)"
+      }
+    },
+    {
+      "id": "verif",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Verifier re-check\\n(no auto-execute)",
+        "ko": "Verifier re-check\\n(no auto-execute)"
+      },
+      "description": {
+        "en": "Verifier re-check\\n(no auto-execute)",
+        "ko": "Verifier re-check\\n(no auto-execute)"
+      }
+    },
+    {
+      "id": "sess",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Session state\\n(audit-log-backed)",
+        "ko": "Session state\\n(audit-log-backed)"
+      },
+      "description": {
+        "en": "Session state\\n(audit-log-backed)",
+        "ko": "Session state\\n(audit-log-backed)"
+      }
+    },
+    {
+      "id": "cl",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "ControlLoop",
+        "ko": "ControlLoop"
+      },
+      "description": {
+        "en": "When: tool call",
+        "ko": "조건: tool call"
+      }
+    },
+    {
+      "id": "rules",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "RuleIndex / T0Engine",
+        "ko": "RuleIndex / T0Engine"
+      },
+      "description": {
+        "en": "When: tool call",
+        "ko": "조건: tool call"
+      }
+    },
+    {
+      "id": "qg",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "QualityGate",
+        "ko": "QualityGate"
+      },
+      "description": {
+        "en": "When: tool call",
+        "ko": "조건: tool call"
+      }
+    },
+    {
+      "id": "exec",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "ShadowExecutor / RiskGate",
+        "ko": "ShadowExecutor / RiskGate"
+      },
+      "description": {
+        "en": "When: tool call",
+        "ko": "조건: tool call"
+      }
+    },
+    {
+      "id": "inv",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Inventory / StateStore",
+        "ko": "Inventory / StateStore"
+      },
+      "description": {
+        "en": "When: tool call",
+        "ko": "조건: tool call"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "cli",
+      "to": "intent",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "teams-pull",
+      "to": "intent",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "slack-pull",
+      "to": "intent",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "web",
+      "to": "intent",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "intent",
+      "to": "rbac",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "rbac",
+      "to": "narr",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "narr",
+      "to": "verif",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "verif",
+      "to": "sess",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "narr",
+      "to": "cl",
+      "kind": "dependency",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "narr",
+      "to": "rules",
+      "kind": "dependency",
+      "label": null
+    },
+    {
+      "id": "flow-11",
+      "from": "narr",
+      "to": "qg",
+      "kind": "dependency",
+      "label": null
+    },
+    {
+      "id": "flow-12",
+      "from": "narr",
+      "to": "exec",
+      "kind": "dependency",
+      "label": null
+    },
+    {
+      "id": "flow-13",
+      "from": "narr",
+      "to": "inv",
+      "kind": "dependency",
+      "label": null
+    }
+  ]
+}

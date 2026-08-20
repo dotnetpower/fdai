@@ -1,8 +1,8 @@
 ---
 title: 에이전트 워크플로우
 translation_of: agent-workflows.md
-translation_source_sha: f216279a49763d484f5e7da7fb9c21fc84757ff8
-translation_revised: 2026-08-13
+translation_source_sha: 9e79204da184bc5b3c6804166047847e6a42c7cf
+translation_revised: 2026-08-20
 ---
 
 # 에이전트 워크플로우
@@ -81,22 +81,7 @@ reliability 와 finance 를 모두 반영. 자동화가 1달러 on-call 시간�
 **에이전트.** Heimdall (initiator), Njord (비용 advisor), Forseti (판정자),
 Thor (실행기), Saga (auditor).
 
-```mermaid
-sequenceDiagram
-    participant H as Heimdall
-    participant Nj as Njord
-    participant F as Forseti
-    participant T as Thor
-    participant S as Saga
-    H->>F: object.drift {resource, delta}
-    F->>Nj: typed query {proposed_action, target_resource}
-    Nj-->>F: cost_estimate {monthly_delta_usd, confidence}
-    F->>F: verdict = auto|hil|deny + cost_annotation
-    F->>T: object.verdict {risk_verdict, cost_annotation}
-    T->>T: dispatch by risk_verdict
-    T->>S: object.action-run {result, cost_actual (post-execute)}
-    S->>Nj: attribution event (async)
-```
+![1. Cost-aware 수정. 주요 단계는 object.drift {resource, delta}, typed query {proposed_action, target_resource}, cost_estimate {monthly_delta_usd, confidence}, verdict = auto|hil|deny + cost_annotation, object.verdict {risk_verdict, cost_annotation}, dispatch by risk_verdict, object.action-run {result, cost_actual (post-execute)}, attribution event (async)입니다.](../../diagrams/generated/fdai-agent-workflows-01.ko.svg)
 
 **Exit criteria.**
 
@@ -124,26 +109,7 @@ Freyr 예측 가 임계값 를 trip 하기 전에 사전에 규모.
 **에이전트.** Freyr (initiator), Heimdall (early-signal 교차 검증), Njord
 (비용 검사), Odin (비용 가 규모 블록 시 중재), Forseti, Thor.
 
-```mermaid
-sequenceDiagram
-    participant Fr as Freyr
-    participant H as Heimdall
-    participant Nj as Njord
-    participant O as Odin
-    participant F as Forseti
-    participant T as Thor
-    Fr->>F: proposed_action {scale_out, target, size}
-    F->>H: typed query {resource, recent_signals}
-    H-->>F: signal_confirm {leading_indicators, confidence}
-    F->>Nj: cost_impact query
-    Nj-->>F: cost_estimate
-    alt cost > fork_config.scale_cost_ceiling
-        F->>O: arbitration_request {sre_intent, cost_block}
-        O-->>F: arbitration_response
-    end
-    F->>T: verdict {scale_out, size}
-    T->>T: dispatch (auto if under ceiling)
-```
+![2. Predictive 규모. 주요 단계는 proposed_action {scale_out, target, size}, typed query {resource, recent_signals}, signal_confirm {leading_indicators, confidence}, cost_impact query, cost_estimate, arbitration_request {sre_intent, cost_block}, arbitration_response, verdict {scale_out, size}, dispatch (auto if under ceiling)입니다.](../../diagrams/generated/fdai-agent-workflows-02.ko.svg)
 
 **Exit criteria.**
 
@@ -170,26 +136,7 @@ Vidar 의 롤백 경로, DR 장애 조치 메커니즘, observability 가 모두
 **에이전트.** Loki (플래너), Forseti (판정자), Var (승인자), Vidar (실행),
 Heimdall (관측), Norns (learning), Saga.
 
-```mermaid
-sequenceDiagram
-    participant L as Loki
-    participant F as Forseti
-    participant Va as Var
-    participant V as Vidar
-    participant H as Heimdall
-    participant N as Norns
-    participant S as Saga
-    L->>F: proposed_action {dr_drill, scope, blast_radius}
-    F->>Va: verdict = hil (drills are always HIL)
-    Va-->>F: approval
-    F->>V: verdict {execute_drill}
-    V->>V: execute rollback / failover in shadow env
-    V->>H: observe_request
-    H-->>V: observations
-    V->>S: object.rollback {result, observations, recovery_time}
-    S->>N: audit signal
-    N->>N: compare to baseline, emit drift signal if MTTR degraded
-```
+![3. DR 훈련 orchestration. 주요 단계는 proposed_action {dr_drill, scope, blast_radius}, verdict = hil (drills are always HIL), approval, verdict {execute_drill}, execute rollback / failover in shadow env, observe_request, observations, object.rollback {result, observations, recovery_time}, audit signal, compare to baseline, emit drift signal if MTTR degraded입니다.](../../diagrams/generated/fdai-agent-workflows-03.ko.svg)
 
 **Exit criteria.**
 
@@ -218,20 +165,7 @@ over-scoped 되었거나, critical exception 이 누락됨을 의미.
 **에이전트.** Var (initiator), Saga (aggregator), Norns (learner), Mimir
 (룰 담당자).
 
-```mermaid
-sequenceDiagram
-    participant Va as Var
-    participant S as Saga
-    participant N as Norns
-    participant M as Mimir
-    Va->>S: object.approval {rule_id, override_signal}
-    S->>N: signal (batched)
-    N->>N: rolling count per rule_id, threshold check
-    alt count > threshold
-        N->>M: object.rule-candidate {rule_id, override_pattern, proposed_revision}
-        M->>M: shadow evaluation on override cases
-    end
-```
+![4. 재정의 -> 발견. 주요 단계는 object.approval {rule_id, override_signal}, signal (batched), rolling count per rule_id, threshold check, object.rule-candidate {rule_id, override_pattern, proposed_revision}, shadow evaluation on override cases입니다.](../../diagrams/generated/fdai-agent-workflows-04.ko.svg)
 
 **Exit criteria.**
 
@@ -260,27 +194,7 @@ formalize.
 **에이전트.** Forseti (initiator), Heimdall (correlator), Odin (critical
 심각도 경로), Var (ChatOps 를 통한 admin 알림 배송), Saga.
 
-```mermaid
-sequenceDiagram
-    participant F as Forseti
-    participant H as Heimdall
-    participant O as Odin
-    participant V as Var
-    participant S as Saga
-    F->>H: object.security-event {initiator, action, severity_hint}
-    F->>S: audit
-    H->>H: correlate with recent events (rolling window)
-    H->>H: classify severity: low|medium|high|critical
-    alt severity >= high
-        H->>F: propose notify_admin_privilege_violation
-        F-->>V: verdict = auto (governance notification)
-        V->>S: audit (card sent)
-    end
-    alt severity == critical
-        H->>O: escalate {evidence}
-        O->>V: page on-call security channel
-    end
-```
+![5. Security 에스컬레이션. 주요 단계는 object.security-event {initiator, action, severity_hint}, audit, correlate with recent events (rolling window), classify severity: low|medium|high|critical, propose notify_admin_privilege_violation, verdict = auto (governance notification), audit (card sent), escalate {evidence}, page on-call security channel입니다.](../../diagrams/generated/fdai-agent-workflows-05.ko.svg)
 
 **Exit criteria.**
 
@@ -307,25 +221,7 @@ pantheon § 9.5 참고).
 **에이전트.** Saga (initiator), Norns (aggregator), Mimir (룰 담당자),
 Bragi (기능 전달 시 업데이트).
 
-```mermaid
-sequenceDiagram
-    participant S as Saga
-    participant N as Norns
-    participant M as Mimir
-    participant Br as Bragi
-    S->>N: object.issue (open)
-    N->>N: aggregate by fingerprint (rolling)
-    alt fingerprint occurrence >= threshold
-        N->>M: object.rule-candidate {source: handoff, evidence}
-        M->>M: shadow evaluation
-        alt promotion passes
-            M-->>N: rule promoted
-            N->>S: close_issue signal
-            S->>S: comment on GitHub issue + close
-            S->>Br: capability update (visible in operator briefing)
-        end
-    end
-```
+![6. 인계 -> 기능. 주요 단계는 object.issue (open), aggregate by fingerprint (rolling), object.rule-candidate {source: handoff, evidence}, shadow evaluation, rule promoted, close_issue signal, comment on GitHub issue + close, capability update (visible in operator briefing)입니다.](../../diagrams/generated/fdai-agent-workflows-06.ko.svg)
 
 **Exit criteria.**
 
@@ -354,22 +250,7 @@ KPI 비교 vs 기준선). 하트비트 공백, high 오류 비율, 또는 KPI �
 **에이전트.** Heimdall (detector), Odin (portfolio re-planner), Bragi
 (운영자 briefing), Saga.
 
-```mermaid
-sequenceDiagram
-    participant H as Heimdall
-    participant O as Odin
-    participant Br as Bragi
-    participant C as Admin channel
-    participant S as Saga
-    H->>H: probe each agent (heartbeat + KPI)
-    alt degradation detected
-        H->>S: audit event
-        H->>O: agent_health_signal {agent, severity, evidence}
-        O->>O: apply degradation policy per pantheon 11
-        O->>Br: briefing_update {impact, mitigation_active}
-        Br->>C: proactive card to admins
-    end
-```
+![7. 에이전트 상태 성능 저하. 주요 단계는 probe each agent (heartbeat + KPI), audit event, agent_health_signal {agent, severity, evidence}, apply degradation policy per pantheon 11, briefing_update {impact, mitigation_active}, proactive card to admins입니다.](../../diagrams/generated/fdai-agent-workflows-07.ko.svg)
 
 **Exit criteria.**
 
@@ -396,24 +277,7 @@ sequenceDiagram
 **에이전트.** Forseti (self-tester), Muninn (감사 샘플), Norns (표류 analyzer),
 Mimir (표류가 룰 변경으로 인한 것인 경우 리뷰), Saga.
 
-```mermaid
-sequenceDiagram
-    participant F as Forseti
-    participant Mu as Muninn
-    participant N as Norns
-    participant M as Mimir
-    participant S as Saga
-    F->>Mu: fetch recent audit sample (N=1000)
-    F->>F: re-run judgment on same inputs
-    F->>N: coherence_report {mismatches}
-    N->>N: classify: rule_change | model_drift | non_determinism
-    alt classification == rule_change
-        N->>M: confirm rule delta explains mismatch
-    else classification == model_drift or non_determinism
-        N->>M: object.rule-candidate {type: coherence_alert}
-        N->>S: audit alert
-    end
-```
+![8. Judgment coherence 감사. 주요 단계는 fetch recent audit sample (N=1000), re-run judgment on same inputs, coherence_report {mismatches}, classify: rule_change | model_drift | non_determinism, confirm rule delta explains mismatch, object.rule-candidate {type: coherence_alert}, audit alert입니다.](../../diagrams/generated/fdai-agent-workflows-08.ko.svg)
 
 **Exit criteria.**
 
@@ -440,24 +304,7 @@ investigatory.
 **에이전트.** Loki (플래너), Forseti (판정자), Var (승인자), Vidar (rehearser),
 Heimdall (관찰기), Saga.
 
-```mermaid
-sequenceDiagram
-    participant L as Loki
-    participant F as Forseti
-    participant Va as Var
-    participant V as Vidar
-    participant H as Heimdall
-    participant S as Saga
-    L->>F: proposed_action {rehearse_rollback, action_type_id}
-    F->>Va: verdict = hil (all rehearsals HIL)
-    Va-->>F: approval
-    F->>V: verdict {execute}
-    V->>V: apply mutation in shadow env
-    V->>V: invoke rollback per rollback_contract
-    V->>H: observe post-rollback state
-    H-->>V: state matches pre-mutation baseline?
-    V->>S: audit {rehearsal_result, deviation}
-```
+![9. Rollback 예행 연습. 주요 단계는 proposed_action {rehearse_rollback, action_type_id}, verdict = hil (all rehearsals HIL), approval, verdict {execute}, apply mutation in shadow env, invoke rollback per rollback_contract, observe post-rollback state, state matches pre-mutation baseline?, audit {rehearsal_result, deviation}입니다.](../../diagrams/generated/fdai-agent-workflows-09.ko.svg)
 
 **Exit criteria.**
 
@@ -484,23 +331,7 @@ sequenceDiagram
 **에이전트.** Saga (데이터 출처), Forseti (re-judge), Norns (delta
 분석), Mimir (룰 평가), Bragi (리포트).
 
-```mermaid
-sequenceDiagram
-    participant Op as Operator
-    participant Br as Bragi
-    participant S as Saga
-    participant F as Forseti
-    participant N as Norns
-    participant M as Mimir
-    Op->>Br: "if rule X existed on 2026-07-01, what would have happened?"
-    Br->>S: fetch audit slice
-    Br->>M: fetch rule X (shadow overlay)
-    Br->>F: replay with overlay
-    F-->>Br: what-if verdicts
-    Br->>N: delta analysis
-    N-->>Br: diff summary
-    Br-->>Op: report
-```
+![10. Retrospective what-if. 주요 단계는 if rule X existed on 2026-07-01, what would have happened?, fetch audit slice, fetch rule X (shadow overlay), replay with overlay, what-if verdicts, delta analysis, diff summary, report입니다.](../../diagrams/generated/fdai-agent-workflows-10.ko.svg)
 
 **Exit criteria.**
 
@@ -531,26 +362,7 @@ sequenceDiagram
 ReadinessReport), Var (차단된 인계 + 제안된 fix 에 대한 HIL 승인자),
 Thor (승인된 fix 의 실행기), Saga (auditor).
 
-```mermaid
-sequenceDiagram
-    participant Hu as Huginn
-    participant M as Mimir
-    participant F as Forseti
-    participant V as Var
-    participant T as Thor
-    participant S as Saga
-    Hu->>F: object.ownership-transfer {scope, submitter, environment}
-    F->>M: applicable rules for scope
-    M-->>F: rule set (+ profile mode)
-    F->>F: run assurance-twin + deploy-preflight over scope
-    F->>F: compose ReadinessReport (clear|needs_review|blocked)
-    F->>S: audit {verdict, blocks_handoff}
-    alt blocked and enforce mode
-        F->>V: request approval + shadow remediation-PR proposals
-        V-->>T: approved fixes
-        T->>S: object.action-run {result}
-    end
-```
+![11. Operational 준비 상태 인계. 주요 단계는 object.ownership-transfer {scope, submitter, environment}, applicable rules for scope, rule set (+ profile mode), run assurance-twin + deploy-preflight over scope, compose ReadinessReport (clear|needs_review|blocked), audit {verdict, blocks_handoff}, request approval + shadow remediation-PR proposals, approved fixes, object.action-run {result}입니다.](../../diagrams/generated/fdai-agent-workflows-11.ko.svg)
 
 **Exit criteria.**
 
@@ -584,23 +396,7 @@ materialize 한 strict five-field cron 예약 입니다.
 risk 게이트, HIL 재개 조정기, 도구 실행기 에 매핑합니다. 선택적 Pantheon
 소비자 는 shadow 관찰기 로 유지되며 제안 을 실행하지 않습니다.
 
-```mermaid
-sequenceDiagram
-    participant B as Bragi
-    participant I as EventIngest
-    participant F as Forseti
-    participant V as Var
-    participant T as Thor
-    participant S as Saga
-    B->>I: raw operator_request {artifact_ref, target}
-    I->>F: canonical Event plus trusted inventory context
-    F->>F: validate ActionType, capability, freshness, blast radius
-    F->>V: Owner HIL request
-    V-->>F: approval
-    F->>T: tool.run-python-on-vm
-    T->>T: stage, rehash cache, preflight, bounded execute
-    T->>S: VmTaskRun receipt
-```
+![12. Scheduled 통제된 Python 작업. 주요 단계는 raw operator_request {artifact_ref, target}, canonical Event plus trusted inventory context, validate ActionType, capability, freshness, blast radius, Owner HIL request, approval, tool.run-python-on-vm, stage, rehash cache, preflight, bounded execute, VmTaskRun receipt입니다.](../../diagrams/generated/fdai-agent-workflows-12.ko.svg)
 
 **Exit criteria.** 모든 게스트 호출 에서 산출물 파일 을 다시 검사하고 대상 이
 활성 인벤토리 `compute.vm` 이며 GPU 작업 는 GPU-capable 대상 에서만 실행됩니다.

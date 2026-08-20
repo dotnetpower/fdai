@@ -501,18 +501,7 @@ Provisioning is IaC-driven, but the **logical bootstrap order** to a first live 
 honored. Any earlier stage failing halts and unwinds; the deployment does not proceed to a
 later stage with a broken earlier one.
 
-```mermaid
-flowchart TD
-    A[Prerequisites resolved] --> B[IaC provision core resources]
-    B --> C[Create executor MI plus scoped role assignments]
-    C --> D[Deploy signed image to Container Apps in shadow-only]
-    D --> D1[Run alembic upgrade head against the provisioned Postgres]
-    D1 --> E[Attach Diagnostic Settings and Kafka topic forwarders]
-    E --> F[Seed rule catalog with day-zero rule set]
-    F --> G[Register HIL approvers and ChatOps channel]
-    G --> H[Run post-deploy smoke tests]
-    H --> I[System is warm; first real event may arrive]
-```
+![Bootstrap Sequence. The main stages are Prerequisites resolved, IaC provision core resources, Create executor MI plus scoped role assignments, Deploy signed image to Container Apps in shadow-only, Run alembic upgrade head against the provisioned Postgres, Attach Diagnostic Settings and Kafka topic forwarders, Seed rule catalog with day-zero rule set, Register HIL approvers and ChatOps channel, Run post-deploy smoke tests, System is warm; first real event may arrive.](../../diagrams/generated/fdai-deploy-and-onboard-01.en.svg)
 
 - **Shadow-only on first deploy**: no rule / action starts in enforce mode, ever. Promotion is
   a separate act ([rule-governance.md](../rules-and-detection/rule-governance.md)).

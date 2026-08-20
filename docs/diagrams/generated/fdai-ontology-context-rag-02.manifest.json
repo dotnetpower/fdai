@@ -1,0 +1,150 @@
+{
+  "id": "fdai-ontology-context-rag-02",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "How RAG fits beside the ontology",
+      "description": "FDAI flow for How RAG fits beside the ontology.",
+      "alt": "How RAG fits beside the ontology. The main stages are Decision or question, Ontology context, RAG evidence, Typed constraints and authority, Relevant excerpts and citations, Grounded decision or explanation."
+    },
+    "ko": {
+      "title": "온톨로지와 함께 사용하는 RAG",
+      "description": "온톨로지와 함께 사용하는 RAG에 대한 FDAI 흐름입니다.",
+      "alt": "온톨로지와 함께 사용하는 RAG. 주요 단계는 Decision or question, Ontology context, RAG evidence, Typed constraints and authority, Relevant excerpts and citations, Grounded decision or explanation입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-ontology-context-rag-02.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-ontology-context-rag-02.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "q",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Decision or question",
+        "ko": "Decision or question"
+      },
+      "description": {
+        "en": "Decision or question",
+        "ko": "Decision or question"
+      }
+    },
+    {
+      "id": "o",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Ontology context",
+        "ko": "Ontology context"
+      },
+      "description": {
+        "en": "Ontology context",
+        "ko": "Ontology context"
+      }
+    },
+    {
+      "id": "r",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "RAG evidence",
+        "ko": "RAG evidence"
+      },
+      "description": {
+        "en": "RAG evidence",
+        "ko": "RAG evidence"
+      }
+    },
+    {
+      "id": "j",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Typed constraints and authority",
+        "ko": "Typed constraints and authority"
+      },
+      "description": {
+        "en": "Typed constraints and authority",
+        "ko": "Typed constraints and authority"
+      }
+    },
+    {
+      "id": "k",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Relevant excerpts and citations",
+        "ko": "Relevant excerpts and citations"
+      },
+      "description": {
+        "en": "Relevant excerpts and citations",
+        "ko": "Relevant excerpts and citations"
+      }
+    },
+    {
+      "id": "x",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Grounded decision or explanation",
+        "ko": "Grounded decision or explanation"
+      },
+      "description": {
+        "en": "Grounded decision or explanation",
+        "ko": "Grounded decision or explanation"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "q",
+      "to": "o",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "q",
+      "to": "r",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "o",
+      "to": "j",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "r",
+      "to": "k",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "j",
+      "to": "x",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "k",
+      "to": "x",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

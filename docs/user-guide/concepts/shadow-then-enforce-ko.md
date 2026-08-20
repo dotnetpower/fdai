@@ -2,8 +2,8 @@
 title: 먼저 관찰하고, 검증 후 변경 적용
 description: 모든 새 자율 액션이 관찰 모드로 시작하고 자동 실행 권한을 얻는 과정입니다.
 translation_of: shadow-then-enforce.md
-translation_source_sha: a804573cb846e039d4728a446e659bc38e4294f4
-translation_revised: 2026-08-11
+translation_source_sha: 2800c3019e79a920358c640057cc5dcc48a0ecd1
+translation_revised: 2026-08-20
 sidebar:
   order: 6
 ---
@@ -19,17 +19,7 @@ FDAI의 새 자율 작업은 한꺼번에 켜지지 않습니다. 모든 룰, �
 
 새 기능이 관찰 중일 때도 모든 이벤트는 자율성이 이미 켜진 것처럼 흐릅니다.
 
-```mermaid
-flowchart LR
-  NEW[새 기능<br/>배포]
-  NEW --> SH[관찰 모드<br/>판단 + 로깅만<br/>실행 없음]
-  SH --> M{근거 기준 통과?<br/>표본 + 정확도 +<br/>정책 우회 0건}
-  M -->|yes| EN[적용 모드<br/>자동 실행]
-  M -->|no| SH
-  EN --> R{라이브 회귀?}
-  R -->|yes| SH
-  R -->|no| EN
-```
+![관찰 모드가 기록하는 것. 주요 단계는 새 기능 / 배포, 관찰 모드 / 판단 + 로깅만 / 실행 없음, 근거 기준 통과? / 표본 + 정확도 + / 정책 우회 0건, 적용 모드 / 자동 실행, 라이브 회귀?입니다.](../../diagrams/generated/fdai-shadow-then-enforce-01.ko.svg)
 
 - 전체 트러스트 라우팅과 안전성 검토 결정을 계산합니다.
 - 실행됐을 제안 작업을 저장합니다.

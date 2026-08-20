@@ -1,0 +1,128 @@
+id: fdai-agent-workflows-06
+version: 1
+kind: sequence
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: 6. Handoff -> Capability
+    description: Ordered FDAI interactions for 6. Handoff -> Capability.
+    alt: "6. Handoff -> Capability. The main stages are object.issue (open), aggregate by fingerprint (rolling),
+      object.rule-candidate {source: handoff, evidence}, shadow evaluation, rule promoted, close_issue signal, comment
+      on GitHub issue + close, capability update (visible in operator briefing)."
+  ko:
+    title: 6. 인계 -> 기능
+    description: 6. 인계 -> 기능에 대한 순서가 있는 FDAI 상호 작용입니다.
+    alt: "6. 인계 -> 기능. 주요 단계는 object.issue (open), aggregate by fingerprint (rolling), object.rule-candidate {source:
+      handoff, evidence}, shadow evaluation, rule promoted, close_issue signal, comment on GitHub issue + close,
+      capability update (visible in operator briefing)입니다."
+canvas:
+  width: 1100
+  height: 880
+  direction: DOWN
+groups: []
+nodes:
+  - id: step-01
+    kind: process
+    badge: 1
+    label:
+      en: Saga -> Norns
+      ko: Saga -> Norns
+    description:
+      en: object.issue (open)
+      ko: object.issue (open)
+  - id: step-02
+    kind: process
+    badge: 2
+    label:
+      en: Norns -> Norns
+      ko: Norns -> Norns
+    description:
+      en: aggregate by fingerprint (rolling)
+      ko: aggregate by fingerprint (rolling)
+  - id: step-03
+    kind: process
+    badge: 3
+    label:
+      en: Norns -> Mimir
+      ko: Norns -> Mimir
+    description:
+      en: "alt: fingerprint occurrence >= threshold / object.rule-candidate {source: handoff, evidence}"
+      ko: "alt: fingerprint occurrence >= threshold / object.rule-candidate {source: handoff, evidence}"
+  - id: step-04
+    kind: process
+    badge: 4
+    label:
+      en: Mimir -> Mimir
+      ko: Mimir -> Mimir
+    description:
+      en: "alt: fingerprint occurrence >= threshold / shadow evaluation"
+      ko: "alt: fingerprint occurrence >= threshold / shadow evaluation"
+  - id: step-05
+    kind: process
+    badge: 5
+    label:
+      en: M- -> Norns
+      ko: M- -> Norns
+    description:
+      en: "alt: fingerprint occurrence >= threshold / alt: promotion passes / rule promoted"
+      ko: "alt: fingerprint occurrence >= threshold / alt: promotion passes / rule promoted"
+  - id: step-06
+    kind: process
+    badge: 6
+    label:
+      en: Norns -> Saga
+      ko: Norns -> Saga
+    description:
+      en: "alt: fingerprint occurrence >= threshold / alt: promotion passes / close_issue signal"
+      ko: "alt: fingerprint occurrence >= threshold / alt: promotion passes / close_issue signal"
+  - id: step-07
+    kind: process
+    badge: 7
+    label:
+      en: Saga -> Saga
+      ko: Saga -> Saga
+    description:
+      en: "alt: fingerprint occurrence >= threshold / alt: promotion passes / comment on GitHub issue + close"
+      ko: "alt: fingerprint occurrence >= threshold / alt: promotion passes / comment on GitHub issue + close"
+  - id: step-08
+    kind: process
+    badge: 8
+    label:
+      en: Saga -> Bragi
+      ko: Saga -> Bragi
+    description:
+      en: "alt: fingerprint occurrence >= threshold / alt: promotion passes / capability update (visible in operator
+        briefing)"
+      ko: "alt: fingerprint occurrence >= threshold / alt: promotion passes / capability update (visible in operator
+        briefing)"
+edges:
+  - id: sequence-01
+    from: step-01
+    to: step-02
+    kind: sequence
+  - id: sequence-02
+    from: step-02
+    to: step-03
+    kind: sequence
+  - id: sequence-03
+    from: step-03
+    to: step-04
+    kind: sequence
+  - id: sequence-04
+    from: step-04
+    to: step-05
+    kind: sequence
+  - id: sequence-05
+    from: step-05
+    to: step-06
+    kind: sequence
+  - id: sequence-06
+    from: step-06
+    to: step-07
+    kind: sequence
+  - id: sequence-07
+    from: step-07
+    to: step-08
+    kind: sequence

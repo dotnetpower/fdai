@@ -1,0 +1,220 @@
+{
+  "id": "fdai-risk-tiers-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Three decisions",
+      "description": "FDAI flow for Three decisions.",
+      "alt": "Three decisions. A proposed action is classified by impact scope, reversibility, novelty, and signal trust. Automatic execution requires all seven safeguards. Elevated risk waits for human approval, hard policy denies the action, and an incomplete safety contract cannot ship. Every path is audited."
+    },
+    "ko": {
+      "title": "세 가지 결정",
+      "description": "세 가지 결정에 대한 FDAI 흐름입니다.",
+      "alt": "세 가지 결정. 제안 액션은 영향 범위, 되돌리기 가능성, 새로움, 신호 신뢰도로 분류합니다. 자동 실행에는 7개 보호장치가 모두 필요합니다. 위험이 높으면 사람 승인을 기다리고 하드 policy는 액션을 거부하며 불완전한 안전 계약은 실행할 수 없습니다. 모든 경로를 감사합니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-risk-tiers-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-risk-tiers-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "a",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Proposed action",
+        "ko": "제안 액션"
+      },
+      "description": {
+        "en": "Proposed action",
+        "ko": "제안 액션"
+      }
+    },
+    {
+      "id": "c",
+      "kind": "decision",
+      "shape": "diamond",
+      "label": {
+        "en": "Impact scope, / reversibility, / novelty, / signal trust",
+        "ko": "영향 범위, / 되돌리기 어려움, / 새로움, / 신호 신뢰도"
+      },
+      "description": {
+        "en": "Impact scope, / reversibility, / novelty, / signal trust",
+        "ko": "영향 범위, / 되돌리기 어려움, / 새로움, / 신호 신뢰도"
+      }
+    },
+    {
+      "id": "i",
+      "kind": "decision",
+      "shape": "diamond",
+      "label": {
+        "en": "All seven safeguards present?",
+        "ko": "7개 보호장치가 모두 있는가?"
+      },
+      "description": {
+        "en": "When: all safe",
+        "ko": "조건: 모두 안전"
+      },
+      "content": [
+        {
+          "en": "Stop condition, rollback, impact limit",
+          "ko": "중단 조건, 롤백, 영향 범위 제한"
+        },
+        {
+          "en": "Dry-run, target lock, idempotency, two-phase audit",
+          "ko": "Dry-run, 대상 잠금, 멱등성, 2단계 감사"
+        }
+      ]
+    },
+    {
+      "id": "h",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "HUMAN APPROVAL / wait for approval",
+        "ko": "사람 승인 / 승인 대기"
+      },
+      "description": {
+        "en": "When: elevated",
+        "ko": "조건: 상승 요인 존재"
+      }
+    },
+    {
+      "id": "d",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "DENY / refuse outright",
+        "ko": "DENY / 즉시 거부"
+      },
+      "description": {
+        "en": "When: hard rule refuses",
+        "ko": "조건: 하드 규칙이 거부"
+      }
+    },
+    {
+      "id": "au",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "AUTO / auto-execute",
+        "ko": "AUTO / 자동 실행"
+      },
+      "description": {
+        "en": "AUTO / auto-execute",
+        "ko": "AUTO / 자동 실행"
+      }
+    },
+    {
+      "id": "x",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "INCOMPLETE / cannot ship",
+        "ko": "INCOMPLETE / 실행 불가"
+      },
+      "description": {
+        "en": "INCOMPLETE / cannot ship",
+        "ko": "INCOMPLETE / 실행 불가"
+      }
+    },
+    {
+      "id": "aud",
+      "kind": "store",
+      "shape": "database",
+      "label": {
+        "en": "Audit log entry / always",
+        "ko": "감사 로그 항목 / 항상"
+      },
+      "description": {
+        "en": "Audit log entry / always",
+        "ko": "감사 로그 항목 / 항상"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "a",
+      "to": "c",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "c",
+      "to": "i",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "c",
+      "to": "h",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "c",
+      "to": "d",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "i",
+      "to": "au",
+      "kind": "request",
+      "label": {
+        "en": "yes",
+        "ko": "yes"
+      }
+    },
+    {
+      "id": "flow-06",
+      "from": "i",
+      "to": "x",
+      "kind": "request",
+      "label": {
+        "en": "no",
+        "ko": "no"
+      }
+    },
+    {
+      "id": "flow-07",
+      "from": "au",
+      "to": "aud",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "h",
+      "to": "aud",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "d",
+      "to": "aud",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "x",
+      "to": "aud",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

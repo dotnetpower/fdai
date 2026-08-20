@@ -1,0 +1,143 @@
+{
+  "id": "fdai-agent-workflows-07",
+  "kind": "sequence",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "7. Agent health degradation",
+      "description": "Ordered FDAI interactions for 7. Agent health degradation.",
+      "alt": "7. Agent health degradation. The main stages are probe each agent (heartbeat + KPI), audit event, agent_health_signal {agent, severity, evidence}, apply degradation policy per pantheon 11, briefing_update {impact, mitigation_active}, proactive card to admins."
+    },
+    "ko": {
+      "title": "7. 에이전트 상태 성능 저하",
+      "description": "7. 에이전트 상태 성능 저하에 대한 순서가 있는 FDAI 상호 작용입니다.",
+      "alt": "7. 에이전트 상태 성능 저하. 주요 단계는 probe each agent (heartbeat + KPI), audit event, agent_health_signal {agent, severity, evidence}, apply degradation policy per pantheon 11, briefing_update {impact, mitigation_active}, proactive card to admins입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-agent-workflows-07.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-agent-workflows-07.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "step-01",
+      "kind": "process",
+      "badge": 1,
+      "label": {
+        "en": "Heimdall -> Heimdall",
+        "ko": "Heimdall -> Heimdall"
+      },
+      "description": {
+        "en": "probe each agent (heartbeat + KPI)",
+        "ko": "probe each agent (heartbeat + KPI)"
+      }
+    },
+    {
+      "id": "step-02",
+      "kind": "process",
+      "badge": 2,
+      "label": {
+        "en": "Heimdall -> Saga",
+        "ko": "Heimdall -> Saga"
+      },
+      "description": {
+        "en": "alt: degradation detected / audit event",
+        "ko": "alt: degradation detected / audit event"
+      }
+    },
+    {
+      "id": "step-03",
+      "kind": "process",
+      "badge": 3,
+      "label": {
+        "en": "Heimdall -> Odin",
+        "ko": "Heimdall -> Odin"
+      },
+      "description": {
+        "en": "alt: degradation detected / agent_health_signal {agent, severity, evidence}",
+        "ko": "alt: degradation detected / agent_health_signal {agent, severity, evidence}"
+      }
+    },
+    {
+      "id": "step-04",
+      "kind": "process",
+      "badge": 4,
+      "label": {
+        "en": "Odin -> Odin",
+        "ko": "Odin -> Odin"
+      },
+      "description": {
+        "en": "alt: degradation detected / apply degradation policy per pantheon 11",
+        "ko": "alt: degradation detected / apply degradation policy per pantheon 11"
+      }
+    },
+    {
+      "id": "step-05",
+      "kind": "process",
+      "badge": 5,
+      "label": {
+        "en": "Odin -> Bragi",
+        "ko": "Odin -> Bragi"
+      },
+      "description": {
+        "en": "alt: degradation detected / briefing_update {impact, mitigation_active}",
+        "ko": "alt: degradation detected / briefing_update {impact, mitigation_active}"
+      }
+    },
+    {
+      "id": "step-06",
+      "kind": "process",
+      "badge": 6,
+      "label": {
+        "en": "Bragi -> Admin channel",
+        "ko": "Bragi -> Admin channel"
+      },
+      "description": {
+        "en": "alt: degradation detected / proactive card to admins",
+        "ko": "alt: degradation detected / proactive card to admins"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "sequence-01",
+      "from": "step-01",
+      "to": "step-02",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-02",
+      "from": "step-02",
+      "to": "step-03",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-03",
+      "from": "step-03",
+      "to": "step-04",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-04",
+      "from": "step-04",
+      "to": "step-05",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-05",
+      "from": "step-05",
+      "to": "step-06",
+      "kind": "sequence",
+      "label": null
+    }
+  ]
+}

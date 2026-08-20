@@ -2,8 +2,8 @@
 title: 에이전트 담당 체계(Agent ownership)
 description: FDAI가 업무를 넘겨받은 뒤에도 기존 담당자가 책임을 유지하는 방식과, 담당자 인수인계로 그 지식이 업무를 대신하는 에이전트에게 전달되는 방식을 설명합니다.
 translation_of: ownership-and-handover.md
-translation_source_sha: 999b31418e224391be90cda124d007d5c96b1385
-translation_revised: 2026-08-11
+translation_source_sha: f887587c07a806e4d8ba1bb00ef47d076b9c9645
+translation_revised: 2026-08-20
 sidebar:
   order: 8
 ---
@@ -76,16 +76,7 @@ Njord의 책임 담당자일 수도 있습니다. 그래도 두 축은 따로 �
 인수인계는 이미 가지고 있는 문서에서 시작합니다. 당직표, RACI 차트, 조직도, 런북, 떠나면서
 남긴 메모 같은 것입니다. FDAI는 그 문서를 읽고 맵 변경을 제안한 다음 멈춥니다.
 
-```mermaid
-flowchart LR
-  D[인수인계 문서] --> U[수집 경로로 업로드]
-  U --> X[출처와 함께 주장 추출]
-  X --> R[이름을 디렉터리 신원으로 연결]
-  R --> DR[담당 체계 맵 초안]
-  DR --> PR[초안 pull request]
-  PR --> H[사람이 검토하고 병합]
-  H --> M[담당 체계 맵 갱신]
-```
+![인수인계 문서가 변경이 되기까지. 주요 단계는 인수인계 문서, 수집 경로로 업로드, 출처와 함께 주장 추출, 이름을 디렉터리 신원으로 연결, 담당 체계 맵 초안, 초안 pull request, 사람이 검토하고 병합, 담당 체계 맵 갱신입니다.](../../diagrams/generated/fdai-ownership-and-handover-01.ko.svg)
 
 1. **업로드.** 콘솔의 지식 인수인계 양식이나 수집 경로로 문서를 제출합니다. 다른 업로드와 같은
    안전 검사를 거칩니다.

@@ -2,8 +2,8 @@
 title: 승인과 알림 채널(Approvals and channels)
 description: FDAI가 고위험 승인과 알림을 위해 사람에게 도달하는 방식. 어떤 채널을 쓰는지, 콘솔이 왜 실행하지 않는지, 아무도 응답하지 않으면 어떻게 되는지 설명합니다.
 translation_of: approvals-and-channels.md
-translation_source_sha: dcedf4816426de33088a6dbf06bb991c32f8c9e9
-translation_revised: 2026-08-11
+translation_source_sha: a41a0eb89af748ab27d029a61e28f87452f26ac9
+translation_revised: 2026-08-20
 sidebar:
   order: 7
 ---
@@ -62,17 +62,7 @@ No tool was called.
 참고) FDAI는 실행을 멈추고 A1 가능 채널로 승인 요청을 보냅니다. 여러분이 승인하거나
 거부해야만 실행기가 움직입니다.
 
-```mermaid
-flowchart LR
-  RG["안전성 검토<br/>결과 = 사람 승인"] --> R["channel-router<br/>A1 채널 선택"]
-  R --> C["승인 카드<br/>Teams / Slack<br/>불투명한 approval_id를 담음"]
-  C --> H["여러분이 승인<br/>또는 거부"]
-  H --> API["fdai-api<br/>신원 재검증<br/>+ 재생 방지 + 자기승인 금지"]
-  API -->|승인됨| EX["실행기<br/>작업 적용"]
-  API -->|거부 / 타임아웃| NO["미실행"]
-  EX --> AUD["감사 로그"]
-  NO --> AUD
-```
+![승인이 여러분에게 도달하는 방식. 주요 단계는 안전성 검토 / 결과 = 사람 승인, channel-router / A1 채널 선택, 승인 카드 / Teams / Slack / 불투명한 approval_id를 담음, 여러분이 승인 / 또는 거부, fdai-api / 신원 재검증 / + 재생 방지 + 자기승인 금지, 실행기 / 작업 적용, 미실행, 감사 로그입니다.](../../diagrams/generated/fdai-approvals-and-channels-01.ko.svg)
 
 이를 안전하게 만드는 두 가지 속성이 있습니다.
 

@@ -272,128 +272,6 @@
 }
 
 /*
- * Mermaid diagram containers on the splash landing get a subtle framed
- * background so the diagram feels like an intentional visual, not
- * accidental output. Interior doc pages keep the default (transparent)
- * so diagrams inline with prose don't look boxed-in.
- */
-[data-page-layout="splash"] pre.mermaid {
-  background: color-mix(in srgb, var(--sl-color-text-accent) 4%, var(--sl-color-bg));
-  border: 1px solid var(--sl-color-hairline);
-  border-radius: 0.75rem;
-  padding: 1.5rem 1rem;
-  margin: 1.5rem 0 2rem 0;
-  display: flex;
-  justify-content: center;
-  overflow-x: auto;
-}
-
-/*
- * Click-to-zoom for Mermaid diagrams. `pre.mermaid` advertises the
- * affordance with a zoom-in cursor; the fullscreen overlay (built by the
- * head-level zoom script in astro.config.mjs) supports wheel zoom and
- * drag-to-pan. Only the rendered SVG is interactive - the raw code block
- * (before mermaid runs) keeps the default cursor.
- */
-pre.mermaid:has(svg) {
-  cursor: zoom-in;
-}
-
-pre.mermaid[role="button"]:focus-visible {
-  outline: 2px solid var(--sl-color-text-accent);
-  outline-offset: 0.25rem;
-}
-
-.mermaid-zoom-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1000;
-  display: none;
-  background: color-mix(in srgb, var(--sl-color-black) 82%, transparent);
-  backdrop-filter: blur(2px);
-}
-
-.mermaid-zoom-overlay.open {
-  display: block;
-}
-
-.mermaid-zoom-stage {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: grab;
-  touch-action: none;
-  -webkit-user-select: none;
-  user-select: none;
-}
-
-.mermaid-zoom-stage:active {
-  cursor: grabbing;
-}
-
-.mermaid-zoom-stage.dragging {
-  cursor: grabbing;
-}
-
-.mermaid-zoom-inner {
-  flex: 0 0 auto;
-}
-
-.mermaid-zoom-inner > svg {
-  display: block;
-  shape-rendering: geometricPrecision;
-  text-rendering: geometricPrecision;
-}
-
-.mermaid-zoom-toolbar {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  z-index: 1;
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.mermaid-zoom-status {
-  min-width: 3.25rem;
-  color: var(--sl-color-white);
-  font-variant-numeric: tabular-nums;
-  text-align: end;
-}
-
-.mermaid-zoom-toolbar button {
-  min-width: 2.25rem;
-  height: 2.25rem;
-  padding: 0 0.6rem;
-  border-radius: 0.5rem;
-  border: 1px solid var(--sl-color-gray-5);
-  background: var(--sl-color-gray-6);
-  color: var(--sl-color-white);
-  font-size: 1rem;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.mermaid-zoom-toolbar button:hover {
-  background: var(--sl-color-gray-5);
-}
-
-.mermaid-zoom-toolbar button:focus-visible {
-  outline: 2px solid var(--sl-color-white);
-  outline-offset: 2px;
-}
-
-@media (forced-colors: active) {
-  .mermaid-zoom-toolbar button:focus-visible {
-    outline-color: Highlight;
-  }
-}
-
-/*
  * Landing-page cosmic backdrop.
  *
  * The landing page (and only the landing page - Starlight sets
@@ -568,13 +446,12 @@ html[data-has-hero] .hero-note {
 /*
  * Content blocks become translucent dark glass so text stays readable
  * over the nebula and the landing reads like a cockpit rather than a
- * flat document. Cards, asides, mermaid frames, and code blocks share
+ * flat document. Cards, asides, and code blocks share
  * the same glass treatment.
  */
 html[data-has-hero] .card,
 html[data-has-hero] .starlight-aside,
-html[data-has-hero] pre.mermaid,
-html[data-has-hero] .sl-markdown-content pre:not(.mermaid) {
+html[data-has-hero] .sl-markdown-content pre {
   background: rgba(10, 16, 30, 0.55);
   backdrop-filter: blur(10px) saturate(130%);
   -webkit-backdrop-filter: blur(10px) saturate(130%);

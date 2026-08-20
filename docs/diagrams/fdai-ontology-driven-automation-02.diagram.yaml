@@ -1,0 +1,113 @@
+id: fdai-ontology-driven-automation-02
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: From declaration to running action
+    description: FDAI flow for From declaration to running action.
+    alt: From declaration to running action. The main stages are ActionType declaration, Bounded action instance,
+      Operational context snapshot, Safety check, Executor, Human approval, Held for review, Audit and outcome.
+  ko:
+    title: 선언에서 실행 중인 작업으로
+    description: 선언에서 실행 중인 작업으로에 대한 FDAI 흐름입니다.
+    alt: 선언에서 실행 중인 작업으로. 주요 단계는 ActionType declaration, Bounded action instance, Operational context snapshot, Safety
+      check, Executor, Human approval, Held for review, Audit and outcome입니다.
+canvas:
+  width: 1200
+  height: 720
+  direction: RIGHT
+groups: []
+nodes:
+  - id: t
+    kind: process
+    shape: card
+    label:
+      en: ActionType declaration
+      ko: ActionType declaration
+  - id: i
+    kind: process
+    shape: card
+    label:
+      en: Bounded action instance
+      ko: Bounded action instance
+  - id: c
+    kind: process
+    shape: card
+    label:
+      en: Operational context snapshot
+      ko: Operational context snapshot
+  - id: g
+    kind: process
+    shape: card
+    label:
+      en: Safety check
+      ko: Safety check
+  - id: x
+    kind: process
+    shape: card
+    label:
+      en: Executor
+      ko: Executor
+    description:
+      en: "When: allowed"
+      ko: "조건: allowed"
+  - id: h
+    kind: process
+    shape: card
+    label:
+      en: Human approval
+      ko: Human approval
+    description:
+      en: "When: approval required"
+      ko: "조건: approval required"
+  - id: r
+    kind: process
+    shape: card
+    label:
+      en: Held for review
+      ko: Held for review
+    description:
+      en: "When: insufficient evidence"
+      ko: "조건: insufficient evidence"
+  - id: a
+    kind: process
+    shape: card
+    label:
+      en: Audit and outcome
+      ko: Audit and outcome
+edges:
+  - id: flow-01
+    from: t
+    to: i
+    kind: request
+  - id: flow-02
+    from: c
+    to: i
+    kind: request
+  - id: flow-03
+    from: i
+    to: g
+    kind: request
+  - id: flow-04
+    from: g
+    to: x
+    kind: request
+  - id: flow-05
+    from: g
+    to: h
+    kind: approval
+  - id: flow-06
+    from: g
+    to: r
+    kind: request
+  - id: flow-07
+    from: x
+    to: a
+    kind: request
+  - id: flow-08
+    from: h
+    to: x
+    kind: request

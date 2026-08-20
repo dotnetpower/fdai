@@ -1,7 +1,7 @@
 ---
 title: 운영과 검증(Operating and Verification)
 translation_of: operating-and-verification.md
-translation_source_sha: c473ba5dd92f8048b4cf1a85633f081989190835
+translation_source_sha: 477f20b9fa1db311812dd03916b2f5b4ad900e11
 translation_revised: 2026-08-20
 ---
 
@@ -194,16 +194,7 @@ HTTPS가 필수이며 엔드포인트의 자격 증명, 조회 문자열, 조각
 상관 id 또는 감사 id를 주면 운영자가 고정 경로를 걷습니다. 각 홉은 검색이 아니라 **쓰기
 시점에 캡처된 저장 링크** - 왕복은 O(1) 조회.
 
-```mermaid
-flowchart LR
-    A[Audit id or correlation id] --> B[Event lookup]
-    B --> C[Tier decision plus confidence]
-    C --> D[Cited rules and their versions]
-    D --> E[Risk-gate decision auto or HIL]
-    E --> F[Approver identity when HIL]
-    F --> G[Action outcome plus idempotency key]
-    G --> H[Rollback reference when applicable]
-```
+![감사 조사 흐름. 주요 단계는 Audit id or correlation id, Event lookup, Tier decision plus confidence, Cited rules and their versions, Risk-gate decision auto or HIL, Approver identity when HIL, Action outcome plus idempotency key, Rollback reference when applicable입니다.](../../diagrams/generated/fdai-operating-and-verification-01.ko.svg)
 
 감사 기록은 [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) 에 따라 추가 전용이며
 hash-chain됨; 같은 워크는 shadow와 강제 적용 이벤트에 대해 동작(모드가 모든 엔트리에 기록됨).

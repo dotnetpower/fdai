@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 지원 부록
 translation_of: README.md
-translation_source_sha: 082624be2dd254d2e5ae9789bed6168ce5f83e4d
-translation_revised: 2026-08-14
+translation_source_sha: fe1a699899df24ab4680430a7d9ac92367bc8728
+translation_revised: 2026-08-20
 ---
 
 # 에이전트 판테온 지원 부록
@@ -194,19 +194,7 @@ Wave 3 Forseti는 결정론적 T0 규칙 일치와 위험 표를 제공하고 T2
 웨이브는 W0부터 W8까지 순차로 진행합니다. W7은 작업 흐름별 끌어오기 요청 13개로 가장 넓은
 웨이브이며 KPI 수집기는 작업 흐름과 병렬로 구현할 수 있으므로 W8과 겹칠 수 있습니다.
 
-```mermaid
-timeline
-    title Pantheon Wave Plan (order, not calendar)
-    W0 : Docs foundation : workflows + pantheon detail + ontology YAML
-    W1 : Python scaffolding : agents package + registry + tests
-    W2 : Governance : Saga + Mimir + Muninn + Norns
-    W3 : Pipeline : Huginn + Heimdall + Forseti + Var + Vidar + Thor
-    W4 : Interface : Bragi + Odin
-    W5 : Specialists : Njord + Freyr + Loki
-    W6 : Handoff + Security : Issue dedup + admin alerts
-    W7 : Workflows : 13 workflows in shadow
-    W8 : KPI + Promotion : evidence states + 15 drills + gated lifecycle
-```
+![타임라인 형태, commitment 아님. 주요 단계는 W0: Docs foundation, workflows + pantheon detail + ontology YAML, W1: Python scaffolding, agents package + registry + tests, W2: Governance, Saga + Mimir + Muninn + Norns, W3: Pipeline, Huginn + Heimdall + Forseti + Var + Vidar + Thor, W4: Interface, Bragi + Odin, W5: Specialists, Njord + Freyr + Loki, W6: Handoff + Security, Issue dedup + admin alerts, W7: Workflows, 13 workflows in shadow, W8: KPI + Promotion, evidence states + 15 drills + gated lifecycle입니다.](../../diagrams/generated/fdai-agent-waves-01.ko.svg)
 
 ## 범위 밖
 

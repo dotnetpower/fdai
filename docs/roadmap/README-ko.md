@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: 6eb6dab346f6b5dbce8fe3c3da7b1846a43e5320
-translation_revised: 2026-08-19
+translation_source_sha: f66632ab3e1dbb1c6928d131d4d8bf61eb370a85
+translation_revised: 2026-08-20
 ---
 # FDAI 로드맵
 
@@ -174,15 +174,7 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 
 ## 단계별 일정
 
-```mermaid
-timeline
-    title FDAI Delivery Phases
-    P0 Instrumentation : KPI telemetry : Baseline vs reference agent : Unblock identity and policy
-    P1 Rule Catalog and T0 : Normalize checklists : Policy-as-code gate : Auto remediation PR : Out-of-band detection
-    P2 Quality and T1 : Continuous rule update : LLM quality gate and mixed-model : Embedding pattern reuse : Shadow to enforce
-    P3 Integrated Loop : Unified control loop : DR-Chaos scheduler and DB DR : FinOps auto-actions
-    P4 Scale : Continuous measurement : Pattern-library and model tracking : Scalability : Multi-cloud expansion (TBD)
-```
+![온톨로지, 정책 및 전달 작업 흐름을 시간 비율 막대로 표시합니다. 완료, 진행 중, 계획, 중요 및 마일스톤 상태를 서로 다른 색으로 구분하고 통제된 작업 사이를 의존 화살표로 연결합니다.](../diagrams/generated/fdai-delivery-roadmap.ko.svg)
 
 단계는 P0 -> P1 -> P2 -> P3 -> P4 순서로 진행하며, 각 단계 문서는 *의존성* 절에
 선행 조건을 명시합니다. 지원 영역은 점진적으로 확장됩니다. P1에서 변경 안전성을,

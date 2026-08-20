@@ -1,0 +1,196 @@
+{
+  "id": "fdai-approvals-and-channels-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "How an approval reaches you",
+      "description": "FDAI flow for How an approval reaches you.",
+      "alt": "How an approval reaches you. The main stages are risk-gate / verdict = HIL, channel-router / picks an A1 channel, Approval card / Teams / Slack / carries an opaque approval_id, You approve / or reject, fdai-api / re-verifies your identity / + replay + no self-approval, executor / applies the action, no-op, audit log."
+    },
+    "ko": {
+      "title": "승인이 여러분에게 도달하는 방식",
+      "description": "승인이 여러분에게 도달하는 방식에 대한 FDAI 흐름입니다.",
+      "alt": "승인이 여러분에게 도달하는 방식. 주요 단계는 안전성 검토 / 결과 = 사람 승인, channel-router / A1 채널 선택, 승인 카드 / Teams / Slack / 불투명한 approval_id를 담음, 여러분이 승인 / 또는 거부, fdai-api / 신원 재검증 / + 재생 방지 + 자기승인 금지, 실행기 / 작업 적용, 미실행, 감사 로그입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-approvals-and-channels-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-approvals-and-channels-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "rg",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "risk-gate / verdict = HIL",
+        "ko": "안전성 검토 / 결과 = 사람 승인"
+      },
+      "description": {
+        "en": "risk-gate / verdict = HIL",
+        "ko": "안전성 검토 / 결과 = 사람 승인"
+      }
+    },
+    {
+      "id": "r",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "channel-router / picks an A1 channel",
+        "ko": "channel-router / A1 채널 선택"
+      },
+      "description": {
+        "en": "channel-router / picks an A1 channel",
+        "ko": "channel-router / A1 채널 선택"
+      }
+    },
+    {
+      "id": "c",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Approval card / Teams / Slack / carries an opaque approval_id",
+        "ko": "승인 카드 / Teams / Slack / 불투명한 approval_id를 담음"
+      },
+      "description": {
+        "en": "Approval card / Teams / Slack / carries an opaque approval_id",
+        "ko": "승인 카드 / Teams / Slack / 불투명한 approval_id를 담음"
+      }
+    },
+    {
+      "id": "h",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "You approve / or reject",
+        "ko": "여러분이 승인 / 또는 거부"
+      },
+      "description": {
+        "en": "You approve / or reject",
+        "ko": "여러분이 승인 / 또는 거부"
+      }
+    },
+    {
+      "id": "api",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "fdai-api / re-verifies your identity / + replay + no self-approval",
+        "ko": "fdai-api / 신원 재검증 / + 재생 방지 + 자기승인 금지"
+      },
+      "description": {
+        "en": "fdai-api / re-verifies your identity / + replay + no self-approval",
+        "ko": "fdai-api / 신원 재검증 / + 재생 방지 + 자기승인 금지"
+      }
+    },
+    {
+      "id": "ex",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "executor / applies the action",
+        "ko": "실행기 / 작업 적용"
+      },
+      "description": {
+        "en": "executor / applies the action",
+        "ko": "실행기 / 작업 적용"
+      }
+    },
+    {
+      "id": "no",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "no-op",
+        "ko": "미실행"
+      },
+      "description": {
+        "en": "no-op",
+        "ko": "미실행"
+      }
+    },
+    {
+      "id": "aud",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "audit log",
+        "ko": "감사 로그"
+      },
+      "description": {
+        "en": "audit log",
+        "ko": "감사 로그"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "rg",
+      "to": "r",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "r",
+      "to": "c",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "c",
+      "to": "h",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "h",
+      "to": "api",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "api",
+      "to": "ex",
+      "kind": "approval",
+      "label": {
+        "en": "approved",
+        "ko": "승인됨"
+      }
+    },
+    {
+      "id": "flow-06",
+      "from": "api",
+      "to": "no",
+      "kind": "request",
+      "label": {
+        "en": "rejected / timeout",
+        "ko": "거부 / 타임아웃"
+      }
+    },
+    {
+      "id": "flow-07",
+      "from": "ex",
+      "to": "aud",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "no",
+      "to": "aud",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

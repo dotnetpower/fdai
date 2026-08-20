@@ -1,0 +1,219 @@
+{
+  "id": "fdai-escalation-and-standing-authority-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "OODA as the supervision frame",
+      "description": "FDAI flow for OODA as the supervision frame.",
+      "alt": "OODA as the supervision frame. The main stages are approval still pending?, forecast ETA now? / (lead time recomputed), inaction blast radius?, recompute urgency / = f(impact, ETA, rung age), which ladder rung / should hold this now?, standing authorization / matches + envelope holds / + deadline passed?, escalate to next rung, trip standing action / -> re-enter typed pipeline, terminal no-op / (ladder exhausted), audit (Saga)."
+    },
+    "ko": {
+      "title": "감독 프레임으로서의 OODA",
+      "description": "감독 프레임으로서의 OODA에 대한 FDAI 흐름입니다.",
+      "alt": "감독 프레임으로서의 OODA. 주요 단계는 approval still pending?, forecast ETA now? / (lead time recomputed), inaction blast radius?, recompute urgency / = f(impact, ETA, rung age), which ladder rung / should hold this now?, standing authorization / matches + envelope holds / + deadline passed?, escalate to next rung, trip standing action / -> re-enter typed pipeline, terminal no-op / (ladder exhausted), audit (Saga)입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-escalation-and-standing-authority-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-escalation-and-standing-authority-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "o1",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "approval still pending?",
+        "ko": "approval still pending?"
+      },
+      "description": {
+        "en": "approval still pending?",
+        "ko": "approval still pending?"
+      }
+    },
+    {
+      "id": "o2",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "forecast ETA now? / (lead time recomputed)",
+        "ko": "forecast ETA now? / (lead time recomputed)"
+      },
+      "description": {
+        "en": "forecast ETA now? / (lead time recomputed)",
+        "ko": "forecast ETA now? / (lead time recomputed)"
+      }
+    },
+    {
+      "id": "o3",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "inaction blast radius?",
+        "ko": "inaction blast radius?"
+      },
+      "description": {
+        "en": "inaction blast radius?",
+        "ko": "inaction blast radius?"
+      }
+    },
+    {
+      "id": "r1",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "recompute urgency / = f(impact, ETA, rung age)",
+        "ko": "recompute urgency / = f(impact, ETA, rung age)"
+      },
+      "description": {
+        "en": "recompute urgency / = f(impact, ETA, rung age)",
+        "ko": "recompute urgency / = f(impact, ETA, rung age)"
+      }
+    },
+    {
+      "id": "r2",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "which ladder rung / should hold this now?",
+        "ko": "which ladder rung / should hold this now?"
+      },
+      "description": {
+        "en": "which ladder rung / should hold this now?",
+        "ko": "which ladder rung / should hold this now?"
+      }
+    },
+    {
+      "id": "d1",
+      "kind": "decision",
+      "shape": "diamond",
+      "label": {
+        "en": "standing authorization / matches + envelope holds / + deadline passed?",
+        "ko": "standing authorization / matches + envelope holds / + deadline passed?"
+      },
+      "description": {
+        "en": "standing authorization / matches + envelope holds / + deadline passed?",
+        "ko": "standing authorization / matches + envelope holds / + deadline passed?"
+      }
+    },
+    {
+      "id": "a1",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "escalate to next rung",
+        "ko": "escalate to next rung"
+      },
+      "description": {
+        "en": "When: no, rung TTL left",
+        "ko": "조건: no, rung TTL left"
+      }
+    },
+    {
+      "id": "a2",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "trip standing action / -> re-enter typed pipeline",
+        "ko": "trip standing action / -> re-enter typed pipeline"
+      },
+      "description": {
+        "en": "When: yes",
+        "ko": "조건: yes"
+      }
+    },
+    {
+      "id": "a3",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "terminal no-op / (ladder exhausted)",
+        "ko": "terminal no-op / (ladder exhausted)"
+      },
+      "description": {
+        "en": "When: no, ladder done",
+        "ko": "조건: no, ladder done"
+      }
+    },
+    {
+      "id": "aud",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "audit (Saga)",
+        "ko": "audit (Saga)"
+      },
+      "description": {
+        "en": "audit (Saga)",
+        "ko": "audit (Saga)"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "observe",
+      "to": "orient",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "orient",
+      "to": "decide",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "d1",
+      "to": "a1",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "d1",
+      "to": "a2",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "d1",
+      "to": "a3",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "a1",
+      "to": "observe",
+      "kind": "dependency",
+      "label": {
+        "en": "next tick",
+        "ko": "next tick"
+      }
+    },
+    {
+      "id": "flow-07",
+      "from": "a2",
+      "to": "aud",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "a3",
+      "to": "aud",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

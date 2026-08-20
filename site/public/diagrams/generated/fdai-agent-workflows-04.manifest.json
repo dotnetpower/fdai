@@ -1,0 +1,123 @@
+{
+  "id": "fdai-agent-workflows-04",
+  "kind": "sequence",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "4. Override -> Discovery",
+      "description": "Ordered FDAI interactions for 4. Override -> Discovery.",
+      "alt": "4. Override -> Discovery. The main stages are object.approval {rule_id, override_signal}, signal (batched), rolling count per rule_id, threshold check, object.rule-candidate {rule_id, override_pattern, proposed_revision}, shadow evaluation on override cases."
+    },
+    "ko": {
+      "title": "4. 재정의 -> 발견",
+      "description": "4. 재정의 -> 발견에 대한 순서가 있는 FDAI 상호 작용입니다.",
+      "alt": "4. 재정의 -> 발견. 주요 단계는 object.approval {rule_id, override_signal}, signal (batched), rolling count per rule_id, threshold check, object.rule-candidate {rule_id, override_pattern, proposed_revision}, shadow evaluation on override cases입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-agent-workflows-04.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-agent-workflows-04.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "step-01",
+      "kind": "process",
+      "badge": 1,
+      "label": {
+        "en": "Var -> Saga",
+        "ko": "Var -> Saga"
+      },
+      "description": {
+        "en": "object.approval {rule_id, override_signal}",
+        "ko": "object.approval {rule_id, override_signal}"
+      }
+    },
+    {
+      "id": "step-02",
+      "kind": "process",
+      "badge": 2,
+      "label": {
+        "en": "Saga -> Norns",
+        "ko": "Saga -> Norns"
+      },
+      "description": {
+        "en": "signal (batched)",
+        "ko": "signal (batched)"
+      }
+    },
+    {
+      "id": "step-03",
+      "kind": "process",
+      "badge": 3,
+      "label": {
+        "en": "Norns -> Norns",
+        "ko": "Norns -> Norns"
+      },
+      "description": {
+        "en": "rolling count per rule_id, threshold check",
+        "ko": "rolling count per rule_id, threshold check"
+      }
+    },
+    {
+      "id": "step-04",
+      "kind": "process",
+      "badge": 4,
+      "label": {
+        "en": "Norns -> Mimir",
+        "ko": "Norns -> Mimir"
+      },
+      "description": {
+        "en": "alt: count > threshold / object.rule-candidate {rule_id, override_pattern, proposed_revision}",
+        "ko": "alt: count > threshold / object.rule-candidate {rule_id, override_pattern, proposed_revision}"
+      }
+    },
+    {
+      "id": "step-05",
+      "kind": "process",
+      "badge": 5,
+      "label": {
+        "en": "Mimir -> Mimir",
+        "ko": "Mimir -> Mimir"
+      },
+      "description": {
+        "en": "alt: count > threshold / shadow evaluation on override cases",
+        "ko": "alt: count > threshold / shadow evaluation on override cases"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "sequence-01",
+      "from": "step-01",
+      "to": "step-02",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-02",
+      "from": "step-02",
+      "to": "step-03",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-03",
+      "from": "step-03",
+      "to": "step-04",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-04",
+      "from": "step-04",
+      "to": "step-05",
+      "kind": "sequence",
+      "label": null
+    }
+  ]
+}

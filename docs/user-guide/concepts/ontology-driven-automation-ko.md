@@ -2,8 +2,8 @@
 title: 에이전트 기반 자동화(Agent-driven automation)
 description: FDAI 에이전트가 typed operational truth와 ActionType 안전 계약으로 cloud operations를 자동화하는 방식을 설명합니다.
 translation_of: ontology-driven-automation.md
-translation_source_sha: 62dd76cb6a59c7ae37d133b96588dc2285ea454d
-translation_revised: 2026-08-11
+translation_source_sha: af24a6b4ef80f4a114d44c423a582502ec1d28d8
+translation_revised: 2026-08-20
 sidebar:
   order: 4
 ---
@@ -51,15 +51,7 @@ FDAI의 에이전트가 cloud operations를 수행합니다. 에이전트는 타
 운영 온톨로지는 조직이 무엇을 운영하는지, 좋은 상태가 무엇인지, 현재 무슨 일이 일어나는지,
 FDAI가 무엇을 검토했는지, 작업이 어떤 효과를 냈는지를 연결합니다.
 
-```mermaid
-flowchart LR
-  BC[BusinessCapability] -->|delivered_by| BS[BusinessService]
-  BS -->|implemented_by| W[Workload]
-  W -->|workload_runs_on| R[Resource]
-  BS -->|service_has_service_objective| O[ServiceObjective]
-  BS -->|service_owned_by| OW[Ownership]
-  RL[Rule] -->|remediates| AT[ActionType]
-```
+![운영 모델의 연결 방식. 주요 단계는 BusinessCapability, BusinessService, Workload, Resource, ServiceObjective, Ownership, Rule, ActionType입니다.](../../diagrams/generated/fdai-ontology-driven-automation-01.ko.svg)
 
 이 모델은 교체 가능한 클라우드 리소스 위에 안정적인 서비스와 워크로드 ID를 추가합니다.
 목표와 담당 체계도 타입 없는 컨텍스트 묶음에 숨기지 않고 명시적으로 유지합니다. 변경
@@ -133,17 +125,7 @@ ceiling_by_tier:
 인스턴스화는 정적 `ActionType` 선언을 특정 대상과 이벤트에 대한 하나의 제한된 작업으로
 바꿉니다.
 
-```mermaid
-flowchart LR
-  T[ActionType declaration] --> I[Bounded action instance]
-  C[Operational context snapshot] --> I
-  I --> G[Safety check]
-  G -->|allowed| X[Executor]
-  G -->|approval required| H[Human approval]
-  G -->|insufficient evidence| R[Held for review]
-  X --> A[Audit and outcome]
-  H --> X
-```
+![선언에서 실행 중인 작업으로. 주요 단계는 ActionType declaration, Bounded action instance, Operational context snapshot, Safety check, Executor, Human approval, Held for review, Audit and outcome입니다.](../../diagrams/generated/fdai-ontology-driven-automation-02.ko.svg)
 
 - **규칙 위반:** 컨트롤 루프가 일치한 규칙, 발견된 문제, 리소스, 타입 계약으로 인스턴스를
   만듭니다.

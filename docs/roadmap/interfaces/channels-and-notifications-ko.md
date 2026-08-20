@@ -1,7 +1,7 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 152b830742ad9b29b715ad3b32b21b3db8639667
+translation_source_sha: 1d6dedd22bfd7daeb1e6fed594432d366c2da4b8
 translation_revised: 2026-08-20
 ---
 
@@ -91,25 +91,7 @@ FDAI가 Teams, Slack, 이메일, 웹훅, paging 서비스, SMS 및 명시적 선
 
 ## 2. 아키텍처 상 채널의 위치
 
-```mermaid
-flowchart LR
-    subgraph core[core/]
-      RG[risk-gate] --> R[channel-router]
-      OBS[observability] --> R
-      DIG[digest-writer] --> R
-    end
-    R -->|category-tagged<br/>message| CH[Channel interface]
-    subgraph delivery[delivery/]
-      CH --> T[teams adapter]
-      CH --> S[slack adapter]
-      CH --> E[email adapter]
-      CH --> W[webhook adapter]
-      CH --> P[pager adapter]
-    end
-    T --> API[fdai-api]
-    S --> API
-    API --> RG
-```
+![2. 아키텍처 상 채널의 위치. 주요 단계는 risk-gate, channel-router, observability, digest-writer, Channel interface, teams adapter, slack adapter, email adapter, webhook adapter, pager adapter, fdai-api입니다.](../../diagrams/generated/fdai-channels-and-notifications-01.ko.svg)
 
 - 아웃바운드 어댑터는 `delivery/notifications/`, bidirectional 어댑터는 `delivery/channels/`,
   A1 승인 어댑터는 `delivery/chatops/`에 있습니다. 계약은 각각

@@ -139,18 +139,7 @@ Two things sit on top of that loop and make it operable:
 
 FDAI is a good fit when all of these are true:
 
-```mermaid
-flowchart TB
-  Q1{Do operators<br/>repeatedly approve or<br/>roll back the same<br/>types of events?}
-  Q1 -->|no| N1[Not a fit yet. The<br/>deterministic tier has<br/>nothing repeatable to<br/>automate.]
-  Q1 -->|yes| Q2{Is infrastructure<br/>expressed as IaC and<br/>policy-as-code?}
-  Q2 -->|no| N2[Not a fit yet. T0<br/>needs machine-readable<br/>rules to run.]
-  Q2 -->|yes| Q3{Can you reproduce<br/>a baseline for<br/>measuring gains?}
-  Q3 -->|no| N3[Build the baseline first.<br/>Phase 0 exists for<br/>exactly this.]
-  Q3 -->|yes| Q4{Are you on Azure?}
-  Q4 -->|no| N4[Adapters for other clouds<br/>are not shipped yet.]
-  Q4 -->|yes| OK[FDAI fits.<br/>Start with Phase 0.]
-```
+![When FDAI fits. The main stages are Do operators / repeatedly approve or / roll back the same / types of events?, Not a fit yet. The / deterministic tier has / nothing repeatable to / automate., Is infrastructure / expressed as IaC and / policy-as-code?, Not a fit yet. T0 / needs machine-readable / rules to run., Can you reproduce / a baseline for / measuring gains?, Build the baseline first. / Phase 0 exists for / exactly this., Are you on Azure?, Adapters for other clouds / are not shipped yet., FDAI fits. / Start with Phase 0..](../diagrams/generated/fdai-get-started-01.en.svg)
 
 - Your operators already spend real time approving or rolling back repeatable
   cloud-configuration events such as drift, cost regressions, and policy

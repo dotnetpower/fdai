@@ -196,19 +196,7 @@ Operator API.
 Waves are strictly sequential from W0 through W8. W7 is the widest wave with 13 workflow pull
 requests and can overlap with W8 because KPI collectors can land in parallel with workflows.
 
-```mermaid
-timeline
-    title Pantheon Wave Plan (order, not calendar)
-    W0 : Docs foundation : workflows + pantheon detail + ontology YAML
-    W1 : Python scaffolding : agents package + registry + tests
-    W2 : Governance : Saga + Mimir + Muninn + Norns
-    W3 : Pipeline : Huginn + Heimdall + Forseti + Var + Vidar + Thor
-    W4 : Interface : Bragi + Odin
-    W5 : Specialists : Njord + Freyr + Loki
-    W6 : Handoff + Security : Issue dedup + admin alerts
-    W7 : Workflows : 13 workflows in shadow
-    W8 : KPI + Promotion : evidence states + 15 drills + gated lifecycle
-```
+![Timeline shape, not commitments. The main stages are W0: Docs foundation, workflows + pantheon detail + ontology YAML, W1: Python scaffolding, agents package + registry + tests, W2: Governance, Saga + Mimir + Muninn + Norns, W3: Pipeline, Huginn + Heimdall + Forseti + Var + Vidar + Thor, W4: Interface, Bragi + Odin, W5: Specialists, Njord + Freyr + Loki, W6: Handoff + Security, Issue dedup + admin alerts, W7: Workflows, 13 workflows in shadow, W8: KPI + Promotion, evidence states + 15 drills + gated lifecycle.](../../diagrams/generated/fdai-agent-waves-01.en.svg)
 
 ## Not in scope
 

@@ -2,8 +2,8 @@
 title: 에이전트와 자가 치유(Agents and self-healing)
 description: FDAI의 고정된 에이전트 조직이 클라우드를 감시하고, 장애 해결을 위해 협력하며, 여러분을 승인-거절 수준에 두는 방식.
 translation_of: agents-and-self-healing.md
-translation_source_sha: 3de2d9a25bcd03f2484f616f02016e5d0fd22314
-translation_revised: 2026-08-11
+translation_source_sha: 04c4ca53912e798d51b38988afd5450ea0225fc0
+translation_revised: 2026-08-20
 sidebar:
   order: 5
 ---
@@ -26,24 +26,7 @@ FDAI는 **이름 있는 15개 에이전트의 고정된 조직**으로 동작합
 계획하고, Forseti가 판단하고, Thor가 실행하며, 스태프 에이전트가 카탈로그와 메모리를
 관리합니다.
 
-```mermaid
-graph TD
-  Odin["Odin - Master Planner"]
-  Odin --> Thor["Thor - Responder / Executor"]
-  Odin --> Forseti["Forseti - Judge"]
-  Odin -. staff .-> Mimir["Mimir - Rule Steward"]
-  Odin -. staff .-> Saga["Saga - Auditor"]
-  Odin -. staff .-> Norns["Norns - Learner"]
-  Odin -. staff .-> Muninn["Muninn - Memory"]
-  Thor --> Vidar["Vidar - Recovery"]
-  Thor --> Var["Var - Approver"]
-  Thor --> Bragi["Bragi - Narrator"]
-  Forseti --> Huginn["Huginn - Event Collector / Resource Discovery"]
-  Forseti --> Heimdall["Heimdall - Observer"]
-  Forseti --> Njord["Njord - Cost"]
-  Forseti --> Freyr["Freyr - Capacity"]
-  Forseti --> Loki["Loki - Chaos"]
-```
+![외부 신호가 shared typed event bus로 들어와 Huginn에 도달합니다. Huginn이 발행한 normalized event는 Heimdall과 Forseti로 fan-out됩니다. Heimdall, Njord, Freyr, Loki, Mimir, Muninn은 서로 직접 호출하지 않고 finding, domain evidence, rule, context를 제공합니다. Forseti는 결정을 소유하고 cross-domain conflict의 arbitration을 Odin에 요청합니다. 실행 가능한 결정은 Thor에 도달하며 Var는 사람 승인을, Vidar는 rollback을 소유합니다. Forseti, Thor, Var, Vidar는 Saga에 audit evidence를 발행합니다. Saga outcome은 Norns로 전달되고 Norns는 inert rule candidate를 Mimir에 제안합니다. Bragi는 Muninn에서 context를 읽고 typed action proposal을 Huginn에 보내 conversation도 동일한 governed path를 사용하게 합니다.](../../diagrams/generated/fdai-agent-driven-runtime.ko.svg)
 
 | 에이전트 | 역할 | 한 줄 |
 |----------|------|-------|
@@ -95,20 +78,7 @@ graph TD
 리소스가 나빠지면 에이전트들은 모든 이벤트를 다루는 바로 그 파이프라인에서 함께
 움직입니다. 장애 조치 하나를 처음부터 끝까지 따라가 보겠습니다.
 
-```mermaid
-graph LR
-  Huginn["Huginn<br/>변경 discovery"] --> Heimdall["Heimdall<br/>coverage 확인"]
-  Heimdall --> Forseti["Forseti<br/>판정"]
-  Njord -. 자문 .-> Forseti
-  Freyr -. 자문 .-> Forseti
-  Forseti -->|자동 실행| Thor["Thor<br/>실행"]
-  Forseti -->|사람 승인| Var["Var<br/>여러분의 승인"]
-  Var --> Thor
-  Thor --> Vidar["Vidar<br/>롤백 / failover"]
-  Vidar --> Saga["Saga<br/>감사"]
-  Thor --> Saga
-  Saga -. 신호 .-> Norns["Norns<br/>학습"]
-```
+![장애는 어떻게 자가 치유되는가. 주요 단계는 Huginn / 변경 discovery, Heimdall / coverage 확인, Forseti / 판정, Njord, Freyr, Thor / 실행, Var / 여러분의 승인, Vidar / 롤백 / failover, Saga / 감사, Norns / 학습입니다.](../../diagrams/generated/fdai-agents-and-self-healing-02.ko.svg)
 
 1. **감지.** Huginn이 리소스 변경과 장애 신호를 실시간으로 모읍니다. 주기적인 인벤토리
   작업이 놓친 변경을 메우고, Heimdall이 최신성과 커버리지를 확인해 알림 폭주 대신 하나의

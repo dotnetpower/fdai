@@ -1,0 +1,89 @@
+id: fdai-shadow-then-enforce-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: What observation mode records
+    description: FDAI flow for What observation mode records.
+    alt: What observation mode records. The main stages are New capability / ships, Shadow mode / judge + log only / no
+      execution, Evidence gate met? / sample + accuracy + / zero policy escapes, Enforce mode / auto-execute, Live
+      regression?.
+  ko:
+    title: 관찰 모드가 기록하는 것
+    description: 관찰 모드가 기록하는 것에 대한 FDAI 흐름입니다.
+    alt: 관찰 모드가 기록하는 것. 주요 단계는 새 기능 / 배포, 관찰 모드 / 판단 + 로깅만 / 실행 없음, 근거 기준 통과? / 표본 + 정확도 + / 정책 우회 0건, 적용 모드 / 자동 실행, 라이브
+      회귀?입니다.
+canvas:
+  width: 900
+  height: 520
+  direction: RIGHT
+groups: []
+nodes:
+  - id: new
+    kind: process
+    shape: card
+    label:
+      en: New capability / ships
+      ko: 새 기능 / 배포
+  - id: sh
+    kind: process
+    shape: card
+    label:
+      en: Shadow mode / judge + log only / no execution
+      ko: 관찰 모드 / 판단 + 로깅만 / 실행 없음
+  - id: m
+    kind: decision
+    shape: diamond
+    label:
+      en: Evidence gate met? / sample + accuracy + / zero policy escapes
+      ko: 근거 기준 통과? / 표본 + 정확도 + / 정책 우회 0건
+  - id: en
+    kind: process
+    shape: card
+    label:
+      en: Enforce mode / auto-execute
+      ko: 적용 모드 / 자동 실행
+  - id: r
+    kind: decision
+    shape: diamond
+    label:
+      en: Live regression?
+      ko: 라이브 회귀?
+edges:
+  - id: flow-01
+    from: new
+    to: sh
+    kind: request
+  - id: flow-02
+    from: sh
+    to: m
+    kind: request
+  - id: flow-03
+    from: m
+    to: en
+    kind: request
+    label:
+      en: yes
+      ko: yes
+  - id: flow-04
+    from: m
+    to: sh
+    kind: request
+    label:
+      en: no
+      ko: no
+  - id: flow-05
+    from: en
+    to: r
+    kind: request
+  - id: flow-06
+    from: r
+    to: sh
+    kind: request
+  - id: flow-07
+    from: r
+    to: en
+    kind: request

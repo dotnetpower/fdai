@@ -1,0 +1,223 @@
+{
+  "id": "fdai-ontology-context-rag-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "How FDAI references ontology data",
+      "description": "FDAI flow for How FDAI references ontology data.",
+      "alt": "How FDAI references ontology data. The main stages are Catalog declarations in Git, Schema and reference validation, Approved inventory and operating model, Instance projection, PostgreSQL objects and links, Event with resource ID and cutoff, Bounded context materializer, OperationalContextSnapshot, Forseti decision, Auto, human approval, hold, or deny."
+    },
+    "ko": {
+      "title": "FDAI가 온톨로지 데이터를 참조하는 방식",
+      "description": "FDAI가 온톨로지 데이터를 참조하는 방식에 대한 FDAI 흐름입니다.",
+      "alt": "FDAI가 온톨로지 데이터를 참조하는 방식. 주요 단계는 Catalog declarations in Git, Schema and reference validation, Approved inventory and operating model, Instance projection, PostgreSQL objects and links, Event with resource ID and cutoff, Bounded context materializer, OperationalContextSnapshot, Forseti decision, Auto, human approval, hold, or deny입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-ontology-context-rag-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-ontology-context-rag-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "s",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Catalog declarations in Git",
+        "ko": "Catalog declarations in Git"
+      },
+      "description": {
+        "en": "Catalog declarations in Git",
+        "ko": "Catalog declarations in Git"
+      }
+    },
+    {
+      "id": "v",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Schema and reference validation",
+        "ko": "Schema and reference validation"
+      },
+      "description": {
+        "en": "Schema and reference validation",
+        "ko": "Schema and reference validation"
+      }
+    },
+    {
+      "id": "i",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Approved inventory and operating model",
+        "ko": "Approved inventory and operating model"
+      },
+      "description": {
+        "en": "Approved inventory and operating model",
+        "ko": "Approved inventory and operating model"
+      }
+    },
+    {
+      "id": "p",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Instance projection",
+        "ko": "Instance projection"
+      },
+      "description": {
+        "en": "Instance projection",
+        "ko": "Instance projection"
+      }
+    },
+    {
+      "id": "g",
+      "kind": "store",
+      "shape": "database",
+      "label": {
+        "en": "PostgreSQL objects and links",
+        "ko": "PostgreSQL objects and links"
+      },
+      "description": {
+        "en": "PostgreSQL objects and links",
+        "ko": "PostgreSQL objects and links"
+      }
+    },
+    {
+      "id": "e",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Event with resource ID and cutoff",
+        "ko": "Event with resource ID and cutoff"
+      },
+      "description": {
+        "en": "Event with resource ID and cutoff",
+        "ko": "Event with resource ID and cutoff"
+      }
+    },
+    {
+      "id": "m",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Bounded context materializer",
+        "ko": "Bounded context materializer"
+      },
+      "description": {
+        "en": "Bounded context materializer",
+        "ko": "Bounded context materializer"
+      }
+    },
+    {
+      "id": "c",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "OperationalContextSnapshot",
+        "ko": "OperationalContextSnapshot"
+      },
+      "description": {
+        "en": "OperationalContextSnapshot",
+        "ko": "OperationalContextSnapshot"
+      }
+    },
+    {
+      "id": "f",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Forseti decision",
+        "ko": "Forseti decision"
+      },
+      "description": {
+        "en": "Forseti decision",
+        "ko": "Forseti decision"
+      }
+    },
+    {
+      "id": "d",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Auto, human approval, hold, or deny",
+        "ko": "Auto, human approval, hold, or deny"
+      },
+      "description": {
+        "en": "Auto, human approval, hold, or deny",
+        "ko": "Auto, human approval, hold, or deny"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "s",
+      "to": "v",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "i",
+      "to": "p",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "v",
+      "to": "g",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "p",
+      "to": "g",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "e",
+      "to": "m",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "g",
+      "to": "m",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "m",
+      "to": "c",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "c",
+      "to": "f",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "f",
+      "to": "d",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

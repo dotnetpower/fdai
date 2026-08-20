@@ -46,15 +46,7 @@ stale or unknown references, so a relation or action cannot silently change mean
 The operating ontology connects what the organization operates, what good means, what is happening,
 what FDAI considered, and what effect an action produced.
 
-```mermaid
-flowchart LR
-  BC[BusinessCapability] -->|delivered_by| BS[BusinessService]
-  BS -->|implemented_by| W[Workload]
-  W -->|workload_runs_on| R[Resource]
-  BS -->|service_has_service_objective| O[ServiceObjective]
-  BS -->|service_owned_by| OW[Ownership]
-  RL[Rule] -->|remediates| AT[ActionType]
-```
+![How the operating model fits together. The main stages are BusinessCapability, BusinessService, Workload, Resource, ServiceObjective, Ownership, Rule, ActionType.](../../diagrams/generated/fdai-ontology-driven-automation-01.en.svg)
 
 This model adds stable service and workload identity above replaceable cloud resources. It also
 keeps objectives and ownership explicit instead of hiding them in untyped context bags. Immutable
@@ -126,17 +118,7 @@ use typed arguments, safety checks, and audit records.
 Instantiation turns a static `ActionType` declaration into one bounded action for a specific target
 and event.
 
-```mermaid
-flowchart LR
-  T[ActionType declaration] --> I[Bounded action instance]
-  C[Operational context snapshot] --> I
-  I --> G[Safety check]
-  G -->|allowed| X[Executor]
-  G -->|approval required| H[Human approval]
-  G -->|insufficient evidence| R[Held for review]
-  X --> A[Audit and outcome]
-  H --> X
-```
+![From declaration to running action. The main stages are ActionType declaration, Bounded action instance, Operational context snapshot, Safety check, Executor, Human approval, Held for review, Audit and outcome.](../../diagrams/generated/fdai-ontology-driven-automation-02.en.svg)
 
 - **Rule violation:** The control loop builds the instance from a matched rule, detected issue,
   resource, and the type's contract.

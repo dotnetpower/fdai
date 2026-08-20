@@ -1,0 +1,194 @@
+{
+  "id": "fdai-agent-waves-01",
+  "kind": "timeline",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Pantheon Wave Plan (order, not calendar)",
+      "description": "Ordered FDAI delivery waves for Timeline shape, not commitments.",
+      "alt": "Timeline shape, not commitments. The main stages are W0: Docs foundation, workflows + pantheon detail + ontology YAML, W1: Python scaffolding, agents package + registry + tests, W2: Governance, Saga + Mimir + Muninn + Norns, W3: Pipeline, Huginn + Heimdall + Forseti + Var + Vidar + Thor, W4: Interface, Bragi + Odin, W5: Specialists, Njord + Freyr + Loki, W6: Handoff + Security, Issue dedup + admin alerts, W7: Workflows, 13 workflows in shadow, W8: KPI + Promotion, evidence states + 15 drills + gated lifecycle."
+    },
+    "ko": {
+      "title": "Pantheon Wave Plan (order, not calendar)",
+      "description": "타임라인 형태, commitment 아님에 대한 순서가 있는 FDAI delivery wave입니다.",
+      "alt": "타임라인 형태, commitment 아님. 주요 단계는 W0: Docs foundation, workflows + pantheon detail + ontology YAML, W1: Python scaffolding, agents package + registry + tests, W2: Governance, Saga + Mimir + Muninn + Norns, W3: Pipeline, Huginn + Heimdall + Forseti + Var + Vidar + Thor, W4: Interface, Bragi + Odin, W5: Specialists, Njord + Freyr + Loki, W6: Handoff + Security, Issue dedup + admin alerts, W7: Workflows, 13 workflows in shadow, W8: KPI + Promotion, evidence states + 15 drills + gated lifecycle입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-agent-waves-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-agent-waves-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "w0",
+      "kind": "process",
+      "label": {
+        "en": "W0",
+        "ko": "W0"
+      },
+      "description": {
+        "en": "Docs foundation / workflows + pantheon detail + ontology YAML",
+        "ko": "Docs foundation / workflows + pantheon detail + ontology YAML"
+      }
+    },
+    {
+      "id": "w1",
+      "kind": "process",
+      "label": {
+        "en": "W1",
+        "ko": "W1"
+      },
+      "description": {
+        "en": "Python scaffolding / agents package + registry + tests",
+        "ko": "Python scaffolding / agents package + registry + tests"
+      }
+    },
+    {
+      "id": "w2",
+      "kind": "process",
+      "label": {
+        "en": "W2",
+        "ko": "W2"
+      },
+      "description": {
+        "en": "Governance / Saga + Mimir + Muninn + Norns",
+        "ko": "Governance / Saga + Mimir + Muninn + Norns"
+      }
+    },
+    {
+      "id": "w3",
+      "kind": "process",
+      "label": {
+        "en": "W3",
+        "ko": "W3"
+      },
+      "description": {
+        "en": "Pipeline / Huginn + Heimdall + Forseti + Var + Vidar + Thor",
+        "ko": "Pipeline / Huginn + Heimdall + Forseti + Var + Vidar + Thor"
+      }
+    },
+    {
+      "id": "w4",
+      "kind": "process",
+      "label": {
+        "en": "W4",
+        "ko": "W4"
+      },
+      "description": {
+        "en": "Interface / Bragi + Odin",
+        "ko": "Interface / Bragi + Odin"
+      }
+    },
+    {
+      "id": "w5",
+      "kind": "process",
+      "label": {
+        "en": "W5",
+        "ko": "W5"
+      },
+      "description": {
+        "en": "Specialists / Njord + Freyr + Loki",
+        "ko": "Specialists / Njord + Freyr + Loki"
+      }
+    },
+    {
+      "id": "w6",
+      "kind": "process",
+      "label": {
+        "en": "W6",
+        "ko": "W6"
+      },
+      "description": {
+        "en": "Handoff + Security / Issue dedup + admin alerts",
+        "ko": "Handoff + Security / Issue dedup + admin alerts"
+      }
+    },
+    {
+      "id": "w7",
+      "kind": "process",
+      "label": {
+        "en": "W7",
+        "ko": "W7"
+      },
+      "description": {
+        "en": "Workflows / 13 workflows in shadow",
+        "ko": "Workflows / 13 workflows in shadow"
+      }
+    },
+    {
+      "id": "w8",
+      "kind": "process",
+      "label": {
+        "en": "W8",
+        "ko": "W8"
+      },
+      "description": {
+        "en": "KPI + Promotion / evidence states + 15 drills + gated lifecycle",
+        "ko": "KPI + Promotion / evidence states + 15 drills + gated lifecycle"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "timeline-01",
+      "from": "w0",
+      "to": "w1",
+      "kind": "timeline",
+      "label": null
+    },
+    {
+      "id": "timeline-02",
+      "from": "w1",
+      "to": "w2",
+      "kind": "timeline",
+      "label": null
+    },
+    {
+      "id": "timeline-03",
+      "from": "w2",
+      "to": "w3",
+      "kind": "timeline",
+      "label": null
+    },
+    {
+      "id": "timeline-04",
+      "from": "w3",
+      "to": "w4",
+      "kind": "timeline",
+      "label": null
+    },
+    {
+      "id": "timeline-05",
+      "from": "w4",
+      "to": "w5",
+      "kind": "timeline",
+      "label": null
+    },
+    {
+      "id": "timeline-06",
+      "from": "w5",
+      "to": "w6",
+      "kind": "timeline",
+      "label": null
+    },
+    {
+      "id": "timeline-07",
+      "from": "w6",
+      "to": "w7",
+      "kind": "timeline",
+      "label": null
+    },
+    {
+      "id": "timeline-08",
+      "from": "w7",
+      "to": "w8",
+      "kind": "timeline",
+      "label": null
+    }
+  ]
+}

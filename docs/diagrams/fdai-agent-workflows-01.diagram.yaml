@@ -1,0 +1,128 @@
+id: fdai-agent-workflows-01
+version: 1
+kind: sequence
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: 1. Cost-aware fix
+    description: Ordered FDAI interactions for 1. Cost-aware fix.
+    alt: 1. Cost-aware fix. The main stages are object.drift {resource, delta}, typed query {proposed_action,
+      target_resource}, cost_estimate {monthly_delta_usd, confidence}, verdict = auto|hil|deny + cost_annotation,
+      object.verdict {risk_verdict, cost_annotation}, dispatch by risk_verdict, object.action-run {result, cost_actual
+      (post-execute)}, attribution event (async).
+  ko:
+    title: 1. Cost-aware 수정
+    description: 1. Cost-aware 수정에 대한 순서가 있는 FDAI 상호 작용입니다.
+    alt: 1. Cost-aware 수정. 주요 단계는 object.drift {resource, delta}, typed query {proposed_action, target_resource},
+      cost_estimate {monthly_delta_usd, confidence}, verdict = auto|hil|deny + cost_annotation, object.verdict
+      {risk_verdict, cost_annotation}, dispatch by risk_verdict, object.action-run {result, cost_actual (post-execute)},
+      attribution event (async)입니다.
+canvas:
+  width: 1100
+  height: 880
+  direction: DOWN
+groups: []
+nodes:
+  - id: step-01
+    kind: process
+    badge: 1
+    label:
+      en: Heimdall -> Forseti
+      ko: Heimdall -> Forseti
+    description:
+      en: object.drift {resource, delta}
+      ko: object.drift {resource, delta}
+  - id: step-02
+    kind: process
+    badge: 2
+    label:
+      en: Forseti -> Njord
+      ko: Forseti -> Njord
+    description:
+      en: typed query {proposed_action, target_resource}
+      ko: typed query {proposed_action, target_resource}
+  - id: step-03
+    kind: process
+    badge: 3
+    label:
+      en: Nj- -> Forseti
+      ko: Nj- -> Forseti
+    description:
+      en: cost_estimate {monthly_delta_usd, confidence}
+      ko: cost_estimate {monthly_delta_usd, confidence}
+  - id: step-04
+    kind: process
+    badge: 4
+    label:
+      en: Forseti -> Forseti
+      ko: Forseti -> Forseti
+    description:
+      en: verdict = auto|hil|deny + cost_annotation
+      ko: verdict = auto|hil|deny + cost_annotation
+  - id: step-05
+    kind: process
+    badge: 5
+    label:
+      en: Forseti -> Thor
+      ko: Forseti -> Thor
+    description:
+      en: object.verdict {risk_verdict, cost_annotation}
+      ko: object.verdict {risk_verdict, cost_annotation}
+  - id: step-06
+    kind: process
+    badge: 6
+    label:
+      en: Thor -> Thor
+      ko: Thor -> Thor
+    description:
+      en: dispatch by risk_verdict
+      ko: dispatch by risk_verdict
+  - id: step-07
+    kind: process
+    badge: 7
+    label:
+      en: Thor -> Saga
+      ko: Thor -> Saga
+    description:
+      en: object.action-run {result, cost_actual (post-execute)}
+      ko: object.action-run {result, cost_actual (post-execute)}
+  - id: step-08
+    kind: process
+    badge: 8
+    label:
+      en: Saga -> Njord
+      ko: Saga -> Njord
+    description:
+      en: attribution event (async)
+      ko: attribution event (async)
+edges:
+  - id: sequence-01
+    from: step-01
+    to: step-02
+    kind: sequence
+  - id: sequence-02
+    from: step-02
+    to: step-03
+    kind: sequence
+  - id: sequence-03
+    from: step-03
+    to: step-04
+    kind: sequence
+  - id: sequence-04
+    from: step-04
+    to: step-05
+    kind: sequence
+  - id: sequence-05
+    from: step-05
+    to: step-06
+    kind: sequence
+  - id: sequence-06
+    from: step-06
+    to: step-07
+    kind: sequence
+  - id: sequence-07
+    from: step-07
+    to: step-08
+    kind: sequence

@@ -177,15 +177,7 @@ cap, narrow its owner set or split a multi-responsibility owner instead of addin
 
 ## Phase timeline
 
-```mermaid
-timeline
-    title FDAI Delivery Phases
-    P0 Instrumentation : KPI telemetry : Baseline vs reference agent : Unblock identity and policy
-    P1 Rule Catalog and T0 : Normalize checklists : Policy-as-code gate : Auto remediation PR : Out-of-band detection
-    P2 Quality and T1 : Continuous rule update : LLM quality gate and mixed-model : Embedding pattern reuse : Shadow to enforce
-    P3 Integrated Loop : Unified control loop : DR-Chaos scheduler and DB DR : FinOps auto-actions
-    P4 Scale : Continuous measurement : Pattern-library and model tracking : Scalability : Multi-cloud expansion (TBD)
-```
+![Three workstreams show ontology, policy, and delivery tasks as time-scaled bars. Completed, active, planned, critical, and milestone states use distinct colors, and dependency arrows connect gated work.](../diagrams/generated/fdai-delivery-roadmap.en.svg)
 
 Phases are strictly sequential (P0 -> P1 -> P2 -> P3 -> P4) and each phase doc
 names its predecessor in a *Dependencies* section. Vertical coverage lands

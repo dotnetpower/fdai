@@ -2,7 +2,7 @@ import path from "node:path";
 import process from "node:process";
 
 import {
-  validatePublicMigration,
+  checkPublicMigration,
   writePublicMigration,
 } from "./migrate/public.js";
 
@@ -13,7 +13,7 @@ async function run(): Promise<void> {
   const plan = command === "write"
     ? await writePublicMigration(repositoryRoot)
     : command === "check"
-      ? await validatePublicMigration(repositoryRoot)
+      ? await checkPublicMigration(repositoryRoot)
       : null;
   if (plan == null) throw new Error(`Unknown command '${command}'. Use check or write.`);
   console.log(

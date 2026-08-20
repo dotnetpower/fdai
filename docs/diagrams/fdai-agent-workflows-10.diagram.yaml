@@ -1,0 +1,125 @@
+id: fdai-agent-workflows-10
+version: 1
+kind: sequence
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: 10. Retrospective what-if
+    description: Ordered FDAI interactions for 10. Retrospective what-if.
+    alt: 10. Retrospective what-if. The main stages are if rule X existed on 2026-07-01, what would have happened?, fetch
+      audit slice, fetch rule X (shadow overlay), replay with overlay, what-if verdicts, delta analysis, diff summary,
+      report.
+  ko:
+    title: 10. Retrospective what-if
+    description: 10. Retrospective what-if에 대한 순서가 있는 FDAI 상호 작용입니다.
+    alt: 10. Retrospective what-if. 주요 단계는 if rule X existed on 2026-07-01, what would have happened?, fetch audit slice,
+      fetch rule X (shadow overlay), replay with overlay, what-if verdicts, delta analysis, diff summary, report입니다.
+canvas:
+  width: 1100
+  height: 880
+  direction: DOWN
+groups: []
+nodes:
+  - id: step-01
+    kind: process
+    badge: 1
+    label:
+      en: Operator -> Bragi
+      ko: Operator -> Bragi
+    description:
+      en: if rule X existed on 2026-07-01, what would have happened?
+      ko: if rule X existed on 2026-07-01, what would have happened?
+  - id: step-02
+    kind: process
+    badge: 2
+    label:
+      en: Bragi -> Saga
+      ko: Bragi -> Saga
+    description:
+      en: fetch audit slice
+      ko: fetch audit slice
+  - id: step-03
+    kind: process
+    badge: 3
+    label:
+      en: Bragi -> Mimir
+      ko: Bragi -> Mimir
+    description:
+      en: fetch rule X (shadow overlay)
+      ko: fetch rule X (shadow overlay)
+  - id: step-04
+    kind: process
+    badge: 4
+    label:
+      en: Bragi -> Forseti
+      ko: Bragi -> Forseti
+    description:
+      en: replay with overlay
+      ko: replay with overlay
+  - id: step-05
+    kind: process
+    badge: 5
+    label:
+      en: F- -> Bragi
+      ko: F- -> Bragi
+    description:
+      en: what-if verdicts
+      ko: what-if verdicts
+  - id: step-06
+    kind: process
+    badge: 6
+    label:
+      en: Bragi -> Norns
+      ko: Bragi -> Norns
+    description:
+      en: delta analysis
+      ko: delta analysis
+  - id: step-07
+    kind: process
+    badge: 7
+    label:
+      en: N- -> Bragi
+      ko: N- -> Bragi
+    description:
+      en: diff summary
+      ko: diff summary
+  - id: step-08
+    kind: process
+    badge: 8
+    label:
+      en: Br- -> Operator
+      ko: Br- -> Operator
+    description:
+      en: report
+      ko: report
+edges:
+  - id: sequence-01
+    from: step-01
+    to: step-02
+    kind: sequence
+  - id: sequence-02
+    from: step-02
+    to: step-03
+    kind: sequence
+  - id: sequence-03
+    from: step-03
+    to: step-04
+    kind: sequence
+  - id: sequence-04
+    from: step-04
+    to: step-05
+    kind: sequence
+  - id: sequence-05
+    from: step-05
+    to: step-06
+    kind: sequence
+  - id: sequence-06
+    from: step-06
+    to: step-07
+    kind: sequence
+  - id: sequence-07
+    from: step-07
+    to: step-08
+    kind: sequence

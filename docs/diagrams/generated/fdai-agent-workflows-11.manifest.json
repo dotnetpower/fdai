@@ -1,0 +1,203 @@
+{
+  "id": "fdai-agent-workflows-11",
+  "kind": "sequence",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "11. Operational readiness handoff",
+      "description": "Ordered FDAI interactions for 11. Operational readiness handoff.",
+      "alt": "11. Operational readiness handoff. The main stages are object.ownership-transfer {scope, submitter, environment}, applicable rules for scope, rule set (+ profile mode), run assurance-twin + deploy-preflight over scope, compose ReadinessReport (clear|needs_review|blocked), audit {verdict, blocks_handoff}, request approval + shadow remediation-PR proposals, approved fixes, object.action-run {result}."
+    },
+    "ko": {
+      "title": "11. Operational 준비 상태 인계",
+      "description": "11. Operational 준비 상태 인계에 대한 순서가 있는 FDAI 상호 작용입니다.",
+      "alt": "11. Operational 준비 상태 인계. 주요 단계는 object.ownership-transfer {scope, submitter, environment}, applicable rules for scope, rule set (+ profile mode), run assurance-twin + deploy-preflight over scope, compose ReadinessReport (clear|needs_review|blocked), audit {verdict, blocks_handoff}, request approval + shadow remediation-PR proposals, approved fixes, object.action-run {result}입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-agent-workflows-11.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-agent-workflows-11.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "step-01",
+      "kind": "process",
+      "badge": 1,
+      "label": {
+        "en": "Huginn -> Forseti",
+        "ko": "Huginn -> Forseti"
+      },
+      "description": {
+        "en": "object.ownership-transfer {scope, submitter, environment}",
+        "ko": "object.ownership-transfer {scope, submitter, environment}"
+      }
+    },
+    {
+      "id": "step-02",
+      "kind": "process",
+      "badge": 2,
+      "label": {
+        "en": "Forseti -> Mimir",
+        "ko": "Forseti -> Mimir"
+      },
+      "description": {
+        "en": "applicable rules for scope",
+        "ko": "applicable rules for scope"
+      }
+    },
+    {
+      "id": "step-03",
+      "kind": "process",
+      "badge": 3,
+      "label": {
+        "en": "M- -> Forseti",
+        "ko": "M- -> Forseti"
+      },
+      "description": {
+        "en": "rule set (+ profile mode)",
+        "ko": "rule set (+ profile mode)"
+      }
+    },
+    {
+      "id": "step-04",
+      "kind": "process",
+      "badge": 4,
+      "label": {
+        "en": "Forseti -> Forseti",
+        "ko": "Forseti -> Forseti"
+      },
+      "description": {
+        "en": "run assurance-twin + deploy-preflight over scope",
+        "ko": "run assurance-twin + deploy-preflight over scope"
+      }
+    },
+    {
+      "id": "step-05",
+      "kind": "process",
+      "badge": 5,
+      "label": {
+        "en": "Forseti -> Forseti",
+        "ko": "Forseti -> Forseti"
+      },
+      "description": {
+        "en": "compose ReadinessReport (clear|needs_review|blocked)",
+        "ko": "compose ReadinessReport (clear|needs_review|blocked)"
+      }
+    },
+    {
+      "id": "step-06",
+      "kind": "process",
+      "badge": 6,
+      "label": {
+        "en": "Forseti -> Saga",
+        "ko": "Forseti -> Saga"
+      },
+      "description": {
+        "en": "audit {verdict, blocks_handoff}",
+        "ko": "audit {verdict, blocks_handoff}"
+      }
+    },
+    {
+      "id": "step-07",
+      "kind": "process",
+      "badge": 7,
+      "label": {
+        "en": "Forseti -> Var",
+        "ko": "Forseti -> Var"
+      },
+      "description": {
+        "en": "alt: blocked and enforce mode / request approval + shadow remediation-PR proposals",
+        "ko": "alt: blocked and enforce mode / request approval + shadow remediation-PR proposals"
+      }
+    },
+    {
+      "id": "step-08",
+      "kind": "process",
+      "badge": 8,
+      "label": {
+        "en": "V- -> Thor",
+        "ko": "V- -> Thor"
+      },
+      "description": {
+        "en": "alt: blocked and enforce mode / approved fixes",
+        "ko": "alt: blocked and enforce mode / approved fixes"
+      }
+    },
+    {
+      "id": "step-09",
+      "kind": "process",
+      "badge": 9,
+      "label": {
+        "en": "Thor -> Saga",
+        "ko": "Thor -> Saga"
+      },
+      "description": {
+        "en": "alt: blocked and enforce mode / object.action-run {result}",
+        "ko": "alt: blocked and enforce mode / object.action-run {result}"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "sequence-01",
+      "from": "step-01",
+      "to": "step-02",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-02",
+      "from": "step-02",
+      "to": "step-03",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-03",
+      "from": "step-03",
+      "to": "step-04",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-04",
+      "from": "step-04",
+      "to": "step-05",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-05",
+      "from": "step-05",
+      "to": "step-06",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-06",
+      "from": "step-06",
+      "to": "step-07",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-07",
+      "from": "step-07",
+      "to": "step-08",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-08",
+      "from": "step-08",
+      "to": "step-09",
+      "kind": "sequence",
+      "label": null
+    }
+  ]
+}

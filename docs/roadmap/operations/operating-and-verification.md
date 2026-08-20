@@ -200,16 +200,7 @@ Rules that apply to every alert:
 Given a correlation id or audit id, the operator walks a fixed path. Each hop is a **stored
 link captured at write time**, not a search - the walk is O(1) lookups.
 
-```mermaid
-flowchart LR
-    A[Audit id or correlation id] --> B[Event lookup]
-    B --> C[Tier decision plus confidence]
-    C --> D[Cited rules and their versions]
-    D --> E[Risk-gate decision auto or HIL]
-    E --> F[Approver identity when HIL]
-    F --> G[Action outcome plus idempotency key]
-    G --> H[Rollback reference when applicable]
-```
+![Audit Investigation Flow. The main stages are Audit id or correlation id, Event lookup, Tier decision plus confidence, Cited rules and their versions, Risk-gate decision auto or HIL, Approver identity when HIL, Action outcome plus idempotency key, Rollback reference when applicable.](../../diagrams/generated/fdai-operating-and-verification-01.en.svg)
 
 The audit record is append-only and hash-chained per
 [security-and-identity.md](../architecture/security-and-identity.md); the same walk works for shadow and

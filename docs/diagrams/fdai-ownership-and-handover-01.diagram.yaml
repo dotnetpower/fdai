@@ -1,0 +1,101 @@
+id: fdai-ownership-and-handover-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: How a handover document becomes a change
+    description: FDAI flow for How a handover document becomes a change.
+    alt: How a handover document becomes a change. The main stages are Handover document, Upload through ingestion, Extract
+      claims with citations, Resolve names to directory identities, Draft ownership map, Draft pull request, A person
+      reviews and merges, Ownership map updated.
+  ko:
+    title: 인수인계 문서가 변경이 되기까지
+    description: 인수인계 문서가 변경이 되기까지에 대한 FDAI 흐름입니다.
+    alt: 인수인계 문서가 변경이 되기까지. 주요 단계는 인수인계 문서, 수집 경로로 업로드, 출처와 함께 주장 추출, 이름을 디렉터리 신원으로 연결, 담당 체계 맵 초안, 초안 pull request, 사람이
+      검토하고 병합, 담당 체계 맵 갱신입니다.
+canvas:
+  width: 1200
+  height: 720
+  direction: RIGHT
+groups: []
+nodes:
+  - id: d
+    kind: process
+    shape: card
+    label:
+      en: Handover document
+      ko: 인수인계 문서
+  - id: u
+    kind: process
+    shape: card
+    label:
+      en: Upload through ingestion
+      ko: 수집 경로로 업로드
+  - id: x
+    kind: process
+    shape: card
+    label:
+      en: Extract claims with citations
+      ko: 출처와 함께 주장 추출
+  - id: r
+    kind: process
+    shape: card
+    label:
+      en: Resolve names to directory identities
+      ko: 이름을 디렉터리 신원으로 연결
+  - id: dr
+    kind: process
+    shape: card
+    label:
+      en: Draft ownership map
+      ko: 담당 체계 맵 초안
+  - id: pr
+    kind: process
+    shape: card
+    label:
+      en: Draft pull request
+      ko: 초안 pull request
+  - id: h
+    kind: process
+    shape: card
+    label:
+      en: A person reviews and merges
+      ko: 사람이 검토하고 병합
+  - id: m
+    kind: process
+    shape: card
+    label:
+      en: Ownership map updated
+      ko: 담당 체계 맵 갱신
+edges:
+  - id: flow-01
+    from: d
+    to: u
+    kind: request
+  - id: flow-02
+    from: u
+    to: x
+    kind: request
+  - id: flow-03
+    from: x
+    to: r
+    kind: request
+  - id: flow-04
+    from: r
+    to: dr
+    kind: request
+  - id: flow-05
+    from: dr
+    to: pr
+    kind: request
+  - id: flow-06
+    from: pr
+    to: h
+    kind: request
+  - id: flow-07
+    from: h
+    to: m
+    kind: request

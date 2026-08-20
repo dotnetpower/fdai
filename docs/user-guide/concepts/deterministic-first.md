@@ -34,20 +34,7 @@ properties get harder to keep:
 Every incoming event flows through a **trust router** that picks the lowest
 tier competent to decide the case:
 
-```mermaid
-flowchart TB
-  E[Incoming event]
-  E --> R{Rule catalog<br/>hit?}
-  R -->|yes| T0[T0 - deterministic<br/>rule + policy evidence]
-  R -->|no| S{Similar to a<br/>past resolved<br/>incident?}
-  S -->|score >= threshold| T1[T1 - lightweight reuse<br/>provenance + learned action]
-  S -->|no| T2[T2 - grounded reasoning<br/>mixed-model + verifier]
-  T0 --> G[Risk gate]
-  T1 --> G
-  T2 --> Q[Quality gate]
-  Q --> G
-  G --> V[Auto / HIL / deny]
-```
+![How FDAI resolves it. The main stages are Incoming event, Rule catalog / hit?, T0 - deterministic / rule + policy evidence, Similar to a / past resolved / incident?, T1 - lightweight reuse / provenance + learned action, T2 - grounded reasoning / mixed-model + verifier, Risk gate, Quality gate, Auto / HIL / deny.](../../diagrams/generated/fdai-deterministic-first-01.en.svg)
 
 - **T0, deterministic (target 70-80% of events)**. Policy-as-code (OPA),
   checklists, thresholds, and allow or deny lists produce a repeatable decision.

@@ -2,8 +2,8 @@
 title: 결정론 우선(Deterministic first)
 description: FDAI가 반복 가능한 다수는 규칙으로 해소하고 애매한 소수만 LLM 추론에 넘기는 이유.
 translation_of: deterministic-first.md
-translation_source_sha: a3620f783c091556035bb5553744be7391dcfbfe
-translation_revised: 2026-08-11
+translation_source_sha: 38eee252a16a67c057e9a1531bee5f8b7d2abd44
+translation_revised: 2026-08-20
 sidebar:
   order: 2
 ---
@@ -35,20 +35,7 @@ T0 규칙이 일치한 경우를 포함해 모든 판정은 액션 실행 전에
 들어오는 모든 이벤트는 **trust 라우터**를 거쳐 케이스를 결정할 수 있는 가장 낮은
 티어로 라우팅됩니다:
 
-```mermaid
-flowchart TB
-  E[들어오는 이벤트]
-  E --> R{규칙 카탈로그<br/>히트?}
-  R -->|yes| T0[T0 - 결정론<br/>규칙 + 정책 증거]
-  R -->|no| S{과거 해소된<br/>인시던트와 유사?}
-  S -->|점수 >= 임계값| T1[T1 - 경량 재사용<br/>출처 + 학습된 액션]
-  S -->|no| T2[T2 - 근거 기반 추론<br/>다중 모델 + verifier]
-  T0 --> G[risk-gate]
-  T1 --> G
-  T2 --> Q[quality-gate]
-  Q --> G
-  G --> V[Auto / HIL / deny]
-```
+![FDAI가 해결하는 방식. 주요 단계는 들어오는 이벤트, 규칙 카탈로그 / 히트?, T0 - 결정론 / 규칙 + 정책 증거, 과거 해소된 / 인시던트와 유사?, T1 - 경량 재사용 / 출처 + 학습된 액션, T2 - 근거 기반 추론 / 다중 모델 + verifier, risk-gate, quality-gate, Auto / HIL / deny입니다.](../../diagrams/generated/fdai-deterministic-first-01.ko.svg)
 
 - **T0, 결정론(목표 70-80%)**. policy-as-code(OPA), 체크리스트, 임계값, 허용 및 차단
   목록이 반복 가능한 판단을 만듭니다. 여러 룰이 충돌하면 카탈로그 우선순위로

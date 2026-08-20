@@ -18,22 +18,7 @@ event, the target resource, the environment, and the action's stated impact scop
 (the `blast_radius` field in the contract). That classification maps to exactly
 one of three outcomes:
 
-```mermaid
-flowchart LR
-  A[Proposed action]
-  A --> C{Impact scope,<br/>reversibility,<br/>novelty,<br/>signal trust}
-  C -->|all safe| I{All 4 invariants<br/>present?<br/>stop / rollback /<br/>blast-cap / audit}
-  C -->|elevated| H
-  C -->|hard rule refuses| D
-  I -->|yes| AU[AUTO<br/>auto-execute]
-  I -->|no| X[INCOMPLETE<br/>cannot ship]
-  H[HUMAN APPROVAL<br/>wait for approval]
-  D[DENY<br/>refuse outright]
-  AU --> AUD[(Audit log entry<br/>always)]
-  H --> AUD
-  D --> AUD
-  X --> AUD
-```
+![Three decisions. A proposed action is classified by impact scope, reversibility, novelty, and signal trust. Automatic execution requires all seven safeguards. Elevated risk waits for human approval, hard policy denies the action, and an incomplete safety contract cannot ship. Every path is audited.](../../diagrams/generated/fdai-risk-tiers-01.en.svg)
 
 - **AUTO**: safe enough to run directly. The audit-log entry still records who,
   what, when, and why.
@@ -83,16 +68,22 @@ Any of these push a decision up the ladder:
 
 ## What automatic execution requires
 
-Every action that can execute ships with all four of these:
+Every action that can execute ships with all seven safeguards:
 
 1. **Stop condition**: a measurable state that halts the change if the world
    reacts badly.
 2. **Rollback path**: computed in advance, tested, and referenced from the audit
    entry.
 3. **Impact scope limit**: an explicit cap on scope, batch size, or rate.
-4. **Audit-log entry**: append-only, immutable, and complete.
+4. **Dry-run receipt**: a successful what-if result for the exact target and
+  revision.
+5. **Logical-target lock**: held through side-effect commit so another action
+  cannot race the same target.
+6. **Idempotency key**: stable duplicate suppression across delivery retries.
+7. **Two-phase audit**: append-only intent before the effect and terminal
+  closure with execution and independently observed outcome evidence.
 
-If any of the four is missing, the action is incomplete and cannot ship. Human
+If any safeguard is missing, the action is incomplete and cannot ship. Human
 approval cannot patch a missing safety contract. You have to fix and validate the
 `ActionType` before the action can re-enter the pipeline.
 

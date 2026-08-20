@@ -1,0 +1,126 @@
+id: fdai-deploy-and-onboard-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Bootstrap Sequence
+    description: FDAI flow for Bootstrap Sequence.
+    alt: Bootstrap Sequence. The main stages are Prerequisites resolved, IaC provision core resources, Create executor MI
+      plus scoped role assignments, Deploy signed image to Container Apps in shadow-only, Run alembic upgrade head
+      against the provisioned Postgres, Attach Diagnostic Settings and Kafka topic forwarders, Seed rule catalog with
+      day-zero rule set, Register HIL approvers and ChatOps channel, Run post-deploy smoke tests, System is warm; first
+      real event may arrive.
+  ko:
+    title: 부트스트랩 순서
+    description: 부트스트랩 순서에 대한 FDAI 흐름입니다.
+    alt: 부트스트랩 순서. 주요 단계는 Prerequisites resolved, IaC provision core resources, Create executor MI plus scoped role
+      assignments, Deploy signed image to Container Apps in shadow-only, Run alembic upgrade head against the
+      provisioned Postgres, Attach Diagnostic Settings and Kafka topic forwarders, Seed rule catalog with day-zero rule
+      set, Register HIL approvers and ChatOps channel, Run post-deploy smoke tests, System is warm; first real event may
+      arrive입니다.
+canvas:
+  width: 1500
+  height: 900
+  direction: DOWN
+groups: []
+nodes:
+  - id: a
+    kind: process
+    shape: card
+    label:
+      en: Prerequisites resolved
+      ko: Prerequisites resolved
+  - id: b
+    kind: process
+    shape: card
+    label:
+      en: IaC provision core resources
+      ko: IaC provision core resources
+  - id: c
+    kind: process
+    shape: card
+    label:
+      en: Create executor MI plus scoped role assignments
+      ko: Create executor MI plus scoped role assignments
+  - id: d
+    kind: process
+    shape: card
+    label:
+      en: Deploy signed image to Container Apps in shadow-only
+      ko: Deploy signed image to Container Apps in shadow-only
+  - id: d1
+    kind: process
+    shape: card
+    label:
+      en: Run alembic upgrade head against the provisioned Postgres
+      ko: Run alembic upgrade head against the provisioned Postgres
+  - id: e
+    kind: process
+    shape: card
+    label:
+      en: Attach Diagnostic Settings and Kafka topic forwarders
+      ko: Attach Diagnostic Settings and Kafka topic forwarders
+  - id: f
+    kind: process
+    shape: card
+    label:
+      en: Seed rule catalog with day-zero rule set
+      ko: Seed rule catalog with day-zero rule set
+  - id: g
+    kind: process
+    shape: card
+    label:
+      en: Register HIL approvers and ChatOps channel
+      ko: Register HIL approvers and ChatOps channel
+  - id: h
+    kind: process
+    shape: card
+    label:
+      en: Run post-deploy smoke tests
+      ko: Run post-deploy smoke tests
+  - id: i
+    kind: process
+    shape: card
+    label:
+      en: System is warm; first real event may arrive
+      ko: System is warm; first real event may arrive
+edges:
+  - id: flow-01
+    from: a
+    to: b
+    kind: request
+  - id: flow-02
+    from: b
+    to: c
+    kind: request
+  - id: flow-03
+    from: c
+    to: d
+    kind: request
+  - id: flow-04
+    from: d
+    to: d1
+    kind: request
+  - id: flow-05
+    from: d1
+    to: e
+    kind: request
+  - id: flow-06
+    from: e
+    to: f
+    kind: request
+  - id: flow-07
+    from: f
+    to: g
+    kind: request
+  - id: flow-08
+    from: g
+    to: h
+    kind: request
+  - id: flow-09
+    from: h
+    to: i
+    kind: request

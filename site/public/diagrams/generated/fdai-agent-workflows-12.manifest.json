@@ -1,0 +1,183 @@
+{
+  "id": "fdai-agent-workflows-12",
+  "kind": "sequence",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "12. Scheduled governed Python task",
+      "description": "Ordered FDAI interactions for 12. Scheduled governed Python task.",
+      "alt": "12. Scheduled governed Python task. The main stages are raw operator_request {artifact_ref, target}, canonical Event plus trusted inventory context, validate ActionType, capability, freshness, blast radius, Owner HIL request, approval, tool.run-python-on-vm, stage, rehash cache, preflight, bounded execute, VmTaskRun receipt."
+    },
+    "ko": {
+      "title": "12. Scheduled 통제된 Python 작업",
+      "description": "12. Scheduled 통제된 Python 작업에 대한 순서가 있는 FDAI 상호 작용입니다.",
+      "alt": "12. Scheduled 통제된 Python 작업. 주요 단계는 raw operator_request {artifact_ref, target}, canonical Event plus trusted inventory context, validate ActionType, capability, freshness, blast radius, Owner HIL request, approval, tool.run-python-on-vm, stage, rehash cache, preflight, bounded execute, VmTaskRun receipt입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-agent-workflows-12.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-agent-workflows-12.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "step-01",
+      "kind": "process",
+      "badge": 1,
+      "label": {
+        "en": "Bragi -> EventIngest",
+        "ko": "Bragi -> EventIngest"
+      },
+      "description": {
+        "en": "raw operator_request {artifact_ref, target}",
+        "ko": "raw operator_request {artifact_ref, target}"
+      }
+    },
+    {
+      "id": "step-02",
+      "kind": "process",
+      "badge": 2,
+      "label": {
+        "en": "EventIngest -> Forseti",
+        "ko": "EventIngest -> Forseti"
+      },
+      "description": {
+        "en": "canonical Event plus trusted inventory context",
+        "ko": "canonical Event plus trusted inventory context"
+      }
+    },
+    {
+      "id": "step-03",
+      "kind": "process",
+      "badge": 3,
+      "label": {
+        "en": "Forseti -> Forseti",
+        "ko": "Forseti -> Forseti"
+      },
+      "description": {
+        "en": "validate ActionType, capability, freshness, blast radius",
+        "ko": "validate ActionType, capability, freshness, blast radius"
+      }
+    },
+    {
+      "id": "step-04",
+      "kind": "process",
+      "badge": 4,
+      "label": {
+        "en": "Forseti -> Var",
+        "ko": "Forseti -> Var"
+      },
+      "description": {
+        "en": "Owner HIL request",
+        "ko": "Owner HIL request"
+      }
+    },
+    {
+      "id": "step-05",
+      "kind": "process",
+      "badge": 5,
+      "label": {
+        "en": "V- -> Forseti",
+        "ko": "V- -> Forseti"
+      },
+      "description": {
+        "en": "approval",
+        "ko": "approval"
+      }
+    },
+    {
+      "id": "step-06",
+      "kind": "process",
+      "badge": 6,
+      "label": {
+        "en": "Forseti -> Thor",
+        "ko": "Forseti -> Thor"
+      },
+      "description": {
+        "en": "tool.run-python-on-vm",
+        "ko": "tool.run-python-on-vm"
+      }
+    },
+    {
+      "id": "step-07",
+      "kind": "process",
+      "badge": 7,
+      "label": {
+        "en": "Thor -> Thor",
+        "ko": "Thor -> Thor"
+      },
+      "description": {
+        "en": "stage, rehash cache, preflight, bounded execute",
+        "ko": "stage, rehash cache, preflight, bounded execute"
+      }
+    },
+    {
+      "id": "step-08",
+      "kind": "process",
+      "badge": 8,
+      "label": {
+        "en": "Thor -> Saga",
+        "ko": "Thor -> Saga"
+      },
+      "description": {
+        "en": "VmTaskRun receipt",
+        "ko": "VmTaskRun receipt"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "sequence-01",
+      "from": "step-01",
+      "to": "step-02",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-02",
+      "from": "step-02",
+      "to": "step-03",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-03",
+      "from": "step-03",
+      "to": "step-04",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-04",
+      "from": "step-04",
+      "to": "step-05",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-05",
+      "from": "step-05",
+      "to": "step-06",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-06",
+      "from": "step-06",
+      "to": "step-07",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-07",
+      "from": "step-07",
+      "to": "step-08",
+      "kind": "sequence",
+      "label": null
+    }
+  ]
+}

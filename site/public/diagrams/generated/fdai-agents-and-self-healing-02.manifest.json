@@ -1,0 +1,247 @@
+{
+  "id": "fdai-agents-and-self-healing-02",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "How a failure self-heals",
+      "description": "FDAI flow for How a failure self-heals.",
+      "alt": "How a failure self-heals. The main stages are Huginn / discovers changes, Heimdall / checks coverage, Forseti / judges verdict, Njord, Freyr, Thor / executes, Var / your approval, Vidar / rollback / failover, Saga / audits, Norns / learns."
+    },
+    "ko": {
+      "title": "장애는 어떻게 자가 치유되는가",
+      "description": "장애는 어떻게 자가 치유되는가에 대한 FDAI 흐름입니다.",
+      "alt": "장애는 어떻게 자가 치유되는가. 주요 단계는 Huginn / 변경 discovery, Heimdall / coverage 확인, Forseti / 판정, Njord, Freyr, Thor / 실행, Var / 여러분의 승인, Vidar / 롤백 / failover, Saga / 감사, Norns / 학습입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-agents-and-self-healing-02.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-agents-and-self-healing-02.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "huginn",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Huginn / discovers changes",
+        "ko": "Huginn / 변경 discovery"
+      },
+      "description": {
+        "en": "Huginn / discovers changes",
+        "ko": "Huginn / 변경 discovery"
+      }
+    },
+    {
+      "id": "heimdall",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Heimdall / checks coverage",
+        "ko": "Heimdall / coverage 확인"
+      },
+      "description": {
+        "en": "Heimdall / checks coverage",
+        "ko": "Heimdall / coverage 확인"
+      }
+    },
+    {
+      "id": "forseti",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Forseti / judges verdict",
+        "ko": "Forseti / 판정"
+      },
+      "description": {
+        "en": "Forseti / judges verdict",
+        "ko": "Forseti / 판정"
+      }
+    },
+    {
+      "id": "njord",
+      "kind": "process",
+      "label": {
+        "en": "Njord",
+        "ko": "Njord"
+      },
+      "description": {
+        "en": "Njord",
+        "ko": "Njord"
+      }
+    },
+    {
+      "id": "freyr",
+      "kind": "process",
+      "label": {
+        "en": "Freyr",
+        "ko": "Freyr"
+      },
+      "description": {
+        "en": "Freyr",
+        "ko": "Freyr"
+      }
+    },
+    {
+      "id": "thor",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Thor / executes",
+        "ko": "Thor / 실행"
+      },
+      "description": {
+        "en": "Thor / executes",
+        "ko": "Thor / 실행"
+      }
+    },
+    {
+      "id": "var",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Var / your approval",
+        "ko": "Var / 여러분의 승인"
+      },
+      "description": {
+        "en": "Var / your approval",
+        "ko": "Var / 여러분의 승인"
+      }
+    },
+    {
+      "id": "vidar",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Vidar / rollback / failover",
+        "ko": "Vidar / 롤백 / failover"
+      },
+      "description": {
+        "en": "Vidar / rollback / failover",
+        "ko": "Vidar / 롤백 / failover"
+      }
+    },
+    {
+      "id": "saga",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Saga / audits",
+        "ko": "Saga / 감사"
+      },
+      "description": {
+        "en": "Saga / audits",
+        "ko": "Saga / 감사"
+      }
+    },
+    {
+      "id": "norns",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Norns / learns",
+        "ko": "Norns / 학습"
+      },
+      "description": {
+        "en": "Norns / learns",
+        "ko": "Norns / 학습"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "huginn",
+      "to": "heimdall",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "heimdall",
+      "to": "forseti",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "njord",
+      "to": "forseti",
+      "kind": "dependency",
+      "label": {
+        "en": "advises",
+        "ko": "자문"
+      }
+    },
+    {
+      "id": "flow-04",
+      "from": "freyr",
+      "to": "forseti",
+      "kind": "dependency",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "forseti",
+      "to": "thor",
+      "kind": "request",
+      "label": {
+        "en": "auto",
+        "ko": "자동 실행"
+      }
+    },
+    {
+      "id": "flow-06",
+      "from": "forseti",
+      "to": "var",
+      "kind": "approval",
+      "label": {
+        "en": "human approval",
+        "ko": "사람 승인"
+      }
+    },
+    {
+      "id": "flow-07",
+      "from": "var",
+      "to": "thor",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "thor",
+      "to": "vidar",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-09",
+      "from": "vidar",
+      "to": "saga",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-10",
+      "from": "thor",
+      "to": "saga",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-11",
+      "from": "saga",
+      "to": "norns",
+      "kind": "dependency",
+      "label": {
+        "en": "signals",
+        "ko": "신호"
+      }
+    }
+  ]
+}

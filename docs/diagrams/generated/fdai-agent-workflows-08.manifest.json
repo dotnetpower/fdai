@@ -1,0 +1,163 @@
+{
+  "id": "fdai-agent-workflows-08",
+  "kind": "sequence",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "8. Judgment coherence audit",
+      "description": "Ordered FDAI interactions for 8. Judgment coherence audit.",
+      "alt": "8. Judgment coherence audit. The main stages are fetch recent audit sample (N=1000), re-run judgment on same inputs, coherence_report {mismatches}, classify: rule_change | model_drift | non_determinism, confirm rule delta explains mismatch, object.rule-candidate {type: coherence_alert}, audit alert."
+    },
+    "ko": {
+      "title": "8. Judgment coherence 감사",
+      "description": "8. Judgment coherence 감사에 대한 순서가 있는 FDAI 상호 작용입니다.",
+      "alt": "8. Judgment coherence 감사. 주요 단계는 fetch recent audit sample (N=1000), re-run judgment on same inputs, coherence_report {mismatches}, classify: rule_change | model_drift | non_determinism, confirm rule delta explains mismatch, object.rule-candidate {type: coherence_alert}, audit alert입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-agent-workflows-08.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-agent-workflows-08.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "step-01",
+      "kind": "process",
+      "badge": 1,
+      "label": {
+        "en": "Forseti -> Muninn",
+        "ko": "Forseti -> Muninn"
+      },
+      "description": {
+        "en": "fetch recent audit sample (N=1000)",
+        "ko": "fetch recent audit sample (N=1000)"
+      }
+    },
+    {
+      "id": "step-02",
+      "kind": "process",
+      "badge": 2,
+      "label": {
+        "en": "Forseti -> Forseti",
+        "ko": "Forseti -> Forseti"
+      },
+      "description": {
+        "en": "re-run judgment on same inputs",
+        "ko": "re-run judgment on same inputs"
+      }
+    },
+    {
+      "id": "step-03",
+      "kind": "process",
+      "badge": 3,
+      "label": {
+        "en": "Forseti -> Norns",
+        "ko": "Forseti -> Norns"
+      },
+      "description": {
+        "en": "coherence_report {mismatches}",
+        "ko": "coherence_report {mismatches}"
+      }
+    },
+    {
+      "id": "step-04",
+      "kind": "process",
+      "badge": 4,
+      "label": {
+        "en": "Norns -> Norns",
+        "ko": "Norns -> Norns"
+      },
+      "description": {
+        "en": "classify: rule_change | model_drift | non_determinism",
+        "ko": "classify: rule_change | model_drift | non_determinism"
+      }
+    },
+    {
+      "id": "step-05",
+      "kind": "process",
+      "badge": 5,
+      "label": {
+        "en": "Norns -> Mimir",
+        "ko": "Norns -> Mimir"
+      },
+      "description": {
+        "en": "alt: classification == rule_change / confirm rule delta explains mismatch",
+        "ko": "alt: classification == rule_change / confirm rule delta explains mismatch"
+      }
+    },
+    {
+      "id": "step-06",
+      "kind": "process",
+      "badge": 6,
+      "label": {
+        "en": "Norns -> Mimir",
+        "ko": "Norns -> Mimir"
+      },
+      "description": {
+        "en": "else: classification == model_drift or non_determinism / object.rule-candidate {type: coherence_alert}",
+        "ko": "else: classification == model_drift or non_determinism / object.rule-candidate {type: coherence_alert}"
+      }
+    },
+    {
+      "id": "step-07",
+      "kind": "process",
+      "badge": 7,
+      "label": {
+        "en": "Norns -> Saga",
+        "ko": "Norns -> Saga"
+      },
+      "description": {
+        "en": "else: classification == model_drift or non_determinism / audit alert",
+        "ko": "else: classification == model_drift or non_determinism / audit alert"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "sequence-01",
+      "from": "step-01",
+      "to": "step-02",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-02",
+      "from": "step-02",
+      "to": "step-03",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-03",
+      "from": "step-03",
+      "to": "step-04",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-04",
+      "from": "step-04",
+      "to": "step-05",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-05",
+      "from": "step-05",
+      "to": "step-06",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-06",
+      "from": "step-06",
+      "to": "step-07",
+      "kind": "sequence",
+      "label": null
+    }
+  ]
+}

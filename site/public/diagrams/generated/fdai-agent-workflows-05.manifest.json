@@ -1,0 +1,203 @@
+{
+  "id": "fdai-agent-workflows-05",
+  "kind": "sequence",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "5. Security escalation",
+      "description": "Ordered FDAI interactions for 5. Security escalation.",
+      "alt": "5. Security escalation. The main stages are object.security-event {initiator, action, severity_hint}, audit, correlate with recent events (rolling window), classify severity: low|medium|high|critical, propose notify_admin_privilege_violation, verdict = auto (governance notification), audit (card sent), escalate {evidence}, page on-call security channel."
+    },
+    "ko": {
+      "title": "5. Security 에스컬레이션",
+      "description": "5. Security 에스컬레이션에 대한 순서가 있는 FDAI 상호 작용입니다.",
+      "alt": "5. Security 에스컬레이션. 주요 단계는 object.security-event {initiator, action, severity_hint}, audit, correlate with recent events (rolling window), classify severity: low|medium|high|critical, propose notify_admin_privilege_violation, verdict = auto (governance notification), audit (card sent), escalate {evidence}, page on-call security channel입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-agent-workflows-05.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-agent-workflows-05.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "step-01",
+      "kind": "process",
+      "badge": 1,
+      "label": {
+        "en": "Forseti -> Heimdall",
+        "ko": "Forseti -> Heimdall"
+      },
+      "description": {
+        "en": "object.security-event {initiator, action, severity_hint}",
+        "ko": "object.security-event {initiator, action, severity_hint}"
+      }
+    },
+    {
+      "id": "step-02",
+      "kind": "process",
+      "badge": 2,
+      "label": {
+        "en": "Forseti -> Saga",
+        "ko": "Forseti -> Saga"
+      },
+      "description": {
+        "en": "audit",
+        "ko": "audit"
+      }
+    },
+    {
+      "id": "step-03",
+      "kind": "process",
+      "badge": 3,
+      "label": {
+        "en": "Heimdall -> Heimdall",
+        "ko": "Heimdall -> Heimdall"
+      },
+      "description": {
+        "en": "correlate with recent events (rolling window)",
+        "ko": "correlate with recent events (rolling window)"
+      }
+    },
+    {
+      "id": "step-04",
+      "kind": "process",
+      "badge": 4,
+      "label": {
+        "en": "Heimdall -> Heimdall",
+        "ko": "Heimdall -> Heimdall"
+      },
+      "description": {
+        "en": "classify severity: low|medium|high|critical",
+        "ko": "classify severity: low|medium|high|critical"
+      }
+    },
+    {
+      "id": "step-05",
+      "kind": "process",
+      "badge": 5,
+      "label": {
+        "en": "Heimdall -> Forseti",
+        "ko": "Heimdall -> Forseti"
+      },
+      "description": {
+        "en": "alt: severity >= high / propose notify_admin_privilege_violation",
+        "ko": "alt: severity >= high / propose notify_admin_privilege_violation"
+      }
+    },
+    {
+      "id": "step-06",
+      "kind": "process",
+      "badge": 6,
+      "label": {
+        "en": "F- -> Var",
+        "ko": "F- -> Var"
+      },
+      "description": {
+        "en": "alt: severity >= high / verdict = auto (governance notification)",
+        "ko": "alt: severity >= high / verdict = auto (governance notification)"
+      }
+    },
+    {
+      "id": "step-07",
+      "kind": "process",
+      "badge": 7,
+      "label": {
+        "en": "Var -> Saga",
+        "ko": "Var -> Saga"
+      },
+      "description": {
+        "en": "alt: severity >= high / audit (card sent)",
+        "ko": "alt: severity >= high / audit (card sent)"
+      }
+    },
+    {
+      "id": "step-08",
+      "kind": "process",
+      "badge": 8,
+      "label": {
+        "en": "Heimdall -> Odin",
+        "ko": "Heimdall -> Odin"
+      },
+      "description": {
+        "en": "alt: severity == critical / escalate {evidence}",
+        "ko": "alt: severity == critical / escalate {evidence}"
+      }
+    },
+    {
+      "id": "step-09",
+      "kind": "process",
+      "badge": 9,
+      "label": {
+        "en": "Odin -> Var",
+        "ko": "Odin -> Var"
+      },
+      "description": {
+        "en": "alt: severity == critical / page on-call security channel",
+        "ko": "alt: severity == critical / page on-call security channel"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "sequence-01",
+      "from": "step-01",
+      "to": "step-02",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-02",
+      "from": "step-02",
+      "to": "step-03",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-03",
+      "from": "step-03",
+      "to": "step-04",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-04",
+      "from": "step-04",
+      "to": "step-05",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-05",
+      "from": "step-05",
+      "to": "step-06",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-06",
+      "from": "step-06",
+      "to": "step-07",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-07",
+      "from": "step-07",
+      "to": "step-08",
+      "kind": "sequence",
+      "label": null
+    },
+    {
+      "id": "sequence-08",
+      "from": "step-08",
+      "to": "step-09",
+      "kind": "sequence",
+      "label": null
+    }
+  ]
+}

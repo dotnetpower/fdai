@@ -88,33 +88,7 @@ mapping in [architecture.instructions.md § Trust Routing](../../../.github/inst
 The addition here is a **second, slower loop** that supervises *one pending
 decision* and ticks until it reaches a terminal state.
 
-```mermaid
-flowchart LR
-  subgraph OBSERVE["Observe (per tick)"]
-    O1["approval still pending?"]
-    O2["forecast ETA now?<br/>(lead time recomputed)"]
-    O3["inaction blast radius?"]
-  end
-  subgraph ORIENT["Orient"]
-    R1["recompute urgency<br/>= f(impact, ETA, rung age)"]
-    R2["which ladder rung<br/>should hold this now?"]
-  end
-  subgraph DECIDE["Decide"]
-    D1{"standing authorization<br/>matches + envelope holds<br/>+ deadline passed?"}
-  end
-  subgraph ACT["Act"]
-    A1["escalate to next rung"]
-    A2["trip standing action<br/>-> re-enter typed pipeline"]
-    A3["terminal no-op<br/>(ladder exhausted)"]
-  end
-  OBSERVE --> ORIENT --> DECIDE
-  D1 -->|no, rung TTL left| A1
-  D1 -->|yes| A2
-  D1 -->|no, ladder done| A3
-  A1 -. next tick .-> OBSERVE
-  A2 --> AUD["audit (Saga)"]
-  A3 --> AUD
-```
+![OODA as the supervision frame. The main stages are approval still pending?, forecast ETA now? / (lead time recomputed), inaction blast radius?, recompute urgency / = f(impact, ETA, rung age), which ladder rung / should hold this now?, standing authorization / matches + envelope holds / + deadline passed?, escalate to next rung, trip standing action / -> re-enter typed pipeline, terminal no-op / (ladder exhausted), audit (Saga).](../../diagrams/generated/fdai-escalation-and-standing-authority-01.en.svg)
 
 - The supervisor **never mutates substrate directly**. Its only privileged
   outcome (`A2`) is to **re-enter the typed pipeline** so the action is
@@ -347,16 +321,7 @@ mode: shadow                      # judge-and-log until explicitly promoted
 When a standing authorization trips, the supervisor does **not** execute. It
 **re-injects the pending action into the typed pipeline** as a fresh decision:
 
-```mermaid
-flowchart LR
-  SUP["escalation supervisor<br/>(ladder deadline + SA match)"] -->|re-enter| RG["risk-gate<br/>re-evaluates"]
-  RG -->|"SA precondition + envelope verified"| V["Var<br/>standing Approval"]
-  V --> EX["Thor<br/>executes approved HIL action"]
-  EX --> DEL["delivery<br/>remediation-PR / direct-api"]
-  DEL --> AUD["audit (Saga)<br/>reason: standing-authority sa-...id"]
-  RG -->|"SA invalid / envelope exceeded"| NO["terminal no-op<br/>+ A2 alert"]
-  NO --> AUD
-```
+![The re-decide path (no bypass). The main stages are escalation supervisor / (ladder deadline + SA match), risk-gate / re-evaluates, Var / standing Approval, Thor / executes approved HIL action, delivery / remediation-PR / direct-api, audit (Saga) / reason: standing-authority sa-...id, terminal no-op / + A2 alert.](../../diagrams/generated/fdai-escalation-and-standing-authority-02.en.svg)
 
 - **Forseti re-judges without raising risk.** The original `hil` baseline remains. The risk gate
   verifies a valid, unexpired, scope-matching standing authorization whose precondition and

@@ -78,22 +78,7 @@ mismatch) or `object.anomaly` on a resource with an existing rule match.
 **Agents.** Heimdall (initiator), Njord (cost advisor), Forseti (judge),
 Thor (executor), Saga (auditor).
 
-```mermaid
-sequenceDiagram
-    participant H as Heimdall
-    participant Nj as Njord
-    participant F as Forseti
-    participant T as Thor
-    participant S as Saga
-    H->>F: object.drift {resource, delta}
-    F->>Nj: typed query {proposed_action, target_resource}
-    Nj-->>F: cost_estimate {monthly_delta_usd, confidence}
-    F->>F: verdict = auto|hil|deny + cost_annotation
-    F->>T: object.verdict {risk_verdict, cost_annotation}
-    T->>T: dispatch by risk_verdict
-    T->>S: object.action-run {result, cost_actual (post-execute)}
-    S->>Nj: attribution event (async)
-```
+![1. Cost-aware fix. The main stages are object.drift {resource, delta}, typed query {proposed_action, target_resource}, cost_estimate {monthly_delta_usd, confidence}, verdict = auto|hil|deny + cost_annotation, object.verdict {risk_verdict, cost_annotation}, dispatch by risk_verdict, object.action-run {result, cost_actual (post-execute)}, attribution event (async).](../../diagrams/generated/fdai-agent-workflows-01.en.svg)
 
 **Exit criteria.**
 
@@ -123,26 +108,7 @@ predicts threshold breach within `fork_config.predictive_horizon`
 **Agents.** Freyr (initiator), Heimdall (early-signal cross-check), Njord
 (cost check), Odin (arbitration if cost blocks scale), Forseti, Thor.
 
-```mermaid
-sequenceDiagram
-    participant Fr as Freyr
-    participant H as Heimdall
-    participant Nj as Njord
-    participant O as Odin
-    participant F as Forseti
-    participant T as Thor
-    Fr->>F: proposed_action {scale_out, target, size}
-    F->>H: typed query {resource, recent_signals}
-    H-->>F: signal_confirm {leading_indicators, confidence}
-    F->>Nj: cost_impact query
-    Nj-->>F: cost_estimate
-    alt cost > fork_config.scale_cost_ceiling
-        F->>O: arbitration_request {sre_intent, cost_block}
-        O-->>F: arbitration_response
-    end
-    F->>T: verdict {scale_out, size}
-    T->>T: dispatch (auto if under ceiling)
-```
+![2. Predictive scale. The main stages are proposed_action {scale_out, target, size}, typed query {resource, recent_signals}, signal_confirm {leading_indicators, confidence}, cost_impact query, cost_estimate, arbitration_request {sre_intent, cost_block}, arbitration_response, verdict {scale_out, size}, dispatch (auto if under ceiling).](../../diagrams/generated/fdai-agent-workflows-02.en.svg)
 
 **Exit criteria.**
 
@@ -170,26 +136,7 @@ and observability all still work.
 **Agents.** Loki (planner), Forseti (judge), Var (approver), Vidar (execution),
 Heimdall (observation), Norns (learning), Saga.
 
-```mermaid
-sequenceDiagram
-    participant L as Loki
-    participant F as Forseti
-    participant Va as Var
-    participant V as Vidar
-    participant H as Heimdall
-    participant N as Norns
-    participant S as Saga
-    L->>F: proposed_action {dr_drill, scope, blast_radius}
-    F->>Va: verdict = hil (drills are always HIL)
-    Va-->>F: approval
-    F->>V: verdict {execute_drill}
-    V->>V: execute rollback / failover in shadow env
-    V->>H: observe_request
-    H-->>V: observations
-    V->>S: object.rollback {result, observations, recovery_time}
-    S->>N: audit signal
-    N->>N: compare to baseline, emit drift signal if MTTR degraded
-```
+![3. DR drill orchestration. The main stages are proposed_action {dr_drill, scope, blast_radius}, verdict = hil (drills are always HIL), approval, verdict {execute_drill}, execute rollback / failover in shadow env, observe_request, observations, object.rollback {result, observations, recovery_time}, audit signal, compare to baseline, emit drift signal if MTTR degraded.](../../diagrams/generated/fdai-agent-workflows-03.en.svg)
 
 **Exit criteria.**
 
@@ -218,20 +165,7 @@ from Forseti's proposed verdict (approve on deny, reject on auto, etc.).
 **Agents.** Var (initiator), Saga (aggregator), Norns (learner), Mimir
 (rule steward).
 
-```mermaid
-sequenceDiagram
-    participant Va as Var
-    participant S as Saga
-    participant N as Norns
-    participant M as Mimir
-    Va->>S: object.approval {rule_id, override_signal}
-    S->>N: signal (batched)
-    N->>N: rolling count per rule_id, threshold check
-    alt count > threshold
-        N->>M: object.rule-candidate {rule_id, override_pattern, proposed_revision}
-        M->>M: shadow evaluation on override cases
-    end
-```
+![4. Override -> Discovery. The main stages are object.approval {rule_id, override_signal}, signal (batched), rolling count per rule_id, threshold check, object.rule-candidate {rule_id, override_pattern, proposed_revision}, shadow evaluation on override cases.](../../diagrams/generated/fdai-agent-workflows-04.en.svg)
 
 **Exit criteria.**
 
@@ -259,27 +193,7 @@ as a first-class workflow with promotion gate.
 **Agents.** Forseti (initiator), Heimdall (correlator), Odin (critical
 severity path), Var (admin notification delivery via ChatOps), Saga.
 
-```mermaid
-sequenceDiagram
-    participant F as Forseti
-    participant H as Heimdall
-    participant O as Odin
-    participant V as Var
-    participant S as Saga
-    F->>H: object.security-event {initiator, action, severity_hint}
-    F->>S: audit
-    H->>H: correlate with recent events (rolling window)
-    H->>H: classify severity: low|medium|high|critical
-    alt severity >= high
-        H->>F: propose notify_admin_privilege_violation
-        F-->>V: verdict = auto (governance notification)
-        V->>S: audit (card sent)
-    end
-    alt severity == critical
-        H->>O: escalate {evidence}
-        O->>V: page on-call security channel
-    end
-```
+![5. Security escalation. The main stages are object.security-event {initiator, action, severity_hint}, audit, correlate with recent events (rolling window), classify severity: low|medium|high|critical, propose notify_admin_privilege_violation, verdict = auto (governance notification), audit (card sent), escalate {evidence}, page on-call security channel.](../../diagrams/generated/fdai-agent-workflows-05.en.svg)
 
 **Exit criteria.**
 
@@ -306,25 +220,7 @@ action). Norns aggregates by fingerprint.
 **Agents.** Saga (initiator), Norns (aggregator), Mimir (rule steward),
 Bragi (updated on capability delivery).
 
-```mermaid
-sequenceDiagram
-    participant S as Saga
-    participant N as Norns
-    participant M as Mimir
-    participant Br as Bragi
-    S->>N: object.issue (open)
-    N->>N: aggregate by fingerprint (rolling)
-    alt fingerprint occurrence >= threshold
-        N->>M: object.rule-candidate {source: handoff, evidence}
-        M->>M: shadow evaluation
-        alt promotion passes
-            M-->>N: rule promoted
-            N->>S: close_issue signal
-            S->>S: comment on GitHub issue + close
-            S->>Br: capability update (visible in operator briefing)
-        end
-    end
-```
+![6. Handoff -> Capability. The main stages are object.issue (open), aggregate by fingerprint (rolling), object.rule-candidate {source: handoff, evidence}, shadow evaluation, rule promoted, close_issue signal, comment on GitHub issue + close, capability update (visible in operator briefing).](../../diagrams/generated/fdai-agent-workflows-06.en.svg)
 
 **Exit criteria.**
 
@@ -353,22 +249,7 @@ error rate, or KPI drift.
 **Agents.** Heimdall (detector), Odin (portfolio re-planner), Bragi
 (operator briefing), Saga.
 
-```mermaid
-sequenceDiagram
-    participant H as Heimdall
-    participant O as Odin
-    participant Br as Bragi
-    participant C as Admin channel
-    participant S as Saga
-    H->>H: probe each agent (heartbeat + KPI)
-    alt degradation detected
-        H->>S: audit event
-        H->>O: agent_health_signal {agent, severity, evidence}
-        O->>O: apply degradation policy per pantheon 11
-        O->>Br: briefing_update {impact, mitigation_active}
-        Br->>C: proactive card to admins
-    end
-```
+![7. Agent health degradation. The main stages are probe each agent (heartbeat + KPI), audit event, agent_health_signal {agent, severity, evidence}, apply degradation policy per pantheon 11, briefing_update {impact, mitigation_active}, proactive card to admins.](../../diagrams/generated/fdai-agent-workflows-07.en.svg)
 
 **Exit criteria.**
 
@@ -397,24 +278,7 @@ verdicts, re-runs them, compares.
 **Agents.** Forseti (self-tester), Muninn (audit sample), Norns (drift
 analyzer), Mimir (reviews if drift is caused by rule change), Saga.
 
-```mermaid
-sequenceDiagram
-    participant F as Forseti
-    participant Mu as Muninn
-    participant N as Norns
-    participant M as Mimir
-    participant S as Saga
-    F->>Mu: fetch recent audit sample (N=1000)
-    F->>F: re-run judgment on same inputs
-    F->>N: coherence_report {mismatches}
-    N->>N: classify: rule_change | model_drift | non_determinism
-    alt classification == rule_change
-        N->>M: confirm rule delta explains mismatch
-    else classification == model_drift or non_determinism
-        N->>M: object.rule-candidate {type: coherence_alert}
-        N->>S: audit alert
-    end
-```
+![8. Judgment coherence audit. The main stages are fetch recent audit sample (N=1000), re-run judgment on same inputs, coherence_report {mismatches}, classify: rule_change | model_drift | non_determinism, confirm rule delta explains mismatch, object.rule-candidate {type: coherence_alert}, audit alert.](../../diagrams/generated/fdai-agent-workflows-08.en.svg)
 
 **Exit criteria.**
 
@@ -441,24 +305,7 @@ based on `fork_config.rollback_rehearsal_scope`.
 **Agents.** Loki (planner), Forseti (judge), Var (approver), Vidar (rehearser),
 Heimdall (observer), Saga.
 
-```mermaid
-sequenceDiagram
-    participant L as Loki
-    participant F as Forseti
-    participant Va as Var
-    participant V as Vidar
-    participant H as Heimdall
-    participant S as Saga
-    L->>F: proposed_action {rehearse_rollback, action_type_id}
-    F->>Va: verdict = hil (all rehearsals HIL)
-    Va-->>F: approval
-    F->>V: verdict {execute}
-    V->>V: apply mutation in shadow env
-    V->>V: invoke rollback per rollback_contract
-    V->>H: observe post-rollback state
-    H-->>V: state matches pre-mutation baseline?
-    V->>S: audit {rehearsal_result, deviation}
-```
+![9. Rollback rehearsal. The main stages are proposed_action {rehearse_rollback, action_type_id}, verdict = hil (all rehearsals HIL), approval, verdict {execute}, apply mutation in shadow env, invoke rollback per rollback_contract, observe post-rollback state, state matches pre-mutation baseline?, audit {rehearsal_result, deviation}.](../../diagrams/generated/fdai-agent-workflows-09.en.svg)
 
 **Exit criteria.**
 
@@ -487,23 +334,7 @@ for Mimir's rule promotion decisions.
 **Agents.** Saga (data source), Forseti (re-judge), Norns (delta
 analysis), Mimir (rule evaluation), Bragi (report).
 
-```mermaid
-sequenceDiagram
-    participant Op as Operator
-    participant Br as Bragi
-    participant S as Saga
-    participant F as Forseti
-    participant N as Norns
-    participant M as Mimir
-    Op->>Br: "if rule X existed on 2026-07-01, what would have happened?"
-    Br->>S: fetch audit slice
-    Br->>M: fetch rule X (shadow overlay)
-    Br->>F: replay with overlay
-    F-->>Br: what-if verdicts
-    Br->>N: delta analysis
-    N-->>Br: diff summary
-    Br-->>Op: report
-```
+![10. Retrospective what-if. The main stages are if rule X existed on 2026-07-01, what would have happened?, fetch audit slice, fetch rule X (shadow overlay), replay with overlay, what-if verdicts, delta analysis, diff summary, report.](../../diagrams/generated/fdai-agent-workflows-10.en.svg)
 
 **Exit criteria.**
 
@@ -535,26 +366,7 @@ carrying the target scope, submitter, and target environment.
 ReadinessReport), Var (HIL approver on blocked handoff + proposed fixes), Thor
 (executor of approved fixes), Saga (auditor).
 
-```mermaid
-sequenceDiagram
-    participant Hu as Huginn
-    participant M as Mimir
-    participant F as Forseti
-    participant V as Var
-    participant T as Thor
-    participant S as Saga
-    Hu->>F: object.ownership-transfer {scope, submitter, environment}
-    F->>M: applicable rules for scope
-    M-->>F: rule set (+ profile mode)
-    F->>F: run assurance-twin + deploy-preflight over scope
-    F->>F: compose ReadinessReport (clear|needs_review|blocked)
-    F->>S: audit {verdict, blocks_handoff}
-    alt blocked and enforce mode
-        F->>V: request approval + shadow remediation-PR proposals
-        V-->>T: approved fixes
-        T->>S: object.action-run {result}
-    end
-```
+![11. Operational readiness handoff. The main stages are object.ownership-transfer {scope, submitter, environment}, applicable rules for scope, rule set (+ profile mode), run assurance-twin + deploy-preflight over scope, compose ReadinessReport (clear|needs_review|blocked), audit {verdict, blocks_handoff}, request approval + shadow remediation-PR proposals, approved fixes, object.action-run {result}.](../../diagrams/generated/fdai-agent-workflows-11.en.svg)
 
 **Exit criteria.**
 
@@ -588,23 +400,7 @@ authoring API, scheduler plus `EventIngest`, unified risk gate, HIL resume
 coordinator, and tool executor. The optional Pantheon consumer remains a shadow
 observer and does not execute the proposal.
 
-```mermaid
-sequenceDiagram
-  participant B as Bragi
-  participant I as EventIngest
-  participant F as Forseti
-  participant V as Var
-  participant T as Thor
-  participant S as Saga
-  B->>I: raw operator_request {artifact_ref, target}
-  I->>F: canonical Event plus trusted inventory context
-  F->>F: validate ActionType, capability, freshness, blast radius
-  F->>V: Owner HIL request
-  V-->>F: approval
-  F->>T: tool.run-python-on-vm
-  T->>T: stage, rehash cache, preflight, bounded execute
-  T->>S: VmTaskRun receipt
-```
+![12. Scheduled governed Python task. The main stages are raw operator_request {artifact_ref, target}, canonical Event plus trusted inventory context, validate ActionType, capability, freshness, blast radius, Owner HIL request, approval, tool.run-python-on-vm, stage, rehash cache, preflight, bounded execute, VmTaskRun receipt.](../../diagrams/generated/fdai-agent-workflows-12.en.svg)
 
 **Exit criteria.** Every guest invocation rechecks the artifact files; the
 target is an active inventory `compute.vm`; GPU tasks run only on a GPU-capable

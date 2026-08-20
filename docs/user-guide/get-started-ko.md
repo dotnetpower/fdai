@@ -2,7 +2,7 @@
 title: FDAI 시작하기
 description: FDAI 5분 오리엔테이션 - 무엇인지, 언제 적합한지, 다음으로 어디를 볼지.
 translation_of: get-started.md
-translation_source_sha: 6f3a6cfde1942462aed93b750e8f09aa981faa50
+translation_source_sha: 57127b78984136e0e370560f3da59babc41df794
 translation_revised: 2026-08-20
 ---
 
@@ -122,18 +122,7 @@ event -> event-ingest -> trust-router -> T0 | T1 | (T2 -> quality-gate)
 
 다음이 모두 참이면 잘 맞습니다.
 
-```mermaid
-flowchart TB
-  Q1{운영자가 같은 유형<br/>이벤트를 반복 승인/롤백<br/>하고 있는가?}
-  Q1 -->|아니오| N1[아직 적합하지 않습니다.<br/>결정론 티어가 자동화할<br/>반복 대상이 없습니다.]
-  Q1 -->|예| Q2{인프라가 IaC 와<br/>policy-as-code 로 표현<br/>되어 있는가?}
-  Q2 -->|아니오| N2[아직 적합하지 않습니다.<br/>T0 는 기계가 읽을 수 있는<br/>룰이 필요합니다.]
-  Q2 -->|예| Q3{이득 측정을 위한<br/>재현 가능한 기준선이<br/>있는가?}
-  Q3 -->|아니오| N3[먼저 기준선을 만드세요.<br/>Phase 0 가 바로 이걸<br/>위해 존재합니다.]
-  Q3 -->|예| Q4{Azure 사용 중?}
-  Q4 -->|아니오| N4[다른 클라우드 어댑터는<br/>아직 제공되지 않습니다.]
-  Q4 -->|예| OK[FDAI가 적합.<br/>Phase 0부터 시작.]
-```
+![FDAI가 적합한 경우. 주요 단계는 운영자가 같은 유형 / 이벤트를 반복 승인/롤백 / 하고 있는가?, 아직 적합하지 않습니다. / 결정론 티어가 자동화할 / 반복 대상이 없습니다., 인프라가 IaC 와 / policy-as-code 로 표현 / 되어 있는가?, 아직 적합하지 않습니다. / T0 는 기계가 읽을 수 있는 / 룰이 필요합니다., 이득 측정을 위한 / 재현 가능한 기준선이 / 있는가?, 먼저 기준선을 만드세요. / Phase 0 가 바로 이걸 / 위해 존재합니다., Azure 사용 중?, 다른 클라우드 어댑터는 / 아직 제공되지 않습니다., FDAI가 적합. / Phase 0부터 시작.입니다.](../diagrams/generated/fdai-get-started-01.ko.svg)
 
 - 운영자가 드리프트, 비용 회귀, 정책 위반처럼 반복되는 클라우드 설정 이벤트를 승인하거나
   롤백하는 데 실제 시간을 쓰고 있습니다.

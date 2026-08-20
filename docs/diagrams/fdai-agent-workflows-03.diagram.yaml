@@ -1,0 +1,154 @@
+id: fdai-agent-workflows-03
+version: 1
+kind: sequence
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: 3. DR drill orchestration
+    description: Ordered FDAI interactions for 3. DR drill orchestration.
+    alt: 3. DR drill orchestration. The main stages are proposed_action {dr_drill, scope, blast_radius}, verdict = hil
+      (drills are always HIL), approval, verdict {execute_drill}, execute rollback / failover in shadow env,
+      observe_request, observations, object.rollback {result, observations, recovery_time}, audit signal, compare to
+      baseline, emit drift signal if MTTR degraded.
+  ko:
+    title: 3. DR 훈련 orchestration
+    description: 3. DR 훈련 orchestration에 대한 순서가 있는 FDAI 상호 작용입니다.
+    alt: 3. DR 훈련 orchestration. 주요 단계는 proposed_action {dr_drill, scope, blast_radius}, verdict = hil (drills are always
+      HIL), approval, verdict {execute_drill}, execute rollback / failover in shadow env, observe_request, observations,
+      object.rollback {result, observations, recovery_time}, audit signal, compare to baseline, emit drift signal if
+      MTTR degraded입니다.
+canvas:
+  width: 1100
+  height: 1100
+  direction: DOWN
+groups: []
+nodes:
+  - id: step-01
+    kind: process
+    badge: 1
+    label:
+      en: Loki -> Forseti
+      ko: Loki -> Forseti
+    description:
+      en: proposed_action {dr_drill, scope, blast_radius}
+      ko: proposed_action {dr_drill, scope, blast_radius}
+  - id: step-02
+    kind: process
+    badge: 2
+    label:
+      en: Forseti -> Var
+      ko: Forseti -> Var
+    description:
+      en: verdict = hil (drills are always HIL)
+      ko: verdict = hil (drills are always HIL)
+  - id: step-03
+    kind: process
+    badge: 3
+    label:
+      en: Va- -> Forseti
+      ko: Va- -> Forseti
+    description:
+      en: approval
+      ko: approval
+  - id: step-04
+    kind: process
+    badge: 4
+    label:
+      en: Forseti -> Vidar
+      ko: Forseti -> Vidar
+    description:
+      en: verdict {execute_drill}
+      ko: verdict {execute_drill}
+  - id: step-05
+    kind: process
+    badge: 5
+    label:
+      en: Vidar -> Vidar
+      ko: Vidar -> Vidar
+    description:
+      en: execute rollback / failover in shadow env
+      ko: execute rollback / failover in shadow env
+  - id: step-06
+    kind: process
+    badge: 6
+    label:
+      en: Vidar -> Heimdall
+      ko: Vidar -> Heimdall
+    description:
+      en: observe_request
+      ko: observe_request
+  - id: step-07
+    kind: process
+    badge: 7
+    label:
+      en: H- -> Vidar
+      ko: H- -> Vidar
+    description:
+      en: observations
+      ko: observations
+  - id: step-08
+    kind: process
+    badge: 8
+    label:
+      en: Vidar -> Saga
+      ko: Vidar -> Saga
+    description:
+      en: object.rollback {result, observations, recovery_time}
+      ko: object.rollback {result, observations, recovery_time}
+  - id: step-09
+    kind: process
+    badge: 9
+    label:
+      en: Saga -> Norns
+      ko: Saga -> Norns
+    description:
+      en: audit signal
+      ko: audit signal
+  - id: step-10
+    kind: process
+    badge: 10
+    label:
+      en: Norns -> Norns
+      ko: Norns -> Norns
+    description:
+      en: compare to baseline, emit drift signal if MTTR degraded
+      ko: compare to baseline, emit drift signal if MTTR degraded
+edges:
+  - id: sequence-01
+    from: step-01
+    to: step-02
+    kind: sequence
+  - id: sequence-02
+    from: step-02
+    to: step-03
+    kind: sequence
+  - id: sequence-03
+    from: step-03
+    to: step-04
+    kind: sequence
+  - id: sequence-04
+    from: step-04
+    to: step-05
+    kind: sequence
+  - id: sequence-05
+    from: step-05
+    to: step-06
+    kind: sequence
+  - id: sequence-06
+    from: step-06
+    to: step-07
+    kind: sequence
+  - id: sequence-07
+    from: step-07
+    to: step-08
+    kind: sequence
+  - id: sequence-08
+    from: step-08
+    to: step-09
+    kind: sequence
+  - id: sequence-09
+    from: step-09
+    to: step-10
+    kind: sequence

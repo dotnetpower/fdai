@@ -40,6 +40,11 @@ interface ParsedSequence {
   steps: ParsedSequenceStep[];
 }
 
+interface ParsedTimeline {
+  title: string;
+  entries: Array<{ id: string; details: string[] }>;
+}
+
 const IGNORED_FLOW_LINE = /^(?:%%|direction\b|classDef\b|class\b|style\b|linkStyle\b)/;
 
 export function extractMermaidBlocks(markdown: string): MermaidBlock[] {
@@ -272,6 +277,30 @@ export function parseSequence(source: string): ParsedSequence {
   return { participants, steps };
 }
 
+export function parseTimeline(source: string): ParsedTimeline {
+  const lines = source.split(/\r?\n/u).map((line) => line.trim()).filter(Boolean);
+  if (lines.shift() !== "timeline") {
+    throw new Error("Mermaid timeline must start with timeline");
+  }
+  let title = "Timeline";
+  const entries: ParsedTimeline["entries"] = [];
+  for (const line of lines) {
+    if (line.startsWith("%%")) continue;
+    const titleMatch = /^title\s+(.+)$/iu.exec(line);
+    if (titleMatch) {
+      title = cleanText(titleMatch[1]!);
+      continue;
+    }
+    const [rawId, ...rawDetails] = line.split(":");
+    const id = cleanText(rawId ?? "");
+    const details = rawDetails.map(cleanText).filter(Boolean);
+    if (!id || !details.length) throw new Error(`Unsupported Mermaid timeline line: ${line}`);
+    entries.push({ id, details });
+  }
+  if (entries.length < 2) throw new Error("Mermaid timeline requires at least two entries");
+  return { title, entries };
+}
+
 function edgeKind(label: string, dotted: boolean): EdgeKind {
   if (dotted) return "dependency";
   const normalized = label.toLowerCase();
@@ -470,6 +499,59 @@ function sequenceSpec(id: string, en: MermaidBlock, ko: MermaidBlock): DiagramSp
   });
 }
 
+function timelineSpec(id: string, en: MermaidBlock, ko: MermaidBlock): DiagramSpec {
+  const enTimeline = parseTimeline(en.source);
+  const koTimeline = parseTimeline(ko.source);
+  assertSameIds(
+    "timeline entry",
+    enTimeline.entries.map((entry) => entry.id),
+    koTimeline.entries.map((entry) => entry.id),
+  );
+  const ids = normalizedIdMap(enTimeline.entries.map((entry) => entry.id));
+  const nodes: DiagramNode[] = enTimeline.entries.map((entry, index) => ({
+    id: ids.get(entry.id)!,
+    kind: "process",
+    label: { en: entry.id, ko: koTimeline.entries[index]!.id },
+    description: {
+      en: entry.details.join(" / "),
+      ko: koTimeline.entries[index]!.details.join(" / "),
+    },
+  }));
+  const edges: DiagramEdge[] = nodes.slice(1).map((node, index) => ({
+    id: `timeline-${String(index + 1).padStart(2, "0")}`,
+    from: nodes[index]!.id,
+    to: node.id,
+    kind: "timeline",
+  }));
+  return validateDiagram({
+    id,
+    version: 1,
+    kind: "timeline" satisfies DiagramKind,
+    updated: "2026-08-20",
+    formats: ["svg"],
+    locales: {
+      en: {
+        title: enTimeline.title,
+        description: `Ordered FDAI delivery waves for ${en.heading}.`,
+        alt: localizedAlt(en.heading, enTimeline.entries.map((entry) => `${entry.id}: ${entry.details.join(", ")}`), "en"),
+      },
+      ko: {
+        title: koTimeline.title,
+        description: `${ko.heading}에 대한 순서가 있는 FDAI delivery wave입니다.`,
+        alt: localizedAlt(ko.heading, koTimeline.entries.map((entry) => `${entry.id}: ${entry.details.join(", ")}`), "ko"),
+      },
+    },
+    canvas: {
+      width: 1600,
+      height: 640,
+      direction: "RIGHT",
+    },
+    groups: [],
+    nodes,
+    edges,
+  });
+}
+
 export function convertMermaidPair(
   id: string,
   en: MermaidBlock,
@@ -480,5 +562,6 @@ export function convertMermaidPair(
   if (firstLine !== koFirstLine) throw new Error(`English and Korean diagram kinds differ for ${id}`);
   if (/^(?:flowchart|graph)\b/u.test(firstLine)) return flowSpec(id, en, ko);
   if (firstLine === "sequenceDiagram") return sequenceSpec(id, en, ko);
+  if (firstLine === "timeline") return timelineSpec(id, en, ko);
   throw new Error(`Unsupported Mermaid diagram kind for ${id}: ${firstLine}`);
 }

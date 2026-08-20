@@ -1,0 +1,123 @@
+id: fdai-ontology-context-rag-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: How FDAI references ontology data
+    description: FDAI flow for How FDAI references ontology data.
+    alt: How FDAI references ontology data. The main stages are Catalog declarations in Git, Schema and reference
+      validation, Approved inventory and operating model, Instance projection, PostgreSQL objects and links, Event with
+      resource ID and cutoff, Bounded context materializer, OperationalContextSnapshot, Forseti decision, Auto, human
+      approval, hold, or deny.
+  ko:
+    title: FDAI가 온톨로지 데이터를 참조하는 방식
+    description: FDAI가 온톨로지 데이터를 참조하는 방식에 대한 FDAI 흐름입니다.
+    alt: FDAI가 온톨로지 데이터를 참조하는 방식. 주요 단계는 Catalog declarations in Git, Schema and reference validation, Approved inventory
+      and operating model, Instance projection, PostgreSQL objects and links, Event with resource ID and cutoff, Bounded
+      context materializer, OperationalContextSnapshot, Forseti decision, Auto, human approval, hold, or deny입니다.
+canvas:
+  width: 1500
+  height: 900
+  direction: RIGHT
+groups: []
+nodes:
+  - id: s
+    kind: process
+    shape: card
+    label:
+      en: Catalog declarations in Git
+      ko: Catalog declarations in Git
+  - id: v
+    kind: process
+    shape: card
+    label:
+      en: Schema and reference validation
+      ko: Schema and reference validation
+  - id: i
+    kind: process
+    shape: card
+    label:
+      en: Approved inventory and operating model
+      ko: Approved inventory and operating model
+  - id: p
+    kind: process
+    shape: card
+    label:
+      en: Instance projection
+      ko: Instance projection
+  - id: g
+    kind: store
+    shape: database
+    label:
+      en: PostgreSQL objects and links
+      ko: PostgreSQL objects and links
+  - id: e
+    kind: process
+    shape: card
+    label:
+      en: Event with resource ID and cutoff
+      ko: Event with resource ID and cutoff
+  - id: m
+    kind: process
+    shape: card
+    label:
+      en: Bounded context materializer
+      ko: Bounded context materializer
+  - id: c
+    kind: process
+    shape: card
+    label:
+      en: OperationalContextSnapshot
+      ko: OperationalContextSnapshot
+  - id: f
+    kind: process
+    shape: card
+    label:
+      en: Forseti decision
+      ko: Forseti decision
+  - id: d
+    kind: process
+    shape: card
+    label:
+      en: Auto, human approval, hold, or deny
+      ko: Auto, human approval, hold, or deny
+edges:
+  - id: flow-01
+    from: s
+    to: v
+    kind: request
+  - id: flow-02
+    from: i
+    to: p
+    kind: request
+  - id: flow-03
+    from: v
+    to: g
+    kind: request
+  - id: flow-04
+    from: p
+    to: g
+    kind: request
+  - id: flow-05
+    from: e
+    to: m
+    kind: request
+  - id: flow-06
+    from: g
+    to: m
+    kind: request
+  - id: flow-07
+    from: m
+    to: c
+    kind: request
+  - id: flow-08
+    from: c
+    to: f
+    kind: request
+  - id: flow-09
+    from: f
+    to: d
+    kind: request
