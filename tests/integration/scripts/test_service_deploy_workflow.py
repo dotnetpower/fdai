@@ -122,6 +122,10 @@ def test_platform_workflow_isolates_monitoring_plan_changes() -> None:
         : design_mocks_guard.index("- name: Validate remote plan request")
     ]
     assert "DEPLOY_MONITORING" in design_mocks_guard
+    model_step = _LEGACY_WORKFLOW.split("- name: Resolve and seal model capabilities", maxsplit=1)[
+        1
+    ].split("- name: Ensure protected storage containers", maxsplit=1)[0]
+    assert "!inputs.deploy_monitoring" in model_step
 
 
 def test_operator_catalog_materialization_runs_after_schema_migration() -> None:

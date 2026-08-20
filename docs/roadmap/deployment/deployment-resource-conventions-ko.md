@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 9fc51b92a6d968a8ba60807b97866a284fbb3287
+translation_source_sha: 6f27bf69637540b39f1a134e437215775a359fc2
 translation_revised: 2026-08-20
 ---
 # 배포 리소스 규약
@@ -51,6 +51,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | 2026-08-20 | implemented | 기존 선택적 모니터링 모듈을 dev, staging 및 production에서 사용할 수 있는 명시적 보호 workflow 입력으로 노출했습니다. 이전에는 `deploy-dev.yml`이 production 결합 안에서만 모니터링을 활성화할 수 있어 구현된 소비자 지연 경고를 dev에 계획하거나 적용할 수 없었습니다. | `current change`; `.github/workflows/deploy-dev.yml`; focused workflow 계약 검사. | 경고를 `validated`로 분류하기 전에 정확한 dev 모니터링 계획을 적용하고 실제 경고 발생 및 복구 증적을 보존합니다. |
 | 2026-08-20 | implemented | `deploy_monitoring` 계획을 `module.monitoring`으로 격리하고, 해당 module 밖의 모든 계획 변경을 차단했으며, design-mocks-only 경로와 monitoring을 함께 선택하지 못하게 했습니다. 기존 선택적 리소스는 저장된 계획에 들어가지 않은 채 입력에서 계속 활성화할 수 있습니다. | `current change`; `.github/workflows/deploy-dev.yml`; `tests/integration/scripts/test_service_deploy_workflow.py`; 집중 monitoring 격리 검사 1개 통과. | 보호된 monitoring-only 계획을 실행해 예상하지 않은 변경이 없음을 확인한 뒤 실제 경고 발생 및 복구 근거를 보존합니다. |
 | 2026-08-20 | implemented | 유휴 partial Event Bus batch에서 `commit_interval_seconds`가 wall-clock flush deadline으로 동작하게 했습니다. 이전에는 다음 메시지가 도착한 뒤에만 interval을 확인해서 마지막 처리 offset이 다음 token recycle까지 commit되지 않고 잘못된 지연을 보고할 수 있었습니다. | `current change`; `event_bus.py`; idle-batch 회귀 검사 및 전체 집중 Event Bus suite 49개 통과; Ruff 및 formatting 통과. | 수정된 Core image를 배포하고 token recycle 전후에 범위가 제한된 지연과 정규화를 확인합니다. |
+| 2026-08-20 | implemented | 리포지토리 수준 LLM 변수가 활성화되어도 monitoring-only 계획이 실제 모델 해석을 실행하지 않게 했습니다. 격리된 monitoring target이 무관한 모델 해석기로 진입해서 run `32374901098`과 `32375097678`이 Terraform 전에 실패했습니다. | `current change`; `.github/workflows/deploy-dev.yml`; focused workflow 계약 검사. | 새로운 보호된 monitoring-only 계획을 만들고 적용한 뒤 경고 발생 및 복구 근거를 보존합니다. |
 ### 남은 작업
 
 - [ ] 이전 방식 platform 및 ops-bootstrap root의 리포지토리에 안전한 통제된 적용 증적을
