@@ -12,11 +12,13 @@ events for review. This page explains **how the system reaches you**: which
 channels can carry an approval request, why a leaked message is never a valid
 approval, and what happens when an approval times out or every channel is down.
 
-The operator console is **read-only**. It shows state and the pending-approval
-queue, and it makes no privileged calls. You never approve by clicking a button
-in the console. Approvals travel through the channels you already use, such as
-Teams and Slack, or through a fix pull request. They never use the console's
-identity.
+The operator console's resource and status views are **read-only**, and the
+console never holds the executor identity. An Approver can resolve a queued item
+through the role-gated `approve_hil` conversation tool; that tool records the
+decision through the governed approval path and never calls the executor
+directly. Runtime approval notifications currently use Teams. Slack A1 approval
+is a planned target, while reviewed pull requests remain the approval surface
+for catalog and other governance changes.
 
 ## Four kinds of message
 
@@ -34,11 +36,14 @@ The important line runs between **A1**, where a decision comes back, and
 everything else. A2, A4, and read-only A3 can travel over a less-trusted channel,
 because they carry information and never authority.
 
-## When a chat command is denied
+## When a conversational action is denied
 
-A3 commands are gated per command, not per channel. Before FDAI calls a tool for you, it compares
-your role with the minimum role that tool requires. The same check applies when the narrator turns
-your words into a command, so plain language can't reach a tool your role can't use.
+A3 commands are gated per command, not per channel. Approval-class tools such as
+`approve_hil` use a stronger approval capability and are not ordinary A3
+commands. Before FDAI calls any tool for you, it compares your role with the
+minimum capability that tool requires. The same check applies when the narrator
+turns your words into a command, so plain language can't reach a tool your role
+can't use.
 
 If your role is below that minimum, the tool isn't called. FDAI returns the denial, names the tool
 and both roles, and records an auditable system message. It doesn't present the denial as a system
@@ -61,15 +66,16 @@ When the safety check classifies an action as **human approval** (see
 request to an A1-capable channel. You approve or reject it, and only then does
 the executor act.
 
-![How an approval reaches you. The main stages are risk-gate / verdict = HIL, channel-router / picks an A1 channel, Approval card / Teams / Slack / carries an opaque approval_id, You approve / or reject, fdai-api / re-verifies your identity / + replay + no self-approval, executor / applies the action, no-op, audit log.](../../diagrams/generated/fdai-approvals-and-channels-01.en.svg)
+![FDAI durably parks an exact pending action before routing an opaque approval reference through the current Teams A1 path. An Approver decides through an authenticated Teams callback or the Console approve_hil tool. Decision ingress verifies the request, records an idempotent durable receipt, and publishes it through an outbox without executing. A separate resume coordinator rechecks integrity, expiry, idempotency, and approval state before a valid approval can reach the executor. Rejection, timeout, conflict, invalid input, or delivery failure makes no managed change. Every path closes in audit.](../../diagrams/generated/fdai-approvals-and-channels-01.en.svg)
 
 Two properties make this safe:
 
-- **The message carries no decision.** The card holds an opaque `approval_id`
-  bound to one specific pending action, not the action payload itself. The real
-  decision is posted back to `fdai-api`, which re-authenticates you and re-checks
-  the `idempotency_key` and `action_hash`. A forwarded or leaked card is
-  therefore **not** a valid approval.
+- **The message carries no authority.** The card holds an opaque `approval_id`
+  bound to one specific pending action, not the action payload itself. Decision
+  ingress authenticates the callback or Console principal and durably records
+  the decision. The resume coordinator then rechecks the parked action's
+  integrity, expiry, idempotency key, and approval state. A forwarded or leaked
+  card is therefore **not** a valid approval.
 - **Approval and execution are separate principals.** The person who approves is
   never the executor, and no agent both judges and executes. Self-approval is not
   possible.
@@ -109,7 +115,7 @@ Informational traffic is far less picky.
 | Channel | Can it carry an approval (A1)? | Also carries |
 |---------|-------------------------------|--------------|
 | **Teams (same tenant)** | Yes, through a verified Entra identity | A2, A3, A4 |
-| **Slack** with an Entra OID mapping | Yes, and the approval bounces through `fdai-api` for re-authentication | A2, A3, A4 |
+| **Slack** with an Entra OID mapping | Planned, not currently available | A2 and A4 today; A1 and A3 remain target behavior |
 | **Email** | No | A2 and A4 only |
 | **Webhook** | No | A2 only |
 | **PagerDuty, Opsgenie, SMS** | No | A2 only, the paging lane |

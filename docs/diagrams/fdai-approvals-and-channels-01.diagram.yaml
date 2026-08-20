@@ -6,106 +6,315 @@ formats:
   - svg
 locales:
   en:
-    title: How an approval reaches you
-    description: FDAI flow for How an approval reaches you.
-    alt: How an approval reaches you. The main stages are risk-gate / verdict = HIL, channel-router / picks an A1 channel,
-      Approval card / Teams / Slack / carries an opaque approval_id, You approve / or reject, fdai-api / re-verifies
-      your identity / + replay + no self-approval, executor / applies the action, no-op, audit log.
+    title: Governed approval lifecycle
+    description: FDAI parks the exact action before notification, records an authenticated decision before publication, and resumes through a separate coordinator.
+    alt: The risk and authority gate requests human approval, then FDAI durably parks the exact action before attempting notification. The A1 router sends an opaque approval reference through the currently supported Teams path or leaves the request in the pending queue when delivery fails. An Approver can decide through the authenticated Teams callback or the Console approve_hil tool; Slack A1 is a planned target, not current support. Decision ingress verifies the signature or authenticated principal, timestamp, role, no-self-approval rule, pending identity, and request bounds. A durable registry records the decision before an outbox publishes it. The resume coordinator rechecks the parked action integrity, expiry, idempotency, and required approval state. Only a valid approval reaches the executor; rejection, timeout, conflict, or invalid input produces no change. Every path closes in audit.
   ko:
-    title: 승인이 여러분에게 도달하는 방식
-    description: 승인이 여러분에게 도달하는 방식에 대한 FDAI 흐름입니다.
-    alt: 승인이 여러분에게 도달하는 방식. 주요 단계는 안전성 검토 / 결과 = 사람 승인, channel-router / A1 채널 선택, 승인 카드 / Teams / Slack / 불투명한 approval_id를
-      담음, 여러분이 승인 / 또는 거부, fdai-api / 신원 재검증 / + 재생 방지 + 자기승인 금지, 실행기 / 작업 적용, 미실행, 감사 로그입니다.
+    title: 통제된 승인 수명 주기
+    description: FDAI는 알림 전에 정확한 액션을 저장하고 전송 전에 인증된 결정을 기록하며 별도 조정기를 통해 재개합니다.
+    alt: 위험 및 권한 게이트가 사람 승인을 요청하면 FDAI는 알림을 시도하기 전에 정확한 액션을 영구 저장합니다. A1 라우터는 현재 지원하는 Teams 경로로 불투명한 승인 참조를 보내며 전송에 실패하면 요청을 승인 대기열에 남깁니다. 승인자는 인증된 Teams 콜백 또는 Console의 approve_hil 도구로 결정할 수 있습니다. Slack A1은 현재 지원이 아니라 계획된 목표입니다. 결정 입력 경로는 서명 또는 인증된 주체, 타임스탬프, 역할, 자기 승인 금지 규칙, 대기 항목 식별자 및 요청 제한을 검증합니다. 영구 레지스트리는 outbox가 결정을 게시하기 전에 결정을 기록합니다. 재개 조정기는 저장된 액션의 무결성, 만료, 멱등성 및 필수 승인 상태를 다시 검사합니다. 유효한 승인만 실행기에 도달하며 거부, 시간 초과, 충돌 또는 잘못된 입력은 변경 없음으로 끝납니다. 모든 경로는 감사에서 종료됩니다.
 canvas:
-  width: 1200
-  height: 720
-  direction: RIGHT
-groups: []
+  width: 1320
+  height: 1800
+  direction: DOWN
+  rootLayout: column
+  padding: 44
+groups:
+  - id: park
+    kind: layer
+    presentation: band
+    label: { en: 1 | Park before notifying, ko: 1 | 알림 전에 저장 }
+    description: { en: A delivery failure cannot lose the pending action, ko: 전송에 실패해도 대기 액션이 사라지지 않습니다. }
+    layout: row
+    gap: 60
+    justify: center
+    width: 1200
+  - id: notify
+    kind: layer
+    presentation: lane
+    label: { en: 2 | Notify inside the A1 trust tier, ko: 2 | A1 신뢰 등급 안에서 알림 }
+    description: { en: Current support is explicit; lower-trust fallback is forbidden, ko: 현재 지원을 명확히 표시하며 신뢰도가 낮은 채널로 폴백하지 않습니다. }
+    layout: row
+    gap: 52
+    justify: center
+    width: 1200
+  - id: decide
+    kind: layer
+    presentation: panel
+    label: { en: 3 | Accept an authenticated decision, ko: 3 | 인증된 결정 수락 }
+    description: { en: A card reference alone carries no authority, ko: 카드 참조만으로는 권한을 전달하지 않습니다. }
+    layout: row
+    gap: 60
+    justify: center
+    width: 1200
+  - id: record
+    kind: layer
+    presentation: datastore
+    label: { en: "4 | Verify, record, and publish", ko: "4 | 검증, 기록 및 게시" }
+    description: { en: Persist the decision before durable event delivery, ko: 영구 이벤트 전송 전에 결정을 저장합니다. }
+    layout: row
+    gap: 58
+    justify: center
+    width: 1200
+  - id: resume
+    kind: layer
+    presentation: panel
+    label: { en: 5 | Resume exactly once, ko: 5 | 정확히 한 번 재개 }
+    description: { en: Recheck the parked action before any executor dispatch, ko: 실행기 전송 전에 저장된 액션을 다시 검사합니다. }
+    layout: row
+    gap: 70
+    justify: center
+    width: 1200
+  - id: close
+    kind: layer
+    presentation: datastore
+    label: { en: 6 | Close with audit evidence, ko: 6 | 감사 근거와 함께 종료 }
+    description: { en: Every success and refusal remains replayable, ko: 모든 성공과 거부를 재생할 수 있습니다. }
+    layout: row
+    justify: center
+    width: 1200
 nodes:
-  - id: rg
+  - id: risk-authority
+    parent: park
     kind: process
     shape: card
-    label:
-      en: risk-gate / verdict = HIL
-      ko: 안전성 검토 / 결과 = 사람 승인
-  - id: r
+    icon: lucide-shield-check
+    tone: policy
+    badge: 1
+    width: 330
+    label: { en: Human approval required, ko: 사람 승인 필요 }
+    content:
+      - { en: Risk and authority gates pause execution, ko: 위험 및 권한 게이트가 실행을 일시 중지 }
+  - id: pending-action
+    parent: park
+    kind: store
+    shape: database
+    icon: lucide-file-check
+    tone: store
+    badge: 2
+    width: 340
+    label: { en: Durable pending action, ko: 영구 저장된 대기 액션 }
+    content:
+      - { en: "Exact action hash, target, requester, and TTL", ko: "정확한 액션 해시, 대상, 요청자 및 TTL" }
+      - { en: Written before notification, ko: 알림 전에 기록 }
+  - id: teams
+    parent: notify
     kind: process
     shape: card
-    label:
-      en: channel-router / picks an A1 channel
-      ko: channel-router / A1 채널 선택
-  - id: c
+    icon: lucide-inbox
+    tone: input
+    width: 300
+    label: { en: Teams A1 | Current, ko: Teams A1 | 현재 지원 }
+    content:
+      - { en: Opaque approval_id; no action payload, ko: 불투명한 approval_id만 전달하고 액션 페이로드는 제외 }
+  - id: a1-router
+    parent: notify
     kind: process
     shape: card
-    label:
-      en: Approval card / Teams / Slack / carries an opaque approval_id
-      ko: 승인 카드 / Teams / Slack / 불투명한 approval_id를 담음
-  - id: h
+    icon: lucide-route
+    tone: interpretation
+    badge: 3
+    width: 300
+    label: { en: A1 channel router, ko: A1 채널 라우터 }
+    content:
+      - { en: Never falls back to email or paging approval, ko: 이메일이나 페이징 승인으로 폴백하지 않음 }
+  - id: pending-queue
+    parent: notify
+    kind: store
+    shape: database
+    icon: lucide-file-check
+    tone: neutral
+    width: 300
+    label: { en: Pending approval queue, ko: 승인 대기열 }
+    content:
+      - { en: "Delivery failure, no A1 route, or kill switch", ko: "전송 실패, A1 경로 없음 또는 비상 정지" }
+  - id: approver
+    parent: decide
+    kind: person
+    shape: card
+    icon: lucide-shield-check
+    tone: input
+    badge: 4
+    width: 300
+    label: { en: Approver decides, ko: 승인자가 결정 }
+    content:
+      - { en: Approve or reject with justification, ko: 사유와 함께 승인 또는 거부 }
+  - id: decision-ingress
+    parent: decide
     kind: process
     shape: card
-    label:
-      en: You approve / or reject
-      ko: 여러분이 승인 / 또는 거부
-  - id: api
+    icon: lucide-shield-check
+    tone: policy
+    badge: 5
+    width: 360
+    label: { en: Authenticated decision ingress, ko: 인증된 결정 입력 경로 }
+    content:
+      - { en: Teams callback or Console approve_hil, ko: Teams 콜백 또는 Console approve_hil }
+      - { en: "Slack A1 is planned, not current", ko: Slack A1은 현재 지원이 아닌 계획 상태 }
+  - id: callback-checks
+    parent: record
     kind: process
     shape: card
-    label:
-      en: fdai-api / re-verifies your identity / + replay + no self-approval
-      ko: fdai-api / 신원 재검증 / + 재생 방지 + 자기승인 금지
-  - id: ex
+    icon: lucide-search-check
+    tone: decision
+    badge: 6
+    width: 350
+    label: { en: Verify decision request, ko: 결정 요청 검증 }
+    content:
+      - { en: "Signature, timestamp, role, and body bounds", ko: "서명, 타임스탬프, 역할 및 본문 제한" }
+      - { en: Pending identity and no-self-approval, ko: 대기 항목 식별자 및 자기 승인 금지 }
+  - id: decision-registry
+    parent: record
+    kind: store
+    shape: database
+    icon: lucide-file-check
+    tone: store
+    width: 330
+    label: { en: Durable decision receipt, ko: 영구 결정 증적 }
+    content:
+      - { en: Idempotent same-actor replay; conflicts rejected, ko: 같은 행위자의 재시도는 멱등 처리하고 충돌은 거부 }
+  - id: decision-outbox
+    parent: record
     kind: process
     shape: card
-    label:
-      en: executor / applies the action
-      ko: 실행기 / 작업 적용
-  - id: no
+    icon: lucide-route
+    tone: feedback
+    width: 330
+    label: { en: Decision outbox, ko: 결정 outbox }
+    content:
+      - { en: Retryable typed delivery; no execution, ko: 재시도 가능한 typed 전송이며 실행하지 않음 }
+  - id: executor
+    parent: resume
     kind: process
     shape: card
-    label:
-      en: no-op
-      ko: 미실행
-  - id: aud
+    icon: lucide-play
+    tone: execution
+    width: 300
+    label: { en: Executor dispatch, ko: 실행기 전송 }
+    content:
+      - { en: Valid approval only; safeguards remain active, ko: 유효한 승인만 허용하며 보호장치는 계속 적용 }
+  - id: resume-coordinator
+    parent: resume
     kind: process
     shape: card
-    label:
-      en: audit log
-      ko: 감사 로그
+    icon: lucide-refresh-ccw
+    tone: interpretation
+    badge: 7
+    width: 350
+    label: { en: Resume coordinator, ko: 재개 조정기 }
+    content:
+      - { en: "Recheck integrity, expiry, idempotency, and approval state", ko: "무결성, 만료, 멱등성 및 승인 상태 재검사" }
+      - { en: Claim the terminal decision before dispatch, ko: 전송 전에 종료 결정을 선점 }
+  - id: no-change
+    parent: resume
+    kind: process
+    shape: card
+    icon: lucide-file-check
+    tone: neutral
+    width: 300
+    label: { en: No change, ko: 변경 없음 }
+    content:
+      - { en: "Reject, timeout, conflict, or invalid request", ko: "거부, 시간 초과, 충돌 또는 잘못된 요청" }
+  - id: audit
+    parent: close
+    kind: store
+    shape: database
+    icon: lucide-file-check
+    tone: store
+    badge: 8
+    width: 360
+    label: { en: Terminal audit record, ko: 종료 감사 기록 }
+    content:
+      - { en: "Request, decision, delivery, resume, and outcome evidence", ko: "요청, 결정, 전송, 재개 및 결과 근거" }
 edges:
   - id: flow-01
-    from: rg
-    to: r
-    kind: request
+    from: risk-authority
+    to: pending-action
+    kind: write
+    route: orthogonal
   - id: flow-02
-    from: r
-    to: c
+    from: pending-action
+    to: a1-router
     kind: request
+    route: orthogonal-shortest
   - id: flow-03
-    from: c
-    to: h
+    from: a1-router
+    to: teams
     kind: request
+    route: orthogonal-horizontal
   - id: flow-04
-    from: h
-    to: api
-    kind: request
+    from: a1-router
+    to: pending-queue
+    kind: feedback
+    route: orthogonal-horizontal
   - id: flow-05
-    from: api
-    to: ex
-    kind: approval
-    label:
-      en: approved
-      ko: 승인됨
+    from: teams
+    to: approver
+    kind: request
+    route: orthogonal-shortest
   - id: flow-06
-    from: api
-    to: no
-    kind: request
-    label:
-      en: rejected / timeout
-      ko: 거부 / 타임아웃
+    from: approver
+    to: decision-ingress
+    kind: approval
+    route: orthogonal
   - id: flow-07
-    from: ex
-    to: aud
-    kind: request
+    from: decision-ingress
+    to: callback-checks
+    kind: approval
+    route: orthogonal-shortest
   - id: flow-08
-    from: no
-    to: aud
+    from: callback-checks
+    to: decision-registry
+    kind: write
+    route: orthogonal-horizontal
+  - id: flow-09
+    from: callback-checks
+    to: no-change
     kind: request
+    route: orthogonal-outer
+  - id: flow-10
+    from: decision-registry
+    to: decision-outbox
+    kind: event
+    route: orthogonal-horizontal
+  - id: flow-11
+    from: decision-outbox
+    to: resume-coordinator
+    kind: event
+    route: orthogonal-shortest
+  - id: flow-12
+    from: resume-coordinator
+    to: executor
+    kind: mutation
+    route: orthogonal-horizontal
+  - id: flow-13
+    from: resume-coordinator
+    to: no-change
+    kind: request
+    route: orthogonal-horizontal
+  - id: flow-14
+    from: executor
+    to: audit
+    kind: audit
+    route: orthogonal-shortest
+  - id: flow-15
+    from: no-change
+    to: audit
+    kind: audit
+    route: orthogonal-shortest
+  - id: flow-16
+    from: pending-queue
+    to: audit
+    kind: audit
+    route: orthogonal-outer
+legend:
+  - kind: write
+    label: { en: Durable record, ko: 영구 기록 }
+  - kind: approval
+    label: { en: Human authority, ko: 사람 권한 }
+  - kind: event
+    label: { en: Typed durable delivery, ko: Typed 영구 전송 }
+  - kind: mutation
+    label: { en: Managed change, ko: 관리 대상 변경 }
+  - kind: audit
+    label: { en: Evidence closure, ko: 근거 종료 }
