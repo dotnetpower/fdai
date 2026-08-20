@@ -10,6 +10,8 @@
     "validate": "tsx src/cli.ts validate",
     "render": "tsx src/cli.ts render",
     "check": "tsx src/cli.ts check",
+    "migrate-public": "tsx src/migrate-public-cli.ts write",
+    "check-public-migration": "tsx src/migrate-public-cli.ts check",
     "build:viewer": "tsx src/viewer/build-cli.ts"
   },
   "dependencies": {

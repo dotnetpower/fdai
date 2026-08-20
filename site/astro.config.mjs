@@ -5,6 +5,7 @@ import starlight from "@astrojs/starlight";
 import remarkCjkFriendly from "remark-cjk-friendly";
 import { remarkStripFirstH1 } from "./src/plugins/strip-first-h1.mjs";
 import { remarkMermaid } from "./src/plugins/mermaid.mjs";
+import { remarkFdaiDiagrams } from "./src/plugins/fdai-diagrams.mjs";
 import { remarkRewriteLinks } from "./src/plugins/rewrite-links.mjs";
 import { remarkCards } from "./src/plugins/cards.mjs";
 import { remarkSteps } from "./src/plugins/steps.mjs";
@@ -71,6 +72,7 @@ export default defineConfig({
       remarkCjkFriendly,
       remarkDisplayTerminology,
       remarkStripFirstH1,
+      remarkFdaiDiagrams,
       remarkMermaid,
       remarkRewriteLinks,
       remarkCards,
