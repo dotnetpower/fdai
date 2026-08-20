@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 7c334a64f2430fe68361ec5c184a468aeaa95916
+translation_source_sha: dc456ecda3ec872ed28acbbf36c2b12492a33c02
 translation_revised: 2026-08-20
 ---
 # 지속형 질문 공간
@@ -20,18 +20,7 @@ translation_revised: 2026-08-20
 
 ## 설계 개요
 
-```mermaid
-flowchart LR
-    M[정확한 principal 매니페스트] --> U[결정론적 질문 집합]
-    U --> S[변경 우선 선택]
-    S --> G[후보 생성기]
-    G --> V[결정론적 독립 검증]
-    V --> T[인증된 의미 턴]
-    T --> A[대화 보증]
-    T --> E[인식론적 증명]
-    A --> L[추가 전용 캠페인 원장]
-    E --> L
-```
+![설계 개요. 주요 단계는 정확한 principal 매니페스트, 결정론적 질문 집합, 변경 우선 선택, 후보 생성기, 결정론적 독립 검증, 인증된 의미 턴, 대화 보증, 인식론적 증명, 추가 전용 캠페인 원장입니다.](../../diagrams/generated/fdai-roadmap-interfaces-continuous-question-space-01.ko.svg)
 
 질문 집합이 분모를 결정합니다. 모델은 문장만 제안할 수 있습니다. Core는 읽기 전에
 정확한 릴리스, 매니페스트, 역할, 목적, 제한, 등록된 처리기를 기준으로 의미 계획을 다시

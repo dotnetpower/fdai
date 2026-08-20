@@ -17,7 +17,7 @@ async function run(): Promise<void> {
       : null;
   if (plan == null) throw new Error(`Unknown command '${command}'. Use check or write.`);
   console.log(
-    `${command === "write" ? "Migrated" : "Validated"} ${plan.totalBlocks} repository Mermaid diagram pair(s); ${plan.deferredBlocks} localized block(s) deferred for concurrent edits.`,
+    `${command === "write" ? "Migrated" : "Validated"} ${plan.totalBlocks} repository Mermaid diagram specification(s); ${plan.deferredBlocks} localized block(s) deferred.`,
   );
 }
 

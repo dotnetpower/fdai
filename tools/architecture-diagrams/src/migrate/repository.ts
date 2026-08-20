@@ -12,10 +12,7 @@ import {
   type MermaidBlock,
 } from "./mermaid.js";
 
-const EXPECTED_DIAGRAMS = 72;
-const DEFERRED_SOURCES = new Set([
-  "docs/roadmap/interfaces/continuous-question-space.md",
-]);
+const EXPECTED_DIAGRAMS = 73;
 
 interface MigrationDocument {
   englishPath: string;
@@ -88,10 +85,6 @@ async function discoverDocuments(root: string): Promise<{
     if (englishBlocks.length !== koreanBlocks.length) {
       throw new Error(`${englishPath} has ${englishBlocks.length} English and ${koreanBlocks.length} Korean Mermaid blocks`);
     }
-    if (DEFERRED_SOURCES.has(englishPath)) {
-      deferredBlocks += englishBlocks.length + koreanBlocks.length;
-      continue;
-    }
     active.push({ englishPath, koreanPath, english, korean, englishBlocks, koreanBlocks });
   }
 
@@ -132,14 +125,11 @@ async function migrationPlan(root: string): Promise<RepositoryMigrationPlan> {
       ));
     }
   }
-  if (specs.length !== EXPECTED_DIAGRAMS) {
-    throw new Error(`Repository migration inventory drifted: active=${specs.length} expected=${EXPECTED_DIAGRAMS}`);
-  }
   await compileSpecs(specs);
   return { documents: active, specs, totalBlocks: specs.length, deferredBlocks };
 }
 
-async function publishedPlan(root: string, deferredBlocks: number): Promise<RepositoryMigrationPlan> {
+async function publishedSpecs(root: string): Promise<DiagramSpec[]> {
   const files = [
     ...await markdownFiles(root, "docs/roadmap"),
     "operational-knowledge-query-hardening-plan.md",
@@ -147,26 +137,33 @@ async function publishedPlan(root: string, deferredBlocks: number): Promise<Repo
   const ids = new Set<string>();
   const expression = /diagrams\/generated\/(fdai-(?:roadmap|operational-knowledge-query-hardening-plan)-[^)]+?)\.(?:en|ko)\.svg/gu;
   for (const source of files) {
-    if ([...DEFERRED_SOURCES, ...[...DEFERRED_SOURCES].map(koreanPathFor)].includes(source)) continue;
     const markdown = await readFile(path.join(root, source), "utf8");
     for (const match of markdown.matchAll(expression)) ids.add(match[1]!);
-  }
-  if (ids.size !== EXPECTED_DIAGRAMS) {
-    throw new Error(`Published repository migration inventory drifted: generated=${ids.size} expected=${EXPECTED_DIAGRAMS}`);
   }
   const specs = await Promise.all([...ids].sort().map(async (id) =>
     parseDiagram(await readFile(path.join(root, "docs/diagrams", `${id}.diagram.yaml`), "utf8")),
   ));
   await compileSpecs(specs);
-  return { documents: [], specs, totalBlocks: specs.length, deferredBlocks };
+  return specs;
 }
 
 export async function checkRepositoryMigration(root: string): Promise<RepositoryMigrationPlan> {
-  const { active, deferredBlocks } = await discoverDocuments(root);
-  const remaining = active.reduce((total, document) => total + document.englishBlocks.length, 0);
-  if (remaining === EXPECTED_DIAGRAMS) return migrationPlan(root);
-  if (remaining === 0) return publishedPlan(root, deferredBlocks);
-  throw new Error(`Repository diagram migration is incomplete: ${remaining} Mermaid blocks remain`);
+  const active = await migrationPlan(root);
+  const published = await publishedSpecs(root);
+  const specs = [...published, ...active.specs];
+  if (specs.length !== EXPECTED_DIAGRAMS) {
+    throw new Error(
+      `Repository migration inventory drifted: published=${published.length} pending=${active.specs.length} expected=${EXPECTED_DIAGRAMS}`,
+    );
+  }
+  if (active.documents.length) {
+    const remaining = active.documents.reduce(
+      (total, document) => total + document.englishBlocks.length + document.koreanBlocks.length,
+      0,
+    );
+    throw new Error(`Repository diagram migration is incomplete: ${remaining} Mermaid block(s) remain`);
+  }
+  return { ...active, specs, totalBlocks: specs.length };
 }
 
 export async function writeRepositoryMigration(root: string): Promise<RepositoryMigrationPlan> {

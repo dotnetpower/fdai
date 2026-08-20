@@ -18,18 +18,7 @@ shadow mode. It never grants action, approval, mutation, or execution authority.
 
 ## Design at a glance
 
-```mermaid
-flowchart LR
-    M[Exact principal manifests] --> U[Deterministic question universe]
-    U --> S[Delta-prioritized selection]
-    S --> G[Candidate generator]
-    G --> V[Deterministic and independent validation]
-    V --> T[Authenticated semantic turn]
-    T --> A[Conversation assurance]
-    T --> E[Epistemic proof]
-    A --> L[Append-only campaign ledger]
-    E --> L
-```
+![Design at a glance. The main stages are Exact principal manifests, Deterministic question universe, Delta-prioritized selection, Candidate generator, Deterministic and independent validation, Authenticated semantic turn, Conversation assurance, Epistemic proof, Append-only campaign ledger.](../../diagrams/generated/fdai-roadmap-interfaces-continuous-question-space-01.en.svg)
 
 The universe is the denominator. A model can propose wording only. Core still rebuilds and verifies
 the semantic plan against the exact release, manifest, role, purpose, bounds, and registered

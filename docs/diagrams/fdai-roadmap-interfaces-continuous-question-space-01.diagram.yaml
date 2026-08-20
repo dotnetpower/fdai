@@ -1,0 +1,115 @@
+id: fdai-roadmap-interfaces-continuous-question-space-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Design at a glance
+    description: FDAI flow for Design at a glance.
+    alt: Design at a glance. The main stages are Exact principal manifests, Deterministic question universe,
+      Delta-prioritized selection, Candidate generator, Deterministic and independent validation, Authenticated semantic
+      turn, Conversation assurance, Epistemic proof, Append-only campaign ledger.
+  ko:
+    title: 설계 개요
+    description: 설계 개요에 대한 FDAI 흐름입니다.
+    alt: 설계 개요. 주요 단계는 정확한 principal 매니페스트, 결정론적 질문 집합, 변경 우선 선택, 후보 생성기, 결정론적 독립 검증, 인증된 의미 턴, 대화 보증, 인식론적 증명, 추가 전용 캠페인
+      원장입니다.
+canvas:
+  width: 1350
+  height: 810
+  direction: RIGHT
+groups: []
+nodes:
+  - id: m
+    kind: process
+    shape: card
+    label:
+      en: Exact principal manifests
+      ko: 정확한 principal 매니페스트
+  - id: u
+    kind: process
+    shape: card
+    label:
+      en: Deterministic question universe
+      ko: 결정론적 질문 집합
+  - id: s
+    kind: process
+    shape: card
+    label:
+      en: Delta-prioritized selection
+      ko: 변경 우선 선택
+  - id: g
+    kind: process
+    shape: card
+    label:
+      en: Candidate generator
+      ko: 후보 생성기
+  - id: v
+    kind: process
+    shape: card
+    label:
+      en: Deterministic and independent validation
+      ko: 결정론적 독립 검증
+  - id: t
+    kind: process
+    shape: card
+    label:
+      en: Authenticated semantic turn
+      ko: 인증된 의미 턴
+  - id: a
+    kind: process
+    shape: card
+    label:
+      en: Conversation assurance
+      ko: 대화 보증
+  - id: e
+    kind: process
+    shape: card
+    label:
+      en: Epistemic proof
+      ko: 인식론적 증명
+  - id: l
+    kind: process
+    shape: card
+    label:
+      en: Append-only campaign ledger
+      ko: 추가 전용 캠페인 원장
+edges:
+  - id: flow-01
+    from: m
+    to: u
+    kind: request
+  - id: flow-02
+    from: u
+    to: s
+    kind: request
+  - id: flow-03
+    from: s
+    to: g
+    kind: request
+  - id: flow-04
+    from: g
+    to: v
+    kind: request
+  - id: flow-05
+    from: v
+    to: t
+    kind: request
+  - id: flow-06
+    from: t
+    to: a
+    kind: request
+  - id: flow-07
+    from: t
+    to: e
+    kind: request
+  - id: flow-08
+    from: a
+    to: l
+    kind: request
+  - id: flow-09
+    from: e
+    to: l
+    kind: request
