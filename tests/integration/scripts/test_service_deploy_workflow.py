@@ -158,6 +158,17 @@ def test_platform_workflow_plan_metadata_python_is_compilable() -> None:
     assert "from pathlib import Path" in source
 
 
+def test_platform_workflow_accepts_plans_without_runtime_image_evidence() -> None:
+    restore_step = _LEGACY_WORKFLOW.split(
+        "- name: Restore and verify exact protected plan", maxsplit=1
+    )[1].split("- name: Claim exact plan apply", maxsplit=1)[0]
+
+    assert "if runtime is None:" in restore_step
+    assert 'print("- -")' in restore_step
+    assert 'if [[ "$runtime_revision" == "-" ]]' in restore_step
+    assert '[[ -z "$APPLY_RUNTIME_IMAGE_REVISION" ]]' in restore_step
+
+
 def test_operator_catalog_materialization_runs_after_schema_migration() -> None:
     root = (_ROOT / "infra/main.tf").read_text(encoding="utf-8")
     outputs = (_ROOT / "infra/outputs.tf").read_text(encoding="utf-8")

@@ -1447,20 +1447,38 @@ jobs:
             --plan-id "$APPLY_PLAN_ID" --plan-digest "$APPLY_PLAN_DIGEST" \
             --context-digest "$APPLY_CONTEXT_DIGEST" --commit-sha "$APPLY_COMMIT_SHA"
           read -r runtime_revision runtime_digest < <(
-            python3 -c 'import json; runtime=json.load(open("plan-metadata.json", encoding="utf-8")).get("runtime_image"); isinstance(runtime, dict) or (_ for _ in ()).throw(SystemExit("protected plan runtime image evidence is missing")); print(runtime.get("source_revision", ""), runtime.get("digest", ""))'
+            python3 - <<'PY'
+          import json
+
+          with open("plan-metadata.json", encoding="utf-8") as stream:
+              runtime = json.load(stream).get("runtime_image")
+          if runtime is None:
+              print("- -")
+          elif isinstance(runtime, dict):
+              print(runtime.get("source_revision", ""), runtime.get("digest", ""))
+          else:
+              raise SystemExit("protected plan runtime image evidence is invalid")
+          PY
           )
-          if [[ "$runtime_revision" != "$APPLY_RUNTIME_IMAGE_REVISION" \
-            || ! "$runtime_revision" =~ ^[0-9a-f]{40}$ \
-            || ! "$runtime_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
-            echo "protected plan runtime image evidence does not match apply input." >&2
-            exit 1
+          if [[ "$runtime_revision" == "-" ]]; then
+            [[ -z "$APPLY_RUNTIME_IMAGE_REVISION" ]] || {
+              echo "runtime image input is invalid for a plan without runtime evidence." >&2
+              exit 1
+            }
+          else
+            if [[ "$runtime_revision" != "$APPLY_RUNTIME_IMAGE_REVISION" \
+              || ! "$runtime_revision" =~ ^[0-9a-f]{40}$ \
+              || ! "$runtime_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+              echo "protected plan runtime image evidence does not match apply input." >&2
+              exit 1
+            fi
+            login_server="$(terraform output -raw container_registry_login_server)"
+            {
+              echo "TF_VAR_core_image=${login_server}/fdai@${runtime_digest}"
+              echo "FDAI_RUNTIME_IMAGE_REVISION=${runtime_revision}"
+              echo "FDAI_RUNTIME_IMAGE_DIGEST=${runtime_digest}"
+            } >> "$GITHUB_ENV"
           fi
-          login_server="$(terraform output -raw container_registry_login_server)"
-          {
-            echo "TF_VAR_core_image=${login_server}/fdai@${runtime_digest}"
-            echo "FDAI_RUNTIME_IMAGE_REVISION=${runtime_revision}"
-            echo "FDAI_RUNTIME_IMAGE_DIGEST=${runtime_digest}"
-          } >> "$GITHUB_ENV"
 
       - name: Claim exact plan apply
         if: ${{ inputs.apply && !inputs.resume_verification }}

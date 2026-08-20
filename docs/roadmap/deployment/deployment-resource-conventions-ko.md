@@ -1,7 +1,7 @@
 ---
 title: 배포 리소스 규약
 translation_of: deployment-resource-conventions.md
-translation_source_sha: 4a69246516785ed98379c9347dceea2e76390022
+translation_source_sha: 054a3bd2e67744e8e92f4a404bec26e7b0446047
 translation_revised: 2026-08-20
 ---
 # 배포 리소스 규약
@@ -54,6 +54,7 @@ Terraform 플랜을 결정론적으로 유지하고, 리소스 소유권을 질�
 | 2026-08-20 | implemented | 리포지토리 수준 LLM 변수가 활성화되어도 monitoring-only 계획이 실제 모델 해석을 실행하지 않게 했습니다. 격리된 monitoring target이 무관한 모델 해석기로 진입해서 run `32374901098`과 `32375097678`이 Terraform 전에 실패했습니다. | `current change`; `.github/workflows/deploy-dev.yml`; focused workflow 계약 검사. | 새로운 보호된 monitoring-only 계획을 만들고 적용한 뒤 경고 발생 및 복구 근거를 보존합니다. |
 | 2026-08-20 | implemented | Azure Monitor action group, diagnostic setting, metric alert 및 scheduled-query alert의 보호된 실제 preflight mapping을 완성했습니다. 프로필이 해당 Terraform create action을 분류하지 못해 run `32376699737`이 계획을 봉인하기 전에 실패했습니다. | `current change`; `.github/workflows/deploy-dev.yml`; focused workflow 및 실제 preflight mapping 테스트. | 새로운 보호된 monitoring-only 계획을 만들고 적용한 뒤 경고 발생 및 복구 근거를 보존합니다. |
 | 2026-08-20 | implemented | Run `32378121573`이 최종 저장 단계에 도달한 뒤 embedded Python 들여쓰기 오류와 누락된 `Path` import를 드러내서 보호된 계획 metadata 봉인을 수정했습니다. 이제 workflow 계약 테스트가 해당 heredoc을 compile합니다. | `current change`; `.github/workflows/deploy-dev.yml`; focused embedded-Python compile 및 workflow 검사. | 새로운 보호된 monitoring-only 계획을 만들고 적용한 뒤 경고 발생 및 복구 근거를 보존합니다. |
+| 2026-08-20 | implemented | 대상이 인프라 전용일 때 runtime image 근거가 없는 보호된 계획도 exact apply가 복원할 수 있게 했습니다. 봉인된 monitoring 계획 `32379417932`은 runtime image를 포함하지 않는 것이 맞지만 이전 복원 경로는 이를 무조건 요구했습니다. | `current change`; `.github/workflows/deploy-dev.yml`; focused runtime-evidence 분기 및 workflow 검사. | 수정된 workflow에서 monitoring-only 계획을 다시 만들고 적용한 뒤 경고 발생 및 복구 근거를 보존합니다. |
 ### 남은 작업
 
 - [ ] 이전 방식 platform 및 ops-bootstrap root의 리포지토리에 안전한 통제된 적용 증적을
