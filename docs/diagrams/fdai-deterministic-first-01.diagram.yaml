@@ -6,123 +6,294 @@ formats:
   - svg
 locales:
   en:
-    title: How FDAI resolves it
-    description: FDAI flow for How FDAI resolves it.
-    alt: How FDAI resolves it. The main stages are Incoming event, Rule catalog / hit?, T0 - deterministic / rule + policy
-      evidence, Similar to a / past resolved / incident?, T1 - lightweight reuse / provenance + learned action, T2 -
-      grounded reasoning / mixed-model + verifier, Risk gate, Quality gate, Auto / HIL / deny.
+    title: Lowest sufficient tier
+    description: Each event falls through only when the earlier tier cannot produce a verified decision; execution authority remains separate.
+    alt: FDAI first validates the event. Missing typed context produces a held, audited no-change result. T0 accepts only an unambiguous deterministic rule decision; otherwise the case falls through to T1 verified reuse. If no reusable match clears provenance and verification, T2 performs grounded mixed-model reasoning through the quality gate. Eligible T0, T1, and T2 decisions all pass through the separate risk and authority gate, which selects automatic execution, human approval, or no change. T2 disagreement, unsupported evidence, and verification failure require human review or denial. Every path closes in the audit record.
   ko:
-    title: FDAI가 해결하는 방식
-    description: FDAI가 해결하는 방식에 대한 FDAI 흐름입니다.
-    alt: FDAI가 해결하는 방식. 주요 단계는 들어오는 이벤트, 규칙 카탈로그 / 히트?, T0 - 결정론 / 규칙 + 정책 증거, 과거 해소된 / 인시던트와 유사?, T1 - 경량 재사용 / 출처 + 학습된
-      액션, T2 - 근거 기반 추론 / 다중 모델 + verifier, risk-gate, quality-gate, Auto / HIL / deny입니다.
+    title: 결정에 충분한 가장 낮은 티어
+    description: 앞선 티어가 검증된 결정을 만들 수 없을 때만 다음 티어로 이동하며 실행 권한은 별도로 결정합니다.
+    alt: FDAI는 먼저 이벤트를 검증합니다. 타입이 지정된 컨텍스트가 없으면 변경 없이 판단을 보류하고 감사합니다. T0는 모호하지 않은 결정적 규칙 결정만 수락하며 그렇지 않으면 T1의 검증된 재사용으로 이동합니다. 출처와 재검증을 통과한 재사용 항목이 없으면 T2가 품질 게이트를 거쳐 근거 기반 다중 모델 추론을 수행합니다. 조건을 충족한 T0, T1 및 T2 결정은 모두 별도의 위험 및 권한 게이트를 통과하며, 이 게이트가 자동 실행, 사람 승인 또는 변경 없음을 선택합니다. T2 모델 불일치, 근거 부족 및 검증 실패는 사람 검토나 거부로 이어집니다. 모든 경로는 감사 기록에서 종료됩니다.
 canvas:
-  width: 1350
-  height: 810
+  width: 1280
+  height: 1500
   direction: DOWN
-groups: []
+  rootLayout: column
+  padding: 44
+groups:
+  - id: intake
+    kind: layer
+    presentation: band
+    label: { en: 1 | Validate context, ko: 1 | 컨텍스트 검증 }
+    description: { en: Refuse to guess when typed input is missing, ko: 타입이 지정된 입력이 없으면 추측하지 않습니다. }
+    layout: row
+    gap: 44
+    justify: center
+    width: 1160
+  - id: tier-ladder
+    kind: layer
+    presentation: lane
+    label: { en: 2 | Use the lowest sufficient tier, ko: 2 | 결정에 충분한 가장 낮은 티어 사용 }
+    description: { en: Fall through only after an explicit hold, ko: 명시적으로 판단을 보류한 후에만 다음 티어로 이동합니다. }
+    layout: row
+    gap: 42
+    justify: center
+    width: 1160
+  - id: authority
+    kind: layer
+    presentation: panel
+    label: { en: 3 | Decide execution authority, ko: 3 | 실행 권한 결정 }
+    description: { en: Tier selection never grants permission to act, ko: 티어 선택은 실행 권한을 부여하지 않습니다. }
+    layout: row
+    gap: 58
+    justify: center
+    width: 1160
+  - id: closure
+    kind: layer
+    presentation: panel
+    label: { en: 4 | Resolve the outcome, ko: 4 | 결과 확정 }
+    description: { en: "Execute, request approval, or make no change", ko: "실행하거나 승인을 요청하거나 변경하지 않습니다." }
+    layout: row
+    gap: 80
+    justify: center
+    width: 1160
+  - id: audit-closure
+    kind: layer
+    presentation: datastore
+    label: { en: 5 | Close with evidence, ko: 5 | 근거와 함께 종료 }
+    description: { en: Every terminal outcome is replayable, ko: 모든 종료 결과를 재생할 수 있습니다. }
+    layout: row
+    justify: center
+    width: 1160
 nodes:
-  - id: e
+  - id: event
+    parent: intake
     kind: process
     shape: card
-    label:
-      en: Incoming event
-      ko: 들어오는 이벤트
-  - id: r
+    icon: lucide-inbox
+    tone: input
+    badge: 1
+    width: 280
+    label: { en: Operational event, ko: 운영 이벤트 }
+    content:
+      - { en: Normalized and deduplicated, ko: 정규화 및 중복 제거 완료 }
+  - id: context-check
+    parent: intake
     kind: decision
     shape: diamond
-    label:
-      en: Rule catalog / hit?
-      ko: 규칙 카탈로그 / 히트?
+    tone: decision
+    badge: 2
+    width: 300
+    height: 190
+    label: { en: Typed context available?, ko: 타입이 지정된 컨텍스트가 있는가? }
+  - id: context-hold
+    parent: intake
+    kind: process
+    shape: card
+    icon: lucide-file-check
+    tone: neutral
+    width: 280
+    label: { en: Hold without change, ko: 변경 없이 판단 보류 }
+    content:
+      - { en: Record missing context and reason, ko: 누락된 컨텍스트와 사유 기록 }
   - id: t0
+    parent: tier-ladder
     kind: process
     shape: card
-    label:
-      en: T0 - deterministic / rule + policy evidence
-      ko: T0 - 결정론 / 규칙 + 정책 증거
-  - id: s
-    kind: decision
-    shape: diamond
-    label:
-      en: Similar to a / past resolved / incident?
-      ko: 과거 해소된 / 인시던트와 유사?
+    icon: lucide-shield-check
+    tone: policy
+    badge: 3
+    width: 320
+    label: { en: T0 | Deterministic rules, ko: T0 | 결정적 규칙 }
+    content:
+      - { en: Versioned rule and policy evidence, ko: 버전이 지정된 규칙 및 정책 근거 }
+      - { en: Accept only an unambiguous decision, ko: 모호하지 않은 결정만 수락 }
   - id: t1
+    parent: tier-ladder
     kind: process
     shape: card
-    label:
-      en: T1 - lightweight reuse / provenance + learned action
-      ko: T1 - 경량 재사용 / 출처 + 학습된 액션
+    icon: lucide-refresh-ccw
+    tone: model
+    badge: 4
+    width: 320
+    label: { en: T1 | Verified reuse, ko: T1 | 검증된 재사용 }
+    content:
+      - { en: "Threshold, provenance, and current recheck", ko: "임계값, 출처 및 현재 상태 재검사" }
+      - { en: No verified match falls through, ko: 검증된 일치 항목이 없으면 다음 티어로 이동 }
   - id: t2
+    parent: tier-ladder
     kind: process
     shape: card
-    label:
-      en: T2 - grounded reasoning / mixed-model + verifier
-      ko: T2 - 근거 기반 추론 / 다중 모델 + verifier
-  - id: g
+    icon: lucide-search-check
+    tone: interpretation
+    badge: 5
+    width: 320
+    label: { en: T2 | Grounded reasoning, ko: T2 | 근거 기반 추론 }
+    content:
+      - { en: Mixed-model agreement and citations, ko: 다중 모델 합의 및 근거 인용 }
+      - { en: Quality gate verifies every proposal, ko: 품질 게이트가 모든 제안을 검증 }
+  - id: risk-authority
+    parent: authority
     kind: process
     shape: card
-    label:
-      en: Risk gate
-      ko: risk-gate
-  - id: q
+    icon: lucide-shield-check
+    tone: policy
+    badge: 6
+    width: 330
+    label: { en: Risk and authority gate, ko: 위험 및 권한 게이트 }
+    content:
+      - { en: Most conservative ceiling wins, ko: 가장 보수적인 상한을 적용 }
+      - { en: Lifecycle mode and approval still apply, ko: 수명 주기 모드와 승인 조건을 계속 적용 }
+  - id: human-review
+    parent: authority
     kind: process
     shape: card
-    label:
-      en: Quality gate
-      ko: quality-gate
-  - id: v
+    icon: lucide-file-check
+    tone: decision
+    width: 330
+    label: { en: Human review required, ko: 사람 검토 필요 }
+    content:
+      - { en: "Conflict, disagreement, or unsupported proposal", ko: "충돌, 불일치 또는 근거가 부족한 제안" }
+      - { en: No automatic change while held, ko: 보류 중에는 자동 변경 없음 }
+  - id: automatic
+    parent: closure
     kind: process
     shape: card
-    label:
-      en: Auto / HIL / deny
-      ko: Auto / HIL / deny
+    icon: lucide-play
+    tone: execution
+    width: 260
+    label: { en: Automatic execution, ko: 자동 실행 }
+    content:
+      - { en: Only when every gate permits it, ko: 모든 게이트가 허용할 때만 실행 }
+  - id: approval
+    parent: closure
+    kind: process
+    shape: card
+    icon: lucide-shield-check
+    tone: policy
+    width: 260
+    label: { en: Human approval, ko: 사람 승인 }
+    content:
+      - { en: Current or valid standing authority, ko: 현재 승인 또는 유효한 상시 권한 }
+  - id: no-change
+    parent: closure
+    kind: process
+    shape: card
+    icon: lucide-file-check
+    tone: neutral
+    width: 260
+    label: { en: No change, ko: 변경 없음 }
+    content:
+      - { en: "Denied, held, rejected, or unsupported", ko: "거부, 보류, 승인 거절 또는 근거 부족" }
+  - id: audit
+    parent: audit-closure
+    kind: store
+    shape: database
+    icon: lucide-file-check
+    tone: store
+    width: 260
+    label: { en: Terminal audit record, ko: 종료 감사 기록 }
+    content:
+      - { en: Decision evidence and reason, ko: 결정 근거 및 사유 }
 edges:
   - id: flow-01
-    from: e
-    to: r
-    kind: request
+    from: event
+    to: context-check
+    kind: event
+    route: orthogonal
   - id: flow-02
-    from: r
+    from: context-check
     to: t0
     kind: request
+    route: orthogonal-shortest
     label:
-      en: yes
-      ko: yes
+      en: context ready
+      ko: 컨텍스트 준비 완료
   - id: flow-03
-    from: r
-    to: s
+    from: context-check
+    to: context-hold
     kind: request
-    label:
-      en: no
-      ko: no
+    route: orthogonal
   - id: flow-04
-    from: s
-    to: t1
-    kind: request
-    label:
-      en: score >= threshold
-      ko: 점수 >= 임계값
-  - id: flow-05
-    from: s
-    to: t2
-    kind: request
-  - id: flow-06
     from: t0
-    to: g
+    to: risk-authority
     kind: request
+    route: orthogonal-shortest
+  - id: flow-05
+    from: t0
+    to: t1
+    kind: feedback
+    route: orthogonal-horizontal
+  - id: flow-06
+    from: t1
+    to: risk-authority
+    kind: request
+    route: orthogonal-shortest
   - id: flow-07
     from: t1
-    to: g
-    kind: request
+    to: t2
+    kind: feedback
+    route: orthogonal-horizontal
   - id: flow-08
     from: t2
-    to: q
+    to: risk-authority
     kind: request
+    route: orthogonal-shortest
   - id: flow-09
-    from: q
-    to: g
-    kind: request
+    from: t2
+    to: human-review
+    kind: approval
+    route: orthogonal-shortest
   - id: flow-10
-    from: g
-    to: v
+    from: risk-authority
+    to: automatic
+    kind: mutation
+    route: orthogonal-shortest
+  - id: flow-11
+    from: risk-authority
+    to: approval
+    kind: approval
+    route: orthogonal-shortest
+  - id: flow-12
+    from: risk-authority
+    to: no-change
     kind: request
+    route: orthogonal-shortest
+  - id: flow-13
+    from: human-review
+    to: approval
+    kind: approval
+    route: orthogonal-shortest
+  - id: flow-14
+    from: human-review
+    to: no-change
+    kind: request
+    route: orthogonal-shortest
+  - id: flow-15
+    from: context-hold
+    to: audit
+    kind: audit
+    route: orthogonal-outer
+  - id: flow-16
+    from: automatic
+    to: audit
+    kind: audit
+    route: orthogonal-shortest
+  - id: flow-17
+    from: approval
+    to: audit
+    kind: audit
+    route: orthogonal-shortest
+  - id: flow-18
+    from: no-change
+    to: audit
+    kind: audit
+    route: orthogonal-shortest
+legend:
+  - kind: feedback
+    label: { en: Fall through to the next tier, ko: 다음 티어로 이동 }
+  - kind: approval
+    label: { en: Human authority, ko: 사람 권한 }
+  - kind: mutation
+    label: { en: Managed change, ko: 관리 대상 변경 }
+  - kind: audit
+    label: { en: Evidence closure, ko: 근거 종료 }

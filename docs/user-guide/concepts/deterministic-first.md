@@ -31,10 +31,17 @@ properties get harder to keep:
 
 ## How FDAI resolves it
 
-Every incoming event flows through a **trust router** that picks the lowest
-tier competent to decide the case:
+Every incoming event follows a **tier ladder** that uses the lowest tier
+competent to decide the case. Tier selection and execution authority remain
+separate:
 
-![How FDAI resolves it. The main stages are Incoming event, Rule catalog / hit?, T0 - deterministic / rule + policy evidence, Similar to a / past resolved / incident?, T1 - lightweight reuse / provenance + learned action, T2 - grounded reasoning / mixed-model + verifier, Risk gate, Quality gate, Auto / HIL / deny.](../../diagrams/generated/fdai-deterministic-first-01.en.svg)
+![FDAI validates typed context, then tries T0 deterministic rules, T1 verified reuse, and T2 grounded reasoning in order. A tier falls through only when it cannot produce a verified decision. T2 proposals pass the quality gate, and every eligible tier result passes a separate risk and authority gate before automatic execution, human approval, or no change. Every path closes in audit.](../../diagrams/generated/fdai-deterministic-first-01.en.svg)
+
+> This diagram shows the conceptual tier contract. In the current implementation,
+> `TrustRouter` returns `T0`, `T1`, or `abstain`; the control-loop fallback
+> evaluates T1 and conditionally consults T2. That implementation split does not
+> change the safety rule: a later tier is entered only through an explicit hold,
+> and no tier grants execution authority.
 
 - **T0, deterministic (target 70-80% of events)**. Policy-as-code (OPA),
   checklists, thresholds, and allow or deny lists produce a repeatable decision.
@@ -59,13 +66,16 @@ that boundary is a normal outcome of the control loop, not an error to hide.
 
 | Tier | It can decide when | It holds or escalates when |
 |------|--------------------|----------------------------|
-| T0 | A valid rule or policy gives one unambiguous answer | No rule matches, the input is invalid, or rules of equal precedence conflict |
+| T0 | A valid rule or policy gives one unambiguous answer | No rule matches; invalid typed context or an unresolved conflict holds for review rather than guessing |
 | T1 | Similarity clears the configured threshold and the earlier incident has a reusable action | Similarity is too low, provenance is missing, or no reusable action exists |
 | T2 | Independent models agree on the structured action and every quality check passes | Models disagree, evidence does not support the action, the verifier fails, or confidence is below the threshold |
 
-A hold at T0 or T1 moves the case to the next tier that can decide it. A hold at
-T2 goes to human approval, and nothing runs automatically. Unexpected errors take
-the same safer path and are written to the audit trail.
+A no-match hold at T0 or T1 can move the case to the next tier that has the
+required inputs. Invalid typed context, an unresolved policy conflict, or a
+missing required dependency holds for review instead of being converted into
+model input. A hold at T2 goes to human approval, and nothing runs
+automatically. Unexpected errors take the same safer path and are written to the
+audit trail.
 
 ## What T2 must prove
 
