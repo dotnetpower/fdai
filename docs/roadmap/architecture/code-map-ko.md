@@ -1,7 +1,7 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 46deeac538fa86d83e5d02c4e1eb5f70fd8fa533
+translation_source_sha: 0a727b307cc69ee6813abf8f61a4d4d5420652d9
 translation_revised: 2026-08-20
 ---
 # 코드 맵
@@ -221,6 +221,7 @@ translation_revised: 2026-08-20
 | 2026-08-20 | 구현됨 | Aggregate 및 unrelated fixture 발화를 수정한 뒤 listing-intent 집중 검증을 확장했습니다. | `current change`, 전체 contract, 의미, prompt, composition slice 88개가 Ruff, format, strict mypy와 함께 통과 | 수정된 소스에서 통과한 정확한 source strict-v2 및 seeded 보증 기록을 보존합니다. |
 | 2026-08-20 | implemented | 영속 의미 결과에서 기술 identity를 삭제하지 않으면서 검증된 리소스 표를 운영자가 읽을 수 있는 필드로 줄였습니다. 읽기 가능한 행은 `name`, `type`, 선택적 `location`을 앞에 두고 identity-only 행은 `id`와 `object_type`을 계속 표시하며 0개 행은 타입이 지정된 빈 근거 표현을 생성합니다. | `current change`, `presentation_rows.py`, `presentation_artifact_v2.py`, 집중 Operator 검사 20개 통과 | 별도의 답변 경로를 validated로 올리기 전에 Issue #244에서 추적하는 통제된 인과 진단 근거를 보존합니다. |
 | 2026-08-20 | implemented | T1 frame 경계에서 대상 결속 diagnosis 종결 조건을 명시하고 같은 제한 후보의 반복 재시도를 제거했습니다. Prompt v30은 일반 frame 분류 전에 null이 아닌 구조화된 조사를 요구하고 Core는 모델이 작성한 plan 없이 해당 intent를 검증하고 compile하며 Azure adapter는 구조화된 schema-invalid 출력의 범위가 제한된 재시도는 유지하면서 429를 즉시 후보 unavailable로 처리합니다. | `current change`, [이슈 #244](https://github.com/dotnetpower/fdai/issues/244), 집중 조사, tier-routing, Azure adapter, prompt 및 일반 causal 검사 103개 통과 | Post-commit 인증 구조화 slowdown 답변 1개를 보존합니다. 수정 전 replay는 hold이므로 인과 diagnosis를 검증하지 않습니다. |
+| 2026-08-20 | implemented | 일반 v2 단일 output compiler보다 먼저 대상 결속 causal multi-output 결과를 projection합니다. 권한이 없는 Console artifact는 exact target 및 symptom identity, baseline/current window, 관측 변화, 경쟁 가설 상태, 근거 등급, 표본 수, falsifier, 오래되거나 충돌하는 limitation 및 이중 언어 label을 유지합니다. | `current change`, [이슈 #244](https://github.com/dotnetpower/fdai/issues/244), 집중 이중 언어 artifact 검사 4개 및 Python과 Console 회귀 matrix 76개 통과 | Runtime 검증을 주장하기 전에 인증된 post-commit slowdown 및 viewport 근거를 보존합니다. |
 
 ### 남은 작업
 

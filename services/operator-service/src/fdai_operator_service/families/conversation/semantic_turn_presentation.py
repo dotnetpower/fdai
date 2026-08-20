@@ -513,6 +513,23 @@ def semantic_presentation_artifact(
     citations = first.get("grounded_citations")
     korean = locale.casefold().startswith("ko")
     if "presentation_context" in technical_details and not isinstance(profile, Mapping):
+        context = technical_details.get("presentation_context")
+        if isinstance(context, Mapping) and context.get("output_shape") == "causal_evidence":
+            investigation = _investigation_blocks(
+                outputs,
+                bounded_refs=bounded_refs,
+                korean=korean,
+            )
+            if investigation is not None:
+                return cast(
+                    JsonObject,
+                    {
+                        "schema_version": 2,
+                        "layout": "stack",
+                        "evidence_refs": bounded_refs,
+                        "blocks": investigation,
+                    },
+                )
         return compile_presentation_artifact_v2(
             semantic=semantic,
             technical_details=technical_details,
@@ -751,12 +768,32 @@ def _investigation_blocks(
     change = _measure_cell(comparison.get("absolute_change"), unit_text)
     summary_items: list[JsonObject] = [
         {
-            "label": "기준 구간" if korean else "Baseline",
+            "label": "대상" if korean else "Target",
+            "value": _identity_cell(comparison.get("resource_id")),
+            "tone": "neutral",
+        },
+        {
+            "label": "증상" if korean else "Symptom",
+            "value": _identity_cell(comparison.get("concept_id")),
+            "tone": "neutral",
+        },
+        {
+            "label": "기준 구간" if korean else "Baseline window",
+            "value": _window_cell(comparison.get("baseline_start"), comparison.get("baseline_end")),
+            "tone": "neutral",
+        },
+        {
+            "label": "현재 구간" if korean else "Current window",
+            "value": _window_cell(comparison.get("current_start"), comparison.get("current_end")),
+            "tone": "neutral",
+        },
+        {
+            "label": "기준값" if korean else "Baseline",
             "value": baseline,
             "tone": "neutral",
         },
         {
-            "label": "현재 구간" if korean else "Current",
+            "label": "현재값" if korean else "Current",
             "value": current,
             "tone": "neutral",
         },
@@ -787,6 +824,7 @@ def _investigation_blocks(
                 "cause": _readable_token(claim_map.get("cause_metric")),
                 "lag": _lag_cell(claim_map.get("lag_seconds")),
                 "correlation": _number_cell(claim_map.get("correlation")),
+                "evidence": _hypothesis_evidence_cell(claim_map, korean=korean),
                 "limitations": (
                     ", ".join(_readable_token(item) for item in hypothesis_limitations)
                     if hypothesis_limitations
@@ -828,6 +866,10 @@ def _investigation_blocks(
                             "label": "상관" if korean else "Correlation",
                         },
                         {
+                            "key": "evidence",
+                            "label": "근거" if korean else "Evidence",
+                        },
+                        {
                             "key": "limitations",
                             "label": "제한" if korean else "Limitations",
                         },
@@ -867,6 +909,35 @@ def _readable_token(value: object) -> str:
     if not isinstance(value, str) or not value.strip():
         return "-"
     return value.replace("_", " ").replace("-", " ").strip()[:_MAX_CELL_CHARS]
+
+
+def _identity_cell(value: object) -> str:
+    if not isinstance(value, str) or not value.strip():
+        return "-"
+    return value.strip()[:_MAX_CELL_CHARS]
+
+
+def _window_cell(start: object, end: object) -> str:
+    if not isinstance(start, str) or not start or not isinstance(end, str) or not end:
+        return "-"
+    return f"{start} - {end}"[:_MAX_CELL_CHARS]
+
+
+def _hypothesis_evidence_cell(claim: Mapping[str, object], *, korean: bool) -> str:
+    parts: list[str] = []
+    grade = claim.get("evidence_grade")
+    if isinstance(grade, str) and grade:
+        parts.append(_readable_token(grade))
+    sample_count = claim.get("sample_count")
+    if isinstance(sample_count, int) and not isinstance(sample_count, bool):
+        parts.append(f"표본 {sample_count}개" if korean else f"{sample_count} samples")
+    falsifiers = claim.get("falsifiers")
+    if isinstance(falsifiers, list):
+        readable = [_readable_token(item) for item in falsifiers if isinstance(item, str)]
+        if readable:
+            prefix = "반증" if korean else "falsifiers"
+            parts.append(f"{prefix}: {', '.join(readable)}")
+    return "; ".join(parts)[:_MAX_CELL_CHARS] if parts else "-"
 
 
 def _measure_cell(value: object, unit: str) -> str:

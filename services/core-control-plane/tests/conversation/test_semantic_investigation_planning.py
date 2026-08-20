@@ -121,19 +121,33 @@ def _manifest():  # type: ignore[no-untyped-def]
     )
 
 
-def _verified_intent(*, target_types: tuple[str, ...] = ("BusinessService",)):  # type: ignore[no-untyped-def]
+def _verified_intent(  # type: ignore[no-untyped-def]
+    *,
+    target_types: tuple[str, ...] = ("BusinessService",),
+    ambiguous_target: bool = False,
+):
     utterance = "A서비스가 갑자기 왜 느려졌어?"
+    entities: list[dict[str, object]] = [
+        {
+            "mention_id": "target",
+            "span": _span(utterance, "A서비스"),
+            "role": "affected_target",
+            "object_type_candidates": list(target_types),
+        }
+    ]
+    if ambiguous_target:
+        entities.append(
+            {
+                "mention_id": "second-target",
+                "span": _span(utterance, "A서비스"),
+                "role": "affected_target",
+                "object_type_candidates": ["BusinessService"],
+            }
+        )
     proposal = InvestigationIntentProposal.model_validate(
         {
             "operation": "explain_change",
-            "entities": [
-                {
-                    "mention_id": "target",
-                    "span": _span(utterance, "A서비스"),
-                    "role": "affected_target",
-                    "object_type_candidates": list(target_types),
-                }
-            ],
+            "entities": entities,
             "symptom_measures": [
                 {
                     "measure_id": "latency",
@@ -280,6 +294,17 @@ def test_compiler_requires_entity_type_clarification_before_plan() -> None:
     with pytest.raises(InvestigationClarificationRequiredError, match="entity_type_ambiguous"):
         compile_investigation_plan(
             _verified_intent(target_types=("BusinessService", "Resource")),
+            manifest=_manifest(),
+            verifier=_verifier(),
+            windows=_windows(),
+            purpose="operations-review",
+        )
+
+
+def test_compiler_requires_affected_target_clarification_before_plan() -> None:
+    with pytest.raises(InvestigationClarificationRequiredError, match="affected_target_ambiguous"):
+        compile_investigation_plan(
+            _verified_intent(ambiguous_target=True),
             manifest=_manifest(),
             verifier=_verifier(),
             windows=_windows(),

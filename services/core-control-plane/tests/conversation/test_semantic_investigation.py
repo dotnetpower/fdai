@@ -126,6 +126,83 @@ def test_korean_investigation_intent_is_span_and_manifest_grounded() -> None:
     assert verified.execution_authority is False
 
 
+def test_english_investigation_intent_preserves_exact_target_and_direction() -> None:
+    utterance = "Why did service-example-api suddenly become slower?"
+    proposal = InvestigationIntentProposal.model_validate(
+        {
+            "operation": "explain_change",
+            "entities": [
+                {
+                    "mention_id": "target",
+                    "span": _span(utterance, "service-example-api"),
+                    "role": "affected_target",
+                    "object_type_candidates": ["BusinessService"],
+                }
+            ],
+            "symptom_measures": [
+                {
+                    "measure_id": "latency",
+                    "span": _span(utterance, "slower"),
+                    "concept_id": "service.latency",
+                    "target_mention_id": "target",
+                    "direction": "increase",
+                }
+            ],
+            "primary_symptom_measure_id": "latency",
+            "temporal_cues": [
+                {
+                    "cue_id": "onset",
+                    "span": _span(utterance, "suddenly"),
+                    "role": "onset",
+                }
+            ],
+            "relationship_intents": [
+                {
+                    "relationship_id": "dependency-neighborhood",
+                    "span": _span(utterance, "Why"),
+                    "source_mention_id": "target",
+                    "target_mention_id": None,
+                    "query_side_candidates": ["service_depends_on_resource.outgoing"],
+                }
+            ],
+            "hypotheses": [
+                {
+                    "hypothesis_id": "dependency-latency",
+                    "span": _span(utterance, "Why"),
+                    "relationship_id": "dependency-neighborhood",
+                    "cause_measure_concept": "dependency.latency",
+                    "effect_measure_id": "latency",
+                    "competing_explanations": ["resource-saturation"],
+                },
+                {
+                    "hypothesis_id": "resource-saturation",
+                    "span": _span(utterance, "Why"),
+                    "relationship_id": "dependency-neighborhood",
+                    "cause_measure_concept": "resource.saturation",
+                    "effect_measure_id": "latency",
+                    "competing_explanations": ["dependency-latency"],
+                },
+            ],
+            "evidence_standard": "support_and_refutation",
+            "answer_shape": "diagnosis",
+            "confidence": 0.9,
+        }
+    )
+
+    verified = verify_investigation_intent(
+        proposal,
+        utterance=utterance,
+        descriptors=_descriptors(),
+        metric_concepts=("dependency.latency", "resource.saturation", "service.latency"),
+    )
+
+    assert verified.entities[0].span.text == "service-example-api"
+    assert verified.symptom_measures[0].direction.value == "increase"
+    assert verified.temporal_cues[0].role.value == "onset"
+    assert len(verified.hypotheses) == 2
+    assert verified.execution_authority is False
+
+
 def test_frame_json_schema_exposes_complete_structured_investigation_contract() -> None:
     from fdai.core.conversation.semantic_planning_models import SemanticFrameProposal
 

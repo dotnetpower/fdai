@@ -1693,6 +1693,140 @@ def test_general_query_presentation_keeps_identity_when_no_readable_fact_exists(
     assert records["rows"] == [{"c0": "resource-a", "c1": "Resource"}]
 
 
+@pytest.mark.parametrize(
+    ("locale", "overview_title", "hypotheses_title", "target_label", "evidence_label"),
+    (
+        ("en", "Symptom change", "Competing cause hypotheses", "Target", "Evidence"),
+        ("ko", "증상 변화", "경쟁 원인 가설", "대상", "근거"),
+    ),
+)
+def test_target_bound_causal_presentation_preserves_diagnosis_evidence(
+    locale: str,
+    overview_title: str,
+    hypotheses_title: str,
+    target_label: str,
+    evidence_label: str,
+) -> None:
+    envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
+        _proposal()
+    )
+    projection = _projection(envelope, disposition="answered", answered_evidence=True)
+    projection["payload"] = {
+        "technical_details": {
+            "schema_version": 1,
+            "kind": "semantic_query_outputs",
+            "presentation_context": {
+                "operation": "explain_change",
+                "output_shape": "causal_evidence",
+            },
+            "outputs": [
+                {
+                    "node_id": "symptom-comparison",
+                    "result_kind": "metric.comparison",
+                    "summary": {
+                        "concept_id": "service.latency",
+                        "resource_id": "service-example-api",
+                        "unit": "ms",
+                        "baseline_start": "2026-08-11T00:00:00Z",
+                        "baseline_end": "2026-08-11T00:05:00Z",
+                        "current_start": "2026-08-11T00:05:00Z",
+                        "current_end": "2026-08-11T00:10:00Z",
+                        "baseline_value": 100,
+                        "current_value": 250,
+                        "absolute_change": 150,
+                        "complete": True,
+                        "reason": "source_stale",
+                        "execution_authority": False,
+                    },
+                },
+                {
+                    "node_id": "hypothesis-dependency-latency",
+                    "result_kind": "causal.join",
+                    "summary": {
+                        "hypothesis_id": "dependency-latency",
+                        "status": "supported",
+                        "competing_explanations": ["resource-saturation"],
+                        "limitations": [],
+                        "temporal_claim": {
+                            "cause_metric": "dependency.latency",
+                            "lag_seconds": 30,
+                            "sample_count": 12,
+                            "correlation": 0.82,
+                            "evidence_grade": "correlational",
+                            "falsifiers": ["reverse-ordering"],
+                        },
+                        "execution_authority": False,
+                    },
+                },
+                {
+                    "node_id": "hypothesis-resource-saturation",
+                    "result_kind": "causal.join",
+                    "summary": {
+                        "hypothesis_id": "resource-saturation",
+                        "status": "refuted",
+                        "competing_explanations": ["dependency-latency"],
+                        "limitations": ["evidence_conflict"],
+                        "temporal_claim": {
+                            "cause_metric": "resource.saturation",
+                            "lag_seconds": 0,
+                            "sample_count": 12,
+                            "correlation": -0.14,
+                            "evidence_grade": "weak",
+                            "falsifiers": ["no-saturation-change"],
+                        },
+                        "execution_authority": False,
+                    },
+                },
+                {
+                    "node_id": "hypothesis-deployment-change",
+                    "result_kind": "causal.join",
+                    "summary": {
+                        "hypothesis_id": "deployment-change",
+                        "status": "unresolved",
+                        "competing_explanations": ["dependency-latency"],
+                        "limitations": ["metric_window_incomplete"],
+                        "temporal_claim": None,
+                        "execution_authority": False,
+                    },
+                },
+            ],
+        }
+    }
+
+    done = semantic_turn_runtime_module._done_event_data(projection, locale=locale)
+
+    artifact = cast(dict[str, object], done["presentation_artifact"])
+    assert artifact["schema_version"] == 2
+    blocks = cast(list[dict[str, object]], artifact["blocks"])
+    assert [block["slot_id"] for block in blocks] == [
+        "overview",
+        "hypotheses",
+        "limitations",
+    ]
+    assert blocks[0]["title"] == overview_title
+    overview = cast(dict[str, object], blocks[0]["data"])
+    items = cast(list[dict[str, object]], overview["items"])
+    assert {item["label"]: item["value"] for item in items}[target_label] == ("service-example-api")
+    symptom_label = "증상" if locale == "ko" else "Symptom"
+    assert {item["label"]: item["value"] for item in items}[symptom_label] == "service.latency"
+    assert blocks[1]["title"] == hypotheses_title
+    hypotheses = cast(dict[str, object], blocks[1]["data"])
+    assert evidence_label in [
+        column["label"] for column in cast(list[dict[str, object]], hypotheses["columns"])
+    ]
+    rows = cast(list[dict[str, object]], hypotheses["rows"])
+    assert [row["status"] for row in rows] == ["supported", "refuted", "unresolved"]
+    assert "12 samples" in cast(str, rows[0]["evidence"]) or "표본 12개" in cast(
+        str, rows[0]["evidence"]
+    )
+    assert rows[1]["limitations"] == "evidence conflict"
+    assert rows[2]["limitations"] == "metric window incomplete"
+    limitations = cast(dict[str, object], blocks[2]["data"])
+    lines = cast(list[str], limitations["lines"])
+    assert {"source stale", "evidence conflict", "metric window incomplete"} <= set(lines)
+    assert done["semantic_result"]["execution_authority"] is False  # type: ignore[index]
+
+
 def test_general_query_presentation_without_rows_stays_a_summary() -> None:
     envelope = SemanticTurnEnvelopeBuilder(clock=lambda: datetime(2026, 8, 11, tzinfo=UTC)).build(
         _proposal()
