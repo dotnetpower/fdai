@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 9c8b9974301663689eb2ca9709175e771fb6d8da
+translation_source_sha: c9380eea85b9dc7947b1b94a56044bbb9e0078a5
 translation_revised: 2026-08-20
 ---
 # 지속형 질문 공간
@@ -47,6 +47,7 @@ translation_revised: 2026-08-20
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-20 | 진행 중 | 아래 인과 통합 이력의 tracking owner를 정정했습니다. 이슈 #242는 golden 및 generative question assurance를 소유하고, 인증된 SRE Agent 비교, resource-filter 증명, 인과 runtime blocker는 이슈 #244가 소유합니다. Append-only 규칙에 따라 과거 행은 변경하지 않습니다. | [이슈 #244](https://github.com/dotnetpower/fdai/issues/244), 인증된 표준 포트 Console 근거 | 이슈 #244에서 대상 결속 diagnosis 및 보존된 viewport 근거를 완료합니다. |
 | 2026-08-20 | 구현됨 | 인증된 재실행에서 fragment를 누락해 의도한 FDAI 관련 부분집합 대신 resource group 42개 전체로 검증된 답변이 넓어진 뒤 prompt v29가 운영자가 작성한 name fragment와 선언된 resource type을 함께 보존하도록 했습니다. Core는 발화에 fragment가 있는지 확인하고 좁히는 predicate만 추가하는 권한 경계를 유지합니다. | `current change`, [이슈 #242](https://github.com/dotnetpower/fdai/issues/242), 집중 prompt 및 이중 언어 grounding 검사 | 수정된 resource-filter 근거를 보존한 뒤 대상 결속 slowdown 질문을 실행합니다. |
 | 2026-08-20 | 구현됨 | 일반 선언 범위 causal evidence가 인증된 의미 경로와 계속 호환되고, 공급된 선언 이름 밖의 정확한 대상만 structured investigation intent를 요구하도록 v28 경계를 수정했습니다. 비인과 frame은 investigation payload를 계속 차단합니다. | `current change`, [이슈 #242](https://github.com/dotnetpower/fdai/issues/242), 집중 호환성, 대상 결속, prompt 및 service-suite 검사 37개 통과 | 정확히 수정된 소스에서 인증된 Console 답변 두 개를 보존합니다. |
 | 2026-08-20 | 구현됨 | 현재 v27 frame 동작과 구조화된 조사 intent를 prompt v28로 통합했습니다. 이제 인과 frame은 source에 근거한 entity, 증상, 시간 단서, 순서가 있는 관계 side 및 경쟁 가설을 전달하고, Core가 intent를 검증한 뒤 읽기 plan을 서버에서 컴파일합니다. | `current change`, [이슈 #242](https://github.com/dotnetpower/fdai/issues/242), 집중 조사, tier-routing, query-node, 표현 및 prompt 검사 | 정확히 커밋된 소스에서 인증된 resource filter 및 slowdown 답변을 보존합니다. 기존 strict-v2 22/22 및 seeded 100/100 인증은 이전 소스의 근거로만 유지됩니다. |

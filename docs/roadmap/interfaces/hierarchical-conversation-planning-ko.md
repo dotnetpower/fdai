@@ -1,7 +1,7 @@
 ---
 title: 계층형 대화 계획
 translation_of: hierarchical-conversation-planning.md
-translation_source_sha: 593593a8c89ae9ef31bf5d17eba6aea6407907b5
+translation_source_sha: 49b093f965d8d70a3f85b9a39a85129dc1b88d14
 translation_revised: 2026-08-20
 ---
 
@@ -47,6 +47,7 @@ T1 제안을 사용할 수 없거나 스키마, 매니페스트, 구성 또는 �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-08-20 | 진행 중 | 아래 structured-investigation 행의 tracking owner를 정정했습니다. 이슈 #242는 관련 없는 golden-question assurance 작업입니다. 이슈 #244는 T1 frame 거부 진단과 범위가 제한된 T2 throttling 동작을 포함한 인증된 인과 diagnosis parity를 소유합니다. | [이슈 #244](https://github.com/dotnetpower/fdai/issues/244), 인증된 타입 보류 근거 | 타입이 지정된 보류를 약화하지 않고 완전한 인증 대상 결속 diagnosis를 생성합니다. |
 | 2026-08-20 | implemented | Free-text name fragment를 선언된 resource type과 함께 유지하도록 frame prompt를 v29로 올렸습니다. 모델은 계속 의미만 제안하며 Core는 정확한 fragment가 발화에 있는지 검증하고 ObjectSet을 좁히기만 할 수 있습니다. | `current change`, [이슈 #242](https://github.com/dotnetpower/fdai/issues/242), 집중 prompt 및 multi-filter grounding 검사 | 인과 비교 전에 인증된 수정 filter를 보존합니다. |
 | 2026-08-20 | implemented | 새로 추가한 metric concept 입력에만 기본값을 제공해 Azure frame adapter의 N-1 직접 호출 호환성을 복원했습니다. Runtime 조립은 검토된 metric registry를 계속 명시적으로 전달합니다. 확장된 조사 traversal은 scoped query-table 검증기 계약을 유지하며 service-test 소유권에는 인과 표현 회귀 테스트가 포함됩니다. | `current change`, [이슈 #242](https://github.com/dotnetpower/fdai/issues/242), 집중 adapter 및 검증기 검사 27개 통과 | 실제 Console 근거 전에 정확한 commit 및 통합 range 검증을 완료합니다. |
 | 2026-08-20 | implemented | 정확한 커밋 검증에서 일반 visible-scope causal 회귀 두 건을 찾은 뒤 structured-intent 허용 규칙을 수정했습니다. 이제 causal frame의 subject가 공급된 선언 이름 밖의 정확한 대상을 포함할 때만 structured intent를 요구하며, 일반 선언 범위 causal evidence는 기존의 검증된 plan을 계속 사용합니다. | `current change`, [이슈 #242](https://github.com/dotnetpower/fdai/issues/242), 집중 호환성, 대상 결속, prompt 및 service-suite 검사 37개 통과 | 정확히 수정된 소스에서 인증된 resource filter 및 대상 결속 slowdown 답변을 보존합니다. |
